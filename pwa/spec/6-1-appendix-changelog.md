@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-06-15 | 5-7 / 2-1 / 2-2 | 変更 | mindmap zoom入力を減衰させるcontract、親node drag時の子孫追従 + grouped undo、直線edge、上寄せ/高密度/detail header削除、gantt親子tree/indent/子数badgeを追記。route/surface inventoryも最新操作へ同期 | まさ指摘「pinchが敏感」「親を移動したら子もついてくる」「矢印は直線」「modalの削除が遠い」「ganttの親子関係を明確に」への対応 | えいみ-worker |
 | 2026-06-15 | 5-7 | 変更 | mindmap詳細のタイトル入力 Enter 保存、`+` handle clickによる新規子タスク optimistic 作成、temporary parent id 解決後の保存 contract、edge arrow の子→親表示、hover時に位置をずらさないscale contract を追加。`+` handle drag edge接続は維持 | タスクを連続追加する操作の待ち時間とクリック数を減らし、親子方向とhover挙動の違和感を解消するため | えいみ-worker |
 | 2026-06-14 | 5-7 / 2-1 / 2-2 / 2-3 | 追加 | `/tasks`、`/api/tasks`、`tasks` table拡張、mindmap/gantt UI、RLS/API権限を正本化 | 全PJ・全員のタスク管理機能をPWAに追加したため | えいみ-worker |
 | 2026-06-14 | 5-7 | 変更 | mindmap UIを円形node表示へ変更し、`parent_task_id` edgeを親→子の矢印として描画。node dragは位置移動専用、親子edge作成は `+` 接続ハンドルdrag専用、node clickは詳細/編集dialogを開く contract へ変更 | カード型表示とnode全体dropではマインドマップ感・親子方向・操作意図が分かりにくかったため | えいみ-worker |

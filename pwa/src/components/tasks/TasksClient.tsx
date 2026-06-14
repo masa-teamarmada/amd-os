@@ -131,9 +131,13 @@ const NODE_GAP_X = 280;
 const NODE_GAP_Y = 200;
 const MIN_ZOOM = 0.35;
 const MAX_ZOOM = 2.25;
-const TASK_DIALOG_WIDTH = 620;
+const WHEEL_ZOOM_SENSITIVITY = 0.00045;
+const TOUCH_PINCH_ZOOM_EXPONENT = 0.45;
+const ZOOM_BUTTON_FACTOR = 1.08;
+const TASK_DIALOG_WIDTH = 560;
 const TASK_DIALOG_MARGIN = 12;
-const TASK_DIALOG_MIN_VISIBLE_HEIGHT = 260;
+const TASK_DIALOG_MIN_VISIBLE_HEIGHT = 220;
+const TASK_DIALOG_VERTICAL_OFFSET = 72;
 const NODE_REPEL_DISTANCE = NODE_DIAMETER * 2.05;
 
 type FloatingPosition = {
@@ -141,10 +145,17 @@ type FloatingPosition = {
   y: number;
 };
 
+type DragItem = {
+  taskId: string;
+  originX: number;
+  originY: number;
+};
+
 type TaskUndoEntry =
   | { kind: "create"; taskId: string }
   | { kind: "delete"; task: OsTask }
-  | { kind: "patch"; before: OsTask; after: OsTask };
+  | { kind: "patch"; before: OsTask; after: OsTask }
+  | { kind: "patch-many"; before: OsTask[]; after: OsTask[] };
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -246,16 +257,8 @@ function nodeCenter(task: OsTask) {
   };
 }
 
-function curvedPath(from: { x: number; y: number }, to: { x: number; y: number }) {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  const distance = Math.max(1, Math.hypot(dx, dy));
-  const bend = Math.min(90, Math.max(24, distance * 0.14));
-  const normalX = (-dy / distance) * bend;
-  const normalY = (dx / distance) * bend;
-  const cx = (from.x + to.x) / 2 + normalX;
-  const cy = (from.y + to.y) / 2 + normalY;
-  return `M ${from.x} ${from.y} Q ${cx} ${cy} ${to.x} ${to.y}`;
+function linePath(from: { x: number; y: number }, to: { x: number; y: number }) {
+  return `M ${from.x} ${from.y} L ${to.x} ${to.y}`;
 }
 
 function edgePath(parent: OsTask, child: OsTask) {
@@ -266,7 +269,7 @@ function edgePath(parent: OsTask, child: OsTask) {
   const distance = Math.max(1, Math.hypot(dx, dy));
   const unitX = dx / distance;
   const unitY = dy / distance;
-  return curvedPath(
+  return linePath(
     { x: from.x + unitX * (NODE_RADIUS + 8), y: from.y + unitY * (NODE_RADIUS + 8) },
     { x: to.x - unitX * (NODE_RADIUS + 16), y: to.y - unitY * (NODE_RADIUS + 16) },
   );
@@ -321,13 +324,34 @@ function previewEdgePath(parent: OsTask, to: { x: number; y: number }) {
   const dx = parentCenter.x - to.x;
   const dy = parentCenter.y - to.y;
   const distance = Math.max(1, Math.hypot(dx, dy));
-  return curvedPath(
+  return linePath(
     to,
     {
       x: parentCenter.x - (dx / distance) * (NODE_RADIUS + 8),
       y: parentCenter.y - (dy / distance) * (NODE_RADIUS + 8),
     },
   );
+}
+
+function dragDeltaForItems(items: DragItem[], dx: number, dy: number) {
+  if (!items.length) return { dx: 0, dy: 0 };
+  const minX = Math.min(...items.map((item) => item.originX));
+  const maxX = Math.max(...items.map((item) => item.originX));
+  const minY = Math.min(...items.map((item) => item.originY));
+  const maxY = Math.max(...items.map((item) => item.originY));
+  return {
+    dx: Math.round(clampNumber(dx, -minX, CANVAS_WIDTH - NODE_WIDTH - maxX)),
+    dy: Math.round(clampNumber(dy, -minY, CANVAS_HEIGHT - NODE_HEIGHT - maxY)),
+  };
+}
+
+function nextDragPositions(items: DragItem[], dx: number, dy: number) {
+  const delta = dragDeltaForItems(items, dx, dy);
+  return items.map((item) => ({
+    taskId: item.taskId,
+    mindmapX: Math.round(item.originX + delta.dx),
+    mindmapY: Math.round(item.originY + delta.dy),
+  }));
 }
 
 function nodeTone(status: string) {
@@ -395,8 +419,7 @@ export function TasksClient() {
     taskId: string;
     startX: number;
     startY: number;
-    originX: number;
-    originY: number;
+    items: DragItem[];
     moved: boolean;
   } | null>(null);
   const [connecting, setConnecting] = useState<{
@@ -523,33 +546,33 @@ export function TasksClient() {
     undoStackRef.current = [...undoStackRef.current, entry].slice(-50);
   }
 
+  function remapTaskIdentity(task: OsTask, fromTaskId: string, toTaskId: string) {
+    return {
+      ...task,
+      taskId: task.taskId === fromTaskId ? toTaskId : task.taskId,
+      parentTaskId: task.parentTaskId === fromTaskId ? toTaskId : task.parentTaskId,
+    };
+  }
+
   function remapUndoTaskId(fromTaskId: string, toTaskId: string) {
     undoStackRef.current = undoStackRef.current.map((entry) => {
       if (entry.kind === "create") {
         return entry.taskId === fromTaskId ? { ...entry, taskId: toTaskId } : entry;
       }
       if (entry.kind === "delete") {
+        return { ...entry, task: remapTaskIdentity(entry.task, fromTaskId, toTaskId) };
+      }
+      if (entry.kind === "patch-many") {
         return {
           ...entry,
-          task: {
-            ...entry.task,
-            taskId: entry.task.taskId === fromTaskId ? toTaskId : entry.task.taskId,
-            parentTaskId: entry.task.parentTaskId === fromTaskId ? toTaskId : entry.task.parentTaskId,
-          },
+          before: entry.before.map((task) => remapTaskIdentity(task, fromTaskId, toTaskId)),
+          after: entry.after.map((task) => remapTaskIdentity(task, fromTaskId, toTaskId)),
         };
       }
       return {
         ...entry,
-        before: {
-          ...entry.before,
-          taskId: entry.before.taskId === fromTaskId ? toTaskId : entry.before.taskId,
-          parentTaskId: entry.before.parentTaskId === fromTaskId ? toTaskId : entry.before.parentTaskId,
-        },
-        after: {
-          ...entry.after,
-          taskId: entry.after.taskId === fromTaskId ? toTaskId : entry.after.taskId,
-          parentTaskId: entry.after.parentTaskId === fromTaskId ? toTaskId : entry.after.parentTaskId,
-        },
+        before: remapTaskIdentity(entry.before, fromTaskId, toTaskId),
+        after: remapTaskIdentity(entry.after, fromTaskId, toTaskId),
       };
     });
   }
@@ -564,6 +587,33 @@ export function TasksClient() {
     return taskMutationSeqRef.current.get(taskId) === seq || (
       Boolean(serverTaskId) && taskMutationSeqRef.current.get(serverTaskId as string) === seq
     );
+  }
+
+  function dragItemsForTask(rootTask: OsTask): DragItem[] {
+    const tasks = latestTasksRef.current.length ? latestTasksRef.current : bundle.tasks;
+    const childrenByParentId = new Map<string, OsTask[]>();
+    for (const task of tasks) {
+      if (!task.parentTaskId) continue;
+      const list = childrenByParentId.get(task.parentTaskId) ?? [];
+      list.push(task);
+      childrenByParentId.set(task.parentTaskId, list);
+    }
+
+    const items: DragItem[] = [];
+    const visited = new Set<string>();
+    const stack: OsTask[] = [rootTask];
+    while (stack.length) {
+      const task = stack.pop();
+      if (!task || visited.has(task.taskId)) continue;
+      visited.add(task.taskId);
+      items.push({
+        taskId: task.taskId,
+        originX: task.taskId === rootTask.taskId ? (rootTask.mindmapX || 80) : (task.mindmapX || 80),
+        originY: task.taskId === rootTask.taskId ? (rootTask.mindmapY || 80) : (task.mindmapY || 80),
+      });
+      stack.push(...(childrenByParentId.get(task.taskId) ?? []));
+    }
+    return items;
   }
 
   async function requestTask(method: "POST" | "PATCH", payload: Record<string, unknown>) {
@@ -843,7 +893,7 @@ export function TasksClient() {
     const currentZoom = zoomRef.current;
     return clampFloatingPosition({
       x: rect.left + (x + NODE_WIDTH + 16) * currentZoom - canvas.scrollLeft,
-      y: rect.top + y * currentZoom - canvas.scrollTop,
+      y: rect.top + y * currentZoom - canvas.scrollTop - TASK_DIALOG_VERTICAL_OFFSET,
     });
   }
 
@@ -851,7 +901,7 @@ export function TasksClient() {
     const node = nodeRefs.current.get(task.taskId);
     if (node) {
       const rect = node.getBoundingClientRect();
-      return clampFloatingPosition({ x: rect.right + 16, y: rect.top });
+      return clampFloatingPosition({ x: rect.right + 16, y: rect.top - TASK_DIALOG_VERTICAL_OFFSET });
     }
     return modalPositionForCanvasNode(task.mindmapX || 80, task.mindmapY || 80);
   }
@@ -890,7 +940,7 @@ export function TasksClient() {
   function handleCanvasWheel(event: React.WheelEvent<HTMLDivElement>) {
     if (!event.ctrlKey && !event.metaKey) return;
     event.preventDefault();
-    const factor = event.deltaY > 0 ? 0.92 : 1.08;
+    const factor = clampNumber(Math.exp(-event.deltaY * WHEEL_ZOOM_SENSITIVITY), 0.94, 1.06);
     setZoomAroundPoint(zoomRef.current * factor, { clientX: event.clientX, clientY: event.clientY });
   }
 
@@ -918,7 +968,8 @@ export function TasksClient() {
     event.preventDefault();
     const points = Array.from(touchPointersRef.current.values());
     const distance = Math.max(1, Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y));
-    setZoomAroundPoint(pinch.zoom * (distance / pinch.distance), pinch.focus ?? undefined);
+    const easedRatio = Math.pow(distance / pinch.distance, TOUCH_PINCH_ZOOM_EXPONENT);
+    setZoomAroundPoint(pinch.zoom * easedRatio, pinch.focus ?? undefined);
   }
 
   function handleCanvasPointerUp(event: React.PointerEvent<HTMLDivElement>) {
@@ -1052,6 +1103,29 @@ export function TasksClient() {
       return;
     }
 
+    if (entry.kind === "patch-many") {
+      const beforeTaskById = new Map(entry.before.map((task) => [task.taskId, task]));
+      setBundle((prev) => ({
+        ...prev,
+        tasks: prev.tasks.map((task) => beforeTaskById.get(task.taskId) ?? task),
+      }));
+      for (const before of entry.before) bumpTaskMutationSeq(before.taskId);
+      await Promise.all(entry.before.map(async (before) => {
+        const serverTaskId = await resolveTaskIdForServer(before.taskId);
+        if (!serverTaskId) return;
+        const serverParentTaskId = before.parentTaskId ? await resolveTaskIdForServer(before.parentTaskId) : null;
+        await requestTask("PATCH", {
+          taskId: serverTaskId,
+          parentTaskId: serverParentTaskId || null,
+          mindmapX: before.mindmapX,
+          mindmapY: before.mindmapY,
+        });
+      })).catch((err) => {
+        setError(err instanceof Error ? err.message : "undo failed");
+      });
+      return;
+    }
+
     setBundle((prev) => ({
       ...prev,
       tasks: prev.tasks.map((task) => task.taskId === entry.before.taskId ? entry.before : task),
@@ -1111,14 +1185,15 @@ export function TasksClient() {
       event.preventDefault();
       const dx = (event.clientX - dragging.startX) / zoomRef.current;
       const dy = (event.clientY - dragging.startY) / zoomRef.current;
-      const nextX = Math.max(0, Math.min(CANVAS_WIDTH - NODE_WIDTH, Math.round(dragging.originX + dx)));
-      const nextY = Math.max(0, Math.min(CANVAS_HEIGHT - NODE_HEIGHT, Math.round(dragging.originY + dy)));
+      const nextPositions = nextDragPositions(dragging.items, dx, dy);
+      const nextPositionByTaskId = new Map(nextPositions.map((position) => [position.taskId, position]));
       setDragging((current) => current && { ...current, moved: current.moved || Math.abs(dx) + Math.abs(dy) > 5 });
       setBundle((prev) => ({
         ...prev,
-        tasks: prev.tasks.map((task) =>
-          task.taskId === dragging.taskId ? { ...task, mindmapX: nextX, mindmapY: nextY } : task,
-        ),
+        tasks: prev.tasks.map((task) => {
+          const position = nextPositionByTaskId.get(task.taskId);
+          return position ? { ...task, mindmapX: position.mindmapX, mindmapY: position.mindmapY } : task;
+        }),
       }));
     };
     const onUp = async (event: PointerEvent) => {
@@ -1128,33 +1203,44 @@ export function TasksClient() {
       const dy = (event.clientY - current.startY) / zoomRef.current;
       const moved = current.moved || Math.abs(dx) + Math.abs(dy) > 5;
       if (!moved) return;
-      const nextX = Math.max(0, Math.min(CANVAS_WIDTH - NODE_WIDTH, Math.round(current.originX + dx)));
-      const nextY = Math.max(0, Math.min(CANVAS_HEIGHT - NODE_HEIGHT, Math.round(current.originY + dy)));
+      const nextPositions = nextDragPositions(current.items, dx, dy);
+      const nextPositionByTaskId = new Map(nextPositions.map((position) => [position.taskId, position]));
       skipTaskClickRef.current = current.taskId;
       window.setTimeout(() => {
         if (skipTaskClickRef.current === current.taskId) skipTaskClickRef.current = null;
       }, 0);
-      const task = latestTasksRef.current.find((candidate) => candidate.taskId === current.taskId);
-      if (!task) return;
-      const after = { ...task, mindmapX: nextX, mindmapY: nextY, updatedAt: new Date().toISOString() };
-      bumpTaskMutationSeq(current.taskId);
+      const taskById = new Map(latestTasksRef.current.map((task) => [task.taskId, task]));
+      const beforeTasks = current.items
+        .map((item) => {
+          const task = taskById.get(item.taskId);
+          return task ? { ...task, mindmapX: item.originX, mindmapY: item.originY } : null;
+        })
+        .filter((task): task is OsTask => Boolean(task));
+      if (!beforeTasks.length) return;
+      const now = new Date().toISOString();
+      const afterTasks = beforeTasks.map((task) => {
+        const position = nextPositionByTaskId.get(task.taskId);
+        return position ? { ...task, mindmapX: position.mindmapX, mindmapY: position.mindmapY, updatedAt: now } : task;
+      });
+      for (const task of beforeTasks) bumpTaskMutationSeq(task.taskId);
+      const afterTaskById = new Map(afterTasks.map((task) => [task.taskId, task]));
       setBundle((prev) => ({
         ...prev,
-        tasks: prev.tasks.map((candidate) => candidate.taskId === current.taskId ? after : candidate),
+        tasks: prev.tasks.map((candidate) => afterTaskById.get(candidate.taskId) ?? candidate),
       }));
-      pushUndo({
-        kind: "patch",
-        before: { ...task, mindmapX: current.originX, mindmapY: current.originY },
-        after,
-      });
+      pushUndo(afterTasks.length === 1
+        ? { kind: "patch", before: beforeTasks[0], after: afterTasks[0] }
+        : { kind: "patch-many", before: beforeTasks, after: afterTasks });
       try {
-        const serverTaskId = await resolveTaskIdForServer(current.taskId);
-        if (!serverTaskId) return;
-        await requestTask("PATCH", {
-          taskId: serverTaskId,
-          mindmapX: nextX,
-          mindmapY: nextY,
-        });
+        await Promise.all(afterTasks.map(async (task) => {
+          const serverTaskId = await resolveTaskIdForServer(task.taskId);
+          if (!serverTaskId) return;
+          await requestTask("PATCH", {
+            taskId: serverTaskId,
+            mindmapX: task.mindmapX,
+            mindmapY: task.mindmapY,
+          });
+        }));
       } catch (err) {
         setError(err instanceof Error ? err.message : "drag save failed");
         load();
@@ -1290,8 +1376,7 @@ export function TasksClient() {
                 taskId: task.taskId,
                 startX: event.clientX,
                 startY: event.clientY,
-                originX: task.mindmapX || 80,
-                originY: task.mindmapY || 80,
+                items: dragItemsForTask(task),
                 moved: false,
               });
             }}
@@ -1323,8 +1408,8 @@ export function TasksClient() {
             onPointerDown={handleCanvasPointerDown}
             onPointerMove={handleCanvasPointerMove}
             onPointerUp={handleCanvasPointerUp}
-            onZoomIn={() => zoomFromCenter(1.12)}
-            onZoomOut={() => zoomFromCenter(1 / 1.12)}
+            onZoomIn={() => zoomFromCenter(ZOOM_BUTTON_FACTOR)}
+            onZoomOut={() => zoomFromCenter(1 / ZOOM_BUTTON_FACTOR)}
           />
         ) : (
           <GanttView
@@ -1637,6 +1722,56 @@ function TaskNode({
   );
 }
 
+type GanttTaskRow = {
+  task: OsTask;
+  depth: number;
+  childCount: number;
+  hasVisibleParent: boolean;
+};
+
+function sortGanttTasks(a: OsTask, b: OsTask) {
+  return (a.startDate || "").localeCompare(b.startDate || "")
+    || (a.dueDate || "").localeCompare(b.dueDate || "")
+    || a.title.localeCompare(b.title)
+    || a.taskId.localeCompare(b.taskId);
+}
+
+function buildGanttTaskRows(projectTasks: OsTask[]): GanttTaskRow[] {
+  const visibleIds = new Set(projectTasks.map((task) => task.taskId));
+  const childrenByParentId = new Map<string, OsTask[]>();
+  const roots: OsTask[] = [];
+  for (const task of projectTasks) {
+    if (task.parentTaskId && visibleIds.has(task.parentTaskId)) {
+      const list = childrenByParentId.get(task.parentTaskId) ?? [];
+      list.push(task);
+      childrenByParentId.set(task.parentTaskId, list);
+    } else {
+      roots.push(task);
+    }
+  }
+  for (const list of childrenByParentId.values()) list.sort(sortGanttTasks);
+  roots.sort(sortGanttTasks);
+
+  const rows: GanttTaskRow[] = [];
+  const visited = new Set<string>();
+  function visit(task: OsTask, depth: number) {
+    if (visited.has(task.taskId)) return;
+    visited.add(task.taskId);
+    const children = childrenByParentId.get(task.taskId) ?? [];
+    rows.push({
+      task,
+      depth,
+      childCount: children.length,
+      hasVisibleParent: Boolean(task.parentTaskId && visibleIds.has(task.parentTaskId)),
+    });
+    for (const child of children) visit(child, depth + 1);
+  }
+
+  for (const root of roots) visit(root, 0);
+  for (const task of [...projectTasks].sort(sortGanttTasks)) visit(task, 0);
+  return rows;
+}
+
 function GanttView({
   tasks,
   projects,
@@ -1689,7 +1824,7 @@ function GanttView({
       </div>
       <div className="max-h-[680px] overflow-auto">
         {visibleProjects.map((project) => {
-          const projectTasks = (tasksByProject.get(project.project_id) ?? []).sort((a, b) => (a.startDate || "").localeCompare(b.startDate || ""));
+          const projectRows = buildGanttTaskRows(tasksByProject.get(project.project_id) ?? []);
           return (
             <div key={project.project_id} className="border-b border-border last:border-b-0">
               <div className="grid grid-cols-[320px_minmax(560px,1fr)] bg-background">
@@ -1698,17 +1833,25 @@ function GanttView({
                   + 空白行から新規タスク
                 </button>
               </div>
-              {projectTasks.map((task) => (
+              {projectRows.map(({ task, depth, childCount, hasVisibleParent }) => (
                 <button key={task.taskId} type="button" onClick={() => onEdit(task)} className="grid w-full grid-cols-[320px_minmax(560px,1fr)] text-left hover:bg-muted/35">
-                  <div className="min-h-14 border-r border-border px-3 py-2">
-                    <div className="truncate text-sm font-medium">{task.title}</div>
-                    <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
-                      <span>{memberName(task.assigneeMemberId, task.assignee)}</span>
+                  <div className="min-h-12 border-r border-border px-3 py-1.5">
+                    <div className="flex min-w-0 items-center gap-1.5" style={{ paddingLeft: depth * 18 }}>
+                      {hasVisibleParent && <span className="h-4 w-3 shrink-0 rounded-bl-sm border-b border-l border-muted-foreground/35" />}
+                      <span className={cn("min-w-0 truncate text-[13px] font-medium", depth > 0 ? "text-foreground/85" : "text-foreground")}>{task.title.trim() || "新規タスク"}</span>
+                      {childCount > 0 && (
+                        <span className="shrink-0 rounded-full border border-cyan-200 bg-cyan-50 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-cyan-700">
+                          子{childCount}
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-1 flex items-center gap-2 text-[10px] text-muted-foreground" style={{ paddingLeft: depth * 18 + (hasVisibleParent ? 18 : 0) }}>
+                      <span className="truncate">{memberName(task.assigneeMemberId, task.assignee)}</span>
                       <span>{statusMeta(task.status).label}</span>
                       <span>{task.progress}%</span>
                     </div>
                   </div>
-                  <div className="relative min-h-14 px-3 py-3">
+                  <div className="relative min-h-12 px-3 py-2.5">
                     <div className="absolute inset-x-3 top-1/2 h-px bg-border" />
                     <div className="absolute top-1/2 h-5 -translate-y-1/2 rounded-md bg-foreground" style={barStyle(task)}>
                       <div className="h-full rounded-md bg-emerald-500" style={{ width: `${task.progress || 0}%` }} />
@@ -1774,7 +1917,7 @@ function TaskDialog({
       role="dialog"
       aria-modal="false"
       tabIndex={-1}
-      className="fixed z-50 overflow-hidden rounded-lg border border-border bg-popover text-sm text-popover-foreground shadow-2xl ring-1 ring-foreground/10"
+      className="fixed z-50 overflow-hidden rounded-lg border border-border bg-popover text-xs text-popover-foreground shadow-2xl ring-1 ring-foreground/10"
       onPointerDown={(event) => {
         if (editableTarget(event.target) || (event.target as HTMLElement).closest("button")) return;
         event.currentTarget.focus();
@@ -1792,7 +1935,7 @@ function TaskDialog({
       }}
     >
       <div
-        className="flex cursor-move items-center justify-between gap-3 border-b border-border bg-muted/45 px-4 py-3"
+        className="flex cursor-move items-center justify-between gap-2 border-b border-border bg-muted/45 px-3 py-2"
         onPointerDown={(event) => {
           if ((event.target as HTMLElement).closest("button,input,select,textarea")) return;
           event.preventDefault();
@@ -1829,18 +1972,27 @@ function TaskDialog({
         }}
       >
         <div className="min-w-0">
-          <div className="truncate font-heading text-base font-medium leading-none">{form.taskId ? "タスク編集" : "タスク作成"}</div>
-          {form.title.trim() && <div className="mt-1 truncate text-xs text-muted-foreground">{form.title}</div>}
+          <div className="truncate font-heading text-sm font-medium leading-none">{form.taskId ? "タスク編集" : "タスク作成"}</div>
+          {form.title.trim() && <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{form.title}</div>}
         </div>
-        <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="close task detail">
-          <X className="h-4 w-4" />
-        </Button>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {form.taskId && (
+            <Button variant="destructive" size="sm" onClick={() => onDelete(form.taskId as string)} disabled={saving}>
+              <Trash2 className="h-3.5 w-3.5" />
+              削除
+            </Button>
+          )}
+          <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="close task detail">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
-      <div className="max-h-[calc(100vh-148px)] overflow-y-auto p-4">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label>タイトル</Label>
+      <div className="max-h-[calc(100vh-116px)] overflow-y-auto p-3">
+        <div className="grid gap-2 sm:grid-cols-2">
+          <div className="space-y-1 sm:col-span-2">
+            <Label className="text-[11px]">タイトル</Label>
             <Input
+              className="h-8 text-xs"
               value={form.title}
               onChange={(event) => patch({ title: event.target.value })}
               onKeyDown={(event) => {
@@ -1851,72 +2003,62 @@ function TaskDialog({
               autoFocus
             />
           </div>
-          <div className="space-y-1.5">
-            <Label>PJ</Label>
-            <select className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm" value={form.projectId} onChange={(event) => patch({ projectId: event.target.value, assigneeMemberId: "", parentTaskId: "" })}>
+          <div className="space-y-1">
+            <Label className="text-[11px]">PJ</Label>
+            <select className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs" value={form.projectId} onChange={(event) => patch({ projectId: event.target.value, assigneeMemberId: "", parentTaskId: "" })}>
               {projects.map((project) => <option key={project.project_id} value={project.project_id}>{project.project_id} {project.project_name}</option>)}
             </select>
           </div>
-          <div className="space-y-1.5">
-            <Label>担当</Label>
-            <select className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm" value={form.assigneeMemberId} onChange={(event) => patch({ assigneeMemberId: event.target.value })}>
+          <div className="space-y-1">
+            <Label className="text-[11px]">担当</Label>
+            <select className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs" value={form.assigneeMemberId} onChange={(event) => patch({ assigneeMemberId: event.target.value })}>
               <option value="">未割当</option>
               {members.map((member) => <option key={member.member_id} value={member.member_id}>{memberName(member.member_id)}</option>)}
             </select>
           </div>
-          <div className="space-y-1.5">
-            <Label>Status</Label>
-            <select className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm" value={form.status} onChange={(event) => patch({ status: event.target.value as TaskStatus })}>
+          <div className="space-y-1">
+            <Label className="text-[11px]">Status</Label>
+            <select className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs" value={form.status} onChange={(event) => patch({ status: event.target.value as TaskStatus })}>
               {STATUS_OPTIONS.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
             </select>
           </div>
-          <div className="space-y-1.5">
-            <Label>Priority</Label>
-            <select className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm" value={form.priority} onChange={(event) => patch({ priority: event.target.value })}>
+          <div className="space-y-1">
+            <Label className="text-[11px]">Priority</Label>
+            <select className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs" value={form.priority} onChange={(event) => patch({ priority: event.target.value })}>
               {PRIORITY_OPTIONS.map((priority) => <option key={priority.value} value={priority.value}>{priority.label}</option>)}
             </select>
           </div>
-          <div className="space-y-1.5">
-            <Label>Start</Label>
-            <Input type="date" value={form.startDate} onChange={(event) => patch({ startDate: event.target.value })} />
+          <div className="space-y-1">
+            <Label className="text-[11px]">Start</Label>
+            <Input className="h-8 text-xs" type="date" value={form.startDate} onChange={(event) => patch({ startDate: event.target.value })} />
           </div>
-          <div className="space-y-1.5">
-            <Label>Due</Label>
-            <Input type="date" value={form.dueDate} onChange={(event) => patch({ dueDate: event.target.value })} />
+          <div className="space-y-1">
+            <Label className="text-[11px]">Due</Label>
+            <Input className="h-8 text-xs" type="date" value={form.dueDate} onChange={(event) => patch({ dueDate: event.target.value })} />
           </div>
-          <div className="space-y-1.5">
-            <Label>Progress</Label>
-            <Input type="number" min={0} max={100} value={form.progress} onChange={(event) => patch({ progress: Number(event.target.value) })} />
+          <div className="space-y-1">
+            <Label className="text-[11px]">Progress</Label>
+            <Input className="h-8 text-xs" type="number" min={0} max={100} value={form.progress} onChange={(event) => patch({ progress: Number(event.target.value) })} />
           </div>
-          <div className="space-y-1.5">
-            <Label>Parent</Label>
-            <select className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm" value={form.parentTaskId} onChange={(event) => patch({ parentTaskId: event.target.value })}>
+          <div className="space-y-1">
+            <Label className="text-[11px]">Parent</Label>
+            <select className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs" value={form.parentTaskId} onChange={(event) => patch({ parentTaskId: event.target.value })}>
               <option value="">なし</option>
               {parentOptions.map((task) => <option key={task.taskId} value={task.taskId}>{task.title}</option>)}
             </select>
           </div>
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label>Description</Label>
-            <Textarea value={form.description} onChange={(event) => patch({ description: event.target.value })} />
+          <div className="space-y-1 sm:col-span-2">
+            <Label className="text-[11px]">Description</Label>
+            <Textarea className="min-h-20 text-xs" value={form.description} onChange={(event) => patch({ description: event.target.value })} />
           </div>
         </div>
       </div>
-      <div className="flex flex-col-reverse gap-2 border-t border-border bg-muted/45 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          {form.taskId && (
-            <Button variant="destructive" onClick={() => onDelete(form.taskId as string)} disabled={saving}>
-              <Trash2 className="h-4 w-4" />
-              削除
-            </Button>
-          )}
-        </div>
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={onClose}>閉じる</Button>
-          <Button onClick={onSave} disabled={saving}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            保存
-          </Button>
-        </div>
+      <div className="flex justify-end gap-2 border-t border-border bg-muted/45 p-3">
+        <Button variant="outline" size="sm" onClick={onClose}>閉じる</Button>
+        <Button size="sm" onClick={onSave} disabled={saving}>
+          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+          保存
+        </Button>
       </div>
     </div>
   );

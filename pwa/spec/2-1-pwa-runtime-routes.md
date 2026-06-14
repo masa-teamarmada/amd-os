@@ -49,7 +49,7 @@
 | `/admin/private-wiki` | 裏wiki。人物単位の趣味・関係性メモを PJ 別に保存する admin-only 台帳 |
 | `/notifications` | L2 candidate / feedback の採否 |
 | `/management-score` | AMD Management Score |
-| `/tasks` | 全PJ・全員のタスク管理。マインドマップ / ガントを切り替え、空白クリックで作成、drag/dropで親子edgeを作る |
+| `/tasks` | 全PJ・全員のタスク管理。マインドマップ / ガントを切り替え、空白クリックで即時作成、`+` handleで子タスク作成/親子edge接続、親dragで子孫追従、ガントで親子treeを表示する |
 | `/institutions` / `/institutions/*` | ERS / 研究機関評価 |
 
 ## API / cron の境界

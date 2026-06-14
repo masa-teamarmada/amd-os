@@ -8,7 +8,7 @@
 |---|---|---|---|
 | auth | `/auth/login`, `/auth/callback` | Supabase Google OAuth login / callback | `pwa/src/app/auth/*` |
 | home | `/dashboard` | PJ一覧、Atlas / Venture Map / MyPage / Admin 入口 | `dashboard/page.tsx` |
-| task management | `/tasks` | 全PJ・全員のタスク横断ビュー。mindmap / gantt、空白クリック作成、drag/drop親子edge、position保存 | `tasks/page.tsx`, `TasksClient.tsx` |
+| task management | `/tasks` | 全PJ・全員のタスク横断ビュー。mindmap / gantt、空白クリック即時作成、`+` handle子タスク作成/親子edge、親drag子孫追従、gantt親子tree、position保存 | `tasks/page.tsx`, `TasksClient.tsx` |
 | cockpit | `/project/[projectId]/cockpit` | PJ status、AMD Score、MS、経営ハイライト、月次ルーティン、MTGサマリ、kanban | `project/[projectId]/cockpit/page.tsx`, `CockpitView.tsx` |
 | member | `/mypage`, `/reimburse` | メンバー活動、週次活動、立替精算 | `mypage/page.tsx`, `reimburse/page.tsx` |
 | admin | `/admin/*` | billing / finance / projects / members / payouts / prompts / settings / protocols / tsukuyomi / weekly (週次活動×月次報酬マトリクス: `/api/admin/weekly` が member_activities(member_weekly) と表示月の `billing_cycles.reward_summary_json` の `members[].totalPay` を返し、右端列=メンバー別月合計・最下行=PJ別月合計・総合計を描画) | `admin/*/page.tsx` |
