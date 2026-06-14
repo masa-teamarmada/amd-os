@@ -21,7 +21,7 @@
 | `assignee_member_id` | `members.member_id` への正規担当。既存 `assignee` text は互換表示用に維持 |
 | `start_date` / `due_date` | ガント期間 |
 | `progress` | 0〜100。`tasks_progress_range` constraint |
-| `parent_task_id` | mindmap edge。drop先が親、drag元が子。self-cycle / ancestor-cycle は API で拒否 |
+| `parent_task_id` | mindmap edge。接続ハンドルをdragし始めたノードが親、到達先ノードが子。self-cycle / ancestor-cycle は API で拒否 |
 | `mindmap_x` / `mindmap_y` | mindmap position |
 | `active` | 論理表示フラグ。DELETEしない |
 | `task_source` | `manual` などの生成元 |
@@ -61,12 +61,12 @@ PJ filter、担当 filter、status filter、text search を同一ツールバー
 
 ### Mindmap
 
-- canvas は scrollable 2D plane。
+- canvas は scrollable 2D plane。ノードはカードではなく円形node + 外側labelで表示する。
 - 空白クリックでクリック位置を初期座標にして作成dialogを開く。
-- タスクカードは pointer drag で移動する。
-- drag終了時、別タスクの矩形上にdropされていたら `parent_task_id=dropTarget.task_id` を保存する。
-- edge は `parent_task_id` から SVG path で描く。
-- タスク詳細は double click または作成/編集dialogで更新する。
+- ノード本体は pointer drag で移動する。移動dragは edge 作成に使わない。
+- ノードクリックで詳細/編集dialogを開く。
+- ノード輪郭hoverで表示される `+` 接続ハンドルから別ノードの輪郭へdragすると、`target.parent_task_id=source.task_id` を保存する。
+- edge は `parent_task_id` から SVG path で描き、親から子へ向かう arrow marker を付ける。
 
 ### Gantt
 
@@ -86,4 +86,4 @@ PJ filter、担当 filter、status filter、text search を同一ツールバー
 
 - TypeScript: `npx tsc --noEmit`
 - Build: `npm run build`
-- Browser: `/tasks` を開き、top nav、mindmap空白クリック作成、task drag/drop edge、gantt空白行作成を確認する。
+- Browser: `/tasks` を開き、top nav、mindmap空白クリック作成、node click詳細、node位置drag、`+` handle drag edge、gantt空白行作成を確認する。
