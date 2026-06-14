@@ -255,6 +255,8 @@ export async function extractContractL2Data(
       candidates: projectCandidates.map((candidate) => ({
         candidateId: candidate.candidateId,
         confidence: candidate.confidence,
+        reviewRequired: candidate.reviewRequired,
+        proposedAction: candidate.proposedAction,
         terms: candidate.detectedTerms,
       })),
       sources: projectSources.map((item) => ({
@@ -299,7 +301,7 @@ export async function extractContractL2Data(
           source_hash: sourceHash,
           saved_count: 0,
           total_count: projectCandidates.length,
-          llm_model: "rules:contract_signal_terms_v1",
+          llm_model: "rules:contract_signal_terms_v2",
           message: "skipped_unchanged",
           last_processed_at: new Date().toISOString(),
         }, { onConflict: "l2_kind,target_id,scope_key" });
@@ -404,7 +406,7 @@ export async function extractContractL2Data(
           source_hash: sourceHash,
           saved_count: projectSignalsUpserted + projectContractsCreated,
           total_count: projectCandidates.length,
-          llm_model: "rules:contract_signal_terms_v1",
+          llm_model: "rules:contract_signal_terms_v2",
           message: `signals=${projectSignalsUpserted}, contracts=${projectContractsCreated}, review_required=${reviewRequired}`,
           last_processed_at: new Date().toISOString(),
         }, { onConflict: "l2_kind,target_id,scope_key" });

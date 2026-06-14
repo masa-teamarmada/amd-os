@@ -216,6 +216,15 @@ function isGenericMeetingTitle(title: string) {
   return GENERIC_MEETING_TITLE_TERMS.some((term) => hasTerm(title, term));
 }
 
+function isAdministrativeContractAttachment(title: string) {
+  return [
+    "雇用契約書",
+    "雇用契約",
+    "補助金変更届",
+    "銀行明細",
+  ].some((term) => hasTerm(title, term));
+}
+
 export function buildContractSignalCandidate(evidence: ContractSourceEvidence): ContractSignalCandidate | null {
   const combined = `${evidence.title}\n${evidence.snippet}`;
   const detectedTerms = unique(CONTRACT_TERMS.filter((term) => hasTerm(combined, term)));
@@ -231,15 +240,26 @@ export function buildContractSignalCandidate(evidence: ContractSourceEvidence): 
   const meetingTitleCanCreate = evidence.sourceTable === "project_meeting_summaries"
     && titleExplicitHits > 0
     && !genericMeetingTitle;
+  const administrativeAttachment = isAdministrativeContractAttachment(evidence.title);
   const sourceBoost = evidence.sourceKind === "drive" || evidence.sourceKind === "gmail" ? 0.08 : 0;
   const confidence = Math.min(
     0.97,
     0.28 + detectedTerms.length * 0.035 + explicitHits * 0.055 + strongHits * 0.1 + titleHits * 0.06 + sourceBoost,
   );
-  const canCreatePlannedContract = confidence >= 0.82
-    && strongHits > 0
-    && (meetingTitleCanCreate || sourceCacheDocument)
-    && !(genericMeetingTitle && titleExplicitHits === 0);
+  const explicitDocumentTitleCanCreate = titleExplicitHits > 0
+    && confidence >= 0.5
+    && !genericMeetingTitle
+    && !administrativeAttachment;
+  const sourceCacheDocumentCanCreate = sourceCacheDocument
+    && titleExplicitHits > 0
+    && confidence >= 0.55
+    && !administrativeAttachment;
+  const canCreatePlannedContract = (
+    confidence >= 0.82
+      && strongHits > 0
+      && (meetingTitleCanCreate || sourceCacheDocument)
+      && !(genericMeetingTitle && titleExplicitHits === 0)
+  ) || sourceCacheDocumentCanCreate || explicitDocumentTitleCanCreate;
   const reviewRequired = !canCreatePlannedContract;
 
   return {
