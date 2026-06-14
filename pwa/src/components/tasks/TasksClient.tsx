@@ -141,6 +141,11 @@ type FloatingPosition = {
   y: number;
 };
 
+type TaskUndoEntry =
+  | { kind: "create"; taskId: string }
+  | { kind: "delete"; task: OsTask }
+  | { kind: "patch"; before: OsTask; after: OsTask };
+
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -346,6 +351,20 @@ function nodeInitial(task: OsTask) {
   return (title ? title.slice(0, 2) : task.projectId).toUpperCase();
 }
 
+function makeOptimisticTaskId() {
+  return `task_local_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function isOptimisticTaskId(taskId: string) {
+  return taskId.startsWith("task_local_");
+}
+
+function editableTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  return Boolean(target.closest("input,textarea,select,[contenteditable='true']"));
+}
+
 export function TasksClient() {
   const [bundle, setBundle] = useState<TaskBundle>({
     tasks: [],
@@ -383,15 +402,26 @@ export function TasksClient() {
   const connectingRef = useRef<typeof connecting>(null);
   const latestTasksRef = useRef<OsTask[]>([]);
   const skipTaskClickRef = useRef<string | null>(null);
+  const suppressNextCanvasClickRef = useRef(false);
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const nodeRefs = useRef(new Map<string, HTMLDivElement>());
   const zoomRef = useRef(zoom);
+  const formRef = useRef<TaskFormState | null>(form);
   const touchPointersRef = useRef(new Map<number, { x: number; y: number }>());
   const pinchRef = useRef<{
     distance: number;
     zoom: number;
     focus: { clientX: number; clientY: number } | null;
   } | null>(null);
+  const pendingCreateRef = useRef(new Map<string, Promise<OsTask>>());
+  const optimisticServerIdRef = useRef(new Map<string, string>());
+  const canceledCreateIdsRef = useRef(new Set<string>());
+  const undoStackRef = useRef<TaskUndoEntry[]>([]);
+  const taskMutationSeqRef = useRef(new Map<string, number>());
+  const undoLastTaskActionRef = useRef<() => Promise<void>>(async () => undefined);
+  const patchTaskOptimisticRef = useRef<(taskId: string, patch: Partial<OsTask>, pushHistory?: boolean) => Promise<void>>(
+    async () => undefined,
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -421,6 +451,10 @@ export function TasksClient() {
   useEffect(() => {
     latestTasksRef.current = bundle.tasks;
   }, [bundle.tasks]);
+
+  useEffect(() => {
+    formRef.current = form;
+  }, [form]);
 
   useEffect(() => {
     connectingRef.current = connecting;
@@ -478,27 +512,118 @@ export function TasksClient() {
     return scoped.length ? scoped : bundle.members.filter((member) => member.status !== "inactive");
   }
 
-  async function mutateTask(method: "POST" | "PATCH", payload: Record<string, unknown>) {
-    setSaving(true);
-    setError(null);
+  function pushUndo(entry: TaskUndoEntry) {
+    undoStackRef.current = [...undoStackRef.current, entry].slice(-50);
+  }
+
+  function remapUndoTaskId(fromTaskId: string, toTaskId: string) {
+    undoStackRef.current = undoStackRef.current.map((entry) => {
+      if (entry.kind === "create") {
+        return entry.taskId === fromTaskId ? { ...entry, taskId: toTaskId } : entry;
+      }
+      if (entry.kind === "delete") {
+        return {
+          ...entry,
+          task: {
+            ...entry.task,
+            taskId: entry.task.taskId === fromTaskId ? toTaskId : entry.task.taskId,
+            parentTaskId: entry.task.parentTaskId === fromTaskId ? toTaskId : entry.task.parentTaskId,
+          },
+        };
+      }
+      return {
+        ...entry,
+        before: {
+          ...entry.before,
+          taskId: entry.before.taskId === fromTaskId ? toTaskId : entry.before.taskId,
+          parentTaskId: entry.before.parentTaskId === fromTaskId ? toTaskId : entry.before.parentTaskId,
+        },
+        after: {
+          ...entry.after,
+          taskId: entry.after.taskId === fromTaskId ? toTaskId : entry.after.taskId,
+          parentTaskId: entry.after.parentTaskId === fromTaskId ? toTaskId : entry.after.parentTaskId,
+        },
+      };
+    });
+  }
+
+  function bumpTaskMutationSeq(taskId: string) {
+    const next = (taskMutationSeqRef.current.get(taskId) ?? 0) + 1;
+    taskMutationSeqRef.current.set(taskId, next);
+    return next;
+  }
+
+  function isCurrentTaskMutation(taskId: string, seq: number, serverTaskId?: string | null) {
+    return taskMutationSeqRef.current.get(taskId) === seq || (
+      Boolean(serverTaskId) && taskMutationSeqRef.current.get(serverTaskId as string) === seq
+    );
+  }
+
+  async function requestTask(method: "POST" | "PATCH", payload: Record<string, unknown>) {
     const res = await fetch("/api/tasks", {
       method,
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),
     });
     const json = await res.json();
-    setSaving(false);
     if (!res.ok || !json.ok) throw new Error(json.error || "task mutation failed");
-    const next = json.task as OsTask;
+    return json.task as OsTask;
+  }
+
+  async function mutateTask(method: "POST" | "PATCH", payload: Record<string, unknown>) {
+    setSaving(true);
+    setError(null);
+    try {
+      const next = await requestTask(method, payload);
+      setBundle((prev) => ({
+        ...prev,
+        tasks: method === "POST"
+          ? [...prev.tasks, next]
+          : next.active === false
+            ? prev.tasks.filter((task) => task.taskId !== next.taskId)
+            : prev.tasks.map((task) => (task.taskId === next.taskId ? next : task)),
+      }));
+      return next;
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function resolveTaskIdForServer(taskId: string) {
+    if (!isOptimisticTaskId(taskId)) return taskId;
+    const resolvedTaskId = optimisticServerIdRef.current.get(taskId);
+    if (resolvedTaskId && !canceledCreateIdsRef.current.has(taskId)) return resolvedTaskId;
+    const pending = pendingCreateRef.current.get(taskId);
+    if (!pending) return null;
+    try {
+      const serverTask = await pending;
+      if (canceledCreateIdsRef.current.has(taskId)) return null;
+      return serverTask.taskId;
+    } catch {
+      return null;
+    }
+  }
+
+  function replaceOptimisticTask(optimisticTaskId: string, serverTask: OsTask) {
     setBundle((prev) => ({
       ...prev,
-      tasks: method === "POST"
-        ? [...prev.tasks, next]
-        : next.active === false
-          ? prev.tasks.filter((task) => task.taskId !== next.taskId)
-          : prev.tasks.map((task) => (task.taskId === next.taskId ? next : task)),
+      tasks: prev.tasks.map((task) => {
+        if (task.taskId === optimisticTaskId) return serverTask;
+        if (task.parentTaskId === optimisticTaskId) return { ...task, parentTaskId: serverTask.taskId };
+        return task;
+      }),
     }));
-    return next;
+    setForm((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        taskId: current.taskId === optimisticTaskId ? serverTask.taskId : current.taskId,
+        parentTaskId: current.parentTaskId === optimisticTaskId ? serverTask.taskId : current.parentTaskId,
+      };
+    });
+    const seq = taskMutationSeqRef.current.get(optimisticTaskId);
+    if (seq !== undefined) taskMutationSeqRef.current.set(serverTask.taskId, seq);
+    remapUndoTaskId(optimisticTaskId, serverTask.taskId);
   }
 
   async function saveForm() {
@@ -519,7 +644,42 @@ export function TasksClient() {
         mindmapX: form.mindmapX,
         mindmapY: form.mindmapY,
       };
-      await mutateTask(form.taskId ? "PATCH" : "POST", payload);
+      if (form.taskId && isOptimisticTaskId(form.taskId)) {
+        const taskId = form.taskId;
+        const mutationSeq = bumpTaskMutationSeq(taskId);
+        setBundle((prev) => ({
+          ...prev,
+          tasks: prev.tasks.map((task) => task.taskId === taskId ? {
+            ...task,
+            title: form.title || "新規タスク",
+            description: form.description,
+            projectId: form.projectId,
+            assigneeMemberId: form.assigneeMemberId || null,
+            status: form.status,
+            priority: form.priority || "medium",
+            startDate: form.startDate || null,
+            dueDate: form.dueDate || null,
+            progress: form.progress,
+            parentTaskId: form.parentTaskId || null,
+            mindmapX: form.mindmapX,
+            mindmapY: form.mindmapY,
+          } : task),
+        }));
+        const serverTaskId = await resolveTaskIdForServer(taskId);
+        if (serverTaskId) {
+          const patchedTask = await requestTask("PATCH", { ...payload, taskId: serverTaskId });
+          if (isCurrentTaskMutation(taskId, mutationSeq, serverTaskId)) {
+            setBundle((prev) => ({
+              ...prev,
+              tasks: prev.tasks.map((task) => (
+                task.taskId === taskId || task.taskId === serverTaskId ? patchedTask : task
+              )),
+            }));
+          }
+        }
+      } else {
+        await mutateTask(form.taskId ? "PATCH" : "POST", payload);
+      }
       setForm(null);
       setFormPosition(null);
     } catch (err) {
@@ -527,29 +687,73 @@ export function TasksClient() {
     }
   }
 
-  async function createTaskAt(x: number, y: number, projectId = projectFilter === "all" ? bundle.projects[0]?.project_id : projectFilter) {
+  function createTaskAt(x: number, y: number, projectId = projectFilter === "all" ? bundle.projects[0]?.project_id : projectFilter) {
     if (!projectId) return;
-    try {
-      const draft = emptyForm(projectId, Math.round(clampMindmapX(x)), Math.round(clampMindmapY(y)));
-      const task = await mutateTask("POST", {
-        title: draft.title || "新規タスク",
-        description: draft.description,
-        projectId: draft.projectId,
-        assigneeMemberId: null,
-        status: draft.status,
-        priority: draft.priority,
-        startDate: draft.startDate,
-        dueDate: draft.dueDate,
-        progress: draft.progress,
-        parentTaskId: null,
-        mindmapX: draft.mindmapX,
-        mindmapY: draft.mindmapY,
+    const draft = emptyForm(projectId, Math.round(clampMindmapX(x)), Math.round(clampMindmapY(y)));
+    const now = new Date().toISOString();
+    const optimisticTask: OsTask = {
+      taskId: makeOptimisticTaskId(),
+      title: draft.title || "新規タスク",
+      description: draft.description,
+      projectId: draft.projectId,
+      assignee: "",
+      assigneeMemberId: null,
+      status: draft.status,
+      priority: draft.priority,
+      startDate: draft.startDate,
+      dueDate: draft.dueDate,
+      progress: draft.progress,
+      parentTaskId: null,
+      mindmapX: draft.mindmapX,
+      mindmapY: draft.mindmapY,
+      active: true,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    setError(null);
+    setBundle((prev) => ({ ...prev, tasks: [...prev.tasks, optimisticTask] }));
+    setForm(formFromTask(optimisticTask));
+    setFormPosition(modalPositionForCanvasNode(optimisticTask.mindmapX, optimisticTask.mindmapY));
+    pushUndo({ kind: "create", taskId: optimisticTask.taskId });
+
+    const createPromise = requestTask("POST", {
+      title: optimisticTask.title,
+      description: optimisticTask.description,
+      projectId: optimisticTask.projectId,
+      assigneeMemberId: null,
+      status: optimisticTask.status,
+      priority: optimisticTask.priority,
+      startDate: optimisticTask.startDate,
+      dueDate: optimisticTask.dueDate,
+      progress: optimisticTask.progress,
+      parentTaskId: null,
+      mindmapX: optimisticTask.mindmapX,
+      mindmapY: optimisticTask.mindmapY,
+    });
+
+    pendingCreateRef.current.set(optimisticTask.taskId, createPromise);
+    createPromise
+      .then(async (serverTask) => {
+        pendingCreateRef.current.delete(optimisticTask.taskId);
+        optimisticServerIdRef.current.set(optimisticTask.taskId, serverTask.taskId);
+        if (canceledCreateIdsRef.current.has(optimisticTask.taskId)) {
+          await requestTask("PATCH", { taskId: serverTask.taskId, active: false }).catch(() => undefined);
+          return;
+        }
+        replaceOptimisticTask(optimisticTask.taskId, serverTask);
+      })
+      .catch((err) => {
+        pendingCreateRef.current.delete(optimisticTask.taskId);
+        if (!canceledCreateIdsRef.current.has(optimisticTask.taskId)) {
+          setBundle((prev) => ({ ...prev, tasks: prev.tasks.filter((task) => task.taskId !== optimisticTask.taskId) }));
+          if (formRef.current?.taskId === optimisticTask.taskId) {
+            setForm(null);
+            setFormPosition(null);
+          }
+          setError(err instanceof Error ? err.message : "create failed");
+        }
       });
-      setForm(formFromTask(task));
-      setFormPosition(modalPositionForCanvasNode(task.mindmapX, task.mindmapY));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "create failed");
-    }
   }
 
   const canvasPointAt = useCallback((clientX: number, clientY: number, currentZoom = zoomRef.current) => {
@@ -658,6 +862,10 @@ export function TasksClient() {
   }
 
   function handleCanvasClick(event: React.MouseEvent<HTMLDivElement>) {
+    if (suppressNextCanvasClickRef.current) {
+      suppressNextCanvasClickRef.current = false;
+      return;
+    }
     if ((event.target as HTMLElement).closest("[data-task-node-id]")) return;
     const point = canvasPoint(event.clientX, event.clientY);
     void createTaskAt(point.x - NODE_WIDTH / 2, point.y - NODE_CIRCLE_TOP - NODE_RADIUS);
@@ -688,14 +896,148 @@ export function TasksClient() {
   }
 
   async function deleteTask(taskId: string) {
-    try {
-      await mutateTask("PATCH", { taskId, active: false });
+    const task = latestTasksRef.current.find((candidate) => candidate.taskId === taskId);
+    if (!task) return;
+    pushUndo({ kind: "delete", task });
+    bumpTaskMutationSeq(taskId);
+    setError(null);
+    setBundle((prev) => ({ ...prev, tasks: prev.tasks.filter((candidate) => candidate.taskId !== taskId) }));
+    if (formRef.current?.taskId === taskId) {
       setForm(null);
       setFormPosition(null);
+    }
+
+    if (isOptimisticTaskId(taskId)) {
+      canceledCreateIdsRef.current.add(taskId);
+      return;
+    }
+
+    try {
+      await requestTask("PATCH", { taskId, active: false });
     } catch (err) {
+      setBundle((prev) => ({ ...prev, tasks: prev.tasks.some((candidate) => candidate.taskId === taskId) ? prev.tasks : [...prev.tasks, task] }));
       setError(err instanceof Error ? err.message : "delete failed");
     }
   }
+
+  async function patchTaskOptimistic(taskId: string, patch: Partial<OsTask>, pushHistory = true) {
+    const before = latestTasksRef.current.find((candidate) => candidate.taskId === taskId);
+    if (!before) return;
+    const after = { ...before, ...patch, updatedAt: new Date().toISOString() };
+    if (pushHistory) pushUndo({ kind: "patch", before, after });
+    const mutationSeq = bumpTaskMutationSeq(taskId);
+    setError(null);
+    setBundle((prev) => ({
+      ...prev,
+      tasks: prev.tasks.map((task) => task.taskId === taskId ? after : task),
+    }));
+
+    try {
+      const serverTaskId = await resolveTaskIdForServer(taskId);
+      if (!serverTaskId) return;
+      const parentTaskId = patch.parentTaskId !== undefined && patch.parentTaskId
+        ? await resolveTaskIdForServer(patch.parentTaskId)
+        : patch.parentTaskId;
+      const payload: Record<string, unknown> = { taskId: serverTaskId };
+      if (patch.parentTaskId !== undefined) payload.parentTaskId = parentTaskId || null;
+      if (patch.mindmapX !== undefined) payload.mindmapX = patch.mindmapX;
+      if (patch.mindmapY !== undefined) payload.mindmapY = patch.mindmapY;
+      if (patch.active !== undefined) payload.active = patch.active;
+      const serverTask = await requestTask("PATCH", payload);
+      if (!isCurrentTaskMutation(taskId, mutationSeq, serverTask.taskId)) return;
+      setBundle((prev) => ({
+        ...prev,
+        tasks: prev.tasks.map((task) => task.taskId === taskId || task.taskId === serverTask.taskId ? serverTask : task),
+      }));
+    } catch (err) {
+      setBundle((prev) => ({
+        ...prev,
+        tasks: prev.tasks.map((task) => task.taskId === taskId ? before : task),
+      }));
+      setError(err instanceof Error ? err.message : "task update failed");
+    }
+  }
+
+  async function undoLastTaskAction() {
+    const entry = undoStackRef.current.pop();
+    if (!entry) return;
+
+    if (entry.kind === "create") {
+      await deleteTaskWithoutUndo(entry.taskId);
+      return;
+    }
+
+    if (entry.kind === "delete") {
+      const restored = { ...entry.task, active: true };
+      if (isOptimisticTaskId(restored.taskId)) {
+        canceledCreateIdsRef.current.delete(restored.taskId);
+      }
+      bumpTaskMutationSeq(restored.taskId);
+      setBundle((prev) => ({
+        ...prev,
+        tasks: prev.tasks.some((task) => task.taskId === restored.taskId) ? prev.tasks : [...prev.tasks, restored],
+      }));
+      const serverTaskId = await resolveTaskIdForServer(restored.taskId);
+      if (serverTaskId) {
+        await requestTask("PATCH", { taskId: serverTaskId, active: true }).catch((err) => {
+          setError(err instanceof Error ? err.message : "undo failed");
+        });
+      }
+      return;
+    }
+
+    setBundle((prev) => ({
+      ...prev,
+      tasks: prev.tasks.map((task) => task.taskId === entry.before.taskId ? entry.before : task),
+    }));
+    bumpTaskMutationSeq(entry.before.taskId);
+    const serverTaskId = await resolveTaskIdForServer(entry.before.taskId);
+    if (!serverTaskId) return;
+    const serverParentTaskId = entry.before.parentTaskId ? await resolveTaskIdForServer(entry.before.parentTaskId) : null;
+    await requestTask("PATCH", {
+      taskId: serverTaskId,
+      parentTaskId: serverParentTaskId || null,
+      mindmapX: entry.before.mindmapX,
+      mindmapY: entry.before.mindmapY,
+    }).catch((err) => {
+      setError(err instanceof Error ? err.message : "undo failed");
+    });
+  }
+
+  async function deleteTaskWithoutUndo(taskId: string) {
+    const task = latestTasksRef.current.find((candidate) => candidate.taskId === taskId);
+    bumpTaskMutationSeq(taskId);
+    setBundle((prev) => ({ ...prev, tasks: prev.tasks.filter((candidate) => candidate.taskId !== taskId) }));
+    if (formRef.current?.taskId === taskId) {
+      setForm(null);
+      setFormPosition(null);
+    }
+    if (isOptimisticTaskId(taskId)) {
+      canceledCreateIdsRef.current.add(taskId);
+      return;
+    }
+    await requestTask("PATCH", { taskId, active: false }).catch((err) => {
+      if (task) setBundle((prev) => ({ ...prev, tasks: prev.tasks.some((candidate) => candidate.taskId === taskId) ? prev.tasks : [...prev.tasks, task] }));
+      setError(err instanceof Error ? err.message : "undo failed");
+    });
+  }
+
+  useEffect(() => {
+    undoLastTaskActionRef.current = undoLastTaskAction;
+    patchTaskOptimisticRef.current = patchTaskOptimistic;
+  });
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      if (event.shiftKey || event.key.toLowerCase() !== "z") return;
+      if (editableTarget(event.target)) return;
+      event.preventDefault();
+      void undoLastTaskActionRef.current();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   useEffect(() => {
     if (!dragging) return;
@@ -720,17 +1062,32 @@ export function TasksClient() {
       const dy = (event.clientY - current.startY) / zoomRef.current;
       const moved = current.moved || Math.abs(dx) + Math.abs(dy) > 5;
       if (!moved) return;
+      const nextX = Math.max(0, Math.min(CANVAS_WIDTH - NODE_WIDTH, Math.round(current.originX + dx)));
+      const nextY = Math.max(0, Math.min(CANVAS_HEIGHT - NODE_HEIGHT, Math.round(current.originY + dy)));
       skipTaskClickRef.current = current.taskId;
       window.setTimeout(() => {
         if (skipTaskClickRef.current === current.taskId) skipTaskClickRef.current = null;
       }, 0);
       const task = latestTasksRef.current.find((candidate) => candidate.taskId === current.taskId);
       if (!task) return;
+      const after = { ...task, mindmapX: nextX, mindmapY: nextY, updatedAt: new Date().toISOString() };
+      bumpTaskMutationSeq(current.taskId);
+      setBundle((prev) => ({
+        ...prev,
+        tasks: prev.tasks.map((candidate) => candidate.taskId === current.taskId ? after : candidate),
+      }));
+      pushUndo({
+        kind: "patch",
+        before: { ...task, mindmapX: current.originX, mindmapY: current.originY },
+        after,
+      });
       try {
-        await mutateTask("PATCH", {
-          taskId: current.taskId,
-          mindmapX: task.mindmapX,
-          mindmapY: task.mindmapY,
+        const serverTaskId = await resolveTaskIdForServer(current.taskId);
+        if (!serverTaskId) return;
+        await requestTask("PATCH", {
+          taskId: serverTaskId,
+          mindmapX: nextX,
+          mindmapY: nextY,
         });
       } catch (err) {
         setError(err instanceof Error ? err.message : "drag save failed");
@@ -763,17 +1120,12 @@ export function TasksClient() {
       const current = connectingRef.current;
       setConnecting(null);
       if (!current) return;
+      window.setTimeout(() => {
+        suppressNextCanvasClickRef.current = false;
+      }, 0);
       const childTaskId = taskNodeAt(event.clientX, event.clientY, current.parentTaskId);
       if (!childTaskId || childTaskId === current.parentTaskId) return;
-      try {
-        await mutateTask("PATCH", {
-          taskId: childTaskId,
-          parentTaskId: current.parentTaskId,
-        });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "edge save failed");
-        load();
-      }
+      void patchTaskOptimisticRef.current(childTaskId, { parentTaskId: current.parentTaskId });
     };
     window.addEventListener("pointermove", onMove, { passive: false });
     window.addEventListener("pointerup", onUp, { once: true });
@@ -880,6 +1232,7 @@ export function TasksClient() {
             onConnectPointerDown={(event, task) => {
               event.stopPropagation();
               event.preventDefault();
+              suppressNextCanvasClickRef.current = true;
               const point = canvasPoint(event.clientX, event.clientY);
               setConnecting({
                 parentTaskId: task.taskId,
@@ -1314,7 +1667,17 @@ function TaskDialog({
     <div
       role="dialog"
       aria-modal="false"
+      tabIndex={-1}
       className="fixed z-50 overflow-hidden rounded-lg border border-border bg-popover text-sm text-popover-foreground shadow-2xl ring-1 ring-foreground/10"
+      onPointerDown={(event) => {
+        if (editableTarget(event.target) || (event.target as HTMLElement).closest("button")) return;
+        event.currentTarget.focus();
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== "Backspace" || !form.taskId || editableTarget(event.target)) return;
+        event.preventDefault();
+        onDelete(form.taskId);
+      }}
       style={{
         left: dialogPosition.x,
         top: dialogPosition.y,

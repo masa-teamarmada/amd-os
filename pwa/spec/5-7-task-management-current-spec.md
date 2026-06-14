@@ -63,13 +63,15 @@ PJ filter、担当 filter、status filter、text search を同一ツールバー
 
 - canvas は scrollable 2D plane。ノードはカードではなく円形node + 外側labelで表示する。
 - canvas は CSS scale で `0.35x` から `2.25x` まで拡大縮小できる。trackpad pinch は `ctrl/meta wheel` として処理し、touch pinch は2 pointer distanceで処理する。
-- 空白クリックでクリック位置を初期座標にして `POST /api/tasks` を即時実行し、作成済みノードの右側に詳細ウィンドウを開く。
-- ノード本体は pointer drag で移動する。移動dragは edge 作成に使わない。
+- 空白クリックでクリック位置を初期座標にした optimistic node を即時追加し、作成済みノードの右側に詳細ウィンドウを開く。`POST /api/tasks` は裏で実行し、成功時に temporary id を server id へ差し替え、失敗時は optimistic node を戻す。
+- ノード本体は pointer drag で移動する。移動dragは edge 作成に使わない。位置は画面へ先に反映し、保存は裏で実行する。
 - ノードクリックで詳細/編集ウィンドウをノード右側に開く。詳細ウィンドウは backdrop / blur を出さず、header drag で移動できる。
-- 詳細ウィンドウの削除は `PATCH /api/tasks active=false` による論理削除で、DB `DELETE` は使わない。
+- 詳細ウィンドウの削除ボタン、または詳細ウィンドウ本体にフォーカスした状態の Backspace は、画面から即時除去して裏で `PATCH /api/tasks active=false` を実行する。DB `DELETE` は使わない。入力欄フォーカス中の Backspace は文字編集として扱う。
+- Ctrl+Z / Cmd+Z は、入力欄フォーカス外なら直前の create / delete / edge patch / position patch を local undo stack から復元し、必要な逆向き `PATCH` を裏で実行する。
 - ノード色は `done` を青、`done` 以外を黄にする。
 - ノード配置は atlas map と同じ hard collision 型の反発を display layout に適用し、近いノード同士の重なりを避ける。
-- ノード輪郭hoverで表示される `+` 接続ハンドルから別ノードの輪郭へdragすると、`target.parent_task_id=source.task_id` を保存する。
+- ノード輪郭hoverで表示される `+` 接続ハンドルから別ノードの輪郭へdragすると、画面上は即時接続し、裏で `target.parent_task_id=source.task_id` を保存する。
+- 接続drag直後のclick eventは空白クリック作成として扱わない。edge接続と新規作成が同じpointer操作で混線しないこと。
 - edge は `parent_task_id` から SVG path で描き、親から子へ向かう arrow marker を付ける。
 
 ### Gantt
@@ -90,4 +92,4 @@ PJ filter、担当 filter、status filter、text search を同一ツールバー
 
 - TypeScript: `npx tsc --noEmit`
 - Build: `npm run build`
-- Browser: `/tasks` を開き、top nav、mindmap空白クリック即時作成、pinch/zoom、node click詳細、詳細drag、削除、node位置drag、`+` handle drag edge、gantt空白行作成を確認する。
+- Browser: `/tasks` を開き、top nav、mindmap空白クリック即時作成、pinch/zoom、node click詳細、詳細drag、Backspace削除、Ctrl+Z復元、node位置drag、`+` handle drag edge、gantt空白行作成を確認する。
