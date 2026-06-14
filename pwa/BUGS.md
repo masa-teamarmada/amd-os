@@ -5,6 +5,25 @@
 
 ---
 
+### [security/rls] 3テーブルが RLS 無効のまま anon に全権 (SELECT/INSERT/UPDATE/DELETE) が開いていた (2026-06-14)
+
+- **状態**: ✅ クローズ (= migration 135 で RLS 有効化 + policy 追加。本番適用 + 検証済み)
+- **症状**: Supabase security advisor が `rls_disabled_in_public` ERROR を 3 テーブルで検出。OS 内の他の全テーブルは RLS 有効なのに、この 3 つだけ RLS が無効で、PWA に埋め込まれた anon key で誰でも `INSERT/UPDATE/DELETE` できる状態だった。
+  - `milestone_monthly_contribution_allocations` (メンバー別の報酬配分・最機密)
+  - `project_graduation_signals` (PJ 卒業判定スコア)
+  - `protocol_result_observations` (プロトコル結果観察)
+- **原因**: テーブル作成 DDL で `ENABLE ROW LEVEL SECURITY` を付け忘れた取りこぼし。anon key は PWA クライアントに公開されているので、RLS が無い = 報酬配分の改竄・削除が外部から可能だった (実害は未確認だが穴としては最大級)。
+- **対応内容** (`pwa/scripts/migrations/135_enable_rls_three_unprotected_tables.sql`):
+  - 3 テーブルとも `ENABLE ROW LEVEL SECURITY` + OS 標準 policy 3 種を追加: `anon SELECT (true)` (PWA 表示用の読み取りは維持) / `service_role ALL` (cron・API の書き込み経路) / `is_admin() ALL` (将来の管理 UI)。
+  - 書き込み経路の裏取り: 報酬配分は `src/lib/reward-summary.ts` 経由で呼び出し API/cron は全て `SUPABASE_SERVICE_ROLE_KEY`、卒業判定は `src/app/api/cron/graduation-detection/route.ts` の `createAdminClient` (service_role)、protocol 観察は admin 画面が `.select` のみ (write 経路なし)。→ `service_role ALL` で既存の書き込みは全て通り、anon write を塞いでも回帰なし。
+- **検証** (本番適用後):
+  - 3 テーブルとも `rls_on=true` + policy 3 件。
+  - anon SELECT は引き続き成功 (PWA 表示行は読める)。anon INSERT/UPDATE/DELETE は全てブロック (テスト INSERT 0 行・行数不変)。
+  - security advisor 再実行で 3 件の `rls_disabled_in_public` ERROR が消滅。
+- **教訓**: anon key は公開鍵。RLS 無効テーブル = 「公開された書き込み API」と同義。新テーブル作成時は必ず `ENABLE ROW LEVEL SECURITY` をセットで書く。定期的に `get_advisors(type=security)` で `rls_disabled_in_public` を監査する。残りの advisor 項目 (SECURITY DEFINER view `company_budget_actual_monthly`、leaked password protection、function search_path) は別件・低優先で未対応 (まさ承認待ち)。
+
+---
+
 ### [git/deploy] L2 リネーム正本が「巻き戻った」— 本番ライン 64 commit が未 push の codex ブランチに幽閉 (2026-06-12)
 
 - **状態**: ✅ クローズ (= main へ fast-forward + push で復旧。恒久対策 A案を同日実装)
