@@ -1,0 +1,89 @@
+# OS Task Management 仕様
+
+> **この章は何か**: `/tasks` の全PJタスク管理、mindmap / gantt UI、`tasks` テーブル拡張、API mutation、権限境界の確定仕様。
+
+## Surface
+
+| surface | contract |
+|---|---|
+| top nav | `GlobalNav` に `タスク` を追加し、`/tasks` へ遷移する |
+| page route | `pwa/src/app/(app)/tasks/page.tsx` |
+| client UI | `pwa/src/components/tasks/TasksClient.tsx` |
+| API | `GET /api/tasks`, `POST /api/tasks`, `PATCH /api/tasks` |
+| table | `tasks` |
+
+## Data Model
+
+既存 `tasks` は cockpit legacy kanban の正本として存在していたため、新テーブルを作らず `tasks` を非破壊で拡張する。
+
+| column | purpose |
+|---|---|
+| `assignee_member_id` | `members.member_id` への正規担当。既存 `assignee` text は互換表示用に維持 |
+| `start_date` / `due_date` | ガント期間 |
+| `progress` | 0〜100。`tasks_progress_range` constraint |
+| `parent_task_id` | mindmap edge。drop先が親、drag元が子。self-cycle / ancestor-cycle は API で拒否 |
+| `mindmap_x` / `mindmap_y` | mindmap position |
+| `active` | 論理表示フラグ。DELETEしない |
+| `task_source` | `manual` などの生成元 |
+| `created_by` / `updated_by` | 操作者 email |
+| `position_updated_at` | mindmap座標保存時刻 |
+
+Migration: `pwa/scripts/migrations/136_tasks_management_fields.sql`
+
+## API Contract
+
+### `GET /api/tasks`
+
+- `requireAuth()` 必須。
+- `tasks(active=true)`、`projects`、`members`、`member_profiles`、active `project_members` を返す。
+- 全PJ/全員を横断する要件のため、API route 内では `createAdminClient()` で read する。
+
+### `POST /api/tasks`
+
+- `projectId` 必須。
+- `task_id` は `task_YYYYMMDDhhmmss_<suffix>` 形式でAPIが生成する。
+- `title` が空なら `新規タスク`。
+- `assigneeMemberId` があれば `members.code_name` を `assignee` に同期し、旧カンバン互換を保つ。
+- `task_source='manual'`, `active=true`。
+
+### `PATCH /api/tasks`
+
+- `taskId` 必須。
+- title / description / project / assignee / status / priority / start/due / progress / parent / mindmap position / active を部分更新する。
+- `parentTaskId` 更新時は、全active taskの `parent_task_id` chain を見て循環を拒否する。
+- `mindmapX` / `mindmapY` 更新時は `position_updated_at` も更新する。
+
+## UI Contract
+
+### Filters
+
+PJ filter、担当 filter、status filter、text search を同一ツールバーに置く。status の既定は `open` (= `done` 以外)。
+
+### Mindmap
+
+- canvas は scrollable 2D plane。
+- 空白クリックでクリック位置を初期座標にして作成dialogを開く。
+- タスクカードは pointer drag で移動する。
+- drag終了時、別タスクの矩形上にdropされていたら `parent_task_id=dropTarget.task_id` を保存する。
+- edge は `parent_task_id` から SVG path で描く。
+- タスク詳細は double click または作成/編集dialogで更新する。
+
+### Gantt
+
+- PJごとに section を分ける。
+- section 上部の空白行クリックで、そのPJの作成dialogを開く。
+- task row は title / assignee / status / progress と、start/due に基づく bar を表示する。
+- row click で編集dialogを開く。
+
+## Authority / Safety
+
+- `/tasks` は `(app)` 配下なので login 必須。
+- API mutation は authenticated user のみ。DB write は `service_role` で行い、browser anon key から直接 `tasks` を書かせない。
+- RLS は `authenticated SELECT`, `is_admin() ALL`, `service_role ALL` を定義する。既存 cockpit kanban 互換のため read は authenticated 全体に開く。
+- DELETE / TRUNCATE / DROP は使わない。非表示は `active=false`。
+
+## Validation
+
+- TypeScript: `npx tsc --noEmit`
+- Build: `npm run build`
+- Browser: `/tasks` を開き、top nav、mindmap空白クリック作成、task drag/drop edge、gantt空白行作成を確認する。

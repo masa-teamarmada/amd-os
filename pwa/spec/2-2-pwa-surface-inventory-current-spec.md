@@ -8,6 +8,7 @@
 |---|---|---|---|
 | auth | `/auth/login`, `/auth/callback` | Supabase Google OAuth login / callback | `pwa/src/app/auth/*` |
 | home | `/dashboard` | PJ一覧、Atlas / Venture Map / MyPage / Admin 入口 | `dashboard/page.tsx` |
+| task management | `/tasks` | 全PJ・全員のタスク横断ビュー。mindmap / gantt、空白クリック作成、drag/drop親子edge、position保存 | `tasks/page.tsx`, `TasksClient.tsx` |
 | cockpit | `/project/[projectId]/cockpit` | PJ status、AMD Score、MS、経営ハイライト、月次ルーティン、MTGサマリ、kanban | `project/[projectId]/cockpit/page.tsx`, `CockpitView.tsx` |
 | member | `/mypage`, `/reimburse` | メンバー活動、週次活動、立替精算 | `mypage/page.tsx`, `reimburse/page.tsx` |
 | admin | `/admin/*` | billing / finance / projects / members / payouts / prompts / settings / protocols / tsukuyomi / weekly (週次活動×月次報酬マトリクス: `/api/admin/weekly` が member_activities(member_weekly) と表示月の `billing_cycles.reward_summary_json` の `members[].totalPay` を返し、右端列=メンバー別月合計・最下行=PJ別月合計・総合計を描画) | `admin/*/page.tsx` |
@@ -26,6 +27,7 @@
 | strategy dialogue | `/api/strategy-signals`, `/api/dialogue-meeting`, `/api/dialogue-meeting/narrate` | `project_strategy_signals`, `project_meeting_summaries` | `/spec/3-6-strategy-signals-current-spec` |
 | monthly report | `/api/monthly-report/*`, `/api/report/*` | `monthly_reports` / revision | `/spec/3-2-monthly-reports-current-spec` |
 | meeting workflow | `/api/meeting-*` | MTG assets / summary / workflow | `/spec/3-3-meeting-flow-current-spec` |
+| tasks | `/api/tasks`, `/api/task-calendar/schedule-plan` | `tasks` 作成/更新/position/parent edge、Calendar作業枠dry-run | `/spec/5-7-task-management-current-spec`, `/spec/3-3-meeting-flow-current-spec` |
 | admin finance | `/api/admin/finance/*`, `/api/admin/payment-confirm`, `/api/invoice/*` | finance tables, billing, freee / GAS | TODO spec |
 | payouts / reward | `/api/admin/payouts`, `/api/cron/payout-*`, `/api/rewards/sync` | reward cache, payout notices, GAS PDF | TODO spec |
 | Atlas | `/api/atlas/*` | atlas signals / stories / themes | TODO spec |

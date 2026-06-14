@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-06-09 14:31 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-06-14 17:08 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -17,7 +17,7 @@
 
 ## amd_management_score_evidence
 
-行数 (概算): 179
+行数 (概算): 183
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -38,7 +38,7 @@ PRIMARY KEY: `id`
 
 ## amd_management_score_raw_signals
 
-行数 (概算): 4,255
+行数 (概算): 4,360
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -484,7 +484,7 @@ PRIMARY KEY: `id`
 
 ## company_actual_monthly
 
-行数 (概算): 53
+行数 (概算): 55
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -812,7 +812,7 @@ PRIMARY KEY: `nudge_id`
 
 ## contract_signals
 
-行数 (概算): -1
+行数 (概算): 133
 PRIMARY KEY: `signal_id`
 UNIQUE: `(source_kind,source_table,source_id,signal_type)` (constraint: `contract_signals_source_kind_source_table_source_id_signal__key`)
 
@@ -1072,7 +1072,7 @@ PRIMARY KEY: `base_ym`
 
 ## l2_extract_state
 
-行数 (概算): 56
+行数 (概算): 109
 PRIMARY KEY: `l2_kind, target_id, scope_key`
 
 | # | column | type | nullable | default |
@@ -1336,7 +1336,7 @@ PRIMARY KEY: `meeting_id`
 
 ## member_activities
 
-行数 (概算): 182
+行数 (概算): 251
 PRIMARY KEY: `id`
 UNIQUE: `(member_id,project_id,source,source_item_id)` (constraint: `member_activities_member_id_project_id_source_source_item_i_key`)
 
@@ -1600,7 +1600,7 @@ UNIQUE: `(milestone_id,ym,member_id)` (constraint: `milestone_monthly_contributi
 
 ## milestone_monthly_progress
 
-行数 (概算): 292
+行数 (概算): 317
 PRIMARY KEY: `id`
 UNIQUE: `(milestone_key,ym)` (constraint: `milestone_monthly_progress_milestone_key_ym_key`)
 
@@ -2177,7 +2177,7 @@ UNIQUE: `(project_id,ym)` (constraint: `project_graduation_signals_ym_unique`)
 
 ## project_knowledge
 
-行数 (概算): 2,717
+行数 (概算): 2,730
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -2215,7 +2215,7 @@ PRIMARY KEY: `id`
 
 ## project_meeting_summaries
 
-行数 (概算): 185
+行数 (概算): 204
 PRIMARY KEY: `meeting_id`
 
 | # | column | type | nullable | default |
@@ -2812,6 +2812,18 @@ UNIQUE: `(task_id)` (constraint: `tasks_task_id_key`)
 | 8 | `priority` | `text` | NULL | `` |
 | 9 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 | 10 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 11 | `assignee_member_id` | `text` | NULL | `` |
+| 12 | `start_date` | `date` | NULL | `` |
+| 13 | `due_date` | `date` | NULL | `` |
+| 14 | `progress` | `int4` | NOT NULL | `0` |
+| 15 | `parent_task_id` | `text` | NULL | `` |
+| 16 | `mindmap_x` | `numeric` | NOT NULL | `0` |
+| 17 | `mindmap_y` | `numeric` | NOT NULL | `0` |
+| 18 | `active` | `bool` | NOT NULL | `true` |
+| 19 | `task_source` | `text` | NOT NULL | `'manual'::text` |
+| 20 | `created_by` | `text` | NULL | `` |
+| 21 | `updated_by` | `text` | NULL | `` |
+| 22 | `position_updated_at` | `timestamptz` | NULL | `` |
 
 ## textbook_insight_candidates
 
@@ -3025,7 +3037,7 @@ PRIMARY KEY: `id`
 
 ## value_milestones
 
-行数 (概算): 155
+行数 (概算): 171
 PRIMARY KEY: `id`
 UNIQUE: `(milestone_id)` (constraint: `value_milestones_milestone_id_key`)
 

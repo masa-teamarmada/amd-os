@@ -91,6 +91,25 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - MyPage embed: `/dashboard` 右カラムでは `<MyPageContent embedded showMonthlyProjects={false} />` を使い、「今週やったこと」より下の月別PJカードを出さない。`/mypage` 単体では従来どおり月別PJカードを維持する。
 - Dashboard上部: Management Score と月次ルーティン残タスクを維持する。
 
+## /tasks
+
+目的: 全PJ・全員のタスク状況を、マインドマップとガントチャートの2視点で横断管理する。
+
+必須機能:
+
+- GlobalNav に `タスク` 導線を置く。
+- PJ / 担当 / status / text search で全PJタスクを絞り込める。
+- マインドマップビュー: 空白クリックで新規タスクを作成する。タスクカードをドラッグして移動し、別タスクへdropすると drop先が親、drag元が子として `tasks.parent_task_id` に保存される。edge は画面上に線で表示する。
+- ガントビュー: PJごとにsectionを分け、タスク行に担当・status・start/due・progress・期間バーを表示する。PJ section の空白行クリックでそのPJの新規タスクを作成する。
+- 書き込みは `/api/tasks` 経由。browser client から直接 `tasks` を更新しない。
+- タスクを消す導線は置かず、非表示は `active=false` を使う。
+
+回帰防止:
+
+- `tasks` 既存カンバン列 (`task_id`, `project_id`, `title`, `status`, `assignee`, `priority`) の意味を変えない。
+- `parent_task_id` の循環は API で拒否する。
+- DDL変更時は `pwa/scripts/migrations/` と `/spec/5-7-task-management-current-spec` を同時更新する。
+
 ## /project/[projectId]/cockpit
 
 目的: PJの現在地、MS進捗、経営ハイライト、月次ルーティン、TODO/nudgeを一画面で見る。

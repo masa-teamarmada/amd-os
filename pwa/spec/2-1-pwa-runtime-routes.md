@@ -49,6 +49,7 @@
 | `/admin/private-wiki` | 裏wiki。人物単位の趣味・関係性メモを PJ 別に保存する admin-only 台帳 |
 | `/notifications` | L2 candidate / feedback の採否 |
 | `/management-score` | AMD Management Score |
+| `/tasks` | 全PJ・全員のタスク管理。マインドマップ / ガントを切り替え、空白クリックで作成、drag/dropで親子edgeを作る |
 | `/institutions` / `/institutions/*` | ERS / 研究機関評価 |
 
 ## API / cron の境界
@@ -58,6 +59,7 @@
 - `/api/report/generate` や `/api/cron/monthly-reports-backfill` は重い手動復旧 route。定期実行しない。
 - 入金・支払・freee 連携などの運用 API は、既存の admin auth / signed token / `CRON_SECRET` 境界を崩さない。
 - `/api/admin/private-wiki` は `requireAdmin()` + `service_role` で `private_wiki_entries` を list/create/update/archive する。browser client から直接書かせない。
+- `/api/tasks` は authenticated user の全PJタスク横断 read と、タスク作成/更新/親子edge/position保存を扱う。DB write は `service_role` 経由で、DELETE ではなく `active=false` を使う。
 
 ## Admin Private Wiki
 

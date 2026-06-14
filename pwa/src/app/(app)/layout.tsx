@@ -29,6 +29,7 @@ function pathToTitle(pathname: string): string | null {
   if (pathname.startsWith("/institutions/")) return "研究機関 ERS 詳細";
   if (pathname === "/institutions") return "研究機関 ERS";
   if (pathname.startsWith("/management-score")) return "Management Score";
+  if (pathname.startsWith("/tasks")) return "タスク";
   if (pathname === "/seeds") return "Seeds";
   if (pathname === "/vcs") return "VC";
   if (pathname === "/mypage") return "マイページ";

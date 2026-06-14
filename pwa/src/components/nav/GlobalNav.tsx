@@ -166,6 +166,18 @@ export function GlobalNav({ userCodeName, isAdmin = false, memberId = null }: Gl
           Management
         </Link>
 
+        <Link
+          href="/tasks"
+          className={cn(
+            "text-xs px-2.5 py-1 rounded-md transition-colors",
+            pathname.startsWith("/tasks")
+              ? "bg-accent text-accent-foreground font-medium"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          タスク
+        </Link>
+
         {/* Seeds + 受信箱バッジ */}
         <Link
           href="/seeds"
