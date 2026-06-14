@@ -245,10 +245,6 @@ export function ContractsClient() {
   const [runningNudges, setRunningNudges] = useState(false);
 
   const projectById = useMemo(() => new Map(projects.map((project) => [project.project_id, project])), [projects]);
-  const selected = useMemo(
-    () => contracts.find((contract) => contract.contract_id === selectedId) || contracts[0] || null,
-    [contracts, selectedId],
-  );
 
   const docsByContract = useMemo(() => {
     const map = new Map<string, ContractDocument[]>();
@@ -307,6 +303,11 @@ export function ContractsClient() {
     const missingSigned = contracts.filter((contract) => !contract.signed_at && contract.status !== "cancelled").length;
     return { open, awaiting, signed, missingSigned };
   }, [contracts]);
+
+  const selected = useMemo(
+    () => filteredContracts.find((contract) => contract.contract_id === selectedId) || filteredContracts[0] || null,
+    [filteredContracts, selectedId],
+  );
 
   async function loadContracts() {
     setLoading(true);
