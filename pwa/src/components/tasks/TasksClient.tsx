@@ -351,6 +351,10 @@ function nodeInitial(task: OsTask) {
   return (title ? title.slice(0, 2) : task.projectId).toUpperCase();
 }
 
+function nodeTitle(task: OsTask) {
+  return task.title.trim();
+}
+
 function makeOptimisticTaskId() {
   return `task_local_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 }
@@ -608,7 +612,27 @@ export function TasksClient() {
     setBundle((prev) => ({
       ...prev,
       tasks: prev.tasks.map((task) => {
-        if (task.taskId === optimisticTaskId) return serverTask;
+        if (task.taskId === optimisticTaskId) {
+          if (taskMutationSeqRef.current.has(optimisticTaskId)) {
+            return {
+              ...serverTask,
+              title: task.title,
+              description: task.description,
+              projectId: task.projectId,
+              assignee: task.assignee,
+              assigneeMemberId: task.assigneeMemberId,
+              status: task.status,
+              priority: task.priority,
+              startDate: task.startDate,
+              dueDate: task.dueDate,
+              progress: task.progress,
+              parentTaskId: task.parentTaskId,
+              mindmapX: task.mindmapX,
+              mindmapY: task.mindmapY,
+            };
+          }
+          return serverTask;
+        }
         if (task.parentTaskId === optimisticTaskId) return { ...task, parentTaskId: serverTask.taskId };
         return task;
       }),
@@ -628,63 +652,83 @@ export function TasksClient() {
 
   async function saveForm() {
     if (!form) return;
-    try {
-      const payload = {
-        taskId: form.taskId,
-        title: form.title || "新規タスク",
-        description: form.description,
-        projectId: form.projectId,
-        assigneeMemberId: form.assigneeMemberId || null,
-        status: form.status,
-        priority: form.priority || null,
-        startDate: form.startDate || null,
-        dueDate: form.dueDate || null,
-        progress: form.progress,
-        parentTaskId: form.parentTaskId || null,
-        mindmapX: form.mindmapX,
-        mindmapY: form.mindmapY,
-      };
-      if (form.taskId && isOptimisticTaskId(form.taskId)) {
-        const taskId = form.taskId;
-        const mutationSeq = bumpTaskMutationSeq(taskId);
+    const payload = {
+      taskId: form.taskId,
+      title: form.title,
+      description: form.description,
+      projectId: form.projectId,
+      assigneeMemberId: form.assigneeMemberId || null,
+      status: form.status,
+      priority: form.priority || null,
+      startDate: form.startDate || null,
+      dueDate: form.dueDate || null,
+      progress: form.progress,
+      parentTaskId: form.parentTaskId || null,
+      mindmapX: form.mindmapX,
+      mindmapY: form.mindmapY,
+    };
+    if (!form.taskId) {
+      try {
+        await mutateTask("POST", payload);
+        setForm(null);
+        setFormPosition(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "save failed");
+      }
+      return;
+    }
+
+    const taskId = form.taskId;
+    const mutationSeq = bumpTaskMutationSeq(taskId);
+    const before = latestTasksRef.current.find((task) => task.taskId === taskId);
+    const nextLocal = before ? {
+      ...before,
+      title: form.title,
+      description: form.description,
+      projectId: form.projectId,
+      assigneeMemberId: form.assigneeMemberId || null,
+      status: form.status,
+      priority: form.priority || "medium",
+      startDate: form.startDate || null,
+      dueDate: form.dueDate || null,
+      progress: form.progress,
+      parentTaskId: form.parentTaskId || null,
+      mindmapX: form.mindmapX,
+      mindmapY: form.mindmapY,
+      updatedAt: new Date().toISOString(),
+    } : null;
+
+    if (before && nextLocal) {
+      pushUndo({ kind: "patch", before, after: nextLocal });
+      setBundle((prev) => ({
+        ...prev,
+        tasks: prev.tasks.map((task) => task.taskId === taskId ? nextLocal : task),
+      }));
+    }
+    setForm(null);
+    setFormPosition(null);
+
+    void (async () => {
+      try {
+        const serverTaskId = await resolveTaskIdForServer(taskId);
+        if (!serverTaskId) return;
+        const serverParentTaskId = form.parentTaskId ? await resolveTaskIdForServer(form.parentTaskId) : null;
+        const patchedTask = await requestTask("PATCH", {
+          ...payload,
+          taskId: serverTaskId,
+          parentTaskId: serverParentTaskId || null,
+        });
+        if (!isCurrentTaskMutation(taskId, mutationSeq, serverTaskId)) return;
         setBundle((prev) => ({
           ...prev,
-          tasks: prev.tasks.map((task) => task.taskId === taskId ? {
-            ...task,
-            title: form.title || "新規タスク",
-            description: form.description,
-            projectId: form.projectId,
-            assigneeMemberId: form.assigneeMemberId || null,
-            status: form.status,
-            priority: form.priority || "medium",
-            startDate: form.startDate || null,
-            dueDate: form.dueDate || null,
-            progress: form.progress,
-            parentTaskId: form.parentTaskId || null,
-            mindmapX: form.mindmapX,
-            mindmapY: form.mindmapY,
-          } : task),
+          tasks: prev.tasks.map((task) => (
+            task.taskId === taskId || task.taskId === serverTaskId ? patchedTask : task
+          )),
         }));
-        const serverTaskId = await resolveTaskIdForServer(taskId);
-        if (serverTaskId) {
-          const patchedTask = await requestTask("PATCH", { ...payload, taskId: serverTaskId });
-          if (isCurrentTaskMutation(taskId, mutationSeq, serverTaskId)) {
-            setBundle((prev) => ({
-              ...prev,
-              tasks: prev.tasks.map((task) => (
-                task.taskId === taskId || task.taskId === serverTaskId ? patchedTask : task
-              )),
-            }));
-          }
-        }
-      } else {
-        await mutateTask(form.taskId ? "PATCH" : "POST", payload);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "save failed");
       }
-      setForm(null);
-      setFormPosition(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "save failed");
-    }
+    })();
   }
 
   function createTaskAt(x: number, y: number, projectId = projectFilter === "all" ? bundle.projects[0]?.project_id : projectFilter) {
@@ -693,7 +737,7 @@ export function TasksClient() {
     const now = new Date().toISOString();
     const optimisticTask: OsTask = {
       taskId: makeOptimisticTaskId(),
-      title: draft.title || "新規タスク",
+      title: draft.title,
       description: draft.description,
       projectId: draft.projectId,
       assignee: "",
@@ -1347,6 +1391,11 @@ function MindmapView({
   );
   const layoutTaskById = useMemo(() => new Map(layoutTasks.map((task) => [task.taskId, task])), [layoutTasks]);
   const visibleIds = new Set(layoutTasks.map((task) => task.taskId));
+  const childCountByParentId = new Map<string, number>();
+  for (const task of layoutTasks) {
+    if (!task.parentTaskId || !visibleIds.has(task.parentTaskId)) continue;
+    childCountByParentId.set(task.parentTaskId, (childCountByParentId.get(task.parentTaskId) ?? 0) + 1);
+  }
   const edges = layoutTasks
     .filter((task) => task.parentTaskId && visibleIds.has(task.parentTaskId))
     .map((task) => ({ child: task, parent: layoutTaskById.get(task.parentTaskId as string) }))
@@ -1434,6 +1483,7 @@ function MindmapView({
                 memberName={memberName}
                 isConnectTarget={connecting?.targetTaskId === task.taskId}
                 isConnectingSource={connecting?.parentTaskId === task.taskId}
+                childCount={childCountByParentId.get(task.taskId) ?? 0}
                 nodeRefs={nodeRefs}
                 onOpen={onTaskOpen}
                 onPointerDown={onTaskPointerDown}
@@ -1453,6 +1503,7 @@ function TaskNode({
   memberName,
   isConnectTarget,
   isConnectingSource,
+  childCount,
   nodeRefs,
   onOpen,
   onPointerDown,
@@ -1463,6 +1514,7 @@ function TaskNode({
   memberName: (memberId: string | null, fallback?: string) => string;
   isConnectTarget: boolean;
   isConnectingSource: boolean;
+  childCount: number;
   nodeRefs: React.MutableRefObject<Map<string, HTMLDivElement>>;
   onOpen: (task: OsTask) => void;
   onPointerDown: (event: React.PointerEvent<HTMLDivElement>, task: OsTask) => void;
@@ -1470,6 +1522,8 @@ function TaskNode({
 }) {
   const meta = statusMeta(task.status);
   const tone = nodeTone(task.status);
+  const title = nodeTitle(task);
+  const isHub = childCount >= 3;
   return (
     <div
       ref={(node) => {
@@ -1477,6 +1531,8 @@ function TaskNode({
         else nodeRefs.current.delete(task.taskId);
       }}
       data-task-node-id={task.taskId}
+      data-child-count={childCount}
+      data-task-hub={isHub ? "true" : undefined}
       className={cn(
         "group absolute select-none text-center transition-transform active:cursor-grabbing",
         isConnectTarget ? "scale-105" : "hover:scale-[1.02]",
@@ -1506,17 +1562,23 @@ function TaskNode({
         className={cn(
           "relative mx-auto grid cursor-grab place-items-center rounded-full border-[3px] shadow-2xl transition-all",
           tone.circle,
+          isHub ? "ring-[5px] ring-cyan-300/70 shadow-cyan-300/30" : "",
           isConnectTarget ? "ring-4 ring-amber-300/70" : "",
           isConnectingSource ? "ring-4 ring-amber-300/35" : "",
         )}
         style={{ width: NODE_DIAMETER, height: NODE_DIAMETER, marginTop: NODE_CIRCLE_TOP }}
       >
-        <div className={cn("pointer-events-none absolute -inset-4 rounded-full border", tone.halo)} />
+        <div className={cn("pointer-events-none absolute -inset-4 rounded-full border", tone.halo, isHub ? "border-cyan-200/70" : "")} />
+        {isHub && (
+          <div className="absolute -right-3 -top-3 grid h-8 min-w-8 place-items-center rounded-full border border-cyan-100 bg-cyan-400 px-2 text-[11px] font-bold leading-none text-slate-950 shadow-lg shadow-cyan-950/30">
+            {childCount}
+          </div>
+        )}
         <div className="absolute left-7 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full bg-sky-300/25" />
         <span className="relative max-w-[72px] truncate text-xl font-bold leading-none tracking-normal">{nodeInitial(task)}</span>
       </div>
       <div className="mt-3 px-1">
-        <div className="truncate text-[15px] font-semibold leading-tight text-slate-100">{task.title}</div>
+        <div className="h-[18px] truncate text-[15px] font-semibold leading-tight text-slate-100">{title}</div>
         <div className={cn("mt-1 truncate text-xs font-medium", tone.status)}>{meta.label}</div>
         <div className="mt-1 flex items-center justify-center gap-2 text-[11px] text-slate-400">
           <span className="inline-flex min-w-0 items-center gap-1 truncate"><UserRound className="h-3 w-3" />{memberName(task.assigneeMemberId, task.assignee)}</span>
@@ -1724,7 +1786,7 @@ function TaskDialog({
       >
         <div className="min-w-0">
           <div className="truncate font-heading text-base font-medium leading-none">{form.taskId ? "タスク編集" : "タスク作成"}</div>
-          <div className="mt-1 truncate text-xs text-muted-foreground">{form.title || "新規タスク"}</div>
+          {form.title.trim() && <div className="mt-1 truncate text-xs text-muted-foreground">{form.title}</div>}
         </div>
         <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="close task detail">
           <X className="h-4 w-4" />

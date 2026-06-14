@@ -35,6 +35,11 @@ function cleanText(value: unknown, max: number) {
   return trimmed ? trimmed.slice(0, max) : null;
 }
 
+function cleanTitle(value: unknown, max: number) {
+  if (typeof value !== "string") return null;
+  return value.trim().slice(0, max);
+}
+
 function cleanDate(value: unknown) {
   const text = cleanText(value, 10);
   if (!text) return null;
@@ -167,7 +172,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "invalid json" }, { status: 400 });
   }
 
-  const title = cleanText(body.title, 180) ?? "新規タスク";
+  const title = cleanTitle(body.title, 180) ?? "新規タスク";
   const projectId = cleanText(body.projectId, 32);
   if (!projectId) return NextResponse.json({ ok: false, error: "projectId required" }, { status: 400 });
 
@@ -228,7 +233,7 @@ export async function PATCH(req: NextRequest) {
     updated_at: new Date().toISOString(),
   };
 
-  if (body.title !== undefined) patch.title = cleanText(body.title, 180) ?? "新規タスク";
+  if (body.title !== undefined) patch.title = cleanTitle(body.title, 180) ?? "";
   if (body.description !== undefined) patch.description = cleanText(body.description, 4000);
   if (body.projectId !== undefined) patch.project_id = cleanText(body.projectId, 32);
   if (body.status !== undefined && STATUSES.has(String(body.status))) patch.status = body.status;
