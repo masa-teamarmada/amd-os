@@ -94,6 +94,8 @@ function sourceKindFromMeeting(row: {
 }) {
   const sourceKinds = String(row.source_kinds || "").toLowerCase();
   const haystack = `${sourceKinds}\n${row.notion_url || ""}\n${row.source_url || ""}\n${row.narrative_md || ""}`.toLowerCase();
+  if (haystack.includes("slack")) return "slack";
+  if (haystack.includes("gmail")) return "gmail";
   if (haystack.includes("drive")) return "drive";
   if (haystack.includes("notion")) return "notion";
   return "calendar";
