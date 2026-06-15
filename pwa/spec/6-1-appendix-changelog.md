@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-06-16 | 3-0 / operations catalog | 変更 | D系一覧の「抽出元」文言をさらに平易化し、D-13/D-14/L3-1 の `Claude routine` 残骸を除去。今は「既存 route はあるが前段 Codex collector 未実装」と読める形へ更新 | v0.22.14 でも OS一覧の source 欄に `Claude routine` が残り、現行 writer がまだ Claude に見えてしまっていたため | えいみ |
 | 2026-06-16 | 3-0 / 5-8 | 変更 | L1-L3データ一覧を「今の writer / 定額内か / 状態 / 次の動き」が一目で分かる平易な日本語へ更新。D-10 は Codex writer 起点だが内部 route が Anthropic API を使う例外許容と明記 | 旧一覧は `Claude routine target` などの履歴語が多く、今どの writer を見ればいいかが読み取りにくかったため | えいみ-worker |
 | 2026-06-16 | 3-0 / 3-1 / 5-3 / admin weekly / operations catalog | 変更 | D系 / M系 / W系 / H系の writer 表記を current truth へ再更新。`Claude routine / route が LLM 抽出` のような古い主語を、Codex automation / MMO Codex / PWA non-LLM / collector planned へ置換し、D-10 は「Codex writer起点だが内部 Anthropic route の例外」と明記 | v0.22.13 でも OS 上に `Claude routine` 主語が残っており、現行の抽出担当が誤読される状態だったため | えいみ |
 | 2026-06-16 | 5-8 | 変更 | D-10 `member-weekly-activities` を「Codex移植済み」から外し、Mac/MMO automation がどちらも `@anthropic-ai/sdk` を使う PWA route の trigger であることを明記。fixed-price goal 未達として rewrite 対象へ再分類 | Codex automation 経由でも PWA route が従量 Anthropic API を呼ぶなら、Claude routines を止めても定額外トークン削減にならないため | えいみ-worker |

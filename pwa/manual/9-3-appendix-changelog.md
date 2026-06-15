@@ -14,6 +14,7 @@
 
 | 日付 | 対象章 | 種別 | 内容 | 理由 | 誰が |
 |---|---|---|---|---|---|
+| 2026-06-16 | 6-1 / 8-3 / OSデータ一覧 | 変更 | OS上の D系データ一覧で `Claude routine` と見えてしまう source 文言を current truth に再修正。D-13/D-14/L3-1 は「route はあるが Codex collector 未実装」、D-10 は「Codex writer起点だが内部 Anthropic API 例外」と読めるように揃えた | まさが本番一覧を見たときに、いま誰が抽出していて何が未実装かを一目で判断できるようにするため | えいみ |
 | 2026-06-16 | 6-1 / 8-3 | 変更 | `/admin/settings` の説明と 8-3 を更新し、D-10 は「Codex 側 writer が起点だが内部 route は Anthropic API 使用、ただし例外許容」と明記。あわせてデータ一覧の writer 名を D/M/W/H で読める形に整理 | 「どの automation が何のデータを抽出するか」と「D-10 の例外境界」を OS / manual 上で平易に読み取れるようにするため | えいみ-worker |
 | 2026-06-16 | 8-3 L2抽出routine | 変更 | D-10 `member-weekly-activities` は `/admin/settings` 手動起動の対象から外し、Mac/MMO writer も `@anthropic-ai/sdk` を使う PWA route trigger に過ぎないため fixed-price goal 未達と明記 | Codex automation 経由でも従量 Anthropic route を叩く限り「定額トークン内で回す」要件を満たさないため | えいみ-worker |
 | 2026-06-16 | 8-3 L2抽出routine | 変更 | Claude routines 依存を外した L1-L3 Codex移植の current truth は spec `5-8` を参照する注記を追加。あわせて D-10 `member-weekly-activities` は `/admin/settings` の Operations から `interactive=1` 付きで手動起動できる運用を追記 | Claude routines を前提にした旧説明だけだと、抽出再開時にどこを起点にすべきか誤読するため。まず D-10 を OS 上から即時実行できる最小単位を残すため | えいみ-worker |

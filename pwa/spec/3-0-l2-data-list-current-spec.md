@@ -45,7 +45,7 @@ Claude routine と呼べるのは、Claude Routines UI上で存在し、`ACTIVE`
 
 | データ | tier | writer | 根拠 |
 |---|---|---|---|
-| D-1/D-3/D-4/D-5/D-6/D-7/D-8/D-10/D-11/D-13/D-14, M-1/M-2/M-3, W-1 | **L2** | LLM | Codex automation / MMO Codex / 既存PWA route が LLM 抽出。**D-10だけ内部 Anthropic route の例外あり** |
+| D-1/D-3/D-4/D-5/D-6/D-7/D-8/D-10/D-11/D-13/D-14, M-1/M-2/M-3, W-1 | **L2** | LLM | 主に Codex automation と MMO 側 Codex が抽出する。D-13/D-14 など一部は既存PWA APIを入口に使う。**D-10だけ内部で Anthropic API を使う例外あり** |
 | **D-2 MS Progress** | L2 + 非LLM派生 | 混在 | 乖離 revision 提案=LLM(L2)、デフォルト進捗%按分=`ms-schedule-progress` **非LLM**(派生) |
 | **D-9 Macrotrend** | L2 + 非LLM派生 | 混在 | observation 収集=LLM/web_search 一部(L2)、`macro_index_log` 集計=`macro-aggregate-indicators` **非LLM**(派生) |
 | **D-12 Finance/freee** | **L1相当** | **非LLM** | `freee-payment-sync` / `management-score-raw-data` は LLM を一切呼ばず、取引履歴をそのまま実績へ同期 (吟味なし) |
