@@ -1,6 +1,8 @@
 # L2 データ抽出 / Outbox 仕様
 
 > **この章は何か**: AMD OS の中核データである L2 と、5 生データ、Claude routine / Codex Desktop automation / Codex automation / PWA non-LLM cron / outbox / LaunchAgent 反映の確定仕様。運用者向けの読み方は `/manual/3-2-data-and-extraction` と `/manual/8-3-l2-extraction-routines-spec` にも置く。移行中は両方を更新する。
+>
+> **2026-06-16 注記**: Claude routines 停止前提の current truth は [`5-8-l1-l3-codex-migration-current-spec`](5-8-l1-l3-codex-migration-current-spec) を優先する。この章の Claude routine 表は、移植前に束ねていた target writer と既存 contract を残している。
 
 ## 2026-06-04 registration gate
 

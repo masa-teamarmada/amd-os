@@ -1,6 +1,8 @@
 # Automation 責務分担仕様
 
 > **この章は何か**: LLM課金 cron 廃止後の、Codex automation / MMOマシン / Vercel cron / GAS / LaunchAgent の責務分担。旧 `/manual/9-1-decisions-and-history` から実装者向け current truth を移植した。
+>
+> **2026-06-16 注記**: Claude routines 停止前提での L1-L3 抽出移植 inventory / approval bundle / first execution unit は [`5-8-l1-l3-codex-migration-current-spec`](5-8-l1-l3-codex-migration-current-spec) を優先する。この章は helper / applier / non-LLM cron / control layer の責務境界を主に扱う。
 
 ## 基本方針
 

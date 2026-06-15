@@ -93,6 +93,7 @@ export const SPEC_SECTIONS: SpecSectionConfig[] = [
       "5-5-cross-platform-gas-ios-current-spec",
       "5-6-contracts-management-current-spec",
       "5-7-task-management-current-spec",
+      "5-8-l1-l3-codex-migration-current-spec",
     ],
   },
   {
@@ -136,6 +137,7 @@ export const SPEC_CHAPTERS: SpecChapterConfig[] = [
   { slug: "5-5-cross-platform-gas-ios-current-spec", title: "GAS / iOS 役割境界仕様", summary: "PWA、GAS、iOS の責務境界、current/deprecated の入口、未確認点。" },
   { slug: "5-6-contracts-management-current-spec", title: "契約管理仕様", summary: "/admin/contracts、契約予定枠、Drive metadata版管理、5生データ予兆dry-run、Slack nudge dry-runの仕様。" },
   { slug: "5-7-task-management-current-spec", title: "OS Task Management 仕様", summary: "/tasks、mindmap/gantt、tasks table拡張、作成/更新/API/RLS の確定仕様。" },
+  { slug: "5-8-l1-l3-codex-migration-current-spec", title: "L1-L3 Codex移植仕様", summary: "Claude routines停止前提で、L1/L2/L3抽出をCodex側へ移す inventory、優先順位、approval bundle、RED運用の current truth。" },
   { slug: "6-1-appendix-changelog", title: "附則（設計書変更履歴）", summary: "/spec の追加・変更・削除を append-only で記録する変更履歴。" },
 ];
 

@@ -118,7 +118,7 @@ GAS function の場合:
 | GAS R313 monthly report trigger | M-1の定期 writer は Codex automation `AMD OS M-1 月次報告抽出`。R313 は従量課金 Claude API を呼びうる旧経路なので trigger 復活しない |
 | GAS meeting hourly | 旧 LLM / Gemini 系。Windows MMO Codex Desktop automation `amd-os-l6-meeting-flow` へ移管済 |
 | PWA hourly-estimate | 旧 MS進捗 writer。定期抽出は MMOマシン automation `amd-os-l3-ms-progress-extract` へ移管済 |
-| PWA member-weekly-activities | Anthropic 経路を持つため停止。定期化する場合は subscription automation 側で実行 |
+| PWA member-weekly-activities | UI からは停止のまま。現在の定期 writer は Codex 側 (`AMD OS D-10 メンバー活動根拠抽出 (Mac)` / MMO launcher) だが、内部 route は Anthropic 経路を使う。D-10 だけは例外許容 |
 | GAS L2 knowledge | 旧 LLM / Gemini 系。D-1D-3D-4は MMOマシン Codex Desktop automation `amd-os-l2/l4/l5-*-extract` へ移管済 |
 | Claude routine `amd-os-l<N>-<data>-extract` | 2026-05-25〜26 の移行検討/一部登録の履歴。現行判断では、復旧・運用確認は 3-2 / 8-3 の **実行場所 + automation** 表を見る。PWA から直接叩く対象ではない |
 | Atlas collect / policy collect | LLM web search 系。Codex automation / review batch へ移管 |
