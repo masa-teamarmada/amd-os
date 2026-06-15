@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { AlertTriangle, CheckCircle2, CircleDollarSign, FileCheck2, Loader2, RefreshCw, Send } from "lucide-react";
+import { CheckCircle2, CircleDollarSign, FileCheck2, Loader2, RefreshCw, Send } from "lucide-react";
 import type { MonthlyWorkAgreementBundle, MonthlyWorkAgreementProject } from "@/lib/monthly-work-agreement-types";
 
 function currentYmJst() {
@@ -143,11 +143,6 @@ function MonthlyAgreementContent() {
     }
   };
 
-  const unresolved = useMemo(
-    () => bundle?.snapshot.projects.filter((project) => project.conditionState === "review_required") ?? [],
-    [bundle],
-  );
-
   if (loading) return <MonthlyAgreementLoading />;
 
   if (error || !bundle) {
@@ -212,25 +207,10 @@ function MonthlyAgreementContent() {
           )}
         </section>
 
-        <section className="grid gap-3 sm:grid-cols-3">
+        <section className="grid gap-3 sm:grid-cols-2">
           <MetricCard label="参加PJ" value={`${bundle.snapshot.totals.projectCount}`} />
           <MetricCard label="想定報酬合計" value={formatYen(bundle.snapshot.totals.expectedRewardYen)} />
-          <MetricCard label="未確定/要確認" value={`${bundle.snapshot.totals.reviewRequiredCount}`} emphasis={unresolved.length > 0} />
         </section>
-
-        {unresolved.length > 0 && (
-          <section className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-950">
-            <div className="flex items-start gap-2">
-              <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-              <div>
-                <p className="text-sm font-semibold">未確定・要確認が残っています</p>
-                <p className="mt-1 text-xs leading-relaxed">
-                  合意は保存できますが、報酬キャッシュ未生成、MS/share未設定、進捗未生成などは admin/PM 側で確認が必要です。
-                </p>
-              </div>
-            </div>
-          </section>
-        )}
 
         <section className="rounded-lg border border-[#e5e5e7] bg-white p-4">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
@@ -255,7 +235,7 @@ function MonthlyAgreementContent() {
             >
               <option value="scope_or_goal">遂行対象/到達目標</option>
               <option value="reward">想定報酬</option>
-              <option value="condition">条件/前提</option>
+              <option value="condition">前提の修正</option>
               <option value="other">その他</option>
             </select>
             <select
@@ -349,9 +329,6 @@ function ProjectAgreementCard({ project }: { project: MonthlyWorkAgreementProjec
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-[16px] font-semibold text-[#1d1d1f]">{project.projectName}</h2>
-            {project.conditionState === "review_required" && (
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">要確認</span>
-            )}
             {project.isPm && <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-800">PM</span>}
             {project.isPl && <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-semibold text-indigo-800">PL</span>}
           </div>
@@ -364,26 +341,6 @@ function ProjectAgreementCard({ project }: { project: MonthlyWorkAgreementProjec
           </div>
           <p className="mt-1 text-[20px] font-semibold tabular-nums text-[#1d1d1f]">{formatYen(project.expectedRewardYen)}</p>
           {project.earnedPt != null && <p className="text-[11px] text-[#86868b]">{project.earnedPt.toFixed(1)} pt</p>}
-        </div>
-      </div>
-
-      <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_1fr]">
-        <div className="rounded-md border border-[#e5e5e7] p-3">
-          <p className="text-[12px] font-semibold text-[#1d1d1f]">条件/前提</p>
-          <ul className="mt-2 space-y-1.5 text-[12px] leading-relaxed text-[#3c3c43]">
-            {project.conditions.map((condition) => <li key={condition}>・{condition}</li>)}
-            {project.routineExpectations.map((condition) => <li key={condition}>・{condition}</li>)}
-          </ul>
-        </div>
-        <div className="rounded-md border border-[#e5e5e7] p-3">
-          <p className="text-[12px] font-semibold text-[#1d1d1f]">未確定・要確認</p>
-          {project.reviewReasons.length === 0 ? (
-            <p className="mt-2 text-[12px] text-emerald-700">現時点の表示条件では大きな未確定はありません。</p>
-          ) : (
-            <ul className="mt-2 space-y-1.5 text-[12px] leading-relaxed text-amber-800">
-              {project.reviewReasons.map((reason) => <li key={reason}>・{reason}</li>)}
-            </ul>
-          )}
         </div>
       </div>
 

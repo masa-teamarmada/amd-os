@@ -98,6 +98,27 @@ function routineExpectations(role: { is_pm?: boolean | null; is_pl?: boolean | n
   return ["担当MS/活動ログに沿って当月の遂行内容を進める"];
 }
 
+function normalizeMilestoneRewards(
+  milestones: MonthlyWorkAgreementMilestone[],
+  projectExpectedRewardYen: number | null,
+): MonthlyWorkAgreementMilestone[] {
+  if (projectExpectedRewardYen == null) return milestones;
+  const rewardful = milestones.filter((ms) => ms.expectedRewardYen != null && ms.expectedRewardYen > 0);
+  const rawTotal = rewardful.reduce((sum, ms) => sum + (ms.expectedRewardYen ?? 0), 0);
+  if (rawTotal <= 0) return milestones;
+
+  let assigned = 0;
+  const lastRewardId = rewardful[rewardful.length - 1]?.milestoneId;
+  return milestones.map((ms) => {
+    if (ms.expectedRewardYen == null || ms.expectedRewardYen <= 0) return ms;
+    const normalized = ms.milestoneId === lastRewardId
+      ? Math.max(0, Math.round(projectExpectedRewardYen) - assigned)
+      : Math.max(0, Math.round((projectExpectedRewardYen * ms.expectedRewardYen) / rawTotal));
+    assigned += normalized;
+    return { ...ms, expectedRewardYen: normalized };
+  });
+}
+
 function toAgreementRecord(row: JsonRecord): MonthlyWorkAgreementRecord {
   return {
     id: String(row.id ?? ""),
@@ -327,7 +348,7 @@ export async function buildMonthlyWorkAgreementBundle(
             respRows.map((row) => String(row.task_description ?? "")).filter(Boolean).join(" / ") || null,
           progressPct,
           monthlyProgressPct,
-          expectedRewardYen: toNumber(rewardRow?.basePay ?? rewardRow?.totalPay),
+          expectedRewardYen: toNumber(rewardRow?.payYen ?? rewardRow?.basePay ?? rewardRow?.totalPay),
           earnedPt: toNumber(rewardRow?.earnedPt),
           conditions,
           state: progressPct == null ? "review_required" : "ready",
@@ -348,6 +369,10 @@ export async function buildMonthlyWorkAgreementBundle(
         reviewReasons.length > 0 || roleMilestones.some((ms) => ms.state === "review_required")
           ? "review_required"
           : "ready";
+      const displayMilestones = normalizeMilestoneRewards(
+        roleMilestones.sort((a, b) => a.milestoneId.localeCompare(b.milestoneId)),
+        expectedRewardYen,
+      );
 
       return {
         projectId,
@@ -363,7 +388,7 @@ export async function buildMonthlyWorkAgreementBundle(
         conditionState,
         conditions,
         reviewReasons,
-        milestones: roleMilestones.sort((a, b) => a.milestoneId.localeCompare(b.milestoneId)),
+        milestones: displayMilestones,
         routineExpectations: routineExpectations(membership),
       };
     })

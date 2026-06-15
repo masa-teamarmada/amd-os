@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-06-15 | 3-14 | 変更 | 本人向け月初合意画面から条件/前提・未確定/要確認枠を外し、MS別予定報酬を `breakdown[].payYen` から表示し、PJ別想定報酬と一致するよう丸め差分を吸収する仕様へ変更 | 本人が確認すべき情報をPJ/MS/到達目標/予定報酬に絞り、PJ合計は確定しているのにMS別だけ未確定に見える不整合を解消するため | えいみ-worker |
 | 2026-06-15 | 5-7 | 追加・変更 | `tasks.agent_kind / agent_session_id / agent_session_url / agent_session_label`、`/api/tasks` の `CRON_SECRET` agent access、`npm run agent:tasks` helper、詳細ウィンドウの Session link 表示を追加 | Codex / Claude Code のえいみが会話中に発生したタスクをOS正本へ登録し、どのセッションで進めているかを `/tasks` から辿れるようにするため | えいみ-worker |
 | 2026-06-15 | 3-14 | 変更 | 月初合意から frozen PJ を除外し、cap/carry-over 等の精算内部表示を外し、本人の修正要望 API / `member_monthly_work_agreement_requests` / admin要望件数を追加 | 月初合意は担当MS・当月到達目標・想定報酬の確認フローであり、報酬精算内部情報や報酬が発生しないPJを表示しないため。表示内容に異議があるケースを受け付けるため | えいみ-worker |
 | 2026-06-15 | 3-14 / 3章目次 | 追加 | 月初タスク・報酬合意仕様を追加。`/monthly-agreement`、`/admin/monthly-work-agreements`、`member_monthly_work_agreements`、snapshot hash、本人/admin権限、報酬計算との境界を定義 | メンバーが月初に当月の遂行内容・報酬条件へ合意し、未合意/条件更新ありがOS上で見えるようにするため | えいみ-worker |

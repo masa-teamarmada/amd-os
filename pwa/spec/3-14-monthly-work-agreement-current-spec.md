@@ -26,7 +26,7 @@
 - 合意時点で本人へ表示した内容を `snapshot_json` と `snapshot_hash` で保存する。
 - snapshot hash が変わったら本人/adminに「条件更新あり」と表示し、再合意対象にする。
 - 報酬キャッシュを再計算しない。通常 GET は読むだけ。
-- cap、carry-over、stockYen などの精算内部情報は月初合意画面に出さない。月初合意は「どのPJのどのMSへコミットし、当月どこまで到達すべきか」と「その対価としての想定報酬」を示す。
+- cap、carry-over、stockYen、条件/前提、未確定・要確認などの精算/確認内部情報は本人向け月初合意画面に出さない。月初合意は「どのPJのどのMSへコミットし、当月どこまで到達すべきか」と「その対価としての想定報酬」を示す。
 
 ## Snapshot Contract
 
@@ -91,7 +91,8 @@ API route は logged-in user を `members.email` で解決する。本人以外�
 - 上部に対象月、member、snapshot hash、合意状態を表示する。
 - 合意状態は `未合意` / `合意済み` / `条件更新あり`。
 - 合計: 参加PJ数、想定報酬合計、要確認PJ数。
-- PJごとに、想定報酬、billing status、PM/PL role、条件/前提、未確定理由、担当MS/share/到達目標/予定報酬を表示する。
+- PJごとに、想定報酬、PM/PL role、担当MS/share/到達目標/予定報酬を表示する。
+- MS別予定報酬は `reward_summary_json.members[].breakdown[].payYen` を元にし、PJ別想定報酬 (`members[].totalPay`) と合計が一致するよう丸め差分を最後のMSで吸収する。
 - 担当MS、到達目標、想定報酬、条件/前提が違う場合は、合意とは別に修正要望を送信できる。
 - 保存テーブル未適用時は保存ボタンを無効化し、migration未適用として表示する。
 
