@@ -193,6 +193,21 @@ Contract Signals は D-13 の正本。新規 routine は作らず、この exist
 - finance ops / freee 実績取込は D-12 であり、本 Phase に混ぜない。
 
 ═══════════════════════════════════════════════════
+Phase K-C: D-14 要対応 (Action Items) 抽出
+═══════════════════════════════════════════════════
+
+D-14 要対応 = 5生データ由来の「期日つき inbound 義務」を `action_items` に candidate 化する。起点は JOYCLE 臨時株主総会 招集通知の取りこぼし事故。設計 `pwa/design/governance_action_items.md`。
+
+- 入力: まず Gmail (将来 Drive/Calendar/Slack/Notion も)。`report_emails` でゲートしない (= 送信元が PJ 連絡先でなくても拾う)。
+- 拾う signal: 件名/本文に「招集通知 / 株主総会 / 臨時 / 定時 / 議決権 / 委任状 / 事前承諾 / 清算 / 解散 / 登記 / 提出期限 / 締切 / 要対応 / 振込 / 請求 / 更新期限」等。既知ベンダー送信元 (`smartround.com` / `everidays.com` / `cloudsign` / `docusign` / freee / 法務局) は強シグナル。
+- PJ 紐付け: 本文/件名の会社名で `projects` を引く (例 JOYCLE→p09)。**終了PJも対象**。紐づかない個人宛は `scope='personal'`, `project_id=null`。
+- 期日抽出: 「〜までに」「提出期限」「開催日時」から `due_at` を作る。
+- 出力: `POST /api/action-items/extract { items: [{ title, summary, due_at, category, priority, action_url, source:'gmail', source_ref, source_hash, project_id, scope }] }`。`source_hash` で dedup (= 既存は skip、confirmed/rejected を壊さない)。route が `action_items`(review_status='candidate') + `l2_notifications(l2_kind='action_item')` を作り、`/notifications` と要対応面に出る。
+- 品質境界: 広告メルマガ・通知音的メール・既に responded のものは候補化しない。確度が低いものは candidate のまま採否ループに委ねる。
+- raw本文は保存しない (summary + source_ref + source_hash のみ)。
+- 株主/総会/バリュエーションの cap table 数値は自動確定しない (PDF 依存・誤抽出回避)。総会・ラウンドは候補として残し、確定は `/admin/governance` の手動キュレーションに委ねる。
+
+═══════════════════════════════════════════════════
 Phase L: run summary
 ═══════════════════════════════════════════════════
 

@@ -67,6 +67,7 @@ SKILL 正本: [`pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md`](.
 | **W-1** | W-1 | VC News / Funding Signals | Claude routine `amd-os-l2-weekly-vc-funding-signals` | 差分なし: Claude UIでACTIVE / next run確認済み。MMO暫定automationはPAUSED |
 | **H-1** | H-1 | MTGサマリ + MTGフロー | MMOマシン Windows Task Scheduler `amd-os-l6-meeting-flow-launcher` → `codex exec` Live launcher | 復旧済み: 2026-06-08 16:00 JST manual Live run 成功、次回 17:00 JST。Codex Desktop UI automation storeは未登録/旧DB不使用のため、UI上の`amd-os-l6-meeting-flow`ではなくLive launcherを実稼働証跡にする |
 | **D-13** | daily | Contract Signals | Claude routine `amd-os-l2-consolidated-evidence` Phase K-B + PWA route `POST /api/contracts/extract-l2` | 新規 routine は作らず existing daily consolidated routine に同居 |
+| **D-14** | daily | 要対応 (Action Items) | Claude routine `amd-os-l2-consolidated-evidence` Phase K-C + PWA route `POST /api/action-items/extract` | 期日つき inbound 義務 (株主総会招集/議決権/事前承諾/契約更新/振込 等)。終了PJ・personal scope も対象。手動は `/admin/governance`。設計 `design/governance_action_items.md` |
 
 ---
 
