@@ -67,6 +67,7 @@ export const SPEC_SECTIONS: SpecSectionConfig[] = [
       "3-11-l2-project-knowledge-current-spec",
       "3-12-l2-member-knowledge-current-spec",
       "3-13-l2-textbook-insights-current-spec",
+      "3-14-monthly-work-agreement-current-spec",
     ],
   },
   {
@@ -123,6 +124,7 @@ export const SPEC_CHAPTERS: SpecChapterConfig[] = [
   { slug: "3-11-l2-project-knowledge-current-spec", title: "D-3 Project Knowledge 仕様", summary: "project_knowledge の9カテゴリ、汚染防御、DB upsert、通知採否、MMO automation contract。" },
   { slug: "3-12-l2-member-knowledge-current-spec", title: "D-4 Member Knowledge 仕様", summary: "member_knowledge の7カテゴリ、3 section input、本人帰属guard、DB upsert、通知採否。" },
   { slug: "3-13-l2-textbook-insights-current-spec", title: "D-7 Textbook Insights 仕様", summary: "教科書追記候補、candidate DB、通知採否、approved 後の local BZM applier contract。" },
+  { slug: "3-14-monthly-work-agreement-current-spec", title: "月初タスク・報酬合意 仕様", summary: "当月の遂行対象・報酬条件を本人が確認し、snapshot hash つきで合意するDB/API/UI/admin管理契約。" },
   { slug: "4-1-frl-ces-current-spec", title: "FRL CES 実装仕様", summary: "F_character × F_capability の CES 合成、DB列、実装関数、後方互換の現行契約。" },
   { slug: "4-2-amd-score-current-spec", title: "AMD Score 実装仕様", summary: "PRS primary、legacy AMD comparison、DB、route、bottleneck、FRL 境界の契約。" },
   { slug: "4-3-ers-current-spec", title: "ERS 実装仕様", summary: "研究機関 ERS の route、DB、fetch bundle、assessment upsert API、admin gate。" },

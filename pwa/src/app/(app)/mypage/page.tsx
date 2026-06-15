@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LinkedMemberText } from "@/components/members/LinkedMemberText";
@@ -77,6 +78,21 @@ interface MyPageData {
   weeklyActivities: MyPageWeeklyActivity[];
   weekStart: string;
   weekEnd: string;
+}
+
+interface MonthlyAgreementMiniBundle {
+  ym: string;
+  status: "pending" | "agreed" | "needs_reagreement";
+  tableReady: boolean;
+  currentHash: string;
+  latestAgreement: { agreedAt: string | null; snapshotHash: string } | null;
+  snapshot: {
+    totals: {
+      expectedRewardYen: number;
+      projectCount: number;
+      reviewRequiredCount: number;
+    };
+  };
 }
 
 interface RoutineStep {
@@ -884,6 +900,8 @@ export function MyPageContent({
           )}
         </section>
 
+        <MonthlyAgreementCard />
+
         <NotificationCard notifications={data.notifications} onOpen={(note) => {
           router.push(`/project/${note.projectId}/cockpit?ym=${note.bizYm}&step=${note.stepId}`);
         }} />
@@ -941,6 +959,75 @@ export function MyPageContent({
         })}
       </div>
     </div>
+  );
+}
+
+function MonthlyAgreementCard() {
+  const [bundle, setBundle] = useState<MonthlyAgreementMiniBundle | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch("/api/monthly-work-agreement", { cache: "no-store" });
+        const payload = (await res.json().catch(() => ({}))) as { ok?: boolean; bundle?: MonthlyAgreementMiniBundle };
+        if (!cancelled && res.ok && payload.ok !== false && payload.bundle) {
+          setBundle(payload.bundle);
+        }
+      } catch {
+        // /mypage の主表示はブロックしない
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <section className="bg-white rounded-2xl border border-[#e5e5e7] p-4 shadow-sm">
+        <p className="text-[13px] text-[#86868b]">月初合意を確認中...</p>
+      </section>
+    );
+  }
+  if (!bundle) return null;
+
+  const statusText =
+    bundle.status === "agreed" ? "合意済み" : bundle.status === "needs_reagreement" ? "条件更新あり" : "未合意";
+  const statusClass =
+    bundle.status === "agreed"
+      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+      : bundle.status === "needs_reagreement"
+        ? "bg-amber-50 text-amber-800 border-amber-200"
+        : "bg-sky-50 text-sky-800 border-sky-200";
+  return (
+    <section className="bg-white rounded-2xl border border-[#e5e5e7] p-4 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-[14px] font-semibold text-[#1d1d1f]">今月の遂行内容・報酬条件</h2>
+            <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusClass}`}>{statusText}</span>
+          </div>
+          <p className="mt-1 text-[12px] leading-relaxed text-[#86868b]">
+            {formatYm(bundle.ym)} / {bundle.snapshot.totals.projectCount} PJ / 想定 {formatYen(bundle.snapshot.totals.expectedRewardYen)}
+            {bundle.snapshot.totals.reviewRequiredCount > 0 ? ` / 要確認 ${bundle.snapshot.totals.reviewRequiredCount}` : ""}
+          </p>
+          {bundle.status === "needs_reagreement" && (
+            <p className="mt-1 text-[11px] text-amber-700">前回合意後に snapshot hash が変わっています。</p>
+          )}
+        </div>
+        <Link
+          href={`/monthly-agreement?ym=${encodeURIComponent(bundle.ym)}`}
+          className="inline-flex shrink-0 items-center justify-center rounded-full bg-[#1d1d1f] px-4 py-2 text-[12px] font-semibold text-white"
+        >
+          確認する
+        </Link>
+      </div>
+    </section>
   );
 }
 

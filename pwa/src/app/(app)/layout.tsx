@@ -33,6 +33,7 @@ function pathToTitle(pathname: string): string | null {
   if (pathname === "/seeds") return "Seeds";
   if (pathname === "/vcs") return "VC";
   if (pathname === "/mypage") return "マイページ";
+  if (pathname === "/monthly-agreement") return "月初合意";
   if (pathname === "/company") return "Company";
   if (pathname === "/notifications") return "通知";
   if (pathname === "/reimburse") return "立替";
@@ -44,6 +45,7 @@ function pathToTitle(pathname: string): string | null {
   if (pathname === "/admin/members") return "Admin メンバー";
   if (pathname === "/admin/billing") return "Admin 請求";
   if (pathname === "/admin/payouts") return "Admin 報酬";
+  if (pathname === "/admin/monthly-work-agreements") return "Admin 月初合意";
   if (pathname === "/admin/finance") return "Admin Finance";
   if (pathname === "/admin/tsukuyomi") return "Admin つくよみ";
   if (pathname === "/admin/contexts") return "Admin Contexts";

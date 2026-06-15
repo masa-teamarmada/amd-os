@@ -308,6 +308,12 @@ for each member in members:                      # earnedPt 降順
 
 **通常 GET (= `/admin/payouts?ym=YYYYMM` を開くだけ) は絶対に再計算しない**。 過去事故: GET でも自動再計算してた頃、 admin が画面開いただけで承認済の過去月の数字がズレるという UX 事故が発生 (= 6-5 章「通常 GET は読むだけ原則」参照)。
 
+## 月初合意との境界
+
+`/monthly-agreement` は、この章の計算結果 (`reward_summary_json` / `member_allocations_json`) と MS/share 条件を本人へ表示し、`member_monthly_work_agreements.snapshot_json` と `snapshot_hash` に保存する確認レイヤー。合意 API は報酬キャッシュを再計算せず、`milestone_monthly_progress`、`milestone_responsibility`、`billing_cycles` も書き換えない。
+
+snapshot hash が変わったときは「条件更新あり」として再合意を促す。これは報酬計算の入力変更ではなく、本人/admin が条件変更を見落とさないための状態。
+
 ---
 
 ## edge case と過去ハマり

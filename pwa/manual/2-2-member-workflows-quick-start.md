@@ -7,11 +7,12 @@ AMD メンバー (= 社内常勤 / 副業) が AMD OS で日常的に触る画�
 | 画面 | URL | 何をするか |
 |---|---|---|
 | マイページ | `/mypage` | 自分が関わる全 PJ の当月業務と報酬を一覧する |
+| 月初合意 | `/monthly-agreement` | 今月の遂行内容・報酬条件を確認して合意する |
 | 立替申請 | `/reimburse` | 業務で立替えた費用を申請する |
 | PJ コックピット | `/project/{projectId}/cockpit` | 担当 PJ の状況・MS 進捗・月次ルーティンを開く |
 | 通知レビュー | `/notifications` | 自分宛の修正依頼カード・経営ハイライト確認を捌く |
 
-「とりあえずこの 4 つを毎日 1 回ずつ見て、未対応カードを片付ける」が日常の最小単位。
+月初はまず `/monthly-agreement` で今月の遂行対象・想定報酬・条件を確認して合意する。その後は「マイページ / PJ コックピット / 通知レビュー / 立替」を毎日 1 回ずつ見て、未対応カードを片付けるのが日常の最小単位。
 
 ## マイページ (`/mypage`)
 
@@ -35,8 +36,15 @@ AMD メンバー (= 社内常勤 / 副業) が AMD OS で日常的に触る画�
 | MS 一覧 | `value_milestones` (= `is_active=true`) |
 | 月次進捗率 | `milestone_monthly_progress` |
 | 今週やったこと | `member_activities` (= `source='member_weekly'`) |
+| 月初合意状態 | `member_monthly_work_agreements` + 当月 snapshot hash |
 
 報酬計算の正本は GAS `gas-main/059_RewardV2_Ops.js` の `rv2_calcRewardSummary`。 結果は `billing_cycles.member_allocations_json` にキャッシュされ、 PWA は再計算せずこの json を読むだけ。
+
+### 月初合意
+
+`/monthly-agreement` では、当月参加中の PJ、担当 MS / share、月次ルーティン上の遂行条件、既存 reward summary から読める想定報酬、未確定・要確認の理由を確認する。合意ボタンを押すと `member_monthly_work_agreements` に表示内容の `snapshot_json` と `snapshot_hash` が保存される。
+
+月中に MS / share / 報酬キャッシュ / cap などが変わって現在の snapshot hash が前回合意時とズレた場合、本人画面と admin 画面に「条件更新あり」と出る。これは報酬計算を変えるものではなく、再確認が必要なサイン。
 
 ### 「いまやること」生成ルール
 
@@ -134,6 +142,7 @@ PJ 判定は、 PJ 専用 email / PJ 名 / client 名 / `project_knowledge(categ
 | 月 N の流れ | やること |
 |---|---|
 | N 月 毎日 | `/mypage` の今週活動を確認、 漏れがあれば Calendar / Gmail で補足 |
+| N 月 月初 | `/monthly-agreement` で当月の遂行内容・報酬条件を確認し、合意する |
 | N 月 月中 | 担当 PJ コックピットで MS 進捗 / signal を確認、 修正依頼があれば `/notifications` で処理 |
 | N+1 月 第 1 営業日 | `/mypage` の前月集計を確認、 報酬額が想定通りか member_allocations_json をチェック |
 | N+1 月 月末まで | 立替がある月は `/reimburse` で N 月分を申請、 PM/admin 承認まで通す |

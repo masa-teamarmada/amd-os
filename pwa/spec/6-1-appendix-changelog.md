@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-06-15 | 3-14 / 3章目次 | 追加 | 月初タスク・報酬合意仕様を追加。`/monthly-agreement`、`/admin/monthly-work-agreements`、`member_monthly_work_agreements`、snapshot hash、本人/admin権限、報酬計算との境界を定義 | メンバーが月初に当月の遂行内容・報酬条件へ合意し、未合意/条件更新ありがOS上で見えるようにするため | えいみ-worker |
 | 2026-06-15 | 5-7 | 変更 | mindmap node のstatus表示hoverでstatus popoverを出し、modalを開かず即時status変更 + 裏PATCH + undo可能にするcontractを追加 | status変更のためにdetail modalとselect保存を経由するUXが遅く、ノード上で直接運用したいため | えいみ-worker |
 | 2026-06-15 | 5-7 | 変更 | mindmap新規作成時の詳細ウィンドウを実寸でviewport内へclampし、title inputへfocusするcontractを追加。node colorをTODO/Doing/Done/Review/Blocked/Pendingのstatus別toneへ変更 | 下寄りに作成したタスクのmodalが画面外へはみ出す問題と、TODO/Doingが同色で状態差が読みにくい問題を解消するため | えいみ-worker |
 | 2026-06-15 | 5-7 | 変更 | task detail modal を幅480px基準、上寄せoffset拡大、`label/control/label/control` 横詰めgrid、28px control、56px descriptionへ再調整 | まさ指摘「全然高密度になってない」「入力枠が大きい」「p00 AMDの右の空きが無駄」「デフォルト位置をもっと上に」への対応 | えいみ-worker |

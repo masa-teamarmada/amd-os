@@ -26,6 +26,7 @@ flowchart TD
 | 要素 | source | 備考 |
 |---|---|---|
 | 当月 PJ 別報酬額 | `billing_cycles.member_allocations_json[memberId]` | 正本。 PWA は再計算しない |
+| 月初合意カード | `/api/monthly-work-agreement` | `member_monthly_work_agreements` と当月 snapshot hash。API失敗時も `/mypage` 主表示はブロックしない |
 | MS 進捗バー | `milestone_monthly_progress` | 累積 % + 当月増分 |
 | 今週やったこと | `member_activities (source='member_weekly')` | 月-日 JST の今週 |
 | 月別合計 | 過去 6 ヶ月分 × 当月、 chevron でトグル | |
@@ -40,6 +41,18 @@ PWA 側で `member_allocations_json` を再計算しない。 正本ロジック
 - 再計算は `/api/cron/payout-reward-cache-refresh` (= 日次 03:05 JST) または手動 `Run Now` (= 6-1 章)
 
 **計算式・進捗ソース優先度・月次キャップ・繰越の詳細**は [7-1 章 報酬計算ロジック 詳細仕様](7-1-reward-calc-spec.md) に集約。 この章は `/mypage` の表示側、 計算正本は 7-1 章を見る。
+
+### 月初タスク・報酬合意
+
+| item | contract |
+|---|---|
+| 本人画面 | `/monthly-agreement?ym=YYYYMM` |
+| mypage導線 | 当月報酬合計カード直下 |
+| 保存先 | `member_monthly_work_agreements` |
+| admin確認 | `/admin/monthly-work-agreements?ym=YYYYMM` |
+| hash差分 | 前回 `snapshot_hash` と現在 snapshot hash が違えば `条件更新あり` |
+
+合意は「当月の遂行内容と報酬条件を確認した」監査 snapshot。`reward_summary_json`、`member_allocations_json`、MS進捗、担当shareを読むだけで、報酬計算を再実行したり値を書き換えたりしない。
 
 ### 月次ルーティン TODO の出し分け (= まさ #6)
 
