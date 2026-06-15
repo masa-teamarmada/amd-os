@@ -17,7 +17,7 @@
 | `l2_notifications` | D-1 プロトコル / D-2 MS 進捗 / D-3 PJ ナレッジ / D-4 メンバーナレッジ / D-5 OS 台帳差分 / M-2 XRL 根拠 / D-6 経営ハイライト 等 |
 | `meeting_notifications` | H-1 MTG サマリ通知 |
 | `l2_feedbacks` | 過去の修正依頼履歴 (= conversation 履歴) |
-| `app_notifications` | OS 全体の運用通知 (= 入金 nudge / cron 失敗 等) |
+| `app_notifications` | OS 全体の運用通知 (= task追加、入金 nudge、cron 失敗 等) |
 
 `l2_notifications` 列:
 
@@ -43,6 +43,7 @@ server page で `members.is_admin` を確認、 admin 以外は `notFound()`。 
 - `meeting_notifications` 最新 100 件
 - `l2_feedbacks` 最新 200 件
 - `projects` 全件 (= title 紐付け用)
+- `app_notifications` は `AppNotificationsSection` が client side で最新分を読む
 
 これを `NotificationsClient` に渡す。
 

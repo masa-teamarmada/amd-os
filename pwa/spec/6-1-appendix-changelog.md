@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-06-15 | 5-7 / 3-7 | 変更 | task statusに `archived` を追加し、UI既定をdone含む全status(archived除外)へ変更。`all_with_archived` filter、Session行の常時表示、progress UI/helper非表示、agent作成時の `app_notifications(kind='task_created')` best-effort通知、画面作成時toastをcontract化 | `/tasks` を連続運用する時に完了タスクも見える状態を既定にしつつ、archive済みは通常視界から外すため。progress手入力とSession未表示で探す負荷を減らし、agentが追加したタスクを見落とさないため | えいみ-worker |
 | 2026-06-15 | 3-0 | 追加 | 「層 (tier) 軸 — L1/L2/L3」セクションを追加。各L2に tier(L1/L2/L3)+writer(LLM/非LLM) タグを付与。D-12 freee=L1相当、Coverage Scanner=L3、D-2按分/D-9集計=非LLM派生 と明記 | cadence(D/M/W/H)軸だけだと「吟味済みL2」と「ただの同期(L1相当)」と「カバレッジ監視(L3)」が同じDの下で見分けられず、L3を新L2と誤認して取りこぼしを再生産する事故を防ぐため (まさ確定 2026-06-15) | えいみ |
 | 2026-06-15 | 3-14 | 変更 | 本人向け月初合意画面から条件/前提・未確定/要確認枠を外し、MS別予定報酬を `breakdown[].payYen` から表示し、PJ別想定報酬と一致するよう丸め差分を吸収する仕様へ変更 | 本人が確認すべき情報をPJ/MS/到達目標/予定報酬に絞り、PJ合計は確定しているのにMS別だけ未確定に見える不整合を解消するため | えいみ-worker |
 | 2026-06-15 | 5-7 | 追加・変更 | `tasks.agent_kind / agent_session_id / agent_session_url / agent_session_label`、`/api/tasks` の `CRON_SECRET` agent access、`npm run agent:tasks` helper、詳細ウィンドウの Session link 表示を追加 | Codex / Claude Code のえいみが会話中に発生したタスクをOS正本へ登録し、どのセッションで進めているかを `/tasks` から辿れるようにするため | えいみ-worker |

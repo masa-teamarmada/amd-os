@@ -4,7 +4,7 @@ import { requireAuth } from "@/lib/supabase/api-auth";
 
 export const runtime = "nodejs";
 
-const STATUSES = new Set(["pending", "todo", "doing", "done", "blocked", "review"]);
+const STATUSES = new Set(["pending", "todo", "doing", "done", "blocked", "review", "archived"]);
 const PRIORITIES = new Set(["low", "medium", "high", "urgent"]);
 
 type TaskPayload = {
@@ -180,7 +180,7 @@ export async function GET(req: NextRequest) {
     .eq("active", true);
   if (projectId) tasksQuery = tasksQuery.eq("project_id", projectId);
   if (assigneeMemberId) tasksQuery = tasksQuery.eq("assignee_member_id", assigneeMemberId);
-  if (status === "open") tasksQuery = tasksQuery.neq("status", "done");
+  if (status === "open") tasksQuery = tasksQuery.neq("status", "done").neq("status", "archived");
   else if (status && status !== "all" && STATUSES.has(status)) tasksQuery = tasksQuery.eq("status", status);
   if (taskSource) tasksQuery = tasksQuery.eq("task_source", taskSource);
   if (agentKind) tasksQuery = tasksQuery.eq("agent_kind", agentKind);
@@ -279,6 +279,23 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await db.from("tasks").insert(row).select("*").single();
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (access.accessKind === "agent" || row.task_source !== "manual") {
+    await db.from("app_notifications").insert({
+      kind: "task_created",
+      title: `タスク追加: ${title}`.slice(0, 180),
+      body: `${projectId} に ${access.actor} がタスクを追加したよ。`,
+      link: "/tasks",
+      source: "task_agent",
+      meta: {
+        task_id: data.task_id,
+        project_id: projectId,
+        task_source: row.task_source,
+        agent_kind: row.agent_kind,
+        agent_session_id: row.agent_session_id,
+        agent_session_url: row.agent_session_url,
+      },
+    }).then(() => undefined, () => undefined);
+  }
   return NextResponse.json({ ok: true, task: toClientTask(data as Record<string, unknown>) });
 }
 

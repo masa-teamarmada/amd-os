@@ -23,7 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
-type TaskStatus = "pending" | "todo" | "doing" | "review" | "blocked" | "done";
+type TaskStatus = "pending" | "todo" | "doing" | "review" | "blocked" | "done" | "archived";
 type ViewMode = "mindmap" | "gantt";
 
 type OsTask = {
@@ -121,6 +121,7 @@ const STATUS_OPTIONS: Array<{ value: TaskStatus; label: string; className: strin
   { value: "review", label: "Review", className: "border-indigo-200 bg-indigo-50 text-indigo-700" },
   { value: "blocked", label: "Blocked", className: "border-rose-200 bg-rose-50 text-rose-700" },
   { value: "done", label: "Done", className: "border-emerald-200 bg-emerald-50 text-emerald-700" },
+  { value: "archived", label: "Archived", className: "border-zinc-300 bg-zinc-100 text-zinc-500" },
 ];
 
 const PRIORITY_OPTIONS = [
@@ -166,6 +167,12 @@ type TaskUndoEntry =
   | { kind: "delete"; task: OsTask }
   | { kind: "patch"; before: OsTask; after: OsTask }
   | { kind: "patch-many"; before: OsTask[]; after: OsTask[] };
+
+type TaskNotice = {
+  id: string;
+  title: string;
+  body?: string;
+};
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -228,6 +235,10 @@ function normalizeStatus(status: string): TaskStatus {
 
 function statusMeta(status: string) {
   return STATUS_OPTIONS.find((option) => option.value === status) ?? STATUS_OPTIONS[1];
+}
+
+function isArchivedStatus(status: string) {
+  return normalizeStatus(status) === "archived";
 }
 
 function dateValue(date: string | null) {
@@ -425,6 +436,14 @@ function nodeTone(status: string) {
         status: "text-zinc-300",
         progress: "bg-zinc-300",
       };
+    case "archived":
+      return {
+        circle: "border-zinc-500 bg-zinc-950/35 text-zinc-300 opacity-75 shadow-zinc-950/20",
+        halo: "border-zinc-500/20",
+        handle: "border-zinc-200 bg-zinc-500 text-white",
+        status: "text-zinc-400",
+        progress: "bg-zinc-500",
+      };
     case "todo":
     default:
       return {
@@ -434,6 +453,26 @@ function nodeTone(status: string) {
         status: "text-yellow-300",
         progress: "bg-yellow-300",
       };
+  }
+}
+
+function ganttBarClass(status: string) {
+  switch (normalizeStatus(status)) {
+    case "done":
+      return "bg-blue-500";
+    case "doing":
+      return "bg-teal-500";
+    case "review":
+      return "bg-indigo-500";
+    case "blocked":
+      return "bg-rose-500";
+    case "archived":
+      return "bg-zinc-400";
+    case "pending":
+      return "bg-zinc-500";
+    case "todo":
+    default:
+      return "bg-yellow-500";
   }
 }
 
@@ -482,10 +521,11 @@ export function TasksClient() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notices, setNotices] = useState<TaskNotice[]>([]);
   const [mode, setMode] = useState<ViewMode>("mindmap");
   const [projectFilter, setProjectFilter] = useState("all");
   const [memberFilter, setMemberFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("open");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [query, setQuery] = useState("");
   const [form, setForm] = useState<TaskFormState | null>(null);
   const [formPosition, setFormPosition] = useState<FloatingPosition | null>(null);
@@ -581,8 +621,9 @@ export function TasksClient() {
     return bundle.tasks.filter((task) => {
       if (projectFilter !== "all" && task.projectId !== projectFilter) return false;
       if (memberFilter !== "all" && (task.assigneeMemberId || "") !== memberFilter) return false;
-      if (statusFilter === "open" && normalizeStatus(task.status) === "done") return false;
-      if (statusFilter !== "all" && statusFilter !== "open" && task.status !== statusFilter) return false;
+      if (statusFilter === "all" && isArchivedStatus(task.status)) return false;
+      if (statusFilter === "open" && (normalizeStatus(task.status) === "done" || isArchivedStatus(task.status))) return false;
+      if (statusFilter !== "all" && statusFilter !== "all_with_archived" && statusFilter !== "open" && task.status !== statusFilter) return false;
       if (!q) return true;
       const project = projectById.get(task.projectId);
       const member = task.assigneeMemberId ? memberById.get(task.assigneeMemberId) : null;
@@ -593,10 +634,11 @@ export function TasksClient() {
   }, [bundle.tasks, memberById, memberFilter, projectById, projectFilter, query, statusFilter]);
 
   const stats = useMemo(() => {
-    const open = bundle.tasks.filter((task) => normalizeStatus(task.status) !== "done").length;
-    const blocked = bundle.tasks.filter((task) => normalizeStatus(task.status) === "blocked").length;
-    const withDates = bundle.tasks.filter((task) => task.startDate || task.dueDate).length;
-    return { total: bundle.tasks.length, open, blocked, withDates };
+    const visible = bundle.tasks.filter((task) => !isArchivedStatus(task.status));
+    const open = visible.filter((task) => normalizeStatus(task.status) !== "done").length;
+    const blocked = visible.filter((task) => normalizeStatus(task.status) === "blocked").length;
+    const archived = bundle.tasks.filter((task) => isArchivedStatus(task.status)).length;
+    return { total: visible.length, open, blocked, archived };
   }, [bundle.tasks]);
 
   function projectName(projectId: string) {
@@ -615,6 +657,14 @@ export function TasksClient() {
     const ids = new Set(bundle.projectMembers.filter((pm) => pm.project_id === projectId).map((pm) => pm.member_id));
     const scoped = bundle.members.filter((member) => ids.has(member.member_id));
     return scoped.length ? scoped : bundle.members.filter((member) => member.status !== "inactive");
+  }
+
+  function pushNotice(title: string, body?: string) {
+    const notice = { id: `notice_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, title, body };
+    setNotices((prev) => [...prev, notice].slice(-4));
+    window.setTimeout(() => {
+      setNotices((prev) => prev.filter((item) => item.id !== notice.id));
+    }, 5200);
   }
 
   function pushUndo(entry: TaskUndoEntry) {
@@ -795,7 +845,6 @@ export function TasksClient() {
       priority: form.priority || null,
       startDate: form.startDate || null,
       dueDate: form.dueDate || null,
-      progress: form.progress,
       parentTaskId: form.parentTaskId || null,
       mindmapX: form.mindmapX,
       mindmapY: form.mindmapY,
@@ -904,6 +953,7 @@ export function TasksClient() {
     setForm(formFromTask(optimisticTask));
     setFormPosition(modalPositionForCanvasNode(optimisticTask.mindmapX, optimisticTask.mindmapY));
     pushUndo({ kind: "create", taskId: optimisticTask.taskId });
+    pushNotice("タスクを追加したよ", `${projectName(optimisticTask.projectId)} / ${parentTaskId ? "子タスク" : "新規タスク"}`);
 
     const createPromise = (async () => {
       const serverParentTaskId = parentTaskId ? await resolveTaskIdForServer(parentTaskId) : null;
@@ -919,7 +969,6 @@ export function TasksClient() {
         priority: optimisticTask.priority,
         startDate: optimisticTask.startDate,
         dueDate: optimisticTask.dueDate,
-        progress: optimisticTask.progress,
         parentTaskId: serverParentTaskId,
         mindmapX: optimisticTask.mindmapX,
         mindmapY: optimisticTask.mindmapY,
@@ -1390,7 +1439,7 @@ export function TasksClient() {
             <Metric label="total" value={stats.total} />
             <Metric label="open" value={stats.open} />
             <Metric label="blocked" value={stats.blocked} tone={stats.blocked > 0 ? "danger" : "default"} />
-            <Metric label="dated" value={stats.withDates} />
+            <Metric label="archived" value={stats.archived} />
             <Button size="sm" onClick={() => void createTaskAt(120, 120)}>
               <Plus className="h-4 w-4" />
               新規
@@ -1414,8 +1463,9 @@ export function TasksClient() {
               ))}
             </select>
             <select className="h-8 rounded-md border border-input bg-background px-2 text-sm" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-              <option value="open">未完了</option>
               <option value="all">全status</option>
+              <option value="open">未完了</option>
+              <option value="all_with_archived">全status + archived</option>
               {STATUS_OPTIONS.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
             </select>
             <div className="relative min-w-56 flex-1">
@@ -1517,6 +1567,17 @@ export function TasksClient() {
           />
         )}
       </div>
+
+      {notices.length > 0 && (
+        <div className="fixed right-4 top-16 z-[60] flex w-[min(340px,calc(100vw-2rem))] flex-col gap-2">
+          {notices.map((notice) => (
+            <div key={notice.id} className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900 shadow-lg">
+              <div className="font-semibold">{notice.title}</div>
+              {notice.body && <div className="mt-0.5 truncate text-emerald-800/80">{notice.body}</div>}
+            </div>
+          ))}
+        </div>
+      )}
 
       <TaskDialog
         form={form}
@@ -1845,9 +1906,6 @@ function TaskNode({
             <span className="inline-flex min-w-0 items-center gap-1 truncate"><UserRound className="h-3 w-3" />{memberName(task.assigneeMemberId, task.assignee)}</span>
             <span className="inline-flex items-center gap-1"><CalendarDays className="h-3 w-3" />{formatDate(task.dueDate)}</span>
           </div>
-          <div className="mx-auto mt-2 h-1.5 w-24 overflow-hidden rounded-full bg-white/10">
-            <div className={cn("h-full rounded-full", tone.progress)} style={{ width: `${Math.max(0, Math.min(100, task.progress || 0))}%` }} />
-          </div>
           <div className="mt-1 truncate text-[10px] text-slate-500">{projectName(task.projectId)}</div>
         </div>
       </div>
@@ -1980,15 +2038,14 @@ function GanttView({
                     </div>
                     <div className="mt-1 flex items-center gap-2 text-[10px] text-muted-foreground" style={{ paddingLeft: depth * 18 + (hasVisibleParent ? 18 : 0) }}>
                       <span className="truncate">{memberName(task.assigneeMemberId, task.assignee)}</span>
-                      <span>{statusMeta(task.status).label}</span>
-                      <span>{task.progress}%</span>
+                      <span className={cn("rounded-full border px-1.5 py-0.5 leading-none", statusMeta(task.status).className)}>
+                        {statusMeta(task.status).label}
+                      </span>
                     </div>
                   </div>
                   <div className="relative min-h-12 px-3 py-2.5">
                     <div className="absolute inset-x-3 top-1/2 h-px bg-border" />
-                    <div className="absolute top-1/2 h-5 -translate-y-1/2 rounded-md bg-foreground" style={barStyle(task)}>
-                      <div className="h-full rounded-md bg-emerald-500" style={{ width: `${task.progress || 0}%` }} />
-                    </div>
+                    <div className={cn("absolute top-1/2 h-5 -translate-y-1/2 rounded-md", ganttBarClass(task.status))} style={barStyle(task)} />
                     <span className="absolute right-3 top-1 text-[10px] text-muted-foreground">{formatDate(task.startDate)} - {formatDate(task.dueDate)}</span>
                   </div>
                 </button>
@@ -2073,7 +2130,6 @@ function TaskDialog({
   const dialogPosition = position ?? clampFloatingPosition({ x: 260, y: 40 });
   const sessionHref = safeSessionHref(form.agentSessionUrl);
   const sessionLabel = form.agentSessionLabel || form.agentSessionId || (form.agentKind ? `${form.agentKind} session` : "");
-  const showSession = Boolean(form.agentKind || form.agentSessionId || form.agentSessionUrl || (form.taskSource && form.taskSource !== "manual"));
   const labelClass = "text-[10px] font-medium leading-none text-muted-foreground sm:text-right";
   const controlClass = "h-7 w-full rounded-md border border-input bg-background px-2 text-[12px] leading-none";
   const inputClass = "h-7 px-2 text-[12px] leading-none";
@@ -2194,36 +2250,30 @@ function TaskDialog({
           <Input className={inputClass} type="date" value={form.startDate} onChange={(event) => patch({ startDate: event.target.value })} />
           <Label className={labelClass}>Due</Label>
           <Input className={inputClass} type="date" value={form.dueDate} onChange={(event) => patch({ dueDate: event.target.value })} />
-          <Label className={labelClass}>Progress</Label>
-          <Input className={inputClass} type="number" min={0} max={100} value={form.progress} onChange={(event) => patch({ progress: Number(event.target.value) })} />
           <Label className={labelClass}>Parent</Label>
-          <select className={controlClass} value={form.parentTaskId} onChange={(event) => patch({ parentTaskId: event.target.value })}>
+          <select className={cn(controlClass, "sm:col-span-3")} value={form.parentTaskId} onChange={(event) => patch({ parentTaskId: event.target.value })}>
             <option value="">なし</option>
             {parentOptions.map((task) => <option key={task.taskId} value={task.taskId}>{task.title}</option>)}
           </select>
-          {showSession && (
-            <>
-              <Label className={labelClass}>Session</Label>
-              <div className="flex h-7 min-w-0 items-center gap-1.5 rounded-md border border-input bg-muted/35 px-2 text-[11px] leading-none sm:col-span-3">
-                <span className="shrink-0 rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-                  {form.agentKind || form.taskSource || "agent"}
-                </span>
-                {sessionHref ? (
-                  <a
-                    className="min-w-0 truncate font-medium text-sky-600 underline-offset-2 hover:underline"
-                    href={sessionHref}
-                    target="_blank"
-                    rel="noreferrer"
-                    title={sessionHref}
-                  >
-                    {sessionLabel || "session link"}
-                  </a>
-                ) : (
-                  <span className="min-w-0 truncate text-muted-foreground">{sessionLabel || "session未設定"}</span>
-                )}
-              </div>
-            </>
-          )}
+          <Label className={labelClass}>Session</Label>
+          <div className="flex h-7 min-w-0 items-center gap-1.5 rounded-md border border-input bg-muted/35 px-2 text-[11px] leading-none sm:col-span-3">
+            <span className="shrink-0 rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+              {form.agentKind || form.taskSource || "manual"}
+            </span>
+            {sessionHref ? (
+              <a
+                className="min-w-0 truncate font-medium text-sky-600 underline-offset-2 hover:underline"
+                href={sessionHref}
+                target="_blank"
+                rel="noreferrer"
+                title={sessionHref}
+              >
+                {sessionLabel || "session link"}
+              </a>
+            ) : (
+              <span className="min-w-0 truncate text-muted-foreground">{sessionLabel || "session未設定"}</span>
+            )}
+          </div>
           <Label className={labelClass}>Description</Label>
           <Textarea className="min-h-14 py-1.5 text-[12px] leading-snug sm:col-span-3" value={form.description} onChange={(event) => patch({ description: event.target.value })} />
         </div>

@@ -14,7 +14,7 @@ import process from "node:process";
 const PWA_ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 const REPO_ROOT = path.resolve(PWA_ROOT, "..");
 const DEFAULT_BASE_URL = "https://amd-os-pwa.vercel.app";
-const STATUS_VALUES = new Set(["pending", "todo", "doing", "review", "blocked", "done", "open", "all"]);
+const STATUS_VALUES = new Set(["pending", "todo", "doing", "review", "blocked", "done", "archived", "open", "all"]);
 const PRIORITY_VALUES = new Set(["low", "medium", "high", "urgent"]);
 
 loadEnv(path.join(PWA_ROOT, ".env.local"));
@@ -61,9 +61,9 @@ function usage() {
   return `AMD OS agent task bridge
 
 Commands:
-  list [--status open|all|todo|doing|review|blocked|done] [--project p00] [--agent codex] [--session-id ID] [--limit 20] [--json]
+  list [--status open|all|todo|doing|review|blocked|done|archived] [--project p00] [--agent codex] [--session-id ID] [--limit 20] [--json]
   create --project p00 --title TITLE [--description TEXT] [--status todo] [--priority medium] [--assignee ID001] [--parent TASK_ID] [--agent codex|claude_code] [--session-id ID] [--session-url URL] [--session-label LABEL] [--json]
-  update --task TASK_ID [--title TITLE] [--description TEXT] [--status doing] [--priority high] [--progress 50] [--session-id ID] [--session-url URL] [--session-label LABEL] [--json]
+  update --task TASK_ID [--title TITLE] [--description TEXT] [--status doing] [--priority high] [--session-id ID] [--session-url URL] [--session-label LABEL] [--json]
   attach-session --task TASK_ID [--agent codex|claude_code] --session-id ID [--session-url URL] [--session-label LABEL] [--json]
 
 Env:
@@ -90,12 +90,6 @@ function cleanToken(value, fallback) {
   const text = String(value || fallback || "").trim();
   if (!text) return "";
   return text.replace(/[^a-zA-Z0-9:_-]/g, "_").slice(0, 80);
-}
-
-function numberOrUndefined(value) {
-  if (value === undefined || value === true || value === "") return undefined;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : undefined;
 }
 
 function sessionPayload(args) {
@@ -192,7 +186,6 @@ async function createTask(args) {
     status,
     priority,
     parentTaskId: args.parent || null,
-    progress: numberOrUndefined(args.progress) ?? 0,
     ...sessionPayload(args),
   };
   const json = await requestJson("/api/tasks", {
@@ -217,7 +210,6 @@ async function updateTask(args) {
     if (!PRIORITY_VALUES.has(String(args.priority))) throw new Error(`invalid priority: ${args.priority}`);
     payload.priority = args.priority;
   }
-  if (args.progress !== undefined) payload.progress = numberOrUndefined(args.progress);
   if (args["session-id"] || args["session-url"] || args["session-label"] || args.agent) {
     Object.assign(payload, sessionPayload(args));
   }
@@ -240,7 +232,7 @@ async function main() {
   if (command === "list") return listTasks(args);
   if (command === "create") return createTask(args);
   if (command === "update") return updateTask(args);
-  if (command === "attach-session") return updateTask({ ...args, title: undefined, description: undefined, status: undefined, priority: undefined, progress: undefined });
+  if (command === "attach-session") return updateTask({ ...args, title: undefined, description: undefined, status: undefined, priority: undefined });
   throw new Error(`unknown command: ${command}`);
 }
 

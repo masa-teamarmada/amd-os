@@ -12,7 +12,7 @@ import {
 } from "@/lib/notifications-data";
 
 /**
- * VC discover / VC news ingest 等から作られた app_notifications を一覧表示する
+ * VC discover / task agent 等から作られた app_notifications を一覧表示する
  * /notifications ページの先頭セクション。
  * L2 抽出 / MTG サマリ通知とは別系統 (NotificationsClient で扱う)。
  */
@@ -38,9 +38,9 @@ export function AppNotificationsSection() {
   return (
     <section className="mb-6 border border-border rounded-lg p-4">
       <div className="flex items-baseline gap-3 mb-3 flex-wrap">
-        <h2 className="text-sm font-semibold">🌐 VC / Web 通知</h2>
+        <h2 className="text-sm font-semibold">OS通知</h2>
         <span className="text-xs text-muted-foreground">
-          (cron vc-discover / つくよみ から)
+          (task agent / cron / つくよみ から)
         </span>
         <div className="ml-auto flex items-center gap-2 text-xs">
           {(["unread", "all"] as const).map((k) => (
@@ -93,7 +93,7 @@ export function AppNotificationsSection() {
 function NotificationRow({ item, onChange }: { item: AppNotification; onChange: () => void }) {
   const [busy, setBusy] = useState(false);
   const isUnread = !item.read_at;
-  const meta = item.meta as { source_url?: string; vc_name?: string; news_kind?: string } | null;
+  const meta = item.meta as { source_url?: string; vc_name?: string; news_kind?: string; task_id?: string; project_id?: string } | null;
 
   const onRead = async () => {
     setBusy(true);
@@ -127,6 +127,7 @@ function NotificationRow({ item, onChange }: { item: AppNotification; onChange: 
               {item.source === "tsukuyomi" && "🌙 つくよみ"}
               {item.source === "manual" && "✋ 手動"}
               {item.source === "system" && "⚙️ system"}
+              {item.source === "task_agent" && "task agent"}
             </span>
             <span className="text-muted-foreground text-[10px] ml-auto">
               {new Date(item.created_at).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}
@@ -156,6 +157,7 @@ function NotificationRow({ item, onChange }: { item: AppNotification; onChange: 
                 source
               </a>
             )}
+            {meta?.task_id && <span className="text-muted-foreground text-[10px] truncate">{meta.project_id} / {meta.task_id}</span>}
           </div>
         </div>
         <div className="flex flex-col gap-1.5 shrink-0">
