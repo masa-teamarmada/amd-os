@@ -22,6 +22,11 @@ type TaskPayload = {
   mindmapX?: number | string | null;
   mindmapY?: number | string | null;
   active?: boolean;
+  taskSource?: string | null;
+  agentKind?: string | null;
+  agentSessionId?: string | null;
+  agentSessionUrl?: string | null;
+  agentSessionLabel?: string | null;
 };
 
 type TaskRow = {
@@ -29,10 +34,33 @@ type TaskRow = {
   parent_task_id: string | null;
 };
 
+type TaskAccessResult =
+  | { ok: true; actor: string; accessKind: "user" | "agent"; errorResponse: null }
+  | { ok: false; actor: null; accessKind: null; errorResponse: NextResponse };
+
 function cleanText(value: unknown, max: number) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed ? trimmed.slice(0, max) : null;
+}
+
+function cleanSourceToken(value: unknown, max = 80) {
+  const text = cleanText(value, max);
+  if (!text) return null;
+  const token = text.replace(/[^a-zA-Z0-9:_-]/g, "_").slice(0, max);
+  return token || null;
+}
+
+function cleanSessionUrl(value: unknown) {
+  const text = cleanText(value, 1000);
+  if (!text) return null;
+  try {
+    const url = new URL(text);
+    if (["http:", "https:", "codex:", "claude:", "vscode:", "cursor:"].includes(url.protocol)) return text;
+  } catch {
+    return null;
+  }
+  return null;
 }
 
 function cleanTitle(value: unknown, max: number) {
@@ -56,6 +84,21 @@ function cleanCoordinate(value: unknown, fallback: number) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.max(-5000, Math.min(5000, Math.round(n)));
+}
+
+async function requireTaskAccess(req: NextRequest): Promise<TaskAccessResult> {
+  const cronSecret = process.env.CRON_SECRET?.trim();
+  const authorization = req.headers.get("authorization") || "";
+  if (cronSecret && authorization === `Bearer ${cronSecret}`) {
+    const agent = cleanText(req.headers.get("x-amd-os-agent"), 120) || "eimi";
+    return { ok: true, actor: `agent:${agent}`, accessKind: "agent", errorResponse: null };
+  }
+
+  const auth = await requireAuth();
+  if (!auth.ok) {
+    return { ok: false, actor: null, accessKind: null, errorResponse: auth.errorResponse };
+  }
+  return { ok: true, actor: auth.user.email, accessKind: "user", errorResponse: null };
 }
 
 function makeTaskId() {
@@ -83,6 +126,10 @@ function toClientTask(row: Record<string, unknown>) {
     mindmapY: Number(row.mindmap_y) || 0,
     active: row.active !== false,
     taskSource: row.task_source ?? "manual",
+    agentKind: row.agent_kind ?? null,
+    agentSessionId: row.agent_session_id ?? null,
+    agentSessionUrl: row.agent_session_url ?? null,
+    agentSessionLabel: row.agent_session_label ?? null,
     createdBy: row.created_by ?? null,
     updatedBy: row.updated_by ?? null,
     createdAt: row.created_at,
@@ -115,18 +162,36 @@ function wouldCreateCycle(tasks: TaskRow[], childTaskId: string, parentTaskId: s
   return false;
 }
 
-export async function GET() {
-  const auth = await requireAuth();
-  if (!auth.ok) return auth.errorResponse;
+export async function GET(req: NextRequest) {
+  const access = await requireTaskAccess(req);
+  if (!access.ok) return access.errorResponse;
 
   const db = createAdminClient();
+  const projectId = cleanText(req.nextUrl.searchParams.get("projectId"), 32);
+  const assigneeMemberId = cleanText(req.nextUrl.searchParams.get("assigneeMemberId"), 32);
+  const status = cleanText(req.nextUrl.searchParams.get("status"), 20);
+  const taskSource = cleanSourceToken(req.nextUrl.searchParams.get("taskSource"));
+  const agentKind = cleanSourceToken(req.nextUrl.searchParams.get("agentKind"));
+  const agentSessionId = cleanText(req.nextUrl.searchParams.get("agentSessionId"), 160);
+  const limit = cleanNumber(req.nextUrl.searchParams.get("limit"), 0, 0, 500);
+  let tasksQuery = db
+    .from("tasks")
+    .select("*")
+    .eq("active", true);
+  if (projectId) tasksQuery = tasksQuery.eq("project_id", projectId);
+  if (assigneeMemberId) tasksQuery = tasksQuery.eq("assignee_member_id", assigneeMemberId);
+  if (status === "open") tasksQuery = tasksQuery.neq("status", "done");
+  else if (status && status !== "all" && STATUSES.has(status)) tasksQuery = tasksQuery.eq("status", status);
+  if (taskSource) tasksQuery = tasksQuery.eq("task_source", taskSource);
+  if (agentKind) tasksQuery = tasksQuery.eq("agent_kind", agentKind);
+  if (agentSessionId) tasksQuery = tasksQuery.eq("agent_session_id", agentSessionId);
+  tasksQuery = tasksQuery
+    .order("project_id", { ascending: true })
+    .order("created_at", { ascending: true });
+  if (limit > 0) tasksQuery = tasksQuery.limit(limit);
+
   const [tasksRes, projectsRes, membersRes, profilesRes, projectMembersRes] = await Promise.all([
-    db
-      .from("tasks")
-      .select("*")
-      .eq("active", true)
-      .order("project_id", { ascending: true })
-      .order("created_at", { ascending: true }),
+    tasksQuery,
     db
       .from("projects")
       .select("project_id,project_name,client_name,status,project_category")
@@ -162,8 +227,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAuth();
-  if (!auth.ok) return auth.errorResponse;
+  const access = await requireTaskAccess(req);
+  if (!access.ok) return access.errorResponse;
 
   let body: TaskPayload;
   try {
@@ -202,9 +267,13 @@ export async function POST(req: NextRequest) {
     mindmap_x: cleanCoordinate(body.mindmapX, 80),
     mindmap_y: cleanCoordinate(body.mindmapY, 80),
     active: true,
-    task_source: "manual",
-    created_by: auth.user.email,
-    updated_by: auth.user.email,
+    task_source: cleanSourceToken(body.taskSource) ?? (access.accessKind === "agent" ? "agent" : "manual"),
+    agent_kind: cleanSourceToken(body.agentKind) ?? (access.accessKind === "agent" ? "agent" : null),
+    agent_session_id: cleanText(body.agentSessionId, 160),
+    agent_session_url: cleanSessionUrl(body.agentSessionUrl),
+    agent_session_label: cleanText(body.agentSessionLabel, 160),
+    created_by: access.actor,
+    updated_by: access.actor,
     position_updated_at: new Date().toISOString(),
   };
 
@@ -214,8 +283,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  const auth = await requireAuth();
-  if (!auth.ok) return auth.errorResponse;
+  const access = await requireTaskAccess(req);
+  if (!access.ok) return access.errorResponse;
 
   let body: TaskPayload;
   try {
@@ -229,7 +298,7 @@ export async function PATCH(req: NextRequest) {
 
   const db = createAdminClient();
   const patch: Record<string, unknown> = {
-    updated_by: auth.user.email,
+    updated_by: access.actor,
     updated_at: new Date().toISOString(),
   };
 
@@ -242,6 +311,14 @@ export async function PATCH(req: NextRequest) {
   if (body.dueDate !== undefined) patch.due_date = cleanDate(body.dueDate);
   if (body.progress !== undefined) patch.progress = cleanNumber(body.progress, 0, 0, 100);
   if (body.active !== undefined) patch.active = body.active === true;
+  if (body.taskSource !== undefined) {
+    const taskSource = cleanSourceToken(body.taskSource);
+    if (taskSource) patch.task_source = taskSource;
+  }
+  if (body.agentKind !== undefined) patch.agent_kind = cleanSourceToken(body.agentKind);
+  if (body.agentSessionId !== undefined) patch.agent_session_id = cleanText(body.agentSessionId, 160);
+  if (body.agentSessionUrl !== undefined) patch.agent_session_url = cleanSessionUrl(body.agentSessionUrl);
+  if (body.agentSessionLabel !== undefined) patch.agent_session_label = cleanText(body.agentSessionLabel, 160);
 
   if (body.assigneeMemberId !== undefined) {
     const assigneeMemberId = cleanText(body.assigneeMemberId, 32);

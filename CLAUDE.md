@@ -164,6 +164,7 @@ DESIGN.md は **全プラットフォーム共通の正本**。Android / PWA も
 - **DESIGN.md ファースト**: 画面追加 / 削除 / 改名 → 同じ commit で DESIGN.md を更新
 - **HANDOFF doc を書く**: main 更新時、他プラットフォームに影響するなら必ず追記
 - **共通インフラは慎重に**: Supabase 変更は影響範囲が大きい、適用順序を間違えない
+- **会話中の新タスクは `/tasks` に残す**: Codex / Claude Code のえいみが、会話中に新しい実装・調査・docs・確認タスクを認識したら、チャット内TODOだけで終えず `cd pwa && npm run agent:tasks -- create ...` で OS タスクへ登録する。既存タスクを進めるセッションは `attach-session` で `agent_session_id/url` を紐づける。詳細は `pwa/CLAUDE.md` と `pwa/manual/2-7-task-management.md`。
 - **commit & push を癖に**: 1日の終わり、1機能完成、ブランチ切り替え前 → 必ず push
 - **新ファイルは即 push**: 別PCのえいみが pull すれば見えるように
 - **CLAUDE.md / AGENTS.md / DESIGN.md は git で正本管理**。Drive や Notion に置かない

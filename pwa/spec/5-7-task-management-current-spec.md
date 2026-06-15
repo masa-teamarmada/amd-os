@@ -25,18 +25,23 @@
 | `mindmap_x` / `mindmap_y` | mindmap position |
 | `active` | 論理表示フラグ。DELETEしない |
 | `task_source` | `manual` などの生成元 |
+| `agent_kind` | `codex` / `claude_code` など、会話中にタスクを登録・進行しているエージェント種別 |
+| `agent_session_id` | Codex / Claude Code の thread/session id |
+| `agent_session_url` | 該当セッションを開くためのURLまたは許可済みprotocol link |
+| `agent_session_label` | `/tasks` 詳細ウィンドウに出すセッション表示名 |
 | `created_by` / `updated_by` | 操作者 email |
 | `position_updated_at` | mindmap座標保存時刻 |
 
-Migration: `pwa/scripts/migrations/136_tasks_management_fields.sql`
+Migration: `pwa/scripts/migrations/136_tasks_management_fields.sql`, `pwa/scripts/migrations/141_tasks_agent_session_fields.sql`
 
 ## API Contract
 
 ### `GET /api/tasks`
 
-- `requireAuth()` 必須。
+- login済み user、または `Authorization: Bearer ${CRON_SECRET}` の agent access を許可する。
 - `tasks(active=true)`、`projects`、`members`、`member_profiles`、active `project_members` を返す。
 - 全PJ/全員を横断する要件のため、API route 内では `createAdminClient()` で read する。
+- agent access 用に `status` / `projectId` / `assigneeMemberId` / `taskSource` / `agentKind` / `agentSessionId` / `limit` query を受ける。未指定なら従来どおり全active taskを返す。
 
 ### `POST /api/tasks`
 
@@ -45,13 +50,15 @@ Migration: `pwa/scripts/migrations/136_tasks_management_fields.sql`
 - `title` が空なら `新規タスク`。
 - `assigneeMemberId` があれば `members.code_name` を `assignee` に同期し、旧カンバン互換を保つ。
 - `task_source='manual'`, `active=true`。
+- `taskSource` / `agentKind` / `agentSessionId` / `agentSessionUrl` / `agentSessionLabel` を受け取り、Codex / Claude Code のえいみが会話中に発生したタスクを登録できる。agent accessで `taskSource` 未指定なら `agent`。
 
 ### `PATCH /api/tasks`
 
 - `taskId` 必須。
-- title / description / project / assignee / status / priority / start/due / progress / parent / mindmap position / active を部分更新する。
+- title / description / project / assignee / status / priority / start/due / progress / parent / mindmap position / active / source / agent session fields を部分更新する。
 - `parentTaskId` 更新時は、全active taskの `parent_task_id` chain を見て循環を拒否する。
 - `mindmapX` / `mindmapY` 更新時は `position_updated_at` も更新する。
+- `agent_session_*` は `npm run agent:tasks -- attach-session` から既存タスクに紐づける想定。既存タスクを進める別セッションを可視化するため、新規taskを重複作成しない。
 
 ## UI Contract
 
@@ -68,6 +75,7 @@ PJ filter、担当 filter、status filter、text search を同一ツールバー
 - ノード本体は pointer drag で移動する。移動dragは edge 作成に使わない。親タスクをdragした場合は、表示中かどうかにかかわらず子孫タスクの座標も同じdeltaで追従させ、Ctrl+Z / Cmd+Z では親子まとめて1操作として戻す。位置は画面へ先に反映し、保存は裏で実行する。
 - ノードhoverは、rootの `translate(x,y)` を変えずに内部visualだけをその場で少しscaleする。hoverで右へずれる挙動は不可。
 - ノードクリックで詳細/編集ウィンドウをノード右側かつ上寄せに開く。詳細ウィンドウは backdrop / blur を出さず、header drag で移動できる。削除はheader側にも出し、スクロールしなくても押せるようにする。フォームは幅480px基準、PC幅では `label / control / label / control` の横詰めgrid、control height 28px、description min height 56px 程度の小さめfont / 控えめなgapで高密度に表示する。
+- 詳細ウィンドウは `agent_kind` / `agent_session_id` / `agent_session_url` / `agent_session_label` があるタスクだけ、compactな Session 行を表示する。`agent_session_url` が安全なURL/protocolなら別タブlink、URLが無ければ session id/label のtext表示にする。通常タスクでは行を出さず、編集密度を維持する。
 - 詳細ウィンドウの削除ボタン、または詳細ウィンドウ本体にフォーカスした状態の Backspace は、画面から即時除去して裏で `PATCH /api/tasks active=false` を実行する。DB `DELETE` は使わない。入力欄フォーカス中の Backspace は文字編集として扱う。
 - Ctrl+Z / Cmd+Z は、入力欄フォーカス外なら直前の create / delete / edge patch / position patch を local undo stack から復元し、必要な逆向き `PATCH` を裏で実行する。
 - ノード色は status ごとに分ける。`todo` は黄、`doing` はteal、`done` は青、`review` はindigo、`blocked` はrose、`pending` はzinc。現在表示中の子タスクが3つ以上ある親ノードはhub扱いとして、cyan系の強調ringと子数badgeを追加する。
@@ -89,12 +97,14 @@ PJ filter、担当 filter、status filter、text search を同一ツールバー
 ## Authority / Safety
 
 - `/tasks` は `(app)` 配下なので login 必須。
-- API mutation は authenticated user のみ。DB write は `service_role` で行い、browser anon key から直接 `tasks` を書かせない。
+- API mutation は authenticated user、または `CRON_SECRET` を持つ Codex / Claude Code agent のみ。DB write は `service_role` で行い、browser anon key から直接 `tasks` を書かせない。
 - RLS は `authenticated SELECT`, `is_admin() ALL`, `service_role ALL` を定義する。既存 cockpit kanban 互換のため read は authenticated 全体に開く。
 - DELETE / TRUNCATE / DROP は使わない。非表示は `active=false`。
+- Agent helper: `cd pwa && npm run agent:tasks -- list|create|update|attach-session ...`。script は production `/api/tasks` を `Authorization: Bearer ${CRON_SECRET}` で叩き、`task_source` と `agent_session_*` を保存する。
 
 ## Validation
 
 - TypeScript: `npx tsc --noEmit`
 - Build: `npm run build`
+- Script smoke: `npm run agent:tasks -- help`
 - Browser: `/tasks` を開き、top nav、mindmap空白クリック即時作成、下寄り作成時の詳細ウィンドウviewport内clamp + title focus、status別ノード色、status hover popupからの即時変更、タイトル Enter 保存、`+` click子タスク即時作成、子→親の直線arrow、hover時の位置固定scale、緩いpinch/zoom、node click詳細、詳細の上寄せ/高密度/blurなし/header削除/drag、Backspace削除、Ctrl+Z復元、親node位置drag時の子孫追従、`+` handle drag edge、gantt親子indent/子数badge、gantt空白行作成を確認する。

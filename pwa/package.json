@@ -20,7 +20,8 @@
     "import:monthly-pl-budget": "node scripts/import_monthly_pl_budget.cjs",
     "collect:management-score-raw": "node scripts/collect_management_score_raw_data.cjs",
     "calculate:management-score": "node scripts/calculate_management_score.cjs",
-    "freee:refresh-token": "node scripts/get_freee_refresh_token.cjs --write-env"
+    "freee:refresh-token": "node scripts/get_freee_refresh_token.cjs --write-env",
+    "agent:tasks": "node scripts/agent_tasks.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.87.0",

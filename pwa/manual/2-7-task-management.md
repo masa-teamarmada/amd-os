@@ -29,6 +29,7 @@
 | progress | 0〜100% |
 | parent | マインドマップの親タスク。1タスクにつき親は1つ |
 | position | マインドマップ上の x/y 座標 |
+| source / session | `manual` / `codex` / `claude_code` などの登録元と、進行中のAIセッションID・リンク |
 
 ## 操作ルール
 
@@ -37,11 +38,27 @@
 - Ctrl+Z / Cmd+Z は、入力欄フォーカス外なら直前の作成・削除・接続・移動を取り消す。親タスク移動で子孫が追従した場合も、まとめて1操作として戻る。
 - マインドマップのノード色はstatusごとに分ける。TODOは黄、Doingはteal、Doneは青、Reviewはindigo、Blockedはrose、Pendingはzinc。子タスクが3つ以上ある親ノードはcyanリングと子数バッジでhub表示する。近いノード同士は atlas map と同じ hard collision 系の反発で重なりを避ける。
 - ノード下のstatus表示にマウスオーバーすると、status選択ポップアップが出る。ここで選ぶとモーダルを開かずに画面へ即時反映し、裏で保存する。失敗時は元に戻り、Ctrl+Z / Cmd+Zでも直前のstatus変更を戻せる。
+- Codex / Claude Code のえいみが登録・進行しているタスクは、詳細ウィンドウ内に `Session` 行が出る。URLがある場合はリンクから該当セッションを開ける。URLが無い場合も session id / label が表示される。
 - マインドマップのedgeは `parent_task_id` で表す。画面では子タスクから親タスクへ向かう直線矢印として描く。循環する親子関係はAPIで拒否する。
 - 接続ハンドルのclickは、そのタスクを親にした新規子タスクを親ノードの右側へ即時作成する。親がまだtemporary idの場合も画面上は先に親子関係を見せ、server id 確定後に保存する。
 - 接続ハンドルからのdrag後は、同じpointer操作を空白クリック作成として扱わない。
-- タスクの作成・更新は `/api/tasks` が `requireAuth()` 後に `service_role` で行う。
+- タスクの作成・更新は `/api/tasks` が login user または `CRON_SECRET` 付きagent accessを確認した後、server-side `service_role` で行う。
 - `/tasks` は authenticated user が全PJタスクを横断表示するための画面。細かい外部送信やカレンダー書き込みは行わない。
+
+## えいみからの登録
+
+Codex / Claude Code のえいみは、会話中に新しい作業が発生したらチャット内TODOだけで終えず、OSタスクへ登録する。
+
+```bash
+cd /Users/masa/projects/AMD/amd-os/pwa
+npm run agent:tasks -- list --status open --limit 20
+npm run agent:tasks -- create --project p00 --title "タスク名" --agent codex --session-id "<thread-or-session-id>" --session-url "<session-url>"
+npm run agent:tasks -- attach-session --task "<task_id>" --agent claude_code --session-id "<session-id>" --session-url "<session-url>"
+```
+
+- 既存タスクを進めるだけなら `attach-session` を使い、重複タスクを作らない。
+- `--agent codex` / `--agent claude_code` が `task_source` と `agent_kind` に残る。
+- `--session-id` / `--session-url` / `--session-label` は詳細ウィンドウの `Session` 行に出る。
 
 ## 既存カンバンとの関係
 

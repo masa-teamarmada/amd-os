@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-06-15 19:41 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-06-15 19:55 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -2972,7 +2972,7 @@ UNIQUE: `(project_id,source,item_id)` (constraint: `source_cache_project_id_sour
 
 ## tasks
 
-行数 (概算): 58
+行数 (概算): 59
 PRIMARY KEY: `id`
 UNIQUE: `(task_id)` (constraint: `tasks_task_id_key`)
 
@@ -3000,6 +3000,10 @@ UNIQUE: `(task_id)` (constraint: `tasks_task_id_key`)
 | 20 | `created_by` | `text` | NULL | `` |
 | 21 | `updated_by` | `text` | NULL | `` |
 | 22 | `position_updated_at` | `timestamptz` | NULL | `` |
+| 23 | `agent_kind` | `text` | NULL | `` |
+| 24 | `agent_session_id` | `text` | NULL | `` |
+| 25 | `agent_session_url` | `text` | NULL | `` |
+| 26 | `agent_session_label` | `text` | NULL | `` |
 
 ## textbook_insight_candidates
 

@@ -138,6 +138,25 @@ npx vercel promote <デプロイID> --scope armada0130 --yes
 
 ---
 
+## ✅ Codex / Claude Code えいみの OS タスク登録
+
+会話中に新しい実装・調査・docs・確認タスクが発生したら、チャット内TODOだけで流さず `/tasks` の正本へ登録する。
+
+```bash
+cd /Users/masa/projects/AMD/amd-os/pwa
+npm run agent:tasks -- list --status open --limit 20
+npm run agent:tasks -- create --project p00 --title "タスク名" --agent codex --session-id "<thread-or-session-id>" --session-url "<session-url>"
+npm run agent:tasks -- attach-session --task "<task_id>" --agent claude_code --session-id "<session-id>" --session-url "<session-url>"
+```
+
+- 認証は `Authorization: Bearer ${CRON_SECRET}`。script は `.env.local` / production env から読む。
+- `--agent` は `codex` / `claude_code` / `agent` など。`task_source` と `agent_kind` に残る。
+- `--session-id` / `--session-url` / `--session-label` は `tasks.agent_session_*` に保存され、`/tasks` の詳細ウィンドウに Session link として表示される。
+- 既存タスクを進めるだけなら新規作成せず `attach-session`。タスク状態の確認は `list`。
+- DBの物理削除は禁止。完了は `update --status done`、不要化はOS UIの削除またはAPIの `active=false` で非表示にする。
+
+---
+
 ## ⚠️ DDL適用（Supabase Management API 経由）
 
 ```bash

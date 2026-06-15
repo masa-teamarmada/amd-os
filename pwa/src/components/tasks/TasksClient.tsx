@@ -42,6 +42,11 @@ type OsTask = {
   mindmapX: number;
   mindmapY: number;
   active: boolean;
+  taskSource: string;
+  agentKind: string | null;
+  agentSessionId: string | null;
+  agentSessionUrl: string | null;
+  agentSessionLabel: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -102,6 +107,11 @@ type TaskFormState = {
   parentTaskId: string;
   mindmapX: number;
   mindmapY: number;
+  taskSource: string;
+  agentKind: string;
+  agentSessionId: string;
+  agentSessionUrl: string;
+  agentSessionLabel: string;
 };
 
 const STATUS_OPTIONS: Array<{ value: TaskStatus; label: string; className: string }> = [
@@ -181,6 +191,11 @@ function emptyForm(projectId: string, x = 140, y = 120): TaskFormState {
     parentTaskId: "",
     mindmapX: x,
     mindmapY: y,
+    taskSource: "manual",
+    agentKind: "",
+    agentSessionId: "",
+    agentSessionUrl: "",
+    agentSessionLabel: "",
   };
 }
 
@@ -199,6 +214,11 @@ function formFromTask(task: OsTask): TaskFormState {
     parentTaskId: task.parentTaskId || "",
     mindmapX: task.mindmapX || 80,
     mindmapY: task.mindmapY || 80,
+    taskSource: task.taskSource || "manual",
+    agentKind: task.agentKind || "",
+    agentSessionId: task.agentSessionId || "",
+    agentSessionUrl: task.agentSessionUrl || "",
+    agentSessionLabel: task.agentSessionLabel || "",
   };
 }
 
@@ -438,6 +458,17 @@ function editableTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false;
   if (target.isContentEditable) return true;
   return Boolean(target.closest("input,textarea,select,[contenteditable='true']"));
+}
+
+function safeSessionHref(value: string | null | undefined) {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    if (["http:", "https:", "codex:", "claude:", "vscode:", "cursor:"].includes(url.protocol)) return value;
+  } catch {
+    return null;
+  }
+  return null;
 }
 
 export function TasksClient() {
@@ -726,6 +757,11 @@ export function TasksClient() {
               parentTaskId: task.parentTaskId,
               mindmapX: task.mindmapX,
               mindmapY: task.mindmapY,
+              taskSource: task.taskSource,
+              agentKind: task.agentKind,
+              agentSessionId: task.agentSessionId,
+              agentSessionUrl: task.agentSessionUrl,
+              agentSessionLabel: task.agentSessionLabel,
             };
           }
           return serverTask;
@@ -854,6 +890,11 @@ export function TasksClient() {
       mindmapX: draft.mindmapX,
       mindmapY: draft.mindmapY,
       active: true,
+      taskSource: draft.taskSource,
+      agentKind: null,
+      agentSessionId: null,
+      agentSessionUrl: null,
+      agentSessionLabel: null,
       createdAt: now,
       updatedAt: now,
     };
@@ -2030,6 +2071,9 @@ function TaskDialog({
   const members = projectMembers(form.projectId);
   const parentOptions = tasks.filter((task) => task.taskId !== form.taskId && task.projectId === form.projectId);
   const dialogPosition = position ?? clampFloatingPosition({ x: 260, y: 40 });
+  const sessionHref = safeSessionHref(form.agentSessionUrl);
+  const sessionLabel = form.agentSessionLabel || form.agentSessionId || (form.agentKind ? `${form.agentKind} session` : "");
+  const showSession = Boolean(form.agentKind || form.agentSessionId || form.agentSessionUrl || (form.taskSource && form.taskSource !== "manual"));
   const labelClass = "text-[10px] font-medium leading-none text-muted-foreground sm:text-right";
   const controlClass = "h-7 w-full rounded-md border border-input bg-background px-2 text-[12px] leading-none";
   const inputClass = "h-7 px-2 text-[12px] leading-none";
@@ -2157,6 +2201,29 @@ function TaskDialog({
             <option value="">なし</option>
             {parentOptions.map((task) => <option key={task.taskId} value={task.taskId}>{task.title}</option>)}
           </select>
+          {showSession && (
+            <>
+              <Label className={labelClass}>Session</Label>
+              <div className="flex h-7 min-w-0 items-center gap-1.5 rounded-md border border-input bg-muted/35 px-2 text-[11px] leading-none sm:col-span-3">
+                <span className="shrink-0 rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                  {form.agentKind || form.taskSource || "agent"}
+                </span>
+                {sessionHref ? (
+                  <a
+                    className="min-w-0 truncate font-medium text-sky-600 underline-offset-2 hover:underline"
+                    href={sessionHref}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={sessionHref}
+                  >
+                    {sessionLabel || "session link"}
+                  </a>
+                ) : (
+                  <span className="min-w-0 truncate text-muted-foreground">{sessionLabel || "session未設定"}</span>
+                )}
+              </div>
+            </>
+          )}
           <Label className={labelClass}>Description</Label>
           <Textarea className="min-h-14 py-1.5 text-[12px] leading-snug sm:col-span-3" value={form.description} onChange={(event) => patch({ description: event.target.value })} />
         </div>
