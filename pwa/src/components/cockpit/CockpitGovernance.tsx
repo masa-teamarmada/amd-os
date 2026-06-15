@@ -26,7 +26,7 @@ type Meeting = {
   id: string; meeting_type: string | null; meeting_date: string | null; agenda_summary: string | null;
   resolutions_json: { title?: string; type?: string; result?: string }[] | null;
   amd_response: string | null; amd_response_at: string | null; location: string | null;
-  attachments_json: string[] | null; notes: string | null;
+  attachments_json: { name?: string; url?: string }[] | null; notes: string | null;
 };
 type ActionItem = {
   action_id: string; title: string; summary: string | null; due_at: string | null;
@@ -145,6 +145,21 @@ export function CockpitGovernance({ projectId }: { projectId: string }) {
                     <li key={i}>{r.title}{r.result && r.result !== "unknown" ? `（${r.result}）` : ""}</li>
                   ))}
                 </ul>
+              )}
+              {Array.isArray(meetings[0].attachments_json) && meetings[0].attachments_json.length > 0 && (
+                <div className="mt-1.5">
+                  <div className="text-[10px] font-semibold text-muted-foreground">総会関連資料</div>
+                  <div className="mt-0.5 flex flex-wrap gap-1">
+                    {meetings[0].attachments_json.map((a, i) => (
+                      a.url ? (
+                        <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
+                          className="rounded border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] hover:bg-muted hover:underline">📄 {a.name || `資料${i + 1}`}</a>
+                      ) : (
+                        <span key={i} className="rounded border border-border bg-muted/40 px-1.5 py-0.5 text-[10px]">📄 {a.name || `資料${i + 1}`}</span>
+                      )
+                    ))}
+                  </div>
+                </div>
               )}
               {meetings.length > 1 && <div className="mt-1 text-[10px] text-muted-foreground">他 {meetings.length - 1} 件の総会履歴</div>}
             </div>
