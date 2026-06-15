@@ -3101,3 +3101,19 @@
 - **原因**: `BUILD_VERSION` bump と local worktree の状態だけで deploy bundle を判断し、現行 production の version/content、別 worker の直近 commit、ユーザーが見ている実画面を確認しなかった。HUD など無関係な推測も混ぜ、問題の焦点が「v0.15.3内容の巻き戻り」であることを取り違えた。
 - **対応内容**: 現行 v0.15.3 相当の内容を読み直し、`019e9176` の company content landing zone、KUTE重複解消、研究機関ERSリスト復旧、KUTE/KGW/NIMS 表示名変更を統合して `v0.15.5` として production deploy した。deployment `dpl_42byLRKSTZEfrQGo5bDfWargtUyx` が Ready、production smoke も通過。
 - **再発防止策**: deploy 前は必ず `git log`、現行 production inspect、対象別セッションの成果物、ユーザーが見ている `BUILD_VERSION` を照合する。既に production に出ている変更を local に取り込めていない時は、bump/deploy せず統合を先に行う。古い worktree からの direct deploy は rollback と同義になりうる。
+
+---
+
+## [API] action_items/extract の通知が無言で作られない (2026-06-15)
+
+- **症状**: `POST /api/action-items/extract` が `notified:1` を返すのに `l2_notifications` に行が増えない。
+- **原因**: `l2_notifications.notification_id` は `uuid DEFAULT gen_random_uuid()` 型。route が `n:ai:<hash>` という text を notification_id に入れて insert していたため uuid 変換エラーで失敗。さらに `await db.from(...).upsert(...)` の error を握りつぶしていたので、戻り値の `notified` がカウンタ(notifications.length)だけ見て成功扱いになっていた = サイレント失敗。
+- **解決策**: notification_id を渡さず DB 自動生成に任せる(insert)。`insert` の error をチェックし、成功時のみ `notified` をカウント。dedup は上流の `action_items.source_hash` で担保済みなので notification_id を deterministic にする必要は無い。v0.20.11 で修正、cron認証で実地検証(insert/dedup/通知)後テスト行削除。
+- **教訓**: (1) 新テーブルに insert する前に `db_schema.md` で PK/型を確認する (uuid PK に独自 text key を入れない)。(2) Supabase の insert/upsert は **必ず error を見る**。握りつぶすと「成功っぽい戻り値」で無言失敗する。表示系まで通して実データで検証する。
+
+## [運用] セッション頭の git fetch を飛ばして最新build把握漏れ (2026-06-15)
+
+- **症状**: ローカル build-info が v0.19.14 と古く、まさの「現状v0.20.7」と食い違った。
+- **原因**: セッション開始時の `git fetch` (CLAUDE.md 4ステップ) を実行せず、ローカル main が origin/main より **9 commit 遅れ**ていた (別セッションが v0.20.8 まで進めていた)。
+- **解決策**: `git fetch --all` → ff-only merge で同期。version bump は origin/main の build-info を見てから次番号 (v0.20.9) を決定。
+- **教訓**: amd-os は新セッション開始時に必ず 4 ステップ (fetch / 未push検知 / branch / status) を実行。ローカルの古い値を信じない。
