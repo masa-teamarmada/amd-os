@@ -55,7 +55,7 @@ PWA 側で `member_allocations_json` を再計算しない。 正本ロジック
 
 合意は「当月の遂行内容と報酬条件を確認した」監査 snapshot。`reward_summary_json`、`member_allocations_json`、MS進捗、担当shareを読むだけで、報酬計算を再実行したり値を書き換えたりしない。
 
-月初合意画面は cap、stockYen、carry-over、条件/前提、未確定・要確認などの精算/確認内部情報を出さない。本人には「どのPJのどのMSにコミットするか」「当月どこまで到達すべきか」「その対価としての想定報酬」を示す。MS別予定報酬は reward summary の breakdown 金額を元にし、PJ別想定報酬と合計が合うよう丸め差分を吸収する。`frozen` PJ は報酬が発生しないため対象外。
+月初合意画面は cap、stockYen、carry-over、条件/前提、未確定・要確認などの精算/確認内部情報を出さない。本人には「どのPJのどのMSにコミットするか」「当月どこまで到達すべきか」「その対価としての想定報酬」を示す。MS別予定報酬は reward summary の breakdown 金額を元にし、PJ別想定報酬と合計が合うよう丸め差分を吸収する。`frozen` PJ と、当月報酬も担当MSもないPJは対象外。報酬キャッシュがあるPJで担当MSにbreakdown行がない場合は、未確定ではなく `0円` と表示する。
 
 表示内容に違和感がある場合、本人は「修正要望」から対象PJ、要望種別、本文を送る。要望は送信時点の snapshot hash と一緒に保存され、admin/PM側の確認キューとして扱う。
 

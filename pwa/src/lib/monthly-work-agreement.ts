@@ -348,12 +348,14 @@ export async function buildMonthlyWorkAgreementBundle(
             respRows.map((row) => String(row.task_description ?? "")).filter(Boolean).join(" / ") || null,
           progressPct,
           monthlyProgressPct,
-          expectedRewardYen: toNumber(rewardRow?.payYen ?? rewardRow?.basePay ?? rewardRow?.totalPay),
+          expectedRewardYen: rewardRow ? toNumber(rewardRow.payYen ?? rewardRow.basePay ?? rewardRow.totalPay) ?? 0 : reward ? 0 : null,
           earnedPt: toNumber(rewardRow?.earnedPt),
           conditions,
           state: progressPct == null ? "review_required" : "ready",
         });
       }
+
+      if (expectedRewardYen == null && roleMilestones.length === 0) return null;
 
       const reviewReasons: string[] = [];
       if (!cycle) reviewReasons.push("billing_cycles が未作成");
@@ -392,6 +394,7 @@ export async function buildMonthlyWorkAgreementBundle(
         routineExpectations: routineExpectations(membership),
       };
     })
+    .filter((project): project is MonthlyWorkAgreementProject => project != null)
     .sort((a, b) => (b.expectedRewardYen ?? 0) - (a.expectedRewardYen ?? 0) || a.projectId.localeCompare(b.projectId));
 
   const snapshot: MonthlyWorkAgreementSnapshot = {

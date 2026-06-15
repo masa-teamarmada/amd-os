@@ -42,7 +42,7 @@ AMD メンバー (= 社内常勤 / 副業) が AMD OS で日常的に触る画�
 
 ### 月初合意
 
-`/monthly-agreement` では、当月参加中の PJ、担当 MS / share、当月の到達目標、既存 reward summary から読める想定報酬を確認する。cap / carry-over / stockYen / 条件/前提 / 未確定・要確認などの内部確認情報は本人画面に出さない。`frozen` PJ は報酬が発生しないため表示対象外。合意ボタンを押すと `member_monthly_work_agreements` に表示内容の `snapshot_json` と `snapshot_hash` が保存される。
+`/monthly-agreement` では、当月参加中の PJ、担当 MS / share、当月の到達目標、既存 reward summary から読める想定報酬を確認する。cap / carry-over / stockYen / 条件/前提 / 未確定・要確認などの内部確認情報は本人画面に出さない。`frozen` PJ、当月報酬も担当MSもないPJは表示対象外。報酬キャッシュがあるPJで担当MSの報酬行がない場合は、未確定ではなく `0円` と表示する。合意ボタンを押すと `member_monthly_work_agreements` に表示内容の `snapshot_json` と `snapshot_hash` が保存される。
 
 月中に MS / share / 報酬キャッシュなどが変わって現在の snapshot hash が前回合意時とズレた場合、本人画面と admin 画面に「条件更新あり」と出る。これは報酬計算を変えるものではなく、再確認が必要なサイン。
 
