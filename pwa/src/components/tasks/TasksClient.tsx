@@ -134,10 +134,10 @@ const MAX_ZOOM = 2.25;
 const WHEEL_ZOOM_SENSITIVITY = 0.00045;
 const TOUCH_PINCH_ZOOM_EXPONENT = 0.45;
 const ZOOM_BUTTON_FACTOR = 1.08;
-const TASK_DIALOG_WIDTH = 560;
+const TASK_DIALOG_WIDTH = 480;
 const TASK_DIALOG_MARGIN = 12;
-const TASK_DIALOG_MIN_VISIBLE_HEIGHT = 220;
-const TASK_DIALOG_VERTICAL_OFFSET = 72;
+const TASK_DIALOG_MIN_VISIBLE_HEIGHT = 180;
+const TASK_DIALOG_VERTICAL_OFFSET = 144;
 const NODE_REPEL_DISTANCE = NODE_DIAMETER * 2.05;
 
 type FloatingPosition = {
@@ -1906,7 +1906,10 @@ function TaskDialog({
   if (!form) return null;
   const members = projectMembers(form.projectId);
   const parentOptions = tasks.filter((task) => task.taskId !== form.taskId && task.projectId === form.projectId);
-  const dialogPosition = position ?? clampFloatingPosition({ x: 260, y: 88 });
+  const dialogPosition = position ?? clampFloatingPosition({ x: 260, y: 40 });
+  const labelClass = "text-[10px] font-medium leading-none text-muted-foreground sm:text-right";
+  const controlClass = "h-7 w-full rounded-md border border-input bg-background px-2 text-[12px] leading-none";
+  const inputClass = "h-7 px-2 text-[12px] leading-none";
 
   function patch(patchValue: Partial<TaskFormState>) {
     onChange({ ...form, ...patchValue } as TaskFormState);
@@ -1935,7 +1938,7 @@ function TaskDialog({
       }}
     >
       <div
-        className="flex cursor-move items-center justify-between gap-2 border-b border-border bg-muted/45 px-3 py-2"
+        className="flex cursor-move items-center justify-between gap-2 border-b border-border bg-muted/45 px-2.5 py-1.5"
         onPointerDown={(event) => {
           if ((event.target as HTMLElement).closest("button,input,select,textarea")) return;
           event.preventDefault();
@@ -1972,90 +1975,70 @@ function TaskDialog({
         }}
       >
         <div className="min-w-0">
-          <div className="truncate font-heading text-sm font-medium leading-none">{form.taskId ? "タスク編集" : "タスク作成"}</div>
+          <div className="truncate font-heading text-[13px] font-medium leading-none">{form.taskId ? "タスク編集" : "タスク作成"}</div>
           {form.title.trim() && <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{form.title}</div>}
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           {form.taskId && (
-            <Button variant="destructive" size="sm" onClick={() => onDelete(form.taskId as string)} disabled={saving}>
+            <Button className="h-7 px-2 text-xs" variant="destructive" size="sm" onClick={() => onDelete(form.taskId as string)} disabled={saving}>
               <Trash2 className="h-3.5 w-3.5" />
               削除
             </Button>
           )}
-          <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="close task detail">
+          <Button className="h-7 w-7" variant="ghost" size="icon-sm" onClick={onClose} aria-label="close task detail">
             <X className="h-4 w-4" />
           </Button>
         </div>
       </div>
-      <div className="max-h-[calc(100vh-116px)] overflow-y-auto p-3">
-        <div className="grid gap-2 sm:grid-cols-2">
-          <div className="space-y-1 sm:col-span-2">
-            <Label className="text-[11px]">タイトル</Label>
-            <Input
-              className="h-8 text-xs"
-              value={form.title}
-              onChange={(event) => patch({ title: event.target.value })}
-              onKeyDown={(event) => {
-                if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
-                event.preventDefault();
-                onSave();
-              }}
-              autoFocus
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-[11px]">PJ</Label>
-            <select className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs" value={form.projectId} onChange={(event) => patch({ projectId: event.target.value, assigneeMemberId: "", parentTaskId: "" })}>
-              {projects.map((project) => <option key={project.project_id} value={project.project_id}>{project.project_id} {project.project_name}</option>)}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-[11px]">担当</Label>
-            <select className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs" value={form.assigneeMemberId} onChange={(event) => patch({ assigneeMemberId: event.target.value })}>
-              <option value="">未割当</option>
-              {members.map((member) => <option key={member.member_id} value={member.member_id}>{memberName(member.member_id)}</option>)}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-[11px]">Status</Label>
-            <select className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs" value={form.status} onChange={(event) => patch({ status: event.target.value as TaskStatus })}>
-              {STATUS_OPTIONS.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-[11px]">Priority</Label>
-            <select className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs" value={form.priority} onChange={(event) => patch({ priority: event.target.value })}>
-              {PRIORITY_OPTIONS.map((priority) => <option key={priority.value} value={priority.value}>{priority.label}</option>)}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-[11px]">Start</Label>
-            <Input className="h-8 text-xs" type="date" value={form.startDate} onChange={(event) => patch({ startDate: event.target.value })} />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-[11px]">Due</Label>
-            <Input className="h-8 text-xs" type="date" value={form.dueDate} onChange={(event) => patch({ dueDate: event.target.value })} />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-[11px]">Progress</Label>
-            <Input className="h-8 text-xs" type="number" min={0} max={100} value={form.progress} onChange={(event) => patch({ progress: Number(event.target.value) })} />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-[11px]">Parent</Label>
-            <select className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs" value={form.parentTaskId} onChange={(event) => patch({ parentTaskId: event.target.value })}>
-              <option value="">なし</option>
-              {parentOptions.map((task) => <option key={task.taskId} value={task.taskId}>{task.title}</option>)}
-            </select>
-          </div>
-          <div className="space-y-1 sm:col-span-2">
-            <Label className="text-[11px]">Description</Label>
-            <Textarea className="min-h-20 text-xs" value={form.description} onChange={(event) => patch({ description: event.target.value })} />
-          </div>
+      <div className="max-h-[calc(100vh-92px)] overflow-y-auto p-2.5">
+        <div className="grid gap-x-2 gap-y-1.5 sm:grid-cols-[52px_minmax(0,1fr)_58px_minmax(0,1fr)] sm:items-center">
+          <Label className={labelClass}>タイトル</Label>
+          <Input
+            className={cn(inputClass, "sm:col-span-3")}
+            value={form.title}
+            onChange={(event) => patch({ title: event.target.value })}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+              event.preventDefault();
+              onSave();
+            }}
+            autoFocus
+          />
+          <Label className={labelClass}>PJ</Label>
+          <select className={controlClass} value={form.projectId} onChange={(event) => patch({ projectId: event.target.value, assigneeMemberId: "", parentTaskId: "" })}>
+            {projects.map((project) => <option key={project.project_id} value={project.project_id}>{project.project_id} {project.project_name}</option>)}
+          </select>
+          <Label className={labelClass}>担当</Label>
+          <select className={controlClass} value={form.assigneeMemberId} onChange={(event) => patch({ assigneeMemberId: event.target.value })}>
+            <option value="">未割当</option>
+            {members.map((member) => <option key={member.member_id} value={member.member_id}>{memberName(member.member_id)}</option>)}
+          </select>
+          <Label className={labelClass}>Status</Label>
+          <select className={controlClass} value={form.status} onChange={(event) => patch({ status: event.target.value as TaskStatus })}>
+            {STATUS_OPTIONS.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
+          </select>
+          <Label className={labelClass}>Priority</Label>
+          <select className={controlClass} value={form.priority} onChange={(event) => patch({ priority: event.target.value })}>
+            {PRIORITY_OPTIONS.map((priority) => <option key={priority.value} value={priority.value}>{priority.label}</option>)}
+          </select>
+          <Label className={labelClass}>Start</Label>
+          <Input className={inputClass} type="date" value={form.startDate} onChange={(event) => patch({ startDate: event.target.value })} />
+          <Label className={labelClass}>Due</Label>
+          <Input className={inputClass} type="date" value={form.dueDate} onChange={(event) => patch({ dueDate: event.target.value })} />
+          <Label className={labelClass}>Progress</Label>
+          <Input className={inputClass} type="number" min={0} max={100} value={form.progress} onChange={(event) => patch({ progress: Number(event.target.value) })} />
+          <Label className={labelClass}>Parent</Label>
+          <select className={controlClass} value={form.parentTaskId} onChange={(event) => patch({ parentTaskId: event.target.value })}>
+            <option value="">なし</option>
+            {parentOptions.map((task) => <option key={task.taskId} value={task.taskId}>{task.title}</option>)}
+          </select>
+          <Label className={labelClass}>Description</Label>
+          <Textarea className="min-h-14 py-1.5 text-[12px] leading-snug sm:col-span-3" value={form.description} onChange={(event) => patch({ description: event.target.value })} />
         </div>
       </div>
-      <div className="flex justify-end gap-2 border-t border-border bg-muted/45 p-3">
-        <Button variant="outline" size="sm" onClick={onClose}>閉じる</Button>
-        <Button size="sm" onClick={onSave} disabled={saving}>
+      <div className="flex justify-end gap-1.5 border-t border-border bg-muted/45 p-2">
+        <Button className="h-7 px-2 text-xs" variant="outline" size="sm" onClick={onClose}>閉じる</Button>
+        <Button className="h-7 px-2 text-xs" size="sm" onClick={onSave} disabled={saving}>
           {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
           保存
         </Button>

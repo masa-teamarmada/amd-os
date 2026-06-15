@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-06-15 | 5-7 | 変更 | task detail modal を幅480px基準、上寄せoffset拡大、`label/control/label/control` 横詰めgrid、28px control、56px descriptionへ再調整 | まさ指摘「全然高密度になってない」「入力枠が大きい」「p00 AMDの右の空きが無駄」「デフォルト位置をもっと上に」への対応 | えいみ-worker |
 | 2026-06-15 | 5-7 / 2-1 / 2-2 | 変更 | mindmap zoom入力を減衰させるcontract、親node drag時の子孫追従 + grouped undo、直線edge、上寄せ/高密度/detail header削除、gantt親子tree/indent/子数badgeを追記。route/surface inventoryも最新操作へ同期 | まさ指摘「pinchが敏感」「親を移動したら子もついてくる」「矢印は直線」「modalの削除が遠い」「ganttの親子関係を明確に」への対応 | えいみ-worker |
 | 2026-06-15 | 5-7 | 変更 | mindmap詳細のタイトル入力 Enter 保存、`+` handle clickによる新規子タスク optimistic 作成、temporary parent id 解決後の保存 contract、edge arrow の子→親表示、hover時に位置をずらさないscale contract を追加。`+` handle drag edge接続は維持 | タスクを連続追加する操作の待ち時間とクリック数を減らし、親子方向とhover挙動の違和感を解消するため | えいみ-worker |
 | 2026-06-14 | 5-7 / 2-1 / 2-2 / 2-3 | 追加 | `/tasks`、`/api/tasks`、`tasks` table拡張、mindmap/gantt UI、RLS/API権限を正本化 | 全PJ・全員のタスク管理機能をPWAに追加したため | えいみ-worker |
