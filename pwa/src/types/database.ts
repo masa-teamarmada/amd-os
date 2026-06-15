@@ -36,6 +36,7 @@ export interface Project {
   freee_partner_id: string | null;
   start_ym: string | null;
   end_ym: string | null;
+  contract_terms_json: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 }

@@ -92,6 +92,7 @@ export default async function AdminProjectsPage() {
       invoice_bcc_emails: p.invoice_bcc_emails ?? null,
       payment_due_rule: p.payment_due_rule ?? null,
       payment_due_day: p.payment_due_day ?? null,
+      contract_terms_json: p.contract_terms_json ?? null,
       freeze_from_ym: p.freeze_from_ym ?? null,
       restart_expected_ym: p.restart_expected_ym ?? null,
       news_search_query: p.news_search_query ?? null,

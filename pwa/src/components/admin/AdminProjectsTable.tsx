@@ -35,6 +35,7 @@ export interface ProjectRow {
   invoice_bcc_emails: string | null;
   payment_due_rule: string | null;
   payment_due_day: number | null;
+  contract_terms_json: ContractTerms | null;
   freeze_from_ym: string | null;
   restart_expected_ym: string | null;
   pms: string[];
@@ -56,6 +57,19 @@ export interface ProjectRow {
   created_at: string;
   updated_at: string;
 }
+
+type ContractTerms = {
+  monthlyFeeYen?: number | string | null;
+  contractStartYm?: string | null;
+  contractEndYm?: string | null;
+  actualWorkStartYm?: string | null;
+  billingStartYm?: string | null;
+  rewardPoolYen?: number | string | null;
+  monthlyRewardCapYen?: number | string | null;
+  sourceTitle?: string | null;
+  sourceRef?: string | null;
+  notes?: string | null;
+};
 
 // 2026-05-11 まさ指摘 9 番: DB に status='draft' の PJ (= p24 CLG) があったが STATUS_OPTIONS に
 // 含まれてなかった。select の value がオプションに無いと React 上で空表示 + 保存時の
@@ -105,6 +119,14 @@ function StatusBadge({ status }: { status: string }) {
 function fmtYen(value: number | string | null | undefined) {
   const n = Number(value ?? 0);
   return n > 0 && Number.isFinite(n) ? `¥${Math.round(n).toLocaleString("ja-JP")}` : "—";
+}
+
+function textValue(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function contractTermValue(terms: ContractTerms | null | undefined, key: keyof ContractTerms) {
+  return terms?.[key] == null ? "" : String(terms[key] ?? "");
 }
 
 function parseYenInput(value: string | null | undefined) {
@@ -160,6 +182,16 @@ type EditVals = {
   invoice_bcc_emails: string;
   payment_due_rule: string;
   payment_due_day: string;
+  contract_monthly_fee_yen: string;
+  contract_start_ym: string;
+  contract_end_ym: string;
+  contract_actual_work_start_ym: string;
+  contract_billing_start_ym: string;
+  contract_reward_pool_yen: string;
+  contract_monthly_reward_cap_yen: string;
+  contract_source_title: string;
+  contract_source_ref: string;
+  contract_notes: string;
   freeze_from_ym: string;
   restart_expected_ym: string;
   news_search_query: string;
@@ -219,6 +251,16 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
       invoice_bcc_emails: p.invoice_bcc_emails ?? "",
       payment_due_rule: p.payment_due_rule ?? DEFAULT_PAYMENT_DUE_RULE,
       payment_due_day: p.payment_due_day != null ? String(p.payment_due_day) : "",
+      contract_monthly_fee_yen: contractTermValue(p.contract_terms_json, "monthlyFeeYen"),
+      contract_start_ym: contractTermValue(p.contract_terms_json, "contractStartYm"),
+      contract_end_ym: contractTermValue(p.contract_terms_json, "contractEndYm"),
+      contract_actual_work_start_ym: contractTermValue(p.contract_terms_json, "actualWorkStartYm"),
+      contract_billing_start_ym: contractTermValue(p.contract_terms_json, "billingStartYm"),
+      contract_reward_pool_yen: contractTermValue(p.contract_terms_json, "rewardPoolYen"),
+      contract_monthly_reward_cap_yen: contractTermValue(p.contract_terms_json, "monthlyRewardCapYen"),
+      contract_source_title: contractTermValue(p.contract_terms_json, "sourceTitle"),
+      contract_source_ref: contractTermValue(p.contract_terms_json, "sourceRef"),
+      contract_notes: contractTermValue(p.contract_terms_json, "notes"),
       freeze_from_ym: p.freeze_from_ym ?? "",
       restart_expected_ym: p.restart_expected_ym ?? "",
       news_search_query: p.news_search_query ?? "",
@@ -335,6 +377,23 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
         patch.payment_due_rule = editVals.payment_due_rule || DEFAULT_PAYMENT_DUE_RULE;
         patch.payment_due_day = null;
         break;
+      case "contract_terms": {
+        const terms: ContractTerms = {
+          monthlyFeeYen: parseYenInput(editVals.contract_monthly_fee_yen as string) || null,
+          contractStartYm: textValue(editVals.contract_start_ym) || null,
+          contractEndYm: textValue(editVals.contract_end_ym) || null,
+          actualWorkStartYm: textValue(editVals.contract_actual_work_start_ym) || null,
+          billingStartYm: textValue(editVals.contract_billing_start_ym) || null,
+          rewardPoolYen: parseYenInput(editVals.contract_reward_pool_yen as string) || null,
+          monthlyRewardCapYen: parseYenInput(editVals.contract_monthly_reward_cap_yen as string) || null,
+          sourceTitle: textValue(editVals.contract_source_title) || null,
+          sourceRef: textValue(editVals.contract_source_ref) || null,
+          notes: textValue(editVals.contract_notes) || null,
+        };
+        const hasValue = Object.values(terms).some((value) => value !== null && value !== "");
+        patch.contract_terms_json = hasValue ? terms : null;
+        break;
+      }
       case "invoice_send":
         patch.invoice_send_manual = !!editVals.invoice_send_manual;
         patch.invoice_to_emails = (editVals.invoice_to_emails as string) || null;
@@ -403,7 +462,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
 
       {/* Table */}
       <div className="overflow-x-auto border border-border rounded-lg">
-        <table className="text-[12px] border-collapse" style={{ minWidth: "1740px" }}>
+        <table className="text-[12px] border-collapse" style={{ minWidth: "1980px" }}>
           <thead className="sticky top-0 z-30">
             <tr className="bg-muted text-muted-foreground">
               <th className="text-left px-3 py-2 font-medium sticky left-0 z-40 bg-muted w-14">PJID</th>
@@ -416,6 +475,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
               <th className="text-left px-3 py-2 font-medium w-56">関係先メールアドレス</th>
               <th className="text-left px-3 py-2 font-medium w-32">請求書送付</th>
               <th className="text-left px-3 py-2 font-medium w-36">業務委託料</th>
+              <th className="text-left px-3 py-2 font-medium w-60">契約条件</th>
               <th className="text-left px-3 py-2 font-medium w-24">支払条件</th>
               <th className="text-left px-3 py-2 font-medium w-20">開始ym</th>
               <th className="text-left px-3 py-2 font-medium w-20">終了ym</th>
@@ -717,6 +777,75 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                           <div className="text-muted-foreground">—</div>
                         )}
                       </div>
+                    )}
+                  </td>
+
+                  {/* contract_terms_json */}
+                  <td className={`${cellCls("contract_terms")} align-top`} onClick={enterCell("contract_terms")}>
+                    {isEditingField(p, "contract_terms") ? (
+                      <div className="space-y-1.5" onClick={(e) => e.stopPropagation()}>
+                        <div className="grid grid-cols-2 gap-1">
+                          <input type="text" value={editVals.contract_monthly_fee_yen as string}
+                            onChange={(e) => setEditVals((v) => ({ ...v, contract_monthly_fee_yen: e.target.value }))}
+                            placeholder="月額税抜"
+                            className="rounded border border-border bg-background px-1.5 py-0.5 text-[11px] font-mono" />
+                          <input type="text" value={editVals.contract_monthly_reward_cap_yen as string}
+                            onChange={(e) => setEditVals((v) => ({ ...v, contract_monthly_reward_cap_yen: e.target.value }))}
+                            placeholder="月次cap"
+                            className="rounded border border-border bg-background px-1.5 py-0.5 text-[11px] font-mono" />
+                          <input type="text" value={editVals.contract_start_ym as string}
+                            onChange={(e) => setEditVals((v) => ({ ...v, contract_start_ym: e.target.value }))}
+                            placeholder="契約開始ym"
+                            className="rounded border border-border bg-background px-1.5 py-0.5 text-[11px] font-mono" />
+                          <input type="text" value={editVals.contract_end_ym as string}
+                            onChange={(e) => setEditVals((v) => ({ ...v, contract_end_ym: e.target.value }))}
+                            placeholder="契約終了ym"
+                            className="rounded border border-border bg-background px-1.5 py-0.5 text-[11px] font-mono" />
+                          <input type="text" value={editVals.contract_actual_work_start_ym as string}
+                            onChange={(e) => setEditVals((v) => ({ ...v, contract_actual_work_start_ym: e.target.value }))}
+                            placeholder="実働開始ym"
+                            className="rounded border border-border bg-background px-1.5 py-0.5 text-[11px] font-mono" />
+                          <input type="text" value={editVals.contract_billing_start_ym as string}
+                            onChange={(e) => setEditVals((v) => ({ ...v, contract_billing_start_ym: e.target.value }))}
+                            placeholder="請求開始ym"
+                            className="rounded border border-border bg-background px-1.5 py-0.5 text-[11px] font-mono" />
+                        </div>
+                        <input type="text" value={editVals.contract_reward_pool_yen as string}
+                          onChange={(e) => setEditVals((v) => ({ ...v, contract_reward_pool_yen: e.target.value }))}
+                          placeholder="報酬原資総額"
+                          className="w-full rounded border border-border bg-background px-1.5 py-0.5 text-[11px] font-mono" />
+                        <input type="text" value={editVals.contract_source_title as string}
+                          onChange={(e) => setEditVals((v) => ({ ...v, contract_source_title: e.target.value }))}
+                          placeholder="ソース/契約書名"
+                          className="w-full rounded border border-border bg-background px-1.5 py-0.5 text-[11px]" />
+                        <textarea value={editVals.contract_notes as string}
+                          onChange={(e) => setEditVals((v) => ({ ...v, contract_notes: e.target.value }))}
+                          placeholder="補足"
+                          rows={2}
+                          className="w-full rounded border border-border bg-background px-1.5 py-0.5 text-[11px]" />
+                        {cellActions("contract_terms")}
+                      </div>
+                    ) : p.contract_terms_json ? (
+                      <div className="space-y-1 text-[11px]">
+                        <div className="flex flex-wrap gap-1">
+                          {p.contract_terms_json.monthlyFeeYen ? <span className="rounded bg-emerald-50 px-1.5 py-0.5 font-mono text-emerald-800">{fmtYen(p.contract_terms_json.monthlyFeeYen)}/月</span> : null}
+                          {p.contract_terms_json.monthlyRewardCapYen ? <span className="rounded bg-blue-50 px-1.5 py-0.5 font-mono text-blue-800">cap {fmtYen(p.contract_terms_json.monthlyRewardCapYen)}</span> : null}
+                        </div>
+                        <div className="font-mono text-[10px] text-muted-foreground">
+                          契約 {p.contract_terms_json.contractStartYm || "—"}→{p.contract_terms_json.contractEndYm || "—"}
+                        </div>
+                        <div className="font-mono text-[10px] text-muted-foreground">
+                          実働 {p.contract_terms_json.actualWorkStartYm || "—"} / 請求 {p.contract_terms_json.billingStartYm || "—"}
+                        </div>
+                        {p.contract_terms_json.rewardPoolYen ? (
+                          <div className="font-mono text-[10px] text-muted-foreground">原資 {fmtYen(p.contract_terms_json.rewardPoolYen)}</div>
+                        ) : null}
+                        {p.contract_terms_json.sourceTitle ? (
+                          <div className="truncate text-[10px] text-muted-foreground" title={p.contract_terms_json.sourceTitle}>src: {p.contract_terms_json.sourceTitle}</div>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
                     )}
                   </td>
 

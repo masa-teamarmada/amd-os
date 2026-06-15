@@ -73,7 +73,7 @@ function expectNoCircledNumbering(relPaths) {
 expectIncludes("spec/3-0-l2-data-list-current-spec.md", [
   "# L2データリスト",
   "M / W / D / H",
-  "| L2 | 層 | 名前 | 何を残すか | 主な使い道 | マシン | cron名 | タイミング |",
+  "| ID | 何のデータか | 今の writer | 定額内 | 状態 | 次の動き |",
   "層 (tier) 軸",
   "D-12",
   "Finance Ops Evidence / freee Transaction Actuals",

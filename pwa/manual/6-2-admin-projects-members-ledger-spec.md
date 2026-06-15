@@ -22,6 +22,7 @@ URL: `/admin/projects`。 全 PJ 台帳を編集する admin 専用画面。
 | client_name | 取引先名 |
 | start_ym / end_ym | 期間 |
 | 月次予算 (= 通常 cap) | `projects.fee_amount` |
+| 契約条件 | `projects.contract_terms_json` (= 契約書/見積書から抽出した期間・月額・請求開始・実働開始・報酬原資) |
 | 請求条件 | `invoice_send_deadline_rule` / `payment_due_rule` / `payment_due_day` |
 | 請求先メール | `invoice_to_emails` / `invoice_cc_emails` / `invoice_bcc_emails` |
 | freee | `projects.freee_partner_id` |
@@ -76,6 +77,7 @@ URL: `/admin/projects`。 全 PJ 台帳を編集する admin 専用画面。
 | `project_id` | `p00` (= AMD全体) / `p07` 等 |
 | `fee_type` | `fixed` (= 月額固定 cap) / `point` (= ポイント従量) 等 |
 | `fee_amount` | 月額 (= 通常 cap、 numeric) |
+| `contract_terms_json` | 契約書/見積書から抽出した横断比較用 JSON。主キーは `monthlyFeeYen`, `contractStartYm`, `contractEndYm`, `actualWorkStartYm`, `billingStartYm`, `rewardPoolYen`, `monthlyRewardCapYen`, `sourceTitle`, `sourceRef`, `notes` |
 | `invoice_send_deadline_rule` | 送付期限ルール (= `"末締め翌月10日"` 等の文字列) |
 | `payment_due_rule` | 支払サイト (= `"末締め翌月末払い"` 等) |
 | `payment_due_day` | 支払日 (= 月末を 0 とする日付 integer) |
