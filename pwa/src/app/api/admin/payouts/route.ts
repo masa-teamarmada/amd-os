@@ -123,6 +123,13 @@ type LoadTargetDataOptions = {
   refreshRewards?: boolean;
 };
 
+function addMonths(ym: string, delta: number): string {
+  const y = Number(ym.slice(0, 4));
+  const m = Number(ym.slice(4, 6));
+  const d = new Date(Date.UTC(y, m - 1 + delta, 1));
+  return `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
 function cleanYm(value: string | null): string | null {
   const ym = (value ?? "").trim();
   return YM_RE.test(ym) ? ym : null;
@@ -813,7 +820,8 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
     "project_id, ym, status, budget_yen, budget_reported_amount, budget_buffer_amount, invoice_ym, reward_summary_json, payout_notice_uploaded_at, payment_confirmed_at, reward_paid_at";
 
   const candidateYms = candidateSourceYmsForPaymentYm(ym);
-  const [membersRes, projectsRes, invoiceCyclesRes, unsetInvoiceCyclesRes] = await Promise.all([
+  const forecastEndYm = addMonths(ym, 11);
+  const [membersRes, projectsRes, invoiceCyclesRes, unsetInvoiceCyclesRes, forecastCyclesRes] = await Promise.all([
     db
       .from("members")
       .select("member_id, code_name, member_name, contractor_name, member_address, invoice_registration_number, bank_info, email, status, is_officer, exclude_from_payout_notice")
@@ -832,12 +840,19 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
       .select(cycleSelect)
       .in("ym", candidateYms)
       .is("invoice_ym", null),
+    db
+      .from("billing_cycles")
+      .select(cycleSelect)
+      .gte("ym", ym)
+      .lte("ym", forecastEndYm)
+      .order("ym", { ascending: true }),
   ]);
 
   if (membersRes.error) throw membersRes.error;
   if (projectsRes.error) throw projectsRes.error;
   if (invoiceCyclesRes.error) throw invoiceCyclesRes.error;
   if (unsetInvoiceCyclesRes.error) throw unsetInvoiceCyclesRes.error;
+  if (forecastCyclesRes.error) throw forecastCyclesRes.error;
 
   const projectMap = new Map<string, PaymentProjectRow>();
   for (const project of (projectsRes.data ?? []) as PaymentProjectRow[]) {
@@ -855,9 +870,12 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
     }
   }
   const cycles = [...cycleMap.values()].sort(cycleSort);
+  const forecastCycles = ((forecastCyclesRes.data ?? []) as BillingCycleRow[]).sort(cycleSort);
   if (options.refreshRewards) {
-    const syncedRewards = await syncRewardSummariesForBillingCycles(db, cycles);
-    for (const cycle of cycles) {
+    const cycleByKey = new Map<string, BillingCycleRow>();
+    for (const cycle of [...cycles, ...forecastCycles]) cycleByKey.set(cycleKey(cycle), cycle);
+    const syncedRewards = await syncRewardSummariesForBillingCycles(db, [...cycleByKey.values()]);
+    for (const cycle of [...cycles, ...forecastCycles]) {
       const synced = syncedRewards.get(cycleKey(cycle));
       if (synced) {
         cycle.reward_summary_json = synced;
@@ -867,7 +885,7 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
       }
     }
   } else {
-    for (const cycle of cycles) {
+    for (const cycle of [...cycles, ...forecastCycles]) {
       const cached = asRewardSummary(cycle.reward_summary_json);
       const cachedBudget = numberValue(cached?.monthlyBudget65);
       if (Number(cycle.budget_yen ?? 0) <= 0 && cachedBudget > 0) {
@@ -903,6 +921,8 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
     members: membersRes.data ?? [],
     projects: projectsRes.data ?? [],
     cycles,
+    forecastMonths: Array.from({ length: 12 }, (_, index) => addMonths(ym, index)),
+    forecastCycles,
     payouts: payoutsRes.data ?? [],
     notices: noticesRes.data ?? [],
     expectedEntries: applySavedPayoutsForExistingRows(

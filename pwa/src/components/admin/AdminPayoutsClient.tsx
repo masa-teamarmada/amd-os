@@ -116,6 +116,8 @@ type PayoutData = {
   members: Member[];
   projects: Project[];
   cycles: BillingCycle[];
+  forecastMonths?: string[];
+  forecastCycles?: BillingCycle[];
   payouts: MonthlyRewardPayout[];
   notices: PayoutNotice[];
   expectedEntries?: PayoutEntry[];
@@ -198,6 +200,26 @@ type ProjectFinanceGroup = {
   finalBalanceYen: number;
   cycles: ProjectFinanceCycleLine[];
   memberLines: ProjectFinanceMemberLine[];
+};
+
+type ProjectMonthlyFinanceCell = {
+  projectId: string;
+  projectName: string;
+  ym: string;
+  baseClientAmountYen: number;
+  budgetYen: number;
+  payoutYen: number;
+  officerPayoutYen: number;
+  stockYen: number;
+  grossDueYen: number;
+  finalBalanceYen: number;
+};
+
+type ProjectMonthlyFinanceRow = {
+  projectId: string;
+  projectName: string;
+  cells: ProjectMonthlyFinanceCell[];
+  totals: Omit<ProjectMonthlyFinanceCell, "projectId" | "projectName" | "ym">;
 };
 
 type BudgetConfirmGroup = {
@@ -598,6 +620,118 @@ function capEntriesToBudget(entries: PayoutEntry[], budgetYen: number | null): P
   });
 }
 
+function buildProjectMonthlyFinanceRows({
+  months,
+  cycles,
+  projectMap,
+  memberMap,
+  officerMemberIds,
+}: {
+  months: string[];
+  cycles: BillingCycle[];
+  projectMap: Map<string, Project>;
+  memberMap: Map<string, string>;
+  officerMemberIds: Set<string>;
+}): ProjectMonthlyFinanceRow[] {
+  const nonOfficerEntries = buildEntries(cycles, memberMap, officerMemberIds);
+  const officerEntries = buildEntries(
+    cycles,
+    memberMap,
+    new Set([...memberMap.keys()].filter((memberId) => !officerMemberIds.has(memberId)))
+  );
+  const nonOfficerByCycle = new Map<string, PayoutEntry[]>();
+  const officerByCycle = new Map<string, PayoutEntry[]>();
+  for (const entry of nonOfficerEntries) {
+    const key = `${entry.projectId}:${entry.ym}`;
+    const list = nonOfficerByCycle.get(key) ?? [];
+    list.push(entry);
+    nonOfficerByCycle.set(key, list);
+  }
+  for (const entry of officerEntries) {
+    const key = `${entry.projectId}:${entry.ym}`;
+    const list = officerByCycle.get(key) ?? [];
+    list.push(entry);
+    officerByCycle.set(key, list);
+  }
+
+  const rows = new Map<string, ProjectMonthlyFinanceRow>();
+  const ensureRow = (projectId: string) => {
+    const project = projectMap.get(projectId);
+    const current =
+      rows.get(projectId) ??
+      {
+        projectId,
+        projectName: project?.project_name ?? projectId,
+        cells: [],
+        totals: {
+          baseClientAmountYen: 0,
+          budgetYen: 0,
+          payoutYen: 0,
+          officerPayoutYen: 0,
+          stockYen: 0,
+          grossDueYen: 0,
+          finalBalanceYen: 0,
+        },
+      };
+    rows.set(projectId, current);
+    return current;
+  };
+
+  for (const cycle of cycles) {
+    const row = ensureRow(cycle.project_id);
+    const key = `${cycle.project_id}:${cycle.ym}`;
+    const project = projectMap.get(cycle.project_id);
+    const entries = nonOfficerByCycle.get(key) ?? [];
+    const officerReserve = officerByCycle.get(key) ?? [];
+    const baseClientAmountYen = baseClientAmountForCycle(cycle, project);
+    const budgetYen = Math.round(numberValue(cycle.budget_yen));
+    const payoutYen = entries.reduce((sum, entry) => sum + entry.totalPay, 0);
+    const officerPayoutYen = officerReserve.reduce((sum, entry) => sum + entry.totalPay, 0);
+    const stockYen = entries.reduce((sum, entry) => sum + entry.stockYen, 0) + officerReserve.reduce((sum, entry) => sum + entry.stockYen, 0);
+    const grossDueYen = entries.reduce((sum, entry) => sum + entry.grossDueYen, 0) + officerReserve.reduce((sum, entry) => sum + entry.grossDueYen, 0);
+    const finalBalanceYen = budgetYen - payoutYen;
+    const cell: ProjectMonthlyFinanceCell = {
+      projectId: cycle.project_id,
+      projectName: row.projectName,
+      ym: cycle.ym,
+      baseClientAmountYen,
+      budgetYen,
+      payoutYen,
+      officerPayoutYen,
+      stockYen,
+      grossDueYen,
+      finalBalanceYen,
+    };
+    row.cells.push(cell);
+    row.totals.baseClientAmountYen += baseClientAmountYen;
+    row.totals.budgetYen += budgetYen;
+    row.totals.payoutYen += payoutYen;
+    row.totals.officerPayoutYen += officerPayoutYen;
+    row.totals.stockYen += stockYen;
+    row.totals.grossDueYen += grossDueYen;
+    row.totals.finalBalanceYen += finalBalanceYen;
+  }
+
+  return [...rows.values()]
+    .map((row) => ({
+      ...row,
+      cells: months.map((ym) => row.cells.find((cell) => cell.ym === ym) ?? {
+        projectId: row.projectId,
+        projectName: row.projectName,
+        ym,
+        baseClientAmountYen: 0,
+        budgetYen: 0,
+        payoutYen: 0,
+        officerPayoutYen: 0,
+        stockYen: 0,
+        grossDueYen: 0,
+        finalBalanceYen: 0,
+      }),
+    }))
+    .filter((row) => row.totals.budgetYen > 0 || row.totals.payoutYen > 0 || row.totals.stockYen > 0 || row.totals.baseClientAmountYen > 0)
+    .sort((a, b) => a.projectName.localeCompare(b.projectName, "ja"));
+}
+
 export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
   const [ym, setYm] = useState(initialYm);
   const [data, setData] = useState<PayoutData | null>(null);
@@ -867,6 +1001,18 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
       .filter((group) => group.budgetYen > 0 || group.payoutYen > 0 || group.officerPayoutYen > 0 || group.baseClientAmountYen > 0)
       .sort((a, b) => a.projectName.localeCompare(b.projectName, "ja"));
   }, [data?.cycles, expectedEntries, officerReserveEntries, projectMap]);
+
+  const forecastMonths = useMemo(() => data?.forecastMonths?.length ? data.forecastMonths : [ym], [data?.forecastMonths, ym]);
+  const projectMonthlyFinanceRows = useMemo(
+    () => buildProjectMonthlyFinanceRows({
+      months: forecastMonths,
+      cycles: data?.forecastCycles ?? [],
+      projectMap,
+      memberMap,
+      officerMemberIds,
+    }),
+    [data?.forecastCycles, forecastMonths, memberMap, officerMemberIds, projectMap]
+  );
 
   const budgetConfirmGroups = useMemo<BudgetConfirmGroup[]>(() => {
     const map = new Map<string, BudgetConfirmGroup>();
@@ -1404,7 +1550,6 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
 
   useEffect(() => {
     void loadForYm(ym);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ym]);
 
   useEffect(() => {
@@ -1588,6 +1733,12 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
         financeGroups={projectFinanceGroups}
         onOpenMonthly={(item) => openMonthlyModal(item.projectId, item.ym, `${item.projectName} ${fmtYm(item.ym)}`)}
         onOpenBudgetConfirm={setBudgetTarget}
+      />
+
+      <ProjectMonthlyFinanceTable
+        months={forecastMonths}
+        rows={projectMonthlyFinanceRows}
+        onOpenMonthly={(cell) => openMonthlyModal(cell.projectId, cell.ym, `${cell.projectName} ${fmtYm(cell.ym)}`)}
       />
 
       <section className="space-y-2">
@@ -2255,6 +2406,139 @@ function BudgetAuditPanel({
             </table>
           </div>
         )}
+      </div>
+    </section>
+  );
+}
+
+function ProjectMonthlyFinanceTable({
+  months,
+  rows,
+  onOpenMonthly,
+}: {
+  months: string[];
+  rows: ProjectMonthlyFinanceRow[];
+  onOpenMonthly: (cell: ProjectMonthlyFinanceCell) => void;
+}) {
+  const monthTotals = useMemo(
+    () => months.map((ym) => {
+      const cells = rows.map((row) => row.cells.find((cell) => cell.ym === ym)).filter((cell): cell is ProjectMonthlyFinanceCell => Boolean(cell));
+      return {
+        ym,
+        budgetYen: cells.reduce((sum, cell) => sum + cell.budgetYen, 0),
+        payoutYen: cells.reduce((sum, cell) => sum + cell.payoutYen, 0),
+        stockYen: cells.reduce((sum, cell) => sum + cell.stockYen, 0),
+        finalBalanceYen: cells.reduce((sum, cell) => sum + cell.finalBalanceYen, 0),
+      };
+    }),
+    [months, rows]
+  );
+  const grand = monthTotals.reduce(
+    (acc, item) => ({
+      budgetYen: acc.budgetYen + item.budgetYen,
+      payoutYen: acc.payoutYen + item.payoutYen,
+      stockYen: acc.stockYen + item.stockYen,
+      finalBalanceYen: acc.finalBalanceYen + item.finalBalanceYen,
+    }),
+    { budgetYen: 0, payoutYen: 0, stockYen: 0, finalBalanceYen: 0 }
+  );
+
+  return (
+    <section className="rounded-lg border border-border bg-card p-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <div>
+          <h2 className="text-[13px] font-semibold">先12か月 PJ収支</h2>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            billing_cycles のPJ予算と reward_summary_json の支払予定から、稼働月ごとの収支を先読みする。
+          </p>
+        </div>
+        <div className="ml-auto flex flex-wrap gap-2 text-[11px]">
+          <span className="rounded bg-muted/50 px-2 py-1">PJ予算 {fmtYen(grand.budgetYen)}</span>
+          <span className="rounded bg-muted/50 px-2 py-1">支払予定 {fmtYen(grand.payoutYen)}</span>
+          {grand.stockYen > 0 && <span className="rounded bg-amber-100 px-2 py-1 text-amber-900">stock {fmtYen(grand.stockYen)}</span>}
+          <span className={`rounded px-2 py-1 font-semibold ${grand.finalBalanceYen < 0 ? "bg-red-100 text-red-800" : "bg-emerald-100 text-emerald-800"}`}>
+            収支 {fmtSignedYen(grand.finalBalanceYen)}
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-3 overflow-x-auto rounded-md border border-border bg-background">
+        <table className="min-w-[1180px] w-full border-separate border-spacing-0 text-[12px]">
+          <thead>
+            <tr className="bg-muted/40">
+              <th className="sticky left-0 z-20 w-44 border-b border-r border-border bg-muted px-3 py-2 text-left font-medium">PJ</th>
+              <th className="w-28 border-b border-r border-border px-3 py-2 text-right font-medium">12か月収支</th>
+              {months.map((month) => (
+                <th key={month} className="min-w-[132px] border-b border-r border-border px-3 py-2 text-right font-medium">
+                  {fmtYm(month)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={months.length + 2} className="px-3 py-8 text-center text-muted-foreground">
+                  先12か月のPJ収支データがない
+                </td>
+              </tr>
+            ) : (
+              <>
+                <tr className="bg-muted/20">
+                  <th className="sticky left-0 z-10 border-b border-r border-border bg-muted px-3 py-2 text-left font-semibold">全PJ合計</th>
+                  <td className={`border-b border-r border-border px-3 py-2 text-right font-semibold tabular-nums ${grand.finalBalanceYen < 0 ? "text-red-700" : "text-emerald-700"}`}>
+                    {fmtSignedYen(grand.finalBalanceYen)}
+                  </td>
+                  {monthTotals.map((total) => (
+                    <td key={total.ym} className="border-b border-r border-border px-3 py-2 text-right align-top">
+                      <div className={`font-semibold tabular-nums ${total.finalBalanceYen < 0 ? "text-red-700" : "text-emerald-700"}`}>
+                        {fmtSignedYen(total.finalBalanceYen)}
+                      </div>
+                      <div className="mt-0.5 text-[10px] text-muted-foreground">予算 {fmtYen(total.budgetYen)}</div>
+                      <div className="text-[10px] text-muted-foreground">支払 {fmtYen(total.payoutYen)}</div>
+                      {total.stockYen > 0 && <div className="text-[10px] text-amber-700">stock {fmtYen(total.stockYen)}</div>}
+                    </td>
+                  ))}
+                </tr>
+                {rows.map((row) => (
+                  <tr key={row.projectId} className="hover:bg-muted/15">
+                    <th className="sticky left-0 z-10 border-b border-r border-border bg-background px-3 py-2 text-left align-top font-medium">
+                      <div className="truncate">{row.projectName}</div>
+                      <div className="font-mono text-[10px] text-muted-foreground">{row.projectId}</div>
+                    </th>
+                    <td className={`border-b border-r border-border px-3 py-2 text-right align-top font-semibold tabular-nums ${row.totals.finalBalanceYen < 0 ? "text-red-700" : "text-emerald-700"}`}>
+                      {fmtSignedYen(row.totals.finalBalanceYen)}
+                      <div className="mt-0.5 text-[10px] font-normal text-muted-foreground">支払 {fmtYen(row.totals.payoutYen)}</div>
+                    </td>
+                    {row.cells.map((cell) => {
+                      const hasData = cell.budgetYen > 0 || cell.payoutYen > 0 || cell.stockYen > 0 || cell.baseClientAmountYen > 0;
+                      return (
+                        <td key={`${row.projectId}:${cell.ym}`} className="border-b border-r border-border px-2 py-2 text-right align-top">
+                          {hasData ? (
+                            <button
+                              type="button"
+                              onClick={() => onOpenMonthly(cell)}
+                              className="w-full rounded px-1 py-0.5 text-right hover:bg-muted/60 focus:outline-none focus:ring-1 focus:ring-foreground/20"
+                            >
+                              <div className={`font-semibold tabular-nums ${cell.finalBalanceYen < 0 ? "text-red-700" : "text-emerald-700"}`}>
+                                {fmtSignedYen(cell.finalBalanceYen)}
+                              </div>
+                              <div className="text-[10px] text-muted-foreground">予算 {fmtYen(cell.budgetYen)}</div>
+                              <div className="text-[10px] text-muted-foreground">支払 {fmtYen(cell.payoutYen)}</div>
+                              {cell.stockYen > 0 && <div className="text-[10px] text-amber-700">stock {fmtYen(cell.stockYen)}</div>}
+                            </button>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </>
+            )}
+          </tbody>
+        </table>
       </div>
     </section>
   );

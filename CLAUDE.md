@@ -216,7 +216,7 @@ daily 議題プリペアは scheduled task `amd-os-management-dialogue-prep` が
 - [ ] コード変更が終わってる
 - [ ] DESIGN.md / HANDOFF_*.md が必要に応じて更新済み
 - [ ] iOS 触ったなら実機デプロイまで完了（`devicectl install` + `launch` 成功）
-- [ ] PWA 触ったなら main push (= Vercel 自動 deploy、まさ承認後) まで完了
+- [ ] PWA 触ったなら main push (= Vercel 自動 deploy、原則ノンストップ) まで完了
 - [ ] GAS 触ったなら `clasp push` 完了
 - [ ] commit はすべて GitHub に push 済み
 - [ ] main 更新したなら他プラットフォーム向けハンドオフ doc 更新 + push 済み

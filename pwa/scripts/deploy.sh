@@ -22,7 +22,7 @@
 #
 # Claude / えいみ / Codex 向けルール:
 #   - PWA の本番反映は必ずこのスクリプト経由。`npx vercel` 直接実行は禁止
-#   - deploy bundle をまさに提示して承認を得てから AMD_OS_VERCEL_DEPLOY_APPROVED=1 で実行
+#   - 原則、deploy 前の承認待ちで止めない。AMD_OS_VERCEL_DEPLOY_APPROVED=1 は誤実行防止の明示スイッチとして使う
 #   - main 以外のブランチ作成は全面禁止 (リポ全体ルール、2026-06-12 まさ確定)
 
 set -e
@@ -129,15 +129,16 @@ fi
 
 if [ "${AMD_OS_VERCEL_DEPLOY_APPROVED:-}" != "1" ]; then
   cat <<'EOF'
-⛔ 本番反映 (main push) にはまさの承認が必要。
+⛔ 本番反映 (main push) には明示スイッチが必要。
 
-deploy bundle (含める変更 / 除外する変更 / local build・test 確認結果 /
-push 先 / rollback 方法 / 本番確認方法) をまさに提示して承認を得たあと、
+2026-06-12 以降は原則ノンストップ運用。deploy 前の承認待ちで止めない。
+誤実行防止のため、実行時は以下の環境変数を付ける:
 
   AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh
 
-で実行する。微細な md / 文言 / CSS を 1 件ずつ deploy する運用は禁止。
-複数の成果を束ねて 1 回で push する。
+deploy bundle (含める変更 / 除外する変更 / local build・test 確認結果 /
+push 先 / rollback 方法 / 本番確認方法) は事後報告として残す。
+微細な md / 文言 / CSS を 1 件ずつ deploy する運用は禁止。複数の成果を束ねて 1 回で push する。
 EOF
   exit 1
 fi

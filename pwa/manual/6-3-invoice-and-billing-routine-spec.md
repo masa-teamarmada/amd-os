@@ -162,6 +162,10 @@ GAS `gas-main/007_FreeeInvoiceFlow.js` が freee API への発行を担当。
 - 翌月 `202604` の `billing_cycles` で `invoice_base_lines_json` に 2 月分を含めた請求書を発行
 - mypage の月次報酬計算は `ym` (= 業務月) 基準で動く (= invoice_ym ではない)
 
+契約開始前に実働だけが先行する PJ は、実働月の `billing_cycles.budget_yen = 0` を明示して、earned / grossDue を発生させたうえで支払額を 0 円にする。未払い分は `reward_summary_json.members[*].stockYen` として繰り越し、契約開始月以降の cap で順次支払う。`budget_yen IS NULL` は cap 未設定扱いで fallback するため、支払停止したい月では必ず `0` を保存する。
+
+契約最終月に pt 単価の円丸めで stock が残る場合は、最終月の `budget_yen` に丸め差分を加えて stock を 0 円にする。契約月額ベースの通常 cap は途中月で維持し、最終月だけを精算月として扱う。
+
 ### スキップ表示の挙動
 
 `CockpitRoutineGas.tsx` が `invoice_ym !== ym` を検知して、 `budget` / `meeting` / `invoiceIssue` / `invoiceSend` ステップを「スキップ」 表示にする (= 完了でも未完でもなく、 グレーアウト + ツールチップ「invoice_ym=YYYYMM に統合済」)。

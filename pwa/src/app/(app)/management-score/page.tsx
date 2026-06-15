@@ -143,6 +143,13 @@ type PaymentProjectRow = {
   payment_due_day: number | null;
 };
 
+type PaymentMemberRow = {
+  member_id: string;
+  code_name: string | null;
+  member_name: string | null;
+  is_officer: boolean | null;
+};
+
 type BillingCycleActualRow = {
   id: string;
   project_id: string;
@@ -161,6 +168,24 @@ type BillingCycleActualRow = {
   reward_paid_at: string | null;
   reward_paid_by: string | null;
   reward_summary_json: Record<string, unknown> | null;
+};
+
+type ProjectMonthlyFinanceCell = {
+  projectId: string;
+  projectName: string;
+  ym: string;
+  budgetYen: number;
+  payoutYen: number;
+  officerPayoutYen: number;
+  stockYen: number;
+  finalBalanceYen: number;
+};
+
+type ProjectMonthlyFinanceRow = {
+  projectId: string;
+  projectName: string;
+  cells: ProjectMonthlyFinanceCell[];
+  totals: Omit<ProjectMonthlyFinanceCell, "projectId" | "projectName" | "ym">;
 };
 
 type PayoutNoticeActualRow = {
@@ -414,6 +439,102 @@ function expectedNetForCycle(cycle: BillingCycleActualRow): number {
   if (invoiceNet > 0) return invoiceNet;
   const budget = numberValue(cycle.budget_yen);
   return budget > 0 ? Math.round(budget / 0.65) : 0;
+}
+
+function rewardSummaryMembers(summary: Record<string, unknown> | null): Array<Record<string, unknown>> {
+  return Array.isArray(summary?.members) ? (summary.members as Array<Record<string, unknown>>) : [];
+}
+
+function rewardMemberId(member: Record<string, unknown>): string {
+  return String(member.memberId ?? member.member_id ?? "").trim();
+}
+
+function buildProjectMonthlyFinanceRows({
+  months,
+  cycles,
+  projects,
+  members,
+}: {
+  months: string[];
+  cycles: BillingCycleActualRow[];
+  projects: PaymentProjectRow[];
+  members: PaymentMemberRow[];
+}): ProjectMonthlyFinanceRow[] {
+  const projectMap = new Map(projects.map((project) => [project.project_id, project]));
+  const officerMemberIds = new Set(members.filter((member) => member.is_officer).map((member) => member.member_id));
+  const rows = new Map<string, ProjectMonthlyFinanceRow>();
+  const ensureRow = (projectId: string) => {
+    const project = projectMap.get(projectId);
+    const current =
+      rows.get(projectId) ??
+      {
+        projectId,
+        projectName: project?.project_name || projectId,
+        cells: [],
+        totals: {
+          budgetYen: 0,
+          payoutYen: 0,
+          officerPayoutYen: 0,
+          stockYen: 0,
+          finalBalanceYen: 0,
+        },
+      };
+    rows.set(projectId, current);
+    return current;
+  };
+
+  for (const cycle of cycles.filter((item) => months.includes(item.ym))) {
+    const row = ensureRow(cycle.project_id);
+    let payoutYen = 0;
+    let officerPayoutYen = 0;
+    let stockYen = 0;
+    for (const member of rewardSummaryMembers(cycle.reward_summary_json)) {
+      const totalPay = numberValue(member.totalPay ?? member.total_pay);
+      const stock = numberValue(member.stockYen ?? member.stock_yen ?? member.deferredYen ?? member.deferred_yen);
+      const isOfficer = officerMemberIds.has(rewardMemberId(member));
+      if (isOfficer) {
+        officerPayoutYen += totalPay;
+      } else {
+        payoutYen += totalPay;
+      }
+      stockYen += stock;
+    }
+    const budgetYen = numberValue(cycle.budget_yen);
+    const finalBalanceYen = budgetYen - payoutYen;
+    const cell: ProjectMonthlyFinanceCell = {
+      projectId: cycle.project_id,
+      projectName: row.projectName,
+      ym: cycle.ym,
+      budgetYen,
+      payoutYen,
+      officerPayoutYen,
+      stockYen,
+      finalBalanceYen,
+    };
+    row.cells.push(cell);
+    row.totals.budgetYen += budgetYen;
+    row.totals.payoutYen += payoutYen;
+    row.totals.officerPayoutYen += officerPayoutYen;
+    row.totals.stockYen += stockYen;
+    row.totals.finalBalanceYen += finalBalanceYen;
+  }
+
+  return [...rows.values()]
+    .map((row) => ({
+      ...row,
+      cells: months.map((ym) => row.cells.find((cell) => cell.ym === ym) ?? {
+        projectId: row.projectId,
+        projectName: row.projectName,
+        ym,
+        budgetYen: 0,
+        payoutYen: 0,
+        officerPayoutYen: 0,
+        stockYen: 0,
+        finalBalanceYen: 0,
+      }),
+    }))
+    .filter((row) => row.totals.budgetYen > 0 || row.totals.payoutYen > 0 || row.totals.stockYen > 0)
+    .sort((a, b) => a.projectName.localeCompare(b.projectName, "ja"));
 }
 
 function actualCompanyValue(categoryRows: Map<string, Map<string, BudgetActualRow[]>>, ym: string, category: string): number {
@@ -1139,15 +1260,23 @@ export default async function ManagementScorePage() {
   const financeMonths = availableBudgetYms.length > 0 ? availableBudgetYms.sort() : centeredMonths(selectedYm, availableBudgetYms);
   const budgetCategoryRows = byMonthCategory(budgetRows.filter((row) => row.scope === "company"));
   const budgetInputRows = inputRes.data ?? [];
+  const projectForecastMonths = Array.from({ length: 12 }, (_, index) => addMonths(ymCap, index));
+  const projectForecastEndYm = projectForecastMonths.at(-1) ?? ymCap;
   const financeStartYm = financeMonths[0] ?? addMonths(ymCap, -12);
-  const financeEndYm = financeMonths.at(-1) ?? addMonths(ymCap, 12);
+  const financeEndYm = [financeMonths.at(-1) ?? addMonths(ymCap, 12), projectForecastEndYm].sort().at(-1) ?? projectForecastEndYm;
   const cycleStartYm = addMonths(financeStartYm, -3);
   const cycleEndYm = addMonths(financeEndYm, 1);
-  const [paymentProjectsRes, billingCyclesRes, payoutNoticesRes] = await Promise.all([
+  const [paymentProjectsRes, paymentMembersRes, billingCyclesRes, payoutNoticesRes] = await Promise.all([
     safeSelect<PaymentProjectRow[]>(() =>
       supabase
         .from("projects")
         .select("project_id,project_name,client_name,status,freee_partner_id,payment_due_rule,payment_due_day")
+        .limit(500)
+    ),
+    safeSelect<PaymentMemberRow[]>(() =>
+      supabase
+        .from("members")
+        .select("member_id,code_name,member_name,is_officer")
         .limit(500)
     ),
     safeSelect<BillingCycleActualRow[]>(() =>
@@ -1168,8 +1297,15 @@ export default async function ManagementScorePage() {
     ),
   ]);
   const paymentProjects = paymentProjectsRes.data ?? [];
+  const paymentMembers = paymentMembersRes.data ?? [];
   const billingCycles = billingCyclesRes.data ?? [];
   const payoutNotices = payoutNoticesRes.data ?? [];
+  const projectMonthlyFinanceRows = buildProjectMonthlyFinanceRows({
+    months: projectForecastMonths,
+    cycles: billingCycles,
+    projects: paymentProjects,
+    members: paymentMembers,
+  });
   const monthlyActualSummaries = buildMonthlyActualSummaries(
     financeMonths,
     budgetCategoryRows,
@@ -1260,6 +1396,7 @@ export default async function ManagementScorePage() {
     notesRes.error ||
     evidenceRes.error ||
     paymentProjectsRes.error ||
+    paymentMembersRes.error ||
     billingCyclesRes.error ||
     payoutNoticesRes.error;
   const totalDelta = score?.total_score != null && previous?.total_score != null ? Number(score.total_score) - Number(previous.total_score) : null;
@@ -1412,6 +1549,8 @@ export default async function ManagementScorePage() {
           <Metric label="売上 予算 / 実績" value={`${yen(revenueBudget)} / ${yen(revenueActual)}`} />
           <Metric label="純CF 予算 / 実績" value={`${yen(netCashBudget)} / ${yen(netCashActual)}`} />
         </section>
+
+        <ProjectMonthlyFinanceTable months={projectForecastMonths} rows={projectMonthlyFinanceRows} />
 
         <section className="rounded-md border bg-card">
           <div className="border-b px-4 py-3">
@@ -1584,6 +1723,118 @@ export default async function ManagementScorePage() {
         </section>
       </div>
     </div>
+  );
+}
+
+function ProjectMonthlyFinanceTable({ months, rows }: { months: string[]; rows: ProjectMonthlyFinanceRow[] }) {
+  const monthTotals = months.map((ym) => {
+    const cells = rows.map((row) => row.cells.find((cell) => cell.ym === ym)).filter((cell): cell is ProjectMonthlyFinanceCell => Boolean(cell));
+    return {
+      ym,
+      budgetYen: cells.reduce((sum, cell) => sum + cell.budgetYen, 0),
+      payoutYen: cells.reduce((sum, cell) => sum + cell.payoutYen, 0),
+      stockYen: cells.reduce((sum, cell) => sum + cell.stockYen, 0),
+      finalBalanceYen: cells.reduce((sum, cell) => sum + cell.finalBalanceYen, 0),
+    };
+  });
+  const grand = monthTotals.reduce(
+    (acc, item) => ({
+      budgetYen: acc.budgetYen + item.budgetYen,
+      payoutYen: acc.payoutYen + item.payoutYen,
+      stockYen: acc.stockYen + item.stockYen,
+      finalBalanceYen: acc.finalBalanceYen + item.finalBalanceYen,
+    }),
+    { budgetYen: 0, payoutYen: 0, stockYen: 0, finalBalanceYen: 0 }
+  );
+
+  return (
+    <section className="rounded-md border bg-card">
+      <div className="border-b px-4 py-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold">PJ別 先12か月収支</h2>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              billing_cycles のPJ予算と reward_summary_json の支払予定から、毎月のPJ収支を先読みする。
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 text-[11px]">
+            <span className="rounded-full border bg-background px-2 py-1">PJ予算 {yen(grand.budgetYen)}</span>
+            <span className="rounded-full border bg-background px-2 py-1">支払予定 {yen(grand.payoutYen)}</span>
+            {grand.stockYen > 0 && <span className="rounded-full border bg-amber-50 px-2 py-1 text-amber-700">stock {yen(grand.stockYen)}</span>}
+            <span className={`rounded-full border px-2 py-1 font-semibold ${grand.finalBalanceYen < 0 ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}`}>
+              収支 {yen(grand.finalBalanceYen)}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto px-4 py-3">
+        <table className="min-w-[1180px] w-full border-separate border-spacing-0 text-xs">
+          <thead>
+            <tr className="bg-muted/40">
+              <th className="sticky left-0 z-20 w-44 border-b border-r bg-muted px-3 py-2 text-left font-medium">PJ</th>
+              <th className="w-28 border-b border-r px-3 py-2 text-right font-medium">12か月収支</th>
+              {months.map((month) => (
+                <th key={month} className="min-w-[132px] border-b border-r px-3 py-2 text-right font-medium">{month}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={months.length + 2} className="px-3 py-8 text-center text-muted-foreground">PJ収支データ待ち</td>
+              </tr>
+            ) : (
+              <>
+                <tr className="bg-muted/20">
+                  <th className="sticky left-0 z-10 border-b border-r bg-muted px-3 py-2 text-left font-semibold">全PJ合計</th>
+                  <td className={`border-b border-r px-3 py-2 text-right font-semibold tabular-nums ${grand.finalBalanceYen < 0 ? "text-red-700" : "text-emerald-700"}`}>
+                    {yen(grand.finalBalanceYen)}
+                  </td>
+                  {monthTotals.map((total) => (
+                    <td key={total.ym} className="border-b border-r px-3 py-2 text-right align-top">
+                      <div className={`font-semibold tabular-nums ${total.finalBalanceYen < 0 ? "text-red-700" : "text-emerald-700"}`}>{yen(total.finalBalanceYen)}</div>
+                      <div className="mt-0.5 text-[11px] text-muted-foreground">予算 {yen(total.budgetYen)}</div>
+                      <div className="text-[11px] text-muted-foreground">支払 {yen(total.payoutYen)}</div>
+                      {total.stockYen > 0 && <div className="text-[11px] text-amber-700">stock {yen(total.stockYen)}</div>}
+                    </td>
+                  ))}
+                </tr>
+                {rows.map((row) => (
+                  <tr key={row.projectId} className="hover:bg-muted/15">
+                    <th className="sticky left-0 z-10 border-b border-r bg-card px-3 py-2 text-left align-top font-medium">
+                      <div className="truncate">{row.projectName}</div>
+                      <div className="font-mono text-[10px] text-muted-foreground">{row.projectId}</div>
+                    </th>
+                    <td className={`border-b border-r px-3 py-2 text-right align-top font-semibold tabular-nums ${row.totals.finalBalanceYen < 0 ? "text-red-700" : "text-emerald-700"}`}>
+                      {yen(row.totals.finalBalanceYen)}
+                      <div className="mt-0.5 text-[11px] font-normal text-muted-foreground">支払 {yen(row.totals.payoutYen)}</div>
+                    </td>
+                    {row.cells.map((cell) => {
+                      const hasData = cell.budgetYen > 0 || cell.payoutYen > 0 || cell.stockYen > 0;
+                      return (
+                        <td key={`${row.projectId}:${cell.ym}`} className="border-b border-r px-3 py-2 text-right align-top">
+                          {hasData ? (
+                            <>
+                              <div className={`font-semibold tabular-nums ${cell.finalBalanceYen < 0 ? "text-red-700" : "text-emerald-700"}`}>{yen(cell.finalBalanceYen)}</div>
+                              <div className="text-[11px] text-muted-foreground">予算 {yen(cell.budgetYen)}</div>
+                              <div className="text-[11px] text-muted-foreground">支払 {yen(cell.payoutYen)}</div>
+                              {cell.stockYen > 0 && <div className="text-[11px] text-amber-700">stock {yen(cell.stockYen)}</div>}
+                            </>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 

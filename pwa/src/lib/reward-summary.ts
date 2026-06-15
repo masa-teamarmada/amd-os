@@ -213,6 +213,11 @@ function numberValue(value: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+function hasExplicitNumber(value: unknown): boolean {
+  if (value == null || value === "") return false;
+  return Number.isFinite(typeof value === "number" ? value : Number(value));
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
@@ -762,8 +767,9 @@ function deriveMonthlyRewardBudget({
   planCycle: PlanCycleRow | null;
   project: ProjectRow | null;
 }): number {
-  const billingBudget = numberValue(billing.budget_yen);
-  if (billingBudget > 0) return Math.round(billingBudget);
+  if (hasExplicitNumber(billing.budget_yen)) {
+    return Math.max(0, Math.round(numberValue(billing.budget_yen)));
+  }
   if (String(project?.fee_type || "").toLowerCase() === "monthly_fixed") {
     const fee = numberValue(project?.fee_amount);
     if (fee > 0) return Math.round(fee * 0.65);
@@ -855,8 +861,9 @@ function derivePersistedCycleBudget({
   billing: BillingRow;
   project: ProjectRow | null;
 }): number {
-  const current = numberValue(billing.budget_yen);
-  if (current > 0) return Math.round(current);
+  if (hasExplicitNumber(billing.budget_yen)) {
+    return Math.max(0, Math.round(numberValue(billing.budget_yen)));
+  }
 
   const reportedAmount = numberValue(billing.budget_reported_amount);
   if (reportedAmount > 0) {
@@ -1019,7 +1026,7 @@ export function applyRewardCapsForMonth(
   const effectiveExtraCapYen = caps.extraCapYen > 0 ? caps.extraCapYen : extraGrossBeforeCap;
   const effectiveTotalCapYen = caps.regularCapYen + effectiveExtraCapYen;
 
-  const regularAllocations = allocateCap(regularInputs, caps.regularCapYen, { payAllWhenCapMissing: true });
+  const regularAllocations = allocateCap(regularInputs, caps.regularCapYen, { payAllWhenCapMissing: false });
   const extraAllocations = allocateCap(extraInputs, effectiveExtraCapYen, { payAllWhenCapMissing: false });
 
   const paidMembers = Array.from(memberIds)

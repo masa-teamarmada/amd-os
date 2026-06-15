@@ -198,10 +198,14 @@ ptUnit        = round(2,340,000 / 100) = 23,400 円/pt
 ### capBudgetYen の決まり方
 
 ```text
-1. billing_cycles.budget_yen が > 0     → これを使う (= admin が予算確定済)
+1. billing_cycles.budget_yen が明示されている → これを使う (= 0 も有効な cap)
 2. fallback: feeAmount × 0.65            → monthlyGross をそのまま cap に使う
 3. fallback: planCycle.budgetYen / cycleMonths → サイクル予算の月按分
 ```
+
+`budget_yen = 0` は「この業務月は支払 cap が 0 円」という明示値。契約開始前に実働がある PJ では、earned / grossDue は発生させつつ、`totalPay = 0`、`stockYen = grossDue` として翌月以降へ繰り越す。`budget_yen IS NULL` は cap 未設定なので、上記 fallback を使う。
+
+契約最終月に `ptUnit = round(cycleBudget / totalPt)` の円丸めで少額の stock が残る場合は、最終月の `billing_cycles.budget_yen` に丸め差分を加算して stock を 0 円にする。通常月 cap は契約月額 × 65% を維持し、丸め調整は最終月だけに限定する。
 
 ### キャップ超過時の按分
 
