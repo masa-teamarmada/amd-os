@@ -6,7 +6,7 @@
 
 ## 基本方針
 
-2026-05-22 以降、PWA / GAS / Vercel から Anthropic・Gemini・OpenAI の従量課金 LLM API を定期実行しない。LLM が必要な L2 抽出は、Claude routine / Codex automation / MMOマシン Codex Desktop automation の定額枠へ寄せる。
+2026-05-22 以降、PWA / GAS / Vercel から Anthropic・Gemini・OpenAI の従量課金 LLM API を定期実行しない。LLM が必要な L2 抽出は、**Codex automation / MMOマシン Codex Desktop automation / approved exception** へ寄せる。
 
 これは「cron 禁止」ではない。DB同期、外部API fetch、通知、キャッシュ更新、入金・請求系など、LLM 非依存の cron は許可される。
 
@@ -56,26 +56,26 @@ L2 を cadence で分類し、**新ナンバリング (D = daily / M = month-end
 
 | 新 | 名称 | table | 実行場所 / writer | schedule | apply / evidence |
 |---|---|---|---|---|---|
-| **D-1** | AMD Protocol | `protocols` / `protocol_examples` | Claude routine `amd-os-l2-consolidated-evidence` target / 暫定 MMO `amd-os-l2-protocol-extract` | daily 08:00 JST | Supabase + notifications。yes は `confirmed` |
-| **D-2** | MS Progress | `milestone_monthly_progress` / `project_monthly_notes` | Claude routine `amd-os-l2-consolidated-evidence` target / 暫定 MMO `amd-os-l3-ms-progress-extract` | daily 08:00 JST | Supabase + revisions。旧 hourly / PWA hourly-estimate 停止 |
-| **D-3** | Project Knowledge | `project_knowledge` | Claude routine `amd-os-l2-consolidated-evidence` target / 暫定 MMO `amd-os-l4-project-knowledge-extract` | daily 08:00 JST | candidate → active/rejected |
-| **D-4** | Member Knowledge | `member_knowledge` | Claude routine `amd-os-l2-consolidated-evidence` target / 暫定 MMO `amd-os-l5-member-knowledge-extract` | daily 08:00 JST | candidate → active/rejected |
-| **D-5** | Registry Diff | `project_registry_diffs` | Claude routine `amd-os-l2-consolidated-evidence` target / 暫定 Codex `amd-os-ms` + `amd-os-l7-registry-diff-extract` | daily 08:00 JST | `outbox.registryDiffs` → LaunchAgent |
-| **D-6** | Strategy Signals | `project_strategy_signals` | Claude routine `amd-os-l2-consolidated-evidence` target / 暫定 Codex `amd-os` + `amd-os-l9-strategy-signal-extract` | daily 08:00 JST | strategy-signals outbox → LaunchAgent |
-| **D-7** | Textbook Insights | `textbook_insight_candidates` | Claude routine `amd-os-l2-consolidated-evidence` target / 暫定 Codex / local worker `amd-os-l10-textbook-insight-extract` | daily 08:00 JST | `outbox.textbookInsights` → candidate + notification。approved 後 local BZM applier |
-| **D-8** | Atlas Signals | `atlas_signals` | Claude routine `amd-os-l2-consolidated-evidence` target | daily 08:00 JST | `POST /api/atlas/signals-ingest` → `atlas_signals` upsert |
-| **D-9** | Macrotrend Evidence / Index | `observation_log` / `macro_index_log` | Claude routine `amd-os-l2-consolidated-evidence` + PWA non-LLM cron `macro-aggregate-indicators` | daily 08:00 JST + 月初集計 | observation_log upsert。index 集計は LLM 非依存 cron |
-| **D-10** | Member Activity Evidence | `member_activities(source='member_weekly')` | **3系統並走 (2026-06-12 まさ確定)**: Claude routine `amd-os-l2-consolidated-evidence` / Mac Codex automation `amd-os-l2-2` / MMO Task Scheduler launcher `amd-os-l2-member-weekly-activities` | daily 08:00 / 18:30 / 19:30 JST | Dashboard / MyPage read evidence。複数 writer でも窓単位 delete-then-upsert + UNIQUE で重複防止 |
-| **D-11** | Media Mentions | `project_media_mentions` / `news_mention` notifications | Claude routine `amd-os-l2-consolidated-evidence` Phase K-A | daily 08:00 JST | media mention candidate + notification |
+| **D-1** | AMD Protocol | `protocols` / `protocol_examples` | MMO側 Codex Desktop automation `amd-os-l2-protocol-extract` | daily 08:00 JST 相当 | Supabase + notifications。yes は `confirmed` |
+| **D-2** | MS Progress | `milestone_monthly_progress` / `project_monthly_notes` | MMO側 Codex Desktop automation `amd-os-l3-ms-progress-extract` + non-LLM `ms-schedule-progress` | daily / hourly mixed | Supabase + revisions。旧 hourly / PWA hourly-estimate 停止 |
+| **D-3** | Project Knowledge | `project_knowledge` | MMO側 Codex Desktop automation `amd-os-l4-project-knowledge-extract` | daily 08:15 JST 相当 | candidate → active/rejected |
+| **D-4** | Member Knowledge | `member_knowledge` | MMO側 Codex Desktop automation `amd-os-l5-member-knowledge-extract` | daily 08:30 JST 相当 | candidate → active/rejected |
+| **D-5** | Registry Diff | `project_registry_diffs` | `amd-os-ms` 系 second wave 予定 | daily target | `outbox.registryDiffs` → LaunchAgent |
+| **D-6** | Strategy Signals | `project_strategy_signals` | Codex automation `amd-os` + `AMD OS D-6 経営ハイライト抽出` | daily 03:20 JST | strategy-signals outbox → LaunchAgent |
+| **D-7** | Textbook Insights | `textbook_insight_candidates` | local worker `amd-os-l10-textbook-insight-extract` | manual / daily candidate | `outbox.textbookInsights` → candidate + notification。approved 後 local BZM applier |
+| **D-8** | Atlas Signals | `atlas_signals` | Codex automation `amd-atlas-2` + `AMD OS D-8 Atlas外部シグナル抽出` | daily 08:10 JST | outbox / apply → `atlas_signals` upsert |
+| **D-9** | Macrotrend Evidence / Index | `observation_log` / `macro_index_log` | observation collector planned + PWA non-LLM cron `macro-aggregate-indicators` | daily target + 月初集計 | observation_log upsert。index 集計は LLM 非依存 cron |
+| **D-10** | Member Activity Evidence | `member_activities(source='member_weekly')` | Mac Codex automation `amd-os-l2-2` + MMO Task Scheduler launcher `amd-os-l2-member-weekly-activities`。内部 route は Anthropic API を使う例外 | daily 18:30 / 19:30 JST | Dashboard / MyPage read evidence。窓単位 delete-then-upsert + UNIQUE で重複防止 |
+| **D-11** | Media Mentions | `project_media_mentions` / `news_mention` notifications | 専用writer未実装 | daily target | media mention candidate + notification |
 | **D-12** | Finance Ops Evidence / freee Transaction Actuals | freee `trial_pl` / `company_actual_monthly` / `amd_management_score_raw_signals` / finance ops tables | PWA non-LLM cron `/api/cron/management-score-raw-data?includeFreee=1` + admin review | daily | freee取引履歴 → 月次試算表の実績値 |
-| **D-13** | Contract Signals | `contract_signals` / `contracts` / `contract_documents` | Claude routine `amd-os-l2-consolidated-evidence` Phase K-B + PWA route `POST /api/contracts/extract-l2` | daily 08:00 JST | 契約管理 `/admin/contracts`、l2_notifications(l2_kind='contract_signals') |
-| **M-1** | Monthly Reports | `monthly_reports` | Claude routine `amd-os-l2-monthend-evidence` target / 暫定 Codex `AMD OS M-1 月次報告抽出` | 月末最終日 16:00 JST | monthly reports outbox → applier。R313 trigger 置かない |
-| **M-2** | XRL Evidence | `project_xrl_evidence` / `project_founding_members` | Claude routine `amd-os-l2-monthend-evidence` (= M-1 の後) / 暫定 Codex `amd-os-ms` + `amd-os-l8-xrl-evidence-extract` | 月末最終日 (M-1 後) | candidate → confirmed。M-1が抽出できない月は正規完了扱いにしない |
-| **M-3** | Management Monthly Signal | `company_management_signal_reviews` | Claude routine `amd-os-l2-monthend-evidence` (= M-2 の後) | 月末最終日 17:00 完了 | M-1/M-2後に抽出。18:00 月次振り返り MTG 前に出揃わせる |
-| **W-1** | VC News / Funding Signals | `vc_news` / `vcs` / `vc_funds` / `vc_investments` / `project_vc_relations` | Claude routine `amd-os-l2-weekly-vc-funding-signals` | weekly Saturday 09:00 JST | VC / funding signal candidates。review first、safe write path 不明なら outbox / blocked summary |
+| **D-13** | Contract Signals | `contract_signals` / `contracts` / `contract_documents` | PWA route `POST /api/contracts/extract-l2` + Codex collector planned | daily target | 契約管理 `/admin/contracts`、l2_notifications(l2_kind='contract_signals') |
+| **M-1** | Monthly Reports | `monthly_reports` | Codex automation `AMD OS M-1 月次報告抽出` (`amd-os-l2`) | month-end / current rrule 05:30 JST | monthly reports outbox → applier。R313 trigger 置かない |
+| **M-2** | XRL Evidence | `project_xrl_evidence` / `project_founding_members` | `amd-os-ms` 系 second wave 予定 | 月末最終日 (M-1 後) | candidate → confirmed。M-1が抽出できない月は正規完了扱いにしない |
+| **M-3** | Management Monthly Signal | `company_management_signal_reviews` | month-end runner planned | 月末最終日 17:00 完了 | M-1/M-2後に抽出。18:00 月次振り返り MTG 前に出揃わせる |
+| **W-1** | VC News / Funding Signals | `vc_news` / `vcs` / `vc_funds` / `vc_investments` / `project_vc_relations` | Codex automation `amd-os-l2-vc-news-funding-signals` | weekly Saturday 09:00 JST | VC / funding signal candidates。review first、safe write path 不明なら blocked summary |
 | **H-1** | Meeting Flow | `project_meeting_summaries` / `meeting_assets` | MMOマシン Windows Task Scheduler `amd-os-l6-meeting-flow-launcher` → `codex exec` Live launcher / SKILL `amd-os-l6-meeting-extract` | 毎時 09:00-21:00 JST | Supabase / Calendar / Drive / Gmail draft。Claude routine 化しない。2026-06-08 16:00 JST manual Live run 成功、次回 17:00 JST |
 
-Media Mentions は D-11 として daily Claude routine Phase K-A に載せる。Finance Ops Evidence / freee Transaction Actuals は D-12 として PWA non-LLM daily cron / admin review / freee sync に置き、Claude routine / Codex automation では実行しない。Contract Signals は D-13 として existing daily consolidated routine Phase K-B に同居させ、新規 routine は作らない。W-1 が Codex automation に残っている場合は暫定 / 差分扱いで、Claude routine evidence が揃ったら二重実行防止のため停止する。
+Media Mentions は D-11 として runner 未実装。Finance Ops Evidence / freee Transaction Actuals は D-12 として PWA non-LLM daily cron / admin review / freee sync に置き、LLM抽出writerには混ぜない。Contract Signals は D-13 として existing PWA route を活かし、前段 collector を Codex 側で新設する。W-1 は Codex automation を current writer として扱う。
 
 SKILL 正本は `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 群) / `amd-os-l2-monthend-evidence/SKILL.md` (M 群) / `amd-os-l2-weekly-vc-funding-signals/SKILL.md` (W 群) と、各 L2 の個別 `amd-os-l<N>-*/SKILL.md` (= 束ね SKILL が参照する詳細手順)。L2 の品質改善は、PWA route / GAS function ではなく SKILL と outbox/applier contract を更新する。
 
@@ -114,9 +114,9 @@ recurring automation としてこの後段を既存 health check に組み込む
 | 旧経路 | 状態 | 理由 |
 |---|---|---|
 | GAS 153 MeetingHourlyTrigger | stopped / kill switch | H-1 は MMO automation へ移管 |
-| GAS 155 L2KnowledgeExtractor | stopped / kill switch | D-1 / D-3 / D-4 は Claude routine へ移管 |
+| GAS 155 L2KnowledgeExtractor | stopped / kill switch | D-1 / D-3 / D-4 は MMO / Codex 系へ移管 |
 | GAS 152 NavigatorCron | stopped / kill switch | 旧 fallback 月次抽出 |
-| PWA `/api/cron/hourly-estimate` | disabled unless explicit guard | D-2 は Claude routine primary |
+| PWA `/api/cron/hourly-estimate` | disabled unless explicit guard | D-2 は non-LLM default + MMO revision path |
 | `venture-xrl-refresh` cron | schedule disabled | Gemini 2.5 Flash を定期実行しない |
 
 「cron 復活」は原則として提案しない。必要なら、token 課金なしの処理であることを code と spec に明記する。
@@ -136,19 +136,18 @@ recurring automation としてこの後段を既存 health check に組み込む
 
 `member-weekly-activities` は Anthropic 経路があるため active cron から外す。
 
-## D-10 の 3系統並走 writer (2026-06-12 まさ確定)
+## D-10 の current writer
 
-D-10 は抽出漏れ実害が出たため、唯一「複数 writer の冗長並走」を正とする。抽出ロジックは全部 PWA route `/api/cron/member-weekly-activities` 側にあり (per-member OAuth Gmail/Calendar read)、writer は route を叩くトリガに過ぎない。
+D-10 は抽出漏れ実害が出たため、唯一「複数 writer の冗長並走」を正とする。**current truth** では Mac / MMO の Codex writer が route を叩く。抽出ロジックは PWA route `/api/cron/member-weekly-activities` 側にあり (per-member OAuth Gmail/Calendar read)、writer は route を叩くトリガ。
 
 | # | writer | 実行場所 | schedule (JST) | 仕組み |
 |---|---|---|---|---|
-| 1 | Claude routine `amd-os-l2-consolidated-evidence` Phase J | Anthropic cloud | daily 08:00 | SKILL.md 正本読み → route curl。前日18時締め窓を確定 |
-| 2 | Codex automation `amd-os-l2-2` | Mac (このマシン) | daily 18:30 | Codex Desktop が toml rrule で発火 → route curl。当日18時締め窓を即日抽出 |
-| 3 | Windows Task Scheduler `amd-os-l2-member-weekly-activities` | MMO マシン | daily 19:30 | launcher `run-d10.ps1` (LLM 非依存、`Invoke-RestMethod`) → route 実行。logs/ に JSON + latest-status.txt。**MMO の Codex Desktop scheduler は toml rrule を尊重しない既知問題があるため launcher 方式** (L6 と同じ) |
+| 1 | Codex automation `amd-os-l2-2` (`AMD OS D-10 メンバー活動根拠抽出 (Mac)`) | Mac (このマシン) | daily 18:30 | Codex Desktop が toml rrule で発火 → route curl。当日18時締め窓を即日抽出 |
+| 2 | Windows Task Scheduler `amd-os-l2-member-weekly-activities` | MMO マシン | daily 19:30 | launcher `run-d10.ps1` (`Invoke-RestMethod`) → route 実行。logs/ に JSON + latest-status.txt。**MMO の Codex Desktop scheduler は toml rrule を尊重しない既知問題があるため launcher 方式** |
 
-**重複排除は route が構造的に保証**: 窓 (前日18:00〜当日18:00) 単位の delete-then-upsert + UNIQUE(member_id, project_id, source, source_item_id)。複数 writer が同じ窓を処理しても、後着 writer が窓を再構築するだけで重複行はできない。3つのうち 1 つでも生きていれば漏れない。
+**重複排除は route が構造的に保証**: 窓 (前日18:00〜当日18:00) 単位の delete-then-upsert + UNIQUE(member_id, project_id, source, source_item_id)。複数 writer が同じ窓を処理しても、後着 writer が窓を再構築するだけで重複行はできない。
 
-MMO の旧 consolidated automation `amd-os-l2-consolidated-evidence` (D-1..D-10 全部入り) は PAUSED のまま維持する — ACTIVE に戻すと Claude routine と大規模二重 LLM 抽出になるため、冗長化は D-10 トリガに絞る。
+**例外**: この route 内部では Anthropic API を使う。D-10 だけは、まさ判断で定額外トークンを許容する。
 
 ## Outbox applier
 

@@ -17,7 +17,7 @@ member_activities(`source='member_weekly'`) を PJ × メンバーのマトリ�
 - **役員 (`members.is_officer=true`、まさ・きよ) の報酬は表示しない & 0 円扱い** (= セルバッジ・メンバー合計・PJ 合計・総合計すべてから除外、まさ確定 2026-06-12)
 
 ### データの入り方
-週次活動の抽出は Claude routine `amd-os-l2-consolidated-evidence` (毎日 08:00 JST、前日18:00〜当日18:00 の 24h 窓) が書く。詳細は [`manual/8-3-l2-extraction-routines-spec.md`](8-3-l2-extraction-routines-spec.md)。routine が走らなかった日の窓は空欄のまま残る (後追い補完されない) ので、マトリクスがスカスカの場合はまず routine の稼働を疑う。
+週次活動の抽出は Codex 側 writer が書く。current truth は Mac の `AMD OS D-10 メンバー活動根拠抽出 (Mac)` (`amd-os-l2-2`, 18:30 JST) と MMO の `amd-os-l2-member-weekly-activities` launcher (19:30 JST)。どちらも同じ PWA route `/api/cron/member-weekly-activities?interactive=1` を叩き、窓は前日18:00〜当日18:00 の 24h。詳細は [`manual/8-3-l2-extraction-routines-spec.md`](8-3-l2-extraction-routines-spec.md)。なお D-10 だけは内部 route が Anthropic API を使う例外。
 
 **全メンバー抽出の前提 (2026-06-12)**: Gmail / Calendar はメンバー本人の Google OAuth token (`member_google_oauth_tokens`) で本人として読む。token は **そのメンバーが PWA に Google ログインした時に自動保存**される。一度もログインしていないメンバーは Gmail / 本人 Calendar が読めず抽出が薄くなる — 特定メンバーの行だけスカスカなら、まずその人に PWA ログインを 1 回してもらう。
 
