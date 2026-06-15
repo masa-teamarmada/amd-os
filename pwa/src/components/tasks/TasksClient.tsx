@@ -1103,6 +1103,7 @@ export function TasksClient() {
       if (patch.parentTaskId !== undefined) payload.parentTaskId = parentTaskId || null;
       if (patch.mindmapX !== undefined) payload.mindmapX = patch.mindmapX;
       if (patch.mindmapY !== undefined) payload.mindmapY = patch.mindmapY;
+      if (patch.status !== undefined) payload.status = patch.status;
       if (patch.active !== undefined) payload.active = patch.active;
       const serverTask = await requestTask("PATCH", payload);
       if (!isCurrentTaskMutation(taskId, mutationSeq, serverTask.taskId)) return;
@@ -1163,6 +1164,7 @@ export function TasksClient() {
           parentTaskId: serverParentTaskId || null,
           mindmapX: before.mindmapX,
           mindmapY: before.mindmapY,
+          status: before.status,
         });
       })).catch((err) => {
         setError(err instanceof Error ? err.message : "undo failed");
@@ -1183,6 +1185,7 @@ export function TasksClient() {
       parentTaskId: serverParentTaskId || null,
       mindmapX: entry.before.mindmapX,
       mindmapY: entry.before.mindmapY,
+      status: entry.before.status,
     }).catch((err) => {
       setError(err instanceof Error ? err.message : "undo failed");
     });
@@ -1444,6 +1447,12 @@ export function TasksClient() {
               suppressNextCanvasClickRef.current = false;
               createChildTask(task);
             }}
+            onTaskStatusChange={(event, task, status) => {
+              event.stopPropagation();
+              event.preventDefault();
+              if (normalizeStatus(task.status) === status) return;
+              void patchTaskOptimistic(task.taskId, { status });
+            }}
             nodeRefs={nodeRefs}
             connecting={connecting}
             canvasRef={canvasRef}
@@ -1510,6 +1519,7 @@ function MindmapView({
   onTaskPointerDown,
   onConnectPointerDown,
   onTaskChildCreate,
+  onTaskStatusChange,
   onZoomIn,
   onZoomOut,
   nodeRefs,
@@ -1529,6 +1539,7 @@ function MindmapView({
   onTaskPointerDown: (event: React.PointerEvent<HTMLDivElement>, task: OsTask) => void;
   onConnectPointerDown: (event: React.PointerEvent<HTMLButtonElement>, task: OsTask) => void;
   onTaskChildCreate: (event: React.PointerEvent<HTMLButtonElement>, task: OsTask) => void;
+  onTaskStatusChange: (event: React.MouseEvent<HTMLButtonElement>, task: OsTask, status: TaskStatus) => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
   nodeRefs: React.MutableRefObject<Map<string, HTMLDivElement>>;
@@ -1650,6 +1661,7 @@ function MindmapView({
                 onPointerDown={onTaskPointerDown}
                 onConnectPointerDown={onConnectPointerDown}
                 onChildCreate={onTaskChildCreate}
+                onStatusChange={onTaskStatusChange}
               />
             ))}
           </div>
@@ -1671,6 +1683,7 @@ function TaskNode({
   onPointerDown,
   onConnectPointerDown,
   onChildCreate,
+  onStatusChange,
 }: {
   task: OsTask;
   projectName: (projectId: string) => string;
@@ -1683,6 +1696,7 @@ function TaskNode({
   onPointerDown: (event: React.PointerEvent<HTMLDivElement>, task: OsTask) => void;
   onConnectPointerDown: (event: React.PointerEvent<HTMLButtonElement>, task: OsTask) => void;
   onChildCreate: (event: React.PointerEvent<HTMLButtonElement>, task: OsTask) => void;
+  onStatusChange: (event: React.MouseEvent<HTMLButtonElement>, task: OsTask, status: TaskStatus) => void;
 }) {
   const meta = statusMeta(task.status);
   const tone = nodeTone(task.status);
@@ -1698,7 +1712,7 @@ function TaskNode({
       data-child-count={childCount}
       data-task-hub={isHub ? "true" : undefined}
       className={cn(
-        "group absolute select-none text-center active:cursor-grabbing",
+        "group absolute select-none text-center active:cursor-grabbing hover:z-20",
         isConnectTarget ? "z-10" : "",
       )}
       style={{ width: NODE_WIDTH, height: NODE_HEIGHT, transform: `translate(${task.mindmapX || 0}px, ${task.mindmapY || 0}px)` }}
@@ -1751,7 +1765,41 @@ function TaskNode({
         </div>
         <div className="mt-3 px-1">
           <div className="h-[18px] truncate text-[15px] font-semibold leading-tight text-slate-100">{title}</div>
-          <div className={cn("mt-1 truncate text-xs font-medium", tone.status)}>{meta.label}</div>
+          <div
+            className="group/status relative mx-auto mt-1 inline-flex justify-center"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className={cn(
+                "h-5 rounded-full border border-white/10 bg-black/20 px-2 text-[11px] font-semibold leading-none transition-colors hover:bg-white/10",
+                tone.status,
+              )}
+              aria-label={`${title} のステータスを変更`}
+            >
+              {meta.label}
+            </button>
+            <div className="pointer-events-none absolute left-1/2 top-full z-40 mt-1 w-28 -translate-x-1/2 rounded-md border border-white/10 bg-slate-950/95 p-1 text-left opacity-0 shadow-xl shadow-black/40 ring-1 ring-white/10 transition-opacity group-hover/status:pointer-events-auto group-hover/status:opacity-100">
+              {STATUS_OPTIONS.map((status) => {
+                const selected = normalizeStatus(task.status) === status.value;
+                return (
+                  <button
+                    key={status.value}
+                    type="button"
+                    className={cn(
+                      "flex h-6 w-full items-center justify-between rounded px-2 text-[11px] font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white",
+                      selected ? "bg-white/10 text-white" : "",
+                    )}
+                    onClick={(event) => onStatusChange(event, task, status.value)}
+                  >
+                    <span>{status.label}</span>
+                    {selected && <span className={cn("h-1.5 w-1.5 rounded-full", tone.progress)} />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           <div className="mt-1 flex items-center justify-center gap-2 text-[11px] text-slate-400">
             <span className="inline-flex min-w-0 items-center gap-1 truncate"><UserRound className="h-3 w-3" />{memberName(task.assigneeMemberId, task.assignee)}</span>
             <span className="inline-flex items-center gap-1"><CalendarDays className="h-3 w-3" />{formatDate(task.dueDate)}</span>

@@ -71,6 +71,7 @@ PJ filter、担当 filter、status filter、text search を同一ツールバー
 - 詳細ウィンドウの削除ボタン、または詳細ウィンドウ本体にフォーカスした状態の Backspace は、画面から即時除去して裏で `PATCH /api/tasks active=false` を実行する。DB `DELETE` は使わない。入力欄フォーカス中の Backspace は文字編集として扱う。
 - Ctrl+Z / Cmd+Z は、入力欄フォーカス外なら直前の create / delete / edge patch / position patch を local undo stack から復元し、必要な逆向き `PATCH` を裏で実行する。
 - ノード色は status ごとに分ける。`todo` は黄、`doing` はteal、`done` は青、`review` はindigo、`blocked` はrose、`pending` はzinc。現在表示中の子タスクが3つ以上ある親ノードはhub扱いとして、cyan系の強調ringと子数badgeを追加する。
+- ノード下のstatus表示にhoverすると status popover を表示する。popover内のstatusをclickすると、modalを開かずに画面上のnodeを即時更新し、裏で `PATCH /api/tasks { status }` を実行する。失敗時は元のstatusへ戻し、Ctrl+Z / Cmd+Z でも直前のstatus変更を戻せる。
 - ノード配置は atlas map と同じ hard collision 型の反発を display layout に適用し、近いノード同士の重なりを避ける。
 - ノード輪郭hoverで表示される `+` 接続ハンドルをclickすると、source node を親にした新規子タスクを source の右側へ optimistic 作成する。source が temporary id の場合は子タスクを画面上へ即時追加し、source の server id 解決後に `parentTaskId` を保存する。
 - 同じ `+` 接続ハンドルから別ノードの輪郭へdragすると、画面上は即時接続し、裏で `target.parent_task_id=source.task_id` を保存する。
@@ -96,4 +97,4 @@ PJ filter、担当 filter、status filter、text search を同一ツールバー
 
 - TypeScript: `npx tsc --noEmit`
 - Build: `npm run build`
-- Browser: `/tasks` を開き、top nav、mindmap空白クリック即時作成、下寄り作成時の詳細ウィンドウviewport内clamp + title focus、status別ノード色、タイトル Enter 保存、`+` click子タスク即時作成、子→親の直線arrow、hover時の位置固定scale、緩いpinch/zoom、node click詳細、詳細の上寄せ/高密度/blurなし/header削除/drag、Backspace削除、Ctrl+Z復元、親node位置drag時の子孫追従、`+` handle drag edge、gantt親子indent/子数badge、gantt空白行作成を確認する。
+- Browser: `/tasks` を開き、top nav、mindmap空白クリック即時作成、下寄り作成時の詳細ウィンドウviewport内clamp + title focus、status別ノード色、status hover popupからの即時変更、タイトル Enter 保存、`+` click子タスク即時作成、子→親の直線arrow、hover時の位置固定scale、緩いpinch/zoom、node click詳細、詳細の上寄せ/高密度/blurなし/header削除/drag、Backspace削除、Ctrl+Z復元、親node位置drag時の子孫追従、`+` handle drag edge、gantt親子indent/子数badge、gantt空白行作成を確認する。

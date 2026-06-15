@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-06-15 | 5-7 | 変更 | mindmap node のstatus表示hoverでstatus popoverを出し、modalを開かず即時status変更 + 裏PATCH + undo可能にするcontractを追加 | status変更のためにdetail modalとselect保存を経由するUXが遅く、ノード上で直接運用したいため | えいみ-worker |
 | 2026-06-15 | 5-7 | 変更 | mindmap新規作成時の詳細ウィンドウを実寸でviewport内へclampし、title inputへfocusするcontractを追加。node colorをTODO/Doing/Done/Review/Blocked/Pendingのstatus別toneへ変更 | 下寄りに作成したタスクのmodalが画面外へはみ出す問題と、TODO/Doingが同色で状態差が読みにくい問題を解消するため | えいみ-worker |
 | 2026-06-15 | 5-7 | 変更 | task detail modal を幅480px基準、上寄せoffset拡大、`label/control/label/control` 横詰めgrid、28px control、56px descriptionへ再調整 | まさ指摘「全然高密度になってない」「入力枠が大きい」「p00 AMDの右の空きが無駄」「デフォルト位置をもっと上に」への対応 | えいみ-worker |
 | 2026-06-15 | 5-7 / 2-1 / 2-2 | 変更 | mindmap zoom入力を減衰させるcontract、親node drag時の子孫追従 + grouped undo、直線edge、上寄せ/高密度/detail header削除、gantt親子tree/indent/子数badgeを追記。route/surface inventoryも最新操作へ同期 | まさ指摘「pinchが敏感」「親を移動したら子もついてくる」「矢印は直線」「modalの削除が遠い」「ganttの親子関係を明確に」への対応 | えいみ-worker |
