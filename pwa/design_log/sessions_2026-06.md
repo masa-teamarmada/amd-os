@@ -203,3 +203,29 @@
 - 巻末資料の再構築 (参考文献・記号・用語、料率の出典確定)。
 - D-7 Textbook Insights の新教科書向け受け皿章の再設計 (現状 legacy fallback)。
 - 出版パッケージ (タイトル確定・組版・出典固め)。
+
+---
+
+## 2026-06-15 株主・ガバナンス + 要対応 (D-14) のOS化 / JC cap table取り込み / スコア反映
+
+**起点**: まさが「5/28着のJOYCLE臨時株主総会招集通知がOSに一切抽出されてない、埋もれさせてはいけない」と気づいた。診断: Gmail抽出はreport_emailsゲート+active/進捗PJ中心で、smartround送信元・終了PJ(p09)・期日付き要対応を拾う仕組みが無かった(3つの構造的穴: 取り込み/分類/受け皿)。L2_DATA.md:170「ended でも清算・株主総会等は残す」は未実装の設計意図だった。
+
+**実装 (本番 v0.20.9 → v0.20.12)**:
+- migration `137_governance_and_action_items.sql`: `action_items`(汎用 要対応/期日つきinbound義務、採否ループ、personal/company scope) / `project_shareholders`(cap table) / `project_valuation_rounds`(バリュエーション) / `project_shareholder_meetings`(総会・決議)。RLS=service_role+is_admin、anon無付与(cap table最機密)。
+- API: `/api/governance`(entity CRUD) / `/api/action-items`(GET期日順・POST手動・PATCH status) / `/api/action-items/extract`(routine取り込み口、source_hash dedup、l2_notifications化)。
+- UI: `CockpitGovernance`(cockpit col2、終了PJでも表示) / `ActionItemsPanel`(dashboard+notifications 要対応期日順) / `/admin/governance`(手入力CRUD) + AdminSidebarリンク。
+- 抽出: consolidated-evidence SKILL に Phase K-C (D-14)。L2_DATA に D-14 行。
+- バグfix: action-items/extract の通知insertが l2_notifications.notification_id(uuid) に text key入れてサイレント失敗 → notification_id外しDB自動生成、error チェック (v0.20.11)。実地テスト(cron認証でinsert/dedup/通知)済み、テスト行削除済み。
+
+**JC実データ取り込み (p09)**: Gmail招集通知/事前承諾/委任状控え + Drive(署名済み株主名簿20240921 + 公式captable_241217.xlsx) を精読し、cap table全体を復元(計146,903株、検算一致):
+- 普通100,000(小柳99,583+まさ417) / AAA種11,111(前澤友作=前澤ファンド、Angel2023-12 ¥2,700) / AA種28,937(Seed2024-08 ¥3,420 ANOBAKAリード16名) / A種6,855(Series A 2026-06 実¥3,500、鈴与商事リード)。
+- **まさ=普通株417株、2024-08に小柳から譲受(セカンダリー)、¥998,298=¥2,394/株**。同時期Seed優先¥3,420の約70%=普通株割引。直近A種¥3,500で簿価上+約46%。
+- 計画(captable: Series A ¥10,000/pre¥14億) vs 実績(¥3,500/post¥5.1億)=大幅未達、評価額ほぼ横ばい。総会レコードに資料13点リンク添付。DLしたPDFは `~/projects/AMD/JC/総会関連資料_20260605/`、Drive「総会関連資料/20260605_臨時株主総会」フォルダ作成済(本体binaryのアップはツール制約で保留)。
+
+**スコア反映 (A)**: `amd_score_inputs` に JC 2026-06-15 行追加(μ_I 7→8 Woven City、prs_r_net=2据置、notes)。実演として「正直に入力更新するとμ_I上昇でスコアは上向くのに評価額は停滞=現PRSモデルは実現バリュエーションを入力に持たない盲点」が時系列に可視化。
+
+**spawn したフォローセッション (チップ)**:
+- task_2eff788c: AMD Scoreモデル改良v3.3 (実現モメンタム係数 + R&Dガバナンス整合の2新パラメータ。コアモデル変更=設計先行)。
+- task_6027de9a: OS仕組み化「拾うべき情報の自動検知」(coverage/gap scanner、まさ依存をなくす脱・属人化。D-5台帳差分の拡張 or 新系統)。
+
+**知見**: (1) セッション頭の `git fetch` を飛ばしてローカル(v0.19.14)が origin(v0.20.8)より9commit遅れ=最新build把握漏れ → 必ず4ステップ実行。(2) AskUserQuestion禁止(まさ再指摘) → 地の文で進める。(3) Drive MCPはbase64必須でharness inline上限超のbinary手渡し不可+Drive書込OAuthスコープ無し → 大容量binaryの自動アップは現状不可。

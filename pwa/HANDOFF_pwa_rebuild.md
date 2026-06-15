@@ -1,37 +1,39 @@
 # HANDOFF - AMD OS PWA
 
-- Last updated: 2026-06-13 (D-2 MS進捗 アンカー方式 + 計画遅延通知 A案+C案)
-- Topic: SX「進みすぎ」問題の根治 — デフォルト按分の起点をまさ確定値 (アンカー) にし、target_ym 超過は通知で知らせる
+- Last updated: 2026-06-15 (株主・ガバナンス + 要対応(D-14) のOS化 / JC cap table取り込み / スコア反映)
+- Topic: JOYCLE臨時株主総会招集通知の取りこぼしを起点に、株主/総会/決議/保有株式/バリュエーション + 期日つき要対応をOS化
 - Canonical root: `/Users/masa/projects/AMD/amd-os`
 - PWA root: `/Users/masa/projects/AMD/amd-os/pwa`
 - Production URL: `https://amd-os-pwa.vercel.app`
 - Current branch: `main`
-- Current HEAD: `ae93faeb feat(pwa): MS進捗デフォルト按分をアンカー方式へ + 計画遅延通知 (A案+C案) v0.19.0`
-- Production: **v0.19.0 = ae93faeb Ready 確認済み**
+- Production: **v0.20.12 Ready 確認済み** (deploy.sh で git_sha 一致確認済)
 
-## 直近セッション (2026-06-13 アンカー方式 + 計画遅延通知)
+## 直近セッション (2026-06-15 株主・ガバナンス + 要対応)
 
-まさが「SXの6月が49%、7月も49%、両方進みすぎ」と発見 → 診断: p21 で 202605 確定 15% の MS が target_ym 最終月 202606 にデフォルト按分で 100% にジャンプしていた。まさ指示「AとCでいこう」で:
+まさが「5/28着のJOYCLE臨時株主総会招集通知がOSに抽出されてない、埋もれさせてはいけない」と気づいたのが起点。Gmail抽出が report_emails ゲート + active/進捗PJ中心で、終了PJ(p09)・期日つき要対応・株主情報を拾えていなかった (3つの穴: 取り込み/分類/受け皿)。
 
-- **A案 (アンカー方式)**: デフォルト按分の起点を「その月より前の最新まさ確定値」に。3か月MSで 202605 確定 15% なら 202606 = 48.3%。target_ym 超過後も確定アンカーから月割り継続、勝手に 100% に飛ばない。
-- **C案 (計画遅延通知)**: target_ym 超過 + 100% 未達 MS を毎日 cron が `l2_kind='ms_schedule_delay'` (D-2 MS計画遅延) で通知、解消で自動 delete。
-- 計算 `anchoredExpectedCumPctForYm` を writer / LLM 乖離検知 / 報酬 / 表示 API の 4 か所に統一。
-- 本番検証済み: p21 事業計画策定 202606 = 48.3%、PJ 全体 49.3% → 40.4%。遅延通知は対象 MS が無く 0 件 (SQL 裏取り済)。
+- **新4テーブル** (migration 137): `action_items`(汎用 要対応) / `project_shareholders` / `project_valuation_rounds` / `project_shareholder_meetings`。RLS=service_role+is_admin。
+- **UI**: cockpit「🏛株主・ガバナンス」欄(終了PJでも表示) / dashboard・notifications「要対応(期日順)」面 / `/admin/governance` 手入力CRUD。API: `/api/governance`・`/api/action-items`・`/api/action-items/extract`。抽出 routine Phase K-C (D-14)。
+- **JC実データ**: Gmail+Drive(株主名簿/公式captable)精読でcap table復元(計146,903株、検算一致)。まさ=普通株417(2024-08セカンダリー、¥998,298=¥2,394/株)。計画(Series A¥10,000)vs実績(¥3,500)大幅未達・評価額横ばい。総会資料13点リンク添付。
+- **スコア(A)**: `amd_score_inputs` にJC 2026-06-15行追加 → 「μ_I上昇でスコアは上向くのに評価額停滞=現PRSモデルの盲点」を時系列に可視化。
 
-詳細: `pwa/design_log/sessions_2026-06.md` 2026-06-13 エントリ。確定仕様: `pwa/spec/3-10-l2-ms-progress-current-spec.md` / 使い方: `pwa/manual/4-8-ms-progress-monthly-report-revision-spec.md`。
-
-> この前段 (2026-06-12 schedule_default_revision_v3 = LLM 直書き廃止・デフォルト按分+revision提案方式への全面移行、v0.18.0 = badaaa31) も同 design_log に記録済み。今回の A案+C案はその上に乗るアンカー化。
+詳細: `pwa/design_log/sessions_2026-06.md` 2026-06-15 エントリ。確定仕様: `pwa/design/governance_action_items.md` / 使い方: `pwa/manual/2-3-pj-cockpit.md`。
 
 ## Repo State
 
-- HEAD: `ae93faeb` (push 済み、production Ready)。未 push commit なし (要 `git log --branches --not --remotes` で再確認)。
-- 作業ツリー: この handoff で `design_log/sessions_2026-06.md` + `HANDOFF_pwa_rebuild.md` を更新 (未 commit)。次の commit に含める。
+- Production v0.20.12 (このセッションで v0.20.9→12 を4回 deploy)。`build-info.ts` = v0.20.12。
+- 作業ツリー: handoff cleanup で **まさ既存WIP(bzm倫理章/tasks spec)を保全commit済**(3722e927)。この handoff doc 更新分は次 commit に含める。push 後 dirty 無し想定。
+- ⚠️ 次セッション開始時は必ず `git fetch` → 今回ローカルが origin より9commit遅れていた(最新build把握漏れ)。
 
 ## Unresolved / 次セッションへの申し送り
 
-1. **(保留・まさ承認待ち)** 残骸 `l2_routine` / `tsukuyomi_estimate` 行の DELETE 掃除。本番データ削除なので未承認のまま。cron の `routine_auto` 上書きで自然修復されるため実害はないが、明示的に消すならまさの承認を取る。
-2. **(監視)** 7月以降、p21 事業計画策定 (target 202606) が 6月中にまさ確定されなければ、7月の cron が初の `ms_schedule_delay` 通知を出す。通知が `/notifications` に正しく "D-2 MS計画遅延" ラベルで出るか実地確認するとよい。
-3. **(別ワークストリーム・本件と無関係、過去 handoff から継続)** payment PR #2 の扱い / ERS 根拠メモの「未確認」項目埋め。下記 pointer 参照。
+1. **(別セッション=チップ済 task_6027de9a)** 「拾うべき情報の自動検知」仕組み化 — 今回まさが気づいて拾えた取りこぼしを、OS側で自動検知して候補提示する coverage/gap scanner の設計 (脱・属人化の核心)。D-5台帳差分の拡張 or 新系統を議論。
+2. **(別セッション=チップ済 task_2eff788c)** AMD Scoreモデル改良v3.3 — 実現モメンタム係数 + R&Dガバナンス整合の2新パラメータ。コアモデル変更=設計先行・まさ承認必須。
+3. **(保留・ツール制約)** JC総会資料PDF10点のDrive「総会関連資料/20260605_臨時株主総会」フォルダへの本体アップ。Drive書込OAuthスコープ無し+MCP base64 inline上限超で自動不可。DL済みファイルは `~/projects/AMD/JC/総会関連資料_20260605/`。まさがドラッグ or Drive書込スコープ付与で解消。
+4. **(任意・データ補完)** JC AA/AAA各ラウンドの1株価格は公式captable_241217で判明済み(反映済)。残: 前澤のSeedフォローオン等の細目は必要なら投資契約で再確認。
+5. **(保留・まさ承認待ち、過去継続)** 残骸 `l2_routine` / `tsukuyomi_estimate` 行の DELETE 掃除 (実害なし)。
+6. **(監視、過去継続)** 7月以降 p21 事業計画策定が未確定なら初の `ms_schedule_delay` 通知が出る。`/notifications` の "D-2 MS計画遅延" ラベル実地確認。
+7. **(別ワークストリーム、過去継続)** payment PR #2 / ERS 根拠メモ「未確認」埋め。下記 pointer 参照。
 
 ## First Next Action
 
@@ -46,6 +48,7 @@ git status -sb
 
 ## Pointers
 
+- **株主・ガバナンス+要対応 (今回)**: 設計 `pwa/design/governance_action_items.md` / 使い方 `pwa/manual/2-3-pj-cockpit.md` / migration `pwa/scripts/migrations/137_governance_and_action_items.sql` / 導線保護 `pwa/design/FEATURE_REGISTRY.md` / D-14抽出 `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` Phase K-C。SU資本知識は `knowledge/jc.md`。
 - 確定仕様 (spec): `pwa/spec/3-10-l2-ms-progress-current-spec.md` (D-2 MS進捗の全契約)
 - 使い方 (manual): `pwa/manual/4-8-ms-progress-monthly-report-revision-spec.md`
 - 中核データ正本: `pwa/design/L2_DATA.md` / コックピット: `pwa/design/cockpit.md`

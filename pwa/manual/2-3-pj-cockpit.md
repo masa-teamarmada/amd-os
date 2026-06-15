@@ -255,6 +255,20 @@ CTB
 
 ---
 
+## 🏛 株主・ガバナンス + 要対応 (2026-06-15 追加)
+
+PJ cockpit の経営ハイライト直下に「**🏛 株主・ガバナンス**」欄が出る (admin のみ表示)。**終了した PJ でも表示される** (株主総会・清算・持分は卒業後も残るため)。
+
+- 表示: AMD/まさの保有株式と概算保有価値、直近の株主総会と決議・AMD対応 (委任状提出など)、資金調達ラウンド/バリュエーション、株主構成 (キャップテーブル)、そのPJの要対応。
+- 総会レコードには総会関連資料 (招集通知・議案・契約・決算書・cap table 等) がリンクで添付される。
+- データの編集は欄右上「編集」→ **`/admin/governance`** で行う (株主/ラウンド/総会/要対応の手入力 CRUD)。
+- **要対応 (期日順)**: `/dashboard` と `/notifications` の先頭に、全PJ横断 + 会社/個人スコープの「期日つき要対応」(株主総会の議決権・事前承諾、契約更新、振込期限など) が期日順 + 「あと何日/期限超過」で出る。「対応済にする」で消える。これは「まさが気づかないと埋もれる」案件をOS側で拾うための導線 (起点=JOYCLE臨時株主総会招集通知の取りこぼし事故)。
+- 5生データからの自動抽出は daily routine の Phase K-C (D-14 要対応) が候補を作る。手入力でも追加できる。
+
+→ 詳細仕様: [`pwa/design/governance_action_items.md`](../design/governance_action_items.md)、消してはいけない導線: [`pwa/design/FEATURE_REGISTRY.md`](../design/FEATURE_REGISTRY.md)。
+
+---
+
 ## 関連
 - 設計議論: [`pwa/design/cockpit.md`](../design/cockpit.md), [`pwa/design/project_strategy_signals.md`](../design/project_strategy_signals.md), [`pwa/design/strategy_signals_redesign.md`](../design/strategy_signals_redesign.md)
 - 過去判断ログ: **[9-1 章 過去判断と経緯](9-1-decisions-and-history.md)**
