@@ -46,26 +46,28 @@ Claude routine と呼べるのは、Claude Routines UI上で存在し、`ACTIVE`
 
 ## L2データ正本リスト
 
-| L2 | 名前 | 何を残すか | 主な使い道 | マシン | cron名 | タイミング |
-|---|---|---|---|---|---|---|
-| **M-1** | Monthly Reports | PJごとの月次報告書 | 月次振り返り、次月方針、XRL監査の土台 | Claude routine target + Codex automation / local applier暫定 | `amd-os-l2-monthend-evidence` / `AMD OS monthly report extract` / `amd-os-l1-monthly-report-extract` | 月末最終日 |
-| **D-1** | AMD Protocol | 経営判断の型、判断材料、打ち手 | AMDの知財化、次の意思決定の参照 | Claude routine target + MMO暫定 | `amd-os-l2-consolidated-evidence` / `amd-os-l2-protocol-extract` | daily 08:00 JST |
-| **D-2** | MS Progress | マイルストーンの進捗率・月次ノート | PJ cockpit、報酬・進捗レビュー | Claude routine target + MMO暫定 | `amd-os-l2-consolidated-evidence` / `amd-os-l3-ms-progress-extract` | daily target / MMO暫定は毎時0分 |
-| **D-3** | Project Knowledge | PJに関する人物・技術・組織・市場の事実 | PJ理解、引き継ぎ、提案準備 | Claude routine target + MMO暫定 | `amd-os-l2-consolidated-evidence` / `amd-os-l4-project-knowledge-extract` | daily 08:00 JST |
-| **D-4** | Member Knowledge | メンバーの強み、関心、働き方、活動傾向 | 配置、評価、mypage、メンバー理解 | Claude routine target + MMO暫定 | `amd-os-l2-consolidated-evidence` / `amd-os-l5-member-knowledge-extract` | daily 08:00 JST |
-| **H-1** | Meeting Flow | 会議ごとの決定事項・進捗・次アクション・リスク、予定MTGカード、関連資料 | Cockpit、次MTG準備、タスク化 | MMOマシン Codex実行系 | `amd-os-l6-meeting-flow` / Windows Task Scheduler `amd-os-l6-meeting-flow-launcher` | 毎日09:00-21:00 毎時 |
-| **D-5** | Registry Diff | PJメンバー、関係先、契約、担当、期間などのOS反映候補 | 台帳の自己修復、設定漏れ検知 | Claude routine target + Codex automation / local applier暫定 | `amd-os-l2-consolidated-evidence` / `amd-os-l7-registry-diff-extract` | daily 08:00 JST |
-| **M-2** | XRL Evidence | TRL / BRL / GRL / SRL / HRL のチェック項目充足根拠 | AMD ScoreのXRL更新 | Claude routine target + Codex automation / review暫定 | `amd-os-l2-monthend-evidence` / `amd-os-l8-xrl-evidence-extract` | M-1後、月末 |
-| **D-6** | Strategy Signals | 重要な方針転換、事業進捗、提携、リスク、次の一手 | PJ cockpit、司令塔判断 | Claude routine target + Codex automation / local applier暫定 | `amd-os-l2-consolidated-evidence` / `amd-os-l9-strategy-signal-extract` | daily 08:00 JST |
-| **D-7** | Textbook Insights | Before Zero / BZM教科書へ追記すべき実務知見 | 教科書・論文化・知財化 | Claude routine target + local BZM applier暫定 | `amd-os-l2-consolidated-evidence` / `amd-os-l10-textbook-insight-extract` | daily 08:00 JST、承認後は手動applier |
-| **D-8** | Atlas Signals | 外部ニュース・政策・市場・技術シグナル | Atlas、戦略判断、macro解釈 | Claude routine target + Atlas outbox/applier | `amd-os-l2-consolidated-evidence` / `POST /api/atlas/signals-ingest` | daily 08:00-08:10 JST |
-| **D-9** | Macrotrend Evidence / Index | 研究費、公募、VC投資、政策言及、外部signal countの集計 | AMD Score、Venture Map、ASPI判断 | Claude routine target + PWA non-LLM cron | `amd-os-l2-consolidated-evidence` / `cron/macro-aggregate-indicators` | daily review + 月初04:00 JST |
-| **D-10** | Member Activity Evidence | メンバーごとの活動根拠 | mypage、reward、MS貢献レビュー、member knowledge入力 | Claude routine target | `amd-os-l2-consolidated-evidence` | daily 08:00 JST |
-| **D-11** | Media Mentions | メディア掲載・公開露出の根拠 | 広報、外部シグナル、通知候補 | Claude routine target | `amd-os-l2-consolidated-evidence` | daily 08:00 JST |
-| **D-12** | Finance Ops Evidence / freee Transaction Actuals | サブスク、継続費、自動振替、領収書イベント、freee取引履歴から月次試算表へ入れる実績値 | 月次PL、Management Score finance軸 | PWA non-LLM cron + admin review | `/api/cron/management-score-raw-data?includeFreee=1` / `cron/freee-payment-sync` / `cron/payment-confirm-nudges` | daily |
-| **W-1** | VC News / Funding Signals | VCニュース、ファンド組成、投資活動、資金調達シグナル | VC inbox、fund情報、fundraising判断 | Claude routine target | `amd-os-l2-weekly-vc-funding-signals` | 土曜09:00 JST |
-| **M-3** | Management Monthly Signal | 月末時点の会社経営状態を、良い/悪い/次に見ることへ翻訳した評価文 | `/management-score` の月次試算表下、経営判断、過去ログ | Claude routine target + management review | `amd-os-l2-monthend-evidence` | 月末最終日17:00 JST |
-| **D-13** | Contract Signals | 5生データから検知した契約締結予兆、契約予定枠、契約書version/signed版metadata | 契約管理、押印版未保存nudge候補、PJ別契約進行確認 | Claude routine daily consolidated + PWA route | `amd-os-l2-consolidated-evidence` Phase K-B / `POST /api/contracts/extract-l2` | daily 08:00 JST |
+| L2 | 層 | 名前 | 何を残すか | 主な使い道 | マシン | cron名 | タイミング |
+|---|---|---|---|---|---|---|---|
+| **M-1** | L2 | Monthly Reports | PJごとの月次報告書 | 月次振り返り、次月方針、XRL監査の土台 | Claude routine target + Codex automation / local applier暫定 | `amd-os-l2-monthend-evidence` / `AMD OS monthly report extract` / `amd-os-l1-monthly-report-extract` | 月末最終日 |
+| **D-1** | L2 | AMD Protocol | 経営判断の型、判断材料、打ち手 | AMDの知財化、次の意思決定の参照 | Claude routine target + MMO暫定 | `amd-os-l2-consolidated-evidence` / `amd-os-l2-protocol-extract` | daily 08:00 JST |
+| **D-2** | L2 (+非LLM派生) | MS Progress | マイルストーンの進捗率・月次ノート | PJ cockpit、報酬・進捗レビュー | Claude routine target + MMO暫定 | `amd-os-l2-consolidated-evidence` / `amd-os-l3-ms-progress-extract` | daily target / MMO暫定は毎時0分 |
+| **D-3** | L2 | Project Knowledge | PJに関する人物・技術・組織・市場の事実 | PJ理解、引き継ぎ、提案準備 | Claude routine target + MMO暫定 | `amd-os-l2-consolidated-evidence` / `amd-os-l4-project-knowledge-extract` | daily 08:00 JST |
+| **D-4** | L2 | Member Knowledge | メンバーの強み、関心、働き方、活動傾向 | 配置、評価、mypage、メンバー理解 | Claude routine target + MMO暫定 | `amd-os-l2-consolidated-evidence` / `amd-os-l5-member-knowledge-extract` | daily 08:00 JST |
+| **H-1** | L2 | Meeting Flow | 会議ごとの決定事項・進捗・次アクション・リスク、予定MTGカード、関連資料 | Cockpit、次MTG準備、タスク化 | MMOマシン Codex実行系 | `amd-os-l6-meeting-flow` / Windows Task Scheduler `amd-os-l6-meeting-flow-launcher` | 毎日09:00-21:00 毎時 |
+| **D-5** | L2 | Registry Diff | PJメンバー、関係先、契約、担当、期間などのOS反映候補 | 台帳の自己修復、設定漏れ検知 | Claude routine target + Codex automation / local applier暫定 | `amd-os-l2-consolidated-evidence` / `amd-os-l7-registry-diff-extract` | daily 08:00 JST |
+| **M-2** | L2 | XRL Evidence | TRL / BRL / GRL / SRL / HRL のチェック項目充足根拠 | AMD ScoreのXRL更新 | Claude routine target + Codex automation / review暫定 | `amd-os-l2-monthend-evidence` / `amd-os-l8-xrl-evidence-extract` | M-1後、月末 |
+| **D-6** | L2 | Strategy Signals | 重要な方針転換、事業進捗、提携、リスク、次の一手 | PJ cockpit、司令塔判断 | Claude routine target + Codex automation / local applier暫定 | `amd-os-l2-consolidated-evidence` / `amd-os-l9-strategy-signal-extract` | daily 08:00 JST |
+| **D-7** | L2 | Textbook Insights | Before Zero / BZM教科書へ追記すべき実務知見 | 教科書・論文化・知財化 | Claude routine target + local BZM applier暫定 | `amd-os-l2-consolidated-evidence` / `amd-os-l10-textbook-insight-extract` | daily 08:00 JST、承認後は手動applier |
+| **D-8** | L2 | Atlas Signals | 外部ニュース・政策・市場・技術シグナル | Atlas、戦略判断、macro解釈 | Claude routine target + Atlas outbox/applier | `amd-os-l2-consolidated-evidence` / `POST /api/atlas/signals-ingest` | daily 08:00-08:10 JST |
+| **D-9** | L2 (+非LLM派生) | Macrotrend Evidence / Index | 研究費、公募、VC投資、政策言及、外部signal countの集計 | AMD Score、Venture Map、ASPI判断 | Claude routine target + PWA non-LLM cron | `amd-os-l2-consolidated-evidence` / `cron/macro-aggregate-indicators` | daily review + 月初04:00 JST |
+| **D-10** | L2 | Member Activity Evidence | メンバーごとの活動根拠 | mypage、reward、MS貢献レビュー、member knowledge入力 | Claude routine target | `amd-os-l2-consolidated-evidence` | daily 08:00 JST |
+| **D-11** | L2 | Media Mentions | メディア掲載・公開露出の根拠 | 広報、外部シグナル、通知候補 | Claude routine target | `amd-os-l2-consolidated-evidence` | daily 08:00 JST |
+| **D-12** | **L1相当** | Finance Ops Evidence / freee Transaction Actuals | サブスク、継続費、自動振替、領収書イベント、freee取引履歴から月次試算表へ入れる実績値 | 月次PL、Management Score finance軸 | PWA non-LLM cron + admin review | `/api/cron/management-score-raw-data?includeFreee=1` / `cron/freee-payment-sync` / `cron/payment-confirm-nudges` | daily |
+| **D-13** | L2 | Contract Signals | 5生データから検知した契約締結予兆、契約予定枠、契約書version/signed版metadata | 契約管理、押印版未保存nudge候補、PJ別契約進行確認 | Claude routine daily consolidated + PWA route | `amd-os-l2-consolidated-evidence` Phase K-B / `POST /api/contracts/extract-l2` | daily 08:00 JST |
+| **D-14** | L2 | 要対応 (Action Items) | 期日つき inbound 義務 (株主総会招集/議決権/事前承諾/契約更新/振込 等)。終了PJ・個人 scope も対象 | /notifications・要対応面・nudge | Claude routine daily consolidated + PWA route | `amd-os-l2-consolidated-evidence` Phase K-C / `POST /api/action-items/extract` | daily 08:00 JST |
+| **L3-1** | **L3** | Coverage Scanner (不在検知) | 来た生データ × 既存L2カバレッジ の差分 = OS化されてない重要情報の候補。個別抽出器の上位安全網 | /notifications・/admin/coverage-gaps・取りこぼし防止 | Claude routine daily consolidated (最終Phase M) + PWA route | `amd-os-l2-consolidated-evidence` Phase M / `POST /api/coverage-gaps/extract` | daily 08:00 JST |
+| **W-1** | L2 | VC News / Funding Signals | VCニュース、ファンド組成、投資活動、資金調達シグナル | VC inbox、fund情報、fundraising判断 | Claude routine target | `amd-os-l2-weekly-vc-funding-signals` | 土曜09:00 JST |
+| **M-3** | L2 | Management Monthly Signal | 月末時点の会社経営状態を、良い/悪い/次に見ることへ翻訳した評価文 | `/management-score` の月次試算表下、経営判断、過去ログ | Claude routine target + management review | `amd-os-l2-monthend-evidence` | 月末最終日17:00 JST |
 
 ## Management Monthly Signal の評価文ルール
 

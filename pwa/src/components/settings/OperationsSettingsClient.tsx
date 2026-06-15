@@ -151,6 +151,7 @@ export function OperationsSettingsClient({ rawDataSources, l2Datasets, cronOpera
                 <thead className="border-b border-border bg-muted/35 text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
                   <tr>
                     <th className="px-3 py-2 font-medium">Dataset</th>
+                    <th className="px-3 py-2 font-medium">層</th>
                     <th className="px-3 py-2 font-medium">Table</th>
                     <th className="px-3 py-2 font-medium">Source</th>
                     <th className="px-3 py-2 font-medium">Cadence</th>
@@ -161,6 +162,15 @@ export function OperationsSettingsClient({ rawDataSources, l2Datasets, cronOpera
                   {l2Datasets.map((dataset) => (
                     <tr key={dataset.id} className="align-top hover:bg-muted/20">
                       <td className="px-3 py-3 font-semibold">{dataset.label}</td>
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        <span className={
+                          dataset.tier === "L1" ? "rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-700"
+                            : dataset.tier === "L3" ? "rounded bg-violet-100 px-1.5 py-0.5 text-[11px] font-semibold text-violet-700"
+                            : "rounded bg-emerald-100 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-700"
+                        }>
+                          {dataset.tier}
+                        </span>
+                      </td>
                       <td className="px-3 py-3 font-mono text-[11px] text-muted-foreground">{dataset.table}</td>
                       <td className="px-3 py-3 text-muted-foreground">{dataset.source}</td>
                       <td className="px-3 py-3 whitespace-nowrap">{dataset.cadence}</td>

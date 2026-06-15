@@ -10,6 +10,12 @@ export type RawDataSource = {
 export type L2Dataset = {
   id: string;
   label: string;
+  // 層 (tier): データの吟味度。cadence(D/M/W/H)とは直交する軸。
+  // L1 = 生データを吟味せず吸い出し/同期しただけ (LLMなし)。
+  // L2 = LLM が吟味して「欲しい情報の形」に抽出した中核データ。
+  // L3 = L2 群のカバレッジ自体を見張るメタレイヤー (不在検知)。
+  // 正本: pwa/spec/3-0-l2-data-list-current-spec.md の「層 (tier) 軸」。
+  tier: "L1" | "L2" | "L3";
   table: string;
   source: string;
   cadence: string;
@@ -89,6 +95,7 @@ export const l2Datasets: L2Dataset[] = [
   {
     id: "monthly_reports",
     label: "M-1 monthly report",
+    tier: "L2",
     table: "monthly_reports",
     source: "Codex automation AMD OS M-1 月次報告抽出 / amd-os-ms outbox.monthlyReports (R313 triggerなし確認: 2026-05-29)",
     cadence: "daily 05:30 JST (subscription automation)",
@@ -97,6 +104,7 @@ export const l2Datasets: L2Dataset[] = [
   {
     id: "protocols",
     label: "D-1 AMDプロトコル",
+    tier: "L2",
     table: "protocols / protocol_examples",
     source: "Codex automation / legacy GAS 155",
     cadence: "停止中",
@@ -105,14 +113,16 @@ export const l2Datasets: L2Dataset[] = [
   {
     id: "ms_progress",
     label: "D-2 MS進捗",
+    tier: "L2",
     table: "milestone_monthly_progress",
     source: "MMO/Codex automation amd-os-l3-ms-progress-extract / Codex automation review",
     cadence: "毎時 polling (subscription automation)",
-    purpose: "月次報告書・MTGサマリ・MS設計から月次進捗%を推定し、Codex automationで修正候補レビューを回す。",
+    purpose: "月次進捗%を推定。ただしデフォルト按分(ms-schedule-progress)は非LLM派生で、LLMは乖離revision提案のみ(=L2部分)。",
   },
   {
     id: "project_knowledge",
     label: "D-3 PJナレッジ",
+    tier: "L2",
     table: "project_knowledge",
     source: "Codex automation / legacy GAS 155",
     cadence: "停止中",
@@ -121,6 +131,7 @@ export const l2Datasets: L2Dataset[] = [
   {
     id: "member_knowledge",
     label: "D-4 メンバーナレッジ",
+    tier: "L2",
     table: "member_knowledge",
     source: "Codex automation / legacy GAS 155",
     cadence: "停止中",
@@ -129,6 +140,7 @@ export const l2Datasets: L2Dataset[] = [
   {
     id: "meeting_summaries",
     label: "H-1 MTGサマリ",
+    tier: "L2",
     table: "project_meeting_summaries",
     source: "Codex automation / legacy GAS 153 + 074",
     cadence: "停止中",
@@ -137,6 +149,7 @@ export const l2Datasets: L2Dataset[] = [
   {
     id: "registry_diffs",
     label: "D-5 OS台帳差分",
+    tier: "L2",
     table: "project_registry_diffs",
     source: "Codex automation / future cron",
     cadence: "review batch",
@@ -145,6 +158,7 @@ export const l2Datasets: L2Dataset[] = [
   {
     id: "xrl_evidence",
     label: "M-2 XRL根拠",
+    tier: "L2",
     table: "project_xrl_evidence / project_xrl_log",
     source: "Codex automation / manual review",
     cadence: "停止中",
@@ -153,6 +167,7 @@ export const l2Datasets: L2Dataset[] = [
   {
     id: "project_strategy_signals",
     label: "D-6 経営ハイライト",
+    tier: "L2",
     table: "project_strategy_signals",
     source: "Codex automation amd-os",
     cadence: "daily review",
@@ -161,6 +176,7 @@ export const l2Datasets: L2Dataset[] = [
   {
     id: "textbook_insight_candidates",
     label: "D-7 Textbook Insights",
+    tier: "L2",
     table: "textbook_insight_candidates",
     source: "Codex automation/local worker amd-os-l10-textbook-insight-extract / approved後local BZM applier",
     cadence: "TBD / manual start",
@@ -169,14 +185,43 @@ export const l2Datasets: L2Dataset[] = [
   {
     id: "contract_signals",
     label: "D-13 契約予兆",
+    tier: "L2",
     table: "contract_signals / contracts / contract_documents",
     source: "Claude routine amd-os-l2-consolidated-evidence Phase K-B / POST /api/contracts/extract-l2",
     cadence: "daily 08:00 JST (既存 consolidated routine に同居)",
     purpose: "5生データから契約締結予兆を検知し、候補signalと高確度の契約予定枠を契約管理へ入れる。",
   },
   {
+    id: "action_items",
+    label: "D-14 要対応",
+    tier: "L2",
+    table: "action_items",
+    source: "Claude routine amd-os-l2-consolidated-evidence Phase K-C / POST /api/action-items/extract",
+    cadence: "daily 08:00 JST (既存 consolidated routine に同居)",
+    purpose: "期日つき inbound 義務 (株主総会招集/議決権/事前承諾/契約更新/振込 等) を期日管理する。終了PJ・個人 scope も対象。",
+  },
+  {
+    id: "finance_freee_actuals",
+    label: "D-12 Finance / freee実績",
+    tier: "L1",
+    table: "company_actual_monthly / company_finance_recurring_items / company_finance_receipt_events",
+    source: "PWA non-LLM cron (management-score-raw-data / freee-payment-sync) + admin review",
+    cadence: "daily (non-LLM sync)",
+    purpose: "freee取引履歴・継続費を吟味せずそのまま月次試算表の実績へ同期するL1相当。LLMは通らない。",
+  },
+  {
+    id: "coverage_gaps",
+    label: "L3-1 Coverage Scanner (不在検知)",
+    tier: "L3",
+    table: "l2_coverage_gaps",
+    source: "Claude routine amd-os-l2-consolidated-evidence Phase M / POST /api/coverage-gaps/extract",
+    cadence: "daily 08:00 JST (最終Phase)",
+    purpose: "来た生データ × 既存L2カバレッジ の差分(不在検知)。OS化されてない重要情報を候補提示する上位安全網。設計 design/coverage_gap_scanner.md。",
+  },
+  {
     id: "amd_score_inputs",
     label: "Score Inputs",
+    tier: "L2",
     table: "amd_score_inputs",
     source: "manual evidence / Codex automation",
     cadence: "停止中",
