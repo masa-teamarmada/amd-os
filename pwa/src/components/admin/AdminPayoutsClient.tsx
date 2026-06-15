@@ -445,6 +445,12 @@ function numberValue(value: unknown) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function hasExplicitNumber(value: unknown) {
+  if (value == null || value === "") return false;
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n);
+}
+
 function parseYenInput(value: string) {
   const normalized = value.replace(/[,\s¥円]/g, "");
   const n = Number(normalized || 0);
@@ -684,19 +690,22 @@ function buildProjectMonthlyFinanceRows({
     const entries = nonOfficerByCycle.get(key) ?? [];
     const officerReserve = officerByCycle.get(key) ?? [];
     const baseClientAmountYen = baseClientAmountForCycle(cycle, project);
-    const budgetYen = Math.round(numberValue(cycle.budget_yen));
+    const baseCapYen = baseCapYenFor(baseClientAmountYen, Math.round(numberValue(cycle.budget_buffer_amount)));
+    const budgetYen = hasExplicitNumber(cycle.budget_yen) ? Math.round(numberValue(cycle.budget_yen)) : baseCapYen;
     const payoutYen = entries.reduce((sum, entry) => sum + entry.totalPay, 0);
     const officerPayoutYen = officerReserve.reduce((sum, entry) => sum + entry.totalPay, 0);
     const stockYen = entries.reduce((sum, entry) => sum + entry.stockYen, 0) + officerReserve.reduce((sum, entry) => sum + entry.stockYen, 0);
     const grossDueYen = entries.reduce((sum, entry) => sum + entry.grossDueYen, 0) + officerReserve.reduce((sum, entry) => sum + entry.grossDueYen, 0);
-    const finalBalanceYen = budgetYen - payoutYen;
+    const hasRewardMembers = (asRewardSummary(cycle.reward_summary_json)?.members?.length ?? 0) > 0;
+    const forecastPayoutYen = !hasRewardMembers && payoutYen === 0 && budgetYen > 0 ? budgetYen : payoutYen;
+    const finalBalanceYen = budgetYen - forecastPayoutYen;
     const cell: ProjectMonthlyFinanceCell = {
       projectId: cycle.project_id,
       projectName: row.projectName,
       ym: cycle.ym,
       baseClientAmountYen,
       budgetYen,
-      payoutYen,
+      payoutYen: forecastPayoutYen,
       officerPayoutYen,
       stockYen,
       grossDueYen,

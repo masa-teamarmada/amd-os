@@ -138,6 +138,8 @@ type PaymentProjectRow = {
   project_name: string;
   client_name: string | null;
   status: string | null;
+  fee_type?: string | null;
+  fee_amount?: number | string | null;
   freee_partner_id: string | null;
   payment_due_rule: string | null;
   payment_due_day: number | null;
@@ -413,6 +415,12 @@ function numberValue(value: unknown): number {
   return Number.isFinite(n) ? Math.round(n) : 0;
 }
 
+function hasExplicitNumber(value: unknown): boolean {
+  if (value == null || value === "") return false;
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n);
+}
+
 function invoiceLinesNet(raw: string | null): number {
   if (!raw?.trim()) return 0;
   try {
@@ -439,6 +447,16 @@ function expectedNetForCycle(cycle: BillingCycleActualRow): number {
   if (invoiceNet > 0) return invoiceNet;
   const budget = numberValue(cycle.budget_yen);
   return budget > 0 ? Math.round(budget / 0.65) : 0;
+}
+
+function baseClientAmountForCycle(cycle: BillingCycleActualRow, project?: PaymentProjectRow): number {
+  const reported = numberValue(cycle.budget_reported_amount);
+  if (reported > 0) return reported;
+  if (String(project?.fee_type || "").toLowerCase() === "monthly_fixed") {
+    const fee = numberValue(project?.fee_amount);
+    if (fee > 0) return fee;
+  }
+  return 0;
 }
 
 function rewardSummaryMembers(summary: Record<string, unknown> | null): Array<Record<string, unknown>> {
@@ -499,14 +517,18 @@ function buildProjectMonthlyFinanceRows({
       }
       stockYen += stock;
     }
-    const budgetYen = numberValue(cycle.budget_yen);
-    const finalBalanceYen = budgetYen - payoutYen;
+    const project = projectMap.get(cycle.project_id);
+    const baseClientAmountYen = baseClientAmountForCycle(cycle, project);
+    const budgetYen = hasExplicitNumber(cycle.budget_yen) ? numberValue(cycle.budget_yen) : Math.round(baseClientAmountYen * 0.65);
+    const hasRewardMembers = rewardSummaryMembers(cycle.reward_summary_json).length > 0;
+    const forecastPayoutYen = !hasRewardMembers && payoutYen === 0 && budgetYen > 0 ? budgetYen : payoutYen;
+    const finalBalanceYen = budgetYen - forecastPayoutYen;
     const cell: ProjectMonthlyFinanceCell = {
       projectId: cycle.project_id,
       projectName: row.projectName,
       ym: cycle.ym,
       budgetYen,
-      payoutYen,
+      payoutYen: forecastPayoutYen,
       officerPayoutYen,
       stockYen,
       finalBalanceYen,
@@ -1270,7 +1292,7 @@ export default async function ManagementScorePage() {
     safeSelect<PaymentProjectRow[]>(() =>
       supabase
         .from("projects")
-        .select("project_id,project_name,client_name,status,freee_partner_id,payment_due_rule,payment_due_day")
+        .select("project_id,project_name,client_name,status,fee_type,fee_amount,freee_partner_id,payment_due_rule,payment_due_day")
         .limit(500)
     ),
     safeSelect<PaymentMemberRow[]>(() =>
