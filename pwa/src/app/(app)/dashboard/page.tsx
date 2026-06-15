@@ -38,6 +38,7 @@ import { AAA_PROJECT_ID } from "@/lib/demo-aaa-data";
 import { InstitutionReadinessList } from "@/components/dashboard/InstitutionReadinessList";
 import { fetchErsBundle, type ErsBundle } from "@/lib/ers-data";
 import { ProactiveQueuePanel } from "@/components/proactive/ProactiveQueuePanel";
+import { ActionItemsPanel } from "@/components/governance/ActionItemsPanel";
 import { LoopKernelBoard } from "@/components/loop/LoopKernelBoard";
 import { isInstitutionDashboardProject } from "@/lib/institution-projects";
 
@@ -177,6 +178,7 @@ export default function DashboardPage() {
         <main className="space-y-4 min-w-0">
           <LoopKernelBoard hideWhenNoAccess showHeader />
           <ProactiveQueuePanel projectLabels={projectLabels} variant="dashboard" limit={3} />
+          <ActionItemsPanel projectLabels={projectLabels} variant="dashboard" limit={5} />
           <DashboardScoreOverview
             managementScore={managementScore}
             managementHistory={managementHistory}

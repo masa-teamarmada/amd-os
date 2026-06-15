@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { NotificationsClient } from "@/components/notifications/NotificationsClient";
 import { AppNotificationsSection } from "@/components/notifications/AppNotificationsSection";
+import { ActionItemsPanel } from "@/components/governance/ActionItemsPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +71,11 @@ export default async function NotificationsPage() {
       <p className="text-xs text-muted-foreground mb-6">
         cron / つくよみ / Phase 4 抽出 等の通知を統合表示。誤抽出があれば「⚠️ つくよみに修正依頼」で次回以降の抽出を改善できる。
       </p>
+
+      {/* 要対応 (期日順) — 5生データ抽出 + 手動の inbound 義務 */}
+      <div className="mb-6">
+        <ActionItemsPanel variant="notifications" />
+      </div>
 
       {/* VC 系 / Web 通知 (app_notifications) */}
       <AppNotificationsSection />

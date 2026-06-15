@@ -9,6 +9,7 @@ const ADMIN_TABS = [
   { label: "Members", href: "/admin/members" },
   { label: "Company", href: "/admin/company" },
   { label: "契約", href: "/admin/contracts" },
+  { label: "🏛 株主・ガバナンス", href: "/admin/governance" },
   { label: "週次活動", href: "/admin/weekly" },
   { label: "Protocols", href: "/admin/protocols" },
   { label: "LLM Context", href: "/admin/contexts" },
