@@ -83,11 +83,12 @@ export async function POST(req: NextRequest) {
     inserted++;
     known.add(it.source_hash);
 
-    // 期日が近いほど importance を上げて通知化
+    // 期日が近いほど importance を上げて通知化。
+    // notification_id は uuid default (gen_random_uuid)。dedup は action_items の source_hash
+    // で上流担保済 (= 既存 action_item は skip され、ここに到達しない) ので重複通知は出ない。
     const days = it.due_at ? Math.floor((new Date(it.due_at).getTime() - Date.now()) / 86400000) : null;
     const importance = days != null && days <= 3 ? 9 : days != null && days <= 7 ? 7 : 5;
     notifications.push({
-      notification_id: `n:${actionId}`.slice(0, 120),
       l2_kind: "action_item",
       target_id: projectId ?? scope,
       scope_key: actionId,
@@ -101,9 +102,11 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  let notified = 0;
   if (notifications.length > 0) {
-    await db.from("l2_notifications").upsert(notifications, { onConflict: "notification_id" });
+    const { error: notifyErr } = await db.from("l2_notifications").insert(notifications);
+    if (!notifyErr) notified = notifications.length;
   }
 
-  return NextResponse.json({ ok: true, inserted, skipped, notified: notifications.length });
+  return NextResponse.json({ ok: true, inserted, skipped, notified });
 }
