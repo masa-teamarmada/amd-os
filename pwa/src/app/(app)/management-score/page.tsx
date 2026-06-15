@@ -153,6 +153,12 @@ type PaymentMemberRow = {
   exclude_from_payout_notice?: boolean | null;
 };
 
+type PaymentProjectMemberRow = {
+  project_id: string;
+  member_id: string;
+  is_active?: boolean | null;
+};
+
 type BillingCycleActualRow = {
   id: string;
   project_id: string;
@@ -171,6 +177,16 @@ type BillingCycleActualRow = {
   reward_paid_at: string | null;
   reward_paid_by: string | null;
   reward_summary_json: Record<string, unknown> | null;
+};
+
+type PaymentPlanCycleRow = {
+  project_id: string;
+  plan_cycle_id?: string | null;
+  status: string | null;
+  budget_yen: number | string | null;
+  total_points?: number | string | null;
+  period_start_ym: string;
+  period_end_ym: string;
 };
 
 type ProjectMonthlyFinanceCell = {
@@ -468,16 +484,32 @@ function rewardMemberId(member: Record<string, unknown>): string {
   return String(member.memberId ?? member.member_id ?? "").trim();
 }
 
+function findRewardPlanCycle(projectId: string, ym: string, planCycles: PaymentPlanCycleRow[]) {
+  return planCycles
+    .filter((plan) => plan.project_id === projectId && plan.period_start_ym <= ym && plan.period_end_ym >= ym)
+    .filter((plan) => ["active", "confirmed", "fixed"].includes(String(plan.status || "").toLowerCase()))
+    .sort((a, b) => b.period_start_ym.localeCompare(a.period_start_ym) || b.period_end_ym.localeCompare(a.period_end_ym))[0] ?? null;
+}
+
+function hasRewardBearingPlan(projectId: string, ym: string, planCycles: PaymentPlanCycleRow[]) {
+  const plan = findRewardPlanCycle(projectId, ym, planCycles);
+  return Boolean(plan && numberValue(plan.budget_yen) > 0);
+}
+
 function buildProjectMonthlyFinanceRows({
   months,
   cycles,
   projects,
   members,
+  planCycles,
+  projectMembers,
 }: {
   months: string[];
   cycles: BillingCycleActualRow[];
   projects: PaymentProjectRow[];
   members: PaymentMemberRow[];
+  planCycles: PaymentPlanCycleRow[];
+  projectMembers: PaymentProjectMemberRow[];
 }): ProjectMonthlyFinanceRow[] {
   const projectMap = new Map(projects.map((project) => [project.project_id, project]));
   const officerMemberIds = new Set(members.filter((member) => member.is_officer).map((member) => member.member_id));
@@ -485,6 +517,11 @@ function buildProjectMonthlyFinanceRows({
     members
       .filter((member) => member.is_officer || member.exclude_from_payout_notice)
       .map((member) => member.member_id)
+  );
+  const payoutEligibleProjectIds = new Set(
+    projectMembers
+      .filter((projectMember) => projectMember.is_active !== false && !payoutExcludedMemberIds.has(projectMember.member_id))
+      .map((projectMember) => projectMember.project_id)
   );
   const rows = new Map<string, ProjectMonthlyFinanceRow>();
   const ensureRow = (projectId: string) => {
@@ -529,7 +566,11 @@ function buildProjectMonthlyFinanceRows({
     const baseClientAmountYen = baseClientAmountForCycle(cycle, project);
     const budgetYen = hasExplicitNumber(cycle.budget_yen) ? numberValue(cycle.budget_yen) : Math.round(baseClientAmountYen * 0.65);
     const hasRewardMembers = rewardSummaryMembers(cycle.reward_summary_json).length > 0;
-    const forecastPayoutYen = !hasRewardMembers && payoutYen === 0 && budgetYen > 0 ? budgetYen : payoutYen;
+    const canForecastPayout = hasRewardBearingPlan(cycle.project_id, cycle.ym, planCycles);
+    const forecastPayoutYen =
+      !hasRewardMembers && payoutYen === 0 && budgetYen > 0 && canForecastPayout && payoutEligibleProjectIds.has(cycle.project_id)
+        ? budgetYen
+        : payoutYen;
     const finalBalanceYen = budgetYen - forecastPayoutYen;
     const cell: ProjectMonthlyFinanceCell = {
       projectId: cycle.project_id,
@@ -1296,7 +1337,7 @@ export default async function ManagementScorePage() {
   const financeEndYm = [financeMonths.at(-1) ?? addMonths(ymCap, 12), projectForecastEndYm].sort().at(-1) ?? projectForecastEndYm;
   const cycleStartYm = addMonths(financeStartYm, -3);
   const cycleEndYm = addMonths(financeEndYm, 1);
-  const [paymentProjectsRes, paymentMembersRes, billingCyclesRes, payoutNoticesRes] = await Promise.all([
+  const [paymentProjectsRes, paymentMembersRes, paymentProjectMembersRes, billingCyclesRes, paymentPlanCyclesRes, payoutNoticesRes] = await Promise.all([
     safeSelect<PaymentProjectRow[]>(() =>
       supabase
         .from("projects")
@@ -1309,12 +1350,27 @@ export default async function ManagementScorePage() {
         .select("member_id,code_name,member_name,is_officer,exclude_from_payout_notice")
         .limit(500)
     ),
+    safeSelect<PaymentProjectMemberRow[]>(() =>
+      supabase
+        .from("project_members")
+        .select("project_id,member_id,is_active")
+        .eq("is_active", true)
+        .limit(1200)
+    ),
     safeSelect<BillingCycleActualRow[]>(() =>
       supabase
         .from("billing_cycles")
         .select("id,project_id,ym,status,budget_yen,budget_reported_amount,invoice_ym,invoice_base_lines_json,invoice_issued_at,invoice_sent_at,freee_invoice_number,payment_confirmed_at,payment_confirmed_by,payout_notice_uploaded_at,reward_paid_at,reward_paid_by,reward_summary_json")
         .gte("ym", cycleStartYm)
         .lte("ym", cycleEndYm)
+        .limit(1200)
+    ),
+    safeSelect<PaymentPlanCycleRow[]>(() =>
+      supabase
+        .from("value_plan_cycles")
+        .select("project_id,plan_cycle_id,status,budget_yen,total_points,period_start_ym,period_end_ym")
+        .lte("period_start_ym", projectForecastEndYm)
+        .gte("period_end_ym", ymCap)
         .limit(1200)
     ),
     safeSelect<PayoutNoticeActualRow[]>(() =>
@@ -1328,13 +1384,17 @@ export default async function ManagementScorePage() {
   ]);
   const paymentProjects = paymentProjectsRes.data ?? [];
   const paymentMembers = paymentMembersRes.data ?? [];
+  const paymentProjectMembers = paymentProjectMembersRes.data ?? [];
   const billingCycles = billingCyclesRes.data ?? [];
+  const paymentPlanCycles = paymentPlanCyclesRes.data ?? [];
   const payoutNotices = payoutNoticesRes.data ?? [];
   const projectMonthlyFinanceRows = buildProjectMonthlyFinanceRows({
     months: projectForecastMonths,
     cycles: billingCycles,
     projects: paymentProjects,
     members: paymentMembers,
+    planCycles: paymentPlanCycles,
+    projectMembers: paymentProjectMembers,
   });
   const monthlyActualSummaries = buildMonthlyActualSummaries(
     financeMonths,

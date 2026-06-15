@@ -33,6 +33,16 @@ type BillingCycleRow = {
   reward_paid_at?: string | null;
 };
 
+type ForecastPlanCycleRow = {
+  project_id: string;
+  plan_cycle_id?: string | null;
+  status: string | null;
+  budget_yen: number | string | null;
+  total_points?: number | string | null;
+  period_start_ym: string;
+  period_end_ym: string;
+};
+
 type RewardMemberRow = {
   [key: string]: unknown;
   memberId?: unknown;
@@ -85,6 +95,12 @@ type MemberRow = {
   email?: string | null;
   is_officer?: boolean | null;
   exclude_from_payout_notice?: boolean | null;
+};
+
+type ProjectMemberRow = {
+  project_id: string;
+  member_id: string;
+  is_active?: boolean | null;
 };
 
 type PayoutNoticeRow = {
@@ -821,7 +837,7 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
 
   const candidateYms = candidateSourceYmsForPaymentYm(ym);
   const forecastEndYm = addMonths(ym, 11);
-  const [membersRes, projectsRes, invoiceCyclesRes, unsetInvoiceCyclesRes, forecastCyclesRes] = await Promise.all([
+  const [membersRes, projectsRes, projectMembersRes, invoiceCyclesRes, unsetInvoiceCyclesRes, forecastCyclesRes, forecastPlanCyclesRes] = await Promise.all([
     db
       .from("members")
       .select("member_id, code_name, member_name, contractor_name, member_address, invoice_registration_number, bank_info, email, status, is_officer, exclude_from_payout_notice")
@@ -831,6 +847,10 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
       .from("projects")
       .select("project_id, project_name, client_name, status, fee_type, fee_amount, freee_partner_id, payment_due_rule, payment_due_day")
       .order("project_name"),
+    db
+      .from("project_members")
+      .select("project_id, member_id, is_active")
+      .eq("is_active", true),
     db
       .from("billing_cycles")
       .select(cycleSelect)
@@ -846,13 +866,21 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
       .gte("ym", ym)
       .lte("ym", forecastEndYm)
       .order("ym", { ascending: true }),
+    db
+      .from("value_plan_cycles")
+      .select("project_id, plan_cycle_id, status, budget_yen, total_points, period_start_ym, period_end_ym")
+      .lte("period_start_ym", forecastEndYm)
+      .gte("period_end_ym", ym)
+      .order("period_start_ym", { ascending: true }),
   ]);
 
   if (membersRes.error) throw membersRes.error;
   if (projectsRes.error) throw projectsRes.error;
+  if (projectMembersRes.error) throw projectMembersRes.error;
   if (invoiceCyclesRes.error) throw invoiceCyclesRes.error;
   if (unsetInvoiceCyclesRes.error) throw unsetInvoiceCyclesRes.error;
   if (forecastCyclesRes.error) throw forecastCyclesRes.error;
+  if (forecastPlanCyclesRes.error) throw forecastPlanCyclesRes.error;
 
   const projectMap = new Map<string, PaymentProjectRow>();
   for (const project of (projectsRes.data ?? []) as PaymentProjectRow[]) {
@@ -920,9 +948,11 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
     ym,
     members: membersRes.data ?? [],
     projects: projectsRes.data ?? [],
+    projectMembers: (projectMembersRes.data ?? []) as ProjectMemberRow[],
     cycles,
     forecastMonths: Array.from({ length: 12 }, (_, index) => addMonths(ym, index)),
     forecastCycles,
+    forecastPlanCycles: (forecastPlanCyclesRes.data ?? []) as ForecastPlanCycleRow[],
     payouts: payoutsRes.data ?? [],
     notices: noticesRes.data ?? [],
     expectedEntries: applySavedPayoutsForExistingRows(

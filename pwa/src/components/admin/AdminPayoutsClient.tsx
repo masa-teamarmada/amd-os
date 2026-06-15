@@ -26,6 +26,12 @@ type Project = {
   fee_amount?: number | string | null;
 };
 
+type ProjectMember = {
+  project_id: string;
+  member_id: string;
+  is_active?: boolean | null;
+};
+
 type RewardMember = {
   memberId?: string;
   member_id?: string;
@@ -69,6 +75,16 @@ type BillingCycle = {
   payout_notice_uploaded_at?: string | null;
   payment_confirmed_at?: string | null;
   reward_paid_at?: string | null;
+};
+
+type ForecastPlanCycle = {
+  project_id: string;
+  plan_cycle_id?: string | null;
+  status: string | null;
+  budget_yen: number | string | null;
+  total_points?: number | string | null;
+  period_start_ym: string;
+  period_end_ym: string;
 };
 
 type MonthlyRewardPayout = {
@@ -115,9 +131,11 @@ type PayoutData = {
   ym: string;
   members: Member[];
   projects: Project[];
+  projectMembers?: ProjectMember[];
   cycles: BillingCycle[];
   forecastMonths?: string[];
   forecastCycles?: BillingCycle[];
+  forecastPlanCycles?: ForecastPlanCycle[];
   payouts: MonthlyRewardPayout[];
   notices: PayoutNotice[];
   expectedEntries?: PayoutEntry[];
@@ -471,6 +489,18 @@ function baseCapYenFor(baseClientAmountYen: number, bufferYen: number) {
   return Math.max(0, Math.round(baseClientAmountYen * 0.65) - Math.max(0, Math.round(bufferYen)));
 }
 
+function findRewardPlanCycle(projectId: string, ym: string, planCycles: ForecastPlanCycle[]) {
+  return planCycles
+    .filter((plan) => plan.project_id === projectId && plan.period_start_ym <= ym && plan.period_end_ym >= ym)
+    .filter((plan) => ["active", "confirmed", "fixed"].includes(String(plan.status || "").toLowerCase()))
+    .sort((a, b) => b.period_start_ym.localeCompare(a.period_start_ym) || b.period_end_ym.localeCompare(a.period_end_ym))[0] ?? null;
+}
+
+function hasRewardBearingPlan(projectId: string, ym: string, planCycles: ForecastPlanCycle[]) {
+  const plan = findRewardPlanCycle(projectId, ym, planCycles);
+  return Boolean(plan && numberValue(plan.budget_yen) > 0);
+}
+
 function entryKey(entry: Pick<PayoutEntry, "projectId" | "ym" | "memberId">) {
   return `${entry.projectId}:${entry.ym}:${entry.memberId}`;
 }
@@ -633,6 +663,8 @@ function buildProjectMonthlyFinanceRows({
   memberMap,
   payoutExcludedMemberIds,
   officerMemberIds,
+  planCycles,
+  payoutEligibleProjectIds,
 }: {
   months: string[];
   cycles: BillingCycle[];
@@ -640,12 +672,14 @@ function buildProjectMonthlyFinanceRows({
   memberMap: Map<string, string>;
   payoutExcludedMemberIds: Set<string>;
   officerMemberIds: Set<string>;
+  planCycles: ForecastPlanCycle[];
+  payoutEligibleProjectIds: Set<string>;
 }): ProjectMonthlyFinanceRow[] {
   const nonOfficerEntries = buildEntries(cycles, memberMap, payoutExcludedMemberIds);
   const officerEntries = buildEntries(
     cycles,
     memberMap,
-    new Set([...memberMap.keys()].filter((memberId) => !officerMemberIds.has(memberId)))
+    new Set([...memberMap.keys()].filter((memberId) => !officerMemberIds.has(memberId) || payoutExcludedMemberIds.has(memberId)))
   );
   const nonOfficerByCycle = new Map<string, PayoutEntry[]>();
   const officerByCycle = new Map<string, PayoutEntry[]>();
@@ -699,7 +733,11 @@ function buildProjectMonthlyFinanceRows({
     const stockYen = entries.reduce((sum, entry) => sum + entry.stockYen, 0) + officerReserve.reduce((sum, entry) => sum + entry.stockYen, 0);
     const grossDueYen = entries.reduce((sum, entry) => sum + entry.grossDueYen, 0) + officerReserve.reduce((sum, entry) => sum + entry.grossDueYen, 0);
     const hasRewardMembers = (asRewardSummary(cycle.reward_summary_json)?.members?.length ?? 0) > 0;
-    const forecastPayoutYen = !hasRewardMembers && payoutYen === 0 && budgetYen > 0 ? budgetYen : payoutYen;
+    const canForecastPayout = hasRewardBearingPlan(cycle.project_id, cycle.ym, planCycles);
+    const forecastPayoutYen =
+      !hasRewardMembers && payoutYen === 0 && budgetYen > 0 && canForecastPayout && payoutEligibleProjectIds.has(cycle.project_id)
+        ? budgetYen
+        : payoutYen;
     const finalBalanceYen = budgetYen - forecastPayoutYen;
     const cell: ProjectMonthlyFinanceCell = {
       projectId: cycle.project_id,
@@ -812,6 +850,16 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
     return set;
   }, [data?.members]);
 
+  const payoutEligibleProjectIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const projectMember of data?.projectMembers ?? []) {
+      if (projectMember.is_active === false) continue;
+      if (payoutExcludedMemberIds.has(projectMember.member_id)) continue;
+      set.add(projectMember.project_id);
+    }
+    return set;
+  }, [data?.projectMembers, payoutExcludedMemberIds]);
+
   const officerMemberIds = useMemo(() => {
     const set = new Set<string>();
     for (const member of data?.members ?? []) {
@@ -832,8 +880,12 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
   );
 
   const officerReserveEntries = useMemo(
-    () => buildEntries(data?.cycles ?? [], memberMap, new Set((data?.members ?? []).filter((member) => !member.is_officer).map((member) => member.member_id))),
-    [data?.cycles, data?.members, memberMap]
+    () => buildEntries(
+      data?.cycles ?? [],
+      memberMap,
+      new Set((data?.members ?? []).filter((member) => !member.is_officer || payoutExcludedMemberIds.has(member.member_id)).map((member) => member.member_id))
+    ),
+    [data?.cycles, data?.members, memberMap, payoutExcludedMemberIds]
   );
 
   const cycleStats = useMemo(() => {
@@ -1022,8 +1074,10 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
       memberMap,
       payoutExcludedMemberIds,
       officerMemberIds,
+      planCycles: data?.forecastPlanCycles ?? [],
+      payoutEligibleProjectIds,
     }),
-    [data?.forecastCycles, forecastMonths, memberMap, officerMemberIds, payoutExcludedMemberIds, projectMap]
+    [data?.forecastCycles, data?.forecastPlanCycles, forecastMonths, memberMap, officerMemberIds, payoutEligibleProjectIds, payoutExcludedMemberIds, projectMap]
   );
 
   const budgetConfirmGroups = useMemo<BudgetConfirmGroup[]>(() => {
