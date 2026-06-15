@@ -63,14 +63,14 @@ PJ filter、担当 filter、status filter、text search を同一ツールバー
 
 - canvas は scrollable 2D plane。ノードはカードではなく円形node + 外側labelで表示する。
 - canvas は CSS scale で `0.35x` から `2.25x` まで拡大縮小できる。trackpad pinch は `ctrl/meta wheel` として処理し、touch pinch は2 pointer distanceで処理する。入力distance/ wheel delta をそのままzoomへ入れず、指数/係数で減衰させ、atlas map 相当の緩いズーム変化にする。
-- 空白クリックでクリック位置を初期座標にした optimistic node を即時追加し、作成済みノードの右側に詳細ウィンドウを開く。新規タスクのタイトル入力は空のまま表示し、`新規タスク` などのプレースホルダー文言は入れない。`POST /api/tasks` は裏で実行し、成功時に temporary id を server id へ差し替え、失敗時は optimistic node を戻す。
+- 空白クリックでクリック位置を初期座標にした optimistic node を即時追加し、作成済みノードの右側に詳細ウィンドウを開く。新規タスクのタイトル入力は空のまま表示し、`新規タスク` などのプレースホルダー文言は入れない。詳細ウィンドウは実寸を測って viewport 内へ再clampし、生成ノードが下寄りでも下にはみ出さない位置に移動してタイトル入力へfocusする。`POST /api/tasks` は裏で実行し、成功時に temporary id を server id へ差し替え、失敗時は optimistic node を戻す。
 - 詳細ウィンドウの保存は、画面上のnode/formを即時反映してmodalを閉じ、`PATCH /api/tasks` は裏で実行する。タイトル入力で Enter を押した場合も保存ボタンと同じ処理を実行する。IME変換中の Enter は変換確定を優先する。server id 未確定の optimistic node では、初回 `POST` 完了後に同じ保存内容を `PATCH` する。
 - ノード本体は pointer drag で移動する。移動dragは edge 作成に使わない。親タスクをdragした場合は、表示中かどうかにかかわらず子孫タスクの座標も同じdeltaで追従させ、Ctrl+Z / Cmd+Z では親子まとめて1操作として戻す。位置は画面へ先に反映し、保存は裏で実行する。
 - ノードhoverは、rootの `translate(x,y)` を変えずに内部visualだけをその場で少しscaleする。hoverで右へずれる挙動は不可。
 - ノードクリックで詳細/編集ウィンドウをノード右側かつ上寄せに開く。詳細ウィンドウは backdrop / blur を出さず、header drag で移動できる。削除はheader側にも出し、スクロールしなくても押せるようにする。フォームは幅480px基準、PC幅では `label / control / label / control` の横詰めgrid、control height 28px、description min height 56px 程度の小さめfont / 控えめなgapで高密度に表示する。
 - 詳細ウィンドウの削除ボタン、または詳細ウィンドウ本体にフォーカスした状態の Backspace は、画面から即時除去して裏で `PATCH /api/tasks active=false` を実行する。DB `DELETE` は使わない。入力欄フォーカス中の Backspace は文字編集として扱う。
 - Ctrl+Z / Cmd+Z は、入力欄フォーカス外なら直前の create / delete / edge patch / position patch を local undo stack から復元し、必要な逆向き `PATCH` を裏で実行する。
-- ノード色は `done` を青、`done` 以外を黄にする。現在表示中の子タスクが3つ以上ある親ノードはhub扱いとして、cyan系の強調ringと子数badgeを追加する。
+- ノード色は status ごとに分ける。`todo` は黄、`doing` はteal、`done` は青、`review` はindigo、`blocked` はrose、`pending` はzinc。現在表示中の子タスクが3つ以上ある親ノードはhub扱いとして、cyan系の強調ringと子数badgeを追加する。
 - ノード配置は atlas map と同じ hard collision 型の反発を display layout に適用し、近いノード同士の重なりを避ける。
 - ノード輪郭hoverで表示される `+` 接続ハンドルをclickすると、source node を親にした新規子タスクを source の右側へ optimistic 作成する。source が temporary id の場合は子タスクを画面上へ即時追加し、source の server id 解決後に `parentTaskId` を保存する。
 - 同じ `+` 接続ハンドルから別ノードの輪郭へdragすると、画面上は即時接続し、裏で `target.parent_task_id=source.task_id` を保存する。
@@ -96,4 +96,4 @@ PJ filter、担当 filter、status filter、text search を同一ツールバー
 
 - TypeScript: `npx tsc --noEmit`
 - Build: `npm run build`
-- Browser: `/tasks` を開き、top nav、mindmap空白クリック即時作成、タイトル Enter 保存、`+` click子タスク即時作成、子→親の直線arrow、hover時の位置固定scale、緩いpinch/zoom、node click詳細、詳細の上寄せ/高密度/blurなし/header削除/drag、Backspace削除、Ctrl+Z復元、親node位置drag時の子孫追従、`+` handle drag edge、gantt親子indent/子数badge、gantt空白行作成を確認する。
+- Browser: `/tasks` を開き、top nav、mindmap空白クリック即時作成、下寄り作成時の詳細ウィンドウviewport内clamp + title focus、status別ノード色、タイトル Enter 保存、`+` click子タスク即時作成、子→親の直線arrow、hover時の位置固定scale、緩いpinch/zoom、node click詳細、詳細の上寄せ/高密度/blurなし/header削除/drag、Backspace削除、Ctrl+Z復元、親node位置drag時の子孫追従、`+` handle drag edge、gantt親子indent/子数badge、gantt空白行作成を確認する。

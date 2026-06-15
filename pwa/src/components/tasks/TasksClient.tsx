@@ -1,7 +1,7 @@
 "use client";
 
 import type * as React from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
   Filter,
@@ -240,14 +240,23 @@ function clampMindmapY(value: number) {
   return clampNumber(value, 0, CANVAS_HEIGHT - NODE_HEIGHT);
 }
 
-function clampFloatingPosition(position: FloatingPosition): FloatingPosition {
+function clampFloatingPositionForSize(
+  position: FloatingPosition,
+  size: { width?: number; height?: number } = {},
+): FloatingPosition {
   if (typeof window === "undefined") return position;
-  const maxX = Math.max(TASK_DIALOG_MARGIN, window.innerWidth - TASK_DIALOG_WIDTH - TASK_DIALOG_MARGIN);
-  const maxY = Math.max(TASK_DIALOG_MARGIN, window.innerHeight - TASK_DIALOG_MIN_VISIBLE_HEIGHT - TASK_DIALOG_MARGIN);
+  const width = size.width || TASK_DIALOG_WIDTH;
+  const height = size.height || TASK_DIALOG_MIN_VISIBLE_HEIGHT;
+  const maxX = Math.max(TASK_DIALOG_MARGIN, window.innerWidth - width - TASK_DIALOG_MARGIN);
+  const maxY = Math.max(TASK_DIALOG_MARGIN, window.innerHeight - height - TASK_DIALOG_MARGIN);
   return {
     x: Math.round(clampNumber(position.x, TASK_DIALOG_MARGIN, maxX)),
     y: Math.round(clampNumber(position.y, TASK_DIALOG_MARGIN, maxY)),
   };
+}
+
+function clampFloatingPosition(position: FloatingPosition): FloatingPosition {
+  return clampFloatingPositionForSize(position);
 }
 
 function nodeCenter(task: OsTask) {
@@ -355,22 +364,57 @@ function nextDragPositions(items: DragItem[], dx: number, dy: number) {
 }
 
 function nodeTone(status: string) {
-  if (normalizeStatus(status) === "done") {
-    return {
-      circle: "border-blue-300 bg-blue-950/55 text-blue-50 shadow-blue-950/30",
-      halo: "border-blue-300/25",
-      handle: "border-blue-100 bg-blue-500 text-white",
-      status: "text-blue-300",
-      progress: "bg-blue-300",
-    };
+  switch (normalizeStatus(status)) {
+    case "done":
+      return {
+        circle: "border-blue-300 bg-blue-950/55 text-blue-50 shadow-blue-950/30",
+        halo: "border-blue-300/25",
+        handle: "border-blue-100 bg-blue-500 text-white",
+        status: "text-blue-300",
+        progress: "bg-blue-300",
+      };
+    case "doing":
+      return {
+        circle: "border-teal-300 bg-teal-950/55 text-teal-50 shadow-teal-950/30",
+        halo: "border-teal-300/30",
+        handle: "border-teal-100 bg-teal-400 text-slate-950",
+        status: "text-teal-300",
+        progress: "bg-teal-300",
+      };
+    case "review":
+      return {
+        circle: "border-indigo-300 bg-indigo-950/55 text-indigo-50 shadow-indigo-950/30",
+        halo: "border-indigo-300/30",
+        handle: "border-indigo-100 bg-indigo-400 text-white",
+        status: "text-indigo-300",
+        progress: "bg-indigo-300",
+      };
+    case "blocked":
+      return {
+        circle: "border-rose-300 bg-rose-950/55 text-rose-50 shadow-rose-950/30",
+        halo: "border-rose-300/30",
+        handle: "border-rose-100 bg-rose-400 text-white",
+        status: "text-rose-300",
+        progress: "bg-rose-300",
+      };
+    case "pending":
+      return {
+        circle: "border-zinc-300 bg-zinc-950/55 text-zinc-50 shadow-zinc-950/30",
+        halo: "border-zinc-300/25",
+        handle: "border-zinc-100 bg-zinc-400 text-slate-950",
+        status: "text-zinc-300",
+        progress: "bg-zinc-300",
+      };
+    case "todo":
+    default:
+      return {
+        circle: "border-yellow-300 bg-yellow-950/55 text-yellow-50 shadow-yellow-950/30",
+        halo: "border-yellow-300/30",
+        handle: "border-yellow-100 bg-yellow-400 text-black",
+        status: "text-yellow-300",
+        progress: "bg-yellow-300",
+      };
   }
-  return {
-    circle: "border-yellow-300 bg-yellow-950/55 text-yellow-50 shadow-yellow-950/30",
-    halo: "border-yellow-300/30",
-    handle: "border-yellow-100 bg-yellow-400 text-black",
-    status: "text-yellow-300",
-    progress: "bg-yellow-300",
-  };
 }
 
 function nodeInitial(task: OsTask) {
@@ -1895,6 +1939,8 @@ function TaskDialog({
   onSave: () => void;
   onDelete: (taskId: string) => void;
 }) {
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const focusedTaskIdRef = useRef<string | null>(null);
   const dialogDragRef = useRef<{
     pointerId: number;
     startX: number;
@@ -1902,6 +1948,35 @@ function TaskDialog({
     originX: number;
     originY: number;
   } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!form) {
+      focusedTaskIdRef.current = null;
+      return;
+    }
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const currentPosition = position ?? { x: 260, y: 40 };
+    const rect = dialog.getBoundingClientRect();
+    const nextPosition = clampFloatingPositionForSize(currentPosition, {
+      width: rect.width || TASK_DIALOG_WIDTH,
+      height: rect.height || TASK_DIALOG_MIN_VISIBLE_HEIGHT,
+    });
+    if (!position || nextPosition.x !== position.x || nextPosition.y !== position.y) {
+      onPositionChange(nextPosition);
+    }
+
+    const focusKey = form.taskId ?? "new-task";
+    if (focusedTaskIdRef.current === focusKey) return;
+    focusedTaskIdRef.current = focusKey;
+    window.requestAnimationFrame(() => {
+      const latestDialog = dialogRef.current;
+      if (!latestDialog) return;
+      const titleInput = latestDialog.querySelector<HTMLInputElement>("[data-task-title-input='true']");
+      (titleInput ?? latestDialog).focus({ preventScroll: false });
+      latestDialog.scrollIntoView({ block: "nearest", inline: "nearest" });
+    });
+  }, [form, onPositionChange, position]);
 
   if (!form) return null;
   const members = projectMembers(form.projectId);
@@ -1917,6 +1992,7 @@ function TaskDialog({
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="false"
       tabIndex={-1}
@@ -1994,6 +2070,7 @@ function TaskDialog({
         <div className="grid gap-x-2 gap-y-1.5 sm:grid-cols-[52px_minmax(0,1fr)_58px_minmax(0,1fr)] sm:items-center">
           <Label className={labelClass}>タイトル</Label>
           <Input
+            data-task-title-input="true"
             className={cn(inputClass, "sm:col-span-3")}
             value={form.title}
             onChange={(event) => patch({ title: event.target.value })}
