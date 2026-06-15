@@ -284,6 +284,22 @@ SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 
 - 実行場所を曖昧にしない。`amd-os-l3-ms-progress-extract` のような処理IDだけで書かず、MMOマシン / Codex automation / outbox applier まで明記する
 - 列名を想像しない。必ず [`pwa/design/db_schema.md`](../design/db_schema.md) を見る
 
+## 層 (tier) 軸 と Coverage Scanner (L3) — 2026-06-15 まさ確定
+
+L2 を語るとき、cadence (D/M/W/H = いつ走るか) とは別に **tier (どこまで吟味されたデータか)** の軸がある。両者は直交する。
+
+- **L1** = 生データ・外部APIの値を吟味せず吸い出し/同期しただけ (LLMなし)。例: `source_cache`、**D-12 Finance/freee 実績** (`freee-payment-sync` / `management-score-raw-data` は LLM を一切呼ばない)。
+- **L2** = LLM が吟味して「欲しい情報の形」に抽出した中核データ。大半の D/M/W。
+- **L3** = L2 群のカバレッジ自体を見張るメタレイヤー (不在検知)。= **Coverage Scanner**。
+- **非LLM派生/計算** (L1/L2 のどちらでもない) = D-2 デフォルト進捗%按分 (`ms-schedule-progress`)、D-9 macro index 集計 (`macro-aggregate-indicators`)。機械計算。
+
+**Coverage Scanner (L3, 不在検知 / negative space)**: 個別抽出器 (D-1〜D-14) は「自分がプログラムされたパターン」しか拾わない。その上位に立ち、「**来た生データ × 既存L2カバレッジ の差分 = OSのどのL2にも構造化されていない重要情報**」を検知する安全網。起点は JOYCLE 臨時株主総会 招集通知が `source_cache` の痕跡すら残さず取りこぼされた事故。
+
+- 実行: `amd-os-l2-consolidated-evidence` の **最終 Phase M** (全 D-Phase の後に走らせ、その日の不在を計算)。5生データを **ungated** (report_emails/active PJ で絞らない) にスイープ。
+- 反映: `POST /api/coverage-gaps/extract` → `l2_coverage_gaps`(candidate) + `l2_notifications(l2_kind='coverage_gap')`。
+- 採否: `/notifications` で はい=confirmed / いいえ=rejected。一覧と再現性指標は **`/admin/coverage-gaps`**。
+- 各データの tier/writer 完全表は [/spec/3-0-l2-data-list-current-spec](/spec/3-0-l2-data-list-current-spec) の「層 (tier) 軸」、設計は [`design/coverage_gap_scanner.md`](../design/coverage_gap_scanner.md)。
+
 ## 残課題
 
 | 優先 | タスク | 備考 |

@@ -14,6 +14,7 @@
 
 | 日付 | 対象章 | 種別 | 内容 | 理由 | 誰が |
 |---|---|---|---|---|---|
+| 2026-06-15 | 8-3 L2 Extraction Routines | 追加 | 「層 (tier) 軸 と Coverage Scanner (L3)」節を追加。L1/L2/L3 + 非LLM派生の定義、D-12 freee=L1相当、Coverage Scanner=L3 (不在検知 / Phase M / `/admin/coverage-gaps`) を記載 | 個別抽出器 (D-1〜D-14) の上位に「OS化されてない重要情報を検知する安全網」を新設したため。cadence軸だけだとL1同期/L2抽出/L3監視が見分けられず取りこぼしを再生産する事故を防ぐ (まさ確定 2026-06-15) | えいみ |
 | 2026-06-15 | 2-7 タスク管理 / pwa運用 | 変更 | ユーザー自身が `/tasks` 画面で作成したタスクのtoastを廃止。えいみがagent helperでタスクを作成した場合は、OS通知任せではなく同じセッション内で `タスク追加: <title> (<task_id>)` と伝える運用に変更 | まさが自分で追加したタスクを自分に通知するのは意味がなく、必要なのはえいみが裏で追加したタスクを会話中に知らせることだったため | えいみ-worker |
 | 2026-06-15 | 2-2 / 6-6 | 変更 | 月初合意でbreakdown行がないMSを0円表示にし、当月報酬も担当MSもないPJを非表示にする | 未確定表示が、実際には0円または月初合意対象外を意味していたため、本人が確認すべき対象だけに絞るため | えいみ-worker |
 | 2026-06-15 | 2-7 タスク管理 / 8-2 通知 | 変更 | `/tasks` の既定status filterをdone含む全status表示(archived除外)に変更し、`archived` statusとarchived込み全表示を追加。progress入力/表示を外し、詳細ウィンドウのSession行は未設定でも常時表示。画面作成時はtoast、agent作成時は `app_notifications(kind='task_created')` へ通知する | 完了タスクも見ながら運用したい一方、archive済みは通常視界から外したい。progress手入力は運用負荷が高く、Session linkは未設定状態も見える方が探しやすいため | えいみ-worker |

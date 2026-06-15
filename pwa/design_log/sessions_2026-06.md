@@ -229,3 +229,32 @@
 - task_6027de9a: OS仕組み化「拾うべき情報の自動検知」(coverage/gap scanner、まさ依存をなくす脱・属人化。D-5台帳差分の拡張 or 新系統)。
 
 **知見**: (1) セッション頭の `git fetch` を飛ばしてローカル(v0.19.14)が origin(v0.20.8)より9commit遅れ=最新build把握漏れ → 必ず4ステップ実行。(2) AskUserQuestion禁止(まさ再指摘) → 地の文で進める。(3) Drive MCPはbase64必須でharness inline上限超のbinary手渡し不可+Drive書込OAuthスコープ無し → 大容量binaryの自動アップは現状不可。
+
+---
+
+## 2026-06-15 (#91) — Cowork セッション (cowork-eimi) / Coverage Scanner (L3 不在検知) 新設 + L2 tier(L1/L2/L3) 全面導入
+
+> Claude Code 上で動いた cowork-eimi セッションのログ。task_6027de9a「拾うべき情報の自動検知」の実装に相当。次のえいみが読めば把握できるよう残す。
+
+### コンテキスト
+- まさ依頼: 「拾うべき情報を自動検知して候補提示する仕組み」を設計先行で。背景は JOYCLE 臨時株主総会 招集通知を**まさが自分で気づいて**OS化した=まさ依存だと取りこぼす=脱・属人化に反する。
+- 設計提示 → まさ承認 (新系統+Phase M / 5生データ全部 ungated / uncertain も捨てない)。
+- まさ問い「これ新L2?」→ 議論の結果 **L3 (L2カバレッジを見張るメタ層)** と整理。さらに「今のL2にL1相当が混じってる?」→ コードで LLM 呼出を確認し **D-12 freee=L1相当**、D-2按分/D-9集計=非LLM派生 と判明。
+- まさ指摘 (重要): ①`AskUserQuestion` で方針を選択肢化して聞いたのは禁止ルール違反 ②選択肢を狭めた結果まさが「全部やる」を頼めなかった → tier はタグ別添でなく**リスト本体に全面統合**し直した。
+
+### 実装
+- **DB**: migration `138_coverage_gap_scanner.sql` 適用 (`l2_coverage_gaps`、RLS=service_role/is_admin のみ)。`db_schema.md` 再生成。
+- **コード**: [coverage-gaps/extract route](../src/app/api/coverage-gaps/extract/route.ts) 新規 (ungated sweep 取込口、source_hash dedup)、[feedback route](../src/app/api/notifications/feedback/route.ts) に coverage_gap の confirm/reject 配線、[NotificationsClient](../src/components/notifications/NotificationsClient.tsx) にラベル/詳細/deeplink、[/admin/coverage-gaps](../src/app/(app)/admin/coverage-gaps/page.tsx) 新規 (一覧+再現性指標)、[AdminSidebar](../src/components/admin/AdminSidebar.tsx) 導線。tier 統合: [operations-catalog.ts](../src/lib/operations-catalog.ts) に `tier` フィールド+全エントリ、[OperationsSettingsClient](../src/components/settings/OperationsSettingsClient.tsx) に層列。[SKILL.md](../scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md) に Phase M 追記。
+- **doc**: [coverage_gap_scanner.md](coverage_gap_scanner.md) 新規 (設計正本)、[L2_DATA.md](L2_DATA.md) に Coverage Scanner+tier節、[spec/3-0](../spec/3-0-l2-data-list-current-spec.md) メイン表に層列+D-14+L3-1行+D-12=L1、[manual/8-3](../manual/8-3-l2-extraction-routines-spec.md) に tier+Coverage Scanner 節、spec/6-1・manual/9-3 changelog、critical-ui guard anchor 更新。
+
+### Verified
+- tsc クリーン / `npm run build` 成功。deploy 3回 (v0.21.0 Coverage Scanner / v0.22.4 tier節 / v0.22.6 tier全面統合)。
+- 本番: `/api/build-info`=該当版・git_sha 一致、`/api/coverage-gaps/extract`=401 (auth gate 稼働)。critical-ui guard pass。
+- OS タスク: task_6027de9a 系で登録した follow-up 2件 (tier物理リネーム / Coverage Scanner次フェーズ) は完了化。未着手の次フェーズ詳細は coverage_gap_scanner.md §10 が正本として保持。
+
+### 次フェーズ (coverage_gap_scanner.md §10 に正本)
+- salience allowlist の DB化 / 各L2の source_ref 保存監査 (coverage check 盲点埋め) / confirm時のワンクリック実ルート / D-12・coverage_gap の identifier 物理リネーム / JOYCLE backtest 自動化。
+- Phase M が実 gap を生むには `amd-os-l2-consolidated-evidence` が Claude Routines UI で ACTIVE 登録されていることが前提 (= まさのアカウント側確認領域)。
+
+### 関連メモ更新
+- `memory/feedback_eimi_persona_nonstop.md` に AskUserQuestion 三度目違反の教訓追記 (選択肢を狭めると「全部」が頼めない → 全部やる前提で走る)。
