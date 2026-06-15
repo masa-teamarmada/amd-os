@@ -69,6 +69,16 @@ SKILL 正本: [`pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md`](.
 | **D-13** | daily | Contract Signals | Claude routine `amd-os-l2-consolidated-evidence` Phase K-B + PWA route `POST /api/contracts/extract-l2` | 新規 routine は作らず existing daily consolidated routine に同居 |
 | **D-14** | daily | 要対応 (Action Items) | Claude routine `amd-os-l2-consolidated-evidence` Phase K-C + PWA route `POST /api/action-items/extract` | 期日つき inbound 義務 (株主総会招集/議決権/事前承諾/契約更新/振込 等)。終了PJ・personal scope も対象。手動は `/admin/governance`。設計 `design/governance_action_items.md` |
 
+### 🛰 Coverage Scanner (不在検知 / negative space) — 個別抽出器の上位レイヤー (2026-06-15 まさ承認)
+
+D-1〜D-14 の抽出器は「自分がプログラムされたパターン」しか拾わない。次に来る「誰も想定していなかったカテゴリ」を取りこぼさないための **安全網** が Coverage Scanner。**これは「もう1個の抽出器」ではなく**、「来た生データ × 既存L2カバレッジ の差分 (補集合 / 不在検知)」= 「重要そうなのにOSのどのL2にも構造化されていない」情報を検知するメタレイヤー。起点は JOYCLE 臨時株主総会 招集通知が `source_cache` の痕跡すら残さず消えた事故。
+
+- 実行: `amd-os-l2-consolidated-evidence` の **最終 Phase M** に同居 (= 全 D-Phase の後に走らせ、その日の不在を計算)。5生データを **ungated** (report_emails/active PJ で絞らない) にスイープ。
+- table: `l2_coverage_gaps` (migration 138)。route: `POST /api/coverage-gaps/extract`。通知: `l2_notifications(l2_kind='coverage_gap')`。一覧+指標: `/admin/coverage-gaps`。採否: `/notifications` (はい=confirmed / いいえ=rejected)。
+- `gap_class`: `extractor_miss` (既存L2が拾えたはず→抽出器改善) / `structural_gap` (受け皿なし→設計TODO) / `uncertain` (分類先未確定→捨てずに残す)。
+- 既存 `raw_data_gap` 通知 (受動的) を能動的な第一級レイヤーに昇格させたもの。
+- 設計正本: [coverage_gap_scanner.md](coverage_gap_scanner.md)。再現性指標の目玉は **Manual-catch escapes** (まさが手動でOS化した案件のうち Scanner が事前に flag できなかった数 → 0 が目標)。
+
 ---
 
 ## 🚨 社内生データは **5 種類** (絶対忘れない)
@@ -410,6 +420,7 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 
 | 日付 | 変更 |
 |---|---|
+| 2026-06-15 | **🛰 Coverage Scanner (不在検知 / negative space) 新設** (まさ承認)。個別抽出器 (D-1〜D-14) の上位安全網として、「5生データ × 既存L2カバレッジ の差分 = OSのどのL2にも構造化されていない重要情報」を検知。`amd-os-l2-consolidated-evidence` の最終 Phase M に同居 (ungated sweep = report_emails/active PJ で絞らない)。migration 138 `l2_coverage_gaps` + `POST /api/coverage-gaps/extract` + `l2_notifications(l2_kind='coverage_gap')` + `/admin/coverage-gaps` + 採否ループ配線。起点は JOYCLE 招集通知の取りこぼし事故。設計 `design/coverage_gap_scanner.md`。 |
 | 2026-05-29 | **LLM 課金が発生する定期抽出 cron 全廃止方針へ再同期**。D-2 MS進捗の旧 GAS 154 → PWA `/api/cron/hourly-estimate` は再停止し、PWA route は `ALLOW_PWA_LLM_CRONS=1` なしでは disabled response のみ返す。Vercel active cron から Anthropic 経路を持つ `member-weekly-activities` / `graduation-detection` も退避。定期抽出 primary は MMO/Codex automation 側。 |
 | 2026-05-29 | **H-1 weekly recurring 予定MTGカードを次回1件に制限**。`calendar-sync` は `recurring_event_id` / fallback series key で weekly series を検出し、2件目以降の future occurrence を `weekly_recurring_future_occurrence` として skip。cockpit 表示側も既存DB rowを series ごとに次回1件だけ残す safety filter を持つ。 |
 | 2026-06-04 | **Claude routine未登録事故の訂正 + cadence束ね設計確定**。(1) 事故: Claude Routines UIにroutineが1本も見えず、Local scheduled task は全 disabled・2026-05-29 以降未実行。「登録完了」「8個entry済」記述はUI証跡が出るまでcurrent proofとして扱わない。`~/.claude/scheduled-tasks/.../SKILL.md` は登録済み証拠ではない。(2) 当時の設計: daily run cap 対策として cadence ベースで 2 Claude routine に束ねる新ナンバリング (D-1〜D-10 / M-1〜M-3 / H-1) を確定。2026-06-08 に W-1 と D-11 / D-12 を追加して現行化。 |

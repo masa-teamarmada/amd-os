@@ -208,6 +208,39 @@ D-14 要対応 = 5生データ由来の「期日つき inbound 義務」を `act
 - 株主/総会/バリュエーションの cap table 数値は自動確定しない (PDF 依存・誤抽出回避)。総会・ラウンドは候補として残し、確定は `/admin/governance` の手動キュレーションに委ねる。
 
 ═══════════════════════════════════════════════════
+Phase M: OS Coverage Scanner (不在検知 / negative space)
+═══════════════════════════════════════════════════
+
+**これは「もう1個の抽出器」ではない。** Phase A〜K-C の抽出器は「自分がプログラムされたパターン」しか拾わない。
+このフェーズは **その上位の安全網** = 「重要そうなのにOSのどのL2にも構造化されていない」情報を、
+**来た生データ × 既存L2カバレッジ の差分 (補集合 / negative space)** で検知する。
+起点は JOYCLE 臨時株主総会 招集通知が `source_cache` の痕跡すら残さず消えた取りこぼし事故。
+**必ず Phase A〜K-C の後に走らせる** (= その日に他の抽出器が何を拾ったかを知った上で不在を計算するため)。
+設計正本: `pwa/design/coverage_gap_scanner.md`。
+
+- (A) **ungated salience sweep**: 5生データ **全部 (Gmail/Drive/Calendar/Slack/Notion)** の直近 24-48h を、
+  **`report_emails` / active PJ で絞らずに** スキャンする (= JOYCLE 取りこぼしの根本原因#1 への直接対策)。
+  - 網に上げる条件 (どれか): 高価値語 (招集通知/株主総会/議決権/委任状/事前承諾/資金調達/バリュエーション/投資契約/
+    優先株/契約締結/押印/クラウドサイン/MOU/解約/解除/採択/受賞/提携/規制/公募/督促/訴訟/人事異動/提出期限/締切/振込/要対応 等)、
+    既知ベンダー送信元 (`smartround.com`/`everidays.com`/`cloudsign`/`docusign`/freee/法務局/特許事務所)、期日表現を含む。
+  - 広告メルマガ・通知音的メール・既知 noise 送信元・既に responded のものは網から落とす。
+  - salience 語/送信元 allowlist は DB 化して採否ループで育てる (= hardcode 最小化)。
+- (B) **coverage check (negative space の計算)**: 各L2テーブルが持つ raw 参照
+  (`action_items.source_ref/source_hash`、`project_meeting_summaries`=calendar event id、`source_cache.text_sha256`、
+  `project_registry_diffs.evidence_refs_json`、`contract_signals` の source refs、`l2_coverage_gaps.source_hash` 等) を横断して
+  **「claimed source refs index」** を作る。salient item の参照キー (gmail msg/thread id・drive file id・event id・slack ts・notion page id・content hash) が
+  index に **無ければ** → どのL2も拾っていない = **gap**。index に在れば covered (= 既存抽出器が拾えている。drop、coverage率に計上)。
+- (C) **routing suggestion**: gap ごとに `proposed_target_l2` と `gap_class` を判定する。
+  - 既存L2にマップできる (action_item/registry_diff/strategy_signal/shareholder_meeting 等) → `gap_class='extractor_miss'`
+    (= 抽出器が拾えたはず。該当抽出器のプロンプト/ゲート改善の feedback)。
+  - 既存にマップできない → `gap_class='structural_gap'` (= OSに受け皿が無いかも。設計TODO候補)。
+  - 重要だが分類先未確定 → `gap_class='uncertain'`, `proposed_target_l2=null`。**捨てずに candidate で残す** (まさ確定: 分類精度より取りこぼし防止)。
+- (D) **反映**: `POST /api/coverage-gaps/extract { items: [{ source, source_ref, source_hash, title, summary, salience_score, matched_patterns, proposed_target_l2, gap_class, project_id, scope, due_at, evidence_refs_json }] }`。
+  `source_hash` で dedup (= confirmed/rejected を壊さない)。route が `l2_coverage_gaps`(review_status='candidate') + `l2_notifications(l2_kind='coverage_gap')` を作る。
+- (E) **採否**: `/notifications` で はい=confirmed / いいえ=rejected (+ tsukuyomi_learnings で類似 salience を抑制)。一覧と指標は `/admin/coverage-gaps`。
+- raw 本文は保存しない (summary + source_ref + hash + snippet のみ)。cap table 数値の自動確定はしない (= governance の手動キュレーションへ)。
+
+═══════════════════════════════════════════════════
 Phase L: run summary
 ═══════════════════════════════════════════════════
 
@@ -227,6 +260,7 @@ Phase L: run summary
   - D-10 Member Activity Evidence: <N> activities
   - D-11 Media Mentions: <N> candidates
   - D-13 Contract Signals: <N> signals, <M> planned contracts, <R> review_required
+  - Coverage Scanner (不在検知): <N> gaps (<E> extractor_miss / <S> structural / <U> uncertain), coverage率 <P>%
   経過時間: <minutes> 分
 ```
 

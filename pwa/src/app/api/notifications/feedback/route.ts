@@ -147,6 +147,7 @@ export async function POST(req: NextRequest) {
       "founding_members",
       "meeting_summary",
       "news_mention",
+      "coverage_gap",
     ]);
     if (!allowedKinds.has(l2Kind)) {
       return NextResponse.json({ error: `unknown l2_kind: ${l2Kind}` }, { status: 400 });
@@ -438,6 +439,28 @@ async function applyApprovedNotification(args: {
     });
   }
 
+  if (args.l2Kind === "coverage_gap") {
+    // 「はい」= まさが「これは確かに未OS化の gap だ」と認める。gap を confirmed にする。
+    // proposed_target_l2 (= action_item / shareholder_meeting 等) への実ルートは、
+    // 既存の admin UI / 抽出器に委ねる (= ここでは gap の確定と routed_to 記録まで)。
+    // scope_key = gap_id (= extract route が scope_key に gap_id を入れている)。
+    const now = new Date().toISOString();
+    const { data, error } = await args.supabase
+      .from("l2_coverage_gaps")
+      .update({ review_status: "confirmed", reviewed_at: now, routed_at: now, updated_at: now })
+      .eq("gap_id", args.scopeKey)
+      .eq("review_status", "candidate")
+      .select("gap_id, proposed_target_l2, gap_class");
+    if (error) return { applied: false, message: error.message };
+    const row = (data ?? [])[0] as Record<string, unknown> | undefined;
+    const target = row ? String(row.proposed_target_l2 ?? "未確定") : "";
+    return {
+      applied: (data ?? []).length > 0,
+      message: `confirmed coverage_gap: ${(data ?? []).length}${target ? ` (本来の入れ先候補=${target})` : ""}`,
+      row: data,
+    };
+  }
+
   return { applied: false, message: `no automatic apply handler for ${args.l2Kind}` };
 }
 
@@ -590,6 +613,19 @@ async function rejectNotificationCandidates(args: {
     const { data, error } = await query.select("protocol_id");
     if (error) return { applied: false, message: error.message };
     return { applied: false, message: `rejected protocols: ${(data ?? []).length}`, row: data };
+  }
+
+  if (args.l2Kind === "coverage_gap") {
+    // 「いいえ」= noise / 不要。gap を rejected にし、tsukuyomi_learnings (上流で INSERT 済) で
+    // 類似 salience を次回抑制する。scope_key = gap_id。
+    const { data, error } = await args.supabase
+      .from("l2_coverage_gaps")
+      .update({ review_status: "rejected", reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq("gap_id", args.scopeKey)
+      .eq("review_status", "candidate")
+      .select("gap_id");
+    if (error) return { applied: false, message: error.message };
+    return { applied: false, message: `rejected coverage_gap: ${(data ?? []).length}`, row: data };
   }
 
   return { applied: false, message: "rejected" };

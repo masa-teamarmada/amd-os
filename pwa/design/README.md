@@ -38,6 +38,8 @@
 | 先手力維持ループ (OS検知 + commander outbox + SLA) ⭐ | [proactive_operating_loop.md](proactive_operating_loop.md) |
 | 外部機関 tenant / 権限設計 (NIMS Pilot gate) ⭐ | [institution_tenant_access.md](institution_tenant_access.md) |
 | OS台帳差分 (PJメンバー/関係先/契約/期間/担当の差分候補) ⭐ | [project_registry_diffs.md](project_registry_diffs.md) |
+| 🛰 Coverage Scanner (不在検知 = OS化されてない重要情報の自動検知) ⭐ | [coverage_gap_scanner.md](coverage_gap_scanner.md) |
+| 要対応 + 株主・ガバナンス・保有株式 ⭐ | [governance_action_items.md](governance_action_items.md) |
 | XRL根拠 (TRL/BRL/GRL/SRL/HRL 算定根拠) ⭐ | [xrl_evidence.md](xrl_evidence.md) |
 | Venture Map | [venture_map_model.md](venture_map_model.md) / [venture_map_demo.md](venture_map_demo.md) / [venture_map_v01_critique.md](venture_map_v01_critique.md) |
 | Seeds (研究シーズリスト) ⭐ | [seeds.md](seeds.md) |

@@ -67,6 +67,8 @@ const L2_KIND_LABEL: Record<string, string> = {
   contract_signals: "D-13 契約予兆",
   // D-11 メディア掲載
   news_mention: "D-11 メディア掲載",
+  // Coverage Scanner (不在検知 / negative space)。既存抽出器の上位の安全網。
+  coverage_gap: "🛰 Coverage Scanner (不在検知)",
 };
 
 function l2KindLabel(l2Kind: string): string {
@@ -634,6 +636,33 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
               ].filter(Boolean).join(" · ") || undefined,
             };
           });
+        } else if (n.l2_kind === "coverage_gap") {
+          // 不在検知 gap の中身を l2_coverage_gaps から取得 (scope_key = gap_id)。
+          const { data, error } = await supabase
+            .from("l2_coverage_gaps")
+            .select("gap_id, source, source_ref, title, summary, salience_score, proposed_target_l2, gap_class, due_at, scope, review_status, evidence_refs_json, detected_at")
+            .eq("gap_id", n.scope_key)
+            .limit(1);
+          if (error) throw error;
+          rows = (data ?? []).map((r) => {
+            const gapClassLabel = r.gap_class === "extractor_miss" ? "抽出器の取りこぼし (本来どこかのL2が拾えたはず)"
+              : r.gap_class === "structural_gap" ? "構造的GAP (OSに受け皿が無いかも)"
+              : "分類先未確定 (捨てずに残してる)";
+            return {
+              heading: `${r.title ?? "(no title)"} [${r.review_status}]`,
+              body: [
+                `判定: ${gapClassLabel}`,
+                `本来の入れ先候補: ${r.proposed_target_l2 ?? "未確定"}`,
+                r.summary ? `要約: ${r.summary}` : "",
+              ].filter(Boolean).join("\n"),
+              sub: [
+                `source=${r.source}`,
+                r.salience_score != null ? `salience=${Number(r.salience_score).toFixed(2)}` : "",
+                r.due_at ? `期日=${formatJST(String(r.due_at))}` : "",
+                r.detected_at ? `検知=${formatJST(String(r.detected_at))}` : "",
+              ].filter(Boolean).join(" · ") || undefined,
+            };
+          });
         }
       } else {
         // meeting_summary: project_meeting_summaries から実内容取得
@@ -1143,6 +1172,12 @@ function DeepLinkForL2({ n }: { n: Notification }) {
           /admin/contracts (契約予兆・予定枠を確認)
         </a>
       );
+    case "coverage_gap":
+      return (
+        <a className="text-blue-600 hover:underline" href={`/admin/coverage-gaps`}>
+          /admin/coverage-gaps (不在検知 gap 一覧で確認・本来の入れ先へ手当て)
+        </a>
+      );
     default:
       return <span>{n.l2_kind}</span>;
   }
@@ -1186,6 +1221,7 @@ const NOTIFICATION_COST_ESTIMATE_JPY: Record<string, number> = {
   contract_signals: 0,
   founding_members: 10,
   meeting_summary: 0.2,
+  coverage_gap: 0.3,
 };
 
 function formatJsonCompact(value: unknown): string {

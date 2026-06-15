@@ -1,7 +1,13 @@
 # OS Coverage Scanner — 不在検知 (negative space) 設計ドラフト
 
-**ステータス**: 設計ドラフト (2026-06-15 起票)。まさ判断待ち。実装はまだしない。
-**正本ステータス**: 提案中。承認後に `pwa/spec/` へ移行 + DDL + Phase 実装。
+**ステータス**: 設計確定 (2026-06-15 起票・同日まさ承認)。実装フェーズへ。
+**正本ステータス**: 承認済。DDL → Phase 実装 → `pwa/spec/` 移行の順で進める。
+
+### まさ確定事項 (2026-06-15)
+
+1. **新系統 + Phase M で進める** (D-5 は拡張しない。Coverage Scanner を上位の安全網として新設、`amd-os-l2-consolidated-evidence` の最終 Phase に同居)。
+2. **ungated sweep は 5生データ全部から最初にやる** (Gmail先行ではなく、初手から Gmail/Drive/Calendar/Slack/Notion 全部をスキャン)。
+3. **分類先が未確定 (uncertain) でも捨てずに candidate で残す** (分類精度より取りこぼし防止を優先)。
 
 > このドキュメントは「拾うべき情報を自動で検知して候補提示する仕組み」の設計たたき台。
 > 既存 D-5 OS台帳差分 ([project_registry_diffs.md](project_registry_diffs.md)) / D-14 要対応 ([governance_action_items.md](governance_action_items.md)) との境界を明記する。
@@ -80,7 +86,7 @@ Coverage Scanner は、これを **能動的** にする = 「不在」を意図
 
 JOYCLE が `source_cache` の痕跡すら残らなかった真因 = 取り込み段階のゲート。Coverage Scanner はここを外す。
 
-- **対象**: 5生データの直近 24-48h 分を、**report_emails / active PJ で絞らずに**スキャン。
+- **対象**: 5生データ **全部 (Gmail/Drive/Calendar/Slack/Notion) を初手から**、直近 24-48h 分を **report_emails / active PJ で絞らずに**スキャン (まさ確定 2026-06-15)。source 別に同じ仕組みで流す。
 - **広い網 (salience filter)**: 以下のどれかに当たるものを candidate に上げる。
   - 高価値語: 後述 §3 の検知対象パターン語。
   - 既知ベンダー送信元: `smartround.com` / `everidays.com` / `cloudsign` / `docusign` / freee / 法務局 / 特許事務所 等 (allowlist は DB 化)。
