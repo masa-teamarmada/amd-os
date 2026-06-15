@@ -631,15 +631,17 @@ function buildProjectMonthlyFinanceRows({
   cycles,
   projectMap,
   memberMap,
+  payoutExcludedMemberIds,
   officerMemberIds,
 }: {
   months: string[];
   cycles: BillingCycle[];
   projectMap: Map<string, Project>;
   memberMap: Map<string, string>;
+  payoutExcludedMemberIds: Set<string>;
   officerMemberIds: Set<string>;
 }): ProjectMonthlyFinanceRow[] {
-  const nonOfficerEntries = buildEntries(cycles, memberMap, officerMemberIds);
+  const nonOfficerEntries = buildEntries(cycles, memberMap, payoutExcludedMemberIds);
   const officerEntries = buildEntries(
     cycles,
     memberMap,
@@ -714,7 +716,7 @@ function buildProjectMonthlyFinanceRows({
     row.cells.push(cell);
     row.totals.baseClientAmountYen += baseClientAmountYen;
     row.totals.budgetYen += budgetYen;
-    row.totals.payoutYen += payoutYen;
+    row.totals.payoutYen += forecastPayoutYen;
     row.totals.officerPayoutYen += officerPayoutYen;
     row.totals.stockYen += stockYen;
     row.totals.grossDueYen += grossDueYen;
@@ -802,7 +804,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
     return map;
   }, [data?.notices]);
 
-  const noticeExcludedSet = useMemo(() => {
+  const payoutExcludedMemberIds = useMemo(() => {
     const set = new Set<string>();
     for (const member of data?.members ?? []) {
       if (member.exclude_from_payout_notice || member.is_officer) set.add(member.member_id);
@@ -820,13 +822,13 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
 
   const expectedEntries = useMemo(
     () => applySavedPayoutsForExistingRows({
-      entries: buildEntries(data?.cycles ?? [], memberMap, officerMemberIds),
+      entries: buildEntries(data?.cycles ?? [], memberMap, payoutExcludedMemberIds),
       payouts: data?.payouts ?? [],
       cycles: data?.cycles ?? [],
       memberMap,
-      excludedMemberIds: officerMemberIds,
+      excludedMemberIds: payoutExcludedMemberIds,
     }),
-    [data?.cycles, data?.payouts, memberMap, officerMemberIds]
+    [data?.cycles, data?.payouts, memberMap, payoutExcludedMemberIds]
   );
 
   const officerReserveEntries = useMemo(
@@ -1018,9 +1020,10 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
       cycles: data?.forecastCycles ?? [],
       projectMap,
       memberMap,
+      payoutExcludedMemberIds,
       officerMemberIds,
     }),
-    [data?.forecastCycles, forecastMonths, memberMap, officerMemberIds, projectMap]
+    [data?.forecastCycles, forecastMonths, memberMap, officerMemberIds, payoutExcludedMemberIds, projectMap]
   );
 
   const budgetConfirmGroups = useMemo<BudgetConfirmGroup[]>(() => {
@@ -1073,7 +1076,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
         {
           memberId: entry.memberId,
           memberName: entry.memberName,
-          noticeExcluded: noticeExcludedSet.has(entry.memberId),
+          noticeExcluded: payoutExcludedMemberIds.has(entry.memberId),
           notice: noticeMap.get(entry.memberId) ?? null,
           totalPay: 0,
           savedTotal: 0,
@@ -1094,7 +1097,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
     }
 
     return [...byMember.values()].sort((a, b) => b.totalPay - a.totalPay);
-  }, [expectedEntries, noticeExcludedSet, noticeMap, payoutMap]);
+  }, [expectedEntries, payoutExcludedMemberIds, noticeMap, payoutMap]);
 
   const grandTotal = memberRows.reduce((sum, row) => sum + row.totalPay, 0);
   const savedAll = expectedEntries.length > 0 && memberRows.every((row) => row.isSaved);

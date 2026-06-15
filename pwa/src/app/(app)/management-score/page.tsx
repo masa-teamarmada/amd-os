@@ -150,6 +150,7 @@ type PaymentMemberRow = {
   code_name: string | null;
   member_name: string | null;
   is_officer: boolean | null;
+  exclude_from_payout_notice?: boolean | null;
 };
 
 type BillingCycleActualRow = {
@@ -480,6 +481,11 @@ function buildProjectMonthlyFinanceRows({
 }): ProjectMonthlyFinanceRow[] {
   const projectMap = new Map(projects.map((project) => [project.project_id, project]));
   const officerMemberIds = new Set(members.filter((member) => member.is_officer).map((member) => member.member_id));
+  const payoutExcludedMemberIds = new Set(
+    members
+      .filter((member) => member.is_officer || member.exclude_from_payout_notice)
+      .map((member) => member.member_id)
+  );
   const rows = new Map<string, ProjectMonthlyFinanceRow>();
   const ensureRow = (projectId: string) => {
     const project = projectMap.get(projectId);
@@ -509,7 +515,9 @@ function buildProjectMonthlyFinanceRows({
     for (const member of rewardSummaryMembers(cycle.reward_summary_json)) {
       const totalPay = numberValue(member.totalPay ?? member.total_pay);
       const stock = numberValue(member.stockYen ?? member.stock_yen ?? member.deferredYen ?? member.deferred_yen);
-      const isOfficer = officerMemberIds.has(rewardMemberId(member));
+      const memberId = rewardMemberId(member);
+      const isOfficer = officerMemberIds.has(memberId);
+      if (payoutExcludedMemberIds.has(memberId)) continue;
       if (isOfficer) {
         officerPayoutYen += totalPay;
       } else {
@@ -535,7 +543,7 @@ function buildProjectMonthlyFinanceRows({
     };
     row.cells.push(cell);
     row.totals.budgetYen += budgetYen;
-    row.totals.payoutYen += payoutYen;
+    row.totals.payoutYen += forecastPayoutYen;
     row.totals.officerPayoutYen += officerPayoutYen;
     row.totals.stockYen += stockYen;
     row.totals.finalBalanceYen += finalBalanceYen;
@@ -1298,7 +1306,7 @@ export default async function ManagementScorePage() {
     safeSelect<PaymentMemberRow[]>(() =>
       supabase
         .from("members")
-        .select("member_id,code_name,member_name,is_officer")
+        .select("member_id,code_name,member_name,is_officer,exclude_from_payout_notice")
         .limit(500)
     ),
     safeSelect<BillingCycleActualRow[]>(() =>
