@@ -79,6 +79,17 @@ D-1〜D-14 の抽出器は「自分がプログラムされたパターン」し
 - 既存 `raw_data_gap` 通知 (受動的) を能動的な第一級レイヤーに昇格させたもの。
 - 設計正本: [coverage_gap_scanner.md](coverage_gap_scanner.md)。再現性指標の目玉は **Manual-catch escapes** (まさが手動でOS化した案件のうち Scanner が事前に flag できなかった数 → 0 が目標)。
 
+### 層 (tier) 軸 — L1 / L2 / L3 (まさ確定 2026-06-15)
+
+`D/M/W/H` は **cadence (いつ走るか)** の軸。これと直交して **tier (どこまで吟味されたデータか)** の軸がある:
+
+- **L1** = 生データを吟味せず吸い出し/同期しただけ (LLM判断なし)。例: `source_cache`、**D-12 freee取引実績** (`freee-payment-sync` / `management-score-raw-data` は LLM 0呼出)。
+- **L2** = LLM が吟味して「欲しい情報の形」に抽出した中核データ。大半の D/M/W。
+- **L3** = L2 群のカバレッジ自体を見張るメタレイヤー (不在検知)。**Coverage Scanner**。
+- **非LLM派生/計算** (L1/L2 のどちらでもない直交軸) = **D-2 デフォルト進捗%按分** (`ms-schedule-progress`)、**D-9 macro index集計** (`macro-aggregate-indicators`)。いずれも LLM 0呼出の機械計算。
+
+→ cadence 番号 (D-n) だけだと freee同期(L1相当)と LLMプロトコル抽出(L2)が同じ "D" に同居して見分けがつかない。tier 軸を明示することで、L3 (Coverage Scanner) を「ただの新L2」と誤って扱い同じ取りこぼしを再生産する事故を防ぐ。各データの tier/writer 完全表は [spec/3-0-l2-data-list-current-spec.md](../spec/3-0-l2-data-list-current-spec.md) の「層 (tier) 軸」を正本にする。
+
 ---
 
 ## 🚨 社内生データは **5 種類** (絶対忘れない)

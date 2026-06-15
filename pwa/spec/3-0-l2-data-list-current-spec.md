@@ -19,6 +19,31 @@ L2 は cadence ごとに束ねる。D / M / W のうち LLM 抽出が必要な�
 
 Claude routine と呼べるのは、Claude Routines UI上で存在し、`ACTIVE`、`next run` を確認できるもの。実出力の完了証跡は `last run` または初回 one-off evidence で別途確認する。`SKILL.md` や repo 上の仕様があるだけでは登録済み扱いにしない。
 
+## 層 (tier) 軸 — L1 / L2 / L3 (まさ確定 2026-06-15)
+
+`D / M / W / H` は **cadence (いつ走るか)** の軸。これとは別に **tier (どこまで吟味されたデータか)** の軸がある。両者は直交する。
+
+| tier | 定義 | 例 |
+|---|---|---|
+| **L1** | 生データ・外部APIの値を **吟味せずそのまま吸い出し/同期** したもの (LLM判断なし) | `source_cache`、**D-12 freee取引実績** |
+| **L2** | LLM が文脈を吟味して **「欲しい情報の形」に抽出/再構成** した中核データ | 大半の D / M / W |
+| **L3** | L2 群の **カバレッジ自体を見張るメタレイヤー** (= 来た生データ × 既存L2 の差分 = 不在検知)。自分が何を拾うかではなく、他のL2が何を拾えていないかを監視する | **Coverage Scanner** (`l2_coverage_gaps`) |
+
+加えて、L1/L2 のどちらでもない **非LLM派生/計算** がある (= L2 の値や observation を **機械計算** で導出。吸い出しでもLLM吟味でもない直交軸)。
+
+### 各データの tier / writer タグ
+
+| データ | tier | writer | 根拠 |
+|---|---|---|---|
+| D-1/D-3/D-4/D-5/D-6/D-7/D-8/D-10/D-11/D-13/D-14, M-1/M-2/M-3, W-1 | **L2** | LLM | Claude routine / route が LLM 抽出 |
+| **D-2 MS Progress** | L2 + 非LLM派生 | 混在 | 乖離 revision 提案=LLM(L2)、デフォルト進捗%按分=`ms-schedule-progress` **非LLM**(派生) |
+| **D-9 Macrotrend** | L2 + 非LLM派生 | 混在 | observation 収集=LLM/web_search 一部(L2)、`macro_index_log` 集計=`macro-aggregate-indicators` **非LLM**(派生) |
+| **D-12 Finance/freee** | **L1相当** | **非LLM** | `freee-payment-sync` / `management-score-raw-data` は LLM を一切呼ばず、取引履歴をそのまま実績へ同期 (吟味なし) |
+| **Coverage Scanner** (`coverage_gap`) | **L3** | LLM | 個別抽出器の上位安全網。不在検知。設計 `design/coverage_gap_scanner.md` |
+| `source_cache` | **L1** | 非LLM | L2抽出のための素材キャッシュ。中核L2正本ではない |
+
+> **なぜ tier を分けるか**: cadence 番号 (D-n) だけだと、freee 同期 (L1相当) と LLMプロトコル抽出 (L2) が同じ "D" の下に同居して見分けがつかない。tier 軸を明示すると「これは吟味済みデータか、ただの同期か、カバレッジ監視か」が一目で分かり、L3 (Coverage Scanner) を「ただの新L2」と誤って扱って同じ取りこぼしを再生産する事故を防げる。なお `l2_coverage_gaps` / `l2_kind='coverage_gap'` の命名は箱の互換性のためで、概念は L3。
+
 ## L2データ正本リスト
 
 | L2 | 名前 | 何を残すか | 主な使い道 | マシン | cron名 | タイミング |

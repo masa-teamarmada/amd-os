@@ -174,7 +174,7 @@ salience は「語が在る」だけで確定しない。語 OR 既知ベンダ�
 
 → D-5 の `diff_kind` enum と「target が既知」前提に、不在検知は構造的に乗らない。**Coverage Scanner は新系統** とし、D-5 を「既知スキーマのフィールド差分」を担う**特化した子**として位置づける。Coverage Scanner が上位の安全網、D-5 はその中の確立済みカテゴリ。
 
-> ナンバリング上は cadence 体系 (L2_DATA.md) の登録管理のため便宜的に **D-15** タグを当ててよいが、概念的には「個別抽出器の上位レイヤー」であり、ただのL2ではない点を明記する。
+> **tier 上は L3** (まさ確定 2026-06-15)。L1=生データ吸い出し / L2=LLM吟味抽出 / **L3=L2カバレッジ監視 (不在検知)** の3層で、Coverage Scanner は L3。cadence 体系 (D/M/W/H) とは直交する軸なので、登録管理上 daily routine の Phase M に同居するが、ナンバリングを D-15 と呼ぶより **tier=L3** と札を貼るのが正確。`l2_coverage_gaps` / `l2_kind='coverage_gap'` の命名は箱 (テーブル/通知/採否ループ) の互換性のためで、概念は L3。tier 軸の正本は [spec/3-0-l2-data-list-current-spec.md](../spec/3-0-l2-data-list-current-spec.md) の「層 (tier) 軸」。
 
 ---
 
