@@ -59,6 +59,16 @@ anon / authenticated には書き込みを付与しない (= PWA 公開 anon key
 4. spec / manual / bzm の該当章と附則を更新する。
 5. API / component / automation の select / insert / upsert を `db_schema.md` の column 名で確認する。
 
+## RLS 標準形 (全テーブル必須)
+
+`public` の全テーブルは **RLS 有効** が前提。標準 policy は 3 種:
+
+- `anon SELECT (true)` — PWA 表示用の公開読み取り。
+- `service_role ALL` — cron / API の書き込み経路 (`auth.role() = 'service_role'`)。
+- `is_admin() ALL` — 管理 UI からの書き込み用。報酬配分など機密テーブルは特に admin 限定が筋。
+
+anon / authenticated には書き込みを付与しない (= PWA 公開 anon key からの改竄・削除を塞ぐ)。新テーブル作成 DDL は必ず `ENABLE ROW LEVEL SECURITY` をセットで書く。取りこぼし監査は `get_advisors(type=security)` の `rls_disabled_in_public` を定期的に見る (2026-06-14 に 3 テーブルの RLS 無効を migration 135 で塞いだ実績、`BUGS.md` 参照)。
+
 ## Failure Mode
 
 | failure | 典型原因 | 対応 |
