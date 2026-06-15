@@ -22,6 +22,19 @@ export interface MonthlyWorkAgreementMilestone {
   state: "ready" | "review_required";
 }
 
+export interface MonthlyWorkAgreementRevisionRequest {
+  id: string;
+  ym: string;
+  memberId: string;
+  projectId: string | null;
+  requestType: string;
+  body: string;
+  status: string;
+  snapshotHash: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+
 export interface MonthlyWorkAgreementProject {
   projectId: string;
   projectName: string;
@@ -33,10 +46,6 @@ export interface MonthlyWorkAgreementProject {
   allocationStatus: string;
   expectedRewardYen: number | null;
   earnedPt: number | null;
-  capBudgetYen: number | null;
-  grossDueYen: number | null;
-  deferredYen: number | null;
-  carriedInYen: number | null;
   conditionState: "ready" | "review_required";
   conditions: string[];
   reviewReasons: string[];
@@ -76,6 +85,7 @@ export interface MonthlyWorkAgreementBundle {
   currentHash: string;
   status: MonthlyAgreementStatus;
   latestAgreement: MonthlyWorkAgreementRecord | null;
+  revisionRequests: MonthlyWorkAgreementRevisionRequest[];
   tableReady: boolean;
   canAgree: boolean;
 }
@@ -85,6 +95,8 @@ export interface AdminMonthlyWorkAgreementRow {
   status: MonthlyAgreementStatus;
   currentHash: string;
   latestAgreement: MonthlyWorkAgreementRecord | null;
+  revisionRequestCount: number;
+  latestRevisionRequestAt: string | null;
   projectCount: number;
   reviewRequiredCount: number;
   expectedRewardYen: number;
@@ -100,6 +112,7 @@ export interface AdminMonthlyWorkAgreementResponse {
     pending: number;
     needsReagreement: number;
     reviewRequired: number;
+    revisionRequests: number;
   };
   rows: AdminMonthlyWorkAgreementRow[];
 }

@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-06-15 | 3-14 | 変更 | 月初合意から frozen PJ を除外し、cap/carry-over 等の精算内部表示を外し、本人の修正要望 API / `member_monthly_work_agreement_requests` / admin要望件数を追加 | 月初合意は担当MS・当月到達目標・想定報酬の確認フローであり、報酬精算内部情報や報酬が発生しないPJを表示しないため。表示内容に異議があるケースを受け付けるため | えいみ-worker |
 | 2026-06-15 | 3-14 / 3章目次 | 追加 | 月初タスク・報酬合意仕様を追加。`/monthly-agreement`、`/admin/monthly-work-agreements`、`member_monthly_work_agreements`、snapshot hash、本人/admin権限、報酬計算との境界を定義 | メンバーが月初に当月の遂行内容・報酬条件へ合意し、未合意/条件更新ありがOS上で見えるようにするため | えいみ-worker |
 | 2026-06-15 | 5-7 | 変更 | mindmap node のstatus表示hoverでstatus popoverを出し、modalを開かず即時status変更 + 裏PATCH + undo可能にするcontractを追加 | status変更のためにdetail modalとselect保存を経由するUXが遅く、ノード上で直接運用したいため | えいみ-worker |
 | 2026-06-15 | 5-7 | 変更 | mindmap新規作成時の詳細ウィンドウを実寸でviewport内へclampし、title inputへfocusするcontractを追加。node colorをTODO/Doing/Done/Review/Blocked/Pendingのstatus別toneへ変更 | 下寄りに作成したタスクのmodalが画面外へはみ出す問題と、TODO/Doingが同色で状態差が読みにくい問題を解消するため | えいみ-worker |

@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   MonthlyAgreementStatus,
+  MonthlyWorkAgreementRevisionRequest,
   MonthlyWorkAgreementBundle,
   MonthlyWorkAgreementMember,
   MonthlyWorkAgreementMilestone,
@@ -79,6 +80,11 @@ function formatRewardSource(cycle: JsonRecord | undefined, reward: JsonRecord | 
   return "報酬キャッシュ未生成";
 }
 
+function projectHasMonthlyReward(status: unknown): boolean {
+  const normalized = String(status ?? "").toLowerCase();
+  return normalized !== "lost" && normalized !== "frozen";
+}
+
 function routineExpectations(role: { is_pm?: boolean | null; is_pl?: boolean | null }): string[] {
   if (role.is_pm) {
     return [
@@ -110,6 +116,26 @@ function toAgreementRecord(row: JsonRecord): MonthlyWorkAgreementRecord {
 export function isMissingMonthlyAgreementTableError(error: unknown): boolean {
   const err = error as { code?: string; message?: string } | null | undefined;
   return err?.code === "42P01" || /member_monthly_work_agreements/i.test(err?.message ?? "");
+}
+
+export function isMissingMonthlyAgreementRequestTableError(error: unknown): boolean {
+  const err = error as { code?: string; message?: string } | null | undefined;
+  return err?.code === "42P01" || /member_monthly_work_agreement_requests/i.test(err?.message ?? "");
+}
+
+function toRevisionRequest(row: JsonRecord): MonthlyWorkAgreementRevisionRequest {
+  return {
+    id: String(row.id ?? ""),
+    ym: String(row.ym ?? ""),
+    memberId: String(row.member_id ?? ""),
+    projectId: typeof row.project_id === "string" ? row.project_id : null,
+    requestType: String(row.request_type ?? "other"),
+    body: String(row.body ?? ""),
+    status: String(row.status ?? "open"),
+    snapshotHash: typeof row.snapshot_hash === "string" ? row.snapshot_hash : null,
+    createdAt: String(row.created_at ?? ""),
+    resolvedAt: typeof row.resolved_at === "string" ? row.resolved_at : null,
+  };
 }
 
 export async function resolveMemberForEmail(
@@ -192,7 +218,7 @@ export async function buildMonthlyWorkAgreementBundle(
   if (plansRes.error) throw plansRes.error;
 
   const projects = ((projectsRes.data ?? []) as Array<JsonRecord>)
-    .filter((row) => String(row.status ?? "").toLowerCase() !== "lost")
+    .filter((row) => projectHasMonthlyReward(row.status))
     .filter((row) => inYmRange(ym, { start_ym: row.start_ym as string | null, end_ym: row.end_ym as string | null }));
   const projectMap = new Map(projects.map((row) => [row.project_id as string, row]));
   const cyclesByProject = new Map(((cyclesRes.data ?? []) as Array<JsonRecord>).map((row) => [row.project_id as string, row]));
@@ -265,10 +291,6 @@ export async function buildMonthlyWorkAgreementBundle(
       const reward = findRewardMember(cycle?.reward_summary_json, params.memberId);
       const expectedRewardYen = toNumber(reward?.totalPay) ?? allocation;
       const earnedPt = toNumber(reward?.earnedPt);
-      const capBudgetYen = toNumber(cycle?.budget_yen) ?? toNumber((cycle?.reward_summary_json as JsonRecord | undefined)?.capBudgetYen);
-      const grossDueYen = toNumber(reward?.grossDueYen);
-      const deferredYen = toNumber(reward?.deferredYen ?? reward?.stockYen);
-      const carriedInYen = toNumber(reward?.carryInYen);
       const roleMilestones: MonthlyWorkAgreementMilestone[] = [];
       const projectPlans = plansByProject.get(projectId) ?? [];
       const plan =
@@ -317,12 +339,10 @@ export async function buildMonthlyWorkAgreementBundle(
       if (!reward && allocation == null) reviewReasons.push("報酬キャッシュが未生成");
       if (plan == null) reviewReasons.push("固定 value plan が未設定");
       if (roleMilestones.length === 0 && plan) reviewReasons.push("当月の担当MS/shareが未設定");
-      if (capBudgetYen == null) reviewReasons.push("月次cap/budgetが未確定");
 
       const conditions = [
         `報酬表示 source: ${formatRewardSource(cycle, reward, allocation)}`,
-        capBudgetYen == null ? "月次cap未確定" : `月次cap: ${Math.round(capBudgetYen).toLocaleString()}円`,
-        deferredYen && deferredYen > 0 ? `cap超過繰越: ${Math.round(deferredYen).toLocaleString()}円` : "cap超過繰越なし",
+        "報酬計算そのものはこの合意では変更しない",
       ];
       const conditionState: MonthlyWorkAgreementProject["conditionState"] =
         reviewReasons.length > 0 || roleMilestones.some((ms) => ms.state === "review_required")
@@ -340,10 +360,6 @@ export async function buildMonthlyWorkAgreementBundle(
         allocationStatus: cycle?.budget_confirmed_at ? "confirmed" : cycle?.budget_reported_at ? "reported" : "not_set",
         expectedRewardYen,
         earnedPt,
-        capBudgetYen,
-        grossDueYen,
-        deferredYen,
-        carriedInYen,
         conditionState,
         conditions,
         reviewReasons,
@@ -386,6 +402,20 @@ export async function buildMonthlyWorkAgreementBundle(
     latestAgreement = toAgreementRecord(agreementData[0] as JsonRecord);
   }
 
+  let revisionRequests: MonthlyWorkAgreementRevisionRequest[] = [];
+  const { data: requestData, error: requestError } = await supabase
+    .from("member_monthly_work_agreement_requests")
+    .select("id, ym, member_id, project_id, request_type, body, status, snapshot_hash, created_at, resolved_at")
+    .eq("ym", ym)
+    .eq("member_id", params.memberId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  if (requestError) {
+    if (!isMissingMonthlyAgreementRequestTableError(requestError)) throw requestError;
+  } else {
+    revisionRequests = ((requestData ?? []) as Array<JsonRecord>).map(toRevisionRequest);
+  }
+
   const status: MonthlyAgreementStatus =
     latestAgreement?.status === "agreed" && latestAgreement.snapshotHash === currentHash
       ? "agreed"
@@ -400,6 +430,7 @@ export async function buildMonthlyWorkAgreementBundle(
     currentHash,
     status,
     latestAgreement,
+    revisionRequests,
     tableReady,
     canAgree: tableReady && (!params.viewerMemberId || params.viewerMemberId === params.memberId),
   };
@@ -410,7 +441,7 @@ export async function listActiveAgreementMemberIds(supabase: SupabaseClient, ym:
     await Promise.all([
       supabase.from("members").select("member_id, status").eq("status", "active"),
       supabase.from("project_members").select("project_id, member_id, is_active, join_ym, leave_ym").eq("is_active", true),
-      supabase.from("projects").select("project_id, status, start_ym, end_ym").eq("status", "active"),
+      supabase.from("projects").select("project_id, status, start_ym, end_ym").neq("status", "lost").neq("status", "frozen"),
     ]);
   if (membersError) throw membersError;
   if (pmError) throw pmError;

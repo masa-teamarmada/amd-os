@@ -37,6 +37,8 @@ export async function GET(req: NextRequest) {
       status: bundle.status,
       currentHash: bundle.currentHash,
       latestAgreement: bundle.latestAgreement,
+      revisionRequestCount: bundle.revisionRequests.filter((request) => request.status === "open").length,
+      latestRevisionRequestAt: bundle.revisionRequests[0]?.createdAt ?? null,
       projectCount: bundle.snapshot.totals.projectCount,
       reviewRequiredCount: bundle.snapshot.totals.reviewRequiredCount,
       expectedRewardYen: bundle.snapshot.totals.expectedRewardYen,
@@ -44,7 +46,10 @@ export async function GET(req: NextRequest) {
     }));
     rows.sort((a, b) => {
       const rank = (status: string) => status === "needs_reagreement" ? 0 : status === "pending" ? 1 : 2;
-      return rank(a.status) - rank(b.status) || b.reviewRequiredCount - a.reviewRequiredCount || a.member.memberId.localeCompare(b.member.memberId);
+      return rank(a.status) - rank(b.status)
+        || b.revisionRequestCount - a.revisionRequestCount
+        || b.reviewRequiredCount - a.reviewRequiredCount
+        || a.member.memberId.localeCompare(b.member.memberId);
     });
     const response: AdminMonthlyWorkAgreementResponse = {
       ym,
@@ -55,6 +60,7 @@ export async function GET(req: NextRequest) {
         pending: rows.filter((row) => row.status === "pending").length,
         needsReagreement: rows.filter((row) => row.status === "needs_reagreement").length,
         reviewRequired: rows.filter((row) => row.reviewRequiredCount > 0).length,
+        revisionRequests: rows.reduce((sum, row) => sum + row.revisionRequestCount, 0),
       },
       rows,
     };

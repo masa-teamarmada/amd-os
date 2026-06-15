@@ -123,7 +123,7 @@ export default function AdminMonthlyWorkAgreementsPage() {
             <SummaryCard label="合意済み" value={`${data.totals.agreed}`} tone="good" />
             <SummaryCard label="未合意" value={`${data.totals.pending}`} tone={data.totals.pending > 0 ? "warn" : "plain"} />
             <SummaryCard label="条件更新あり" value={`${data.totals.needsReagreement}`} tone={data.totals.needsReagreement > 0 ? "warn" : "plain"} />
-            <SummaryCard label="要確認あり" value={`${data.totals.reviewRequired}`} tone={data.totals.reviewRequired > 0 ? "warn" : "plain"} />
+            <SummaryCard label="修正要望" value={`${data.totals.revisionRequests}`} tone={data.totals.revisionRequests > 0 ? "warn" : "plain"} />
           </section>
 
           <div className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2">
@@ -137,12 +137,12 @@ export default function AdminMonthlyWorkAgreementsPage() {
           </div>
 
           <section className="overflow-hidden rounded-md border border-border bg-background">
-            <div className="grid grid-cols-[128px_112px_92px_120px_minmax(0,1fr)_132px] bg-muted/50 px-3 py-2 text-[11px] font-semibold text-muted-foreground">
+            <div className="grid grid-cols-[128px_112px_82px_112px_minmax(0,1fr)_132px] bg-muted/50 px-3 py-2 text-[11px] font-semibold text-muted-foreground">
               <span>Member</span>
               <span>Status</span>
               <span className="text-right">PJ</span>
               <span className="text-right">想定報酬</span>
-              <span>PJ / 要確認</span>
+              <span>PJ / 要確認 / 修正要望</span>
               <span className="text-right">Detail</span>
             </div>
             <div className="divide-y divide-border">
@@ -152,7 +152,7 @@ export default function AdminMonthlyWorkAgreementsPage() {
                 filteredRows.map((row) => (
                   <div
                     key={row.member.memberId}
-                    className="grid grid-cols-[128px_112px_92px_120px_minmax(0,1fr)_132px] items-center gap-2 px-3 py-3 text-sm"
+                    className="grid grid-cols-[128px_112px_82px_112px_minmax(0,1fr)_132px] items-center gap-2 px-3 py-3 text-sm"
                   >
                     <div className="min-w-0">
                       <p className="truncate font-semibold">{row.member.codeName}</p>
@@ -167,8 +167,13 @@ export default function AdminMonthlyWorkAgreementsPage() {
                     <div className="min-w-0">
                       <p className="truncate text-[12px] text-foreground">{row.projectNames.join(" / ") || "参加PJなし"}</p>
                       <p className={`mt-0.5 text-[11px] ${row.reviewRequiredCount > 0 ? "text-amber-700" : "text-muted-foreground"}`}>
-                        要確認 {row.reviewRequiredCount} / hash {row.currentHash.slice(0, 10)}
+                        要確認 {row.reviewRequiredCount} / 修正要望 {row.revisionRequestCount} / hash {row.currentHash.slice(0, 10)}
                       </p>
+                      {row.latestRevisionRequestAt && (
+                        <p className="mt-0.5 text-[11px] text-amber-700">
+                          最新要望 {new Date(row.latestRevisionRequestAt).toLocaleString("ja-JP")}
+                        </p>
+                      )}
                     </div>
                     <div className="flex justify-end gap-2">
                       <Link

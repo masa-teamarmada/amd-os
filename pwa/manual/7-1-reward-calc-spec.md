@@ -312,6 +312,10 @@ for each member in members:                      # earnedPt 降順
 
 `/monthly-agreement` は、この章の計算結果 (`reward_summary_json` / `member_allocations_json`) と MS/share 条件を本人へ表示し、`member_monthly_work_agreements.snapshot_json` と `snapshot_hash` に保存する確認レイヤー。合意 API は報酬キャッシュを再計算せず、`milestone_monthly_progress`、`milestone_responsibility`、`billing_cycles` も書き換えない。
 
+月初合意画面では cap、stockYen、carry-over などの精算内部情報は表示しない。本人確認に必要なのは「担当MS」「当月到達目標」「その対価としての想定報酬」。cap 由来の配賦や繰越の検証は `/admin/payouts` と本章の責務に残す。
+
+本人からの修正要望は `member_monthly_work_agreement_requests` に保存する。これは報酬計算への直接入力ではなく、admin/PM が MS/share/報酬キャッシュを見直すための確認キュー。
+
 snapshot hash が変わったときは「条件更新あり」として再合意を促す。これは報酬計算の入力変更ではなく、本人/admin が条件変更を見落とさないための状態。
 
 ---

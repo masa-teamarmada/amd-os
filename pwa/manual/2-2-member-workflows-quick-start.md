@@ -42,9 +42,11 @@ AMD メンバー (= 社内常勤 / 副業) が AMD OS で日常的に触る画�
 
 ### 月初合意
 
-`/monthly-agreement` では、当月参加中の PJ、担当 MS / share、月次ルーティン上の遂行条件、既存 reward summary から読める想定報酬、未確定・要確認の理由を確認する。合意ボタンを押すと `member_monthly_work_agreements` に表示内容の `snapshot_json` と `snapshot_hash` が保存される。
+`/monthly-agreement` では、当月参加中の PJ、担当 MS / share、当月の到達目標、月次ルーティン上の条件/前提、既存 reward summary から読める想定報酬、未確定・要確認の理由を確認する。`frozen` PJ は報酬が発生しないため表示対象外。合意ボタンを押すと `member_monthly_work_agreements` に表示内容の `snapshot_json` と `snapshot_hash` が保存される。
 
-月中に MS / share / 報酬キャッシュ / cap などが変わって現在の snapshot hash が前回合意時とズレた場合、本人画面と admin 画面に「条件更新あり」と出る。これは報酬計算を変えるものではなく、再確認が必要なサイン。
+月中に MS / share / 報酬キャッシュなどが変わって現在の snapshot hash が前回合意時とズレた場合、本人画面と admin 画面に「条件更新あり」と出る。これは報酬計算を変えるものではなく、再確認が必要なサイン。
+
+担当 MS、到達目標、想定報酬、条件/前提が違う場合は、同じ画面の「修正要望」から送る。修正要望は `member_monthly_work_agreement_requests` に保存され、admin/PM側で確認する。
 
 ### 「いまやること」生成ルール
 

@@ -49,10 +49,15 @@ PWA 側で `member_allocations_json` を再計算しない。 正本ロジック
 | 本人画面 | `/monthly-agreement?ym=YYYYMM` |
 | mypage導線 | 当月報酬合計カード直下 |
 | 保存先 | `member_monthly_work_agreements` |
+| 修正要望 | `member_monthly_work_agreement_requests` |
 | admin確認 | `/admin/monthly-work-agreements?ym=YYYYMM` |
 | hash差分 | 前回 `snapshot_hash` と現在 snapshot hash が違えば `条件更新あり` |
 
 合意は「当月の遂行内容と報酬条件を確認した」監査 snapshot。`reward_summary_json`、`member_allocations_json`、MS進捗、担当shareを読むだけで、報酬計算を再実行したり値を書き換えたりしない。
+
+月初合意画面は cap、stockYen、carry-over などの精算内部情報を出さない。本人には「どのPJのどのMSにコミットするか」「当月どこまで到達すべきか」「その対価としての想定報酬」を示す。`frozen` PJ は報酬が発生しないため対象外。
+
+表示内容に違和感がある場合、本人は「修正要望」から対象PJ、要望種別、本文を送る。要望は送信時点の snapshot hash と一緒に保存され、admin/PM側の確認キューとして扱う。
 
 ### 月次ルーティン TODO の出し分け (= まさ #6)
 

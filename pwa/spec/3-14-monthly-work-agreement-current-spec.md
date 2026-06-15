@@ -11,9 +11,10 @@
 | admin route | `/admin/monthly-work-agreements?ym=YYYYMM` |
 | member API | `GET /api/monthly-work-agreement?ym=YYYYMM&memberId=IDxxx` |
 | agree API | `POST /api/monthly-work-agreement/agree` |
+| revision request API | `POST /api/monthly-work-agreement/request-revision` |
 | admin API | `GET /api/admin/monthly-work-agreements?ym=YYYYMM` |
-| DB | `member_monthly_work_agreements` |
-| migration | `pwa/scripts/migrations/139_member_monthly_work_agreements.sql` |
+| DB | `member_monthly_work_agreements`, `member_monthly_work_agreement_requests` |
+| migration | `pwa/scripts/migrations/139_member_monthly_work_agreements.sql`, `140_member_monthly_work_agreement_requests.sql` |
 
 ## Scope
 
@@ -21,10 +22,11 @@
 
 - `billing_cycles.reward_summary_json` / `member_allocations_json` を読む。
 - `value_plan_cycles` / `value_milestones` / `milestone_responsibility` / `milestone_monthly_progress` から、当月の遂行対象と条件を読む。
-- `project_members` から当月 active member / active project member を解く。
+- `project_members` と `projects` から当月 active member / active project member を解く。`projects.status='frozen'` は報酬が発生しないため対象外。
 - 合意時点で本人へ表示した内容を `snapshot_json` と `snapshot_hash` で保存する。
 - snapshot hash が変わったら本人/adminに「条件更新あり」と表示し、再合意対象にする。
 - 報酬キャッシュを再計算しない。通常 GET は読むだけ。
+- cap、carry-over、stockYen などの精算内部情報は月初合意画面に出さない。月初合意は「どのPJのどのMSへコミットし、当月どこまで到達すべきか」と「その対価としての想定報酬」を示す。
 
 ## Snapshot Contract
 
@@ -38,7 +40,7 @@
 | `projects[]` | 当月参加中PJ |
 | `projects[].milestones[]` | 担当MS、share、task description、progress、conditions |
 | `projects[].expectedRewardYen` | 既存 reward summary / member allocation から読める想定報酬 |
-| `projects[].reviewReasons[]` | 報酬キャッシュ未生成、MS/share未設定、cap未確定など |
+| `projects[].reviewReasons[]` | 報酬キャッシュ未生成、MS/share未設定、進捗未生成など |
 | `totals` | PJ数、想定報酬合計、要確認PJ数 |
 
 `currentHash = sha256(stableJson(snapshot_json))`。`latestAgreement.snapshotHash !== currentHash` のとき `needs_reagreement`。
@@ -59,12 +61,24 @@
 
 同一 `ym, member_id` の active `agreed` は 1 件だけ。再合意時は旧 `agreed` を `superseded` に更新してから新 snapshot を `agreed` で insert する。
 
+`member_monthly_work_agreement_requests`:
+
+| column | contract |
+|---|---|
+| `ym` / `member_id` / `project_id` | 修正要望の対象。`project_id` が null の場合は全体 |
+| `request_type` | `scope_or_goal` / `reward` / `condition` / `other` |
+| `body` | 本人が書いた修正要望 |
+| `status` | `open` / `resolved` / `rejected` |
+| `snapshot_hash` | 要望送信時に本人が見ていた current hash |
+| `resolved_at` / `resolved_by` / `resolution_note` | admin/PM 側の処理結果 |
+
 ## Authority / RLS
 
 | actor | read | write |
 |---|---|---|
 | 本人 | 自分の合意 row | 自分の合意 insert |
-| admin | 全件 read / update | admin API で一覧確認 |
+| 本人 | 自分の修正要望 row | 自分の修正要望 insert |
+| admin | 全件 read / update | admin API で一覧確認、修正要望の処理 |
 | service_role | 全件 | API route 経由の insert/update |
 | anon | 不可 | 不可 |
 
@@ -77,7 +91,8 @@ API route は logged-in user を `members.email` で解決する。本人以外�
 - 上部に対象月、member、snapshot hash、合意状態を表示する。
 - 合意状態は `未合意` / `合意済み` / `条件更新あり`。
 - 合計: 参加PJ数、想定報酬合計、要確認PJ数。
-- PJごとに、想定報酬、billing status、PM/PL role、遂行条件、未確定理由、担当MS/share/進捗を表示する。
+- PJごとに、想定報酬、billing status、PM/PL role、条件/前提、未確定理由、担当MS/share/到達目標/予定報酬を表示する。
+- 担当MS、到達目標、想定報酬、条件/前提が違う場合は、合意とは別に修正要望を送信できる。
 - 保存テーブル未適用時は保存ボタンを無効化し、migration未適用として表示する。
 
 ### `/mypage`
@@ -88,8 +103,9 @@ API route は logged-in user を `members.email` で解決する。本人以外�
 
 ### `/admin/monthly-work-agreements`
 
-- 対象月、対象メンバー数、合意済み、未合意、条件更新あり、要確認ありを表示する。
+- 対象月、対象メンバー数、合意済み、未合意、条件更新あり、修正要望数を表示する。
 - member / PJ / status で検索できる。
+- 各行に open 修正要望数と最新要望時刻を表示する。
 - 各行から `/monthly-agreement?memberId=...&ym=...` と `/mypage?memberId=...` へ遷移できる。
 
 ## Failure Mode
@@ -100,11 +116,12 @@ API route は logged-in user を `members.email` で解決する。本人以外�
 | 報酬キャッシュ未生成 | `review_required` として表示。合意は保存可能だが admin/PM 要確認 |
 | value plan / MS / share missing | `review_required` として表示 |
 | admin が他人の合意保存を試す | 403 |
+| 本人以外が修正要望を送る | 403 |
 | snapshot hash changed | `needs_reagreement` |
 
 ## Validation
 
-- migration SQL check: `pwa/scripts/migrations/139_member_monthly_work_agreements.sql`
+- migration SQL check: `pwa/scripts/migrations/139_member_monthly_work_agreements.sql`, `140_member_monthly_work_agreement_requests.sql`
 - `npm run lint`
 - `npm run build`
 - local browser: `/monthly-agreement`, `/mypage`, `/admin/monthly-work-agreements`
