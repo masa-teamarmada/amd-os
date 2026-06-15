@@ -168,12 +168,6 @@ type TaskUndoEntry =
   | { kind: "patch"; before: OsTask; after: OsTask }
   | { kind: "patch-many"; before: OsTask[]; after: OsTask[] };
 
-type TaskNotice = {
-  id: string;
-  title: string;
-  body?: string;
-};
-
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -521,7 +515,6 @@ export function TasksClient() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notices, setNotices] = useState<TaskNotice[]>([]);
   const [mode, setMode] = useState<ViewMode>("mindmap");
   const [projectFilter, setProjectFilter] = useState("all");
   const [memberFilter, setMemberFilter] = useState("all");
@@ -657,14 +650,6 @@ export function TasksClient() {
     const ids = new Set(bundle.projectMembers.filter((pm) => pm.project_id === projectId).map((pm) => pm.member_id));
     const scoped = bundle.members.filter((member) => ids.has(member.member_id));
     return scoped.length ? scoped : bundle.members.filter((member) => member.status !== "inactive");
-  }
-
-  function pushNotice(title: string, body?: string) {
-    const notice = { id: `notice_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, title, body };
-    setNotices((prev) => [...prev, notice].slice(-4));
-    window.setTimeout(() => {
-      setNotices((prev) => prev.filter((item) => item.id !== notice.id));
-    }, 5200);
   }
 
   function pushUndo(entry: TaskUndoEntry) {
@@ -953,7 +938,6 @@ export function TasksClient() {
     setForm(formFromTask(optimisticTask));
     setFormPosition(modalPositionForCanvasNode(optimisticTask.mindmapX, optimisticTask.mindmapY));
     pushUndo({ kind: "create", taskId: optimisticTask.taskId });
-    pushNotice("タスクを追加したよ", `${projectName(optimisticTask.projectId)} / ${parentTaskId ? "子タスク" : "新規タスク"}`);
 
     const createPromise = (async () => {
       const serverParentTaskId = parentTaskId ? await resolveTaskIdForServer(parentTaskId) : null;
@@ -1567,17 +1551,6 @@ export function TasksClient() {
           />
         )}
       </div>
-
-      {notices.length > 0 && (
-        <div className="fixed right-4 top-16 z-[60] flex w-[min(340px,calc(100vw-2rem))] flex-col gap-2">
-          {notices.map((notice) => (
-            <div key={notice.id} className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900 shadow-lg">
-              <div className="font-semibold">{notice.title}</div>
-              {notice.body && <div className="mt-0.5 truncate text-emerald-800/80">{notice.body}</div>}
-            </div>
-          ))}
-        </div>
-      )}
 
       <TaskDialog
         form={form}

@@ -71,7 +71,7 @@ PJ filter、担当 filter、status filter、text search を同一ツールバー
 
 - canvas は scrollable 2D plane。ノードはカードではなく円形node + 外側labelで表示する。
 - canvas は CSS scale で `0.35x` から `2.25x` まで拡大縮小できる。trackpad pinch は `ctrl/meta wheel` として処理し、touch pinch は2 pointer distanceで処理する。入力distance/ wheel delta をそのままzoomへ入れず、指数/係数で減衰させ、atlas map 相当の緩いズーム変化にする。
-- 空白クリックでクリック位置を初期座標にした optimistic node を即時追加し、作成済みノードの右側に詳細ウィンドウを開く。新規タスクのタイトル入力は空のまま表示し、`新規タスク` などのプレースホルダー文言は入れない。詳細ウィンドウは実寸を測って viewport 内へ再clampし、生成ノードが下寄りでも下にはみ出さない位置に移動してタイトル入力へfocusする。`POST /api/tasks` は裏で実行し、成功時に temporary id を server id へ差し替え、失敗時は optimistic node を戻す。追加した瞬間に画面内toastを出す。
+- 空白クリックでクリック位置を初期座標にした optimistic node を即時追加し、作成済みノードの右側に詳細ウィンドウを開く。新規タスクのタイトル入力は空のまま表示し、`新規タスク` などのプレースホルダー文言は入れない。詳細ウィンドウは実寸を測って viewport 内へ再clampし、生成ノードが下寄りでも下にはみ出さない位置に移動してタイトル入力へfocusする。`POST /api/tasks` は裏で実行し、成功時に temporary id を server id へ差し替え、失敗時は optimistic node を戻す。ユーザー自身の作成にはtoastを出さず、node/formの即時表示をフィードバックにする。
 - 詳細ウィンドウの保存は、画面上のnode/formを即時反映してmodalを閉じ、`PATCH /api/tasks` は裏で実行する。タイトル入力で Enter を押した場合も保存ボタンと同じ処理を実行する。IME変換中の Enter は変換確定を優先する。server id 未確定の optimistic node では、初回 `POST` 完了後に同じ保存内容を `PATCH` する。
 - ノード本体は pointer drag で移動する。移動dragは edge 作成に使わない。親タスクをdragした場合は、表示中かどうかにかかわらず子孫タスクの座標も同じdeltaで追従させ、Ctrl+Z / Cmd+Z では親子まとめて1操作として戻す。位置は画面へ先に反映し、保存は裏で実行する。
 - ノードhoverは、rootの `translate(x,y)` を変えずに内部visualだけをその場で少しscaleする。hoverで右へずれる挙動は不可。
@@ -101,11 +101,11 @@ PJ filter、担当 filter、status filter、text search を同一ツールバー
 - API mutation は authenticated user、または `CRON_SECRET` を持つ Codex / Claude Code agent のみ。DB write は `service_role` で行い、browser anon key から直接 `tasks` を書かせない。
 - RLS は `authenticated SELECT`, `is_admin() ALL`, `service_role ALL` を定義する。既存 cockpit kanban 互換のため read は authenticated 全体に開く。
 - DELETE / TRUNCATE / DROP は使わない。非表示は `active=false`。
-- Agent helper: `cd pwa && npm run agent:tasks -- list|create|update|attach-session ...`。script は production `/api/tasks` を `Authorization: Bearer ${CRON_SECRET}` で叩き、`task_source` と `agent_session_*` を保存する。`archived` status を扱えるが、`progress` はhelperの操作対象にしない。
+- Agent helper: `cd pwa && npm run agent:tasks -- list|create|update|attach-session ...`。script は production `/api/tasks` を `Authorization: Bearer ${CRON_SECRET}` で叩き、`task_source` と `agent_session_*` を保存する。`archived` status を扱えるが、`progress` はhelperの操作対象にしない。agentが `create` した場合、作成したえいみは同じセッション内で `タスク追加: <title> (<task_id>)` を短く伝える。
 
 ## Validation
 
 - TypeScript: `npx tsc --noEmit`
 - Build: `npm run build`
 - Script smoke: `npm run agent:tasks -- help`
-- Browser: `/tasks` を開き、top nav、default all status表示(done含む/archived除外)、archived込みfilter、mindmap空白クリック即時作成+toast、下寄り作成時の詳細ウィンドウviewport内clamp + title focus、Session未設定の常時表示、progress非表示、status別ノード色、status hover popupからの即時変更、タイトル Enter 保存、`+` click子タスク即時作成、子→親の直線arrow、hover時の位置固定scale、緩いpinch/zoom、node click詳細、詳細の上寄せ/高密度/blurなし/header削除/drag、Backspace削除、Ctrl+Z復元、親node位置drag時の子孫追従、`+` handle drag edge、gantt親子indent/子数badge/status色bar、gantt空白行作成を確認する。
+- Browser: `/tasks` を開き、top nav、default all status表示(done含む/archived除外)、archived込みfilter、mindmap空白クリック即時作成(ユーザー作成toastなし)、下寄り作成時の詳細ウィンドウviewport内clamp + title focus、Session未設定の常時表示、progress非表示、status別ノード色、status hover popupからの即時変更、タイトル Enter 保存、`+` click子タスク即時作成、子→親の直線arrow、hover時の位置固定scale、緩いpinch/zoom、node click詳細、詳細の上寄せ/高密度/blurなし/header削除/drag、Backspace削除、Ctrl+Z復元、親node位置drag時の子孫追従、`+` handle drag edge、gantt親子indent/子数badge/status色bar、gantt空白行作成を確認する。

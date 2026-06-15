@@ -42,7 +42,7 @@
 - 接続ハンドルのclickは、そのタスクを親にした新規子タスクを親ノードの右側へ即時作成する。親がまだtemporary idの場合も画面上は先に親子関係を見せ、server id 確定後に保存する。
 - 接続ハンドルからのdrag後は、同じpointer操作を空白クリック作成として扱わない。
 - タスクの作成・更新は `/api/tasks` が login user または `CRON_SECRET` 付きagent accessを確認した後、server-side `service_role` で行う。
-- 画面から新規タスクを作成した場合は、追加した瞬間に `/tasks` 画面内の短い通知を出す。Codex / Claude Code などagent accessから新規タスクを作成した場合は、`app_notifications(kind='task_created')` にも積み、トップナビの通知ベルと `/notifications` で気づけるようにする。
+- 画面から新規タスクを作成した場合は、ノード / row / 詳細ウィンドウの即時表示をフィードバックとし、追加toastは出さない。Codex / Claude Code などagent accessから新規タスクを作成した場合は、作成したえいみが同じセッション内で `タスク追加: <title> (<task_id>)` を短く伝える。agent作成は `app_notifications(kind='task_created')` にも積み、トップナビの通知ベルと `/notifications` から後追い確認できる。
 - `/tasks` は authenticated user が全PJタスクを横断表示するための画面。細かい外部送信やカレンダー書き込みは行わない。
 
 ## えいみからの登録
@@ -59,6 +59,7 @@ npm run agent:tasks -- attach-session --task "<task_id>" --agent claude_code --s
 - 既存タスクを進めるだけなら `attach-session` を使い、重複タスクを作らない。
 - `--agent codex` / `--agent claude_code` が `task_source` と `agent_kind` に残る。
 - `--session-id` / `--session-url` / `--session-label` は詳細ウィンドウの `Session` 行に出る。
+- `create` で新規登録したら、OS通知任せにせず、その場の会話で `タスク追加: <title> (<task_id>)` をまさに伝える。
 - `--status archived` は通常の全status表示からは隠れる。archived込みで確認したい時は `/tasks` の `全status + archived` を使う。
 
 ## 既存カンバンとの関係
