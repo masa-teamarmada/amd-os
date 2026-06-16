@@ -1203,6 +1203,7 @@ function buildLiveGasSimulationResult(
         revenue: pj.revenue,
         externalMember: pj.externalMember,
         internalMember: pj.internalMember,
+        extraRevenue: pj.extraRevenue,
       })),
       fixedCostDetails: row.fixedCostDetails.map((fc) => ({ name: fc.name, amount: fc.amount })),
     };

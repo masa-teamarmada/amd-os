@@ -350,3 +350,52 @@
 1. ZMP の予算(売上)とメンバー支払いが同額で収支ゼロ → まさも参画してるので少なくともまさへの支払い分は粗利プラスになるはず。原因特定 (報酬予算が売上に張り付いていないか / まさ稼働を外部メンバー原価扱いしていないか)。
 2. ZMP は月次定額 (¥300,000) 以外に **OkuDoor 開発を別途受託 (別財布)**。OkuDoor 分の売上・原価が OS に正しく入っているか確認 (別 project_id か billing_cycles か別テーブルか要調査)。
 - ZMP 現状: p19 / 葛飾ロード / monthly_fixed ¥300,000 / start_ym=202506 / end_ym=null / contract_terms_json=null。
+
+### ZMP 収支ゼロ / OkuDoor 別財布 — 原因特定 (2026-06-16)
+
+**結論: ZMP は「収支ゼロ」ではなく、OkuDoor開発分(別財布)の売上が OS 未計上のまま原価だけ乗って赤字になる構造。**
+
+調査で判明した事実:
+- p19 ZMP には plan cycle `PC-p19-202601-202612` が**有る** (total_points=187, budget_yen=2,340,000=¥195,000×12=定額分のみ)。
+- ZMP の MS は2系統:
+  - **定額分(¥30万/月)**: 水素ステーション補助金・基本設計(routine,20pt) / 葛飾水素循環(routine,20pt) / ファシリテーション(routine,20pt) / 事務手続き(routine,10pt)
+  - **OkuDoor(別財布)**: OkuDoor企画・関係者合意形成(normal,20pt,202601-08) / **OkuDoorシステム開発(cap_extra,67pt,202605-10)** / OkuDoor現地運用・オープン検証(normal,20pt,202609-12)
+- billing_cycles.reward_summary_json は既に regular/extra 二財布で計算済:
+  - `regularCapBudgetYen=195,000`(毎月固定=定額分65%)、`extraCapBudgetYen`=月変動(65,130/196,170/173,940=OkuDoor cap_extra分)
+  - budget_yen = regular+extra の合算 → 260,130(4月)/391,170(5月)/368,940(6月)
+- **収支ゼロ/赤字の機序**:
+  - シミュレータ(monthly-pl-simulation.ts)は ZMP 売上を `projects.fee_amount=¥300,000`(定額分のみ)で計上。
+  - メンバー原価は `computeForwardUncappedMemberCosts` の uncapped 報酬を注入。これは regular+extra 全部 = 定額分¥195,000 + OkuDoor extra ¥17万前後 ≈ ¥36万超。
+  - **売上¥30万に対し原価¥36万超 → 赤字**。OkuDoor の売上が OS のどこにも無いため。
+- **OkuDoor 売上の正本が OS に存在しない**: projects に別 project_id 無し / contract_terms に p19・OkuDoor・葛飾の抽出無し / company_finance_recurring に収入無し / freee deals キャッシュテーブル無し。OkuDoor受託額(売上)はまさしか知らない。
+
+**構造上の不整合 (別財布化が中途半端)**:
+- OkuDoor 3 MS のうち `cap_extra` は「システム開発(67pt)」だけ。`OkuDoor企画(20pt)`と`OkuDoor現地運用(20pt)`は tag=normal で **定額財布(regular)に混入**している。
+- plan cycle budget_yen=2,340,000 は定額分しか積んでいないのに、OkuDoor pt(107pt)も同じ total_points=187 に含まれる → ptUnit 希釈・regular財布へのOkuDoor食い込みが起きる。
+
+**まさ確認が必要な点 (報酬計算/売上どちらにも効く)**:
+1. OkuDoor 受託の売上額・期間 (税抜/税込・月次按分か一括か)。これが無いと別財布の売上計上ができない。
+2. OkuDoor 3 MS を全部 cap_extra(別財布)に統一すべきか (現状システム開発だけ extra)。
+3. OkuDoor 売上を ZMP(p19) の billing_cycles に extra revenue として乗せるか、別 project_id を立てるか。
+
+### 2026-06-16 (続き) — ZMP収支ゼロ問題を解決: 別財布売上を一級市民化 (v0.25.0)
+
+**まさ確定**: A=実額をDrive/freeeから特定 / B=OkuDoor MS全部cap_extra統一OK / C-1=p19 billing_cyclesにextra revenue計上 + 複数財布PJの汎用管理化。計上は**請求日ベース(2026-03一括)**、入金日ではなく請求日で(キャッシュフロー観点だが今回はZMP収支の話に戻したため請求ベース)。実装は**B案=エンジンにextraRevenueを一級市民化**。
+
+**OkuDoor実額をfreee請求書APIで完全特定** (`/iv/invoices` 経由、gas/008_FreeeInvoicePdf.js でパス発見):
+- 請求書 **INV-0000000305** (#56752709, 葛飾ロード株式会社, 件名「システム開発費」), 請求日 **2026-03-31**, 支払期限 2026-04-30, payment_status=unsettled, deal_id=なし(会計取引未登録=会計deals側に定額分しか出なかった理由)
+- 明細13行合計 = **税抜¥2,000,000 / 税込¥2,200,000** 一括
+- 定額分は完全に別請求書: INV-309/307/304 各「2026-MM業務委託料」税込¥330,000
+
+**根本原因 (確定)**: p19は `monthly_fixed`(¥30万/月)。`buildLiveMonthlyPlInputs` は変動売上を variable PJ限定で読むため p19 の billing_cycles 売上を読まず、売上=定額¥30万のみ。一方 OkuDoorシステム開発MS(`MS-p19-2026-02-okudoor-system`)は既に `cap_extra` pool で uncapped原価として `internalMemberCost` 経由で計上済み。**別財布の原価だけ乗り売上が無い** → 粗利を食い潰し収支ゼロ〜赤字。
+
+**実装** (commit 同梱):
+- migration 142: `billing_cycles.extra_revenue_json jsonb` 追加 (非破壊)。`[{label, amount_tax_excl, freee_invoice_number, billing_date, memo}]`
+- `monthly-pl-simulation.ts`: `MonthlyPlProjectRevenue.extraRevenue` + `extraRevenueForYm()`。売上計・粗利・消費税・CF・残高に加算、**rateMember/rateCloser通さず** (cap_extra側で計上済み→二重計上防止)、請求日ベース同月キャッシュ(delay 0)、単発セマンティクス(ym一致のみ加算、翌月持続せず)
+- `live-monthly-pl-inputs.ts`: 全PJの `extra_revenue_json` を読んで `projectRevenues[].extraRevenue` 注入
+- `GasMonthlySimulationPanel.tsx` / `page.tsx`: pjDetail.extraRevenue を通し、収支表PJ名に `🔵別財布込`
+- OkuDoor¥200万を p19/202603 の extra_revenue_json に投入
+
+**検証 (本番データ end-to-end)**: live builder で p19/202603 revenue = ¥30万 → **¥230万**、grossProfit が¥200万増、CF差¥220万(税込)、翌月202604は¥30万のまま(持続せず)。build/tsc 通過。
+
+**今後の課題 (別セッション可)**: ① OkuDoor企画(20pt)・現地運用(20pt)MSが tag=normal で regular財布に混入したまま (B「全部cap_extra統一」未完。原価側の財布分離はsystem開発のみ)。② plan cycle total_points=187 に OkuDoor pt も含まれ ptUnit希釈 → regular財布へ食い込み。③ 他PJの別財布売上があれば extra_revenue_json に順次投入。

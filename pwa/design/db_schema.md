@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-06-16 14:27 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-06-16 20:08 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -17,7 +17,7 @@
 
 ## action_items
 
-行数 (概算): -1
+行数 (概算): 59
 PRIMARY KEY: `action_id`
 UNIQUE: `(source_hash)` (constraint: `action_items_source_hash_key`)
 
@@ -245,7 +245,7 @@ PRIMARY KEY: `revision_id`
 
 ## app_notifications
 
-行数 (概算): 51
+行数 (概算): 55
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -500,6 +500,7 @@ UNIQUE: `(project_id,ym)` (constraint: `billing_cycles_project_ym_unique`)
 | 35 | `invoice_subject` | `text` | NULL | `` |
 | 36 | `freee_invoice_number` | `text` | NULL | `` |
 | 37 | `invoice_pdf_url` | `text` | NULL | `` |
+| 38 | `extra_revenue_json` | `jsonb` | NULL | `` |
 
 ## billing_log
 
@@ -1294,7 +1295,7 @@ UNIQUE: `(prompt_key)` (constraint: `llm_prompts_prompt_key_key`)
 
 ## macro_index_log
 
-行数 (概算): 1,577
+行数 (概算): 1,578
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -1445,7 +1446,7 @@ PRIMARY KEY: `meeting_id`
 
 ## member_activities
 
-行数 (概算): 251
+行数 (概算): 291
 PRIMARY KEY: `id`
 UNIQUE: `(member_id,project_id,source,source_item_id)` (constraint: `member_activities_member_id_project_id_source_source_item_i_key`)
 

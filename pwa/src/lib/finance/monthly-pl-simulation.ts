@@ -73,6 +73,16 @@ export interface MonthlyPlProjectRevenue {
   ym: number;
   monthlyRevenue?: number | null;
   internalMemberCost?: number | null;
+  /**
+   * 別財布（別契約）売上。定額/変動の本契約売上とは別枠で、その月だけ revenue に加算される。
+   * monthlyRevenue (= 上書き・持続) と違い「立つ月だけ加算」セマンティクス (spot と同じ)。
+   * 原価は cap_extra プールの uncapped 報酬として internalMemberCost 経由で別途計上済みなので、
+   * extraRevenue には rateMember/rateCloser の自動原価計算を **通さない** (二重計上を防ぐ)。
+   * 入金は請求日ベースの同月キャッシュ (delay 0) として cashRevenue に乗る。
+   * 実例: OkuDoor システム開発 ¥2,000,000 (p19, 2026-03 一括請求, 定額¥30万/月とは別財布)。
+   */
+  extraRevenue?: number | null;
+  extraRevenueMemo?: string | null;
   memo?: string;
 }
 
@@ -117,6 +127,8 @@ export interface MonthlyPlProjectDetail {
   cashRevenue?: number;
   externalMember?: number;
   internalMember?: number;
+  /** 別財布（別契約）売上の内訳。revenue にはこの額が含まれる。 */
+  extraRevenue?: number;
 }
 
 export interface MonthlyPlFixedCostDetail {
@@ -315,6 +327,25 @@ function projectRevenueForYm(
   return resolveProjectRevenue(project.projectId, ym, overrides, project.monthlyRevenue);
 }
 
+/**
+ * その月・その PJ の別財布（別契約）売上の合計。
+ * monthlyRevenue (上書き・持続) と違い「その月ちょうど (ym 一致)」だけ加算する単発セマンティクス。
+ * 原価は cap_extra プールで別途計上済みなので、ここで rateMember/rateCloser は通さない。
+ */
+function extraRevenueForYm(
+  projectId: string,
+  ym: number,
+  overrides: MonthlyPlProjectRevenue[]
+): number {
+  let total = 0;
+  for (const override of overrides) {
+    if (override.projectId !== projectId || override.ym !== ym) continue;
+    const v = override.extraRevenue;
+    if (v !== null && v !== undefined && Number.isFinite(v)) total += v;
+  }
+  return total;
+}
+
 function calcLoanSchedule(loan: MonthlyPlLoan): LoanScheduleRow[] {
   const principal = numberOr(loan.principal);
   const monthlyRate = numberOr(loan.annualRate) / 12;
@@ -465,12 +496,15 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
     for (const pj of projects) {
       if (pj.billingType === "annual_march") continue;
       const pjRev = projectRevenueForYm(pj, scheduleYm, projectRevenues);
-      if (pjRev === 0) continue;
+      const pjExtra = extraRevenueForYm(pj.projectId, scheduleYm, projectRevenues);
+      if (pjRev === 0 && pjExtra === 0) continue;
 
       const delay = Math.max(0, Math.floor(pj.cashDelayMonths ?? 0));
       let cashYm = addMonthsToYm(scheduleYm, delay);
       if (pj.cashStartYm && cashYm < pj.cashStartYm) cashYm = pj.cashStartYm;
-      addCashRevenue(cashYm, pj.projectId, pjRev);
+      if (pjRev > 0) addCashRevenue(cashYm, pj.projectId, pjRev);
+      // 別財布売上は請求日ベースの同月キャッシュ (delay 0)。本契約の入金遅延ルールとは独立。
+      if (pjExtra > 0) addCashRevenue(scheduleYm, pj.projectId, pjExtra);
     }
     scheduleYm = nextYm(scheduleYm);
   }
@@ -512,13 +546,16 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
         pjDetails.push({ projectId: pj.projectId, revenue: 0, cashRevenue });
         continue;
       }
+      // 別財布（別契約）売上: 本契約売上とは別枠で revenue に加算。原価は cap_extra 側で計上済みのため
+      // rateMember/rateCloser は通さない (= 自動原価の二重計上を防ぐ)。
+      const pjExtra = extraRevenueForYm(pj.projectId, ym, projectRevenues);
       const pjRev = projectRevenueForYm(pj, ym, projectRevenues);
-      if (pjRev === 0) {
+      if (pjRev === 0 && pjExtra === 0) {
         pjDetails.push({ projectId: pj.projectId, revenue: 0, cashRevenue, externalMember: 0, internalMember: 0 });
         continue;
       }
 
-      revenue += pjRev;
+      revenue += pjRev + pjExtra;
       const memberAlloc = Math.round(pjRev * rateMember);
       const intCost = resolveInternalMemberCost(pj.projectId, ym, projectRevenues, pj.internalMemberCost ?? null);
       let pjExternal = 0;
@@ -531,7 +568,14 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
         pjExternal = memberAlloc;
         autoMemberTotal += memberAlloc;
       }
-      pjDetails.push({ projectId: pj.projectId, revenue: pjRev, cashRevenue, externalMember: pjExternal, internalMember: pjInternal });
+      pjDetails.push({
+        projectId: pj.projectId,
+        revenue: pjRev + pjExtra,
+        cashRevenue,
+        externalMember: pjExternal,
+        internalMember: pjInternal,
+        extraRevenue: pjExtra > 0 ? pjExtra : undefined,
+      });
 
       const closerAmt = Math.round(pjRev * rateCloser);
       if (boolLike(pj.closerInternal)) closerInternalTotal += closerAmt;
@@ -682,7 +726,8 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
       if (cpj.status === "tentative") continue;
       if (!isActive(ym, cpj.startYm, cpj.endYm)) continue;
       const cpjRev = projectRevenueForYm(cpj, ym, projectRevenues);
-      confirmedRevenue += cpjRev;
+      const cpjExtra = extraRevenueForYm(cpj.projectId, ym, projectRevenues);
+      confirmedRevenue += cpjRev + cpjExtra;
 
       const cIntCost = resolveInternalMemberCost(cpj.projectId, ym, projectRevenues, cpj.internalMemberCost ?? null);
       if (cIntCost !== null) {

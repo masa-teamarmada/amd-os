@@ -393,6 +393,7 @@ Finance Simulation は、会社 PL / cash runway を月次で試算する経営�
 | └ サブスク額の正本 | freee `/api/1/deals?partner_id=<取引先>` の取引実額 | ⚠️ SaaS/サブスクの `amount_yen` は手動入力前提にしない。**freee の取引先別 deals 履歴 (= 実際の支払実額) が正本**。最新の取引額を引いて `company_finance_recurring_items` を更新する。2026-06-16 棚卸し実績: slack ¥20,828 / claude ¥22,945 (freee最新2025-10、Max化前のため freee に2026実額が入り次第追従) / conduct ¥48,400 (税理士のみ。社労士法人コンダクトは2025-10で取引終了=契約解除、合算¥44,000→税理士単独¥48,400へ) / co-en=つくばまちなかデザイン ¥38,500 (費目=地代家賃) / notion ¥3,800 / DocuSign ¥3,100 (年額¥37,200÷12) / freee ¥5,480 |
 | 社保ベース判定 | 固定費のうち `display_name` が `役員報酬` / `上乗せ` / `給与` / `給料` / `賞与` を含む行を `costType='executive'` にマップ。残りは `taxable` | ⚠️ `company_finance_recurring_items` に `cost_type` 列は無いため `display_name` で判別する。エンジンは `executive`/`salary` の月額だけを `socialInsBase` に積み、`socialInsBase × socialInsRate(=0.15)` を社保額とする。**この判別を入れる前は全固定費が `taxable` 扱いで `socialInsBase=0` → 社保が常時¥0だった (2026-06-16 修正)**。実例: 役員報酬(まさ¥70万)+役員報酬(きよ¥34万)+まさ上乗せ¥127,334 = base ¥1,167,334 → 社保 ≒ ¥175,100/月 |
 | 将来メンバー原価 | MS 進捗 → uncapped 報酬 (後述) を `projectRevenues[].internalMemberCost` に注入 | 各 PJ の MS を期間月数で按分し、将来月の uncapped 報酬を原価として投影 |
+| 別財布（別契約）売上 | 全 PJ の `billing_cycles.extra_revenue_json` (= migration 142) を `projectRevenues[].extraRevenue` に注入 | ⚠️ 本契約 (定額/変動) とは**別枠**の単発受託売上。fee_type を問わず全 PJ から読む。エンジンで売上計・粗利・消費税・CF・残高に加算されるが、**原価は cap_extra プールの uncapped 報酬として `internalMemberCost` 経由で別途計上済みのため、自動原価率 (rateMember/rateCloser) は通さない** (= 二重計上防止)。請求日ベースで立った月にキャッシュ計上 (入金遅延なし)。`extraRevenue` は monthlyRevenue (上書き・持続) と違い「その月ちょうど」だけ加算する単発セマンティクス。実例: OkuDoor システム開発 ¥2,000,000 (p19/202603, INV-0000000305, 2026-03-31 一括, 葛飾ロードへ定額¥30万/月とは別財布の受託)。収支表では PJ名に `🔵別財布込` が付く |
 | パラメータ / 融資 / スポット | 旧 `company_budget_inputs` から流用 | 繰越欠損 / 前期消費税 / 社保率 / 各種率、および OS にライブテーブルが無い融資 (`loan`)・臨時収支 (`spot`) は当面 snapshot 値を再利用 |
 
 ### 将来メンバー原価は uncapped を使う
@@ -414,6 +415,8 @@ MS の pt 消化は**必ず期間の月数で按分**する (まとめ達成禁�
 | p25 (KUTE, variable) | plan cycle 全期間 (202605-202703) で billing に `budget_yen` あり | 全月で売上が立つ |
 
 したがって `projectRevenues[].internalMemberCost` 注入方式のままで取りこぼしは無い。**将来、売上が立たない月に報酬原価だけ発生する PJ が現れたら**、その月の原価は `varCosts[]` (= 売上に紐づかない変動費) として注入する必要がある。live builder にこの分岐を足す前に、この表を再確認する。
+
+> **逆ケース (= 別財布売上) は実装済み (2026-06-16)**: 上記は「原価だけ立って売上が無い」穴だが、ZMP (p19) で逆の「**別契約の原価 (cap_extra) は立つのに、その売上が本契約売上に乗らない**」問題が起きていた。OkuDoor システム開発を定額¥30万/月とは別に ¥2,000,000 (税抜) で受託していたが、原価 (cap_extra uncapped 報酬) だけが costMember に乗り、売上が無いため粗利を食い潰して収支がゼロ〜赤字に見えていた。対策として `billing_cycles.extra_revenue_json` (migration 142) に別財布売上を構造化して持たせ、live builder が `projectRevenues[].extraRevenue` として注入、エンジンが売上計・粗利・消費税・CF に加算する (原価率は通さない)。複数財布 PJ の汎用管理基盤としても使う (まさ確定 2026-06-16, B案: extraRevenue を一級市民化)。
 
 #### 報酬予算の月次解決順 (`deriveRewardBudgetForPt`) と uncapped 月次原価の実測概算
 

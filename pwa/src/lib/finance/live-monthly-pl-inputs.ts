@@ -51,6 +51,21 @@ type BillingRow = {
   budget_reported_amount: number | string | null;
 };
 
+/** billing_cycles.extra_revenue_json の 1 要素 (= 別財布売上) */
+type ExtraRevenueEntry = {
+  label?: string | null;
+  amount_tax_excl?: number | string | null;
+  freee_invoice_number?: string | null;
+  billing_date?: string | null;
+  memo?: string | null;
+};
+
+type ExtraRevenueRow = {
+  project_id: string;
+  ym: string;
+  extra_revenue_json: ExtraRevenueEntry[] | null;
+};
+
 type RecurringItemRow = {
   id: string;
   display_name: string | null;
@@ -188,6 +203,39 @@ export async function buildLiveMonthlyPlInputs(
         ym: Number(row.ym),
         monthlyRevenue: revenue,
         memo: reported > 0 ? "billing_cycles.budget_reported_amount" : "billing_cycles.budget_yen/0.65",
+      });
+    }
+  }
+
+  // ---- 別財布（別契約）売上: 全 PJ の billing_cycles.extra_revenue_json ----
+  // 本契約 (定額/変動) とは別枠の単発受託売上。fee_type を問わず全 PJ から読む。
+  // エンジンには extraRevenue として注入され、売上・粗利・消費税・CF に加算される
+  // (原価は cap_extra プールで別途計上済みのため自動原価率は通さない)。請求日ベース同月計上。
+  const allProjectIds = projects.map((p) => p.project_id);
+  if (allProjectIds.length > 0) {
+    const extraRes = await supabase
+      .from("billing_cycles")
+      .select("project_id, ym, extra_revenue_json")
+      .in("project_id", allProjectIds)
+      .gte("ym", startYmStr)
+      .lte("ym", endYmStr)
+      .not("extra_revenue_json", "is", null)
+      .limit(2000);
+    if (extraRes.error) throw extraRes.error;
+    for (const row of (extraRes.data ?? []) as ExtraRevenueRow[]) {
+      const entries = Array.isArray(row.extra_revenue_json) ? row.extra_revenue_json : [];
+      const extraTotal = entries.reduce((sum, e) => sum + num(e?.amount_tax_excl), 0);
+      if (extraTotal <= 0) continue;
+      const ymNum = Number(row.ym);
+      const labels = entries
+        .map((e) => e?.label)
+        .filter((l): l is string => typeof l === "string" && l.length > 0)
+        .join(", ");
+      projectRevenues.push({
+        projectId: row.project_id,
+        ym: ymNum,
+        extraRevenue: extraTotal,
+        extraRevenueMemo: labels || "別財布売上",
       });
     }
   }

@@ -42,6 +42,8 @@ export type GasProjectDetail = {
   revenue: number;
   externalMember?: number;
   internalMember?: number;
+  /** 別財布（別契約）売上の内訳。revenue にこの額が含まれる。 */
+  extraRevenue?: number;
 };
 
 export type GasFixedCostDetail = {
@@ -865,7 +867,9 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
             })}
             {toggleState.revenue &&
               pjList.flatMap((pj, pi) => {
-                const revenueRow = detailRow(pj.projectName, (row) => row.pjDetails[pi]?.revenue || 0);
+                const hasExtra = rows.some((row) => (row.pjDetails[pi]?.extraRevenue || 0) > 0);
+                const revenueLabel = hasExtra ? `${pj.projectName} 🔵別財布込` : pj.projectName;
+                const revenueRow = detailRow(revenueLabel, (row) => row.pjDetails[pi]?.revenue || 0);
                 const costRow = (
                   <tr key={`${pj.projectId}_cost`}>
                     <td className="gas-cost-label">原価</td>
