@@ -3117,3 +3117,10 @@
 - **原因**: セッション開始時の `git fetch` (CLAUDE.md 4ステップ) を実行せず、ローカル main が origin/main より **9 commit 遅れ**ていた (別セッションが v0.20.8 まで進めていた)。
 - **解決策**: `git fetch --all` → ff-only merge で同期。version bump は origin/main の build-info を見てから次番号 (v0.20.9) を決定。
 - **教訓**: amd-os は新セッション開始時に必ず 4 ステップ (fetch / 未push検知 / branch / status) を実行。ローカルの古い値を信じない。
+
+## [finance] CX(p20) が契約終了後も無期限に売上計上 / 契約抽出が projects に反映されない (2026-06-16)
+
+- **症状**: `/management-score` 月次収支シミュレータで CX(p20) の売上が **202702 以降まで毎月¥290,000** 立ち続けていた。実際は 2026-06〜09 の4ヶ月有期契約 (最終振込10月) で、11月以降はゼロのはず。
+- **原因**: (1) `projects.p20` が `fee_type='monthly_fixed' / fee_amount=¥290,000 / start_ym='202511' / end_ym=null` の古い手入力値のまま。**`end_ym=null` の monthly_fixed は契約終了後も売上が止まらない** (シミュレータが start_ym 以降を無期限に立てる)。(2) より根本的には、契約書から抽出した `contract_terms` (term `1cf248e3` = 2026-06〜09 / schedule_based / 税込¥990,000 が **applied**、masa確定2026-06-15) が **projects/billing_cycles に反映される経路が存在しない**。`/admin/contracts` で applied にしてもステータスが変わるだけで projects は手入力依存のまま放置される。
+- **対応内容**: projects.p20 を契約実態へ修正: `fee_type='variable' / start_ym='202606' / end_ym='202610' / fee_amount=null`、`contract_terms_json` に契約メタ+月別スケジュール投入。billing_cycles の budget_yen (6月¥50,700/7-9月¥178,100) は正しいため不変更 → variable ロジックが ÷0.65 逆算で売上 6月¥78,000・7-9月¥274,000=税抜¥900,000 (契約一致)、10月以降は budget 無しで¥0。SQL で月別売上を検算確認。恒久対策として `spec/5-6 §Contract Apply` に「contract_terms applied → ①contract_terms_json ②fee系 ③billing_cycles の3層反映」経路を正本化し、実装を `task_20260616090543_vayt2` に起票。
+- **教訓**: (1) **`end_ym=null` の monthly_fixed は時限爆弾** — 有期契約は必ず終了月を入れる。契約終了後も粗利・CF・法人税が過大に出て経営判断を誤る。(2) **抽出インフラがあっても「抽出済み」≠「OS に効いている」** — applied になっても下流テーブルに書き戻る経路が無ければ画面の数字は古いまま。抽出系を作るときは反映先 (projects/billing_cycles) への writer までを1セットで設計する。(3) variable PJ の売上月レンジは end_ym でなく billing_cycles の有無で決まる (`live-monthly-pl-inputs.ts` 184行) — end_ym は表示・整合用。

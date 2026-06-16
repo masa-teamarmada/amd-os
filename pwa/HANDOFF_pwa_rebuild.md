@@ -1,43 +1,40 @@
 # HANDOFF - AMD OS PWA
 
-- Last updated: 2026-06-16 (月次収支シミュレータの OS ライブテーブル駆動化 / live builder 実装 + deploy)
-- Topic: `/management-score` 月次収支シミュレータを凍結 snapshot から live テーブル直読みへ。次は予実表/グラフの5要望
+- Last updated: 2026-06-16 (#2サブスク額 freee 棚卸し / CX無期限売上事故修正 / 契約Apply経路をspec化)
+- Topic: `/management-score` 5要望クローズ。次は **ZMP(p19) 収支確認 + OkuDoor 別財布**
 - Canonical root: `/Users/masa/projects/AMD/amd-os`
 - PWA root: `/Users/masa/projects/AMD/amd-os/pwa`
 - Production URL: `https://amd-os-pwa.vercel.app`
 - Current branch: `main`
-- Production: **v0.22.17 Ready 確認済み** (deploy.sh で git_sha 一致確認済)。その後別セッションが v0.23.0 を commit (HEAD=3178557d)。
+- Production: **HEAD=cb8aa5dd**。`build-info.ts`=v0.23.3 (governance系別セッションが bump)。本セッションはコード変更なし (DB書き換え+mdのみ) のため deploy.sh 不使用、md commit を直 push。
 
-## 直近セッション (2026-06-16 月次収支シミュレータ live builder)
+## 直近セッション (2026-06-16 #94 — 5要望クローズ + CX修正 + 契約Apply spec化)
 
-#92 で起票した `task_2a17f76e` を実装・本番反映。`/management-score` の月次収支シミュレータを、凍結 snapshot (`company_budget_inputs` version=`gas-2026-05-18-baseline`、SX二重計上や実在しない「新規1/2/3」が残っていた化石) から **OS ライブテーブル直読み**へ切替。エンジン/パネルは無改修、入力ソースだけ live 化。
+`task_caf24348` の5要望のうち #1/#3/#4/#5 は前セッション継続で `8cfcac23` (v0.23.1) 実装済み。本セッションは:
 
-- **新ファイル** `pwa/src/lib/finance/live-monthly-pl-inputs.ts`: `buildLiveMonthlyPlInputs(supabase, options)`。固定収益=`projects.fee_type='monthly_fixed'`の`fee_amount` / 変動収益=`fee_type='variable'`PJの`billing_cycles`(reported優先、なければ`budget_yen÷0.65`) / 固定費=`company_finance_recurring_items`(active) / 将来メンバー原価=MS進捗を期間按分した **uncapped 報酬** (`computeForwardUncappedMemberCosts` in `reward-summary.ts`) を`projectRevenues[].internalMemberCost`に注入。`fallbackParams`(snapshotの繰越欠損・社保率・法人税前提)を`...`展開で流用。`persistForecast`フラグ=**今回 false(読み取り専用)**。
-- **`page.tsx`**: `buildLiveGasSimulationResult(liveInputs, snapshotResult)` で live エンジンを server-side で回し snapshot 実績列をマージ、try/catch で snapshot fallback。
-- **実データ検証→正本固定**: 516行制約(`pjRev===0`月は原価スキップ)が現行 active PJ 全件で無害 / `deriveRewardBudgetForPt`解決順 / 主要PJ uncapped月次原価(p19≈¥195k/p20≈¥50.7k/p21≈¥56.8k/p25≈¥654.5k)を `pwa/manual/4-5-*.md` に表で固定。
+1. **#2 サブスク額を freee 取引実額で棚卸し** (本番DB書き換え, まさGO済): `company_finance_recurring_items.amount_yen` を freee `/api/1/deals?partner_id=` 実額で更新。slack→¥20,828 / claude→¥22,945 (freee正本, Max化前) / conduct→¥48,400 (税理士一本へ契約変更, 社労士2025-10解約) / co-en=つくばまちなかデザイン ¥38,500据置 (地代家賃)。commit `b1f95968`。
+2. **CX(p20) 無期限売上計上事故を修正** (本番DB書き換え, まさGO済): `monthly_fixed ¥290,000 / end_ym=null` が 202702まで無期限計上 → 契約書実態 (contract_terms `1cf248e3`, 2026-06〜09, 税込¥990,000, masa確定6/15) に合わせ `fee_type='variable' / start_ym=202606 / end_ym=202610 / contract_terms_json投入`。売上は billing_cycles ÷0.65逆算で6月¥78,000・7-9月¥274,000、10月以降¥0。billing_cycles不変更。
+3. **契約Apply経路をspec化**: `spec/5-6 §Contract Apply` 新設。contract_terms(applied)→①contract_terms_json ②fee系 ③billing_cycles の3層反映経路+end_ym必須ガードを定義。**自動反映は未実装** (applied=ステータス更新のみ=手編集依存)。実装は `task_20260616090543_vayt2` に起票。commit `cb8aa5dd`。
 
-詳細: `pwa/design_log/sessions_2026-06.md` #93 エントリ。正本: `pwa/manual/4-5-management-score-and-finance-simulation-spec.md` / `pwa/manual/7-1-reward-calc-spec.md`。
+詳細: `pwa/design_log/sessions_2026-06.md` #94。教訓: `pwa/BUGS.md` (CX無期限計上)。正本: `pwa/spec/5-6-contracts-management-current-spec.md` / `pwa/manual/4-5-*.md`。
 
 ## Repo State
 
-- Production v0.22.17 (このセッションで deploy)。HEAD=3178557d で別セッションが v0.23.0 を commit 済み (`build-info.ts`=v0.23.0)。
-- 作業ツリー: clean (origin/main と一致)。間違えて起動した background agent の `GasMonthlySimulationPanel.tsx` 中途編集は `git checkout` で破棄済み (新セッションがクリーンから着手すべきなので)。
-- ⚠️ 次セッション開始時は必ず `git fetch` → 並行セッションが頻繁に push する。deploy.sh が origin 乖離で止まったら `git rebase origin/main`。
+- HEAD=cb8aa5dd (push 済)。作業ツリー: `pwa/proposals/` のみ untracked (別作業, 触らない)。
+- 本セッションの commit: `b1f95968` (サブスク) / `cb8aa5dd` (CX+契約Apply spec)。いずれも md + DB のみ、コード変更なし。
+- ⚠️ 次セッション開始時は必ず `git fetch` → 並行セッション (governance系) が頻繁に push する。deploy.sh が origin 乖離で止まったら `git rebase origin/main`。
 
 ## Unresolved / 次セッションへの申し送り
 
-1. **(別セッション=チップ済 task_caf24348)** `/management-score` 予実表/グラフの5要望 (= まさ 2026-06-16 依頼):
-   - **#1 社保・法人税が予実表に出ていない** → エンジンにロジックはある(`socialIns` 425行 / `ctaxPayment`・`corpTaxPayment` 606行〜)。有力仮説=live builder の固定費が `costType:'taxable'` 固定(`live-monthly-pl-inputs.ts` 204行)で `executive`/`salary` 行が無く `socialInsBase=0`。`company_finance_recurring_items` の costType 実データ確認→実額で乗せる。
-   - **#2 Slack等サブスク月額が古い** → Gmail レシート / freee から最新額抽出して更新 (本番データ書き換え=まさ提示後)。
-   - **#3 予実表を全行表示** (`GasMonthlySimulationPanel.tsx` の `.table-wrap` max-height/overflow-y 除去)。
-   - **#4 売上原価をトグルで内訳展開** (PJ別 `pjDetails[].internalMember/externalMember`)。
-   - **#5 グラフに予算キャッシュ残高折れ線を追加**し予実比較。
-   - DB書き換えなしの #3/#4/#5 から着手・deploy 推奨。
-2. **(保留・まさ承認待ち)** A案: `persistForecast: true` で将来月の予測 uncapped 報酬を `billing_cycles.reward_summary_json` へ保存 (予実管理用)。本番データ書き込みなので別途まさ GO 後。
-3. **(別セッション=チップ済 task_6027de9a)** coverage/gap scanner の設計 (脱・属人化)。
-4. **(別セッション=チップ済 task_2eff788c)** AMD Scoreモデル改良v3.3。コアモデル変更=設計先行・まさ承認必須。
-5. **(保留・まさ承認待ち、過去継続)** 残骸 `l2_routine` / `tsukuyomi_estimate` 行の DELETE 掃除 (実害なし)。
-6. **(監視、過去継続)** 7月以降 p21 事業計画策定が未確定なら初の `ms_schedule_delay` 通知が出る。`/notifications` の "D-2 MS計画遅延" ラベル実地確認。
+1. **(次セッション=チップ済 task_ad1f0ea1) ★最優先** ZMP(p19, 葛飾ロード) 収支確認・修正 (まさ 2026-06-16 依頼):
+   - **収支ゼロ問題**: 予算(売上)とメンバー支払いが同額で収支ゼロ。まさも参画なので少なくともまさへの支払い分は粗利プラスのはず。原因特定 (報酬予算が売上に張り付き / まさ稼働を外部メンバー原価扱い していないか)。
+   - **OkuDoor 別財布**: ZMP は月次定額¥300,000以外に OkuDoor開発を別途受託 (別財布)。OkuDoor分の売上・原価がOSに正しく入っているか確認 (別project_id / billing_cycles / 別テーブル を調査)。
+   - ZMP 現状: p19 / 葛飾ロード / monthly_fixed ¥300,000 / start_ym=202506 / end_ym=null / contract_terms_json=null。
+2. **(別タスク=起票済 task_20260616090543_vayt2)** 契約 Apply 自動反映の実装。正本=`spec/5-6 §Contract Apply`。contract_terms(applied)→projects/billing_cycles 3層反映 writer を `/api/contracts` に。
+3. **(保留・まさ承認待ち)** A案: `persistForecast: true` で将来月予測 uncapped 報酬を `billing_cycles.reward_summary_json` へ保存。本番書き込みなので別途まさGO後。
+4. **(別セッション=チップ済 task_6027de9a)** coverage/gap scanner の設計 (脱・属人化)。
+5. **(別セッション=チップ済 task_2eff788c)** AMD Scoreモデル改良v3.3。コアモデル変更=設計先行・まさ承認必須。
+6. **(監視、過去継続)** 7月以降 p21 事業計画策定が未確定なら初の `ms_schedule_delay` 通知。`/notifications` "D-2 MS計画遅延" ラベル実地確認。
 7. **(別ワークストリーム、過去継続)** payment PR #2 / ERS 根拠メモ「未確認」埋め。下記 pointer 参照。
 
 ## First Next Action
@@ -49,7 +46,7 @@ git log --branches --not --remotes --oneline   # 未 push 検知
 git status -sb
 ```
 
-この handoff の doc 更新 (design_log + HANDOFF) を commit & push してから、次の依頼に入る。
+ZMP(p19) の収支確認に着手。まず正本spec (`manual/7-1-reward-calc-spec.md` / `manual/4-5-*.md`) を読み、`live-monthly-pl-inputs.ts` で ZMP 売上=¥300,000 に対しメンバー原価がどう計上されるか確認。OkuDoor は projects を `ilike '%OkuDoor%'` で検索 + billing_cycles/contract_terms/freee(葛飾ロード) を当たる。本セッションの handoff doc は既に commit & push 済み (`cb8aa5dd` 以降に追加 commit する)。
 
 ## Pointers
 
@@ -57,8 +54,9 @@ git status -sb
 - 確定仕様 (spec): `pwa/spec/3-10-l2-ms-progress-current-spec.md` (D-2 MS進捗の全契約)
 - 使い方 (manual): `pwa/manual/4-8-ms-progress-monthly-report-revision-spec.md`
 - 中核データ正本: `pwa/design/L2_DATA.md` / コックピット: `pwa/design/cockpit.md`
-- バグ・教訓: `pwa/BUGS.md` (今回のセッションは新規バグなし)
-- 過去セッションログ: `pwa/design_log/sessions_2026-06.md` (6/12 v3移行 / 6/13 アンカー方式)
+- バグ・教訓: `pwa/BUGS.md` (今回: CX 無期限売上計上 / 契約抽出が projects に反映されない 教訓を追記)
+- 契約管理 + Contract Apply: `pwa/spec/5-6-contracts-management-current-spec.md`
+- 過去セッションログ: `pwa/design_log/sessions_2026-06.md` (#94 が本セッション)
 - 実装ファイル: `pwa/src/lib/ms-schedule-shared.ts` (`anchoredExpectedCumPctForYm`) / `progress-estimator.ts` / `reward-summary.ts` / `src/app/api/cron/ms-schedule-progress/route.ts` / `src/app/api/progress/ms-schedule/route.ts`
 
 ### 別ワークストリーム (過去 handoff からの継続事項)

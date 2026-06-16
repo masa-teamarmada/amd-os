@@ -315,3 +315,38 @@
 4. 売上原価をトグルで内訳 (PJ別 internalMember/externalMember) 展開。
 5. グラフに予算キャッシュ残高折れ線を追加し予実比較。
 - DB 書き換えなしの #3/#4/#5 から着手・deploy 推奨。#1 は実データ検証後、#2 はまさ提示を挟む。
+
+## 2026-06-16 (#94) — 5要望クローズ (サブスク額 freee 棚卸し / #2) + CX 無期限売上計上事故の修正 + 契約 Apply 経路を spec 化
+
+> `task_caf24348` の5要望のうち #1/#3/#4/#5 は前セッション継続で `8cfcac23` (v0.23.1) 実装済み。本セッションは残 **#2 サブスク額更新**を freee 実額で完了し、まさ依頼で **CX(p20) の無期限売上計上事故**を発見・修正、さらに「契約書→自動入力」の設計欠落を **spec 5-6 §Contract Apply** として正本化した。コード変更なし (DB 書き換え + md のみ)。
+
+### #2 サブスク額を freee 取引実額で棚卸し (本番 DB 書き換え, まさ GO 済)
+- freee OAuth (`freee_oauth_tokens` の refresh_token → access_token) で `/api/1/deals?partner_id=` を vendor 別に引き、`company_finance_recurring_items.amount_yen` を実額更新。
+- slack ¥24,000→**¥20,828** / claude ¥45,000→**¥22,945** (freee正本ルール=freeeに実額あるものは優先。最新2025-10、Max化前のため2026実額が入り次第追従) / conduct ¥44,000→**¥48,400** (会計+労務2本→税理士一本へ契約変更。社労士法人コンダクトはfreee上2025-10で取引終了=解約確認。DBに社労士独立行は無く合算行を税理士単独額へ更新) / co-en=つくばまちなかデザイン **¥38,500 据置** (定常月額一致, 費目=地代家賃)。notion/DocuSign/freee 据置。
+- まさ判断: 「freeeデータが有るものはそっち優先」「Aで(claude=freee厳守¥22,945)」「社労士側デリートでおけ」。
+- 正本: `pwa/manual/4-5-*.md` に「サブスク額の正本=freee deals」行追加。commit `b1f95968`。
+
+### CX(p20) 無期限売上計上事故の修正 (本番 DB 書き換え, まさ GO 済)
+- **症状**: ZMP確認の前段でまさが指摘 → CX が `monthly_fixed ¥290,000 / start_ym=202511 / end_ym=null` で **202702 以降まで無期限に¥290,000を計上**。実際は 2026-06〜09 の4ヶ月有期契約 (最終振込10月)。
+- **原因**: 契約抽出 (`contract_terms` に term `1cf248e3` = 2026-06〜09 / schedule_based / 税込¥990,000 / masa確定2026-06-15 が **applied**) は動いていたが、**contract_terms → projects へ反映する経路が無い**。projects は古い手入力値のまま。
+- **修正**: projects.p20 を `fee_type='variable' / start_ym='202606' / end_ym='202610' / fee_amount=null` へ、`contract_terms_json` に契約メタ+月別スケジュール投入。billing_cycles の budget_yen (6月¥50,700/7-9月¥178,100) は正しいため不変更 → variable ロジックが ÷0.65 逆算で売上 6月¥78,000・7-9月¥274,000=税抜¥900,000 (契約一致)、10月以降は budget 無しで¥0。
+- **検算済**: SQL で 202606=¥78,000 / 202607-09=¥274,000 / 202610以降=¥0 を確認。variable PJ は end_ym でなく billing_cycles の有無で月レンジが決まる (`live-monthly-pl-inputs.ts` 184行)。
+
+### 契約 Apply 経路を spec 化 (まさ「契約書を見て自動入力する仕組みにしてほしい」「admin/projectsの契約関連カラムにも入れる」)
+- `pwa/spec/5-6-contracts-management-current-spec.md` に **「契約抽出 → projects / billing_cycles 反映 (Contract Apply)」節**を新設。`contract_terms` (applied) を ①`projects.contract_terms_json` ②`projects.fee_type/fee_amount/start_ym/end_ym` ③`billing_cycles.budget_yen` の3層へ反映する正本経路と必須ガード (end_ym 必須 / 複数 term 分割 / schedule_based は月別展開 / 本番書き換えはレビュー承認後) を定義。
+- `/admin/projects` の `AdminProjectsTable` は ① を展開した編集列群 (`contract_monthly_fee_yen` 等) を既に持つが、`contract_terms` テーブルから自動反映する writer は**未実装** (applied にしてもステータス更新のみ=手編集依存) と明記。
+- **実装は別タスク** `task_20260616090543_vayt2` に起票 (参照spec・CX実例・p21 SX good例付き)。
+- commit `cb8aa5dd` (manual 4-5/9-3, spec 5-6/6-1)。
+
+### 申し送り中に確認できた事項
+- #1 社保修正で出た「202602 役員報酬まさ ¥979,891行 + ¥100万行(202601-03)」の重複 → **¥100万は立替金精算とまさ確認済み (問題なし)**。社保 base 二重計上の懸念は残るが意図的な精算行。
+
+### Verified
+- 全 DB 書き換えは UPDATE 後 SELECT で反映確認。CX 売上は billing_cycles ÷0.65 逆算を SQL で再現確認。
+- コード変更なしのため tsc/build は未実行 (md + DB のみ)。`git push origin main` 2回 (`b1f95968` / `cab8aa5dd`) 成功。
+
+### 次セッションへ (spawn_task `task_ad1f0ea1` で起票済)
+**ZMP(p19, 葛飾ロード) の収支確認・修正**:
+1. ZMP の予算(売上)とメンバー支払いが同額で収支ゼロ → まさも参画してるので少なくともまさへの支払い分は粗利プラスになるはず。原因特定 (報酬予算が売上に張り付いていないか / まさ稼働を外部メンバー原価扱いしていないか)。
+2. ZMP は月次定額 (¥300,000) 以外に **OkuDoor 開発を別途受託 (別財布)**。OkuDoor 分の売上・原価が OS に正しく入っているか確認 (別 project_id か billing_cycles か別テーブルか要調査)。
+- ZMP 現状: p19 / 葛飾ロード / monthly_fixed ¥300,000 / start_ym=202506 / end_ym=null / contract_terms_json=null。
