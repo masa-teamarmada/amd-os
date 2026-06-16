@@ -1,35 +1,35 @@
 # HANDOFF - AMD OS PWA
 
-- Last updated: 2026-06-17 (別財布売上の一級市民化 + 開発期間按分(B-a) / ⚠️ /admin/payouts 表に未反映が発覚)
-- Topic: ZMP(p19) 別財布売上の按分実装。次は **別財布按分を `/admin/payouts`「先12か月 PJ収支」表にも反映**
+- Last updated: 2026-06-17 (別財布按分を /admin/payouts PJ収支表にも反映 / 按分ロジックを共通lib化, v0.25.2)
+- Topic: 別財布売上の開発期間按分を **両系統 (`/management-score` + `/admin/payouts`)** に反映完了。按分ロジックを `src/lib/finance/extra-revenue.ts` に集約
 - Canonical root: `/Users/masa/projects/AMD/amd-os`
 - PWA root: `/Users/masa/projects/AMD/amd-os/pwa`
 - Production URL: `https://amd-os-pwa.vercel.app`
 - Current branch: `main`
-- Production: **HEAD=87692fb1** (= meeting_summaries doc, 別セッション push)。`build-info.ts`=v0.25.1 (本セッション)。本セッションの deploy は `062fc2e8`=v0.25.1 で完了済み (live git_sha 確認済)。
+- Production: 本セッション deploy = v0.25.2 (`build-info.ts`)。直前 deploy は v0.25.1 (`062fc2e8`)。次セッションは `git fetch` で並行セッションの push を必ず取り込む。
 
-## 直近セッション (2026-06-17 — 別財布売上 一級市民化 → 開発期間按分)
+## 直近セッション (2026-06-17 — 別財布按分を両系統に反映 + 共通lib化, v0.25.2)
 
-ZMP(p19) の「収支ゼロ」= OkuDoor開発の別契約原価(cap_extra)だけ乗り売上が無い問題を解決。
+ZMP(p19) の別財布売上 (OkuDoor ¥200万) 開発期間按分を、`/management-score` だけでなく `/admin/payouts`「先12か月 PJ収支」表にも反映完了。直前 v0.25.1 で (A) live builder だけに按分を実装し (B) PJ収支表を verify 時に見落として横ばい表示になった問題 (BUGS.md 2026-06-17) の解決。
 
-1. **別財布売上を一級市民化 (v0.25.0, commit `1cd08f78`)**: `billing_cycles.extra_revenue_json` (migration 142, 本番適用済) に別枠売上を構造化。live builder が全PJから読んで `extraRevenue` 注入、エンジンが売上計・粗利・消費税・CF に加算 (原価率は通さない)。当初は請求月一括計上。
-2. **旧L2丸数字禁止チェック削除 (commit `efde3fab`)**: `expectNoCircledNumbering` はまさの意図取り違え (本来=旧L2ナンバリング参照禁止)。削除。spec/3-0 の `expectNotIncludes` は残す。
-3. **計上方式を開発期間按分(B-a)へ修正 (v0.25.1, commit `062fc2e8`)**: まさ確定 A=202605〜202610(6ヶ月)/B=B-a(PL・CF同月)/C=B-2(総額+期間を正本、エンジン按分)。`extra_revenue_json` に `period_start_ym/end_ym` を持たせると live-inputs 層 (`monthsBetween`/`nextYmInt`) で各月按分展開。OkuDoor ¥200万を202605〜202610 各¥333,333(最終月¥333,335) に本番更新。end-to-end 検証済 (月次収支シミュレータで p19 が202605〜610 ¥633,333)。
+1. **按分ロジックを共通 lib に集約 (新規 `src/lib/finance/extra-revenue.ts`)**: `expandExtraRevenue(rows, {minYm, maxYm})` + `ymToInt`/`nextYmInt`/`monthsBetween`。`extra_revenue_json` を持つ全行から period 按分を展開し `(projectId, ym)` で集約。**両系統がこの1関数を呼ぶ** = 収支表が増えても按分を取りこぼさない構造。
+2. **(A) `live-monthly-pl-inputs.ts`**: ローカル按分ループ・型を削除し共通 lib を呼ぶようリファクタ (挙動不変)。
+3. **(B) `/admin/payouts`**: route が `extra_revenue_json IS NOT NULL` の全行を `extraRevenueRows` で返却 (按分元 ym=202603 が表示窓より前でも取りこぼさないため全行取得→展開後 minYm/maxYm フィルタ)。`AdminPayoutsClient.tsx` の `buildProjectMonthlyFinanceRows` が `expandExtraRevenue` で各月セルに `extraRevenueYen` 加算、`別財布 ¥…` を sky-blue 表示。
+4. **検証**: 本番 DB のソース行を共通関数に通すと p19 = 202605〜609 各¥333,333 / 202610 ¥333,335 / 計¥200万。両画面が同一ソース・同一関数を共有するためこの値が両方に出る。`/admin/payouts` は admin auth gate でブラウザスクショ不可 (認証入力は禁止行為)、データ経路を end-to-end 検証して代替。tsc/build green。
 
-詳細: `pwa/design_log/sessions_2026-06.md` (2026-06-17セクション)。正本: `pwa/manual/4-5-*.md`。
+直前セッション (v0.25.0〜v0.25.1, commits `1cd08f78`/`efde3fab`/`062fc2e8`): 別財布売上の一級市民化 (`billing_cycles.extra_revenue_json` migration 142) → 開発期間按分 (B-a) 実装。詳細は `pwa/design_log/sessions_2026-06.md` の同日エントリ群。
+
+詳細: `pwa/design_log/sessions_2026-06.md` (2026-06-17セクション)。正本: `pwa/manual/4-5-*.md` / `pwa/BUGS.md`。
 
 ## Repo State
 
-- HEAD=87692fb1 (push済, 別セッションの doc commit)。本セッション commit=`1cd08f78`/`efde3fab`/`062fc2e8` 全て push済。
-- 作業ツリー: `pwa/proposals/` のみ untracked (別作業, 触らない)。本 handoff の md commit を追加 push する。
+- 本セッション = 別財布按分の両系統反映 (v0.25.2)。新規 `src/lib/finance/extra-revenue.ts` + route/AdminPayoutsClient/live-inputs/build-info を1 commit に束ねて push + deploy.sh で本番反映。
+- 作業ツリー: `pwa/proposals/` のみ untracked (別作業, 触らない)。
 - ⚠️ 次セッション開始時は必ず `git fetch` → 並行セッションが頻繁に push。deploy.sh が origin 乖離で止まったら `git rebase origin/main`。
 
 ## Unresolved / 次セッションへの申し送り
 
-1. **★最優先** 別財布按分を `/admin/payouts`「先12か月 PJ収支」表にも反映 (まさ 2026-06-17 発見、BUGS.md記録):
-   - **症状**: 月次収支シミュレータ(`/management-score`)には按分反映済みだが、`/admin/payouts` の「先12か月 PJ収支」表は ZMP が横ばい(按分なし)。
-   - **原因**: PJ収支コンポーネントが**2系統**。(A)`/management-score`=live builder経由(extraRevenue読む=反映済)。(B)`/admin/payouts`=`AdminPayoutsClient.tsx:2516`、`cycle.budget_yen`ベースの独自forecast(extra_revenue_json読まない=未反映)。
-   - **対応**: (B) の forecast計算(`AdminPayoutsClient.tsx` line 720-760付近、`forecastCycles`)に按分を足す。`live-monthly-pl-inputs.ts` の `monthsBetween`/`nextYmInt`/按分ロジックを共通ヘルパー(`src/lib/finance/`)に切り出して両系統で共用するのが望ましい(ロジック二重実装回避)。
+1. ✅ **解決済 (v0.25.2)** 別財布按分を `/admin/payouts`「先12か月 PJ収支」表にも反映。按分ロジックを共通 lib `src/lib/finance/extra-revenue.ts` に集約し両系統で共用 (詳細は上の直近セッション / BUGS.md 2026-06-17 クローズ)。
 2. **(別セッション継続)** ZMP 残課題: ① OkuDoor企画(20pt)・現地運用(20pt)MSが tag=normal で regular財布混入。② plan cycle total_points=187 に OkuDoor pt 含まれ ptUnit希釈。③ 他PJ別財布売上を順次 extra_revenue_json 投入(今後は `period_*` 付きで自動按分)。
 3. **(別タスク=起票済 task_20260616090543_vayt2)** 契約 Apply 自動反映の実装。正本=`spec/5-6 §Contract Apply`。
 4. **(保留・まさ承認待ち)** A案: `persistForecast: true` で将来月予測 uncapped 報酬を `billing_cycles.reward_summary_json` へ保存。本番書き込みなので別途まさGO後。

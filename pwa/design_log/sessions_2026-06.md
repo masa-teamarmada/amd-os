@@ -417,3 +417,17 @@
 **⚠️ deploy 後にまさが発見した未反映問題 (→ BUGS.md に記録、次セッション最優先)**: まさが `/admin/payouts` の「先12か月 PJ収支」表を見ると ZMP が按分されず横ばい。原因は **PJ収支コンポーネントが2系統**あること。(A) `/management-score` 月次収支シミュレータ = live builder 経由で按分反映済み。(B) `/admin/payouts`「先12か月 PJ収支」(`AdminPayoutsClient.tsx:2516`) = `cycle.budget_yen` ベースの独自 forecast ロジックで `extraRevenue`/`extra_revenue_json` を**一切読まない**。本セッションは (A) だけ検証して「反映OK」と報告した verify 網羅性不足。(B) の forecast 計算 (line 720-760付近) に按分ロジックを足す必要あり (live-inputs の `monthsBetween`/`nextYmInt` を共通ヘルパー化して両系統で共用が望ましい)。
 
 **今後の課題 (別セッション可)**: ① OkuDoor企画(20pt)・現地運用(20pt)MSが tag=normal で regular財布に混入したまま (B「全部cap_extra統一」未完。原価側の財布分離はsystem開発のみ)。② plan cycle total_points=187 に OkuDoor pt も含まれ ptUnit希釈 → regular財布へ食い込み。③ 他PJの別財布売上があれば extra_revenue_json に順次投入。
+
+### 2026-06-17 — 別財布売上の開発期間按分を /admin/payouts PJ収支表にも反映 (共通lib化, v0.25.2)
+
+**経緯**: 直前セッション (v0.25.1) で別財布売上の開発期間按分 (B-a) を実装したが、`/management-score` 月次収支シミュレータ (A系統) にだけ反映し、`/admin/payouts`「先12か月 PJ収支」表 (B系統) を verify 時に見落とした。まさが (B) を見ると ZMP(p19) が 202607 以降「予算 ¥195,000」で横ばい、別財布按分が乗っていなかった (BUGS.md 2026-06-17)。原因は **PJ収支を出すコンポーネントが2系統**あり、(B) は `cycle.budget_yen` ベースの独自 forecast で `extra_revenue_json` を一切読まなかったこと。
+
+**対応 (按分ロジックを共通 lib に集約)**:
+- **新規 `src/lib/finance/extra-revenue.ts`**: `expandExtraRevenue(rows, {minYm, maxYm})` + `ymToInt`/`nextYmInt`/`monthsBetween`。`extra_revenue_json` を持つ全行を受け取り、`period_start_ym〜period_end_ym` を月次按分して `(projectId, ym)` ごとに集約 (端数は最終月寄せ)。期間未指定は `billing_cycles.ym` へ一括 (後方互換)。**両系統がこの1関数を呼ぶ**ことで再発防止。
+- **(A) `live-monthly-pl-inputs.ts`**: ローカルの按分ループ・型 (`ExtraRevenueEntry`/`ymToInt`/`nextYmInt`/`monthsBetween`) を削除し共通 lib を import。挙動不変。
+- **(B-route) `src/app/api/admin/payouts/route.ts`**: `loadTargetData` に「`extra_revenue_json IS NOT NULL` の全行」を読むクエリを追加し `extraRevenueRows` で返却。**按分元 ym が表示窓より前 (例: OkuDoor は ym=202603) でも取りこぼさないため、表示期間でクエリを絞らず全行取得→展開後に minYm/maxYm でフィルタ**する設計に統一。
+- **(B-client) `AdminPayoutsClient.tsx`**: `buildProjectMonthlyFinanceRows` が `expandExtraRevenue` を呼び、各月セルに `extraRevenueYen` を加算 (`finalBalanceYen = budgetYen + extraRevenueYen - forecastPayoutYen`)。cycle が無い PJ×月に按分が残れば独立セルを立てる。grand chip / 列計 / 各セルに `別財布 ¥…` を sky-blue 表示。フィルタ条件に `extraRevenueYen > 0` を追加。
+
+**検証 (両系統)**: 本番 DB の唯一のソース行 (p19, ym=202603, OkuDoorシステム開発 税抜¥2,000,000, period 202605〜202610) を共通 `expandExtraRevenue` に通すと **202605〜202609 各 ¥333,333 / 202610 ¥333,335 / 計 ¥2,000,000**。両画面が同一ソースクエリ・同一関数を共有するため、この値が両方に出る。`/admin/payouts` は admin auth gate のため headless ブラウザでのスクショは不可 (認証情報入力は禁止行為)。データ経路を end-to-end で検証して目視スクショの代替とした。tsc/build green。
+
+**今後の課題 (別セッション継続)**: ZMP 残課題は変わらず — ① OkuDoor企画(20pt)・現地運用(20pt)MS が tag=normal で regular財布混入。② plan cycle total_points=187 に OkuDoor pt 含まれ ptUnit希釈。③ 他PJ別財布売上を順次 extra_revenue_json 投入 (period_* 付きで自動按分)。

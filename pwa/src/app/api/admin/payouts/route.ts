@@ -8,6 +8,7 @@ import {
   type PaymentProjectRow,
 } from "@/lib/payment-groups";
 import { syncRewardSummariesForBillingCycles } from "@/lib/reward-summary";
+import type { ExtraRevenueSourceRow } from "@/lib/finance/extra-revenue";
 
 export const runtime = "nodejs";
 
@@ -930,7 +931,7 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
   const sourceYms = [...new Set(cycles.map((cycle) => cycle.ym))];
   const projectIds = [...new Set(cycles.map((cycle) => cycle.project_id))];
 
-  const [payoutsRes, noticesRes] = await Promise.all([
+  const [payoutsRes, noticesRes, extraRevenueRes] = await Promise.all([
     sourceYms.length > 0 && projectIds.length > 0
       ? db
           .from("monthly_reward_payout")
@@ -939,10 +940,19 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
           .in("project_id", projectIds)
       : Promise.resolve({ data: [], error: null }),
     db.from("payout_notices").select("*").eq("ym", ym),
+    // 別財布（別契約）売上の按分元行。period 按分先 (将来月) と按分元行の ym は別月に
+    // なりうるので、forecast 期間で絞らず extra_revenue_json IS NOT NULL の全行を取る。
+    // 表示期間での絞り込みはクライアントの expandExtraRevenue(minYm/maxYm) で行う。
+    db
+      .from("billing_cycles")
+      .select("project_id, ym, extra_revenue_json")
+      .not("extra_revenue_json", "is", null)
+      .limit(2000),
   ]);
 
   if (payoutsRes.error) throw payoutsRes.error;
   if (noticesRes.error) throw noticesRes.error;
+  if (extraRevenueRes.error) throw extraRevenueRes.error;
 
   return {
     ym,
@@ -952,6 +962,7 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
     cycles,
     forecastMonths: Array.from({ length: 12 }, (_, index) => addMonths(ym, index)),
     forecastCycles,
+    extraRevenueRows: (extraRevenueRes.data ?? []) as ExtraRevenueSourceRow[],
     forecastPlanCycles: (forecastPlanCyclesRes.data ?? []) as ForecastPlanCycleRow[],
     payouts: payoutsRes.data ?? [],
     notices: noticesRes.data ?? [],

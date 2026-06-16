@@ -7,13 +7,18 @@
 
 ### [finance] 別財布売上 (extraRevenue) が `/admin/payouts`「先12か月 PJ収支」表に未反映 — 収支系コンポーネントが2系統あり片方だけ実装した (2026-06-17)
 
-- **状態**: ⚠️ 未解決 (= 次セッション最優先。`/management-score` 側は反映済み、`/admin/payouts` 側が未実装)
+- **状態**: ✅ クローズ (2026-06-17, v0.25.2 — 按分ロジックを共通 lib `src/lib/finance/extra-revenue.ts` に集約し両系統から呼ぶよう修正、本番 deploy 済み)
 - **症状**: 別財布売上 (OkuDoor ¥200万) を開発期間按分 (202605〜202610 各¥333,333) で実装・本番deploy (v0.25.1) 後、まさが `/admin/payouts` の「先12か月 PJ収支」表を見ると ZMP(p19) が 202607以降「予算 ¥195,000」で**横ばい**、別財布按分が全く乗っていない。
 - **原因**: AMD OS には PJ収支を出すコンポーネントが**2系統**ある。
   - **(A) 月次収支シミュレータ** (`/management-score`, `GasMonthlySimulationPanel.tsx`): `buildLiveMonthlyPlInputs` → `runMonthlyPlSimulation` 経由。`extraRevenue` を読む。→ **按分は正しく反映済み** (本セッションで end-to-end 検証: 202605〜202610 が ¥633,333 = 定額¥30万+按分¥333,333)。
   - **(B) 先12か月 PJ収支表** (`/admin/payouts`, `AdminPayoutsClient.tsx:2516`): `cycle.budget_yen` から `payoutYen` を引いて `finalBalanceYen` を出す**独自ロジック** (line 730付近)。`buildLiveMonthlyPlInputs` も `extraRevenue` も `extra_revenue_json` も**一切通らない**。→ 別財布売上が構造的に入らない。
   - 本セッションは (A) だけ実装し、(B) の存在を verify 時に見落とした。`/management-score` の live builder だけ検証して「反映OK」と判断したのが誤り。
-- **対応方針 (未着手)**: (B) `AdminPayoutsClient.tsx` の forecast 計算 (`forecastCycles` / line 720-760付近) で `billing_cycles.extra_revenue_json` を読み、period按分 (live-inputs と同じ `monthsBetween`/`nextYmInt` ロジック) で各月の収支に加算する。按分ロジックは `src/lib/finance/live-monthly-pl-inputs.ts` に既にあるので、共通ヘルパー化して両系統から呼ぶのが望ましい (ロジック二重実装を避ける)。
+- **解決内容 (2026-06-17, v0.25.2)**:
+  - 按分ロジックを新規共通 lib `src/lib/finance/extra-revenue.ts` に集約 (`expandExtraRevenue(rows, {minYm, maxYm})` + `ymToInt`/`nextYmInt`/`monthsBetween`)。`extra_revenue_json` を持つ全行を受け取り、`period_start_ym〜period_end_ym` を月次按分して `(projectId, ym)` ごとに集約する。
+  - (A) `live-monthly-pl-inputs.ts`: ローカルの按分ループ・型を削除し共通 lib を呼ぶようリファクタ (挙動不変)。
+  - (B) `/admin/payouts`: route (`src/app/api/admin/payouts/route.ts`) に「`extra_revenue_json IS NOT NULL` の全行」を読むクエリを追加 (`extraRevenueRows` で返却)。`AdminPayoutsClient.tsx` の `buildProjectMonthlyFinanceRows` が同じ `expandExtraRevenue` を呼び、各月セルに `extraRevenueYen` を加算 (`finalBalanceYen = budgetYen + extraRevenueYen - forecastPayoutYen`)。grand / 列計 / セルに「別財布 ¥…」を sky-blue で表示。
+  - **重要 edge case**: 按分元行は ym=202603 (表示窓より前) にある。(B) のクエリを表示開始月で絞ると取りこぼすため、絞り込みは「全行取得 → 展開後に minYm/maxYm でフィルタ」に統一した。
+  - **検証 (両系統)**: 本番 DB の唯一のソース行を共通 `expandExtraRevenue` に通すと p19 = 202605〜202609 各 ¥333,333 / 202610 ¥333,335 / 計 ¥2,000,000。両画面が同一ソース・同一関数を共有するためこの値が両方に出る。`/admin/payouts` は admin auth gate のため headless ブラウザでのスクショは不可、データ経路を end-to-end で検証して代替した。
 - **教訓**: **「PJ収支」を出す画面が複数ある**。finance 系の数字を変えたら `/management-score` と `/admin/payouts` の**両方**で目視確認する。片方の live builder だけ検証して「反映済み」と報告しない (verify の網羅性不足)。按分・売上計上ロジックは1箇所 (live-inputs) に集約されてないと、新しい収支表が増えるたびに取りこぼす。理想は collect/按分ロジックを共通 lib 化して全収支コンポーネントが同じ関数を呼ぶ構造。
 
 ---

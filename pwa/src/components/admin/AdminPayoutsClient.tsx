@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CockpitMonthlyModal } from "@/components/cockpit/CockpitMonthlyModal";
 import { fetchCockpitFromSupabase, type CockpitData } from "@/lib/supabase-data";
+import { expandExtraRevenue, type ExtraRevenueSourceRow } from "@/lib/finance/extra-revenue";
 
 type Member = {
   member_id: string;
@@ -138,6 +139,7 @@ type PayoutData = {
   forecastPlanCycles?: ForecastPlanCycle[];
   payouts: MonthlyRewardPayout[];
   notices: PayoutNotice[];
+  extraRevenueRows?: ExtraRevenueSourceRow[];
   expectedEntries?: PayoutEntry[];
   refreshedRewards?: boolean;
 };
@@ -226,6 +228,8 @@ type ProjectMonthlyFinanceCell = {
   ym: string;
   baseClientAmountYen: number;
   budgetYen: number;
+  /** 別財布（別契約）売上の当月按分額 (税抜)。本契約の budgetYen とは別枠で収支に加算する。 */
+  extraRevenueYen: number;
   payoutYen: number;
   officerPayoutYen: number;
   stockYen: number;
@@ -659,6 +663,7 @@ function capEntriesToBudget(entries: PayoutEntry[], budgetYen: number | null): P
 function buildProjectMonthlyFinanceRows({
   months,
   cycles,
+  extraRevenueRows,
   projectMap,
   memberMap,
   payoutExcludedMemberIds,
@@ -668,6 +673,7 @@ function buildProjectMonthlyFinanceRows({
 }: {
   months: string[];
   cycles: BillingCycle[];
+  extraRevenueRows: ExtraRevenueSourceRow[];
   projectMap: Map<string, Project>;
   memberMap: Map<string, string>;
   payoutExcludedMemberIds: Set<string>;
@@ -696,6 +702,24 @@ function buildProjectMonthlyFinanceRows({
     officerByCycle.set(key, list);
   }
 
+  // 別財布（別契約）売上を表示期間で按分展開し (projectId:ym) ごとに引けるようにする。
+  // 按分元行の ym は表示期間より前のこともあるので、絞り込みは展開後の minYm/maxYm で行う
+  // (= live-monthly-pl-inputs と同じ共通ヘルパー expandExtraRevenue を共用)。
+  const monthInts = months.map((ym) => Number(ym)).filter((n) => Number.isFinite(n));
+  const minMonth = monthInts.length > 0 ? Math.min(...monthInts) : undefined;
+  const maxMonth = monthInts.length > 0 ? Math.max(...monthInts) : undefined;
+  const extraByPjYm = new Map<string, { amount: number; labels: string[] }>();
+  for (const ex of expandExtraRevenue(extraRevenueRows, { minYm: minMonth, maxYm: maxMonth })) {
+    extraByPjYm.set(`${ex.projectId}:${ex.ym}`, { amount: ex.amount, labels: ex.labels });
+  }
+  const takeExtra = (projectId: string, ym: string): { amount: number; labels: string[] } => {
+    const key = `${projectId}:${ym}`;
+    const hit = extraByPjYm.get(key);
+    if (!hit) return { amount: 0, labels: [] };
+    extraByPjYm.delete(key); // cycle に乗せたら二重計上を防ぐため消す
+    return hit;
+  };
+
   const rows = new Map<string, ProjectMonthlyFinanceRow>();
   const ensureRow = (projectId: string) => {
     const project = projectMap.get(projectId);
@@ -708,6 +732,7 @@ function buildProjectMonthlyFinanceRows({
         totals: {
           baseClientAmountYen: 0,
           budgetYen: 0,
+          extraRevenueYen: 0,
           payoutYen: 0,
           officerPayoutYen: 0,
           stockYen: 0,
@@ -738,13 +763,16 @@ function buildProjectMonthlyFinanceRows({
       !hasRewardMembers && payoutYen === 0 && budgetYen > 0 && canForecastPayout && payoutEligibleProjectIds.has(cycle.project_id)
         ? budgetYen
         : payoutYen;
-    const finalBalanceYen = budgetYen - forecastPayoutYen;
+    // 別財布売上 (税抜) は本契約 budgetYen とは別枠の収入なので最終収支に純増させる。
+    const extra = takeExtra(cycle.project_id, cycle.ym);
+    const finalBalanceYen = budgetYen + extra.amount - forecastPayoutYen;
     const cell: ProjectMonthlyFinanceCell = {
       projectId: cycle.project_id,
       projectName: row.projectName,
       ym: cycle.ym,
       baseClientAmountYen,
       budgetYen,
+      extraRevenueYen: extra.amount,
       payoutYen: forecastPayoutYen,
       officerPayoutYen,
       stockYen,
@@ -754,11 +782,36 @@ function buildProjectMonthlyFinanceRows({
     row.cells.push(cell);
     row.totals.baseClientAmountYen += baseClientAmountYen;
     row.totals.budgetYen += budgetYen;
+    row.totals.extraRevenueYen += extra.amount;
     row.totals.payoutYen += forecastPayoutYen;
     row.totals.officerPayoutYen += officerPayoutYen;
     row.totals.stockYen += stockYen;
     row.totals.grossDueYen += grossDueYen;
     row.totals.finalBalanceYen += finalBalanceYen;
+  }
+
+  // cycle が存在しない PJ×月にも別財布按分が残っていれば独立セルとして立てる。
+  // 例: OkuDoor(p19) は ym=202603 の 1 行に period 202605〜202610 を持つため、
+  // 202604〜610 に billing_cycles 行が無くても按分額の収支セルが必要。
+  for (const [key, val] of [...extraByPjYm.entries()]) {
+    const [projectId, ymStr] = key.split(":");
+    const row = ensureRow(projectId);
+    const cell: ProjectMonthlyFinanceCell = {
+      projectId,
+      projectName: row.projectName,
+      ym: ymStr,
+      baseClientAmountYen: 0,
+      budgetYen: 0,
+      extraRevenueYen: val.amount,
+      payoutYen: 0,
+      officerPayoutYen: 0,
+      stockYen: 0,
+      grossDueYen: 0,
+      finalBalanceYen: val.amount,
+    };
+    row.cells.push(cell);
+    row.totals.extraRevenueYen += val.amount;
+    row.totals.finalBalanceYen += val.amount;
   }
 
   return [...rows.values()]
@@ -770,6 +823,7 @@ function buildProjectMonthlyFinanceRows({
         ym,
         baseClientAmountYen: 0,
         budgetYen: 0,
+        extraRevenueYen: 0,
         payoutYen: 0,
         officerPayoutYen: 0,
         stockYen: 0,
@@ -777,7 +831,7 @@ function buildProjectMonthlyFinanceRows({
         finalBalanceYen: 0,
       }),
     }))
-    .filter((row) => row.totals.budgetYen > 0 || row.totals.payoutYen > 0 || row.totals.stockYen > 0 || row.totals.baseClientAmountYen > 0)
+    .filter((row) => row.totals.budgetYen > 0 || row.totals.payoutYen > 0 || row.totals.stockYen > 0 || row.totals.baseClientAmountYen > 0 || row.totals.extraRevenueYen > 0)
     .sort((a, b) => a.projectName.localeCompare(b.projectName, "ja"));
 }
 
@@ -1070,6 +1124,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
     () => buildProjectMonthlyFinanceRows({
       months: forecastMonths,
       cycles: data?.forecastCycles ?? [],
+      extraRevenueRows: data?.extraRevenueRows ?? [],
       projectMap,
       memberMap,
       payoutExcludedMemberIds,
@@ -1077,7 +1132,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
       planCycles: data?.forecastPlanCycles ?? [],
       payoutEligibleProjectIds,
     }),
-    [data?.forecastCycles, data?.forecastPlanCycles, forecastMonths, memberMap, officerMemberIds, payoutEligibleProjectIds, payoutExcludedMemberIds, projectMap]
+    [data?.forecastCycles, data?.extraRevenueRows, data?.forecastPlanCycles, forecastMonths, memberMap, officerMemberIds, payoutEligibleProjectIds, payoutExcludedMemberIds, projectMap]
   );
 
   const budgetConfirmGroups = useMemo<BudgetConfirmGroup[]>(() => {
@@ -2492,6 +2547,7 @@ function ProjectMonthlyFinanceTable({
       return {
         ym,
         budgetYen: cells.reduce((sum, cell) => sum + cell.budgetYen, 0),
+        extraRevenueYen: cells.reduce((sum, cell) => sum + cell.extraRevenueYen, 0),
         payoutYen: cells.reduce((sum, cell) => sum + cell.payoutYen, 0),
         stockYen: cells.reduce((sum, cell) => sum + cell.stockYen, 0),
         finalBalanceYen: cells.reduce((sum, cell) => sum + cell.finalBalanceYen, 0),
@@ -2502,11 +2558,12 @@ function ProjectMonthlyFinanceTable({
   const grand = monthTotals.reduce(
     (acc, item) => ({
       budgetYen: acc.budgetYen + item.budgetYen,
+      extraRevenueYen: acc.extraRevenueYen + item.extraRevenueYen,
       payoutYen: acc.payoutYen + item.payoutYen,
       stockYen: acc.stockYen + item.stockYen,
       finalBalanceYen: acc.finalBalanceYen + item.finalBalanceYen,
     }),
-    { budgetYen: 0, payoutYen: 0, stockYen: 0, finalBalanceYen: 0 }
+    { budgetYen: 0, extraRevenueYen: 0, payoutYen: 0, stockYen: 0, finalBalanceYen: 0 }
   );
 
   return (
@@ -2520,6 +2577,7 @@ function ProjectMonthlyFinanceTable({
         </div>
         <div className="ml-auto flex flex-wrap gap-2 text-[11px]">
           <span className="rounded bg-muted/50 px-2 py-1">PJ予算 {fmtYen(grand.budgetYen)}</span>
+          {grand.extraRevenueYen > 0 && <span className="rounded bg-sky-100 px-2 py-1 text-sky-900">別財布 {fmtYen(grand.extraRevenueYen)}</span>}
           <span className="rounded bg-muted/50 px-2 py-1">支払予定 {fmtYen(grand.payoutYen)}</span>
           {grand.stockYen > 0 && <span className="rounded bg-amber-100 px-2 py-1 text-amber-900">stock {fmtYen(grand.stockYen)}</span>}
           <span className={`rounded px-2 py-1 font-semibold ${grand.finalBalanceYen < 0 ? "bg-red-100 text-red-800" : "bg-emerald-100 text-emerald-800"}`}>
@@ -2561,6 +2619,7 @@ function ProjectMonthlyFinanceTable({
                         {fmtSignedYen(total.finalBalanceYen)}
                       </div>
                       <div className="mt-0.5 text-[10px] text-muted-foreground">予算 {fmtYen(total.budgetYen)}</div>
+                      {total.extraRevenueYen > 0 && <div className="text-[10px] text-sky-700">別財布 {fmtYen(total.extraRevenueYen)}</div>}
                       <div className="text-[10px] text-muted-foreground">支払 {fmtYen(total.payoutYen)}</div>
                       {total.stockYen > 0 && <div className="text-[10px] text-amber-700">stock {fmtYen(total.stockYen)}</div>}
                     </td>
@@ -2577,7 +2636,7 @@ function ProjectMonthlyFinanceTable({
                       <div className="mt-0.5 text-[10px] font-normal text-muted-foreground">支払 {fmtYen(row.totals.payoutYen)}</div>
                     </td>
                     {row.cells.map((cell) => {
-                      const hasData = cell.budgetYen > 0 || cell.payoutYen > 0 || cell.stockYen > 0 || cell.baseClientAmountYen > 0;
+                      const hasData = cell.budgetYen > 0 || cell.extraRevenueYen > 0 || cell.payoutYen > 0 || cell.stockYen > 0 || cell.baseClientAmountYen > 0;
                       return (
                         <td key={`${row.projectId}:${cell.ym}`} className="border-b border-r border-border px-2 py-2 text-right align-top">
                           {hasData ? (
@@ -2590,6 +2649,7 @@ function ProjectMonthlyFinanceTable({
                                 {fmtSignedYen(cell.finalBalanceYen)}
                               </div>
                               <div className="text-[10px] text-muted-foreground">予算 {fmtYen(cell.budgetYen)}</div>
+                              {cell.extraRevenueYen > 0 && <div className="text-[10px] text-sky-700">別財布 {fmtYen(cell.extraRevenueYen)}</div>}
                               <div className="text-[10px] text-muted-foreground">支払 {fmtYen(cell.payoutYen)}</div>
                               {cell.stockYen > 0 && <div className="text-[10px] text-amber-700">stock {fmtYen(cell.stockYen)}</div>}
                             </button>
