@@ -412,4 +412,8 @@
 - `monthly-pl-simulation.ts`: **エンジン本体は無改修**。既存 `extraRevenueForYm` (ym一致加算) と cashRevenue (delay 0) がそのまま按分済みデータを受ける。コメントのみ「請求日ベース単発」→「按分は live-inputs層で展開」に更新。
 - **本番データ更新**: p19/202603 の extra_revenue_json に `period_start_ym=202605`/`period_end_ym=202610` を追加 (`amount_tax_excl=2000000` は不変)。按分結果 = 202605〜202609 各¥333,333 + 202610 ¥333,335 = ¥2,000,000。まさGO「ごー！」取得済み。
 
+**検証 (本番データ end-to-end)**: `buildLiveMonthlyPlInputs` → `runMonthlyPlSimulation` で p19 月次売上を確認: 202601〜04 ¥30万 / 202605〜09 ¥633,333 (定額¥30万+按分¥333,333) / 202610 ¥633,335 / 202611以降 ¥30万。cash も同月一致 (B-a)。按分合計¥200万。tsx のモジュールキャッシュで一度0件に見えたが、新規プロセスで再実行して正しく按分されることを確認。デバッグログは commit にも本番にも未混入。
+
+**⚠️ deploy 後にまさが発見した未反映問題 (→ BUGS.md に記録、次セッション最優先)**: まさが `/admin/payouts` の「先12か月 PJ収支」表を見ると ZMP が按分されず横ばい。原因は **PJ収支コンポーネントが2系統**あること。(A) `/management-score` 月次収支シミュレータ = live builder 経由で按分反映済み。(B) `/admin/payouts`「先12か月 PJ収支」(`AdminPayoutsClient.tsx:2516`) = `cycle.budget_yen` ベースの独自 forecast ロジックで `extraRevenue`/`extra_revenue_json` を**一切読まない**。本セッションは (A) だけ検証して「反映OK」と報告した verify 網羅性不足。(B) の forecast 計算 (line 720-760付近) に按分ロジックを足す必要あり (live-inputs の `monthsBetween`/`nextYmInt` を共通ヘルパー化して両系統で共用が望ましい)。
+
 **今後の課題 (別セッション可)**: ① OkuDoor企画(20pt)・現地運用(20pt)MSが tag=normal で regular財布に混入したまま (B「全部cap_extra統一」未完。原価側の財布分離はsystem開発のみ)。② plan cycle total_points=187 に OkuDoor pt も含まれ ptUnit希釈 → regular財布へ食い込み。③ 他PJの別財布売上があれば extra_revenue_json に順次投入。

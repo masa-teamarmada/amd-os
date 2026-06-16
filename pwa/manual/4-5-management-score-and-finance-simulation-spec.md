@@ -417,6 +417,7 @@ MS の pt 消化は**必ず期間の月数で按分**する (まとめ達成禁�
 したがって `projectRevenues[].internalMemberCost` 注入方式のままで取りこぼしは無い。**将来、売上が立たない月に報酬原価だけ発生する PJ が現れたら**、その月の原価は `varCosts[]` (= 売上に紐づかない変動費) として注入する必要がある。live builder にこの分岐を足す前に、この表を再確認する。
 
 > **逆ケース (= 別財布売上) は実装済み (2026-06-16)**: 上記は「原価だけ立って売上が無い」穴だが、ZMP (p19) で逆の「**別契約の原価 (cap_extra) は立つのに、その売上が本契約売上に乗らない**」問題が起きていた。OkuDoor システム開発を定額¥30万/月とは別に ¥2,000,000 (税抜) で受託していたが、原価 (cap_extra uncapped 報酬) だけが costMember に乗り、売上が無いため粗利を食い潰して収支がゼロ〜赤字に見えていた。対策として `billing_cycles.extra_revenue_json` (migration 142) に別財布売上を構造化して持たせ、live builder が `projectRevenues[].extraRevenue` として注入、エンジンが売上計・粗利・消費税・CF に加算する (原価率は通さない)。複数財布 PJ の汎用管理基盤としても使う (まさ確定 2026-06-16, B案: extraRevenue を一級市民化)。**計上方式は開発期間按分 (B-a)**: `period_start_ym`〜`period_end_ym` を持たせると総額を開発期間で月次按分し、PL計上もキャッシュ入金も同じ按分月に乗せる (= 単月の収支が実態に近くなる、pt消化と同じ「期間で割る」思想)。OkuDoor は開発期間 202605〜202610 の6ヶ月按分 (≒¥333,333/月)。当初は請求月一括計上で実装したが、まさ確定で按分方式に修正 (2026-06-16)。
+> ⚠️ **反映先は現状 `/management-score` 月次収支シミュレータのみ (2026-06-17時点)**: PJ収支を出す画面は2系統あり、`/admin/payouts`「先12か月 PJ収支」表 (`AdminPayoutsClient.tsx`) は `cycle.budget_yen` ベースの独自 forecast で `extra_revenue_json` を読まないため、別財布売上が乗らない。両系統への反映は次対応 (BUGS.md 2026-06-17 エントリ参照)。finance の数字を変えたら両画面で目視確認すること。
 
 #### 報酬予算の月次解決順 (`deriveRewardBudgetForPt`) と uncapped 月次原価の実測概算
 
