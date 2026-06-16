@@ -398,4 +398,18 @@
 
 **検証 (本番データ end-to-end)**: live builder で p19/202603 revenue = ¥30万 → **¥230万**、grossProfit が¥200万増、CF差¥220万(税込)、翌月202604は¥30万のまま(持続せず)。build/tsc 通過。
 
+### 2026-06-17 — 別財布売上の計上方式を請求月一括 → 開発期間按分 (B-a) に修正 (v0.25.1)
+
+**経緯**: 上記 v0.25.0 は二転三転の中で「請求月一括 (2026-03)」で実装したが、まさの本来の意図は **B案=開発期間按分** だった (「開発が走った月に売上を分散。単月の収支が実態に近くなる。pt消化と同じ思想」)。まさ確定 2026-06-17「B-aで」。
+
+**確定仕様 (A=期間 / B=B-a / C=B-2)**:
+- **A. 按分期間** = OkuDoorシステム開発MS (`cap_extra`) の `period_start_ym=202605` 〜 `target_ym=202610` の **6ヶ月** (value_milestones から確認)
+- **B. 計上方式 B-a** = PL計上もキャッシュ入金も同じ按分月 (請求月と按分月を分けない簡易版)
+- **C. データ正本 B-2** = `extra_revenue_json` に `{amount_tax_excl, period_start_ym, period_end_ym}` を1行で持ち、**エンジン (live builder層) が期間で按分展開**。按分済みの数字を人が入れるのは将来の期間変更で破綻するため、総額+期間を正本にする (pt消化と同じ一元化思想)
+
+**実装**:
+- `live-monthly-pl-inputs.ts`: `ExtraRevenueEntry` に `period_start_ym`/`period_end_ym` を追加。期間指定があれば `monthsBetween`/`nextYmInt` ヘルパーで総額÷月数を各月行に展開し `(projectId,ym)` で集約して push (端数は最終月寄せ)。期間指定なしは従来どおり `billing_cycles.ym` 一括 (後方互換)。シミュ期間外の按分月は捨てる。
+- `monthly-pl-simulation.ts`: **エンジン本体は無改修**。既存 `extraRevenueForYm` (ym一致加算) と cashRevenue (delay 0) がそのまま按分済みデータを受ける。コメントのみ「請求日ベース単発」→「按分は live-inputs層で展開」に更新。
+- **本番データ更新**: p19/202603 の extra_revenue_json に `period_start_ym=202605`/`period_end_ym=202610` を追加 (`amount_tax_excl=2000000` は不変)。按分結果 = 202605〜202609 各¥333,333 + 202610 ¥333,335 = ¥2,000,000。まさGO「ごー！」取得済み。
+
 **今後の課題 (別セッション可)**: ① OkuDoor企画(20pt)・現地運用(20pt)MSが tag=normal で regular財布に混入したまま (B「全部cap_extra統一」未完。原価側の財布分離はsystem開発のみ)。② plan cycle total_points=187 に OkuDoor pt も含まれ ptUnit希釈 → regular財布へ食い込み。③ 他PJの別財布売上があれば extra_revenue_json に順次投入。

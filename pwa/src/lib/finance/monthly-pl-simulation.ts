@@ -78,8 +78,10 @@ export interface MonthlyPlProjectRevenue {
    * monthlyRevenue (= 上書き・持続) と違い「立つ月だけ加算」セマンティクス (spot と同じ)。
    * 原価は cap_extra プールの uncapped 報酬として internalMemberCost 経由で別途計上済みなので、
    * extraRevenue には rateMember/rateCloser の自動原価計算を **通さない** (二重計上を防ぐ)。
-   * 入金は請求日ベースの同月キャッシュ (delay 0) として cashRevenue に乗る。
-   * 実例: OkuDoor システム開発 ¥2,000,000 (p19, 2026-03 一括請求, 定額¥30万/月とは別財布)。
+   * 入金は同月キャッシュ (delay 0) として cashRevenue に乗る (B-a)。
+   * 開発期間按分は live-inputs 層 (live-monthly-pl-inputs.ts) で総額÷期間月数を各月行に展開して
+   * 注入する (= pt消化と同じ「期間で割る」思想)。エンジンはここで来た ym ごとの額を素直に加算する。
+   * 実例: OkuDoor システム開発 ¥2,000,000 (p19, 開発期間 202605〜202610 を6ヶ月按分≒¥333,333/月)。
    */
   extraRevenue?: number | null;
   extraRevenueMemo?: string | null;
@@ -329,7 +331,8 @@ function projectRevenueForYm(
 
 /**
  * その月・その PJ の別財布（別契約）売上の合計。
- * monthlyRevenue (上書き・持続) と違い「その月ちょうど (ym 一致)」だけ加算する単発セマンティクス。
+ * monthlyRevenue (上書き・持続) と違い「その月ちょうど (ym 一致)」だけ加算する。
+ * 開発期間按分は live-inputs 層で各月行に展開済みなので、ここは ym 一致の額を素直に合算する。
  * 原価は cap_extra プールで別途計上済みなので、ここで rateMember/rateCloser は通さない。
  */
 function extraRevenueForYm(
@@ -503,7 +506,8 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
       let cashYm = addMonthsToYm(scheduleYm, delay);
       if (pj.cashStartYm && cashYm < pj.cashStartYm) cashYm = pj.cashStartYm;
       if (pjRev > 0) addCashRevenue(cashYm, pj.projectId, pjRev);
-      // 別財布売上は請求日ベースの同月キャッシュ (delay 0)。本契約の入金遅延ルールとは独立。
+      // 別財布売上は同月キャッシュ (delay 0, B-a)。本契約の入金遅延ルールとは独立。
+      // 開発期間按分済みの ym ごとの額がそのまま入金月になる。
       if (pjExtra > 0) addCashRevenue(scheduleYm, pj.projectId, pjExtra);
     }
     scheduleYm = nextYm(scheduleYm);

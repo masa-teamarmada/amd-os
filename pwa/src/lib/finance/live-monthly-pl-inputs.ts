@@ -58,6 +58,15 @@ type ExtraRevenueEntry = {
   freee_invoice_number?: string | null;
   billing_date?: string | null;
   memo?: string | null;
+  /**
+   * 開発期間按分 (B-a, 2026-06-16 まさ確定)。period_start_ym〜period_end_ym を指定すると
+   * amount_tax_excl を期間月数で割り、各月に均等配分する (pt消化と同じ「期間で割る」思想)。
+   * 端数は最終月に寄せる。PL計上もキャッシュ入金も同じ按分月 (B-a)。
+   * 両方未指定なら従来どおり billing_cycles.ym に一括計上 (後方互換)。
+   * 形式は "YYYYMM" (例: "202605")。
+   */
+  period_start_ym?: string | null;
+  period_end_ym?: string | null;
 };
 
 type ExtraRevenueRow = {
@@ -88,6 +97,22 @@ function ymToInt(ym: string | null | undefined): number | null {
   if (!ym) return null;
   const n = Number(ym);
   return Number.isFinite(n) ? n : null;
+}
+
+/** YYYYMM 整数の翌月 (年跨ぎ対応)。例: 202612 -> 202701 */
+function nextYmInt(ym: number): number {
+  const y = Math.floor(ym / 100);
+  const m = ym % 100;
+  return m >= 12 ? (y + 1) * 100 + 1 : y * 100 + (m + 1);
+}
+
+/** start..end (両端含む) の月数。例: 202605..202610 = 6 */
+function monthsBetween(start: number, end: number): number {
+  const ys = Math.floor(start / 100);
+  const ms = start % 100;
+  const ye = Math.floor(end / 100);
+  const me = end % 100;
+  return (ye - ys) * 12 + (me - ms) + 1;
 }
 
 export interface BuildLiveInputsOptions {
@@ -210,32 +235,66 @@ export async function buildLiveMonthlyPlInputs(
   // ---- 別財布（別契約）売上: 全 PJ の billing_cycles.extra_revenue_json ----
   // 本契約 (定額/変動) とは別枠の単発受託売上。fee_type を問わず全 PJ から読む。
   // エンジンには extraRevenue として注入され、売上・粗利・消費税・CF に加算される
-  // (原価は cap_extra プールで別途計上済みのため自動原価率は通さない)。請求日ベース同月計上。
+  // (原価は cap_extra プールで別途計上済みのため自動原価率は通さない)。
+  // period_start_ym〜period_end_ym 指定があれば開発期間で月次按分 (B-a, 2026-06-16)、
+  // 無ければ billing_cycles.ym へ一括計上 (後方互換)。
   const allProjectIds = projects.map((p) => p.project_id);
   if (allProjectIds.length > 0) {
     const extraRes = await supabase
       .from("billing_cycles")
       .select("project_id, ym, extra_revenue_json")
       .in("project_id", allProjectIds)
-      .gte("ym", startYmStr)
-      .lte("ym", endYmStr)
       .not("extra_revenue_json", "is", null)
       .limit(2000);
     if (extraRes.error) throw extraRes.error;
+
+    // (projectId, ym) ごとに按分後の金額とラベルを集約する
+    const extraByPjYm = new Map<string, { amount: number; labels: Set<string> }>();
+    const addExtra = (projectId: string, ym: number, amount: number, label: string) => {
+      if (!(ym >= startYm && ym <= endInt)) return; // シミュレーション期間外は捨てる
+      if (!Number.isFinite(amount) || amount === 0) return;
+      const key = `${projectId}:${ym}`;
+      const cur = extraByPjYm.get(key) ?? { amount: 0, labels: new Set<string>() };
+      cur.amount += amount;
+      if (label) cur.labels.add(label);
+      extraByPjYm.set(key, cur);
+    };
+
     for (const row of (extraRes.data ?? []) as ExtraRevenueRow[]) {
       const entries = Array.isArray(row.extra_revenue_json) ? row.extra_revenue_json : [];
-      const extraTotal = entries.reduce((sum, e) => sum + num(e?.amount_tax_excl), 0);
-      if (extraTotal <= 0) continue;
-      const ymNum = Number(row.ym);
-      const labels = entries
-        .map((e) => e?.label)
-        .filter((l): l is string => typeof l === "string" && l.length > 0)
-        .join(", ");
+      const fallbackYm = Number(row.ym);
+      for (const e of entries) {
+        const total = num(e?.amount_tax_excl);
+        if (total <= 0) continue;
+        const label = typeof e?.label === "string" && e.label.length > 0 ? e.label : "別財布売上";
+        const startStr = e?.period_start_ym;
+        const endStr = e?.period_end_ym;
+        const pStart = ymToInt(startStr);
+        const pEnd = ymToInt(endStr);
+        if (pStart != null && pEnd != null && pEnd >= pStart) {
+          // 開発期間で月次按分。端数は最終月に寄せる (pt消化と同じ思想)。
+          const periodMonths = monthsBetween(pStart, pEnd);
+          const per = Math.floor(total / periodMonths);
+          let ym = pStart;
+          for (let i = 0; i < periodMonths; i++) {
+            const amount = i === periodMonths - 1 ? total - per * (periodMonths - 1) : per;
+            addExtra(row.project_id, ym, amount, label);
+            ym = nextYmInt(ym);
+          }
+        } else {
+          // 期間指定なし → billing_cycles.ym へ一括 (後方互換)。
+          addExtra(row.project_id, fallbackYm, total, label);
+        }
+      }
+    }
+
+    for (const [key, val] of extraByPjYm) {
+      const [projectId, ymStr] = key.split(":");
       projectRevenues.push({
-        projectId: row.project_id,
-        ym: ymNum,
-        extraRevenue: extraTotal,
-        extraRevenueMemo: labels || "別財布売上",
+        projectId,
+        ym: Number(ymStr),
+        extraRevenue: val.amount,
+        extraRevenueMemo: Array.from(val.labels).join(", ") || "別財布売上",
       });
     }
   }
