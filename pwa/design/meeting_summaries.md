@@ -315,6 +315,18 @@ Meet / CircleBack / Gmail 議事録メールだけでは、会議中に画面共
 | `GET /api/meeting-assets/file/{asset_id}` | admin session で legacy Storage signed URL へ redirect、またはDrive fileを権限内でstream |
 | `POST /api/meeting-assets/insert-markdown` | 添付一覧を `narrative_md` の添付資料 block に挿入/置換 |
 
+### えいみ / CLI から資料をコックピットに載せる正しい手順 (2026-06-17 まさ指摘・再発防止)
+
+`POST /api/meeting-assets` / `POST /api/project-documents` は `requireAdmin` / `requireAuth`（ブラウザ session 必須）で、**CLI の Bearer (CRON_SECRET) では叩けない**。`meeting-assets` Storage bucket は `image/* + application/pdf` のみ許可で **md/docx 等は 415**。ローカル `.env.local` に Google Drive 認証は無く Drive API 直叩きもできない。
+
+→ えいみ / Codex が CLI から資料をコックピットに載せるときは、**PDF 変換や Storage 直挿しでこじらせない**。次の 3 手順を使う（まさが何度も指示している正規ルート）:
+
+1. **実ファイルは共有ドライブに置く**: ローカルにマウントされた Google Drive (`~/Library/CloudStorage/GoogleDrive-masa@team-armada.jp/共有ドライブ/...`) の、当該 PJ の `AMD OS 資料` フォルダへ `cp` する。例: p00 (AMD全社) = `共有ドライブ/ARMADA/a0_management/AMD OS 資料/`。`cp` だけで Drive へ同期される（コックピット「資料」セクションの実体フォルダ）。
+2. **Drive ファイル ID は xattr から取る**: `xattr -p 'com.google.drivefs.item-id#S' "<file>"` → Drive item-id。Web URL は `https://drive.google.com/file/d/<id>/view`。Drive API 認証は不要。
+3. **リンクを埋める**: その Drive URL を、該当 MTG カードの `project_meeting_summaries.narrative_md`（または相応の表示箇所）へ service_role REST で埋める。
+
+MTG カード自体の生成は `POST /api/meeting-prep` が Bearer (CRON_SECRET) で叩けるので CLI から作れる。`source_kinds='upcoming'`、`meeting_id='upcoming:<calendar_event_id>'`（実 Calendar event id）にすると H-1 calendar-sync と重複しない。
+
 ### 会議後 workflow の次MTG抽出ルール
 
 - `POST /api/meeting-workflow/finalize` は `next_meeting.meeting_start_at` が明示された場合、その1件を優先してカード化する。
