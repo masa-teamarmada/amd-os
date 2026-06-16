@@ -281,3 +281,37 @@
 
 ### 関連メモ更新 (Cowork memory)
 - `memory/feedback_amd_finance_source_of_truth.md` 新規 (財務正本=収支スプシ / OS は派生で stale 化 / 所有者の確定値を再監査して空転しない)。
+
+## 2026-06-16 (#93) — 月次収支シミュレータを OS ライブテーブル駆動へ (live builder 実装 + deploy) / 5要望を次セッションへ起票
+
+> #92 で起票した `task_2a17f76e`「収支シミュレータを生きたOSデータ駆動に切替」を実装・本番反映したセッション。エンジン/パネルは無改修、入力ソースだけ live 化。build v0.22.9→(rebase で)v0.22.17 で deploy 済み (その後別セッションが v0.23.0)。
+
+### 実装
+- **新ファイル `pwa/src/lib/finance/live-monthly-pl-inputs.ts`**: `buildLiveMonthlyPlInputs(supabase, options)` が live テーブルから `MonthlyPlInputs` を構築。
+  - 固定収益 = `projects.fee_type='monthly_fixed'` の `fee_amount`
+  - 変動収益 = `fee_type='variable'` PJ の `billing_cycles` (reported優先、なければ `budget_yen ÷ 0.65`)
+  - 固定費 = `company_finance_recurring_items` (active)
+  - 将来メンバー原価 = MS進捗を期間按分した **uncapped 報酬** (`computeForwardUncappedMemberCosts` in `reward-summary.ts`) を `projectRevenues[].internalMemberCost` に注入
+  - `options.fallbackParams` (= snapshot の `MonthlyPlParams`: 繰越欠損・社保率・法人税前提) を `...fallbackParams` で展開して流用
+  - `persistForecast` フラグで将来予測を `billing_cycles.reward_summary_json` に書くか制御。**今回は `false` = 読み取り専用** (A案の DB write はまさ承認後に別途)
+- **`management-score/page.tsx`**: `buildLiveGasSimulationResult(liveInputs, snapshotResult)` を追加。live エンジンを server-side で回し、snapshot の実績列 (予実比較) をマージ。try/catch で snapshot fallback (落ちても画面は壊れない)。
+- エンジン `monthly-pl-simulation.ts` / パネル `GasMonthlySimulationPanel.tsx` は無改修。
+
+### Verified (実データ検証 → 正本 doc へ固定)
+- **エンジン516行制約 (`pjRev===0` の月は原価スキップ) が現行 active PJ 全件で無害**を SQL で確認 (p00=総pt0 / p07・p24・p26=plan cycle無し / p06=過去cycle / p10-21=monthly_fixedで毎月売上 / p25=全月billing有り)。
+- `deriveRewardBudgetForPt` の月次報酬予算解決順 (billing `budget_yen` → `fee×0.65` fallback → cycle budget按分) と主要PJ uncapped 月次原価 (p19≈¥195k / p20≈¥50.7k / p21≈¥56.8k / p25≈¥654.5k)。p21 の 2026/04–05 は `budget_yen=0` で fee fallback が効く。
+- 上記は `pwa/manual/4-5-management-score-and-finance-simulation-spec.md` に表で固定 (セレンディピティ依存の出口対策)。`pwa/manual/7-1-reward-calc-spec.md` も uncapped 定義 + 将来原価シミュ節を実装に同期。
+- `npx tsc --noEmit` clean / `npm run build` BUILD_EXIT=0。deploy.sh で本番 git_sha 一致確認済。
+
+### ハマり
+- deploy.sh が **origin/main 乖離**で停止 (別セッションが 8 commit push)。`git rebase origin/main` で取り込み、conflict 2件を解決: `build-info.ts` (相手 v0.22.16 → v0.22.17 に上げる) / `9-3-appendix-changelog.md` (append-only なので両側エントリ全保持)。page.tsx / reward-summary.ts は auto-merge。
+- **間違えて background agent を起動した**: まさの「次セッション立ち上げて」は spawn_task が正解 (このセッションを閉じる前提なので子プロセス agent は無意味)。`AGENTS.common.md` にルール追記 + `memory/feedback_next_session_use_spawn_task.md` 新規。
+
+### 次セッションへ (spawn_task `task_caf24348` で起票済)
+`/management-score` の予実表/グラフへ5要望:
+1. 社保・法人税の支払いが予実表に出ていない → エンジンにロジックはある (`socialIns` 425行 / `ctaxPayment`・`corpTaxPayment` 606行〜)。有力仮説 = live builder の固定費が `costType:'taxable'` 固定 (204行) で `costType:'executive'/'salary'` 行が無く `socialInsBase=0`。`company_finance_recurring_items` の costType 実データ確認 → 実額で乗せる。
+2. Slack 等サブスク月額が古い → Gmail レシート / freee から最新額を抽出して更新 (本番データ書き換え=まさ提示後)。
+3. 予実表を縦スクロールさせず全行表示 (`GasMonthlySimulationPanel.tsx` の `.table-wrap` max-height/overflow-y 除去)。
+4. 売上原価をトグルで内訳 (PJ別 internalMember/externalMember) 展開。
+5. グラフに予算キャッシュ残高折れ線を追加し予実比較。
+- DB 書き換えなしの #3/#4/#5 から着手・deploy 推奨。#1 は実データ検証後、#2 はまさ提示を挟む。
