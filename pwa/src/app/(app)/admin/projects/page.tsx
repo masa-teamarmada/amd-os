@@ -82,6 +82,8 @@ export default async function AdminProjectsPage() {
       drive_folder_id: p.drive_folder_id ?? null,
       freee_partner_id: p.freee_partner_id ?? null,
       report_emails: p.report_emails ?? null,
+      governance_watch_shareholder_meetings: !!p.governance_watch_shareholder_meetings,
+      governance_watch_board_meetings: !!p.governance_watch_board_meetings,
       start_ym: p.start_ym ?? null,
       end_ym: p.end_ym ?? null,
       fee_type: p.fee_type ?? null,

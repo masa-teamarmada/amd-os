@@ -165,6 +165,8 @@ cockpit のガバナンス欄・要対応面はサーバ側 admin クライア�
 
 - **正本は admin 手動キュレーション** (まさ「記録しておく場所が必要」)。/admin に編集 UI。
 - 抽出は**候補生成の補助**に留める: 招集通知メールから `project_shareholder_meetings` 候補 (種別/日付/議案/添付) と、ラウンド系議案から `project_valuation_rounds` 候補を作り、`/notifications` で承認 → 反映。cap table の株数/比率の自動確定はしない (PDF 依存・誤抽出リスク)。
+- **2026-06-16 追加: `/admin/projects` の監視フラグ**。`projects.governance_watch_shareholder_meetings` (=「総会」) / `projects.governance_watch_board_meetings` (=「役会」) を持ち、ON の PJ だけ D-14G の Gmail sweep 対象にする。検索対象は当該 `projects.report_emails` との `from/to/cc` やりとり + ガバナンス keyword に限定する。`report_emails` が空の PJ はフラグONでも sweep skip。初期 ON は AMD 全体 (`p00`)、LST (`p07`)、CLG (`p24`)。
+- **D-14G Governance Email Sweep**: `GET /api/cron/governance-email-sweep`。既定は `apply=false` で `/api/governance/extract` に候補投入し、`source_cache(source='gmail_governance')` に source ref / snippet / hash を残す。`apply=1` のときだけ canonical `project_shareholder_meetings` 反映 + 添付Drive保存まで進める。通常運用は候補優先、LST のように高確度で日付・種別・PJ が揃う場合だけ apply 実行する。
 - **2026-06-16 追加: `/api/governance/extract`** が `project_shareholder_meetings` 候補の受け口。D-14/L3 collector が Gmail/Drive/Calendar 等から LST の取締役書面決議・株主総会招集通知・議案資料を見つけたら、この route に `items[]` を POST する。
   - 既定 (`mode` 未指定 / `apply=false`): `l2_coverage_gaps` に `proposed_target_l2='shareholder_meeting'` の review candidate として保存し、`l2_notifications` に「ガバナンス履歴候補」を出す。canonical row は汚さない。
   - 確認済み (`mode='apply'` or `apply=true`): `project_shareholder_meetings` に insert する。dedupe は `source_ref` 優先、無い場合は project/type/date/agenda の組み合わせ。

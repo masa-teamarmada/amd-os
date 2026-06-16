@@ -11,7 +11,7 @@
 | Codex local automation | Mac側の primary writer。outbox を作り、non-LLM applier が反映する | M-1, D-6, D-8, W-1, D-10(Mac) |
 | MMO側 Codex Desktop / launcher | MMO側の primary writer。meeting flow と日次知識抽出を担う | D-1, D-2, D-3, D-4, H-1, D-10(MMO) |
 | PWA non-LLM cron | freee 同期や index 集計など、LLM 不要の定期処理 | D-12, D-9(index) |
-| PWA route + Codex collector planned | route はあるが前段 collector が未実装 | D-13, D-14, L3-1, M-3 |
+| PWA route + Codex collector planned / partial | route はあるが前段 collector が未実装または段階実装中 | D-13, D-14, L3-1, M-3 |
 | 例外 | Codex 側 writer だが、内部 route が Anthropic API を使う | D-10 |
 
 ## Historical Note: 2026-06-04 registration gate
@@ -71,6 +71,7 @@ cadence は **D / M / W / H** で残すが、writer は now mixed。下の表で
 | **D-11** | Media Mentions | `project_media_mentions` / `news_mention` notifications | まだ専用writerなし | media mention candidate + notification |
 | **D-12** | Finance Ops Evidence / freee Transaction Actuals | freee `trial_pl` / `company_actual_monthly` / `amd_management_score_raw_signals` / finance ops tables | PWA non-LLM cron `/api/cron/management-score-raw-data?includeFreee=1` + admin review | freee取引履歴 → 月次試算表の実績値 |
 | **D-13** | Contract Signals | `contract_signals` / `contracts` / `contract_documents` | PWA route `POST /api/contracts/extract-l2` + Codex collector planned | 契約管理 `/admin/contracts`、l2_notifications(l2_kind='contract_signals') |
+| **D-14** | Action Items + Governance Email Sweep | `action_items` / `project_shareholder_meetings` / `source_cache(source='gmail_governance')` | PWA routes `POST /api/action-items/extract` / `GET /api/cron/governance-email-sweep` / `POST /api/governance/extract` + Codex collector planned | `/admin/projects` の「総会」「役会」ON PJだけ `report_emails` × ガバナンスkeywordで Gmail を検索し、既定は候補、`apply=1` で canonical + Drive添付保存 |
 | **M-1** | Monthly Reports | `monthly_reports` | Codex automation `AMD OS M-1 月次報告抽出` (`amd-os-l2`) | monthly reports outbox → applier |
 | **M-2** | XRL Evidence | `project_xrl_evidence` / `project_founding_members` | `amd-os-ms` 系 second wave 予定 | M-1後に抽出。candidate → confirmed |
 | **M-3** | Management Monthly Signal | `company_management_signal_reviews` | month-end runner planned | M-1 / M-2後に抽出。18:00 MTG 前に出揃わせる |

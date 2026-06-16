@@ -25,6 +25,8 @@ export interface ProjectRow {
   drive_folder_id: string | null;
   freee_partner_id: string | null;
   report_emails: string | null;
+  governance_watch_shareholder_meetings: boolean;
+  governance_watch_board_meetings: boolean;
   start_ym: string | null;
   end_ym: string | null;
   fee_type: string | null;
@@ -162,6 +164,8 @@ function ProjectCategoryBadge({ value }: { value: string | null | undefined }) {
 interface Props {
   projects: ProjectRow[];
 }
+
+type GovernanceWatchField = "governance_watch_shareholder_meetings" | "governance_watch_board_meetings";
 
 type EditVals = {
   project_name: string;
@@ -354,6 +358,20 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
     setSaving(null);
   };
 
+  const saveGovernanceWatch = async (p: ProjectRow, field: GovernanceWatchField, checked: boolean) => {
+    setSaving(p.id);
+    const r = await patchProject(p.id, { projectsPatch: { [field]: checked } });
+    if (!r.ok) {
+      setHint(`ガバナンス監視 保存エラー: ${r.error}`);
+    } else {
+      setProjects((prev) => prev.map((x) => x.id === p.id ? { ...x, [field]: checked } : x));
+      const label = field === "governance_watch_shareholder_meetings" ? "総会" : "役会";
+      setHint(`${p.project_name} の ${label} 監視を ${checked ? "ON" : "OFF"} にしました`);
+      setTimeout(() => setHint(""), 2500);
+    }
+    setSaving(null);
+  };
+
   const saveCell = async (p: ProjectRow, field: string) => {
     setSaving(p.id);
     // field ごとに patch を組む。null/empty 扱いを丁寧に。
@@ -462,7 +480,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
 
       {/* Table */}
       <div className="overflow-x-auto border border-border rounded-lg">
-        <table className="text-[12px] border-collapse" style={{ minWidth: "1980px" }}>
+        <table className="text-[12px] border-collapse" style={{ minWidth: "2100px" }}>
           <thead className="sticky top-0 z-30">
             <tr className="bg-muted text-muted-foreground">
               <th className="text-left px-3 py-2 font-medium sticky left-0 z-40 bg-muted w-14">PJID</th>
@@ -473,6 +491,8 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
               <th className="text-left px-3 py-2 font-medium w-56">メンバー</th>
               <th className="text-left px-3 py-2 font-medium w-40">請求先</th>
               <th className="text-left px-3 py-2 font-medium w-56">関係先メールアドレス</th>
+              <th className="text-center px-3 py-2 font-medium w-16">総会</th>
+              <th className="text-center px-3 py-2 font-medium w-16">役会</th>
               <th className="text-left px-3 py-2 font-medium w-32">請求書送付</th>
               <th className="text-left px-3 py-2 font-medium w-36">業務委託料</th>
               <th className="text-left px-3 py-2 font-medium w-60">契約条件</th>
@@ -700,6 +720,31 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                         </button>
                       );
                     })()}
+                  </td>
+
+                  {/* governance watch flags — D-14G の Gmail sweep 対象を絞る運用スイッチ */}
+                  <td className="px-3 py-2 text-center align-middle">
+                    <input
+                      type="checkbox"
+                      checked={!!p.governance_watch_shareholder_meetings}
+                      disabled={saving === p.id}
+                      onChange={(e) => saveGovernanceWatch(p, "governance_watch_shareholder_meetings", e.target.checked)}
+                      className="h-4 w-4 rounded border-border accent-sky-600 disabled:opacity-40"
+                      aria-label={`${p.project_name} の総会監視`}
+                      title="D-14G: 関係先メールから株主総会・招集通知などを探す"
+                    />
+                  </td>
+
+                  <td className="px-3 py-2 text-center align-middle">
+                    <input
+                      type="checkbox"
+                      checked={!!p.governance_watch_board_meetings}
+                      disabled={saving === p.id}
+                      onChange={(e) => saveGovernanceWatch(p, "governance_watch_board_meetings", e.target.checked)}
+                      className="h-4 w-4 rounded border-border accent-indigo-600 disabled:opacity-40"
+                      aria-label={`${p.project_name} の役会監視`}
+                      title="D-14G: 関係先メールから取締役会・書面決議などを探す"
+                    />
                   </td>
 
                   {/* 請求書送付 (compound) */}
@@ -996,7 +1041,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={17} className="px-3 py-4 text-center text-muted-foreground">
+                <td colSpan={21} className="px-3 py-4 text-center text-muted-foreground">
                   該当なし
                 </td>
               </tr>

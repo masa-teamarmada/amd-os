@@ -264,6 +264,7 @@ PJ cockpit の経営ハイライト直下に「**🏛 株主・ガバナンス**
 - データの編集は欄右上「編集」→ **`/admin/governance`** で行う (株主/ラウンド/総会/要対応の手入力 CRUD)。
 - **要対応 (期日順)**: `/dashboard` と `/notifications` の先頭に、全PJ横断 + 会社/個人スコープの「期日つき要対応」(株主総会の議決権・事前承諾、契約更新、振込期限など) が期日順 + 「あと何日/期限超過」で出る。「対応済にする」で消える。これは「まさが気づかないと埋もれる」案件をOS側で拾うための導線 (起点=JOYCLE臨時株主総会招集通知の取りこぼし事故)。
 - 5生データからの自動抽出は daily routine / Codex collector の D-14 + L3 が候補を作る。期日つき要対応は `/api/action-items/extract`、総会・取締役会・書面決議の履歴候補は `/api/governance/extract` に入り、未確認のものは review candidate、確認済み (`apply=true`) は `project_shareholder_meetings` に反映される。`attachments` に `content_base64` / `data_url` を含めると、確認済み反映時に上記 Drive folder へ保存される。手入力でも追加できる。
+- D-14G の Gmail sweep は `/admin/projects` の「総会」「役会」checkbox が ON の PJ だけを対象にする。対象PJの `report_emails` との `from/to/cc` やりとりに、株主総会・招集通知・取締役会・書面決議などの keyword が入っているメールを探し、既定は候補投入、`apply=1` で履歴反映 + Drive添付保存まで進める。`report_emails` が空の PJ はフラグONでも sweep skip。
 
 → 詳細仕様: [`pwa/design/governance_action_items.md`](../design/governance_action_items.md)、消してはいけない導線: [`pwa/design/FEATURE_REGISTRY.md`](../design/FEATURE_REGISTRY.md)。
 

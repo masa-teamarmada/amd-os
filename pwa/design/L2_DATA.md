@@ -67,7 +67,7 @@ SKILL 正本: [`pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md`](.
 | **W-1** | W-1 | VC News / Funding Signals | Claude routine `amd-os-l2-weekly-vc-funding-signals` | 差分なし: Claude UIでACTIVE / next run確認済み。MMO暫定automationはPAUSED |
 | **H-1** | H-1 | MTGサマリ + MTGフロー | MMOマシン Windows Task Scheduler `amd-os-l6-meeting-flow-launcher` → `codex exec` Live launcher | 復旧済み: 2026-06-08 16:00 JST manual Live run 成功、次回 17:00 JST。Codex Desktop UI automation storeは未登録/旧DB不使用のため、UI上の`amd-os-l6-meeting-flow`ではなくLive launcherを実稼働証跡にする |
 | **D-13** | daily | Contract Signals | Claude routine `amd-os-l2-consolidated-evidence` Phase K-B + PWA route `POST /api/contracts/extract-l2` | 新規 routine は作らず existing daily consolidated routine に同居 |
-| **D-14** | daily | 要対応 (Action Items) | Claude routine `amd-os-l2-consolidated-evidence` Phase K-C + PWA route `POST /api/action-items/extract` | 期日つき inbound 義務 (株主総会招集/議決権/事前承諾/契約更新/振込 等)。終了PJ・personal scope も対象。手動は `/admin/governance`。設計 `design/governance_action_items.md` |
+| **D-14** | daily | 要対応 (Action Items) + Governance Email Sweep | Claude routine `amd-os-l2-consolidated-evidence` Phase K-C + PWA routes `POST /api/action-items/extract` / `GET /api/cron/governance-email-sweep` | 期日つき inbound 義務 (株主総会招集/議決権/事前承諾/契約更新/振込 等)。D-14G は `/admin/projects` の「総会」「役会」ON PJだけを `report_emails` と総会/役会 keyword で Gmail 検索して `governance/extract` へ流す。初期ON: p00/p07/p24。手動は `/admin/governance`。 |
 
 ### 🛰 Coverage Scanner (不在検知 / negative space) — 個別抽出器の上位レイヤー (2026-06-15 まさ承認)
 
@@ -431,6 +431,7 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 
 | 日付 | 変更 |
 |---|---|
+| 2026-06-16 | **D-14G Governance Email Sweep 追加**。`projects` に `governance_watch_shareholder_meetings` / `governance_watch_board_meetings` を追加し、`/admin/projects` の「総会」「役会」checkboxでON/OFFできるようにした。`GET /api/cron/governance-email-sweep` はON PJの `report_emails` × ガバナンスkeywordだけをGmail検索し、既定は `/api/governance/extract` candidate、`apply=1` で canonical + Drive添付保存。初期ONは AMD (`p00`)、LST (`p07`)、CLG (`p24`)。 |
 | 2026-06-15 | **🛰 Coverage Scanner (不在検知 / negative space) 新設** (まさ承認)。個別抽出器 (D-1〜D-14) の上位安全網として、「5生データ × 既存L2カバレッジ の差分 = OSのどのL2にも構造化されていない重要情報」を検知。`amd-os-l2-consolidated-evidence` の最終 Phase M に同居 (ungated sweep = report_emails/active PJ で絞らない)。migration 138 `l2_coverage_gaps` + `POST /api/coverage-gaps/extract` + `l2_notifications(l2_kind='coverage_gap')` + `/admin/coverage-gaps` + 採否ループ配線。起点は JOYCLE 招集通知の取りこぼし事故。設計 `design/coverage_gap_scanner.md`。 |
 | 2026-05-29 | **LLM 課金が発生する定期抽出 cron 全廃止方針へ再同期**。D-2 MS進捗の旧 GAS 154 → PWA `/api/cron/hourly-estimate` は再停止し、PWA route は `ALLOW_PWA_LLM_CRONS=1` なしでは disabled response のみ返す。Vercel active cron から Anthropic 経路を持つ `member-weekly-activities` / `graduation-detection` も退避。定期抽出 primary は MMO/Codex automation 側。 |
 | 2026-05-29 | **H-1 weekly recurring 予定MTGカードを次回1件に制限**。`calendar-sync` は `recurring_event_id` / fallback series key で weekly series を検出し、2件目以降の future occurrence を `weekly_recurring_future_occurrence` として skip。cockpit 表示側も既存DB rowを series ごとに次回1件だけ残す safety filter を持つ。 |

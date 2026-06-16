@@ -60,6 +60,7 @@
 - 入金・支払・freee 連携などの運用 API は、既存の admin auth / signed token / `CRON_SECRET` 境界を崩さない。
 - `/api/admin/private-wiki` は `requireAdmin()` + `service_role` で `private_wiki_entries` を list/create/update/archive する。browser client から直接書かせない。
 - `/api/tasks` は authenticated user の全PJタスク横断 read と、タスク作成/更新/親子edge/position保存を扱う。DB write は `service_role` 経由で、DELETE ではなく `active=false` を使う。
+- `/api/cron/governance-email-sweep` は D-14G の source sweep route。`CRON_SECRET` または admin auth でのみ実行し、`/admin/projects` の総会/役会フラグON PJに限定して Gmail を検索する。LLM定期cronではなく、source refs と `/api/governance/extract` への候補/確認済みhandoffを担う。
 
 ## Admin Private Wiki
 

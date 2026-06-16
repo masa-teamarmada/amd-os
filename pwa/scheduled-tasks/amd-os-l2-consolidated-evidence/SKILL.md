@@ -207,6 +207,11 @@ D-14 要対応 = 5生データ由来の「期日つき inbound 義務」を `act
 - raw本文は保存しない (summary + source_ref + source_hash のみ)。
 - 株主/総会/バリュエーションの cap table 数値は自動確定しない (PDF 依存・誤抽出回避)。総会・ラウンドは候補として残し、確定は `/admin/governance` の手動キュレーションに委ねる。
 
+D-14G Governance Email Sweep:
+- `/admin/projects` の「総会」「役会」checkbox (= `projects.governance_watch_shareholder_meetings` / `governance_watch_board_meetings`) が ON の PJ だけ、当該 `report_emails` との Gmail `from/to/cc` を検索対象にする。
+- route: `GET /api/cron/governance-email-sweep`。既定は candidate mode で `/api/governance/extract` に渡し、`source_cache(source='gmail_governance')` に source ref / snippet / hash を残す。`apply=1` のときだけ `project_shareholder_meetings` へ canonical 反映し、Gmail添付を Drive の `projects.drive_folder_id / YYMMDD_会議名` に保存する。
+- D-14本体は report_emails でゲートしない広域「要対応」検知、D-14G は PJ台帳フラグで絞る「総会/役会履歴」検知。役割を混ぜない。
+
 ═══════════════════════════════════════════════════
 Phase M: OS Coverage Scanner (不在検知 / negative space)
 ═══════════════════════════════════════════════════

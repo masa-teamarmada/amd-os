@@ -28,6 +28,7 @@ URL: `/admin/projects`。 全 PJ 台帳を編集する admin 専用画面。
 | freee | `projects.freee_partner_id` |
 | メンバー | `project_members` 紐付け |
 | report_emails | 月次報告書送付先 (= chip 表示で個別削除 + 一括保存可) |
+| 総会 / 役会 | D-14G の Gmail governance sweep 対象フラグ。`projects.governance_watch_shareholder_meetings` / `projects.governance_watch_board_meetings`。`report_emails` が空ならONでも検索対象なし |
 
 `thead` は `sticky top-0 z-30` で固定 (= まさ #15 確定 2026-05-24)、 大量 PJ で下スクロールしてもヘッダーが見える。
 
@@ -85,6 +86,8 @@ URL: `/admin/projects`。 全 PJ 台帳を編集する admin 専用画面。
 | `invoice_to_emails` / `cc_emails` / `bcc_emails` | 請求書送付先 |
 | `freee_partner_id` | freee 連携用 partner ID |
 | `report_emails` | 月次報告書送付先 (= 複数 csv) |
+| `governance_watch_shareholder_meetings` | true なら D-14G が `report_emails` とのGmailやりとりから株主総会・招集通知・議決権・委任状などを検索する |
+| `governance_watch_board_meetings` | true なら D-14G が `report_emails` とのGmailやりとりから取締役会・役会・書面決議などを検索する |
 
 ### 月次予算 cap と追加枠
 
