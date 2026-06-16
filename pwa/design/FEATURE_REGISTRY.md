@@ -149,7 +149,8 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 設計: `pwa/design/governance_action_items.md`。DB: migration `137_governance_and_action_items.sql` (`action_items` / `project_shareholders` / `project_valuation_rounds` / `project_shareholder_meetings`)。
 
-- **PJ cockpit「🏛 株主・ガバナンス」欄** (`CockpitGovernance`、col2 の `CockpitStrategySignals` 直下): AMD/まさ保有株式 + 概算保有価値、直近総会 + 決議 + AMD対応、資金調達ラウンド/バリュエーション、株主構成、このPJの要対応を表示。**終了PJでも表示する** (L2_DATA「ended でも清算・株主総会等は残す」)。データは admin 限定 API `/api/governance` から client fetch (非admin には出さない)。削除禁止理由: 終了後も残る AMD 持分・ガバナンス可視化 (まさ確定 2026-06-15)。
+- **PJ cockpit「🏛 株主・ガバナンス」欄** (`CockpitGovernance`、col2 の `CockpitStrategySignals` 直下): AMD/まさ保有株式 + 概算保有価値、総会・取締役会履歴一覧 + 決議 + AMD対応、資金調達ラウンド/バリュエーション、株主構成、このPJの要対応を表示。**終了PJでも表示する** (L2_DATA「ended でも清算・株主総会等は残す」)。データは admin 限定 API `/api/governance` から client fetch (非admin には出さない)。削除禁止理由: 終了後も残る AMD 持分・ガバナンス可視化 (まさ確定 2026-06-15)。
 - **要対応（期日順）面** (`ActionItemsPanel`): `/dashboard` (ProactiveQueuePanel 直下、limit 5) と `/notifications` 先頭。全PJ横断 + personal/company scope の `action_items` を期日順 + 「あと何日/期限超過」chip で表示、「対応済にする」で `status=responded`。データは admin 限定 API `/api/action-items`。削除禁止理由: 期日付き inbound 義務を埋もれさせない導線 (まさ確定 2026-06-15)。
 - **`/admin/governance`**: 株主/ラウンド/総会/要対応の手動記録 CRUD。AdminSidebar に「🏛 株主・ガバナンス」。
+- **`/api/governance/extract`**: Gmail/Drive/Calendar 等から抽出された総会・取締役会・書面決議候補の受け口。既定は `l2_coverage_gaps` review candidate、`apply=true` のときだけ `project_shareholder_meetings` に canonical insert。削除禁止理由: LST の取締役書面決議のようなメール由来ガバナンス履歴を OS 化するための入口 (まさ依頼 2026-06-16)。
 - 既存 `tasks` (`/tasks` 手動プランニング) とは別レーン。`action_items` は5生データ抽出 + 採否ループ + personal scope を持つ inbound 義務で、手動 mindmap/gantt の `tasks` を置換しない。

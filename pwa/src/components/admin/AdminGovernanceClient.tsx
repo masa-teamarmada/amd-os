@@ -20,7 +20,7 @@ type Round = {
 };
 type Meeting = {
   id: string; meeting_type: string | null; meeting_date: string | null; meeting_ym: string | null; location: string | null;
-  agenda_summary: string | null; amd_response: string | null; notes: string | null;
+  agenda_summary: string | null; resolutions_json?: { title?: string; result?: string }[] | null; amd_response: string | null; notes: string | null;
 };
 type ActionItem = {
   action_id: string; title: string; category: string | null; due_at: string | null; status: string; action_url: string | null; daysLeft: number | null;
@@ -45,7 +45,9 @@ export function AdminGovernanceClient({ projects, initialProjectId }: { projects
       .finally(() => setLoading(false));
   }, [projectId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    void Promise.resolve().then(load);
+  }, [load]);
 
   const post = async (entity: string, row: Record<string, unknown>) => {
     setMsg("");
@@ -125,23 +127,42 @@ export function AdminGovernanceClient({ projects, initialProjectId }: { projects
           </Section>
 
           <Section title="株主総会・取締役会 / 決議">
-            <Table head={["種別", "日付", "議案要約", "AMD対応", ""]}>
+            <Table head={["種別", "日付", "場所/方式", "議案・決議", "AMD対応", ""]}>
               {gov.meetings.map((m) => (
                 <tr key={m.id} className="border-t border-border align-top">
-                  <Td>{m.meeting_type}</Td><Td>{m.meeting_date}</Td><Td className="max-w-[320px]">{m.agenda_summary}</Td><Td>{m.amd_response}</Td>
+                  <Td>{m.meeting_type}</Td><Td>{m.meeting_date}</Td><Td>{m.location}</Td>
+                  <Td className="max-w-[360px]">
+                    <div>{m.agenda_summary}</div>
+                    {Array.isArray(m.resolutions_json) && m.resolutions_json.length > 0 && (
+                      <div className="mt-0.5 text-muted-foreground">
+                        決議: {m.resolutions_json.slice(0, 3).map((r) => `${r.title || ""}${r.result ? `(${r.result})` : ""}`).filter(Boolean).join(" / ")}
+                      </div>
+                    )}
+                  </Td>
+                  <Td>{m.amd_response}</Td>
                   <Td><DelBtn onClick={() => del("meeting", m.id)} /></Td>
                 </tr>
               ))}
             </Table>
             <AddForm
               fields={[
-                { k: "meeting_type", ph: "種別(agm/egm/board)" },
+                { k: "meeting_type", ph: "種別(agm/egm/board/board_written_resolution)" },
                 { k: "meeting_date", ph: "日付YYYY-MM-DD" },
+                { k: "location", ph: "場所/方式(書面決議など)" },
                 { k: "agenda_summary", ph: "議案要約*" },
+                { k: "resolutions", ph: "決議( / 区切り)" },
                 { k: "amd_response", ph: "AMD対応(proxy/attended/consented/abstained/none)" },
               ]}
               required={["agenda_summary"]}
-              onAdd={(v) => post("meeting", { meeting_type: txt(v.meeting_type), meeting_date: txt(v.meeting_date), meeting_ym: v.meeting_date ? v.meeting_date.replace(/-/g, "").slice(0, 6) : null, agenda_summary: v.agenda_summary, amd_response: txt(v.amd_response) })}
+              onAdd={(v) => post("meeting", {
+                meeting_type: txt(v.meeting_type),
+                meeting_date: txt(v.meeting_date),
+                meeting_ym: v.meeting_date ? v.meeting_date.replace(/-/g, "").slice(0, 6) : null,
+                location: txt(v.location),
+                agenda_summary: v.agenda_summary,
+                resolutions_json: parseResolutionLines(v.resolutions),
+                amd_response: txt(v.amd_response),
+              })}
             />
           </Section>
 
@@ -160,6 +181,14 @@ export function AdminGovernanceClient({ projects, initialProjectId }: { projects
       )}
     </div>
   );
+}
+
+function parseResolutionLines(value = "") {
+  return value
+    .split(/[／/、\n]/)
+    .map((v) => v.trim())
+    .filter(Boolean)
+    .map((title) => ({ title, result: "unknown" }));
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {

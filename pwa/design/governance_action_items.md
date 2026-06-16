@@ -165,6 +165,10 @@ cockpit のガバナンス欄・要対応面はサーバ側 admin クライア�
 
 - **正本は admin 手動キュレーション** (まさ「記録しておく場所が必要」)。/admin に編集 UI。
 - 抽出は**候補生成の補助**に留める: 招集通知メールから `project_shareholder_meetings` 候補 (種別/日付/議案/添付) と、ラウンド系議案から `project_valuation_rounds` 候補を作り、`/notifications` で承認 → 反映。cap table の株数/比率の自動確定はしない (PDF 依存・誤抽出リスク)。
+- **2026-06-16 追加: `/api/governance/extract`** が `project_shareholder_meetings` 候補の受け口。D-14/L3 collector が Gmail/Drive/Calendar 等から LST の取締役書面決議・株主総会招集通知・議案資料を見つけたら、この route に `items[]` を POST する。
+  - 既定 (`mode` 未指定 / `apply=false`): `l2_coverage_gaps` に `proposed_target_l2='shareholder_meeting'` の review candidate として保存し、`l2_notifications` に「ガバナンス履歴候補」を出す。canonical row は汚さない。
+  - 確認済み (`mode='apply'` or `apply=true`): `project_shareholder_meetings` に insert する。dedupe は `source_ref` 優先、無い場合は project/type/date/agenda の組み合わせ。
+  - `meeting_type` は `agm` / `egm` / `board` に加えて、`board_written_resolution` / `shareholder_written_resolution` を受け付ける。DB列は text のままなので DDL 追加は不要。UI では「取締役会(書面決議)」等に表示する。
 
 ---
 
@@ -174,7 +178,7 @@ cockpit のガバナンス欄・要対応面はサーバ側 admin クライア�
 
 | 出力先 | 内容 | 実装 |
 |---|---|---|
-| **PJ cockpit「株主・ガバナンス」欄** | 株主構成サマリ / 直近総会 + 決議 / 最新バリュエーション / AMD保有株の現在価値。終了PJでも表示 | `CockpitGovernance.tsx` を Col2 (経営ハイライト下) に。admin gate |
+| **PJ cockpit「株主・ガバナンス」欄** | 株主構成サマリ / **総会・取締役会履歴一覧** + 決議 / 最新バリュエーション / AMD保有株の現在価値。終了PJでも表示 | `CockpitGovernance.tsx` を Col2 (経営ハイライト下) に。admin gate |
 | **cockpit「要対応」** | そのPJに紐づく `action_items` open を期日順 | cockpit 内の小欄 or Col3 |
 | **/dashboard・/notifications「要対応(期日順)」面** | 全 `action_items` open を期日順 + あと何日。`scope=personal/company` 含む | `ActionItemsPanel` (dashboard) / 先頭 section (notifications) |
 | **D-6 strategy signal** | 「JC 2ndラウンド + Woven City採択」等の軌跡シグナル候補 | 既存 `project_strategy_signals` candidate |
@@ -193,7 +197,7 @@ cockpit のガバナンス欄・要対応面はサーバ側 admin クライア�
 2. **手動投入**: JC の今回の総会 (egm 6/5)・委任状提出済 action item を実データで 1 件投入し cockpit に出す = 動く証拠。
 3. **cockpit ガバナンス欄** + admin 編集 UI (`/admin/shareholders` 系) + API route。
 4. **要対応面** (dashboard / notifications) + 期日リマインド。
-5. **抽出スイープ** (Gmail → action_items candidate、Claude routine 同居)。
+5. **抽出スイープ** (Gmail → action_items candidate / governance meeting candidate、Claude routine or Codex collector 同居)。
 6. **FEATURE_REGISTRY / cockpit.md / manual / db_schema.md / changelog 同期**。
 
 ## 6. 壊さないライン
