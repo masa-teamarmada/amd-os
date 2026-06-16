@@ -14,6 +14,7 @@
 
 | 日付 | 対象章 | 種別 | 内容 | 理由 | 誰が |
 |---|---|---|---|---|---|
+| 2026-06-16 | 4-5 Finance Simulation | 変更 | `/management-score` の月次収支シミュレータ + 予実表 + グラフをまさ5要望で改善。(1) 社保が常時¥0だった真因 = live builder が全固定費を `costType='taxable'` 固定 → `socialInsBase=0`。`display_name` が `役員報酬/上乗せ/給与/給料/賞与` を含む行を `executive` にマップし社保が乗るよう修正 (実測 base ¥1,167,334 → 社保 ≒ ¥175,100/月)。法人税は元々エンジンが2月決算納付で計上済み (202602 ¥108,000 等) と実データ確認。(2) 予実表を縦スクロール撤廃で全行常時表示。(3) 売上原価行を `▶/▼` トグルで PJ別 内製/外注内訳展開。(4) グラフに実績キャッシュ残高 (緑破線, 実績確定月まで累積) line を追加し予算 line と予実比較。build v0.23.1 | まさ5要望。特に社保¥0は live builder 移行時の costType 欠落バグで、役員報酬を社保ベースに入れないと営業利益・CF・法人税まで過大に出る経営判断ミスにつながるため。発見 (202602 役員報酬まさ ¥100万/¥979,891 の重複行で社保base二重計上) も含め正本に固定 | えいみ |
 | 2026-06-16 | 6-1 / 8-3 / OSデータ一覧 | 変更 | OS上の D系データ一覧で `Claude routine` と見えてしまう source 文言を current truth に再修正。D-13/D-14/L3-1 は「route はあるが Codex collector 未実装」、D-10 は「Codex writer起点だが内部 Anthropic API 例外」と読めるように揃えた | まさが本番一覧を見たときに、いま誰が抽出していて何が未実装かを一目で判断できるようにするため | えいみ |
 | 2026-06-16 | 6-1 / 8-3 | 変更 | `/admin/settings` の説明と 8-3 を更新し、D-10 は「Codex 側 writer が起点だが内部 route は Anthropic API 使用、ただし例外許容」と明記。あわせてデータ一覧の writer 名を D/M/W/H で読める形に整理 | 「どの automation が何のデータを抽出するか」と「D-10 の例外境界」を OS / manual 上で平易に読み取れるようにするため | えいみ-worker |
 | 2026-06-16 | 8-3 L2抽出routine | 変更 | D-10 `member-weekly-activities` は `/admin/settings` 手動起動の対象から外し、Mac/MMO writer も `@anthropic-ai/sdk` を使う PWA route trigger に過ぎないため fixed-price goal 未達と明記 | Codex automation 経由でも従量 Anthropic route を叩く限り「定額トークン内で回す」要件を満たさないため | えいみ-worker |

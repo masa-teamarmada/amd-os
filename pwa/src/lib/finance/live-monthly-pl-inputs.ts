@@ -193,16 +193,25 @@ export async function buildLiveMonthlyPlInputs(
   }
 
   // ---- 固定費: company_finance_recurring_items ----
+  // 社会保険料は「役員報酬・給与」に当たる固定費だけを base に算定する (engine 側で
+  // costType === "executive"|"salary" のみ socialInsBase に積む)。recurring items には
+  // cost_type 列が無いので display_name から役員報酬/上乗せ/給与を判別して executive を付ける。
+  // それ以外 (サブスク・家賃・通信費等) は taxable のまま。
+  const isExecutiveCost = (name: string): boolean =>
+    /役員報酬|上乗せ|給与|給料|賞与/.test(name);
   const fixedCosts: MonthlyPlFixedCost[] = recurringItems
     .filter((item) => num(item.amount_yen) > 0)
-    .map((item) => ({
-      costId: item.id,
-      costName: item.display_name || item.vendor_name || item.category || item.id,
-      monthlyCost: num(item.amount_yen),
-      startYm: ymToInt(item.start_ym) ?? startYm,
-      endYm: ymToInt(item.end_ym),
-      costType: "taxable",
-    }));
+    .map((item) => {
+      const costName = item.display_name || item.vendor_name || item.category || item.id;
+      return {
+        costId: item.id,
+        costName,
+        monthlyCost: num(item.amount_yen),
+        startYm: ymToInt(item.start_ym) ?? startYm,
+        endYm: ymToInt(item.end_ym),
+        costType: isExecutiveCost(costName) ? ("executive" as const) : ("taxable" as const),
+      };
+    });
 
   // ---- 将来メンバー原価: 各 active PJ の uncapped 報酬を projectRevenues[].internalMemberCost へ ----
   // アンカー月 = startYm 近辺の「当月」。ここでは startYm を anchor に使う

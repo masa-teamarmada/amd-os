@@ -389,6 +389,7 @@ Finance Simulation は、会社 PL / cash runway を月次で試算する経営�
 | 固定収益 | `projects.fee_type='monthly_fixed'` + `projects.fee_amount` | 毎月定額で立つ受託フィー。`start_ym`〜`end_ym` (契約中) の月だけ計上。実例: p10 SE ¥10万 / p19 ZMP ¥30万 / p20 CX ¥29万 / p21 SX ¥104.8万 |
 | 変動収益 | `projects.fee_type='variable'` の PJ について `billing_cycles` を月別に。売上 = `budget_reported_amount` (あれば優先)、無ければ `budget_yen ÷ 0.65` で逆算 | ⚠️ `budget_yen` は**報酬予算 (reported×0.65) であって売上ではない**。売上に使うときは逆算が要る。実例: p25 KUTE 月 ¥654,545 (budget_yen) → 売上 ≒ ¥1,007,000。CX 再スタート分 (26年6-9月) も `billing_cycles` に既に入っている |
 | 固定費 | `company_finance_recurring_items` (`status='active'`) | 家賃・SaaS・役員報酬・固定人件費など定常支出。各行を `start_ym`〜`end_ym` 付きの fixed cost にマップし、月レンジはエンジン側で解決。実例: 役員報酬(まさ) 26年4月以降 ¥70万 / 役員報酬(きよ) ¥34万 / 家賃按分 ¥72,666 / claude ¥45,000 ほか |
+| 社保ベース判定 | 固定費のうち `display_name` が `役員報酬` / `上乗せ` / `給与` / `給料` / `賞与` を含む行を `costType='executive'` にマップ。残りは `taxable` | ⚠️ `company_finance_recurring_items` に `cost_type` 列は無いため `display_name` で判別する。エンジンは `executive`/`salary` の月額だけを `socialInsBase` に積み、`socialInsBase × socialInsRate(=0.15)` を社保額とする。**この判別を入れる前は全固定費が `taxable` 扱いで `socialInsBase=0` → 社保が常時¥0だった (2026-06-16 修正)**。実例: 役員報酬(まさ¥70万)+役員報酬(きよ¥34万)+まさ上乗せ¥127,334 = base ¥1,167,334 → 社保 ≒ ¥175,100/月 |
 | 将来メンバー原価 | MS 進捗 → uncapped 報酬 (後述) を `projectRevenues[].internalMemberCost` に注入 | 各 PJ の MS を期間月数で按分し、将来月の uncapped 報酬を原価として投影 |
 | パラメータ / 融資 / スポット | 旧 `company_budget_inputs` から流用 | 繰越欠損 / 前期消費税 / 社保率 / 各種率、および OS にライブテーブルが無い融資 (`loan`)・臨時収支 (`spot`) は当面 snapshot 値を再利用 |
 
@@ -463,9 +464,9 @@ panel 自体の表示構造は不変 (エンジン `monthly-pl-simulation.ts` �
 | 表示 | 内容 |
 |---|---|
 | KPI | 月平均売上、月平均営業利益、最終キャッシュ残高、現在のランウェイ |
-| chart | キャッシュ残高 line、収入 / 支出 bar |
-| 月次 table | 売上、粗利、固定費、社保、臨時収入、臨時支出、営業利益、融資、返済、利息、消費税、法人税、月次CF、キャッシュ |
-| 展開 row | 売上計の PJ 別内訳、固定費の科目別内訳、粗利周辺の原価 |
+| chart | キャッシュ残高(予算) line、キャッシュ残高(実績) line (緑・破線、実績確定月まで)、収入 / 支出 bar。予算と実績の残高推移を1枚で予実比較する |
+| 月次 table | 売上、粗利、固定費、社保、臨時収入、臨時支出、営業利益、融資、返済、利息、消費税、法人税、月次CF、キャッシュ。**縦スクロールさせず全行を常時表示** (max-height 撤廃、横スクロールのみ許容) |
+| 展開 row | 売上計の PJ 別内訳、**売上原価の PJ 別 内製/外注内訳** (行クリックで `▶/▼` トグル)、固定費の科目別内訳、粗利周辺の原価 |
 | 予実列 | 各月に 予算 (live試算) / 実績 (freee PL・入金確認) / 差分 を並べる (下記「予実管理」セクション) |
 
 ### 旧 simulate API (= レガシー、当面残す)
