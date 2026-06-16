@@ -26,7 +26,7 @@ type Meeting = {
   id: string; meeting_type: string | null; meeting_date: string | null; agenda_summary: string | null;
   resolutions_json: { title?: string; type?: string; result?: string }[] | null;
   amd_response: string | null; amd_response_at: string | null; location: string | null;
-  attachments_json: { name?: string; url?: string }[] | null; source_ref: string | null; notes: string | null;
+  attachments_json: { name?: string; url?: string; webViewLink?: string; web_view_link?: string; folder_display_path?: string }[] | null; source_ref: string | null; notes: string | null;
 };
 type ActionItem = {
   action_id: string; title: string; summary: string | null; due_at: string | null;
@@ -72,6 +72,10 @@ function compactSource(value: string | null) {
   if (!value) return "";
   if (value.length <= 36) return value;
   return `${value.slice(0, 18)}...${value.slice(-10)}`;
+}
+
+function attachmentUrl(attachment: { url?: string; webViewLink?: string; web_view_link?: string }) {
+  return attachment.url || attachment.webViewLink || attachment.web_view_link || "";
 }
 
 export function CockpitGovernance({ projectId }: { projectId: string }) {
@@ -183,8 +187,9 @@ export function CockpitGovernance({ projectId }: { projectId: string }) {
                     {Array.isArray(meeting.attachments_json) && meeting.attachments_json.length > 0 && (
                       <div className="mt-1 flex flex-wrap gap-1">
                         {meeting.attachments_json.slice(0, 4).map((a, i) => (
-                          a.url ? (
-                            <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
+                          attachmentUrl(a) ? (
+                            <a key={i} href={attachmentUrl(a)} target="_blank" rel="noopener noreferrer"
+                              title={a.folder_display_path || undefined}
                               className="rounded border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] hover:bg-muted hover:underline">
                               資料: {a.name || `${i + 1}`}
                             </a>

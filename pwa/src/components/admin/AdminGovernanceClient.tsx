@@ -21,6 +21,7 @@ type Round = {
 type Meeting = {
   id: string; meeting_type: string | null; meeting_date: string | null; meeting_ym: string | null; location: string | null;
   agenda_summary: string | null; resolutions_json?: { title?: string; result?: string }[] | null; amd_response: string | null; notes: string | null;
+  attachments_json?: { name?: string; url?: string; webViewLink?: string; web_view_link?: string; folder_display_path?: string }[] | null;
 };
 type ActionItem = {
   action_id: string; title: string; category: string | null; due_at: string | null; status: string; action_url: string | null; daysLeft: number | null;
@@ -28,6 +29,7 @@ type ActionItem = {
 
 const num = (v: string) => (v.trim() === "" ? null : Number(v));
 const txt = (v: string) => (v.trim() === "" ? null : v.trim());
+const attachmentUrl = (a: { url?: string; webViewLink?: string; web_view_link?: string }) => a.url || a.webViewLink || a.web_view_link || "";
 
 export function AdminGovernanceClient({ projects, initialProjectId }: { projects: PjOption[]; initialProjectId: string | null }) {
   const [projectId, setProjectId] = useState<string>(initialProjectId || projects[0]?.projectId || "");
@@ -136,6 +138,20 @@ export function AdminGovernanceClient({ projects, initialProjectId }: { projects
                     {Array.isArray(m.resolutions_json) && m.resolutions_json.length > 0 && (
                       <div className="mt-0.5 text-muted-foreground">
                         決議: {m.resolutions_json.slice(0, 3).map((r) => `${r.title || ""}${r.result ? `(${r.result})` : ""}`).filter(Boolean).join(" / ")}
+                      </div>
+                    )}
+                    {Array.isArray(m.attachments_json) && m.attachments_json.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {m.attachments_json.slice(0, 4).map((a, i) => (
+                          attachmentUrl(a) ? (
+                            <a key={i} href={attachmentUrl(a)} target="_blank" rel="noopener noreferrer" title={a.folder_display_path || undefined}
+                              className="rounded border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] hover:bg-muted hover:underline">
+                              資料: {a.name || `${i + 1}`}
+                            </a>
+                          ) : (
+                            <span key={i} className="rounded border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">資料: {a.name || `${i + 1}`}</span>
+                          )
+                        ))}
                       </div>
                     )}
                   </Td>

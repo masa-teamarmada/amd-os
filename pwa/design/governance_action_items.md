@@ -131,7 +131,7 @@ OS に equity / cap table / valuation / 汎用 action item テーブルは **存
 | `amd_response` | text | `proxy` 委任状提出 / `attended` / `consented` 事前承諾 / `abstained` / `none` |
 | `amd_response_at` | timestamptz NULL | |
 | `related_action_id` | text NULL | `action_items.action_id` への論理リンク |
-| `attachments_json` | jsonb | 添付資料リスト (名前 + ref) |
+| `attachments_json` | jsonb | 添付資料リスト。Drive保存済みは `{name,url/webViewLink,drive_file_id,drive_folder_id,drive_folder_name,folder_display_path}`、候補段階は本文base64を残さず metadata のみ |
 | `source_ref` | text | |
 | `notes` | text | |
 | `created_at` / `updated_at` | | |
@@ -169,6 +169,9 @@ cockpit のガバナンス欄・要対応面はサーバ側 admin クライア�
   - 既定 (`mode` 未指定 / `apply=false`): `l2_coverage_gaps` に `proposed_target_l2='shareholder_meeting'` の review candidate として保存し、`l2_notifications` に「ガバナンス履歴候補」を出す。canonical row は汚さない。
   - 確認済み (`mode='apply'` or `apply=true`): `project_shareholder_meetings` に insert する。dedupe は `source_ref` 優先、無い場合は project/type/date/agenda の組み合わせ。
   - `meeting_type` は `agm` / `egm` / `board` に加えて、`board_written_resolution` / `shareholder_written_resolution` を受け付ける。DB列は text のままなので DDL 追加は不要。UI では「取締役会(書面決議)」等に表示する。
+  - 添付資料は `attachments` / `attachments_json` に `{name,mime_type,content_base64}` または `{name,mime_type,data_url}` を入れて POST できる。`apply=true` では OS が Google Drive の当該 PJ folder (`projects.drive_folder_id`) 直下に `YYMMDD_会議名` folder を作成/再利用し、その中へ実ファイルを保存する。`meeting_name` があれば folder 名に使い、無ければ `meeting_type` から「取締役会書面決議」「定時株主総会」等を使う。
+  - Drive保存後の `attachments_json` は clickable link (`url` / `webViewLink`) と Drive metadata (`drive_file_id`, `drive_folder_id`, `drive_folder_name`, `folder_display_path`) のみを保持する。本文base64や data URL はDBへ残さない。候補モードでは Drive write をしないのが既定で、必要時だけ `store_attachments=true` を明示する。
+  - 既存の canonical row に資料だけ後付けしたい場合は、同じ `source_ref` で `apply=true` + `update_existing=true` + `attachments` を POST する。Drive 側は同じ会議folder内の同名ファイルを再利用し、OS row の `attachments_json` を更新する。
 
 ---
 
