@@ -289,7 +289,7 @@ payYen[member]   = round(earnedPt[member] × ptUnit)      # = そのまま支払
 
 `/management-score` の月次収支シミュレータは、 将来各月の**メンバー原価**を上記 uncapped 報酬で投影する。 「いつ・どの MS が・何 pt 消化される予定か」は [期間按分デフォルト](#期間按分デフォルト--アンカー方式-2026-06-12-まさ確定) で各月に散っているので、 将来月でも uncapped 月次報酬が出せる。
 
-> **`/admin/payouts`「先12か月 PJ収支」表も同じ uncapped 投影を使う (2026-06-17, v0.25.3)**: 上の表 (279行) の「実際の月次支払い = /admin/payouts は capped」は、確定した支払通知書・支払額のこと。これと別に、`/admin/payouts` の「先12か月 PJ収支」**収支表**は、実績メンバーがまだ載っていない**将来月の原価**を `computeForwardUncappedMemberCosts` の uncapped で投影する (= (A) /management-score と同じ将来原価ソース)。**将来月の原価に `budget_yen` (= 予算) を決め打ちコピーするのは禁止** — 「予算 = 原価」で収支がゼロに張り付く嘘になる (BUGS.md 2026-06-17)。capped は「過去〜確定済みの実支払い」、uncapped は「将来月の発生原価予測」と棲み分ける。
+> **`/admin/payouts`「先12か月 PJ収支」表の将来「支払予定」は capped + 役員除外を使う (2026-06-17, v0.25.4)**: `/admin/payouts` の「先12か月 PJ収支」収支表の支払予定列は、**月次収支シミュの原価 (uncapped) とは別物**で、実際にいくら払うか = **capped (月次キャップ `budget_yen` + stock 繰越平準化)** が正本 (上の表 279行)。`computeForwardCappedMemberCosts` が plan cycle 期間の各月を `buildRewardSummary` で投影し、`is_officer` / `exclude_from_payout_notice` のメンバーは支払予定から**単に落とす** (再配分しない = AMD 持ち出しが無限に膨らむのを防ぐ)。**将来月の支払予定に uncapped を入れたり `budget_yen` を決め打ちコピーするのは禁止** — uncapped は pt 消化が厚い月に budget を超えて跳ね、マイナス月・役員のみ PJ (KUTE) で巨額の支払いが出る嘘になる (BUGS.md 2026-06-17、v0.25.3 で一度この誤りを犯し v0.25.4 で訂正)。役員のみ PJ は capped 支払予定 = ¥0 が正しい結果なので、値 0 を「未計算」と誤判定して budget フォールバックに落とさないこと。
 
 - **入力**: live テーブル (`projects` の `monthly_fixed` / `value_plan_cycles` (active) / `value_milestones` の `period_start_ym`・`target_ym`・`points` / `milestone_responsibility` / `billing_cycles`)。 旧 `company_budget_inputs` の凍結スナップショットは使わない。
 - **将来原価 = 将来各月の uncapped 報酬**。 capped を使うと繰越で原価が翌月にずれて月次収支が歪むため、 uncapped が正。

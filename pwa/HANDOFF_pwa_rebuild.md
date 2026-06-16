@@ -1,23 +1,26 @@
 # HANDOFF - AMD OS PWA
 
-- Last updated: 2026-06-17 (/admin/payouts 先12か月PJ収支の将来原価を uncapped 投影へ統一 / 予算決め打ちの嘘原価を解消, v0.25.3)
-- Topic: `/admin/payouts`「先12か月 PJ収支」表の将来月原価を、予算 (budgetYen) 決め打ちから uncapped 投影 (`computeForwardUncappedMemberCosts`) へ統一。(A)/management-score と将来原価ソースを揃え、「予算=原価」で収支ゼロに見える嘘を解消
+- Last updated: 2026-06-17 (/admin/payouts 支払予定を uncapped → capped + 役員除外(落とす一択) に修正 / KUTE¥0・マイナス月解消, v0.25.4)
+- Topic: `/admin/payouts`「先12か月 PJ収支」表の支払予定 (支払額) を、v0.25.3 の uncapped 投影から **capped + 役員除外** へ修正。原価 (uncapped) と支払予定 (capped) は別概念で、支払予定列に uncapped を流用したのが誤りだった。役員が抜けた share は再配分せず**落とす一択** (再配分=倒産ロジック)
 - Canonical root: `/Users/masa/projects/AMD/amd-os`
 - PWA root: `/Users/masa/projects/AMD/amd-os/pwa`
 - Production URL: `https://amd-os-pwa.vercel.app`
 - Current branch: `main`
-- Production: 本セッション deploy = v0.25.3 (`build-info.ts`)。直前 deploy は v0.25.2。次セッションは `git fetch` で並行セッションの push を必ず取り込む。
+- Production: 本セッション deploy = v0.25.4 (`build-info.ts`)。直前 deploy は v0.25.3。次セッションは `git fetch` で並行セッションの push を必ず取り込む。
 
-## 直近セッション (2026-06-17 — /admin/payouts 将来原価を uncapped 投影へ統一, v0.25.3)
+## 直近セッション (2026-06-17 — /admin/payouts 支払予定を capped + 役員除外へ修正, v0.25.4)
 
-まさが `/admin/payouts`「先12か月 PJ収支」表で「202607でも195,000円の原価がかかってる。予算195,000に対して原価195,000っておかしい」と指摘。(B) 表は実績メンバー無し将来月の原価を `cycle.budget_yen` (= baseCap ¥195,000) でそのまま決め打ちしており、(A)/management-score が `computeForwardUncappedMemberCosts` で実 uncapped を投影しているのに (B) だけ未対応の非対称が原因 (BUGS.md 2026-06-17)。
+v0.25.3 deploy 後、まさがスクショで3点指摘 — ① マイナス月があるのはおかしい (キャップが効いてるはず) ② OkuDoor分の支払いはうめ・あび2人で計¥40万のはず ③ KUTE(まさ・りり・きよ=全員支払対象外) で異常な支払いが出る、¥0でない時点で変。**真因2つ**: (1) v0.25.3 で /management-score の「原価=uncapped」を支払予定列に流用した (支払予定は **capped** が正本=spec 7-1)。(2) forward 投影に **役員除外**が無かった。
 
-1. **route (`/api/admin/payouts`)**: forecast 対象の active PJ ごとに `computeForwardUncappedMemberCosts(db, pj, ym, {persist:false})` を呼び `forecastUncapped: [{projectId, ym, uncappedTotalYen}]` を返却 (`Promise.allSettled`、本番DB非書き込み)。
-2. **client (`AdminPayoutsClient.tsx`)**: 将来月の `forecastPayoutYen` を uncapped 優先へ置換 (plan 期間外のみ budgetYen フォールバック)。`forecastUncapped` を `(pj,ym)` Map にして引く。
-3. **検証**: p19 forward uncapped 実測 = 202607 ¥393,705 (まさ稼働分¥191,685含む) / 202611 ¥129,675 / 202612 ¥100,815 等。202607 収支 = 195,000+333,333−393,705 = +134,628。原価¥195,000横ばいが消えた。tsc/build green。
-4. 正本: `manual/4-5-*.md` (将来原価=uncapped節 + v0.25.3 注記) / `manual/7-1-*.md` (admin/payouts 将来原価も uncapped) / `BUGS.md` 2026-06-17 (先頭エントリ) / changelog 9-3 / design_log。
+1. **新規 `computeForwardCappedMemberCosts` (`src/lib/reward-summary.ts`)**: 各月 `buildRewardSummary({ym,...,billingsByYm,planCycle,project})` を呼ぶ (cap+stock 繰越はコア内部で連鎖)。`is_officer || exclude_from_payout_notice` を `excludedMemberIds` で除外し `cappedTotalYen = Σ 非役員 totalPay`。DB 非書き込み。コア `buildRewardSummary` は無改修。
+2. **route**: `forecastUncapped`/`computeForwardUncappedMemberCosts` → `forecastCapped: [{projectId,ym,cappedTotalYen}]`/`computeForwardCappedMemberCosts` に差し替え。
+3. **client (`AdminPayoutsClient.tsx`)**: `cappedForecast != null ? cappedForecast : budgetYen フォールバック`。**`!= null` (0 含む)** が肝 — 役員のみ PJ (KUTE) は capped=¥0 が正しいので budgetYen に落とさない (`> 0` だと KUTE 巨額再発)。
+4. **検証 (probe 実測)**: KUTE(p25) 全月 capped=**¥0** (指摘③解消)。ZMP(p19) 202609 uncapped ¥777,465 → **capped ¥215,169** に平準化、支払先は非役員 (あび/うめ/しん/こう) のみ、まさ(役員)は落ちる、**マイナス月消滅** (指摘①解消)。tsc/build green。
+5. 正本: `manual/7-1-*.md` (支払予定=capped+役員除外) / `manual/4-5-*.md` ((A)原価=uncapped と (B)支払予定=capped を分離) / `BUGS.md` 2026-06-17 (先頭, v0.25.3 を ⚠️ 部分訂正 + v0.25.4 教訓) / changelog 9-3 / design_log。
 
-**残課題**: 202701 以降 (plan 期間外、ZMP plan 終了 202612 など) は uncapped が出ず budgetYen 決め打ちにフォールバック。plan 延長 vs ロジック改修はまさ確認待ち。
+**まさ叱責の教訓 (正本にも記録)**: ① 役員除外を「(i)落とす / (ii)再配分」の2択で提示したのが誤り — (ii)はAMD倒産ロジックで、選択肢に並べた判断自体が間違い。役員除外は**落とす一択**。② 原価(uncapped)と支払予定(capped)は別概念、流用禁止 (spec 7-1)。③ 役員除外がコア `buildRewardSummary` に無く各画面で後付け = 構造的な穴 (将来コアへ寄せる候補)。
+
+**残課題**: 202701 以降 (plan 期間外) は capped が出ず budgetYen 決め打ちにフォールバック (v0.25.3 と同様、plan 延長 vs ロジック改修はまさ確認待ち)。
 
 ## 直近セッション (2026-06-17 — 別財布按分を両系統に反映 + 共通lib化, v0.25.2)
 
@@ -34,13 +37,14 @@ ZMP(p19) の別財布売上 (OkuDoor ¥200万) 開発期間按分を、`/managem
 
 ## Repo State
 
-- 本セッション = 別財布按分の両系統反映 (v0.25.2)。新規 `src/lib/finance/extra-revenue.ts` + route/AdminPayoutsClient/live-inputs/build-info を1 commit に束ねて push + deploy.sh で本番反映。
+- 本セッション = /admin/payouts 支払予定を capped + 役員除外へ修正 (v0.25.4)。`src/lib/reward-summary.ts` (新 `computeForwardCappedMemberCosts`) + route/AdminPayoutsClient/build-info を1 commit に束ねて push + deploy.sh で本番反映。
 - 作業ツリー: `pwa/proposals/` のみ untracked (別作業, 触らない)。
 - ⚠️ 次セッション開始時は必ず `git fetch` → 並行セッションが頻繁に push。deploy.sh が origin 乖離で止まったら `git rebase origin/main`。
 
 ## Unresolved / 次セッションへの申し送り
 
-1. ✅ **解決済 (v0.25.2)** 別財布按分を `/admin/payouts`「先12か月 PJ収支」表にも反映。按分ロジックを共通 lib `src/lib/finance/extra-revenue.ts` に集約し両系統で共用 (詳細は上の直近セッション / BUGS.md 2026-06-17 クローズ)。
+1. ✅ **解決済 (v0.25.4)** /admin/payouts 支払予定を capped + 役員除外へ修正 (KUTE¥0 / マイナス月解消)。✅ **解決済 (v0.25.2)** 別財布按分を `/admin/payouts` PJ収支表にも反映 (共通 lib `src/lib/finance/extra-revenue.ts`)。詳細は上の直近セッション / BUGS.md 2026-06-17。
+   - **構造的穴 (将来対応候補)**: 役員除外 (`is_officer || exclude_from_payout_notice`) がコア `buildRewardSummary` に無く各画面で後付け。支払系 forward 投影を書くたびに再実装が要る。コアへ寄せると安全。
 2. **(別セッション継続)** ZMP 残課題: ① OkuDoor企画(20pt)・現地運用(20pt)MSが tag=normal で regular財布混入。② plan cycle total_points=187 に OkuDoor pt 含まれ ptUnit希釈。③ 他PJ別財布売上を順次 extra_revenue_json 投入(今後は `period_*` 付きで自動按分)。
 3. **(別タスク=起票済 task_20260616090543_vayt2)** 契約 Apply 自動反映の実装。正本=`spec/5-6 §Contract Apply`。
 4. **(保留・まさ承認待ち)** A案: `persistForecast: true` で将来月予測 uncapped 報酬を `billing_cycles.reward_summary_json` へ保存。本番書き込みなので別途まさGO後。
@@ -58,13 +62,14 @@ git log --branches --not --remotes --oneline   # 未 push 検知
 git status -sb
 ```
 
-別財布按分を `/admin/payouts`「先12か月 PJ収支」表にも反映する。まず正本 `manual/4-5-*.md` の別財布売上節 + `BUGS.md` 2026-06-17エントリを読み、按分ロジック (`live-monthly-pl-inputs.ts` の `monthsBetween`/`nextYmInt` + `extra_revenue_json` 展開、L242-300) を把握。`AdminPayoutsClient.tsx:2516`「先12か月 PJ収支」の forecast 計算 (L720-760, `cycle.budget_yen`ベース) を読み、按分ロジックを共通ヘルパーに切り出して両系統で共用する形で (B) に extraRevenue を加算。実装後は `/management-score` と `/admin/payouts` の**両方**で ZMP(p19) 202605〜202610 に¥333,333が乗ることを目視確認 (= 今回の verify 漏れの再発防止)。
+直近の支払予定 capped 修正 (v0.25.4) は完了・deploy 済。次セッションがこの領域を続けるなら、まず正本 `manual/7-1-*.md` (支払予定=capped+役員除外) と `manual/4-5-*.md` ((A)原価=uncapped / (B)支払予定=capped の分離) を読む。**原価 (uncapped) と支払予定 (capped) を取り違えない** — /management-score の原価数字を /admin/payouts の支払予定に流用しない。役員除外は再配分せず**落とす一択** (再配分=倒産ロジック)。残課題は plan 期間外 (202701〜) の capped 未投影と、ZMP 財布混入 (下記 2)。
 
 ## Pointers
 
 - **別財布売上 (今回)**: 使い方/仕様 `pwa/manual/4-5-management-score-and-finance-simulation-spec.md` (別財布売上節) / 教訓 `pwa/BUGS.md` 2026-06-17 / changelog `pwa/manual/9-3-appendix-changelog.md` / セッションログ `pwa/design_log/sessions_2026-06.md` 2026-06-17。
 - **按分実装ファイル**: `pwa/src/lib/finance/live-monthly-pl-inputs.ts` (按分展開 L242-300, `monthsBetween`/`nextYmInt`) / `pwa/src/lib/finance/monthly-pl-simulation.ts` (`extraRevenueForYm`, エンジン本体は無改修)。
-- **2系統のPJ収支コンポーネント**: (A) `pwa/src/components/management-score/GasMonthlySimulationPanel.tsx` (反映済) / (B) `pwa/src/components/admin/AdminPayoutsClient.tsx:2516` (先12か月表, **未反映=次タスク**)。
+- **2系統のPJ収支コンポーネント**: (A) `pwa/src/components/management-score/GasMonthlySimulationPanel.tsx` (原価=uncapped) / (B) `pwa/src/components/admin/AdminPayoutsClient.tsx` (先12か月表, 支払予定=capped+役員除外, v0.25.4 反映済)。
+- **支払予定の capped 投影**: `pwa/src/lib/reward-summary.ts` の `computeForwardCappedMemberCosts` (役員除外込) / route `pwa/src/app/api/admin/payouts/route.ts` (`forecastCapped`)。原価の uncapped 投影は同 lib `computeForwardUncappedMemberCosts`。spec 7-1 が capped/uncapped の正本。
 - DB列: `billing_cycles.extra_revenue_json` (migration 142)。形式 `[{label, amount_tax_excl, period_start_ym, period_end_ym, freee_invoice_number, billing_date, memo}]`。
 - 中核データ正本: `pwa/design/L2_DATA.md` / コックピット: `pwa/design/cockpit.md` / 重要UI登録簿: `pwa/design/FEATURE_REGISTRY.md`
 - 契約管理 + Contract Apply: `pwa/spec/5-6-contracts-management-current-spec.md`

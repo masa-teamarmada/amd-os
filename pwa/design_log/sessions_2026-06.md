@@ -446,3 +446,29 @@
 **検証**: 本番 DB で p19 forward uncapped を `npx tsx` で実測。**202607 真原価 = ¥393,705** (まさ稼働分 ¥191,685 含む)・202608 ¥396,630・202609 ¥777,465・202610 ¥304,200・202611 ¥129,675・202612 ¥100,815。予算 ¥195,000 とは別物。修正後の手計算: 202607 = 195,000 + 333,333 (別財布) − 393,705 = **+134,628**、202611 = 195,000 + 0 − 129,675 = **+65,325**、202612 = 195,000 − 100,815 = **+94,185**。原価 ¥195,000 横ばいは消え、まさの稼働分が乗って収支が動く。tsc/build green、BUILD_VERSION v0.25.3。
 
 **残課題 (別)**: 202701 以降 (plan 期間外、ZMP plan 終了 202612 など) は uncapped が出ず従来 budgetYen 決め打ちにフォールバック。これは plan 未策定の設計判断で、plan 延長 vs ロジック改修はまさの方向確認待ち。
+
+### 2026-06-17 — /admin/payouts 支払予定を uncapped → capped + 役員除外(落とす一択) に修正 (KUTE¥0 / マイナス月解消, v0.25.4)
+
+**経緯**: v0.25.3 deploy 後、まさがスクショで3点指摘 — ① **マイナス月があるのはおかしい (キャップが効いてるはず)** ② **OkuDoor分の支払いはうめ・あび2人で計¥40万のはず** ③ **KUTE(まさ・りり・きよの3人=全員支払対象外) で異常な金額の支払いが出る理由特定。支払いが¥0でない時点で変**。
+
+**えいみの判断ミス2件 (まさ叱責)**:
+1. **(最重要) 役員除外を「(i)落とす / (ii)非役員へ再配分」の2択で提示した**。まさ:「もちろん(i)じゃないとダメに決まってる。(ii)にしたら、おれがいくら各PJで働いてもメンバーに巨額を払うことになって数カ月でAMDは倒産する。そんなロジックを選択肢に入れる時点でおかしくない?」→ **役員が抜けた share は単に落とす (i) 一択**。再配分は倒産ロジックで、選択肢に並べた判断自体が誤り。
+2. **v0.25.3 で /management-score の「原価=uncapped」を /admin/payouts の「支払予定」列に流用した**のが誤り。spec 7-1 正本では **実際の月次支払い (= /admin/payouts, 支払通知書) = capped** (月次キャップ budget_yen + stockYen 繰越平準化適用後)、**月次収支シミュの原価 = uncapped** で別物。uncapped を支払予定に出すと pt 消化が厚い月に budget を超えて跳ねる (KUTE uncapped ¥778,260 vs budget ¥654,545、マイナス月の正体)。
+
+**真因**: (B) /admin/payouts の forward 投影に (i) capped 化 (ii) 役員除外 が両方無かった。
+
+**対応 (A案: capped + 役員除外)**:
+- **新規 `computeForwardCappedMemberCosts(db, projectId, anchorYm)` (`src/lib/reward-summary.ts`)**: uncapped 版と同じデータ取得 + `members` select に `is_officer, exclude_from_payout_notice` 追加。各月で `buildRewardSummary({ ym, ..., billingsByYm, planCycle, project })` を呼ぶ (= cap + stock 繰越連鎖はコア内部で完結、外部で carryIn を組まない)。役員/除外メンバーを `excludedMemberIds` set に入れ `payableMembers = summary.members.filter(m => !excludedMemberIds.has(m.memberId))`、`cappedTotalYen = Σ payableMembers.totalPay`。DB 書き込みなし (persist オプションなし)。コア `buildRewardSummary` は無改修。
+- **route**: `forecastUncapped`/`computeForwardUncappedMemberCosts` → `forecastCapped: [{projectId, ym, cappedTotalYen}]`/`computeForwardCappedMemberCosts` に差し替え。
+- **client (`AdminPayoutsClient.tsx`)**: `forecastCapped` を `(projectId,ym)→capped` Map 化。`cappedForecast != null ? cappedForecast : (budgetYen フォールバック)`。**`!= null` (0 を含む) にしたのが肝**: 役員のみ PJ (KUTE) は capped=¥0 が正しい結果なので budgetYen フォールバックに落とさない (`> 0` だと KUTE で巨額が再発)。
+
+**検証 (本番データ end-to-end, probe で実測)**:
+- **KUTE(p25)**: 全月 capped 支払予定 = **¥0** (まさ・りり・きよ全員 is_officer/exclude で落ちる)。まさ指摘③解消。
+- **ZMP(p19)**: capped が budget 内に平準化 (202609: uncapped ¥777,465 → **capped ¥215,169**)。支払先は あび/うめ/しん/こう (非役員) のみ、まさ (役員) は落ちる。**マイナス月消滅** (指摘①解消)。
+- OkuDoor「うめ・あび¥40万」(指摘②) の切り分けはスコープ外: ZMP に しん/こう が出るのは ZMP **本契約 regular MS** (水素/葛飾/ファシリ/事務) への貢献で正しい。OkuDoor企画(20pt)/現地運用(20pt) が tag=normal で regular 財布混入は別課題 (HANDOFF 残課題、起票済)。OkuDoorシステム開発(67pt) のみ cap_extra (= 別財布、うめ・あび担当)。
+- tsc/build green、BUILD_VERSION v0.25.4。probe スクリプトは検証後削除。
+
+**教訓 (正本: BUGS.md / manual 7-1 / manual 4-5)**:
+- **「倒産につながるロジック」を選択肢に並べた時点で判断が間違っている**。選択肢提示の前に「これは経営として成立するか」を自分でフィルタする。役員除外は再配分しない (落とす) 一択。
+- **原価 (uncapped) と支払予定 (capped) は別概念**。/management-score の数字を /admin/payouts に流用しない。spec 7-1 が正本。
+- **役員除外がコア `buildRewardSummary` に無く各画面で後付け**なのが構造的な穴。新しい支払系 forward 投影を書くたびに役員除外を再実装する羽目になる。将来コアへ寄せる候補。

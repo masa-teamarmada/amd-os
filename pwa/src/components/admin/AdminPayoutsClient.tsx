@@ -88,12 +88,13 @@ type ForecastPlanCycle = {
   period_end_ym: string;
 };
 
-// 将来月のメンバー原価 (uncapped) を /management-score と同じエンジンで投影した値。
-// route が active PJ ごとに computeForwardUncappedMemberCosts で計算して返す。
-type ForecastUncappedRow = {
+// 将来月の「支払予定」(capped) を支払通知書と同じエンジンで投影した値。
+// route が active PJ ごとに computeForwardCappedMemberCosts で計算して返す。
+// capped = 月次キャップ + 繰越平準化適用後 / 役員・支払対象外は除外済み (spec 7-1)。
+type ForecastCappedRow = {
   projectId: string;
   ym: string;
-  uncappedTotalYen: number;
+  cappedTotalYen: number;
 };
 
 type MonthlyRewardPayout = {
@@ -145,7 +146,7 @@ type PayoutData = {
   forecastMonths?: string[];
   forecastCycles?: BillingCycle[];
   forecastPlanCycles?: ForecastPlanCycle[];
-  forecastUncapped?: ForecastUncappedRow[];
+  forecastCapped?: ForecastCappedRow[];
   payouts: MonthlyRewardPayout[];
   notices: PayoutNotice[];
   extraRevenueRows?: ExtraRevenueSourceRow[];
@@ -679,7 +680,7 @@ function buildProjectMonthlyFinanceRows({
   officerMemberIds,
   planCycles,
   payoutEligibleProjectIds,
-  forecastUncapped,
+  forecastCapped,
 }: {
   months: string[];
   cycles: BillingCycle[];
@@ -690,12 +691,13 @@ function buildProjectMonthlyFinanceRows({
   officerMemberIds: Set<string>;
   planCycles: ForecastPlanCycle[];
   payoutEligibleProjectIds: Set<string>;
-  forecastUncapped: ForecastUncappedRow[];
+  forecastCapped: ForecastCappedRow[];
 }): ProjectMonthlyFinanceRow[] {
-  // 将来月のメンバー原価 (uncapped) を (projectId:ym) で引けるようにする。
-  const uncappedByPjYm = new Map<string, number>();
-  for (const row of forecastUncapped) {
-    uncappedByPjYm.set(`${row.projectId}:${row.ym}`, Math.round(numberValue(row.uncappedTotalYen)));
+  // 将来月の「支払予定」(capped, 役員除外済み) を (projectId:ym) で引けるようにする。
+  // 値 0 も「役員のみ PJ なので支払予定ゼロ」という正しい結果なので、未計算 (key 無し) と区別する。
+  const cappedByPjYm = new Map<string, number>();
+  for (const row of forecastCapped) {
+    cappedByPjYm.set(`${row.projectId}:${row.ym}`, Math.round(numberValue(row.cappedTotalYen)));
   }
   const nonOfficerEntries = buildEntries(cycles, memberMap, payoutExcludedMemberIds);
   const officerEntries = buildEntries(
@@ -775,15 +777,18 @@ function buildProjectMonthlyFinanceRows({
     const grossDueYen = entries.reduce((sum, entry) => sum + entry.grossDueYen, 0) + officerReserve.reduce((sum, entry) => sum + entry.grossDueYen, 0);
     const hasRewardMembers = (asRewardSummary(cycle.reward_summary_json)?.members?.length ?? 0) > 0;
     const canForecastPayout = hasRewardBearingPlan(cycle.project_id, cycle.ym, planCycles);
-    // 実績メンバーが居ない将来月の原価。旧実装は予算 (budgetYen) 全額を原価と決め打ちしていたが、
-    // 「予算 195,000 に対し原価も 195,000」という嘘の原価が出ていた (2026-06-17 まさ指摘)。
-    // /management-score と同じ uncapped 報酬 (route が computeForwardUncappedMemberCosts で投影) を
-    // 第一候補にする。uncapped が無い (plan 期間外など) 月のみ従来の予算決め打ちへフォールバック。
-    const uncappedForecast = uncappedByPjYm.get(`${cycle.project_id}:${cycle.ym}`);
+    // 実績メンバーが居ない将来月の「支払予定」。支払予定 = capped (月次キャップ + 繰越平準化適用後 /
+    // 役員・支払対象外を除外済み) が正本 (spec 7-1)。route が computeForwardCappedMemberCosts で投影する。
+    // capped が「計算済み」(key 有り) ならその値を使う。値 0 も「役員のみ PJ なので支払予定ゼロ」という
+    // 正しい結果なので budgetYen フォールバックに落とさない (= KUTE のような全員役員 PJ で巨額が出る事故防止)。
+    // budgetYen 決め打ちフォールバックは plan 期間外などで capped が未計算 (key 無し) の月に限る。
+    // ※ v0.25.3 では uncapped を入れていたため pt 消化が厚い月に budget_yen を超えて跳ね、
+    //   マイナス月 / KUTE 巨額 / OkuDoor 超過が発生した (2026-06-17 まさ指摘 → v0.25.4 で修正)。
+    const cappedForecast = cappedByPjYm.get(`${cycle.project_id}:${cycle.ym}`);
     const forecastPayoutYen =
       !hasRewardMembers && payoutYen === 0
-        ? uncappedForecast != null && uncappedForecast > 0
-          ? uncappedForecast
+        ? cappedForecast != null
+          ? cappedForecast
           : budgetYen > 0 && canForecastPayout && payoutEligibleProjectIds.has(cycle.project_id)
             ? budgetYen
             : payoutYen
@@ -1156,9 +1161,9 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
       officerMemberIds,
       planCycles: data?.forecastPlanCycles ?? [],
       payoutEligibleProjectIds,
-      forecastUncapped: data?.forecastUncapped ?? [],
+      forecastCapped: data?.forecastCapped ?? [],
     }),
-    [data?.forecastCycles, data?.extraRevenueRows, data?.forecastPlanCycles, data?.forecastUncapped, forecastMonths, memberMap, officerMemberIds, payoutEligibleProjectIds, payoutExcludedMemberIds, projectMap]
+    [data?.forecastCycles, data?.extraRevenueRows, data?.forecastPlanCycles, data?.forecastCapped, forecastMonths, memberMap, officerMemberIds, payoutEligibleProjectIds, payoutExcludedMemberIds, projectMap]
   );
 
   const budgetConfirmGroups = useMemo<BudgetConfirmGroup[]>(() => {

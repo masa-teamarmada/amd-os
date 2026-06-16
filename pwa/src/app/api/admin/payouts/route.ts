@@ -7,7 +7,7 @@ import {
   effectivePaymentYmForCycle,
   type PaymentProjectRow,
 } from "@/lib/payment-groups";
-import { syncRewardSummariesForBillingCycles, computeForwardUncappedMemberCosts } from "@/lib/reward-summary";
+import { syncRewardSummariesForBillingCycles, computeForwardCappedMemberCosts } from "@/lib/reward-summary";
 import type { ExtraRevenueSourceRow } from "@/lib/finance/extra-revenue";
 
 export const runtime = "nodejs";
@@ -954,25 +954,27 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
   if (noticesRes.error) throw noticesRes.error;
   if (extraRevenueRes.error) throw extraRevenueRes.error;
 
-  // 将来月のメンバー原価 (uncapped) を `/management-score` と同じエンジンで投影する。
-  // 旧実装は「実績メンバーが居ない将来月の原価 = 予算 (budgetYen) 全額」と決め打ちしていたため、
-  // 「予算 195,000 に対し原価も 195,000」という嘘の原価が出て収支が張り付いた (2026-06-17 まさ指摘)。
-  // ここで実 uncapped 報酬を計算して `forecastUncapped[(projectId,ym)]` で返し、client が
-  // forecastPayoutYen の決め打ちを置き換える。算定正本は reward-summary.ts (= 7-1 章)。
+  // 将来月の「支払予定」(capped) を `/admin/payouts` 支払通知書と同じエンジンで投影する。
+  // 支払予定 = 月次キャップ (budget_yen) + stock 繰越平準化を通した後の額 (spec 7-1 正本)。
+  // 役員 (is_officer) / 支払対象外 (exclude_from_payout_notice) は computeForwardCappedMemberCosts 内で
+  // payYen から落とす (i 案: 再配分しない)。
+  // ※ v0.25.3 では誤って uncapped (キャップ・繰越を通さない生報酬) を支払予定に入れていたため、
+  //   pt 消化が厚い月に budget_yen を超えて跳ね、マイナス月 / KUTE 巨額 / OkuDoor 超過が発生した
+  //   (2026-06-17 まさ指摘 → v0.25.4 で capped へ修正)。
   const forecastProjectIds = [...new Set(forecastCycles.map((cycle) => cycle.project_id))];
-  const forecastUncapped: Array<{ projectId: string; ym: string; uncappedTotalYen: number }> = [];
-  const forecastUncappedResults = await Promise.allSettled(
+  const forecastCapped: Array<{ projectId: string; ym: string; cappedTotalYen: number }> = [];
+  const forecastCappedResults = await Promise.allSettled(
     forecastProjectIds.map((projectId) =>
-      computeForwardUncappedMemberCosts(db, projectId, ym, { persist: false })
+      computeForwardCappedMemberCosts(db, projectId, ym)
     )
   );
-  for (const result of forecastUncappedResults) {
+  for (const result of forecastCappedResults) {
     if (result.status !== "fulfilled") continue;
     for (const month of result.value.months) {
-      forecastUncapped.push({
+      forecastCapped.push({
         projectId: result.value.projectId,
         ym: month.ym,
-        uncappedTotalYen: Math.round(month.uncappedTotalYen),
+        cappedTotalYen: Math.round(month.cappedTotalYen),
       });
     }
   }
@@ -987,7 +989,7 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
     forecastCycles,
     extraRevenueRows: (extraRevenueRes.data ?? []) as ExtraRevenueSourceRow[],
     forecastPlanCycles: (forecastPlanCyclesRes.data ?? []) as ForecastPlanCycleRow[],
-    forecastUncapped,
+    forecastCapped,
     payouts: payoutsRes.data ?? [],
     notices: noticesRes.data ?? [],
     expectedEntries: applySavedPayoutsForExistingRows(

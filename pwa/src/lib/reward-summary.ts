@@ -198,6 +198,8 @@ type MemberRow = {
   member_id: string;
   code_name?: string | null;
   member_name?: string | null;
+  is_officer?: boolean | null;
+  exclude_from_payout_notice?: boolean | null;
 };
 
 export type RewardSyncResult = {
@@ -1709,6 +1711,185 @@ export async function computeForwardUncappedMemberCosts(
         .eq("ym", ym);
       if (error) throw error;
     }
+  }
+
+  return { projectId, planCycleId: planCycle.plan_cycle_id, months };
+}
+
+export interface ForwardCappedMonth {
+  ym: string;
+  /** その月に実際に支払う capped 報酬 (円, 月次キャップ + 繰越平準化適用後 / 役員・支払対象外を除外済み) */
+  cappedTotalYen: number;
+  /** anchorYm より後の未来月か (= 実績ではなく按分予測) */
+  isFuture: boolean;
+  members: Array<{ memberId: string; memberName?: string; earnedPt: number; payYen: number }>;
+}
+
+/**
+ * plan cycle 全期間 (period_start_ym〜period_end_ym) について、各月に「実際に支払う」
+ * capped メンバー報酬を計算して返す。`/admin/payouts`「先12か月 PJ収支」表の将来支払予定注入用。
+ *
+ * - uncapped (= その月に発生した原価) ではなく capped (= 実際にいくら払うか) を返す。
+ *   capped は月次支払上限 (budget_yen) + stock 繰越平準化が入るので「支払予定」の正本 (spec 7-1)。
+ * - cap + carryIn 連鎖は `buildRewardSummary` が内部で planCycle 全期間を時系列に回して処理する
+ *   (= ここで carryIn を手で連鎖させる必要はない)。期間全 billing を billingsByYm で渡す。
+ * - 役員 (is_officer) / 支払対象外 (exclude_from_payout_notice) のメンバーは payYen から「単に落とす」。
+ *   抜けた share を他メンバーに再配分はしない (再配分すると AMD 持ち出しが無限に膨らむため。i 案)。
+ *
+ * anchorYm はアンカー月 (= 当月)。billing_cycle が無い月はスキップ。
+ */
+export async function computeForwardCappedMemberCosts(
+  db: SupabaseLike,
+  projectId: string,
+  anchorYm: string
+): Promise<{ projectId: string; planCycleId: string | null; months: ForwardCappedMonth[] }> {
+  const [projectRes, planCyclesRes, membersRes] = await Promise.all([
+    db
+      .from("projects")
+      .select("project_id, fee_type, fee_amount")
+      .eq("project_id", projectId)
+      .maybeSingle(),
+    db
+      .from("value_plan_cycles")
+      .select("plan_cycle_id, project_id, status, budget_yen, total_points, period_start_ym, period_end_ym")
+      .eq("project_id", projectId)
+      .in("status", ACTIVE_PLAN_STATUSES)
+      .order("period_start_ym", { ascending: false }),
+    db.from("members").select("member_id, code_name, member_name, is_officer, exclude_from_payout_notice"),
+  ]);
+  if (projectRes.error) throw projectRes.error;
+  if (planCyclesRes.error) throw planCyclesRes.error;
+  if (membersRes.error) throw membersRes.error;
+
+  const project = (projectRes.data ?? null) as ProjectRow | null;
+  const planCycle = choosePlanCycle((planCyclesRes.data ?? []) as PlanCycleRow[], anchorYm);
+  if (!planCycle) return { projectId, planCycleId: null, months: [] };
+
+  const milestonesRes = await db
+    .from("value_milestones")
+    .select("milestone_id, title, points, tag, goal_level, sort_order, period_start_ym, target_ym")
+    .eq("plan_cycle_id", planCycle.plan_cycle_id)
+    .eq("is_active", true)
+    .order("sort_order");
+  if (milestonesRes.error) throw milestonesRes.error;
+
+  const milestones = ((milestonesRes.data ?? []) as MilestoneRow[]).filter(
+    (ms) => String(ms.goal_level || "").toLowerCase() !== "monthly"
+  );
+  if (milestones.length === 0) return { projectId, planCycleId: planCycle.plan_cycle_id, months: [] };
+
+  const milestoneIds = milestones.map((ms) => ms.milestone_id);
+  const fullMonths: string[] = [];
+  {
+    const start = ymToMonths(planCycle.period_start_ym);
+    const end = ymToMonths(planCycle.period_end_ym);
+    for (let i = start; i <= end; i += 1) fullMonths.push(monthsToYm(i));
+  }
+
+  const [progressRes, responsibilitiesRes, billingRangeRes, activitiesRes, contributionAllocationsRes, projectMembersRes] = await Promise.all([
+    db
+      .from("milestone_monthly_progress")
+      .select("milestone_key, ym, progress_pct, consumed_pt, source")
+      .in("milestone_key", milestoneIds)
+      .order("ym", { ascending: true }),
+    db
+      .from("milestone_responsibility")
+      .select("milestone_id, member_id, share")
+      .in("milestone_id", milestoneIds),
+    db
+      .from("billing_cycles")
+      .select("project_id, ym, budget_yen, budget_reported_amount, budget_buffer_amount, reward_summary_json")
+      .eq("project_id", projectId)
+      .gte("ym", planCycle.period_start_ym)
+      .lte("ym", planCycle.period_end_ym)
+      .order("ym", { ascending: true }),
+    db
+      .from("member_activities")
+      .select("id, member_id, project_id, ym, source, source_item_id, milestone_id, title, content_preview, item_date, raw_metadata, impact, depth")
+      .eq("project_id", projectId)
+      .in("ym", fullMonths)
+      .in("milestone_id", milestoneIds),
+    db
+      .from("milestone_monthly_contribution_allocations")
+      .select("project_id, milestone_id, ym, member_id, planned_share, actual_share, confidence, source, status, reason, evidence_count, evidence_refs")
+      .eq("project_id", projectId)
+      .in("ym", fullMonths)
+      .in("milestone_id", milestoneIds),
+    db
+      .from("project_members")
+      .select("member_id, is_active")
+      .eq("project_id", projectId),
+  ]);
+  if (progressRes.error) throw progressRes.error;
+  if (responsibilitiesRes.error) throw responsibilitiesRes.error;
+  if (billingRangeRes.error) throw billingRangeRes.error;
+  if (activitiesRes.error) throw activitiesRes.error;
+  if (contributionAllocationsRes.error && !isMissingContributionAllocationTableError(contributionAllocationsRes.error)) {
+    throw contributionAllocationsRes.error;
+  }
+  if (projectMembersRes.error) throw projectMembersRes.error;
+
+  const activeMemberIds = new Set(
+    ((projectMembersRes.data ?? []) as Array<{ member_id: string; is_active: boolean | null }>)
+      .filter((row) => row.is_active !== false)
+      .map((row) => row.member_id)
+  );
+  const memberMap: Record<string, string> = {};
+  // 役員 / 支払対象外メンバーは支払予定から落とす (i 案: 再配分しない)
+  const excludedMemberIds = new Set<string>();
+  for (const member of (membersRes.data ?? []) as MemberRow[]) {
+    memberMap[member.member_id] = member.code_name || member.member_name || member.member_id;
+    if (member.is_officer || member.exclude_from_payout_notice) excludedMemberIds.add(member.member_id);
+  }
+
+  const contributionPlan = buildContributionAllocationPlan({
+    projectId,
+    months: fullMonths,
+    milestones,
+    responsibilities: (responsibilitiesRes.data ?? []) as ResponsibilityRow[],
+    activities: (activitiesRes.data ?? []) as MemberActivityRow[],
+    persistedAllocations: contributionAllocationsRes.error
+      ? []
+      : (contributionAllocationsRes.data ?? []) as ContributionAllocationRow[],
+  });
+
+  const progress = (progressRes.data ?? []) as ProgressRow[];
+  const responsibilities = (responsibilitiesRes.data ?? []) as ResponsibilityRow[];
+  const billingRows = (billingRangeRes.data ?? []) as BillingRow[];
+  const billingByYm = new Map(billingRows.map((row) => [row.ym, row]));
+
+  const months: ForwardCappedMonth[] = [];
+  for (const ym of fullMonths) {
+    const billing = billingByYm.get(ym);
+    if (!billing) continue; // billing_cycle 無い月はスキップ
+    // buildRewardSummary は planCycle 全期間を内部で時系列に回し cap + stock 繰越を連鎖させる。
+    // billingsByYm に期間全 billing を渡すことで各月の cap が正しく効く。
+    const summary = buildRewardSummary({
+      ym,
+      milestones,
+      progress,
+      responsibilities,
+      contributionSharesByKey: contributionPlan.effectiveSharesByKey,
+      activeMemberIds,
+      memberMap,
+      billing,
+      billingsByYm: billingByYm,
+      planCycle,
+      project,
+    });
+    const payableMembers = (summary?.members ?? []).filter((m) => !excludedMemberIds.has(m.memberId));
+    const cappedTotalYen = payableMembers.reduce((sum, m) => sum + (m.totalPay || 0), 0);
+    months.push({
+      ym,
+      cappedTotalYen,
+      isFuture: ym > anchorYm,
+      members: payableMembers.map((m) => ({
+        memberId: m.memberId,
+        memberName: m.memberName,
+        earnedPt: m.earnedPt,
+        payYen: m.totalPay,
+      })),
+    });
   }
 
   return { projectId, planCycleId: planCycle.plan_cycle_id, months };

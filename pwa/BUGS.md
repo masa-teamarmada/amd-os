@@ -5,9 +5,26 @@
 
 ---
 
+### [finance] `/admin/payouts`「先12か月 PJ収支」表の支払予定に uncapped を入れてしまいマイナス月・KUTE 巨額・役員への支払いが発生 — 支払予定は capped + 役員除外が正本 (2026-06-17)
+
+- **状態**: ✅ クローズ (2026-06-17, v0.25.4 — 将来月の支払予定を capped (月次キャップ+繰越平準化) + 役員除外に修正、本番 deploy 済み)。**直前の v0.25.3 の「支払予定=uncapped」は設計ミスで、本エントリで上書き訂正する。**
+- **症状**: v0.25.3 deploy 後、まさが「先12か月 PJ収支」表のスクショで3点指摘。① **マイナスの月がある** (キャップがあるはずなのに収支が赤)。② **OkuDoor (ZMP) の支払いはうめ・あびの2人で計40万円だけのはず** なのに ZMP で巨額の支払予定。③ **KUTE で異常な金額の支払予定**。さらに「KUTE はおれ・りり・きよの3人で、3人とも支払い対象外。支払いが0円じゃない時点で変」。
+- **原因 (2つ)**:
+  1. **支払予定列に uncapped を入れた (v0.25.3 の設計ミス)**: v0.25.3 で「将来原価 = uncapped」という (A)/management-score の**原価**の考え方を、(B)/admin/payouts の**支払予定**列にそのまま流用した。だが原価と支払予定は別物で、**支払予定は capped (月次キャップ budget_yen + stock 繰越平準化を通した後) が正本** (spec 7-1)。uncapped はキャップを通さない生報酬なので、pt 消化が厚い月に budget_yen を超えて跳ねる。実測で KUTE(p25) 202608 uncapped = ¥778,260 (budget ¥654,545 超過)、ZMP(p19) 202609 uncapped = ¥777,465。これが budget − 支払予定 をマイナスにし、KUTE 巨額・OkuDoor 超過の直接原因。
+  2. **将来 forward 計算に役員除外が無い**: `computeForwardUncappedMemberCosts` は `is_officer` / `exclude_from_payout_notice` を一切除外していなかった (実支払 notice 発行は route 側で後付け除外するが、forward 投影関数には無い)。KUTE はまさ・りり・きよ全員 `is_officer=true` なのに payYen が出ていた。= 役員除外がコア/forward 計算に無く各画面側で後付けしている設計の穴。
+- **解決内容 (2026-06-17, v0.25.4)**:
+  - `reward-summary.ts` に `computeForwardCappedMemberCosts(db, projectId, anchorYm)` を新設。各月 `buildRewardSummary` を呼び (= 内部で planCycle 全期間を時系列に回し cap + stock 繰越を連鎖させるので、ここで carryIn を手で組む必要なし)、`billingsByYm` に期間全 billing を渡して各月の cap を正しく効かせる。**役員 / 支払対象外メンバーは payYen から単に落とす (i 案: 再配分しない)**。抜けた share を非役員へ再配分すると AMD 持ち出しが無限に膨らむため (まさ明示)。
+  - route (`/api/admin/payouts`): `forecastUncapped` → `forecastCapped: [{projectId, ym, cappedTotalYen}]` に差し替え。
+  - client (`AdminPayoutsClient.tsx`): 支払予定 (`forecastPayoutYen`) を capped 優先に。**capped が「計算済み」(key 有り) なら値 0 でもそれを使う** (= 役員のみ PJ の支払予定ゼロを budgetYen フォールバックに落とさない。これをしないと KUTE で巨額が再発)。budgetYen 決め打ちは plan 期間外などで capped が未計算の月だけ。
+- **検証** (本番 DB 実測): KUTE(p25) 全月 **capped 支払予定 = ¥0** (全員役員→落ちる)。ZMP(p19) capped が budget 内に平準化 (202609: uncapped ¥777,465 → capped ¥215,169)、支払先は あび・うめ・しん・こう (非役員) のみ、まさ(役員)は落ちた。マイナス月消滅。`/admin/payouts` は admin auth gate のため headless スクショ不可、本番 DB + forward 実測でデータ経路を end-to-end 検証。
+- **補足 (今回スコープ外・別課題)**: まさの「OkuDoor はうめ・あびで40万」は OkuDoor 別財布 MS (`OkuDoorシステム開発` 67pt, `tag=cap_extra`) への支払いを指す。ZMP capped に しん・こう が出るのは ZMP **本契約の regular MS** (水素/葛飾/ファシリ/事務) への貢献で正しい。OkuDoor「企画」「現地運用」(各20pt) が `tag=normal` で regular 財布に混入している件は別課題 (HANDOFF 残課題2、起票済み)。
+- **教訓**: **原価 (uncapped) と支払予定 (capped) を取り違えない**。/management-score の月次収支シミュは「メンバー原価 = uncapped」、/admin/payouts の支払予定・支払通知書は「capped」が spec 7-1 の正本。同じ「将来の数字」でも列の意味でソースが違う。**役員除外がコア計算 (reward-summary) に無く各画面で後付けしている**のは構造的な穴で、forward 系の新関数を作るときに除外を入れ忘れると役員に金が出る。選択肢提示の反省: 役員が抜けた分を非役員へ再配分する案 (ii) を選択肢として並べたが、これは AMD 倒産につながるロジックで、並べた時点で判断が誤り (まさ叱責)。落とすだけ (i) が当然。
+
+---
+
 ### [finance] `/admin/payouts`「先12か月 PJ収支」表で実績メンバーのいない将来月の原価が予算と同額になる嘘 — plan期間内なのに uncapped 報酬を投影せず budgetYen を原価に決め打ち (2026-06-17)
 
-- **状態**: ✅ クローズ (2026-06-17, v0.25.3 — route が active PJ ごとに forward uncapped 原価を計算して返し、client が将来月の原価を uncapped 優先に置換、本番 deploy 済み)
+- **状態**: ⚠️ 部分訂正 (2026-06-17, v0.25.3 — 「将来原価 = uncapped」自体は正しいが、**この修正で (B)/admin/payouts の支払予定列に uncapped を入れたのが誤り**。支払予定は capped + 役員除外が正本。直後の v0.25.4 (上のエントリ) で支払予定列を capped に訂正した。budgetYen 決め打ちの嘘原価を解消した点は有効。)
 - **症状**: まさが `/admin/payouts`「先12か月 PJ収支」表を見ると、ZMP(p19) の 202607 など実績メンバーがまだ載っていない将来月で原価が **¥195,000 (= 予算と同額)** に張り付いていた。まさ指摘:「202607でも195,000円の原価がかかってる。予算195,000に対して原価195,000っておかしいよ。」「おれ (まさ) も活動してるんだから、おれへの支払い分が入ってたら収支がプラスになるはず。」= 予算 = 原価で収支ゼロに見えるのが実態と合わない。
 - **原因**: (B) `/admin/payouts` 表 (`AdminPayoutsClient.tsx` の `buildProjectMonthlyFinanceRows`) は、実績の `reward_summary` がまだ無い将来月で `forecastPayoutYen = budgetYen` (= baseCap = fee × 0.65 − buffer = 195,000) を**原価として丸ごとコピー**していた。これは「予算をそのまま使い切る」という乱暴な仮置きで、実際の uncapped 報酬 (まさを含む稼働メンバーの earnedPt × ptUnit) を全く反映しない。
   - 一方 (A) `/management-score` 月次収支シミュは `computeForwardUncappedMemberCosts` で plan cycle 期間の各月の **実 uncapped 報酬**を投影していた (manual/7-1 の「月次収支シミュ将来原価 = uncapped」が正本)。**(A) は正しく、(B) だけ未対応の非対称**が残っていた。
