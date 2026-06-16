@@ -431,3 +431,18 @@
 **検証 (両系統)**: 本番 DB の唯一のソース行 (p19, ym=202603, OkuDoorシステム開発 税抜¥2,000,000, period 202605〜202610) を共通 `expandExtraRevenue` に通すと **202605〜202609 各 ¥333,333 / 202610 ¥333,335 / 計 ¥2,000,000**。両画面が同一ソースクエリ・同一関数を共有するため、この値が両方に出る。`/admin/payouts` は admin auth gate のため headless ブラウザでのスクショは不可 (認証情報入力は禁止行為)。データ経路を end-to-end で検証して目視スクショの代替とした。tsc/build green。
 
 **今後の課題 (別セッション継続)**: ZMP 残課題は変わらず — ① OkuDoor企画(20pt)・現地運用(20pt)MS が tag=normal で regular財布混入。② plan cycle total_points=187 に OkuDoor pt 含まれ ptUnit希釈。③ 他PJ別財布売上を順次 extra_revenue_json 投入 (period_* 付きで自動按分)。
+
+### 2026-06-17 — /admin/payouts 先12か月PJ収支の将来原価を uncapped 投影へ統一 (予算決め打ちの嘘原価を解消, v0.25.3)
+
+**経緯**: v0.25.2 deploy 後、まさが `/admin/payouts`「先12か月 PJ収支」表で「まだ多くの月の支払いが195,000円。おれ (まさ) も活動してるんだから、おれへの支払い分が入ってたら収支がプラスになるはず」と指摘。えいみが当初「plan 終了後 (202701以降) の原価未投影が真因」と誤診断したところ、まさが明確に訂正:**「いや、問題はそこじゃないよ。202607でも195,000円の原価がかかってる。予算195,000に対して原価195,000っておかしいよ。」** = まさが見ているのは**原価列**で、plan 期間**内**の将来月 (202607 など) の原価が予算 (baseCap ¥195,000) と同額に張り付く嘘が真因。
+
+**真因**: (B) `/admin/payouts` 表 (`AdminPayoutsClient.tsx` の `buildProjectMonthlyFinanceRows`) は、実績 `reward_summary` がまだ無い将来月で `forecastPayoutYen = budgetYen` (= 予算をそのまま使い切る乱暴な仮置き) を原価にコピーしていた。一方 (A) `/management-score` 月次収支シミュは `computeForwardUncappedMemberCosts` で実 uncapped 報酬 (まさ含む稼働メンバーの earnedPt × ptUnit) を投影していた。**(A) は正しく (B) だけ budgetYen 決め打ちの非対称**。
+
+**対応 (将来原価ソースを両系統で uncapped に統一)**:
+- **route (`src/app/api/admin/payouts/route.ts`)**: forecast 対象の active PJ ごとに `computeForwardUncappedMemberCosts(db, projectId, ym, { persist: false })` を呼び、plan cycle 期間の各月 uncapped 原価を `forecastUncapped: [{ projectId, ym, uncappedTotalYen }]` で返却 (`persist:false` = 本番 DB に書かない読み取り投影)。`Promise.allSettled` で 1 PJ 失敗が全体を落とさない。
+- **client (`AdminPayoutsClient.tsx`)**: `buildProjectMonthlyFinanceRows` が `(projectId, ym)` → uncapped の Map を作り、実績メンバー無し将来月の `forecastPayoutYen` を **uncapped 優先**に置換。uncapped が取れない月 (plan 期間外など) だけ従来の budgetYen 決め打ちへフォールバック。
+- これで (A)/(B) が同じ `computeForwardUncappedMemberCosts` を将来原価ソースにする。
+
+**検証**: 本番 DB で p19 forward uncapped を `npx tsx` で実測。**202607 真原価 = ¥393,705** (まさ稼働分 ¥191,685 含む)・202608 ¥396,630・202609 ¥777,465・202610 ¥304,200・202611 ¥129,675・202612 ¥100,815。予算 ¥195,000 とは別物。修正後の手計算: 202607 = 195,000 + 333,333 (別財布) − 393,705 = **+134,628**、202611 = 195,000 + 0 − 129,675 = **+65,325**、202612 = 195,000 − 100,815 = **+94,185**。原価 ¥195,000 横ばいは消え、まさの稼働分が乗って収支が動く。tsc/build green、BUILD_VERSION v0.25.3。
+
+**残課題 (別)**: 202701 以降 (plan 期間外、ZMP plan 終了 202612 など) は uncapped が出ず従来 budgetYen 決め打ちにフォールバック。これは plan 未策定の設計判断で、plan 延長 vs ロジック改修はまさの方向確認待ち。

@@ -7,7 +7,7 @@ import {
   effectivePaymentYmForCycle,
   type PaymentProjectRow,
 } from "@/lib/payment-groups";
-import { syncRewardSummariesForBillingCycles } from "@/lib/reward-summary";
+import { syncRewardSummariesForBillingCycles, computeForwardUncappedMemberCosts } from "@/lib/reward-summary";
 import type { ExtraRevenueSourceRow } from "@/lib/finance/extra-revenue";
 
 export const runtime = "nodejs";
@@ -954,6 +954,29 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
   if (noticesRes.error) throw noticesRes.error;
   if (extraRevenueRes.error) throw extraRevenueRes.error;
 
+  // 将来月のメンバー原価 (uncapped) を `/management-score` と同じエンジンで投影する。
+  // 旧実装は「実績メンバーが居ない将来月の原価 = 予算 (budgetYen) 全額」と決め打ちしていたため、
+  // 「予算 195,000 に対し原価も 195,000」という嘘の原価が出て収支が張り付いた (2026-06-17 まさ指摘)。
+  // ここで実 uncapped 報酬を計算して `forecastUncapped[(projectId,ym)]` で返し、client が
+  // forecastPayoutYen の決め打ちを置き換える。算定正本は reward-summary.ts (= 7-1 章)。
+  const forecastProjectIds = [...new Set(forecastCycles.map((cycle) => cycle.project_id))];
+  const forecastUncapped: Array<{ projectId: string; ym: string; uncappedTotalYen: number }> = [];
+  const forecastUncappedResults = await Promise.allSettled(
+    forecastProjectIds.map((projectId) =>
+      computeForwardUncappedMemberCosts(db, projectId, ym, { persist: false })
+    )
+  );
+  for (const result of forecastUncappedResults) {
+    if (result.status !== "fulfilled") continue;
+    for (const month of result.value.months) {
+      forecastUncapped.push({
+        projectId: result.value.projectId,
+        ym: month.ym,
+        uncappedTotalYen: Math.round(month.uncappedTotalYen),
+      });
+    }
+  }
+
   return {
     ym,
     members: membersRes.data ?? [],
@@ -964,6 +987,7 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
     forecastCycles,
     extraRevenueRows: (extraRevenueRes.data ?? []) as ExtraRevenueSourceRow[],
     forecastPlanCycles: (forecastPlanCyclesRes.data ?? []) as ForecastPlanCycleRow[],
+    forecastUncapped,
     payouts: payoutsRes.data ?? [],
     notices: noticesRes.data ?? [],
     expectedEntries: applySavedPayoutsForExistingRows(

@@ -400,6 +400,8 @@ Finance Simulation は、会社 PL / cash runway を月次で試算する経営�
 
 シミュレータの将来原価は、月次支払キャップ・キャリーストック平準化を**かけない生の月次報酬 (uncapped)** を使う。理由は、キャップ後の数字は「実際にいくら払うか」であって「その月にいくら発生したか (= 原価)」ではないため。経営判断としては「その月に本当に発生する原価」で赤字月を見たい。uncapped 報酬の定義は [7-1 章 報酬計算仕様](7-1-reward-calc-spec.md) の「uncapped」セクションが正本。
 
+**「将来原価 = uncapped」は (A) `/management-score` だけでなく (B) `/admin/payouts`「先12か月 PJ収支」表でも正本** (2026-06-17, v0.25.3 で統一)。両系統とも、実績メンバーがまだ載っていない将来月の原価を `computeForwardUncappedMemberCosts` の uncapped 投影で出す。**将来月の原価に `budget_yen` (= 予算 = baseCap) をそのままコピーするのは禁止** — 「予算 = 原価」になり収支がゼロに張り付く嘘になる (= BUGS.md 2026-06-17「予算195,000に対して原価195,000っておかしい」)。実例: p19 の 202607 は予算 ¥195,000 だが真の uncapped 原価 = ¥393,705 (まさの稼働分 ¥191,685 を含む)。uncapped が取れない月 (plan 期間外など) に限り budgetYen 決め打ちへフォールバックする。
+
 MS の pt 消化は**必ず期間の月数で按分**する (まとめ達成禁止、[7-1 章](7-1-reward-calc-spec.md) の按分ルール参照)。按分された結果ある月に集中するのは問題ない。按分を入れずに将来投影すると、特定月だけ原価が跳ねて存在しない赤字月が捏造される。
 
 #### エンジンの「revenue が無い月は原価も計上しない」制約と現行データでの無害性
@@ -418,6 +420,8 @@ MS の pt 消化は**必ず期間の月数で按分**する (まとめ達成禁�
 
 > **逆ケース (= 別財布売上) は実装済み (2026-06-16)**: 上記は「原価だけ立って売上が無い」穴だが、ZMP (p19) で逆の「**別契約の原価 (cap_extra) は立つのに、その売上が本契約売上に乗らない**」問題が起きていた。OkuDoor システム開発を定額¥30万/月とは別に ¥2,000,000 (税抜) で受託していたが、原価 (cap_extra uncapped 報酬) だけが costMember に乗り、売上が無いため粗利を食い潰して収支がゼロ〜赤字に見えていた。対策として `billing_cycles.extra_revenue_json` (migration 142) に別財布売上を構造化して持たせ、live builder が `projectRevenues[].extraRevenue` として注入、エンジンが売上計・粗利・消費税・CF に加算する (原価率は通さない)。複数財布 PJ の汎用管理基盤としても使う (まさ確定 2026-06-16, B案: extraRevenue を一級市民化)。**計上方式は開発期間按分 (B-a)**: `period_start_ym`〜`period_end_ym` を持たせると総額を開発期間で月次按分し、PL計上もキャッシュ入金も同じ按分月に乗せる (= 単月の収支が実態に近くなる、pt消化と同じ「期間で割る」思想)。OkuDoor は開発期間 202605〜202610 の6ヶ月按分 (≒¥333,333/月)。当初は請求月一括計上で実装したが、まさ確定で按分方式に修正 (2026-06-16)。
 > ✅ **両系統に反映済み (2026-06-17, v0.25.2)**: PJ収支を出す画面は2系統ある — (A) `/management-score` 月次収支シミュレータ (`buildLiveMonthlyPlInputs`→エンジン) と (B) `/admin/payouts`「先12か月 PJ収支」表 (`AdminPayoutsClient.tsx` の `cycle.budget_yen` ベース独自 forecast)。当初 (A) だけ実装し (B) を verify 時に見落として横ばい表示になった (= BUGS.md 2026-06-17)。**対策として按分ロジックを共通 lib `src/lib/finance/extra-revenue.ts` (`expandExtraRevenue`) に集約し、両系統が同じ関数を呼ぶ構造にした**。(B) は route (`/api/admin/payouts`) が「`extra_revenue_json IS NOT NULL` の全行」を返し (按分元 ym が表示窓より前でも取りこぼさないため)、`buildProjectMonthlyFinanceRows` が `expandExtraRevenue` で展開して各月セルに `extraRevenueYen` を加算、`別財布 ¥…` を表示する。**finance の数字を変えたら必ず `/management-score` と `/admin/payouts` の両画面で確認すること** (収支表が複数あるのを忘れない)。
+
+> ✅ **(B) の将来原価も uncapped 投影に統一 (2026-06-17, v0.25.3)**: (B) `/admin/payouts`「先12か月 PJ収支」表は、実績メンバーのいない将来月の原価 (`forecastPayoutYen`) を `cycle.budget_yen` (= baseCap 195,000) でそのまま決め打ちしていた。これは plan 期間**内**の月でも起き、「予算 = 原価」で収支がゼロに張り付く嘘になっていた (まさ指摘: 予算195,000に対して原価195,000はおかしい = BUGS.md 2026-06-17)。(A) は `computeForwardUncappedMemberCosts` で実 uncapped を投影しているのに (B) だけ未対応の非対称。**対策**: route (`/api/admin/payouts`) が forecast 対象の各 active PJ について `computeForwardUncappedMemberCosts(db, projectId, ym, { persist:false })` を呼び `forecastUncapped: [{projectId, ym, uncappedTotalYen}]` を返却。client が将来月の `forecastPayoutYen` を **uncapped 優先**に置換し、uncapped が取れない月 (plan 期間外) だけ従来の budgetYen 決め打ちへフォールバック。p19 実測で 202607 の真原価 = ¥393,705 (まさの稼働分含む)、202607 収支 = 195,000 + 333,333 − 393,705 = +134,628。原価 ¥195,000 横ばいは消えた。
 
 #### 報酬予算の月次解決順 (`deriveRewardBudgetForPt`) と uncapped 月次原価の実測概算
 

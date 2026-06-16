@@ -88,6 +88,14 @@ type ForecastPlanCycle = {
   period_end_ym: string;
 };
 
+// 将来月のメンバー原価 (uncapped) を /management-score と同じエンジンで投影した値。
+// route が active PJ ごとに computeForwardUncappedMemberCosts で計算して返す。
+type ForecastUncappedRow = {
+  projectId: string;
+  ym: string;
+  uncappedTotalYen: number;
+};
+
 type MonthlyRewardPayout = {
   project_id: string;
   ym: string;
@@ -137,6 +145,7 @@ type PayoutData = {
   forecastMonths?: string[];
   forecastCycles?: BillingCycle[];
   forecastPlanCycles?: ForecastPlanCycle[];
+  forecastUncapped?: ForecastUncappedRow[];
   payouts: MonthlyRewardPayout[];
   notices: PayoutNotice[];
   extraRevenueRows?: ExtraRevenueSourceRow[];
@@ -670,6 +679,7 @@ function buildProjectMonthlyFinanceRows({
   officerMemberIds,
   planCycles,
   payoutEligibleProjectIds,
+  forecastUncapped,
 }: {
   months: string[];
   cycles: BillingCycle[];
@@ -680,7 +690,13 @@ function buildProjectMonthlyFinanceRows({
   officerMemberIds: Set<string>;
   planCycles: ForecastPlanCycle[];
   payoutEligibleProjectIds: Set<string>;
+  forecastUncapped: ForecastUncappedRow[];
 }): ProjectMonthlyFinanceRow[] {
+  // 将来月のメンバー原価 (uncapped) を (projectId:ym) で引けるようにする。
+  const uncappedByPjYm = new Map<string, number>();
+  for (const row of forecastUncapped) {
+    uncappedByPjYm.set(`${row.projectId}:${row.ym}`, Math.round(numberValue(row.uncappedTotalYen)));
+  }
   const nonOfficerEntries = buildEntries(cycles, memberMap, payoutExcludedMemberIds);
   const officerEntries = buildEntries(
     cycles,
@@ -759,9 +775,18 @@ function buildProjectMonthlyFinanceRows({
     const grossDueYen = entries.reduce((sum, entry) => sum + entry.grossDueYen, 0) + officerReserve.reduce((sum, entry) => sum + entry.grossDueYen, 0);
     const hasRewardMembers = (asRewardSummary(cycle.reward_summary_json)?.members?.length ?? 0) > 0;
     const canForecastPayout = hasRewardBearingPlan(cycle.project_id, cycle.ym, planCycles);
+    // 実績メンバーが居ない将来月の原価。旧実装は予算 (budgetYen) 全額を原価と決め打ちしていたが、
+    // 「予算 195,000 に対し原価も 195,000」という嘘の原価が出ていた (2026-06-17 まさ指摘)。
+    // /management-score と同じ uncapped 報酬 (route が computeForwardUncappedMemberCosts で投影) を
+    // 第一候補にする。uncapped が無い (plan 期間外など) 月のみ従来の予算決め打ちへフォールバック。
+    const uncappedForecast = uncappedByPjYm.get(`${cycle.project_id}:${cycle.ym}`);
     const forecastPayoutYen =
-      !hasRewardMembers && payoutYen === 0 && budgetYen > 0 && canForecastPayout && payoutEligibleProjectIds.has(cycle.project_id)
-        ? budgetYen
+      !hasRewardMembers && payoutYen === 0
+        ? uncappedForecast != null && uncappedForecast > 0
+          ? uncappedForecast
+          : budgetYen > 0 && canForecastPayout && payoutEligibleProjectIds.has(cycle.project_id)
+            ? budgetYen
+            : payoutYen
         : payoutYen;
     // 別財布売上 (税抜) は本契約 budgetYen とは別枠の収入なので最終収支に純増させる。
     const extra = takeExtra(cycle.project_id, cycle.ym);
@@ -1131,8 +1156,9 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
       officerMemberIds,
       planCycles: data?.forecastPlanCycles ?? [],
       payoutEligibleProjectIds,
+      forecastUncapped: data?.forecastUncapped ?? [],
     }),
-    [data?.forecastCycles, data?.extraRevenueRows, data?.forecastPlanCycles, forecastMonths, memberMap, officerMemberIds, payoutEligibleProjectIds, payoutExcludedMemberIds, projectMap]
+    [data?.forecastCycles, data?.extraRevenueRows, data?.forecastPlanCycles, data?.forecastUncapped, forecastMonths, memberMap, officerMemberIds, payoutEligibleProjectIds, payoutExcludedMemberIds, projectMap]
   );
 
   const budgetConfirmGroups = useMemo<BudgetConfirmGroup[]>(() => {

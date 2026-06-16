@@ -1,12 +1,23 @@
 # HANDOFF - AMD OS PWA
 
-- Last updated: 2026-06-17 (別財布按分を /admin/payouts PJ収支表にも反映 / 按分ロジックを共通lib化, v0.25.2)
-- Topic: 別財布売上の開発期間按分を **両系統 (`/management-score` + `/admin/payouts`)** に反映完了。按分ロジックを `src/lib/finance/extra-revenue.ts` に集約
+- Last updated: 2026-06-17 (/admin/payouts 先12か月PJ収支の将来原価を uncapped 投影へ統一 / 予算決め打ちの嘘原価を解消, v0.25.3)
+- Topic: `/admin/payouts`「先12か月 PJ収支」表の将来月原価を、予算 (budgetYen) 決め打ちから uncapped 投影 (`computeForwardUncappedMemberCosts`) へ統一。(A)/management-score と将来原価ソースを揃え、「予算=原価」で収支ゼロに見える嘘を解消
 - Canonical root: `/Users/masa/projects/AMD/amd-os`
 - PWA root: `/Users/masa/projects/AMD/amd-os/pwa`
 - Production URL: `https://amd-os-pwa.vercel.app`
 - Current branch: `main`
-- Production: 本セッション deploy = v0.25.2 (`build-info.ts`)。直前 deploy は v0.25.1 (`062fc2e8`)。次セッションは `git fetch` で並行セッションの push を必ず取り込む。
+- Production: 本セッション deploy = v0.25.3 (`build-info.ts`)。直前 deploy は v0.25.2。次セッションは `git fetch` で並行セッションの push を必ず取り込む。
+
+## 直近セッション (2026-06-17 — /admin/payouts 将来原価を uncapped 投影へ統一, v0.25.3)
+
+まさが `/admin/payouts`「先12か月 PJ収支」表で「202607でも195,000円の原価がかかってる。予算195,000に対して原価195,000っておかしい」と指摘。(B) 表は実績メンバー無し将来月の原価を `cycle.budget_yen` (= baseCap ¥195,000) でそのまま決め打ちしており、(A)/management-score が `computeForwardUncappedMemberCosts` で実 uncapped を投影しているのに (B) だけ未対応の非対称が原因 (BUGS.md 2026-06-17)。
+
+1. **route (`/api/admin/payouts`)**: forecast 対象の active PJ ごとに `computeForwardUncappedMemberCosts(db, pj, ym, {persist:false})` を呼び `forecastUncapped: [{projectId, ym, uncappedTotalYen}]` を返却 (`Promise.allSettled`、本番DB非書き込み)。
+2. **client (`AdminPayoutsClient.tsx`)**: 将来月の `forecastPayoutYen` を uncapped 優先へ置換 (plan 期間外のみ budgetYen フォールバック)。`forecastUncapped` を `(pj,ym)` Map にして引く。
+3. **検証**: p19 forward uncapped 実測 = 202607 ¥393,705 (まさ稼働分¥191,685含む) / 202611 ¥129,675 / 202612 ¥100,815 等。202607 収支 = 195,000+333,333−393,705 = +134,628。原価¥195,000横ばいが消えた。tsc/build green。
+4. 正本: `manual/4-5-*.md` (将来原価=uncapped節 + v0.25.3 注記) / `manual/7-1-*.md` (admin/payouts 将来原価も uncapped) / `BUGS.md` 2026-06-17 (先頭エントリ) / changelog 9-3 / design_log。
+
+**残課題**: 202701 以降 (plan 期間外、ZMP plan 終了 202612 など) は uncapped が出ず budgetYen 決め打ちにフォールバック。plan 延長 vs ロジック改修はまさ確認待ち。
 
 ## 直近セッション (2026-06-17 — 別財布按分を両系統に反映 + 共通lib化, v0.25.2)
 

@@ -5,6 +5,22 @@
 
 ---
 
+### [finance] `/admin/payouts`「先12か月 PJ収支」表で実績メンバーのいない将来月の原価が予算と同額になる嘘 — plan期間内なのに uncapped 報酬を投影せず budgetYen を原価に決め打ち (2026-06-17)
+
+- **状態**: ✅ クローズ (2026-06-17, v0.25.3 — route が active PJ ごとに forward uncapped 原価を計算して返し、client が将来月の原価を uncapped 優先に置換、本番 deploy 済み)
+- **症状**: まさが `/admin/payouts`「先12か月 PJ収支」表を見ると、ZMP(p19) の 202607 など実績メンバーがまだ載っていない将来月で原価が **¥195,000 (= 予算と同額)** に張り付いていた。まさ指摘:「202607でも195,000円の原価がかかってる。予算195,000に対して原価195,000っておかしいよ。」「おれ (まさ) も活動してるんだから、おれへの支払い分が入ってたら収支がプラスになるはず。」= 予算 = 原価で収支ゼロに見えるのが実態と合わない。
+- **原因**: (B) `/admin/payouts` 表 (`AdminPayoutsClient.tsx` の `buildProjectMonthlyFinanceRows`) は、実績の `reward_summary` がまだ無い将来月で `forecastPayoutYen = budgetYen` (= baseCap = fee × 0.65 − buffer = 195,000) を**原価として丸ごとコピー**していた。これは「予算をそのまま使い切る」という乱暴な仮置きで、実際の uncapped 報酬 (まさを含む稼働メンバーの earnedPt × ptUnit) を全く反映しない。
+  - 一方 (A) `/management-score` 月次収支シミュは `computeForwardUncappedMemberCosts` で plan cycle 期間の各月の **実 uncapped 報酬**を投影していた (manual/7-1 の「月次収支シミュ将来原価 = uncapped」が正本)。**(A) は正しく、(B) だけ未対応の非対称**が残っていた。
+  - 当初えいみは「plan 終了後 (202701以降) の原価未投影が真因」と誤診断したが、まさの訂正で **plan 期間内 (202607)** で起きている budgetYen 決め打ちが真因と判明。p19 plan は 202612 まで生きており、202607 は期間内。
+- **解決内容 (2026-06-17, v0.25.3)**:
+  - route (`src/app/api/admin/payouts/route.ts`): forecast 対象の各 active PJ について `computeForwardUncappedMemberCosts(db, projectId, ym, { persist: false })` を呼び、plan cycle 期間の各月の uncapped 原価を `forecastUncapped: [{ projectId, ym, uncappedTotalYen }]` で返却。`{ persist: false }` なので本番 DB へは書き込まない (読み取り投影のみ)。
+  - client (`AdminPayoutsClient.tsx`): `buildProjectMonthlyFinanceRows` が `(projectId, ym)` → uncapped の Map を作り、実績メンバー無し将来月の `forecastPayoutYen` を **uncapped 優先**に置換。uncapped が取れた月はそれを原価に使い、取れない月 (plan 期間外など) だけ従来の budgetYen 決め打ちにフォールバック。`finalBalanceYen = budgetYen + extraRevenueYen − forecastPayoutYen`。
+  - これで (A) と (B) が同じ `computeForwardUncappedMemberCosts` を将来原価のソースにする = 2系統の非対称を解消。
+- **検証**: 本番 DB で p19 の forward uncapped を実測 (`npx tsx` で `computeForwardUncappedMemberCosts` 直叩き)。202607 の真の uncapped 原価 = **¥393,705** (まさの稼働分 ¥191,685 を含む) で、予算 ¥195,000 とは別物だと証明。修正後の手計算: 202607 = 195,000 + 333,333 (別財布按分) − 393,705 = **+134,628**、202611 = 195,000 + 0 − 129,675 = **+65,325**、202612 = 195,000 − 100,815 = **+94,185**。原価が ¥195,000 横ばいになる症状は消え、まさの稼働分が原価に乗って収支が動く。`/admin/payouts` は admin auth gate のため headless スクショ不可、本番 DB + uncapped 実測でデータ経路を end-to-end 検証して代替した。
+- **教訓**: 「予算 = 原価」決め打ちは収支をゼロに見せかける嘘。**将来月の原価は予算のコピーではなく uncapped 報酬の投影**が正本 (manual/7-1)。同じ「将来原価」を出す場所が複数あるなら、必ず同じ投影関数 (`computeForwardUncappedMemberCosts`) を通す。片方だけ uncapped・もう片方だけ budgetYen の非対称を残さない。診断時はまさが見ている**列 (原価か支払いか)** を取り違えない — 「plan 終了後」と早合点せず、まず実数を実測してから真因を断定する。
+
+---
+
 ### [finance] 別財布売上 (extraRevenue) が `/admin/payouts`「先12か月 PJ収支」表に未反映 — 収支系コンポーネントが2系統あり片方だけ実装した (2026-06-17)
 
 - **状態**: ✅ クローズ (2026-06-17, v0.25.2 — 按分ロジックを共通 lib `src/lib/finance/extra-revenue.ts` に集約し両系統から呼ぶよう修正、本番 deploy 済み)
