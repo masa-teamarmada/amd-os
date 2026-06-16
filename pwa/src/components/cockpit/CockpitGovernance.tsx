@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * CockpitGovernance — PJ cockpit col2 の「株主・ガバナンス」セクション。
+ * CockpitGovernance — PJ cockpit col2 の「株主・ガバナンス / 総会・取締役会履歴」セクション。
  *
  * 起点: JOYCLE(p09) 臨時株主総会 招集通知が OS に抽出されていなかった事故 (2026-06-15)。
  * 終了PJでも株主・総会・決議・AMD保有株式/バリュエーション・要対応を表示する
@@ -116,7 +116,7 @@ export function CockpitGovernance({ projectId }: { projectId: string }) {
   return (
     <section className="rounded-lg border border-border bg-background">
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
-        <h2 className="text-[13px] font-semibold">🏛 株主・ガバナンス</h2>
+        <h2 className="text-[13px] font-semibold">🏛 株主・ガバナンス / 総会・取締役会履歴</h2>
         <Link
           href={`/admin/governance?projectId=${encodeURIComponent(projectId)}`}
           className="ml-auto text-[10px] rounded px-1.5 py-0.5 border border-border bg-background text-muted-foreground hover:bg-muted hover:underline"
@@ -126,7 +126,7 @@ export function CockpitGovernance({ projectId }: { projectId: string }) {
       {loading && <div className="px-3 py-3 text-[11px] text-muted-foreground">読み込み中…</div>}
       {isEmpty && (
         <div className="px-3 py-3 text-[11px] text-muted-foreground">
-          株主・総会・保有株式の記録なし。<Link href={`/admin/governance?projectId=${encodeURIComponent(projectId)}`} className="underline">編集から追加</Link>
+          総会・取締役会履歴、株主、保有株式の記録なし。<Link href={`/admin/governance?projectId=${encodeURIComponent(projectId)}`} className="underline">編集から追加</Link>
         </div>
       )}
 
