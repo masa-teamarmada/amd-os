@@ -6,7 +6,8 @@ import {
   type DialogueConfirmedSignal,
 } from "@/components/management-score/EvidencePanel";
 import { AlertTriangle, CheckCircle2, CircleGauge, ShieldAlert } from "lucide-react";
-import type { MonthlyPlInputs } from "@/lib/finance/monthly-pl-simulation";
+import { runMonthlyPlSimulation, type MonthlyPlInputs } from "@/lib/finance/monthly-pl-simulation";
+import { buildLiveMonthlyPlInputs } from "@/lib/finance/live-monthly-pl-inputs";
 import { effectivePaymentYmForCycle } from "@/lib/payment-groups";
 
 export const dynamic = "force-dynamic";
@@ -1150,6 +1151,73 @@ function buildMonthlyPlInputs(inputRows: BudgetInputRow[]): MonthlyPlInputs | nu
   };
 }
 
+/**
+ * live inputs でエンジンを回し、その予算行に snapshot baseline (= buildGasSimulationResult の出力)
+ * の actual 列 (実績/入金/支払通知など) をマージして GasSimulationResult を作る。
+ * baseline 表示が凍結 snapshot ではなく OS ライブテーブル駆動になる。
+ */
+function buildLiveGasSimulationResult(
+  liveInputs: MonthlyPlInputs,
+  snapshotResult: GasSimulationResult
+): GasSimulationResult {
+  const engine = runMonthlyPlSimulation(liveInputs, null);
+  const actualByYm = new Map(snapshotResult.rows.map((row) => [row.ym, row]));
+  const rows: GasMonthlyRow[] = engine.rows.map((row) => {
+    const actual = actualByYm.get(row.ym);
+    return {
+      ym: row.ym,
+      actualStatus: actual?.actualStatus ?? "future",
+      revenue: row.revenue,
+      actualRevenue: actual?.actualRevenue ?? 0,
+      confirmedDepositsGross: actual?.confirmedDepositsGross ?? 0,
+      costMember: row.costMember,
+      costCloser: row.costCloser,
+      grossProfit: row.grossProfit,
+      fixedCost: row.fixedCost,
+      actualFixedCost: actual?.actualFixedCost ?? 0,
+      socialIns: row.socialIns,
+      actualSocialIns: actual?.actualSocialIns ?? 0,
+      operatingProfit: row.operatingProfit,
+      loanPayment: row.loanPayment,
+      actualLoanPayment: actual?.actualLoanPayment ?? 0,
+      loanInterest: row.loanInterest,
+      ctaxPayment: row.ctaxPayment,
+      actualCtaxPayment: actual?.actualCtaxPayment ?? 0,
+      corpTaxPayment: row.corpTaxPayment,
+      actualCorpTaxPayment: actual?.actualCorpTaxPayment ?? 0,
+      actualSpotIncome: actual?.actualSpotIncome ?? 0,
+      actualSpotExpense: actual?.actualSpotExpense ?? 0,
+      netCashFlow: row.netCashFlow,
+      actualNetCashFlow: actual?.actualNetCashFlow ?? 0,
+      payoutNoticeNetTotal: actual?.payoutNoticeNetTotal ?? 0,
+      payoutNoticeSentNetTotal: actual?.payoutNoticeSentNetTotal ?? 0,
+      cashBalance: row.cashBalance,
+      runway: row.runway,
+      loanDisbursement: row.loanDisbursement,
+      spotIncome: row.spotIncome,
+      spotExpense: row.spotExpense,
+      cashInflow: row.cashInflow,
+      cashOutflow: row.cashOutflow,
+      pjDetails: row.pjDetails.map((pj) => ({
+        projectId: pj.projectId,
+        revenue: pj.revenue,
+        externalMember: pj.externalMember,
+        internalMember: pj.internalMember,
+      })),
+      fixedCostDetails: row.fixedCostDetails.map((fc) => ({ name: fc.name, amount: fc.amount })),
+    };
+  });
+  return {
+    params: { rateCloser: engine.params.rateCloser },
+    rows,
+    projectList: engine.projectList.map((pj) => ({
+      projectId: pj.projectId,
+      projectName: pj.projectName,
+      closerInternal: pj.closerInternal,
+    })),
+  };
+}
+
 function currentYmJST(): string {
   const now = new Date();
   const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
@@ -1403,7 +1471,7 @@ export default async function ManagementScorePage() {
     paymentProjects,
     payoutNotices
   );
-  const gasSimulationResult = buildGasSimulationResult(
+  const snapshotSimulationResult = buildGasSimulationResult(
     financeMonths,
     budgetCategoryRows,
     budgetRows,
@@ -1411,7 +1479,30 @@ export default async function ManagementScorePage() {
     monthlyActualSummaries,
     ymCap
   );
-  const gasSimulationInputs = buildMonthlyPlInputs(budgetInputRows);
+  // snapshot inputs (= 凍結 company_budget_inputs) は live builder の fallback (params/融資/スポット/シナリオ) と
+  // live 構築失敗時の保険として保持する。
+  const snapshotSimulationInputs = buildMonthlyPlInputs(budgetInputRows);
+  // OS ライブテーブル (projects / billing_cycles / value_* / company_finance_recurring_items) から入力を組み立てる。
+  // 失敗したら snapshot にフォールバックして画面は壊さない。
+  let gasSimulationResult = snapshotSimulationResult;
+  let gasSimulationInputs = snapshotSimulationInputs;
+  if (snapshotSimulationInputs?.params) {
+    try {
+      const live = await buildLiveMonthlyPlInputs(supabase, {
+        startYm: snapshotSimulationInputs.params.startYm,
+        months: snapshotSimulationInputs.params.months,
+        fallbackParams: snapshotSimulationInputs.params,
+        fallbackLoans: snapshotSimulationInputs.loans,
+        fallbackSpots: snapshotSimulationInputs.spots,
+        fallbackScenarios: snapshotSimulationInputs.scenarios,
+        persistForecast: false,
+      });
+      gasSimulationInputs = live.inputs;
+      gasSimulationResult = buildLiveGasSimulationResult(live.inputs, snapshotSimulationResult);
+    } catch (err) {
+      console.error("[management-score] live PL inputs build failed, falling back to snapshot", err);
+    }
+  }
   const expectedReceiptsByYm = buildExpectedReceiptsByPaymentYm(billingCycles, paymentProjects);
   const oneOffInflowGrossByYm = buildOneOffInflowGrossByYm(budgetInputRows);
   const pastActualYm = addMonths(ymCap, -1);

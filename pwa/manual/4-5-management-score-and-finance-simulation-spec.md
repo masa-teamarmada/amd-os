@@ -372,23 +372,93 @@ evidence summary の書き方ガイド (= v4):
 - 例 (= 良):「シーズ候補「非麻薬性オピオイド鎮痛薬」 (観察中, AMD評価 3/5 / life) — 新規案件 pipeline を形成」
 - 例 (= 悪):「seed:investigating: 非麻薬性オピオイド鎮痛薬」 (= 何を意味するか UI からは分からない)
 
-## Finance Simulation
+## Finance Simulation (= 月次収支シミュレータ)
 
-Finance Simulation は、旧 GAS 月次試算表を PWA に移植した会社 PL / cash runway ビュー。 v4 でも仕様変更なし。
+Finance Simulation は、会社 PL / cash runway を月次で試算する経営判断ビュー。**2026-06-16 に入力ソースを「凍結 snapshot (`company_budget_inputs`)」から「OS のライブテーブル直読み」に切り替えた**。それ以前は GAS 月次試算表から手で起こした `company_budget_inputs` を復元していたため、PJ の契約・MS 進捗・固定費が動いても snapshot を作り直さない限りシミュレータに反映されなかった。今は OS の生データ (請求サイクル / MS 進捗 / 固定費マスタ) が動けば、次に画面を開いた時点で自動でシミュレータに乗る。
+
+### なぜライブ駆動にしたか
+
+旧方式は「ある時点で手入力した予算表のコピー」を眺めるだけで、現実 (新規契約・MS 進捗・メンバー報酬の発生) とすぐ乖離した。経営判断 (先3か月キャッシュが持つか、どの月が赤字になるか) は最新の OS 状態で計算しないと意味がない。そこで入力を OS 正本テーブルから毎回組み立てる方式に変えた。
+
+### 入力ソース (= `buildLiveMonthlyPlInputs`)
+
+`MonthlyPlInputs` を次のライブテーブルから組み立てる。
+
+| 入力区分 | 正本テーブル / 列 | 取り方 |
+|---|---|---|
+| 固定収益 | `projects.fee_type='monthly_fixed'` + `projects.fee_amount` | 毎月定額で立つ受託フィー。`start_ym`〜`end_ym` (契約中) の月だけ計上。実例: p10 SE ¥10万 / p19 ZMP ¥30万 / p20 CX ¥29万 / p21 SX ¥104.8万 |
+| 変動収益 | `projects.fee_type='variable'` の PJ について `billing_cycles` を月別に。売上 = `budget_reported_amount` (あれば優先)、無ければ `budget_yen ÷ 0.65` で逆算 | ⚠️ `budget_yen` は**報酬予算 (reported×0.65) であって売上ではない**。売上に使うときは逆算が要る。実例: p25 KUTE 月 ¥654,545 (budget_yen) → 売上 ≒ ¥1,007,000。CX 再スタート分 (26年6-9月) も `billing_cycles` に既に入っている |
+| 固定費 | `company_finance_recurring_items` (`status='active'`) | 家賃・SaaS・役員報酬・固定人件費など定常支出。各行を `start_ym`〜`end_ym` 付きの fixed cost にマップし、月レンジはエンジン側で解決。実例: 役員報酬(まさ) 26年4月以降 ¥70万 / 役員報酬(きよ) ¥34万 / 家賃按分 ¥72,666 / claude ¥45,000 ほか |
+| 将来メンバー原価 | MS 進捗 → uncapped 報酬 (後述) を `projectRevenues[].internalMemberCost` に注入 | 各 PJ の MS を期間月数で按分し、将来月の uncapped 報酬を原価として投影 |
+| パラメータ / 融資 / スポット | 旧 `company_budget_inputs` から流用 | 繰越欠損 / 前期消費税 / 社保率 / 各種率、および OS にライブテーブルが無い融資 (`loan`)・臨時収支 (`spot`) は当面 snapshot 値を再利用 |
+
+### 将来メンバー原価は uncapped を使う
+
+シミュレータの将来原価は、月次支払キャップ・キャリーストック平準化を**かけない生の月次報酬 (uncapped)** を使う。理由は、キャップ後の数字は「実際にいくら払うか」であって「その月にいくら発生したか (= 原価)」ではないため。経営判断としては「その月に本当に発生する原価」で赤字月を見たい。uncapped 報酬の定義は [7-1 章 報酬計算仕様](7-1-reward-calc-spec.md) の「uncapped」セクションが正本。
+
+MS の pt 消化は**必ず期間の月数で按分**する (まとめ達成禁止、[7-1 章](7-1-reward-calc-spec.md) の按分ルール参照)。按分された結果ある月に集中するのは問題ない。按分を入れずに将来投影すると、特定月だけ原価が跳ねて存在しない赤字月が捏造される。
+
+#### エンジンの「revenue が無い月は原価も計上しない」制約と現行データでの無害性
+
+`monthly-pl-simulation.ts` のメンバー原価ループは「その月に売上のある PJ」だけ `internalMemberCost` を原価計上する (= 売上 0 の月は原価行ごとスキップ)。これは「売上が立つ前の PJ で報酬原価だけが先行計上される」のを防ぐ設計だが、**uncapped 報酬が立つのに売上が無い月があると、その原価がシミュレータに乗らない**という穴になりうる。現行 active PJ で全件確認した結果、この穴に落ちる PJ・月は無い:
+
+| PJ | 状況 | uncapped 原価が立つ月 |
+|---|---|---|
+| p00 (AMD) | plan cycle `total_points=0` / MS pt 合計 0 | uncapped 自体が 0 (穴に落ちない) |
+| p07 (LST) / p24 (CLG) / p26 (VasculaX) | plan cycle 無し | uncapped 0 |
+| p06 (CTB, variable) | plan cycle が 2023-2024 で終了済 | 将来月の uncapped 無し |
+| p10/p19/p20/p21 (monthly_fixed) | 毎月 `fee_amount` の売上が立つ | 原価月と売上月が一致 |
+| p25 (KUTE, variable) | plan cycle 全期間 (202605-202703) で billing に `budget_yen` あり | 全月で売上が立つ |
+
+したがって `projectRevenues[].internalMemberCost` 注入方式のままで取りこぼしは無い。**将来、売上が立たない月に報酬原価だけ発生する PJ が現れたら**、その月の原価は `varCosts[]` (= 売上に紐づかない変動費) として注入する必要がある。live builder にこの分岐を足す前に、この表を再確認する。
+
+#### 報酬予算の月次解決順 (`deriveRewardBudgetForPt`) と uncapped 月次原価の実測概算
+
+uncapped 報酬の ptUnit は「月次報酬予算 ÷ plan cycle 総 pt」で出す。月次報酬予算 (`deriveRewardBudgetForPt`) は次の優先順で解決する。**`billing_cycles.budget_reported_amount` は売上であって報酬予算ではないので、ここでは参照しない** (= budget_yen が 0 の月は fee fallback に落ちる):
+
+1. `billing_cycles.budget_yen` (> 0 ならそれ)
+2. `fee_type='monthly_fixed'` なら `fee_amount × 0.65`
+3. `value_plan_cycles.budget_yen ÷ 期間月数`
+
+主要 active PJ の実測 (2026-06 時点):
+
+| PJ | plan cycle | 総pt | 月次報酬予算 | 月次按分pt | uncapped 月次原価 ≒ |
+|---|---|---|---|---|---|
+| p19 ZMP | 202601-202612 (12ヶ月) | 187 | billing `budget_yen` ≈ ¥195,000 | 187/12 ≈ 15.6 | ≈ ¥195,000 |
+| p20 CX | 202606-202609 (4ヶ月) | 40 | billing `budget_yen` ≈ ¥50,700 | 40/4 = 10 | ≈ ¥50,700 |
+| p21 SX | 202604-202703 (12ヶ月) | 120 | 26年4-5月は `budget_yen=0` → fee fallback ¥681,200 / 6月以降は billing `budget_yen=681,200` | 120/12 = 10 | ≈ ¥56,767 |
+| p25 KUTE | 202605-202703 (11ヶ月) | 110 | billing `budget_yen` ≈ ¥654,545 | 110/11 = 10 | ≈ ¥654,545 |
+
+p21 の 26年4-5月は `billing_cycles.budget_yen` が 0 (reported=¥840,000 のみ) なので fee fallback (¥1,048,000 × 0.65 = ¥681,200) が効き、報酬原価が 0 に落ちない。この fallback が無いと SX の人件費原価が前半 0 円になり赤字月を誤って消してしまう。
+
+### baseline 表示も live 駆動 (= `buildLiveGasSimulationResult`)
+
+シミュレータ画面の初期表示 (panel の `result`) も、凍結 snapshot ではなく live inputs でエンジンを回した結果にする。`page.tsx` の `buildLiveGasSimulationResult` が `runMonthlyPlSimulation(liveInputs)` を**サーバ側で**実行し、その予算行に snapshot baseline (`buildGasSimulationResult`) が持つ実績列 (freee 実績・入金・支払通知など) をマージして `GasSimulationResult` を作る。
+
+- live 構築に失敗したら snapshot にフォールバックして画面は壊さない (`try/catch`)。
+- panel の「シナリオ実行」ボタンが叩く `/api/management-score/finance/simulate` にも live inputs (`gasSimulationInputs`) が渡るので、シナリオ再計算も live 駆動。
+- snapshot inputs (`company_budget_inputs`) は live builder の fallback (params/融資/スポット/シナリオ) と保険として残す。
+
+### 予実管理のための DB 書き込み (= A案)
+
+シミュレーションだからといって DB に書かない、という方針は取らない。**書いておかないと予実管理 (予定 vs 実績) ができない**ため。将来月の予測報酬は次の流れで保存する。
 
 ```mermaid
 flowchart LR
-  A["旧 GAS 月次試算表"] --> B["gas_monthly_pl inputs"]
-  B --> C["company_budget_inputs"]
-  B --> D["company_budget_actual_monthly"]
-  C --> E["/management-score<br/>GasMonthlySimulationPanel"]
-  D --> E
-  E --> F["POST /api/management-score/finance/simulate<br/>persist=false preview"]
-  F --> G["company_budget_simulation_runs"]
-  F --> H["company_budget_monthly<br/>persist=company_monthly"]
+  A["MS 進捗 (期間按分)"] --> B["uncapped 月次報酬を将来月まで計算"]
+  B --> C["将来月の billing_cycles 行を用意"]
+  C --> D["billing_cycles.reward_summary_json へ予測報酬を保存"]
+  D --> E["/management-score シミュレータが保存値を読む"]
+  E --> F["実績が出たら予実比較 (差分列)"]
 ```
 
-`/management-score` の `GasMonthlySimulationPanel` は次を表示する。
+保存先は `billing_cycles.reward_summary_json` の **`forecastUncapped` キー** (= `computeForwardUncappedMemberCosts(persist:true)` が書く)。既存の capped actual (実支払データ = `members`/`totalPaySum` 等) は**上書きしない**。capped (実際にいくら払ったか) と uncapped forecast (その月に発生する原価予測) を同じ行に共存させる。
+
+行追加 (INSERT) は不要。現行 active PJ (p00/p19/p20/p21/p25) は plan cycle 末まで `billing_cycles` 行が既に揃っているため、**既存行の `reward_summary_json` 更新だけで済む** (= 新規行 backfill が無いのでまさ承認ゲートに当たらない)。将来 plan cycle が延長され末月以降に行が無くなった場合のみ、INSERT 是非をまさに確認する。
+
+### シミュレータ画面 (= `GasMonthlySimulationPanel`)
+
+panel 自体の表示構造は不変 (エンジン `monthly-pl-simulation.ts` も不変)。入力の作り方だけが live builder に変わった。
 
 | 表示 | 内容 |
 |---|---|
@@ -396,23 +466,21 @@ flowchart LR
 | chart | キャッシュ残高 line、収入 / 支出 bar |
 | 月次 table | 売上、粗利、固定費、社保、臨時収入、臨時支出、営業利益、融資、返済、利息、消費税、法人税、月次CF、キャッシュ |
 | 展開 row | 売上計の PJ 別内訳、固定費の科目別内訳、粗利周辺の原価 |
-| scenario select / 実行 | `company_budget_inputs` から復元した inputs を `POST /api/management-score/finance/simulate` へ `persist=false` で送り、画面上の試算だけを更新 |
+| 予実列 | 各月に 予算 (live試算) / 実績 (freee PL・入金確認) / 差分 を並べる (下記「予実管理」セクション) |
 
-API:
+### 旧 simulate API (= レガシー、当面残す)
 
 ```text
 POST /api/management-score/finance/simulate
 ```
 
-admin-only。body は `inputs.params`, `inputs.projects`, `inputs.fixedCosts` を要求する。
+admin-only。body は `inputs.params`, `inputs.projects`, `inputs.fixedCosts` を要求する。ライブ駆動移行後はメイン経路ではないが、`company_budget_simulation_runs` への保存運用が必要になった時のために残している。
 
 | persist | 保存内容 |
 |---|---|
 | `false` | simulation result だけ返す |
 | `simulation_only` | `company_budget_simulation_runs` と `company_budget_inputs` へ保存 |
 | `company_monthly` | 上記に加えて company scope の `company_budget_monthly` へ保存 |
-
-2026-05-25 #62 以降、画面上の scenario select と「シミュレーション実行」ボタンは `POST /api/management-score/finance/simulate` に接続済み。 v4 でもこの挙動は維持する。
 
 ## 更新運用
 
@@ -545,7 +613,7 @@ DB分類として、`project_strategy_signals` に `signal_scope` / `applies_to_
 | P0 | initiative 抽出の cron 健康度 | 202606 unknown 100% (= 入力薄) | `/api/cron/member-activities` 実行履歴と入力本文を確認 |
 | P0 | amd_os_installations 新テーブル | 未作成 | migration 設計 + L2 抽出経路 |
 | P1 | next_actions 自動生成 | `next_actions_json` は空配列で保存 | evidence と strategy signal から次アクション生成 |
-| P2 | finance simulation 保存運用 | 画面ボタンは persist=false プレビューのみ | 保存運用が必要になったら simulation_only / company_monthly を admin operation として分ける |
+| P2 | finance simulation ライブ駆動 | 2026-06-16 に入力を OS ライブテーブル直読み (`buildLiveMonthlyPlInputs`) へ移行。将来原価は uncapped 報酬を期間按分で投影 | 将来月の `billing_cycles` 行 INSERT (予測報酬保存) はまさ承認後に backfill。旧 `simulate` API は保存運用用に残置 |
 | P2 | freee freshness 見える化 | freee row が無い時に score / confidence が下がる | token / sync failure を `/admin/settings` と差分メモで見える化 |
 
 ## 卒業フェーズ検出との接続

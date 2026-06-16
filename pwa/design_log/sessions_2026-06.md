@@ -258,3 +258,26 @@
 
 ### 関連メモ更新
 - `memory/feedback_eimi_persona_nonstop.md` に AskUserQuestion 三度目違反の教訓追記 (選択肢を狭めると「全部」が頼めない → 全部やる前提で走る)。
+
+## 2026-06-16 (#92) — Cowork セッション (cowork-eimi) / 月次収支シミュレータの化石化診断 → live 駆動切替を spawn_task で起票
+
+> Cowork (Claude Desktop) 上で動いた cowork-eimi セッションのログ。コード変更は無し (診断 + 次セッションへのタスク化)。次のえいみが読めば「なぜ live 駆動に変えるのか」が分かるよう残す。
+
+### コンテキスト
+- まさと「先三か月の収支」レビュー → AMD 健康状態評価から開始。固定費削減 (税理士コンダクト) を経て、go-forward CF を OS で出そうとした流れで **OS 予算データの化石化**が発覚。
+- 重要な正本確定: **AMD 財務の唯一の正本は「収支スプレッドシート」** (まさ手維持の Google Sheet, fileId `1Q8cEnutfJzgdEXKIRDb4wUGAe6ON1MMiiz3irCrj1YA`)。OS の `company_budget_*` はそこから seed された二次データ。銀行明細からの手再構築や OS スナップショットを正本扱いしない。
+
+### 診断 (実装はしていない)
+- **化石の入口**: `management-score/page.tsx` ~1056 が `company_budget_inputs` (version=`gas-2026-05-18-baseline`) を読み、~942 `buildMonthlyPlInputs` で `MonthlyPlInputs` を組んで `GasMonthlySimulationPanel` に渡している。この凍結スナップショットに SX 二重計上・実在しない「新規1/2/3」・終了済 CTB が残り、誤予測の原因になっていた。
+- **エンジン/ UI は完成品**: `pwa/src/lib/finance/monthly-pl-simulation.ts` と `pwa/src/components/management-score/GasMonthlySimulationPanel.tsx` は無改修で再利用可。正しい入力を流し込めば良い。
+- **生きた運用テーブルは正確**: `projects` (fee_type/fee_amount/start_ym/end_ym/freeze_from_ym)、`billing_cycles.budget_yen` (KUTE 等の変動売上を月別保持)、`monthly_reward_payout` (メンバー原価実績)、`company_finance_recurring_items` (固定費)、`milestone_responsibility.share` × `milestone_monthly_progress` (将来月のフォワード原価)。
+
+### 次アクション (起票済)
+- **spawn_task `task_2a17f76e`「収支シミュレータを生きたOSデータ駆動に切替」** を起票。内容 = 新関数 `buildLiveMonthlyPlInputs()` で上記生テーブルから `MonthlyPlInputs` を組み、page.tsx の入力ソースを差し替え (エンジン/パネル無改修)。フォワード原価は既存の報酬計算ロジック (monthly_reward_payout 生成系) を将来月へ延ばして算出 (新規列不要・まさ確認済)。
+
+### Verified
+- DB 実値で確定 (Supabase `nbnhrhybjslbawdukvvk`): SX (p21) ¥1,048,000/月 (契約 applied 2026/06–2027/03) / KUTE (p25) ¥654,545/月税抜・2026/06 のみ倍 (5月遅延) / ZMP (p19) ¥300,000 / SE (p10) ¥100,000 / CX·NIMS (p20) ¥900,000 総額 2026/06–2026/09 で終了 / CTB (p06) `freeze_from_ym=202605` で凍結→0。
+- コード変更・deploy なし。BUILD_VERSION 変更なし。
+
+### 関連メモ更新 (Cowork memory)
+- `memory/feedback_amd_finance_source_of_truth.md` 新規 (財務正本=収支スプシ / OS は派生で stale 化 / 所有者の確定値を再監査して空転しない)。

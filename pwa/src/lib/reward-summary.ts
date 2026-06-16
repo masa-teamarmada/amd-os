@@ -1098,7 +1098,7 @@ export function applyRewardCapsForMonth(
   };
 }
 
-function buildRewardSummaryUncapped({
+export function buildRewardSummaryUncapped({
   ym,
   milestones,
   progress,
@@ -1508,6 +1508,210 @@ export async function syncRewardSummaryForCycle(
   await persistRewardSummaryForCycle({ db, projectId, ym, billing, project, rewardSummary });
 
   return { ok: true, projectId, ym, rewardSummary };
+}
+
+export interface ForwardUncappedMonth {
+  ym: string;
+  /** その月に「発生した」uncapped 報酬原価 (円, 単月差分・繰越なし・cap なし) */
+  uncappedTotalYen: number;
+  /** anchorYm より後の未来月か (= 実績ではなく按分予測) */
+  isFuture: boolean;
+  members: Array<{ memberId: string; memberName?: string; earnedPt: number; payYen: number }>;
+}
+
+/**
+ * plan cycle 全期間 (period_start_ym〜period_end_ym) について、各月に「発生した」
+ * uncapped メンバー報酬原価を計算して返す。月次収支シミュレータの将来メンバー原価注入用。
+ *
+ * - capped (= 実際にいくら払うか) ではなく uncapped (= その月に発生した原価) を返す。
+ *   capped は月次支払上限 + 繰越平準化が入るため「その月の原価」とはズレる。
+ * - 未来月は milestone_monthly_progress に確定行が無くてもアンカー按分 (buildPayableCumMap)
+ *   で「期間按分された単月消化pt」を出すので、まとめ達成にはならず月数按分される。
+ * - persist=true のとき、未来月 (anchorYm より後) の uncapped を billing_cycles.reward_summary_json
+ *   の forecast 用キーに保存する。既存の capped actual (実支払データ) は上書きしない。
+ *
+ * anchorYm はアンカー月 (= 当月)。ptUnit 導出・contribution share の確定境界に使う。
+ * billing_cycle が無い月はスキップ (= INSERT しない)。
+ */
+export async function computeForwardUncappedMemberCosts(
+  db: SupabaseLike,
+  projectId: string,
+  anchorYm: string,
+  options?: { persist?: boolean }
+): Promise<{ projectId: string; planCycleId: string | null; months: ForwardUncappedMonth[] }> {
+  const persist = options?.persist === true;
+
+  const [projectRes, planCyclesRes, membersRes] = await Promise.all([
+    db
+      .from("projects")
+      .select("project_id, fee_type, fee_amount")
+      .eq("project_id", projectId)
+      .maybeSingle(),
+    db
+      .from("value_plan_cycles")
+      .select("plan_cycle_id, project_id, status, budget_yen, total_points, period_start_ym, period_end_ym")
+      .eq("project_id", projectId)
+      .in("status", ACTIVE_PLAN_STATUSES)
+      .order("period_start_ym", { ascending: false }),
+    db.from("members").select("member_id, code_name, member_name"),
+  ]);
+  if (projectRes.error) throw projectRes.error;
+  if (planCyclesRes.error) throw planCyclesRes.error;
+  if (membersRes.error) throw membersRes.error;
+
+  const project = (projectRes.data ?? null) as ProjectRow | null;
+  const planCycle = choosePlanCycle((planCyclesRes.data ?? []) as PlanCycleRow[], anchorYm);
+  if (!planCycle) return { projectId, planCycleId: null, months: [] };
+
+  const milestonesRes = await db
+    .from("value_milestones")
+    .select("milestone_id, title, points, tag, goal_level, sort_order, period_start_ym, target_ym")
+    .eq("plan_cycle_id", planCycle.plan_cycle_id)
+    .eq("is_active", true)
+    .order("sort_order");
+  if (milestonesRes.error) throw milestonesRes.error;
+
+  const milestones = ((milestonesRes.data ?? []) as MilestoneRow[]).filter(
+    (ms) => String(ms.goal_level || "").toLowerCase() !== "monthly"
+  );
+  if (milestones.length === 0) return { projectId, planCycleId: planCycle.plan_cycle_id, months: [] };
+
+  const milestoneIds = milestones.map((ms) => ms.milestone_id);
+  // 全期間 (start〜end) を対象月レンジにする
+  const fullMonths: string[] = [];
+  {
+    const start = ymToMonths(planCycle.period_start_ym);
+    const end = ymToMonths(planCycle.period_end_ym);
+    for (let i = start; i <= end; i += 1) fullMonths.push(monthsToYm(i));
+  }
+
+  const [progressRes, responsibilitiesRes, billingRangeRes, activitiesRes, contributionAllocationsRes, projectMembersRes] = await Promise.all([
+    db
+      .from("milestone_monthly_progress")
+      .select("milestone_key, ym, progress_pct, consumed_pt, source")
+      .in("milestone_key", milestoneIds)
+      .order("ym", { ascending: true }),
+    db
+      .from("milestone_responsibility")
+      .select("milestone_id, member_id, share")
+      .in("milestone_id", milestoneIds),
+    db
+      .from("billing_cycles")
+      .select("project_id, ym, budget_yen, budget_reported_amount, budget_buffer_amount, reward_summary_json")
+      .eq("project_id", projectId)
+      .gte("ym", planCycle.period_start_ym)
+      .lte("ym", planCycle.period_end_ym)
+      .order("ym", { ascending: true }),
+    db
+      .from("member_activities")
+      .select("id, member_id, project_id, ym, source, source_item_id, milestone_id, title, content_preview, item_date, raw_metadata, impact, depth")
+      .eq("project_id", projectId)
+      .in("ym", fullMonths)
+      .in("milestone_id", milestoneIds),
+    db
+      .from("milestone_monthly_contribution_allocations")
+      .select("project_id, milestone_id, ym, member_id, planned_share, actual_share, confidence, source, status, reason, evidence_count, evidence_refs")
+      .eq("project_id", projectId)
+      .in("ym", fullMonths)
+      .in("milestone_id", milestoneIds),
+    db
+      .from("project_members")
+      .select("member_id, is_active")
+      .eq("project_id", projectId),
+  ]);
+  if (progressRes.error) throw progressRes.error;
+  if (responsibilitiesRes.error) throw responsibilitiesRes.error;
+  if (billingRangeRes.error) throw billingRangeRes.error;
+  if (activitiesRes.error) throw activitiesRes.error;
+  if (contributionAllocationsRes.error && !isMissingContributionAllocationTableError(contributionAllocationsRes.error)) {
+    throw contributionAllocationsRes.error;
+  }
+  if (projectMembersRes.error) throw projectMembersRes.error;
+
+  const activeMemberIds = new Set(
+    ((projectMembersRes.data ?? []) as Array<{ member_id: string; is_active: boolean | null }>)
+      .filter((row) => row.is_active !== false)
+      .map((row) => row.member_id)
+  );
+  const memberMap: Record<string, string> = {};
+  for (const member of (membersRes.data ?? []) as MemberRow[]) {
+    memberMap[member.member_id] = member.code_name || member.member_name || member.member_id;
+  }
+
+  const contributionPlan = buildContributionAllocationPlan({
+    projectId,
+    months: fullMonths,
+    milestones,
+    responsibilities: (responsibilitiesRes.data ?? []) as ResponsibilityRow[],
+    activities: (activitiesRes.data ?? []) as MemberActivityRow[],
+    persistedAllocations: contributionAllocationsRes.error
+      ? []
+      : (contributionAllocationsRes.data ?? []) as ContributionAllocationRow[],
+  });
+
+  const progress = (progressRes.data ?? []) as ProgressRow[];
+  const responsibilities = (responsibilitiesRes.data ?? []) as ResponsibilityRow[];
+  const billingByYm = new Map(((billingRangeRes.data ?? []) as BillingRow[]).map((row) => [row.ym, row]));
+
+  const months: ForwardUncappedMonth[] = [];
+  for (const ym of fullMonths) {
+    const billing = billingByYm.get(ym);
+    if (!billing) continue; // billing_cycle 無い月は INSERT せずスキップ
+    const summary = buildRewardSummaryUncapped({
+      ym,
+      milestones,
+      progress,
+      responsibilities,
+      contributionSharesByKey: contributionPlan.effectiveSharesByKey,
+      activeMemberIds,
+      memberMap,
+      billing,
+      planCycle,
+      project,
+    });
+    const uncappedTotalYen = summary
+      ? summary.members.reduce((sum, m) => sum + (m.totalPay || 0), 0)
+      : 0;
+    const isFuture = ym > anchorYm;
+    months.push({
+      ym,
+      uncappedTotalYen,
+      isFuture,
+      members: (summary?.members ?? []).map((m) => ({
+        memberId: m.memberId,
+        memberName: m.memberName,
+        earnedPt: m.earnedPt,
+        payYen: m.totalPay,
+      })),
+    });
+
+    if (persist && isFuture) {
+      const existing = asRecord(billing.reward_summary_json) ?? {};
+      const forecastPayload: Record<string, unknown> = {
+        ...existing,
+        forecastUncapped: {
+          uncappedTotalYen,
+          members: (summary?.members ?? []).map((m) => ({
+            memberId: m.memberId,
+            memberName: m.memberName,
+            earnedPt: m.earnedPt,
+            payYen: m.totalPay,
+          })),
+          generatedAt: new Date().toISOString(),
+          planCycleId: planCycle.plan_cycle_id,
+          anchorYm,
+        },
+      };
+      const { error } = await db
+        .from("billing_cycles")
+        .update({ reward_summary_json: forecastPayload, updated_at: new Date().toISOString() })
+        .eq("project_id", projectId)
+        .eq("ym", ym);
+      if (error) throw error;
+    }
+  }
+
+  return { projectId, planCycleId: planCycle.plan_cycle_id, months };
 }
 
 export async function syncRewardSummariesForBillingCycles(

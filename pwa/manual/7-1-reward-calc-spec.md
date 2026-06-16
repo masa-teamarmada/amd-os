@@ -1,6 +1,8 @@
 # 報酬計算ロジック 詳細仕様
 
-メンバーの月次報酬がどう決まるかの **計算正本**。 数式・入力データ・優先順位・キャップ制御まで一通り。 現行PWAの計算実装は `pwa/src/lib/reward-summary.ts`、GAS互換実装は `gas/059_RewardV2_Ops.js`。ここはそれを読み手向けに明文化したもの。
+メンバーの月次報酬がどう決まるかの **計算正本**。 数式・入力データ・優先順位・キャップ制御まで一通り。 **現行の動作実装は `pwa/src/lib/reward-summary.ts` (= こちらが正本)**。 GAS版 `gas/059_RewardV2_Ops.js` は旧互換実装で、 主従は PWA 側。 ここはそれを読み手向けに明文化したもの。
+
+> **2026-06-15 同期メモ**: 本章は元々 GAS実装基準で書かれていたが、 現行PWA実装 (`reward-summary.ts`) に合わせて以下を同期した — (1) PM確定 source 一覧を実装の `PM_LOCKED_PROGRESS_SOURCES` に更新、 (2) 期間按分を 2026-06-12 まさ確定の **アンカー方式** (`anchoredExpectedCumPctForYm`) に更新、 (3) **uncapped (キャップ前) 月次報酬** と、 それを使う **月次収支シミュレータの将来原価** の節を新設。 計算式の主従が GAS→PWA に逆転した点に注意。
 
 メンバー向け使い方は [2-2 章 メンバーの日常ワークフロー](2-2-member-workflows-quick-start.md)、 admin 入口は [6-5 章 Admin Payouts / 支払通知書](6-5-admin-payouts-reward-notice-spec.md) を見る。
 
@@ -95,32 +97,53 @@ else:
 
 ## 進捗ソースの優先順位
 
-`milestone_monthly_progress` の `source` 列で同じ MS × ym に複数行あるとき、 当月値はこの優先順位で決まる:
+`milestone_monthly_progress` の `source` 列で同じ MS × ym に複数行あるとき、 報酬計算で**支払い対象にできる累積消化pt** (= payable cum) は「PM が確定した行」だけを信用し、 それ以外の月はスケジュール按分デフォルトで埋める。
 
-| 優先度 | source | 意味 |
-|---|---|---|
-| 3 | `pm_manual` / `pm_confirmed` | PM が手入力 / 確認した値 (= 最強) |
-| 2 | `criteria_toggle` | success_criteria のチェック完了で自動算出 |
-| 1 | `routine_auto` | routine タグ MS の期間按分自動補完 |
-| 0 | `tsukuyomi_estimate` | LLM 推定値 (= 最弱) |
+**PM 確定 (= PM_LOCKED) と見なす source 一覧** (実装正本 `pwa/src/lib/ms-schedule-shared.ts` の `PM_LOCKED_PROGRESS_SOURCES`):
 
-**前月累計 (prevCumPct) は別ルール**: `pm_manual` / `pm_confirmed` / `criteria_toggle` の **TRUSTED な値だけ** を採用 (= LLM 推定や routine_auto は前月の base として信用しない)。 これは「当月増分」を「LLM がいい加減に上げた前月値の差分」にしないため。
+| source | 意味 |
+|---|---|
+| `pm_manual` | PM (まさ) が手入力した値 |
+| `pm_confirmed` | PM が確認・承認した値 |
+| `pm_rejected` | PM が却下した値 (= 確定値として扱う) |
+| `criteria_toggle` | success_criteria のチェック完了で自動算出 (PM操作起点) |
+| `tsukuyomi_revision` | つくよみの修正を PM が確定したリビジョン |
+
+**それ以外の source (`routine_auto` / 野良 `l2_routine` / `tsukuyomi_estimate` 等) は報酬計算では一切参照しない**。 これらが入っていても、 報酬の payable cum は「PM確定行 + スケジュール按分デフォルト」だけで決まる。 「LLM や自動補完がいい加減に上げた値」を支払い差分にしないため。
+
+**payable cum は cumulative max で取る** (= `payableCum(ym) = max over m≤ym`)。 「進捗が巻き戻って再上昇」しても差分が二重に支払われない構造。 実装は `reward-summary.ts` の `buildPayableCumMap`。
 
 ---
 
-## routine タグ MS の自動進捗補完
+## 期間按分デフォルト (= アンカー方式、 2026-06-12 まさ確定)
 
-`tag = 'routine'` の MS は、 計画サイクル期間で均等に按分されると見なす。
+PM確定行が無い月の累積消化ptは、 **その MS の期間 (`period_start_ym`〜`target_ym`) を月数で按分**して埋める。 「N か月で完了する計画の MS は 1 か月あたり `100/N` % ずつ累積で進む」という基本契約。 実装正本は `pwa/src/lib/ms-schedule-shared.ts`。
+
+**まとめ達成は構造的に起こらない**: MS の pt は必ず `period_start_ym`〜`target_ym` の月数で散る。 たとえ複数 MS の `target_ym` が同月に重なっても、 各 MS は自分の開始月から按分されるので、 月次原価が一点に跳ねることはない (= 2026-06-15 まさ「必ず期間の月数で按分」確定。 [[feedback_pt_consumption_must_be_prorated]])。
+
+### 基本按分 (アンカー無し)
 
 ```text
-routineMonthPct = 100 / totalMonths             # 1 ヶ月あたりの進捗 %
-elapsed         = (当月 − サイクル開始月) + 1
-autoCumPct      = min(100, round(routineMonthPct × elapsed, 1 桁))
+# expectedCumPctForYm: 開始前=0、最終月以降=100、間は経過月割り
+totalMonths   = (target_ym − period_start_ym) + 1
+elapsed       = (当月 − period_start_ym) + 1
+expectedCumPct = min(100, round(elapsed / totalMonths × 100, 1 桁))
 ```
 
-ただし **同月 ym に `pm_manual` / `pm_confirmed` / `criteria_toggle` の進捗が既にあれば、 そっちを優先** (= 自動補完は上書きしない)。
+### アンカー方式 (PM確定行を起点に月割り)
 
-自動補完値は `allProgress` 配列に in-memory で push されるだけで **DB に書かない** (= `milestone_monthly_progress` は触らない)。
+当月より**前**の最新 PM確定行 (= アンカー) があれば、 そこを起点にして月割りで淡々と積む。 `target_ym` を過ぎても自動で 100% に飛ばさない:
+
+```text
+# anchoredExpectedCumPctForYm
+anchorPct        = アンカー (asOf より前の最新 PM_LOCKED 行) の累積%
+monthsSinceAnchor = 当月 − アンカー月
+cumPct           = min(100, anchorPct + (100/totalMonths) × monthsSinceAnchor)
+```
+
+アンカーが無ければ基本按分にフォールバックする。 旧 `routineMonthPct = 100/totalMonths` の説明はこのアンカー方式に統合された。
+
+按分デフォルト値は in-memory で計算されるだけで **DB に書かない** (= `milestone_monthly_progress` は触らない)。
 
 ---
 
@@ -236,6 +259,43 @@ for each member in members:                      # earnedPt 降順
 前月 `billing_cycles.reward_summary_json.members[*].stockYen` を読んで `carryIn[memberId]` として加算。
 
 特例: **当月の members 配列に居なくても、 前月 stockYen が残ってるメンバーは「carry-only 行」として members に追加** される (= `earnedPt = 0, basePay = 0, grossDue = carryIn`)。 これで「過去に働いて未払いだったメンバー」が忘れ去られない。
+
+---
+
+## uncapped (= キャップ前の生の月次報酬)
+
+上のキャップ制御を**噛ませない**、 その月に発生した生の報酬。 実装は `reward-summary.ts` の `buildRewardSummaryUncapped`。
+
+```text
+# キャップ・キャリーストックを通さず、その月消化分だけで確定
+earnedPt[member] = Σ_ms (consumedPt[ms] × share[member, ms])
+payYen[member]   = round(earnedPt[member] × ptUnit)      # = そのまま支払額扱い
+```
+
+`buildRewardSummary` (= capped) との違いは **月次キャップ・carryIn・stockYen を一切通さない**こと。 「その月に得た pt だけでその月の報酬が決まる」という素の定義そのもの。 capped 版は、 この uncapped の値に対して支払い上限と繰越平準化 (キャリーストック) をかけた**支払いスケジュール**にすぎない。
+
+### 何に使うか
+
+| 用途 | capped / uncapped |
+|---|---|
+| 実際の月次支払い (= /admin/payouts、 支払通知書) | **capped** (支払上限と繰越で平準化) |
+| 月次収支シミュレータの**メンバー原価** (下記) | **uncapped** (その月に発生した原価そのもの) |
+
+収支シミュは「その月にいくら原価が発生したか」を見たいので、 支払いを翌月に繰り越す capped ではなく、 発生 baseの uncapped を使う。
+
+---
+
+## 月次収支シミュレータの将来原価 (= 予実管理)
+
+`/management-score` の月次収支シミュレータは、 将来各月の**メンバー原価**を上記 uncapped 報酬で投影する。 「いつ・どの MS が・何 pt 消化される予定か」は [期間按分デフォルト](#期間按分デフォルト--アンカー方式-2026-06-12-まさ確定) で各月に散っているので、 将来月でも uncapped 月次報酬が出せる。
+
+- **入力**: live テーブル (`projects` の `monthly_fixed` / `value_plan_cycles` (active) / `value_milestones` の `period_start_ym`・`target_ym`・`points` / `milestone_responsibility` / `billing_cycles`)。 旧 `company_budget_inputs` の凍結スナップショットは使わない。
+- **将来原価 = 将来各月の uncapped 報酬**。 capped を使うと繰越で原価が翌月にずれて月次収支が歪むため、 uncapped が正。
+- **DB に書く (= 予実管理)**: 将来月の予定報酬も `billing_cycles.reward_summary_json` に保存する。 後で実績が確定したら同じ行が上書きされ、 予実が 1 テーブルに並ぶ。 「シミュだから DB に書かない」は誤り (2026-06-15 まさ確定)。
+
+> **注意 (uncapped の単月赤字)**: uncapped はキャリーストック平準化をしないので、 pt 消化が厚い月はメンバー原価が跳ねて**単月赤字**が出ることがある。 これは実運用の capped (繰越平準化) では均される性質。 シミュ上で赤字月が顕著なら、 按分計画 (MS の `period_start_ym`〜`target_ym`) かサイクル設計を見直すシグナルとして扱う。
+
+詳細な収支シミュ仕様は [4-5 章 Management Score / 収支シミュレーション](4-5-management-score-and-finance-simulation-spec.md) を参照。
 
 ---
 
