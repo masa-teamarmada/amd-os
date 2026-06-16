@@ -84,6 +84,33 @@ MVPでは `CONTRACTS_DRIVE_FOLDER_ID` が設定されているかを画面に出
 
 初期実装は `/api/contracts/nudges/dry-run` のみ。実送信に進む場合は、送信先PJ channel、文面、対象件数、送信タイミング、誤送信時の削除/rollback可否を確認した bundle が必要。
 
+## 契約抽出 → projects / billing_cycles 反映 (Contract Apply)
+
+> 2026-06-16 追記。契約は「抽出して `/admin/contracts` のレビュー queue に積む」だけでなく、**確定した契約条件を `projects` と `billing_cycles` に流し込んで初めて月次収支シミュレータ・予実表に効く**。この反映経路 (Contract Apply) を正本として定義する。手入力前提にしない (= つくよみが生データから自動構築する原則)。
+
+### 反映先 3 層
+
+契約書 (Drive PDF / Gmail / Slack 等) → `D-13 Contract Signals` 抽出 → `contract_terms` (`status='applied'`) になったら、次の 3 層へ反映する。**`contract_terms` が applied でも、この 3 層に書き戻らない限り OS の数字 (売上・予実・原価) は古いまま**。
+
+| 層 | 反映先 | 列 | 用途 |
+|---|---|---|---|
+| ① 契約メタ正本 | `projects.contract_terms_json` (jsonb) | `monthlyFeeYen` / `contractStartYm` / `contractEndYm` / `actualWorkStartYm` / `billingStartYm` / `rewardPoolYen` / `monthlyRewardCapYen` / `sourceTitle` / `sourceRef` / `notes` | `/admin/projects` の契約カラム群が表示・編集する正本。`contract_terms` 抽出結果はまずここへ畳む |
+| ② 売上計上パラメータ | `projects` | `fee_type` (`monthly_fixed` / `variable`) / `fee_amount` / `start_ym` / `end_ym` | 月次収支シミュレータ (`buildLiveMonthlyPlInputs`) が固定収益を立てる入力。**`end_ym` が null だと契約終了後も無期限で売上が立ち続ける** (CX 事故。契約は 2026-06〜09 なのに `end_ym=null` のまま 202702 以降も ¥290,000 を計上していた) |
+| ③ 月別売上 (変動) | `billing_cycles` | `ym` ごとの `budget_yen` / `budget_reported_amount` | `billing_distribution='schedule_based'` 等で月により金額が違う契約は、②の `monthly_fixed` 一律ではなく月別 cycle に展開する。シミュレータは変動収益をここから取る |
+
+### `/admin/projects` の契約カラム
+
+`AdminProjectsTable` は `projects.contract_terms_json` を展開した編集列を持つ (`contract_monthly_fee_yen` / `contract_start_ym` / `contract_end_ym` / `contract_actual_work_start_ym` / `contract_billing_start_ym` / `contract_reward_pool_yen` / `contract_monthly_reward_cap_yen` / `contract_source_title` / `contract_source_ref` / `contract_notes`)。`contract_terms` フィールド群を保存すると `contract_terms_json` (①) に upsert される。`fee` / `start_ym` / `end_ym` (②) は別カラムとして個別に保存する。
+
+⚠️ **現状の欠落 (2026-06-16 時点)**: `contract_terms` テーブル (D-13 抽出結果) から ①②③ へ自動反映する経路は未実装。`/admin/contracts` で term を `applied` にしてもステータスが変わるだけで、`projects.contract_terms_json` や `fee_type/start_ym/end_ym`、`billing_cycles.budget_yen` には書き戻らない。そのため `/admin/projects` の契約カラムや月次シミュレータは手編集に依存している。Contract Apply (抽出 applied → 3 層反映) の自動化が次の実装対象。`billing_distribution_json` / `fee_type_hint` / `extracted_terms_json` (contract_terms の列) を消費して、`schedule_based` なら ③ の月別 cycle に、`monthly_fixed` なら ② に、共通して ① に畳む writer を `/api/contracts` 配下に置く。
+
+### apply 時の必須ガード
+
+- `end_ym` を必ず設定する (契約終了月)。null のまま `monthly_fixed` を残さない (CX 無期限計上事故の再発防止)。
+- 期間が複数 term に分かれる契約 (CX: 2025-11〜2026-03 コンサル + 2026-06〜2026-09 設立準備) は、term ごとに ②③ を分けて反映する。1 本の `monthly_fixed` に潰さない。
+- `schedule_based` (月により金額が違う) は ② の一律額にせず ③ の月別 `budget_yen` に展開する。
+- 本番データ (projects / billing_cycles) の書き換えを伴うため、自動 apply でもまさ確認を挟むか、`/admin/contracts` のレビューで人が承認した term だけを反映する。
+
 ## Verification
 
 - `npx tsc --noEmit --pretty false`

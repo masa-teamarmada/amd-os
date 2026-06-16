@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-06-16 | 5-6 契約管理 | 追加 | 「契約抽出 → projects / billing_cycles 反映 (Contract Apply)」節を新設。`contract_terms` (applied) を ① `projects.contract_terms_json` ② `projects.fee_type/fee_amount/start_ym/end_ym` ③ `billing_cycles.budget_yen` の 3 層へ反映する正本経路と必須ガード (end_ym 必須 / 複数 term 分割 / schedule_based は月別展開) を定義。現状この自動反映は未実装で `/admin/contracts` の applied はステータス更新のみ=手編集依存である欠落も明記 | CX(p20) が契約 2026-06〜09 なのに `end_ym=null` のまま無期限で ¥290,000 を 202702 以降まで計上していた事故の根本対応。契約書から projects 契約カラム・売上計上パラメータ・月別売上まで自動入力する仕組みを正本化し、手入力前提を排除する (まさ 2026-06-16「契約書を見て自動入力する仕組みにしてほしい」「admin/projects の契約関連カラムにも入れる」) | えいみ |
 | 2026-06-16 | 3-0 / operations catalog | 変更 | D系一覧の「抽出元」文言をさらに平易化し、D-13/D-14/L3-1 の `Claude routine` 残骸を除去。今は「既存 route はあるが前段 Codex collector 未実装」と読める形へ更新 | v0.22.14 でも OS一覧の source 欄に `Claude routine` が残り、現行 writer がまだ Claude に見えてしまっていたため | えいみ |
 | 2026-06-16 | 3-0 / 5-8 | 変更 | L1-L3データ一覧を「今の writer / 定額内か / 状態 / 次の動き」が一目で分かる平易な日本語へ更新。D-10 は Codex writer 起点だが内部 route が Anthropic API を使う例外許容と明記 | 旧一覧は `Claude routine target` などの履歴語が多く、今どの writer を見ればいいかが読み取りにくかったため | えいみ-worker |
 | 2026-06-16 | 3-0 / 3-1 / 5-3 / admin weekly / operations catalog | 変更 | D系 / M系 / W系 / H系の writer 表記を current truth へ再更新。`Claude routine / route が LLM 抽出` のような古い主語を、Codex automation / MMO Codex / PWA non-LLM / collector planned へ置換し、D-10 は「Codex writer起点だが内部 Anthropic route の例外」と明記 | v0.22.13 でも OS 上に `Claude routine` 主語が残っており、現行の抽出担当が誤読される状態だったため | えいみ |
