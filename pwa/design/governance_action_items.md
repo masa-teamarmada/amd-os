@@ -237,6 +237,15 @@ cockpit のガバナンス欄・要対応面はサーバ側 admin クライア�
 - LST 今回ラウンド = 第1回J-KISS 120個 1.2億 (DG Daiwa 100M + Adlib 20M, 2026-06-16 取締役会書面決議で承認・まさ consented、定時株主総会 最終7/10 で発行決議) + 第2回 ごうぎん 30M (後続承認予定)。計 150M。
 - 累計アピール数字は **OS に登録済みのラウンド/助成金の合計** = 過去案件の backfill が進むほど正確。未登録分は含まれない (カード下に明記、silent cap にしない)。
 
+### 7.4 全案件 backfill (2026-06-17 並列リサーチ実施)
+
+Drive + Web + AMD OS DB を全PJ横断で調査(subagent並列)し、出典の取れた助成金/調達を一括登録。捏造防止のため **出典が取れた金額のみ数値化、不確実は amount=null + notes**。融資(借入)・株式譲渡(exit)・設立資本金は除外。
+
+- 登録時点の概算: **累計資金調達額 ≈ 74億円** (OQC 21.5 / CLG 19.8 / tiem 12.2 / MC 11.5 / LST 3.0 / CTB 2.5 / JC 1.53 / KT 1.5 / CCC 0.6)、**累計獲得助成金 ≈ 24.5億円** (LST 17 / CTB 3.3 / MC 1.65 / BWE 1.0 / SX 0.78 / ZMP 0.6 / VasculaX 0.17)。
+- ダッシュボード `FundingStatsCard` は **累計 ⇄ PJ別内訳トグル**。`/api/funding-stats` は PJ別合計までを返し、cap table 内訳は返さない。
+- backfill 投入は一回限り script `pwa/tmp/seed_grants_rounds.mjs` (tmp、commit対象外)。
+- 注意/要確認: tiem 2018年4億は二次情報のみ(low)。CTB AMED 3億は社内認識値(公式per-company非開示)。BWE SIP7.5億はNIMS委託課題予算でBWE単独交付でないため amount=null。JC グローバルサウス補助金55.8MとZMP水素補助は applied(採択未確定)のため累計には非計上。VasculaX/CXは法人未設立でPI科研費・将来枠。p14 aerota は会社実体が中確度のため未登録。
+
 ## 8. 壊さないライン (追補分)
 
 - `project_valuation_rounds` / `project_shareholders` の既存列・既存 admin-RLS を変えない (列追加のみ)。
