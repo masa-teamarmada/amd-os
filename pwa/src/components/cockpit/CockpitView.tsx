@@ -8,6 +8,7 @@ import { CockpitManagementScoreHero } from "./CockpitManagementScoreHero";
 import { CockpitGoalsCompact } from "./CockpitGoalsCompact";
 import { CockpitStrategySignals } from "./CockpitStrategySignals";
 import { CockpitGovernance } from "./CockpitGovernance";
+import { CockpitGrants } from "./CockpitGrants";
 import { CockpitProjectDocuments } from "./CockpitProjectDocuments";
 import { CockpitMonthlyList } from "./CockpitMonthlyList";
 import { CockpitMonthlyModal } from "./CockpitMonthlyModal";
@@ -579,6 +580,7 @@ export function CockpitView({ cockpit, nudges, initialModalYm, initialStep, canE
           <CockpitProjectDocuments projectId={project.projectId} />
           <CockpitStrategySignals signals={strategySignals || []} projectId={project.projectId} />
           <CockpitGovernance projectId={project.projectId} />
+          <CockpitGrants projectId={project.projectId} />
           <CockpitMeetingSummary projectId={project.projectId} />
         </div>
 

@@ -39,6 +39,7 @@ import { InstitutionReadinessList } from "@/components/dashboard/InstitutionRead
 import { fetchErsBundle, type ErsBundle } from "@/lib/ers-data";
 import { ProactiveQueuePanel } from "@/components/proactive/ProactiveQueuePanel";
 import { ActionItemsPanel } from "@/components/governance/ActionItemsPanel";
+import { FundingStatsCard } from "@/components/dashboard/FundingStatsCard";
 import { LoopKernelBoard } from "@/components/loop/LoopKernelBoard";
 import { isInstitutionDashboardProject } from "@/lib/institution-projects";
 
@@ -176,6 +177,7 @@ export default function DashboardPage() {
     <div className="p-4 max-w-[1700px] mx-auto">
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(520px,640px)] gap-4">
         <main className="space-y-4 min-w-0">
+          <FundingStatsCard />
           <LoopKernelBoard hideWhenNoAccess showHeader />
           <ProactiveQueuePanel projectLabels={projectLabels} variant="dashboard" limit={3} />
           <ActionItemsPanel projectLabels={projectLabels} variant="dashboard" limit={5} />

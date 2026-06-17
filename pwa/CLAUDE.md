@@ -108,7 +108,9 @@ Next.js 16 + React 19 + Tailwind CSS v4
 
 - 実装 → `tsc --noEmit` → `npm run build` → local commit → そのまま deploy.sh で push まで実行する。
 - deploy bundle (含める変更 / 除外 / local build・test 確認結果 / rollback・本番確認方法) は**事後報告**としてチャットに残す。
-- **例外として事前承認を取るもの**: DB migration / DDL を伴う変更、既存業務導線 (FEATURE_REGISTRY) の削除・置き換え、本番データを書き換える backfill、まさが明示的に「確認してから」と言った作業。
+- **例外として事前承認を取るもの (2026-06-17 まさ確定で縮小)**: 既存業務導線 (FEATURE_REGISTRY) の削除・置き換え、まさが明示的に「確認してから」と言った作業 **のみ**。
+  - **DB migration / DDL (テーブル変更・新規) と、本番データの書き込み・backfill は事前承認不要 = 確認せず進める。** まさ発言 (2026-06-17): 「このルール (DDL と本番への調達データ書き込みは事前承認が要る) は定めた記憶がない。毎回確認されるんだけど、確認せずに進めてほしい。ルール書き換えておいて」。
+  - 真に破壊的な操作 (DROP TABLE / 大量 DELETE / `rm -rf` / `git push --force` 等) は引き続き `AGENTS.common.md` の破壊的操作の例外に従う。DDL の追加・列追加・通常の insert/update はこれに当たらない。
 - てにをは、微細UI、軽微CSS、md、コメント、ログ文言などを1件ずつ push する運用は禁止。複数成果を束ねて1回で push する。
 - workerは local build / lint / static check / スクショ / ローカル確認 + local commit で止める。push は司令塔がまとめて行う。
 

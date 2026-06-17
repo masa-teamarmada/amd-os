@@ -14,9 +14,15 @@ type Shareholder = {
   id: string; holder_type: string | null; holder_name: string; holder_member_id: string | null;
   share_class: string | null; shares: number | null; ownership_pct: number | null; invested_yen: number | null; as_of_ym: string | null; notes: string | null;
 };
+type RoundInvestor = { name?: string; amount_yen?: number; security_type?: string; tranche?: string; lead?: boolean; note?: string };
 type Round = {
   id: string; round_name: string | null; round_date: string | null; round_ym: string | null;
-  pre_money_yen: number | null; post_money_yen: number | null; raised_yen: number | null; price_per_share_yen: number | null; lead_investor: string | null; notes: string | null;
+  pre_money_yen: number | null; post_money_yen: number | null; raised_yen: number | null; price_per_share_yen: number | null;
+  lead_investor: string | null; security_type: string | null; status: string | null; investors_json: RoundInvestor[] | null; notes: string | null;
+};
+type Grant = {
+  id: string; grant_name: string; agency: string | null; grant_type: string | null; amount_yen: number | null;
+  status: string; is_current: boolean | null; adopted_date: string | null; period_start_ym: string | null; period_end_ym: string | null;
 };
 type Meeting = {
   id: string; meeting_type: string | null; meeting_date: string | null; meeting_ym: string | null; location: string | null;
@@ -34,6 +40,7 @@ const attachmentUrl = (a: { url?: string; webViewLink?: string; web_view_link?: 
 export function AdminGovernanceClient({ projects, initialProjectId }: { projects: PjOption[]; initialProjectId: string | null }) {
   const [projectId, setProjectId] = useState<string>(initialProjectId || projects[0]?.projectId || "");
   const [gov, setGov] = useState<{ shareholders: Shareholder[]; rounds: Round[]; meetings: Meeting[]; actionItems: ActionItem[] } | null>(null);
+  const [grants, setGrants] = useState<Grant[]>([]);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string>("");
 
@@ -45,6 +52,10 @@ export function AdminGovernanceClient({ projects, initialProjectId }: { projects
       .then((j) => { if (j?.ok) setGov(j); else setMsg(j?.error || "読み込み失敗"); })
       .catch((e) => setMsg(String(e)))
       .finally(() => setLoading(false));
+    fetch(`/api/grants?projectId=${encodeURIComponent(projectId)}`)
+      .then((r) => r.json())
+      .then((j) => { if (j?.ok) setGrants(j.grants); })
+      .catch(() => {});
   }, [projectId]);
 
   useEffect(() => {
@@ -59,6 +70,16 @@ export function AdminGovernanceClient({ projects, initialProjectId }: { projects
   const del = async (entity: string, id: string) => {
     if (!confirm("削除しますか？")) return;
     const r = await fetch(`/api/governance?entity=${entity}&id=${id}`, { method: "DELETE" });
+    const j = await r.json(); if (!j.ok) setMsg(j.error || "削除失敗"); else load();
+  };
+  const postGrant = async (row: Record<string, unknown>) => {
+    setMsg("");
+    const r = await fetch("/api/grants", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ row: { ...row, project_id: projectId } }) });
+    const j = await r.json(); if (!j.ok) setMsg(j.error || "追加失敗"); else load();
+  };
+  const delGrant = async (id: string) => {
+    if (!confirm("削除しますか？")) return;
+    const r = await fetch(`/api/grants?id=${id}`, { method: "DELETE" });
     const j = await r.json(); if (!j.ok) setMsg(j.error || "削除失敗"); else load();
   };
 
@@ -102,30 +123,48 @@ export function AdminGovernanceClient({ projects, initialProjectId }: { projects
             />
           </Section>
 
-          <Section title="資金調達ラウンド / バリュエーション">
-            <Table head={["ラウンド", "日付", "調達額", "pre", "post", "1株単価", "Lead", ""]}>
+          <Section title="資金調達ラウンド / 発行証券 / バリュエーション">
+            <Table head={["ラウンド", "証券", "状態", "日付", "調達額", "post", "投資家内訳", ""]}>
               {gov.rounds.map((r) => (
-                <tr key={r.id} className="border-t border-border">
-                  <Td>{r.round_name}</Td><Td>{r.round_date}</Td><Td>{r.raised_yen?.toLocaleString() ?? "—"}</Td>
-                  <Td>{r.pre_money_yen?.toLocaleString() ?? "—"}</Td><Td>{r.post_money_yen?.toLocaleString() ?? "—"}</Td>
-                  <Td>{r.price_per_share_yen ?? "—"}</Td><Td>{r.lead_investor}</Td>
+                <tr key={r.id} className="border-t border-border align-top">
+                  <Td>{r.round_name}</Td><Td>{r.security_type ?? "—"}</Td><Td>{r.status ?? "—"}</Td><Td>{r.round_date}</Td>
+                  <Td>{r.raised_yen?.toLocaleString() ?? "—"}</Td><Td>{r.post_money_yen?.toLocaleString() ?? "—"}</Td>
+                  <Td className="max-w-[280px]">
+                    {Array.isArray(r.investors_json) && r.investors_json.length > 0
+                      ? r.investors_json.map((iv, i) => (
+                          <div key={i} className="text-muted-foreground">
+                            {iv.name}{iv.lead ? "(Lead)" : ""}: {iv.amount_yen != null ? Number(iv.amount_yen).toLocaleString() : "—"}{iv.tranche ? ` / ${iv.tranche}` : ""}
+                          </div>
+                        ))
+                      : (r.lead_investor ? <span className="text-muted-foreground">Lead: {r.lead_investor}</span> : "—")}
+                  </Td>
                   <Td><DelBtn onClick={() => del("round", r.id)} /></Td>
                 </tr>
               ))}
             </Table>
             <AddForm
               fields={[
-                { k: "round_name", ph: "ラウンド名* (優先株2nd等)" },
+                { k: "round_name", ph: "ラウンド名* (J-KISSラウンド等)" },
+                { k: "security_type", ph: "発行証券(J-KISS/普通株/A種優先株)" },
+                { k: "status", ph: "状態(planned/committed/closed)" },
                 { k: "round_date", ph: "日付YYYY-MM-DD" },
                 { k: "raised_yen", ph: "調達額(円)", num: true },
                 { k: "pre_money_yen", ph: "pre(円)", num: true },
                 { k: "post_money_yen", ph: "post(円)", num: true },
                 { k: "price_per_share_yen", ph: "1株単価(円)", num: true },
                 { k: "lead_investor", ph: "Lead投資家" },
+                { k: "investors", ph: "投資家内訳 (名前:金額:トランシェ:lead を / 区切り)" },
               ]}
               required={["round_name"]}
-              onAdd={(v) => post("round", { round_name: v.round_name, round_date: txt(v.round_date), raised_yen: num(v.raised_yen), pre_money_yen: num(v.pre_money_yen), post_money_yen: num(v.post_money_yen), price_per_share_yen: num(v.price_per_share_yen), lead_investor: txt(v.lead_investor) })}
+              onAdd={(v) => post("round", {
+                round_name: v.round_name, security_type: txt(v.security_type), status: txt(v.status) || "closed",
+                round_date: txt(v.round_date), round_ym: v.round_date ? v.round_date.replace(/-/g, "").slice(0, 6) : null,
+                raised_yen: num(v.raised_yen), pre_money_yen: num(v.pre_money_yen), post_money_yen: num(v.post_money_yen),
+                price_per_share_yen: num(v.price_per_share_yen), lead_investor: txt(v.lead_investor),
+                investors_json: parseInvestorLines(v.investors),
+              })}
             />
+            <p className="text-[10px] text-muted-foreground">投資家内訳の書式: <code>DG Daiwa:100000000:第1回:lead / Adlib Tech:20000000:第1回 / ごうぎん:30000000:第2回</code></p>
           </Section>
 
           <Section title="株主総会・取締役会 / 決議">
@@ -193,10 +232,58 @@ export function AdminGovernanceClient({ projects, initialProjectId }: { projects
             </Table>
             <ActionAddForm projectId={projectId} onAdded={load} />
           </Section>
+
+          <Section title="助成金・補助金 (NEDO/SBIR/JST/文科省/自治体 等)">
+            <Table head={["状態", "名称", "交付元", "種別", "採択額", "期間", "現在", ""]}>
+              {grants.map((g) => (
+                <tr key={g.id} className="border-t border-border">
+                  <Td>{g.status}</Td><Td>{g.grant_name}</Td><Td>{g.agency}</Td><Td>{g.grant_type}</Td>
+                  <Td>{g.amount_yen?.toLocaleString() ?? "—"}</Td>
+                  <Td>{[g.period_start_ym, g.period_end_ym].filter(Boolean).join("〜") || "—"}</Td>
+                  <Td>{g.is_current === false ? "—" : "受給中"}</Td>
+                  <Td><DelBtn onClick={() => delGrant(g.id)} /></Td>
+                </tr>
+              ))}
+            </Table>
+            <AddForm
+              fields={[
+                { k: "grant_name", ph: "名称* (SBIRフェーズ2等)" },
+                { k: "agency", ph: "交付元(NEDO/JST/文科省/自治体)" },
+                { k: "grant_type", ph: "種別(助成金/補助金/委託費/SBIR)" },
+                { k: "amount_yen", ph: "採択額(円)", num: true },
+                { k: "status", ph: "状態(applied/adopted/active/completed/rejected)" },
+                { k: "adopted_date", ph: "採択日YYYY-MM-DD" },
+                { k: "period_start_ym", ph: "開始YYYYMM" },
+                { k: "period_end_ym", ph: "終了YYYYMM" },
+              ]}
+              required={["grant_name"]}
+              onAdd={(v) => postGrant({
+                grant_name: v.grant_name, agency: txt(v.agency), grant_type: txt(v.grant_type), amount_yen: num(v.amount_yen),
+                status: txt(v.status) || "active", adopted_date: txt(v.adopted_date),
+                period_start_ym: txt(v.period_start_ym), period_end_ym: txt(v.period_end_ym),
+                is_current: !["completed", "rejected", "withdrawn"].includes(txt(v.status) || "active"),
+              })}
+            />
+          </Section>
         </>
       )}
     </div>
   );
+}
+
+function parseInvestorLines(value = ""): RoundInvestor[] {
+  return value
+    .split(/[／/\n]/)
+    .map((v) => v.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [name, amount, tranche, lead] = line.split(":").map((s) => s.trim());
+      const out: RoundInvestor = { name };
+      if (amount) out.amount_yen = Number(amount.replace(/[,_円]/g, ""));
+      if (tranche) out.tranche = tranche;
+      if (lead && /lead/i.test(lead)) out.lead = true;
+      return out;
+    });
 }
 
 function parseResolutionLines(value = "") {

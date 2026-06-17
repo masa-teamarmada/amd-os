@@ -210,3 +210,35 @@ cockpit のガバナンス欄・要対応面はサーバ側 admin クライア�
 - cockpit 3-column grid・経営ハイライト・MTGサマリ・月次ルーティン step modal の既存導線を削除しない (FEATURE_REGISTRY)。
 - `/notifications` の admin gate を外さない。
 - cap table / valuation を anon 読み取りに晒さない (RLS)。
+
+---
+
+## 7. ラウンド明細 + 助成金 + 累計アピール数字 (2026-06-17 まさ依頼で追補)
+
+起点: LST(p07) 今回ラウンド確定 (DG Daiwa 100M / Adlib Tech 20M / ごうぎん 30M, J-KISS)。「各ラウンドで発行した証券(プロダクト)種別」「投資家別内訳」「創業者シェアのラウンド推移」「各PJの受給中助成金」「AMD全体の累計調達額/助成金額 (営業アピール)」を OS に持たせる。
+
+### 7.1 DDL (migration 143 / 144)
+
+- **143**: `project_valuation_rounds` に `security_type`(発行証券種別 J-KISS/普通株/A種優先株 等)・`investors_json`(投資家別内訳 `[{name,amount_yen,security_type,units,tranche,lead,note}]`)・`status`(planned/committed/closed) を追加。`project_shareholders` に `round_id`(どのラウンド直後の cap table 断面か, nullable) を追加。
+- **144**: `project_grants` 新規 (助成金/補助金/委託費)。`grant_name` / `agency`(交付元) / `grant_type` / `amount_yen`(採択額=アピール数字) / `disbursed_yen` / `status`(applied/adopted/active/completed/rejected/withdrawn) / `is_current` / `period_*_ym`。RLS は cap table と違い **authenticated SELECT 可** (メンバーが自PJの受給状況を見る)、write は admin/service。
+
+### 7.2 表示・入力
+
+| 出力先 | 内容 | 実装 |
+|---|---|---|
+| **PJ cockpit「株主・ガバナンス」欄** | ラウンドごとに 発行証券種別 chip + 投資家別内訳 (金額/トランシェ/Lead) + 状態。株主構成は is_current 断面。`as_of_ym` 断面が 2 つ以上なら **創業者シェア推移マトリクス** | `CockpitGovernance.tsx` (admin gate) |
+| **PJ cockpit「助成金・補助金」欄** | 各PJの助成金一覧 (状態/名称/交付元/採択額/期間) + このPJの獲得累計。**メンバーにも表示** | `CockpitGrants.tsx` (`/api/grants` read=requireAuth) |
+| **/admin/governance** | ラウンド add-form に 発行証券/状態/投資家内訳(`名前:金額:トランシェ:lead` を `/` 区切り) を追加。助成金 CRUD セクションを追加 | `AdminGovernanceClient.tsx` |
+| **/dashboard 先頭カード** | AMD全体 **累計資金調達額** + **累計獲得助成金額** (営業アピール)。合計のみ (per-PJ cap table 内訳は出さない) | `FundingStatsCard.tsx` (`/api/funding-stats` service_role集計, read=requireAuth) |
+
+### 7.3 J-KISS / 累計数字の注意
+
+- **J-KISS は新株予約権** = 次の優先株ラウンドでの転換まで普通株 cap table の持株比率は未変動。LST の今回ラウンドでは founder/AMD/まさ の `ownership_pct` を勝手に動かさない (転換時に推移として記録)。pre/post-money・転換条件(評価上限/ディスカウント) は要記録欄。
+- LST 今回ラウンド = 第1回J-KISS 120個 1.2億 (DG Daiwa 100M + Adlib 20M, 2026-06-16 取締役会書面決議で承認・まさ consented、定時株主総会 最終7/10 で発行決議) + 第2回 ごうぎん 30M (後続承認予定)。計 150M。
+- 累計アピール数字は **OS に登録済みのラウンド/助成金の合計** = 過去案件の backfill が進むほど正確。未登録分は含まれない (カード下に明記、silent cap にしない)。
+
+## 8. 壊さないライン (追補分)
+
+- `project_valuation_rounds` / `project_shareholders` の既存列・既存 admin-RLS を変えない (列追加のみ)。
+- `CockpitGovernance` の admin gate を維持。`CockpitGrants` は read 開放だが write は admin。
+- 累計数字 API (`/api/funding-stats`) は合計のみ返し、per-PJ の調達額・cap table 内訳を member に晒さない。

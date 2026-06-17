@@ -16,11 +16,14 @@ import Link from "next/link";
 
 type Shareholder = {
   id: string; holder_type: string | null; holder_name: string; share_class: string | null;
-  shares: number | null; ownership_pct: number | null; invested_yen: number | null; as_of_ym: string | null; notes: string | null;
+  shares: number | null; ownership_pct: number | null; invested_yen: number | null; as_of_ym: string | null;
+  is_current: boolean | null; round_id: string | null; notes: string | null;
 };
+type RoundInvestor = { name?: string; amount_yen?: number; security_type?: string; units?: number; tranche?: string; lead?: boolean; note?: string };
 type Round = {
   id: string; round_name: string | null; round_date: string | null; round_ym: string | null;
-  post_money_yen: number | null; raised_yen: number | null; price_per_share_yen: number | null; lead_investor: string | null; notes: string | null;
+  pre_money_yen: number | null; post_money_yen: number | null; raised_yen: number | null; price_per_share_yen: number | null;
+  lead_investor: string | null; security_type: string | null; status: string | null; investors_json: RoundInvestor[] | null; notes: string | null;
 };
 type Meeting = {
   id: string; meeting_type: string | null; meeting_date: string | null; agenda_summary: string | null;
@@ -44,6 +47,7 @@ const MEETING_LABEL: Record<string, string> = {
 };
 const HOLDER_LABEL: Record<string, string> = { amd: "AMD", masa: "まさ", founder: "創業者", vc: "VC", angel: "エンジェル", employee: "従業員", other: "その他" };
 const RESP_LABEL: Record<string, string> = { proxy: "委任状提出", attended: "出席", consented: "事前承諾", abstained: "棄権", none: "未対応" };
+const ROUND_STATUS_LABEL: Record<string, string> = { planned: "計画", committed: "確定(コミット)", closed: "クローズ" };
 
 function yen(n: number | null | undefined) {
   if (n == null) return "—";
@@ -109,7 +113,17 @@ export function CockpitGovernance({ projectId }: { projectId: string }) {
   const isEmpty = !loading && sh.length === 0 && rounds.length === 0 && meetings.length === 0 && actions.length === 0;
 
   const latestRound = rounds.find((r) => r.price_per_share_yen != null || r.post_money_yen != null) ?? rounds[0];
-  const amdHoldings = sh.filter((s) => s.holder_type === "amd" || s.holder_type === "masa");
+  // 現在の cap table = is_current スナップショット (履歴断面は「創業者シェア推移」へ寄せる)
+  const currentSh = sh.filter((s) => s.is_current !== false);
+  // 創業者シェア推移: as_of_ym が 2 断面以上ある時、持株比率の推移マトリクスを出す
+  const evoYms = Array.from(new Set(sh.map((s) => s.as_of_ym).filter(Boolean) as string[])).sort();
+  const evoHolders = Array.from(new Set(sh.filter((s) => s.ownership_pct != null).map((s) => s.holder_name)));
+  const showEvolution = evoYms.length >= 2 && evoHolders.length > 0;
+  const evoPct = (holder: string, ym: string) => {
+    const row = sh.find((s) => s.holder_name === holder && s.as_of_ym === ym && s.ownership_pct != null);
+    return row?.ownership_pct ?? null;
+  };
+  const amdHoldings = currentSh.filter((s) => s.holder_type === "amd" || s.holder_type === "masa");
   // 保有価値の概算: 保有株数 × 直近単価、無ければ 持株比率 × post money
   const holdingValue = amdHoldings.reduce((sum, s) => {
     if (s.shares != null && latestRound?.price_per_share_yen != null) return sum + s.shares * Number(latestRound.price_per_share_yen);
@@ -206,36 +220,102 @@ export function CockpitGovernance({ projectId }: { projectId: string }) {
             </div>
           )}
 
-          {/* 資金調達ラウンド / バリュエーション */}
+          {/* 資金調達ラウンド / 発行証券 / 投資家内訳 / バリュエーション */}
           {rounds.length > 0 && (
             <div className="px-3 py-2">
               <div className="mb-1 text-[10px] font-semibold text-muted-foreground">資金調達ラウンド</div>
+              <div className="space-y-2">
+                {rounds.map((r) => {
+                  const investors = Array.isArray(r.investors_json) ? r.investors_json : [];
+                  const investorsTotal = investors.reduce((s, iv) => s + (Number(iv.amount_yen) || 0), 0);
+                  return (
+                    <div key={r.id} className="border-l border-border pl-2">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="font-medium">{r.round_name || "ラウンド"}</span>
+                        {r.security_type && (
+                          <span className="rounded border border-violet-200 bg-violet-50 px-1.5 py-0.5 text-[10px] text-violet-700">{r.security_type}</span>
+                        )}
+                        {r.status && (
+                          <span className="rounded border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">{ROUND_STATUS_LABEL[r.status] || r.status}</span>
+                        )}
+                        {r.round_date && <span className="text-muted-foreground tabular-nums">{r.round_date}</span>}
+                      </div>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-muted-foreground">
+                        <span>調達 <span className="font-semibold text-foreground">{yen(r.raised_yen)}</span></span>
+                        {r.pre_money_yen != null && <span>pre {yen(r.pre_money_yen)}</span>}
+                        {r.post_money_yen != null && <span>post {yen(r.post_money_yen)}</span>}
+                        {r.price_per_share_yen != null && <span>{Number(r.price_per_share_yen).toLocaleString()}円/株</span>}
+                        {r.lead_investor && <span>Lead: {r.lead_investor}</span>}
+                      </div>
+                      {investors.length > 0 && (
+                        <ul className="mt-1 space-y-0.5">
+                          {investors.map((iv, i) => (
+                            <li key={i} className="flex flex-wrap items-center gap-x-1.5">
+                              <span className="text-muted-foreground">・</span>
+                              <span className="font-medium">{iv.name || "投資家"}</span>
+                              {iv.lead && <span className="rounded border border-amber-200 bg-amber-50 px-1 py-0 text-[9px] text-amber-800">Lead</span>}
+                              <span className="tabular-nums">{yen(Number(iv.amount_yen) || null)}</span>
+                              {iv.security_type && <span className="text-[10px] text-muted-foreground">{iv.security_type}</span>}
+                              {iv.tranche && <span className="rounded border border-border bg-muted/30 px-1 py-0 text-[9px] text-muted-foreground">{iv.tranche}</span>}
+                            </li>
+                          ))}
+                          {investorsTotal > 0 && investorsTotal !== (r.raised_yen ?? investorsTotal) && (
+                            <li className="text-[10px] text-amber-700">⚠️ 内訳合計 {yen(investorsTotal)} と調達額 {yen(r.raised_yen)} が不一致</li>
+                          )}
+                        </ul>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* キャップテーブル (現在断面 = is_current。AMD/まさ以外も含む全株主) */}
+          {currentSh.length > 0 && (
+            <div className="px-3 py-2">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <div className="text-[10px] font-semibold text-muted-foreground">株主構成 (現在)</div>
+                {currentSh[0]?.as_of_ym && <div className="text-[10px] text-muted-foreground">基準 {currentSh[0].as_of_ym}</div>}
+              </div>
               <div className="space-y-0.5">
-                {rounds.map((r) => (
-                  <div key={r.id} className="flex flex-wrap items-center gap-x-2">
-                    <span className="font-medium">{r.round_name || "ラウンド"}</span>
-                    {r.round_date && <span className="text-muted-foreground">{r.round_date}</span>}
-                    <span className="text-muted-foreground">調達 {yen(r.raised_yen)}</span>
-                    {r.post_money_yen != null && <span className="text-muted-foreground">post {yen(r.post_money_yen)}</span>}
+                {currentSh.map((s) => (
+                  <div key={s.id} className="flex flex-wrap items-center gap-x-2">
+                    <span className="rounded border border-border bg-muted/40 px-1 py-0 text-[9px]">{HOLDER_LABEL[s.holder_type || "other"] || s.holder_type}</span>
+                    <span className="font-medium">{s.holder_name}</span>
+                    {s.share_class && <span className="text-muted-foreground">{s.share_class}</span>}
+                    {s.shares != null && <span className="text-muted-foreground tabular-nums">{s.shares.toLocaleString()}株</span>}
+                    {s.ownership_pct != null && <span className="text-muted-foreground tabular-nums">{s.ownership_pct}%</span>}
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* キャップテーブル (AMD/まさ以外も含む全株主) */}
-          {sh.length > 0 && (
+          {/* 創業者シェア推移 (as_of_ym 断面が 2 つ以上ある時) */}
+          {showEvolution && (
             <div className="px-3 py-2">
-              <div className="mb-1 text-[10px] font-semibold text-muted-foreground">株主構成</div>
-              <div className="space-y-0.5">
-                {sh.map((s) => (
-                  <div key={s.id} className="flex flex-wrap items-center gap-x-2">
-                    <span className="rounded border border-border bg-muted/40 px-1 py-0 text-[9px]">{HOLDER_LABEL[s.holder_type || "other"] || s.holder_type}</span>
-                    <span className="font-medium">{s.holder_name}</span>
-                    {s.share_class && <span className="text-muted-foreground">{s.share_class}</span>}
-                    {s.ownership_pct != null && <span className="text-muted-foreground">{s.ownership_pct}%</span>}
-                  </div>
-                ))}
+              <div className="mb-1 text-[10px] font-semibold text-muted-foreground">創業者シェア推移 (持株比率%)</div>
+              <div className="overflow-x-auto">
+                <table className="text-[10px] tabular-nums">
+                  <thead>
+                    <tr className="text-muted-foreground">
+                      <th className="pr-2 text-left font-medium">株主</th>
+                      {evoYms.map((ym) => <th key={ym} className="px-1.5 text-right font-medium">{ym}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {evoHolders.map((holder) => (
+                      <tr key={holder} className="border-t border-border/60">
+                        <td className="pr-2 font-medium">{holder}</td>
+                        {evoYms.map((ym) => {
+                          const pct = evoPct(holder, ym);
+                          return <td key={ym} className="px-1.5 text-right text-muted-foreground">{pct != null ? `${pct}%` : "—"}</td>;
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
