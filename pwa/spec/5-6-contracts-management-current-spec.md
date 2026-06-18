@@ -174,7 +174,29 @@ cron が機能するには、対象 PJ の契約が Contract Apply 済みであ�
 | p21 (SX) | 愛媛大学 | 202606〜202703 (10ヶ月) | monthly_average | monthly_fixed / 1,048,000 | 8a95d2bd |
 | p25 (KUTE) | 学校法人工学院大学 | 202605〜202703 (11ヶ月) | monthly_average | monthly_fixed / 654,545 | d35d3184 |
 
+> 上表は **フル Contract Apply パイプライン (`contracts` 親行 + `applied` な `contract_terms` + ①②③ 反映) を通した PJ** のみ。p06 CTB は variable 契約で fee_amount を立てられないため term は作らず、`end_ym=202702` と `contract_terms_json` メタだけを直接反映した (= 下記「未 apply の契約保有 PJ 監査」の実施状況を参照)。
+>
 > KUTE p25 は **役員のみ PJ** (manual/7-1-reward-calc-spec.md L292)。Contract Apply は SX と同型の monthly_average → monthly_fixed 反映。② に税抜月額 654,545 を立て (報酬 cap は ×0.65 = 425,454 を fallback 導出)、③ billing_cycles は触らない。役員は payout から落ちる (再分配しない) ので capped 支払予定 = ¥0 が正しい結果。契約書 = Drive `00_契約_KUTE` の `260501_業務委託契約書(260501_270331)_工学院大学_AMD.PDF` (税込 7,920,000 / 税抜 7,200,000、第7条 毎月均等)。
+
+#### 未 apply の契約保有 PJ 監査 (2026-06-18)
+
+> 「全 PJ に Contract Apply を広げる」依頼を受けて、残りの契約保有候補 PJ (p06/p09/p10/p11/p19/p22/p23) を `source_cache` の Drive 抽出テキスト + `billing_cycles` 実績で監査した。**KUTE/CX/SX のような「契約書に総額・期間・按分が明記され、かつ実績と矛盾しない」クリーンな apply 候補は p10 SE だけ**。残りは各々判断が要る (= 契約書に金額が無い variable / 契約書と DB 記録が不一致 / 現行請求額に対応する契約書が source_cache に無い / 終了済みで請求実体ゼロ)。値の出所は契約書 + 算定正本 (manual/7-1) のみとし、生データから budget の意味を再導出しない方針なので、**金額の出所が契約書で裏取りできない PJ は apply しない**。
+
+| PJ | 契約相手 (DB) | source_cache の契約書 | 契約金額 | end_ym 現況 | 判定 |
+|---|---|---|---|---|---|
+| **p10 SE** | 翔エンジニアリング | PDF 無し。ただし請求イベント (`業務委託費 税抜 100,000/月`) + Slack「成功報酬明記の業務委託契約書を作成」で月額 ¥100,000 を裏取り済み。DB も既に `monthly_fixed / 100,000` | 月額 ¥100,000 (税抜) | **null = 無期限計上リスク** | ✅ apply 可。monthly_fixed のまま **end_ym を契約満了月で確定**するのが主目的 (CX 型事故予防)。⚠️ ただし Slack 上「当初は**ポイント制契約**を CloudSign 送信→先方確認中のまま、一般業務委託契約に**差し替えて締結予定**」とあり、**締結済みの最終契約書・満了月が source_cache に無い**。満了月はまさ確認が必要 |
+| **p06 CTB** | CrestecBio | `250926_業務委託契約書_CTB-armada` + `260323_業務委託契約変更覚書` | **金額記載なし**。第3条「業務委託料は都度見積で決定」= variable。料金表 (COO 240,000/月 等) は price list であって契約額ではない | **null**。覚書で有効期間が **2025/9/1〜2027/2/13 (= end_ym 202702)** に延長 | ⚠️ variable のまま。fee_amount は立てられない。**end_ym=202702 を埋める**のみが安全な反映。月別請求は都度見積なので ③ schedule 展開も不可 |
+| **p19 ZMP** | 葛飾ロード | OkuDoor 基本条件合意書 (当事者は CBRE↔葛飾ロード、Armada 不在) + OkuDoor 提案見積 (将来案件: 開発 ¥2,000,000 + 運用 ¥33,000/月) | 現行の月額 ¥300,000 advisory に対応する契約書が **source_cache に存在しない**。OkuDoor 見積は別 (将来) 案件 | **null** | ⚠️ ¥300,000/月 の出所が契約書で裏取りできない。apply すると未文書化の額を正本化してしまう。202605/202606 は手編集 budget (391170/368940) があり上書き厳禁 |
+| **p11 BWE** | NIMS | `業務委託契約書_AMD_250716` だが当事者が **Blue Water Energy** (甲乙とも山地正洋)、期間 **2025/7/16〜2025/10/31** で DB 記録 (NIMS / end 202603) と不一致 | variable、金額記載なし | 202603 (終了済) | ⚠️ Drive 契約書が PJ 記録と別物 (グループ内契約と思われる)。終了済 + 請求実体ほぼゼロ。apply 対象外候補 |
+| **p09 JC** | JOYCLE | サービス料金表のみ (実契約 PDF 無し) | — | 202603 (終了済) | ❓ 終了済 + 契約書無し + 請求実体ほぼゼロ → **対象外候補** |
+| **p22 OQC** | OptQC | `drive_folder_id` null、契約書無し | — | 202512 (終了済) | ❓ 契約書無し + 請求ゼロ → **対象外候補** |
+| **p23 UST** | 東京科学大 | 契約書無し。請求イベントは `業務委託費 税抜 1円` (名目額) | ¥1 (名目) | 202601 (終了済) | ❓ 名目契約 + 契約書無し → **対象外候補** |
+
+> **結論 / 実施状況 (2026-06-18)**:
+> - **(済) p06 CTB**: variable のまま `end_ym=202702` を反映済み (覚書根拠)。`fee_amount=null` 維持 (都度見積)。`contract_terms_json` に sourceTitle / counterpartyName / billingDistribution='per_quote_variable' を格納。**無期限計上リスクを 1 件クローズ**。
+> - **(まさ判断待ち) p10 SE**: DB は既に正しい (`monthly_fixed / 100,000`)。残るは **end_ym (満了月) の確定だけ**。締結済み最終契約書が source_cache に無いため、満了月をまさに確認してから埋める。確認できれば即 apply (CX 型事故予防)。
+> - **(まさ判断待ち / 保留) p19 ZMP**: ¥300,000/月 advisory の契約書根拠が source_cache に無い。apply すると未文書化額を正本化するため**保留**。202605/202606 の手編集 budget は上書き厳禁。
+> - **(対象外) p09 JC / p11 BWE / p22 OQC / p23 UST**: いずれも終了済 + 該当 PJ の有効契約書が source_cache に無い (p11 の Drive 契約書はグループ内 BWE 契約で、期間 202510 で既に終了)、または請求が名目額 (UST ¥1)。**無期限計上リスクなし**のため追加 apply 不要。
 
 ## Verification
 
