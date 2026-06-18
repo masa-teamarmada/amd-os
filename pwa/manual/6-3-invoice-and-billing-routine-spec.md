@@ -56,6 +56,18 @@ reward_paid
 
 非標準ケース: 失注 / 凍結 PJ は `not_started` のまま、 月次ルーティン自体を出さない。
 
+## 契約由来の請求額は つくよみ が毎月自動確定する (= 2026-06-18 ①案)
+
+> **契約書が抽出済み (= `/admin/contracts` で `contract_terms` を `applied` にした) PJ は、毎月の `請求額確定` を PM が手で押す必要はない。** つくよみ (月次 cron) が契約由来額を自動で `budget_confirmed` まで進め、PM には Slack DM で「契約どおりこの額で確定したよ」と事後通知する。PM は確認するだけ。
+
+なぜ手入力を省けるか: `contract_terms` を `applied` にする操作そのものが「人 (admin) が契約金額を確認した」ポイント。以降の月次は契約から機械的に額が決まるので、毎月同じ額を PM に tap-confirm させる意味がない。これは KUTE 単発の話ではなく、契約抽出済みの全 PJ 共通の billing 確定システム。
+
+- **対象**: `projects.start_ym ≤ 当月 ≤ end_ym` で、schedule_based なら当月 `billing_cycles` に `contract_source_term_id` が刻まれている / monthly_fixed なら `fee_type='monthly_fixed'` + `fee_amount` がある PJ。**`end_ym` が null の PJ は対象外** (無期限計上事故の防止)。
+- **金額**: schedule_based はその月の `budget_yen ÷ 0.65` を請求額に逆算 (= 月により額が違う契約を月別に正しく確定。CX: 6月¥78,000 / 7-9月¥274,000)。monthly_fixed は `fee_amount` をそのまま請求額に。PJ 予算は `請求額 × 65%`。
+- **触らない月**: その月の `billing_cycles.status` が既に `reported` 以降 (人が触っている) なら一切上書きしない。今月だけ違う額にしたい時は、PM が通知 DM のボタンからコックピットを開いて直す。
+- **cron**: `/api/cron/contract-billing-auto-confirm` (毎月1日 JST 07:00)。実装・安全弁の詳細は [spec 5-6 章 §月次請求額の自動確定](../spec/5-6-contracts-management-current-spec.md)。
+- **PL レビュー DM (`/api/notify/pl-review`) との関係**: 契約 apply 済み PJ は自動確定が先に走るので、PL への請求額レビュー DM ではなく PM への事後通知 DM になる。契約が無い / 抽出していない PJ は従来どおり PM/PL が手入力 → PL レビューで承認する。
+
 ## 月次ルーティン (= cockpit 右カラム)
 
 `/project/{projectId}/cockpit` 右カラムが「月次ルーティン」入口。 PJ の `status` が `active` / `sales` のときだけ表示。 詳細仕様 (= 回帰多発エリア) は [`pwa/design/routine.md`](../design/routine.md) と [01.5 月次ルーティン](2-3-pj-cockpit.md#15-月次ルーティン--報告書--請求--会計)。

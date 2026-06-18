@@ -102,7 +102,21 @@ MVPでは `CONTRACTS_DRIVE_FOLDER_ID` が設定されているかを画面に出
 
 `AdminProjectsTable` は `projects.contract_terms_json` を展開した編集列を持つ (`contract_monthly_fee_yen` / `contract_start_ym` / `contract_end_ym` / `contract_actual_work_start_ym` / `contract_billing_start_ym` / `contract_reward_pool_yen` / `contract_monthly_reward_cap_yen` / `contract_source_title` / `contract_source_ref` / `contract_notes`)。`contract_terms` フィールド群を保存すると `contract_terms_json` (①) に upsert される。`fee` / `start_ym` / `end_ym` (②) は別カラムとして個別に保存する。
 
-⚠️ **現状の欠落 (2026-06-16 時点)**: `contract_terms` テーブル (D-13 抽出結果) から ①②③ へ自動反映する経路は未実装。`/admin/contracts` で term を `applied` にしてもステータスが変わるだけで、`projects.contract_terms_json` や `fee_type/start_ym/end_ym`、`billing_cycles.budget_yen` には書き戻らない。そのため `/admin/projects` の契約カラムや月次シミュレータは手編集に依存している。Contract Apply (抽出 applied → 3 層反映) の自動化が次の実装対象。`billing_distribution_json` / `fee_type_hint` / `extracted_terms_json` (contract_terms の列) を消費して、`schedule_based` なら ③ の月別 cycle に、`monthly_fixed` なら ② に、共通して ① に畳む writer を `/api/contracts` 配下に置く。
+✅ **実装済み (2026-06-18)**: `contract_terms` (D-13 抽出結果、`status='applied'`) から ①②③ へ自動反映する Contract Apply writer を実装した。
+
+| 部品 | 場所 | 役割 |
+|---|---|---|
+| `deriveContractApplyPlan(term)` | `src/lib/contracts-apply.ts` | applied term から 3 層反映プランを導出する純粋関数 (DB は触らない)。値の出所は applied term だけで、ここで金額を作り変えない |
+| `applyContractTerms(db, termId, actor)` | `src/lib/contracts-apply.ts` | plan を実際に ①②③ へ書き戻す。`billing_log` に `action='contract_applied'` を残す |
+| `GET /api/contracts/apply?termId=...&dryRun=1` | `src/app/api/contracts/apply/route.ts` | 反映プランのプレビュー (DB write なし)。admin 限定 |
+| `POST /api/contracts/apply { termId }` | 同上 | 3 層へ実反映。admin 限定 |
+
+分岐ロジック:
+- `billing_distribution='schedule_based'` (または `monthly[]` があり `monthly_average` でない) → `fee_type='variable'` / `fee_amount=null` にし、`billing_distribution_json.monthly[]` を ③ `billing_cycles.budget_yen` に月別展開する。各月の `budget_yen` は `reward_cap_yen` をそのまま使う (無ければ `round(amount_tax_excl × 0.65)`)。`contract_source_term_id` を各 cycle に刻む (= 後段の自動確定 cron が「契約由来」と判定する印)。
+- `monthly_fixed` / `monthly_average` → `fee_type='monthly_fixed'` / `fee_amount = billing_distribution_json.monthly_tax_excl` (無ければ総額 ÷ 月数) を ② に立てる。③ は触らない (月次収支シミュレータが ② から固定収益を立てる)。
+- どちらの場合も ① `contract_terms_json` に契約メタ (期間 / pool / cap / 出典) を畳む。
+
+冪等性: ③ upsert は `onConflict='project_id,ym'`。既に `budget_confirmed` / `allocation_confirmed` / `invoice_sent` / `payment_confirmed` の月は `budget_yen` を上書きしない (人が確定した請求額確定を契約 apply で巻き戻さない)。
 
 ### apply 時の必須ガード
 
@@ -110,6 +124,47 @@ MVPでは `CONTRACTS_DRIVE_FOLDER_ID` が設定されているかを画面に出
 - 期間が複数 term に分かれる契約 (CX: 2025-11〜2026-03 コンサル + 2026-06〜2026-09 設立準備) は、term ごとに ②③ を分けて反映する。1 本の `monthly_fixed` に潰さない。
 - `schedule_based` (月により金額が違う) は ② の一律額にせず ③ の月別 `budget_yen` に展開する。
 - 本番データ (projects / billing_cycles) の書き換えを伴うため、自動 apply でもまさ確認を挟むか、`/admin/contracts` のレビューで人が承認した term だけを反映する。
+
+## 月次請求額の自動確定 (つくよみ cron / ①案)
+
+> 2026-06-18 まさ確定 (①案)。**契約書が抽出済み (= `contract_terms` を `applied` にした = 人 admin が金額をレビュー済み) なら、毎月の請求額確定は つくよみ が契約由来額を自動で `budget_confirmed` まで進め、PM には「契約通りこの額で確定したよ」と事後通知する**。PM は手入力不要、確認するだけ。これを全 PJ 共通の仕組みにする (KUTE 単発ではなく billing 確定システム全体の変更)。
+
+### 設計の肝 (なぜ PM の月次 tap-confirm を廃止できるか)
+
+`contract_terms` を `applied` にする操作そのものが「人 (admin) が契約金額を確認した」点。これが確認ポイント。以降の月次は契約から機械的に額が決まるので、毎月 PM に同じ額を tap-confirm させるのは無意味。よって applied 以降は つくよみ が自動で `reported → budget_confirmed` まで進め、PM は事後通知 DM を受け取るだけにする。今月だけ違う額になる場合だけ PM がコックピットから直す。
+
+### cron
+
+| 項目 | 値 |
+|---|---|
+| route | `GET/POST /api/cron/contract-billing-auto-confirm` |
+| schedule | `0 22 1 * *` (UTC、毎月1日 22:00 = JST 2日 07:00)。`vercel.json` の crons に登録済み |
+| 認証 | `CRON_SECRET` Bearer / `?secret=`。Vercel cron は env `CRON_SECRET` を自動添付。手動 POST は `requireAdmin()` |
+| actor | `つくよみ(契約自動確定)` (billing_log / budget_confirmed_by に残る) |
+| dry-run | `?dryRun=1` (GET) / `{ dryRun: true }` (POST) で actionable / skipped を返すだけ (write なし) |
+
+### 当月候補の決定 (`src/lib/contract-billing-auto.ts`)
+
+`collectAutoConfirmCandidates(db, ym)` が active な全 PJ から、その ym で契約由来額を確定できる候補を集める。`resolveContractBilling(project, cycle, ym)` の出所:
+
+1. **schedule_based** … その ym の `billing_cycles.contract_source_term_id` が set かつ `budget_yen > 0` なら、`invoiceYen = budget_yen ÷ 0.65` で請求額を逆算 (Contract Apply が ③ に月別 budget_yen を契約由来として刻んでいる)。
+2. **monthly_fixed** … `projects.fee_type='monthly_fixed'` かつ `fee_amount > 0` なら `invoiceYen = fee_amount`。
+
+### 安全弁
+
+- **契約期間ガード** (`isWithinContractPeriod`): `projects.start_ym ≤ ym ≤ end_ym` の月だけ対象。**`end_ym` が null の PJ は対象外** (無期限計上事故の再発防止。Contract Apply が必ず end_ym を埋めるので、apply 済みなら通る)。
+- **冪等性**: その月の `billing_cycles.status` が既に `reported` 以降 (`reported` / `budget_confirmed` / `allocation_confirmed` / `invoice_sent` / `invoice_issued` / `payment_confirmed` / `budget_rejected`) なら一切触らない (= 人が触っている月を尊重)。
+- **按分の尊重**: schedule_based は ③ の月別 budget_yen をそのまま使うので、月ごとに違う額 (CX: 202606=¥78,000 / 202607-09=¥274,000) が正しく確定される。特定月へのまとめ計上はしない。
+
+### 確定の流れ (1 PJ あたり)
+
+1. `billing_cycles` を upsert: `status='reported'` / `budget_reported_amount=invoiceYen` / `budget_buffer_amount=0` / `budget_reported_by=つくよみ(契約自動確定)`。
+2. `decideBudgetApproval(db, {decision:'approve', actor:'つくよみ(契約自動確定)'})` で `budget_confirmed` まで進める。`budget_yen = 請求額 × 0.65` (`calcPjBudget`)。`billing_log` に承認行が残る。
+3. その PJ の PM (`project_members.is_pm=true AND is_active=true` → `members.slack_id`) へ Slack DM で事後通知 (つくよみ口調、「契約どおり自動で確定しておいたよ〜」+ コックピットボタン)。通知失敗は致命ではない (確定自体は済んでいる)。
+
+### Contract Apply との関係
+
+cron が機能するには、対象 PJ の契約が Contract Apply 済みであること (schedule_based なら ③ に `contract_source_term_id`、monthly_fixed なら ② に `fee_type/fee_amount/end_ym`) が前提。古い手編集で `contract_source_term_id` や `end_ym` が欠けている PJ は、新 writer で再 apply してから cron 対象になる (2026-06-18 に CX p20 / SX p21 を再 apply 済み)。
 
 ## Verification
 
