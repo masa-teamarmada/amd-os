@@ -15,6 +15,17 @@
 
 ---
 
+### [finance] `/management-score`「PJ別 先12か月収支」表だけが旧ロジックのまま残り、ZMP 202607-202612 が 0 円に張り付いた (2026-06-18)
+
+- **状態**: ✅ クローズ (2026-06-18, v0.27.7 — `/management-score` 下部の `ProjectMonthlyFinanceTable` も別財布売上 + forward capped 支払予定へ同期)。
+- **症状**: まさが `/management-score` の「PJ別 先12か月収支」で、ZMP(p19) の 202607〜202612 がずっと 0 円になっているのを発見。production DB 実測では ZMP は本契約 `monthly_fixed ¥300,000`、PJ予算 `budget_yen=¥195,000/月`、OkuDoor 別財布 `extra_revenue_json` は 202605〜202610 按分、plan cycle は 202612 まで有効。
+- **原因**: `/management-score` には (A) 月次収支シミュレータ (`buildLiveMonthlyPlInputs`) とは別に、ページ下部の (C) `ProjectMonthlyFinanceTable` という独自 row builder があった。この (C) が `/admin/payouts` 側の修正を取り込めておらず、実績メンバーが無い将来月で `forecastPayoutYen = budgetYen` にフォールバックし続け、さらに `extra_revenue_json` を読んでいなかった。結果、ZMP は 202607〜202612 が `195,000 - 195,000 = 0` に固定された。
+- **解決内容**: `management-score/page.tsx` で `computeForwardCappedMemberCosts` を呼び、将来支払予定を capped (月次キャップ + 繰越平準化 + 役員/支払対象外除外) に差し替えた。あわせて `billing_cycles.extra_revenue_json` の全行を `expandExtraRevenue` に通し、`finalBalanceYen = budgetYen + extraRevenueYen - forecastPayoutYen` に統一。表にも `別財布 ¥...` を表示する。
+- **検証**: 本番 DB + 既存 `computeForwardCappedMemberCosts` 実測。ZMP(p19) の正値は 202607 **+¥329,207**、202608 **+¥341,133**、202609 **+¥313,164**、202610 **+¥327,243**、202611 **+¥46,926**、202612 **+¥46,653**。旧式では同じ6か月がすべて 0 円だった。
+- **教訓**: finance 表は `/management-score` 月次収支シミュレータ、`/admin/payouts` 先12か月 PJ収支、`/management-score` 下部 PJ別 先12か月収支の少なくとも 3 系統ある。数字を直す時は「同じ見出しの別コンポーネント」を grep し、全系統で `extraRevenue` と `forecastCapped` が通っているか確認する。
+
+---
+
 ### [finance] `/admin/payouts`「先12か月 PJ収支」表の支払予定に uncapped を入れてしまいマイナス月・KUTE 巨額・役員への支払いが発生 — 支払予定は capped + 役員除外が正本 (2026-06-17)
 
 - **状態**: ✅ クローズ (2026-06-17, v0.25.4 — 将来月の支払予定を capped (月次キャップ+繰越平準化) + 役員除外に修正、本番 deploy 済み)。**直前の v0.25.3 の「支払予定=uncapped」は設計ミスで、本エントリで上書き訂正する。**
