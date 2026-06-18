@@ -4,6 +4,45 @@
 
 ---
 
+## 2026-06-18 — 月初合意を支払 gate 化 (v0.28.0)
+
+### コンテキスト
+- 月初合意は `member_monthly_work_agreements.snapshot_hash/currentHash`、未合意・条件更新・修正要望の可視化までは入っていたが、`/admin/payouts` の支払データ保存や支払通知書PDF生成は止めていなかった。
+- 今回の目的は「合意していないと支払へ進めない」server-side gate。UI の警告だけではなく、API action 側で止める。
+
+### 実装
+- **新規 gate lib**: `src/lib/monthly-work-agreement-payout-gate.ts`
+  - `member × source_ym × project` の支払対象を dedupe。
+  - frozen/lost/active期間外PJ、役員/通知対象外、支払額0は `not_required`。
+  - `pending` / `stale` / `revision_requested` は blocker。
+  - `agreementOverrideReason` が 8 文字以上かつ actor email ありなら、override 監査ログを保存して allow。
+- **新規 migration**: `145_member_monthly_work_agreement_payout_overrides.sql`
+  - `payment_ym`, `source_ym`, `member_id`, `project_id`, `target_action`, `blocker_status`, `reason`, `actor_email`, `snapshot_hash`, `current_hash`, `request_id`, `metadata_json`, `created_at`。
+  - 本番 Supabase へ適用済み、`design/db_schema.md` dump 同期済み。
+- **API guard**: `/api/admin/payouts`
+  - `POST` 支払データ保存前に block。
+  - `issue_notice_pdf` / `preview_notice_pdf` / `bulk_issue_notice_pdf` / `bulk_preview_notice_pdf` / `send_notice_email` / `markSent` 前に block。
+  - GET は `payoutAgreementGate` summary を返して UI 表示に使う。
+- **cron guard**: `/api/cron/payout-notice-prebuild`
+  - blocker member は PDF 生成せず `reason='agreement_gate'` の failed result として返す。
+- **UI**: `/admin/payouts`
+  - 月初合意支払ゲート panel を追加。
+  - blocker 一覧と admin override reason 入力を表示。
+  - override reason が無い時は保存/PDF/送付系ボタンを disabled。
+- **docs**: spec `3-14`、manual `6-5` / `7-1`、appendix changelog を同期。
+  - OS月次合意を毎月の個別発注/SOW/条件確認として扱う設計。
+  - hard guard の本番運用は契約改定・メンバー同意・法務レビューが前提で、AIが法的助言として断定しない旨を明記。
+
+### 検証
+- targeted eslint: error 0 (既存 warning 2: `fmtDeltaYen`, `budgetAuditBadge`)
+- `npx tsc --noEmit`: pass
+- `npm run build`: pass
+- `npm run test:critical-ui`: pass
+- local built server smoke: `/api/build-info` 200、`/admin/payouts` / `/monthly-agreement` / `/admin/monthly-work-agreements` は未ログインで `/auth/login` 307
+- read-only live DB probe: `loadTargetData("202606")` で expectedEntries 4 / gate blockers 4 (`pending`, p19 202605)
+
+---
+
 ## 2026-06-02 — 通知の文字化け (mojibake) 調査・恒久 fix・DB 掃除
 
 ### きっかけ

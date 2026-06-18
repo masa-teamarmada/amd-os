@@ -85,7 +85,19 @@ MS / PlanCycle が未設定の PJ でも、 `/admin/payouts` の `MSなしPJ 強
 
 `frozen` PJ は報酬が発生しないため、月初合意の対象PJから除外する。月初合意の予定報酬は `reward_summary_json.members[].totalPay` ではなく、当月の月次予算を当月予定MS消化ptと担当shareで配分した合意用の予定額。本人から届いた修正要望は `member_monthly_work_agreement_requests` に保存され、admin一覧の「修正要望」件数と各行の最新要望時刻で確認する。
 
-将来「未合意のまま支払確定できない」guard を入れる場合も、まず `/admin/payouts` の保存/発行 action が `member_monthly_work_agreements` を read して警告またはブロックする形にし、`reward_summary_json` の計算式には混ぜない。
+`/admin/payouts` は支払対象の `member × 稼働月 × PJ` ごとに `member_monthly_work_agreements` / `member_monthly_work_agreement_requests` を read し、未合意・条件更新あり・修正要望中のまま支払へ進ませない。これは支払 gate であり、`reward_summary_json` の計算式には混ぜない。
+
+| state | UI表示 | server behavior |
+|---|---|---|
+| 未合意 | `pending` | `支払データ保存` / PDF生成 / 送付 / 送付済み確定を 409 stop |
+| 条件更新あり | `stale` | latest agreed snapshot hash と current hash が違うため stop |
+| 修正要望中 | `revision_requested` | open request が member全体または当該PJにあるため stop |
+| 対象外 | `not_required` | frozen/lost/active期間外PJ、支払額0、役員/通知対象外は gate 外 |
+| admin override | `admin_override` | 理由つきで例外実行し、監査ログを保存 |
+
+admin override は 8 文字以上の理由が必要。server は `member_monthly_work_agreement_payout_overrides` に、action、理由、actor email、支払月、稼働月、member、PJ、blocker status、snapshot hash/current hash、request id を append-only で残す。
+
+契約上は OS 月次合意を毎月の個別発注 / SOW / 条件確認として扱う設計。ただし hard guard の本番運用は、業務委託契約の改定・メンバー同意・法務レビューを前提にする。この manual は運用仕様であり、法的助言として断定しない。
 
 ### 3. 通知書発行
 
@@ -93,10 +105,13 @@ MS / PlanCycle が未設定の PJ でも、 `/admin/payouts` の `MSなしPJ 強
 sequenceDiagram
   participant Admin as admin
   participant PWA as /admin/payouts
+  participant Gate as monthly agreement gate
   participant GAS as GAS 064
   participant PDF as PDF gen
   participant DB as payout_notices
   Admin->>PWA: 「通知書発行」クリック
+  PWA->>Gate: member × source_ym × project を検査
+  Gate-->>PWA: blocker があれば 409 stop
   PWA->>DB: notice_no = PN-{ym}-{seq} 採番
   PWA->>GAS: runFunc payout_generatePdf
   GAS->>PDF: HTML → PDF (= 2026-04 改善版)
@@ -218,6 +233,7 @@ admin/payouts 支払額 (= 税抜) 731,740円
 - vercel cron で **毎日 02:00 JST (= `0 17 * * *` UTC)** に起動
 - 対象: 当月 + 翌月の 2 支払 ym
 - 各 ym で、 `exclude_from_payout_notice=false` かつ `is_officer=false` で支払額 > 0 のメンバー全員を対象に並列生成 (= concurrency 3)
+- 月初合意支払 gate に blocker があるメンバーは PDF 生成せず、`agreement_gate` failure として結果に出す
 - **差分検出**: 既に `payout_notices.pdf_url` があり、 かつ `total_yen` が一致しているメンバーは **スキップ** (= GAS を叩かない)
 - 差分があるメンバーのみ GAS に投げて、 `pdf_url` / `notice_no` / `total_yen` / `last_generated_at` を更新
 - 朝、 まさが `/admin/payouts` を開いた時点でほとんどのメンバーの PDF が既に存在する状態にする
@@ -258,6 +274,8 @@ curl -X POST "https://amd-os-pwa.vercel.app/api/cron/payout-notice-prebuild" \
 #### `saveAll` (= 「支払データ保存」) との連携
 
 `saveAll` 内で、 既存 `payout_notices.total_yen` と新計算値を比較し、 **金額が変わったメンバーは `pdf_url` / `last_generated_at` を NULL クリア**する (`sent_at` が立っている行は触らない)。 これで次回 cron / 一括発行で差分検出が再生成を発火させる仕組み。
+
+`saveAll` の DB write 前にも月初合意支払 gate を通す。blocker がある場合、`monthly_reward_payout` / `payout_notices` へ保存しない。admin override reason がある場合だけ、監査ログ保存後に例外実行する。
 
 #### UI
 

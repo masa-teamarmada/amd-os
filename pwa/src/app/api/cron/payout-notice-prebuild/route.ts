@@ -6,6 +6,11 @@ import {
   loadTargetData,
   type GenerateNoticeResult,
 } from "@/app/api/admin/payouts/route";
+import {
+  enforcePayoutAgreementGate,
+  payoutAgreementGateErrorMessage,
+  type PayoutAgreementGateSummary,
+} from "@/lib/monthly-work-agreement-payout-gate";
 
 export const runtime = "nodejs";
 
@@ -54,6 +59,7 @@ type YmResult = {
   skipped: number;
   failed: number;
   results: GenerateNoticeResult[];
+  payoutAgreementGate?: PayoutAgreementGateSummary;
 };
 
 async function prebuildForYm(ym: string, force: boolean): Promise<YmResult> {
@@ -78,11 +84,33 @@ async function prebuildForYm(ym: string, force: boolean): Promise<YmResult> {
     return { ym, targetCount: 0, generated: 0, skipped: 0, failed: 0, results: [] };
   }
 
-  const results = await generateNoticePdfBulk(db, data, {
-    memberIds: targetMemberIds,
-    previewOnly: false,
-    force,
+  const gate = await enforcePayoutAgreementGate(db, {
+    paymentYm: ym,
+    targetAction: "cron_payout_notice_prebuild",
+    entries: data.expectedEntries,
+    members: data.members as MemberRow[],
+    projects: data.projects,
   });
+  const blockedMemberIds = new Set(gate.blockers.map((row) => row.memberId));
+  const blockedResults: GenerateNoticeResult[] = [...blockedMemberIds].map((memberId) => ({
+    memberId,
+    status: "failed",
+    reason: "agreement_gate",
+    error: payoutAgreementGateErrorMessage({
+      ...gate,
+      blockers: gate.blockers.filter((row) => row.memberId === memberId),
+      blockedCount: gate.blockers.filter((row) => row.memberId === memberId).length,
+    }),
+  }));
+  const allowedMemberIds = targetMemberIds.filter((memberId) => !blockedMemberIds.has(memberId));
+  const generatedResults = allowedMemberIds.length > 0
+    ? await generateNoticePdfBulk(db, data, {
+        memberIds: allowedMemberIds,
+        previewOnly: false,
+        force,
+      })
+    : [];
+  const results = [...generatedResults, ...blockedResults].sort((a, b) => a.memberId.localeCompare(b.memberId));
 
   return {
     ym,
@@ -91,6 +119,7 @@ async function prebuildForYm(ym: string, force: boolean): Promise<YmResult> {
     skipped: results.filter((r) => r.status === "skipped").length,
     failed: results.filter((r) => r.status === "failed").length,
     results,
+    payoutAgreementGate: gate,
   };
 }
 

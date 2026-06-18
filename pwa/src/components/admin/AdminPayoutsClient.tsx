@@ -158,6 +158,7 @@ type PayoutData = {
   notices: PayoutNotice[];
   extraRevenueRows?: ExtraRevenueSourceRow[];
   expectedEntries?: PayoutEntry[];
+  payoutAgreementGate?: PayoutAgreementGateSummary;
   refreshedRewards?: boolean;
 };
 
@@ -175,6 +176,48 @@ type PayoutEntry = {
   carryInYen: number;
   stockYen: number;
   cappedFrom: number;
+};
+
+type PayoutAgreementGateStatus =
+  | "not_required"
+  | "pending"
+  | "agreed"
+  | "stale"
+  | "revision_requested"
+  | "admin_override";
+
+type PayoutAgreementGateRow = {
+  key: string;
+  paymentYm: string;
+  sourceYm: string;
+  memberId: string;
+  memberName: string;
+  projectId: string;
+  projectName: string;
+  totalPay: number;
+  required: boolean;
+  status: PayoutAgreementGateStatus;
+  reason: string;
+  latestAgreedAt: string | null;
+  snapshotHash: string | null;
+  currentHash: string | null;
+  requestId: string | null;
+  requestCreatedAt: string | null;
+};
+
+type PayoutAgreementGateSummary = {
+  paymentYm: string;
+  targetAction: string;
+  checkedAt: string;
+  totalTargets: number;
+  requiredCount: number;
+  notRequiredCount: number;
+  agreedCount: number;
+  blockedCount: number;
+  overrideCount: number;
+  allowed: boolean;
+  rows: PayoutAgreementGateRow[];
+  blockers: PayoutAgreementGateRow[];
 };
 
 type BudgetAuditItem = {
@@ -353,6 +396,24 @@ const BC_STATUS_COLOR: Record<string, string> = {
   invoice_sent: "border-violet-200 bg-violet-50 text-violet-700",
   payment_confirmed: "border-emerald-200 bg-emerald-50 text-emerald-700",
   reward_paid: "border-emerald-300 bg-emerald-100 text-emerald-800",
+};
+
+const PAYOUT_AGREEMENT_STATUS_LABEL: Record<PayoutAgreementGateStatus, string> = {
+  not_required: "対象外",
+  pending: "未合意",
+  agreed: "合意済",
+  stale: "条件更新あり",
+  revision_requested: "修正要望中",
+  admin_override: "admin override",
+};
+
+const PAYOUT_AGREEMENT_STATUS_CLASS: Record<PayoutAgreementGateStatus, string> = {
+  not_required: "border-zinc-200 bg-zinc-50 text-zinc-600",
+  pending: "border-red-200 bg-red-50 text-red-700",
+  agreed: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  stale: "border-amber-200 bg-amber-50 text-amber-800",
+  revision_requested: "border-rose-200 bg-rose-50 text-rose-700",
+  admin_override: "border-sky-200 bg-sky-50 text-sky-800",
 };
 
 function fmtYm(ym: string) {
@@ -899,6 +960,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
   const [paymentNudgeSending, setPaymentNudgeSending] = useState(false);
   const [bulkPdfMode, setBulkPdfMode] = useState<"issue" | "preview" | null>(null);
   const [bulkPdfResult, setBulkPdfResult] = useState<BulkNoticeSummary | null>(null);
+  const [agreementOverrideReason, setAgreementOverrideReason] = useState("");
   const [manualRewardSaving, setManualRewardSaving] = useState(false);
   const [manualRewardDraft, setManualRewardDraft] = useState<ManualRewardDraft>({
     projectId: "",
@@ -1047,6 +1109,16 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
     return { budgetYen, payoutYen, overYen, missingBudgetCount, unpaidCount };
   }, [budgetAuditItems]);
   const hasBudgetBlocker = budgetAuditTotals.missingBudgetCount > 0 || budgetAuditTotals.overYen > 0;
+  const agreementGate = data?.payoutAgreementGate ?? null;
+  const agreementBlockers = agreementGate?.blockers ?? [];
+  const agreementBlockedMemberIds = new Set(agreementBlockers.map((row) => row.memberId));
+  const hasAgreementBlocker = agreementBlockers.length > 0;
+  const agreementOverrideReasonTrimmed = agreementOverrideReason.trim();
+  const canUseAgreementOverride = !hasAgreementBlocker || agreementOverrideReasonTrimmed.length >= 8;
+  const guardedActionDisabled = hasAgreementBlocker && !canUseAgreementOverride;
+  const guardedActionTitle = guardedActionDisabled
+    ? "月初合意blockerを解除するか、admin override理由を8文字以上入れてね"
+    : undefined;
 
   const projectFinanceGroups = useMemo<ProjectFinanceGroup[]>(() => {
     const nonOfficerByCycle = new Map<string, PayoutEntry[]>();
@@ -1342,6 +1414,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
           action: "issue_notice_pdf",
           ym,
           memberId: row.memberId,
+          agreementOverrideReason: agreementOverrideReasonTrimmed || undefined,
         }),
       });
       const payload = (await res.json()) as (
@@ -1381,6 +1454,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
           action: "preview_notice_pdf",
           ym,
           memberId: row.memberId,
+          agreementOverrideReason: agreementOverrideReasonTrimmed || undefined,
         }),
       });
       const payload = (await res.json()) as (
@@ -1414,6 +1488,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
           ym,
           memberId: row.memberId,
           totalYen: row.totalPay,
+          agreementOverrideReason: agreementOverrideReasonTrimmed || undefined,
           ...patch,
         }),
       });
@@ -1476,6 +1551,12 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
 
   async function sendNoticeMailNow() {
     if (!noticeMailModal) return;
+    if (agreementBlockedMemberIds.has(noticeMailModal.row.memberId) && !canUseAgreementOverride) {
+      const message = guardedActionTitle ?? "月初合意blockerがあるため送信できない";
+      setNoticeMailError(message);
+      setHint(message);
+      return;
+    }
     const { row, preview, editedBody } = noticeMailModal;
     setNoticeMailSending(true);
     setNoticeMailError(null);
@@ -1489,6 +1570,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
           ym,
           memberId: row.memberId,
           body: editedBody,
+          agreementOverrideReason: agreementOverrideReasonTrimmed || undefined,
         }),
       });
       const payload = (await res.json()) as PayoutData & {
@@ -1522,7 +1604,10 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
       const res = await fetch("/api/admin/payouts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ym }),
+        body: JSON.stringify({
+          ym,
+          agreementOverrideReason: agreementOverrideReasonTrimmed || undefined,
+        }),
       });
       const payload = (await res.json()) as (
         PayoutData & { ok?: boolean; error?: string; savedPayoutRows?: number; savedNoticeRows?: number }
@@ -1583,6 +1668,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
           action: previewOnly ? "bulk_preview_notice_pdf" : "bulk_issue_notice_pdf",
           ym,
           force: options.force === true,
+          agreementOverrideReason: agreementOverrideReasonTrimmed || undefined,
         }),
       });
       const payload = (await res.json()) as PayoutData & {
@@ -1767,8 +1853,16 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
         <button
           type="button"
           onClick={saveAll}
-          disabled={loading || saving || noticeSavingMemberId != null || paymentNudgeSending || expectedEntries.length === 0 || hasBudgetBlocker}
-          title={hasBudgetBlocker ? "PJ予算未設定または超過があるため保存できない" : undefined}
+          disabled={
+            loading ||
+            saving ||
+            noticeSavingMemberId != null ||
+            paymentNudgeSending ||
+            expectedEntries.length === 0 ||
+            hasBudgetBlocker ||
+            guardedActionDisabled
+          }
+          title={hasBudgetBlocker ? "PJ予算未設定または超過があるため保存できない" : guardedActionTitle}
           className="h-9 rounded-md bg-foreground px-4 text-[12px] font-medium text-background disabled:opacity-50"
         >
           {saving ? "保存中..." : savedAll ? "再保存" : "支払データ保存"}
@@ -1793,12 +1887,14 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
             paymentNudgeSending ||
             bulkPdfMode != null ||
             !savedAll ||
-            memberRows.length === 0
+            memberRows.length === 0 ||
+            guardedActionDisabled
           }
           title={
-            !savedAll
+            guardedActionTitle ??
+            (!savedAll
               ? "先に「支払データ保存」を実行してね"
-              : "全員分の支払通知書PDFを並列発行 (差分検出あり)"
+              : "全員分の支払通知書PDFを並列発行 (差分検出あり)")
           }
           className="h-9 rounded-md border border-emerald-300 bg-emerald-50 px-3 text-[12px] text-emerald-900 hover:bg-emerald-100 disabled:opacity-50"
         >
@@ -1814,9 +1910,10 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
             noticeSavingMemberId != null ||
             paymentNudgeSending ||
             bulkPdfMode != null ||
-            memberRows.length === 0
+            memberRows.length === 0 ||
+            guardedActionDisabled
           }
-          title="保存前でも全員分の確認用PDFを並列生成 (DB保存なし)"
+          title={guardedActionTitle ?? "保存前でも全員分の確認用PDFを並列生成 (DB保存なし)"}
           className="h-9 rounded-md border border-border bg-background px-3 text-[12px] hover:bg-muted/40 disabled:opacity-50"
         >
           {bulkPdfMode === "preview" ? "確認用PDF生成中..." : "全員分PDF確認"}
@@ -1835,12 +1932,14 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
             paymentNudgeSending ||
             bulkPdfMode != null ||
             !savedAll ||
-            memberRows.length === 0
+            memberRows.length === 0 ||
+            guardedActionDisabled
           }
           title={
-            !savedAll
+            guardedActionTitle ??
+            (!savedAll
               ? "先に「支払データ保存」を実行してね"
-              : "差分検出を無視して全員分のPDFを強制再生成 (コードラベル変更などを反映する用)"
+              : "差分検出を無視して全員分のPDFを強制再生成 (コードラベル変更などを反映する用)")
           }
           className="h-9 rounded-md border border-amber-300 bg-amber-50 px-3 text-[12px] text-amber-900 hover:bg-amber-100 disabled:opacity-50"
         >
@@ -1877,6 +1976,12 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
           </ul>
         </div>
       )}
+
+      <PayoutAgreementGatePanel
+        gate={agreementGate}
+        overrideReason={agreementOverrideReason}
+        onOverrideReasonChange={setAgreementOverrideReason}
+      />
 
       <div className="grid gap-2 md:grid-cols-4">
         <SummaryBox label="対象cycle" value={`${data?.cycles.length ?? 0}件`} sub={`${rewardCycleCount}件に報酬明細あり`} />
@@ -2071,7 +2176,14 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
                     <td className="px-3 py-2">
                       <PayoutNoticeActions
                         row={row}
-                        disabled={loading || saving || noticeSavingMemberId != null || noticeMailLoading || noticeMailSending}
+                        disabled={
+                          loading ||
+                          saving ||
+                          noticeSavingMemberId != null ||
+                          noticeMailLoading ||
+                          noticeMailSending ||
+                          (agreementBlockedMemberIds.has(row.memberId) && !canUseAgreementOverride)
+                        }
                         saving={noticeSavingMemberId === row.memberId || (noticeMailLoading && noticeMailModal?.row.memberId === row.memberId)}
                         onIssueNoticePdf={issueNoticePdf}
                         onOpenPdf={openPdfUrl}
@@ -2151,6 +2263,102 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
         />
       )}
     </div>
+  );
+}
+
+function PayoutAgreementGatePanel({
+  gate,
+  overrideReason,
+  onOverrideReasonChange,
+}: {
+  gate: PayoutAgreementGateSummary | null;
+  overrideReason: string;
+  onOverrideReasonChange: (value: string) => void;
+}) {
+  if (!gate || gate.totalTargets === 0) return null;
+  const blockers = gate.blockers ?? [];
+  const blocked = blockers.length > 0;
+  const tone = blocked ? "border-red-300 bg-red-50" : "border-emerald-300 bg-emerald-50";
+  const textTone = blocked ? "text-red-950" : "text-emerald-950";
+  const shownRows = blocked ? blockers : gate.rows.filter((row) => row.required).slice(0, 6);
+
+  return (
+    <section className={`rounded-lg border p-3 ${tone}`}>
+      <div className="flex flex-wrap items-start gap-3">
+        <div>
+          <h2 className={`text-[13px] font-semibold ${textTone}`}>月初合意支払ゲート</h2>
+          <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+            <span>required {gate.requiredCount}</span>
+            <span>agreed {gate.agreedCount}</span>
+            <span>not required {gate.notRequiredCount}</span>
+            <span>blocker {gate.blockedCount}</span>
+          </div>
+        </div>
+        <span className={`ml-auto rounded border px-2 py-1 text-[11px] ${blocked ? "border-red-300 bg-background text-red-800" : "border-emerald-300 bg-background text-emerald-800"}`}>
+          {blocked ? "支払停止" : "支払可能"}
+        </span>
+      </div>
+
+      {shownRows.length > 0 && (
+        <div className="mt-3 overflow-hidden rounded-md border border-background/70 bg-background/80">
+          <table className="w-full text-[11px]">
+            <thead className="border-b border-border/60 bg-muted/30">
+              <tr>
+                <th className="px-2 py-1.5 text-left font-medium">member</th>
+                <th className="px-2 py-1.5 text-left font-medium">PJ</th>
+                <th className="px-2 py-1.5 text-left font-medium">稼働月</th>
+                <th className="px-2 py-1.5 text-left font-medium">status</th>
+                <th className="px-2 py-1.5 text-left font-medium">reason</th>
+                <th className="px-2 py-1.5 text-right font-medium">支払額</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/60">
+              {shownRows.slice(0, 12).map((row) => (
+                <tr key={row.key}>
+                  <td className="px-2 py-1.5">
+                    <div className="font-medium">{row.memberName}</div>
+                    <div className="font-mono text-[10px] text-muted-foreground">{row.memberId}</div>
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <div className="font-medium">{row.projectName}</div>
+                    <div className="font-mono text-[10px] text-muted-foreground">{row.projectId}</div>
+                  </td>
+                  <td className="px-2 py-1.5 font-mono">{fmtYm(row.sourceYm)}</td>
+                  <td className="px-2 py-1.5">
+                    <span className={`rounded border px-1.5 py-0.5 text-[10px] ${PAYOUT_AGREEMENT_STATUS_CLASS[row.status]}`}>
+                      {PAYOUT_AGREEMENT_STATUS_LABEL[row.status]}
+                    </span>
+                  </td>
+                  <td className="px-2 py-1.5 text-muted-foreground">{row.reason}</td>
+                  <td className="px-2 py-1.5 text-right font-medium">{fmtYen(row.totalPay)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {shownRows.length > 12 && (
+            <div className="border-t border-border/60 px-2 py-1.5 text-[11px] text-muted-foreground">
+              他 {shownRows.length - 12} 件
+            </div>
+          )}
+        </div>
+      )}
+
+      {blocked && (
+        <label className="mt-3 block space-y-1">
+          <span className="text-[11px] font-medium text-red-950">admin override reason</span>
+          <textarea
+            value={overrideReason}
+            onChange={(event) => onOverrideReasonChange(event.target.value)}
+            rows={2}
+            placeholder="例: 契約改定前の移行月として、本人Slack確認済み。"
+            className="w-full rounded-md border border-red-200 bg-background px-2 py-1.5 text-[12px] outline-none focus:border-red-400"
+          />
+          <span className="block text-[10px] text-red-900/70">
+            override は server-side で actor / reason / member / PJ / 支払月 / 稼働月を監査ログに残す。
+          </span>
+        </label>
+      )}
+    </section>
   );
 }
 

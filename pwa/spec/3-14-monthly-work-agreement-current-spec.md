@@ -13,8 +13,8 @@
 | agree API | `POST /api/monthly-work-agreement/agree` |
 | revision request API | `POST /api/monthly-work-agreement/request-revision` |
 | admin API | `GET /api/admin/monthly-work-agreements?ym=YYYYMM` |
-| DB | `member_monthly_work_agreements`, `member_monthly_work_agreement_requests` |
-| migration | `pwa/scripts/migrations/139_member_monthly_work_agreements.sql`, `140_member_monthly_work_agreement_requests.sql` |
+| DB | `member_monthly_work_agreements`, `member_monthly_work_agreement_requests`, `member_monthly_work_agreement_payout_overrides` |
+| migration | `pwa/scripts/migrations/139_member_monthly_work_agreements.sql`, `140_member_monthly_work_agreement_requests.sql`, `145_member_monthly_work_agreement_payout_overrides.sql` |
 
 ## Scope
 
@@ -29,6 +29,34 @@
 - 報酬キャッシュを再計算しない。通常 GET は読むだけ。
 - cap、carry-over、stockYen、条件/前提、未確定・要確認などの精算/確認内部情報は本人向け月初合意画面に出さない。月初合意は「どのPJのどのMSへコミットし、当月どこまで到達すべきか」と「その対価としての予定報酬」を示す。
 - 当月報酬も担当MSもないPJは、月初合意の「何をすればいくら」に答えないため本人画面から非表示にする。
+
+## Payout Gate
+
+`/admin/payouts` は、支払対象の `member × source_ym × project` ごとに月初合意状態を read し、未合意のまま支払データ保存・支払通知書PDF生成・通知メール送信・送付済み確定へ進ませない。
+
+| status | meaning | payout behavior |
+|---|---|---|
+| `not_required` | 支払額 0、役員/通知対象外、`frozen` / `lost` / active期間外PJなど | gate 対象外 |
+| `pending` | 支払対象だが本人の active `agreed` row が無い、または支払対象PJが snapshot に無い | block |
+| `agreed` | latest active `agreed.snapshot_hash === currentHash` | allow |
+| `stale` | latest active `agreed` はあるが `snapshot_hash !== currentHash` | block (`条件更新あり`) |
+| `revision_requested` | `member_monthly_work_agreement_requests.status='open'` が member全体または当該PJにある | block |
+| `admin_override` | admin が理由を入れて server-side action を例外実行し、監査ログが残った | allow for that action |
+
+gate は `/admin/payouts` の server action で実行する。UI の警告だけにはしない。
+
+- `POST /api/admin/payouts` (`支払データ保存`)
+- `PATCH /api/admin/payouts` の `issue_notice_pdf` / `preview_notice_pdf`
+- `PATCH /api/admin/payouts` の `bulk_issue_notice_pdf` / `bulk_preview_notice_pdf`
+- `PATCH /api/admin/payouts` の `send_notice_email`
+- `PATCH /api/admin/payouts` の `update_notice` のうち `markSent=true`
+- `POST/GET /api/cron/payout-notice-prebuild` は blocker 付き member を PDF 生成対象から外し、`agreement_gate` failure として返す
+
+admin override は `agreementOverrideReason` が 8 文字以上かつ actor email がある場合だけ有効。override は `member_monthly_work_agreement_payout_overrides` に append-only で保存し、対象 action、理由、actor、支払月、稼働月、member、project、blocker status、snapshot hash / current hash、request id を残す。override は報酬計算や合意 row を変更しない。
+
+### 契約レイヤー
+
+業務委託契約上は、OS 月次合意を毎月の個別発注 / SOW / 条件確認として扱う前提で設計する。ただし hard guard を本番運用の法的拘束力として使うには、契約改定・メンバー同意・法務レビューが前提。この仕様は運用/システム設計であり、AI が法的助言として断定するものではない。
 
 ### 予定報酬の算定
 
@@ -91,6 +119,19 @@ projectPlannedRewardYen = Σ msPlannedRewardYen
 | `snapshot_hash` | 要望送信時に本人が見ていた current hash |
 | `resolved_at` / `resolved_by` / `resolution_note` | admin/PM 側の処理結果 |
 
+`member_monthly_work_agreement_payout_overrides`:
+
+| column | contract |
+|---|---|
+| `payment_ym` | `/admin/payouts` の支払月 |
+| `source_ym` | 報酬明細の稼働月 (`billing_cycles.ym` / `monthly_reward_payout.ym`) |
+| `member_id` / `project_id` | override 対象 |
+| `target_action` | 例外実行した server-side action |
+| `blocker_status` | `pending` / `stale` / `revision_requested` |
+| `reason` / `actor_email` / `created_at` | admin override の監査情報 |
+| `snapshot_hash` / `current_hash` / `request_id` | どの blocker を越えたかを再現する補助キー |
+| `metadata_json` | member/project label、支払額、blocker reason など |
+
 ## Authority / RLS
 
 | actor | read | write |
@@ -102,6 +143,8 @@ projectPlannedRewardYen = Σ msPlannedRewardYen
 | anon | 不可 | 不可 |
 
 API route は logged-in user を `members.email` で解決する。本人以外の合意保存は禁止。admin は他メンバーの `/monthly-agreement?memberId=` を表示できるが、本人の代わりに合意保存はしない。
+
+`member_monthly_work_agreement_payout_overrides` は admin/service_role のみ read/insert。update/delete は通常運用で使わず、append-only 監査ログとして扱う。
 
 ## UI Contract
 
@@ -138,10 +181,12 @@ API route は logged-in user を `members.email` で解決する。本人以外�
 | admin が他人の合意保存を試す | 403 |
 | 本人以外が修正要望を送る | 403 |
 | snapshot hash changed | `needs_reagreement` |
+| payout gate blockerあり | `/api/admin/payouts` は 409 で stop。cron prebuild は該当 member を `agreement_gate` failure として skip |
+| admin override 監査テーブル未適用 | override できない。通常 blocker は引き続き stop |
 
 ## Validation
 
-- migration SQL check: `pwa/scripts/migrations/139_member_monthly_work_agreements.sql`, `140_member_monthly_work_agreement_requests.sql`
+- migration SQL check: `pwa/scripts/migrations/139_member_monthly_work_agreements.sql`, `140_member_monthly_work_agreement_requests.sql`, `145_member_monthly_work_agreement_payout_overrides.sql`
 - `npm run lint`
 - `npm run build`
 - local browser: `/monthly-agreement`, `/mypage`, `/admin/monthly-work-agreements`
@@ -149,4 +194,4 @@ API route は logged-in user を `members.email` で解決する。本人以外�
 
 ## 報酬計算との境界
 
-月初合意は `reward-summary.ts`、`payout-reward-cache-refresh`、`/admin/payouts` の計算結果を変えない。将来、未合意のまま支払確定できない guard を入れる場合も、まずこの合意 table を read する gate として追加し、報酬計算式そのものへは混ぜない。
+月初合意は `reward-summary.ts`、`payout-reward-cache-refresh`、`/admin/payouts` の計算結果を変えない。未合意のまま支払確定できない guard は、合意 table を read する payout gate として `/admin/payouts` の保存/発行/送付 action の直前に置く。報酬計算式そのものへは混ぜない。

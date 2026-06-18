@@ -7,6 +7,13 @@ import {
   effectivePaymentYmForCycle,
   type PaymentProjectRow,
 } from "@/lib/payment-groups";
+import {
+  buildPayoutAgreementGateSummary,
+  enforcePayoutAgreementGate,
+  payoutAgreementGateErrorMessage,
+  type PayoutAgreementGateSummary,
+  type PayoutAgreementGateTargetAction,
+} from "@/lib/monthly-work-agreement-payout-gate";
 import { syncRewardSummariesForBillingCycles, computeForwardCappedMemberCosts } from "@/lib/reward-summary";
 import type { ExtraRevenueSourceRow } from "@/lib/finance/extra-revenue";
 
@@ -128,7 +135,8 @@ export type GenerateNoticeResult = {
     | "no_existing"
     | "no_pdf_url"
     | "preview_notice_no"
-    | "total_yen_changed";
+    | "total_yen_changed"
+    | "agreement_gate";
   noticeNo?: string;
   pdfUrl?: string;
   totalYen?: number;
@@ -979,6 +987,20 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
     }
   }
 
+  const expectedEntries = applySavedPayoutsForExistingRows(
+    buildPayoutEntries(cycles, payoutExcludedMemberIds),
+    (payoutsRes.data ?? []) as MonthlyRewardPayoutRow[],
+    cycles,
+    payoutExcludedMemberIds
+  );
+  const payoutAgreementGate = await buildPayoutAgreementGateSummary(db, {
+    paymentYm: ym,
+    targetAction: "view",
+    entries: expectedEntries,
+    members: (membersRes.data ?? []) as MemberRow[],
+    projects: (projectsRes.data ?? []) as PaymentProjectRow[],
+  });
+
   return {
     ym,
     members: membersRes.data ?? [],
@@ -992,14 +1014,51 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
     forecastCapped,
     payouts: payoutsRes.data ?? [],
     notices: noticesRes.data ?? [],
-    expectedEntries: applySavedPayoutsForExistingRows(
-      buildPayoutEntries(cycles, payoutExcludedMemberIds),
-      (payoutsRes.data ?? []) as MonthlyRewardPayoutRow[],
-      cycles,
-      payoutExcludedMemberIds
-    ),
+    expectedEntries,
+    payoutAgreementGate,
     refreshedRewards: Boolean(options.refreshRewards),
   };
+}
+
+type TargetData = Awaited<ReturnType<typeof loadTargetData>>;
+
+function entriesForMembers(data: TargetData, memberIds: string[] | null): PayoutEntry[] {
+  if (!memberIds) return data.expectedEntries;
+  const allow = new Set(memberIds);
+  return data.expectedEntries.filter((entry) => allow.has(entry.member_id));
+}
+
+async function enforceAgreementGateForAction(
+  db: SupabaseClient,
+  data: TargetData,
+  options: {
+    targetAction: PayoutAgreementGateTargetAction;
+    memberIds?: string[] | null;
+    overrideReason?: string | null;
+    actorEmail?: string | null;
+  }
+): Promise<PayoutAgreementGateSummary> {
+  return enforcePayoutAgreementGate(db, {
+    paymentYm: data.ym,
+    targetAction: options.targetAction,
+    entries: entriesForMembers(data, options.memberIds ?? null),
+    members: data.members as MemberRow[],
+    projects: data.projects as PaymentProjectRow[],
+    overrideReason: options.overrideReason,
+    actorEmail: options.actorEmail,
+  });
+}
+
+function agreementGateBlockedResponse(data: TargetData, gate: PayoutAgreementGateSummary) {
+  return NextResponse.json(
+    {
+      ok: false,
+      error: payoutAgreementGateErrorMessage(gate),
+      ...data,
+      payoutAgreementGate: gate,
+    },
+    { status: 409 }
+  );
 }
 
 export async function GET(req: NextRequest) {
@@ -1109,6 +1168,15 @@ export async function PATCH(req: NextRequest) {
       }
 
       // send_notice_email
+      const targetData = await loadTargetData(ym);
+      const gate = await enforceAgreementGateForAction(db, targetData, {
+        targetAction: "send_notice_email",
+        memberIds: [memberId],
+        overrideReason: textValue(body.agreementOverrideReason),
+        actorEmail: auth.user.email,
+      });
+      if (!gate.allowed) return agreementGateBlockedResponse(targetData, gate);
+
       const customBody = textValue(body.body) || defaultBody;
       const gasResult = await callGasSendNoticeMail({
         to: toEmail,
@@ -1191,6 +1259,17 @@ export async function PATCH(req: NextRequest) {
         ? existing?.notice_no ?? noticeNoInput ?? defaultNoticeNo(ym, memberId)
         : noticeNoInput ?? existing?.notice_no ?? null;
 
+      if (markSent) {
+        const targetData = await loadTargetData(ym);
+        const gate = await enforceAgreementGateForAction(db, targetData, {
+          targetAction: "mark_notice_sent",
+          memberIds: [memberId],
+          overrideReason: textValue(body.agreementOverrideReason),
+          actorEmail: auth.user.email,
+        });
+        if (!gate.allowed) return agreementGateBlockedResponse(targetData, gate);
+      }
+
       const { error: upsertError } = await db
         .from("payout_notices")
         .upsert(
@@ -1227,6 +1306,14 @@ export async function PATCH(req: NextRequest) {
     try {
       const db = createAdminClient();
       const data = await loadTargetData(ym);
+      const gate = await enforceAgreementGateForAction(db, data, {
+        targetAction: previewOnly ? "preview_notice_pdf" : "issue_notice_pdf",
+        memberIds: [memberId],
+        overrideReason: textValue(body.agreementOverrideReason),
+        actorEmail: auth.user.email,
+      });
+      if (!gate.allowed) return agreementGateBlockedResponse(data, gate);
+
       // 個別ボタン経由は常に force=true (= 既存PDFがあっても明示再発行できるように)。
       // 差分検出スキップが必要なケースは bulk / cron 側で処理する。
       const result = await generateNoticePdfForMember(db, data, {
@@ -1315,6 +1402,14 @@ export async function PATCH(req: NextRequest) {
           ...after,
         });
       }
+
+      const gate = await enforceAgreementGateForAction(db, data, {
+        targetAction: previewOnly ? "bulk_preview_notice_pdf" : "bulk_issue_notice_pdf",
+        memberIds: targetMemberIds,
+        overrideReason: textValue(body.agreementOverrideReason),
+        actorEmail: auth.user.email,
+      });
+      if (!gate.allowed) return agreementGateBlockedResponse(data, gate);
 
       const results = await generateNoticePdfBulk(db, data, {
         memberIds: targetMemberIds,
@@ -1629,6 +1724,13 @@ export async function POST(req: NextRequest) {
         { status: 409 }
       );
     }
+    const gate = await enforceAgreementGateForAction(db, before, {
+      targetAction: "save_payout_data",
+      overrideReason: textValue(body.agreementOverrideReason),
+      actorEmail: auth.user.email,
+    });
+    if (!gate.allowed) return agreementGateBlockedResponse(before, gate);
+
     const notices = aggregateNotices(ym, entries, before.members as MemberRow[]);
     const targetProjectIds = [...new Set((before.cycles as BillingCycleRow[]).map((cycle) => cycle.project_id))];
     const targetSourceYms = [...new Set((before.cycles as BillingCycleRow[]).map((cycle) => cycle.ym))];
