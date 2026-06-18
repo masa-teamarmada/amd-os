@@ -103,6 +103,7 @@ export interface RewardSummary {
 type BillingRow = {
   project_id: string;
   ym: string;
+  status?: string | null;
   budget_yen?: number | null;
   budget_reported_amount?: number | string | null;
   budget_buffer_amount?: number | string | null;
@@ -762,6 +763,7 @@ function deriveBaseMonthlyRewardBudget({
     ym: billing.ym,
     project,
     reportedAmount: billing.budget_reported_amount,
+    cycleStatus: billing.status,
   });
   if (clientAmount > 0) return basePayoutCapYen(clientAmount, numberValue(billing.budget_buffer_amount));
   const cycleBudget = numberValue(planCycle?.budget_yen);
@@ -875,7 +877,12 @@ function derivePersistedCycleBudget({
   }
 
   const reportedAmount = numberValue(billing.budget_reported_amount);
-  const clientAmount = contractBackedClientAmount({ ym: billing.ym, project, reportedAmount });
+  const clientAmount = contractBackedClientAmount({
+    ym: billing.ym,
+    project,
+    reportedAmount,
+    cycleStatus: billing.status,
+  });
   if (clientAmount > 0) return basePayoutCapYen(clientAmount, numberValue(billing.budget_buffer_amount));
 
   return 0;
@@ -1371,7 +1378,7 @@ export async function syncRewardSummaryForCycle(
   const [billingRes, projectRes, planCyclesRes, membersRes] = await Promise.all([
     db
       .from("billing_cycles")
-      .select("project_id, ym, budget_yen, budget_reported_amount, budget_buffer_amount, reward_summary_json")
+      .select("project_id, ym, status, budget_yen, budget_reported_amount, budget_buffer_amount, reward_summary_json")
       .eq("project_id", projectId)
       .eq("ym", ym)
       .maybeSingle(),
@@ -1434,7 +1441,7 @@ export async function syncRewardSummaryForCycle(
       .in("milestone_id", milestoneIds),
     db
       .from("billing_cycles")
-      .select("project_id, ym, budget_yen, budget_reported_amount, budget_buffer_amount, reward_summary_json")
+      .select("project_id, ym, status, budget_yen, budget_reported_amount, budget_buffer_amount, reward_summary_json")
       .eq("project_id", projectId)
       .gte("ym", planCycle.period_start_ym)
       .lte("ym", ym)
@@ -1600,7 +1607,7 @@ export async function computeForwardUncappedMemberCosts(
       .in("milestone_id", milestoneIds),
     db
       .from("billing_cycles")
-      .select("project_id, ym, budget_yen, budget_reported_amount, budget_buffer_amount, reward_summary_json")
+      .select("project_id, ym, status, budget_yen, budget_reported_amount, budget_buffer_amount, reward_summary_json")
       .eq("project_id", projectId)
       .gte("ym", planCycle.period_start_ym)
       .lte("ym", planCycle.period_end_ym)
@@ -1799,7 +1806,7 @@ export async function computeForwardCappedMemberCosts(
       .in("milestone_id", milestoneIds),
     db
       .from("billing_cycles")
-      .select("project_id, ym, budget_yen, budget_reported_amount, budget_buffer_amount, reward_summary_json")
+      .select("project_id, ym, status, budget_yen, budget_reported_amount, budget_buffer_amount, reward_summary_json")
       .eq("project_id", projectId)
       .gte("ym", planCycle.period_start_ym)
       .lte("ym", planCycle.period_end_ym)

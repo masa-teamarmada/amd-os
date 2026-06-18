@@ -8,6 +8,16 @@ export type ContractFeeLike = ContractPeriodLike & {
   fee_amount?: number | string | null;
 };
 
+const REALIZED_BILLING_STATUSES = new Set([
+  "reported",
+  "budget_confirmed",
+  "allocation_confirmed",
+  "invoice_issued",
+  "invoice_sent",
+  "payment_confirmed",
+  "reward_paid",
+]);
+
 export function yenNumber(value: unknown): number {
   const n = typeof value === "number" ? value : Number(value ?? 0);
   return Number.isFinite(n) ? Math.round(n) : 0;
@@ -40,13 +50,20 @@ export function contractBackedClientAmount({
   ym,
   project,
   reportedAmount,
+  cycleStatus,
+  hasInvoiceEvidence,
 }: {
   ym: string;
   project: ContractFeeLike | null | undefined;
   reportedAmount?: number | string | null;
+  cycleStatus?: string | null;
+  hasInvoiceEvidence?: boolean | null;
 }): number {
-  if (!isWithinContractPeriod(project, ym)) return 0;
   const reported = Math.max(0, yenNumber(reportedAmount));
+  if (!isWithinContractPeriod(project, ym)) {
+    const realized = REALIZED_BILLING_STATUSES.has(String(cycleStatus || "").toLowerCase()) || hasInvoiceEvidence === true;
+    return realized && reported > 0 ? reported : 0;
+  }
   if (reported > 0) return reported;
   return monthlyFixedClientAmount(project, ym);
 }

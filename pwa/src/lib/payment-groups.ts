@@ -105,6 +105,8 @@ function expectedNetForCycle(cycle: PaymentCycleRow, project: PaymentProjectRow)
     ym: cycle.ym,
     project,
     reportedAmount: cycle.budget_reported_amount,
+    cycleStatus: cycle.status,
+    hasInvoiceEvidence: Boolean(cycle.invoice_issued_at || cycle.freee_invoice_number || cycle.invoice_base_lines_json),
   });
   if (reportedOrFixed > 0) return reportedOrFixed;
   if (invoiceNet > 0 && isWithinContractPeriod(project, cycle.ym)) return invoiceNet;

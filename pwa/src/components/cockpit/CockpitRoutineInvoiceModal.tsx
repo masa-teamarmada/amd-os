@@ -10,7 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 import { callEdgeFunctionPOST } from "@/lib/supabase/edge-functions";
 import { computePaymentDueDateByRule } from "@/lib/payment-rules";
 import { notifyPlReview } from "@/lib/notify-pl";
-import { isWithinContractPeriod } from "@/lib/contract-money";
+import { contractBackedClientAmount, isWithinContractPeriod } from "@/lib/contract-money";
 
 const CTB_ESTIMATE_MARKER = "[[CTB_ESTIMATE_SENT]]";
 
@@ -124,12 +124,12 @@ async function fetchPreview(projectId: string, ym: string): Promise<PreviewData>
     supabase
       .from("billing_cycles")
       .select(
-        "invoice_base_lines_json, invoice_subject, freee_invoice_number, invoice_pdf_url, invoice_issued_at, budget_yen, budget_reported_amount"
+        "status, invoice_base_lines_json, invoice_subject, freee_invoice_number, invoice_pdf_url, invoice_issued_at, budget_yen, budget_reported_amount"
       )
       .eq("project_id", projectId)
       .eq("ym", ym)
       .maybeSingle(),
-    supabase.from("projects").select("project_name, start_ym, end_ym, payment_due_rule, payment_due_day").eq("project_id", projectId).maybeSingle(),
+    supabase.from("projects").select("project_name, fee_type, fee_amount, start_ym, end_ym, payment_due_rule, payment_due_day").eq("project_id", projectId).maybeSingle(),
     supabase
       .from("reimbursements")
       .select("description, amount, date, category")
@@ -183,17 +183,24 @@ async function fetchPreview(projectId: string, ym: string): Promise<PreviewData>
   if (baseLines.length === 0) {
     const ymY = ym.slice(0, 4);
     const ymM = Number(ym.slice(4, 6));
-    const contractInEffect = isWithinContractPeriod(
-      { start_ym: project?.start_ym ?? null, end_ym: project?.end_ym ?? null },
-      ym
-    );
-    const confirmedInvoiceAmount = contractInEffect
-      ? cycle?.budget_reported_amount && cycle.budget_reported_amount > 0
-        ? Math.round(cycle.budget_reported_amount)
-        : cycle?.budget_yen && cycle.budget_yen > 0
-          ? Math.round(cycle.budget_yen / 0.65)
-          : 0
-      : 0;
+    const contractProject = {
+      fee_type: project?.fee_type ?? null,
+      fee_amount: project?.fee_amount ?? null,
+      start_ym: project?.start_ym ?? null,
+      end_ym: project?.end_ym ?? null,
+    };
+    const clientAmount = contractBackedClientAmount({
+      ym,
+      project: contractProject,
+      reportedAmount: cycle?.budget_reported_amount ?? null,
+      cycleStatus: cycle?.status ?? null,
+      hasInvoiceEvidence: Boolean(cycle?.invoice_issued_at || cycle?.freee_invoice_number || cycle?.invoice_base_lines_json),
+    });
+    const confirmedInvoiceAmount = clientAmount > 0
+      ? clientAmount
+      : isWithinContractPeriod(contractProject, ym) && cycle?.budget_yen && cycle.budget_yen > 0
+        ? Math.round(cycle.budget_yen / 0.65)
+        : 0;
     baseLines = [
       {
         type: "item",

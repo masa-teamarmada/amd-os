@@ -497,6 +497,7 @@ function baseClientAmountForCycle(cycle: BillingCycle, project?: Project) {
     ym: cycle.ym,
     project,
     reportedAmount: cycle.budget_reported_amount,
+    cycleStatus: cycle.status,
   });
 }
 

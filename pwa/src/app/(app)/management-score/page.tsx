@@ -522,6 +522,8 @@ function expectedNetForCycle(cycle: BillingCycleActualRow, project?: PaymentProj
     ym: cycle.ym,
     project,
     reportedAmount: cycle.budget_reported_amount,
+    cycleStatus: cycle.status,
+    hasInvoiceEvidence: Boolean(cycle.invoice_issued_at || cycle.freee_invoice_number || cycle.invoice_base_lines_json),
   });
   if (clientAmount > 0) return clientAmount;
   if (invoiceNet > 0 && isWithinContractPeriod(project, cycle.ym)) return invoiceNet;
@@ -534,6 +536,8 @@ function baseClientAmountForCycle(cycle: BillingCycleActualRow, project?: Paymen
     ym: cycle.ym,
     project,
     reportedAmount: cycle.budget_reported_amount,
+    cycleStatus: cycle.status,
+    hasInvoiceEvidence: Boolean(cycle.invoice_issued_at || cycle.freee_invoice_number || cycle.invoice_base_lines_json),
   });
 }
 
