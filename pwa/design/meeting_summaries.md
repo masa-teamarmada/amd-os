@@ -1,6 +1,6 @@
 # MTG サマリ — 設計の正本
 
-最終更新: 2026-05-31 (Notion eventId 欠損 fallback / monthly_reports Supabase L2-first)
+最終更新: 2026-06-18 (MTG詳細MarkdownのAMDメンバーリンク化)
 正本ステータス: 進化中。仕様変更したらここを同じ commit で更新する。
 
 ---
@@ -13,6 +13,7 @@ PJ コックピット (`/project/[projectId]/cockpit`) の **MTGサマリ枠** �
 - 抽出: **Windows MMO Codex Desktop automation `amd-os-l6-meeting-flow`** が calendar event 単位に、5 ソース + OS 文脈を読んで `narrative_md` + `summary_short` + `decided / progress / nextActions / risks` を生成
 - 保存: Supabase の `project_meeting_summaries` (PK: `meeting_id` = calendar event id)
 - 表示: PWA の `CockpitMeetingSummary` が Supabase を直読み
+- MTG詳細モーダルの Markdown 表示: `narrative_md` / `summary_short` / raw 配列 / 予定MTGブリーフの本文中に active AMDメンバーの `members.code_name` が出る場合、`LinkedMemberText` で `/mypage?memberId=<members.member_id>` へ自動リンクする。既存の Markdown link / code / pre は壊さず、通常テキスト部分だけをリンク対象にする。
 - 添付資料: PWA の MTG 詳細モーダルから、一般ファイル / スクショ / PDF / 画面キャプチャを `meeting_assets` に保存する。新規実体はDriveの `PJフォルダ / YYMMDD_会議名`、旧実体はprivate Storage互換で扱い、必要なものだけ `narrative_md` の Markdown 画像/リンクとして挿入する。
 - 予定MTG: 日時が確定しているものだけ `source_kinds='upcoming'` として同じ `project_meeting_summaries` に保存し、会議前の「決めること / 用意するもの」を MTG サマリ欄の先頭に出す。日程未確定の仮置きは `source_kinds='upcoming_tentative'` / `prep_status='tentative'` とし、確定予定 count には含めず「日程調整中MTG」として同じ上段エリアに残す。
 - future Calendar sync: H-1 automation が **今日0:00 JSTから今後60日** の確定Calendar予定を `POST /api/meeting-prep/calendar-sync` に渡す。前回議事録がまだ無いPJでも、Calendar上で確定しているMTGは `upcoming:<calendar_event_id>` としてカード化する。ただし weekly recurring MTG は series ごとに次回1件だけを保存・表示対象にし、それ以降の回はノイズとして同期/一覧表示しない。今日すでに開始済みの予定も、当日中はDrive資料やURL補強のため同期対象にする。PJ Drive folder に会議日フォルダや関連資料がある場合は、`drive_files` として予定カードの `関連Drive資料` に出す。
@@ -589,6 +590,7 @@ R313 を会議サマリ集約方式に書き換える TODO は廃止。必要な
 | **2026-05-29** | **MTGサマリ narrative の箇条書き禁止を明文化**: H-1 routine / dialogue narrate は、欠席メンバーが背景から次の一手まで追える文章 narrative を生成する。`decided` 等の配列は検索・通知用の補助で、議事録本文を箇条書きに戻さない。 | 本セッション |
 | **2026-05-29** | **議事録本文の5見出し固定順を正本化**: 開催済みMTGの `narrative_md` は `## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の順に固定。表記ゆれや順序違いは品質 gate で保存しない。 | 本セッション |
 | **2026-05-29** | **weekly recurring 予定MTGを次回1件に制限**: `calendar-sync` は同じ weekly series の future occurrences を次回以外 skip し、`CockpitMeetingSummary` も既存DB行を series ごとに次回1件だけ表示する。複数 weekly series が同じPJにある場合はそれぞれ1件ずつ残す。 | 本セッション |
+| **2026-06-18** | **MTG詳細MarkdownのAMDメンバーリンク化**: `CockpitMeetingDetailModal` の Markdown 表示で `MarkdownView memberLinks` を有効化し、`narrative_md` 等の本文中に出る active AMDメンバー `members.code_name` を `/mypage?memberId=<members.member_id>` へリンクする。既存 Markdown link / code / pre は対象外。 | 895a1bda |
 | **2026-05-09** | **debug_meeting_inspectBlocks(pageId)** 新設 (gas/158): 任意ページの blocks 構造を JSON で返す常設 debug 関数 | fbeabb5 |
 | TBD | Phase 2.1: reportEmails の整備 + CircleBack / GMeet 議事録メールの経路確認 | |
 | TBD | Phase 2.5: AMD-Report GAS の R313 を会議サマリ集約に書き換え (別セッション) | |

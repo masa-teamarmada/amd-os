@@ -509,3 +509,17 @@
 - 値の出所は契約書 PDF + 算定正本 (manual/7-1) のみ。生データから budget の意味を再導出しない (まさ「設計書読んだら全部書いてある」2026-06-18)。budget_yen=報酬 cap (=feeAmount×0.65) であり請求額ではない。
 - monthly_average branch は ③ billing_cycles を触らない。KUTE の既存手入力 budget_yen=654,545 (税抜月額が cap 列に座っている=本来は ×0.65 すべき値) は残置されるが、役員のみ PJ で payout=¥0 なので実害なし。schedule_based PJ で同じ残置が起きると誤差要因になるので注意。
 - `contract_terms` の NOT NULL 列が多い (source_term_hash / source_title / currency / billing_distribution / billing_distribution_json / fee_type_hint / confidence / review_required / review_status / status / source_refs_json / extracted_terms_json)。PK=term_id。review_status は applied 可。一方 parent `contracts` の review_status は pending/accepted/rejected/not_needed のみ (applied 不可) — 別 enum なので混同しない。
+
+---
+
+### 2026-06-18 — MTG詳細MarkdownのAMDメンバーリンク修正 (v0.27.6)
+
+**対象**: production `/project/p21/cockpit?meeting=7ui75q9llsbfaidd4631kcoagu`。SX の会議 `SX 産連訪問＋メール設定＋石原先生と1on1` (2026-06-10) の議事録本文で「まさ」がリンク化されていなかった。
+
+**調査結果**: DB 側は正常。`members` には `code_name='まさ'` / `member_id='ID001'` / active が存在し、対象 `project_meeting_summaries.narrative_md` にも該当表記が複数あった。原因は表示経路で、MTG詳細モーダルが `MarkdownView` で Markdown を描画しており、`LinkedMemberText` を通していなかった。
+
+**対応**: `MarkdownView` に `memberLinks` option を追加し、通常テキスト child だけを `LinkedMemberText` へ渡すようにした。既存 Markdown link / code / pre はリンク化対象外。`CockpitMeetingDetailModal` の narrative / summary / raw / prep / dialogue 表示で `memberLinks` を有効化し、`build-info` を v0.27.6 に更新。
+
+**検証**: `npm exec tsc -- --noEmit`、`npm run build`、`npm run test:critical-ui` green。`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` で main push + production deploy 済み。live `/api/build-info` は `build_version=v0.27.6` / `git_sha=895a1bda427ae755298c7d5c01d188f4012abcde` / `dirty=false`。
+
+**正本同期**: `pwa/design/meeting_summaries.md`、`pwa/manual/2-3-pj-cockpit.md`、`pwa/design/FEATURE_REGISTRY.md`、`pwa/BUGS.md` に、MTG詳細Markdownの member link 契約と再発防止を追記。

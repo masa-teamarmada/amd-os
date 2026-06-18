@@ -5,6 +5,16 @@
 
 ---
 
+### [meeting-summary] MTG詳細Markdown内のAMDメンバー名がマイページリンクにならなかった (2026-06-18)
+
+- **状態**: ✅ クローズ (2026-06-18, v0.27.6 — commit `895a1bda` / production deploy 済み)。
+- **症状**: `/project/p21/cockpit?meeting=7ui75q9llsbfaidd4631kcoagu` の議事録本文に「まさ」が出ているのに、メンバー詳細へのリンクになっていなかった。DB では `members.code_name='まさ'` は `member_id='ID001'` / active で存在し、対象 `narrative_md` にも該当表記が複数あった。
+- **原因**: データ欠損ではなく表示経路の抜け。`LinkedMemberText` は経営ハイライトや通知本文では使っていたが、MTG詳細モーダルは `MarkdownView` で `narrative_md` / raw 配列を描画していて、Markdown renderer 内に member link 経路が無かった。
+- **解決内容**: `MarkdownView` に `memberLinks` option を追加し、`CockpitMeetingDetailModal` の narrative / summary / raw / prep / dialogue 表示で有効化した。既存 Markdown link / code / pre は触らず、通常テキスト child だけを `LinkedMemberText` に通す。
+- **再発防止**: OS 内自由文に `members.code_name` が出る Markdown 画面は、表示経路で `LinkedMemberText` か `MarkdownView memberLinks` を通す。`narrative_md` は単なる Markdown ではなく OS 内本文なので、メンバー名リンク契約も満たす。
+
+---
+
 ### [finance] `/admin/payouts`「先12か月 PJ収支」表の支払予定に uncapped を入れてしまいマイナス月・KUTE 巨額・役員への支払いが発生 — 支払予定は capped + 役員除外が正本 (2026-06-17)
 
 - **状態**: ✅ クローズ (2026-06-17, v0.25.4 — 将来月の支払予定を capped (月次キャップ+繰越平準化) + 役員除外に修正、本番 deploy 済み)。**直前の v0.25.3 の「支払予定=uncapped」は設計ミスで、本エントリで上書き訂正する。**

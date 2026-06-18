@@ -159,6 +159,7 @@ MTG詳細モーダル内の「添付資料」は会議単位の `meeting_assets`
 - H-1 routine は今後60日の確定Calendar予定を `POST /api/meeting-prep/calendar-sync` に渡し、前回議事録がまだ無いPJでも `source_kinds='upcoming'` の予定MTGカードを作る
 - 一覧カードの短い説明は `summary_short`。詳細モーダルは `narrative_md` があればそれを主表示する
 - 詳細モーダルで `narrative_md` (= H-1の MTG サマリ抽出 routine が、そのMTGに参加していなかったメンバーでも背景・議論の流れ・決定/未決・次の一手を理解できる文章 narrative に書き直したもの) を主表示
+- 詳細モーダルの Markdown 本文に active AMDメンバーの `members.code_name` が出る場合、`/mypage?memberId=<members.member_id>` へ自動リンクする。これは admin が OS 内本文からメンバー詳細へ移動するための導線で、既存の Markdown link / code / pre は維持する
 - raw 配列 (= 元データ) は折りたたみ「元データ」へ
 - 今後の議事録本文は `## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の順で書く。絵文字・見出し文言・順序は固定で、絵文字と語の間に空白を入れない
 - 今後の議事録本文は箇条書き禁止。`decided / progress / next_actions / risks` の配列は検索・通知用の補助であり、本文は段落で流れを説明する
