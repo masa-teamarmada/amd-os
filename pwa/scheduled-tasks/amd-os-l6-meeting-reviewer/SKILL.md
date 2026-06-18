@@ -1,9 +1,9 @@
 ---
 name: amd-os-l6-meeting-reviewer
-description: AMD OS H-1 MTGサマリの直後に走るツッコミ役。H-1が保存した `project_meeting_summaries` と raw Notion/Gmail/Drive/Slack/Calendar を見比べ、重大な経営判断・方針転換・CEO/資金調達/地元PoCなどが薄く丸まっていたら `l2_coverage_gaps` + `l2_notifications(l2_kind='coverage_gap')` に review_required として出す。H-1本文は自動上書きしない。
+description: AMD OS H-1 MTGサマリの直後に走るツッコミ役。H-1が保存した `project_meeting_summaries` と raw Notion/Gmail/Drive/Slack/Calendar を見比べ、重大な経営判断・方針転換・CEO/資金調達/地元PoCなどが薄く丸まっていたら `l2_coverage_gaps` + `l2_notifications(l2_kind='coverage_gap')` に要確認として出す。H-1本文は自動上書きしない。報告文は日本語で書く。
 ---
 
-# AMD OS H-1 Meeting Reviewer
+# AMD OS H-1 MTGレビュアー
 
 これは H-1 MTGサマリ本体ではなく、**H-1の直後に走る別人格のレビュー automation**。
 
@@ -13,6 +13,12 @@ H-1 extractor の問いは「この会議を議事録化する」。
 本 reviewer の問いは「raw にある重大な経営判断が、H-1保存結果で薄く潰れていないか」。
 
 2026-06-10 SX 愛媛大訪問では、raw Notion 文字起こしに「まさがCEOを引き受ける覚悟」「VC主軸から地元勢・PoC・共同開発費へ寄せる大転換」があったのに、初回H-1/D-6では「石原先生=開発管理、まさ=BizDev」「VCより補助金・地元企業」程度に丸まった。この事故の再発防止が本 routine の直接目的。
+
+## 報告言語
+
+- 最終報告、H-1結果報告への追記、ツッコミ本文は **日本語** で書く。
+- `project_meeting_summaries` / `coverage_gap` / `source_hash` などのコード識別子、DB列名、route名だけはそのまま英語でよい。
+- 「No issues」「reviewed」「flagged」などの英語だけの報告は禁止。必ず「確認件数」「要確認件数」「送信したcoverage gap」「ブロッカー」のように日本語で書く。
 
 ## 必ず読む
 
@@ -72,6 +78,7 @@ raw source:
 ```bash
 cd pwa
 node scripts/review_h1_meeting_summary.mjs --fixture scripts/__fixtures__/h1_meeting_summary_reviewer_sx_pivot.json
+node scripts/review_h1_meeting_summary.mjs --fixture scripts/__fixtures__/h1_meeting_summary_reviewer_sx_pivot.json --human-ja
 ```
 
 実運用では fixture ではなく、対象 meeting row と raw transcript を以下の形にして stdin に渡す:
@@ -93,8 +100,8 @@ node scripts/review_h1_meeting_summary.mjs --fixture scripts/__fixtures__/h1_mee
 }
 ```
 
-3. guard が `items[]` を返したら、LLM reviewer として「これは本当に重大情報の落ちか」を短く再確認する。
-4. confirmed な落ちなら `POST /api/coverage-gaps/extract` に渡す。
+3. guard が `items[]` を返したら、LLMレビュアーとして「これは本当に重大情報の落ちか」を短く再確認する。人間向け報告では JSON をそのまま貼らず、`report_ja` または `--human-ja` 相当の日本語に整える。
+4. 確信できる落ちなら `POST /api/coverage-gaps/extract` に渡す。
 
 ## 出力
 
@@ -132,18 +139,18 @@ node scripts/review_h1_meeting_summary.mjs --fixture scripts/__fixtures__/h1_mee
 
 ## H-1結果報告へのツッコミ
 
-H-1 run summary / result chat には、reviewer の結果を必ず短く入れる。
+H-1 run summary / result chat には、レビュアーの結果を必ず日本語で短く入れる。
 
 ```
-H-1 reviewer:
-- review_required: 1
+H-1レビュアー:
+- 要確認: 1
   - SX 1on1 杉浦先生: rawに CEO/VC/地元勢転換があるのにH-1要約がBizDev分担へ丸まり気味。coverage_gap に送信済み。
 ```
 
 ゼロ件なら:
 
 ```
-H-1 reviewer: no critical omissions detected
+H-1レビュアー: 重大な落ちは検知なし
 ```
 
 ## 禁止
@@ -151,4 +158,4 @@ H-1 reviewer: no critical omissions detected
 - H-1 row を reviewer が自動上書きしない。修正は `coverage_gap` → `/notifications` → 人間確認後。
 - raw Notion/Gmail/Slack/Drive全文を DB に保存しない。
 - 「Notion認証切れ」だけでレビューを諦めない。少なくとも `reviewer_blocked_notion_auth` を run summary に残す。
-- ordinary TODO や日程調整を gap にしない。これは「重大情報が落ちたか」だけを見る。
+- 普通のTODOや日程調整を gap にしない。これは「重大情報が落ちたか」だけを見る。

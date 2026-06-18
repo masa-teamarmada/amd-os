@@ -18,11 +18,38 @@ function readInput() {
 const input = readInput();
 const meetings = Array.isArray(input) ? input : input.meetings ?? input.items ?? [input];
 const items = reviewMeetingSummaries(meetings);
+const reportJa = buildJapaneseReport(meetings.length, items);
+
+if (process.argv.includes("--human-ja")) {
+  process.stdout.write(reportJa);
+  process.stdout.write("\n");
+  process.exit(0);
+}
 
 process.stdout.write(JSON.stringify({
   ok: true,
   reviewed: meetings.length,
   flagged: items.length,
+  report_ja: reportJa,
   items,
 }, null, 2));
 process.stdout.write("\n");
+
+function buildJapaneseReport(reviewed, flaggedItems) {
+  const lines = [
+    `確認件数: ${reviewed}`,
+    `要確認件数: ${flaggedItems.length}`,
+  ];
+
+  if (flaggedItems.length === 0) {
+    lines.push("H-1レビュアー: 重大な落ちは検知なし");
+    return lines.join("\n");
+  }
+
+  lines.push("H-1レビュアー: 要確認あり");
+  for (const item of flaggedItems) {
+    const ref = item.source_hash ? ` (${item.source_hash})` : "";
+    lines.push(`- ${item.title}${ref}`);
+  }
+  return lines.join("\n");
+}
