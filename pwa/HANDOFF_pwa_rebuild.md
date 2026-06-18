@@ -1,14 +1,27 @@
 # HANDOFF - AMD OS PWA
 
-- Last updated: 2026-06-18 (契約由来 月次請求額の Contract Apply pipeline + つくよみ月次自動確定 cron 実装 / KUTE(p25) apply / v0.27.0→v0.27.1)
-- Topic: 「契約書を抽出できてるなら自動で金額を入れ、PM には確認 nudge だけ投げる」を **全 PJ 共通の billing 確定システム**として実装。設計判断①: `/admin/contracts` で `contract_terms` を `applied` にする操作が「人が契約金額を確認した」ポイント。以降の月次はつくよみ (月次 cron) が契約由来額を `budget_confirmed` まで自動で進め、PM には Slack DM で事後通知するだけ。
+- Last updated: 2026-06-18 (Contract Apply を active PJ 全件カバレッジで監査確定 / ZMP・SE 監査誤記の訂正 / v0.27.2→v0.27.5)
+- Topic: 「active PJ すべてに Contract Apply が行き渡っているか」を `projects.status='active'` の SQL 全件 (11 件) を母集団に監査し、**apply すべき残契約は無い**ことを全件根拠つきで確定。あわせて前セッションの監査誤記 (ZMP ¥300,000 を「単発/契約書根拠なし→保留」と誤断 / SE end_ym を「まさ確認待ち」と誤記) を訂正。母集団を「契約保有候補」のサブセットに絞って p07/p24/p26 を取りこぼしていた監査不備も是正。
 - Canonical root: `/Users/masa/projects/AMD/amd-os`
 - PWA root: `/Users/masa/projects/AMD/amd-os/pwa`
 - Production URL: `https://amd-os-pwa.vercel.app`
 - Current branch: `main`
-- Production: 本セッション最終 deploy = **v0.27.1** (`build-info.ts` / git_sha `3e3e32d8`)。直前 = v0.27.0 (`373724b5`)。次セッションは必ず `git fetch` で並行セッションの push を取り込む。
+- Production: 本セッション最終 deploy = **v0.27.5** (`build-info.ts` / git_sha `a9591334`)。直前 = v0.27.4 (`1c7c544b`) / v0.27.3 (`ac6f9bc3`)。次セッションは必ず `git fetch` で並行セッションの push を取り込む。
 
-## 直近セッション (2026-06-18 — Contract Apply pipeline + つくよみ月次自動確定 cron, v0.27.0/v0.27.1)
+## 直近セッション (2026-06-18 後半 — Contract Apply active 全件カバレッジ監査 + 誤記訂正, v0.27.3〜v0.27.5)
+
+正本は [`pwa/spec/5-6-contracts-management-current-spec.md`](spec/5-6-contracts-management-current-spec.md) §「active PJ 全件 Contract Apply カバレッジ監査」。要点:
+
+- **active PJ 全 11 件の apply 状態を 1 表に確定** (母集団は `SELECT project_id FROM projects WHERE status='active'` で機械確定):
+  - **フル apply 済**: p20 CX (variable, term×1 + billing×4) / p21 SX (monthly_fixed ¥1,048,000) / p25 KUTE (monthly_fixed ¥654,545, 役員のみ payout ¥0)。
+  - **DB 反映済・触らない**: p06 CTB (variable, end_ym=202702 のみ) / p10 SE (monthly_fixed ¥100,000, end_ym=null=満了未定が最終) / p19 ZMP (monthly_fixed ¥300,000 本契約 + 別財布 extra_revenue_json で OkuDoor 開発 ¥2,000,000 を 202605〜202610 一定按分。**2 契約構造は過去セッションで抽出済**)。
+  - **⏸ 対象外 (請求実体ゼロ)**: p07 LST / p24 CLG / p26 VasculaX。fee 全 null・billing_cycles 0・実契約 PDF なし。end_ym=null でも計上対象月が無いので無期限リスクなし。契約締結→請求開始の時点で apply する。
+  - **結論: active PJ で apply すべき契約が残っている PJ は無い。**
+- **誤記訂正 (v0.27.4)**: 前セッションが p19 ZMP の ¥300,000 を「単発/契約書根拠なし→apply 保留」、p10 SE を「満了月まさ確認待ち」と誤記していたのを訂正。原因 = **過去のえいみが既に抽出して DB 反映済みの 2 契約構造を、コード/source_cache 探索で再発見しようとした** (memory `feedback_read_spec_before_exploring_code` の典型失敗、再発実例を追記済)。
+- **カバレッジ是正 (v0.27.5)**: 監査セクションを「契約保有候補 PJ 監査」→「active PJ 全件カバレッジ監査」に作り直し。当初 p07/p24/p26 を母集団から取りこぼしていた不備を是正し、以降は SQL で母集団を機械確定する方式に固定。
+- **検証**: 全件 SQL (`projects` / `billing_cycles` / `contracts` / `contract_terms` / `project_members` / `source_cache`) で apply 状態・請求実体・契約有無を確認。本番 DB 書き込みはなし (= doc 確定のみ)。tsc/build green、deploy 済。
+
+## 前セッション (2026-06-18 前半 — Contract Apply pipeline + つくよみ月次自動確定 cron, v0.27.0/v0.27.1)
 
 詳細は [`pwa/design_log/sessions_2026-06.md`](design_log/sessions_2026-06.md) 2026-06-18 セクション。要点:
 
@@ -18,13 +31,13 @@
 
 ## Repo State
 
-- HEAD = `3e3e32d8` (v0.27.1)。未 push commit なし (`git log --branches --not --remotes` 空)。
-- 作業ツリー: 本 handoff で `design_log/sessions_2026-06.md` + `design/L2_DATA.md` + `HANDOFF_pwa_rebuild.md` + `build-info.ts` を md として束ねて commit/push 予定。`pwa/proposals/` は別作業 = untracked のまま触らない。
+- HEAD = `a9591334` (v0.27.5)。未 push commit なし (`git log --branches --not --remotes` 空)。作業ツリー clean (`pwa/proposals/` のみ untracked = 別作業、触らない)。
+- このセッションの変更は spec (5-6 / 6-1) + `build-info.ts` の 3 ファイルのみ。本番 DB 書き込みなし。
 - ⚠️ 次セッション開始時は必ず `git fetch` → 並行セッションが頻繁に push。deploy.sh が origin 乖離で止まったら `git rebase origin/main`。
 
 ## Unresolved / 次セッションへの申し送り
 
-1. **(別セッション=起票済 task_48afedcf「Contract Apply を残り契約PJへ全展開」)** 今セッションで p20 CX / p21 SX / p25 KUTE は apply 済。残りの契約保有 PJ をこのタスクで全展開する。**最優先 = end_ym=null の無期限計上リスク PJ**: p06 CTB (variable) / p10 SE (¥100,000) / p19 ZMP (¥300,000)。次点 = 期間明示済みだが未 apply の p09 JC / p11 BWE / p22 OQC / p23 UST。billing_months=0 の PJ は対象外の可能性が高い (要確認)。**契約抽出 → Contract Apply まで通さないと、つくよみ cron の自動確定対象に入らない**。手順は spec 5-6 §Contract Apply / §月次請求額の自動確定 と KUTE 手順 (design_log 2026-06-18) を踏襲。
+1. **(✅ 完了 2026-06-18 後半 — task_48afedcf / task_20260616090543_vayt2 / task_20260614143623_mt5jd)** Contract Apply を **active PJ 全件カバレッジで監査確定**。フル apply 済 = p20 CX / p21 SX / p25 KUTE、DB 反映済 = p06 CTB / p10 SE / p19 ZMP、⏸ 対象外 (請求実体ゼロ) = p07 LST / p24 CLG / p26 VasculaX。**apply すべき残契約は無い**。詳細は spec 5-6 §active PJ 全件カバレッジ監査。**次に apply が要るのは p07/p24/p26 の契約締結→請求開始のタイミング** (= 新規 active PJ が請求を立て始めたら、spec 5-6 の母集団 SQL で再監査する)。
 2. **(構造的穴・将来対応候補)** 役員除外 (`is_officer || exclude_from_payout_notice`) がコア `buildRewardSummary` に無く各画面で後付け (v0.25.4 教訓)。支払系 forward 投影を書くたび再実装が要る。コアへ寄せると安全。
 3. **(別セッション継続)** ZMP 残課題: ① OkuDoor企画(20pt)・現地運用(20pt)MS が tag=normal で regular財布混入。② plan cycle total_points=187 に OkuDoor pt 含まれ ptUnit希釈。③ 他PJ別財布売上を順次 `extra_revenue_json` 投入。
 4. **(保留・まさ承認待ち)** A案: `persistForecast: true` で将来月予測 uncapped 報酬を `billing_cycles.reward_summary_json` へ保存 (本番書き込みなので別途まさGO後)。
