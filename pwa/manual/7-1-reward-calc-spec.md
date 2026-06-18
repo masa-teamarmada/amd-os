@@ -40,8 +40,8 @@
 | `grossDue` | `totalPay + carryIn` (= cap 前にメンバーが「本来もらえる額」) |
 | `capBudgetYen` | 月次の支払上限 |
 | `budget_buffer_amount` | 契約上 AMD が先に回収する会社バッファの当月消化額。当月の `invoice × 65%` から先に差し引き、外部支払 cap には回さない |
-| `companyReserveYen` / `officerReserveYen` | 役員メンバーの当月稼働分を AMD 内部留保として認識した額。支払通知書には出さない |
-| `externalPayoutCapYen` | 契約バッファと役員会社留保を差し引いた後、非役員メンバーの支払/stock返済に使える cap |
+| `companyReserveYen` / `officerReserveYen` | 役員メンバーに通常の cap 按分で割り当たった額を AMD 内部留保として認識した額。支払通知書には出さない |
+| `externalPayoutCapYen` | 通常の cap 按分後、非役員メンバーの支払/stock返済に実際に使われた額 |
 | `carryIn` | 前月から繰越された未払い分 |
 | `stockYen` / `deferredYen` | cap 超過で翌月へ繰り越す分 (= 同義) |
 
@@ -70,17 +70,21 @@ totalPay[member]  = basePay[member] + bonusPt[member]        # bonusPt は現状
 # キャップ制御 (= 月次支払上限)
 grossDue[member]  = totalPay[member] + carryIn[member]
 
-# 会社留保を先取り
+# 会社留保も他メンバーと同じ cap 按分に入れる
 contractBufferYen = billing_cycles.budget_buffer_amount
-companyReserveYen[officer] = min(officerBasePay, remainingCap)
-externalPayoutCapYen = max(0, capBudgetYen − Σ companyReserveYen[officer])
+grossDueForCap[officer] = basePay[officer]                 # 役員の過去 stock は carryIn しない
+grossDueForCap[nonOfficer] = grossDue[nonOfficer]
 
-if Σ grossDue[nonOfficer] ≤ externalPayoutCapYen:
-    paid[member]     = grossDue[member]
-    stockYen[member] = 0
+if Σ grossDueForCap[all eligible] ≤ capBudgetYen:
+    allocated[member] = grossDueForCap[member]
 else:
-    paid[member]     = round(externalPayoutCapYen × grossDue[member] / Σ grossDue[nonOfficer])  # 按分
-    stockYen[member] = grossDue[member] − paid[member]                       # 翌月へ繰越
+    allocated[member] = round(capBudgetYen × grossDueForCap[member] / Σ grossDueForCap[all eligible])  # 按分
+
+paid[nonOfficer] = allocated[nonOfficer]
+stockYen[nonOfficer] = grossDue[nonOfficer] − paid[nonOfficer] # 翌月へ繰越
+companyReserveYen[officer] = allocated[officer]
+companyReserveUnfundedYen[officer] = basePay[officer] − allocated[officer]
+paid[officer] = 0
 ```
 
 ---
@@ -241,36 +245,40 @@ ptUnit        = round(2,340,000 / 100) = 23,400 円/pt
 
 契約最終月に `ptUnit = round(cycleBudget / totalPt)` の円丸めで少額の stock が残る場合は、最終月の `billing_cycles.budget_yen` に丸め差分を加算して stock を 0 円にする。通常月 cap は契約月額 × 65% を維持し、丸め調整は最終月だけに限定する。
 
-### 会社留保の優先順位
+### 会社留保の扱い
 
-cap は次の順番で消化する。これは全 PJ 共通で、特定 PJ だけの例外ルールにはしない。
+cap は次の順番で扱う。これは全 PJ 共通で、特定 PJ だけの例外ルールにはしない。
 
 1. `billing_cycles.budget_buffer_amount`: 契約台帳にある会社回収バッファを最優先で消化する。`projects.contract_terms_json.companyReserveBufferYen` などに総額があれば、契約自動確定が月ごとに未消化分を `budget_buffer_amount` へ入れる。`companyReserveBufferMonthlyYen` などの月次上限がある場合は、その金額を超えて一気に回収しない。
-2. `members.is_officer=true` の当月 `basePay`: 役員の当月稼働分は外部支払ではなく AMD の内部留保として扱う。`reward_summary_json.members[].companyReserveYen` / `officerReserveYen` に残し、`totalPay=0` のまま支払通知書からは除外する。
-3. 非役員・支払対象メンバーの `grossDue`: 残った `externalPayoutCapYen` だけを、当月稼働分 + 前月 stock の返済に按分する。
+2. `members.is_officer=true` の当月 `basePay`: 役員も非役員・支払対象メンバーと同じ cap 按分に入れる。割り当たった額だけを `reward_summary_json.members[].companyReserveYen` / `officerReserveYen` に残し、`totalPay=0` のまま支払通知書からは除外する。
+3. 非役員・支払対象メンバーの `grossDue`: 当月稼働分 + 前月 stock の返済を、役員 basePay と同じ cap 按分に入れる。
 
 役員の過去 `stockYen` は支払予定へ繰り越さない。役員分は「未払い債務」ではなく会社留保の計画値なので、当月 cap で留保できなかった分は `companyReserveUnfundedYen` として監査用に残すだけにする。非役員メンバーの stock は従来どおり carryIn として翌月以降へ繰り越す。
 
 ### キャップ超過時の按分
 
-`Σ grossDue[nonOfficer] ≤ externalPayoutCapYen` なら非役員分はそのまま全額支払 (= `capped = false`)。
+`Σ grossDueForCap[eligible] ≤ capBudgetYen` なら非役員支払分と役員会社留保分をそのまま全額充当 (= `capped = false`)。
 
-`Σ grossDue[nonOfficer] > externalPayoutCapYen` のとき:
+`Σ grossDueForCap[eligible] > capBudgetYen` のとき:
 
 ```text
-remainingCap = externalPayoutCapYen
-remainingGross = Σ grossDue[nonOfficer]
+remainingCap = capBudgetYen
+remainingGross = Σ grossDueForCap[eligible]
 for each member in members:                      # earnedPt 降順
     if 最後のメンバー:
         paid = remainingCap                       # 端数誤差を最後に押し込む
     else:
-        paid = round(remainingCap × grossDue / remainingGross)
-    paid = max(0, min(grossDue, paid))            # クランプ
-    deferred = grossDue − paid
-    member.totalPay  = paid
-    member.stockYen  = deferred                   # 翌月 carryIn
-    remainingCap   -= paid
-    remainingGross -= grossDue
+        allocated = round(remainingCap × grossDueForCap / remainingGross)
+    allocated = max(0, min(grossDueForCap, allocated)) # クランプ
+    if member is officer:
+        member.companyReserveYen = allocated
+        member.totalPay = 0
+        member.companyReserveUnfundedYen = grossDueForCap − allocated
+    else:
+        member.totalPay = allocated
+        member.stockYen = grossDueForCap − allocated # 翌月 carryIn
+    remainingCap   -= allocated
+    remainingGross -= grossDueForCap
 ```
 
 端数処理: 各メンバーで `round` がかかるので、 微小な端数誤差は **最後のメンバーに集約** する。 これで `Σ paid = cap` が保証される。

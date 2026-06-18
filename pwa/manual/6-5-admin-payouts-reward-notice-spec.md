@@ -307,7 +307,7 @@ GAS 064 が読む:
 
 ## 会社留保 / 契約バッファの扱い
 
-`/admin/payouts` の支払通知書対象は、非役員かつ `exclude_from_payout_notice=false` のメンバーだけ。`members.is_officer=true` のメンバーは支払通知書から外すが、当月稼働分は `reward_summary_json.members[].companyReserveYen` / `officerReserveYen` として AMD の内部留保に残す。
+`/admin/payouts` の支払通知書対象は、非役員かつ `exclude_from_payout_notice=false` のメンバーだけ。`members.is_officer=true` のメンバーは支払通知書から外すが、月次 cap 按分で役員に割り当たった分は `reward_summary_json.members[].companyReserveYen` / `officerReserveYen` として AMD の内部留保に残す。
 
 先12か月の PJ 収支表では、`billing_cycles.budget_buffer_amount` を「契約バッファ」、役員の `companyReserveYen` を「役員分」として表示する。最終収支では役員分は同額を `officerOffsetYen` で戻すため、外部流出ではなく会社残高に残る計画値として扱う。非役員メンバーの `stockYen` は従来どおり翌月以降の支払予定に繰り越す。
 
