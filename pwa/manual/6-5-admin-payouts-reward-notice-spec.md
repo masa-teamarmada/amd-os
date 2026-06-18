@@ -81,9 +81,9 @@ MS / PlanCycle が未設定の PJ でも、 `/admin/payouts` の `MSなしPJ 強
 
 ### 月初合意ステータスとの境界
 
-`/admin/monthly-work-agreements?ym=YYYYMM` で、支払対象になりうる active member / active project member が当月の遂行内容・報酬条件に合意済みかを確認できる。ここで保存される `member_monthly_work_agreements` は表示 snapshot と hash の監査レイヤーで、`/admin/payouts` の報酬計算や支払通知書発行額を直接変更しない。
+`/admin/monthly-work-agreements?ym=YYYYMM` で、支払対象になりうる active member / active project member が当月の遂行内容・予定報酬に合意済みかを確認できる。ここで保存される `member_monthly_work_agreements` は月初計画 snapshot と hash の監査レイヤーで、`/admin/payouts` の報酬計算や支払通知書発行額を直接変更しない。
 
-`frozen` PJ は報酬が発生しないため、月初合意の対象PJから除外する。本人から届いた修正要望は `member_monthly_work_agreement_requests` に保存され、admin一覧の「修正要望」件数と各行の最新要望時刻で確認する。
+`frozen` PJ は報酬が発生しないため、月初合意の対象PJから除外する。月初合意の予定報酬は `reward_summary_json.members[].totalPay` ではなく、当月の月次予算を当月予定MS消化ptと担当shareで配分した合意用の予定額。本人から届いた修正要望は `member_monthly_work_agreement_requests` に保存され、admin一覧の「修正要望」件数と各行の最新要望時刻で確認する。
 
 将来「未合意のまま支払確定できない」guard を入れる場合も、まず `/admin/payouts` の保存/発行 action が `member_monthly_work_agreements` を read して警告またはブロックする形にし、`reward_summary_json` の計算式には混ぜない。
 

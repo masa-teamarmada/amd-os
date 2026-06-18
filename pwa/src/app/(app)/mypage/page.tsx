@@ -1009,12 +1009,11 @@ function MonthlyAgreementCard() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-[14px] font-semibold text-[#1d1d1f]">今月の遂行内容・報酬条件</h2>
+            <h2 className="text-[14px] font-semibold text-[#1d1d1f]">今月の遂行内容・予定報酬</h2>
             <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusClass}`}>{statusText}</span>
           </div>
           <p className="mt-1 text-[12px] leading-relaxed text-[#86868b]">
-            {formatYm(bundle.ym)} / {bundle.snapshot.totals.projectCount} PJ / 想定 {formatYen(bundle.snapshot.totals.expectedRewardYen)}
-            {bundle.snapshot.totals.reviewRequiredCount > 0 ? ` / 要確認 ${bundle.snapshot.totals.reviewRequiredCount}` : ""}
+            {formatYm(bundle.ym)} / {bundle.snapshot.totals.projectCount} PJ / 予定 {formatYen(bundle.snapshot.totals.expectedRewardYen)}
           </p>
           {bundle.status === "needs_reagreement" && (
             <p className="mt-1 text-[11px] text-amber-700">前回合意後に snapshot hash が変わっています。</p>

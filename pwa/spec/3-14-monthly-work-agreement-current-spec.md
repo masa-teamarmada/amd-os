@@ -1,6 +1,6 @@
 # 月初タスク・報酬合意 仕様
 
-> **この章は何か**: メンバーが月初に OS 上で当月の遂行対象、想定報酬、条件/前提を確認し、合意 snapshot を残すフローの current contract。
+> **この章は何か**: メンバーが月初に OS 上で当月の遂行対象、予定到達点、予定報酬を確認し、合意 snapshot を残すフローの current contract。
 
 ## Current Truth
 
@@ -18,16 +18,34 @@
 
 ## Scope
 
-月初合意は **表示・合意 snapshot・未合意管理レイヤー**。報酬計算の入力や支払額を変更しない。
+月初合意は **月初計画の表示・合意 snapshot・未合意管理レイヤー**。報酬計算の入力や支払確定額を変更しない。
 
-- `billing_cycles.reward_summary_json` / `member_allocations_json` を読む。
-- `value_plan_cycles` / `value_milestones` / `milestone_responsibility` / `milestone_monthly_progress` から、当月の遂行対象と条件を読む。
+- 予定報酬は `/admin/payouts` の支払予定 (`reward_summary_json.members[].totalPay`) ではなく、当月の月次予算を当月の予定MS消化ptと担当shareで配分した **月初合意用の予定額** として算出する。
+- `value_plan_cycles` / `value_milestones` / `milestone_responsibility` / `milestone_monthly_progress` から、当月の遂行対象、予定到達点、担当shareを読む。
+- 進捗は `milestone_monthly_progress` の非確定行を正本にせず、D-2と同じアンカー方式の月割りデフォルトをコード計算する。PM locked 行があればそれをアンカーにする。
 - `project_members` と `projects` から当月 active member / active project member を解く。`projects.status='frozen'` は報酬が発生しないため対象外。
 - 合意時点で本人へ表示した内容を `snapshot_json` と `snapshot_hash` で保存する。
 - snapshot hash が変わったら本人/adminに「条件更新あり」と表示し、再合意対象にする。
 - 報酬キャッシュを再計算しない。通常 GET は読むだけ。
-- cap、carry-over、stockYen、条件/前提、未確定・要確認などの精算/確認内部情報は本人向け月初合意画面に出さない。月初合意は「どのPJのどのMSへコミットし、当月どこまで到達すべきか」と「その対価としての想定報酬」を示す。
+- cap、carry-over、stockYen、条件/前提、未確定・要確認などの精算/確認内部情報は本人向け月初合意画面に出さない。月初合意は「どのPJのどのMSへコミットし、当月どこまで到達すべきか」と「その対価としての予定報酬」を示す。
 - 当月報酬も担当MSもないPJは、月初合意の「何をすればいくら」に答えないため本人画面から非表示にする。
+
+### 予定報酬の算定
+
+```text
+monthlyBudgetYen =
+  billing_cycles.budget_yen                       # 明示値。0 も有効
+  or projects.fee_amount × 0.65                   # monthly_fixed fallback
+  or value_plan_cycles.budget_yen / cycleMonths   # cycle budget fallback
+
+msMonthlyConsumedPt = points × max(0, currentDefaultCumPct - prevDefaultCumPct) / 100
+memberEarnedPt      = msMonthlyConsumedPt × active-member normalized plannedShare
+projectEarnedPt     = Σ all active members memberEarnedPt
+msPlannedRewardYen  = round(monthlyBudgetYen × memberEarnedPt / projectEarnedPt)
+projectPlannedRewardYen = Σ msPlannedRewardYen
+```
+
+これは月初合意用の「今月そのMSにコミットする対価」。`reward_summary_json` の capped 支払予定、carryIn、stockYen、現時点の支払確定状態は使わない。
 
 ## Snapshot Contract
 
@@ -40,9 +58,9 @@
 | `member` | `memberId`, `codeName`, `email`, `isAdmin` |
 | `projects[]` | 当月参加中PJ |
 | `projects[].milestones[]` | 担当MS、share、task description、progress、conditions |
-| `projects[].expectedRewardYen` | 既存 reward summary / member allocation から読める想定報酬 |
-| `projects[].reviewReasons[]` | 報酬キャッシュ未生成、MS/share未設定、進捗未生成など |
-| `totals` | PJ数、想定報酬合計、要確認PJ数 |
+| `projects[].expectedRewardYen` | 月初合意用の予定報酬 (= 当月月次予算 × 当月予定MS消化pt × share) |
+| `projects[].reviewReasons[]` | 月次予算未設定、value plan未設定、MS/share未設定など admin 向け確認事項 |
+| `totals` | PJ数、予定報酬合計、admin向け確認事項数 |
 
 `currentHash = sha256(stableJson(snapshot_json))`。`latestAgreement.snapshotHash !== currentHash` のとき `needs_reagreement`。
 
@@ -91,11 +109,10 @@ API route は logged-in user を `members.email` で解決する。本人以外�
 
 - 上部に対象月、member、snapshot hash、合意状態を表示する。
 - 合意状態は `未合意` / `合意済み` / `条件更新あり`。
-- 合計: 参加PJ数、想定報酬合計、要確認PJ数。
-- PJごとに、想定報酬、PM/PL role、担当MS/share/到達目標/予定報酬を表示する。
-- MS別予定報酬は `reward_summary_json.members[].breakdown[].payYen` を元にし、PJ別想定報酬 (`members[].totalPay`) と合計が一致するよう丸め差分を最後のMSで吸収する。
-- 報酬キャッシュがあるPJで、担当MSに breakdown 行がない場合は「未確定」ではなく `0円` と表示する。報酬キャッシュ自体が無い場合だけ未確定扱い。
-- 担当MS、到達目標、想定報酬、条件/前提が違う場合は、合意とは別に修正要望を送信できる。
+- 合計: 参加PJ数、予定報酬合計。
+- PJごとに、予定報酬、PM/PL role、担当MS/share/到達目標/予定報酬を表示する。
+- MS別予定報酬は、当月月次予算を当月予定MS消化ptと active member 正規化 share で配分する。`reward_summary_json.members[].breakdown[].payYen` は使わない。
+- 担当MS、到達目標、予定報酬が違う場合は、合意とは別に修正要望を送信できる。
 - 保存テーブル未適用時は保存ボタンを無効化し、migration未適用として表示する。
 
 ### `/mypage`

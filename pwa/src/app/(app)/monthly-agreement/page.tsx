@@ -16,7 +16,7 @@ function formatYm(ym: string) {
 }
 
 function formatYen(value: number | null | undefined) {
-  if (value == null) return "未確定";
+  if (value == null) return "算定待ち";
   return `¥${Math.round(value).toLocaleString()}`;
 }
 
@@ -164,7 +164,7 @@ function MonthlyAgreementContent() {
         <div className="mx-auto flex max-w-5xl flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#86868b]">Monthly Agreement</p>
-            <h1 className="mt-1 text-[22px] font-semibold text-[#1d1d1f]">{formatYm(bundle.ym)}の遂行内容と報酬条件</h1>
+            <h1 className="mt-1 text-[22px] font-semibold text-[#1d1d1f]">{formatYm(bundle.ym)}の遂行内容と予定報酬</h1>
             <p className="mt-1 text-[13px] text-[#6e6e73]">
               {bundle.member.codeName} / snapshot {bundle.currentHash.slice(0, 10)}
             </p>
@@ -184,8 +184,8 @@ function MonthlyAgreementContent() {
                   {bundle.status === "agreed"
                     ? `合意時刻: ${bundle.latestAgreement?.agreedAt ? new Date(bundle.latestAgreement.agreedAt).toLocaleString("ja-JP") : "記録済み"}`
                     : bundle.status === "needs_reagreement"
-                      ? "前回合意後に条件snapshotが変わっています。内容を確認して再合意してください。"
-                      : "業務開始前に、今月の遂行内容・条件・想定報酬を確認して合意してください。"}
+                      ? "前回合意後に今月の遂行内容または予定報酬が変わっています。内容を確認して再合意してください。"
+                      : "業務開始前に、今月の遂行対象・到達目標・予定報酬を確認して合意してください。"}
                 </p>
               </div>
             </div>
@@ -194,7 +194,7 @@ function MonthlyAgreementContent() {
               onClick={handleAgree}
               disabled={saving || bundle.status === "agreed" || !bundle.tableReady || !bundle.canAgree}
               className="inline-flex items-center justify-center gap-2 rounded-md bg-[#1d1d1f] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-              title={!bundle.canAgree ? "本人だけが合意を保存できます" : "今月の遂行内容と報酬条件を確認して合意"}
+              title={!bundle.canAgree ? "本人だけが合意を保存できます" : "今月の遂行内容と予定報酬を確認して合意"}
             >
               {saving ? <Loader2 className="size-4 animate-spin" /> : <FileCheck2 className="size-4" />}
               {bundle.status === "agreed" ? "合意済み" : "確認して合意"}
@@ -209,7 +209,7 @@ function MonthlyAgreementContent() {
 
         <section className="grid gap-3 sm:grid-cols-2">
           <MetricCard label="参加PJ" value={`${bundle.snapshot.totals.projectCount}`} />
-          <MetricCard label="想定報酬合計" value={formatYen(bundle.snapshot.totals.expectedRewardYen)} />
+          <MetricCard label="予定報酬合計" value={formatYen(bundle.snapshot.totals.expectedRewardYen)} />
         </section>
 
         <section className="rounded-lg border border-[#e5e5e7] bg-white p-4">
@@ -217,7 +217,7 @@ function MonthlyAgreementContent() {
             <div>
               <h2 className="text-[15px] font-semibold text-[#1d1d1f]">修正要望</h2>
               <p className="mt-1 text-[12px] leading-relaxed text-[#6e6e73]">
-                担当MS、到達目標、想定報酬、前提条件が違う場合はここから送ってください。
+                担当MS、到達目標、予定報酬が違う場合はここから送ってください。
               </p>
             </div>
             {bundle.revisionRequests.filter((request) => request.status === "open").length > 0 && (
@@ -234,8 +234,7 @@ function MonthlyAgreementContent() {
               className="rounded-md border border-[#d1d1d6] bg-white px-2 py-2 text-sm"
             >
               <option value="scope_or_goal">遂行対象/到達目標</option>
-              <option value="reward">想定報酬</option>
-              <option value="condition">前提の修正</option>
+              <option value="reward">予定報酬</option>
               <option value="other">その他</option>
             </select>
             <select
@@ -255,7 +254,7 @@ function MonthlyAgreementContent() {
               disabled={!bundle.canAgree}
               rows={3}
               className="min-h-[84px] rounded-md border border-[#d1d1d6] bg-white px-3 py-2 text-sm outline-none focus:border-[#007aff]"
-              placeholder="例: CXの今月到達目標はこのMSではなく、登記準備を優先したい / 想定報酬の前提が違う"
+              placeholder="例: CXの今月到達目標はこのMSではなく、登記準備を優先したい / 予定報酬の配分が違う"
             />
           </div>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -337,10 +336,9 @@ function ProjectAgreementCard({ project }: { project: MonthlyWorkAgreementProjec
         <div className="rounded-md bg-[#f5f5f7] px-3 py-2 text-right">
           <div className="flex items-center justify-end gap-1 text-[11px] font-semibold text-[#86868b]">
             <CircleDollarSign className="size-3.5" />
-            想定報酬
+            予定報酬
           </div>
           <p className="mt-1 text-[20px] font-semibold tabular-nums text-[#1d1d1f]">{formatYen(project.expectedRewardYen)}</p>
-          {project.earnedPt != null && <p className="text-[11px] text-[#86868b]">{project.earnedPt.toFixed(1)} pt</p>}
         </div>
       </div>
 
@@ -357,7 +355,7 @@ function ProjectAgreementCard({ project }: { project: MonthlyWorkAgreementProjec
               <div key={ms.milestoneId} className="grid grid-cols-[minmax(0,1fr)_74px_92px_102px] gap-2 px-3 py-2 text-[12px]">
                 <div className="min-w-0">
                   <p className="font-semibold text-[#1d1d1f]">{ms.title}</p>
-                  <p className="mt-0.5 truncate text-[11px] text-[#86868b]">{ms.taskDescription || ms.conditions.join(" / ")}</p>
+                  <p className="mt-0.5 truncate text-[11px] text-[#86868b]">{ms.taskDescription || `${ms.points}pt`}</p>
                 </div>
                 <span className="text-right tabular-nums text-[#3c3c43]">{ms.plannedShare == null ? "未設定" : `${Math.round(ms.plannedShare * 100)}%`}</span>
                 <span className="text-right tabular-nums text-[#3c3c43]">

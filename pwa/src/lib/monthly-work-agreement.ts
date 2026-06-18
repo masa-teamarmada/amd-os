@@ -1,5 +1,11 @@
 import { createHash } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  anchoredExpectedCumPctForYm,
+  milestonePeriod,
+  PM_LOCKED_PROGRESS_SOURCES,
+  type ProgressAnchor,
+} from "@/lib/ms-schedule-shared";
 import type {
   MonthlyAgreementStatus,
   MonthlyWorkAgreementRevisionRequest,
@@ -22,6 +28,21 @@ function toNumber(value: unknown): number | null {
     return Number.isFinite(n) ? n : null;
   }
   return null;
+}
+
+function hasExplicitNumber(value: unknown): boolean {
+  return toNumber(value) != null;
+}
+
+function ymToIndex(ym: string): number {
+  return Number(ym.slice(0, 4)) * 12 + Number(ym.slice(4, 6)) - 1;
+}
+
+function cycleMonthCount(plan: JsonRecord | undefined): number {
+  const start = typeof plan?.period_start_ym === "string" ? plan.period_start_ym : null;
+  const end = typeof plan?.period_end_ym === "string" ? plan.period_end_ym : null;
+  if (!start || !end) return 1;
+  return Math.max(1, ymToIndex(end) - ymToIndex(start) + 1);
 }
 
 function stableJson(value: unknown): string {
@@ -60,26 +81,6 @@ function inYmRange(
   return true;
 }
 
-function findRewardMember(summary: unknown, memberId: string): JsonRecord | null {
-  const json = summary as JsonRecord | null | undefined;
-  const members = json?.members;
-  if (Array.isArray(members)) {
-    return (members.find((m) => (m as JsonRecord).memberId === memberId) as JsonRecord | undefined) ?? null;
-  }
-  if (members && typeof members === "object") {
-    const byId = (members as Record<string, unknown>)[memberId];
-    return byId && typeof byId === "object" ? (byId as JsonRecord) : null;
-  }
-  return null;
-}
-
-function formatRewardSource(cycle: JsonRecord | undefined, reward: JsonRecord | null, allocation: number | null) {
-  if (reward) return "reward_summary_json.members";
-  if (allocation != null) return "member_allocations_json";
-  if (!cycle) return "billing_cycles 未作成";
-  return "報酬キャッシュ未生成";
-}
-
 function projectHasMonthlyReward(status: unknown): boolean {
   const normalized = String(status ?? "").toLowerCase();
   return normalized !== "lost" && normalized !== "frozen";
@@ -98,25 +99,89 @@ function routineExpectations(role: { is_pm?: boolean | null; is_pl?: boolean | n
   return ["担当MS/活動ログに沿って当月の遂行内容を進める"];
 }
 
-function normalizeMilestoneRewards(
-  milestones: MonthlyWorkAgreementMilestone[],
-  projectExpectedRewardYen: number | null,
-): MonthlyWorkAgreementMilestone[] {
-  if (projectExpectedRewardYen == null) return milestones;
-  const rewardful = milestones.filter((ms) => ms.expectedRewardYen != null && ms.expectedRewardYen > 0);
-  const rawTotal = rewardful.reduce((sum, ms) => sum + (ms.expectedRewardYen ?? 0), 0);
-  if (rawTotal <= 0) return milestones;
+function deriveAgreementMonthlyBudget({
+  cycle,
+  plan,
+  project,
+}: {
+  cycle: JsonRecord | undefined;
+  plan: JsonRecord | undefined;
+  project: JsonRecord;
+}): number | null {
+  if (hasExplicitNumber(cycle?.budget_yen)) return Math.max(0, Math.round(toNumber(cycle?.budget_yen) ?? 0));
+  if (String(project.fee_type ?? "").toLowerCase() === "monthly_fixed") {
+    const fee = toNumber(project.fee_amount);
+    if (fee != null && fee > 0) return Math.round(fee * 0.65);
+  }
+  const planBudget = toNumber(plan?.budget_yen);
+  if (planBudget != null && planBudget > 0) return Math.round(planBudget / cycleMonthCount(plan));
+  return null;
+}
 
-  let assigned = 0;
-  const lastRewardId = rewardful[rewardful.length - 1]?.milestoneId;
-  return milestones.map((ms) => {
-    if (ms.expectedRewardYen == null || ms.expectedRewardYen <= 0) return ms;
-    const normalized = ms.milestoneId === lastRewardId
-      ? Math.max(0, Math.round(projectExpectedRewardYen) - assigned)
-      : Math.max(0, Math.round((projectExpectedRewardYen * ms.expectedRewardYen) / rawTotal));
-    assigned += normalized;
-    return { ...ms, expectedRewardYen: normalized };
-  });
+function isPmLockedProgress(row: JsonRecord): boolean {
+  return PM_LOCKED_PROGRESS_SOURCES.has(String(row.source ?? ""));
+}
+
+function progressRowPct(row: JsonRecord, points: number): number {
+  const consumed = toNumber(row.consumed_pt);
+  if (consumed != null && points > 0) return Math.max(0, Math.min(100, (consumed / points) * 100));
+  return Math.max(0, Math.min(100, toNumber(row.progress_pct) ?? 0));
+}
+
+function effectiveCumPctForYm({
+  ms,
+  plan,
+  rows,
+  ym,
+}: {
+  ms: JsonRecord;
+  plan: JsonRecord | undefined;
+  rows: JsonRecord[];
+  ym: string;
+}): number | null {
+  const { startYm, endYm } = milestonePeriod(
+    {
+      period_start_ym: typeof ms.period_start_ym === "string" ? ms.period_start_ym : null,
+      target_ym: typeof ms.target_ym === "string" ? ms.target_ym : null,
+    },
+    {
+      period_start_ym: typeof plan?.period_start_ym === "string" ? plan.period_start_ym : null,
+      period_end_ym: typeof plan?.period_end_ym === "string" ? plan.period_end_ym : null,
+    },
+  );
+  if (!startYm || !endYm) return null;
+
+  const points = toNumber(ms.points) ?? 0;
+  const lockedRows = rows
+    .filter((row) => String(row.ym ?? "") <= ym)
+    .filter(isPmLockedProgress)
+    .sort((a, b) => String(a.ym ?? "").localeCompare(String(b.ym ?? "")));
+  const exactLocked = lockedRows.find((row) => row.ym === ym);
+  if (exactLocked) return progressRowPct(exactLocked, points);
+
+  const anchorBefore = (targetYm: string): ProgressAnchor | null => {
+    let found: ProgressAnchor | null = null;
+    for (const row of lockedRows) {
+      const rowYm = String(row.ym ?? "");
+      if (rowYm >= targetYm) break;
+      found = { ym: rowYm, pct: progressRowPct(row, points) };
+    }
+    return found;
+  };
+  return anchoredExpectedCumPctForYm(ym, startYm, endYm, anchorBefore(ym));
+}
+
+function normalizeActiveShares(rows: JsonRecord[], activeMemberIds: Set<string>): Map<string, number> {
+  const activeRows = rows
+    .map((row) => ({ memberId: String(row.member_id ?? ""), share: toNumber(row.share) ?? 0 }))
+    .filter((row) => row.memberId && activeMemberIds.has(row.memberId) && row.share > 0);
+  const total = activeRows.reduce((sum, row) => sum + row.share, 0);
+  const shares = new Map<string, number>();
+  if (total <= 0) return shares;
+  for (const row of activeRows) {
+    shares.set(row.memberId, Math.round((row.share / total) * 10000) / 10000);
+  }
+  return shares;
 }
 
 function toAgreementRecord(row: JsonRecord): MonthlyWorkAgreementRecord {
@@ -220,7 +285,7 @@ export async function buildMonthlyWorkAgreementBundle(
     projectIds.length
       ? supabase
           .from("projects")
-          .select("project_id, project_name, status, start_ym, end_ym, project_type, project_category, fee_amount")
+          .select("project_id, project_name, status, start_ym, end_ym, project_type, project_category, fee_type, fee_amount")
           .in("project_id", projectIds)
       : Promise.resolve({ data: [], error: null }),
     projectIds.length
@@ -229,7 +294,7 @@ export async function buildMonthlyWorkAgreementBundle(
     projectIds.length
       ? supabase
           .from("value_plan_cycles")
-          .select("plan_cycle_id, project_id, status, total_points, period_start_ym, period_end_ym")
+          .select("plan_cycle_id, project_id, status, budget_yen, total_points, period_start_ym, period_end_ym")
           .in("project_id", projectIds)
           .in("status", ["fixed", "confirmed", "active", "draft"])
       : Promise.resolve({ data: [], error: null }),
@@ -256,7 +321,7 @@ export async function buildMonthlyWorkAgreementBundle(
   const milestonesRes = planIds.length
     ? await supabase
         .from("value_milestones")
-        .select("plan_cycle_id, milestone_id, title, points, tag, is_active, success_criteria")
+        .select("plan_cycle_id, milestone_id, title, points, tag, is_active, success_criteria, period_start_ym, target_ym")
         .in("plan_cycle_id", planIds)
         .eq("is_active", true)
     : { data: [], error: null };
@@ -265,24 +330,31 @@ export async function buildMonthlyWorkAgreementBundle(
   const milestones = (milestonesRes.data ?? []) as Array<JsonRecord>;
   const milestoneIds = milestones.map((ms) => ms.milestone_id).filter((id): id is string => typeof id === "string");
 
-  const [responsibilityRes, progressRes] = await Promise.all([
+  const [responsibilityRes, progressRes, projectActiveMembersRes] = await Promise.all([
     milestoneIds.length
       ? supabase
           .from("milestone_responsibility")
           .select("milestone_id, member_id, share, role, task_description")
-          .eq("member_id", params.memberId)
           .in("milestone_id", milestoneIds)
       : Promise.resolve({ data: [], error: null }),
     milestoneIds.length
       ? supabase
           .from("milestone_monthly_progress")
-          .select("milestone_key, ym, progress_pct, source, note")
+          .select("milestone_key, ym, progress_pct, consumed_pt, source, note")
           .in("milestone_key", milestoneIds)
-          .in("ym", [ym, prev])
+          .lte("ym", ym)
+      : Promise.resolve({ data: [], error: null }),
+    projectIds.length
+      ? supabase
+          .from("project_members")
+          .select("project_id, member_id, is_active, join_ym, leave_ym")
+          .in("project_id", projectIds)
+          .eq("is_active", true)
       : Promise.resolve({ data: [], error: null }),
   ]);
   if (responsibilityRes.error) throw responsibilityRes.error;
   if (progressRes.error) throw progressRes.error;
+  if (projectActiveMembersRes.error) throw projectActiveMembersRes.error;
 
   const responsibilitiesByMs = new Map<string, JsonRecord[]>();
   for (const row of (responsibilityRes.data ?? []) as Array<JsonRecord>) {
@@ -291,53 +363,80 @@ export async function buildMonthlyWorkAgreementBundle(
     list.push(row);
     responsibilitiesByMs.set(milestoneId, list);
   }
-  const progressByKey = new Map(
-    ((progressRes.data ?? []) as Array<JsonRecord>).map((row) => [`${row.milestone_key}_${row.ym}`, row]),
-  );
+  const progressByMs = new Map<string, JsonRecord[]>();
+  for (const row of (progressRes.data ?? []) as Array<JsonRecord>) {
+    const milestoneId = row.milestone_key as string;
+    const list = progressByMs.get(milestoneId) ?? [];
+    list.push(row);
+    progressByMs.set(milestoneId, list);
+  }
   const milestonesByPlan = new Map<string, JsonRecord[]>();
   for (const ms of milestones) {
     const list = milestonesByPlan.get(ms.plan_cycle_id as string) ?? [];
     list.push(ms);
     milestonesByPlan.set(ms.plan_cycle_id as string, list);
   }
+  const activeMemberIdsByProject = new Map<string, Set<string>>();
+  for (const row of (projectActiveMembersRes.data ?? []) as Array<JsonRecord>) {
+    if (!inYmRange(ym, { join_ym: row.join_ym as string | null, leave_ym: row.leave_ym as string | null })) continue;
+    const projectId = row.project_id as string;
+    const set = activeMemberIdsByProject.get(projectId) ?? new Set<string>();
+    set.add(row.member_id as string);
+    activeMemberIdsByProject.set(projectId, set);
+  }
 
   const snapshotProjects: MonthlyWorkAgreementProject[] = activeMemberships
     .filter((membership) => projectMap.has(membership.project_id as string))
-    .map((membership) => {
+    .map((membership): MonthlyWorkAgreementProject | null => {
       const projectId = membership.project_id as string;
       const project = projectMap.get(projectId)!;
       const cycle = cyclesByProject.get(projectId);
-      const allocJson = cycle?.member_allocations_json as JsonRecord | null | undefined;
-      const allocation = toNumber(allocJson?.[params.memberId]);
-      const reward = findRewardMember(cycle?.reward_summary_json, params.memberId);
-      const expectedRewardYen = toNumber(reward?.totalPay) ?? allocation;
-      const earnedPt = toNumber(reward?.earnedPt);
       const roleMilestones: MonthlyWorkAgreementMilestone[] = [];
       const projectPlans = plansByProject.get(projectId) ?? [];
       const plan =
         projectPlans.find((p) => String(p.status) === "fixed" && ym >= String(p.period_start_ym) && ym <= String(p.period_end_ym)) ??
         projectPlans.find((p) => ym >= String(p.period_start_ym) && ym <= String(p.period_end_ym)) ??
         projectPlans[0];
-      const rewardBreakdown = Array.isArray(reward?.breakdown) ? (reward?.breakdown as JsonRecord[]) : [];
-      const rewardByMs = new Map(rewardBreakdown.map((row) => [String(row.msKey ?? row.milestoneId ?? ""), row]));
+      const planMilestones = plan ? milestonesByPlan.get(plan.plan_cycle_id as string) ?? [] : [];
+      const monthlyBudgetYen = deriveAgreementMonthlyBudget({ cycle, plan, project });
+      const activeProjectMemberIds = activeMemberIdsByProject.get(projectId) ?? new Set<string>([params.memberId]);
+      const monthlyConsumedByMs = new Map<string, { progressPct: number | null; monthlyProgressPct: number | null; consumedPt: number }>();
+      const normalizedSharesByMs = new Map<string, Map<string, number>>();
+      let projectMonthlyEarnedPt = 0;
 
-      for (const ms of plan ? milestonesByPlan.get(plan.plan_cycle_id as string) ?? [] : []) {
+      for (const ms of planMilestones) {
         const milestoneId = ms.milestone_id as string;
-        const respRows = responsibilitiesByMs.get(milestoneId) ?? [];
-        const rewardRow = rewardByMs.get(milestoneId);
-        if (respRows.length === 0 && !rewardRow) continue;
-        const current = progressByKey.get(`${milestoneId}_${ym}`);
-        const previous = progressByKey.get(`${milestoneId}_${prev}`);
-        const progressPct = toNumber(current?.progress_pct);
-        const prevPct = toNumber(previous?.progress_pct) ?? 0;
+        const points = toNumber(ms.points) ?? 0;
+        const progressRows = progressByMs.get(milestoneId) ?? [];
+        const progressPct = effectiveCumPctForYm({ ms, plan, rows: progressRows, ym });
+        const prevPct = effectiveCumPctForYm({ ms, plan, rows: progressRows, ym: prev }) ?? 0;
         const monthlyProgressPct = progressPct == null ? null : Math.max(0, progressPct - prevPct);
+        const consumedPt = monthlyProgressPct == null
+          ? 0
+          : Math.round(Math.max(0, (points * monthlyProgressPct) / 100) * 100) / 100;
+        monthlyConsumedByMs.set(milestoneId, { progressPct, monthlyProgressPct, consumedPt });
+
+        const shares = normalizeActiveShares(responsibilitiesByMs.get(milestoneId) ?? [], activeProjectMemberIds);
+        normalizedSharesByMs.set(milestoneId, shares);
+        if (consumedPt <= 0 || shares.size === 0) continue;
+        for (const share of shares.values()) {
+          projectMonthlyEarnedPt += consumedPt * share;
+        }
+      }
+
+      projectMonthlyEarnedPt = Math.round(projectMonthlyEarnedPt * 100) / 100;
+
+      for (const ms of planMilestones) {
+        const milestoneId = ms.milestone_id as string;
+        const respRows = (responsibilitiesByMs.get(milestoneId) ?? []).filter((row) => row.member_id === params.memberId);
         const plannedShare = respRows.reduce((sum, row) => sum + (toNumber(row.share) ?? 0), 0);
-        const conditions = [
-          `MS進捗 source: ${String(current?.source ?? "未生成")}`,
-          typeof ms.success_criteria === "string" && ms.success_criteria.trim()
-            ? `成功条件: ${ms.success_criteria.trim()}`
-            : "成功条件未設定",
-        ];
+        const normalizedShare = normalizedSharesByMs.get(milestoneId)?.get(params.memberId) ?? 0;
+        if (plannedShare <= 0 && normalizedShare <= 0) continue;
+        const monthly = monthlyConsumedByMs.get(milestoneId) ?? { progressPct: null, monthlyProgressPct: null, consumedPt: 0 };
+        const earnedPt = Math.round(monthly.consumedPt * normalizedShare * 100) / 100;
+        const expectedRewardYen = monthlyBudgetYen != null && projectMonthlyEarnedPt > 0
+          ? Math.round((monthlyBudgetYen * earnedPt) / projectMonthlyEarnedPt)
+          : null;
         roleMilestones.push({
           milestoneId,
           title: String(ms.title ?? milestoneId),
@@ -346,35 +445,45 @@ export async function buildMonthlyWorkAgreementBundle(
           role: respRows.map((row) => String(row.role ?? "")).filter(Boolean).join(" / ") || null,
           taskDescription:
             respRows.map((row) => String(row.task_description ?? "")).filter(Boolean).join(" / ") || null,
-          progressPct,
-          monthlyProgressPct,
-          expectedRewardYen: rewardRow ? toNumber(rewardRow.payYen ?? rewardRow.basePay ?? rewardRow.totalPay) ?? 0 : reward ? 0 : null,
-          earnedPt: toNumber(rewardRow?.earnedPt),
-          conditions,
-          state: progressPct == null ? "review_required" : "ready",
+          progressPct: monthly.progressPct,
+          monthlyProgressPct: monthly.monthlyProgressPct,
+          expectedRewardYen,
+          earnedPt,
+          conditions: [],
+          state: monthly.progressPct == null || monthlyBudgetYen == null ? "review_required" : "ready",
         });
       }
+
+      const sortedMilestones = roleMilestones.sort((a, b) => a.milestoneId.localeCompare(b.milestoneId));
+      let assignedReward = 0;
+      const rewardfulMilestones = sortedMilestones.filter((ms) => ms.expectedRewardYen != null && ms.expectedRewardYen > 0);
+      const expectedRewardYen = rewardfulMilestones.length > 0
+        ? rewardfulMilestones.reduce((sum, ms) => sum + (ms.expectedRewardYen ?? 0), 0)
+        : null;
+      const lastRewardId = rewardfulMilestones[rewardfulMilestones.length - 1]?.milestoneId;
+      const displayMilestones = expectedRewardYen == null
+        ? sortedMilestones
+        : sortedMilestones.map((ms) => {
+            if (ms.expectedRewardYen == null || ms.expectedRewardYen <= 0) return ms;
+            const rounded = ms.milestoneId === lastRewardId
+              ? Math.max(0, expectedRewardYen - assignedReward)
+              : ms.expectedRewardYen;
+            assignedReward += rounded;
+            return { ...ms, expectedRewardYen: rounded };
+          });
 
       if (expectedRewardYen == null && roleMilestones.length === 0) return null;
 
       const reviewReasons: string[] = [];
       if (!cycle) reviewReasons.push("billing_cycles が未作成");
-      if (!reward && allocation == null) reviewReasons.push("報酬キャッシュが未生成");
-      if (plan == null) reviewReasons.push("固定 value plan が未設定");
+      if (monthlyBudgetYen == null) reviewReasons.push("当月の月次予算が未設定");
+      if (plan == null) reviewReasons.push("value plan が未設定");
       if (roleMilestones.length === 0 && plan) reviewReasons.push("当月の担当MS/shareが未設定");
 
-      const conditions = [
-        `報酬表示 source: ${formatRewardSource(cycle, reward, allocation)}`,
-        "報酬計算そのものはこの合意では変更しない",
-      ];
       const conditionState: MonthlyWorkAgreementProject["conditionState"] =
         reviewReasons.length > 0 || roleMilestones.some((ms) => ms.state === "review_required")
           ? "review_required"
           : "ready";
-      const displayMilestones = normalizeMilestoneRewards(
-        roleMilestones.sort((a, b) => a.milestoneId.localeCompare(b.milestoneId)),
-        expectedRewardYen,
-      );
 
       return {
         projectId,
@@ -386,9 +495,9 @@ export async function buildMonthlyWorkAgreementBundle(
         billingStatus: typeof cycle?.status === "string" ? cycle.status : null,
         allocationStatus: cycle?.budget_confirmed_at ? "confirmed" : cycle?.budget_reported_at ? "reported" : "not_set",
         expectedRewardYen,
-        earnedPt,
+        earnedPt: sortedMilestones.reduce((sum, ms) => sum + (ms.earnedPt ?? 0), 0),
         conditionState,
-        conditions,
+        conditions: [],
         reviewReasons,
         milestones: displayMilestones,
         routineExpectations: routineExpectations(membership),

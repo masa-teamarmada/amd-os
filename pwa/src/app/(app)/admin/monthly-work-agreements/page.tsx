@@ -15,7 +15,7 @@ function formatYm(ym: string) {
 }
 
 function formatYen(value: number | null | undefined) {
-  if (value == null) return "未確定";
+  if (value == null) return "算定待ち";
   return `¥${Math.round(value).toLocaleString()}`;
 }
 
@@ -78,7 +78,7 @@ export default function AdminMonthlyWorkAgreementsPage() {
         <div>
           <h1 className="text-lg font-semibold">月初タスク・報酬合意</h1>
           <p className="mt-1 text-xs text-muted-foreground">
-            {formatYm(ym)}の遂行内容/報酬条件について、メンバー別の合意状態と条件更新を確認する。
+            {formatYm(ym)}の遂行内容/予定報酬について、メンバー別の合意状態と更新有無を確認する。
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -141,8 +141,8 @@ export default function AdminMonthlyWorkAgreementsPage() {
               <span>Member</span>
               <span>Status</span>
               <span className="text-right">PJ</span>
-              <span className="text-right">想定報酬</span>
-              <span>PJ / 要確認 / 修正要望</span>
+              <span className="text-right">予定報酬</span>
+              <span>PJ / 確認事項 / 修正要望</span>
               <span className="text-right">Detail</span>
             </div>
             <div className="divide-y divide-border">
@@ -167,7 +167,7 @@ export default function AdminMonthlyWorkAgreementsPage() {
                     <div className="min-w-0">
                       <p className="truncate text-[12px] text-foreground">{row.projectNames.join(" / ") || "参加PJなし"}</p>
                       <p className={`mt-0.5 text-[11px] ${row.reviewRequiredCount > 0 ? "text-amber-700" : "text-muted-foreground"}`}>
-                        要確認 {row.reviewRequiredCount} / 修正要望 {row.revisionRequestCount} / hash {row.currentHash.slice(0, 10)}
+                        確認事項 {row.reviewRequiredCount} / 修正要望 {row.revisionRequestCount} / hash {row.currentHash.slice(0, 10)}
                       </p>
                       {row.latestRevisionRequestAt && (
                         <p className="mt-0.5 text-[11px] text-amber-700">
