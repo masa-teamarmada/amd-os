@@ -113,6 +113,22 @@ export function contractReserveBufferTotalYen(project: ContractFeeLike | null | 
   ));
 }
 
+function contractReserveBufferMonthlyLimitYen(project: ContractFeeLike | null | undefined): number {
+  const terms = contractTerms(project);
+  return Math.max(0, yenNumber(
+    terms.companyReserveBufferMonthlyYen ??
+    terms.company_reserve_buffer_monthly_yen ??
+    terms.companyReserveBufferMonthlyLimitYen ??
+    terms.company_reserve_buffer_monthly_limit_yen ??
+    terms.monthlyCompanyReserveBufferYen ??
+    terms.monthly_company_reserve_buffer_yen ??
+    terms.rewardBufferMonthlyYen ??
+    terms.reward_buffer_monthly_yen ??
+    terms.payoutBufferMonthlyYen ??
+    terms.payout_buffer_monthly_yen
+  ));
+}
+
 export function resolveContractReserveBufferYen({
   project,
   cycles,
@@ -135,5 +151,7 @@ export function resolveContractReserveBufferYen({
     .reduce((sum, cycle) => sum + Math.max(0, yenNumber(cycle.budget_buffer_amount)), 0);
   const remaining = Math.max(0, totalBufferYen - consumedBefore);
   const monthlyGrossCap = Math.max(0, Math.round(yenNumber(invoiceYen) * 0.65));
-  return Math.min(remaining, monthlyGrossCap);
+  const monthlyLimit = contractReserveBufferMonthlyLimitYen(project);
+  const monthlyCap = monthlyLimit > 0 ? Math.min(monthlyGrossCap, monthlyLimit) : monthlyGrossCap;
+  return Math.min(remaining, monthlyCap);
 }

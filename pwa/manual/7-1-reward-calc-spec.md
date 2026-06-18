@@ -39,7 +39,7 @@
 | `totalPay` | cap 前は `basePay + bonusPt`、 cap 後は実支払額 |
 | `grossDue` | `totalPay + carryIn` (= cap 前にメンバーが「本来もらえる額」) |
 | `capBudgetYen` | 月次の支払上限 |
-| `budget_buffer_amount` | 契約上 AMD が先に回収する会社バッファ。当月の `invoice × 65%` から先に差し引き、外部支払 cap には回さない |
+| `budget_buffer_amount` | 契約上 AMD が先に回収する会社バッファの当月消化額。当月の `invoice × 65%` から先に差し引き、外部支払 cap には回さない |
 | `companyReserveYen` / `officerReserveYen` | 役員メンバーの当月稼働分を AMD 内部留保として認識した額。支払通知書には出さない |
 | `externalPayoutCapYen` | 契約バッファと役員会社留保を差し引いた後、非役員メンバーの支払/stock返済に使える cap |
 | `carryIn` | 前月から繰越された未払い分 |
@@ -245,7 +245,7 @@ ptUnit        = round(2,340,000 / 100) = 23,400 円/pt
 
 cap は次の順番で消化する。これは全 PJ 共通で、特定 PJ だけの例外ルールにはしない。
 
-1. `billing_cycles.budget_buffer_amount`: 契約台帳にある会社回収バッファを最優先で消化する。`projects.contract_terms_json.companyReserveBufferYen` などに総額があれば、契約自動確定が月ごとに未消化分を `budget_buffer_amount` へ入れる。
+1. `billing_cycles.budget_buffer_amount`: 契約台帳にある会社回収バッファを最優先で消化する。`projects.contract_terms_json.companyReserveBufferYen` などに総額があれば、契約自動確定が月ごとに未消化分を `budget_buffer_amount` へ入れる。`companyReserveBufferMonthlyYen` などの月次上限がある場合は、その金額を超えて一気に回収しない。
 2. `members.is_officer=true` の当月 `basePay`: 役員の当月稼働分は外部支払ではなく AMD の内部留保として扱う。`reward_summary_json.members[].companyReserveYen` / `officerReserveYen` に残し、`totalPay=0` のまま支払通知書からは除外する。
 3. 非役員・支払対象メンバーの `grossDue`: 残った `externalPayoutCapYen` だけを、当月稼働分 + 前月 stock の返済に按分する。
 
