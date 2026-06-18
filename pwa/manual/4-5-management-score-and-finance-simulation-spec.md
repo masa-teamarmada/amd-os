@@ -394,7 +394,7 @@ Finance Simulation は、会社 PL / cash runway を月次で試算する経営�
 | 社保ベース判定 | 固定費のうち `display_name` が `役員報酬` / `上乗せ` / `給与` / `給料` / `賞与` を含む行を `costType='executive'` にマップ。残りは `taxable` | ⚠️ `company_finance_recurring_items` に `cost_type` 列は無いため `display_name` で判別する。エンジンは `executive`/`salary` の月額だけを `socialInsBase` に積み、`socialInsBase × socialInsRate(=0.15)` を社保額とする。**この判別を入れる前は全固定費が `taxable` 扱いで `socialInsBase=0` → 社保が常時¥0だった (2026-06-16 修正)**。実例: 役員報酬(まさ¥70万)+役員報酬(きよ¥34万)+まさ上乗せ¥127,334 = base ¥1,167,334 → 社保 ≒ ¥175,100/月 |
 | 将来メンバー原価 | MS 進捗 → uncapped 報酬 (後述) を `projectRevenues[].internalMemberCost` に注入 | 各 PJ の MS を期間月数で按分し、将来月の uncapped 報酬を原価として投影 |
 | 別財布（別契約）売上 | 全 PJ の `billing_cycles.extra_revenue_json` (= migration 142) を `projectRevenues[].extraRevenue` に注入 | ⚠️ 本契約 (定額/変動) とは**別枠**の受託売上。fee_type を問わず全 PJ から読む。エンジンで売上計・粗利・消費税・CF・残高に加算されるが、**原価は cap_extra プールの uncapped 報酬として `internalMemberCost` 経由で別途計上済みのため、自動原価率 (rateMember/rateCloser) は通さない** (= 二重計上防止)。**計上方式 (B-a, 2026-06-16 まさ確定)**: エントリに `period_start_ym`〜`period_end_ym` があれば**開発期間で月次按分**し (総額÷期間月数、端数は最終月寄せ、pt消化と同じ「期間で割る」思想)、PL計上もキャッシュ入金も同じ按分月に乗せる。按分ロジックは共通 lib `src/lib/finance/extra-revenue.ts` の `expandExtraRevenue(rows, {minYm, maxYm})` に集約され、`/management-score` の live builder (`live-monthly-pl-inputs.ts`) と `/admin/payouts`「先12か月 PJ収支」表 (`AdminPayoutsClient.tsx`) の**両系統が同じ関数を呼ぶ** (2026-06-17, v0.25.2 で一本化)。エンジンの `extraRevenueForYm` は ym 一致額を素直に合算する。期間指定が無いエントリは `billing_cycles.ym` へ一括計上 (後方互換)。実例: OkuDoor システム開発 ¥2,000,000 税抜 (p19, INV-0000000305, 2026-03-31 一括請求 / 開発期間 202605〜202610 を6ヶ月按分 ≒ ¥333,333/月・最終月¥333,335, 葛飾ロードへ定額¥30万/月とは別財布の受託)。収支表では PJ名に `🔵別財布込` が付く |
-| パラメータ / 融資 / スポット | 旧 `company_budget_inputs` から流用 | 繰越欠損 / 前期消費税 / 社保率 / 各種率、および OS にライブテーブルが無い融資 (`loan`)・臨時収支 (`spot`) は当面 snapshot 値を再利用 |
+| パラメータ / 融資 / スポット | 旧 `company_budget_inputs` から流用 | 繰越欠損 / 前期消費税 / 社保率 / 各種率、および OS にライブテーブルが無い融資 (`loan`)・臨時収支 (`spot`) は当面 snapshot 値を再利用。ただし融資予定は**実行済み、または実行日・返済開始が現実に確定したものだけ**を入れる。予算線は「計画・確定済み前提」を残し、実績線は freee / 入出金の実額で別管理する。未実績の古い借入予定を fallback に残すと `loanDisbursement` が cash balance を過大にする一方、実行済み融資を予算から消すと cash balance がありえないマイナスになる。2026-06-18 時点で `loan01` (商工中金 500万円、`disbursementYm=202601`) は freee `wallet_txns` によって 2026-01-19 の融資実行と PayPay銀行への 500万円入金を確認済みのため、予算入力に残す |
 
 ### 将来メンバー原価は uncapped を使う
 
@@ -604,6 +604,7 @@ DB分類として、`project_strategy_signals` に `signal_scope` / `applies_to_
 | 見るもの | 正本 | UI上の扱い |
 |---|---|---|
 | freee PL実績 | `company_actual_monthly` / `company_budget_actual_monthly.actual_amount_yen` | `売上実績 freee PL`、`固定費実績 freee`、`実績差引` |
+| freee口座残高実績 | `company_actual_monthly` の `category='cash_balance'` (生成元: `pwa/scripts/sync_freee_cash_balances.cjs`、freee `wallet_txns.balance` 月末合算) | `キャッシュ残高(実績)` line と月次表 `キャッシュ` 実績欄に使う。予算残高 (`company_budget_monthly.cash_amount_yen`) は上書きしない |
 | 入金確認済み | `billing_cycles.payment_confirmed_at` + `budget_reported_amount` / `invoice_base_lines_json` | 税込入金として `入金確認済` に集計。CTB 202604 のように `invoice_ym=202605` なら入金月側に寄せる |
 | 支払通知書 | `payout_notices.sent_at` / `total_yen` | `支払通知書送付済(税抜)` として表示。実績差引では税込相当を cash outflow として扱う |
 | 報酬支払済み | `billing_cycles.reward_paid_at` | 支払済み反映の有無をアラートに使う |
@@ -612,7 +613,7 @@ DB分類として、`project_strategy_signals` に `signal_scope` / `applies_to_
 
 月次予実表で比較する項目は、少なくとも `売上計`、`入金`、`売上原価`、`粗利`、`固定費`、`社保`、`臨時収入`、`臨時支出`、`営業利益`、`融資実行`、`借入返済`、`税金`、`月次CF`、`支払い`、`キャッシュ` を含める。実績sourceは行ラベルに chip で出す。未来月や未確定月の実績欄は `未確定`、過去月なのに実績sourceが無い欄は `未反映`、OS側に実績sourceがまだ無い項目は `未連携` と表示する。数字色は、予算をグレー、実績を黒、差分をプラス水色・マイナスピンクで区別する。
 
-この画面では `actual` と `forecast` を同じ数字として混ぜない。実績は `payment_confirmed_at` / `sent_at` / freee PL のように OS が確認済みのデータだけ、予定は予算・請求サイクル・支払ルールに基づく見込み、未確認は請求未送付・入金未確認・支払済み未反映として label を出す。キャッシュ判断パネルは補助であり、主UIは下部の月次試算表を予実表として読むこと。
+この画面では `actual` と `forecast` を同じ数字として混ぜない。実績は `payment_confirmed_at` / `sent_at` / freee PL / freee `wallet_txns.balance` のように OS が確認済みのデータだけ、予定は予算・請求サイクル・支払ルールに基づく見込み、未確認は請求未送付・入金未確認・支払済み未反映として label を出す。キャッシュ判断パネルは補助であり、主UIは下部の月次試算表を予実表として読むこと。実績キャッシュを同期しても予算キャッシュは書き換えない (= 予実差分を残す)。
 
 意思決定アラートは次を出す。
 

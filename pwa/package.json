@@ -19,6 +19,7 @@
     "health:l2:actions": "node scripts/l2_health_action_loop.cjs",
     "diagnose:l6-calendar-colors": "node scripts/l6_calendar_color_diagnostic.mjs",
     "import:monthly-pl-budget": "node scripts/import_monthly_pl_budget.cjs",
+    "sync:freee-cash-balances": "node scripts/sync_freee_cash_balances.cjs",
     "collect:management-score-raw": "node scripts/collect_management_score_raw_data.cjs",
     "calculate:management-score": "node scripts/calculate_management_score.cjs",
     "freee:refresh-token": "node scripts/get_freee_refresh_token.cjs --write-env",

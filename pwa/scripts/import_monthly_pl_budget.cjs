@@ -64,8 +64,10 @@ const inputs = {
     { costId: "fc16", costName: "役員報酬（まさ）", monthlyCost: 979891, startYm: 202602, endYm: 202602, costType: "executive", memo: "" },
     { costId: "fc17", costName: "Gatto", monthlyCost: 33000, startYm: 202601, endYm: 202603, costType: "taxable", memo: "" },
   ],
+  // freee wallet_txns で 2026-01-19 実行確認済み。
+  // 商工中金: 融資入金 4,929,098 + 口座間補填 100,000 -> PayPay銀行へ 5,000,000 入金。
   loans: [
-    { loanId: "loan01", loanName: "商工中金", principal: 5000000, annualRate: 0.027, totalPayments: 55, startYm: 202602, method: "equal_payment", disbursementYm: 202601, memo: "" },
+    { loanId: "loan01", loanName: "商工中金", principal: 5000000, annualRate: 0.027, totalPayments: 55, startYm: 202602, method: "equal_payment", disbursementYm: 202601, memo: "freee wallet_txns confirmed 2026-01-19" },
   ],
   scenarios: [],
   varCosts: [],

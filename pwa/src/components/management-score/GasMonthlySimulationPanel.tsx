@@ -79,6 +79,7 @@ export type GasMonthlyRow = {
   payoutNoticeNetTotal: number;
   payoutNoticeSentNetTotal: number;
   cashBalance: number;
+  actualCashBalance: number | null;
   runway: number;
   loanDisbursement: number;
   spotIncome: number;
@@ -144,6 +145,7 @@ function mergeActualRows(result: GasSimulationResult, baselineRows: GasMonthlyRo
         actualNetCashFlow: actual?.actualNetCashFlow ?? 0,
         payoutNoticeNetTotal: actual?.payoutNoticeNetTotal ?? 0,
         payoutNoticeSentNetTotal: actual?.payoutNoticeSentNetTotal ?? 0,
+        actualCashBalance: actual?.actualCashBalance ?? null,
       };
     }),
   };
@@ -199,19 +201,7 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
     if (!canvasRef.current || rows.length === 0) return;
     chartRef.current?.destroy();
     const labels = rows.map((row) => fmtYm(row.ym));
-    // 予算キャッシュ残高の起点 = 最初の月の (予算残高 - 予算月次CF)。
-    // 実績残高はこの同じ起点から actualNetCashFlow を累積し、実績が確定している月まで描く。
-    const openingBalance = rows.length ? rows[0].cashBalance - rows[0].netCashFlow : 0;
-    let actualRunning = openingBalance;
-    let actualBroken = false;
-    const actualBalanceData = rows.map((row) => {
-      if (actualBroken || row.actualStatus !== "actual") {
-        actualBroken = true;
-        return null;
-      }
-      actualRunning += row.actualNetCashFlow;
-      return actualRunning;
-    });
+    const actualBalanceData = rows.map((row) => row.actualCashBalance);
     chartRef.current = new Chart(canvasRef.current, {
       type: "line",
       data: {
@@ -998,12 +988,16 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
                     ? def.actual
                     : "actualKey" in def
                       ? (row) => Number(row[def.actualKey as keyof GasMonthlyRow] ?? 0)
+                      : def.key === "cashBalance"
+                        ? (row) => row.actualCashBalance
                       : undefined,
                 source:
                   def.key === "netCashFlow"
                     ? "入金確認 - 支払/費用"
                     : def.key === "cashOutflow"
                       ? "支払通知/費用(税込)"
+                      : def.key === "cashBalance"
+                        ? "freee口座残高"
                       : "actualKey" in def
                         ? "freee PL / OS実績"
                         : "未連携",

@@ -5,6 +5,17 @@
 
 ---
 
+### [finance] `/management-score` キャッシュフローの2026年1月「キャッシュ残高(予算)」を融資実行確認前に消してマイナス化した (2026-06-18)
+
+- **状態**: クローズ (2026-06-18 — `loan01` 復元、`company_budget_monthly` 再生成、freee口座残高実績を `company_actual_monthly.cash_balance` へ同期済み)。
+- **症状**: まさが `/management-score` のキャッシュフローで、2026年1月の「キャッシュ残高(予算)」が約400万円台になっており、実際の残高と乖離しているのを発見。その後、`loan01` を未実績の旧融資予定と誤診断して外したところ、202601 の `cash_amount_yen` が `-101,332` となり、キャッシュ残高がありえないマイナスになった。
+- **原因**: 旧GAS月次PL snapshotの `company_budget_inputs` にある `loan01` (商工中金 500万円、`disbursementYm=202601`) を、freee 入出金まで確認せず「未実績」と判断したこと。実際には freee `wallet_txns` で 2026-01-19 に商工中金側へ融資入金 `4,929,098` と口座間補填 `100,000`、同日に PayPay銀行側へ `5,000,000` 入金が確認できた。したがって `loan01` は実行確認済みの予算前提であり、消すべきではなかった。
+- **解決内容**: `pwa/scripts/import_monthly_pl_budget.cjs` の `inputs.loans` に `loan01` を戻し、memo に `freee wallet_txns confirmed 2026-01-19` を付与。同 version (`source=gas_monthly_pl`, `version=gas-2026-05-18-baseline`) の `company_budget_inputs` / `company_budget_monthly` / `company_budget_simulation_runs` を再生成した。さらに `pwa/scripts/sync_freee_cash_balances.cjs` を追加し、freee `wallet_txns.balance` の月末残高を `company_actual_monthly` の `category='cash_balance'` として同期。`/management-score` の「キャッシュ残高(実績)」と月次表の「キャッシュ」実績欄は、この `actualCashBalance` を使うよう修正した。
+- **検証**: production DB で `company_budget_inputs input_kind='loan'` は 1 件。202601 の予算は `budget_payload.loanDisbursement=5,000,000`、`net_cash_flow=4,292,245`、`cash_amount_yen=4,898,668`。同月の実績キャッシュ残高は `company_budget_actual_monthly category='cash_balance'` で `actual_amount_yen=4,795,492` (PayPay銀行 `4,751,995`、モバイルSuica `12,957`、三菱UFJ `2,542`、商工中金 `27,998`)。予算残高との差は `-103,176` 円で、予算を実績で上書きせずに予実差分として見える。
+- **教訓**: 予算線は「計画・確定済み前提」、実績線は freee / 入出金の実額で分ける。予算まで実績値に置き換えると予実差分がゼロになって意思決定に使えない。逆に、freee `trial_bs` だけで銀行残高を判断すると振替・消込の癖で誤診しやすいため、キャッシュ残高のアンカーはまず `wallet_txns` の口座別 `balance` で見る。融資 fallback は、未実績なら外すが、実行確認済みなら予算入力に残す。
+
+---
+
 ### [meeting-summary] MTG詳細Markdown内のAMDメンバー名がマイページリンクにならなかった (2026-06-18)
 
 - **状態**: ✅ クローズ (2026-06-18, v0.27.6 — commit `895a1bda` / production deploy 済み)。

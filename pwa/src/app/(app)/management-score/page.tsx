@@ -287,6 +287,7 @@ type MonthlyActualSummary = {
   actualCtaxPayment: number;
   actualCorpTaxPayment: number;
   actualNetCashFlow: number;
+  actualCashBalance: number | null;
 };
 
 type ExpectedReceiptSummary = {
@@ -980,6 +981,12 @@ function actualCompanyValue(categoryRows: Map<string, Map<string, BudgetActualRo
   return (categoryRows.get(ym)?.get(category) ?? []).reduce((sum, row) => sum + (row.actual_amount_yen ?? 0), 0);
 }
 
+function actualCompanyValueOrNull(categoryRows: Map<string, Map<string, BudgetActualRow[]>>, ym: string, category: string): number | null {
+  const rows = categoryRows.get(ym)?.get(category) ?? [];
+  if (rows.length === 0) return null;
+  return rows.reduce((sum, row) => sum + (row.actual_amount_yen ?? 0), 0);
+}
+
 function emptyActualSummary(ym: string): MonthlyActualSummary {
   return {
     ym,
@@ -998,6 +1005,7 @@ function emptyActualSummary(ym: string): MonthlyActualSummary {
     actualCtaxPayment: 0,
     actualCorpTaxPayment: 0,
     actualNetCashFlow: 0,
+    actualCashBalance: null,
   };
 }
 
@@ -1025,6 +1033,7 @@ function buildMonthlyActualSummaries(
     summary.actualLoanPayment = actualCompanyValue(categoryRows, ym, "loan_payment");
     summary.actualCtaxPayment = actualCompanyValue(categoryRows, ym, "tax_payment_consumption");
     summary.actualCorpTaxPayment = actualCompanyValue(categoryRows, ym, "tax_payment_corporate");
+    summary.actualCashBalance = actualCompanyValueOrNull(categoryRows, ym, "cash_balance");
     summary.hasActualData = (categoryRows.get(ym) ? Array.from(categoryRows.get(ym)!.values()).flat() : []).some(
       (row) => row.actual_amount_yen != null
     );
@@ -1474,6 +1483,7 @@ function buildGasSimulationResult(
       payoutNoticeNetTotal: actualSummary?.payoutNoticeNetTotal ?? 0,
       payoutNoticeSentNetTotal: actualSummary?.payoutNoticeSentNetTotal ?? 0,
       cashBalance: revenueRow?.cash_amount_yen ?? 0,
+      actualCashBalance: actualSummary?.actualCashBalance ?? null,
       runway: Number(revenueRow?.runway_months ?? 0),
       loanDisbursement: payloadNumberValue(netCash?.budget_payload, "loanDisbursement"),
       spotIncome: payloadNumberValue(netCash?.budget_payload, "spotIncome"),
@@ -1559,6 +1569,7 @@ function buildLiveGasSimulationResult(
       payoutNoticeNetTotal: actual?.payoutNoticeNetTotal ?? 0,
       payoutNoticeSentNetTotal: actual?.payoutNoticeSentNetTotal ?? 0,
       cashBalance: row.cashBalance,
+      actualCashBalance: actual?.actualCashBalance ?? null,
       runway: row.runway,
       loanDisbursement: row.loanDisbursement,
       spotIncome: row.spotIncome,
