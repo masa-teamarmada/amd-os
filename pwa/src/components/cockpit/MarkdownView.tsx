@@ -2,13 +2,16 @@
 
 import katex from "katex";
 import "katex/dist/katex.min.css";
+import { Children, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { LinkedMemberText } from "@/components/members/LinkedMemberText";
 
 interface Props {
   source: string;
   tone?: "light" | "hud";
   linkMode?: "default" | "manual";
+  memberLinks?: boolean;
 }
 
 /**
@@ -24,7 +27,7 @@ interface Props {
  *  - `<hr>` は太め + 色付き
  *  - 将来 `<img>` (図・写真) も挿入予定。img はそのまま max-w-full で出す
  */
-export function MarkdownView({ source, tone = "light", linkMode = "default" }: Props) {
+export function MarkdownView({ source, tone = "light", linkMode = "default", memberLinks = false }: Props) {
   const isHud = tone === "hud";
   const segments = splitDisplayMath(source);
   const baseText = isHud ? "text-[12px] text-cyan-50/90" : "text-[13px] text-[#1d1d1f]";
@@ -35,6 +38,14 @@ export function MarkdownView({ source, tone = "light", linkMode = "default" }: P
   const tableBorder = isHud ? "border-cyan-300/30" : "border-[#d2d2d7]";
   const tableHeaderBg = isHud ? "bg-cyan-300/15 text-cyan-100" : "bg-gradient-to-b from-[#eef1f6] to-[#e5e7ec] text-[#1d1d1f]";
   const tableRowAlt = isHud ? "even:bg-slate-900/30" : "even:bg-[#f7f8fb]";
+  const memberLinkClass = isHud
+    ? "font-medium text-cyan-300 underline-offset-2 hover:text-cyan-100 hover:underline"
+    : "font-medium text-[#007aff] underline-offset-2 hover:underline";
+  const renderChildren = (children: ReactNode) => (
+    <MemberLinkedChildren enabled={memberLinks} linkClassName={memberLinkClass}>
+      {children}
+    </MemberLinkedChildren>
+  );
 
   return (
     <div className={`${baseText} leading-relaxed`}>
@@ -55,32 +66,32 @@ export function MarkdownView({ source, tone = "light", linkMode = "default" }: P
             <h1 className={isHud
               ? "text-cyan-100 text-[20px] font-bold mt-5 mb-2.5 pb-1.5 border-b-2 border-cyan-300/40"
               : "text-[#1d1d1f] text-[20px] font-bold mt-5 mb-2.5 pb-1.5 border-b-2 border-[#1d1d1f]"}>
-              {children}
+              {renderChildren(children)}
             </h1>
           ),
           h2: ({ children }) => (
             <h2 className={isHud
               ? "text-cyan-100 text-[16px] font-bold mt-6 mb-2 pb-1 border-b-2 border-cyan-300/40 flex items-baseline gap-1"
               : "text-[#1d1d1f] text-[16.5px] font-bold mt-6 mb-2 pb-1 border-b-2 border-[#1d1d1f] flex items-baseline gap-1"}>
-              {children}
+              {renderChildren(children)}
             </h2>
           ),
           h3: ({ children }) => (
             <h3 className={isHud
               ? "text-cyan-200 text-[14px] font-bold mt-4 mb-1.5 pl-2 border-l-[3px] border-cyan-300"
               : "text-[#1d1d1f] text-[14px] font-bold mt-4 mb-1.5 pl-2 border-l-[3px] border-blue-400"}>
-              {children}
+              {renderChildren(children)}
             </h3>
           ),
           h4: ({ children }) => (
             <h4 className={isHud ? "text-cyan-100 text-[12.5px] font-bold mt-3 mb-1" : "text-[#1d1d1f] text-[12.5px] font-bold mt-3 mb-1"}>
-              {children}
+              {renderChildren(children)}
             </h4>
           ),
 
           // ===== Paragraphs =====
           p: ({ children }) => (
-            <p className="my-2 leading-[1.75] whitespace-pre-wrap break-words">{children}</p>
+            <p className="my-2 leading-[1.75] whitespace-pre-wrap break-words">{renderChildren(children)}</p>
           ),
 
           // ===== Lists (GFM TODO checkbox 含む) =====
@@ -98,7 +109,7 @@ export function MarkdownView({ source, tone = "light", linkMode = "default" }: P
             const isTask = (className || "").includes("task-list-item");
             return (
               <li className={isTask ? "leading-snug flex items-start gap-2 list-none" : "leading-snug"}>
-                {children}
+                {renderChildren(children)}
               </li>
             );
           },
@@ -123,7 +134,7 @@ export function MarkdownView({ source, tone = "light", linkMode = "default" }: P
             <strong className={isHud
               ? "font-bold text-white bg-cyan-300/15 px-0.5 rounded"
               : "font-bold text-[#0a0a0c]"}>
-              {children}
+              {renderChildren(children)}
             </strong>
           ),
           em: ({ children }) => (
@@ -131,10 +142,10 @@ export function MarkdownView({ source, tone = "light", linkMode = "default" }: P
             <em className={isHud
               ? "not-italic bg-amber-300/30 px-0.5 rounded"
               : "not-italic bg-amber-200/70 px-0.5 rounded"}>
-              {children}
+              {renderChildren(children)}
             </em>
           ),
-          del: ({ children }) => <del className="text-[#86868b] line-through">{children}</del>,
+          del: ({ children }) => <del className="text-[#86868b] line-through">{renderChildren(children)}</del>,
 
           // ===== Links =====
           a: ({ href, children }) => {
@@ -163,7 +174,7 @@ export function MarkdownView({ source, tone = "light", linkMode = "default" }: P
             <blockquote className={isHud
               ? "my-3 border-l-4 border-cyan-400/60 bg-cyan-300/5 pl-3 pr-2 py-1.5 text-cyan-50/90 rounded-r"
               : "my-3 border-l-4 border-blue-400 bg-blue-50/60 pl-3 pr-2 py-1.5 text-[#1d1d1f] rounded-r"}>
-              {children}
+              {renderChildren(children)}
             </blockquote>
           ),
 
@@ -179,8 +190,8 @@ export function MarkdownView({ source, tone = "light", linkMode = "default" }: P
           thead: ({ children }) => <thead className={tableHeaderBg}>{children}</thead>,
           tbody: ({ children }) => <tbody>{children}</tbody>,
           tr: ({ children }) => <tr className={`${tableRowAlt}`}>{children}</tr>,
-          th: ({ children }) => <th className={`border ${tableBorder} px-2.5 py-1.5 text-left font-bold align-top whitespace-nowrap`}>{children}</th>,
-          td: ({ children }) => <td className={`border ${tableBorder} px-2.5 py-1.5 align-top whitespace-pre-wrap [&:first-child]:font-semibold`}>{children}</td>,
+          th: ({ children }) => <th className={`border ${tableBorder} px-2.5 py-1.5 text-left font-bold align-top whitespace-nowrap`}>{renderChildren(children)}</th>,
+          td: ({ children }) => <td className={`border ${tableBorder} px-2.5 py-1.5 align-top whitespace-pre-wrap [&:first-child]:font-semibold`}>{renderChildren(children)}</td>,
 
           // ===== Images (将来挿入予定) =====
           img: ({ src, alt }) => (
@@ -198,6 +209,28 @@ export function MarkdownView({ source, tone = "light", linkMode = "default" }: P
         ),
       )}
     </div>
+  );
+}
+
+function MemberLinkedChildren({
+  children,
+  enabled,
+  linkClassName,
+}: {
+  children: ReactNode;
+  enabled: boolean;
+  linkClassName: string;
+}) {
+  if (!enabled) return <>{children}</>;
+  return (
+    <>
+      {Children.map(children, (child) => {
+        if (typeof child === "string") {
+          return <LinkedMemberText text={child} linkClassName={linkClassName} />;
+        }
+        return child;
+      })}
+    </>
   );
 }
 

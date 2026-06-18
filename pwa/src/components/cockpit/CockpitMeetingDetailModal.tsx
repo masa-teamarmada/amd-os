@@ -216,14 +216,14 @@ function UpcomingMeetingBody({
             </span>
           </div>
           <div className="text-[13px] leading-relaxed text-amber-950 [&_h2]:mt-3 [&_h2]:mb-1 [&_h2]:border-b [&_h2]:border-amber-300 [&_h2]:pb-1 [&_h2]:text-[14px] [&_h2]:font-bold [&_p]:my-2">
-            <MarkdownView source={meeting.narrativeMd} />
+            <MarkdownView source={meeting.narrativeMd} memberLinks />
           </div>
         </section>
       )}
 
       {!meeting.narrativeMd && meeting.summaryShort && (
         <UpcomingBriefSection title="まず読む">
-          <MarkdownView source={meeting.summaryShort} />
+          <MarkdownView source={meeting.summaryShort} memberLinks />
         </UpcomingBriefSection>
       )}
 
@@ -294,7 +294,7 @@ function UpcomingProseSection({
       <div className="mt-3 space-y-3 text-[13px] leading-relaxed text-[#1d1d1f] [&_strong]:font-bold [&_strong]:text-black [&_mark]:bg-amber-100 [&_p]:my-0">
         {items.map((item, idx) => (
           <div key={idx} className="rounded-md bg-[#fafafa] px-3 py-2">
-            <MarkdownView source={item} />
+            <MarkdownView source={item} memberLinks />
           </div>
         ))}
       </div>
@@ -691,12 +691,12 @@ function RegularMeetingBody({
             <span>議事録</span>
           </h3>
           <article className="text-[14px] leading-relaxed text-[#1d1d1f] [&_strong]:font-bold [&_strong]:text-black [&_mark]:bg-amber-100">
-            <MarkdownView source={meeting.narrativeMd!} />
+            <MarkdownView source={meeting.narrativeMd!} memberLinks />
           </article>
         </section>
       ) : meeting.summaryShort ? (
         <SummarySection emoji="📝" label="サマリ">
-          <MarkdownView source={meeting.summaryShort} />
+          <MarkdownView source={meeting.summaryShort} memberLinks />
         </SummarySection>
       ) : null}
 
@@ -729,12 +729,12 @@ function PreparationArchive({ prepMeeting }: { prepMeeting: ProjectMeetingSummar
       <div className="space-y-4 border-t border-amber-100 px-3 py-3">
         {prepMeeting.narrativeMd && (
           <section className="text-[13px] leading-relaxed text-amber-950">
-            <MarkdownView source={prepMeeting.narrativeMd} />
+            <MarkdownView source={prepMeeting.narrativeMd} memberLinks />
           </section>
         )}
         {!prepMeeting.narrativeMd && prepMeeting.summaryShort && (
           <section className="text-[13px] leading-relaxed text-amber-950">
-            <MarkdownView source={prepMeeting.summaryShort} />
+            <MarkdownView source={prepMeeting.summaryShort} memberLinks />
           </section>
         )}
         <UpcomingProseSection
@@ -794,7 +794,7 @@ function DialogueNarrativeBody({ meeting }: { meeting: ProjectMeetingSummary }) 
   return (
     <div className="px-5 py-4">
       <article className="text-[14px] leading-relaxed text-[#1d1d1f]">
-        <MarkdownView source={meeting.narrativeMd!} />
+        <MarkdownView source={meeting.narrativeMd!} memberLinks />
       </article>
     </div>
   );
@@ -816,7 +816,7 @@ function DialogueRawBody({ meeting }: { meeting: ProjectMeetingSummary }) {
 
       <SummarySection emoji="📝" label="背景・議題">
         {meeting.summaryShort ? (
-          <MarkdownView source={meeting.summaryShort} />
+          <MarkdownView source={meeting.summaryShort} memberLinks />
         ) : (
           <p className="text-[12px] text-[#86868b] italic">
             背景メモなし。このセッションの経緯やコンテキストは記録されなかった。
@@ -933,7 +933,7 @@ function TopicList({ emoji, label, items, accent }: TopicProps) {
           <li key={idx} className="flex gap-2 items-start">
             <span className={`mt-1.5 shrink-0 text-[10px] ${ACCENT_BULLET[accent]}`}>●</span>
             <div className="flex-1 min-w-0 [&_strong]:font-bold [&_strong]:text-black [&_mark]:bg-amber-100 [&_h1]:text-[15px] [&_h1]:font-bold [&_h2]:text-[14px] [&_h2]:font-bold">
-              <MarkdownView source={it} />
+              <MarkdownView source={it} memberLinks />
             </div>
           </li>
         ))}
@@ -968,7 +968,7 @@ function NarrativeSection({ emoji, label, intro, items, accent, emptyHint }: Nar
             <li key={idx} className="flex gap-2 items-start">
               <span className={`mt-1.5 shrink-0 text-[10px] ${ACCENT_BULLET[accent]}`}>●</span>
               <div className="flex-1 min-w-0 [&_strong]:font-bold [&_strong]:text-black [&_mark]:bg-amber-100 [&_h1]:text-[15px] [&_h1]:font-bold [&_h2]:text-[14px] [&_h2]:font-bold">
-                <MarkdownView source={it} />
+                <MarkdownView source={it} memberLinks />
               </div>
             </li>
           ))}
