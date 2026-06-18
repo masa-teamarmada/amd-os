@@ -178,15 +178,30 @@ cron が機能するには、対象 PJ の契約が Contract Apply 済みであ�
 >
 > KUTE p25 は **役員のみ PJ** (manual/7-1-reward-calc-spec.md L292)。Contract Apply は SX と同型の monthly_average → monthly_fixed 反映。② に税抜月額 654,545 を立て (報酬 cap は ×0.65 = 425,454 を fallback 導出)、③ billing_cycles は触らない。役員は payout から落ちる (再分配しない) ので capped 支払予定 = ¥0 が正しい結果。契約書 = Drive `00_契約_KUTE` の `260501_業務委託契約書(260501_270331)_工学院大学_AMD.PDF` (税込 7,920,000 / 税抜 7,200,000、第7条 毎月均等)。
 
-#### 未 apply の契約保有 PJ 監査 (2026-06-18)
+#### active PJ 全件 Contract Apply カバレッジ監査 (2026-06-18)
 
-> 「全 PJ に Contract Apply を広げる」依頼を受けて、残りの契約保有候補 PJ (p06/p09/p10/p11/p19/p22/p23) を `source_cache` の Drive 抽出テキスト + `billing_cycles` 実績 + **過去セッションの抽出履歴 (transcript)** で監査した (まさ確認込み 2026-06-18)。結論として **追加の Contract Apply 作業が必要な PJ は無い**:
+> 「active PJ すべてに Contract Apply が行き渡っているか」を、**`projects.status='active'` の全件を母集団**にして監査した (まさ確認込み 2026-06-18)。母集団は SQL `SELECT project_id FROM projects WHERE status='active'` で機械的に確定する (= 「契約保有候補」のような恣意的サブセットで監査しない。当初 p07/p24/p26 を母集団から取りこぼした反省)。
 >
-> - **p06 CTB**: variable のまま `end_ym=202702` を反映済み (前セッション)。無期限計上リスクをクローズ済み。
-> - **p10 SE / p19 ZMP**: いずれも **DB が既に正しく、満了月が真に未定なので end_ym=null が最終確定状態** (まさ確定)。p19 ZMP は本契約 ¥300,000/月 (monthly_fixed) + 単発 OkuDoor 開発 ¥2,000,000 (別財布 extra_revenue_json) の **2 契約構造が過去セッションで抽出済み**で、両方反映済み。**触らない**。
-> - **p09 / p11 / p22 / p23**: いずれも終了済 = **非アクティブ (まさ確定で対象外)**。無期限計上リスクなし。
+> **active PJ 全 11 件の apply 状態 (2026-06-18 時点):**
 >
-> 値の出所は契約書 + 算定正本 (manual/7-1) + 過去セッションの抽出記録のみとし、生データから budget の意味を再導出しない方針。CX 型の無期限計上事故 (有限契約に end_ym=null) は p06 でクローズ済みで、p10/p19 の null は「実際に満了月が未確定」なので別物。
+> | PJ | 名前 | category | apply 状態 | 判定 |
+> |---|---|---|---|---|
+> | p00 | AMD | dtsu | — | 会社本体。契約対象外 |
+> | p06 | CTB | dtsu | end_ym=202702 + terms_json (variable, fee_amount=null) | ✅ 反映済 (覚書根拠、無期限リスククローズ) |
+> | p07 | LST | advisor | 未 (fee 全 null / billing_cycles 0 / 実契約 PDF なし) | ⏸ 対象外。請求実体ゼロ = 無期限リスクなし。顧問契約/請求が始まったら apply |
+> | p10 | SE | advisor | monthly_fixed / ¥100,000 / end_ym=null | ✅ 確定 (満了月未定 = end_ym=null が最終状態) |
+> | p19 | ZMP | new_business | monthly_fixed / ¥300,000 + 別財布 extra_revenue_json / end_ym=null | ✅ 確定 (本契約 + 単発 OkuDoor の 2 契約反映済) |
+> | p20 | CX | dtsu | applied term×1 + billing_cycles×4 (③ src 付与) | ✅ フル apply 済 (variable, 202606〜202609) |
+> | p21 | SX | dtsu | applied term×1 / monthly_fixed ¥1,048,000 / 202606〜202703 | ✅ フル apply 済 |
+> | p24 | CLG | advisor | 未 (fee 全 null / billing_cycles 0 / 実契約 PDF なし。contracts は取締役会 cancelled シグナルのみ) | ⏸ 対象外。請求実体ゼロ = 無期限リスクなし。請求が始まったら apply |
+> | p25 | KUTE | ecosystem | applied term×1 / monthly_fixed ¥654,545 / 202605〜202703 | ✅ フル apply 済 (役員のみ PJ、payout ¥0 が正) |
+> | p26 | VasculaX | dtsu | 未 (fee 全 null / billing_cycles 0 / active member 0 / drive_folder なし) | ⏸ 対象外。立ち上げ直後の枠 PJ。請求実体ゼロ = 無期限リスクなし |
+>
+> **結論: active PJ で apply すべき契約が残っている PJ は無い。** 契約があって請求が立っている PJ (p20/p21/p25 = フル apply / p06 = variable で end_ym のみ / p10/p19 = monthly_fixed DB 反映済) はすべて反映済み。p07/p24/p26 は **請求実体ゼロ・apply できる契約書なし**で、無期限計上リスクも無い (end_ym=null でも計上対象月が存在しない)。これらは契約締結 → 請求開始の時点で apply する (= 当面 `⏸ 対象外`)。
+>
+> 終了済 (非アクティブ) の p09/p11/p22/p23 は status≠active なので本監査の母集団外。以前の調査結果は下表に残す (いずれも無期限リスクなしで対象外)。
+>
+> 値の出所は契約書 + 算定正本 (manual/7-1) + 過去セッションの抽出記録のみとし、生データから budget の意味を再導出しない方針。CX 型の無期限計上事故 (有限契約に end_ym=null) は p06 でクローズ済みで、p10/p19 の null は「実際に満了月が未確定」なので別物。p07/p24/p26 の null は「請求実体が無いので計上対象月が存在しない」ので、これも CX 型とは別物。
 
 | PJ | 契約相手 (DB) | source_cache の契約書 | 契約金額 | end_ym 現況 | 判定 |
 |---|---|---|---|---|---|
