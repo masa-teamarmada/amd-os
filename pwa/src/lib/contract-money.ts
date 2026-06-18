@@ -6,6 +6,12 @@ export type ContractPeriodLike = {
 export type ContractFeeLike = ContractPeriodLike & {
   fee_type?: string | null;
   fee_amount?: number | string | null;
+  contract_terms_json?: unknown;
+};
+
+export type BillingBufferLike = {
+  ym: string;
+  budget_buffer_amount?: number | string | null;
 };
 
 const REALIZED_BILLING_STATUSES = new Set([
@@ -70,4 +76,64 @@ export function contractBackedClientAmount({
 
 export function basePayoutCapYen(clientAmountYen: number, bufferYen: number): number {
   return Math.max(0, Math.round(clientAmountYen * 0.65) - Math.max(0, yenNumber(bufferYen)));
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function contractTerms(project: ContractFeeLike | null | undefined): Record<string, unknown> {
+  return asRecord(project?.contract_terms_json) ?? {};
+}
+
+function contractBufferStartYm(project: ContractFeeLike | null | undefined): string | null {
+  const terms = contractTerms(project);
+  const start =
+    terms.companyReserveBufferStartYm ??
+    terms.company_reserve_buffer_start_ym ??
+    terms.rewardBufferStartYm ??
+    terms.billingStartYm ??
+    terms.contractStartYm ??
+    project?.start_ym;
+  return isYm(start) ? start : null;
+}
+
+export function contractReserveBufferTotalYen(project: ContractFeeLike | null | undefined): number {
+  const terms = contractTerms(project);
+  return Math.max(0, yenNumber(
+    terms.companyReserveBufferYen ??
+    terms.company_reserve_buffer_yen ??
+    terms.initialCompanyReserveYen ??
+    terms.initial_company_reserve_yen ??
+    terms.rewardBufferYen ??
+    terms.reward_buffer_yen ??
+    terms.payoutBufferYen ??
+    terms.payout_buffer_yen
+  ));
+}
+
+export function resolveContractReserveBufferYen({
+  project,
+  cycles,
+  ym,
+  invoiceYen,
+}: {
+  project: ContractFeeLike | null | undefined;
+  cycles: BillingBufferLike[];
+  ym: string;
+  invoiceYen: number;
+}): number {
+  const totalBufferYen = contractReserveBufferTotalYen(project);
+  if (totalBufferYen <= 0 || !isYm(ym)) return 0;
+
+  const startYm = contractBufferStartYm(project);
+  if (startYm && ym < startYm) return 0;
+
+  const consumedBefore = cycles
+    .filter((cycle) => isYm(cycle.ym) && cycle.ym < ym)
+    .reduce((sum, cycle) => sum + Math.max(0, yenNumber(cycle.budget_buffer_amount)), 0);
+  const remaining = Math.max(0, totalBufferYen - consumedBefore);
+  const monthlyGrossCap = Math.max(0, Math.round(yenNumber(invoiceYen) * 0.65));
+  return Math.min(remaining, monthlyGrossCap);
 }

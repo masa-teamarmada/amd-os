@@ -10,7 +10,7 @@
 
 ## まず一行で
 
-> **「PJ 予算 × 65% から控除を引いた金額」を、 「その月の MS 消化度合」と「メンバーごとの背負い度 (share)」で按分する**。
+> **「PJ 予算 × 65% から契約バッファと会社留保を先取りした残額」を、 「その月の MS 消化度合」と「メンバーごとの背負い度 (share)」で按分する**。
 
 つまり、 PJ がたくさん進んだ月はみんなの報酬が増えて、 進まなかった月は少なくなる。 同じ MS でも、 share が大きい人ほど多く取る。
 
@@ -39,6 +39,9 @@
 | `totalPay` | cap 前は `basePay + bonusPt`、 cap 後は実支払額 |
 | `grossDue` | `totalPay + carryIn` (= cap 前にメンバーが「本来もらえる額」) |
 | `capBudgetYen` | 月次の支払上限 |
+| `budget_buffer_amount` | 契約上 AMD が先に回収する会社バッファ。当月の `invoice × 65%` から先に差し引き、外部支払 cap には回さない |
+| `companyReserveYen` / `officerReserveYen` | 役員メンバーの当月稼働分を AMD 内部留保として認識した額。支払通知書には出さない |
+| `externalPayoutCapYen` | 契約バッファと役員会社留保を差し引いた後、非役員メンバーの支払/stock返済に使える cap |
 | `carryIn` | 前月から繰越された未払い分 |
 | `stockYen` / `deferredYen` | cap 超過で翌月へ繰り越す分 (= 同義) |
 
@@ -66,11 +69,17 @@ totalPay[member]  = basePay[member] + bonusPt[member]        # bonusPt は現状
 
 # キャップ制御 (= 月次支払上限)
 grossDue[member]  = totalPay[member] + carryIn[member]
-if Σ grossDue ≤ capBudgetYen:
+
+# 会社留保を先取り
+contractBufferYen = billing_cycles.budget_buffer_amount
+companyReserveYen[officer] = min(officerBasePay, remainingCap)
+externalPayoutCapYen = max(0, capBudgetYen − Σ companyReserveYen[officer])
+
+if Σ grossDue[nonOfficer] ≤ externalPayoutCapYen:
     paid[member]     = grossDue[member]
     stockYen[member] = 0
 else:
-    paid[member]     = round(capBudgetYen × grossDue[member] / Σ grossDue)  # 按分
+    paid[member]     = round(externalPayoutCapYen × grossDue[member] / Σ grossDue[nonOfficer])  # 按分
     stockYen[member] = grossDue[member] − paid[member]                       # 翌月へ繰越
 ```
 
@@ -228,17 +237,29 @@ ptUnit        = round(2,340,000 / 100) = 23,400 円/pt
 
 `budget_yen = 0` は「この業務月は支払 cap が 0 円」という明示値。契約開始前に実働がある PJ では、earned / grossDue は発生させつつ、`totalPay = 0`、`stockYen = grossDue` として翌月以降へ繰り越す。`budget_yen IS NULL` は cap 未設定なので、上記 fallback を使う。
 
+`budget_buffer_amount` がある月は、請求額の 65% からその額を先に AMD 回収分として差し引く。契約自動確定では `budget_yen = round(invoiceYen × 0.65) - budget_buffer_amount` として保存するため、報酬計算側が見る `capBudgetYen` はすでにバッファ消化後の値になる。
+
 契約最終月に `ptUnit = round(cycleBudget / totalPt)` の円丸めで少額の stock が残る場合は、最終月の `billing_cycles.budget_yen` に丸め差分を加算して stock を 0 円にする。通常月 cap は契約月額 × 65% を維持し、丸め調整は最終月だけに限定する。
+
+### 会社留保の優先順位
+
+cap は次の順番で消化する。これは全 PJ 共通で、特定 PJ だけの例外ルールにはしない。
+
+1. `billing_cycles.budget_buffer_amount`: 契約台帳にある会社回収バッファを最優先で消化する。`projects.contract_terms_json.companyReserveBufferYen` などに総額があれば、契約自動確定が月ごとに未消化分を `budget_buffer_amount` へ入れる。
+2. `members.is_officer=true` の当月 `basePay`: 役員の当月稼働分は外部支払ではなく AMD の内部留保として扱う。`reward_summary_json.members[].companyReserveYen` / `officerReserveYen` に残し、`totalPay=0` のまま支払通知書からは除外する。
+3. 非役員・支払対象メンバーの `grossDue`: 残った `externalPayoutCapYen` だけを、当月稼働分 + 前月 stock の返済に按分する。
+
+役員の過去 `stockYen` は支払予定へ繰り越さない。役員分は「未払い債務」ではなく会社留保の計画値なので、当月 cap で留保できなかった分は `companyReserveUnfundedYen` として監査用に残すだけにする。非役員メンバーの stock は従来どおり carryIn として翌月以降へ繰り越す。
 
 ### キャップ超過時の按分
 
-`Σ grossDue ≤ cap` ならそのまま全額支払 (= `capped = false`)。
+`Σ grossDue[nonOfficer] ≤ externalPayoutCapYen` なら非役員分はそのまま全額支払 (= `capped = false`)。
 
-`Σ grossDue > cap` のとき:
+`Σ grossDue[nonOfficer] > externalPayoutCapYen` のとき:
 
 ```text
-remainingCap = cap
-remainingGross = Σ grossDue
+remainingCap = externalPayoutCapYen
+remainingGross = Σ grossDue[nonOfficer]
 for each member in members:                      # earnedPt 降順
     if 最後のメンバー:
         paid = remainingCap                       # 端数誤差を最後に押し込む

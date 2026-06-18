@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { WebClient } from "@slack/web-api";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/supabase/api-auth";
-import { decideBudgetApproval, calcPjBudget } from "@/lib/budget-approval";
+import { decideBudgetApproval } from "@/lib/budget-approval";
 import { collectAutoConfirmCandidates } from "@/lib/contract-billing-auto";
 
 export const runtime = "nodejs";
@@ -91,7 +91,8 @@ async function runAutoConfirm(ym: string, dryRun: boolean) {
           projectId: c.resolution.projectId,
           projectName: c.project.project_name,
           invoiceYen: c.resolution.invoiceYen,
-          budgetYen: calcPjBudget(c.resolution.invoiceYen, 0),
+          bufferYen: c.resolution.bufferYen,
+          budgetYen: c.resolution.budgetYen,
           source: c.resolution.source,
           currentStatus: c.cycle?.status ?? "not_started",
         })),
@@ -107,7 +108,7 @@ async function runAutoConfirm(ym: string, dryRun: boolean) {
     const results: Array<Record<string, unknown>> = [];
 
     for (const c of actionable) {
-      const { projectId, invoiceYen } = c.resolution;
+      const { projectId, invoiceYen, bufferYen } = c.resolution;
       try {
         // 1) 請求額を契約由来額でセット (status='reported' へ)
         const now = new Date().toISOString();
@@ -119,7 +120,7 @@ async function runAutoConfirm(ym: string, dryRun: boolean) {
               ym,
               status: "reported",
               budget_reported_amount: invoiceYen,
-              budget_buffer_amount: 0,
+              budget_buffer_amount: bufferYen,
               budget_reported_at: now,
               budget_reported_by: TSUKUYOMI_ACTOR,
               updated_at: now,
@@ -128,13 +129,13 @@ async function runAutoConfirm(ym: string, dryRun: boolean) {
           );
         if (upErr) throw upErr;
 
-        // 2) そのまま承認まで進める (budget_confirmed)。budget_yen = 請求額×0.65
+        // 2) そのまま承認まで進める (budget_confirmed)。budget_yen = 請求額×0.65 - 契約バッファ消化額
         const decided = await decideBudgetApproval(db, {
           projectId,
           ym,
           decision: "approve",
           actor: TSUKUYOMI_ACTOR,
-          note: `契約由来額で自動確定 (source=${c.resolution.source})`,
+          note: `契約由来額で自動確定 (source=${c.resolution.source}, buffer=${fmtYen(bufferYen)})`,
         });
 
         // 3) PM へ事後通知 DM (確認するだけ)
@@ -147,6 +148,7 @@ async function runAutoConfirm(ym: string, dryRun: boolean) {
           projectId,
           projectName: c.project.project_name,
           invoiceYen: decided.invoiceYen,
+          bufferYen: decided.bufferYen,
           budgetYen: decided.budgetYen,
           source: c.resolution.source,
           status: decided.status,

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { REWARD_RATE } from "@/lib/contracts-apply";
+import { basePayoutCapYen, resolveContractReserveBufferYen } from "@/lib/contract-money";
 
 /**
  * 契約由来の「当月の請求額 (税抜)」を決定する。
@@ -16,6 +17,10 @@ export type ContractBillingResolution = {
   ym: string;
   /** 請求額 (税抜) = OS 売上 = budget_reported_amount に入れる額 */
   invoiceYen: number;
+  /** 契約台帳にある会社回収バッファの当月消化額 */
+  bufferYen: number;
+  /** メンバー支払/stock返済に回せる当月cap (= invoice * 65% - buffer) */
+  budgetYen: number;
   source: "monthly_fixed" | "schedule_based";
   feeType: string;
 };
@@ -28,6 +33,7 @@ type ProjectRow = {
   start_ym: string | null;
   end_ym: string | null;
   slack_channel_id: string | null;
+  contract_terms_json: unknown;
 };
 
 type CycleRow = {
@@ -36,6 +42,7 @@ type CycleRow = {
   status: string | null;
   budget_yen: number | string | null;
   budget_reported_amount: number | string | null;
+  budget_buffer_amount: number | string | null;
   contract_source_term_id: string | null;
 };
 
@@ -60,18 +67,38 @@ export function isWithinContractPeriod(project: ProjectRow, ym: string): boolean
   return true;
 }
 
-export function resolveContractBilling(project: ProjectRow, cycle: CycleRow | null, ym: string): ContractBillingResolution | null {
+function withContractBuffer(
+  project: ProjectRow,
+  cycles: CycleRow[],
+  ym: string,
+  invoiceYen: number,
+  source: ContractBillingResolution["source"],
+): ContractBillingResolution {
+  const bufferYen = resolveContractReserveBufferYen({ project, cycles, ym, invoiceYen });
+  return {
+    projectId: project.project_id,
+    ym,
+    invoiceYen,
+    bufferYen,
+    budgetYen: basePayoutCapYen(invoiceYen, bufferYen),
+    source,
+    feeType: source === "monthly_fixed" ? "monthly_fixed" : project.fee_type || "variable",
+  };
+}
+
+export function resolveContractBilling(project: ProjectRow, cycle: CycleRow | null, ym: string, cycles: CycleRow[] = []): ContractBillingResolution | null {
   if (!isWithinContractPeriod(project, ym)) return null;
 
   // schedule_based: 契約 apply が刻んだ月別 budget_yen を請求額へ逆算
-  if (cycle?.contract_source_term_id && num(cycle.budget_yen) > 0) {
-    const invoiceYen = Math.round(num(cycle.budget_yen) / REWARD_RATE);
-    return { projectId: project.project_id, ym, invoiceYen, source: "schedule_based", feeType: project.fee_type || "variable" };
+  if (cycle?.contract_source_term_id && (num(cycle.budget_yen) > 0 || num(cycle.budget_reported_amount) > 0)) {
+    const reportedInvoice = num(cycle.budget_reported_amount);
+    const invoiceYen = reportedInvoice > 0 ? reportedInvoice : Math.round(num(cycle.budget_yen) / REWARD_RATE);
+    return withContractBuffer(project, cycles, ym, invoiceYen, "schedule_based");
   }
 
   // monthly_fixed: projects.fee_amount
   if ((project.fee_type || "").toLowerCase() === "monthly_fixed" && num(project.fee_amount) > 0) {
-    return { projectId: project.project_id, ym, invoiceYen: num(project.fee_amount), source: "monthly_fixed", feeType: "monthly_fixed" };
+    return withContractBuffer(project, cycles, ym, num(project.fee_amount), "monthly_fixed");
   }
 
   return null;
@@ -102,7 +129,7 @@ const PROGRESSED_STATUSES = new Set([
 export async function collectAutoConfirmCandidates(db: SupabaseClient, ym: string): Promise<AutoConfirmCandidate[]> {
   const { data: projects, error: pErr } = await db
     .from("projects")
-    .select("project_id, project_name, fee_type, fee_amount, start_ym, end_ym, slack_channel_id")
+    .select("project_id, project_name, fee_type, fee_amount, start_ym, end_ym, slack_channel_id, contract_terms_json")
     .eq("status", "active");
   if (pErr) throw pErr;
 
@@ -111,18 +138,24 @@ export async function collectAutoConfirmCandidates(db: SupabaseClient, ym: strin
 
   const { data: cycles, error: cErr } = await db
     .from("billing_cycles")
-    .select("project_id, ym, status, budget_yen, budget_reported_amount, contract_source_term_id")
-    .eq("ym", ym)
+    .select("project_id, ym, status, budget_yen, budget_reported_amount, budget_buffer_amount, contract_source_term_id")
+    .lte("ym", ym)
     .in("project_id", projectIds);
   if (cErr) throw cErr;
 
   const cycleByPj = new Map<string, CycleRow>();
-  for (const c of (cycles ?? []) as CycleRow[]) cycleByPj.set(c.project_id, c);
+  const cyclesByPj = new Map<string, CycleRow[]>();
+  for (const c of (cycles ?? []) as CycleRow[]) {
+    const list = cyclesByPj.get(c.project_id) ?? [];
+    list.push(c);
+    cyclesByPj.set(c.project_id, list);
+    if (c.ym === ym) cycleByPj.set(c.project_id, c);
+  }
 
   const out: AutoConfirmCandidate[] = [];
   for (const project of (projects ?? []) as ProjectRow[]) {
     const cycle = cycleByPj.get(project.project_id) ?? null;
-    const resolution = resolveContractBilling(project, cycle, ym);
+    const resolution = resolveContractBilling(project, cycle, ym, cyclesByPj.get(project.project_id) ?? []);
     if (!resolution) continue;
     const alreadyProgressed = PROGRESSED_STATUSES.has(cycle?.status || "");
     out.push({ resolution, project, cycle, alreadyProgressed });

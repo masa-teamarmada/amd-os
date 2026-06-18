@@ -67,6 +67,11 @@ export interface RewardMember {
   extraStockYen?: number;
   regularCarryInYen?: number;
   extraCarryInYen?: number;
+  companyReserveYen?: number;
+  officerReserveYen?: number;
+  companyReserveUnfundedYen?: number;
+  payoutExcluded?: boolean;
+  excludedCarryInYen?: number;
   breakdown: RewardBreakdown[];
 }
 
@@ -88,6 +93,12 @@ export interface RewardSummary {
   extraTotalGrossDueYen?: number;
   regularCarryOverYen?: number;
   extraCarryOverYen?: number;
+  companyReserveYen?: number;
+  officerReserveYen?: number;
+  companyReserveUnfundedYen?: number;
+  externalPayoutCapYen?: number;
+  externalRegularPayoutCapYen?: number;
+  externalExtraPayoutCapYen?: number;
   members: RewardMember[];
   meta?: {
     version: string;
@@ -1003,12 +1014,29 @@ export function applyRewardCapsForMonth(
   caps: { regularCapYen: number; extraCapYen: number; totalCapYen: number },
   regularCarryStock: Map<string, number>,
   extraCarryStock: Map<string, number>,
-  memberMap: Record<string, string> = {}
+  memberMap: Record<string, string> = {},
+  options: {
+    companyReserveMemberIds?: Set<string>;
+    payoutExcludedMemberIds?: Set<string>;
+  } = {}
 ): RewardSummary {
+  const companyReserveMemberIds = options.companyReserveMemberIds ?? new Set<string>();
+  const payoutExcludedMemberIds = new Set<string>([
+    ...(options.payoutExcludedMemberIds ?? new Set<string>()),
+    ...companyReserveMemberIds,
+  ]);
   const memberById = new Map(reward.members.map((member) => [member.memberId, member]));
   const memberIds = new Set([...memberById.keys(), ...regularCarryStock.keys(), ...extraCarryStock.keys()]);
   const regularInputs: CapAllocationInput[] = [];
   const extraInputs: CapAllocationInput[] = [];
+  const regularReserveInputs: CapAllocationInput[] = [];
+  const extraReserveInputs: CapAllocationInput[] = [];
+  const baseByMember = new Map<string, {
+    regularBasePay: number;
+    extraBasePay: number;
+    regularCarryInYen: number;
+    extraCarryInYen: number;
+  }>();
 
   for (const memberId of memberIds) {
     const member = memberById.get(memberId);
@@ -1017,31 +1045,91 @@ export function applyRewardCapsForMonth(
       0,
       Math.round(member?.regularBasePay ?? Math.max(0, (member?.basePay || 0) - extraBasePay))
     );
+    const regularCarryInYen = regularCarryStock.get(memberId) || 0;
+    const extraCarryInYen = extraCarryStock.get(memberId) || 0;
+    baseByMember.set(memberId, { regularBasePay, extraBasePay, regularCarryInYen, extraCarryInYen });
+
+    if (companyReserveMemberIds.has(memberId)) {
+      regularReserveInputs.push({ memberId, basePay: regularBasePay, carryInYen: 0 });
+      extraReserveInputs.push({ memberId, basePay: extraBasePay, carryInYen: 0 });
+    }
+    if (payoutExcludedMemberIds.has(memberId)) continue;
+
     regularInputs.push({
       memberId,
       basePay: regularBasePay,
-      carryInYen: regularCarryStock.get(memberId) || 0,
+      carryInYen: regularCarryInYen,
     });
     extraInputs.push({
       memberId,
       basePay: extraBasePay,
-      carryInYen: extraCarryStock.get(memberId) || 0,
+      carryInYen: extraCarryInYen,
     });
   }
 
   const extraGrossBeforeCap = extraInputs.reduce(
     (sum, item) => sum + Math.max(0, Math.round(item.basePay)) + Math.max(0, Math.round(item.carryInYen)),
     0
-  );
+  ) + extraReserveInputs.reduce((sum, item) => sum + Math.max(0, Math.round(item.basePay)), 0);
   const effectiveExtraCapYen = caps.extraCapYen > 0 ? caps.extraCapYen : extraGrossBeforeCap;
   const effectiveTotalCapYen = caps.regularCapYen + effectiveExtraCapYen;
 
-  const regularAllocations = allocateCap(regularInputs, caps.regularCapYen, { payAllWhenCapMissing: false });
-  const extraAllocations = allocateCap(extraInputs, effectiveExtraCapYen, { payAllWhenCapMissing: false });
+  const regularReserveGross = regularReserveInputs.reduce((sum, item) => sum + Math.max(0, Math.round(item.basePay)), 0);
+  const extraReserveGross = extraReserveInputs.reduce((sum, item) => sum + Math.max(0, Math.round(item.basePay)), 0);
+  const regularReserveCapYen = Math.min(Math.max(0, Math.round(caps.regularCapYen)), regularReserveGross);
+  const extraReserveCapYen = Math.min(Math.max(0, Math.round(effectiveExtraCapYen)), extraReserveGross);
+  const externalRegularPayoutCapYen = Math.max(0, Math.round(caps.regularCapYen) - regularReserveCapYen);
+  const externalExtraPayoutCapYen = Math.max(0, Math.round(effectiveExtraCapYen) - extraReserveCapYen);
+
+  const regularReserveAllocations = allocateCap(regularReserveInputs, regularReserveCapYen, { payAllWhenCapMissing: false });
+  const extraReserveAllocations = allocateCap(extraReserveInputs, extraReserveCapYen, { payAllWhenCapMissing: false });
+  const regularAllocations = allocateCap(regularInputs, externalRegularPayoutCapYen, { payAllWhenCapMissing: false });
+  const extraAllocations = allocateCap(extraInputs, externalExtraPayoutCapYen, { payAllWhenCapMissing: false });
 
   const paidMembers = Array.from(memberIds)
     .map((memberId) => {
       const member = memberById.get(memberId);
+      const baseInfo = baseByMember.get(memberId) ?? { regularBasePay: 0, extraBasePay: 0, regularCarryInYen: 0, extraCarryInYen: 0 };
+      const isPayoutExcluded = payoutExcludedMemberIds.has(memberId);
+      const isCompanyReserveMember = companyReserveMemberIds.has(memberId);
+      if (isPayoutExcluded) {
+        const reserveRegular = regularReserveAllocations.get(memberId) || emptyAllocation();
+        const reserveExtra = extraReserveAllocations.get(memberId) || emptyAllocation();
+        const basePay = baseInfo.regularBasePay + baseInfo.extraBasePay;
+        const companyReserveYen = isCompanyReserveMember ? reserveRegular.paidYen + reserveExtra.paidYen : 0;
+        const excludedCarryInYen = baseInfo.regularCarryInYen + baseInfo.extraCarryInYen;
+        return {
+          ...(member || {
+            memberId,
+            memberName: memberMap[memberId] || memberId,
+            earnedPt: 0,
+            bonusPt: 0,
+            breakdown: [],
+          }),
+          basePay,
+          totalPay: 0,
+          carryInYen: 0,
+          grossDueYen: basePay,
+          cappedFrom: undefined,
+          deferredYen: 0,
+          stockYen: 0,
+          regularBasePay: baseInfo.regularBasePay,
+          extraBasePay: baseInfo.extraBasePay,
+          regularPaidYen: 0,
+          extraPaidYen: 0,
+          regularGrossDueYen: baseInfo.regularBasePay,
+          extraGrossDueYen: baseInfo.extraBasePay,
+          regularStockYen: 0,
+          extraStockYen: 0,
+          regularCarryInYen: 0,
+          extraCarryInYen: 0,
+          companyReserveYen,
+          officerReserveYen: isCompanyReserveMember ? companyReserveYen : 0,
+          companyReserveUnfundedYen: isCompanyReserveMember ? Math.max(0, basePay - companyReserveYen) : 0,
+          payoutExcluded: true,
+          excludedCarryInYen,
+        };
+      }
       const regular = regularAllocations.get(memberId) || emptyAllocation();
       const extra = extraAllocations.get(memberId) || emptyAllocation();
       const basePay = regular.basePay + extra.basePay;
@@ -1076,7 +1164,7 @@ export function applyRewardCapsForMonth(
         extraCarryInYen: extra.carryInYen,
       };
     })
-    .filter((member) => (member.grossDueYen || 0) > 0 || (member.earnedPt || 0) > 0)
+    .filter((member) => (member.grossDueYen || 0) > 0 || (member.earnedPt || 0) > 0 || (member.companyReserveYen || 0) > 0)
     .sort((a, b) => (b.earnedPt || 0) - (a.earnedPt || 0) || (b.grossDueYen || 0) - (a.grossDueYen || 0));
 
   const totalGrossDue = paidMembers.reduce((sum, member) => sum + (member.grossDueYen || 0), 0);
@@ -1087,6 +1175,9 @@ export function applyRewardCapsForMonth(
   const extraTotalGrossDueYen = paidMembers.reduce((sum, member) => sum + (member.extraGrossDueYen || 0), 0);
   const regularCarryOverYen = paidMembers.reduce((sum, member) => sum + (member.regularStockYen || 0), 0);
   const extraCarryOverYen = paidMembers.reduce((sum, member) => sum + (member.extraStockYen || 0), 0);
+  const companyReserveYen = paidMembers.reduce((sum, member) => sum + (member.companyReserveYen || 0), 0);
+  const officerReserveYen = paidMembers.reduce((sum, member) => sum + (member.officerReserveYen || 0), 0);
+  const companyReserveUnfundedYen = paidMembers.reduce((sum, member) => sum + (member.companyReserveUnfundedYen || 0), 0);
 
   return {
     ...reward,
@@ -1094,13 +1185,19 @@ export function applyRewardCapsForMonth(
     totalPaySum: totalPay,
     totalGrossDueYen: totalGrossDue,
     capBudgetYen: effectiveTotalCapYen,
-    capped: carryOverYen > 0,
+    capped: carryOverYen > 0 || companyReserveUnfundedYen > 0,
     carryInYen: carryInTotal,
     carryOverYen,
     monthlyBudget65: effectiveTotalCapYen,
     regularCapBudgetYen: caps.regularCapYen,
     extraCapBudgetYen: effectiveExtraCapYen,
     extraPayoutBudgetYen: effectiveExtraCapYen,
+    externalPayoutCapYen: externalRegularPayoutCapYen + externalExtraPayoutCapYen,
+    externalRegularPayoutCapYen,
+    externalExtraPayoutCapYen,
+    companyReserveYen,
+    officerReserveYen,
+    companyReserveUnfundedYen,
     regularTotalGrossDueYen,
     extraTotalGrossDueYen,
     regularCarryOverYen,
@@ -1232,6 +1329,8 @@ export function buildRewardSummary({
   responsibilities,
   contributionSharesByKey,
   activeMemberIds,
+  companyReserveMemberIds,
+  payoutExcludedMemberIds,
   memberMap,
   billing,
   billingsByYm,
@@ -1244,6 +1343,8 @@ export function buildRewardSummary({
   responsibilities: ResponsibilityRow[];
   contributionSharesByKey?: Map<string, EffectiveContributionShare[]>;
   activeMemberIds?: Set<string>;
+  companyReserveMemberIds?: Set<string>;
+  payoutExcludedMemberIds?: Set<string>;
   memberMap: Record<string, string>;
   billing: BillingRow;
   billingsByYm?: Map<string, BillingRow>;
@@ -1272,7 +1373,10 @@ export function buildRewardSummary({
 
     if (!uncapped) continue;
     const caps = deriveMonthlyRewardCaps({ billing: billingForMonth, planCycle, project, hasCapExtra: unitsForMonth.hasCapExtra });
-    const capped = applyRewardCapsForMonth(uncapped, caps, regularCarryStock, extraCarryStock, memberMap);
+    const capped = applyRewardCapsForMonth(uncapped, caps, regularCarryStock, extraCarryStock, memberMap, {
+      companyReserveMemberIds,
+      payoutExcludedMemberIds,
+    });
     regularCarryStock.clear();
     extraCarryStock.clear();
     for (const member of capped.members) {
@@ -1393,7 +1497,7 @@ export async function syncRewardSummaryForCycle(
       .eq("project_id", projectId)
       .in("status", ACTIVE_PLAN_STATUSES)
       .order("period_start_ym", { ascending: false }),
-    db.from("members").select("member_id, code_name, member_name"),
+    db.from("members").select("member_id, code_name, member_name, is_officer, exclude_from_payout_notice"),
   ]);
 
   if (billingRes.error) throw billingRes.error;
@@ -1479,8 +1583,12 @@ export async function syncRewardSummaryForCycle(
   );
 
   const memberMap: Record<string, string> = {};
+  const companyReserveMemberIds = new Set<string>();
+  const payoutExcludedMemberIds = new Set<string>();
   for (const member of (membersRes.data ?? []) as MemberRow[]) {
     memberMap[member.member_id] = member.code_name || member.member_name || member.member_id;
+    if (member.is_officer) companyReserveMemberIds.add(member.member_id);
+    if (member.is_officer || member.exclude_from_payout_notice) payoutExcludedMemberIds.add(member.member_id);
   }
 
   const contributionPlan = buildContributionAllocationPlan({
@@ -1502,6 +1610,8 @@ export async function syncRewardSummaryForCycle(
     responsibilities: (responsibilitiesRes.data ?? []) as ResponsibilityRow[],
     contributionSharesByKey: contributionPlan.effectiveSharesByKey,
     activeMemberIds,
+    companyReserveMemberIds,
+    payoutExcludedMemberIds,
     memberMap,
     billing,
     billingsByYm: new Map(((billingRangeRes.data ?? []) as BillingRow[]).map((row) => [row.ym, row])),
@@ -1845,8 +1955,10 @@ export async function computeForwardCappedMemberCosts(
   const memberMap: Record<string, string> = {};
   // 役員 / 支払対象外メンバーは支払予定から落とす (i 案: 再配分しない)
   const excludedMemberIds = new Set<string>();
+  const companyReserveMemberIds = new Set<string>();
   for (const member of (membersRes.data ?? []) as MemberRow[]) {
     memberMap[member.member_id] = member.code_name || member.member_name || member.member_id;
+    if (member.is_officer) companyReserveMemberIds.add(member.member_id);
     if (member.is_officer || member.exclude_from_payout_notice) excludedMemberIds.add(member.member_id);
   }
 
@@ -1879,6 +1991,8 @@ export async function computeForwardCappedMemberCosts(
       responsibilities,
       contributionSharesByKey: contributionPlan.effectiveSharesByKey,
       activeMemberIds,
+      companyReserveMemberIds,
+      payoutExcludedMemberIds: excludedMemberIds,
       memberMap,
       billing,
       billingsByYm: billingByYm,

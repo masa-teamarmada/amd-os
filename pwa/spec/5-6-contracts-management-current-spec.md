@@ -147,8 +147,10 @@ MVPでは `CONTRACTS_DRIVE_FOLDER_ID` が設定されているかを画面に出
 
 `collectAutoConfirmCandidates(db, ym)` が active な全 PJ から、その ym で契約由来額を確定できる候補を集める。`resolveContractBilling(project, cycle, ym)` の出所:
 
-1. **schedule_based** … その ym の `billing_cycles.contract_source_term_id` が set かつ `budget_yen > 0` なら、`invoiceYen = budget_yen ÷ 0.65` で請求額を逆算 (Contract Apply が ③ に月別 budget_yen を契約由来として刻んでいる)。
+1. **schedule_based** … その ym の `billing_cycles.contract_source_term_id` が set かつ `budget_reported_amount > 0` または `budget_yen > 0` なら、`budget_reported_amount` を優先し、無ければ `invoiceYen = budget_yen ÷ 0.65` で請求額を逆算する (Contract Apply が ③ に月別 budget_yen を契約由来として刻んでいる)。
 2. **monthly_fixed** … `projects.fee_type='monthly_fixed'` かつ `fee_amount > 0` なら `invoiceYen = fee_amount`。
+
+`projects.contract_terms_json.companyReserveBufferYen` / `company_reserve_buffer_yen` / `initialCompanyReserveYen` などに会社回収バッファ総額がある場合、当月までの `billing_cycles.budget_buffer_amount` 消化済み額を差し引き、残額を `invoiceYen × 0.65` の範囲で当月 `bufferYen` として消化する。`budgetYen = max(0, round(invoiceYen × 0.65) - bufferYen)` がメンバー支払/stock返済に回る当月 cap になる。これは SX 専用ではなく全 PJ 共通。
 
 ### 安全弁
 
@@ -158,8 +160,8 @@ MVPでは `CONTRACTS_DRIVE_FOLDER_ID` が設定されているかを画面に出
 
 ### 確定の流れ (1 PJ あたり)
 
-1. `billing_cycles` を upsert: `status='reported'` / `budget_reported_amount=invoiceYen` / `budget_buffer_amount=0` / `budget_reported_by=つくよみ(契約自動確定)`。
-2. `decideBudgetApproval(db, {decision:'approve', actor:'つくよみ(契約自動確定)'})` で `budget_confirmed` まで進める。`budget_yen = 請求額 × 0.65` (`calcPjBudget`)。`billing_log` に承認行が残る。
+1. `billing_cycles` を upsert: `status='reported'` / `budget_reported_amount=invoiceYen` / `budget_buffer_amount=bufferYen` / `budget_reported_by=つくよみ(契約自動確定)`。
+2. `decideBudgetApproval(db, {decision:'approve', actor:'つくよみ(契約自動確定)'})` で `budget_confirmed` まで進める。`budget_yen = 請求額 × 0.65 - budget_buffer_amount` (`calcPjBudget`)。`billing_log` に承認行が残る。
 3. その PJ の PM (`project_members.is_pm=true AND is_active=true` → `members.slack_id`) へ Slack DM で事後通知 (つくよみ口調、「契約どおり自動で確定しておいたよ〜」+ コックピットボタン)。通知失敗は致命ではない (確定自体は済んでいる)。
 
 ### Contract Apply との関係
@@ -175,6 +177,8 @@ cron が機能するには、対象 PJ の契約が Contract Apply 済みであ�
 | p25 (KUTE) | 学校法人工学院大学 | 202605〜202703 (11ヶ月) | monthly_average | monthly_fixed / 654,545 | d35d3184 |
 
 > 上表は **フル Contract Apply パイプライン (`contracts` 親行 + `applied` な `contract_terms` + ①②③ 反映) を通した PJ** のみ。p06 CTB は variable 契約で fee_amount を立てられないため term は作らず、`end_ym=202702` と `contract_terms_json` メタだけを直接反映した (= 下記「未 apply の契約保有 PJ 監査」の実施状況を参照)。
+>
+> SX p21 は、契約開始前の役員事前稼働分 800,000 円を AMD 回収バッファとして `projects.contract_terms_json.companyReserveBufferYen=800000` / `companyReserveBufferStartYm=202606` に保存済み。契約自動確定は 202606 に 681,200 円、202607 に 118,800 円を `billing_cycles.budget_buffer_amount` として消化し、残った cap だけを役員会社留保・非役員支払/stock返済へ回す。
 >
 > KUTE p25 は **役員のみ PJ** (manual/7-1-reward-calc-spec.md L292)。Contract Apply は SX と同型の monthly_average → monthly_fixed 反映。② に税抜月額 654,545 を立て (報酬 cap は ×0.65 = 425,454 を fallback 導出)、③ billing_cycles は触らない。役員は payout から落ちる (再分配しない) ので capped 支払予定 = ¥0 が正しい結果。契約書 = Drive `00_契約_KUTE` の `260501_業務委託契約書(260501_270331)_工学院大学_AMD.PDF` (税込 7,920,000 / 税抜 7,200,000、第7条 毎月均等)。
 

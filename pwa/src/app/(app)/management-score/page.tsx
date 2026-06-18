@@ -844,14 +844,17 @@ function buildProjectMonthlyFinanceRows({
     for (const member of rewardSummaryMembers(cycle.reward_summary_json)) {
       const totalPay = numberValue(member.totalPay ?? member.total_pay);
       const stock = numberValue(member.stockYen ?? member.stock_yen ?? member.deferredYen ?? member.deferred_yen);
+      const companyReserveYen = numberValue(
+        member.companyReserveYen ?? member.company_reserve_yen ?? member.officerReserveYen ?? member.officer_reserve_yen
+      );
       const memberId = rewardMemberId(member);
       const isOfficer = officerMemberIds.has(memberId);
-      if (payoutExcludedMemberIds.has(memberId)) continue;
       if (isOfficer) {
-        officerPayoutYen += totalPay;
-      } else {
-        payoutYen += totalPay;
+        officerPayoutYen += companyReserveYen || totalPay;
+        continue;
       }
+      if (payoutExcludedMemberIds.has(memberId)) continue;
+      payoutYen += totalPay;
       stockYen += stock;
     }
     const project = projectMap.get(cycle.project_id);

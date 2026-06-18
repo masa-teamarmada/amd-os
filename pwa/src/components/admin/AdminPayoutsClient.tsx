@@ -59,6 +59,10 @@ type RewardMember = {
   gross_due_yen?: number;
   stockYen?: number;
   stock_yen?: number;
+  companyReserveYen?: number;
+  company_reserve_yen?: number;
+  officerReserveYen?: number;
+  officer_reserve_yen?: number;
 };
 
 type RewardSummary = {
@@ -558,7 +562,12 @@ function cockpitModalContext(cockpit: CockpitData, ym: string) {
   };
 }
 
-function buildEntries(cycles: BillingCycle[], memberMap: Map<string, string>, excludedMemberIds: Set<string> = new Set()): PayoutEntry[] {
+function buildEntries(
+  cycles: BillingCycle[],
+  memberMap: Map<string, string>,
+  excludedMemberIds: Set<string> = new Set(),
+  options: { useCompanyReserveYen?: boolean } = {}
+): PayoutEntry[] {
   const entries: PayoutEntry[] = [];
 
   for (const cycle of cycles) {
@@ -569,7 +578,12 @@ function buildEntries(cycles: BillingCycle[], memberMap: Map<string, string>, ex
       if (!memberId) continue;
       if (excludedMemberIds.has(memberId)) continue;
 
-      const totalPay = Math.round(numberValue(member.totalPay ?? member.total_pay));
+      const companyReserveYen = Math.round(numberValue(
+        member.companyReserveYen ?? member.company_reserve_yen ?? member.officerReserveYen ?? member.officer_reserve_yen
+      ));
+      const totalPay = options.useCompanyReserveYen
+        ? companyReserveYen || Math.round(numberValue(member.totalPay ?? member.total_pay))
+        : Math.round(numberValue(member.totalPay ?? member.total_pay));
       const carryInYen = Math.round(numberValue(member.carryInYen ?? member.carry_in_yen));
       const stockYen = Math.round(numberValue(member.stockYen ?? member.stock_yen ?? member.deferredYen ?? member.deferred_yen));
       const grossDueYen = Math.round(numberValue(member.grossDueYen ?? member.gross_due_yen ?? member.cappedFrom ?? member.capped_from ?? totalPay));
@@ -705,7 +719,8 @@ function buildProjectMonthlyFinanceRows({
   const officerEntries = buildEntries(
     cycles,
     memberMap,
-    new Set([...memberMap.keys()].filter((memberId) => !officerMemberIds.has(memberId) || payoutExcludedMemberIds.has(memberId)))
+    new Set([...memberMap.keys()].filter((memberId) => !officerMemberIds.has(memberId))),
+    { useCompanyReserveYen: true }
   );
   const nonOfficerByCycle = new Map<string, PayoutEntry[]>();
   const officerByCycle = new Map<string, PayoutEntry[]>();
@@ -969,9 +984,10 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
     () => buildEntries(
       data?.cycles ?? [],
       memberMap,
-      new Set((data?.members ?? []).filter((member) => !member.is_officer || payoutExcludedMemberIds.has(member.member_id)).map((member) => member.member_id))
+      new Set((data?.members ?? []).filter((member) => !member.is_officer).map((member) => member.member_id)),
+      { useCompanyReserveYen: true }
     ),
-    [data?.cycles, data?.members, memberMap, payoutExcludedMemberIds]
+    [data?.cycles, data?.members, memberMap]
   );
 
   const cycleStats = useMemo(() => {

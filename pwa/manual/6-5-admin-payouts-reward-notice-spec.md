@@ -287,6 +287,12 @@ GAS 064 が読む:
 - `billing_cycles.ym` も同じ意味で **業務 ym** を指す
 - 「3 月分の支払を 4 月末に振り込む」場合、 `ym='202603'` の `billing_cycles` を見て、 `payout_notices.ym='202603'` で発行、 振込実行日は別管理
 
+## 会社留保 / 契約バッファの扱い
+
+`/admin/payouts` の支払通知書対象は、非役員かつ `exclude_from_payout_notice=false` のメンバーだけ。`members.is_officer=true` のメンバーは支払通知書から外すが、当月稼働分は `reward_summary_json.members[].companyReserveYen` / `officerReserveYen` として AMD の内部留保に残す。
+
+先12か月の PJ 収支表では、`billing_cycles.budget_buffer_amount` を「契約バッファ」、役員の `companyReserveYen` を「役員分」として表示する。最終収支では役員分は同額を `officerOffsetYen` で戻すため、外部流出ではなく会社残高に残る計画値として扱う。非役員メンバーの `stockYen` は従来どおり翌月以降の支払予定に繰り越す。
+
 ## ZMP 追加開発 cap 外支払 (= 例外運用)
 
 ZMP の通常固定費は 300,000 円 × 65% = 195,000 円が cap。 OkuDoor 追加開発などで追加受託分を支払うときの運用:
