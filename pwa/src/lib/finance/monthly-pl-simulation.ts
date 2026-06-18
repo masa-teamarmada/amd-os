@@ -78,13 +78,18 @@ export interface MonthlyPlProjectRevenue {
    * monthlyRevenue (= 上書き・持続) と違い「立つ月だけ加算」セマンティクス (spot と同じ)。
    * 原価は cap_extra プールの uncapped 報酬として internalMemberCost 経由で別途計上済みなので、
    * extraRevenue には rateMember/rateCloser の自動原価計算を **通さない** (二重計上を防ぐ)。
-   * 入金は同月キャッシュ (delay 0) として cashRevenue に乗る (B-a)。
    * 開発期間按分は live-inputs 層 (live-monthly-pl-inputs.ts) で総額÷期間月数を各月行に展開して
    * 注入する (= pt消化と同じ「期間で割る」思想)。エンジンはここで来た ym ごとの額を素直に加算する。
    * 実例: OkuDoor システム開発 ¥2,000,000 (p19, 開発期間 202605〜202610 を6ヶ月按分≒¥333,333/月)。
    */
   extraRevenue?: number | null;
+  /**
+   * 別財布売上のキャッシュ入金。extraRevenue は PL の開発期間按分、extraRevenueCash は請求/入金予定月。
+   * 予実差分を壊さないため、キャッシュ残高(予算)だけこの値を使い、PL 売上は extraRevenue を使う。
+   */
+  extraRevenueCash?: number | null;
   extraRevenueMemo?: string | null;
+  extraRevenueCashMemo?: string | null;
   memo?: string;
 }
 
@@ -349,6 +354,24 @@ function extraRevenueForYm(
   return total;
 }
 
+/**
+ * その月・その PJ の別財布（別契約）キャッシュ入金の合計。
+ * PL按分 (extraRevenue) とは分離し、請求/支払サイトから解決した入金月だけに立てる。
+ */
+function extraRevenueCashForYm(
+  projectId: string,
+  ym: number,
+  overrides: MonthlyPlProjectRevenue[]
+): number {
+  let total = 0;
+  for (const override of overrides) {
+    if (override.projectId !== projectId || override.ym !== ym) continue;
+    const v = override.extraRevenueCash;
+    if (v !== null && v !== undefined && Number.isFinite(v)) total += v;
+  }
+  return total;
+}
+
 function calcLoanSchedule(loan: MonthlyPlLoan): LoanScheduleRow[] {
   const principal = numberOr(loan.principal);
   const monthlyRate = numberOr(loan.annualRate) / 12;
@@ -430,6 +453,8 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
       ym: numberOr(row.ym),
       monthlyRevenue: optionalNumber(row.monthlyRevenue),
       internalMemberCost: optionalNumber(row.internalMemberCost),
+      extraRevenue: optionalNumber(row.extraRevenue),
+      extraRevenueCash: optionalNumber(row.extraRevenueCash),
     }))
     .sort((a, b) => a.ym - b.ym);
   const loans = (rawInputs.loans ?? []).map((row) => ({
@@ -499,16 +524,14 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
     for (const pj of projects) {
       if (pj.billingType === "annual_march") continue;
       const pjRev = projectRevenueForYm(pj, scheduleYm, projectRevenues);
-      const pjExtra = extraRevenueForYm(pj.projectId, scheduleYm, projectRevenues);
-      if (pjRev === 0 && pjExtra === 0) continue;
+      const pjExtraCash = extraRevenueCashForYm(pj.projectId, scheduleYm, projectRevenues);
+      if (pjRev === 0 && pjExtraCash === 0) continue;
 
       const delay = Math.max(0, Math.floor(pj.cashDelayMonths ?? 0));
       let cashYm = addMonthsToYm(scheduleYm, delay);
       if (pj.cashStartYm && cashYm < pj.cashStartYm) cashYm = pj.cashStartYm;
       if (pjRev > 0) addCashRevenue(cashYm, pj.projectId, pjRev);
-      // 別財布売上は同月キャッシュ (delay 0, B-a)。本契約の入金遅延ルールとは独立。
-      // 開発期間按分済みの ym ごとの額がそのまま入金月になる。
-      if (pjExtra > 0) addCashRevenue(scheduleYm, pj.projectId, pjExtra);
+      if (pjExtraCash > 0) addCashRevenue(scheduleYm, pj.projectId, pjExtraCash);
     }
     scheduleYm = nextYm(scheduleYm);
   }

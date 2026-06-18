@@ -6,6 +6,7 @@ import {
   type ExtraRevenueEntry,
 } from "@/lib/finance/extra-revenue";
 import { isWithinContractPeriod } from "@/lib/contract-money";
+import { computePaymentYmByRule } from "@/lib/payment-rules";
 import type {
   MonthlyPlInputs,
   MonthlyPlParams,
@@ -48,6 +49,8 @@ type ProjectRow = {
   start_ym: string | null;
   end_ym: string | null;
   freeze_from_ym: string | null;
+  payment_due_rule: string | null;
+  payment_due_day: number | null;
 };
 
 type BillingRow = {
@@ -60,6 +63,7 @@ type BillingRow = {
 type ExtraRevenueRow = {
   project_id: string;
   ym: string;
+  invoice_ym: string | null;
   extra_revenue_json: ExtraRevenueEntry[] | null;
 };
 
@@ -79,6 +83,34 @@ function num(value: unknown): number {
   if (value == null) return 0;
   const n = typeof value === "number" ? value : Number(value);
   return Number.isFinite(n) ? n : 0;
+}
+
+function cleanYmText(value: string | number | null | undefined): string | null {
+  const ym = String(value ?? "").trim();
+  return /^\d{6}$/.test(ym) ? ym : null;
+}
+
+function ymFromIsoDate(value: string | null | undefined): string | null {
+  const match = String(value ?? "").trim().match(/^(\d{4})-(\d{2})/);
+  if (!match) return null;
+  return `${match[1]}${match[2]}`;
+}
+
+function resolveExtraRevenueCashYm(
+  row: ExtraRevenueRow,
+  entry: ExtraRevenueEntry,
+  project: ProjectRow | undefined
+): number | null {
+  const explicitInvoiceYm = cleanYmText(row.invoice_ym);
+  if (explicitInvoiceYm) return ymToInt(explicitInvoiceYm);
+
+  const billingYm = ymFromIsoDate(entry.billing_date);
+  if (billingYm) {
+    return ymToInt(computePaymentYmByRule(billingYm, project?.payment_due_rule ?? null, project?.payment_due_day ?? null));
+  }
+
+  // Legacy entries without billing_date keep the historical behavior: cash in billing_cycles.ym.
+  return ymToInt(row.ym);
 }
 
 export interface BuildLiveInputsOptions {
@@ -126,7 +158,7 @@ export async function buildLiveMonthlyPlInputs(
   const [projectsRes, recurringRes] = await Promise.all([
     supabase
       .from("projects")
-      .select("project_id, project_name, status, fee_type, fee_amount, start_ym, end_ym, freeze_from_ym")
+      .select("project_id, project_name, status, fee_type, fee_amount, start_ym, end_ym, freeze_from_ym, payment_due_rule, payment_due_day")
       .limit(500),
     supabase
       .from("company_finance_recurring_items")
@@ -203,15 +235,17 @@ export async function buildLiveMonthlyPlInputs(
 
   // ---- 別財布（別契約）売上: 全 PJ の billing_cycles.extra_revenue_json ----
   // 本契約 (定額/変動) とは別枠の単発受託売上。fee_type を問わず全 PJ から読む。
-  // エンジンには extraRevenue として注入され、売上・粗利・消費税・CF に加算される
+  // エンジンには PL 用 extraRevenue とキャッシュ用 extraRevenueCash を分けて注入する。
+  // extraRevenue は売上・粗利・消費税に、extraRevenueCash は入金月の CF/残高にだけ乗る
   // (原価は cap_extra プールで別途計上済みのため自動原価率は通さない)。
   // period_start_ym〜period_end_ym 指定があれば開発期間で月次按分 (B-a, 2026-06-16)、
-  // 無ければ billing_cycles.ym へ一括計上 (後方互換)。
+  // 無ければ billing_cycles.ym へ一括計上 (後方互換)。キャッシュは invoice_ym 優先、
+  // 無ければ billing_date 月 + PJ 支払サイト (null は翌月末) で解決する。
   const allProjectIds = projects.map((p) => p.project_id);
   if (allProjectIds.length > 0) {
     const extraRes = await supabase
       .from("billing_cycles")
-      .select("project_id, ym, extra_revenue_json")
+      .select("project_id, ym, invoice_ym, extra_revenue_json")
       .in("project_id", allProjectIds)
       .not("extra_revenue_json", "is", null)
       .limit(2000);
@@ -230,6 +264,23 @@ export async function buildLiveMonthlyPlInputs(
         extraRevenue: ex.amount,
         extraRevenueMemo: ex.labels.join(", ") || "別財布売上",
       });
+    }
+
+    for (const row of (extraRes.data ?? []) as ExtraRevenueRow[]) {
+      const entries = Array.isArray(row.extra_revenue_json) ? row.extra_revenue_json : [];
+      for (const entry of entries) {
+        const total = Math.round(num(entry?.amount_tax_excl));
+        if (total <= 0) continue;
+        const cashYm = resolveExtraRevenueCashYm(row, entry, projectById.get(row.project_id));
+        if (cashYm == null || cashYm < startYm || cashYm > endInt) continue;
+        const label = typeof entry?.label === "string" && entry.label.length > 0 ? entry.label : "別財布売上";
+        projectRevenues.push({
+          projectId: row.project_id,
+          ym: cashYm,
+          extraRevenueCash: total,
+          extraRevenueCashMemo: `${label} cash receipt`,
+        });
+      }
     }
   }
 

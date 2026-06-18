@@ -3,7 +3,8 @@
  *
  * 本契約 (定額/変動) とは別枠の単発受託売上を、開発期間 (period_start_ym〜period_end_ym)
  * で月次按分して各月へ展開する。pt 消化と同じ「期間で割る」思想 (B-a, 2026-06-16 まさ確定)。
- * PL 計上もキャッシュ入金も同じ按分月。period 未指定なら billing_cycles.ym へ一括 (後方互換)。
+ * これは PL / PJ収支用の按分であり、キャッシュ入金月は呼び出し側が invoice_ym / billing_date /
+ * payment_due_rule から別途解決する。period 未指定なら billing_cycles.ym へ一括 (後方互換)。
  *
  * この計算は PJ 収支を出す全コンポーネントで共有する。過去 (2026-06-17)、按分を
  * `/management-score` の live builder にだけ実装し `/admin/payouts` の独自 forecast に
