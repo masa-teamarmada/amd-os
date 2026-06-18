@@ -19,6 +19,7 @@ PJ コックピット (`/project/[projectId]/cockpit`) の **MTGサマリ枠** �
 - future Calendar sync: H-1 automation が **今日0:00 JSTから今後60日** の確定Calendar予定を `POST /api/meeting-prep/calendar-sync` に渡す。前回議事録がまだ無いPJでも、Calendar上で確定しているMTGは `upcoming:<calendar_event_id>` としてカード化する。ただし weekly recurring MTG は series ごとに次回1件だけを保存・表示対象にし、それ以降の回はノイズとして同期/一覧表示しない。今日すでに開始済みの予定も、当日中はDrive資料やURL補強のため同期対象にする。PJ Drive folder に会議日フォルダや関連資料がある場合は、`drive_files` として予定カードの `関連Drive資料` に出す。
 - 会議後 workflow: PWA `POST /api/meeting-workflow/finalize` が、routine 生成済み議事録の `decided` / `next_actions` / `narrative_md` から **日時まで明確な次MTG候補を複数抽出**し、次MTGカード・action item・Slack nudge 予約を作る。完了イベントは `POST /api/meeting-workflow/actions/:actionId/complete` で受ける。ここでは **LLM を呼ばない**。
 - Notion 文字起こし導線: PWA の MTG サマリ / 予定MTGカードは、`project_meeting_summaries.notion_url` があれば **Notion文字起こしを開く** CTA を出す。未連携の場合、予定MTGは `source_url` の Calendar 予定を開き、Notion 側で録音/文字起こしを開始しやすくする。PWA から Notion の録音開始 API / 自動録音開始は呼ばない。あとから L6 が `notion_url` を埋めた場合に拾えるよう、カード上部に `メモ再読込` を置く。
+- H-1 reviewer: H-1保存直後に別automation `amd-os-l6-meeting-reviewer` が raw source と保存済み `summary_short` / `narrative_md` / 配列を突き合わせる。rawに CEO/社長/代表/VC/フルコミット/地元勢/PoC/PR など重大な経営判断があるのにH-1要約が薄い場合、H-1本文を自動上書きせず `l2_coverage_gaps` + `l2_notifications(l2_kind='coverage_gap')` に `proposed_target_l2='strategy_signal'` の review candidate を出す。詳細は [`../scheduled-tasks/amd-os-l6-meeting-reviewer/SKILL.md`](../scheduled-tasks/amd-os-l6-meeting-reviewer/SKILL.md)。
 
 このドキュメントは **PWA / GAS / Supabase 横断の正本**。
 
@@ -50,6 +51,14 @@ PJ コックピット (`/project/[projectId]/cockpit`) の **MTGサマリ枠** �
 - 手動修正 API (`POST /api/meeting-summary/manual-update`) も同じ保護を持ち、明示的な maintenance escape なしに rich narrative を空欄や箇条書きだけへ落とさない。
 - 過去議事録の手動 backfill でも、`generated_by_model='codex_manual_*'` などで `summary_short` と4配列だけを入れる運用は禁止。まず narrative を作ってから upsert する。
 - 表示側は `notion:<page_id>` 由来かつ `narrative_md` なしの弱い手動 duplicate が、同じ `project_id + meeting_date + normalized title` の強い row と並ぶ場合だけ非表示にする。DBからは消さず、正しい canonical row を読ませるための UI safety net。
+
+### H-1 reviewer (重大情報の落ち検知)
+
+H-1 extractor と H-1 reviewer は役割を分ける。extractor は「会議を読める議事録にする」。reviewer は「rawにある重大な経営判断が、保存済み要約で薄く丸まっていないか」を見る。
+
+reviewer は raw Notion 文字起こし / Gmail / Drive / Slack / Calendar と、保存済み `summary_short` / `narrative_md` / `decided` / `progress` / `next_actions` / `risks` を比較する。特に `CEO`、`社長`、`代表`、`引き受け`、`VC`、`フルコミット`、`兼任`、`地元`、`ダイキ`、`三浦工業`、`伊予銀`、`今治造船`、`PoC`、`プレスリリース` が raw に密集しているのに、H-1保存結果が「役割分担」「BizDev」「連携候補」程度に丸まっている場合は、`coverage_gap` として通知する。
+
+reviewer は正本を直接変更しない。出力は `l2_coverage_gaps(review_status='candidate', gap_class='extractor_miss', proposed_target_l2='strategy_signal')` と `l2_notifications(l2_kind='coverage_gap')`。採否・本来の `project_strategy_signals` 反映は `/notifications` / `/admin/coverage-gaps` で行う。deterministic guard は `pwa/scripts/lib/h1_meeting_summary_reviewer.mjs`、回帰fixture は `pwa/scripts/__fixtures__/h1_meeting_summary_reviewer_sx_pivot.json`。
 
 ---
 

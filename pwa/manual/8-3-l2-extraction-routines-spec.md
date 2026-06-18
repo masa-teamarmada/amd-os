@@ -215,6 +215,13 @@ SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 
 - `notion_url` も `source_url` も無い場合は `Notion未連携` と表示し、DB write / DDL / Notion page 自動作成はしない。
 - L6 automation が後から `notion_url` / `eventId` を補完した場合は、PWA の `メモ再読込` で `project_meeting_summaries` を再取得する。
 
+**H-1 reviewer (= 重大情報の落ち検知 / L3 Coverage接続)**:
+- H-1保存直後または H-1 run end で、別automation `amd-os-l6-meeting-reviewer` が直近更新された開催済みMTGを再読する。
+- reviewer は raw Notion/Gmail/Drive/Slack/Calendar と、保存済み `summary_short` / `narrative_md` / `decided` / `progress` / `next_actions` / `risks` を突き合わせる。raw transcript 側に CEO/社長/代表/VC/フルコミット/地元勢/PoC/PR などの重大な経営判断があるのに H-1要約が薄い場合だけ、抽出漏れ疑いとして扱う。
+- 出力は `POST /api/coverage-gaps/extract` 経由の `l2_coverage_gaps(review_status='candidate', gap_class='extractor_miss', proposed_target_l2='strategy_signal')` + `l2_notifications(l2_kind='coverage_gap')`。H-1 row は自動上書きしない。
+- H-1 run summary には `H-1 reviewer: review_required: ...` または `H-1 reviewer: no critical omissions detected` を追記する。
+- deterministic guard は `pwa/scripts/lib/h1_meeting_summary_reviewer.mjs`、CLI は `pwa/scripts/review_h1_meeting_summary.mjs`、fixture 回帰は `npm run test:h1-meeting-summary-reviewer` で検査する。
+
 **出力**:
 - `project_meeting_summaries` (PK=`meeting_id`) + `meeting_notifications` (旧)
 - `meeting_assets` (= PWA から追加される private Storage 添付。routine は必要に応じて caption / extracted_text を読む)
