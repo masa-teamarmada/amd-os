@@ -1,10 +1,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   PM_LOCKED_PROGRESS_SOURCES,
-  anchoredExpectedCumPctForYm,
+  effectiveCumPctForYm,
   milestonePeriod,
   type ProgressAnchor,
 } from "@/lib/ms-schedule-shared";
+import {
+  basePayoutCapYen,
+  contractBackedClientAmount,
+  monthlyFixedClientAmount,
+} from "@/lib/contract-money";
 
 type SupabaseLike = SupabaseClient;
 
@@ -108,6 +113,8 @@ type ProjectRow = {
   project_id: string;
   fee_type?: string | null;
   fee_amount?: number | string | null;
+  start_ym?: string | null;
+  end_ym?: string | null;
 };
 
 type PlanCycleRow = {
@@ -708,10 +715,16 @@ function buildPayableCumMap(
     for (const m of monthsToCheck) {
       if (m > ym) continue;
       const locked = lockedByYm.get(m);
-      const cum = locked
-        ? lockedConsumedPt(locked, points)
-        : startYm && endYm
-          ? Math.round(anchoredExpectedCumPctForYm(m, startYm, endYm, anchorBefore(m)) * points) / 100
+      const cum = startYm && endYm
+        ? Math.round(effectiveCumPctForYm(
+          m,
+          startYm,
+          endYm,
+          anchorBefore(m),
+          locked ? (points > 0 ? (lockedConsumedPt(locked, points) / points) * 100 : numberValue(locked.progress_pct)) : null
+        ) * points) / 100
+        : locked
+          ? lockedConsumedPt(locked, points)
           : 0;
       if (cum > payable) payable = cum;
     }
@@ -731,10 +744,8 @@ function deriveRewardBudgetForPt({
 }): number {
   const cycleBudget = numberValue(planCycle?.budget_yen);
   if (cycleBudget > 0) return Math.round(cycleBudget);
-  if (String(project?.fee_type || "").toLowerCase() === "monthly_fixed") {
-    const fee = numberValue(project?.fee_amount);
-    if (fee > 0) return Math.round(fee * 0.65 * cycleMonthCount(planCycle));
-  }
+  const monthlyFee = monthlyFixedClientAmount(project, billing.ym);
+  if (monthlyFee > 0) return Math.round(monthlyFee * 0.65 * cycleMonthCount(planCycle));
   return Math.max(0, Math.round(numberValue(billing.budget_yen)));
 }
 
@@ -747,14 +758,12 @@ function deriveBaseMonthlyRewardBudget({
   planCycle: PlanCycleRow | null;
   project: ProjectRow | null;
 }): number {
-  const reportedAmount = numberValue(billing.budget_reported_amount);
-  if (reportedAmount > 0) {
-    return Math.max(0, Math.round(reportedAmount * 0.65) - Math.round(numberValue(billing.budget_buffer_amount)));
-  }
-  if (String(project?.fee_type || "").toLowerCase() === "monthly_fixed") {
-    const fee = numberValue(project?.fee_amount);
-    if (fee > 0) return Math.round(fee * 0.65);
-  }
+  const clientAmount = contractBackedClientAmount({
+    ym: billing.ym,
+    project,
+    reportedAmount: billing.budget_reported_amount,
+  });
+  if (clientAmount > 0) return basePayoutCapYen(clientAmount, numberValue(billing.budget_buffer_amount));
   const cycleBudget = numberValue(planCycle?.budget_yen);
   if (cycleBudget > 0) return Math.round(cycleBudget / cycleMonthCount(planCycle));
   return Math.max(0, Math.round(numberValue(billing.budget_yen)));
@@ -772,10 +781,8 @@ function deriveMonthlyRewardBudget({
   if (hasExplicitNumber(billing.budget_yen)) {
     return Math.max(0, Math.round(numberValue(billing.budget_yen)));
   }
-  if (String(project?.fee_type || "").toLowerCase() === "monthly_fixed") {
-    const fee = numberValue(project?.fee_amount);
-    if (fee > 0) return Math.round(fee * 0.65);
-  }
+  const monthlyFee = monthlyFixedClientAmount(project, billing.ym);
+  if (monthlyFee > 0) return Math.round(monthlyFee * 0.65);
   const cycleBudget = numberValue(planCycle?.budget_yen);
   if (cycleBudget > 0) return Math.round(cycleBudget / cycleMonthCount(planCycle));
   return 0;
@@ -868,14 +875,8 @@ function derivePersistedCycleBudget({
   }
 
   const reportedAmount = numberValue(billing.budget_reported_amount);
-  if (reportedAmount > 0) {
-    return Math.max(0, Math.round(reportedAmount * 0.65) - Math.round(numberValue(billing.budget_buffer_amount)));
-  }
-
-  if (String(project?.fee_type || "").toLowerCase() === "monthly_fixed") {
-    const fee = numberValue(project?.fee_amount);
-    if (fee > 0) return Math.round(fee * 0.65);
-  }
+  const clientAmount = contractBackedClientAmount({ ym: billing.ym, project, reportedAmount });
+  if (clientAmount > 0) return basePayoutCapYen(clientAmount, numberValue(billing.budget_buffer_amount));
 
   return 0;
 }
@@ -1376,7 +1377,7 @@ export async function syncRewardSummaryForCycle(
       .maybeSingle(),
     db
       .from("projects")
-      .select("project_id, fee_type, fee_amount")
+      .select("project_id, fee_type, fee_amount, start_ym, end_ym")
       .eq("project_id", projectId)
       .maybeSingle(),
     db
@@ -1546,7 +1547,7 @@ export async function computeForwardUncappedMemberCosts(
   const [projectRes, planCyclesRes, membersRes] = await Promise.all([
     db
       .from("projects")
-      .select("project_id, fee_type, fee_amount")
+      .select("project_id, fee_type, fee_amount, start_ym, end_ym")
       .eq("project_id", projectId)
       .maybeSingle(),
     db
@@ -1746,7 +1747,7 @@ export async function computeForwardCappedMemberCosts(
   const [projectRes, planCyclesRes, membersRes] = await Promise.all([
     db
       .from("projects")
-      .select("project_id, fee_type, fee_amount")
+      .select("project_id, fee_type, fee_amount, start_ym, end_ym")
       .eq("project_id", projectId)
       .maybeSingle(),
     db

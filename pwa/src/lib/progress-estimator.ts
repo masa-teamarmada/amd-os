@@ -24,8 +24,7 @@ import {
   isYm,
   ymToIndex,
   indexToYm,
-  expectedCumPctForYm,
-  anchoredExpectedCumPctForYm,
+  proRataFloorCumPctForYm,
   milestonePeriod,
   milestoneSchedule,
   PM_LOCKED_PROGRESS_SOURCES,
@@ -250,7 +249,7 @@ async function applyScheduleAutoProgress(
     for (let idx = startIndex; idx <= lastIndex; idx += 1) {
       const rowYm = indexToYm(idx);
       const anchor = anchorBefore(ms.milestone_id, idx);
-      const expectedPct = anchoredExpectedCumPctForYm(rowYm, periodStartYm, targetYm, anchor);
+      const expectedPct = proRataFloorCumPctForYm(rowYm, periodStartYm, targetYm, anchor);
       if (expectedPct <= 0) continue;
       total++;
 
@@ -282,7 +281,7 @@ async function applyScheduleAutoProgress(
 
       const consumed = Math.round((Number(ms.points || 0) * expectedPct) / 100 * 100) / 100;
       const prevExpected = idx > startIndex
-        ? anchoredExpectedCumPctForYm(indexToYm(idx - 1), periodStartYm, targetYm, anchorBefore(ms.milestone_id, idx - 1))
+        ? proRataFloorCumPctForYm(indexToYm(idx - 1), periodStartYm, targetYm, anchorBefore(ms.milestone_id, idx - 1))
         : 0;
       const note = anchor
         ? `確定アンカー ${anchor.ym}=${anchor.pct}% 起点の月割りデフォルト: ${periodStartYm}〜${targetYm}`
@@ -1553,7 +1552,7 @@ export async function estimateProgress(
   const anchoredExpectedFor = (msId: string): number | null => {
     const schedule = scheduleByMs.get(msId);
     if (!schedule?.startYm || !schedule?.endYm) return null;
-    return anchoredExpectedCumPctForYm(ym, schedule.startYm, schedule.endYm, scheduleAuto.anchorByMs.get(msId) ?? null);
+    return proRataFloorCumPctForYm(ym, schedule.startYm, schedule.endYm, scheduleAuto.anchorByMs.get(msId) ?? null);
   };
   const msListText = estimateMilestones
     .map((ms, i) => {
@@ -1627,7 +1626,7 @@ export async function estimateProgress(
   //    有効値はデフォルト月割り (routine_auto) のまま。
   const validMsIds = new Set(estimateMilestones.map((m) => m.milestone_id));
   const now = new Date().toISOString();
-  let saved = baseSaved;
+  const saved = baseSaved;
   let skipped = baseSkipped;
   let proposed = 0;
   const details: EstimateDetail[] = [...baseDetails];

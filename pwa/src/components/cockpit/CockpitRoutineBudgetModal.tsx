@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { callEdgeFunctionPOST } from "@/lib/supabase/edge-functions";
 import { notifyPlReview } from "@/lib/notify-pl";
+import { isWithinContractPeriod, monthlyFixedClientAmount } from "@/lib/contract-money";
 
 interface Props {
   projectId: string;
@@ -27,6 +28,8 @@ interface BudgetData {
   projectName: string | null;
   feeType: string | null;
   feeAmount: number | null;
+  startYm: string | null;
+  endYm: string | null;
 }
 
 const supabase = createClient();
@@ -74,7 +77,7 @@ async function fetchBudget(projectId: string, ym: string): Promise<BudgetData> {
       .eq("project_id", projectId)
       .eq("ym", ym)
       .maybeSingle(),
-    supabase.from("projects").select("project_name, fee_type, fee_amount").eq("project_id", projectId).maybeSingle(),
+    supabase.from("projects").select("project_name, fee_type, fee_amount, start_ym, end_ym").eq("project_id", projectId).maybeSingle(),
   ]);
 
   const c = cycleRes.data;
@@ -90,6 +93,8 @@ async function fetchBudget(projectId: string, ym: string): Promise<BudgetData> {
     projectName: p?.project_name ?? null,
     feeType: p?.fee_type ?? null,
     feeAmount: p?.fee_amount ?? null,
+    startYm: p?.start_ym ?? null,
+    endYm: p?.end_ym ?? null,
   };
 }
 
@@ -137,15 +142,20 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
         setData(b);
 
         const isMonthlyFixed = (b.feeType || "").toLowerCase() === "monthly_fixed";
-        const prev = isMonthlyFixed ? null : await fetchPreviousInvoiceAmount(projectId, ym);
+        const inContract = isWithinContractPeriod({ start_ym: b.startYm, end_ym: b.endYm }, ym);
+        const fixedAmount = monthlyFixedClientAmount(
+          { fee_type: b.feeType, fee_amount: b.feeAmount, start_ym: b.startYm, end_ym: b.endYm },
+          ym
+        );
+        const prev = isMonthlyFixed || !inContract ? null : await fetchPreviousInvoiceAmount(projectId, ym);
         if (cancelled) return;
         setPrevInvoice(prev);
 
         const status = b.status || "not_started";
         const isDraft = !["allocation_confirmed", "budget_confirmed", "reported"].includes(status);
         if (isDraft) {
-          if (isMonthlyFixed && b.feeAmount && b.feeAmount > 0) {
-            setInvoiceText(String(Math.round(b.feeAmount)));
+          if (fixedAmount > 0) {
+            setInvoiceText(String(Math.round(fixedAmount)));
           } else if (prev && prev > 0) {
             setInvoiceText(String(Math.round(prev)));
           } else {
@@ -170,20 +180,40 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
 
   const invoiceAmount = Number(invoiceText) || 0;
   const bufferAmount = Number(bufferText) || 0;
-  const pjBudget = calcPjBudget(invoiceAmount, bufferAmount);
 
   const isMonthlyFixed = (data?.feeType || "").toLowerCase() === "monthly_fixed";
-  const fixedInvoiceAmount = isMonthlyFixed && data?.feeAmount && data.feeAmount > 0
-    ? Math.round(data.feeAmount)
+  const contractInEffect = data
+    ? isWithinContractPeriod({ start_ym: data.startYm, end_ym: data.endYm }, ym)
+    : false;
+  const fixedInvoiceAmount = data
+    ? monthlyFixedClientAmount(
+        { fee_type: data.feeType, fee_amount: data.feeAmount, start_ym: data.startYm, end_ym: data.endYm },
+        ym
+      )
     : null;
-  const invoicePlaceholder = isMonthlyFixed && data?.feeAmount
-    ? `${Math.round(data.feeAmount)}`
+  const invoicePlaceholder = !contractInEffect
+    ? "契約期間外"
+    : fixedInvoiceAmount && fixedInvoiceAmount > 0
+    ? `${Math.round(fixedInvoiceAmount)}`
     : prevInvoice && prevInvoice > 0
       ? `${Math.round(prevInvoice)}`
       : "例: 500000";
+  const effectiveInvoiceAmount = fixedInvoiceAmount && fixedInvoiceAmount > 0 ? fixedInvoiceAmount : invoiceAmount;
+  const pjBudget = calcPjBudget(effectiveInvoiceAmount, bufferAmount);
+  const invoiceTextForEdit = data
+    ? fixedInvoiceAmount && fixedInvoiceAmount > 0
+      ? String(fixedInvoiceAmount)
+      : data.budgetReportedAmount && data.budgetReportedAmount > 0
+        ? String(Math.round(data.budgetReportedAmount))
+        : ""
+    : "";
 
   async function submit() {
-    if (invoiceAmount <= 0) {
+    if (!contractInEffect) {
+      setToast({ msg: "契約期間外の月には請求額を保存できません", isError: true });
+      return;
+    }
+    if (effectiveInvoiceAmount <= 0) {
       setToast({ msg: "請求額を入力してください", isError: true });
       return;
     }
@@ -196,7 +226,7 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
         project_id: projectId,
         ym,
         status: "reported",
-        budget_reported_amount: invoiceAmount,
+        budget_reported_amount: effectiveInvoiceAmount,
         budget_buffer_amount: bufferAmount,
         budget_reported_at: new Date().toISOString(),
         budget_reported_by: byEmail,
@@ -261,6 +291,10 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
   }
 
   async function decide(decision: "approve" | "reject") {
+    if (decision === "approve" && !contractInEffect) {
+      setToast({ msg: "契約期間外の月は承認できません", isError: true });
+      return;
+    }
     setApprovalBusy(decision);
     setToast(null);
     try {
@@ -361,7 +395,7 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
                     type="button"
                     size="sm"
                     onClick={() => decide("approve")}
-                    disabled={!!approvalBusy}
+                    disabled={!!approvalBusy || !contractInEffect}
                     className="h-8"
                   >
                     {approvalBusy === "approve" ? "承認中..." : "承認する"}
@@ -382,13 +416,7 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
                     onClick={() => {
                       setShowEditArea((v) => !v);
                       if (!showEditArea) {
-                        setInvoiceText(
-                          data.budgetReportedAmount && data.budgetReportedAmount > 0
-                            ? String(Math.round(data.budgetReportedAmount))
-                            : fixedInvoiceAmount
-                              ? String(fixedInvoiceAmount)
-                              : ""
-                        );
+                        setInvoiceText(invoiceTextForEdit);
                         setBufferText(
                           data.budgetBufferAmount && data.budgetBufferAmount > 0
                             ? String(Math.round(data.budgetBufferAmount))
@@ -422,13 +450,7 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
                   variant="outline"
                   className="w-full"
                   onClick={() => {
-                    setInvoiceText(
-                      data.budgetReportedAmount && data.budgetReportedAmount > 0
-                        ? String(Math.round(data.budgetReportedAmount))
-                        : fixedInvoiceAmount
-                          ? String(fixedInvoiceAmount)
-                          : ""
-                    );
+                    setInvoiceText(invoiceTextForEdit);
                     setBufferText(
                       data.budgetBufferAmount && data.budgetBufferAmount > 0
                         ? String(Math.round(data.budgetBufferAmount))
@@ -472,6 +494,7 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
                         value={invoiceText}
                         onFocus={(e) => e.target.select()}
                         onChange={(e) => setInvoiceText(e.target.value.replace(/\D/g, ""))}
+                        disabled={!contractInEffect || Boolean(fixedInvoiceAmount && fixedInvoiceAmount > 0)}
                       />
                       <span className="text-sm text-muted-foreground">円</span>
                     </div>
@@ -491,12 +514,12 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
                     </div>
                     <p className="text-[10px] text-muted-foreground/70">バッファ分だけPJ予算が減ります</p>
                   </div>
-                  {invoiceAmount > 0 && (
+                  {effectiveInvoiceAmount > 0 && (
                     <div className="rounded-lg bg-blue-50 border border-blue-100 p-2 space-y-1">
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span>PJ予算</span>
                         <span className="text-[10px]">
-                          = {fmtYen(invoiceAmount)} × 65%
+                          = {fmtYen(effectiveInvoiceAmount)} × 65%
                           {bufferAmount > 0 && ` − ${fmtYen(bufferAmount)}`}
                         </span>
                       </div>
@@ -506,10 +529,10 @@ export function CockpitRoutineBudgetModal({ projectId, ym, open, onClose }: Prop
                 </section>
 
                 <div className="flex flex-col gap-2">
-                  <Button onClick={submit} disabled={submitting || !invoiceText}>
+                  <Button onClick={submit} disabled={submitting || effectiveInvoiceAmount <= 0 || !contractInEffect}>
                     {submitting
                       ? "保存中..."
-                      : fixedInvoiceAmount && invoiceAmount === fixedInvoiceAmount
+                      : fixedInvoiceAmount && effectiveInvoiceAmount === fixedInvoiceAmount
                         ? `${fmtYen(fixedInvoiceAmount)}でPLに確認依頼する`
                         : "PLに確認依頼する"}
                   </Button>

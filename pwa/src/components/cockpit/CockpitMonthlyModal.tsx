@@ -2,6 +2,11 @@
 
 import { useState, useEffect, Fragment } from "react";
 import {
+  effectiveCumPctForYm as scheduledEffectiveCumPctForYm,
+  PM_LOCKED_PROGRESS_SOURCES,
+  type ProgressAnchor,
+} from "@/lib/ms-schedule-shared";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -368,18 +373,71 @@ function latestProgressBefore(progress: ProgressInfo[], milestoneId: string, ym:
   return latest;
 }
 
-function buildEffectiveProgressMap(progress: ProgressInfo[], milestones: MilestoneInfo[], ym: string): Map<string, number> {
+function isPmLockedProgress(row: ProgressInfo): boolean {
+  return PM_LOCKED_PROGRESS_SOURCES.has(String(row.source || ""));
+}
+
+function rowProgressPct(row: ProgressInfo, points: number): number {
+  if (Number.isFinite(row.consumedPt) && points > 0) {
+    return Math.max(0, Math.min(100, (row.consumedPt / points) * 100));
+  }
+  return Math.max(0, Math.min(100, row.progressPct || 0));
+}
+
+function effectiveProgressPct(
+  progress: ProgressInfo[],
+  milestone: MilestoneInfo,
+  ym: string,
+  schedule?: MsScheduleInfo
+): number {
+  if (!schedule?.periodStartYm || !schedule.targetYm) {
+    return latestProgressBefore(progress, milestone.milestoneId, ym)?.progressPct || 0;
+  }
+
+  const lockedRows = progress
+    .filter((row) => row.milestoneKey === milestone.milestoneId && row.ym <= ym && isPmLockedProgress(row))
+    .sort((a, b) => a.ym.localeCompare(b.ym));
+  const exactLocked = lockedRows.find((row) => row.ym === ym);
+  const anchorBefore = (targetYm: string): ProgressAnchor | null => {
+    let found: ProgressAnchor | null = null;
+    for (const row of lockedRows) {
+      if (row.ym >= targetYm) break;
+      found = { ym: row.ym, pct: rowProgressPct(row, milestone.points) };
+    }
+    return found;
+  };
+  return scheduledEffectiveCumPctForYm(
+    ym,
+    schedule.periodStartYm,
+    schedule.targetYm,
+    anchorBefore(ym),
+    exactLocked ? rowProgressPct(exactLocked, milestone.points) : null
+  );
+}
+
+function buildEffectiveProgressMap(
+  progress: ProgressInfo[],
+  milestones: MilestoneInfo[],
+  ym: string,
+  schedules: Record<string, MsScheduleInfo> = {}
+): Map<string, number> {
   const map = new Map<string, number>();
   for (const ms of milestones) {
-    map.set(ms.milestoneId, latestProgressBefore(progress, ms.milestoneId, ym)?.progressPct || 0);
+    map.set(ms.milestoneId, effectiveProgressPct(progress, ms, ym, schedules[ms.milestoneId]));
   }
   return map;
 }
 
-function buildEffectiveConsumedMap(progress: ProgressInfo[], milestones: MilestoneInfo[], ym: string): Map<string, number> {
+function buildEffectiveConsumedMap(
+  progress: ProgressInfo[],
+  milestones: MilestoneInfo[],
+  ym: string,
+  schedules: Record<string, MsScheduleInfo> = {}
+): Map<string, number> {
   const map = new Map<string, number>();
   for (const ms of milestones) {
-    map.set(ms.milestoneId, latestProgressBefore(progress, ms.milestoneId, ym)?.consumedPt || 0);
+    const pct = effectiveProgressPct(progress, ms, ym, schedules[ms.milestoneId]);
+    map.set(ms.milestoneId, Math.round((ms.points * pct) / 100 * 100) / 100);
   }
   return map;
 }
@@ -499,6 +557,7 @@ function buildRewardPreviewUncapped({
   planCycle,
   projectFeeType,
   projectFeeAmount,
+  schedules = {},
 }: {
   ym: string;
   milestones: MilestoneInfo[];
@@ -509,12 +568,13 @@ function buildRewardPreviewUncapped({
   planCycle: PlanCycleShape | null;
   projectFeeType?: string | null;
   projectFeeAmount?: number | null;
+  schedules?: Record<string, MsScheduleInfo>;
 }): RewardSummary | null {
   if (milestones.length === 0 || responsibilities.length === 0) return null;
 
   const prevYm = prevYmStr(ym);
-  const prevConsumedMap = buildEffectiveConsumedMap(progress, milestones, prevYm);
-  const currConsumedMap = buildEffectiveConsumedMap(progress, milestones, ym);
+  const prevConsumedMap = buildEffectiveConsumedMap(progress, milestones, prevYm, schedules);
+  const currConsumedMap = buildEffectiveConsumedMap(progress, milestones, ym, schedules);
   const msById = new Map(milestones.map((ms) => [ms.milestoneId, ms]));
   const totalPt = planCycle?.totalPoints || milestones.reduce((sum, ms) => sum + ms.points, 0);
   const payoutBudget = deriveRewardBudgetForPt({ billing, planCycle, projectFeeType, projectFeeAmount });
@@ -580,6 +640,7 @@ function buildRewardPreview({
   planCycle,
   projectFeeType,
   projectFeeAmount,
+  schedules = {},
 }: {
   ym: string;
   milestones: MilestoneInfo[];
@@ -590,6 +651,7 @@ function buildRewardPreview({
   planCycle: PlanCycleShape | null;
   projectFeeType?: string | null;
   projectFeeAmount?: number | null;
+  schedules?: Record<string, MsScheduleInfo>;
 }): RewardSummary | null {
   const monthlyCap = deriveMonthlyRewardBudget({ billing, planCycle, projectFeeType, projectFeeAmount });
   const totalPt = planCycle?.totalPoints || milestones.reduce((sum, ms) => sum + ms.points, 0);
@@ -609,6 +671,7 @@ function buildRewardPreview({
       planCycle,
       projectFeeType,
       projectFeeAmount,
+      schedules,
     }) || buildCarryOnlyReward(memberMap, carryStock, ptUnit);
 
     if (!uncapped) continue;
@@ -1350,12 +1413,12 @@ function RewardTab({
   }
 
   // ── 進捗計算 ──
-  const ymProgress = buildEffectiveProgressMap(localProgress, milestones, ym);
+  const ymProgress = buildEffectiveProgressMap(localProgress, milestones, ym, msSchedules);
 
   // 前月進捗（今月消化pt計算用）
   const prevYm = prevYmStr(ym);
-  const prevConsumedMap = buildEffectiveConsumedMap(localProgress, milestones, prevYm);
-  const currConsumedMap = buildEffectiveConsumedMap(localProgress, milestones, ym);
+  const prevConsumedMap = buildEffectiveConsumedMap(localProgress, milestones, prevYm, msSchedules);
+  const currConsumedMap = buildEffectiveConsumedMap(localProgress, milestones, ym, msSchedules);
   const monthConsumedPt = milestones.reduce((s, m) => {
     const curr = currConsumedMap.get(m.milestoneId) || 0;
     const prev = prevConsumedMap.get(m.milestoneId) || 0;
@@ -1400,7 +1463,7 @@ function RewardTab({
 
   const unconfirmedMap = new Map<string, UnconfirmedEstimate>();
   for (const u of unconfirmed) unconfirmedMap.set(u.milestoneKey, u);
-  const prevProgress = buildEffectiveProgressMap(localProgress, milestones, prevYm);
+  const prevProgress = buildEffectiveProgressMap(localProgress, milestones, prevYm, msSchedules);
   const revisionsByMs = new Map<string, MsRevision[]>();
   for (const revision of revisions) {
     const arr = revisionsByMs.get(revision.milestoneId) || [];

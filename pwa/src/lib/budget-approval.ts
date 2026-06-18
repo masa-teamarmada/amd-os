@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { contractBackedClientAmount, monthlyFixedClientAmount } from "@/lib/contract-money";
 
 export type BudgetApprovalPayload = {
   projectId: string;
@@ -83,9 +84,28 @@ export async function decideBudgetApproval(
   if (cycleError) throw cycleError;
   if (!cycle) throw new Error("billing cycle not found");
 
+  const { data: project, error: projectError } = await db
+    .from("projects")
+    .select("project_id, fee_type, fee_amount, start_ym, end_ym")
+    .eq("project_id", input.projectId)
+    .maybeSingle();
+  if (projectError) throw projectError;
+
   const invoiceYen = numberValue(cycle.budget_reported_amount);
   const bufferYen = numberValue(cycle.budget_buffer_amount);
   if (invoiceYen <= 0) throw new Error("budget request has no invoice amount");
+  if (input.decision === "approve") {
+    const fixedInvoiceYen = monthlyFixedClientAmount(project, input.ym);
+    if (fixedInvoiceYen > 0 && invoiceYen !== fixedInvoiceYen) {
+      throw new Error(`invoice amount does not match monthly contract: expected ${fixedInvoiceYen}`);
+    }
+    const contractInvoiceYen = fixedInvoiceYen > 0
+      ? fixedInvoiceYen
+      : contractBackedClientAmount({ ym: input.ym, project, reportedAmount: invoiceYen });
+    if (contractInvoiceYen <= 0) {
+      throw new Error("cannot approve invoice amount outside contract period");
+    }
+  }
 
   const budgetYen = calcPjBudget(invoiceYen, bufferYen);
   const now = new Date().toISOString();

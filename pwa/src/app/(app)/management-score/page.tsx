@@ -12,8 +12,9 @@ import { buildLiveMonthlyPlInputs } from "@/lib/finance/live-monthly-pl-inputs";
 import { expandExtraRevenue, type ExtraRevenueSourceRow } from "@/lib/finance/extra-revenue";
 import { effectivePaymentYmForCycle } from "@/lib/payment-groups";
 import { computeForwardCappedMemberCosts } from "@/lib/reward-summary";
+import { contractBackedClientAmount, isWithinContractPeriod } from "@/lib/contract-money";
 import {
-  anchoredExpectedCumPctForYm,
+  effectiveCumPctForYm as scheduledEffectiveCumPctForYm,
   milestonePeriod,
   PM_LOCKED_PROGRESS_SOURCES,
   type ProgressAnchor,
@@ -150,6 +151,8 @@ type PaymentProjectRow = {
   status: string | null;
   fee_type?: string | null;
   fee_amount?: number | string | null;
+  start_ym?: string | null;
+  end_ym?: string | null;
   freee_partner_id: string | null;
   payment_due_rule: string | null;
   payment_due_day: number | null;
@@ -512,24 +515,26 @@ function invoiceLinesNet(raw: string | null): number {
   }
 }
 
-function expectedNetForCycle(cycle: BillingCycleActualRow): number {
+function expectedNetForCycle(cycle: BillingCycleActualRow, project?: PaymentProjectRow): number {
   const invoiceNet = invoiceLinesNet(cycle.invoice_base_lines_json);
   if ((cycle.invoice_issued_at || cycle.freee_invoice_number) && invoiceNet > 0) return invoiceNet;
-  const reported = numberValue(cycle.budget_reported_amount);
-  if (reported > 0) return reported;
-  if (invoiceNet > 0) return invoiceNet;
+  const clientAmount = contractBackedClientAmount({
+    ym: cycle.ym,
+    project,
+    reportedAmount: cycle.budget_reported_amount,
+  });
+  if (clientAmount > 0) return clientAmount;
+  if (invoiceNet > 0 && isWithinContractPeriod(project, cycle.ym)) return invoiceNet;
   const budget = numberValue(cycle.budget_yen);
-  return budget > 0 ? Math.round(budget / 0.65) : 0;
+  return budget > 0 && isWithinContractPeriod(project, cycle.ym) ? Math.round(budget / 0.65) : 0;
 }
 
 function baseClientAmountForCycle(cycle: BillingCycleActualRow, project?: PaymentProjectRow): number {
-  const reported = numberValue(cycle.budget_reported_amount);
-  if (reported > 0) return reported;
-  if (String(project?.fee_type || "").toLowerCase() === "monthly_fixed") {
-    const fee = numberValue(project?.fee_amount);
-    if (fee > 0) return fee;
-  }
-  return 0;
+  return contractBackedClientAmount({
+    ym: cycle.ym,
+    project,
+    reportedAmount: cycle.budget_reported_amount,
+  });
 }
 
 function rewardSummaryMembers(summary: Record<string, unknown> | null): Array<Record<string, unknown>> {
@@ -655,9 +660,13 @@ function payableCumPtForMilestone({
   for (const month of Array.from(monthsToCheck).sort()) {
     if (month > ym) continue;
     const locked = lockedByYm.get(month);
-    const pct = locked
-      ? lockedProgressPct(locked, points)
-      : anchoredExpectedCumPctForYm(month, startYm, endYm, anchorBefore(month));
+    const pct = scheduledEffectiveCumPctForYm(
+      month,
+      startYm,
+      endYm,
+      anchorBefore(month),
+      locked ? lockedProgressPct(locked, points) : null
+    );
     if (locked) usesLocked = true;
     if (pct > payablePct) payablePct = pct;
   }
@@ -1043,7 +1052,7 @@ function buildMonthlyActualSummaries(
     const project = projectMap.get(cycle.project_id);
     const paymentYm = effectivePaymentYmForCycle(cycle, project);
     const summary = ensure(paymentYm);
-    summary.confirmedDepositsGross += Math.round(expectedNetForCycle(cycle) * 1.1);
+    summary.confirmedDepositsGross += Math.round(expectedNetForCycle(cycle, project) * 1.1);
     summary.hasActualData = true;
   }
   for (const notice of payoutNotices) {
@@ -1093,7 +1102,7 @@ function buildExpectedReceiptsByPaymentYm(cycles: BillingCycleActualRow[], proje
     if (cycle.payment_confirmed_at) continue;
     const project = projectMap.get(cycle.project_id);
     const paymentYm = effectivePaymentYmForCycle(cycle, project);
-    const net = expectedNetForCycle(cycle);
+    const net = expectedNetForCycle(cycle, project);
     if (net <= 0) continue;
     const gross = Math.round(net * 1.1);
     const source = cycleForecastSource(cycle);
@@ -1789,7 +1798,7 @@ export default async function ManagementScorePage() {
     safeSelect<PaymentProjectRow[]>(() =>
       supabase
         .from("projects")
-        .select("project_id,project_name,client_name,status,fee_type,fee_amount,freee_partner_id,payment_due_rule,payment_due_day")
+        .select("project_id,project_name,client_name,status,fee_type,fee_amount,start_ym,end_ym,freee_partner_id,payment_due_rule,payment_due_day")
         .limit(500)
     ),
     safeSelect<PaymentMemberRow[]>(() =>

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   isYm,
-  anchoredExpectedCumPctForYm,
+  proRataFloorCumPctForYm,
   PM_LOCKED_PROGRESS_SOURCES,
   type ProgressAnchor,
 } from "@/lib/ms-schedule-shared";
@@ -84,7 +84,7 @@ async function loadDbSchedules(projectId: string, startYm: string, asOfYm: strin
         periodStartYm,
         targetYm,
         msMonths,
-        expectedCumPct: anchoredExpectedCumPctForYm(
+        expectedCumPct: proRataFloorCumPctForYm(
           asOfYm,
           periodStartYm,
           targetYm,

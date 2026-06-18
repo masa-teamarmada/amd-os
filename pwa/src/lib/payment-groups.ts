@@ -4,6 +4,7 @@ import {
   computePaymentYmByRule,
   paymentDueRuleLabel,
 } from "@/lib/payment-rules";
+import { contractBackedClientAmount, isWithinContractPeriod } from "@/lib/contract-money";
 
 const YM_RE = /^[0-9]{6}$/;
 
@@ -28,6 +29,8 @@ export type PaymentProjectRow = {
   status: string | null;
   fee_type?: string | null;
   fee_amount?: number | string | null;
+  start_ym?: string | null;
+  end_ym?: string | null;
   freee_partner_id: string | null;
   payment_due_rule: string | null;
   payment_due_day: number | null;
@@ -95,14 +98,18 @@ function invoiceLinesNet(raw: string | null): number {
   }
 }
 
-function expectedNetForCycle(cycle: PaymentCycleRow): number {
+function expectedNetForCycle(cycle: PaymentCycleRow, project: PaymentProjectRow): number {
   const invoiceNet = invoiceLinesNet(cycle.invoice_base_lines_json);
   if ((cycle.invoice_issued_at || cycle.freee_invoice_number) && invoiceNet > 0) return invoiceNet;
-  const reported = Math.round(numberValue(cycle.budget_reported_amount));
-  if (reported > 0) return reported;
-  if (invoiceNet > 0) return invoiceNet;
+  const reportedOrFixed = contractBackedClientAmount({
+    ym: cycle.ym,
+    project,
+    reportedAmount: cycle.budget_reported_amount,
+  });
+  if (reportedOrFixed > 0) return reportedOrFixed;
+  if (invoiceNet > 0 && isWithinContractPeriod(project, cycle.ym)) return invoiceNet;
   const budget = Math.round(numberValue(cycle.budget_yen));
-  return budget > 0 ? Math.round(budget / 0.65) : 0;
+  return budget > 0 && isWithinContractPeriod(project, cycle.ym) ? Math.round(budget / 0.65) : 0;
 }
 
 function expectedGrossFromNet(net: number): number {
@@ -144,7 +151,7 @@ export async function loadPaymentConfirmationGroups(
   const [projectsRes, explicitRes, unsetRes] = await Promise.all([
     db
       .from("projects")
-      .select("project_id, project_name, client_name, status, freee_partner_id, payment_due_rule, payment_due_day"),
+      .select("project_id, project_name, client_name, status, fee_type, fee_amount, start_ym, end_ym, freee_partner_id, payment_due_rule, payment_due_day"),
     db.from("billing_cycles").select(cycleSelect).eq("invoice_ym", targetYm),
     db.from("billing_cycles").select(cycleSelect).in("ym", candidates).is("invoice_ym", null),
   ]);
@@ -201,7 +208,7 @@ export async function loadPaymentConfirmationGroups(
 
     current.sourceYms.push(cycle.ym);
     current.cycles.push(cycle);
-    current.expectedNetAmountYen += expectedNetForCycle(cycle);
+    current.expectedNetAmountYen += expectedNetForCycle(cycle, project);
     if (cycle.freee_invoice_number) current.freeeInvoiceNumbers.push(cycle.freee_invoice_number);
     if (cycle.ym > current.cycles[0].ym) {
       current.dueDate = computePaymentDueDateByRule(cycle.ym, project.payment_due_rule, project.payment_due_day);

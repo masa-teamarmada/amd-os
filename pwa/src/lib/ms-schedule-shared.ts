@@ -89,6 +89,37 @@ export function anchoredExpectedCumPctForYm(
   return Math.min(100, Math.round(pct * 10) / 10);
 }
 
+/**
+ * 支払・表示に使うデフォルト累積進捗。
+ *
+ * AMD OS の基本契約は「期間がある MS は月数でプロラタ進行する」なので、
+ * PM locked の低いアンカーで基準線を下回らせない。低い実績を表したい場合は
+ * target_ym / period_start_ym / freeze など計画側を直す。
+ */
+export function proRataFloorCumPctForYm(
+  asOfYm: string,
+  periodStartYm: string,
+  targetYm: string,
+  anchor: ProgressAnchor | null | undefined
+): number {
+  return Math.max(
+    expectedCumPctForYm(asOfYm, periodStartYm, targetYm),
+    anchoredExpectedCumPctForYm(asOfYm, periodStartYm, targetYm, anchor)
+  );
+}
+
+export function effectiveCumPctForYm(
+  asOfYm: string,
+  periodStartYm: string,
+  targetYm: string,
+  anchor: ProgressAnchor | null | undefined,
+  lockedPct?: number | null
+): number {
+  const floor = proRataFloorCumPctForYm(asOfYm, periodStartYm, targetYm, anchor);
+  if (lockedPct == null || !Number.isFinite(lockedPct)) return floor;
+  return Math.max(floor, Math.max(0, Math.min(100, lockedPct)));
+}
+
 export type MilestoneScheduleSource = {
   period_start_ym: string | null;
   target_ym: string | null;

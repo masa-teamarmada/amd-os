@@ -5,6 +5,7 @@ import {
   ymToInt,
   type ExtraRevenueEntry,
 } from "@/lib/finance/extra-revenue";
+import { isWithinContractPeriod } from "@/lib/contract-money";
 import type {
   MonthlyPlInputs,
   MonthlyPlParams,
@@ -138,6 +139,7 @@ export async function buildLiveMonthlyPlInputs(
 
   const projects = (projectsRes.data ?? []) as ProjectRow[];
   const recurringItems = (recurringRes.data ?? []) as RecurringItemRow[];
+  const projectById = new Map(projects.map((project) => [project.project_id, project]));
 
   // ---- 固定収益: monthly_fixed PJ ----
   const fixedRevenueProjects: MonthlyPlProject[] = projects
@@ -183,6 +185,8 @@ export async function buildLiveMonthlyPlInputs(
       .limit(2000);
     if (billingRes.error) throw billingRes.error;
     for (const row of (billingRes.data ?? []) as BillingRow[]) {
+      const project = projectById.get(row.project_id);
+      if (!isWithinContractPeriod(project, row.ym)) continue;
       const reported = num(row.budget_reported_amount);
       const budgetYen = num(row.budget_yen);
       // 売上 = reported (あれば) / なければ budget_yen を 0.65 で割り戻し

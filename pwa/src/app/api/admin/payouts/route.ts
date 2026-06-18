@@ -846,7 +846,7 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
       .order("code_name"),
     db
       .from("projects")
-      .select("project_id, project_name, client_name, status, fee_type, fee_amount, freee_partner_id, payment_due_rule, payment_due_day")
+      .select("project_id, project_name, client_name, status, fee_type, fee_amount, start_ym, end_ym, freee_partner_id, payment_due_rule, payment_due_day")
       .order("project_name"),
     db
       .from("project_members")
@@ -1365,7 +1365,7 @@ export async function PATCH(req: NextRequest) {
       const [projectRes, memberRes, cycleRes] = await Promise.all([
         db
           .from("projects")
-          .select("project_id, project_name, client_name, status, fee_type, fee_amount, freee_partner_id, payment_due_rule, payment_due_day")
+          .select("project_id, project_name, client_name, status, fee_type, fee_amount, start_ym, end_ym, freee_partner_id, payment_due_rule, payment_due_day")
           .eq("project_id", projectId)
           .maybeSingle(),
         db
@@ -1474,7 +1474,7 @@ export async function PATCH(req: NextRequest) {
         .in("ym", sourceYms),
       db
         .from("projects")
-        .select("project_id, project_name, client_name, status, fee_type, fee_amount, freee_partner_id, payment_due_rule, payment_due_day")
+        .select("project_id, project_name, client_name, status, fee_type, fee_amount, start_ym, end_ym, freee_partner_id, payment_due_rule, payment_due_day")
         .eq("project_id", projectId)
         .maybeSingle(),
       db

@@ -1,11 +1,12 @@
 import { createHash } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
-  anchoredExpectedCumPctForYm,
+  effectiveCumPctForYm as scheduledEffectiveCumPctForYm,
   milestonePeriod,
   PM_LOCKED_PROGRESS_SOURCES,
   type ProgressAnchor,
 } from "@/lib/ms-schedule-shared";
+import { monthlyFixedClientAmount } from "@/lib/contract-money";
 import type {
   MonthlyAgreementStatus,
   MonthlyWorkAgreementRevisionRequest,
@@ -103,16 +104,16 @@ function deriveAgreementMonthlyBudget({
   cycle,
   plan,
   project,
+  ym,
 }: {
   cycle: JsonRecord | undefined;
   plan: JsonRecord | undefined;
   project: JsonRecord;
+  ym: string;
 }): number | null {
   if (hasExplicitNumber(cycle?.budget_yen)) return Math.max(0, Math.round(toNumber(cycle?.budget_yen) ?? 0));
-  if (String(project.fee_type ?? "").toLowerCase() === "monthly_fixed") {
-    const fee = toNumber(project.fee_amount);
-    if (fee != null && fee > 0) return Math.round(fee * 0.65);
-  }
+  const monthlyFee = monthlyFixedClientAmount(project, ym);
+  if (monthlyFee > 0) return Math.round(monthlyFee * 0.65);
   const planBudget = toNumber(plan?.budget_yen);
   if (planBudget != null && planBudget > 0) return Math.round(planBudget / cycleMonthCount(plan));
   return null;
@@ -157,7 +158,6 @@ function effectiveCumPctForYm({
     .filter(isPmLockedProgress)
     .sort((a, b) => String(a.ym ?? "").localeCompare(String(b.ym ?? "")));
   const exactLocked = lockedRows.find((row) => row.ym === ym);
-  if (exactLocked) return progressRowPct(exactLocked, points);
 
   const anchorBefore = (targetYm: string): ProgressAnchor | null => {
     let found: ProgressAnchor | null = null;
@@ -168,7 +168,13 @@ function effectiveCumPctForYm({
     }
     return found;
   };
-  return anchoredExpectedCumPctForYm(ym, startYm, endYm, anchorBefore(ym));
+  return scheduledEffectiveCumPctForYm(
+    ym,
+    startYm,
+    endYm,
+    anchorBefore(ym),
+    exactLocked ? progressRowPct(exactLocked, points) : null
+  );
 }
 
 function normalizeActiveShares(rows: JsonRecord[], activeMemberIds: Set<string>): Map<string, number> {
@@ -398,7 +404,7 @@ export async function buildMonthlyWorkAgreementBundle(
         projectPlans.find((p) => ym >= String(p.period_start_ym) && ym <= String(p.period_end_ym)) ??
         projectPlans[0];
       const planMilestones = plan ? milestonesByPlan.get(plan.plan_cycle_id as string) ?? [] : [];
-      const monthlyBudgetYen = deriveAgreementMonthlyBudget({ cycle, plan, project });
+      const monthlyBudgetYen = deriveAgreementMonthlyBudget({ cycle, plan, project, ym });
       const activeProjectMemberIds = activeMemberIdsByProject.get(projectId) ?? new Set<string>([params.memberId]);
       const monthlyConsumedByMs = new Map<string, { progressPct: number | null; monthlyProgressPct: number | null; consumedPt: number }>();
       const normalizedSharesByMs = new Map<string, Map<string, number>>();

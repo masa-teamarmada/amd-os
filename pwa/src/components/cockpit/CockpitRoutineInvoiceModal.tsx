@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 import { callEdgeFunctionPOST } from "@/lib/supabase/edge-functions";
 import { computePaymentDueDateByRule } from "@/lib/payment-rules";
 import { notifyPlReview } from "@/lib/notify-pl";
+import { isWithinContractPeriod } from "@/lib/contract-money";
 
 const CTB_ESTIMATE_MARKER = "[[CTB_ESTIMATE_SENT]]";
 
@@ -128,7 +129,7 @@ async function fetchPreview(projectId: string, ym: string): Promise<PreviewData>
       .eq("project_id", projectId)
       .eq("ym", ym)
       .maybeSingle(),
-    supabase.from("projects").select("project_name, payment_due_rule, payment_due_day").eq("project_id", projectId).maybeSingle(),
+    supabase.from("projects").select("project_name, start_ym, end_ym, payment_due_rule, payment_due_day").eq("project_id", projectId).maybeSingle(),
     supabase
       .from("reimbursements")
       .select("description, amount, date, category")
@@ -182,12 +183,17 @@ async function fetchPreview(projectId: string, ym: string): Promise<PreviewData>
   if (baseLines.length === 0) {
     const ymY = ym.slice(0, 4);
     const ymM = Number(ym.slice(4, 6));
-    const confirmedInvoiceAmount =
-      cycle?.budget_reported_amount && cycle.budget_reported_amount > 0
+    const contractInEffect = isWithinContractPeriod(
+      { start_ym: project?.start_ym ?? null, end_ym: project?.end_ym ?? null },
+      ym
+    );
+    const confirmedInvoiceAmount = contractInEffect
+      ? cycle?.budget_reported_amount && cycle.budget_reported_amount > 0
         ? Math.round(cycle.budget_reported_amount)
         : cycle?.budget_yen && cycle.budget_yen > 0
           ? Math.round(cycle.budget_yen / 0.65)
-          : 0;
+          : 0
+      : 0;
     baseLines = [
       {
         type: "item",

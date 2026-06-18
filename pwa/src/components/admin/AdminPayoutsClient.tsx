@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CockpitMonthlyModal } from "@/components/cockpit/CockpitMonthlyModal";
 import { fetchCockpitFromSupabase, type CockpitData } from "@/lib/supabase-data";
 import { expandExtraRevenue, type ExtraRevenueSourceRow } from "@/lib/finance/extra-revenue";
+import { basePayoutCapYen, contractBackedClientAmount } from "@/lib/contract-money";
 
 type Member = {
   member_id: string;
@@ -25,6 +26,8 @@ type Project = {
   status: string | null;
   fee_type?: string | null;
   fee_amount?: number | string | null;
+  start_ym?: string | null;
+  end_ym?: string | null;
 };
 
 type ProjectMember = {
@@ -490,17 +493,15 @@ function parseYenInput(value: string) {
 }
 
 function baseClientAmountForCycle(cycle: BillingCycle, project?: Project) {
-  const reported = Math.round(numberValue(cycle.budget_reported_amount));
-  if (reported > 0) return reported;
-  if (String(project?.fee_type || "").toLowerCase() === "monthly_fixed") {
-    const fee = Math.round(numberValue(project?.fee_amount));
-    if (fee > 0) return fee;
-  }
-  return 0;
+  return contractBackedClientAmount({
+    ym: cycle.ym,
+    project,
+    reportedAmount: cycle.budget_reported_amount,
+  });
 }
 
 function baseCapYenFor(baseClientAmountYen: number, bufferYen: number) {
-  return Math.max(0, Math.round(baseClientAmountYen * 0.65) - Math.max(0, Math.round(bufferYen)));
+  return basePayoutCapYen(baseClientAmountYen, bufferYen);
 }
 
 function findRewardPlanCycle(projectId: string, ym: string, planCycles: ForecastPlanCycle[]) {
