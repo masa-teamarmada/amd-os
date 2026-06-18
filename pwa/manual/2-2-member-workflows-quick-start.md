@@ -42,7 +42,7 @@ AMD メンバー (= 社内常勤 / 副業) が AMD OS で日常的に触る画�
 
 ### 月初合意
 
-`/monthly-agreement` では、当月参加中の PJ、担当 MS / share、当月の到達目標、月初合意用の想定報酬を確認する。cap / carry-over / 条件/前提 / 未確定・要確認などの内部確認情報は本人画面に出さない。`status='frozen'` / `freeze_from_ym <= ym` / active `project_freeze_periods` の PJ、当月報酬も担当MSもないPJは表示対象外。`members.exclude_from_payout_notice=true` のメンバー (= りり / ID006 NIMS 無償出向) は月初合意も対象外。報酬キャッシュがあるPJで担当MSの報酬行がない場合は、未確定ではなく `0円` と表示する。`reward_summary_json.members[].stockYen > 0` の場合だけ、支払予定0円でも翌月以降へ繰り越される分として `ストック予定` を read-only 表示する。合意ボタンを押すと `member_monthly_work_agreements` に表示内容の `snapshot_json` と `snapshot_hash` が保存される。
+`/monthly-agreement` では、当月参加中の PJ、担当 MS / share、当月の到達目標、月初合意用の想定報酬を確認する。cap / carry-over / 条件/前提 / 未確定・要確認などの内部確認情報は本人画面に出さない。`status='frozen'` / `freeze_from_ym <= ym` / active `project_freeze_periods` の PJ、当月報酬も担当MSもないPJは表示対象外。`members.exclude_from_payout_notice=true` のメンバー (= りり / ID006 NIMS 無償出向) は月初合意も対象外。報酬キャッシュがあるPJで担当MSの報酬行がない場合は、未確定ではなく `0円` と表示する。`reward_summary_json.members[].stockYen > 0` の場合だけ、支払予定0円でも翌月以降へ繰り越される分として `未払いストック（今月は支払われない）` を read-only 表示する。合意ボタンを押すと `member_monthly_work_agreements` に表示内容の `snapshot_json` と `snapshot_hash` が保存される。
 
 月中に MS / share / 報酬キャッシュなどが変わって現在の snapshot hash が前回合意時とズレた場合、本人画面と admin 画面に「条件更新あり」と出る。これは報酬計算を変えるものではなく、再確認が必要なサイン。
 

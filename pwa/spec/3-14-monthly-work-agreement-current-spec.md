@@ -28,7 +28,7 @@
 - 合意時点で本人へ表示した内容を `snapshot_json` と `snapshot_hash` で保存する。
 - snapshot hash が変わったら本人/adminに「条件更新あり」と表示し、再合意対象にする。
 - 報酬キャッシュを再計算しない。通常 GET は読むだけ。
-- cap、carry-over、条件/前提、未確定・要確認などの精算/確認内部情報は本人向け月初合意画面に出さない。例外として、`reward_summary_json.members[].stockYen > 0` の場合だけ、当月支払が 0 円でも翌月以降へ繰り越される分が本人に伝わるよう `ストック予定` を read-only 表示する。月初合意は「どのPJのどのMSへコミットし、当月どこまで到達すべきか」と「その対価としての予定報酬」を示す。
+- cap、carry-over、条件/前提、未確定・要確認などの精算/確認内部情報は本人向け月初合意画面に出さない。例外として、`reward_summary_json.members[].stockYen > 0` の場合だけ、当月支払が 0 円でも翌月以降へ繰り越される分が本人に伝わるよう `未払いストック（今月は支払われない）` を read-only 表示する。月初合意は「どのPJのどのMSへコミットし、当月どこまで到達すべきか」と「その対価としての予定報酬」を示す。
 - 当月報酬も担当MSもないPJは、月初合意の「何をすればいくら」に答えないため本人画面から非表示にする。
 
 ## Payout Gate
@@ -88,9 +88,9 @@ projectPlannedRewardYen = Σ msPlannedRewardYen
 | `projects[]` | 当月参加中PJ |
 | `projects[].milestones[]` | 担当MS、share、task description、progress、conditions |
 | `projects[].expectedRewardYen` | 月初合意用の予定報酬 (= 当月月次予算 × 当月予定MS消化pt × share) |
-| `projects[].payoutYen` / `stockYen` / `grossDueYen` | 表示専用の支払予定 / 繰越ストック / 支払対象額。`reward_summary_json.members[]` から読み、予定報酬計算や合意 gate 判定には使わない |
+| `projects[].payoutYen` / `stockYen` / `grossDueYen` | 表示専用の今月支払額 / 未払いストック / 支払対象額。`reward_summary_json.members[]` から読み、予定報酬計算や合意 gate 判定には使わない |
 | `projects[].reviewReasons[]` | 月次予算未設定、value plan未設定、MS/share未設定など admin 向け確認事項 |
-| `totals` | PJ数、予定報酬合計、ストック予定合計、admin向け確認事項数 |
+| `totals` | PJ数、予定報酬合計、未払いストック合計、admin向け確認事項数 |
 
 `currentHash = sha256(stableJson(snapshot_json))`。`latestAgreement.snapshotHash !== currentHash` のとき `needs_reagreement`。
 
@@ -154,8 +154,8 @@ API route は logged-in user を `members.email` で解決する。本人以外�
 
 - 上部に対象月、member、snapshot hash、合意状態を表示する。
 - 合意状態は `未合意` / `合意済み` / `条件更新あり` / `対象外`。
-- 合計: 参加PJ数、予定報酬合計、ストック予定合計 (`stockYen > 0` のときのみ)。
-- PJごとに、予定報酬、支払予定、ストック予定、PM/PL role、担当MS/share/到達目標/予定報酬を表示する。`stockYen` は支払0でも翌月以降へ繰り越される分の説明用で、合意用予定報酬とは別物。
+- 合計: 参加PJ数、予定報酬合計、未払いストック合計 (`stockYen > 0` のときのみ)。
+- PJごとに、今月支払額、未払いストック、合意用予定報酬、PM/PL role、担当MS/share/到達目標/予定報酬を表示する。`stockYen` は「今月は支払われない」別枠で強調し、支払額や合意用予定報酬と同じ見え方にしない。
 - MS別予定報酬は、当月月次予算を当月予定MS消化ptと active member 正規化 share で配分する。`reward_summary_json.members[].breakdown[].payYen` は使わない。
 - 担当MS、到達目標、予定報酬が違う場合は、合意とは別に修正要望を送信できる。
 - 保存テーブル未適用時は保存ボタンを無効化し、migration未適用として表示する。

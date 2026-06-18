@@ -216,7 +216,7 @@ function MonthlyAgreementContent() {
         <section className={`grid gap-3 ${totalStockYen > 0 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
           <MetricCard label="参加PJ" value={`${bundle.snapshot.totals.projectCount}`} />
           <MetricCard label="予定報酬合計" value={formatYen(bundle.snapshot.totals.expectedRewardYen)} />
-          {totalStockYen > 0 && <MetricCard label="ストック予定" value={formatYen(totalStockYen)} emphasis />}
+          {totalStockYen > 0 && <MetricCard label="未払いストック" value={formatYen(totalStockYen)} emphasis />}
         </section>
 
         <section className="rounded-lg border border-[#e5e5e7] bg-white p-4">
@@ -331,6 +331,7 @@ function MetricCard({ label, value, emphasis = false }: { label: string; value: 
 function ProjectAgreementCard({ project }: { project: MonthlyWorkAgreementProject }) {
   const stockYen = project.stockYen ?? 0;
   const hasStock = stockYen > 0;
+  const hasPayout = project.payoutYen != null;
   return (
     <article className="rounded-lg border border-[#e5e5e7] bg-white p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -342,19 +343,22 @@ function ProjectAgreementCard({ project }: { project: MonthlyWorkAgreementProjec
           </div>
           <p className="mt-1 text-xs text-[#86868b]">{project.projectId} / billing {project.billingStatus || "未作成"}</p>
         </div>
-        <div className="rounded-md bg-[#f5f5f7] px-3 py-2 text-right">
+        <div className={`rounded-md border px-3 py-2 text-right ${hasStock ? "border-amber-200 bg-amber-50" : "border-transparent bg-[#f5f5f7]"}`}>
           <div className="flex items-center justify-end gap-1 text-[11px] font-semibold text-[#86868b]">
             <CircleDollarSign className="size-3.5" />
-            予定報酬
+            {hasPayout ? "今月支払" : "予定報酬"}
           </div>
-          <p className="mt-1 text-[20px] font-semibold tabular-nums text-[#1d1d1f]">{formatYen(project.expectedRewardYen)}</p>
-          {project.payoutYen != null && (
-            <p className="mt-1 text-[11px] tabular-nums text-[#6e6e73]">支払予定 {formatYen(project.payoutYen)}</p>
-          )}
+          <p className={`mt-1 text-[20px] font-semibold tabular-nums ${hasPayout && (project.payoutYen ?? 0) > 0 ? "text-emerald-700" : "text-[#1d1d1f]"}`}>
+            {formatYen(hasPayout ? project.payoutYen : project.expectedRewardYen)}
+          </p>
           {hasStock && (
-            <p className="mt-1 rounded-sm bg-amber-100 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-amber-800">
-              ストック {formatYen(stockYen)}
-            </p>
+            <div className="mt-2 rounded-md border border-amber-200 bg-white px-2 py-1 text-left">
+              <p className="text-[10px] font-semibold text-amber-800">未払いストック（今月は支払われない）</p>
+              <p className="mt-0.5 text-right text-[16px] font-semibold tabular-nums text-amber-800">{formatYen(stockYen)}</p>
+            </div>
+          )}
+          {hasPayout && project.expectedRewardYen != null && (
+            <p className="mt-1 text-[10px] tabular-nums text-[#86868b]">合意用予定報酬 {formatYen(project.expectedRewardYen)}</p>
           )}
           {hasStock && project.grossDueYen != null && (
             <p className="mt-1 text-[10px] tabular-nums text-[#86868b]">支払対象額 {formatYen(project.grossDueYen)}</p>
