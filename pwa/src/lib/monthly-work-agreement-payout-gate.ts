@@ -50,6 +50,8 @@ export type PayoutAgreementGateProject = {
   status?: string | null;
   start_ym?: string | null;
   end_ym?: string | null;
+  freeze_from_ym?: string | null;
+  restart_expected_ym?: string | null;
 };
 
 export type PayoutAgreementGateRow = {
@@ -131,6 +133,9 @@ function projectIsExcluded(project: PayoutAgreementGateProject | undefined, sour
   const status = textValue(project?.status).toLowerCase();
   if (status === "frozen") return "frozen PJ は月初合意・支払 gate の対象外";
   if (status === "lost") return "終了/lost PJ は月初合意・支払 gate の対象外";
+  if (project?.freeze_from_ym && project.freeze_from_ym <= sourceYm) {
+    return "freeze_from_ym 到達後の PJ は月初合意・支払 gate の対象外";
+  }
   if (!inYmRange(sourceYm, project)) return "PJ の active 期間外なので月初合意・支払 gate の対象外";
   return null;
 }

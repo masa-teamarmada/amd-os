@@ -61,6 +61,12 @@ export async function POST(req: NextRequest) {
       memberId,
       viewerMemberId: actor.memberId,
     });
+    if (!bundle.canAgree) {
+      return NextResponse.json(
+        { ok: false, error: bundle.exclusionReason || "月初合意の修正要望を保存できません" },
+        { status: 403 },
+      );
+    }
     if (projectId && !bundle.snapshot.projects.some((project) => project.projectId === projectId)) {
       return NextResponse.json({ ok: false, error: "対象PJが当月合意snapshotにありません" }, { status: 400 });
     }

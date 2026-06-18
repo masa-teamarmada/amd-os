@@ -47,6 +47,12 @@ export async function POST(req: NextRequest) {
         { status: 503 },
       );
     }
+    if (!bundle.canAgree) {
+      return NextResponse.json(
+        { ok: false, error: bundle.exclusionReason || "月初合意を保存できません" },
+        { status: 403 },
+      );
+    }
 
     const { data: existing, error: existingError } = await admin
       .from("member_monthly_work_agreements")

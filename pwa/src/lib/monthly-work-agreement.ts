@@ -87,6 +87,47 @@ function projectHasMonthlyReward(status: unknown): boolean {
   return normalized !== "lost" && normalized !== "frozen";
 }
 
+function projectFreezeActiveForYm(row: JsonRecord, ym: string): boolean {
+  const status = String(row.status ?? "").toLowerCase();
+  if (status !== "active") return false;
+  const freezeFromYm = typeof row.freeze_from_ym === "string" ? row.freeze_from_ym : null;
+  const restartYm = typeof row.restart_ym === "string" ? row.restart_ym : null;
+  return Boolean(freezeFromYm && freezeFromYm <= ym && (!restartYm || restartYm > ym));
+}
+
+function projectCacheFrozenForYm(row: JsonRecord, ym: string): boolean {
+  const freezeFromYm = typeof row.freeze_from_ym === "string" ? row.freeze_from_ym : null;
+  return Boolean(freezeFromYm && freezeFromYm <= ym);
+}
+
+function projectFrozenForYm(project: JsonRecord, freezeRows: JsonRecord[] | undefined, ym: string): boolean {
+  return projectCacheFrozenForYm(project, ym) || (freezeRows ?? []).some((row) => projectFreezeActiveForYm(row, ym));
+}
+
+function asRecord(value: unknown): JsonRecord | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as JsonRecord;
+}
+
+function recordArray(value: unknown): JsonRecord[] {
+  return Array.isArray(value) ? value.filter((item): item is JsonRecord => Boolean(asRecord(item))) : [];
+}
+
+function rewardSummaryMember(cycle: JsonRecord | undefined, memberId: string): JsonRecord | null {
+  const summary = asRecord(cycle?.reward_summary_json);
+  const members = recordArray(summary?.members);
+  return members.find((member) => (member.memberId ?? member.member_id) === memberId) ?? null;
+}
+
+function yenFromRecord(row: JsonRecord | null, keys: string[]): number | null {
+  if (!row) return null;
+  for (const key of keys) {
+    const value = toNumber(row[key]);
+    if (value != null) return Math.max(0, Math.round(value));
+  }
+  return null;
+}
+
 function routineExpectations(role: { is_pm?: boolean | null; is_pl?: boolean | null }): string[] {
   if (role.is_pm) {
     return [
@@ -236,7 +277,7 @@ export async function resolveMemberForEmail(
 ): Promise<MonthlyWorkAgreementMember | null> {
   const { data, error } = await supabase
     .from("members")
-    .select("member_id, code_name, email, is_admin")
+    .select("member_id, code_name, email, is_admin, exclude_from_payout_notice")
     .ilike("email", email.toLowerCase())
     .maybeSingle();
   if (error) throw error;
@@ -246,6 +287,7 @@ export async function resolveMemberForEmail(
     codeName: data.code_name || data.member_id,
     email: data.email,
     isAdmin: Boolean(data.is_admin),
+    excludeFromPayoutNotice: Boolean(data.exclude_from_payout_notice),
   };
 }
 
@@ -258,7 +300,7 @@ export async function buildMonthlyWorkAgreementBundle(
 
   const { data: member, error: memberError } = await supabase
     .from("members")
-    .select("member_id, code_name, email, is_admin")
+    .select("member_id, code_name, email, is_admin, exclude_from_payout_notice")
     .eq("member_id", params.memberId)
     .maybeSingle();
   if (memberError) throw memberError;
@@ -269,7 +311,35 @@ export async function buildMonthlyWorkAgreementBundle(
     codeName: member.code_name || member.member_id,
     email: member.email,
     isAdmin: Boolean(member.is_admin),
+    excludeFromPayoutNotice: Boolean(member.exclude_from_payout_notice),
   };
+
+  if (member.exclude_from_payout_notice === true) {
+    const snapshot: MonthlyWorkAgreementSnapshot = {
+      schemaVersion: SNAPSHOT_VERSION,
+      ym,
+      member: snapshotMember,
+      projects: [],
+      totals: {
+        expectedRewardYen: 0,
+        stockYen: 0,
+        projectCount: 0,
+        reviewRequiredCount: 0,
+      },
+    };
+    return {
+      ym,
+      member: snapshotMember,
+      snapshot,
+      currentHash: hashMonthlyAgreementSnapshot(snapshot),
+      status: "not_required",
+      latestAgreement: null,
+      revisionRequests: [],
+      tableReady: true,
+      canAgree: false,
+      exclusionReason: "支払通知対象外メンバーのため、月初合意は不要です。",
+    };
+  }
 
   const { data: projectMembers, error: pmError } = await supabase
     .from("project_members")
@@ -285,14 +355,22 @@ export async function buildMonthlyWorkAgreementBundle(
 
   const [
     projectsRes,
+    freezePeriodsRes,
     cyclesRes,
     plansRes,
   ] = await Promise.all([
     projectIds.length
       ? supabase
           .from("projects")
-          .select("project_id, project_name, status, start_ym, end_ym, project_type, project_category, fee_type, fee_amount")
+          .select("project_id, project_name, status, start_ym, end_ym, freeze_from_ym, restart_expected_ym, project_type, project_category, fee_type, fee_amount")
           .in("project_id", projectIds)
+      : Promise.resolve({ data: [], error: null }),
+    projectIds.length
+      ? supabase
+          .from("project_freeze_periods")
+          .select("project_id, freeze_from_ym, restart_ym, status")
+          .in("project_id", projectIds)
+          .eq("status", "active")
       : Promise.resolve({ data: [], error: null }),
     projectIds.length
       ? supabase.from("billing_cycles").select("*").in("project_id", projectIds).eq("ym", ym)
@@ -306,11 +384,21 @@ export async function buildMonthlyWorkAgreementBundle(
       : Promise.resolve({ data: [], error: null }),
   ]);
   if (projectsRes.error) throw projectsRes.error;
+  if (freezePeriodsRes.error) throw freezePeriodsRes.error;
   if (cyclesRes.error) throw cyclesRes.error;
   if (plansRes.error) throw plansRes.error;
 
+  const freezePeriodsByProject = new Map<string, JsonRecord[]>();
+  for (const row of (freezePeriodsRes.data ?? []) as Array<JsonRecord>) {
+    const projectId = row.project_id as string;
+    const list = freezePeriodsByProject.get(projectId) ?? [];
+    list.push(row);
+    freezePeriodsByProject.set(projectId, list);
+  }
+
   const projects = ((projectsRes.data ?? []) as Array<JsonRecord>)
     .filter((row) => projectHasMonthlyReward(row.status))
+    .filter((row) => !projectFrozenForYm(row, freezePeriodsByProject.get(row.project_id as string), ym))
     .filter((row) => inYmRange(ym, { start_ym: row.start_ym as string | null, end_ym: row.end_ym as string | null }));
   const projectMap = new Map(projects.map((row) => [row.project_id as string, row]));
   const cyclesByProject = new Map(((cyclesRes.data ?? []) as Array<JsonRecord>).map((row) => [row.project_id as string, row]));
@@ -397,6 +485,11 @@ export async function buildMonthlyWorkAgreementBundle(
       const projectId = membership.project_id as string;
       const project = projectMap.get(projectId)!;
       const cycle = cyclesByProject.get(projectId);
+      const rewardMember = rewardSummaryMember(cycle, params.memberId);
+      const payoutYen = yenFromRecord(rewardMember, ["totalPay", "total_pay"]);
+      const stockYen = yenFromRecord(rewardMember, ["stockYen", "stock_yen", "deferredYen", "deferred_yen"]);
+      const grossDueYen = yenFromRecord(rewardMember, ["grossDueYen", "gross_due_yen"]);
+      const carryInYen = yenFromRecord(rewardMember, ["carryInYen", "carry_in_yen"]);
       const roleMilestones: MonthlyWorkAgreementMilestone[] = [];
       const projectPlans = plansByProject.get(projectId) ?? [];
       const plan =
@@ -462,9 +555,10 @@ export async function buildMonthlyWorkAgreementBundle(
 
       const sortedMilestones = roleMilestones.sort((a, b) => a.milestoneId.localeCompare(b.milestoneId));
       let assignedReward = 0;
-      const rewardfulMilestones = sortedMilestones.filter((ms) => ms.expectedRewardYen != null && ms.expectedRewardYen > 0);
-      const expectedRewardYen = rewardfulMilestones.length > 0
-        ? rewardfulMilestones.reduce((sum, ms) => sum + (ms.expectedRewardYen ?? 0), 0)
+      const pricedMilestones = sortedMilestones.filter((ms) => ms.expectedRewardYen != null);
+      const rewardfulMilestones = pricedMilestones.filter((ms) => (ms.expectedRewardYen ?? 0) > 0);
+      const expectedRewardYen = pricedMilestones.length > 0
+        ? pricedMilestones.reduce((sum, ms) => sum + (ms.expectedRewardYen ?? 0), 0)
         : null;
       const lastRewardId = rewardfulMilestones[rewardfulMilestones.length - 1]?.milestoneId;
       const displayMilestones = expectedRewardYen == null
@@ -501,6 +595,10 @@ export async function buildMonthlyWorkAgreementBundle(
         billingStatus: typeof cycle?.status === "string" ? cycle.status : null,
         allocationStatus: cycle?.budget_confirmed_at ? "confirmed" : cycle?.budget_reported_at ? "reported" : "not_set",
         expectedRewardYen,
+        payoutYen,
+        stockYen,
+        grossDueYen,
+        carryInYen,
         earnedPt: sortedMilestones.reduce((sum, ms) => sum + (ms.earnedPt ?? 0), 0),
         conditionState,
         conditions: [],
@@ -519,6 +617,7 @@ export async function buildMonthlyWorkAgreementBundle(
     projects: snapshotProjects,
     totals: {
       expectedRewardYen: snapshotProjects.reduce((sum, project) => sum + (project.expectedRewardYen ?? 0), 0),
+      stockYen: snapshotProjects.reduce((sum, project) => sum + (project.stockYen ?? 0), 0),
       projectCount: snapshotProjects.length,
       reviewRequiredCount: snapshotProjects.filter((project) => project.conditionState === "review_required").length,
     },
@@ -580,20 +679,46 @@ export async function buildMonthlyWorkAgreementBundle(
 }
 
 export async function listActiveAgreementMemberIds(supabase: SupabaseClient, ym: string): Promise<string[]> {
-  const [{ data: members, error: membersError }, { data: projectMembers, error: pmError }, { data: projects, error: projectsError }] =
+  const [
+    { data: members, error: membersError },
+    { data: projectMembers, error: pmError },
+    { data: projects, error: projectsError },
+    { data: freezePeriods, error: freezePeriodsError },
+  ] =
     await Promise.all([
-      supabase.from("members").select("member_id, status").eq("status", "active"),
+      supabase.from("members").select("member_id, status, exclude_from_payout_notice").eq("status", "active"),
       supabase.from("project_members").select("project_id, member_id, is_active, join_ym, leave_ym").eq("is_active", true),
-      supabase.from("projects").select("project_id, status, start_ym, end_ym").neq("status", "lost").neq("status", "frozen"),
+      supabase
+        .from("projects")
+        .select("project_id, status, start_ym, end_ym, freeze_from_ym, restart_expected_ym")
+        .neq("status", "lost")
+        .neq("status", "frozen"),
+      supabase
+        .from("project_freeze_periods")
+        .select("project_id, freeze_from_ym, restart_ym, status")
+        .eq("status", "active"),
     ]);
   if (membersError) throw membersError;
   if (pmError) throw pmError;
   if (projectsError) throw projectsError;
+  if (freezePeriodsError) throw freezePeriodsError;
 
-  const activeMembers = new Set(((members ?? []) as Array<JsonRecord>).map((row) => row.member_id as string));
+  const activeMembers = new Set(
+    ((members ?? []) as Array<JsonRecord>)
+      .filter((row) => row.exclude_from_payout_notice !== true)
+      .map((row) => row.member_id as string),
+  );
+  const freezePeriodsByProject = new Map<string, JsonRecord[]>();
+  for (const row of (freezePeriods ?? []) as Array<JsonRecord>) {
+    const projectId = row.project_id as string;
+    const list = freezePeriodsByProject.get(projectId) ?? [];
+    list.push(row);
+    freezePeriodsByProject.set(projectId, list);
+  }
   const activeProjects = new Set(
     ((projects ?? []) as Array<JsonRecord>)
       .filter((row) => inYmRange(ym, { start_ym: row.start_ym as string | null, end_ym: row.end_ym as string | null }))
+      .filter((row) => !projectFrozenForYm(row, freezePeriodsByProject.get(row.project_id as string), ym))
       .map((row) => row.project_id as string),
   );
 

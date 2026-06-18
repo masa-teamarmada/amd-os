@@ -23,7 +23,7 @@ GAS 066 `A066_PayoutPaidRepo.js` の `admin_listPayoutYmCandidates` が、 admin
 4. 合計額 > 0 のメンバーを表示
 ```
 
-`exclude_from_payout_notice=true` のメンバー (= 例: りり / ID006 NIMS 無償出向) は通知書発行を skip。
+`exclude_from_payout_notice=true` のメンバー (= 例: りり / ID006 NIMS 無償出向) は通知書発行を skip。月初合意も `not_required` とし、admin の合意一覧・合意保存・修正要望保存の対象から外す。
 
 ## 月次サイクル
 
@@ -310,6 +310,8 @@ GAS 064 が読む:
 `/admin/payouts` の支払通知書対象は、非役員かつ `exclude_from_payout_notice=false` のメンバーだけ。`members.is_officer=true` のメンバーは支払通知書から外すが、当月稼働分は `reward_summary_json.members[].companyReserveYen` / `officerReserveYen` として AMD の内部留保に残す。
 
 先12か月の PJ 収支表では、`billing_cycles.budget_buffer_amount` を「契約バッファ」、役員の `companyReserveYen` を「役員分」として表示する。最終収支では役員分は同額を `officerOffsetYen` で戻すため、外部流出ではなく会社残高に残る計画値として扱う。非役員メンバーの `stockYen` は従来どおり翌月以降の支払予定に繰り越す。
+
+月初合意 gate の PJ 対象判定は、`projects.status='frozen'` だけでなく `projects.freeze_from_ym <= source_ym` も not_required にする。CTB p06 のように `status='active'` のまま freeze overlay で止まっている PJ を支払 gate に戻さないため。
 
 ## ZMP 追加開発 cap 外支払 (= 例外運用)
 

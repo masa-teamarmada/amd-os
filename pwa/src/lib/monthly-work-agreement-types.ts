@@ -1,10 +1,11 @@
-export type MonthlyAgreementStatus = "pending" | "agreed" | "needs_reagreement";
+export type MonthlyAgreementStatus = "pending" | "agreed" | "needs_reagreement" | "not_required";
 
 export interface MonthlyWorkAgreementMember {
   memberId: string;
   codeName: string;
   email?: string | null;
   isAdmin?: boolean;
+  excludeFromPayoutNotice?: boolean;
 }
 
 export interface MonthlyWorkAgreementMilestone {
@@ -45,6 +46,10 @@ export interface MonthlyWorkAgreementProject {
   billingStatus: string | null;
   allocationStatus: string;
   expectedRewardYen: number | null;
+  payoutYen: number | null;
+  stockYen: number | null;
+  grossDueYen: number | null;
+  carryInYen: number | null;
   earnedPt: number | null;
   conditionState: "ready" | "review_required";
   conditions: string[];
@@ -60,6 +65,7 @@ export interface MonthlyWorkAgreementSnapshot {
   projects: MonthlyWorkAgreementProject[];
   totals: {
     expectedRewardYen: number;
+    stockYen: number;
     projectCount: number;
     reviewRequiredCount: number;
   };
@@ -88,6 +94,7 @@ export interface MonthlyWorkAgreementBundle {
   revisionRequests: MonthlyWorkAgreementRevisionRequest[];
   tableReady: boolean;
   canAgree: boolean;
+  exclusionReason?: string | null;
 }
 
 export interface AdminMonthlyWorkAgreementRow {
