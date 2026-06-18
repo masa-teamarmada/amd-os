@@ -472,3 +472,40 @@
 - **「倒産につながるロジック」を選択肢に並べた時点で判断が間違っている**。選択肢提示の前に「これは経営として成立するか」を自分でフィルタする。役員除外は再配分しない (落とす) 一択。
 - **原価 (uncapped) と支払予定 (capped) は別概念**。/management-score の数字を /admin/payouts に流用しない。spec 7-1 が正本。
 - **役員除外がコア `buildRewardSummary` に無く各画面で後付け**なのが構造的な穴。新しい支払系 forward 投影を書くたびに役員除外を再実装する羽目になる。将来コアへ寄せる候補。
+
+---
+
+### 2026-06-18 — Contract Apply pipeline 実装 + つくよみ月次自動確定 cron + KUTE(p25) 適用 (v0.27.0 / v0.27.1)
+
+**まさの元意図**: 「契約書を抽出できてるなら、もう自動的に金額いれて、その確認だけをPMにslack nudge投げるだけのプロセスにしてほしい」「全PJの仕組みを変えたい」。設計①案確定: **`/admin/contracts` で contract_term を applied にする = 人 admin が金額をレビューした確認ポイント**。以降は つくよみ (月次 cron) が契約由来額を自動で `budget_confirmed` まで進め、PM には事後通知 DM のみ (毎月の tap 確認は不要)。
+
+**フェーズA — pipeline 実装 (1 commit `373724b5`, v0.27.0)**:
+- **`src/lib/contracts-apply.ts`** (新規): `deriveContractApplyPlan(term)` (純粋関数, DB 非依存=テスト可能) + `applyContractTerms(db, termId, actor)`。`REWARD_RATE=0.65`。分岐: **schedule_based (or monthly[] あり & monthly_average でない)** → `fee_type='variable'` / `fee_amount=null`、`billing_distribution_json.monthly[]` を ③ `billing_cycles.budget_yen` に月別展開 (各月 `reward_cap_yen ?? budget_yen ?? round(amount_tax_excl×0.65)`)、`contract_source_term_id` を刻む。**monthly_fixed / monthly_average** → `fee_type='monthly_fixed'` / `fee_amount = monthly_tax_excl (無ければ総額÷月数)` を ② に立て、③ は触らない。**end_ym 必須ガード** (CX 無期限計上事故の再発防止)。冪等性: 既に budget_confirmed/allocation_confirmed/invoice_sent/payment_confirmed の月は budget_yen を上書きしない。`billing_log` に action='contract_applied'。
+- **`src/app/api/contracts/apply/route.ts`** (新規): `GET` dryRun preview / `POST` apply (requireAdmin)。
+- **`src/lib/contract-billing-auto.ts`** (新規): `isWithinContractPeriod` (start_ym≤ym≤end_ym、**end_ym null は対象外**) / `resolveContractBilling` (schedule_based は `budget_yen÷0.65` で請求額逆算、monthly_fixed は `fee_amount`) / `collectAutoConfirmCandidates`。
+- **`src/app/api/cron/contract-billing-auto-confirm/route.ts`** (新規): `GET`(CRON_SECRET) / `POST`(admin)。`reported→budget_confirmed` を `decideBudgetApproval` で進め (`budget_yen=請求額×0.65`)、PM へ Slack DM 事後通知 (つくよみ口調)。actor=`つくよみ(契約自動確定)`。
+- **`vercel.json`**: cron 登録 `{ "path": "/api/cron/contract-billing-auto-confirm", "schedule": "0 22 1 * *" }` (= 毎月1日 JST 07:00)。
+- spec/manual 同期: `spec/5-6` の Contract Apply を「未実装」→「実装済み (2026-06-18)」へ、月次自動確定節を新設。`manual/6-3`、changelog `spec/6-1`・`manual/9-3` 追記。本番で CX(p20)/SX(p21) を新 writer で再 apply 済み (CX: src 付与, SX: end_ym=202703 補完)。tsc/build green。
+
+**フェーズB — KUTE(p25) 適用 + 台帳化 (DB操作 + 1 commit `3e3e32d8`, v0.27.1)**:
+- 契約書 = Drive `00_契約_KUTE` の `260501_業務委託契約書(260501_270331)_工学院大学_AMD.PDF` (税込 7,920,000 / 税抜 7,200,000、2026/5/1〜2027/3/31、第7条 毎月均等支払)。
+- parent `contracts` 行作成 (`16055139…`, status='signed', review_status='accepted'。signed_document_id は uuid のため Drive ref は source_refs_json へ)。
+- `contract_terms` に applied term 作成 (`term_id=d35d3184…`, billing_distribution='monthly_average', billing_distribution_json=`{months:11, monthly_tax_excl:654545, monthly_payout_cap_65:425454}`)。**`source_term_hash` は NOT NULL** — SX 先例 (`q-…-tax-excl-…-period-…`) に倣い `kute-contract-tax-excl-7200000-period-202605-202703` の人間可読合成キーに。
+- Contract Apply 実行 (monthly_fixed branch を SQL で忠実再現): projects p25 → `fee_type='monthly_fixed'` / `fee_amount=654,545` / `start_ym=202605` / **`end_ym=202703`** / `contract_terms_json` 反映。③ billing_cycles は monthly_average のため不変。`billing_log` 監査行追加。
+- KUTE は **役員のみ PJ** (manual/7-1 L292) → 報酬 cap=654,545×0.65=425,454 だが役員は payout から落ちる (再分配しない) ので capped 支払予定=¥0 が正しい結果。
+- `spec/5-6` に「Contract Apply 適用済み PJ (2026-06-18 時点)」台帳 (p20/p21/p25) を新設、`spec/6-1` 附則追記。
+
+**全PJ展開**: 未 apply の契約保有 PJ を調査 (下記)。**特に p06 CTB / p10 SE / p19 ZMP が end_ym=null で CX 同型の無期限計上リスク**。残り展開は独立セッション (spawn_task `task_48afedcf`「Contract Apply を残り契約PJへ全展開」) に申し送り。
+
+**全PJ apply 状況 (2026-06-18 時点, projects×contract_terms×billing_cycles を join 調査)**:
+| 状態 | PJ |
+|---|---|
+| ✅ apply 済 (has_ct_json, end_ym あり) | p20 CX / p21 SX / p25 KUTE |
+| ⚠️ end_ym=null で無期限計上リスク (billing 動作中) | p06 CTB (variable) / p10 SE (¥100,000) / p19 ZMP (¥300,000) |
+| 期間確定だが未 apply (has_ct_json=false) | p09 JC (〜202603) / p11 BWE (〜202603) / p22 OQC (〜202512) / p23 UST (〜202601) |
+| 契約/請求実体なし (billing_months=0) = 対象外見込み | p01 OPT / p02 r3kt / p03 tiem / p04 KT / p05 MC / p07 LST / p08 CCC / p12 b1 / p14 AER / p16 ORB / p18 YD / p24 CLG / p26 VasculaX |
+
+**教訓**:
+- 値の出所は契約書 PDF + 算定正本 (manual/7-1) のみ。生データから budget の意味を再導出しない (まさ「設計書読んだら全部書いてある」2026-06-18)。budget_yen=報酬 cap (=feeAmount×0.65) であり請求額ではない。
+- monthly_average branch は ③ billing_cycles を触らない。KUTE の既存手入力 budget_yen=654,545 (税抜月額が cap 列に座っている=本来は ×0.65 すべき値) は残置されるが、役員のみ PJ で payout=¥0 なので実害なし。schedule_based PJ で同じ残置が起きると誤差要因になるので注意。
+- `contract_terms` の NOT NULL 列が多い (source_term_hash / source_title / currency / billing_distribution / billing_distribution_json / fee_type_hint / confidence / review_required / review_status / status / source_refs_json / extracted_terms_json)。PK=term_id。review_status は applied 可。一方 parent `contracts` の review_status は pending/accepted/rejected/not_needed のみ (applied 不可) — 別 enum なので混同しない。

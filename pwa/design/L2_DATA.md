@@ -303,6 +303,7 @@ Codex cron sandbox は外向きネットワークが落ちることがあるた�
 | **公募予算 B 観測** (Phase 2-D) | `observation_log` key=B | `cron/grant-ingest` (mon 05:00 JST、GAS 154 から curl) | PWA |
 | **VC 投資 V 観測** (Phase 2-E) | `observation_log` key=V | `cron/vc-investment-ingest` (mon 05:00 JST、GAS 154 から curl) | PWA |
 | **Triple Helix 隠れ状態推定** (Phase 3) | `triple_helix_state_log` | `cron/triple-helix-recompute` (mon 04:30 JST、GAS 154 から curl 想定) | PWA |
+| **契約由来 月次請求額の自動確定** (つくよみ ①案、2026-06-18) | `billing_cycles` (`status` → `budget_confirmed`) / `billing_log` | `cron/contract-billing-auto-confirm` (毎月 1 日 07:00 JST = vercel `"0 22 1 * *"`、actor=`つくよみ(契約自動確定)`)。Contract Apply 済み (`contract_source_term_id` or ② `fee_type/fee_amount/end_ym`) + `end_ym` 内の月だけ自動確定 → PM へ事後通知 DM。**LLM 非依存**。正本 [spec 5-6 §月次請求額の自動確定](../spec/5-6-contracts-management-current-spec.md) | PWA non-LLM cron |
 
 ---
 
