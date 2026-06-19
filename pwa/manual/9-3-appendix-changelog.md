@@ -14,6 +14,7 @@
 
 | 日付 | 対象章 | 種別 | 内容 | 理由 | 誰が |
 |---|---|---|---|---|---|
+| 2026-06-19 | 3-2 / 8-3 / H-1 MTGカード | 修正 | recurring 予定MTGの series 推定を補強。`recurring_event_id` がDBへ残らない既存カードでも、title が `定例` / `月次` / `毎月` / `weekly` / `monthly` 等なら曜日を外して `PJ + title + 開始時刻` で束ね、月次定例の曜日ズレでも次回1枚だけ表示・同期する。build v0.28.8 | v0.28.7 は fallback key に曜日を含めていたため、Google recurring id が残っていない月次/不規則な定例が複数カードとして残るケースがあったため | えいみ |
 | 2026-06-19 | 2-2 / 2-3 / 3-1 / 6-2 / 6-3 / 6-6 / design/routine | 変更・削除 | OS 上の PM/PL 月次確認 TODO / nudge を完全廃止として明記。報告書確認の軽い連絡は Slack 側で完結させ、`/mypage` / dashboard / cockpit / action queue へ同期しない。支払 gate から月次ルーティン完了条件も外し、月次カードは read/write の確認面としてだけ残す | まさ指示「そもそも月次ルーティンというもの自体を廃止して。報告書確認nudgeはslack上でやるだけだから、OS側は不要。」に合わせ、前回の「report nudge だけ残す」方針をOS内実装から撤回するため | えいみ |
 | 2026-06-19 | 9-2 開発者向け | 変更・削除 | Vercel deploy / main push 前に事前確認で止まる 2026-06-04 ルールを削除し、2026-06-12 以降の「main push = Vercel Git 自動 production deploy」「原則、deploy前の事前確認で止めない」「deploy bundle は事後報告」「`AMD_OS_VERCEL_DEPLOY_APPROVED=1` は人間確認フラグではなく誤実行防止スイッチ」へ統一 | 古いVercel事前確認文言を読んだ worker が本番反映済みと誤解させ、まさが未deployページを探す時間を失ったため。まさ指示「その古いルールをすべて削除して。二度とこういうことが起きないように。」 | えいみ |
 | 2026-06-19 | 4-3 AMD Score | 変更 | legacy M-X-F は主表示へ戻すものではなく、PRS の P/R/S を説明する evidence shelf として読む説明を補強 | legacy score が高いからといって PRS Primary の `INPUT NEEDED` を上書きしない境界を、読者が manual だけで判断できるようにするため | えいみ |
