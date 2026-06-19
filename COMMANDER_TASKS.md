@@ -28,18 +28,14 @@
 - 以後のworker promptには、旧「完了・停止・要判断時は必ず親司令塔へ能動報告」ではなく、このworker quiet modeと未完タスク監視の前提を含める。
 - `COMMANDER_TASKS.md` にはworker詳細ログを貼らず、Active workerあり、worker id、状態、次回確認条件、まさ要判断だけを短く残す。
 
-Vercel deploy approval gate:
-- 2026-06-04 まさ判断で、Vercel deploy上限は緩和。deploy自体は再開OK。
-- ただし少しの間、Vercel production deploy / preview deploy / Vercel自動deployを起こす可能性がある `git push` の直前には、必ず `askuserquestion` でまさの許可を取る。
-- 許可質問には `deploy bundle` を含める。内容は「含める変更」「除外する変更」「local build/test/browser確認結果」「deploy予定回数」「push/deploy先」「rollback/本番確認方法」。
-- てにをは、微細UI、軽微CSS、md、コメント、ログ文言などを1件ずつdeployする運用は禁止のまま。複数worker成果を束ねて1回でdeployする。
-- 承認待ちで止まる場合は `approval pending` として台帳に残す。未分類blocker扱いにしない。
-- 現在状態: `Vercel deploy approval gate active`。deploy bundle承認まではpush/deployしない。
-- deploy bundle候補: BZM approval gate台帳更新 (`e34be20`)、Textbook approval gate台帳更新 (`43165dd`)、Textbook main integration未反映分、BZM/PRS系、OS UI系、KUTE MTGカード/自動生成修正、company content Notion移植など、local検証済み変更をbundle化して提示する。
-- askuserquestion承認状況: 未承認。次のpush/deploy直前にdeploy bundle付きで確認する。
-- deploy実施回数: 2026-06-04 gate更新後 0回。
-- push保留: あり。BZM approval gate更新commit `e34be20`、Textbook approval gate更新commit `43165dd`、2026-06-03 hard gate反映のローカル台帳/AGENTS更新、Claude migration handoff系、現在の司令塔台帳更新は未push。
-- `/Users/masa/projects/AGENTS.common.md` は個人司令塔側で更新済み。
+PWA deploy / push ルール:
+- 2026-06-12以降、PWA本番反映は `main push = Vercel自動deploy`。CLI直接deployは禁止。
+- 原則、deploy前の事前確認で止めない。実装、検証、対象ファイルstage、commit、`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` によるpush・build監視・本番確認まで進める。
+- `AMD_OS_VERCEL_DEPLOY_APPROVED=1` は旧gateではなく、非対話でdeploy scriptを最後まで走らせるための実行スイッチ。
+- deploy bundleは事後報告として残す。含める変更、除外、local build/test/browser確認、push先、rollback/本番確認方法を短く書く。
+- 事前確認で止める例外は、まさが明示的に「確認してから」と言った作業、既存業務導線の削除・置き換え、真に破壊的な操作だけ。
+- `git add .` は禁止。stageは対象ファイルを明示して行う。`stage / commit / push / deploy はしていない` で閉じるのは原則未完扱い。
+- てにをは、微細UI、軽微CSS、md、コメント、ログ文言などを1件ずつdeployする運用は禁止。複数成果は束ねて1回でpushする。
 
 ## 未完タスク（優先順位順）
 
@@ -60,7 +56,7 @@ Vercel deploy approval gate:
   - Calendar event / existing `project_meeting_summaries` / MTGツリー表示条件 / L6 run履歴を確認し、欠落原因を分類する。
   - 最小安全経路でMTGカードを作る。既存開催済み議事録や手動編集済みrowがある場合は上書きしない。
   - 自動生成の再発防止を入れる。必要ならKUTE alias/project判定、internal MTG title handling、L6 guard/test/docsを更新する。
-  - local test/buildまで確認し、push/deploy直前はdeploy bundle付きでまさ承認を取る。承認待ちは `approval pending` とする。
+  - local test/buildを確認し、PWA本番反映対象ならdeploy前で止めず、deploy.sh経由でpush・build監視・本番確認まで進める。deploy bundleは事後報告に残す。
 
 ### 0. Management予実表の下に、月末経営シグナル評価欄を作る
 
@@ -78,7 +74,7 @@ Vercel deploy approval gate:
   - 実装workerが、月次試算表直下の経営シグナル評価欄、月末評価保存用DB、専用Codexチャット/heartbeat運用の追加を進めている。
 - 残課題は何か
   - UI実装、migration、typecheck/build、ローカル確認を完了する。
-  - push/deploy直前はdeploy bundle付きでまさ承認を取る。承認待ちは `approval pending` としてdeploy bundle候補へ回す。
+  - PWA本番反映対象ならdeploy前で止めず、deploy.sh経由でpush・build監視・本番確認まで進める。deploy bundleは事後報告に残す。
   - 月末Codex専用チャットと定期実行が、実際のCodex automation/heartbeatで成立するか確認する。
   - 完了または要判断になったら、司令塔へ `【司令塔へ報告】Management経営シグナル評価欄 追加 完了` または `要判断` で報告する。
 
@@ -134,7 +130,7 @@ Vercel deploy approval gate:
   - Notion raw bodyやphoto URLsを司令塔報告・公開本文へ貼らず、admin/internal境界を守って移植する。
   - 既存tableで足りる場合はDDLなしで移植し、足りない場合はmigration draftと司令塔判断に分ける。
   - 写真は `usage_permission`、`consent_status`、`storage_bucket`、`storage_path`、`thumbnail_path` を必須候補として扱い、公開可否が曖昧なものは `needs_review` にする。
-  - local確認まで行う。push/deploy直前はdeploy bundle付きでまさ承認を取る。承認待ちは `approval pending` とする。
+  - local確認まで行う。PWA本番反映対象ならdeploy前で止めず、deploy.sh経由でpush・build監視・本番確認まで進める。deploy bundleは事後報告に残す。
 
 ### 3. PJロゴをOS内で活用する
 
@@ -196,7 +192,7 @@ Vercel deploy approval gate:
   - `~/.claude/scheduled-tasks/amd-os-l2...l9` などのSKILLは、ローカル手順・素材であり、Claude側ACTIVE登録の証拠ではない。
   - `amd-os-l2-consolidated-evidence` は実体未確認。登録済み/稼働中として扱わない。
   - D-2 MS Progress MS進捗とH-1 Meeting Flow MTGフローは、Claude routineではなくMMOマシン Codex Desktop automation維持。
-  - push/deploy直前はdeploy bundle付きでまさ承認を取る。この台帳/docs是正の承認待ちは `approval pending` として扱う。
+  - PWA本番反映対象ならdeploy前で止めず、deploy.sh経由でpush・build監視・本番確認まで進める。deploy bundleは事後報告に残す。
 - 残課題は何か
   - Claude側で `amd-os-l2-consolidated-evidence` を実routine登録し、UI上で `ACTIVE / next run / last run` を確認する。対象は D-1 AMD Protocol4579101112、cadenceは daily 08:00 JST。
   - 別枠routineとして、M-1 Monthly Reports 月末最終日、M-2 XRL Evidence 月末M-1 Monthly Reports後のXRL checklist audit、W-1 VC News / Funding Signals weekly candidate、M-3 Management Monthly Signal 月末最終日17:00 JST Management Monthly Signal Evaluationを登録候補にする。
@@ -355,7 +351,7 @@ Vercel deploy approval gate:
   - BZM司令塔の台帳は `pwa/bzm/COMMANDER_TASKS.md` へ分ける方針になった。
   - Textbook司令塔の台帳も、Textbook正本ディレクトリ配下へ分ける方針になった。
   - BZM台帳には、未完タスクあり・全worker停止を禁止するheartbeat運用ルールを反映済み。main取り込み済み commit: `69faea2 docs: add BZM commander heartbeat rule`。
-  - BZM台帳は2026-06-04のVercel approval gateへ更新済み。local commit: `e34be20 docs: update BZM Vercel approval gate`。push/deployは `approval pending`。
+  - 旧Vercel事前確認ルールは廃止済み。BZM/Textbook側にも現行の「原則ノンストップdeploy」ルールを反映する。
   - Textbook台帳にも同じworker継続監視ルールを反映済み。main取り込み済み commit: `4ac3a2d docs: add Textbook commander heartbeat rule`。
 - 残課題は何か
   - BZM/Textbookの詳細タスクは、それぞれの台帳を正本として見る。
@@ -484,7 +480,7 @@ Vercel deploy approval gate:
   - 現行AMD ScoreはMXFモデル寄りのままなので、新モデル候補をOS上で検証したい。
   - ただし、P/R_netのrubricや正式DB schema、BZM教科書の理論更新はまだ確定させない。
 - 現状どうなってるか
-  - 動作状態: deploy approval pending。BZM一次レビュー後、OS司令塔からmain取り込み・production deploy・認証済み画面確認workerを切り出し、main取り込みまでは完了した。
+  - 動作状態: production反映まで進める対象。BZM一次レビュー後、OS司令塔からmain取り込み・production deploy・認証済み画面確認workerを切り出し、main取り込みまでは完了した。
   - OS取り込みworker thread: `019e8270-2784-74d1-b48e-adb6dfd699cd`。
   - branch: `origin/codex/prs-comparison-layer`。
   - commit: `c101e6c feat: add PRS comparison layer`。
@@ -499,8 +495,8 @@ Vercel deploy approval gate:
   - targeted eslint、`npx tsc --noEmit`、`npm run build` は最終統合状態で成功。DB write/DDLなし。
   - Vercel production deployは `api-deployments-free-per-day` quotaで失敗し、production aliasはまだPRS取り込みcommitではない既存Ready deploymentを指している。
 - 残課題は何か
-  - PRS取り込み分はdeploy bundle候補へ回し、含める変更、除外する変更、local検証、予定deploy回数、push/deploy先、rollback/本番確認方法を `askuserquestion` で提示して承認を得る。
-  - deploy bundle承認後に限り、認証済み環境で `/venture-map/amd-score/retrofit` を目視確認する。
+  - PRS取り込み分はdeploy前で止めず、deploy.sh経由でpush・build監視・本番確認まで進める。deploy bundleは事後報告に残す。
+  - production反映後、認証済み環境で `/venture-map/amd-score/retrofit` を目視確認する。
   - PRS列/表示、既存7軸非置換、P/R_net仮入力・非保存、画面崩れ/文字切れなしを確認する。
   - P/R_netや理論変更に踏み込む場合はBZM司令塔レビューを必須にする。
 

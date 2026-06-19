@@ -1,6 +1,6 @@
 # Invoice / Billing Routine 仕様
 
-請求書 / 見積書発行と freee 連携、 月次確認・admin billing との接続をまとめる。 入金確認は [6-4 章](6-4-finance-payment-confirm-spec.md)、 支払通知書 (= 反対側) は [6-5 章](6-5-admin-payouts-reward-notice-spec.md) を見る。
+請求書 / 見積書発行と freee 連携、 月次カード・admin billing との接続をまとめる。 入金確認は [6-4 章](6-4-finance-payment-confirm-spec.md)、 支払通知書 (= 反対側) は [6-5 章](6-5-admin-payouts-reward-notice-spec.md) を見る。
 
 ## `billing_cycles` (= 月次サイクルの正本)
 
@@ -54,7 +54,7 @@ payment_confirmed
 reward_paid
 ```
 
-非標準ケース: 失注 / 凍結 PJ は `not_started` のまま、 月次確認自体を出さない。
+非標準ケース: 失注 / 凍結 PJ は `not_started` のまま、OS 上の月次 TODO / nudge を出さない。
 
 ## 契約由来の請求額は つくよみ が毎月自動確定する (= 2026-06-18 (1)案)
 
@@ -66,17 +66,17 @@ reward_paid
 - **金額**: schedule_based はその月の `budget_yen ÷ 0.65` を請求額に逆算 (= 月により額が違う契約を月別に正しく確定。CX: 6月¥78,000 / 7-9月¥274,000)。monthly_fixed は `fee_amount` をそのまま請求額に。PJ 予算は `請求額 × 65%`。
 - **触らない月**: その月の `billing_cycles.status` が既に `reported` 以降 (人が触っている) なら一切上書きしない。今月だけ違う額にしたい時は、PM が通知 DM のボタンからコックピットを開いて直す。
 - **cron**: `/api/cron/contract-billing-auto-confirm` (毎月1日 JST 07:00)。実装・安全弁の詳細は [spec 5-6 章 §月次請求額の自動確定](../spec/5-6-contracts-management-current-spec.md)。
-- **PM/PL nudge との関係**: OS 上の PM 月次確認nudgeは廃止。`請求額確定` は契約台帳/報酬キャッシュのデータ整備、`請求書発行/送付` はadmin業務、`立替確認` はPM月次タスク外として扱う。旧 PL レビュー DM route は削除済みで、例外復旧は admin billing / payouts と budget approval 境界で扱う。
+- **PM/PL nudge との関係**: OS 上の PM/PL 月次確認 nudge は廃止。報告書確認の軽い連絡は Slack 側で完結させ、`/mypage` / dashboard / cockpit には TODO / nudge として出さない。`請求額確定` は契約台帳/報酬キャッシュのデータ整備、`請求書発行/送付` はadmin業務、`立替確認` はPM月次タスク外として扱う。旧 PL レビュー DM route は削除済みで、例外復旧は admin billing / payouts と budget approval 境界で扱う。
 
-## 月次確認 (= cockpit 月次カード)
+## 月次カード (= cockpit の確認面)
 
-`/project/{projectId}/cockpit` の月次カードが月次確認入口。月を選ぶと `CockpitMonthlyModal` が開き、進捗・報酬・月次報告書を同じモーダルで確認する。旧 cockpit 右カラムの PM routine step UI は廃止済み。
+`/project/{projectId}/cockpit` の月次カードは、進捗・報酬・月次報告書を読むための確認面。月を選ぶと `CockpitMonthlyModal` が開く。これは TODO / nudge / PM step ではなく、旧 cockpit 右カラムの PM routine step UI は廃止済み。
 
 `請求額確定` ステップで入力する金額は、別の「予定請求額」ではなく OS 上の請求額そのもの。承認前だけ `請求額案` と呼び、承認後は `確定請求額` として `budget_reported_amount` に保持する。PJ 予算 (`budget_yen`) は `確定請求額 × 65% - バッファ` を基本に計算する。
 
 ### ステップ並び
 
-- PM/cockpit: 専用 step UI なし。月次カードから `CockpitMonthlyModal` を開く
+- PM/cockpit: 専用 step UI なし。OS 上の月次 TODO も出さない。必要な確認は月次カードから `CockpitMonthlyModal` を開く
 - admin/billing: `予算確定 / 報告書 / 立替確認 / 請求発行 / 請求送付 / 支払通知 / 入金確認 / 報酬支払`
 - CTB見積: CTB停止中のため一旦廃止
 - **古い月が上**
@@ -95,7 +95,7 @@ PWA cockpit は `?step=<stepId>&ym=YYYYMM` を現行導線として使わない�
 ### nudgeと報酬の境界
 
 - 報告書確認の軽い nudge は Slack 側で扱う。未対応でも mypage の月次報酬から取り消し線で除外しない
-- PM月次確認は報酬計算・支払可否の gate ではない。支払 gate は月初合意 / admin payouts 側で扱う
+- 月次カードの閲覧や報告書確認は、報酬計算・支払可否の gate ではない。支払 gate は月初合意 / admin payouts 側で扱う
 
 ## 請求書 / 見積書 発行 (= freee 連携)
 
@@ -176,15 +176,15 @@ GAS `gas-main/007_FreeeInvoiceFlow.js` が freee API への発行を担当。
 
 ## CTB (= Closed To Buyer) PJ
 
-CTB PJ は現在停止中。見積書送付 (`estimateSend`) は一旦廃止し、PM月次確認・admin billing matrix のどちらにも表示しない。
+CTB PJ は現在停止中。見積書送付 (`estimateSend`) は一旦廃止し、OS 上の月次 TODO・admin billing matrix のどちらにも表示しない。
 
 ## 立替精算確認
 
-立替確認は PM 月次確認から外す。admin billing matrix では `立替確認` の状態表示を残すが、PMの `/mypage` 通知には使わない。
+立替確認は PM 月次タスクから外す。admin billing matrix では `立替確認` の状態表示を残すが、PMの `/mypage` 通知には使わない。
 
 ## URL 修正の教訓 (= 2026-04-09)
 
-GAS で月次確認・請求系の Slack 投稿に貼る URL は `WEBAPP_BASE_URL` (= ScriptProperty) を使う。 `ScriptApp.getService().getUrl()` はデプロイごとに変わるため CLAUDE.md で禁止。 修正対象は `gas-main/007_FreeeInvoiceFlow.js` L552 (uploadUrl) / L1218 (cancelUrl)。
+GAS で請求系の Slack 投稿に貼る URL は `WEBAPP_BASE_URL` (= ScriptProperty) を使う。 `ScriptApp.getService().getUrl()` はデプロイごとに変わるため CLAUDE.md で禁止。 修正対象は `gas-main/007_FreeeInvoiceFlow.js` L552 (uploadUrl) / L1218 (cancelUrl)。
 
 ## トラブル時
 
@@ -201,7 +201,7 @@ GAS で月次確認・請求系の Slack 投稿に貼る URL は `WEBAPP_BASE_UR
 - 設計: [`pwa/design/routine.md`](../design/routine.md) (= legacy routine history。current cockpit 導線は 3-8 spec を優先)
 - 設計: [`pwa/design/cockpit.md`](../design/cockpit.md) (= cockpit 全体)
 - 設計: [`pwa/design/invoice_url_payout_auth.md`](../design/invoice_url_payout_auth.md)
-- 2-3 章 [PJ コックピットの見方](2-3-pj-cockpit.md) (= 月次確認入口の使い方)
+- 2-3 章 [PJ コックピットの見方](2-3-pj-cockpit.md) (= 月次カードの使い方)
 - 6-4 章 [Finance / Payment Confirm](6-4-finance-payment-confirm-spec.md) (= 入金確認)
 - 6-5 章 [Admin Payouts / 支払通知書](6-5-admin-payouts-reward-notice-spec.md) (= 反対側、 AMD から SU メンバーへの支払)
 - 6-2 章 [Admin Projects / Members 台帳](6-2-admin-projects-members-ledger-spec.md) (= 契約条件)
