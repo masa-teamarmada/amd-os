@@ -101,6 +101,8 @@ function nudge_setupTrigger() {
 // 請求額確定リマインド（固定PJ向け）
 // ================================================================
 function cron_nudgeBudgetReminder() {
+  return { ok: true, disabled: true, reason: "monthly routine budget reminder abolished 2026-06-19" };
+
   var todayDay = Number(Utilities.formatDate(new Date(), "Asia/Tokyo", "d"));
   var remindDay = nudgeBudget_getRemindDay_();
   if (!remindDay || todayDay !== remindDay) return { ok: true, skipped: true, reason: "not remind day" };

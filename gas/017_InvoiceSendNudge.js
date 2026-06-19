@@ -286,6 +286,8 @@ function invoiceSend_buildBlocks_(projectName, ym, occurrenceLabel, mentions, pr
  * 各 PJ × 締切日 (前日 or 当日) で、該当 occurrence の nudge を送る。
  */
 function cron_invoiceSendNudge_() {
+  return { ok: true, disabled: true, reason: "monthly routine invoice-send nudge abolished 2026-06-19" };
+
   const now = new Date();
   const hour = now.getHours(); // JST (TZ Asia/Tokyo)
 
@@ -462,9 +464,14 @@ function invoiceSend_handleDoneFromQueue_(job) {
  */
 function invoiceSend_runInternalSetup_(body) {
   const props = PropertiesService.getScriptProperties();
+  const fn = "cron_invoiceSendNudge_";
+  const existingTriggers = ScriptApp.getProjectTriggers().filter(t => {
+    try { return t.getHandlerFunction() === fn; } catch (_e) { return false; }
+  });
+  existingTriggers.forEach(t => { try { ScriptApp.deleteTrigger(t); } catch (_e) {} });
 
   if (String(props.getProperty("SUPABASE_SERVICE_ROLE_KEY") || "").trim()) {
-    return { ok: false, message: "already configured" };
+    return { ok: true, disabled: true, removedTriggers: existingTriggers.length, message: "invoice-send nudge disabled; existing config kept" };
   }
 
   const supabaseUrl = String((body && body.supabaseUrl) || "").trim();
@@ -476,19 +483,6 @@ function invoiceSend_runInternalSetup_(body) {
   props.setProperty("SUPABASE_URL", supabaseUrl);
   props.setProperty("SUPABASE_SERVICE_ROLE_KEY", supabaseKey);
 
-  // トリガー作成 (10/12/15/17/20 時)
-  const fn = "cron_invoiceSendNudge_";
-  const wantedHours = [10, 12, 15, 17, 20];
-  const existingTriggers = ScriptApp.getProjectTriggers().filter(t => {
-    try { return t.getHandlerFunction() === fn; } catch (_e) { return false; }
-  });
-  // 既存を全削除
-  existingTriggers.forEach(t => { try { ScriptApp.deleteTrigger(t); } catch (_e) {} });
-  // 新規作成
-  for (const h of wantedHours) {
-    ScriptApp.newTrigger(fn).timeBased().everyDays(1).atHour(h).create();
-  }
-
   // slackInteractiveWorker も確実に作成 (既にあれば不要)
   try {
     if (typeof admin_ensureSlackInteractiveWorkerTrigger === "function") {
@@ -498,7 +492,8 @@ function invoiceSend_runInternalSetup_(body) {
 
   return {
     ok: true,
-    triggerHours: wantedHours,
-    message: "setup complete",
+    disabled: true,
+    removedTriggers: existingTriggers.length,
+    message: "invoice-send nudge disabled; no trigger created",
   };
 }

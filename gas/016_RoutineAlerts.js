@@ -55,6 +55,8 @@ function b_logRoutineAlert_(projectId, ym, level, taskKey){
   sh.appendRow([projectId, ym, level, taskKey, new Date().toISOString()]);
 }
 function cron_checkRoutineAlertsDaily_(){
+  return { ok: true, disabled: true, reason: "monthly routine abolished 2026-06-19" };
+
   // まさ・きよは常にcc
   const CC_ALWAYS = ["masa@team-armada.jp", "kyoko@team-armada.jp"];
 
@@ -284,11 +286,5 @@ function setupRoutineAlertTrigger(){
     } catch(e){}
   });
 
-  ScriptApp.newTrigger(handler)
-    .timeBased()
-    .everyDays(1)
-    .atHour(12)
-    .create();
-
-  return { ok:true, message:"created daily trigger at 12:00", removed };
+  return { ok:true, disabled:true, message:"monthly routine alert trigger removed; no new trigger created", removed };
 }
