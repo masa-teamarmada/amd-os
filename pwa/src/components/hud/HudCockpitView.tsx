@@ -7,11 +7,9 @@ import { HudCockpitGoalsCompact } from "./HudCockpitGoalsCompact";
 import { HudCockpitMonthlyList } from "./HudCockpitMonthlyList";
 import { HudCockpitMonthlyModal } from "./HudCockpitMonthlyModal";
 import { HudCockpitNudge } from "./HudCockpitNudge";
-import { HudCockpitRoutineGas } from "./HudCockpitRoutineGas";
 import { HudCockpitMeetingSummary } from "./HudCockpitMeetingSummary";
 import { HudCockpitFreezeBackfill } from "./HudCockpitFreezeBackfill";
 import { CockpitNextPeriodSetup } from "../cockpit/CockpitNextPeriodSetup";
-import { CockpitRoutineBudgetModal } from "../cockpit/CockpitRoutineBudgetModal";
 import { AAA_PROJECT_ID } from "@/lib/demo-aaa-data";
 import { fetchAmdScoreInputs, fetchActiveAlpha, type AmdScoreInputRow } from "@/lib/amd-score-data";
 import { buildAaaScoreInputsFromSx, computeAmdScoreSeries } from "@/lib/amd-score-derived";
@@ -169,15 +167,6 @@ function formatYm(ym: string) {
 
 type MonthlyModalTab = "reward" | "report";
 
-function resolveStepModalFromTap(ym: string, stepId: string): StepModal {
-  switch (stepId) {
-    case "budget":
-      return { kind: "budget", ym };
-    default:
-      return null;
-  }
-}
-
 function latestProgressPct(
   progress: Array<{ milestoneKey: string; ym: string; progressPct: number }>,
   milestoneId: string,
@@ -265,26 +254,13 @@ function usesMsProgressCategory(category: string | null | undefined) {
   return ["dtsu", "ecosystem", "new_business"].includes(String(category || "dtsu").toLowerCase());
 }
 
-type StepModal =
-  | { kind: "budget"; ym: string }
-  | null;
-
-export function HudCockpitView({ cockpit, nudges, initialModalYm, initialStep, canEditRoutine = false }: HudCockpitViewProps) {
+export function HudCockpitView({ cockpit, nudges, initialModalYm }: HudCockpitViewProps) {
   const cockpitNudges = nudges || cockpit.nudges || [];
-  const [modalYm, setModalYm] = useState<string | null>(
-    initialStep?.stepId === "reportFix" ? initialStep.ym : initialModalYm || null
-  );
-  const [modalInitialTab, setModalInitialTab] = useState<MonthlyModalTab | undefined>(
-    initialStep?.stepId === "reportFix" ? "report" : undefined
-  );
+  const [modalYm, setModalYm] = useState<string | null>(initialModalYm || null);
+  const [modalInitialTab, setModalInitialTab] = useState<MonthlyModalTab | undefined>(undefined);
   const [pastExpanded, setPastExpanded] = useState(false);
   const [editingCurrentCycle, setEditingCurrentCycle] = useState(false);
   const [progressPatches, setProgressPatches] = useState<ProgressShape[]>([]);
-  const [stepModal, setStepModal] = useState<StepModal>(() => {
-    if (!initialStep) return null;
-    if (initialStep.stepId === "reportFix") return null;
-    return resolveStepModalFromTap(initialStep.ym, initialStep.stepId);
-  });
 
   function openMonthlyModal(ym: string, initialTab?: MonthlyModalTab) {
     setModalInitialTab(initialTab);
@@ -296,15 +272,6 @@ export function HudCockpitView({ cockpit, nudges, initialModalYm, initialStep, c
     setModalInitialTab(undefined);
   }
 
-  function handleStepClick(ym: string, stepId: string) {
-    if (stepId === "reportFix") {
-      setStepModal(null);
-      openMonthlyModal(ym, "report");
-      return;
-    }
-    const next = resolveStepModalFromTap(ym, stepId);
-    if (next) setStepModal(next);
-  }
   const { project, currentYm, billingCycles, planCycle, milestones, progress, reports, subItems, responsibilities, memberMap, pastPlanCycles, msActivities, memberActivities } = cockpit;
   const usesMsProgress = usesMsProgressCategory(project.projectCategory);
 
@@ -343,7 +310,6 @@ export function HudCockpitView({ cockpit, nudges, initialModalYm, initialStep, c
   const modalMemberActivities = modalBundle?.memberActivities || memberActivities || [];
   const showLiveOperations = isLiveOperationalProject(project, currentYm);
   const showAmdScore = (project.projectCategory || "dtsu") !== "ecosystem";
-  const visibleStepModal = showLiveOperations ? stepModal : null;
 
   return (
     <section className="hud-cockpit-clone" aria-label="HUD cockpit clone">
@@ -511,16 +477,7 @@ export function HudCockpitView({ cockpit, nudges, initialModalYm, initialStep, c
       </div>
 
       {/* ===== RIGHT COLUMN — 220px sticky ===== */}
-      {/* 終了 PJ (status='ended'/'lost'/'frozen') では月次確認は表示しない。
-          freeze_from_ym 設定済 + 当該 ym 到達後も非表示。restart_expected_ym 設定済 + 未到達でも非表示 (#18) */}
       <div className="min-w-0 overflow-y-auto pl-1 flex flex-col gap-3 xl:sticky xl:top-12 xl:max-h-[calc(100vh-60px)]">
-        {showLiveOperations && (
-          <HudStepModalStack
-            currentYm={currentYm}
-            disabled={!canEditRoutine}
-            onStepClick={(stepId) => handleStepClick(currentYm, stepId)}
-          />
-        )}
         {(() => {
           // ステータス予定のバッジ
           const badges: Array<{ key: string; cls: string; text: string }> = [];
@@ -548,25 +505,6 @@ export function HudCockpitView({ cockpit, nudges, initialModalYm, initialStep, c
                   ))}
                 </div>
               )}
-              {showLiveOperations ? (
-                <>
-                  {!canEditRoutine && (
-                    <div className="text-[10px] text-amber-100 bg-amber-300/10 border border-amber-300/30 px-2 py-1 mb-1">
-                      LOCKED: 月次確認は PM のみ操作可能 (= 閲覧のみ)
-                    </div>
-                  )}
-                  <div className={`hud-cockpit-panel hud-cockpit-panel--routine ${canEditRoutine ? "" : "pointer-events-none opacity-60"}`}>
-                    <HudCockpitRoutineGas
-                      projectId={project.projectId}
-                      billingCycles={billingCycles}
-                      currentYm={currentYm}
-                      projectType={project.projectType}
-                      onOpenModal={(ym) => openMonthlyModal(ym)}
-                      onStepClick={handleStepClick}
-                    />
-                  </div>
-                </>
-              ) : null}
             </>
           );
         })()}
@@ -597,16 +535,6 @@ export function HudCockpitView({ cockpit, nudges, initialModalYm, initialStep, c
           usesMsProgress={usesMsProgress}
           onProgressSaved={(patches) => setProgressPatches((prev) => mergeProgress(prev, patches))}
           onClose={closeMonthlyModal}
-        />
-      )}
-
-      {/* ===== Step Modals (PMルーティン外の請求系はadminへ集約。budgetは例外入口のみ残す) ===== */}
-      {visibleStepModal?.kind === "budget" && (
-        <CockpitRoutineBudgetModal
-          projectId={project.projectId}
-          ym={visibleStepModal.ym}
-          open
-          onClose={() => setStepModal(null)}
         />
       )}
     </div>
@@ -909,49 +837,6 @@ function RiskPanel({ risk, state }: { risk: "LOW" | "MEDIUM" | "HIGH"; state: st
       <div className="mt-2 font-mono text-[20px] font-black leading-none">{risk}</div>
       <div className="mt-2 text-[10px] font-black uppercase tracking-[0.12em]">{state}</div>
     </div>
-  );
-}
-
-function HudStepModalStack({
-  currentYm,
-  disabled,
-  onStepClick,
-}: {
-  currentYm: string;
-  disabled: boolean;
-  onStepClick: (stepId: string) => void;
-}) {
-  const steps = [{ id: "reportFix", label: "REPORT NUDGE", ja: "報告書確認", sub: "PM nudge", icon: "/hud/routine-icons/report.png" }] as const;
-  return (
-    <section className="relative min-h-[304px] overflow-visible border border-cyan-300/32 bg-slate-950/88 p-3 text-cyan-50 shadow-[0_0_20px_rgba(34,211,238,0.12),inset_0_0_20px_rgba(34,211,238,0.06)]">
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(34,211,238,0.07)_1px,transparent_1px)] bg-[length:100%_8px]" />
-      <div className="relative mb-2 flex items-center justify-between border-b border-cyan-300/18 pb-2">
-        <h3 className="text-[11px] font-black uppercase tracking-[0.16em] text-cyan-100">Step Modal Stack</h3>
-        <span className="font-mono text-[9px] font-black text-cyan-100/48">{currentYm}</span>
-      </div>
-      <div className="relative space-y-2">
-        {steps.map((step) => (
-          <button
-            key={step.id}
-            type="button"
-            aria-disabled={disabled}
-            onClick={() => {
-              if (!disabled) onStepClick(step.id);
-            }}
-            className={`group flex min-h-[42px] w-full items-center gap-2 border border-violet-300/34 bg-violet-400/8 px-2 py-1.5 text-left transition hover:bg-violet-400/14 ${disabled ? "cursor-not-allowed" : ""}`}
-          >
-            <span className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden border border-current bg-slate-950/70 text-cyan-100 shadow-[0_0_12px_rgba(34,211,238,.16)]">
-              <img src={step.icon} alt="" aria-hidden="true" className="h-8 w-8 object-cover opacity-95 mix-blend-screen" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[9px] font-black uppercase tracking-[0.08em] text-cyan-100/78">{step.label}</span>
-              <span className="block truncate text-[11px] font-bold text-cyan-50">{step.ja}</span>
-            </span>
-            <span className="shrink-0 border border-cyan-300/22 px-1.5 py-0.5 text-[8px] font-black uppercase text-cyan-100/70 group-hover:text-white">{step.sub}</span>
-          </button>
-        ))}
-      </div>
-    </section>
   );
 }
 
