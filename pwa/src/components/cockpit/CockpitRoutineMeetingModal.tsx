@@ -116,8 +116,7 @@ export function CockpitRoutineMeetingModal({ projectId, ym, isDone, doneAction, 
         setToast({ msg: result.message || "登録しました", isError: false });
         // 即時に「予約完了」UI に切り替え
         setLocalConfirmedISO(result.meetingStartAt || slot.startISO);
-        // 親 (CockpitView の cockpit.billingCycles) をサーバーから再フェッチ
-        // → ルーティンタスクの「報告会日程調整」が done になり、再オープン時に isDone=true で渡る
+        // legacy modal: 報告会は廃止済み。誤って使われた場合も親データだけ再取得する。
         router.refresh();
       } else {
         setToast({ msg: result.message || "登録に失敗しました", isError: true });
@@ -136,7 +135,7 @@ export function CockpitRoutineMeetingModal({ projectId, ym, isDone, doneAction, 
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>報告会日程調整</DialogTitle>
+          <DialogTitle>報告会は廃止済み</DialogTitle>
         </DialogHeader>
 
         {effectiveIsDone && (

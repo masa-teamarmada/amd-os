@@ -1,9 +1,9 @@
-/**
- * POST /api/notify/pl-review
- * body: { projectId: string, ym: string, taskKind: "budget"|"reportFix"|"invoiceIssue"|"estimateSend", taskLabel: string }
- *
- * 予算確定 / 月次報告書 / 請求書発行 の各タスクで「PL に確認依頼」を送る。
- * project_members.is_pl=true のメンバーの slack_id 全員に Slack DM を送信。
+ /**
+  * POST /api/notify/pl-review
+ * body: { projectId: string, ym: string, taskKind: "budget"|"reportFix", taskLabel: string }
+  *
+ * 予算例外 / 月次報告書確認の各タスクで「PL に確認依頼」を送る。
+  * project_members.is_pl=true のメンバーの slack_id 全員に Slack DM を送信。
  *
  * SLACK_BOT_TOKEN env が必須。未設定なら graceful skip。
  * design/routine.md #13 参照。

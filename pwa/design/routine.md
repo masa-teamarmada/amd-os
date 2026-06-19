@@ -1,59 +1,54 @@
-# 月次ルーティン — 設計の正本
+# 月次確認 — 設計の正本
 
-> **回帰多発エリア**。「全部の stepId が同じ月次モーダルを開く」regression が
-> 過去 3 度発生 (BUGS.md 参照)。ここに stepId × 挙動表が書かれていない or
-> 見落とされると、新セッションが直すたびに同じ問題に戻す。**変更時は表を必ず更新**。
+> **2026-06-19 方針確定**: PM の月次ルーティンは廃止方向。cockpit / mypage に残す PM 向け月次通知は、月次報告書 draft に対する「これでいい？」確認 nudge だけ。
+> 報告会は完全廃止。代わりに 2 か月に 1 回、対面のナレッジ会を月次ルーティン外で実施する。
 
 ---
 
 ## 画面位置
 
 `/project/[projectId]/cockpit` 右カラム (`status === 'active' || 'sales'` の PJ のみ)。
-SU 系・終了 PJ では非表示。
+SU 系・終了 PJ・`freeze_from_ym <= ym` の凍結 PJ では非表示。
 
 ```
 ┌──────────────────────┐
-│ 月次ルーティン       │  ← 見出し (CockpitRoutineGas)
+│ 月次確認             │  ← 見出し (CockpitRoutineGas)
 ├──────────────────────┤
-│ 2026.05稼働分  60% │  ← 月見出し (クリック→ CockpitMonthlyModal)
-│ ├ 請求額確定        │  ← ステップ行 (クリック→ stepId 別モーダル)
-│ ├ 報告会日程調整    │
-│ ├ 月次報告書FIX     │
-│ ├ 立替精算確認      │
-│ ├ 請求書発行        │
-│ └ 請求書送付        │
+│ 2026.05稼働分 100% │  ← 月見出し (クリック→ CockpitMonthlyModal)
+│ └ 月次報告書確認    │  ← ステップ行 (クリック→ report tab)
 └──────────────────────┘
 ```
 
 ---
 
-## ステップ並び
+## PMに送るnudge
 
-- 標準: `請求額確定 / 報告会日程調整 / 月次報告書FIX / 立替精算確認 / 請求書発行 / 請求書送付`
-- CTB: `見積書送付 / 請求額確定 / 報告会日程調整 / 請求書発行 / 請求書送付 / 月次報告書FIX / 立替精算確認`
-- **古い月が上**
-- 期限超過かつ未完なら mypage の月次報酬から **取り消し線** で除外
-- ただし `billing_cycles.status` が `payment_confirmed` / `reward_paid` / `completed`、または `payment_confirmed_at` / `reward_paid_at` あれば admin 救済済みとして除外しない
+- 表示順: `月次報告書確認` だけ。
+- 目安: 翌月 3 日 (土日なら前営業日へ繰り上げ)。
+- `/mypage` の PM 通知と cockpit 右カラムはこの step だけを見る。
+- `月次報告書確認` は「これでいい？」のnudgeであり、未対応でも月次報酬の取り消し線・除外判定には使わない。
+
+## PMから外したもの
+
+- **報告会日程調整**: 完全廃止。隔月の対面ナレッジ会は月次ルーティン外で運用する。
+- **立替精算確認**: PM 月次タスクから外す。立替の処理状況は `/reimburse` / admin 系で扱い、PM の月次nudgeには使わない。
+- **請求書発行 / 請求書送付**: admin の役割。`/admin/billing` の `請求発行` / `請求送付` 列で扱う。
+- **見積書送付 (CTB)**: CTB は停止中なので一旦廃止。`[[CTB_ESTIMATE_SENT]]` marker を PM ルーティンから更新しない。
+- **請求額確定**: 契約由来の自動確定が正本。PM/PL の `/mypage` 月次nudgeと報酬除外判定には使わない。cockpit の `budget` direct step は、契約/報酬キャッシュの前提が崩れた時の例外復旧・個別差分入力用にだけ残す。
 
 ---
 
-## stepId × クリック挙動 ⭐
+## stepId × クリック挙動
 
-正本は **iOS** `RoutineFlowView.handleTap()` ([ios/AMDOS/Features/Routine/RoutineFlowView.swift](../../ios/AMDOS/Features/Routine/RoutineFlowView.swift))。
 PWA では `CockpitView.resolveStepModalFromTap()` ([pwa/src/components/cockpit/CockpitView.tsx](../src/components/cockpit/CockpitView.tsx)) で振り分け。
 
 | stepId | 表示ラベル | クリックで開くもの | 実装 |
 |---|---|---|---|
-| `budget` | 請求額確定 | `CockpitRoutineBudgetModal` | `billing_cycles` へ請求額案を保存 / `/api/notify/pl-review` (PLへ請求額・バッファ・PJ予算 + 承認/差し戻しボタン付きSlack DM) / `/api/admin/budget-approval` で確定 |
-| `estimateSend` (CTBのみ) | 見積書送付 | `CockpitRoutineInvoiceModal` (documentType=`quotation`) | billing_cycles 直叩き / Edge Fn `issue-invoice` / `cancel-invoice` |
-| `meeting` | 報告会日程調整 | `CockpitRoutineMeetingModal` | Edge Fn `meeting-slots` (GET) / `schedule-meeting` (GET) |
-| `reportFix` | 月次報告書FIX | `CockpitRoutineReportFixModal` | monthly_reports 直読み + billing_cycles UPDATE / Edge Fn `send-slack-dm` |
-| `reimburseConfirm` | 立替精算確認 | `/reimburse` ページに **遷移** (モーダルではない) | iOS は `navigation.selectedTab = .reimburse` |
-| `invoiceIssue` | 請求書発行 | `CockpitRoutineInvoiceModal` (documentType=`invoice`) | 同上 estimateSend |
-| `invoiceSend` | 請求書送付 | `CockpitRoutineInvoiceSendConfirm` 確認ダイアログ | billing_cycles UPDATE (`invoice_sent_at`) |
+| `reportFix` | 月次報告書確認 | `CockpitMonthlyModal` の `report` tab | 月次モーダル内の Markdown 表示/編集UIを正本にする |
+| `budget` | 請求額確定 | `CockpitRoutineBudgetModal` | PMルーティンには出さない。契約/報酬キャッシュの例外復旧 direct step としてのみ残す |
 
 **月見出し** (`YYYY.MM稼働分`) クリック → 既存の `CockpitMonthlyModal` (月次の集約モーダル)。
-**ステップ行クリックでは絶対に `CockpitMonthlyModal` を開かない**。
+`reportFix` のステップ行だけは report tab を直接開く。旧 `meeting` / `reimburseConfirm` / `invoiceIssue` / `invoiceSend` / `estimateSend` deep link は PM タスクとしては no-op。
 
 ---
 
@@ -61,36 +56,12 @@ PWA では `CockpitView.resolveStepModalFromTap()` ([pwa/src/components/cockpit/
 
 ### 社外役員/顧問PJ (`projects.project_category='advisor'`)
 
-社外役員/顧問PJは月次ルーティン対象外。コックピット右カラムではタスクを発生させず、`/mypage` の期限超過通知や報酬除外判定にも使わない。
+社外役員/顧問PJは月次ルーティン対象外。コックピット右カラムではタスクを発生させず、`/mypage` の月次確認nudgeにも使わない。
 
-### `立替確認` (reimburseConfirm)
+### 請求月延期 (`invoice_ym !== ym`)
 
-- 締切: 翌月 4 日 (土日なら前営業日)
-- **締切日前**: 必ず未完
-- **締切日以降**: `reimbursements.status` が `submitted` / `pmapproved` の未処理がなければ完了
-- 例: `202606` → 2026-07-04 が土曜 → 2026-07-03 に判定
-- **手動変更不可** (Swift 版と同じ)
-
-PWA 実装: `CockpitRoutineGas.tsx:139` (締切日チェック必須、無視するな)。
-
-### 請求月延期時のスキップ動作 (`invoice_ym !== ym`)
-
-`billing_cycles.invoice_ym` を翌月以降に設定した cycle (= 当月分を翌月以降にまとめて請求するケース) では、
-**当月の月次ルーティンは `reportFix` (月次報告書FIX) 以外を全部スキップ表示**にする。
-
-| 状態 | 当月 cycle | 翌月以降 cycle |
-|---|---|---|
-| `reportFix` (月次報告書FIX) | active (= 当月内に必ずやる) | active |
-| `budget` / `meeting` / `reimburseConfirm` | **deferred → 非表示** | active |
-| `invoiceIssue` / `invoiceSend` | **deferred → 非表示** (ラベルは "X月にまとめて請求") | active |
-| `estimateSend` (CTB) | **deferred → 非表示** | active |
-
-実装は `CockpitRoutineGas.buildSteps()` の `deferred` フラグ。
-deferred は `activeSteps = steps.filter((s) => !s.deferred)` で UI 描画から除外され、`progressPct` も `reportFix` 1 個だけが分母になる。
-月見出し横の `→7月` バッジ (オレンジ) が「翌月にまとめる意図」を示す唯一のシグナル。
-
-理由: 翌月にまとめて請求する場合、当月の予算確定 / 報告会 / 立替確認 / 請求書発行・送付は翌月 cycle 側でまとめて回すため。
-ただし月次報告書 (`monthly_reports`) は稼働月単位で必ず固定するので、`reportFix` だけは当月に残す。
+PM の月次確認は `reportFix` だけなので、`invoice_ym` による deferred 表示は使わない。
+請求月の繰延は `/admin/billing` / `/admin/payouts` / finance 系の責務として扱う。
 
 ### 後追い予算未確定の扱い (`invoice_ym !== ym` + `budget_yen` 未設定)
 
@@ -109,7 +80,8 @@ SX `202601-202603` のように、稼働開始後に複数月分の委託料が�
 
 ### 請求額確定の承認フロー
 
-- PM/PLが月次ルーティンの `budget` で請求額とバッファを入力すると、承認前は `請求額案` として `billing_cycles.status='reported'`、`budget_reported_amount`、`budget_buffer_amount` を保存する。`budget_reported_amount` は列名互換のため残しているが、意味は「請求額（税抜）」であり、別の「予定請求額」ではない。
+- 原則は契約 apply 済みデータから `contract-billing-auto-confirm` が自動確定する。PM/PL の `/mypage` 月次nudgeには出さない。
+- 例外復旧・個別差分として `budget` で請求額とバッファを入力すると、承認前は `請求額案` として `billing_cycles.status='reported'`、`budget_reported_amount`、`budget_buffer_amount` を保存する。`budget_reported_amount` は列名互換のため残しているが、意味は「請求額（税抜）」であり、別の「予定請求額」ではない。
 - PL Slack nudgeには請求額・バッファ・PJ予算 (`請求額×65%−バッファ`) を明記し、`承認する` / `差し戻す` / `OSで確認` を出す。
 - Slackの `承認する`、またはOSモーダル内の `承認する` は `/api/admin/budget-approval` に集約され、`billing_cycles.status='budget_confirmed'`、`budget_yen`、`budget_confirmed_at/by` を更新する。承認後の `budget_reported_amount` は確定請求額として扱う。
 - `差し戻す` は `status='budget_rejected'` にし、`budget_yen` は確定させない。再入力時に同じモーダルから修正できる。
@@ -135,22 +107,16 @@ PJごとの支払条件はコックピットではなく `/admin/projects` で�
 
 | stepId | 締切 |
 |---|---|
-| `estimateSend` (CTB) | 前月 28 日 (営業日) |
-| `budget` | 前月 25 日 (CTB は 28 日) |
-| `meeting` | 当月 20 日 |
 | `reportFix` | 翌月 3 日 |
-| `reimburseConfirm` | 翌月 4 日 |
-| `invoiceIssue` | 翌月 8 日 (CTB は当月 28 日) |
-| `invoiceSend` | 翌月 9 日 (CTB は当月 28 日) |
 
-すべて **adjustBusinessDay** (土日なら前営業日へ繰り上げ) を通す。
+**adjustBusinessDay** (土日なら前営業日へ繰り上げ) を通す。
 
 ---
 
 ## URL クエリでステップを直接開く
 
-`/project/[projectId]/cockpit?ym=YYYYMM&step=<stepId>` で、起動時にそのステップ用モーダルを開く。
-mypage の TODO カード ([pwa/src/app/(app)/mypage/page.tsx:593](../src/app/(app)/mypage/page.tsx)) からこの URL に飛ばしてる。
+`/project/[projectId]/cockpit?ym=YYYYMM&step=reportFix` で、起動時に月次モーダルの report tab を開く。
+mypage の TODO カード ([pwa/src/app/(app)/mypage/page.tsx](../src/app/(app)/mypage/page.tsx)) からこの URL に飛ばしてる。
 `?ym=` だけなら従来通り月次モーダル。
 
 ---
@@ -159,22 +125,18 @@ mypage の TODO カード ([pwa/src/app/(app)/mypage/page.tsx:593](../src/app/(a
 
 | 役割 | パス |
 |---|---|
-| 月次ルーティンの右カラム描画 | `pwa/src/components/cockpit/CockpitRoutineGas.tsx` |
+| 月次確認の右カラム描画 | `pwa/src/components/cockpit/CockpitRoutineGas.tsx` |
 | stepId → モーダル振り分け | `pwa/src/components/cockpit/CockpitView.tsx` (`resolveStepModalFromTap`) |
-| 各ステップ専用モーダル | `pwa/src/components/cockpit/CockpitRoutine*Modal.tsx` |
 | 月次の集約モーダル (月見出しクリック用) | `pwa/src/components/cockpit/CockpitMonthlyModal.tsx` |
-| Edge Function (POST) ヘルパー | `pwa/src/lib/supabase/edge-functions.ts` (`callEdgeFunctionPOST` / `callEdgeFunctionGET`) |
-| iOS 正本 | `ios/AMDOS/Features/Routine/RoutineFlowView.swift` (`handleTap()`) |
-| iOS 各 StepView | `ios/AMDOS/Features/Routine/{Budget,Meeting,ReportFix,Invoice}StepView.swift` |
 
 ---
 
 ## admin.billing 側の表示順 (参考)
 
-admin.billing マトリックスはルーティンとは別の並び:
+admin.billing マトリックスは PM の月次確認とは別の admin 業務表:
 
-- 標準: `予算確定 / 報告会 / 報告書 / 立替確認 / 請求発行 / 請求送付 / 支払通知 / 入金確認 / 報酬支払`
-- CTB: `見積送付 / 予算確定 / 報告会 / 請求発行 / 請求送付 / 報告書 / 立替確認 / 支払通知 / 入金確認 / 報酬支払`
+- 標準: `予算確定 / 報告書 / 立替確認 / 請求発行 / 請求送付 / 支払通知 / 入金確認 / 報酬支払`
+- CTB: `予算確定 / 請求発行 / 請求送付 / 報告書 / 立替確認 / 支払通知 / 入金確認 / 報酬支払`
 
 実装: `pwa/src/components/admin/AdminBillingMatrix.tsx`。
 
@@ -184,7 +146,7 @@ admin.billing マトリックスはルーティンとは別の並び:
 
 新機能を入れる時、コックピット周りを触る時、以下を**必ず確認**:
 
-- [ ] `CockpitRoutineGas.tsx` の各ステップ button が `onStepClick` を呼んでる (= `onOpenModal` ではない)
-- [ ] `CockpitView.resolveStepModalFromTap()` の switch case が上の表と一致してる
+- [ ] `CockpitRoutineGas.tsx` の表示 step が `reportFix` だけ
+- [ ] `CockpitView.resolveStepModalFromTap()` で旧 `meeting` / `reimburseConfirm` / `invoiceIssue` / `invoiceSend` / `estimateSend` を PM タスクとして開かない
 - [ ] 月見出し button だけが `onOpenModal` を呼んでいる
-- [ ] `?step=` URL パラメータの `initialStep` ハンドリングが残ってる
+- [ ] `?step=reportFix` URL パラメータで report tab が開く

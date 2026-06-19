@@ -262,15 +262,14 @@ function ProjectStripe({
           )}
         </div>
 
-        {/* === billing 5 dot: col-span-2 === */}
+        {/* === billing 4 dot: col-span-2 === */}
         <div className="col-span-2 border-l border-border/50 pl-3">
           {billing ? (
             <>
               <div className="text-[9px] text-muted-foreground font-mono mb-1">{billing.ym?.slice(0, 4)}.{billing.ym?.slice(4, 6)}</div>
               <div className="flex items-center justify-between gap-0.5">
                 <BillingStep done={billing.budgetDone} label="確" full="確定" />
-                <BillingStep done={billing.meetingDone} label="報" full="報告" />
-                <BillingStep done={billing.reportDone} label="月" full="月次" />
+                <BillingStep done={billing.reportDone} label="報" full="報告" />
                 <BillingStep done={billing.invoiceDone} label="請" full="請求" />
                 <BillingStep done={billing.paymentDone} label="入" full="入金" />
               </div>

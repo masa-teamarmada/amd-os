@@ -39,10 +39,10 @@ URL: `/admin/projects`。 全 PJ 台帳を編集する admin 専用画面。
 | value | 色 | 意味 | 主な扱い |
 |---|---|---|---|
 | `draft` | gray | 台帳作成済だが契約・稼働・営業状態が固まってない | 通常運用には入れない |
-| `active` | emerald | AMD が伴走中の PJ | cockpit / 月次ルーティン / 請求 / MS 進捗の標準対象 |
+| `active` | emerald | AMD が伴走中の PJ | cockpit / 月次確認 / 請求 / MS 進捗の標準対象 |
 | `sales` | blue | 商談・受注前・提案中 | 台帳や資料生成に載せるが、 契約後に個別確認 |
-| `ended` | gray | AMD の伴走・契約終了 | 履歴。 新規月次ルーティンは出さない |
-| `frozen` | amber | 明示的に休止中 | 新規月次ルーティン停止。 `freeze_from_ym` / `restart_expected_ym` 併用可 |
+| `ended` | gray | AMD の伴走・契約終了 | 履歴。 新規月次確認は出さない |
+| `frozen` | amber | 明示的に休止中 | 新規月次確認停止。 `freeze_from_ym` / `restart_expected_ym` 併用可 |
 | `lost` | red | 失注 / 破談 / 契約化しなかった | 支払原資なし、 個別合意ベース |
 
 ### freeze の扱い
@@ -91,7 +91,7 @@ URL: `/admin/projects`。 全 PJ 台帳を編集する admin 専用画面。
 
 ### 月次予算 cap と追加枠
 
-`projects.fee_amount` は通常 cap。 OkuDoor 追加開発などで追加枠が出る月は、 admin が `billing_cycles.budget_yen = 通常 cap + 追加枠` を直接書き換える (= 月次ルーティンの「請求額確定」フローで `cap外追加支払枠` を入力する)。
+`projects.fee_amount` は通常 cap。 OkuDoor 追加開発などで追加枠が出る月は、 admin が `billing_cycles.budget_yen = 通常 cap + 追加枠` を直接書き換える。PM月次確認には出さない。
 
 例: ZMP の通常固定費は 300,000 円 × 65% = 195,000 円が cap。 追加分があるときは合意額を `cap外追加支払枠` に入れる。
 
@@ -164,18 +164,20 @@ Calendar 共有は **Google Workspace ログイン時に `calendar.readonly` を
 | `role` | 自由 text (= 「営業」「リード PM」 等) |
 | `role_label` | 表示用 label |
 | `is_active` | true なら現在 PJ に参加中 |
-| `is_pm` | PJ Manager (= 月次ルーティン全部表示対象) |
-| `is_pl` | PJ Lead (= PL 承認権限、 「請求額確定」 TODO 表示対象) |
+| `is_pm` | PJ Manager (= `/mypage` の月次報告書確認表示対象) |
+| `is_pl` | PJ Lead (= PL 承認権限。`請求額確定` は通常nudgeとしては表示しない) |
 | `is_closer` | クローザー (= 営業最終承認) |
 | `join_ym` / `leave_ym` | 期間 |
 
 ### ロール判定の出し分け (= /mypage)
 
-| メンバーロール | /mypage 月次ルーティン TODO |
+| メンバーロール | /mypage 月次確認 TODO |
 |---|---|
-| `is_pm=true` | フル (= 請求額確定 / 報告会 / 報告書 FIX / 立替 / 請求書発行・送付) |
-| `is_pl=true AND is_pm=false` | 請求額確定のみ (= PL 承認対象) |
+| `is_pm=true` | 月次報告書確認のみ |
+| `is_pl=true AND is_pm=false` | 出さない |
 | 上記以外 | 出さない |
+
+`請求額確定` は契約 apply 済みデータから自動確定する。契約書由来の金額や対象月の報酬額が見えない場合は、PM/PL の通常nudgeではなく契約台帳/報酬キャッシュの整備対象。請求書発行/送付はadmin業務。
 
 詳細は [2-2 章 メンバーの日常ワークフロー](2-2-member-workflows-quick-start.md)。
 
@@ -204,6 +206,6 @@ PJ 台帳 / メンバー台帳の更新は admin 経由のみ:
 - 6-3 章 [Invoice / Billing Routine](6-3-invoice-and-billing-routine-spec.md) (= 請求書発行)
 - 6-4 章 [Finance / Payment Confirm](6-4-finance-payment-confirm-spec.md) (= 入金確認)
 - 6-5 章 [Admin Payouts / 支払通知書](6-5-admin-payouts-reward-notice-spec.md) (= 支払通知書発行)
-- 2-6 章 [admin オペ](2-6-admin-ops.md) (= 月次ルーティン早見表)
+- 2-6 章 [admin オペ](2-6-admin-ops.md) (= 月次確認/admin請求早見表)
 - 9-1 章 [過去判断と経緯](9-1-decisions-and-history.md) (= status / project_category の経緯)
 - 設計: [`pwa/design/aspi_lanes.md`](../design/aspi_lanes.md) (= `lanes` JSONB)

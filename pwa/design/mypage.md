@@ -33,10 +33,11 @@
 
 ### 「いまやること」生成ルール
 
-- `/mypage` はログインユーザー個人の画面なので、月次ルーティンTODOは `project_members` の担当roleで絞る。
-- `is_pm=true` のPJ: 請求額確定、報告会日程調整、報告書FIX、請求書発行/送付など、そのPJの月次ルーティンを表示する。
-- `is_pl=true` かつ `is_pm=false` のPJ: PL承認対象である `請求額確定` だけを表示する。
-- ただの参加メンバー (`is_pm=false` / `is_pl=false`) には、PJ参加中でも月次ルーティンTODOを出さない。admin全体確認は `/admin/*` で扱い、マイページには混ぜない。
+- `/mypage` はログインユーザー個人の画面なので、月次確認nudgeは `project_members` の担当roleで絞る。
+- `is_pm=true` のPJ: `月次報告書確認` だけを表示する。「これでいい？」nudgeへの確認・修正要望・FIXが役割。
+- `is_pl=true` かつ `is_pm=false` のPJ: 月次確認nudgeは出さない。
+- ただの参加メンバー (`is_pm=false` / `is_pl=false`) には、PJ参加中でも月次確認nudgeを出さない。admin全体確認は `/admin/*` で扱い、マイページには混ぜない。
+- `請求額確定` は契約 apply 済みデータから自動確定する。契約書由来の金額や対象月の報酬額が見えない場合は、PM/PL の通常nudgeではなく契約台帳/報酬キャッシュの整備対象。請求書発行/送付はadmin業務。
 
 ### AllocationStatus 判定ロジック
 - `budget_confirmed` → `.confirmed` ✅

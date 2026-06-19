@@ -104,7 +104,6 @@ interface RoutineStep {
 }
 
 const supabase = createClient();
-const CTB_ESTIMATE_MARKER = "[[CTB_ESTIMATE_SENT]]";
 const REWARD_AMOUNT_PLACEHOLDER = "ー";
 const NO_COMPENSATION_SECONDED_MEMBER_IDS = new Set(["ID006"]);
 
@@ -134,10 +133,6 @@ function targetYms(monthsBack = 6): string[] {
     ym = prevYm(ym);
   }
   return out;
-}
-
-function firstDay(ym: string) {
-  return `${ym.slice(0, 4)}-${ym.slice(4, 6)}-01`;
 }
 
 function formatYm(ym: string) {
@@ -192,6 +187,11 @@ function allocationStatus(status?: string | null): AllocationStatus {
   if (status === "allocation_confirmed" || status === "budget_confirmed") return "confirmed";
   if (status === "reported") return "reported";
   return "not_set";
+}
+
+function isProjectFrozenForYm(project: { status?: string | null; freeze_from_ym?: string | null }, ym: string): boolean {
+  if ((project.status || "").toLowerCase() === "frozen") return true;
+  return !!project.freeze_from_ym && ym >= project.freeze_from_ym;
 }
 
 function extractMemberSection(text: string | null | undefined, codeName: string): string | null {
@@ -365,81 +365,27 @@ function recomputedStatus(done: boolean, deadline?: string | null, fallback = "f
   return fallback;
 }
 
-function deadlineFor(stepId: string, ym: string, isCTB: boolean) {
+function deadlineFor(stepId: string, ym: string) {
   switch (stepId) {
-    case "estimateSend":
-      return adjustBusinessDay(ymd(prevYm(ym), 28));
-    case "budget":
-      return adjustBusinessDay(ymd(prevYm(ym), isCTB ? 28 : 25));
-    case "meeting":
-      return adjustBusinessDay(ymd(ym, 20));
     case "reportFix":
       return adjustBusinessDay(ymd(nextYm(ym), 3));
-    case "reimburseConfirm":
-      return adjustBusinessDay(ymd(nextYm(ym), 4));
-    case "invoiceIssue":
-      return adjustBusinessDay(isCTB ? ymd(ym, 28) : ymd(nextYm(ym), 8));
-    case "invoiceSend":
-      return adjustBusinessDay(isCTB ? ymd(ym, 28) : ymd(nextYm(ym), 9));
     default:
       return null;
   }
 }
 
-function buildRoutineSteps(cycle: Record<string, unknown> | undefined, ym: string, isCTB: boolean): RoutineStep[] {
-  const invoiceYm = typeof cycle?.invoice_ym === "string" && cycle.invoice_ym.trim() ? cycle.invoice_ym.trim() : ym;
-  const deferred = invoiceYm !== ym;
-  const estimateDone = typeof cycle?.invoice_base_lines_json === "string" && cycle.invoice_base_lines_json.includes(CTB_ESTIMATE_MARKER);
-  const standardOrder = ["budget", "meeting", "reportFix", "reimburseConfirm", "invoiceIssue", "invoiceSend"];
-  const ctbOrder = ["estimateSend", "budget", "meeting", "invoiceIssue", "invoiceSend", "reportFix", "reimburseConfirm"];
-  const base: Record<string, { label: string; done: boolean; deferred?: boolean }> = {
-    estimateSend: { label: "見積書送付", done: estimateDone, deferred },
-    budget: {
-      label: "請求額確定",
-      done: !!cycle?.budget_confirmed_at || cycle?.status === "budget_confirmed" || cycle?.status === "allocation_confirmed",
-      deferred,
+function buildRoutineSteps(cycle: Record<string, unknown> | undefined, ym: string): RoutineStep[] {
+  const deadline = deadlineFor("reportFix", ym);
+  const done = !!cycle?.report_fixed_at;
+  return [
+    {
+      stepId: "reportFix",
+      label: "月次報告書確認",
+      done,
+      deadline,
+      status: recomputedStatus(done, deadline),
     },
-    meeting: { label: "報告会日程調整", done: !!cycle?.meeting_event_id || !!cycle?.meeting_start_at, deferred },
-    reportFix: { label: "月次報告書FIX", done: !!cycle?.report_fixed_at },
-    reimburseConfirm: { label: "立替精算確認", done: cycle?.reimburse_confirm_done !== false, deferred },
-    invoiceIssue: { label: "請求書発行", done: !!cycle?.invoice_issued_at, deferred },
-    invoiceSend: { label: "請求書送付", done: !!cycle?.invoice_sent_at, deferred },
-  };
-  const order = isCTB ? ctbOrder : standardOrder;
-  return order.map((stepId) => ({ stepId, ...base[stepId] }))
-    .filter((s) => !s.deferred)
-    .map((s) => {
-    const deadline = deadlineFor(s.stepId, ym, isCTB);
-    return { ...s, deadline, status: recomputedStatus(s.done, deadline) };
-  });
-}
-
-function routineRescuedByAdmin(cycle: Record<string, unknown> | undefined): boolean {
-  const status = String(cycle?.status || "").toLowerCase();
-  return (
-    status === "payment_confirmed" ||
-    status === "reward_paid" ||
-    status === "completed" ||
-    !!cycle?.payment_confirmed_at ||
-    !!cycle?.reward_paid_at
-  );
-}
-
-function cycleWithReimburseStatus(
-  cycle: Record<string, unknown> | undefined,
-  projectId: string,
-  ym: string,
-  reimburseHasPending: Map<string, boolean>
-): Record<string, unknown> | undefined {
-  const reimburseDone = !reimburseHasPending.get(`${projectId}_${ym}`);
-  return { ...(cycle || {}), reimburse_confirm_done: reimburseDone };
-}
-
-function overdueRoutineReasons(cycle: Record<string, unknown> | undefined, ym: string, isCTB: boolean): string[] {
-  if (routineRescuedByAdmin(cycle)) return [];
-  return buildRoutineSteps(cycle, ym, isCTB)
-    .filter((step) => !step.done && step.status === "overdue")
-    .map((step) => `${step.label}${step.deadline ? `（期限 ${formatDeadline(step.deadline)}）` : ""}`);
+  ];
 }
 
 function rewardAmount(project: Pick<MyPageProject, "monthlyEstimatedRewardYen" | "allocation">): number {
@@ -550,19 +496,16 @@ async function loadMyPageData(requestedMemberId?: string | null): Promise<MyPage
     cyclesRes,
     plansRes,
     reportsRes,
-    reimburseRes,
   ] = await Promise.all([
-    supabase.from("projects").select("project_id, project_name, status, start_ym, end_ym, project_type, project_category").in("project_id", projectIds),
+    supabase.from("projects").select("project_id, project_name, status, start_ym, end_ym, freeze_from_ym, project_type, project_category").in("project_id", projectIds),
     supabase.from("billing_cycles").select("*").in("project_id", projectIds).in("ym", routineYms),
     supabase.from("value_plan_cycles").select("plan_cycle_id, project_id, status, total_points, period_start_ym, period_end_ym").in("project_id", projectIds).in("status", ["active", "confirmed", "fixed", "draft"]),
     supabase.from("monthly_reports").select("project_id, ym, section_members").in("project_id", projectIds).in("ym", yms),
-    supabase.from("reimbursements").select("project_id, date, status").in("project_id", projectIds).gte("date", firstDay(yms[yms.length - 1])).lt("date", firstDay(nextYm(yms[0]))),
   ]);
   if (projectsRes.error) throw projectsRes.error;
   if (cyclesRes.error) throw cyclesRes.error;
   if (plansRes.error) throw plansRes.error;
   if (reportsRes.error) throw reportsRes.error;
-  if (reimburseRes.error) throw reimburseRes.error;
 
   const projects = (projectsRes.data || []).filter((p) => (p.status || "").toLowerCase() !== "lost");
   const activeProjectIds = projects
@@ -570,7 +513,7 @@ async function loadMyPageData(requestedMemberId?: string | null): Promise<MyPage
     .filter((pid) => memberProjectIds.includes(pid));
   const routineProjectIds = activeProjectIds.filter((pid) => {
     const role = memberRolesByProject.get(pid);
-    return !!role?.isPm || !!role?.isPl;
+    return !!role?.isPm;
   });
   const planIds = (plansRes.data || []).map((p) => p.plan_cycle_id).filter(Boolean);
 
@@ -628,15 +571,6 @@ async function loadMyPageData(requestedMemberId?: string | null): Promise<MyPage
   });
   const cyclesByKey = new Map((cyclesRes.data || []).map((c) => [`${c.project_id}_${c.ym}`, c]));
   const reportsByKey = new Map((reportsRes.data || []).map((r) => [`${r.project_id}_${r.ym}`, r]));
-  const reimburseHasPending = new Map<string, boolean>();
-  for (const row of reimburseRes.data || []) {
-    const date = row.date || "";
-    const ym = date.length >= 7 ? `${date.slice(0, 4)}${date.slice(5, 7)}` : "";
-    const status = (row.status || "").toLowerCase();
-    if (ym && (status === "submitted" || status === "pmapproved")) {
-      reimburseHasPending.set(`${row.project_id}_${ym}`, true);
-    }
-  }
   const plansByProject = new Map<string, typeof plansRes.data>();
   for (const plan of plansRes.data || []) {
     const list = plansByProject.get(plan.project_id) || [];
@@ -672,13 +606,14 @@ async function loadMyPageData(requestedMemberId?: string | null): Promise<MyPage
       .filter((pid) => {
         const p = projectMap.get(pid);
         if (!p) return false;
+        if (isProjectFrozenForYm(p, ym)) return false;
         if (p.start_ym && ym < p.start_ym) return false;
         if (p.end_ym && ym > p.end_ym) return false;
         return true;
       })
       .map((pid) => {
         const rawCycle = cyclesByKey.get(`${pid}_${ym}`) as Record<string, unknown> | undefined;
-        const cycle = cycleWithReimburseStatus(rawCycle, pid, ym, reimburseHasPending);
+        const cycle = rawCycle;
         const allocJson = cycle?.member_allocations_json as Record<string, unknown> | undefined;
         const allocation = toNumber(allocJson?.[member.memberId]);
         const rewardSummary = cycle?.reward_summary_json as { members?: Array<Record<string, unknown>> } | undefined;
@@ -711,9 +646,7 @@ async function loadMyPageData(requestedMemberId?: string | null): Promise<MyPage
 
         const report = reportsByKey.get(`${pid}_${ym}`) as { section_members?: string | null } | undefined;
         const project = projectMap.get(pid);
-        const isCTB = (project?.project_type || "").toLowerCase() === "ctb";
-        const isAdvisor = (project?.project_category || "").toLowerCase() === "advisor";
-        const rewardExcludedReasons = isAdvisor ? [] : overdueRoutineReasons(cycle, ym, isCTB);
+        const rewardExcludedReasons: string[] = [];
         return {
           projectId: pid,
           projectName: project?.project_name || pid,
@@ -737,15 +670,13 @@ async function loadMyPageData(requestedMemberId?: string | null): Promise<MyPage
   const notifications: MyPageNotification[] = [];
   for (const pid of routineProjectIds) {
     const project = projectMap.get(pid);
-    const role = memberRolesByProject.get(pid);
     if (!project || (project.status || "").toLowerCase() !== "active") continue;
     if ((project.project_category || "").toLowerCase() === "advisor") continue;
-    const isCTB = (project.project_type || "").toLowerCase() === "ctb";
     for (const ym of notificationYms) {
       const rawCycle = cyclesByKey.get(`${pid}_${ym}`) as Record<string, unknown> | undefined;
-      const cycle = cycleWithReimburseStatus(rawCycle, pid, ym, reimburseHasPending);
-      const steps = buildRoutineSteps(cycle, ym, isCTB)
-        .filter((s) => role?.isPm || (role?.isPl && s.stepId === "budget"))
+      const cycle = rawCycle;
+      if (isProjectFrozenForYm(project, ym)) continue;
+      const steps = buildRoutineSteps(cycle, ym)
         .filter((s) => !s.done && ["current", "warn", "overdue"].includes(s.status));
       for (const step of steps) {
         notifications.push({
@@ -832,11 +763,6 @@ export function MyPageContent({
     () => currentMonth?.projects.reduce((sum, p) => sum + payableRewardAmount(p), 0) || 0,
     [currentMonth]
   );
-  const currentExcludedProjects = useMemo(
-    () => currentMonth?.projects.filter((p) => !p.rewardEligible && rewardAmount(p) > 0) || [],
-    [currentMonth]
-  );
-
   if (loading) {
     return <MyPageLoading />;
   }
@@ -891,11 +817,6 @@ export function MyPageContent({
                 <span className="flex-1 text-[#1d1d1f]">合計</span>
                 <span className="tabular-nums text-[#1d1d1f]">{formatRewardYen(currentTotal, rewardAmountHidden)}</span>
               </div>
-              {currentExcludedProjects.length > 0 && (
-                <p className="text-[11px] leading-relaxed text-red-600">
-                  期限超過の月次ルーティンがあるPJは当月報酬から除外中。adminのbilling cycleで完了ステータスになったものは救済済み。
-                </p>
-              )}
             </div>
           )}
         </section>
@@ -1035,10 +956,10 @@ function NotificationCard({ notifications, onOpen }: { notifications: MyPageNoti
     <section className="bg-white rounded-2xl border border-[#e5e5e7] p-4 shadow-sm">
       <div className="flex items-center gap-2 mb-3">
         <span className="text-[15px]">🔔</span>
-        <h2 className="text-[14px] font-semibold text-[#1d1d1f]">いまやること</h2>
+        <h2 className="text-[14px] font-semibold text-[#1d1d1f]">月次確認nudge</h2>
       </div>
       {notifications.length === 0 ? (
-        <p className="text-[13px] text-[#86868b]">今すぐ対応が必要なタスクはありません</p>
+        <p className="text-[13px] text-[#86868b]">確認が必要な月次報告書はありません</p>
       ) : (
         <div className="space-y-2">
           {notifications.map((note) => (
@@ -1052,7 +973,7 @@ function NotificationCard({ notifications, onOpen }: { notifications: MyPageNoti
               <div className="min-w-0 flex-1">
                 <p className="text-[13px] font-semibold text-[#1d1d1f]">{note.stepLabel}</p>
                 <p className="text-[12px] text-[#86868b] mt-0.5">{note.projectName} · {formatYm(note.bizYm)}</p>
-                {note.deadline && <p className="text-[11px] text-[#86868b] mt-1">期限 {formatDeadline(note.deadline)}</p>}
+                {note.deadline && <p className="text-[11px] text-[#86868b] mt-1">目安 {formatDeadline(note.deadline)}</p>}
               </div>
               <span className="text-[#aeaeb2] text-[13px] pt-1">›</span>
             </button>
@@ -1204,7 +1125,7 @@ function ProjectCard({ project, codeName, rewardAmountHidden }: { project: MyPag
       <div className={`flex items-center gap-2 rounded-xl px-3 py-2 ${project.rewardEligible ? "bg-[#eef0ff]" : "bg-red-50"}`}>
         <span className="text-[12px]">✨</span>
         <span className={`text-[12px] ${project.rewardEligible ? "text-[#5b6070]" : "text-red-700"}`}>
-          {project.rewardEligible ? "今月想定" : "期限超過で除外中"}
+          {project.rewardEligible ? "今月想定" : "確認保留中"}
         </span>
         <span className={`ml-auto text-[13px] font-semibold tabular-nums ${project.rewardEligible ? "text-[#4338ca]" : "text-red-700 line-through decoration-2"}`}>
           {rewardAmountHidden ? REWARD_AMOUNT_PLACEHOLDER : (
@@ -1218,7 +1139,7 @@ function ProjectCard({ project, codeName, rewardAmountHidden }: { project: MyPag
 
       {!project.rewardEligible && project.rewardExcludedReasons.length > 0 && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2">
-          <p className="text-[12px] font-semibold text-red-700">未完了タスクがあるため当月報酬から除外</p>
+          <p className="text-[12px] font-semibold text-red-700">admin確認により一時保留</p>
           <p className="text-[11px] text-red-700 mt-1 leading-relaxed">{project.rewardExcludedReasons.join("、")}</p>
         </div>
       )}

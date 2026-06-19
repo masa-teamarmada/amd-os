@@ -50,18 +50,16 @@ HUD版
 | 入力 | 主な用途 |
 |---|---|
 | `projects` | PJ signal board、status、role line |
-| `billing_cycles` | 月次ルーティン action queue |
+| `billing_cycles` | 月次報告書確認nudge / admin billing status |
 | `members` | login user の code name |
 | `amd_score_inputs` + `amd_score_alpha` | PJ ごとの PRS primary input / legacy M-X-F signal / score history |
 | `amd_management_score_snapshots` | AMD Management Score ring / history |
 
-action queue は `billing_cycles` から未完タスクを作る。
+action queue は `billing_cycles` から、PM向けnudgeとadmin billing残だけを作る。
 
 ```text
-請求額未確定 -> 請求額確定
-報告会未調整 -> 報告会日程調整
-月次報告書未FIX -> 月次報告書FIX
-請求書未送付 -> 請求書送付
+月次報告書未確認 -> 月次報告書確認
+請求書未送付 -> admin請求書送付
 請求書送付済み + 未入金 -> 入金確認
 ```
 

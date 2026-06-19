@@ -171,10 +171,8 @@ function buildMonthlyRoutineActions(projects: DashProject[], billingStatus: Reco
       periodLabel: monthLabel(cycle.ym),
       projectInitials: project ? projectInitials(project.shortLabel || project.projectName, project.projectId) : initialsFromProjectId(projectId),
     };
-    if (!cycle.budgetDone) items.push({ ...base, title: "請求額確定", tone: "amber" });
-    if (!cycle.meetingDone) items.push({ ...base, title: "報告会日程調整", tone: "cyan" });
-    if (!cycle.reportDone) items.push({ ...base, title: "月次報告書FIX", tone: "amber" });
-    if (!cycle.invoiceDone) items.push({ ...base, title: "請求書送付", tone: "amber" });
+    if (!cycle.reportDone) items.push({ ...base, meta: `${projectId} / PM nudge`, title: "月次報告書確認", tone: "amber" });
+    if (!cycle.invoiceDone) items.push({ ...base, meta: `${projectId} / ADMIN`, title: "admin請求書送付", tone: "amber" });
     if (!cycle.paymentDone && cycle.invoiceDone) items.push({ ...base, title: "入金確認", tone: "red" });
   }
   return items.slice(0, 5);

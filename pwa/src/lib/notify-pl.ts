@@ -1,9 +1,9 @@
-/** 予算 / 月次報告 / 請求書 の確認依頼を PL に Slack DM で送る。
+/** 予算例外 / 月次報告確認の依頼を PL に Slack DM で送る。
  *  失敗してもユーザーアクションは止めない (silent log)。 */
 export async function notifyPlReview(args: {
   projectId: string;
   ym: string;
-  taskKind: "budget" | "reportFix" | "invoiceIssue" | "estimateSend";
+  taskKind: "budget" | "reportFix";
   taskLabel: string;
 }): Promise<{ ok: boolean; sent: number; message?: string }> {
   try {

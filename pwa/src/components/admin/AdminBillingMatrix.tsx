@@ -17,8 +17,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { createClient } from "@/lib/supabase/client";
 
-const CTB_ESTIMATE_MARKER = "[[CTB_ESTIMATE_SENT]]";
-
 export interface BillingProjectRow {
   project_id: string;
   project_name: string;
@@ -70,7 +68,6 @@ interface Props {
 
 const standardStepDefs: MatrixStepDef[] = [
   { key: "budget", label: "予算確定", canSkip: false },
-  { key: "meeting", label: "報告会", canSkip: true },
   { key: "reportFix", label: "報告書", canSkip: false },
   { key: "reimburseConfirm", label: "立替確認", canSkip: false },
   { key: "invoice", label: "請求発行", canSkip: false },
@@ -81,9 +78,7 @@ const standardStepDefs: MatrixStepDef[] = [
 ];
 
 const ctbStepDefs: MatrixStepDef[] = [
-  { key: "estimateSend", label: "見積送付", canSkip: false },
   { key: "budget", label: "予算確定", canSkip: false },
-  { key: "meeting", label: "報告会", canSkip: true },
   { key: "invoice", label: "請求発行", canSkip: false },
   { key: "invoiceSent", label: "請求送付", canSkip: false },
   { key: "reportFix", label: "報告書", canSkip: false },
@@ -100,11 +95,6 @@ function ymDisplay(ym: string) {
   return `${ym.slice(0, 4)}年${Number(ym.slice(4))}月`;
 }
 
-function shortYm(ym: string) {
-  if (!ym || ym.length < 6) return ym;
-  return `${ym.slice(0, 4)}/${ym.slice(4)}`;
-}
-
 function isCTB(projectType: string | null | undefined) {
   return (projectType || "").toLowerCase() === "ctb";
 }
@@ -117,19 +107,10 @@ function nonEmpty(value: string | null | undefined) {
   return !!value && value.trim() !== "";
 }
 
-function hasCTBEstimateMarker(row: BillingCycleRow) {
-  return (row.invoice_base_lines_json || "").includes(CTB_ESTIMATE_MARKER);
-}
-
 function stepStatus(row: BillingCycleRow, key: string, reimbursementDone: boolean): MatrixCellStatus {
   switch (key) {
-    case "estimateSend":
-      return hasCTBEstimateMarker(row) ? "done" : "undone";
     case "budget":
       return nonEmpty(row.budget_confirmed_at) ? "done" : "undone";
-    case "meeting":
-      if (row.meeting_event_id === "skipped") return "skip";
-      return nonEmpty(row.meeting_event_id) ? "done" : "undone";
     case "reportFix":
       return nonEmpty(row.report_fixed_at) ? "done" : "undone";
     case "reimburseConfirm":
@@ -171,12 +152,6 @@ function todayJstKey() {
   return `${jst.getUTCFullYear()}-${String(jst.getUTCMonth() + 1).padStart(2, "0")}-${String(jst.getUTCDate()).padStart(2, "0")}`;
 }
 
-function prevYm(ym: string) {
-  const y = Number(ym.slice(0, 4));
-  const m = Number(ym.slice(4, 6));
-  return m === 1 ? `${y - 1}12` : `${y}${String(m - 1).padStart(2, "0")}`;
-}
-
 function nextYm(ym: string) {
   const y = Number(ym.slice(0, 4));
   const m = Number(ym.slice(4, 6));
@@ -197,33 +172,6 @@ function adjustBusinessDay(iso: string) {
 
 function reimbursementDeadline(ym: string) {
   return adjustBusinessDay(ymd(nextYm(ym), 4));
-}
-
-function ensureCTBEstimateMarker(rawJson: string | null) {
-  let rows: Array<Record<string, unknown>> = [];
-  if (rawJson && rawJson.trim()) {
-    try {
-      const parsed = JSON.parse(rawJson);
-      if (Array.isArray(parsed)) rows = parsed.filter((row) => row?.description !== CTB_ESTIMATE_MARKER);
-      else return rawJson;
-    } catch {
-      return rawJson;
-    }
-  }
-  rows.push({ type: "text", description: CTB_ESTIMATE_MARKER });
-  return JSON.stringify(rows);
-}
-
-function stripCTBEstimateMarker(rawJson: string | null) {
-  if (!rawJson || !rawJson.trim()) return null;
-  try {
-    const parsed = JSON.parse(rawJson);
-    if (!Array.isArray(parsed)) return rawJson;
-    const rows = parsed.filter((row) => row?.description !== CTB_ESTIMATE_MARKER);
-    return rows.length ? JSON.stringify(rows) : null;
-  } catch {
-    return rawJson;
-  }
 }
 
 function reimbursementCompletionMap(rows: ReimbursementRow[], cycles: BillingCycleRow[]) {
@@ -254,24 +202,12 @@ function makeBillingUpdate(
   const localPatch: Partial<BillingCycleRow> = {};
 
   switch (taskKey) {
-    case "estimateSend": {
-      const nextJson = newStatus === "done"
-        ? ensureCTBEstimateMarker(row.invoice_base_lines_json)
-        : stripCTBEstimateMarker(row.invoice_base_lines_json);
-      body.invoice_base_lines_json = nextJson;
-      localPatch.invoice_base_lines_json = nextJson;
-      break;
-    }
     case "budget":
       body.status = newStatus === "done" ? "budget_confirmed" : "not_started";
       body.budget_confirmed_at = newStatus === "done" ? now : null;
       body.budget_confirmed_by = newStatus === "done" ? byEmail : null;
       localPatch.status = body.status as string;
       localPatch.budget_confirmed_at = body.budget_confirmed_at as string | null;
-      break;
-    case "meeting":
-      body.meeting_event_id = newStatus === "skip" ? "skipped" : newStatus === "done" ? "admin_done" : null;
-      localPatch.meeting_event_id = body.meeting_event_id as string | null;
       break;
     case "reportFix":
       body.report_fixed_at = newStatus === "done" ? now : null;
@@ -545,30 +481,18 @@ function BillingCycleDetailDialog({
       const byEmail = userData.user?.email || "";
       const now = nowIso();
       const body: Record<string, unknown> = {};
-      const localPatch: Partial<BillingCycleRow> = {};
+	      const localPatch: Partial<BillingCycleRow> = {};
 
-      switch (taskKey) {
-        case "estimateSend": {
-          const nextJson = newStatus === "done"
-            ? ensureCTBEstimateMarker(activeRow.invoice_base_lines_json)
-            : stripCTBEstimateMarker(activeRow.invoice_base_lines_json);
-          body.invoice_base_lines_json = nextJson;
-          localPatch.invoice_base_lines_json = nextJson;
-          break;
-        }
-        case "budget":
-          body.status = newStatus === "done" ? "budget_confirmed" : "not_started";
-          body.budget_confirmed_at = newStatus === "done" ? now : null;
-          body.budget_confirmed_by = newStatus === "done" ? byEmail : null;
-          localPatch.status = body.status as string;
-          localPatch.budget_confirmed_at = body.budget_confirmed_at as string | null;
-          break;
-        case "meeting":
-          body.meeting_event_id = newStatus === "skip" ? "skipped" : newStatus === "done" ? "admin_done" : null;
-          localPatch.meeting_event_id = body.meeting_event_id as string | null;
-          break;
-        case "reportFix":
-          body.report_fixed_at = newStatus === "done" ? now : null;
+	      switch (taskKey) {
+	        case "budget":
+	          body.status = newStatus === "done" ? "budget_confirmed" : "not_started";
+	          body.budget_confirmed_at = newStatus === "done" ? now : null;
+	          body.budget_confirmed_by = newStatus === "done" ? byEmail : null;
+	          localPatch.status = body.status as string;
+	          localPatch.budget_confirmed_at = body.budget_confirmed_at as string | null;
+	          break;
+	        case "reportFix":
+	          body.report_fixed_at = newStatus === "done" ? now : null;
           body.report_fixed_by = newStatus === "done" ? byEmail : null;
           localPatch.report_fixed_at = body.report_fixed_at as string | null;
           break;

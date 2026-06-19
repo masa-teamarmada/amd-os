@@ -59,15 +59,15 @@ PWA 側で `member_allocations_json` を再計算しない。 正本ロジック
 
 表示内容に違和感がある場合、本人は「修正要望」から対象PJ、要望種別、本文を送る。要望は送信時点の snapshot hash と一緒に保存され、admin/PM側の確認キューとして扱う。
 
-### 月次ルーティン TODO の出し分け (= まさ #6)
+### 月次確認 TODO の出し分け (= まさ #6)
 
 | メンバーのロール (project_members) | 表示される TODO |
 |---|---|
-| `is_pm=true` の PJ | フル月次ルーティン (= 請求額確定 / 報告会 / 報告書 FIX / 立替確認 / 請求書発行・送付) |
-| `is_pl=true AND is_pm=false` | 「請求額確定」のみ |
+| `is_pm=true` の PJ | 月次報告書確認のみ |
+| `is_pl=true AND is_pm=false` | TODO 出さない |
 | `is_pm=false AND is_pl=false` | TODO 出さない |
 
-「参加してるだけのメンバーに admin 系 TODO を出さない」が UX 原則。
+「参加してるだけのメンバーに admin 系 TODO を出さない」が UX 原則。`請求額確定` は、全請求対象PJで契約書由来の金額が読み込まれ、対象月の報酬額が `billing_cycles.reward_summary_json` で見えていることを前提に、PM/PL の月次nudgeから外す。契約未適用・報酬キャッシュ未作成が見つかった場合は、通常の PM 月次タスクへ戻すのではなく、契約台帳/報酬キャッシュのデータ整備対象として扱う。立替確認と請求書発行/送付もPM月次nudgeには出さず、請求書発行/送付はadmin業務に寄せる。
 
 ### りり (= ID006) 特例
 

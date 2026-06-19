@@ -89,7 +89,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - 研究機関ERSリスト: PJ一覧と同じ左/mainカラム内で、PJ一覧の直下に `InstitutionReadinessList` を表示し、PJリストの続きとして苗床レイヤーを確認できるようにする。MyPage右カラムの下や全幅下段に落とさない。表示名はPJ名を主タイトルに寄せ、KUTE / KGW / NIMS を title、工学院大学 / 香川大学 / 物質・材料研究機構を subtitle にする。KUTEカードは `/institutions/inst_kute/cockpit`、NIMSカードは `/institutions/inst_nims/cockpit` へ遷移する。
 - Company Content shelf: 研究機関ERSリストの下に、`CompanyContentShelf` を4カラムで表示する。列はメンバー / 沿革 / メディア掲載 / photo。`member_profiles` / `company_history_events` / `media_assets` の approved rows を優先し、未適用環境では既存 `members` + `project_members`、`project_events` / `project_ventures`、photo permission placeholder に fallback する。Notion photo URL や個人情報本文は表示しない。
 - MyPage embed: `/dashboard` 右カラムでは `<MyPageContent embedded showMonthlyProjects={false} />` を使い、「今週やったこと」より下の月別PJカードを出さない。`/mypage` 単体では従来どおり月別PJカードを維持する。
-- Dashboard上部: Management Score と月次ルーティン残タスクを維持する。
+- Dashboard上部: Management Score と月次確認 / admin残タスクを維持する。
 
 ## /tasks
 
@@ -112,20 +112,20 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 ## /project/[projectId]/cockpit
 
-目的: PJの現在地、MS進捗、経営ハイライト、月次ルーティン、TODO/nudgeを一画面で見る。
+目的: PJの現在地、MS進捗、経営ハイライト、月次確認、TODO/nudgeを一画面で見る。
 
 必須機能:
 
-- レイアウト: `max-w-[1600px]` の幅広 container、上 Header → hero (PJ Status) → 3 カラム grid (`今期MS / 経営ハイライト / 月次ルーティン (sticky)`) → 下段 2 カラム (`月次カード / 休止期間 + MTGサマリ`) の案C系構成。`max-w-[1060px]` + 左 720 / 右 220 の旧 2 カラムには戻さない。最下段の旧 TODO かんばんは主要導線から外す。
+- レイアウト: `max-w-[1600px]` の幅広 container、上 Header → hero (PJ Status) → 3 カラム grid (`今期MS / 経営ハイライト / 月次確認 (sticky)`) → 下段 2 カラム (`月次カード / 休止期間 + MTGサマリ`) の案C系構成。`max-w-[1060px]` + 左 720 / 右 220 の旧 2 カラムには戻さない。最下段の旧 TODO かんばんは主要導線から外す。
 - 上 hero: PJ ごとに出し分け。p00 (= AMD 会社全体) は `CockpitManagementScoreHero` で AMD Management Score の時系列折れ線 + 最新値カード。SU 系 PJ は `CockpitVentureStatus` 内で AMD Score 折れ線と XRL 折れ線を `xl:flex-row` で横並びにする。`xl` 未満では縦並びへ自動 fallback する。
 - Hero 下タブ: SU 系 PJ は `進捗管理` / `スコア詳細` を切り替える。AMD Score / XRL hero はタブ外に置いて常時表示し、`進捗管理` に従来の cockpit 本文、`スコア詳細` に `AmdScoreView` の embedded 表示を出す。
 - 今期MSリスト: `CockpitGoalsCompact` / `MilestoneGanttChart` でMS期間、pt、担当、sub itemを表示する。
 - TODO: `ProactiveQueuePanel` でそのPJの `proactive_outbox` を read-only 表示する。状態、誰のボールか、期限、優先度、資料の種類、トリガー理由、担当司令塔、推奨 first move、遅れた場合のリスクを出す。Cockpit UI から状態更新・外部送付はしない。行クリックはモーダルで詳細を開く。
 - 経営ハイライト: MSリスト横の col2 として `CockpitStrategySignals` を表示し、`project_strategy_signals` の candidate/confirmed を日付・type・impact・summary・source refs付きで表示する。
 - 月次モーダル: 月次カードやroutine stepから `CockpitMonthlyModal` を開き、report / reward / invoice を確認できる。p00 (= AMD 会社全体) でも他 PJ と同じく月次カード + 月次モーダルが出る (`billing_cycles` を 12 行 backfill 済)。
-- 月次ルーティン: active/sales PJのみ表示し、PM/admin以外は読み取り専用にする。col3 内で `lg:sticky` で固定する。
+- 月次確認: active/sales PJのみ表示し、PM/admin以外は読み取り専用にする。表示stepは `月次報告書確認` のみ。col3 内で `lg:sticky` で固定する。
 - MTGサマリ: `CockpitMeetingSummary` 各行に source link (Notion / Slack / Drive / Gmail / Calendar event の元データへ直リンク) を `元 ↗` の形で出す。各行クリック時は `?meeting=<meeting_id>` を URL に反映し、共有 URL から同じ detail modal を auto-open できるようにする。`summary_short` は一覧カードの2行サマリとして出す。`source_kinds='upcoming'` の row は「予定MTG / 準備中」ブロックに出し、`決めること / 準備物` を表示する。H-1が今後60日の確定Calendar予定を `POST /api/meeting-prep/calendar-sync` に渡すことで、前回議事録が空のPJでも未来MTGカードを作る。`source_kinds='upcoming_tentative'` や `meeting_id` が `upcoming:` で始まるだけの row は日程未確定の仮置きとして「日程調整中MTG」ブロックに残し、確定予定 count には含めない。予定MTG詳細では、配列を箇条書きで並べるのではなく `narrative_md` の「初見ブリーフ」を主役にし、「会議後に残したい状態」「いまの状況」「当日までに揃えるもの」「必ず確認すること」を文章カードとして見せる。既存 `risks` の内容は破壊せず、この「必ず確認すること」として表示・編集する。MTG詳細モーダルの「表示内容を編集」は、表示している section を同じ位置で textarea 化する。通常MTG / dialogue は `narrative_md` が表示されている場合は `narrative_md` を編集し、raw 配列表示の場合だけ `decided / progress / next_actions / risks` を編集する。予定MTGは同じ `POST /api/meeting-prep`、通常MTG / dialogue は `POST /api/meeting-summary/manual-update` で保存する。MTG詳細モーダルには「つくよみに修正依頼」を置かず、LLM再解釈ではなく手動編集を正本にする。詳細モーダルの「添付資料」は `meeting_assets` に、ファイル選択 / drag & drop / clipboard paste / browser screen capture の4経路で一般ファイルを保存できる。新規添付実体はDriveの `PJフォルダ / YYMMDD_会議名` に置き、保存先をカード上に表示する。旧Storage添付は互換表示し、`POST /api/meeting-assets/insert-markdown` で `narrative_md` に Markdown 画像/リンクとして挿入できる。`dialogue:*` で始まる meeting_id は「提案整理」チップ付きで識別し、`CockpitMeetingDetailModal` でラベルを「提案前の論点整理 (チームへの相談)」に置き換える (= 「決まったこと」と書かない)。dialogue meeting は `narrative_md` があれば 1 本の Markdown narrative として表示する。`narrative_md` は `POST /api/dialogue-meeting/narrate` で生成する。各 TopicList の項目は border-l フレーム枠ではなく、`<ul>` + 太字 / マーカー / 見出しの強弱で読ませる。
-- MTG詳細Markdownのメンバーリンク: `CockpitMeetingDetailModal` で表示する `narrative_md` / `summary_short` / raw 配列 / 予定MTGブリーフは `MarkdownView memberLinks` を通し、active AMDメンバーの `members.code_name` を `/mypage?memberId=<members.member_id>` へリンクする。既存 Markdown link / code / pre は対象外。
+- MTG詳細Markdownのメンバーリンク: `CockpitMeetingDetailModal` で表示する `narrative_md` / `summary_short` / raw 配列 / 予定MTGブリーフは `MarkdownView memberLinks` を通し、active AMDメンバーの `members.code_name` が standalone mention として出る場合だけ `/mypage?memberId=<members.member_id>` へリンクする。既存 Markdown link / code / pre は対象外で、`しかるべき` の `かる`、`こうして` の `こう` のような部分一致はリンクしない。
 
 回帰防止:
 
@@ -141,7 +141,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 - KUTEカードは `/dashboard` の研究機関ERSリストから `/institutions/inst_kute/cockpit` へ遷移する。KUTEは通常PJリストには二重表示せず、既存KUTE PJ (`p25`) は関連PJコックピットのデータソースとして残す。
 - NIMSカードは `/dashboard` の研究機関ERSリストから `/institutions/inst_nims/cockpit` へ遷移する。新規NIMS PJは作らない。
-- 研究機関コックピットは `inst_kute -> p25` / `inst_nims -> p20` の静的関連付けを使い、既存PJコックピットの `CockpitView` を同画面にマウントする。これによりMS進捗、月次モーダル、月次ルーティン、MTGサマリを既存データのまま使う。
+- 研究機関コックピットは `inst_kute -> p25` / `inst_nims -> p20` の静的関連付けを使い、既存PJコックピットの `CockpitView` を同画面にマウントする。これによりMS進捗、月次モーダル、月次確認、MTGサマリを既存データのまま使う。
 - 上部にERS充足率、関連PJ、今期MS件数、MTG履歴件数を出す。
 - `project_meeting_summaries` を月ごとに束ねたMTGツリーを表示し、各行から通常PJコックピットのMTG詳細 (`?meeting=`) へ遷移する。
 - `/institutions/[institutionId]` の詳細画面からも研究機関コックピットと通常PJコックピットへ戻れる。

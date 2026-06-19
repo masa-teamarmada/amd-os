@@ -146,9 +146,9 @@ function parseRoleLine(roleLine?: string | null) {
 function getBillingRatio(billingStatus: Record<string, DashBillingStatus>) {
   const values = Object.values(billingStatus);
   if (!values.length) return 0.71;
-  const total = values.length * 4;
+  const total = values.length * 3;
   const done = values.reduce(
-    (sum, b) => sum + Number(b.meetingDone) + Number(b.reportDone) + Number(b.invoiceDone) + Number(b.paymentDone),
+    (sum, b) => sum + Number(b.reportDone) + Number(b.invoiceDone) + Number(b.paymentDone),
     0
   );
   return total ? done / total : 0.71;
@@ -228,15 +228,15 @@ function buildQueue(projects: DashProject[], billingStatus: Record<string, DashB
     const b = billingStatus[project.projectId];
     if (!b) continue;
     const base = { projectInitials: projectInitials(project.shortLabel || project.projectName, project.projectId), periodLabel: ymLabel(b.ym) };
-    if (!b.reportDone) missing.push({ ...base, title: "月次報告書FIX", meta: `${project.projectId} / report`, tone: "amber" });
-    if (!b.invoiceDone) missing.push({ ...base, title: "請求書送付", meta: `${project.projectId} / routine`, tone: "amber" });
+    if (!b.reportDone) missing.push({ ...base, title: "月次報告書確認", meta: `${project.projectId} / PM nudge`, tone: "amber" });
+    if (!b.invoiceDone) missing.push({ ...base, title: "admin請求書送付", meta: `${project.projectId} / admin billing`, tone: "amber" });
     if (!b.paymentDone && b.invoiceDone) missing.push({ ...base, title: "入金確認", meta: `${project.projectId} / cash`, tone: "red" });
   }
   return [
     ...missing,
     { title: "創業者意思決定同期", meta: "CX / SE / SX", periodLabel: formatYm(), projectInitials: "AMD", tone: "red" as const },
     { title: "弱シグナル確認", meta: "policy / papers / news", periodLabel: formatYm(), projectInitials: "AT", tone: "cyan" as const },
-    { title: "月次ルーティン実行", meta: formatYm(), periodLabel: formatYm(), projectInitials: "RT", tone: "cyan" as const },
+    { title: "月次報告書確認nudge", meta: formatYm(), periodLabel: formatYm(), projectInitials: "RT", tone: "cyan" as const },
   ].slice(0, 5);
 }
 

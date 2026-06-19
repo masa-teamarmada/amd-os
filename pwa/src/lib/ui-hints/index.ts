@@ -68,43 +68,12 @@ export const UI_HINTS: Record<string, UiHint> = {
   },
 
   // ──────────────────────────────────────
-  // 月次ルーティン (= CockpitRoutineGas)
+  // 月次確認 (= CockpitRoutineGas)
   // ──────────────────────────────────────
-  "cockpit.routine.budget": {
-    id: "cockpit.routine.budget",
-    title: "請求額確定",
-    body: "当月の業務委託フィー (= クライアントへの請求額・税抜) を確定するステップ。fee_type='variable' の PJ は毎月入力、fixed の PJ は自動。",
-    docHref: "/manual/04-admin-ops",
-  },
-  "cockpit.routine.estimateSend": {
-    id: "cockpit.routine.estimateSend",
-    title: "見積書送付",
-    body: "確定した請求額で見積書 (= quotation) を生成 + SU に送付するステップ。GAS freee 連携で PDF 自動生成。",
-  },
-  "cockpit.routine.meeting": {
-    id: "cockpit.routine.meeting",
-    title: "報告会日程調整",
-    body: "月次報告会の日程を Google Calendar イベントとして確定するステップ。確定すると Notion AI が議事録ページを自動生成 → 終了 +60 分の議事録抽出 routine が拾う。",
-  },
   "cockpit.routine.reportFix": {
     id: "cockpit.routine.reportFix",
-    title: "月次報告書 FIX",
-    body: "Notion 議事録 / Gmail / Slack 等から自動生成された月次報告書 draft を確認 + 修正 + FIX するステップ。FIX 後はチームメンバーへ自動送付。",
-  },
-  "cockpit.routine.reimburseConfirm": {
-    id: "cockpit.routine.reimburseConfirm",
-    title: "立替申請確認",
-    body: "メンバーが /reimburse から申請した立替を月次払いに統合するステップ。/reimburse 画面に遷移。",
-  },
-  "cockpit.routine.invoiceIssue": {
-    id: "cockpit.routine.invoiceIssue",
-    title: "請求書発行",
-    body: "確定した請求額 + 立替を含めた請求書 (= invoice) を発行するステップ。",
-  },
-  "cockpit.routine.invoiceSend": {
-    id: "cockpit.routine.invoiceSend",
-    title: "請求書送付",
-    body: "発行した請求書を SU に送付するステップ。送付済になると入金確認 cron が動き出す。",
+    title: "月次報告書確認",
+    body: "自動生成された月次報告書 draft について、PM に「これでいい？」の確認nudgeを出すだけのステップ。必要な場合だけ修正要望またはFIXを返す。",
   },
 
   // ──────────────────────────────────────
@@ -176,7 +145,7 @@ export const UI_HINTS: Record<string, UiHint> = {
   "cockpit.header.status.frozen": {
     id: "cockpit.header.status.frozen",
     title: "❄️ 凍結中",
-    body: "PJ が freeze_from_ym 以降凍結状態。月次ルーティン非表示、MS 進捗抽出停止。",
+    body: "PJ が freeze_from_ym 以降凍結状態。月次確認非表示、MS 進捗抽出停止。",
   },
   "cockpit.header.status.restart": {
     id: "cockpit.header.status.restart",

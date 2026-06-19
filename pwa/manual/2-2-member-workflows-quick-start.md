@@ -9,7 +9,7 @@ AMD メンバー (= 社内常勤 / 副業) が AMD OS で日常的に触る画�
 | マイページ | `/mypage` | 自分が関わる全 PJ の当月業務と報酬を一覧する |
 | 月初合意 | `/monthly-agreement` | 今月の遂行内容・報酬条件を確認して合意する |
 | 立替申請 | `/reimburse` | 業務で立替えた費用を申請する |
-| PJ コックピット | `/project/{projectId}/cockpit` | 担当 PJ の状況・MS 進捗・月次ルーティンを開く |
+| PJ コックピット | `/project/{projectId}/cockpit` | 担当 PJ の状況・MS 進捗・月次確認を開く |
 | 通知レビュー | `/notifications` | 自分宛の修正依頼カード・経営ハイライト確認を捌く |
 
 月初はまず `/monthly-agreement` で今月の遂行対象・想定報酬・条件を確認して合意する。その後は「マイページ / PJ コックピット / 通知レビュー / 立替」を毎日 1 回ずつ見て、未対応カードを片付けるのが日常の最小単位。
@@ -50,13 +50,15 @@ AMD メンバー (= 社内常勤 / 副業) が AMD OS で日常的に触る画�
 
 ### 「いまやること」生成ルール
 
-`/mypage` の月次ルーティン TODO は、 `project_members` の担当ロールで絞る:
+`/mypage` の月次確認 TODO は、 `project_members` の担当ロールで絞る:
 
 | ロール | 表示される TODO |
 |---|---|
-| `is_pm=true` の PJ | 請求額確定 / 報告会日程調整 / 月次報告書 FIX / 立替精算確認 / 請求書発行・送付 (= そのPJの月次ルーティン全部) |
-| `is_pl=true AND is_pm=false` の PJ | PL 承認対象である「請求額確定」のみ |
-| 参加メンバーのみ (= `is_pm=false AND is_pl=false`) | 月次ルーティン TODO は出さない |
+| `is_pm=true` の PJ | 月次報告書確認のみ |
+| `is_pl=true AND is_pm=false` の PJ | 月次確認 TODO は出さない |
+| 参加メンバーのみ (= `is_pm=false AND is_pl=false`) | 月次確認 TODO は出さない |
+
+「請求額確定」は契約 apply 済みデータから自動確定する。契約書由来の金額や対象月の報酬額が見えない場合は、PM/PL の通常nudgeではなく契約台帳/報酬キャッシュの整備対象として扱う。請求書発行/送付はadmin業務。
 
 admin 全体の確認 (= 全 SU 横断の請求マトリクス等) は `/admin/billing` 等で扱い、 `/mypage` には混ぜない。
 
@@ -108,7 +110,7 @@ PJ 判定は、 PJ 専用 email / PJ 名 / client 名 / `project_knowledge(categ
 担当 PJ ごとに 1 画面。 詳細は [2-3 章 PJ コックピットの見方](2-3-pj-cockpit.md)。 メンバー視点で日常的に使うのは:
 
 - 上部の PJ Status (= MS 進捗バー / 経営ハイライト)
-- 右カラム月次ルーティン (= `is_pm=true` のメンバーのみクリック導線が見える)
+- 右カラム月次確認 (= `is_pm=true` のメンバーのみクリック導線が見える)
 - MTG サマリ tab (= 自分が出た MTG の決定・進捗・next action)
 - 経営ハイライト tab (= 自分が confirm 担当の signal、 まさえいMTG で確定されたもの)
 
@@ -148,7 +150,7 @@ PJ 判定は、 PJ 専用 email / PJ 名 / client 名 / `project_knowledge(categ
 | N 月 月中 | 担当 PJ コックピットで MS 進捗 / signal を確認、 修正依頼があれば `/notifications` で処理 |
 | N+1 月 第 1 営業日 | `/mypage` の前月集計を確認、 報酬額が想定通りか member_allocations_json をチェック |
 | N+1 月 月末まで | 立替がある月は `/reimburse` で N 月分を申請、 PM/admin 承認まで通す |
-| N+1 月 報告会日まで | `is_pm=true` の PJ で月次報告書を FIX、 請求書発行・送付 (= [01.5 月次ルーティン](2-3-pj-cockpit.md)) |
+| N+1 月 3日まで | `is_pm=true` の PJ で月次報告書の確認nudgeに返答 (= [01.5 月次確認](2-3-pj-cockpit.md)) |
 
 ## よくある困りごと
 
@@ -157,14 +159,14 @@ PJ 判定は、 PJ 専用 email / PJ 名 / client 名 / `project_knowledge(categ
 | `/mypage` に自分が出ない | `members` テーブルに email 登録あるか、 `google_calendar_status='connected'` か |
 | 当月の報酬額が出ない | `billing_cycles.member_allocations_json` に当該 ym 行があるか、 `rv2_calcRewardSummary` 実行済か |
 | 立替が承認されたのに当月支払に乗らない | `reimbursements.billed_ym` set されているか、 該当 ym の `billing_cycles` が `status` 進んでいるか |
-| 月次ルーティン TODO が出ない | `project_members.is_pm` / `is_pl` フラグを確認 (= ただの参加メンバーには TODO が出ないのが仕様) |
+| 月次確認 TODO が出ない | `project_members.is_pm` / `is_pl` フラグを確認 (= ただの参加メンバーには TODO が出ないのが仕様) |
 | 修正依頼カードが消えない | `l2_feedbacks.status` が `active` のまま、 confirm/reject すると `resolved` になる |
 
 ## 関連
 
 - マイページ設計: [`pwa/design/mypage.md`](../design/mypage.md)
-- 月次ルーティン: [`pwa/design/routine.md`](../design/routine.md)
+- 月次確認: [`pwa/design/routine.md`](../design/routine.md)
 - 報酬計算正本: `gas-main/059_RewardV2_Ops.js`
 - 6-6 章 [Member Ops / Billing / Prompt](6-6-member-billing-prompts-spec.md) (= mypage / reimburse / admin billing / prompt 管理の開発者向け仕様)
-- 2-6 章 [admin オペ](2-6-admin-ops.md) (= 月次ルーティン早見表)
+- 2-6 章 [admin オペ](2-6-admin-ops.md) (= 月次確認/admin請求早見表)
 - 3-3 章 [通知・修正依頼・正本反映ゲート](3-3-notifications-and-tsukuyomi.md)

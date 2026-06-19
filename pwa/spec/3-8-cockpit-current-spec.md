@@ -138,38 +138,34 @@ If `projects.drive_folder_id` is empty, the panel shows a folder-setting warning
 
 ## Routine Step Contract
 
-`CockpitRoutineGas` builds routine steps from `billing_cycles` and `projects.project_type / project_category`.
+`CockpitRoutineGas` builds the PM monthly check from `billing_cycles` and `projects.project_category`.
 
 | project category / type | behavior |
 |---|---|
-| `project_category='advisor'` | routine panel shows 対象外. Step buttons are not rendered |
-| standard project | step order = `budget`, `meeting`, `reportFix`, `reimburseConfirm`, `invoiceIssue`, `invoiceSend` |
-| `project_type='ctb'` | step order = `estimateSend`, `budget`, `meeting`, `invoiceIssue`, `invoiceSend`, `reportFix`, `reimburseConfirm` |
+| `project_category='advisor'` | monthly check panel shows 対象外. Step buttons are not rendered |
+| standard project | step order = `reportFix` only |
+| `project_type='ctb'` | same as standard. CTB estimate step is disabled while CTB is frozen |
 | frozen / waiting restart / non-active | `CockpitView` hides live operations through `showLiveOperations` |
-| non admin / non PM | routine panel is visible but wrapped with `pointer-events-none opacity-60` |
+| non admin / non PM | monthly check panel is visible but wrapped with `pointer-events-none opacity-60` |
 
 ### Step ID Table
 
 | stepId | label | done source | deadline | click behavior |
 |---|---|---|---|---|
-| `estimateSend` | 見積書送付 | `billing_cycles.invoice_base_lines_json` contains `[[CTB_ESTIMATE_SENT]]` | previous ym day 28, previous business day if weekend | opens `CockpitRoutineInvoiceModal` with `documentType='quotation'` |
-| `budget` | 請求額確定 | `budget_confirmed_at` set or `status in ('budget_confirmed','allocation_confirmed')` | standard previous ym day 25 / CTB previous ym day 28, adjusted to previous business day | opens `CockpitRoutineBudgetModal` |
-| `meeting` | 報告会日程調整 | `meeting_event_id` or `meeting_start_at` set | ym day 20, adjusted | opens `CockpitRoutineMeetingModal` |
-| `reportFix` | 月次報告書FIX | `report_fixed_at` set | next ym day 3, adjusted | opens `CockpitMonthlyModal` with report tab |
-| `reimburseConfirm` | 立替精算確認 | deadline has passed and `reimburse_confirm_done !== false` | next ym day 4, adjusted | routes to `/reimburse` |
-| `invoiceIssue` | 請求書発行 | `invoice_issued_at` set | standard next ym day 8 / CTB ym day 28, adjusted | opens `CockpitRoutineInvoiceModal` with `documentType='invoice'` |
-| `invoiceSend` | 請求書送付 | `invoice_sent_at` set | standard next ym day 9 / CTB ym day 28, adjusted | opens `CockpitRoutineInvoiceSendConfirm` |
+| `reportFix` | 月次報告書確認 | `report_fixed_at` set | next ym day 3, adjusted | opens `CockpitMonthlyModal` with report tab |
+| `budget` | 請求額確定 | `budget_confirmed_at` set or `status in ('budget_confirmed','allocation_confirmed')` | n/a for PM monthly check | exception-only direct step, opens `CockpitRoutineBudgetModal` |
 
-If `billing_cycles.invoice_ym` is set and differs from `ym`, all steps except `reportFix` are rendered as deferred. The label becomes `<invoice month>月にまとめて請求`, `done=false`, and the active month handles the invoice work.
+`budget` は cockpit の例外復旧用 step として残すが、PM monthly check には表示しない。契約 apply 済みPJでは `/mypage` の PM/PL 月次nudgeと報酬除外判定にも使わない。契約書由来の金額と対象月の報酬額が見えていることを前提に、請求額は `contract-billing-auto-confirm` が自動確定する。
+
+`reportFix` は「これでいい？」nudgeであり、未対応でも `/mypage` の月次報酬から除外しない。PM monthly check は報酬計算や支払可否の gate ではない。
+
+If `billing_cycles.invoice_ym` is set and differs from `ym`, PM monthly check is unchanged because only `reportFix` is rendered. Invoice deferral is handled in admin billing / payouts.
 
 ## Step Modal / API Contract
 
 | modal | trigger | read | write / call | success state |
 |---|---|---|---|---|
 | `CockpitRoutineBudgetModal` | `budget` | `billing_cycles.status`, `budget_reported_amount`, `budget_buffer_amount`, `budget_reported_at`, `budget_reported_by`, `budget_confirmed_at`, `budget_yen`; `projects.fee_type`, `fee_amount` | update `billing_cycles` with `status='reported'`, `budget_reported_amount`, `budget_buffer_amount`, `budget_reported_at`, `budget_reported_by`; calls Edge Function `send-budget-approval-nudge`; approve/reject uses `/api/admin/budget-approval` | `budget_confirmed_at` set or status confirmed |
-| `CockpitRoutineMeetingModal` | `meeting` | Edge Function `meeting-slots?projectId&ym` | Edge Function `schedule-meeting?projectId&ym&startISO&endISO` | local confirmed ISO + router refresh; later `billing_cycles.meeting_start_at` / `meeting_event_id` |
-| `CockpitRoutineInvoiceModal` | `estimateSend` / `invoiceIssue` | `billing_cycles.invoice_base_lines_json`, `invoice_subject`, `freee_invoice_number`, `invoice_pdf_url`, `invoice_issued_at`, `budget_yen`, `budget_reported_amount`; previous invoice row; `projects.payment_due_rule`, `payment_due_day` | draft save updates `billing_cycles.invoice_subject` and `invoice_base_lines_json`; issue calls Edge Function `issue-invoice`; cancel calls Edge Function `cancel-invoice`; PL review notification via `notifyPlReview` | quotation marker in base lines or `invoice_issued_at` / freee fields set |
-| `CockpitRoutineInvoiceSendConfirm` | `invoiceSend` | current billing row | update `billing_cycles.invoice_sent_at=now()` | `invoice_sent_at` set |
 | `CockpitMonthlyModal` report tab | `reportFix` or monthly card | `monthly_reports`, `billing_cycles`, MS bundle | `/api/report/generate`, `/api/report/fix`, report edit APIs | `monthly_reports.status='fixed'` or `fixed_at` set |
 | `CockpitMonthlyModal` reward/progress tab | monthly card | `milestone_monthly_progress`, `ms_progress_revisions`, `member_activities`, `project_monthly_notes`, `billing_cycles.reward_summary_json` | `/api/rewards/sync`, `/api/progress/estimate`, `/api/progress/confirm`, `/api/progress/revisions`, `/api/progress/batch-save`, `/api/project/monthly-note` | local progress patches + reward summary sync |
 

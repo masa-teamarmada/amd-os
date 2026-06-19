@@ -9,7 +9,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { createClient } from "@/lib/supabase/client";
 import { callEdgeFunctionPOST } from "@/lib/supabase/edge-functions";
 import { computePaymentDueDateByRule } from "@/lib/payment-rules";
-import { notifyPlReview } from "@/lib/notify-pl";
 import { contractBackedClientAmount, isWithinContractPeriod } from "@/lib/contract-money";
 
 const CTB_ESTIMATE_MARKER = "[[CTB_ESTIMATE_SENT]]";
@@ -394,12 +393,9 @@ export function CockpitRoutineInvoiceModal({ projectId, ym, documentType, open, 
       );
       if (result.ok) {
         const num = result.freeeInvoiceNumber || "";
-        const taskKind = documentType === "quotation" ? "estimateSend" : "invoiceIssue";
-        const taskLabel = documentType === "quotation" ? "見積書発行" : "請求書発行";
-        const plRes = await notifyPlReview({ projectId, ym, taskKind, taskLabel });
         const baseMsg = num ? `発行完了！（${num}）` : `${documentType === "quotation" ? "見積書" : "請求書"}を発行したよ！`;
         setToast({
-          msg: plRes.sent > 0 ? `${baseMsg} (PL ${plRes.sent} 名に通知)` : baseMsg,
+          msg: baseMsg,
           isError: false,
         });
         setActuallyDone(true);

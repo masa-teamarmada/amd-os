@@ -254,7 +254,7 @@ export function CockpitRoutineReportFixModal({ projectId, ym, isDone, open, onCl
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>月次報告書FIX</DialogTitle>
+          <DialogTitle>月次報告書確認</DialogTitle>
         </DialogHeader>
 
         <div className="flex items-center justify-between text-sm">

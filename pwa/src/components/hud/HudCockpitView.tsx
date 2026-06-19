@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { HudCockpitHeader } from "./HudCockpitHeader";
 import { HudCockpitVentureStatus } from "./HudCockpitVentureStatus";
 import { HudCockpitGoalsCompact } from "./HudCockpitGoalsCompact";
@@ -13,9 +12,6 @@ import { HudCockpitMeetingSummary } from "./HudCockpitMeetingSummary";
 import { HudCockpitFreezeBackfill } from "./HudCockpitFreezeBackfill";
 import { CockpitNextPeriodSetup } from "../cockpit/CockpitNextPeriodSetup";
 import { CockpitRoutineBudgetModal } from "../cockpit/CockpitRoutineBudgetModal";
-import { CockpitRoutineMeetingModal } from "../cockpit/CockpitRoutineMeetingModal";
-import { CockpitRoutineInvoiceModal } from "../cockpit/CockpitRoutineInvoiceModal";
-import { CockpitRoutineInvoiceSendConfirm } from "../cockpit/CockpitRoutineInvoiceSendConfirm";
 import { AAA_PROJECT_ID } from "@/lib/demo-aaa-data";
 import { fetchAmdScoreInputs, fetchActiveAlpha, type AmdScoreInputRow } from "@/lib/amd-score-data";
 import { buildAaaScoreInputsFromSx, computeAmdScoreSeries } from "@/lib/amd-score-derived";
@@ -162,7 +158,7 @@ interface HudCockpitViewProps {
   /** mypage や URL `?step=` から渡される、起動時に開くべきステップ */
   initialStep?: { ym: string; stepId: string } | null;
   /** PM (= project_members.is_pm) もしくは admin (= members.is_admin) のみ true。
-      false の場合、月次ルーティンのステップボタンは disabled。まさ要望 2026-05-11。 */
+      false の場合、月次確認のステップボタンは disabled。まさ要望 2026-05-11。 */
   canEditRoutine?: boolean;
 }
 
@@ -171,43 +167,12 @@ function formatYm(ym: string) {
   return `${ym.slice(0, 4)}/${ym.slice(4)}`;
 }
 
-/** stepId → 開くべきモーダル種別を決める。reimburseConfirm は遷移するだけなので null を返す。 */
-type BillingCycleShape = {
-  ym: string;
-  meetingEventId?: string | null;
-  meetingStartAt: string | null;
-  reportFixedAt: string | null;
-};
-
 type MonthlyModalTab = "reward" | "report";
 
-function resolveStepModalFromTap(
-  ym: string,
-  stepId: string,
-  cycle: BillingCycleShape | undefined,
-  onReimburseConfirm: () => void
-): StepModal {
+function resolveStepModalFromTap(ym: string, stepId: string): StepModal {
   switch (stepId) {
     case "budget":
       return { kind: "budget", ym };
-    case "estimateSend":
-      return { kind: "invoice", ym, documentType: "quotation" };
-    case "meeting": {
-      const isDone = !!cycle?.meetingEventId || !!cycle?.meetingStartAt;
-      // iOS の「done時、href があればそのままカレンダーに飛ぶ」分岐は、PWA では
-      // どちらにせよモーダル内で確定済み表示にする (Calendar 直リンクは未対応)
-      const doneAction = cycle?.meetingStartAt ? `cpShowMeetingInfo('${cycle.meetingStartAt}')` : null;
-      return { kind: "meeting", ym, isDone, doneAction };
-    }
-    case "reportFix":
-      return null;
-    case "reimburseConfirm":
-      onReimburseConfirm();
-      return null;
-    case "invoiceIssue":
-      return { kind: "invoice", ym, documentType: "invoice" };
-    case "invoiceSend":
-      return { kind: "invoiceSend", ym };
     default:
       return null;
   }
@@ -302,13 +267,9 @@ function usesMsProgressCategory(category: string | null | undefined) {
 
 type StepModal =
   | { kind: "budget"; ym: string }
-  | { kind: "meeting"; ym: string; isDone: boolean; doneAction: string | null }
-  | { kind: "invoice"; ym: string; documentType: "invoice" | "quotation" }
-  | { kind: "invoiceSend"; ym: string }
   | null;
 
 export function HudCockpitView({ cockpit, nudges, initialModalYm, initialStep, canEditRoutine = false }: HudCockpitViewProps) {
-  const router = useRouter();
   const cockpitNudges = nudges || cockpit.nudges || [];
   const [modalYm, setModalYm] = useState<string | null>(
     initialStep?.stepId === "reportFix" ? initialStep.ym : initialModalYm || null
@@ -322,8 +283,7 @@ export function HudCockpitView({ cockpit, nudges, initialModalYm, initialStep, c
   const [stepModal, setStepModal] = useState<StepModal>(() => {
     if (!initialStep) return null;
     if (initialStep.stepId === "reportFix") return null;
-    const cycle = cockpit.billingCycles.find((bc) => bc.ym === initialStep.ym);
-    return resolveStepModalFromTap(initialStep.ym, initialStep.stepId, cycle, () => {});
+    return resolveStepModalFromTap(initialStep.ym, initialStep.stepId);
   });
 
   function openMonthlyModal(ym: string, initialTab?: MonthlyModalTab) {
@@ -337,17 +297,12 @@ export function HudCockpitView({ cockpit, nudges, initialModalYm, initialStep, c
   }
 
   function handleStepClick(ym: string, stepId: string) {
-    if (stepId === "reimburseConfirm") {
-      router.push("/reimburse");
-      return;
-    }
     if (stepId === "reportFix") {
       setStepModal(null);
       openMonthlyModal(ym, "report");
       return;
     }
-    const cycle = cockpit.billingCycles.find((bc) => bc.ym === ym);
-    const next = resolveStepModalFromTap(ym, stepId, cycle, () => router.push("/reimburse"));
+    const next = resolveStepModalFromTap(ym, stepId);
     if (next) setStepModal(next);
   }
   const { project, currentYm, billingCycles, planCycle, milestones, progress, reports, subItems, responsibilities, memberMap, pastPlanCycles, msActivities, memberActivities } = cockpit;
@@ -556,7 +511,7 @@ export function HudCockpitView({ cockpit, nudges, initialModalYm, initialStep, c
       </div>
 
       {/* ===== RIGHT COLUMN — 220px sticky ===== */}
-      {/* 終了 PJ (status='ended'/'lost'/'frozen') では月次ルーティンは表示しない。
+      {/* 終了 PJ (status='ended'/'lost'/'frozen') では月次確認は表示しない。
           freeze_from_ym 設定済 + 当該 ym 到達後も非表示。restart_expected_ym 設定済 + 未到達でも非表示 (#18) */}
       <div className="min-w-0 overflow-y-auto pl-1 flex flex-col gap-3 xl:sticky xl:top-12 xl:max-h-[calc(100vh-60px)]">
         {showLiveOperations && (
@@ -597,7 +552,7 @@ export function HudCockpitView({ cockpit, nudges, initialModalYm, initialStep, c
                 <>
                   {!canEditRoutine && (
                     <div className="text-[10px] text-amber-100 bg-amber-300/10 border border-amber-300/30 px-2 py-1 mb-1">
-                      LOCKED: 月次ルーティンは PM のみ操作可能 (= 閲覧のみ)
+                      LOCKED: 月次確認は PM のみ操作可能 (= 閲覧のみ)
                     </div>
                   )}
                   <div className={`hud-cockpit-panel hud-cockpit-panel--routine ${canEditRoutine ? "" : "pointer-events-none opacity-60"}`}>
@@ -645,36 +600,9 @@ export function HudCockpitView({ cockpit, nudges, initialModalYm, initialStep, c
         />
       )}
 
-      {/* ===== Step Modals (各ルーティンタスク → 専用ウィンドウ) ===== */}
+      {/* ===== Step Modals (PMルーティン外の請求系はadminへ集約。budgetは例外入口のみ残す) ===== */}
       {visibleStepModal?.kind === "budget" && (
         <CockpitRoutineBudgetModal
-          projectId={project.projectId}
-          ym={visibleStepModal.ym}
-          open
-          onClose={() => setStepModal(null)}
-        />
-      )}
-      {visibleStepModal?.kind === "meeting" && (
-        <CockpitRoutineMeetingModal
-          projectId={project.projectId}
-          ym={visibleStepModal.ym}
-          isDone={visibleStepModal.isDone}
-          doneAction={visibleStepModal.doneAction}
-          open
-          onClose={() => setStepModal(null)}
-        />
-      )}
-      {visibleStepModal?.kind === "invoice" && (
-        <CockpitRoutineInvoiceModal
-          projectId={project.projectId}
-          ym={visibleStepModal.ym}
-          documentType={visibleStepModal.documentType}
-          open
-          onClose={() => setStepModal(null)}
-        />
-      )}
-      {visibleStepModal?.kind === "invoiceSend" && (
-        <CockpitRoutineInvoiceSendConfirm
           projectId={project.projectId}
           ym={visibleStepModal.ym}
           open
@@ -993,13 +921,7 @@ function HudStepModalStack({
   disabled: boolean;
   onStepClick: (stepId: string) => void;
 }) {
-  const steps = [
-    { id: "budget", label: "BUDGET STEP", ja: "予算設定", sub: "Step 1/6", tone: "emerald", icon: "/hud/routine-icons/budget.png" },
-    { id: "meeting", label: "MEETING STEP", ja: "会議設定", sub: "Step 2/6", tone: "cyan", icon: "/hud/routine-icons/meeting.png" },
-    { id: "reportFix", label: "REPORT STEP", ja: "報告書FIX", sub: "Step 3/6", tone: "violet", icon: "/hud/routine-icons/report.png" },
-    { id: "invoiceIssue", label: "INVOICE STEP", ja: "請求書作成", sub: "Step 4/6", tone: "sky", icon: "/hud/routine-icons/invoice.png" },
-    { id: "invoiceSend", label: "INVOICE SEND", ja: "請求書送付", sub: "Step 5/6", tone: "rose", icon: "/hud/routine-icons/send.png" },
-  ] as const;
+  const steps = [{ id: "reportFix", label: "REPORT NUDGE", ja: "報告書確認", sub: "PM nudge", icon: "/hud/routine-icons/report.png" }] as const;
   return (
     <section className="relative min-h-[304px] overflow-visible border border-cyan-300/32 bg-slate-950/88 p-3 text-cyan-50 shadow-[0_0_20px_rgba(34,211,238,0.12),inset_0_0_20px_rgba(34,211,238,0.06)]">
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(34,211,238,0.07)_1px,transparent_1px)] bg-[length:100%_8px]" />
@@ -1016,17 +938,7 @@ function HudStepModalStack({
             onClick={() => {
               if (!disabled) onStepClick(step.id);
             }}
-            className={`group flex min-h-[42px] w-full items-center gap-2 border px-2 py-1.5 text-left transition ${
-              step.tone === "emerald"
-                ? "border-emerald-300/34 bg-emerald-400/8 hover:bg-emerald-400/14"
-                : step.tone === "cyan"
-                  ? "border-cyan-300/34 bg-cyan-400/8 hover:bg-cyan-400/14"
-                  : step.tone === "violet"
-                    ? "border-violet-300/34 bg-violet-400/8 hover:bg-violet-400/14"
-                    : step.tone === "sky"
-                      ? "border-sky-300/34 bg-sky-400/8 hover:bg-sky-400/14"
-                      : "border-rose-300/38 bg-rose-400/8 hover:bg-rose-400/14"
-            } ${disabled ? "cursor-not-allowed" : ""}`}
+            className={`group flex min-h-[42px] w-full items-center gap-2 border border-violet-300/34 bg-violet-400/8 px-2 py-1.5 text-left transition hover:bg-violet-400/14 ${disabled ? "cursor-not-allowed" : ""}`}
           >
             <span className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden border border-current bg-slate-950/70 text-cyan-100 shadow-[0_0_12px_rgba(34,211,238,.16)]">
               <img src={step.icon} alt="" aria-hidden="true" className="h-8 w-8 object-cover opacity-95 mix-blend-screen" />

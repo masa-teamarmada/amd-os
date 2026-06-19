@@ -9,10 +9,7 @@ interface CockpitRoutineProps {
 }
 
 const ROUTINE_ITEMS = [
-  { key: "meeting_start_at", label: "定例MTG実施" },
-  { key: "report_fixed_at", label: "月次レポート確定" },
-  { key: "invoice_sent_at", label: "請求書送付" },
-  { key: "payment_confirmed_at", label: "入金確認" },
+  { key: "report_fixed_at", label: "月次レポート確認" },
 ] as const;
 
 export function CockpitRoutine({ billing, currentYm }: CockpitRoutineProps) {

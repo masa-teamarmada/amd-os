@@ -188,7 +188,7 @@ function buildMilestoneSnapshot(cockpit?: CockpitData) {
 }
 
 function buildMonthlySnapshot(cockpit?: CockpitData) {
-  if (!cockpit) return { ym: "", report: "", meeting: "", budget: "", invoice: "", note: "" };
+  if (!cockpit) return { ym: "", report: "", meeting: "", budget: "", invoice: "", payment: "", note: "" };
   const target = cockpit.billingCycles.find((cycle) => cycle.ym === cockpit.currentYm) ?? cockpit.billingCycles[0];
   const report = target ? cockpit.reports.find((item) => item.ym === target.ym) : null;
   return {
@@ -197,6 +197,7 @@ function buildMonthlySnapshot(cockpit?: CockpitData) {
     meeting: target?.meetingStartAt ? "scheduled" : "open",
     budget: target?.budgetConfirmedAt ? "confirmed" : target?.budgetYen ? yenShort(target.budgetYen) : "open",
     invoice: target?.invoiceSentAt ? "sent" : target?.invoiceIssuedAt ? "issued" : "open",
+    payment: target?.paymentConfirmedAt ? "paid" : target?.invoiceSentAt ? "waiting" : "n/a",
     note: report?.finalExcerpt || report?.draftExcerpt || "",
   };
 }
@@ -242,20 +243,23 @@ export default function CyberHudWallDashboard() {
   const selected = projectsState.find((project) => project.id === selectedId) ?? projectsState[1];
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const projectId = params.get("project");
-    const dock = params.get("dock") as FocusDock | null;
-    const shouldOpenWorkspace = params.get("workspace") === "1";
-    if (projectId && projects.some((project) => project.id === projectId)) {
-      setSelectedId(projectId);
-      setViewMode("project");
-    }
-    if (dock && focusDockOrder.includes(dock)) {
-      setActiveFocusDock(dock);
-      if (shouldOpenWorkspace) setWorkspaceDock(dock);
-    } else if (shouldOpenWorkspace) {
-      setWorkspaceDock("status");
-    }
+    const frame = window.requestAnimationFrame(() => {
+      const params = new URLSearchParams(window.location.search);
+      const projectId = params.get("project");
+      const dock = params.get("dock") as FocusDock | null;
+      const shouldOpenWorkspace = params.get("workspace") === "1";
+      if (projectId && projects.some((project) => project.id === projectId)) {
+        setSelectedId(projectId);
+        setViewMode("project");
+      }
+      if (dock && focusDockOrder.includes(dock)) {
+        setActiveFocusDock(dock);
+        if (shouldOpenWorkspace) setWorkspaceDock(dock);
+      } else if (shouldOpenWorkspace) {
+        setWorkspaceDock("status");
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   useEffect(() => {
@@ -1534,8 +1538,8 @@ function getFocusDockContent(project: ProjectModule, dock: FocusDock) {
       blocks: [
         { title: "MONTH", value: monthly.ym, sub: "current billing cycle" },
         { title: "REPORT", value: monthly.report, sub: "monthly report state" },
-        { title: "MEETING", value: monthly.meeting, sub: "routine step" },
-        { title: "BUDGET", value: monthly.budget, sub: "approved / planned" },
+        { title: "NUDGE", value: monthly.report, sub: "PM report check" },
+        { title: "ADMIN", value: monthly.invoice, sub: "billing status" },
       ],
     },
     actions: {
@@ -1551,15 +1555,15 @@ function getFocusDockContent(project: ProjectModule, dock: FocusDock) {
       ],
     },
     routine: {
-      label: "ROUTINE",
-      title: "monthly operations / billing routine",
-      subtitle: `${monthly.ym} routine / invoice ${monthly.invoice}`,
+      label: "MONTHLY OPS",
+      title: "report nudge / admin billing",
+      subtitle: `${monthly.ym} report ${monthly.report} / invoice ${monthly.invoice}`,
       color: "#ffad57",
       blocks: [
-        { title: "BUDGET", value: monthly.budget, sub: "budget approval" },
-        { title: "MEETING", value: monthly.meeting, sub: "calendar status" },
-        { title: "INVOICE", value: monthly.invoice, sub: "issue / send" },
-        { title: "REPORT", value: monthly.report, sub: "fix status" },
+        { title: "REPORT", value: monthly.report, sub: "PM nudge only" },
+        { title: "INVOICE", value: monthly.invoice, sub: "admin billing" },
+        { title: "PAYMENT", value: monthly.payment, sub: "cash status" },
+        { title: "BUDGET", value: monthly.budget, sub: "exception status" },
       ],
     },
   } satisfies Record<FocusDock, {
@@ -1597,8 +1601,8 @@ function getDockRows(project: ProjectModule, dock: FocusDock) {
       return [
         { label: "MONTH", value: monthly.ym },
         { label: "REPORT", value: monthly.report },
-        { label: "MEETING", value: monthly.meeting },
-        { label: "BUDGET", value: monthly.budget },
+        { label: "NUDGE", value: monthly.report },
+        { label: "ADMIN", value: monthly.invoice },
       ];
     case "actions":
       return [
@@ -1609,10 +1613,10 @@ function getDockRows(project: ProjectModule, dock: FocusDock) {
       ];
     case "routine":
       return [
-        { label: "BUDGET", value: monthly.budget },
-        { label: "MEETING", value: monthly.meeting },
-        { label: "INVOICE", value: monthly.invoice },
         { label: "REPORT", value: monthly.report },
+        { label: "INVOICE", value: monthly.invoice },
+        { label: "PAYMENT", value: monthly.payment },
+        { label: "BUDGET", value: monthly.budget },
       ];
   }
 }

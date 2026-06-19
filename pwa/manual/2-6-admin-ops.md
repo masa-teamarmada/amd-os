@@ -72,17 +72,17 @@ URL: `/admin/projects`
 
 | value | 表示色 | 意味 | 主な扱い |
 |---|---|---|---|
-| `draft` | gray | 台帳作成済みだが、契約・稼働・営業状態がまだ固まっていない準備中 PJ | `admin/projects` で情報を揃える段階。通常の月次ルーティンや請求対象にはまだ入れない |
-| `active` | emerald | AMD が伴走・運用中の PJ | cockpit / 月次ルーティン / 請求・支払 / MS 進捗抽出の標準対象 |
+| `draft` | gray | 台帳作成済みだが、契約・稼働・営業状態がまだ固まっていない準備中 PJ | `admin/projects` で情報を揃える段階。通常の月次確認や請求対象にはまだ入れない |
+| `active` | emerald | AMD が伴走・運用中の PJ | cockpit / 月次確認 / 請求・支払 / MS 進捗抽出の標準対象 |
 | `sales` | blue | 商談・受注前・提案中の PJ | 台帳や資料生成には載せるが、契約後の月次オペは個別に確認してから開始 |
-| `ended` | gray | AMD の伴走・契約が終了した PJ | 履歴として残す。新規の月次ルーティンは原則表示しない |
-| `frozen` | amber | 明示的に休止中の PJ | 新規月次ルーティンは止める。再開見込みがある場合は `freeze_from_ym` / `restart_expected_ym` も併用 |
+| `ended` | gray | AMD の伴走・契約が終了した PJ | 履歴として残す。新規の月次確認は原則表示しない |
+| `frozen` | amber | 明示的に休止中の PJ | 新規月次確認は止める。再開見込みがある場合は `freeze_from_ym` / `restart_expected_ym` も併用 |
 | `lost` | red | 失注 / 破談 / 契約化しなかった PJ | `/admin/payouts` では支払原資なしの個別確認対象。契約が取れなかった場合の支払は個別合意が必要 |
 
 #### status と凍結期間の使い分け
 
 - `status` は PJ の大きな状態ラベル。`active` / `sales` / `ended` / `lost` のような契約・営業フェーズを表す。
-- `freeze_from_ym` / `restart_expected_ym` は **期間つきの休止オーバーレイ**。たとえば「契約は継続してるが 202605 から一時停止」のように、`status='active'` のまま月次ルーティンだけ止めたい時に使う。
+- `freeze_from_ym` / `restart_expected_ym` は **期間つきの休止オーバーレイ**。たとえば「契約は継続してるが 202605 から一時停止」のように、`status='active'` のまま月次確認だけ止めたい時に使う。
 - 複数回の凍結 / 再開履歴は `project_freeze_periods` が正本。`projects.freeze_from_ym` / `restart_expected_ym` は現在表示用キャッシュ。
 - 新しく凍結・再開を扱う実装では、`projects.status='frozen'` だけで判断せず、`project_freeze_periods` と現在 ym も見る。
 
@@ -161,30 +161,22 @@ AMD メンバーが業務関連で立替えた費用 (= 出張 / イベント参
 
 ---
 
-## コックピット月次ルーティンとの接続
+## コックピット月次確認 / admin請求との接続
 
-コックピット右カラムの月次ルーティンは、admin の請求・支払・立替データを触る入口。
+コックピット右カラムの月次確認は、PM が月次報告書の確認nudgeへ返す入口。請求・支払・立替データを触る主入口は admin 側に寄せる。
 
 ```text
-コックピット月次ルーティン
-  請求額確定
-    -> billing_cycles / PL 承認 / PJ 予算
-  報告会日程調整
-    -> meeting-slots / schedule-meeting
-  月次報告書FIX
+コックピット月次確認
+  月次報告書確認
     -> monthly_reports / billing_cycles
-  立替精算確認
-    -> /reimburse
-  請求書発行・送付
-    -> billing_cycles / freee invoice / invoice_sent_at
 
 admin
   /admin/projects  -> PJ 台帳・支払条件・月次予算
-  /admin/billing   -> SU x 月の請求状態マトリクス
+  /admin/billing   -> SU x 月の請求発行・送付・立替・入金状態マトリクス
   /admin/payouts   -> AMD から SU への支払通知書
 ```
 
-締切・クリック先・CTB 例外は **[2-3 章 1.5 月次ルーティン](2-3-pj-cockpit.md#15-月次ルーティン--報告書--請求--会計)** が読み手向け正本。実装詳細と回帰防止は [`pwa/design/routine.md`](../design/routine.md) が開発正本。
+締切・クリック先・CTB停止中の扱いは **[2-3 章 1.5 月次確認](2-3-pj-cockpit.md#15-月次確認--報告書--admin請求)** が読み手向け正本。実装詳細と回帰防止は [`pwa/design/routine.md`](../design/routine.md) が開発正本。
 
 ---
 
@@ -210,4 +202,4 @@ Raw Data / L2 Data / Cron Control を見る admin 専用の運用台帳。
 ---
 
 ## 関連
-- 設計議論: [`pwa/design/FEATURE_REGISTRY.md`](../design/FEATURE_REGISTRY.md) (= 各画面の消してはいけない業務導線), [`pwa/design/routine.md`](../design/routine.md) (= 月次ルーティン)
+- 設計議論: [`pwa/design/FEATURE_REGISTRY.md`](../design/FEATURE_REGISTRY.md) (= 各画面の消してはいけない業務導線), [`pwa/design/routine.md`](../design/routine.md) (= 月次確認)

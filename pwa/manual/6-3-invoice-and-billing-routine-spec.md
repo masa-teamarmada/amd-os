@@ -1,10 +1,10 @@
 # Invoice / Billing Routine 仕様
 
-請求書 / 見積書発行と freee 連携、 月次ルーティンとの接続をまとめる。 入金確認は [6-4 章](6-4-finance-payment-confirm-spec.md)、 支払通知書 (= 反対側) は [6-5 章](6-5-admin-payouts-reward-notice-spec.md) を見る。
+請求書 / 見積書発行と freee 連携、 月次確認・admin billing との接続をまとめる。 入金確認は [6-4 章](6-4-finance-payment-confirm-spec.md)、 支払通知書 (= 反対側) は [6-5 章](6-5-admin-payouts-reward-notice-spec.md) を見る。
 
 ## `billing_cycles` (= 月次サイクルの正本)
 
-PJ × ym の月次サイクル。 1 行で「予算確定 → 報告会 → 報告書 FIX → 請求書発行 → 送付 → 入金確認 → 支払」までの全状態を持つ。
+PJ × ym の月次サイクル。 1 行で「予算確定 → 報告書確認 → 請求書発行 → 送付 → 入金確認 → 支払」までの全状態を持つ。報告会は月次サイクル上のPMタスクとしては廃止。
 
 ### 列一覧
 
@@ -38,9 +38,9 @@ PJ × ym の月次サイクル。 1 行で「予算確定 → 報告会 → 報�
 
 ```text
 not_started
-   ↓ PM/PL が請求額案を入力
+   ↓ 契約由来の自動確定、またはadmin/例外復旧で請求額案を入力
 budget_reported
-   ↓ admin / PL が PL レビュー → 請求額とPJ予算を承認
+   ↓ admin / PL が例外レビュー → 請求額とPJ予算を承認
 budget_confirmed
    ↓ 月次報告書 FIX
 report_fixed
@@ -54,7 +54,7 @@ payment_confirmed
 reward_paid
 ```
 
-非標準ケース: 失注 / 凍結 PJ は `not_started` のまま、 月次ルーティン自体を出さない。
+非標準ケース: 失注 / 凍結 PJ は `not_started` のまま、 月次確認自体を出さない。
 
 ## 契約由来の請求額は つくよみ が毎月自動確定する (= 2026-06-18 ①案)
 
@@ -66,18 +66,19 @@ reward_paid
 - **金額**: schedule_based はその月の `budget_yen ÷ 0.65` を請求額に逆算 (= 月により額が違う契約を月別に正しく確定。CX: 6月¥78,000 / 7-9月¥274,000)。monthly_fixed は `fee_amount` をそのまま請求額に。PJ 予算は `請求額 × 65%`。
 - **触らない月**: その月の `billing_cycles.status` が既に `reported` 以降 (人が触っている) なら一切上書きしない。今月だけ違う額にしたい時は、PM が通知 DM のボタンからコックピットを開いて直す。
 - **cron**: `/api/cron/contract-billing-auto-confirm` (毎月1日 JST 07:00)。実装・安全弁の詳細は [spec 5-6 章 §月次請求額の自動確定](../spec/5-6-contracts-management-current-spec.md)。
-- **PL レビュー DM (`/api/notify/pl-review`) との関係**: 契約 apply 済み PJ は自動確定が先に走るので、PL への請求額レビュー DM ではなく PM への事後通知 DM になる。契約が無い / 抽出していない PJ は従来どおり PM/PL が手入力 → PL レビューで承認する。
+- **PM/PL nudge との関係**: `/mypage` の月次確認nudgeに出すのは `月次報告書確認` だけ。`請求額確定` は契約台帳/報酬キャッシュのデータ整備、`請求書発行/送付` はadmin業務、`立替確認` はPM月次タスク外として扱う。PM/PL 手入力と PL レビュー DM (`/api/notify/pl-review`) は例外復旧・個別差分用に残す。
 
-## 月次ルーティン (= cockpit 右カラム)
+## 月次確認 (= cockpit 右カラム)
 
-`/project/{projectId}/cockpit` 右カラムが「月次ルーティン」入口。 PJ の `status` が `active` / `sales` のときだけ表示。 詳細仕様 (= 回帰多発エリア) は [`pwa/design/routine.md`](../design/routine.md) と [01.5 月次ルーティン](2-3-pj-cockpit.md#15-月次ルーティン--報告書--請求--会計)。
+`/project/{projectId}/cockpit` 右カラムが「月次確認」入口。 PJ の `status` が `active` / `sales` のときだけ表示し、`freeze_from_ym <= ym` の凍結PJでは出さない。詳細仕様は [`pwa/design/routine.md`](../design/routine.md) と [01.5 月次確認](2-3-pj-cockpit.md#15-月次確認--報告書--admin請求)。
 
 `請求額確定` ステップで入力する金額は、別の「予定請求額」ではなく OS 上の請求額そのもの。承認前だけ `請求額案` と呼び、承認後は `確定請求額` として `budget_reported_amount` に保持する。PJ 予算 (`budget_yen`) は `確定請求額 × 65% - バッファ` を基本に計算する。
 
 ### ステップ並び
 
-- 標準: `請求額確定 / 報告会日程調整 / 月次報告書FIX / 立替精算確認 / 請求書発行 / 請求書送付`
-- CTB: `見積書送付 / 請求額確定 / 報告会日程調整 / 請求書発行 / 請求書送付 / 月次報告書FIX / 立替精算確認`
+- PM/cockpit右カラム: `月次報告書確認` のみ
+- admin/billing: `予算確定 / 報告書 / 立替確認 / 請求発行 / 請求送付 / 支払通知 / 入金確認 / 報酬支払`
+- CTB見積: CTB停止中のため一旦廃止
 - **古い月が上**
 
 ### stepId × クリック挙動
@@ -86,20 +87,15 @@ reward_paid
 
 | stepId | ラベル | クリックで開くもの |
 |---|---|---|
-| `budget` | 請求額確定 | `CockpitRoutineBudgetModal` |
-| `estimateSend` (CTB) | 見積書送付 | `CockpitRoutineInvoiceModal` (= documentType='quotation') |
-| `meeting` | 報告会日程調整 | `CockpitRoutineMeetingModal` |
-| `reportFix` | 月次報告書FIX | `CockpitRoutineReportFixModal` |
-| `reimburseConfirm` | 立替精算確認 | `/reimburse` ページに**遷移** (= モーダルではない) |
-| `invoiceIssue` | 請求書発行 | `CockpitRoutineInvoiceModal` (= documentType='invoice') |
-| `invoiceSend` | 請求書送付 | `CockpitRoutineInvoiceSendConfirm` 確認ダイアログ |
+| `reportFix` | 月次報告書確認 | `CockpitMonthlyModal` の report tab |
+| `budget` | 請求額確定 | PM月次タスクには出さない。例外復旧 direct step として `CockpitRoutineBudgetModal` だけ残す |
 
-**月見出しクリック** (= `YYYY.MM稼働分`) → `CockpitMonthlyModal` (= 月次集約モーダル)。 **ステップ行クリックでは絶対に CockpitMonthlyModal を開かない** (= 回帰多発、 まさ #過去 教訓)。
+**月見出しクリック** (= `YYYY.MM稼働分`) → `CockpitMonthlyModal` (= 月次集約モーダル)。`reportFix` は report tab を直接開く。旧 `meeting` / `reimburseConfirm` / `invoiceIssue` / `invoiceSend` / `estimateSend` はPM月次タスクとしては開かない。
 
-### 期限超過と取り消し線
+### nudgeと報酬の境界
 
-- 期限超過かつ未完なら mypage の月次報酬から取り消し線で除外
-- 例外: `billing_cycles.status IN ('payment_confirmed','reward_paid','completed')`、 または `payment_confirmed_at` / `reward_paid_at` 集合済みなら救済済として除外しない
+- `reportFix` は「これでいい？」nudge。未対応でも mypage の月次報酬から取り消し線で除外しない
+- PM月次確認は報酬計算・支払可否の gate ではなく、月次報告書の軽い確認導線として扱う
 
 ## 請求書 / 見積書 発行 (= freee 連携)
 
@@ -170,7 +166,7 @@ GAS `gas-main/007_FreeeInvoiceFlow.js` が freee API への発行を担当。
 
 「3 月分の業務を 4 月にまとめて請求」というケース。 `billing_cycles.invoice_ym='202604'`、 `ym='202603'` とする。 このとき:
 
-- 当月 ym (= `202603`) の月次ルーティンは `reportFix` 以外を **スキップ表示**
+- PMの月次確認は `reportFix` だけなので、当月 ym (= `202603`) でも cockpit 右カラムは `reportFix` のみ表示
 - 翌月 `202604` の `billing_cycles` で `invoice_base_lines_json` に 2 月分を含めた請求書を発行
 - mypage の月次報酬計算は `ym` (= 業務月) 基準で動く (= invoice_ym ではない)
 
@@ -180,43 +176,26 @@ GAS `gas-main/007_FreeeInvoiceFlow.js` が freee API への発行を担当。
 
 ### スキップ表示の挙動
 
-`CockpitRoutineGas.tsx` が `invoice_ym !== ym` を検知して、 `budget` / `meeting` / `invoiceIssue` / `invoiceSend` ステップを「スキップ」 表示にする (= 完了でも未完でもなく、 グレーアウト + ツールチップ「invoice_ym=YYYYMM に統合済」)。
+`invoice_ym` の繰延は `/admin/billing` / `/admin/payouts` / finance 系で扱う。PMの月次確認では deferred 表示を使わない。
 
 ## CTB (= Closed To Buyer) PJ
 
-CTB PJ (= 営業段階のクローズした顧客向け短期 PJ) は **見積書ステップが先頭** に来る。 標準フローと違って:
+CTB PJ は現在停止中。見積書送付 (`estimateSend`) は一旦廃止し、PM月次確認・admin billing matrix のどちらにも表示しない。
 
-1. 見積書送付 (= 価格合意)
-2. 請求額確定
-3. 報告会
-4. 請求書発行
-5. 請求書送付
-6. 月次報告書 FIX
-7. 立替確認
+## 立替精算確認
 
-CTB 例外は `projects.project_type` または別フラグで判定 (= 実装は `CockpitView.tsx` を参照)。
-
-## 立替精算確認 (= reimburseConfirm)
-
-- 締切: 翌月 4 日 (= 土日なら前営業日)
-- 締切日前: 必ず未完
-- 締切日以降: `reimbursements.status IN ('submitted','pm_approved')` の未処理が無ければ完了
-- 例: `202606` → 2026-07-04 が土曜 → 2026-07-03 に判定
-- **手動変更不可** (= iOS と挙動を揃える)
-
-PWA 実装: `CockpitRoutineGas.tsx:139` (= 締切日チェック必須、 無視しない)。
+立替確認は PM 月次確認から外す。admin billing matrix では `立替確認` の状態表示を残すが、PMの `/mypage` 通知には使わない。
 
 ## URL 修正の教訓 (= 2026-04-09)
 
-GAS で月次ルーティンの Slack 投稿に貼る URL は `WEBAPP_BASE_URL` (= ScriptProperty) を使う。 `ScriptApp.getService().getUrl()` はデプロイごとに変わるため CLAUDE.md で禁止。 修正対象は `gas-main/007_FreeeInvoiceFlow.js` L552 (uploadUrl) / L1218 (cancelUrl)。
+GAS で月次確認・請求系の Slack 投稿に貼る URL は `WEBAPP_BASE_URL` (= ScriptProperty) を使う。 `ScriptApp.getService().getUrl()` はデプロイごとに変わるため CLAUDE.md で禁止。 修正対象は `gas-main/007_FreeeInvoiceFlow.js` L552 (uploadUrl) / L1218 (cancelUrl)。
 
 ## トラブル時
 
 | 症状 | 確認場所 |
 |---|---|
-| 月次ルーティンステップが出ない | `projects.status IN ('active','sales')`、 `project_category != 'advisor'`、 `billing_cycles` 該当 ym 行の有無 |
-| 全 stepId 押すと CockpitMonthlyModal が出る | `CockpitView.resolveStepModalFromTap()` の回帰、 [`routine.md`](../design/routine.md) の表と照合 |
-| 立替確認が締切後でも未完 | `reimbursements.status` を確認 (= `submitted`/`pm_approved` が残ってないか) |
+| 月次確認ステップが出ない | `projects.status IN ('active','sales')`、 `freeze_from_ym <= ym` でないこと、 `project_category != 'advisor'`、 `billing_cycles` 該当 ym 行の有無 |
+| 旧 stepId がPMタスクとして開く | `CockpitView.resolveStepModalFromTap()` の回帰、 [`routine.md`](../design/routine.md) の表と照合 |
 | 請求書 PDF URL が貼れない | `freee_invoice_number` set されてるか、 `invoice_pdf_url` の有効性 |
 | 「請求月延期」が反映されない | `billing_cycles.invoice_ym` set、 `CockpitRoutineGas.tsx` スキップ判定 |
 | freee 発行が失敗 | Edge Function `issue-invoice` のログ、 `freee_oauth_tokens.updated_at` 鮮度 |
@@ -226,7 +205,7 @@ GAS で月次ルーティンの Slack 投稿に貼る URL は `WEBAPP_BASE_URL` 
 - 設計: [`pwa/design/routine.md`](../design/routine.md) (= 回帰多発エリアの正本)
 - 設計: [`pwa/design/cockpit.md`](../design/cockpit.md) (= cockpit 全体)
 - 設計: [`pwa/design/invoice_url_payout_auth.md`](../design/invoice_url_payout_auth.md)
-- 2-3 章 [PJ コックピットの見方](2-3-pj-cockpit.md) (= 月次ルーティン入口の使い方)
+- 2-3 章 [PJ コックピットの見方](2-3-pj-cockpit.md) (= 月次確認入口の使い方)
 - 6-4 章 [Finance / Payment Confirm](6-4-finance-payment-confirm-spec.md) (= 入金確認)
 - 6-5 章 [Admin Payouts / 支払通知書](6-5-admin-payouts-reward-notice-spec.md) (= 反対側、 AMD から SU メンバーへの支払)
 - 6-2 章 [Admin Projects / Members 台帳](6-2-admin-projects-members-ledger-spec.md) (= 契約条件)

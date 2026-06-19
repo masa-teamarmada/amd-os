@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { CockpitHeader } from "./CockpitHeader";
 import { CockpitVentureStatus } from "./CockpitVentureStatus";
 import { CockpitManagementScoreHero } from "./CockpitManagementScoreHero";
@@ -18,9 +17,6 @@ import { CockpitMeetingSummary } from "./CockpitMeetingSummary";
 import { CockpitFreezeBackfill } from "./CockpitFreezeBackfill";
 import { CockpitNextPeriodSetup } from "./CockpitNextPeriodSetup";
 import { CockpitRoutineBudgetModal } from "./CockpitRoutineBudgetModal";
-import { CockpitRoutineMeetingModal } from "./CockpitRoutineMeetingModal";
-import { CockpitRoutineInvoiceModal } from "./CockpitRoutineInvoiceModal";
-import { CockpitRoutineInvoiceSendConfirm } from "./CockpitRoutineInvoiceSendConfirm";
 import { CockpitAmdScoreDetailTab } from "./CockpitAmdScoreDetailTab";
 import { ProactiveQueuePanel } from "@/components/proactive/ProactiveQueuePanel";
 
@@ -180,7 +176,7 @@ interface CockpitViewProps {
   /** mypage や URL `?step=` から渡される、起動時に開くべきステップ */
   initialStep?: { ym: string; stepId: string } | null;
   /** PM (= project_members.is_pm) もしくは admin (= members.is_admin) のみ true。
-      false の場合、月次ルーティンのステップボタンは disabled。まさ要望 2026-05-11。 */
+      false の場合、月次確認のステップボタンは disabled。まさ要望 2026-05-11。 */
   canEditRoutine?: boolean;
 }
 
@@ -189,43 +185,12 @@ function formatYm(ym: string) {
   return `${ym.slice(0, 4)}/${ym.slice(4)}`;
 }
 
-/** stepId → 開くべきモーダル種別を決める。reimburseConfirm は遷移するだけなので null を返す。 */
-type BillingCycleShape = {
-  ym: string;
-  meetingEventId?: string | null;
-  meetingStartAt: string | null;
-  reportFixedAt: string | null;
-};
-
 type MonthlyModalTab = "reward" | "report";
 
-function resolveStepModalFromTap(
-  ym: string,
-  stepId: string,
-  cycle: BillingCycleShape | undefined,
-  onReimburseConfirm: () => void
-): StepModal {
+function resolveStepModalFromTap(ym: string, stepId: string): StepModal {
   switch (stepId) {
     case "budget":
       return { kind: "budget", ym };
-    case "estimateSend":
-      return { kind: "invoice", ym, documentType: "quotation" };
-    case "meeting": {
-      const isDone = !!cycle?.meetingEventId || !!cycle?.meetingStartAt;
-      // iOS の「done時、href があればそのままカレンダーに飛ぶ」分岐は、PWA では
-      // どちらにせよモーダル内で確定済み表示にする (Calendar 直リンクは未対応)
-      const doneAction = cycle?.meetingStartAt ? `cpShowMeetingInfo('${cycle.meetingStartAt}')` : null;
-      return { kind: "meeting", ym, isDone, doneAction };
-    }
-    case "reportFix":
-      return null;
-    case "reimburseConfirm":
-      onReimburseConfirm();
-      return null;
-    case "invoiceIssue":
-      return { kind: "invoice", ym, documentType: "invoice" };
-    case "invoiceSend":
-      return { kind: "invoiceSend", ym };
     default:
       return null;
   }
@@ -284,15 +249,11 @@ function usesMsProgressCategory(category: string | null | undefined) {
 
 type StepModal =
   | { kind: "budget"; ym: string }
-  | { kind: "meeting"; ym: string; isDone: boolean; doneAction: string | null }
-  | { kind: "invoice"; ym: string; documentType: "invoice" | "quotation" }
-  | { kind: "invoiceSend"; ym: string }
   | null;
 
 type CockpitTab = "progress" | "score-detail";
 
 export function CockpitView({ cockpit, nudges, initialModalYm, initialStep, canEditRoutine = false }: CockpitViewProps) {
-  const router = useRouter();
   const [activeTab, setActiveTab] = useState<CockpitTab>("progress");
   const [modalYm, setModalYm] = useState<string | null>(
     initialStep?.stepId === "reportFix" ? initialStep.ym : initialModalYm || null
@@ -306,8 +267,7 @@ export function CockpitView({ cockpit, nudges, initialModalYm, initialStep, canE
   const [stepModal, setStepModal] = useState<StepModal>(() => {
     if (!initialStep) return null;
     if (initialStep.stepId === "reportFix") return null;
-    const cycle = cockpit.billingCycles.find((bc) => bc.ym === initialStep.ym);
-    return resolveStepModalFromTap(initialStep.ym, initialStep.stepId, cycle, () => {});
+    return resolveStepModalFromTap(initialStep.ym, initialStep.stepId);
   });
 
   function openMonthlyModal(ym: string, initialTab?: MonthlyModalTab) {
@@ -321,17 +281,12 @@ export function CockpitView({ cockpit, nudges, initialModalYm, initialStep, canE
   }
 
   function handleStepClick(ym: string, stepId: string) {
-    if (stepId === "reimburseConfirm") {
-      router.push("/reimburse");
-      return;
-    }
     if (stepId === "reportFix") {
       setStepModal(null);
       openMonthlyModal(ym, "report");
       return;
     }
-    const cycle = cockpit.billingCycles.find((bc) => bc.ym === ym);
-    const next = resolveStepModalFromTap(ym, stepId, cycle, () => router.push("/reimburse"));
+    const next = resolveStepModalFromTap(ym, stepId);
     if (next) setStepModal(next);
   }
   const { project, currentYm, billingCycles, planCycle, milestones, progress, reports, subItems, responsibilities, memberMap, pastPlanCycles, msActivities, memberActivities, strategySignals } = cockpit;
@@ -446,7 +401,7 @@ export function CockpitView({ cockpit, nudges, initialModalYm, initialStep, canE
     //  メインボード 3 カラム:
     //    col1 = 今期MS + 次期MS設定 + 過去の期間 + 月次カード + 休止期間 backfill
     //    col2 = TODO + 経営ハイライト (D-6) + MTGサマリ
-    //    col3 = ステータスバッジ + 月次ルーティン + nudge (sticky)
+    //    col3 = ステータスバッジ + 月次確認 + nudge (sticky)
     <div className="max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3">
       {/* [A] Project Header (full width) */}
       <CockpitHeader project={project} />
@@ -493,7 +448,7 @@ export function CockpitView({ cockpit, nudges, initialModalYm, initialStep, canE
       {(!hasScoreDetailTab || activeTab === "progress") && (
         <>
       {/* メインボード: 3 カラム grid (lg breakpoint 以上)
-          1.2fr 1.2fr 300px = MS / 経営シグナル / 月次ルーティン
+          1.2fr 1.2fr 300px = MS / 経営シグナル / 月次確認
           col3 は sticky (mobile / md は通常配置) */}
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_300px] gap-3 items-start">
 
@@ -584,7 +539,7 @@ export function CockpitView({ cockpit, nudges, initialModalYm, initialStep, canE
           <CockpitMeetingSummary projectId={project.projectId} />
         </div>
 
-        {/* col3: ステータスバッジ + 月次ルーティン + nudge (lg 以上で sticky) */}
+        {/* col3: ステータスバッジ + 月次確認 + nudge (lg 以上で sticky) */}
         <div className="flex flex-col gap-3 min-w-0 lg:sticky lg:top-12 lg:max-h-[calc(100vh-60px)] lg:overflow-y-auto">
           {statusBadges.length > 0 && (
             <div className="flex flex-col gap-1">
@@ -599,7 +554,7 @@ export function CockpitView({ cockpit, nudges, initialModalYm, initialStep, canE
             <>
               {!canEditRoutine && (
                 <div className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mb-1">
-                  🔒 月次ルーティンは PM のみ操作可能 (= 閲覧のみ)
+                  🔒 月次確認は PM のみ操作可能 (= 閲覧のみ)
                 </div>
               )}
               <div className={canEditRoutine ? "" : "pointer-events-none opacity-60"}>
@@ -658,36 +613,9 @@ export function CockpitView({ cockpit, nudges, initialModalYm, initialStep, canE
         />
       )}
 
-      {/* ===== Step Modals (各ルーティンタスク → 専用ウィンドウ) ===== */}
+      {/* ===== Step Modals (PMルーティン外の請求系はadminへ集約。budgetは例外入口のみ残す) ===== */}
       {activeStepModal?.kind === "budget" && (
         <CockpitRoutineBudgetModal
-          projectId={project.projectId}
-          ym={activeStepModal.ym}
-          open
-          onClose={() => setStepModal(null)}
-        />
-      )}
-      {activeStepModal?.kind === "meeting" && (
-        <CockpitRoutineMeetingModal
-          projectId={project.projectId}
-          ym={activeStepModal.ym}
-          isDone={activeStepModal.isDone}
-          doneAction={activeStepModal.doneAction}
-          open
-          onClose={() => setStepModal(null)}
-        />
-      )}
-      {activeStepModal?.kind === "invoice" && (
-        <CockpitRoutineInvoiceModal
-          projectId={project.projectId}
-          ym={activeStepModal.ym}
-          documentType={activeStepModal.documentType}
-          open
-          onClose={() => setStepModal(null)}
-        />
-      )}
-      {activeStepModal?.kind === "invoiceSend" && (
-        <CockpitRoutineInvoiceSendConfirm
           projectId={project.projectId}
           ym={activeStepModal.ym}
           open
