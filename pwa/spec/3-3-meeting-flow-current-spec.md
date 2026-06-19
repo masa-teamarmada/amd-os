@@ -52,6 +52,8 @@ MTGカード / 議事録側に日時・場所・対面/オンライン・持参�
 
 MTGから生まれた担当タスク、OS task、Gmail TODO、Slack TODO は `POST /api/task-calendar/schedule-plan` で Calendar 作業枠候補にする。route は owner calendar とまさ calendar の busy window を入力として受け取り、`+<PJコード> <task>` の作業枠候補を `calendar_writes[]` で返す。外部 attendees は空、Google Meetなし、Gmail/Slack返信は送らない。owner calendar が不明、低信頼、個人予定境界、共通空き枠なしは `review_required` / `hold`。
 
+`/admin/calendar-review` はこの dry-run planner の review queue UI。admin が `tasks` / `meetings` payload を投げ、`plans`、`calendar_writes`、`slack_nudge_candidates`、`review_reasons`、`duplicate_match` をOS上で確認し、H-1 / Calendar connector 実行前の write bundle をコピーできる。画面も route も Calendar / Slack へ実writeしない。実writeは、対象・件数・rollback・通知有無を確認した後に H-1 側で実行する。
+
 ## ended / frozen PJ の MTGサマリ生成ガード (2026-06-03 まさ確定)
 
 月次サマリと同じ進捗ベース原則を L2H-1 にも適用する。**開催済みの実MTG (= 実進捗) は状態を問わず記録してよい**が、**未来の予定MTG prep を終了/凍結 PJ に自動生成しない**。frozen 判定は `projects.status='frozen'` または (`freeze_from_ym` ≤ 対象 ym)。
