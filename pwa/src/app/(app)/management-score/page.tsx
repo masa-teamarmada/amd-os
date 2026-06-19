@@ -351,6 +351,61 @@ function yen(value: number | null | undefined): string {
   return `¥${Math.round(value).toLocaleString("ja-JP")}`;
 }
 
+function walletSignedYen(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(value)) return "-";
+  const rounded = Math.round(value);
+  if (rounded < 0) return `-¥${Math.abs(rounded).toLocaleString("ja-JP")}`;
+  return `¥${rounded.toLocaleString("ja-JP")}`;
+}
+
+function FinanceWalletFlowRows({
+  regularInYen,
+  regularOutYen,
+  regularBalanceYen,
+  extraInYen,
+  extraOutYen,
+  extraBalanceYen,
+}: {
+  regularInYen: number;
+  regularOutYen: number;
+  regularBalanceYen: number;
+  extraInYen: number;
+  extraOutYen: number;
+  extraBalanceYen: number;
+}) {
+  const showExtra = extraInYen > 0 || extraOutYen > 0 || extraBalanceYen !== 0;
+  const regularOver = regularBalanceYen < 0;
+  const extraOver = extraBalanceYen < 0;
+  const rowClass = "grid grid-cols-[3.2rem_1fr_1fr_1fr] items-center gap-x-1 whitespace-nowrap tabular-nums";
+  const balanceClass = (over: boolean) => over ? "font-semibold text-red-700" : "font-semibold text-emerald-700";
+
+  return (
+    <div className="space-y-0.5 text-[10px] leading-tight">
+      <div className={`${rowClass} text-[9px] text-muted-foreground`}>
+        <span />
+        <span className="text-right">入</span>
+        <span className="text-right">出</span>
+        <span className="text-right">残</span>
+      </div>
+      <div className={`${rowClass} ${regularOver ? "rounded bg-red-50 px-1 py-0.5 text-red-800" : ""}`}>
+        <span className="text-left font-medium text-foreground">本契約</span>
+        <span className="text-right text-muted-foreground">{yen(regularInYen)}</span>
+        <span className="text-right text-muted-foreground">{yen(regularOutYen)}</span>
+        <span className={`text-right ${balanceClass(regularOver)}`}>{walletSignedYen(regularBalanceYen)}</span>
+      </div>
+      {showExtra && (
+        <div className={`${rowClass} ${extraOver ? "rounded bg-red-50 px-1 py-0.5 text-red-800" : ""}`}>
+          <span className="text-left font-medium text-sky-800">別財布</span>
+          <span className="text-right text-sky-700">{yen(extraInYen)}</span>
+          <span className="text-right text-sky-700">{yen(extraOutYen)}</span>
+          <span className={`text-right ${balanceClass(extraOver)}`}>{walletSignedYen(extraBalanceYen)}</span>
+        </div>
+      )}
+      {(regularOver || extraOver) && <div className="text-right text-[10px] font-semibold text-red-700">払いすぎ確認</div>}
+    </div>
+  );
+}
+
 function pct(value: number | null | undefined): string {
   if (value == null || Number.isNaN(value)) return "-";
   return `${Math.round(value)}%`;
@@ -589,17 +644,6 @@ function monthRange(startYm: string, endYm: string): string[] {
 function formatPt(value: number): string {
   if (!Number.isFinite(value)) return "0";
   return Math.abs(value - Math.round(value)) < 0.05 ? String(Math.round(value)) : value.toFixed(1);
-}
-
-function formatPctDelta(value: number): string {
-  if (!Number.isFinite(value)) return "0%";
-  return Math.abs(value - Math.round(value)) < 0.05 ? `${Math.round(value)}%` : `${value.toFixed(1)}%`;
-}
-
-function msPctRangeLabel(cell: Pick<ProjectMonthlyFinanceCell, "msPctMin" | "msPctMax" | "msMilestoneCount">): string | null {
-  if (cell.msMilestoneCount <= 0 || cell.msPctMin == null || cell.msPctMax == null) return null;
-  if (Math.abs(cell.msPctMin - cell.msPctMax) < 0.05) return `+${formatPctDelta(cell.msPctMin)}`;
-  return `+${formatPctDelta(cell.msPctMin)}-${formatPctDelta(cell.msPctMax)}`;
 }
 
 function emptyMsScheduleSummary(): MsScheduleSummary {
@@ -2454,22 +2498,18 @@ function ProjectMonthlyFinanceTable({ months, rows }: { months: string[]; rows: 
           <div>
             <h2 className="text-sm font-semibold">PJ別 先12か月 本契約cap / 別財布</h2>
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-              billing_cycles の本契約cap、別財布売上、財布別の使用額、MS月割ptから毎月のPJ収支を先読みする。
+              各財布の入金・出金・残額だけを見る。残がマイナスなら払いすぎ確認。
             </p>
           </div>
           <div className="flex flex-wrap gap-2 text-[11px]">
-            <span className="rounded-full border bg-background px-2 py-1">本契約cap {yen(grand.budgetYen)}</span>
-            <span className="rounded-full border bg-background px-2 py-1">本契約使用 {yen(grand.payoutYen)}</span>
-            {grand.extraRevenueYen > 0 && <span className="rounded-full border bg-sky-50 px-2 py-1 text-sky-700">別財布売上 {yen(grand.extraRevenueYen)}</span>}
-            {grand.extraPayoutYen > 0 && <span className="rounded-full border bg-indigo-50 px-2 py-1 text-indigo-700">別財布使用 {yen(grand.extraPayoutYen)}</span>}
-            {grand.msMonthlyPt > 0 && <span className="rounded-full border bg-indigo-50 px-2 py-1 text-indigo-700">MS月割 +{formatPt(grand.msMonthlyPt)}pt / {grand.msMilestoneCount}MS</span>}
-            {grand.stockYen > 0 && <span className="rounded-full border bg-amber-50 px-2 py-1 text-amber-700">stock {yen(grand.stockYen)}</span>}
+            <span className="rounded-full border bg-background px-2 py-1">本契約 入 {yen(grand.budgetYen)} / 出 {yen(grand.payoutYen)}</span>
+            {grand.extraRevenueYen > 0 && <span className="rounded-full border bg-sky-50 px-2 py-1 text-sky-700">別財布 入 {yen(grand.extraRevenueYen)} / 出 {yen(grand.extraPayoutYen)}</span>}
             <span className={`rounded-full border px-2 py-1 font-semibold ${grand.finalBalanceYen < 0 ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}`}>
-              本契約残 {yen(grand.finalBalanceYen)}
+              本契約残 {walletSignedYen(grand.finalBalanceYen)}
             </span>
             {grand.extraRevenueYen > 0 && (
               <span className={`rounded-full border px-2 py-1 font-semibold ${grand.extraBalanceYen < 0 ? "bg-red-50 text-red-700" : "bg-sky-50 text-sky-700"}`}>
-                別財布残 {yen(grand.extraBalanceYen)}
+                別財布残 {walletSignedYen(grand.extraBalanceYen)}
               </span>
             )}
           </div>
@@ -2481,9 +2521,9 @@ function ProjectMonthlyFinanceTable({ months, rows }: { months: string[]; rows: 
           <thead>
             <tr className="bg-muted/40">
               <th className="sticky left-0 z-20 w-44 border-b border-r bg-muted px-3 py-2 text-left font-medium">PJ</th>
-              <th className="w-28 border-b border-r px-3 py-2 text-right font-medium">本契約残</th>
+              <th className="w-48 border-b border-r px-3 py-2 text-center font-medium">12か月 入/出/残</th>
               {months.map((month) => (
-                <th key={month} className="min-w-[132px] border-b border-r px-3 py-2 text-right font-medium">{month}</th>
+                <th key={month} className="min-w-[180px] border-b border-r px-3 py-2 text-center font-medium">{month}</th>
               ))}
             </tr>
           </thead>
@@ -2496,19 +2536,26 @@ function ProjectMonthlyFinanceTable({ months, rows }: { months: string[]; rows: 
               <>
                 <tr className="bg-muted/20">
                   <th className="sticky left-0 z-10 border-b border-r bg-muted px-3 py-2 text-left font-semibold">全PJ合計</th>
-                  <td className={`border-b border-r px-3 py-2 text-right font-semibold tabular-nums ${grand.finalBalanceYen < 0 ? "text-red-700" : "text-emerald-700"}`}>
-                    {yen(grand.finalBalanceYen)}
-                    {grand.extraRevenueYen > 0 && <div className="mt-0.5 text-[11px] font-normal text-sky-700">別財布残 {yen(grand.extraBalanceYen)}</div>}
+                  <td className="border-b border-r px-3 py-2 align-top">
+                    <FinanceWalletFlowRows
+                      regularInYen={grand.budgetYen}
+                      regularOutYen={grand.payoutYen}
+                      regularBalanceYen={grand.finalBalanceYen}
+                      extraInYen={grand.extraRevenueYen}
+                      extraOutYen={grand.extraPayoutYen}
+                      extraBalanceYen={grand.extraBalanceYen}
+                    />
                   </td>
                   {monthTotals.map((total) => (
-                    <td key={total.ym} className="border-b border-r px-3 py-2 text-right align-top">
-                      <div className={`font-semibold tabular-nums ${total.finalBalanceYen < 0 ? "text-red-700" : "text-emerald-700"}`}>{yen(total.finalBalanceYen)}</div>
-                      <div className="mt-0.5 text-[11px] text-muted-foreground">使用 {yen(total.payoutYen)} / cap {yen(total.budgetYen)}</div>
-                      {total.extraRevenueYen > 0 && <div className="text-[11px] text-sky-700">別財布 売上 {yen(total.extraRevenueYen)}</div>}
-                      {total.extraPayoutYen > 0 && <div className="text-[11px] text-indigo-700">別財布 使用 {yen(total.extraPayoutYen)}</div>}
-                      {total.extraRevenueYen > 0 && <div className="text-[11px] text-sky-700">別財布 残 {yen(total.extraBalanceYen)}</div>}
-                      {total.msMonthlyPt > 0 && <div className="text-[11px] text-indigo-700">MS月割 +{formatPt(total.msMonthlyPt)}pt / {total.msMilestoneCount}MS</div>}
-                      {total.stockYen > 0 && <div className="text-[11px] text-amber-700">stock {yen(total.stockYen)}</div>}
+                    <td key={total.ym} className="border-b border-r px-3 py-2 align-top">
+                      <FinanceWalletFlowRows
+                        regularInYen={total.budgetYen}
+                        regularOutYen={total.payoutYen}
+                        regularBalanceYen={total.finalBalanceYen}
+                        extraInYen={total.extraRevenueYen}
+                        extraOutYen={total.extraPayoutYen}
+                        extraBalanceYen={total.extraBalanceYen}
+                      />
                     </td>
                   ))}
                 </tr>
@@ -2518,34 +2565,29 @@ function ProjectMonthlyFinanceTable({ months, rows }: { months: string[]; rows: 
                       <div className="truncate">{row.projectName}</div>
                       <div className="font-mono text-[10px] text-muted-foreground">{row.projectId}</div>
                     </th>
-                    <td className={`border-b border-r px-3 py-2 text-right align-top font-semibold tabular-nums ${row.totals.finalBalanceYen < 0 ? "text-red-700" : "text-emerald-700"}`}>
-                      {yen(row.totals.finalBalanceYen)}
-                      <div className="mt-0.5 text-[11px] font-normal text-muted-foreground">本契約 使用 {yen(row.totals.payoutYen)}</div>
-                      {row.totals.extraRevenueYen > 0 && <div className="text-[11px] font-normal text-sky-700">別財布 残 {yen(row.totals.extraBalanceYen)}</div>}
-                      {row.totals.msMonthlyPt > 0 && <div className="text-[11px] font-normal text-indigo-700">MS月割 +{formatPt(row.totals.msMonthlyPt)}pt</div>}
+                    <td className="border-b border-r px-3 py-2 align-top">
+                      <FinanceWalletFlowRows
+                        regularInYen={row.totals.budgetYen}
+                        regularOutYen={row.totals.payoutYen}
+                        regularBalanceYen={row.totals.finalBalanceYen}
+                        extraInYen={row.totals.extraRevenueYen}
+                        extraOutYen={row.totals.extraPayoutYen}
+                        extraBalanceYen={row.totals.extraBalanceYen}
+                      />
                     </td>
                     {row.cells.map((cell) => {
                       const hasData = cell.budgetYen > 0 || cell.extraRevenueYen > 0 || cell.payoutYen > 0 || cell.extraPayoutYen > 0 || cell.stockYen > 0 || cell.msMonthlyPt > 0;
-                      const msPctLabel = msPctRangeLabel(cell);
                       return (
-                        <td key={`${row.projectId}:${cell.ym}`} className="border-b border-r px-3 py-2 text-right align-top">
+                        <td key={`${row.projectId}:${cell.ym}`} className="border-b border-r px-3 py-2 align-top">
                           {hasData ? (
-                            <>
-                              <div className={`font-semibold tabular-nums ${cell.finalBalanceYen < 0 ? "text-red-700" : "text-emerald-700"}`}>{yen(cell.finalBalanceYen)}</div>
-                              <div className="text-[11px] text-muted-foreground">本契約 使用 {yen(cell.payoutYen)}</div>
-                              <div className="text-[11px] text-muted-foreground">cap {yen(cell.budgetYen)}</div>
-                              {cell.extraRevenueYen > 0 && <div className="text-[11px] text-sky-700">別財布 売上 {yen(cell.extraRevenueYen)}</div>}
-                              {cell.extraPayoutYen > 0 && <div className="text-[11px] text-indigo-700">別財布 使用 {yen(cell.extraPayoutYen)}</div>}
-                              {cell.extraRevenueYen > 0 && <div className="text-[11px] text-sky-700">別財布 残 {yen(cell.extraBalanceYen)}</div>}
-                              {cell.msMonthlyPt > 0 && (
-                                <div className="text-[11px] text-indigo-700" title={cell.msPreview}>
-                                  MS月割 +{formatPt(cell.msMonthlyPt)}pt / {cell.msMilestoneCount}MS{msPctLabel ? ` ${msPctLabel}` : ""}
-                                </div>
-                              )}
-                              {cell.msLockedCount > 0 && <div className="text-[11px] text-violet-700">PM確定 {cell.msLockedCount}MS</div>}
-                              {cell.msMissingScheduleCount > 0 && <div className="text-[11px] text-amber-700">期間未設定 {cell.msMissingScheduleCount}MS</div>}
-                              {cell.stockYen > 0 && <div className="text-[11px] text-amber-700">stock {yen(cell.stockYen)}</div>}
-                            </>
+                            <FinanceWalletFlowRows
+                              regularInYen={cell.budgetYen}
+                              regularOutYen={cell.payoutYen}
+                              regularBalanceYen={cell.finalBalanceYen}
+                              extraInYen={cell.extraRevenueYen}
+                              extraOutYen={cell.extraPayoutYen}
+                              extraBalanceYen={cell.extraBalanceYen}
+                            />
                           ) : (
                             <span className="text-muted-foreground">—</span>
                           )}

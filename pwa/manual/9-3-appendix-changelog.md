@@ -14,6 +14,7 @@
 
 | 日付 | 対象章 | 種別 | 内容 | 理由 | 誰が |
 |---|---|---|---|---|---|
+| 2026-06-19 | 4-5 収支シミュレーション / 6-5 Admin Payouts | 修正 | 先12か月の「本契約cap / 別財布」表を、各セル `本契約` / `別財布` の2行 × `入` / `出` / `残` の財布チェック表に整理。MS月割・stock・合算残を主表示から外し、残がマイナスの時だけ `払いすぎ確認` を出す | 目的が「財布ごとにいくら入り、いくら出て、払いすぎていないか」を確認することなのに、複数の監査情報が同じセルに混ざって読みづらかったため | えいみ |
 | 2026-06-19 | 4-3 AMD Score | 変更 | R(readiness) / XRL checklist / S(survivability) / Triple Helix / 幾何平均の説明を、数式だけでなく日本語・表・例で読める形へ補強 | AMD Score を初見で読む人が `TRL/BRL/GRL/SRL/HRL` や `sigma_SU` の意味を数式から逆算しなくて済むようにするため | えいみ |
 | 2026-06-19 | 3-2 / 8-3 / H-1 MTGカード | 修正 | recurring 予定MTGの series 推定を補強。`recurring_event_id` がDBへ残らない既存カードでも、title が `定例` / `月次` / `毎月` / `weekly` / `monthly` 等なら曜日を外して `PJ + title + 開始時刻` で束ね、月次定例の曜日ズレでも次回1枚だけ表示・同期する。build v0.28.8 | v0.28.7 は fallback key に曜日を含めていたため、Google recurring id が残っていない月次/不規則な定例が複数カードとして残るケースがあったため | えいみ |
 | 2026-06-19 | 3-2 データと抽出 / 8-3 L2 routines | 変更・削除 | `/admin/calendar-review` を削除し、H-1 次アクションは `POST /api/task-calendar/register-tasks` で `tasks` へ自動登録、担当者本人にだけ Slack DM nudge する仕様へ変更。Calendar作業枠 dry-run は必要時のみ `/api/task-calendar/schedule-plan` に残す。build v0.28.9 | admin が全件 review する運用は負荷が高く、タスク担当者本人に確認を返す方が自然なため。まさ指示「このページ自体削除しようよ。そんで自動でタスクが登録されて、ちゃんとslack nudgeが飛ぶようにして。」 | えいみ |

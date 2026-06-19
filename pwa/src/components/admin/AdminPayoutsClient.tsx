@@ -453,6 +453,12 @@ function fmtYen(value: number | string | null | undefined) {
   return n > 0 && Number.isFinite(n) ? `¥${Math.round(n).toLocaleString("ja-JP")}` : "—";
 }
 
+function fmtFlowYen(value: number | string | null | undefined) {
+  const n = Number(value ?? 0);
+  if (!Number.isFinite(n)) return "—";
+  return `¥${Math.round(n).toLocaleString("ja-JP")}`;
+}
+
 function fmtSignedYen(value: number | string | null | undefined) {
   const n = Number(value ?? 0);
   if (!Number.isFinite(n)) return "—";
@@ -464,6 +470,54 @@ function fmtSignedYen(value: number | string | null | undefined) {
 function fmtPt(value: number | string | null | undefined) {
   const n = Number(value ?? 0);
   return Number.isFinite(n) && n > 0 ? `${Math.round(n * 100) / 100}pt` : "—";
+}
+
+function WalletFlowRows({
+  regularInYen,
+  regularOutYen,
+  regularBalanceYen,
+  extraInYen,
+  extraOutYen,
+  extraBalanceYen,
+}: {
+  regularInYen: number;
+  regularOutYen: number;
+  regularBalanceYen: number;
+  extraInYen: number;
+  extraOutYen: number;
+  extraBalanceYen: number;
+}) {
+  const showExtra = extraInYen > 0 || extraOutYen > 0 || extraBalanceYen !== 0;
+  const regularOver = regularBalanceYen < 0;
+  const extraOver = extraBalanceYen < 0;
+  const rowClass = "grid grid-cols-[3.2rem_1fr_1fr_1fr] items-center gap-x-1 whitespace-nowrap tabular-nums";
+  const balanceClass = (over: boolean) => over ? "font-semibold text-red-700" : "font-semibold text-emerald-700";
+
+  return (
+    <div className="space-y-0.5 text-[10px] leading-tight">
+      <div className={`${rowClass} text-[9px] text-muted-foreground`}>
+        <span />
+        <span className="text-right">入</span>
+        <span className="text-right">出</span>
+        <span className="text-right">残</span>
+      </div>
+      <div className={`${rowClass} ${regularOver ? "rounded bg-red-50 px-1 py-0.5 text-red-800" : ""}`}>
+        <span className="text-left font-medium text-foreground">本契約</span>
+        <span className="text-right text-muted-foreground">{fmtFlowYen(regularInYen)}</span>
+        <span className="text-right text-muted-foreground">{fmtFlowYen(regularOutYen)}</span>
+        <span className={`text-right ${balanceClass(regularOver)}`}>{fmtSignedYen(regularBalanceYen)}</span>
+      </div>
+      {showExtra && (
+        <div className={`${rowClass} ${extraOver ? "rounded bg-red-50 px-1 py-0.5 text-red-800" : ""}`}>
+          <span className="text-left font-medium text-sky-800">別財布</span>
+          <span className="text-right text-sky-700">{fmtFlowYen(extraInYen)}</span>
+          <span className="text-right text-sky-700">{fmtFlowYen(extraOutYen)}</span>
+          <span className={`text-right ${balanceClass(extraOver)}`}>{fmtSignedYen(extraBalanceYen)}</span>
+        </div>
+      )}
+      {(regularOver || extraOver) && <div className="text-right text-[10px] font-semibold text-red-700">払いすぎ確認</div>}
+    </div>
+  );
 }
 
 function asRewardSummary(value: BillingCycle["reward_summary_json"]): RewardSummary | null {
@@ -2557,15 +2611,12 @@ function ProjectMonthlyFinanceTable({
         <div>
           <h2 className="text-[13px] font-semibold">先12か月 本契約cap / 別財布</h2>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            本契約capの使用額と、別財布の売上・使用額を稼働月ごとに分けて見る。
+            各財布の入金・出金・残額だけを見る。残がマイナスなら払いすぎ確認。
           </p>
         </div>
         <div className="ml-auto flex flex-wrap gap-2 text-[11px]">
-          <span className="rounded bg-muted/50 px-2 py-1">本契約cap {fmtYen(grand.budgetYen)}</span>
-          <span className="rounded bg-muted/50 px-2 py-1">本契約使用 {fmtYen(grand.payoutYen)}</span>
-          {grand.extraRevenueYen > 0 && <span className="rounded bg-sky-100 px-2 py-1 text-sky-900">別財布売上 {fmtYen(grand.extraRevenueYen)}</span>}
-          {grand.extraPayoutYen > 0 && <span className="rounded bg-indigo-100 px-2 py-1 text-indigo-900">別財布使用 {fmtYen(grand.extraPayoutYen)}</span>}
-          {grand.stockYen > 0 && <span className="rounded bg-amber-100 px-2 py-1 text-amber-900">stock {fmtYen(grand.stockYen)}</span>}
+          <span className="rounded bg-muted/50 px-2 py-1">本契約 入 {fmtFlowYen(grand.budgetYen)} / 出 {fmtFlowYen(grand.payoutYen)}</span>
+          {grand.extraRevenueYen > 0 && <span className="rounded bg-sky-100 px-2 py-1 text-sky-900">別財布 入 {fmtFlowYen(grand.extraRevenueYen)} / 出 {fmtFlowYen(grand.extraPayoutYen)}</span>}
           <span className={`rounded px-2 py-1 font-semibold ${grand.finalBalanceYen < 0 ? "bg-red-100 text-red-800" : "bg-emerald-100 text-emerald-800"}`}>
             本契約残 {fmtSignedYen(grand.finalBalanceYen)}
           </span>
@@ -2582,9 +2633,9 @@ function ProjectMonthlyFinanceTable({
           <thead>
             <tr className="bg-muted/40">
               <th className="sticky left-0 z-20 w-44 border-b border-r border-border bg-muted px-3 py-2 text-left font-medium">PJ</th>
-              <th className="w-32 border-b border-r border-border px-3 py-2 text-right font-medium">12か月</th>
+              <th className="w-48 border-b border-r border-border px-3 py-2 text-center font-medium">12か月 入/出/残</th>
               {months.map((month) => (
-                <th key={month} className="min-w-[132px] border-b border-r border-border px-3 py-2 text-right font-medium">
+                <th key={month} className="min-w-[180px] border-b border-r border-border px-3 py-2 text-center font-medium">
                   {fmtYm(month)}
                 </th>
               ))}
@@ -2601,21 +2652,26 @@ function ProjectMonthlyFinanceTable({
               <>
                 <tr className="bg-muted/20">
                   <th className="sticky left-0 z-10 border-b border-r border-border bg-muted px-3 py-2 text-left font-semibold">全PJ合計</th>
-                  <td className={`border-b border-r border-border px-3 py-2 text-right font-semibold tabular-nums ${grand.finalBalanceYen < 0 ? "text-red-700" : "text-emerald-700"}`}>
-                    {fmtSignedYen(grand.finalBalanceYen)}
-                    <div className="mt-0.5 text-[10px] font-normal text-muted-foreground">本契約残</div>
-                    {grand.extraRevenueYen > 0 && <div className="text-[10px] font-normal text-sky-700">別財布残 {fmtSignedYen(grand.extraBalanceYen)}</div>}
+                  <td className="border-b border-r border-border px-3 py-2 align-top">
+                    <WalletFlowRows
+                      regularInYen={grand.budgetYen}
+                      regularOutYen={grand.payoutYen}
+                      regularBalanceYen={grand.finalBalanceYen}
+                      extraInYen={grand.extraRevenueYen}
+                      extraOutYen={grand.extraPayoutYen}
+                      extraBalanceYen={grand.extraBalanceYen}
+                    />
                   </td>
                   {monthTotals.map((total) => (
-                    <td key={total.ym} className="border-b border-r border-border px-3 py-2 text-right align-top">
-                      <div className={`font-semibold tabular-nums ${total.finalBalanceYen < 0 ? "text-red-700" : "text-emerald-700"}`}>
-                        {fmtSignedYen(total.finalBalanceYen)}
-                      </div>
-                      <div className="mt-0.5 text-[10px] text-muted-foreground">使用 {fmtYen(total.payoutYen)} / cap {fmtYen(total.budgetYen)}</div>
-                      {total.extraRevenueYen > 0 && <div className="text-[10px] text-sky-700">別財布 売上 {fmtYen(total.extraRevenueYen)}</div>}
-                      {total.extraPayoutYen > 0 && <div className="text-[10px] text-indigo-700">別財布 使用 {fmtYen(total.extraPayoutYen)}</div>}
-                      {total.extraRevenueYen > 0 && <div className="text-[10px] text-sky-700">別財布 残 {fmtSignedYen(total.extraBalanceYen)}</div>}
-                      {total.stockYen > 0 && <div className="text-[10px] text-amber-700">stock {fmtYen(total.stockYen)}</div>}
+                    <td key={total.ym} className="border-b border-r border-border px-3 py-2 align-top">
+                      <WalletFlowRows
+                        regularInYen={total.budgetYen}
+                        regularOutYen={total.payoutYen}
+                        regularBalanceYen={total.finalBalanceYen}
+                        extraInYen={total.extraRevenueYen}
+                        extraOutYen={total.extraPayoutYen}
+                        extraBalanceYen={total.extraBalanceYen}
+                      />
                     </td>
                   ))}
                 </tr>
@@ -2625,10 +2681,15 @@ function ProjectMonthlyFinanceTable({
                       <div className="truncate">{row.projectName}</div>
                       <div className="font-mono text-[10px] text-muted-foreground">{row.projectId}</div>
                     </th>
-                    <td className={`border-b border-r border-border px-3 py-2 text-right align-top font-semibold tabular-nums ${row.totals.finalBalanceYen < 0 ? "text-red-700" : "text-emerald-700"}`}>
-                      {fmtSignedYen(row.totals.finalBalanceYen)}
-                      <div className="mt-0.5 text-[10px] font-normal text-muted-foreground">本契約 使用 {fmtYen(row.totals.payoutYen)}</div>
-                      {row.totals.extraRevenueYen > 0 && <div className="text-[10px] font-normal text-sky-700">別財布 残 {fmtSignedYen(row.totals.extraBalanceYen)}</div>}
+                    <td className="border-b border-r border-border px-3 py-2 align-top">
+                      <WalletFlowRows
+                        regularInYen={row.totals.budgetYen}
+                        regularOutYen={row.totals.payoutYen}
+                        regularBalanceYen={row.totals.finalBalanceYen}
+                        extraInYen={row.totals.extraRevenueYen}
+                        extraOutYen={row.totals.extraPayoutYen}
+                        extraBalanceYen={row.totals.extraBalanceYen}
+                      />
                     </td>
                     {row.cells.map((cell) => {
                       const hasData = cell.budgetYen > 0 || cell.extraRevenueYen > 0 || cell.payoutYen > 0 || cell.extraPayoutYen > 0 || cell.stockYen > 0 || cell.baseClientAmountYen > 0;
@@ -2638,17 +2699,16 @@ function ProjectMonthlyFinanceTable({
                             <button
                               type="button"
                               onClick={() => onOpenMonthly(cell)}
-                              className="w-full rounded px-1 py-0.5 text-right hover:bg-muted/60 focus:outline-none focus:ring-1 focus:ring-foreground/20"
+                              className="w-full rounded px-1 py-0.5 text-left hover:bg-muted/60 focus:outline-none focus:ring-1 focus:ring-foreground/20"
                             >
-                              <div className={`font-semibold tabular-nums ${cell.finalBalanceYen < 0 ? "text-red-700" : "text-emerald-700"}`}>
-                                {fmtSignedYen(cell.finalBalanceYen)}
-                              </div>
-                              <div className="text-[10px] text-muted-foreground">本契約 使用 {fmtYen(cell.payoutYen)}</div>
-                              <div className="text-[10px] text-muted-foreground">cap {fmtYen(cell.budgetYen)}</div>
-                              {cell.extraRevenueYen > 0 && <div className="text-[10px] text-sky-700">別財布 売上 {fmtYen(cell.extraRevenueYen)}</div>}
-                              {cell.extraPayoutYen > 0 && <div className="text-[10px] text-indigo-700">別財布 使用 {fmtYen(cell.extraPayoutYen)}</div>}
-                              {cell.extraRevenueYen > 0 && <div className="text-[10px] text-sky-700">別財布 残 {fmtSignedYen(cell.extraBalanceYen)}</div>}
-                              {cell.stockYen > 0 && <div className="text-[10px] text-amber-700">stock {fmtYen(cell.stockYen)}</div>}
+                              <WalletFlowRows
+                                regularInYen={cell.budgetYen}
+                                regularOutYen={cell.payoutYen}
+                                regularBalanceYen={cell.finalBalanceYen}
+                                extraInYen={cell.extraRevenueYen}
+                                extraOutYen={cell.extraPayoutYen}
+                                extraBalanceYen={cell.extraBalanceYen}
+                              />
                             </button>
                           ) : (
                             <span className="text-muted-foreground">—</span>

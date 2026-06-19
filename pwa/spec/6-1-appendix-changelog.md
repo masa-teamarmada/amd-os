@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-06-19 | 4-5 / 6-5 / 7-1 | 修正 | `/admin/payouts` と `/management-score` 下部の「本契約cap / 別財布」表を、各セル `本契約` / `別財布` の `入` / `出` / `残` だけに整理。残がマイナスなら `払いすぎ確認` を出す | 財布ごとの入出金と過払い有無を確認する表に、MS月割・stock・合算残が混ざって読みづらかったため | えいみ |
 | 2026-06-19 | 2-1 / 2-2 / 3-3 | 変更・削除 | `/admin/calendar-review` を削除。H-1 次アクションは `POST /api/task-calendar/register-tasks` で `tasks` に自動登録し、担当者本人だけへ Slack DM nudge を送る contract に変更。`/api/task-calendar/schedule-plan` は Calendar 作業枠 dry-run として残す | admin review queue を運用させると admin の仕事が増えるだけなので、担当者本人へ確認を返す自動タスク化フローへ寄せるため | えいみ |
 | 2026-06-19 | 3-8 / 5-5 / SPEC_pwa / design/routine | 変更・削除 | OS 上の PM/PL 月次確認 TODO / nudge を完全廃止として整理。reportFix だけをOS内 step として残す前提を撤回し、Slack 側の軽い確認連絡は OS UI / action queue / nudge queue へ同期しない contract に変更。GAS legacy の routine poster / meeting schedule / invoice workflow / report fix cron は no-op + install 時は既存 trigger 削除だけに統一 | まさ指示「そもそも月次ルーティンというもの自体を廃止して。報告書確認nudgeはslack上でやるだけだから、OS側は不要。」に合わせるため | えいみ |
 | 2026-06-19 | 3-1 L2 Data Extraction / 5-2 Development Operations / 5-3 Automation Responsibility | 変更・削除 | Vercel deploy / main push 前の旧事前確認ルールと、`AMD_OS_VERCEL_DEPLOY_APPROVED=1` を人間確認フラグとして読む記述を削除。5-2 は「原則、deploy前の事前確認で止めない」「deploy bundle は事後報告」「env は誤実行防止スイッチ」に統一。L2 scheduler change は、対象・影響・rollbackを bundle 化して別タスクへ渡す表現に変更 | 2026-06-12 の current deploy contract と 2026-06-04 の旧事前確認ルールが文書内で併存し、worker が誤って本番反映を止めたため。まさ指示「その古いルールをすべて削除して。二度とこういうことが起きないように。」 | えいみ |
