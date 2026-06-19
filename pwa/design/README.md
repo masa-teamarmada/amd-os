@@ -14,8 +14,8 @@
 | 1 | [SPEC_pwa.md](SPEC_pwa.md) ⭐ | **PWA 全体の正本仕様** — 画面・ルート・データモデル・cron・運用コマンド・実装規約 |
 | 2 | [FEATURE_REGISTRY.md](FEATURE_REGISTRY.md) ⭐ | **重要UIの回帰防止登録簿** — 画面ごとの「消してはいけない業務導線」と `test:critical-ui` anchor |
 | 2.5 | [SPEC_GOVERNANCE.md](SPEC_GOVERNANCE.md) ⭐ | **仕様ドリフト防止運用** — Capability Catalog / functional spec / ADR / traceability / executable spec の使い分け |
-| 3 | [cockpit.md](cockpit.md) ⭐ | コックピット (`/project/[projectId]/cockpit`) — PJ Status / MS / カンバン / 月次ルーティン (stepId × クリック挙動表) |
-| 4 | [routine.md](routine.md) ⭐ | 月次ルーティン (請求・報告・立替・予算) のステップ別仕様。Cockpit 右カラム + iOS RoutineFlowView の正本 |
+| 3 | [cockpit.md](cockpit.md) ⭐ | コックピット (`/project/[projectId]/cockpit`) — PJ Status / MS / カンバン / 月次カード / MTGサマリ |
+| 4 | [routine.md](routine.md) ⭐ | OS上のPM月次ルーティン廃止の正本。dashboard / mypage / cockpit / legacy GAS の回帰防止 |
 | 4 | [mypage.md](mypage.md) | `/mypage` 仕様 — 自分の参加 PJ・今月の活動・月次報酬 |
 | 5 | [amd_score.md](amd_score.md) | AMD Score (PRS primary / legacy M-X-F comparison)、cron / L2 抽出 |
 | 5.2 | [management_score.md](management_score.md) ⭐ | **AMD Management Score** — AMD会社全体の経営状況スコア。先手力 / 財務耐久 / 既存PJ継続 / 新規案件獲得 / 戦略接近度 |
