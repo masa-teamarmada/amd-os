@@ -12,11 +12,9 @@ import { CockpitProjectDocuments } from "./CockpitProjectDocuments";
 import { CockpitMonthlyList } from "./CockpitMonthlyList";
 import { CockpitMonthlyModal } from "./CockpitMonthlyModal";
 import { CockpitNudge } from "./CockpitNudge";
-import { CockpitRoutineGas } from "./CockpitRoutineGas";
 import { CockpitMeetingSummary } from "./CockpitMeetingSummary";
 import { CockpitFreezeBackfill } from "./CockpitFreezeBackfill";
 import { CockpitNextPeriodSetup } from "./CockpitNextPeriodSetup";
-import { CockpitRoutineBudgetModal } from "./CockpitRoutineBudgetModal";
 import { CockpitAmdScoreDetailTab } from "./CockpitAmdScoreDetailTab";
 import { ProactiveQueuePanel } from "@/components/proactive/ProactiveQueuePanel";
 
@@ -187,15 +185,6 @@ function formatYm(ym: string) {
 
 type MonthlyModalTab = "reward" | "report";
 
-function resolveStepModalFromTap(ym: string, stepId: string): StepModal {
-  switch (stepId) {
-    case "budget":
-      return { kind: "budget", ym };
-    default:
-      return null;
-  }
-}
-
 function latestProgressPct(
   progress: Array<{ milestoneKey: string; ym: string; progressPct: number }>,
   milestoneId: string,
@@ -247,28 +236,15 @@ function usesMsProgressCategory(category: string | null | undefined) {
   return ["dtsu", "ecosystem", "new_business"].includes(String(category || "dtsu").toLowerCase());
 }
 
-type StepModal =
-  | { kind: "budget"; ym: string }
-  | null;
-
 type CockpitTab = "progress" | "score-detail";
 
-export function CockpitView({ cockpit, nudges, initialModalYm, initialStep, canEditRoutine = false }: CockpitViewProps) {
+export function CockpitView({ cockpit, nudges, initialModalYm }: CockpitViewProps) {
   const [activeTab, setActiveTab] = useState<CockpitTab>("progress");
-  const [modalYm, setModalYm] = useState<string | null>(
-    initialStep?.stepId === "reportFix" ? initialStep.ym : initialModalYm || null
-  );
-  const [modalInitialTab, setModalInitialTab] = useState<MonthlyModalTab | undefined>(
-    initialStep?.stepId === "reportFix" ? "report" : undefined
-  );
+  const [modalYm, setModalYm] = useState<string | null>(initialModalYm || null);
+  const [modalInitialTab, setModalInitialTab] = useState<MonthlyModalTab | undefined>(undefined);
   const [pastExpanded, setPastExpanded] = useState(false);
   const [editingCurrentCycle, setEditingCurrentCycle] = useState(false);
   const [progressPatches, setProgressPatches] = useState<ProgressShape[]>([]);
-  const [stepModal, setStepModal] = useState<StepModal>(() => {
-    if (!initialStep) return null;
-    if (initialStep.stepId === "reportFix") return null;
-    return resolveStepModalFromTap(initialStep.ym, initialStep.stepId);
-  });
 
   function openMonthlyModal(ym: string, initialTab?: MonthlyModalTab) {
     setModalInitialTab(initialTab);
@@ -280,15 +256,6 @@ export function CockpitView({ cockpit, nudges, initialModalYm, initialStep, canE
     setModalInitialTab(undefined);
   }
 
-  function handleStepClick(ym: string, stepId: string) {
-    if (stepId === "reportFix") {
-      setStepModal(null);
-      openMonthlyModal(ym, "report");
-      return;
-    }
-    const next = resolveStepModalFromTap(ym, stepId);
-    if (next) setStepModal(next);
-  }
   const { project, currentYm, billingCycles, planCycle, milestones, progress, reports, subItems, responsibilities, memberMap, pastPlanCycles, msActivities, memberActivities, strategySignals } = cockpit;
   const usesMsProgress = usesMsProgressCategory(project.projectCategory);
 
@@ -329,7 +296,6 @@ export function CockpitView({ cockpit, nudges, initialModalYm, initialStep, canE
   const showLiveOperations = isLiveOperationalProject(project, currentYm);
   const showAmdScore = (project.projectCategory || "dtsu") !== "ecosystem";
   const hasScoreDetailTab = project.projectId !== "p00" && showAmdScore;
-  const activeStepModal = showLiveOperations ? stepModal : null;
   const proactiveProjectLabels = useMemo(
     () => ({ [project.projectId]: project.projectName || project.projectId }),
     [project.projectId, project.projectName]
@@ -539,7 +505,7 @@ export function CockpitView({ cockpit, nudges, initialModalYm, initialStep, canE
           <CockpitMeetingSummary projectId={project.projectId} />
         </div>
 
-        {/* col3: ステータスバッジ + 月次確認 + nudge (lg 以上で sticky) */}
+        {/* col3: ステータスバッジ + nudge (lg 以上で sticky) */}
         <div className="flex flex-col gap-3 min-w-0 lg:sticky lg:top-12 lg:max-h-[calc(100vh-60px)] lg:overflow-y-auto">
           {statusBadges.length > 0 && (
             <div className="flex flex-col gap-1">
@@ -549,26 +515,6 @@ export function CockpitView({ cockpit, nudges, initialModalYm, initialStep, canE
                 </span>
               ))}
             </div>
-          )}
-          {showLiveOperations && (
-            <>
-              {!canEditRoutine && (
-                <div className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mb-1">
-                  🔒 月次確認は PM のみ操作可能 (= 閲覧のみ)
-                </div>
-              )}
-              <div className={canEditRoutine ? "" : "pointer-events-none opacity-60"}>
-                <CockpitRoutineGas
-                  projectId={project.projectId}
-                  billingCycles={billingCycles}
-                  currentYm={currentYm}
-                  projectType={project.projectType}
-                  projectCategory={project.projectCategory}
-                  onOpenModal={(ym) => openMonthlyModal(ym)}
-                  onStepClick={handleStepClick}
-                />
-              </div>
-            </>
           )}
           <CockpitNudge nudges={nudges} />
         </div>
@@ -610,16 +556,6 @@ export function CockpitView({ cockpit, nudges, initialModalYm, initialStep, canE
           usesMsProgress={usesMsProgress}
           onProgressSaved={(patches) => setProgressPatches((prev) => mergeProgress(prev, patches))}
           onClose={closeMonthlyModal}
-        />
-      )}
-
-      {/* ===== Step Modals (PMルーティン外の請求系はadminへ集約。budgetは例外入口のみ残す) ===== */}
-      {activeStepModal?.kind === "budget" && (
-        <CockpitRoutineBudgetModal
-          projectId={project.projectId}
-          ym={activeStepModal.ym}
-          open
-          onClose={() => setStepModal(null)}
         />
       )}
     </div>
