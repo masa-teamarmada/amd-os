@@ -5,6 +5,16 @@
 
 ---
 
+### [meeting-summary] v0.28.7 の recurring MTG集約が曜日違いの月次定例を畳めなかった (2026-06-19)
+
+- **状態**: クローズ (2026-06-19 — v0.28.8 で title-series fallback を追加し、本番 `/api/build-info` `v0.28.8` / `934d56f2...` への deploy を確認。その後 main は `v0.28.9` まで進行)。
+- **症状**: H-1 future Calendar sync の予定MTGカードで、定例会が複数カードとして cockpit / HUD に並んで見えた。v0.28.7 には recurring series 集約ロジックを入れていたが、まさの画面ではまだ直っていなかった。
+- **原因**: DB `project_meeting_summaries` には `recurring_event_id` 列が無く、既存カードの recurring series は `calendar_event_id` / `meeting_id` / title から UI 側で復元するしかない。v0.28.7 の fallback key は `PJ + normalized title + 曜日 + 開始時刻` だったため、月次定例や不規則定例のように曜日がズレる series を別カード扱いにしていた。
+- **対応内容**: `pwa/src/lib/meeting-series.ts` で title に `定例` / `月次` / `毎月` / `weekly` / `monthly` 等を含む予定は `title-series` として `PJ + normalized title + 開始時刻` で束ねるよう変更。`CockpitMeetingSummary` / `HudCockpitMeetingSummary` はこの helper で既存DB行も series ごとに次回1枚へ畳む。`calendar-sync` も同じ title-series key を使い、保存前に2件目以降を `recurring_series_future_occurrence` として skip する。
+- **再発防止**: recurring series の完全な正本を DB に持たない限り、UI fallback は `recurring_event_id` の有無だけで判断しない。Google Calendar 由来の instance id pattern が取れない既存カードでは、title-based series 推定も必要。特に月次/毎月/定例は曜日が固定されないので、fallback key に曜日を入れると再発する。
+
+---
+
 ### [deploy-ops] 古い approval gate 文書を読んだ worker が main push / production deploy 前に誤停止した (2026-06-19)
 
 - **状態**: クローズ (2026-06-19 — current docs / manual / spec / helper 文言を 2026-06-12 以降の no-stop deploy contract へ統一)。

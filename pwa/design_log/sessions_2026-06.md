@@ -616,3 +616,35 @@
 - spec/manual/changelog を同期し、stock は支払予定ではなく今月末未払い残として読むことを明記。
 
 **注意**: 「SX 202606 は本来支払0円にしたい」という判断なら、UI修正ではなく reward cap / contract buffer の business rule 変更が必要。今回の修正では計算式は変えていない。
+
+---
+
+### 2026-06-19 — H-1 recurring 予定MTGカード series 集約修正 (v0.28.8 → v0.28.9 closeout)
+
+**経緯**: H-1 Meeting Flow の future Calendar sync で、定例会が複数カードとして cockpit / HUD に並んで見えるのはよくない、というまさ指摘を受けて即時実装。v0.28.7 で一度 `recurring_event_id` / Calendar instance id / weekly cadence による series 集約を入れたが、まさの画面ではまだ重複が残った。
+
+**原因**: `project_meeting_summaries` には `recurring_event_id` 列が無い。既存DB行は `calendar_event_id` / `meeting_id` / title から series を復元する必要がある。v0.28.7 の fallback key は `PJ + normalized title + 曜日 + 開始時刻` だったため、月次定例や曜日がズレる recurring 予定は別 series と見なされ、複数カードが残った。
+
+**対応**:
+- `pwa/src/lib/meeting-series.ts` を追加し、`isUpcomingMeeting` / `isPrepMeeting` / `groupUpcomingMeetingsBySeries` を共通化。
+- `CockpitMeetingSummary` / `HudCockpitMeetingSummary` は upcoming raw rows ではなく series card を表示し、series count を予定件数として出す。隠れた同 series 予定は `同シリーズ +N` として表示。
+- `calendar-sync` は `recurring_event_id` が取れる series を cadence 問わず次回1件だけ保存し、2件目以降を `recurring_series_future_occurrence` で skip。
+- v0.28.8 で title に `定例` / `月次` / `毎月` / `weekly` / `monthly` 等がある予定を `title-series` として `PJ + normalized title + 開始時刻` で束ねる fallback を追加。曜日を key から外し、月次/不規則定例も次回1件に畳む。
+
+**正本同期**:
+- `pwa/design/meeting_summaries.md`
+- `pwa/design/L2_DATA.md`
+- `pwa/manual/2-3-pj-cockpit.md`
+- `pwa/manual/3-2-data-and-extraction.md`
+- `pwa/manual/8-3-l2-extraction-routines-spec.md`
+- `pwa/manual/9-3-appendix-changelog.md`
+- `pwa/BUGS.md`
+
+**検証**:
+- `npx eslint src/lib/meeting-series.ts src/components/cockpit/CockpitMeetingSummary.tsx src/components/hud/HudCockpitMeetingSummary.tsx src/app/api/meeting-prep/calendar-sync/route.ts`
+- `npx tsc --noEmit --pretty false`
+- `npm run test:critical-ui`
+- `npm run lint` 全体は既存 lint debt で失敗するため、今回変更範囲は targeted lint で確認。
+- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` で main push + Vercel production deploy。v0.28.8 は `/api/build-info` `934d56f2...` で確認。closeout 時点の main / origin/main は `e2e9b34e`、build version `v0.28.9`、production `/api/build-info` は `v0.28.9` 確認対象。
+
+**教訓**: recurring series をDB列として保持していない状態では、Calendar instance id pattern だけに依存しない。title-based fallback も必要で、特に月次/毎月/定例は曜日を key に入れると再発する。
