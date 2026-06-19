@@ -73,7 +73,7 @@ export const MANUAL_SECTIONS: ManualSectionConfig[] = [
   {
     key: "usage",
     label: "まず使う人向け",
-    description: "画面の見方、日常業務、月次運用をざっくり掴む章。",
+    description: "画面の見方、日常業務、admin運用をざっくり掴む章。",
     slugs: [
       "2-1-member-quick-start",
       "2-2-member-workflows-quick-start",
@@ -122,7 +122,7 @@ export const MANUAL_SECTIONS: ManualSectionConfig[] = [
   {
     key: "admin-finance",
     label: "Admin / Finance / 月次オペ",
-    description: "設定、台帳、請求、入金確認、支払通知書、メンバー向け月次運用の仕様。",
+    description: "設定、台帳、請求、入金確認、支払通知書、メンバー向け運用の仕様。",
     slugs: [
       "6-1-operations-settings-spec",
       "6-2-admin-projects-members-ledger-spec",
@@ -167,8 +167,8 @@ export const MANUAL_CHAPTERS: ManualChapterConfig[] = [
   { slug: "1-1-intro", title: "AMD OS とは", summary: "OS の目的、想定ユーザー、5 生データ、M/W/D/H L2、読み方ガイド。", topics: ["start", "system"], screens: ["/manual"], tables: ["M/W/D/H L2"] },
 
   { slug: "2-1-member-quick-start", title: "はじめて使う人向け", summary: "最初に見る画面と、ざっくりした使い方。", topics: ["start", "cockpit"], screens: ["/dashboard", "/project/{projectId}/cockpit", "/mypage"] },
-  { slug: "2-2-member-workflows-quick-start", title: "メンバーの日常ワークフロー", summary: "マイページ、立替、週次活動、月次確認nudgeの日常導線。", topics: ["start", "monthly"], screens: ["/mypage", "/reimburse"] },
-  { slug: "2-3-pj-cockpit", title: "PJ コックピットの見方", summary: "PJ Status、MS 進捗、経営ハイライト、月次確認の読み方。", topics: ["cockpit", "decision", "monthly"], screens: ["/project/{projectId}/cockpit"] },
+  { slug: "2-2-member-workflows-quick-start", title: "メンバーの日常ワークフロー", summary: "マイページ、立替、週次活動、月初合意の日常導線。", topics: ["start", "monthly"], screens: ["/mypage", "/reimburse"] },
+  { slug: "2-3-pj-cockpit", title: "PJ コックピットの見方", summary: "PJ Status、MS 進捗、経営ハイライト、月次カードの読み方。", topics: ["cockpit", "decision", "monthly"], screens: ["/project/{projectId}/cockpit"] },
   { slug: "2-4-amd-cockpit", title: "AMD 全体コックピットの見方", summary: "p00、Management Score、提案前の論点整理の使い方。", topics: ["start", "decision"], screens: ["/project/p00/cockpit"] },
   { slug: "2-5-research-assets-quick-start", title: "探索系アセットの使い方", summary: "Atlas、Seeds、VC、Scholar をまず触るための入口。", topics: ["discovery", "start"], screens: ["/atlas", "/seeds", "/vcs", "/scholar"] },
   { slug: "2-6-admin-ops", title: "admin月次オペ早見表", summary: "支払、請求、立替、報告書確認、入金確認の締切と流れ。", topics: ["monthly", "admin"], screens: ["/admin/billing", "/admin/payouts"] },
@@ -193,10 +193,10 @@ export const MANUAL_CHAPTERS: ManualChapterConfig[] = [
 
   { slug: "6-1-operations-settings-spec", title: "Operations Settings", summary: "Raw Data、L2 Data、Cron Control、運用設定画面。", topics: ["admin-dev", "system-dev"], screens: ["/admin/settings"] },
   { slug: "6-2-admin-projects-members-ledger-spec", title: "Admin Projects / Members 台帳", summary: "PJ 台帳、AMD メンバー台帳、契約・請求・支払条件。", topics: ["admin-dev", "monthly"], screens: ["/admin/projects", "/admin/members"], tables: ["projects", "members", "project_members"] },
-  { slug: "6-3-invoice-and-billing-routine-spec", title: "Invoice / Billing Routine", summary: "請求書、freee 発行、admin billing、月次報告書確認nudge仕様。", topics: ["monthly", "admin-dev"], screens: ["/admin/billing"], tables: ["billing_cycles", "billing_log"] },
+  { slug: "6-3-invoice-and-billing-routine-spec", title: "Invoice / Billing Routine", summary: "請求書、freee 発行、admin billing、月次カード仕様。", topics: ["monthly", "admin-dev"], screens: ["/admin/billing"], tables: ["billing_cycles", "billing_log"] },
   { slug: "6-4-finance-payment-confirm-spec", title: "Finance / Payment Confirm", summary: "admin finance、入金確認 nudge、signed token、freee 同期。", topics: ["monthly", "admin-dev"], screens: ["/admin/finance", "/payment-confirm"], tables: ["company_finance_*", "billing_cycles"] },
   { slug: "6-5-admin-payouts-reward-notice-spec", title: "Admin Payouts / 支払通知書", summary: "報酬キャッシュ、MSなしPJ手入力報酬、支払通知書 PDF、支払月判定。", topics: ["monthly", "admin-dev"], screens: ["/admin/payouts"], tables: ["payout_notices", "billing_cycles"] },
-  { slug: "6-6-member-billing-prompts-spec", title: "Member Ops / Billing / Prompt", summary: "mypage、reimburse、admin billing、prompt 管理とPM月次確認nudgeの仕様。", topics: ["monthly", "admin-dev"], screens: ["/mypage", "/reimburse", "/admin/prompts"] },
+  { slug: "6-6-member-billing-prompts-spec", title: "Member Ops / Billing / Prompt", summary: "mypage、reimburse、admin billing、prompt 管理の仕様。", topics: ["monthly", "admin-dev"], screens: ["/mypage", "/reimburse", "/admin/prompts"] },
   { slug: "6-7-contracts-management-spec", title: "契約管理", summary: "契約予定枠、version history、押印版metadata、予兆dry-run、Slack nudge dry-run。", topics: ["admin-dev", "monthly"], screens: ["/admin/contracts"], tables: ["contracts", "contract_documents", "contract_signals", "contract_nudges"] },
 
   { slug: "7-1-reward-calc-spec", title: "報酬計算ロジック 詳細仕様", summary: "メンバー報酬がどう決まるか。 計算式、入力データ、進捗ソース優先度、月次キャップ、繰越制御の正本。", topics: ["monthly", "decision", "admin-dev"], screens: ["/mypage", "/admin/payouts"], tables: ["billing_cycles", "value_milestones", "value_plan_cycles", "milestone_monthly_progress", "milestone_responsibility", "sub_item_responsibility", "pj_deductions"] },

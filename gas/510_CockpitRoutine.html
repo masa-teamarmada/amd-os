@@ -1,17 +1,19 @@
 <!-- 510_CockpitRoutine.html
-     月次ルーティンフローの取得・描画。500_CockpitPage.htmlからincludeされる。
+     Legacy placeholder. The PM monthly routine UI was abolished on 2026-06-19.
 -->
 <script>
 function cpLoadRoutineFlow() {
-  google.script.run
-    .withSuccessHandler(cpRenderRoutineFlow)
-    .withFailureHandler(function() { cpRenderRoutineFlow(null); })
-    .cockpit_api_getRoutineFlow({ projectId: CP.projectId });
+  var section = document.getElementById("cpRoutineSection");
+  if (section) section.style.display = "none";
 }
 
 function cpRenderRoutineFlow(res) {
   var el = document.getElementById("cpRoutineBody");
   if (!el) return;
+  el.innerHTML = "";
+  var section = document.getElementById("cpRoutineSection");
+  if (section) section.style.display = "none";
+  return;
 
   if (!res || !res.ok || !res.flows) {
     el.innerHTML = '<div class="cp-routine-empty">データなし</div>';

@@ -119,7 +119,7 @@ export const SPEC_CHAPTERS: SpecChapterConfig[] = [
   { slug: "3-5-xrl-evidence-current-spec", title: "M-2 XRL 根拠仕様", summary: "XRL / AMD Score 根拠、project_xrl_evidence、関連メンバー、HRL 算定境界の契約。" },
   { slug: "3-6-strategy-signals-current-spec", title: "D-6 経営ハイライト仕様", summary: "project_strategy_signals、cockpit 表示、通知採否、dialogue 接続の契約。" },
   { slug: "3-7-notifications-current-spec", title: "Notifications / 採否ゲート仕様", summary: "/notifications と /api/notifications/feedback の admin gate、入力、status 遷移、failure mode。" },
-  { slug: "3-8-cockpit-current-spec", title: "PJ Cockpit 仕様", summary: "PJ cockpit の data bundle、権限、初期 modal rules、routine stepId、monthly/reward modal、Edge Function bridge。" },
+  { slug: "3-8-cockpit-current-spec", title: "PJ Cockpit 仕様", summary: "PJ cockpit の data bundle、初期 modal rules、monthly/reward modal、資料・MTG・D-6 表示、Edge Function bridge 境界。" },
   { slug: "3-9-l2-protocol-current-spec", title: "D-1 AMD Protocol 仕様", summary: "protocols / protocol_examples / result observations の writer、input、dedupe、通知採否、停止済みGAS境界。" },
   { slug: "3-10-l2-ms-progress-current-spec", title: "D-2 MS Progress 仕様", summary: "milestone_monthly_progress / project_monthly_notes / progress_estimate_state の抽出、guard、cockpit反映。" },
   { slug: "3-11-l2-project-knowledge-current-spec", title: "D-3 Project Knowledge 仕様", summary: "project_knowledge の9カテゴリ、汚染防御、DB upsert、通知採否、MMO automation contract。" },

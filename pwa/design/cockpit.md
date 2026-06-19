@@ -65,10 +65,8 @@ container: max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3
 ├── col2: 経営ハイライト (D-6)
 │   └── [B1]  CockpitStrategySignals  candidate / confirmed をMS直下の上位ボードとして見せる
 │
-└── col3: 月次オペ (lg 以上で sticky top-12)
+└── col3: 先手力 / 補助パネル (lg 以上で sticky top-12)
     ├── ステータスバッジ (凍結中 / 再開予定 など)
-    ├── [R]   CockpitRoutineGas + canEditRoutine ガード
-    │         ※ ended/lost/frozen の PJ では非表示
     └── [N]   CockpitNudge            つくよみ nudge キュー
 
 下段: grid lg:grid-cols-2 gap-3
@@ -83,7 +81,7 @@ container: max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3
 ★ 2026-05-11 追加:
 - **凍結/再開履歴**: `project_freeze_periods` が正本。`projects.freeze_from_ym` / `restart_expected_ym` は現在状態の表示用キャッシュ。CTB のように「202412で一度終了 → 再開 → 202605で再凍結」のような複数期間は `project_freeze_periods` に複数行で保存する。
 - **CockpitFreezeBackfill**: `freeze_period_backfills` テーブルから `(project_id, freeze_from_ym, restart_ym)` を fetch、再開月以降に「📦 休止期間サマリ」パネルを MTGサマリの直上に表示。データソースは `cron/freeze-period-backfill` が休止期間中の monthly_reports + project_meeting_summaries を Sonnet で 400-700 字に統合
-- **canEditRoutine prop** (= members.is_admin OR project_members.is_pm): false なら CockpitRoutineGas を `pointer-events-none opacity-60` で読取専用に。一般メンバーが月次ルーティンを誤操作しないようガード
+- **PM月次ルーティン廃止**: `canEditRoutine` / `CockpitRoutineGas` は current cockpit から外す。月次確認は `CockpitMonthlyList` / `CockpitMonthlyModal`、請求運用は admin billing / payouts 側で扱う。
 - **タブタイトル動的化**: `/project/[projectId]/layout.tsx` の generateMetadata が `projects.project_name` → `project_ventures.display_name` 順で fallback して `<PJ名> - AMD OS` を返す
 - **MTG添付資料トレイ**: `CockpitMeetingDetailModal` 内の `MeetingAssetsPanel` で、選択 / drag & drop / clipboard paste / browser screen capture の4経路から一般ファイルを `meeting_assets` に保存する。新規アップロード実体は Drive の `PJフォルダ / YYMMDD_会議名` に置き、カード上に保存先を表示する。`本文へ` は添付一覧を `narrative_md` の Markdown block に挿入し、Meet/Gmail 自動議事録に落ちない画面共有情報を後から補完できるようにする。
 
@@ -465,7 +463,7 @@ XRL も同パターン (`xrl_feedbacks` → `/api/.../xrl-revise` → 手動 `/v
 ├── [B3]  過去の期間
 ├── [C]   TODO (`ProactiveQueuePanel`)
 ├── [G/E] CockpitMonthlyList + CockpitMeetingSummary
-└── [Right] CockpitRoutineGas + CockpitNudge
+└── [Right] CockpitNudge
 ```
 
 > ⚠️ `[A2] CockpitVentureStatus`（PJ Status セクション）は **p00 では非表示**。AMD 全社は `project_ventures` 行を持たないため。代わりに CockpitP00MVVSection が同じ位置に表示される。

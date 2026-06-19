@@ -102,7 +102,7 @@ l2_feedbacks に保存
 |---|---|---|
 | 入金確認 | `payment-confirm-nudges` / `/admin/payouts` | `billing_cycles.payment_confirmed_at` |
 | freee同期 | `freee-payment-sync` | `billing_cycles.payment_confirmed_at`, `billing_log.detail` |
-| 請求額 PL 承認 | `/api/notify/pl-review` | `billing_cycles.status`, `budget_yen` |
+| 契約由来請求額のPM事後通知 | `contract-billing-auto-confirm` 内部通知 | `billing_cycles.status`, `budget_yen` |
 
 これらは LLM を使わない運用処理。LLM 系 cron 停止とは別枠で稼働する。
 

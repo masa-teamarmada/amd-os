@@ -19,8 +19,8 @@ AMD OS をまだよく分かっていないメンバーが、最初に迷わな�
 | やりたいこと | 開く場所 | 見るもの |
 |---|---|---|
 | 自分の担当 PJ を確認したい | `/dashboard` | PJ 一覧、各 PJ cockpit への入口 |
-| 自分の今週の活動・報酬予定を見たい | `/mypage` | 参加 PJ、今週やったこと、月次報酬予定、月次TODO |
-| PJ の状況を見たい | `/project/{project_id}/cockpit` | AMD Score、MS、経営ハイライト、月次ルーティン、MTG サマリ |
+| 自分の今週の活動・報酬予定を見たい | `/mypage` | 参加 PJ、今週やったこと、月次報酬予定、月初合意 |
+| PJ の状況を見たい | `/project/{project_id}/cockpit` | AMD Score、MS、経営ハイライト、月次カード、MTG サマリ |
 | OS からの確認依頼に答えたい | `/notifications` | L2 候補 (= OS が抽出した構造化データの未確認候補)、MS差分、台帳差分、XRL根拠、修正依頼 |
 | 立替を申請したい | `/reimburse` | 領収書添付、金額、用途、PJ 紐付け |
 | 請求・支払・PJ台帳を触りたい | `/admin/*` | admin 権限が必要 |
@@ -31,10 +31,10 @@ AMD OS をまだよく分かっていないメンバーが、最初に迷わな�
 
 1. `/mypage` を開く
 2. 今週の活動ログを確認する
-3. 月次報酬予定に取り消し線が出ていたら、未完の月次ルーティンがないか見る
+3. 月初合意カードが出ていたら、当月の遂行内容と報酬条件を確認する
 4. 参加 PJ の cockpit へ移動する
 
-`/mypage` は「自分のための OS 入口」。全社の管理画面ではなく、自分の参加 PJ と月次TODOを確認する場所。
+`/mypage` は「自分のための OS 入口」。全社の管理画面ではなく、自分の参加 PJ と月次報酬・月初合意を確認する場所。
 
 ### PJ を見る
 
@@ -42,19 +42,15 @@ AMD OS をまだよく分かっていないメンバーが、最初に迷わな�
 2. 上段で AMD Score / XRL / PJ メタを確認する
 3. 左カラムで年間 MS と月次サマリを見る
 4. 中央カラムで経営ハイライトと MTG サマリを見る
-5. 右カラムで月次確認nudgeとつくよみメモを見る
+5. 下段の月次カードと MTG サマリを見る
 
 細かい見方は [2-3 章 PJ コックピット](2-3-pj-cockpit.md)。
 
-### 月次確認nudgeを見る
+### 月次カードを見る
 
-PM に出る月次確認は、月次報告書 draft に対する「これでいい？」nudge だけ。
+PM 向けの月次 step / TODO は出さない。月次の状況は PJ cockpit の月次カードから開き、進捗・報酬・月次報告書を同じモーダルで確認する。
 
-```text
-月次報告書確認
-```
-
-報告会は完全廃止。立替確認・請求書発行/送付・CTB見積はPMの月次確認には出さず、請求書発行/送付はadmin業務として扱う。
+報告書確認の軽い連絡は Slack 側で扱う。OS には PM 向けの月次 step / TODO / nudge を出さない。
 
 ### 通知に答える
 
@@ -73,7 +69,7 @@ PM に出る月次確認は、月次報告書 draft に対する「これでい�
 | 役割 | 最初に見る | 次に見る |
 |---|---|---|
 | PJ 担当メンバー | `/mypage` | 担当 PJ cockpit |
-| PM | 担当 PJ cockpit | 月次報告書確認nudge / `/notifications` |
+| PM | 担当 PJ cockpit | Slack の報告書確認連絡 / `/notifications` |
 | PL | `/mypage` | 必要な承認通知 |
 | まさ | `p00 cockpit` / `/notifications` | 各 PJ cockpit / `まさえいMTG` |
 | admin | `/admin/projects` / `/admin/billing` | `/admin/payouts` / `/admin/members` |
@@ -104,7 +100,7 @@ PM に出る月次確認は、月次報告書 draft に対する「これでい�
 | 困りごと | 読む章 |
 |---|---|
 | PJ cockpit の見方が分からない | [2-3 章](2-3-pj-cockpit.md) |
-| 月次ルーティンの締切が分からない | [2-3 章 1.5](2-3-pj-cockpit.md#15-月次ルーティン--報告書--請求--会計) |
+| 月次カードや報酬確認が分からない | [2-3 章](2-3-pj-cockpit.md#月次確認--月次カード--admin請求) / [6-6 章](6-6-member-billing-prompts-spec.md) |
 | 通知の「はい / いいえ」が怖い | [3-3 章](3-3-notifications-and-tsukuyomi.md) |
 | どのデータがどこから来るか知りたい | [3-2 章](3-2-data-and-extraction.md) |
 | AMD Score の式まで知りたい | [4-3 章](4-3-amd-score-spec.md) |

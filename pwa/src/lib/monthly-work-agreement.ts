@@ -112,11 +112,11 @@ function operatingExpectations(role: { is_pm?: boolean | null; is_pl?: boolean |
   if (role.is_pm) {
     return [
       "進捗や報酬条件が実態と違う場合はPJコックピットの月次モーダルでPM確認または修正依頼を出す",
-      "OS上の月次ルーティンは発生しない。報告書確認の軽いnudgeはSlackで扱う",
+      "報告書確認の軽い連絡はSlackで扱う",
     ];
   }
   if (role.is_pl) {
-    return ["OS上の月次ルーティンは発生しない。契約・報酬額に違和感がある場合だけ修正要望で確認する"];
+    return ["契約・報酬額に違和感がある場合だけ修正要望で確認する"];
   }
   return ["担当MS/活動ログに沿って当月の遂行内容を進める"];
 }

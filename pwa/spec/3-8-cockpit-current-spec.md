@@ -20,7 +20,7 @@
 |---|---|
 | `project` | `project_id`, name, status, category, fee/freeze info |
 | `currentYm` | current display month |
-| `billingCycles` | monthly routine and finance state |
+| `billingCycles` | monthly / finance state |
 | `planCycle` / `milestones` / `subItems` / `responsibilities` | value plan and MS |
 | `progress` | `milestone_monthly_progress` |
 | `reports` | `monthly_reports` excerpts and status |
@@ -33,14 +33,11 @@
 
 `project_documents` も `CockpitData` bundle には混ぜず、`CockpitProjectDocuments` が `/api/project-documents?project_id=...` を fetch する。API は authenticated user の `members.email` を `project_members` に解決し、当該PJの active member または admin なら資料一覧を返す。ファイル本体は DB / Supabase Storage に置かず、Google Drive の `projects.drive_folder_id` 配下に作成する資料専用 folder (`AMD OS 資料`) へ保存し、DB には Drive file ID / folder ID / `webViewLink` / name / MIME / size / uploaded_by / timestamps だけを残す。
 
-## Permission
+## Permission / Mutation Boundary
 
-月次 routine の編集権限は:
+月次 routine 専用の `canEditRoutine` 判定は廃止。`/project/[projectId]/cockpit` / `/hud/project/[projectId]/cockpit` / `/institutions/[institutionId]/cockpit` の page route は PM/admin 判定を持たず、`CockpitView` / `HudCockpitView` に `canEditRoutine` を渡さない。
 
-- `members.is_admin=true`
-- または `project_members.is_pm=true` and `is_active=true`
-
-それ以外は表示のみ。
+月次・報酬・資料・MTG の write 権限は、それぞれの API / RLS / admin route が判定する。cockpit 本体は authenticated read と各モーダル/APIへの導線を担当する。
 
 ## Institution Card Entry
 
@@ -58,8 +55,8 @@ This route is read-only during load. It does not create a duplicate project or w
 | query | behavior |
 |---|---|
 | `?ym=YYYYMM` | monthly modal を開く |
-| `?step=<stepId>&ym=YYYYMM` | stepId 対応 modal を開く |
 | `?meeting=<meeting_id>` | MTG詳細 modal を優先。月次 modal と二重起動しない |
+| `?step=<stepId>&ym=YYYYMM` | legacy query。現行 cockpit は step modal を持たず、`step` は解釈しない |
 
 ## Major Sections
 
@@ -74,8 +71,7 @@ This route is read-only during load. It does not create a duplicate project or w
 | TODO | `ProactiveQueuePanel` | `proactive_outbox` read-only。Dashboard は `queued`, `sent_to_commander`, `blocked` を最大3件、PJ cockpit は `queued`, `sent_to_commander`, `drafted`, `blocked` をPJ単位で表示。DBから多めに読み、期限超過 / blocked / queued / sent_to_commander / priority / due_at でUI側sort後、`outbox_id` 重複を排除する。行クリックは発生経緯・`proactive_loop_events` 履歴・資料リンク・外部送付可否・次アクションのモーダル |
 | project documents | `CockpitProjectDocuments` | TODO と経営ハイライトの間に置く資料スペース。drag & drop / file picker で `/api/project-documents` へ multipart upload し、Drive の PJ folder 配下 `AMD OS 資料` folder に新規ファイルとして保存する。同名ファイルは上書きしない。リンク一覧は `project_documents` から取得し、Drive link を新規タブで開く |
 | strategy signals | `CockpitStrategySignals` | `project_strategy_signals` |
-| routine | `CockpitRoutineGas` + routine modals | `billing_cycles` / GAS bridge / APIs |
-| monthly list/modal | `CockpitMonthlyList`, `CockpitMonthlyModal` | reports / reward / progress |
+| monthly list/modal | `CockpitMonthlyList`, `CockpitMonthlyModal` | `billing_cycles`, reports / reward / progress |
 | meeting summaries | `CockpitMeetingSummary` | `project_meeting_summaries` |
 | legacy kanban | `CockpitKanbanGas` / `HudCockpitKanbanGas` | `tasks`。PJ cockpit / HUD cockpit の主要導線からは外し、TODO は proactive queue へ寄せる |
 | freeze / next period | `CockpitFreezeBackfill`, `CockpitNextPeriodSetup` | freeze and plan setup |
@@ -136,38 +132,18 @@ PJ cockpit の「資料」は、PJ全体で使う資料リンク置き場。MTG�
 
 If `projects.drive_folder_id` is empty, the panel shows a folder-setting warning. If Google credential is missing or has read-only / no shared-folder permission, upload returns a permission error and the panel keeps a retry action. The rest of the cockpit remains usable.
 
-## Routine Step Contract
+## Removed PM Routine Step Contract
 
-`CockpitRoutineGas` builds the PM monthly check from `billing_cycles` and `projects.project_category`.
+PM向けの cockpit 右カラム routine step UI は廃止済み。`CockpitRoutine.tsx` / `CockpitRoutineGas.tsx` / `HudCockpitRoutineGas.tsx` / `CockpitRoutine*Modal.tsx` は current implementation から削除し、`?step=` 起動も使わない。
 
-| project category / type | behavior |
-|---|---|
-| `project_category='advisor'` | monthly check panel shows 対象外. Step buttons are not rendered |
-| standard project | step order = `reportFix` only |
-| `project_type='ctb'` | same as standard. CTB estimate step is disabled while CTB is frozen |
-| frozen / waiting restart / non-active | `CockpitView` hides live operations through `showLiveOperations` |
-| non admin / non PM | monthly check panel is visible but wrapped with `pointer-events-none opacity-60` |
+現行の月次導線は `CockpitMonthlyList` / `HudCockpitMonthlyList` から月を選び、`CockpitMonthlyModal` / `HudCockpitMonthlyModal` を開く形に一本化する。月次報告書の軽い確認 nudge は Slack 側に寄せ、OS 上の月次 routine step は発生させない。契約 apply 済みPJでは、請求額は `contract-billing-auto-confirm` と admin billing / payouts 側で扱う。
 
-### Step ID Table
-
-| stepId | label | done source | deadline | click behavior |
-|---|---|---|---|---|
-| `reportFix` | 月次報告書確認 | `report_fixed_at` set | next ym day 3, adjusted | opens `CockpitMonthlyModal` with report tab |
-| `budget` | 請求額確定 | `budget_confirmed_at` set or `status in ('budget_confirmed','allocation_confirmed')` | n/a for PM monthly check | exception-only direct step, opens `CockpitRoutineBudgetModal` |
-
-`budget` は cockpit の例外復旧用 step として残すが、PM monthly check には表示しない。契約 apply 済みPJでは `/mypage` の PM/PL 月次nudgeと報酬除外判定にも使わない。契約書由来の金額と対象月の報酬額が見えていることを前提に、請求額は `contract-billing-auto-confirm` が自動確定する。
-
-`reportFix` は「これでいい？」nudgeであり、未対応でも `/mypage` の月次報酬から除外しない。PM monthly check は報酬計算や支払可否の gate ではない。
-
-If `billing_cycles.invoice_ym` is set and differs from `ym`, PM monthly check is unchanged because only `reportFix` is rendered. Invoice deferral is handled in admin billing / payouts.
-
-## Step Modal / API Contract
+## Monthly Modal / API Contract
 
 | modal | trigger | read | write / call | success state |
 |---|---|---|---|---|
-| `CockpitRoutineBudgetModal` | `budget` | `billing_cycles.status`, `budget_reported_amount`, `budget_buffer_amount`, `budget_reported_at`, `budget_reported_by`, `budget_confirmed_at`, `budget_yen`; `projects.fee_type`, `fee_amount` | update `billing_cycles` with `status='reported'`, `budget_reported_amount`, `budget_buffer_amount`, `budget_reported_at`, `budget_reported_by`; calls Edge Function `send-budget-approval-nudge`; approve/reject uses `/api/admin/budget-approval` | `budget_confirmed_at` set or status confirmed |
-| `CockpitMonthlyModal` report tab | `reportFix` or monthly card | `monthly_reports`, `billing_cycles`, MS bundle | `/api/report/generate`, `/api/report/fix`, report edit APIs | `monthly_reports.status='fixed'` or `fixed_at` set |
-| `CockpitMonthlyModal` reward/progress tab | monthly card | `milestone_monthly_progress`, `ms_progress_revisions`, `member_activities`, `project_monthly_notes`, `billing_cycles.reward_summary_json` | `/api/rewards/sync`, `/api/progress/estimate`, `/api/progress/confirm`, `/api/progress/revisions`, `/api/progress/batch-save`, `/api/project/monthly-note` | local progress patches + reward summary sync |
+| `CockpitMonthlyModal` report tab | monthly card / report-only month | `monthly_reports`, `billing_cycles`, MS bundle | `/api/report/generate`, `/api/report/fix`, report edit APIs | `monthly_reports.status='fixed'` or `fixed_at` set |
+| `CockpitMonthlyModal` reward/progress tab | monthly card with billing cycle | `milestone_monthly_progress`, `ms_progress_revisions`, `member_activities`, `project_monthly_notes`, `billing_cycles.reward_summary_json` | `/api/rewards/sync`, `/api/progress/estimate`, `/api/progress/confirm`, `/api/progress/revisions`, `/api/progress/batch-save`, `/api/project/monthly-note` | local progress patches + reward summary sync |
 
 ## Monthly / Reward Modal Contract
 
@@ -188,17 +164,15 @@ Important rules:
 
 ## GAS / Edge Bridge Contract
 
-PWA no longer calls GAS directly for the cockpit routine modals. It calls Supabase Edge Functions through `pwa/src/lib/supabase/edge-functions.ts`, which mirrors iOS `SupabaseService.callEdgeFunction`.
+PWA cockpit no longer owns dedicated routine modals. Supabase Edge Functions remain shared infrastructure for admin billing / legacy flows and are called through `pwa/src/lib/supabase/edge-functions.ts` when a current caller exists.
 
 | function | caller | purpose |
 |---|---|---|
-| `meeting-slots` | `CockpitRoutineMeetingModal` | returns candidate report meeting slots |
-| `schedule-meeting` | `CockpitRoutineMeetingModal` | creates/records the selected meeting slot |
-| `send-budget-approval-nudge` | `CockpitRoutineBudgetModal` | notifies PL/admin for budget approval |
-| `issue-invoice` | `CockpitRoutineInvoiceModal` | creates freee invoice or quotation and updates billing row |
-| `cancel-invoice` | `CockpitRoutineInvoiceModal` | cancels issued invoice/quotation state |
+| `issue-invoice` | admin billing / legacy invoice API | creates freee invoice or quotation and updates billing row |
+| `cancel-invoice` | admin billing / legacy invoice API | cancels issued invoice/quotation state |
+| `meeting-slots` / `schedule-meeting` / `send-budget-approval-nudge` | legacy infrastructure | no active cockpit routine modal caller after routine UI deletion |
 
-GAS remains relevant for legacy freee/Slack/background automation, but cockpit modal actions should be rebuilt through the Edge Function bridge above unless a current file explicitly says otherwise.
+GAS remains relevant for legacy freee/Slack/background automation. New cockpit modal actions should not reintroduce the deleted PM routine step layer without a separate current spec update.
 
 ## Failure Mode
 
@@ -207,11 +181,6 @@ GAS remains relevant for legacy freee/Slack/background automation, but cockpit m
 | `fetchCockpitFromSupabase` pending | spinner |
 | fetch error | error message + reload button |
 | score detail API returns 404 | tab shows a compact error; progress tab remains usable |
-| PM check fails | routine edit disabled by default |
-| unknown stepId | no modal or fallback modal based on resolver |
-| project is advisor | routine shows 対象外 |
-| invoice_ym deferred | non-report steps are deferred to invoice month |
-| Edge Function fails | modal keeps open, shows error/toast, does not mark step done |
 | report-only month | monthly modal opens report tab only |
 | proactive_outbox RLS denies read | proactive queue shows admin-only fallback text and does not block the rest of cockpit |
 | project_documents table missing | documents panel shows API error; cockpit remains usable |
@@ -224,11 +193,11 @@ GAS remains relevant for legacy freee/Slack/background automation, but cockpit m
 - `npm run build`
 - dry API contract: `GET /api/project-documents?project_id=<id>` requires authenticated PJ active member or admin auth and returns documents / driveConfigured metadata.
 - route smoke after deploy: `/project/<projectId>/cockpit` auth redirect when logged out; logged-in admin sees cockpit.
-- step link smoke: `/project/<projectId>/cockpit?ym=YYYYMM`, `?step=...&ym=...`, `?meeting=...`
+- query smoke: `/project/<projectId>/cockpit?ym=YYYYMM`, `?meeting=...`; `?step=...&ym=...` must not open a routine step modal.
 
 ## この章だけで再構築できること
 
-PJ Cockpit の route、data bundle、編集権限、初期 query modal、major component map、routine stepId 全表、step modal の主要 API/DB write、monthly/reward modal の責務、Edge Function bridge を再構築できる。
+PJ Cockpit の route、data bundle、初期 query modal、major component map、monthly/reward modal の責務、資料・MTG・D-6 表示、Edge Function bridge の現行境界を再構築できる。
 
 ## まだ再構築できないこと
 
@@ -238,17 +207,13 @@ Kanban の詳細 state machine、Meeting detail modal の attachment mutation、
 
 - `pwa/src/app/(app)/project/[projectId]/cockpit/page.tsx`
 - `pwa/src/components/cockpit/CockpitView.tsx`
-- `pwa/src/components/cockpit/CockpitRoutineGas.tsx`
-- `pwa/src/components/cockpit/CockpitRoutineBudgetModal.tsx`
-- `pwa/src/components/cockpit/CockpitRoutineMeetingModal.tsx`
-- `pwa/src/components/cockpit/CockpitRoutineInvoiceModal.tsx`
-- `pwa/src/components/cockpit/CockpitRoutineInvoiceSendConfirm.tsx`
+- `pwa/src/components/cockpit/CockpitMonthlyList.tsx`
 - `pwa/src/components/cockpit/CockpitMonthlyModal.tsx`
 - `pwa/src/lib/supabase/edge-functions.ts`
 
 ## 未確認 / inferred
 
-- Edge Function 内部の freee / Calendar / Slack side effect は未深掘り。ここでは PWA caller contract を current truth として固定している。
+- Edge Function 内部の freee / Calendar / Slack side effect は未深掘り。ここでは current PWA caller contract を current truth として固定している。
 - cockpit score tabs は別worker作業中のため、この章では未確定扱い。
 
 ## 次に見る実装ファイル

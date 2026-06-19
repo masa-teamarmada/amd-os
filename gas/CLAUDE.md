@@ -195,7 +195,7 @@ GAS は外部サービスから Supabase へデータを供給するハブ役。
 | `506_CockpitMsDesign.html` | MS設計モーダル |
 | `507_CockpitMsRevision.html` | MS改定モーダル |
 | `508_CockpitOrigin.html` | Origin関連 |
-| `510_CockpitRoutine.html` | 月次ルーティンフロー |
+| `510_CockpitRoutine.html` | 旧月次ルーティンの no-op placeholder |
 | `511_CockpitInvoice.html` | 請求書発行・MTGスケジュール |
 | `514_CockpitKanban.html` | TODOカンバン（pending/todo/doing/done） |
 | `515_CockpitMacro.html` | マクロ提言パネル |

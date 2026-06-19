@@ -161,22 +161,18 @@ AMD メンバーが業務関連で立替えた費用 (= 出張 / イベント参
 
 ---
 
-## コックピット月次確認 / admin請求との接続
+## admin請求との接続
 
-コックピット右カラムの月次確認は、PM が月次報告書の確認nudgeへ返す入口。請求・支払・立替データを触る主入口は admin 側に寄せる。
+OS 上の PM 月次ルーティンは廃止済み。報告書確認の軽い連絡は Slack 側で扱い、請求・支払・立替データを触る主入口は admin 側に寄せる。
 
 ```text
-コックピット月次確認
-  月次報告書確認
-    -> monthly_reports / billing_cycles
-
 admin
   /admin/projects  -> PJ 台帳・支払条件・月次予算
   /admin/billing   -> SU x 月の請求発行・送付・立替・入金状態マトリクス
   /admin/payouts   -> AMD から SU への支払通知書
 ```
 
-締切・クリック先・CTB停止中の扱いは **[2-3 章 1.5 月次確認](2-3-pj-cockpit.md#15-月次確認--報告書--admin請求)** が読み手向け正本。実装詳細と回帰防止は [`pwa/design/routine.md`](../design/routine.md) が開発正本。
+廃止後の実装境界は [`pwa/design/routine.md`](../design/routine.md) が開発正本。
 
 ---
 
@@ -202,4 +198,4 @@ Raw Data / L2 Data / Cron Control を見る admin 専用の運用台帳。
 ---
 
 ## 関連
-- 設計議論: [`pwa/design/FEATURE_REGISTRY.md`](../design/FEATURE_REGISTRY.md) (= 各画面の消してはいけない業務導線), [`pwa/design/routine.md`](../design/routine.md) (= 月次確認)
+- 設計議論: [`pwa/design/FEATURE_REGISTRY.md`](../design/FEATURE_REGISTRY.md) (= 各画面の消してはいけない業務導線), [`pwa/design/routine.md`](../design/routine.md) (= 月次ルーティン廃止)

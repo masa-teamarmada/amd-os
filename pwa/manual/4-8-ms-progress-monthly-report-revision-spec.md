@@ -266,7 +266,7 @@ confirm されたら `monthly_reports.draft_content` を `revised_content` で�
 | 経営ハイライト (当月) | `project_strategy_signals` で当月 ym のもの |
 | 月次ノート | `project_monthly_notes` |
 
-ステップ行クリックでこのモーダルを開いてはいけない (= 6-5 章で書いた回帰多発エリア、 `CockpitView.resolveStepModalFromTap()` 経由で stepId 別モーダル)。
+PM routine step 行や `?step=` query からこのモーダルを開いてはいけない。月次モーダルは月次カードから開く現行導線に限定し、stepId 別モーダルを再導入しない。
 
 ## 抽出 cron / Run Now
 

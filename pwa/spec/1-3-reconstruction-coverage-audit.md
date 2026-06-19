@@ -43,7 +43,7 @@
 - `/bzm` metadata: `pwa/src/app/(app)/bzm/bzm-chapters.ts`
 - notifications: `pwa/src/app/(app)/notifications/page.tsx`, `pwa/src/components/notifications/NotificationsClient.tsx`, `pwa/src/app/api/notifications/feedback/route.ts`
 - D-1〜D-4: `pwa/scheduled-tasks/amd-os-l2-protocol-extract/SKILL.md`, `pwa/scheduled-tasks/amd-os-l3-ms-progress-extract/SKILL.md`, `pwa/scheduled-tasks/amd-os-l4-project-knowledge-extract/SKILL.md`, `pwa/scheduled-tasks/amd-os-l5-member-knowledge-extract/SKILL.md`
-- cockpit: `pwa/src/app/(app)/project/[projectId]/cockpit/page.tsx`, `pwa/src/components/cockpit/CockpitView.tsx`, `pwa/src/components/cockpit/CockpitRoutineGas.tsx`, `pwa/src/components/cockpit/CockpitMonthlyModal.tsx`
+- cockpit: `pwa/src/app/(app)/project/[projectId]/cockpit/page.tsx`, `pwa/src/components/cockpit/CockpitView.tsx`, `pwa/src/components/cockpit/CockpitMonthlyList.tsx`, `pwa/src/components/cockpit/CockpitMonthlyModal.tsx`
 - ERS: `pwa/src/lib/ers-data.ts`, `pwa/src/app/api/institutions/assess/route.ts`
 - iOS role boundary: `ios/DESIGN.md`
 - GAS role boundary: `gas/001_Router.js`, `gas/014_PaymentConfirm.js`, `gas/064_PayoutFreeeNotice.js`

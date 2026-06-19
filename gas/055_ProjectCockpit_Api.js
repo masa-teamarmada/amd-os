@@ -2020,6 +2020,7 @@ function cockpit_api_getRoutineFlow(payload) {
   payload = payload || {};
   var projectId = String(payload.projectId || "").trim();
   if (!projectId) return { ok: false, message: "projectId required" };
+  return { ok: true, disabled: true, reason: "monthly routine abolished 2026-06-19", flows: [] };
 
   var now = new Date();
   var jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);

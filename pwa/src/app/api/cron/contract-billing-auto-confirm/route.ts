@@ -197,7 +197,7 @@ async function notifyPm(
     .in("member_id", memberIds)
     .not("slack_id", "is", null);
 
-  const cockpitUrl = `${process.env.NEXT_PUBLIC_APP_BASE_URL || "https://amd-os-pwa.vercel.app"}/project/${projectId}/cockpit?ym=${ym}&step=budget`;
+  const cockpitUrl = `${process.env.NEXT_PUBLIC_APP_BASE_URL || "https://amd-os-pwa.vercel.app"}/project/${projectId}/cockpit?ym=${ym}`;
   const text = `${projectName} ${ymLabel(ym)} の請求額を契約通り自動確定したよ (${fmtYen(invoiceYen)})`;
   const blocks = [
     {

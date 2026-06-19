@@ -108,8 +108,8 @@ pwa/
 | `/dashboard-cyber-3d-lab` | 実験中の3D Cyber Dashboard。`three.js` 空間上に X/F/M 軸、PJ球体、床面KPI、ホログラム投影コックピットを配置。仕様方針は [`cyber_hud_design_code.md`](cyber_hud_design_code.md) / [`cyber_dashboard_content_design.md`](cyber_dashboard_content_design.md) |
 | `/dashboard-cyber-glass-cube` | 廃案比較用の旧 Cyber Dashboard 第2案。ガラスキューブPJ群は情報構造がカオス化したため、今後の正本候補にはしない。公開モックは `/mock/dashboard-cyber-glass-cube` |
 | `/dashboard-cyber-hud-wall` | Cyber Dashboard 第2案の作り直し。固定視点の `three.js` 空間に、参考HUD画像のようなKPI/PJ/Proof/Alert HUDモジュールを固定配置し、PJ選択時は同一空間内にPJ Cockpit Spatial Viewを展開する。公開モックは `/mock/dashboard-cyber-hud-wall` |
-| `/mypage` | 自分の参加 PJ × 今月の活動 + 今週やったこと + 月次報酬予定 + PM向け月次報告書確認nudge。りり (`ID006`) は NIMS からの無償出向のため、報酬額は金額ではなく `ー` 表示 |
-| `/project/[projectId]/cockpit` | PJ コックピット (案C レイアウト = 上 Header + Hero (AMD Score + XRL 横並び) + 3 カラム MS / TODO + 資料 + 経営ハイライト / 月次確認 sticky + 下段 月次 + MTGサマリ)。資料は Drive の当該PJ folder配下 `AMD OS 資料` folder に保存し、OSには `project_documents` のmetadata/linkだけを残す。`max-w-[1600px]` で画面幅を広く使う。詳細は [`cockpit.md`](cockpit.md) / [`project_strategy_signals.md`](project_strategy_signals.md) |
+| `/mypage` | 自分の参加 PJ × 今月の活動 + 今週やったこと + 月次報酬予定。PM向け月次TODO/nudgeは出さない。りり (`ID006`) は NIMS からの無償出向のため、報酬額は金額ではなく `ー` 表示 |
+| `/project/[projectId]/cockpit` | PJ コックピット (上 Header + Hero (AMD Score + XRL 横並び) + MS / TODO + 資料 + 経営ハイライト + 下段 月次 + MTGサマリ)。資料は Drive の当該PJ folder配下 `AMD OS 資料` folder に保存し、OSには `project_documents` のmetadata/linkだけを残す。`max-w-[1600px]` で画面幅を広く使う。詳細は [`cockpit.md`](cockpit.md) / [`project_strategy_signals.md`](project_strategy_signals.md) |
 | `/institutions/[institutionId]/cockpit` | 研究機関カードから開く機関コックピット。KUTE (`inst_kute`) は既存KUTE PJ (`p25`)、NIMS (`inst_nims`) は既存関連PJ CX (`p20`) の `CockpitView` を同画面へマウントし、MS進捗・月次・MTG履歴を操作/確認する。新規PJを作らず、既存PJコックピットの内容も研究機関ERS側の評価内容も削除しない。上部にERS概要と readiness snapshot を置き、進捗管理とスコア詳細をタブで分ける |
 | `/project/[projectId]/config` | 旧PJ設定。コックピットからは導線を外し、PJごとの契約・請求・支払条件は `/admin/projects` を正本にする |
 | `/manual` `/manual/[slug]` | AMD OS マニュアル。`pwa/manual/*.md` を正本として表示し、左カラムで章タイトル / summary / 見出し / 本文 / 画面パス / テーブル名を全文検索できる。`/manual` と各章だけに Gemini 実験版の `ManualTsukuyomiFloat` を出し、`POST /api/manual/tsukuyomi/ask` が該当章のマニュアル本文を根拠に回答する。DB 書き込みや既存つくよみ修正 tool は持たない |
@@ -475,36 +475,12 @@ npx tsc --noEmit     # 型チェック
 - `l2_notifications` / `meeting_notifications` / `app_notifications` / `l2_feedbacks` は migration 066 で admin authenticated のみ SELECT/UPDATE/INSERT 可能。
 - iOS/APNs 配信済みは `notified_at`、PWA上の人間の既読は `read_at`。既読は削除ではなく状態更新。現状はDBに蓄積し続け、UI側で最新100件 + 既読折りたたみとして扱う。
 
-### 月次確認
-- PM月次確認: `月次報告書確認` のみ
-- admin.billing: `予算確定 / 報告書 / 立替確認 / 請求発行 / 請求送付 / 支払通知 / 入金確認 / 報酬支払`
-- CTB見積: CTB停止中のため一旦廃止
-- 並びは古い月が上
-- `月次報告書確認` は「これでいい？」nudgeであり、未対応でも mypage の月次報酬から取り消し線で除外しない
-- `projects.project_category='advisor'` (社外役員/顧問PJ) は月次確認対象外。コックピット・mypage通知に発生させない。
-
-#### 各ステップクリック時の挙動 ⭐
-
-cockpit 右カラムの月次確認で「月次報告書確認」をクリックしたら、**月次モーダル (CockpitMonthlyModal) のレポートタブを直接開く**。月見出し (`YYYY.MM稼働分`) クリック時は従来通り月次モーダルの進捗タブを開く。旧 `meeting` / `reimburseConfirm` / `invoiceIssue` / `invoiceSend` / `estimateSend` はPM月次タスクとしては開かない。
-
-正本は iOS `RoutineFlowView.handleTap()` ([ios/AMDOS/Features/Routine/RoutineFlowView.swift](../ios/AMDOS/Features/Routine/RoutineFlowView.swift))。PWA では `CockpitView.resolveStepModalFromTap()` ([pwa/src/components/cockpit/CockpitView.tsx](src/components/cockpit/CockpitView.tsx)) で振り分ける。
-
-| stepId | 開く UI | 実装 |
-|---|---|---|
-| `reportFix` (月次報告書確認) | `CockpitMonthlyModal` の `report` タブ | 月次モーダル内の Markdown 表示/編集UIを正本にする |
-| `budget` (請求額確定) | `CockpitRoutineBudgetModal` | PM月次タスクには出さない。契約/報酬キャッシュの前提が崩れた時の例外復旧・個別差分用 direct step としてだけ残す。手入力時は `billing_cycles` へ請求額案を保存 / `/api/notify/pl-review`。承認は `/api/admin/budget-approval` に集約し、`status='budget_confirmed'` と `budget_yen` を同時に確定する |
-
-**🚨 回帰防止ルール**: PWA に新機能を載せるとき、旧step (`meeting` / `reimburseConfirm` / `invoiceIssue` / `invoiceSend` / `estimateSend`) をPM月次タスクとして復活させない。月次モーダルへフォールバックするコードを追加するときは、上の表が崩れていないか必ず手動で確認する。
-
-`reportFix` の完了判定は `billing_cycles.report_fixed_at` を優先し、過去データ復元で同期漏れがある場合は `monthly_reports.fixed_at` / `status='fixed'` / `final_content` をフォールバックにする。報告書本文の正本は `monthly_reports`、`billing_cycles.report_fixed_at` はルーティン表示用キャッシュ。
-
-#### 請求月延期時のスキップ動作 (`invoice_ym !== ym`)
-
-`billing_cycles.invoice_ym` を翌月以降に設定した cycle でも、PM月次確認は `reportFix` だけなので deferred 表示は使わない。請求月の繰延は `/admin/billing` / `/admin/payouts` / finance 系で扱う。
-
-#### URL クエリでステップを直接開く
-
-`/project/[projectId]/cockpit?ym=YYYYMM&step=reportFix` で、起動時に月次モーダルの report tab を開ける。mypage の月次確認nudgeカード ([pwa/src/app/(app)/mypage/page.tsx](src/app/(app)/mypage/page.tsx)) からこの URL に飛ばす。`budget` は PM/PL 月次nudgeから除外する。`?ym=` だけなら従来通り月次モーダル。
+### 月次ルーティン廃止
+- PM向けの OS 月次ルーティン / 月次TODO / cockpit step UI は廃止。
+- 報告書確認の軽い連絡は Slack 側で扱い、OS には TODO / nudge カードを出さない。
+- admin.billing は `予算確定 / 報告書 / 立替確認 / 請求発行 / 請求送付 / 支払通知 / 入金確認 / 報酬支払` の admin 業務表として残す。
+- `?step=<stepId>&ym=YYYYMM` は legacy query。現行 cockpit は `step` を解釈せず、月次カードから `CockpitMonthlyModal` を開く。
+- `CockpitRoutine*` component / modal と `/api/notify/pl-review` は削除済み。詳細は [`routine.md`](routine.md)。
 
 MTG サマリ詳細は `/project/[projectId]/cockpit?meeting=<meeting_id>` で直接開く。MTGカードをクリックすると `meeting` query が URL に入り、共有された URL では該当 detail modal を auto-open する。`meeting` と `ym` / `step` が同時にある場合は MTG詳細を優先する。
 

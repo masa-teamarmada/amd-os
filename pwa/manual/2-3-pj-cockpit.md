@@ -180,30 +180,22 @@ MTG詳細モーダル内の「添付資料」は会議単位の `meeting_assets`
 
 ---
 
-## 月次確認 (= 報告書 / admin請求)
+## 月次確認 (= 月次カード / admin請求)
 
-PM がコックピット右カラムで見る月次タスクは `月次報告書確認` だけ。自動生成された月次報告書 draft に対して「これでいい？」nudgeが来たら、必要な修正要望またはFIXを返す。
-
-```text
-PM月次確認
-翌月03日  月次報告書確認
-```
-
-期限は **営業日調整あり** (= 土日なら前営業日へ繰り上げ)。
+PM 向けの cockpit 右カラム step UI は廃止済み。コックピットでは月次カードから対象月を開き、`CockpitMonthlyModal` で進捗・報酬・月次報告書を確認する。自動生成された月次報告書 draft に対する軽い確認は Slack nudge 側で扱う。
 
 `報告会日程調整` は完全廃止。代わりに 2 か月に 1 回、対面のナレッジ会を月次ルーティン外で行う。
-`請求額確定` は cockpit には例外復旧 direct step として残すが、契約 apply 済みPJでは `contract-billing-auto-confirm` が自動確定するため、PM/PL の `/mypage` 月次nudgeには出さない。契約書由来の金額や対象月の報酬額が見えない場合は、通常のPMタスクではなく契約台帳/報酬キャッシュの整備対象として扱う。
+`請求額確定` は cockpit の PM step としては持たない。契約 apply 済みPJでは `contract-billing-auto-confirm` が自動確定するため、PM/PL の `/mypage` 月次nudgeにも出さない。契約書由来の金額や対象月の報酬額が見えない場合は、通常のPMタスクではなく契約台帳/報酬キャッシュの整備対象として扱う。
 `立替確認` はPM月次タスクから外す。`請求書発行/送付` はadminの役割として `/admin/billing` で扱う。CTB見積はCTB停止中のため一旦廃止。
 
-| step | 締切 | やること | クリック先 |
-|---|---|---|---|
-| 月次報告書確認 | 翌月3日 | `monthly_reports` を確認し、必要なら修正要望またはFIXを返す | 月次モーダル report tab |
-| 請求額確定 | n/a | 例外復旧・個別差分だけ請求額・バッファ・PJ予算を入力し、PL承認に回す | 請求額確定モーダル |
-| 請求書発行/送付 | admin業務 | 請求書番号・PDF・freee連携、送付済み管理 | `/admin/billing` |
+| 項目 | やること | クリック先 |
+|---|---|---|
+| 月次カード | `monthly_reports` / MS進捗 / 報酬状態を確認し、必要なら月次モーダルで修正・FIXする | 月次モーダル |
+| 請求書発行/送付 | 請求書番号・PDF・freee連携、送付済み管理 | `/admin/billing` |
 
-月見出し (`2026.05稼働分`) をクリックすると月次の集約モーダルを開く。`月次報告書確認` 行は report tab を直接開く。
+月カード (`2026.05稼働分`) をクリックすると月次の集約モーダルを開く。`?step=<stepId>&ym=YYYYMM` は legacy query で、現行 cockpit は step modal を開かない。
 
-`billing_cycles.invoice_ym` が稼働月と違う場合 (= 複数月を後からまとめて請求) でも、PM月次確認は **月次報告書確認だけ**。請求月の繰延は `/admin/billing` / `/admin/payouts` / finance 系で扱う。
+`billing_cycles.invoice_ym` が稼働月と違う場合 (= 複数月を後からまとめて請求) でも、PM cockpit に請求 step は出さない。請求月の繰延は `/admin/billing` / `/admin/payouts` / finance 系で扱う。
 
 → 詳細は **[2-6 章 admin オペ](2-6-admin-ops.md)** へ。
 
