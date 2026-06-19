@@ -186,31 +186,6 @@ export interface GasGoalHierarchy {
   pjMembers: Array<{ memberId: string; memberName: string }>;
 }
 
-export interface GasNudgeItem {
-  nudgeId: string;
-  projectId: string;
-  ym: string;
-  message: string;
-  status: string;
-  level: string;
-  postedAt: string | null;
-}
-
-export interface GasRoutineStep {
-  label: string;
-  status: string;
-  doneAt?: string;
-  deadline?: string;
-  href?: string;
-}
-
-export interface GasRoutineFlow {
-  bizYm: string;
-  role: string;
-  steps: GasRoutineStep[];
-  isDeferred: boolean;
-}
-
 // ============================================================
 // API 呼び出し関数
 // ============================================================
@@ -248,16 +223,6 @@ export async function fetchRewardDashboard(projectId: string, ym: string) {
   return gasApiFetch<Record<string, unknown>>("rewardDashboard", {
     projectId,
     ym,
-  });
-}
-
-export async function fetchNudgeQueue(projectId: string) {
-  return gasApiFetch<{ items: GasNudgeItem[] }>("nudgeQueue", { projectId });
-}
-
-export async function fetchRoutineFlow(projectId: string) {
-  return gasApiFetch<{ flows: GasRoutineFlow[] }>("routineFlow", {
-    projectId,
   });
 }
 

@@ -263,6 +263,10 @@ export interface NudgeItem {
   postedAt: string | null;
 }
 
+function isLegacyMonthlyRoutineNudge(message: string) {
+  return /月次報告書|報告会|立替精算|請求額|請求書|見積|月次ルーティン|monthly routine|予算を確定|予算が確定/i.test(message);
+}
+
 export interface TaskItem {
   taskId: string;
   title: string;
@@ -2050,12 +2054,14 @@ export async function fetchCockpitFromSupabase(
     .order("posted_at", { ascending: false, nullsFirst: false })
     .limit(10);
 
-  const nudges: NudgeItem[] = (nudgeRes.data || []).map((n) => ({
-    message: n.message,
-    status: n.status || "ready",
-    level: "info", // nudge_queueにlevelカラムがないのでデフォルト
-    postedAt: n.posted_at,
-  }));
+  const nudges: NudgeItem[] = (nudgeRes.data || [])
+    .filter((n) => !isLegacyMonthlyRoutineNudge(String(n.message || "")))
+    .map((n) => ({
+      message: n.message,
+      status: n.status || "ready",
+      level: "info", // nudge_queueにlevelカラムがないのでデフォルト
+      postedAt: n.posted_at,
+    }));
 
   // Tasks
   const taskRes = await supabase

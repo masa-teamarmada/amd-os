@@ -2012,65 +2012,12 @@ function cockpit_api_getRoutineFlow(payload) {
   return { ok: true, disabled: true, reason: "pm monthly routine abolished 2026-06-19", flows: [] };
 }
 
-/**
- * 月次報告会スケジュール用：空き枠取得
- */
 function api_getMeetingSlots(payload) {
   payload = payload || {};
   var projectId = String(payload.projectId || "").trim();
   var ym = String(payload.ym || "").trim();
   if (!projectId || !ym) return { ok: false, message: "projectId/ym required" };
-
-  // 翌月第1週を対象期間にする
-  var y = Number(ym.slice(0, 4));
-  var m = Number(ym.slice(4, 6));
-  var nextM = m + 1;
-  var nextY = y;
-  if (nextM > 12) { nextM = 1; nextY++; }
-  var weekStart = new Date(nextY + "-" + ("0"+nextM).slice(-2) + "-01T00:00:00+09:00");
-  var weekEnd   = new Date(nextY + "-" + ("0"+nextM).slice(-2) + "-08T00:00:00+09:00");
-
-  // PMのemailをDB_Projects→DB_Membersで引く
-  var emails = ["masa@team-armada.jp", "kyoko@team-armada.jp"];
-  try {
-    var pjRows = b_readTable_("DB_Projects") || [];
-    var pmMemberId = "";
-    for (var i = 0; i < pjRows.length; i++) {
-      if (String(pjRows[i].projectId || "").trim() === projectId) {
-        pmMemberId = String(pjRows[i].pmMemberId || "").trim();
-        break;
-      }
-    }
-    if (pmMemberId) {
-      var memRows = b_readTable_("DB_Members") || [];
-      for (var j = 0; j < memRows.length; j++) {
-        if (String(memRows[j].memberId || "").trim() === pmMemberId) {
-          var pmEmail = String(memRows[j].email || "").trim();
-          if (pmEmail && emails.indexOf(pmEmail) < 0) emails.push(pmEmail);
-          break;
-        }
-      }
-    }
-  } catch(e) {
-    Logger.log("api_getMeetingSlots: PM email取得失敗 " + e.message);
-  }
-
-  var slots = [];
-  try {
-    slots = getAvailableMeetingSlotsAnd_(emails, weekStart, weekEnd);
-  } catch(e) {
-    return { ok: false, message: String(e.message || e) };
-  }
-
-  var result = slots.map(function(s) {
-    return {
-      startISO: s.start.toISOString(),
-      endISO:   s.end.toISOString(),
-      label:    Utilities.formatDate(s.start, "Asia/Tokyo", "M/d(EEE) HH:mm")
-    };
-  });
-
-  return JSON.parse(JSON.stringify({ ok: true, slots: result }));
+  return { ok: true, disabled: true, reason: "report meetings are abolished; use bimonthly knowledge meetings outside OS", slots: [] };
 }
 
 /* --- ルーティンフロー内部関数 --- */
