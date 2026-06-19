@@ -171,11 +171,6 @@ interface CockpitViewProps {
     assignee?: string; priority?: string; description?: string;
   }>;
   initialModalYm?: string | null;
-  /** mypage や URL `?step=` から渡される、起動時に開くべきステップ */
-  initialStep?: { ym: string; stepId: string } | null;
-  /** PM (= project_members.is_pm) もしくは admin (= members.is_admin) のみ true。
-      false の場合、月次確認のステップボタンは disabled。まさ要望 2026-05-11。 */
-  canEditRoutine?: boolean;
 }
 
 function formatYm(ym: string) {
@@ -367,7 +362,7 @@ export function CockpitView({ cockpit, nudges, initialModalYm }: CockpitViewProp
     //  メインボード 3 カラム:
     //    col1 = 今期MS + 次期MS設定 + 過去の期間 + 月次カード + 休止期間 backfill
     //    col2 = TODO + 経営ハイライト (D-6) + MTGサマリ
-    //    col3 = ステータスバッジ + 月次確認 + nudge (sticky)
+    //    col3 = ステータスバッジ + nudge (sticky)
     <div className="max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3">
       {/* [A] Project Header (full width) */}
       <CockpitHeader project={project} />
@@ -414,7 +409,7 @@ export function CockpitView({ cockpit, nudges, initialModalYm }: CockpitViewProp
       {(!hasScoreDetailTab || activeTab === "progress") && (
         <>
       {/* メインボード: 3 カラム grid (lg breakpoint 以上)
-          1.2fr 1.2fr 300px = MS / 経営シグナル / 月次確認
+          1.2fr 1.2fr 300px = MS / 経営シグナル / ステータス
           col3 は sticky (mobile / md は通常配置) */}
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_300px] gap-3 items-start">
 

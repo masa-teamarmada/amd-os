@@ -153,11 +153,6 @@ interface HudCockpitViewProps {
     assignee?: string; priority?: string; description?: string;
   }>;
   initialModalYm?: string | null;
-  /** mypage や URL `?step=` から渡される、起動時に開くべきステップ */
-  initialStep?: { ym: string; stepId: string } | null;
-  /** PM (= project_members.is_pm) もしくは admin (= members.is_admin) のみ true。
-      false の場合、月次確認のステップボタンは disabled。まさ要望 2026-05-11。 */
-  canEditRoutine?: boolean;
 }
 
 function formatYm(ym: string) {
