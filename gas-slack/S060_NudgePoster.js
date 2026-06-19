@@ -231,17 +231,15 @@ function nudgeBudget_isHoliday_(date) {
 }
 
 function setup_nudgeBudgetReminderTrigger() {
+  var removed = 0;
   ScriptApp.getProjectTriggers().forEach(function(t) {
-    if (t.getHandlerFunction() === "cron_nudgeBudgetReminder") ScriptApp.deleteTrigger(t);
+    if (t.getHandlerFunction() === "cron_nudgeBudgetReminder") {
+      ScriptApp.deleteTrigger(t);
+      removed++;
+    }
   });
-  ScriptApp.newTrigger("cron_nudgeBudgetReminder")
-    .timeBased()
-    .atHour(9)
-    .nearMinute(0)
-    .everyDays(1)
-    .inTimezone("Asia/Tokyo")
-    .create();
-  Logger.log("nudgeBudgetReminderトリガー設定完了");
+  Logger.log("nudgeBudgetReminder disabled; removed triggers=" + removed);
+  return { ok: true, disabled: true, removed: removed };
 }
 
 function nudgeBudget_getRemindDay_() {
@@ -304,15 +302,13 @@ function nudgeBudget_isHoliday_(date) {
 }
 
 function setup_nudgeBudgetReminderTrigger() {
+  var removed = 0;
   ScriptApp.getProjectTriggers().forEach(function(t) {
-    if (t.getHandlerFunction() === "cron_nudgeBudgetReminder") ScriptApp.deleteTrigger(t);
+    if (t.getHandlerFunction() === "cron_nudgeBudgetReminder") {
+      ScriptApp.deleteTrigger(t);
+      removed++;
+    }
   });
-  ScriptApp.newTrigger("cron_nudgeBudgetReminder")
-    .timeBased()
-    .atHour(9)
-    .nearMinute(0)
-    .everyDays(1)
-    .inTimezone("Asia/Tokyo")
-    .create();
-  Logger.log("nudgeBudgetReminderトリガー設定完了");
+  Logger.log("nudgeBudgetReminder disabled; removed triggers=" + removed);
+  return { ok: true, disabled: true, removed: removed };
 }
