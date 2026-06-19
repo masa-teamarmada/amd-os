@@ -33,10 +33,19 @@ type ContractRow = {
   contract_id: string;
   project_id: string;
   contract_title: string;
+  canonical_title: string | null;
   counterparty_name: string | null;
   contract_type: string;
   status: ContractStatus;
+  registry_status: "candidate" | "accepted" | "evidence_only" | "rejected";
   expected_signing_date: string | null;
+  effective_date: string | null;
+  expiration_date: string | null;
+  renewal_notice_date: string | null;
+  renewal_type: string | null;
+  contract_value_yen: number | null;
+  business_owner: string | null;
+  ledger_notes: string | null;
   planned_at: string;
   last_activity_at: string | null;
   signed_at: string | null;
@@ -191,6 +200,18 @@ const BLANK_DOCUMENT = {
   documentKind: "revision",
 };
 
+const CONTRACT_TYPE_LABEL: Record<string, string> = {
+  contract: "契約",
+  nda: "NDA",
+  outsourcing: "業務委託",
+  joint_research: "共同研究",
+  mou: "MOU/覚書",
+  order: "発注/SOW",
+  investment: "投資",
+  employment: "雇用",
+  mandate: "委任/顧問",
+};
+
 function compactDate(value: string | null | undefined) {
   if (!value) return "-";
   const date = new Date(value);
@@ -214,6 +235,19 @@ function projectLabel(project: Project | undefined, fallback: string) {
   return `${project.project_id} ${project.project_name}`;
 }
 
+function contractTitle(contract: ContractRow) {
+  return contract.canonical_title || contract.contract_title;
+}
+
+function contractTypeLabel(value: string) {
+  return CONTRACT_TYPE_LABEL[value] || value || "契約";
+}
+
+function yen(value: number | null | undefined) {
+  if (!value) return "-";
+  return `${value.toLocaleString("ja-JP")}円`;
+}
+
 function statusBadge(status: ContractStatus) {
   return (
     <span className={`inline-flex h-6 items-center rounded-md border px-2 text-xs font-medium ${STATUS_TONE[status]}`}>
@@ -231,7 +265,7 @@ export function ContractsClient() {
   const [driveDestination, setDriveDestination] = useState<ContractsResponse["driveDestination"] | null>(null);
   const [selectedId, setSelectedId] = useState("");
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("open");
+  const [statusFilter, setStatusFilter] = useState("ledger");
   const [projectFilter, setProjectFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -281,14 +315,21 @@ export function ContractsClient() {
   const filteredContracts = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return contracts.filter((contract) => {
+      const registryStatus = contract.registry_status || "candidate";
+      if (statusFilter === "ledger" && (["evidence_only", "rejected"].includes(registryStatus) || contract.status === "cancelled")) return false;
       if (projectFilter && contract.project_id !== projectFilter) return false;
-      if (statusFilter === "open" && ["signed", "cancelled"].includes(contract.status)) return false;
-      if (statusFilter !== "open" && statusFilter !== "all" && contract.status !== statusFilter) return false;
+      if (statusFilter === "needs_metadata") {
+        if (["evidence_only", "rejected"].includes(registryStatus) || contract.status === "cancelled") return false;
+        if (contract.counterparty_name && contract.effective_date && contract.expiration_date) return false;
+      } else if (statusFilter !== "ledger" && statusFilter !== "all" && contract.status !== statusFilter) {
+        return false;
+      }
       if (!needle) return true;
       const haystack = [
-        contract.contract_title,
+        contractTitle(contract),
         contract.counterparty_name,
         contract.contract_type,
+        contract.business_owner,
         projectById.get(contract.project_id)?.project_name,
         contract.project_id,
       ].join(" ").toLowerCase();
@@ -297,11 +338,11 @@ export function ContractsClient() {
   }, [contracts, projectById, projectFilter, query, statusFilter]);
 
   const metrics = useMemo(() => {
-    const open = contracts.filter((contract) => !["signed", "cancelled"].includes(contract.status)).length;
-    const awaiting = contracts.filter((contract) => contract.status === "awaiting_signature").length;
-    const signed = contracts.filter((contract) => contract.status === "signed").length;
-    const missingSigned = contracts.filter((contract) => !contract.signed_at && contract.status !== "cancelled").length;
-    return { open, awaiting, signed, missingSigned };
+    const ledger = contracts.filter((contract) => !["evidence_only", "rejected"].includes(contract.registry_status || "candidate") && contract.status !== "cancelled");
+    const review = ledger.filter((contract) => contract.review_required || contract.registry_status === "candidate").length;
+    const signed = ledger.filter((contract) => contract.status === "signed" || Boolean(contract.signed_at)).length;
+    const missingMetadata = ledger.filter((contract) => !contract.counterparty_name || !contract.effective_date || !contract.expiration_date).length;
+    return { ledger: ledger.length, review, signed, missingMetadata };
   }, [contracts]);
 
   const selected = useMemo(
@@ -489,10 +530,10 @@ export function ContractsClient() {
         )}
 
         <section className="grid gap-3 md:grid-cols-4">
-          <Metric icon={<FileClock className="h-4 w-4" />} label="open" value={metrics.open} />
-          <Metric icon={<Clock3 className="h-4 w-4" />} label="awaiting signature" value={metrics.awaiting} />
+          <Metric icon={<FileClock className="h-4 w-4" />} label="ledger" value={metrics.ledger} />
+          <Metric icon={<Clock3 className="h-4 w-4" />} label="needs review" value={metrics.review} />
           <Metric icon={<CheckCircle2 className="h-4 w-4" />} label="signed" value={metrics.signed} />
-          <Metric icon={<AlertTriangle className="h-4 w-4" />} label="missing signed PDF" value={metrics.missingSigned} />
+          <Metric icon={<AlertTriangle className="h-4 w-4" />} label="missing metadata" value={metrics.missingMetadata} />
         </section>
 
         <section className="grid gap-3 lg:grid-cols-[minmax(320px,0.85fr)_minmax(0,1.15fr)]">
@@ -513,8 +554,9 @@ export function ContractsClient() {
                   onChange={(event) => setStatusFilter(event.target.value)}
                   className="h-8 rounded-md border border-slate-200 bg-white px-2 text-sm"
                 >
-                  <option value="open">open</option>
-                  <option value="all">all</option>
+                  <option value="ledger">台帳</option>
+                  <option value="needs_metadata">metadata不足</option>
+                  <option value="all">全データ</option>
                   {CONTRACT_STATUSES.map((status) => (
                     <option key={status} value={status}>{STATUS_LABEL[status]}</option>
                   ))}
@@ -605,39 +647,65 @@ export function ContractsClient() {
 
             <div className="overflow-hidden rounded-md border border-slate-200 bg-white">
               <div className="border-b border-slate-200 px-3 py-2 text-xs font-medium text-slate-500">
-                {filteredContracts.length} contracts
+                {filteredContracts.length} contract ledger rows
               </div>
-              <div className="max-h-[620px] overflow-y-auto">
-                {filteredContracts.map((contract) => {
-                  const project = projectById.get(contract.project_id);
-                  const rowDocs = docsByContract.get(contract.contract_id) || [];
-                  const active = selected?.contract_id === contract.contract_id;
-                  return (
-                    <button
-                      key={contract.contract_id}
-                      type="button"
-                      onClick={() => setSelectedId(contract.contract_id)}
-                      className={`block w-full border-b border-slate-100 px-3 py-3 text-left transition-colors hover:bg-slate-50 ${active ? "bg-slate-100" : "bg-white"}`}
-                    >
-                      <div className="flex items-start gap-2">
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold text-slate-950">{contract.contract_title}</p>
-                          <p className="mt-0.5 truncate text-xs text-slate-500">
-                            {projectLabel(project, contract.project_id)} / {contract.counterparty_name || "相手先未設定"}
-                          </p>
-                        </div>
-                        {statusBadge(contract.status)}
-                      </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
-                        <span>{rowDocs.length} docs</span>
-                        <span>last {compactDate(contract.last_activity_at)}</span>
-                        {!contract.signed_at && <span className="text-amber-700">signed missing</span>}
-                      </div>
-                    </button>
-                  );
-                })}
+              <div className="max-h-[680px] overflow-auto">
+                <table className="min-w-[980px] w-full border-collapse text-left text-xs">
+                  <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 text-[11px] uppercase text-slate-500">
+                    <tr>
+                      <th className="w-[28%] px-3 py-2 font-semibold">契約名</th>
+                      <th className="w-[10%] px-3 py-2 font-semibold">種別</th>
+                      <th className="w-[15%] px-3 py-2 font-semibold">相手先</th>
+                      <th className="w-[12%] px-3 py-2 font-semibold">PJ</th>
+                      <th className="w-[10%] px-3 py-2 font-semibold">状態</th>
+                      <th className="w-[9%] px-3 py-2 font-semibold">締結/発効</th>
+                      <th className="w-[9%] px-3 py-2 font-semibold">終了/更新</th>
+                      <th className="w-[7%] px-3 py-2 font-semibold">文書</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredContracts.map((contract) => {
+                      const project = projectById.get(contract.project_id);
+                      const rowDocs = docsByContract.get(contract.contract_id) || [];
+                      const signed = rowDocs.some((doc) => doc.document_kind === "signed") || Boolean(contract.signed_at);
+                      const metadataMissing = !contract.counterparty_name || !contract.effective_date || !contract.expiration_date;
+                      const active = selected?.contract_id === contract.contract_id;
+                      return (
+                        <tr
+                          key={contract.contract_id}
+                          onClick={() => setSelectedId(contract.contract_id)}
+                          className={`cursor-pointer hover:bg-slate-50 ${active ? "bg-slate-100" : "bg-white"}`}
+                        >
+                          <td className="px-3 py-2 align-top">
+                            <p className="line-clamp-2 font-semibold text-slate-950">{contractTitle(contract)}</p>
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {contract.registry_status === "candidate" && <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-800">review</Badge>}
+                              {metadataMissing && <Badge variant="outline" className="border-slate-200 bg-white text-slate-600">metadata不足</Badge>}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 align-top text-slate-700">{contractTypeLabel(contract.contract_type)}</td>
+                          <td className="px-3 py-2 align-top text-slate-700">{contract.counterparty_name || "未設定"}</td>
+                          <td className="px-3 py-2 align-top text-slate-600">{projectLabel(project, contract.project_id)}</td>
+                          <td className="px-3 py-2 align-top">{statusBadge(contract.status)}</td>
+                          <td className="px-3 py-2 align-top text-slate-600">
+                            <div>{dateOnly(contract.signed_at || contract.effective_date)}</div>
+                            {contract.effective_date && contract.signed_at && <div className="mt-0.5 text-[11px] text-slate-400">発効 {dateOnly(contract.effective_date)}</div>}
+                          </td>
+                          <td className="px-3 py-2 align-top text-slate-600">
+                            <div>{dateOnly(contract.expiration_date)}</div>
+                            {contract.renewal_notice_date && <div className="mt-0.5 text-[11px] text-amber-700">通知 {dateOnly(contract.renewal_notice_date)}</div>}
+                          </td>
+                          <td className="px-3 py-2 align-top text-slate-600">
+                            <div>{rowDocs.length} docs</div>
+                            <div className={signed ? "text-emerald-700" : "text-slate-400"}>{signed ? "signed" : "unsigned"}</div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
                 {filteredContracts.length === 0 && (
-                  <div className="px-3 py-10 text-center text-sm text-slate-500">契約予定枠なし</div>
+                  <div className="px-3 py-10 text-center text-sm text-slate-500">契約台帳なし</div>
                 )}
               </div>
             </div>
@@ -654,9 +722,9 @@ export function ContractsClient() {
                         {selected.review_required && <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-800">review</Badge>}
                         {signedDoc && <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-800">signed stored</Badge>}
                       </div>
-                      <h2 className="truncate text-xl font-semibold text-slate-950">{selected.contract_title}</h2>
+                      <h2 className="truncate text-xl font-semibold text-slate-950">{contractTitle(selected)}</h2>
                       <p className="mt-1 text-sm text-slate-500">
-                        {projectLabel(selectedProject, selected.project_id)} / {selected.counterparty_name || "相手先未設定"}
+                        {projectLabel(selectedProject, selected.project_id)} / {selected.counterparty_name || "相手先未設定"} / {contractTypeLabel(selected.contract_type)}
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -676,12 +744,15 @@ export function ContractsClient() {
                   </div>
 
                   <div className="mt-4 grid gap-3 md:grid-cols-4">
-                    <Fact label="expected" value={dateOnly(selected.expected_signing_date)} />
-                    <Fact label="planned" value={compactDate(selected.planned_at)} />
+                    <Fact label="signed / expected" value={dateOnly(selected.signed_at || selected.expected_signing_date)} />
+                    <Fact label="effective" value={dateOnly(selected.effective_date)} />
+                    <Fact label="expiration" value={dateOnly(selected.expiration_date)} />
+                    <Fact label="renewal notice" value={dateOnly(selected.renewal_notice_date)} />
+                    <Fact label="value" value={yen(selected.contract_value_yen)} />
+                    <Fact label="owner" value={selected.business_owner || "-"} />
+                    <Fact label="registry" value={selected.registry_status || "candidate"} />
                     <Fact label="signed" value={compactDate(selected.signed_at)} />
-                    <Fact label="nudge days" value={`${selected.nudge_after_days}日`} />
                     <Fact label="pj signals" value={`${selectedSignals.length}件`} />
-                    <Fact label="nudge history" value={`${selectedNudges.length}件`} />
                   </div>
 
                   <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3">
