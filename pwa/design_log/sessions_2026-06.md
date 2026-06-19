@@ -736,3 +736,22 @@
 - production `/api/build-info`: `v0.28.13` / `038d0e62e048e07c7154872a527289f59b6e739d` / `dirty=false`
 
 **残課題**: logged-in UI smoke は auth redirect で未実施。次セッションで `/admin/payouts?ym=202606`、`/management-score`、`/monthly-agreement?ym=202606`、`/admin/monthly-work-agreements?ym=202606` を実画面確認する。あき / ID029 の DB/code 実反映も次セッションで確認・修正する。
+
+### 2026-06-19 — あき / ID029 の無報酬除外を実DB/codeで確認・反映 (v0.28.14)
+
+**経緯**: v0.28.13 closeout では、あき / ID029 を `members.exclude_from_payout_notice=true` 対象にする仕様は docs へ反映済みだったが、実DB/code 反映確認が次セッション残課題になっていた。
+
+**確認結果**:
+- production DB の `members` で ID006 / ID029 はどちらも `exclude_from_payout_notice=true`。
+- `buildMonthlyWorkAgreementBundle(ym=202606, memberId=ID029)` は `status='not_required'` / `canAgree=false` / `projectCount=0`。
+- `listActiveAgreementMemberIds(202606)` に ID029 は含まれない。
+- payout gate に ID029 の支払候補を渡しても `not_required` / `allowed=true`。
+
+**対応**:
+- `/mypage` の member 解決で `exclude_from_payout_notice` を読み、報酬額非表示は DB フラグを正本にした。後方互換 guard として ID006 / ID029 と code name `りり` / `あき` も残す。
+- `/dashboard` は `/mypage` を embed しているため同時に反映。
+- `/mypage` の月初合意 card が `not_required` を `未合意` 扱いしないよう、`対象外` 表示と `詳細を見る` CTA に分岐した。
+- `pwa/BUGS.md` に同実装漏れをクローズ記録。
+
+**検証**:
+- `npx tsx` で DB + `buildMonthlyWorkAgreementBundle` + `listActiveAgreementMemberIds` + `buildPayoutAgreementGateSummary` を直接確認。

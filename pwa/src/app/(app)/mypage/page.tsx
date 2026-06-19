@@ -13,6 +13,7 @@ interface Member {
   codeName: string;
   email: string;
   isAdmin: boolean;
+  excludeFromPayoutNotice: boolean;
   rewardAmountHidden: boolean;
 }
 
@@ -70,10 +71,11 @@ interface MyPageData {
 
 interface MonthlyAgreementMiniBundle {
   ym: string;
-  status: "pending" | "agreed" | "needs_reagreement";
+  status: "pending" | "agreed" | "needs_reagreement" | "not_required";
   tableReady: boolean;
   currentHash: string;
   latestAgreement: { agreedAt: string | null; snapshotHash: string } | null;
+  exclusionReason?: string | null;
   snapshot: {
     totals: {
       expectedRewardYen: number;
@@ -85,7 +87,7 @@ interface MonthlyAgreementMiniBundle {
 
 const supabase = createClient();
 const REWARD_AMOUNT_PLACEHOLDER = "ー";
-const NO_COMPENSATION_SECONDED_MEMBER_IDS = new Set(["ID006"]);
+const NO_COMPENSATION_MEMBER_IDS = new Set(["ID006", "ID029"]);
 
 function getCurrentYm(): string {
   const now = new Date();
@@ -123,22 +125,34 @@ function formatRewardYen(amount: number | null | undefined, hidden: boolean) {
   return hidden ? REWARD_AMOUNT_PLACEHOLDER : formatYen(amount);
 }
 
-function shouldHideRewardAmount(memberId: string, codeName: string) {
-  return NO_COMPENSATION_SECONDED_MEMBER_IDS.has(memberId) || codeName.trim() === "りり";
+function shouldHideRewardAmount(memberId: string, codeName: string, excludeFromPayoutNotice?: boolean | null) {
+  return (
+    Boolean(excludeFromPayoutNotice) ||
+    NO_COMPENSATION_MEMBER_IDS.has(memberId) ||
+    ["りり", "あき"].includes(codeName.trim())
+  );
 }
 
 function toMember(
-  row: { member_id: string; code_name?: string | null; email?: string | null; is_admin?: boolean | null },
+  row: {
+    member_id: string;
+    code_name?: string | null;
+    email?: string | null;
+    is_admin?: boolean | null;
+    exclude_from_payout_notice?: boolean | null;
+  },
   fallbackEmail = ""
 ): Member {
   const memberId = row.member_id;
   const codeName = row.code_name || row.member_id;
+  const excludeFromPayoutNotice = Boolean(row.exclude_from_payout_notice);
   return {
     memberId,
     codeName,
     email: row.email || fallbackEmail,
     isAdmin: !!row.is_admin,
-    rewardAmountHidden: shouldHideRewardAmount(memberId, codeName),
+    excludeFromPayoutNotice,
+    rewardAmountHidden: shouldHideRewardAmount(memberId, codeName, excludeFromPayoutNotice),
   };
 }
 
@@ -330,7 +344,7 @@ async function resolveLoggedInMember(): Promise<Member> {
 
   const query = supabase
     .from("members")
-    .select("member_id, code_name, email, is_admin")
+    .select("member_id, code_name, email, is_admin, exclude_from_payout_notice")
     .eq("email", email)
     .limit(1);
 
@@ -341,7 +355,7 @@ async function resolveLoggedInMember(): Promise<Member> {
 
   ({ data, error } = await supabase
     .from("members")
-    .select("member_id, code_name, email, is_admin")
+    .select("member_id, code_name, email, is_admin, exclude_from_payout_notice")
     .ilike("email", email)
     .limit(1));
 
@@ -358,7 +372,7 @@ async function resolvePageMember(viewer: Member, requestedMemberId?: string | nu
 
   const { data, error } = await supabase
     .from("members")
-    .select("member_id, code_name, email, is_admin")
+    .select("member_id, code_name, email, is_admin, exclude_from_payout_notice")
     .eq("member_id", memberId)
     .maybeSingle();
   if (error) throw error;
@@ -789,13 +803,22 @@ function MonthlyAgreementCard() {
   if (!bundle) return null;
 
   const statusText =
-    bundle.status === "agreed" ? "合意済み" : bundle.status === "needs_reagreement" ? "条件更新あり" : "未合意";
+    bundle.status === "agreed"
+      ? "合意済み"
+      : bundle.status === "needs_reagreement"
+        ? "条件更新あり"
+        : bundle.status === "not_required"
+          ? "対象外"
+          : "未合意";
   const statusClass =
     bundle.status === "agreed"
       ? "bg-emerald-50 text-emerald-700 border-emerald-200"
       : bundle.status === "needs_reagreement"
         ? "bg-amber-50 text-amber-800 border-amber-200"
-        : "bg-sky-50 text-sky-800 border-sky-200";
+        : bundle.status === "not_required"
+          ? "bg-zinc-50 text-zinc-600 border-zinc-200"
+          : "bg-sky-50 text-sky-800 border-sky-200";
+  const isNotRequired = bundle.status === "not_required";
   return (
     <section className="bg-white rounded-2xl border border-[#e5e5e7] p-4 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -805,17 +828,24 @@ function MonthlyAgreementCard() {
             <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusClass}`}>{statusText}</span>
           </div>
           <p className="mt-1 text-[12px] leading-relaxed text-[#86868b]">
-            {formatYm(bundle.ym)} / {bundle.snapshot.totals.projectCount} PJ / 予定 {formatYen(bundle.snapshot.totals.expectedRewardYen)}
+            {isNotRequired
+              ? `${formatYm(bundle.ym)} / 月初合意は不要`
+              : `${formatYm(bundle.ym)} / ${bundle.snapshot.totals.projectCount} PJ / 予定 ${formatYen(bundle.snapshot.totals.expectedRewardYen)}`}
           </p>
           {bundle.status === "needs_reagreement" && (
             <p className="mt-1 text-[11px] text-amber-700">前回合意後に snapshot hash が変わっています。</p>
           )}
+          {isNotRequired && (
+            <p className="mt-1 text-[11px] text-zinc-500">{bundle.exclusionReason || "支払通知対象外メンバーのため、月初合意は不要です。"}</p>
+          )}
         </div>
         <Link
           href={`/monthly-agreement?ym=${encodeURIComponent(bundle.ym)}`}
-          className="inline-flex shrink-0 items-center justify-center rounded-full bg-[#1d1d1f] px-4 py-2 text-[12px] font-semibold text-white"
+          className={`inline-flex shrink-0 items-center justify-center rounded-full px-4 py-2 text-[12px] font-semibold ${
+            isNotRequired ? "border border-[#d2d2d7] text-[#424245]" : "bg-[#1d1d1f] text-white"
+          }`}
         >
-          確認する
+          {isNotRequired ? "詳細を見る" : "確認する"}
         </Link>
       </div>
     </section>
