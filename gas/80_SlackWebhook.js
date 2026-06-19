@@ -501,13 +501,12 @@ function slackQueueInteractiveCacheFromPayload_(payloadStr){
   const actionValue = String(act.value || "").trim();
 
   // ★reimb系：PM + admin を許可
-  // ★invoice_send_done: 請求書送付ボタン (017_InvoiceSendNudge.js)
+  // invoice_send_done は PM 月次ルーティン廃止に伴い、新規キュー投入しない。
   const allow = {
     reimb_approve: true,
     reimb_reject: true,
     reimb_admin_approve: true,
     reimb_admin_reject: true,
-    invoice_send_done: true,
     payment_confirm_expected: true
   };
   if (!allow[actionId]) return;

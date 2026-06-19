@@ -159,11 +159,10 @@ function slackInteractiveWorker(){
   const job = arr.shift();
   cache.put(key, JSON.stringify(arr), 600);
 
-  // invoice_send_done (請求書送付ボタン) は別ハンドラに転送
-  // → 017_InvoiceSendNudge.js / invoiceSend_handleDoneFromQueue_
+  // invoice_send_done は PM 月次ルーティン廃止後の旧ボタン。押されても更新しない。
   if (String(job.actionId || "") === "invoice_send_done") {
     try { invoiceSend_handleDoneFromQueue_(job); } catch (e) {
-      Logger.log("invoice_send_done handler failed: " + (e && e.message ? e.message : e));
+      Logger.log("legacy invoice_send_done disabled handler failed: " + (e && e.message ? e.message : e));
     }
     return;
   }

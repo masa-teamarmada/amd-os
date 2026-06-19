@@ -1,5 +1,8 @@
 /** 017_InvoiceSendNudge.gs
- * 請求書送付タスクの Slack nudge cron + interactive button 完了処理
+ * 廃止済みの請求書送付 Slack nudge cron + interactive button 完了処理
+ *
+ * PM 月次ルーティン廃止に伴い、このファイルの外部入口は既存トリガー削除と
+ * 旧 Slack ボタンの no-op 応答だけを行う。請求書送付の実務は admin 側の請求管理で扱う。
  *
  * 仕様 (まさ依頼 2026-05-08):
  * - 締切前日 17:00 → 20:00 → 締切日 10:00 → 12:00 → 15:00 → 17:00 の 6 回 nudge
@@ -403,48 +406,8 @@ function cron_invoiceSendNudge_() {
  * @param {object} job  キューに積まれた {actionId, actionValue, userId, channelId, messageTs}
  */
 function invoiceSend_handleDoneFromQueue_(job) {
-  let v = {};
-  try { v = job.actionValue ? JSON.parse(String(job.actionValue)) : {}; } catch (_e) { v = {}; }
-  const projectId = String(v.projectId || "").trim();
-  const ym = String(v.ym || "").trim();
-  if (!projectId || !ym) {
-    return { ok: false, message: "projectId/ym missing in action value" };
-  }
-
-  // dedup (連打 / Slack 再送対策)
-  const cache = CacheService.getScriptCache();
-  const dedupeKey = "invoice_send_done_" + projectId + "_" + ym + "_" + (job.userId || "u");
-  if (cache.get(dedupeKey)) return { ok: true, message: "dedup hit" };
-  cache.put(dedupeKey, "1", 300);
-
-  // Supabase 更新
-  const sentAtIso = new Date().toISOString();
-  try {
-    invoiceSend_setInvoiceSentAt_(projectId, ym, sentAtIso);
-  } catch (e) {
-    // 失敗時は新メッセージで通知 (元 nudge は触らない)
-    try {
-      invoiceSend_slackPost_({
-        channel: job.channelId,
-        text: `⚠️ 「送信済み」ボタンの DB 反映に失敗 (${projectId} / ${ym}): ${e.message}`,
-      });
-    } catch (_e) {}
-    return { ok: false, message: e.message };
-  }
-
-  // 完了通知 (新メッセージ、元 nudge は絶対上書きしない)
-  try {
-    const ymLabel = `${ym.slice(0, 4)}年${Number(ym.slice(4, 6))}月`;
-    const hhmm = Utilities.formatDate(new Date(), "Asia/Tokyo", "HH:mm");
-    invoiceSend_slackPost_({
-      channel: job.channelId,
-      text: `✅ <@${job.userId}> が ${ymLabel} の請求書送付を「送信済み」として記録しました (${hhmm})`,
-    });
-  } catch (e) {
-    Logger.log("invoiceSend_handleDoneFromQueue_: post complete msg failed " + e.message);
-  }
-
-  return { ok: true, projectId, ym, sentAt: sentAtIso };
+  Logger.log("invoiceSend_handleDoneFromQueue_ disabled; ignoring legacy invoice_send_done action");
+  return { ok: true, disabled: true, message: "legacy invoice-send Slack action is disabled" };
 }
 
 // ============================================================
