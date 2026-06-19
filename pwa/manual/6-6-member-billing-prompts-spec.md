@@ -55,7 +55,7 @@ PWA 側で `member_allocations_json` を再計算しない。 正本ロジック
 
 合意は「当月の遂行内容と報酬条件を確認した」監査 snapshot。`reward_summary_json`、`member_allocations_json`、MS進捗、担当shareを読むだけで、報酬計算を再実行したり値を書き換えたりしない。
 
-月初合意画面は cap、carry-over、条件/前提、未確定・要確認などの精算/確認内部情報を出さない。本人には「どのPJのどのMSにコミットするか」「当月どこまで到達すべきか」「その対価としての想定報酬」を示す。MS別予定報酬は月初合意用の月次予算配分で算出し、PJ別想定報酬と合計が合うよう丸め差分を吸収する。`status='frozen'` / `freeze_from_ym <= ym` / active `project_freeze_periods` の PJ と、当月報酬も担当MSもないPJは対象外。`members.exclude_from_payout_notice=true` のメンバー (= りり / ID006 NIMS 無償出向) は月初合意も対象外。報酬キャッシュがあるPJで担当MSにbreakdown行がない場合は、未確定ではなく `0円` と表示する。`reward_summary_json.members[].stockYen > 0` の場合だけ、支払予定とは分けて翌月以降へ繰り越される残額として `今月末未払い残（今月は支払われない）` を read-only 表示する。
+月初合意画面は cap、carry-over、条件/前提、未確定・要確認などの精算/確認内部情報を出さない。本人には「どのPJのどのMSにコミットするか」「当月どこまで到達すべきか」「その対価としての想定報酬」を示す。MS別予定報酬は月初合意用の月次予算配分で算出し、PJ別想定報酬と合計が合うよう丸め差分を吸収する。`status='frozen'` / `freeze_from_ym <= ym` / active `project_freeze_periods` の PJ と、当月報酬も担当MSもないPJは対象外。`members.exclude_from_payout_notice=true` のメンバー (= りり / ID006 NIMS 無償出向、あき / ID029 無報酬稼働) は月初合意も対象外。報酬キャッシュがあるPJで担当MSにbreakdown行がない場合は、未確定ではなく `0円` と表示する。`reward_summary_json.members[].stockYen > 0` の場合だけ、支払予定とは分けて翌月以降へ繰り越される残額として `今月末未払い残（今月は支払われない）` を read-only 表示する。
 
 表示内容に違和感がある場合、本人は「修正要望」から対象PJ、要望種別、本文を送る。要望は送信時点の snapshot hash と一緒に保存され、admin/PM側の確認キューとして扱う。
 
@@ -69,9 +69,9 @@ PWA 側で `member_allocations_json` を再計算しない。 正本ロジック
 
 OS 上では PM/PL/参加メンバーのいずれにも月次確認 TODO を出さない。報告書確認の軽い連絡は Slack 側で完結させ、OS の nudge / TODO / action queue へ同期しない。`請求額確定` は、全請求対象PJで契約書由来の金額が読み込まれ、対象月の報酬額が `billing_cycles.reward_summary_json` で見えていることを前提に、契約台帳/報酬キャッシュのデータ整備として扱う。契約未適用・報酬キャッシュ未作成が見つかった場合も、通常の PM 月次タスクへ戻さない。立替確認と請求書発行/送付もPM月次nudgeには出さず、請求書発行/送付はadmin業務に寄せる。
 
-### りり (= ID006) 特例
+### 支払対象外メンバー特例
 
-`members.id='ID006'` (= NIMS 無償出向) は `/mypage` / `/dashboard` 埋め込みの **報酬額表示が `ー`**。 reward 計算キャッシュ自体は他メンバー集計の整合のため残す。
+`members.member_id='ID006'` (= りり / NIMS 無償出向) と `members.member_id='ID029'` (= あき / 無報酬稼働) は `/mypage` / `/dashboard` 埋め込みの **報酬額表示が `ー`**。reward 計算キャッシュ自体は他メンバー集計の整合のため残すが、支払通知書・月初合意・支払 gate では `members.exclude_from_payout_notice=true` として `not_required` にする。
 
 ### 月次集計の前提 ym レンジ
 

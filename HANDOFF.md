@@ -1,57 +1,61 @@
 # HANDOFF - AMD OS
 
-- Last updated: 2026-06-19 (H-1 task auto-registration + owner Slack nudge closeout)
+- Last updated: 2026-06-19 (monthly agreement / payout gate / finance table closeout)
 - Canonical root: `/Users/masa/projects/AMD/amd-os`
-- Worker checkout used for this closeout: `/Users/masa/.codex/worktrees/h1-calendar-review-queue-v0286`
 - Production URL: `https://amd-os-pwa.vercel.app`
 - Default branch: `main`
+- Next thread prepared: `019eddf4-8877-7f50-8180-e53e5ee1c118` (`AMD OS finance table follow-up`)
 
 ## Latest Session Summary
 
-- Removed the temporary `/admin/calendar-review` screen and admin sidebar entry. H-1 next actions no longer rely on an admin review queue.
-- Added `POST /api/task-calendar/register-tasks` so H-1 can register MTG / minutes / Gmail TODO / Slack TODO next actions directly into `tasks`.
-- The route dedupes by `task_id`, writes via service role after `WORKFLOW_SECRET` / `CRON_SECRET` or admin auth, and nudges only the task owner via Slack when `send_slack=true`.
-- Calendar work-block planning remains a dry-run planner (`/api/task-calendar/schedule-plan`). This route does not create Calendar events, send Gmail, invite external attendees, or Slack DM admins.
-- Production contains the feature through commit `2354e085 feat(pwa): register H1 tasks with owner nudges`; closeout production check reported `v0.28.13` / `e32d2bd2` / `dirty=false` or newer.
-- Detailed session log: `pwa/design_log/sessions_2026-06.md` entry `2026-06-19 - H-1 task auto-registration + owner Slack nudge`.
+- 月初合意は「見える化」から `/admin/payouts` の支払 gate へ進める仕様にした。未合意 / 条件更新あり / 修正要望中は server-side で支払データ保存・PDF生成・送付・送付済み確定を止め、admin override は理由・actor・対象 member/PJ/月を監査ログへ残す。
+- CTB p06 は 202605 から freeze overlay なので、202606 月初合意・支払 gate では `not_required`。`projects.status='active'` だけで判定しない。
+- りり / ID006 (NIMS 無償出向) と あき / ID029 (無報酬稼働) は `members.exclude_from_payout_notice=true` の対象として、月初合意・支払通知書・支払 gate から外す仕様にした。
+- SX は 202604/202605 の契約前稼働があるため、202606 以降に `carryInYen` / `stockYen` として未払い残が出るのは異常ではない。本人画面と admin 合意一覧では、`今月支払` と `今月末未払い残（今月は支払われない）` を分けて表示する。
+- `/admin/payouts` に報酬債務台帳を置き、`前月残 + 今月発生 - 今月支払 = 月末未払い残` を member × PJ × 稼働月で読む仕様にした。
+- `/admin/payouts` と `/management-score` 下部の先12か月表は、`キャッシュ支払` / `会社留保` / `報酬債務` / `cap超過チェック` の4表へ分解済み。会社留保は支出ではなく `cap/売上枠 - 外部支払` として読む。
+- 詳細ログ: `pwa/design_log/sessions_2026-06.md` の `2026-06-19 — /admin/payouts 先12か月表を目的別4表へ分解`。
 
-## Repo State
+## Repo / Deploy State
 
-- Accepted implementation commit: `2354e085 feat(pwa): register H1 tasks with owner nudges`.
-- Current `origin/main` at closeout: `b2277b5f feat(contracts): normalize registry table`, which includes the implementation commit.
-- Worker branch at closeout before handoff commit: `codex/h1-calendar-review-queue-v0286...origin/main` aligned, no tracked dirty files.
-- Canonical root `/Users/masa/projects/AMD/amd-os` is on `main` / `b2277b5f`, but has unrelated finance/admin dirty files. Do not use that checkout as a clean implementation source until those are committed or quarantined.
-- Separate unpushed local branch exists: `codex/cx-contract-terms-cap-fix` at `019cdc4c feat(contracts): add contract terms cap source`. It is unrelated to this H-1 task-registration work.
+- Accepted product commit: `038d0e62 Split forward finance tables by purpose`。
+- Production check after deploy: `BUILD_VERSION=v0.28.13`, `git_sha=038d0e62e048e07c7154872a527289f59b6e739d`, `dirty=false`。
+- Current `main` also contains later docs / H-1 closeout commits (`e32d2bd2`, `010c0403`) after the finance deploy. Re-check `/api/build-info` before assuming production moved past `038d0e62`.
+- This handoff commit is docs-only. It should not change the accepted finance UI behavior.
 
-## Verification Run This Session
+## Verification Already Run
 
-- `npm run test:task-calendar-register`
-- `npm run test:task-calendar-schedule-plan`
-- `npm run test:meeting-calendar-upsert-plan`
-- targeted `eslint` for the new route/helper/sidebar/build-info changes
-- `npx tsc --noEmit`
-- `npm run build`
+- `npx tsc --noEmit --pretty false`
+- targeted eslint for `AdminPayoutsClient.tsx`, `management-score/page.tsx`, `/api/admin/payouts/route.ts`, `reward-summary.ts`, `build-info.ts`, `check_pwa_critical_ui.cjs`
 - `npm run test:critical-ui`
-- production `/api/build-info` check: `v0.28.13` / `e32d2bd2eade61a410a9219937d16a7cf828619b` / `dirty=false`
-- production unauthenticated route smoke: `POST /api/task-calendar/register-tasks` returned `401 unauthorized`, confirming the route exists and is protected
-
-No real Slack DM was sent during verification. The Slack send path is implemented but only fires on an authorized non-dry-run call with `send_slack=true` and a resolvable owner Slack user id.
+- `npm run build`
+- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`
+- production `/api/build-info` confirmed `v0.28.13` / `038d0e62...` / `dirty=false`
+- Browser smoke for admin pages was limited by login redirect; next session should verify logged-in UI with まさ's session or Chrome state.
 
 ## Unresolved Tasks
 
-- H-1 automation should call `POST /api/task-calendar/register-tasks` after extracting next actions. This is an automation wiring task, not a PWA route task.
-- If Calendar work blocks are still needed, keep using `/api/task-calendar/schedule-plan` as dry-run. Do not add back an admin review page unless Masa explicitly asks for one.
-- Clean up or route the unrelated canonical-root finance/admin dirty files before using `/Users/masa/projects/AMD/amd-os` for a fresh product change.
+1. Verify and, if needed, implement the actual DB/code path for あき / ID029 exclusion:
+   - `members.exclude_from_payout_notice=true`
+   - `/mypage` / `/dashboard` no-compensation display includes ID029, not only ID006
+   - `/monthly-agreement`, `/admin/monthly-work-agreements`, `/admin/payouts`, cron prebuild all treat ID029 as `not_required`
+2. Logged-in smoke:
+   - `/admin/payouts?ym=202606`
+   - `/management-score`
+   - `/monthly-agreement?ym=202606`
+   - `/admin/monthly-work-agreements?ym=202606`
+3. Continue UX refinement of the 4 finance tables. If まさ still feels "設計がいけてない", keep one table = one purpose. Do not merge company reserve, cash out, reward debt, and cap risk back into one table.
+4. Contract revision/legal rollout is still a parallel workstream. Hard guard operation must assume contract amendment, member consent, and legal review; do not present this as legal advice.
 
 ## Read First Next Session
 
 1. `HANDOFF.md`
-2. `pwa/spec/3-3-meeting-flow-current-spec.md`
-3. `pwa/spec/2-1-pwa-runtime-routes.md`
-4. `pwa/spec/2-2-pwa-surface-inventory-current-spec.md`
-5. `pwa/manual/3-2-data-and-extraction.md`
-6. `pwa/manual/8-3-l2-extraction-routines-spec.md`
-7. `pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md`
+2. `pwa/spec/3-14-monthly-work-agreement-current-spec.md`
+3. `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`
+4. `pwa/manual/7-1-reward-calc-spec.md`
+5. `pwa/manual/4-5-management-score-and-finance-simulation-spec.md`
+6. `pwa/manual/2-2-member-workflows-quick-start.md`
+7. `pwa/manual/6-6-member-billing-prompts-spec.md`
 8. `pwa/BUGS.md`
 9. `pwa/design_log/sessions_2026-06.md`
 
@@ -61,14 +65,16 @@ No real Slack DM was sent during verification. The Slack send path is implemente
 cd /Users/masa/projects/AMD/amd-os
 git fetch origin main
 git status -sb
-curl -sS https://amd-os-pwa.vercel.app/api/build-info
+git log --left-right --oneline main...origin/main
+curl -fsS https://amd-os-pwa.vercel.app/api/build-info
 ```
 
-Expected: production is `v0.28.13` / `e32d2bd2` or newer. If wiring H-1 automation, use `WORKFLOW_SECRET` and start with `dry_run=true`; switch to `send_slack=true` only when the task payload, target count, owner mapping, and rollback are clear.
+Expected: local `main` is aligned with `origin/main`; production is `v0.28.13` / `038d0e62...` / `dirty=false` or newer. If production is older/newer, inspect before making finance changes.
 
 ## Guardrails
 
-- Never use `git add .`.
-- Do not revert dirty files you did not create.
-- This flow writes `tasks` and optional owner Slack DMs only. It must not send Gmail, invite external attendees, or write Calendar events.
-- For PWA production deploys, `.vercel/project.json` must be `amd-os-pwa / prj_raZW3HSKIszzPUwNTHfy7xDGzLHm`.
+- Do not revert unrelated dirty files or other sessions' docs.
+- Do not use `git add .`.
+- For PWA production deploys, use `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` from repo root.
+- 月初合意 gate は報酬計算式に混ぜない。支払 action の直前に read gate として置く。
+- `stockYen` は月末未払い残高。支払予定でもPL原価でもない。

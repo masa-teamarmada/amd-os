@@ -698,3 +698,41 @@
 - production unauthenticated route smoke: `/api/task-calendar/register-tasks` は `401 unauthorized`
 
 **注意**: 検証では実 Slack DM は送っていない。H-1 automation 配線時はまず `dry_run=true` で payload / 重複 / owner Slack mapping を確認し、対象・件数・rollback・通知有無を明確にしてから `send_slack=true` にする。
+
+---
+
+### 2026-06-19 — /admin/payouts 先12か月表を目的別4表へ分解 (v0.28.13)
+
+**経緯**: まさが `/admin/payouts` / `/management-score` の先12か月表を見て、「入より出が大きいPJが増えている」「会社留保を増やせているかを見たいのに、支出に会社留保を入れる意味がわからない」と指摘。さらに SX の未払いストックが大きく見え、契約前稼働分の繰越として正しくても、後からまた理由を調べる設計になっていた。
+
+**対応**:
+- `/admin/payouts` と `/management-score` 下部の先12か月表を `キャッシュ支払` / `会社留保` / `報酬債務` / `cap超過チェック` の4表へ分解。
+- `キャッシュ支払` は非役員・支払通知対象メンバーへの外部支払だけを見る。会社留保は支出に混ぜない。
+- `会社留保` は `cap/売上枠 - 外部支払` として表示し、役員留保 (`regularCompanyReserveYen` / `extraCompanyReserveYen`) は内訳として読む。
+- `報酬債務` は `stockYen` の月末残高を各月残・ピーク・最終月残で見る。12か月分を合計しない。
+- `cap超過チェック` だけが `報酬需要 - cap/売上枠` を見る。
+- `computeForwardCappedMemberCosts` の戻り値に外部支払、会社留保、gross due、carry over を分けたフィールドを追加し、API `forecastCapped` へ返すようにした。
+- あき / ID029 は無報酬稼働のため、りり / ID006 と同じく `exclude_from_payout_notice=true` 対象として月初合意・支払通知書・支払 gate から除外する仕様を docs に追記した。
+
+**正本同期**:
+- `pwa/spec/3-14-monthly-work-agreement-current-spec.md`
+- `pwa/manual/2-2-member-workflows-quick-start.md`
+- `pwa/manual/4-5-management-score-and-finance-simulation-spec.md`
+- `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`
+- `pwa/manual/6-6-member-billing-prompts-spec.md`
+- `pwa/manual/7-1-reward-calc-spec.md`
+- `pwa/design/FEATURE_REGISTRY.md`
+- `pwa/design/project_pl_monthly.md`
+- `pwa/BUGS.md`
+- `pwa/manual/9-3-appendix-changelog.md`
+- `pwa/spec/6-1-appendix-changelog.md`
+
+**検証**:
+- `npx tsc --noEmit --pretty false`
+- targeted eslint
+- `npm run test:critical-ui`
+- `npm run build`
+- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`
+- production `/api/build-info`: `v0.28.13` / `038d0e62e048e07c7154872a527289f59b6e739d` / `dirty=false`
+
+**残課題**: logged-in UI smoke は auth redirect で未実施。次セッションで `/admin/payouts?ym=202606`、`/management-score`、`/monthly-agreement?ym=202606`、`/admin/monthly-work-agreements?ym=202606` を実画面確認する。あき / ID029 の DB/code 実反映も次セッションで確認・修正する。

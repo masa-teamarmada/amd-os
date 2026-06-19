@@ -24,7 +24,7 @@
 - `value_plan_cycles` / `value_milestones` / `milestone_responsibility` / `milestone_monthly_progress` から、当月の遂行対象、予定到達点、担当shareを読む。
 - 進捗は `milestone_monthly_progress` の非確定行を正本にせず、D-2と同じアンカー方式の月割りデフォルトをコード計算する。PM locked 行があればそれをアンカーにする。
 - `project_members` と `projects` から当月 active member / active project member を解く。`projects.status='frozen'` / `project_freeze_periods.status='active'` / `projects.freeze_from_ym <= ym` は報酬が発生しないため対象外。例: CTB p06 は `status='active'` だが 202605 から freeze overlay のため 202606 月初合意に出さない。
-- `members.exclude_from_payout_notice=true` のメンバーは月初合意対象外。例: りり / ID006 は NIMS 無償出向で報酬を受け取れないため `not_required` とし、admin一覧・合意保存・修正要望保存から外す。
+- `members.exclude_from_payout_notice=true` のメンバーは月初合意対象外。例: りり / ID006 (NIMS 無償出向) と あき / ID029 (無報酬稼働) は報酬を受け取れないため `not_required` とし、admin一覧・合意保存・修正要望保存から外す。
 - 合意時点で本人へ表示した内容を `snapshot_json` と `snapshot_hash` で保存する。
 - snapshot hash が変わったら本人/adminに「条件更新あり」と表示し、再合意対象にする。
 - 報酬キャッシュを再計算しない。通常 GET は読むだけ。

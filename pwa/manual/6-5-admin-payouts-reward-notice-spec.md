@@ -23,7 +23,7 @@ GAS 066 `A066_PayoutPaidRepo.js` の `admin_listPayoutYmCandidates` が、 admin
 4. 合計額 > 0 のメンバーを表示
 ```
 
-`exclude_from_payout_notice=true` のメンバー (= 例: りり / ID006 NIMS 無償出向) は通知書発行を skip。月初合意も `not_required` とし、admin の合意一覧・合意保存・修正要望保存の対象から外す。
+`exclude_from_payout_notice=true` のメンバー (= 例: りり / ID006 NIMS 無償出向、あき / ID029 無報酬稼働) は通知書発行を skip。月初合意も `not_required` とし、admin の合意一覧・合意保存・修正要望保存の対象から外す。
 
 ## 月次サイクル
 
@@ -78,7 +78,7 @@ MS / PlanCycle が未設定の PJ は報酬計算対象外。支払が必要な�
 
 `/admin/monthly-work-agreements?ym=YYYYMM` で、支払対象になりうる active member / active project member が当月の遂行内容・予定報酬に合意済みかを確認できる。ここで保存される `member_monthly_work_agreements` は月初計画 snapshot と hash の監査レイヤーで、`/admin/payouts` の報酬計算や支払通知書発行額を直接変更しない。
 
-`frozen` PJ は報酬が発生しないため、月初合意の対象PJから除外する。月初合意の予定報酬は `reward_summary_json.members[].basePay` / `breakdown[].payYen` を正本にし、月初合意用に月次予算を再配分しない。本人から届いた修正要望は `member_monthly_work_agreement_requests` に保存され、admin一覧の「修正要望」件数と各行の最新要望時刻で確認する。
+`frozen` PJ は報酬が発生しないため、月初合意の対象PJから除外する。月初合意の予定報酬は、当月の月次予算を当月の予定MS消化ptと active member 正規化 share で配分した **月初合意用の予定額** として算出する。これは支払通知書の `reward_summary_json.members[].totalPay` とは別の確認レイヤーで、本人から届いた修正要望は `member_monthly_work_agreement_requests` に保存され、admin一覧の「修正要望」件数と各行の最新要望時刻で確認する。
 
 admin一覧では合意用の予定報酬とは別に、`reward_summary_json.members[].totalPay` 由来の `今月支払` と `stockYen` 由来の `未払い残` を列で分けて表示する。`stockYen` は前月繰越も含む今月末の未払い残で、今月支払対象ではない。支払額・未払い残の計算正本は `/admin/payouts` / 報酬キャッシュ側にあり、月初合意一覧は監査・確認のための read-only 表示に留める。
 
