@@ -31,7 +31,7 @@ type KpiModule = {
 };
 
 type ViewMode = "overview" | "project";
-type FocusDock = "status" | "ms" | "monthly" | "actions" | "routine";
+type FocusDock = "status" | "ms" | "monthly" | "actions" | "ops";
 
 type RailPanelProps = {
   children: ReactNode;
@@ -390,10 +390,10 @@ const focusDockLabels: Record<FocusDock, string> = {
   ms: "MS / GOALS",
   monthly: "MONTHLY",
   actions: "ACTIONS",
-  routine: "ROUTINE",
+  ops: "OPS",
 };
 
-const focusDockOrder: FocusDock[] = ["status", "ms", "monthly", "actions", "routine"];
+const focusDockOrder: FocusDock[] = ["status", "ms", "monthly", "actions", "ops"];
 
 function CockpitSpatialCommand({
   project,
@@ -479,14 +479,13 @@ function CockpitSpatialWorkspace({
         {cockpit ? (
           <>
             <div className="hud-spatial-workspace__hint">
-              ACTIVE DOCK / {focusDockLabels[activeDock]}。この前景workspaceは元PJコックピットを同一画面内にマウントしているので、MS、月次、Kanban、Nudge、Routine各モーダルをそのまま操作できる。
+              ACTIVE DOCK / {focusDockLabels[activeDock]}。この前景workspaceは元PJコックピットを同一画面内にマウントしているので、MS、月次、Kanban、Nudgeをそのまま確認できる。
             </div>
             <div className="hud-spatial-workspace__cockpit">
               <CockpitView
                 cockpit={cockpit}
                 nudges={cockpit.nudges}
                 tasks={cockpit.tasks}
-                canEditRoutine
               />
             </div>
           </>
@@ -739,7 +738,7 @@ function ProjectFocusLayer({
   const msTexture = useMemo(() => createSpatialDockTexture("MS / GOALS", selected, getDockRows(selected, "ms"), activeDock === "ms"), [selected, activeDock]);
   const monthlyTexture = useMemo(() => createSpatialDockTexture("MONTHLY", selected, getDockRows(selected, "monthly"), activeDock === "monthly"), [selected, activeDock]);
   const actionsTexture = useMemo(() => createSpatialDockTexture("ACTIONS", selected, getDockRows(selected, "actions"), activeDock === "actions"), [selected, activeDock]);
-  const routineTexture = useMemo(() => createSpatialDockTexture("ROUTINE", selected, getDockRows(selected, "routine"), activeDock === "routine"), [selected, activeDock]);
+  const opsTexture = useMemo(() => createSpatialDockTexture("OPS", selected, getDockRows(selected, "ops"), activeDock === "ops"), [selected, activeDock]);
   const modeTexture = useMemo(() => createModeTexture(selected), [selected]);
 
   return (
@@ -785,9 +784,9 @@ function ProjectFocusLayer({
         }} />
       </RailPanel>
       <RailPanel position={[2.94, -2.18, 0.28]}>
-        <DockPanel texture={routineTexture} width={2.48} height={1.12} active={activeDock === "routine"} color="#ffad57" onClick={() => {
-          onDockChange("routine");
-          onOpenWorkspace("routine");
+        <DockPanel texture={opsTexture} width={2.48} height={1.12} active={activeDock === "ops"} color="#ffad57" onClick={() => {
+          onDockChange("ops");
+          onOpenWorkspace("ops");
         }} />
       </RailPanel>
       <RailPanel position={[-2.98, -2.88, 0.18]}>
@@ -1554,13 +1553,13 @@ function getFocusDockContent(project: ProjectModule, dock: FocusDock) {
         { title: "OWNER", value: clipText(actions.owner, "AMD"), sub: "execution owner" },
       ],
     },
-    routine: {
-      label: "MONTHLY OPS",
-      title: "report nudge / admin billing",
+    ops: {
+      label: "OPS",
+      title: "admin billing / cash state",
       subtitle: `${monthly.ym} report ${monthly.report} / invoice ${monthly.invoice}`,
       color: "#ffad57",
       blocks: [
-        { title: "REPORT", value: monthly.report, sub: "PM nudge only" },
+        { title: "REPORT", value: monthly.report, sub: "report state" },
         { title: "INVOICE", value: monthly.invoice, sub: "admin billing" },
         { title: "PAYMENT", value: monthly.payment, sub: "cash status" },
         { title: "BUDGET", value: monthly.budget, sub: "exception status" },
@@ -1611,7 +1610,7 @@ function getDockRows(project: ProjectModule, dock: FocusDock) {
         { label: "BLOCKER", value: actions.blocker || "clear" },
         { label: "OWNER", value: actions.owner },
       ];
-    case "routine":
+    case "ops":
       return [
         { label: "REPORT", value: monthly.report },
         { label: "INVOICE", value: monthly.invoice },

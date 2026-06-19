@@ -14,7 +14,6 @@ import {
 } from "@/lib/ers";
 import { fetchErsBundle, type ErsBundle } from "@/lib/ers-data";
 import { getInstitutionProjectLink, type InstitutionProjectLink } from "@/lib/institution-projects";
-import { createClient } from "@/lib/supabase/client";
 import {
   fetchCockpitFromSupabase,
   fetchProjectMeetingSummaries,
@@ -32,7 +31,6 @@ export default function InstitutionCockpitPage() {
   const [bundle, setBundle] = useState<ErsBundle | null>(null);
   const [cockpit, setCockpit] = useState<CockpitData | null>(null);
   const [meetings, setMeetings] = useState<ProjectMeetingSummary[]>([]);
-  const [canEditRoutine, setCanEditRoutine] = useState(false);
   const [state, setState] = useState<LoadingState>("loading");
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<InstitutionCockpitTab>("progress");
@@ -68,37 +66,6 @@ export default function InstitutionCockpitPage() {
     return () => {
       cancelled = true;
     };
-  }, [projectLink]);
-
-  useEffect(() => {
-    if (!projectLink) return;
-    (async () => {
-      try {
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user?.email) return;
-        const { data: member } = await supabase
-          .from("members")
-          .select("member_id, is_admin")
-          .eq("email", user.email)
-          .single();
-        if (!member) return;
-        if (member.is_admin) {
-          setCanEditRoutine(true);
-          return;
-        }
-        const { data: pm } = await supabase
-          .from("project_members")
-          .select("is_pm")
-          .eq("project_id", projectLink.projectId)
-          .eq("member_id", member.member_id)
-          .eq("is_active", true)
-          .maybeSingle();
-        setCanEditRoutine(Boolean(pm?.is_pm));
-      } catch {
-        setCanEditRoutine(false);
-      }
-    })();
   }, [projectLink]);
 
   const institution = useMemo(
@@ -173,7 +140,6 @@ export default function InstitutionCockpitPage() {
             cockpit={cockpit}
             nudges={cockpit.nudges || []}
             tasks={cockpit.tasks || []}
-            canEditRoutine={canEditRoutine}
           />
 
           <InstitutionMeetingTree projectLink={projectLink} meetings={meetings} />

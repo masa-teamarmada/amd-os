@@ -68,15 +68,6 @@ export const UI_HINTS: Record<string, UiHint> = {
   },
 
   // ──────────────────────────────────────
-  // 月次確認 (= CockpitRoutineGas)
-  // ──────────────────────────────────────
-  "cockpit.routine.reportFix": {
-    id: "cockpit.routine.reportFix",
-    title: "月次報告書確認",
-    body: "自動生成された月次報告書 draft について、PM に「これでいい？」の確認nudgeを出すだけのステップ。必要な場合だけ修正要望またはFIXを返す。",
-  },
-
-  // ──────────────────────────────────────
   // AMD スコアグラフ (= CockpitVentureStatus)
   // ──────────────────────────────────────
   "cockpit.amd-score.pill": {
@@ -145,7 +136,7 @@ export const UI_HINTS: Record<string, UiHint> = {
   "cockpit.header.status.frozen": {
     id: "cockpit.header.status.frozen",
     title: "❄️ 凍結中",
-    body: "PJ が freeze_from_ym 以降凍結状態。月次確認非表示、MS 進捗抽出停止。",
+    body: "PJ が freeze_from_ym 以降凍結状態。MS 進捗抽出停止。",
   },
   "cockpit.header.status.restart": {
     id: "cockpit.header.status.restart",

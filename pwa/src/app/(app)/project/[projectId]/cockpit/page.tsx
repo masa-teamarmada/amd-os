@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { CockpitView } from "@/components/cockpit/CockpitView";
 import { fetchCockpitFromSupabase, type CockpitData } from "@/lib/supabase-data";
-import { createClient } from "@/lib/supabase/client";
 
 export default function CockpitPage() {
   const params = useParams();
@@ -14,9 +13,6 @@ export default function CockpitPage() {
   const [cockpit, setCockpit] = useState<CockpitData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // 月次ルーティン操作権限 (PM 以外は表示のみ、まさ要望 2026-05-11)
-  // is_admin (= まさ) OR project_members.is_pm = TRUE の場合のみ true
-  const [canEditRoutine, setCanEditRoutine] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -31,35 +27,6 @@ export default function CockpitPage() {
         setError(err.message || "データ取得に失敗");
         setLoading(false);
       });
-
-    // PM 判定
-    (async () => {
-      try {
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user?.email) return;
-        const { data: m } = await supabase
-          .from("members")
-          .select("member_id, is_admin")
-          .eq("email", user.email)
-          .single();
-        if (!m) return;
-        if (m.is_admin) {
-          setCanEditRoutine(true);
-          return;
-        }
-        const { data: pm } = await supabase
-          .from("project_members")
-          .select("is_pm")
-          .eq("project_id", projectId)
-          .eq("member_id", m.member_id)
-          .eq("is_active", true)
-          .maybeSingle();
-        if (pm?.is_pm) setCanEditRoutine(true);
-      } catch {
-        // ignore — default: false (表示のみ)
-      }
-    })();
   }, [projectId]);
 
   if (loading) {
@@ -86,22 +53,16 @@ export default function CockpitPage() {
     );
   }
 
-  const stepParam = searchParams.get("step");
   const ymParam = searchParams.get("ym");
   const meetingParam = searchParams.get("meeting");
-  // ?step=xxx&ym=YYYYMM が両方あれば、stepId 別の専用モーダルを起動時に開く。
-  // 月次モーダルを開きたいときは ?ym だけ。
-  // ?meeting= がある場合は MTG詳細モーダルを優先し、月次系モーダルとの二重起動を避ける。
-  const initialStep = !meetingParam && stepParam && ymParam ? { ym: ymParam, stepId: stepParam } : null;
+  // ?meeting= がある場合は MTG詳細モーダルを優先し、月次モーダルとの二重起動を避ける。
 
   return (
     <CockpitView
       cockpit={cockpit}
       nudges={cockpit.nudges || []}
       tasks={cockpit.tasks || []}
-      initialModalYm={meetingParam || initialStep ? null : ymParam}
-      initialStep={initialStep}
-      canEditRoutine={canEditRoutine}
+      initialModalYm={meetingParam ? null : ymParam}
     />
   );
 }

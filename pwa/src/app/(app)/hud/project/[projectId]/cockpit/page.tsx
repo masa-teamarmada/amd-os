@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { HudCockpitView } from "@/components/hud/HudCockpitView";
 import { AAA_PROJECT_ID, aaaCockpitData } from "@/lib/demo-aaa-data";
-import { createClient } from "@/lib/supabase/client";
 import { fetchCockpitFromSupabase, type CockpitData } from "@/lib/supabase-data";
 
 export default function HudCockpitPage() {
@@ -14,12 +13,10 @@ export default function HudCockpitPage() {
   const [cockpit, setCockpit] = useState<CockpitData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [canEditRoutine, setCanEditRoutine] = useState(false);
 
   useEffect(() => {
     if (projectId === AAA_PROJECT_ID) {
       setCockpit(aaaCockpitData);
-      setCanEditRoutine(false);
       setLoading(false);
       setError(null);
       return;
@@ -35,34 +32,6 @@ export default function HudCockpitPage() {
         setError(err.message || "データ取得に失敗");
         setLoading(false);
       });
-
-    (async () => {
-      try {
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user?.email) return;
-        const { data: m } = await supabase
-          .from("members")
-          .select("member_id, is_admin")
-          .eq("email", user.email)
-          .single();
-        if (!m) return;
-        if (m.is_admin) {
-          setCanEditRoutine(true);
-          return;
-        }
-        const { data: pm } = await supabase
-          .from("project_members")
-          .select("is_pm")
-          .eq("project_id", projectId)
-          .eq("member_id", m.member_id)
-          .eq("is_active", true)
-          .maybeSingle();
-        if (pm?.is_pm) setCanEditRoutine(true);
-      } catch {
-        // default: read-only routine
-      }
-    })();
   }, [projectId]);
 
   if (loading) {
@@ -89,17 +58,13 @@ export default function HudCockpitPage() {
     );
   }
 
-  const stepParam = searchParams.get("step");
   const ymParam = searchParams.get("ym");
-  const initialStep = stepParam && ymParam ? { ym: ymParam, stepId: stepParam } : null;
 
   return (
     <div className="px-3 py-4">
       <HudCockpitView
         cockpit={cockpit}
-        initialModalYm={initialStep ? null : ymParam}
-        initialStep={initialStep}
-        canEditRoutine={canEditRoutine}
+        initialModalYm={ymParam}
       />
     </div>
   );

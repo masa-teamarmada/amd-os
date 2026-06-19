@@ -55,7 +55,7 @@ export interface MonthlyWorkAgreementProject {
   conditions: string[];
   reviewReasons: string[];
   milestones: MonthlyWorkAgreementMilestone[];
-  routineExpectations: string[];
+  operatingExpectations: string[];
 }
 
 export interface MonthlyWorkAgreementSnapshot {

@@ -8,7 +8,7 @@
  *  本 component は上部 3 列の集約パネルに専念:
  *    1. 通知センター (= 未読数 + 直近 titles)
  *    2. AMD Management Score (= total + 5 軸 + sparkline)
- *    3. 月次確認 / admin残タスク (= 最大 5 件、tone color)
+ *    3. いまやること (= 明示された actionItems のみ)
  *
  *  UI テイストは通常版維持 (= cyber は HUD だけ、通常 dashboard は素朴な card)。
  */
@@ -184,11 +184,11 @@ function MonthlyActionsCard({ items }: { items: DashboardActionItem[] }) {
   return (
     <section className="rounded-lg border border-border bg-card p-3 flex flex-col gap-1.5 min-h-[120px]">
       <div className="flex items-baseline gap-2">
-        <h2 className="text-sm font-semibold">月次確認 / admin残タスク</h2>
+        <h2 className="text-sm font-semibold">いまやること</h2>
         <span className="text-[10px] text-muted-foreground ml-auto">{items.length} 件</span>
       </div>
       {items.length === 0 ? (
-        <p className="text-xs text-muted-foreground my-auto text-center">残タスクなし ✓</p>
+        <p className="text-xs text-muted-foreground my-auto text-center">表示対象なし</p>
       ) : (
         <ul className="space-y-1">
           {items.map((it, i) => (
