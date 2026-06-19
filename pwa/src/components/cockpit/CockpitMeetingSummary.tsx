@@ -3,6 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { fetchProjectMeetingSummaries, type ProjectMeetingSummary } from "@/lib/supabase-data";
+import {
+  groupUpcomingMeetingsBySeries,
+  isPrepMeeting,
+  isTentativePrepMeeting,
+  isUpcomingMeeting,
+  type UpcomingMeetingSeries,
+} from "@/lib/meeting-series";
 import { CockpitMeetingDetailModal } from "./CockpitMeetingDetailModal";
 
 interface Props {
@@ -48,109 +55,6 @@ function todayJstIsoDate(): string {
   const now = new Date();
   const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   return jst.toISOString().slice(0, 10);
-}
-
-function isUpcomingMeeting(item: ProjectMeetingSummary): boolean {
-  const sourceKinds = sourceKindTokens(item.sourceKinds);
-  return sourceKinds.has("upcoming") && !sourceKinds.has("upcoming_tentative");
-}
-
-function isPrepMeeting(item: ProjectMeetingSummary): boolean {
-  const sourceKinds = sourceKindTokens(item.sourceKinds);
-  return item.meetingId.startsWith("upcoming:") || sourceKinds.has("upcoming") || sourceKinds.has("upcoming_tentative");
-}
-
-function isTentativePrepMeeting(item: ProjectMeetingSummary): boolean {
-  return isPrepMeeting(item) && !isUpcomingMeeting(item);
-}
-
-function sourceKindTokens(sourceKinds: string | null): Set<string> {
-  return new Set((sourceKinds || "").split("+").map((v) => v.trim()).filter(Boolean));
-}
-
-function normalizeUpcomingSeriesTitle(title: string): string {
-  return title
-    .normalize("NFKC")
-    .toLowerCase()
-    .replace(/\b\d{4}[-/.年]\d{1,2}[-/.月]\d{1,2}日?\b/g, " ")
-    .replace(/\b\d{1,2}:\d{2}\b/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function dayNumber(ymd: string): number {
-  const [year, month, day] = ymd.split("-").map((v) => Number(v));
-  if (!year || !month || !day) return Number.NaN;
-  return Math.floor(Date.UTC(year, month - 1, day) / 86400000);
-}
-
-function weekdayKey(ymd: string): string {
-  const d = new Date(`${ymd}T00:00:00+09:00`);
-  return Number.isNaN(d.getTime()) ? "unknown" : String(d.getDay());
-}
-
-function timeKey(item: ProjectMeetingSummary): string {
-  return item.meetingStartAt ? formatTimeLabel(item.meetingStartAt) : "";
-}
-
-function recurringSeriesId(item: ProjectMeetingSummary): string | null {
-  const raw = item.calendarEventId || item.meetingId.replace(/^upcoming:/, "");
-  const match = raw.match(/^(.+)_\d{8}(?:T\d{6}Z?)?$/);
-  return match?.[1] || null;
-}
-
-function upcomingSeriesKey(item: ProjectMeetingSummary): string {
-  const seriesId = recurringSeriesId(item);
-  if (seriesId) return `calendar-series:${item.projectId}:${seriesId}`;
-  return [
-    "fallback",
-    item.projectId,
-    normalizeUpcomingSeriesTitle(item.title) || "(untitled)",
-    weekdayKey(item.meetingDate),
-    timeKey(item),
-  ].join(":");
-}
-
-function hasWeeklyCadence(items: ProjectMeetingSummary[], hasCalendarSeriesId: boolean): boolean {
-  if (items.length < (hasCalendarSeriesId ? 2 : 3)) return false;
-  const ordered = [...items].sort((a, b) => {
-    const ad = a.meetingStartAt || `${a.meetingDate}T00:00:00+09:00`;
-    const bd = b.meetingStartAt || `${b.meetingDate}T00:00:00+09:00`;
-    return ad.localeCompare(bd);
-  });
-  let weeklyPairs = 0;
-  for (let i = 1; i < ordered.length; i += 1) {
-    const prev = dayNumber(ordered[i - 1].meetingDate);
-    const current = dayNumber(ordered[i].meetingDate);
-    if (!Number.isFinite(prev) || !Number.isFinite(current)) continue;
-    const diff = current - prev;
-    if (diff >= 6 && diff <= 8) weeklyPairs += 1;
-  }
-  const requiredPairs = hasCalendarSeriesId ? 1 : Math.max(2, Math.floor((ordered.length - 1) * 0.6));
-  return weeklyPairs >= requiredPairs;
-}
-
-function keepNextWeeklyOccurrenceOnly(items: ProjectMeetingSummary[]): ProjectMeetingSummary[] {
-  const groups = new Map<string, ProjectMeetingSummary[]>();
-  for (const item of items) {
-    const key = upcomingSeriesKey(item);
-    const group = groups.get(key) ?? [];
-    group.push(item);
-    groups.set(key, group);
-  }
-
-  const hiddenMeetingIds = new Set<string>();
-  for (const [key, group] of groups) {
-    if (!hasWeeklyCadence(group, key.startsWith("calendar-series:"))) continue;
-    const ordered = [...group].sort((a, b) => {
-      const ad = a.meetingStartAt || `${a.meetingDate}T00:00:00+09:00`;
-      const bd = b.meetingStartAt || `${b.meetingDate}T00:00:00+09:00`;
-      return ad.localeCompare(bd);
-    });
-    for (const item of ordered.slice(1)) hiddenMeetingIds.add(item.meetingId);
-  }
-
-  return items.filter((item) => !hiddenMeetingIds.has(item.meetingId));
 }
 
 interface MeetingGroup {
@@ -297,15 +201,10 @@ export function CockpitMeetingSummary({ projectId }: Props) {
     () => [...recentItems, ...olderItems].filter(isPrepMeeting),
     [recentItems, olderItems]
   );
-  const upcomingItems = useMemo(
-    () => keepNextWeeklyOccurrenceOnly(
-      recentItems
-        .filter((item) => isUpcomingMeeting(item) && item.meetingDate >= today)
-    ).sort((a, b) => {
-      const ad = a.meetingStartAt || `${a.meetingDate}T00:00:00+09:00`;
-      const bd = b.meetingStartAt || `${b.meetingDate}T00:00:00+09:00`;
-      return ad.localeCompare(bd);
-    }),
+  const upcomingSeries = useMemo(
+    () => groupUpcomingMeetingsBySeries(
+      recentItems.filter((item) => isUpcomingMeeting(item) && item.meetingDate >= today)
+    ),
     [recentItems, today]
   );
   const tentativeItems = useMemo(
@@ -353,11 +252,11 @@ export function CockpitMeetingSummary({ projectId }: Props) {
       <div className="mb-2.5 flex items-baseline justify-between gap-2">
         <h3 className="text-[13px] font-medium">MTGサマリ</h3>
         <div className="flex items-center gap-1.5">
-          {(upcomingItems.length > 0 || tentativeItems.length > 0) && (
+          {(upcomingSeries.length > 0 || tentativeItems.length > 0) && (
             <>
-            {upcomingItems.length > 0 && (
+            {upcomingSeries.length > 0 && (
               <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800">
-                予定 {upcomingItems.length}
+                予定 {upcomingSeries.length}
               </span>
             )}
             {tentativeItems.length > 0 && (
@@ -380,7 +279,7 @@ export function CockpitMeetingSummary({ projectId }: Props) {
 
       {loading ? (
         <p className="text-[12px] text-[#86868b]">読み込み中...</p>
-      ) : upcomingItems.length === 0 && tentativeItems.length === 0 && pastRecentItems.length === 0 && !showOlder ? (
+      ) : upcomingSeries.length === 0 && tentativeItems.length === 0 && pastRecentItems.length === 0 && !showOlder ? (
         <div className="space-y-2">
           <p className="text-[12px] text-[#86868b]">直近1年の議事録・予定MTGデータなし</p>
           <button
@@ -392,11 +291,11 @@ export function CockpitMeetingSummary({ projectId }: Props) {
         </div>
       ) : (
         <div className="flex flex-col gap-3 max-h-[480px] overflow-y-auto">
-          {upcomingItems.length > 0 && (
+          {upcomingSeries.length > 0 && (
             <UpcomingMeetingBlock
               title="予定MTG / 準備中"
               helper="決めること・準備物"
-              items={upcomingItems}
+              series={upcomingSeries}
               onSelect={openSelectedMeeting}
             />
           )}
@@ -465,7 +364,8 @@ export function CockpitMeetingSummary({ projectId }: Props) {
 interface UpcomingMeetingBlockProps {
   title: string;
   helper: string;
-  items: ProjectMeetingSummary[];
+  series?: UpcomingMeetingSeries[];
+  items?: ProjectMeetingSummary[];
   onSelect: (m: ProjectMeetingSummary) => void;
   tone?: "scheduled" | "tentative";
 }
@@ -473,7 +373,8 @@ interface UpcomingMeetingBlockProps {
 function UpcomingMeetingBlock({
   title,
   helper,
-  items,
+  series,
+  items = [],
   onSelect,
   tone = "scheduled",
 }: UpcomingMeetingBlockProps) {
@@ -494,7 +395,15 @@ function UpcomingMeetingBlock({
         <div className={helperClass}>{helper}</div>
       </div>
       <div className="flex flex-col gap-1.5">
-        {items.map((item) => (
+        {series?.map((group) => (
+          <MeetingRow
+            key={group.key}
+            item={group.next}
+            series={group}
+            onClick={() => onSelect(group.next)}
+          />
+        ))}
+        {!series && items.map((item) => (
           <MeetingRow
             key={item.meetingId}
             item={item}
@@ -533,9 +442,10 @@ function MeetingGroupBlock({ group, onSelect }: GroupProps) {
 interface RowProps {
   item: ProjectMeetingSummary;
   onClick: () => void;
+  series?: UpcomingMeetingSeries;
 }
 
-function MeetingRow({ item, onClick }: RowProps) {
+function MeetingRow({ item, onClick, series }: RowProps) {
   const isDialogue = item.meetingId.startsWith("dialogue:") || item.sourceKinds === "dialogue";
   const isUpcoming = isUpcomingMeeting(item);
   const isPrep = isPrepMeeting(item);
@@ -577,7 +487,7 @@ function MeetingRow({ item, onClick }: RowProps) {
           <div className="text-[12px] font-medium truncate flex items-center gap-1.5">
             {isUpcoming && (
               <span className="text-[9px] px-1 py-px rounded bg-amber-100 border border-amber-200 text-amber-800 shrink-0">
-                予定MTG
+                {series?.kind === "series" ? "シリーズ" : "予定MTG"}
               </span>
             )}
             {!isUpcoming && isPrep && (
@@ -595,6 +505,11 @@ function MeetingRow({ item, onClick }: RowProps) {
           {item.summaryShort && (
             <p className="mt-0.5 text-[11px] text-[#3c3c43] line-clamp-2 leading-snug">
               {item.summaryShort}
+            </p>
+          )}
+          {series?.kind === "series" && series.hiddenCount > 0 && (
+            <p className="mt-0.5 text-[10px] font-medium text-amber-800">
+              同シリーズ +{series.hiddenCount}
             </p>
           )}
         </div>

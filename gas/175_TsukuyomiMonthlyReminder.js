@@ -2,190 +2,12 @@
  * 175_TsukuyomiMonthlyReminder.gs
  *
  * 役割：
- * - 月次ルーティンのリマインド文面を生成する（毎回少し違う）
- * - PMをメンションして、PJのSlackチャンネルに投下する
- * - DB_TsukuyomiProfiles の lastRemindedAtJst を更新する
- *
- * 依存（存在すれば使う）：
- * - slackNotifyPostToChannel_（115_SlackNotify.gs）
- * - slackNotifyGetProjectChannelId_（115_SlackNotify.gs）
- * - b_readTableThin_ / b_readTable_（B_Sheets.gs）
- *
- * 方針：
- * - LLMが無い/呼べない環境でも、文面はバリエーション生成で毎回変える
- * - 「覚えてる感」は DB_TsukuyomiProfiles（avgCloseDay / lastClosedYm / stuckStatus / tone）から事実で出す
- * - うるさくしない（行動は1個）
+ * - PM向け月次リマインドは廃止済み。
+ * - 残っている install/cron 関数は既存トリガー削除用の no-op。
  */
 
 function admin_tsukuyomi_postMonthlyRoutineReminders(payload){
-  // 2026-05-03: つくよみのSlackルーティン通知は停止。通知はアプリ側へ移行する。
-  return { ok:true, disabled:true, posted:0, note:"Tsukuyomi Slack routine reminders are disabled; app notifications are the active path." };
-
-  payload = payload || {};
-  const dryRun = !!payload.dryRun;
-
-  const ym = payload.ym ? Number(payload.ym) : tsuNowYmJst();
-
-  // ★デフォは「全PJ」。テストしたいときだけ payload.projectId を渡す
-  const onlyProjectId = payload.projectId ? String(payload.projectId).trim() : "";
-
-  const cycles = tsuReadTableNormalized("DB_BillingCycle").rows;
-  const projects = tsuReadTableNormalized("DB_Projects").rows;
-  const members = tsuSafeReadMembers();
-  const profiles = tsuReadTableNormalized("DB_TsukuyomiProfiles").rows;
-
-  const projectById = {};
-  for (const p of projects){
-    const pid = String(p.projectId || "").trim();
-    if (pid) projectById[pid] = p;
-  }
-
-  const memberById = {};
-  for (const m of members){
-    const mid = String(m.memberId || m.id || "").trim();
-    if (mid) memberById[mid] = m;
-  }
-
-  const profileByKey = {};
-  for (const pr of profiles){
-    const k = String(pr.profileKey || "").trim();
-    if (k) profileByKey[k] = pr;
-  }
-
-  // 1) cycleを ym で引いて、projectIdごとに1件にまとめる
-  const cycleByProjectId = {};
-  for (const c of cycles){
-    const cYm = Number(c.ym || 0);
-    if (cYm !== ym) continue;
-    const pid = String(c.projectId || "").trim();
-    if (!pid) continue;
-
-    // もし複数あっても、updatedAt が新しそうな方を優先（雑でOK）
-    if (!cycleByProjectId[pid]){
-      cycleByProjectId[pid] = c;
-    } else {
-      const a = String(cycleByProjectId[pid].updatedAt || "").trim();
-      const b = String(c.updatedAt || "").trim();
-      if (b && (!a || b > a)) cycleByProjectId[pid] = c;
-    }
-  }
-
-  // 2) 対象PJを決める
-  const targetProjectIds = [];
-  if (onlyProjectId){
-    targetProjectIds.push(onlyProjectId);
-  } else {
-    for (const p of projects){
-      const pid = String(p.projectId || "").trim();
-      if (pid) targetProjectIds.push(pid);
-    }
-  }
-
-  const results = [];
-  const nowJst = tsuToJstIso(new Date());
-
-  for (const projectId of targetProjectIds){
-    const pj = projectById[projectId];
-    if (!pj){
-      results.push({ ok:false, projectId, ym, message:"project not found in DB_Projects" });
-      continue;
-    }
-
-    const pmMemberId = String(pj.pmMemberId || "").trim();
-    const pm = pmMemberId ? (memberById[pmMemberId] || null) : null;
-
-    const profileKey = projectId + ":" + pmMemberId;
-    const prof = profileByKey[profileKey] || null;
-
-    const slackChannelId = tsuGetProjectChannelId(pj);
-    if (!slackChannelId){
-      results.push({ ok:false, projectId, ym, message:"slack channel id not found" });
-      continue;
-    }
-
-    // ★cycleが無いなら status=none として扱う
-    const cycle = cycleByProjectId[projectId] || null;
-    const derivedStatus = cycle ? tsuDeriveMonthlyStatus(cycle) : "none";
-    if (derivedStatus === "closed"){
-      results.push({ ok:true, skipped:true, projectId, ym, reason:"already closed" });
-      continue;
-    }
-
-    const mention = tsuBuildPmMention(pm, pj);
-    const osUrl = tsuBuildOsBillingUrl(projectId, ym);
-
-    // ★ここで ctx を作って、build側が actionType を ctx に刺す
-    const msgCtx = {
-      projectId,
-      ym,
-      projectName: String(pj.projectName || "").trim(),
-      derivedStatus,
-      mention,
-      osUrl,
-      profile: prof
-    };
-
-    const text = tsukuyomi_buildMonthlyReminderMessage(msgCtx);
-    const actionType = String(msgCtx.__actionType || "").trim();
-
-    if (dryRun){
-      results.push({ ok:true, dryRun:true, projectId, ym, channel: slackChannelId, derivedStatus, actionType, text });
-      continue;
-    }
-
-    // 挨拶テキスト + 115のアクションボタンを1メッセージに統合
-    const blocks = [];
-    blocks.push({ type:"section", text:{ type:"mrkdwn", text: text } });
-
-    const routineMsg = (typeof slackNotifyBuildBillingRoutineMessage_ === "function")
-      ? slackNotifyBuildBillingRoutineMessage_(projectId, String(ym))
-      : null;
-
-    if (routineMsg && Array.isArray(routineMsg.blocks)){
-      blocks.push({ type:"divider" });
-      for (var bi = 0; bi < routineMsg.blocks.length; bi++){
-        blocks.push(routineMsg.blocks[bi]);
-      }
-    }
-
-    // 月次報告会スケジューリング（meetingStartAtが空なら追加）
-    var meetingNeeded = false;
-    if (cycle){
-      var mStart = String(cycle.meetingStartAt || "").trim();
-      if (!mStart) meetingNeeded = true;
-    }
-    if (meetingNeeded && typeof slackNotifyBuildMeetingScheduleMessage_ === "function"){
-      var meetMsg = slackNotifyBuildMeetingScheduleMessage_(projectId, String(pj.projectName || "").trim(), String(ym));
-      if (meetMsg && Array.isArray(meetMsg.blocks)){
-        blocks.push({ type:"divider" });
-        for (var mi = 0; mi < meetMsg.blocks.length; mi++){
-          blocks.push(meetMsg.blocks[mi]);
-        }
-      }
-    }
-
-
-
-    const postRes = slackNotifyPostToChannelTsukuyomi_(slackChannelId, {
-      text: text,
-      blocks: blocks
-    });
-
-    if (postRes && postRes.ok){
-      tsuUpsertTsukuyomiProfile({
-        profileKey,
-        projectId,
-        pmMemberId,
-        lastRemindedAtJst: nowJst,
-        lastActionType: actionType,
-        lastActionAtJst: nowJst
-      });
-    }
-
-    results.push({ ok: !!(postRes && postRes.ok), projectId, ym, channel: slackChannelId, derivedStatus, actionType, slack: postRes || null });
-  }
-
-  return { ok:true, ym, dryRun, count: results.length, results };
+  return { ok:true, disabled:true, posted:0, note:"PM monthly reminders are abolished; OS does not post them." };
 }
 
 /**
@@ -979,20 +801,15 @@ function cron_meetingScheduleReminder() {
 }
 function install_cron_meetingScheduleReminder() {
   var triggers = ScriptApp.getProjectTriggers();
+  var removed = 0;
   for (var i = 0; i < triggers.length; i++) {
     if (triggers[i].getHandlerFunction() === "cron_meetingScheduleReminder") {
       ScriptApp.deleteTrigger(triggers[i]);
+      removed++;
     }
   }
-  // 12:45〜13:00 の間に実行（tsukuyomiの他nudgeと同じ時間帯）
-  ScriptApp.newTrigger("cron_meetingScheduleReminder")
-    .timeBased()
-    .atHour(12)
-    .nearMinute(45)
-    .everyDays(1)
-    .inTimezone("Asia/Tokyo")
-    .create();
-  Logger.log("installed: cron_meetingScheduleReminder at 12:45 JST");
+  Logger.log("cron_meetingScheduleReminder disabled; removed triggers=" + removed);
+  return { ok: true, disabled: true, removed: removed };
 }
 
 // ================================================================
@@ -1192,19 +1009,15 @@ function _invoiceWf_postInvoicePreview_(projects, ym){
 /** トリガー設置（1回だけ手動実行） */
 function install_cron_invoiceWorkflowDaily() {
   var triggers = ScriptApp.getProjectTriggers();
+  var removed = 0;
   for (var i = 0; i < triggers.length; i++) {
     if (triggers[i].getHandlerFunction() === "cron_invoiceWorkflowDaily") {
       ScriptApp.deleteTrigger(triggers[i]);
+      removed++;
     }
   }
-  ScriptApp.newTrigger("cron_invoiceWorkflowDaily")
-    .timeBased()
-    .everyDays(1)
-    .atHour(12)
-    .nearMinute(45)
-    .inTimezone("Asia/Tokyo")
-    .create();
-  Logger.log("installed: cron_invoiceWorkflowDaily daily 12:45 JST");
+  Logger.log("cron_invoiceWorkflowDaily disabled; removed triggers=" + removed);
+  return { ok: true, disabled: true, removed: removed };
 }
 
 // ================================================================
@@ -1290,17 +1103,13 @@ function cron_reportFixReminder(){
 /** トリガー設置（1回だけ手動実行） */
 function install_cron_reportFixReminder() {
   var triggers = ScriptApp.getProjectTriggers();
+  var removed = 0;
   for (var i = 0; i < triggers.length; i++) {
     if (triggers[i].getHandlerFunction() === "cron_reportFixReminder") {
       ScriptApp.deleteTrigger(triggers[i]);
+      removed++;
     }
   }
-  ScriptApp.newTrigger("cron_reportFixReminder")
-    .timeBased()
-    .everyDays(1)
-    .atHour(12)
-    .nearMinute(45)
-    .inTimezone("Asia/Tokyo")
-    .create();
-  Logger.log("installed: cron_reportFixReminder daily 12:45 JST");
+  Logger.log("cron_reportFixReminder disabled; removed triggers=" + removed);
+  return { ok: true, disabled: true, removed: removed };
 }
