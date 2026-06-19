@@ -562,3 +562,42 @@
 **検証**: `npm exec tsc -- --noEmit`、`npm run build`、`npm run test:critical-ui` green。`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` で main push + production deploy 済み。live `/api/build-info` は `build_version=v0.27.6` / `git_sha=895a1bda427ae755298c7d5c01d188f4012abcde` / `dirty=false`。
 
 **正本同期**: `pwa/design/meeting_summaries.md`、`pwa/manual/2-3-pj-cockpit.md`、`pwa/design/FEATURE_REGISTRY.md`、`pwa/BUGS.md` に、MTG詳細Markdownの member link 契約と再発防止を追記。
+
+---
+
+### 2026-06-19 — SX reward cap / reserve buffer / officer reserve equal allocation (v0.28.1 / v0.28.3)
+
+**経緯**: `/admin/payouts` の「PJ別収支 / 予算チェック」で SX の支払が出ない・PJ予算と支払額が不自然に同額/0円になる件を調査。まさの運用前提は、契約開始前の4月/5月稼働は実在するので stock として扱う一方、SX立ち上げ前のまさ事前稼働80万円は AMD が回収してよい。ただし一括回収は強すぎるため **20万円ずつ4か月** に平準化し、さらに役員留保も他メンバーと同等に扱う、というもの。
+
+**対応1: 契約バッファの月次消化上限 (commit `1c4aa8c`, v0.28.1)**:
+- `contract-money.ts` に `companyReserveBufferMonthlyYen` 系キーを追加。`resolveContractReserveBufferYen` は「未消化残額」「当月 invoice×65%」「月次上限」の最小値を `budget_buffer_amount` にする。
+- SX(p21) の `projects.contract_terms_json` を `companyReserveBufferYen=800000`, `companyReserveBufferStartYm=202606`, `companyReserveBufferMonthlyYen=200000` に更新。
+- SX `billing_cycles` は 202606〜202609 が `budget_buffer_amount=200000`, `budget_yen=481200`、202610以降は `budget_buffer_amount=0`, `budget_yen=681200`。
+
+**対応2: 役員会社留保を先取りせず、通常cap按分に入れる (commit `ef84244`, v0.28.3)**:
+- `applyRewardCapsForMonth` で `companyReserveMemberIds` を `payoutExcludedMemberIds` に混ぜるのをやめ、役員も通常の `allocateCap` 入力へ入れる。
+- 役員に割り当たった `paidYen` は `companyReserveYen/officerReserveYen` へ振り替え、支払通知書 `totalPay` は0のまま `payoutExcluded=true`。役員の未充当分は `companyReserveUnfundedYen` に残し、翌月 stock へは繰り越さない。
+- `computeForwardCappedMemberCosts` も同じ考え方に合わせ、役員はcap配分に参加しつつ forecast 支払対象からは外す。
+
+**正本同期**:
+- `pwa/spec/5-6-contracts-management-current-spec.md`: 契約バッファ総額 + 月次上限、SX 80万円/20万円×4か月を記載。
+- `pwa/manual/7-1-reward-calc-spec.md`: `budget_buffer_amount` 優先、役員会社留保を通常cap按分に入れる式へ更新。
+- `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`: 支払通知書対象外の役員でも、cap按分で割り当たった分を会社留保に残すと明記。
+- `pwa/spec/6-1-appendix-changelog.md` / `pwa/manual/9-3-appendix-changelog.md`: 2026-06-19変更履歴を追記。
+- `pwa/BUGS.md`: deploy後に報酬キャッシュを最新コードで再計算確認する運用 lesson を追記。
+
+**検証**:
+- `npx tsc --noEmit --pretty false`
+- focused eslint (`reward-summary.ts`, `build-info.ts`, `AdminPayoutsClient.tsx`, `/api/admin/payouts/route.ts`) — error 0、既存 warning 2 件のみ (`fmtDeltaYen`, `budgetAuditBadge`)。
+- `npm run build`
+- `npm run test:critical-ui && npm run test:deploy-version-guard`
+- `bash pwa/scripts/deploy.sh --dry-run`
+- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`
+- production `/api/build-info`: `v0.28.3` / `ef84244e97b597235a77f90dc0789766259363eb` / `dirty=false`。
+
+**SX DB再計算結果 (production Supabase, p21)**:
+- 202606: `invoice=1048000`, `buffer=200000`, `budget=481200`, `totalPaySum=274169`, `companyReserveYen=207031`, `carryOverYen=722658`。
+- 202606 member: まさ留保 `207031`, かる支払 `136460`, ちこ支払 `137709`。
+- 202607〜202609 も `buffer=200000` のまま、役員留保と非役員支払が同じcap按分で配分される。
+
+**教訓**: `reward_summary_json` はキャッシュなので、報酬ロジックを変えたら deploy だけで終わらせない。production build が新SHAへ切り替わった後に対象PJの報酬キャッシュを再計算し、DBの対象月を再照合してから closeout する。

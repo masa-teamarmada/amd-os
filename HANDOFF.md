@@ -1,87 +1,74 @@
 # HANDOFF - AMD OS
 
-- Last updated: 2026-06-04 (KUTE重複解消 / institution labels / company content復元)
-- Current workspace: `/Users/masa/.codex/worktrees/4507/amd-os`
+- Last updated: 2026-06-19 (SX / admin payouts reward cap)
 - Canonical root: `/Users/masa/projects/AMD/amd-os`
-- PWA root: `pwa/`
+- Clean current-truth checkout used for this session: `/Users/masa/.codex/tmp/amd-os-sx-reserve-deploy`
 - Production URL: `https://amd-os-pwa.vercel.app`
-- Current HEAD in this worktree: handoff/doc sync commit (`docs: hand off KUTE institution deploy`; run `git log -1 --oneline` for the exact hash)
-- Branch state: detached worktree (`HEAD`), no git push from this worker
+- Functional production proof: `v0.28.3` / `ef84244e97b597235a77f90dc0789766259363eb` / `dirty=false`
+- Default branch alignment: `main aligned` at functional closeout (`origin/main` contained `ef84244`; later handoff-only commits may advance the SHA without changing `BUILD_VERSION`)
 
 ## Latest Session Summary
 
-Details are in `pwa/design_log/sessions_2026-06.md` under `2026-06-04 — KUTE重複解消 / v0.15.3復元 / 研究機関カード表示名`.
+Details are appended in `pwa/design_log/sessions_2026-06.md` under `2026-06-19 — SX reward cap / reserve buffer / officer reserve equal allocation`.
 
-- KUTE (`p25`) is no longer shown in the normal Dashboard PJ list. It is shown through the institution ERS list and routed to `/institutions/inst_kute/cockpit`.
-- `inst_kute -> p25` was added so the institution cockpit can mount the existing KUTE PJ cockpit content without deleting either PJ content or ERS content.
-- Existing NIMS route `inst_nims -> p20` remains intact.
-- Institution ERS list is back in the left/main Dashboard column immediately below the PJ list.
-- Institution cards use PJ-style titles: `KUTE` / `KGW` / `NIMS`; subtitles: `工学院大学` / `香川大学` / `物質・材料研究機構`.
-- The `019e9176` company content landing zone was restored: `/company`, `/admin/company`, migration draft `124_company_content_tables.sql`, dashboard shelf fallback, and dry-run docs.
-- Runtime version deployed: `BUILD_VERSION = "v0.15.5"`.
-
-## Deployment / Verification
-
-- Production Ready: `https://amd-os-pwa.vercel.app`
-- Deployment id: `dpl_42byLRKSTZEfrQGo5bDfWargtUyx`
-- Inspect URL: `https://amd-os-788b8fwh1-armada0130.vercel.app`
-
-Commands observed OK:
-
-```sh
-cd /Users/masa/.codex/worktrees/4507/amd-os/pwa
-npx eslint src/components/dashboard/InstitutionReadinessList.tsx src/lib/build-info.ts
-npx tsc --noEmit
-npm run test:critical-ui
-npm run build
-```
-
-Smoke checks observed OK:
-
-- local `/dashboard`, `/institutions/inst_kute/cockpit`, `/company`: login redirect / status 200 / Runtime Error false
-- production `/dashboard`, `/institutions/inst_kute/cockpit`, `/company`: login redirect / status 200 / Runtime Error false
+- `/admin/payouts` の SX(p21) PJ別収支 / 予算チェックを調査し、契約前稼働・契約バッファ・役員会社留保・非役員支払の関係を整理した。
+- 契約バッファは `companyReserveBufferYen=800000` / `companyReserveBufferMonthlyYen=200000` / `companyReserveBufferStartYm=202606` とし、202606〜202609 に20万円ずつ消化する共通ロジックへ変更済み。
+- 役員留保は非役員支払より先取りしない。`members.is_officer=true` も通常の月次cap按分に入れ、割当分だけ `companyReserveYen/officerReserveYen` に振り替え、支払通知書 `totalPay` は0のまま除外する。
+- SX `billing_cycles.reward_summary_json` は本番DBで再計算済み。202606 は `buffer=200000`, `budget=481200`, `totalPaySum=274169`, `companyReserveYen=207031`。
+- 202606 メンバー別: まさ留保 `207031`, かる支払 `136460`, ちこ支払 `137709`。
+- 本番 deploy 済み。`/api/build-info` で `v0.28.3` / `ef84244...` / `dirty=false` を確認済み。
 
 ## Repo State
 
-Unpushed local commits in this worktree:
+- Current clean checkout: `/Users/masa/.codex/tmp/amd-os-sx-reserve-deploy`
+- Branch: `main`
+- Functional HEAD before this handoff update: `ef84244 Treat officer reserve as equal cap allocation`
+- Upstream: `origin/main`
+- Dirty state in clean checkout: none, except ignored local artifacts `pwa/.next` and `pwa/node_modules`; `ios/supabase/.temp/project-ref` is present and should be treated as local Supabase link state.
+- Canonical local checkout `/Users/masa/projects/AMD/amd-os` is not clean and is stale (`c0a7e5dc`, ahead 1 / behind 7 at closeout inventory). It contains many unrelated dirty files and should not be used for implementation until a separate owner resolves or carries them forward.
 
-- `039a823 fix(pwa): restore institution list placement and KUTE routing`
-- `ac13324 feat(company): restore Notion content landing zone`
-- `40f021b fix(dashboard): use project labels for institutions`
-- current handoff/doc sync commit (`docs: hand off KUTE institution deploy`)
+## Verification Observed
 
-Important boundary:
+Commands run from `/Users/masa/.codex/tmp/amd-os-sx-reserve-deploy/pwa`:
 
-- No DB row deletion.
-- No destructive migration.
-- `pwa/scripts/migrations/124_company_content_tables.sql` is included as migration draft/landing-zone schema only. This worker did not apply production DB migration or import Notion content.
-- No git push.
+```sh
+npx tsc --noEmit --pretty false
+npx eslint src/lib/reward-summary.ts src/lib/build-info.ts src/components/admin/AdminPayoutsClient.tsx src/app/api/admin/payouts/route.ts
+npm run build
+npm run test:critical-ui && npm run test:deploy-version-guard
+bash pwa/scripts/deploy.sh --dry-run
+AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh
+```
+
+Notes:
+
+- focused eslint had 0 errors and 2 pre-existing warnings in `AdminPayoutsClient.tsx` (`fmtDeltaYen`, `budgetAuditBadge` unused).
+- SX reward summaries were recomputed with `scripts/backfill_reward_summaries.ts --project=p21` after production switched to `v0.28.3`.
 
 ## Unresolved Tasks
 
-- None for the KUTE duplicate / institution label runtime path.
-- Optional next release item: apply/import company content tables when Masa explicitly approves DB migration + Notion import scope.
-- Optional next cleanup: push these commits after deploy bundle approval, because git-connected Vercel auto-deploy may run on push.
+- None for the SX payout/reserve logic delivered in this session.
+- Operational follow-up: classify and resolve the unrelated dirty state in `/Users/masa/projects/AMD/amd-os` before treating that local checkout as a safe work root.
+- Optional cleanup: decide whether the temporary clean checkout `/Users/masa/.codex/tmp/amd-os-sx-reserve-deploy` should be removed after another clean clone/fresh checkout is available.
 
 ## First Next Action
 
 ```sh
-cd /Users/masa/.codex/worktrees/4507/amd-os
-git status -sb
-git log --oneline -8
-git diff --stat origin/main...HEAD
+cd /Users/masa/projects/AMD/amd-os
+bash /Users/masa/.codex/skills/closeout/scripts/closeout_inventory.sh /Users/masa/projects/AMD/amd-os
 ```
 
-If preparing to push, make a deploy bundle first and get Masa approval immediately before the push.
+If continuing payout work immediately, prefer a fresh clean checkout based on `origin/main` or use `/Users/masa/.codex/tmp/amd-os-sx-reserve-deploy` after confirming `git status -sb` is clean and `git rev-parse HEAD == git rev-parse origin/main`.
 
 ## First Read Next Session
 
-1. `AGENTS.md`
-2. `CLAUDE.md`
-3. `pwa/AGENTS.md`
-4. `pwa/CLAUDE.md`
-5. `pwa/design_log/sessions_2026-06.md`
-6. `pwa/design/FEATURE_REGISTRY.md`
-7. `pwa/design/SPEC_pwa.md`
-8. `pwa/manual/4-9-institution-ers-spec.md`
-9. `pwa/BUGS.md`
+1. `HANDOFF.md`
+2. `pwa/spec/5-6-contracts-management-current-spec.md`
+3. `pwa/manual/7-1-reward-calc-spec.md`
+4. `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`
+5. `pwa/BUGS.md`
+6. `pwa/design_log/sessions_2026-06.md`
+7. `AGENTS.md`
+8. `CLAUDE.md`
+9. `pwa/AGENTS.md`
+10. `pwa/CLAUDE.md`

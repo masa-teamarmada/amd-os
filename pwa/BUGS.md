@@ -5,6 +5,16 @@
 
 ---
 
+### [finance] SX報酬ロジック変更後、production切替前後に古い `reward_summary_json` が残り一時的に6月支払が0円へ戻った (2026-06-19)
+
+- **状態**: クローズ (2026-06-19 — `v0.28.3` production切替後に SX `p21` の `billing_cycles.reward_summary_json` を再計算し、202606 の支払/留保が新ロジックに戻ったことをDBで確認)。
+- **症状**: 役員会社留保を通常cap按分に入れる修正後、いったん SX 202606 は `totalPaySum=274169`, `companyReserveYen=207031` になった。しかし deploy 完了直後の最終DB確認で、同じ 202606 が旧優先配分の `totalPaySum=0`, `companyReserveYen=481200` に戻っていた。
+- **原因**: `billing_cycles.reward_summary_json` は計算結果キャッシュであり、コード変更だけでは既存行が自動で新式へ置き換わらない。さらに deploy 切替前後に手動 refresh / cron / 別セッションの旧コード refresh が走ると、最新コード確認前の計算結果でキャッシュが上書きされる可能性がある。今回どの writer が戻したかは未確認だが、「コード deploy」と「報酬キャッシュ再計算」は別工程だった。
+- **解決内容**: production `/api/build-info` が `v0.28.3` / `ef84244...` / `dirty=false` へ切り替わったことを確認した後、`scripts/backfill_reward_summaries.ts --project=p21` を新ロジック checkout から再実行し、SX 15 cycles を再同期した。再確認で 202606 は `buffer=200000`, `budget=481200`, `totalPaySum=274169`, `companyReserveYen=207031`, `carryOverYen=722658`。メンバー別は まさ留保 `207031`, かる支払 `136460`, ちこ支払 `137709`。
+- **再発防止**: 報酬ロジック (`reward-summary.ts`, `contract-money.ts`, payout cap) を変えたら、deploy 後に対象PJ/期間の `billing_cycles.reward_summary_json` を最新コードで再計算し、DBから対象月の `totalPaySum/companyReserveYen/carryOverYen/members[]` を再照合する。`/api/build-info` が新SHAへ切り替わる前の再計算結果を最終確認にしない。
+
+---
+
 ### [finance] `/management-score` キャッシュ残高(予算)で別財布売上のPL按分月を入金月として扱い、実績残高と大きく乖離した (2026-06-18)
 
 - **状態**: クローズ (2026-06-18 — PL按分とキャッシュ入金を分離、チャート線種も実績=実線/予算=破線へ修正)。
