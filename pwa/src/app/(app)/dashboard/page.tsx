@@ -12,7 +12,6 @@ import {
 } from "@/components/dashboard/CompanyContentShelf";
 import {
   DashboardScoreOverview,
-  type DashboardActionItem,
   type DashboardManagementScoreSnapshot,
 } from "@/components/dashboard/DashboardScoreOverview";
 import type { DashboardPrimarySnapshot } from "@/components/dashboard/DashboardGrid";
@@ -56,7 +55,6 @@ function isDashboardProjectListItem(project: DashProject) {
 export default function DashboardPage() {
   const [projects, setProjects] = useState<DashProject[]>([]);
   const [billingStatus, setBillingStatus] = useState<Record<string, DashBillingStatus>>({});
-  const [actionItems, setActionItems] = useState<DashboardActionItem[]>([]);
   const [scoreHistory, setScoreHistory] = useState<Record<string, number[]>>({});
   const [primarySnapshots, setPrimarySnapshots] = useState<Record<string, DashboardPrimarySnapshot>>({});
   const [managementScore, setManagementScore] = useState<DashboardManagementScoreSnapshot | null>(null);
@@ -122,10 +120,6 @@ export default function DashboardPage() {
       setProjects(projectsValue);
       setBillingStatus(billingValue);
 
-      if (projRes.status === "fulfilled" && billRes.status === "fulfilled") {
-        setActionItems(buildMonthlyRoutineActions(projectsValue, billingValue));
-      }
-
       if (scoreRes.status === "fulfilled") {
         setScoreHistory(scoreRes.value.history);
         setPrimarySnapshots(scoreRes.value.primary);
@@ -184,7 +178,7 @@ export default function DashboardPage() {
           <DashboardScoreOverview
             managementScore={managementScore}
             managementHistory={managementHistory}
-            actionItems={actionItems}
+            actionItems={[]}
           />
           <DashboardGrid
             projects={dashboardProjects}
@@ -637,46 +631,6 @@ async function fetchMyProjectIds(supabase: ReturnType<typeof createClient>): Pro
 function visibleScoreInputs(rows: Awaited<ReturnType<typeof fetchAllAmdScoreInputs>>) {
   const today = new Date().toISOString().slice(0, 10);
   return rows.filter((row) => row.evaluated_at.slice(0, 10) <= today);
-}
-
-function buildMonthlyRoutineActions(projects: DashProject[], billingStatus: Record<string, DashBillingStatus>): DashboardActionItem[] {
-  const byProject = new Map(projects.map((p) => [p.projectId, p]));
-  const items: DashboardActionItem[] = [];
-  for (const [projectId, cycle] of Object.entries(billingStatus)) {
-    const project = byProject.get(projectId);
-    const base = {
-      meta: `${projectId} / PENDING`,
-      periodLabel: monthLabel(cycle.ym),
-      projectInitials: project ? projectInitials(project.shortLabel || project.projectName, project.projectId) : initialsFromProjectId(projectId),
-      projectId,
-    };
-    if (!cycle.reportDone) items.push({ ...base, title: "月次報告書確認", tone: "amber" });
-    if (!cycle.invoiceDone) items.push({ ...base, title: "admin請求書送付", tone: "amber" });
-    if (!cycle.paymentDone && cycle.invoiceDone) items.push({ ...base, title: "入金確認", tone: "red" });
-  }
-  return items.slice(0, 5);
-}
-
-function monthLabel(ym?: string | null) {
-  if (!ym || ym.length < 6) return currentMonthLabel();
-  return `${ym.slice(0, 4)}.${ym.slice(4, 6)}`;
-}
-
-function currentMonthLabel() {
-  const now = new Date();
-  return `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function initialsFromProjectId(projectId?: string | null) {
-  if (!projectId) return "AM";
-  return projectId.replace(/^p/i, "P").slice(0, 3).toUpperCase();
-}
-
-function projectInitials(projectName: string, projectId: string) {
-  const ascii = projectName.match(/[A-Za-z0-9]+/g)?.join(" ") ?? "";
-  if (ascii.trim() && !ascii.includes(" ") && ascii.trim().length <= 5) return ascii.trim().toUpperCase();
-  if (ascii.trim()) return ascii.split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
-  return initialsFromProjectId(projectId);
 }
 
 function oneRelation<T>(value: T | T[] | null | undefined): T | null {

@@ -22,8 +22,6 @@ import {
 import {
   fetchBillingStatusFromSupabase,
   fetchProjectsFromSupabase,
-  type DashBillingStatus,
-  type DashProject,
 } from "@/lib/supabase-data";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -39,14 +37,6 @@ type ManagementSnapshot = {
   pipeline_score: number | null;
   direction_score: number | null;
   confidence: number | null;
-};
-
-type ActionItem = {
-  title: string;
-  meta: string;
-  periodLabel: string;
-  projectInitials: string;
-  tone: "cyan" | "amber" | "red";
 };
 
 function getCurrentYm(): string {
@@ -79,7 +69,6 @@ export async function GET(req: NextRequest) {
       buildScoreData(),
       fetchManagementHistory(admin),
     ]);
-    const actionItems = buildMonthlyRoutineActions(projects, billingStatus);
 
     return NextResponse.json({
       ok: true,
@@ -90,7 +79,7 @@ export async function GET(req: NextRequest) {
       signalMetrics: scoreBundle.metrics,
       managementScore: managementHistory[managementHistory.length - 1] ?? null,
       managementHistory,
-      actionItems,
+      actionItems: [],
     });
   } catch (e) {
     return NextResponse.json(
@@ -159,47 +148,4 @@ function normalizeManagement(row: Record<string, unknown>): ManagementSnapshot {
     direction_score: num(row.direction_score),
     confidence: num(row.confidence),
   };
-}
-
-// ---- Next Action Queue (page.tsx buildMonthlyRoutineActions と同一) ----
-function buildMonthlyRoutineActions(
-  projects: DashProject[],
-  billingStatus: Record<string, DashBillingStatus>
-): ActionItem[] {
-  const byProject = new Map(projects.map((p) => [p.projectId, p]));
-  const items: ActionItem[] = [];
-  for (const [projectId, cycle] of Object.entries(billingStatus)) {
-    const project = byProject.get(projectId);
-    const base = {
-      meta: `${projectId} / PENDING`,
-      periodLabel: monthLabel(cycle.ym),
-      projectInitials: project
-        ? projectInitials(project.shortLabel || project.projectName, project.projectId)
-        : initialsFromProjectId(projectId),
-    };
-    if (!cycle.reportDone) items.push({ ...base, title: "月次報告書確認", tone: "amber" });
-    if (!cycle.invoiceDone) items.push({ ...base, title: "admin請求書送付", tone: "amber" });
-    if (!cycle.paymentDone && cycle.invoiceDone) items.push({ ...base, title: "入金確認", tone: "red" });
-  }
-  return items.slice(0, 5);
-}
-
-function monthLabel(ym?: string | null): string {
-  if (!ym || ym.length < 6) {
-    const now = new Date();
-    return `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, "0")}`;
-  }
-  return `${ym.slice(0, 4)}.${ym.slice(4, 6)}`;
-}
-
-function initialsFromProjectId(projectId?: string | null): string {
-  if (!projectId) return "AM";
-  return projectId.replace(/^p/i, "P").slice(0, 3).toUpperCase();
-}
-
-function projectInitials(projectName: string, projectId: string): string {
-  const ascii = projectName.match(/[A-Za-z0-9]+/g)?.join(" ") ?? "";
-  if (ascii.trim() && !ascii.includes(" ") && ascii.trim().length <= 5) return ascii.trim().toUpperCase();
-  if (ascii.trim()) return ascii.split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
-  return initialsFromProjectId(projectId);
 }
