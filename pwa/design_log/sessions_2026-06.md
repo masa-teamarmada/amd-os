@@ -798,3 +798,30 @@ SX(p21, 愛媛大PSI Step2 令和8年度)で旅費を別請求できないこと
 
 ### deploy 注記
 deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifications.md)でhard-stop → あたしの3ファイルのみcommit(1dea41fd)→直push→本番 v0.28.17 反映確認。上記3ファイル(別件dirty)は未commitのまま残置。
+
+---
+
+### 2026-06-19 — シーズン予実表 /admin/season-pl 実装 (v0.29.0)
+
+**経緯**: pt単価是正・役員stock繰越是正 (前セクション) で確定した「入金と配分が閉じているか」を全PJで見える化する安全網。設計正本 `design/season_budget_actual.md` の §5 実装ステップを完遂。
+
+**やったこと**:
+- migration `148_value_plan_cycle_buffer_breakdown.sql`: `value_plan_cycles.buffer_breakdown_json jsonb` 追加 → `apply_ddl.py` で本番適用 → `dump_schema.py` 再生成。
+- `src/lib/season-pl.ts` `computeSeasonPl` 純関数: plan cycle → {①収入(請求額/入金確認) ②配分(バッファ内訳/原資/AMDマージン/閉じ検算) ③メンバー別pt比予実 検算フラグ} を返す。`reward-summary.ts` の `buildRewardSummary` を cycle 全期間に月次集約 (cap + stock 繰越連鎖は内部で効く)。member の earnedPt/paid は単月値なので各月合算、stock は最終月 snapshot。
+- API `GET /api/admin/season-pl` (`mode=list` 全 active cycle / `?planCycleId=` で `mode=detail`)。`requireAdmin` ゲート。
+- ページ `/admin/season-pl` + `AdminSeasonPlClient.tsx` (一覧→行クリックで詳細)。AdminSidebar に `シーズン予実` 導線。
+- SX `PC-p21-202604` に `buffer_breakdown_json` = {営業80万, 旅費100万} 投入。
+- `FEATURE_REGISTRY.md` に `/admin/season-pl` 契約追加 + `check_pwa_critical_ui.cjs` anchor。
+
+**検算定義の修正 (設計→実装で是正)**:
+- 未割当pt は `Σ(earnedPt) < total_points` だと期中に必ず誤検知するため `total_points − Σ(MS points)` に変更。担当者share 0 の宙吊り MS も検出。
+
+**実データ検証 (production Supabase, 全 active cycle)**:
+- SX (p21): closes/原資=Σcap/pt単価/役員収束すべて✅。**未割当 1pt** (total 120 vs MS 119) のみ検出。members は paid+stock≈earnedPt×pt単価 でほぼ収束 (delta ±2円)。
+- ZMP (p19): **原資≠Σ月cap** (Σcap 3,663,645 > 原資 2,340,000, 差 −1,323,645) + 役員stock非収束 (まさ stock 39,809残) + 未割当10pt → 設計が予言した ZMP cap/原資不整合をそのまま検出。別財布(OkuDoor)capがΣcapを押し上げる構造。
+- KUTE (p25): **閉じない** + **pt単価不整合** (原資 720万 ≈ 請求 720万 = (請求×65%)になっていない設定異常)。
+- p00/CX: 予算未設定でも graceful (全green or 妥当な警告)。
+
+**検証**: `npx tsc --noEmit` / targeted eslint error 0 / `npm run test:critical-ui` ✅ / `npm run build` (`/admin/season-pl` `/api/admin/season-pl` route 生成確認) / dev server で route 401 (requireAdmin) 正常動作確認。
+
+**残課題 (前セクションのステップ3監査へ合流)**: SX 1pt 穴 (MS補完 or total_points→119)、ZMP cap/原資不整合の是正、KUTE budget_yen 設定異常の是正。いずれも予実表が検知役を果たすので、監査セッションで 1 件ずつ詰める。

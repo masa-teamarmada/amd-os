@@ -20,6 +20,7 @@ const ADMIN_TABS = [
   { label: "Billing", href: "/admin/billing" },
   { label: "Payouts", href: "/admin/payouts" },
   { label: "月初合意", href: "/admin/monthly-work-agreements" },
+  { label: "シーズン予実", href: "/admin/season-pl" },
   { label: "Finance", href: "/admin/finance" },
   { label: "📄 知財 / IP", href: "/admin/ip" },
   { label: "Settings", href: "/admin/settings" },

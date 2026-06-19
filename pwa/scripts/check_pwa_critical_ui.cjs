@@ -608,6 +608,59 @@ expectIncludes("../gas/155_L2KnowledgeExtractor.js", [
   "承認されるまで正本反映しない",
 ]);
 
+// /admin/season-pl — シーズン予実表 (Season Budget vs Actual)
+expectIncludes("src/lib/season-pl.ts", [
+  "export function computeSeasonPl",
+  "buffer_breakdown_json",
+  "ptFullyAssigned",
+  "unassignedPt",
+  "unownedMilestones",
+  "budgetMatchesMonthlyCaps",
+  "officerStockConverges",
+  "ptUnitConsistent",
+  "memberBudgetYen",
+  "amdMarginYen",
+  // 未割当pt は total_points − Σ(MS points) で見る (earnedPt < total_points へ戻さない)
+  "msPointsSum",
+]);
+
+expectIncludes("src/app/api/admin/season-pl/route.ts", [
+  "computeSeasonPl",
+  "value_plan_cycles",
+  "buffer_breakdown_json",
+  "planCycleId",
+  "mode: \"list\"",
+  "mode: \"detail\"",
+]);
+
+expectIncludes("src/components/admin/AdminSeasonPlClient.tsx", [
+  "/api/admin/season-pl",
+  "閉じ検算",
+  "未割当pt",
+  "原資=Σ月cap",
+  "役員stock収束",
+  "メンバー原資",
+  "AMD マージン",
+  "mypage?memberId=",
+]);
+
+expectIncludes("src/app/(app)/admin/season-pl/page.tsx", [
+  "シーズン予実表",
+  "AdminSeasonPlClient",
+]);
+
+expectIncludes("src/components/admin/AdminSidebar.tsx", [
+  "シーズン予実",
+  "/admin/season-pl",
+]);
+
+expectIncludes("design/FEATURE_REGISTRY.md", [
+  "/admin/season-pl",
+  "computeSeasonPl",
+  "buffer_breakdown_json",
+  "役員stock収束",
+]);
+
 require("./check_payout_notice_pdf_golden.cjs");
 
 console.log("critical PWA UI anchors ok");

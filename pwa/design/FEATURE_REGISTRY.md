@@ -57,6 +57,25 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - 改善版PDFを意図的に更新したら、まさが新PNGを目視確認したうえで `payout_notice_golden.png` と `payout_notice_golden.png.sha256` を再生成して commit する。新規 PDF を PNG 化したファイルとの突合は `npm run test:payout-notice-pdf -- --diff <input.png>` で同じスクリプトを再利用する。
 - この画面で UI を削る変更は、`FEATURE_REGISTRY.md` と `SPEC_pwa.md` を同時に更新する。
 
+## /admin/season-pl
+
+目的: 1 PJ × 1 シーズン (plan cycle) ごとに「請求額がいくらで、内訳がどうで、差し引きどうなるか」を全 PJ で常時確認できる予実表。シーズン頭に「予算」を確定し、毎月の入金・支払で「実績」が埋まる。pt単価過大・未割当pt・cap/原資不整合 (ZMP)・役員 stock 非収束といった歪みを、まさが不安なく一目で検知できる安全網にする。設計正本は `pwa/design/season_budget_actual.md`。
+
+必須機能:
+
+- 一覧 + 詳細の 2 段: 一覧トップは全 active plan cycle を 1 行ずつ (PJ / 請求額 / バッファ / 原資 / pt単価 / 閉じ✓✗ / 未割当pt / 原資=Σcap / 役員収束) で出し、警告ありの行を上に持ち上げる。行クリックで①収入②配分③メンバー別のフル予実表を出す。
+- 集計の正本ロジック: `src/lib/season-pl.ts` の `computeSeasonPl` 純関数。`reward-summary.ts` の月次集計 (`buildRewardSummary`) を plan cycle 全期間に集約し、cap + stock 繰越連鎖を内部で効かせる。API `GET /api/admin/season-pl` は一覧 (`mode=list`)、`?planCycleId=` で詳細 (`mode=detail`) を返す。手入力で `budget_yen` を書き換える導線は持たない (= 表示・検算専用)。
+- ① 収入: 契約期間内の billing 月を `contractBackedClientAmount` で集約した請求額 (税抜・シーズン合計) を予算、`payment_confirmed_at` 済みの合計を実績入金として出す。契約開始前の事前稼働月は請求額に乗らない。
+- ② 配分: バッファ内訳 (`value_plan_cycles.buffer_breakdown_json` の `{items:[{label,amount}],total}`、未設定時は原資から逆算)、メンバー原資 (= `value_plan_cycles.budget_yen` = (請求額−バッファ)×65%)、AMD マージン (35%) を並べ、`バッファ + 原資 + マージン == 請求額` の閉じ検算を必ず出す。
+- ③ メンバー別 pt 比予実: 獲得pt (シーズン累計) × pt単価 = 予算取り分、実支払累計 (非役員=現金 / 役員=会社留保)、最終月末の未払い残 stock、差 (実支払+stock − 予算取り分, 最終的に 0 が正) を member 行で出す。役員 (`is_officer`) は「会社留保」、非役員は「現金支払」で分ける。member 名は `/mypage?memberId=` リンク。
+- 検算フラグ (この画面の目的): `閉じ検算` (バッファ+原資+マージン=請求額)、`未割当pt` (total_points − Σ MS points、宙吊り pt / 担当無し MS)、`原資=Σ月cap` (`budget_yen` = Σ `billing_cycles.budget_yen`、ZMP の cap/原資不整合検出)、`pt単価` ((請求額−バッファ)×65%÷total_points と一致)、`役員stock収束` (最終月で役員 stock が 0)。
+
+回帰防止:
+
+- `pwa/scripts/check_pwa_critical_ui.cjs` が `/admin/season-pl` の一覧・詳細・検算 anchor (`シーズン予実表` / `closes` / `unassignedPt` / `budgetMatchesMonthlyCaps` / `officerStockConverges`) と、`computeSeasonPl` / `buffer_breakdown_json` の集計 anchor を検査する。
+- AdminSidebar の `シーズン予実` 導線、`/admin/season-pl` route、`/api/admin/season-pl` を消す変更は、`FEATURE_REGISTRY.md` と `pwa/design/season_budget_actual.md` を同時に更新する。
+- 「未割当pt」は `Σ(earnedPt) < total_points` ではなく `total_points − Σ(MS points)` で見る (= 期中は消化が total 未満で正常。MS で裏打ちされない pt 単価分母の穴だけを検出する)。この判定を earnedPt 比較へ戻さない。
+
 ## /admin/private-wiki
 
 目的: admin だけが、AMDメンバー・取引先・クライアント・研究者・外部協力者などの人物単位の趣味・プライベート・関係性メモを PJ ごとに保存・検索・更新できる。

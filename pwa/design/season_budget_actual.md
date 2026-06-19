@@ -80,13 +80,21 @@
 
 ---
 
-## 5. 実装ステップ (次セッション)
-1. migration: `value_plan_cycles.buffer_breakdown_json` 追加 + `dump_schema.py`。
-2. 集計ロジック `src/lib/season-pl.ts`: plan cycle → {revenue, buffer items, member原資, AMDマージン, members[], 検算フラグ} を返す純関数 (reward-summary の月次集計を cycle 集約)。
-3. API or server component: 全 active cycle 一覧 + 単一 cycle 詳細。
-4. ページ `/admin/season-pl` (一覧 + 詳細)。FEATURE_REGISTRY 登録 + `test:critical-ui` anchor。
-5. SX の `buffer_breakdown_json` に {営業80万, 旅費100万} を投入して実データ確認。
-6. build → deploy。manual に使い方章追加 (6章 admin 系)。
+## 5. 実装ステップ (2026-06-19 実装完了 ✅)
+1. ✅ migration `148_value_plan_cycle_buffer_breakdown.sql` で `value_plan_cycles.buffer_breakdown_json jsonb` 追加 + `dump_schema.py` 再生成。
+2. ✅ 集計ロジック `src/lib/season-pl.ts` `computeSeasonPl` 純関数: plan cycle → {revenue, buffer items, member原資, AMDマージン, members[](pt比予実), 検算フラグ} を返す。`reward-summary.ts` の `buildRewardSummary` を cycle 全期間に集約 (cap + stock 繰越連鎖は内部で効く)。
+3. ✅ API `GET /api/admin/season-pl` (`mode=list` 全 active cycle 一覧 / `?planCycleId=` で `mode=detail` 単一 cycle 詳細)。
+4. ✅ ページ `/admin/season-pl` (一覧 + 詳細)。`AdminSeasonPlClient.tsx`。AdminSidebar に `シーズン予実` 導線。FEATURE_REGISTRY 登録 + `check_pwa_critical_ui.cjs` anchor。
+5. ✅ SX `PC-p21-202604.buffer_breakdown_json` に {営業80万, 旅費100万} 投入済み。
+6. ✅ build → deploy (v0.29.0)。
+
+### 実装で確定した検算の定義 (設計時の文言を実データで修正)
+- **未割当pt**: 設計の `Σ(earnedPt) < total_points` は期中だと必ず不足して誤検知するため、`total_points − Σ(MS points, goal_level≠monthly)` で判定する (= pt単価分母が MS で裏打ちされているか)。**SX で 120pt 設定 vs MS 119pt = 1pt 穴を実検出**。加えて担当者 share 合計 0 で points を持つ MS (宙吊り pt) も検出する。
+- **収束差 (member delta)**: `(実支払 + 最終stock) − earnedPt×pt単価`。期中は支払が先行するので 0 にならないのが正常。最終月で 0 に収束するのが正。
+- **実データ確認の発見 (要・別タスク監査)**:
+  - SX: closes/原資=Σcap/pt単価/役員収束すべて ✅。未割当 1pt の穴のみ (要 MS 1pt 補完 or total_points を 119 に是正)。
+  - ZMP: `原資≠Σ月cap` (Σcap 366万 > 原資 234万) + 役員stock非収束 (まさ stock 約4万残) + 未割当10pt。**設計が予言した ZMP cap/原資不整合をそのまま検出**。別財布(OkuDoor)cap が Σcap を押し上げている構造。
+  - KUTE: `閉じない` + `pt単価不整合`。原資 720万 ≈ 請求額 720万 (= バッファ 0 だが (請求×65%) ではない)。budget_yen が (請求−バッファ)×65% の式から外れている設定異常。
 
 ---
 
@@ -100,3 +108,4 @@
 | 日付 | 変更 | 誰 |
 |---|---|---|
 | 2026-06-19 | 初版。SX一連の議論から予実表を設計正本化。データソース・バッファ内訳列・画面配置・実装ステップを確定 | えいみ |
+| 2026-06-19 | §5 実装完了 (v0.29.0)。migration 148 + `season-pl.ts` + `/admin/season-pl` + API + FEATURE_REGISTRY + critical-ui anchor。未割当pt 検算を `total_points − Σ(MS points)` に修正。SX 1pt 穴 / ZMP cap-原資不整合 / KUTE 非閉じ を実検出 (別タスク監査へ) | えいみ |
