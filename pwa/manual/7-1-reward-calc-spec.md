@@ -72,7 +72,8 @@ grossDue[member]  = totalPay[member] + carryIn[member]
 
 # 会社留保も他メンバーと同じ cap 按分に入れる
 contractBufferYen = billing_cycles.budget_buffer_amount
-grossDueForCap[officer] = basePay[officer]                 # 役員の過去 stock は carryIn しない
+# 役員 (officer) も非役員と同じく過去 stock を carryIn として母数に入れる (2026-06-19 まさ確定)
+grossDueForCap[officer] = basePay[officer] + carryIn[officer]
 grossDueForCap[nonOfficer] = grossDue[nonOfficer]
 
 if Σ grossDueForCap[all eligible] ≤ capBudgetYen:
@@ -82,10 +83,17 @@ else:
 
 paid[nonOfficer] = allocated[nonOfficer]
 stockYen[nonOfficer] = grossDue[nonOfficer] − paid[nonOfficer] # 翌月へ繰越
-companyReserveYen[officer] = allocated[officer]
-companyReserveUnfundedYen[officer] = basePay[officer] − allocated[officer]
+companyReserveYen[officer] = allocated[officer]            # AMD 内部留保として認識 (現金支払 0)
+# 役員も cap 不足で留保しきれなかった分は stock として翌月へ繰り越す (= 非役員と同じ)。
+# これで「年間原資 × pt 比」が役員 (= AMD 会社留保) でも成立し、年間で pt 比に収束する。
+companyReserveUnfundedYen[officer] = grossDueForCap[officer] − allocated[officer]
+stockYen[officer] = companyReserveUnfundedYen[officer]      # 翌月 carryIn[officer] へ
 paid[officer] = 0
 ```
+
+> **2026-06-19 まさ確定 — 役員 stock 繰越**: 旧実装は役員 (`is_officer`) の `carryIn` を 0 にし、cap 不足月に留保しきれなかった分 (`companyReserveUnfundedYen`) を翌月へ繰り越さず捨てていた。SX のように cap が慢性的に逼迫する PJ では、これにより**役員 (= AMD 会社留保) が年間で pt 比どおりに受け取れず構造的に取りこぼす**事故になっていた (SX 現行サイクルだけで役員計 約189万、3 active PJ で約192万)。役員も非役員と同じく stock を繰り越す方式に変更し、`年間原資 = Σ(pt × pt単価)`、`Σ月cap = 年間原資` の下で**月次の前後はあっても年間で全員 pt 比に収束**することをシミュレーション+本番再計算で検証済み。実装は `pwa/src/lib/reward-summary.ts` の `applyRewardCapsForMonth` (cap 按分母数に officer の carryIn を含める / 役員返却ブロックで `stockYen` を繰り越す) の 2 箇所。
+
+> **pt単価の原資定義 (まさ正本)**: `PJ予算 = (請求額 − バッファ) × 65%`、`pt単価 = PJ予算 ÷ シーズン総pt数`。バッファ (= 営業費用・旅費等、AMD が請求額から先取りする PJ コスト枠) は **pt単価の計算に必ず反映**する。現行実装の `deriveRewardBudgetForPt` は `value_plan_cycles.budget_yen` をそのまま原資に使うため、**`value_plan_cycles.budget_yen` にバッファ反映後の額 `(請求額 − バッファ) × 65%` を入れる**ことで正しい pt単価になる (SX は 2026-06-19 に 6,812,000 → 5,642,000 へ是正済み)。バッファを第一級入力にしてロジック側で自動控除する恒久実装は別タスク。
 
 ---
 

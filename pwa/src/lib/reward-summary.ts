@@ -696,15 +696,18 @@ export function applyRewardCapsForMonth(
 
     if (payoutExcludedMemberIds.has(memberId) && !companyReserveMemberIds.has(memberId)) continue;
 
+    // 役員 (companyReserve) も非役員と同じく過去 stock を carryIn として cap 按分の母数に入れる。
+    // 旧実装は役員だけ carryIn=0 にしており、cap 不足月の役員分が unfunded として消え、
+    // 年間で役員 (= AMD 会社留保) が pt 比どおりに受け取れない構造損失があった (まさ確定 2026-06-19)。
     regularInputs.push({
       memberId,
       basePay: regularBasePay,
-      carryInYen: companyReserveMemberIds.has(memberId) ? 0 : regularCarryInYen,
+      carryInYen: regularCarryInYen,
     });
     extraInputs.push({
       memberId,
       basePay: extraBasePay,
-      carryInYen: companyReserveMemberIds.has(memberId) ? 0 : extraCarryInYen,
+      carryInYen: extraCarryInYen,
     });
   }
 
@@ -784,21 +787,23 @@ export function applyRewardCapsForMonth(
           }),
           basePay,
           totalPay: 0,
-          carryInYen: 0,
+          carryInYen,
           grossDueYen,
           cappedFrom: companyReserveUnfundedYen > 0 ? grossDueYen : undefined,
-          deferredYen: 0,
-          stockYen: 0,
+          // 役員は現金支払 0 だが、cap 不足で当月会社留保しきれなかった分は
+          // stock として翌月へ繰り越す (非役員と同じ扱い)。これで年間で pt 比に収束する。
+          deferredYen: stockYen,
+          stockYen,
           regularBasePay: regular.basePay,
           extraBasePay: extra.basePay,
           regularPaidYen: 0,
           extraPaidYen: 0,
           regularGrossDueYen: regular.grossDueYen,
           extraGrossDueYen: extra.grossDueYen,
-          regularStockYen: 0,
-          extraStockYen: 0,
-          regularCarryInYen: 0,
-          extraCarryInYen: 0,
+          regularStockYen: regular.stockYen,
+          extraStockYen: extra.stockYen,
+          regularCarryInYen: regular.carryInYen,
+          extraCarryInYen: extra.carryInYen,
           companyReserveYen,
           regularCompanyReserveYen,
           extraCompanyReserveYen,
