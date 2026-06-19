@@ -160,7 +160,7 @@ cd pwa
 npm run --silent health:l2:actions -- --input tmp/l2-health-latest.json
 ```
 
-action ledger の既定出力は `pwa/tmp/l2-health-action-ledger.json`。この artifact は local state で、DB / Slack / Notion / Drive / scheduler には書き込まない。recurring automation 登録や schedule 変更が必要な場合は、別途 scheduler change bundle を作り、まさ承認を取る。
+action ledger の既定出力は `pwa/tmp/l2-health-action-ledger.json`。この artifact は local state で、DB / Slack / Notion / Drive / scheduler には書き込まない。recurring automation 登録や schedule 変更が必要な場合は、対象・影響・rollbackを scheduler change bundle として別タスクへ渡す。
 
 各 red/yellow 行は、health output の row id / row name を主語にした incident に変換する。action loop側では正本mappingを再設計せず、新しい L2 データ名や番号体系を作らない。正本表示名への対応が曖昧な行は `mapping_pending` として扱い、丸数字表現へ戻さない。health output 側の行IDや内部キーは incident 管理用であり、新しい L2 データ名として扱わない。
 

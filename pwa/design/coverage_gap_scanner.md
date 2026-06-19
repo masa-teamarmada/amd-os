@@ -245,7 +245,7 @@ extractor_miss (既存L2にマップできた gap) は、ルートと同時に�
 
 ## 10. 実装フェーズ (承認後)
 
-1. **DDL**: `l2_coverage_gaps` migration (事前承認ゲート) → `dump_schema.py`。
+1. **DDL**: `l2_coverage_gaps` migration (非破壊migrationとして実装し、破壊的DDLは扱わない) → `dump_schema.py`。
 2. **salience allowlist の DB 化** (検知語・ベンダー送信元・noise送信元)。
 3. **claimed source refs index ヘルパ** + 各L2の source_ref 保存状況監査 (盲点埋め)。
 4. **`POST /api/coverage-gaps/extract`** + `l2_notifications` 種別追加 + `/notifications` UI。

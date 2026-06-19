@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-06-19 | 3-1 L2 Data Extraction / 5-2 Development Operations / 5-3 Automation Responsibility | 変更・削除 | Vercel deploy / main push 前の approval gate、`askuserquestion` 承認待ち、`AMD_OS_VERCEL_DEPLOY_APPROVED=1` を承認フラグとして読む記述を削除。5-2 は「原則、deploy前の承認待ちで止めない」「deploy bundle は事後報告」「env は誤実行防止スイッチ」に統一。L2 scheduler change は「承認待ち」ではなく、対象・影響・rollbackを bundle 化して別タスクへ渡す表現に変更 | 2026-06-12 の current deploy contract と 2026-06-04 の旧 approval gate が文書内で併存し、worker が誤って本番反映を止めたため。まさ指示「その古いルールをすべて削除して。二度とこういうことが起きないように。」 | えいみ |
 | 2026-06-19 | 3-14 月初タスク・報酬合意 | 修正 | 本人画面とadmin一覧の stock 表示を「予定報酬」と同じ金額表示から分離。PJカード右側は `今月支払` を主表示にし、`stockYen` は `今月末未払い残（今月は支払われない）` として amber の別枠に表示。本人詳細には前月繰越・今月発生・今月支払の内訳を追加し、admin一覧にも `今月支払` / `未払い残` 列と合計カードを追加 | stock が支払われる報酬と同じ見え方だと、今月支払対象なのか未払い繰越なのか本人/adminが判断できないため | えいみ |
 | 2026-06-19 | 5-6 契約管理 / 7-1 報酬計算 | 変更 | 役員会社留保を先取り cap ではなく通常 cap 按分の一部に変更。`applyRewardCapsForMonth` は役員を cap 配分から除外せず、割当額を `companyReserveYen` / `officerReserveYen` へ振り替え、非役員分だけ `totalPay` と stock 返済にする | 役員留保を他メンバーと同等に扱うため。契約バッファは先に回収するが、その後の役員留保と非役員支払/stock返済は同じ cap 按分で決める | えいみ |
 | 2026-06-18 | 5-6 契約管理 / 7-1 報酬計算 | 変更 | 会社回収バッファに月次上限 `companyReserveBufferMonthlyYen` を追加。`resolveContractReserveBufferYen` は総額残・当月 `invoice×65%`・月次上限の最小値を `budget_buffer_amount` にする。SX は `companyReserveBufferYen=800000` / `companyReserveBufferMonthlyYen=200000` とし、202606〜202609 の4か月で20万円ずつ消化する | バッファを一括回収すると初月の支払capがゼロ近くなり硬すぎるため。契約前稼働分の回収と月次支払平準化を両立させる | えいみ |

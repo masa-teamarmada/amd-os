@@ -212,7 +212,7 @@ function recommendedNextStepFor(row, failureMode) {
     return "成功証跡が無い原因をrunner未実行・出力0・write失敗・schema mismatchに分ける。";
   }
   if (failureMode.includes("scheduler") || failureMode === "runner_not_recent") {
-    return "scheduler変更は勝手にせず、必要ならscheduler change bundleを作って承認待ちにする。";
+    return "scheduler変更はこのhelperでは実行せず、必要な対象・影響・rollbackをscheduler change bundleとして別タスクへ渡す。";
   }
   return "該当L2のwriter/current specを読み、red/yellowをgreenへ戻す最小復旧workerを切る。";
 }

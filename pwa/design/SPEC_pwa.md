@@ -394,11 +394,10 @@ pwa/
 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
 ```
 
-- 2026-06-04以降、Vercel deploy / Vercel auto-deploy対象pushはapproval gate対象。production deploy、preview deploy、Vercel自動deployを起こす可能性があるpushの直前には、deploy bundleを作り、`askuserquestion` でまさ承認を取る。
-- deploy bundleには、含める変更、除外する変更、local build/test/browser確認結果、deploy予定回数、push/deploy先、rollback/本番確認方法を含める。
+- 2026-06-12以降、PWA 本番反映は **main push = Vercel Git 自動 production deploy**。CLI 直接 deploy / preview deploy は廃止。
+- 原則、deploy 前の承認待ちで止めない。build/test/browser確認、含める変更、除外する変更、push先、rollback/本番確認方法は deploy bundle として事後報告に残す。
 - 微細UI、軽微CSS、md、コメント、ログ文言などを1件ずつdeployしない。複数worker成果を束ねて1回でdeployする。
-- 承認待ちは `approval pending` として台帳に残し、未分類blockerにしない。
-- deploy scriptは `AMD_OS_VERCEL_DEPLOY_APPROVED=1` が無いとVercelを呼ぶ前に停止する。承認後だけ `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` を使う。
+- deploy script の `AMD_OS_VERCEL_DEPLOY_APPROVED=1` は承認フラグではなく誤実行防止の明示スイッチ。`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` で main push・build監視まで進める。
 - **`--cwd` はリポジトリ root** (`pwa/` ではない)。Vercel project `amd-os-pwa` の Settings → Build → Root Directory が `pwa` のため、`--cwd .../pwa` だと `pwa/pwa` 二重で失敗する
 - リポ root に `.vercel/project.json` (amd-os-pwa を指す) があること。無いと `--yes` で誤って `amd-os` 新プロジェクトが作られる (2026-05-06 BUGS 参照)
 - 復元: `cp -r /Users/masa/projects/AMD/amd-os/pwa/.vercel /Users/masa/projects/AMD/amd-os/.vercel`

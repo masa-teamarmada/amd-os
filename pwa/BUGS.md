@@ -5,6 +5,16 @@
 
 ---
 
+### [deploy-ops] 古い approval gate 文書を読んだ worker が main push / production deploy 前に誤停止した (2026-06-19)
+
+- **状態**: クローズ (2026-06-19 — current docs / manual / spec / helper 文言を 2026-06-12 以降の no-stop deploy contract へ統一)。
+- **症状**: `/admin/calendar-review` 実装後、まさは production に出ている前提でページを探したが、worker が「Vercel自動deployに繋がるからまさOK待ち」と説明し、実際には local commit 止まりだった。
+- **原因**: `AGENTS.md` / `pwa/CLAUDE.md` / `pwa/scripts/deploy.sh` は「main push = Vercel Git 自動 production deploy、原則 deploy 前の承認待ちで止めない」に更新済みだった。一方で `pwa/design/SPEC_pwa.md`、`pwa/spec/5-2-development-operations-current-spec.md`、`pwa/manual/9-2-developer.md` などに 2026-06-04 の deploy approval gate / `askuserquestion` / `approval pending` 文言が残り、current truth が割れていた。
+- **解決内容**: Vercel deploy / main push 前の承認待ちルールを削除し、deploy bundle は事後報告、`AMD_OS_VERCEL_DEPLOY_APPROVED=1` は承認フラグではなく誤実行防止スイッチ、と明記した。L2 scheduler change も「承認待ち」ではなく、対象・影響・rollback を bundle 化して別タスクへ渡す表現に変更した。
+- **再発防止**: deploy 判断は `AGENTS.md`、`pwa/CLAUDE.md`、`pwa/spec/5-2-development-operations-current-spec.md`、`pwa/scripts/deploy.sh` の 4 点を正本として読む。`approval pending` / `askuserquestion` / deploy approval gate が通常 PWA deploy の判断根拠として出たら stale と扱う。
+
+---
+
 ### [finance] SX報酬ロジック変更後、production切替前後に古い `reward_summary_json` が残り一時的に6月支払が0円へ戻った (2026-06-19)
 
 - **状態**: クローズ (2026-06-19 — `v0.28.3` production切替後に SX `p21` の `billing_cycles.reward_summary_json` を再計算し、202606 の支払/留保が新ロジックに戻ったことをDBで確認)。
@@ -3189,14 +3199,14 @@
 - **症状**: Textbook本文・台帳・軽微UIの推敲ごとに `main` push / Vercel deploy が走り、Vercel daily deployment quota を消費した。まさが「24時間開発が止まる致命的タイムロス」と判断。
 - **原因**: Textbookは下書き段階のmd推敲が中心で、PWA本体のproduction deployを毎回必要としないのに、worker close gateが `commit -> push -> deploy` 前提のまま残っていた。Git-connected Vercel auto-deploy対象pushと、manual deployの両方をbundleせずに扱っていた。
 - **対応内容**:
-  - 2026-06-03に一時hard gateを適用し、`vercel deploy` とVercel自動deploy対象pushを停止。
+  - 2026-06-03に一時hard gateを適用し、`vercel deploy` と main push deploy を停止。
   - Textbook draft確認はCloudflare Pagesの静的reader `https://textbook-draft.pages.dev/` へ逃がし、PWA productionと切り離した。
-  - 2026-06-04にquota緩和後、全面禁止ではなく approval gate へ変更。production deploy / preview deploy / Vercel自動deploy対象pushの直前に、deploy bundle付きで `askuserquestion` 承認を取る運用へ移行。
-  - `pwa/scripts/deploy.sh` は `AMD_OS_VERCEL_DEPLOY_APPROVED=1` なしではVercelを呼ぶ前に停止する。
+  - 2026-06-04にquota緩和後、暫定の deploy gate へ変更したが、この暫定対策は 2026-06-19 に廃止済み。
+  - `pwa/scripts/deploy.sh` は 2026-06-12 以降、main push 前の検査・rollback guard・build監視を行う正本経路。`AMD_OS_VERCEL_DEPLOY_APPROVED=1` は承認フラグではなく誤実行防止スイッチ。
 - **再発防止策**:
   - md、コメント、ログ文言、微細UI、軽微CSSを1件ずつdeployしない。
-  - deploy bundleには、含める変更、除外する変更、local build/test/browser確認結果、deploy予定回数、push/deploy先、rollback/本番確認方法を必ず入れる。
-  - 承認待ちは `approval pending` として台帳に残し、未分類blockerにしない。
+  - deploy bundleには、含める変更、除外する変更、local build/test/browser確認結果、push先、rollback/本番確認方法を入れ、事後報告として残す。
+  - 2026-06-12以降の PWA 本番反映は main push。原則、deploy 前の承認待ちで止めない。
   - Textbook下書き確認はまず静的reader / Cloudflare Pagesを使い、PWA production deployは束ねたrelease checkpointだけにする。
 
 ## [PWA/deploy] 現行 v0.15.3 を未認識のまま古い worktree から deploy し、直近更新を一度巻き戻した (2026-06-04)

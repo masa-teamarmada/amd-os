@@ -107,7 +107,7 @@ SKILL 正本は `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (
 | worker化 | `currentOpenWorkerPrompts[]` を司令塔が visible worker prompt として使う |
 | close | 次回 health で該当 L2 が green、または review/outbox が分類済みになった証跡がある時だけ |
 
-recurring automation としてこの後段を既存 health check に組み込む場合も、automation.toml や Codex automation 登録の変更は scheduler change bundle とまさ承認が必要。repo 側 helper の追加だけでは scheduler を変更した扱いにしない。
+recurring automation としてこの後段を既存 health check に組み込む場合も、automation.toml や Codex automation 登録の変更は scheduler change bundle に対象・影響・rollbackを明記して別タスク化する。repo 側 helper の追加だけでは scheduler を変更した扱いにしない。
 
 ## Stopped LLM cron
 

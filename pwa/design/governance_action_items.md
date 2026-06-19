@@ -198,7 +198,7 @@ cockpit のガバナンス欄・要対応面はサーバ側 admin クライア�
 
 ## 5. 実装フェーズ
 
-1. **DB**: migration 136 適用 (事前承認ゲート) → `dump_schema.py` で `db_schema.md` 再生成。
+1. **DB**: migration 136 適用 (非破壊migrationとして実装し、破壊的DDLは扱わない) → `dump_schema.py` で `db_schema.md` 再生成。
 2. **手動投入**: JC の今回の総会 (egm 6/5)・委任状提出済 action item を実データで 1 件投入し cockpit に出す = 動く証拠。
 3. **cockpit ガバナンス欄** + admin 編集 UI (`/admin/shareholders` 系) + API route。
 4. **要対応面** (dashboard / notifications) + 期日リマインド。
