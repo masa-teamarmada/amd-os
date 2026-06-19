@@ -16,7 +16,7 @@ HUD版は `/hud` 配下に置き、DB/API/書き込み処理は現行と共有�
 3. HUD化する部品は、必ずHUD側へ複製してから変更する。
 4. 見た目を先に作って情報を後から足さない。
 5. 現行と表示項目・操作・DB書き込みの parity が取れた部品だけ差し替える。
-6. 請求月変更、月次ルーティンステータス、各modal、MS更新、task更新などの実用操作を消さない。
+6. 請求月変更、月次カード、各modal、MS更新、task更新などの実用操作を消さない。PM向け月次ルーティン step は再導入しない。
 7. `/hud` 全体の視覚言語は `design/hud_visual_language.md` を正本にし、暗いWebカード量産へ戻さない。
 
 ## 正しい構造
@@ -163,7 +163,7 @@ CSSだけでHUDオブジェクトを作るのではなく、必要なビジュ�
     - HUD背景のfixed layerも `top-11` 前提を廃止。
   - `/hud/notifications` routeを追加し、HUD nav / HUD dashboardから404にならないよう修正。
   - Atlas map canvas描画は、force graph初期tickで `x/y/globalScale` が未確定でも落ちないようfinite guardを追加。
-  - HUD route滞在中は `body.amd-hud-body` を付け、Dialog portalでbody直下に出る月次ルーティン各modalにもHUD dark skinを適用。
+  - HUD route滞在中は `body.amd-hud-body` を付け、Dialog portalでbody直下に出る月次カード由来の各modalにもHUD dark skinを適用。
   - `npm run build` 成功。route一覧に `/hud/notifications` を確認。
   - production deploy: `https://amd-os-ci1lnfvon-armada0130.vercel.app` -> alias `https://amd-os-pwa.vercel.app`
   - production verification:
