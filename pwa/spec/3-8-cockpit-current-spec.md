@@ -152,7 +152,7 @@ PM向けの cockpit 右カラム routine step UI は廃止済み。`CockpitRouti
 | tab | visible when | main responsibility |
 |---|---|---|
 | `reward` / 進捗確認 | billing cycle exists | MS progress confirmation, reward preview/sync, monthly note for non-MS PJ |
-| `report` | report exists or `reportFix` open | monthly report generation/fix/edit |
+| `report` | report exists or report-only month | monthly report generation/fix/edit |
 
 Important rules:
 

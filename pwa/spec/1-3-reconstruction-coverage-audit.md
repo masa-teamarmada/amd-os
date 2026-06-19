@@ -25,7 +25,7 @@
 | D-7 Textbook Insights | `3-13` | `partial` | DB/API/outbox/local applier contract は追加。実 automation schedule と BZM 追記レビュー運用は repo 外で登録確認が必要 |
 | L2 extraction overall | `3-1`〜`3-6`, `3-9`〜`3-13`, `5-3` | `partial` | H-1 のmeeting flow深掘り、D-5M-2D-6の個別schema、D-7の実 schedule / BZM commit loop をさらに column-level 化 |
 | notifications / 採否 | `3-7` | `partial` | `applyApprovedNotification()` の kind 別分岐を全件 table 化 |
-| cockpit | `3-8` | `partial` | routine stepId / monthly-reward modal / Edge Function bridge は補完済み。kanban、meeting detail attachments、score tabs は未完 |
+| cockpit | `3-8` | `partial` | PM routine stepId は廃止済み。monthly/reward modal / Edge Function bridge 境界は補完済み。kanban、meeting detail attachments、score tabs は未完 |
 | AMD Score / FRL | `4-1`, `4-2` | `partial` | alpha retrofit UI、XRL revision API、Triple Helix recompute の詳細 |
 | ERS | `4-3` | `partial` | 制度比較seedと投入手順は反映済み。rubric は `/bzm/9-4` 依存で、ERS 8軸rubricのPWA seed同期手順は追加余地あり |
 | Admin / Finance / Reward | 未移行 | `not yet` | manual 6章・7章、`reward-summary.ts`、GAS payout PDF の spec 化 |

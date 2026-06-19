@@ -52,7 +52,7 @@ assessment は `(institution_id, criterion_id)` ごとに最新 `evaluated_at` �
 - 上部に ERS summary / 関連PJ / 今期MS / MTG件数を表示する。
 - ERS summary の直下に常時見る readiness snapshot を置き、ERS充足率、強い軸、確認したい軸、関連PJのMS/月次件数を表示する。
 - 基本タブは `進捗管理` / `スコア詳細`。研究機関でも運用構造はPJ cockpitに寄せるが、スコア詳細はSU向けAMD ScoreではなくERS 8軸・評価項目・Lv/根拠メモを表示する。
-- `進捗管理` は既存 `CockpitView` を使うため、MS進捗管理、月次モーダル、月次ルーティン、MTGサマリの挙動は通常PJコックピットと同じ。
+- `進捗管理` は既存 `CockpitView` を使うため、MS進捗管理、月次カード/モーダル、MTGサマリの挙動は通常PJコックピットと同じ。
 - `project_meeting_summaries` は月別の MTG tree として `進捗管理` の下部に表示し、各 row は `/project/[projectId]/cockpit?meeting=<meeting_id>` へ遷移する。MTG tree を機関コックピット最上部には置かない。
 - まだ機関とPJの正式 scope table はない。外部機関向け tenant/access 設計は `pwa/design/institution_tenant_access.md` の draft を正本にし、現時点では内部向け導線に留める。
 
