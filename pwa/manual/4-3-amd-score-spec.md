@@ -389,6 +389,10 @@ PRS Primary / PRS history / legacy M-X-F / evidence を表示
 
 legacy MXF (= M-X-F / 7 軸 Cobb-Douglas) は過去モデル。削除しないが、現行 primary として読まない。
 
+M-X-F は、昔のAMD Scoreを読むための地図として残す。いまの主表示は PRS だけど、M-X-F は無駄ではない。`M` は PRS の `S` に入る `sigma_SU` の根拠、`X` は PRS の `R` の根拠、`F` は PRS の `S` に入る FRL の根拠として使う。
+
+つまり、M-X-F は「古い点数をそのまま主役に戻すもの」ではなく、「PRSがなぜその値になったかを説明する証拠棚」。古い資料や過去のscore historyを見る時も、M-X-Fが残っていると当時の判断を読み解ける。
+
 $$
 \mathrm{Score}_{\mathrm{legacy}}
 = K_{\mathrm{legacy}}
@@ -435,6 +439,8 @@ $$
 - legacy score を PRS missing の代替 primary にする
 - M-X-F を章 summary や cockpit 主表示の主語へ戻す
 - 既存 7 軸履歴を破壊的に再計算する
+
+たとえば `PRS Primary` が `INPUT NEEDED` の時に、legacy score が高いからといって「このPJは高スコア」と表示しない。必要なのは legacy を主役に戻すことではなく、足りない `P` / `R_net` をレビューして PRS を完成させること。
 
 ## 関連
 
