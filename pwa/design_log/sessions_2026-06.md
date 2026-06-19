@@ -771,3 +771,30 @@
 - `pwa/manual/7-1-reward-calc-spec.md`
 - `pwa/design/project_pl_monthly.md`
 - `pwa/BUGS.md`
+
+---
+
+## 2026-06-19 SX旅費別請求不可 → pt単価是正 → 役員stock繰越是正 → 予実表設計
+
+### 背景
+SX(p21, 愛媛大PSI Step2 令和8年度)で旅費を別請求できないことが判明。署名済み「請負契約書」を Drive で実見し**条文裏取り**: 一式・固定代金 11,528,000(税込)、別紙支払額内訳書=毎月一律1,152,800(税込)=1,048,000(税抜)、**旅費/実費条項なし**、第12条で愛媛大工事請負等契約事務取扱細則準用。→ 旅費は固定代金に内包、別請求不可。
+
+### 確定した正本ルール (まさ)
+- **pt単価 = PJ予算 ÷ シーズン総pt数、PJ予算 = (請求額 − バッファ) × 65%**。
+- **バッファ** = 営業費用・旅費等、AMDが請求額から先取りするPJコスト枠。pt単価計算に必ず反映。請求額から先に引くのでコストは65/35按分。
+- **stock(cap超過繰越)はAMDの確定債務**。役員も繰り越す。
+
+### やったこと (本番反映済み)
+1. **SX pt単価是正 (データ)**: `value_plan_cycles(PC-p21-202604).budget_yen` 6,812,000→**5,642,000** (=(10,480,000−営業80万−旅費100万)×65%)。pt単価 56,767→**47,017**。`billing_cycles` 202606-202703 を `budget_yen=564,200, budget_buffer_amount=0` に。reward再計算。支払済202601-03はsnapshotから復元保護。ロールバック: `SX/_pt_unit_change_snapshot_20260619_215357.json`。
+2. **役員stock繰越是正 (コード, v0.28.17 deploy済)**: `src/lib/reward-summary.ts` `applyRewardCapsForMonth` 2箇所 — cap按分母数に officer の carryIn を含める / 役員返却ブロックで stockYen 繰越。旧実装は役員 carryIn=0 で unfunded を捨てており、cap逼迫PJで役員(AMD会社留保)が年間pt比を取りこぼしていた。SX再計算で全員pt比に**完全収束(最終stock0)**を検証。正本: `manual/7-1-reward-calc-spec.md` 更新。
+3. **全PJ取りこぼしシミュ**: 修正前(A)現行=役員非繰越で **3 active PJ計 約192万取りこぼし** (SX 189万/ZMP 31k/KUTE 0)。(B)役員繰越で解消。
+4. **予実表 設計正本**: `design/season_budget_actual.md` 新規。
+
+### 残作業 (まさ合意の順: 1→2→3。1完了)
+- **ステップ2 (次の一手): シーズン予実表 実装**。設計 `design/season_budget_actual.md` の §5 実装ステップ(migration buffer_breakdown_json → season-pl.ts → /admin/season-pl → FEATURE_REGISTRY → SX実データ → deploy)。
+- **ステップ3: 過去監査**。(a)バッファ使用かつ支払済PJの過払い/過少の実損検証 (b)**ZMP cap/原資不整合** (Σ月cap < 原資 約6.5万、(B)でも収束せず) (c)役員繰越deploy後、日次cron `payout-reward-cache-refresh` が直近の支払済月キャッシュを新ロジックで上書きしうる点の整合。再計算で202603が335,599→392,190にズレた件もここ。
+- **他PJ(ZMP/KUTE)キャッシュ**: 日次cronが新ロジックで再計算する(今回は一括backfillせず=全PJ支払済上書き事故回避)。
+- **恒久実装(別タスク)**: バッファを第一級入力にし `deriveRewardBudgetForPt` が `(請求額−Σバッファ)×65%` を自動計算 (今は value_plan_cycles.budget_yen 手入力)。
+
+### deploy 注記
+deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifications.md)でhard-stop → あたしの3ファイルのみcommit(1dea41fd)→直push→本番 v0.28.17 反映確認。上記3ファイル(別件dirty)は未commitのまま残置。
