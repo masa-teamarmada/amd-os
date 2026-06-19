@@ -291,14 +291,21 @@ function dayNumber(ymd: string): number {
   return Math.floor(Date.UTC(year, month - 1, day) / 86400000);
 }
 
+function looksSeriesLikeTitle(title: string): boolean {
+  return /定例|毎週|隔週|月次|毎月|weekly|biweekly|monthly/i.test(title);
+}
+
 function recurringSeriesKey(item: MatchedCalendarEvent): string {
   if (item.event.recurringEventId) {
     return `recurring:${item.project.project_id}:${item.event.recurringEventId}`;
   }
   const title = normalizeSeriesTitle(item.event.title) || "(untitled)";
-  const weekday = jstWeekdayKey(item.event.meetingDate);
   const time = jstTimeKey(item.event.startIso);
   const location = normalizeForMatch(item.event.location).slice(0, 80);
+  if (looksSeriesLikeTitle(item.event.title)) {
+    return `title-series:${item.project.project_id}:${title}:${time}:${location}`;
+  }
+  const weekday = jstWeekdayKey(item.event.meetingDate);
   return `fallback:${item.project.project_id}:${title}:${weekday}:${time}:${location}`;
 }
 
@@ -329,8 +336,9 @@ function findExtraRecurringOccurrences(items: MatchedCalendarEvent[]): Map<numbe
   const hidden = new Map<number, { kept: MatchedCalendarEvent; seriesKey: string }>();
   for (const [seriesKey, group] of groups) {
     const hasExplicitSeriesId = seriesKey.startsWith("recurring:");
+    const hasTitleSeriesKey = seriesKey.startsWith("title-series:");
     const hasWeeklyRule = group.some((item) => item.event.recurrenceRules.some((rule) => /FREQ=WEEKLY/i.test(rule)));
-    if (!hasExplicitSeriesId && !hasWeeklyRule && !isWeeklyCadence(group, false)) continue;
+    if (!hasExplicitSeriesId && !hasTitleSeriesKey && !hasWeeklyRule && !isWeeklyCadence(group, false)) continue;
     const ordered = [...group].sort((a, b) => a.event.startIso.localeCompare(b.event.startIso));
     const kept = ordered[0];
     for (const item of ordered.slice(1)) hidden.set(item.inputIndex, { kept, seriesKey });

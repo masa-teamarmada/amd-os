@@ -76,17 +76,30 @@ function recurringSeriesId(item: ProjectMeetingSummary): string | null {
   return match?.[1] || null;
 }
 
+function looksSeriesLikeTitle(title: string): boolean {
+  return /定例|毎週|隔週|月次|毎月|weekly|biweekly|monthly/i.test(title);
+}
+
 function looksSeriesLikeByTitle(item: ProjectMeetingSummary): boolean {
-  return /定例|毎週|隔週|月次|weekly|biweekly|monthly/i.test(item.title);
+  return looksSeriesLikeTitle(item.title);
 }
 
 function upcomingSeriesKey(item: ProjectMeetingSummary): string {
   const seriesId = recurringSeriesId(item);
   if (seriesId) return `calendar-series:${item.projectId}:${seriesId}`;
+  const title = normalizeUpcomingSeriesTitle(item.title) || "(untitled)";
+  if (looksSeriesLikeTitle(item.title)) {
+    return [
+      "title-series",
+      item.projectId,
+      title,
+      timeKey(item),
+    ].join(":");
+  }
   return [
     "fallback",
     item.projectId,
-    normalizeUpcomingSeriesTitle(item.title) || "(untitled)",
+    title,
     weekdayKey(item.meetingDate),
     timeKey(item),
   ].join(":");
@@ -110,6 +123,7 @@ function hasWeeklyCadence(items: ProjectMeetingSummary[], hasCalendarSeriesId: b
 function shouldCollapseAsSeries(key: string, group: ProjectMeetingSummary[]): boolean {
   const hasCalendarSeriesId = key.startsWith("calendar-series:");
   if (hasCalendarSeriesId) return true;
+  if (key.startsWith("title-series:") && group.length >= 2) return true;
   if (group.some(looksSeriesLikeByTitle) && group.length >= 2) return true;
   return hasWeeklyCadence(group, false);
 }
