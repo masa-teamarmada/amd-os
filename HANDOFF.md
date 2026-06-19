@@ -1,55 +1,59 @@
 # HANDOFF - AMD OS
 
-- Last updated: 2026-06-19 (H-1 recurring MTG series card fix / closeout)
+- Last updated: 2026-06-19 (H-1 task auto-registration + owner Slack nudge closeout)
 - Canonical root: `/Users/masa/projects/AMD/amd-os`
+- Worker checkout used for this closeout: `/Users/masa/.codex/worktrees/h1-calendar-review-queue-v0286`
 - Production URL: `https://amd-os-pwa.vercel.app`
-- Default branch: `main` only. Do not create branches for normal worker closeout.
+- Default branch: `main`
 
 ## Latest Session Summary
 
-- H-1 Meeting Flow の future Calendar 予定カードで、定例/recurring MTG が複数カードとして表示される問題を修正。
-- `pwa/src/lib/meeting-series.ts` を共通 helper とし、cockpit / HUD の upcoming rows を series card に集約。
-- `calendar-sync` は recurring series の2件目以降を `recurring_series_future_occurrence` で skip。`recurring_event_id` がDBへ残らない既存カードでも、title が `定例` / `月次` / `毎月` / `weekly` / `monthly` 等なら曜日を外して `PJ + title + 開始時刻` で series 推定する。
-- v0.28.7 は曜日入り fallback で月次定例を畳めなかった。v0.28.8 で補正し、本番反映済み。その後 production は v0.28.10 / `75df41af` まで進行。
-- 詳細ログ: `pwa/design_log/sessions_2026-06.md` の `2026-06-19 — H-1 recurring 予定MTGカード series 集約修正`。
+- Removed the temporary `/admin/calendar-review` screen and admin sidebar entry. H-1 next actions no longer rely on an admin review queue.
+- Added `POST /api/task-calendar/register-tasks` so H-1 can register MTG / minutes / Gmail TODO / Slack TODO next actions directly into `tasks`.
+- The route dedupes by `task_id`, writes via service role after `WORKFLOW_SECRET` / `CRON_SECRET` or admin auth, and nudges only the task owner via Slack when `send_slack=true`.
+- Calendar work-block planning remains a dry-run planner (`/api/task-calendar/schedule-plan`). This route does not create Calendar events, send Gmail, invite external attendees, or Slack DM admins.
+- Production contains the feature through commit `2354e085 feat(pwa): register H1 tasks with owner nudges`; closeout production check reported `v0.28.12` / `b2277b5f` / `dirty=false`.
+- Detailed session log: `pwa/design_log/sessions_2026-06.md` entry `2026-06-19 - H-1 task auto-registration + owner Slack nudge`.
 
 ## Repo State
 
-- Branch: `main`
-- Local HEAD at closeout: current local HEAD (`docs: handoff H1 recurring meeting card fix`; run `git log -1 --oneline` for the exact hash)
-- `origin/main` / production at closeout: `75df41af` (`Simplify wallet finance table`), build `v0.28.10`
-- Branch state at closeout: `main...origin/main [ahead 1, behind 1]`
-- Dirty file at closeout, not from H-1: `pwa/src/components/admin/AdminPayoutsClient.tsx` (finance/admin reward debt ledger continuation)
-- Production check to rerun if needed: `curl -sS https://amd-os-pwa.vercel.app/api/build-info`
+- Accepted implementation commit: `2354e085 feat(pwa): register H1 tasks with owner nudges`.
+- Current `origin/main` at closeout: `b2277b5f feat(contracts): normalize registry table`, which includes the implementation commit.
+- Worker branch at closeout before handoff commit: `codex/h1-calendar-review-queue-v0286...origin/main` aligned, no tracked dirty files.
+- Canonical root `/Users/masa/projects/AMD/amd-os` is on `main` / `b2277b5f`, but has unrelated finance/admin dirty files. Do not use that checkout as a clean implementation source until those are committed or quarantined.
+- Separate unpushed local branch exists: `codex/cx-contract-terms-cap-fix` at `019cdc4c feat(contracts): add contract terms cap source`. It is unrelated to this H-1 task-registration work.
 
 ## Verification Run This Session
 
-- `npx eslint src/lib/meeting-series.ts src/components/cockpit/CockpitMeetingSummary.tsx src/components/hud/HudCockpitMeetingSummary.tsx src/app/api/meeting-prep/calendar-sync/route.ts`
-- `npx tsc --noEmit --pretty false`
+- `npm run test:task-calendar-register`
+- `npm run test:task-calendar-schedule-plan`
+- `npm run test:meeting-calendar-upsert-plan`
+- targeted `eslint` for the new route/helper/sidebar/build-info changes
+- `npx tsc --noEmit`
+- `npm run build`
 - `npm run test:critical-ui`
-- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`
+- production `/api/build-info` check: `v0.28.12` / `b2277b5f985e11c6cd591da9c8b36ed6b241bc3d` / `dirty=false`
+- production unauthenticated route smoke: `POST /api/task-calendar/register-tasks` returned `401 unauthorized`, confirming the route exists and is protected
 
-Note: `npm run lint` full-repo still has pre-existing lint debt unrelated to this H-1 fix. Use targeted lint for touched files unless doing a separate lint cleanup.
+No real Slack DM was sent during verification. The Slack send path is implemented but only fires on an authorized non-dry-run call with `send_slack=true` and a resolvable owner Slack user id.
 
 ## Unresolved Tasks
 
-- None for the H-1 recurring MTG card fix itself.
-- Handoff docs commit is local-only because `origin/main` advanced and unrelated finance/admin dirty files exist. Do not push/rebase blindly; first resolve or quarantine the payout/reward dirty files.
-- If a duplicate still appears, first inspect that card's `title`, `meeting_date`, `meeting_start_at`, `calendar_event_id`, `meeting_id`, and `source_kinds` in `project_meeting_summaries`; likely action is extending `looksSeriesLikeTitle` in `pwa/src/lib/meeting-series.ts` and `calendar-sync`.
+- H-1 automation should call `POST /api/task-calendar/register-tasks` after extracting next actions. This is an automation wiring task, not a PWA route task.
+- If Calendar work blocks are still needed, keep using `/api/task-calendar/schedule-plan` as dry-run. Do not add back an admin review page unless Masa explicitly asks for one.
+- Clean up or route the unrelated canonical-root finance/admin dirty files before using `/Users/masa/projects/AMD/amd-os` for a fresh product change.
 
 ## Read First Next Session
 
-1. `AGENTS.md`
-2. `CLAUDE.md`
-3. `pwa/AGENTS.md`
-4. `pwa/CLAUDE.md`
-5. `SESSION_MIGRATION_PROMPT.md`
-6. `pwa/design/meeting_summaries.md`
-7. `pwa/design/L2_DATA.md`
-8. `pwa/manual/2-3-pj-cockpit.md`
-9. `pwa/manual/3-2-data-and-extraction.md`
-10. `pwa/manual/8-3-l2-extraction-routines-spec.md`
-11. `pwa/BUGS.md`
+1. `HANDOFF.md`
+2. `pwa/spec/3-3-meeting-flow-current-spec.md`
+3. `pwa/spec/2-1-pwa-runtime-routes.md`
+4. `pwa/spec/2-2-pwa-surface-inventory-current-spec.md`
+5. `pwa/manual/3-2-data-and-extraction.md`
+6. `pwa/manual/8-3-l2-extraction-routines-spec.md`
+7. `pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md`
+8. `pwa/BUGS.md`
+9. `pwa/design_log/sessions_2026-06.md`
 
 ## First Next Action
 
@@ -57,15 +61,14 @@ Note: `npm run lint` full-repo still has pre-existing lint debt unrelated to thi
 cd /Users/masa/projects/AMD/amd-os
 git fetch origin main
 git status -sb
-git log --left-right --oneline main...origin/main
 curl -sS https://amd-os-pwa.vercel.app/api/build-info
 ```
 
-Expected as of this handoff: `main` may be ahead/behind until the local handoff docs commit is rebased or cherry-picked onto current `origin/main`. Production build should report `v0.28.10` / `75df41af` or newer.
+Expected: production is `v0.28.12` / `b2277b5f` or newer. If wiring H-1 automation, use `WORKFLOW_SECRET` and start with `dry_run=true`; switch to `send_slack=true` only when the task payload, target count, owner mapping, and rollback are clear.
 
 ## Guardrails
 
 - Never use `git add .`.
-- Do not revert dirty files you did not create. Work with them or commit/carry-forward explicitly.
-- For PWA code changes, bump `pwa/src/lib/build-info.ts` before deploy.
-- PWA production deploy is `main push = Vercel auto deploy`; use `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` and monitor build-info.
+- Do not revert dirty files you did not create.
+- This flow writes `tasks` and optional owner Slack DMs only. It must not send Gmail, invite external attendees, or write Calendar events.
+- For PWA production deploys, `.vercel/project.json` must be `amd-os-pwa / prj_raZW3HSKIszzPUwNTHfy7xDGzLHm`.

@@ -637,6 +637,7 @@
 - `pwa/manual/2-3-pj-cockpit.md`
 - `pwa/manual/3-2-data-and-extraction.md`
 - `pwa/manual/8-3-l2-extraction-routines-spec.md`
+- `pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md`
 - `pwa/manual/9-3-appendix-changelog.md`
 - `pwa/BUGS.md`
 
@@ -661,3 +662,39 @@
 - `stockYen` は PL 原価や cash out ではなく報酬債務残高であることを、manual 6-5 / 7-1、spec 3-14、design `project_pl_monthly.md` に同期。
 
 **注意**: 今回は表示・監査面の改善で、`reward_summary_json` の計算式や支払額は変えていない。SX の 202606 支払が出るのは、契約バッファ控除後の残 cap を役員会社留保と非役員支払へ同じ配分母で按分する current rule の結果。
+
+---
+
+### 2026-06-19 - H-1 task auto-registration + owner Slack nudge (v0.28.9)
+
+**経緯**: MTGカード/議事録由来の Calendar review queue を `/admin/calendar-review` として一度作ったが、まさから「adminが全部レビューする例外運用は作らない。自動でタスク化して担当者本人にだけ Slack nudge が飛べばいい」と指摘があった。
+
+**対応**:
+- `/admin/calendar-review` 画面と Admin sidebar 導線を削除。
+- `POST /api/task-calendar/register-tasks` を追加し、H-1 が抽出した MTG next action / Gmail TODO / Slack TODO を `tasks` に自動登録する contract に変更。
+- `task_id` で冪等化し、既存 task は既定で再通知しない。`renotify_existing=true` の時だけ再通知候補にする。
+- Slack nudge は担当者本人のみ。送信先は payload の `owner_slack_user_id`、無ければ `members.slack_id`。`send_slack=true` かつ non-dry-run の authorized call の時だけ送る。
+- Calendar 作業枠候補は `/api/task-calendar/schedule-plan` の dry-run planner として残し、PWA route は Calendar event 作成 / Gmail送信 / 外部attendee招待を行わない。
+
+**正本同期**:
+- `pwa/spec/3-3-meeting-flow-current-spec.md`
+- `pwa/spec/2-1-pwa-runtime-routes.md`
+- `pwa/spec/2-2-pwa-surface-inventory-current-spec.md`
+- `pwa/manual/3-2-data-and-extraction.md`
+- `pwa/manual/8-3-l2-extraction-routines-spec.md`
+- `pwa/manual/9-3-appendix-changelog.md`
+- `pwa/spec/6-1-appendix-changelog.md`
+- `pwa/BUGS.md` (deploy gate 誤停止の運用 lesson)
+
+**検証**:
+- `npm run test:task-calendar-register`
+- `npm run test:task-calendar-schedule-plan`
+- `npm run test:meeting-calendar-upsert-plan`
+- targeted eslint
+- `npx tsc --noEmit`
+- `npm run build`
+- `npm run test:critical-ui`
+- production `/api/build-info`: closeout 時点で `v0.28.12` / `b2277b5f` / `dirty=false` (実装 commit `2354e085` を含む)
+- production unauthenticated route smoke: `/api/task-calendar/register-tasks` は `401 unauthorized`
+
+**注意**: 検証では実 Slack DM は送っていない。H-1 automation 配線時はまず `dry_run=true` で payload / 重複 / owner Slack mapping を確認し、対象・件数・rollback・通知有無を明確にしてから `send_slack=true` にする。
