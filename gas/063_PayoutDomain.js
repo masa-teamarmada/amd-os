@@ -61,7 +61,6 @@ function payoutBuildRows(ym){
   const members = payoutGetMembersBasic(); // 062
 
   const allocs = payoutFetchPlannedAllocations(ym);
-  const routineMap = payoutFetchMonthlyRoutineStatus(ym);
   const cashInMap  = payoutFetchCashInStatus(ym);
 
   // ★通知書ログ（永続化）を反映
@@ -80,7 +79,7 @@ function payoutBuildRows(ym){
       projectId: a.projectId,
       projectName: a.projectName,
       yen: Number(a.yen||0),
-      routineStatus: routineMap[a.projectId] || "pending",
+      routineStatus: "done",
       cashInStatus:  cashInMap[a.projectId]  || "pending"
     });
   });
@@ -89,7 +88,6 @@ function payoutBuildRows(ym){
     const payouts = byMember[m.memberId] || [];
     const totalYen = payouts.reduce((s,p)=> s + Number(p.yen||0), 0);
 
-    const allRoutineDone = payouts.length ? payouts.every(p=>p.routineStatus==="done") : false;
     const allCashInDone  = payouts.length ? payouts.every(p=>p.cashInStatus==="done")  : false;
 
     // ★通知書の復元
@@ -109,12 +107,10 @@ function payoutBuildRows(ym){
     // ★「issued」になったら送付可（永続状態に従う）
     const canSendNotice  = (notice.status === "issued");
 
-    // ★暫定ゲート（このまま）
-    const canMarkPaid    = allRoutineDone && allCashInDone;
+    const canMarkPaid    = payouts.length ? allCashInDone : false;
 
     const blockReasons = [];
     if (!totalYen) blockReasons.push("支払額が0円");
-    if (payouts.length && !allRoutineDone) blockReasons.push("未完了の月次ルーティンあり");
     if (payouts.length && !allCashInDone)  blockReasons.push("未着金のPJあり");
 
     // ★paid 復元（永続化の正本）
@@ -249,46 +245,8 @@ function payoutFetchPlannedAllocations(ym){
   }
 }
 
-// 月次ルーティン完了（projectId -> done/pending）
-// 仮ルール：monthlyReportFileId or monthlyReportUrl があれば done
 function payoutFetchMonthlyRoutineStatus(ym){
-  try{
-    const sh = payoutGetSheetByName("DB_BillingCycle");
-    const header = payoutGetHeaderMap(sh);
-
-    if (!header.projectId || !header.ym){
-      throw new Error("DB_BillingCycle missing required columns");
-    }
-
-    const hasFileId = !!header.monthlyReportFileId;
-    const hasUrl = !!header.monthlyReportUrl;
-
-    const lastRow = sh.getLastRow();
-    if (lastRow < 2) return {};
-
-    const lastCol = sh.getLastColumn();
-    const values = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
-
-    const map = {};
-    for (let i = 0; i < values.length; i++){
-      const row = values[i];
-      const rowYm = String(row[header.ym - 1] || "").trim();
-      if (rowYm !== ym) continue;
-
-      const projectId = String(row[header.projectId - 1] || "").trim();
-      if (!projectId) continue;
-
-      const fileId = hasFileId ? String(row[header.monthlyReportFileId - 1] || "").trim() : "";
-      const url = hasUrl ? String(row[header.monthlyReportUrl - 1] || "").trim() : "";
-
-      map[projectId] = (fileId || url) ? "done" : "pending";
-    }
-    return map;
-
-  } catch(e){
-    console.warn("[Payout] payoutFetchMonthlyRoutineStatus:", e.message, "ym=", ym);
-    return {};
-  }
+  return {};
 }
 
 // 着金（projectId -> done/pending）
@@ -327,4 +285,3 @@ function payoutFetchCashInStatus(ym){
     return {};
   }
 }
-

@@ -412,8 +412,7 @@ function listProjects(payload) {
   const billingTaskMap = getBillingTaskStatusMap_(ym);
   _profMark_(prof, "getBillingTaskStatusMap_ now done");
 
-  const billingTaskMapPrev = getBillingTaskStatusMap_(prevYm);
-  _profMark_(prof, "getBillingTaskStatusMap_ prev done");
+  _profMark_(prof, "getBillingTaskStatusMap_ prev skipped");
 
   const day = getTodayDayOfMonth_();
 
@@ -437,35 +436,17 @@ function listProjects(payload) {
 
     const routineObj = (function(){
       const bizYm = ym;                 // "YYYYMM"（今月）
-      const prevBizYm = prevYm;         // "YYYYMM"（前月）
+      const prevBizYm = prevYm;         // "YYYYMM"（前月、debug/UI互換用）
       const payYm = addMonthsYmKey_(bizYm, 1);
 
-      const btPrev = (billingTaskMapPrev[projectId] || {
-        exists:false,
-        meetingDone:false, reportDone:false, budgetDone:false, allocationDone:false, invoiceSendDone:false, paymentDone:false
-      });
-
-      // ★前月のPM routineが完了か（Homeの表示と同じ定義）
-      const prevPmDone =
-        !!btPrev.exists &&
-        !!btPrev.meetingDone &&
-        !!btPrev.reportDone &&
-        !!btPrev.budgetDone &&
-        !!btPrev.allocationDone &&
-        !!btPrev.invoiceSendDone;
-
-      const prevPending = !!btPrev.exists && !prevPmDone;
-
-      // ★Homeが開くべき業務月（最重要）
-      const defaultYmKey = prevPending ? prevBizYm : bizYm;
+      const prevPending = false;
+      const defaultYmKey = bizYm;
 
       // ====== 以降の “表示用” は defaultYmKey に揃える（Homeの見え方もBillingと一致させる） ======
       const viewBizYm = defaultYmKey;
       const viewPayYm = addMonthsYmKey_(viewBizYm, 1);
 
-      const btView = (defaultYmKey === bizYm)
-        ? btNow
-        : (billingTaskMapPrev[projectId] || btPrev);
+      const btView = btNow;
 
       const hasCycle = !!btView.exists;
       const scheduleDone = !!btView.meetingDone;
