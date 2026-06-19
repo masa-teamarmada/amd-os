@@ -207,7 +207,7 @@ cockpit のガバナンス欄・要対応面はサーバ側 admin クライア�
 
 ## 6. 壊さないライン
 
-- cockpit 3-column grid・経営ハイライト・MTGサマリ・月次ルーティン step modal の既存導線を削除しない (FEATURE_REGISTRY)。
+- cockpit 3-column grid・経営ハイライト・MTGサマリ・月次カードの既存導線を削除しない (FEATURE_REGISTRY)。PM向け月次 step modal は再導入しない。
 - `/notifications` の admin gate を外さない。
 - cap table / valuation を anon 読み取りに晒さない (RLS)。
 

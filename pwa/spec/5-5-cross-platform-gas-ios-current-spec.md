@@ -7,10 +7,10 @@
 | 領域 | iOS current role | source |
 |---|---|---|
 | top-level app | SwiftUI iOS 17+ native client | `ios/AMDOS/AMDOSApp.swift`, `ios/AMDOS/ContentView.swift` |
-| tabs | MyPage / 月次ルーティン / 立替 / PJ進捗 / Admin / 設定 | `ios/DESIGN.md` |
+| tabs | MyPage / 月次報酬 / 立替 / PJ進捗 / Admin / 設定。PM向け月次ルーティン tab は廃止済み | `ios/DESIGN.md` |
 | auth | Google Sign-In + Supabase Auth | `ios/AMDOS/Features/Auth/` |
 | notification inbox | `l2_notifications` / `meeting_notifications` を確認し、はい/いいえ/コメントを返す | `ios/DESIGN.md`, `ios/HANDOFF_l2_notifications.md`, `ios/HANDOFF_meeting_notifications.md` |
-| routine | ProjectListView → RoutineFlowView で月次 step を進める | `ios/DESIGN.md` |
+| monthly cards | 月次状態は確認面として扱い、PM向け step/TODO は出さない | `ios/DESIGN.md` |
 | reimburse | native 立替申請 / 承認 | `ios/DESIGN.md` |
 | cockpit | native PJ進捗 / MS revision UI | `ios/DESIGN.md` |
 

@@ -60,7 +60,7 @@
 ### 案 D: 案 B + 案 C のハイブリッド (**強推し**)
 
 - 通常は案 B (= Radix Tooltip を直接書く)
-- 重要な機能 (= MS 進捗フロー / 提案前の論点整理運用 / 月次ルーティン step / 経営シグナル採否 等) は案 C で `Hint` コンポーネントを使う
+- 重要な機能 (= MS 進捗フロー / 提案前の論点整理運用 / 月次カード / 経営シグナル採否 等) は案 C で `Hint` コンポーネントを使う
 - `Hint` の説明文は `pwa/src/lib/ui-hints/` の TypeScript 定数 or DB (`ui_hints` テーブル) で管理
 - 説明文には「機能名」「何ができる」「関連リンク (= マニュアル本体 / 設計 md / 過去議論)」を含める
 
@@ -106,9 +106,9 @@ CREATE TABLE ui_hints (
 
 優先度:
 
-1. **cockpit MS routine step ボタン** (= 6 step 全部): 「請求額確定とは何か」「報告会日程調整とは何か」等 (= まさ自身も使用法を忘れがち)
+1. **cockpit 月次カード / monthly modal**: 月次カードが TODO ではなく確認面であること、報告書・報酬・請求情報の読み方
 2. **経営事業シグナル 4 分類 chip + 「つくよみに修正依頼」ボタン**
-3. **MS Gantt bar / 月次ルーティン**: hover で「このバーは何 / メンバー share の意味」
+3. **MS Gantt bar / 月次カード**: hover で「このバーは何 / メンバー share の意味」
 4. **AMD スコアグラフ要素**: PRS primary pill / legacy M-X-F comparison / 破線 (= 「破線をクリックすると修正できる」を hover で明示)
 5. **HUD 系**: signal strip / cockpit signal cards
 

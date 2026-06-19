@@ -200,7 +200,7 @@ PJ cockpit は dashboard HUD と見た目が乖離しているため、実装前
 - Task Control / Kanban: Pending/TODO/Doing/Done、task title、assignee、priority、紐付きMS、drag/drop、task detail modal。
 - Monthly List: ym、会議/報告/請求/入金badge、review dot、請求額、MS進捗率、MS別progress展開。
 - Freeze Backfill / Meeting Summary。
-- Right Column: 凍結/再開badge、月次ルーティン、PM lock、Nudge。
+- Right Column: 凍結/再開badge、PM lock、Nudge。PM向け月次ルーティンは出さない。
 - Monthly Modal:
   - 進捗確認: plan info、5指標、未確認つくよみ推定、AI再推定、Edit、一括保存、MS加重平均、MS別進捗、この月の仕事、revision、報酬予定、メンバー報酬、進捗イベント、月次ノート、立替精算。
   - レポート: draft/fixed、生成/再生成、修正指示、FIX、PDF disabled、Markdown/plain表示、本文。
