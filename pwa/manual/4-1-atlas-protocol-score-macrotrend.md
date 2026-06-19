@@ -75,16 +75,27 @@ Atlas は、AMD が見るべき外部シグナルを蓄積し、後から判断�
 
 AMD Score は、PJ / SU 単位の価値・成熟度を見るスコア。現行 primary は PRS (`P x R x S`)。Before Zero Theory v3.2 の M-X-F / 7軸 Cobb-Douglas は legacy comparison と evidence chain として残す。
 
-```text
-AMD Score primary = K_prs · P · R · S
-R = TRL / BRL / GRL / SRL / HRL contribution product
-S = σ_SU / FRL / R_net contribution product
+$$
+\mathrm{Score}_{\mathrm{PRS}} = K_{\mathrm{PRS}}\cdot P\cdot R\cdot S
+$$
+
+$$
+R=\prod_{x \in \{\mathrm{TRL},\mathrm{BRL},\mathrm{GRL},\mathrm{SRL},\mathrm{HRL}\}}(x+1)^{\alpha_x}
+$$
+
+$$
+S=(\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}
+\cdot(\mathrm{FRL}_{\mathrm{final}}+1)^{\alpha_F}
+\cdot(R_{\mathrm{net}}+1)^{\alpha_{R_{\mathrm{net}}}}
+$$
 
 Legacy comparison:
-M = Macrotrend / Triple Helix
-X = 5 XRL readiness
-F = Founder / CEO leadership readiness
-```
+
+| 要素 | 読み方 |
+|---|---|
+| `M` | Macrotrend / Triple Helix |
+| `X` | 5 XRL readiness |
+| `F` | Founder / CEO leadership readiness |
 
 読む時のポイント:
 - `P` は潜在規模、`R` は会社側 readiness、`S` は生存性・収益化耐性を見る

@@ -84,6 +84,42 @@ FRL は XRL に飲み込まない。AMD Studio の哲学上、FRL と `sigma_SU`
 
 `amd_score_inputs` の列名を書く前に `pwa/design/db_schema.md` を確認する。
 
+## Data Derivation Contract
+
+PRS primary は、次のデータを同じ `amd_score_inputs` row から組み立てる。`P` / `R_net` だけは nullable review input なので、未入力なら score を出さず `missingAxes` を返す。
+
+| PRS要素 | 実装値 | 算出 / 解決順 | ベースデータ |
+|---|---|---|---|
+| `P` | `prs_potential` | detail draft -> row value -> past persisted row -> latest project-level row -> null | 事業仮説、Venture narrative、PL hearing、Atlas/市場根拠、まさレビュー |
+| `R` | TRL / BRL / GRL / SRL / HRL contribution product | `xrl_checklist` 保存値または row の `trl..hrl` | `project_xrl_log`, `project_xrl_evidence`, `amd_score_inputs.xrl_checklist`, XRL notes |
+| `S:sigma_SU` | `computeSigmaSU(mu_A, mu_I, mu_G)` | `((mu_A+1)(mu_I+1)(mu_G+1))^(1/3)-1` | `papers_log`, scholar/OpenAlex, `atlas_signals`, `macro_index_log`, policy/news/investment signals |
+| `S:FRL` | `resolveFrl(row)` | `frl_cap` があれば CES、無ければ `frl` | ALQ 4因子、Grit、Resilience、F_capability、`project_founding_members` |
+| `S:R_net` | `prs_r_net` | detail draft -> row value -> past persisted row -> latest project-level row -> null | 収益化見込み、粗利、運営コスト、本命PJへのリソース毀損 |
+
+`resolvePrsInputs()` は stored row -> prior row -> latest reviewed project-level PRS input の順で P/R_net を解決し、過去 row の PRS history を back-calculate する。null は 0 にしない。
+
+LaTeX canonical formula:
+
+$$
+\mathrm{Score}_{\mathrm{PRS}}
+= K_{\mathrm{PRS}}
+\cdot (P_{\mathrm{input}}+1)^{\alpha_P}
+\cdot \prod_{x \in \{\mathrm{TRL},\mathrm{BRL},\mathrm{GRL},\mathrm{SRL},\mathrm{HRL}\}}(x+1)^{\alpha_x}
+\cdot(\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}
+\cdot(\mathrm{FRL}_{\mathrm{final}}+1)^{\alpha_F}
+\cdot(R_{\mathrm{net}}+1)^{\alpha_{R_{\mathrm{net}}}}
+$$
+
+$$
+K_{\mathrm{PRS}}
+= \frac{100{,}000}{10^{\sum_{x \in \mathcal{A}_{\mathrm{PRS}}}\alpha_x}}
+$$
+
+$$
+\sigma_{\mathrm{SU}}
+= \sqrt[3]{(\mu_A+1)(\mu_I+1)(\mu_G+1)} - 1
+$$
+
 ## FRL 境界
 
 FRL の 2 レイヤー CES 実装仕様は `/spec/4-1-frl-ces-current-spec` を正本にする。

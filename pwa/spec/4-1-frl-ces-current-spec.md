@@ -4,7 +4,7 @@
 
 ## 現行仕様
 
-FRL は AMD Score の 7 軸のうち、創業者・経営チームの readiness を表す軸。2026-05-30 #101 で、旧 6 因子 FRL を次の 2 レイヤーへ分けた。
+FRL は AMD Score の PRS primary では **S (Survival)** を構成する創業者・経営チーム readiness。legacy 7 軸 / M-X-F comparison では F 軸として残る。2026-05-30 #101 で、旧 6 因子 FRL を次の 2 レイヤーへ分けた。
 
 | レイヤー | DB / 実装 | 意味 |
 |---|---|---|
@@ -14,10 +14,20 @@ FRL は AMD Score の 7 軸のうち、創業者・経営チームの readiness 
 
 最終 FRL は CES で合成する。
 
-```text
-FRL + 1 = [ a(F_character + 1)^rho + (1-a)(F_capability + 1)^rho ]^(1/rho)
-初期値: a = 0.6, rho = -2
-```
+$$
+\mathrm{FRL}_{\mathrm{final}} + 1
+=
+\left(
+a(F_{\mathrm{character}}+1)^\rho
++(1-a)(F_{\mathrm{capability}}+1)^\rho
+\right)^{1/\rho}
+$$
+
+既定値:
+
+$$
+a=0.6,\qquad \rho=-2
+$$
 
 - `rho < 0` なので、片方が低いと最終 FRL が低い側へ引っ張られる。
 - `frl_cap` が `NULL` の場合は後方互換として `frl` をそのまま最終 FRL にする。

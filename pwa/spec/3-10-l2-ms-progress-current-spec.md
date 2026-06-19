@@ -8,7 +8,7 @@
 
 ## 基本契約 (まさ確定 2026-06-12)
 
-1. **デフォルト月割り (アンカー方式)**: N か月で完了する計画の MS は 1 か月あたり 100/N % の累積進捗がデフォルトで自動的に入る。**その月より前に PM 確定行 (アンカー) があれば、按分の起点はアンカー値**: `デフォルト(m) = min(100, アンカー% + (100/N) × アンカーからの経過月数)`。例: 3か月MSで 202605 確定 15% なら 202606 デフォルト = 15 + 33.3 = 48.3%。アンカーが無い MS は従来按分 (最終月 100%)。計算正本は `pwa/src/lib/ms-schedule-shared.ts` の `anchoredExpectedCumPctForYm` (アンカー無し時は `expectedCumPctForYm` に一致)。
+1. **デフォルト月割り (アンカー方式)**: N か月で完了する計画の MS は 1 か月あたり 100/N % の累積進捗がデフォルトで自動的に入る。**その月より前に PM 確定行 (アンカー) があれば、按分の起点はアンカー値**: `デフォルト(m) = min(100, アンカー% + (100/N) × アンカーからの経過月数)`。例: 3か月MSで 202605 確定 15% なら 202606 デフォルト = 15 + 33.3 = 48.3%。アンカーが無い MS は従来按分 (最終月 100%)。計画開始前のアンカーは `period_start_ym` の直前月に丸め、開始月が一気に 100% へ飛ばないようにする。計算正本は `pwa/src/lib/ms-schedule-shared.ts` の `anchoredExpectedCumPctForYm` (アンカー無し時は `expectedCumPctForYm` に一致)。
 2. **AI は提案のみ**: LLM 推定は `milestone_monthly_progress` を直接書かない。デフォルトとの乖離が ±10pt 以上のときだけ `ms_progress_revisions` (status='pending') に提案を積み、`l2_notifications` (l2_kind='ms_progress_revision') で通知する。
 3. **まさが認めない限りデフォルト通り**: revision が confirm されるまで、表示も報酬計算もデフォルト月割り値が有効。
 4. **巻き戻りは設計上起きない**: 累積進捗は非減少。報酬計算は cumulative max 方式で「巻き戻り→再上昇」の二重払いを構造的に排除する。
@@ -65,7 +65,7 @@
 `applyScheduleDefaultsForProject(projectId, ym)` の処理順:
 
 1. `value_plan_cycles` / `value_milestones` (is_active=true) を読み、各 MS の期間 (`period_start_ym`〜`target_ym`、欠損は cycle 期間で補完 = `milestonePeriod`) を確定
-2. 各 MS × 各月について `anchoredExpectedCumPctForYm(rowYm, startYm, endYm, anchor)` を計算。anchor = その行の月より**厳密に前 (<)** にある最新の PM locked 行 `{ym, pct}`。anchor 無し = 従来按分 (開始前=0 / 最終月以降=100 / 途中=経過月数比、小数1桁)。anchor あり = `min(100, アンカー% + (100/N) × 経過月数)`。**anchor がある MS は target_ym を過ぎても当月まで書き続ける** (lastIndex = 当月)。anchor 無し MS は従来通り target_ym で打ち止め
+2. 各 MS × 各月について `anchoredExpectedCumPctForYm(rowYm, startYm, endYm, anchor)` を計算。anchor = その行の月より**厳密に前 (<)** にある最新の PM locked 行 `{ym, pct}`。anchor 無し = 従来按分 (開始前=0 / 最終月以降=100 / 途中=経過月数比、小数1桁)。anchor あり = `min(100, アンカー% + (100/N) × 経過月数)`。anchor の `ym` が `period_start_ym` より前なら、経過月数の起点だけ `period_start_ym` の直前月に丸める。**anchor がある MS は target_ym を過ぎても当月まで書き続ける** (lastIndex = 当月)。anchor 無し MS は従来通り target_ym で打ち止め
 3. `milestone_monthly_progress` の既存行が PM locked なら skip、それ以外 (無い/`routine_auto`/旧 source) は `source='routine_auto'` で upsert (note にアンカー起点を明記)
 4. `ms_progress_revisions.status='confirmed'` がある MS は `tsukuyomi_revision` として再適用 (修復)
 5. 開始前 MS の非確定値は 0% に補正 (`applyBeforeStartProgressGuard`)

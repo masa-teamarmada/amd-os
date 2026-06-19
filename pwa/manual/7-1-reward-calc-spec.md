@@ -154,7 +154,7 @@ monthsSinceAnchor = 当月 − アンカー月
 cumPct           = min(100, anchorPct + (100/totalMonths) × monthsSinceAnchor)
 ```
 
-アンカーが無ければ基本按分にフォールバックする。 旧 `routineMonthPct = 100/totalMonths` の説明はこのアンカー方式に統合された。
+アンカーが無ければ基本按分にフォールバックする。アンカー月が `period_start_ym` より前にある場合は、経過月数の起点だけ `period_start_ym` の直前月へ丸める。これにより、開始前の 0% 確認が開始月の 100% 完了に化ける事故を防ぐ。旧 `routineMonthPct = 100/totalMonths` の説明はこのアンカー方式に統合された。
 
 按分デフォルト値は in-memory で計算されるだけで **DB に書かない** (= `milestone_monthly_progress` は触らない)。
 

@@ -65,6 +65,7 @@ export type ProgressAnchor = { ym: string; pct: number };
  *
  * - アンカー (asOfYm より前の最新 PM_LOCKED 行) が無ければ従来の expectedCumPctForYm。
  * - アンカーがあれば「アンカー値 + (100/総月数) × アンカーからの経過月数」を 100 で cap。
+ * - ただし period_start_ym より前のアンカーは、開始直前月のアンカーとして扱う。
  *   target_ym を過ぎても自動で 100% に飛ばさず、確定アンカーからの月割りで淡々と積む。
  */
 export function anchoredExpectedCumPctForYm(
@@ -84,7 +85,8 @@ export function anchoredExpectedCumPctForYm(
   }
   const totalMonths = Math.max(1, end - start + 1);
   const anchorPct = Math.max(0, Math.min(100, Number(anchor?.pct ?? 0)));
-  const monthsSinceAnchor = Math.max(0, asOf - anchorIndex);
+  const effectiveAnchorIndex = Math.max(anchorIndex, start - 1);
+  const monthsSinceAnchor = Math.max(0, asOf - effectiveAnchorIndex);
   const pct = anchorPct + (100 / totalMonths) * monthsSinceAnchor;
   return Math.min(100, Math.round(pct * 10) / 10);
 }

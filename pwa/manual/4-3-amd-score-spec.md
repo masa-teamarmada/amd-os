@@ -1,22 +1,30 @@
 # AMD Score 詳細仕様
 
-AMD Score は、PJ / SU の価値・成熟度を数値化する指標。現行画面の主表示は **PRS Primary** (`P x R x S`)。M / X / F と 7 軸 Cobb-Douglas は legacy AMD comparison として残し、PRS の根拠・履歴比較・旧モデル確認に使う。
+AMD Score は、PJ / SU の価値・成熟度を数値化する指標。現行画面の主表示は **PRS Primary** (`P x R x S`)。M / X / F と 7 軸 Cobb-Douglas は **legacy AMD comparison** として残し、PRS の根拠・履歴比較・旧モデル確認に使う。
 
-> 実装者向けの AMD Score 確定仕様は [/spec/4-2-amd-score-current-spec](/spec/4-2-amd-score-current-spec) へ移行済み。理論導出は `/bzm`、日常画面での読み方はこの章に残す。
+> 実装者向けの確定仕様は [/spec/4-2-amd-score-current-spec](/spec/4-2-amd-score-current-spec)。理論導出は `/bzm`、日常画面での読み方はこの章に置く。
 
-## AMD Score と Management Score の違い
+## 先にここだけ読む
 
-| 名前 | 対象 | 目的 |
-|---|---|---|
-| **AMD Score** | PJ / SU | その PJ が立ち上がる価値・成熟度を見る |
-| **AMD Management Score** | AMD 全社 | 今月の会社経営状態を見る |
+AMD Score は PJ / SU の価値評価。AMD 全社の健康度を見る AMD Management Score とは別物。
 
-混ぜない。PJ の価値評価は AMD Score、会社全体の健康度は AMD Management Score。
+PRS は、PJ が立ち上がるための3つの必要条件を掛け合わせるモデル。
 
-## 現行 primary: PRS
+| 要素 | 意味 | 何を見るか | 主なデータ |
+|---|---|---|---|
+| `P` | Potential | 当たった時の市場・事業・社会インパクトの天井 | `amd_score_inputs.prs_potential` |
+| `R` | Reach / Readiness | その天井へ届くための会社側 readiness | TRL / BRL / GRL / SRL / HRL |
+| `S` | Survival | 届くまで走り切るための生存力 | `sigma_SU` / FRL / `prs_r_net` |
+
+足し算ではなく掛け算にするのは、3つが「どれか1つ高ければOK」ではないから。Potential が大きくても Reach が低ければ届かない。Reach が高くても Survival が低ければ途中で止まる。Survival が高くても Potential が小さければ、AMD Score は大きくならない。積にすると、弱い要素が自然に全体を抑え、3つが同時に揃った時だけ score が伸びる。
+
+`P` / `R_net` が未入力なら、PRS は `INPUT NEEDED` / review pending として止める。legacy AMD score を代わりに主表示へ戻さない。
+
+## Primary Formula
 
 $$
-\mathrm{Score}_{\mathrm{PRS}} = K_{\mathrm{PRS}} \cdot P \cdot R \cdot S
+\mathrm{Score}_{\mathrm{PRS}}
+= K_{\mathrm{PRS}} \cdot P \cdot R \cdot S
 $$
 
 $$
@@ -24,200 +32,173 @@ P = (P_{\mathrm{input}}+1)^{\alpha_P}
 $$
 
 $$
-R = \prod_{x \in \{\mathrm{TRL},\mathrm{BRL},\mathrm{GRL},\mathrm{SRL},\mathrm{HRL}\}} (x+1)^{\alpha_x}
+R =
+\prod_{x \in \{\mathrm{TRL},\mathrm{BRL},\mathrm{GRL},\mathrm{SRL},\mathrm{HRL}\}}
+(x+1)^{\alpha_x}
 $$
 
 $$
-S = (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma} \cdot (\mathrm{FRL}+1)^{\alpha_F} \cdot (R_{\mathrm{net}}+1)^{\alpha_{R_{\mathrm{net}}}}
+S =
+(\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}
+\cdot(\mathrm{FRL}_{\mathrm{final}}+1)^{\alpha_F}
+\cdot(R_{\mathrm{net}}+1)^{\alpha_{R_{\mathrm{net}}}}
 $$
 
 $$
-K_{\mathrm{PRS}} = \frac{100{,}000}{10^{\sum_{x \in \mathcal{A}_{\mathrm{PRS}}}\alpha_x}}
-$$
-
-P / R_net は `amd_score_inputs.prs_potential` / `amd_score_inputs.prs_r_net` に nullable で保存する。未入力は「review pending」として扱い、0点に丸めたり legacy AMD を主表示へ戻したりしない。
-
-### K / P / R / S のざっくり意味
-
-PRS は、「このPJが大きくなる可能性があるか」「そこへ届く準備があるか」「届くまで生き残れるか」を分けて見るための読み方。
-
-| 記号 | 意味 | ざっくり言うと |
-|---|---|---|
-| `K_PRS` | 校正係数 | スコアの物差し。全active axisが9点の時に100,000になるように合わせる倍率 |
-| `P` | Potential | 当たった時の大きさ。市場・事業・社会インパクトの天井 |
-| `R` | Reach | そこまで届く準備。技術・事業・制度・社会受容・人材が揃っているか |
-| `S` | Survival | 途中で死なない力。マクロの追い風、founder readiness、純残存力 |
-
-足し算ではなく積にしているのは、P/R/S が「どれか1つ高ければOK」ではないから。ポテンシャルが大きくても届く準備がなければ立ち上がらないし、準備があっても生き残れなければ途中で止まる。逆に3つが同時に揃うと、score は一気に伸びる。
-
-なので PRS は「強みの合計点」ではなく、「立ち上がるための必要条件がどれだけ同時に揃っているか」を見るモデル。`K_PRS` はその値をOS上で見やすいスケールへ合わせるだけで、PJの実力そのものは `P` / `R` / `S` が持っている。
-
-## スコア詳細ページに出ているもの
-
-`/venture-map/amd-score/{projectId}` と PJ コックピットの `スコア詳細` タブは、次の順番で読む。
-
-| 表示 | 読み方 | 算出 / 入力 |
-|---|---|---|
-| `PRS Primary` | いまの AMD Score 正本 | `Score_PRS = K_PRS * P * R * S` |
-| `INPUT NEEDED` | PRS未完成 | `P` / `R_net` のどちらかが未入力。legacyを代わりに主表示しない |
-| `P Potential` | 事業ポテンシャル | `prs_potential` を人がレビューして保存。計算上は `(P_input+1)^alpha_P` |
-| `R_net` | 純残存力 | `prs_r_net` を人がレビューして保存。計算上は `(R_net+1)^alpha_R_net` |
-| `R reach` | 到達力 | TRL / BRL / GRL / SRL / HRL の積 |
-| `S survival` | 生存力 | `sigma_SU` / FRL / `R_net` の積 |
-| `PRS history` | PRSの時系列 | P/R_netまで揃っている過去行だけを log scale で描く |
-| `Legacy AMD comparison` | 旧モデル比較 | M-X-F / 7軸の旧スコア。現行primaryではない |
-| `M / X / F バランス` | 旧モデルの内訳 | M=Macrotrend、X=XRL、F=FRL |
-| `Triple Helix Matrix` | Mの根拠 | `mu_A` / `mu_I` / `mu_G`、観測値、loading、coverage |
-| `FRL — Founder Readiness Level` | founder readiness の根拠 | ALQ 4因子 / Grit / Resilience / FRL notes / final FRL |
-| `XRL 観測チェックリスト` | XRL値の根拠 | レベル別チェックから達成レベルを算出し、保存時に `trl..hrl` へ反映 |
-| `律速` | 最初に手当てすべき軸 | 限界感度が最大の軸 |
-
-### P / R_net の決まり方
-
-詳細ページの入力欄で保存すると、最新の `amd_score_inputs` row に `prs_potential` / `prs_r_net` として保存される。通常表示では、対象 row の値を先に読み、無ければ同じPJの過去保存値、さらに同じPJの最新保存値を見にいく。それでも無ければ null のまま review pending。
-
-空欄は 0 ではなく null。ここがすごく大事。
-
-### R reach の決まり方
-
-$$
-C_x = (x+1)^{\alpha_x}
+K_{\mathrm{PRS}}
+= \frac{100{,}000}{10^{\sum_{x \in \mathcal{A}_{\mathrm{PRS}}}\alpha_x}}
 $$
 
 $$
-R = C_{\mathrm{TRL}} \cdot C_{\mathrm{BRL}} \cdot C_{\mathrm{GRL}} \cdot C_{\mathrm{SRL}} \cdot C_{\mathrm{HRL}}
+\mathcal{A}_{\mathrm{PRS}}
+= \{P,\mathrm{TRL},\mathrm{BRL},\mathrm{GRL},\mathrm{SRL},\mathrm{HRL},
+\sigma_{\mathrm{SU}},\mathrm{FRL},R_{\mathrm{net}}\}
 $$
 
-Shallow Tech モードでは TRL を外して、K も TRL 抜きで再校正する。
+全active axis が 9 点の時に `100,000` になるように `K_PRS` で校正する。`K_PRS` は価値入力ではなく、スコアの物差しをそろえる倍率。Shallow Tech mode では `TRL=null` として `R` から TRL を外し、`K_PRS` も active axes だけで再校正する。
 
-### S survival の決まり方
+## パラメータ一覧
+
+| 記号 / 列 | 範囲 | 意味 | 算出・入力方法 | ベースデータ |
+|---|---:|---|---|---|
+| `P_input` / `prs_potential` | 0-9 / null | 事業ポテンシャル。成功時の規模・市場・社会インパクトの天井 | 詳細画面でレビュー保存。未入力は null | 事業仮説、Venture narrative、PL hearing、Atlas/市場根拠、まさ判断 |
+| `TRL` | 0-9 / null | Technology Readiness。技術成熟度 | XRL checklist または `amd_score_inputs.trl` | 内閣府 SIP 原典準拠チェックリスト、技術進捗、PoC、特許、論文 |
+| `BRL` | 0-9 | Business Readiness。事業化成熟度 | XRL checklist または `amd_score_inputs.brl` | 顧客ヒアリング、LOI、売上、商談、事業設計 |
+| `GRL` | 0-9 | Governance / Government Readiness。制度・規制成熟度 | XRL checklist または `amd_score_inputs.grl` | 規制、許認可、制度、政策、補助金 |
+| `SRL` | 0-9 | Social Readiness。社会受容・市場受容 | XRL checklist または `amd_score_inputs.srl` | 社会受容、ステークホルダー反応、導入抵抗、倫理・安全性 |
+| `HRL` | 0-9 | Human Readiness。組織・人材 readiness | XRL checklist / 関連メンバー評価 | `project_founding_members`, `project_venture_members`, メンバー構成 |
+| `mu_A` | 0-9 | Academic momentum。学術側の追い風 | 観測モデルまたは人間レビュー | `papers_log`, scholar ingest, OpenAlex, 研究活動 |
+| `mu_I` | 0-9 | Industry momentum。産業側の追い風 | 観測モデルまたは人間レビュー | `atlas_signals`, VC/企業投資、業界実装、競争環境 |
+| `mu_G` | 0-9 | Government momentum。政策・制度側の追い風 | 観測モデルまたは人間レビュー | 政策、規制、補助金、公募、政府文書 |
+| `sigma_SU` | 0-9 | Triple Helix 合成値。学・産・官の追い風 | `mu_A` / `mu_I` / `mu_G` から算出 | 上記3系列 |
+| `FRL_final` | 0-9 | Founder Readiness。創業者・経営中核の readiness | `resolveFrl()`。`frl_cap` があれば CES、なければ `frl` | ALQ 4因子、Grit、Resilience、経営実行力、AMD寄与 |
+| `R_net` / `prs_r_net` | 0-9 / null | 純残存力。粗利・運営コスト・本命PJへの資源毀損を見た生存力 | 詳細画面でレビュー保存。未入力は null | 収益化見込み、運営コスト、リソース毀損、事業優先度 |
+| `alpha_x` | 正数 | 各軸の重み / 弾力性 | `PRS_ALPHA_DEFAULT` または `amd_score_alpha` | retrofit / review |
+
+## PRS Input Resolution
+
+`P` と `R_net` は、表示時に次の順で解決する。
+
+1. 画面入力中の draft
+2. 対象 `amd_score_inputs` row の `prs_potential` / `prs_r_net`
+3. 同一PJで `evaluated_at <= target.evaluated_at` の過去 row に保存済みの値
+4. 同一PJの最新 project-level row に保存済みの値
+5. null
+
+null は 0 ではない。null の場合は `missingAxes` に入り、PRS score は `null` のまま。これで「情報がないのに低い点を付ける」「legacy score を勝手に primary に戻す」事故を防ぐ。
+
+## R の算出
+
+R は、会社側の到達 readiness。
 
 $$
-\sigma_{\mathrm{SU}} = \sqrt[3]{(\mu_A+1)(\mu_I+1)(\mu_G+1)} - 1
+C_x=(x+1)^{\alpha_x}
 $$
 
 $$
-S = (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}
-\cdot (\mathrm{FRL}_{\mathrm{final}}+1)^{\alpha_F}
-\cdot (R_{\mathrm{net}}+1)^{\alpha_{R_{\mathrm{net}}}}
+R=C_{\mathrm{TRL}}\cdot C_{\mathrm{BRL}}\cdot C_{\mathrm{GRL}}\cdot
+C_{\mathrm{SRL}}\cdot C_{\mathrm{HRL}}
 $$
 
-`sigma_SU` は Triple Helix の学・産・官の合成。FRL は founder readiness。`R_net` は人がレビューして入れる純残存力。
+XRL の各軸は、原則として XRL 観測チェックリストから作る。各軸の達成レベルは、Lv.1 から順に「全項目チェック済み」が続く最大レベル。
 
-### Triple Helix Matrix の読み方
+$$
+\mathrm{level}_a =
+\max\left\{l \mid
+\forall j \le l,\ \forall k \in \mathrm{checklist}_{a,j},\
+\mathrm{checked}_{a,j,k}=\mathrm{true}
+\right\}
+$$
+
+保存すると `amd_score_inputs.xrl_checklist` JSONB と同時に `trl` / `brl` / `grl` / `srl` / `hrl` の生値も更新される。定義の正本は [`src/lib/xrl-level-definitions.ts`](../src/lib/xrl-level-definitions.ts)。原典は内閣府 SIP「サーキュラーエコノミーシステムの構築」2023 公募要領。
+
+## S の算出
+
+S は、到達するまで走り切るための生存力。
+
+$$
+\sigma_{\mathrm{SU}}
+= \sqrt[3]{(\mu_A+1)(\mu_I+1)(\mu_G+1)} - 1
+$$
+
+$$
+S =
+(\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}
+\cdot(\mathrm{FRL}_{\mathrm{final}}+1)^{\alpha_F}
+\cdot(R_{\mathrm{net}}+1)^{\alpha_{R_{\mathrm{net}}}}
+$$
+
+`sigma_SU` は Triple Helix の学・産・官の合成。幾何平均にしているのは、学術だけ・産業だけ・政策だけの片寄りではなく、3つが揃うほど高くなるようにするため。
+
+### Triple Helix 観測モデル
 
 観測モデルが使える場合、観測値 `y_p` を過去16 quarterで 0-9 に正規化し、loading `c_{xp}` で `mu_A` / `mu_I` / `mu_G` に集約する。
 
 $$
-\tilde{y}_p = 9 \cdot \frac{y_p - \min_t y_p}{\max_t y_p - \min_t y_p}
+\tilde{y}_p
+= 9 \cdot \frac{y_p-\min_t y_p}{\max_t y_p-\min_t y_p}
 $$
 
 $$
-\mu_x = \frac{\sum_p c_{xp}\tilde{y}_p}{\sum_p c_{xp}}
+\mu_x
+= \frac{\sum_p c_{xp}\tilde{y}_p}{\sum_p c_{xp}},
+\qquad x \in \{A,I,G\}
 $$
 
-画面の `c`, `ỹ`, `c·ỹ`, `データ被覆率` はこの計算の途中経過。欠落している観測量は推測で補完しない。
+UI の `c`, `ỹ`, `c·ỹ`, `coverage` はこの途中経過。観測値が欠けている時は推測で埋めず、coverage note に残す。
 
-### FRL 6因子の読み方
+### FRL final
 
-FRL自動算出モードでは ALQ 4因子平均、Grit、Resilience から推定する。未入力の因子は 0 扱いではなく、入力済みの重みだけで正規化する。
+FRL は、創業者・経営中核の readiness。`frl_cap` が無い行では `frl` をそのまま final FRL とする。`frl_cap` がある行では CES で `F_char` と `F_cap` を合成する。
 
 $$
 \overline{\mathrm{ALQ}_4}
-= \mathrm{avg}(\mathrm{SelfAwareness},\mathrm{RelationalTransparency},\mathrm{BalancedProcessing},\mathrm{InternalizedMoral})
+= \mathrm{avg}(
+\mathrm{SelfAwareness},
+\mathrm{RelationalTransparency},
+\mathrm{BalancedProcessing},
+\mathrm{InternalizedMoral}
+)
 $$
 
 $$
-\mathrm{FRL}_{6f}
-= \frac{0.6 \cdot \overline{\mathrm{ALQ}_4}
- + 0.2 \cdot \mathrm{Grit}
- + 0.2 \cdot \mathrm{Resilience}}
-{\sum \mathrm{available\ weights}}
+F_{\mathrm{char}}
+=
+\frac{
+0.6\cdot\overline{\mathrm{ALQ}_4}
++0.2\cdot\mathrm{Grit}
++0.2\cdot\mathrm{Resilience}
+}{\sum \mathrm{available\ weights}}
 $$
-
-FRL capability layer (`frl_cap`) がある時は `/spec/4-1-frl-ces-current-spec` の CES で final FRL を作る。
 
 $$
 \mathrm{FRL}_{\mathrm{final}}
-= \left(a(F_{\mathrm{char}}+1)^\rho + (1-a)(F_{\mathrm{cap}}+1)^\rho\right)^{1/\rho} - 1
+=
+\left(
+a(F_{\mathrm{char}}+1)^\rho
++(1-a)(F_{\mathrm{cap}}+1)^\rho
+\right)^{1/\rho}-1
 $$
 
-### XRL 観測チェックリストの読み方
+既定値は `a=0.6`, `rho=-2`。`rho<0` にすることで、資質と実行力のどちらかが低い時に FRL が大きく下がる補完性を表す。S 全体は Cobb-Douglas 的に代替余地があるが、FRL 内部だけは CES で「両方必要」を表現する。
 
-各軸の達成レベルは、Lv.1から順に「全項目チェック済み」が続く最大レベル。
+## Alpha Weights
 
-$$
-\mathrm{level}_a =
-\max\left\{l \mid \forall j \le l,\ \forall k \in \mathrm{checklist}_{a,j},\ \mathrm{checked}_{a,j,k}=\mathrm{true}\right\}
-$$
+現行の PRS default は `pwa/src/lib/amd-score.ts` の `PRS_ALPHA_DEFAULT`。
 
-保存すると `xrl_checklist` JSONB と同時に `trl` / `brl` / `grl` / `srl` / `hrl` の生値も更新される。
-
-## Legacy AMD / M-X-F
-
-旧モデルでは 7 軸の積を、画面では次の 3 大要素で見せていた。これは現行 primary ではなく、legacy comparison / evidence 用の読み方。
-
-$$
-\mathrm{Score}_{\mathrm{legacy}}
-= K_{\mathrm{legacy}} \cdot \prod_{i \in \mathcal{A}_{\mathrm{legacy}}}(X_i+1)^{\alpha_i}
-$$
-
-$$
-\mathcal{A}_{\mathrm{legacy}}
-= \{\sigma_{\mathrm{SU}},\mathrm{TRL},\mathrm{BRL},\mathrm{GRL},\mathrm{SRL},\mathrm{HRL},\mathrm{FRL}\}
-$$
-
-$$
-\mathrm{Score}_{\mathrm{legacy}} = K_{\mathrm{legacy}} \cdot M \cdot X \cdot F
-$$
-
-$$
-M = (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}
-$$
-
-$$
-X = \prod_{x \in \{\mathrm{TRL},\mathrm{BRL},\mathrm{GRL},\mathrm{SRL},\mathrm{HRL}\}} (x+1)^{\alpha_x}
-$$
-
-$$
-F = (\mathrm{FRL}+1)^{\alpha_F}
-$$
-
-| UI | 意味 | 構成 |
-|---|---|---|
-| M | Macrotrend / Triple Helix | 学術 μ_A、産業 μ_I、政府 μ_G |
-| X | 会社側 readiness | TRL / BRL / GRL / SRL / HRL |
-| F | Founder / CEO readiness | FRL |
-
-まさの言語化では「マクロトレンドの流れがあり、会社の XRL が整い、それを FRL 高い CEO が牽引する」。この M-X-F は PRS の R/S evidence chain と legacy comparison として読む。
-
-## 軸の意味
-
-| 軸 | 読み方 | 見るもの |
-|---|---|---|
-| μ_A | Academic | 論文、研究活動、学術的盛り上がり |
-| μ_I | Industry | 企業投資、業界実装、競争環境 |
-| μ_G | Government | 政策、規制、補助金、公的支援 |
-| TRL | Technology Readiness | 技術成熟度 |
-| BRL | Business Readiness | 事業化成熟度 |
-| GRL | Governance / Government Readiness | 規制・制度成熟度 |
-| SRL | Social Readiness | 社会受容・市場受容 |
-| HRL | Human Readiness | チーム・人材・創業コア |
-| FRL | Founder Readiness | CEO / founder のリーダーシップ |
-
-## α の base case
-
-| 軸 | α | 意味 |
+| 軸 | alpha | 読み方 |
 |---|---:|---|
-| FRL | 1.5 | founder quality を重視 |
-| σ_SU | 1.3 | Macrotrend に乗っているかを重視 |
-| HRL | 1.1 | Deeptech では人材・組織が律速になりやすい |
-| TRL | 1.0 | 技術中核 |
-| BRL | 0.6 | 事業検証 |
-| GRL | 0.3 | 規制・制度 |
-| SRL | 0.2 | 社会受容 |
+| `P` | 1.0 | Potential を標準重みで見る |
+| `TRL` | 1.0 | 技術中核 |
+| `BRL` | 0.6 | 事業検証 |
+| `GRL` | 0.3 | 規制・制度 |
+| `SRL` | 0.2 | 社会受容 |
+| `HRL` | 1.1 | Deeptech では人材・組織が律速になりやすい |
+| `sigma_SU` | 1.3 | Macrotrend に乗っているかを重視 |
+| `FRL` | 1.5 | founder quality を最重視 |
+| `R_net` | 0.8 | 純残存力を Survival に効かせる |
 
-α は `amd_score_alpha` でバージョン管理する。日常 UI では直接触らず、retrofit / review 専用画面で扱う。
+`amd_score_alpha` は legacy alpha の version 管理に使う。PRS weight の恒久変更をする時は、manual / spec / design と UI 表示を同じ作業単位で同期する。
 
 ## 律速軸
 
@@ -225,24 +206,44 @@ $$
 
 $$
 \frac{\partial \mathrm{Score}}{\partial Z_i}
-= \frac{\alpha_i \cdot \mathrm{Score}}{Z_i + 1}
+= \frac{\alpha_i \cdot \mathrm{Score}}{Z_i+1}
 $$
 
 $$
-\mathrm{bottleneck} = \arg\max_i \frac{\alpha_i}{Z_i + 1}
+\mathrm{bottleneck}
+= \arg\max_i \frac{\alpha_i}{Z_i+1}
 $$
 
-単に値が低い軸ではない。α が大きく、かつ現在値が低い軸が最も効く。
+単に値が低い軸ではない。alpha が大きく、現在値が低い軸が最も効く。現行画面では legacy comparison の bottleneck も併記するが、主表示の判断は PRS primary を先に読む。
+
+## 画面に出ているもの
+
+| 表示 | 位置づけ | 算出 / 取得元 |
+|---|---|---|
+| `PRS Primary` | 現行 primary | `calculatePrsScore()`。`P` / `R_net` が揃った時だけ score を出す |
+| `INPUT NEEDED` | review pending | `missingAxes`。`P` / `R_net` のどちらかが null |
+| `P Potential` | primary input | `amd_score_inputs.prs_potential` |
+| `R_net` | primary input | `amd_score_inputs.prs_r_net` |
+| `R reach` | PRS component | TRL / BRL / GRL / SRL / HRL の contribution product |
+| `S survival` | PRS component | `sigma_SU` / final FRL / `R_net` の contribution product |
+| `PRS history` | primary history | `computePrsScoreSeries()`。`status='ready'` の行だけ採用 |
+| `Legacy AMD comparison` | legacy comparison | 旧 7 軸 Cobb-Douglas。PRS missing の代替 primary ではない |
+| `M / X / F バランス` | legacy evidence | `M=sigma_SU`, `X=5 XRL`, `F=FRL` |
+| `Triple Helix Matrix` | `sigma_SU` evidence | `mu_A` / `mu_I` / `mu_G`、C行列、観測値、被覆率 |
+| `FRL panel` | founder evidence | ALQ 4因子 / Grit / Resilience / F_cap / notes |
+| `XRL checklist` | XRL evidence / writer | チェックリストから達成レベルを算出し、`trl..hrl` へ反映 |
 
 ## データソース
 
-| データ | 主な source |
-|---|---|
-| μ_A | `papers_log`, scholar ingest, OpenAlex |
-| μ_I / μ_G | `atlas_signals`, `macro_index_log`, Atlas / Macrotrend |
-| TRL/BRL/GRL/SRL/HRL | `project_xrl_log`, `project_xrl_evidence`, `amd_score_inputs.xrl_notes` / `amd_score_inputs.xrl_checklist` (観測チェックリスト) |
-| FRL | `amd_score_inputs.frl_*`, ALQ / Grit / Resilience |
-| annotation | `project_events`, 経営ハイライト |
+| データ | 主な source | 保存先 / 参照先 |
+|---|---|---|
+| `P` | 事業仮説、Venture narrative、PL hearing、まさレビュー | `amd_score_inputs.prs_potential` |
+| `R_net` | 収益化見込み、粗利、運営コスト、リソース毀損 | `amd_score_inputs.prs_r_net` |
+| `mu_A` | 論文、研究活動、OpenAlex | `papers_log`, scholar ingest, `amd_score_inputs.mu_A` |
+| `mu_I` / `mu_G` | 政策、投資、ニュース、業界実装 | `atlas_signals`, `macro_index_log`, `amd_score_inputs.mu_I/mu_G` |
+| `TRL/BRL/GRL/SRL/HRL` | XRL checklist、XRL evidence、進捗ログ | `project_xrl_log`, `project_xrl_evidence`, `amd_score_inputs.xrl_checklist` |
+| `FRL` | ALQ / Grit / Resilience / 経営実行力 | `amd_score_inputs.frl_*`, `project_founding_members` |
+| annotation | score 変化の根拠イベント | `project_events`, 経営ハイライト |
 
 `amd_score_inputs` には未来予測 row も入るため、現在値を出す時は **`evaluated_at <= today` の最新行**を使う。経時グラフは未来予測も表示してよい。
 
@@ -251,71 +252,81 @@ $$
 | 軸 | 優先順 |
 |---|---|
 | XRL 5 軸 | `amd_score_inputs.xrl_notes` -> `project_xrl_log.source_note` -> 仮置き |
-| μ_A | `amd_score_inputs.mu_notes.a` -> `scholar` / `papers_log` -> 仮置き |
-| μ_I / μ_G | `amd_score_inputs.mu_notes.i/g` -> `atlas_signals` -> 仮置き |
-| FRL | `amd_score_inputs.frl_notes` -> 仮置き |
+| `mu_A` | `amd_score_inputs.mu_notes.a` -> `scholar` / `papers_log` -> 仮置き |
+| `mu_I` / `mu_G` | `amd_score_inputs.mu_notes.i/g` -> `atlas_signals` -> 仮置き |
+| FRL | `amd_score_inputs.frl_notes` / `frl_cap_notes` -> 仮置き |
+| P / R_net | detail input notes / review rationale -> 仮置き |
 
-値だけでなく、なぜその値なのかを残すことが重要。
-
-## XRL 観測チェックリスト (2026-05-30 追加)
-
-XRL の各軸レベルを「案件ごとにブレずに」判定するため、**内閣府 SIP「サーキュラーエコノミーシステムの構築」2023 公募要領 (図2-6) の原典定義に完全準拠**したレベル定義 + 観測チェックリストを持つ。
-
-- **段階数は軸で違う (原典どおり)**: TRL / BRL = **9 段階**、GRL / SRL / HRL = **8 段階** (後者は慶應義塾大学 栗野研究室 提案)。AMD が勝手な基準を作らない (= 仕組みの信頼性の根幹)。
-- 定義の正本は [`src/lib/xrl-level-definitions.ts`](../src/lib/xrl-level-definitions.ts)。各レベルに原典の `label` / `description` と、それを観測可能項目に分解した `checklist[]` を持つ。
-- **判定ロジック**: 達成レベル = 下から見て「全項目チェック済みの連続最大レベル」(積み上げ式)。途中のレベルが欠けたらそこで止まる。
-- **UI**: スコア詳細ページ (`/venture-map/amd-score/{projectId}`) の **XRL 観測チェックリストパネル**。5 軸タブ → レベル別にチェック項目を表示 → チェックすると達成レベルを自動算出 → 保存で `amd_score_inputs.xrl_checklist` (JSONB `{axis:{level:[bool,...]}}`) に保存し、XRL 生値 (trl..hrl) も達成レベルで上書きする。
-- **運用**: えいみ (Claude/Codex) が全 PJ に初期チェックを投入 → まさが画面で修正する (Tsukuyomi は使わない、まさ確定 2026-05-30)。初期投入は [`scripts/seed_xrl_checklist.mjs`](../scripts/seed_xrl_checklist.mjs)。
-- 原典 PDF: 共有ドライブ `ARMADA/a1_all/データベース/XRLの元文献.pdf`。
+値だけでなく、なぜその値なのかを残すことが重要。根拠が無い値は「高い/低い」ではなく「review pending」として扱う。
 
 ## 更新フロー
 
 ```text
-XRL / Macrotrend / FRL の根拠が増える
+XRL / Macrotrend / FRL / P / R_net の根拠が増える
         ↓
-amd_score_inputs に評価 row を追加
+amd_score_inputs に評価 row または PRS input を保存
         ↓
-cockpit / venture-map が今日以前の最新 row を読む
+cockpit / venture-map が today 以前の最新 row を読む
         ↓
-M / X / F / AMD Score / 律速軸を表示
+PRS Primary / PRS history / legacy M-X-F / evidence を表示
         ↓
-まさが違和感を持ったら Tsukuyomi へ修正依頼
+まさが違和感を持ったら詳細画面・Tsukuyomi・修正依頼 loop で直す
 ```
 
-今後の設計では、経営ハイライトに `score_impact_summary` を付け、AMD Score のどの軸にどう効いたかを 1 行で表示する予定。
+## Legacy AMD / M-X-F Appendix
 
-## 画面
+legacy MXF (= M-X-F / 7 軸 Cobb-Douglas) は過去モデル。削除しないが、現行 primary として読まない。
 
-| 画面 | 役割 |
-|---|---|
-| `各 PJ cockpit` | PRS primary status、legacy AMD comparison、XRL、経時グラフ |
-| `/venture-map/amd-score` | PJ / SU 一覧。主表示は PRS、legacy AMD は比較欄 |
-| `/venture-map/amd-score/{projectId}` | 詳細。PRS primary 入力、PRS history、legacy M-X-F、FRL、根拠 notes、**XRL 観測チェックリスト** |
-| `/venture-map/amd-score/retrofit` | PRS review queue と legacy α 重み調整 |
+$$
+\mathrm{Score}_{\mathrm{legacy}}
+= K_{\mathrm{legacy}}
+\cdot
+\prod_{i \in \mathcal{A}_{\mathrm{legacy}}}(X_i+1)^{\alpha_i}
+$$
 
-## PRS primary
+$$
+\mathcal{A}_{\mathrm{legacy}}
+= \{\sigma_{\mathrm{SU}},\mathrm{TRL},\mathrm{BRL},\mathrm{GRL},\mathrm{SRL},\mathrm{HRL},\mathrm{FRL}\}
+$$
 
-`P x R x S` を主表示に切り替えた。legacy 7軸 AMD Score は M/X/F comparison と evidence 用に残す。
+$$
+\mathrm{Score}_{\mathrm{legacy}}
+= K_{\mathrm{legacy}}\cdot M\cdot X\cdot F
+$$
 
-- `P`: Potential / 潜在規模
-- `R`: Reach / Readiness。TRL / BRL / GRL / SRL / HRL
-- `S`: Survival。σ_SU / FRL / R_net
-- `R_net`: 収益化指数。粗利 - 運営コスト - 本命から奪うリソース毀損
+$$
+M=(\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}
+$$
 
-P / R_net は `amd_score_inputs.prs_potential` / `amd_score_inputs.prs_r_net` に nullable で保存する。未入力は `not enough data` ではなく「review pending」として扱い、0点に丸めたり legacy AMD を主表示へ戻したりしない。
+$$
+X=\prod_{x \in \{\mathrm{TRL},\mathrm{BRL},\mathrm{GRL},\mathrm{SRL},\mathrm{HRL}\}}(x+1)^{\alpha_x}
+$$
 
-入力導線は各 PJ detail に置く。retrofit 画面は ready / missing を俯瞰し、legacy α を comparison として調整する。
+$$
+F=(\mathrm{FRL}_{\mathrm{final}}+1)^{\alpha_F}
+$$
 
-## Appendix: legacy MXF / 7軸モデル
+| legacy 要素 | 意味 | 現行 PRS での読み方 |
+|---|---|---|
+| `M` | Macrotrend / Triple Helix | `S` の `sigma_SU` evidence |
+| `X` | 5 XRL readiness | `R` の evidence |
+| `F` | Founder readiness | `S` の FRL evidence |
 
-legacy MXF (= M-X-F / 7軸 Cobb-Douglas) は過去モデル。削除しないが、現行 primary として読まない。
+保存目的:
 
-- 保存目的: 過去の retrofit / score history、PRS の R/S 根拠、旧画面との比較。
-- UI 文言: `Legacy AMD comparison` / `legacy M-X-F` / `comparison only`。
-- 禁止: legacy score を PRS missing の代替 primary にすること、M-X-F を章 summary や cockpit 主表示の主語へ戻すこと。
+- 過去の retrofit / score history を読み解く
+- PRS の R/S の根拠として XRL / sigma_SU / FRL を残す
+- 旧画面・旧説明との比較対象にする
 
-## 関連設計 md
+禁止:
 
+- legacy score を PRS missing の代替 primary にする
+- M-X-F を章 summary や cockpit 主表示の主語へ戻す
+- 既存 7 軸履歴を破壊的に再計算する
+
+## 関連
+
+- [`pwa/spec/4-2-amd-score-current-spec.md`](../spec/4-2-amd-score-current-spec.md)
 - [`pwa/design/amd_score.md`](../design/amd_score.md)
 - [`pwa/design/xrl_evidence.md`](../design/xrl_evidence.md)
 - [`pwa/design/score_revision_feedback_loop.md`](../design/score_revision_feedback_loop.md)

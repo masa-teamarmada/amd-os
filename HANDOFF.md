@@ -1,74 +1,45 @@
 # HANDOFF - AMD OS
 
-- Last updated: 2026-06-19 (SX / admin payouts reward cap)
+- Last updated: 2026-06-19 (closeout cleanup / Slack persona GAS mirror / PWA guard fixes)
 - Canonical root: `/Users/masa/projects/AMD/amd-os`
-- Clean current-truth checkout used for this session: `/Users/masa/.codex/tmp/amd-os-sx-reserve-deploy`
 - Production URL: `https://amd-os-pwa.vercel.app`
-- Functional production proof: `v0.28.3` / `ef84244e97b597235a77f90dc0789766259363eb` / `dirty=false`
-- Default branch alignment: `main aligned` at functional closeout (`origin/main` contained `ef84244`; later handoff-only commits may advance the SHA without changing `BUILD_VERSION`)
+- Default branch: `main` only. Do not create branches for normal worker closeout.
 
-## Latest Session Summary
+## Current Truth
 
-Details are appended in `pwa/design_log/sessions_2026-06.md` under `2026-06-19 — SX reward cap / reserve buffer / officer reserve equal allocation`.
+- Canonical checkout is the work root again. If it is dirty, classify each path and either commit, carry forward with owner/reason, or leave only with an explicit blocker.
+- `gas-slack/` is the repo mirror of the live AMD-Slack GAS entrypoint. Slack Events / Interactivity debugging should read `gas-slack/S001_Router.js` before assuming the main GAS event log is the source of truth.
+- Eimi parent Slack posts reply as Eimi; Tsukuyomi parent Slack posts reply as Tsukuyomi. Parent persona is detected from thread history and routed as `replyPersona=eimi|tsukuyomi`.
+- PWA closeout bundle includes the member-link boundary helper and MS schedule pre-start anchor guard. Build stamp target for this bundle is `v0.28.7`.
+- The Ehime University Seeds OS proposal draft lives under `pwa/proposals/` as an internal proposal artifact.
 
-- `/admin/payouts` の SX(p21) PJ別収支 / 予算チェックを調査し、契約前稼働・契約バッファ・役員会社留保・非役員支払の関係を整理した。
-- 契約バッファは `companyReserveBufferYen=800000` / `companyReserveBufferMonthlyYen=200000` / `companyReserveBufferStartYm=202606` とし、202606〜202609 に20万円ずつ消化する共通ロジックへ変更済み。
-- 役員留保は非役員支払より先取りしない。`members.is_officer=true` も通常の月次cap按分に入れ、割当分だけ `companyReserveYen/officerReserveYen` に振り替え、支払通知書 `totalPay` は0のまま除外する。
-- SX `billing_cycles.reward_summary_json` は本番DBで再計算済み。202606 は `buffer=200000`, `budget=481200`, `totalPaySum=274169`, `companyReserveYen=207031`。
-- 202606 メンバー別: まさ留保 `207031`, かる支払 `136460`, ちこ支払 `137709`。
-- 本番 deploy 済み。`/api/build-info` で `v0.28.3` / `ef84244...` / `dirty=false` を確認済み。
+## Read First Next Session
 
-## Repo State
+1. `AGENTS.md`
+2. `CLAUDE.md`
+3. `pwa/AGENTS.md`
+4. `pwa/CLAUDE.md`
+5. `SESSION_MIGRATION_PROMPT.md`
+6. `pwa/spec/3-7-notifications-current-spec.md`
+7. `pwa/spec/3-10-l2-ms-progress-current-spec.md`
+8. `pwa/spec/4-2-amd-score-current-spec.md`
+9. `pwa/manual/4-3-amd-score-spec.md`
+10. `pwa/design_log/sessions_2026-06.md`
 
-- Current clean checkout: `/Users/masa/.codex/tmp/amd-os-sx-reserve-deploy`
-- Branch: `main`
-- Functional HEAD before this handoff update: `ef84244 Treat officer reserve as equal cap allocation`
-- Upstream: `origin/main`
-- Dirty state in clean checkout: none, except ignored local artifacts `pwa/.next` and `pwa/node_modules`; `ios/supabase/.temp/project-ref` is present and should be treated as local Supabase link state.
-- Canonical local checkout `/Users/masa/projects/AMD/amd-os` is not clean and is stale (`c0a7e5dc`, ahead 1 / behind 7 at closeout inventory). It contains many unrelated dirty files and should not be used for implementation until a separate owner resolves or carries them forward.
-
-## Verification Observed
-
-Commands run from `/Users/masa/.codex/tmp/amd-os-sx-reserve-deploy/pwa`:
-
-```sh
-npx tsc --noEmit --pretty false
-npx eslint src/lib/reward-summary.ts src/lib/build-info.ts src/components/admin/AdminPayoutsClient.tsx src/app/api/admin/payouts/route.ts
-npm run build
-npm run test:critical-ui && npm run test:deploy-version-guard
-bash pwa/scripts/deploy.sh --dry-run
-AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh
-```
-
-Notes:
-
-- focused eslint had 0 errors and 2 pre-existing warnings in `AdminPayoutsClient.tsx` (`fmtDeltaYen`, `budgetAuditBadge` unused).
-- SX reward summaries were recomputed with `scripts/backfill_reward_summaries.ts --project=p21` after production switched to `v0.28.3`.
-
-## Unresolved Tasks
-
-- None for the SX payout/reserve logic delivered in this session.
-- Operational follow-up: classify and resolve the unrelated dirty state in `/Users/masa/projects/AMD/amd-os` before treating that local checkout as a safe work root.
-- Optional cleanup: decide whether the temporary clean checkout `/Users/masa/.codex/tmp/amd-os-sx-reserve-deploy` should be removed after another clean clone/fresh checkout is available.
-
-## First Next Action
+## Next Action
 
 ```sh
 cd /Users/masa/projects/AMD/amd-os
-bash /Users/masa/.codex/skills/closeout/scripts/closeout_inventory.sh /Users/masa/projects/AMD/amd-os
+git fetch origin main
+git status -sb
+git log --left-right --oneline main...origin/main
 ```
 
-If continuing payout work immediately, prefer a fresh clean checkout based on `origin/main` or use `/Users/masa/.codex/tmp/amd-os-sx-reserve-deploy` after confirming `git status -sb` is clean and `git rev-parse HEAD == git rev-parse origin/main`.
+Expected closeout state: clean worktree, `main` aligned with `origin/main`, and production `/api/build-info` on the pushed SHA after `pwa/scripts/deploy.sh` completes.
 
-## First Read Next Session
+## Guardrails
 
-1. `HANDOFF.md`
-2. `pwa/spec/5-6-contracts-management-current-spec.md`
-3. `pwa/manual/7-1-reward-calc-spec.md`
-4. `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`
-5. `pwa/BUGS.md`
-6. `pwa/design_log/sessions_2026-06.md`
-7. `AGENTS.md`
-8. `CLAUDE.md`
-9. `pwa/AGENTS.md`
-10. `pwa/CLAUDE.md`
+- Never use `git add .`.
+- Do not revert dirty files you did not create. Work with them or commit/carry-forward explicitly.
+- Public `/bzm` text must not expose internal project names or real people unless already approved for that public surface.
+- For PWA code changes, bump `pwa/src/lib/build-info.ts` before deploy.

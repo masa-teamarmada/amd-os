@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { splitMemberLinkedText } from "@/lib/member-linking";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -18,10 +19,6 @@ type LinkedMemberTextProps = {
 
 let cachedMembers: MemberLinkRow[] | null = null;
 let loadPromise: Promise<MemberLinkRow[]> | null = null;
-
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
 
 function normalizeMembers(rows: Array<{ member_id: string | null; code_name: string | null }>) {
   const byCodeName = new Map<string, MemberLinkRow>();
@@ -73,9 +70,7 @@ export function LinkedMemberText({ text, className, linkClassName }: LinkedMembe
 
   const parts = useMemo(() => {
     if (!value || members.length === 0) return [value];
-    const byCodeName = new Map(members.map((member) => [member.codeName, member]));
-    const pattern = new RegExp(`(${members.map((member) => escapeRegExp(member.codeName)).join("|")})`, "g");
-    return value.split(pattern).map((part) => byCodeName.get(part) ?? part);
+    return splitMemberLinkedText(value, members);
   }, [members, value]);
 
   if (!value) return null;
