@@ -306,7 +306,7 @@ GAS 064 が読む:
 
 `/admin/payouts` の支払通知書対象は、非役員かつ `exclude_from_payout_notice=false` のメンバーだけ。`members.is_officer=true` のメンバーは支払通知書から外すが、月次 cap 按分で役員に割り当たった分は `reward_summary_json.members[].companyReserveYen` / `officerReserveYen` として AMD の内部留保に残す。
 
-先12か月の「本契約cap / 別財布」表では、役員の `companyReserveYen` は外部支払ではなく会社留保だが、cap 使用額としては非役員支払と同等に扱う。`regularCompanyReserveYen` は本契約使用額へ、`extraCompanyReserveYen` は別財布使用額へ入れる。非役員メンバーの `stockYen` は従来どおり翌月以降の支払予定に繰り越す。
+先12か月では、会社留保を支出として表示しない。`キャッシュ支払` 表は非役員・支払通知対象メンバーへの外部支払だけを見る。`会社留保` 表は `cap/売上枠 - 外部支払` を留保増加額として表示し、役員の `regularCompanyReserveYen` / `extraCompanyReserveYen` はその内訳として読む。`cap超過チェック` 表だけは、役員会社留保も含めた報酬需要が cap/売上枠を超えていないかを見る。
 
 ## 報酬債務台帳
 
@@ -327,7 +327,7 @@ GAS 064 が読む:
 | 繰越のみ | `carryInYen > 0` かつ当月発生 0 | 過去未払い分だけを返済対象にしている |
 | cap不足 | 当月発生が cap で払い切れない | 当月cap不足により月末未払い残が発生 |
 
-先12か月表も `stock` ではなく `未払い残` と表示し、`本契約cap` / `本契約使用` / `別財布売上` / `別財布使用` / `月末未払い残` を分ける。PL/cash の収支表と支払通知書の capped 支払予定を混ぜない。
+先12か月表は `キャッシュ支払` / `会社留保` / `報酬債務` / `cap超過チェック` の4表に分ける。`stockYen` は月末残高なので、12か月分を合計しない。報酬債務表では各月残、ピーク、最終月残を見る。PL/cash の収支表、支払通知書の capped 支払予定、会社留保、未払い残を1つの表に混ぜない。
 
 月初合意 gate の PJ 対象判定は、`projects.status='frozen'` だけでなく `projects.freeze_from_ym <= source_ym` も not_required にする。CTB p06 のように `status='active'` のまま freeze overlay で止まっている PJ を支払 gate に戻さないため。
 

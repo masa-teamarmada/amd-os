@@ -1419,6 +1419,20 @@ export interface ForwardCappedMonth {
   cappedRegularYen: number;
   /** 別財布(cap_extra)を使う capped 額。役員の会社留保分も含める。 */
   cappedExtraYen: number;
+  /** 本契約capから外部メンバーへ実際に支払う額。会社留保は含めない。 */
+  cappedRegularExternalYen: number;
+  /** 別財布から外部メンバーへ実際に支払う額。会社留保は含めない。 */
+  cappedExtraExternalYen: number;
+  /** 本契約capで役員稼働分として内部留保される額。 */
+  regularCompanyReserveYen: number;
+  /** 別財布で役員稼働分として内部留保される額。 */
+  extraCompanyReserveYen: number;
+  /** 本契約capに対する当月の報酬需要。carry-in を含む。 */
+  regularGrossDueYen: number;
+  /** 別財布に対する当月の報酬需要。carry-in を含む。 */
+  extraGrossDueYen: number;
+  /** 非役員メンバーへの月末未払い残。 */
+  carryOverYen: number;
   /** anchorYm より後の未来月か (= 実績ではなく按分予測) */
   isFuture: boolean;
   members: Array<{ memberId: string; memberName?: string; earnedPt: number; payYen: number; regularPayYen: number; extraPayYen: number }>;
@@ -1426,7 +1440,8 @@ export interface ForwardCappedMonth {
 
 /**
  * plan cycle 全期間 (period_start_ym〜period_end_ym) について、各月に「本契約cap / 別財布をいくら使うか」
- * を計算して返す。`/admin/payouts`「先12か月 本契約cap / 別財布」表の将来使用額注入用。
+ * と、外部支払・会社留保・報酬需要・carry-over の内訳を計算して返す。
+ * `/admin/payouts` と `/management-score` の先12か月目的別4表の将来月注入用。
  *
  * - uncapped (= その月に発生した原価) ではなく capped (= 実際にいくら払うか) を返す。
  *   capped は月次支払上限 (budget_yen) + stock 繰越平準化が入るので「支払予定」の正本 (spec 7-1)。
@@ -1555,14 +1570,25 @@ export async function computeForwardCappedMemberCosts(
     });
     const members = summary?.members ?? [];
     const payableMembers = members.filter((m) => !excludedMemberIds.has(m.memberId) && !m.payoutExcluded);
-    const cappedRegularYen = payableMembers.reduce((sum, m) => sum + (m.regularPaidYen || 0), 0) + (summary?.regularCompanyReserveYen || 0);
-    const cappedExtraYen = payableMembers.reduce((sum, m) => sum + (m.extraPaidYen || 0), 0) + (summary?.extraCompanyReserveYen || 0);
+    const cappedRegularExternalYen = summary?.externalRegularPayoutCapYen ?? payableMembers.reduce((sum, m) => sum + (m.regularPaidYen || 0), 0);
+    const cappedExtraExternalYen = summary?.externalExtraPayoutCapYen ?? payableMembers.reduce((sum, m) => sum + (m.extraPaidYen || 0), 0);
+    const regularCompanyReserveYen = summary?.regularCompanyReserveYen || 0;
+    const extraCompanyReserveYen = summary?.extraCompanyReserveYen || 0;
+    const cappedRegularYen = cappedRegularExternalYen + regularCompanyReserveYen;
+    const cappedExtraYen = cappedExtraExternalYen + extraCompanyReserveYen;
     const cappedTotalYen = cappedRegularYen + cappedExtraYen;
     months.push({
       ym,
       cappedTotalYen,
       cappedRegularYen,
       cappedExtraYen,
+      cappedRegularExternalYen,
+      cappedExtraExternalYen,
+      regularCompanyReserveYen,
+      extraCompanyReserveYen,
+      regularGrossDueYen: summary?.regularTotalGrossDueYen || 0,
+      extraGrossDueYen: summary?.extraTotalGrossDueYen || 0,
+      carryOverYen: summary?.carryOverYen || 0,
       isFuture: ym > anchorYm,
       members: payableMembers.map((m) => ({
         memberId: m.memberId,

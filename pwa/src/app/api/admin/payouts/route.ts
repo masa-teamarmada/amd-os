@@ -907,12 +907,26 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
   // 将来月の capped 使用額を `/admin/payouts` 支払通知書と同じエンジンで投影する。
   // cappedRegularYen = 本契約capの使用額 (外部支払 + 役員会社留保)。
   // cappedExtraYen = 別財布(cap_extra)の使用額 (外部支払 + 役員会社留保)。
+  // 外部支払 / 役員会社留保 / gross due も返し、先12か月表を目的別に分解できるようにする。
   // 支払対象外 (exclude_from_payout_notice) は computeForwardCappedMemberCosts 内で落とす。
   // ※ v0.25.3 では誤って uncapped (キャップ・繰越を通さない生報酬) を支払予定に入れていたため、
   //   pt 消化が厚い月に budget_yen を超えて跳ね、マイナス月 / KUTE 巨額 / OkuDoor 超過が発生した
   //   (2026-06-17 まさ指摘 → v0.25.4 で capped へ修正)。
   const forecastProjectIds = [...new Set(forecastCycles.map((cycle) => cycle.project_id))];
-  const forecastCapped: Array<{ projectId: string; ym: string; cappedTotalYen: number; cappedRegularYen: number; cappedExtraYen: number }> = [];
+  const forecastCapped: Array<{
+    projectId: string;
+    ym: string;
+    cappedTotalYen: number;
+    cappedRegularYen: number;
+    cappedExtraYen: number;
+    cappedRegularExternalYen: number;
+    cappedExtraExternalYen: number;
+    regularCompanyReserveYen: number;
+    extraCompanyReserveYen: number;
+    regularGrossDueYen: number;
+    extraGrossDueYen: number;
+    carryOverYen: number;
+  }> = [];
   const forecastCappedResults = await Promise.allSettled(
     forecastProjectIds.map((projectId) =>
       computeForwardCappedMemberCosts(db, projectId, ym)
@@ -927,6 +941,13 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
         cappedTotalYen: Math.round(month.cappedTotalYen),
         cappedRegularYen: Math.round(month.cappedRegularYen),
         cappedExtraYen: Math.round(month.cappedExtraYen),
+        cappedRegularExternalYen: Math.round(month.cappedRegularExternalYen),
+        cappedExtraExternalYen: Math.round(month.cappedExtraExternalYen),
+        regularCompanyReserveYen: Math.round(month.regularCompanyReserveYen),
+        extraCompanyReserveYen: Math.round(month.extraCompanyReserveYen),
+        regularGrossDueYen: Math.round(month.regularGrossDueYen),
+        extraGrossDueYen: Math.round(month.extraGrossDueYen),
+        carryOverYen: Math.round(month.carryOverYen),
       });
     }
   }
