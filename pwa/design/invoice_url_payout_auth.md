@@ -1,7 +1,7 @@
 # 請求書PDFアップロードURL修正 + Payout権限エラー修正
 
 ## 2026-04-09: ScriptApp.getService().getUrl() → WEBAPP_BASE_URL 修正
-- **背景**: 月次ルーティンでSlackに投稿される「請求書PDFアップロード」ボタンのURLが古いadmin GASデプロイURLに飛んでしまい、何を押しても反応しなかった
+- **背景**: 旧Slack投稿の「請求書PDFアップロード」ボタンのURLが古いadmin GASデプロイURLに飛んでしまい、何を押しても反応しなかった
 - **決定**: `gas-main/007_FreeeInvoiceFlow.js` の2箇所で `ScriptApp.getService().getUrl()` を `PropertiesService.getScriptProperties().getProperty("WEBAPP_BASE_URL")` に修正
 - **理由**: `ScriptApp.getService().getUrl()` はデプロイごとにURLが変わるためCLAUDE.mdで禁止されているパターン。正本URLである `WEBAPP_BASE_URL` ScriptPropertyを使うべき
 - **影響範囲**: `007_FreeeInvoiceFlow.js` L552（uploadUrl）、L1218（cancelUrl）。L1588はフォールバックとして残存するが先に WEBAPP_BASE_URL を読むため問題なし

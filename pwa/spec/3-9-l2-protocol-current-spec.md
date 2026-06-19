@@ -15,7 +15,7 @@
 | 現行旧 writer 状態 | GAS 155 は kill switch のまま。定期復活禁止 |
 | prompt authority | Supabase `llm_prompts.prompt_key='protocol.extract' AND is_active=true`。空なら抽出 skip。コード hardcode fallback 禁止 |
 | notification kind | `l2_notifications.l2_kind='protocols'` |
-| approval gate | `/notifications` または admin UI で candidate を `confirmed` / `rejected` / `archived` にする |
+| review gate | `/notifications` または admin UI で candidate を `confirmed` / `rejected` / `archived` にする |
 
 ## Input Contract
 

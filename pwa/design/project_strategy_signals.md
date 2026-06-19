@@ -322,7 +322,7 @@ PJ 1件あたり、以下を 30 秒〜2 分で横断 read してから議題を�
 |---|---|---|
 | 月次レポート | `monthly_reports` 直近2-3本 | 滞り、繰り返し出る課題 |
 | 会議 risks / decided | `project_meeting_summaries` 過去30日 | 未対応 risks、決定の含意 |
-| 月次ルーティン滞留 | `billing_cycles` 当月+前月 | report_fixed_at / payment_confirmed_at null |
+| admin請求/レポート滞留 | `billing_cycles` 当月+前月 | report_fixed_at / payment_confirmed_at null |
 | XRL / AMD Score 急変 | `project_xrl_log`, `amd_score_inputs` | 前月比の急上昇/急減 |
 | nudge | `tsukuyomi_nudge_queue` (status='ready') | 未処理 nudge |
 | 外部環境 | `atlas_signals` 直近7日 × lane | 政策・競合・規制変化 |

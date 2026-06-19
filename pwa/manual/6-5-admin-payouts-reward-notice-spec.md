@@ -344,7 +344,7 @@ ZMP の通常固定費は 300,000 円 × 65% = 195,000 円が cap。 OkuDoor 追
 
 ## 関連
 
-- 2-6 章 [admin オペ](2-6-admin-ops.md) (= 月次ルーティン早見表)
+- 2-6 章 [admin オペ](2-6-admin-ops.md) (= 月次カード / admin請求早見表)
 - 6-3 章 [Invoice / Billing Routine](6-3-invoice-and-billing-routine-spec.md) (= 反対側、 SU から AMD への請求書)
 - 6-6 章 [Member Ops / Billing / Prompt](6-6-member-billing-prompts-spec.md) (= 報酬計算正本)
 - 6-2 章 [Admin Projects / Members 台帳](6-2-admin-projects-members-ledger-spec.md) (= PJ / メンバー台帳)

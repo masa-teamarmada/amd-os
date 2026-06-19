@@ -29,7 +29,7 @@ OS のカーネル概念は、経営の認知ループそのもの:
 | 📡 観測 | 何が起きたか | 5 生データ取り込み / Atlas / Macrotrend / Seeds / VC / Scholar | `source_cache`, `atlas_signals`, L2 抽出入力 |
 | 📈 評価 | それで状態はどう変わったか | AMD Score (PRS primary) / Management Score / XRL / MS 進捗 / Venture Map | `amd_score_*`, `amd_management_score_*`, `project_xrl_evidence`, `milestone_monthly_progress`, `ms_progress_revisions` |
 | ⚖️ 判断 | 人間が何を採否・決定するか | /notifications 採否ゲート / 経営ハイライト / まさえいMTG | `l2_notifications`, `meeting_notifications`, `project_strategy_signals` |
-| 🚀 実行 | OS と worker が何を動かすか | proactive outbox / 月次ルーティン / admin オペ | `proactive_loops`, `proactive_outbox`, `billing_cycles`, `payout_notices` |
+| 🚀 実行 | OS と worker が何を動かすか | proactive outbox / 月次カード / admin オペ | `proactive_loops`, `proactive_outbox`, `billing_cycles`, `payout_notices` |
 | 📚 学習 | 判断と結果から何を資産化するか | AMD Protocol / Textbook Insights / tsukuyomi learnings | `protocols`, `protocol_result_observations`, `textbook_insight_candidates`, `tsukuyomi_learnings` |
 
 設計原則:
@@ -59,9 +59,9 @@ L2 の正本ナンバリングは cadence ベースの **D / M / H** (spec 3-1�
 |---|---|---|---|
 | **経営レンズ** | まさ (将来: 機関の経営層) | ループダッシュボード (`/loop`) | 5 段ループ全体。判断キューが画面の重心、実行段の SLA が常時可視 |
 | **推進レンズ** | AMD メンバー | マイワークスペース (現 `/mypage` の進化形) | 自分の PJ・自分のボール・直近 MTG・月次 TODO・報酬。**ループ用語は出さない** |
-| **運営レンズ** | きよ (admin オペ) | 運営コンソール (現 `/admin/billing`+`/admin/payouts`+`/admin/finance`+月次ルーティンの集約) | 月次ルーティン盤面 (PJ × ステップ)・財務体制 |
+| **運営レンズ** | きよ (admin オペ) | 運営コンソール (現 `/admin/billing`+`/admin/payouts`+`/admin/finance`) | admin請求・支払盤面・財務体制 |
 
-- メンバーの議事録投稿・月次ルーティン操作は、本人にループを意識させないまま観測段への供給・実行段の消化になる。
+- メンバーの議事録投稿・月次カード確認は、本人にループを意識させないまま観測段への供給になる。請求・支払の実行段は admin 側で消化する。
 - 機関導入時はこの 3 レンズがロールテンプレートになる (executive / member / ops)。例: NIMS なら機構長 = 経営レンズ、研究者 = 推進レンズ、URA = 運営レンズ。
 - AMD 固有物 (まさえいMTG、えいみ/つくよみキャラ、freee 連携等) は **テナント実装層**であり、カーネル (ループ機構 / L2 型 / 採否ゲート / outbox) と分離して扱う。
 
