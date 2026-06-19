@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { LinkedMemberText } from "@/components/members/LinkedMemberText";
 import { createClient } from "@/lib/supabase/client";
 
@@ -14,17 +14,6 @@ interface Member {
   email: string;
   isAdmin: boolean;
   rewardAmountHidden: boolean;
-}
-
-interface MyPageNotification {
-  id: string;
-  projectId: string;
-  projectName: string;
-  bizYm: string;
-  stepId: string;
-  stepLabel: string;
-  status: string;
-  deadline?: string | null;
 }
 
 interface MyPageWeeklyActivity {
@@ -74,7 +63,6 @@ interface MyPageMonth {
 interface MyPageData {
   member: Member;
   months: MyPageMonth[];
-  notifications: MyPageNotification[];
   weeklyActivities: MyPageWeeklyActivity[];
   weekStart: string;
   weekEnd: string;
@@ -95,14 +83,6 @@ interface MonthlyAgreementMiniBundle {
   };
 }
 
-interface RoutineStep {
-  stepId: string;
-  label: string;
-  done: boolean;
-  status: string;
-  deadline?: string | null;
-}
-
 const supabase = createClient();
 const REWARD_AMOUNT_PLACEHOLDER = "ー";
 const NO_COMPENSATION_SECONDED_MEMBER_IDS = new Set(["ID006"]);
@@ -117,12 +97,6 @@ function prevYm(ym: string): string {
   const y = Number(ym.slice(0, 4));
   const m = Number(ym.slice(4, 6));
   return m === 1 ? `${y - 1}12` : `${y}${String(m - 1).padStart(2, "0")}`;
-}
-
-function nextYm(ym: string): string {
-  const y = Number(ym.slice(0, 4));
-  const m = Number(ym.slice(4, 6));
-  return m === 12 ? `${y + 1}01` : `${y}${String(m + 1).padStart(2, "0")}`;
 }
 
 function targetYms(monthsBack = 6): string[] {
@@ -221,10 +195,6 @@ function deltaSummary(ms: MyPageMilestone) {
     return `AI推定: 先月から +${Math.round(ms.monthlyProgressPct)}%（+${deltaPt.toFixed(1)}pt）進捗見込み。`;
   }
   return `先月から +${Math.round(ms.monthlyProgressPct)}%（+${deltaPt.toFixed(1)}pt）進捗しました。`;
-}
-
-function ymd(ym: string, day: number) {
-  return `${ym.slice(0, 4)}-${ym.slice(4, 6)}-${String(day).padStart(2, "0")}`;
 }
 
 function dateFromJstKey(key: string) {
@@ -344,50 +314,6 @@ function weeklyActivityText(row: {
   };
 }
 
-function adjustBusinessDay(iso: string) {
-  const date = new Date(`${iso}T00:00:00Z`);
-  while (date.getUTCDay() === 0 || date.getUTCDay() === 6) {
-    date.setUTCDate(date.getUTCDate() - 1);
-  }
-  return date.toISOString().slice(0, 10);
-}
-
-function recomputedStatus(done: boolean, deadline?: string | null, fallback = "future") {
-  if (done) return "done";
-  if (!deadline) return fallback;
-  const today = new Date();
-  const jst = new Date(today.getTime() + 9 * 60 * 60 * 1000);
-  const todayKey = Date.UTC(jst.getUTCFullYear(), jst.getUTCMonth(), jst.getUTCDate());
-  const target = Date.parse(`${deadline.slice(0, 10)}T00:00:00Z`);
-  const daysLeft = Math.round((target - todayKey) / 86400000);
-  if (daysLeft < 0) return "overdue";
-  if (daysLeft <= 3) return "warn";
-  return fallback;
-}
-
-function deadlineFor(stepId: string, ym: string) {
-  switch (stepId) {
-    case "reportFix":
-      return adjustBusinessDay(ymd(nextYm(ym), 3));
-    default:
-      return null;
-  }
-}
-
-function buildRoutineSteps(cycle: Record<string, unknown> | undefined, ym: string): RoutineStep[] {
-  const deadline = deadlineFor("reportFix", ym);
-  const done = !!cycle?.report_fixed_at;
-  return [
-    {
-      stepId: "reportFix",
-      label: "月次報告書確認",
-      done,
-      deadline,
-      status: recomputedStatus(done, deadline),
-    },
-  ];
-}
-
 function rewardAmount(project: Pick<MyPageProject, "monthlyEstimatedRewardYen" | "allocation">): number {
   return project.monthlyEstimatedRewardYen ?? project.allocation ?? 0;
 }
@@ -444,7 +370,6 @@ async function loadMyPageData(requestedMemberId?: string | null): Promise<MyPage
   const viewer = await resolveLoggedInMember();
   const member = await resolvePageMember(viewer, requestedMemberId);
   const yms = targetYms(6);
-  const routineYms = Array.from(new Set([...yms, nextYm(yms[0])]));
   const progressYms = Array.from(new Set([...yms, ...yms.map(prevYm)]));
   const week = currentWeekBoundsJST();
 
@@ -469,14 +394,6 @@ async function loadMyPageData(requestedMemberId?: string | null): Promise<MyPage
   if (pmError) throw pmError;
   if (weeklyRes.error) throw weeklyRes.error;
   const memberProjectIds = Array.from(new Set((pmRows || []).map((r: { project_id: string | null }) => r.project_id).filter(Boolean)));
-  const memberRolesByProject = new Map(
-    (pmRows || [])
-      .filter((r: { project_id: string | null }) => !!r.project_id)
-      .map((r: { project_id: string | null; is_pm?: boolean | null; is_pl?: boolean | null }) => [
-        r.project_id as string,
-        { isPm: r.is_pm === true, isPl: r.is_pl === true },
-      ])
-  );
   const weeklyProjectIds = Array.from(new Set((weeklyRes.data || []).map((r: { project_id: string | null }) => r.project_id).filter(Boolean)));
   const projectIds = Array.from(new Set([...memberProjectIds, ...weeklyProjectIds]));
 
@@ -484,7 +401,6 @@ async function loadMyPageData(requestedMemberId?: string | null): Promise<MyPage
     return {
       member,
       months: yms.map((ym) => ({ ym, isCurrent: ym === yms[0], projects: [] })),
-      notifications: [],
       weeklyActivities: [],
       weekStart: week.startKey,
       weekEnd: week.endKey,
@@ -498,7 +414,7 @@ async function loadMyPageData(requestedMemberId?: string | null): Promise<MyPage
     reportsRes,
   ] = await Promise.all([
     supabase.from("projects").select("project_id, project_name, status, start_ym, end_ym, freeze_from_ym, project_type, project_category").in("project_id", projectIds),
-    supabase.from("billing_cycles").select("*").in("project_id", projectIds).in("ym", routineYms),
+    supabase.from("billing_cycles").select("*").in("project_id", projectIds).in("ym", yms),
     supabase.from("value_plan_cycles").select("plan_cycle_id, project_id, status, total_points, period_start_ym, period_end_ym").in("project_id", projectIds).in("status", ["active", "confirmed", "fixed", "draft"]),
     supabase.from("monthly_reports").select("project_id, ym, section_members").in("project_id", projectIds).in("ym", yms),
   ]);
@@ -511,10 +427,6 @@ async function loadMyPageData(requestedMemberId?: string | null): Promise<MyPage
   const activeProjectIds = projects
     .map((p) => p.project_id)
     .filter((pid) => memberProjectIds.includes(pid));
-  const routineProjectIds = activeProjectIds.filter((pid) => {
-    const role = memberRolesByProject.get(pid);
-    return !!role?.isPm;
-  });
   const planIds = (plansRes.data || []).map((p) => p.plan_cycle_id).filter(Boolean);
 
   const milestonesRes = planIds.length
@@ -666,49 +578,13 @@ async function loadMyPageData(requestedMemberId?: string | null): Promise<MyPage
     return { ym, isCurrent: ym === yms[0], projects: projectsForMonth };
   });
 
-  const notificationYms = [yms[0], nextYm(yms[0])];
-  const notifications: MyPageNotification[] = [];
-  for (const pid of routineProjectIds) {
-    const project = projectMap.get(pid);
-    if (!project || (project.status || "").toLowerCase() !== "active") continue;
-    if ((project.project_category || "").toLowerCase() === "advisor") continue;
-    for (const ym of notificationYms) {
-      const rawCycle = cyclesByKey.get(`${pid}_${ym}`) as Record<string, unknown> | undefined;
-      const cycle = rawCycle;
-      if (isProjectFrozenForYm(project, ym)) continue;
-      const steps = buildRoutineSteps(cycle, ym)
-        .filter((s) => !s.done && ["current", "warn", "overdue"].includes(s.status));
-      for (const step of steps) {
-        notifications.push({
-          id: `${pid}_${ym}_${step.stepId}`,
-          projectId: pid,
-          projectName: project.project_name || pid,
-          bizYm: ym,
-          stepId: step.stepId,
-          stepLabel: step.label,
-          status: step.status,
-          deadline: step.deadline,
-        });
-      }
-    }
-  }
-  notifications.sort((a, b) => statusRank(a.status) - statusRank(b.status) || a.bizYm.localeCompare(b.bizYm));
-
   return {
     member,
     months,
-    notifications: notifications.slice(0, 6),
     weeklyActivities,
     weekStart: week.startKey,
     weekEnd: week.endKey,
   };
-}
-
-function statusRank(status: string) {
-  if (status === "overdue") return 0;
-  if (status === "warn") return 1;
-  if (status === "current") return 2;
-  return 9;
 }
 
 function MyPageLoading() {
@@ -732,7 +608,6 @@ export function MyPageContent({
   embedded?: boolean;
   showMonthlyProjects?: boolean;
 } = {}) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const requestedMemberId = searchParams.get("memberId");
   const [data, setData] = useState<MyPageData | null>(null);
@@ -822,10 +697,6 @@ export function MyPageContent({
         </section>
 
         <MonthlyAgreementCard />
-
-        <NotificationCard notifications={data.notifications} onOpen={(note) => {
-          router.push(`/project/${note.projectId}/cockpit?ym=${note.bizYm}&step=${note.stepId}`);
-        }} />
 
         <WeeklyActivitiesCard
           activities={data.weeklyActivities}
@@ -947,39 +818,6 @@ function MonthlyAgreementCard() {
           確認する
         </Link>
       </div>
-    </section>
-  );
-}
-
-function NotificationCard({ notifications, onOpen }: { notifications: MyPageNotification[]; onOpen: (note: MyPageNotification) => void }) {
-  return (
-    <section className="bg-white rounded-2xl border border-[#e5e5e7] p-4 shadow-sm">
-      <div className="flex items-center gap-2 mb-3">
-        <span className="text-[15px]">🔔</span>
-        <h2 className="text-[14px] font-semibold text-[#1d1d1f]">月次確認nudge</h2>
-      </div>
-      {notifications.length === 0 ? (
-        <p className="text-[13px] text-[#86868b]">確認が必要な月次報告書はありません</p>
-      ) : (
-        <div className="space-y-2">
-          {notifications.map((note) => (
-            <button
-              key={note.id}
-              type="button"
-              onClick={() => onOpen(note)}
-              className="w-full flex items-start gap-3 p-3 rounded-xl bg-[#f5f5f7] hover:bg-[#eeeeef] transition-colors text-left"
-            >
-              <StatusDot status={note.status} />
-              <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-semibold text-[#1d1d1f]">{note.stepLabel}</p>
-                <p className="text-[12px] text-[#86868b] mt-0.5">{note.projectName} · {formatYm(note.bizYm)}</p>
-                {note.deadline && <p className="text-[11px] text-[#86868b] mt-1">目安 {formatDeadline(note.deadline)}</p>}
-              </div>
-              <span className="text-[#aeaeb2] text-[13px] pt-1">›</span>
-            </button>
-          ))}
-        </div>
-      )}
     </section>
   );
 }
@@ -1207,23 +1045,4 @@ function StatusBadge({ status }: { status: AllocationStatus }) {
   if (status === "confirmed") return <p className="text-[11px] text-emerald-600 mt-0.5">● 確定</p>;
   if (status === "reported") return <p className="text-[11px] text-orange-600 mt-0.5">● 承認待ち</p>;
   return <p className="text-[11px] text-[#86868b] mt-0.5">○ 未設定</p>;
-}
-
-function StatusDot({ status }: { status: string }) {
-  const cls = status === "overdue"
-    ? "bg-red-100 text-red-700"
-    : status === "warn"
-      ? "bg-orange-100 text-orange-700"
-      : "bg-blue-100 text-blue-700";
-  return (
-    <span className={`w-9 h-9 rounded-xl grid place-items-center shrink-0 text-[13px] font-bold ${cls}`}>
-      {status === "overdue" || status === "warn" ? "!" : "•"}
-    </span>
-  );
-}
-
-function formatDeadline(s: string) {
-  const parts = s.slice(0, 10).split("-");
-  if (parts.length === 3) return `${Number(parts[1])}/${Number(parts[2])}`;
-  return s;
 }
