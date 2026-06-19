@@ -85,6 +85,8 @@ MS / PlanCycle が未設定の PJ でも、 `/admin/payouts` の `MSなしPJ 強
 
 `frozen` PJ は報酬が発生しないため、月初合意の対象PJから除外する。月初合意の予定報酬は `reward_summary_json.members[].totalPay` ではなく、当月の月次予算を当月予定MS消化ptと担当shareで配分した合意用の予定額。本人から届いた修正要望は `member_monthly_work_agreement_requests` に保存され、admin一覧の「修正要望」件数と各行の最新要望時刻で確認する。
 
+admin一覧では合意用の予定報酬とは別に、`reward_summary_json.members[].totalPay` 由来の `今月支払` と `stockYen` 由来の `未払い残` を列で分けて表示する。`stockYen` は前月繰越も含む今月末の未払い残で、今月支払対象ではない。支払額・未払い残の計算正本は `/admin/payouts` / 報酬キャッシュ側にあり、月初合意一覧は監査・確認のための read-only 表示に留める。
+
 `/admin/payouts` は支払対象の `member × 稼働月 × PJ` ごとに `member_monthly_work_agreements` / `member_monthly_work_agreement_requests` を read し、未合意・条件更新あり・修正要望中のまま支払へ進ませない。これは支払 gate であり、`reward_summary_json` の計算式には混ぜない。
 
 | state | UI表示 | server behavior |

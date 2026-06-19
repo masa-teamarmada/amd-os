@@ -601,3 +601,18 @@
 - 202607〜202609 も `buffer=200000` のまま、役員留保と非役員支払が同じcap按分で配分される。
 
 **教訓**: `reward_summary_json` はキャッシュなので、報酬ロジックを変えたら deploy だけで終わらせない。production build が新SHAへ切り替わった後に対象PJの報酬キャッシュを再計算し、DBの対象月を再照合してから closeout する。
+
+---
+
+### 2026-06-19 — 月初合意の支払/未払いstock表示分離 (v0.28.7)
+
+**経緯**: `/monthly-agreement` の SX 詳細で、`未払いストック` が通常の報酬額と同じ見え方になり、さらに admin の `/admin/monthly-work-agreements` 一覧では `予定報酬` しか見えず、今月支払と未払い残の差が分からなかった。
+
+**確認結果**: SX 202606 の非役員支払が出ている理由は表示バグではなく、v0.28.6 時点の current reward rule によるもの。契約バッファ20万円を控除した残 cap を、役員会社留保と非役員支払へ同じ配分母で按分しているため、かる/ちこに今月支払が出る。`stockYen` は当月新規発生分ではなく、前月繰越 + 今月発生 - 今月支払後の **今月末未払い残**。
+
+**対応**:
+- `/monthly-agreement`: PJカードの主表示を `今月支払` にし、`stockYen` は `今月末未払い残（今月は支払われない）` として分離。前月繰越・今月発生・今月支払の内訳を追加。
+- `/admin/monthly-work-agreements`: API/型に `payoutYen` / `stockYen` / `grossDueYen` / `carryInYen` を追加し、一覧に `今月支払` / `未払い残` 列と合計カードを追加。
+- spec/manual/changelog を同期し、stock は支払予定ではなく今月末未払い残として読むことを明記。
+
+**注意**: 「SX 202606 は本来支払0円にしたい」という判断なら、UI修正ではなく reward cap / contract buffer の business rule 変更が必要。今回の修正では計算式は変えていない。

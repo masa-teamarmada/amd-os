@@ -42,6 +42,10 @@ export async function GET(req: NextRequest) {
       projectCount: bundle.snapshot.totals.projectCount,
       reviewRequiredCount: bundle.snapshot.totals.reviewRequiredCount,
       expectedRewardYen: bundle.snapshot.totals.expectedRewardYen,
+      payoutYen: bundle.snapshot.projects.reduce((sum, project) => sum + (project.payoutYen ?? 0), 0),
+      stockYen: bundle.snapshot.totals.stockYen,
+      grossDueYen: bundle.snapshot.projects.reduce((sum, project) => sum + (project.grossDueYen ?? 0), 0),
+      carryInYen: bundle.snapshot.projects.reduce((sum, project) => sum + (project.carryInYen ?? 0), 0),
       projectNames: bundle.snapshot.projects.map((project) => project.projectName),
     }));
     rows.sort((a, b) => {
@@ -61,6 +65,9 @@ export async function GET(req: NextRequest) {
         needsReagreement: rows.filter((row) => row.status === "needs_reagreement").length,
         reviewRequired: rows.filter((row) => row.reviewRequiredCount > 0).length,
         revisionRequests: rows.reduce((sum, row) => sum + row.revisionRequestCount, 0),
+        expectedRewardYen: rows.reduce((sum, row) => sum + row.expectedRewardYen, 0),
+        payoutYen: rows.reduce((sum, row) => sum + row.payoutYen, 0),
+        stockYen: rows.reduce((sum, row) => sum + row.stockYen, 0),
       },
       rows,
     };

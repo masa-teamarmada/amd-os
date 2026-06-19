@@ -14,7 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
-| 2026-06-19 | 3-14 月初タスク・報酬合意 | 修正 | 本人画面の stock 表示を「予定報酬」と同じ金額表示から分離。PJカード右側は `今月支払` を主表示にし、`stockYen` は `未払いストック（今月は支払われない）` として amber の別枠に表示。合意用予定報酬は補助行へ下げる | stock が支払われる報酬と同じ見え方だと、今月支払対象なのか未払い繰越なのか本人が判断できないため | えいみ |
+| 2026-06-19 | 3-14 月初タスク・報酬合意 | 修正 | 本人画面とadmin一覧の stock 表示を「予定報酬」と同じ金額表示から分離。PJカード右側は `今月支払` を主表示にし、`stockYen` は `今月末未払い残（今月は支払われない）` として amber の別枠に表示。本人詳細には前月繰越・今月発生・今月支払の内訳を追加し、admin一覧にも `今月支払` / `未払い残` 列と合計カードを追加 | stock が支払われる報酬と同じ見え方だと、今月支払対象なのか未払い繰越なのか本人/adminが判断できないため | えいみ |
 | 2026-06-19 | 5-6 契約管理 / 7-1 報酬計算 | 変更 | 役員会社留保を先取り cap ではなく通常 cap 按分の一部に変更。`applyRewardCapsForMonth` は役員を cap 配分から除外せず、割当額を `companyReserveYen` / `officerReserveYen` へ振り替え、非役員分だけ `totalPay` と stock 返済にする | 役員留保を他メンバーと同等に扱うため。契約バッファは先に回収するが、その後の役員留保と非役員支払/stock返済は同じ cap 按分で決める | えいみ |
 | 2026-06-18 | 5-6 契約管理 / 7-1 報酬計算 | 変更 | 会社回収バッファに月次上限 `companyReserveBufferMonthlyYen` を追加。`resolveContractReserveBufferYen` は総額残・当月 `invoice×65%`・月次上限の最小値を `budget_buffer_amount` にする。SX は `companyReserveBufferYen=800000` / `companyReserveBufferMonthlyYen=200000` とし、202606〜202609 の4か月で20万円ずつ消化する | バッファを一括回収すると初月の支払capがゼロ近くなり硬すぎるため。契約前稼働分の回収と月次支払平準化を両立させる | えいみ |
 | 2026-06-18 | 3-14 月初タスク・報酬合意 | 修正 | 月初合意対象判定に `project_freeze_periods` / `projects.freeze_from_ym` と `members.exclude_from_payout_notice` を追加し、CTB p06 (202605 freeze overlay) とりり / ID006 (NIMS 無償出向) を対象外化。SX のように `totalPay=0` でも `stockYen` が発生するPJは、支払予定0円とストック予定を read-only 表示する contract を追加 | CTB が 202606 月初合意に出ていた原因が `status='active'` だけを見て freeze overlay を見ていない実装だったため。報酬を受け取れないメンバーと、支払0だが繰越stockがあるケースを本人画面で誤解なく扱うため | えいみ |

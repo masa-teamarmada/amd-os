@@ -107,6 +107,10 @@ export interface AdminMonthlyWorkAgreementRow {
   projectCount: number;
   reviewRequiredCount: number;
   expectedRewardYen: number;
+  payoutYen: number;
+  stockYen: number;
+  grossDueYen: number;
+  carryInYen: number;
   projectNames: string[];
 }
 
@@ -120,6 +124,9 @@ export interface AdminMonthlyWorkAgreementResponse {
     needsReagreement: number;
     reviewRequired: number;
     revisionRequests: number;
+    expectedRewardYen: number;
+    payoutYen: number;
+    stockYen: number;
   };
   rows: AdminMonthlyWorkAgreementRow[];
 }

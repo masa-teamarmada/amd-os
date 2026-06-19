@@ -118,12 +118,14 @@ export default function AdminMonthlyWorkAgreementsPage() {
             </div>
           )}
 
-          <section className="grid gap-3 md:grid-cols-5">
+          <section className="grid gap-3 md:grid-cols-4 xl:grid-cols-7">
             <SummaryCard label="対象メンバー" value={`${data.totals.members}`} />
             <SummaryCard label="合意済み" value={`${data.totals.agreed}`} tone="good" />
             <SummaryCard label="未合意" value={`${data.totals.pending}`} tone={data.totals.pending > 0 ? "warn" : "plain"} />
             <SummaryCard label="条件更新あり" value={`${data.totals.needsReagreement}`} tone={data.totals.needsReagreement > 0 ? "warn" : "plain"} />
             <SummaryCard label="修正要望" value={`${data.totals.revisionRequests}`} tone={data.totals.revisionRequests > 0 ? "warn" : "plain"} />
+            <SummaryCard label="今月支払" value={formatYen(data.totals.payoutYen)} tone={data.totals.payoutYen > 0 ? "good" : "plain"} />
+            <SummaryCard label="未払いストック残" value={formatYen(data.totals.stockYen)} tone={data.totals.stockYen > 0 ? "warn" : "plain"} />
           </section>
 
           <div className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2">
@@ -136,12 +138,13 @@ export default function AdminMonthlyWorkAgreementsPage() {
             />
           </div>
 
-          <section className="overflow-hidden rounded-md border border-border bg-background">
-            <div className="grid grid-cols-[128px_112px_82px_112px_minmax(0,1fr)_132px] bg-muted/50 px-3 py-2 text-[11px] font-semibold text-muted-foreground">
+          <section className="overflow-x-auto rounded-md border border-border bg-background">
+            <div className="grid min-w-[980px] grid-cols-[128px_112px_64px_124px_124px_minmax(0,1fr)_132px] bg-muted/50 px-3 py-2 text-[11px] font-semibold text-muted-foreground">
               <span>Member</span>
               <span>Status</span>
               <span className="text-right">PJ</span>
-              <span className="text-right">予定報酬</span>
+              <span className="text-right">今月支払</span>
+              <span className="text-right">未払い残</span>
               <span>PJ / 確認事項 / 修正要望</span>
               <span className="text-right">Detail</span>
             </div>
@@ -152,7 +155,7 @@ export default function AdminMonthlyWorkAgreementsPage() {
                 filteredRows.map((row) => (
                   <div
                     key={row.member.memberId}
-                    className="grid grid-cols-[128px_112px_82px_112px_minmax(0,1fr)_132px] items-center gap-2 px-3 py-3 text-sm"
+                    className="grid min-w-[980px] grid-cols-[128px_112px_64px_124px_124px_minmax(0,1fr)_132px] items-center gap-2 px-3 py-3 text-sm"
                   >
                     <div className="min-w-0">
                       <p className="truncate font-semibold">{row.member.codeName}</p>
@@ -163,7 +166,24 @@ export default function AdminMonthlyWorkAgreementsPage() {
                       {statusLabel(row.status)}
                     </span>
                     <span className="text-right tabular-nums">{row.projectCount}</span>
-                    <span className="text-right tabular-nums font-semibold">{formatYen(row.expectedRewardYen)}</span>
+                    <div className="text-right tabular-nums">
+                      <p className={`font-semibold ${row.payoutYen > 0 ? "text-emerald-700" : "text-foreground"}`}>
+                        {formatYen(row.payoutYen)}
+                      </p>
+                      <p className="mt-0.5 text-[10px] text-muted-foreground">
+                        予定 {formatYen(row.expectedRewardYen)}
+                      </p>
+                    </div>
+                    <div className="text-right tabular-nums">
+                      <p className={`font-semibold ${row.stockYen > 0 ? "text-amber-800" : "text-muted-foreground"}`}>
+                        {row.stockYen > 0 ? formatYen(row.stockYen) : "-"}
+                      </p>
+                      {row.stockYen > 0 && (
+                        <p className="mt-0.5 text-[10px] text-muted-foreground">
+                          今月末
+                        </p>
+                      )}
+                    </div>
                     <div className="min-w-0">
                       <p className="truncate text-[12px] text-foreground">{row.projectNames.join(" / ") || "参加PJなし"}</p>
                       <p className={`mt-0.5 text-[11px] ${row.reviewRequiredCount > 0 ? "text-amber-700" : "text-muted-foreground"}`}>

@@ -216,7 +216,7 @@ function MonthlyAgreementContent() {
         <section className={`grid gap-3 ${totalStockYen > 0 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
           <MetricCard label="参加PJ" value={`${bundle.snapshot.totals.projectCount}`} />
           <MetricCard label="予定報酬合計" value={formatYen(bundle.snapshot.totals.expectedRewardYen)} />
-          {totalStockYen > 0 && <MetricCard label="未払いストック" value={formatYen(totalStockYen)} emphasis />}
+          {totalStockYen > 0 && <MetricCard label="未払いストック残" value={formatYen(totalStockYen)} emphasis />}
         </section>
 
         <section className="rounded-lg border border-[#e5e5e7] bg-white p-4">
@@ -332,6 +332,10 @@ function ProjectAgreementCard({ project }: { project: MonthlyWorkAgreementProjec
   const stockYen = project.stockYen ?? 0;
   const hasStock = stockYen > 0;
   const hasPayout = project.payoutYen != null;
+  const carryInYen = project.carryInYen ?? 0;
+  const currentDueYen = project.grossDueYen == null ? null : Math.max(0, project.grossDueYen - carryInYen);
+  const showStockBreakdown =
+    hasStock && (carryInYen > 0 || currentDueYen != null || project.payoutYen != null);
   return (
     <article className="rounded-lg border border-[#e5e5e7] bg-white p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -352,16 +356,38 @@ function ProjectAgreementCard({ project }: { project: MonthlyWorkAgreementProjec
             {formatYen(hasPayout ? project.payoutYen : project.expectedRewardYen)}
           </p>
           {hasStock && (
-            <div className="mt-2 rounded-md border border-amber-200 bg-white px-2 py-1 text-left">
-              <p className="text-[10px] font-semibold text-amber-800">未払いストック（今月は支払われない）</p>
+            <div className="mt-2 border-t border-amber-200 pt-2 text-left">
+              <p className="text-[10px] font-semibold text-amber-800">今月末未払い残（今月は支払われない）</p>
               <p className="mt-0.5 text-right text-[16px] font-semibold tabular-nums text-amber-800">{formatYen(stockYen)}</p>
+              {showStockBreakdown && (
+                <dl className="mt-1.5 space-y-0.5 text-[10px] text-[#86868b]">
+                  {carryInYen > 0 && (
+                    <div className="flex items-center justify-between gap-3">
+                      <dt>前月繰越</dt>
+                      <dd className="tabular-nums">{formatYen(carryInYen)}</dd>
+                    </div>
+                  )}
+                  {currentDueYen != null && (
+                    <div className="flex items-center justify-between gap-3">
+                      <dt>今月発生</dt>
+                      <dd className="tabular-nums">{formatYen(currentDueYen)}</dd>
+                    </div>
+                  )}
+                  {project.payoutYen != null && project.payoutYen > 0 && (
+                    <div className="flex items-center justify-between gap-3">
+                      <dt>今月支払</dt>
+                      <dd className="tabular-nums">-{formatYen(project.payoutYen)}</dd>
+                    </div>
+                  )}
+                </dl>
+              )}
             </div>
           )}
           {hasPayout && project.expectedRewardYen != null && (
             <p className="mt-1 text-[10px] tabular-nums text-[#86868b]">合意用予定報酬 {formatYen(project.expectedRewardYen)}</p>
           )}
           {hasStock && project.grossDueYen != null && (
-            <p className="mt-1 text-[10px] tabular-nums text-[#86868b]">支払対象額 {formatYen(project.grossDueYen)}</p>
+            <p className="mt-1 text-[10px] tabular-nums text-[#86868b]">支払対象額（繰越含む） {formatYen(project.grossDueYen)}</p>
           )}
         </div>
       </div>
