@@ -162,5 +162,5 @@ PJ 判定は、 PJ 専用 email / PJ 名 / client 名 / `project_knowledge(categ
 - 月次ルーティン廃止: [`pwa/design/routine.md`](../design/routine.md)
 - 報酬計算正本: `gas-main/059_RewardV2_Ops.js`
 - 6-6 章 [Member Ops / Billing / Prompt](6-6-member-billing-prompts-spec.md) (= mypage / reimburse / admin billing / prompt 管理の開発者向け仕様)
-- 2-6 章 [admin オペ](2-6-admin-ops.md) (= 月次確認/admin請求早見表)
+- 2-6 章 [admin オペ](2-6-admin-ops.md) (= admin請求・支払早見表)
 - 3-3 章 [通知・修正依頼・正本反映ゲート](3-3-notifications-and-tsukuyomi.md)

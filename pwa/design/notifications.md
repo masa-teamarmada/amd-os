@@ -23,7 +23,7 @@ LLM プロンプトに含めて再抽出する → 「過去の指摘が反映�
 - 反映先: `billing_cycles.payment_confirmed_at` / `payment_confirmed_by` / `status='payment_confirmed'`。実額・source・freee照合結果は `billing_log.detail` に残す。
 - freee会計同期 (`/api/cron/freee-payment-sync`) が先に同じ入金を見つけた場合は、adminがSlackに回答しなくても入金確認済みになる。照合対象はfreee会計の収入取引 (`deals`) と、取引登録前の銀行口座明細 (`wallet_txns`) の両方。銀行明細の摘要で照合する必要があるPJは `project_knowledge(category='payment_alias')` に `エヒメダイガク` のような振込摘要キーワードを持たせる。
 - freee同期が `Freee token refresh failed: invalid_client` などで落ちた場合は、入金情報は取れていない。active adminへSlack DMで失敗理由を出し、`FREEE_CLIENT_ID` / `FREEE_CLIENT_SECRET` / `FREEE_REFRESH_TOKEN` または `freee_oauth_tokens` の再認証が必要な状態を見える化する。
-- 旧 PL確認依頼 (`/api/notify/pl-review`) は PM 月次ルーティン廃止に合わせて削除済み。請求額は契約 apply 済みなら `contract-billing-auto-confirm`、例外復旧は admin billing / payouts と `/api/admin/budget-approval` 境界で扱う。
+- 旧 PL確認依頼 route は PM 月次ルーティン廃止に合わせて削除済み。請求額は契約 apply 済みなら `contract-billing-auto-confirm`、例外復旧は admin billing / payouts と budget approval 境界で扱う。
 
 `project_config_gap` は、OSが処理を続けるために本当に設定不足で止まる場合だけ使う通知。2026-05-22以降、DTSU PJ / エコシステム構築PJで対象月を覆うMS計画または有効なMS項目がない場合は通知しない。`progress-estimator` が `monthly_reports` + `project_meeting_summaries` を `project_monthly_notes` に保存し、月次モーダルにその月の動きを残す。advisorなど非MS管理PJもMS進捗は抽出せず、同じ月次ノート側に寄せる。
 
