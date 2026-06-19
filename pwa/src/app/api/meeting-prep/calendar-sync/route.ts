@@ -291,7 +291,7 @@ function dayNumber(ymd: string): number {
   return Math.floor(Date.UTC(year, month - 1, day) / 86400000);
 }
 
-function weeklySeriesKey(item: MatchedCalendarEvent): string {
+function recurringSeriesKey(item: MatchedCalendarEvent): string {
   if (item.event.recurringEventId) {
     return `recurring:${item.project.project_id}:${item.event.recurringEventId}`;
   }
@@ -317,10 +317,10 @@ function isWeeklyCadence(items: MatchedCalendarEvent[], hasExplicitSeriesId: boo
   return weeklyPairs >= requiredPairs;
 }
 
-function findExtraWeeklyOccurrences(items: MatchedCalendarEvent[]): Map<number, { kept: MatchedCalendarEvent; seriesKey: string }> {
+function findExtraRecurringOccurrences(items: MatchedCalendarEvent[]): Map<number, { kept: MatchedCalendarEvent; seriesKey: string }> {
   const groups = new Map<string, MatchedCalendarEvent[]>();
   for (const item of items) {
-    const key = weeklySeriesKey(item);
+    const key = recurringSeriesKey(item);
     const group = groups.get(key) ?? [];
     group.push(item);
     groups.set(key, group);
@@ -330,7 +330,7 @@ function findExtraWeeklyOccurrences(items: MatchedCalendarEvent[]): Map<number, 
   for (const [seriesKey, group] of groups) {
     const hasExplicitSeriesId = seriesKey.startsWith("recurring:");
     const hasWeeklyRule = group.some((item) => item.event.recurrenceRules.some((rule) => /FREQ=WEEKLY/i.test(rule)));
-    if (!hasWeeklyRule && !isWeeklyCadence(group, hasExplicitSeriesId)) continue;
+    if (!hasExplicitSeriesId && !hasWeeklyRule && !isWeeklyCadence(group, false)) continue;
     const ordered = [...group].sort((a, b) => a.event.startIso.localeCompare(b.event.startIso));
     const kept = ordered[0];
     for (const item of ordered.slice(1)) hidden.set(item.inputIndex, { kept, seriesKey });
@@ -500,22 +500,22 @@ export async function POST(req: NextRequest) {
     matchedEvents.push({ inputIndex, event, project: match.project, reason: match.reason });
   }
 
-  const extraWeeklyOccurrences = findExtraWeeklyOccurrences(matchedEvents);
+  const extraRecurringOccurrences = findExtraRecurringOccurrences(matchedEvents);
 
   for (const matched of matchedEvents) {
     const { inputIndex, event } = matched;
-    const weeklySkip = extraWeeklyOccurrences.get(inputIndex);
-    if (weeklySkip) {
+    const recurringSkip = extraRecurringOccurrences.get(inputIndex);
+    if (recurringSkip) {
       skipped += 1;
       results[inputIndex] = {
         ok: false,
-        reason: "weekly_recurring_future_occurrence",
+        reason: "recurring_series_future_occurrence",
         calendar_event_id: event.eventId,
         title: event.title,
         meeting_start_at: event.startIso,
         project_id: matched.project.project_id,
-        kept_meeting_id: `upcoming:${weeklySkip.kept.event.eventId}`,
-        series_key: weeklySkip.seriesKey,
+        kept_meeting_id: `upcoming:${recurringSkip.kept.event.eventId}`,
+        series_key: recurringSkip.seriesKey,
       };
       continue;
     }

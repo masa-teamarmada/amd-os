@@ -364,7 +364,7 @@ expectIncludes("manual/2-3-pj-cockpit.md", [
 ]);
 expectIncludes("src/app/api/meeting-prep/calendar-sync/route.ts", [
   "calendar-future-sync",
-  "weekly_recurring_future_occurrence",
+  "recurring_series_future_occurrence",
   "upcoming:",
   "source_kinds",
   "preserve_manual_body",
@@ -375,7 +375,7 @@ expectIncludes("src/components/cockpit/CockpitMeetingSummary.tsx", [
   "params.set(\"meeting\", meetingId)",
   "params.delete(\"ym\")",
   "router.replace(meetingUrl(meeting.meetingId), { scroll: false })",
-  "sourceKindTokens",
+  "groupUpcomingMeetingsBySeries",
 ]);
 // dialogue narrative の本文ラベルは半角SPなし「2人」で書く (#2-2nd まさ 2026-05-24)
 expectNotIncludes("src/components/cockpit/CockpitMeetingDetailModal.tsx", [

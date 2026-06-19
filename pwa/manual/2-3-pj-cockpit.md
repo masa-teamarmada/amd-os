@@ -156,7 +156,7 @@ MTG詳細モーダル内の「添付資料」は会議単位の `meeting_assets`
 - 入力: Calendar (= 開催情報) + Slack / Notion / Drive (= 議事録本文) + dialogue API (= まさえいMTG)
 - `source_kinds` で種別判別: `regular` (= 定例) / `dialogue` (= まさえいMTG) / `upcoming` (= 日時確定済みの予定MTG) / `upcoming_tentative` (= 日程未確定の仮置き)
 - MTGサマリ先頭では、`source_kinds='upcoming'` や `upcoming+calendar+manual-prep` のように `upcoming` token を含む row は「予定MTG / 準備中」、`source_kinds='upcoming_tentative'` や `meeting_id` が `upcoming:` で始まるだけの仮置き row は「日程調整中MTG」に出す。未確定分は確定予定 count には含めず、一覧の日付は未定として表示する
-- H-1 routine は今後60日の確定Calendar予定を `POST /api/meeting-prep/calendar-sync` に渡し、前回議事録がまだ無いPJでも `source_kinds='upcoming'` の予定MTGカードを作る
+- H-1 routine は今後60日の確定Calendar予定を `POST /api/meeting-prep/calendar-sync` に渡し、前回議事録がまだ無いPJでも `source_kinds='upcoming'` の予定MTGカードを作る。recurring series はシリーズごとに次回1枚だけを表示し、同じ定例が複数カードとして並ばないようにする
 - 一覧カードの短い説明は `summary_short`。詳細モーダルは `narrative_md` があればそれを主表示する
 - 詳細モーダルで `narrative_md` (= H-1の MTG サマリ抽出 routine が、そのMTGに参加していなかったメンバーでも背景・議論の流れ・決定/未決・次の一手を理解できる文章 narrative に書き直したもの) を主表示
 - 詳細モーダルの Markdown 本文に active AMDメンバーの `members.code_name` が standalone mention として出る場合、`/mypage?memberId=<members.member_id>` へ自動リンクする。これは admin が OS 内本文からメンバー詳細へ移動するための導線で、既存の Markdown link / code / pre は維持する。短い code_name が `しかるべき` や `こうして` のような長い語へ埋まっている場合はリンクしない
