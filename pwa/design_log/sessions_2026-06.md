@@ -737,7 +737,7 @@
 
 **残課題**: logged-in UI smoke は auth redirect で未実施。次セッションで `/admin/payouts?ym=202606`、`/management-score`、`/monthly-agreement?ym=202606`、`/admin/monthly-work-agreements?ym=202606` を実画面確認する。あき / ID029 の DB/code 実反映も次セッションで確認・修正する。
 
-### 2026-06-19 — あき / ID029 の無報酬除外を実DB/codeで確認・反映 (v0.28.14)
+### 2026-06-19 — あき / ID029 の無報酬除外を実DB/codeで確認・反映 (v0.28.15)
 
 **経緯**: v0.28.13 closeout では、あき / ID029 を `members.exclude_from_payout_notice=true` 対象にする仕様は docs へ反映済みだったが、実DB/code 反映確認が次セッション残課題になっていた。
 
@@ -750,6 +750,7 @@
 **対応**:
 - `/mypage` の member 解決で `exclude_from_payout_notice` を読み、報酬額非表示は DB フラグを正本にした。後方互換 guard として ID006 / ID029 と code name `りり` / `あき` も残す。
 - `/dashboard` は `/mypage` を embed しているため同時に反映。
+- `/mypage` の月初合意 card は表示対象の `memberId` で `/api/monthly-work-agreement` を読み、管理者が `/mypage?memberId=ID029` を見る時も ID029 本人の `not_required` を表示するようにした。
 - `/mypage` の月初合意 card が `not_required` を `未合意` 扱いしないよう、`対象外` 表示と `詳細を見る` CTA に分岐した。
 - `pwa/BUGS.md` に同実装漏れをクローズ記録。
 

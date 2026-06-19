@@ -710,7 +710,7 @@ export function MyPageContent({
           )}
         </section>
 
-        <MonthlyAgreementCard />
+        <MonthlyAgreementCard memberId={data.member.memberId} />
 
         <WeeklyActivitiesCard
           activities={data.weeklyActivities}
@@ -768,7 +768,7 @@ export function MyPageContent({
   );
 }
 
-function MonthlyAgreementCard() {
+function MonthlyAgreementCard({ memberId }: { memberId: string }) {
   const [bundle, setBundle] = useState<MonthlyAgreementMiniBundle | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -776,7 +776,8 @@ function MonthlyAgreementCard() {
     let cancelled = false;
     const load = async () => {
       try {
-        const res = await fetch("/api/monthly-work-agreement", { cache: "no-store" });
+        const params = new URLSearchParams({ memberId });
+        const res = await fetch(`/api/monthly-work-agreement?${params.toString()}`, { cache: "no-store" });
         const payload = (await res.json().catch(() => ({}))) as { ok?: boolean; bundle?: MonthlyAgreementMiniBundle };
         if (!cancelled && res.ok && payload.ok !== false && payload.bundle) {
           setBundle(payload.bundle);
@@ -791,7 +792,7 @@ function MonthlyAgreementCard() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [memberId]);
 
   if (loading) {
     return (
@@ -840,7 +841,7 @@ function MonthlyAgreementCard() {
           )}
         </div>
         <Link
-          href={`/monthly-agreement?ym=${encodeURIComponent(bundle.ym)}`}
+          href={`/monthly-agreement?ym=${encodeURIComponent(bundle.ym)}&memberId=${encodeURIComponent(memberId)}`}
           className={`inline-flex shrink-0 items-center justify-center rounded-full px-4 py-2 text-[12px] font-semibold ${
             isNotRequired ? "border border-[#d2d2d7] text-[#424245]" : "bg-[#1d1d1f] text-white"
           }`}

@@ -7,10 +7,10 @@
 
 ### [finance] あき / ID029 の無報酬除外が `/mypage` 表示に反映されていなかった (2026-06-19)
 
-- **状態**: クローズ (2026-06-19 — v0.28.14 で `/mypage` / `/dashboard` 埋め込み表示を `members.exclude_from_payout_notice` 基準へ修正)。
+- **状態**: クローズ (2026-06-19 — v0.28.15 で `/mypage` / `/dashboard` 埋め込み表示を `members.exclude_from_payout_notice` 基準へ修正し、memberId 指定時の月初合意 card も対象メンバー本人で読むよう修正)。
 - **症状**: docs/spec では あき / ID029 を りり / ID006 と同じ `exclude_from_payout_notice=true` 対象にしていたが、`/mypage` の報酬額非表示判定は固定セット `ID006` だけを見ていた。対象外メンバーの月初合意 card も API が `not_required` を返した時に `未合意` へ見える可能性があった。
-- **原因**: `/mypage` が `members.exclude_from_payout_notice` を select せず、ID/code_name のローカル特例で表示だけを分岐していた。docs 側で ID029 を追加しても、画面側の固定セットへ横展開されていなかった。
-- **対応内容**: `/mypage` の member 解決で `exclude_from_payout_notice` を読み、報酬額は DB フラグ優先で `ー` 表示にする。後方互換 guard として `ID006` / `ID029` と code name `りり` / `あき` も残す。月初合意 card は `not_required` を `対象外` と表示し、`確認する` ではなく `詳細を見る` にする。
+- **原因**: `/mypage` が `members.exclude_from_payout_notice` を select せず、ID/code_name のローカル特例で表示だけを分岐していた。docs 側で ID029 を追加しても、画面側の固定セットへ横展開されていなかった。さらに月初合意 card は `memberId` を API に渡しておらず、管理者が `/mypage?memberId=...` で別メンバーを見る時に閲覧者側の合意状態を読んでいた。
+- **対応内容**: `/mypage` の member 解決で `exclude_from_payout_notice` を読み、報酬額は DB フラグ優先で `ー` 表示にする。後方互換 guard として `ID006` / `ID029` と code name `りり` / `あき` も残す。月初合意 card は表示対象の `memberId` で `/api/monthly-work-agreement` を読み、`not_required` を `対象外` と表示し、`確認する` ではなく `詳細を見る` にする。
 - **再発防止**: 支払通知対象外メンバーを増やす時は、支払通知書 / 月初合意 / payout gate だけでなく、`/mypage` を再利用する `/dashboard` 埋め込み表示も確認する。表示特例は固定IDだけでなく `members.exclude_from_payout_notice` を正本にする。
 
 ---
