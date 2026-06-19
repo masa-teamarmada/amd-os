@@ -64,16 +64,11 @@ flowchart TD
 
 通常 GET は **読むだけ**。 admin の保存系処理または手動ボタンだけが再計算を走らせる (= まさ #過去 教訓)。
 
-### MSなしPJ 強制報酬確定
+### 報酬額の手入力禁止
 
-MS / PlanCycle が未設定の PJ でも、 `/admin/payouts` の `MSなしPJ 強制報酬確定` から PJ・稼働月・メンバー・支払額を指定して報酬明細に入れられる。
+`/admin/payouts` には、PJ・稼働月・メンバー・支払額を手で指定して報酬明細へ入れるルートを置かない。報酬額は `value_plan_cycles` / `value_milestones` / `milestone_monthly_progress` / `milestone_responsibility` から再計算できるものだけを正とする。
 
-- 保存先: `billing_cycles.reward_summary_json`
-- source: `admin_manual_payout`
-- 対象 cycle が無ければ `billing_cycles(project_id, ym)` を作成する
-- `invoice_ym` は今開いている支払月へ固定する
-- `budget_yen` は手入力報酬合計以上にして、通常の `支払データ保存` / `PDF確認` / `支払通知書発行` に合流する
-- `payout-reward-cache-refresh` は MS なし / reward members なしの場合、既存の `admin_manual_payout` を消さずに保持する
+MS / PlanCycle が未設定の PJ は報酬計算対象外。支払が必要な場合は、先にMS / PlanCycle / responsibility を作る。
 
 ### 2. メンバー別支払額確認
 
@@ -83,7 +78,7 @@ MS / PlanCycle が未設定の PJ でも、 `/admin/payouts` の `MSなしPJ 強
 
 `/admin/monthly-work-agreements?ym=YYYYMM` で、支払対象になりうる active member / active project member が当月の遂行内容・予定報酬に合意済みかを確認できる。ここで保存される `member_monthly_work_agreements` は月初計画 snapshot と hash の監査レイヤーで、`/admin/payouts` の報酬計算や支払通知書発行額を直接変更しない。
 
-`frozen` PJ は報酬が発生しないため、月初合意の対象PJから除外する。月初合意の予定報酬は `reward_summary_json.members[].totalPay` ではなく、当月の月次予算を当月予定MS消化ptと担当shareで配分した合意用の予定額。本人から届いた修正要望は `member_monthly_work_agreement_requests` に保存され、admin一覧の「修正要望」件数と各行の最新要望時刻で確認する。
+`frozen` PJ は報酬が発生しないため、月初合意の対象PJから除外する。月初合意の予定報酬は `reward_summary_json.members[].basePay` / `breakdown[].payYen` を正本にし、月初合意用に月次予算を再配分しない。本人から届いた修正要望は `member_monthly_work_agreement_requests` に保存され、admin一覧の「修正要望」件数と各行の最新要望時刻で確認する。
 
 admin一覧では合意用の予定報酬とは別に、`reward_summary_json.members[].totalPay` 由来の `今月支払` と `stockYen` 由来の `未払い残` を列で分けて表示する。`stockYen` は前月繰越も含む今月末の未払い残で、今月支払対象ではない。支払額・未払い残の計算正本は `/admin/payouts` / 報酬キャッシュ側にあり、月初合意一覧は監査・確認のための read-only 表示に留める。
 
@@ -311,18 +306,19 @@ GAS 064 が読む:
 
 `/admin/payouts` の支払通知書対象は、非役員かつ `exclude_from_payout_notice=false` のメンバーだけ。`members.is_officer=true` のメンバーは支払通知書から外すが、月次 cap 按分で役員に割り当たった分は `reward_summary_json.members[].companyReserveYen` / `officerReserveYen` として AMD の内部留保に残す。
 
-先12か月の PJ 収支表では、`billing_cycles.budget_buffer_amount` を「契約バッファ」、役員の `companyReserveYen` を「役員分」として表示する。最終収支では役員分は同額を `officerOffsetYen` で戻すため、外部流出ではなく会社残高に残る計画値として扱う。非役員メンバーの `stockYen` は従来どおり翌月以降の支払予定に繰り越す。
+先12か月の「本契約cap / 別財布」表では、役員の `companyReserveYen` は外部支払ではなく会社留保だが、cap 使用額としては非役員支払と同等に扱う。`regularCompanyReserveYen` は本契約使用額へ、`extraCompanyReserveYen` は別財布使用額へ入れる。非役員メンバーの `stockYen` は従来どおり翌月以降の支払予定に繰り越す。
 
 月初合意 gate の PJ 対象判定は、`projects.status='frozen'` だけでなく `projects.freeze_from_ym <= source_ym` も not_required にする。CTB p06 のように `status='active'` のまま freeze overlay で止まっている PJ を支払 gate に戻さないため。
 
-## ZMP 追加開発 cap 外支払 (= 例外運用)
+## ZMP 追加開発の別財布
 
-ZMP の通常固定費は 300,000 円 × 65% = 195,000 円が cap。 OkuDoor 追加開発などで追加受託分を支払うときの運用:
+ZMP の通常固定費は 300,000 円 × 65% = 195,000 円が通常cap。OkuDoor 追加開発などで追加受託分を支払うときは、通常枠に混ぜず別財布として扱う。
 
-1. `/admin/projects` の「PJ 予算確定・調整」で `cap外追加支払枠` に合意額を入れる
-2. `billing_cycles.budget_yen = 通常 cap + 追加枠` で書き換え
-3. 報酬キャッシュ再計算 → `reward_summary_json` 更新
-4. `/admin/payouts` で当月分発行
+1. OkuDoor 側のMSは `tag='cap_extra'` として、`reward_summary_json.members[].extraBasePay` に分離する
+2. 通常MSの本契約使用額 (= 非役員支払 + 役員会社留保) は本契約capだけで判定し、ZMPなら `300,000 × 65% = 195,000 円` を超えないことを見る
+3. `cap_extra` の使用額は `別財布使用` として表示し、通常capの超過判定には混ぜない
+4. 報酬キャッシュ再計算 → `reward_summary_json` 更新
+5. `/admin/payouts` で `本契約発生` / `本契約cap` / `本契約使用` / `別財布発生` / `別財布使用` を別々に確認して当月分を発行
 
 ## 「通常 GET は読むだけ」原則 (= 過去ハマり防止)
 

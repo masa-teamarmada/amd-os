@@ -124,12 +124,12 @@ container: max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3
 
 ### MS設計と報酬配分
 
-MSは報酬配分の最小単位でもある。`milestone_responsibility.share` はMS設計時点の予定担当比率で、月次報酬では `member_activities(project_id, ym, milestone_id)` から自動算出した `milestone_monthly_contribution_allocations.actual_share` を優先する。
+MSは報酬配分の最小単位でもある。`milestone_responsibility.share` はMS設計時点の予定担当比率で、月次報酬でもこの予定担当比率だけを使う。活動ログ由来の実績配分やPM/admin overrideは報酬計算に入れない。
 
 - 1つの成果物が複数人共同で進む場合: 1MS + shareで表現する。
 - 事業計画 / 資本政策 / 知財戦略のように、進捗が別々に確定する場合: 成果物ごとに別MSへ分ける。
 - SX旧MS#1はこのルールにより、`事業計画策定`、`資本政策策定`、`知財戦略策定` のように成果物単位へ分割済み。担当割合は各 `milestone_responsibility` に保存し、個人名を仕様例として固定しない。
-- 当月活動ログの根拠が十分な場合は `status='auto_applied'` の実績配分を使う。根拠が薄い場合は `needs_review` として保存するが報酬計算には使わず、予定担当比率へfallbackする。PM/admin が調整した行は `confirmed` / `pm_override` として自動案より優先する。
+- OkuDoor追加開発など通常固定費と別枠の受託分は、MS `tag='cap_extra'` で別財布に分ける。
 - 年間MS設定では、各MSに `period_start_ym` / `target_ym` を持たせる。UI上は `MS開始` / `MS終了` として表示し、月次モーダル・HUDの期間表示もこのDB値を優先する。
 - このUIは過去に消えた回帰が複数回あるため、PWAで年間MS設定を触るときは `npm run test:next-period-ui` を必ず通す。
 
@@ -364,11 +364,11 @@ XRL も同パターン (`xrl_feedbacks` → `/api/.../xrl-revise` → 手動 `/v
 
 月次モーダルのメンバー報酬は、PJ予算を絶対に超えない。
 
-- 今月払ってよい額 = 月次PJ予算 (`billing_cycles.budget_yen` or monthly fixed fee 65%)
-- 月額固定PJの追加受託分は `/admin/payouts` の cap外追加支払枠で `billing_cycles.budget_yen` に足す。例: ZMP は通常 300,000 円 × 65% = 195,000 円を cap とし、OkuDoor追加開発分だけ追加枠で支払可能額を増やす。
+- 今月の本契約で払ってよい額 = 契約金額から出す通常cap (= monthly fixed fee 65% - buffer)。契約で解決できないPJだけ `billing_cycles.budget_yen` を fallback に使う。
+- 月額固定PJの追加受託分は通常capに混ぜない。例: ZMP は通常 300,000 円 × 65% = 195,000 円を本契約capとし、OkuDoor追加開発分は `tag='cap_extra'` の別財布支払として分けて表示する。
 - gross due = 今月発生報酬 + 前月までのmember別stock
 - gross dueがcapを超える場合、支払額をcap内に比例配分し、未払い分を `stockYen` として翌月へ繰越
-- UIは `要支払 / 支払 / 繰越入 / 現ストック / キャップ発動` を表示する
+- UIは `要支払 / 支払 / 繰越入 / 現ストック / キャップ発動 / 別財布` を表示する
 
 ---
 

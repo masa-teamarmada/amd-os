@@ -36,15 +36,13 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - 支払月選択: `ym=YYYYMM` で対象月を選び、`billing_cycles.invoice_ym` を優先する。未設定cycleは `/admin/projects` の `projects.payment_due_rule` から支払月を判定する。
 - 高速初期表示: 通常GETは `billing_cycles.reward_summary_json` の報酬キャッシュを読むだけにする。毎回 `syncRewardSummariesForBillingCycles()` を再計算しない。
 - 報酬キャッシュ再計算: 明示的な「報酬キャッシュ再計算」操作または保存系処理だけが `refreshRewards=1` / `refreshRewards: true` で再計算する。
-- MSなしPJ 強制報酬確定: MSが未設定または月次MSが空のPJでも、admin確認済みの例外支払は `admin_manual_payout` として明示保存し、通常のMS報酬計算と混ざらないようにする。
 - 報酬キャッシュ日次更新: `payout-reward-cache-refresh` cron が毎日03:05 JSTに、前月・当月・翌月の支払月について `billing_cycles.reward_summary_json` を再生成する。
-- MS実績配分: `syncRewardSummariesForBillingCycles()` は `member_activities(project_id, ym, milestone_id)` から当月MS別の実績配分を自動算出し、`milestone_monthly_contribution_allocations.actual_share` を `auto_applied` / `needs_review` として保存する。`confirmed` / `pm_override` があるMS月は人間確認値を優先し、低確信度や行なしは `milestone_responsibility.share` にfallbackする。
-- 4月稼働分の固定: 202604 の支払額は既に確定済みなので、実績配分を適用せず、従来どおり `milestone_responsibility.share` で計算する。支払通知書PDFでは、この税抜支払額に消費税10%だけを上乗せする。
+- 予定担当比率のみ: 報酬計算は MS の期間按分で当月消化ptを出し、`milestone_responsibility.share` で分配する。活動ログ由来の実績配分や手入力報酬 override は使わない。
 - 保存済み支払額の優先: `monthly_reward_payout.total_pay` に保存済みの確定額があれば、画面の支払額・`payout_notices.total_yen`・PDF生成の元データをこの保存済み額に揃える。`reward_summary_json` の再計算値で上書きしない。
-- 縦型PJ収支表: 「全体収支」列とPJ列を並べ、クライアント支払、バッファ、PJ予算、支払予定、役員分、役員相殺、最終収支、メンバー別支払を確認できる。
-- MSなしPJ 強制報酬確定: MS / PlanCycle が未設定の PJ でも、`/admin/payouts` から PJ・稼働月・メンバー・支払額を指定して `billing_cycles.reward_summary_json` に `admin_manual_payout` を保存できる。必要なら `billing_cycles` を作成し、`invoice_ym` を支払月へ固定し、`budget_yen` を手入力合計以上にして保存・通知書発行フローへ合流させる。
-- 後追いPJ予算確定: 契約や請求額が後から確定したPJは、支払月画面から確定請求額（税抜）とバッファを入れ、対象稼働月の `billing_cycles.budget_yen` / `budget_reported_amount` / `budget_buffer_amount` へ配分する。`budget_reported_amount` は列名互換のため残すが、意味は請求額そのもの。
-- cap外追加支払枠: ZMP のような月額固定PJは通常枠を `fee_amount × 65%` に保ち、OkuDoor追加開発など追加受託分は `/admin/payouts` の `cap外追加支払枠` として `budget_yen` に加算できる。`budget_yen` は最終支払可能額、`確定請求額 × 65% - budget_buffer_amount` は通常cap、差分は追加受託分として扱う。
+- 縦型PJ収支表: 「全体収支」列とPJ列を並べ、クライアント支払、バッファ、本契約cap、本契約支払、別財布支払、役員分、役員相殺、本契約残り、メンバー別支払を確認できる。
+- 先12か月 本契約cap / 別財布: `/admin/payouts` と `/management-score` 下部表の両方で、本契約capの使用額 (= 非役員支払 + 役員会社留保) を `本契約使用` / `cap` で表示し、別財布売上・別財布使用・別財布残を別行で表示する。合算収支だけを主表示にしない。
+- 手入力予算確定なし: `/admin/payouts` では請求額や追加支払枠を手入力して `billing_cycles.budget_yen` を書き換えない。契約から解ける通常capと、MSタグから解ける別財布発生だけを表示する。
+- 別財布支払: ZMP のような月額固定PJは通常枠を `fee_amount × 65%` に保ち、OkuDoor追加開発など追加受託分は `tag='cap_extra'` のMSとして `extraBasePay` / `extraPaidYen` / `extraCompanyReserveYen` に分ける。画面上で `本契約発生` / `別財布発生` / `別財布使用` を別表示する。
 - 支払データ保存: `monthly_reward_payout` に明細、`payout_notices.total_yen` にメンバー別通知額を保存する。役員または `exclude_from_payout_notice` のメンバーは通知対象外にする。
 - 支払通知書発行: 「メンバー別支払」行に `支払通知書発行` / `PDF確認` / `送付` の3操作を置く。`PDF確認` は支払データ確定前でも改善版フォーマットの確認用PDFを生成して開くが、`payout_notices` には保存しない。正式な `支払通知書発行` は `monthly_reward_payout` 保存後に活性化し、`payout_notices.notice_no` / `pdf_url` を保存する。`送付` はPDF保存後に `sent_at` を保存する。PDF URLの手入力欄は置かない。
 - 支払通知書PDFフォーマット: 正本は `gas/064_PayoutFreeeNotice.js` の `payoutBuildNoticePdfBlob_`。2026-04改善版の白地・青アクセント・正本ロゴ画像フォーマットを維持する。admin/payouts の支払額 (`monthly_reward_payout.total_pay` / `payout_notices.total_yen`) は税抜として扱い、PDF上で消費税10%を上乗せして「お支払金額」「合計（税込）」に表示する。宛先は `members.contractor_name` (= 未設定時は `member_name` / `code_name`) と `members.member_address`、インボイス登録番号は `members.invoice_registration_number`、振込先は `members.bank_info` を使う。必須要素は、中央青見出し `支払通知書`、青ライン、右上の `作成日` / `通知書番号` (= 2026-05-28 まさ要望で「支払通知日」→「作成日」に変更)、公式ロゴ画像 (`PAYOUT_LOGO_FILE_ID` / `PAYOUT_LOGOTYPE_FILE_ID`)、「お支払金額」サマリbox、青ヘッダ明細表 (`摘要` / `数量` / `単価` / `金額`)、右寄せ合計 (`小計（税抜）` / `消費税（10%）` / `合計（税込）`)、`支払予定日` / `支払方法` / `振込先` / `備考`。旧GASの黒罫線フォーマット、テキストで作った `team ARMADA` ロゴ、PDF URL手入力欄へ戻さない。
@@ -54,7 +52,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 回帰防止:
 
 - `pwa/scripts/check_pwa_critical_ui.cjs` が `/admin/payouts` の支払通知書PDF確認、報酬キャッシュ、報酬キャッシュ日次cron、縦型PJ収支表、GAS側の改善版支払通知書PDFフォーマット anchor を検査する。
-- `pwa/scripts/check_pwa_critical_ui.cjs` が `MSなしPJ 強制報酬確定` / `manual_reward_override` / `admin_manual_payout` anchor も検査する。
+- `pwa/scripts/check_pwa_critical_ui.cjs` が `本契約発生` / `別財布発生` / `regularBasePay` / `extraBasePay` anchor も検査する。
 - 支払通知書PDFの golden PNG は `pwa/scripts/__fixtures__/payout_notice_golden.png` (改善版フォーマットの 1 ページ目を PNG 化したもの) を正本とし、`pwa/scripts/__fixtures__/payout_notice_golden.png.sha256` に SHA256 を固定する。`npm run test:critical-ui` が golden の存在と SHA256 一致を検査し、 fixture が壊れていれば落ちる。
 - 改善版PDFを意図的に更新したら、まさが新PNGを目視確認したうえで `payout_notice_golden.png` と `payout_notice_golden.png.sha256` を再生成して commit する。新規 PDF を PNG 化したファイルとの突合は `npm run test:payout-notice-pdf -- --diff <input.png>` で同じスクリプトを再利用する。
 - この画面で UI を削る変更は、`FEATURE_REGISTRY.md` と `SPEC_pwa.md` を同時に更新する。

@@ -55,11 +55,11 @@ export interface MonthlyWorkAgreementProject {
   conditions: string[];
   reviewReasons: string[];
   milestones: MonthlyWorkAgreementMilestone[];
-  operatingExpectations: string[];
+  routineExpectations: string[];
 }
 
 export interface MonthlyWorkAgreementSnapshot {
-  schemaVersion: "monthly_work_agreement.v1";
+  schemaVersion: "monthly_work_agreement.v1" | "monthly_work_agreement.v2";
   ym: string;
   member: MonthlyWorkAgreementMember;
   projects: MonthlyWorkAgreementProject[];

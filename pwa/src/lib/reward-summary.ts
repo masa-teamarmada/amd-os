@@ -14,18 +14,12 @@ import {
 type SupabaseLike = SupabaseClient;
 
 const ACTIVE_PLAN_STATUSES = ["active", "confirmed", "fixed", "draft"];
-const REWARD_SUMMARY_VERSION = "server_v2_actual_contribution";
-const MANUAL_REWARD_SOURCE = "admin_manual_payout";
+const REWARD_SUMMARY_VERSION = "server_v3_planned_share";
 const CAP_EXTRA_MILESTONE_TAGS = new Set(["cap_extra", "extra_contract", "contract_extra", "cap_outside", "uncapped"]);
-const CONTRIBUTION_AUTO_SOURCE = "member_activities";
-const CONTRIBUTION_AUTO_APPLY_CONFIDENCE = 0.6;
-const CONTRIBUTION_MANUAL_STATUSES = new Set(["confirmed", "pm_override"]);
-const CONTRIBUTION_USED_STATUSES = new Set(["auto_applied", "confirmed", "pm_override"]);
-const LEGACY_PLANNED_SHARE_REWARD_YMS = new Set(["202604"]);
 
 type RewardPool = "regular" | "cap_extra";
-type ContributionShareSource = "planned" | "member_activities" | "confirmed" | "pm_override";
-type ContributionAllocationStatus = "auto_applied" | "needs_review" | "confirmed" | "pm_override" | "rejected";
+type ContributionShareSource = "planned";
+type ContributionAllocationStatus = "planned";
 
 export interface RewardBreakdown {
   msKey: string;
@@ -68,6 +62,8 @@ export interface RewardMember {
   regularCarryInYen?: number;
   extraCarryInYen?: number;
   companyReserveYen?: number;
+  regularCompanyReserveYen?: number;
+  extraCompanyReserveYen?: number;
   officerReserveYen?: number;
   companyReserveUnfundedYen?: number;
   payoutExcluded?: boolean;
@@ -88,12 +84,13 @@ export interface RewardSummary {
   extraPtUnit?: number;
   regularCapBudgetYen?: number;
   extraCapBudgetYen?: number;
-  extraPayoutBudgetYen?: number;
   regularTotalGrossDueYen?: number;
   extraTotalGrossDueYen?: number;
   regularCarryOverYen?: number;
   extraCarryOverYen?: number;
   companyReserveYen?: number;
+  regularCompanyReserveYen?: number;
+  extraCompanyReserveYen?: number;
   officerReserveYen?: number;
   companyReserveUnfundedYen?: number;
   externalPayoutCapYen?: number;
@@ -102,12 +99,11 @@ export interface RewardSummary {
   members: RewardMember[];
   meta?: {
     version: string;
-    source: "supabase_reward_summary" | "admin_manual_payout";
+    source: "supabase_reward_summary";
     generatedAt: string;
     projectId: string;
     ym: string;
     planCycleId: string;
-    contributionAllocationSource?: "milestone_monthly_contribution_allocations";
   };
 }
 
@@ -164,37 +160,6 @@ type ResponsibilityRow = {
   share?: number | string | null;
 };
 
-type ContributionAllocationRow = {
-  project_id?: string | null;
-  milestone_id: string;
-  ym: string;
-  member_id: string;
-  planned_share?: number | string | null;
-  actual_share?: number | string | null;
-  confidence?: number | string | null;
-  source?: string | null;
-  status?: string | null;
-  reason?: string | null;
-  evidence_count?: number | string | null;
-  evidence_refs?: unknown;
-};
-
-type MemberActivityRow = {
-  id: string;
-  member_id?: string | null;
-  project_id: string;
-  ym: string;
-  source: string;
-  source_item_id: string;
-  milestone_id?: string | null;
-  title?: string | null;
-  content_preview?: string | null;
-  item_date?: string | null;
-  raw_metadata?: unknown;
-  impact?: number | string | null;
-  depth?: number | string | null;
-};
-
 type EffectiveContributionShare = {
   milestone_id: string;
   ym: string;
@@ -206,11 +171,6 @@ type EffectiveContributionShare = {
   confidence: number;
   evidenceCount: number;
   reason?: string | null;
-};
-
-type ContributionAllocationPlan = {
-  effectiveSharesByKey: Map<string, EffectiveContributionShare[]>;
-  autoRowsToPersist: ContributionAllocationRow[];
 };
 
 type MemberRow = {
@@ -259,297 +219,6 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
-function allocationKey(ym: string, milestoneId: string): string {
-  return `${ym}:${milestoneId}`;
-}
-
-function isActualContributionAllocationEnabledForYm(ym: string): boolean {
-  return !LEGACY_PLANNED_SHARE_REWARD_YMS.has(ym);
-}
-
-function plannedShareMap(responsibilities: ResponsibilityRow[], milestoneId: string): Map<string, number> {
-  const map = new Map<string, number>();
-  for (const resp of responsibilities) {
-    if (resp.milestone_id !== milestoneId) continue;
-    const share = normalizeShare(resp.share);
-    if (share > 0) map.set(resp.member_id, share);
-  }
-  return map;
-}
-
-function activitySourceWeight(source: string): number {
-  switch (source) {
-    case "manual":
-      return 1.1;
-    case "inferred":
-      return 1;
-    case "member_weekly":
-      return 0.75;
-    case "gmail":
-    case "slack":
-    case "calendar":
-    case "gmeet":
-    case "drive":
-    case "notion":
-      return 0.85;
-    default:
-      return 0.8;
-  }
-}
-
-function activityScore(activity: MemberActivityRow): number {
-  const impact = clamp(numberValue(activity.impact) || 3, 1, 5);
-  const depthValue = activity.depth == null ? null : numberValue(activity.depth);
-  const depthWeight = depthValue === 1 ? 1 : depthValue === 0 ? 0.45 : 0.7;
-  const metadata = asRecord(activity.raw_metadata);
-  const synthesisConfidence = clamp01(numberValue(metadata?.synthesis_confidence) || 0.75);
-  const confidenceWeight = 0.75 + synthesisConfidence * 0.25;
-  return impact * depthWeight * activitySourceWeight(activity.source) * confidenceWeight;
-}
-
-function activityMemberWeights(activity: MemberActivityRow): Array<{ memberId: string; weight: number }> {
-  const metadata = asRecord(activity.raw_metadata);
-  const responsibilities = Array.isArray(metadata?.responsibilities)
-    ? metadata.responsibilities
-    : [];
-  const weighted = responsibilities
-    .map((item) => {
-      const row = asRecord(item);
-      const memberId = String(row?.memberId || row?.member_id || "").trim();
-      const weight = normalizeShare(row?.responsibility);
-      return memberId && weight > 0 ? { memberId, weight } : null;
-    })
-    .filter((item): item is { memberId: string; weight: number } => !!item);
-
-  if (weighted.length > 0) return weighted;
-  const memberId = String(activity.member_id || "").trim();
-  return memberId ? [{ memberId, weight: 1 }] : [];
-}
-
-function evidenceRefsForActivity(activity: MemberActivityRow): Array<Record<string, unknown>> {
-  const metadata = asRecord(activity.raw_metadata);
-  const refs = Array.isArray(metadata?.evidence_refs)
-    ? metadata.evidence_refs
-    : [];
-  if (refs.length > 0) {
-    return refs
-      .map((ref) => asRecord(ref))
-      .filter((ref): ref is Record<string, unknown> => !!ref)
-      .slice(0, 8);
-  }
-  return [{
-    activity_id: activity.id,
-    source: activity.source,
-    source_item_id: activity.source_item_id,
-    title: activity.title || null,
-    item_date: activity.item_date || null,
-  }];
-}
-
-function contributionConfidence(params: {
-  evidenceCount: number;
-  explicitResponsibilityCount: number;
-  topShare: number;
-  totalScore: number;
-}): number {
-  let confidence = 0.55;
-  if (params.evidenceCount >= 2) confidence += 0.08;
-  if (params.evidenceCount >= 4) confidence += 0.04;
-  if (params.explicitResponsibilityCount > 0) confidence += 0.12;
-  if (params.topShare >= 0.8) confidence += 0.05;
-  if (params.totalScore >= 3) confidence += 0.05;
-  return Math.round(clamp(confidence, 0.35, 0.95) * 100) / 100;
-}
-
-function buildAutoContributionRows({
-  projectId,
-  months,
-  milestoneIds,
-  responsibilities,
-  activities,
-}: {
-  projectId: string;
-  months: string[];
-  milestoneIds: string[];
-  responsibilities: ResponsibilityRow[];
-  activities: MemberActivityRow[];
-}): ContributionAllocationRow[] {
-  const monthSet = new Set(months);
-  const milestoneSet = new Set(milestoneIds);
-  const groups = new Map<string, {
-    milestoneId: string;
-    ym: string;
-    memberScores: Map<string, number>;
-    evidenceCount: number;
-    explicitResponsibilityCount: number;
-    evidenceRefs: Array<Record<string, unknown>>;
-  }>();
-
-  for (const activity of activities) {
-    const milestoneId = String(activity.milestone_id || "").trim();
-    if (
-      !milestoneId ||
-      !milestoneSet.has(milestoneId) ||
-      !monthSet.has(activity.ym) ||
-      !isActualContributionAllocationEnabledForYm(activity.ym)
-    ) continue;
-    const weights = activityMemberWeights(activity);
-    if (weights.length === 0) continue;
-    const totalWeight = weights.reduce((sum, row) => sum + row.weight, 0);
-    if (totalWeight <= 0) continue;
-
-    const key = allocationKey(activity.ym, milestoneId);
-    const group = groups.get(key) || {
-      milestoneId,
-      ym: activity.ym,
-      memberScores: new Map<string, number>(),
-      evidenceCount: 0,
-      explicitResponsibilityCount: 0,
-      evidenceRefs: [],
-    };
-    const score = activityScore(activity);
-    const hasExplicitResponsibilities = Array.isArray(asRecord(activity.raw_metadata)?.responsibilities)
-      && (asRecord(activity.raw_metadata)?.responsibilities as unknown[]).length > 0;
-    group.evidenceCount += 1;
-    if (hasExplicitResponsibilities) group.explicitResponsibilityCount += 1;
-    group.evidenceRefs.push(...evidenceRefsForActivity(activity));
-    for (const row of weights) {
-      const current = group.memberScores.get(row.memberId) || 0;
-      group.memberScores.set(row.memberId, current + score * (row.weight / totalWeight));
-    }
-    groups.set(key, group);
-  }
-
-  const rows: ContributionAllocationRow[] = [];
-  for (const group of groups.values()) {
-    const totalScore = Array.from(group.memberScores.values()).reduce((sum, score) => sum + score, 0);
-    if (totalScore <= 0) continue;
-    const planned = plannedShareMap(responsibilities, group.milestoneId);
-    const memberIds = new Set([...planned.keys(), ...group.memberScores.keys()]);
-    const topShare = Math.max(...Array.from(group.memberScores.values()).map((score) => score / totalScore));
-    const confidence = contributionConfidence({
-      evidenceCount: group.evidenceCount,
-      explicitResponsibilityCount: group.explicitResponsibilityCount,
-      topShare,
-      totalScore,
-    });
-    const status: ContributionAllocationStatus = confidence >= CONTRIBUTION_AUTO_APPLY_CONFIDENCE
-      ? "auto_applied"
-      : "needs_review";
-    const reason = status === "auto_applied"
-      ? "member_activities から当月実績配分を自動算出"
-      : "member_activities の根拠が薄いため予定配分にfallback";
-    for (const memberId of memberIds) {
-      const score = group.memberScores.get(memberId) || 0;
-      rows.push({
-        project_id: projectId,
-        milestone_id: group.milestoneId,
-        ym: group.ym,
-        member_id: memberId,
-        planned_share: planned.get(memberId) || 0,
-        actual_share: Math.round((score / totalScore) * 10000) / 10000,
-        confidence,
-        source: CONTRIBUTION_AUTO_SOURCE,
-        status,
-        reason,
-        evidence_count: group.evidenceCount,
-        evidence_refs: group.evidenceRefs.slice(0, 12),
-      });
-    }
-  }
-  return rows;
-}
-
-function effectiveSharesFromRows(rows: ContributionAllocationRow[], fallbackSource: ContributionShareSource): EffectiveContributionShare[] {
-  const positive = rows
-    .map((row) => ({
-      row,
-      share: normalizeShare(row.actual_share),
-    }))
-    .filter(({ row, share }) => share > 0 && CONTRIBUTION_USED_STATUSES.has(String(row.status || "") as ContributionAllocationStatus));
-  const total = positive.reduce((sum, item) => sum + item.share, 0);
-  if (total <= 0) return [];
-  return positive.map(({ row, share }) => {
-    const status = String(row.status || "auto_applied") as ContributionAllocationStatus;
-    const source = status === "confirmed" ? "confirmed" : status === "pm_override" ? "pm_override" : fallbackSource;
-    return {
-      milestone_id: row.milestone_id,
-      ym: row.ym,
-      member_id: row.member_id,
-      share: Math.round((share / total) * 10000) / 10000,
-      plannedShare: normalizeShare(row.planned_share),
-      source,
-      status,
-      confidence: clamp01(numberValue(row.confidence)),
-      evidenceCount: Math.max(0, Math.round(numberValue(row.evidence_count))),
-      reason: row.reason || null,
-    };
-  });
-}
-
-function buildContributionAllocationPlan({
-  projectId,
-  months,
-  milestones,
-  responsibilities,
-  activities,
-  persistedAllocations,
-}: {
-  projectId: string;
-  months: string[];
-  milestones: MilestoneRow[];
-  responsibilities: ResponsibilityRow[];
-  activities: MemberActivityRow[];
-  persistedAllocations: ContributionAllocationRow[];
-}): ContributionAllocationPlan {
-  const milestoneIds = milestones.map((ms) => ms.milestone_id);
-  const actualContributionMonths = months.filter(isActualContributionAllocationEnabledForYm);
-  const autoRows = buildAutoContributionRows({
-    projectId,
-    months: actualContributionMonths,
-    milestoneIds,
-    responsibilities,
-    activities,
-  });
-  const manualRowsByKey = new Map<string, ContributionAllocationRow[]>();
-  for (const row of persistedAllocations) {
-    if (!isActualContributionAllocationEnabledForYm(row.ym)) continue;
-    const status = String(row.status || "");
-    if (!CONTRIBUTION_MANUAL_STATUSES.has(status)) continue;
-    const key = allocationKey(row.ym, row.milestone_id);
-    const rows = manualRowsByKey.get(key) || [];
-    rows.push(row);
-    manualRowsByKey.set(key, rows);
-  }
-
-  const autoRowsByKey = new Map<string, ContributionAllocationRow[]>();
-  for (const row of autoRows) {
-    const key = allocationKey(row.ym, row.milestone_id);
-    const rows = autoRowsByKey.get(key) || [];
-    rows.push(row);
-    autoRowsByKey.set(key, rows);
-  }
-
-  const effectiveSharesByKey = new Map<string, EffectiveContributionShare[]>();
-  for (const key of new Set([...manualRowsByKey.keys(), ...autoRowsByKey.keys()])) {
-    const manualShares = effectiveSharesFromRows(manualRowsByKey.get(key) || [], "confirmed");
-    if (manualShares.length > 0) {
-      effectiveSharesByKey.set(key, manualShares);
-      continue;
-    }
-    const autoShares = effectiveSharesFromRows(autoRowsByKey.get(key) || [], "member_activities");
-    if (autoShares.length > 0) {
-      effectiveSharesByKey.set(key, autoShares);
-    }
-  }
-
-  const manualKeys = new Set(manualRowsByKey.keys());
-  return {
-    effectiveSharesByKey,
-    autoRowsToPersist: autoRows.filter((row) => !manualKeys.has(allocationKey(row.ym, row.milestone_id))),
-  };
-}
-
 /**
  * project_members.is_active=false のメンバーを share から除外し、
  * 残メンバーで share 合計が 1 になるよう renormalize する。
@@ -575,22 +244,13 @@ function resolveContributionShares({
   ym,
   milestoneId,
   responsibilities,
-  contributionSharesByKey,
   activeMemberIds,
 }: {
   ym: string;
   milestoneId: string;
   responsibilities: ResponsibilityRow[];
-  contributionSharesByKey?: Map<string, EffectiveContributionShare[]>;
   activeMemberIds?: Set<string>;
 }): EffectiveContributionShare[] {
-  const actual = isActualContributionAllocationEnabledForYm(ym)
-    ? filterActiveAndRenormalize(
-        contributionSharesByKey?.get(allocationKey(ym, milestoneId)) || [],
-        activeMemberIds
-      )
-    : [];
-  if (actual.length > 0) return actual;
   const planned = responsibilities
     .filter((resp) => resp.milestone_id === milestoneId && normalizeShare(resp.share) > 0)
     .map((resp) => ({
@@ -600,21 +260,12 @@ function resolveContributionShares({
       share: normalizeShare(resp.share),
       plannedShare: normalizeShare(resp.share),
       source: "planned" as const,
-      status: "confirmed" as const,
-      confidence: 1,
+      status: "planned" as const,
+      confidence: 0,
       evidenceCount: 0,
-      reason: "milestone_responsibility.share fallback",
+      reason: "milestone_responsibility.share",
     }));
   return filterActiveAndRenormalize(planned, activeMemberIds);
-}
-
-function manualRewardSummary(value: unknown): RewardSummary | null {
-  const record = asRecord(value);
-  if (!record || !Array.isArray(record.members)) return null;
-  const meta = asRecord(record.meta);
-  const source = String(record.manualOverrideSource ?? meta?.source ?? "");
-  if (source !== MANUAL_REWARD_SOURCE && record.manualOverride !== true) return null;
-  return record as unknown as RewardSummary;
 }
 
 function normalizedTag(value: unknown): string {
@@ -868,11 +519,10 @@ function deriveMonthlyRewardCaps({
     };
   }
   const regularCapYen = deriveBaseMonthlyRewardBudget({ billing, planCycle, project });
-  const extraCapYen = Math.max(0, fullBudget - regularCapYen);
   return {
     regularCapYen,
-    extraCapYen,
-    totalCapYen: regularCapYen + extraCapYen,
+    extraCapYen: 0,
+    totalCapYen: regularCapYen,
   };
 }
 
@@ -1103,6 +753,8 @@ export function applyRewardCapsForMonth(
           regularCarryInYen: 0,
           extraCarryInYen: 0,
           companyReserveYen: 0,
+          regularCompanyReserveYen: 0,
+          extraCompanyReserveYen: 0,
           officerReserveYen: 0,
           companyReserveUnfundedYen: 0,
           payoutExcluded: true,
@@ -1118,6 +770,8 @@ export function applyRewardCapsForMonth(
       const stockYen = regular.stockYen + extra.stockYen;
       if (isCompanyReserveMember) {
         const companyReserveYen = totalPay;
+        const regularCompanyReserveYen = regular.paidYen;
+        const extraCompanyReserveYen = extra.paidYen;
         const companyReserveUnfundedYen = Math.max(0, grossDueYen - companyReserveYen);
         const excludedCarryInYen = baseInfo.regularCarryInYen + baseInfo.extraCarryInYen;
         return {
@@ -1146,6 +800,8 @@ export function applyRewardCapsForMonth(
           regularCarryInYen: 0,
           extraCarryInYen: 0,
           companyReserveYen,
+          regularCompanyReserveYen,
+          extraCompanyReserveYen,
           officerReserveYen: companyReserveYen,
           companyReserveUnfundedYen,
           payoutExcluded: true,
@@ -1191,6 +847,8 @@ export function applyRewardCapsForMonth(
   const regularCarryOverYen = paidMembers.reduce((sum, member) => sum + (member.regularStockYen || 0), 0);
   const extraCarryOverYen = paidMembers.reduce((sum, member) => sum + (member.extraStockYen || 0), 0);
   const companyReserveYen = paidMembers.reduce((sum, member) => sum + (member.companyReserveYen || 0), 0);
+  const regularCompanyReserveYen = paidMembers.reduce((sum, member) => sum + (member.regularCompanyReserveYen || 0), 0);
+  const extraCompanyReserveYen = paidMembers.reduce((sum, member) => sum + (member.extraCompanyReserveYen || 0), 0);
   const officerReserveYen = paidMembers.reduce((sum, member) => sum + (member.officerReserveYen || 0), 0);
   const companyReserveUnfundedYen = paidMembers.reduce((sum, member) => sum + (member.companyReserveUnfundedYen || 0), 0);
   const externalRegularPayoutCapYen = paidMembers.reduce(
@@ -1214,11 +872,12 @@ export function applyRewardCapsForMonth(
     monthlyBudget65: effectiveTotalCapYen,
     regularCapBudgetYen: caps.regularCapYen,
     extraCapBudgetYen: effectiveExtraCapYen,
-    extraPayoutBudgetYen: effectiveExtraCapYen,
     externalPayoutCapYen: externalRegularPayoutCapYen + externalExtraPayoutCapYen,
     externalRegularPayoutCapYen,
     externalExtraPayoutCapYen,
     companyReserveYen,
+    regularCompanyReserveYen,
+    extraCompanyReserveYen,
     officerReserveYen,
     companyReserveUnfundedYen,
     regularTotalGrossDueYen,
@@ -1233,7 +892,6 @@ export function buildRewardSummaryUncapped({
   milestones,
   progress,
   responsibilities,
-  contributionSharesByKey,
   activeMemberIds,
   memberMap,
   billing,
@@ -1244,7 +902,6 @@ export function buildRewardSummaryUncapped({
   milestones: MilestoneRow[];
   progress: ProgressRow[];
   responsibilities: ResponsibilityRow[];
-  contributionSharesByKey?: Map<string, EffectiveContributionShare[]>;
   activeMemberIds?: Set<string>;
   memberMap: Record<string, string>;
   billing: BillingRow;
@@ -1273,7 +930,6 @@ export function buildRewardSummaryUncapped({
       ym,
       milestoneId: ms.milestone_id,
       responsibilities,
-      contributionSharesByKey,
       activeMemberIds,
     }).filter((resp) => resp.share > 0);
     for (const resp of resps) {
@@ -1350,7 +1006,6 @@ export function buildRewardSummary({
   milestones,
   progress,
   responsibilities,
-  contributionSharesByKey,
   activeMemberIds,
   companyReserveMemberIds,
   payoutExcludedMemberIds,
@@ -1364,7 +1019,6 @@ export function buildRewardSummary({
   milestones: MilestoneRow[];
   progress: ProgressRow[];
   responsibilities: ResponsibilityRow[];
-  contributionSharesByKey?: Map<string, EffectiveContributionShare[]>;
   activeMemberIds?: Set<string>;
   companyReserveMemberIds?: Set<string>;
   payoutExcludedMemberIds?: Set<string>;
@@ -1386,7 +1040,6 @@ export function buildRewardSummary({
       milestones,
       progress,
       responsibilities,
-      contributionSharesByKey,
       activeMemberIds,
       memberMap,
       billing: billingForMonth,
@@ -1419,9 +1072,6 @@ export function buildRewardSummary({
       projectId: billing.project_id,
       ym,
       planCycleId: planCycle?.plan_cycle_id || "",
-      ...(isActualContributionAllocationEnabledForYm(ym)
-        ? { contributionAllocationSource: "milestone_monthly_contribution_allocations" as const }
-        : {}),
     },
   };
 }
@@ -1442,13 +1092,13 @@ async function persistRewardSummaryForCycle({
   rewardSummary: RewardSummary | null;
 }) {
   const persistedBudgetYen = derivePersistedCycleBudget({ billing, project });
-  const rewardBudgetYen = Math.round(numberValue(rewardSummary?.capBudgetYen));
+  const rewardBudgetYen = Math.round(numberValue(rewardSummary?.regularCapBudgetYen ?? rewardSummary?.capBudgetYen));
   const updatePayload: Record<string, unknown> = {
     reward_summary_json: rewardSummary,
     updated_at: new Date().toISOString(),
   };
   const currentBudgetYen = numberValue(billing.budget_yen);
-  if (rewardBudgetYen > currentBudgetYen) {
+  if (rewardBudgetYen > 0 && rewardBudgetYen !== currentBudgetYen) {
     updatePayload.budget_yen = rewardBudgetYen;
   } else if (currentBudgetYen <= 0 && persistedBudgetYen > 0) {
     updatePayload.budget_yen = persistedBudgetYen;
@@ -1460,41 +1110,6 @@ async function persistRewardSummaryForCycle({
     .eq("project_id", projectId)
     .eq("ym", ym);
   if (error) throw error;
-}
-
-function isMissingContributionAllocationTableError(error: { code?: string; message?: string } | null | undefined): boolean {
-  const code = String(error?.code || "");
-  const message = String(error?.message || "").toLowerCase();
-  return code === "42P01"
-    || code === "PGRST205"
-    || message.includes("milestone_monthly_contribution_allocations")
-    || message.includes("could not find the table")
-    || message.includes("does not exist");
-}
-
-async function persistAutoContributionAllocationRows(db: SupabaseLike, rows: ContributionAllocationRow[]) {
-  if (rows.length === 0) return;
-  const now = new Date().toISOString();
-  const payload = rows.map((row) => ({
-    project_id: row.project_id,
-    milestone_id: row.milestone_id,
-    ym: row.ym,
-    member_id: row.member_id,
-    planned_share: row.planned_share,
-    actual_share: row.actual_share,
-    confidence: row.confidence,
-    source: row.source,
-    status: row.status,
-    reason: row.reason,
-    evidence_count: row.evidence_count,
-    evidence_refs: row.evidence_refs,
-    auto_generated_at: now,
-    updated_at: now,
-  }));
-  const { error } = await db
-    .from("milestone_monthly_contribution_allocations")
-    .upsert(payload, { onConflict: "milestone_id,ym,member_id" });
-  if (error && !isMissingContributionAllocationTableError(error)) throw error;
 }
 
 export async function syncRewardSummaryForCycle(
@@ -1530,12 +1145,11 @@ export async function syncRewardSummaryForCycle(
 
   const billing = billingRes.data as BillingRow | null;
   if (!billing) return { ok: false, projectId, ym, rewardSummary: null, skippedReason: "billing_cycle_not_found" };
-  const existingManualSummary = manualRewardSummary(billing.reward_summary_json);
   const project = (projectRes.data ?? null) as ProjectRow | null;
   const planCycle = choosePlanCycle((planCyclesRes.data ?? []) as PlanCycleRow[], ym);
   if (!planCycle) {
-    if (existingManualSummary) return { ok: true, projectId, ym, rewardSummary: existingManualSummary, skippedReason: "manual_override" };
-    return { ok: false, projectId, ym, rewardSummary: null, skippedReason: "plan_cycle_not_found" };
+    await persistRewardSummaryForCycle({ db, projectId, ym, billing, project, rewardSummary: null });
+    return { ok: true, projectId, ym, rewardSummary: null, skippedReason: "plan_cycle_not_found" };
   }
 
   const milestonesRes = await db
@@ -1548,14 +1162,12 @@ export async function syncRewardSummaryForCycle(
 
   const milestones = ((milestonesRes.data ?? []) as MilestoneRow[]).filter((ms) => String(ms.goal_level || "").toLowerCase() !== "monthly");
   if (milestones.length === 0) {
-    if (existingManualSummary) return { ok: true, projectId, ym, rewardSummary: existingManualSummary, skippedReason: "manual_override" };
     await persistRewardSummaryForCycle({ db, projectId, ym, billing, project, rewardSummary: null });
     return { ok: true, projectId, ym, rewardSummary: null, skippedReason: "milestones_not_found" };
   }
 
   const milestoneIds = milestones.map((ms) => ms.milestone_id);
-  const rewardMonths = monthRangeUntil(planCycle, ym);
-  const [progressRes, responsibilitiesRes, billingRangeRes, activitiesRes, contributionAllocationsRes, projectMembersRes] = await Promise.all([
+  const [progressRes, responsibilitiesRes, billingRangeRes, projectMembersRes] = await Promise.all([
     db
       .from("milestone_monthly_progress")
       .select("milestone_key, ym, progress_pct, consumed_pt, source")
@@ -1574,18 +1186,6 @@ export async function syncRewardSummaryForCycle(
       .lte("ym", ym)
       .order("ym", { ascending: true }),
     db
-      .from("member_activities")
-      .select("id, member_id, project_id, ym, source, source_item_id, milestone_id, title, content_preview, item_date, raw_metadata, impact, depth")
-      .eq("project_id", projectId)
-      .in("ym", rewardMonths)
-      .in("milestone_id", milestoneIds),
-    db
-      .from("milestone_monthly_contribution_allocations")
-      .select("project_id, milestone_id, ym, member_id, planned_share, actual_share, confidence, source, status, reason, evidence_count, evidence_refs")
-      .eq("project_id", projectId)
-      .in("ym", rewardMonths)
-      .in("milestone_id", milestoneIds),
-    db
       .from("project_members")
       .select("member_id, is_active")
       .eq("project_id", projectId),
@@ -1593,10 +1193,6 @@ export async function syncRewardSummaryForCycle(
   if (progressRes.error) throw progressRes.error;
   if (responsibilitiesRes.error) throw responsibilitiesRes.error;
   if (billingRangeRes.error) throw billingRangeRes.error;
-  if (activitiesRes.error) throw activitiesRes.error;
-  if (contributionAllocationsRes.error && !isMissingContributionAllocationTableError(contributionAllocationsRes.error)) {
-    throw contributionAllocationsRes.error;
-  }
   if (projectMembersRes.error) throw projectMembersRes.error;
 
   const activeMemberIds = new Set(
@@ -1614,24 +1210,11 @@ export async function syncRewardSummaryForCycle(
     if (member.exclude_from_payout_notice) payoutExcludedMemberIds.add(member.member_id);
   }
 
-  const contributionPlan = buildContributionAllocationPlan({
-    projectId,
-    months: rewardMonths,
-    milestones,
-    responsibilities: (responsibilitiesRes.data ?? []) as ResponsibilityRow[],
-    activities: (activitiesRes.data ?? []) as MemberActivityRow[],
-    persistedAllocations: contributionAllocationsRes.error
-      ? []
-      : (contributionAllocationsRes.data ?? []) as ContributionAllocationRow[],
-  });
-  await persistAutoContributionAllocationRows(db, contributionPlan.autoRowsToPersist);
-
   const rewardSummary = buildRewardSummary({
     ym,
     milestones,
     progress: (progressRes.data ?? []) as ProgressRow[],
     responsibilities: (responsibilitiesRes.data ?? []) as ResponsibilityRow[],
-    contributionSharesByKey: contributionPlan.effectiveSharesByKey,
     activeMemberIds,
     companyReserveMemberIds,
     payoutExcludedMemberIds,
@@ -1643,7 +1226,6 @@ export async function syncRewardSummaryForCycle(
   });
 
   if (!rewardSummary || rewardSummary.members.length === 0) {
-    if (existingManualSummary) return { ok: true, projectId, ym, rewardSummary: existingManualSummary, skippedReason: "manual_override" };
     await persistRewardSummaryForCycle({ db, projectId, ym, billing, project, rewardSummary: null });
     return { ok: true, projectId, ym, rewardSummary: null, skippedReason: "reward_members_not_found" };
   }
@@ -1728,7 +1310,7 @@ export async function computeForwardUncappedMemberCosts(
     for (let i = start; i <= end; i += 1) fullMonths.push(monthsToYm(i));
   }
 
-  const [progressRes, responsibilitiesRes, billingRangeRes, activitiesRes, contributionAllocationsRes, projectMembersRes] = await Promise.all([
+  const [progressRes, responsibilitiesRes, billingRangeRes, projectMembersRes] = await Promise.all([
     db
       .from("milestone_monthly_progress")
       .select("milestone_key, ym, progress_pct, consumed_pt, source")
@@ -1746,18 +1328,6 @@ export async function computeForwardUncappedMemberCosts(
       .lte("ym", planCycle.period_end_ym)
       .order("ym", { ascending: true }),
     db
-      .from("member_activities")
-      .select("id, member_id, project_id, ym, source, source_item_id, milestone_id, title, content_preview, item_date, raw_metadata, impact, depth")
-      .eq("project_id", projectId)
-      .in("ym", fullMonths)
-      .in("milestone_id", milestoneIds),
-    db
-      .from("milestone_monthly_contribution_allocations")
-      .select("project_id, milestone_id, ym, member_id, planned_share, actual_share, confidence, source, status, reason, evidence_count, evidence_refs")
-      .eq("project_id", projectId)
-      .in("ym", fullMonths)
-      .in("milestone_id", milestoneIds),
-    db
       .from("project_members")
       .select("member_id, is_active")
       .eq("project_id", projectId),
@@ -1765,10 +1335,6 @@ export async function computeForwardUncappedMemberCosts(
   if (progressRes.error) throw progressRes.error;
   if (responsibilitiesRes.error) throw responsibilitiesRes.error;
   if (billingRangeRes.error) throw billingRangeRes.error;
-  if (activitiesRes.error) throw activitiesRes.error;
-  if (contributionAllocationsRes.error && !isMissingContributionAllocationTableError(contributionAllocationsRes.error)) {
-    throw contributionAllocationsRes.error;
-  }
   if (projectMembersRes.error) throw projectMembersRes.error;
 
   const activeMemberIds = new Set(
@@ -1780,17 +1346,6 @@ export async function computeForwardUncappedMemberCosts(
   for (const member of (membersRes.data ?? []) as MemberRow[]) {
     memberMap[member.member_id] = member.code_name || member.member_name || member.member_id;
   }
-
-  const contributionPlan = buildContributionAllocationPlan({
-    projectId,
-    months: fullMonths,
-    milestones,
-    responsibilities: (responsibilitiesRes.data ?? []) as ResponsibilityRow[],
-    activities: (activitiesRes.data ?? []) as MemberActivityRow[],
-    persistedAllocations: contributionAllocationsRes.error
-      ? []
-      : (contributionAllocationsRes.data ?? []) as ContributionAllocationRow[],
-  });
 
   const progress = (progressRes.data ?? []) as ProgressRow[];
   const responsibilities = (responsibilitiesRes.data ?? []) as ResponsibilityRow[];
@@ -1805,7 +1360,6 @@ export async function computeForwardUncappedMemberCosts(
       milestones,
       progress,
       responsibilities,
-      contributionSharesByKey: contributionPlan.effectiveSharesByKey,
       activeMemberIds,
       memberMap,
       billing,
@@ -1861,20 +1415,25 @@ export interface ForwardCappedMonth {
   ym: string;
   /** その月に実際に支払う capped 報酬 (円, 月次キャップ + 繰越平準化適用後 / 役員・支払対象外を除外済み) */
   cappedTotalYen: number;
+  /** 本契約capを使う capped 額。役員の会社留保分も含める。 */
+  cappedRegularYen: number;
+  /** 別財布(cap_extra)を使う capped 額。役員の会社留保分も含める。 */
+  cappedExtraYen: number;
   /** anchorYm より後の未来月か (= 実績ではなく按分予測) */
   isFuture: boolean;
-  members: Array<{ memberId: string; memberName?: string; earnedPt: number; payYen: number }>;
+  members: Array<{ memberId: string; memberName?: string; earnedPt: number; payYen: number; regularPayYen: number; extraPayYen: number }>;
 }
 
 /**
- * plan cycle 全期間 (period_start_ym〜period_end_ym) について、各月に「実際に支払う」
- * capped メンバー報酬を計算して返す。`/admin/payouts`「先12か月 PJ収支」表の将来支払予定注入用。
+ * plan cycle 全期間 (period_start_ym〜period_end_ym) について、各月に「本契約cap / 別財布をいくら使うか」
+ * を計算して返す。`/admin/payouts`「先12か月 本契約cap / 別財布」表の将来使用額注入用。
  *
  * - uncapped (= その月に発生した原価) ではなく capped (= 実際にいくら払うか) を返す。
  *   capped は月次支払上限 (budget_yen) + stock 繰越平準化が入るので「支払予定」の正本 (spec 7-1)。
  * - cap + carryIn 連鎖は `buildRewardSummary` が内部で planCycle 全期間を時系列に回して処理する
  *   (= ここで carryIn を手で連鎖させる必要はない)。期間全 billing を billingsByYm で渡す。
- * - 役員 (is_officer) / 支払対象外 (exclude_from_payout_notice) のメンバーは payYen から「単に落とす」。
+ * - 役員 (is_officer) は通常メンバーと同じ cap 配分に入れ、会社留保分として regular/extra に分けて返す。
+ * - 支払対象外 (exclude_from_payout_notice) のメンバーは cap 配分から単に落とす。
  *   抜けた share を他メンバーに再配分はしない (再配分すると AMD 持ち出しが無限に膨らむため。i 案)。
  *
  * anchorYm はアンカー月 (= 当月)。billing_cycle が無い月はスキップ。
@@ -1927,7 +1486,7 @@ export async function computeForwardCappedMemberCosts(
     for (let i = start; i <= end; i += 1) fullMonths.push(monthsToYm(i));
   }
 
-  const [progressRes, responsibilitiesRes, billingRangeRes, activitiesRes, contributionAllocationsRes, projectMembersRes] = await Promise.all([
+  const [progressRes, responsibilitiesRes, billingRangeRes, projectMembersRes] = await Promise.all([
     db
       .from("milestone_monthly_progress")
       .select("milestone_key, ym, progress_pct, consumed_pt, source")
@@ -1945,18 +1504,6 @@ export async function computeForwardCappedMemberCosts(
       .lte("ym", planCycle.period_end_ym)
       .order("ym", { ascending: true }),
     db
-      .from("member_activities")
-      .select("id, member_id, project_id, ym, source, source_item_id, milestone_id, title, content_preview, item_date, raw_metadata, impact, depth")
-      .eq("project_id", projectId)
-      .in("ym", fullMonths)
-      .in("milestone_id", milestoneIds),
-    db
-      .from("milestone_monthly_contribution_allocations")
-      .select("project_id, milestone_id, ym, member_id, planned_share, actual_share, confidence, source, status, reason, evidence_count, evidence_refs")
-      .eq("project_id", projectId)
-      .in("ym", fullMonths)
-      .in("milestone_id", milestoneIds),
-    db
       .from("project_members")
       .select("member_id, is_active")
       .eq("project_id", projectId),
@@ -1964,10 +1511,6 @@ export async function computeForwardCappedMemberCosts(
   if (progressRes.error) throw progressRes.error;
   if (responsibilitiesRes.error) throw responsibilitiesRes.error;
   if (billingRangeRes.error) throw billingRangeRes.error;
-  if (activitiesRes.error) throw activitiesRes.error;
-  if (contributionAllocationsRes.error && !isMissingContributionAllocationTableError(contributionAllocationsRes.error)) {
-    throw contributionAllocationsRes.error;
-  }
   if (projectMembersRes.error) throw projectMembersRes.error;
 
   const activeMemberIds = new Set(
@@ -1985,17 +1528,6 @@ export async function computeForwardCappedMemberCosts(
     if (member.exclude_from_payout_notice) excludedMemberIds.add(member.member_id);
   }
 
-  const contributionPlan = buildContributionAllocationPlan({
-    projectId,
-    months: fullMonths,
-    milestones,
-    responsibilities: (responsibilitiesRes.data ?? []) as ResponsibilityRow[],
-    activities: (activitiesRes.data ?? []) as MemberActivityRow[],
-    persistedAllocations: contributionAllocationsRes.error
-      ? []
-      : (contributionAllocationsRes.data ?? []) as ContributionAllocationRow[],
-  });
-
   const progress = (progressRes.data ?? []) as ProgressRow[];
   const responsibilities = (responsibilitiesRes.data ?? []) as ResponsibilityRow[];
   const billingRows = (billingRangeRes.data ?? []) as BillingRow[];
@@ -2012,7 +1544,6 @@ export async function computeForwardCappedMemberCosts(
       milestones,
       progress,
       responsibilities,
-      contributionSharesByKey: contributionPlan.effectiveSharesByKey,
       activeMemberIds,
       companyReserveMemberIds,
       payoutExcludedMemberIds: excludedMemberIds,
@@ -2022,17 +1553,24 @@ export async function computeForwardCappedMemberCosts(
       planCycle,
       project,
     });
-    const payableMembers = (summary?.members ?? []).filter((m) => !excludedMemberIds.has(m.memberId) && !m.payoutExcluded);
-    const cappedTotalYen = payableMembers.reduce((sum, m) => sum + (m.totalPay || 0), 0);
+    const members = summary?.members ?? [];
+    const payableMembers = members.filter((m) => !excludedMemberIds.has(m.memberId) && !m.payoutExcluded);
+    const cappedRegularYen = payableMembers.reduce((sum, m) => sum + (m.regularPaidYen || 0), 0) + (summary?.regularCompanyReserveYen || 0);
+    const cappedExtraYen = payableMembers.reduce((sum, m) => sum + (m.extraPaidYen || 0), 0) + (summary?.extraCompanyReserveYen || 0);
+    const cappedTotalYen = cappedRegularYen + cappedExtraYen;
     months.push({
       ym,
       cappedTotalYen,
+      cappedRegularYen,
+      cappedExtraYen,
       isFuture: ym > anchorYm,
       members: payableMembers.map((m) => ({
         memberId: m.memberId,
         memberName: m.memberName,
         earnedPt: m.earnedPt,
         payYen: m.totalPay,
+        regularPayYen: m.regularPaidYen || 0,
+        extraPayYen: m.extraPaidYen || 0,
       })),
     });
   }

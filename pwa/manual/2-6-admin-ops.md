@@ -40,7 +40,7 @@ AMD から SU に対する月次業務委託費 (= AMD 業務委託フィー) �
 ### 重要な仕様 (= 過去ハマり防止)
 - 通常 GET は **報酬キャッシュを読むだけ** (= `syncRewardSummariesForBillingCycles` は重い再計算なので暗黙実行しない)
 - 手動「報酬キャッシュ再計算」ボタンまたは保存系処理だけが `refreshRewards=1` で再計算
-- ZMP の通常固定費は 300,000 円 × 65% = 195,000 円を cap として扱う。OkuDoor追加開発など追加受託分を支払うときは、`PJ予算確定・調整` で `cap外追加支払枠` に合意額を入れ、`billing_cycles.budget_yen` を `通常cap + 追加枠` にする
+- ZMP の通常固定費は 300,000 円 × 65% = 195,000 円を本契約 cap として扱う。OkuDoor追加開発など追加受託分は通常capに混ぜず、MS `tag='cap_extra'` の別財布支払として確認する
 - 支払通知書 PDF フォーマット: **2026-04 改善版** が正本。白地、青アクセント、公式ロゴ画像、青ヘッダ明細表、税内訳、支払予定/方法/振込先/備考を出す
 - `setValue("team ARMADA")` / `brandCell` / `支払通知書番号` 等の旧版 anchor は復活禁止 (= `npm run test:critical-ui` で検知)
 - golden PNG: `pwa/scripts/__fixtures__/payout_notice_golden.png` + SHA256

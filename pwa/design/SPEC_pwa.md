@@ -134,7 +134,7 @@ pwa/
 | `/scholar` | 学術トレンド (μ_A 観測量 N) — lane × quarter の論文数 line chart + 前年同期比。OpenAlex 由来。詳細は [`amd_score.md`](amd_score.md) Triple Helix 観測モデル参照 |
 | `/reimburse` | 立替精算。PWAから申請/編集/削除、領収書添付、PM承認、admin承認まで実行。申請/編集は `/api/reimbursements` 経由で server-side 保存。status flow: `submitted` → `pmApproved` → `approved` |
 | `/admin/billing` | admin 立替/請求マトリクス (チップ操作で billing_cycles 直更新) |
-| `/admin/payouts` | 報酬支払。支払月を選び、`billing_cycles.invoice_ym` があればそれを優先、空なら `/admin/projects` の支払条件 (`projects.payment_due_rule`) から支払月を自動判定して報酬確定済みcycleを集約する。通常表示は `billing_cycles.reward_summary_json` の報酬キャッシュを読むだけにし、明示的な「報酬キャッシュ再計算」・保存系処理・日次 `payout-reward-cache-refresh` cron だけが再計算する。`monthly_reward_payout` / `payout_notices` 保存、PWA集約済み明細からの改善版支払通知書PDF発行 (`notice_no` / `pdf_url` / `sent_at`)、MSなしPJの手入力報酬確定 (`admin_manual_payout`)、後追い委託料入力、`65% - buffer` の通常PJ予算配分、OkuDoor追加開発などのcap外追加支払枠、縦型PJ収支表、PJ予算超過チェック、後追い予算未確定 / 予算不足 / 失注ステータス警告、入金確認nudge、明細クリックから月次モーダルを開く導線を持つ。PDF URL手入力欄は置かず、「メンバー別支払」各行に `支払通知書発行` / `PDF確認` / `送付` を置く。PDF宛先は `members.contractor_name` (= 未設定時は `member_name` / `code_name`) と `members.member_address`、インボイス登録番号は `members.invoice_registration_number`、振込先は `members.bank_info` をGASへ渡す。`PDF確認` は支払データ確定前でも確認用PDFを生成して開き、正式な通知書発行・保存・送付は支払データ保存後に行う。`送付` は確認モーダル (件名: 支払通知書のご案内 固定 / 本文編集可 / 添付PDF / Bcc: masa+kyoko 固定) を開き、「はい・送信」で `keiri@team-armada.jp` から実メール送信し、成功時に `payout_notices.sent_at` を set する (= まさ要件 2026-05-28、詳細は `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`)。支払通知書PDFは admin/payouts の支払額を税抜として扱い、GAS PDF生成時に消費税10%を上乗せして税込合計を出す。支払通知書PDFの見た目契約は [`FEATURE_REGISTRY.md`](FEATURE_REGISTRY.md) の `/admin/payouts` に固定し、`test:critical-ui` でGAS側の改善版フォーマット anchor も検査する |
+| `/admin/payouts` | 報酬支払。支払月を選び、`billing_cycles.invoice_ym` があればそれを優先、空なら `/admin/projects` の支払条件 (`projects.payment_due_rule`) から支払月を自動判定して報酬確定済みcycleを集約する。通常表示は `billing_cycles.reward_summary_json` の報酬キャッシュを読むだけにし、明示的な「報酬キャッシュ再計算」・保存系処理・日次 `payout-reward-cache-refresh` cron だけが再計算する。`monthly_reward_payout` / `payout_notices` 保存、PWA集約済み明細からの改善版支払通知書PDF発行 (`notice_no` / `pdf_url` / `sent_at`)、契約由来の本契約cap確認、OkuDoor追加開発などの別財布支払分離、縦型PJ収支表、本契約cap超過チェック、後追い予算未確定 / 予算不足 / 失注ステータス警告、入金確認nudge、明細クリックから月次モーダルを開く導線を持つ。報酬額の手入力フォームは置かず、MS / PlanCycle / responsibility から計算できるものだけを支払対象にする。`tag='cap_extra'` のMSは `extraBasePay` として通常枠から分離し、画面では `本契約発生` / `別財布発生` を別表示する。PDF URL手入力欄は置かず、「メンバー別支払」各行に `支払通知書発行` / `PDF確認` / `送付` を置く。PDF宛先は `members.contractor_name` (= 未設定時は `member_name` / `code_name`) と `members.member_address`、インボイス登録番号は `members.invoice_registration_number`、振込先は `members.bank_info` をGASへ渡す。`PDF確認` は支払データ確定前でも確認用PDFを生成して開き、正式な通知書発行・保存・送付は支払データ保存後に行う。`送付` は確認モーダル (件名: 支払通知書のご案内 固定 / 本文編集可 / 添付PDF / Bcc: masa+kyoko 固定) を開き、「はい・送信」で `keiri@team-armada.jp` から実メール送信し、成功時に `payout_notices.sent_at` を set する (= まさ要件 2026-05-28、詳細は `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`)。支払通知書PDFは admin/payouts の支払額を税抜として扱い、GAS PDF生成時に消費税10%を上乗せして税込合計を出す。支払通知書PDFの見た目契約は [`FEATURE_REGISTRY.md`](FEATURE_REGISTRY.md) の `/admin/payouts` に固定し、`test:critical-ui` でGAS側の改善版フォーマット anchor も検査する |
 | `/admin/finance` | 経理オペ台帳。サブスク / 固定継続費 / 自動振替 / 引落口座 / budget forward-fill / Gmail領収書イベント |
 | `/admin/private-wiki` | 裏wiki。`private_wiki_entries` を admin-only で読み書きし、AMDメンバー・取引先・クライアント・研究者・外部協力者などの人物単位メモをPJ別に保存する。通常PJ cockpit、公開ページ、研究機関外部workspaceには出さない。追加/編集/archive、検索、PJ/person_kind/tag/status filter、`source_kind` / `source_ref` / `source_excerpt` / `confidence` 表示を持つ。書き込みは `/api/admin/private-wiki` の `requireAdmin()` + service_role 経由 |
 | `/admin/projects` `/admin/members` `/admin/contexts` `/admin/protocols` `/admin/tsukuyomi` `/admin/settings` | 各 admin。`/admin/projects` はPJごとの契約・請求・支払条件の正本で、支払条件は稼働月基準の `当月末 / 当月25日 / 翌月末 / 翌月25日 / 翌々月末 / 翌々月25日` を `projects.payment_due_rule` に保存する。例: 5月稼働分を6月に請求して6月末支払なら `翌月末`。`/admin/members` はGoogle Calendar共有状態 (`members.google_calendar_status`) とOS最終ログイン (`members.last_login_at`) を表示し、最終ログインが新しい順に並べる。支払通知書向けに `members.contractor_name` (= 既定は個人の `member_name`、法人契約時だけ手入力)、`members.member_address`、`members.invoice_registration_number` も編集する |
@@ -222,7 +222,6 @@ pwa/
 | `value_milestones` | MS (136 件) |
 | `milestone_sub_items` | サブ MS (138 件、チェックボックス) |
 | `milestone_responsibility` | 担当割合 + role + task_description (209 件) — `UNIQUE(milestone_id, member_id, role)` |
-| `milestone_monthly_contribution_allocations` | 月次MS別の実績配分。`member_activities` 由来の自動算出 (`auto_applied` / `needs_review`) と人間確認 (`confirmed` / `pm_override`) を保持し、報酬計算では実績配分を予定担当比率より優先 |
 | `milestone_monthly_progress` | 月次 % + `note` + `source` (`tsukuyomi_estimate` / `pm_confirmed` / `pm_rejected` / `pm_manual` / `routine_auto` / `criteria_toggle`) |
 | `monthly_reports` | 月次レポート (final_content / draft_content) |
 | `tasks` | カンバン |
@@ -449,13 +448,11 @@ npx tsc --noEmit     # 型チェック
 
 ### MS分割と報酬配分の扱い
 - `milestone_responsibility.share` は **MS設計時点の予定担当比率**。新規MSではここを初期値として入れる。
-- 当月報酬では、`member_activities(project_id, ym, milestone_id)` から自動算出した `milestone_monthly_contribution_allocations.actual_share` を優先する。`status in ('auto_applied','confirmed','pm_override')` の行があれば `consumedPt × actual_share` で `earnedPt` を計算し、`needs_review` / `rejected` / 行なしの時だけ予定担当比率へfallbackする。
-- `auto_applied` は活動ログの根拠が十分な自動案、`needs_review` は根拠が薄いので支払いへ使わない候補。人間が月次締めで直す場合は `confirmed` / `pm_override` にする。
-- 例外: 4月稼働分 (`ym=202604`) は支払額確定後なので、実績配分を適用しない。従来どおり `milestone_responsibility.share` で計算し、支払通知書PDFでは税抜支払額に消費税10%を上乗せする。
+- 当月報酬では常に `milestone_responsibility.share` を使う。活動ログ由来の実績配分・PM/admin override は報酬計算に入れない。
+- `tag='cap_extra'` のMSは別財布として `extraBasePay` に分け、通常固定費の `65% - buffer` cap 確認から分離する。
 - 1つのMSに、事業計画 / 資本政策 / 知財戦略のような独立して進捗する成果物を混ぜない。
 - 誰か1人または一部メンバーだけで進む成果物が含まれる場合は、成果物ごとに別MSへ分ける。
 - 例: SX旧MS#1は `事業計画策定` / `資本政策策定` / `知財戦略策定` へ分割。知財戦略だけ進んだ月に、事業計画・資本政策担当へ報酬が乗らないようにする。
-- 例: SX の `PoC先候補開拓` が予定 `まさ50% / かる50%` でも、当月の `member_activities` がまさ側だけなら実績配分は `まさ100% / かる0%` になり、その月の報酬は実績配分で計算する。
 
 ### MS別期間設定の扱い
 - 年間MS設定では、PlanCycle全体の開始/終了とは別に、各MSごとの `MS開始` / `MS終了` を必ず表示する。

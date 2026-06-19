@@ -19,7 +19,7 @@ import type {
 
 type JsonRecord = Record<string, unknown>;
 
-const SNAPSHOT_VERSION = "monthly_work_agreement.v1" as const;
+const SNAPSHOT_VERSION = "monthly_work_agreement.v2" as const;
 
 function toNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -66,15 +66,9 @@ function inYmRange(
   return true;
 }
 
-function isProjectFrozenForYm(project: JsonRecord, ym: string): boolean {
-  if (String(project.status ?? "").toLowerCase() === "frozen") return true;
-  const freezeFromYm = typeof project.freeze_from_ym === "string" ? project.freeze_from_ym : null;
-  return !!freezeFromYm && ym >= freezeFromYm;
-}
-
-function projectHasMonthlyReward(project: JsonRecord, ym: string): boolean {
-  const normalized = String(project.status ?? "").toLowerCase();
-  return normalized !== "lost" && !isProjectFrozenForYm(project, ym);
+function projectHasMonthlyReward(status: unknown): boolean {
+  const normalized = String(status ?? "").toLowerCase();
+  return normalized !== "lost" && normalized !== "frozen";
 }
 
 function projectFreezeActiveForYm(row: JsonRecord, ym: string): boolean {
@@ -99,6 +93,20 @@ function asRecord(value: unknown): JsonRecord | null {
   return value as JsonRecord;
 }
 
+function recordArray(value: unknown): JsonRecord[] {
+  return Array.isArray(value) ? value.filter((item): item is JsonRecord => Boolean(asRecord(item))) : [];
+}
+
+function rewardSummaryMember(cycle: JsonRecord | undefined, memberId: string): JsonRecord | null {
+  const summary = asRecord(cycle?.reward_summary_json);
+  const members = recordArray(summary?.members);
+  return members.find((member) => (member.memberId ?? member.member_id) === memberId) ?? null;
+}
+
+function rewardSummaryReady(cycle: JsonRecord | undefined): boolean {
+  return Boolean(asRecord(cycle?.reward_summary_json));
+}
+
 function yenFromRecord(row: JsonRecord | null, keys: string[]): number | null {
   if (!row) return null;
   for (const key of keys) {
@@ -108,15 +116,41 @@ function yenFromRecord(row: JsonRecord | null, keys: string[]): number | null {
   return null;
 }
 
-function operatingExpectations(role: { is_pm?: boolean | null; is_pl?: boolean | null }): string[] {
+function splitBasePayFromRecord(row: JsonRecord | null): number | null {
+  const regular = yenFromRecord(row, ["regularBasePay", "regular_base_pay"]);
+  const extra = yenFromRecord(row, ["extraBasePay", "extra_base_pay"]);
+  if (regular == null && extra == null) return null;
+  return (regular ?? 0) + (extra ?? 0);
+}
+
+function rewardBreakdownByMilestone(row: JsonRecord | null): Map<string, { expectedRewardYen: number; earnedPt: number | null }> {
+  const map = new Map<string, { expectedRewardYen: number; earnedPt: number | null }>();
+  if (!row) return map;
+  for (const item of recordArray(row.breakdown)) {
+    const milestoneId = String(item.msKey ?? item.ms_key ?? item.milestoneId ?? item.milestone_id ?? "");
+    if (!milestoneId) continue;
+    const expectedRewardYen = Math.max(0, Math.round(toNumber(item.payYen ?? item.pay_yen) ?? 0));
+    const earnedPt = toNumber(item.earnedPt ?? item.earned_pt);
+    const current = map.get(milestoneId) ?? { expectedRewardYen: 0, earnedPt: null };
+    map.set(milestoneId, {
+      expectedRewardYen: current.expectedRewardYen + expectedRewardYen,
+      earnedPt: earnedPt == null && current.earnedPt == null
+        ? null
+        : Math.round(((current.earnedPt ?? 0) + (earnedPt ?? 0)) * 100) / 100,
+    });
+  }
+  return map;
+}
+
+function routineExpectations(role: { is_pm?: boolean | null; is_pl?: boolean | null }): string[] {
   if (role.is_pm) {
     return [
-      "進捗や報酬条件が実態と違う場合はPJコックピットの月次モーダルでPM確認または修正依頼を出す",
-      "報告書確認の軽い連絡はSlackで扱う",
+      "請求額確定、報告会日程調整、月次報告書FIX、請求書発行/送付の月次ルーティンを進める",
+      "進捗や報酬条件が実態と違う場合はPJコックピットの月次モーダルでPM確定または修正依頼を出す",
     ];
   }
   if (role.is_pl) {
-    return ["契約・報酬額に違和感がある場合だけ修正要望で確認する"];
+    return ["請求額確定のPL確認が必要な場合に対応する"];
   }
   return ["担当MS/活動ログに沿って当月の遂行内容を進める"];
 }
@@ -190,47 +224,6 @@ function normalizeActiveShares(rows: JsonRecord[], activeMemberIds: Set<string>)
     shares.set(row.memberId, Math.round((row.share / total) * 10000) / 10000);
   }
   return shares;
-}
-
-function rewardMemberId(member: JsonRecord): string {
-  return String(member.memberId ?? member.member_id ?? "").trim();
-}
-
-function rewardMemberAgreementPay(member: JsonRecord | null): number | null {
-  const basePay = toNumber(member?.basePay ?? member?.base_pay);
-  if (basePay != null) return Math.max(0, Math.round(basePay));
-  const totalPay = toNumber(member?.totalPay ?? member?.total_pay);
-  return totalPay == null ? null : Math.max(0, Math.round(totalPay));
-}
-
-function rewardBreakdownMsKey(row: JsonRecord): string {
-  return String(row.msKey ?? row.ms_key ?? row.milestoneId ?? row.milestone_id ?? "").trim();
-}
-
-function rewardBreakdownPayYen(row: JsonRecord): number {
-  return Math.max(0, Math.round(toNumber(row.payYen ?? row.pay_yen) ?? 0));
-}
-
-function rewardBreakdownEarnedPt(row: JsonRecord): number | null {
-  const earnedPt = toNumber(row.earnedPt ?? row.earned_pt);
-  return earnedPt == null ? null : Math.round(earnedPt * 100) / 100;
-}
-
-function rewardBreakdownByMs(member: JsonRecord | null): Map<string, { payYen: number; earnedPt: number | null }> {
-  const map = new Map<string, { payYen: number; earnedPt: number | null }>();
-  const breakdown = Array.isArray(member?.breakdown) ? member.breakdown : [];
-  for (const entry of breakdown) {
-    const row = asRecord(entry);
-    if (!row) continue;
-    const milestoneId = rewardBreakdownMsKey(row);
-    if (!milestoneId) continue;
-    const current = map.get(milestoneId) ?? { payYen: 0, earnedPt: null };
-    current.payYen += rewardBreakdownPayYen(row);
-    const earnedPt = rewardBreakdownEarnedPt(row);
-    if (earnedPt != null) current.earnedPt = Math.round(((current.earnedPt ?? 0) + earnedPt) * 100) / 100;
-    map.set(milestoneId, current);
-  }
-  return map;
 }
 
 function toAgreementRecord(row: JsonRecord): MonthlyWorkAgreementRecord {
@@ -399,7 +392,7 @@ export async function buildMonthlyWorkAgreementBundle(
   }
 
   const projects = ((projectsRes.data ?? []) as Array<JsonRecord>)
-    .filter((row) => projectHasMonthlyReward(row, ym))
+    .filter((row) => projectHasMonthlyReward(row.status))
     .filter((row) => !projectFrozenForYm(row, freezePeriodsByProject.get(row.project_id as string), ym))
     .filter((row) => inYmRange(ym, { start_ym: row.start_ym as string | null, end_ym: row.end_ym as string | null }));
   const projectMap = new Map(projects.map((row) => [row.project_id as string, row]));
@@ -487,6 +480,21 @@ export async function buildMonthlyWorkAgreementBundle(
       const projectId = membership.project_id as string;
       const project = projectMap.get(projectId)!;
       const cycle = cyclesByProject.get(projectId);
+      const rewardMember = rewardSummaryMember(cycle, params.memberId);
+      const hasRewardSummary = rewardSummaryReady(cycle);
+      const rewardBreakdown = rewardBreakdownByMilestone(rewardMember);
+      const expectedProjectRewardYen =
+        yenFromRecord(rewardMember, ["basePay", "base_pay"]) ??
+        splitBasePayFromRecord(rewardMember) ??
+        (hasRewardSummary ? 0 : null);
+      const payoutYen = yenFromRecord(rewardMember, ["totalPay", "total_pay"]) ?? (hasRewardSummary ? 0 : null);
+      const stockYen =
+        yenFromRecord(rewardMember, ["stockYen", "stock_yen", "deferredYen", "deferred_yen"]) ??
+        (hasRewardSummary ? 0 : null);
+      const grossDueYen =
+        yenFromRecord(rewardMember, ["grossDueYen", "gross_due_yen"]) ??
+        expectedProjectRewardYen;
+      const carryInYen = yenFromRecord(rewardMember, ["carryInYen", "carry_in_yen"]) ?? (hasRewardSummary ? 0 : null);
       const roleMilestones: MonthlyWorkAgreementMilestone[] = [];
       const projectPlans = plansByProject.get(projectId) ?? [];
       const plan =
@@ -497,22 +505,6 @@ export async function buildMonthlyWorkAgreementBundle(
       const activeProjectMemberIds = activeMemberIdsByProject.get(projectId) ?? new Set<string>([params.memberId]);
       const monthlyConsumedByMs = new Map<string, { progressPct: number | null; monthlyProgressPct: number | null; consumedPt: number }>();
       const normalizedSharesByMs = new Map<string, Map<string, number>>();
-      const rewardSummary = asRecord(cycle?.reward_summary_json);
-      const rewardSummaryMembers = Array.isArray(rewardSummary?.members)
-        ? (rewardSummary.members as unknown[]).map(asRecord).filter((member): member is JsonRecord => member != null)
-        : null;
-      const rewardMember = rewardSummaryMembers?.find((member) => rewardMemberId(member) === params.memberId) ?? null;
-      const payoutYen = yenFromRecord(rewardMember, ["totalPay", "total_pay"]);
-      const stockYen = yenFromRecord(rewardMember, ["stockYen", "stock_yen", "deferredYen", "deferred_yen"]);
-      const grossDueYen = yenFromRecord(rewardMember, ["grossDueYen", "gross_due_yen"]);
-      const carryInYen = yenFromRecord(rewardMember, ["carryInYen", "carry_in_yen"]);
-      const rewardBreakdown = rewardBreakdownByMs(rewardMember);
-      const rewardSummaryReady = rewardSummaryMembers != null;
-      const memberAgreementPay = rewardMember
-        ? rewardMemberAgreementPay(rewardMember)
-        : rewardSummaryReady
-          ? 0
-          : null;
 
       for (const ms of planMilestones) {
         const milestoneId = ms.milestone_id as string;
@@ -537,10 +529,9 @@ export async function buildMonthlyWorkAgreementBundle(
         const normalizedShare = normalizedSharesByMs.get(milestoneId)?.get(params.memberId) ?? 0;
         if (plannedShare <= 0 && normalizedShare <= 0) continue;
         const monthly = monthlyConsumedByMs.get(milestoneId) ?? { progressPct: null, monthlyProgressPct: null, consumedPt: 0 };
-        const fallbackEarnedPt = Math.round(monthly.consumedPt * normalizedShare * 100) / 100;
-        const rewardLine = rewardBreakdown.get(milestoneId);
-        const earnedPt = rewardLine?.earnedPt ?? fallbackEarnedPt;
-        const expectedRewardYen = rewardSummaryReady ? rewardLine?.payYen ?? 0 : null;
+        const cachedBreakdown = rewardBreakdown.get(milestoneId);
+        const earnedPt = cachedBreakdown?.earnedPt ?? Math.round(monthly.consumedPt * normalizedShare * 100) / 100;
+        const expectedRewardYen = hasRewardSummary ? cachedBreakdown?.expectedRewardYen ?? 0 : null;
         roleMilestones.push({
           milestoneId,
           title: String(ms.title ?? milestoneId),
@@ -554,41 +545,23 @@ export async function buildMonthlyWorkAgreementBundle(
           expectedRewardYen,
           earnedPt,
           conditions: [],
-          state: monthly.progressPct == null || !rewardSummaryReady ? "review_required" : "ready",
+          state: monthly.progressPct == null || !hasRewardSummary ? "review_required" : "ready",
         });
       }
 
       const sortedMilestones = roleMilestones.sort((a, b) => a.milestoneId.localeCompare(b.milestoneId));
-      let assignedReward = 0;
-      const pricedMilestones = sortedMilestones.filter((ms) => ms.expectedRewardYen != null);
-      const rewardfulMilestones = pricedMilestones.filter((ms) => (ms.expectedRewardYen ?? 0) > 0);
-      const breakdownRewardYen = rewardfulMilestones.reduce((sum, ms) => sum + (ms.expectedRewardYen ?? 0), 0);
-      const expectedRewardYen = pricedMilestones.length > 0
-        ? pricedMilestones.reduce((sum, ms) => sum + (ms.expectedRewardYen ?? 0), 0)
-        : null;
-      const lastRewardId = rewardfulMilestones[rewardfulMilestones.length - 1]?.milestoneId;
-      const displayMilestones = expectedRewardYen == null
-        ? sortedMilestones
-        : sortedMilestones.map((ms) => {
-            if (ms.expectedRewardYen == null || ms.expectedRewardYen <= 0) return ms;
-            const rounded = ms.milestoneId === lastRewardId
-              ? Math.max(0, expectedRewardYen - assignedReward)
-              : ms.expectedRewardYen;
-            assignedReward += rounded;
-            return { ...ms, expectedRewardYen: rounded };
-          });
+      const expectedRewardYen = expectedProjectRewardYen;
+      const hasDisplayableReward =
+        (expectedRewardYen ?? 0) > 0 ||
+        (payoutYen ?? 0) > 0 ||
+        (stockYen ?? 0) > 0 ||
+        (grossDueYen ?? 0) > 0;
 
-      if (expectedRewardYen == null && roleMilestones.length === 0) return null;
+      if (!hasDisplayableReward && roleMilestones.length === 0) return null;
 
       const reviewReasons: string[] = [];
       if (!cycle) reviewReasons.push("billing_cycles が未作成");
-      if (!rewardSummaryReady) reviewReasons.push("報酬キャッシュが未作成");
-      if (memberAgreementPay != null && memberAgreementPay > 0 && breakdownRewardYen <= 0) {
-        reviewReasons.push("報酬キャッシュのMS別内訳が未設定");
-      }
-      if (memberAgreementPay != null && breakdownRewardYen > 0 && Math.abs(memberAgreementPay - breakdownRewardYen) > 1) {
-        reviewReasons.push("報酬キャッシュのPJ合計とMS別内訳が不一致");
-      }
+      if (!hasRewardSummary) reviewReasons.push("報酬キャッシュが未生成");
       if (plan == null) reviewReasons.push("value plan が未設定");
       if (roleMilestones.length === 0 && plan) reviewReasons.push("当月の担当MS/shareが未設定");
 
@@ -615,8 +588,8 @@ export async function buildMonthlyWorkAgreementBundle(
         conditionState,
         conditions: [],
         reviewReasons,
-        milestones: displayMilestones,
-        operatingExpectations: operatingExpectations(membership),
+        milestones: sortedMilestones,
+        routineExpectations: routineExpectations(membership),
       };
     })
     .filter((project): project is MonthlyWorkAgreementProject => project != null)
@@ -729,7 +702,6 @@ export async function listActiveAgreementMemberIds(supabase: SupabaseClient, ym:
   }
   const activeProjects = new Set(
     ((projects ?? []) as Array<JsonRecord>)
-      .filter((row) => projectHasMonthlyReward(row, ym))
       .filter((row) => inYmRange(ym, { start_ym: row.start_ym as string | null, end_ym: row.end_ym as string | null }))
       .filter((row) => !projectFrozenForYm(row, freezePeriodsByProject.get(row.project_id as string), ym))
       .map((row) => row.project_id as string),

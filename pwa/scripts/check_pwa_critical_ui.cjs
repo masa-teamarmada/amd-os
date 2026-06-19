@@ -101,8 +101,19 @@ expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
   "stockYen",
   "openMonthlyModal",
   "報酬キャッシュ再計算",
-  "MSなしPJ 強制報酬確定",
-  "admin_manual_payout",
+  "本契約発生",
+  "別財布発生",
+  "本契約cap",
+  "別財布支払",
+  "先12か月 本契約cap / 別財布",
+  "本契約使用",
+  "別財布使用",
+  "別財布残",
+  "extraBalanceYen",
+  "cappedRegularYen",
+  "cappedExtraYen",
+  "regularBasePay",
+  "extraBasePay",
   "支払通知書発行",
   "PDF確認",
   "送付",
@@ -129,8 +140,9 @@ expectIncludes("src/app/api/admin/payouts/route.ts", [
   "refreshRewards",
   "issue_notice_pdf",
   "preview_notice_pdf",
-  "manual_reward_override",
-  "admin_manual_payout",
+  "regular_base_pay",
+  "extra_base_pay",
+  "payoutEntryDbPayload",
   "payoutCreatePwaNoticePdf",
   "update_notice",
   "payout_notices",
@@ -195,24 +207,13 @@ expectIncludes("src/app/api/cron/payout-reward-cache-refresh/route.ts", [
 ]);
 
 expectIncludes("src/lib/reward-summary.ts", [
-  "milestone_monthly_contribution_allocations",
-  "member_activities",
-  "actual_share",
+  "server_v3_planned_share",
   "plannedShare",
   "shareSource",
-  "CONTRIBUTION_AUTO_APPLY_CONFIDENCE",
-  "LEGACY_PLANNED_SHARE_REWARD_YMS",
-  "202604",
-  "isActualContributionAllocationEnabledForYm",
-]);
-
-expectIncludes("scripts/migrations/099_milestone_monthly_contribution_allocations.sql", [
-  "milestone_monthly_contribution_allocations",
-  "planned_share",
-  "actual_share",
-  "auto_applied",
-  "needs_review",
-  "pm_override",
+  "CAP_EXTRA_MILESTONE_TAGS",
+  "regularBasePay",
+  "extraBasePay",
+  "resolveContributionShares",
 ]);
 
 expectIncludes("vercel.json", [
@@ -229,12 +230,26 @@ expectIncludes("design/FEATURE_REGISTRY.md", [
   "members.contractor_name",
   "members.member_address",
   "members.invoice_registration_number",
-  "実績配分",
-  "milestone_monthly_contribution_allocations",
-  "4月稼働分",
+  "予定担当比率のみ",
+  "本契約発生",
+  "別財布発生",
+  "本契約cap",
+  "別財布支払",
+  "先12か月 本契約cap / 別財布",
+  "本契約使用",
+  "別財布使用",
+  "別財布残",
   "monthly_reward_payout.total_pay",
-  "MSなしPJ 強制報酬確定",
   "縦型PJ収支表",
+]);
+
+expectIncludes("src/app/(app)/management-score/page.tsx", [
+  "PJ別 先12か月 本契約cap / 別財布",
+  "本契約使用",
+  "別財布使用",
+  "別財布残",
+  "cappedRegularYen",
+  "cappedExtraYen",
 ]);
 
 expectIncludes("src/components/admin/AdminProjectsTable.tsx", [

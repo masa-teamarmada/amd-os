@@ -59,8 +59,24 @@ type RewardMember = {
   gross_due_yen?: number;
   stockYen?: number;
   stock_yen?: number;
+  regularBasePay?: number;
+  regular_base_pay?: number;
+  extraBasePay?: number;
+  extra_base_pay?: number;
+  regularPaidYen?: number;
+  regular_paid_yen?: number;
+  extraPaidYen?: number;
+  extra_paid_yen?: number;
+  regularStockYen?: number;
+  regular_stock_yen?: number;
+  extraStockYen?: number;
+  extra_stock_yen?: number;
   companyReserveYen?: number;
   company_reserve_yen?: number;
+  regularCompanyReserveYen?: number;
+  regular_company_reserve_yen?: number;
+  extraCompanyReserveYen?: number;
+  extra_company_reserve_yen?: number;
   officerReserveYen?: number;
   officer_reserve_yen?: number;
 };
@@ -68,6 +84,8 @@ type RewardMember = {
 type RewardSummary = {
   totalPaySum?: number;
   carryOverYen?: number;
+  regularCapBudgetYen?: number;
+  extraCapBudgetYen?: number;
   members?: RewardMember[];
 };
 
@@ -95,13 +113,16 @@ type ForecastPlanCycle = {
   period_end_ym: string;
 };
 
-// 将来月の「支払予定」(capped) を支払通知書と同じエンジンで投影した値。
+// 将来月の「cap使用予定」(capped) を支払通知書と同じエンジンで投影した値。
 // route が active PJ ごとに computeForwardCappedMemberCosts で計算して返す。
-// capped = 月次キャップ + 繰越平準化適用後 / 役員・支払対象外は除外済み (spec 7-1)。
+// cappedRegularYen は本契約capの使用額で、外部支払だけでなく役員会社留保も含む。
+// cappedExtraYen は別財布(cap_extra)の使用額。
 type ForecastCappedRow = {
   projectId: string;
   ym: string;
   cappedTotalYen: number;
+  cappedRegularYen?: number;
+  cappedExtraYen?: number;
 };
 
 type MonthlyRewardPayout = {
@@ -172,6 +193,12 @@ type PayoutEntry = {
   basePay: number;
   bonusPt: number;
   totalPay: number;
+  regularBasePay: number;
+  extraBasePay: number;
+  regularPaidYen: number;
+  extraPaidYen: number;
+  regularStockYen: number;
+  extraStockYen: number;
   grossDueYen: number;
   carryInYen: number;
   stockYen: number;
@@ -230,7 +257,7 @@ type BudgetAuditItem = {
   baseClientAmountYen: number;
   bufferYen: number;
   baseCapYen: number;
-  extraPayoutBudgetYen: number;
+  extraPayoutYen: number;
   budgetYen: number;
   payoutYen: number;
   stockYen: number;
@@ -245,7 +272,7 @@ type ProjectFinanceCycleLine = {
   baseClientAmountYen: number;
   bufferYen: number;
   baseCapYen: number;
-  extraPayoutBudgetYen: number;
+  extraPayoutYen: number;
   budgetYen: number;
   payoutYen: number;
   officerPayoutYen: number;
@@ -272,7 +299,7 @@ type ProjectFinanceGroup = {
   baseClientAmountYen: number;
   bufferYen: number;
   baseCapYen: number;
-  extraPayoutBudgetYen: number;
+  extraPayoutYen: number;
   budgetYen: number;
   payoutYen: number;
   officerPayoutYen: number;
@@ -290,11 +317,15 @@ type ProjectMonthlyFinanceCell = {
   budgetYen: number;
   /** 別財布（別契約）売上の当月按分額 (税抜)。本契約の budgetYen とは別枠で収支に加算する。 */
   extraRevenueYen: number;
+  /** 本契約capの使用額。外部支払と役員会社留保を含む。 */
   payoutYen: number;
+  /** 別財布の使用額。外部支払と役員会社留保を含む。 */
+  extraPayoutYen: number;
   officerPayoutYen: number;
   stockYen: number;
   grossDueYen: number;
   finalBalanceYen: number;
+  extraBalanceYen: number;
 };
 
 type ProjectMonthlyFinanceRow = {
@@ -304,21 +335,6 @@ type ProjectMonthlyFinanceRow = {
   totals: Omit<ProjectMonthlyFinanceCell, "projectId" | "projectName" | "ym">;
 };
 
-type BudgetConfirmGroup = {
-  key: string;
-  projectId: string;
-  invoiceYm: string;
-  projectName: string;
-  projectStatus: string | null;
-  items: BudgetAuditItem[];
-  totalPayoutYen: number;
-  totalStockYen: number;
-  currentBudgetYen: number;
-  baseClientAmountYen: number;
-  bufferYen: number;
-  extraPayoutBudgetYen: number;
-};
-
 type MemberPayoutRow = {
   memberId: string;
   memberName: string;
@@ -326,6 +342,10 @@ type MemberPayoutRow = {
   notice: PayoutNotice | null;
   totalPay: number;
   savedTotal: number;
+  regularBasePay: number;
+  extraBasePay: number;
+  regularPaidYen: number;
+  extraPaidYen: number;
   carryInYen: number;
   stockYen: number;
   entries: PayoutEntry[];
@@ -363,14 +383,6 @@ type NoticeMailModalState = {
   preview: NoticeMailPreview;
   editedBody: string;
   editing: boolean;
-};
-
-type ManualRewardDraft = {
-  projectId: string;
-  sourceYm: string;
-  memberId: string;
-  totalPayText: string;
-  note: string;
 };
 
 interface Props {
@@ -449,72 +461,6 @@ function fmtSignedYen(value: number | string | null | undefined) {
   return `¥${rounded.toLocaleString("ja-JP")}`;
 }
 
-function fmtDeltaYen(value: number | string | null | undefined) {
-  const n = Number(value ?? 0);
-  if (!Number.isFinite(n)) return "—";
-  const rounded = Math.round(n);
-  if (rounded > 0) return `+¥${rounded.toLocaleString("ja-JP")}`;
-  if (rounded < 0) return `-¥${Math.abs(rounded).toLocaleString("ja-JP")}`;
-  return "¥0";
-}
-
-function budgetAuditBadge(item: BudgetAuditItem) {
-  const missingBudget = item.budgetYen <= 0 && item.payoutYen > 0;
-  const deferredBudget = missingBudget && item.invoiceYm !== item.ym;
-  const lostProject = item.projectStatus === "lost";
-  const over = item.budgetYen > 0 && item.payoutYen > item.budgetYen;
-  const unpaid = item.payoutYen > 0 && !item.paymentConfirmed;
-  const cappedStock = item.stockYen > 0;
-
-  if (lostProject && missingBudget) {
-    return {
-      label: "失注/破談: 予算なし",
-      className: "bg-red-100 text-red-800",
-      note: "契約が取れなかった場合は、支払可否を個別確認する",
-    };
-  }
-  if (deferredBudget) {
-    return {
-      label: "後追い予算未確定",
-      className: "bg-amber-100 text-amber-800",
-      note: "確定委託料が入るまで正式な超過判定は保留",
-    };
-  }
-  if (missingBudget) {
-    return {
-      label: "PJ予算未設定",
-      className: "bg-red-100 text-red-800",
-      note: "予算確定なしに支払保存しない",
-    };
-  }
-  if (over) {
-    return {
-      label: `予算不足 ${fmtYen(item.payoutYen - item.budgetYen)}`,
-      className: "bg-red-100 text-red-800",
-      note: "想定より確定額が低い可能性あり",
-    };
-  }
-  if (cappedStock) {
-    return {
-      label: `cap発動 ${fmtYen(item.stockYen)}`,
-      className: "bg-amber-100 text-amber-800",
-      note: "追加受託などで支払う場合はcap外追加支払枠を入れる",
-    };
-  }
-  if (unpaid) {
-    return {
-      label: "入金未確認",
-      className: "bg-amber-100 text-amber-800",
-      note: "予算内だが入金確認前",
-    };
-  }
-  return {
-    label: `OK ${fmtYen(item.budgetYen - item.payoutYen)}`,
-    className: "bg-emerald-100 text-emerald-800",
-    note: "予算内",
-  };
-}
-
 function fmtPt(value: number | string | null | undefined) {
   const n = Number(value ?? 0);
   return Number.isFinite(n) && n > 0 ? `${Math.round(n * 100) / 100}pt` : "—";
@@ -549,12 +495,6 @@ function hasExplicitNumber(value: unknown) {
   if (value == null || value === "") return false;
   const n = typeof value === "number" ? value : Number(value);
   return Number.isFinite(n);
-}
-
-function parseYenInput(value: string) {
-  const normalized = value.replace(/[,\s¥円]/g, "");
-  const n = Number(normalized || 0);
-  return Number.isFinite(n) ? Math.round(n) : 0;
 }
 
 function baseClientAmountForCycle(cycle: BillingCycle, project?: Project) {
@@ -642,6 +582,12 @@ function buildEntries(
       const companyReserveYen = Math.round(numberValue(
         member.companyReserveYen ?? member.company_reserve_yen ?? member.officerReserveYen ?? member.officer_reserve_yen
       ));
+      const regularCompanyReserveYen = Math.round(numberValue(
+        member.regularCompanyReserveYen ?? member.regular_company_reserve_yen
+      ));
+      const extraCompanyReserveYen = Math.round(numberValue(
+        member.extraCompanyReserveYen ?? member.extra_company_reserve_yen
+      ));
       const totalPay = options.useCompanyReserveYen
         ? companyReserveYen || Math.round(numberValue(member.totalPay ?? member.total_pay))
         : Math.round(numberValue(member.totalPay ?? member.total_pay));
@@ -649,6 +595,20 @@ function buildEntries(
       const stockYen = Math.round(numberValue(member.stockYen ?? member.stock_yen ?? member.deferredYen ?? member.deferred_yen));
       const grossDueYen = Math.round(numberValue(member.grossDueYen ?? member.gross_due_yen ?? member.cappedFrom ?? member.capped_from ?? totalPay));
       const cappedFrom = Math.round(numberValue(member.cappedFrom ?? member.capped_from));
+      const extraBasePay = Math.round(numberValue(member.extraBasePay ?? member.extra_base_pay));
+      const extraPaidYen = Math.round(numberValue(member.extraPaidYen ?? member.extra_paid_yen));
+      const basePay = Math.round(numberValue(member.basePay ?? member.base_pay));
+      const regularBasePay = hasExplicitNumber(member.regularBasePay ?? member.regular_base_pay)
+        ? Math.round(numberValue(member.regularBasePay ?? member.regular_base_pay))
+        : Math.max(0, basePay - extraBasePay);
+      const regularPaidYen = options.useCompanyReserveYen
+        ? regularCompanyReserveYen || Math.max(0, totalPay - extraCompanyReserveYen)
+        : hasExplicitNumber(member.regularPaidYen ?? member.regular_paid_yen)
+          ? Math.round(numberValue(member.regularPaidYen ?? member.regular_paid_yen))
+          : Math.max(0, totalPay - extraPaidYen);
+      const resolvedExtraPaidYen = options.useCompanyReserveYen ? extraCompanyReserveYen : extraPaidYen;
+      const regularStockYen = Math.round(numberValue(member.regularStockYen ?? member.regular_stock_yen));
+      const extraStockYen = Math.round(numberValue(member.extraStockYen ?? member.extra_stock_yen));
       if (totalPay <= 0 && stockYen <= 0 && grossDueYen <= 0) continue;
 
       cycleEntries.push({
@@ -658,16 +618,22 @@ function buildEntries(
         memberId,
         memberName: memberNameOf(member) || memberMap.get(memberId) || memberId,
         earnedPt: numberValue(member.earnedPt ?? member.earned_pt),
-        basePay: Math.round(numberValue(member.basePay ?? member.base_pay)),
+        basePay,
         bonusPt: Math.round(numberValue(member.bonusPt ?? member.bonus_pt)),
         totalPay,
+        regularBasePay,
+        extraBasePay,
+        regularPaidYen,
+        extraPaidYen: resolvedExtraPaidYen,
+        regularStockYen,
+        extraStockYen,
         grossDueYen,
         carryInYen,
         stockYen,
         cappedFrom,
       });
     }
-    entries.push(...capEntriesToBudget(cycleEntries, cycle.budget_yen));
+    entries.push(...cycleEntries);
   }
 
   return entries.sort((a, b) => {
@@ -709,6 +675,12 @@ function applySavedPayoutsForExistingRows({
       basePay: Math.round(numberValue(payout.base_pay)),
       bonusPt: Math.round(numberValue(payout.bonus_pt)),
       totalPay,
+      regularBasePay: Math.round(numberValue(payout.base_pay)),
+      extraBasePay: 0,
+      regularPaidYen: totalPay,
+      extraPaidYen: 0,
+      regularStockYen: 0,
+      extraStockYen: 0,
       grossDueYen: totalPay,
       carryInYen: 0,
       stockYen: 0,
@@ -720,30 +692,6 @@ function applySavedPayoutsForExistingRows({
     if (a.memberName !== b.memberName) return a.memberName.localeCompare(b.memberName, "ja");
     if (a.ym !== b.ym) return a.ym.localeCompare(b.ym);
     return a.projectId.localeCompare(b.projectId);
-  });
-}
-
-function capEntriesToBudget(entries: PayoutEntry[], budgetYen: number | null): PayoutEntry[] {
-  const budget = Math.round(numberValue(budgetYen));
-  const totalPay = entries.reduce((sum, entry) => sum + entry.totalPay, 0);
-  if (budget <= 0 || totalPay <= budget || entries.length === 0) return entries;
-
-  let allocated = 0;
-  return entries.map((entry, index) => {
-    const cappedPay =
-      index === entries.length - 1
-        ? Math.max(0, budget - allocated)
-        : Math.max(0, Math.round((entry.totalPay / totalPay) * budget));
-    allocated += cappedPay;
-    const grossDueYen = Math.max(entry.grossDueYen, entry.totalPay);
-    const stockYen = Math.max(entry.stockYen, grossDueYen - cappedPay);
-    return {
-      ...entry,
-      totalPay: cappedPay,
-      grossDueYen,
-      stockYen,
-      cappedFrom: grossDueYen,
-    };
   });
 }
 
@@ -770,11 +718,16 @@ function buildProjectMonthlyFinanceRows({
   payoutEligibleProjectIds: Set<string>;
   forecastCapped: ForecastCappedRow[];
 }): ProjectMonthlyFinanceRow[] {
-  // 将来月の「支払予定」(capped, 役員除外済み) を (projectId:ym) で引けるようにする。
-  // 値 0 も「役員のみ PJ なので支払予定ゼロ」という正しい結果なので、未計算 (key 無し) と区別する。
-  const cappedByPjYm = new Map<string, number>();
+  // 将来月の「本契約cap使用 / 別財布使用」(capped) を (projectId:ym) で引けるようにする。
+  // 値 0 も「使用なし」という正しい結果なので、未計算 (key 無し) と区別する。
+  const cappedByPjYm = new Map<string, { regularYen: number; extraYen: number; totalYen: number }>();
   for (const row of forecastCapped) {
-    cappedByPjYm.set(`${row.projectId}:${row.ym}`, Math.round(numberValue(row.cappedTotalYen)));
+    const totalYen = Math.round(numberValue(row.cappedTotalYen));
+    const extraYen = Math.round(numberValue(row.cappedExtraYen));
+    const regularYen = hasExplicitNumber(row.cappedRegularYen)
+      ? Math.round(numberValue(row.cappedRegularYen))
+      : Math.max(0, totalYen - extraYen);
+    cappedByPjYm.set(`${row.projectId}:${row.ym}`, { regularYen, extraYen, totalYen });
   }
   const nonOfficerEntries = buildEntries(cycles, memberMap, payoutExcludedMemberIds);
   const officerEntries = buildEntries(
@@ -830,10 +783,12 @@ function buildProjectMonthlyFinanceRows({
           budgetYen: 0,
           extraRevenueYen: 0,
           payoutYen: 0,
+          extraPayoutYen: 0,
           officerPayoutYen: 0,
           stockYen: 0,
           grossDueYen: 0,
           finalBalanceYen: 0,
+          extraBalanceYen: 0,
         },
       };
     rows.set(projectId, current);
@@ -848,32 +803,45 @@ function buildProjectMonthlyFinanceRows({
     const officerReserve = officerByCycle.get(key) ?? [];
     const baseClientAmountYen = baseClientAmountForCycle(cycle, project);
     const baseCapYen = baseCapYenFor(baseClientAmountYen, Math.round(numberValue(cycle.budget_buffer_amount)));
-    const budgetYen = hasExplicitNumber(cycle.budget_yen) ? Math.round(numberValue(cycle.budget_yen)) : baseCapYen;
-    const payoutYen = entries.reduce((sum, entry) => sum + entry.totalPay, 0);
-    const officerPayoutYen = officerReserve.reduce((sum, entry) => sum + entry.totalPay, 0);
+    const budgetYen = baseCapYen > 0
+      ? baseCapYen
+      : hasExplicitNumber(cycle.budget_yen)
+        ? Math.round(numberValue(cycle.budget_yen))
+        : 0;
+    const regularExternalPayoutYen = entries.reduce((sum, entry) => sum + entry.regularPaidYen, 0);
+    const extraExternalPayoutYen = entries.reduce((sum, entry) => sum + entry.extraPaidYen, 0);
+    const regularOfficerReserveYen = officerReserve.reduce((sum, entry) => sum + entry.regularPaidYen, 0);
+    const extraOfficerReserveYen = officerReserve.reduce((sum, entry) => sum + entry.extraPaidYen, 0);
+    const payoutYen = regularExternalPayoutYen + regularOfficerReserveYen;
+    const extraPayoutYen = extraExternalPayoutYen + extraOfficerReserveYen;
+    const officerPayoutYen = regularOfficerReserveYen;
     const stockYen = entries.reduce((sum, entry) => sum + entry.stockYen, 0) + officerReserve.reduce((sum, entry) => sum + entry.stockYen, 0);
     const grossDueYen = entries.reduce((sum, entry) => sum + entry.grossDueYen, 0) + officerReserve.reduce((sum, entry) => sum + entry.grossDueYen, 0);
     const hasRewardMembers = (asRewardSummary(cycle.reward_summary_json)?.members?.length ?? 0) > 0;
     const canForecastPayout = hasRewardBearingPlan(cycle.project_id, cycle.ym, planCycles);
-    // 実績メンバーが居ない将来月の「支払予定」。支払予定 = capped (月次キャップ + 繰越平準化適用後 /
-    // 役員・支払対象外を除外済み) が正本 (spec 7-1)。route が computeForwardCappedMemberCosts で投影する。
+    // 実績メンバーが居ない将来月の「本契約cap使用 / 別財布使用」は capped が正本 (spec 7-1)。
+    // route が computeForwardCappedMemberCosts で投影する。
     // capped が「計算済み」(key 有り) ならその値を使う。値 0 も「役員のみ PJ なので支払予定ゼロ」という
     // 正しい結果なので budgetYen フォールバックに落とさない (= KUTE のような全員役員 PJ で巨額が出る事故防止)。
     // budgetYen 決め打ちフォールバックは plan 期間外などで capped が未計算 (key 無し) の月に限る。
     // ※ v0.25.3 では uncapped を入れていたため pt 消化が厚い月に budget_yen を超えて跳ね、
     //   マイナス月 / KUTE 巨額 / OkuDoor 超過が発生した (2026-06-17 まさ指摘 → v0.25.4 で修正)。
     const cappedForecast = cappedByPjYm.get(`${cycle.project_id}:${cycle.ym}`);
-    const forecastPayoutYen =
+    const forecastRegularPayoutYen =
       !hasRewardMembers && payoutYen === 0
         ? cappedForecast != null
-          ? cappedForecast
+          ? cappedForecast.regularYen
           : budgetYen > 0 && canForecastPayout && payoutEligibleProjectIds.has(cycle.project_id)
             ? budgetYen
             : payoutYen
         : payoutYen;
-    // 別財布売上 (税抜) は本契約 budgetYen とは別枠の収入なので最終収支に純増させる。
+    const forecastExtraPayoutYen =
+      !hasRewardMembers && extraPayoutYen === 0
+        ? cappedForecast?.extraYen ?? 0
+        : extraPayoutYen;
     const extra = takeExtra(cycle.project_id, cycle.ym);
-    const finalBalanceYen = budgetYen + extra.amount - forecastPayoutYen;
+    const finalBalanceYen = budgetYen - forecastRegularPayoutYen;
+    const extraBalanceYen = extra.amount - forecastExtraPayoutYen;
     const cell: ProjectMonthlyFinanceCell = {
       projectId: cycle.project_id,
       projectName: row.projectName,
@@ -881,21 +849,25 @@ function buildProjectMonthlyFinanceRows({
       baseClientAmountYen,
       budgetYen,
       extraRevenueYen: extra.amount,
-      payoutYen: forecastPayoutYen,
+      payoutYen: forecastRegularPayoutYen,
+      extraPayoutYen: forecastExtraPayoutYen,
       officerPayoutYen,
       stockYen,
       grossDueYen,
       finalBalanceYen,
+      extraBalanceYen,
     };
     row.cells.push(cell);
     row.totals.baseClientAmountYen += baseClientAmountYen;
     row.totals.budgetYen += budgetYen;
     row.totals.extraRevenueYen += extra.amount;
-    row.totals.payoutYen += forecastPayoutYen;
+    row.totals.payoutYen += forecastRegularPayoutYen;
+    row.totals.extraPayoutYen += forecastExtraPayoutYen;
     row.totals.officerPayoutYen += officerPayoutYen;
     row.totals.stockYen += stockYen;
     row.totals.grossDueYen += grossDueYen;
     row.totals.finalBalanceYen += finalBalanceYen;
+    row.totals.extraBalanceYen += extraBalanceYen;
   }
 
   // cycle が存在しない PJ×月にも別財布按分が残っていれば独立セルとして立てる。
@@ -912,14 +884,16 @@ function buildProjectMonthlyFinanceRows({
       budgetYen: 0,
       extraRevenueYen: val.amount,
       payoutYen: 0,
+      extraPayoutYen: 0,
       officerPayoutYen: 0,
       stockYen: 0,
       grossDueYen: 0,
-      finalBalanceYen: val.amount,
+      finalBalanceYen: 0,
+      extraBalanceYen: val.amount,
     };
     row.cells.push(cell);
     row.totals.extraRevenueYen += val.amount;
-    row.totals.finalBalanceYen += val.amount;
+    row.totals.extraBalanceYen += val.amount;
   }
 
   return [...rows.values()]
@@ -933,13 +907,15 @@ function buildProjectMonthlyFinanceRows({
         budgetYen: 0,
         extraRevenueYen: 0,
         payoutYen: 0,
+        extraPayoutYen: 0,
         officerPayoutYen: 0,
         stockYen: 0,
         grossDueYen: 0,
         finalBalanceYen: 0,
+        extraBalanceYen: 0,
       }),
     }))
-    .filter((row) => row.totals.budgetYen > 0 || row.totals.payoutYen > 0 || row.totals.stockYen > 0 || row.totals.baseClientAmountYen > 0 || row.totals.extraRevenueYen > 0)
+    .filter((row) => row.totals.budgetYen > 0 || row.totals.payoutYen > 0 || row.totals.extraPayoutYen > 0 || row.totals.stockYen > 0 || row.totals.baseClientAmountYen > 0 || row.totals.extraRevenueYen > 0)
     .sort((a, b) => a.projectName.localeCompare(b.projectName, "ja"));
 }
 
@@ -950,8 +926,6 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
   const [saving, setSaving] = useState(false);
   const [hint, setHint] = useState("");
   const [modalTarget, setModalTarget] = useState<ModalTarget | null>(null);
-  const [budgetTarget, setBudgetTarget] = useState<BudgetConfirmGroup | null>(null);
-  const [budgetSaving, setBudgetSaving] = useState(false);
   const [noticeSavingMemberId, setNoticeSavingMemberId] = useState<string | null>(null);
   const [noticeMailModal, setNoticeMailModal] = useState<NoticeMailModalState | null>(null);
   const [noticeMailLoading, setNoticeMailLoading] = useState(false);
@@ -961,14 +935,6 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
   const [bulkPdfMode, setBulkPdfMode] = useState<"issue" | "preview" | null>(null);
   const [bulkPdfResult, setBulkPdfResult] = useState<BulkNoticeSummary | null>(null);
   const [agreementOverrideReason, setAgreementOverrideReason] = useState("");
-  const [manualRewardSaving, setManualRewardSaving] = useState(false);
-  const [manualRewardDraft, setManualRewardDraft] = useState<ManualRewardDraft>({
-    projectId: "",
-    sourceYm: initialYm,
-    memberId: "",
-    totalPayText: "",
-    note: "",
-  });
   const [cockpitCache, setCockpitCache] = useState<Record<string, CockpitData>>({});
   const [modalLoading, setModalLoading] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
@@ -1053,13 +1019,45 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
   );
 
   const cycleStats = useMemo(() => {
-    const byCycle = new Map<string, { totalPay: number; grossDueYen: number; stockYen: number; carryInYen: number; savedCount: number; expectedCount: number }>();
+    const byCycle = new Map<string, {
+      totalPay: number;
+      regularBasePay: number;
+      extraBasePay: number;
+      regularPaidYen: number;
+      extraPaidYen: number;
+      grossDueYen: number;
+      stockYen: number;
+      regularStockYen: number;
+      extraStockYen: number;
+      carryInYen: number;
+      savedCount: number;
+      expectedCount: number;
+    }>();
     for (const entry of expectedEntries) {
       const key = `${entry.projectId}:${entry.ym}`;
-      const current = byCycle.get(key) ?? { totalPay: 0, grossDueYen: 0, stockYen: 0, carryInYen: 0, savedCount: 0, expectedCount: 0 };
+      const current = byCycle.get(key) ?? {
+        totalPay: 0,
+        regularBasePay: 0,
+        extraBasePay: 0,
+        regularPaidYen: 0,
+        extraPaidYen: 0,
+        grossDueYen: 0,
+        stockYen: 0,
+        regularStockYen: 0,
+        extraStockYen: 0,
+        carryInYen: 0,
+        savedCount: 0,
+        expectedCount: 0,
+      };
       current.totalPay += entry.totalPay;
+      current.regularBasePay += entry.regularBasePay;
+      current.extraBasePay += entry.extraBasePay;
+      current.regularPaidYen += entry.regularPaidYen;
+      current.extraPaidYen += entry.extraPaidYen;
       current.grossDueYen += entry.grossDueYen;
       current.stockYen += entry.stockYen;
+      current.regularStockYen += entry.regularStockYen;
+      current.extraStockYen += entry.extraStockYen;
       current.carryInYen += entry.carryInYen;
       current.expectedCount += 1;
       const saved = payoutMap.get(entryKey(entry));
@@ -1076,7 +1074,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
       const baseClientAmountYen = baseClientAmountForCycle(cycle, project);
       const bufferYen = Math.round(numberValue(cycle.budget_buffer_amount));
       const baseCapYen = baseCapYenFor(baseClientAmountYen, bufferYen);
-      const budgetYen = Math.round(numberValue(cycle.budget_yen));
+      const budgetYen = baseCapYen;
       return {
         key: `${cycle.project_id}:${cycle.ym}`,
         projectId: cycle.project_id,
@@ -1087,10 +1085,10 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
         baseClientAmountYen,
         bufferYen,
         baseCapYen,
-        extraPayoutBudgetYen: Math.max(0, budgetYen - baseCapYen),
+        extraPayoutYen: Math.round(stats?.extraPaidYen ?? 0),
         budgetYen,
-        payoutYen: Math.round(stats?.totalPay ?? 0),
-        stockYen: Math.round(stats?.stockYen ?? 0),
+        payoutYen: Math.round(stats?.regularPaidYen ?? 0),
+        stockYen: Math.round(stats?.regularStockYen ?? 0),
         grossDueYen: Math.round(stats?.grossDueYen ?? 0),
         paymentConfirmed: Boolean(cycle.payment_confirmed_at),
       };
@@ -1148,7 +1146,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
           baseClientAmountYen: 0,
           bufferYen: 0,
           baseCapYen: 0,
-          extraPayoutBudgetYen: 0,
+          extraPayoutYen: 0,
           budgetYen: 0,
           payoutYen: 0,
           officerPayoutYen: 0,
@@ -1161,20 +1159,22 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
       const cycleKeyValue = `${cycle.project_id}:${cycle.ym}`;
       const nonOfficerEntries = nonOfficerByCycle.get(cycleKeyValue) ?? [];
       const officerEntries = officerByCycle.get(cycleKeyValue) ?? [];
-      const payoutYen = nonOfficerEntries.reduce((sum, entry) => sum + entry.totalPay, 0);
-      const officerPayoutYen = officerEntries.reduce((sum, entry) => sum + entry.totalPay, 0);
+      const payoutYen = nonOfficerEntries.reduce((sum, entry) => sum + entry.regularPaidYen, 0);
+      const extraPayoutYen =
+        nonOfficerEntries.reduce((sum, entry) => sum + entry.extraPaidYen, 0) +
+        officerEntries.reduce((sum, entry) => sum + entry.extraPaidYen, 0);
+      const officerPayoutYen = officerEntries.reduce((sum, entry) => sum + entry.regularPaidYen, 0);
       const officerOffsetYen = officerPayoutYen;
-      const budgetYen = Math.round(numberValue(cycle.budget_yen));
       const bufferYen = Math.round(numberValue(cycle.budget_buffer_amount));
       const baseClientAmountYen = baseClientAmountForCycle(cycle, project);
       const baseCapYen = baseCapYenFor(baseClientAmountYen, bufferYen);
-      const extraPayoutBudgetYen = Math.max(0, budgetYen - baseCapYen);
+      const budgetYen = baseCapYen;
       const finalBalanceYen = budgetYen - payoutYen - officerPayoutYen + officerOffsetYen;
 
       group.baseClientAmountYen += baseClientAmountYen;
       group.bufferYen += bufferYen;
       group.baseCapYen += baseCapYen;
-      group.extraPayoutBudgetYen += extraPayoutBudgetYen;
+      group.extraPayoutYen += extraPayoutYen;
       group.budgetYen += budgetYen;
       group.payoutYen += payoutYen;
       group.officerPayoutYen += officerPayoutYen;
@@ -1187,7 +1187,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
         baseClientAmountYen,
         bufferYen,
         baseCapYen,
-        extraPayoutBudgetYen,
+        extraPayoutYen,
         budgetYen,
         payoutYen,
         officerPayoutYen,
@@ -1196,28 +1196,30 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
       });
 
       for (const entry of nonOfficerEntries) {
+        if (entry.regularPaidYen <= 0) continue;
         group.memberLines.push({
           key: entryKey(entry),
           ym: entry.ym,
           invoiceYm: entry.invoiceYm,
           memberId: entry.memberId,
           memberName: entry.memberName,
-          amountYen: entry.totalPay,
+          amountYen: entry.regularPaidYen,
           isOfficer: false,
           offsetYen: 0,
-          netEffectYen: -entry.totalPay,
+          netEffectYen: -entry.regularPaidYen,
         });
       }
       for (const entry of officerEntries) {
+        if (entry.regularPaidYen <= 0) continue;
         group.memberLines.push({
           key: `officer:${entryKey(entry)}`,
           ym: entry.ym,
           invoiceYm: entry.invoiceYm,
           memberId: entry.memberId,
           memberName: entry.memberName,
-          amountYen: entry.totalPay,
+          amountYen: entry.regularPaidYen,
           isOfficer: true,
-          offsetYen: entry.totalPay,
+          offsetYen: entry.regularPaidYen,
           netEffectYen: 0,
         });
       }
@@ -1256,48 +1258,6 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
     [data?.forecastCycles, data?.extraRevenueRows, data?.forecastPlanCycles, data?.forecastCapped, forecastMonths, memberMap, officerMemberIds, payoutEligibleProjectIds, payoutExcludedMemberIds, projectMap]
   );
 
-  const budgetConfirmGroups = useMemo<BudgetConfirmGroup[]>(() => {
-    const map = new Map<string, BudgetConfirmGroup>();
-    for (const item of budgetAuditItems) {
-      if (item.payoutYen <= 0 && item.stockYen <= 0) continue;
-      const key = `${item.projectId}:${item.invoiceYm}`;
-      const group =
-        map.get(key) ??
-        {
-          key,
-          projectId: item.projectId,
-          invoiceYm: item.invoiceYm,
-          projectName: item.projectName,
-          projectStatus: item.projectStatus,
-          items: [],
-          totalPayoutYen: 0,
-          totalStockYen: 0,
-          currentBudgetYen: 0,
-          baseClientAmountYen: 0,
-          bufferYen: 0,
-          extraPayoutBudgetYen: 0,
-        };
-      group.items.push(item);
-      group.totalPayoutYen += item.payoutYen;
-      group.totalStockYen += item.stockYen;
-      group.currentBudgetYen += item.budgetYen;
-      group.baseClientAmountYen += item.baseClientAmountYen;
-      group.bufferYen += item.bufferYen;
-      group.extraPayoutBudgetYen += item.extraPayoutBudgetYen;
-      map.set(key, group);
-    }
-
-    return [...map.values()]
-      .map((group) => ({
-        ...group,
-        items: group.items.sort((a, b) => a.ym.localeCompare(b.ym)),
-      }))
-      .sort((a, b) => {
-        if (a.projectName !== b.projectName) return a.projectName.localeCompare(b.projectName, "ja");
-        return a.invoiceYm.localeCompare(b.invoiceYm);
-      });
-  }, [budgetAuditItems]);
-
   const memberRows = useMemo<MemberPayoutRow[]>(() => {
     const byMember = new Map<string, MemberPayoutRow>();
     for (const entry of expectedEntries) {
@@ -1310,6 +1270,10 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
           notice: noticeMap.get(entry.memberId) ?? null,
           totalPay: 0,
           savedTotal: 0,
+          regularBasePay: 0,
+          extraBasePay: 0,
+          regularPaidYen: 0,
+          extraPaidYen: 0,
           carryInYen: 0,
           stockYen: 0,
           entries: [],
@@ -1317,6 +1281,10 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
         };
 
       row.totalPay += entry.totalPay;
+      row.regularBasePay += entry.regularBasePay;
+      row.extraBasePay += entry.extraBasePay;
+      row.regularPaidYen += entry.regularPaidYen;
+      row.extraPaidYen += entry.extraPaidYen;
       row.carryInYen += entry.carryInYen;
       row.stockYen += entry.stockYen;
       row.entries.push(entry);
@@ -1330,6 +1298,8 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
   }, [expectedEntries, payoutExcludedMemberIds, noticeMap, payoutMap]);
 
   const grandTotal = memberRows.reduce((sum, row) => sum + row.totalPay, 0);
+  const regularBaseTotal = memberRows.reduce((sum, row) => sum + row.regularBasePay, 0);
+  const extraBaseTotal = memberRows.reduce((sum, row) => sum + row.extraBasePay, 0);
   const savedAll = expectedEntries.length > 0 && memberRows.every((row) => row.isSaved);
   const rewardCycleCount = new Set(expectedEntries.map((entry) => `${entry.projectId}:${entry.ym}`)).size;
 
@@ -1696,84 +1666,6 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
     }
   }
 
-  async function saveBudgetGroup(group: BudgetConfirmGroup, clientAmountYen: number, bufferYen: number, extraPayoutBudgetYen: number) {
-    if (clientAmountYen <= 0) {
-      setHint("65%対象の通常委託料を入力してね");
-      return;
-    }
-    setBudgetSaving(true);
-    setHint("PJ予算を確定中...");
-    try {
-      const res = await fetch("/api/admin/payouts", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ym,
-          projectId: group.projectId,
-          invoiceYm: group.invoiceYm,
-          sourceYms: group.items.map((item) => item.ym),
-          clientAmountYen,
-          bufferYen,
-          extraPayoutBudgetYen,
-        }),
-      });
-      const payload = (await res.json()) as (
-        PayoutData & { ok?: boolean; error?: string; pjBudgetTotal?: number; updatedCycles?: unknown[] }
-      );
-      if (!res.ok || payload.ok === false) {
-        throw new Error(payload.error || `budget save failed (${res.status})`);
-      }
-      setData(payload);
-      setBudgetTarget(null);
-      setHint(`${group.projectName} ${fmtYm(group.items[0]?.ym ?? "")}-${fmtYm(group.items[group.items.length - 1]?.ym ?? "")} のPJ予算 ${fmtYen(payload.pjBudgetTotal ?? 0)} を確定`);
-    } catch (err) {
-      setHint(err instanceof Error ? err.message : "PJ予算の保存エラー");
-    } finally {
-      setBudgetSaving(false);
-    }
-  }
-
-  async function saveManualRewardOverride() {
-    const totalPayYen = parseYenInput(manualRewardDraft.totalPayText);
-    const sourceYm = manualRewardDraft.sourceYm.trim();
-    if (!manualRewardDraft.projectId || !manualRewardDraft.memberId || !/^[0-9]{6}$/.test(sourceYm) || totalPayYen <= 0) {
-      setHint("PJ、稼働月、メンバー、支払額を入れてね");
-      return;
-    }
-    setManualRewardSaving(true);
-    setHint("手入力の報酬額を確定中...");
-    try {
-      const res = await fetch("/api/admin/payouts", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "manual_reward_override",
-          ym,
-          projectId: manualRewardDraft.projectId,
-          sourceYm,
-          memberId: manualRewardDraft.memberId,
-          totalPayYen,
-          note: manualRewardDraft.note,
-        }),
-      });
-      const payload = (await res.json()) as (
-        PayoutData & { ok?: boolean; error?: string; manualRewardOverride?: { projectId?: string; sourceYm?: string; memberId?: string; totalPayYen?: number } }
-      );
-      if (!res.ok || payload.ok === false) {
-        throw new Error(payload.error || `manual reward save failed (${res.status})`);
-      }
-      setData(payload);
-      const project = projectMap.get(manualRewardDraft.projectId);
-      const memberName = memberMap.get(manualRewardDraft.memberId) || manualRewardDraft.memberId;
-      setManualRewardDraft((prev) => ({ ...prev, totalPayText: "", note: "" }));
-      setHint(`${project?.project_name ?? manualRewardDraft.projectId} ${fmtYm(sourceYm)} / ${memberName} の報酬 ${fmtYen(totalPayYen)} を強制確定`);
-    } catch (err) {
-      setHint(err instanceof Error ? err.message : "手入力報酬の保存エラー");
-    } finally {
-      setManualRewardSaving(false);
-    }
-  }
-
   async function openMonthlyModal(projectId: string, targetYm: string, label: string) {
     setModalTarget({ projectId, ym: targetYm, label });
     setModalError(null);
@@ -1806,10 +1698,6 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
 
   useEffect(() => {
     void loadForYm(ym);
-  }, [ym]);
-
-  useEffect(() => {
-    setManualRewardDraft((prev) => ({ ...prev, sourceYm: ym }));
   }, [ym]);
 
   return (
@@ -1862,7 +1750,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
             hasBudgetBlocker ||
             guardedActionDisabled
           }
-          title={hasBudgetBlocker ? "PJ予算未設定または超過があるため保存できない" : guardedActionTitle}
+          title={hasBudgetBlocker ? "本契約cap未設定または超過があるため保存できない" : guardedActionTitle}
           className="h-9 rounded-md bg-foreground px-4 text-[12px] font-medium text-background disabled:opacity-50"
         >
           {saving ? "保存中..." : savedAll ? "再保存" : "支払データ保存"}
@@ -1983,31 +1871,20 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
         onOverrideReasonChange={setAgreementOverrideReason}
       />
 
-      <div className="grid gap-2 md:grid-cols-4">
+      <div className="grid gap-2 md:grid-cols-6">
         <SummaryBox label="対象cycle" value={`${data?.cycles.length ?? 0}件`} sub={`${rewardCycleCount}件に報酬明細あり`} />
         <SummaryBox label="報酬明細" value={`${expectedEntries.length}件`} sub={savedAll ? "保存済み" : "未保存あり"} />
         <SummaryBox label="支払メンバー" value={`${memberRows.length}人`} sub={`通知額 ${data?.notices.length ?? 0}件`} />
+        <SummaryBox label="本契約発生" value={fmtYen(regularBaseTotal)} sub="regular MS" />
+        <SummaryBox label="別財布発生" value={fmtYen(extraBaseTotal)} sub="cap_extra MS" />
         <SummaryBox label="支払総額" value={fmtYen(grandTotal)} sub={`支払月 ${fmtYm(ym)}`} />
       </div>
-
-      <ManualRewardOverridePanel
-        ym={ym}
-        draft={manualRewardDraft}
-        projects={data?.projects ?? []}
-        members={data?.members ?? []}
-        saving={manualRewardSaving}
-        disabled={loading || saving || noticeSavingMemberId != null || paymentNudgeSending}
-        onChange={setManualRewardDraft}
-        onSave={saveManualRewardOverride}
-      />
 
       <BudgetAuditPanel
         items={budgetAuditItems}
         totals={budgetAuditTotals}
-        budgetGroups={budgetConfirmGroups}
         financeGroups={projectFinanceGroups}
         onOpenMonthly={(item) => openMonthlyModal(item.projectId, item.ym, `${item.projectName} ${fmtYm(item.ym)}`)}
-        onOpenBudgetConfirm={setBudgetTarget}
       />
 
       <ProjectMonthlyFinanceTable
@@ -2043,10 +1920,14 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
                   </td>
                 </tr>
               ) : (
-                (data?.cycles ?? []).map((cycle) => {
-                  const project = projectMap.get(cycle.project_id);
-                  const stats = cycleStats.get(`${cycle.project_id}:${cycle.ym}`);
-                  const status = cycle.status ?? "unknown";
+	                (data?.cycles ?? []).map((cycle) => {
+	                  const project = projectMap.get(cycle.project_id);
+	                  const stats = cycleStats.get(`${cycle.project_id}:${cycle.ym}`);
+	                  const regularCapYen = baseCapYenFor(
+	                    baseClientAmountForCycle(cycle, project),
+	                    Math.round(numberValue(cycle.budget_buffer_amount))
+	                  );
+	                  const status = cycle.status ?? "unknown";
                   const statusClass =
                     BC_STATUS_COLOR[status] ?? "border-zinc-200 bg-zinc-50 text-zinc-500";
                   return (
@@ -2063,10 +1944,20 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
                           {BC_STATUS_LABEL[status] ?? status}
                         </span>
                       </td>
-	                      <td className="px-3 py-2 text-right font-medium">
-	                        <div>{fmtYen(stats?.totalPay ?? 0)}</div>
-	                        {(stats?.stockYen ?? 0) > 0 && (
-	                          <div className="text-[10px] font-normal text-amber-700">
+		                      <td className="px-3 py-2 text-right font-medium">
+		                        <div>{fmtYen(stats?.totalPay ?? 0)}</div>
+		                        {(stats?.regularBasePay ?? 0) > 0 && (
+		                          <div className="text-[10px] font-normal text-emerald-700">
+		                            本契約 {fmtYen(stats?.regularBasePay)} / cap {fmtYen(regularCapYen)}
+		                          </div>
+		                        )}
+		                        {(stats?.extraBasePay ?? 0) > 0 && (
+		                          <div className="text-[10px] font-normal text-indigo-700">
+		                            別財布 {fmtYen(stats?.extraBasePay)}
+		                          </div>
+		                        )}
+		                        {(stats?.stockYen ?? 0) > 0 && (
+		                          <div className="text-[10px] font-normal text-amber-700">
 	                            ストック {fmtYen(stats?.stockYen)}
 	                          </div>
 	                        )}
@@ -2118,10 +2009,16 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
                 memberRows.map((row) => (
                   <tr key={row.memberId} className="align-top hover:bg-muted/20">
 	                    <td className="px-3 py-2">
-	                      <div className="font-semibold">{row.memberName}</div>
-	                      <div className="font-mono text-[10px] text-muted-foreground">{row.memberId}</div>
-	                      {(row.stockYen > 0 || row.carryInYen > 0) && (
-	                        <div className="mt-1 flex flex-wrap gap-1 text-[10px]">
+		                      <div className="font-semibold">{row.memberName}</div>
+		                      <div className="font-mono text-[10px] text-muted-foreground">{row.memberId}</div>
+		                      {(row.regularBasePay > 0 || row.extraBasePay > 0) && (
+		                        <div className="mt-1 flex flex-wrap gap-1 text-[10px]">
+		                          {row.regularBasePay > 0 && <span className="rounded bg-emerald-100 px-1 text-emerald-800">本契約 {fmtYen(row.regularBasePay)}</span>}
+		                          {row.extraBasePay > 0 && <span className="rounded bg-indigo-100 px-1 text-indigo-800">別財布 {fmtYen(row.extraBasePay)}</span>}
+		                        </div>
+		                      )}
+		                      {(row.stockYen > 0 || row.carryInYen > 0) && (
+		                        <div className="mt-1 flex flex-wrap gap-1 text-[10px]">
 	                          {row.carryInYen > 0 && <span className="rounded bg-sky-100 px-1 text-sky-800">繰越入 {fmtYen(row.carryInYen)}</span>}
 	                          {row.stockYen > 0 && <span className="rounded bg-amber-100 px-1 text-amber-900">現ストック {fmtYen(row.stockYen)}</span>}
 	                        </div>
@@ -2139,11 +2036,17 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
                               className="flex w-full flex-wrap items-center gap-x-2 gap-y-0.5 rounded px-1 py-0.5 text-left text-[11px] hover:bg-muted/60 focus:outline-none focus:ring-1 focus:ring-foreground/20"
                             >
                               <span className="font-medium">{project?.project_name ?? entry.projectId}</span>
-                              <span className="font-mono text-muted-foreground">{fmtYm(entry.ym)}</span>
-                              <span className="text-muted-foreground">{fmtPt(entry.earnedPt)}</span>
-	                              <span className="text-muted-foreground">base {fmtYen(entry.basePay)}</span>
-	                              {entry.bonusPt > 0 ? (
-	                                <span className="text-muted-foreground">bonus {fmtYen(entry.bonusPt)}</span>
+	                              <span className="font-mono text-muted-foreground">{fmtYm(entry.ym)}</span>
+	                              <span className="text-muted-foreground">{fmtPt(entry.earnedPt)}</span>
+		                              <span className="text-muted-foreground">base {fmtYen(entry.basePay)}</span>
+		                              {entry.regularBasePay > 0 ? (
+		                                <span className="text-emerald-700">本契約 {fmtYen(entry.regularBasePay)}</span>
+		                              ) : null}
+		                              {entry.extraBasePay > 0 ? (
+		                                <span className="text-indigo-700">別財布 {fmtYen(entry.extraBasePay)}</span>
+		                              ) : null}
+		                              {entry.bonusPt > 0 ? (
+		                                <span className="text-muted-foreground">bonus {fmtYen(entry.bonusPt)}</span>
 	                              ) : null}
 	                              {entry.carryInYen > 0 ? (
 	                                <span className="text-sky-700">繰越 {fmtYen(entry.carryInYen)}</span>
@@ -2230,17 +2133,6 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
           cockpit={cockpitCache[modalTarget.projectId]}
           ym={modalTarget.ym}
           onClose={closeMonthlyModal}
-        />
-      )}
-
-      {budgetTarget && (
-        <BudgetConfirmModal
-          group={budgetTarget}
-          saving={budgetSaving}
-          onClose={() => {
-            if (!budgetSaving) setBudgetTarget(null);
-          }}
-          onSave={(clientAmountYen, bufferYen, extraPayoutBudgetYen) => saveBudgetGroup(budgetTarget, clientAmountYen, bufferYen, extraPayoutBudgetYen)}
         />
       )}
 
@@ -2362,148 +2254,16 @@ function PayoutAgreementGatePanel({
   );
 }
 
-function ManualRewardOverridePanel({
-  ym,
-  draft,
-  projects,
-  members,
-  saving,
-  disabled,
-  onChange,
-  onSave,
-}: {
-  ym: string;
-  draft: ManualRewardDraft;
-  projects: Project[];
-  members: Member[];
-  saving: boolean;
-  disabled: boolean;
-  onChange: (next: ManualRewardDraft | ((prev: ManualRewardDraft) => ManualRewardDraft)) => void;
-  onSave: () => void;
-}) {
-  const projectOptions = useMemo(
-    () => [...projects].sort((a, b) => (a.project_name || a.project_id).localeCompare(b.project_name || b.project_id, "ja")),
-    [projects]
-  );
-  const memberOptions = useMemo(
-    () => [...members].sort((a, b) => (a.code_name || a.member_name || a.member_id).localeCompare(b.code_name || b.member_name || b.member_id, "ja")),
-    [members]
-  );
-  const amountYen = parseYenInput(draft.totalPayText);
-  const canSave = !disabled && !saving && draft.projectId && draft.memberId && /^[0-9]{6}$/.test(draft.sourceYm) && amountYen > 0;
-  const update = (patch: Partial<ManualRewardDraft>) => onChange((prev) => ({ ...prev, ...patch }));
-
-  return (
-    <section className="rounded-lg border border-sky-200 bg-sky-50/60 p-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <div>
-          <h2 className="text-[13px] font-semibold text-sky-950">MSなしPJ 強制報酬確定</h2>
-          <p className="mt-0.5 text-[11px] text-sky-900/70">
-            PJ / 稼働月 / メンバー / 支払額を指定して、支払月 {fmtYm(ym)} の報酬明細に入れる。
-          </p>
-        </div>
-        <span className="ml-auto rounded bg-background/80 px-2 py-1 text-[11px] text-sky-900">
-          admin_manual_payout
-        </span>
-      </div>
-
-      <div className="mt-3 grid gap-2 lg:grid-cols-[minmax(180px,1.4fr)_110px_minmax(160px,1fr)_130px_minmax(180px,1fr)_auto]">
-        <label className="space-y-1">
-          <span className="text-[11px] text-muted-foreground">PJ</span>
-          <select
-            value={draft.projectId}
-            onChange={(event) => update({ projectId: event.target.value })}
-            disabled={disabled || saving}
-            className="h-9 w-full rounded-md border border-border bg-background px-2 text-[12px]"
-          >
-            <option value="">選択</option>
-            {projectOptions.map((project) => (
-              <option key={project.project_id} value={project.project_id}>
-                {project.project_name || project.project_id}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="space-y-1">
-          <span className="text-[11px] text-muted-foreground">稼働月</span>
-          <input
-            value={draft.sourceYm}
-            onChange={(event) => update({ sourceYm: event.target.value.replace(/[^0-9]/g, "").slice(0, 6) })}
-            inputMode="numeric"
-            placeholder="YYYYMM"
-            disabled={disabled || saving}
-            className="h-9 w-full rounded-md border border-border bg-background px-2 font-mono text-[12px]"
-          />
-        </label>
-
-        <label className="space-y-1">
-          <span className="text-[11px] text-muted-foreground">メンバー</span>
-          <select
-            value={draft.memberId}
-            onChange={(event) => update({ memberId: event.target.value })}
-            disabled={disabled || saving}
-            className="h-9 w-full rounded-md border border-border bg-background px-2 text-[12px]"
-          >
-            <option value="">選択</option>
-            {memberOptions.map((member) => (
-              <option key={member.member_id} value={member.member_id}>
-                {member.code_name || member.member_name || member.member_id}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="space-y-1">
-          <span className="text-[11px] text-muted-foreground">支払額</span>
-          <input
-            value={draft.totalPayText}
-            onChange={(event) => update({ totalPayText: event.target.value })}
-            inputMode="numeric"
-            placeholder="例: 80000"
-            disabled={disabled || saving}
-            className="h-9 w-full rounded-md border border-border bg-background px-2 font-mono text-[12px]"
-          />
-        </label>
-
-        <label className="space-y-1">
-          <span className="text-[11px] text-muted-foreground">メモ</span>
-          <input
-            value={draft.note}
-            onChange={(event) => update({ note: event.target.value })}
-            disabled={disabled || saving}
-            placeholder="例: MS未設定PJの月次固定"
-            className="h-9 w-full rounded-md border border-border bg-background px-2 text-[12px]"
-          />
-        </label>
-
-        <button
-          type="button"
-          onClick={onSave}
-          disabled={!canSave}
-          className="self-end rounded-md bg-sky-950 px-4 py-2 text-[12px] font-medium text-white disabled:opacity-50"
-        >
-          {saving ? "確定中..." : "強制確定"}
-        </button>
-      </div>
-    </section>
-  );
-}
-
 function BudgetAuditPanel({
   items,
   totals,
-  budgetGroups,
   financeGroups,
   onOpenMonthly,
-  onOpenBudgetConfirm,
 }: {
   items: BudgetAuditItem[];
   totals: { budgetYen: number; payoutYen: number; overYen: number; missingBudgetCount: number; unpaidCount: number };
-  budgetGroups: BudgetConfirmGroup[];
   financeGroups: ProjectFinanceGroup[];
   onOpenMonthly: (item: BudgetAuditItem) => void;
-  onOpenBudgetConfirm: (group: BudgetConfirmGroup) => void;
 }) {
   const financeTotals = useMemo(() => {
     return financeGroups.reduce(
@@ -2511,14 +2271,14 @@ function BudgetAuditPanel({
         baseClientAmountYen: acc.baseClientAmountYen + group.baseClientAmountYen,
         bufferYen: acc.bufferYen + group.bufferYen,
         baseCapYen: acc.baseCapYen + group.baseCapYen,
-        extraPayoutBudgetYen: acc.extraPayoutBudgetYen + group.extraPayoutBudgetYen,
+        extraPayoutYen: acc.extraPayoutYen + group.extraPayoutYen,
         budgetYen: acc.budgetYen + group.budgetYen,
         payoutYen: acc.payoutYen + group.payoutYen,
         officerPayoutYen: acc.officerPayoutYen + group.officerPayoutYen,
         officerOffsetYen: acc.officerOffsetYen + group.officerOffsetYen,
         finalBalanceYen: acc.finalBalanceYen + group.finalBalanceYen,
       }),
-      { baseClientAmountYen: 0, bufferYen: 0, baseCapYen: 0, extraPayoutBudgetYen: 0, budgetYen: 0, payoutYen: 0, officerPayoutYen: 0, officerOffsetYen: 0, finalBalanceYen: 0 }
+      { baseClientAmountYen: 0, bufferYen: 0, baseCapYen: 0, extraPayoutYen: 0, budgetYen: 0, payoutYen: 0, officerPayoutYen: 0, officerOffsetYen: 0, finalBalanceYen: 0 }
     );
   }, [financeGroups]);
   const itemByKey = useMemo(() => new Map(items.map((item) => [item.key, item])), [items]);
@@ -2529,7 +2289,7 @@ function BudgetAuditPanel({
   const overallText =
     financeTotals.finalBalanceYen < 0
       ? `不足 ${fmtYen(Math.abs(financeTotals.finalBalanceYen))}`
-      : `最終収支 ${fmtYen(financeTotals.finalBalanceYen)}`;
+      : `本契約残り ${fmtYen(financeTotals.finalBalanceYen)}`;
   const financeColumns = useMemo(
     () => [
       { key: "overall", label: "全体収支", subLabel: `${financeGroups.length} PJ`, group: null as ProjectFinanceGroup | null },
@@ -2569,7 +2329,7 @@ function BudgetAuditPanel({
 
   const columnMoney = (
     group: ProjectFinanceGroup | null,
-    key: "baseClientAmountYen" | "bufferYen" | "baseCapYen" | "extraPayoutBudgetYen" | "budgetYen" | "payoutYen" | "officerPayoutYen" | "officerOffsetYen" | "finalBalanceYen"
+    key: "baseClientAmountYen" | "bufferYen" | "baseCapYen" | "extraPayoutYen" | "budgetYen" | "payoutYen" | "officerPayoutYen" | "officerOffsetYen" | "finalBalanceYen"
   ) => (group ? group[key] : financeTotals[key]);
   const memberColumnAmount = (group: ProjectFinanceGroup | null, row: { memberId: string; isOfficer: boolean }) => {
     const lines = group ? group.memberLines : financeGroups.flatMap((item) => item.memberLines);
@@ -2587,7 +2347,7 @@ function BudgetAuditPanel({
     const missing = columnHasMissingBudget(group);
     const stockYen = columnStockYen(group);
     const over = columnIsOver(group);
-    if (missing) return { label: "PJ予算未設定", className: "bg-red-100 text-red-800" };
+    if (missing) return { label: "本契約cap未設定", className: "bg-red-100 text-red-800" };
     if (over) return { label: `不足 ${fmtYen(Math.abs(columnMoney(group, "finalBalanceYen")))}`, className: "bg-red-100 text-red-800" };
     if (stockYen > 0) return { label: `cap発動 ${fmtYen(stockYen)}`, className: "bg-amber-100 text-amber-800" };
     return { label: `OK ${fmtYen(columnMoney(group, "finalBalanceYen"))}`, className: "bg-emerald-100 text-emerald-800" };
@@ -2597,21 +2357,20 @@ function BudgetAuditPanel({
     <section className={`rounded-lg border ${overallTone} p-3`}>
       <div className="flex flex-wrap items-center gap-3">
         <div>
-          <h2 className="text-[13px] font-semibold">PJ別収支 / 予算チェック</h2>
+          <h2 className="text-[13px] font-semibold">本契約capチェック</h2>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            65%対象委託料、バッファ、cap外追加、PJ予算、メンバー別支払、役員分の相殺をPJごとに見る。
-            役員ONの支払額は同額を加算して相殺し、最終収支には支払対象外として残す。
+            65%対象委託料、バッファ、本契約cap、本契約支払、役員分の相殺をPJごとに見る。
+            別財布支払は通常capの判定に混ぜず、別枠で表示する。
           </p>
         </div>
         <div className="ml-auto flex flex-wrap gap-2 text-[11px]">
           <span className="rounded bg-background/80 px-2 py-1">65%対象 {fmtYen(financeTotals.baseClientAmountYen)}</span>
           <span className="rounded bg-background/80 px-2 py-1">バッファ {fmtYen(financeTotals.bufferYen)}</span>
-          <span className="rounded bg-background/80 px-2 py-1">通常cap {fmtYen(financeTotals.baseCapYen)}</span>
-          {financeTotals.extraPayoutBudgetYen > 0 && (
-            <span className="rounded bg-background/80 px-2 py-1">cap外追加 {fmtYen(financeTotals.extraPayoutBudgetYen)}</span>
+          <span className="rounded bg-background/80 px-2 py-1">本契約cap {fmtYen(financeTotals.baseCapYen)}</span>
+          {financeTotals.extraPayoutYen > 0 && (
+            <span className="rounded bg-background/80 px-2 py-1">別財布支払 {fmtYen(financeTotals.extraPayoutYen)}</span>
           )}
-          <span className="rounded bg-background/80 px-2 py-1">PJ予算 {fmtYen(financeTotals.budgetYen)}</span>
-          <span className="rounded bg-background/80 px-2 py-1">支払予定 {fmtYen(financeTotals.payoutYen)}</span>
+          <span className="rounded bg-background/80 px-2 py-1">本契約支払 {fmtYen(financeTotals.payoutYen)}</span>
           {financeTotals.officerPayoutYen > 0 && (
             <span className="rounded bg-background/80 px-2 py-1">役員相殺 {fmtYen(financeTotals.officerOffsetYen)}</span>
           )}
@@ -2620,40 +2379,6 @@ function BudgetAuditPanel({
           </span>
         </div>
       </div>
-
-      {budgetGroups.length > 0 && (
-        <div className="mt-3 rounded-md border border-amber-200 bg-background/70 p-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-semibold text-amber-800">PJ予算確定・調整</span>
-            <span className="text-[11px] text-muted-foreground">
-              65%対象の通常委託料とは別に、OkuDoor追加開発などのcap外追加支払枠を足せる。
-            </span>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {budgetGroups.map((group) => {
-              const firstYm = group.items[0]?.ym ?? "";
-              const lastYm = group.items[group.items.length - 1]?.ym ?? firstYm;
-              const rangeLabel = firstYm === lastYm ? fmtYm(firstYm) : `${fmtYm(firstYm)}-${fmtYm(lastYm)}`;
-              return (
-                <button
-                  key={group.key}
-                  type="button"
-                  onClick={() => onOpenBudgetConfirm(group)}
-                  className="rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-left text-[11px] hover:bg-amber-100"
-                >
-                  <span className="font-semibold">{group.projectName}</span>
-                  <span className="ml-2 font-mono text-muted-foreground">{rangeLabel}</span>
-                  <span className="ml-2">支払月 {fmtYm(group.invoiceYm)}</span>
-                  <span className="ml-2 font-semibold">支払予定 {fmtYen(group.totalPayoutYen)}</span>
-                  {group.totalStockYen > 0 ? (
-                    <span className="ml-2 text-amber-800">stock {fmtYen(group.totalStockYen)}</span>
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       <div className="mt-3">
         {financeGroups.length === 0 ? (
@@ -2693,7 +2418,7 @@ function BudgetAuditPanel({
                   {financeColumns.map((column) => (
                     <td key={`${column.key}:ym`} className="border-b border-r border-border px-3 py-2 align-top">
                       <div className="flex flex-wrap gap-1">
-                        {(column.group ? column.group.cycles : allCycleYms.map((ym) => ({ key: `all:${ym}`, ym, invoiceYm: "", baseClientAmountYen: 0, bufferYen: 0, baseCapYen: 0, extraPayoutBudgetYen: 0, budgetYen: 0, payoutYen: 0, officerPayoutYen: 0, officerOffsetYen: 0, finalBalanceYen: 0 }))).map((cycle) => {
+                        {(column.group ? column.group.cycles : allCycleYms.map((ym) => ({ key: `all:${ym}`, ym, invoiceYm: "", baseClientAmountYen: 0, bufferYen: 0, baseCapYen: 0, extraPayoutYen: 0, budgetYen: 0, payoutYen: 0, officerPayoutYen: 0, officerOffsetYen: 0, finalBalanceYen: 0 }))).map((cycle) => {
                           const item = itemByKey.get(cycle.key);
                           return item ? (
                             <button
@@ -2717,18 +2442,17 @@ function BudgetAuditPanel({
                 {[
                   ["65%対象委託料", "baseClientAmountYen"],
                   ["バッファ", "bufferYen"],
-                  ["通常cap", "baseCapYen"],
-                  ["cap外追加", "extraPayoutBudgetYen"],
-                  ["PJ予算", "budgetYen"],
-                  ["支払予定", "payoutYen"],
+                  ["本契約cap", "baseCapYen"],
+                  ["別財布支払", "extraPayoutYen"],
+                  ["本契約支払", "payoutYen"],
                   ["役員分", "officerPayoutYen"],
                   ["役員相殺", "officerOffsetYen"],
-                  ["最終収支", "finalBalanceYen"],
+                  ["本契約残り", "finalBalanceYen"],
                 ].map(([label, key]) => (
                   <tr key={key}>
                     <th className="sticky left-0 z-10 border-b border-r border-border bg-background px-3 py-2 text-left font-medium">{label}</th>
                     {financeColumns.map((column) => {
-                      const value = columnMoney(column.group, key as "baseClientAmountYen" | "bufferYen" | "baseCapYen" | "extraPayoutBudgetYen" | "budgetYen" | "payoutYen" | "officerPayoutYen" | "officerOffsetYen" | "finalBalanceYen");
+                      const value = columnMoney(column.group, key as "baseClientAmountYen" | "bufferYen" | "baseCapYen" | "extraPayoutYen" | "budgetYen" | "payoutYen" | "officerPayoutYen" | "officerOffsetYen" | "finalBalanceYen");
                       const signed = key === "officerOffsetYen" || key === "finalBalanceYen";
                       const tone =
                         key === "finalBalanceYen"
@@ -2806,8 +2530,10 @@ function ProjectMonthlyFinanceTable({
         budgetYen: cells.reduce((sum, cell) => sum + cell.budgetYen, 0),
         extraRevenueYen: cells.reduce((sum, cell) => sum + cell.extraRevenueYen, 0),
         payoutYen: cells.reduce((sum, cell) => sum + cell.payoutYen, 0),
+        extraPayoutYen: cells.reduce((sum, cell) => sum + cell.extraPayoutYen, 0),
         stockYen: cells.reduce((sum, cell) => sum + cell.stockYen, 0),
         finalBalanceYen: cells.reduce((sum, cell) => sum + cell.finalBalanceYen, 0),
+        extraBalanceYen: cells.reduce((sum, cell) => sum + cell.extraBalanceYen, 0),
       };
     }),
     [months, rows]
@@ -2817,29 +2543,37 @@ function ProjectMonthlyFinanceTable({
       budgetYen: acc.budgetYen + item.budgetYen,
       extraRevenueYen: acc.extraRevenueYen + item.extraRevenueYen,
       payoutYen: acc.payoutYen + item.payoutYen,
+      extraPayoutYen: acc.extraPayoutYen + item.extraPayoutYen,
       stockYen: acc.stockYen + item.stockYen,
       finalBalanceYen: acc.finalBalanceYen + item.finalBalanceYen,
+      extraBalanceYen: acc.extraBalanceYen + item.extraBalanceYen,
     }),
-    { budgetYen: 0, extraRevenueYen: 0, payoutYen: 0, stockYen: 0, finalBalanceYen: 0 }
+    { budgetYen: 0, extraRevenueYen: 0, payoutYen: 0, extraPayoutYen: 0, stockYen: 0, finalBalanceYen: 0, extraBalanceYen: 0 }
   );
 
   return (
     <section className="rounded-lg border border-border bg-card p-3">
       <div className="flex flex-wrap items-center gap-3">
         <div>
-          <h2 className="text-[13px] font-semibold">先12か月 PJ収支</h2>
+          <h2 className="text-[13px] font-semibold">先12か月 本契約cap / 別財布</h2>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            billing_cycles のPJ予算と reward_summary_json の支払予定から、稼働月ごとの収支を先読みする。
+            本契約capの使用額と、別財布の売上・使用額を稼働月ごとに分けて見る。
           </p>
         </div>
         <div className="ml-auto flex flex-wrap gap-2 text-[11px]">
-          <span className="rounded bg-muted/50 px-2 py-1">PJ予算 {fmtYen(grand.budgetYen)}</span>
-          {grand.extraRevenueYen > 0 && <span className="rounded bg-sky-100 px-2 py-1 text-sky-900">別財布 {fmtYen(grand.extraRevenueYen)}</span>}
-          <span className="rounded bg-muted/50 px-2 py-1">支払予定 {fmtYen(grand.payoutYen)}</span>
+          <span className="rounded bg-muted/50 px-2 py-1">本契約cap {fmtYen(grand.budgetYen)}</span>
+          <span className="rounded bg-muted/50 px-2 py-1">本契約使用 {fmtYen(grand.payoutYen)}</span>
+          {grand.extraRevenueYen > 0 && <span className="rounded bg-sky-100 px-2 py-1 text-sky-900">別財布売上 {fmtYen(grand.extraRevenueYen)}</span>}
+          {grand.extraPayoutYen > 0 && <span className="rounded bg-indigo-100 px-2 py-1 text-indigo-900">別財布使用 {fmtYen(grand.extraPayoutYen)}</span>}
           {grand.stockYen > 0 && <span className="rounded bg-amber-100 px-2 py-1 text-amber-900">stock {fmtYen(grand.stockYen)}</span>}
           <span className={`rounded px-2 py-1 font-semibold ${grand.finalBalanceYen < 0 ? "bg-red-100 text-red-800" : "bg-emerald-100 text-emerald-800"}`}>
-            収支 {fmtSignedYen(grand.finalBalanceYen)}
+            本契約残 {fmtSignedYen(grand.finalBalanceYen)}
           </span>
+          {grand.extraRevenueYen > 0 && (
+            <span className={`rounded px-2 py-1 font-semibold ${grand.extraBalanceYen < 0 ? "bg-red-100 text-red-800" : "bg-sky-100 text-sky-900"}`}>
+              別財布残 {fmtSignedYen(grand.extraBalanceYen)}
+            </span>
+          )}
         </div>
       </div>
 
@@ -2848,7 +2582,7 @@ function ProjectMonthlyFinanceTable({
           <thead>
             <tr className="bg-muted/40">
               <th className="sticky left-0 z-20 w-44 border-b border-r border-border bg-muted px-3 py-2 text-left font-medium">PJ</th>
-              <th className="w-28 border-b border-r border-border px-3 py-2 text-right font-medium">12か月収支</th>
+              <th className="w-32 border-b border-r border-border px-3 py-2 text-right font-medium">12か月</th>
               {months.map((month) => (
                 <th key={month} className="min-w-[132px] border-b border-r border-border px-3 py-2 text-right font-medium">
                   {fmtYm(month)}
@@ -2869,15 +2603,18 @@ function ProjectMonthlyFinanceTable({
                   <th className="sticky left-0 z-10 border-b border-r border-border bg-muted px-3 py-2 text-left font-semibold">全PJ合計</th>
                   <td className={`border-b border-r border-border px-3 py-2 text-right font-semibold tabular-nums ${grand.finalBalanceYen < 0 ? "text-red-700" : "text-emerald-700"}`}>
                     {fmtSignedYen(grand.finalBalanceYen)}
+                    <div className="mt-0.5 text-[10px] font-normal text-muted-foreground">本契約残</div>
+                    {grand.extraRevenueYen > 0 && <div className="text-[10px] font-normal text-sky-700">別財布残 {fmtSignedYen(grand.extraBalanceYen)}</div>}
                   </td>
                   {monthTotals.map((total) => (
                     <td key={total.ym} className="border-b border-r border-border px-3 py-2 text-right align-top">
                       <div className={`font-semibold tabular-nums ${total.finalBalanceYen < 0 ? "text-red-700" : "text-emerald-700"}`}>
                         {fmtSignedYen(total.finalBalanceYen)}
                       </div>
-                      <div className="mt-0.5 text-[10px] text-muted-foreground">予算 {fmtYen(total.budgetYen)}</div>
-                      {total.extraRevenueYen > 0 && <div className="text-[10px] text-sky-700">別財布 {fmtYen(total.extraRevenueYen)}</div>}
-                      <div className="text-[10px] text-muted-foreground">支払 {fmtYen(total.payoutYen)}</div>
+                      <div className="mt-0.5 text-[10px] text-muted-foreground">使用 {fmtYen(total.payoutYen)} / cap {fmtYen(total.budgetYen)}</div>
+                      {total.extraRevenueYen > 0 && <div className="text-[10px] text-sky-700">別財布 売上 {fmtYen(total.extraRevenueYen)}</div>}
+                      {total.extraPayoutYen > 0 && <div className="text-[10px] text-indigo-700">別財布 使用 {fmtYen(total.extraPayoutYen)}</div>}
+                      {total.extraRevenueYen > 0 && <div className="text-[10px] text-sky-700">別財布 残 {fmtSignedYen(total.extraBalanceYen)}</div>}
                       {total.stockYen > 0 && <div className="text-[10px] text-amber-700">stock {fmtYen(total.stockYen)}</div>}
                     </td>
                   ))}
@@ -2890,10 +2627,11 @@ function ProjectMonthlyFinanceTable({
                     </th>
                     <td className={`border-b border-r border-border px-3 py-2 text-right align-top font-semibold tabular-nums ${row.totals.finalBalanceYen < 0 ? "text-red-700" : "text-emerald-700"}`}>
                       {fmtSignedYen(row.totals.finalBalanceYen)}
-                      <div className="mt-0.5 text-[10px] font-normal text-muted-foreground">支払 {fmtYen(row.totals.payoutYen)}</div>
+                      <div className="mt-0.5 text-[10px] font-normal text-muted-foreground">本契約 使用 {fmtYen(row.totals.payoutYen)}</div>
+                      {row.totals.extraRevenueYen > 0 && <div className="text-[10px] font-normal text-sky-700">別財布 残 {fmtSignedYen(row.totals.extraBalanceYen)}</div>}
                     </td>
                     {row.cells.map((cell) => {
-                      const hasData = cell.budgetYen > 0 || cell.extraRevenueYen > 0 || cell.payoutYen > 0 || cell.stockYen > 0 || cell.baseClientAmountYen > 0;
+                      const hasData = cell.budgetYen > 0 || cell.extraRevenueYen > 0 || cell.payoutYen > 0 || cell.extraPayoutYen > 0 || cell.stockYen > 0 || cell.baseClientAmountYen > 0;
                       return (
                         <td key={`${row.projectId}:${cell.ym}`} className="border-b border-r border-border px-2 py-2 text-right align-top">
                           {hasData ? (
@@ -2905,9 +2643,11 @@ function ProjectMonthlyFinanceTable({
                               <div className={`font-semibold tabular-nums ${cell.finalBalanceYen < 0 ? "text-red-700" : "text-emerald-700"}`}>
                                 {fmtSignedYen(cell.finalBalanceYen)}
                               </div>
-                              <div className="text-[10px] text-muted-foreground">予算 {fmtYen(cell.budgetYen)}</div>
-                              {cell.extraRevenueYen > 0 && <div className="text-[10px] text-sky-700">別財布 {fmtYen(cell.extraRevenueYen)}</div>}
-                              <div className="text-[10px] text-muted-foreground">支払 {fmtYen(cell.payoutYen)}</div>
+                              <div className="text-[10px] text-muted-foreground">本契約 使用 {fmtYen(cell.payoutYen)}</div>
+                              <div className="text-[10px] text-muted-foreground">cap {fmtYen(cell.budgetYen)}</div>
+                              {cell.extraRevenueYen > 0 && <div className="text-[10px] text-sky-700">別財布 売上 {fmtYen(cell.extraRevenueYen)}</div>}
+                              {cell.extraPayoutYen > 0 && <div className="text-[10px] text-indigo-700">別財布 使用 {fmtYen(cell.extraPayoutYen)}</div>}
+                              {cell.extraRevenueYen > 0 && <div className="text-[10px] text-sky-700">別財布 残 {fmtSignedYen(cell.extraBalanceYen)}</div>}
                               {cell.stockYen > 0 && <div className="text-[10px] text-amber-700">stock {fmtYen(cell.stockYen)}</div>}
                             </button>
                           ) : (
@@ -2924,196 +2664,6 @@ function ProjectMonthlyFinanceTable({
         </table>
       </div>
     </section>
-  );
-}
-
-function buildBudgetAllocations(
-  group: BudgetConfirmGroup,
-  basePjBudgetTotal: number,
-  extraPayoutBudgetYen: number,
-  hasClientAmount: boolean
-) {
-  let allocatedBase = 0;
-  let allocatedExtra = 0;
-  const totalPayout = group.totalPayoutYen;
-  return group.items.map((item, index) => {
-    const isLast = index === group.items.length - 1;
-    const weight = totalPayout > 0 ? item.payoutYen / totalPayout : 1 / group.items.length;
-    const baseBudgetYen = isLast ? basePjBudgetTotal - allocatedBase : Math.round(basePjBudgetTotal * weight);
-    const extraBudgetYen = isLast ? extraPayoutBudgetYen - allocatedExtra : Math.round(extraPayoutBudgetYen * weight);
-    const budgetYen = baseBudgetYen + extraBudgetYen;
-    allocatedBase += baseBudgetYen;
-    allocatedExtra += extraBudgetYen;
-    return {
-      ...item,
-      allocatedBaseBudgetYen: baseBudgetYen,
-      allocatedExtraPayoutBudgetYen: extraBudgetYen,
-      allocatedBudgetYen: budgetYen,
-      remainingYen: hasClientAmount ? budgetYen - item.payoutYen : null,
-    };
-  });
-}
-
-function BudgetConfirmModal({
-  group,
-  saving,
-  onClose,
-  onSave,
-}: {
-  group: BudgetConfirmGroup;
-  saving: boolean;
-  onClose: () => void;
-  onSave: (clientAmountYen: number, bufferYen: number, extraPayoutBudgetYen: number) => void;
-}) {
-  const [clientAmountText, setClientAmountText] = useState(group.baseClientAmountYen > 0 ? String(group.baseClientAmountYen) : "");
-  const [bufferText, setBufferText] = useState(group.bufferYen > 0 ? String(group.bufferYen) : "0");
-  const [extraPayoutText, setExtraPayoutText] = useState(group.extraPayoutBudgetYen > 0 ? String(group.extraPayoutBudgetYen) : "");
-  const clientAmountYen = parseYenInput(clientAmountText);
-  const bufferYen = Math.max(0, parseYenInput(bufferText));
-  const extraPayoutBudgetYen = Math.max(0, parseYenInput(extraPayoutText));
-  const basePjBudgetTotal = Math.max(0, Math.round(clientAmountYen * 0.65) - bufferYen);
-  const pjBudgetTotal = basePjBudgetTotal + extraPayoutBudgetYen;
-  const hasClientAmount = clientAmountYen > 0;
-  const remainingAfterPayout = hasClientAmount ? pjBudgetTotal - group.totalPayoutYen : null;
-
-  const allocations = useMemo(
-    () => buildBudgetAllocations(group, basePjBudgetTotal, extraPayoutBudgetYen, hasClientAmount),
-    [basePjBudgetTotal, extraPayoutBudgetYen, group, hasClientAmount]
-  );
-
-  const firstYm = group.items[0]?.ym ?? "";
-  const lastYm = group.items[group.items.length - 1]?.ym ?? firstYm;
-  const rangeLabel = firstYm === lastYm ? fmtYm(firstYm) : `${fmtYm(firstYm)}-${fmtYm(lastYm)}`;
-  const riskMessage = !hasClientAmount
-    ? "契約未確定の間は正式な予算超過判定を保留する。通常委託料は確定した税抜額、cap外追加は追加受託で支払う合意額だけを入れる。"
-    : remainingAfterPayout != null && remainingAfterPayout < 0
-      ? "この入力だとPJ予算が支払予定を下回る。支払可否、減額、バッファ、追加請求、cap外追加支払枠の合意を先に確認する。"
-      : "この入力なら支払予定はPJ予算内。保存すると稼働月ごとの支払可能額として固定される。";
-  const riskTone = !hasClientAmount
-    ? "border-amber-200 bg-amber-50 text-amber-900"
-    : remainingAfterPayout != null && remainingAfterPayout < 0
-      ? "border-red-200 bg-red-50 text-red-900"
-      : "border-emerald-200 bg-emerald-50 text-emerald-900";
-
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-sm">
-      <div className="w-[min(720px,96vw)] overflow-hidden rounded-lg border border-border bg-background text-[12px] shadow-xl">
-        <div className="border-b border-border px-4 py-3">
-          <div className="flex flex-wrap items-start gap-2">
-            <div>
-              <h3 className="text-[14px] font-semibold">PJ予算を確定</h3>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">
-                {group.projectName} / 稼働月 {rangeLabel} / 支払月 {fmtYm(group.invoiceYm)}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={saving}
-              className="ml-auto rounded-md border border-border px-2 py-1 text-[11px] hover:bg-muted/40 disabled:opacity-50"
-            >
-              閉じる
-            </button>
-          </div>
-        </div>
-
-        <div className="space-y-4 px-4 py-3">
-          <div className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto]">
-            <label className="space-y-1">
-              <span className="text-[11px] text-muted-foreground">65%対象の通常委託料</span>
-              <input
-                value={clientAmountText}
-                onChange={(event) => setClientAmountText(event.target.value)}
-                inputMode="numeric"
-                placeholder="例: 300000"
-                className="h-9 w-full rounded-md border border-border bg-background px-2 font-mono text-[12px]"
-              />
-            </label>
-            <label className="space-y-1">
-              <span className="text-[11px] text-muted-foreground">控除バッファ</span>
-              <input
-                value={bufferText}
-                onChange={(event) => setBufferText(event.target.value)}
-                inputMode="numeric"
-                className="h-9 w-full rounded-md border border-border bg-background px-2 font-mono text-[12px]"
-              />
-            </label>
-            <label className="space-y-1">
-              <span className="text-[11px] text-muted-foreground">cap外追加支払枠</span>
-              <input
-                value={extraPayoutText}
-                onChange={(event) => setExtraPayoutText(event.target.value)}
-                inputMode="numeric"
-                placeholder="例: 80000"
-                className="h-9 w-full rounded-md border border-border bg-background px-2 font-mono text-[12px]"
-              />
-            </label>
-            <button
-              type="button"
-              onClick={() => onSave(clientAmountYen, bufferYen, extraPayoutBudgetYen)}
-              disabled={saving || clientAmountYen <= 0}
-              className="self-end rounded-md bg-foreground px-4 py-2 text-[12px] font-medium text-background disabled:opacity-50"
-            >
-              {saving ? "保存中..." : "確定して配分"}
-            </button>
-          </div>
-
-          <div className="grid gap-2 md:grid-cols-4">
-            <SummaryBox label="通常委託料" value={fmtYen(clientAmountYen)} sub="65%対象" />
-            <SummaryBox label="通常cap" value={fmtYen(basePjBudgetTotal)} sub="65% - バッファ" />
-            <SummaryBox label="cap外追加" value={fmtYen(extraPayoutBudgetYen)} sub="追加受託分" />
-            <SummaryBox label="PJ予算" value={fmtYen(pjBudgetTotal)} sub="通常cap + 追加" />
-            <SummaryBox label="支払予定" value={fmtYen(group.totalPayoutYen)} sub={`${group.items.length}か月分`} />
-            <SummaryBox label="現ストック" value={fmtYen(group.totalStockYen)} sub="capで繰越中" />
-            <SummaryBox
-              label="残り"
-              value={remainingAfterPayout == null ? "—" : fmtSignedYen(remainingAfterPayout)}
-              sub={remainingAfterPayout == null ? "入力後に計算" : remainingAfterPayout < 0 ? "支払予定が超過" : "支払後の余力"}
-            />
-          </div>
-
-          <div className={`rounded-md border px-3 py-2 text-[11px] ${riskTone}`}>
-            {group.projectStatus === "lost" ? "このPJは失注ステータス。契約が取れなかった場合の支払は個別合意が必要。 " : ""}
-            {riskMessage}
-          </div>
-
-          <div className="overflow-hidden rounded-md border border-border">
-            <table className="w-full text-[12px]">
-              <thead className="border-b border-border bg-muted/40">
-                <tr>
-                  <th className="px-3 py-2 text-left font-medium">稼働月</th>
-                  <th className="px-3 py-2 text-right font-medium">支払予定</th>
-                  <th className="px-3 py-2 text-right font-medium">配分通常cap</th>
-                  <th className="px-3 py-2 text-right font-medium">配分cap外</th>
-                  <th className="px-3 py-2 text-right font-medium">配分PJ予算</th>
-                  <th className="px-3 py-2 text-right font-medium">残り</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {allocations.map((item) => (
-                  <tr key={item.key}>
-                    <td className="px-3 py-2 font-mono text-muted-foreground">{fmtYm(item.ym)}</td>
-                    <td className="px-3 py-2 text-right font-semibold">{fmtYen(item.payoutYen)}</td>
-                    <td className="px-3 py-2 text-right">{fmtYen(item.allocatedBaseBudgetYen)}</td>
-                    <td className="px-3 py-2 text-right">{fmtYen(item.allocatedExtraPayoutBudgetYen)}</td>
-                    <td className="px-3 py-2 text-right">{fmtYen(item.allocatedBudgetYen)}</td>
-                    <td className={`px-3 py-2 text-right font-semibold ${
-                      item.remainingYen == null
-                        ? "text-muted-foreground"
-                        : item.remainingYen < 0
-                          ? "text-red-700"
-                          : "text-emerald-700"
-                    }`}>
-                      {item.remainingYen == null ? "—" : fmtSignedYen(item.remainingYen)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
   );
 }
 

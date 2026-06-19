@@ -74,7 +74,6 @@ interface RewardSummary {
   extraPtUnit?: number;
   regularCapBudgetYen?: number;
   extraCapBudgetYen?: number;
-  extraPayoutBudgetYen?: number;
   regularTotalGrossDueYen?: number;
   extraTotalGrossDueYen?: number;
   regularCarryOverYen?: number;

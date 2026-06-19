@@ -20,8 +20,6 @@ import type { ExtraRevenueSourceRow } from "@/lib/finance/extra-revenue";
 export const runtime = "nodejs";
 
 const YM_RE = /^[0-9]{6}$/;
-const MANUAL_REWARD_SOURCE = "admin_manual_payout";
-const MANUAL_REWARD_VERSION = "admin_manual_override_v1";
 
 // 一括PDF生成時の並列度。GAS payoutCreatePwaNoticePdf のスループットに配慮して 3 で固定。
 // 上げすぎると Apps Script 側の同時実行制限 (project あたり 30) や freee 連携待ちで詰まる。
@@ -65,8 +63,18 @@ type RewardMemberRow = {
   bonus_pt?: unknown;
   totalPay?: unknown;
   total_pay?: unknown;
-  source?: unknown;
-  manualOverride?: unknown;
+  regularBasePay?: unknown;
+  regular_base_pay?: unknown;
+  extraBasePay?: unknown;
+  extra_base_pay?: unknown;
+  regularPaidYen?: unknown;
+  regular_paid_yen?: unknown;
+  extraPaidYen?: unknown;
+  extra_paid_yen?: unknown;
+  regularStockYen?: unknown;
+  regular_stock_yen?: unknown;
+  extraStockYen?: unknown;
+  extra_stock_yen?: unknown;
 };
 
 type RewardSummary = {
@@ -86,6 +94,12 @@ type PayoutEntry = {
   base_pay: number;
   bonus_pt: number;
   total_pay: number;
+  regular_base_pay: number;
+  extra_base_pay: number;
+  regular_paid_yen: number;
+  extra_paid_yen: number;
+  regular_stock_yen: number;
+  extra_stock_yen: number;
 };
 
 type MonthlyRewardPayoutRow = PayoutEntry & {
@@ -192,6 +206,11 @@ function numberValue(value: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+function hasExplicitNumber(value: unknown): boolean {
+  if (value == null || value === "") return false;
+  return Number.isFinite(typeof value === "number" ? value : Number(value));
+}
+
 function yenValue(value: unknown): number {
   return Math.round(numberValue(value));
 }
@@ -229,14 +248,6 @@ function cycleKey(row: BillingCycleRow) {
 function cycleSort(a: BillingCycleRow, b: BillingCycleRow) {
   if (a.ym !== b.ym) return a.ym.localeCompare(b.ym);
   return a.project_id.localeCompare(b.project_id);
-}
-
-function normalizeStatusAfterBudgetConfirm(status: string | null) {
-  const current = (status ?? "").trim();
-  if (!current || current === "not_started" || current === "draft" || current === "reported") {
-    return "budget_confirmed";
-  }
-  return current;
 }
 
 // === 支払通知書メール送信 (まさ要件 2026-05-28): keiri@ from + PDF添付 + BCC ===
@@ -334,91 +345,6 @@ async function callGasSendNoticeMail(payload: {
   return result;
 }
 
-function rewardMemberId(member: RewardMemberRow): string {
-  return textValue(member.memberId) || textValue(member.member_id);
-}
-
-function mergeManualRewardMember({
-  existingSummary,
-  projectId,
-  sourceYm,
-  memberId,
-  memberName,
-  totalPayYen,
-  note,
-  currentBudgetYen,
-}: {
-  existingSummary: unknown;
-  projectId: string;
-  sourceYm: string;
-  memberId: string;
-  memberName: string;
-  totalPayYen: number;
-  note: string;
-  currentBudgetYen: number;
-}) {
-  const existingRecord = asRecord(existingSummary) ?? {};
-  const existing = asRewardSummary(existingSummary);
-  const now = new Date().toISOString();
-  const manualMember: RewardMemberRow = {
-    memberId,
-    memberName,
-    earnedPt: 0,
-    basePay: totalPayYen,
-    bonusPt: 0,
-    totalPay: totalPayYen,
-    grossDueYen: totalPayYen,
-    carryInYen: 0,
-    stockYen: 0,
-    cappedFrom: totalPayYen,
-    manualOverride: true,
-    source: MANUAL_REWARD_SOURCE,
-    note: note || undefined,
-    breakdown: [
-      {
-        msKey: "admin-manual-payout",
-        title: "admin強制確定",
-        share: 1,
-        earnedPt: 0,
-        msConsumedPt: 0,
-        payYen: totalPayYen,
-        source: MANUAL_REWARD_SOURCE,
-      },
-    ],
-  };
-  const members = [
-    ...(existing?.members ?? []).filter((member) => rewardMemberId(member) !== memberId),
-    manualMember,
-  ].sort((a, b) => {
-    const aPay = yenValue(a.totalPay ?? a.total_pay);
-    const bPay = yenValue(b.totalPay ?? b.total_pay);
-    return bPay - aPay || rewardMemberId(a).localeCompare(rewardMemberId(b));
-  });
-  const totalPaySum = members.reduce((sum, member) => sum + yenValue(member.totalPay ?? member.total_pay), 0);
-  const capBudgetYen = Math.max(currentBudgetYen, totalPaySum);
-  const metaRecord = asRecord(existingRecord.meta) ?? {};
-
-  return {
-    ...existingRecord,
-    members,
-    totalPaySum,
-    totalGrossDueYen: Math.max(totalPaySum, yenValue(existing?.totalGrossDueYen)),
-    capBudgetYen,
-    monthlyBudget65: capBudgetYen,
-    manualOverride: true,
-    manualOverrideSource: MANUAL_REWARD_SOURCE,
-    meta: {
-      ...metaRecord,
-      version: MANUAL_REWARD_VERSION,
-      source: MANUAL_REWARD_SOURCE,
-      generatedAt: now,
-      projectId,
-      ym: sourceYm,
-      planCycleId: textValue(metaRecord.planCycleId) || "manual",
-    },
-  };
-}
-
 function buildPayoutEntries(cycles: BillingCycleRow[], excludedMemberIds: Set<string> = new Set()): PayoutEntry[] {
   const entries: PayoutEntry[] = [];
 
@@ -431,18 +357,34 @@ function buildPayoutEntries(cycles: BillingCycleRow[], excludedMemberIds: Set<st
       if (excludedMemberIds.has(memberId)) continue;
       const totalPay = yenValue(member.totalPay ?? member.total_pay);
       if (totalPay <= 0) continue;
+      const basePay = yenValue(member.basePay ?? member.base_pay);
+      const bonusPt = yenValue(member.bonusPt ?? member.bonus_pt);
+      const extraBasePay = yenValue(member.extraBasePay ?? member.extra_base_pay);
+      const regularBasePay = hasExplicitNumber(member.regularBasePay ?? member.regular_base_pay)
+        ? yenValue(member.regularBasePay ?? member.regular_base_pay)
+        : Math.max(0, basePay - extraBasePay);
+      const extraPaidYen = yenValue(member.extraPaidYen ?? member.extra_paid_yen);
+      const regularPaidYen = hasExplicitNumber(member.regularPaidYen ?? member.regular_paid_yen)
+        ? yenValue(member.regularPaidYen ?? member.regular_paid_yen)
+        : Math.max(0, totalPay - extraPaidYen);
 
       cycleEntries.push({
         project_id: cycle.project_id,
         ym: cycle.ym,
         member_id: memberId,
         earned_pt: numberValue(member.earnedPt ?? member.earned_pt),
-        base_pay: yenValue(member.basePay ?? member.base_pay),
-        bonus_pt: yenValue(member.bonusPt ?? member.bonus_pt),
+        base_pay: basePay,
+        bonus_pt: bonusPt,
         total_pay: totalPay,
+        regular_base_pay: regularBasePay,
+        extra_base_pay: extraBasePay,
+        regular_paid_yen: regularPaidYen,
+        extra_paid_yen: extraPaidYen,
+        regular_stock_yen: yenValue(member.regularStockYen ?? member.regular_stock_yen),
+        extra_stock_yen: yenValue(member.extraStockYen ?? member.extra_stock_yen),
       });
     }
-    entries.push(...capPayoutEntriesToBudget(cycleEntries, cycle.budget_yen));
+    entries.push(...cycleEntries);
   }
 
   return entries;
@@ -470,6 +412,12 @@ function applySavedPayoutsForExistingRows(
       base_pay: yenValue(payout.base_pay),
       bonus_pt: yenValue(payout.bonus_pt),
       total_pay: totalPay,
+      regular_base_pay: yenValue(payout.base_pay),
+      extra_base_pay: 0,
+      regular_paid_yen: totalPay,
+      extra_paid_yen: 0,
+      regular_stock_yen: 0,
+      extra_stock_yen: 0,
     });
   }
 
@@ -480,22 +428,16 @@ function applySavedPayoutsForExistingRows(
   });
 }
 
-function capPayoutEntriesToBudget(entries: PayoutEntry[], budgetYen: unknown): PayoutEntry[] {
-  const budget = yenValue(budgetYen);
-  const total = entries.reduce((sum, entry) => sum + entry.total_pay, 0);
-  if (budget <= 0 || total <= budget || entries.length === 0) return entries;
-
-  let allocated = 0;
-  return entries
-    .map((entry, index) => {
-      const cappedPay =
-        index === entries.length - 1
-          ? Math.max(0, budget - allocated)
-          : Math.max(0, Math.round((entry.total_pay / total) * budget));
-      allocated += cappedPay;
-      return { ...entry, total_pay: cappedPay };
-    })
-    .filter((entry) => entry.total_pay > 0);
+function payoutEntryDbPayload(entry: PayoutEntry) {
+  return {
+    project_id: entry.project_id,
+    ym: entry.ym,
+    member_id: entry.member_id,
+    earned_pt: entry.earned_pt,
+    base_pay: entry.base_pay,
+    bonus_pt: entry.bonus_pt,
+    total_pay: entry.total_pay,
+  };
 }
 
 function findMissingBudgetCycles(cycles: BillingCycleRow[], entries: PayoutEntry[]) {
@@ -962,15 +904,15 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
   if (noticesRes.error) throw noticesRes.error;
   if (extraRevenueRes.error) throw extraRevenueRes.error;
 
-  // 将来月の「支払予定」(capped) を `/admin/payouts` 支払通知書と同じエンジンで投影する。
-  // 支払予定 = 月次キャップ (budget_yen) + stock 繰越平準化を通した後の額 (spec 7-1 正本)。
-  // 役員 (is_officer) / 支払対象外 (exclude_from_payout_notice) は computeForwardCappedMemberCosts 内で
-  // payYen から落とす (i 案: 再配分しない)。
+  // 将来月の capped 使用額を `/admin/payouts` 支払通知書と同じエンジンで投影する。
+  // cappedRegularYen = 本契約capの使用額 (外部支払 + 役員会社留保)。
+  // cappedExtraYen = 別財布(cap_extra)の使用額 (外部支払 + 役員会社留保)。
+  // 支払対象外 (exclude_from_payout_notice) は computeForwardCappedMemberCosts 内で落とす。
   // ※ v0.25.3 では誤って uncapped (キャップ・繰越を通さない生報酬) を支払予定に入れていたため、
   //   pt 消化が厚い月に budget_yen を超えて跳ね、マイナス月 / KUTE 巨額 / OkuDoor 超過が発生した
   //   (2026-06-17 まさ指摘 → v0.25.4 で capped へ修正)。
   const forecastProjectIds = [...new Set(forecastCycles.map((cycle) => cycle.project_id))];
-  const forecastCapped: Array<{ projectId: string; ym: string; cappedTotalYen: number }> = [];
+  const forecastCapped: Array<{ projectId: string; ym: string; cappedTotalYen: number; cappedRegularYen: number; cappedExtraYen: number }> = [];
   const forecastCappedResults = await Promise.allSettled(
     forecastProjectIds.map((projectId) =>
       computeForwardCappedMemberCosts(db, projectId, ym)
@@ -983,6 +925,8 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
         projectId: result.value.projectId,
         ym: month.ym,
         cappedTotalYen: Math.round(month.cappedTotalYen),
+        cappedRegularYen: Math.round(month.cappedRegularYen),
+        cappedExtraYen: Math.round(month.cappedExtraYen),
       });
     }
   }
@@ -1442,251 +1386,10 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
-  if (body.action === "manual_reward_override") {
-    const projectId = typeof body.projectId === "string" ? body.projectId.trim() : "";
-    const sourceYm = cleanYm(typeof body.sourceYm === "string" ? body.sourceYm : null) ?? ym;
-    const memberId = textValue(body.memberId);
-    const totalPayYen = yenValue(body.totalPayYen);
-    const note = textValue(body.note);
-    if (!ym || !sourceYm || !projectId || !memberId || totalPayYen <= 0) {
-      return NextResponse.json(
-        { ok: false, error: "ym, sourceYm, projectId, memberId and positive totalPayYen are required" },
-        { status: 400 }
-      );
-    }
-
-    try {
-      const db = createAdminClient();
-      const [projectRes, memberRes, cycleRes] = await Promise.all([
-        db
-          .from("projects")
-          .select("project_id, project_name, client_name, status, fee_type, fee_amount, start_ym, end_ym, freeze_from_ym, restart_expected_ym, freee_partner_id, payment_due_rule, payment_due_day")
-          .eq("project_id", projectId)
-          .maybeSingle(),
-        db
-          .from("members")
-          .select("member_id, code_name, member_name, contractor_name, email, status, is_officer, exclude_from_payout_notice")
-          .eq("member_id", memberId)
-          .maybeSingle(),
-        db
-          .from("billing_cycles")
-          .select("project_id, ym, status, budget_yen, budget_reported_amount, budget_buffer_amount, invoice_ym, reward_summary_json")
-          .eq("project_id", projectId)
-          .eq("ym", sourceYm)
-          .maybeSingle(),
-      ]);
-      if (projectRes.error) throw projectRes.error;
-      if (memberRes.error) throw memberRes.error;
-      if (cycleRes.error) throw cycleRes.error;
-      if (!projectRes.data) {
-        return NextResponse.json({ ok: false, error: `project not found: ${projectId}` }, { status: 404 });
-      }
-      if (!memberRes.data) {
-        return NextResponse.json({ ok: false, error: `member not found: ${memberId}` }, { status: 404 });
-      }
-
-      const existingCycle = (cycleRes.data ?? null) as BillingCycleRow | null;
-      const currentBudgetYen = yenValue(existingCycle?.budget_yen);
-      const member = memberRes.data as MemberRow;
-      const memberName = textValue(member.code_name) || textValue(member.member_name) || memberId;
-      const rewardSummary = mergeManualRewardMember({
-        existingSummary: existingCycle?.reward_summary_json ?? null,
-        projectId,
-        sourceYm,
-        memberId,
-        memberName,
-        totalPayYen,
-        note,
-        currentBudgetYen,
-      });
-      const totalPaySum = yenValue(rewardSummary.totalPaySum);
-      const now = new Date().toISOString();
-
-      const { error: upsertError } = await db
-        .from("billing_cycles")
-        .upsert(
-          {
-            project_id: projectId,
-            ym: sourceYm,
-            invoice_ym: ym,
-            status: normalizeStatusAfterBudgetConfirm(existingCycle?.status ?? null),
-            budget_yen: Math.max(currentBudgetYen, totalPaySum),
-            reward_summary_json: rewardSummary,
-            budget_confirmed_at: existingCycle?.budget_yen ? undefined : now,
-            budget_confirmed_by: existingCycle?.budget_yen ? undefined : auth.user.email,
-            updated_at: now,
-          },
-          { onConflict: "project_id,ym" }
-        );
-      if (upsertError) throw upsertError;
-
-      const after = await loadTargetData(ym);
-      return NextResponse.json({
-        ok: true,
-        manualRewardOverride: {
-          projectId,
-          sourceYm,
-          memberId,
-          totalPayYen,
-        },
-        ...after,
-      });
-    } catch (err) {
-      console.error("[admin payouts PATCH manual_reward_override]", err);
-      return NextResponse.json(
-        { ok: false, error: err instanceof Error ? err.message : "Unknown error" },
-        { status: 500 }
-      );
-    }
-  }
-
-  const invoiceYm = cleanYm(typeof body.invoiceYm === "string" ? body.invoiceYm : null) ?? ym;
-  const projectId = typeof body.projectId === "string" ? body.projectId.trim() : "";
-  const sourceYms = Array.isArray(body.sourceYms)
-    ? [...new Set(body.sourceYms.map((value) => cleanYm(String(value))).filter((value): value is string => !!value))]
-    : [];
-  const clientAmountYen = yenValue(body.clientAmountYen);
-  const bufferYen = Math.max(0, yenValue(body.bufferYen));
-  const extraPayoutBudgetYen = Math.max(0, yenValue(body.extraPayoutBudgetYen));
-
-  if (!ym || !invoiceYm || !projectId || sourceYms.length === 0) {
-    return NextResponse.json(
-      { ok: false, error: "ym, invoiceYm, projectId and sourceYms are required" },
-      { status: 400 }
-    );
-  }
-  if (clientAmountYen <= 0) {
-    return NextResponse.json({ ok: false, error: "clientAmountYen must be positive" }, { status: 400 });
-  }
-
-  try {
-    const db = createAdminClient();
-    const [cyclesRes, projectRes, membersRes] = await Promise.all([
-      db
-        .from("billing_cycles")
-        .select("project_id, ym, status, budget_yen, invoice_ym, reward_summary_json")
-        .eq("project_id", projectId)
-        .in("ym", sourceYms),
-      db
-        .from("projects")
-        .select("project_id, project_name, client_name, status, fee_type, fee_amount, start_ym, end_ym, freeze_from_ym, restart_expected_ym, freee_partner_id, payment_due_rule, payment_due_day")
-        .eq("project_id", projectId)
-        .maybeSingle(),
-      db
-        .from("members")
-        .select("member_id, is_officer, exclude_from_payout_notice")
-        .or("is_officer.eq.true,exclude_from_payout_notice.eq.true"),
-    ]);
-    if (cyclesRes.error) throw cyclesRes.error;
-    if (projectRes.error) throw projectRes.error;
-    if (membersRes.error) throw membersRes.error;
-
-    const project = projectRes.data as PaymentProjectRow | null;
-    const cycles = ((cyclesRes.data ?? []) as BillingCycleRow[]).sort(cycleSort);
-    if (cycles.length !== sourceYms.length) {
-      return NextResponse.json(
-        { ok: false, error: `target cycles not found (${cycles.length}/${sourceYms.length})` },
-        { status: 404 }
-      );
-    }
-
-    for (const cycle of cycles) {
-      const actualInvoiceYm = effectivePaymentYmForCycle(cycle, project ?? undefined);
-      if (actualInvoiceYm !== invoiceYm) {
-        return NextResponse.json(
-          { ok: false, error: `${cycle.project_id}:${cycle.ym} is linked to invoice_ym=${actualInvoiceYm}` },
-          { status: 400 }
-        );
-      }
-    }
-
-    const payoutByYm = new Map<string, number>();
-    const payoutExcludedMemberIds = new Set(((membersRes.data ?? []) as MemberRow[]).map((member) => member.member_id));
-    for (const entry of buildPayoutEntries(cycles, payoutExcludedMemberIds)) {
-      payoutByYm.set(entry.ym, (payoutByYm.get(entry.ym) ?? 0) + entry.total_pay);
-    }
-
-    const totalPayout = cycles.reduce((sum, cycle) => sum + (payoutByYm.get(cycle.ym) ?? 0), 0);
-    const basePjBudgetTotal = Math.max(0, Math.round(clientAmountYen * 0.65) - bufferYen);
-    const pjBudgetTotal = basePjBudgetTotal + extraPayoutBudgetYen;
-    const weights = cycles.map((cycle) => {
-      if (totalPayout > 0) return (payoutByYm.get(cycle.ym) ?? 0) / totalPayout;
-      return 1 / cycles.length;
-    });
-
-    let allocatedBaseBudget = 0;
-    let allocatedExtraPayoutBudget = 0;
-    let allocatedReported = 0;
-    let allocatedBuffer = 0;
-    const now = new Date().toISOString();
-    const updatedCycles: Array<{
-      projectId: string;
-      ym: string;
-      budgetYen: number;
-      baseBudgetYen: number;
-      extraPayoutBudgetYen: number;
-      reportedAmountYen: number;
-      bufferYen: number;
-    }> = [];
-
-    for (let i = 0; i < cycles.length; i += 1) {
-      const cycle = cycles[i];
-      const isLast = i === cycles.length - 1;
-      const baseBudgetYen = isLast ? basePjBudgetTotal - allocatedBaseBudget : Math.round(basePjBudgetTotal * weights[i]);
-      const extraBudgetYen = isLast
-        ? extraPayoutBudgetYen - allocatedExtraPayoutBudget
-        : Math.round(extraPayoutBudgetYen * weights[i]);
-      const budgetYen = baseBudgetYen + extraBudgetYen;
-      const reportedAmountYen = isLast ? clientAmountYen - allocatedReported : Math.round(clientAmountYen * weights[i]);
-      const cycleBufferYen = isLast ? bufferYen - allocatedBuffer : Math.round(bufferYen * weights[i]);
-      allocatedBaseBudget += baseBudgetYen;
-      allocatedExtraPayoutBudget += extraBudgetYen;
-      allocatedReported += reportedAmountYen;
-      allocatedBuffer += cycleBufferYen;
-
-      const { error: updateError } = await db
-        .from("billing_cycles")
-        .update({
-          status: normalizeStatusAfterBudgetConfirm(cycle.status),
-          budget_yen: budgetYen,
-          budget_reported_amount: reportedAmountYen,
-          budget_buffer_amount: cycleBufferYen,
-          budget_confirmed_at: now,
-          budget_confirmed_by: auth.user.email,
-        })
-        .eq("project_id", cycle.project_id)
-        .eq("ym", cycle.ym);
-      if (updateError) throw updateError;
-
-      updatedCycles.push({
-        projectId: cycle.project_id,
-        ym: cycle.ym,
-        budgetYen,
-        baseBudgetYen,
-        extraPayoutBudgetYen: extraBudgetYen,
-        reportedAmountYen,
-        bufferYen: cycleBufferYen,
-      });
-    }
-
-    const after = await loadTargetData(ym, { refreshRewards: true });
-    return NextResponse.json({
-      ok: true,
-      clientAmountYen,
-      basePjBudgetTotal,
-      pjBudgetTotal,
-      bufferYen,
-      extraPayoutBudgetYen,
-      updatedCycles,
-      ...after,
-    });
-  } catch (err) {
-    console.error("[admin payouts PATCH]", err);
-    return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : "Unknown error" },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json(
+    { ok: false, error: "manual budget confirmation is disabled; rewards are calculated from MS, plan cycles, responsibility, and contract-backed caps" },
+    { status: 400 }
+  );
 }
 
 export async function POST(req: NextRequest) {
@@ -1756,7 +1459,7 @@ export async function POST(req: NextRequest) {
     if (entries.length > 0) {
       const { error } = await db
         .from("monthly_reward_payout")
-        .upsert(entries, { onConflict: "project_id,ym,member_id" });
+        .upsert(entries.map(payoutEntryDbPayload), { onConflict: "project_id,ym,member_id" });
       if (error) throw error;
     }
 
