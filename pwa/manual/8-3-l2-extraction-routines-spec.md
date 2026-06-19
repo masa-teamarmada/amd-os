@@ -201,7 +201,7 @@ SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 
 
 **予定MTGカード同期 (= LLM不要 / deterministic)**:
 - H-1 は議事録抽出とは別に、`today 00:00 JST` から `now + 60 days` までの確定Calendar予定を `POST /api/meeting-prep/calendar-sync` に渡す。
-- recurring MTG は series ごとに次回1件だけ同期・表示する。Google Calendar の `recurring_event_id` が取れる series は cadence を問わず2件目以降の future occurrence を `recurring_series_future_occurrence` として skip し、`recurring_event_id` が無い場合は weekly cadence を推定できる series だけ同じ扱いにする。既にDBに残っている future row も cockpit 表示側でシリーズ1枚に畳む。
+- recurring MTG は series ごとに次回1件だけ同期・表示する。Google Calendar の `recurring_event_id` が取れる series は cadence を問わず2件目以降の future occurrence を `recurring_series_future_occurrence` として skip する。`recurring_event_id` が無い場合も、title に `定例` / `月次` / `毎月` / `weekly` / `monthly` 等が含まれるものは曜日を外して series 推定し、曜日がズレる月次定例も1枚に畳む。それ以外は weekly cadence を推定できる series だけ同じ扱いにする。既にDBに残っている future row も cockpit 表示側でシリーズ1枚に畳む。
 - `title` が `+` / `＋` 始まり、全日予定、start datetime の無い予定は除外する。
 - PWA route は `project_id` が渡された場合は強制紐付け、無い場合は `projects.project_name` / `project_id` / `client_name` でPJ判定する。
 - `calendar-sync` は同日中なら開始済みの予定も更新対象にする。これにより、今日の取締役会のように開始後にDrive資料を見つけたケースでもカードを補強できる。

@@ -173,7 +173,7 @@ D-1D-3D-4H-1の復旧/移管状況は [8-3 章](8-3-l2-extraction-routines-spec.
 
 ### H-1 予定MTGカード同期
 
-H-1は、終了済みMTGの議事録抽出とは別に、今日0:00 JSTから60日先までの確定Calendar予定を `POST /api/meeting-prep/calendar-sync` へ渡す。`calendar-sync` は `source_kinds='upcoming'` の予定MTGカードを `project_meeting_summaries` に upsert し、同日中なら開始済み予定もDrive資料・URL補強の対象にする。ただし recurring MTG は series ごとに次回1件だけ同期・表示し、それ以降の future occurrence はノイズとして扱う。Google Calendar の `recurring_event_id` が無い場合は weekly cadence が推定できる series だけ同じ扱いにする。
+H-1は、終了済みMTGの議事録抽出とは別に、今日0:00 JSTから60日先までの確定Calendar予定を `POST /api/meeting-prep/calendar-sync` へ渡す。`calendar-sync` は `source_kinds='upcoming'` の予定MTGカードを `project_meeting_summaries` に upsert し、同日中なら開始済み予定もDrive資料・URL補強の対象にする。ただし recurring MTG は series ごとに次回1件だけ同期・表示し、それ以降の future occurrence はノイズとして扱う。Google Calendar の `recurring_event_id` が無い場合でも、title に `定例` / `月次` / `毎月` / `weekly` / `monthly` 等が含まれる予定は曜日を外して series 推定する。それ以外は weekly cadence が推定できる series だけ同じ扱いにする。
 
 PJに `drive_folder_id` がある場合、automation側でDrive root直下と会議日/title token に合う1階層サブフォルダを探し、Docs / Slides / Sheets / PDF / Office files の metadata を `drive_files` として渡す。PWA route はDriveを直接読まず、渡された metadata を `narrative_md` の `関連Drive資料` に載せる。Drive資料は補助根拠であり、資料に書かれているだけで当日決定事項とは扱わない。
 
