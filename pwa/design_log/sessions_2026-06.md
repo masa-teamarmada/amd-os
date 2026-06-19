@@ -756,3 +756,18 @@
 
 **検証**:
 - `npx tsx` で DB + `buildMonthlyWorkAgreementBundle` + `listActiveAgreementMemberIds` + `buildPayoutAgreementGateSummary` を直接確認。
+
+### 2026-06-19 — 先12か月4表を主数字だけで読めるように整理 (v0.28.16)
+
+**経緯**: まさが「それぞれごとに、確認したい数字だけがシンプルに見れるようにしてほしい」「報酬債務はマックスではなく最終着地がちゃんとゼロになるのが重要」と指摘。
+
+**対応**:
+- `/admin/payouts` と `/management-score` 下部の4表で、セル内の補助数字を削り、各表の主数字を中心にした。
+- `キャッシュ支払` は外部支払額だけ、`会社留保` は留保増だけ、`報酬債務` は月末未払い残だけ、`cap超過チェック` は不足/余力だけをセルの主表示にした。
+- 報酬債務の合計列は `ピーク` ではなく `最終着地` を主表示に変更。最終月残が 0 円なら `ゼロ着地`、残るなら `残 ¥...` と表示する。
+- 計算式・支払 gate・`reward_summary_json` は変更していない。
+
+**正本同期**:
+- `pwa/manual/7-1-reward-calc-spec.md`
+- `pwa/design/project_pl_monthly.md`
+- `pwa/BUGS.md`

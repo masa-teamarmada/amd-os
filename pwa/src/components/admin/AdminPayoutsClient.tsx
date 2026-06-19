@@ -552,12 +552,6 @@ function capGapYen(cell: ProjectMonthlyFinanceCellLike) {
   return totalInYen(cell) - cell.grossDueYen;
 }
 
-function reserveRate(cell: ProjectMonthlyFinanceCellLike) {
-  const input = totalInYen(cell);
-  if (input <= 0) return null;
-  return Math.round((companyReserveIncreaseYen(cell) / input) * 1000) / 10;
-}
-
 function hasAnyForwardFinanceData(cell: ProjectMonthlyFinanceCellLike) {
   return totalInYen(cell) > 0 || capUsageYen(cell) > 0 || cell.grossDueYen > 0 || cell.stockYen > 0;
 }
@@ -3151,7 +3145,6 @@ function ProjectMonthlyFinanceTable({
   );
   const latestMonth = months[months.length - 1];
   const latestDebtYen = monthTotals.find((item) => item.ym === latestMonth)?.stockYen ?? 0;
-  const peakDebtYen = Math.max(0, ...monthTotals.map((item) => item.stockYen));
   const riskMonths = monthTotals.filter((item) => capGapYen(item) < 0).length;
   const maxShortageYen = Math.max(0, ...monthTotals.map((item) => Math.max(0, -capGapYen(item))));
 
@@ -3165,39 +3158,24 @@ function ProjectMonthlyFinanceTable({
     <MetricLines
       main={fmtFlowYen(externalPayoutYen(cell))}
       mainClassName={externalPayoutYen(cell) > 0 ? "text-red-700" : "text-muted-foreground"}
-      lines={[
-        amountLine("入金枠", fmtFlowYen(totalInYen(cell))),
-        amountLine("本契約支払", fmtFlowYen(cell.regularExternalPayoutYen)),
-        cell.extraExternalPayoutYen > 0 ? amountLine("別財布支払", fmtFlowYen(cell.extraExternalPayoutYen), "text-sky-700") : null,
-      ].filter((line): line is NonNullable<typeof line> => line != null)}
-      footer={<span className={companyReserveIncreaseYen(cell) < 0 ? "font-semibold text-red-700" : "text-muted-foreground"}>差引 {fmtSignedYen(companyReserveIncreaseYen(cell))}</span>}
+      lines={[]}
     />
   );
   const reserveCell = (cell: ProjectMonthlyFinanceCellLike) => {
     const reserve = companyReserveIncreaseYen(cell);
-    const rate = reserveRate(cell);
     return (
       <MetricLines
         main={fmtSignedYen(reserve)}
         mainClassName={reserve < 0 ? "text-red-700" : reserve > 0 ? "text-emerald-700" : "text-muted-foreground"}
-        lines={[
-          amountLine("cap/売上枠", fmtFlowYen(totalInYen(cell))),
-          amountLine("外部支払", fmtFlowYen(externalPayoutYen(cell))),
-          amountLine("留保率", rate == null ? "—" : `${rate}%`),
-        ]}
-        footer={officerReserveYen(cell) > 0 ? <span className="text-emerald-700">うち役員留保 {fmtFlowYen(officerReserveYen(cell))}</span> : null}
+        lines={[]}
       />
     );
   };
   const debtCell = (cell: ProjectMonthlyFinanceCellLike) => (
     <MetricLines
       main={fmtFlowYen(cell.stockYen)}
-      mainClassName={cell.stockYen > 0 ? "text-amber-700" : "text-muted-foreground"}
-      lines={[
-        amountLine("発生+繰越", fmtFlowYen(cell.grossDueYen)),
-        amountLine("外部支払", fmtFlowYen(externalPayoutYen(cell))),
-      ]}
-      footer={cell.stockYen > 0 ? <span className="font-medium text-amber-700">月末未払い残</span> : null}
+      mainClassName={cell.stockYen > 0 ? "text-amber-700" : "text-emerald-700"}
+      lines={[]}
     />
   );
   const capCell = (cell: ProjectMonthlyFinanceCellLike) => {
@@ -3206,12 +3184,7 @@ function ProjectMonthlyFinanceTable({
       <MetricLines
         main={gap < 0 ? `不足 ${fmtFlowYen(Math.abs(gap))}` : `余力 ${fmtFlowYen(gap)}`}
         mainClassName={gap < 0 ? "text-red-700" : "text-emerald-700"}
-        lines={[
-          amountLine("cap/売上枠", fmtFlowYen(totalInYen(cell))),
-          amountLine("報酬需要", fmtFlowYen(cell.grossDueYen)),
-          amountLine("cap使用", fmtFlowYen(capUsageYen(cell))),
-        ]}
-        footer={cell.stockYen > 0 ? <span className="text-amber-700">未払い残 {fmtFlowYen(cell.stockYen)}</span> : null}
+        lines={[]}
       />
     );
   };
@@ -3221,7 +3194,9 @@ function ProjectMonthlyFinanceTable({
       <div className="flex flex-wrap gap-2 text-[11px]">
         <span className="rounded bg-red-50 px-2 py-1 text-red-800">外部支払 {fmtFlowYen(externalPayoutYen(grand))}</span>
         <span className="rounded bg-emerald-50 px-2 py-1 text-emerald-800">会社留保増 {fmtSignedYen(companyReserveIncreaseYen(grand))}</span>
-        {latestDebtYen > 0 && <span className="rounded bg-amber-50 px-2 py-1 text-amber-900">最終月未払い残 {fmtFlowYen(latestDebtYen)} / ピーク {fmtFlowYen(peakDebtYen)}</span>}
+        <span className={`rounded px-2 py-1 ${latestDebtYen > 0 ? "bg-amber-50 text-amber-900" : "bg-emerald-50 text-emerald-800"}`}>
+          報酬債務 着地 {fmtFlowYen(latestDebtYen)}
+        </span>
         {riskMonths > 0 && <span className="rounded bg-red-100 px-2 py-1 font-semibold text-red-800">cap不足 {riskMonths}か月 / 最大 {fmtFlowYen(maxShortageYen)}</span>}
       </div>
 
@@ -3257,27 +3232,26 @@ function ProjectMonthlyFinanceTable({
 
       <FinancePurposeMatrix
         title="先12か月 報酬債務"
-        description="月末未払い残を見る。12か月列は合計ではなく、各月残高・ピーク・最終月残で読む。"
-        totalHeader="ピーク / 最終月残"
+        description="最終月に未払い残がゼロ着地するかを見る。各月セルは月末未払い残だけを表示する。"
+        totalHeader="最終着地"
         months={months}
         rows={rows}
         monthTotals={monthTotals}
         renderGrandCell={() => (
           <MetricLines
-            main={`ピーク ${fmtFlowYen(peakDebtYen)}`}
-            mainClassName={peakDebtYen > 0 ? "text-amber-700" : "text-muted-foreground"}
-            lines={[amountLine("最終月残", fmtFlowYen(latestDebtYen)), amountLine("残あり月", `${monthTotals.filter((item) => item.stockYen > 0).length}か月`)]}
+            main={latestDebtYen > 0 ? `残 ${fmtFlowYen(latestDebtYen)}` : "ゼロ着地"}
+            mainClassName={latestDebtYen > 0 ? "text-amber-700" : "text-emerald-700"}
+            lines={[amountLine("残あり月", `${monthTotals.filter((item) => item.stockYen > 0).length}か月`)]}
           />
         )}
         renderMonthTotalCell={debtCell}
         renderRowTotalCell={(row) => {
           const latest = row.cells.find((cell) => cell.ym === latestMonth)?.stockYen ?? 0;
-          const peak = Math.max(0, ...row.cells.map((cell) => cell.stockYen));
           return (
             <MetricLines
-              main={`ピーク ${fmtFlowYen(peak)}`}
-              mainClassName={peak > 0 ? "text-amber-700" : "text-muted-foreground"}
-              lines={[amountLine("最終月残", fmtFlowYen(latest)), amountLine("残あり月", `${row.cells.filter((cell) => cell.stockYen > 0).length}か月`)]}
+              main={latest > 0 ? `残 ${fmtFlowYen(latest)}` : "ゼロ着地"}
+              mainClassName={latest > 0 ? "text-amber-700" : "text-emerald-700"}
+              lines={[amountLine("残あり月", `${row.cells.filter((cell) => cell.stockYen > 0).length}か月`)]}
             />
           );
         }}
@@ -3288,16 +3262,16 @@ function ProjectMonthlyFinanceTable({
 
       <FinancePurposeMatrix
         title="先12か月 cap超過チェック"
-        description="報酬需要が cap/売上枠を超えていないかだけを見る。ここでは会社留保を支出扱いしない。"
-        totalHeader="不足月 / 最大不足"
+        description="報酬需要が支払可能枠を超えていないかだけを見る。"
+        totalHeader="最大不足"
         months={months}
         rows={rows}
         monthTotals={monthTotals}
         renderGrandCell={() => (
           <MetricLines
-            main={riskMonths > 0 ? `${riskMonths}か月不足` : "不足なし"}
+            main={riskMonths > 0 ? `最大不足 ${fmtFlowYen(maxShortageYen)}` : "不足なし"}
             mainClassName={riskMonths > 0 ? "text-red-700" : "text-emerald-700"}
-            lines={[amountLine("最大不足", fmtFlowYen(maxShortageYen)), amountLine("12か月需要", fmtFlowYen(grand.grossDueYen))]}
+            lines={[amountLine("不足月", `${riskMonths}か月`)]}
           />
         )}
         renderMonthTotalCell={capCell}
@@ -3307,9 +3281,9 @@ function ProjectMonthlyFinanceTable({
           const max = Math.max(0, ...shortages);
           return (
             <MetricLines
-              main={count > 0 ? `${count}か月不足` : "不足なし"}
+              main={count > 0 ? `最大不足 ${fmtFlowYen(max)}` : "不足なし"}
               mainClassName={count > 0 ? "text-red-700" : "text-emerald-700"}
-              lines={[amountLine("最大不足", fmtFlowYen(max)), amountLine("12か月需要", fmtFlowYen(row.totals.grossDueYen))]}
+              lines={[amountLine("不足月", `${count}か月`)]}
             />
           );
         }}

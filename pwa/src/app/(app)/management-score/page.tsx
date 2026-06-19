@@ -403,12 +403,6 @@ function capFinanceGapYen(cell: ProjectMonthlyFinanceCellLike) {
   return totalFinanceInYen(cell) - cell.grossDueYen;
 }
 
-function financeReserveRate(cell: ProjectMonthlyFinanceCellLike) {
-  const input = totalFinanceInYen(cell);
-  if (input <= 0) return null;
-  return Math.round((companyFinanceReserveYen(cell) / input) * 1000) / 10;
-}
-
 function hasForwardFinanceData(cell: ProjectMonthlyFinanceCellLike) {
   return totalFinanceInYen(cell) > 0 || capFinanceUsageYen(cell) > 0 || cell.grossDueYen > 0 || cell.stockYen > 0 || cell.msMonthlyPt > 0;
 }
@@ -2762,7 +2756,6 @@ function ProjectMonthlyFinanceTable({ months, rows }: { months: string[]; rows: 
   );
   const latestMonth = months[months.length - 1];
   const latestDebtYen = monthTotals.find((item) => item.ym === latestMonth)?.stockYen ?? 0;
-  const peakDebtYen = Math.max(0, ...monthTotals.map((item) => item.stockYen));
   const riskMonths = monthTotals.filter((item) => capFinanceGapYen(item) < 0).length;
   const maxShortageYen = Math.max(0, ...monthTotals.map((item) => Math.max(0, -capFinanceGapYen(item))));
 
@@ -2776,36 +2769,24 @@ function ProjectMonthlyFinanceTable({ months, rows }: { months: string[]; rows: 
     <FinanceMetricLines
       main={yen(externalFinancePayoutYen(cell))}
       mainClassName={externalFinancePayoutYen(cell) > 0 ? "text-red-700" : "text-muted-foreground"}
-      lines={[
-        amountLine("入金枠", yen(totalFinanceInYen(cell))),
-        amountLine("本契約支払", yen(cell.regularExternalPayoutYen)),
-        cell.extraExternalPayoutYen > 0 ? amountLine("別財布支払", yen(cell.extraExternalPayoutYen), "text-sky-700") : null,
-      ].filter((line): line is NonNullable<typeof line> => line != null)}
-      footer={<span className={companyFinanceReserveYen(cell) < 0 ? "font-semibold text-red-700" : "text-muted-foreground"}>差引 {walletSignedYen(companyFinanceReserveYen(cell))}</span>}
+      lines={[]}
     />
   );
   const reserveCell = (cell: ProjectMonthlyFinanceCellLike) => {
     const reserve = companyFinanceReserveYen(cell);
-    const rate = financeReserveRate(cell);
     return (
       <FinanceMetricLines
         main={walletSignedYen(reserve)}
         mainClassName={reserve < 0 ? "text-red-700" : reserve > 0 ? "text-emerald-700" : "text-muted-foreground"}
-        lines={[
-          amountLine("cap/売上枠", yen(totalFinanceInYen(cell))),
-          amountLine("外部支払", yen(externalFinancePayoutYen(cell))),
-          amountLine("留保率", rate == null ? "—" : `${rate}%`),
-        ]}
-        footer={officerFinanceReserveYen(cell) > 0 ? <span className="text-emerald-700">うち役員留保 {yen(officerFinanceReserveYen(cell))}</span> : null}
+        lines={[]}
       />
     );
   };
   const debtCell = (cell: ProjectMonthlyFinanceCellLike) => (
     <FinanceMetricLines
       main={yen(cell.stockYen)}
-      mainClassName={cell.stockYen > 0 ? "text-amber-700" : "text-muted-foreground"}
-      lines={[amountLine("発生+繰越", yen(cell.grossDueYen)), amountLine("外部支払", yen(externalFinancePayoutYen(cell)))]}
-      footer={cell.stockYen > 0 ? <span className="font-medium text-amber-700">月末未払い残</span> : null}
+      mainClassName={cell.stockYen > 0 ? "text-amber-700" : "text-emerald-700"}
+      lines={[]}
     />
   );
   const capCell = (cell: ProjectMonthlyFinanceCellLike) => {
@@ -2814,8 +2795,7 @@ function ProjectMonthlyFinanceTable({ months, rows }: { months: string[]; rows: 
       <FinanceMetricLines
         main={gap < 0 ? `不足 ${yen(Math.abs(gap))}` : `余力 ${yen(gap)}`}
         mainClassName={gap < 0 ? "text-red-700" : "text-emerald-700"}
-        lines={[amountLine("cap/売上枠", yen(totalFinanceInYen(cell))), amountLine("報酬需要", yen(cell.grossDueYen)), amountLine("cap使用", yen(capFinanceUsageYen(cell)))]}
-        footer={cell.stockYen > 0 ? <span className="text-amber-700">未払い残 {yen(cell.stockYen)}</span> : null}
+        lines={[]}
       />
     );
   };
@@ -2825,7 +2805,9 @@ function ProjectMonthlyFinanceTable({ months, rows }: { months: string[]; rows: 
       <div className="flex flex-wrap gap-2 text-[11px]">
         <span className="rounded-full border bg-red-50 px-2 py-1 text-red-800">外部支払 {yen(externalFinancePayoutYen(grand))}</span>
         <span className="rounded-full border bg-emerald-50 px-2 py-1 text-emerald-800">会社留保増 {walletSignedYen(companyFinanceReserveYen(grand))}</span>
-        {latestDebtYen > 0 && <span className="rounded-full border bg-amber-50 px-2 py-1 text-amber-900">最終月未払い残 {yen(latestDebtYen)} / ピーク {yen(peakDebtYen)}</span>}
+        <span className={`rounded-full border px-2 py-1 ${latestDebtYen > 0 ? "bg-amber-50 text-amber-900" : "bg-emerald-50 text-emerald-800"}`}>
+          報酬債務 着地 {yen(latestDebtYen)}
+        </span>
         {riskMonths > 0 && <span className="rounded-full border bg-red-100 px-2 py-1 font-semibold text-red-800">cap不足 {riskMonths}か月 / 最大 {yen(maxShortageYen)}</span>}
       </div>
 
@@ -2859,27 +2841,26 @@ function ProjectMonthlyFinanceTable({ months, rows }: { months: string[]; rows: 
 
       <FinancePurposeTable
         title="PJ別 先12か月 報酬債務"
-        description="月末未払い残を見る。12か月列は合計ではなく、各月残高・ピーク・最終月残で読む。"
-        totalHeader="ピーク / 最終月残"
+        description="最終月に未払い残がゼロ着地するかを見る。各月セルは月末未払い残だけを表示する。"
+        totalHeader="最終着地"
         months={months}
         rows={rows}
         monthTotals={monthTotals}
         renderGrandCell={() => (
           <FinanceMetricLines
-            main={`ピーク ${yen(peakDebtYen)}`}
-            mainClassName={peakDebtYen > 0 ? "text-amber-700" : "text-muted-foreground"}
-            lines={[amountLine("最終月残", yen(latestDebtYen)), amountLine("残あり月", `${monthTotals.filter((item) => item.stockYen > 0).length}か月`)]}
+            main={latestDebtYen > 0 ? `残 ${yen(latestDebtYen)}` : "ゼロ着地"}
+            mainClassName={latestDebtYen > 0 ? "text-amber-700" : "text-emerald-700"}
+            lines={[amountLine("残あり月", `${monthTotals.filter((item) => item.stockYen > 0).length}か月`)]}
           />
         )}
         renderMonthTotalCell={debtCell}
         renderRowTotalCell={(row) => {
           const latest = row.cells.find((cell) => cell.ym === latestMonth)?.stockYen ?? 0;
-          const peak = Math.max(0, ...row.cells.map((cell) => cell.stockYen));
           return (
             <FinanceMetricLines
-              main={`ピーク ${yen(peak)}`}
-              mainClassName={peak > 0 ? "text-amber-700" : "text-muted-foreground"}
-              lines={[amountLine("最終月残", yen(latest)), amountLine("残あり月", `${row.cells.filter((cell) => cell.stockYen > 0).length}か月`)]}
+              main={latest > 0 ? `残 ${yen(latest)}` : "ゼロ着地"}
+              mainClassName={latest > 0 ? "text-amber-700" : "text-emerald-700"}
+              lines={[amountLine("残あり月", `${row.cells.filter((cell) => cell.stockYen > 0).length}か月`)]}
             />
           );
         }}
@@ -2889,16 +2870,16 @@ function ProjectMonthlyFinanceTable({ months, rows }: { months: string[]; rows: 
 
       <FinancePurposeTable
         title="PJ別 先12か月 cap超過チェック"
-        description="報酬需要が cap/売上枠を超えていないかだけを見る。ここでは会社留保を支出扱いしない。"
-        totalHeader="不足月 / 最大不足"
+        description="報酬需要が支払可能枠を超えていないかだけを見る。"
+        totalHeader="最大不足"
         months={months}
         rows={rows}
         monthTotals={monthTotals}
         renderGrandCell={() => (
           <FinanceMetricLines
-            main={riskMonths > 0 ? `${riskMonths}か月不足` : "不足なし"}
+            main={riskMonths > 0 ? `最大不足 ${yen(maxShortageYen)}` : "不足なし"}
             mainClassName={riskMonths > 0 ? "text-red-700" : "text-emerald-700"}
-            lines={[amountLine("最大不足", yen(maxShortageYen)), amountLine("12か月需要", yen(grand.grossDueYen))]}
+            lines={[amountLine("不足月", `${riskMonths}か月`)]}
           />
         )}
         renderMonthTotalCell={capCell}
@@ -2908,9 +2889,9 @@ function ProjectMonthlyFinanceTable({ months, rows }: { months: string[]; rows: 
           const max = Math.max(0, ...shortages);
           return (
             <FinanceMetricLines
-              main={count > 0 ? `${count}か月不足` : "不足なし"}
+              main={count > 0 ? `最大不足 ${yen(max)}` : "不足なし"}
               mainClassName={count > 0 ? "text-red-700" : "text-emerald-700"}
-              lines={[amountLine("最大不足", yen(max)), amountLine("12か月需要", yen(row.totals.grossDueYen))]}
+              lines={[amountLine("不足月", `${count}か月`)]}
             />
           );
         }}
