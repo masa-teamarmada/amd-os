@@ -39,7 +39,7 @@ function b_buildMonthlyMeetingAmdOsBlock_(projectId, projectName, ym, monthlyRep
     `対象月：${y}`,
     "",
     "月次報告書：",
-    url ? url : "未（AMD OS 月次ルーティンからアップロードしてね）",
+    url ? url : "未（AMD OS の月次カードで確認してね）",
     "",
     "（この会議は AMD OS から生成）",
     __AMD_OS_DESC_BLOCK_END__

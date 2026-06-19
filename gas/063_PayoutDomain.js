@@ -152,10 +152,7 @@ function payoutBuildRows(ym){
  * @param row
  */
 function payoutCanMarkPaid(row){
-  // 将来：
-  // - payouts が1件以上
-  // - 全PJで routineStatus === done
-  // - 全PJで cashInStatus === done
+  // 月次ルーティンは廃止済み。振込完了可否は実処理側の cash-in gate を正にする。
   return false;
 }
 
@@ -243,10 +240,6 @@ function payoutFetchPlannedAllocations(ym){
     console.warn("[Payout] payoutFetchPlannedAllocations:", e.message, "ym=", ym);
     return [];
   }
-}
-
-function payoutFetchMonthlyRoutineStatus(ym){
-  return {};
 }
 
 // 着金（projectId -> done/pending）

@@ -4,7 +4,7 @@
 
 > **ルール本体は [CLAUDE.md](CLAUDE.md) に書く。これは概要のみ。**
 > セッション開始時の 4 ステップ・引き継ぎ運用は CLAUDE.md 参照。
-> **2026-06-12以降、PWAの本番反映は `main push = Vercel自動deploy`。原則、deploy前の承認待ちで止めない。deploy bundle は事後報告として残す。**
+> **2026-06-12以降、PWAの本番反映は `main push = Vercel自動deploy`。原則、deploy前の事前確認で止めない。deploy bundle は事後報告として残す。**
 
 ## リポジトリ
 
@@ -31,7 +31,7 @@
 
 ## デプロイ
 - **gas** → `clasp push`
-- **pwa** → **main への push = Vercel 自動 production deploy** (2026-06-12 まさ確定 A案)。原則、deploy前の承認待ちで止めず、`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` 経由で push・build監視まで進める。deploy bundle は事後報告として残す。CLI 直接 deploy (`npx vercel`) は全面廃止。main 以外の branch は `pwa/vercel.json` の ignoreCommand で build されない。微細変更ごとの単発 push は禁止、束ねて 1 回
+- **pwa** → **main への push = Vercel 自動 production deploy** (2026-06-12 まさ確定 A案)。原則、deploy前の事前確認で止めず、`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` 経由で push・build監視まで進める。deploy bundle は事後報告として残す。CLI 直接 deploy (`npx vercel`) は全面廃止。main 以外の branch は `pwa/vercel.json` の ignoreCommand で build されない。微細変更ごとの単発 push は禁止、束ねて 1 回
 - **ios** → `xcodebuild → devicectl install → process launch`、毎回
 - **android** → TBD
 

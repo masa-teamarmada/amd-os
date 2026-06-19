@@ -38,7 +38,7 @@ Supabase
 | 画面 | 役割 |
 |---|---|
 | `/dashboard` | OS の入口。PJ 一覧と主要画面への導線 |
-| `/mypage` | 自分の参加 PJ、今週の活動、月次報酬予定、月次TODO |
+| `/mypage` | 自分の参加 PJ、今週の活動、月次報酬予定。PM向け月次TODOは出さない |
 | `/project/{project_id}/cockpit` | PJ の中心画面 |
 | `/notifications` | L2 候補・差分候補の確認 / 修正依頼 |
 | `/reimburse` | 立替申請 |
@@ -144,7 +144,7 @@ Decision / Ops UI
 
 | 経路 | 例 | 原則 |
 |---|---|---|
-| PWA UI -> API -> Supabase | 月次ルーティン、通知回答、admin編集 | ユーザー操作を即保存 |
+| PWA UI -> API -> Supabase | 月次カード、通知回答、admin編集 | ユーザー操作を即保存 |
 | Codex automation -> outbox -> LaunchAgent -> API/Supabase | MS進捗、XRL根拠、経営ハイライト、Atlas | LLM が直接 DB へ大量書き込みしない |
 | MMOマシン Codex Desktop automation -> Supabase/API | protocol / knowledge / MS進捗 / MTGフロー | source_hash と feedback を見て冪等に upsert |
 | Vercel cron -> Supabase | freee同期、入金確認、週次活動、集計 | LLM 非使用の運用処理だけ残す |

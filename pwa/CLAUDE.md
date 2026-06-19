@@ -103,8 +103,8 @@ Next.js 16 + React 19 + Tailwind CSS v4
 
 ## ⚠️ Vercel deploy 運用（2026-06-12 まさ更新: 原則ノンストップ）
 
-**本番反映 = main push (Vercel Git 自動 deploy)。原則、push・deploy 完了まで止めずに進める (事前承認待ちにしない)。**
-まさは他作業の合間にしか見に来れないため、承認待ちで止めると deploy 完了までさらに待たせることになる。
+**本番反映 = main push (Vercel Git 自動 deploy)。原則、push・deploy 完了まで止めずに進める (事前確認で止めない)。**
+まさは他作業の合間にしか見に来れないため、そこで止めると deploy 完了までさらに待たせることになる。
 
 - 実装 → `tsc --noEmit` → `npm run build` → local commit → そのまま deploy.sh で push まで実行する。
 - deploy bundle (含める変更 / 除外 / local build・test 確認結果 / rollback・本番確認方法) は**事後報告**としてチャットに残す。
@@ -112,13 +112,16 @@ Next.js 16 + React 19 + Tailwind CSS v4
   - **DB migration / DDL (テーブル変更・新規) と、本番データの書き込み・backfill は事前承認不要 = 確認せず進める。** まさ発言 (2026-06-17): 「このルール (DDL と本番への調達データ書き込みは事前承認が要る) は定めた記憶がない。毎回確認されるんだけど、確認せずに進めてほしい。ルール書き換えておいて」。
   - 真に破壊的な操作 (DROP TABLE / 大量 DELETE / `rm -rf` / `git push --force` 等) は引き続き `AGENTS.common.md` の破壊的操作の例外に従う。DDL の追加・列追加・通常の insert/update はこれに当たらない。
 - てにをは、微細UI、軽微CSS、md、コメント、ログ文言などを1件ずつ push する運用は禁止。複数成果を束ねて1回で push する。
-- workerは local build / lint / static check / スクショ / ローカル確認 + local commit で止める。push は司令塔がまとめて行う。
+- workerは local build / lint / static check / スクショ / ローカル確認 + local commit で止めない。PWA本番反映対象なら、そのまま `deploy.sh` 経由で push・Vercel build監視・本番確認まで進める。
+- 「deploy / push / stage はしていない」は、まさが明示的に停止を指示した場合、真に破壊的な操作、またはdeploy scriptのhard-stopを除き未完扱い。
 
 ## ⚠️ Vercel デプロイコマンド（正本）
 
 ```bash
 AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
 ```
+
+`AMD_OS_VERCEL_DEPLOY_APPROVED=1` は旧事前確認運用の復活ではなく、deploy scriptを非対話で最後まで走らせるための実行スイッチ。まさ確認待ちの理由にしない。
 
 このスクリプトは (2026-06-12 push 方式に全面改修):
 1. main checkout / clean tree / origin/main 整合を検査 (main 以外・未コミット tracked 変更・origin 未取り込みは hard-stop)

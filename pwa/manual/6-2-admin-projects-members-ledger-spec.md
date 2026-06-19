@@ -164,20 +164,20 @@ Calendar 共有は **Google Workspace ログイン時に `calendar.readonly` を
 | `role` | 自由 text (= 「営業」「リード PM」 等) |
 | `role_label` | 表示用 label |
 | `is_active` | true なら現在 PJ に参加中 |
-| `is_pm` | PJ Manager (= `/mypage` の月次報告書確認表示対象) |
+| `is_pm` | PJ Manager。OS 上の月次確認 TODO 表示条件には使わない |
 | `is_pl` | PJ Lead (= PL 承認権限。`請求額確定` は通常nudgeとしては表示しない) |
 | `is_closer` | クローザー (= 営業最終承認) |
 | `join_ym` / `leave_ym` | 期間 |
 
-### ロール判定の出し分け (= /mypage)
+### ロール判定と /mypage
 
 | メンバーロール | /mypage 月次確認 TODO |
 |---|---|
-| `is_pm=true` | 月次報告書確認のみ |
+| `is_pm=true` | 出さない |
 | `is_pl=true AND is_pm=false` | 出さない |
 | 上記以外 | 出さない |
 
-`請求額確定` は契約 apply 済みデータから自動確定する。契約書由来の金額や対象月の報酬額が見えない場合は、PM/PL の通常nudgeではなく契約台帳/報酬キャッシュの整備対象。請求書発行/送付はadmin業務。
+`/mypage` は PM/PL/参加メンバーのどのロールにも月次確認 TODO を出さない。報告書確認の軽い連絡は Slack 側で完結させ、OS 側の nudge / TODO / action queue へ同期しない。`請求額確定` は契約 apply 済みデータから自動確定する。契約書由来の金額や対象月の報酬額が見えない場合は、PM/PL の通常nudgeではなく契約台帳/報酬キャッシュの整備対象。請求書発行/送付はadmin業務。
 
 詳細は [2-2 章 メンバーの日常ワークフロー](2-2-member-workflows-quick-start.md)。
 

@@ -1512,7 +1512,7 @@
           } catch(e){}
         }
 
-        // PJ内タブ（チャーター/月次ルーティン）
+        // PJ内タブ（チャーター/請求管理）
         document.querySelectorAll("a.pjTab").forEach(a => {
           if (shouldIgnoreLink(a)) return;
           a.addEventListener("click", () => armBlocker(), { capture:true });
@@ -1559,7 +1559,7 @@
             openConfirm(
               `admin強制切替：${x.label}`,
               `この操作は「事実が起きた」ことにはならないよ。\n` +
-              `でも月次ルーティンの進行を止めないために、状態だけ強制的に切り替える。\n\n` +
+              `でも請求・支払管理を止めないために、状態だけ強制的に切り替える。\n\n` +
               `PJ: ${STATE.projectName}（${STATE.projectId}）\n対象月: ${STATE.ym}\nタスク: ${x.taskKey}\n\n` +
               `切替：${isDoneNow ? "完了→未完" : "未完→完了"}\n\nOK？`,
               () => adminToggleRoutineDone_(x.taskKey, nextDone)
@@ -3588,7 +3588,7 @@
               <tr>
                 <th>ym</th>
                 <th class="right">budget</th>
-                <th>PM routine</th>
+                <th>admin status</th>
                 <th>payment</th>
                 ${thMembers}
               </tr>
