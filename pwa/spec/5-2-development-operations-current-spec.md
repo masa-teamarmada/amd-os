@@ -43,7 +43,7 @@ AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts
 - script は push 前に次を検査し、満たさなければ hard-stop する: M-1current branch = main D-1tracked ファイルに未コミット変更なし D-2`origin/main` がローカル main の ancestor (= 別マシンの push を取り込み済み) D-3origin/main との差分 commit が 1 つ以上ある。
 - script は push 前に rollback guard (`deploy-version-guard.cjs`) を実行し、local `BUILD_VERSION` が production current より古い deploy を止める。
 - `bash pwa/scripts/deploy.sh --dry-run` は push せず、上記検査と rollback guard だけを確認する。
-- `AMD_OS_VERCEL_DEPLOY_APPROVED=1` は承認済みを示す値ではなく、誤実行防止の明示スイッチ。原則、deploy 前の承認待ちで止めず、deploy bundle は事後報告に残す。
+- `AMD_OS_VERCEL_DEPLOY_APPROVED=1` は承認済みを示す値ではなく、誤実行防止の明示スイッチ。原則、deploy 前の事前確認で止めず、deploy bundle は事後報告に残す。
 - script は push 後、新しい production deployment が Ready になるまで polling し (最大 15 分)、macOS 通知を出す。
 - **main 以外の branch は build されない**: `pwa/vercel.json` の `ignoreCommand: [ "$VERCEL_GIT_COMMIT_REF" != "main" ]` (exit 0 = build skip)。preview deploy は運用しない。
 - **ブランチ作成は全面禁止** (root `CLAUDE.md` 2026-06-12 確定)。
