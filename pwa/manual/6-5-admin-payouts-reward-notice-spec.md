@@ -308,6 +308,27 @@ GAS 064 が読む:
 
 先12か月の「本契約cap / 別財布」表では、役員の `companyReserveYen` は外部支払ではなく会社留保だが、cap 使用額としては非役員支払と同等に扱う。`regularCompanyReserveYen` は本契約使用額へ、`extraCompanyReserveYen` は別財布使用額へ入れる。非役員メンバーの `stockYen` は従来どおり翌月以降の支払予定に繰り越す。
 
+## 報酬債務台帳
+
+`/admin/payouts` では、未払い残を単独の `stock` 金額として表示しない。支払月の上部に「報酬債務台帳」を置き、支払対象の `member × PJ × 稼働月` ごとに次の式で読む。
+
+```text
+前月残(carryInYen) + 今月発生(grossDueYen - carryInYen) - 今月支払(totalPay) = 月末未払い残(stockYen)
+```
+
+`stockYen` は「今月支払われる額」ではなく、まだ払っていない月末残高。SX のように契約開始前の 202604/202605 に実働があり、202606 から契約・支払が始まる PJ では、契約前発生分が `carryInYen` として後月に流れ、当月支払と月末未払い残が同時に出る。
+
+台帳の原因ラベルは以下を使う。
+
+| label | 条件 | 読み方 |
+|---|---|---|
+| 契約前発生 | `projects.start_ym` より前の稼働月 | 契約開始前に発生した報酬。cap 0 円のため後月支払へ繰越 |
+| 繰越+今月発生 | `carryInYen > 0` かつ当月発生もある | 過去未払い残と今月発生分が同じ cap の中で返済・支払されている |
+| 繰越のみ | `carryInYen > 0` かつ当月発生 0 | 過去未払い分だけを返済対象にしている |
+| cap不足 | 当月発生が cap で払い切れない | 当月cap不足により月末未払い残が発生 |
+
+先12か月表も `stock` ではなく `未払い残` と表示し、`本契約cap` / `本契約使用` / `別財布売上` / `別財布使用` / `月末未払い残` を分ける。PL/cash の収支表と支払通知書の capped 支払予定を混ぜない。
+
 月初合意 gate の PJ 対象判定は、`projects.status='frozen'` だけでなく `projects.freeze_from_ym <= source_ym` も not_required にする。CTB p06 のように `status='active'` のまま freeze overlay で止まっている PJ を支払 gate に戻さないため。
 
 ## ZMP 追加開発の別財布

@@ -55,6 +55,8 @@ gate は `/admin/payouts` の server action で実行する。UI の警告だけ
 
 admin override は `agreementOverrideReason` が 8 文字以上かつ actor email がある場合だけ有効。override は `member_monthly_work_agreement_payout_overrides` に append-only で保存し、対象 action、理由、actor、支払月、稼働月、member、project、blocker status、snapshot hash / current hash、request id を残す。override は報酬計算や合意 row を変更しない。
 
+`/admin/payouts` は gate と同じ画面で、報酬債務台帳を表示する。`stockYen` を単独の支払予定として見せず、`member × PJ × 稼働月` ごとに `carryInYen + (grossDueYen - carryInYen) - totalPay = stockYen` を表示し、原因を `契約前発生` / `繰越+今月発生` / `繰越のみ` / `cap不足` に分類する。先12か月表も `stock` ではなく `未払い残` と表示し、支払予定・本契約cap・別財布・未払い残を分離する。
+
 ### 契約レイヤー
 
 業務委託契約上は、OS 月次合意を毎月の個別発注 / SOW / 条件確認として扱う前提で設計する。ただし hard guard を本番運用の法的拘束力として使うには、契約改定・メンバー同意・法務レビューが前提。この仕様は運用/システム設計であり、AI が法的助言として断定するものではない。

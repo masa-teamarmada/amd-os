@@ -1,6 +1,6 @@
 # 月次試算表 / 予実管理 — OS 移植設計
 
-最終更新: 2026-05-21
+最終更新: 2026-06-19
 正本ステータス: GAS月次試算表のOS移植を正本にしつつ、admin finance台帳とPJ別入金タイミングを追加。
 
 ---
@@ -136,6 +136,19 @@ cashStartYm?: number | null;
 ```
 
 PL上の `revenue` / member cost / closer cost は発生月で計上し、`cashInflow` / `netCashFlow` / `cashBalance` は `cashDelayMonths` を反映した月で計算する。これで「請求は6月から、最初の振込は8月末」のような案件別入金条件を月次試算表に入れられる。
+
+### 報酬債務と PL / cash の境界
+
+SX のように契約開始前の実働を後月支払へ回す PJ では、次の 4 つを別々のレイヤーとして扱う。
+
+| レイヤー | 正本 | 画面上の読み方 |
+|---|---|---|
+| PL 売上/原価 | `/management-score` の月次収支シミュレータ | 発生月ベース。売上・原価・利益を見る |
+| cash | freee 実績 / cash inflow 予定 | 入金月・出金月ベース。runway と残高を見る |
+| 支払予定 | `/admin/payouts` の capped 支払予定 | 実際に今月支払う金額。支払通知書の対象 |
+| 報酬債務 | `reward_summary_json.members[].carryInYen / grossDueYen / totalPay / stockYen` | まだ払っていない月末残高。`前月残 + 今月発生 - 今月支払 = 月末未払い残` で見る |
+
+`stockYen` は PL の原価でも cash out でもなく、非役員メンバーへの未払い残高。先12か月表や支払管理では `stock` とだけ表示せず、`未払い残` として支払予定から分ける。契約前稼働がある PJ は、契約開始前の月に発生した `stockYen` が契約開始後の `carryInYen` へ流れるため、金額だけを見ると大きく見える。admin は `/admin/payouts` の報酬債務台帳で原因ラベルと式を確認する。
 
 ---
 

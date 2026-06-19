@@ -335,6 +335,33 @@ type ProjectMonthlyFinanceRow = {
   totals: Omit<ProjectMonthlyFinanceCell, "projectId" | "projectName" | "ym">;
 };
 
+type RewardDebtSource =
+  | "pre_contract"
+  | "carry_and_current"
+  | "carry_only"
+  | "cap_deferred";
+
+type RewardDebtLedgerRow = {
+  key: string;
+  projectId: string;
+  projectName: string;
+  projectStartYm: string | null;
+  ym: string;
+  invoiceYm: string;
+  memberId: string;
+  memberName: string;
+  carryInYen: number;
+  accruedYen: number;
+  paidYen: number;
+  endingStockYen: number;
+  grossDueYen: number;
+  budgetYen: number;
+  source: RewardDebtSource;
+  sourceLabel: string;
+  sourceClassName: string;
+  note: string;
+};
+
 type MemberPayoutRow = {
   memberId: string;
   memberName: string;
@@ -479,6 +506,7 @@ function WalletFlowRows({
   extraInYen,
   extraOutYen,
   extraBalanceYen,
+  stockYen = 0,
 }: {
   regularInYen: number;
   regularOutYen: number;
@@ -486,6 +514,7 @@ function WalletFlowRows({
   extraInYen: number;
   extraOutYen: number;
   extraBalanceYen: number;
+  stockYen?: number;
 }) {
   const showExtra = extraInYen > 0 || extraOutYen > 0 || extraBalanceYen !== 0;
   const regularOver = regularBalanceYen < 0;
@@ -515,6 +544,7 @@ function WalletFlowRows({
           <span className={`text-right ${balanceClass(extraOver)}`}>{fmtSignedYen(extraBalanceYen)}</span>
         </div>
       )}
+      {stockYen > 0 && <div className="text-right text-[10px] font-medium text-amber-700">未払い残 {fmtFlowYen(stockYen)}</div>}
       {(regularOver || extraOver) && <div className="text-right text-[10px] font-semibold text-red-700">払いすぎ確認</div>}
     </div>
   );
@@ -973,6 +1003,112 @@ function buildProjectMonthlyFinanceRows({
     .sort((a, b) => a.projectName.localeCompare(b.projectName, "ja"));
 }
 
+function rewardDebtSourceForEntry({
+  entry,
+  project,
+  accruedYen,
+}: {
+  entry: PayoutEntry;
+  project?: Project;
+  accruedYen: number;
+}): Pick<RewardDebtLedgerRow, "source" | "sourceLabel" | "sourceClassName" | "note"> {
+  if (project?.start_ym && entry.ym < project.start_ym) {
+    return {
+      source: "pre_contract",
+      sourceLabel: "契約前発生",
+      sourceClassName: "border-amber-200 bg-amber-50 text-amber-900",
+      note: `${fmtYm(project.start_ym)}契約開始前の稼働分。cap 0 円として後月支払へ繰越。`,
+    };
+  }
+
+  if (entry.carryInYen > 0 && accruedYen > 0) {
+    return {
+      source: "carry_and_current",
+      sourceLabel: "繰越+今月発生",
+      sourceClassName: "border-sky-200 bg-sky-50 text-sky-900",
+      note: "前月未払い残と今月発生分が同じcapの中で返済・支払されている。",
+    };
+  }
+
+  if (entry.carryInYen > 0) {
+    return {
+      source: "carry_only",
+      sourceLabel: "繰越のみ",
+      sourceClassName: "border-zinc-200 bg-zinc-50 text-zinc-700",
+      note: "当月の新規発生はなく、過去未払い分だけを返済対象にしている。",
+    };
+  }
+
+  return {
+    source: "cap_deferred",
+    sourceLabel: "cap不足",
+    sourceClassName: "border-red-200 bg-red-50 text-red-800",
+    note: "当月capで発生額を払い切れない分が月末未払い残に回っている。",
+  };
+}
+
+function buildRewardDebtLedgerRows({
+  entries,
+  cycles,
+  projectMap,
+}: {
+  entries: PayoutEntry[];
+  cycles: BillingCycle[];
+  projectMap: Map<string, Project>;
+}): RewardDebtLedgerRow[] {
+  const cycleByKey = new Map(cycles.map((cycle) => [`${cycle.project_id}:${cycle.ym}`, cycle]));
+  const sourcePriority: Record<RewardDebtSource, number> = {
+    pre_contract: 0,
+    carry_and_current: 1,
+    carry_only: 2,
+    cap_deferred: 3,
+  };
+
+  return entries
+    .map((entry): RewardDebtLedgerRow | null => {
+      const cycle = cycleByKey.get(`${entry.projectId}:${entry.ym}`);
+      const project = projectMap.get(entry.projectId);
+      const accruedYen = Math.max(0, Math.round(entry.grossDueYen - entry.carryInYen));
+      const endingStockYen = Math.round(entry.stockYen);
+      const hasDebtSignal = endingStockYen > 0 || entry.carryInYen > 0 || entry.grossDueYen > entry.totalPay;
+      if (!hasDebtSignal) return null;
+
+      const baseClientAmountYen = cycle ? baseClientAmountForCycle(cycle, project) : 0;
+      const baseCapYen = cycle
+        ? baseCapYenFor(baseClientAmountYen, Math.round(numberValue(cycle.budget_buffer_amount)))
+        : 0;
+      const budgetYen = baseCapYen > 0
+        ? baseCapYen
+        : Math.round(numberValue(cycle?.budget_yen));
+      const source = rewardDebtSourceForEntry({ entry, project, accruedYen });
+
+      return {
+        key: entryKey(entry),
+        projectId: entry.projectId,
+        projectName: project?.project_name ?? entry.projectId,
+        projectStartYm: project?.start_ym ?? null,
+        ym: entry.ym,
+        invoiceYm: entry.invoiceYm,
+        memberId: entry.memberId,
+        memberName: entry.memberName,
+        carryInYen: Math.round(entry.carryInYen),
+        accruedYen,
+        paidYen: Math.round(entry.totalPay),
+        endingStockYen,
+        grossDueYen: Math.round(entry.grossDueYen),
+        budgetYen,
+        ...source,
+      };
+    })
+    .filter((row): row is RewardDebtLedgerRow => Boolean(row))
+    .sort((a, b) => (
+      sourcePriority[a.source] - sourcePriority[b.source] ||
+      a.ym.localeCompare(b.ym) ||
+      a.projectName.localeCompare(b.projectName, "ja") ||
+      a.memberName.localeCompare(b.memberName, "ja")
+    ));
+}
+
 export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
   const [ym, setYm] = useState(initialYm);
   const [data, setData] = useState<PayoutData | null>(null);
@@ -1310,6 +1446,15 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
       forecastCapped: data?.forecastCapped ?? [],
     }),
     [data?.forecastCycles, data?.extraRevenueRows, data?.forecastPlanCycles, data?.forecastCapped, forecastMonths, memberMap, officerMemberIds, payoutEligibleProjectIds, payoutExcludedMemberIds, projectMap]
+  );
+
+  const rewardDebtLedgerRows = useMemo(
+    () => buildRewardDebtLedgerRows({
+      entries: expectedEntries,
+      cycles: data?.cycles ?? [],
+      projectMap,
+    }),
+    [data?.cycles, expectedEntries, projectMap]
   );
 
   const memberRows = useMemo<MemberPayoutRow[]>(() => {
@@ -1934,6 +2079,12 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
         <SummaryBox label="支払総額" value={fmtYen(grandTotal)} sub={`支払月 ${fmtYm(ym)}`} />
       </div>
 
+      <RewardDebtLedgerPanel
+        rows={rewardDebtLedgerRows}
+        paymentYm={ym}
+        onOpenMonthly={(row) => openMonthlyModal(row.projectId, row.ym, `${row.projectName} ${fmtYm(row.ym)}`)}
+      />
+
       <BudgetAuditPanel
         items={budgetAuditItems}
         totals={budgetAuditTotals}
@@ -2012,7 +2163,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
 		                        )}
 		                        {(stats?.stockYen ?? 0) > 0 && (
 		                          <div className="text-[10px] font-normal text-amber-700">
-	                            ストック {fmtYen(stats?.stockYen)}
+	                            未払い残 {fmtYen(stats?.stockYen)}
 	                          </div>
 	                        )}
 	                        {(stats?.carryInYen ?? 0) > 0 && (
@@ -2071,10 +2222,10 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
 		                          {row.extraBasePay > 0 && <span className="rounded bg-indigo-100 px-1 text-indigo-800">別財布 {fmtYen(row.extraBasePay)}</span>}
 		                        </div>
 		                      )}
-		                      {(row.stockYen > 0 || row.carryInYen > 0) && (
+	                      {(row.stockYen > 0 || row.carryInYen > 0) && (
 		                        <div className="mt-1 flex flex-wrap gap-1 text-[10px]">
 	                          {row.carryInYen > 0 && <span className="rounded bg-sky-100 px-1 text-sky-800">繰越入 {fmtYen(row.carryInYen)}</span>}
-	                          {row.stockYen > 0 && <span className="rounded bg-amber-100 px-1 text-amber-900">現ストック {fmtYen(row.stockYen)}</span>}
+	                          {row.stockYen > 0 && <span className="rounded bg-amber-100 px-1 text-amber-900">未払い残 {fmtYen(row.stockYen)}</span>}
 	                        </div>
 	                      )}
 	                    </td>
@@ -2107,10 +2258,10 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
 	                              ) : null}
 	                              <span className="font-medium">{fmtYen(entry.totalPay)}</span>
 	                              {entry.stockYen > 0 ? (
-	                                <span className="text-amber-700">stock {fmtYen(entry.stockYen)}</span>
+	                                <span className="text-amber-700">未払い残 {fmtYen(entry.stockYen)}</span>
 	                              ) : null}
 	                              {entry.grossDueYen > entry.totalPay ? (
-	                                <span className="text-muted-foreground">due {fmtYen(entry.grossDueYen)}</span>
+	                                <span className="text-muted-foreground">発生+繰越 {fmtYen(entry.grossDueYen)}</span>
 	                              ) : null}
 	                            </button>
                           );
@@ -2308,6 +2459,134 @@ function PayoutAgreementGatePanel({
   );
 }
 
+function RewardDebtLedgerPanel({
+  rows,
+  paymentYm,
+  onOpenMonthly,
+}: {
+  rows: RewardDebtLedgerRow[];
+  paymentYm: string;
+  onOpenMonthly: (row: RewardDebtLedgerRow) => void;
+}) {
+  const totals = useMemo(() => {
+    const flowTotals = rows.reduce(
+      (acc, row) => ({
+        carryInYen: acc.carryInYen + row.carryInYen,
+        accruedYen: acc.accruedYen + row.accruedYen,
+        paidYen: acc.paidYen + row.paidYen,
+        preContractYen: acc.preContractYen + (row.source === "pre_contract" ? row.accruedYen : 0),
+      }),
+      { carryInYen: 0, accruedYen: 0, paidYen: 0, preContractYen: 0 }
+    );
+    const latestBalanceByMemberProject = new Map<string, RewardDebtLedgerRow>();
+    for (const row of rows) {
+      const key = `${row.projectId}:${row.memberId}`;
+      const current = latestBalanceByMemberProject.get(key);
+      if (!current || row.ym > current.ym) latestBalanceByMemberProject.set(key, row);
+    }
+    const endingStockYen = [...latestBalanceByMemberProject.values()].reduce(
+      (sum, row) => sum + row.endingStockYen,
+      0
+    );
+    return { ...flowTotals, endingStockYen };
+  }, [rows]);
+
+  return (
+    <section className="rounded-lg border border-border bg-card p-3">
+      <div className="flex flex-wrap items-start gap-3">
+        <div className="min-w-0">
+          <h2 className="text-[13px] font-semibold">報酬債務台帳</h2>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            前月残 + 今月発生 - 今月支払 = 月末未払い残。未払い残は支払額ではなく、まだ払っていない残高。
+          </p>
+        </div>
+        <div className="ml-auto flex flex-wrap justify-end gap-2 text-[11px]">
+          <span className="rounded bg-muted/50 px-2 py-1">支払月 {fmtYm(paymentYm)}</span>
+          <span className="rounded bg-sky-50 px-2 py-1 text-sky-900">前月残 {fmtSignedYen(totals.carryInYen)}</span>
+          <span className="rounded bg-muted/50 px-2 py-1">今月発生 {fmtSignedYen(totals.accruedYen)}</span>
+          <span className="rounded bg-emerald-50 px-2 py-1 text-emerald-800">今月支払 {fmtSignedYen(totals.paidYen)}</span>
+          <span className="rounded bg-amber-50 px-2 py-1 text-amber-900">月末未払い残 {fmtSignedYen(totals.endingStockYen)}</span>
+          {totals.preContractYen > 0 && (
+            <span className="rounded bg-amber-100 px-2 py-1 text-amber-950">契約前発生 {fmtSignedYen(totals.preContractYen)}</span>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-3 overflow-x-auto rounded-md border border-border bg-background">
+        <table className="min-w-[1120px] w-full text-[12px]">
+          <thead className="border-b border-border bg-muted/40">
+            <tr>
+              <th className="px-3 py-2 text-left font-medium">原因</th>
+              <th className="px-3 py-2 text-left font-medium">PJ / 稼働月</th>
+              <th className="px-3 py-2 text-left font-medium">メンバー</th>
+              <th className="px-3 py-2 text-right font-medium">式</th>
+              <th className="px-3 py-2 text-right font-medium">月末未払い残</th>
+              <th className="px-3 py-2 text-left font-medium">読むポイント</th>
+              <th className="px-3 py-2 text-right font-medium">Detail</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
+                  未払い残・繰越はない
+                </td>
+              </tr>
+            ) : (
+              rows.map((row) => (
+                <tr key={row.key} className="align-top hover:bg-muted/20">
+                  <td className="px-3 py-2">
+                    <span className={`inline-flex rounded border px-1.5 py-0.5 text-[10px] font-medium ${row.sourceClassName}`}>
+                      {row.sourceLabel}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2">
+                    <div className="font-medium">{row.projectName}</div>
+                    <div className="font-mono text-[10px] text-muted-foreground">
+                      {row.projectId} / {fmtYm(row.ym)} 稼働
+                    </div>
+                    {row.projectStartYm && (
+                      <div className="text-[10px] text-muted-foreground">契約開始 {fmtYm(row.projectStartYm)}</div>
+                    )}
+                  </td>
+                  <td className="px-3 py-2">
+                    <div className="font-medium">{row.memberName}</div>
+                    <div className="font-mono text-[10px] text-muted-foreground">{row.memberId}</div>
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    <div className="font-mono text-[11px] tabular-nums">
+                      {fmtSignedYen(row.carryInYen)} + {fmtSignedYen(row.accruedYen)} - {fmtSignedYen(row.paidYen)}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">
+                      gross {fmtSignedYen(row.grossDueYen)} / cap {fmtSignedYen(row.budgetYen)}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    <div className="font-semibold tabular-nums text-amber-800">{fmtSignedYen(row.endingStockYen)}</div>
+                    <div className="text-[10px] text-muted-foreground">支払月 {fmtYm(row.invoiceYm)}</div>
+                  </td>
+                  <td className="px-3 py-2 text-muted-foreground">
+                    <div className="max-w-[320px]">{row.note}</div>
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    <button
+                      type="button"
+                      onClick={() => onOpenMonthly(row)}
+                      className="rounded-md border border-border px-2 py-1 text-[11px] font-medium hover:bg-muted/40 focus:outline-none focus:ring-1 focus:ring-foreground/20"
+                    >
+                      月次詳細
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 function BudgetAuditPanel({
   items,
   totals,
@@ -2403,7 +2682,7 @@ function BudgetAuditPanel({
     const over = columnIsOver(group);
     if (missing) return { label: "本契約cap未設定", className: "bg-red-100 text-red-800" };
     if (over) return { label: `不足 ${fmtYen(Math.abs(columnMoney(group, "finalBalanceYen")))}`, className: "bg-red-100 text-red-800" };
-    if (stockYen > 0) return { label: `cap発動 ${fmtYen(stockYen)}`, className: "bg-amber-100 text-amber-800" };
+    if (stockYen > 0) return { label: `未払い残 ${fmtYen(stockYen)}`, className: "bg-amber-100 text-amber-800" };
     return { label: `OK ${fmtYen(columnMoney(group, "finalBalanceYen"))}`, className: "bg-emerald-100 text-emerald-800" };
   };
 
@@ -2609,14 +2888,15 @@ function ProjectMonthlyFinanceTable({
     <section className="rounded-lg border border-border bg-card p-3">
       <div className="flex flex-wrap items-center gap-3">
         <div>
-          <h2 className="text-[13px] font-semibold">先12か月 本契約cap / 別財布</h2>
+          <h2 className="text-[13px] font-semibold">先12か月 支払予定 / 未払い残</h2>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            各財布の入金・出金・残額だけを見る。残がマイナスなら払いすぎ確認。
+            各財布の入金・出金・残額と、月末未払い残を見る。未払い残の理由は上の報酬債務台帳で確認。
           </p>
         </div>
         <div className="ml-auto flex flex-wrap gap-2 text-[11px]">
           <span className="rounded bg-muted/50 px-2 py-1">本契約 入 {fmtFlowYen(grand.budgetYen)} / 出 {fmtFlowYen(grand.payoutYen)}</span>
           {grand.extraRevenueYen > 0 && <span className="rounded bg-sky-100 px-2 py-1 text-sky-900">別財布 入 {fmtFlowYen(grand.extraRevenueYen)} / 出 {fmtFlowYen(grand.extraPayoutYen)}</span>}
+          {grand.stockYen > 0 && <span className="rounded bg-amber-100 px-2 py-1 text-amber-900">未払い残 {fmtFlowYen(grand.stockYen)}</span>}
           <span className={`rounded px-2 py-1 font-semibold ${grand.finalBalanceYen < 0 ? "bg-red-100 text-red-800" : "bg-emerald-100 text-emerald-800"}`}>
             本契約残 {fmtSignedYen(grand.finalBalanceYen)}
           </span>
@@ -2660,6 +2940,7 @@ function ProjectMonthlyFinanceTable({
                       extraInYen={grand.extraRevenueYen}
                       extraOutYen={grand.extraPayoutYen}
                       extraBalanceYen={grand.extraBalanceYen}
+                      stockYen={grand.stockYen}
                     />
                   </td>
                   {monthTotals.map((total) => (
@@ -2671,6 +2952,7 @@ function ProjectMonthlyFinanceTable({
                         extraInYen={total.extraRevenueYen}
                         extraOutYen={total.extraPayoutYen}
                         extraBalanceYen={total.extraBalanceYen}
+                        stockYen={total.stockYen}
                       />
                     </td>
                   ))}
@@ -2689,6 +2971,7 @@ function ProjectMonthlyFinanceTable({
                         extraInYen={row.totals.extraRevenueYen}
                         extraOutYen={row.totals.extraPayoutYen}
                         extraBalanceYen={row.totals.extraBalanceYen}
+                        stockYen={row.totals.stockYen}
                       />
                     </td>
                     {row.cells.map((cell) => {
@@ -2708,6 +2991,7 @@ function ProjectMonthlyFinanceTable({
                                 extraInYen={cell.extraRevenueYen}
                                 extraOutYen={cell.extraPayoutYen}
                                 extraBalanceYen={cell.extraBalanceYen}
+                                stockYen={cell.stockYen}
                               />
                             </button>
                           ) : (

@@ -648,3 +648,16 @@
 - `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` で main push + Vercel production deploy。v0.28.8 は `/api/build-info` `934d56f2...` で確認。closeout 時点の main / origin/main は `e2e9b34e`、build version `v0.28.9`、production `/api/build-info` は `v0.28.9` 確認対象。
 
 **教訓**: recurring series をDB列として保持していない状態では、Calendar instance id pattern だけに依存しない。title-based fallback も必要で、特に月次/毎月/定例は曜日を key に入れると再発する。
+
+---
+
+### 2026-06-19 — /admin/payouts 報酬債務台帳と未払い残表示の再設計
+
+**経緯**: SX の未払い残が大きく見える理由は、202604/202605 の契約前稼働が正しく後月支払へ繰り越されているためだった。ただし `/admin/payouts` と先12か月表では `stock` が単独表示に近く、数か月後に「なぜ多いのか」を再調査しやすい設計だった。
+
+**対応**:
+- `/admin/payouts` 上部に「報酬債務台帳」を追加。`前月残 + 今月発生 - 今月支払 = 月末未払い残` を member × PJ × 稼働月ごとに表示し、`契約前発生` / `繰越+今月発生` / `繰越のみ` / `cap不足` で原因分類する。
+- 先12か月表と支払明細の表示語を `stock` から `未払い残` に統一し、今月支払・本契約cap・別財布・未払い残を分けて読む形へ整理。
+- `stockYen` は PL 原価や cash out ではなく報酬債務残高であることを、manual 6-5 / 7-1、spec 3-14、design `project_pl_monthly.md` に同期。
+
+**注意**: 今回は表示・監査面の改善で、`reward_summary_json` の計算式や支払額は変えていない。SX の 202606 支払が出るのは、契約バッファ控除後の残 cap を役員会社留保と非役員支払へ同じ配分母で按分する current rule の結果。

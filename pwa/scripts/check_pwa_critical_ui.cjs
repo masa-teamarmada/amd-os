@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable @typescript-eslint/no-require-imports */
 const fs = require("fs");
 const path = require("path");
 
@@ -97,7 +98,8 @@ expectIncludes("src/app/api/progress/ms-schedule/route.ts", [
 ]);
 
 expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
-  "現ストック",
+  "報酬債務台帳",
+  "未払い残",
   "stockYen",
   "openMonthlyModal",
   "報酬キャッシュ再計算",
@@ -105,10 +107,13 @@ expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
   "別財布発生",
   "本契約cap",
   "別財布支払",
-  "先12か月 本契約cap / 別財布",
+  "先12か月 支払予定 / 未払い残",
   "入/出/残",
+  "本契約 入",
+  "別財布 入",
   "払いすぎ確認",
   "WalletFlowRows",
+  "別財布残",
   "extraBalanceYen",
   "cappedRegularYen",
   "cappedExtraYen",
