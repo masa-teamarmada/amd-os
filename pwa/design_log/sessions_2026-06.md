@@ -694,7 +694,7 @@
 - `npx tsc --noEmit`
 - `npm run build`
 - `npm run test:critical-ui`
-- production `/api/build-info`: closeout 時点で `v0.28.12` / `b2277b5f` / `dirty=false` (実装 commit `2354e085` を含む)
+- production `/api/build-info`: closeout 時点で `v0.28.13` / `e32d2bd2` / `dirty=false` or newer (実装 commit `2354e085` を含む)
 - production unauthenticated route smoke: `/api/task-calendar/register-tasks` は `401 unauthorized`
 
 **注意**: 検証では実 Slack DM は送っていない。H-1 automation 配線時はまず `dry_run=true` で payload / 重複 / owner Slack mapping を確認し、対象・件数・rollback・通知有無を明確にしてから `send_slack=true` にする。

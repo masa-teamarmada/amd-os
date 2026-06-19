@@ -13,7 +13,7 @@ cd /Users/masa/projects/AMD/amd-os
 - Slack nudge は担当者本人だけへ送る。送信先は payload の `owner_slack_user_id`、無ければ `members.slack_id`。`send_slack=true` かつ non-dry-run の時だけ実送信する。
 - PWA route は Calendar event 作成、Gmail送信、外部attendee招待、admin DM をしない。
 - Calendar 作業枠候補が必要な場合だけ `/api/task-calendar/schedule-plan` を dry-run planner として使う。
-- 実装 commit は `2354e085 feat(pwa): register H1 tasks with owner nudges`。production は closeout 時点で `v0.28.12` / `b2277b5f` / `dirty=false`、この commit を含む。
+- 実装 commit は `2354e085 feat(pwa): register H1 tasks with owner nudges`。production は closeout 時点で `v0.28.13` / `e32d2bd2` / `dirty=false` or newer、この commit を含む。
 - 検証では実Slack DMは送っていない。送信テストをする場合は対象・件数・rollback・通知有無を先に明確にする。
 
 作業前に必ず:
