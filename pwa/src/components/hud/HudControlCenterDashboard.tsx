@@ -221,22 +221,11 @@ function metricBarPct(value: number, max: number) {
   return clamp(Math.round((value / max) * 100), 3, 100);
 }
 
-function buildQueue(projects: DashProject[], billingStatus: Record<string, DashBillingStatus>, actionItems: HudActionItem[] = []) {
+function buildQueue(actionItems: HudActionItem[] = []) {
   if (actionItems.length) return actionItems.slice(0, 5);
-  const missing: HudActionItem[] = [];
-  for (const project of projects) {
-    const b = billingStatus[project.projectId];
-    if (!b) continue;
-    const base = { projectInitials: projectInitials(project.shortLabel || project.projectName, project.projectId), periodLabel: ymLabel(b.ym) };
-    if (!b.reportDone) missing.push({ ...base, title: "月次報告書確認", meta: `${project.projectId} / PM nudge`, tone: "amber" });
-    if (!b.invoiceDone) missing.push({ ...base, title: "admin請求書送付", meta: `${project.projectId} / admin billing`, tone: "amber" });
-    if (!b.paymentDone && b.invoiceDone) missing.push({ ...base, title: "入金確認", meta: `${project.projectId} / cash`, tone: "red" });
-  }
   return [
-    ...missing,
     { title: "創業者意思決定同期", meta: "CX / SE / SX", periodLabel: formatYm(), projectInitials: "AMD", tone: "red" as const },
     { title: "弱シグナル確認", meta: "policy / papers / news", periodLabel: formatYm(), projectInitials: "AT", tone: "cyan" as const },
-    { title: "月次報告書確認nudge", meta: formatYm(), periodLabel: formatYm(), projectInitials: "RT", tone: "cyan" as const },
   ].slice(0, 5);
 }
 
@@ -261,7 +250,7 @@ export function HudControlCenterDashboard({ projects, billingStatus, user, actio
   const [introOpen, setIntroOpen] = useState(false);
   const [inactiveOpen, setInactiveOpen] = useState(false);
   const signals = useMemo(() => buildSignals(projects, scoreHistory, signalMetrics), [projects, scoreHistory, signalMetrics]);
-  const queue = useMemo(() => buildQueue(projects, billingStatus, actionItems), [projects, billingStatus, actionItems]);
+  const queue = useMemo(() => buildQueue(actionItems), [actionItems]);
   const primarySignals = signals
     .filter((p) => primarySignalStatuses.has(p.status))
     .sort((a, b) => b.currentScore - a.currentScore || a.projectName.localeCompare(b.projectName, "ja"));
