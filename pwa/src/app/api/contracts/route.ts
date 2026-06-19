@@ -5,6 +5,10 @@ import { CONTRACT_STATUSES, type ContractStatus } from "@/lib/contracts";
 
 export const runtime = "nodejs";
 
+const CONTRACTS_LIST_LIMIT = 10000;
+const CONTRACT_DOCUMENTS_LIST_LIMIT = 20000;
+const CONTRACT_ACTIVITY_LIST_LIMIT = 5000;
+
 function text(value: unknown, maxLength = 240) {
   return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
 }
@@ -39,22 +43,22 @@ export async function GET() {
         .from("contracts")
         .select("*,projects(project_name,slack_channel_id)")
         .order("last_activity_at", { ascending: false })
-        .limit(300),
+        .limit(CONTRACTS_LIST_LIMIT),
       admin
         .from("contract_documents")
         .select("*")
         .order("received_at", { ascending: false })
-        .limit(1000),
+        .limit(CONTRACT_DOCUMENTS_LIST_LIMIT),
       admin
         .from("contract_signals")
         .select("*")
         .order("detected_at", { ascending: false })
-        .limit(1000),
+        .limit(CONTRACT_ACTIVITY_LIST_LIMIT),
       admin
         .from("contract_nudges")
         .select("*")
         .order("candidate_at", { ascending: false })
-        .limit(500),
+        .limit(CONTRACT_ACTIVITY_LIST_LIMIT),
       admin
         .from("projects")
         .select("project_id,project_name,status,slack_channel_id")

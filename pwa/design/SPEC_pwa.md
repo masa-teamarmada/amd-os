@@ -395,7 +395,7 @@ bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh
 ```
 
 - 2026-06-12以降、PWA 本番反映は **main push = Vercel Git 自動 production deploy**。CLI 直接 deploy / preview deploy は廃止。
-- 原則、deploy 前の承認待ちで止めない。build/test/browser確認、含める変更、除外する変更、push先、rollback/本番確認方法は deploy bundle として事後報告に残す。
+- 原則、deploy 前の事前確認で止めない。build/test/browser確認、含める変更、除外する変更、push先、rollback/本番確認方法は deploy bundle として事後報告に残す。
 - 微細UI、軽微CSS、md、コメント、ログ文言などを1件ずつdeployしない。複数worker成果を束ねて1回でdeployする。
 - deploy script の `AMD_OS_VERCEL_DEPLOY_APPROVED=1` は承認フラグではなく誤実行防止の明示スイッチ。`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` で main push・build監視まで進める。
 - **`--cwd` はリポジトリ root** (`pwa/` ではない)。Vercel project `amd-os-pwa` の Settings → Build → Root Directory が `pwa` のため、`--cwd .../pwa` だと `pwa/pwa` 二重で失敗する

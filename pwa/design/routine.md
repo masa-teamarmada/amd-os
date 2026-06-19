@@ -23,7 +23,10 @@
 
 - `cron_checkRoutineAlertsDaily_` / `cron_invoiceSendNudge_` / `cron_nudgeBudgetReminder` は no-op。
 - `setupRoutineAlertTrigger` / `invoiceSend_runInternalSetup_` / `setup_nudgeBudgetReminderTrigger` は既存トリガー削除のみ行い、新規トリガーを作らない。
+- `admin_tsukuyomi_postMonthlyRoutineReminders` / `cron_meetingScheduleReminder` / `cron_invoiceWorkflowDaily` / `cron_reportFixReminder` は no-op。
+- `install_cron_meetingScheduleReminder` / `install_cron_invoiceWorkflowDaily` / `install_cron_reportFixReminder` は既存トリガー削除のみ行い、新規トリガーを作らない。
 - legacy GAS cockpit は routine section を描画せず、`cockpit_api_getRoutineFlow` は空の `flows` を返す。
+- PWA cockpit は `tsukuyomi_nudge_queue` に残った legacy monthly message を表示しない。
 
 ## 残すもの
 

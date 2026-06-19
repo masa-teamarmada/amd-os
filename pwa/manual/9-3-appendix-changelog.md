@@ -14,6 +14,7 @@
 
 | 日付 | 対象章 | 種別 | 内容 | 理由 | 誰が |
 |---|---|---|---|---|---|
+| 2026-06-19 | 2-2 / 2-3 / 3-1 / 6-2 / 6-3 / 6-6 / design/routine | 変更・削除 | OS 上の PM/PL 月次確認 TODO / nudge を完全廃止として明記。報告書確認の軽い連絡は Slack 側で完結させ、`/mypage` / dashboard / cockpit / action queue へ同期しない。支払 gate から月次ルーティン完了条件も外し、月次カードは read/write の確認面としてだけ残す | まさ指示「そもそも月次ルーティンというもの自体を廃止して。報告書確認nudgeはslack上でやるだけだから、OS側は不要。」に合わせ、前回の「report nudge だけ残す」方針をOS内実装から撤回するため | えいみ |
 | 2026-06-19 | 9-2 開発者向け | 変更・削除 | Vercel deploy / main push 前に deploy bundle 承認を待つ 2026-06-04 ルールを削除し、2026-06-12 以降の「main push = Vercel Git 自動 production deploy」「原則、deploy前の承認待ちで止めない」「deploy bundle は事後報告」「`AMD_OS_VERCEL_DEPLOY_APPROVED=1` は承認フラグではなく誤実行防止スイッチ」へ統一 | 古い approval gate 文言を読んだ worker が本番反映済みと誤解させ、まさが未deployページを探す時間を失ったため。まさ指示「その古いルールをすべて削除して。二度とこういうことが起きないように。」 | えいみ |
 | 2026-06-19 | 4-3 AMD Score | 変更 | legacy M-X-F は主表示へ戻すものではなく、PRS の P/R/S を説明する evidence shelf として読む説明を補強 | legacy score が高いからといって PRS Primary の `INPUT NEEDED` を上書きしない境界を、読者が manual だけで判断できるようにするため | えいみ |
 | 2026-06-19 | 4-3 AMD Score | 変更 | PRS primary formula の前に、P/R/S を「勝ち筋の大きさ」「届く準備」「生き残る力」として読む説明、式の日本語訳、0-9点の感覚表を追加 | 数式だけだと初見読者が AMD Score を単なる巨大な点数として読みやすいため、PRS が必要条件の同時充足を見るモデルだと manual 上で直感的に理解できるようにする | えいみ |
