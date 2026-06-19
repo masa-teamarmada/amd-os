@@ -177,9 +177,9 @@ H-1は、終了済みMTGの議事録抽出とは別に、今日0:00 JSTから60�
 
 PJに `drive_folder_id` がある場合、automation側でDrive root直下と会議日/title token に合う1階層サブフォルダを探し、Docs / Slides / Sheets / PDF / Office files の metadata を `drive_files` として渡す。PWA route はDriveを直接読まず、渡された metadata を `narrative_md` の `関連Drive資料` に載せる。Drive資料は補助根拠であり、資料に書かれているだけで当日決定事項とは扱わない。
 
-### H-1 Calendar作業枠 review
+### H-1 タスク化と担当者 nudge
 
-MTGカード / 議事録 / Gmail TODO / Slack TODO から `+<PJコード> <task>` の作業枠を作る時は、`/admin/calendar-review` で dry-run planner の結果を確認する。`/api/meeting-calendar/upsert-plan` と `/api/task-calendar/schedule-plan` は候補 payload と重複判定だけを返し、Calendar / Slack / Gmail へ実writeしない。実writeへ進む場合は H-1 / Calendar connector 側で対象・件数・rollback・通知有無を確認する。
+MTGカード / 議事録 / Gmail TODO / Slack TODO から次アクションが出たら、H-1 は `POST /api/task-calendar/register-tasks` で `tasks` に自動登録し、担当者本人へ Slack DM nudge を送る。admin が全件 review する `/admin/calendar-review` は使わない。Calendar 作業枠候補が必要な場合だけ `/api/task-calendar/schedule-plan` の dry-run で `calendar_writes` を作るが、PWA route は Calendar / Gmail / 外部招待を実writeしない。
 
 ### H-1 Notion 文字起こし導線
 

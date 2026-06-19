@@ -50,9 +50,9 @@ Calendar event の PJ 判定は、色→PJ判定を第一軸にする。
 
 MTGカード / 議事録側に日時・場所・対面/オンライン・持参物・返信/宿題があるのに Calendar event が無い/薄いケースは、`POST /api/meeting-calendar/upsert-plan` で一次防御する。PWA は Calendar を直接読まない / 書かない。L2H-1 automation が既存 Calendar event metadata を read-only で渡し、この route は `update_existing` / `create_candidate` / `review_required` / `hold` の plan、重複判定、`sendUpdates='none'` 前提の proposed payload だけを返す。`dry_run=false` / `execute=true` は `calendar_write_disabled` で拒否する。
 
-MTGから生まれた担当タスク、OS task、Gmail TODO、Slack TODO は `POST /api/task-calendar/schedule-plan` で Calendar 作業枠候補にする。route は owner calendar とまさ calendar の busy window を入力として受け取り、`+<PJコード> <task>` の作業枠候補を `calendar_writes[]` で返す。外部 attendees は空、Google Meetなし、Gmail/Slack返信は送らない。owner calendar が不明、低信頼、個人予定境界、共通空き枠なしは `review_required` / `hold`。
+MTGから生まれた担当タスク、OS task、Gmail TODO、Slack TODO はまず `POST /api/task-calendar/register-tasks` で `tasks` に自動登録し、担当者本人だけへ Slack DM nudge を送る。admin review queue は作らない。重複は `task_id` で止め、既存 task には既定で再通知しない。Slack 実送信は `send_slack=true` の時だけ行い、送信先は payload の `owner_slack_user_id` または `members.slack_id` で解決した owner だけに限定する。
 
-`/admin/calendar-review` はこの dry-run planner の review queue UI。admin が `tasks` / `meetings` payload を投げ、`plans`、`calendar_writes`、`slack_nudge_candidates`、`review_reasons`、`duplicate_match` をOS上で確認し、H-1 / Calendar connector 実行前の write bundle をコピーできる。画面も route も Calendar / Slack へ実writeしない。実writeは、対象・件数・rollback・通知有無を確認した後に H-1 側で実行する。
+Calendar 作業枠候補が必要な場合だけ `POST /api/task-calendar/schedule-plan` を dry-run planner として使う。route は owner calendar とまさ calendar の busy window を入力として受け取り、`+<PJコード> <task>` の作業枠候補を `calendar_writes[]` で返す。外部 attendees は空、Google Meetなし、Gmail/Slack返信は送らない。owner calendar が不明、低信頼、個人予定境界、共通空き枠なしは `review_required` / `hold`。PWA は Calendar event を直接作成しない。
 
 ## ended / frozen PJ の MTGサマリ生成ガード (2026-06-03 まさ確定)
 

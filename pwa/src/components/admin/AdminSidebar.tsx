@@ -9,7 +9,6 @@ const ADMIN_TABS = [
   { label: "Members", href: "/admin/members" },
   { label: "Company", href: "/admin/company" },
   { label: "契約", href: "/admin/contracts" },
-  { label: "Calendar Review", href: "/admin/calendar-review" },
   { label: "🏛 株主・ガバナンス", href: "/admin/governance" },
   { label: "🛰 Coverage Scanner", href: "/admin/coverage-gaps" },
   { label: "週次活動", href: "/admin/weekly" },

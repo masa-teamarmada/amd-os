@@ -27,7 +27,7 @@
 | strategy dialogue | `/api/strategy-signals`, `/api/dialogue-meeting`, `/api/dialogue-meeting/narrate` | `project_strategy_signals`, `project_meeting_summaries` | `/spec/3-6-strategy-signals-current-spec` |
 | monthly report | `/api/monthly-report/*`, `/api/report/*` | `monthly_reports` / revision | `/spec/3-2-monthly-reports-current-spec` |
 | meeting workflow | `/api/meeting-*` | MTG assets / summary / workflow | `/spec/3-3-meeting-flow-current-spec` |
-| tasks | `/api/tasks`, `/api/task-calendar/schedule-plan` | `tasks` 作成/更新/position/parent edge、Calendar作業枠dry-run | `/spec/5-7-task-management-current-spec`, `/spec/3-3-meeting-flow-current-spec` |
+| tasks | `/api/tasks`, `/api/task-calendar/register-tasks`, `/api/task-calendar/schedule-plan` | `tasks` 作成/更新/position/parent edge、H-1次アクション自動登録+担当者Slack nudge、Calendar作業枠dry-run | `/spec/5-7-task-management-current-spec`, `/spec/3-3-meeting-flow-current-spec` |
 | admin finance | `/api/admin/finance/*`, `/api/admin/payment-confirm`, `/api/invoice/*` | finance tables, billing, freee / GAS | TODO spec |
 | payouts / reward | `/api/admin/payouts`, `/api/cron/payout-*`, `/api/rewards/sync` | reward cache, payout notices, GAS PDF | TODO spec |
 | Atlas | `/api/atlas/*` | atlas signals / stories / themes | TODO spec |

@@ -209,11 +209,11 @@ SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 
 - Docs / Slides / Sheets / PDF / Office files を最大8件 `{title,url,mime_type,modified_time,snippet}` に正規化し、`drive_files` として `calendar-sync` に渡す。route自体はDriveを読みに行かない。
 - Drive資料は `narrative_md` の `関連Drive資料` と `summary_short` / `progress` / `risks` に反映するが、Drive資料だけで `decided` に「決定済み」とは書かない。
 
-**Calendar work-block review (= dry-run / admin確認)**:
-- MTGカード / 議事録 / Gmail TODO / Slack TODO から Calendar 作業枠候補を作る時は、まず `POST /api/meeting-calendar/upsert-plan` または `POST /api/task-calendar/schedule-plan` の dry-run を通す。
-- admin は `/admin/calendar-review` で planner payload を確認する。表示対象は `plans`、`calendar_writes`、`slack_nudge_candidates`、`review_reasons`、`duplicate_match`。
-- `/admin/calendar-review` は write bundle を作る画面であり、Calendar event 作成、Slack DM送信、Gmail返信、外部attendee招待は実行しない。
-- 実writeへ進む場合は H-1 / Calendar connector 側で、対象・件数・rollback・通知有無を確認してから行う。PWA route は `dry_run=false` / `execute=true` を `calendar_write_disabled` で拒否する。
+**H-1 task registration + owner nudge**:
+- MTGカード / 議事録 / Gmail TODO / Slack TODO から次アクションが出たら、`POST /api/task-calendar/register-tasks` で `tasks` に自動登録する。
+- Slack nudge は担当者本人だけへ送る。送信先は payload の `owner_slack_user_id`、無ければ `members.slack_id` で解決する。admin review queue は作らない。
+- route は `task_id` で重複を止め、既存 task には既定で再通知しない。再通知が必要な時だけ `renotify_existing=true` を使う。
+- Calendar 作業枠候補が必要な場合だけ `POST /api/meeting-calendar/upsert-plan` または `POST /api/task-calendar/schedule-plan` の dry-run を使う。PWA route は Calendar event 作成、Gmail返信、外部attendee招待を実行しない。
 
 **Notion 文字起こし導線 (= PWA UI補助 / LLM不要)**:
 - `CockpitMeetingSummary` は `project_meeting_summaries.notion_url` がある MTG / 予定MTGに `Notion文字起こし` CTA を出す。
