@@ -267,7 +267,7 @@ recurring MTG は、Google Calendar の `recurring_event_id` が取れる場合�
 
 ### UI
 
-- `CockpitMeetingSummary` は `source_kinds='upcoming'` の行を、通常の月別議事録とは分けて先頭の「予定MTG / 準備中」ブロックに表示する。`meeting_id LIKE 'upcoming:%'` だけでは確定予定扱いにしない。weekly recurring MTG は series ごとに次回1件だけ表示する。日程未確定の仮置き (`upcoming_tentative`) は「日程調整中MTG」ブロックに表示し、確定予定 count には含めない。仮置き用の `meeting_date` は DB の都合で入っていても、一覧では未定として表示する。
+- `CockpitMeetingSummary` は `source_kinds='upcoming'` の行を、通常の月別議事録とは分けて先頭の「予定MTG / 準備中」ブロックに表示する。`meeting_id LIKE 'upcoming:%'` だけでは確定予定扱いにしない。recurring MTG は series ごとに次回1件だけ表示し、確定予定 count も series card 数で数える。日程未確定の仮置き (`upcoming_tentative`) は「日程調整中MTG」ブロックに表示し、確定予定 count には含めない。仮置き用の `meeting_date` は DB の都合で入っていても、一覧では未定として表示する。
 - row には `予定MTG` chip と Calendar link を出す。
 - 詳細モーダルは `narrative_md` の「初見ブリーフ」を主表示にする。`decided / progress / next_actions / risks` は箇条書きではなく、「会議後に残したい状態」「いまの状況」「当日までに揃えるもの」「必ず確認すること」という文章カードとして補助表示する。既存 `risks` の値は破壊せず「必ず確認すること」に読み替えて表示・編集する。
 - 編集欄は `1段落1ブロック` で保存する。短い断片を並べる用途ではなく、初めて読む人が背景・狙い・準備を文章として追える粒度にする。

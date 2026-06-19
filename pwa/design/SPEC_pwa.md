@@ -481,6 +481,7 @@ npx tsc --noEmit     # 型チェック
 - admin.billing は `予算確定 / 報告書 / 立替確認 / 請求発行 / 請求送付 / 支払通知 / 入金確認 / 報酬支払` の admin 業務表として残す。
 - `?step=<stepId>&ym=YYYYMM` は legacy query。現行 cockpit は `step` を解釈せず、月次カードから `CockpitMonthlyModal` を開く。
 - `CockpitRoutine*` component / modal と `/api/notify/pl-review` は削除済み。詳細は [`routine.md`](routine.md)。
+- GAS legacy の monthly reminder / meeting schedule / invoice workflow / report fix cron は no-op。PWA cockpit は `tsukuyomi_nudge_queue` に残った legacy monthly message を表示しない。
 
 MTG サマリ詳細は `/project/[projectId]/cockpit?meeting=<meeting_id>` で直接開く。MTGカードをクリックすると `meeting` query が URL に入り、共有された URL では該当 detail modal を auto-open する。`meeting` と `ym` / `step` が同時にある場合は MTG詳細を優先する。
 
