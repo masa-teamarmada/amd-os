@@ -47,18 +47,16 @@ PWA deploy / push ルール:
   - `codex/h1-calendar-review-queue-v0286` はmain包含済み残骸、`codex/reward-planned-share-boundaries` はmain包含済みだが `/private/tmp/amd-os-reward-boundaries` に大量dirtyありとして扱い、単純削除しない。
   - 新規worker/automationがbranchを切る原因を特定し、worker prompt / freshness check / preflightで `branch == main` をhard gate化する。
 - 現状どうなってるか
-  - 動作状態: cleanup/guardは完了。CX契約条件抽出の手移植だけ `Blocked by Masa`。
+  - 動作状態: 完了。対象3branch/worktreeは解消済み。
   - worker thread: `019ee1a7-a9f1-7030-b317-482998bb3d06`。
   - worker名: `AMD OS branch違反 cleanup / guard worker`。
   - H1残骸: `codex/h1-calendar-review-queue-v0286` branch / `/Users/masa/.codex/worktrees/h1-calendar-review-queue-v0286` は削除済み。削除前に clean / main包含済み / unique commitなしを確認済み。
   - Reward残骸: `codex/reward-planned-share-boundaries` branch / `/private/tmp/amd-os-reward-boundaries` は削除済み。削除前に unique commitなしを確認し、dirty patchを `/Users/masa/.codex/cleanup_archives/amd-os-reward-boundaries-final-20260620-111733/` に保全済み。
   - Guard: `scripts/worker-freshness-check.sh` は `branch == main` と canonical worktree (`/Users/masa/projects/AMD/amd-os`) をhard fail化済み。commit `27dbb2b5`、origin/main反映済み。
-  - main worktreeの今回worker由来dirtyはこの `COMMANDER_TASKS.md` 台帳更新のみ。
+  - CX残骸: `codex/cx-contract-terms-cap-fix` の未取り込み commit `019cdc4c` は cherry-pickせず、main現行コードへ最小手移植済み。commit `17301a43 feat(contracts): restore contract term candidates`、production `v0.29.4` 反映済み。元branch差分と手移植diffは `/Users/masa/.codex/cleanup_archives/amd-os-cx-contract-terms-final-20260620-151930/` に保全し、branchは削除済み。
 - 残課題は何か
-  - `codex/cx-contract-terms-cap-fix` だけ残す。理由: main未包含 commit `019cdc4c feat(contracts): add contract terms cap source` があり、削除不可。
-  - ただし cherry-pick直は不可。mainには既に `contract_terms` schema/current spec/Contract Apply writer があるため、migration `140_contract_terms.sql` と古いdocs更新は取り込まない。
-  - 手移植候補の最小単位: `pwa/src/lib/contracts.ts` に `ContractTermCandidate` / parser、`pwa/src/lib/contracts-extraction.ts` に `buildContractTermCandidates` + `contract_terms` upsert、`pwa/src/app/api/contracts/route.ts` に terms取得、`pwa/src/components/contracts/ContractsClient.tsx` に条件候補表示。必要なら docsは `pwa/spec/5-6-contracts-management-current-spec.md` へ「D-13がterm候補を生成する」だけ追記。
-  - `Blocked by Masa`: 上記の手移植は `contract_terms` への新規write経路を増やすため、まさの「実装OK」が必要。OK後はmain現行コードへ手移植し、`codex/cx-contract-terms-cap-fix` はmain反映後に削除する。
+  - 対象3branch/worktreeについては残課題なし。
+  - なお、repo全体には今回対象外の古い `codex/*` branch/worktree が複数残る。guardは検知・警告するが、この0Zでは削除対象にしない。
 
 ### 0A. 2026-06-01 KUTE internal MTGをMTGツリーに出し、自動生成漏れを直す
 
