@@ -100,6 +100,8 @@ type BillingCycle = {
   budget_yen: number | null;
   budget_reported_amount?: number | null;
   budget_buffer_amount?: number | null;
+  /** 別財布 (cap_extra) プールの当月支払上限。NULL=未設定 / 0=全額繰越 / N=上限 */
+  extra_budget_yen?: number | null;
   invoice_ym: string | null;
   reward_summary_json: RewardSummary | string | null;
   payout_notice_uploaded_at?: string | null;
@@ -362,7 +364,8 @@ type RewardDebtSource =
   | "pre_contract"
   | "carry_and_current"
   | "carry_only"
-  | "cap_deferred";
+  | "cap_deferred"
+  | "cap_extra_deferred";
 
 type RewardDebtLedgerRow = {
   key: string;
@@ -373,6 +376,8 @@ type RewardDebtLedgerRow = {
   invoiceYm: string;
   memberId: string;
   memberName: string;
+  /** 本契約 (regular) プールか別財布 (cap_extra) プールか。別財布は本契約capと突合しない */
+  pool: "regular" | "cap_extra";
   carryInYen: number;
   accruedYen: number;
   paidYen: number;
@@ -1134,11 +1139,29 @@ function rewardDebtSourceForEntry({
   entry,
   project,
   accruedYen,
+  pool,
+  extraCapSetForMonth,
 }: {
   entry: PayoutEntry;
   project?: Project;
   accruedYen: number;
+  pool: "regular" | "cap_extra";
+  /** 当月 billing.extra_budget_yen が明示設定されているか (= 別財布cap が決まっている月) */
+  extraCapSetForMonth: boolean;
 }): Pick<RewardDebtLedgerRow, "source" | "sourceLabel" | "sourceClassName" | "note"> {
+  // 別財布 (cap_extra) プールは本契約capとは別原資。完了月だけ満額capを置き、それまで全額stock繰越する
+  // のが正常仕様 (= 完了時一括支払)。本契約cap で「cap不足」と判定すると誤報になる。
+  if (pool === "cap_extra") {
+    return {
+      source: "cap_extra_deferred",
+      sourceLabel: "別財布",
+      sourceClassName: "border-sky-200 bg-sky-50 text-sky-900",
+      note: extraCapSetForMonth
+        ? "別財布 (cap_extra) の当月発生分。本契約capとは別原資で判定する。"
+        : "別財布 (cap_extra) の発生分を完了月一括の支払に向けて全額繰越中 (本契約capとは無関係)。",
+    };
+  }
+
   if (project?.start_ym && entry.ym < project.start_ym) {
     return {
       source: "pre_contract",
@@ -1189,45 +1212,84 @@ function buildRewardDebtLedgerRows({
     carry_and_current: 1,
     carry_only: 2,
     cap_deferred: 3,
+    cap_extra_deferred: 4,
   };
 
   return entries
-    .map((entry): RewardDebtLedgerRow | null => {
+    .flatMap((entry): RewardDebtLedgerRow[] => {
       const cycle = cycleByKey.get(`${entry.projectId}:${entry.ym}`);
       const project = projectMap.get(entry.projectId);
-      const accruedYen = Math.max(0, Math.round(entry.grossDueYen - entry.carryInYen));
-      const endingStockYen = Math.round(entry.stockYen);
-      const hasDebtSignal = endingStockYen > 0 || entry.carryInYen > 0 || entry.grossDueYen > entry.totalPay;
-      if (!hasDebtSignal) return null;
 
       const baseClientAmountYen = cycle ? baseClientAmountForCycle(cycle, project) : 0;
       const baseCapYen = cycle
         ? baseCapYenFor(baseClientAmountYen, Math.round(numberValue(cycle.budget_buffer_amount)))
         : 0;
-      const budgetYen = baseCapYen > 0
+      const regularCapYen = baseCapYen > 0
         ? baseCapYen
         : Math.round(numberValue(cycle?.budget_yen));
-      const source = rewardDebtSourceForEntry({ entry, project, accruedYen });
+      const extraBudgetRaw = cycle?.extra_budget_yen;
+      const extraCapSetForMonth = hasExplicitNumber(extraBudgetRaw);
+      const extraCapYen = extraCapSetForMonth ? Math.max(0, Math.round(numberValue(extraBudgetRaw))) : 0;
 
-      return {
-        key: entryKey(entry),
-        projectId: entry.projectId,
-        projectName: project?.project_name ?? entry.projectId,
-        projectStartYm: project?.start_ym ?? null,
-        ym: entry.ym,
-        invoiceYm: entry.invoiceYm,
-        memberId: entry.memberId,
-        memberName: entry.memberName,
-        carryInYen: Math.round(entry.carryInYen),
-        accruedYen,
-        paidYen: Math.round(entry.totalPay),
-        endingStockYen,
-        grossDueYen: Math.round(entry.grossDueYen),
-        budgetYen,
-        ...source,
-      };
+      const out: RewardDebtLedgerRow[] = [];
+
+      // 本契約 (regular) プール: 本契約cap と突合。別財布分は除外した regular の発生/支払/stock で判定する。
+      const regularGross = Math.round(entry.regularGrossDueYen);
+      const regularPaid = Math.round(entry.regularPaidYen);
+      const regularStock = Math.round(entry.regularStockYen);
+      // regular の carryIn は前月 regularStock 由来。entry.carryInYen は混在値なので extra stock 分を引く。
+      const regularCarryIn = Math.max(0, Math.round(entry.carryInYen) - Math.round(entry.extraStockYen));
+      if (regularStock > 0 || regularGross > regularPaid) {
+        const accruedYen = Math.max(0, regularGross - regularCarryIn);
+        const source = rewardDebtSourceForEntry({ entry, project, accruedYen, pool: "regular", extraCapSetForMonth });
+        out.push({
+          key: `${entryKey(entry)}:regular`,
+          projectId: entry.projectId,
+          projectName: project?.project_name ?? entry.projectId,
+          projectStartYm: project?.start_ym ?? null,
+          ym: entry.ym,
+          invoiceYm: entry.invoiceYm,
+          memberId: entry.memberId,
+          memberName: entry.memberName,
+          pool: "regular",
+          carryInYen: regularCarryIn,
+          accruedYen,
+          paidYen: regularPaid,
+          endingStockYen: regularStock,
+          grossDueYen: regularGross,
+          budgetYen: regularCapYen,
+          ...source,
+        });
+      }
+
+      // 別財布 (cap_extra) プール: 本契約capではなく extra_budget_yen と突合する。
+      const extraGross = Math.round(entry.extraGrossDueYen);
+      const extraPaid = Math.round(entry.extraPaidYen);
+      const extraStock = Math.round(entry.extraStockYen);
+      if (extraStock > 0 || extraGross > extraPaid) {
+        const source = rewardDebtSourceForEntry({ entry, project, accruedYen: extraGross, pool: "cap_extra", extraCapSetForMonth });
+        out.push({
+          key: `${entryKey(entry)}:cap_extra`,
+          projectId: entry.projectId,
+          projectName: project?.project_name ?? entry.projectId,
+          projectStartYm: project?.start_ym ?? null,
+          ym: entry.ym,
+          invoiceYm: entry.invoiceYm,
+          memberId: entry.memberId,
+          memberName: entry.memberName,
+          pool: "cap_extra",
+          carryInYen: 0,
+          accruedYen: extraGross,
+          paidYen: extraPaid,
+          endingStockYen: extraStock,
+          grossDueYen: extraGross,
+          budgetYen: extraCapYen,
+          ...source,
+        });
+      }
+
+      return out;
     })
-    .filter((row): row is RewardDebtLedgerRow => Boolean(row))
     .sort((a, b) => (
       sourcePriority[a.source] - sourcePriority[b.source] ||
       a.ym.localeCompare(b.ym) ||
@@ -2685,7 +2747,9 @@ function RewardDebtLedgerPanel({
                       {fmtSignedYen(row.carryInYen)} + {fmtSignedYen(row.accruedYen)} - {fmtSignedYen(row.paidYen)}
                     </div>
                     <div className="text-[10px] text-muted-foreground">
-                      gross {fmtSignedYen(row.grossDueYen)} / cap {fmtSignedYen(row.budgetYen)}
+                      {row.pool === "cap_extra"
+                        ? `別財布gross ${fmtSignedYen(row.grossDueYen)} / 別財布cap ${row.budgetYen > 0 ? fmtSignedYen(row.budgetYen) : "0 (繰越中)"}`
+                        : `gross ${fmtSignedYen(row.grossDueYen)} / cap ${fmtSignedYen(row.budgetYen)}`}
                     </div>
                   </td>
                   <td className="px-3 py-2 text-right">
