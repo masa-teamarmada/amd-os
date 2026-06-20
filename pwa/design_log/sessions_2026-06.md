@@ -892,3 +892,20 @@ deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifica
 **deploy**: BUILD_VERSION v0.29.1→v0.29.2。commit `d1de9502`。deploy.sh が COMMANDER_TASKS.md (別タスク台帳) の dirty で hard-stop するため、`git stash push COMMANDER_TASKS.md` で退避 → deploy.sh (push+build監視 2分40秒) → `git stash pop` で復元。push した5 commit (82deb78a エンジン + 81bf1e2d handoff + 27dbb2b5 worker guard + c327e504 slack正本化 + d1de9502 予実表+ZMP是正)。本番 v0.29.2 / d1de9502 / dirty:false 確認。
 
 **残課題 (本fix対象外)**: ① ZMP regular プール timing (OS task登録済) ② 別財布入力UI自動化 (次段階) ③ 他PJ監査 (SX 1pt穴 / KUTE budget_yen異常)。
+
+---
+
+### 2026-06-20 (続き2) — 別財布表示バグ修正 + ZMP MS設計再考の論点発見 (v0.29.3)
+
+**別財布の「cap不足」誤表示を修正 (v0.29.3, deploy済 commit 95153036)**: まさが `/admin/payouts` 報酬債務台帳で「うめ ZMP 202606 gross¥36,590/cap¥195,000 cap不足だが、ほぼ稼働なし。別財布混ざってない？」と指摘。実DBで うめ202606 は regularEarnedPt=0・extraEarnedPt=1.71 (全部OkuDoor別財布) で**データは正しく表示だけ誤り**。`buildRewardDebtLedgerRows` が混在 grossDueYen を本契約cap と突合していた。本契約(regular)行と別財布(cap_extra)行に flatMap 分離し、別財布行は extra_budget_yen と突合・専用 source `cap_extra_deferred`「完了月一括まで全額繰越中」に。詳細は BUGS.md 2026-06-20 [reward/display] エントリ。
+
+**まさの本質的な疑問は「あびの金額が高すぎる」→ ZMP MS設計の根本論点を発見 (次セッション主題)**:
+- あびの本契約(regular)累計 = ファシリテーション20pt(395,394) + **OkuDoor企画 share0.5(212,781)** + **OkuDoor現地運用 share0.4(170,184・将来按分)** = 高額。
+- **OkuDoor 3 MS のうちシステム開発(67pt)だけ cap_extra 別財布化済み。企画(20pt,202601-08)と現地運用(20pt,202609-12)は tag=normal で本契約regularに混入したまま** (前々からの既知宿題、過去ログにも記載)。
+- **まさ確定の方針**:
+  - OkuDoor企画・現地運用は**別財布にしない** (開発じゃないから本契約のまま)。
+  - **OkuDoor現地運用 (202609〜) はまだ実消化0** (`milestone_monthly_progress` progress=0%)。ただし予実/支払予定では将来按分(アンカー)で あび170,184・うめ170,184・まさ85,092 が202609〜に計上されている。
+  - **OkuDoor企画 (20pt, share まさ0.5/あび0.5)**: まさ「あびはそんなに貢献してないかも」「企画はAMD側がそもそもあまり貢献してない気がしてきた」→ **pt と share を見直したい**。
+- まさ「そもそも ZMP の MS設計から再考したほうがいいかも」→ **次セッションで ZMP MS設計 (pt/tag/share/期間) を一から見直す**。今セッションでは MS は触っていない (DB変更なし)。
+
+**cap不足判定の雑さ (副次発見・別課題)**: 本契約regularの端数stock (数百円, cap総額は足りてるが個別按分の丸め誤差) も `carryIn=0 && stock>0` で「cap不足」赤判定される。本物のcap不足 (202609で regStock=16,472 等) と区別してない。MS設計再考と合わせて扱うか別タスク。BUGS.md に記録。
