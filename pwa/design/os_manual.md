@@ -84,6 +84,8 @@ UI ヒント ([`ui_hint_tooltip.md`](ui_hint_tooltip.md)) は「個別 UI 要素
 6-4 Finance / Payment Confirm
 6-5 Admin Payouts / 支払通知書
 6-6 Member Ops / Billing / Prompt
+6-7 契約管理
+6-8 Admin / MS Overview (= 全PJ MS 設計一望、2026-06-21 新設)
 ```
 
 ### section 7: 報酬・契約 (= 2026-05-27 新設)

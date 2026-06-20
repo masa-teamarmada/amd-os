@@ -21,6 +21,7 @@ const ADMIN_TABS = [
   { label: "Payouts", href: "/admin/payouts" },
   { label: "月初合意", href: "/admin/monthly-work-agreements" },
   { label: "シーズン予実", href: "/admin/season-pl" },
+  { label: "MS一覧", href: "/admin/ms-overview" },
   { label: "Finance", href: "/admin/finance" },
   { label: "📄 知財 / IP", href: "/admin/ip" },
   { label: "Settings", href: "/admin/settings" },

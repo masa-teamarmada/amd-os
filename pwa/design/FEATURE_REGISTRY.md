@@ -77,6 +77,24 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - AdminSidebar の `シーズン予実` 導線、`/admin/season-pl` route、`/api/admin/season-pl` を消す変更は、`FEATURE_REGISTRY.md` と `pwa/design/season_budget_actual.md` を同時に更新する。
 - 「未割当pt」は `Σ(earnedPt) < total_points` ではなく `total_points − Σ(MS points)` で見る (= 期中は消化が total 未満で正常。MS で裏打ちされない pt 単価分母の穴だけを検出する)。この判定を earnedPt 比較へ戻さない。
 
+## /admin/ms-overview
+
+目的: 全 active plan cycle の MS 設計を 1 画面で一望する設計レビュー画面。「pt 配分が他 MS と比べて妥当か」「メンバー間の序列がおかしくないか」をシーズン予実表 (= 実消化) と切り離して、`plannedShare` ベースの理論値で並べて判断する。`/admin/season-pl` が「閉じてるか」を見る安全網なのに対し、こちらは「設計の歪み」を見る設計画面。仕様正本は `pwa/manual/6-8-admin-ms-overview-spec.md`。
+
+必須機能:
+
+- 表示単位: 全 active plan cycle (`status in (active, confirmed, fixed, draft)`) を `budget_yen` 大きい順に並べたアコーディオン。各 PJ ブロックは初期折りたたみ、先頭 PJ のみ開いた状態で出す。
+- 集計の正本ロジック: `/api/admin/ms-overview` (`src/app/api/admin/ms-overview/route.ts`) が `computeSeasonPl` 純関数を再利用し、`regularPtUnitYen` / `extraPtUnitYen` / `extraPoolBudgetYen` を確定させる。MS の `ptValueYen` (= `points × pt単価`、tag=cap_extra なら extra単価) と、メンバー年計 (`Σ MS points × share × pt単価`、tag で regular/extra に振り分け) は route 内で組み立てて返す。実消化 (`milestone_monthly_progress`) は読まない (= 設計値そのものを見せる画面)。
+- PJ ブロック構造: ① メトリクスカード 4 枚 (合計pt / 本契約 pt単価 / 別財布 pt単価 / 主要メンバー比較)、② 全MS (pt順) (MS 名 + 期間 + tag、pt、pt価値、横バー、担当 share)、③ メンバー別 年計 (`codeName` + 本契約濃 + 別財布淡 の積み上げ横バー + 合計金額)、④ tag 凡例 (normal #1D9E75 / routine #888780 / cap_extra #7F77DD)。
+- 別財布 (cap_extra) プールは pt 単価が独立なので、メトリクスもバー色も完全分離。`tag` が cap_extra 系 (`cap_extra` / `extra_contract` / `contract_extra` / `cap_outside` / `uncapped`) の MS だけ extra 単価で評価し、メンバー年計の `extraYen` 列に積む。
+- 編集機能は持たない (= 閲覧専用)。設計値そのものの変更は cockpit の MS 編集 / `/admin/projects/:id` 経由で行い、この画面では結果だけ並べて見せる。
+
+回帰防止:
+
+- `pwa/scripts/check_pwa_critical_ui.cjs` が `/admin/ms-overview` の route / page / client / sidebar anchor (`MS一覧` / `全MS (pt順)` / `メンバー別 年計` / `cap_extra` / `regularPtUnitYen` / `extraPtUnitYen`) を検査する。
+- AdminSidebar の `MS一覧` 導線、`/admin/ms-overview` route、`/api/admin/ms-overview` を消す変更は、`FEATURE_REGISTRY.md` と `pwa/manual/6-8-admin-ms-overview-spec.md` を同時に更新する。
+- 算定ロジックを `computeSeasonPl` から剥がして route 内で再実装しないこと。pt 単価と原資の正本は常に `season-pl.ts` 側に置く (= 予実表と乖離させない、2026-06-20 確定方針)。
+
 ## /admin/private-wiki
 
 目的: admin だけが、AMDメンバー・取引先・クライアント・研究者・外部協力者などの人物単位の趣味・プライベート・関係性メモを PJ ごとに保存・検索・更新できる。

@@ -661,6 +661,38 @@ expectIncludes("design/FEATURE_REGISTRY.md", [
   "役員stock収束",
 ]);
 
+// /admin/ms-overview — 全PJ MS設計 一望 (Milestone Overview)
+expectIncludes("src/app/api/admin/ms-overview/route.ts", [
+  "computeSeasonPl",
+  "value_plan_cycles",
+  "milestone_responsibility",
+  "extra_budget_yen",
+  "planCycles",
+]);
+
+expectIncludes("src/components/admin/AdminMsOverviewClient.tsx", [
+  "/api/admin/ms-overview",
+  "全MS (pt順)",
+  "メンバー別 年計",
+  "cap_extra",
+  "regularPtUnitYen",
+  "extraPtUnitYen",
+]);
+
+expectIncludes("src/app/(app)/admin/ms-overview/page.tsx", [
+  "MS一覧",
+  "AdminMsOverviewClient",
+]);
+
+expectIncludes("src/components/admin/AdminSidebar.tsx", [
+  "MS一覧",
+  "/admin/ms-overview",
+]);
+
+expectIncludes("design/FEATURE_REGISTRY.md", [
+  "/admin/ms-overview",
+]);
+
 require("./check_payout_notice_pdf_golden.cjs");
 
 console.log("critical PWA UI anchors ok");
