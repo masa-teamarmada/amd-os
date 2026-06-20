@@ -82,11 +82,21 @@
 
 ---
 
-## 2026-05-23: SLACK_BOT_TOKEN vs SLACK_TSUKUYOMI_BOT_TOKEN (どっちが「つくよみ」か)
+## 2026-06-19: えいみ名義Slack投稿の固定入口
+
+えいみ名義でSlackへ投稿するときは、設計正本 `pwa/design/notifications.md` の「えいみ名義 Slack 送信」に従い、固定スクリプトを使う。
+
+```bash
+/Users/masa/projects/AMD/amd-os/scripts/send-eimi-slack.mjs --channel C04QB6F7YPN --text "えいみ名義テスト"
+```
+
+2026-06-19に `C04QB6F7YPN` で実地確認し、Slack上の投稿者表示は `えいみ`。production投稿はこの確認済み入口を基準にする。
+
+## 2026-05-23: つくよみ名義の任意チャンネル投稿メモ
 
 ### 症状
 
-- えいみが pwaApi runFunc で `slackNotifyPostToChannelTsukuyomi_("C093DQ4D04W", {text:"..."})` を叩いたら Slack API が `not_in_channel` を返した。
+- 当時の作業で pwaApi runFunc から `slackNotifyPostToChannelTsukuyomi_("C093DQ4D04W", {text:"..."})` を叩いたら Slack API が `not_in_channel` を返した。
 - ところが Slack 上では「つくよみ」(user id `U0A663YPJNQ`) が同じチャンネル `#p21_sx` に 2026-05-22 16:13 に週次レポートを投稿している (= bot は実際にいる)。
 
 ### 原因
@@ -95,17 +105,17 @@
   - `SLACK_BOT_TOKEN` → **つくよみ (user id `U0A663YPJNQ`) 本体** のトークン。各 PJ チャンネルに招待済み
   - `SLACK_TSUKUYOMI_BOT_TOKEN` → **別 bot** (おそらく旧「つくよみchronicle」)。 `#p21_sx` 等の主要 PJ チャンネルに居らず `not_in_channel`
 - `115_SlackNotify.js` には 2 つの関数があり、紛らわしい:
-  - `slackNotifyPostToChannel_(channelId, arg)` (line 223) → `SLACK_BOT_TOKEN` を使う ← **これがつくよみ**
-  - `slackNotifyPostToChannelTsukuyomi_(channelId, arg)` (line 466) → `SLACK_TSUKUYOMI_BOT_TOKEN` を使う ← 名前に Tsukuyomi が入ってるが別 bot
+  - `slackNotifyPostToChannel_(channelId, arg)` (line 223) → `SLACK_BOT_TOKEN` を使う。つくよみ名義の任意チャンネル投稿入口
+  - `slackNotifyPostToChannelTsukuyomi_(channelId, arg)` (line 466) → 当時の調査では `SLACK_TSUKUYOMI_BOT_TOKEN` を参照していた。えいみ名義のproduction投稿は上記の固定スクリプトで確認する
 
 ### 対応内容
 
 - 任意チャンネルにつくよみ名義で投稿する場合は `slackNotifyPostToChannel_` を使う運用に統一。
-- `gas/CLAUDE.md` の「Slack 投稿」セクションに罠と正しい使い方を追記。
+- `gas/CLAUDE.md` の「Slack 投稿」セクションに、つくよみ名義の投稿入口を追記。
 
 ### 再発防止策
 
-- 関数名に "Tsukuyomi" が入ってるからといって、それが「つくよみ」のtokenだとは限らない。Script Properties キー名を読んで実際に **どちらの bot token を使っているか** を確認する。
+- えいみ名義投稿は `scripts/send-eimi-slack.mjs` の実行結果とSlack上の `えいみ` 表示を基準にする。
 - `not_in_channel` エラーが出たら、まず `chat.auth.test` で bot user id を取り、Slack 検索結果 (実際に投稿している bot id) と一致するか比較する。
 
 ### Verification

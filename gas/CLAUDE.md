@@ -367,6 +367,12 @@ curl -sL "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=oneTime_setScriptProperty&
 
 ## Slack 投稿 (任意チャンネル + 任意テキスト)
 
+えいみ名義で投稿するときは、設計正本 `pwa/design/notifications.md` の「えいみ名義 Slack 送信」に従い、リポジトリの固定スクリプトを使う。
+
+```bash
+/Users/masa/projects/AMD/amd-os/scripts/send-eimi-slack.mjs --channel C04QB6F7YPN --text "えいみ名義テスト"
+```
+
 つくよみ名義で `#pXX_xx` 等の任意チャンネルに投稿するときの **正しい入口**:
 
 ```bash
@@ -378,8 +384,8 @@ fetch(url, {method:"POST", headers:{"Content-Type":"application/json"}, body})
 ' "$URL" "$KEY"
 ```
 
-- `slackNotifyPostToChannel_(channelId, arg)` (`115_SlackNotify.js` line 223) は `SLACK_BOT_TOKEN` を使う。これが **つくよみ (user id `U0A663YPJNQ`) 本体** のトークン
-- **罠**: 同じファイル line 466 に `slackNotifyPostToChannelTsukuyomi_` という別関数があるが、これは `SLACK_TSUKUYOMI_BOT_TOKEN` (別bot、おそらく旧「つくよみchronicle」) を使う。これは `#p21_sx` 等の主要PJチャンネルに居らず `not_in_channel` エラーが出る。**任意チャンネル投稿には使わない**
+- `slackNotifyPostToChannel_(channelId, arg)` (`115_SlackNotify.js` line 223) は `SLACK_BOT_TOKEN` を使う。これはつくよみ (user id `U0A663YPJNQ`) 本体のトークン。
+- `slackNotifyPostToChannelTsukuyomi_(channelId, arg)` は、えいみ名義スクリプト経由の production 投稿入口として扱う。
 - channelId は `slackNotifyGetProjectChannelId_(projectId)` で `p21` → `C093DQ4D04W` 等を解決可能
 - 削除は `slack_callApi("chat.delete", {channel, ts})` (`185_SlackNotify.js`)
 

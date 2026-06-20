@@ -15,6 +15,34 @@ LLM プロンプトに含めて再抽出する → 「過去の指摘が反映�
 
 補助的な運用通知として、入金確認nudgeもPWA側に置く。これはL2通知ではなく admin オペレーション通知で、`/api/cron/payment-confirm-nudges` が active admin のSlack DMへ送る。LLM非使用の支払運用cronなので、Vercelでは `freee-payment-sync` (09:10 JST) と `payment-confirm-nudges` (09:30 JST) だけ稼働させ、LLM系cron停止とは別枠で扱う。手動再送は `/admin/payouts` の「入金確認nudge」ボタンから行う。
 
+---
+
+## えいみ名義 Slack 送信
+
+AMD配下でまさがSlack投稿を依頼したときの既定運用入口は、リポジトリ内の固定スクリプトに集約する。明示的に別名義を指定されていない限り、この入口で `えいみ` として投稿する。
+
+```sh
+printf '%s\n' '本文' | /Users/masa/projects/AMD/amd-os/scripts/send-eimi-slack.mjs --channel C04QB6F7YPN --stdin
+```
+
+長文はファイルから渡す。
+
+```sh
+/Users/masa/projects/AMD/amd-os/scripts/send-eimi-slack.mjs --channel C0B3KB8L7B5 --file /tmp/message.txt
+```
+
+このスクリプトは `/Users/masa/projects/AMD/amd-os/pwa/.env.local` を読み、AMD OS GAS の `pwaApi runFunc` 経由で `えいみ (U0ACK22BBDF)` として投稿する。投稿成功時は `{ "persona": "eimi", "channel": "...", "ts": "..." }` を返す。
+
+チャンネル指定:
+
+- まさ宛DM: `U04PJK178JV`
+- まさだけが見るテストチャンネル: `C04QB6F7YPN`
+- KUTE: `C0B3KB8L7B5`
+
+運用時は、このスクリプトの結果とSlack上の投稿者表示を確認する。
+
+Slackの履歴確認やチャンネル確認はSlack connectorを使ってよい。最終投稿はこの固定スクリプトで行う。
+
 - 対象: 支払月単位で `billing_cycles.payment_confirmed_at` が空のPJ。
 - 支払月: `billing_cycles.invoice_ym` があれば優先、空なら `/admin/projects` の支払条件 (`projects.payment_due_rule`) から計算。
 - Slackボタン:
