@@ -9,7 +9,8 @@
 #   AMD_OS_BASE_REF=origin/codex/prs-docs-v01618 scripts/worker-freshness-check.sh
 #
 # The script never changes git state. It only reads HEAD, BUILD_VERSION, refs,
-# and dirty status, then exits non-zero when the checkout is too old.
+# dirty status, and registered worktrees, then exits non-zero when the checkout
+# is too old or is not the canonical main checkout.
 
 set -u
 
@@ -47,6 +48,8 @@ version_lt() {
   [ -n "$left_num" ] && [ -n "$right_num" ] && [ "$left_num" -lt "$right_num" ]
 }
 
+canonical_root="${AMD_OS_CANONICAL_WORKTREE:-/Users/masa/projects/AMD/amd-os}"
+current_worktree="$(git rev-parse --show-toplevel 2>/dev/null || pwd -P)"
 current_version="$(version_from_content < "$BUILD_INFO_PATH")"
 current_head="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
 current_branch="$(git branch --show-current 2>/dev/null || true)"
@@ -75,6 +78,7 @@ fi
 
 echo "AMD OS worker freshness check"
 echo "  cwd: $REPO_ROOT"
+echo "  worktree: $current_worktree"
 echo "  branch: ${current_branch:-detached}"
 echo "  head: $current_head"
 echo "  local BUILD_VERSION: ${current_version:-missing}"
@@ -89,6 +93,16 @@ if [ -n "$base_ref" ]; then
 fi
 
 failures=0
+
+if [ "$current_worktree" != "$canonical_root" ]; then
+  echo "FAIL: AMD OS workers must run in the canonical main worktree ($canonical_root), not $current_worktree."
+  failures=$((failures + 1))
+fi
+
+if [ "${current_branch:-}" != "main" ]; then
+  echo "FAIL: AMD OS branch creation is forbidden; current branch must be main (got ${current_branch:-detached})."
+  failures=$((failures + 1))
+fi
 
 if [ -z "$current_version" ]; then
   echo "FAIL: local BUILD_VERSION is missing."
@@ -115,8 +129,20 @@ if [ "$dirty_count" -gt 0 ]; then
   echo "WARN: worktree is dirty; classify dirty ownership before editing or rebasing."
 fi
 
+checked_out_codex_worktrees="$(
+  git worktree list --porcelain 2>/dev/null \
+    | awk '
+      /^worktree / { path=$2 }
+      /^branch refs\/heads\/codex\// { print path " " substr($0, 8) }
+    '
+)"
+if [ -n "$checked_out_codex_worktrees" ]; then
+  echo "WARN: codex/* worktrees are still registered. Do not add commits there; cleanup only after dirty/main-containment review."
+  printf '%s\n' "$checked_out_codex_worktrees" | sed 's/^/  - /'
+fi
+
 if [ "$failures" -gt 0 ]; then
-  echo "Result: STALE. Stop before implementation/deploy and rebase, switch base, or create a fresh worktree."
+  echo "Result: STALE. Stop before implementation/deploy and return to the canonical main checkout."
   exit 1
 fi
 
