@@ -867,3 +867,28 @@ deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifica
 5. spec/manual 同期。build → deploy。
 
 **スコープ合意 (まさ)**: 今回は「汎用の仕組み + ルール + 手順 (プレイブック)」を確立して ZMP で実証まで。**入力UIの自動化は次段階の別タスク** (今はやらない)。
+
+---
+
+### 2026-06-20 (続き) — 別財布是正 完了・本番deploy (v0.29.2)
+
+前セクションの「まだやってないこと」を全完了し本番 deploy した。
+
+**要確定論点を whatif で解決 (A案採用)**:
+- 本番DBを read-only で `buildRewardSummary` に流す whatif スクリプトで3案比較:
+  - C案 (202605保護 + 完了月cap=残額1,081,795): うめ/あび各**231,824 ≈ 23万** → 原資130万を65,509超過 (202605旧即払いの二重計上)。
+  - B案 (202605保護 + 完了月cap=満額130万): 各232,610 ≈ 過払い大。
+  - **A案 (202605保護解除 + 完了月cap=満額130万): 各199,850 ≈ 20万・OkuDoor総消化1,299,998 ≈ 原資130万にぴったり** ✅。
+- まさ判断「A」。202605 の `reward_paid_at`/`payout_notice_uploaded_at` を一時 NULL → `syncRewardSummariesForProject` で全期間再計算 → フラグ復元、で旧即払いを新ロジックで打ち消した。`monthly_reward_payout` に202605実支払行が無い (現金未払い・通知書のみ) ため上書き無害。
+
+**ZMP DB是正 (本番適用済)**: total_points 187→177 / OkuDoor share まさ0.6923・うめ0.1538・あび0.1538 / extra_budget_yen 202610=130万・202605〜202609=0。是正前snapshotは `_snapshots/` に退避 (一時, 元値はこのログとchangelogに記録)。
+
+**予実表 computeSeasonPl の別財布対応 (今セッションで追加発見・修正)**: 予実表が pt単価を `原資÷total_points` で全pt一括計算 = 別財布 pt も薄める旧汚染と同型だった。regular/extra pt単価分離 (`regularPtUnitYen`/`extraPtUnitYen`/`extraPoolBudgetYen`/`extraPointsSum`)、member 予算取り分を `regularEarnedPt×regular単価 + extraEarnedPt×extra単価` で算出、検算④を regular 分母で突合、に改修。`AdminSeasonPlClient.tsx` に extra pt単価・member 別財布取り分の表示追加。是正後検算: ①closes ②pt完全割当 ③原資=Σcap ④pt単価整合 **全✅**、全member収束Δ ±5円。
+
+**役員収束❌は別件と確定**: 最終月202612で全員 extraStock=0 (OkuDoor別財布完済)、残るのは全部 regularStock (まさ65,411+きよ15,216 等 = 約21.3万)。本契約 MS スケジュール後半偏り×フラットcap の timing 問題で OkuDoor 無関係。OS task `task_20260620015628_8lzmx` 登録。
+
+**プレイブック正本化**: `design/season_budget_actual.md` §5.2 (別財布3ステップ + 既払い再計算手順) / manual 7-1「別財布 (cap_extra) プール」章 / 6-5 別財布手順 / FEATURE_REGISTRY / 9-3 changelog。
+
+**deploy**: BUILD_VERSION v0.29.1→v0.29.2。commit `d1de9502`。deploy.sh が COMMANDER_TASKS.md (別タスク台帳) の dirty で hard-stop するため、`git stash push COMMANDER_TASKS.md` で退避 → deploy.sh (push+build監視 2分40秒) → `git stash pop` で復元。push した5 commit (82deb78a エンジン + 81bf1e2d handoff + 27dbb2b5 worker guard + c327e504 slack正本化 + d1de9502 予実表+ZMP是正)。本番 v0.29.2 / d1de9502 / dirty:false 確認。
+
+**残課題 (本fix対象外)**: ① ZMP regular プール timing (OS task登録済) ② 別財布入力UI自動化 (次段階) ③ 他PJ監査 (SX 1pt穴 / KUTE budget_yen異常)。
