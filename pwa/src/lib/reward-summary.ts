@@ -114,6 +114,14 @@ type BillingRow = {
   budget_yen?: number | null;
   budget_reported_amount?: number | string | null;
   budget_buffer_amount?: number | string | null;
+  /**
+   * 別財布 (cap_extra プール) の当月支払上限。
+   *   NULL  = cap 未設定 (= 従来挙動。cap_extra 需要全額を即支払)
+   *   0     = 当月別財布支払 0 円 (= 全額 stock 繰越)
+   *   N>0   = 当月別財布支払上限 N 円
+   * 完了月だけ満額を置くと「完了時一括支払」になる (ZMP OkuDoor, 設計 §5.1)。
+   */
+  extra_budget_yen?: number | string | null;
   reward_summary_json?: unknown;
 };
 
@@ -476,27 +484,70 @@ function rewardPointBasis(milestones: MilestoneRow[], planCycle: PlanCycleRow | 
   };
 }
 
+/** cap_extra MS の points 合計 (= 別財布プールの総pt)。 */
+function capExtraPointSum(milestones: MilestoneRow[]): number {
+  return milestones.filter(isCapExtraMilestone).reduce((sum, ms) => sum + numberValue(ms.points), 0);
+}
+
 function deriveRewardUnits({
   milestones,
   billing,
   planCycle,
   project,
+  extraPoolBudgetYen,
 }: {
   milestones: MilestoneRow[];
   billing: BillingRow;
   planCycle: PlanCycleRow | null;
   project: ProjectRow | null;
+  /**
+   * 別財布 (cap_extra) プールの総原資 (= Σ billing.extra_budget_yen across cycle)。
+   * 渡されたとき、extra pt単価 = extraPoolBudgetYen ÷ Σ(cap_extra pt) で独立に決める。
+   * これにより別財布の需要 (pt×単価) が別財布原資に一致し、完了月一括 cap で過不足なく消化される。
+   * 未指定なら従来どおり extraPtUnit = regularPtUnit (= regular 単価を借用)。
+   */
+  extraPoolBudgetYen?: number;
 }) {
   const { hasCapExtra, totalPt } = rewardPointBasis(milestones, planCycle);
   const payoutBudget = deriveRewardBudgetForPt({ billing, planCycle, project });
   const regularPtUnit = totalPt > 0 ? Math.round(payoutBudget / totalPt) : 0;
+  const extraPt = capExtraPointSum(milestones);
+  const extraPtUnit =
+    hasCapExtra && extraPoolBudgetYen != null && extraPoolBudgetYen > 0 && extraPt > 0
+      ? Math.round(extraPoolBudgetYen / extraPt)
+      : regularPtUnit;
   return {
     hasCapExtra,
     regularPtUnit,
-    extraPtUnit: regularPtUnit,
+    extraPtUnit,
     regularTotalPt: totalPt,
     payoutBudget,
   };
+}
+
+/** plan cycle 全期間の Σ billing.extra_budget_yen (= 別財布プールの総原資)。明示値が1つも無ければ null。 */
+function sumExtraPoolBudgetYen(billingsByYm: Map<string, BillingRow> | undefined): number | null {
+  if (!billingsByYm) return null;
+  let total = 0;
+  let anySet = false;
+  for (const billing of billingsByYm.values()) {
+    if (!hasExplicitNumber(billing.extra_budget_yen)) continue;
+    anySet = true;
+    total += Math.max(0, Math.round(numberValue(billing.extra_budget_yen)));
+  }
+  return anySet ? total : null;
+}
+
+/**
+ * cap_extra プール (別財布) の当月 cap を billing.extra_budget_yen から導出する。
+ * 戻り値の意味:
+ *   null  = cap 未設定 (= 従来挙動。applyRewardCapsForMonth が需要全額にフォールバック)
+ *   number (0 含む) = この額を別財布支払 cap にする。0 = 全額 stock 繰越。
+ * 本契約 budget_yen と同じ NULL/0 規約を踏襲する (spec 7-1)。
+ */
+function deriveExtraCapYen(billing: BillingRow): number | null {
+  if (!hasExplicitNumber(billing.extra_budget_yen)) return null;
+  return Math.max(0, Math.round(numberValue(billing.extra_budget_yen)));
 }
 
 function deriveMonthlyRewardCaps({
@@ -509,20 +560,23 @@ function deriveMonthlyRewardCaps({
   planCycle: PlanCycleRow | null;
   project: ProjectRow | null;
   hasCapExtra: boolean;
-}) {
+}): { regularCapYen: number; extraCapYen: number | null; totalCapYen: number } {
   const fullBudget = deriveMonthlyRewardBudget({ billing, planCycle, project });
   if (!hasCapExtra) {
     return {
       regularCapYen: fullBudget,
-      extraCapYen: 0,
+      extraCapYen: null,
       totalCapYen: fullBudget,
     };
   }
+  // cap_extra プールがある PJ は、regular cap を本契約分 (バッファ控除後) に絞り、
+  // 別財布 cap は billing.extra_budget_yen から別枠で導出する。
   const regularCapYen = deriveBaseMonthlyRewardBudget({ billing, planCycle, project });
+  const extraCapYen = deriveExtraCapYen(billing);
   return {
     regularCapYen,
-    extraCapYen: 0,
-    totalCapYen: regularCapYen,
+    extraCapYen,
+    totalCapYen: regularCapYen + (extraCapYen ?? 0),
   };
 }
 
@@ -661,7 +715,7 @@ function emptyAllocation(): CapAllocation {
 
 export function applyRewardCapsForMonth(
   reward: RewardSummary,
-  caps: { regularCapYen: number; extraCapYen: number; totalCapYen: number },
+  caps: { regularCapYen: number; extraCapYen: number | null; totalCapYen: number },
   regularCarryStock: Map<string, number>,
   extraCarryStock: Map<string, number>,
   memberMap: Record<string, string> = {},
@@ -715,7 +769,9 @@ export function applyRewardCapsForMonth(
     (sum, item) => sum + Math.max(0, Math.round(item.basePay)) + Math.max(0, Math.round(item.carryInYen)),
     0
   );
-  const effectiveExtraCapYen = caps.extraCapYen > 0 ? caps.extraCapYen : extraGrossBeforeCap;
+  // caps.extraCapYen が null = cap 未設定 → 従来どおり需要全額 (= 別財布即払い)。
+  // 明示値 (0 含む) → その額を別財布支払 cap にする。0 = 全額 stock 繰越 (= 完了月一括の積立)。
+  const effectiveExtraCapYen = caps.extraCapYen == null ? extraGrossBeforeCap : caps.extraCapYen;
   const effectiveTotalCapYen = caps.regularCapYen + effectiveExtraCapYen;
 
   const regularAllocations = allocateCap(regularInputs, caps.regularCapYen, { payAllWhenCapMissing: false });
@@ -902,6 +958,7 @@ export function buildRewardSummaryUncapped({
   billing,
   planCycle,
   project,
+  extraPoolBudgetYen,
 }: {
   ym: string;
   milestones: MilestoneRow[];
@@ -912,6 +969,8 @@ export function buildRewardSummaryUncapped({
   billing: BillingRow;
   planCycle: PlanCycleRow | null;
   project: ProjectRow | null;
+  /** 別財布 (cap_extra) プールの総原資。extra pt単価の独立導出に使う (deriveRewardUnits 参照)。 */
+  extraPoolBudgetYen?: number;
 }): RewardSummary | null {
   if (milestones.length === 0 || responsibilities.length === 0) return null;
 
@@ -919,7 +978,7 @@ export function buildRewardSummaryUncapped({
   const prevConsumedMap = buildPayableCumMap(progress, milestones, planCycle, prevYm);
   const currConsumedMap = buildPayableCumMap(progress, milestones, planCycle, ym);
   const msById = new Map(milestones.map((ms) => [ms.milestone_id, ms]));
-  const { regularPtUnit, extraPtUnit, hasCapExtra } = deriveRewardUnits({ milestones, billing, planCycle, project });
+  const { regularPtUnit, extraPtUnit, hasCapExtra } = deriveRewardUnits({ milestones, billing, planCycle, project, extraPoolBudgetYen });
   const memberPt = new Map<string, { total: number; regular: number; extra: number; regularBasePay: number; extraBasePay: number }>();
   const memberBreakdown = new Map<string, RewardBreakdown[]>();
 
@@ -1037,9 +1096,12 @@ export function buildRewardSummary({
   const extraCarryStock = new Map<string, number>();
   let result: RewardSummary | null = null;
 
+  // 別財布 (cap_extra) プールの総原資 = Σ billing.extra_budget_yen。extra pt単価の独立導出に使う。
+  const extraPoolBudgetYen = sumExtraPoolBudgetYen(billingsByYm) ?? undefined;
+
   for (const month of monthRangeUntil(planCycle, ym)) {
     const billingForMonth = billingsByYm?.get(month) ?? billing;
-    const unitsForMonth = deriveRewardUnits({ milestones, billing: billingForMonth, planCycle, project });
+    const unitsForMonth = deriveRewardUnits({ milestones, billing: billingForMonth, planCycle, project, extraPoolBudgetYen });
     const uncapped = buildRewardSummaryUncapped({
       ym: month,
       milestones,
@@ -1050,6 +1112,7 @@ export function buildRewardSummary({
       billing: billingForMonth,
       planCycle,
       project,
+      extraPoolBudgetYen,
     }) || buildCarryOnlyReward(memberMap, regularCarryStock, extraCarryStock, unitsForMonth.regularPtUnit, unitsForMonth.extraPtUnit);
 
     if (!uncapped) continue;
@@ -1125,7 +1188,7 @@ export async function syncRewardSummaryForCycle(
   const [billingRes, projectRes, planCyclesRes, membersRes] = await Promise.all([
     db
       .from("billing_cycles")
-      .select("project_id, ym, status, budget_yen, budget_reported_amount, budget_buffer_amount, reward_summary_json")
+      .select("project_id, ym, status, budget_yen, budget_reported_amount, budget_buffer_amount, extra_budget_yen, reward_summary_json")
       .eq("project_id", projectId)
       .eq("ym", ym)
       .maybeSingle(),
@@ -1185,7 +1248,7 @@ export async function syncRewardSummaryForCycle(
       .in("milestone_id", milestoneIds),
     db
       .from("billing_cycles")
-      .select("project_id, ym, status, budget_yen, budget_reported_amount, budget_buffer_amount, reward_summary_json")
+      .select("project_id, ym, status, budget_yen, budget_reported_amount, budget_buffer_amount, extra_budget_yen, reward_summary_json")
       .eq("project_id", projectId)
       .gte("ym", planCycle.period_start_ym)
       .lte("ym", ym)
@@ -1327,7 +1390,7 @@ export async function computeForwardUncappedMemberCosts(
       .in("milestone_id", milestoneIds),
     db
       .from("billing_cycles")
-      .select("project_id, ym, status, budget_yen, budget_reported_amount, budget_buffer_amount, reward_summary_json")
+      .select("project_id, ym, status, budget_yen, budget_reported_amount, budget_buffer_amount, extra_budget_yen, reward_summary_json")
       .eq("project_id", projectId)
       .gte("ym", planCycle.period_start_ym)
       .lte("ym", planCycle.period_end_ym)
@@ -1355,6 +1418,7 @@ export async function computeForwardUncappedMemberCosts(
   const progress = (progressRes.data ?? []) as ProgressRow[];
   const responsibilities = (responsibilitiesRes.data ?? []) as ResponsibilityRow[];
   const billingByYm = new Map(((billingRangeRes.data ?? []) as BillingRow[]).map((row) => [row.ym, row]));
+  const extraPoolBudgetYen = sumExtraPoolBudgetYen(billingByYm) ?? undefined;
 
   const months: ForwardUncappedMonth[] = [];
   for (const ym of fullMonths) {
@@ -1370,6 +1434,7 @@ export async function computeForwardUncappedMemberCosts(
       billing,
       planCycle,
       project,
+      extraPoolBudgetYen,
     });
     const uncappedTotalYen = summary
       ? summary.members.reduce((sum, m) => sum + (m.totalPay || 0), 0)
@@ -1518,7 +1583,7 @@ export async function computeForwardCappedMemberCosts(
       .in("milestone_id", milestoneIds),
     db
       .from("billing_cycles")
-      .select("project_id, ym, status, budget_yen, budget_reported_amount, budget_buffer_amount, reward_summary_json")
+      .select("project_id, ym, status, budget_yen, budget_reported_amount, budget_buffer_amount, extra_budget_yen, reward_summary_json")
       .eq("project_id", projectId)
       .gte("ym", planCycle.period_start_ym)
       .lte("ym", planCycle.period_end_ym)

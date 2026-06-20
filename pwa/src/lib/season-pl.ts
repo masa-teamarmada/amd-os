@@ -63,6 +63,8 @@ export type BillingInput = {
   budget_yen?: number | string | null;
   budget_reported_amount?: number | string | null;
   budget_buffer_amount?: number | string | null;
+  /** 別財布 (cap_extra) の当月支払上限。NULL=未設定 / 0=全額繰越 / N=上限N円 (設計 §5.1) */
+  extra_budget_yen?: number | string | null;
   reward_summary_json?: unknown;
   payment_confirmed_at?: string | null;
 };

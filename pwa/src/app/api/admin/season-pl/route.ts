@@ -26,7 +26,7 @@ const PLAN_CYCLE_SELECT =
 const PROJECT_SELECT =
   "project_id, project_name, client_name, fee_type, fee_amount, start_ym, end_ym, contract_terms_json";
 const BILLING_SELECT =
-  "project_id, ym, status, budget_yen, budget_reported_amount, budget_buffer_amount, reward_summary_json, payment_confirmed_at";
+  "project_id, ym, status, budget_yen, budget_reported_amount, budget_buffer_amount, extra_budget_yen, reward_summary_json, payment_confirmed_at";
 const MEMBER_SELECT = "member_id, code_name, member_name, is_officer, exclude_from_payout_notice";
 
 type PlanCycleRow = PlanCycleInput;

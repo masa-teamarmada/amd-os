@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-06-19 23:33 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-06-20 09:53 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -72,7 +72,7 @@ PRIMARY KEY: `id`
 
 ## amd_management_score_raw_signals
 
-行数 (概算): 4,401
+行数 (概算): 4,409
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -502,6 +502,7 @@ UNIQUE: `(project_id,ym)` (constraint: `billing_cycles_project_ym_unique`)
 | 37 | `invoice_pdf_url` | `text` | NULL | `` |
 | 38 | `extra_revenue_json` | `jsonb` | NULL | `` |
 | 39 | `contract_source_term_id` | `uuid` | NULL | `` |
+| 40 | `extra_budget_yen` | `int4` | NULL | `` |
 
 ## billing_log
 

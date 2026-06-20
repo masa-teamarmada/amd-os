@@ -98,6 +98,42 @@
 
 ---
 
+## 5.1 ZMP (p19) 別財布不一致の解析と是正方針 (2026-06-20)
+
+予実表が検出した ZMP の不一致を実コードで解析した結果、原因は2つに分離できた。
+
+### 現状構造
+- `PC-p19-202601-202612`: budget_yen=2,340,000 (本契約 30万×0.65×12), total_points=**187**。
+- MS: 本契約系 (normal/routine) = 110pt、別財布 OkuDoor開発 (`tag=cap_extra`) = 67pt。**合計 177pt**。
+- 別財布売上 OkuDoor = 税抜200万 (`billing_cycles.extra_revenue_json`、202605〜202610 を6ヶ月按分)。
+
+### 原因 (2つ)
+1. **total_points=187 が誤り** (正しくは 110+67=**177**)。10pt の phantom。`rewardPointBasis` は cap_extra pt を総ptから引くので regular pt単価分母 = 187−67=120 (正しくは110)。pt単価が 234万÷120 に薄まる。
+2. **cap_extra プールに cap が無い**。`deriveMonthlyRewardCaps` は `extraCapYen` を常に0で返し、`applyRewardCapsForMonth` が `effectiveExtraCapYen = 需要全額` にフォールバックする。結果 OkuDoor 67pt は開発期間中 (202605〜202610) **毎月需要全額が即支払**われ (各月 extraStock=0)、Σ月cap を 218k×6 ≈ 130万 押し上げる。これが「原資≠Σcap」の正体。さらに 202609〜 で本契約 regular pool が逼迫し regStock が末月 129,675 残る (役員stock非収束)。
+   - 補足: extra プールの pt単価は `extraPtUnit = regularPtUnit` で、OkuDoor 自身の売上原資 (130万÷67) ではなく regular pt単価を借りている。extra プールに独立 budget が無いのが根本。
+
+### 是正方針 (まさ確定 2026-06-20: まずB案、足りなければ物理分離)
+別財布を「同一 plan cycle 内の別プール (cap_extra)」として正しく扱う。物理的に別 plan cycle に分けると `choosePlanCycle` が1月1cycle前提のため period 重複 (202605〜202610) でエンジン大改修が要る。B案は period 重複なしでエンジン改修最小。
+- **A. 本契約是正**: `total_points` 187→**177**。これで regular pt単価分母 = 177−67 = 110 となり 234万÷110=21,273 に正常化、Σcap も本契約分のみで原資と一致へ向かう。
+- **B. 別財布 cap = 完了月一括**: cap_extra プールに月次 cap を持たせ、開発期間中 (202605〜202609) は extraCap=0 で全額 stock 繰越、**完了月 202610 に満額 cap (OkuDoor 売上原資 130万)** を置いて一括支払。`budget_yen=0 → 全額繰越` の既存契約 (spec 7-1) を extra プールにも適用する形。
+- **C. OkuDoor pt単価独立化** (要検討): extra プールの pt単価を OkuDoor 売上原資 (130万÷67) から導出する。現状 regular と同単価で借用しているため、原資の閉じが extra 側でズレる。
+- **要・新規データ**: extra プールの月次 cap (= 完了月だけ満額) をどこに持つか。billing に extra 用 budget 列が無いため、(1) `billing_cycles` に `extra_budget_yen` 追加、または (2) MS 期間 + 売上原資から「完了月一括」を自動導出、のいずれか。実装時に確定する。
+
+> **未確定論点**: 上記 B/C はエンジン (`reward-summary.ts`) の cap_extra プールに budget/cap 機構を新設する改修。影響は reward-summary + season-pl + payouts の extra 表示。実装前に「extra cap をどこに持つか」を1つ選ぶ。
+
+### 実装 (2026-06-20, まさ確定: extra cap は billing_cycles.extra_budget_yen)
+- migration `149_billing_cycles_extra_budget.sql`: `billing_cycles.extra_budget_yen int4`。NULL=cap未設定(従来=需要全額即払い) / 0=全額stock繰越 / N=上限N円。
+- `reward-summary.ts`:
+  - `deriveMonthlyRewardCaps` が `extraCapYen` を `billing.extra_budget_yen` から導出 (`number | null`)。`applyRewardCapsForMonth` は `null`=従来フォールバック、明示値(0含む)=その額をcapにする。
+  - **C (extra pt単価独立化) も同時実装**: `extraPtUnit = Σ(extra_budget_yen) ÷ Σ(cap_extra pt)`。これをしないと extra 需要 (67pt × regular単価21,273=142万) が extra原資130万を超え、完了月capで消化しきれず翌月へ溢れる。独立化で extra需要=130万=cap で過不足なく一括消化される。
+- **シミュレーション結果 (total_points=177, extra cap 202610=130万, 他月0)**:
+  - regular pt単価 = 234万÷110 = **21,273** (汚染解消 ✅)。
+  - extra pt単価 = 130万÷67 = **19,403** (独立 ✅)。
+  - OkuDoor: 202605〜202609 は extraStock 積立 (extraPaid=0)、**202610 に 1,299,998 一括支払・extraStock=0** ✅ = 完了時一括。
+  - **別件の残課題 (本fix対象外)**: regular プールが 202609〜 で単月需要 (約248k) > 単月cap (195k) となり、フラットcapでは末月までに払い切れず年末 regStock 約213k 残る。これは OkuDoor とは無関係の、**ZMP 本契約の MS スケジュールが後半に偏っているのに月次capがフラット**という timing 問題。別タスク (cycle 延長 or 翌cycleへ繰越許容 or 後半cap増) で扱う。
+
+---
+
 ## 6. 関連
 - 報酬計算正本: [`manual/7-1-reward-calc-spec.md`](../manual/7-1-reward-calc-spec.md) (pt単価原資=(請求額−バッファ)×65% / 役員stock繰越)
 - 請求: [`manual/6-3-invoice-and-billing-routine-spec.md`](../manual/6-3-invoice-and-billing-routine-spec.md)

@@ -825,3 +825,45 @@ deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifica
 **検証**: `npx tsc --noEmit` / targeted eslint error 0 / `npm run test:critical-ui` ✅ / `npm run build` (`/admin/season-pl` `/api/admin/season-pl` route 生成確認) / dev server で route 401 (requireAdmin) 正常動作確認。
 
 **残課題 (前セクションのステップ3監査へ合流)**: SX 1pt 穴 (MS補完 or total_points→119)、ZMP cap/原資不整合の是正、KUTE budget_yen 設定異常の是正。いずれも予実表が検知役を果たすので、監査セッションで 1 件ずつ詰める。
+
+---
+
+### 2026-06-20 — 別財布 (cap_extra) 汎用化: extra プール cap 機構 + ZMP是正方針確定 (実装途中・未deploy)
+
+**経緯**: 予実表が検出した ZMP の不一致 (原資≠Σcap / 役員stock非収束) をまさと解析。原因は別財布 (OkuDoor) が本契約の pt単価・cap を汚染していること。まさ方針: 別財布を「同一 plan cycle 内の別プール (cap_extra)」として正しく扱う (= 物理別cycleにはしない。`choosePlanCycle` が1月1cycle前提で period 重複に弱いため)。**今後も別財布案件は頻出するので、特殊計算せず汎用の仕組み・ルール・手順で処理できる設計が前提** (まさ明示)。
+
+**ZMP の不一致 原因 (2つ)**:
+1. `total_points=187` が誤り (正=110本契約 + 67別財布 = 177)。10pt phantom。
+2. cap_extra プールに cap 機構が無く (`deriveMonthlyRewardCaps` が extraCapYen=0 → `applyRewardCapsForMonth` が需要全額にフォールバック)、OkuDoor が開発期間中に毎月即払いされ Σcap を押し上げていた。
+
+**まさ確定の正本ルール (重要)**:
+- **65%ルール・pt単価・cap・繰越は全PJ共通。別財布案件でも一切特殊化しない** (特殊計算を作ると保守不能になる)。
+- 別財布のメンバー支払いは「**先に支払額が確定**、それに合わせて pt/share を後付け割当」。OkuDoor は **あび20万・うめ20万 (計40万) が正本**、まさ(役員)分は会社留保。
+- OkuDoor は **完了月 (202610) に一括支払**。
+
+**B案の実装 (コード, tsc通過・未commit・未deploy)**:
+- migration `149_billing_cycles_extra_budget.sql`: `billing_cycles.extra_budget_yen int4` 追加 (適用済 + dump_schema 済)。NULL=cap未設定(従来=需要全額) / 0=全額stock繰越 / N=上限N円。完了月だけ満額→「完了時一括支払」。
+- `reward-summary.ts`:
+  - `deriveExtraCapYen` 追加、`deriveMonthlyRewardCaps` が `extraCapYen: number | null` を返す。`applyRewardCapsForMonth` は null=従来フォールバック、明示値(0含む)=その額cap。
+  - `deriveRewardUnits` / `buildRewardSummaryUncapped` に `extraPoolBudgetYen` を追加し、**extra pt単価を独立化** (`Σ extra_budget_yen ÷ Σ cap_extra pt`)。`sumExtraPoolBudgetYen` / `capExtraPointSum` 新設。`buildRewardSummary` と `computeForwardUncappedMemberCosts` で配線。
+  - billing select 4箇所に `extra_budget_yen` 追加。
+- `season-pl.ts` / `payouts route` / `season-pl route` の billing 型・select に `extra_budget_yen` 追加。
+
+**ZMP是正の確定値 (まだDB未投入)**:
+- 本契約 `PC-p19-202601-202612.total_points` 187 → **177**。
+- OkuDoor MS `MS-p19-2026-02-okudoor-system` の share **まさ0.7/うめ0.15/あび0.15 → まさ0.6923/うめ0.1538/あび0.1538** (= 原資130万・pt単価19,403固定であび・うめ各20万にするB案。65%もptも原資も変えない)。
+- `billing_cycles.extra_budget_yen`: 202610 に **130万** (OkuDoor完了一括)、202605〜202609 は **0**。ただし **202605は既払い保護** (reward_paid_at=Y, OkuDoor分 あび/うめ各32,760 既出) なので、完了月capは既払い差引きの扱いを次セッションで確定 (まさ「202605はそのまま保護、完了月capは残額」)。
+- 再計算は paid 月 (202601/202604/202605) 保護 (`syncRewardSummariesForProject` が reward_paid_at/payment_confirmed_at/payout_notice_uploaded_at をskip)。
+
+**シミュレーション結果 (whatif, total_points=177 + extra cap 202610=130万)**:
+- regular pt単価 21,273 (汚染解消)、extra pt単価 19,403 (独立)。OkuDoor 202610一括 extraStock=0 ✅。
+- **別件残課題 (本fix対象外)**: regular プールが 202609〜単月需要(248k)>単月cap(195k) で年末 regStock 約213k 残る。OkuDoor無関係の、本契約MSスケジュール後半偏り×フラットcapの timing 問題。別タスク。
+
+**まだやってないこと (次セッション)**:
+1. 自分のコード変更を commit + push (別タスク由来の dirty とは混ぜない)。
+2. ZMP DB是正 (total_points 177 / share 0.6923系 / extra_budget_yen)。完了月capの既払い差引き確定。reward再計算。
+3. 予実表/payouts で別財布分離・本契約閉じを確認。
+4. **別財布処理プレイブックを正本mdに残す** (汎用化の核。次回はこれに沿うだけ)。
+5. spec/manual 同期。build → deploy。
+
+**スコープ合意 (まさ)**: 今回は「汎用の仕組み + ルール + 手順 (プレイブック)」を確立して ZMP で実証まで。**入力UIの自動化は次段階の別タスク** (今はやらない)。
