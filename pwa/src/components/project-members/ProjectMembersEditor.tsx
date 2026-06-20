@@ -8,9 +8,12 @@
  * - 既存 project_members 行を rows 編集
  * - メンバー追加 (memberMaster から選ぶ) / 行の論理削除 (is_active=false) / 役割フラグ・ラベル・参画月・離脱月編集
  * - 「保存」で POST /api/admin/project-members/bulk を 1 回叩く
+ * - 「完全削除」で DELETE /api/admin/project-members/[id] を叩く (= 物理削除、業務記録があれば確認後 force=1)
  *
- * 物理削除はしない: 過去の業務記録 (monthly_reports / reimbursements 等) が
- * project_members 行を参照する可能性があるため、is_active=false で残す (まさ要望 2026-05-13)。
+ * 削除モードは 2 段階:
+ * - 「除外」(論理削除 is_active=false): 行は残り「復活」できる。過去の業務記録は安全
+ * - 「完全削除」(物理 DELETE): 行が DB から消える。業務記録の (project_id, member_id) は dangling
+ *   になる可能性があるが、API が件数表示してユーザ確認を取る (まさ要望 2026-06-21)
  */
 
 import { useEffect, useState } from "react";
@@ -134,6 +137,58 @@ export function ProjectMembersEditor({ projectId, onSaved, initialMembers, initi
     setDirty(true);
   };
 
+  /** 物理削除: DELETE /api/admin/project-members/[id]。参照あれば 409 → 確認後 force=1 で再叩き */
+  const hardDelete = async (row: Row) => {
+    if (!row.id) return;
+    const label = row.codeName || row.memberName || row.memberId;
+    if (!window.confirm(`【完全削除】\n${label} をこの PJ から物理削除します。\n\n論理削除 (除外) と違い、行が DB から消えます。続行しますか？`)) {
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const first = await fetch(`/api/admin/project-members/${row.id}`, { method: "DELETE" });
+      let json: unknown = null;
+      try { json = await first.json(); } catch { /* ignore */ }
+      const j = (json ?? {}) as { ok?: boolean; error?: string; references?: Array<{ label: string; count: number }>; message?: string };
+
+      if (first.status === 409 && j.error === "references_exist") {
+        const lines = (j.references ?? []).map((r) => `・${r.label}: ${r.count} 件`).join("\n");
+        const force = window.confirm(
+          `この PJ × メンバーには業務記録が残っています:\n\n${lines}\n\n` +
+          `物理削除すると過去の業務記録の表示でメンバー情報が引けなくなる可能性があります (memberId は残りますが project_members 行は消えます)。\n\n` +
+          `それでも強制削除しますか？`
+        );
+        if (!force) {
+          setSaving(false);
+          return;
+        }
+        const second = await fetch(`/api/admin/project-members/${row.id}?force=1`, { method: "DELETE" });
+        const json2 = await second.json();
+        if (!second.ok || !json2.ok) {
+          throw new Error(json2.error || json2.message || `HTTP ${second.status}`);
+        }
+      } else if (!first.ok || !j.ok) {
+        throw new Error(j.error || j.message || `HTTP ${first.status}`);
+      }
+
+      // 再取得
+      const data = await fetchProjectConfig(projectId);
+      if (data) {
+        setRows(data.members.map(toRow));
+        setMaster(data.memberMaster);
+        onSaved?.(data.members);
+      }
+      setDirty(false);
+      setToast(`${label} を完全削除しました`);
+      window.setTimeout(() => setToast(null), 4000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const save = async () => {
     if (!rows) return;
     // バリデーション
@@ -208,15 +263,15 @@ export function ProjectMembersEditor({ projectId, onSaved, initialMembers, initi
         <table className="w-full text-[12px] border-collapse">
           <thead>
             <tr className="text-[10px] uppercase text-muted-foreground border-b border-border">
-              <th className="text-left p-1.5 w-[180px]">メンバー</th>
-              <th className="text-left p-1.5 w-[100px]">役割ラベル</th>
+              <th className="text-left p-1.5 min-w-[260px]">メンバー</th>
+              <th className="text-left p-1.5 w-[110px]">役割ラベル</th>
               <th className="text-center p-1.5 w-[40px]">PL</th>
               <th className="text-center p-1.5 w-[40px]">PM</th>
               <th className="text-center p-1.5 w-[60px]">クローザー</th>
-              <th className="text-left p-1.5 w-[80px]">参画月</th>
-              <th className="text-left p-1.5 w-[80px]">離脱月</th>
+              <th className="text-left p-1.5 w-[90px]">参画月</th>
+              <th className="text-left p-1.5 w-[90px]">離脱月</th>
               <th className="text-center p-1.5 w-[60px]">Active</th>
-              <th className="p-1.5 w-[60px]" />
+              <th className="p-1.5 w-[120px]" />
             </tr>
           </thead>
           <tbody>
@@ -323,22 +378,34 @@ export function ProjectMembersEditor({ projectId, onSaved, initialMembers, initi
                       >
                         ✕
                       </button>
-                    ) : inactive ? (
-                      <button
-                        onClick={() => reactivate(m.rowKey)}
-                        className="text-[10px] text-emerald-700 border border-emerald-200 rounded px-1.5 py-0.5 hover:bg-emerald-50"
-                        title="復活"
-                      >
-                        ↺
-                      </button>
                     ) : (
-                      <button
-                        onClick={() => deactivate(m.rowKey)}
-                        className="text-[10px] text-amber-700 border border-amber-200 rounded px-1.5 py-0.5 hover:bg-amber-50"
-                        title="論理削除 (is_active=false) — 過去の業務記録は残る"
-                      >
-                        除外
-                      </button>
+                      <div className="flex items-center justify-end gap-1">
+                        {inactive ? (
+                          <button
+                            onClick={() => reactivate(m.rowKey)}
+                            className="text-[10px] text-emerald-700 border border-emerald-200 rounded px-1.5 py-0.5 hover:bg-emerald-50"
+                            title="復活"
+                          >
+                            ↺ 復活
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => deactivate(m.rowKey)}
+                            className="text-[10px] text-amber-700 border border-amber-200 rounded px-1.5 py-0.5 hover:bg-amber-50"
+                            title="論理削除 (is_active=false) — 過去の業務記録は残る"
+                          >
+                            除外
+                          </button>
+                        )}
+                        <button
+                          onClick={() => hardDelete(m)}
+                          disabled={saving}
+                          className="text-[10px] text-red-700 border border-red-300 rounded px-1.5 py-0.5 hover:bg-red-50 disabled:opacity-50"
+                          title="完全削除 (DB から物理削除)。業務記録が残っていれば確認ダイアログが出る"
+                        >
+                          完全削除
+                        </button>
+                      </div>
                     )}
                   </td>
                 </tr>
@@ -373,7 +440,8 @@ export function ProjectMembersEditor({ projectId, onSaved, initialMembers, initi
       </div>
 
       <p className="text-[10px] text-muted-foreground">
-        ※ 「除外」は論理削除 (is_active=false)。過去の業務記録は残ります。完全削除は不可。
+        ※ 「除外」は論理削除 (is_active=false) — 行は残り「復活」できます。
+        「完全削除」は DB から物理削除 — 業務記録が残っている場合は確認ダイアログで件数を表示します。
       </p>
     </div>
   );

@@ -14,11 +14,11 @@
  * - members に含まれる + 行が無い → INSERT
  * - members に含まれない + 行が既存 (is_active=true) → UPDATE is_active=false (論理削除)
  *
- * 設計意図 (2026-05-13):
+ * 設計意図 (2026-05-13 → 2026-06-21 更新):
  * - 旧 saveProjectMembers の「全削除→挿入」事故 (2026-05-08) を再発させない
- * - **物理 DELETE は絶対にしない**: メンバーが PJ から離脱しても、過去の業務記録
- *   (monthly_reports / reimbursements / billing 等) は project_members の id を
- *   参照する可能性があるため、論理削除 (is_active=false) で履歴を残す
+ * - bulk では物理 DELETE しない (= 安全側、過去の業務記録への影響を避ける)
+ * - メンバーを根本削除したい場合は DELETE /api/admin/project-members/[id] を使う (= 行ごとに
+ *   業務記録の参照件数を返してユーザ確認を取る安全装置つき)
  * - 上記の挙動を admin/projects のメンバー列モーダル と project/[id]/config の
  *   両方から共有して使う (どちらも同じ ProjectMembersEditor が叩く)
  */

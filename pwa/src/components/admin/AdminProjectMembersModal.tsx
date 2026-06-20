@@ -22,7 +22,7 @@ interface Props {
 export function AdminProjectMembersModal({ projectId, projectName, open, onClose, onSaved }: Props) {
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="!max-w-3xl sm:!max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="!max-w-5xl sm:!max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{projectName} — PJ メンバー編集</DialogTitle>
         </DialogHeader>
