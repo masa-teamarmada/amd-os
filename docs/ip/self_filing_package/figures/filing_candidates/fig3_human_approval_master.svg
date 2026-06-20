@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1300" height="900" viewBox="0 0 1300 900" role="img" aria-labelledby="title desc">
+  <title id="title">fig3_human_approval_master.svg</title>
+  <desc id="desc">Black and white internal patent figure candidate with reference numerals.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#000"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="1300" height="900" fill="#fff"/>
+
+  <style>
+    .title { font: 700 28px Arial, sans-serif; }
+    .box { fill: #fff; stroke: #000; stroke-width: 2; }
+    .smallbox { fill: #fff; stroke: #000; stroke-width: 1.8; }
+    .line { stroke: #000; stroke-width: 2; fill: none; }
+    .dash { stroke: #000; stroke-width: 2; fill: none; stroke-dasharray: 7 6; }
+    .text { font: 18px Arial, sans-serif; fill: #000; }
+    .small { font: 15px Arial, sans-serif; fill: #000; }
+    .num { font: 700 18px Arial, sans-serif; fill: #000; }
+    .label { font: 14px Arial, sans-serif; fill: #000; }
+  </style>
+
+<rect x="100" y="105" width="250" height="75" rx="0" class="box"/>
+<text x="225" y="131" class="text" text-anchor="middle"><tspan x="225" dy="0">230 Candidate</tspan><tspan x="225" dy="22">data</tspan></text>
+<rect x="100" y="220" width="250" height="75" rx="0" class="box"/>
+<text x="225" y="246" class="text" text-anchor="middle"><tspan x="225" dy="0">240 Evidence</tspan><tspan x="225" dy="22">metadata</tspan></text>
+<rect x="470" y="155" width="300" height="95" rx="0" class="box"/>
+<text x="620" y="181" class="text" text-anchor="middle"><tspan x="620" dy="0">150 Review</tspan><tspan x="620" dy="22">interface control</tspan></text>
+<path d="M350,142 L470,180" class="line" marker-end="url(#arrow)"/><path d="M350,258 L470,210" class="line" marker-end="url(#arrow)"/>
+<polygon points="650,327.5 755,380 650,432.5 545,380" class="box"/>
+<text x="650" y="376" class="small" text-anchor="middle"><tspan x="650" dy="0">Review</tspan><tspan x="650" dy="22">input</tspan></text>
+<path d="M650,250 L650,327" class="line" marker-end="url(#arrow)"/>
+<rect x="900" y="315" width="270" height="80" rx="0" class="box"/>
+<text x="1035" y="341" class="text" text-anchor="middle"><tspan x="1035" dy="0">160 Master DB</tspan><tspan x="1035" dy="22">reflection</tspan></text>
+<path d="M755,380 L900,355" class="line" marker-end="url(#arrow)"/>
+<text x="827.5" y="359.5" class="label" text-anchor="middle"><tspan x="827.5" dy="0">approve</tspan></text>
+<rect x="900" y="455" width="270" height="80" rx="0" class="box"/>
+<text x="1035" y="481" class="text" text-anchor="middle"><tspan x="1035" dy="0">260 Master</tspan><tspan x="1035" dy="22">record</tspan></text>
+<path d="M1035,395 L1035,455" class="line" marker-end="url(#arrow)"/>
+<rect x="520" y="555" width="260" height="76" rx="0" class="box"/>
+<text x="650" y="581" class="text" text-anchor="middle"><tspan x="650" dy="0">250 Review</tspan><tspan x="650" dy="22">feedback</tspan></text>
+<path d="M585,415 L585,555" class="line" marker-end="url(#arrow)"/>
+<text x="555" y="547" class="label" text-anchor="middle"><tspan x="555" dy="0">reject</tspan></text><path d="M710,415 L710,555" class="line" marker-end="url(#arrow)"/>
+<text x="680" y="547" class="label" text-anchor="middle"><tspan x="680" dy="0">comment</tspan></text>
+<rect x="205" y="555" width="260" height="76" rx="0" class="box"/>
+<text x="335" y="581" class="text" text-anchor="middle"><tspan x="335" dy="0">170 Feedback</tspan><tspan x="335" dy="22">reflection</tspan></text>
+<path d="M520,593 L465,593" class="line" marker-end="url(#arrow)"/>
+<rect x="205" y="720" width="260" height="76" rx="0" class="box"/>
+<text x="335" y="746" class="text" text-anchor="middle"><tspan x="335" dy="0">130 Subsequent</tspan><tspan x="335" dy="22">candidate generation</tspan></text>
+<path d="M335,631 L335,720" class="line" marker-end="url(#arrow)"/>
+<rect x="900" y="650" width="270" height="78" rx="0" class="box"/>
+<text x="1035" y="676" class="text" text-anchor="middle"><tspan x="1035" dy="0">180 Protocol</tspan><tspan x="1035" dy="22">generator</tspan></text>
+<path d="M1035,535 L1035,650" class="line" marker-end="url(#arrow)"/>
+<path d="M335,720 L335,470 L470,210" class="dash" marker-end="url(#arrow)"/>
+<text x="325" y="490" class="label" text-anchor="middle"><tspan x="325" dy="0">feedback loop</tspan></text>
+
+</svg>

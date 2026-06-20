@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1300" height="900" viewBox="0 0 1300 900" role="img" aria-labelledby="title desc">
+  <title id="title">fig8_integrated_review_ui.svg</title>
+  <desc id="desc">Black and white internal patent figure candidate with reference numerals.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#000"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="1300" height="900" fill="#fff"/>
+
+  <style>
+    .title { font: 700 28px Arial, sans-serif; }
+    .box { fill: #fff; stroke: #000; stroke-width: 2; }
+    .smallbox { fill: #fff; stroke: #000; stroke-width: 1.8; }
+    .line { stroke: #000; stroke-width: 2; fill: none; }
+    .dash { stroke: #000; stroke-width: 2; fill: none; stroke-dasharray: 7 6; }
+    .text { font: 18px Arial, sans-serif; fill: #000; }
+    .small { font: 15px Arial, sans-serif; fill: #000; }
+    .num { font: 700 18px Arial, sans-serif; fill: #000; }
+    .label { font: 14px Arial, sans-serif; fill: #000; }
+  </style>
+
+<rect x="80" y="95" width="1140" height="760" class="box"/>
+<text x="650" y="128" class="text" text-anchor="middle"><tspan x="650" dy="0">330 Interface or related screen group</tspan></text>
+<rect x="125" y="165" width="250" height="96" rx="0" class="smallbox"/>
+<text x="250" y="188" class="small" text-anchor="middle"><tspan x="250" dy="0">230 Candidate</tspan><tspan x="250" dy="22">type / summary</tspan><tspan x="250" dy="22">confidence</tspan></text>
+<rect x="415" y="165" width="250" height="96" rx="0" class="smallbox"/>
+<text x="540" y="188" class="small" text-anchor="middle"><tspan x="540" dy="0">240 Evidence</tspan><tspan x="540" dy="22">type / date</tspan><tspan x="540" dy="22">title / hash</tspan></text>
+<rect x="705" y="165" width="250" height="96" rx="0" class="smallbox"/>
+<text x="830" y="188" class="small" text-anchor="middle"><tspan x="830" dy="0">Review input</tspan><tspan x="830" dy="22">approve / reject</tspan><tspan x="830" dy="22">comment</tspan></text>
+<rect x="995" y="165" width="170" height="96" rx="0" class="smallbox"/>
+<text x="1080" y="188" class="small" text-anchor="middle"><tspan x="1080" dy="0">Status</tspan><tspan x="1080" dy="22">pending</tspan><tspan x="1080" dy="22">approved</tspan></text>
+<rect x="125" y="330" width="250" height="96" rx="0" class="smallbox"/>
+<text x="250" y="353" class="small" text-anchor="middle"><tspan x="250" dy="0">250 Feedback</tspan><tspan x="250" dy="22">scope</tspan><tspan x="250" dy="22">state</tspan></text>
+<rect x="415" y="330" width="250" height="96" rx="0" class="smallbox"/>
+<text x="540" y="353" class="small" text-anchor="middle"><tspan x="540" dy="0">270 Protocol</tspan><tspan x="540" dy="22">id</tspan><tspan x="540" dy="22">abstract label</tspan></text>
+<rect x="705" y="330" width="250" height="96" rx="0" class="smallbox"/>
+<text x="830" y="353" class="small" text-anchor="middle"><tspan x="830" dy="0">280 Example</tspan><tspan x="830" dy="22">branch point</tspan><tspan x="830" dy="22">case link</tspan></text>
+<rect x="995" y="330" width="170" height="96" rx="0" class="smallbox"/>
+<text x="1080" y="353" class="small" text-anchor="middle"><tspan x="1080" dy="0">300 Evidence</tspan><tspan x="1080" dy="22">roles</tspan><tspan x="1080" dy="22">refs</tspan></text>
+<rect x="125" y="495" width="250" height="96" rx="0" class="smallbox"/>
+<text x="250" y="518" class="small" text-anchor="middle"><tspan x="250" dy="0">290 Outcome</tspan><tspan x="250" dy="22">horizon</tspan><tspan x="250" dy="22">valence</tspan></text>
+<rect x="415" y="495" width="250" height="96" rx="0" class="smallbox"/>
+<text x="540" y="518" class="small" text-anchor="middle"><tspan x="540" dy="0">310 Proposal</tspan><tspan x="540" dy="22">parameter type</tspan><tspan x="540" dy="22">summary</tspan></text>
+<rect x="705" y="495" width="250" height="96" rx="0" class="smallbox"/>
+<text x="830" y="518" class="small" text-anchor="middle"><tspan x="830" dy="0">340 Recommend</tspan><tspan x="830" dy="22">input cats</tspan><tspan x="830" dy="22">category</tspan></text>
+<rect x="995" y="495" width="170" height="96" rx="0" class="smallbox"/>
+<text x="1080" y="518" class="small" text-anchor="middle"><tspan x="1080" dy="0">Actions</tspan><tspan x="1080" dy="22">review</tspan><tspan x="1080" dy="22">hold</tspan></text>
+<path d="M375,213 L415,213" class="line" marker-end="url(#arrow)"/><path d="M665,213 L705,213" class="line" marker-end="url(#arrow)"/><path d="M955,213 L995,213" class="line" marker-end="url(#arrow)"/>
+<path d="M375,378 L415,378" class="line" marker-end="url(#arrow)"/><path d="M665,378 L705,378" class="line" marker-end="url(#arrow)"/><path d="M955,378 L995,378" class="line" marker-end="url(#arrow)"/>
+<path d="M375,543 L415,543" class="line" marker-end="url(#arrow)"/><path d="M665,543 L705,543" class="line" marker-end="url(#arrow)"/><path d="M955,543 L995,543" class="line" marker-end="url(#arrow)"/>
+<path d="M830,261 L250,330" class="line" marker-end="url(#arrow)"/><path d="M830,261 L540,330" class="line" marker-end="url(#arrow)"/><path d="M830,261 L540,495" class="line" marker-end="url(#arrow)"/>
+<rect x="475" y="675" width="350" height="60" rx="0" class="box"/>
+<text x="650" y="701" class="text" text-anchor="middle"><tspan x="650" dy="0">Human decision maker</tspan><tspan x="650" dy="22">reviews displayed records</tspan></text>
+
+</svg>

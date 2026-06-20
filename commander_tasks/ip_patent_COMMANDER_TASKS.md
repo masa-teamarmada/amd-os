@@ -1,0 +1,187 @@
+# AMD OS / AMDプロトコル 特許出願司令塔 タスク台帳
+
+最終更新: 2026-06-03
+
+このファイルは、AMD OS / AMDプロトコル / AMD Score 周辺の特許出願準備を管理する専用台帳。
+外部送付用ではなく、まさとAMD内部の出願準備・リスク管理・worker管理のための正本。
+
+注意:
+- この台帳は公開資料ではない。
+- 弁理士へ共有する場合も、共有範囲を事前に切り分ける。
+- prompt全文、few-shot、実データ、PJ実例本文、AMD Score重み/閾値/calibration、導入先運用ルール、connector運用、日次/毎時運用ノウハウは営業秘密として扱う。
+- AMD OS repo内には複数司令塔が同居するため、root直下 `COMMANDER_TASKS.md` は使わず、この専用パスで管理する。
+
+## 司令塔運用ルール
+
+- 未完タスクがあるのに、workerが全員停止/完了/待機で、次のアクションも切られていない状態を作らない。
+- worker quiet modeを標準運用にする。workerは原則として親司令塔チャットへ進捗・中間報告・自己判断の完了報告を送らない。
+- worker closeoutは、workerスレッド内でまさが「完全に完了」「OK」「これでよし」等と明示した後、親司令塔へ1回だけ送る。
+- 例外は、UU conflict、未分類dirty、権限/破壊的操作/外部判断、同じblocking conditionで進行不能など、司令塔介入が必要な場合のみ。その場合も短いblocker/handoffを1回だけ送る。
+- 司令塔側は、worker報告で親チャットを流さず、必要ならheartbeat/read_threadで静かに確認する。
+- 次回以降のworker promptには、停止禁止ルール、終了ゲート、quiet mode、外部送付禁止、`git add .` 禁止を必ず入れる。
+- まさ判断が必要な場合は、抽象的な「どうする？」ではなく、5個以内の具体質問にする。
+- 個人/資産/健康など、特許出願準備に不要な情報は共有しない。
+
+## 未完タスク（優先順位順）
+
+### 0. 明細書たたき台を起こしてretrofit不足を埋める
+
+- お願いした内容: 請求項案と発明提案書を統合し、出願に必要な明細書たたき台を作る。明細書を書き始めることで、実施可能要件に必要なretrofit不足を早期に見つける。
+- 背景: 請求項だけでは出願できず、明細書の「発明を実施するための形態」まで書く必要がある。明細書作成を始めると、図面、データ構造、処理フロー、実施例、営業秘密境界の不足が見えるため、弁理士相談前に内部で起こしておく必要がある。
+- 現状: 内部版の出願書類たたき台 `docs/ip/2026-06-01_patent_application_draft_internal.md` を作成済み。請求項1〜16、明細書主要章、要約、retrofit不足リストに加え、Fig.1〜Fig.8の図面案、抽象テーブル例、疑似処理フロー、安全な合成実施例を追加済み。2026-06-01に請求項10の複数異種evidence参照、請求項13のBefore-Zero設立時期推奨の抽象生成ロジック、請求項14の統合確認UI表示態様、請求項5のreject/comment feedback抽象実施例を補強済み。請求項対応表 `docs/ip/2026-06-01_claim_support_matrix_internal.md` も再点検し、前回mediumだった請求項5, 10, 13, 14, 15, 16はsupport strengthをstrongへ更新済み。合成実施例について、実案件本文を出さずに、AMD OS設計・実運用のどこで裏取りできるかを整理した内部メモ `docs/ip/2026-06-01_example_traceability_internal.md` も回収済み。Fig.1〜Fig.8の目的、対応請求項、対応明細書箇所、入れる/入れない情報、WS-1〜WS-6、現OS乖離を踏まえた描き方を整理した図面清書指示メモ `docs/ip/2026-06-01_patent_figures_cleanup_brief_internal.md` を作成済み。
+- 残課題: 図面清書指示メモをもとに、特許図面としての実清書又は弁理士向け削除版を別途作る。弁理士相談前に、明細書に出してよい情報と営業秘密に残す情報を再確認する。support不足ではなく、請求項1/5/10/11/12/13/14/15/16の広狭・分割・形式整備を弁理士確認論点として扱う。合成実施例を明細書本文へどこまで反映するかは、営業秘密混入チェック後に判断する。
+
+### 0.5. 明細書案と現状OSの乖離チェック
+
+- お願いした内容: 現在の請求項・明細書案が、AMD OSの現行設計・実装・管理画面・DB設計と乖離していないかを確認する。
+- 背景: 明細書上の発明が実OSから離れすぎると、実施可能要件・説明の説得力・弁理士相談時の優先順位がズレる。一方で、実装細部を出しすぎると営業秘密を失うため、乖離は「特許上補強すべき抽象構造」と「OS側の将来実装TODO」に分ける必要がある。
+- 現状: 現OS乖離チェックworkerを回収済み。成果物 `docs/ip/2026-06-01_patent_os_gap_audit_internal.md` では、WS-1/WS-2/WS-3/WS-4は現OSの実装・設計で比較的強く裏付けあり。一方、outcome ledgerのUI/複数evidence refs、WS-5の汎用system parameter governance、WS-6 Before-Zero設立時期推奨、Fig.8統合確認UIはretrofit候補として整理済み。さらに、批判的弁理士レビュー `docs/ip/2026-06-01_critical_patent_attorney_review_internal.md` と、その打ち返し方針 `docs/ip/2026-06-01_critical_review_response_brushup_internal.md` を追加し、未実装/partial要素は基幹出願・従属項・分割候補・retrofit候補に分ける方向で整理済み。
+- 残課題: 批判レビューを踏まえ、明細書たたき台へ技術課題、先行技術別の逃げ方、抽象レコード遷移表を反映する。特に、outcome ledger最小実装、WS-5を基幹出願に残すか分割候補にするか、WS-6を従属項・補強に留めるかをまさ判断事項として扱う。
+
+### 1. 弁理士初回相談パックをまさ確認用に仕上げる
+
+- お願いした内容: 弁理士へ相談する前に、相談目的、持参資料、開示範囲、質問、予算レンジ、まさ判断事項を1つの内部版パックに整理する。
+- 背景: AMD OS特許は、発明の中身を弁理士に作ってもらうより、Codex/workerで叩いた戦略をもとに、弁理士を手続き代理・請求項レビュー・出しすぎ防止チェックとして使うのが現実的。外部送付前に、何を出してよくて、何を出してはいけないかを分ける必要がある。
+- 現状: A/B/C/D worker統合により、出願価値、moat限界、営業秘密境界、請求項の回避容易性、費用対効果の一次判断は完了。内部版パック `docs/ip/2026-06-01_patent_attorney_initial_consultation_pack.md` を作成済み。さらに、弁理士初回相談で何を渡す/画面共有する/口頭に留める/出願書類に書かないかを当日運用へ落とした、まさ確認用の開示制御版 `docs/ip/2026-06-01_patent_attorney_disclosure_control_pack_internal.md` を作成済み。2026-06-01に、既存内部パック群から実案件名・実source所在・prompt/score/DB/connector等の営業秘密を落とし、弁理士へ相談する前にまさ/特許出願司令塔が確認する外部相談用削除版ドラフト `docs/ip/2026-06-01_patent_attorney_external_review_pack_draft.md` を追加した。このドラフト自体も外部送付禁止・弁理士送付禁止。さらに、初回メール/フォーム/紹介DMで使う短い相談依頼文面の内部ドラフト `docs/ip/2026-06-01_patent_attorney_contact_draft_internal.md` と、事前送付資料セット案・送付前チェックリスト `docs/ip/2026-06-01_patent_attorney_pre_send_checklist_internal.md` を追加済み。批判的弁理士レビューを受け、外部相談前レビュー用の請求項ツリー案 `docs/ip/2026-06-01_claim_tree_external_review_internal.md` も追加済み。2026-06-01に、初回打診後に必要なら使うさらに短い事前送付候補版 `docs/ip/2026-06-01_patent_attorney_short_pre_send_pack_internal.md` と、営業秘密scanメモ `docs/ip/2026-06-01_patent_attorney_short_pre_send_secret_scan.md` を追加済み。どちらも内部ドラフトで、外部送付禁止・弁理士送付禁止。2026-06-02に、初回打診先を選ぶための実名候補表 `docs/ip/2026-06-02_patent_attorney_candidate_research_internal.md` を追加済み。公式プロフィール、事務所公式、IP BASE公開情報を優先し、AI/software/business model/DeepTech/startup/大学発文脈との相性、初回相談で聞くこと、まさ判断事項を軽量整理した。
+- 残課題: まさが5つの判断事項を確認し、相談先候補と予算上限を決める。実際に外部送付する場合は、今回のショート版候補もそのまま送らず、送付先、守秘義務又はNDA、添付要否、ファイル名、PDFメタデータを確認した送付版へ別途整える。公開済み資料候補の存在・日付・外部性・配布有無は、必要なら別workerで軽く棚卸しする。
+
+### 2. 営業秘密リストを出願書類から外す前提で確定する
+
+- お願いした内容: 特許で公開する抽象構造と、営業秘密として残す具体運用・実データ・prompt・calibrationを明確に分ける。
+- 背景: 特許出願は18か月後に公開されるため、出願書類は将来の競合への教科書にもなる。AMDの競争優位は、抽象ワークフローだけでなく、実データ、prompt、calibration、プロジェクト運用、研究機関導入ノウハウにある。
+- 現状: worker Bで「薄く広い防御特許 + 厚い営業秘密」の方針を確認済み。初回相談パックにも、開示可 / NDA下のみ / 口頭限定 / 出願書類に書かない営業秘密を整理済み。
+- 残課題: 実際に弁理士へ渡す資料から、prompt全文、few-shot、score重み、実PJ事例本文、production DB行、導入先別運用ルールが混入していないか最終確認する。
+
+### 3. 請求項見直し案をWS-1〜WS-5のAND結合へ寄せる
+
+- お願いした内容: 既存の請求項たたき台を、回避されにくく、先行技術に潰されにくい構造へ見直す。
+- 背景: 単体要素はBigID、FHIR/OMOP、Ciena、Seek AI、Glean、MLOps governance等に近く、広く取りに行くほど拒絶リスクが上がる。一方、WS-1〜WS-5を閉ループとして組み合わせると、AMD OSの実装に近いホワイトスペースが残る。
+- 現状: worker Cで、主請求項は evidence pointer + human approval + reject/comment feedback + approved-only master DB reflection + abstract protocol + outcome ledger + parameter governance の鎖に寄せるべきと整理済み。内部版の請求項見直し案 `docs/ip/2026-06-01_claim_revision_internal.md` を作成済み。
+- 残課題: まさ確認後、弁理士初回相談パックへ要約を反映する。`source_meeting_id` や `title hash` など狭すぎる実装例を従属項・実施例へ落とし、主請求項では source evidence identifier / identity determination のように広める方針を弁理士へ確認する。
+
+### 4. 発明者・職務発明・権利帰属を整理する
+
+- お願いした内容: 出願前に、誰を発明者として記載し、権利をAMDへどう帰属させるかを整理する。
+- 背景: AIは発明者になれない。AMD OS / AMDプロトコルは、まさ、AMDメンバー、外部協力者、研究機関との会話や設計が混ざりやすいため、発明者認定と権利帰属を曖昧にしたまま出願すると後で揉める。
+- 現状: まさ判断として、本件はまさ単独発明で問題なし、AI/Codexは権利主体ではなく補助ツール、出願人はAMD名義で進める前提と確認済み。内部版メモ `docs/ip/2026-06-01_inventorship_ownership_internal.md` を作成済み。
+- 残課題: 弁理士へ、発明者=まさ、出願人=AMD、必要ならまさからAMDへの特許を受ける権利の承継書面を用意する方針で足りるか確認する。
+
+### 5. 公開済み資料を軽く棚卸しする
+
+- お願いした内容: 2026-05-20 StartPassイベント、営業資料、note、Web、PWA admin表示、NIMS向け説明などで、今回の発明コアをどこまで外部に出したかを1ページで棚卸しする。
+- 背景: まさ判断では、2026-05-20 StartPassではOS概要のみで今回の発明内容は話していないため、重い新規性喪失チェックは不要そう。ただし弁理士相談時に、公開済み範囲を説明できる最低限のメモは必要。
+- 現状: 内部版の軽量棚卸しメモ `docs/ip/2026-06-01_public_disclosure_inventory_internal.md` を作成済み。2026-05-20 StartPass/Stapaイベント、営業資料、Web/note、PWA `/admin/ip`、Textbook/public manuscript、NIMS向け説明候補、投資家・提携先・共同研究/RFP向け説明を、日付、媒体/相手、外部性、資料配布、AMD OS概要だけか、WS-1〜WS-5/WS-6に触れた可能性、確認状況、次アクションで整理済み。まさ認識「StartPassではOS概要のみで今回の発明内容は話していない」は未確認事実として扱い、法的評価は断定していない。外部相談用削除版ドラフトでは、この棚卸しを「弁理士へ確認したい公開候補一覧」として抽象化し、新規性喪失リスクは断定しない形で反映済み。2026-06-02に、実物確認候補を軽量に整理するworker `019e8427-082f-7ee1-aa4b-e69893ab379d` を切り出し、公開ページ、登壇資料、配布資料、録画、文字起こし、営業 / 投資家 / 導入提案資料、Web / note / `/bzm`、NIMS説明候補、`/admin/ip` / OS画面共有を実物確認対象として整理したチェックリスト `docs/ip/2026-06-02_public_disclosure_evidence_checklist_internal.md` を追加済み。まさ回答として、StartPass / Stapa関連資料は実在し、当日AMD OS等の投影もあったが、今回の申請内容は開示していない前提、営業資料等は多数外部送付済みだが今回の申請内容とは無関係、Web / note / public manuscript / `/bzm`系の公開済みURLなし、NIMS向けのOS画面又は説明資料の実提示なし、と整理済み。
+- 残課題: 特許法30条例外や外国出願への影響は弁理士確認事項として扱う。今後、外部説明・画面共有・資料送付を行う場合は、今回の申請内容に触れる要素を出さない送付版 / 画面共有範囲を事前に確認する。必要なら、実URLや営業秘密を書かない前提で、資料名・日付・外部性・配布有無・NDA有無・発明コア接触有無だけを転記する候補調査workerを切る。
+
+### 6. 弁理士候補の実名調査をする
+
+- お願いした内容: AMD OS / AMDプロトコル特許の初回相談先候補を、実名・事務所名・得意領域・相談しやすさ・AI/ソフトウェア/ビジネスモデル/大学発/DeepTech文脈との相性で軽量に整理する。
+- 背景: 弁理士へ進む前に、発明内容を作ってもらう相手ではなく、手続き代理、請求項レビュー、出しすぎ防止、ソフトウェア/AI/研究機関文脈のレビューに強い相談先を選ぶ必要がある。
+- 現状: 2026-06-02に実名調査worker `019e8434-52c8-7b83-9cbe-520a3aadc4ca` を切り出し、成果物 `docs/ip/2026-06-02_patent_attorney_candidate_research_internal.md` を回収済み。公式プロフィール、事務所公式、IP BASE / VC-IPAS公開情報、公開セミナー・登壇情報を優先し、候補者名、事務所名、得意領域、AMD OS特許との相性、初回相談で聞くべきこと、まさ判断事項を軽量整理済み。外部送付・弁理士問い合わせ・DB write・production DB接続は未実施。
+- 残課題: まさが初回打診先、資料送付方針、NDA又は通常守秘義務の扱い、予算上限、依頼範囲を判断する。候補の良し悪しは断定せず、初回打診先を選ぶための事前整理に留める。
+
+### 7. 完全セルフ出願 readiness を確認する
+
+- お願いした内容: 弁理士依頼を前提にせず、えいみ + workerで弁理士なしでも出せる出願ドラフトまで作り切る方針に切り替え、出願に必要な書類・手続・不足箇所・危険箇所を整理する。
+- 背景: 弁理士は必須ではなく、使うとしても出願直前の1〜2時間の地雷チェック係に限定する。拒絶対応も内部で進める前提なら、出願時点で補正余地・実施例・従属項・分割候補を厚く仕込む必要がある。
+- 現状: 2026-06-02に完全セルフ出願 readiness worker `019e86a7-eaa4-7923-9f3c-bdda2346a601` を回収済み。成果物 `docs/ip/2026-06-02_self_filing_readiness_check_internal.md` を追加し、JPO / 特許庁公式情報を一次情報として、願書、明細書、特許請求の範囲、図面、要約書、出願人 / 発明者、手数料、電子出願、審査請求、出願公開、新規性喪失例外、補正、新規事項、明確性、単一性、発明該当性のセルフ出願readinessを整理した。結論は「出願日を取りに行ける直前段階だが、そのまま提出はまだ危ない」。2026-06-02にself filing package workerを回収し、内部提出形式候補版として `docs/ip/self_filing_package/README.md`、願書候補、明細書提出版候補、特許請求の範囲提出版候補、要約書候補、Fig.1〜Fig.8提出図面清書指示を追加済み。さらに2026-06-02に、Fig.1〜Fig.8の白黒線画化を前提にしたMermaid / 参照符号付きの内部提出図面候補ドラフト `docs/ip/self_filing_package/2026-06-02_figures_clean_draft_internal.md` を追加済み。営業秘密scanでは、実案件名、顧客名、個人名、契約条件、prompt全文、score weight / threshold / calibration、実DB行、source permalink、実画面、実URL、実サービス名、実connector名の混入なし。
+- 残課題: パックは「出願日を取りに行く直前レビューに使える水準」だが、実提出はまだ止める。出願前Mustは、願書未確認欄、AMD名義の電子出願環境、出願料 / 審査請求料、審査請求タイミング、30条例外要否、まさからAMDへの承継メモ、Fig.1〜Fig.8を正式提出用の黒色線画画像へ変換すること。まさ判断事項は、請求項A/Bを独立2本で出すか、WS-5を今回残すか、WS-6を今回残すか、審査請求を後日にするか、30条例外手続を念のため行うかの5点。
+
+### 8. self filing package / 提出形式パックを作る
+
+- お願いした内容: 願書 / 明細書提出版 / 特許請求の範囲提出版 / 要約書 / Fig.1〜Fig.8清書指示を、完全セルフ出願に向けた内部提出パックとして作る。
+- 背景: 完全セルフ出願 readiness の結論は「出願日を取りに行ける直前段階だが、そのまま提出はまだ危ない」。次はJPO提出形式に近い候補版を作り、出願前Mustを具体的に潰す必要がある。
+- 現状: 2026-06-02にself filing package worker `019e86ad-eb48-7661-8fe1-26073df10a94` を回収済み。`docs/ip/self_filing_package/` 配下にREADME、願書候補、明細書提出版候補、特許請求の範囲提出版候補、要約書候補、Fig.1〜Fig.8提出図面清書指示を追加済み。要約本文は400字以内、選択図は図1候補。2026-06-02にFig.1〜Fig.8の白黒線画化を前提にしたMermaid / 参照符号付き内部ドラフト `docs/ip/self_filing_package/2026-06-02_figures_clean_draft_internal.md` も追加済み。外部送付・JPO提出・弁理士問い合わせ・DB write・production DB接続は未実施。
+- 残課題: 提出形式パックは出願日を取りに行く直前レビューに使える水準。ただし実提出はまだ止める。残課題は、願書未確認欄、AMD名義の電子出願環境、手数料支払方法、30条例外要否、承継メモ、Fig.1〜Fig.8の正式提出用黒色線画画像化。
+
+### 9. Fig.1〜Fig.8の白黒線画ドラフトを作る
+
+- お願いした内容: Fig.1〜Fig.8について、特許図面用の白黒線画ドラフトを内部作成する。
+- 背景: self filing packageでは図面清書指示まで作成済みだが、提出図面そのものではない。完全セルフ出願で出願日を取りに行くには、Mermaid/ASCII/参照符号付きの図面候補を、正式図面化できる構造へ整える必要がある。
+- 現状: 2026-06-02にpatent figures clean draft worker `019e86b6-b988-7be1-be22-cef9cb95d838` を回収済み。成果物 `docs/ip/self_filing_package/2026-06-02_figures_clean_draft_internal.md` を追加し、Fig.1〜Fig.8の白黒線画化前提Mermaid / 参照符号付き内部ドラフト、対応請求項、対応明細書段落、正式画像化TODO、営業秘密scanを整理済み。2026-06-02にpatent figures image candidates workerで、内部レビュー用のSVG画像候補 `docs/ip/self_filing_package/figures/fig1_system_overview.svg` 〜 `fig8_integrated_review_ui.svg` と `docs/ip/self_filing_package/figures/README.md` を追加済み。白背景、黒線、黒文字のみ。実画面、実UI、実DB名、実サービス名、実connector名、実URL、実案件名、prompt全文、score weight / threshold / calibration、実DB行、source permalinkは入れていない。外部送付・JPO提出・弁理士問い合わせ・DB write・production DB接続は未実施。
+- 残課題: SVG画像候補は内部レビュー用としてusable。ただし正式提出画像ではないため、JPO方式確認、提出形式への変換、余白 / 線幅 / 参照符号視認性の調整、白黒2値化後の読解性確認、明細書 / 請求項との最終整合、正式画像化後の営業秘密scan再実施が残る。
+
+### 10. Fig.1〜Fig.8の画像候補を作る
+
+- お願いした内容: Fig.1〜Fig.8の白黒線画ドラフトをもとに、SVGを中心とした提出図面候補画像を内部生成する。
+- 背景: 現在の図面readinessは「内部レビュー用ドラフトとしてusable。ただし正式提出画像ではない」。黒色線画画像化、参照符号視認性、白黒2値化後の読解性、明細書 / 請求項との最終整合、営業秘密scan再実施が必要。
+- 現状: 2026-06-02にpatent figures image candidates worker `019e86be-6e14-7e82-9091-ef19e1db3516` を回収済み。`docs/ip/self_filing_package/figures/` 配下にFig.1〜Fig.8のSVG画像候補とREADMEを追加済み。白背景、黒線、黒文字のみで、色、グラデーション、実UI、スクリーンショットは不使用。外部送付・JPO提出・弁理士問い合わせ・DB write・production DB接続は未実施。
+- 残課題: SVG画像候補は内部レビュー用の提出図面候補としてusable。ただし正式提出画像ではないため、JPO方式確認、提出形式への変換、余白 / 線幅 / 2値化 / 符号視認性の検査、明細書 / 請求項との最終整合、営業秘密scan再実施が残る。
+
+### 11. 提出パック全体の最終整合レビューをする
+
+- お願いした内容: 願書、明細書、特許請求の範囲、要約書、図面SVG、図面README、公開資料メモ、発明者 / 出願人メモ、営業秘密scan、JPO提出前Mustを横断し、出願日を取りに行く前にズレを洗い出す。
+- 背景: self filing package と図面SVG候補まで揃ったが、まだ実提出ではない。請求項 / 明細書 / 図面 / 要約 / 願書 / 公開資料 / 権利帰属の横断整合とBlocker分類が必要。
+- 現状: 2026-06-02にfinal consistency review worker `019e86d3-6008-70d2-b70b-1bf967514909` を回収済み。成果物 `docs/ip/self_filing_package/2026-06-02_final_consistency_review_internal.md` を追加し、結論は「出願日を取りに行く直前レビューに使える水準。ただし、このままJPO提出はまだ止める」。2026-06-02 self filing final blocker cleanupで、明細書の符号説明と本文へ330/340を追加し、図面brief / figures READMEの符号対応表も補強、願書候補へ発明名称欄を追加、承継・社内決裁メモ雛形 `docs/ip/self_filing_package/2026-06-02_assignment_decision_memo_draft_internal.md` を作成済み。2026-06-02 formal figure readiness workerで、`docs/ip/self_filing_package/2026-06-02_formal_figure_readiness_internal.md` と `docs/ip/self_filing_package/figures/filing_candidates/` を追加し、候補SVGでは可視タイトルとFig.8内部注意文を削除済み。営業秘密scanでは、実値混入Blockerは検出なし。
+- 残課題: AMD名義の電子出願環境、願書実入力欄、手数料納付、承継メモの正式化、30条例外要否、請求項A/B・WS-5・WS-6判断を出願当日Mustとして潰す。正式画像化 / 提出方式変換後に、余白、線幅、2値化後の読解性、符号対応、営業秘密scanを再実施する。
+
+### 12. self filing final blocker cleanupをする
+
+- お願いした内容: final consistency reviewで出たBlockerのうち、まさ判断なしで直せる書類整合・形式候補を内部補強する。
+- 背景: 最終整合レビューの結論は `Conditional / Not filing-ready yet`。発明内容の内部整合は概ね通るが、符号不一致、願書未確認欄、正式図面化、承継メモ未作成が提出前Blockerとして残っている。請求項A/B、WS-5/WS-6、30条例外はまさ判断事項として残し、まず明らかに直せる部分だけ進める。
+- 現状: 2026-06-02にblocker cleanup worker `019e86d9-cd53-79f0-a676-fddbe8c9bcd0` の成果が `docs/ip/self_filing_package/2026-06-02_final_consistency_review_internal.md` へ反映済み。明細書符号説明と本文への330/340追加、図面brief / figures READMEの符号対応表補強、願書候補への発明名称欄追加、承継/社内決裁メモ雛形作成は完了扱い。外部送付・JPO提出・弁理士問い合わせ・DB write・production DB接続は未実施。
+- 残課題: 前段cleanup由来の未完は、formal figure readiness後の残Blockerへ統合済み。正式画像化 / 提出方式変換、願書実入力欄、AMD名義の電子出願環境、手数料納付、承継メモ正式化、30条例外要否、請求項A/B・WS-5・WS-6判断を残す。
+
+### 13. self filing formal figure readinessを確認する
+
+- お願いした内容: blocker cleanup後に残った正式提出図面まわりのBlockerを、内部でできる範囲まで詰める。
+- 背景: 符号不一致は内部形式上解消したが、SVGはまだ内部候補であり、JPO方式、提出形式、余白、線幅、2値化、参照符号視認性、Fig.8内部注意文削除の確認が残っている。
+- 現状: 2026-06-02にformal figure readiness worker `019e86e0-2c33-7e12-a521-1e037ffa1f41` をactiveとして切り出し済み。対象はFig.1〜Fig.8 SVGのreadiness点検、必要なら内部提出候補SVG作成、`docs/ip/self_filing_package/2026-06-02_formal_figure_readiness_internal.md` の作成、final consistency reviewと台帳の最小更新。外部送付・JPO提出・弁理士問い合わせ・DB write・production DB接続は禁止。
+- 残課題: workerから、修正した図面、残した図面Blocker、正式提出直前TODO、営業秘密scan、終了ゲートの報告を受ける。
+
+### 14. self filing masa decision sheet / filing day checklistを作る
+
+- お願いした内容: formal figure readiness後に残っている未判断・提出当日Mustを、まさが判断しやすい3問以内のdecision sheetと、出願当日チェックリストに統合する。
+- 背景: 図面は内部提出候補まで進んだが、請求項A/B、WS-5/WS-6、30条例外、審査請求タイミング、電子出願環境などは、勝手に確定できない。散らばった未判断を、まさが短時間で決められる形へ圧縮する必要がある。
+- 現状: 2026-06-02にdecision sheet/checklist worker `019e86ea-778b-7780-a855-f294202af386` をactiveとして切り出し済み。成果物候補は `docs/ip/self_filing_package/2026-06-02_self_filing_masa_decision_sheet_internal.md` と `docs/ip/self_filing_package/2026-06-02_filing_day_checklist_internal.md`。外部送付・JPO提出・弁理士問い合わせ・DB write・production DB接続は禁止。
+- 残課題: workerから、まさ判断事項3問以内、出願当日チェックリスト要約、成果物パス、終了ゲートの報告を受ける。
+
+### 15. Blocked by Masa: self filing出願方針3問を決める
+
+- お願いした内容: 完全セルフ出願に向けて、workerで勝手に確定できない出願方針3問をまさが判断する。
+- 背景: self filing package、図面候補、formal figure readiness、decision sheet/checklistまで作成済み。出願準備は「提出直前レビューに使える水準」まで進んだが、請求項構成、手続タイミング、実行経路は事業・法務・実務の意思決定であり、司令塔/workerが勝手に確定できない。
+- 現状: `docs/ip/self_filing_package/2026-06-02_self_filing_masa_decision_sheet_internal.md` と `docs/ip/self_filing_package/2026-06-02_filing_day_checklist_internal.md` を回収済み。まさ判断事項は、1) 発明の出願範囲、2) 手続タイミング、3) 出願当日の実行経路、の3問に圧縮済み。ここからは `Blocked by Masa`。外部送付・JPO提出・弁理士問い合わせ・DB write・production DB接続は禁止継続。
+- 残課題: まさが3問へ回答したら、請求項/明細書/図面/願書/チェックリストへの最終反映workerを切る。回答前はWatchではなくBlocked by Masaとして扱う。
+
+## 完了済みタスク
+
+### self filing masa decision sheet / filing day checklist
+
+- お願いした内容: formal figure readiness後に残っている未判断と提出当日Mustを、3問以内のまさdecision sheetと出願当日チェックリストへ統合する。
+- 背景: 出願直前の残Blockerは、発明内容の破綻ではなく、請求項A/B・WS-5・WS-6、審査請求、30条例外、電子出願環境、願書実入力、手数料、承継メモ、正式図面化、提出後deadline ledgerへ集約されていた。
+- 現状: 2026-06-02に `docs/ip/self_filing_package/2026-06-02_self_filing_masa_decision_sheet_internal.md` と `docs/ip/self_filing_package/2026-06-02_filing_day_checklist_internal.md` を追加済み。まさ判断は3問に圧縮し、当日チェックリストは願書実入力欄、AMD名義の電子出願環境、識別番号、申請人利用登録、支払方法、承継メモ正式化、図面提出形式、営業秘密scan、30条例外要否、審査請求要否、提出後deadline ledgerを整理済み。外部送付、JPO提出、弁理士問い合わせ、DB write、production DB接続、Web公開削除/変更は未実施。
+- 残課題: まさがdecision sheetのQ1-Q3を選び、選択結果を請求項、明細書、願書、図面README、当日チェックリストへ反映する。正式画像化 / 提出方式変換後に、白黒2値化後の実見確認、符号対応、営業秘密scanを再実施する。
+
+### self filing formal figure readiness
+
+- お願いした内容: self filing final blocker cleanup後に残った正式提出図面まわりを、内部でできる範囲まで詰める。Fig.1〜Fig.8 SVGの方式、余白、線幅、2値化、参照符号視認性、Fig.8内部注意文削除方針を確認し、必要な内部候補ファイルとチェックリストを作る。
+- 背景: SVG画像候補は内部レビュー用としてusableだが、正式提出図面ではなかった。JPO提出直前レビューに近づけるには、内部注意文や可視タイトルの削除、正式画像化TODO、符号 / 明細書 / 請求項対応、営業秘密scanを再整理する必要があった。
+- 現状: 2026-06-02に成果物 `docs/ip/self_filing_package/2026-06-02_formal_figure_readiness_internal.md`、`docs/ip/self_filing_package/figures/filing_candidates/`、`docs/ip/self_filing_package/figures/filing_candidates/README.md` を追加済み。候補SVGでは全図の可視タイトルを削除し、Fig.8の内部注意文も削除済み。元SVG8件と候補SVG8件のXML parse検証はOK。外部送付、JPO提出、弁理士問い合わせ、DB write、production DB接続は未実施。
+- 残課題: 候補SVGはJPO提出ファイルそのものではない。提出方式に合う画像形式への変換、白黒2値化後の実見確認、余白 / 線幅 / 参照符号視認性、最新JPO方式確認、請求項A/B・WS-5・WS-6・30条例外・審査請求タイミングのまさ判断が残る。
+
+### A/B/C/D workerによる事業価値・moat・営業秘密・請求項検証
+
+- お願いした内容: 出願前に、AMD OS特許が本当にビジネス上意味を持つのか、競合を止められるのか、営業秘密と特許公開の境界はどこか、請求項がどれだけ牽制力を持つかを批判的に検証する。
+- 背景: まさの懸念は、特許出願手続きの重さだけでなく、権利化できても訴訟資金がなければmoatにならないのではないか、ロイヤリティ収益が現実的でないのではないか、という点にあった。
+- 現状: worker A/B/C/Dの報告を回収し、特許出願司令塔とAMD総司令塔で統合current truthを作成済み。
+- 残課題: 統合結果を弁理士初回相談パック、営業秘密リスト、請求項見直し案へ反映する。
+
+関連worker:
+- worker A moat/侵害検出検証: `019e7ec7-2ead-7810-8b2c-3cc342f0f461`
+- worker B 営業秘密境界検証: `019e7ec7-2fd8-7042-909d-c2e1050abb75`
+- worker C 請求項牽制力検証: `019e7ec7-3110-7ea3-b267-2983bfc960e3`
+- worker D 費用対効果/ビジネス価値検証: `019e7ec7-325c-75b0-b92f-4945b5278b41`
+
+### 初回current truth整理
+
+- お願いした内容: 発明提案書、先行技術スクリーニング、OS admin IP画面、handoff、関連設計mdを読み、現時点の出願準備状況を整理する。
+- 背景: AMD OS / AMDプロトコルは、研究機関・大学・ディープテックSU支援へ展開するうえで競争優位の中核。外部公開・NIMS説明・投資家説明の前に、出願準備とリスク管理を司令塔で扱う必要があった。
+- 現状: 主軸はWS-1〜WS-5のワークフロー/データ構造AND、補強はBefore-Zero/設立タイミング判定、スコアロジックや重みは特許化対象外という方針を確認済み。
+- 残課題: 弁理士相談、営業秘密境界、公開済み資料棚卸し、発明者/権利帰属の整理へ進める。
+
+正本資料:
+- `docs/ip/HANDOFF_ip.md`
+- `docs/ip/README.md`
+- `docs/ip/2026-05-27_amd_os_protocol_patent_proposal.md`
+- `docs/ip/2026-05-27_amd_os_protocol_prior_art_screening.md`
+- `pwa/src/app/(app)/admin/ip/ip-report.ts`
