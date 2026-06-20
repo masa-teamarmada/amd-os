@@ -488,7 +488,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
               <th className="text-left px-3 py-2 font-medium w-24">Status</th>
               <th className="text-left px-3 py-2 font-medium w-32">分類</th>
               <th className="text-left px-3 py-2 font-medium w-44">Lane (ASPI)</th>
-              <th className="text-left px-3 py-2 font-medium w-56">メンバー</th>
+              <th className="text-left px-3 py-2 font-medium w-72 min-w-72">メンバー</th>
               <th className="text-left px-3 py-2 font-medium w-40">請求先</th>
               <th className="text-left px-3 py-2 font-medium w-56">関係先メールアドレス</th>
               <th className="text-center px-3 py-2 font-medium w-16">総会</th>
@@ -672,7 +672,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                     onClick={() => setMembersModal({ projectId: p.project_id, projectName: p.project_name })}
                     title="クリックで PJ メンバーを編集"
                   >
-                    <div className="space-y-0.5 text-[11px]">
+                    <div className="space-y-0.5 text-[11px] whitespace-nowrap">
                       {p.pls.length > 0 && (
                         <div><span className="text-muted-foreground mr-1">PL:</span><span className="text-blue-700 font-semibold">{p.pls.join(", ")}</span></div>
                       )}
