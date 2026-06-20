@@ -2,10 +2,12 @@ import { createHash } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   buildContractSignalCandidates,
+  buildContractTermCandidates,
   CONTRACT_SIGNAL_SOURCE_KINDS,
   type ContractSignalCandidate,
   type ContractSignalSourceKind,
   type ContractSourceEvidence,
+  type ContractTermCandidate,
 } from "@/lib/contracts";
 
 type ExtractionOptions = {
@@ -34,8 +36,10 @@ type ProjectSummary = {
   sourceHash: string;
   sourceCount: number;
   candidateCount: number;
+  termCandidateCount: number;
   skippedUnchanged: boolean;
   signalsUpserted: number;
+  termsUpserted: number;
   contractsCreated: number;
   reviewRequired: number;
   highConfidence: number;
@@ -59,15 +63,25 @@ export type ContractL2ExtractionResult = {
     reviewRequired: number;
     byKind: Record<string, number>;
   };
+  termCandidateCounts: {
+    total: number;
+    withAmount: number;
+    withPeriod: number;
+    reviewRequired: number;
+    byKind: Record<string, number>;
+  };
   writeCounts: {
     signalsUpserted: number;
+    termsUpserted: number;
     contractsCreated: number;
     notificationsUpserted: number;
     stateUpserted: number;
     skippedUnchangedProjects: number;
+    termsTableMissing: boolean;
   };
   projectSummaries: ProjectSummary[];
   candidates: ContractSignalCandidate[];
+  termCandidates: ContractTermCandidate[];
   safety: string;
 };
 
@@ -146,6 +160,22 @@ function contractTitle(candidate: ContractSignalCandidate) {
   return truncate(`${typeLabel[candidate.signalType] ?? "契約"}: ${candidate.title}`, 180) || "契約予定枠";
 }
 
+function termSourceRef(candidate: ContractTermCandidate) {
+  return {
+    source_kind: candidate.sourceKind,
+    source_table: candidate.sourceTable,
+    source_id: candidate.sourceId,
+    source_url: candidate.sourceUrl,
+    title: candidate.sourceTitle,
+    item_date: candidate.itemDate,
+  };
+}
+
+function isMissingContractTermsTable(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /contract_terms|schema cache|does not exist|relation .*contract_terms/i.test(message);
+}
+
 export async function collectContractSignalSources(
   db: SupabaseClient,
   options: Pick<ExtractionOptions, "days" | "limit" | "projectId"> = {},
@@ -187,6 +217,7 @@ export async function collectContractSignalSources(
         projectId: String(row.project_id || ""),
         title: truncate(row.title || row.item_id, 180),
         snippet: truncate(row.content_text, 700),
+        fullText: truncate(row.content_text, 5000),
         sourceUrl: typeof metadata.url === "string"
           ? metadata.url
           : typeof metadata.webViewLink === "string"
@@ -209,6 +240,7 @@ export async function collectContractSignalSources(
       projectId: String(row.project_id),
       title: truncate(row.title, 180),
       snippet: truncate([row.summary_short, decided, nextActions, risks, row.narrative_md].filter(Boolean).join(" / "), 700),
+      fullText: truncate([row.summary_short, decided, nextActions, risks, row.narrative_md].filter(Boolean).join(" / "), 1600),
       sourceUrl: row.notion_url || row.source_url || null,
       itemDate: row.meeting_start_at || row.meeting_date || null,
       metadata: { source_kinds: row.source_kinds },
@@ -217,6 +249,7 @@ export async function collectContractSignalSources(
 
   const sources = [...sourceCacheEvidence, ...meetingEvidence];
   const candidates = buildContractSignalCandidates(sources).slice(0, limit);
+  const termCandidates = buildContractTermCandidates(sources).slice(0, limit);
 
   return {
     days,
@@ -226,6 +259,7 @@ export async function collectContractSignalSources(
     meetingEvidence,
     sources,
     candidates,
+    termCandidates,
   };
 }
 
@@ -238,18 +272,26 @@ export async function extractContractL2Data(
   const source = options.source || "claude-l2-daily-contract-extract";
   const collected = await collectContractSignalSources(db, options);
   const candidatesByProject = groupByProject(collected.candidates);
+  const termCandidatesByProject = groupByProject(collected.termCandidates);
   const sourcesByProject = groupByProject(collected.sources);
   const projectSummaries: ProjectSummary[] = [];
   let signalsUpserted = 0;
+  let termsUpserted = 0;
   let contractsCreated = 0;
   let notificationsUpserted = 0;
   let stateUpserted = 0;
   let skippedUnchangedProjects = 0;
+  let termsTableMissing = false;
 
-  const projectIds = Array.from(new Set([...sourcesByProject.keys(), ...candidatesByProject.keys()])).sort();
+  const projectIds = Array.from(new Set([
+    ...sourcesByProject.keys(),
+    ...candidatesByProject.keys(),
+    ...termCandidatesByProject.keys(),
+  ])).sort();
   for (const projectId of projectIds) {
     const projectSources = sourcesByProject.get(projectId) ?? [];
     const projectCandidates = candidatesByProject.get(projectId) ?? [];
+    const projectTermCandidates = termCandidatesByProject.get(projectId) ?? [];
     const sourceHash = stableHash({
       projectId,
       candidates: projectCandidates.map((candidate) => ({
@@ -258,6 +300,16 @@ export async function extractContractL2Data(
         reviewRequired: candidate.reviewRequired,
         proposedAction: candidate.proposedAction,
         terms: candidate.detectedTerms,
+      })),
+      termCandidates: projectTermCandidates.map((candidate) => ({
+        candidateId: candidate.candidateId,
+        sourceTermHash: candidate.sourceTermHash,
+        confidence: candidate.confidence,
+        reviewRequired: candidate.reviewRequired,
+        amountTaxExcl: candidate.amountTaxExcl,
+        amountTaxIncl: candidate.amountTaxIncl,
+        periodStart: candidate.periodStart,
+        periodEnd: candidate.periodEnd,
       })),
       sources: projectSources.map((item) => ({
         table: item.sourceTable,
@@ -286,8 +338,10 @@ export async function extractContractL2Data(
         sourceHash,
         sourceCount: projectSources.length,
         candidateCount: projectCandidates.length,
+        termCandidateCount: projectTermCandidates.length,
         skippedUnchanged: true,
         signalsUpserted: 0,
+        termsUpserted: 0,
         contractsCreated: 0,
         reviewRequired: projectCandidates.filter((candidate) => candidate.reviewRequired).length,
         highConfidence: projectCandidates.filter((candidate) => !candidate.reviewRequired).length,
@@ -300,8 +354,8 @@ export async function extractContractL2Data(
           scope_key: "daily",
           source_hash: sourceHash,
           saved_count: 0,
-          total_count: projectCandidates.length,
-          llm_model: "rules:contract_signal_terms_v2",
+          total_count: projectCandidates.length + projectTermCandidates.length,
+          llm_model: "rules:contract_signal_terms_v3",
           message: "skipped_unchanged",
           last_processed_at: new Date().toISOString(),
         }, { onConflict: "l2_kind,target_id,scope_key" });
@@ -311,7 +365,9 @@ export async function extractContractL2Data(
     }
 
     let projectSignalsUpserted = 0;
+    let projectTermsUpserted = 0;
     let projectContractsCreated = 0;
+    let rowsBySourceKey = new Map<string, ContractSignalRow>();
     if (!dryRun && projectCandidates.length > 0) {
       const signalPayloads = projectCandidates.map((candidate) => ({
         project_id: candidate.projectId,
@@ -342,6 +398,10 @@ export async function extractContractL2Data(
       const rows = (signalRows ?? []) as ContractSignalRow[];
       projectSignalsUpserted = rows.length;
       signalsUpserted += rows.length;
+      rowsBySourceKey = new Map(rows.map((row) => [
+        `${row.source_kind}:${row.source_table}:${row.source_id}`,
+        row,
+      ]));
 
       const relinkedRows = rows.filter((row) => row.contract_id && row.status !== "linked");
       if (relinkedRows.length > 0) {
@@ -394,6 +454,89 @@ export async function extractContractL2Data(
       }
     }
 
+    if (!dryRun && projectTermCandidates.length > 0 && !termsTableMissing) {
+      const sourceIds = Array.from(new Set(projectTermCandidates.map((candidate) => candidate.sourceId)));
+      const { data: existingTerms, error: existingTermsError } = await db
+        .from("contract_terms")
+        .select("source_kind,source_table,source_id,source_term_hash,status,review_status")
+        .eq("project_id", projectId)
+        .in("source_id", sourceIds);
+      if (existingTermsError) {
+        if (isMissingContractTermsTable(existingTermsError)) {
+          termsTableMissing = true;
+        } else {
+          throw existingTermsError;
+        }
+      }
+      const lockedTermKeys = new Set(
+        ((existingTerms ?? []) as Array<{
+          source_kind: string;
+          source_table: string;
+          source_id: string;
+          source_term_hash: string;
+          status: string;
+          review_status: string;
+        }>)
+          .filter((row) => ["accepted", "applied"].includes(row.status) || ["accepted", "applied"].includes(row.review_status))
+          .map((row) => `${row.source_kind}:${row.source_table}:${row.source_id}:${row.source_term_hash}`),
+      );
+      const termPayloads = termsTableMissing ? [] : projectTermCandidates
+        .filter((candidate) => !lockedTermKeys.has(`${candidate.sourceKind}:${candidate.sourceTable}:${candidate.sourceId}:${candidate.sourceTermHash}`))
+        .map((candidate) => {
+          const linkedSignal = rowsBySourceKey.get(`${candidate.sourceKind}:${candidate.sourceTable}:${candidate.sourceId}`);
+          return {
+            contract_id: linkedSignal?.contract_id ?? null,
+            signal_id: linkedSignal?.signal_id ?? null,
+            project_id: candidate.projectId,
+            source_kind: candidate.sourceKind,
+            source_table: candidate.sourceTable,
+            source_id: candidate.sourceId,
+            source_term_hash: candidate.sourceTermHash,
+            source_url: candidate.sourceUrl,
+            source_title: candidate.sourceTitle,
+            contract_no: candidate.contractNo,
+            quote_no: candidate.quoteNo,
+            contract_title: candidate.contractTitle,
+            counterparty_name: candidate.counterpartyName,
+            period_start: candidate.periodStart,
+            period_end: candidate.periodEnd,
+            period_start_ym: candidate.periodStartYm,
+            period_end_ym: candidate.periodEndYm,
+            amount_tax_excl: candidate.amountTaxExcl,
+            tax_amount: candidate.taxAmount,
+            amount_tax_incl: candidate.amountTaxIncl,
+            currency: candidate.currency,
+            billing_distribution: candidate.billingDistribution,
+            billing_distribution_json: candidate.billingDistributionJson,
+            fee_type_hint: candidate.feeTypeHint,
+            confidence: candidate.confidence,
+            review_required: candidate.reviewRequired,
+            review_status: candidate.reviewStatus,
+            status: candidate.status,
+            source_refs_json: candidate.sourceRefs.length > 0 ? candidate.sourceRefs : [termSourceRef(candidate)],
+            extracted_terms_json: candidate.extractedTerms,
+            created_by: source,
+            updated_by: source,
+          };
+        });
+      if (termPayloads.length > 0) {
+        const { data: termRows, error: termError } = await db
+          .from("contract_terms")
+          .upsert(termPayloads, { onConflict: "source_kind,source_table,source_id,source_term_hash" })
+          .select("term_id");
+        if (termError) {
+          if (isMissingContractTermsTable(termError)) {
+            termsTableMissing = true;
+          } else {
+            throw termError;
+          }
+        } else {
+          projectTermsUpserted = termRows?.length ?? 0;
+          termsUpserted += projectTermsUpserted;
+        }
+      }
+    }
+
     if (!dryRun) {
       const reviewRequired = projectCandidates.filter((candidate) => candidate.reviewRequired).length;
       const highConfidence = projectCandidates.filter((candidate) => !candidate.reviewRequired).length;
@@ -404,31 +547,41 @@ export async function extractContractL2Data(
           target_id: projectId,
           scope_key: "daily",
           source_hash: sourceHash,
-          saved_count: projectSignalsUpserted + projectContractsCreated,
-          total_count: projectCandidates.length,
-          llm_model: "rules:contract_signal_terms_v2",
-          message: `signals=${projectSignalsUpserted}, contracts=${projectContractsCreated}, review_required=${reviewRequired}`,
+          saved_count: projectSignalsUpserted + projectContractsCreated + projectTermsUpserted,
+          total_count: projectCandidates.length + projectTermCandidates.length,
+          llm_model: "rules:contract_signal_terms_v3",
+          message: `signals=${projectSignalsUpserted}, terms=${projectTermsUpserted}, contracts=${projectContractsCreated}, review_required=${reviewRequired}`,
           last_processed_at: new Date().toISOString(),
         }, { onConflict: "l2_kind,target_id,scope_key" });
       if (stateError) throw stateError;
       stateUpserted += 1;
 
-      if (projectCandidates.length > 0) {
+      if (projectCandidates.length > 0 || projectTermCandidates.length > 0) {
         const { error: notificationError } = await db
           .from("l2_notifications")
           .upsert({
             l2_kind: "contract_signals",
             target_id: projectId,
             scope_key: "daily",
-            title: `契約予兆 ${projectCandidates.length}件`,
-            summary: `高確度 ${highConfidence}件 / review必要 ${reviewRequired}件。契約管理で確認。`,
-            saved_count: projectSignalsUpserted + projectContractsCreated,
-            total_count: projectCandidates.length,
+            title: `契約予兆 ${projectCandidates.length}件 / 条件候補 ${projectTermCandidates.length}件`,
+            summary: `高確度 ${highConfidence}件 / review必要 ${reviewRequired}件 / 条件候補 ${projectTermCandidates.length}件。契約管理で確認。`,
+            saved_count: projectSignalsUpserted + projectContractsCreated + projectTermsUpserted,
+            total_count: projectCandidates.length + projectTermCandidates.length,
             importance: highConfidence > 0 ? 2 : 1,
             metadata_json: {
               route: "/admin/contracts",
               high_confidence: highConfidence,
               review_required: reviewRequired,
+              term_candidates: projectTermCandidates.slice(0, 10).map((candidate) => ({
+                candidate_id: candidate.candidateId,
+                title: candidate.sourceTitle,
+                contract_no: candidate.contractNo,
+                amount_tax_excl: candidate.amountTaxExcl,
+                amount_tax_incl: candidate.amountTaxIncl,
+                period_start: candidate.periodStart,
+                period_end: candidate.periodEnd,
+                confidence: candidate.confidence,
+              })),
               candidates: projectCandidates.slice(0, 10).map((candidate) => ({
                 candidate_id: candidate.candidateId,
                 title: candidate.title,
@@ -448,8 +601,10 @@ export async function extractContractL2Data(
       sourceHash,
       sourceCount: projectSources.length,
       candidateCount: projectCandidates.length,
+      termCandidateCount: projectTermCandidates.length,
       skippedUnchanged: false,
       signalsUpserted: projectSignalsUpserted,
+      termsUpserted: projectTermsUpserted,
       contractsCreated: projectContractsCreated,
       reviewRequired: projectCandidates.filter((candidate) => candidate.reviewRequired).length,
       highConfidence: projectCandidates.filter((candidate) => !candidate.reviewRequired).length,
@@ -474,17 +629,27 @@ export async function extractContractL2Data(
       reviewRequired: collected.candidates.filter((candidate) => candidate.reviewRequired).length,
       byKind: countBySource(collected.candidates),
     },
+    termCandidateCounts: {
+      total: collected.termCandidates.length,
+      withAmount: collected.termCandidates.filter((candidate) => candidate.amountTaxExcl !== null || candidate.amountTaxIncl !== null).length,
+      withPeriod: collected.termCandidates.filter((candidate) => candidate.periodStart !== null || candidate.periodEnd !== null).length,
+      reviewRequired: collected.termCandidates.filter((candidate) => candidate.reviewRequired).length,
+      byKind: countBySource(collected.termCandidates),
+    },
     writeCounts: {
       signalsUpserted,
+      termsUpserted,
       contractsCreated,
       notificationsUpserted,
       stateUpserted,
       skippedUnchangedProjects,
+      termsTableMissing,
     },
     projectSummaries,
     candidates: dryRun ? collected.candidates : collected.candidates.slice(0, 80),
+    termCandidates: dryRun ? collected.termCandidates : collected.termCandidates.slice(0, 80),
     safety: dryRun
-      ? "dry-run only: no contracts, signals, Drive files, or Slack messages were created"
-      : "wrote metadata only: contract files stay in Drive, raw source bodies are not stored, Slack messages were not sent",
+      ? "dry-run only: no contracts, signals, terms, Drive files, or Slack messages were created"
+      : "wrote metadata only: contract files stay in Drive, raw source bodies are not stored, contract terms stay review-gated, Slack messages were not sent",
   };
 }

@@ -20,6 +20,7 @@
 | `contracts` | 契約予定枠、status、相手先、関連PJ、予兆confidence、nudge閾値、押印版有無 |
 | `contract_documents` | Drive file metadata による version history。本文/ファイル本体はDB保存しない |
 | `contract_signals` | 5生データから検知した契約予兆候補。raw本文ではなく短いsnippetとsource refだけ保存 |
+| `contract_terms` | 契約書・見積・発注書などから抽出した金額/期間/相手先候補。`candidate/pending` は review queue であり、`applied` まで projects/billing_cycles へ反映しない |
 | `contract_nudges` | 押印版未保存のnudge候補/履歴。初期はdry-run/review queue前提 |
 
 status:
@@ -38,7 +39,7 @@ status:
 
 | route | method | write? | contract |
 |---|---:|---:|---|
-| `/api/contracts` | GET | no | 契約、documents、signals、nudges、projects、Drive保存先設定を返す |
+| `/api/contracts` | GET | no | 契約、documents、signals、terms、nudges、projects、Drive保存先設定を返す |
 | `/api/contracts` | POST | yes | admin手動で契約予定枠を作る |
 | `/api/contracts/[contractId]` | PATCH | yes | status、相手先、予定日、nudge閾値などを更新 |
 | `/api/contracts/documents` | POST | yes | 既存Drive link/file idをmetadata登録。`document_kind='signed'` なら契約を `signed` にする |
@@ -56,6 +57,8 @@ status:
 | Calendar | `project_meeting_summaries` / Calendar由来MTGカード | 契約締結MTG、法務確認MTG、押印期限 |
 
 判定語は `契約書`、`NDA`、`業務委託`、`共同研究契約`、`MOU`、`押印`、`電子署名`、`DocuSign`、`クラウドサイン`、`修正案`、`法務確認`、`redline` など。単に `契約` / `締結` が議事録本文に出るだけでは自動予定枠にしない。
+
+D-13 は契約予兆 (`contract_signals`) に加えて、契約No・見積No・期間・金額・相手先を検出できた場合に `contract_terms` へ `status='candidate'` / `review_status='pending'` の候補を作る。これは Contract Apply の前段であり、候補の時点では `projects.contract_terms_json`、`projects.fee_*`、`billing_cycles` は更新しない。
 
 ## 自動予定枠化の品質境界
 

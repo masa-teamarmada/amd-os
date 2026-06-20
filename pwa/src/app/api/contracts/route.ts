@@ -32,13 +32,18 @@ function schemaError(error: unknown) {
   return /relation .*contracts|schema cache|does not exist/i.test(message);
 }
 
+function optionalTermsSchemaError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /contract_terms|schema cache|does not exist|relation .*contract_terms/i.test(message);
+}
+
 export async function GET() {
   const auth = await requireAdmin();
   if (!auth.ok) return auth.errorResponse;
 
   const admin = createAdminClient();
   try {
-    const [contractsRes, documentsRes, signalsRes, nudgesRes, projectsRes] = await Promise.all([
+    const [contractsRes, documentsRes, signalsRes, termsRes, nudgesRes, projectsRes] = await Promise.all([
       admin
         .from("contracts")
         .select("*,projects(project_name,slack_channel_id)")
@@ -55,6 +60,11 @@ export async function GET() {
         .order("detected_at", { ascending: false })
         .limit(CONTRACT_ACTIVITY_LIST_LIMIT),
       admin
+        .from("contract_terms")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(CONTRACT_ACTIVITY_LIST_LIMIT),
+      admin
         .from("contract_nudges")
         .select("*")
         .order("candidate_at", { ascending: false })
@@ -65,7 +75,12 @@ export async function GET() {
         .order("project_name", { ascending: true }),
     ]);
 
-    const firstError = contractsRes.error || documentsRes.error || signalsRes.error || nudgesRes.error || projectsRes.error;
+    const firstError = contractsRes.error
+      || documentsRes.error
+      || signalsRes.error
+      || (termsRes.error && !optionalTermsSchemaError(termsRes.error) ? termsRes.error : null)
+      || nudgesRes.error
+      || projectsRes.error;
     if (firstError) throw firstError;
 
     return NextResponse.json({
@@ -73,6 +88,8 @@ export async function GET() {
       contracts: contractsRes.data ?? [],
       documents: documentsRes.data ?? [],
       signals: signalsRes.data ?? [],
+      terms: termsRes.error && optionalTermsSchemaError(termsRes.error) ? [] : termsRes.data ?? [],
+      termsSetupRequired: Boolean(termsRes.error && optionalTermsSchemaError(termsRes.error)),
       nudges: nudgesRes.data ?? [],
       projects: projectsRes.data ?? [],
       driveDestination: {

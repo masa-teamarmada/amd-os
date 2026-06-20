@@ -35,6 +35,7 @@ export type ContractSourceEvidence = {
   projectId: string;
   title: string;
   snippet: string;
+  fullText?: string | null;
   sourceUrl: string | null;
   itemDate: string | null;
   metadata?: Record<string, unknown> | null;
@@ -71,6 +72,40 @@ export type ContractNudgeCandidate = {
   dueAt: string;
   dryRunMessage: string;
   blocker: string | null;
+};
+
+export type ContractTermCandidate = {
+  candidateId: string;
+  sourceTermHash: string;
+  projectId: string;
+  sourceKind: ContractSignalSourceKind;
+  sourceTable: ContractSourceEvidence["sourceTable"];
+  sourceId: string;
+  sourceUrl: string | null;
+  sourceTitle: string;
+  contractNo: string | null;
+  quoteNo: string | null;
+  contractTitle: string | null;
+  counterpartyName: string | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+  periodStartYm: string | null;
+  periodEndYm: string | null;
+  amountTaxExcl: number | null;
+  taxAmount: number | null;
+  amountTaxIncl: number | null;
+  currency: "JPY";
+  feeTypeHint: "monthly_fixed" | "contract_total" | "milestone" | "variable" | "unknown";
+  billingDistribution: "review_required" | "monthly_average" | "schedule_based" | "manual";
+  billingDistributionJson: Record<string, unknown>;
+  confidence: number;
+  reviewRequired: boolean;
+  reviewStatus: "pending";
+  status: "candidate";
+  extractedTerms: Record<string, unknown>;
+  sourceRefs: Array<Record<string, unknown>>;
+  reason: string;
+  itemDate: string | null;
 };
 
 const CONTRACT_TERMS = [
@@ -225,6 +260,181 @@ function isAdministrativeContractAttachment(title: string) {
   ].some((term) => hasTerm(title, term));
 }
 
+function parseYenNumber(value: string | null | undefined) {
+  if (!value) return null;
+  const normalized = value.normalize("NFKC").replace(/[¥￥円,\s]/g, "");
+  const match = normalized.match(/[0-9]+/);
+  if (!match) return null;
+  const amount = Number(match[0]);
+  return Number.isFinite(amount) && amount >= 1000 ? amount : null;
+}
+
+function findYenAfterLabels(text: string, labels: string[]) {
+  const cleaned = text.normalize("NFKC").replace(/[*_`]/g, "");
+  for (const label of labels) {
+    const re = new RegExp(`${label}\\s*(?:\\([^)]*\\))?\\s*[:：]?\\s*[¥￥]?\\s*([0-9][0-9,]*)\\s*円?`, "i");
+    const match = cleaned.match(re);
+    const amount = parseYenNumber(match?.[1]);
+    if (amount !== null) return amount;
+  }
+  return null;
+}
+
+function parseJapaneseDate(value: string | null | undefined) {
+  if (!value) return null;
+  const normalized = value.normalize("NFKC");
+  const japanese = normalized.match(/(20\d{2})年\s*(\d{1,2})月\s*(\d{1,2})日/);
+  if (japanese) {
+    const year = japanese[1];
+    const month = japanese[2].padStart(2, "0");
+    const day = japanese[3].padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+  const compact = normalized.match(/\b(20\d{2})(\d{2})(\d{2})\b/);
+  if (compact) return `${compact[1]}-${compact[2]}-${compact[3]}`;
+  const dashed = normalized.match(/\b(20\d{2})[-/](\d{1,2})[-/](\d{1,2})\b/);
+  if (dashed) return `${dashed[1]}-${dashed[2].padStart(2, "0")}-${dashed[3].padStart(2, "0")}`;
+  return null;
+}
+
+function dateToYm(value: string | null) {
+  return value ? value.slice(0, 7).replace("-", "") : null;
+}
+
+function monthRange(start: string | null, end: string | null) {
+  if (!start || !end) return [];
+  const startDate = new Date(`${start.slice(0, 7)}-01T00:00:00Z`);
+  const endDate = new Date(`${end.slice(0, 7)}-01T00:00:00Z`);
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || startDate > endDate) return [];
+  const months: string[] = [];
+  const cursor = new Date(startDate);
+  while (cursor <= endDate && months.length < 60) {
+    months.push(`${cursor.getUTCFullYear()}${String(cursor.getUTCMonth() + 1).padStart(2, "0")}`);
+    cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+  }
+  return months;
+}
+
+function findLabeledText(text: string, labels: string[], maxLength = 180) {
+  for (const label of labels) {
+    const re = new RegExp(`${label}\\s*[:：]\\s*([^\\n|]{2,${maxLength}})`, "i");
+    const match = text.match(re);
+    if (match?.[1]) return truncate(match[1], maxLength);
+  }
+  return null;
+}
+
+function extractPeriod(text: string) {
+  const normalized = text.normalize("NFKC");
+  const periodMatch = normalized.match(/(?:履行期間|契約期間|期間|業務期間)[^\n0-9]{0,30}((?:20\d{2}年\s*\d{1,2}月\s*\d{1,2}日)|(?:20\d{6})|(?:20\d{2}[-/]\d{1,2}[-/]\d{1,2}))[^\n0-9]{0,18}((?:20\d{2}年\s*\d{1,2}月\s*\d{1,2}日)|(?:20\d{6})|(?:20\d{2}[-/]\d{1,2}[-/]\d{1,2}))/);
+  if (periodMatch) {
+    return {
+      start: parseJapaneseDate(periodMatch[1]),
+      end: parseJapaneseDate(periodMatch[2]),
+    };
+  }
+  const compactTitle = normalized.match(/期間(20\d{6})[_-](20\d{6})/);
+  if (compactTitle) {
+    return {
+      start: parseJapaneseDate(compactTitle[1]),
+      end: parseJapaneseDate(compactTitle[2]),
+    };
+  }
+  return { start: null, end: null };
+}
+
+function inferCounterparty(text: string) {
+  if (/NIMS|物質・材料研究機構/.test(text)) return "国立研究開発法人物質・材料研究機構（NIMS）";
+  return findLabeledText(text, ["発注者", "発行元", "委託者", "甲", "相手先"], 120);
+}
+
+function buildBillingDistributionJson(params: {
+  amountTaxExcl: number | null;
+  amountTaxIncl: number | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+  feeTypeHint: ContractTermCandidate["feeTypeHint"];
+  itemDate: string | null;
+  targetYm?: string | null;
+  scheduleDistribution?: Record<string, unknown> | null;
+}) {
+  if (params.scheduleDistribution) return params.scheduleDistribution;
+  const months = monthRange(params.periodStart, params.periodEnd);
+  if (params.feeTypeHint === "monthly_fixed") {
+    return {
+      basis: "monthly_fixed_candidate",
+      ym: params.targetYm ?? dateToYm(params.itemDate),
+      monthly_amount_tax_excl: params.amountTaxExcl,
+      monthly_reward_cap_yen: params.amountTaxExcl === null ? null : Math.round(params.amountTaxExcl * 0.65),
+    };
+  }
+  if (months.length === 0 || params.amountTaxExcl === null) {
+    return { basis: "review_required", reason: "契約金額または契約期間が不足しているため月次配分は未確定" };
+  }
+  const monthlyAverage = Math.round(params.amountTaxExcl / months.length);
+  return {
+    basis: "monthly_average_review_required",
+    months,
+    amount_tax_excl_total: params.amountTaxExcl,
+    amount_tax_incl_total: params.amountTaxIncl,
+    monthly_average_tax_excl: monthlyAverage,
+    monthly_reward_cap_yen: Math.round(monthlyAverage * 0.65),
+    total_reward_cap_yen: Math.round(params.amountTaxExcl * 0.65),
+  };
+}
+
+function extractTargetYm(text: string) {
+  return text.normalize("NFKC").match(/対象月\s*[:：]?\s*(20\d{4})/)?.[1] ?? null;
+}
+
+function extractScheduleDistribution(text: string, periodStart: string | null, periodEnd: string | null) {
+  const months = monthRange(periodStart, periodEnd);
+  if (months.length !== 4) return null;
+  const principalRate = parseYenNumber(text.match(/プリンシパル[^\n|]*\|[^\n]*?¥\s*([0-9,]+)/)?.[1]);
+  const associateRate = parseYenNumber(text.match(/アソシエイト[^\n|]*\|[^\n]*?¥\s*([0-9,]+)/)?.[1]);
+  const principalHours = text.match(/プリンシパル\s*\|\s*(\d+(?:\.\d+)?)\s*\|\s*(\d+(?:\.\d+)?)\s*\|\s*(\d+(?:\.\d+)?)\s*\|\s*(\d+(?:\.\d+)?)/);
+  const associateHours = text.match(/アソシエイト\s*\|\s*(\d+(?:\.\d+)?)\s*\|\s*(\d+(?:\.\d+)?)\s*\|\s*(\d+(?:\.\d+)?)\s*\|\s*(\d+(?:\.\d+)?)/);
+  if (principalRate === null || associateRate === null || !principalHours || !associateHours) return null;
+
+  const monthly = months.map((ym, index) => {
+    const principal = Number(principalHours[index + 1]);
+    const associate = Number(associateHours[index + 1]);
+    const amountTaxExcl = Math.round(principal * principalRate + associate * associateRate);
+    return {
+      ym,
+      principal_hours: principal,
+      associate_hours: associate,
+      amount_tax_excl: amountTaxExcl,
+      reward_cap_yen: Math.round(amountTaxExcl * 0.65),
+    };
+  });
+
+  return {
+    basis: "schedule_based_review_required",
+    months,
+    principal_rate_yen: principalRate,
+    associate_rate_yen: associateRate,
+    monthly,
+    amount_tax_excl_total: monthly.reduce((sum, row) => sum + row.amount_tax_excl, 0),
+    total_reward_cap_yen: monthly.reduce((sum, row) => sum + row.reward_cap_yen, 0),
+  };
+}
+
+function extractAmounts(text: string) {
+  const monthlyFee = findYenAfterLabels(text, ["業務委託費\\(税抜\\)", "月額\\(税抜\\)", "月額", "fee_amount"]);
+  const subtotal = findYenAfterLabels(text, ["小計", "税抜金額", "税抜", "税別", "明細合計"]);
+  const tax = findYenAfterLabels(text, ["消費税", "税額"]);
+  const total = findYenAfterLabels(text, ["合計", "税込金額", "税込", "契約金額", "見積金額", "発注金額"]);
+  const amountTaxExcl = subtotal ?? monthlyFee ?? (total !== null && tax !== null ? total - tax : null);
+  const amountTaxIncl = total ?? (amountTaxExcl !== null && tax !== null ? amountTaxExcl + tax : null);
+  return {
+    amountTaxExcl,
+    taxAmount: tax,
+    amountTaxIncl,
+    monthlyFee,
+  };
+}
+
 export function buildContractSignalCandidate(evidence: ContractSourceEvidence): ContractSignalCandidate | null {
   const combined = `${evidence.title}\n${evidence.snippet}`;
   const detectedTerms = unique(CONTRACT_TERMS.filter((term) => hasTerm(combined, term)));
@@ -283,10 +493,128 @@ export function buildContractSignalCandidate(evidence: ContractSourceEvidence): 
   };
 }
 
+export function buildContractTermCandidate(evidence: ContractSourceEvidence): ContractTermCandidate | null {
+  const combined = `${evidence.title}\n${evidence.fullText || evidence.snippet}`;
+  const contractNo = combined.match(/\bW20\d{8,}\b/)?.[0] ?? null;
+  const quoteNo = combined.match(/\bQ-\d{8,}\b/)?.[0] ?? null;
+  const { start: periodStart, end: periodEnd } = extractPeriod(combined);
+  const amounts = extractAmounts(combined);
+  const contractTitle = findLabeledText(combined, ["調達件名", "契約件名", "件名"], 180);
+  const counterpartyName = inferCounterparty(combined);
+  const hasPrimaryTerm = Boolean(
+    contractNo
+      || quoteNo
+      || periodStart
+      || periodEnd
+      || amounts.amountTaxExcl !== null
+      || amounts.amountTaxIncl !== null,
+  );
+  if (!hasPrimaryTerm) return null;
+
+  const feeTypeHint: ContractTermCandidate["feeTypeHint"] = amounts.monthlyFee !== null
+    ? "monthly_fixed"
+    : amounts.amountTaxExcl !== null || amounts.amountTaxIncl !== null
+      ? "contract_total"
+      : "unknown";
+  if (feeTypeHint === "contract_total" && !contractNo && !quoteNo && !periodStart && !periodEnd) return null;
+  const scheduleDistribution = extractScheduleDistribution(combined, periodStart, periodEnd);
+  const targetYm = extractTargetYm(combined);
+  const billingDistributionJson = buildBillingDistributionJson({
+    amountTaxExcl: amounts.amountTaxExcl,
+    amountTaxIncl: amounts.amountTaxIncl,
+    periodStart,
+    periodEnd,
+    feeTypeHint,
+    itemDate: evidence.itemDate,
+    targetYm,
+    scheduleDistribution,
+  });
+  const score = Math.min(
+    0.96,
+    0.34
+      + (contractNo ? 0.15 : 0)
+      + (quoteNo ? 0.05 : 0)
+      + (periodStart && periodEnd ? 0.18 : 0)
+      + (amounts.amountTaxExcl !== null || amounts.amountTaxIncl !== null ? 0.22 : 0)
+      + (counterpartyName ? 0.09 : 0)
+      + (contractTitle ? 0.06 : 0)
+      + (evidence.sourceKind === "drive" ? 0.05 : 0),
+  );
+  const extractedTerms = {
+    contract_no: contractNo,
+    quote_no: quoteNo,
+    contract_title: contractTitle,
+    counterparty_name: counterpartyName,
+    period_start: periodStart,
+    period_end: periodEnd,
+    amount_tax_excl: amounts.amountTaxExcl,
+    tax_amount: amounts.taxAmount,
+    amount_tax_incl: amounts.amountTaxIncl,
+    fee_type_hint: feeTypeHint,
+    target_ym: targetYm,
+  };
+  const sourceTermHash = hashLike(JSON.stringify(extractedTerms));
+
+  return {
+    candidateId: `contract-term:${evidence.sourceTable}:${evidence.sourceId}:${sourceTermHash}`,
+    sourceTermHash,
+    projectId: evidence.projectId,
+    sourceKind: evidence.sourceKind,
+    sourceTable: evidence.sourceTable,
+    sourceId: evidence.sourceId,
+    sourceUrl: evidence.sourceUrl,
+    sourceTitle: truncate(evidence.title || "契約条件候補", 180),
+    contractNo,
+    quoteNo,
+    contractTitle,
+    counterpartyName,
+    periodStart,
+    periodEnd,
+    periodStartYm: dateToYm(periodStart),
+    periodEndYm: dateToYm(periodEnd),
+    amountTaxExcl: amounts.amountTaxExcl,
+    taxAmount: amounts.taxAmount,
+    amountTaxIncl: amounts.amountTaxIncl,
+    currency: "JPY",
+    feeTypeHint,
+    billingDistribution: scheduleDistribution ? "schedule_based" : "review_required",
+    billingDistributionJson,
+    confidence: Number(score.toFixed(2)),
+    reviewRequired: true,
+    reviewStatus: "pending",
+    status: "candidate",
+    extractedTerms,
+    sourceRefs: [{
+      source_kind: evidence.sourceKind,
+      source_table: evidence.sourceTable,
+      source_id: evidence.sourceId,
+      source_url: evidence.sourceUrl,
+      title: truncate(evidence.title, 180),
+      item_date: evidence.itemDate,
+    }],
+    reason: "契約条件候補を抽出した。金額・期間は請求/報酬へ自動反映せず、accept/apply前に人間レビューが必要",
+    itemDate: evidence.itemDate,
+  };
+}
+
 export function buildContractSignalCandidates(sources: ContractSourceEvidence[]) {
   return sources
     .map(buildContractSignalCandidate)
     .filter((candidate): candidate is ContractSignalCandidate => candidate !== null)
+    .sort((a, b) => b.confidence - a.confidence || String(b.itemDate ?? "").localeCompare(String(a.itemDate ?? "")));
+}
+
+export function buildContractTermCandidates(sources: ContractSourceEvidence[]) {
+  const seen = new Set<string>();
+  return sources
+    .map(buildContractTermCandidate)
+    .filter((candidate): candidate is ContractTermCandidate => candidate !== null)
+    .filter((candidate) => {
+      const key = `${candidate.sourceKind}:${candidate.sourceTable}:${candidate.sourceId}:${candidate.sourceTermHash}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
     .sort((a, b) => b.confidence - a.confidence || String(b.itemDate ?? "").localeCompare(String(a.itemDate ?? "")));
 }
 

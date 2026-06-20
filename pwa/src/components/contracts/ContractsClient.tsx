@@ -93,6 +93,38 @@ type ContractSignal = {
   detected_at: string;
 };
 
+type ContractTerm = {
+  term_id: string;
+  contract_id: string | null;
+  signal_id: string | null;
+  project_id: string;
+  source_kind: string;
+  source_table: string;
+  source_id: string;
+  source_url: string | null;
+  source_title: string;
+  contract_no: string | null;
+  quote_no: string | null;
+  contract_title: string | null;
+  counterparty_name: string | null;
+  period_start: string | null;
+  period_end: string | null;
+  period_start_ym: string | null;
+  period_end_ym: string | null;
+  amount_tax_excl: number | null;
+  tax_amount: number | null;
+  amount_tax_incl: number | null;
+  currency: string;
+  billing_distribution: string;
+  billing_distribution_json: Record<string, unknown> | null;
+  fee_type_hint: string;
+  confidence: number;
+  review_required: boolean;
+  review_status: string;
+  status: string;
+  created_at: string;
+};
+
 type ContractNudge = {
   nudge_id: string;
   contract_id: string;
@@ -111,6 +143,8 @@ type ContractsResponse = {
   contracts?: ContractRow[];
   documents?: ContractDocument[];
   signals?: ContractSignal[];
+  terms?: ContractTerm[];
+  termsSetupRequired?: boolean;
   nudges?: ContractNudge[];
   projects?: Project[];
   driveDestination?: { path: string; folderIdConfigured: boolean; folderIdEnv: string };
@@ -134,11 +168,30 @@ type SignalCandidate = {
   itemDate: string | null;
 };
 
+type TermCandidate = {
+  candidateId: string;
+  projectId: string;
+  sourceKind: string;
+  sourceTitle: string;
+  contractNo: string | null;
+  counterpartyName: string | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+  amountTaxExcl: number | null;
+  taxAmount: number | null;
+  amountTaxIncl: number | null;
+  feeTypeHint: string;
+  confidence: number;
+  reviewRequired: boolean;
+};
+
 type SignalDryRunResponse = {
   ok?: boolean;
   error?: string;
   candidates?: SignalCandidate[];
+  termCandidates?: TermCandidate[];
   candidateCounts?: { total: number; highConfidence: number; reviewRequired: number; byKind: Record<string, number> };
+  termCandidateCounts?: { total: number; withAmount: number; withPeriod: number; reviewRequired: number; byKind: Record<string, number> };
   sourceCounts?: { byKind: Record<string, number>; source_cache: number; project_meeting_summaries: number };
 };
 
@@ -260,6 +313,7 @@ export function ContractsClient() {
   const [contracts, setContracts] = useState<ContractRow[]>([]);
   const [documents, setDocuments] = useState<ContractDocument[]>([]);
   const [signals, setSignals] = useState<ContractSignal[]>([]);
+  const [terms, setTerms] = useState<ContractTerm[]>([]);
   const [nudges, setNudges] = useState<ContractNudge[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [driveDestination, setDriveDestination] = useState<ContractsResponse["driveDestination"] | null>(null);
@@ -300,6 +354,17 @@ export function ContractsClient() {
     });
     return map;
   }, [signals]);
+
+  const termsByProject = useMemo(() => {
+    const map = new Map<string, ContractTerm[]>();
+    terms.forEach((term) => {
+      const list = map.get(term.project_id) || [];
+      list.push(term);
+      map.set(term.project_id, list);
+    });
+    map.forEach((list) => list.sort((a, b) => b.confidence - a.confidence || String(b.created_at).localeCompare(String(a.created_at))));
+    return map;
+  }, [terms]);
 
   const nudgesByContract = useMemo(() => {
     const map = new Map<string, ContractNudge[]>();
@@ -365,6 +430,7 @@ export function ContractsClient() {
       setContracts(json.contracts || []);
       setDocuments(json.documents || []);
       setSignals(json.signals || []);
+      setTerms(json.terms || []);
       setNudges(json.nudges || []);
       setProjects(json.projects || []);
       setDriveDestination(json.driveDestination || null);
@@ -495,6 +561,9 @@ export function ContractsClient() {
 
   const selectedDocuments = selected ? docsByContract.get(selected.contract_id) || [] : [];
   const selectedSignals = selected ? signalsByProject.get(selected.project_id) || [] : [];
+  const selectedTerms = selected
+    ? (termsByProject.get(selected.project_id) || []).filter((term) => !term.contract_id || term.contract_id === selected.contract_id).slice(0, 8)
+    : [];
   const selectedNudges = selected ? nudgesByContract.get(selected.contract_id) || [] : [];
   const selectedProject = selected ? projectById.get(selected.project_id) : undefined;
   const signedDoc = selectedDocuments.find((doc) => doc.document_kind === "signed");
@@ -753,6 +822,7 @@ export function ContractsClient() {
                     <Fact label="registry" value={selected.registry_status || "candidate"} />
                     <Fact label="signed" value={compactDate(selected.signed_at)} />
                     <Fact label="pj signals" value={`${selectedSignals.length}件`} />
+                    <Fact label="term candidates" value={`${selectedTerms.length}件`} />
                   </div>
 
                   <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3">
@@ -777,6 +847,37 @@ export function ContractsClient() {
                       </div>
                     )}
                   </div>
+
+                  {selectedTerms.length > 0 && (
+                    <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3">
+                      <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-amber-950">
+                        <FileClock className="h-4 w-4 text-amber-700" />
+                        契約条件候補
+                      </div>
+                      <div className="space-y-2">
+                        {selectedTerms.map((term) => (
+                          <div key={term.term_id} className="rounded-md border border-amber-200 bg-white p-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-800">{term.status}</Badge>
+                              <span className="text-xs font-medium text-slate-700">{Math.round(Number(term.confidence || 0) * 100)}%</span>
+                              <span className="text-xs text-slate-500">{term.source_kind}</span>
+                            </div>
+                            <p className="mt-1 line-clamp-2 text-sm font-semibold text-slate-950">
+                              {term.contract_title || term.source_title}
+                            </p>
+                            <div className="mt-2 grid gap-2 text-xs text-slate-600 sm:grid-cols-2">
+                              <span>契約No: {term.contract_no || term.quote_no || "-"}</span>
+                              <span>相手先: {term.counterparty_name || "-"}</span>
+                              <span>期間: {dateOnly(term.period_start)} - {dateOnly(term.period_end)}</span>
+                              <span>税抜/税込: {yen(term.amount_tax_excl)} / {yen(term.amount_tax_incl)}</span>
+                              <span>配分: {term.billing_distribution}</span>
+                              <span>review: {term.review_status}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="py-16 text-center text-sm text-slate-500">契約を選択してね</div>
@@ -879,7 +980,28 @@ export function ContractsClient() {
                     {signalDryRun.candidateCounts.total} candidates / high {signalDryRun.candidateCounts.highConfidence} / review {signalDryRun.candidateCounts.reviewRequired}
                   </p>
                 )}
+                {signalDryRun?.termCandidateCounts && (
+                  <p className="mt-1 text-xs text-slate-500">
+                    terms {signalDryRun.termCandidateCounts.total} / amount {signalDryRun.termCandidateCounts.withAmount} / period {signalDryRun.termCandidateCounts.withPeriod}
+                  </p>
+                )}
                 <div className="mt-3 max-h-80 space-y-2 overflow-y-auto">
+                  {(signalDryRun?.termCandidates || []).slice(0, 8).map((candidate) => (
+                    <div key={candidate.candidateId} className="rounded-md border border-amber-200 bg-amber-50 p-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="border-amber-200 bg-white text-amber-800">term</Badge>
+                        <Badge variant="outline">{candidate.sourceKind}</Badge>
+                        <span className="text-xs font-medium text-slate-700">{Math.round(candidate.confidence * 100)}%</span>
+                      </div>
+                      <p className="mt-1 line-clamp-2 text-sm font-medium text-slate-950">{candidate.sourceTitle}</p>
+                      <p className="mt-1 text-xs text-slate-600">
+                        {candidate.contractNo || "契約No未検出"} / {candidate.counterpartyName || "相手先未検出"} / {dateOnly(candidate.periodStart)} - {dateOnly(candidate.periodEnd)}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        税抜 {yen(candidate.amountTaxExcl)} / 税込 {yen(candidate.amountTaxIncl)} / {candidate.feeTypeHint}
+                      </p>
+                    </div>
+                  ))}
                   {(signalDryRun?.candidates || []).slice(0, 12).map((candidate) => (
                     <div key={candidate.candidateId} className="rounded-md border border-slate-200 bg-slate-50 p-2">
                       <div className="flex items-center gap-2">
