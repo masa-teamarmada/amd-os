@@ -148,8 +148,14 @@ function MemberRow({ m }: { m: SeasonPlMember }) {
         </Link>
         {m.isOfficer ? <span className="ml-1.5 text-[10px] rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 px-1 py-0.5">役員=会社留保</span> : null}
       </td>
-      <td className="px-3 py-2 text-right tabular-nums">{fmtPt(m.earnedPt)}</td>
-      <td className="px-3 py-2 text-right tabular-nums">{fmtYen(m.budgetShareYen)}</td>
+      <td className="px-3 py-2 text-right tabular-nums">
+        {fmtPt(m.earnedPt)}
+        {m.extraEarnedPt > 0 ? <span className="ml-1 text-[10px] text-sky-500">別{fmtPt(m.extraEarnedPt)}</span> : null}
+      </td>
+      <td className="px-3 py-2 text-right tabular-nums">
+        {fmtYen(m.budgetShareYen)}
+        {m.extraBudgetShareYen > 0 ? <div className="text-[10px] text-sky-500">うち別財布 {fmtYen(m.extraBudgetShareYen)}</div> : null}
+      </td>
       <td className="px-3 py-2 text-right tabular-nums">{fmtYen(m.paidYen)}</td>
       <td className="px-3 py-2 text-right tabular-nums">{fmtYen(m.finalStockYen)}</td>
       <td className="px-3 py-2 text-right tabular-nums">
@@ -236,8 +242,19 @@ function SeasonPlDetail({ pl, onBack }: { pl: SeasonPl; onBack: () => void }) {
           <Row label="総pt (pt単価分母)" value={`${fmtPt(pl.totalPoints)}pt`} />
           <Row label="MS points 合計" value={`${fmtPt(pl.msPointsSum)}pt`} sub={c.ptFullyAssigned ? "" : `未割当 ${fmtPt(c.unassignedPt)}pt`} />
           <Row label="消化pt合計 (累計)" value={`${fmtPt(pl.earnedPtSum)}pt`} />
-          <Row label="pt単価" value={fmtYen(pl.ptUnitYen)} sub="原資÷総pt" />
+          <Row
+            label={pl.extraPointsSum > 0 ? "本契約 pt単価" : "pt単価"}
+            value={fmtYen(pl.extraPointsSum > 0 ? pl.regularPtUnitYen : pl.ptUnitYen)}
+            sub={pl.extraPointsSum > 0 ? `原資÷本契約${fmtPt(pl.totalPoints - pl.extraPointsSum)}pt` : "原資÷総pt"}
+          />
           <Row label="pt単価 期待値" value={fmtYen(c.ptUnitExpected)} sub={c.ptUnitConsistent ? "一致" : "過大/過小"} />
+          {pl.extraPointsSum > 0 ? (
+            <Row
+              label="別財布 pt単価 (cap_extra)"
+              value={fmtYen(pl.extraPtUnitYen)}
+              sub={`別財布原資${fmtYen(pl.extraPoolBudgetYen)}÷${fmtPt(pl.extraPointsSum)}pt`}
+            />
+          ) : null}
           <Row label="Σ月cap (billing)" value={fmtYen(pl.monthlyCapsSumYen)} />
           <Row label="原資 − Σ月cap" value={fmtSignedYen(pl.checks.budgetVsMonthlyCapsDeltaYen)} sub={c.budgetMatchesMonthlyCaps ? "整合" : "ZMP歪み"} />
         </div>

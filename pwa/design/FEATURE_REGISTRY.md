@@ -68,7 +68,8 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - ① 収入: 契約期間内の billing 月を `contractBackedClientAmount` で集約した請求額 (税抜・シーズン合計) を予算、`payment_confirmed_at` 済みの合計を実績入金として出す。契約開始前の事前稼働月は請求額に乗らない。
 - ② 配分: バッファ内訳 (`value_plan_cycles.buffer_breakdown_json` の `{items:[{label,amount}],total}`、未設定時は原資から逆算)、メンバー原資 (= `value_plan_cycles.budget_yen` = (請求額−バッファ)×65%)、AMD マージン (35%) を並べ、`バッファ + 原資 + マージン == 請求額` の閉じ検算を必ず出す。
 - ③ メンバー別 pt 比予実: 獲得pt (シーズン累計) × pt単価 = 予算取り分、実支払累計 (非役員=現金 / 役員=会社留保)、最終月末の未払い残 stock、差 (実支払+stock − 予算取り分, 最終的に 0 が正) を member 行で出す。役員 (`is_officer`) は「会社留保」、非役員は「現金支払」で分ける。member 名は `/mypage?memberId=` リンク。
-- 検算フラグ (この画面の目的): `閉じ検算` (バッファ+原資+マージン=請求額)、`未割当pt` (total_points − Σ MS points、宙吊り pt / 担当無し MS)、`原資=Σ月cap` (`budget_yen` = Σ `billing_cycles.budget_yen`、ZMP の cap/原資不整合検出)、`pt単価` ((請求額−バッファ)×65%÷total_points と一致)、`役員stock収束` (最終月で役員 stock が 0)。
+- 別財布 (cap_extra) プールの pt単価分離 (2026-06-20): plan cycle に `tag='cap_extra'` の MS があるとき、pt単価を `regularPtUnitYen` (= 原資 ÷ regular pt = total_points − Σextra pt) と `extraPtUnitYen` (= Σ `billing_cycles.extra_budget_yen` ÷ Σextra pt) に分離する。member の予算取り分は `regularEarnedPt×regular単価 + extraEarnedPt×extra単価` で計算 (`budgetShareYen` / うち `extraBudgetShareYen`)。これをしないと別財布 pt も `原資÷total_points` で薄める旧汚染と同型になり member 収束Δが全員ズレる。`computeSeasonPl` は `regularPtUnitYen` / `extraPtUnitYen` / `extraPoolBudgetYen` / `extraPointsSum` を返す。
+- 検算フラグ (この画面の目的): `閉じ検算` (バッファ+原資+マージン=請求額)、`未割当pt` (total_points − Σ MS points、宙吊り pt / 担当無し MS)、`原資=Σ月cap` (`budget_yen` = Σ `billing_cycles.budget_yen` = 本契約のみ、別財布 `extra_budget_yen` は別列で混ざらない)、`pt単価` (regular pt単価 = (請求額−バッファ)×65%÷regular pt と一致)、`役員stock収束` (最終月で役員 stock が 0)。別財布が完済すれば最終月の対象 member の extraStock=0、残 stock は本契約 regularStock のみになる。
 
 回帰防止:
 

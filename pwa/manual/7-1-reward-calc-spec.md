@@ -237,6 +237,45 @@ ptUnit        = round(2,340,000 / 100) = 23,400 円/pt
 
 ---
 
+## 別財布 (cap_extra) プール — 本契約とは別原資の受託 (2026-06-20 確定)
+
+PJ が月次定額の本契約とは**別に**まとまった受託 (例: ZMP の OkuDoor システム開発 ¥200万) を受けることがある。これを「別財布」と呼び、本契約の pt単価・cap を汚染しないよう**同一 plan cycle 内の別プール (cap_extra)** として扱う。**計算ルール (65%/pt単価/cap/繰越) は本契約と全く同じ**。別財布だからといって特殊計算はしない。
+
+### 2 つのプール
+- **regular プール** (本契約): 原資 = `value_plan_cycles.budget_yen`、pt単価 = `原資 ÷ regular pt` (= `total_points − Σcap_extra pt`)。
+- **cap_extra プール** (別財布): `value_milestones.tag='cap_extra'` の MS。原資 = `Σ billing_cycles.extra_budget_yen`、**extra pt単価 = `Σextra_budget_yen ÷ Σcap_extra pt` で独立**に決まる (regular 単価を借用しない)。
+
+`value_plan_cycles.total_points` には **本契約pt + 別財布pt の合計** を入れる (ZMP: 本契約110 + OkuDoor67 = 177)。エンジン (`rewardPointBasis`) が cap_extra pt を引いて regular 分母 (110) を出すので、regular pt単価が別財布 pt で薄まらない (= 汚染しない)。
+
+### `billing_cycles.extra_budget_yen` (別プールの月次cap)
+本契約 `budget_yen` と同じ規約:
+- **NULL** = cap 未設定 → 従来フォールバック (需要全額即払い)。**非推奨** (即払いで Σcap を膨らませ本契約と混ざる)。
+- **0** = その月は全額 stock 繰越 (払わず翌月へ)。
+- **N** = その月の支払上限 N 円。
+
+**完了時一括支払 (典型)**: 開発期間中の月を全部 `0`、**完了月に満額 (= 別財布売上原資)** を置く。開発期間は extraStock 積立 → 完了月に一括消化・extraStock=0。
+
+### 数値例 (ZMP OkuDoor, 2026-06-20 実証)
+```text
+別財布原資     = 1,300,000 (OkuDoor システム開発の売上原資)
+cap_extra pt   = 67
+extra pt単価   = round(1,300,000 / 67) = 19,403 円/pt
+extra_budget_yen: 202605〜202609 = 0 (全額繰越) / 202610 = 1,300,000 (完了月満額)
+→ 202605〜202609 は extraStock 積立、202610 に一括支払・extraStock=0。
+  うめ/あび 各 ≈ 200,000 (share 0.1538 × 原資)、まさ(役員) は会社留保。
+  regular pt単価 = 2,340,000 / 110 = 21,273 (OkuDoor pt 混入なしで汚染解消)。
+```
+
+### 別財布の支払額が先に決まっている場合
+別財布は「先に支払額が確定 → share/pt を後付け調整」が普通。原資は固定したまま `milestone_responsibility.share` を微調整して目標額に合わせる (OkuDoor: 原資130万固定で share 0.7→0.6923 にしてあび・うめ各20万)。
+
+### 旧ロジックで既払いの月がある場合 (再計算手順)
+別財布対応前に「即払い」で払った月の snapshot は旧 pt単価で固定されており新配分と食い違う。その月が PAID保護で sync skip されるなら、**保護フラグ (reward_paid_at / payout_notice_uploaded_at) を一時 NULL → `syncRewardSummariesForProject` で全期間再計算 → フラグ復元** する。完了月capは満額のままで正しく閉じる。`monthly_reward_payout` に実支払行が無い (現金未払い) ことを確認してから実施。
+
+> 汎用の運用プレイブック (3ステップ) は [`../design/season_budget_actual.md`](../design/season_budget_actual.md) §5.2。実装: migration 149 / `reward-summary.ts` (`deriveExtraCapYen` / extra pt単価独立化) / `season-pl.ts` (予実表の別財布分離) / 教訓 [`../BUGS.md`](../BUGS.md) 2026-06-20。
+
+---
+
 ## 月次キャップ (= `rv2_applyMonthlyCap_`)
 
 ### capBudgetYen の決まり方

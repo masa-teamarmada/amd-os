@@ -126,11 +126,55 @@
 - `reward-summary.ts`:
   - `deriveMonthlyRewardCaps` が `extraCapYen` を `billing.extra_budget_yen` から導出 (`number | null`)。`applyRewardCapsForMonth` は `null`=従来フォールバック、明示値(0含む)=その額をcapにする。
   - **C (extra pt単価独立化) も同時実装**: `extraPtUnit = Σ(extra_budget_yen) ÷ Σ(cap_extra pt)`。これをしないと extra 需要 (67pt × regular単価21,273=142万) が extra原資130万を超え、完了月capで消化しきれず翌月へ溢れる。独立化で extra需要=130万=cap で過不足なく一括消化される。
-- **シミュレーション結果 (total_points=177, extra cap 202610=130万, 他月0)**:
+- **DB是正で実証完了 (2026-06-20, total_points=177, extra cap 202610=130万満額, 他月0, OkuDoor share まさ0.6923/うめ0.1538/あび0.1538)**:
   - regular pt単価 = 234万÷110 = **21,273** (汚染解消 ✅)。
   - extra pt単価 = 130万÷67 = **19,403** (独立 ✅)。
-  - OkuDoor: 202605〜202609 は extraStock 積立 (extraPaid=0)、**202610 に 1,299,998 一括支払・extraStock=0** ✅ = 完了時一括。
-  - **別件の残課題 (本fix対象外)**: regular プールが 202609〜 で単月需要 (約248k) > 単月cap (195k) となり、フラットcapでは末月までに払い切れず年末 regStock 約213k 残る。これは OkuDoor とは無関係の、**ZMP 本契約の MS スケジュールが後半に偏っているのに月次capがフラット**という timing 問題。別タスク (cycle 延長 or 翌cycleへ繰越許容 or 後半cap増) で扱う。
+  - OkuDoor: 202605〜202609 は extraStock 積立 (extraPaid=0)、**202610 に一括支払・extraStock=0** ✅ = 完了時一括。**うめ/あび各 199,850 (≈20万)・まさ役員分 会社留保900,298、OkuDoor総消化 1,299,998 ≈ 原資130万にぴったり閉じる**。
+  - **完了月capは「満額130万」が正 (A案)**。当初「残額 (130万−既払218,205)」も検討したが、202605の既払い(うめ/あび各32,760・まさ会社留保152,685)は旧 pt単価19,500ベースで新原資配分と食い違い、保護したまま残額capにすると各23万に膨らむ (二重計上)。**202605の保護フラグ (reward_paid_at/notice) を一時解除して全期間を新ロジックで再計算 → 復元**することで既払いを新ロジックで打ち消し、完了月満額130万で各20万ぴったりに収束させた。202605は `monthly_reward_payout` (実支払記録) に行が無く現金未払いだったため上書き無害。
+  - **予実表 `computeSeasonPl` も別財布対応に改修** (同 commit): pt単価を regular/extra 分離 (`regularPtUnitYen`=原資÷regular pt / `extraPtUnitYen`=Σextra_budget_yen÷extra pt)、member の `budgetShareYen` を `regularEarnedPt×regular単価 + extraEarnedPt×extra単価` で計算、検算④を regular 分母で突合。これをしないと予実表が別財布 pt も `原資÷total_points` で薄める旧汚染と同型になり、member の収束Δが全員大きくズレる。是正後は全member 収束Δ ±5円。
+  - **別件の残課題 (本fix対象外, OS task `task_20260620015628_8lzmx`)**: regular プールが 202609〜 で単月需要 > 単月cap (195k) となり、フラットcapでは末月までに払い切れず年末 regStock 約21.3万 (役員stock まさ65,411+きよ15,216 = 80,627 含む) 残る。最終月で全員 extraStock=0 = OkuDoor別財布は完済済みで、残るのは全て regularStock。**OkuDoor とは無関係の、ZMP 本契約の MS スケジュールが後半に偏っているのに月次capがフラット**という timing 問題。別タスク (cycle 延長 or 翌cycleへ繰越許容 or 後半cap増) で扱う。
+
+---
+
+## 5.2 別財布 (cap_extra) 処理プレイブック (汎用・正本) — 2026-06-20 確定
+
+> **このセクションが別財布処理の正本手順。新しい別財布案件が来たら、特殊計算を一切作らず、この3ステップに沿って既存の共通ルール (65%/pt単価/cap/繰越) に乗せる。** ZMP/OkuDoor で実証済み。
+
+### 大原則 (まさ確定)
+- **計算ルール (65%・pt単価・cap・繰越) は全PJ共通のまま不変**。別財布も特殊計算しない。
+- 別財布は「**同一 plan cycle 内の別プール (cap_extra)**」として扱う。**物理的に別 plan cycle に分けない** (`choosePlanCycle` が「1月に period 内の1cycleだけ返す」前提なので、本契約と period が重なると本契約MSが報酬計算から消える事故になる。BUGS.md 2026-06-20 教訓1)。
+- 別財布のメンバー支払いは「**先に支払額が確定** → それに合わせて pt/share を後付け調整」。原資は固定したまま share を微調整して目標額に合わせる (OkuDoor: 原資130万固定で share 0.7→0.6923 にしてあび・うめ各20万に合わせた)。
+
+### 3ステップ
+**① 別財布の売上を `billing_cycles.extra_revenue_json` に計上** (= PL/キャッシュの売上側)
+- 計上月は **請求日ベースの billing 月** の1行に置く (例: OkuDoor は請求 2026-03 → ym=202603 の `extra_revenue_json`)。
+- `{label, amount_tax_excl, billing_date, period_start_ym, period_end_ym, freee_invoice_number, memo}` を持たせる。`period_*` で開発期間に按分される (PL表示用。原価計算には使わない)。
+- これは「売上が OS に存在する」ための計上。**pt単価原資 (extra_budget_yen) とは別物**なので混同しない。
+
+**② 別財布の MS を `tag=cap_extra` で作り、pt と share を後付けで決める** (= 原価/配分側)
+- 別財布の作業を表す MS を `value_milestones` に `tag='cap_extra'` で作る (`period_start_ym`〜`target_ym` = 開発期間)。`goal_level` は `monthly` 以外 (annual 等)。
+- **pt は本契約と地続きの単位で付ける** (例 OkuDoor 67pt)。`value_plan_cycles.total_points` には **本契約pt + 別財布pt の合計** を入れる (ZMP: 110+67=177)。← total_points に別財布pt を入れ忘れると未割当pt の穴になる。
+- `milestone_responsibility.share` は「**先に決まった支払額 ÷ (extra pt単価)**」から逆算。extra pt単価 = `Σextra_budget_yen ÷ Σcap_extra pt` (③で確定)。役員は会社留保になるので share の残りを役員に寄せる。
+
+**③ 別財布原資の「支払タイミング」を `billing_cycles.extra_budget_yen` で表現** (= 別プールの月次cap)
+- 規約 (本契約 `budget_yen` と同じ): **NULL=cap未設定(従来=需要全額即払い・非推奨) / 0=その月は全額stock繰越 / N=その月の上限N円**。
+- **完了時一括支払にしたい** (典型) → 開発期間中の月を全部 `0` (全額繰越)、**完了月に満額 (= 別財布売上原資)** を置く。これで開発期間は extraStock 積立 → 完了月に一括消化・extraStock=0。
+- **分割支払にしたい** → 各支払月に按分額を置く。共通の cap+繰越ロジックがそのまま効く。
+- extra pt単価は `Σ extra_budget_yen ÷ Σ cap_extra pt` で**自動的に独立化**される (regular pt単価を借用しない)。これにより別財布需要 (pt×単価) が別財布原資にちょうど一致し、過不足なく消化される。
+
+### 既払い (過去に旧ロジックで払ってしまった月) がある場合
+- 別財布対応前に「cap無し=需要全額即払い」で既に払われた月があると、その月の snapshot は旧 pt単価で固定されており新原資配分と食い違う。
+- **対処**: その月が PAID保護 (reward_paid_at/payout_notice_uploaded_at/payment_confirmed_at) で sync からskipされるなら、**保護フラグを一時 NULL → `syncRewardSummariesForProject` で全期間再計算 → フラグ復元**する。これで既払い月も新ロジックで計算し直され、完了月capは**満額** (差し引かない) で正しく閉じる。
+- **前提確認**: `monthly_reward_payout` にその月の実支払行が無い (= 現金未払い・通知書だけ) ことを確認してから保護解除する。実支払い済みなら覆さず別途調整。
+
+### 適用後の検証 (必ず)
+1. `reward-summary` 再計算後、最終月で **対象メンバーの extraStock=0** (= 別財布完済) を確認。
+2. `computeSeasonPl` (予実表) で **①closes ②pt完全割当 ③原資=Σcap ④pt単価整合 が全✅**、member の **収束Δが±数円** を確認。
+3. うめ・あび等の **extra現金累計が目標額 (例 各20万) に収束**、別財布総消化が**原資にぴったり閉じる**ことを確認。
+4. ⑤役員収束が❌でも、残stockが全部 regularStock (extraStock=0) なら別財布は無関係 (本契約のcap timing 問題 = 別件)。
+
+### 関連実装
+- migration `149_billing_cycles_extra_budget.sql` / `reward-summary.ts` (`deriveExtraCapYen` / `sumExtraPoolBudgetYen` / extra pt単価独立化) / `season-pl.ts` (別財布 pt単価分離) / `BUGS.md` 2026-06-20 教訓。
 
 ---
 
@@ -145,3 +189,4 @@
 |---|---|---|
 | 2026-06-19 | 初版。SX一連の議論から予実表を設計正本化。データソース・バッファ内訳列・画面配置・実装ステップを確定 | えいみ |
 | 2026-06-19 | §5 実装完了 (v0.29.0)。migration 148 + `season-pl.ts` + `/admin/season-pl` + API + FEATURE_REGISTRY + critical-ui anchor。未割当pt 検算を `total_points − Σ(MS points)` に修正。SX 1pt 穴 / ZMP cap-原資不整合 / KUTE 非閉じ を実検出 (別タスク監査へ) | えいみ |
+| 2026-06-20 | §5.1 別財布 cap_extra エンジン実装 (migration 149 + `reward-summary.ts` extra cap/extra pt単価独立化)。ZMP DB是正を実証完了 (total_points 177 / OkuDoor share 0.6923系 / extra_budget_yen 202610=130万)。完了月cap=満額130万 (A案: 202605保護一時解除→全期間再計算→復元で既払い打ち消し)。うめ/あび各20万・OkuDoor総消化130万にぴったり収束。§5.2 別財布処理プレイブック (汎用3ステップ) を正本化。`computeSeasonPl` を別財布対応 (regular/extra pt単価分離) に改修 | えいみ |

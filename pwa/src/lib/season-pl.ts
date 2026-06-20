@@ -27,6 +27,12 @@ import { contractBackedClientAmount } from "@/lib/contract-money";
 // pt単価原資の按分比率。報酬計算正本と一致させる: 原資 = (請求額 − バッファ) × MEMBER_SHARE_RATE。
 const MEMBER_SHARE_RATE = 0.65;
 const AMD_MARGIN_RATE = 0.35;
+
+// 別財布 (cap_extra) プールに属する MS の tag 集合。reward-summary.ts の CAP_EXTRA_MILESTONE_TAGS と一致させる。
+const CAP_EXTRA_MILESTONE_TAGS = new Set(["cap_extra", "extra_contract", "contract_extra", "cap_outside", "uncapped"]);
+function isCapExtraTag(tag: unknown): boolean {
+  return CAP_EXTRA_MILESTONE_TAGS.has(String(tag ?? "").trim().toLowerCase());
+}
 // 「閉じ検算」「原資=Σ月cap」「pt単価」の許容誤差 (丸め誤差吸収, 円)。
 const CLOSE_TOLERANCE_YEN = 5;
 // 役員 stock 収束許容誤差 (円)。
@@ -112,8 +118,14 @@ export type SeasonPlMember = {
   reserveKind: "cash" | "company_reserve";
   /** シーズン累計の獲得pt (実績消化分) */
   earnedPt: number;
-  /** pt比予算取り分 = earnedPt × pt単価 */
+  /** うち本契約 (regular) プールの獲得pt */
+  regularEarnedPt: number;
+  /** うち別財布 (cap_extra) プールの獲得pt */
+  extraEarnedPt: number;
+  /** pt比予算取り分 = regularEarnedPt × regular単価 + extraEarnedPt × extra単価 (別財布プール分離) */
   budgetShareYen: number;
+  /** うち別財布 (cap_extra) プール由来の予算取り分。0 なら本契約のみ */
+  extraBudgetShareYen: number;
   /** シーズン累計の実支払 (非役員=現金 / 役員=会社留保) */
   paidYen: number;
   /** 最終月末の繰越stock (= 未払い債務)。最終的に 0 に収束するのが正 */
@@ -186,8 +198,16 @@ export type SeasonPl = {
   totalPoints: number;
   /** Σ(MS points, goal_level≠monthly)。total_points と乖離すると未割当ptの穴 */
   msPointsSum: number;
-  /** pt単価 = 原資 ÷ total_points */
+  /** pt単価 = 原資 ÷ total_points。別財布があると regular/extra を混ぜた平均値になるので表示は regularPtUnitYen を主に使う */
   ptUnitYen: number;
+  /** 本契約 (regular) プールの pt単価 = 原資 ÷ Σregular pt。別財布があってもここは汚染されない */
+  regularPtUnitYen: number;
+  /** 別財布 (cap_extra) プールの pt単価 = Σextra_budget_yen ÷ Σextra pt。別財布が無ければ 0 */
+  extraPtUnitYen: number;
+  /** 別財布 (cap_extra) プールの総原資 = Σ billing_cycles.extra_budget_yen。別財布が無ければ 0 */
+  extraPoolBudgetYen: number;
+  /** 別財布 (cap_extra) の pt 合計。別財布が無ければ 0 */
+  extraPointsSum: number;
   /** Σ(member earnedPt) シーズン累計の実消化pt (期中は total_points 未満が正常) */
   earnedPtSum: number;
 
@@ -385,7 +405,32 @@ export function computeSeasonPl({
   // ② 配分: 原資 / バッファ / マージン
   const memberBudgetYen = Math.max(0, Math.round(numberValue(planCycle.budget_yen)));
   const totalPoints = Math.max(0, numberValue(planCycle.total_points));
-  const ptUnitYen = totalPoints > 0 ? Math.round(memberBudgetYen / totalPoints) : 0;
+
+  // 別財布 (cap_extra) プールの pt単価分離 (reward-summary.ts deriveRewardUnits と整合):
+  //   regular pt単価 = 本契約原資 ÷ Σregular pt (= total_points − Σextra pt)。
+  //   extra pt単価   = Σ billing.extra_budget_yen ÷ Σextra pt。
+  // 別財布が無ければ extra 系は 0 で、regularPtUnitYen は従来の ptUnitYen と一致する。
+  const extraPointsSum = Math.round(
+    milestones.filter((ms) => isCapExtraTag(ms.tag)).reduce((sum, ms) => sum + numberValue(ms.points), 0) * 100
+  ) / 100;
+  const hasCapExtra = extraPointsSum > 0;
+  // regular 分母 = total_points − extra pt (= reward-summary の rewardPointBasis と同じ)。
+  const regularPointsSum = hasCapExtra && totalPoints > extraPointsSum ? totalPoints - extraPointsSum : totalPoints;
+  const extraPoolBudgetYen = hasCapExtra
+    ? cycleMonths.reduce((sum, ym) => {
+        const raw = billingsByYm.get(ym)?.extra_budget_yen;
+        // NULL/undefined は「cap 未設定」= 別財布原資なし。明示数値 (0 含む) だけ加算する。
+        if (raw === null || raw === undefined || raw === "") return sum;
+        const n = numberValue(raw);
+        return Number.isFinite(n) ? sum + Math.max(0, Math.round(n)) : sum;
+      }, 0)
+    : 0;
+  const regularPtUnitYen = regularPointsSum > 0 ? Math.round(memberBudgetYen / regularPointsSum) : 0;
+  const extraPtUnitYen = hasCapExtra && extraPoolBudgetYen > 0 && extraPointsSum > 0
+    ? Math.round(extraPoolBudgetYen / extraPointsSum)
+    : 0;
+  // 表示用の代表 pt単価。別財布があれば regular を主に使う (regular/extra 混在の平均は意味が薄い)。
+  const ptUnitYen = hasCapExtra ? regularPtUnitYen : (totalPoints > 0 ? Math.round(memberBudgetYen / totalPoints) : 0);
 
   const parsedBuffer = parseBufferBreakdown(planCycle.buffer_breakdown_json);
   // 原資 = (請求額 − バッファ) × 65% より、バッファ = 請求額 − 原資/0.65。
@@ -420,14 +465,24 @@ export function computeSeasonPl({
   // buildRewardSummary(ym) の member.earnedPt / totalPay / companyReserveYen は「その単月分」。
   // よってシーズン累計 earnedPt と累計実支払は各月を合算して出す。
   // 一方 stockYen は「その月末の未払い残高 (snapshot)」なので、累計せず最後の月の値を最終 stock とする。
-  type Agg = { earnedPt: number; paidYen: number };
+  type Agg = { earnedPt: number; regularEarnedPt: number; extraEarnedPt: number; paidYen: number };
   const aggByMember = new Map<string, Agg>();
   for (const ym of cycleMonths) {
     const summary = monthlySummaries.get(ym);
     if (!summary) continue;
     for (const member of summary.members) {
-      const agg = aggByMember.get(member.memberId) ?? { earnedPt: 0, paidYen: 0 };
+      const agg = aggByMember.get(member.memberId) ?? { earnedPt: 0, regularEarnedPt: 0, extraEarnedPt: 0, paidYen: 0 };
       agg.earnedPt += numberValue(member.earnedPt);
+      // 別財布プール分離: regularEarnedPt / extraEarnedPt は reward-summary が member に持たせる。
+      // 旧 snapshot で欠けていれば earnedPt を regular に寄せる (= 別財布なし PJ の従来挙動)。
+      const regPt = member.regularEarnedPt;
+      const extPt = member.extraEarnedPt;
+      if (regPt !== undefined || extPt !== undefined) {
+        agg.regularEarnedPt += numberValue(regPt);
+        agg.extraEarnedPt += numberValue(extPt);
+      } else {
+        agg.regularEarnedPt += numberValue(member.earnedPt);
+      }
       // 非役員は totalPay (現金支払)、役員は companyReserveYen (会社留保) を実支払とみなす。
       agg.paidYen += officerIds.has(member.memberId)
         ? Math.max(0, Math.round(numberValue(member.companyReserveYen)))
@@ -451,17 +506,25 @@ export function computeSeasonPl({
   const seasonMembers: SeasonPlMember[] = [...memberIds]
     .map((memberId): SeasonPlMember => {
       const isOfficer = officerIds.has(memberId);
-      const earnedPt = Math.round((aggByMember.get(memberId)?.earnedPt ?? 0) * 100) / 100;
+      const agg = aggByMember.get(memberId);
+      const earnedPt = Math.round((agg?.earnedPt ?? 0) * 100) / 100;
+      const regularEarnedPt = Math.round((agg?.regularEarnedPt ?? 0) * 100) / 100;
+      const extraEarnedPt = Math.round((agg?.extraEarnedPt ?? 0) * 100) / 100;
       const finalStockYen = finalStockByMember.get(memberId) ?? 0;
-      const paidYen = aggByMember.get(memberId)?.paidYen ?? 0;
-      const budgetShareYen = Math.round(earnedPt * ptUnitYen);
+      const paidYen = agg?.paidYen ?? 0;
+      // pt比予算取り分は別財布プールを分離: regular分は regular単価、extra分は extra単価で評価。
+      const extraBudgetShareYen = Math.round(extraEarnedPt * extraPtUnitYen);
+      const budgetShareYen = Math.round(regularEarnedPt * regularPtUnitYen) + extraBudgetShareYen;
       return {
         memberId,
         memberName: memberMap[memberId] || memberId,
         isOfficer,
         reserveKind: isOfficer ? "company_reserve" : "cash",
         earnedPt,
+        regularEarnedPt,
+        extraEarnedPt,
         budgetShareYen,
+        extraBudgetShareYen,
         paidYen,
         finalStockYen,
         // 差 = (実支払 + 最終未払い残) − pt比予算取り分。0 が正 (= 全額 pt 比どおりに配分済み)。
@@ -510,11 +573,13 @@ export function computeSeasonPl({
   const budgetVsMonthlyCapsDeltaYen = memberBudgetYen - monthlyCapsSumYen;
   const budgetMatchesMonthlyCaps = Math.abs(budgetVsMonthlyCapsDeltaYen) <= CLOSE_TOLERANCE_YEN;
 
-  // pt単価過大: pt単価 ≠ (請求額−バッファ)×65% ÷ total_points
+  // pt単価過大: regular pt単価 ≠ (請求額−バッファ)×65% ÷ regular pt。
+  // 別財布があると total_points には extra pt が混ざるので、regular 分母 (regularPointsSum) で突合する。
+  // これにより別財布の有無に関わらず「本契約 pt単価が原資式どおりか」を一貫して検査できる。
   const expectedBudget = Math.round(baseAfterBuffer * MEMBER_SHARE_RATE);
-  const ptUnitExpected = totalPoints > 0 ? Math.round(expectedBudget / totalPoints) : 0;
+  const ptUnitExpected = regularPointsSum > 0 ? Math.round(expectedBudget / regularPointsSum) : 0;
   const ptUnitDeltaYen = ptUnitYen - ptUnitExpected;
-  const ptUnitConsistent = totalPoints <= 0 || Math.abs(ptUnitDeltaYen) <= CLOSE_TOLERANCE_YEN;
+  const ptUnitConsistent = regularPointsSum <= 0 || Math.abs(ptUnitDeltaYen) <= CLOSE_TOLERANCE_YEN;
 
   // 役員取りこぼし: 最終月で役員stockが0に収束しない
   const officerStockConverges = officerFinalStockYen <= OFFICER_STOCK_TOLERANCE_YEN;
@@ -557,6 +622,10 @@ export function computeSeasonPl({
     totalPoints,
     msPointsSum,
     ptUnitYen,
+    regularPtUnitYen,
+    extraPtUnitYen,
+    extraPoolBudgetYen,
+    extraPointsSum,
     earnedPtSum,
 
     members: seasonMembers,

@@ -356,15 +356,16 @@ GAS 064 が読む:
 
 > **注意**: 未割当 pt は「途中までの消化 pt が total に届いていない」ことではない (期中は当然届かない)。`total_points` (pt 単価の分母) を裏打ちする MS の points 合計が足りているかを見る。これが穴だと、消化されないまま原資が配り切れない構造になる。
 
-## ZMP 追加開発の別財布
+## ZMP 追加開発の別財布 (cap_extra プール, 2026-06-20 更新)
 
-ZMP の通常固定費は 300,000 円 × 65% = 195,000 円が通常cap。OkuDoor 追加開発などで追加受託分を支払うときは、通常枠に混ぜず別財布として扱う。
+ZMP の通常固定費は 300,000 円 × 65% = 195,000 円が通常cap。OkuDoor 追加開発などで追加受託分を支払うときは、通常枠に混ぜず**別財布 (cap_extra プール)** として扱う。**計算ルール (65%/pt単価/cap/繰越) は本契約と同じ**。詳細は [7-1 章「別財布 (cap_extra) プール」](7-1-reward-calc-spec.md) と [`../design/season_budget_actual.md`](../design/season_budget_actual.md) §5.2 プレイブック。
 
-1. OkuDoor 側のMSは `tag='cap_extra'` として、`reward_summary_json.members[].extraBasePay` に分離する
-2. 通常MSの本契約使用額 (= 非役員支払 + 役員会社留保) は本契約capだけで判定し、ZMPなら `300,000 × 65% = 195,000 円` を超えないことを見る
-3. `cap_extra` の使用額は `別財布使用` として表示し、通常capの超過判定には混ぜない
-4. 報酬キャッシュ再計算 → `reward_summary_json` 更新
-5. `/admin/payouts` で `本契約発生` / `本契約cap` / `本契約使用` / `別財布発生` / `別財布使用` を別々に確認して当月分を発行
+1. OkuDoor 側のMSは `tag='cap_extra'` として、`reward_summary_json.members[].extraBasePay` / `extraPaidYen` / `extraStockYen` / `extraCompanyReserveYen` に分離する。
+2. 通常MSの本契約使用額 (= 非役員支払 + 役員会社留保) は本契約capだけで判定し、ZMPなら `195,000 円` を超えないことを見る。
+3. `cap_extra` の使用額は `別財布使用` として表示し、通常capの超過判定には混ぜない。
+4. **別プールの月次cap は `billing_cycles.extra_budget_yen`** (NULL=未設定/従来即払い・0=全額繰越・N=上限)。完了時一括なら開発期間中=0・完了月=満額。**extra pt単価は `Σextra_budget_yen ÷ Σcap_extra pt` で独立**に決まる (regular 単価を借用しない)。
+5. 報酬キャッシュ再計算 → `reward_summary_json` 更新。**既に旧ロジック (即払い) で払った月が PAID保護されている場合**は、保護フラグ (reward_paid_at / payout_notice_uploaded_at) を一時 NULL → `syncRewardSummariesForProject` → 復元、で全期間を新ロジックに揃える (現金未払い = `monthly_reward_payout` に実支払行が無いことを確認してから)。
+6. `/admin/payouts` で `本契約発生` / `本契約cap` / `本契約使用` / `別財布発生` / `別財布使用` を別々に確認して当月分を発行。`/admin/season-pl` でシーズン全体の閉じ (うめ/あび等の extra 累計が目標額・OkuDoor総消化が原資に収束・最終月 extraStock=0) を検算する。
 
 ## 「通常 GET は読むだけ」原則 (= 過去ハマり防止)
 
