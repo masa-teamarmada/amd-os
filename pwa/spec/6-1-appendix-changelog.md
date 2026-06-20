@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-06-21 | FEATURE_REGISTRY / manual 6-8 | 追加 | `/admin/ms-overview` に編集モードを追加。`PUT /api/admin/ms-overview/{planCycleId}` で `value_milestones.points` 一括更新 + `value_plan_cycles.total_points` 再計算 + `syncRewardSummariesForProject` 全月 reward 再計算 (PAID 月 skip)。client 側は `src/lib/admin/ms-overview-calc.ts` の `recomputeMsOverview` で JS 側リアルタイム再計算 (= `computeSeasonPl` のメンバー予算配分と同式)。share / MS 追加削除 / 期間編集は cockpit に残しスコープ外 | スライダーで pt 配分とメンバー序列を動かしながら影響を即視できる設計レビュー導線を contract に追加するため | えいみ |
 | 2026-06-21 | FEATURE_REGISTRY / manual 6-8 | 追加 | `/admin/ms-overview` を新規導線として登録。`/api/admin/ms-overview` が `computeSeasonPl` を再利用し全 active plan cycle の MS 設計を pt 順で一望、別財布の pt 単価分離、plannedShare ベースのメンバー年計 (理論値) を返す contract を明記 | MS 設計レビューを `/admin/season-pl` (実消化ベースの安全網) と独立した設計レビュー画面として常設したいまさの要望のため | えいみ |
 | 2026-06-20 | 5-6 契約管理 | 追加 | D-13 Contract Signals が `contract_signals` に加えて `contract_terms` candidate を生成し、`/admin/contracts` / `/api/contracts` / dry-run に契約条件候補を表示する contract を追記。candidate/pending の段階では Contract Apply を実行せず、projects / billing_cycles は更新しない境界を明記 | `codex/cx-contract-terms-cap-fix` の未取り込み価値を main 現行実装へ手移植しつつ、古いmigrationや旧UIへ巻き戻さず、契約条件抽出だけを review-gated に復活させるため | えいみ |
 | 2026-06-19 | 3-14 / 6-5 / 6-6 | 追記 | `members.exclude_from_payout_notice=true` の対象例に あき / ID029 (無報酬稼働) を追加。りり / ID006 と同じく月初合意・支払通知書・支払 gate では `not_required` として扱う | まさ指示「あきも除外しておいて。無報酬で働いてるので。」を仕様正本へ残すため | えいみ |

@@ -87,13 +87,15 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - 集計の正本ロジック: `/api/admin/ms-overview` (`src/app/api/admin/ms-overview/route.ts`) が `computeSeasonPl` 純関数を再利用し、`regularPtUnitYen` / `extraPtUnitYen` / `extraPoolBudgetYen` を確定させる。MS の `ptValueYen` (= `points × pt単価`、tag=cap_extra なら extra単価) と、メンバー年計 (`Σ MS points × share × pt単価`、tag で regular/extra に振り分け) は route 内で組み立てて返す。実消化 (`milestone_monthly_progress`) は読まない (= 設計値そのものを見せる画面)。
 - PJ ブロック構造: ① メトリクスカード 4 枚 (合計pt / 本契約 pt単価 / 別財布 pt単価 / 主要メンバー比較)、② 全MS (pt順) (MS 名 + 期間 + tag、pt、pt価値、横バー、担当 share)、③ メンバー別 年計 (`codeName` + 本契約濃 + 別財布淡 の積み上げ横バー + 合計金額)、④ tag 凡例 (normal #1D9E75 / routine #888780 / cap_extra #7F77DD)。
 - 別財布 (cap_extra) プールは pt 単価が独立なので、メトリクスもバー色も完全分離。`tag` が cap_extra 系 (`cap_extra` / `extra_contract` / `contract_extra` / `cap_outside` / `uncapped`) の MS だけ extra 単価で評価し、メンバー年計の `extraYen` 列に積む。
-- 編集機能は持たない (= 閲覧専用)。設計値そのものの変更は cockpit の MS 編集 / `/admin/projects/:id` 経由で行い、この画面では結果だけ並べて見せる。
+- 編集モード (2026-06-21 追加, v0.29.6): PJ ブロックごとに「✏ 編集モード」トグル。各 MS の pt を スライダー (min=2, max=max(初期×2, 30), step=1) で動かせる。スライダーが動くたびに `src/lib/admin/ms-overview-calc.ts` の `recomputeMsOverview` で メトリクス / MS pt価値 / メンバー年計 を JS 側でリアルタイム再計算する (= API 不要)。算定式は `computeSeasonPl` のメンバー予算配分と完全一致 (regular単価=round(budget_yen÷regular pt), extra単価=round(extraPoolBudgetYen÷extra pt), memberYen=Σpoints×share×単価)。`milestone_monthly_contribution_allocations.actual_share` は読まない (plannedShare のみ)。「↻ 推奨値に戻す」「💾 保存して DB へ反映」ボタンをフッターに持つ。share / MS 追加削除 / 期間編集はスコープ外 (= cockpit 経由)。
+- 編集モード保存: `PUT /api/admin/ms-overview/{planCycleId}` (body `{ milestones: [{ milestoneId, points }] }`) を呼ぶと、(a) `value_milestones.points` 一括更新、(b) `value_plan_cycles.total_points = Σ value_milestones.points (goal_level≠monthly)` 再計算、(c) `syncRewardSummariesForProject` で全月 reward 再計算 (`reward_paid_at` / `payout_notice_uploaded_at` / `payment_confirmed_at` のある月は内部で skip)。payload の MS が同じ plan_cycle に属するかを `plan_cycle_id` 突合で検査し、他 PJ への巻き込み更新を防ぐ。
 
 回帰防止:
 
-- `pwa/scripts/check_pwa_critical_ui.cjs` が `/admin/ms-overview` の route / page / client / sidebar anchor (`MS一覧` / `全MS (pt順)` / `メンバー別 年計` / `cap_extra` / `regularPtUnitYen` / `extraPtUnitYen`) を検査する。
-- AdminSidebar の `MS一覧` 導線、`/admin/ms-overview` route、`/api/admin/ms-overview` を消す変更は、`FEATURE_REGISTRY.md` と `pwa/manual/6-8-admin-ms-overview-spec.md` を同時に更新する。
-- 算定ロジックを `computeSeasonPl` から剥がして route 内で再実装しないこと。pt 単価と原資の正本は常に `season-pl.ts` 側に置く (= 予実表と乖離させない、2026-06-20 確定方針)。
+- `pwa/scripts/check_pwa_critical_ui.cjs` が `/admin/ms-overview` の route / page / client / sidebar anchor (`MS一覧` / `全MS` / `メンバー別 年計` / `cap_extra` / `編集モード` / `推奨値に戻す` / `保存して DB へ反映` / `recomputeMsOverview` / `regularPtUnitYen` / `extraPtUnitYen`) を検査する。
+- AdminSidebar の `MS一覧` 導線、`/admin/ms-overview` route、`/api/admin/ms-overview` (GET / PUT)、`src/lib/admin/ms-overview-calc.ts` を消す変更は、`FEATURE_REGISTRY.md` と `pwa/manual/6-8-admin-ms-overview-spec.md` を同時に更新する。
+- 算定ロジックを `computeSeasonPl` / `recomputeMsOverview` から剥がして route 内 / client 内で再実装しないこと。pt 単価と原資の正本は常に `season-pl.ts` と `ms-overview-calc.ts` に置く (= 予実表と乖離させない、2026-06-20 確定方針)。`ms-overview-calc.ts` の式は `season-pl.ts` の `computeSeasonPl` と「同じ round 規則」で書く (= floor ではなく Math.round)。
+- 別財布判定 (cap_extra 系 tag) は `src/lib/admin/ms-overview-calc.ts` の `isCapExtraTag` を共有し、`season-pl.ts` の `CAP_EXTRA_MILESTONE_TAGS` と一字一句揃える (= 増やすときは両方更新)。
 
 ## /admin/private-wiki
 

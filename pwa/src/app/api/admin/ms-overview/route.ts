@@ -31,23 +31,15 @@ import type {
   MsOverviewResponse,
   MsOverviewResponsibility,
 } from "@/lib/admin/ms-overview-types";
+import { isCapExtraTag as isCapExtraTagShared } from "@/lib/admin/ms-overview-calc";
 
 export const runtime = "nodejs";
 
 // season-pl と揃える: cap/原資の母数になりうる plan cycle ステータス
 const ACTIVE_PLAN_STATUSES = ["active", "confirmed", "fixed", "draft"];
 
-// 別財布 (cap_extra) プールに属する MS の tag 集合。season-pl.ts と同一。
-const CAP_EXTRA_MILESTONE_TAGS = new Set([
-  "cap_extra",
-  "extra_contract",
-  "contract_extra",
-  "cap_outside",
-  "uncapped",
-]);
-function isCapExtraTag(tag: unknown): boolean {
-  return CAP_EXTRA_MILESTONE_TAGS.has(String(tag ?? "").trim().toLowerCase());
-}
+// 別財布 (cap_extra) 判定は ms-overview-calc.ts の正本 util に統一。
+const isCapExtraTag = isCapExtraTagShared;
 
 const PLAN_CYCLE_SELECT =
   "plan_cycle_id, project_id, status, budget_yen, total_points, period_start_ym, period_end_ym, buffer_breakdown_json";

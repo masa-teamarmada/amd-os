@@ -117,6 +117,57 @@ route の流れ:
 
 ---
 
+## 編集モード (2026-06-21 追加)
+
+各 PJ ブロックに **「✏ 編集モードに切替」** トグルがあり、ON にするとその PJ の MS 一覧が **スライダー UI** に切り替わる。MS 一覧の閲覧版とまったく同じ位置に、各 MS 1 本ずつスライダーが並ぶ。
+
+### スライダーの仕様
+
+- **min / max**: `min = 2`, `max = max(初期 pt × 2, 30)` (= 極端な 0 や 100 に持っていけない範囲に縛る)。MS ごとに初期値から自動算出する。
+- **step**: 1pt
+- **色**: ハンドル左の正方形マーカーとレンジ accent color が tag 色に従う (normal `#1D9E75` / routine `#888780` / cap_extra `#7F77DD`)
+- **タッチ領域**: モバイルでも動かせるよう `min-height: 32px` を確保
+- **編集中の表示**: 変更すると pt 数字が琥珀色に変わる、PJ ヘッダ右に `●未保存` 表示
+- 表示位置: MS タイトル / 期間 / 担当 share を見ながら動かせる
+
+### リアルタイム再計算
+
+スライダーを動かすたびに、API を叩かず **JS 側で即座に再計算** する。算定式は `src/lib/admin/ms-overview-calc.ts` の `recomputeMsOverview` で、`src/lib/season-pl.ts` の `computeSeasonPl` のメンバー予算配分式と完全一致 (= 編集中も DB 保存後も `/admin/season-pl` と齟齬が出ない):
+
+```text
+regularPts   = total_points − Σ(cap_extra MS の points)
+regularUnit  = round(budget_yen / regularPts)
+extraPts     = Σ(cap_extra MS の points)
+extraUnit    = round(extraPoolBudgetYen / extraPts)   // 別財布があるときのみ
+memberYen[m] = Σ over MS of (MS.points × share[m] × (cap_extra ? extraUnit : regularUnit))
+```
+
+再計算結果は ① メトリクスカード 4 枚 (合計pt / 本契約 pt単価 / 別財布 pt単価 / 主要メンバー比較) ② 各 MS の pt 価値 (= スライダー右の金額) ③ メンバー別 年計バー + 合計金額 ④ ヘッダの単価表示 にリアルタイムで反映する。
+
+月次 override (`milestone_monthly_contribution_allocations.actual_share`) は読まない (= MS 設計を見る画面なので plannedShare × MS.points だけで計算)。
+
+### フッターのボタン
+
+- **↻ 推奨値に戻す** — 全スライダーを現状 DB 値 (= 編集前) に戻す。`isDirty` のときだけ有効。
+- **💾 保存して DB へ反映** — 編集後の pt を確定。`isDirty` のときだけ有効。押下時の動作:
+  1. `PUT /api/admin/ms-overview/{planCycleId}` を呼ぶ (body: `{ milestones: [{ milestoneId, points }] }`)
+  2. サーバ側は (a) 当該 plan_cycle 内の `value_milestones.points` を一括更新、(b) `value_plan_cycles.total_points = Σ value_milestones.points` (`goal_level≠monthly`) を再計算、(c) `syncRewardSummariesForProject` で全月の `billing_cycles.reward_summary_json` を再計算 (PAID 月は内部で自動 skip) する
+  3. 成功すると編集モード OFF へ戻り、`/api/admin/ms-overview` を再 fetch して最新値で再描画する
+- **保存中の表示**: ボタンが「保存中…」、完了で `✓ 保存完了 → reward 再計算済` (緑) / 失敗で `保存失敗: {error}` (赤)
+
+### スコープ外 (次フェーズ)
+
+- **share の編集**: 今フェーズは pt だけ。share 編集は次フェーズで `milestone_responsibility` 直接編集 UI を追加予定。
+- **MS の追加/削除**: cockpit 側の MS 編集導線を使う。
+- **期間 (`period_start_ym` / `target_ym`) の編集**: cockpit 側で行う。
+- **月次 override (`actual_share`)**: ここでは扱わない (= MS 設計画面なので plannedShare のみ)。
+
+### 安全機構
+
+- PUT route は payload の各 milestone が **本当に同じ plan_cycle に属するか** を `value_milestones.plan_cycle_id` 突合で検査し、他 PJ への巻き込み更新を防ぐ。
+- `points < 0` や NaN は server で 400 で弾く。
+- `syncRewardSummariesForProject` 内部で `reward_paid_at` / `payout_notice_uploaded_at` / `payment_confirmed_at` のある月は再計算対象から外れる (= 既に支払い済みの過去月を勝手に書き換えない)。
+
 ## なぜ「実消化」を読まないか
 
 MS Overview は **設計値そのものを見せる画面** だから。実消化 (`milestone_monthly_progress.progress_pct`) を読むと:

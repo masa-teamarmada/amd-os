@@ -672,11 +672,13 @@ expectIncludes("src/app/api/admin/ms-overview/route.ts", [
 
 expectIncludes("src/components/admin/AdminMsOverviewClient.tsx", [
   "/api/admin/ms-overview",
-  "全MS (pt順)",
+  "全MS",
   "メンバー別 年計",
   "cap_extra",
-  "regularPtUnitYen",
-  "extraPtUnitYen",
+  "編集モード",
+  "推奨値に戻す",
+  "保存して DB へ反映",
+  "recomputeMsOverview",
 ]);
 
 expectIncludes("src/app/(app)/admin/ms-overview/page.tsx", [

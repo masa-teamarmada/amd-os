@@ -14,6 +14,7 @@
 
 | 日付 | 対象章 | 種別 | 内容 | 理由 | 誰が |
 |---|---|---|---|---|---|
+| 2026-06-21 | 6-8 Admin / MS Overview | 追加 | 編集モードを追加。PJ ブロックごとに「✏ 編集モード」トグルで MS の pt をスライダーで動かせる。`recomputeMsOverview` (= `computeSeasonPl` のメンバー予算配分と同式の純関数) で メトリクス / MS pt価値 / メンバー年計 を JS 側で即時再計算。`PUT /api/admin/ms-overview/{planCycleId}` で `value_milestones.points` を一括更新 → `value_plan_cycles.total_points` 再計算 → `syncRewardSummariesForProject` で全月 reward 再計算 (PAID 月は skip) | スライダーで pt 配分・メンバー序列を動かしながら影響を即視できるようにし、cockpit を行き来する手間を省くため | えいみ |
 | 2026-06-21 | 6-8 Admin / MS Overview | 追加 | `/admin/ms-overview` を新設。全 active plan cycle の MS を pt 順で並べ、本契約/別財布の pt 単価を分離してメトリクス・横バー・メンバー年計 (plannedShare 理論値) を表示する設計レビュー画面。`/admin/season-pl` の computeSeasonPl を再利用して算定ロジック乖離を防ぐ。実消化 (`milestone_monthly_progress`) は読まず、設計値そのものを見せる | 2026-06-20 ZMP MS 設計再考セッションで「全 MS pt 順 × メンバー年計のヴィジェットをそのまま admin にして全 PJ 載せたい」とまさが要望したため | えいみ |
 | 2026-06-20 | 6-7 契約管理 / 8-3 L2 routines | 追加 | `/admin/contracts` に契約条件候補を表示し、D-13 の出力に `contract_terms` candidate を追加。candidate/pending では売上・予実・報酬capへ反映せず、admin review 後の Contract Apply が本番反映点であることを明記 | CX契約条件抽出の未取り込み差分を main 現行OSへ安全に手移植し、古いbranchを消せる状態にするため | えいみ |
 | 2026-06-19 | 2-2 Member Workflows / 6-5 Admin Payouts / 6-6 Member Ops | 追記・訂正 | `members.exclude_from_payout_notice=true` の対象例に あき / ID029 (無報酬稼働) を追加。りり / ID006 と同じく、報酬額表示は `ー`、月初合意・支払通知書・支払 gate は `not_required` として扱う。あわせて 6-5 の月初合意予定報酬ソースを、当月月次予算 × 予定MS消化pt × active member share の合意用予定額へ同期 | まさ指示「あきも除外しておいて。無報酬で働いてるので。」をOSマニュアル正本へ残し、支払通知書の capped 支払額と月初合意用予定額を混同しないため | えいみ |
