@@ -170,7 +170,14 @@ async function buildOverviewForPlanCycle(
       const isCapExtra = isCapExtraTag(ms.tag);
       const unit = isCapExtra ? seasonPl.extraPtUnitYen : seasonPl.regularPtUnitYen;
       const ptValueYen = Math.round(points * unit);
+      // active メンバー (project_members.is_active=true) のみ責任者として残す。
+      // milestone_responsibility に過去メンバーの share が残っていると、編集モードでは
+      // recomputeMsOverview がその share を拾ってメンバー年計に inactive メンバーが
+      // 現れ、閲覧モードと食い違うため (= 閲覧モードは memberYearTotals 段階で
+      // activeMemberIds.has(...) チェックを噛ませている)。responsibilities 段階で
+      // 両モードの入力を揃える。
       const resps = (respByMs.get(ms.milestone_id) ?? [])
+        .filter((r) => activeMemberIds.has(r.member_id))
         .map((r): MsOverviewResponsibility => ({
           memberId: r.member_id,
           codeName: codeNameByMember.get(r.member_id) || r.member_id,
