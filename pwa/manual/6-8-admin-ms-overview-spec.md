@@ -53,9 +53,13 @@ active メンバー (`project_members.is_active=true`) について、シーズ�
 - 右に合計金額。別財布が乗っている人は `(本 ¥xxx 別 ¥yyy)` の内訳もインライン表示
 - 計算式: `Σ (MS points × share × pt単価)` を tag (cap_extra か否か) で振り分けて regular / extra に積む
 
-### ④ 過去分トグル (2026-06-21 追加)
+### ④ 過去シーズン (= 過去 plan_cycle) トグル
 
-MS 一覧は PJ ブロックごとに **現役** と **過去分** で分けて表示する。判定は MS の `target_ym` (なければ `period_start_ym`) を **JST 起点の今月 (YYYYMM)** と比較し、`target_ym < 今月` なら過去分扱い。期間情報がない MS は隠れない方が安全なので「現役」として扱う。
+route は active/confirmed/fixed/draft の全 plan_cycle を 1 ブロックずつ返すため、同一 PJ で複数 cycle (active + fixed 等) があると素朴に並べるとブロック重複が起きる (例: CX p20 は active `PC-p20-202606-202609` と fixed `PC-p20-202601-202603` で 2 ブロック)。client 側で **PJ 単位にグループ化** し、`period_end_ym` 降順で先頭の cycle を **「現役シーズン」** として常時表示、それ以外を **「過去シーズン」** としてトグル `▸ 過去シーズン (N件) を表示` で畳む (= `ProjectCycleGroup`)。グループ内 cycle 並び順は `period_end_ym` → `period_start_ym` → `planCycleId` の辞書順。
+
+### ⑤ 過去分 MS トグル
+
+MS 一覧は plan_cycle ブロックの中でさらに **現役 MS** と **過去分 MS** に分けて表示する。判定は MS の `target_ym` (なければ `period_start_ym`) を **JST 起点の今月 (YYYYMM)** と比較し、`target_ym < 今月` なら過去分扱い。期間情報がない MS は隠れない方が安全なので「現役」として扱う。
 
 - 現役 MS は常時表示
 - 過去分 MS はデフォルト折りたたみ、`▸ 過去分 (N件) を表示` トグルで展開
@@ -63,7 +67,7 @@ MS 一覧は PJ ブロックごとに **現役** と **過去分** で分けて�
 - 編集モードでも同じ split を適用する (スライダーで触りたい過去分は展開してから触る)
 - 折りたたまれた過去分は表示されないが、メトリクス・メンバー年計・pt 単価には変わらず含まれる (= 計算からは外さない)
 
-### ⑤ tag 凡例
+### ⑥ tag 凡例
 
 normal / routine / cap_extra の色サンプル + ラベルを横並びで表示する (= バー色の意味をその場で確認できるようにする)。
 

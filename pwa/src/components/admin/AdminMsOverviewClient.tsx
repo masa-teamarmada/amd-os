@@ -607,6 +607,69 @@ function PlanCycleBlock({
   );
 }
 
+// ---- PJ グループ (同一 PJ の複数 plan_cycle を集約) --------------------
+
+/**
+ * 同じ PJ で plan_cycle が複数あるとき、最新 (period_end_ym 降順で先頭) を
+ * 「現役シーズン」、それ以外を「過去シーズン」として扱い、過去シーズンは
+ * トグルでだけ展開する。`/admin/ms-overview` の閲覧版は 1 cycle = 1 block で
+ * 並ぶため、SX や CX のように同じ PJ で active + fixed の 2 cycle がある PJ
+ * はこのままだと block が重複していたのを 1 PJ = 1 block に集約する。
+ */
+function ProjectCycleGroup({
+  projectId,
+  projectName,
+  cycles,
+  openByDefault,
+  onSaved,
+}: {
+  projectId: string;
+  projectName: string;
+  cycles: MsOverviewPlanCycle[];
+  openByDefault: boolean;
+  onSaved: () => void;
+}) {
+  const [showPastSeasons, setShowPastSeasons] = useState(false);
+  // 同一 PJ 内の cycle 並び順: period_end_ym 降順 → period_start_ym 降順 → planCycleId。
+  const sorted = useMemo(() => {
+    return [...cycles].sort((a, b) => {
+      if (a.periodEndYm !== b.periodEndYm) return b.periodEndYm.localeCompare(a.periodEndYm);
+      if (a.periodStartYm !== b.periodStartYm) return b.periodStartYm.localeCompare(a.periodStartYm);
+      return a.planCycleId.localeCompare(b.planCycleId);
+    });
+  }, [cycles]);
+  const [current, ...past] = sorted;
+  if (!current) return null;
+  return (
+    <div className="space-y-2" data-pj={projectId} data-pj-name={projectName}>
+      <PlanCycleBlock cycle={current} openByDefault={openByDefault} onSaved={onSaved} />
+      {past.length > 0 && (
+        <div className="pl-3">
+          <button
+            type="button"
+            onClick={() => setShowPastSeasons((prev) => !prev)}
+            className="text-[11px] text-muted-foreground hover:text-foreground py-1"
+          >
+            {showPastSeasons ? "▾" : "▸"} 過去シーズン ({past.length}件) {showPastSeasons ? "を隠す" : "を表示"}
+          </button>
+          {showPastSeasons && (
+            <div className="space-y-2 opacity-80">
+              {past.map((cycle) => (
+                <PlanCycleBlock
+                  key={cycle.planCycleId}
+                  cycle={cycle}
+                  openByDefault={false}
+                  onSaved={onSaved}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---- ルート --------------------------------------------------------------
 
 export function AdminMsOverviewClient() {
@@ -639,22 +702,41 @@ export function AdminMsOverviewClient() {
     setReloadKey((k) => k + 1);
   }, []);
 
+  // PJ 単位にグループ化 (= 同じ projectId の cycle を 1 まとめ)。
+  // 並び順は「PJ 内の最新 cycle の budgetYen 降順」で、route の sort と整合させる。
+  const projectGroups = useMemo(() => {
+    if (!cycles) return null;
+    type Group = { projectId: string; projectName: string; cycles: MsOverviewPlanCycle[] };
+    const byPj = new Map<string, Group>();
+    for (const c of cycles) {
+      const g = byPj.get(c.projectId) ?? { projectId: c.projectId, projectName: c.projectName, cycles: [] };
+      g.cycles.push(c);
+      byPj.set(c.projectId, g);
+    }
+    const groups = [...byPj.values()];
+    const maxBudgetIn = (g: Group) => g.cycles.reduce((max, c) => Math.max(max, c.budgetYen), 0);
+    groups.sort((a, b) => maxBudgetIn(b) - maxBudgetIn(a) || a.projectId.localeCompare(b.projectId));
+    return groups;
+  }, [cycles]);
+
   if (error) {
     return <p className="text-sm text-red-500">読み込みに失敗: {error}</p>;
   }
-  if (cycles === null) {
+  if (cycles === null || projectGroups === null) {
     return <p className="text-sm text-muted-foreground">読み込み中…</p>;
   }
-  if (cycles.length === 0) {
+  if (projectGroups.length === 0) {
     return <p className="text-sm text-muted-foreground">active な plan cycle がない。</p>;
   }
 
   return (
     <div className="space-y-3" data-testid="admin-ms-overview-root">
-      {cycles.map((cycle, idx) => (
-        <PlanCycleBlock
-          key={cycle.planCycleId}
-          cycle={cycle}
+      {projectGroups.map((group, idx) => (
+        <ProjectCycleGroup
+          key={group.projectId}
+          projectId={group.projectId}
+          projectName={group.projectName}
+          cycles={group.cycles}
           openByDefault={idx === 0}
           onSaved={handleSaved}
         />
