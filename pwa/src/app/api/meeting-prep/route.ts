@@ -89,6 +89,17 @@ function toClientMeeting(row: Record<string, unknown>) {
     generatedByModel: row.generated_by_model ?? null,
     sourceKinds: row.source_kinds ?? null,
     prepStatus: row.prep_status ?? null,
+    prepReadinessScore: row.prep_readiness_score ?? null,
+    prepReadinessReasons: row.prep_readiness_reasons ?? null,
+    prepDraftMd: row.prep_draft_md ?? null,
+    prepDriveAssetId: row.prep_drive_asset_id ?? null,
+    prepNotionPageId: row.prep_notion_page_id ?? null,
+    prepWorkerSessionId: row.prep_worker_session_id ?? null,
+    prepWorkerSessionUrl: row.prep_worker_session_url ?? null,
+    prepWorkerStatus: row.prep_worker_status ?? null,
+    prepWorkerSpawnedAt: row.prep_worker_spawned_at ?? null,
+    prepWorkerReadyAt: row.prep_worker_ready_at ?? null,
+    prepConciergeNudgedAt: row.prep_concierge_nudged_at ?? null,
   };
 }
 

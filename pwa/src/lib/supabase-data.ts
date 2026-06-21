@@ -1519,6 +1519,19 @@ export interface ProjectMeetingSummary {
   generatedByModel: string | null;
   sourceKinds: string | null;     // 'notion' | 'gmail' | 'slack' | 'drive' | 'calendar' | 'dialogue' | 'upcoming' | 'upcoming_tentative' | 'none'
   prepStatus?: string | null;     // upcoming row の準備状態。tentative は日程未確定として調整中 block に出す。
+  // MTG Prep Worker (= 自動準備セッション、migration 150)
+  // 仕様: pwa/spec/3-3-meeting-flow-current-spec.md「MTG Prep Worker」節
+  prepReadinessScore?: number | null;     // 0-100. 80↑=緑 / 50-79=黄 / <50=赤
+  prepReadinessReasons?: Record<string, unknown> | null;
+  prepDraftMd?: string | null;            // 着地点 / 背景 / 想定質問 / 持参物 Markdown draft
+  prepDriveAssetId?: string | null;       // _prep/ フォルダ配下の資料 draft Drive file ID
+  prepNotionPageId?: string | null;       // アジェンダ草案入りの Notion 議事録ページ ID
+  prepWorkerSessionId?: string | null;    // Codex Cloud automation run ID
+  prepWorkerSessionUrl?: string | null;   // まさが tap する Codex Cloud session URL
+  prepWorkerStatus?: string | null;       // 'spawning' | 'preparing' | 'ready' | 'failed'
+  prepWorkerSpawnedAt?: string | null;
+  prepWorkerReadyAt?: string | null;
+  prepConciergeNudgedAt?: string | null;
 }
 
 function asStringArray(v: unknown): string[] {
@@ -1623,6 +1636,17 @@ export async function fetchProjectMeetingSummaries(
     generatedByModel: r.generated_by_model,
     sourceKinds: r.source_kinds ?? null,
     prepStatus: r.prep_status ?? null,
+    prepReadinessScore: r.prep_readiness_score ?? null,
+    prepReadinessReasons: r.prep_readiness_reasons ?? null,
+    prepDraftMd: r.prep_draft_md ?? null,
+    prepDriveAssetId: r.prep_drive_asset_id ?? null,
+    prepNotionPageId: r.prep_notion_page_id ?? null,
+    prepWorkerSessionId: r.prep_worker_session_id ?? null,
+    prepWorkerSessionUrl: r.prep_worker_session_url ?? null,
+    prepWorkerStatus: r.prep_worker_status ?? null,
+    prepWorkerSpawnedAt: r.prep_worker_spawned_at ?? null,
+    prepWorkerReadyAt: r.prep_worker_ready_at ?? null,
+    prepConciergeNudgedAt: r.prep_concierge_nudged_at ?? null,
   }));
   return dedupeWeakMeetingSummaries(rows);
 }

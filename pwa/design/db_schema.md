@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-06-20 09:53 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-06-22 01:00 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -72,7 +72,7 @@ PRIMARY KEY: `id`
 
 ## amd_management_score_raw_signals
 
-行数 (概算): 4,409
+行数 (概算): 4,412
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -849,7 +849,7 @@ PRIMARY KEY: `nudge_id`
 
 ## contract_signals
 
-行数 (概算): 150
+行数 (概算): 152
 PRIMARY KEY: `signal_id`
 UNIQUE: `(source_kind,source_table,source_id,signal_type)` (constraint: `contract_signals_source_kind_source_table_source_id_signal__key`)
 
@@ -2388,7 +2388,7 @@ PRIMARY KEY: `id`
 
 ## project_knowledge
 
-行数 (概算): 2,730
+行数 (概算): 2,733
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -2426,7 +2426,7 @@ PRIMARY KEY: `id`
 
 ## project_meeting_summaries
 
-行数 (概算): 213
+行数 (概算): 232
 PRIMARY KEY: `meeting_id`
 
 | # | column | type | nullable | default |
@@ -2459,6 +2459,17 @@ PRIMARY KEY: `meeting_id`
 | 26 | `facilitator_member_id` | `text` | NULL | `` |
 | 27 | `facilitator_nudge_scheduled_at` | `timestamptz` | NULL | `` |
 | 28 | `facilitator_slack_scheduled_message_id` | `text` | NULL | `` |
+| 29 | `prep_readiness_score` | `int4` | NULL | `` |
+| 30 | `prep_readiness_reasons` | `jsonb` | NULL | `` |
+| 31 | `prep_draft_md` | `text` | NULL | `` |
+| 32 | `prep_drive_asset_id` | `text` | NULL | `` |
+| 33 | `prep_notion_page_id` | `text` | NULL | `` |
+| 34 | `prep_worker_session_id` | `text` | NULL | `` |
+| 35 | `prep_worker_session_url` | `text` | NULL | `` |
+| 36 | `prep_worker_status` | `text` | NULL | `` |
+| 37 | `prep_worker_spawned_at` | `timestamptz` | NULL | `` |
+| 38 | `prep_worker_ready_at` | `timestamptz` | NULL | `` |
+| 39 | `prep_concierge_nudged_at` | `timestamptz` | NULL | `` |
 
 ## project_members
 

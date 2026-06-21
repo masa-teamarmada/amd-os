@@ -238,6 +238,35 @@ SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 
 - source_kinds: `notion+gmail+drive+slack` 等 (= 30 chars 閾値)
 - 議事録なし event は `source_kinds='none'` のマーカー行を upsert (= 重複判定用)
 
+### H-1 prep worker (= MTG 専属 自動準備セッション、2026-06-22 まさ確定)
+
+H-1 抽出 routine とは別に、**翌48h の upcoming MTG ごとに専属の codex automation session を起動して prep を先に終わらせる仕組み**を持つ。これは「明日 MTG あるけど準備してない、codex 開いて『背景はこうで…』と毎回説明するのがだるい」という問題への OS 側回答。
+
+**3 routine 構成**:
+
+| SKILL | 実行場所 | cron | 役割 |
+|---|---|---|---|
+| `amd-os-l6-meeting-prep-spawner` | Codex Cloud automation | 毎朝 06:30 JST | 翌48h の upcoming MTG を全件拾って、各MTG ごとに worker を Codex Cloud で動的 spawn |
+| `amd-os-l6-meeting-prep-worker` | Codex Cloud automation | spawn 即発火 (1MTG = 1 run) | 文脈ロード→着地点draft→Drive資料draft→Notion議事録draft→readiness 計算→`project_meeting_summaries` の prep_* 列に upsert |
+| `amd-os-l6-meeting-prep-nudge` | Codex Cloud automation | 毎朝 07:30 JST | `prep_worker_status='ready'` の MTG を まさ専用 Slack DM でまとめ通知。session URL + readiness pill + 空き枠/見積 |
+
+**保存先列** (`project_meeting_summaries`):
+- `prep_readiness_score` (0-100) / `prep_readiness_reasons` (jsonb 内訳)
+- `prep_draft_md` (= 着地点 / 背景 / 想定質問 / 持参物 Markdown)
+- `prep_drive_asset_id` (= Drive 生成資料 draft の file ID)
+- `prep_notion_page_id` (= アジェンダ草案入り議事録ページ)
+- `prep_worker_session_id` / `prep_worker_session_url` (= まさが tap する Codex Cloud run URL)
+- `prep_worker_status` (`spawning` / `preparing` / `ready` / `failed`)
+- `prep_worker_spawned_at` / `prep_worker_ready_at` / `prep_concierge_nudged_at`
+
+**禁止事項**:
+- worker が生成した draft を**自動で Notion 本ページ / Drive 本資料 / Calendar event description に書き込まない**。すべて `_prep` フォルダや draft Notion page、DB の prep_* 列に置き、まさ確認後の手動反映 or 別 route 経由で本反映する。
+- spawner / nudge / worker は MTG 本体の議事録 (`narrative_md` / `decided` 等) を書き換えない。これは既存 H-1 抽出 routine の責務。
+- ended / frozen PJ、`source_kinds='upcoming_tentative'` は対象外 (= 既存 H-1 と同じ進捗ベース原則)。
+- recurring MTG は series ごとに次回1件のみ。連続 occurrence で複数 worker を spawn しない。
+
+**詳細仕様**: `pwa/spec/3-3-meeting-flow-current-spec.md` 末尾「MTG Prep Worker」節 / `pwa/scheduled-tasks/amd-os-l6-meeting-prep-*` SKILL.md。
+
 **禁止事項追加 (= Phase H/I/J 用)**:
 - LLM が Calendar / Drive / Gmail に直接書き込み (= 全部 non-LLM helper `apply-outbox` 経由)
 - Gmail メール本送信 (= draft 止まり、ファシリ役本人が確認後送信)

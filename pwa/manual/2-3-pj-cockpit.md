@@ -178,6 +178,25 @@ MTG詳細モーダル内の「添付資料」は会議単位の `meeting_assets`
 - 議事録では「決定」よりも「提案」「整理」「相談前提の論点」として残す
 - 詳細は **[2-4 章 2.2 まさえいMTG](2-4-amd-cockpit.md#22-まさえいmtg)**。
 
+### MTG Prep Worker (= 自動準備セッション)
+
+> **何が嬉しいか**: 「明日 MTG あるけどまだ準備してない」状態で codex / claude code を開いて「明日こういう MTG があるんよ。背景はこうで…」と説明するコストを廃止する。OS が前夜〜当朝に MTG 専属の準備セッション (= worker) を起動し、文脈ロード・着地点 draft・資料 draft まで終わらせて待機する。
+
+- 翌48h に予定MTG (= `source_kinds='upcoming'`) がある PJ では、cockpit MTG サマリの予定MTGカードに **readiness pill** (緑 80↑ / 黄 50-79 / 赤 <50) と **▶ Prep セッションを開く** リンクが表示される
+- ▶ を tap すると Codex Cloud 上の専属 session に入る。worker は背景 / 過去同シリーズの流れ / 着地点 draft / 想定質問 / 資料 draft を既に生成済み。まさは「合ってる?」「ここ修正」など続きから対話するだけ
+- worker が生成した資料 draft は Drive の `PJfolder/YYMMDD_MTG名_prep/` に置く (= MTG 本資料ではなく draft フォルダ)
+- worker が作成したアジェンダ草案入り Notion 議事録ページは事前に対応する MTG カードの `notion_url` として表示される
+- readiness は当該 MTG の準備度合いを示すだけで、「足りない」状態でも nudge は飛ぶ。draft が薄いだけなら worker から対話で詰める
+
+#### 朝のつくよみ nudge
+
+- 毎朝 07:30 JST、つくよみが まさ専用 Slack DM で「翌48h の MTG prep worker、もう動かしといたよー」とまとめ通知する
+- 通知には MTG 1件ずつの readiness + worker session URL + 「今日の空き枠 vs prep 見積」が並ぶ
+- 通知の内容は worker が ready 状態に到達した MTG のみ。`failed` の MTG は別ブロックで「手動でclaude code開いて」と告げる
+- 全 PJ の facilitator に同じDMは送らず、**まさ専用 DM だけ**で完結する (= まさが議題分配を判断する)
+
+詳細仕様は **[3-3 章 MTG Prep Worker](../spec/3-3-meeting-flow-current-spec.md)** / **[8-3 章 L2 H-1 MTGフロー](8-3-l2-extraction-routines-spec.md)**。
+
 ---
 
 ## 月次確認 (= 月次カード / admin請求)

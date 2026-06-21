@@ -101,3 +101,129 @@ Calendar 作業枠候補が必要な場合だけ `POST /api/task-calendar/schedu
 - freebusy を見ずに重複枠を作らない。
 - 前提データが足りない資料を強引に生成しない。
 - 旧 GAS 153 / 074 を定期 writer として復活させない。
+
+## MTG Prep Worker (= 自動準備セッション生成)
+
+> **この節は何か**: まさが「明日 MTG あるけど準備してない」状況を、OS が前夜〜当朝に **自動で MTG専属の準備セッション (worker)** を起動し、文脈ロード・着地点 draft・資料 draft・想定質問まで先に終わらせて待機する仕組み。まさは Slack DM の link を tap するだけで「もう全部知ってる前提の対話」から始められる。
+
+### 設計の核 (2026-06-22 まさ確定)
+
+- **codex/claude code session を毎回起動して「背景はこうで…」と説明するコストを廃止する**。OS が先に session を spawn し、文脈ロード済みの状態で待機する。
+- **つくよみは判断しない**。worker spawn と Slack DM nudge だけが役目。prep の中身を作るのは worker (= 1 MTG 1 session)。
+- **1 MTG = 1 worker session**。複数 MTG をまとめた俯瞰 session は作らない (= context 汚染回避)。
+- **過去同類 MTG の議事録全 read を前提**。着地点は「過去の流れを踏まえて」推定する。
+
+### 構成 (3 SKILL)
+
+| SKILL | 実行場所 | cron | 役割 |
+|---|---|---|---|
+| `amd-os-l6-meeting-prep-spawner` | Codex Cloud automation | 毎朝 06:30 JST | 翌48h の upcoming MTG 拾って 各MTG ごとに worker を Codex Cloud automation として動的 spawn |
+| `amd-os-l6-meeting-prep-worker` | Codex Cloud automation (動的) | spawn 即発火 (1回限り) | 1MTG 専属。文脈ロード→着地点draft→Drive資料draft→Notion議事録draft→readiness 計算→DB upsert→session を待機保持 |
+| `amd-os-l6-meeting-prep-nudge` | Codex Cloud automation | 毎朝 07:30 JST | worker_status='ready' の MTG を Slack DM (まさ専用) でまとめ通知。session URL + readiness pill + 空き枠/見積 |
+
+### Worker 入力
+
+| source | 内容 |
+|---|---|
+| `project_meeting_summaries` (upcoming) | 対象MTG基本情報 + 過去同シリーズ |
+| `project_meeting_summaries` (held) | 過去同シリーズ全件の `narrative_md` |
+| `project_meeting_summaries` (dialogue) | 直近まさえいMTG (= 提案・論点) |
+| `project_strategy_signals` | PJ の直近経営シグナル |
+| `project_knowledge` | active な PJ ナレッジ |
+| `monthly_reports` 直近3件 | PJ 全体文脈 |
+| `project_xrl_evidence` | XRL 根拠 |
+| `tasks` | 当該 PJ の未完了 task |
+| Calendar | event detail + attendees + freebusy |
+| Notion | 議事録 page (既存 / 新規) |
+| Gmail | 関連 thread |
+| Drive | PJ folder + 既存資料 |
+
+### Worker 出力 (= `project_meeting_summaries` の upcoming row に upsert)
+
+| column | 内容 |
+|---|---|
+| `prep_readiness_score` | 0-100。アジェンダ30 + 持参資料25 + 前回next_actions消化20 + 相手側コンテキスト15 + アサイン明確10 |
+| `prep_readiness_reasons` | jsonb. 各要素の点数と根拠 (= 「アジェンダ: 25/30 (Notion page あり、章立て確認済)」等) |
+| `prep_draft_md` | 着地点 / 背景 / 想定質問 / 持参物 の Markdown draft |
+| `prep_drive_asset_id` | Worker が生成した資料 draft の Drive file ID (= `PJfolder/YYMMDD_MTG名_prep/`) |
+| `prep_notion_page_id` | Worker が作成した議事録ページ (アジェンダ草案入り) |
+| `prep_worker_session_id` | Codex Cloud automation run ID |
+| `prep_worker_session_url` | まさが tap する URL (= Codex Cloud session への直接 link) |
+| `prep_worker_status` | `spawning` / `preparing` / `ready` / `failed` |
+| `prep_worker_spawned_at` | spawner が起動した時刻 |
+| `prep_worker_ready_at` | worker が待機状態に到達した時刻 |
+| `prep_concierge_nudged_at` | nudge cron が Slack DM 送信した時刻 (= 重複送信防止) |
+
+### Readiness Score 計算
+
+| シグナル | 重み | 取り方 |
+|---|---|---|
+| アジェンダ存在 | 30 | Notion 議事録ページ の本文文字数 + Calendar description 文字数。100 文字以上で満点、50-99 で半分 |
+| 持参資料 | 25 | `project_documents` / `meeting_assets` の当該PJ直近資料 ref 数。3件以上で満点 |
+| 前回 next_actions 消化 | 20 | 同シリーズ前回 `next_actions[]` のうち `tasks.status='done'` 比率 |
+| 相手側コンテキスト | 15 | 直近30日のメール往復 + 関連 Notion ページ |
+| アサイン明確 | 10 | `projects.facilitator_member_id` + Calendar attendees 整合 |
+
+- 80↑ = 緑「準備OK」
+- 50-79 = 黄「もう一押し」
+- <50 = 赤「まだ何もない」
+
+### Spawner 動作
+
+```sql
+-- spawner が拾う対象
+SELECT *
+FROM project_meeting_summaries
+WHERE source_kinds LIKE '%upcoming%'
+  AND source_kinds NOT LIKE '%upcoming_tentative%'
+  AND meeting_start_at BETWEEN now() AND now() + interval '48 hours'
+  AND (prep_worker_status IS NULL OR prep_worker_status = 'failed')
+  AND projects.status IN ('active', 'sales')  -- ended/frozen は対象外
+```
+
+- 各 MTG について Codex Cloud REST API で動的 automation を 1 回限り登録する (= `amd-os-l6-prep-{meeting_id_hash}` 命名)
+- 動的 automation の指示文は `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md を読んで meeting_id={...} project_id={...} で実行` のみ
+- spawn 完了したら `prep_worker_status='spawning'` + `prep_worker_session_id` + `prep_worker_session_url` を upsert
+- recurring MTG は series ごとに次回1件だけ。`source_kinds='upcoming_tentative'` は対象外
+- spawner 自体は LLM を呼ばない (= deterministic)
+
+### Nudge 動作
+
+- 07:30 JST 発火
+- `prep_worker_status='ready'` かつ `prep_concierge_nudged_at IS NULL` かつ `meeting_start_at BETWEEN now() AND now() + interval '48 hours'` を全件拾う
+- まさ専用 Slack DM 1本にまとめて投げる (= MTG 1件ごとに別DMは送らない)
+- DM 形式は つくよみ口調:
+  ```
+  🌙 まさ、明日と明後日の MTG prep worker、もう動かしといたよー
+  📌 KUTE定例 (明日10:00, p25, オンライン) readiness 75/100
+     worker準備完了 → [▶ 開く]
+  📌 pHydrogen KR訪問 (明後日14:00, p07) readiness 35/100 ⚠️
+     worker準備完了 → [▶ 開く] (資料draftは作ったけど着地点要相談)
+  今日のまさ空き枠: 14:00-15:30, 17:00-18:00 (合計2.5h)
+  prep見積: KUTE 0.5h + pHydrogen 2h = 2.5h ✅ 収まるよ
+  ```
+- 空き枠は Calendar freebusy + busy window から計算 (= まさの個人カレンダーも含む。既存 H-1 で抽出済み)
+- nudge 完了したら `prep_concierge_nudged_at=now()` を upsert
+- `prep_worker_status='failed'` の MTG は別ブロックに「⚠️ worker起動失敗、手動でclaude code開いて」と表示
+
+### Worker session URL
+
+- Codex Cloud automation の run page URL を保存 (= `https://codex.cloud.openai.com/runs/{run_id}` 相当)
+- まさが tap → そのまま session に入る → worker の第一声 (= prep_draft_md の冒頭が代わりに表示される) から対話継続
+- session は worker 終了後も Codex Cloud 上で見える状態に残る (= idle session として保持)
+
+### 配置
+
+- `pwa/scheduled-tasks/amd-os-l6-meeting-prep-spawner/SKILL.md`
+- `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md`
+- `pwa/scheduled-tasks/amd-os-l6-meeting-prep-nudge/SKILL.md`
+
+L6 シリーズ (= meeting flow 関連) として既存 `amd-os-l6-meeting-extract` / `amd-os-l6-meeting-reviewer` と並べる。
+
+### 禁止事項 (prep worker)
+
+- worker が生成した draft を**自動で Notion 本ページ・Drive 本資料・Calendar event の description に書き込まない**。すべて draft / 別ファイル / DB の `prep_*` 列に置き、まさ確認後の手動反映 or 別 route 経由で本反映する。
+- worker は Gmail 本送信しない (= 既存 H-1 と同じ)。
+- spawner / nudge / worker は **MTG 本体の議事録 (`narrative_md` / `decided` 等)** を書き換えない。これは既存 H-1 抽出 routine の責務。
+- `prep_worker_status='ready'` 未達でも、ある程度の draft が DB にあれば nudge には出す (= ただし「準備中」chip 付き)。完全失敗のみ `failed` 扱い。
+- recurring MTG の同シリーズで連続2回連続 worker が走らないよう、shed cycle ごとに次回1件のみ対象とする (= 既存 `recurring_series_future_occurrence` skip に従う)。

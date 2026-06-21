@@ -207,6 +207,7 @@ function UpcomingMeetingBody({
 
   return (
     <div className="px-5 py-4 space-y-6">
+      <PrepWorkerSection meeting={meeting} />
       {meeting.narrativeMd && (
         <section className="rounded-lg border border-amber-200 bg-amber-50/55 px-4 py-3">
           <div className="mb-2 flex items-center justify-between gap-2">
@@ -259,6 +260,81 @@ function UpcomingMeetingBody({
         {copied && <span className="text-[11px] text-amber-800">コピーしたよ</span>}
       </div>
     </div>
+  );
+}
+
+// MTG Prep Worker (= 自動準備セッション、migration 150) の section
+// 仕様: pwa/spec/3-3-meeting-flow-current-spec.md「MTG Prep Worker」節
+function PrepWorkerSection({ meeting }: { meeting: ProjectMeetingSummary }) {
+  const status = meeting.prepWorkerStatus ?? null;
+  const score = meeting.prepReadinessScore ?? null;
+  const url = meeting.prepWorkerSessionUrl ?? null;
+  const draft = meeting.prepDraftMd ?? null;
+  const reasons = meeting.prepReadinessReasons ?? null;
+
+  if (!status && score == null && !url && !draft) return null;
+
+  let scoreLabel = "—";
+  let scoreClass = "border-stone-200 bg-stone-50 text-stone-700";
+  if (score != null) {
+    scoreLabel = String(score);
+    if (score >= 80) scoreClass = "border-emerald-200 bg-emerald-50 text-emerald-800";
+    else if (score >= 50) scoreClass = "border-amber-200 bg-amber-50 text-amber-800";
+    else scoreClass = "border-rose-200 bg-rose-50 text-rose-800";
+  }
+
+  const statusLabel: Record<string, string> = {
+    spawning: "起動中",
+    preparing: "準備中",
+    ready: "準備OK",
+    failed: "起動失敗",
+  };
+
+  return (
+    <section className="rounded-lg border border-emerald-200 bg-emerald-50/40 px-4 py-3">
+      <div className="mb-2 flex items-center justify-between gap-2 flex-wrap">
+        <h3 className="text-[13px] font-bold text-emerald-950">MTG Prep Worker</h3>
+        <div className="flex items-center gap-1.5">
+          <span className={`text-[10px] px-1.5 py-0.5 rounded border ${scoreClass} whitespace-nowrap`}>
+            readiness {scoreLabel}
+          </span>
+          {status && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded border border-emerald-200 bg-white text-emerald-800 whitespace-nowrap">
+              {statusLabel[status] || status}
+            </span>
+          )}
+          {url && status !== "failed" && (
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center rounded border border-emerald-300 bg-emerald-100 px-2.5 py-1 text-[11px] font-medium text-emerald-900 hover:bg-emerald-200"
+              title="Codex Cloud で worker session を開く"
+            >
+              ▶ Prep セッションを開く ↗
+            </a>
+          )}
+        </div>
+      </div>
+      {reasons && (
+        <details className="mb-2">
+          <summary className="text-[11px] text-emerald-800 cursor-pointer hover:underline">readiness 内訳</summary>
+          <pre className="mt-1 text-[10px] leading-snug text-emerald-900 whitespace-pre-wrap break-words">
+            {JSON.stringify(reasons, null, 2)}
+          </pre>
+        </details>
+      )}
+      {draft && (
+        <div className="text-[12px] leading-relaxed text-emerald-950 [&_h1]:text-[14px] [&_h1]:font-bold [&_h1]:mt-2 [&_h1]:mb-1 [&_h2]:text-[13px] [&_h2]:font-bold [&_h2]:mt-2 [&_h2]:mb-1 [&_h2]:border-b [&_h2]:border-emerald-300 [&_h2]:pb-1 [&_p]:my-2 [&_ul]:my-1 [&_ul]:pl-5 [&_ul]:list-disc">
+          <MarkdownView source={draft} />
+        </div>
+      )}
+      {!draft && (
+        <p className="text-[11px] text-emerald-800">
+          worker draft はまだ届いてないよ。session を開けば対話で詰められるよ。
+        </p>
+      )}
+    </section>
   );
 }
 

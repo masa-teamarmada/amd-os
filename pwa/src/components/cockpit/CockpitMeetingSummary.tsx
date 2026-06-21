@@ -515,6 +515,7 @@ function MeetingRow({ item, onClick, series }: RowProps) {
         </div>
       </button>
       <div className="flex flex-col items-end gap-1 shrink-0">
+        {isUpcoming && <PrepWorkerCta meeting={item} />}
         <NotionTranscriptCta meeting={item} compact />
         {sourceLink && sourceLabel && (
           <a
@@ -529,6 +530,63 @@ function MeetingRow({ item, onClick, series }: RowProps) {
           </a>
         )}
       </div>
+    </div>
+  );
+}
+
+// MTG Prep Worker (= 自動準備セッション) の readiness pill + worker session link
+// 仕様: pwa/spec/3-3-meeting-flow-current-spec.md「MTG Prep Worker」節
+function PrepWorkerCta({ meeting }: { meeting: ProjectMeetingSummary }) {
+  const score = meeting.prepReadinessScore ?? null;
+  const status = meeting.prepWorkerStatus ?? null;
+  const url = meeting.prepWorkerSessionUrl ?? null;
+  if (status == null && score == null && !url) return null;
+
+  let pillClass = "border-stone-200 bg-stone-50 text-stone-700";
+  let pillLabel = "準備中";
+  if (status === "ready" && score != null) {
+    if (score >= 80) {
+      pillClass = "border-emerald-200 bg-emerald-50 text-emerald-800";
+      pillLabel = `準備OK ${score}`;
+    } else if (score >= 50) {
+      pillClass = "border-amber-200 bg-amber-50 text-amber-800";
+      pillLabel = `もう一押し ${score}`;
+    } else {
+      pillClass = "border-rose-200 bg-rose-50 text-rose-800";
+      pillLabel = `要相談 ${score}`;
+    }
+  } else if (status === "failed") {
+    pillClass = "border-rose-200 bg-rose-50 text-rose-800";
+    pillLabel = "起動失敗";
+  } else if (status === "preparing" || status === "spawning") {
+    pillClass = "border-sky-200 bg-sky-50 text-sky-800";
+    pillLabel = status === "preparing" ? "準備中…" : "起動中…";
+  }
+
+  return (
+    <div className="flex items-center gap-1">
+      <span
+        className={`text-[10px] px-1.5 py-0.5 rounded border ${pillClass} whitespace-nowrap`}
+        title={
+          meeting.prepReadinessReasons
+            ? `readiness 内訳: ${JSON.stringify(meeting.prepReadinessReasons)}`
+            : "MTG Prep Worker"
+        }
+      >
+        {pillLabel}
+      </span>
+      {url && status !== "failed" && (
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="text-[10px] font-medium text-emerald-700 hover:underline whitespace-nowrap"
+          title="MTG Prep Worker セッションを開く (Codex Cloud)"
+        >
+          ▶ Prep ↗
+        </a>
+      )}
     </div>
   );
 }
