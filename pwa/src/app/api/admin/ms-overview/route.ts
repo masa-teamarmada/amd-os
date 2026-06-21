@@ -30,6 +30,7 @@ import type {
   MsOverviewPlanCycle,
   MsOverviewResponse,
   MsOverviewResponsibility,
+  ProjectHealthState,
 } from "@/lib/admin/ms-overview-types";
 import { isCapExtraTag as isCapExtraTagShared } from "@/lib/admin/ms-overview-calc";
 
@@ -63,7 +64,62 @@ export type {
   MsOverviewMemberYearTotal,
   MsOverviewPlanCycle,
   MsOverviewResponse,
+  ProjectHealthState,
 };
+
+/** JST 起点の今月 YYYYMM (= AMD OS シーズン軸と一致) */
+function currentYmJst(): string {
+  const now = new Date();
+  const utcMs = now.getTime() + now.getTimezoneOffset() * 60_000;
+  const jst = new Date(utcMs + 9 * 60 * 60 * 1000);
+  return `${jst.getFullYear()}${String(jst.getMonth() + 1).padStart(2, "0")}`;
+}
+
+type ProjectHealthRow = {
+  project_id: string;
+  status: string | null;
+  freeze_from_ym: string | null;
+};
+
+type FreezePeriodRow = {
+  project_id: string;
+  freeze_from_ym: string | null;
+  restart_ym: string | null;
+  status: string | null;
+};
+
+/**
+ * PJ 健全性を判定する。並び替え (= /admin/ms-overview の上中下) に使う。
+ *   projects.status != 'active' → "inactive" (ended/suspended など、最下段)
+ *   projects.status='active' AND 今月 freeze 期間内 → "frozen" (中段)
+ *     freeze 期間 = projects.freeze_from_ym ≤ 今月 (restart_ym 未設定なので無期限)
+ *               OR project_freeze_periods に status='active' で
+ *                  freeze_from_ym ≤ 今月 < (restart_ym ?? 9999) の行がある
+ *   それ以外 → "healthy" (上段、デフォルト)
+ */
+function deriveHealthState(
+  project: ProjectHealthRow | null | undefined,
+  freezePeriods: FreezePeriodRow[],
+  currentYm: string,
+): ProjectHealthState {
+  const projectStatus = String(project?.status ?? "").toLowerCase();
+  if (projectStatus && projectStatus !== "active") return "inactive";
+
+  // projects.freeze_from_ym 軸: 今月以降なら freeze 状態
+  const projectFreezeFrom = project?.freeze_from_ym ?? null;
+  if (projectFreezeFrom && projectFreezeFrom <= currentYm) return "frozen";
+
+  // project_freeze_periods overlay: status='active' で今月が freeze 期間内
+  for (const row of freezePeriods) {
+    const rowStatus = String(row.status ?? "").toLowerCase();
+    if (rowStatus !== "active") continue;
+    const from = row.freeze_from_ym ?? "";
+    if (!from || from > currentYm) continue;
+    const restart = row.restart_ym ?? "";
+    if (!restart || restart > currentYm) return "frozen";
+  }
+  return "healthy";
+}
 
 async function loadPlanCycles(db: SupabaseClient): Promise<PlanCycleInput[]> {
   const res = await db
@@ -84,6 +140,7 @@ async function loadPlanCycles(db: SupabaseClient): Promise<PlanCycleInput[]> {
 async function buildOverviewForPlanCycle(
   db: SupabaseClient,
   planCycle: PlanCycleInput,
+  health: { healthState: ProjectHealthState; projectStatus: string; projectFreezeFromYm: string | null },
 ): Promise<MsOverviewPlanCycle | null> {
   const projectId = planCycle.project_id;
 
@@ -249,6 +306,9 @@ async function buildOverviewForPlanCycle(
     regularPtUnitYen: seasonPl.regularPtUnitYen,
     extraPtUnitYen: seasonPl.extraPtUnitYen,
     extraPoolBudgetYen: seasonPl.extraPoolBudgetYen,
+    healthState: health.healthState,
+    projectStatus: health.projectStatus,
+    projectFreezeFromYm: health.projectFreezeFromYm,
     milestones: msRows,
     memberYearTotals,
   };
@@ -261,12 +321,60 @@ export async function GET() {
   try {
     const db = createAdminClient();
     const cycles = await loadPlanCycles(db);
+
+    // PJ 健全性を判定するための補助データを 1 度だけ取る (= 全 cycle で使い回す)。
+    const projectIds = [...new Set(cycles.map((c) => c.project_id))];
+    const [projectsHealthRes, freezePeriodsRes] = await Promise.all([
+      projectIds.length > 0
+        ? db
+            .from("projects")
+            .select("project_id, status, freeze_from_ym")
+            .in("project_id", projectIds)
+        : Promise.resolve({ data: [] as ProjectHealthRow[], error: null }),
+      projectIds.length > 0
+        ? db
+            .from("project_freeze_periods")
+            .select("project_id, freeze_from_ym, restart_ym, status")
+            .in("project_id", projectIds)
+        : Promise.resolve({ data: [] as FreezePeriodRow[], error: null }),
+    ]);
+    if (projectsHealthRes.error) throw projectsHealthRes.error;
+    if (freezePeriodsRes.error) throw freezePeriodsRes.error;
+
+    const healthByProject = new Map<string, ProjectHealthRow>();
+    for (const row of (projectsHealthRes.data ?? []) as ProjectHealthRow[]) {
+      healthByProject.set(row.project_id, row);
+    }
+    const freezeByProject = new Map<string, FreezePeriodRow[]>();
+    for (const row of (freezePeriodsRes.data ?? []) as FreezePeriodRow[]) {
+      const arr = freezeByProject.get(row.project_id) ?? [];
+      arr.push(row);
+      freezeByProject.set(row.project_id, arr);
+    }
+    const currentYm = currentYmJst();
+    const resolveHealth = (projectId: string) => {
+      const project = healthByProject.get(projectId);
+      const freezePeriods = freezeByProject.get(projectId) ?? [];
+      return {
+        healthState: deriveHealthState(project, freezePeriods, currentYm),
+        projectStatus: project?.status ?? "active",
+        projectFreezeFromYm: project?.freeze_from_ym ?? null,
+      };
+    };
+
     const planCycles = (
-      await Promise.all(cycles.map((c) => buildOverviewForPlanCycle(db, c)))
+      await Promise.all(cycles.map((c) => buildOverviewForPlanCycle(db, c, resolveHealth(c.project_id))))
     ).filter((row): row is MsOverviewPlanCycle => row !== null);
 
-    // 表示順: budget_yen の大きい PJ から (= インパクトの大きい順)
-    planCycles.sort((a, b) => b.budgetYen - a.budgetYen || a.projectId.localeCompare(b.projectId));
+    // 表示順: healthy → frozen → inactive、各層内は budget_yen 降順 → project_id 昇順。
+    const healthRank: Record<ProjectHealthState, number> = { healthy: 0, frozen: 1, inactive: 2 };
+    planCycles.sort((a, b) => {
+      if (healthRank[a.healthState] !== healthRank[b.healthState]) {
+        return healthRank[a.healthState] - healthRank[b.healthState];
+      }
+      if (b.budgetYen !== a.budgetYen) return b.budgetYen - a.budgetYen;
+      return a.projectId.localeCompare(b.projectId);
+    });
 
     return NextResponse.json({ ok: true, planCycles } satisfies MsOverviewResponse);
   } catch (err) {

@@ -33,6 +33,14 @@ export type MsOverviewMemberYearTotal = {
   totalYen: number;
 };
 
+/**
+ * PJ の健全性。並び替えに使う。
+ *   "healthy": projects.status='active' かつ freeze 中でない (= 並びは上)
+ *   "frozen":  projects.status='active' だが freeze_from_ym ≤ 今月 < restart_ym (= 並びは中)
+ *   "inactive": projects.status != 'active' (例: ended) (= 並びは下)
+ */
+export type ProjectHealthState = "healthy" | "frozen" | "inactive";
+
 export type MsOverviewPlanCycle = {
   planCycleId: string;
   projectId: string;
@@ -48,6 +56,12 @@ export type MsOverviewPlanCycle = {
   regularPtUnitYen: number;
   extraPtUnitYen: number;
   extraPoolBudgetYen: number;
+  /** PJ の健全性 (= 同 PJ の全 cycle で共通の値、並び替えに使う) */
+  healthState: ProjectHealthState;
+  /** projects.status の生値 (= "active" / "ended" / "suspended" 等) */
+  projectStatus: string;
+  /** projects.freeze_from_ym (= freeze 開始月、null なら未設定) */
+  projectFreezeFromYm: string | null;
   milestones: MsOverviewMilestone[];
   memberYearTotals: MsOverviewMemberYearTotal[];
 };

@@ -668,6 +668,9 @@ expectIncludes("src/app/api/admin/ms-overview/route.ts", [
   "milestone_responsibility",
   "extra_budget_yen",
   "planCycles",
+  "project_freeze_periods",
+  "deriveHealthState",
+  "healthState",
 ]);
 
 expectIncludes("src/components/admin/AdminMsOverviewClient.tsx", [
@@ -679,6 +682,8 @@ expectIncludes("src/components/admin/AdminMsOverviewClient.tsx", [
   "推奨値に戻す",
   "保存して DB へ反映",
   "recomputeMsOverview",
+  "HealthChip",
+  "groupHealthRank",
 ]);
 
 expectIncludes("src/app/(app)/admin/ms-overview/page.tsx", [

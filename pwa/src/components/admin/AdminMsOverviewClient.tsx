@@ -5,6 +5,7 @@ import type {
   MsOverviewPlanCycle,
   MsOverviewMilestone,
   MsOverviewMemberYearTotal,
+  ProjectHealthState,
 } from "@/lib/admin/ms-overview-types";
 import {
   recomputeMsOverview,
@@ -41,6 +42,32 @@ function fmtShare(n: number): string {
 function fmtYm(ym: string | null | undefined): string {
   if (!ym || !/^\d{6}$/.test(ym)) return ym ?? "";
   return `${ym.slice(0, 4)}/${ym.slice(4, 6)}`;
+}
+
+function HealthChip({ state, projectStatus, freezeFromYm }: {
+  state: ProjectHealthState;
+  projectStatus: string;
+  freezeFromYm: string | null;
+}) {
+  if (state === "healthy") return null;
+  if (state === "frozen") {
+    return (
+      <span
+        className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400"
+        title={freezeFromYm ? `freeze_from_ym=${freezeFromYm}` : "freeze 中"}
+      >
+        ❄ freeze{freezeFromYm ? ` ${fmtYm(freezeFromYm)}〜` : ""}
+      </span>
+    );
+  }
+  return (
+    <span
+      className="text-[10px] px-1.5 py-0.5 rounded bg-slate-500/15 text-slate-500 dark:text-slate-400"
+      title={`projects.status=${projectStatus}`}
+    >
+      ■ {projectStatus || "inactive"}
+    </span>
+  );
 }
 
 /** JST 起点の今月 YYYYMM (ブラウザ TZ に依存しない: UTC+9) */
@@ -372,6 +399,11 @@ function PlanCycleBlock({
       >
         <span className="text-xs text-muted-foreground tabular-nums">{open ? "▾" : "▸"}</span>
         <span className="font-semibold">{cycle.projectName}</span>
+        <HealthChip
+          state={cycle.healthState}
+          projectStatus={cycle.projectStatus}
+          freezeFromYm={cycle.projectFreezeFromYm}
+        />
         <span className="text-xs text-muted-foreground">
           {fmtYm(cycle.periodStartYm)}–{fmtYm(cycle.periodEndYm)}
         </span>
@@ -703,7 +735,8 @@ export function AdminMsOverviewClient() {
   }, []);
 
   // PJ 単位にグループ化 (= 同じ projectId の cycle を 1 まとめ)。
-  // 並び順は「PJ 内の最新 cycle の budgetYen 降順」で、route の sort と整合させる。
+  // 並び順: healthy → frozen → inactive、層内は budget_yen 降順 → project_id 昇順。
+  // (= route の sort と整合)。
   const projectGroups = useMemo(() => {
     if (!cycles) return null;
     type Group = { projectId: string; projectName: string; cycles: MsOverviewPlanCycle[] };
@@ -715,7 +748,22 @@ export function AdminMsOverviewClient() {
     }
     const groups = [...byPj.values()];
     const maxBudgetIn = (g: Group) => g.cycles.reduce((max, c) => Math.max(max, c.budgetYen), 0);
-    groups.sort((a, b) => maxBudgetIn(b) - maxBudgetIn(a) || a.projectId.localeCompare(b.projectId));
+    const healthRank: Record<ProjectHealthState, number> = { healthy: 0, frozen: 1, inactive: 2 };
+    // グループの health は「PJ 内で最も良い state」(= 健全な cycle が 1 つでもあれば healthy)。
+    const groupHealthRank = (g: Group): number => {
+      let best = healthRank.inactive;
+      for (const c of g.cycles) {
+        const rank = healthRank[c.healthState];
+        if (rank < best) best = rank;
+      }
+      return best;
+    };
+    groups.sort((a, b) => {
+      const ha = groupHealthRank(a);
+      const hb = groupHealthRank(b);
+      if (ha !== hb) return ha - hb;
+      return maxBudgetIn(b) - maxBudgetIn(a) || a.projectId.localeCompare(b.projectId);
+    });
     return groups;
   }, [cycles]);
 
