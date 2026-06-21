@@ -43,6 +43,25 @@ function fmtYm(ym: string | null | undefined): string {
   return `${ym.slice(0, 4)}/${ym.slice(4, 6)}`;
 }
 
+/** JST 起点の今月 YYYYMM (ブラウザ TZ に依存しない: UTC+9) */
+function currentYmJst(): string {
+  const now = new Date();
+  const utcMs = now.getTime() + now.getTimezoneOffset() * 60_000;
+  const jst = new Date(utcMs + 9 * 60 * 60 * 1000);
+  return `${jst.getFullYear()}${String(jst.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/**
+ * MS が「過去分 (= 完了済シーズン)」か判定する。
+ * `target_ym` (なければ `period_start_ym`) が現在月より厳密に過去なら history。
+ * 期間情報がない MS は「現役」として扱う (隠れない方が安全)。
+ */
+function isHistoryMilestone(ms: MsOverviewMilestone, currentYm: string): boolean {
+  const ref = ms.targetYm || ms.periodStartYm || "";
+  if (!ref || !/^\d{6}$/.test(ref)) return false;
+  return ref < currentYm;
+}
+
 function barColorForTag(tag: string, isCapExtra: boolean): string {
   if (isCapExtra) return BAR_CAP_EXTRA;
   const t = String(tag || "").toLowerCase();
@@ -224,6 +243,20 @@ function PlanCycleBlock({
   const [editing, setEditing] = useState<EditableMilestoneInput[]>(() => toEditableMilestones(cycle));
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
+  // 過去分 (target_ym/period_start_ym が今月より過去) を折りたたむか
+  const [showHistory, setShowHistory] = useState<boolean>(false);
+
+  // 現役 / 過去分の分割。"今月" は JST 起点 (= AMD OS のシーズン軸と一致)。
+  const currentYm = useMemo(() => currentYmJst(), []);
+  const { currentMs, historyMs } = useMemo(() => {
+    const cur: MsOverviewMilestone[] = [];
+    const hist: MsOverviewMilestone[] = [];
+    for (const ms of cycle.milestones) {
+      if (isHistoryMilestone(ms, currentYm)) hist.push(ms);
+      else cur.push(ms);
+    }
+    return { currentMs: cur, historyMs: hist };
+  }, [cycle.milestones, currentYm]);
 
   // 元データが差し替わったら (= 保存後の再fetch) 編集状態を巻き戻す
   useEffect(() => {
@@ -418,16 +451,20 @@ function PlanCycleBlock({
             />
           </div>
 
-          {/* ② 全MS (閲覧 = pt順横バー / 編集 = スライダー) */}
+          {/* ② 全MS (閲覧 = pt順横バー / 編集 = スライダー)
+                現役 (target_ym ≥ 今月 or 期間未設定) を常時表示、過去分はトグル */}
           <div>
             <h3 className="text-sm font-semibold mb-1">
               全MS {editMode ? "(編集モード)" : "(pt順)"}
+              <span className="ml-2 text-[10px] text-muted-foreground font-normal">
+                現役 {currentMs.length}件 / 過去分 {historyMs.length}件
+              </span>
             </h3>
             {cycle.milestones.length === 0 ? (
               <p className="text-xs text-muted-foreground">MS が登録されていない。</p>
             ) : editMode ? (
               <div>
-                {cycle.milestones.map((ms) => {
+                {currentMs.map((ms) => {
                   const cur = editingByMs.get(ms.milestoneId);
                   if (!cur) return null;
                   const ptValueYen = recomputed.ptValueYenByMs.get(ms.milestoneId) ?? 0;
@@ -441,6 +478,35 @@ function PlanCycleBlock({
                     />
                   );
                 })}
+                {historyMs.length > 0 && (
+                  <div className="mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowHistory((prev) => !prev)}
+                      className="text-[11px] text-muted-foreground hover:text-foreground py-1"
+                    >
+                      {showHistory ? "▾" : "▸"} 過去分 ({historyMs.length}件) {showHistory ? "を隠す" : "を表示"}
+                    </button>
+                    {showHistory && (
+                      <div className="opacity-70">
+                        {historyMs.map((ms) => {
+                          const cur = editingByMs.get(ms.milestoneId);
+                          if (!cur) return null;
+                          const ptValueYen = recomputed.ptValueYenByMs.get(ms.milestoneId) ?? 0;
+                          return (
+                            <MsSliderRow
+                              key={ms.milestoneId}
+                              ms={ms}
+                              current={cur}
+                              ptValueYen={ptValueYen}
+                              onChange={(next) => handleSliderChange(ms.milestoneId, next)}
+                            />
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ) : (
               <div>
@@ -451,9 +517,27 @@ function PlanCycleBlock({
                   <div>原資比</div>
                   <div>担当share</div>
                 </div>
-                {cycle.milestones.map((ms) => (
+                {currentMs.map((ms) => (
                   <MsRow key={ms.milestoneId} ms={ms} maxPtValue={maxPtValue} />
                 ))}
+                {historyMs.length > 0 && (
+                  <div className="mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowHistory((prev) => !prev)}
+                      className="text-[11px] text-muted-foreground hover:text-foreground py-1"
+                    >
+                      {showHistory ? "▾" : "▸"} 過去分 ({historyMs.length}件) {showHistory ? "を隠す" : "を表示"}
+                    </button>
+                    {showHistory && (
+                      <div className="opacity-70">
+                        {historyMs.map((ms) => (
+                          <MsRow key={ms.milestoneId} ms={ms} maxPtValue={maxPtValue} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
