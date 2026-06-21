@@ -49,7 +49,6 @@
 | `/admin/private-wiki` | 裏wiki。人物単位の趣味・関係性メモを PJ 別に保存する admin-only 台帳 |
 | `/notifications` | L2 candidate / feedback の採否 |
 | `/management-score` | AMD Management Score |
-| `/tasks` | 全PJ・全員のタスク管理。マインドマップ / ガントを切り替え、空白クリックで即時作成、`+` handleで子タスク作成/親子edge接続、親dragで子孫追従、ガントで親子treeを表示する |
 | `/institutions` / `/institutions/*` | ERS / 研究機関評価 |
 
 ## API / cron の境界
@@ -59,7 +58,7 @@
 - `/api/report/generate` や `/api/cron/monthly-reports-backfill` は重い手動復旧 route。定期実行しない。
 - 入金・支払・freee 連携などの運用 API は、既存の admin auth / signed token / `CRON_SECRET` 境界を崩さない。
 - `/api/admin/private-wiki` は `requireAdmin()` + `service_role` で `private_wiki_entries` を list/create/update/archive する。browser client から直接書かせない。
-- `/api/tasks` は authenticated user の全PJタスク横断 read と、タスク作成/更新/親子edge/position保存を扱う。DB write は `service_role` 経由で、DELETE ではなく `active=false` を使う。
+- `/tasks` 画面は廃止済み。`/api/tasks` は cockpit legacy kanban / H-1 互換のため残し、DB write は `service_role` 経由で、DELETE ではなく `active=false` を使う。通知 link は対象 PJ cockpit へ向ける。
 - `/api/task-calendar/register-tasks` は H-1 が抽出した次アクションを `tasks` に自動登録し、担当者本人にだけ Slack DM nudge を送る。`CRON_SECRET` / `WORKFLOW_SECRET` または admin auth でのみ実行し、admin review queue は作らない。
 - `/api/cron/governance-email-sweep` は D-14G の source sweep route。`CRON_SECRET` または admin auth でのみ実行し、`/admin/projects` の総会/役会フラグON PJに限定して Gmail を検索する。LLM定期cronではなく、source refs と `/api/governance/extract` への候補/確認済みhandoffを担う。
 

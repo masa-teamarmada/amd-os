@@ -233,9 +233,9 @@ export function buildTaskOwnerSlackNudge(args: {
     `PJ: ${projectLabel}`,
     source.dueAt ? `期限: ${jstDateOnly(source.dueAt)}` : null,
     source.sourceUrl ? `元: ${source.sourceUrl}` : null,
-    `${appUrl.replace(/\/$/, "")}/tasks`,
+    `${appUrl.replace(/\/$/, "")}/project/${source.projectId}/cockpit`,
     "",
-    "内容・期限・担当が違ってたら /tasks で直してね。Calendar作業枠は本人確認を優先して、外部返信や招待は送らないよ。",
+    "内容・期限・担当が違ってたらPJ cockpit側で確認してね。Calendar作業枠は本人確認を優先して、外部返信や招待は送らないよ。",
     `task_id: ${taskId}`,
   ].filter(Boolean);
   return lines.join("\n").slice(0, 2800);

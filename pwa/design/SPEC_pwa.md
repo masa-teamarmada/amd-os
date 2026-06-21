@@ -224,7 +224,7 @@ pwa/
 | `milestone_responsibility` | 担当割合 + role + task_description (209 件) — `UNIQUE(milestone_id, member_id, role)` |
 | `milestone_monthly_progress` | 月次 % + `note` + `source` (`tsukuyomi_estimate` / `pm_confirmed` / `pm_rejected` / `pm_manual` / `routine_auto` / `criteria_toggle`) |
 | `monthly_reports` | 月次レポート (final_content / draft_content) |
-| `tasks` | カンバン |
+| `tasks` | 旧カンバン / H-1 next action 互換。`/tasks` 画面は廃止済み |
 | `member_activities` | メンバー × 今月活動 (`source='inferred'` / `'slack'` 等) |
 | `reimbursements` | 立替 (status: `submitted` `pmApproved` `approved` `paid` ...)。`receipt_storage_paths` / `receipt_file_names` で private Storage `reimbursement-receipts` の領収書添付を保持 |
 

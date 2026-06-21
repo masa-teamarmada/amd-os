@@ -51,7 +51,7 @@ const nudge = buildTaskOwnerSlackNudge({
 });
 
 assert.match(nudge, /タスクを自動登録したよ/);
-assert.match(nudge, /\/tasks/);
+assert.match(nudge, /\/project\/p21\/cockpit/);
 assert.match(nudge, /task_id:/);
 
 console.log(JSON.stringify({ ok: true, task_id: source.taskId, due_date: row.due_date }, null, 2));

@@ -284,7 +284,7 @@ export async function POST(req: NextRequest) {
       kind: "task_created",
       title: `タスク追加: ${title}`.slice(0, 180),
       body: `${projectId} に ${access.actor} がタスクを追加したよ。`,
-      link: "/tasks",
+      link: `/project/${projectId}/cockpit`,
       source: "task_agent",
       meta: {
         task_id: data.task_id,

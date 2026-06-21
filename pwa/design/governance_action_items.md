@@ -4,7 +4,7 @@
 
 ### 既存 `tasks` 機能との境界 (重要)
 
-別セッションが `tasks` テーブル拡張 + `/tasks` (mindmap/gantt/kanban、`spec/5-7-task-management-current-spec.md`) を実装済。**`action_items` はこれと別物**として持つ:
+`tasks` テーブル拡張と `/tasks` (mindmap/gantt/kanban) は過去に実装されたが、`/tasks` 画面は 2026-06-21 に廃止済み。**`action_items` はこれと別物**として持つ:
 
 | | `tasks` | `action_items` (本設計) |
 |---|---|---|
@@ -14,7 +14,7 @@
 | 採否ループ | なし | `review_status` candidate→confirm/reject |
 | 固有列 | mindmap 座標 / parent | `action_url` / `due_at`(精密) / `responded_at` / nudge |
 
-→ `tasks` を壊さず、`/tasks` の手動プランニングとは別レーン。将来 action_item を task に「昇格」する導線は後続検討。
+→ `tasks` を壊さず、廃止済み `/tasks` の手動プランニングとは別レーン。将来 action_item を task に「昇格」する導線は後続検討。
 
 ---
 

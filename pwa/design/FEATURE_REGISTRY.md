@@ -129,23 +129,29 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - MyPage embed: `/dashboard` 右カラムでは `<MyPageContent embedded showMonthlyProjects={false} />` を使い、「今週やったこと」より下の月別PJカードを出さない。`/mypage` 単体では従来どおり月別PJカードを維持する。
 - Dashboard上部: Management Score と明示 action queue を維持する。月次ルーティン由来の自動タスクは生成しない。
 
-## /tasks
+## /tasks (deprecated)
 
-目的: 全PJ・全員のタスク状況を、マインドマップとガントチャートの2視点で横断管理する。
+目的: `/tasks` 画面が廃止済みであることと、残す互換面を明示する。
 
-必須機能:
+廃止済み:
 
-- GlobalNav に `タスク` 導線を置く。
-- PJ / 担当 / status / text search で全PJタスクを絞り込める。
-- マインドマップビュー: 空白クリックで新規タスクを作成する。タスクカードをドラッグして移動し、別タスクへdropすると drop先が親、drag元が子として `tasks.parent_task_id` に保存される。edge は画面上に線で表示する。
-- ガントビュー: PJごとにsectionを分け、タスク行に担当・status・start/due・progress・期間バーを表示する。PJ section の空白行クリックでそのPJの新規タスクを作成する。
-- 書き込みは `/api/tasks` 経由。browser client から直接 `tasks` を更新しない。
-- タスクを消す導線は置かず、非表示は `active=false` を使う。
+- GlobalNav の `タスク` 導線。
+- `/tasks` page route。
+- `TasksClient` のマインドマップ / ガント / 業務デスク UI。
+- `npm run agent:tasks` helper。
+
+残すもの:
+
+- `tasks` table は cockpit legacy kanban / H-1 next action 互換のため残す。
+- `/api/tasks` は既存 caller 互換として残す。browser client から直接 `tasks` を更新しない。
+- `/api/task-calendar/register-tasks` は H-1 の次アクション登録として残す。通知・Slack nudge は廃止済み `/tasks` ではなく対象 PJ cockpit へ向ける。
+- `/api/task-calendar/schedule-plan` は Calendar 作業枠 dry-run planner として残す。
 
 回帰防止:
 
+- `/tasks` 画面や GlobalNav 導線を復活させない。
 - `tasks` 既存カンバン列 (`task_id`, `project_id`, `title`, `status`, `assignee`, `priority`) の意味を変えない。
-- `parent_task_id` の循環は API で拒否する。
+- DB物理削除、DROP、既存 row の一括削除はしない。
 - DDL変更時は `pwa/scripts/migrations/` と `/spec/5-7-task-management-current-spec` を同時更新する。
 
 ## /project/[projectId]/cockpit
@@ -193,4 +199,4 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - **`/admin/governance`**: 株主/ラウンド/総会/要対応の手動記録 CRUD。AdminSidebar に「🏛 株主・ガバナンス」。
 - **`/api/governance/extract`**: Gmail/Drive/Calendar 等から抽出された総会・取締役会・書面決議候補の受け口。既定は `l2_coverage_gaps` review candidate、`apply=true` のときだけ `project_shareholder_meetings` に canonical insert。`attachments` に `content_base64` / `data_url` があれば、確認済み反映時に `projects.drive_folder_id` 直下の `YYMMDD_会議名` folder へ保存し、Drive link を `attachments_json` に残す。削除禁止理由: LST の取締役書面決議のようなメール由来ガバナンス履歴を資料リンク込みで OS 化するための入口 (まさ依頼 2026-06-16)。
 - **`/admin/projects` の「総会」「役会」checkbox + `/api/cron/governance-email-sweep`**: `projects.governance_watch_shareholder_meetings` / `governance_watch_board_meetings` がONのPJだけ、`report_emails` とのGmailやりとりを総会/役会keywordで狭く検索し、`/api/governance/extract` に candidate / apply を渡す。削除禁止理由: D-14G の検索範囲をPJ台帳から明示的に制御し、全メール横断の誤検知・取りこぼしを減らすため (まさ依頼 2026-06-16)。
-- 既存 `tasks` (`/tasks` 手動プランニング) とは別レーン。`action_items` は5生データ抽出 + 採否ループ + personal scope を持つ inbound 義務で、手動 mindmap/gantt の `tasks` を置換しない。
+- 既存 `tasks` は H-1 / cockpit 互換の旧データレーン。`action_items` は5生データ抽出 + 採否ループ + personal scope を持つ inbound 義務で、`tasks` table を置換しない。

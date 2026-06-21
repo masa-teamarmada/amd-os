@@ -23,8 +23,7 @@
     "sync:freee-cash-balances": "node scripts/sync_freee_cash_balances.cjs",
     "collect:management-score-raw": "node scripts/collect_management_score_raw_data.cjs",
     "calculate:management-score": "node scripts/calculate_management_score.cjs",
-    "freee:refresh-token": "node scripts/get_freee_refresh_token.cjs --write-env",
-    "agent:tasks": "node scripts/agent_tasks.mjs"
+    "freee:refresh-token": "node scripts/get_freee_refresh_token.cjs --write-env"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.87.0",

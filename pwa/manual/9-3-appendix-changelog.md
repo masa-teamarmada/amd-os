@@ -14,6 +14,7 @@
 
 | 日付 | 対象章 | 種別 | 内容 | 理由 | 誰が |
 |---|---|---|---|---|---|
+| 2026-06-21 | 2-7 タスク管理 / pwa運用 | 変更・削除 | `/tasks` 画面を廃止済みに変更。GlobalNav導線、page route、TasksClient、mindmap/gantt/業務デスク、`npm run agent:tasks` helper を廃止対象として明記し、`tasks` table / `/api/tasks` / H-1 `register-tasks` は cockpit・H-1互換のため残す境界へ更新 | まさ明示依頼「AMD OS の `/tasks` はもう使っていないので廃止したい」。ただし H-1 next action と既存 cockpit kanban が `tasks` table/API に依存するため、画面廃止とDB/API削除を分ける | えいみ |
 | 2026-06-21 | 2-7 タスク管理 | 追加 | `/tasks` 上部に「今日の業務デスク」を追加。期限が今日/今週、期限超過、確認待ち、停止、えいみ/agent由来タスクを既存 `tasks` から read-only 集約し、フォーカスカードと判断キューから通常のタスク詳細へ入れるようにした | 愛大OSの「業務デスク」思想を AMD OS に小さく展開し、L2/MTG由来タスクやagent作成タスクの巻き取り候補をマインドマップ/ガントへ入る前に1画面で把握できるようにするため | えいみ |
 | 2026-06-21 | 6-8 Admin / MS Overview | 追加 | PJ ブロックの並び順を **healthy → frozen → inactive** に変更。`projects.status` と `projects.freeze_from_ym` + `project_freeze_periods` (status=active で `freeze_from_ym ≤ JST今月 < restart_ym`) を見て `ProjectHealthState` を判定。各層内は `budgetYen` 降順 → `projectId` 昇順。PJ ヘッダに状態 chip (`❄ freeze {fromYm}〜` / `■ {status}`) を表示。グループ単位の health は「PJ 内で最も良い cycle」を採用 | JC (ended) / BWE (ended) / CTB (freeze 中) が上段に並んでアクティブPJを圧迫していたため、healthy PJ を上に集約する | えいみ |
 | 2026-06-21 | 6-8 Admin / MS Overview | 修正 | client で plan_cycle を **PJ 単位にグループ化** し、`period_end_ym` 降順で先頭を「現役シーズン」、それ以外を「過去シーズン」として `▸ 過去シーズン (N件) を表示` トグルに畳む `ProjectCycleGroup` を追加。CX (p20) / SX (p21) のように同 PJ で active + fixed の cycle が並んで block 重複していた事故を修正 | route は status active/confirmed/fixed/draft を全部返す前提のため、PJ 単位の集約は client 側で行う必要があった | えいみ |
