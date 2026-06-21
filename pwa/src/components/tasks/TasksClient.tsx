@@ -241,6 +241,12 @@ function dateValue(date: string | null) {
   return Number.isFinite(time) ? time : null;
 }
 
+function startOfToday() {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  return date.getTime();
+}
+
 function formatDate(date: string | null) {
   if (!date) return "未設定";
   return date.slice(5).replace("-", "/");
@@ -487,6 +493,54 @@ function isOptimisticTaskId(taskId: string) {
   return taskId.startsWith("task_local_");
 }
 
+function isOpenTask(task: OsTask) {
+  const status = normalizeStatus(task.status);
+  return status !== "done" && status !== "archived" && task.active !== false;
+}
+
+function isAgentTask(task: OsTask) {
+  return Boolean(task.agentKind) || Boolean(task.agentSessionId) || (task.taskSource && task.taskSource !== "manual");
+}
+
+function taskDeskLabel(task: OsTask) {
+  const status = normalizeStatus(task.status);
+  const due = dateValue(task.dueDate);
+  const today = startOfToday();
+  if (status === "blocked") return "停止";
+  if (status === "review") return "確認待ち";
+  if (due != null && due < today) return "期限超過";
+  if (due != null && due <= today + 7 * 86400000) return "今週";
+  if (isAgentTask(task)) return "えいみ由来";
+  return statusMeta(task.status).label;
+}
+
+function taskDeskTone(task: OsTask) {
+  const label = taskDeskLabel(task);
+  if (label === "期限超過" || label === "停止") return "border-rose-200 bg-rose-50 text-rose-800";
+  if (label === "確認待ち") return "border-indigo-200 bg-indigo-50 text-indigo-800";
+  if (label === "今週") return "border-amber-200 bg-amber-50 text-amber-900";
+  if (label === "えいみ由来") return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  return "border-border bg-background text-muted-foreground";
+}
+
+function businessDeskSort(a: OsTask, b: OsTask) {
+  const statusWeight = (task: OsTask) => {
+    const status = normalizeStatus(task.status);
+    if (status === "blocked") return 0;
+    if (status === "review") return 1;
+    const due = dateValue(task.dueDate);
+    if (due != null && due < startOfToday()) return 2;
+    if (due != null && due <= startOfToday() + 7 * 86400000) return 3;
+    if (isAgentTask(task)) return 4;
+    return 5;
+  };
+  const diff = statusWeight(a) - statusWeight(b);
+  if (diff !== 0) return diff;
+  return (dateValue(a.dueDate) ?? Number.MAX_SAFE_INTEGER) - (dateValue(b.dueDate) ?? Number.MAX_SAFE_INTEGER)
+    || a.updatedAt.localeCompare(b.updatedAt) * -1
+    || a.taskId.localeCompare(b.taskId);
+}
+
 function editableTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false;
   if (target.isContentEditable) return true;
@@ -633,6 +687,8 @@ export function TasksClient() {
     const archived = bundle.tasks.filter((task) => isArchivedStatus(task.status)).length;
     return { total: visible.length, open, blocked, archived };
   }, [bundle.tasks]);
+
+  const deskInsights = useMemo(() => buildBusinessDeskInsights(bundle.tasks), [bundle.tasks]);
 
   function projectName(projectId: string) {
     const project = projectById.get(projectId);
@@ -1431,6 +1487,13 @@ export function TasksClient() {
           </div>
         </header>
 
+        <BusinessDeskPanel
+          insights={deskInsights}
+          projectName={projectName}
+          memberName={memberName}
+          onTaskOpen={openTask}
+        />
+
         <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
           <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-2">
             <Filter className="h-4 w-4 text-muted-foreground" />
@@ -1569,6 +1632,148 @@ export function TasksClient() {
         onSave={saveForm}
         onDelete={deleteTask}
       />
+    </div>
+  );
+}
+
+type BusinessDeskInsights = ReturnType<typeof buildBusinessDeskInsights>;
+
+function buildBusinessDeskInsights(tasks: OsTask[]) {
+  const today = startOfToday();
+  const weekEnd = today + 7 * 86400000;
+  const open = tasks.filter(isOpenTask);
+  const overdue = open.filter((task) => {
+    const due = dateValue(task.dueDate);
+    return due != null && due < today;
+  });
+  const thisWeek = open.filter((task) => {
+    const due = dateValue(task.dueDate);
+    return due != null && due >= today && due <= weekEnd;
+  });
+  const review = open.filter((task) => normalizeStatus(task.status) === "review");
+  const blocked = open.filter((task) => normalizeStatus(task.status) === "blocked");
+  const agent = open.filter(isAgentTask);
+  const queue = [...new Map([...blocked, ...review, ...overdue, ...thisWeek, ...agent].map((task) => [task.taskId, task])).values()]
+    .sort(businessDeskSort)
+    .slice(0, 7);
+
+  return {
+    metrics: [
+      { label: "今日/今週", value: thisWeek.length, tone: thisWeek.length > 0 ? "work" : "quiet" },
+      { label: "期限超過", value: overdue.length, tone: overdue.length > 0 ? "danger" : "quiet" },
+      { label: "確認待ち", value: review.length, tone: review.length > 0 ? "review" : "quiet" },
+      { label: "停止", value: blocked.length, tone: blocked.length > 0 ? "danger" : "quiet" },
+      { label: "えいみ由来", value: agent.length, tone: agent.length > 0 ? "agent" : "quiet" },
+    ],
+    queue,
+    focus: queue[0] ?? null,
+  };
+}
+
+function BusinessDeskPanel({
+  insights,
+  projectName,
+  memberName,
+  onTaskOpen,
+}: {
+  insights: BusinessDeskInsights;
+  projectName: (projectId: string) => string;
+  memberName: (memberId: string | null, fallback?: string) => string;
+  onTaskOpen: (task: OsTask) => void;
+}) {
+  return (
+    <section className="rounded-lg border border-border bg-card p-3 shadow-sm">
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="min-w-0 space-y-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">business desk</div>
+              <h2 className="mt-1 text-lg font-semibold leading-tight text-foreground">今日の業務デスク</h2>
+              <p className="mt-1 text-xs text-muted-foreground">期限、確認待ち、停止、えいみ由来の巻き取り候補をまとめて見る</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+            {insights.metrics.map((metric) => (
+              <DeskMetric key={metric.label} label={metric.label} value={metric.value} tone={metric.tone} />
+            ))}
+          </div>
+          <div className="overflow-hidden rounded-md border border-border">
+            <div className="grid grid-cols-[76px_minmax(0,1fr)] border-b border-border bg-muted/25 px-3 py-2 text-[11px] font-semibold text-muted-foreground sm:grid-cols-[92px_minmax(0,1fr)_92px_112px]">
+              <span>種別</span>
+              <span>タスク / 判断根拠</span>
+              <span className="hidden sm:block">期限</span>
+              <span className="hidden sm:block">担当</span>
+            </div>
+            {insights.queue.length === 0 ? (
+              <div className="px-3 py-5 text-center text-sm text-muted-foreground">今すぐ巻き取る候補はないよ</div>
+            ) : (
+              <div className="divide-y divide-border">
+                {insights.queue.map((task) => (
+                  <button
+                    key={task.taskId}
+                    type="button"
+                    onClick={() => onTaskOpen(task)}
+                    className="grid w-full grid-cols-[76px_minmax(0,1fr)] items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-muted/35 sm:grid-cols-[92px_minmax(0,1fr)_92px_112px]"
+                  >
+                    <span className={cn("w-fit rounded-full border px-2 py-0.5 text-[11px] font-semibold", taskDeskTone(task))}>{taskDeskLabel(task)}</span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold text-foreground">{task.title.trim() || "新規タスク"}</span>
+                      <span className="block truncate text-[11px] text-muted-foreground">
+                        {projectName(task.projectId)} / {task.description || task.taskSource || "根拠メモなし"}
+                      </span>
+                    </span>
+                    <span className="hidden font-mono text-xs text-muted-foreground sm:block">{formatDate(task.dueDate)}</span>
+                    <span className="hidden truncate text-xs text-muted-foreground sm:block">{memberName(task.assigneeMemberId, task.assignee)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+        <aside className="rounded-md border border-border bg-background p-3">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">focus</div>
+          {insights.focus ? (
+            <div className="mt-3 space-y-3">
+              <div>
+                <span className={cn("rounded-full border px-2 py-0.5 text-[11px] font-semibold", taskDeskTone(insights.focus))}>{taskDeskLabel(insights.focus)}</span>
+                <h3 className="mt-2 text-base font-semibold leading-snug">{insights.focus.title.trim() || "新規タスク"}</h3>
+              </div>
+              <dl className="grid grid-cols-[76px_minmax(0,1fr)] gap-x-3 gap-y-2 text-xs">
+                <dt className="text-muted-foreground">PJ</dt>
+                <dd className="min-w-0 truncate">{projectName(insights.focus.projectId)}</dd>
+                <dt className="text-muted-foreground">担当</dt>
+                <dd className="min-w-0 truncate">{memberName(insights.focus.assigneeMemberId, insights.focus.assignee)}</dd>
+                <dt className="text-muted-foreground">次に見る</dt>
+                <dd className="min-w-0">{insights.focus.description || "詳細を開いて、状態・期限・親子関係を確認"}</dd>
+              </dl>
+              <Button size="sm" className="w-full" onClick={() => onTaskOpen(insights.focus)}>
+                開く
+              </Button>
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-muted-foreground">今は優先フォーカスなし</p>
+          )}
+        </aside>
+      </div>
+    </section>
+  );
+}
+
+function DeskMetric({ label, value, tone }: { label: string; value: number; tone: string }) {
+  const className =
+    tone === "danger"
+      ? "border-rose-200 bg-rose-50 text-rose-800"
+      : tone === "review"
+        ? "border-indigo-200 bg-indigo-50 text-indigo-800"
+        : tone === "agent"
+          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+          : tone === "work"
+            ? "border-amber-200 bg-amber-50 text-amber-900"
+            : "border-border bg-background text-muted-foreground";
+  return (
+    <div className={cn("min-h-[66px] rounded-md border p-3", className)}>
+      <div className="font-mono text-2xl font-semibold leading-none text-foreground">{value}</div>
+      <div className="mt-2 text-xs">{label}</div>
     </div>
   );
 }
