@@ -187,6 +187,65 @@ body:has(.amd-desk-page-skin) {
   border-color: var(--desk-line) !important;
 }
 
+.amd-desk-page-skin :is(section, article, aside) {
+  border-color: var(--desk-line);
+}
+
+.amd-desk-page-skin :is(section, article, aside):not(.dashboard-desk-section) {
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(55, 47, 32, 0.07);
+}
+
+.amd-desk-page-skin :is(section, article, aside) > :first-child:is(div, header) {
+  border-color: var(--desk-line);
+}
+
+.amd-desk-page-skin button,
+.amd-desk-page-skin a[role="button"] {
+  border-radius: 7px;
+}
+
+.amd-desk-page-skin :is(button, a):focus-visible {
+  outline: 2px solid rgba(37, 108, 85, 0.35);
+  outline-offset: 2px;
+}
+
+.amd-desk-page-skin .divide-border > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--desk-line) !important;
+}
+
+.amd-desk-page-skin :is(.text-emerald-600, .text-emerald-700, .text-emerald-800, .text-emerald-900) {
+  color: var(--desk-green) !important;
+}
+
+.amd-desk-page-skin :is(.text-sky-600, .text-sky-700, .text-sky-800, .text-sky-900) {
+  color: var(--desk-blue) !important;
+}
+
+.amd-desk-page-skin :is(.text-amber-600, .text-amber-700, .text-amber-800, .text-amber-900) {
+  color: var(--desk-amber) !important;
+}
+
+.amd-desk-page-skin :is(.text-violet-600, .text-violet-700, .text-violet-800, .text-violet-900, .text-purple-800) {
+  color: var(--desk-violet) !important;
+}
+
+.amd-desk-page-skin :is(.bg-emerald-50, .bg-emerald-100) {
+  background-color: var(--desk-green-soft) !important;
+}
+
+.amd-desk-page-skin :is(.bg-sky-50, .bg-sky-100) {
+  background-color: var(--desk-blue-soft) !important;
+}
+
+.amd-desk-page-skin :is(.bg-amber-50, .bg-amber-100) {
+  background-color: var(--desk-amber-soft) !important;
+}
+
+.amd-desk-page-skin :is(.bg-violet-50, .bg-violet-100, .bg-purple-50, .bg-purple-100) {
+  background-color: var(--desk-violet-soft) !important;
+}
+
 .dashboard-desk-section {
   min-width: 0;
   border: 1px solid var(--desk-line);
