@@ -59,34 +59,58 @@ export default async function NotificationsPage() {
   for (const p of projectsRes.data ?? []) {
     projectMap[p.project_id] = p.project_name;
   }
+  const l2Count = (l2Res.data ?? []).length;
+  const meetingCount = (mtgRes.data ?? []).length;
+  const feedbackCount = (feedbacksRes.data ?? []).length;
 
   return (
-    <div className="container mx-auto max-w-4xl py-6 px-4">
-      <div className="flex items-baseline gap-3 mb-1">
-        <h1 className="text-lg font-semibold">📬 通知</h1>
-        <span className="text-sm text-muted-foreground">
-          L2 抽出 {(l2Res.data ?? []).length} 件 / MTGサマリ {(mtgRes.data ?? []).length} 件
-        </span>
+    <div className="amd-desk-page-skin px-3 py-4 sm:px-4 sm:py-6">
+      <div className="mx-auto max-w-5xl">
+        <header className="mb-4 grid gap-3 border-b border-[var(--desk-line)] pb-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+          <div>
+            <h1 className="text-xl font-semibold leading-tight">通知</h1>
+            <p className="mt-1 text-xs text-muted-foreground">
+              cron / つくよみ / Phase 4 抽出 等の通知を統合表示。誤抽出があれば「つくよみに修正依頼」で次回以降の抽出を改善できる。
+            </p>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="rounded-[8px] border border-[var(--desk-line)] bg-[rgba(255,253,247,0.82)] px-3 py-2">
+              <div className="font-mono text-xl font-bold text-[var(--desk-green)]">{l2Count}</div>
+              <div className="mt-1 text-[11px] text-muted-foreground">L2抽出</div>
+            </div>
+            <div className="rounded-[8px] border border-[var(--desk-line)] bg-[rgba(255,253,247,0.82)] px-3 py-2">
+              <div className="font-mono text-xl font-bold text-[var(--desk-blue)]">{meetingCount}</div>
+              <div className="mt-1 text-[11px] text-muted-foreground">MTG</div>
+            </div>
+            <div className="rounded-[8px] border border-[var(--desk-line)] bg-[rgba(255,253,247,0.82)] px-3 py-2">
+              <div className="font-mono text-xl font-bold text-[var(--desk-amber)]">{feedbackCount}</div>
+              <div className="mt-1 text-[11px] text-muted-foreground">修正依頼</div>
+            </div>
+          </div>
+        </header>
+
+        <div className="grid gap-4">
+          {/* 要対応 (期日順) — 5生データ抽出 + 手動の inbound 義務 */}
+          <section className="dashboard-desk-section">
+            <div className="dashboard-desk-section-title">要対応</div>
+            <ActionItemsPanel variant="notifications" />
+          </section>
+
+          {/* VC 系 / Web 通知 (app_notifications) */}
+          <AppNotificationsSection />
+
+          {/* L2 抽出 / MTG サマリ通知 */}
+          <section className="dashboard-desk-section">
+            <div className="dashboard-desk-section-title">L2 / MTG レビューキュー</div>
+            <NotificationsClient
+              l2={(l2Res.data ?? []) as Notification[]}
+              mtg={(mtgRes.data ?? []) as MeetingNotification[]}
+              feedbacks={(feedbacksRes.data ?? []) as Feedback[]}
+              projectMap={projectMap}
+            />
+          </section>
+        </div>
       </div>
-      <p className="text-xs text-muted-foreground mb-6">
-        cron / つくよみ / Phase 4 抽出 等の通知を統合表示。誤抽出があれば「⚠️ つくよみに修正依頼」で次回以降の抽出を改善できる。
-      </p>
-
-      {/* 要対応 (期日順) — 5生データ抽出 + 手動の inbound 義務 */}
-      <div className="mb-6">
-        <ActionItemsPanel variant="notifications" />
-      </div>
-
-      {/* VC 系 / Web 通知 (app_notifications) */}
-      <AppNotificationsSection />
-
-      {/* L2 抽出 / MTG サマリ通知 */}
-      <NotificationsClient
-        l2={(l2Res.data ?? []) as Notification[]}
-        mtg={(mtgRes.data ?? []) as MeetingNotification[]}
-        feedbacks={(feedbacksRes.data ?? []) as Feedback[]}
-        projectMap={projectMap}
-      />
     </div>
   );
 }
