@@ -1,6 +1,6 @@
 # AMD OS 司令塔タスク台帳
 
-最終更新: 2026-06-21
+最終更新: 2026-06-20
 
 この台帳は、AMD OS全体司令塔が受けている依頼を「コードを読んでいない人でも分かる」粒度で整理するためのもの。worker報告をそのまま貼らず、司令塔がまさ向けに要約して更新する。
 
@@ -392,24 +392,6 @@ PWA deploy / push ルール:
   - 既存のdirty main worktreeを直接触らず、clean worktreeで確認する。
 
 ## 完了済みタスク
-
-### C-20260621-01. AMD OS /tasks 廃止確認とproduction proof
-
-- お願いしたタスク内容
-  - `/tasks` 画面廃止が main / production に反映済みか確認する。
-  - route一覧、build-info、関連docs、agent helper削除状態を確認する。
-  - EHM風デザイン適用やUI見た目変更はこのタスクでは触らない。
-- 現状どうなってるか
-  - 動作状態: 完了。
-  - production build-info: `v0.29.16` / `a0d77c30d4825e2d89dc3eb880890dc58e42f0c7` / `main` / `dirty=false`。
-  - `/tasks` 廃止commit `120b8214 Remove deprecated tasks surface` は main / origin/main に含まれ、production commit `a0d77c30` の ancestor であるため本番反映済み。
-  - route一覧に `/tasks` は出てこない。
-  - `pwa/src/app/(app)/tasks/page.tsx`、`pwa/scripts/agent_tasks.mjs`、`package.json` の `agent:tasks` script は存在しない。
-  - nav / layout / task API / task-calendar の `/tasks` 直リンクは残っていない。
-  - docs上は `pwa/CLAUDE.md`、`pwa/manual/2-7-task-management.md`、`pwa/spec/5-7-task-management-current-spec.md` に「廃止済み、DB/API互換は残す」と反映済み。
-- 残課題は何か
-  - この確認タスク自体は残課題なし。
-  - 既存 `tasks` table と `/api/tasks` は cockpit legacy / H-1 next action 互換のため残す。物理削除やUI復活はこのタスク対象外。
 
 ### 1. Dashboard / PJ Cockpit の TODO UI を整理する
 
