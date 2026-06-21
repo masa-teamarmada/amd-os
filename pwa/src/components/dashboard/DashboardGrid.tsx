@@ -15,21 +15,21 @@ import type { DashProject as GasProject, DashBillingStatus as GasBillingStatus }
 import { AllPjIntroductionModal } from "./AllPjIntroductionModal";
 
 const STATUS_BADGE: Record<string, string> = {
-  active: "bg-emerald-50 text-emerald-800 border-emerald-300",
-  sales: "bg-sky-50 text-sky-800 border-sky-300",
-  draft: "bg-sky-50 text-sky-800 border-sky-300",
-  ended: "bg-zinc-100 text-zinc-700 border-zinc-300",
-  frozen: "bg-amber-50 text-amber-800 border-amber-300",
-  advisor: "bg-purple-50 text-purple-800 border-purple-300",
+  active: "bg-[var(--desk-green-soft)] text-[var(--desk-green)] border-[rgba(37,108,85,0.22)]",
+  sales: "bg-[var(--desk-blue-soft)] text-[var(--desk-blue)] border-[rgba(44,95,131,0.22)]",
+  draft: "bg-[var(--desk-blue-soft)] text-[var(--desk-blue)] border-[rgba(44,95,131,0.22)]",
+  ended: "bg-[rgba(146,141,130,0.14)] text-[var(--desk-muted)] border-[var(--desk-line)]",
+  frozen: "bg-[var(--desk-amber-soft)] text-[var(--desk-amber)] border-[rgba(168,100,22,0.24)]",
+  advisor: "bg-[var(--desk-violet-soft)] text-[var(--desk-violet)] border-[rgba(109,82,117,0.24)]",
 };
 
 const STATUS_LEFT_BORDER: Record<string, string> = {
-  active: "border-l-emerald-500",
-  sales: "border-l-sky-500",
-  draft: "border-l-sky-500",
-  ended: "border-l-zinc-400",
-  frozen: "border-l-amber-500",
-  advisor: "border-l-purple-500",
+  active: "border-l-[var(--desk-green)]",
+  sales: "border-l-[var(--desk-blue)]",
+  draft: "border-l-[var(--desk-blue)]",
+  ended: "border-l-[var(--desk-quiet)]",
+  frozen: "border-l-[var(--desk-amber)]",
+  advisor: "border-l-[var(--desk-violet)]",
 };
 
 interface DashboardGridProps {
@@ -70,11 +70,11 @@ export function DashboardGrid({
   const other = projects.filter((p) => !["active", "sales", "draft"].includes(p.status)).sort(sorter);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <div className="flex items-center justify-end">
         <button
           onClick={() => setIntroOpen(true)}
-          className="text-sm px-3 py-1.5 rounded-md border border-border bg-white hover:bg-muted/40 transition-colors"
+          className="text-sm px-3 py-1.5 rounded-[7px] border border-[var(--desk-line)] bg-[var(--desk-panel-raised)] hover:bg-[var(--desk-sheet)] transition-colors shadow-[0_1px_6px_rgba(36,35,31,0.06)]"
           title="チェックを入れた PJ のエグゼクティブサマリーを 1 つの HTML として出力"
         >
           📑 全 PJ 紹介資料作成
@@ -84,8 +84,8 @@ export function DashboardGrid({
       {introOpen && <AllPjIntroductionModal projects={projects} onClose={() => setIntroOpen(false)} />}
 
       {active.length > 0 && (
-        <section>
-          <h2 className="text-sm font-medium text-muted-foreground mb-2">Active ({active.length})</h2>
+        <section className="dashboard-desk-section">
+          <h2 className="dashboard-desk-section-title">Active ({active.length})</h2>
           <div className="space-y-2">
             {active.map((pj) => (
               <ProjectStripe
@@ -103,8 +103,8 @@ export function DashboardGrid({
       )}
 
       {sales.length > 0 && (
-        <section>
-          <h2 className="text-sm font-medium text-muted-foreground mb-2">Sales / Draft ({sales.length})</h2>
+        <section className="dashboard-desk-section">
+          <h2 className="dashboard-desk-section-title">Sales / Draft ({sales.length})</h2>
           <div className="space-y-2">
             {sales.map((pj) => (
               <ProjectStripe
@@ -122,8 +122,8 @@ export function DashboardGrid({
       )}
 
       {other.length > 0 && (
-        <details className="group">
-          <summary className="text-sm font-medium text-muted-foreground mb-2 cursor-pointer">
+        <details className="dashboard-desk-section group">
+          <summary className="dashboard-desk-section-title cursor-pointer">
             Ended / Frozen ({other.length})
           </summary>
           <div className="space-y-2 mt-2">
@@ -206,7 +206,7 @@ function ProjectStripe({
   return (
     <Link
       href={`${hrefPrefix}/${project.projectId}/cockpit`}
-      className={`relative block rounded-lg border border-border border-l-4 ${leftBorder} ${isMine ? "bg-sky-50/30 ring-1 ring-sky-200/60" : "bg-card"} overflow-hidden transition-all hover:shadow-md hover:-translate-y-0.5`}
+      className={`relative block rounded-[8px] border border-[var(--desk-line)] border-l-4 ${leftBorder} ${isMine ? "bg-[rgba(223,238,230,0.52)] ring-1 ring-[rgba(37,108,85,0.22)]" : "bg-[rgba(255,253,247,0.86)]"} overflow-hidden transition-all hover:shadow-[0_14px_34px_rgba(55,47,32,0.12)] hover:-translate-y-0.5`}
     >
       {/* 固定 12 列 grid: 各列幅は project 間で揃う。col-span 再配分 (= 3/2/3/2/2 = 12)
           M/X/F と billing が狭くて縦書き化してたので幅増やす */}
@@ -223,13 +223,13 @@ function ProjectStripe({
         </div>
 
         {/* === 担当: col-span-2 (= inline 1 行で省スペース) === */}
-        <div className="col-span-2 border-l border-border/50 pl-3 text-[10px] min-w-0">
+        <div className="col-span-2 border-l border-[var(--desk-line)] pl-3 text-[10px] min-w-0">
           <div className="text-[9px] text-muted-foreground font-mono uppercase">担当</div>
           <div className="truncate text-foreground" title={rolesInline}>{rolesInline}</div>
         </div>
 
         {/* === PRS primary + sparkline: col-span-3 === */}
-        <div className="col-span-3 flex items-center gap-2 border-l border-border/50 pl-3 min-w-0">
+        <div className="col-span-3 flex items-center gap-2 border-l border-[var(--desk-line)] pl-3 min-w-0">
           <div className="flex flex-col shrink-0">
             <div className="text-[9px] text-muted-foreground font-mono uppercase">PRS Primary</div>
             <div className="flex items-baseline gap-1 min-h-[28px]">
@@ -247,7 +247,7 @@ function ProjectStripe({
         </div>
 
         {/* === P/R/S components: col-span-2 === */}
-        <div className="col-span-2 border-l border-border/50 pl-3">
+        <div className="col-span-2 border-l border-[var(--desk-line)] pl-3">
           {primarySnapshot?.components ? (
             <>
               <div className="mb-1 text-[9px] text-muted-foreground font-mono uppercase">PRS P/R/S</div>
@@ -263,7 +263,7 @@ function ProjectStripe({
         </div>
 
         {/* === billing 4 dot: col-span-2 === */}
-        <div className="col-span-2 border-l border-border/50 pl-3">
+        <div className="col-span-2 border-l border-[var(--desk-line)] pl-3">
           {billing ? (
             <>
               <div className="text-[9px] text-muted-foreground font-mono mb-1">{billing.ym?.slice(0, 4)}.{billing.ym?.slice(4, 6)}</div>
@@ -285,7 +285,7 @@ function ProjectStripe({
 
 function MetricCell({ label, value }: { label: string; value: number | null }) {
   return (
-    <div className="rounded bg-muted/40 px-1 py-0.5 text-center leading-tight">
+    <div className="rounded-[6px] border border-[var(--desk-line)] bg-[rgba(247,245,238,0.62)] px-1 py-0.5 text-center leading-tight">
       <div className="font-mono text-[8px] text-muted-foreground">{label}</div>
       <div className="text-[10px] font-semibold">{value == null ? "—" : formatMetric(value)}</div>
     </div>

@@ -168,40 +168,42 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="p-4 max-w-[1700px] mx-auto">
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(520px,640px)] gap-4">
-        <main className="space-y-4 min-w-0">
-          <FundingStatsCard />
-          <LoopKernelBoard hideWhenNoAccess showHeader />
-          <ProactiveQueuePanel projectLabels={projectLabels} variant="dashboard" limit={3} />
-          <ActionItemsPanel projectLabels={projectLabels} variant="dashboard" limit={5} />
-          <DashboardScoreOverview
-            managementScore={managementScore}
-            managementHistory={managementHistory}
-            actionItems={[]}
-          />
-          <DashboardGrid
-            projects={dashboardProjects}
-            billingStatus={billingStatus}
-            scoreHistory={scoreHistory}
-            primarySnapshots={primarySnapshots}
-            myProjectIds={myProjectIds}
-          />
-          <InstitutionReadinessList bundle={ersBundle} />
-        </main>
-        {/* /mypage の中身そっくり embed (= まさ #71 v3 確定、MyPageContent を再利用) */}
-        <aside className="hidden xl:block min-w-0 border-l border-border/50 pl-4">
-          <Suspense fallback={<div className="text-sm text-muted-foreground py-8 text-center">マイページ読み込み中…</div>}>
-            <MyPageContent embedded showMonthlyProjects={false} />
-          </Suspense>
-        </aside>
-        <div className="xl:col-span-2">
-          <CompanyContentShelf
-            members={companyContent.members}
-            history={companyContent.history}
-            photos={companyContent.photos}
-            mediaMentions={companyContent.mediaMentions}
-          />
+    <div className="amd-desk-page-skin p-3 sm:p-4">
+      <div className="max-w-[1700px] mx-auto">
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(520px,640px)] gap-4">
+          <main className="space-y-4 min-w-0">
+            <FundingStatsCard />
+            <LoopKernelBoard hideWhenNoAccess showHeader />
+            <ProactiveQueuePanel projectLabels={projectLabels} variant="dashboard" limit={3} />
+            <ActionItemsPanel projectLabels={projectLabels} variant="dashboard" limit={5} />
+            <DashboardScoreOverview
+              managementScore={managementScore}
+              managementHistory={managementHistory}
+              actionItems={[]}
+            />
+            <DashboardGrid
+              projects={dashboardProjects}
+              billingStatus={billingStatus}
+              scoreHistory={scoreHistory}
+              primarySnapshots={primarySnapshots}
+              myProjectIds={myProjectIds}
+            />
+            <InstitutionReadinessList bundle={ersBundle} />
+          </main>
+          {/* /mypage の中身そっくり embed (= まさ #71 v3 確定、MyPageContent を再利用) */}
+          <aside className="hidden xl:block min-w-0 border-l border-border/50 pl-4">
+            <Suspense fallback={<div className="text-sm text-muted-foreground py-8 text-center">マイページ読み込み中…</div>}>
+              <MyPageContent embedded showMonthlyProjects={false} />
+            </Suspense>
+          </aside>
+          <div className="xl:col-span-2">
+            <CompanyContentShelf
+              members={companyContent.members}
+              history={companyContent.history}
+              photos={companyContent.photos}
+              mediaMentions={companyContent.mediaMentions}
+            />
+          </div>
         </div>
       </div>
     </div>

@@ -137,6 +137,73 @@
   @apply outline-none ring-1 ring-primary/40;
 }
 
+/* EHM business-desk skin for AMD OS operational dashboard surfaces. */
+.amd-desk-page-skin {
+  --desk-paper: #f7f5ee;
+  --desk-sheet: #fffdf7;
+  --desk-panel-raised: #fffefa;
+  --desk-ink: #24231f;
+  --desk-muted: #69665d;
+  --desk-quiet: #928d82;
+  --desk-line: rgba(36, 35, 31, 0.12);
+  --desk-green: #256c55;
+  --desk-green-soft: #dfeee6;
+  --desk-amber: #a86416;
+  --desk-amber-soft: #f6e8cd;
+  --desk-blue: #2c5f83;
+  --desk-blue-soft: #deebf2;
+  --desk-violet: #6d5275;
+  --desk-violet-soft: #eadfec;
+  min-height: calc(100vh - 2.75rem);
+  color: var(--desk-ink);
+  background:
+    linear-gradient(90deg, rgba(37, 108, 85, 0.05) 1px, transparent 1px) 0 0 / 32px 32px,
+    linear-gradient(rgba(168, 100, 22, 0.045) 1px, transparent 1px) 0 0 / 32px 32px,
+    var(--desk-paper);
+  font-variant-numeric: tabular-nums;
+}
+
+body:has(.amd-desk-page-skin) {
+  background: #f7f5ee;
+}
+
+.amd-desk-page-skin .bg-card,
+.amd-desk-page-skin .bg-white,
+.amd-desk-page-skin [class*="bg-background"] {
+  background-color: rgba(255, 253, 247, 0.88) !important;
+}
+
+.amd-desk-page-skin .bg-muted,
+.amd-desk-page-skin [class*="bg-muted/"] {
+  background-color: rgba(247, 245, 238, 0.72) !important;
+}
+
+.amd-desk-page-skin .text-muted-foreground {
+  color: var(--desk-muted) !important;
+}
+
+.amd-desk-page-skin .border-border,
+.amd-desk-page-skin [class*="border-border/"] {
+  border-color: var(--desk-line) !important;
+}
+
+.dashboard-desk-section {
+  min-width: 0;
+  border: 1px solid var(--desk-line);
+  border-radius: 8px;
+  background: rgba(255, 253, 247, 0.64);
+  padding: 10px;
+  box-shadow: 0 10px 30px rgba(55, 47, 32, 0.07);
+}
+
+.dashboard-desk-section-title {
+  margin-bottom: 8px;
+  color: var(--desk-quiet);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
 /* HUD client skin for data-heavy AMD OS pages. */
 .amd-hud-page-skin {
   min-height: calc(100vh - 2.75rem);
