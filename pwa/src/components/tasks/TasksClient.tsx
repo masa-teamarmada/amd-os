@@ -1731,7 +1731,7 @@ function BusinessDeskPanel({
           </div>
         </div>
         <aside className="rounded-md border border-border bg-background p-3">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">focus</div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">巻き取り判断</div>
           {insights.focus ? (
             <div className="mt-3 space-y-3">
               <div>
@@ -1743,7 +1743,7 @@ function BusinessDeskPanel({
                 <dd className="min-w-0 truncate">{projectName(insights.focus.projectId)}</dd>
                 <dt className="text-muted-foreground">担当</dt>
                 <dd className="min-w-0 truncate">{memberName(insights.focus.assigneeMemberId, insights.focus.assignee)}</dd>
-                <dt className="text-muted-foreground">次に見る</dt>
+                <dt className="text-muted-foreground">次アクション</dt>
                 <dd className="min-w-0">{insights.focus.description || "詳細を開いて、状態・期限・親子関係を確認"}</dd>
               </dl>
               <Button size="sm" className="w-full" onClick={() => onTaskOpen(insights.focus)}>
