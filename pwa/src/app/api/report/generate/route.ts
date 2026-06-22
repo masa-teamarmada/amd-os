@@ -136,9 +136,22 @@ export async function POST(req: Request) {
       .order("priority", { ascending: false })
       .limit(5);
 
-    const systemPrompt = contextRows && contextRows.length > 0
+    const baseSystemPrompt = contextRows && contextRows.length > 0
       ? contextRows.map((r) => r.system_prompt).join("\n\n")
       : "あなたはAMD OSの月次報告書生成アシスタント「つくよみ」です。クライアントに提出する月次活動報告書を作成してください。";
+    // クライアント提出物として AMD OS 内部固有名を出さないよう強く指示する
+    const clientFacingGuard = [
+      "",
+      "## クライアント提出物としての制約 (絶対遵守)",
+      "本報告書はクライアント (大学・研究機関・民間企業) に提出する正式文書。以下の AMD OS 内部固有名や仕組み呼称を**本文に絶対に書かない**。",
+      "- 「つくよみ」「つくよみレポート」 → 本書の中で AMD 自身を主語にする場合は「AMD」「弊社」と書く",
+      "- 「月次進捗モーダル」「コックピット」「H-1 next action」「nudge」「経営シグナル」 → これらは OS 内 UI / cron 名でクライアントから見えない",
+      "- 「MTGページ」「MTG ページ」 → 「会議記録」「打合せ」と書く",
+      "- 出典として OS 内画面・cron 名を書かない。実体に基づく出典 (会議日 / 公募名 / メディア名 / 採択日など) のみ書く",
+      "- 「FRL」「ATLAS protocol」など社内モデル名も避け、必要なら「内部評価指標」と書く",
+      "",
+    ].join("\n");
+    const systemPrompt = baseSystemPrompt + clientFacingGuard;
 
     // 7. プロンプト組み立て
     const ymFormatted = `${ym.slice(0, 4)}年${parseInt(ym.slice(4))}月`;

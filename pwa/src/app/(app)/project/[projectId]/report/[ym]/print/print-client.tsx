@@ -1,19 +1,21 @@
 "use client";
 
 /**
- * 月次レポート印刷ビュー (A4 縦、国プロ網羅型 + 民間 Exec Summary 接続、v0.32.0)。
+ * 月次レポート印刷ビュー (A4 縦、クライアント提出版 AMD 標準フォーマット、v0.34.0)。
  *
- * 章立て (大学・研究機関向け):
- *   A. 表紙
- *   B. Exec Summary (RAG / 業務遂行レポート見出し文)
- *   C. 当月の進捗 (本文 / MS進捗表 / Gantt / XRL軸別成熟度)
- *   D. 当月の成果 (経営シグナル🎉✨ / 公募採択 / メディア / プレス発表)
- *   E. 主要会議 (narrative_md / Decided / Next Actions / Risks)
- *   F. 体制 (担当メンバー / MS別役割 / 関連キーパーソン)
- *   G. 課題・リスク (Risk Register / Action Items / ボトルネック)
- *   H. 財務サマリ (予算vs実績 / 補助金交付状況 / 立替)
- *   I. 次月計画 (重点アクション / 主要MTG予定)
- *   J. 添付資料 (会議資料 / PJ資料 / 契約書 / ソース証跡)
+ * 章立て (まさ 2026-06-22 でクライアント提出物としてスリム化):
+ *   §01 表紙 (契約情報 / 入札情報 / AMD 契約番号。見積書番号は削除)
+ *   §02 Exec Summary (Schedule/Risk の 2 軸 RAG、KPI、XRL 5軸現在値)
+ *        — COST 軸 / XRL 前月比は削除
+ *   §02 当月の進捗・成果 (本文 / MS進捗表 / 主要成果 / Decided / 採択・メディア)
+ *        — 旧§03 当月の成果は §02 へ統合、サブブロックは A-E の色付きバッジで強調
+ *   §02b マイルストーン Gantt
+ *   §03 実施体制 (担当メンバーのみ。関連キーパーソンは削除)
+ *   §04 次月計画 (重点アクション / 主要MTG予定)
+ *   §05 添付資料 (PJ資料 / 契約書 / 改訂履歴。5生データ証跡は削除)
+ *
+ * クライアントから見えない AMD OS 内部固有名 (つくよみ/月次進捗モーダル/MTGページ/
+ * 経営シグナル/コックピット/nudge等) は stripInternalJargon で印刷時にも除去する。
  *
  * Team ARMADA ブランド (Work Sans / Noto Sans JP / JetBrains Mono / dark #0a1628)。
  * @page A4 / margin 14mm。 共通ヘッダ・フッタ・改訂履歴。
@@ -213,7 +215,8 @@ function arrayToLines(value: unknown[]): string[] {
 
 function MarkdownBlock({ text }: { text: string }) {
   if (!text) return null;
-  const lines = text.split("\n");
+  const sanitized = stripInternalJargon(text);
+  const lines = sanitized.split("\n");
   return (
     <div className="md-body">
       {lines.map((line, i) => {
@@ -241,10 +244,19 @@ function leadParagraph(data: PrintData): string {
   const periodPart = contract.periodStart && contract.periodEnd
     ? ` (履行期間: ${contract.periodStart} 〜 ${contract.periodEnd})`
     : "";
-  const valuePart = contract.contractValueYen
-    ? `、契約金額 ${formatYen(contract.contractValueYen)}`
-    : "";
-  return `本書は、${client}と株式会社チームアルマダの間で締結された ${subj}${periodPart}${valuePart} に基づき、${formatYm(ym)} 稼働分の業務遂行状況を報告するものである。`;
+  return `本書は、${client}と株式会社チームアルマダの間で締結された ${subj}${periodPart} に基づき、${formatYm(ym)} 稼働分の業務遂行状況を報告するものである。`;
+}
+
+// XRL 5 軸メタ (和名と帯カラー)
+function xrlAxisMeta(k: "trl" | "brl" | "grl" | "srl" | "hrl"): { label: string; color: string } {
+  const map: Record<typeof k, { label: string; color: string }> = {
+    trl: { label: "技術成熟度", color: "#0ea5e9" },
+    brl: { label: "事業成熟度", color: "#7c3aed" },
+    grl: { label: "ガバナンス", color: "#0d9488" },
+    srl: { label: "社会受容", color: "#ea580c" },
+    hrl: { label: "人材成熟度", color: "#db2777" },
+  };
+  return map[k];
 }
 
 // ─── 各章コンポーネント ───────────────────────────────────────────────
@@ -252,12 +264,11 @@ function CoverPage({ data }: { data: PrintData }) {
   const { project, contract, ym, report } = data;
   const isFinal = (report?.status === "fixed" || report?.status === "final") && !!report?.fixedAt;
 
-  // 契約識別ライン (契約番号 / 入札番号 / 見積書番号 のうち入ってるものを並べる)
+  // 契約識別ライン (契約番号 / 入札番号 のうち入ってるものを並べる。見積書番号は対外報告には不要)
   const idItems: Array<{ label: string; value: string }> = [];
   if (contract.amdContractNo) idItems.push({ label: "AMD契約番号", value: contract.amdContractNo });
   if (contract.contractNo) idItems.push({ label: "契約番号", value: contract.contractNo });
   if (contract.bidNo) idItems.push({ label: "入札番号", value: contract.bidNo });
-  if (contract.quoteNo) idItems.push({ label: "見積書番号", value: contract.quoteNo });
 
   return (
     <div className="sheet cover-sheet">
@@ -338,7 +349,6 @@ function ExecSummary({ data }: { data: PrintData }) {
     return lines.slice(0, 3);
   })();
   const scheduleR = ragLabel(rag.schedule);
-  const costR = ragLabel(rag.cost);
   const riskR = ragLabel(rag.risk);
 
   return (
@@ -357,18 +367,11 @@ function ExecSummary({ data }: { data: PrintData }) {
           </div>
         )}
 
-        <div className="rag-grid">
+        <div className="rag-grid rag-grid-2">
           <div className="rag-card" style={{ background: scheduleR.bg, color: scheduleR.color }}>
             <div className="rag-axis">SCHEDULE</div>
             <div className="rag-label">{scheduleR.label}</div>
             <div className="rag-meta">{overallPct}% (期待 {expectedPct ?? "—"}%)</div>
-          </div>
-          <div className="rag-card" style={{ background: costR.bg, color: costR.color }}>
-            <div className="rag-axis">COST</div>
-            <div className="rag-label">{costR.label}</div>
-            <div className="rag-meta">
-              {data.billing?.budgetYen ? `${Math.round((data.billing.budgetReportedAmount / data.billing.budgetYen) * 100)}% 消化` : "予算未設定"}
-            </div>
           </div>
           <div className="rag-card" style={{ background: riskR.bg, color: riskR.color }}>
             <div className="rag-axis">RISK</div>
@@ -383,29 +386,22 @@ function ExecSummary({ data }: { data: PrintData }) {
           <Stat label="当月成果シグナル" value={`${data.achievementSignals.length}`} />
         </div>
 
-        {(currentXrl || previousXrl) && (
+        {currentXrl && (
           <div className="xrl-summary">
-            <div className="block-label">XRL 主要指標 (前月 → 当月)</div>
-            <table className="xrl-table">
-              <thead><tr><th>軸</th><th>前月</th><th>当月</th><th>Δ</th></tr></thead>
-              <tbody>
-                {(["trl", "brl", "grl", "srl", "hrl"] as const).map((k) => {
-                  const cur = (currentXrl as XrlRow | null)?.[k] ?? null;
-                  const prev = (previousXrl as XrlRow | null)?.[k] ?? null;
-                  const delta = (cur !== null && prev !== null) ? Number(cur) - Number(prev) : null;
-                  return (
-                    <tr key={k}>
-                      <td>{k.toUpperCase()}</td>
-                      <td>{prev ?? "—"}</td>
-                      <td>{cur ?? "—"}</td>
-                      <td className={delta && delta > 0 ? "delta-up" : delta && delta < 0 ? "delta-dn" : ""}>
-                        {delta !== null ? (delta > 0 ? `+${delta}` : delta) : "—"}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div className="block-label">XRL 成熟度 (現在値)</div>
+            <div className="xrl-grid">
+              {(["trl", "brl", "grl", "srl", "hrl"] as const).map((k) => {
+                const cur = (currentXrl as XrlRow | null)?.[k] ?? null;
+                const meta = xrlAxisMeta(k);
+                return (
+                  <div key={k} className="xrl-card" style={{ borderTopColor: meta.color }}>
+                    <div className="xrl-axis" style={{ color: meta.color }}>{k.toUpperCase()}</div>
+                    <div className="xrl-axis-jp">{meta.label}</div>
+                    <div className="xrl-value">{cur ?? "—"}</div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
@@ -413,16 +409,88 @@ function ExecSummary({ data }: { data: PrintData }) {
   );
 }
 
+/**
+ * MS リストから当月のレポートに載せるべきものだけを残す:
+ * - 同一 milestoneId の重複は最初の 1 件のみ
+ * - tag が "buffer" は除外 (= 内部調整枠)
+ * - 完了済 (>= 100%) かつ動きなし (delta = 0) かつ target_ym が当月より前のものは除外
+ */
+function selectActiveMilestonesForReport(milestones: MsRow[], ym: string): MsRow[] {
+  const seen = new Set<string>();
+  const result: MsRow[] = [];
+  for (const m of milestones) {
+    if (seen.has(m.milestoneId)) continue;
+    seen.add(m.milestoneId);
+    if ((m.tag || "").toLowerCase() === "buffer") continue;
+    if (m.progressPct >= 100 && m.deltaPct === 0) {
+      if (!m.targetYm || m.targetYm < ym) continue;
+    }
+    result.push(m);
+  }
+  return result;
+}
+
+/**
+ * クライアント提出物に出してはいけない AMD OS 内部固有名を中立表現へ置換 or 削除する。
+ * - 「つくよみ」「月次進捗モーダル」「MTGページ」「経営シグナル」「nudge」「コックピット」等は
+ *   OS 内部 UI / cron の呼称で、クライアントには存在しない
+ * - 出典括弧書きは丸ごと削除、本文内の単独単語は中立表現に置換
+ */
+function stripInternalJargon(text: string): string {
+  if (!text) return text;
+  let out = text;
+  // 1. 出典括弧書きの除去
+  const sourceCitationPatterns = [
+    /[（(](?:出典|根拠|引用|参照|source|ref)[:：][^）)]*?(?:つくよみ|月次進捗|MTGページ|MTG ページ|経営シグナル|nudge|コックピット|tsukuyomi|FRL)[^）)]*?[)）]/gi,
+    /[（(](?:つくよみ|月次進捗モーダル|MTGページ|MTG ページ|経営シグナル|nudge|コックピット|tsukuyomi)[^）)]*?[)）]/gi,
+  ];
+  for (const re of sourceCitationPatterns) out = out.replace(re, "");
+  // 2. 単独単語の中立表現置換
+  const wordReplacements: Array<[RegExp, string]> = [
+    [/つくよみレポート/g, "本報告"],
+    [/つくよみ/g, "AMD"],
+    [/月次進捗モーダル/g, "本月次レポート"],
+    [/月次進捗の[モ]ーダル/g, "本月次レポート"],
+    [/MTGページ/g, "会議記録"],
+    [/MTG ページ/g, "会議記録"],
+    [/経営シグナル/g, "事業上の動き"],
+    [/H-1\s*next action/gi, "翌月の重点アクション"],
+    [/コックピット画面/g, "管理画面"],
+    [/コックピット/g, "管理画面"],
+    [/nudge/gi, "リマインド"],
+  ];
+  for (const [re, repl] of wordReplacements) out = out.replace(re, repl);
+  // 3. 連続空白・改行を整える
+  out = out.replace(/[  ]+、/g, "、").replace(/[  ]+。/g, "。").replace(/\n{3,}/g, "\n\n");
+  return out;
+}
+
 function ProgressSection({ data }: { data: PrintData }) {
-  const { milestones, report, monthlyNote } = data;
+  const { milestones, report, monthlyNote, achievementSignals, grants, media, meetings, ym } = data;
   const reportBody = report?.finalContent || report?.draftContent || monthlyNote || "";
-  const ranked = [...milestones].sort((a, b) => b.points - a.points);
+  const activeMs = selectActiveMilestonesForReport(milestones, ym).sort((a, b) => b.points - a.points);
+
+  // 会議由来の Decided (旧§03 から統合)
+  const meetingDecisions: Array<{ src: string; date: string; text: string }> = [];
+  for (const mtg of meetings) {
+    for (const d of arrayToLines(mtg.decided)) {
+      meetingDecisions.push({ src: mtg.title, date: mtg.meetingDate, text: stripInternalJargon(d) });
+    }
+  }
+  // 当月採択された公募
+  const currentYmGrants = grants.filter((g) => g.adoptedDate &&
+    g.adoptedDate.slice(0, 7) === `${ym.slice(0, 4)}-${ym.slice(4, 6)}`);
 
   return (
     <div className="sheet">
       <div className="section">
-        <SectionHead num="02" title="当月の進捗" en="THIS MONTH'S PROGRESS" />
+        <SectionHead num="02" title="当月の進捗・成果" en="PROGRESS &amp; ACHIEVEMENTS" />
 
+        {/* Block A: 業務遂行レポート本文 */}
+        <div className="sub-head sub-head-progress">
+          <span className="sub-num">A</span>
+          <span className="sub-title">業務遂行レポート</span>
+        </div>
         {reportBody ? (
           <div className="report-body">
             <MarkdownBlock text={reportBody} />
@@ -431,9 +499,13 @@ function ProgressSection({ data }: { data: PrintData }) {
           <div className="empty">月次報告書本文は未生成です。</div>
         )}
 
-        {ranked.length > 0 && (
+        {/* Block B: マイルストーン進捗 表 */}
+        {activeMs.length > 0 && (
           <>
-            <div className="block-label" style={{ marginTop: "6mm" }}>マイルストーン進捗 (計画 vs 実績)</div>
+            <div className="sub-head sub-head-progress" style={{ marginTop: "7mm" }}>
+              <span className="sub-num">B</span>
+              <span className="sub-title">マイルストーン進捗 (計画 vs 実績)</span>
+            </div>
             <table className="ms-table">
               <thead>
                 <tr>
@@ -446,11 +518,11 @@ function ProgressSection({ data }: { data: PrintData }) {
                 </tr>
               </thead>
               <tbody>
-                {ranked.map((m) => (
+                {activeMs.map((m) => (
                   <tr key={m.milestoneId}>
                     <td>
                       <div className="ms-title">{m.title}</div>
-                      {m.note && <div className="ms-note-cell">{m.note}</div>}
+                      {m.note && <div className="ms-note-cell">{stripInternalJargon(m.note)}</div>}
                     </td>
                     <td className="num-cell">{m.points}</td>
                     <td className="period-cell">
@@ -467,6 +539,92 @@ function ProgressSection({ data }: { data: PrintData }) {
                 ))}
               </tbody>
             </table>
+          </>
+        )}
+
+        {/* Block C: 主要成果・進展 (旧§03) */}
+        {achievementSignals.length > 0 && (
+          <>
+            <div className="sub-head sub-head-achieve" style={{ marginTop: "7mm" }}>
+              <span className="sub-num">C</span>
+              <span className="sub-title">主要成果・進展</span>
+            </div>
+            <div className="ach-block">
+              {achievementSignals.map((s) => {
+                const badge = impactBadge(s.impactLevel);
+                return (
+                  <div className="ach-card" key={s.signalId}>
+                    <div className="ach-head">
+                      <span className="polarity">{s.polarity}</span>
+                      <span className="ach-type">{signalTypeLabel(s.signalType)}</span>
+                      <span className="ach-impact" style={{ background: badge.tone }}>{badge.label}</span>
+                      {s.signalDate && <span className="ach-date">{s.signalDate}</span>}
+                    </div>
+                    <div className="ach-title">{stripInternalJargon(s.title)}</div>
+                    <div className="ach-summary">{stripInternalJargon(s.summary)}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {/* Block D: 議論・打合せで固まった事項 */}
+        {meetingDecisions.length > 0 && (
+          <>
+            <div className="sub-head sub-head-achieve" style={{ marginTop: "7mm" }}>
+              <span className="sub-num">D</span>
+              <span className="sub-title">議論・打合せで固まった事項</span>
+            </div>
+            <ul className="decision-list">
+              {meetingDecisions.slice(0, 20).map((d, i) => (
+                <li key={i}>
+                  <span className="decision-text">{d.text}</span>
+                  <span className="decision-src">({d.date} {d.src})</span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+
+        {/* Block E: 公募採択 / メディア掲載 */}
+        {(currentYmGrants.length > 0 || media.length > 0) && (
+          <>
+            <div className="sub-head sub-head-achieve" style={{ marginTop: "7mm" }}>
+              <span className="sub-num">E</span>
+              <span className="sub-title">対外発信・採択</span>
+            </div>
+            {currentYmGrants.length > 0 && (
+              <>
+                <div className="mini-label">公募採択・補助金</div>
+                <table className="grant-table">
+                  <thead><tr><th>採択日</th><th>事業名</th><th>機関</th></tr></thead>
+                  <tbody>
+                    {currentYmGrants.map((g) => (
+                      <tr key={g.id}>
+                        <td>{g.adoptedDate}</td>
+                        <td>{g.grantName}</td>
+                        <td>{g.agency || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )}
+            {media.length > 0 && (
+              <>
+                <div className="mini-label" style={{ marginTop: "4mm" }}>メディア掲載・対外発信</div>
+                <ul className="media-list">
+                  {media.map((m) => (
+                    <li key={m.id}>
+                      <span className="media-date">{m.occurredOn}</span>
+                      <span className="media-name">{m.mediaName}</span>
+                      <span className="media-title">{m.title}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
           </>
         )}
       </div>
@@ -583,115 +741,11 @@ function trimText(s: string, n: number): string {
   return s.length > n ? `${s.slice(0, n - 1)}…` : s;
 }
 
-function AchievementsSection({ data }: { data: PrintData }) {
-  const { achievementSignals, grants, media, meetings, ym } = data;
-
-  // 会議由来の成果アウトプット (Decided + NextActions の確定済)
-  const meetingDecisions: Array<{ src: string; date: string; text: string }> = [];
-  for (const mtg of meetings) {
-    for (const d of arrayToLines(mtg.decided)) {
-      meetingDecisions.push({ src: mtg.title, date: mtg.meetingDate, text: d });
-    }
-  }
-
-  // 当月採択された公募 (`project_grants.adopted_date` が当月)
-  const currentYmGrants = grants.filter((g) => g.adoptedDate &&
-    g.adoptedDate.slice(0, 7) === `${ym.slice(0, 4)}-${ym.slice(4, 6)}`);
-
-  // セクションが空っぽなら丸ごとスキップ
-  if (
-    achievementSignals.length === 0 && grants.length === 0 && media.length === 0 &&
-    meetingDecisions.length === 0 && currentYmGrants.length === 0
-  ) return null;
-
-  return (
-    <div className="sheet">
-      <div className="section">
-        <SectionHead num="03" title="当月の成果" en="ACHIEVEMENTS" />
-
-        {/* 主要成果 (会議外・会議由来を統合してナラティブ) */}
-        {achievementSignals.length > 0 && (
-          <div className="ach-block">
-            <div className="block-label">主要成果・進展</div>
-            {achievementSignals.map((s) => {
-              const badge = impactBadge(s.impactLevel);
-              return (
-                <div className="ach-card" key={s.signalId}>
-                  <div className="ach-head">
-                    <span className="polarity">{s.polarity}</span>
-                    <span className="ach-type">{signalTypeLabel(s.signalType)}</span>
-                    <span className="ach-impact" style={{ background: badge.tone }}>{badge.label}</span>
-                    {s.signalDate && <span className="ach-date">{s.signalDate}</span>}
-                  </div>
-                  <div className="ach-title">{s.title}</div>
-                  <div className="ach-summary">{s.summary}</div>
-                  {s.scoreImpactSummary && (
-                    <div className="ach-score">📊 {s.scoreImpactSummary}</div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* 会議で固まった事項 (Decided を出典つきでナラティブ表示) */}
-        {meetingDecisions.length > 0 && (
-          <div className="ach-block">
-            <div className="block-label">議論・打合せで固まった事項</div>
-            <ul className="decision-list">
-              {meetingDecisions.slice(0, 20).map((d, i) => (
-                <li key={i}>
-                  <span className="decision-text">{d.text}</span>
-                  <span className="decision-src">({d.date} {d.src})</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* 公募採択 */}
-        {currentYmGrants.length > 0 && (
-          <div className="ach-block">
-            <div className="block-label">公募採択・補助金</div>
-            <table className="grant-table">
-              <thead><tr><th>採択日</th><th>事業名</th><th>機関</th><th>採択金額</th></tr></thead>
-              <tbody>
-                {currentYmGrants.map((g) => (
-                  <tr key={g.id}>
-                    <td>{g.adoptedDate}</td>
-                    <td>{g.grantName}</td>
-                    <td>{g.agency || "—"}</td>
-                    <td className="num-cell">{formatYen(g.amountYen)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* メディア掲載・対外発信 */}
-        {media.length > 0 && (
-          <div className="ach-block">
-            <div className="block-label">メディア掲載・対外発信</div>
-            <ul className="media-list">
-              {media.map((m) => (
-                <li key={m.id}>
-                  <span className="media-date">{m.occurredOn}</span>
-                  <span className="media-name">{m.mediaName}</span>
-                  <span className="media-title">{m.title}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+// v0.34.0: AchievementsSection (旧§03) は ProgressSection (§02) に統合し削除 (まさ 2026-06-22)。
 
 function TeamSection({ data }: { data: PrintData }) {
-  const { members, founding, responsibilities, milestones } = data;
-  if (members.length === 0 && founding.length === 0) return null;
+  const { members, responsibilities, milestones } = data;
+  if (members.length === 0) return null;
 
   const msTitleMap = new Map(milestones.map((m) => [m.milestoneId, m.title]));
   // メンバーごとに責任 MS をまとめる
@@ -707,7 +761,7 @@ function TeamSection({ data }: { data: PrintData }) {
   return (
     <div className="sheet">
       <div className="section">
-        <SectionHead num="04" title="実施体制" en="PROJECT TEAM" />
+        <SectionHead num="03" title="実施体制" en="PROJECT TEAM" />
 
         {members.length > 0 && (
           <>
@@ -748,107 +802,13 @@ function TeamSection({ data }: { data: PrintData }) {
           </>
         )}
 
-        {founding.length > 0 && (
-          <>
-            <div className="block-label" style={{ marginTop: "5mm" }}>関連キーパーソン</div>
-            <ul className="founding-list">
-              {founding.map((f, i) => (
-                <li key={i}>
-                  <span className="found-name">{f.personName}</span>
-                  <span className="found-role">{f.roleLabelJp || f.role || f.category}</span>
-                  {f.affiliation && <span className="found-aff">{f.affiliation}</span>}
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function RisksSection({ data }: { data: PrintData }) {
-  const { riskSignals, actionItems, currentXrl, meetings } = data;
-
-  const mtgRisks: Array<{ src: string; text: string }> = [];
-  for (const mtg of meetings) {
-    for (const r of arrayToLines(mtg.risks)) {
-      mtgRisks.push({ src: mtg.title, text: r });
-    }
-  }
-
-  if (riskSignals.length === 0 && actionItems.length === 0 && mtgRisks.length === 0 && !currentXrl?.bottleneck) return null;
-
-  return (
-    <div className="sheet">
-      <div className="section">
-        <SectionHead num="05" title="課題・リスク" en="RISKS &amp; ISSUES" />
-
-        {(riskSignals.length > 0 || mtgRisks.length > 0) && (
-          <div className="risk-block">
-            <div className="block-label">リスク台帳 (Risk Register)</div>
-            <table className="risk-table">
-              <thead><tr><th>区分</th><th>内容</th><th>出典</th></tr></thead>
-              <tbody>
-                {riskSignals.map((r) => {
-                  const badge = impactBadge(r.impactLevel);
-                  return (
-                    <tr key={r.signalId}>
-                      <td>
-                        <span className="risk-impact" style={{ background: badge.tone, color: "white" }}>{badge.label}</span>
-                      </td>
-                      <td>
-                        <div className="risk-title">{r.title}</div>
-                        <div className="risk-summary">{r.summary}</div>
-                      </td>
-                      <td className="risk-src">経営シグナル{r.signalDate ? ` (${r.signalDate})` : ""}</td>
-                    </tr>
-                  );
-                })}
-                {mtgRisks.slice(0, 8).map((r, i) => (
-                  <tr key={`mtg-${i}`}>
-                    <td><span className="risk-impact" style={{ background: "#94a3b8", color: "white" }}>MTG</span></td>
-                    <td><div className="risk-summary">{r.text}</div></td>
-                    <td className="risk-src">{r.src}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {actionItems.length > 0 && (
-          <div className="risk-block">
-            <div className="block-label">期日つき要対応事項 (Action Items)</div>
-            <table className="action-table">
-              <thead><tr><th>期日</th><th>内容</th><th>担当</th><th>優先度</th><th>状態</th></tr></thead>
-              <tbody>
-                {actionItems.slice(0, 12).map((a) => (
-                  <tr key={a.actionId}>
-                    <td className="num-cell">{a.dueAt ? a.dueAt.slice(0, 10) : "—"}</td>
-                    <td>{a.title}</td>
-                    <td>{a.assignee || "—"}</td>
-                    <td className="num-cell">{a.priority || "—"}</td>
-                    <td className="num-cell">{a.status}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {currentXrl?.bottleneck && (
-          <div className="risk-block">
-            <div className="block-label">ボトルネック</div>
-            <p>{currentXrl.bottleneck}</p>
-          </div>
-        )}
       </div>
     </div>
   );
 }
 
 // v0.33.0: 財務サマリは削除 (まさ 2026-06-22)。
+// v0.34.0: 課題・リスク (§05) は削除 (まさ 2026-06-22)。クライアント提出物にリスク台帳は不要。
 
 function NextMonthSection({ data }: { data: PrintData }) {
   const { nextMonthActions, upcomingMeetings, nextYm } = data;
@@ -856,7 +816,7 @@ function NextMonthSection({ data }: { data: PrintData }) {
   return (
     <div className="sheet">
       <div className="section">
-        <SectionHead num="06" title="次月計画" en="NEXT MONTH PLAN" />
+        <SectionHead num="04" title="次月計画" en="NEXT MONTH PLAN" />
         <div className="block-label">{formatYm(nextYm)} の重点アクション</div>
         {nextMonthActions.length > 0 ? (
           <table className="action-table">
@@ -893,14 +853,15 @@ function NextMonthSection({ data }: { data: PrintData }) {
 }
 
 function AppendixSection({ data }: { data: PrintData }) {
-  const { attachments, sourceCheck } = data;
+  const { attachments } = data;
   // v0.33.0: 会議資料 (meetingAssets) は添付から外す (まさ 2026-06-22)。
+  // v0.34.0: 5生データ ソース証跡 (sourceCheck) は削除 (まさ 2026-06-22)。クライアント提出物に OS 内部参照は不要。
   const hasAny = attachments.projectDocs.length > 0 || attachments.contractDocs.length > 0;
-  if (!hasAny && !sourceCheck) return null;
+  if (!hasAny) return null;
   return (
     <div className="sheet">
       <div className="section">
-        <SectionHead num="07" title="添付資料・参照" en="APPENDIX" />
+        <SectionHead num="05" title="添付資料・参照" en="APPENDIX" />
 
         {attachments.projectDocs.length > 0 && (
           <>
@@ -927,13 +888,6 @@ function AppendixSection({ data }: { data: PrintData }) {
               ))}
             </ul>
           </>
-        )}
-
-        {sourceCheck && (
-          <div className="source-trace">
-            <div className="block-label" style={{ marginTop: "4mm" }}>5生データ ソース証跡</div>
-            <pre className="source-pre">{JSON.stringify(sourceCheck, null, 2)}</pre>
-          </div>
         )}
 
         <div className="rev-history">
@@ -1077,6 +1031,29 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
         .section-head h2 { margin: 0; font-size: 18pt; font-weight: 700; color: #0a1628; }
         .section-head .en { font-family: 'Work Sans', sans-serif; font-size: 10pt; color: #94a3b8; letter-spacing: 0.18em; text-transform: uppercase; margin-left: auto; }
         .block-label { font-family: 'Work Sans', sans-serif; font-size: 9pt; color: #475569; letter-spacing: 0.12em; text-transform: uppercase; margin: 0 0 2mm; font-weight: 600; }
+        /* サブ見出し: A/B/C/... ブロック単位の強調 (色 + 太字 + 番号バッジ) */
+        .sub-head {
+          display: flex; align-items: center; gap: 8px;
+          margin: 0 0 3mm 0; padding: 1.5mm 3mm;
+          border-left: 4px solid #0a1628; background: linear-gradient(90deg, #f8fafc 0%, #ffffff 80%);
+        }
+        .sub-head .sub-num {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 7mm; height: 7mm; border-radius: 50%;
+          background: #0a1628; color: white;
+          font-family: 'Work Sans', sans-serif; font-weight: 700; font-size: 11pt;
+        }
+        .sub-head .sub-title {
+          font-family: 'Noto Sans JP', sans-serif; font-weight: 700; font-size: 13pt; color: #0a1628;
+          letter-spacing: 0.02em;
+        }
+        /* 用途別カラー (Progress: 紺 / Achievements: 緑) */
+        .sub-head-progress { border-left-color: #1e40af; }
+        .sub-head-progress .sub-num { background: #1e40af; }
+        .sub-head-achieve { border-left-color: #059669; }
+        .sub-head-achieve .sub-num { background: #059669; }
+        .sub-head-achieve .sub-title { color: #064e3b; }
+        .mini-label { font-family: 'Work Sans', sans-serif; font-weight: 700; font-size: 9.5pt; color: #475569; margin: 3mm 0 1.5mm; letter-spacing: 0.04em; }
 
         /* Markdown */
         .md-body h2 { font-size: 14pt; margin: 4mm 0 2mm; color: #0a1628; }
@@ -1094,6 +1071,7 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
         .hl-list { margin: 0 0 0 4mm; padding: 0; }
         .hl-list li { margin: 0 0 1mm; }
         .rag-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3mm; margin-bottom: 5mm; }
+        .rag-grid-2 { grid-template-columns: repeat(2, 1fr); }
         .rag-card { border: 1px solid #e2e8f0; padding: 4mm; text-align: center; }
         .rag-axis { font-family: 'Work Sans', sans-serif; font-size: 9pt; letter-spacing: 0.16em; opacity: 0.7; }
         .rag-label { font-family: 'Work Sans', sans-serif; font-size: 18pt; font-weight: 700; margin: 1mm 0; letter-spacing: 0.04em; }
@@ -1103,9 +1081,14 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
         .kpi-label { font-family: 'Work Sans', sans-serif; font-size: 8.5pt; color: #64748b; letter-spacing: 0.1em; text-transform: uppercase; }
         .kpi-value { font-family: 'Work Sans', sans-serif; font-weight: 700; font-size: 20pt; color: #0a1628; margin-top: 1mm; line-height: 1; }
         .xrl-summary { margin-top: 5mm; }
-        .xrl-table { width: 100%; border-collapse: collapse; font-size: 10pt; }
-        .xrl-table th, .xrl-table td { border: 1px solid #e2e8f0; padding: 2mm 3mm; text-align: center; }
-        .xrl-table th { background: #f1f5f9; color: #475569; font-family: 'Work Sans', sans-serif; font-size: 9pt; letter-spacing: 0.06em; }
+        .xrl-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2mm; }
+        .xrl-card {
+          background: white; border: 1px solid #e2e8f0; border-top-width: 3px;
+          padding: 3mm 2mm; text-align: center;
+        }
+        .xrl-axis { font-family: 'Work Sans', sans-serif; font-weight: 700; font-size: 10pt; letter-spacing: 0.1em; }
+        .xrl-axis-jp { font-size: 8.5pt; color: #64748b; margin: 0.5mm 0 1.5mm; }
+        .xrl-value { font-family: 'Work Sans', sans-serif; font-weight: 300; font-size: 22pt; line-height: 1; color: #0a1628; }
         .delta-up { color: #166534; font-weight: 700; }
         .delta-dn { color: #b91c1c; font-weight: 700; }
 
@@ -1232,9 +1215,7 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
         <ExecSummary data={data} />
         <ProgressSection data={data} />
         <GanttSection data={data} />
-        <AchievementsSection data={data} />
         <TeamSection data={data} />
-        <RisksSection data={data} />
         <NextMonthSection data={data} />
         <AppendixSection data={data} />
       </div>

@@ -963,3 +963,51 @@ deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifica
 
 ### 関連メモ更新 (Cowork memory)
 - なし (今回は memory 追加せず、spec/3-2 + manual/9-3 の正本 doc 反映で代替)
+
+---
+
+## 2026-06-22 #96 月次レポート印刷ビュー v0.34.0 (まさのフィードバック反映ブラッシュアップ)
+
+### コンテキスト
+- 前セッション #95 で v0.33.0 deploy 完了、まさが実機で見て**個別フィードバック 11 件**を投下
+- 大枠: クライアント提出物として「予算系は全削除」「OS 内固有名はクライアントから見えないので禁止」「MS 古いものと重複が出てる」「§03 当月の成果を §02 進捗に統合」「リスクと 5 生データ証跡は削除」「関連キーパーソン削除」「色をもっと活用」
+- 今セッション内では LLM 経由の AMD 標準フォーマット確定。次セッションで CX (NIMS) フォーマット (= 日付×時間×業務概要の稼働ログ型) と SX (愛媛大) フォーマット (= freee 請求書明細ベース) に着手予定
+
+### 実装
+- **§01 表紙**: 「見積書番号」行を削除、`amdContractNo / contractNo / bidNo` の 3 種だけ並列表示
+- **§01 Exec Summary**: COST RAG カードと予算消化メタを削除、`.rag-grid-2` (2 列) で Schedule / Risk のみに。契約金額の `valuePart` も `leadParagraph` から削除。XRL 前月比表を捨てて `.xrl-grid` (5 列カード) で現在値のみに、各軸を独自カラー (TRL=sky, BRL=violet, GRL=teal, SRL=orange, HRL=pink) で帯化
+- **§02 統合**: 旧 §02 当月の進捗 + 旧 §02b Gantt + 旧 §03 当月の成果 を統合。新 §02 内に A(業務遂行レポート) / B(MS進捗表) / C(主要成果) / D(議論で固まった事項) / E(対外発信・採択) の 5 サブブロックを `.sub-head` (色付き番号バッジ + 太字タイトル + グラデ背景) で再構成。Progress 系=`#1e40af` 紺、Achievements 系=`#059669` 緑
+- **§03 (旧§04) 体制**: TeamSection から `founding`、関連キーパーソンブロックを丸ごと削除
+- **§04 (旧§06) 次月計画 / §05 (旧§07) 添付**: 章番号繰り上げ
+- **§05 課題・リスク削除**: `RisksSection` 関数自体を削除、main JSX から呼び出しも消した
+- **§07 5生データ証跡削除**: `AppendixSection` から `sourceCheck` 参照ブロックを削除、PrintData 型は互換のため `sourceCheck` フィールドはそのまま残置 (= 関数側未使用)
+- **`stripInternalJargon` 関数追加**: 印刷時に「つくよみ / 月次進捗モーダル / MTGページ / 経営シグナル / nudge / コックピット / H-1 next action / FRL」等を中立表現に置換 or 出典括弧書きごと削除。`MarkdownBlock` (本文) と `meetingDecisions` / `achievementSignals` の title・summary に適用
+- **`selectActiveMilestonesForReport` 関数追加**: 同 `milestoneId` 重複・`tag='buffer'`・完了済 (`progressPct >= 100` かつ `deltaPct === 0` かつ `targetYm < ym`) の MS を除外
+- **`xrlAxisMeta` 関数追加**: XRL 5 軸の和名と帯カラーマップ
+- **`SectionHead` に `accent` prop 追加**: 章ごとに底線・番号・タイトルのカラーを変えられるよう拡張 (= 現状は未指定でデフォルト `#0a1628` のまま、将来章別カラー化用)
+- **LLM プロンプト改修**: `/api/report/generate/route.ts` の system prompt に「クライアント提出物としての制約」節を追加し、「つくよみ / 月次進捗モーダル / MTGページ / コックピット / nudge / 経営シグナル / FRL」等を本文に絶対書かないよう明示
+
+### 削除した項目 (v0.34.0)
+- §01 RAG の COST カード
+- §01 XRL 前月比 比較表
+- §03 当月の成果 セクション (§02 へ統合)
+- §04 関連キーパーソン (founding) ブロック
+- §05 課題・リスク セクション全体 (RisksSection 関数も削除)
+- §07 5生データ ソース証跡 ブロック
+- 表紙の「見積書番号」表示
+- 業務遂行レポート見出し文の「契約金額」表示
+
+### Verified
+- `tsc --noEmit` 無音通過
+- `npm run build` 通過 (Next.js 16.2.3 Turbopack)
+- 全 LLM 再生成不要 (印刷時の `stripInternalJargon` で既存 draft も中立化される)
+
+### Cowork ↔ Codex 衝突メモ
+- セッション中盤で別 worker の `8c560441 fix(governance): vendor_sender 経路で PJ 混入していたのを本文照合で除外 (v0.33.1)` を pull した影響でファイル lint hook が走り、進行中の Edit 群が一部 revert された事故あり
+- 事故後は **各 Edit 後に `git diff --stat` で反映確認** しながら少しずつ積み上げる方針に切替えて完遂
+
+### 残課題
+- **#12 AMD契約番号採番システム**: 引き続き別タスク
+- **CX フォーマット (日付×時間×業務概要 稼働ログ型)**: `contract_id W2025014019` 用に Calendar event + member_activities → LLM で日付ごとの稼働ログを推定生成 (まさ「正確である必要は全くない、契約通り工数消化されたことを証明したい」)
+- **SX フォーマット (見積明細型)**: freee 会計の請求書 (`/invoices`) から `invoice_contents[]` を取って明細ごとに当月実施内容を LLM で書く
+- **PJ ごとフォーマット切替**: `projects.report_format` 列 (`cx_activity_log | sx_estimate_items | null`) で UI 上「📄 AMD 標準 / 📄 クライアント提出版」の 2 ボタン振り分け
