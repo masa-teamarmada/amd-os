@@ -95,7 +95,7 @@ function toClientMeeting(row: Record<string, unknown>) {
     prepDriveAssetId: row.prep_drive_asset_id ?? null,
     prepNotionPageId: row.prep_notion_page_id ?? null,
     prepWorkerSessionId: row.prep_worker_session_id ?? null,
-    prepWorkerSessionUrl: row.prep_worker_session_url ?? null,
+    prepCalendarEventId: row.prep_calendar_event_id ?? null,
     prepWorkerStatus: row.prep_worker_status ?? null,
     prepWorkerSpawnedAt: row.prep_worker_spawned_at ?? null,
     prepWorkerReadyAt: row.prep_worker_ready_at ?? null,

@@ -263,16 +263,18 @@ function UpcomingMeetingBody({
   );
 }
 
-// MTG Prep Worker (= 自動準備セッション、migration 150) の section
-// 仕様: pwa/spec/3-3-meeting-flow-current-spec.md「MTG Prep Worker」節
+// MTG Prep セッション (= H-1 内 Phase P が codex exec で spawn する新規 session)
+// 仕様: pwa/spec/3-3-meeting-flow-current-spec.md「H-1 MTG Prep セッション自動立ち上げ」節
+// 2026-06-22 再設計: URL link 廃止、まさは codex desktop を自分で起動して SESSION_ID から開く
 function PrepWorkerSection({ meeting }: { meeting: ProjectMeetingSummary }) {
   const status = meeting.prepWorkerStatus ?? null;
   const score = meeting.prepReadinessScore ?? null;
-  const url = meeting.prepWorkerSessionUrl ?? null;
+  const sessionId = meeting.prepWorkerSessionId ?? null;
   const draft = meeting.prepDraftMd ?? null;
   const reasons = meeting.prepReadinessReasons ?? null;
+  const calendarEventId = meeting.prepCalendarEventId ?? null;
 
-  if (!status && score == null && !url && !draft) return null;
+  if (!status && score == null && !sessionId && !draft) return null;
 
   let scoreLabel = "—";
   let scoreClass = "border-stone-200 bg-stone-50 text-stone-700";
@@ -284,16 +286,21 @@ function PrepWorkerSection({ meeting }: { meeting: ProjectMeetingSummary }) {
   }
 
   const statusLabel: Record<string, string> = {
-    spawning: "起動中",
     preparing: "準備中",
     ready: "準備OK",
     failed: "起動失敗",
   };
 
+  const codexHint =
+    status === "ready" ? "codex desktop で開いてね、待機してるよ"
+    : status === "preparing" ? "session 立ち上げ済み、draft 生成中…"
+    : status === "failed" ? "session 起動失敗、手動準備して"
+    : null;
+
   return (
     <section className="rounded-lg border border-emerald-200 bg-emerald-50/40 px-4 py-3">
       <div className="mb-2 flex items-center justify-between gap-2 flex-wrap">
-        <h3 className="text-[13px] font-bold text-emerald-950">MTG Prep Worker</h3>
+        <h3 className="text-[13px] font-bold text-emerald-950">MTG Prep セッション</h3>
         <div className="flex items-center gap-1.5">
           <span className={`text-[10px] px-1.5 py-0.5 rounded border ${scoreClass} whitespace-nowrap`}>
             readiness {scoreLabel}
@@ -303,19 +310,23 @@ function PrepWorkerSection({ meeting }: { meeting: ProjectMeetingSummary }) {
               {statusLabel[status] || status}
             </span>
           )}
-          {url && status !== "failed" && (
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center rounded border border-emerald-300 bg-emerald-100 px-2.5 py-1 text-[11px] font-medium text-emerald-900 hover:bg-emerald-200"
-              title="Codex Cloud で worker session を開く"
-            >
-              ▶ Prep セッションを開く ↗
-            </a>
-          )}
         </div>
       </div>
+      {codexHint && (
+        <div className="mb-2 text-[12px] text-emerald-900">
+          {codexHint}
+          {sessionId && (
+            <span className="ml-1.5 text-[10px] font-mono text-emerald-800/70" title="codex SESSION_ID">
+              ({sessionId.slice(0, 8)}…)
+            </span>
+          )}
+        </div>
+      )}
+      {calendarEventId && (
+        <div className="mb-2 text-[10px] text-emerald-800/80">
+          ＋ prep 枠 (まさカレンダー) 連動済み (event_id: {calendarEventId.slice(0, 12)}…)
+        </div>
+      )}
       {reasons && (
         <details className="mb-2">
           <summary className="text-[11px] text-emerald-800 cursor-pointer hover:underline">readiness 内訳</summary>
@@ -329,9 +340,9 @@ function PrepWorkerSection({ meeting }: { meeting: ProjectMeetingSummary }) {
           <MarkdownView source={draft} />
         </div>
       )}
-      {!draft && (
+      {!draft && status !== "ready" && (
         <p className="text-[11px] text-emerald-800">
-          worker draft はまだ届いてないよ。session を開けば対話で詰められるよ。
+          まだ draft 生成中だよ。session 立ち上がったら codex で開いて対話で詰められるよ。
         </p>
       )}
     </section>

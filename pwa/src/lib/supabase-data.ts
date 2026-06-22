@@ -1519,16 +1519,17 @@ export interface ProjectMeetingSummary {
   generatedByModel: string | null;
   sourceKinds: string | null;     // 'notion' | 'gmail' | 'slack' | 'drive' | 'calendar' | 'dialogue' | 'upcoming' | 'upcoming_tentative' | 'none'
   prepStatus?: string | null;     // upcoming row の準備状態。tentative は日程未確定として調整中 block に出す。
-  // MTG Prep Worker (= 自動準備セッション、migration 150)
-  // 仕様: pwa/spec/3-3-meeting-flow-current-spec.md「MTG Prep Worker」節
+  // MTG Prep セッション (= H-1 内 Phase P、migration 150 + 151)
+  // 仕様: pwa/spec/3-3-meeting-flow-current-spec.md「H-1 MTG Prep セッション自動立ち上げ」節
+  // 2026-06-22 再設計: 既存 H-1 内 Phase P で codex exec subprocess spawn / codex 一本化 / URL列廃止
   prepReadinessScore?: number | null;     // 0-100. 80↑=緑 / 50-79=黄 / <50=赤
   prepReadinessReasons?: Record<string, unknown> | null;
   prepDraftMd?: string | null;            // 着地点 / 背景 / 想定質問 / 持参物 Markdown draft
   prepDriveAssetId?: string | null;       // _prep/ フォルダ配下の資料 draft Drive file ID
   prepNotionPageId?: string | null;       // アジェンダ草案入りの Notion 議事録ページ ID
-  prepWorkerSessionId?: string | null;    // Codex Cloud automation run ID
-  prepWorkerSessionUrl?: string | null;   // まさが tap する Codex Cloud session URL
-  prepWorkerStatus?: string | null;       // 'spawning' | 'preparing' | 'ready' | 'failed'
+  prepWorkerSessionId?: string | null;    // codex SESSION_ID。まさが codex desktop で SESSION_ID から該当 session を開く
+  prepCalendarEventId?: string | null;    // ＋ prep 枠 (まさカレンダー) の Calendar event ID。ドラッグ追従用
+  prepWorkerStatus?: string | null;       // 'preparing' | 'ready' | 'failed'
   prepWorkerSpawnedAt?: string | null;
   prepWorkerReadyAt?: string | null;
   prepConciergeNudgedAt?: string | null;
@@ -1642,7 +1643,7 @@ export async function fetchProjectMeetingSummaries(
     prepDriveAssetId: r.prep_drive_asset_id ?? null,
     prepNotionPageId: r.prep_notion_page_id ?? null,
     prepWorkerSessionId: r.prep_worker_session_id ?? null,
-    prepWorkerSessionUrl: r.prep_worker_session_url ?? null,
+    prepCalendarEventId: r.prep_calendar_event_id ?? null,
     prepWorkerStatus: r.prep_worker_status ?? null,
     prepWorkerSpawnedAt: r.prep_worker_spawned_at ?? null,
     prepWorkerReadyAt: r.prep_worker_ready_at ?? null,

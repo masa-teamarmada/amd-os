@@ -534,13 +534,14 @@ function MeetingRow({ item, onClick, series }: RowProps) {
   );
 }
 
-// MTG Prep Worker (= 自動準備セッション) の readiness pill + worker session link
-// 仕様: pwa/spec/3-3-meeting-flow-current-spec.md「MTG Prep Worker」節
+// MTG Prep セッション (= H-1 内 Phase P で spawn される codex session)
+// 仕様: pwa/spec/3-3-meeting-flow-current-spec.md「H-1 MTG Prep セッション自動立ち上げ」節
+// 2026-06-22 再設計: URL 概念廃止、まさは codex desktop を自分で起動して SESSION_ID から該当 session に入る
 function PrepWorkerCta({ meeting }: { meeting: ProjectMeetingSummary }) {
   const score = meeting.prepReadinessScore ?? null;
   const status = meeting.prepWorkerStatus ?? null;
-  const url = meeting.prepWorkerSessionUrl ?? null;
-  if (status == null && score == null && !url) return null;
+  const sessionId = meeting.prepWorkerSessionId ?? null;
+  if (status == null && score == null && !sessionId) return null;
 
   let pillClass = "border-stone-200 bg-stone-50 text-stone-700";
   let pillLabel = "準備中";
@@ -558,10 +559,16 @@ function PrepWorkerCta({ meeting }: { meeting: ProjectMeetingSummary }) {
   } else if (status === "failed") {
     pillClass = "border-rose-200 bg-rose-50 text-rose-800";
     pillLabel = "起動失敗";
-  } else if (status === "preparing" || status === "spawning") {
+  } else if (status === "preparing") {
     pillClass = "border-sky-200 bg-sky-50 text-sky-800";
-    pillLabel = status === "preparing" ? "準備中…" : "起動中…";
+    pillLabel = "準備中…";
   }
+
+  const sessionHint =
+    status === "ready" ? "codex で開いてね"
+    : status === "preparing" ? "draft 生成中…"
+    : status === "failed" ? "手動準備して"
+    : null;
 
   return (
     <div className="flex items-center gap-1">
@@ -570,22 +577,18 @@ function PrepWorkerCta({ meeting }: { meeting: ProjectMeetingSummary }) {
         title={
           meeting.prepReadinessReasons
             ? `readiness 内訳: ${JSON.stringify(meeting.prepReadinessReasons)}`
-            : "MTG Prep Worker"
+            : "MTG Prep セッション"
         }
       >
         {pillLabel}
       </span>
-      {url && status !== "failed" && (
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className="text-[10px] font-medium text-emerald-700 hover:underline whitespace-nowrap"
-          title="MTG Prep Worker セッションを開く (Codex Cloud)"
+      {sessionHint && (
+        <span
+          className="text-[10px] text-[#86868b] whitespace-nowrap"
+          title={sessionId ? `codex SESSION_ID: ${sessionId}` : undefined}
         >
-          ▶ Prep ↗
-        </a>
+          {sessionHint}
+        </span>
       )}
     </div>
   );
