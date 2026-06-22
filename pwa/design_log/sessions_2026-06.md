@@ -909,3 +909,57 @@ deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifica
 - まさ「そもそも ZMP の MS設計から再考したほうがいいかも」→ **次セッションで ZMP MS設計 (pt/tag/share/期間) を一から見直す**。今セッションでは MS は触っていない (DB変更なし)。
 
 **cap不足判定の雑さ (副次発見・別課題)**: 本契約regularの端数stock (数百円, cap総額は足りてるが個別按分の丸め誤差) も `carryIn=0 && stock>0` で「cap不足」赤判定される。本物のcap不足 (202609で regStock=16,472 等) と区別してない。MS設計再考と合わせて扱うか別タスク。BUGS.md に記録。
+
+## 2026-06-22 (#95) — Cowork セッション (cowork-eimi) / 月次レポートを国プロ網羅型 → 正式報告書品質へ 3 段階で拡張 (v0.31.0→0.32.0→0.33.0)
+
+> Cowork (Claude Desktop) 上で動いた cowork-eimi セッションのログ。次のえいみ (Codex / 別 Cowork) が読めば把握できるよう残す。
+
+### コンテキスト
+- まさから「各PJの月次報告書をクライアント提出できるレベルに。HTML→PDF が一番綺麗。まず関連 md 読んでから」と依頼
+- 初手は単純な印刷ビュー実装で v0.31.0 deploy したが、まさから「クオリティ上げて、国プロ提出レベル参考に。資料変更前にコンテンツ要素のリストアップから」と差し戻し
+- NEDO / JST・AMED / 経産省・SIP・民間コンサル + AMD OS 既存データ棚卸しの 4 サブエージェント並列調査を実施
+- 提出先想定が確定: **CX=NIMS / SX=愛媛大 / KUTE=工学院大学** の大学・研究機関 3 機関
+- マスタリスト 51 項目を 「✅すぐ出せる30 / 🟡部分11 / 🔴データなし10」 で提示、🔴 9 項目はスコープアウト、契約番号だけは別タスク (#12) として AMD 側採番システム化 (`AMD-YYYY-PP-NNN`, γ半自動) を後回し合意
+- v0.32.0 で 10 章拡張版を deploy → まさから「レポートタブ廃止して印刷ボタンだけに / 議事録は削除して成果に統合 / 財務削除 / コードネーム禁止」の整理依頼 → v0.33.0 でクローズ
+- (※途中で別worker MTG Prep Worker redesign の 16ファイル + 新規 migration が worktree に並列で存在。stash + path 指定 commit で巻き込まずに deploy 3 回完遂)
+
+### 実装
+- **新ルート**:
+  - [api/project/monthly-report-print/route.ts](../src/app/api/project/monthly-report-print/route.ts) = 月次集約 API。18 テーブルを 1 fetch で返す (`monthly_reports / value_milestones / milestone_monthly_progress / project_meeting_summaries / project_strategy_signals (polarity🎉✨⚠️🔄分類) / project_grants / project_media_mentions / project_xrl_log / action_items / reimbursements / billing_cycles / project_founding_members / milestone_responsibility / contract_terms / contract_documents / project_documents / value_plan_cycles / projects`)。**メンバー名は `members.member_name` (本名) 優先、フォールバック `code_name`**
+  - [(app)/project/[projectId]/report/[ym]/print/page.tsx](../src/app/(app)/project/[projectId]/report/[ym]/print/page.tsx) = SSR server-side cookie 引き継ぎ
+  - [print-client.tsx](../src/app/(app)/project/[projectId]/report/[ym]/print/print-client.tsx) = §01 表紙 / §01 Exec Summary (業務遂行レポート見出し文 + RAG 3軸 + KPI + XRL前月比) / §02 進捗 / §02b Gantt (SVG自前描画、計画バー + 進捗fill + 当月赤縦線マーカー) / §03 成果 (シグナル🎉✨ + 会議由来Decided + 公募採択 + メディア) / §04 体制 (本名表示) / §05 課題 (Risk Register + Action Items + ボトルネック) / §06 次月計画 / §07 添付 (PJ資料 + 契約書 + 5生データ証跡 + 改訂履歴) の 7 章
+- **コックピット改修**: [CockpitMonthlyModal.tsx](../src/components/cockpit/CockpitMonthlyModal.tsx) で旧「PDF」スタブボタン → 「📄 印刷 / PDF」リンクに置換 (v0.31.0)、その後 v0.33.0 で **タブ廃止**: ヘッダ右に `📝 レポート本文を編集` (折りたたみアコーディオン) + `📄 印刷 / PDF` (新タブ) の 2 ボタン、RewardTab (進捗確認) のみ常時表示
+- **CSS**: `@page A4 portrait / margin 14mm 14mm 18mm 14mm` + `@top-left/right/bottom-*` で全ページ共通ヘッダ・フッタ・「取扱注意 / Confidential」・Page X/Y を自動付与
+- **doc 反映**:
+  - [pwa/spec/3-2-monthly-reports-current-spec.md](../spec/3-2-monthly-reports-current-spec.md) §クライアント提出用 印刷出力 を 0.31→0.32→0.33 で 3 回更新、v0.33.0 で「削除した章」節を追加
+  - [pwa/manual/2-3-pj-cockpit.md](../manual/2-3-pj-cockpit.md) に「クライアント提出用 月次レポート印刷」節を追記 (v0.31.0 時)、※注: 別worker と同ファイル衝突を避けるためここだけ patch を別管理
+  - [pwa/spec/6-1-appendix-changelog.md](../spec/6-1-appendix-changelog.md) と [pwa/manual/9-3-appendix-changelog.md](../manual/9-3-appendix-changelog.md) に v0.31.0 / v0.32.0 / v0.33.0 の 3 エントリ追記
+
+### v0.33.0 で削除した項目 (記録用)
+- §05 主要会議セクション (`MeetingsSection`) と関数自体
+- §07 財務サマリ (`FinanceSection`) と関数自体
+- §07 添付資料の会議資料 (`meeting_assets`) 表示
+- 体制セクションの「氏名 (コードネーム)」→「氏名」、Closer タグ表示
+- レポートタブの UI (タブ切替 state、`tab === "report"` 分岐) — 互換のため `MonthlyModalTab` 型エイリアスは残し、`initialTab='report'` で開かれたら編集アコーディオンを展開
+
+### Verified
+- **build**: v0.31.0 / v0.32.0 / v0.33.0 とも `npm run build` 通過 (Next.js 16.2.3 Turbopack)、`tsc --noEmit` 無音
+- **deploy**: 3 回とも `pwa/scripts/deploy.sh` 経由で push → Vercel build (2分49秒 / 3分03秒 / 2分54秒で完了)、live `git_sha` 一致確認済
+- **DB 実 SELECT**: CX(p20) / SX(p21) / KUTE(p25) の契約番号充足度を `contract_terms.contract_no` で確認。CX = `W2026004905` (NIMS発番) 抽出済 / SX = 入札のため契約書なし、`quote_no=Q-0000000065` のみ / KUTE = 番号なし、`amount_tax_incl=7,920,000` / `period: 2026-05-01〜2027-03-31` 抽出済
+- **画面 verify**: dev server での admin auth 制約のため preview verify はスキップ、本番実機でまさが見て v0.32.0→v0.33.0 のフィードバック (タブ廃止 / 会議削除 / コードネーム禁止) を受領 → v0.33.0 で反映
+
+### Cowork ↔ Codex 衝突メモ
+- 別worker (= MTG Prep Worker redesign 担当の Codex えいみ) が 16 ファイル + 新規 `migration 151_meeting_prep_redesign_h1_integration.sql` を worktree で並列編集中だった
+- 1 度目の commit で誤って巻き取り発生 → `git reset --mixed HEAD~1` で取消 → 別worker分を `git stash push -u -- <path...>` で明示退避 → あたしの分だけ specific path add + commit → stash pop で別worker分を worktree に戻す、を 3 回繰り返した
+- 教訓:
+  - `git status` で `MM` (staged+unstaged) や `D` (staged 削除) が見えたら、`git commit` 引数なしで全部巻き取る危険。**必ず specific path add → commit、または stash で別worker分を分離してから commit**
+  - 別worker と同ファイルを触る場合は、stash の中身に自分の追記分が紛れ込みやすい (= pop で conflict 発生)。manual/2-3 への印刷導線追記 14 行は同事故で commit 漏れ、Task #7 として残課題化
+- 衝突自体ではないが、序盤に commit 済の `/bzm/public` → `/bzm` 変更 (`GlobalNav.tsx`) を「正本に反する」と即断して `git checkout --` で破棄 → まさから「巻き戻さないで、それまさが既に画面で見てる最新」と差し戻し → reflex で復元。**未コミット変更も AGENTS.common.md「勝手に消さない」の対象。即断禁止**
+
+### 残課題 (タスクボード)
+- **#7 manual/2-3 への印刷導線追記の再適用**: 別worker MTG Prep redesign が main に取り込まれたあとに、v0.31.0 で書いた 14 行 (「クライアント提出用 月次レポート印刷」節) を再追記
+- **#12 AMD契約番号採番システム実装**: `contracts.amd_contract_no` 列 + `contracts.bid_no` 列追加、γ半自動 (effective_date セット時に自動発番)、フォーマット `AMD-YYYY-PP-NNN`、相手側番号があるPJは AMD 番号振らない (二重採番回避)。SX (愛媛大入札) と KUTE (工学院大学) に backfill、CX (NIMS=W2026004905) は対象外。`/admin/contracts` UI に発番ボタン、月次レポート表紙メタの契約番号表示を `amd_contract_no` 優先に切り替え、入札番号も並列表示
+- **v0.33.0 ブラッシュアップ**: まさが実機で見た上で「冗長な部分とか不要な要素」を次セッションで削る予定
+
+### 関連メモ更新 (Cowork memory)
+- なし (今回は memory 追加せず、spec/3-2 + manual/9-3 の正本 doc 反映で代替)
