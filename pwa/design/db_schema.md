@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-06-22 01:00 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-06-22 15:36 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -72,7 +72,7 @@ PRIMARY KEY: `id`
 
 ## amd_management_score_raw_signals
 
-行数 (概算): 4,412
+行数 (概算): 4,416
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -849,7 +849,7 @@ PRIMARY KEY: `nudge_id`
 
 ## contract_signals
 
-行数 (概算): 152
+行数 (概算): 156
 PRIMARY KEY: `signal_id`
 UNIQUE: `(source_kind,source_table,source_id,signal_type)` (constraint: `contract_signals_source_kind_source_table_source_id_signal__key`)
 
@@ -1230,7 +1230,7 @@ PRIMARY KEY: `feedback_id`
 
 ## l2_notifications
 
-行数 (概算): 394
+行数 (概算): 410
 PRIMARY KEY: `notification_id`
 UNIQUE: `(l2_kind,target_id,scope_key)` (constraint: `l2n_unique`)
 
@@ -1440,7 +1440,7 @@ UNIQUE: `(storage_path)` (constraint: `meeting_assets_storage_path_key`)
 
 ## meeting_notifications
 
-行数 (概算): 18
+行数 (概算): 33
 PRIMARY KEY: `meeting_id`
 
 | # | column | type | nullable | default |
@@ -2465,11 +2465,11 @@ PRIMARY KEY: `meeting_id`
 | 32 | `prep_drive_asset_id` | `text` | NULL | `` |
 | 33 | `prep_notion_page_id` | `text` | NULL | `` |
 | 34 | `prep_worker_session_id` | `text` | NULL | `` |
-| 35 | `prep_worker_session_url` | `text` | NULL | `` |
 | 36 | `prep_worker_status` | `text` | NULL | `` |
 | 37 | `prep_worker_spawned_at` | `timestamptz` | NULL | `` |
 | 38 | `prep_worker_ready_at` | `timestamptz` | NULL | `` |
 | 39 | `prep_concierge_nudged_at` | `timestamptz` | NULL | `` |
+| 40 | `prep_calendar_event_id` | `text` | NULL | `` |
 
 ## project_members
 
@@ -3129,7 +3129,7 @@ UNIQUE: `(task_id)` (constraint: `tasks_task_id_key`)
 
 ## textbook_insight_candidates
 
-行数 (概算): -1
+行数 (概算): 19
 PRIMARY KEY: `candidate_id`
 
 | # | column | type | nullable | default |
