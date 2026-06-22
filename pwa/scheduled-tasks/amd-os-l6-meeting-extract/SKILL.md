@@ -637,6 +637,134 @@ workflow 側のルール:
 - 旧 fallback の「次MTG指定がなければ7日後に1件」は禁止。架空カードを作らない。
 
 ═══════════════════════════════════════════════════
+Phase P: MTG Prep セッション spawn (= 2026-06-22 追加)
+═══════════════════════════════════════════════════
+
+> **役割**: 翌7日の upcoming MTG ごとに、まさカレンダーに `＋ <PJコード> MTG準備: <タイトル>` 枠を作成し、該当時刻になったら `codex exec` で新規 session を spawn する。spawn された session の中では `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md` を prompt として読み、prep 本体 (= 文脈ロード / 着地点 draft / 資料 draft / readiness 計算) を完遂する。
+>
+> automation はあくまで「session を生み出す役」、prep 本体は spawn された session 内で実行する責務分離 (= まさ確定 2026-06-22)。
+>
+> 詳細仕様: `pwa/spec/3-3-meeting-flow-current-spec.md` の「H-1 MTG Prep セッション自動立ち上げ」節。
+
+### Phase P-1: 対象 MTG 抽出
+
+```sql
+SELECT pms.meeting_id, pms.project_id, pms.title,
+       pms.meeting_start_at, pms.calendar_event_id,
+       pms.prep_worker_status, pms.prep_calendar_event_id,
+       pms.prep_worker_session_id, pms.prep_worker_ready_at,
+       pms.prep_concierge_nudged_at,
+       p.status AS project_status
+FROM project_meeting_summaries pms
+JOIN projects p USING (project_id)
+WHERE pms.source_kinds LIKE '%upcoming%'
+  AND pms.source_kinds NOT LIKE '%upcoming_tentative%'
+  AND pms.meeting_id NOT LIKE 'upcoming-tentative:%'
+  AND pms.meeting_start_at IS NOT NULL
+  AND pms.meeting_start_at > now()
+  AND pms.meeting_start_at < now() + interval '7 days'
+  AND p.status IN ('active', 'sales');
+```
+
+ended / frozen / `freeze_from_ym <= 当月ym` は対象外。recurring MTG は既に `calendar-sync` 段階で series 次回1件に絞り込まれている。
+
+### Phase P-2: 各 MTG ごとに処理 (順次)
+
+各対象 MTG について:
+
+**A) ＋ prep 枠 (Calendar event) の作成 or 追従**
+
+- `prep_calendar_event_id` が **null** の場合:
+  - 「prep 開始すべき時間帯」を以下で算出:
+    - 同シリーズ前回 MTG の `meeting_start_at` の **+1日後 09:00 JST** から、今回 MTG の **24時間前** までの window
+    - 過去同シリーズが無い場合は **now** から今回 MTG の 24時間前までの window
+  - その window 内でまさの Calendar freebusy を取得し、最初の **30分以上の空き枠** を見つける
+  - 所要時間見積: readiness 計算後の見積 (初回はまだ readiness 不明なので **暫定 1.5h**) に応じて枠サイズを決める
+  - Calendar に `summary='＋ <PJコード> MTG準備: <MTG タイトル>'`、`description='meeting_id=<id>'`、`extendedProperties.private={'amd_os_prep_meeting_id': '<id>'}` で event を create
+  - 作成した event id を `prep_calendar_event_id` に保存
+- `prep_calendar_event_id` が **NOT null** の場合 (= 既存):
+  - Calendar から event を read
+  - event が **削除されてた**ら `prep_calendar_event_id=null` にして当該 H-1 run 内では skip (= 次回 run で再生成)
+  - event の `start.dateTime` が変わってた (= まさがドラッグした) ら新 start time を採用
+  - 既存 spawn 状態 (`prep_worker_status='ready'` 等) は維持
+
+**B) spawn 判定**
+
+- 現在時刻が `prep_calendar_event_id` の start time に達してるか?
+  - 達してない → skip (= 次回 H-1 run まで待つ)
+  - 達してる + `prep_worker_status IS NULL or 'failed'` → spawn 実行へ
+  - 達してる + `prep_worker_status IN ('preparing', 'ready')` → skip (= 既に spawn 済み or 完了済み)
+
+**C) codex exec で新規 session spawn**
+
+```bash
+codex exec --skip-git-repo-check --json \
+  --output-last-message /tmp/amd-os-prep-{meeting_id_hash}-out.txt \
+  -C /Users/masa/projects/AMD/amd-os \
+  "あなたは {MTG タイトル} 専属の prep worker。pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md を読んで、meeting_id={meeting_id} project_id={project_id} で実行。Phase 1-10 完遂後、対話可能な状態で待機する (= 自動で session を閉じない、まさが入ってきたら prep_draft_md を文脈に対話継続)。"
+```
+
+- subprocess 起動。終了を await しない (= H-1 はすぐ次の MTG に進む)
+- ただし起動直後の最初の数秒は wait して `session id: <UUID>` 行が標準出力に出るのを catch
+- catch した UUID を `prep_worker_session_id` に保存
+- 同時に upsert: `prep_worker_status='preparing'` + `prep_worker_spawned_at=now()`
+- subprocess は background で走り続け、session 内の worker prompt が Phase 1-10 完遂すると `prep_worker_status='ready'` + `prep_worker_ready_at=now()` を自分で upsert する
+
+**D) ready 達成検知**
+
+H-1 run 内で `prep_worker_status='ready'` かつ `prep_concierge_nudged_at IS NULL` の MTG を集める (= 前回以前の run で spawn 済み + 今回 ready になったもの)。これは Phase P-3 で Slack DM 送信対象になる。
+
+### Phase P-3: まさ専用 Slack DM nudge
+
+「ready 達成 + 未通知」MTG が 1件以上あれば、まさ専用 Slack DM を投げる。
+
+1. 送信先解決:
+   ```sql
+   SELECT slack_id FROM members
+   WHERE is_admin = true AND code_name = 'まさ' AND slack_id IS NOT NULL
+   LIMIT 1;
+   ```
+   - 取れない場合は nudge skip + run summary に `nudge_skipped: masa_slack_id_unresolved`
+2. つくよみ口調で本文生成 (deterministic template):
+   ```
+   🌙 まさ、prep セッション立ち上げといたよー
+
+   📌 {MTG タイトル} ({日付} {HH:MM}, {project_name})
+      readiness {score}/100  {🟢/🟡/🔴}
+      codex で開いてね、待機してるよ
+      {readiness < 50 なら 1行コメント: 「資料draftは作ったけど着地点要相談」}
+
+   {failed の MTG があれば別ブロック:}
+   ⚠️ {MTG タイトル} ({日付} {HH:MM}, {project_name})
+      prep セッション起動失敗 ({reason})
+      手動準備して
+   ```
+3. Slack API でまさ DM に送信 (= unfurl 切る、link なし)
+4. 通知に含めた全 MTG (ready / failed) の `prep_concierge_nudged_at=now()` を upsert
+
+### Phase P エラーハンドリング
+
+| 状況 | 対応 |
+|---|---|
+| Calendar freebusy 取得失敗 | 当該 MTG のみ skip。次回 H-1 run で再試行 |
+| Calendar event create 失敗 | `prep_calendar_event_id` セットせず、`prep_worker_status='failed'` + `reason='calendar_create_failed'` upsert |
+| `codex exec` 起動失敗 | `prep_worker_status='failed'` + `reason='codex_exec_failed'`、subprocess kill |
+| `codex exec` で session id catch できず | `prep_worker_status='failed'` + `reason='session_id_not_captured'`、subprocess kill |
+| Slack DM 送信失敗 | `prep_concierge_nudged_at` 触らない (= 次回 run で再送試行) |
+| まさ slack_id 解決失敗 | nudge skip、run summary に記録 |
+
+### Phase P 禁止事項
+
+- worker session の subprocess を `wait` しない (= 各 MTG ごとに subprocess を fire-and-forget で起動して次へ)
+- 同じ MTG に複数 session を spawn しない (= `prep_worker_status` で防御)
+- ended / frozen PJ の MTG に prep 枠を作らない
+- recurring MTG の同シリーズで連続 occurrence (= 次回1件 + その後の occurrence) を同時に spawn しない
+- まさ以外の Calendar に prep 枠を作らない (= まさ 2026-06-22 確定)
+- `claude code` で spawn しない (= まさ 2026-06-22 確定、codex 一本化)
+- 定額外トークン課金経路 (= OpenAI API key 等) で worker を spawn しない (= `~/.codex/auth.json` の `auth_mode='chatgpt'` のままにする)
+- 通知の link / URL を貼らない (= まさは codex desktop を自分で起動する)
+
+═══════════════════════════════════════════════════
 Phase E: run summary
 ═══════════════════════════════════════════════════
 
