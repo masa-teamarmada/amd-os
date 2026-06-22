@@ -464,13 +464,21 @@ async function findCanonicalId(db: ReturnType<typeof createAdminClient>, row: Re
 function notificationFor(kind: "coverage_gap" | "shareholder_meeting", targetId: string, scopeKey: string, item: GovernanceMeetingCandidate) {
   const source = text(item.source, 40) || "gmail";
   const meetingType = normalizeMeetingType(item.meeting_type);
-  const title = item.agenda_summary || item.source_ref || "総会・取締役会候補";
+  const meetingTypeLabelStr = meetingTypeLabel(meetingType);
+  const headline = text(item.meeting_name, 120) || text(item.agenda_summary, 120) || "総会・取締役会候補";
+  const meetingDate = text(item.meeting_date, 20);
+  const summaryParts = [
+    meetingTypeLabelStr,
+    meetingDate ? `日付 ${meetingDate}` : null,
+    item.source_ref ? `source ${String(item.source_ref).slice(0, 80)}` : null,
+  ].filter(Boolean);
+  const summary = summaryParts.length ? summaryParts.join(" / ") : `${source} 由来の ${meetingTypeLabelStr} 候補`;
   return {
     l2_kind: kind,
     target_id: targetId,
     scope_key: scopeKey,
-    title: kind === "coverage_gap" ? `ガバナンス履歴候補: ${String(title).slice(0, 100)}` : `ガバナンス履歴追加: ${String(title).slice(0, 100)}`,
-    summary: item.notes || `${source} 由来の ${meetingType} 候補`,
+    title: kind === "coverage_gap" ? `ガバナンス履歴候補: ${headline}` : `ガバナンス履歴追加: ${headline}`,
+    summary,
     saved_count: 1,
     total_count: 1,
     importance: /written|書面|board/.test(meetingType) ? 8 : 6,
@@ -481,6 +489,7 @@ function notificationFor(kind: "coverage_gap" | "shareholder_meeting", targetId:
       source_ref: item.source_ref ?? null,
       meeting_type: meetingType,
       meeting_date: item.meeting_date ?? null,
+      audit_notes: text(item.notes, 1000),
     },
   };
 }
@@ -580,18 +589,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: googleDriveWriteError(error) }, { status: 502 });
     }
     previews.push(row);
+    // title = 件名 (= meeting_name)、summary = 議案要約の先頭 (= agenda_summary)、
+    // 運用 notes (= matched_via 等の audit 文字列) は matched_patterns に逃がす。
+    // 旧実装は title に agenda 全文ダンプ、summary に notes を入れていて UI がカオスになっていた (2026-06-22 まさ指摘)。
+    const coverageTitle = (text(item.meeting_name, 200) || text(item.agenda_summary, 200) || "総会・取締役会候補").slice(0, 200);
+    const coverageSummary = text(item.agenda_summary, 600) || text(item.notes, 200) || null;
     const { error } = await db.from("l2_coverage_gaps").insert({
       gap_id: gapId,
       source: text(item.source, 40) || "gmail",
       source_ref: row.source_ref,
       source_hash: sourceHash,
-      title: agenda.slice(0, 300),
-      summary: item.notes ?? null,
+      title: coverageTitle,
+      summary: coverageSummary,
       salience_score: 0.9,
       matched_patterns: {
         kind: "governance_meeting",
         meeting_type: row.meeting_type,
         written_resolution: /written|書面/.test(`${row.meeting_type}\n${row.location}`),
+        audit_notes: text(item.notes, 1500),
       },
       proposed_target_l2: "shareholder_meeting",
       gap_class: "extractor_miss",
