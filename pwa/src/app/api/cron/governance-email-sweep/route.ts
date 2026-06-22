@@ -52,6 +52,22 @@ const BOARD_KEYWORDS = [
   "提案書兼同意書",
 ];
 
+// ガバナンス系 SaaS / 公的機関の送信元 allowlist。
+// PJ の report_emails に当該 alias が無くてもこの送信元 + governance keyword で拾える。
+// 起点: BWE p11 (2026-06-22) みなし第1回定時株主総会 同意書の取りこぼし対応。
+// 設計: pwa/design/governance_action_items.md §3.1 (allowlist は DB 化予定、現状は hardcode)。
+const VENDOR_SENDERS = [
+  "smartround.com",
+  "everidays.com",
+  "cloudsign.jp",
+  "docusign.net",
+  "docusign.com",
+  "freee.co.jp",
+  "shareholder.jp",
+  "kabushiki-meibo.jp",
+  "stockmate.jp",
+];
+
 async function authorize(req: NextRequest): Promise<boolean> {
   const auth = req.headers.get("authorization") || "";
   const cronSecret = process.env.CRON_SECRET || "";
@@ -149,23 +165,62 @@ function activeKeywords(project: ProjectRow) {
   ];
 }
 
+// query 構造: AND じゃなくて OR の対象を 2 つ持つ。
+//   (report_emails の from/to/cc) AND (keywords)   ← PJ 関係者間の連絡
+//   OR
+//   (vendor_senders の from)       AND (keywords)  ← smartround 等 SaaS からの招集通知
+// 旧構造 (report_emails AND keywords) だと smartround→個人 alias のメールが
+// 永遠に取れず、BWE/JOYCLE 取りこぼし事故の根本原因になっていた。
 function buildQuery(project: ProjectRow, daysBack: number, daysForward: number) {
   const reportEmails = splitEmails(project.report_emails);
-  const emailClauses = reportEmails.map((email) => {
+  const reportClauses = reportEmails.map((email) => {
     const term = searchTerm(email);
     return `(from:${term} OR to:${term} OR cc:${term})`;
   });
+  const vendorClauses = VENDOR_SENDERS.map((domain) => `from:${domain}`);
   const keywords = Array.from(new Set(activeKeywords(project)));
-  const keywordClauses = keywords.map((keyword) => `"${keyword}"`);
+  const keywordExpr = keywords.length ? `(${keywords.map((k) => `"${k}"`).join(" OR ")})` : "";
   const start = new Date(Date.now() - daysBack * 86400000);
   const end = new Date(Date.now() + daysForward * 86400000);
+
+  const reportBranch = reportClauses.length && keywordExpr
+    ? `((${reportClauses.join(" OR ")}) ${keywordExpr})`
+    : "";
+  const vendorBranch = vendorClauses.length && keywordExpr
+    ? `((${vendorClauses.join(" OR ")}) ${keywordExpr})`
+    : "";
+  const branches = [reportBranch, vendorBranch].filter(Boolean);
+  const branchExpr = branches.length === 0
+    ? ""
+    : branches.length === 1
+      ? branches[0]
+      : `(${branches.join(" OR ")})`;
+
   return [
     `after:${formatGmailDate(start)}`,
     `before:${formatGmailDate(end)}`,
-    emailClauses.length ? `(${emailClauses.join(" OR ")})` : "",
-    keywordClauses.length ? `(${keywordClauses.join(" OR ")})` : "",
+    branchExpr,
     "-in:chats",
   ].filter(Boolean).join(" ");
+}
+
+// メッセージがどの経路で網に上がったかの audit 用 (notes / source_cache に残す)。
+// report_emails マッチ: PJ 関係者間の連絡。vendor: SaaS 通知メール。
+function classifyMatchSource(
+  headers: gmail_v1.Schema$MessagePartHeader[] | undefined,
+  reportEmails: string[],
+): "report_emails" | "vendor_sender" | "unknown" {
+  const from = headerValue(headers, "From").toLowerCase();
+  const to = headerValue(headers, "To").toLowerCase();
+  const cc = headerValue(headers, "Cc").toLowerCase();
+  for (const email of reportEmails) {
+    const term = searchTerm(email).toLowerCase();
+    if (term && (from.includes(term) || to.includes(term) || cc.includes(term))) return "report_emails";
+  }
+  for (const domain of VENDOR_SENDERS) {
+    if (from.includes(domain.toLowerCase())) return "vendor_sender";
+  }
+  return "unknown";
 }
 
 function matchedKeywords(text: string, keywords: string[]) {
@@ -292,12 +347,15 @@ export async function GET(req: NextRequest) {
   for (const project of (projectRows ?? []) as ProjectRow[]) {
     const reportEmails = splitEmails(project.report_emails);
     const keywords = Array.from(new Set(activeKeywords(project)));
-    if (!reportEmails.length || !keywords.length) {
+    // keywords が空 (= フラグ両方 OFF) なら skip。
+    // report_emails が空でも vendor_senders で拾える可能性があるので skip しない
+    // (= BWE/JOYCLE のように個人 alias 宛 smartround メールを拾うため)。
+    if (!keywords.length) {
       projectSummaries.push({
         project_id: project.project_id,
         project_name: project.project_name,
         skipped: true,
-        reason: !reportEmails.length ? "report_emails empty" : "governance watch keywords empty",
+        reason: "governance watch keywords empty",
       });
       continue;
     }
@@ -343,6 +401,7 @@ export async function GET(req: NextRequest) {
             source_ref: `${sourceRef}#message:${message.id || ""}`,
           })).filter((a) => a.name));
 
+      const matchedVia = classifyMatchSource(firstHeaders, reportEmails);
       candidates.push({
         project_id: project.project_id,
         meeting_type: meetingType,
@@ -356,6 +415,7 @@ export async function GET(req: NextRequest) {
         notes: [
           "D-14G governance email sweep",
           `project=${project.project_id}`,
+          `matched_via=${matchedVia}`,
           `matched_keywords=${hits.join(", ")}`,
           `query=${query}`,
         ].join("\n"),
@@ -368,6 +428,7 @@ export async function GET(req: NextRequest) {
         headerValue(firstHeaders, "To") ? `To: ${headerValue(firstHeaders, "To")}` : "",
         headerValue(firstHeaders, "Cc") ? `Cc: ${headerValue(firstHeaders, "Cc")}` : "",
         `Matched: ${hits.join(", ")}`,
+        `Matched via: ${matchedVia}`,
         "",
         compact(summary, 1000),
         "",
@@ -389,6 +450,7 @@ export async function GET(req: NextRequest) {
           thread_id: ref.id,
           source_ref: sourceRef,
           matched_keywords: hits,
+          matched_via: matchedVia,
           meeting_type: meetingType,
           meeting_date: meetingDate,
           attachment_count: attachments.length,

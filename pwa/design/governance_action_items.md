@@ -153,9 +153,9 @@ cockpit のガバナンス欄・要対応面はサーバ側 admin クライア�
 ### 3.1 要対応スイープ
 
 - **report_emails ゲートを外す**。件名/本文の語 + 既知ベンダー送信元で拾う。
-  - 語: 招集通知 / 株主総会 / 臨時 / 定時 / 議決権 / 委任状 / 事前承諾 / 清算 / 解散 / 登記 / 締切 / 期限 / 要対応 / 振込 / 請求 / 更新期限 / 提出期限 など
-  - ベンダー送信元: `smartround.com` / `everidays.com` / `cloudsign` / `docusign` / freee / 法務局 等 (allowlist は DB 化)
-- **会社名 → PJ 紐付け**: 本文/件名の会社名で `projects` を引く (JOYCLE→p09)。終了PJも対象。紐づかない個人宛は `scope='personal'` / `project_id=NULL`。
+  - 語: 招集通知 / 株主総会 / 臨時 / 定時 / みなし決議 / 書面決議 / 議決権 / 委任状 / 同意書 / 事前承諾 / 清算 / 解散 / 登記 / 締切 / 期限 / 要対応 / 振込 / 請求 / 更新期限 / 提出期限 など
+  - ベンダー送信元: `smartround.com` / `everidays.com` / `cloudsign.jp` / `docusign.net` / `freee.co.jp` / `shareholder.jp` / `kabushiki-meibo.jp` / `stockmate.jp` 等 (= 2026-06-22 時点で `/api/cron/governance-email-sweep` 内 `VENDOR_SENDERS` に hardcode、次フェーズで `vendor_senders` 専用テーブルへ DB 化)
+- **会社名 → PJ 紐付け (status フィルタなし)**: 本文/件名の会社名で `projects` を引く (JOYCLE→p09, BWE→p11)。**ended PJ も対象** (= まさは退任後も株主として残る、AMD は卒業 PJ の cap table 持分が残る)。**Codex automation `amd-os-l2-consolidated-evidence` の Phase 0 で取得した `allProjects` (status フィルタなしの全 PJ list) を使い、`activeProjects` を使わない**。紐づかない個人宛は `scope='personal'` / `project_id=NULL`。
 - **期日抽出**: 「〜までに」「提出期限」「開催日時」から `due_at` を作る。
 - 既存 5 生データ全部を対象にできる設計だが、**初手は Gmail** (この案件が Gmail 由来)。Drive/Calendar/Slack/Notion は同じ `action_items` に source を変えて流せる。
 - 実行系: D 群 Claude routine (`amd-os-l2-consolidated-evidence`) に Phase として同居させるのが既定。LLM 従量を PWA cron で背景実行しない (L2_DATA 原則)。重複排除は `source_hash`。
@@ -165,7 +165,7 @@ cockpit のガバナンス欄・要対応面はサーバ側 admin クライア�
 
 - **正本は admin 手動キュレーション** (まさ「記録しておく場所が必要」)。/admin に編集 UI。
 - 抽出は**候補生成の補助**に留める: 招集通知メールから `project_shareholder_meetings` 候補 (種別/日付/議案/添付) と、ラウンド系議案から `project_valuation_rounds` 候補を作り、`/notifications` で承認 → 反映。cap table の株数/比率の自動確定はしない (PDF 依存・誤抽出リスク)。
-- **2026-06-16 追加: `/admin/projects` の監視フラグ**。`projects.governance_watch_shareholder_meetings` (=「総会」) / `projects.governance_watch_board_meetings` (=「役会」) を持ち、ON の PJ だけ D-14G の Gmail sweep 対象にする。検索対象は当該 `projects.report_emails` との `from/to/cc` やりとり + ガバナンス keyword に限定する。`report_emails` が空の PJ はフラグONでも sweep skip。初期 ON は AMD 全体 (`p00`)、LST (`p07`)、CLG (`p24`)。
+- **2026-06-16 追加: `/admin/projects` の監視フラグ**。`projects.governance_watch_shareholder_meetings` (=「総会」) / `projects.governance_watch_board_meetings` (=「役会」) を持ち、ON の PJ だけ D-14G の Gmail sweep 対象にする。検索対象は当該 `projects.report_emails` との `from/to/cc` やりとり + ガバナンス keyword に限定する。`report_emails` が空の PJ はフラグONでも sweep skip。初期 ON は AMD 全体 (`p00`)、LST (`p07`)、CLG (`p24`)。**2026-06-22 追加 ON: BWE (`p11`、ended) — 第1回定時株主総会の同意書 (書面決議) 取りこぼし事故対応。ended でもガバナンス対象から外さない方針を明示**。今後、ended PJ に株主案件が残る場合は同様にフラグ ON にする (= 初期 ON list の `active のみ` 制約は無い)。
 - **D-14G Governance Email Sweep**: `GET /api/cron/governance-email-sweep`。既定は `apply=false` で `/api/governance/extract` に候補投入し、`source_cache(source='gmail_governance')` に source ref / snippet / hash を残す。`apply=1` のときだけ canonical `project_shareholder_meetings` 反映 + 添付Drive保存まで進める。通常運用は候補優先、LST のように高確度で日付・種別・PJ が揃う場合だけ apply 実行する。
 - **2026-06-16 追加: `/api/governance/extract`** が `project_shareholder_meetings` 候補の受け口。D-14/L3 collector が Gmail/Drive/Calendar 等から LST の取締役書面決議・株主総会招集通知・議案資料を見つけたら、この route に `items[]` を POST する。
   - 既定 (`mode` 未指定 / `apply=false`): `l2_coverage_gaps` に `proposed_target_l2='shareholder_meeting'` の review candidate として保存し、`l2_notifications` に「ガバナンス履歴候補」を出す。canonical row は汚さない。
