@@ -1012,6 +1012,14 @@ deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifica
 - **SX フォーマット (見積明細型)**: freee 会計の請求書 (`/invoices`) から `invoice_contents[]` を取って明細ごとに当月実施内容を LLM で書く
 - **PJ ごとフォーマット切替**: `projects.report_format` 列 (`cx_activity_log | sx_estimate_items | null`) で UI 上「📄 AMD 標準 / 📄 クライアント提出版」の 2 ボタン振り分け
 
+### v0.34.2 (= 見積明細混入を根本対処)
+- まさが v0.34.1 の SX スクショで「まだ MS 問題解決してない」「下の方の『期間未設定』は MS じゃなくて見積書の明細にあった項目」と指摘
+- DB 直 SELECT 結果: SX (p21) の現役 plan_cycle `PC-p21-202604` には MS 12 個のみ。一方、過去 fixed cycle `PC-p21-202601-202603` に **75 件の MS が is_active=true のまま残存** していて、末尾 11 件 (= スクショの「期間未設定」と完全一致する内容) は明らかに見積書明細 (「月次試算表の作成」「事業計画原案の作成」「PoC候補先の選定に向けた情報収集」「資本政策および EXITまでの道筋の策定」等)
+- v0.34.1 の dedup (milestoneId + タイトル正規化) では救えないため、API 側で **plan_cycle.status フィルタ** を追加:
+  - `/api/project/monthly-report-print/route.ts`: `planCycles.filter(c => status ∈ {active,confirmed,draft,in_progress})` を経由して `milestone_id` を絞る
+  - `planCycle` (Gantt の計画期間) も active 優先、無ければ最新 fixed に fallback
+- 別タスク化: **value_milestones への見積明細混入** は印刷ビューだけでなく cockpit / admin/ms-overview / 報酬計算等にも影響する可能性があるため、発生源 (= 見積→MS 変換の自動 cron or 手動投入) の特定と既存データの is_active=false 化を別セッションで実施 (task #16)
+
 ### v0.34.1 (= v0.34.0 のすぐあとの patch fix)
 - まさが実機で見て指摘した残りバグ 2 件:
   - **MS dedup 強化**: v0.34.0 では milestoneId 単独で dedup していたため、別シーズンの同名 MS (例: 「コスト試算」「事業計画策定」) が複数行・複数バーで重複表示。`selectActiveMilestonesForReport` を milestoneId → タイトル正規化 (空白除去 + lowercase) の 2 段階に拡張。直近 `period_start_ym` 優先 / 同 period なら progress 高い方 / それも同点なら points 大きい方を残す。`GanttSection` も同 dedup を共用するよう改修

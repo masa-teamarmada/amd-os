@@ -142,9 +142,13 @@ export async function GET(req: NextRequest) {
   }
   const proj = projRes.data;
 
-  // MS を当該 PJ の plan_cycle に絞る
+  // MS を当該 PJ の **現役** plan_cycle に絞る (= status='fixed' / 'closed' / 'archived' = 過去シーズンは除外)。
+  // 過去シーズンには見積明細や旧 MS が is_active=true のまま大量に残っていることがあり、
+  // 全 plan_cycle から拾うと MS 表 / Gantt に重複・期間未設定 MS が出現する (SX で 75 件混入の事例)。
   const planCycles = planCycleRes.data || [];
-  const planCycleIds = new Set(planCycles.map((c) => c.plan_cycle_id));
+  const activeCycleStatuses = new Set(["active", "confirmed", "draft", "in_progress"]);
+  const activePlanCycles = planCycles.filter((c) => activeCycleStatuses.has(c.status));
+  const planCycleIds = new Set(activePlanCycles.map((c) => c.plan_cycle_id));
   const projectMilestones = (milestoneRes.data || [])
     .filter((m) => planCycleIds.has(m.plan_cycle_id))
     .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
@@ -449,7 +453,9 @@ export async function GET(req: NextRequest) {
     return Math.round(weighted);
   })();
 
-  const planCycle = planCycles[0] || null;
+  // planCycle は Gantt の計画期間として使うので、現役 (active/confirmed/draft) を優先。
+  // 無ければ fallback で fixed の最新 (= 全 cycle のうち period_end_ym 降順の先頭) を使う。
+  const planCycle = activePlanCycles[0] || planCycles[0] || null;
   // 期待進捗% (経過月数比)
   const expectedPct = (() => {
     if (!planCycle) return null;
