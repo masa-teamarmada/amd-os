@@ -57,12 +57,15 @@ description: AMD OS daily L2 evidence 抽出を 1 本の claude routine に束�
 5. 各 D-n の既存個別 SKILL (= 上表、詳細手順)
 
 ═══════════════════════════════════════════════════
-Phase 0: 環境セットアップ + active PJ 取得
+Phase 0: 環境セットアップ + PJ リスト取得 (active / all 2 種類)
 ═══════════════════════════════════════════════════
 
 - cloud routine では `.env.local` 読み込み不要 (= 環境変数は connector / 環境 secret 経由)。
 - Supabase connector の `execute_sql` / `list_tables` でスキーマ確認。列名は `pwa/design/db_schema.md` を grep してから使う。
-- `projects?status=eq.active` で active PJ 一覧取得 (= 5-10 PJ)。
+- **PJ リストは 2 種類取得する** (= 取りこぼし防止):
+  - `activeProjects` = `projects?status=eq.active`。D-1 / D-2 / D-3 / D-4 / D-7 / D-8 / D-9 など、進捗・知識・経営シグナルを抽出する Phase A〜J に使う (= 5-10 PJ)。
+  - `allProjects` = `projects?select=*` (status フィルタなし、ended / frozen 含む全 PJ)。**Phase K-C (D-14 要対応) / D-14G (Governance Email Sweep) / Phase M (Coverage Scanner) はこの `allProjects` を使う**。
+- なぜ all が必要か: 株主総会・取締役会・要対応・清算系は ended PJ にも発生する (= まさは退任しても株主として残る、AMD は卒業 PJ の cap table 持分が残る)。`L2_DATA.md` §「ended でも清算・株主総会等は残す」と `pwa/design/governance_action_items.md` §1 の JOYCLE (p09) / BWE (p11) 取りこぼし事故が起点。**active 限定で走査すると同じ事故が再発する**。
 - ymList = [当月 (= YYYYMM JST), 前月]。
 - maxItems 制限なし (= daily 1 回なので差分があるものは全部 process)。
 - 各 Phase は `l2_extract_state.source_hash` で差分検知し、**変化が無ければ LLM call せず skip** (= サブスク credit & 実行時間節約)。
@@ -196,19 +199,19 @@ Contract Signals は D-13 の正本。新規 routine は作らず、この exist
 Phase K-C: D-14 要対応 (Action Items) 抽出
 ═══════════════════════════════════════════════════
 
-D-14 要対応 = 5生データ由来の「期日つき inbound 義務」を `action_items` に candidate 化する。起点は JOYCLE 臨時株主総会 招集通知の取りこぼし事故。設計 `pwa/design/governance_action_items.md`。
+D-14 要対応 = 5生データ由来の「期日つき inbound 義務」を `action_items` に candidate 化する。起点は JOYCLE (p09) 臨時株主総会 招集通知 (2026-05-28) + BWE (p11) みなし第1回定時株主総会 同意書 (2026-06-18) の取りこぼし事故。設計 `pwa/design/governance_action_items.md`。
 
 - 入力: まず Gmail (将来 Drive/Calendar/Slack/Notion も)。`report_emails` でゲートしない (= 送信元が PJ 連絡先でなくても拾う)。
-- 拾う signal: 件名/本文に「招集通知 / 株主総会 / 臨時 / 定時 / 議決権 / 委任状 / 事前承諾 / 清算 / 解散 / 登記 / 提出期限 / 締切 / 要対応 / 振込 / 請求 / 更新期限」等。既知ベンダー送信元 (`smartround.com` / `everidays.com` / `cloudsign` / `docusign` / freee / 法務局) は強シグナル。
-- PJ 紐付け: 本文/件名の会社名で `projects` を引く (例 JOYCLE→p09)。**終了PJも対象**。紐づかない個人宛は `scope='personal'`, `project_id=null`。
-- 期日抽出: 「〜までに」「提出期限」「開催日時」から `due_at` を作る。
+- 拾う signal: 件名/本文に「招集通知 / 株主総会 / 臨時 / 定時 / みなし決議 / 書面決議 / 議決権 / 委任状 / 同意書 / 事前承諾 / 清算 / 解散 / 登記 / 提出期限 / 締切 / 要対応 / 振込 / 請求 / 更新期限」等。既知ベンダー送信元 (`smartround.com` / `everidays.com` / `cloudsign` / `docusign` / freee / 法務局) は強シグナル。
+- **PJ 紐付け対象は `allProjects` (Phase 0 で取得した status フィルタなしの全 PJ list)**。本文/件名の会社名 (`project_name` / `client_name`) で `allProjects` を引く (例: JOYCLE→p09, BWE→p11)。**`activeProjects` を使わない (= ended PJ の取りこぼし再発防止)**。紐づかない個人宛は `scope='personal'`, `project_id=null`。
+- 期日抽出: 「〜までに」「提出期限」「開催日時」「同意書提出期限」から `due_at` を作る。
 - 出力: `POST /api/action-items/extract { items: [{ title, summary, due_at, category, priority, action_url, source:'gmail', source_ref, source_hash, project_id, scope }] }`。`source_hash` で dedup (= 既存は skip、confirmed/rejected を壊さない)。route が `action_items`(review_status='candidate') + `l2_notifications(l2_kind='action_item')` を作り、`/notifications` と要対応面に出る。
 - 品質境界: 広告メルマガ・通知音的メール・既に responded のものは候補化しない。確度が低いものは candidate のまま採否ループに委ねる。
 - raw本文は保存しない (summary + source_ref + source_hash のみ)。
 - 株主/総会/バリュエーションの cap table 数値は自動確定しない (PDF 依存・誤抽出回避)。総会・ラウンドは候補として残し、確定は `/admin/governance` の手動キュレーションに委ねる。
 
 D-14G Governance Email Sweep:
-- `/admin/projects` の「総会」「役会」checkbox (= `projects.governance_watch_shareholder_meetings` / `governance_watch_board_meetings`) が ON の PJ だけ、当該 `report_emails` との Gmail `from/to/cc` を検索対象にする。
+- `/admin/projects` の「総会」「役会」checkbox (= `projects.governance_watch_shareholder_meetings` / `governance_watch_board_meetings`) が ON の PJ だけ、当該 `report_emails` との Gmail `from/to/cc` を検索対象にする。**フラグ ON の PJ は `allProjects` から (ended/frozen 含む) 引く**。ended でフラグ ON の PJ も対象 (= BWE p11 は ended だが株主総会・取締役会監視 ON)。
 - route: `GET /api/cron/governance-email-sweep`。既定は candidate mode で `/api/governance/extract` に渡し、`source_cache(source='gmail_governance')` に source ref / snippet / hash を残す。`apply=1` のときだけ `project_shareholder_meetings` へ canonical 反映し、Gmail添付を Drive の `projects.drive_folder_id / YYMMDD_会議名` に保存する。
 - D-14本体は report_emails でゲートしない広域「要対応」検知、D-14G は PJ台帳フラグで絞る「総会/役会履歴」検知。役割を混ぜない。
 
@@ -224,7 +227,7 @@ Phase M: OS Coverage Scanner (不在検知 / negative space)
 設計正本: `pwa/design/coverage_gap_scanner.md`。
 
 - (A) **ungated salience sweep**: 5生データ **全部 (Gmail/Drive/Calendar/Slack/Notion)** の直近 24-48h を、
-  **`report_emails` / active PJ で絞らずに** スキャンする (= JOYCLE 取りこぼしの根本原因#1 への直接対策)。
+  **`report_emails` / active PJ で絞らずに** スキャンする (= JOYCLE / BWE 取りこぼしの根本原因#1 への直接対策)。会社名→PJ 紐付けは Phase 0 の `allProjects` (status フィルタなし全 PJ) を引く。**`activeProjects` を使わない**。
   - 網に上げる条件 (どれか): 高価値語 (招集通知/株主総会/議決権/委任状/事前承諾/資金調達/バリュエーション/投資契約/
     優先株/契約締結/押印/クラウドサイン/MOU/解約/解除/採択/受賞/提携/規制/公募/督促/訴訟/人事異動/提出期限/締切/振込/要対応 等)、
     既知ベンダー送信元 (`smartround.com`/`everidays.com`/`cloudsign`/`docusign`/freee/法務局/特許事務所)、期日表現を含む。
