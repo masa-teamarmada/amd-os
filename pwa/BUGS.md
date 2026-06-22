@@ -5,6 +5,16 @@
 
 ---
 
+### [governance] BWE (ended) みなし第1回定時株主総会 同意書メール (6/18) を D-14 / D-14G が取りこぼし、コックピット総会リストにも `/notifications` 要対応にも出なかった (2026-06-22)
+
+- **状態**: クローズ (2026-06-22 — BWE p11 の `governance_watch_shareholder_meetings=true` / `governance_watch_board_meetings=true` 投入。手動 backfill で `project_shareholder_meetings` 1 行 (BWE / shareholder_written_resolution / 2026-06-22 / amd_response=consented / source_ref=`gmail://thread/19eed63f8ddd31b7`) + `action_items` 1 件 (priority=critical, due_at=6/22 18:00 JST)。SKILL / 設計 md パッチは `pwa/design/_bwe_governance_patch_2026-06-22.md` に保管 = 本セッションで本体 md への直接 Edit が並列 worker と競合して revert される現象が発生したため、新規ファイル経由で残した。本体 md への手 merge は次セッション)。
+- **症状**: 中井遥さん (BWE) から 2026-06-18 21:12 に「みなし第1回定時株主総会同意書ご提出のお願い」(山地・比嘉先生宛、cc 吉﨑さん) が届いたが、AMD OS のコックピット (p11 BWE) の総会リストにも `/notifications` の要対応面にも出ず、まさが気付くまで OS 側で全く可視化されていなかった。`source_cache` にもガバナンス系の痕跡が残らなかった。
+- **原因**: 設計 (`pwa/design/governance_action_items.md`) では「ended PJ も対象」と明記されていたが、Codex automation `amd-os-l2-consolidated-evidence` の SKILL Phase 0 が `projects?status=eq.active` だけを取得し、その PJ list が D-14 / D-14G / Phase M の会社名→PJ 紐付けでも暗黙に使い回されていた。BWE は `status='ended'` (`end_ym=202603`) のため active リストに乗らず、`governance_watch_*` フラグも OFF だったので両ルートで対象外になり、招集通知が source_cache にも候補化にも到達しなかった。JOYCLE 5/28 臨時株主総会 招集通知の取りこぼし (2026-06-15 起票) と同型の構造的な穴。
+- **対応内容**: SKILL Phase 0 / D-14 / D-14G / Phase M の修正パッチを `pwa/design/_bwe_governance_patch_2026-06-22.md` に保存。BWE p11 の governance フラグ 2 件 ON 投入済。`project_shareholder_meetings` + `action_items` 各 1 件を本番 Supabase に投入済。新規 cron は追加しない (まさ確定 2026-06-22、定額外トークン禁止)。
+- **再発防止**: SKILL に「Phase A〜J は activeProjects、Phase K-C / D-14G / Phase M は allProjects」の境界を恒久ルールとして残す (次セッションで本体 md へ merge)。ended PJ もガバナンス対象から外さない方針を `governance_action_items.md` と manual 9-3 に追記。`/api/cron/governance-email-sweep` の Gmail query を `(report_emails AND keywords) OR (vendor_senders AND keywords)` で拾える形に拡張するのは follow-up (= まさ確認待ち)。Phase M sweep の「report_emails / active PJ で絞らない」明示も同パッチに含む。
+
+---
+
 ### [finance] あき / ID029 の無報酬除外が `/mypage` 表示に反映されていなかった (2026-06-19)
 
 - **状態**: クローズ (2026-06-19 — v0.28.15 で `/mypage` / `/dashboard` 埋め込み表示を `members.exclude_from_payout_notice` 基準へ修正し、memberId 指定時の月初合意 card も対象メンバー本人で読むよう修正)。
