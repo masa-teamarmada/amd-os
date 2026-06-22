@@ -14,6 +14,7 @@ type ProjectRow = {
   project_name: string | null;
   client_name: string | null;
   report_emails: string | null;
+  news_search_query: string | null;
   governance_watch_shareholder_meetings: boolean | null;
   governance_watch_board_meetings: boolean | null;
 };
@@ -223,6 +224,54 @@ function classifyMatchSource(
   return "unknown";
 }
 
+// vendor_sender 経由で拾ったメールが、本当に当該 PJ のものか確認するための token プール。
+// `project_name`、`client_name`、`news_search_query` の引用文字列 (= "Blue Water Energy" 等)、
+// `report_emails` の domain ローカル部 (= "bluewaterenergy" 等) を抜き、
+// 本文/件名にどれか 1 個でも含まれていれば「PJ 言及あり」と判定する。
+//
+// 起点: BWE p11 sweep に LiSTie 株主総会の委任状通知が混入した事故 (2026-06-22)。
+// smartround は同一個人 alias の他社株主総会通知も流すので、vendor 経路は PJ 言及で
+// 二重判定しないと取り違える。
+//
+// 3 文字以下の短い alias (= 内部コード "BWE" / "SX" 等) は false positive が高いので除外する。
+// 代わりに news_search_query の引用文字列を主シグナルにする (= 検索意図と一致する PJ 別名)。
+function projectMentionTokens(project: ProjectRow): string[] {
+  const tokens = new Set<string>();
+  const push = (raw: string | null | undefined, minLen = 4) => {
+    if (!raw) return;
+    const value = raw.trim();
+    if (value.length >= minLen) tokens.add(value.toLowerCase());
+  };
+  push(project.project_name);
+  push(project.client_name);
+  // news_search_query は `"Blue Water Energy" OR "ブルーウォーターエナジー"` 形式が多い。
+  // ダブルクォート内の文字列を全部 token として抜く。引用無しなら全体を1 token として扱う。
+  if (project.news_search_query) {
+    const quoted = Array.from(project.news_search_query.matchAll(/"([^"]+)"/g)).map((m) => m[1]);
+    if (quoted.length) {
+      for (const q of quoted) push(q);
+    } else {
+      push(project.news_search_query);
+    }
+  }
+  for (const email of splitEmails(project.report_emails)) {
+    const term = searchTerm(email);
+    if (!term) continue;
+    // alias@domain.tld or @domain.tld → domain の組織識別子 ("bluewaterenergy" 等)
+    const atIdx = term.indexOf("@");
+    const domain = atIdx >= 0 ? term.slice(atIdx + 1) : term;
+    const orgLabel = domain.split(".")[0];
+    if (orgLabel && orgLabel.length >= 4) tokens.add(orgLabel.toLowerCase());
+  }
+  return Array.from(tokens);
+}
+
+function bodyMentionsProject(text: string, tokens: string[]): boolean {
+  if (!tokens.length) return false;
+  const lower = text.toLowerCase();
+  return tokens.some((token) => lower.includes(token));
+}
+
 function matchedKeywords(text: string, keywords: string[]) {
   return keywords.filter((keyword) => text.includes(keyword));
 }
@@ -328,7 +377,7 @@ export async function GET(req: NextRequest) {
   const db = createAdminClient();
   let projectsQuery = db
     .from("projects")
-    .select("project_id,project_name,client_name,report_emails,governance_watch_shareholder_meetings,governance_watch_board_meetings");
+    .select("project_id,project_name,client_name,report_emails,news_search_query,governance_watch_shareholder_meetings,governance_watch_board_meetings");
 
   if (projectId) {
     projectsQuery = projectsQuery.eq("project_id", projectId);
@@ -406,6 +455,22 @@ export async function GET(req: NextRequest) {
           })).filter((a) => a.name));
 
       const matchedVia = classifyMatchSource(firstHeaders, reportEmails);
+      // vendor_sender 経由は、本文/件名に当該 PJ への言及が無いと拾わない。
+      // smartround 等は同一個人 alias の他社株主総会通知も流すため (BWE sweep に LiSTie 委任状が
+      // 紛れ込む事故 2026-06-22 への対応)。report_emails マッチは PJ 関係者間連絡なので素通し。
+      if (matchedVia === "vendor_sender") {
+        const tokens = projectMentionTokens(project);
+        if (!bodyMentionsProject(`${subject}\n${combined}`, tokens)) {
+          projectSummaries.push({
+            project_id: project.project_id,
+            project_name: project.project_name,
+            skipped_thread: ref.id,
+            reason: "vendor_sender match without project mention",
+            subject,
+          });
+          continue;
+        }
+      }
       candidates.push({
         project_id: project.project_id,
         meeting_type: meetingType,
