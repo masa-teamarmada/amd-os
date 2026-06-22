@@ -412,22 +412,39 @@ function ExecSummary({ data }: { data: PrintData }) {
 /**
  * MS リストから当月のレポートに載せるべきものだけを残す:
  * - 同一 milestoneId の重複は最初の 1 件のみ
+ * - **同一タイトル (正規化後) の重複も dedup** = 別シーズンの同名 MS が並ばないように。
+ *   period_start_ym が新しい (= 直近シーズン) を優先、同 period なら progress 高い方
  * - tag が "buffer" は除外 (= 内部調整枠)
  * - 完了済 (>= 100%) かつ動きなし (delta = 0) かつ target_ym が当月より前のものは除外
  */
 function selectActiveMilestonesForReport(milestones: MsRow[], ym: string): MsRow[] {
-  const seen = new Set<string>();
-  const result: MsRow[] = [];
+  const normalizeTitle = (t: string) => t.replace(/[\s　]+/g, "").toLowerCase();
+  const byId = new Set<string>();
+  // pass 1: buffer / 古い完了済を除外し milestoneId dedup
+  const stage1: MsRow[] = [];
   for (const m of milestones) {
-    if (seen.has(m.milestoneId)) continue;
-    seen.add(m.milestoneId);
+    if (byId.has(m.milestoneId)) continue;
+    byId.add(m.milestoneId);
     if ((m.tag || "").toLowerCase() === "buffer") continue;
     if (m.progressPct >= 100 && m.deltaPct === 0) {
       if (!m.targetYm || m.targetYm < ym) continue;
     }
-    result.push(m);
+    stage1.push(m);
   }
-  return result;
+  // pass 2: タイトル正規化で dedup。直近シーズン (= period_start_ym 大) を優先、
+  // 同点なら progress 高い方、それも同点なら points 大きい方
+  const byTitle = new Map<string, MsRow>();
+  for (const m of stage1) {
+    const key = normalizeTitle(m.title);
+    const prev = byTitle.get(key);
+    if (!prev) { byTitle.set(key, m); continue; }
+    const winsByPeriod = (m.periodStartYm || "") > (prev.periodStartYm || "");
+    const samePeriod = (m.periodStartYm || "") === (prev.periodStartYm || "");
+    const winsByProgress = samePeriod && m.progressPct > prev.progressPct;
+    const winsByPoints = samePeriod && m.progressPct === prev.progressPct && m.points > prev.points;
+    if (winsByPeriod || winsByProgress || winsByPoints) byTitle.set(key, m);
+  }
+  return Array.from(byTitle.values());
 }
 
 /**
@@ -650,7 +667,9 @@ function GanttSection({ data }: { data: PrintData }) {
   const rightPad = 16;
   const rowH = 18;
   const headH = 32;
-  const sortedMs = milestones.filter((m) => (m.tag || "").toLowerCase() !== "buffer").sort((a, b) => {
+  // §02 表と同じ dedup (milestoneId + タイトル正規化) を Gantt にも適用
+  const deduped = selectActiveMilestonesForReport(milestones, ym);
+  const sortedMs = deduped.sort((a, b) => {
     const ay = a.periodStartYm || "999999";
     const by = b.periodStartYm || "999999";
     return ay.localeCompare(by);
@@ -748,15 +767,18 @@ function TeamSection({ data }: { data: PrintData }) {
   if (members.length === 0) return null;
 
   const msTitleMap = new Map(milestones.map((m) => [m.milestoneId, m.title]));
-  // メンバーごとに責任 MS をまとめる
+  // メンバーごとに責任 MS をまとめる。share=0 (= 関与なし) の MS は除外
   const respByMember = new Map<string, Array<{ msTitle: string; share: number; role: string | null; taskDescription: string | null }>>();
   for (const r of responsibilities) {
+    if (!(r.share > 0)) continue;
     const title = msTitleMap.get(r.milestoneId);
     if (!title) continue;
     const list = respByMember.get(r.memberId) || [];
     list.push({ msTitle: title, share: r.share, role: r.role, taskDescription: r.taskDescription });
     respByMember.set(r.memberId, list);
   }
+  // share 大きい順にソートして見やすく
+  for (const list of respByMember.values()) list.sort((a, b) => b.share - a.share);
 
   return (
     <div className="sheet">

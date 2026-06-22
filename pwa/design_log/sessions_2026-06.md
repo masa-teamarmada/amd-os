@@ -1011,3 +1011,8 @@ deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifica
 - **CX フォーマット (日付×時間×業務概要 稼働ログ型)**: `contract_id W2025014019` 用に Calendar event + member_activities → LLM で日付ごとの稼働ログを推定生成 (まさ「正確である必要は全くない、契約通り工数消化されたことを証明したい」)
 - **SX フォーマット (見積明細型)**: freee 会計の請求書 (`/invoices`) から `invoice_contents[]` を取って明細ごとに当月実施内容を LLM で書く
 - **PJ ごとフォーマット切替**: `projects.report_format` 列 (`cx_activity_log | sx_estimate_items | null`) で UI 上「📄 AMD 標準 / 📄 クライアント提出版」の 2 ボタン振り分け
+
+### v0.34.1 (= v0.34.0 のすぐあとの patch fix)
+- まさが実機で見て指摘した残りバグ 2 件:
+  - **MS dedup 強化**: v0.34.0 では milestoneId 単独で dedup していたため、別シーズンの同名 MS (例: 「コスト試算」「事業計画策定」) が複数行・複数バーで重複表示。`selectActiveMilestonesForReport` を milestoneId → タイトル正規化 (空白除去 + lowercase) の 2 段階に拡張。直近 `period_start_ym` 優先 / 同 period なら progress 高い方 / それも同点なら points 大きい方を残す。`GanttSection` も同 dedup を共用するよう改修
+  - **share=0 MS の除外**: `TeamSection` の `respByMember` 構築時に `share === 0` を除外、share 大きい順にソート。「主な担当MS / 業務内容」に関与なし MS が並ぶ問題を解消
