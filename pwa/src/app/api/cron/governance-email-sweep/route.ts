@@ -375,6 +375,9 @@ export async function GET(req: NextRequest) {
       const firstHeaders = first?.payload?.headers || [];
       const subject = headerValue(firstHeaders, "Subject") || "(no subject)";
       const messageTexts = messages.map((message) => textFromPayload(message.payload) || message.snippet || "");
+      // combined は keyword 検索 / meeting_type / meeting_date 推定だけに使う (本文全部)。
+      // candidate に出す agenda_summary は **件名 + 1 通目の snippet** だけにする
+      // (= /notifications の通知カードに巨大ダンプを出さない、2026-06-22 まさ指摘対応)。
       const combined = compact([subject, ...messages.map((m) => m.snippet || ""), ...messageTexts].join("\n"), 12000);
       const hits = matchedKeywords(combined, keywords);
       if (!hits.length) continue;
@@ -383,7 +386,8 @@ export async function GET(req: NextRequest) {
       const lastDate = messageDate(last, new Date());
       const meetingType = inferMeetingType(combined, project);
       const meetingDate = extractMeetingDate(combined, lastDate);
-      const summary = compact(combined, 900);
+      const firstSnippet = compact(first?.snippet || messageTexts[0] || "", 400);
+      const summary = firstSnippet || compact(subject, 200);
       const sourceHash = stableHash(`${project.project_id}|${ref.id}|${subject}|${meetingType}`);
       const attachments = storeAttachments
         ? (await Promise.all(messages.map((message) => attachmentsForMessage({
