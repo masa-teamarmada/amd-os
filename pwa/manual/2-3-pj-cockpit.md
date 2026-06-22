@@ -178,24 +178,55 @@ MTG詳細モーダル内の「添付資料」は会議単位の `meeting_assets`
 - 議事録では「決定」よりも「提案」「整理」「相談前提の論点」として残す
 - 詳細は **[2-4 章 2.2 まさえいMTG](2-4-amd-cockpit.md#22-まさえいmtg)**。
 
-### MTG Prep Worker (= 自動準備セッション)
+### MTG Prep セッション自動立ち上げ (2026-06-22 まさ確定)
 
-> **何が嬉しいか**: 「明日 MTG あるけどまだ準備してない」状態で codex / claude code を開いて「明日こういう MTG があるんよ。背景はこうで…」と説明するコストを廃止する。OS が前夜〜当朝に MTG 専属の準備セッション (= worker) を起動し、文脈ロード・着地点 draft・資料 draft まで終わらせて待機する。
+> **何が嬉しいか**: 「明日 MTG あるけどまだ準備してない、codex を毎回開いて『背景はこうで…』と説明するのがだるい」を OS 側で解決する。**既存 H-1 automation の Phase P** が、翌7日の MTG ごとに **codex の新規 session を事前 spawn** する。session の中で文脈ロード・着地点 draft・資料 draft・readiness 計算まで終わって待機する。まさは Slack DM で「{MTG} の prep セッション立ち上げといたよー」と通知を受け、自分で codex desktop を起動して該当 session に入る (= 普段どおりの操作、ターミナル不要)。
 
-- 翌48h に予定MTG (= `source_kinds='upcoming'`) がある PJ では、cockpit MTG サマリの予定MTGカードに **readiness pill** (緑 80↑ / 黄 50-79 / 赤 <50) と **▶ Prep セッションを開く** リンクが表示される
-- ▶ を tap すると Codex Cloud 上の専属 session に入る。worker は背景 / 過去同シリーズの流れ / 着地点 draft / 想定質問 / 資料 draft を既に生成済み。まさは「合ってる?」「ここ修正」など続きから対話するだけ
-- worker が生成した資料 draft は Drive の `PJfolder/YYMMDD_MTG名_prep/` に置く (= MTG 本資料ではなく draft フォルダ)
-- worker が作成したアジェンダ草案入り Notion 議事録ページは事前に対応する MTG カードの `notion_url` として表示される
-- readiness は当該 MTG の準備度合いを示すだけで、「足りない」状態でも nudge は飛ぶ。draft が薄いだけなら worker から対話で詰める
+#### prep の timing
 
-#### 朝のつくよみ nudge
+- **post-MTG 即時主義**。前回 MTG の翌日から、今回 MTG の 24時間前までの間で、まさカレンダーの空き枠を探して prep を入れる
+- 過去同シリーズが無い MTG (= 完全初回) は、検知された瞬間から prep を始められる
+- ギリギリではなく、余裕がある日に前倒しでやる (= 先手先手主義)
 
-- 毎朝 07:30 JST、つくよみが まさ専用 Slack DM で「翌48h の MTG prep worker、もう動かしといたよー」とまとめ通知する
-- 通知には MTG 1件ずつの readiness + worker session URL + 「今日の空き枠 vs prep 見積」が並ぶ
-- 通知の内容は worker が ready 状態に到達した MTG のみ。`failed` の MTG は別ブロックで「手動でclaude code開いて」と告げる
-- 全 PJ の facilitator に同じDMは送らず、**まさ専用 DM だけ**で完結する (= まさが議題分配を判断する)
+#### prep 枠 (= まさカレンダー上の prep 作業時間)
 
-詳細仕様は **[3-3 章 MTG Prep Worker](../spec/3-3-meeting-flow-current-spec.md)** / **[8-3 章 L2 H-1 MTGフロー](8-3-l2-extraction-routines-spec.md)**。
+- prep 作業自体を **「＋ <PJコード> MTG準備: <MTGタイトル>」** という Calendar event としてまさカレンダーに作る
+- タイトル先頭 `＋` = 動かせるタスク (= 既存 H-1 `+<PJ>` 規約と統一)
+- まさが「この日無理」と思って枠を別日時にドラッグしたら、次の H-1 run (毎時) で追従して spawn 時刻を再計算する
+- 対象は **まさのカレンダーだけ** (= 他メンバーには prep 枠を作らない、まさ確定)
+
+#### MTG カードの表示
+
+- 翌7日に予定MTG (= `source_kinds='upcoming'`) がある PJ では、cockpit MTG サマリの予定MTGカードに以下が表示される:
+  - **readiness pill**: 緑 80↑ (準備OK) / 黄 50-79 (もう一押し) / 赤 <50 (要相談)
+  - **session 状態 chip**: 「prep セッション準備中」 / 「ready (codex で開いてね)」 / 「起動失敗」
+- worker が生成した資料 draft は Drive `PJfolder/YYMMDD_MTG名_prep/` に置かれる (= 本資料フォルダではなく draft フォルダ)
+- worker が作成したアジェンダ草案入り Notion 議事録ページは事前に MTG カードの `notion_url` として表示される
+
+#### Slack DM nudge
+
+- H-1 run で `prep_worker_status='ready'` になった MTG をその run の末尾で まさ専用 Slack DM にまとめて送る (= 1日複数回起こり得る、ただし同じMTGには重複送信しない)
+- 形式 (つくよみ口調):
+  ```
+  🌙 まさ、prep セッション立ち上げといたよー
+
+  📌 KUTE定例 (明日10:00, p25, オンライン)
+     readiness 75/100  🟡
+     codex で開いてね、待機してるよ
+
+  📌 pHydrogen KR訪問 (明後日14:00, p07)
+     readiness 35/100  🔴
+     codex で開いてね、資料draftは作ったけど着地点要相談
+  ```
+- まさは codex desktop を自分で起動 → 該当 session に入って対話開始。ターミナル操作不要
+- 各 PJ の facilitator (= kaz / かる / ちこ等) には同じDMを送らない (= **まさ専用 DM だけ**、まさ確定)
+
+#### codex のみで spawn 統一
+
+- session は codex で立ち上げる (= claude code は使わない、まさ 2026-06-22 確定)
+- codex は ChatGPT サブスク認証で動くため、prep セッションで定額外トークン課金は発生しない
+
+詳細仕様は **[3-3 章 H-1 MTG Prep セッション自動立ち上げ](../spec/3-3-meeting-flow-current-spec.md)** / **[8-3 章 L2 H-1 MTGフロー](8-3-l2-extraction-routines-spec.md)**。
 
 ---
 
