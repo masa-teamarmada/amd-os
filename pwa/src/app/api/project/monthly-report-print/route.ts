@@ -3,58 +3,48 @@
  *
  * GET ?projectId=&ym= → クライアント提出用月次レポートの集約データ
  *
- * 印刷ページ /project/[projectId]/report/[ym]/print が呼ぶ。
- * Cockpit 月次モーダルが表示している以下の情報を一括で返す:
- *  - project (project_name / client_name)
- *  - report (monthly_reports.final_content || draft_content + status)
- *  - milestones (value_milestones + milestone_monthly_progress 当月%)
- *  - meetings (project_meeting_summaries 当月分 narrative_md / decided / next_actions)
- *  - signals (project_strategy_signals confirmed の当月分)
- *  - members (project_members + members.code_name)
- *  - monthlyNote (project_monthly_notes.body)
+ * 大学・研究機関向け国プロ網羅型レポート用に拡張 (v0.32.0)。
+ * 章立て A-J 全ブロックを 1 fetch で返す。
+ *
+ * 章 / 出典テーブル:
+ *  A. 表紙          → projects + 業務契約特定 (contracts.signed の最新 + contract_terms)
+ *  B. Exec Summary  → monthly_reports + amd_score_inputs (XRL/AMD Score)
+ *  C. 進捗          → monthly_reports / value_milestones (Gantt含む) / milestone_monthly_progress / project_xrl_log
+ *  D. 成果          → project_strategy_signals (polarity🎉✨) / project_grants / project_media_mentions
+ *  E. 主要会議      → project_meeting_summaries (当月)
+ *  F. 体制          → project_members + members + milestone_responsibility + project_founding_members
+ *  G. 課題          → project_meeting_summaries.risks + signals(polarity⚠️) + action_items
+ *  H. 財務          → billing_cycles + reimbursements + project_grants.disbursed_yen
+ *  I. 次月計画      → action_items (翌月) + meetings (upcoming翌月)
+ *  J. 添付          → meeting_assets + project_documents + contract_documents
  *
  * 列名は design/db_schema.md 準拠 (想像で書かない)。
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/supabase/api-auth";
 
-interface MsRow {
-  milestoneId: string;
-  title: string;
-  points: number;
-  tag: string;
-  progressPct: number;
-  note: string | null;
+function nextYm(ym: string): string {
+  const y = parseInt(ym.slice(0, 4), 10);
+  const m = parseInt(ym.slice(4, 6), 10);
+  const ny = m === 12 ? y + 1 : y;
+  const nm = m === 12 ? 1 : m + 1;
+  return `${ny}${String(nm).padStart(2, "0")}`;
 }
-
-interface MeetingRow {
-  meetingId: string;
-  meetingDate: string;
-  title: string;
-  summaryShort: string;
-  narrativeMd: string | null;
-  decided: unknown[];
-  nextActions: unknown[];
-  risks: unknown[];
-  notionUrl: string | null;
+function prevYm(ym: string): string {
+  const y = parseInt(ym.slice(0, 4), 10);
+  const m = parseInt(ym.slice(4, 6), 10);
+  const py = m === 1 ? y - 1 : y;
+  const pm = m === 1 ? 12 : m - 1;
+  return `${py}${String(pm).padStart(2, "0")}`;
 }
-
-interface SignalRow {
-  signalId: string;
-  signalType: string;
-  title: string;
-  summary: string;
-  impactLevel: string;
-  decisionState: string;
-  signalDate: string | null;
+function ymFirstDay(ym: string): string {
+  return `${ym.slice(0, 4)}-${ym.slice(4, 6)}-01`;
 }
-
-interface MemberRow {
-  memberId: string;
-  codeName: string;
-  roleLabel: string | null;
-  isPm: boolean;
-  isPl: boolean;
+function ymLastDay(ym: string): string {
+  const y = parseInt(ym.slice(0, 4), 10);
+  const m = parseInt(ym.slice(4, 6), 10);
+  const d = new Date(y, m, 0).getDate();
+  return `${ym.slice(0, 4)}-${ym.slice(4, 6)}-${String(d).padStart(2, "0")}`;
 }
 
 export async function GET(req: NextRequest) {
@@ -67,106 +57,246 @@ export async function GET(req: NextRequest) {
   if (!projectId || !/^\d{6}$/.test(ym ?? "")) {
     return NextResponse.json({ error: "projectId and ym (YYYYMM) required" }, { status: 400 });
   }
+  const ymStr = ym as string;
+  const nextYmStr = nextYm(ymStr);
+  const prevYmStr = prevYm(ymStr);
+  const ymStart = ymFirstDay(ymStr);
+  const ymEnd = ymLastDay(ymStr);
 
   const db = auth.supabase;
 
-  const [projRes, repRes, milestoneRes, meetingRes, signalRes, pmRes, noteRes] = await Promise.all([
-    db
-      .from("projects")
-      .select("project_id,project_name,client_name,status,start_ym,end_ym")
-      .eq("project_id", projectId)
-      .maybeSingle(),
-    db
-      .from("monthly_reports")
-      .select("draft_content,final_content,status,generated_at,fixed_at,confirmed_by")
-      .eq("project_id", projectId)
-      .eq("ym", ym)
-      .maybeSingle(),
-    db
-      .from("value_milestones")
-      .select("milestone_id,plan_cycle_id,title,points,tag,is_active")
+  const [
+    projRes, repRes, milestoneRes, meetingRes, signalRes, pmRes, noteRes,
+    planCycleRes, contractsRes, foundingRes,
+    grantsRes, mediaRes, xrlLogRes, actionRes, reimburseRes,
+    upcomingMeetingRes,
+  ] = await Promise.all([
+    db.from("projects")
+      .select("project_id,project_name,client_name,status,start_ym,end_ym,fee_type,fee_amount")
+      .eq("project_id", projectId).maybeSingle(),
+    db.from("monthly_reports")
+      .select("draft_content,final_content,status,generated_at,fixed_at,confirmed_by,pl_review_requested_at,pl_review_requested_by")
+      .eq("project_id", projectId).eq("ym", ymStr).maybeSingle(),
+    db.from("value_milestones")
+      .select("milestone_id,plan_cycle_id,title,points,tag,is_active,period_start_ym,target_ym,sort_order,success_criteria")
       .eq("is_active", true),
-    db
-      .from("project_meeting_summaries")
-      .select("meeting_id,meeting_date,title,summary_short,narrative_md,decided,next_actions,risks,notion_url")
-      .eq("project_id", projectId)
-      .eq("ym", ym)
+    db.from("project_meeting_summaries")
+      .select("meeting_id,meeting_date,meeting_start_at,title,summary_short,narrative_md,decided,next_actions,risks,notion_url,source_kinds,source_url")
+      .eq("project_id", projectId).eq("ym", ymStr)
       .order("meeting_date", { ascending: true }),
-    db
-      .from("project_strategy_signals")
-      .select("signal_id,signal_type,title,summary,impact_level,decision_state,signal_date,status")
-      .eq("project_id", projectId)
-      .eq("ym", ym)
-      .in("status", ["confirmed"])
+    db.from("project_strategy_signals")
+      .select("signal_id,signal_type,title,summary,impact_level,decision_state,signal_date,status,polarity,score_impact_summary")
+      .eq("project_id", projectId).eq("ym", ymStr)
+      .eq("status", "confirmed")
       .order("signal_date", { ascending: false }),
-    db
-      .from("project_members")
-      .select("member_id,role_label,is_pm,is_pl,is_active")
-      .eq("project_id", projectId)
-      .eq("is_active", true),
-    db
-      .from("project_monthly_notes")
+    db.from("project_members")
+      .select("member_id,role,role_label,is_pm,is_pl,is_closer,is_active,join_ym,leave_ym")
+      .eq("project_id", projectId).eq("is_active", true),
+    db.from("project_monthly_notes")
       .select("body,updated_at,updated_by")
+      .eq("project_id", projectId).eq("ym", ymStr).maybeSingle(),
+    db.from("value_plan_cycles")
+      .select("plan_cycle_id,status,period_start_ym,period_end_ym,total_points,budget_yen")
       .eq("project_id", projectId)
-      .eq("ym", ym)
-      .maybeSingle(),
+      .order("period_start_ym", { ascending: false }),
+    // 契約特定情報: signed/effective を優先、なければ最新の terms
+    db.from("contracts")
+      .select("contract_id,contract_title,counterparty_name,contract_type,status,effective_date,expiration_date,contract_value_yen,canonical_title")
+      .eq("project_id", projectId)
+      .in("status", ["signed", "active", "effective"])
+      .order("effective_date", { ascending: false, nullsFirst: false }),
+    db.from("project_founding_members")
+      .select("person_name,affiliation,role,role_label_jp,category,status")
+      .eq("project_id", projectId).eq("status", "active"),
+    db.from("project_grants")
+      .select("id,grant_name,agency,grant_type,amount_yen,disbursed_yen,period_start_ym,period_end_ym,adopted_date,status")
+      .eq("project_id", projectId)
+      .order("adopted_date", { ascending: false, nullsFirst: false }),
+    db.from("project_media_mentions")
+      .select("id,occurred_on,title,media_name,kind,source_url")
+      .eq("project_id", projectId)
+      .gte("occurred_on", ymStart).lte("occurred_on", ymEnd)
+      .order("occurred_on", { ascending: false }),
+    db.from("project_xrl_log")
+      .select("id,observed_at,trl,brl,grl,srl,hrl,bottleneck,milestone_label,source_note")
+      .eq("project_id", projectId)
+      .order("observed_at", { ascending: false })
+      .limit(8),
+    db.from("action_items")
+      .select("action_id,scope,category,title,assignee_member_id,due_at,status,priority,source_hash")
+      .eq("project_id", projectId)
+      .in("status", ["open", "in_progress", "blocked"])
+      .order("due_at", { ascending: true, nullsFirst: false }),
+    db.from("reimbursements")
+      .select("reimbursement_id,date,category,amount,tax_rate,description,member_id,status,billed_ym")
+      .eq("project_id", projectId)
+      .eq("billed_ym", ymStr),
+    db.from("project_meeting_summaries")
+      .select("meeting_id,meeting_date,title,summary_short,source_kinds")
+      .eq("project_id", projectId).eq("ym", nextYmStr)
+      .order("meeting_date", { ascending: true }),
   ]);
 
   if (projRes.error || !projRes.data) {
     return NextResponse.json({ error: "project not found" }, { status: 404 });
   }
+  const proj = projRes.data;
 
   // MS を当該 PJ の plan_cycle に絞る
-  const planCycleRes = await db
-    .from("value_plan_cycles")
-    .select("plan_cycle_id,status,period_start_ym,period_end_ym,total_points,budget_yen")
-    .eq("project_id", projectId)
-    .order("period_start_ym", { ascending: false });
-
-  const planCycleIds = new Set((planCycleRes.data || []).map((c) => c.plan_cycle_id));
-  const projectMilestones = (milestoneRes.data || []).filter((m) => planCycleIds.has(m.plan_cycle_id));
+  const planCycles = planCycleRes.data || [];
+  const planCycleIds = new Set(planCycles.map((c) => c.plan_cycle_id));
+  const projectMilestones = (milestoneRes.data || [])
+    .filter((m) => planCycleIds.has(m.plan_cycle_id))
+    .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0));
   const milestoneIds = projectMilestones.map((m) => m.milestone_id);
 
-  // 当月 milestone_monthly_progress
+  // 当月 + 前月 milestone_monthly_progress (Gantt の累積比較用)
   const progressRes = milestoneIds.length
-    ? await db
-        .from("milestone_monthly_progress")
-        .select("milestone_key,progress_pct,consumed_pt,source,note")
+    ? await db.from("milestone_monthly_progress")
+        .select("milestone_key,ym,progress_pct,consumed_pt,source,note")
         .in("milestone_key", milestoneIds)
-        .eq("ym", ym)
-    : { data: [] as Array<{ milestone_key: string; progress_pct: number; consumed_pt: number; source: string | null; note: string | null }> };
-  const progressMap = new Map(
-    (progressRes.data || []).map((p) => [p.milestone_key, p])
+        .in("ym", [ymStr, prevYmStr])
+    : { data: [] };
+  const currProgressMap = new Map(
+    ((progressRes.data || []) as Array<{ milestone_key: string; ym: string; progress_pct: number; note: string | null; source: string | null }>)
+      .filter((p) => p.ym === ymStr)
+      .map((p) => [p.milestone_key, p])
+  );
+  const prevProgressMap = new Map(
+    ((progressRes.data || []) as Array<{ milestone_key: string; ym: string; progress_pct: number }>)
+      .filter((p) => p.ym === prevYmStr)
+      .map((p) => [p.milestone_key, p.progress_pct])
   );
 
-  const milestones: MsRow[] = projectMilestones.map((m) => {
-    const p = progressMap.get(m.milestone_id);
+  const milestones = projectMilestones.map((m) => {
+    const p = currProgressMap.get(m.milestone_id);
+    const prevPct = Number(prevProgressMap.get(m.milestone_id) || 0);
+    const currPct = Math.round(Number(p?.progress_pct || 0));
     return {
       milestoneId: m.milestone_id,
       title: m.title,
       points: Number(m.points || 0),
       tag: m.tag || "normal",
-      progressPct: Math.round(Number(p?.progress_pct || 0)),
+      periodStartYm: m.period_start_ym || null,
+      targetYm: m.target_ym || null,
+      successCriteria: m.success_criteria || null,
+      progressPct: currPct,
+      prevProgressPct: Math.round(prevPct),
+      deltaPct: currPct - Math.round(prevPct),
       note: p?.note || null,
+      source: p?.source || null,
     };
   });
 
-  // メンバー名解決
-  const memberIds = (pmRes.data || []).map((r) => r.member_id);
-  const memberNameRes = memberIds.length
-    ? await db.from("members").select("member_id,code_name").in("member_id", memberIds)
-    : { data: [] as Array<{ member_id: string; code_name: string }> };
-  const memberNameMap = new Map((memberNameRes.data || []).map((m) => [m.member_id, m.code_name]));
+  // 当該PJのメンバー責任 (MS別 share)
+  const responsibilityRes = milestoneIds.length
+    ? await db.from("milestone_responsibility")
+        .select("milestone_id,member_id,role,share,task_description")
+        .in("milestone_id", milestoneIds)
+    : { data: [] };
 
-  const members: MemberRow[] = (pmRes.data || []).map((pm) => ({
+  // メンバー名解決 (project_members + responsibility に出る member_id 全部)
+  const pmRows = pmRes.data || [];
+  const respRows = (responsibilityRes.data || []) as Array<{ milestone_id: string; member_id: string; role: string | null; share: number | null; task_description: string | null }>;
+  const memberIdSet = new Set([
+    ...pmRows.map((r) => r.member_id),
+    ...respRows.map((r) => r.member_id),
+  ]);
+  const memberNameRes = memberIdSet.size
+    ? await db.from("members").select("member_id,code_name").in("member_id", Array.from(memberIdSet))
+    : { data: [] };
+  const memberNameMap = new Map(((memberNameRes.data || []) as Array<{ member_id: string; code_name: string }>).map((m) => [m.member_id, m.code_name]));
+
+  const members = pmRows.map((pm) => ({
     memberId: pm.member_id,
     codeName: memberNameMap.get(pm.member_id) || pm.member_id,
+    role: pm.role || null,
     roleLabel: pm.role_label || null,
     isPm: !!pm.is_pm,
     isPl: !!pm.is_pl,
+    isCloser: !!pm.is_closer,
+    joinYm: pm.join_ym || null,
+    leaveYm: pm.leave_ym || null,
   }));
 
-  const meetings: MeetingRow[] = (meetingRes.data || []).map((m) => ({
+  const responsibilities = respRows.map((r) => ({
+    milestoneId: r.milestone_id,
+    memberId: r.member_id,
+    codeName: memberNameMap.get(r.member_id) || r.member_id,
+    role: r.role || null,
+    share: Number(r.share || 0),
+    taskDescription: r.task_description || null,
+  }));
+
+  // 業務契約特定情報
+  const signedContracts = (contractsRes.data || []) as Array<{
+    contract_id: string; contract_title: string; counterparty_name: string | null;
+    contract_type: string; status: string; effective_date: string | null;
+    expiration_date: string | null; contract_value_yen: number | null; canonical_title: string | null;
+  }>;
+  const primaryContract = signedContracts[0] || null;
+
+  // contract_terms の最新 (applied) からも契約番号・見積書番号を拾う
+  const termsRes = await db.from("contract_terms")
+    .select("term_id,contract_id,contract_no,quote_no,contract_title,counterparty_name,period_start,period_end,amount_tax_incl,billing_distribution,status")
+    .eq("project_id", projectId)
+    .eq("status", "applied")
+    .order("period_start", { ascending: false, nullsFirst: false })
+    .limit(5);
+  const primaryTerm = ((termsRes.data || []) as Array<{ contract_id: string | null; contract_no: string | null; quote_no: string | null; contract_title: string | null; counterparty_name: string | null; period_start: string | null; period_end: string | null; amount_tax_incl: number | null }>)[0] || null;
+
+  const contractIdentification = {
+    contractId: primaryContract?.contract_id || primaryTerm?.contract_id || null,
+    title: primaryContract?.canonical_title || primaryContract?.contract_title || primaryTerm?.contract_title || null,
+    counterparty: primaryContract?.counterparty_name || primaryTerm?.counterparty_name || null,
+    contractType: primaryContract?.contract_type || null,
+    contractNo: primaryTerm?.contract_no || null,
+    quoteNo: primaryTerm?.quote_no || null,
+    // 入札番号は列がないので現状 null。タスク#12 で列追加後に埋まる。
+    bidNo: null as string | null,
+    amdContractNo: null as string | null, // タスク#12 で列追加後に埋まる
+    periodStart: primaryContract?.effective_date || primaryTerm?.period_start || null,
+    periodEnd: primaryContract?.expiration_date || primaryTerm?.period_end || null,
+    contractValueYen: Number(primaryContract?.contract_value_yen || primaryTerm?.amount_tax_incl || 0) || null,
+  };
+
+  // 5生データ確認状況 (ソース証跡)
+  const sourceTraceRes = await db.from("monthly_reports")
+    .select("collection_summary_json")
+    .eq("project_id", projectId).eq("ym", ymStr).maybeSingle();
+  const sourceCheck = (sourceTraceRes.data?.collection_summary_json as Record<string, unknown> | null) || null;
+
+  // 当月会議資料リンク (meeting_assets)
+  const meetingIds = (meetingRes.data || []).map((m) => m.meeting_id);
+  const meetingAssetsRes = meetingIds.length
+    ? await db.from("meeting_assets")
+        .select("meeting_id,storage_path,drive_file_id,web_view_link,file_name,mime_type,uploaded_at")
+        .in("meeting_id", meetingIds)
+    : { data: [] };
+
+  // PJ 資料台帳 (当月更新分)
+  const docsRes = await db.from("project_documents")
+    .select("id,file_name,web_view_link,mime_type,created_at,uploaded_by")
+    .eq("project_id", projectId)
+    .gte("created_at", `${ymStart}T00:00:00Z`)
+    .lte("created_at", `${ymEnd}T23:59:59Z`)
+    .order("created_at", { ascending: false });
+
+  // 契約書 PDF (最新)
+  const contractDocsRes = await db.from("contract_documents")
+    .select("document_id,document_kind,file_name,web_view_link,is_latest,received_at")
+    .eq("project_id", projectId)
+    .eq("is_latest", true)
+    .order("received_at", { ascending: false })
+    .limit(10);
+
+  // 当月 billing_cycles (財務)
+  const billingRes = await db.from("billing_cycles")
+    .select("project_id,ym,status,budget_yen,budget_reported_amount,extra_revenue_json,extra_budget_yen,invoice_sent_at,payment_confirmed_at")
+    .eq("project_id", projectId).eq("ym", ymStr).maybeSingle();
+
+  // ─── 整形 ─────────────────────────────────────
+  const meetings = (meetingRes.data || []).map((m) => ({
     meetingId: m.meeting_id,
     meetingDate: m.meeting_date,
     title: m.title,
@@ -176,9 +306,10 @@ export async function GET(req: NextRequest) {
     nextActions: Array.isArray(m.next_actions) ? m.next_actions : [],
     risks: Array.isArray(m.risks) ? m.risks : [],
     notionUrl: m.notion_url || null,
+    sourceKinds: m.source_kinds || null,
   }));
 
-  const signals: SignalRow[] = (signalRes.data || []).map((s) => ({
+  const signals = (signalRes.data || []).map((s) => ({
     signalId: s.signal_id,
     signalType: s.signal_type,
     title: s.title,
@@ -186,6 +317,122 @@ export async function GET(req: NextRequest) {
     impactLevel: s.impact_level,
     decisionState: s.decision_state,
     signalDate: s.signal_date,
+    polarity: s.polarity || null,
+    scoreImpactSummary: s.score_impact_summary || null,
+  }));
+
+  // 成果系シグナル (🎉 大進捗 + ✨ 順調な前進)
+  const achievementSignals = signals.filter((s) => s.polarity === "🎉" || s.polarity === "✨");
+  // リスク系シグナル
+  const riskSignals = signals.filter((s) => s.polarity === "⚠️");
+  // 戦略転換シグナル
+  const pivotSignals = signals.filter((s) => s.polarity === "🔄");
+
+  const grants = ((grantsRes.data || []) as Array<{ id: string; grant_name: string; agency: string | null; grant_type: string | null; amount_yen: number | null; disbursed_yen: number | null; period_start_ym: string | null; period_end_ym: string | null; adopted_date: string | null; status: string | null }>).map((g) => ({
+    id: g.id,
+    grantName: g.grant_name,
+    agency: g.agency || null,
+    grantType: g.grant_type || null,
+    amountYen: Number(g.amount_yen || 0),
+    disbursedYen: Number(g.disbursed_yen || 0),
+    periodStartYm: g.period_start_ym || null,
+    periodEndYm: g.period_end_ym || null,
+    adoptedDate: g.adopted_date || null,
+    status: g.status || null,
+  }));
+
+  const media = ((mediaRes.data || []) as Array<{ id: string; occurred_on: string; title: string; media_name: string; kind: string; source_url: string | null }>).map((m) => ({
+    id: m.id,
+    occurredOn: m.occurred_on,
+    title: m.title,
+    mediaName: m.media_name,
+    kind: m.kind,
+    sourceUrl: m.source_url || null,
+  }));
+
+  const xrlLog = ((xrlLogRes.data || []) as Array<{ id: string; observed_at: string; trl: number | null; brl: number | null; grl: number | null; srl: number | null; hrl: number | null; bottleneck: string | null; milestone_label: string | null; source_note: string | null }>).map((x) => ({
+    id: x.id,
+    observedAt: x.observed_at,
+    trl: x.trl,
+    brl: x.brl,
+    grl: x.grl,
+    srl: x.srl,
+    hrl: x.hrl,
+    bottleneck: x.bottleneck || null,
+    milestoneLabel: x.milestone_label || null,
+    sourceNote: x.source_note || null,
+  }));
+
+  // 当月の XRL = 当月以前で一番新しい1件、前月の XRL = 前月末以前で一番新しい1件
+  const currentXrl = xrlLog.find((x) => x.observedAt <= ymEnd) || null;
+  const previousXrl = xrlLog.find((x) => x.observedAt < ymStart) || null;
+
+  const actionItems = ((actionRes.data || []) as Array<{ action_id: string; scope: string; category: string | null; title: string; assignee_member_id: string | null; due_at: string | null; status: string; priority: string | null }>).map((a) => ({
+    actionId: a.action_id,
+    scope: a.scope,
+    category: a.category || null,
+    title: a.title,
+    assignee: a.assignee_member_id ? (memberNameMap.get(a.assignee_member_id) || a.assignee_member_id) : null,
+    dueAt: a.due_at || null,
+    status: a.status,
+    priority: a.priority || null,
+  }));
+  // 翌月までに期日が来るアクション (= 次月の重点)
+  const nextMonthActions = actionItems.filter((a) => {
+    if (!a.dueAt) return false;
+    const due = a.dueAt.slice(0, 10);
+    return due >= ymStart && due <= ymLastDay(nextYmStr);
+  });
+
+  const reimbursements = ((reimburseRes.data || []) as Array<{ reimbursement_id: string; date: string; category: string; amount: number; tax_rate: number | null; description: string | null; member_id: string | null; status: string }>).map((r) => ({
+    reimbursementId: r.reimbursement_id,
+    date: r.date,
+    category: r.category,
+    amount: Number(r.amount || 0),
+    taxRate: Number(r.tax_rate || 0),
+    description: r.description || null,
+    member: r.member_id ? (memberNameMap.get(r.member_id) || r.member_id) : null,
+    status: r.status,
+  }));
+  const reimburseTotal = reimbursements.reduce((s, r) => s + r.amount, 0);
+
+  const upcomingMeetings = ((upcomingMeetingRes.data || []) as Array<{ meeting_id: string; meeting_date: string; title: string; summary_short: string | null; source_kinds: string | null }>)
+    .filter((m) => (m.source_kinds || "").includes("upcoming"))
+    .map((m) => ({
+      meetingId: m.meeting_id,
+      meetingDate: m.meeting_date,
+      title: m.title,
+      summaryShort: m.summary_short || "",
+    }));
+
+  const meetingAssets = ((meetingAssetsRes.data || []) as Array<{ meeting_id: string; file_name: string; web_view_link: string | null; mime_type: string; uploaded_at: string }>).map((a) => ({
+    meetingId: a.meeting_id,
+    fileName: a.file_name,
+    webViewLink: a.web_view_link || null,
+    mimeType: a.mime_type,
+    uploadedAt: a.uploaded_at,
+  }));
+  const projectDocs = ((docsRes.data || []) as Array<{ id: string; file_name: string; web_view_link: string | null; mime_type: string; created_at: string }>).map((d) => ({
+    id: d.id,
+    fileName: d.file_name,
+    webViewLink: d.web_view_link || null,
+    mimeType: d.mime_type,
+    createdAt: d.created_at,
+  }));
+  const contractDocs = ((contractDocsRes.data || []) as Array<{ document_id: string; document_kind: string; file_name: string; web_view_link: string | null; received_at: string }>).map((d) => ({
+    documentId: d.document_id,
+    documentKind: d.document_kind,
+    fileName: d.file_name,
+    webViewLink: d.web_view_link || null,
+    receivedAt: d.received_at,
+  }));
+
+  const founding = ((foundingRes.data || []) as Array<{ person_name: string; affiliation: string | null; role: string | null; role_label_jp: string | null; category: string }>).map((f) => ({
+    personName: f.person_name,
+    affiliation: f.affiliation || null,
+    role: f.role || null,
+    roleLabelJp: f.role_label_jp || null,
+    category: f.category,
   }));
 
   const overallPct = (() => {
@@ -196,17 +443,58 @@ export async function GET(req: NextRequest) {
     return Math.round(weighted);
   })();
 
+  const planCycle = planCycles[0] || null;
+  // 期待進捗% (経過月数比)
+  const expectedPct = (() => {
+    if (!planCycle) return null;
+    const ymToMonths = (s: string) => parseInt(s.slice(0, 4), 10) * 12 + parseInt(s.slice(4, 6), 10);
+    const total = ymToMonths(planCycle.period_end_ym) - ymToMonths(planCycle.period_start_ym) + 1;
+    const elapsed = ymToMonths(ymStr) - ymToMonths(planCycle.period_start_ym) + 1;
+    if (total <= 0) return null;
+    return Math.min(100, Math.max(0, Math.round((elapsed / total) * 100)));
+  })();
+
+  // RAG (3軸: スケジュール / コスト / リスク)
+  const rag = {
+    schedule: (() => {
+      if (expectedPct === null) return "n/a";
+      const diff = expectedPct - overallPct;
+      if (diff <= 5) return "green";
+      if (diff <= 20) return "amber";
+      return "red";
+    })(),
+    cost: (() => {
+      const budget = Number(billingRes.data?.budget_yen || 0);
+      const reported = Number(billingRes.data?.budget_reported_amount || 0);
+      if (budget <= 0) return "n/a";
+      const usageRatio = reported / budget;
+      if (usageRatio <= 1.0) return "green";
+      if (usageRatio <= 1.1) return "amber";
+      return "red";
+    })(),
+    risk: (() => {
+      if (riskSignals.length === 0) return "green";
+      const critical = riskSignals.filter((r) => r.impactLevel === "critical" || r.impactLevel === "high");
+      if (critical.length === 0) return "amber";
+      return "red";
+    })(),
+  };
+
   return NextResponse.json({
     ok: true,
+    generatedAt: new Date().toISOString(),
     project: {
-      projectId: projRes.data.project_id,
-      projectName: projRes.data.project_name,
-      clientName: projRes.data.client_name || null,
-      status: projRes.data.status,
-      startYm: projRes.data.start_ym || null,
-      endYm: projRes.data.end_ym || null,
+      projectId: proj.project_id,
+      projectName: proj.project_name,
+      clientName: proj.client_name || null,
+      status: proj.status,
+      startYm: proj.start_ym || null,
+      endYm: proj.end_ym || null,
+      feeType: proj.fee_type || null,
+      feeAmount: Number(proj.fee_amount || 0) || null,
     },
-    ym,
+    ym: ymStr,
+    nextYm: nextYmStr,
     report: repRes.data
       ? {
           status: repRes.data.status || "pending",
@@ -215,13 +503,60 @@ export async function GET(req: NextRequest) {
           generatedAt: repRes.data.generated_at,
           fixedAt: repRes.data.fixed_at,
           confirmedBy: repRes.data.confirmed_by || null,
+          plReviewRequestedAt: repRes.data.pl_review_requested_at || null,
+          plReviewRequestedBy: repRes.data.pl_review_requested_by || null,
         }
       : null,
-    milestones,
-    overallPct,
-    meetings,
-    signals,
-    members,
     monthlyNote: noteRes.data?.body || "",
+    contract: contractIdentification,
+    milestones,
+    responsibilities,
+    overallPct,
+    expectedPct,
+    rag,
+    planCycle: planCycle
+      ? {
+          planCycleId: planCycle.plan_cycle_id,
+          status: planCycle.status,
+          periodStartYm: planCycle.period_start_ym,
+          periodEndYm: planCycle.period_end_ym,
+          totalPoints: Number(planCycle.total_points || 0),
+          budgetYen: Number(planCycle.budget_yen || 0),
+        }
+      : null,
+    meetings,
+    upcomingMeetings,
+    signals,
+    achievementSignals,
+    riskSignals,
+    pivotSignals,
+    grants,
+    media,
+    xrlLog,
+    currentXrl,
+    previousXrl,
+    members,
+    founding,
+    actionItems,
+    nextMonthActions,
+    reimbursements,
+    reimburseTotal,
+    billing: billingRes.data
+      ? {
+          status: billingRes.data.status,
+          budgetYen: Number(billingRes.data.budget_yen || 0),
+          budgetReportedAmount: Number(billingRes.data.budget_reported_amount || 0),
+          extraRevenueJson: billingRes.data.extra_revenue_json || null,
+          extraBudgetYen: Number(billingRes.data.extra_budget_yen || 0) || null,
+          invoiceSentAt: billingRes.data.invoice_sent_at || null,
+          paymentConfirmedAt: billingRes.data.payment_confirmed_at || null,
+        }
+      : null,
+    attachments: {
+      meetingAssets,
+      projectDocs,
+      contractDocs,
+    },
+    sourceCheck,
   });
 }

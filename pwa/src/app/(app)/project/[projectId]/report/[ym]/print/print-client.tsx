@@ -1,90 +1,178 @@
 "use client";
 
 /**
- * 月次レポート印刷ビュー (A4 縦)。
+ * 月次レポート印刷ビュー (A4 縦、国プロ網羅型 + 民間 Exec Summary 接続、v0.32.0)。
  *
- * Team ARMADA ブランド (Work Sans / Noto Sans JP / JetBrains Mono / dark accent #0a1628).
- * @page A4 / margin 14mm。 page-break で表紙→本文→MS→MTG→経営→メンバー欄を分ける。
- * 「PDFを保存」ボタンは Cmd+P を発火するだけ (= ブラウザ標準ダイアログ)。
+ * 章立て (大学・研究機関向け):
+ *   A. 表紙
+ *   B. Exec Summary (RAG / 業務遂行レポート見出し文)
+ *   C. 当月の進捗 (本文 / MS進捗表 / Gantt / XRL軸別成熟度)
+ *   D. 当月の成果 (経営シグナル🎉✨ / 公募採択 / メディア / プレス発表)
+ *   E. 主要会議 (narrative_md / Decided / Next Actions / Risks)
+ *   F. 体制 (担当メンバー / MS別役割 / 関連キーパーソン)
+ *   G. 課題・リスク (Risk Register / Action Items / ボトルネック)
+ *   H. 財務サマリ (予算vs実績 / 補助金交付状況 / 立替)
+ *   I. 次月計画 (重点アクション / 主要MTG予定)
+ *   J. 添付資料 (会議資料 / PJ資料 / 契約書 / ソース証跡)
+ *
+ * Team ARMADA ブランド (Work Sans / Noto Sans JP / JetBrains Mono / dark #0a1628)。
+ * @page A4 / margin 14mm。 共通ヘッダ・フッタ・改訂履歴。
+ * PDF 化はブラウザの Cmd+P → 「PDFとして保存」。
  */
 
 import { useMemo } from "react";
 
+// ─── 型定義 ───────────────────────────────────────────────────────────────
 interface MsRow {
-  milestoneId: string;
-  title: string;
-  points: number;
-  tag: string;
-  progressPct: number;
-  note: string | null;
+  milestoneId: string; title: string; points: number; tag: string;
+  periodStartYm: string | null; targetYm: string | null;
+  successCriteria: string | null;
+  progressPct: number; prevProgressPct: number; deltaPct: number;
+  note: string | null; source: string | null;
+}
+interface ResponsibilityRow {
+  milestoneId: string; memberId: string; codeName: string;
+  role: string | null; share: number; taskDescription: string | null;
 }
 interface MeetingRow {
-  meetingId: string;
-  meetingDate: string;
-  title: string;
-  summaryShort: string;
-  narrativeMd: string | null;
-  decided: unknown[];
-  nextActions: unknown[];
-  risks: unknown[];
-  notionUrl: string | null;
+  meetingId: string; meetingDate: string; title: string;
+  summaryShort: string; narrativeMd: string | null;
+  decided: unknown[]; nextActions: unknown[]; risks: unknown[];
+  notionUrl: string | null; sourceKinds: string | null;
 }
 interface SignalRow {
-  signalId: string;
-  signalType: string;
-  title: string;
-  summary: string;
-  impactLevel: string;
-  decisionState: string;
-  signalDate: string | null;
+  signalId: string; signalType: string; title: string; summary: string;
+  impactLevel: string; decisionState: string; signalDate: string | null;
+  polarity: string | null; scoreImpactSummary: string | null;
 }
 interface MemberRow {
-  memberId: string;
-  codeName: string;
-  roleLabel: string | null;
-  isPm: boolean;
-  isPl: boolean;
+  memberId: string; codeName: string; role: string | null; roleLabel: string | null;
+  isPm: boolean; isPl: boolean; isCloser: boolean;
+  joinYm: string | null; leaveYm: string | null;
 }
+interface FoundingRow {
+  personName: string; affiliation: string | null;
+  role: string | null; roleLabelJp: string | null; category: string;
+}
+interface GrantRow {
+  id: string; grantName: string; agency: string | null; grantType: string | null;
+  amountYen: number; disbursedYen: number;
+  periodStartYm: string | null; periodEndYm: string | null;
+  adoptedDate: string | null; status: string | null;
+}
+interface MediaRow {
+  id: string; occurredOn: string; title: string;
+  mediaName: string; kind: string; sourceUrl: string | null;
+}
+interface XrlRow {
+  id: string; observedAt: string;
+  trl: number | null; brl: number | null; grl: number | null; srl: number | null; hrl: number | null;
+  bottleneck: string | null; milestoneLabel: string | null; sourceNote: string | null;
+}
+interface ActionRow {
+  actionId: string; scope: string; category: string | null;
+  title: string; assignee: string | null;
+  dueAt: string | null; status: string; priority: string | null;
+}
+interface ReimburseRow {
+  reimbursementId: string; date: string; category: string;
+  amount: number; taxRate: number; description: string | null;
+  member: string | null; status: string;
+}
+interface AssetRow {
+  meetingId?: string; documentId?: string; id?: string;
+  fileName?: string; webViewLink: string | null;
+  mimeType?: string; uploadedAt?: string; createdAt?: string;
+  receivedAt?: string; documentKind?: string;
+}
+interface ContractInfo {
+  contractId: string | null; title: string | null;
+  counterparty: string | null; contractType: string | null;
+  contractNo: string | null; quoteNo: string | null;
+  bidNo: string | null; amdContractNo: string | null;
+  periodStart: string | null; periodEnd: string | null;
+  contractValueYen: number | null;
+}
+type Rag = "green" | "amber" | "red" | "n/a";
+
 interface PrintData {
+  generatedAt: string;
   project: {
-    projectId: string;
-    projectName: string;
-    clientName: string | null;
-    status: string;
-    startYm: string | null;
-    endYm: string | null;
+    projectId: string; projectName: string;
+    clientName: string | null; status: string;
+    startYm: string | null; endYm: string | null;
+    feeType: string | null; feeAmount: number | null;
   };
-  ym: string;
+  ym: string; nextYm: string;
   report: {
-    status: string;
-    draftContent: string;
-    finalContent: string;
-    generatedAt: string | null;
-    fixedAt: string | null;
+    status: string; draftContent: string; finalContent: string;
+    generatedAt: string | null; fixedAt: string | null;
     confirmedBy: string | null;
+    plReviewRequestedAt: string | null; plReviewRequestedBy: string | null;
   } | null;
-  milestones: MsRow[];
-  overallPct: number;
-  meetings: MeetingRow[];
-  signals: SignalRow[];
-  members: MemberRow[];
   monthlyNote: string;
+  contract: ContractInfo;
+  milestones: MsRow[];
+  responsibilities: ResponsibilityRow[];
+  overallPct: number;
+  expectedPct: number | null;
+  rag: { schedule: Rag; cost: Rag; risk: Rag };
+  planCycle: {
+    planCycleId: string; status: string;
+    periodStartYm: string; periodEndYm: string;
+    totalPoints: number; budgetYen: number;
+  } | null;
+  meetings: MeetingRow[];
+  upcomingMeetings: Array<{ meetingId: string; meetingDate: string; title: string; summaryShort: string }>;
+  signals: SignalRow[];
+  achievementSignals: SignalRow[];
+  riskSignals: SignalRow[];
+  pivotSignals: SignalRow[];
+  grants: GrantRow[];
+  media: MediaRow[];
+  xrlLog: XrlRow[];
+  currentXrl: XrlRow | null;
+  previousXrl: XrlRow | null;
+  members: MemberRow[];
+  founding: FoundingRow[];
+  actionItems: ActionRow[];
+  nextMonthActions: ActionRow[];
+  reimbursements: ReimburseRow[];
+  reimburseTotal: number;
+  billing: {
+    status: string; budgetYen: number; budgetReportedAmount: number;
+    extraRevenueJson: unknown; extraBudgetYen: number | null;
+    invoiceSentAt: string | null; paymentConfirmedAt: string | null;
+  } | null;
+  attachments: {
+    meetingAssets: AssetRow[];
+    projectDocs: AssetRow[];
+    contractDocs: AssetRow[];
+  };
+  sourceCheck: Record<string, unknown> | null;
 }
 
+// ─── ユーティリティ ────────────────────────────────────────────────────
 function formatYm(ym: string) {
   return `${ym.slice(0, 4)}年${parseInt(ym.slice(4, 6), 10)}月`;
 }
-
 function formatDate(iso: string | null): string {
-  if (!iso) return "";
+  if (!iso) return "—";
   try {
     const d = new Date(iso);
     return d.toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
-  } catch {
-    return iso;
-  }
+  } catch { return iso; }
 }
-
+function formatYen(n: number | null | undefined): string {
+  if (!n || !Number.isFinite(n)) return "—";
+  return `¥${Math.round(n).toLocaleString("ja-JP")}`;
+}
+function ymToDate(ym: string | null): Date | null {
+  if (!ym || ym.length < 6) return null;
+  const y = parseInt(ym.slice(0, 4), 10);
+  const m = parseInt(ym.slice(4, 6), 10);
+  return new Date(y, m - 1, 1);
+}
 function impactBadge(level: string): { label: string; tone: string } {
   switch (level) {
     case "critical": return { label: "Critical", tone: "#b91c1c" };
@@ -93,28 +181,34 @@ function impactBadge(level: string): { label: string; tone: string } {
     default: return { label: "Low", tone: "#475569" };
   }
 }
-
 function signalTypeLabel(t: string): string {
   const map: Record<string, string> = {
-    risk: "リスク", opportunity: "機会", decision: "意思決定",
-    pipeline: "パイプライン", finance: "財務", policy: "ポリシー",
-    market: "市場", talent: "人材", legal: "法務", other: "その他",
+    risk: "リスク", opportunity: "機会", management_decision: "経営判断",
+    strategic_pivot: "戦略転換", funding: "資金調達", next_move: "次の一手",
+    business_progress: "事業進捗", commercial_progress: "商業進捗",
+    partnership: "パートナーシップ", tech_progress: "技術進捗",
+    ip_regulatory: "IP・規制", pipeline: "パイプライン",
+    finance: "財務", policy: "ポリシー", market: "市場",
+    talent: "人材", legal: "法務", other: "その他",
   };
   return map[t] || t;
 }
-
+function ragLabel(r: Rag): { label: string; color: string; bg: string } {
+  if (r === "green") return { label: "GREEN", color: "#166534", bg: "#dcfce7" };
+  if (r === "amber") return { label: "AMBER", color: "#92400e", bg: "#fef3c7" };
+  if (r === "red") return { label: "RED", color: "#991b1b", bg: "#fee2e2" };
+  return { label: "N/A", color: "#475569", bg: "#f1f5f9" };
+}
 function arrayToLines(value: unknown[]): string[] {
-  return value
-    .map((v) => {
-      if (typeof v === "string") return v;
-      if (v && typeof v === "object") {
-        const obj = v as Record<string, unknown>;
-        const text = (obj.text ?? obj.label ?? obj.body ?? obj.title ?? obj.content) as unknown;
-        return typeof text === "string" ? text : JSON.stringify(v);
-      }
-      return String(v);
-    })
-    .filter((s) => s.trim().length > 0);
+  return value.map((v) => {
+    if (typeof v === "string") return v;
+    if (v && typeof v === "object") {
+      const obj = v as Record<string, unknown>;
+      const text = (obj.text ?? obj.label ?? obj.body ?? obj.title ?? obj.content) as unknown;
+      return typeof text === "string" ? text : JSON.stringify(v);
+    }
+    return String(v);
+  }).filter((s) => s.trim().length > 0);
 }
 
 function MarkdownBlock({ text }: { text: string }) {
@@ -134,37 +228,882 @@ function MarkdownBlock({ text }: { text: string }) {
     </div>
   );
 }
-
 function renderInline(text: string): React.ReactNode {
   const parts = text.split(/\*\*([^*]+)\*\*/g);
   return parts.map((p, i) => (i % 2 === 1 ? <strong key={i}>{p}</strong> : p));
 }
 
-export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
-  const { project, ym, report, milestones, overallPct, meetings, signals, members, monthlyNote } = data;
-  const reportBody = report?.finalContent || report?.draftContent || "";
+// ─── 業務遂行レポート見出し文の自動生成 ─────────────────────────────────
+function leadParagraph(data: PrintData): string {
+  const { project, contract, ym } = data;
+  const client = project.clientName || project.projectName;
+  const subj = contract.title ? `「${contract.title}」` : `本業務 (${project.projectName})`;
+  const periodPart = contract.periodStart && contract.periodEnd
+    ? ` (履行期間: ${contract.periodStart} 〜 ${contract.periodEnd})`
+    : "";
+  const valuePart = contract.contractValueYen
+    ? `、契約金額 ${formatYen(contract.contractValueYen)}`
+    : "";
+  return `本書は、${client}と株式会社チームアルマダの間で締結された ${subj}${periodPart}${valuePart} に基づき、${formatYm(ym)} 稼働分の業務遂行状況を報告するものである。`;
+}
+
+// ─── 各章コンポーネント ───────────────────────────────────────────────
+function CoverPage({ data }: { data: PrintData }) {
+  const { project, contract, ym, report } = data;
   const isFinal = (report?.status === "fixed" || report?.status === "final") && !!report?.fixedAt;
 
-  const ranked = useMemo(
-    () => [...milestones].sort((a, b) => b.points - a.points),
-    [milestones]
+  // 契約識別ライン (契約番号 / 入札番号 / 見積書番号 のうち入ってるものを並べる)
+  const idItems: Array<{ label: string; value: string }> = [];
+  if (contract.amdContractNo) idItems.push({ label: "AMD契約番号", value: contract.amdContractNo });
+  if (contract.contractNo) idItems.push({ label: "契約番号", value: contract.contractNo });
+  if (contract.bidNo) idItems.push({ label: "入札番号", value: contract.bidNo });
+  if (contract.quoteNo) idItems.push({ label: "見積書番号", value: contract.quoteNo });
+
+  return (
+    <div className="sheet cover-sheet">
+      <div className="cover">
+        <div className="cover-head">
+          <div className="brand-mark">TEAM <b>ARMADA</b> &nbsp;/&nbsp; MONTHLY REPORT</div>
+          <div className="confid-band">取扱注意 / 関係者外秘</div>
+        </div>
+
+        <div className="cover-title-block">
+          <div className="cover-eyebrow">REPORTING PERIOD</div>
+          <div className="cover-ym">{formatYm(ym)}</div>
+          <div className="cover-project">{contract.title || project.projectName}</div>
+          <div className="cover-client">提出先: {project.clientName || "—"}</div>
+        </div>
+
+        {idItems.length > 0 && (
+          <div className="contract-ids">
+            {idItems.map((it, i) => (
+              <div key={i} className="contract-id">
+                <span className="lbl">{it.label}</span>
+                <span className="val">{it.value}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="cover-foot">
+          <div>
+            <div className="brand-line">株式会社チームアルマダ Team ARMADA Inc.</div>
+            <div className="brand-sub">提出元 / Document Owner: masa@team-armada.jp</div>
+            {isFinal && (
+              <div className="status-line">
+                <span className="status-pill final">確定済 / Confirmed</span>
+                {report?.fixedAt && <span className="status-meta"> 確定日: {formatDate(report.fixedAt)}</span>}
+                {report?.confirmedBy && <span className="status-meta"> / 確定者: {report.confirmedBy}</span>}
+              </div>
+            )}
+            {!isFinal && report?.generatedAt && (
+              <div className="status-line">
+                <span className="status-pill draft">ドラフト / Draft</span>
+                <span className="status-meta"> 生成日: {formatDate(report.generatedAt)}</span>
+              </div>
+            )}
+          </div>
+          <div className="cover-meta">
+            <div>提出日: {formatDate(data.generatedAt)}</div>
+            <div className="cover-pjcode">{project.projectId.toUpperCase()}</div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
-  const totalPt = ranked.reduce((s, m) => s + m.points, 0);
+}
+
+function SectionHead({ num, title, en }: { num: string; title: string; en: string }) {
+  return (
+    <div className="section-head">
+      <span className="num">§{num}</span>
+      <h2>{title}</h2>
+      <span className="en">{en}</span>
+    </div>
+  );
+}
+
+function ExecSummary({ data }: { data: PrintData }) {
+  const { overallPct, expectedPct, rag, milestones, meetings, currentXrl, previousXrl } = data;
+  const lead = leadParagraph(data);
+  const highlights = (() => {
+    const lines: string[] = [];
+    if (data.achievementSignals.length > 0) lines.push(`主要成果: ${data.achievementSignals[0].title}`);
+    if (data.report?.finalContent || data.report?.draftContent) {
+      const body = data.report.finalContent || data.report.draftContent;
+      const firstPara = body.split(/\n\n/)[0].replace(/^#+\s*/, "");
+      if (firstPara && firstPara.length < 200) lines.push(firstPara);
+    }
+    if (data.riskSignals.length > 0) lines.push(`要注意: ${data.riskSignals[0].title}`);
+    return lines.slice(0, 3);
+  })();
+  const scheduleR = ragLabel(rag.schedule);
+  const costR = ragLabel(rag.cost);
+  const riskR = ragLabel(rag.risk);
+
+  return (
+    <div className="sheet">
+      <div className="section">
+        <SectionHead num="01" title="エグゼクティブサマリ" en="EXECUTIVE SUMMARY" />
+
+        <p className="lead">{lead}</p>
+
+        {highlights.length > 0 && (
+          <div className="highlights">
+            <div className="block-label">今月のハイライト</div>
+            <ol className="hl-list">
+              {highlights.map((h, i) => <li key={i}>{h}</li>)}
+            </ol>
+          </div>
+        )}
+
+        <div className="rag-grid">
+          <div className="rag-card" style={{ background: scheduleR.bg, color: scheduleR.color }}>
+            <div className="rag-axis">SCHEDULE</div>
+            <div className="rag-label">{scheduleR.label}</div>
+            <div className="rag-meta">{overallPct}% (期待 {expectedPct ?? "—"}%)</div>
+          </div>
+          <div className="rag-card" style={{ background: costR.bg, color: costR.color }}>
+            <div className="rag-axis">COST</div>
+            <div className="rag-label">{costR.label}</div>
+            <div className="rag-meta">
+              {data.billing?.budgetYen ? `${Math.round((data.billing.budgetReportedAmount / data.billing.budgetYen) * 100)}% 消化` : "予算未設定"}
+            </div>
+          </div>
+          <div className="rag-card" style={{ background: riskR.bg, color: riskR.color }}>
+            <div className="rag-axis">RISK</div>
+            <div className="rag-label">{riskR.label}</div>
+            <div className="rag-meta">高リスク {data.riskSignals.length} 件</div>
+          </div>
+        </div>
+
+        <div className="kpi-grid">
+          <Stat label="主要MS件数" value={`${milestones.length}`} />
+          <Stat label="当月MTG件数" value={`${meetings.length}`} />
+          <Stat label="当月成果シグナル" value={`${data.achievementSignals.length}`} />
+        </div>
+
+        {(currentXrl || previousXrl) && (
+          <div className="xrl-summary">
+            <div className="block-label">XRL 主要指標 (前月 → 当月)</div>
+            <table className="xrl-table">
+              <thead><tr><th>軸</th><th>前月</th><th>当月</th><th>Δ</th></tr></thead>
+              <tbody>
+                {(["trl", "brl", "grl", "srl", "hrl"] as const).map((k) => {
+                  const cur = (currentXrl as XrlRow | null)?.[k] ?? null;
+                  const prev = (previousXrl as XrlRow | null)?.[k] ?? null;
+                  const delta = (cur !== null && prev !== null) ? Number(cur) - Number(prev) : null;
+                  return (
+                    <tr key={k}>
+                      <td>{k.toUpperCase()}</td>
+                      <td>{prev ?? "—"}</td>
+                      <td>{cur ?? "—"}</td>
+                      <td className={delta && delta > 0 ? "delta-up" : delta && delta < 0 ? "delta-dn" : ""}>
+                        {delta !== null ? (delta > 0 ? `+${delta}` : delta) : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ProgressSection({ data }: { data: PrintData }) {
+  const { milestones, report, monthlyNote } = data;
+  const reportBody = report?.finalContent || report?.draftContent || monthlyNote || "";
+  const ranked = [...milestones].sort((a, b) => b.points - a.points);
+
+  return (
+    <div className="sheet">
+      <div className="section">
+        <SectionHead num="02" title="当月の進捗" en="THIS MONTH'S PROGRESS" />
+
+        {reportBody ? (
+          <div className="report-body">
+            <MarkdownBlock text={reportBody} />
+          </div>
+        ) : (
+          <div className="empty">月次報告書本文は未生成です。</div>
+        )}
+
+        {ranked.length > 0 && (
+          <>
+            <div className="block-label" style={{ marginTop: "6mm" }}>マイルストーン進捗 (計画 vs 実績)</div>
+            <table className="ms-table">
+              <thead>
+                <tr>
+                  <th>マイルストーン</th>
+                  <th>pt</th>
+                  <th>期間</th>
+                  <th>前月</th>
+                  <th>当月</th>
+                  <th>Δ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ranked.map((m) => (
+                  <tr key={m.milestoneId}>
+                    <td>
+                      <div className="ms-title">{m.title}</div>
+                      {m.note && <div className="ms-note-cell">{m.note}</div>}
+                    </td>
+                    <td className="num-cell">{m.points}</td>
+                    <td className="period-cell">
+                      {m.periodStartYm && m.targetYm
+                        ? `${m.periodStartYm.slice(0, 4)}.${m.periodStartYm.slice(4)} – ${m.targetYm.slice(0, 4)}.${m.targetYm.slice(4)}`
+                        : "—"}
+                    </td>
+                    <td className="num-cell">{m.prevProgressPct}%</td>
+                    <td className="num-cell" style={{ fontWeight: 700 }}>{m.progressPct}%</td>
+                    <td className={`num-cell ${m.deltaPct > 0 ? "delta-up" : m.deltaPct < 0 ? "delta-dn" : ""}`}>
+                      {m.deltaPct > 0 ? `+${m.deltaPct}` : m.deltaPct}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function GanttSection({ data }: { data: PrintData }) {
+  const { milestones, planCycle, ym } = data;
+  if (!planCycle) return null;
+
+  const planStart = ymToDate(planCycle.periodStartYm);
+  const planEnd = ymToDate(planCycle.periodEndYm);
+  const currentYm = ymToDate(ym);
+  if (!planStart || !planEnd || !currentYm) return null;
+  // 月数を 1-indexed で計算 (start ym 含む)
+  const totalMonths = (planEnd.getFullYear() - planStart.getFullYear()) * 12 + (planEnd.getMonth() - planStart.getMonth()) + 1;
+  if (totalMonths <= 0) return null;
+  const currMonthIdx = (currentYm.getFullYear() - planStart.getFullYear()) * 12 + (currentYm.getMonth() - planStart.getMonth()) + 1;
+
+  const width = 800;
+  const leftLabel = 220;
+  const rightPad = 16;
+  const rowH = 18;
+  const headH = 32;
+  const sortedMs = milestones.filter((m) => (m.tag || "").toLowerCase() !== "buffer").sort((a, b) => {
+    const ay = a.periodStartYm || "999999";
+    const by = b.periodStartYm || "999999";
+    return ay.localeCompare(by);
+  });
+  if (sortedMs.length === 0) return null;
+  const chartW = width - leftLabel - rightPad;
+  const colW = chartW / totalMonths;
+  const height = headH + sortedMs.length * rowH + 16;
+
+  // 月ラベル (隔月)
+  const monthLabels: Array<{ x: number; label: string }> = [];
+  for (let i = 0; i < totalMonths; i += 1) {
+    const d = new Date(planStart.getFullYear(), planStart.getMonth() + i, 1);
+    if (i % 2 === 0) {
+      monthLabels.push({
+        x: leftLabel + i * colW + colW / 2,
+        label: `${String(d.getFullYear()).slice(2)}.${String(d.getMonth() + 1).padStart(2, "0")}`,
+      });
+    }
+  }
+
+  return (
+    <div className="sheet">
+      <div className="section">
+        <SectionHead num="02b" title="マイルストーン Gantt" en="MILESTONE TIMELINE" />
+        <div className="block-label" style={{ marginBottom: "3mm" }}>
+          計画期間 {planCycle.periodStartYm.slice(0, 4)}.{planCycle.periodStartYm.slice(4)} – {planCycle.periodEndYm.slice(0, 4)}.{planCycle.periodEndYm.slice(4)} / 当月 = {ym.slice(0, 4)}.{ym.slice(4)}
+        </div>
+        <svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", height: "auto" }}>
+          {/* 背景縦線 (月の罫線) */}
+          {Array.from({ length: totalMonths + 1 }).map((_, i) => (
+            <line key={i} x1={leftLabel + i * colW} y1={headH} x2={leftLabel + i * colW} y2={height - 8}
+              stroke="#e2e8f0" strokeWidth={i % 6 === 0 ? 0.8 : 0.4} />
+          ))}
+          {/* 月ラベル */}
+          {monthLabels.map((l, i) => (
+            <text key={i} x={l.x} y={headH - 12} fontSize="7" fill="#64748b"
+              textAnchor="middle" fontFamily="JetBrains Mono, monospace">
+              {l.label}
+            </text>
+          ))}
+          {/* 現在月マーカー (赤縦線) */}
+          {currMonthIdx > 0 && currMonthIdx <= totalMonths && (
+            <line x1={leftLabel + currMonthIdx * colW - colW / 2} y1={headH - 4} x2={leftLabel + currMonthIdx * colW - colW / 2} y2={height - 8}
+              stroke="#dc2626" strokeWidth={1.2} strokeDasharray="3 2" />
+          )}
+
+          {/* MS bars */}
+          {sortedMs.map((m, i) => {
+            const y = headH + i * rowH;
+            const startD = ymToDate(m.periodStartYm);
+            const endD = ymToDate(m.targetYm);
+            if (!startD || !endD) {
+              return (
+                <g key={m.milestoneId}>
+                  <text x={4} y={y + rowH / 2 + 3} fontSize="8" fill="#0f172a">{trimText(m.title, 30)}</text>
+                  <text x={leftLabel + 4} y={y + rowH / 2 + 3} fontSize="7" fill="#94a3b8" fontStyle="italic">期間未設定</text>
+                </g>
+              );
+            }
+            const sIdx = (startD.getFullYear() - planStart.getFullYear()) * 12 + (startD.getMonth() - planStart.getMonth());
+            const eIdx = (endD.getFullYear() - planStart.getFullYear()) * 12 + (endD.getMonth() - planStart.getMonth()) + 1;
+            const barX = leftLabel + Math.max(0, sIdx) * colW;
+            const barEnd = leftLabel + Math.min(totalMonths, eIdx) * colW;
+            const barW = Math.max(2, barEnd - barX);
+            const fillW = barW * (m.progressPct / 100);
+            return (
+              <g key={m.milestoneId}>
+                <text x={4} y={y + rowH / 2 + 3} fontSize="8" fill="#0f172a">{trimText(m.title, 30)}</text>
+                <rect x={barX} y={y + 3} width={barW} height={rowH - 6}
+                  fill="#e2e8f0" stroke="#94a3b8" strokeWidth="0.6" />
+                <rect x={barX} y={y + 3} width={fillW} height={rowH - 6}
+                  fill="#0a1628" />
+                <text x={barEnd + 4} y={y + rowH / 2 + 3} fontSize="7"
+                  fill="#475569" fontFamily="JetBrains Mono, monospace">
+                  {m.progressPct}%
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+function trimText(s: string, n: number): string {
+  return s.length > n ? `${s.slice(0, n - 1)}…` : s;
+}
+
+function AchievementsSection({ data }: { data: PrintData }) {
+  const { achievementSignals, grants, media, ym } = data;
+  if (achievementSignals.length === 0 && grants.length === 0 && media.length === 0) return null;
+  const currentYmGrants = grants.filter((g) => g.adoptedDate &&
+    g.adoptedDate.slice(0, 7) === `${ym.slice(0, 4)}-${ym.slice(4, 6)}`);
+
+  return (
+    <div className="sheet">
+      <div className="section">
+        <SectionHead num="03" title="当月の成果" en="ACHIEVEMENTS" />
+
+        {achievementSignals.length > 0 && (
+          <div className="ach-block">
+            <div className="block-label">主要成果・進捗</div>
+            {achievementSignals.map((s) => {
+              const badge = impactBadge(s.impactLevel);
+              return (
+                <div className="ach-card" key={s.signalId}>
+                  <div className="ach-head">
+                    <span className="polarity">{s.polarity}</span>
+                    <span className="ach-type">{signalTypeLabel(s.signalType)}</span>
+                    <span className="ach-impact" style={{ background: badge.tone }}>{badge.label}</span>
+                    {s.signalDate && <span className="ach-date">{s.signalDate}</span>}
+                  </div>
+                  <div className="ach-title">{s.title}</div>
+                  <div className="ach-summary">{s.summary}</div>
+                  {s.scoreImpactSummary && (
+                    <div className="ach-score">📊 {s.scoreImpactSummary}</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {currentYmGrants.length > 0 && (
+          <div className="ach-block">
+            <div className="block-label">公募採択・補助金</div>
+            <table className="grant-table">
+              <thead><tr><th>採択日</th><th>事業名</th><th>機関</th><th>採択金額</th></tr></thead>
+              <tbody>
+                {currentYmGrants.map((g) => (
+                  <tr key={g.id}>
+                    <td>{g.adoptedDate}</td>
+                    <td>{g.grantName}</td>
+                    <td>{g.agency || "—"}</td>
+                    <td className="num-cell">{formatYen(g.amountYen)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {media.length > 0 && (
+          <div className="ach-block">
+            <div className="block-label">メディア掲載・露出</div>
+            <ul className="media-list">
+              {media.map((m) => (
+                <li key={m.id}>
+                  <span className="media-date">{m.occurredOn}</span>
+                  <span className="media-name">{m.mediaName}</span>
+                  <span className="media-title">{m.title}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MeetingsSection({ data }: { data: PrintData }) {
+  const { meetings } = data;
+  if (meetings.length === 0) return null;
+  return (
+    <div className="sheet">
+      <div className="section">
+        <SectionHead num="04" title="当月の主要会議" en="MEETINGS" />
+        {meetings.map((mtg) => {
+          const decided = arrayToLines(mtg.decided);
+          const nextActions = arrayToLines(mtg.nextActions);
+          const risks = arrayToLines(mtg.risks);
+          return (
+            <div className="meeting" key={mtg.meetingId}>
+              <div className="meeting-head">
+                <span className="meeting-date">{mtg.meetingDate}</span>
+                <span className="meeting-title">{mtg.title}</span>
+              </div>
+              {mtg.narrativeMd ? (
+                <MarkdownBlock text={mtg.narrativeMd} />
+              ) : mtg.summaryShort ? (
+                <p className="meeting-summary">{mtg.summaryShort}</p>
+              ) : null}
+              {decided.length > 0 && (
+                <div className="meeting-block">
+                  <div className="meeting-block-label">決定事項</div>
+                  <ul>{decided.map((d, i) => <li key={i}>{d}</li>)}</ul>
+                </div>
+              )}
+              {nextActions.length > 0 && (
+                <div className="meeting-block">
+                  <div className="meeting-block-label">次のアクション</div>
+                  <ul>{nextActions.map((d, i) => <li key={i}>{d}</li>)}</ul>
+                </div>
+              )}
+              {risks.length > 0 && (
+                <div className="meeting-block">
+                  <div className="meeting-block-label">課題・リスク</div>
+                  <ul>{risks.map((d, i) => <li key={i}>{d}</li>)}</ul>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function TeamSection({ data }: { data: PrintData }) {
+  const { members, founding, responsibilities, milestones } = data;
+  if (members.length === 0 && founding.length === 0) return null;
+
+  const msTitleMap = new Map(milestones.map((m) => [m.milestoneId, m.title]));
+  // メンバーごとに責任 MS をまとめる
+  const respByMember = new Map<string, Array<{ msTitle: string; share: number; role: string | null; taskDescription: string | null }>>();
+  for (const r of responsibilities) {
+    const title = msTitleMap.get(r.milestoneId);
+    if (!title) continue;
+    const list = respByMember.get(r.memberId) || [];
+    list.push({ msTitle: title, share: r.share, role: r.role, taskDescription: r.taskDescription });
+    respByMember.set(r.memberId, list);
+  }
+
+  return (
+    <div className="sheet">
+      <div className="section">
+        <SectionHead num="05" title="実施体制" en="PROJECT TEAM" />
+
+        {members.length > 0 && (
+          <>
+            <div className="block-label">担当メンバー</div>
+            <table className="team-table">
+              <thead><tr><th>氏名 (コードネーム)</th><th>役割</th><th>主な担当MS / 業務内容</th></tr></thead>
+              <tbody>
+                {members.map((m) => {
+                  const resp = respByMember.get(m.memberId) || [];
+                  return (
+                    <tr key={m.memberId}>
+                      <td>
+                        <div className="team-name">{m.codeName}</div>
+                        <div className="team-tags">
+                          {m.isPm && <span className="team-tag">PM</span>}
+                          {m.isPl && <span className="team-tag">PL</span>}
+                          {m.isCloser && <span className="team-tag">Closer</span>}
+                        </div>
+                      </td>
+                      <td>{m.roleLabel || m.role || "—"}</td>
+                      <td>
+                        {resp.length > 0 ? (
+                          <ul className="resp-list">
+                            {resp.slice(0, 4).map((r, i) => (
+                              <li key={i}>
+                                <span className="resp-ms">{r.msTitle}</span>
+                                {r.share > 0 && <span className="resp-share"> ({Math.round(r.share * 100)}%)</span>}
+                                {r.taskDescription && <div className="resp-task">{r.taskDescription}</div>}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </>
+        )}
+
+        {founding.length > 0 && (
+          <>
+            <div className="block-label" style={{ marginTop: "5mm" }}>関連キーパーソン</div>
+            <ul className="founding-list">
+              {founding.map((f, i) => (
+                <li key={i}>
+                  <span className="found-name">{f.personName}</span>
+                  <span className="found-role">{f.roleLabelJp || f.role || f.category}</span>
+                  {f.affiliation && <span className="found-aff">{f.affiliation}</span>}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RisksSection({ data }: { data: PrintData }) {
+  const { riskSignals, actionItems, currentXrl, meetings } = data;
+
+  const mtgRisks: Array<{ src: string; text: string }> = [];
+  for (const mtg of meetings) {
+    for (const r of arrayToLines(mtg.risks)) {
+      mtgRisks.push({ src: mtg.title, text: r });
+    }
+  }
+
+  if (riskSignals.length === 0 && actionItems.length === 0 && mtgRisks.length === 0 && !currentXrl?.bottleneck) return null;
+
+  return (
+    <div className="sheet">
+      <div className="section">
+        <SectionHead num="06" title="課題・リスク" en="RISKS &amp; ISSUES" />
+
+        {(riskSignals.length > 0 || mtgRisks.length > 0) && (
+          <div className="risk-block">
+            <div className="block-label">リスク台帳 (Risk Register)</div>
+            <table className="risk-table">
+              <thead><tr><th>区分</th><th>内容</th><th>出典</th></tr></thead>
+              <tbody>
+                {riskSignals.map((r) => {
+                  const badge = impactBadge(r.impactLevel);
+                  return (
+                    <tr key={r.signalId}>
+                      <td>
+                        <span className="risk-impact" style={{ background: badge.tone, color: "white" }}>{badge.label}</span>
+                      </td>
+                      <td>
+                        <div className="risk-title">{r.title}</div>
+                        <div className="risk-summary">{r.summary}</div>
+                      </td>
+                      <td className="risk-src">経営シグナル{r.signalDate ? ` (${r.signalDate})` : ""}</td>
+                    </tr>
+                  );
+                })}
+                {mtgRisks.slice(0, 8).map((r, i) => (
+                  <tr key={`mtg-${i}`}>
+                    <td><span className="risk-impact" style={{ background: "#94a3b8", color: "white" }}>MTG</span></td>
+                    <td><div className="risk-summary">{r.text}</div></td>
+                    <td className="risk-src">{r.src}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {actionItems.length > 0 && (
+          <div className="risk-block">
+            <div className="block-label">期日つき要対応事項 (Action Items)</div>
+            <table className="action-table">
+              <thead><tr><th>期日</th><th>内容</th><th>担当</th><th>優先度</th><th>状態</th></tr></thead>
+              <tbody>
+                {actionItems.slice(0, 12).map((a) => (
+                  <tr key={a.actionId}>
+                    <td className="num-cell">{a.dueAt ? a.dueAt.slice(0, 10) : "—"}</td>
+                    <td>{a.title}</td>
+                    <td>{a.assignee || "—"}</td>
+                    <td className="num-cell">{a.priority || "—"}</td>
+                    <td className="num-cell">{a.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {currentXrl?.bottleneck && (
+          <div className="risk-block">
+            <div className="block-label">ボトルネック</div>
+            <p>{currentXrl.bottleneck}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FinanceSection({ data }: { data: PrintData }) {
+  const { billing, reimbursements, reimburseTotal, grants, contract } = data;
+  if (!billing && reimbursements.length === 0 && grants.length === 0) return null;
+  return (
+    <div className="sheet">
+      <div className="section">
+        <SectionHead num="07" title="財務サマリ" en="FINANCIAL SUMMARY" />
+
+        {billing && (
+          <table className="finance-table">
+            <thead><tr><th>項目</th><th>金額</th></tr></thead>
+            <tbody>
+              {contract.contractValueYen && (
+                <tr><td>契約金額 (税込)</td><td className="num-cell">{formatYen(contract.contractValueYen)}</td></tr>
+              )}
+              <tr><td>当月予算 (税抜)</td><td className="num-cell">{formatYen(billing.budgetYen)}</td></tr>
+              <tr><td>当月計上額 (税抜)</td><td className="num-cell">{formatYen(billing.budgetReportedAmount)}</td></tr>
+              {billing.extraBudgetYen && (
+                <tr><td>別契約 (cap_extra) 予算</td><td className="num-cell">{formatYen(billing.extraBudgetYen)}</td></tr>
+              )}
+              <tr><td>立替経費 (当月)</td><td className="num-cell">{formatYen(reimburseTotal)}</td></tr>
+              <tr><td>請求書発行日</td><td className="num-cell">{billing.invoiceSentAt ? formatDate(billing.invoiceSentAt) : "—"}</td></tr>
+              <tr><td>入金確認日</td><td className="num-cell">{billing.paymentConfirmedAt ? formatDate(billing.paymentConfirmedAt) : "—"}</td></tr>
+            </tbody>
+          </table>
+        )}
+
+        {reimbursements.length > 0 && (
+          <>
+            <div className="block-label" style={{ marginTop: "4mm" }}>立替明細</div>
+            <table className="reimburse-table">
+              <thead><tr><th>日付</th><th>区分</th><th>内容</th><th>担当</th><th>金額</th></tr></thead>
+              <tbody>
+                {reimbursements.map((r) => (
+                  <tr key={r.reimbursementId}>
+                    <td>{r.date}</td>
+                    <td>{r.category}</td>
+                    <td>{r.description || "—"}</td>
+                    <td>{r.member || "—"}</td>
+                    <td className="num-cell">{formatYen(r.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+
+        {grants.length > 0 && (
+          <>
+            <div className="block-label" style={{ marginTop: "4mm" }}>補助金交付状況</div>
+            <table className="grant-table">
+              <thead><tr><th>事業名</th><th>機関</th><th>採択額</th><th>交付済</th><th>状態</th></tr></thead>
+              <tbody>
+                {grants.map((g) => (
+                  <tr key={g.id}>
+                    <td>{g.grantName}</td>
+                    <td>{g.agency || "—"}</td>
+                    <td className="num-cell">{formatYen(g.amountYen)}</td>
+                    <td className="num-cell">{formatYen(g.disbursedYen)}</td>
+                    <td>{g.status || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function NextMonthSection({ data }: { data: PrintData }) {
+  const { nextMonthActions, upcomingMeetings, nextYm } = data;
+  if (nextMonthActions.length === 0 && upcomingMeetings.length === 0) return null;
+  return (
+    <div className="sheet">
+      <div className="section">
+        <SectionHead num="08" title="次月計画" en="NEXT MONTH PLAN" />
+        <div className="block-label">{formatYm(nextYm)} の重点アクション</div>
+        {nextMonthActions.length > 0 ? (
+          <table className="action-table">
+            <thead><tr><th>期日</th><th>内容</th><th>担当</th><th>優先度</th></tr></thead>
+            <tbody>
+              {nextMonthActions.map((a) => (
+                <tr key={a.actionId}>
+                  <td className="num-cell">{a.dueAt ? a.dueAt.slice(0, 10) : "—"}</td>
+                  <td>{a.title}</td>
+                  <td>{a.assignee || "—"}</td>
+                  <td className="num-cell">{a.priority || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : <p className="empty-small">期日付きの予定アクションは登録されていません。</p>}
+
+        {upcomingMeetings.length > 0 && (
+          <>
+            <div className="block-label" style={{ marginTop: "5mm" }}>{formatYm(nextYm)} の主要会議予定</div>
+            <ul className="upcoming-list">
+              {upcomingMeetings.map((m) => (
+                <li key={m.meetingId}>
+                  <span className="upcoming-date">{m.meetingDate}</span>
+                  <span className="upcoming-title">{m.title}</span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AppendixSection({ data }: { data: PrintData }) {
+  const { attachments, sourceCheck } = data;
+  const hasAny = attachments.meetingAssets.length > 0 || attachments.projectDocs.length > 0 || attachments.contractDocs.length > 0;
+  if (!hasAny && !sourceCheck) return null;
+  return (
+    <div className="sheet">
+      <div className="section">
+        <SectionHead num="09" title="添付資料・参照" en="APPENDIX" />
+
+        {attachments.meetingAssets.length > 0 && (
+          <>
+            <div className="block-label">会議資料</div>
+            <ul className="attach-list">
+              {attachments.meetingAssets.slice(0, 20).map((a, i) => (
+                <li key={i}>
+                  {a.webViewLink ? <a href={a.webViewLink}>{a.fileName}</a> : a.fileName}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+
+        {attachments.projectDocs.length > 0 && (
+          <>
+            <div className="block-label" style={{ marginTop: "4mm" }}>当月PJ資料</div>
+            <ul className="attach-list">
+              {attachments.projectDocs.slice(0, 20).map((a, i) => (
+                <li key={i}>
+                  {a.webViewLink ? <a href={a.webViewLink}>{a.fileName}</a> : a.fileName}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+
+        {attachments.contractDocs.length > 0 && (
+          <>
+            <div className="block-label" style={{ marginTop: "4mm" }}>契約書</div>
+            <ul className="attach-list">
+              {attachments.contractDocs.slice(0, 10).map((a, i) => (
+                <li key={i}>
+                  {a.webViewLink ? <a href={a.webViewLink}>{a.fileName}</a> : a.fileName}
+                  {a.documentKind && <span className="attach-kind"> ({a.documentKind})</span>}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+
+        {sourceCheck && (
+          <div className="source-trace">
+            <div className="block-label" style={{ marginTop: "4mm" }}>5生データ ソース証跡</div>
+            <pre className="source-pre">{JSON.stringify(sourceCheck, null, 2)}</pre>
+          </div>
+        )}
+
+        <div className="rev-history">
+          <div className="block-label" style={{ marginTop: "5mm" }}>改訂履歴</div>
+          <table className="rev-table">
+            <thead><tr><th>版</th><th>日付</th><th>変更者</th><th>状態</th></tr></thead>
+            <tbody>
+              {data.report?.generatedAt && (
+                <tr>
+                  <td>初版</td>
+                  <td>{formatDate(data.report.generatedAt)}</td>
+                  <td>AMD OS (自動生成)</td>
+                  <td>Draft</td>
+                </tr>
+              )}
+              {data.report?.fixedAt && (
+                <tr>
+                  <td>確定</td>
+                  <td>{formatDate(data.report.fixedAt)}</td>
+                  <td>{data.report.confirmedBy || "—"}</td>
+                  <td>Final</td>
+                </tr>
+              )}
+              <tr>
+                <td>本書発行</td>
+                <td>{formatDate(data.generatedAt)}</td>
+                <td>株式会社チームアルマダ</td>
+                <td>Issued</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div className="end-mark">— END OF REPORT —</div>
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="kpi-stat">
+      <div className="kpi-label">{label}</div>
+      <div className="kpi-value">{value}</div>
+    </div>
+  );
+}
+
+// ─── メインビュー ──────────────────────────────────────────────────────
+export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
+  const headerLabel = useMemo(() => {
+    const client = data.project.clientName || "—";
+    return `${client} / 月次報告 ${formatYm(data.ym)}`;
+  }, [data]);
 
   return (
     <>
       <style jsx global>{`
-        @page { size: A4 portrait; margin: 14mm 14mm 18mm 14mm; }
+        @page {
+          size: A4 portrait; margin: 14mm 14mm 18mm 14mm;
+          @top-left { content: "${headerLabel}"; font-family: 'Noto Sans JP', sans-serif; font-size: 8pt; color: #475569; }
+          @top-right { content: "取扱注意 / Confidential"; font-family: 'Work Sans', sans-serif; font-size: 8pt; color: #b91c1c; letter-spacing: 0.1em; }
+          @bottom-left { content: "© 2026 Team ARMADA Inc."; font-family: 'Work Sans', sans-serif; font-size: 8pt; color: #64748b; }
+          @bottom-center { content: counter(page) " / " counter(pages); font-family: 'JetBrains Mono', monospace; font-size: 8pt; color: #64748b; }
+        }
         @media print {
           .no-print { display: none !important; }
           .print-root { background: white !important; }
           body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
         .print-root {
-          font-family: 'Noto Sans JP', system-ui, -apple-system, sans-serif;
-          color: #0f172a;
-          background: #f1f5f9;
-          min-height: 100vh;
+          font-family: 'Noto Sans JP', system-ui, sans-serif;
+          color: #0f172a; background: #f1f5f9; min-height: 100vh;
         }
         .toolbar {
           position: sticky; top: 0; z-index: 10;
@@ -186,164 +1125,187 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
           font-size: 10.5pt; line-height: 1.7;
         }
         @media print {
-          .sheet { margin: 0; box-shadow: none; padding: 0; width: auto; min-height: auto; }
+          .sheet { margin: 0; box-shadow: none; padding: 0; width: auto; min-height: auto; page-break-after: always; }
+          .sheet:last-child { page-break-after: auto; }
         }
-        .cover {
-          display: flex; flex-direction: column; height: calc(297mm - 32mm);
-        }
+        /* ===== 表紙 ===== */
+        .cover-sheet { padding: 18mm; }
+        .cover { display: flex; flex-direction: column; height: calc(297mm - 36mm); }
         .cover-head {
+          display: flex; justify-content: space-between; align-items: center;
           border-bottom: 2px solid #0a1628; padding-bottom: 10mm;
         }
-        .brand-mark {
-          font-family: 'Work Sans', sans-serif; letter-spacing: 0.22em;
-          font-size: 9pt; color: #64748b; text-transform: uppercase;
-        }
+        .brand-mark { font-family: 'Work Sans', sans-serif; letter-spacing: 0.22em; font-size: 9pt; color: #64748b; text-transform: uppercase; }
         .brand-mark b { color: #0a1628; font-weight: 700; }
-        .cover-title-block { margin-top: 26mm; }
-        .cover-eyebrow {
-          font-family: 'JetBrains Mono', monospace; font-size: 9pt;
-          letter-spacing: 0.18em; color: #475569; text-transform: uppercase;
-        }
-        .cover-ym {
-          font-family: 'Work Sans', sans-serif; font-weight: 300;
-          font-size: 64pt; line-height: 1; margin: 6mm 0 4mm; color: #0a1628;
-          letter-spacing: -0.02em;
-        }
-        .cover-project {
-          font-size: 26pt; font-weight: 700; color: #0a1628;
-          margin-top: 4mm; letter-spacing: -0.01em;
-        }
-        .cover-client {
-          font-size: 12pt; color: #475569; margin-top: 3mm;
-        }
-        .cover-foot {
-          margin-top: auto; display: flex; justify-content: space-between;
-          align-items: flex-end; border-top: 1px solid #cbd5e1; padding-top: 6mm;
-          font-size: 9pt; color: #64748b;
-        }
-        .cover-foot .meta { font-family: 'JetBrains Mono', monospace; }
-        .status-pill {
-          display: inline-block; padding: 2px 10px; border-radius: 999px;
+        .confid-band {
+          background: #b91c1c; color: white; padding: 3px 12px;
           font-family: 'Work Sans', sans-serif; font-size: 8pt;
-          letter-spacing: 0.08em; text-transform: uppercase;
+          letter-spacing: 0.16em; text-transform: uppercase;
         }
+        .cover-title-block { margin-top: 22mm; }
+        .cover-eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 9pt; letter-spacing: 0.18em; color: #475569; text-transform: uppercase; }
+        .cover-ym { font-family: 'Work Sans', sans-serif; font-weight: 300; font-size: 64pt; line-height: 1; margin: 6mm 0 4mm; color: #0a1628; letter-spacing: -0.02em; }
+        .cover-project { font-size: 22pt; font-weight: 700; color: #0a1628; margin-top: 4mm; letter-spacing: -0.01em; line-height: 1.3; }
+        .cover-client { font-size: 13pt; color: #475569; margin-top: 4mm; }
+        .contract-ids {
+          margin-top: 14mm; display: flex; flex-wrap: wrap; gap: 4mm;
+          padding: 6mm 8mm; border: 1px solid #cbd5e1; background: #f8fafc;
+        }
+        .contract-id { display: flex; flex-direction: column; min-width: 32mm; }
+        .contract-id .lbl { font-family: 'Work Sans', sans-serif; font-size: 8pt; color: #64748b; letter-spacing: 0.1em; text-transform: uppercase; }
+        .contract-id .val { font-family: 'JetBrains Mono', monospace; font-size: 11pt; color: #0a1628; font-weight: 600; margin-top: 1mm; }
+        .cover-foot { margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid #cbd5e1; padding-top: 6mm; }
+        .brand-line { font-weight: 700; color: #0a1628; font-size: 12pt; }
+        .brand-sub { font-size: 9pt; color: #64748b; margin-top: 1mm; }
+        .status-line { margin-top: 4mm; }
+        .status-pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-family: 'Work Sans', sans-serif; font-size: 8pt; letter-spacing: 0.1em; text-transform: uppercase; }
         .status-pill.final { background: #dcfce7; color: #166534; }
         .status-pill.draft { background: #fef3c7; color: #92400e; }
-        .section { page-break-before: always; padding-top: 0; }
+        .status-meta { font-size: 9pt; color: #64748b; }
+        .cover-meta { text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 9pt; color: #64748b; }
+        .cover-pjcode { font-size: 16pt; color: #0a1628; font-weight: 700; margin-top: 2mm; }
+
+        /* ===== 各章共通 ===== */
         .section-head {
           display: flex; align-items: baseline; gap: 12px;
-          border-bottom: 1.5px solid #0a1628; padding-bottom: 4mm;
-          margin-bottom: 6mm;
+          border-bottom: 1.5px solid #0a1628; padding-bottom: 4mm; margin-bottom: 6mm;
         }
-        .section-head .num {
-          font-family: 'JetBrains Mono', monospace; font-size: 10pt;
-          color: #64748b; letter-spacing: 0.1em;
-        }
-        .section-head h2 {
-          margin: 0; font-size: 18pt; font-weight: 700; color: #0a1628;
-        }
-        .section-head .en {
-          font-family: 'Work Sans', sans-serif; font-size: 10pt;
-          color: #94a3b8; letter-spacing: 0.18em; text-transform: uppercase;
-          margin-left: auto;
-        }
+        .section-head .num { font-family: 'JetBrains Mono', monospace; font-size: 10pt; color: #64748b; letter-spacing: 0.1em; }
+        .section-head h2 { margin: 0; font-size: 18pt; font-weight: 700; color: #0a1628; }
+        .section-head .en { font-family: 'Work Sans', sans-serif; font-size: 10pt; color: #94a3b8; letter-spacing: 0.18em; text-transform: uppercase; margin-left: auto; }
+        .block-label { font-family: 'Work Sans', sans-serif; font-size: 9pt; color: #475569; letter-spacing: 0.12em; text-transform: uppercase; margin: 0 0 2mm; font-weight: 600; }
+
+        /* Markdown */
         .md-body h2 { font-size: 14pt; margin: 4mm 0 2mm; color: #0a1628; }
         .md-body h3 { font-size: 12pt; margin: 3mm 0 1.5mm; color: #1e293b; }
         .md-body h4 { font-size: 11pt; margin: 2.5mm 0 1mm; color: #334155; }
         .md-body p { margin: 0 0 2mm; }
-        .md-body li {
-          margin: 0 0 0.6mm 6mm; position: relative; list-style: none;
+        .md-body li { margin: 0 0 0.6mm 6mm; position: relative; list-style: none; }
+        .md-body li::before { content: '·'; position: absolute; left: -3mm; color: #0a1628; font-weight: 700; }
+        .md-body blockquote { border-left: 2px solid #94a3b8; padding-left: 4mm; margin: 2mm 0; color: #475569; font-style: italic; }
+        .report-body { background: #f8fafc; padding: 4mm 5mm; border-left: 3px solid #0a1628; }
+
+        /* Exec Summary */
+        .lead { background: #f1f5f9; border-left: 3px solid #0a1628; padding: 3mm 5mm; margin-bottom: 5mm; font-size: 10.5pt; line-height: 1.8; }
+        .highlights { margin-bottom: 5mm; }
+        .hl-list { margin: 0 0 0 4mm; padding: 0; }
+        .hl-list li { margin: 0 0 1mm; }
+        .rag-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3mm; margin-bottom: 5mm; }
+        .rag-card { border: 1px solid #e2e8f0; padding: 4mm; text-align: center; }
+        .rag-axis { font-family: 'Work Sans', sans-serif; font-size: 9pt; letter-spacing: 0.16em; opacity: 0.7; }
+        .rag-label { font-family: 'Work Sans', sans-serif; font-size: 18pt; font-weight: 700; margin: 1mm 0; letter-spacing: 0.04em; }
+        .rag-meta { font-size: 9pt; opacity: 0.75; }
+        .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3mm; margin-bottom: 5mm; }
+        .kpi-stat { border: 1px solid #e2e8f0; border-left: 3px solid #0a1628; padding: 3mm 4mm; }
+        .kpi-label { font-family: 'Work Sans', sans-serif; font-size: 8.5pt; color: #64748b; letter-spacing: 0.1em; text-transform: uppercase; }
+        .kpi-value { font-family: 'Work Sans', sans-serif; font-weight: 700; font-size: 20pt; color: #0a1628; margin-top: 1mm; line-height: 1; }
+        .xrl-summary { margin-top: 5mm; }
+        .xrl-table { width: 100%; border-collapse: collapse; font-size: 10pt; }
+        .xrl-table th, .xrl-table td { border: 1px solid #e2e8f0; padding: 2mm 3mm; text-align: center; }
+        .xrl-table th { background: #f1f5f9; color: #475569; font-family: 'Work Sans', sans-serif; font-size: 9pt; letter-spacing: 0.06em; }
+        .delta-up { color: #166534; font-weight: 700; }
+        .delta-dn { color: #b91c1c; font-weight: 700; }
+
+        /* MS table */
+        .ms-table { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin-top: 2mm; }
+        .ms-table th, .ms-table td { border: 1px solid #e2e8f0; padding: 2mm 3mm; vertical-align: top; }
+        .ms-table th { background: #f1f5f9; color: #475569; font-family: 'Work Sans', sans-serif; font-size: 8.5pt; letter-spacing: 0.06em; text-align: left; }
+        .ms-title { font-weight: 700; }
+        .ms-note-cell { font-size: 8.5pt; color: #475569; margin-top: 1mm; }
+        .num-cell { text-align: right; font-family: 'JetBrains Mono', monospace; }
+        .period-cell { font-family: 'JetBrains Mono', monospace; font-size: 8.5pt; }
+
+        /* Achievements */
+        .ach-block { margin-bottom: 5mm; }
+        .ach-card { border: 1px solid #e2e8f0; padding: 3mm 4mm; margin-bottom: 2mm; page-break-inside: avoid; }
+        .ach-head { display: flex; gap: 6px; align-items: center; margin-bottom: 1.5mm; }
+        .polarity { font-size: 12pt; }
+        .ach-type { font-family: 'Work Sans', sans-serif; font-size: 8.5pt; letter-spacing: 0.1em; text-transform: uppercase; color: #475569; }
+        .ach-impact { color: white; font-family: 'Work Sans', sans-serif; font-size: 8pt; font-weight: 700; padding: 1px 6px; border-radius: 3px; }
+        .ach-date { font-family: 'JetBrains Mono', monospace; font-size: 8.5pt; color: #64748b; margin-left: auto; }
+        .ach-title { font-weight: 700; font-size: 11pt; margin-bottom: 1mm; }
+        .ach-summary { font-size: 10pt; color: #334155; }
+        .ach-score { font-size: 9pt; color: #166534; margin-top: 1.5mm; font-family: 'JetBrains Mono', monospace; }
+
+        .grant-table, .reimburse-table, .finance-table, .action-table, .risk-table, .team-table {
+          width: 100%; border-collapse: collapse; font-size: 10pt; margin-top: 2mm;
         }
-        .md-body li::before {
-          content: '·'; position: absolute; left: -3mm; color: #0a1628; font-weight: 700;
+        .grant-table th, .grant-table td,
+        .reimburse-table th, .reimburse-table td,
+        .finance-table th, .finance-table td,
+        .action-table th, .action-table td,
+        .risk-table th, .risk-table td,
+        .team-table th, .team-table td {
+          border: 1px solid #e2e8f0; padding: 2mm 3mm; vertical-align: top;
         }
-        .md-body blockquote {
-          border-left: 2px solid #94a3b8; padding-left: 4mm;
-          margin: 2mm 0; color: #475569; font-style: italic;
+        .grant-table th, .reimburse-table th, .finance-table th, .action-table th, .risk-table th, .team-table th {
+          background: #f1f5f9; color: #475569; font-family: 'Work Sans', sans-serif;
+          font-size: 8.5pt; letter-spacing: 0.06em; text-align: left;
         }
-        .ms-grid {
-          display: grid; grid-template-columns: 1fr; gap: 3mm;
-        }
-        .ms-card {
-          border: 1px solid #e2e8f0; border-left: 3px solid #0a1628;
-          padding: 3mm 4mm; page-break-inside: avoid;
-        }
-        .ms-card-head {
-          display: flex; align-items: center; gap: 8px; margin-bottom: 2mm;
-        }
-        .ms-card-title { font-weight: 700; font-size: 11pt; flex: 1; }
-        .ms-card-pct {
-          font-family: 'Work Sans', sans-serif; font-weight: 600;
-          font-size: 14pt; color: #0a1628; min-width: 14mm; text-align: right;
-        }
-        .ms-card-pts {
-          font-family: 'JetBrains Mono', monospace; font-size: 8pt;
-          color: #64748b; letter-spacing: 0.04em;
-        }
-        .ms-bar {
-          height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden;
-        }
-        .ms-bar > div { height: 100%; background: #0a1628; }
-        .ms-note { font-size: 9.5pt; color: #475569; margin-top: 2mm; }
-        .meeting {
-          border-top: 1px solid #e2e8f0; padding: 4mm 0;
-          page-break-inside: avoid;
-        }
+        .media-list { margin: 0; padding: 0; list-style: none; }
+        .media-list li { padding: 1.5mm 0; border-top: 1px dashed #e2e8f0; display: flex; gap: 4mm; align-items: baseline; }
+        .media-list li:first-child { border-top: 0; }
+        .media-date { font-family: 'JetBrains Mono', monospace; font-size: 9pt; color: #64748b; min-width: 22mm; }
+        .media-name { font-weight: 600; min-width: 30mm; }
+        .media-title { color: #334155; }
+
+        /* Meetings */
+        .meeting { border-top: 1px solid #e2e8f0; padding: 4mm 0; page-break-inside: avoid; }
         .meeting:first-child { border-top: 0; padding-top: 0; }
-        .meeting-head {
-          display: flex; gap: 8px; align-items: baseline; margin-bottom: 2mm;
-        }
-        .meeting-date {
-          font-family: 'JetBrains Mono', monospace; font-size: 9pt;
-          color: #64748b; min-width: 22mm;
-        }
+        .meeting-head { display: flex; gap: 8px; align-items: baseline; margin-bottom: 2mm; }
+        .meeting-date { font-family: 'JetBrains Mono', monospace; font-size: 9pt; color: #64748b; min-width: 22mm; }
         .meeting-title { font-weight: 700; font-size: 11pt; }
+        .meeting-summary { margin: 1mm 0; font-size: 10pt; }
         .meeting-block { margin-top: 2mm; }
-        .meeting-block-label {
-          font-family: 'Work Sans', sans-serif; font-size: 8.5pt;
-          color: #64748b; letter-spacing: 0.12em; text-transform: uppercase;
-          margin-bottom: 1mm;
-        }
-        .signal {
-          border: 1px solid #e2e8f0; padding: 3mm 4mm; margin-bottom: 3mm;
-          page-break-inside: avoid;
-        }
-        .signal-head { display: flex; gap: 8px; align-items: center; margin-bottom: 1.5mm; }
-        .signal-type {
-          font-family: 'Work Sans', sans-serif; font-size: 8.5pt;
-          letter-spacing: 0.1em; text-transform: uppercase; color: #475569;
-        }
-        .signal-impact {
-          font-family: 'Work Sans', sans-serif; font-size: 8pt;
-          font-weight: 700; padding: 1px 8px; border-radius: 3px;
-          color: white;
-        }
-        .signal-title { font-weight: 700; font-size: 11pt; margin-bottom: 1.5mm; }
-        .signal-summary { font-size: 10pt; color: #334155; }
-        .member-grid {
-          display: grid; grid-template-columns: repeat(3, 1fr); gap: 3mm;
-        }
-        .member-card {
-          border: 1px solid #e2e8f0; padding: 3mm; text-align: center;
-        }
-        .member-name { font-weight: 700; font-size: 11pt; color: #0a1628; }
-        .member-role {
-          font-family: 'Work Sans', sans-serif; font-size: 8pt;
-          color: #64748b; letter-spacing: 0.08em; text-transform: uppercase;
-          margin-top: 1mm;
-        }
-        .member-tag {
-          display: inline-block; margin-top: 1.5mm; padding: 1px 6px;
-          background: #0a1628; color: white; font-size: 8pt;
-          font-family: 'Work Sans', sans-serif; letter-spacing: 0.06em;
-        }
-        .empty {
-          padding: 6mm; text-align: center; color: #94a3b8;
-          font-size: 10pt; border: 1px dashed #cbd5e1;
-        }
-        .page-footer {
-          position: running(footer);
-        }
+        .meeting-block-label { font-family: 'Work Sans', sans-serif; font-size: 8.5pt; color: #64748b; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 1mm; }
+        .meeting-block ul { margin: 0; padding: 0; list-style: none; }
+        .meeting-block ul li { padding-left: 4mm; position: relative; margin: 0.4mm 0; }
+        .meeting-block ul li::before { content: '·'; position: absolute; left: 1mm; color: #0a1628; font-weight: 700; }
+
+        /* Team */
+        .team-name { font-weight: 700; color: #0a1628; }
+        .team-tags { margin-top: 1mm; }
+        .team-tag { display: inline-block; background: #0a1628; color: white; padding: 0 6px; font-size: 8pt; font-family: 'Work Sans', sans-serif; letter-spacing: 0.06em; margin-right: 2px; }
+        .resp-list { margin: 0; padding: 0; list-style: none; font-size: 9.5pt; }
+        .resp-list li { margin-bottom: 1mm; }
+        .resp-ms { font-weight: 600; }
+        .resp-share { font-family: 'JetBrains Mono', monospace; font-size: 8.5pt; color: #475569; }
+        .resp-task { font-size: 8.5pt; color: #64748b; margin-top: 0.5mm; }
+        .founding-list { margin: 0; padding: 0; list-style: none; }
+        .founding-list li { padding: 1mm 0; border-top: 1px dashed #e2e8f0; display: flex; gap: 4mm; align-items: baseline; }
+        .founding-list li:first-child { border-top: 0; }
+        .found-name { font-weight: 700; min-width: 25mm; }
+        .found-role { font-size: 9pt; color: #475569; min-width: 24mm; }
+        .found-aff { font-size: 9pt; color: #64748b; }
+
+        /* Risks */
+        .risk-block { margin-bottom: 4mm; }
+        .risk-impact { font-family: 'Work Sans', sans-serif; font-size: 8pt; font-weight: 700; padding: 1px 6px; border-radius: 3px; }
+        .risk-title { font-weight: 700; font-size: 10.5pt; }
+        .risk-summary { font-size: 10pt; color: #334155; margin-top: 0.5mm; }
+        .risk-src { font-size: 9pt; color: #64748b; font-family: 'JetBrains Mono', monospace; }
+
+        /* Empty */
+        .empty { padding: 6mm; text-align: center; color: #94a3b8; font-size: 10pt; border: 1px dashed #cbd5e1; }
+        .empty-small { padding: 2mm; color: #94a3b8; font-size: 9.5pt; }
+
+        /* Next Month */
+        .upcoming-list { margin: 0; padding: 0; list-style: none; }
+        .upcoming-list li { padding: 1mm 0; border-top: 1px dashed #e2e8f0; display: flex; gap: 4mm; align-items: baseline; }
+        .upcoming-list li:first-child { border-top: 0; }
+        .upcoming-date { font-family: 'JetBrains Mono', monospace; font-size: 9pt; color: #64748b; min-width: 22mm; }
+        .upcoming-title { font-weight: 600; }
+
+        /* Appendix */
+        .attach-list { margin: 0; padding: 0 0 0 5mm; }
+        .attach-list li { font-size: 10pt; margin: 0.5mm 0; }
+        .attach-list a { color: #0a1628; text-decoration: underline; }
+        .attach-kind { font-size: 8.5pt; color: #64748b; }
+        .source-pre { background: #f8fafc; border: 1px solid #e2e8f0; padding: 3mm; font-size: 8pt; font-family: 'JetBrains Mono', monospace; overflow: hidden; max-height: 60mm; }
+        .rev-table { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
+        .rev-table th, .rev-table td { border: 1px solid #e2e8f0; padding: 2mm 3mm; }
+        .rev-table th { background: #f1f5f9; color: #475569; font-family: 'Work Sans', sans-serif; font-size: 8.5pt; letter-spacing: 0.06em; text-align: left; }
+        .end-mark { margin-top: 12mm; padding-top: 4mm; border-top: 1px solid #cbd5e1; font-size: 9pt; color: #64748b; text-align: center; font-family: 'JetBrains Mono', monospace; }
       `}</style>
 
       <div className="print-root">
@@ -357,247 +1319,18 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
           </button>
         </div>
 
-        {/* ─── 表紙 ───────────────────────────────────────── */}
-        <div className="sheet">
-          <div className="cover">
-            <div className="cover-head">
-              <div className="brand-mark">
-                TEAM <b>ARMADA</b> &nbsp;/&nbsp; MONTHLY REPORT
-              </div>
-            </div>
-            <div className="cover-title-block">
-              <div className="cover-eyebrow">REPORTING PERIOD</div>
-              <div className="cover-ym">{formatYm(ym)}</div>
-              <div className="cover-project">{project.projectName}</div>
-              {project.clientName && (
-                <div className="cover-client">For: {project.clientName}</div>
-              )}
-              {report && (
-                <div style={{ marginTop: "6mm" }}>
-                  <span className={`status-pill ${isFinal ? "final" : "draft"}`}>
-                    {isFinal ? "Confirmed" : "Draft"}
-                  </span>
-                </div>
-              )}
-            </div>
-            <div className="cover-foot">
-              <div>
-                <div style={{ fontWeight: 600, color: "#0a1628" }}>Team ARMADA Inc.</div>
-                <div>masa@team-armada.jp</div>
-              </div>
-              <div className="meta">
-                {isFinal && report?.fixedAt
-                  ? `FIXED: ${formatDate(report.fixedAt)}`
-                  : report?.generatedAt
-                    ? `GENERATED: ${formatDate(report.generatedAt)}`
-                    : ""}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ─── §1 当月サマリ + レポート本文 ───────────────── */}
-        <div className="sheet">
-          <div className="section">
-            <div className="section-head">
-              <span className="num">§01</span>
-              <h2>当月サマリ</h2>
-              <span className="en">EXECUTIVE SUMMARY</span>
-            </div>
-
-            <div style={{
-              display: "grid", gridTemplateColumns: "1fr 1fr 1fr",
-              gap: "4mm", marginBottom: "6mm",
-            }}>
-              <Stat label="進捗達成率" value={`${overallPct}%`} />
-              <Stat label="主要MS件数" value={`${milestones.length}`} />
-              <Stat label="MTG件数" value={`${meetings.length}`} />
-            </div>
-
-            {reportBody ? (
-              <MarkdownBlock text={reportBody} />
-            ) : monthlyNote ? (
-              <MarkdownBlock text={monthlyNote} />
-            ) : (
-              <div className="empty">月次報告書はまだ生成されていません。</div>
-            )}
-          </div>
-        </div>
-
-        {/* ─── §2 MS進捗 ────────────────────────────────── */}
-        {milestones.length > 0 && (
-          <div className="sheet">
-            <div className="section">
-              <div className="section-head">
-                <span className="num">§02</span>
-                <h2>マイルストーン進捗</h2>
-                <span className="en">MILESTONE PROGRESS</span>
-              </div>
-              <div className="ms-grid">
-                {ranked.map((m) => (
-                  <div className="ms-card" key={m.milestoneId}>
-                    <div className="ms-card-head">
-                      <div className="ms-card-title">{m.title}</div>
-                      <div className="ms-card-pts">{m.points} pt</div>
-                      <div className="ms-card-pct">{m.progressPct}%</div>
-                    </div>
-                    <div className="ms-bar">
-                      <div style={{ width: `${Math.min(100, m.progressPct)}%` }} />
-                    </div>
-                    {m.note && <div className="ms-note">{m.note}</div>}
-                  </div>
-                ))}
-              </div>
-              {totalPt > 0 && (
-                <div style={{
-                  marginTop: "5mm", fontSize: "9pt", color: "#64748b",
-                  fontFamily: "JetBrains Mono, monospace", textAlign: "right",
-                }}>
-                  TOTAL: {totalPt} pt
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ─── §3 MTGサマリ ─────────────────────────────── */}
-        {meetings.length > 0 && (
-          <div className="sheet">
-            <div className="section">
-              <div className="section-head">
-                <span className="num">§03</span>
-                <h2>当月の主要MTG</h2>
-                <span className="en">MEETINGS</span>
-              </div>
-              {meetings.map((mtg) => {
-                const decided = arrayToLines(mtg.decided);
-                const nextActions = arrayToLines(mtg.nextActions);
-                const risks = arrayToLines(mtg.risks);
-                return (
-                  <div className="meeting" key={mtg.meetingId}>
-                    <div className="meeting-head">
-                      <span className="meeting-date">{mtg.meetingDate}</span>
-                      <span className="meeting-title">{mtg.title}</span>
-                    </div>
-                    {mtg.narrativeMd ? (
-                      <MarkdownBlock text={mtg.narrativeMd} />
-                    ) : mtg.summaryShort ? (
-                      <p style={{ margin: "1mm 0", fontSize: "10pt" }}>{mtg.summaryShort}</p>
-                    ) : null}
-                    {decided.length > 0 && (
-                      <div className="meeting-block">
-                        <div className="meeting-block-label">Decided</div>
-                        {decided.map((d, i) => <li key={i} style={{ listStyle: "none", marginLeft: "4mm" }}>· {d}</li>)}
-                      </div>
-                    )}
-                    {nextActions.length > 0 && (
-                      <div className="meeting-block">
-                        <div className="meeting-block-label">Next Actions</div>
-                        {nextActions.map((d, i) => <li key={i} style={{ listStyle: "none", marginLeft: "4mm" }}>· {d}</li>)}
-                      </div>
-                    )}
-                    {risks.length > 0 && (
-                      <div className="meeting-block">
-                        <div className="meeting-block-label">Risks</div>
-                        {risks.map((d, i) => <li key={i} style={{ listStyle: "none", marginLeft: "4mm" }}>· {d}</li>)}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ─── §4 経営シグナル ──────────────────────────── */}
-        {signals.length > 0 && (
-          <div className="sheet">
-            <div className="section">
-              <div className="section-head">
-                <span className="num">§04</span>
-                <h2>経営シグナル</h2>
-                <span className="en">STRATEGIC SIGNALS</span>
-              </div>
-              {signals.map((s) => {
-                const badge = impactBadge(s.impactLevel);
-                return (
-                  <div className="signal" key={s.signalId}>
-                    <div className="signal-head">
-                      <span className="signal-type">{signalTypeLabel(s.signalType)}</span>
-                      <span className="signal-impact" style={{ background: badge.tone }}>{badge.label}</span>
-                      {s.signalDate && (
-                        <span style={{
-                          fontFamily: "JetBrains Mono, monospace",
-                          fontSize: "8.5pt", color: "#64748b", marginLeft: "auto",
-                        }}>
-                          {s.signalDate}
-                        </span>
-                      )}
-                    </div>
-                    <div className="signal-title">{s.title}</div>
-                    <div className="signal-summary">{s.summary}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ─── §5 担当メンバー ──────────────────────────── */}
-        {members.length > 0 && (
-          <div className="sheet">
-            <div className="section">
-              <div className="section-head">
-                <span className="num">§05</span>
-                <h2>担当メンバー</h2>
-                <span className="en">PROJECT TEAM</span>
-              </div>
-              <div className="member-grid">
-                {members.map((m) => (
-                  <div className="member-card" key={m.memberId}>
-                    <div className="member-name">{m.codeName}</div>
-                    {m.roleLabel && <div className="member-role">{m.roleLabel}</div>}
-                    <div>
-                      {m.isPm && <span className="member-tag" style={{ marginRight: 4 }}>PM</span>}
-                      {m.isPl && <span className="member-tag">PL</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div style={{
-                marginTop: "12mm", paddingTop: "4mm",
-                borderTop: "1px solid #cbd5e1", fontSize: "9pt",
-                color: "#64748b", textAlign: "center",
-                fontFamily: "JetBrains Mono, monospace",
-              }}>
-                — END OF REPORT —
-              </div>
-            </div>
-          </div>
-        )}
+        <CoverPage data={data} />
+        <ExecSummary data={data} />
+        <ProgressSection data={data} />
+        <GanttSection data={data} />
+        <AchievementsSection data={data} />
+        <MeetingsSection data={data} />
+        <TeamSection data={data} />
+        <RisksSection data={data} />
+        <FinanceSection data={data} />
+        <NextMonthSection data={data} />
+        <AppendixSection data={data} />
       </div>
     </>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{
-      border: "1px solid #e2e8f0", padding: "3mm 4mm",
-      borderLeft: "3px solid #0a1628",
-    }}>
-      <div style={{
-        fontFamily: "Work Sans, sans-serif", fontSize: "8.5pt",
-        color: "#64748b", letterSpacing: "0.1em", textTransform: "uppercase",
-      }}>
-        {label}
-      </div>
-      <div style={{
-        fontFamily: "Work Sans, sans-serif", fontWeight: 700,
-        fontSize: "20pt", color: "#0a1628", marginTop: "1mm", lineHeight: 1,
-      }}>
-        {value}
-      </div>
-    </div>
   );
 }

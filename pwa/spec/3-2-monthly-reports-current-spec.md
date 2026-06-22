@@ -87,16 +87,49 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 - outbox file は `applied/` / `failed/` のどちらへ移ったか確認する。
 - helper failure は `AggregateError` / `EPERM` / `transient_network` など failure type を分けて記録する。
 
-## クライアント提出用 印刷出力 (v0.31.0 追加)
+## クライアント提出用 印刷出力 (v0.31.0 追加 / v0.32.0 国プロ網羅型へ拡張)
 
-`monthly_reports` 本文 + 当月 MS進捗 + MTGサマリ (`project_meeting_summaries`) + 経営シグナル (`project_strategy_signals` の `status='confirmed'`) + 担当メンバー (`project_members` + `members.code_name`) を 1 つの A4 印刷ビューにまとめる。
+大学・研究機関クライアント (CX=NIMS / SX=愛媛大 / KUTE=工学院大学) への月次提出を一次想定。国プロ網羅型 (NEDO 成果報告書 + 内閣府 SIP 出口戦略 + JST/AMED 年次の構成要素) と 民間コンサル型 (Exec Summary + RAG + Next Steps) の二段構え。
+
+### 章立て (v0.32.0)
+
+| 章 | 内容 | 主データソース |
+|---|---|---|
+| **A. 表紙** | 機関名・業務名・報告期間・提出日・機密区分 + 業務契約特定ブロック (契約タイトル/相手方/期間/金額 + 契約番号・入札番号・見積書番号・AMD契約番号があれば併記) | `projects` + `contracts (status=signed)` + `contract_terms (status=applied)` |
+| **B. Exec Summary** | 業務遂行レポート見出し文 (「本書は、{機関名}と株式会社チームアルマダの間で締結された「{contract_title}」(期間: …, 金額: …) に基づき、{YYYY年MM月} 稼働分の業務遂行状況を報告するものである。」) / 今月のハイライト 3行 / **RAG 3軸** (SCHEDULE: 期待% vs 実績% / COST: budget vs reported_amount / RISK: ⚠️ signal 件数 × impact) / KPI 3指標 / XRL 主要指標表 (前月→当月) | `monthly_reports` + `billing_cycles` + `project_xrl_log` + `project_strategy_signals` |
+| **C. 当月の進捗** | 進捗本文 (markdown) + マイルストーン進捗表 (前月%/当月%/Δ) | `monthly_reports.final_content` + `value_milestones` + `milestone_monthly_progress` |
+| **C-b. Gantt** | SVG 自前描画。MS 期間バー (period_start_ym→target_ym) + 進捗%fill + 当月マーカー (赤縦線) | `value_milestones.period_start_ym / target_ym` + `value_plan_cycles` |
+| **D. 当月の成果** | 主要成果シグナル (polarity🎉/✨ confirmed) + 公募採択 (当月 adopted_date) + メディア掲載 (当月 occurred_on) | `project_strategy_signals` + `project_grants` + `project_media_mentions` |
+| **E. 主要会議** | 当月 MTG リスト (narrative_md + Decided + Next Actions + Risks) | `project_meeting_summaries` |
+| **F. 体制** | 担当メンバー表 (PM/PL/Closer + 役割 + MS別担当 & share) + 関連キーパーソン | `project_members` + `members` + `milestone_responsibility` + `project_founding_members` |
+| **G. 課題・リスク** | Risk Register (⚠️ signal + 会議risks) + Action Items (open due_at順, 12件) + ボトルネック | `project_strategy_signals (polarity=⚠️)` + `project_meeting_summaries.risks` + `action_items` + `project_xrl_log.bottleneck` |
+| **H. 財務サマリ** | 契約金額 / 当月予算 vs 計上額 / 別契約 (cap_extra) 予算 / 立替明細 / 補助金交付状況 | `billing_cycles` + `reimbursements` + `project_grants` |
+| **I. 次月計画** | 翌月期日アクション + 翌月 upcoming MTG | `action_items (due_at ∈ next_ym)` + `project_meeting_summaries (source_kinds=upcoming, ym=next)` |
+| **J. 添付資料・参照** | 会議資料 (`meeting_assets`) + 当月PJ資料 (`project_documents`) + 契約書 (`contract_documents.is_latest`) + 5生データソース証跡 + 改訂履歴 | 各 web_view_link |
+
+### ルート
 
 | ルート | 役割 |
 |---|---|
-| `GET /api/project/monthly-report-print?projectId=&ym=` | 上記 5 ブロックを集約して JSON で返す。requireAdmin、列名は `pwa/design/db_schema.md` 準拠 |
-| `/(app)/project/[projectId]/report/[ym]/print` | 集約 JSON を Team ARMADA ブランド (Work Sans / Noto Sans JP / JetBrains Mono / dark #0a1628) で A4 縦に表示。`@page A4 / margin 14mm`、表紙→§01 サマリ→§02 MS→§03 MTG→§04 シグナル→§05 メンバー の順で page-break |
-| Cockpit 月次モーダルの `📄 印刷 / PDF` ボタン | 新規タブで上記ページを開く。ユーザーは Cmd+P → 「PDFとして保存」(余白なし / 背景画像オン) |
+| `GET /api/project/monthly-report-print?projectId=&ym=` | 上記 章A-J 全ブロックを 1 fetch で返す集約 route。requireAdmin、列名は `pwa/design/db_schema.md` 準拠 |
+| `/(app)/project/[projectId]/report/[ym]/print` | 集約 JSON を Team ARMADA ブランド (Work Sans / Noto Sans JP / JetBrains Mono / dark #0a1628) で A4 縦に表示。`@page A4 / margin 14mm 14mm 18mm 14mm`、各 sheet を `page-break-after: always` で章分離。`@page` の top-left に 機関名+期間、top-right に「取扱注意 / Confidential」、bottom-left に コピーライト、bottom-center に Page X/Y を CSS で自動付与 |
+| Cockpit 月次モーダルの `📄 印刷 / PDF` ボタン | 新規タブで上記ページを開く。ユーザーは Cmd+P → 「PDFとして保存」(余白=既定 / 背景のグラフィック=ON / A4縦) |
 
-PDF 化は Vercel serverless での Puppeteer/Playwright を **使わない** (bundle/timeout で詰む)。ブラウザの印刷 → PDF 保存に寄せて、HTML レイヤだけを資産化する。後で Puppeteer 化が必要になっても同じ HTML を使い回せる。
+### 設計判断
 
-外販クライアント (愛大 / NIMS) への月次提出フォーマットもこの印刷ビューを正本にする。固有テンプレートが必要になったら `print-client.tsx` の §セクションを差し替える。
+- **PDF化路線**: Vercel serverless での Puppeteer/Playwright を **採用しない** (bundle/timeout で詰む)。ブラウザの印刷 → PDF 保存に寄せて、HTML レイヤだけを資産化する。後で Puppeteer 化したくなったら同じ HTML を使い回せる
+- **削減した国プロ標準要素 (v0.32.0 時点)**: 倫理審査・利益相反 / 論文・学会発表・特許 / 株主構成 / 株主総会履歴 — CX/SX/KUTE は事業化・経営支援系で、研究委託でも会社運営報告でもないため (まさ 2026-06-22 確定)
+- **RAG は 3 軸**: スケジュール・コスト・リスクのみ (品質・スコープは判定根拠が曖昧なため削除、まさ 2026-06-22 確定)
+- **契約番号の正本化は別タスク**: `contract_terms.contract_no` が空 / `contracts.bid_no` 列なし / AMD 側採番 (`AMD-YYYY-PP-NNN`) 未実装。レポート上は「該当なし」表示で出る。**AMD 契約番号採番システムは別タスク (`AMD-YYYY-PP-NNN`、γ半自動採番、`contracts.bid_no` 列追加、入札番号抽出も同梱) で対応する** (まさ 2026-06-22「後回しでOK、タスクボードに入れて」確定)
+
+### 業務遂行レポート見出し文の自動生成
+
+`leadParagraph()` で contract.title / counterparty / period / value を組み合わせて生成。契約タイトルが取れない場合は `本業務 ({project_name})` にフォールバック。
+
+### `monthly_reports` との関係
+
+`monthly_reports.final_content` (markdown) が **§C 当月の進捗** 本文の主出力。`draft_content` フォールバック、両方空なら `project_monthly_notes.body`、それも空なら「未生成」表示。`generated_at` / `fixed_at` / `confirmed_by` は **§J 改訂履歴** に反映される。
+
+### 外販含む大学・研究機関提出での運用
+
+CX (NIMS) / SX (愛媛大) / KUTE (工学院大学) の月次提出はこの印刷ビューを正本にする。固有テンプレートが必要になったら `print-client.tsx` の §セクションを差し替えるか、`reportTemplate` クエリパラメータで分岐させる (未実装、必要になったら追加)。
