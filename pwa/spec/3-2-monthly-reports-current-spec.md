@@ -91,29 +91,34 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 
 大学・研究機関クライアント (CX=NIMS / SX=愛媛大 / KUTE=工学院大学) への月次提出を一次想定。国プロ網羅型 (NEDO 成果報告書 + 内閣府 SIP 出口戦略 + JST/AMED 年次の構成要素) と 民間コンサル型 (Exec Summary + RAG + Next Steps) の二段構え。
 
-### 章立て (v0.32.0)
+### 章立て (v0.33.0 — 「正式な対外報告書」品質)
 
 | 章 | 内容 | 主データソース |
 |---|---|---|
-| **A. 表紙** | 機関名・業務名・報告期間・提出日・機密区分 + 業務契約特定ブロック (契約タイトル/相手方/期間/金額 + 契約番号・入札番号・見積書番号・AMD契約番号があれば併記) | `projects` + `contracts (status=signed)` + `contract_terms (status=applied)` |
-| **B. Exec Summary** | 業務遂行レポート見出し文 (「本書は、{機関名}と株式会社チームアルマダの間で締結された「{contract_title}」(期間: …, 金額: …) に基づき、{YYYY年MM月} 稼働分の業務遂行状況を報告するものである。」) / 今月のハイライト 3行 / **RAG 3軸** (SCHEDULE: 期待% vs 実績% / COST: budget vs reported_amount / RISK: ⚠️ signal 件数 × impact) / KPI 3指標 / XRL 主要指標表 (前月→当月) | `monthly_reports` + `billing_cycles` + `project_xrl_log` + `project_strategy_signals` |
-| **C. 当月の進捗** | 進捗本文 (markdown) + マイルストーン進捗表 (前月%/当月%/Δ) | `monthly_reports.final_content` + `value_milestones` + `milestone_monthly_progress` |
-| **C-b. Gantt** | SVG 自前描画。MS 期間バー (period_start_ym→target_ym) + 進捗%fill + 当月マーカー (赤縦線) | `value_milestones.period_start_ym / target_ym` + `value_plan_cycles` |
-| **D. 当月の成果** | 主要成果シグナル (polarity🎉/✨ confirmed) + 公募採択 (当月 adopted_date) + メディア掲載 (当月 occurred_on) | `project_strategy_signals` + `project_grants` + `project_media_mentions` |
-| **E. 主要会議** | 当月 MTG リスト (narrative_md + Decided + Next Actions + Risks) | `project_meeting_summaries` |
-| **F. 体制** | 担当メンバー表 (PM/PL/Closer + 役割 + MS別担当 & share) + 関連キーパーソン | `project_members` + `members` + `milestone_responsibility` + `project_founding_members` |
-| **G. 課題・リスク** | Risk Register (⚠️ signal + 会議risks) + Action Items (open due_at順, 12件) + ボトルネック | `project_strategy_signals (polarity=⚠️)` + `project_meeting_summaries.risks` + `action_items` + `project_xrl_log.bottleneck` |
-| **H. 財務サマリ** | 契約金額 / 当月予算 vs 計上額 / 別契約 (cap_extra) 予算 / 立替明細 / 補助金交付状況 | `billing_cycles` + `reimbursements` + `project_grants` |
-| **I. 次月計画** | 翌月期日アクション + 翌月 upcoming MTG | `action_items (due_at ∈ next_ym)` + `project_meeting_summaries (source_kinds=upcoming, ym=next)` |
-| **J. 添付資料・参照** | 会議資料 (`meeting_assets`) + 当月PJ資料 (`project_documents`) + 契約書 (`contract_documents.is_latest`) + 5生データソース証跡 + 改訂履歴 | 各 web_view_link |
+| **§01 表紙** | 機関名・業務名・報告期間・提出日・機密区分 + 業務契約特定ブロック (契約タイトル/相手方/期間/金額 + 契約番号・入札番号・見積書番号・AMD契約番号があれば併記) | `projects` + `contracts (status=signed)` + `contract_terms (status=applied)` |
+| **§01 Exec Summary** | 業務遂行レポート見出し文 (「本書は、{機関名}と株式会社チームアルマダの間で締結された「{contract_title}」(期間: …, 金額: …) に基づき、{YYYY年MM月} 稼働分の業務遂行状況を報告するものである。」) / 今月のハイライト 3行 / **RAG 3軸** (SCHEDULE: 期待% vs 実績% / COST: budget vs reported_amount / RISK: ⚠️ signal 件数 × impact) / KPI 3指標 / XRL 主要指標表 (前月→当月) | `monthly_reports` + `billing_cycles` + `project_xrl_log` + `project_strategy_signals` |
+| **§02 当月の進捗** | 進捗本文 (markdown) + マイルストーン進捗表 (前月%/当月%/Δ) | `monthly_reports.final_content` + `value_milestones` + `milestone_monthly_progress` |
+| **§02b Gantt** | SVG 自前描画。MS 期間バー (period_start_ym→target_ym) + 進捗%fill + 当月マーカー (赤縦線) | `value_milestones.period_start_ym / target_ym` + `value_plan_cycles` |
+| **§03 当月の成果** | 主要成果シグナル (polarity🎉/✨ confirmed) + **会議で固まった事項** (会議由来の Decided を出典つきナラティブで列挙) + 公募採択 (当月 adopted_date) + メディア掲載 (当月 occurred_on) | `project_strategy_signals` + `project_meeting_summaries.decided` + `project_grants` + `project_media_mentions` |
+| **§04 実施体制** | 担当メンバー表 (PM/PL + 役割 + MS別担当 & share)。**本名表示** (`members.member_name`、フォールバック `code_name`)。Closer タグは内輪呼称のため除外 | `project_members` + `members.member_name` + `milestone_responsibility` + `project_founding_members` |
+| **§05 課題・リスク** | Risk Register (⚠️ signal + 会議risks) + Action Items (open due_at順, 12件) + ボトルネック | `project_strategy_signals (polarity=⚠️)` + `project_meeting_summaries.risks` + `action_items` + `project_xrl_log.bottleneck` |
+| **§06 次月計画** | 翌月期日アクション + 翌月 upcoming MTG | `action_items (due_at ∈ next_ym)` + `project_meeting_summaries (source_kinds=upcoming, ym=next)` |
+| **§07 添付資料・参照** | 当月PJ資料 (`project_documents`) + 契約書 (`contract_documents.is_latest`) + 5生データソース証跡 + 改訂履歴 | 各 web_view_link |
+
+#### v0.33.0 で削除した章
+
+- **§05 主要会議** (旧 MeetingsSection): 議事録・会議リストは提出物の主役ではないため除外。会議由来の決定事項は §03 当月の成果へ統合
+- **§07 財務サマリ** (旧 FinanceSection): 大学・研究機関提出には不要 (契約金額・予算は表紙メタで足りる、まさ確定)
+- **§07 添付資料の `meeting_assets` (会議資料)**: 議事録添付を行わない方針
 
 ### ルート
 
 | ルート | 役割 |
 |---|---|
-| `GET /api/project/monthly-report-print?projectId=&ym=` | 上記 章A-J 全ブロックを 1 fetch で返す集約 route。requireAdmin、列名は `pwa/design/db_schema.md` 準拠 |
+| `GET /api/project/monthly-report-print?projectId=&ym=` | 章 §01-§07 全ブロックを 1 fetch で返す集約 route。requireAdmin、列名は `pwa/design/db_schema.md` 準拠。**メンバー名は `members.member_name` (本名) を優先、空なら `members.code_name`** |
 | `/(app)/project/[projectId]/report/[ym]/print` | 集約 JSON を Team ARMADA ブランド (Work Sans / Noto Sans JP / JetBrains Mono / dark #0a1628) で A4 縦に表示。`@page A4 / margin 14mm 14mm 18mm 14mm`、各 sheet を `page-break-after: always` で章分離。`@page` の top-left に 機関名+期間、top-right に「取扱注意 / Confidential」、bottom-left に コピーライト、bottom-center に Page X/Y を CSS で自動付与 |
-| Cockpit 月次モーダルの `📄 印刷 / PDF` ボタン | 新規タブで上記ページを開く。ユーザーは Cmd+P → 「PDFとして保存」(余白=既定 / 背景のグラフィック=ON / A4縦) |
+| Cockpit 月次モーダルヘッダの `📄 印刷 / PDF` リンク (v0.33.0〜) | 新規タブで上記ページを開く。ユーザーは Cmd+P → 「PDFとして保存」(余白=既定 / 背景のグラフィック=ON / A4縦) |
+| Cockpit 月次モーダルヘッダの `📝 レポート本文を編集` ボタン (v0.33.0〜) | 旧「レポート」タブの機能を折りたたみアコーディオンで提供 (生成・修正指示・FIX・再生成)。タブUIは廃止 |
 
 ### 設計判断
 

@@ -195,17 +195,23 @@ export async function GET(req: NextRequest) {
         .in("milestone_id", milestoneIds)
     : { data: [] };
 
-  // メンバー名解決 (project_members + responsibility に出る member_id 全部)
+  // メンバー名解決 (project_members + responsibility + action_items.assignee の member_id 全部)
+  // v0.33.0: 正式な報告書には本名 (member_name) を出す。フォールバックで code_name。
   const pmRows = pmRes.data || [];
   const respRows = (responsibilityRes.data || []) as Array<{ milestone_id: string; member_id: string; role: string | null; share: number | null; task_description: string | null }>;
+  const actionAssigneeIds = ((actionRes.data || []) as Array<{ assignee_member_id: string | null }>)
+    .map((a) => a.assignee_member_id).filter((v): v is string => !!v);
   const memberIdSet = new Set([
     ...pmRows.map((r) => r.member_id),
     ...respRows.map((r) => r.member_id),
+    ...actionAssigneeIds,
   ]);
   const memberNameRes = memberIdSet.size
-    ? await db.from("members").select("member_id,code_name").in("member_id", Array.from(memberIdSet))
+    ? await db.from("members").select("member_id,code_name,member_name").in("member_id", Array.from(memberIdSet))
     : { data: [] };
-  const memberNameMap = new Map(((memberNameRes.data || []) as Array<{ member_id: string; code_name: string }>).map((m) => [m.member_id, m.code_name]));
+  // 本名優先、無ければ code_name
+  const memberNameMap = new Map(((memberNameRes.data || []) as Array<{ member_id: string; code_name: string; member_name: string | null }>)
+    .map((m) => [m.member_id, m.member_name && m.member_name.trim() ? m.member_name : m.code_name]));
 
   const members = pmRows.map((pm) => ({
     memberId: pm.member_id,

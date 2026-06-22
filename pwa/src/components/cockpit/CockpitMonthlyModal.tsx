@@ -222,6 +222,10 @@ interface MsRevision {
   messages: MsRevisionMessage[];
 }
 
+// レポートタブは v0.33.0 で廃止。印刷ビューと二重に存在するため、編集が必要なときは
+// モーダル内の「レポート本文を編集」アコーディオンを開く運用に統一。
+// 互換のため型エイリアスは残す (= 外部呼び出し: CockpitView.openMonthlyModal の initialTab) が、
+// 値は受け取っても無視する (= 開いた瞬間に編集アコーディオンを展開する用)。
 type MonthlyModalTab = "reward" | "report";
 
 interface Props {
@@ -800,9 +804,8 @@ export function CockpitMonthlyModal({
   onProgressSaved,
   onClose,
 }: Props) {
-  const [tab, setTab] = useState<MonthlyModalTab>(() =>
-    initialTab || (!billing && report ? "report" : "reward")
-  );
+  // v0.33.0: タブを廃止。initialTab='report' で開かれたら編集アコーディオンを開く。
+  const [reportEditorOpen, setReportEditorOpen] = useState<boolean>(() => initialTab === "report");
 
   // 総合進捗（シグナル計算用）
   // まさ判断 (2026-05-22 #4): buffer タグ MS は加重平均から除外する。
@@ -837,51 +840,62 @@ export function CockpitMonthlyModal({
             {isFuture && (
               <span className="text-xs text-muted-foreground">(予定)</span>
             )}
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                onClick={() => setReportEditorOpen((v) => !v)}
+                className="text-xs px-2.5 py-1 rounded-md border border-border text-foreground hover:bg-accent transition-colors"
+                title="月次報告書本文を生成・編集・確定する"
+              >
+                📝 レポート本文を編集
+              </button>
+              <a
+                href={`/project/${projectId}/report/${ym}/print`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs px-2.5 py-1 rounded-md bg-foreground text-background hover:opacity-90 transition-opacity"
+                title="クライアント提出用フォーマット。Cmd+P で PDF 保存できます"
+              >
+                📄 印刷 / PDF
+              </a>
+            </div>
           </DialogTitle>
         </DialogHeader>
 
-        {/* タブ切り替え */}
-        <div className="flex gap-1 border-b border-border pb-0 mb-4">
-          {((!billing && report ? ["report"] : ["reward", "report"]) as Array<"reward" | "report">).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`text-sm px-3 py-1.5 border-b-2 transition-colors ${
-                tab === t
-                  ? "border-primary text-foreground font-medium"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {t === "reward" ? "進捗確認" : "レポート"}
-            </button>
-          ))}
-        </div>
+        {reportEditorOpen && (
+          <div className="border border-border rounded-lg p-4 mb-4 bg-muted/20">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold">📝 月次報告書 本文 (印刷ビュー §02 で参照)</h3>
+              <button
+                onClick={() => setReportEditorOpen(false)}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                閉じる ✕
+              </button>
+            </div>
+            <ReportTab report={report} projectId={projectId} ym={ym} />
+          </div>
+        )}
 
-        {tab === "reward" && (
-          <RewardTab
-            billing={billing}
-            milestones={milestones}
-            progress={progress}
-            ym={ym}
-            projectId={projectId}
-            report={report}
-            responsibilities={responsibilities}
-            memberMap={memberMap}
-            planCycle={planCycle}
-            subItems={subItems}
-            msActivities={msActivities}
-            memberActivities={memberActivities}
-            currentYm={currentYm}
-            expectedPct={expectedPct}
-            projectFeeType={projectFeeType}
-            projectFeeAmount={projectFeeAmount}
-            usesMsProgress={usesMsProgress}
-            onProgressSaved={onProgressSaved}
-          />
-        )}
-        {tab === "report" && (
-          <ReportTab report={report} projectId={projectId} ym={ym} />
-        )}
+        <RewardTab
+          billing={billing}
+          milestones={milestones}
+          progress={progress}
+          ym={ym}
+          projectId={projectId}
+          report={report}
+          responsibilities={responsibilities}
+          memberMap={memberMap}
+          planCycle={planCycle}
+          subItems={subItems}
+          msActivities={msActivities}
+          memberActivities={memberActivities}
+          currentYm={currentYm}
+          expectedPct={expectedPct}
+          projectFeeType={projectFeeType}
+          projectFeeAmount={projectFeeAmount}
+          usesMsProgress={usesMsProgress}
+          onProgressSaved={onProgressSaved}
+        />
       </DialogContent>
     </Dialog>
   );

@@ -584,19 +584,35 @@ function trimText(s: string, n: number): string {
 }
 
 function AchievementsSection({ data }: { data: PrintData }) {
-  const { achievementSignals, grants, media, ym } = data;
-  if (achievementSignals.length === 0 && grants.length === 0 && media.length === 0) return null;
+  const { achievementSignals, grants, media, meetings, ym } = data;
+
+  // 会議由来の成果アウトプット (Decided + NextActions の確定済)
+  const meetingDecisions: Array<{ src: string; date: string; text: string }> = [];
+  for (const mtg of meetings) {
+    for (const d of arrayToLines(mtg.decided)) {
+      meetingDecisions.push({ src: mtg.title, date: mtg.meetingDate, text: d });
+    }
+  }
+
+  // 当月採択された公募 (`project_grants.adopted_date` が当月)
   const currentYmGrants = grants.filter((g) => g.adoptedDate &&
     g.adoptedDate.slice(0, 7) === `${ym.slice(0, 4)}-${ym.slice(4, 6)}`);
+
+  // セクションが空っぽなら丸ごとスキップ
+  if (
+    achievementSignals.length === 0 && grants.length === 0 && media.length === 0 &&
+    meetingDecisions.length === 0 && currentYmGrants.length === 0
+  ) return null;
 
   return (
     <div className="sheet">
       <div className="section">
         <SectionHead num="03" title="当月の成果" en="ACHIEVEMENTS" />
 
+        {/* 主要成果 (会議外・会議由来を統合してナラティブ) */}
         {achievementSignals.length > 0 && (
           <div className="ach-block">
-            <div className="block-label">主要成果・進捗</div>
+            <div className="block-label">主要成果・進展</div>
             {achievementSignals.map((s) => {
               const badge = impactBadge(s.impactLevel);
               return (
@@ -618,6 +634,22 @@ function AchievementsSection({ data }: { data: PrintData }) {
           </div>
         )}
 
+        {/* 会議で固まった事項 (Decided を出典つきでナラティブ表示) */}
+        {meetingDecisions.length > 0 && (
+          <div className="ach-block">
+            <div className="block-label">議論・打合せで固まった事項</div>
+            <ul className="decision-list">
+              {meetingDecisions.slice(0, 20).map((d, i) => (
+                <li key={i}>
+                  <span className="decision-text">{d.text}</span>
+                  <span className="decision-src">({d.date} {d.src})</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* 公募採択 */}
         {currentYmGrants.length > 0 && (
           <div className="ach-block">
             <div className="block-label">公募採択・補助金</div>
@@ -637,9 +669,10 @@ function AchievementsSection({ data }: { data: PrintData }) {
           </div>
         )}
 
+        {/* メディア掲載・対外発信 */}
         {media.length > 0 && (
           <div className="ach-block">
-            <div className="block-label">メディア掲載・露出</div>
+            <div className="block-label">メディア掲載・対外発信</div>
             <ul className="media-list">
               {media.map((m) => (
                 <li key={m.id}>
@@ -651,54 +684,6 @@ function AchievementsSection({ data }: { data: PrintData }) {
             </ul>
           </div>
         )}
-      </div>
-    </div>
-  );
-}
-
-function MeetingsSection({ data }: { data: PrintData }) {
-  const { meetings } = data;
-  if (meetings.length === 0) return null;
-  return (
-    <div className="sheet">
-      <div className="section">
-        <SectionHead num="04" title="当月の主要会議" en="MEETINGS" />
-        {meetings.map((mtg) => {
-          const decided = arrayToLines(mtg.decided);
-          const nextActions = arrayToLines(mtg.nextActions);
-          const risks = arrayToLines(mtg.risks);
-          return (
-            <div className="meeting" key={mtg.meetingId}>
-              <div className="meeting-head">
-                <span className="meeting-date">{mtg.meetingDate}</span>
-                <span className="meeting-title">{mtg.title}</span>
-              </div>
-              {mtg.narrativeMd ? (
-                <MarkdownBlock text={mtg.narrativeMd} />
-              ) : mtg.summaryShort ? (
-                <p className="meeting-summary">{mtg.summaryShort}</p>
-              ) : null}
-              {decided.length > 0 && (
-                <div className="meeting-block">
-                  <div className="meeting-block-label">決定事項</div>
-                  <ul>{decided.map((d, i) => <li key={i}>{d}</li>)}</ul>
-                </div>
-              )}
-              {nextActions.length > 0 && (
-                <div className="meeting-block">
-                  <div className="meeting-block-label">次のアクション</div>
-                  <ul>{nextActions.map((d, i) => <li key={i}>{d}</li>)}</ul>
-                </div>
-              )}
-              {risks.length > 0 && (
-                <div className="meeting-block">
-                  <div className="meeting-block-label">課題・リスク</div>
-                  <ul>{risks.map((d, i) => <li key={i}>{d}</li>)}</ul>
-                </div>
-              )}
-            </div>
-          );
-        })}
       </div>
     </div>
   );
@@ -722,13 +707,13 @@ function TeamSection({ data }: { data: PrintData }) {
   return (
     <div className="sheet">
       <div className="section">
-        <SectionHead num="05" title="実施体制" en="PROJECT TEAM" />
+        <SectionHead num="04" title="実施体制" en="PROJECT TEAM" />
 
         {members.length > 0 && (
           <>
             <div className="block-label">担当メンバー</div>
             <table className="team-table">
-              <thead><tr><th>氏名 (コードネーム)</th><th>役割</th><th>主な担当MS / 業務内容</th></tr></thead>
+              <thead><tr><th>氏名</th><th>役割</th><th>主な担当MS / 業務内容</th></tr></thead>
               <tbody>
                 {members.map((m) => {
                   const resp = respByMember.get(m.memberId) || [];
@@ -739,7 +724,6 @@ function TeamSection({ data }: { data: PrintData }) {
                         <div className="team-tags">
                           {m.isPm && <span className="team-tag">PM</span>}
                           {m.isPl && <span className="team-tag">PL</span>}
-                          {m.isCloser && <span className="team-tag">Closer</span>}
                         </div>
                       </td>
                       <td>{m.roleLabel || m.role || "—"}</td>
@@ -798,7 +782,7 @@ function RisksSection({ data }: { data: PrintData }) {
   return (
     <div className="sheet">
       <div className="section">
-        <SectionHead num="06" title="課題・リスク" en="RISKS &amp; ISSUES" />
+        <SectionHead num="05" title="課題・リスク" en="RISKS &amp; ISSUES" />
 
         {(riskSignals.length > 0 || mtgRisks.length > 0) && (
           <div className="risk-block">
@@ -864,76 +848,7 @@ function RisksSection({ data }: { data: PrintData }) {
   );
 }
 
-function FinanceSection({ data }: { data: PrintData }) {
-  const { billing, reimbursements, reimburseTotal, grants, contract } = data;
-  if (!billing && reimbursements.length === 0 && grants.length === 0) return null;
-  return (
-    <div className="sheet">
-      <div className="section">
-        <SectionHead num="07" title="財務サマリ" en="FINANCIAL SUMMARY" />
-
-        {billing && (
-          <table className="finance-table">
-            <thead><tr><th>項目</th><th>金額</th></tr></thead>
-            <tbody>
-              {contract.contractValueYen && (
-                <tr><td>契約金額 (税込)</td><td className="num-cell">{formatYen(contract.contractValueYen)}</td></tr>
-              )}
-              <tr><td>当月予算 (税抜)</td><td className="num-cell">{formatYen(billing.budgetYen)}</td></tr>
-              <tr><td>当月計上額 (税抜)</td><td className="num-cell">{formatYen(billing.budgetReportedAmount)}</td></tr>
-              {billing.extraBudgetYen && (
-                <tr><td>別契約 (cap_extra) 予算</td><td className="num-cell">{formatYen(billing.extraBudgetYen)}</td></tr>
-              )}
-              <tr><td>立替経費 (当月)</td><td className="num-cell">{formatYen(reimburseTotal)}</td></tr>
-              <tr><td>請求書発行日</td><td className="num-cell">{billing.invoiceSentAt ? formatDate(billing.invoiceSentAt) : "—"}</td></tr>
-              <tr><td>入金確認日</td><td className="num-cell">{billing.paymentConfirmedAt ? formatDate(billing.paymentConfirmedAt) : "—"}</td></tr>
-            </tbody>
-          </table>
-        )}
-
-        {reimbursements.length > 0 && (
-          <>
-            <div className="block-label" style={{ marginTop: "4mm" }}>立替明細</div>
-            <table className="reimburse-table">
-              <thead><tr><th>日付</th><th>区分</th><th>内容</th><th>担当</th><th>金額</th></tr></thead>
-              <tbody>
-                {reimbursements.map((r) => (
-                  <tr key={r.reimbursementId}>
-                    <td>{r.date}</td>
-                    <td>{r.category}</td>
-                    <td>{r.description || "—"}</td>
-                    <td>{r.member || "—"}</td>
-                    <td className="num-cell">{formatYen(r.amount)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </>
-        )}
-
-        {grants.length > 0 && (
-          <>
-            <div className="block-label" style={{ marginTop: "4mm" }}>補助金交付状況</div>
-            <table className="grant-table">
-              <thead><tr><th>事業名</th><th>機関</th><th>採択額</th><th>交付済</th><th>状態</th></tr></thead>
-              <tbody>
-                {grants.map((g) => (
-                  <tr key={g.id}>
-                    <td>{g.grantName}</td>
-                    <td>{g.agency || "—"}</td>
-                    <td className="num-cell">{formatYen(g.amountYen)}</td>
-                    <td className="num-cell">{formatYen(g.disbursedYen)}</td>
-                    <td>{g.status || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
+// v0.33.0: 財務サマリは削除 (まさ 2026-06-22)。
 
 function NextMonthSection({ data }: { data: PrintData }) {
   const { nextMonthActions, upcomingMeetings, nextYm } = data;
@@ -941,7 +856,7 @@ function NextMonthSection({ data }: { data: PrintData }) {
   return (
     <div className="sheet">
       <div className="section">
-        <SectionHead num="08" title="次月計画" en="NEXT MONTH PLAN" />
+        <SectionHead num="06" title="次月計画" en="NEXT MONTH PLAN" />
         <div className="block-label">{formatYm(nextYm)} の重点アクション</div>
         {nextMonthActions.length > 0 ? (
           <table className="action-table">
@@ -979,25 +894,13 @@ function NextMonthSection({ data }: { data: PrintData }) {
 
 function AppendixSection({ data }: { data: PrintData }) {
   const { attachments, sourceCheck } = data;
-  const hasAny = attachments.meetingAssets.length > 0 || attachments.projectDocs.length > 0 || attachments.contractDocs.length > 0;
+  // v0.33.0: 会議資料 (meetingAssets) は添付から外す (まさ 2026-06-22)。
+  const hasAny = attachments.projectDocs.length > 0 || attachments.contractDocs.length > 0;
   if (!hasAny && !sourceCheck) return null;
   return (
     <div className="sheet">
       <div className="section">
-        <SectionHead num="09" title="添付資料・参照" en="APPENDIX" />
-
-        {attachments.meetingAssets.length > 0 && (
-          <>
-            <div className="block-label">会議資料</div>
-            <ul className="attach-list">
-              {attachments.meetingAssets.slice(0, 20).map((a, i) => (
-                <li key={i}>
-                  {a.webViewLink ? <a href={a.webViewLink}>{a.fileName}</a> : a.fileName}
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
+        <SectionHead num="07" title="添付資料・参照" en="APPENDIX" />
 
         {attachments.projectDocs.length > 0 && (
           <>
@@ -1242,6 +1145,12 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
           background: #f1f5f9; color: #475569; font-family: 'Work Sans', sans-serif;
           font-size: 8.5pt; letter-spacing: 0.06em; text-align: left;
         }
+        .decision-list { margin: 0; padding: 0; list-style: none; }
+        .decision-list li { padding: 1.5mm 0 1.5mm 6mm; position: relative; border-top: 1px dashed #e2e8f0; }
+        .decision-list li:first-child { border-top: 0; }
+        .decision-list li::before { content: '✓'; position: absolute; left: 0; color: #166534; font-weight: 700; }
+        .decision-text { color: #0f172a; }
+        .decision-src { color: #64748b; font-size: 9pt; margin-left: 4mm; font-family: 'JetBrains Mono', monospace; }
         .media-list { margin: 0; padding: 0; list-style: none; }
         .media-list li { padding: 1.5mm 0; border-top: 1px dashed #e2e8f0; display: flex; gap: 4mm; align-items: baseline; }
         .media-list li:first-child { border-top: 0; }
@@ -1324,10 +1233,8 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
         <ProgressSection data={data} />
         <GanttSection data={data} />
         <AchievementsSection data={data} />
-        <MeetingsSection data={data} />
         <TeamSection data={data} />
         <RisksSection data={data} />
-        <FinanceSection data={data} />
         <NextMonthSection data={data} />
         <AppendixSection data={data} />
       </div>
