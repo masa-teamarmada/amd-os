@@ -102,26 +102,70 @@ Calendar 作業枠候補が必要な場合だけ `POST /api/task-calendar/schedu
 - 前提データが足りない資料を強引に生成しない。
 - 旧 GAS 153 / 074 を定期 writer として復活させない。
 
-## MTG Prep Worker (= 自動準備セッション生成)
+## H-1 MTG Prep セッション自動立ち上げ (= H-1 内 Phase P、2026-06-22 まさ確定)
 
-> **この節は何か**: まさが「明日 MTG あるけど準備してない」状況を、OS が前夜〜当朝に **自動で MTG専属の準備セッション (worker)** を起動し、文脈ロード・着地点 draft・資料 draft・想定質問まで先に終わらせて待機する仕組み。まさは Slack DM の link を tap するだけで「もう全部知ってる前提の対話」から始められる。
+> **この節は何か**: 「明日 MTG あるけど準備してない、毎回 codex を開いて『背景はこうで…』と説明するのがだるい」問題への OS 側回答。**既存 H-1 automation (`amd-os-l6-meeting-flow`、name は「H-1」)** の内部に prep 用 Phase P を追加し、対象 MTG ごとに **codex の新規 session を事前 spawn** する。session の中で worker prompt が文脈ロード→着地点 draft→資料 draft→readiness 計算まで完遂し、まさを待つ状態で待機する。まさは Slack DM で「{MTG} の prep セッション立ち上げといたよー」と通知を受け、自分で codex を開いて該当 session に入る (= ターミナル操作なし)。
 
-### 設計の核 (2026-06-22 まさ確定)
+### 設計の核
 
-- **codex/claude code session を毎回起動して「背景はこうで…」と説明するコストを廃止する**。OS が先に session を spawn し、文脈ロード済みの状態で待機する。
-- **つくよみは判断しない**。worker spawn と Slack DM nudge だけが役目。prep の中身を作るのは worker (= 1 MTG 1 session)。
-- **1 MTG = 1 worker session**。複数 MTG をまとめた俯瞰 session は作らない (= context 汚染回避)。
-- **過去同類 MTG の議事録全 read を前提**。着地点は「過去の流れを踏まえて」推定する。
+- **automation = 新規 session を生み出す役だけ**。prep 本体 (= 文脈ロード / draft 生成 / readiness 計算) は生まれた session の中で実行する。
+- **既存 H-1 automation 1本に統合**。`amd-os-l6-meeting-flow` に Phase P を追加するだけで、新 automation は作らない。
+- **1 MTG = 1 新規 session**。MTG ごとに `codex exec` を subprocess で呼び、別個の session を立ち上げる。session ファイルは disk persist され、まさが codex desktop で開ける状態で残る。
+- **codex のみで spawn 統一**。サブスク (ChatGPT) 認証で動くため定額外トークン課金は発生しない (`~/.codex/auth.json` の `auth_mode='chatgpt'`)。
+- **post-MTG 即時 timing**。「前回 MTG 終了 + 次回 MTG 確定」の瞬間が来た MTG を対象に prep を始める (= 先手先手主義)。
+- **カレンダー枠化**。prep 作業自体を「**＋ <PJコード> MTG準備: <タイトル>**」というタイトル先頭 `＋` 付きの動かせる Calendar event として まさカレンダーに作る。
+- **ドラッグ追従**。Calendar の `＋ prep枠` がまさによって移動されたら、その新しい日時を spawn 時刻として追従する (= 毎時 H-1 が走るたびに Calendar 状態を再確認)。
+- **対象 facilitator はまさだけ** (2026-06-22 まさ確定)。他メンバーの Calendar には prep 枠を作らない。
 
-### 構成 (3 SKILL)
+### 既存 H-1 automation との統合
 
-| SKILL | 実行場所 | cron | 役割 |
-|---|---|---|---|
-| `amd-os-l6-meeting-prep-spawner` | Codex Cloud automation | 毎朝 06:30 JST | 翌48h の upcoming MTG 拾って 各MTG ごとに worker を Codex Cloud automation として動的 spawn |
-| `amd-os-l6-meeting-prep-worker` | Codex Cloud automation (動的) | spawn 即発火 (1回限り) | 1MTG 専属。文脈ロード→着地点draft→Drive資料draft→Notion議事録draft→readiness 計算→DB upsert→session を待機保持 |
-| `amd-os-l6-meeting-prep-nudge` | Codex Cloud automation | 毎朝 07:30 JST | worker_status='ready' の MTG を Slack DM (まさ専用) でまとめ通知。session URL + readiness pill + 空き枠/見積 |
+prep は別 automation ではなく `amd-os-l6-meeting-flow` の内部 Phase として実行する。既存 H-1 は **毎時、平日 09:00-21:00、15分発火** で走っているため、prep の各種タイミング判定 (= post-MTG即時 / ドラッグ追従) を毎時 catch できる。
 
-### Worker 入力
+- Phase A-J (既存) はそのまま残す
+- **Phase P (新規)**: prep セッション spawn (毎時走るたびに必要分だけ起動)
+
+`prep_worker_status` で重複起動を防ぐ。一度 `ready` になった MTG は再 spawn しない。`failed` の MTG は次回 H-1 run で再試行する。
+
+### Phase P (prep セッション spawn) — 動作
+
+```sql
+SELECT pms.meeting_id, pms.project_id, pms.title,
+       pms.meeting_start_at, pms.calendar_event_id,
+       pms.prep_worker_status, pms.prep_calendar_event_id
+FROM project_meeting_summaries pms
+JOIN projects p USING (project_id)
+WHERE pms.source_kinds LIKE '%upcoming%'
+  AND pms.source_kinds NOT LIKE '%upcoming_tentative%'
+  AND pms.meeting_id NOT LIKE 'upcoming-tentative:%'
+  AND pms.meeting_start_at IS NOT NULL
+  AND pms.meeting_start_at > now()
+  AND pms.meeting_start_at < now() + interval '7 days'
+  AND (pms.prep_worker_status IS NULL OR pms.prep_worker_status = 'failed')
+  AND p.status IN ('active', 'sales');
+```
+
+各対象 MTG について順に:
+
+1. **timing 判定**: 同シリーズ前回 MTG の +1日後 から、今回 MTG の 24時間前 までの間でまさカレンダー空き枠を探す (= post-MTG即時主義)。過去同シリーズなしなら now から今回 MTG 24時間前まで
+2. **カレンダー＋枠作成**: 空き枠に `＋ <PJコード> MTG準備: <MTGタイトル>` を作成 (= 動かせるタスク)。event ID を `prep_calendar_event_id` に保存。既存枠は read してドラッグ追従
+3. **spawn 判定**: 現在時刻が prep 枠開始時刻に達してれば spawn 実行
+4. **codex exec で新規 session spawn** (subprocess):
+   ```bash
+   codex exec --skip-git-repo-check --json \
+     --output-last-message /tmp/prep-{meeting_id_hash}-out.txt \
+     -C /Users/masa/projects/AMD/amd-os \
+     "あなたは {MTG} 専属 prep worker。pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md を読んで meeting_id={...} project_id={...} で実行。Phase 1-10 完遂後、対話可能な状態で待機する (= 自動で session を閉じない)。"
+   ```
+5. **SESSION_ID 取得**: codex stdout の `session id: {UUID}` 行から取得 → `prep_worker_session_id` に保存
+6. **DB upsert**: `prep_worker_status='preparing'` + `prep_worker_spawned_at=now()`
+7. session 内で worker prompt が `prep_*` 列を upsert + Phase 完遂で `prep_worker_status='ready'`
+8. **Slack DM nudge**: H-1 run の Phase P 末尾で `ready` 達成MTG を まさ専用 Slack DM にまとめて送る
+
+### Worker SKILL の役割 (= spawn された session の中で走る)
+
+`pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md` は **spawn された codex session の中で読まれる prompt** として扱う。SKILL 自体は cron では走らない (= H-1 内 Phase P から `codex exec` 経由でしか実行されない)。
+
+Worker 入力:
 
 | source | 内容 |
 |---|---|
@@ -138,92 +182,88 @@ Calendar 作業枠候補が必要な場合だけ `POST /api/task-calendar/schedu
 | Gmail | 関連 thread |
 | Drive | PJ folder + 既存資料 |
 
-### Worker 出力 (= `project_meeting_summaries` の upcoming row に upsert)
+Worker 出力 (= `project_meeting_summaries` の対象 row に upsert):
 
 | column | 内容 |
 |---|---|
-| `prep_readiness_score` | 0-100。アジェンダ30 + 持参資料25 + 前回next_actions消化20 + 相手側コンテキスト15 + アサイン明確10 |
-| `prep_readiness_reasons` | jsonb. 各要素の点数と根拠 (= 「アジェンダ: 25/30 (Notion page あり、章立て確認済)」等) |
+| `prep_readiness_score` | 0-100 |
+| `prep_readiness_reasons` | jsonb 内訳 |
 | `prep_draft_md` | 着地点 / 背景 / 想定質問 / 持参物 の Markdown draft |
-| `prep_drive_asset_id` | Worker が生成した資料 draft の Drive file ID (= `PJfolder/YYMMDD_MTG名_prep/`) |
-| `prep_notion_page_id` | Worker が作成した議事録ページ (アジェンダ草案入り) |
-| `prep_worker_session_id` | Codex Cloud automation run ID |
-| `prep_worker_session_url` | まさが tap する URL (= Codex Cloud session への直接 link) |
-| `prep_worker_status` | `spawning` / `preparing` / `ready` / `failed` |
-| `prep_worker_spawned_at` | spawner が起動した時刻 |
-| `prep_worker_ready_at` | worker が待機状態に到達した時刻 |
-| `prep_concierge_nudged_at` | nudge cron が Slack DM 送信した時刻 (= 重複送信防止) |
+| `prep_drive_asset_id` | `_prep/` フォルダ配下 Drive file ID |
+| `prep_notion_page_id` | アジェンダ草案入り Notion 議事録ページ |
+| `prep_worker_status='ready'` | Phase 完遂時 |
+| `prep_worker_ready_at` | now |
 
 ### Readiness Score 計算
 
 | シグナル | 重み | 取り方 |
 |---|---|---|
-| アジェンダ存在 | 30 | Notion 議事録ページ の本文文字数 + Calendar description 文字数。100 文字以上で満点、50-99 で半分 |
-| 持参資料 | 25 | `project_documents` / `meeting_assets` の当該PJ直近資料 ref 数。3件以上で満点 |
-| 前回 next_actions 消化 | 20 | 同シリーズ前回 `next_actions[]` のうち `tasks.status='done'` 比率 |
-| 相手側コンテキスト | 15 | 直近30日のメール往復 + 関連 Notion ページ |
-| アサイン明確 | 10 | `projects.facilitator_member_id` + Calendar attendees 整合 |
+| アジェンダ存在 | 30 | Notion 議事録ページ本文文字数 + Calendar description 文字数。100↑ で 30、50-99 で 15、<50 で 5 |
+| 持参資料 | 25 | `project_documents` + `meeting_assets` + worker 生成 `prep_drive_asset_id` の合計件数。3↑ で 25、1-2 で 12、0 で 0 |
+| 前回 next_actions 消化 | 20 | 同シリーズ前回 `next_actions[]` のうち `tasks.status='done'` 比率 × 20 |
+| 相手側コンテキスト | 15 | 直近30日 Gmail 往復 + 関連 Notion ページ件数。3↑ で 15、1-2 で 8、0 で 0 |
+| アサイン明確 | 10 | `projects.facilitator_member_id` が NOT NULL かつ Calendar attendees に含まれていれば 10 |
 
-- 80↑ = 緑「準備OK」
-- 50-79 = 黄「もう一押し」
-- <50 = 赤「まだ何もない」
+合計 = `prep_readiness_score`。80↑ 緑「準備OK」 / 50-79 黄「もう一押し」 / <50 赤「要相談」。
 
-### Spawner 動作
+### Nudge (= まさ専用 Slack DM、Phase P 末尾で実行)
 
-```sql
--- spawner が拾う対象
-SELECT *
-FROM project_meeting_summaries
-WHERE source_kinds LIKE '%upcoming%'
-  AND source_kinds NOT LIKE '%upcoming_tentative%'
-  AND meeting_start_at BETWEEN now() AND now() + interval '48 hours'
-  AND (prep_worker_status IS NULL OR prep_worker_status = 'failed')
-  AND projects.status IN ('active', 'sales')  -- ended/frozen は対象外
+H-1 run の Phase P の最後に、その run で `prep_worker_status='ready'` になった MTG を 1本の Slack DM にまとめて送る。
+
+- 送信先: まさ専用 DM (= `members.slack_id` から `is_admin=true` AND `code_name='まさ'` で解決、env には保持しない)
+- 既に `prep_concierge_nudged_at` がセットされてる MTG は除外 (= 重複防止)
+- 送信完了で `prep_concierge_nudged_at=now()` を upsert
+- 形式 (つくよみ口調、月モチーフ):
+
+```
+🌙 まさ、prep セッション立ち上げといたよー
+
+📌 KUTE定例 (明日10:00, p25, オンライン)
+   readiness 75/100  🟡
+   codex で開いてね、待機してるよ
+
+📌 pHydrogen KR訪問 (明後日14:00, p07)
+   readiness 35/100  🔴
+   codex で開いてね、資料draftは作ったけど着地点要相談
+
+📌 香川大MTG (木曜14:00, p06)
+   readiness 60/100  🟡
+   codex で開いてね、prep枠は明日13:00-14:30に取っといた
 ```
 
-- 各 MTG について Codex Cloud REST API で動的 automation を 1 回限り登録する (= `amd-os-l6-prep-{meeting_id_hash}` 命名)
-- 動的 automation の指示文は `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md を読んで meeting_id={...} project_id={...} で実行` のみ
-- spawn 完了したら `prep_worker_status='spawning'` + `prep_worker_session_id` + `prep_worker_session_url` を upsert
-- recurring MTG は series ごとに次回1件だけ。`source_kinds='upcoming_tentative'` は対象外
-- spawner 自体は LLM を呼ばない (= deterministic)
-
-### Nudge 動作
-
-- 07:30 JST 発火
-- `prep_worker_status='ready'` かつ `prep_concierge_nudged_at IS NULL` かつ `meeting_start_at BETWEEN now() AND now() + interval '48 hours'` を全件拾う
-- まさ専用 Slack DM 1本にまとめて投げる (= MTG 1件ごとに別DMは送らない)
-- DM 形式は つくよみ口調:
-  ```
-  🌙 まさ、明日と明後日の MTG prep worker、もう動かしといたよー
-  📌 KUTE定例 (明日10:00, p25, オンライン) readiness 75/100
-     worker準備完了 → [▶ 開く]
-  📌 pHydrogen KR訪問 (明後日14:00, p07) readiness 35/100 ⚠️
-     worker準備完了 → [▶ 開く] (資料draftは作ったけど着地点要相談)
-  今日のまさ空き枠: 14:00-15:30, 17:00-18:00 (合計2.5h)
-  prep見積: KUTE 0.5h + pHydrogen 2h = 2.5h ✅ 収まるよ
-  ```
-- 空き枠は Calendar freebusy + busy window から計算 (= まさの個人カレンダーも含む。既存 H-1 で抽出済み)
-- nudge 完了したら `prep_concierge_nudged_at=now()` を upsert
-- `prep_worker_status='failed'` の MTG は別ブロックに「⚠️ worker起動失敗、手動でclaude code開いて」と表示
-
-### Worker session URL
-
-- Codex Cloud automation の run page URL を保存 (= `https://codex.cloud.openai.com/runs/{run_id}` 相当)
-- まさが tap → そのまま session に入る → worker の第一声 (= prep_draft_md の冒頭が代わりに表示される) から対話継続
-- session は worker 終了後も Codex Cloud 上で見える状態に残る (= idle session として保持)
+- Link 不要 (= まさは codex desktop を自分で起動してそこから入る)
+- 「codex で開いてね」だけ書く (= まさ確定: claude / codex の使い分けは廃止、codex 一本化)
+- `prep_worker_status='failed'` の MTG は別ブロックに「⚠️ {MTG} の prep セッション起動失敗、手動準備して」と表示
 
 ### 配置
 
-- `pwa/scheduled-tasks/amd-os-l6-meeting-prep-spawner/SKILL.md`
-- `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md`
-- `pwa/scheduled-tasks/amd-os-l6-meeting-prep-nudge/SKILL.md`
+- **SKILL (本体)**: `pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md` (= 既存 H-1 SKILL に Phase P 追加)
+- **Worker SKILL (codex exec から読まれる prompt)**: `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md`
+- **automation 登録**: `~/.codex/automations/amd-os-l6-meeting-flow/automation.toml` (`name = "H-1"` に変更済み、`prompt` に prep Phase 追記済み)
 
-L6 シリーズ (= meeting flow 関連) として既存 `amd-os-l6-meeting-extract` / `amd-os-l6-meeting-reviewer` と並べる。
+L6 シリーズ (= meeting flow 関連) として既存 `amd-os-l6-meeting-extract` / `amd-os-l6-meeting-reviewer` と並ぶ。`amd-os-l6-meeting-prep-spawner/` と `amd-os-l6-meeting-prep-nudge/` は **昨夜 (2026-06-22) いったん作ったが H-1 統合に再設計したため削除**。
 
-### 禁止事項 (prep worker)
+### DB schema (migration 150 + 151)
 
-- worker が生成した draft を**自動で Notion 本ページ・Drive 本資料・Calendar event の description に書き込まない**。すべて draft / 別ファイル / DB の `prep_*` 列に置き、まさ確認後の手動反映 or 別 route 経由で本反映する。
+migration 150 で `project_meeting_summaries` に以下追加済:
+- `prep_readiness_score` (int4) / `prep_readiness_reasons` (jsonb)
+- `prep_draft_md` (text) / `prep_drive_asset_id` (text) / `prep_notion_page_id` (text)
+- `prep_worker_session_id` (text) / `prep_worker_status` (text)
+- `prep_worker_spawned_at` / `prep_worker_ready_at` / `prep_concierge_nudged_at` (timestamptz)
+
+migration 151 で追加:
+- `prep_calendar_event_id` (text) ← `＋ prep枠` の Calendar event ID。ドラッグ追従の追跡用
+
+廃止 (= 昨夜の Codex Cloud REST API 経路の名残):
+- `prep_worker_session_url` (text) は **migration 151 で DROP**。codex desktop は SESSION_ID から直接開けるため URL 不要
+
+### 禁止事項 (prep セッション)
+
+- worker が生成した draft を**自動で Notion 本ページ・Drive 本資料・Calendar event description に書き込まない**。すべて `_prep/` フォルダ / draft Notion page / DB の `prep_*` 列に置き、まさ確認後の手動反映 or 別 route 経由で本反映する。
 - worker は Gmail 本送信しない (= 既存 H-1 と同じ)。
-- spawner / nudge / worker は **MTG 本体の議事録 (`narrative_md` / `decided` 等)** を書き換えない。これは既存 H-1 抽出 routine の責務。
-- `prep_worker_status='ready'` 未達でも、ある程度の draft が DB にあれば nudge には出す (= ただし「準備中」chip 付き)。完全失敗のみ `failed` 扱い。
-- recurring MTG の同シリーズで連続2回連続 worker が走らないよう、shed cycle ごとに次回1件のみ対象とする (= 既存 `recurring_series_future_occurrence` skip に従う)。
+- Phase P / Worker は MTG 本体の議事録 (`narrative_md` / `decided` 等) を書き換えない。これは既存 H-1 抽出 Phase A の責務。
+- ended / frozen PJ、`source_kinds='upcoming_tentative'` は対象外 (= 既存 H-1 と同じ進捗ベース原則)。
+- recurring MTG は series ごとに次回1件のみ。連続 occurrence で複数 session を spawn しない。
+- 同じ MTG に複数 session を spawn しない (= `prep_worker_status` で防御)。`failed` のみ再試行可。
+- `claude code` で session を spawn しない (= まさ確定で codex 一本化)。
+- 定額外トークン課金経路 (= OpenAI API key / Anthropic API key) で worker を動かさない (= `~/.codex/auth.json` の `auth_mode='chatgpt'` を維持)。
