@@ -1024,3 +1024,40 @@ deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifica
 - まさが実機で見て指摘した残りバグ 2 件:
   - **MS dedup 強化**: v0.34.0 では milestoneId 単独で dedup していたため、別シーズンの同名 MS (例: 「コスト試算」「事業計画策定」) が複数行・複数バーで重複表示。`selectActiveMilestonesForReport` を milestoneId → タイトル正規化 (空白除去 + lowercase) の 2 段階に拡張。直近 `period_start_ym` 優先 / 同 period なら progress 高い方 / それも同点なら points 大きい方を残す。`GanttSection` も同 dedup を共用するよう改修
   - **share=0 MS の除外**: `TeamSection` の `respByMember` 構築時に `share === 0` を除外、share 大きい順にソート。「主な担当MS / 業務内容」に関与なし MS が並ぶ問題を解消
+
+## 2026-06-22 (#96) — Cowork セッション (cowork-eimi) / 月次レポート印刷ビューを v0.33.0 → v0.34.2 でクライアント提出物品質に整備
+
+> Cowork (Claude Desktop) 上で動いた cowork-eimi セッションのログ。次のえいみ (Codex / 別 Cowork) が読めば把握できるよう残す。
+
+### コンテキスト
+- 前セッション #95 で v0.33.0 deploy 済 (大学・研究機関向け正式報告書品質まで到達)。まさが実機で見て **11 件の修正指示** を投下したので順次反映
+- 大枠の指示: 「クライアント提出物として予算・リスクは要らない / OS 内固有名は禁止 / MS が古いものや重複が出てる / 当月成果は当月進捗に統合 / もっと色を活用」
+- v0.34.0 deploy 後に「MS 重複まだ解決してない、関与 0% MS が体制に並んでる」と差し戻し → v0.34.1
+- v0.34.1 deploy 後にスクショで「これ CTB じゃなくて SX、下の方の『期間未設定』は MS じゃなくて見積書明細にあった項目」と更に指摘 → 真因が「過去 fixed plan_cycle に見積明細が is_active=true で 75 件残存」と判明し v0.34.2 で API 側 plan_cycle.status フィルタを追加
+- 別タスク確定: CX (NIMS) / SX (愛媛大) 用の PJ ごとフォーマット (= 稼働ログ型 / 見積明細型) は次セッションで。`value_milestones` の見積明細混入クリーンアップも別タスク化
+
+### 実装
+- **コード (v0.34.0)**: [print-client.tsx](../src/app/(app)/project/[projectId]/report/[ym]/print/print-client.tsx) を全面整理。§01 表紙から見積書番号削除 / Exec の COST RAG カードと予算消化メタと XRL 前月比表を削除 (Schedule+Risk の 2 軸 + XRL 5 軸現在値カードへ) / §03 当月の成果を §02 に統合し A-E の色付きサブブロック (Progress=紺 / Achievements=緑) / §04 関連キーパーソン削除 / §05 課題・リスク全削除 / §07 5生データ証跡削除。`stripInternalJargon` で「つくよみ / 月次進捗モーダル / MTGページ / 経営シグナル / コックピット / nudge / H-1 next action / FRL」を中立表現へ印刷時置換。[report/generate/route.ts](../src/app/api/report/generate/route.ts) の LLM system prompt にも同名禁止句を追記
+- **コード (v0.34.1)**: `selectActiveMilestonesForReport` の dedup を milestoneId 単独 → 「milestoneId + タイトル正規化」の 2 段階に拡張、直近 `period_start_ym` 優先で残す。Gantt も同 dedup を共用。`TeamSection` の `respByMember` 構築時に `share === 0` を除外し share 降順ソート
+- **コード (v0.34.2)**: [monthly-report-print/route.ts](../src/app/api/project/monthly-report-print/route.ts) の MS 取得を **現役 plan_cycle のみ** (`status ∈ {active,confirmed,draft,in_progress}`) に絞り込み。`planCycle` (Gantt 計画期間) も active 優先、無ければ最新 fixed に fallback
+- **doc**: [spec/3-2 月次レポート / 6-1 changelog](../spec/6-1-appendix-changelog.md) と [manual/9-3 changelog](../manual/9-3-appendix-changelog.md) に v0.34.0/.1/.2 の 3 エントリ追記
+
+### Verified
+- **DB 直 SELECT**: SX (p21) で原因特定。現役 cycle `PC-p21-202604` には MS 12 個のみ、過去 fixed cycle `PC-p21-202601-202603` に 75 件 (末尾 11 件は明らかに見積書明細「月次試算表の作成」「PoC候補先の選定に向けた情報収集」等) が is_active=true で残存していた
+- **build**: v0.34.0/.1/.2 とも `tsc --noEmit` 無音 / `npm run build` 通過 (Next.js 16.2.3 Turbopack)
+- **deploy**: 3 回とも `pwa/scripts/deploy.sh` 経由で push、Vercel build 各 2 分台で完了、live `git_sha` 一致確認済 (`bd1fb5f1` / `5cdca3a1` / `936f3cbb`)
+- **実機 verify**: まさが SX 印刷ビューで「なおった！」と確認 (= v0.34.2 で MS 12 個ぴったりに整理されたことを確認)
+
+### Cowork ↔ Codex 衝突メモ
+- セッション中盤で別 worker の `8c560441 fix(governance): vendor_sender 経路で PJ 混入していたのを本文照合で除外 (v0.33.1)` を fetch した影響でファイル lint hook が走り、進行中の Edit 群が一部 revert される事故あり
+- 教訓: 各 Edit 後に `git diff --stat` で反映確認しながら少しずつ積み上げる方針に切替えて完遂。巨大編集は Write 一発じゃなく細かい Edit + 毎回 diff 確認の方が安全
+
+### 残課題 (= 次セッション以降)
+- **value_milestones への見積明細混入クリーンアップ** (#16): 印刷ビュー以外 (cockpit / admin/ms-overview / 報酬計算等) にも影響する可能性。発生源 (= 見積→MS 変換の自動 cron or 手動投入) の特定と既存データの is_active=false 化 or 別テーブル退避を別セッションで
+- **CX (NIMS) フォーマット**: `contract_id W2025014019` 用に Calendar event + member_activities → LLM で日付ごとの稼働ログ推定生成 (まさ「正確である必要は全くない、契約通り工数消化されたことを証明したい」)。`projects.report_format='cx_activity_log'` で UI 振り分け
+- **SX (愛媛大) フォーマット**: freee 会計の請求書 `/invoices` から `invoice_contents[]` を取って明細ごとに当月実施内容を LLM 生成。`projects.report_format='sx_estimate_items'`
+- **PJ ごとフォーマット切替 UI**: モーダルに「📄 AMD 標準 / 📄 クライアント提出版」の 2 ボタン振り分け
+- **#12 AMD契約番号採番システム** (#95 から継続): `contracts.amd_contract_no` 列追加 + γ半自動採番
+
+### 関連メモ更新 (Cowork memory)
+- なし (今回は memory 追加せず、spec/3-2 + manual/9-3 + design_log の正本 doc 反映で代替)
