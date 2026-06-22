@@ -3033,14 +3033,16 @@ function ReportTab({ report, projectId, ym }: { report: Report | null; projectId
           </button>
         )}
 
-        {/* PDF出力（スタブ） */}
-        <button
-          disabled
-          title="PDF出力: 次のセッションで実装予定"
-          className="text-xs px-3 py-1 rounded-md border border-border text-muted-foreground opacity-50 cursor-not-allowed"
+        {/* クライアント提出用 印刷プレビュー */}
+        <a
+          href={`/project/${projectId}/report/${ym}/print`}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="クライアント提出用フォーマット。Cmd+P で PDF 保存できます"
+          className="text-xs px-3 py-1 rounded-md border border-border text-foreground hover:bg-accent transition-colors"
         >
-          📄 PDF
-        </button>
+          📄 印刷 / PDF
+        </a>
 
         {/* 表示切り替え */}
         {content && (

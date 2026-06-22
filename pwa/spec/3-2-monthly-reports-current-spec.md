@@ -86,3 +86,17 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 - `final_content` 既存行への変更がないことを確認する。
 - outbox file は `applied/` / `failed/` のどちらへ移ったか確認する。
 - helper failure は `AggregateError` / `EPERM` / `transient_network` など failure type を分けて記録する。
+
+## クライアント提出用 印刷出力 (v0.31.0 追加)
+
+`monthly_reports` 本文 + 当月 MS進捗 + MTGサマリ (`project_meeting_summaries`) + 経営シグナル (`project_strategy_signals` の `status='confirmed'`) + 担当メンバー (`project_members` + `members.code_name`) を 1 つの A4 印刷ビューにまとめる。
+
+| ルート | 役割 |
+|---|---|
+| `GET /api/project/monthly-report-print?projectId=&ym=` | 上記 5 ブロックを集約して JSON で返す。requireAdmin、列名は `pwa/design/db_schema.md` 準拠 |
+| `/(app)/project/[projectId]/report/[ym]/print` | 集約 JSON を Team ARMADA ブランド (Work Sans / Noto Sans JP / JetBrains Mono / dark #0a1628) で A4 縦に表示。`@page A4 / margin 14mm`、表紙→§01 サマリ→§02 MS→§03 MTG→§04 シグナル→§05 メンバー の順で page-break |
+| Cockpit 月次モーダルの `📄 印刷 / PDF` ボタン | 新規タブで上記ページを開く。ユーザーは Cmd+P → 「PDFとして保存」(余白なし / 背景画像オン) |
+
+PDF 化は Vercel serverless での Puppeteer/Playwright を **使わない** (bundle/timeout で詰む)。ブラウザの印刷 → PDF 保存に寄せて、HTML レイヤだけを資産化する。後で Puppeteer 化が必要になっても同じ HTML を使い回せる。
+
+外販クライアント (愛大 / NIMS) への月次提出フォーマットもこの印刷ビューを正本にする。固有テンプレートが必要になったら `print-client.tsx` の §セクションを差し替える。
