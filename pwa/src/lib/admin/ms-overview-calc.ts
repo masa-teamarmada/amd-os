@@ -18,6 +18,7 @@
  */
 
 import type { MsOverviewMemberYearTotal, MsOverviewMilestone, MsOverviewPlanCycle } from "./ms-overview-types";
+import { pointBasisForPeriod, roundPt } from "@/lib/season-point-basis";
 
 // season-pl.ts の CAP_EXTRA_MILESTONE_TAGS と完全一致させる。
 export const CAP_EXTRA_MILESTONE_TAGS = new Set([
@@ -88,6 +89,16 @@ function safeNumber(n: unknown): number {
   return Number.isFinite(v) ? v : 0;
 }
 
+type EffectiveMilestonePointsInput = Pick<EditableMilestoneInput, "points" | "isCapExtra" | "periodStartYm" | "targetYm">;
+
+export function effectiveEditableMilestonePoints(ms: EffectiveMilestonePointsInput): number {
+  if (ms.isCapExtra) {
+    const periodPoints = pointBasisForPeriod(ms.periodStartYm, ms.targetYm);
+    if (periodPoints > 0) return periodPoints;
+  }
+  return roundPt(Math.max(0, safeNumber(ms.points)));
+}
+
 /**
  * MS Overview のリアルタイム計算。
  * computeSeasonPl の pt 単価式 (floor 含む) と完全一致させる。
@@ -97,7 +108,7 @@ function safeNumber(n: unknown): number {
 export function recomputeMsOverview(input: RecomputeInput): RecomputeResult {
   const regularPoints = roundPt(Math.max(0, safeNumber(input.regularPointBasis)));
   const extraPoints = roundPt(
-    input.milestones.filter((ms) => ms.isCapExtra).reduce((sum, ms) => sum + safeNumber(ms.points), 0),
+    input.milestones.filter((ms) => ms.isCapExtra).reduce((sum, ms) => sum + effectiveEditableMilestonePoints(ms), 0),
   );
   const totalPoints = roundPt(regularPoints + extraPoints);
 
@@ -113,12 +124,13 @@ export function recomputeMsOverview(input: RecomputeInput): RecomputeResult {
   const acc = new Map<string, Acc>();
 
   for (const ms of input.milestones) {
+    const points = effectiveEditableMilestonePoints(ms);
     const unit = ms.isCapExtra ? extraPtUnitYen : regularPtUnitYen;
-    ptValueYenByMs.set(ms.milestoneId, Math.round(safeNumber(ms.points) * unit));
+    ptValueYenByMs.set(ms.milestoneId, Math.round(points * unit));
     for (const r of ms.responsibilities) {
       const share = safeNumber(r.share);
       if (share <= 0) continue;
-      const earnedYen = Math.round(safeNumber(ms.points) * share * unit);
+      const earnedYen = Math.round(points * share * unit);
       if (earnedYen === 0) continue;
       const a = acc.get(r.memberId) ?? { regularYen: 0, extraYen: 0, codeName: r.codeName };
       if (ms.isCapExtra) a.extraYen += earnedYen;
@@ -151,34 +163,33 @@ export function recomputeMsOverview(input: RecomputeInput): RecomputeResult {
   };
 }
 
-function roundPt(n: number): number {
-  return Math.round(n * 100) / 100;
-}
-
 /**
  * `MsOverviewPlanCycle` (= route が返す閲覧モード値) を、編集用入力に変換する。
  * client が初期描画後すぐにリアルタイム計算を回せるようにする。
  */
 export function toEditableMilestones(cycle: MsOverviewPlanCycle): EditableMilestoneInput[] {
-  return cycle.milestones.map((ms): EditableMilestoneInput => ({
-    milestoneId: ms.milestoneId,
-    title: ms.title,
-    points: ms.points,
-    tag: ms.tag,
-    goalLevel: ms.goalLevel,
-    successCriteria: ms.successCriteria,
-    periodStartYm: ms.periodStartYm,
-    targetYm: ms.targetYm,
-    sortOrder: ms.sortOrder,
-    isCapExtra: ms.isCapExtra,
-    responsibilities: ms.responsibilities.map((r) => ({
-      memberId: r.memberId,
-      codeName: r.codeName,
-      share: r.share,
-      role: r.role,
-      taskDescription: r.taskDescription,
-    })),
-  }));
+  return cycle.milestones.map((ms): EditableMilestoneInput => {
+    const base: EditableMilestoneInput = {
+      milestoneId: ms.milestoneId,
+      title: ms.title,
+      points: ms.points,
+      tag: ms.tag,
+      goalLevel: ms.goalLevel,
+      successCriteria: ms.successCriteria,
+      periodStartYm: ms.periodStartYm,
+      targetYm: ms.targetYm,
+      sortOrder: ms.sortOrder,
+      isCapExtra: ms.isCapExtra,
+      responsibilities: ms.responsibilities.map((r) => ({
+        memberId: r.memberId,
+        codeName: r.codeName,
+        share: r.share,
+        role: r.role,
+        taskDescription: r.taskDescription,
+      })),
+    };
+    return { ...base, points: effectiveEditableMilestonePoints(base) };
+  });
 }
 
 /**

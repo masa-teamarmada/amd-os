@@ -120,12 +120,12 @@ route の流れ:
       "projectName": "ZMP",
       "periodStartYm": "202601",
       "periodEndYm": "202612",
-      "budgetYen": 3000000,
-      "totalPoints": 140,
+      "budgetYen": 2340000,
+      "totalPoints": 180,
       "regularPoints": 120,
-      "extraPoints": 20,
+      "extraPoints": 60,
       "regularPtUnitYen": 19500,
-      "extraPtUnitYen": 65000,
+      "extraPtUnitYen": 21667,
       "extraPoolBudgetYen": 1300000,
       "projectMembers": [{ "memberId": "ID002", "codeName": "あび" }],
       "milestones": [
@@ -157,7 +157,7 @@ route の流れ:
 ### 編集できる項目
 
 - MS 名 (`title`)
-- pt (`points`)
+- pt (`points`; `cap_extra` は MS 期間の月数×10ptで自動算出)
 - tag (`normal` / `routine` / `buffer` / `cap_extra`)
 - 期間 (`period_start_ym` / `target_ym`)
 - 完了条件 (`success_criteria`)
@@ -171,12 +171,12 @@ pt / tag / share を動かすたびに、API を叩かず **JS 側で即座に�
 ```text
 regularPts   = シーズン期間の月数 × 10pt
 regularUnit  = round(budget_yen / regularPts)
-extraPts     = Σ(cap_extra MS の points)
+extraPts     = Σ(cap_extra MS の期間月数 × 10pt)
 extraUnit    = round(extraPoolBudgetYen / extraPts)   // 別財布があるときのみ
-memberYen[m] = Σ over MS of (MS.points × share[m] × (cap_extra ? extraUnit : regularUnit))
+memberYen[m] = Σ over MS of (effectivePoints × share[m] × (cap_extra ? extraUnit : regularUnit))
 ```
 
-`total_points` の保存値は `regularPts + extraPts`。通常 MS の配分 pt 合計が変わっても、本契約 pt単価は動かない。
+`total_points` の保存値は `regularPts + extraPts`。通常 MS の配分 pt 合計が変わっても、本契約 pt単価は動かない。`cap_extra` の pt は保存時にも API 側で MS 期間×10ptへ正規化する。
 
 再計算結果は ① メトリクスカード 4 枚 (合計pt / 本契約 pt単価 / 別財布 pt単価 / 主要メンバー比較) ② 各 MS の pt 価値 ③ メンバー別 年計バー + 合計金額 ④ ヘッダの単価表示 にリアルタイムで反映する。
 

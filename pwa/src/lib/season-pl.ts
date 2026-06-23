@@ -23,7 +23,12 @@ import {
   type RewardSummary,
 } from "@/lib/reward-summary";
 import { contractBackedClientAmount } from "@/lib/contract-money";
-import { regularPointBasisForCycle, totalPointBasisForCycle } from "@/lib/season-point-basis";
+import {
+  pointBasisForMilestonePeriod,
+  regularPointBasisForCycle,
+  roundPt,
+  totalPointBasisForCycle,
+} from "@/lib/season-point-basis";
 
 // pt単価原資の按分比率。報酬計算正本と一致させる: 原資 = (請求額 − バッファ) × MEMBER_SHARE_RATE。
 const MEMBER_SHARE_RATE = 0.65;
@@ -34,6 +39,15 @@ const CAP_EXTRA_MILESTONE_TAGS = new Set(["cap_extra", "extra_contract", "contra
 function isCapExtraTag(tag: unknown): boolean {
   return CAP_EXTRA_MILESTONE_TAGS.has(String(tag ?? "").trim().toLowerCase());
 }
+
+function effectiveMilestonePoints(ms: Pick<MilestoneInput, "points" | "tag" | "period_start_ym" | "target_ym">): number {
+  if (isCapExtraTag(ms.tag)) {
+    const periodPoints = pointBasisForMilestonePeriod(ms);
+    if (periodPoints > 0) return periodPoints;
+  }
+  return roundPt(Math.max(0, numberValue(ms.points)));
+}
+
 // 「閉じ検算」「原資=Σ月cap」「pt単価」の許容誤差 (丸め誤差吸収, 円)。
 const CLOSE_TOLERANCE_YEN = 5;
 // 役員 stock 収束許容誤差 (円)。
@@ -412,7 +426,7 @@ export function computeSeasonPl({
   //   extra pt単価   = Σ billing.extra_budget_yen ÷ Σextra pt。
   // 別財布が無ければ extra 系は 0 で、regularPtUnitYen は従来の ptUnitYen と一致する。
   const extraPointsSum = Math.round(
-    milestones.filter((ms) => isCapExtraTag(ms.tag)).reduce((sum, ms) => sum + numberValue(ms.points), 0) * 100
+    milestones.filter((ms) => isCapExtraTag(ms.tag)).reduce((sum, ms) => sum + effectiveMilestonePoints(ms), 0) * 100
   ) / 100;
   const hasCapExtra = extraPointsSum > 0;
   const regularPointsSum = regularPointBasisForCycle(planCycle);
@@ -553,7 +567,7 @@ export function computeSeasonPl({
   const msPointsSum = Math.round(
     milestones
       .filter((ms) => String(ms.goal_level || "").toLowerCase() !== "monthly")
-      .reduce((sum, ms) => sum + numberValue(ms.points), 0) * 100
+      .reduce((sum, ms) => sum + effectiveMilestonePoints(ms), 0) * 100
   ) / 100;
   const unassignedPt = Math.round((totalPoints - msPointsSum) * 100) / 100;
   // 担当者が居ない (share 合計 0) のに points を持つ MS = 誰の earnedPt にもならない宙吊り pt。
@@ -563,7 +577,7 @@ export function computeSeasonPl({
   }
   const unownedMilestones = milestones
     .filter((ms) => String(ms.goal_level || "").toLowerCase() !== "monthly")
-    .filter((ms) => numberValue(ms.points) > 0 && (shareSumByMs.get(ms.milestone_id) ?? 0) <= 0)
+    .filter((ms) => effectiveMilestonePoints(ms) > 0 && (shareSumByMs.get(ms.milestone_id) ?? 0) <= 0)
     .map((ms) => ms.milestone_id);
 
   // total_points が MS で裏打ちされ、かつ宙吊り (担当無し) MS も無ければ「pt 完全割当」。

@@ -100,7 +100,7 @@
 
 ## 5.1 ZMP (p19) 別財布不一致の解析と是正方針 (2026-06-20)
 
-> **2026-06-23 正本更新**: 本契約 regular の pt 分母は `total_points − Σcap_extra pt` ではなく **シーズン期間の月数×10pt** で固定する。ZMP 202601〜202612 は regular 120pt。`value_plan_cycles.total_points` は `120 + Σcap_extra pt` を保存する。以下の 2026-06-20 時点の 110pt / 177pt 記述は履歴として残すが、新規修正では使わない。
+> **2026-06-23 正本更新**: 本契約 regular の pt 分母は `total_points − Σcap_extra pt` ではなく **シーズン期間の月数×10pt** で固定する。別財布 cap_extra も例外にせず、MS期間の月数×10ptで固定する。ZMP 202601〜202612 は regular 120pt、OkuDoorシステム開発 202605〜202610 は cap_extra 60pt、`value_plan_cycles.total_points` は 180pt を保存する。以下の 2026-06-20 時点の 110pt / 177pt 記述は履歴として残すが、新規修正では使わない。
 
 予実表が検出した ZMP の不一致を実コードで解析した結果、原因は2つに分離できた。
 
@@ -145,7 +145,7 @@
 ### 大原則 (まさ確定)
 - **計算ルール (65%・pt単価・cap・繰越) は全PJ共通のまま不変**。別財布も特殊計算しない。
 - 別財布は「**同一 plan cycle 内の別プール (cap_extra)**」として扱う。**物理的に別 plan cycle に分けない** (`choosePlanCycle` が「1月に period 内の1cycleだけ返す」前提なので、本契約と period が重なると本契約MSが報酬計算から消える事故になる。BUGS.md 2026-06-20 教訓1)。
-- 別財布のメンバー支払いは「**先に支払額が確定** → それに合わせて pt/share を後付け調整」。原資は固定したまま share を微調整して目標額に合わせる (OkuDoor: 原資130万固定で share 0.7→0.6923 にしてあび・うめ各20万に合わせた)。
+- 別財布のメンバー支払いは「**先に支払額が確定** → それに合わせて share を後付け調整」。原資と pt (= MS期間月数×10pt) は固定したまま share を微調整して目標額に合わせる (OkuDoor: 原資130万・60pt固定で share まさ0.6924 / あび・うめ各0.1538 にして各20万近傍へ合わせた)。
 
 ### 3ステップ
 **① 別財布の売上を `billing_cycles.extra_revenue_json` に計上** (= PL/キャッシュの売上側)
@@ -153,9 +153,9 @@
 - `{label, amount_tax_excl, billing_date, period_start_ym, period_end_ym, freee_invoice_number, memo}` を持たせる。`period_*` で開発期間に按分される (PL表示用。原価計算には使わない)。
 - これは「売上が OS に存在する」ための計上。**pt単価原資 (extra_budget_yen) とは別物**なので混同しない。
 
-**② 別財布の MS を `tag=cap_extra` で作り、pt と share を後付けで決める** (= 原価/配分側)
+**② 別財布の MS を `tag=cap_extra` で作り、期間と share を決める** (= 原価/配分側)
 - 別財布の作業を表す MS を `value_milestones` に `tag='cap_extra'` で作る (`period_start_ym`〜`target_ym` = 開発期間)。`goal_level` は `monthly` 以外 (annual 等)。
-- **pt は支払設計に合わせて付ける** (例 OkuDoor 別財布を 20pt にするなら、extra pt単価は 130万÷20=65,000円/pt)。`value_plan_cycles.total_points` には **期間月数×10pt + 別財布pt** を入れる (ZMP 12か月 + OkuDoor20pt なら 120+20=140)。通常 MS の配分 pt 合計で本契約単価を動かさない。
+- **pt は MS期間の月数×10ptで固定する**。例: OkuDoor 別財布は 202605〜202610 の6か月なので 60pt、extra pt単価は 130万÷60=21,667円/pt。`value_plan_cycles.total_points` には **シーズン期間月数×10pt + cap_extra MS期間月数×10pt** を入れる (ZMP 12か月 + OkuDoor6か月なら 120+60=180)。通常 MS の配分 pt 合計で本契約単価を動かさない。
 - `milestone_responsibility.share` は「**先に決まった支払額 ÷ (extra pt単価)**」から逆算。extra pt単価 = `Σextra_budget_yen ÷ Σcap_extra pt` (③で確定)。役員は会社留保になるので share の残りを役員に寄せる。
 
 **③ 別財布原資の「支払タイミング」を `billing_cycles.extra_budget_yen` で表現** (= 別プールの月次cap)

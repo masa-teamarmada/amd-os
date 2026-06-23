@@ -10,7 +10,7 @@ import {
   contractBackedClientAmount,
   monthlyFixedClientAmount,
 } from "@/lib/contract-money";
-import { regularPointBasisForCycle } from "@/lib/season-point-basis";
+import { pointBasisForMilestonePeriod, regularPointBasisForCycle, roundPt } from "@/lib/season-point-basis";
 
 type SupabaseLike = SupabaseClient;
 
@@ -285,6 +285,14 @@ function isCapExtraMilestone(ms: Pick<MilestoneRow, "tag">): boolean {
   return CAP_EXTRA_MILESTONE_TAGS.has(normalizedTag(ms.tag));
 }
 
+function effectiveMilestonePoints(ms: MilestoneRow): number {
+  if (isCapExtraMilestone(ms)) {
+    const periodPoints = pointBasisForMilestonePeriod(ms);
+    if (periodPoints > 0) return periodPoints;
+  }
+  return roundPt(Math.max(0, numberValue(ms.points)));
+}
+
 function ymToMonths(ym: string): number {
   return parseInt(ym.slice(0, 4), 10) * 12 + parseInt(ym.slice(4, 6), 10);
 }
@@ -326,9 +334,13 @@ function isPmLockedProgressRow(row: ProgressRow): boolean {
 }
 
 function lockedConsumedPt(row: ProgressRow, points: number): number {
-  if (row.consumed_pt != null) {
+  if (row.progress_pct != null && row.progress_pct !== "") {
+    const pct = Math.max(0, Math.min(100, numberValue(row.progress_pct)));
+    return Math.round((pct * Math.max(0, points))) / 100;
+  }
+  if (row.consumed_pt != null && row.consumed_pt !== "") {
     const consumed = numberValue(row.consumed_pt);
-    if (Number.isFinite(consumed)) return consumed;
+    if (Number.isFinite(consumed)) return Math.max(0, Math.min(Math.max(0, points), consumed));
   }
   return Math.round(numberValue(row.progress_pct) * points) / 100;
 }
@@ -355,7 +367,7 @@ function buildPayableCumMap(
     period_end_ym: planCycle?.period_end_ym ?? null,
   };
   for (const ms of milestones) {
-    const points = numberValue(ms.points);
+    const points = effectiveMilestonePoints(ms);
     const { startYm, endYm } = milestonePeriod(
       { period_start_ym: ms.period_start_ym ?? null, target_ym: ms.target_ym ?? null },
       cyclePeriod
@@ -473,10 +485,10 @@ function rewardPointBasis(milestones: MilestoneRow[], planCycle: PlanCycleRow | 
   if (!hasCapExtra) {
     return {
       hasCapExtra,
-      totalPt: numberValue(planCycle?.total_points) || milestones.reduce((sum, ms) => sum + numberValue(ms.points), 0),
+      totalPt: numberValue(planCycle?.total_points) || milestones.reduce((sum, ms) => sum + effectiveMilestonePoints(ms), 0),
     };
   }
-  const extraPt = milestones.filter(isCapExtraMilestone).reduce((sum, ms) => sum + numberValue(ms.points), 0);
+  const extraPt = milestones.filter(isCapExtraMilestone).reduce((sum, ms) => sum + effectiveMilestonePoints(ms), 0);
   const planTotalPt = numberValue(planCycle?.total_points);
   if (planTotalPt > extraPt) {
     return {
@@ -488,13 +500,13 @@ function rewardPointBasis(milestones: MilestoneRow[], planCycle: PlanCycleRow | 
     hasCapExtra,
     totalPt: milestones
       .filter((ms) => !isCapExtraMilestone(ms))
-      .reduce((sum, ms) => sum + numberValue(ms.points), 0),
+      .reduce((sum, ms) => sum + effectiveMilestonePoints(ms), 0),
   };
 }
 
 /** cap_extra MS の points 合計 (= 別財布プールの総pt)。 */
 function capExtraPointSum(milestones: MilestoneRow[]): number {
-  return milestones.filter(isCapExtraMilestone).reduce((sum, ms) => sum + numberValue(ms.points), 0);
+  return milestones.filter(isCapExtraMilestone).reduce((sum, ms) => sum + effectiveMilestonePoints(ms), 0);
 }
 
 function deriveRewardUnits({
@@ -1259,7 +1271,7 @@ export async function syncRewardSummaryForCycle(
       .select("project_id, ym, status, budget_yen, budget_reported_amount, budget_buffer_amount, extra_budget_yen, reward_summary_json")
       .eq("project_id", projectId)
       .gte("ym", planCycle.period_start_ym)
-      .lte("ym", ym)
+      .lte("ym", planCycle.period_end_ym)
       .order("ym", { ascending: true }),
     db
       .from("project_members")

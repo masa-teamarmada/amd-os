@@ -33,6 +33,7 @@ import type {
   ProjectHealthState,
 } from "@/lib/admin/ms-overview-types";
 import { isCapExtraTag as isCapExtraTagShared } from "@/lib/admin/ms-overview-calc";
+import { pointBasisForMilestonePeriod, roundPt } from "@/lib/season-point-basis";
 
 export const runtime = "nodejs";
 
@@ -56,6 +57,14 @@ const MILESTONE_SELECT =
 function numberValue(value: unknown): number {
   const n = typeof value === "number" ? value : Number(value ?? 0);
   return Number.isFinite(n) ? n : 0;
+}
+
+function effectiveMilestonePoints(ms: MilestoneInput): number {
+  if (isCapExtraTag(ms.tag)) {
+    const periodPoints = pointBasisForMilestonePeriod(ms);
+    if (periodPoints > 0) return periodPoints;
+  }
+  return roundPt(Math.max(0, numberValue(ms.points)));
 }
 
 export type {
@@ -177,9 +186,9 @@ async function buildOverviewForPlanCycle(
   const project = (projectRes.data ?? null) as ProjectInput | null;
   const billings = (billingRes.data ?? []) as BillingInput[];
   // season-pl と同じ: monthly goal_level は報酬対象外なので除外する
-  const milestones = ((milestoneRes.data ?? []) as MilestoneInput[]).filter(
-    (ms) => String(ms.goal_level || "").toLowerCase() !== "monthly",
-  );
+  const milestones = ((milestoneRes.data ?? []) as MilestoneInput[])
+    .filter((ms) => String(ms.goal_level || "").toLowerCase() !== "monthly")
+    .map((ms) => ({ ...ms, points: effectiveMilestonePoints(ms) }));
   const members = (membersRes.data ?? []) as MemberInput[];
   const activeMemberIds = new Set(
     ((projectMembersRes.data ?? []) as Array<{ member_id: string; is_active: boolean | null }>)
@@ -234,7 +243,7 @@ async function buildOverviewForPlanCycle(
   // ③ MS 一覧 (pt 降順)
   const msRows: MsOverviewMilestone[] = milestones
     .map((ms): MsOverviewMilestone => {
-      const points = Math.round(numberValue(ms.points) * 100) / 100;
+      const points = effectiveMilestonePoints(ms);
       const isCapExtra = isCapExtraTag(ms.tag);
       const unit = isCapExtra ? seasonPl.extraPtUnitYen : seasonPl.regularPtUnitYen;
       const ptValueYen = Math.round(points * unit);
@@ -277,7 +286,7 @@ async function buildOverviewForPlanCycle(
   type Acc = { regularPt: number; extraPt: number };
   const acc = new Map<string, Acc>();
   for (const ms of milestones) {
-    const points = numberValue(ms.points);
+    const points = effectiveMilestonePoints(ms);
     if (points <= 0) continue;
     const isExtra = isCapExtraTag(ms.tag);
     const resps = respByMs.get(ms.milestone_id) ?? [];

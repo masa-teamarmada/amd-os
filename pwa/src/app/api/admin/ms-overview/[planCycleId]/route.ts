@@ -13,7 +13,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/supabase/api-auth";
 import { syncRewardSummariesForProject } from "@/lib/reward-summary";
 import { isCapExtraTag } from "@/lib/admin/ms-overview-calc";
-import { totalPointBasisForCycle } from "@/lib/season-point-basis";
+import { pointBasisForPeriod, totalPointBasisForCycle } from "@/lib/season-point-basis";
 
 export const runtime = "nodejs";
 
@@ -83,6 +83,18 @@ function newMilestoneId(planCycleId: string, index: number): string {
 
 function normalizeShare(value: unknown): number {
   return Math.round(safeNumber(value) * 10000) / 10000;
+}
+
+function normalizedMilestonePoints(
+  ms: Pick<MilestonePayload, "points" | "tag">,
+  periodStartYm: string | null,
+  targetYm: string | null,
+): number {
+  if (isCapExtraTag(ms.tag)) {
+    const periodPoints = pointBasisForPeriod(periodStartYm, targetYm);
+    if (periodPoints > 0) return periodPoints;
+  }
+  return Math.round(Math.max(0, safeNumber(ms.points)) * 100) / 100;
 }
 
 function validatePayload(body: Body): string | null {
@@ -168,7 +180,7 @@ export async function PUT(
         milestone_id: milestoneId,
         plan_cycle_id: planCycleId,
         title: cleanText(ms.title),
-        points: Math.round(safeNumber(ms.points) * 100) / 100,
+        points: normalizedMilestonePoints(ms, periodStartYm, targetYm),
         tag: cleanText(ms.tag, "normal"),
         goal_level: cleanText(ms.goalLevel, "season"),
         is_active: true,
@@ -218,15 +230,24 @@ export async function PUT(
 
     const totalRes = await db
       .from("value_milestones")
-      .select("points, tag, goal_level")
+      .select("points, tag, goal_level, period_start_ym, target_ym")
       .eq("plan_cycle_id", planCycleId)
       .eq("is_active", true);
     if (totalRes.error) throw totalRes.error;
     const extraPoints = Math.round(
-      ((totalRes.data ?? []) as Array<{ points: number | string | null; tag: string | null; goal_level: string | null }>)
+      ((totalRes.data ?? []) as Array<{
+        points: number | string | null;
+        tag: string | null;
+        goal_level: string | null;
+        period_start_ym: string | null;
+        target_ym: string | null;
+      }>)
         .filter((row) => String(row.goal_level || "").toLowerCase() !== "monthly")
         .filter((row) => isCapExtraTag(row.tag))
-        .reduce((sum, row) => sum + safeNumber(row.points), 0) * 100,
+        .reduce((sum, row) => {
+          const periodPoints = pointBasisForPeriod(row.period_start_ym, row.target_ym);
+          return sum + (periodPoints > 0 ? periodPoints : safeNumber(row.points));
+        }, 0) * 100,
     ) / 100;
     const newTotal = totalPointBasisForCycle(plan, extraPoints);
 

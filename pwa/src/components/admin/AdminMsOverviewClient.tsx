@@ -8,6 +8,7 @@ import type {
   ProjectHealthState,
 } from "@/lib/admin/ms-overview-types";
 import {
+  effectiveEditableMilestonePoints,
   isCapExtraTag,
   recomputeMsOverview,
   toEditableMilestones,
@@ -128,6 +129,11 @@ function normalizeEditableRows(rows: EditableMilestoneInput[]): string {
   );
 }
 
+function normalizeCapExtraPoint(row: EditableMilestoneInput): EditableMilestoneInput {
+  const points = effectiveEditableMilestonePoints(row);
+  return row.isCapExtra && points > 0 ? { ...row, points } : row;
+}
+
 // ---- メトリクスカード -----------------------------------------------------
 
 function MetricCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -194,6 +200,9 @@ function MsEditorRow({
   const color = barColorForTag(current.tag, current.isCapExtra);
   const shareSum = current.responsibilities.reduce((sum, resp) => sum + resp.share, 0);
   const responsibilityByMember = new Map(current.responsibilities.map((resp) => [resp.memberId, resp]));
+  const derivedPoints = effectiveEditableMilestonePoints(current);
+  const usesPeriodPoints = current.isCapExtra && derivedPoints > 0;
+  const displayPoints = usesPeriodPoints ? derivedPoints : current.points;
 
   const updateResponsibility = (
     member: MsOverviewPlanCycle["projectMembers"][number],
@@ -249,10 +258,14 @@ function MsEditorRow({
           type="number"
           min={0}
           step={1}
-          value={current.points}
-          onChange={(event) => onChange({ points: Number(event.target.value) })}
-          className="rounded border border-border bg-background px-2 py-1 text-right text-[12px] tabular-nums"
+          value={displayPoints}
+          onChange={(event) => {
+            if (!usesPeriodPoints) onChange({ points: Number(event.target.value) });
+          }}
+          disabled={usesPeriodPoints}
+          className="rounded border border-border bg-background px-2 py-1 text-right text-[12px] tabular-nums disabled:cursor-not-allowed disabled:bg-muted/40 disabled:text-muted-foreground"
           aria-label="pt"
+          title={usesPeriodPoints ? "cap_extra pt = MS期間の月数×10pt" : "pt"}
         />
         <select
           value={current.tag}
@@ -285,7 +298,7 @@ function MsEditorRow({
           aria-label="MS終了"
         />
         <div className="text-right text-[12px] text-muted-foreground tabular-nums">
-          {fmtPt(current.points)}pt / {fmtYen(ptValueYen)}
+          {fmtPt(displayPoints)}pt / {fmtYen(ptValueYen)}
         </div>
       </div>
 
@@ -476,7 +489,7 @@ function PlanCycleBlock({
 
   const handleMilestoneChange = useCallback((milestoneId: string, patch: Partial<EditableMilestoneInput>) => {
     setEditing((prev) =>
-      prev.map((row) => (row.milestoneId === milestoneId ? { ...row, ...patch } : row)),
+      prev.map((row) => (row.milestoneId === milestoneId ? normalizeCapExtraPoint({ ...row, ...patch }) : row)),
     );
   }, []);
 
@@ -521,7 +534,7 @@ function PlanCycleBlock({
         milestones: activeEditing.map((row, index) => ({
           milestoneId: isDraftMilestoneId(row.milestoneId) ? null : row.milestoneId,
           title: row.title,
-          points: Math.round(row.points * 100) / 100,
+          points: Math.round(effectiveEditableMilestonePoints(row) * 100) / 100,
           tag: row.tag,
           goalLevel: row.goalLevel,
           successCriteria: row.successCriteria,
