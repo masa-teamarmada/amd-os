@@ -13,6 +13,9 @@ import { requireAdmin } from "@/lib/supabase/api-auth";
 export const runtime = "nodejs";
 
 // Critical anchor: payout-reward-cache-refresh runs daily at 03:05 JST via vercel.json.
+const DEFAULT_FORWARD_CACHE_LOOKAHEAD_MONTHS = 11;
+const MAX_FORWARD_CACHE_LOOKAHEAD_MONTHS = 24;
+
 type BillingCycleRow = {
   project_id: string;
   ym: string;
@@ -37,8 +40,19 @@ function addMonths(ym: string, delta: number): string {
   return `${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
-function targetPaymentYms(baseYm: string): string[] {
-  return [addMonths(baseYm, -1), baseYm, addMonths(baseYm, 1)];
+function normalizeLookaheadMonths(value: unknown, fallback: number): number {
+  if (value === null || value === undefined || value === "") return fallback;
+  const parsed = typeof value === "number" ? value : Number(String(value));
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(0, Math.min(MAX_FORWARD_CACHE_LOOKAHEAD_MONTHS, Math.floor(parsed)));
+}
+
+function targetPaymentYms(baseYm: string, lookaheadMonths: number, includePrevious: boolean): string[] {
+  const yms = includePrevious ? [addMonths(baseYm, -1)] : [];
+  for (let offset = 0; offset <= lookaheadMonths; offset += 1) {
+    yms.push(addMonths(baseYm, offset));
+  }
+  return [...new Set(yms)];
 }
 
 async function refreshPayoutRewardCache(paymentYms: string[]) {
@@ -97,11 +111,16 @@ export async function GET(req: NextRequest) {
   }
 
   const explicitYm = cleanYm(req.nextUrl.searchParams.get("ym"));
-  const paymentYms = explicitYm ? [explicitYm] : targetPaymentYms(currentYmJst());
+  const lookaheadMonths = normalizeLookaheadMonths(
+    req.nextUrl.searchParams.get("lookahead"),
+    explicitYm ? 0 : DEFAULT_FORWARD_CACHE_LOOKAHEAD_MONTHS
+  );
+  const baseYm = explicitYm ?? currentYmJst();
+  const paymentYms = targetPaymentYms(baseYm, lookaheadMonths, !explicitYm);
 
   try {
     const result = await refreshPayoutRewardCache(paymentYms);
-    return NextResponse.json({ ok: true, ...result });
+    return NextResponse.json({ ok: true, baseYm, lookaheadMonths, ...result });
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, { status: 500 });
   }
@@ -111,7 +130,7 @@ export async function POST(req: NextRequest) {
   const auth = await requireAdmin();
   if (!auth.ok) return auth.errorResponse;
 
-  let body: { ym?: string } = {};
+  let body: { ym?: string; lookahead?: number | string | null } = {};
   try {
     body = await req.json();
   } catch {
@@ -119,11 +138,16 @@ export async function POST(req: NextRequest) {
   }
 
   const explicitYm = cleanYm(body.ym);
-  const paymentYms = explicitYm ? [explicitYm] : targetPaymentYms(currentYmJst());
+  const lookaheadMonths = normalizeLookaheadMonths(
+    body.lookahead,
+    explicitYm ? 0 : DEFAULT_FORWARD_CACHE_LOOKAHEAD_MONTHS
+  );
+  const baseYm = explicitYm ?? currentYmJst();
+  const paymentYms = targetPaymentYms(baseYm, lookaheadMonths, !explicitYm);
 
   try {
     const result = await refreshPayoutRewardCache(paymentYms);
-    return NextResponse.json({ ok: true, ...result });
+    return NextResponse.json({ ok: true, baseYm, lookaheadMonths, ...result });
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, { status: 500 });
   }

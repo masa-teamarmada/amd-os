@@ -14,7 +14,7 @@ import {
   type PayoutAgreementGateSummary,
   type PayoutAgreementGateTargetAction,
 } from "@/lib/monthly-work-agreement-payout-gate";
-import { syncRewardSummariesForBillingCycles, computeForwardCappedMemberCosts } from "@/lib/reward-summary";
+import { syncRewardSummariesForBillingCycles } from "@/lib/reward-summary";
 import type { ExtraRevenueSourceRow } from "@/lib/finance/extra-revenue";
 
 export const runtime = "nodejs";
@@ -72,10 +72,32 @@ type RewardMemberRow = {
   regular_paid_yen?: unknown;
   extraPaidYen?: unknown;
   extra_paid_yen?: unknown;
+  regularGrossDueYen?: unknown;
+  regular_gross_due_yen?: unknown;
+  extraGrossDueYen?: unknown;
+  extra_gross_due_yen?: unknown;
+  grossDueYen?: unknown;
+  gross_due_yen?: unknown;
+  cappedFrom?: unknown;
+  capped_from?: unknown;
+  stockYen?: unknown;
+  stock_yen?: unknown;
+  deferredYen?: unknown;
+  deferred_yen?: unknown;
   regularStockYen?: unknown;
   regular_stock_yen?: unknown;
   extraStockYen?: unknown;
   extra_stock_yen?: unknown;
+  companyReserveYen?: unknown;
+  company_reserve_yen?: unknown;
+  regularCompanyReserveYen?: unknown;
+  regular_company_reserve_yen?: unknown;
+  extraCompanyReserveYen?: unknown;
+  extra_company_reserve_yen?: unknown;
+  officerReserveYen?: unknown;
+  officer_reserve_yen?: unknown;
+  payoutExcluded?: unknown;
+  payout_excluded?: unknown;
 };
 
 type RewardSummary = {
@@ -84,7 +106,33 @@ type RewardSummary = {
   totalPaySum?: unknown;
   totalGrossDueYen?: unknown;
   capBudgetYen?: unknown;
+  carryOverYen?: unknown;
+  regularTotalGrossDueYen?: unknown;
+  extraTotalGrossDueYen?: unknown;
+  regularCarryOverYen?: unknown;
+  extraCarryOverYen?: unknown;
+  regularCapBudgetYen?: unknown;
+  extraCapBudgetYen?: unknown;
+  externalRegularPayoutCapYen?: unknown;
+  externalExtraPayoutCapYen?: unknown;
+  regularCompanyReserveYen?: unknown;
+  extraCompanyReserveYen?: unknown;
   meta?: unknown;
+};
+
+type ForecastCappedRow = {
+  projectId: string;
+  ym: string;
+  cappedTotalYen: number;
+  cappedRegularYen: number;
+  cappedExtraYen: number;
+  cappedRegularExternalYen: number;
+  cappedExtraExternalYen: number;
+  regularCompanyReserveYen: number;
+  extraCompanyReserveYen: number;
+  regularGrossDueYen: number;
+  extraGrossDueYen: number;
+  carryOverYen: number;
 };
 
 type PayoutEntry = {
@@ -195,7 +243,25 @@ function asRewardSummary(value: unknown): RewardSummary | null {
   const members = Array.isArray(record.members)
     ? (record.members as RewardMemberRow[])
     : [];
-  return { members, monthlyBudget65: record.monthlyBudget65 };
+  return {
+    members,
+    monthlyBudget65: record.monthlyBudget65,
+    totalPaySum: record.totalPaySum,
+    totalGrossDueYen: record.totalGrossDueYen,
+    capBudgetYen: record.capBudgetYen,
+    carryOverYen: record.carryOverYen,
+    regularTotalGrossDueYen: record.regularTotalGrossDueYen,
+    extraTotalGrossDueYen: record.extraTotalGrossDueYen,
+    regularCarryOverYen: record.regularCarryOverYen,
+    extraCarryOverYen: record.extraCarryOverYen,
+    regularCapBudgetYen: record.regularCapBudgetYen,
+    extraCapBudgetYen: record.extraCapBudgetYen,
+    externalRegularPayoutCapYen: record.externalRegularPayoutCapYen,
+    externalExtraPayoutCapYen: record.externalExtraPayoutCapYen,
+    regularCompanyReserveYen: record.regularCompanyReserveYen,
+    extraCompanyReserveYen: record.extraCompanyReserveYen,
+    meta: record.meta,
+  };
 }
 
 function textValue(value: unknown): string {
@@ -249,6 +315,117 @@ function cycleKey(row: BillingCycleRow) {
 function cycleSort(a: BillingCycleRow, b: BillingCycleRow) {
   if (a.ym !== b.ym) return a.ym.localeCompare(b.ym);
   return a.project_id.localeCompare(b.project_id);
+}
+
+function cachedForecastCappedRows(
+  cycles: BillingCycleRow[],
+  members: MemberRow[]
+): ForecastCappedRow[] {
+  const officerMemberIds = new Set(
+    members
+      .filter((member) => member.is_officer)
+      .map((member) => member.member_id)
+  );
+  const payoutExcludedMemberIds = new Set(
+    members
+      .filter((member) => member.exclude_from_payout_notice)
+      .map((member) => member.member_id)
+  );
+
+  return cycles.flatMap((cycle) => {
+    const summary = asRewardSummary(cycle.reward_summary_json);
+    if (!summary) return [];
+
+    let fallbackRegularExternalYen = 0;
+    let fallbackExtraExternalYen = 0;
+    let fallbackRegularCompanyReserveYen = 0;
+    let fallbackExtraCompanyReserveYen = 0;
+    let fallbackRegularGrossDueYen = 0;
+    let fallbackExtraGrossDueYen = 0;
+    let fallbackCarryOverYen = 0;
+
+    for (const member of summary.members ?? []) {
+      const memberId = textValue(member.memberId) || textValue(member.member_id);
+      if (!memberId) continue;
+
+      const isOfficer = officerMemberIds.has(memberId);
+      const isPayoutExcluded =
+        payoutExcludedMemberIds.has(memberId) ||
+        boolValue(member.payoutExcluded ?? member.payout_excluded);
+      if (isPayoutExcluded && !isOfficer) continue;
+
+      const extraPaidYen = yenValue(member.extraPaidYen ?? member.extra_paid_yen);
+      const totalPay = yenValue(member.totalPay ?? member.total_pay);
+      const regularPaidYen = hasExplicitNumber(member.regularPaidYen ?? member.regular_paid_yen)
+        ? yenValue(member.regularPaidYen ?? member.regular_paid_yen)
+        : Math.max(0, totalPay - extraPaidYen);
+
+      const companyReserveYen = yenValue(
+        member.companyReserveYen ?? member.company_reserve_yen ?? member.officerReserveYen ?? member.officer_reserve_yen
+      );
+      const extraCompanyReserveYen = yenValue(member.extraCompanyReserveYen ?? member.extra_company_reserve_yen);
+      const regularCompanyReserveYen = hasExplicitNumber(member.regularCompanyReserveYen ?? member.regular_company_reserve_yen)
+        ? yenValue(member.regularCompanyReserveYen ?? member.regular_company_reserve_yen)
+        : Math.max(0, (companyReserveYen || totalPay) - extraCompanyReserveYen);
+
+      const stockYen = yenValue(member.stockYen ?? member.stock_yen ?? member.deferredYen ?? member.deferred_yen);
+      const extraStockYen = yenValue(member.extraStockYen ?? member.extra_stock_yen);
+      const grossDueYen = yenValue(member.grossDueYen ?? member.gross_due_yen ?? member.cappedFrom ?? member.capped_from ?? totalPay);
+      const extraGrossDueYen = hasExplicitNumber(member.extraGrossDueYen ?? member.extra_gross_due_yen)
+        ? yenValue(member.extraGrossDueYen ?? member.extra_gross_due_yen)
+        : Math.max(0, extraPaidYen + extraStockYen + extraCompanyReserveYen);
+      const regularGrossDueYen = hasExplicitNumber(member.regularGrossDueYen ?? member.regular_gross_due_yen)
+        ? yenValue(member.regularGrossDueYen ?? member.regular_gross_due_yen)
+        : Math.max(0, grossDueYen - extraGrossDueYen);
+
+      if (isOfficer) {
+        fallbackRegularCompanyReserveYen += regularCompanyReserveYen;
+        fallbackExtraCompanyReserveYen += extraCompanyReserveYen;
+      } else {
+        fallbackRegularExternalYen += regularPaidYen;
+        fallbackExtraExternalYen += extraPaidYen;
+      }
+      fallbackRegularGrossDueYen += regularGrossDueYen;
+      fallbackExtraGrossDueYen += extraGrossDueYen;
+      fallbackCarryOverYen += stockYen;
+    }
+
+    const regularCompanyReserveYen = hasExplicitNumber(summary.regularCompanyReserveYen)
+      ? yenValue(summary.regularCompanyReserveYen)
+      : fallbackRegularCompanyReserveYen;
+    const extraCompanyReserveYen = hasExplicitNumber(summary.extraCompanyReserveYen)
+      ? yenValue(summary.extraCompanyReserveYen)
+      : fallbackExtraCompanyReserveYen;
+    const cappedRegularExternalYen = hasExplicitNumber(summary.externalRegularPayoutCapYen)
+      ? yenValue(summary.externalRegularPayoutCapYen)
+      : fallbackRegularExternalYen;
+    const cappedExtraExternalYen = hasExplicitNumber(summary.externalExtraPayoutCapYen)
+      ? yenValue(summary.externalExtraPayoutCapYen)
+      : fallbackExtraExternalYen;
+    const cappedRegularYen = cappedRegularExternalYen + regularCompanyReserveYen;
+    const cappedExtraYen = cappedExtraExternalYen + extraCompanyReserveYen;
+
+    return [{
+      projectId: cycle.project_id,
+      ym: cycle.ym,
+      cappedTotalYen: cappedRegularYen + cappedExtraYen,
+      cappedRegularYen,
+      cappedExtraYen,
+      cappedRegularExternalYen,
+      cappedExtraExternalYen,
+      regularCompanyReserveYen,
+      extraCompanyReserveYen,
+      regularGrossDueYen: hasExplicitNumber(summary.regularTotalGrossDueYen)
+        ? yenValue(summary.regularTotalGrossDueYen)
+        : fallbackRegularGrossDueYen,
+      extraGrossDueYen: hasExplicitNumber(summary.extraTotalGrossDueYen)
+        ? yenValue(summary.extraTotalGrossDueYen)
+        : fallbackExtraGrossDueYen,
+      carryOverYen: hasExplicitNumber(summary.carryOverYen)
+        ? yenValue(summary.carryOverYen)
+        : fallbackCarryOverYen,
+    }];
+  });
 }
 
 // === 支払通知書メール送信 (まさ要件 2026-05-28): keiri@ from + PDF添付 + BCC ===
@@ -905,53 +1082,19 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
   if (noticesRes.error) throw noticesRes.error;
   if (extraRevenueRes.error) throw extraRevenueRes.error;
 
-  // 将来月の capped 使用額を `/admin/payouts` 支払通知書と同じエンジンで投影する。
+  // 将来月の capped 使用額は通常GETでも再計算せず、日次/手動 refresh で作られた
+  // billing_cycles.reward_summary_json から集計する。画面を開いただけで重い
+  // reward-summary エンジンを全PJ分回さないための高速初期表示ルール。
   // cappedRegularYen = 本契約capの使用額 (外部支払 + 役員会社留保)。
   // cappedExtraYen = 別財布(cap_extra)の使用額 (外部支払 + 役員会社留保)。
   // 外部支払 / 役員会社留保 / gross due も返し、先12か月表を目的別に分解できるようにする。
-  // 支払対象外 (exclude_from_payout_notice) は computeForwardCappedMemberCosts 内で落とす。
   // ※ v0.25.3 では誤って uncapped (キャップ・繰越を通さない生報酬) を支払予定に入れていたため、
   //   pt 消化が厚い月に budget_yen を超えて跳ね、マイナス月 / KUTE 巨額 / OkuDoor 超過が発生した
   //   (2026-06-17 まさ指摘 → v0.25.4 で capped へ修正)。
-  const forecastProjectIds = [...new Set(forecastCycles.map((cycle) => cycle.project_id))];
-  const forecastCapped: Array<{
-    projectId: string;
-    ym: string;
-    cappedTotalYen: number;
-    cappedRegularYen: number;
-    cappedExtraYen: number;
-    cappedRegularExternalYen: number;
-    cappedExtraExternalYen: number;
-    regularCompanyReserveYen: number;
-    extraCompanyReserveYen: number;
-    regularGrossDueYen: number;
-    extraGrossDueYen: number;
-    carryOverYen: number;
-  }> = [];
-  const forecastCappedResults = await Promise.allSettled(
-    forecastProjectIds.map((projectId) =>
-      computeForwardCappedMemberCosts(db, projectId, ym)
-    )
+  const forecastCapped = cachedForecastCappedRows(
+    forecastCycles,
+    (membersRes.data ?? []) as MemberRow[]
   );
-  for (const result of forecastCappedResults) {
-    if (result.status !== "fulfilled") continue;
-    for (const month of result.value.months) {
-      forecastCapped.push({
-        projectId: result.value.projectId,
-        ym: month.ym,
-        cappedTotalYen: Math.round(month.cappedTotalYen),
-        cappedRegularYen: Math.round(month.cappedRegularYen),
-        cappedExtraYen: Math.round(month.cappedExtraYen),
-        cappedRegularExternalYen: Math.round(month.cappedRegularExternalYen),
-        cappedExtraExternalYen: Math.round(month.cappedExtraExternalYen),
-        regularCompanyReserveYen: Math.round(month.regularCompanyReserveYen),
-        extraCompanyReserveYen: Math.round(month.extraCompanyReserveYen),
-        regularGrossDueYen: Math.round(month.regularGrossDueYen),
-        extraGrossDueYen: Math.round(month.extraGrossDueYen),
-        carryOverYen: Math.round(month.carryOverYen),
-      });
-    }
-  }
 
   const expectedEntries = applySavedPayoutsForExistingRows(
     buildPayoutEntries(cycles, payoutExcludedMemberIds),

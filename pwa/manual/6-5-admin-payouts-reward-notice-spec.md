@@ -38,7 +38,7 @@ flowchart TD
 
 ### 1. 報酬サマリ表示
 
-`billing_cycles.reward_summary_json` を **キャッシュ表示**。 通常 GET は重い再計算を走らせない (= 過去ハマり)。
+`billing_cycles.reward_summary_json` を **キャッシュ表示**。 通常 GET は重い再計算を走らせない (= 過去ハマり)。支払月の明細だけでなく、先12か月の capped 支払予定 (`forecastCapped`) も `forecastCycles.reward_summary_json` から集計し、画面を開いただけでは `computeForwardCappedMemberCosts` 相当の重い再計算を全PJ分回さない。
 
 `reward_summary_json` の構造 (= GAS rv2 計算):
 
@@ -57,12 +57,12 @@ flowchart TD
 
 ### 報酬キャッシュ再計算
 
-- 自動: `/api/cron/payout-reward-cache-refresh` (= 日次 03:05 JST)
+- 自動: `/api/cron/payout-reward-cache-refresh` (= 日次 03:05 JST)。通常実行は前月 + 当月から先12か月の支払 ym を対象にし、`/admin/payouts` の先12か月表で読む `forecastCycles.reward_summary_json` を事前生成する。`ym=YYYYMM` を指定した手動実行は既定でその月のみ、`lookahead=11` などを付けると指定月から先12か月まで更新する。
 - 手動: `/admin/payouts` の「報酬キャッシュ再計算」ボタン (= UI から `refreshRewards=1` で route 叩く)
 - 入力: `billing_cycles` + `value_milestones` + `milestone_monthly_progress` + `milestone_responsibility`
 - 出力: `billing_cycles.reward_summary_json` (= 上書き) + `budget_yen` fallback
 
-通常 GET は **読むだけ**。 admin の保存系処理または手動ボタンだけが再計算を走らせる (= まさ #過去 教訓)。
+通常 GET は **読むだけ**。 admin の保存系処理または手動ボタンだけが再計算を走らせる (= まさ #過去 教訓)。`refreshRewards=1` の場合は再計算後の `reward_summary_json` を使って同じ集計を返す。
 
 ### 報酬額の手入力禁止
 

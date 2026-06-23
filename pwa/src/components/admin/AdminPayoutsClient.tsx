@@ -119,8 +119,8 @@ type ForecastPlanCycle = {
   period_end_ym: string;
 };
 
-// 将来月の「cap使用予定」(capped) を支払通知書と同じエンジンで投影した値。
-// route が active PJ ごとに computeForwardCappedMemberCosts で計算して返す。
+// 将来月の「cap使用予定」(capped) を reward_summary_json キャッシュから集計した値。
+// route が billing_cycles.reward_summary_json を読み、通常GETでは再計算せず返す。
 // cappedRegularYen は本契約capの使用額で、外部支払だけでなく役員会社留保も含む。
 // cappedExtraYen は別財布(cap_extra)の使用額。
 type ForecastCappedRow = {
@@ -983,7 +983,7 @@ function buildProjectMonthlyFinanceRows({
     const hasRewardMembers = (asRewardSummary(cycle.reward_summary_json)?.members?.length ?? 0) > 0;
     const canForecastPayout = hasRewardBearingPlan(cycle.project_id, cycle.ym, planCycles);
     // 実績メンバーが居ない将来月の「本契約cap使用 / 別財布使用」は capped が正本 (spec 7-1)。
-    // route が computeForwardCappedMemberCosts で投影する。
+    // route が reward_summary_json キャッシュから集計して返す。
     // capped が「計算済み」(key 有り) ならその値を使う。値 0 も「役員のみ PJ なので支払予定ゼロ」という
     // 正しい結果なので budgetYen フォールバックに落とさない (= KUTE のような全員役員 PJ で巨額が出る事故防止)。
     // budgetYen 決め打ちフォールバックは plan 期間外などで capped が未計算 (key 無し) の月に限る。
