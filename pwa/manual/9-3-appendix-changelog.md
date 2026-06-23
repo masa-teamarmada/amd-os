@@ -14,6 +14,7 @@
 
 | 日付 | 対象章 | 種別 | 内容 | 理由 | 誰が |
 |---|---|---|---|---|---|
+| 2026-06-23 | 6-5 Admin Payouts / FEATURE_REGISTRY | 追加 | `/admin/payouts` に `先12か月 メンバー別支払予定` 表を追加。行=非役員・支払対象メンバー、列=稼働月、セル=その月に外部支払する `totalPay` 合計。セル選択で PJ 別の支払額 / 本契約 / 別財布 / 発生額 / pt / 未払い残を表示する仕様へ更新 | 支払月単位・PJ単位だけでは、メンバーごとの今後12か月の支払予定とPJ内訳を横断確認しづらかったため | えいみ |
 | 2026-06-23 | 6-2 Admin Projects / Members 台帳 / 6-6 Member Billing Prompts / design mypage | 変更 | `/admin/members` の既存「支払対象」列を「役員」(`is_officer`) に改名し、新しい「支払対象」列 (`exclude_from_payout_notice`) を追加。非役員かつ支払対象外は `/mypage` 金額を `ー`、役員かつ支払対象外は金額表示 + `（役員のため支払対象外）`、0円は未計算扱いしない仕様へ更新 | 役員会社留保と非役員の支払通知書対象外を分離し、0円と未計算を混同しないため | えいみ |
 | 2026-06-23 | 6-5 Admin Payouts / FEATURE_REGISTRY / BUGS | 修正 | 報酬対象メンバーがいない月を `reward_summary_json=null` ではなく `members=[]` の0円キャッシュとして保存する仕様へ更新。`forecastCapped` では key 有り0円として扱い、budget fallback に落とさない | `p00` / `p09` のように旧重計算でも0円が正しい月が `null` のままだと、通常GETのキャッシュ集計では未計算扱いになり、先12か月表で本来0円のPJに支払予定が出る可能性があるため | えいみ |
 | 2026-06-23 | 6-5 Admin Payouts / FEATURE_REGISTRY / BUGS | 修正 | `payout-reward-cache-refresh` の先12か月更新で、支払 ym に紐づくcycleだけでなく、同じ窓内の稼働 ym のcycleも同期対象へ追加。`p00` / `p09` のように支払月判定では窓外になりうるが、先12か月表では稼働月として表示される行の `reward_summary_json` も事前生成する仕様へ更新 | 通常GETをキャッシュ読みにすると、forecast表の正本は `forecastCycles.reward_summary_json` になる。cronが支払月基準だけだと、表示窓内の稼働月cacheが欠けるケースが残るため | えいみ |

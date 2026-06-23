@@ -407,6 +407,32 @@ type MemberPayoutRow = {
   isSaved: boolean;
 };
 
+type MemberMonthlyPayoutProjectLine = PayoutEntry & {
+  projectName: string;
+};
+
+type MemberMonthlyPayoutCell = {
+  memberId: string;
+  memberName: string;
+  ym: string;
+  totalPay: number;
+  regularPaidYen: number;
+  extraPaidYen: number;
+  entries: MemberMonthlyPayoutProjectLine[];
+};
+
+type MemberMonthlyPayoutRow = {
+  memberId: string;
+  memberName: string;
+  totalPay: number;
+  cells: MemberMonthlyPayoutCell[];
+};
+
+type SelectedMemberMonthlyPayoutCell = {
+  memberId: string;
+  ym: string;
+};
+
 type ModalTarget = {
   projectId: string;
   ym: string;
@@ -1298,6 +1324,69 @@ function buildRewardDebtLedgerRows({
     ));
 }
 
+function buildMemberMonthlyPayoutRows({
+  months,
+  members,
+  entries,
+  projectMap,
+}: {
+  months: string[];
+  members: Member[];
+  entries: PayoutEntry[];
+  projectMap: Map<string, Project>;
+}): MemberMonthlyPayoutRow[] {
+  const eligibleMembers = members.filter((member) => !member.is_officer && !member.exclude_from_payout_notice);
+  const makeCells = (memberId: string, memberName: string): MemberMonthlyPayoutCell[] =>
+    months.map((month) => ({
+      memberId,
+      memberName,
+      ym: month,
+      totalPay: 0,
+      regularPaidYen: 0,
+      extraPaidYen: 0,
+      entries: [],
+    }));
+
+  const rows = new Map<string, MemberMonthlyPayoutRow>();
+  for (const member of eligibleMembers) {
+    const memberName = member.code_name || member.member_name || member.member_id;
+    rows.set(member.member_id, {
+      memberId: member.member_id,
+      memberName,
+      totalPay: 0,
+      cells: makeCells(member.member_id, memberName),
+    });
+  }
+
+  for (const entry of entries) {
+    if (entry.totalPay <= 0) continue;
+    if (!months.includes(entry.ym)) continue;
+    const row =
+      rows.get(entry.memberId) ??
+      {
+        memberId: entry.memberId,
+        memberName: entry.memberName,
+        totalPay: 0,
+        cells: makeCells(entry.memberId, entry.memberName),
+      };
+    const cell = row.cells.find((item) => item.ym === entry.ym);
+    if (!cell) continue;
+    const line: MemberMonthlyPayoutProjectLine = {
+      ...entry,
+      projectName: projectMap.get(entry.projectId)?.project_name ?? entry.projectId,
+    };
+    cell.totalPay += entry.totalPay;
+    cell.regularPaidYen += entry.regularPaidYen;
+    cell.extraPaidYen += entry.extraPaidYen;
+    cell.entries.push(line);
+    cell.entries.sort((a, b) => b.totalPay - a.totalPay || a.projectName.localeCompare(b.projectName, "ja"));
+    row.totalPay += entry.totalPay;
+    rows.set(entry.memberId, row);
+  }
+
+  return [...rows.values()].sort((a, b) => b.totalPay - a.totalPay || a.memberName.localeCompare(b.memberName, "ja"));
+}
+
 export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
   const [ym, setYm] = useState(initialYm);
   const [data, setData] = useState<PayoutData | null>(null);
@@ -1314,6 +1403,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
   const [bulkPdfMode, setBulkPdfMode] = useState<"issue" | "preview" | null>(null);
   const [bulkPdfResult, setBulkPdfResult] = useState<BulkNoticeSummary | null>(null);
   const [agreementOverrideReason, setAgreementOverrideReason] = useState("");
+  const [selectedMemberMonthlyPayout, setSelectedMemberMonthlyPayout] = useState<SelectedMemberMonthlyPayoutCell | null>(null);
   const [cockpitCache, setCockpitCache] = useState<Record<string, CockpitData>>({});
   const [modalLoading, setModalLoading] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
@@ -1621,6 +1711,19 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
   }, [data?.cycles, expectedEntries, officerReserveEntries, projectMap]);
 
   const forecastMonths = useMemo(() => data?.forecastMonths?.length ? data.forecastMonths : [ym], [data?.forecastMonths, ym]);
+  const memberMonthlyPayoutEntries = useMemo(
+    () => buildEntries(data?.forecastCycles ?? [], memberMap, payoutExcludedMemberIds).filter((entry) => entry.totalPay > 0),
+    [data?.forecastCycles, memberMap, payoutExcludedMemberIds]
+  );
+  const memberMonthlyPayoutRows = useMemo(
+    () => buildMemberMonthlyPayoutRows({
+      months: forecastMonths,
+      members: data?.members ?? [],
+      entries: memberMonthlyPayoutEntries,
+      projectMap,
+    }),
+    [data?.members, forecastMonths, memberMonthlyPayoutEntries, projectMap]
+  );
   const projectMonthlyFinanceRows = useMemo(
     () => buildProjectMonthlyFinanceRows({
       months: forecastMonths,
@@ -2285,6 +2388,13 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
         months={forecastMonths}
         rows={projectMonthlyFinanceRows}
         onOpenMonthly={(cell) => openMonthlyModal(cell.projectId, cell.ym, `${cell.projectName} ${fmtYm(cell.ym)}`)}
+      />
+
+      <MemberMonthlyPayoutMatrix
+        months={forecastMonths}
+        rows={memberMonthlyPayoutRows}
+        selected={selectedMemberMonthlyPayout}
+        onSelect={setSelectedMemberMonthlyPayout}
       />
 
       <section className="space-y-2">
@@ -3356,6 +3466,175 @@ function ProjectMonthlyFinanceTable({
         onOpenMonthly={onOpenMonthly}
       />
     </div>
+  );
+}
+
+function MemberMonthlyPayoutMatrix({
+  months,
+  rows,
+  selected,
+  onSelect,
+}: {
+  months: string[];
+  rows: MemberMonthlyPayoutRow[];
+  selected: SelectedMemberMonthlyPayoutCell | null;
+  onSelect: (cell: SelectedMemberMonthlyPayoutCell) => void;
+}) {
+  const monthTotals = useMemo(
+    () => months.map((month) => ({
+      ym: month,
+      totalPay: rows.reduce((sum, row) => sum + (row.cells.find((cell) => cell.ym === month)?.totalPay ?? 0), 0),
+    })),
+    [months, rows]
+  );
+  const grandTotal = monthTotals.reduce((sum, month) => sum + month.totalPay, 0);
+  const activeMonths = monthTotals.filter((month) => month.totalPay > 0).length;
+  const payingMembers = rows.filter((row) => row.totalPay > 0).length;
+  const selectedCell = selected
+    ? rows.find((row) => row.memberId === selected.memberId)?.cells.find((cell) => cell.ym === selected.ym) ?? null
+    : null;
+
+  return (
+    <section className="rounded-lg border border-border bg-card p-3">
+      <div className="flex flex-wrap items-start gap-3">
+        <div className="min-w-0">
+          <h2 className="text-[13px] font-semibold">先12か月 メンバー別支払予定</h2>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            非役員・支払対象メンバーへの外部支払を稼働月ごとに集計。
+          </p>
+        </div>
+        <div className="ml-auto flex flex-wrap justify-end gap-2 text-[11px]">
+          <span className="rounded bg-muted/50 px-2 py-1">対象 {payingMembers}人</span>
+          <span className="rounded bg-muted/50 px-2 py-1">発生月 {activeMonths}か月</span>
+          <span className="rounded bg-red-50 px-2 py-1 font-semibold text-red-800">12か月 {fmtFlowYen(grandTotal)}</span>
+        </div>
+      </div>
+
+      <div className="mt-3 overflow-x-auto rounded-md border border-border bg-background">
+        <table className="min-w-[1360px] w-full border-separate border-spacing-0 text-[12px]">
+          <thead>
+            <tr className="bg-muted/40">
+              <th className="sticky left-0 z-20 w-44 border-b border-r border-border bg-muted px-3 py-2 text-left font-medium">メンバー</th>
+              <th className="sticky left-44 z-20 w-36 border-b border-r border-border bg-muted px-3 py-2 text-right font-medium">12か月</th>
+              {months.map((month) => (
+                <th key={month} className="min-w-[118px] border-b border-r border-border px-2 py-2 text-right font-medium">
+                  {fmtYm(month)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={months.length + 2} className="px-3 py-8 text-center text-muted-foreground">
+                  支払対象メンバーがいない
+                </td>
+              </tr>
+            ) : (
+              <>
+                <tr className="bg-muted/20">
+                  <th className="sticky left-0 z-10 border-b border-r border-border bg-muted px-3 py-2 text-left font-semibold">合計</th>
+                  <td className="sticky left-44 z-10 border-b border-r border-border bg-muted px-3 py-2 text-right font-semibold tabular-nums text-red-800">
+                    {fmtFlowYen(grandTotal)}
+                  </td>
+                  {monthTotals.map((month) => (
+                    <td key={month.ym} className="border-b border-r border-border px-2 py-2 text-right font-semibold tabular-nums">
+                      {month.totalPay > 0 ? fmtFlowYen(month.totalPay) : <span className="text-muted-foreground">—</span>}
+                    </td>
+                  ))}
+                </tr>
+                {rows.map((row) => (
+                  <tr key={row.memberId} className="hover:bg-muted/15">
+                    <th className="sticky left-0 z-10 border-b border-r border-border bg-background px-3 py-2 text-left align-top font-medium">
+                      <div className="truncate">{row.memberName}</div>
+                      <div className="font-mono text-[10px] text-muted-foreground">{row.memberId}</div>
+                    </th>
+                    <td className="sticky left-44 z-10 border-b border-r border-border bg-background px-3 py-2 text-right align-top font-semibold tabular-nums">
+                      {row.totalPay > 0 ? fmtFlowYen(row.totalPay) : <span className="text-muted-foreground">—</span>}
+                    </td>
+                    {row.cells.map((cell) => {
+                      const isSelected = selected?.memberId === cell.memberId && selected.ym === cell.ym;
+                      return (
+                        <td key={`${row.memberId}:${cell.ym}`} className="border-b border-r border-border px-2 py-2 text-right align-top">
+                          {cell.totalPay > 0 ? (
+                            <button
+                              type="button"
+                              aria-pressed={isSelected}
+                              onClick={() => onSelect({ memberId: cell.memberId, ym: cell.ym })}
+                              className={`w-full rounded px-2 py-1 text-right tabular-nums transition-colors focus:outline-none focus:ring-1 focus:ring-foreground/20 ${
+                                isSelected
+                                  ? "bg-red-50 text-red-800 ring-1 ring-red-200"
+                                  : "hover:bg-muted/60"
+                              }`}
+                            >
+                              <span className="block text-[12px] font-semibold">{fmtFlowYen(cell.totalPay)}</span>
+                              <span className="block text-[10px] text-muted-foreground">{cell.entries.length} PJ</span>
+                            </button>
+                          ) : (
+                            <span className="block px-2 py-1 text-muted-foreground">—</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {selectedCell && selectedCell.totalPay > 0 && (
+        <div className="mt-3 rounded-md border border-border bg-background p-3">
+          <div className="flex flex-wrap items-start gap-3">
+            <div>
+              <div className="text-[12px] font-semibold">
+                {selectedCell.memberName} / {fmtYm(selectedCell.ym)}
+              </div>
+              <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">{selectedCell.memberId}</div>
+            </div>
+            <div className="ml-auto text-right">
+              <div className="text-[16px] font-semibold tabular-nums text-red-800">{fmtFlowYen(selectedCell.totalPay)}</div>
+              <div className="text-[10px] text-muted-foreground">{selectedCell.entries.length} PJ</div>
+            </div>
+          </div>
+
+          <div className="mt-3 overflow-x-auto rounded-md border border-border">
+            <table className="min-w-[760px] w-full text-[12px]">
+              <thead className="border-b border-border bg-muted/40">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium">PJ</th>
+                  <th className="px-3 py-2 text-right font-medium">支払額</th>
+                  <th className="px-3 py-2 text-right font-medium">本契約</th>
+                  <th className="px-3 py-2 text-right font-medium">別財布</th>
+                  <th className="px-3 py-2 text-right font-medium">発生額</th>
+                  <th className="px-3 py-2 text-right font-medium">pt</th>
+                  <th className="px-3 py-2 text-right font-medium">未払い残</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {selectedCell.entries.map((entry) => (
+                  <tr key={entryKey(entry)} className="hover:bg-muted/20">
+                    <td className="px-3 py-2">
+                      <div className="font-medium">{entry.projectName}</div>
+                      <div className="font-mono text-[10px] text-muted-foreground">{entry.projectId}</div>
+                    </td>
+                    <td className="px-3 py-2 text-right font-semibold tabular-nums">{fmtFlowYen(entry.totalPay)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{entry.regularPaidYen > 0 ? fmtYen(entry.regularPaidYen) : "—"}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{entry.extraPaidYen > 0 ? fmtYen(entry.extraPaidYen) : "—"}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{fmtYen(entry.basePay)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{fmtPt(entry.earnedPt)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {entry.stockYen > 0 ? <span className="text-amber-700">{fmtYen(entry.stockYen)}</span> : <span className="text-muted-foreground">—</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
 
