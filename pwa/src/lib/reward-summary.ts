@@ -1200,6 +1200,45 @@ async function persistRewardSummaryForCycle({
   if (error) throw error;
 }
 
+function emptyRewardSummaryForCycle(
+  projectId: string,
+  ym: string,
+  planCycleId = ""
+): RewardSummary {
+  return {
+    members: [],
+    totalPaySum: 0,
+    totalGrossDueYen: 0,
+    capBudgetYen: 0,
+    capped: false,
+    carryInYen: 0,
+    carryOverYen: 0,
+    monthlyBudget65: 0,
+    regularCapBudgetYen: 0,
+    extraCapBudgetYen: 0,
+    regularTotalGrossDueYen: 0,
+    extraTotalGrossDueYen: 0,
+    regularCarryOverYen: 0,
+    extraCarryOverYen: 0,
+    companyReserveYen: 0,
+    regularCompanyReserveYen: 0,
+    extraCompanyReserveYen: 0,
+    officerReserveYen: 0,
+    companyReserveUnfundedYen: 0,
+    externalPayoutCapYen: 0,
+    externalRegularPayoutCapYen: 0,
+    externalExtraPayoutCapYen: 0,
+    meta: {
+      version: REWARD_SUMMARY_VERSION,
+      source: "supabase_reward_summary",
+      generatedAt: new Date().toISOString(),
+      projectId,
+      ym,
+      planCycleId,
+    },
+  };
+}
+
 export async function syncRewardSummaryForCycle(
   db: SupabaseLike,
   projectId: string,
@@ -1236,8 +1275,9 @@ export async function syncRewardSummaryForCycle(
   const project = (projectRes.data ?? null) as ProjectRow | null;
   const planCycle = choosePlanCycle((planCyclesRes.data ?? []) as PlanCycleRow[], ym);
   if (!planCycle) {
-    await persistRewardSummaryForCycle({ db, projectId, ym, billing, project, rewardSummary: null });
-    return { ok: true, projectId, ym, rewardSummary: null, skippedReason: "plan_cycle_not_found" };
+    const emptySummary = emptyRewardSummaryForCycle(projectId, ym);
+    await persistRewardSummaryForCycle({ db, projectId, ym, billing, project, rewardSummary: emptySummary });
+    return { ok: true, projectId, ym, rewardSummary: emptySummary, skippedReason: "plan_cycle_not_found" };
   }
 
   const milestonesRes = await db
@@ -1250,8 +1290,9 @@ export async function syncRewardSummaryForCycle(
 
   const milestones = ((milestonesRes.data ?? []) as MilestoneRow[]).filter((ms) => String(ms.goal_level || "").toLowerCase() !== "monthly");
   if (milestones.length === 0) {
-    await persistRewardSummaryForCycle({ db, projectId, ym, billing, project, rewardSummary: null });
-    return { ok: true, projectId, ym, rewardSummary: null, skippedReason: "milestones_not_found" };
+    const emptySummary = emptyRewardSummaryForCycle(projectId, ym, planCycle.plan_cycle_id);
+    await persistRewardSummaryForCycle({ db, projectId, ym, billing, project, rewardSummary: emptySummary });
+    return { ok: true, projectId, ym, rewardSummary: emptySummary, skippedReason: "milestones_not_found" };
   }
 
   const milestoneIds = milestones.map((ms) => ms.milestone_id);
@@ -1314,8 +1355,9 @@ export async function syncRewardSummaryForCycle(
   });
 
   if (!rewardSummary || rewardSummary.members.length === 0) {
-    await persistRewardSummaryForCycle({ db, projectId, ym, billing, project, rewardSummary: null });
-    return { ok: true, projectId, ym, rewardSummary: null, skippedReason: "reward_members_not_found" };
+    const emptySummary = emptyRewardSummaryForCycle(projectId, ym, planCycle.plan_cycle_id);
+    await persistRewardSummaryForCycle({ db, projectId, ym, billing, project, rewardSummary: emptySummary });
+    return { ok: true, projectId, ym, rewardSummary: emptySummary, skippedReason: "reward_members_not_found" };
   }
 
   await persistRewardSummaryForCycle({ db, projectId, ym, billing, project, rewardSummary });

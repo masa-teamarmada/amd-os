@@ -10,8 +10,8 @@
 - **状態**: クローズ (2026-06-23 — `/api/admin/payouts` の通常GETを `forecastCycles.reward_summary_json` キャッシュ集計へ変更)。
 - **症状**: `/admin/payouts` のローディングが長い。仕様上は通常GETで `billing_cycles.reward_summary_json` を読むだけのはずなのに、画面を開くだけで待ち時間が大きかった。
 - **原因**: 支払月の明細はキャッシュを読んでいたが、先12か月4表用の `forecastCapped` だけ、通常GETのたびに active PJ ごとの `computeForwardCappedMemberCosts()` を並列実行していた。これが MS / progress / responsibility / billing range をPJごとに再取得し、実質的に重い報酬投影を全PJ分回していた。
-- **対応内容**: `loadTargetData()` で通常GET時の重い投影をやめ、取得済み `forecastCycles.reward_summary_json` から本契約/別財布の外部支払、役員会社留保、gross due、carry over を集計して `forecastCapped` を作るよう変更。`refreshRewards=1` の場合は先に `syncRewardSummariesForBillingCycles()` でキャッシュを更新し、その更新後キャッシュから同じ集計を返す。さらに日次 `payout-reward-cache-refresh` の対象を前月・当月・翌月から、前月 + 当月から先12か月へ広げ、支払 ym に紐づくcycleと、先12か月表が読む稼働 ym のcycleを両方同期するようにした。
-- **再発防止**: `/admin/payouts` の通常GETでは、支払月明細だけでなく先12か月表も `reward_summary_json` キャッシュを正本にする。画面表示のために `computeForwardCappedMemberCosts()` や `syncRewardSummariesForBillingCycles()` を暗黙実行しない。キャッシュを作る必要がある場合は日次 cron、または `payout-reward-cache-refresh?ym=YYYYMM&lookahead=11` を明示実行する。cronは支払月基準だけでなく、表示窓の稼働月基準でもcycleを拾う。
+- **対応内容**: `loadTargetData()` で通常GET時の重い投影をやめ、取得済み `forecastCycles.reward_summary_json` から本契約/別財布の外部支払、役員会社留保、gross due、carry over を集計して `forecastCapped` を作るよう変更。`refreshRewards=1` の場合は先に `syncRewardSummariesForBillingCycles()` でキャッシュを更新し、その更新後キャッシュから同じ集計を返す。さらに日次 `payout-reward-cache-refresh` の対象を前月・当月・翌月から、前月 + 当月から先12か月へ広げ、支払 ym に紐づくcycleと、先12か月表が読む稼働 ym のcycleを両方同期するようにした。報酬対象メンバーがいない月は `null` ではなく `members=[]` の0円キャッシュを保存し、key有り0円として budget fallback を防ぐ。
+- **再発防止**: `/admin/payouts` の通常GETでは、支払月明細だけでなく先12か月表も `reward_summary_json` キャッシュを正本にする。画面表示のために `computeForwardCappedMemberCosts()` や `syncRewardSummariesForBillingCycles()` を暗黙実行しない。キャッシュを作る必要がある場合は日次 cron、または `payout-reward-cache-refresh?ym=YYYYMM&lookahead=11` を明示実行する。cronは支払月基準だけでなく、表示窓の稼働月基準でもcycleを拾う。0円月も `reward_summary_json` に保存し、`null` 未計算と混ぜない。
 
 ---
 

@@ -220,6 +220,7 @@ expectIncludes("src/lib/reward-summary.ts", [
   "plannedShare",
   "shareSource",
   "CAP_EXTRA_MILESTONE_TAGS",
+  "emptyRewardSummaryForCycle",
   "regularBasePay",
   "extraBasePay",
   "resolveContributionShares",
