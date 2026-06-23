@@ -537,10 +537,12 @@ function EditActionBar({
 function AllMsPointSliders({
   rows,
   pointSummary,
+  ptValueYenByMs,
   onChange,
 }: {
   rows: EditableMilestoneInput[];
   pointSummary: PointSummary;
+  ptValueYenByMs: ReadonlyMap<string, number>;
   onChange: (milestoneId: string, points: number) => void;
 }) {
   const sortedRows = useMemo(
@@ -565,17 +567,24 @@ function AllMsPointSliders({
         </span>
       </div>
       <div className="overflow-x-auto">
-        <div className="min-w-[420px] space-y-1">
+        <div className="min-w-[500px] space-y-1">
+          <div className="grid grid-cols-[minmax(130px,1fr)_58px_minmax(150px,2fr)_96px] items-center gap-2 px-2 pb-0.5 text-[10px] text-muted-foreground">
+            <span>MS</span>
+            <span className="text-right">pt</span>
+            <span>配分</span>
+            <span className="text-right">pt / MS金額</span>
+          </div>
           {sortedRows.map((row) => {
             const color = barColorForTag(row.tag, row.isCapExtra);
             const derivedPoints = effectiveEditableMilestonePoints(row);
             const usesPeriodPoints = row.isCapExtra && derivedPoints > 0;
             const displayPoints = usesPeriodPoints ? derivedPoints : row.points;
+            const msValueYen = ptValueYenByMs.get(row.milestoneId) ?? 0;
             const pointRange = sliderRange(displayPoints);
             return (
               <div
                 key={row.milestoneId}
-                className="grid grid-cols-[minmax(130px,1fr)_58px_minmax(150px,2fr)_58px] items-center gap-2 rounded border border-border/45 bg-card/45 px-2 py-1.5"
+                className="grid grid-cols-[minmax(130px,1fr)_58px_minmax(150px,2fr)_96px] items-center gap-2 rounded border border-border/45 bg-card/45 px-2 py-1.5"
               >
                 <div className="min-w-0">
                   <div className="flex min-w-0 items-center gap-1.5">
@@ -615,8 +624,15 @@ function AllMsPointSliders({
                   aria-label={`${row.title || "無題MS"} pt配分スライダー`}
                   title={usesPeriodPoints ? "cap_extra pt = MS期間の月数×10pt" : "pt配分スライダー"}
                 />
-                <div className="text-right text-[12px] tabular-nums text-muted-foreground">
-                  {fmtPt(displayPoints)}pt
+                <div
+                  className="text-right tabular-nums"
+                  title={`${fmtPt(displayPoints)}pt / MS金額 ${fmtYen(msValueYen)}`}
+                  aria-label={`${row.title || "無題MS"} MS金額`}
+                >
+                  <div className="text-[12px] text-muted-foreground">{fmtPt(displayPoints)}pt</div>
+                  <div className={msValueYen > 0 ? "text-[12px] text-foreground" : "text-[12px] text-muted-foreground"}>
+                    {fmtYen(msValueYen)}
+                  </div>
                 </div>
               </div>
             );
@@ -963,6 +979,7 @@ function PlanCycleBlock({
                     <AllMsPointSliders
                       rows={activeEditing}
                       pointSummary={pointSummary}
+                      ptValueYenByMs={recomputed.ptValueYenByMs}
                       onChange={handleMilestonePointsChange}
                     />
                     <div>

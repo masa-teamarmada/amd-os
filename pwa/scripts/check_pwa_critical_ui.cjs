@@ -684,6 +684,7 @@ expectIncludes("src/components/admin/AdminMsOverviewClient.tsx", [
   "全MS pt配分スライダー",
   "pt配分スライダー",
   "残り割り振り可能pt",
+  "MS金額",
   "MS内金額",
   "保存先 DB",
   "DB値に戻す",
