@@ -3480,6 +3480,7 @@ function MemberMonthlyPayoutMatrix({
   selected: SelectedMemberMonthlyPayoutCell | null;
   onSelect: (cell: SelectedMemberMonthlyPayoutCell) => void;
 }) {
+  const tableWidth = 320 + months.length * 118;
   const monthTotals = useMemo(
     () => months.map((month) => ({
       ym: month,
@@ -3511,13 +3512,20 @@ function MemberMonthlyPayoutMatrix({
       </div>
 
       <div className="mt-3 overflow-x-auto rounded-md border border-border bg-background">
-        <table className="min-w-[1360px] w-full border-separate border-spacing-0 text-[12px]">
+        <table className="border-separate border-spacing-0 text-[12px]" style={{ minWidth: tableWidth, width: tableWidth }}>
+          <colgroup>
+            <col className="w-[176px]" />
+            <col className="w-[144px]" />
+            {months.map((month) => (
+              <col key={month} className="w-[118px]" />
+            ))}
+          </colgroup>
           <thead>
             <tr className="bg-muted/40">
-              <th className="sticky left-0 z-20 w-44 border-b border-r border-border bg-muted px-3 py-2 text-left font-medium">メンバー</th>
-              <th className="sticky left-44 z-20 w-36 border-b border-r border-border bg-muted px-3 py-2 text-right font-medium">12か月</th>
+              <th className="sticky left-0 z-20 w-[176px] min-w-[176px] max-w-[176px] border-b border-r border-border bg-muted px-3 py-2 text-left font-medium">メンバー</th>
+              <th className="sticky left-[176px] z-20 w-[144px] min-w-[144px] max-w-[144px] border-b border-r border-border bg-muted px-3 py-2 text-right font-medium">12か月</th>
               {months.map((month) => (
-                <th key={month} className="min-w-[118px] border-b border-r border-border px-2 py-2 text-right font-medium">
+                <th key={month} className="w-[118px] min-w-[118px] max-w-[118px] border-b border-r border-border px-2 py-2 text-right font-medium">
                   {fmtYm(month)}
                 </th>
               ))}
@@ -3533,29 +3541,29 @@ function MemberMonthlyPayoutMatrix({
             ) : (
               <>
                 <tr className="bg-muted/20">
-                  <th className="sticky left-0 z-10 border-b border-r border-border bg-muted px-3 py-2 text-left font-semibold">合計</th>
-                  <td className="sticky left-44 z-10 border-b border-r border-border bg-muted px-3 py-2 text-right font-semibold tabular-nums text-red-800">
+                  <th className="sticky left-0 z-10 w-[176px] min-w-[176px] max-w-[176px] border-b border-r border-border bg-muted px-3 py-2 text-left font-semibold">合計</th>
+                  <td className="sticky left-[176px] z-10 w-[144px] min-w-[144px] max-w-[144px] border-b border-r border-border bg-muted px-3 py-2 text-right font-semibold tabular-nums text-red-800">
                     {fmtFlowYen(grandTotal)}
                   </td>
                   {monthTotals.map((month) => (
-                    <td key={month.ym} className="border-b border-r border-border px-2 py-2 text-right font-semibold tabular-nums">
+                    <td key={month.ym} className="w-[118px] min-w-[118px] max-w-[118px] border-b border-r border-border px-2 py-2 text-right font-semibold tabular-nums">
                       {month.totalPay > 0 ? fmtFlowYen(month.totalPay) : <span className="text-muted-foreground">—</span>}
                     </td>
                   ))}
                 </tr>
                 {rows.map((row) => (
                   <tr key={row.memberId} className="hover:bg-muted/15">
-                    <th className="sticky left-0 z-10 border-b border-r border-border bg-background px-3 py-2 text-left align-top font-medium">
+                    <th className="sticky left-0 z-10 w-[176px] min-w-[176px] max-w-[176px] border-b border-r border-border bg-background px-3 py-2 text-left align-top font-medium">
                       <div className="truncate">{row.memberName}</div>
                       <div className="font-mono text-[10px] text-muted-foreground">{row.memberId}</div>
                     </th>
-                    <td className="sticky left-44 z-10 border-b border-r border-border bg-background px-3 py-2 text-right align-top font-semibold tabular-nums">
+                    <td className="sticky left-[176px] z-10 w-[144px] min-w-[144px] max-w-[144px] border-b border-r border-border bg-background px-3 py-2 text-right align-top font-semibold tabular-nums">
                       {row.totalPay > 0 ? fmtFlowYen(row.totalPay) : <span className="text-muted-foreground">—</span>}
                     </td>
                     {row.cells.map((cell) => {
                       const isSelected = selected?.memberId === cell.memberId && selected.ym === cell.ym;
                       return (
-                        <td key={`${row.memberId}:${cell.ym}`} className="border-b border-r border-border px-2 py-2 text-right align-top">
+                        <td key={`${row.memberId}:${cell.ym}`} className="w-[118px] min-w-[118px] max-w-[118px] border-b border-r border-border px-2 py-2 text-right align-top">
                           {cell.totalPay > 0 ? (
                             <button
                               type="button"
