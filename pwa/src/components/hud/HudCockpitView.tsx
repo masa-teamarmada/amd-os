@@ -9,7 +9,6 @@ import { HudCockpitMonthlyModal } from "./HudCockpitMonthlyModal";
 import { HudCockpitNudge } from "./HudCockpitNudge";
 import { HudCockpitMeetingSummary } from "./HudCockpitMeetingSummary";
 import { HudCockpitFreezeBackfill } from "./HudCockpitFreezeBackfill";
-import { CockpitNextPeriodSetup } from "../cockpit/CockpitNextPeriodSetup";
 import { AAA_PROJECT_ID } from "@/lib/demo-aaa-data";
 import { fetchAmdScoreInputs, fetchActiveAlpha, type AmdScoreInputRow } from "@/lib/amd-score-data";
 import { buildAaaScoreInputsFromSx, computeAmdScoreSeries } from "@/lib/amd-score-derived";
@@ -254,7 +253,6 @@ export function HudCockpitView({ cockpit, nudges, initialModalYm }: HudCockpitVi
   const [modalYm, setModalYm] = useState<string | null>(initialModalYm || null);
   const [modalInitialTab, setModalInitialTab] = useState<MonthlyModalTab | undefined>(undefined);
   const [pastExpanded, setPastExpanded] = useState(false);
-  const [editingCurrentCycle, setEditingCurrentCycle] = useState(false);
   const [progressPatches, setProgressPatches] = useState<ProgressShape[]>([]);
 
   function openMonthlyModal(ym: string, initialTab?: MonthlyModalTab) {
@@ -348,7 +346,6 @@ export function HudCockpitView({ cockpit, nudges, initialModalYm }: HudCockpitVi
                   memberMap={memberMap || {}}
                   progress={currentProgress}
                   currentYm={currentYm}
-                  onEdit={planCycle ? () => setEditingCurrentCycle(true) : undefined}
                 />
               </div>
             )}
@@ -376,31 +373,21 @@ export function HudCockpitView({ cockpit, nudges, initialModalYm }: HudCockpitVi
             );
           }
           const isPeriodExpired = currentYm > effectivePlanCycle.periodEndYm;
-          if (effectivePlanCycle.status === "draft" || editingCurrentCycle) {
+          if (effectivePlanCycle.status === "draft") {
             return (
-              <CockpitNextPeriodSetup
-                projectId={project.projectId}
-                currentYm={currentYm}
-                currentPlanCycle={effectivePlanCycle}
-                directCycleId={effectivePlanCycle.planCycleId}
-                autoOpen={editingCurrentCycle}
-                onModalClose={() => setEditingCurrentCycle(false)}
-              />
+              <div className="border border-amber-300/45 bg-amber-300/10 px-4 py-3 text-[13px] font-bold text-amber-100 shadow-[0_0_24px_rgba(245,158,11,0.12)]">
+                WARNING: この PJ の MS は下書き状態です。admin の MS一覧で確定してください。
+              </div>
             );
           }
           return (
             <>
               {isPeriodExpired && (
-                <div className="border border-amber-300/45 bg-amber-300/10 px-4 py-3 text-[13px] font-bold text-amber-100 shadow-[0_0_24px_rgba(245,158,11,0.12)]">
-                  WARNING: 今期の MS 期間 ({formatYm(effectivePlanCycle.periodEndYm)}) は終了しています。
-                  下のバナーから次期 MS を設定してください。
-                </div>
-              )}
-              <CockpitNextPeriodSetup
-                projectId={project.projectId}
-                currentYm={currentYm}
-                currentPlanCycle={effectivePlanCycle}
-              />
+	                <div className="border border-amber-300/45 bg-amber-300/10 px-4 py-3 text-[13px] font-bold text-amber-100 shadow-[0_0_24px_rgba(245,158,11,0.12)]">
+	                  WARNING: 今期の MS 期間 ({formatYm(effectivePlanCycle.periodEndYm)}) は終了しています。
+	                  admin の MS一覧で次期 MS を設定してください。
+	                </div>
+	              )}
             </>
           );
             })() : null}

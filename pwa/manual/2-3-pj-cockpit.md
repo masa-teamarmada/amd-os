@@ -94,6 +94,7 @@ MTG詳細モーダル内の「添付資料」は会議単位の `meeting_assets`
 - 各 MS は `pt` (= ポイント)、`effort` (= 年間 / 期 / 単発)、責任者 (= AMD メンバーごとの share %)
 - Gantt 表示 (= 月 4/26-3/27)
 - 各 MS をクリック → 行が展開し、そのMS単位のゴール / TODO / 現状 / 直近材料を確認
+- MS 本体・期間・pt・tag・担当 share の編集は `/admin/ms-overview` に集約する。PJ cockpit / HUD cockpit では MS 設計を保存しない。
 
 ### MS の進捗
 - `milestone_monthly_progress.note` + `progress_pct` で月次更新

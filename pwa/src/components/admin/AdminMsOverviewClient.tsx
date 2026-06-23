@@ -8,8 +8,8 @@ import type {
   ProjectHealthState,
 } from "@/lib/admin/ms-overview-types";
 import {
+  isCapExtraTag,
   recomputeMsOverview,
-  sliderRange,
   toEditableMilestones,
   type EditableMilestoneInput,
 } from "@/lib/admin/ms-overview-calc";
@@ -18,6 +18,7 @@ import {
 const BAR_NORMAL = "#1D9E75";
 const BAR_ROUTINE = "#888780";
 const BAR_CAP_EXTRA = "#7F77DD";
+const ROLE_OPTIONS = ["担当", "統括", "レビュー", "サポート"] as const;
 
 // メンバー年計バー: 本契約 (regular) は濃、別財布 (extra) は淡
 const MEMBER_BAR_REGULAR = "#1D9E75";
@@ -96,6 +97,37 @@ function barColorForTag(tag: string, isCapExtra: boolean): string {
   return BAR_NORMAL;
 }
 
+function isDraftMilestoneId(milestoneId: string): boolean {
+  return milestoneId.startsWith("draft-");
+}
+
+function normalizeEditableRows(rows: EditableMilestoneInput[]): string {
+  return JSON.stringify(
+    rows
+      .map((row) => ({
+        milestoneId: isDraftMilestoneId(row.milestoneId) ? "draft" : row.milestoneId,
+        title: row.title.trim(),
+        points: Math.round(row.points * 100) / 100,
+        tag: row.tag.trim(),
+        goalLevel: row.goalLevel.trim(),
+        successCriteria: row.successCriteria.trim(),
+        periodStartYm: row.periodStartYm || "",
+        targetYm: row.targetYm || "",
+        sortOrder: row.sortOrder,
+        responsibilities: row.responsibilities
+          .filter((resp) => resp.share > 0)
+          .map((resp) => ({
+            memberId: resp.memberId,
+            share: Math.round(resp.share * 10000) / 10000,
+            role: resp.role.trim(),
+            taskDescription: resp.taskDescription?.trim() || "",
+          }))
+          .sort((a, b) => a.memberId.localeCompare(b.memberId)),
+      }))
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.milestoneId.localeCompare(b.milestoneId)),
+  );
+}
+
 // ---- メトリクスカード -----------------------------------------------------
 
 function MetricCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -144,69 +176,173 @@ function MsRow({ ms, maxPtValue }: { ms: MsOverviewMilestone; maxPtValue: number
   );
 }
 
-// ---- MS 行 (スライダー: 編集モード) --------------------------------------
+// ---- MS 行 (編集モード) ---------------------------------------------------
 
-function MsSliderRow({
-  ms,
+function MsEditorRow({
   current,
+  projectMembers,
   ptValueYen,
   onChange,
+  onRemove,
 }: {
-  ms: MsOverviewMilestone;
   current: EditableMilestoneInput;
+  projectMembers: MsOverviewPlanCycle["projectMembers"];
   ptValueYen: number;
-  onChange: (next: number) => void;
+  onChange: (patch: Partial<EditableMilestoneInput>) => void;
+  onRemove: () => void;
 }) {
-  const color = barColorForTag(ms.tag, ms.isCapExtra);
-  const { min, max } = sliderRange(ms.points);
-  const period = ms.periodStartYm || ms.targetYm
-    ? `${fmtYm(ms.periodStartYm)}${ms.targetYm ? `–${fmtYm(ms.targetYm)}` : ""}`
-    : "";
-  const shareText = ms.responsibilities.length === 0
-    ? "担当未設定"
-    : ms.responsibilities.map((r) => `${r.codeName} ${fmtShare(r.share)}`).join(" / ");
-  const changed = Math.round(current.points * 100) !== Math.round(ms.points * 100);
+  const color = barColorForTag(current.tag, current.isCapExtra);
+  const shareSum = current.responsibilities.reduce((sum, resp) => sum + resp.share, 0);
+  const responsibilityByMember = new Map(current.responsibilities.map((resp) => [resp.memberId, resp]));
+
+  const updateResponsibility = (
+    member: MsOverviewPlanCycle["projectMembers"][number],
+    patch: Partial<EditableMilestoneInput["responsibilities"][number]>,
+  ) => {
+    const existing = responsibilityByMember.get(member.memberId) ?? {
+      memberId: member.memberId,
+      codeName: member.codeName,
+      share: 0,
+      role: "担当",
+      taskDescription: null,
+    };
+    const next = { ...existing, ...patch, codeName: member.codeName };
+    const responsibilities = [
+      ...current.responsibilities.filter((resp) => resp.memberId !== member.memberId),
+      next,
+    ]
+      .filter((resp) => resp.share > 0 || resp.role.trim() !== "担当" || !!resp.taskDescription?.trim())
+      .sort((a, b) => b.share - a.share || a.codeName.localeCompare(b.codeName, "ja"));
+    onChange({ responsibilities });
+  };
+
   return (
     <div
-      className="rounded-md border bg-card/60 px-3 py-2 mb-1.5"
+      className="rounded-md border bg-card/60 px-3 py-3 mb-2"
       style={{ borderColor: "var(--border, #2a2a2a)", borderWidth: "0.5px" }}
     >
-      <div className="flex items-baseline justify-between gap-2.5 mb-1">
-        <span className="font-medium text-[13px] truncate" title={ms.title}>
-          {ms.title}
-          {period && <span className="text-[10px] text-muted-foreground ml-2">{period}</span>}
-        </span>
-        <span className="text-[11px] text-muted-foreground truncate ml-2" title={shareText}>
-          {ms.responsibilities.length === 0
-            ? <span className="text-red-500">担当未設定</span>
-            : shareText}
-        </span>
-      </div>
-      <div className="flex items-center gap-2.5">
+      <div className="mb-2 flex items-center gap-2">
         <span
           className="inline-block flex-shrink-0"
-          style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: color }}
+          style={{ width: 9, height: 9, borderRadius: 2, backgroundColor: color }}
           aria-hidden
         />
         <input
-          type="range"
-          min={min}
-          max={max}
-          step={1}
-          value={Math.round(current.points)}
-          onChange={(e) => onChange(Number(e.target.value))}
-          className="flex-1 h-8 cursor-pointer"
-          style={{ accentColor: color, minHeight: 32 }}
-          aria-label={`${ms.title} のpt`}
+          value={current.title}
+          onChange={(event) => onChange({ title: event.target.value })}
+          className="min-w-0 flex-1 rounded border border-border bg-background px-2 py-1 text-[13px] font-medium"
+          aria-label="MS名"
         />
-        <span
-          className={`text-[13px] font-medium tabular-nums min-w-[40px] text-right ${changed ? "text-amber-500" : ""}`}
+        <button
+          type="button"
+          onClick={onRemove}
+          className="h-8 w-8 rounded border border-border text-[13px] text-muted-foreground hover:bg-red-500/10 hover:text-red-500"
+          title="MSを無効化"
+          aria-label="MSを無効化"
         >
-          {fmtPt(current.points)}pt
-        </span>
-        <span className="text-[11px] text-muted-foreground tabular-nums min-w-[80px] text-right">
-          {fmtYen(ptValueYen)}
-        </span>
+          ×
+        </button>
+      </div>
+
+      <div className="grid gap-2 md:grid-cols-[88px_128px_96px_96px_1fr]">
+        <input
+          type="number"
+          min={0}
+          step={1}
+          value={current.points}
+          onChange={(event) => onChange({ points: Number(event.target.value) })}
+          className="rounded border border-border bg-background px-2 py-1 text-right text-[12px] tabular-nums"
+          aria-label="pt"
+        />
+        <select
+          value={current.tag}
+          onChange={(event) => {
+            const tag = event.target.value;
+            onChange({ tag, isCapExtra: isCapExtraTag(tag) });
+          }}
+          className="rounded border border-border bg-background px-2 py-1 text-[12px]"
+          aria-label="tag"
+        >
+          <option value="normal">normal</option>
+          <option value="routine">routine</option>
+          <option value="buffer">buffer</option>
+          <option value="cap_extra">cap_extra</option>
+        </select>
+        <input
+          value={current.periodStartYm ?? ""}
+          onChange={(event) => onChange({ periodStartYm: event.target.value || null })}
+          placeholder="開始"
+          inputMode="numeric"
+          className="rounded border border-border bg-background px-2 py-1 text-[12px] tabular-nums"
+          aria-label="MS開始"
+        />
+        <input
+          value={current.targetYm ?? ""}
+          onChange={(event) => onChange({ targetYm: event.target.value || null })}
+          placeholder="終了"
+          inputMode="numeric"
+          className="rounded border border-border bg-background px-2 py-1 text-[12px] tabular-nums"
+          aria-label="MS終了"
+        />
+        <div className="text-right text-[12px] text-muted-foreground tabular-nums">
+          {fmtPt(current.points)}pt / {fmtYen(ptValueYen)}
+        </div>
+      </div>
+
+      <textarea
+        value={current.successCriteria}
+        onChange={(event) => onChange({ successCriteria: event.target.value })}
+        rows={2}
+        className="mt-2 w-full resize-y rounded border border-border bg-background px-2 py-1 text-[12px]"
+        placeholder="完了条件"
+        aria-label="完了条件"
+      />
+
+      <div className="mt-2 border-t border-border/60 pt-2">
+        <div className="mb-1 flex items-center gap-2 text-[11px] text-muted-foreground">
+          <span>担当share</span>
+          <span className={Math.abs(shareSum - 1) <= 0.001 ? "text-emerald-500" : "text-amber-500"}>
+            合計 {fmtShare(shareSum)}
+          </span>
+        </div>
+        <div className="grid gap-1.5 md:grid-cols-2">
+          {projectMembers.map((member) => {
+            const resp = responsibilityByMember.get(member.memberId);
+            const sharePct = Math.round((resp?.share ?? 0) * 1000) / 10;
+            return (
+              <div key={member.memberId} className="grid grid-cols-[72px_72px_88px_1fr] items-center gap-1.5">
+                <span className="truncate text-[12px]" title={member.codeName}>{member.codeName}</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={sharePct}
+                  onChange={(event) => updateResponsibility(member, { share: Number(event.target.value) / 100 })}
+                  className="rounded border border-border bg-background px-2 py-1 text-right text-[12px] tabular-nums"
+                  aria-label={`${member.codeName} share`}
+                />
+                <select
+                  value={resp?.role ?? "担当"}
+                  onChange={(event) => updateResponsibility(member, { role: event.target.value })}
+                  className="rounded border border-border bg-background px-2 py-1 text-[12px]"
+                  aria-label={`${member.codeName} 役割`}
+                >
+                  {ROLE_OPTIONS.map((role) => (
+                    <option key={role} value={role}>{role}</option>
+                  ))}
+                </select>
+                <input
+                  value={resp?.taskDescription ?? ""}
+                  onChange={(event) => updateResponsibility(member, { taskDescription: event.target.value || null })}
+                  className="min-w-0 rounded border border-border bg-background px-2 py-1 text-[12px]"
+                  placeholder="担当タスク"
+                  aria-label={`${member.codeName} 担当タスク`}
+                />
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -268,6 +404,7 @@ function PlanCycleBlock({
   const [open, setOpen] = useState<boolean>(openByDefault);
   const [editMode, setEditMode] = useState(false);
   const [editing, setEditing] = useState<EditableMilestoneInput[]>(() => toEditableMilestones(cycle));
+  const [deletedIds, setDeletedIds] = useState<string[]>([]);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
   // 過去分 (target_ym/period_start_ym が今月より過去) を折りたたむか
@@ -288,18 +425,25 @@ function PlanCycleBlock({
   // 元データが差し替わったら (= 保存後の再fetch) 編集状態を巻き戻す
   useEffect(() => {
     setEditing(toEditableMilestones(cycle));
+    setDeletedIds([]);
     setSaveStatus("idle");
     setSaveError(null);
   }, [cycle]);
+
+  const activeEditing = useMemo(
+    () => editing.filter((row) => !deletedIds.includes(row.milestoneId)),
+    [editing, deletedIds],
+  );
 
   // ---- リアルタイム再計算 -------------------------------------------------
   const recomputed = useMemo(() => {
     return recomputeMsOverview({
       budgetYen: cycle.budgetYen,
+      regularPointBasis: cycle.regularPoints,
       extraPoolBudgetYen: cycle.extraPoolBudgetYen,
-      milestones: editing,
+      milestones: activeEditing,
     });
-  }, [cycle.budgetYen, cycle.extraPoolBudgetYen, editing]);
+  }, [cycle.budgetYen, cycle.extraPoolBudgetYen, cycle.regularPoints, activeEditing]);
 
   // 表示用 (= 編集モードなら recomputed、閲覧モードなら cycle の値) -----
   const displayTotalPoints = editMode ? recomputed.totalPoints : cycle.totalPoints;
@@ -326,46 +470,76 @@ function PlanCycleBlock({
     [displayMemberTotals],
   );
 
-  // 元の MS 並びを keep するため、editing は milestoneId 引きの map を作る
-  const editingByMs = useMemo(() => {
-    const m = new Map<string, EditableMilestoneInput>();
-    for (const e of editing) m.set(e.milestoneId, e);
-    return m;
-  }, [editing]);
+  const baseEditingKey = useMemo(() => normalizeEditableRows(toEditableMilestones(cycle)), [cycle]);
+  const currentEditingKey = useMemo(() => normalizeEditableRows(activeEditing), [activeEditing]);
+  const isDirty = deletedIds.length > 0 || baseEditingKey !== currentEditingKey;
 
-  const isDirty = useMemo(() => {
-    for (const ms of cycle.milestones) {
-      const cur = editingByMs.get(ms.milestoneId);
-      if (!cur) continue;
-      if (Math.round(cur.points * 100) !== Math.round(ms.points * 100)) return true;
-    }
-    return false;
-  }, [cycle.milestones, editingByMs]);
-
-  const handleSliderChange = useCallback((milestoneId: string, next: number) => {
+  const handleMilestoneChange = useCallback((milestoneId: string, patch: Partial<EditableMilestoneInput>) => {
     setEditing((prev) =>
-      prev.map((row) => (row.milestoneId === milestoneId ? { ...row, points: next } : row)),
+      prev.map((row) => (row.milestoneId === milestoneId ? { ...row, ...patch } : row)),
     );
   }, []);
 
   const handleResetToDb = useCallback(() => {
     setEditing(toEditableMilestones(cycle));
+    setDeletedIds([]);
   }, [cycle]);
+
+  const handleAddMilestone = useCallback(() => {
+    const nextOrder = activeEditing.reduce((max, row) => Math.max(max, row.sortOrder), 0) + 1;
+    setEditing((prev) => [
+      ...prev,
+      {
+        milestoneId: `draft-${cycle.planCycleId}-${Date.now()}`,
+        title: "新しいMS",
+        points: 10,
+        tag: "normal",
+        goalLevel: "season",
+        successCriteria: "",
+        periodStartYm: cycle.periodStartYm,
+        targetYm: cycle.periodEndYm,
+        sortOrder: nextOrder,
+        isCapExtra: false,
+        responsibilities: [],
+      },
+    ]);
+    setEditMode(true);
+  }, [activeEditing, cycle.planCycleId, cycle.periodEndYm, cycle.periodStartYm]);
+
+  const handleRemoveMilestone = useCallback((milestoneId: string) => {
+    setEditing((prev) => prev.filter((row) => row.milestoneId !== milestoneId));
+    if (!isDraftMilestoneId(milestoneId)) {
+      setDeletedIds((prev) => (prev.includes(milestoneId) ? prev : [...prev, milestoneId]));
+    }
+  }, []);
 
   const handleSave = useCallback(async () => {
     setSaveStatus("saving");
     setSaveError(null);
     try {
       const payload = {
-        milestones: editing
-          .filter((row) => {
-            const orig = cycle.milestones.find((m) => m.milestoneId === row.milestoneId);
-            if (!orig) return false;
-            return Math.round(row.points * 100) !== Math.round(orig.points * 100);
-          })
-          .map((row) => ({ milestoneId: row.milestoneId, points: Math.round(row.points) })),
+        milestones: activeEditing.map((row, index) => ({
+          milestoneId: isDraftMilestoneId(row.milestoneId) ? null : row.milestoneId,
+          title: row.title,
+          points: Math.round(row.points * 100) / 100,
+          tag: row.tag,
+          goalLevel: row.goalLevel,
+          successCriteria: row.successCriteria,
+          periodStartYm: row.periodStartYm,
+          targetYm: row.targetYm,
+          sortOrder: row.sortOrder || index + 1,
+          responsibilities: row.responsibilities
+            .filter((resp) => resp.share > 0)
+            .map((resp) => ({
+              memberId: resp.memberId,
+              share: Math.round(resp.share * 10000) / 10000,
+              role: resp.role,
+              taskDescription: resp.taskDescription,
+            })),
+        })),
+        deletedMilestoneIds: deletedIds,
       };
-      if (payload.milestones.length === 0) {
+      if (!isDirty) {
         setSaveStatus("idle");
         setEditMode(false);
         return;
@@ -388,7 +562,7 @@ function PlanCycleBlock({
       setSaveStatus("error");
       setSaveError(err instanceof Error ? err.message : String(err));
     }
-  }, [cycle, editing, onSaved]);
+  }, [activeEditing, cycle.planCycleId, deletedIds, isDirty, onSaved]);
 
   return (
     <section className="rounded-lg border border-border bg-card overflow-hidden">
@@ -436,7 +610,7 @@ function PlanCycleBlock({
             </button>
             {editMode && (
               <span className="text-[10px] text-muted-foreground">
-                スライダーで pt を動かすと メトリクス / メンバー年計 が即時再計算される。保存ボタン押下まで DB は書き換わらない。
+                MS名・期間・pt・担当shareを編集できる。保存ボタン押下まで DB は書き換わらない。
               </span>
             )}
           </div>
@@ -483,61 +657,43 @@ function PlanCycleBlock({
             />
           </div>
 
-          {/* ② 全MS (閲覧 = pt順横バー / 編集 = スライダー)
+          {/* ② 全MS (閲覧 = pt順横バー / 編集 = MS設計エディタ)
                 現役 (target_ym ≥ 今月 or 期間未設定) を常時表示、過去分はトグル */}
           <div>
-            <h3 className="text-sm font-semibold mb-1">
-              全MS {editMode ? "(編集モード)" : "(pt順)"}
-              <span className="ml-2 text-[10px] text-muted-foreground font-normal">
-                現役 {currentMs.length}件 / 過去分 {historyMs.length}件
-              </span>
-            </h3>
-            {cycle.milestones.length === 0 ? (
-              <p className="text-xs text-muted-foreground">MS が登録されていない。</p>
-            ) : editMode ? (
+            <div className="mb-1 flex items-center gap-2">
+              <h3 className="text-sm font-semibold">
+                全MS {editMode ? "(編集モード)" : "(pt順)"}
+                <span className="ml-2 text-[10px] text-muted-foreground font-normal">
+                  現役 {currentMs.length}件 / 過去分 {historyMs.length}件
+                </span>
+              </h3>
+              {editMode && (
+                <button
+                  type="button"
+                  onClick={handleAddMilestone}
+                  className="ml-auto rounded border border-border px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent/30 hover:text-foreground"
+                >
+                  ＋ MS追加
+                </button>
+              )}
+            </div>
+            {editMode ? (
               <div>
-                {currentMs.map((ms) => {
-                  const cur = editingByMs.get(ms.milestoneId);
-                  if (!cur) return null;
-                  const ptValueYen = recomputed.ptValueYenByMs.get(ms.milestoneId) ?? 0;
-                  return (
-                    <MsSliderRow
-                      key={ms.milestoneId}
-                      ms={ms}
-                      current={cur}
-                      ptValueYen={ptValueYen}
-                      onChange={(next) => handleSliderChange(ms.milestoneId, next)}
-                    />
-                  );
-                })}
-                {historyMs.length > 0 && (
-                  <div className="mt-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowHistory((prev) => !prev)}
-                      className="text-[11px] text-muted-foreground hover:text-foreground py-1"
-                    >
-                      {showHistory ? "▾" : "▸"} 過去分 ({historyMs.length}件) {showHistory ? "を隠す" : "を表示"}
-                    </button>
-                    {showHistory && (
-                      <div className="opacity-70">
-                        {historyMs.map((ms) => {
-                          const cur = editingByMs.get(ms.milestoneId);
-                          if (!cur) return null;
-                          const ptValueYen = recomputed.ptValueYenByMs.get(ms.milestoneId) ?? 0;
-                          return (
-                            <MsSliderRow
-                              key={ms.milestoneId}
-                              ms={ms}
-                              current={cur}
-                              ptValueYen={ptValueYen}
-                              onChange={(next) => handleSliderChange(ms.milestoneId, next)}
-                            />
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
+                {activeEditing.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">MS が登録されていない。</p>
+                ) : (
+                  [...activeEditing]
+                    .sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title, "ja"))
+                    .map((row) => (
+                      <MsEditorRow
+                        key={row.milestoneId}
+                        current={row}
+                        projectMembers={cycle.projectMembers}
+                        ptValueYen={recomputed.ptValueYenByMs.get(row.milestoneId) ?? 0}
+                        onChange={(patch) => handleMilestoneChange(row.milestoneId, patch)}
+                        onRemove={() => handleRemoveMilestone(row.milestoneId)}
+                      />
+                    ))
                 )}
               </div>
             ) : (
@@ -596,9 +752,9 @@ function PlanCycleBlock({
                 onClick={handleResetToDb}
                 disabled={!isDirty || saveStatus === "saving"}
                 className="text-xs px-3 py-1.5 rounded border border-border text-muted-foreground hover:text-foreground hover:bg-accent/30 disabled:opacity-40 disabled:cursor-not-allowed"
-                title="現状DB値に全スライダーを戻す"
+                title="現状DB値に戻す"
               >
-                ↻ 推奨値に戻す
+                ↻ DB値に戻す
               </button>
               <button
                 type="button"
@@ -606,7 +762,7 @@ function PlanCycleBlock({
                 disabled={!isDirty || saveStatus === "saving"}
                 className="text-xs px-3 py-1.5 rounded bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {saveStatus === "saving" ? "保存中…" : "💾 保存して DB へ反映"}
+                {saveStatus === "saving" ? "保存中…" : "保存して DB へ反映"}
               </button>
               {saveStatus === "success" && (
                 <span className="text-[11px] text-emerald-500">✓ 保存完了 → reward 再計算済</span>

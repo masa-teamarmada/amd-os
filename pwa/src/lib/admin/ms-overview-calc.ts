@@ -6,11 +6,11 @@
  * `computeSeasonPl` のメンバー予算配分と完全一致させること。
  *
  * 一致させるべき正本式:
- *   regularPts   = total_points − Σ(cap_extra MS の points)
+ *   regularPts   = シーズン期間の月数 × 10pt
  *                  (= computeSeasonPl の regularPointsSum)
- *   regularUnit  = floor(budget_yen / regularPts)
+ *   regularUnit  = round(budget_yen / regularPts)
  *   extraPts     = Σ(cap_extra MS の points)
- *   extraUnit    = floor(extraPoolBudgetYen / extraPts)  // 別財布がある時のみ
+ *   extraUnit    = round(extraPoolBudgetYen / extraPts)  // 別財布がある時のみ
  *   memberYen[m] = Σ over MS of (MS.points × share[m] × (cap_extra ? extraUnit : regularUnit))
  *
  * 月按分は無視 (= MS 設計レビュー画面なので plannedShare × points だけで十分)。
@@ -34,17 +34,32 @@ export function isCapExtraTag(tag: unknown): boolean {
 
 export type EditableMilestoneInput = {
   milestoneId: string;
+  title: string;
   /** 編集後の pt 値 */
   points: number;
+  tag: string;
+  goalLevel: string;
+  successCriteria: string;
+  periodStartYm: string | null;
+  targetYm: string | null;
+  sortOrder: number;
   /** cap_extra 系 tag か否か (tag 文字列でなく事前に判定したフラグ) */
   isCapExtra: boolean;
   /** 担当 share の plannedShare 配列。share の合計は理想的には 1.0 */
-  responsibilities: Array<{ memberId: string; codeName: string; share: number }>;
+  responsibilities: Array<{
+    memberId: string;
+    codeName: string;
+    share: number;
+    role: string;
+    taskDescription: string | null;
+  }>;
 };
 
 export type RecomputeInput = {
   /** 本契約原資 = value_plan_cycles.budget_yen */
   budgetYen: number;
+  /** 本契約 pt 分母 = シーズン期間の月数 × 10pt */
+  regularPointBasis: number;
   /** 別財布原資 = Σ billing_cycles.extra_budget_yen (別財布が無ければ 0) */
   extraPoolBudgetYen: number;
   /** 編集対象の MS 一覧 (= スライダーで動かした最新値) */
@@ -52,9 +67,9 @@ export type RecomputeInput = {
 };
 
 export type RecomputeResult = {
-  /** 合計pt = Σ milestones.points */
+  /** 合計pt = regularPointBasis + Σ cap_extra milestones.points */
   totalPoints: number;
-  /** 本契約 pt 合計 = Σ (cap_extra ではない MS の points) */
+  /** 本契約 pt 合計 = シーズン期間の月数 × 10pt */
   regularPoints: number;
   /** 別財布 pt 合計 = Σ (cap_extra MS の points) */
   extraPoints: number;
@@ -80,11 +95,11 @@ function safeNumber(n: unknown): number {
  * 出力と揃える (= totalYen 降順、totalYen=0 は除外)。
  */
 export function recomputeMsOverview(input: RecomputeInput): RecomputeResult {
-  const totalPoints = roundPt(input.milestones.reduce((sum, ms) => sum + safeNumber(ms.points), 0));
+  const regularPoints = roundPt(Math.max(0, safeNumber(input.regularPointBasis)));
   const extraPoints = roundPt(
     input.milestones.filter((ms) => ms.isCapExtra).reduce((sum, ms) => sum + safeNumber(ms.points), 0),
   );
-  const regularPoints = roundPt(Math.max(0, totalPoints - extraPoints));
+  const totalPoints = roundPt(regularPoints + extraPoints);
 
   // season-pl.ts と同一: Math.round(memberBudgetYen / regularPointsSum)。
   const regularPtUnitYen = regularPoints > 0 ? Math.round(input.budgetYen / regularPoints) : 0;
@@ -147,12 +162,21 @@ function roundPt(n: number): number {
 export function toEditableMilestones(cycle: MsOverviewPlanCycle): EditableMilestoneInput[] {
   return cycle.milestones.map((ms): EditableMilestoneInput => ({
     milestoneId: ms.milestoneId,
+    title: ms.title,
     points: ms.points,
+    tag: ms.tag,
+    goalLevel: ms.goalLevel,
+    successCriteria: ms.successCriteria,
+    periodStartYm: ms.periodStartYm,
+    targetYm: ms.targetYm,
+    sortOrder: ms.sortOrder,
     isCapExtra: ms.isCapExtra,
     responsibilities: ms.responsibilities.map((r) => ({
       memberId: r.memberId,
       codeName: r.codeName,
       share: r.share,
+      role: r.role,
+      taskDescription: r.taskDescription,
     })),
   }));
 }

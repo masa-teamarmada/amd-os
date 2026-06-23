@@ -79,7 +79,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 ## /admin/ms-overview
 
-目的: 全 active plan cycle の MS 設計を 1 画面で一望する設計レビュー画面。「pt 配分が他 MS と比べて妥当か」「メンバー間の序列がおかしくないか」をシーズン予実表 (= 実消化) と切り離して、`plannedShare` ベースの理論値で並べて判断する。`/admin/season-pl` が「閉じてるか」を見る安全網なのに対し、こちらは「設計の歪み」を見る設計画面。仕様正本は `pwa/manual/6-8-admin-ms-overview-spec.md`。
+目的: 全 active plan cycle の MS 設計を 1 画面で一望し、MS 本体・期間・pt・tag・担当 share を編集する設計画面。「pt 配分が他 MS と比べて妥当か」「メンバー間の序列がおかしくないか」をシーズン予実表 (= 実消化) と切り離して、`plannedShare` ベースの理論値で並べて判断する。`/admin/season-pl` が「閉じてるか」を見る安全網なのに対し、こちらは「設計の歪み」を見る設計画面。仕様正本は `pwa/manual/6-8-admin-ms-overview-spec.md`。
 
 必須機能:
 
@@ -87,12 +87,12 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - 集計の正本ロジック: `/api/admin/ms-overview` (`src/app/api/admin/ms-overview/route.ts`) が `computeSeasonPl` 純関数を再利用し、`regularPtUnitYen` / `extraPtUnitYen` / `extraPoolBudgetYen` を確定させる。MS の `ptValueYen` (= `points × pt単価`、tag=cap_extra なら extra単価) と、メンバー年計 (`Σ MS points × share × pt単価`、tag で regular/extra に振り分け) は route 内で組み立てて返す。実消化 (`milestone_monthly_progress`) は読まない (= 設計値そのものを見せる画面)。
 - PJ ブロック構造: ① メトリクスカード 4 枚 (合計pt / 本契約 pt単価 / 別財布 pt単価 / 主要メンバー比較)、② 全MS (pt順) (MS 名 + 期間 + tag、pt、pt価値、横バー、担当 share)、③ メンバー別 年計 (`codeName` + 本契約濃 + 別財布淡 の積み上げ横バー + 合計金額)、④ tag 凡例 (normal #1D9E75 / routine #888780 / cap_extra #7F77DD)。
 - 別財布 (cap_extra) プールは pt 単価が独立なので、メトリクスもバー色も完全分離。`tag` が cap_extra 系 (`cap_extra` / `extra_contract` / `contract_extra` / `cap_outside` / `uncapped`) の MS だけ extra 単価で評価し、メンバー年計の `extraYen` 列に積む。
-- 編集モード (2026-06-21 追加, v0.29.6): PJ ブロックごとに「✏ 編集モード」トグル。各 MS の pt を スライダー (min=2, max=max(初期×2, 30), step=1) で動かせる。スライダーが動くたびに `src/lib/admin/ms-overview-calc.ts` の `recomputeMsOverview` で メトリクス / MS pt価値 / メンバー年計 を JS 側でリアルタイム再計算する (= API 不要)。算定式は `computeSeasonPl` のメンバー予算配分と完全一致 (regular単価=round(budget_yen÷regular pt), extra単価=round(extraPoolBudgetYen÷extra pt), memberYen=Σpoints×share×単価)。`milestone_monthly_contribution_allocations.actual_share` は読まない (plannedShare のみ)。「↻ 推奨値に戻す」「💾 保存して DB へ反映」ボタンをフッターに持つ。share / MS 追加削除 / 期間編集はスコープ外 (= cockpit 経由)。
-- 編集モード保存: `PUT /api/admin/ms-overview/{planCycleId}` (body `{ milestones: [{ milestoneId, points }] }`) を呼ぶと、(a) `value_milestones.points` 一括更新、(b) `value_plan_cycles.total_points = Σ value_milestones.points (goal_level≠monthly)` 再計算、(c) `syncRewardSummariesForProject` で全月 reward 再計算 (`reward_paid_at` / `payout_notice_uploaded_at` / `payment_confirmed_at` のある月は内部で skip)。payload の MS が同じ plan_cycle に属するかを `plan_cycle_id` 突合で検査し、他 PJ への巻き込み更新を防ぐ。
+- 編集モード (2026-06-23 更新): PJ ブロックごとに「編集モード」トグル。MS 名 / pt / tag / 期間 (`period_start_ym` / `target_ym`) / 完了条件 / 担当 share・役割・担当タスク / MS追加・無効化を編集できる。変更のたびに `src/lib/admin/ms-overview-calc.ts` の `recomputeMsOverview` で メトリクス / MS pt価値 / メンバー年計 を JS 側でリアルタイム再計算する (= API 不要)。算定式は `computeSeasonPl` のメンバー予算配分と完全一致 (regular pt = シーズン期間月数×10、regular単価=round(budget_yen÷regular pt), extra単価=round(extraPoolBudgetYen÷extra pt), memberYen=Σpoints×share×単価)。`milestone_monthly_contribution_allocations.actual_share` は読まない (plannedShare のみ)。「↻ DB値に戻す」「保存して DB へ反映」ボタンをフッターに持つ。cockpit 側には MS 設計の保存口を置かない。
+- 編集モード保存: `PUT /api/admin/ms-overview/{planCycleId}` (body `{ milestones: [...], deletedMilestoneIds: [...] }`) を呼ぶと、(a) `value_milestones` を upsert / 無効化、(b) `milestone_responsibility` を保存値で置換、(c) `value_plan_cycles.total_points = 期間月数×10 + Σcap_extra points` 再計算、(d) `syncRewardSummariesForProject` で全月 reward 再計算 (`reward_paid_at` / `payout_notice_uploaded_at` / `payment_confirmed_at` のある月は内部で skip)。payload の MS が同じ plan_cycle に属するかを `plan_cycle_id` 突合で検査し、他 PJ への巻き込み更新を防ぐ。
 
 回帰防止:
 
-- `pwa/scripts/check_pwa_critical_ui.cjs` が `/admin/ms-overview` の route / page / client / sidebar anchor (`MS一覧` / `全MS` / `メンバー別 年計` / `cap_extra` / `編集モード` / `推奨値に戻す` / `保存して DB へ反映` / `recomputeMsOverview` / `regularPtUnitYen` / `extraPtUnitYen`) を検査する。
+- `pwa/scripts/check_pwa_critical_ui.cjs` が `/admin/ms-overview` の route / page / client / sidebar anchor (`MS一覧` / `全MS` / `メンバー別 年計` / `cap_extra` / `編集モード` / `MS追加` / `担当share` / `DB値に戻す` / `保存して DB へ反映` / `recomputeMsOverview` / `regularPtUnitYen` / `extraPtUnitYen`) を検査する。
 - AdminSidebar の `MS一覧` 導線、`/admin/ms-overview` route、`/api/admin/ms-overview` (GET / PUT)、`src/lib/admin/ms-overview-calc.ts` を消す変更は、`FEATURE_REGISTRY.md` と `pwa/manual/6-8-admin-ms-overview-spec.md` を同時に更新する。
 - 算定ロジックを `computeSeasonPl` / `recomputeMsOverview` から剥がして route 内 / client 内で再実装しないこと。pt 単価と原資の正本は常に `season-pl.ts` と `ms-overview-calc.ts` に置く (= 予実表と乖離させない、2026-06-20 確定方針)。`ms-overview-calc.ts` の式は `season-pl.ts` の `computeSeasonPl` と「同じ round 規則」で書く (= floor ではなく Math.round)。
 - 別財布判定 (cap_extra 系 tag) は `src/lib/admin/ms-overview-calc.ts` の `isCapExtraTag` を共有し、`season-pl.ts` の `CAP_EXTRA_MILESTONE_TAGS` と一字一句揃える (= 増やすときは両方更新)。
@@ -163,7 +163,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - レイアウト: `max-w-[1600px]` の幅広 container、上 Header → hero (PJ Status) → MS / 経営ハイライト / ステータス・nudge → 下段 2 カラム (`月次カード / 休止期間 + MTGサマリ`) の案C系構成。`max-w-[1060px]` + 左 720 / 右 220 の旧 2 カラムには戻さない。最下段の旧 TODO かんばんは主要導線から外す。
 - 上 hero: PJ ごとに出し分け。p00 (= AMD 会社全体) は `CockpitManagementScoreHero` で AMD Management Score の時系列折れ線 + 最新値カード。SU 系 PJ は `CockpitVentureStatus` 内で AMD Score 折れ線と XRL 折れ線を `xl:flex-row` で横並びにする。`xl` 未満では縦並びへ自動 fallback する。
 - Hero 下タブ: SU 系 PJ は `進捗管理` / `スコア詳細` を切り替える。AMD Score / XRL hero はタブ外に置いて常時表示し、`進捗管理` に従来の cockpit 本文、`スコア詳細` に `AmdScoreView` の embedded 表示を出す。
-- 今期MSリスト: `CockpitGoalsCompact` / `MilestoneGanttChart` でMS期間、pt、担当、sub itemを表示する。
+- 今期MSリスト: `CockpitGoalsCompact` / `MilestoneGanttChart` でMS期間、pt、担当、sub itemを表示する。MS 設計編集は `/admin/ms-overview` に集約し、cockpit / HUD cockpit からは編集しない。
 - TODO: `ProactiveQueuePanel` でそのPJの `proactive_outbox` を read-only 表示する。状態、誰のボールか、期限、優先度、資料の種類、トリガー理由、担当司令塔、推奨 first move、遅れた場合のリスクを出す。Cockpit UI から状態更新・外部送付はしない。行クリックはモーダルで詳細を開く。
 - 経営ハイライト: MSリスト横の col2 として `CockpitStrategySignals` を表示し、`project_strategy_signals` の candidate/confirmed を日付・type・impact・summary・source refs付きで表示する。
 - 月次モーダル: 月次カードから `CockpitMonthlyModal` を開き、report / reward / invoice を確認できる。routine step 起動は廃止済み。p00 (= AMD 会社全体) でも他 PJ と同じく月次カード + 月次モーダルが出る (`billing_cycles` を 12 行 backfill 済)。

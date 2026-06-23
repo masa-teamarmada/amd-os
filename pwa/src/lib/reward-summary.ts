@@ -10,6 +10,7 @@ import {
   contractBackedClientAmount,
   monthlyFixedClientAmount,
 } from "@/lib/contract-money";
+import { regularPointBasisForCycle } from "@/lib/season-point-basis";
 
 type SupabaseLike = SupabaseClient;
 
@@ -462,6 +463,13 @@ function deriveMonthlyRewardBudget({
 
 function rewardPointBasis(milestones: MilestoneRow[], planCycle: PlanCycleRow | null): { hasCapExtra: boolean; totalPt: number } {
   const hasCapExtra = milestones.some(isCapExtraMilestone);
+  const cycleRegularPt = regularPointBasisForCycle(planCycle);
+  if (cycleRegularPt > 0) {
+    return {
+      hasCapExtra,
+      totalPt: cycleRegularPt,
+    };
+  }
   if (!hasCapExtra) {
     return {
       hasCapExtra,

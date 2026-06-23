@@ -7,6 +7,13 @@ export type MsOverviewResponsibility = {
   memberId: string;
   codeName: string;
   share: number;
+  role: string;
+  taskDescription: string | null;
+};
+
+export type MsOverviewProjectMember = {
+  memberId: string;
+  codeName: string;
 };
 
 export type MsOverviewMilestone = {
@@ -15,6 +22,9 @@ export type MsOverviewMilestone = {
   points: number;
   /** "cap_extra" | "normal" | "routine" など。バー色判別に使う */
   tag: string;
+  goalLevel: string;
+  successCriteria: string;
+  sortOrder: number;
   /** cap_extra 系 tag か (別財布扱い) */
   isCapExtra: boolean;
   periodStartYm: string | null;
@@ -62,6 +72,7 @@ export type MsOverviewPlanCycle = {
   projectStatus: string;
   /** projects.freeze_from_ym (= freeze 開始月、null なら未設定) */
   projectFreezeFromYm: string | null;
+  projectMembers: MsOverviewProjectMember[];
   milestones: MsOverviewMilestone[];
   memberYearTotals: MsOverviewMemberYearTotal[];
 };

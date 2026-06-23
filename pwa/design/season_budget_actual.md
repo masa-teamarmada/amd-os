@@ -36,9 +36,9 @@
 
 ### 検知したい歪み (この表の目的)
 - **閉じない**: `バッファ + 原資 + マージン ≠ 請求額` → 設定ミス。
-- **未割当pt**: `Σ(earnedPt) < total_points` → MS未設定 (SX 0.93pt の穴)。
+- **未割当pt**: `total_points − Σ(MS points, goal_level≠monthly)` → MS未設定 / MS過剰配分の穴。
 - **原資 ≠ Σ月cap**: `value_plan_cycles.budget_yen ≠ Σ billing_cycles.budget_yen` → cap/原資の不整合 (ZMP で検出)。
-- **pt単価過大**: `pt単価 ≠ (請求額−バッファ)×65% ÷ total_points` → バッファ未反映バグ。
+- **pt単価過大**: 本契約 `pt単価 ≠ (請求額−バッファ)×65% ÷ (シーズン期間の月数×10pt)` → バッファ未反映 / 分母汚染バグ。
 - **役員取りこぼし**: 最終月で役員stockが0に収束しない → 役員繰越が効いてない。
 
 ---
@@ -49,7 +49,7 @@
 - `projects` (fee_type, fee_amount, start_ym, end_ym)
 - 計算は `src/lib/reward-summary.ts` の既存集計を流用 (各月 reward_summary_json の members[].{earnedPt, regularBasePay, totalPay, companyReserveYen, stockYen, payoutExcluded})。
 - 請求額(税抜): monthly_fixed = `fee_amount × cycleMonths`。schedule_based は `contract_terms` の月別合計。
-- pt単価: `budget_yen ÷ total_points` (= 既存 deriveRewardBudgetForPt/total_points)。
+- pt単価: 本契約は `budget_yen ÷ (シーズン期間の月数×10pt)`。別財布は `Σextra_budget_yen ÷ Σcap_extra pt`。
 
 ---
 
@@ -99,6 +99,8 @@
 ---
 
 ## 5.1 ZMP (p19) 別財布不一致の解析と是正方針 (2026-06-20)
+
+> **2026-06-23 正本更新**: 本契約 regular の pt 分母は `total_points − Σcap_extra pt` ではなく **シーズン期間の月数×10pt** で固定する。ZMP 202601〜202612 は regular 120pt。`value_plan_cycles.total_points` は `120 + Σcap_extra pt` を保存する。以下の 2026-06-20 時点の 110pt / 177pt 記述は履歴として残すが、新規修正では使わない。
 
 予実表が検出した ZMP の不一致を実コードで解析した結果、原因は2つに分離できた。
 
@@ -153,7 +155,7 @@
 
 **② 別財布の MS を `tag=cap_extra` で作り、pt と share を後付けで決める** (= 原価/配分側)
 - 別財布の作業を表す MS を `value_milestones` に `tag='cap_extra'` で作る (`period_start_ym`〜`target_ym` = 開発期間)。`goal_level` は `monthly` 以外 (annual 等)。
-- **pt は本契約と地続きの単位で付ける** (例 OkuDoor 67pt)。`value_plan_cycles.total_points` には **本契約pt + 別財布pt の合計** を入れる (ZMP: 110+67=177)。← total_points に別財布pt を入れ忘れると未割当pt の穴になる。
+- **pt は支払設計に合わせて付ける** (例 OkuDoor 別財布を 20pt にするなら、extra pt単価は 130万÷20=65,000円/pt)。`value_plan_cycles.total_points` には **期間月数×10pt + 別財布pt** を入れる (ZMP 12か月 + OkuDoor20pt なら 120+20=140)。通常 MS の配分 pt 合計で本契約単価を動かさない。
 - `milestone_responsibility.share` は「**先に決まった支払額 ÷ (extra pt単価)**」から逆算。extra pt単価 = `Σextra_budget_yen ÷ Σcap_extra pt` (③で確定)。役員は会社留保になるので share の残りを役員に寄せる。
 
 **③ 別財布原資の「支払タイミング」を `billing_cycles.extra_budget_yen` で表現** (= 別プールの月次cap)

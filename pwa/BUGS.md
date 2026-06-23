@@ -5,6 +5,16 @@
 
 ---
 
+### [reward/admin] admin MS編集がMS配分合計を `total_points` に書き戻し、pt単価を変動させていた (2026-06-23)
+
+- **状態**: クローズ (2026-06-23 — MS設計編集を `/admin/ms-overview` に集約し、cockpit / HUD cockpit のMS設計保存口を停止。`total_points` は `期間月数×10 + Σcap_extra pt` に戻した)。
+- **症状**: ZMP の別財布 pt を 20pt に直しても、別画面からの保存や admin の pt 編集後に 67pt / 旧単価前提へ戻る可能性があった。さらに `/admin/ms-overview` で MS の pt を増やすと、`value_plan_cycles.total_points = ΣMS.points` に更新され、本契約 pt単価まで変動していた。
+- **原因**: MS設計の write boundary が cockpit と admin の2箇所に割れていた。admin PUT route は pt だけ更新し、保存後に active MS の points 合計を `total_points` へ書き戻していたため、通常 MS の配分変更がシーズン分母そのものを変えていた。
+- **対応内容**: `/admin/ms-overview` の編集モードで MS名 / pt / tag / 期間 / 完了条件 / 担当share / 役割 / タスク / 追加 / 無効化を保存できるようにした。PUT route は `value_milestones` と `milestone_responsibility` を一括保存し、`total_points` は `season-point-basis.ts` の `期間月数×10 + Σcap_extra pt` で再計算する。`reward-summary.ts` / `season-pl.ts` / admin preview の regular 分母も期間月数×10ptへ統一した。
+- **再発防止**: MS設計の保存口を増やさない。通常 MS の配分 pt 合計を pt単価分母に使わない。別財布は `tag=cap_extra` と `extra_budget_yen` で独立単価にし、本契約 regular はシーズン期間月数×10ptで固定する。
+
+---
+
 ### [governance] BWE (ended) みなし第1回定時株主総会 同意書メール (6/18) を D-14 / D-14G が取りこぼし、コックピット総会リストにも `/notifications` 要対応にも出なかった (2026-06-22)
 
 - **状態**: クローズ (2026-06-22 — BWE p11 の `governance_watch_shareholder_meetings=true` / `governance_watch_board_meetings=true` 投入。手動 backfill で `project_shareholder_meetings` 1 行 (BWE / shareholder_written_resolution / 2026-06-22 / amd_response=consented / source_ref=`gmail://thread/19eed63f8ddd31b7`) + `action_items` 1 件 (priority=critical, due_at=6/22 18:00 JST)。SKILL / 設計 md パッチは `pwa/design/_bwe_governance_patch_2026-06-22.md` に保管 = 本セッションで本体 md への直接 Edit が並列 worker と競合して revert される現象が発生したため、新規ファイル経由で残した。本体 md への手 merge は次セッション)。

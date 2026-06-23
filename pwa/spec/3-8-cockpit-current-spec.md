@@ -74,7 +74,7 @@ This route is read-only during load. It does not create a duplicate project or w
 | monthly list/modal | `CockpitMonthlyList`, `CockpitMonthlyModal` | `billing_cycles`, reports / reward / progress |
 | meeting summaries | `CockpitMeetingSummary` | `project_meeting_summaries` |
 | legacy kanban | `CockpitKanbanGas` / `HudCockpitKanbanGas` | `tasks`。PJ cockpit / HUD cockpit の主要導線からは外し、TODO は proactive queue へ寄せる |
-| freeze / next period | `CockpitFreezeBackfill`, `CockpitNextPeriodSetup` | freeze and plan setup |
+| freeze / MS status | `CockpitFreezeBackfill` | freeze backfill and read-only MS period status。MS 設計編集は `/admin/ms-overview` に集約する |
 
 ## Meeting Summary Notion CTA
 

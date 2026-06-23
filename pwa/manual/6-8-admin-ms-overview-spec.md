@@ -8,12 +8,12 @@
 
 ## 開く場面
 
-- 新規シーズンの MS 設計をレビューする (= cockpit で MS を切ったあと、他 PJ と並べて pt 配分の妥当性を見たい)
+- 新規シーズンの MS 設計をレビュー / 編集する
 - メンバーから「自分の年計が他のメンバーと比べておかしくないか」と相談された
 - まさ自身が「あびと しんで序列がおかしくなってないか」を一望したい
 - 別財布 (cap_extra) を入れた PJ で「本契約と別財布で pt 単価が正しく分離されているか」をまとめて確認したい
 
-書き換え目的では使わない (= 閲覧専用)。設計値の変更は cockpit の MS 編集 / `/admin/projects/:id` 経由で行う。
+MS 設計値の書き換え口はこの画面に集約する。cockpit は MS の表示と月次進捗確認に専念し、MS 本体・期間・pt・tag・担当 share の編集は `/admin/ms-overview` の編集モードで行う。
 
 ---
 
@@ -81,7 +81,7 @@ MS 一覧は plan_cycle ブロックの中でさらに **現役 MS** と **過�
 - 現役 MS は常時表示
 - 過去分 MS はデフォルト折りたたみ、`▸ 過去分 (N件) を表示` トグルで展開
 - 見出しに「現役 N件 / 過去分 N件」を出して件数だけは常に見える
-- 編集モードでも同じ split を適用する (スライダーで触りたい過去分は展開してから触る)
+- 編集モードでは全 MS を設計エディタとして並べる。保存対象は画面内の全 active MS。
 - 折りたたまれた過去分は表示されないが、メトリクス・メンバー年計・pt 単価には変わらず含まれる (= 計算からは外さない)
 
 ### ⑦ tag 凡例
@@ -121,21 +121,23 @@ route の流れ:
       "periodStartYm": "202601",
       "periodEndYm": "202612",
       "budgetYen": 3000000,
-      "totalPoints": 200,
-      "regularPoints": 133,
-      "extraPoints": 67,
-      "regularPtUnitYen": 22556,
-      "extraPtUnitYen": 14925,
-      "extraPoolBudgetYen": 1000000,
+      "totalPoints": 140,
+      "regularPoints": 120,
+      "extraPoints": 20,
+      "regularPtUnitYen": 19500,
+      "extraPtUnitYen": 65000,
+      "extraPoolBudgetYen": 1300000,
+      "projectMembers": [{ "memberId": "ID002", "codeName": "あび" }],
       "milestones": [
         {
           "milestoneId": "...",
           "title": "ファシリテーション",
           "points": 20,
           "tag": "normal",
+          "goalLevel": "annual",
           "isCapExtra": false,
-          "ptValueYen": 451128,
-          "responsibilities": [{ "memberId": "ID002", "codeName": "あび", "share": 1 }]
+          "ptValueYen": 390000,
+          "responsibilities": [{ "memberId": "ID002", "codeName": "あび", "share": 1, "role": "担当", "taskDescription": null }]
         }
       ],
       "memberYearTotals": [
@@ -148,55 +150,54 @@ route の流れ:
 
 ---
 
-## 編集モード (2026-06-21 追加)
+## 編集モード (2026-06-23 更新)
 
-各 PJ ブロックに **「✏ 編集モードに切替」** トグルがあり、ON にするとその PJ の MS 一覧が **スライダー UI** に切り替わる。MS 一覧の閲覧版とまったく同じ位置に、各 MS 1 本ずつスライダーが並ぶ。
+各 PJ ブロックに **「編集モードに切替」** トグルがあり、ON にするとその PJ の MS 一覧が **MS設計エディタ** に切り替わる。cockpit 側には MS 設計の保存口を置かない。
 
-### スライダーの仕様
+### 編集できる項目
 
-- **min / max**: `min = 2`, `max = max(初期 pt × 2, 30)` (= 極端な 0 や 100 に持っていけない範囲に縛る)。MS ごとに初期値から自動算出する。
-- **step**: 1pt
-- **色**: ハンドル左の正方形マーカーとレンジ accent color が tag 色に従う (normal `#1D9E75` / routine `#888780` / cap_extra `#7F77DD`)
-- **タッチ領域**: モバイルでも動かせるよう `min-height: 32px` を確保
-- **編集中の表示**: 変更すると pt 数字が琥珀色に変わる、PJ ヘッダ右に `●未保存` 表示
-- 表示位置: MS タイトル / 期間 / 担当 share を見ながら動かせる
+- MS 名 (`title`)
+- pt (`points`)
+- tag (`normal` / `routine` / `buffer` / `cap_extra`)
+- 期間 (`period_start_ym` / `target_ym`)
+- 完了条件 (`success_criteria`)
+- 担当 share / 役割 / 担当タスク (`milestone_responsibility.share`, `role`, `task_description`)
+- MS 追加 / 無効化 (`is_active=false`)
 
 ### リアルタイム再計算
 
-スライダーを動かすたびに、API を叩かず **JS 側で即座に再計算** する。算定式は `src/lib/admin/ms-overview-calc.ts` の `recomputeMsOverview` で、`src/lib/season-pl.ts` の `computeSeasonPl` のメンバー予算配分式と完全一致 (= 編集中も DB 保存後も `/admin/season-pl` と齟齬が出ない):
+pt / tag / share を動かすたびに、API を叩かず **JS 側で即座に再計算** する。算定式は `src/lib/admin/ms-overview-calc.ts` の `recomputeMsOverview` で、`src/lib/season-pl.ts` の `computeSeasonPl` のメンバー予算配分式と完全一致 (= 編集中も DB 保存後も `/admin/season-pl` と齟齬が出ない):
 
 ```text
-regularPts   = total_points − Σ(cap_extra MS の points)
+regularPts   = シーズン期間の月数 × 10pt
 regularUnit  = round(budget_yen / regularPts)
 extraPts     = Σ(cap_extra MS の points)
 extraUnit    = round(extraPoolBudgetYen / extraPts)   // 別財布があるときのみ
 memberYen[m] = Σ over MS of (MS.points × share[m] × (cap_extra ? extraUnit : regularUnit))
 ```
 
-再計算結果は ① メトリクスカード 4 枚 (合計pt / 本契約 pt単価 / 別財布 pt単価 / 主要メンバー比較) ② 各 MS の pt 価値 (= スライダー右の金額) ③ メンバー別 年計バー + 合計金額 ④ ヘッダの単価表示 にリアルタイムで反映する。
+`total_points` の保存値は `regularPts + extraPts`。通常 MS の配分 pt 合計が変わっても、本契約 pt単価は動かない。
+
+再計算結果は ① メトリクスカード 4 枚 (合計pt / 本契約 pt単価 / 別財布 pt単価 / 主要メンバー比較) ② 各 MS の pt 価値 ③ メンバー別 年計バー + 合計金額 ④ ヘッダの単価表示 にリアルタイムで反映する。
 
 月次 override (`milestone_monthly_contribution_allocations.actual_share`) は読まない (= MS 設計を見る画面なので plannedShare × MS.points だけで計算)。
 
 ### フッターのボタン
 
-- **↻ 推奨値に戻す** — 全スライダーを現状 DB 値 (= 編集前) に戻す。`isDirty` のときだけ有効。
-- **💾 保存して DB へ反映** — 編集後の pt を確定。`isDirty` のときだけ有効。押下時の動作:
-  1. `PUT /api/admin/ms-overview/{planCycleId}` を呼ぶ (body: `{ milestones: [{ milestoneId, points }] }`)
-  2. サーバ側は (a) 当該 plan_cycle 内の `value_milestones.points` を一括更新、(b) `value_plan_cycles.total_points = Σ value_milestones.points` (`goal_level≠monthly`) を再計算、(c) `syncRewardSummariesForProject` で全月の `billing_cycles.reward_summary_json` を再計算 (PAID 月は内部で自動 skip) する
+- **↻ DB値に戻す** — 編集前の DB 値に戻す。`isDirty` のときだけ有効。
+- **保存して DB へ反映** — 編集内容を確定。`isDirty` のときだけ有効。押下時の動作:
+  1. `PUT /api/admin/ms-overview/{planCycleId}` を呼ぶ (body: `{ milestones: [...], deletedMilestoneIds: [...] }`)
+  2. サーバ側は (a) 当該 plan_cycle 内の `value_milestones` を upsert / 無効化、(b) `milestone_responsibility` を保存値で置換、(c) `value_plan_cycles.total_points = 期間月数×10 + Σcap_extra points` に再計算、(d) `syncRewardSummariesForProject` で全月の `billing_cycles.reward_summary_json` を再計算 (PAID 月は内部で自動 skip) する
   3. 成功すると編集モード OFF へ戻り、`/api/admin/ms-overview` を再 fetch して最新値で再描画する
 - **保存中の表示**: ボタンが「保存中…」、完了で `✓ 保存完了 → reward 再計算済` (緑) / 失敗で `保存失敗: {error}` (赤)
 
-### スコープ外 (次フェーズ)
-
-- **share の編集**: 今フェーズは pt だけ。share 編集は次フェーズで `milestone_responsibility` 直接編集 UI を追加予定。
-- **MS の追加/削除**: cockpit 側の MS 編集導線を使う。
-- **期間 (`period_start_ym` / `target_ym`) の編集**: cockpit 側で行う。
-- **月次 override (`actual_share`)**: ここでは扱わない (= MS 設計画面なので plannedShare のみ)。
+月次 override (`actual_share`) はここでは扱わない (= MS 設計画面なので plannedShare のみ)。
 
 ### 安全機構
 
 - PUT route は payload の各 milestone が **本当に同じ plan_cycle に属するか** を `value_milestones.plan_cycle_id` 突合で検査し、他 PJ への巻き込み更新を防ぐ。
 - `points < 0` や NaN は server で 400 で弾く。
+- 期間は `YYYYMM` 形式、かつ `period_start_ym <= target_ym` でないと 400 で弾く。
 - `syncRewardSummariesForProject` 内部で `reward_paid_at` / `payout_notice_uploaded_at` / `payment_confirmed_at` のある月は再計算対象から外れる (= 既に支払い済みの過去月を勝手に書き換えない)。
 
 ## なぜ「実消化」を読まないか

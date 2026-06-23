@@ -23,6 +23,7 @@ import {
   type RewardSummary,
 } from "@/lib/reward-summary";
 import { contractBackedClientAmount } from "@/lib/contract-money";
+import { regularPointBasisForCycle, totalPointBasisForCycle } from "@/lib/season-point-basis";
 
 // pt単価原資の按分比率。報酬計算正本と一致させる: 原資 = (請求額 − バッファ) × MEMBER_SHARE_RATE。
 const MEMBER_SHARE_RATE = 0.65;
@@ -81,6 +82,7 @@ export type MilestoneInput = {
   points?: number | string | null;
   tag?: string | null;
   goal_level?: string | null;
+  success_criteria?: string | null;
   sort_order?: number | string | null;
   period_start_ym?: string | null;
   target_ym?: string | null;
@@ -404,18 +406,17 @@ export function computeSeasonPl({
 
   // ② 配分: 原資 / バッファ / マージン
   const memberBudgetYen = Math.max(0, Math.round(numberValue(planCycle.budget_yen)));
-  const totalPoints = Math.max(0, numberValue(planCycle.total_points));
 
   // 別財布 (cap_extra) プールの pt単価分離 (reward-summary.ts deriveRewardUnits と整合):
-  //   regular pt単価 = 本契約原資 ÷ Σregular pt (= total_points − Σextra pt)。
+  //   regular pt単価 = 本契約原資 ÷ (シーズン期間の月数 × 10pt)。
   //   extra pt単価   = Σ billing.extra_budget_yen ÷ Σextra pt。
   // 別財布が無ければ extra 系は 0 で、regularPtUnitYen は従来の ptUnitYen と一致する。
   const extraPointsSum = Math.round(
     milestones.filter((ms) => isCapExtraTag(ms.tag)).reduce((sum, ms) => sum + numberValue(ms.points), 0) * 100
   ) / 100;
   const hasCapExtra = extraPointsSum > 0;
-  // regular 分母 = total_points − extra pt (= reward-summary の rewardPointBasis と同じ)。
-  const regularPointsSum = hasCapExtra && totalPoints > extraPointsSum ? totalPoints - extraPointsSum : totalPoints;
+  const regularPointsSum = regularPointBasisForCycle(planCycle);
+  const totalPoints = totalPointBasisForCycle(planCycle, extraPointsSum);
   const extraPoolBudgetYen = hasCapExtra
     ? cycleMonths.reduce((sum, ym) => {
         const raw = billingsByYm.get(ym)?.extra_budget_yen;

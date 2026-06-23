@@ -14,7 +14,6 @@ import { CockpitMonthlyModal } from "./CockpitMonthlyModal";
 import { CockpitNudge } from "./CockpitNudge";
 import { CockpitMeetingSummary } from "./CockpitMeetingSummary";
 import { CockpitFreezeBackfill } from "./CockpitFreezeBackfill";
-import { CockpitNextPeriodSetup } from "./CockpitNextPeriodSetup";
 import { CockpitAmdScoreDetailTab } from "./CockpitAmdScoreDetailTab";
 import { ProactiveQueuePanel } from "@/components/proactive/ProactiveQueuePanel";
 
@@ -238,7 +237,6 @@ export function CockpitView({ cockpit, nudges, initialModalYm }: CockpitViewProp
   const [modalYm, setModalYm] = useState<string | null>(initialModalYm || null);
   const [modalInitialTab, setModalInitialTab] = useState<MonthlyModalTab | undefined>(undefined);
   const [pastExpanded, setPastExpanded] = useState(false);
-  const [editingCurrentCycle, setEditingCurrentCycle] = useState(false);
   const [progressPatches, setProgressPatches] = useState<ProgressShape[]>([]);
 
   function openMonthlyModal(ym: string, initialTab?: MonthlyModalTab) {
@@ -314,16 +312,11 @@ export function CockpitView({ cockpit, nudges, initialModalYm }: CockpitViewProp
       );
     }
     const isPeriodExpired = currentYm > effectivePlanCycle.periodEndYm;
-    if (effectivePlanCycle.status === "draft" || editingCurrentCycle) {
+    if (effectivePlanCycle.status === "draft") {
       return (
-        <CockpitNextPeriodSetup
-          projectId={project.projectId}
-          currentYm={currentYm}
-          currentPlanCycle={effectivePlanCycle}
-          directCycleId={effectivePlanCycle.planCycleId}
-          autoOpen={editingCurrentCycle}
-          onModalClose={() => setEditingCurrentCycle(false)}
-        />
+        <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          ⚠️ この PJ の MS は下書き状態です。admin の MS一覧で確定してください。
+        </div>
       );
     }
     return (
@@ -331,14 +324,9 @@ export function CockpitView({ cockpit, nudges, initialModalYm }: CockpitViewProp
         {isPeriodExpired && (
           <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             ⚠️ 今期の MS 期間 ({formatYm(effectivePlanCycle.periodEndYm)}) は終了しています。
-            下のバナーから次期 MS を設定してください。
+            admin の MS一覧で次期 MS を設定してください。
           </div>
         )}
-        <CockpitNextPeriodSetup
-          projectId={project.projectId}
-          currentYm={currentYm}
-          currentPlanCycle={effectivePlanCycle}
-        />
       </>
     );
   };
@@ -427,7 +415,6 @@ export function CockpitView({ cockpit, nudges, initialModalYm }: CockpitViewProp
               currentYm={currentYm}
               msActivities={msActivities || []}
               memberActivities={memberActivities || []}
-              onEdit={planCycle ? () => setEditingCurrentCycle(true) : undefined}
             />
           )}
           {renderMsSetupBanner()}

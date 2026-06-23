@@ -51,7 +51,7 @@ const BILLING_SELECT =
 const MEMBER_SELECT =
   "member_id, code_name, member_name, is_officer, exclude_from_payout_notice";
 const MILESTONE_SELECT =
-  "milestone_id, title, points, tag, goal_level, sort_order, period_start_ym, target_ym";
+  "milestone_id, title, points, tag, goal_level, success_criteria, sort_order, period_start_ym, target_ym";
 
 function numberValue(value: unknown): number {
   const n = typeof value === "number" ? value : Number(value ?? 0);
@@ -86,6 +86,11 @@ type FreezePeriodRow = {
   freeze_from_ym: string | null;
   restart_ym: string | null;
   status: string | null;
+};
+
+type ResponsibilityRow = ResponsibilityInput & {
+  role?: string | null;
+  task_description?: string | null;
 };
 
 /**
@@ -186,11 +191,11 @@ async function buildOverviewForPlanCycle(
   const responsibilitiesRes = milestoneIds.length > 0
     ? await db
         .from("milestone_responsibility")
-        .select("milestone_id, member_id, share")
+        .select("milestone_id, member_id, share, role, task_description")
         .in("milestone_id", milestoneIds)
-    : { data: [] as ResponsibilityInput[], error: null };
+    : { data: [] as ResponsibilityRow[], error: null };
   if (responsibilitiesRes.error) throw responsibilitiesRes.error;
-  const responsibilities = (responsibilitiesRes.data ?? []) as ResponsibilityInput[];
+  const responsibilities = (responsibilitiesRes.data ?? []) as ResponsibilityRow[];
 
   // ① 原資 / pt単価は season-pl の正本式で確定させる (= 予実表と乖離させない)。
   //    progress は空配列で渡す: MS Overview は「実消化」を見ない画面なので、
@@ -207,7 +212,7 @@ async function buildOverviewForPlanCycle(
   });
 
   // ② 担当 lookup
-  const respByMs = new Map<string, ResponsibilityInput[]>();
+  const respByMs = new Map<string, ResponsibilityRow[]>();
   for (const resp of responsibilities) {
     const arr = respByMs.get(resp.milestone_id) ?? [];
     arr.push(resp);
@@ -219,6 +224,12 @@ async function buildOverviewForPlanCycle(
   for (const m of members) {
     codeNameByMember.set(m.member_id, m.code_name || m.member_name || m.member_id);
   }
+  const projectMembers = [...activeMemberIds]
+    .map((memberId) => ({
+      memberId,
+      codeName: codeNameByMember.get(memberId) || memberId,
+    }))
+    .sort((a, b) => a.codeName.localeCompare(b.codeName, "ja"));
 
   // ③ MS 一覧 (pt 降順)
   const msRows: MsOverviewMilestone[] = milestones
@@ -239,6 +250,8 @@ async function buildOverviewForPlanCycle(
           memberId: r.member_id,
           codeName: codeNameByMember.get(r.member_id) || r.member_id,
           share: Math.round(numberValue(r.share) * 10000) / 10000,
+          role: String(r.role || "担当"),
+          taskDescription: r.task_description ?? null,
         }))
         .sort((a, b) => b.share - a.share);
       return {
@@ -246,6 +259,9 @@ async function buildOverviewForPlanCycle(
         title: ms.title || ms.milestone_id,
         points,
         tag: String(ms.tag ?? "normal"),
+        goalLevel: String(ms.goal_level ?? "season"),
+        successCriteria: String(ms.success_criteria ?? ""),
+        sortOrder: Math.round(numberValue(ms.sort_order)),
         isCapExtra,
         periodStartYm: ms.period_start_ym ?? null,
         targetYm: ms.target_ym ?? null,
@@ -309,6 +325,7 @@ async function buildOverviewForPlanCycle(
     healthState: health.healthState,
     projectStatus: health.projectStatus,
     projectFreezeFromYm: health.projectFreezeFromYm,
+    projectMembers,
     milestones: msRows,
     memberYearTotals,
   };

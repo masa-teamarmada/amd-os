@@ -25,8 +25,8 @@
 | `grossBudget` | `monthlyGross × cycleMonths` (= 計画サイクル全期間の総原資) |
 | `deductionTotal` | サイクル全期間の控除累計 (= `pj_deductions` から計算) |
 | `netBudget` | `grossBudget − deductionTotal` (= 実際に分配できる原資) |
-| `totalPt` | 計画サイクルの総ポイント (= `value_plan_cycles.total_points`、 通常 100) |
-| `ptUnit` | `round(netBudget / totalPt)` (= 1pt あたりの円換算) |
+| `regularTotalPt` | 本契約 regular の総ポイント (= シーズン期間の月数 × 10pt) |
+| `ptUnit` | `round(netBudget / regularTotalPt)` (= 本契約 1pt あたりの円換算) |
 | `cumPct` / `prevCumPct` | MS の累計進捗率と前月累計 |
 | `thisMonthPct` | `cumPct − prevCumPct` (= 当月増分) |
 | `consumedPt` | MS の当月消化 pt = `maxPt × thisMonthPct / 100` |
@@ -93,7 +93,7 @@ paid[officer] = 0
 
 > **2026-06-19 まさ確定 — 役員 stock 繰越**: 旧実装は役員 (`is_officer`) の `carryIn` を 0 にし、cap 不足月に留保しきれなかった分 (`companyReserveUnfundedYen`) を翌月へ繰り越さず捨てていた。SX のように cap が慢性的に逼迫する PJ では、これにより**役員 (= AMD 会社留保) が年間で pt 比どおりに受け取れず構造的に取りこぼす**事故になっていた (SX 現行サイクルだけで役員計 約189万、3 active PJ で約192万)。役員も非役員と同じく stock を繰り越す方式に変更し、`年間原資 = Σ(pt × pt単価)`、`Σ月cap = 年間原資` の下で**月次の前後はあっても年間で全員 pt 比に収束**することをシミュレーション+本番再計算で検証済み。実装は `pwa/src/lib/reward-summary.ts` の `applyRewardCapsForMonth` (cap 按分母数に officer の carryIn を含める / 役員返却ブロックで `stockYen` を繰り越す) の 2 箇所。
 
-> **pt単価の原資定義 (まさ正本)**: `PJ予算 = (請求額 − バッファ) × 65%`、`pt単価 = PJ予算 ÷ シーズン総pt数`。バッファ (= 営業費用・旅費等、AMD が請求額から先取りする PJ コスト枠) は **pt単価の計算に必ず反映**する。現行実装の `deriveRewardBudgetForPt` は `value_plan_cycles.budget_yen` をそのまま原資に使うため、**`value_plan_cycles.budget_yen` にバッファ反映後の額 `(請求額 − バッファ) × 65%` を入れる**ことで正しい pt単価になる (SX は 2026-06-19 に 6,812,000 → 5,642,000 へ是正済み)。バッファを第一級入力にしてロジック側で自動控除する恒久実装は別タスク。
+> **pt単価の原資定義 (まさ正本)**: `PJ予算 = (請求額 − バッファ) × 65%`、`本契約pt単価 = PJ予算 ÷ (シーズン期間の月数 × 10pt)`。バッファ (= 営業費用・旅費等、AMD が請求額から先取りする PJ コスト枠) は **pt単価の計算に必ず反映**する。現行実装の `deriveRewardBudgetForPt` は `value_plan_cycles.budget_yen` をそのまま原資に使うため、**`value_plan_cycles.budget_yen` にバッファ反映後の額 `(請求額 − バッファ) × 65%` を入れる**ことで正しい pt単価になる (SX は 2026-06-19 に 6,812,000 → 5,642,000 へ是正済み)。通常 MS の配分 pt 合計が増減しても、本契約 pt単価は変動させない。バッファを第一級入力にしてロジック側で自動控除する恒久実装は別タスク。
 
 ---
 
@@ -242,10 +242,10 @@ ptUnit        = round(2,340,000 / 100) = 23,400 円/pt
 PJ が月次定額の本契約とは**別に**まとまった受託 (例: ZMP の OkuDoor システム開発 ¥200万) を受けることがある。これを「別財布」と呼び、本契約の pt単価・cap を汚染しないよう**同一 plan cycle 内の別プール (cap_extra)** として扱う。**計算ルール (65%/pt単価/cap/繰越) は本契約と全く同じ**。別財布だからといって特殊計算はしない。
 
 ### 2 つのプール
-- **regular プール** (本契約): 原資 = `value_plan_cycles.budget_yen`、pt単価 = `原資 ÷ regular pt` (= `total_points − Σcap_extra pt`)。
+- **regular プール** (本契約): 原資 = `value_plan_cycles.budget_yen`、pt単価 = `原資 ÷ regular pt`。regular pt は **シーズン期間の月数 × 10pt** で固定し、通常 MS の配分 pt 合計からは導出しない。
 - **cap_extra プール** (別財布): `value_milestones.tag='cap_extra'` の MS。原資 = `Σ billing_cycles.extra_budget_yen`、**extra pt単価 = `Σextra_budget_yen ÷ Σcap_extra pt` で独立**に決まる (regular 単価を借用しない)。
 
-`value_plan_cycles.total_points` には **本契約pt + 別財布pt の合計** を入れる (ZMP: 本契約110 + OkuDoor67 = 177)。エンジン (`rewardPointBasis`) が cap_extra pt を引いて regular 分母 (110) を出すので、regular pt単価が別財布 pt で薄まらない (= 汚染しない)。
+`value_plan_cycles.total_points` には **regular pt + 別財布pt の合計** を入れる。regular pt は期間月数から決まり、cap_extra pt だけが別財布 MS の points 合計で増減する。エンジン (`rewardPointBasis`) は regular 分母に期間月数×10ptを使うので、admin で通常 MS の配分 pt を増減しても regular pt単価は薄まらない。
 
 ### `billing_cycles.extra_budget_yen` (別プールの月次cap)
 本契約 `budget_yen` と同じ規約:
@@ -258,12 +258,12 @@ PJ が月次定額の本契約とは**別に**まとまった受託 (例: ZMP �
 ### 数値例 (ZMP OkuDoor, 2026-06-20 実証)
 ```text
 別財布原資     = 1,300,000 (OkuDoor システム開発の売上原資)
-cap_extra pt   = 67
-extra pt単価   = round(1,300,000 / 67) = 19,403 円/pt
+cap_extra pt   = 20
+extra pt単価   = round(1,300,000 / 20) = 65,000 円/pt
 extra_budget_yen: 202605〜202609 = 0 (全額繰越) / 202610 = 1,300,000 (完了月満額)
 → 202605〜202609 は extraStock 積立、202610 に一括支払・extraStock=0。
-  うめ/あび 各 ≈ 200,000 (share 0.1538 × 原資)、まさ(役員) は会社留保。
-  regular pt単価 = 2,340,000 / 110 = 21,273 (OkuDoor pt 混入なしで汚染解消)。
+  うめ/あび 各 ≈ 200,000 (share 0.1538 × 20pt × 65,000円)、まさ(役員) は会社留保。
+  regular pt単価 = 2,340,000 / 120 = 19,500 (202601〜202612 の12か月×10pt)。
 ```
 
 ### 別財布の支払額が先に決まっている場合
