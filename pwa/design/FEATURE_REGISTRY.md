@@ -36,7 +36,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - 支払月選択: `ym=YYYYMM` で対象月を選び、`billing_cycles.invoice_ym` を優先する。未設定cycleは `/admin/projects` の `projects.payment_due_rule` から支払月を判定する。
 - 高速初期表示: 通常GETは `billing_cycles.reward_summary_json` の報酬キャッシュを読むだけにする。毎回 `syncRewardSummariesForBillingCycles()` を再計算しない。先12か月の capped 投影 (`forecastCapped`) も `forecastCycles.reward_summary_json` から集計し、画面を開いただけで全PJの `computeForwardCappedMemberCosts()` を走らせない。
 - 報酬キャッシュ再計算: 明示的な「報酬キャッシュ再計算」操作または保存系処理だけが `refreshRewards=1` / `refreshRewards: true` で再計算する。
-- 報酬キャッシュ日次更新: `payout-reward-cache-refresh` cron が毎日03:05 JSTに、前月 + 当月から先12か月の支払月について `billing_cycles.reward_summary_json` を再生成する。手動で `ym=YYYYMM&lookahead=11` を付けると、指定月から先12か月のキャッシュを作れる。
+- 報酬キャッシュ日次更新: `payout-reward-cache-refresh` cron が毎日03:05 JSTに、前月 + 当月から先12か月の支払月、および同じ窓内の稼働月について `billing_cycles.reward_summary_json` を再生成する。手動で `ym=YYYYMM&lookahead=11` を付けると、指定月から先12か月のキャッシュを作れる。
 - 予定担当比率のみ: 報酬計算は MS の期間按分で当月消化ptを出し、`milestone_responsibility.share` で分配する。活動ログ由来の実績配分や手入力報酬 override は使わない。
 - 保存済み支払額の優先: `monthly_reward_payout.total_pay` に保存済みの確定額があれば、画面の支払額・`payout_notices.total_yen`・PDF生成の元データをこの保存済み額に揃える。`reward_summary_json` の再計算値で上書きしない。
 - 縦型PJ収支表: 「全体収支」列とPJ列を並べ、クライアント支払、バッファ、本契約cap、本契約支払、別財布支払、役員分、役員相殺、本契約残り、メンバー別支払を確認できる。

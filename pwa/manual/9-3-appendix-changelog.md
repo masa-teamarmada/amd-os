@@ -14,6 +14,7 @@
 
 | 日付 | 対象章 | 種別 | 内容 | 理由 | 誰が |
 |---|---|---|---|---|---|
+| 2026-06-23 | 6-5 Admin Payouts / FEATURE_REGISTRY / BUGS | 修正 | `payout-reward-cache-refresh` の先12か月更新で、支払 ym に紐づくcycleだけでなく、同じ窓内の稼働 ym のcycleも同期対象へ追加。`p00` / `p09` のように支払月判定では窓外になりうるが、先12か月表では稼働月として表示される行の `reward_summary_json` も事前生成する仕様へ更新 | 通常GETをキャッシュ読みにすると、forecast表の正本は `forecastCycles.reward_summary_json` になる。cronが支払月基準だけだと、表示窓内の稼働月cacheが欠けるケースが残るため | えいみ |
 | 2026-06-23 | 6-5 Admin Payouts / FEATURE_REGISTRY / BUGS | 修正 | `payout-reward-cache-refresh` の日次対象を前月・当月・翌月から、前月 + 当月から先12か月へ拡張。手動実行は `lookahead` query/body で先月数を指定できるようにし、`/admin/payouts` 先12か月表用の `reward_summary_json` を表示前に作れる仕様へ更新 | 通常GETをキャッシュ読みに寄せるだけでは、日次生成範囲外の将来月で `forecastCapped` の元キャッシュが欠けるため。表示高速化とキャッシュ正本化を両立するため | えいみ |
 | 2026-06-23 | 6-8 Admin MS Overview | 修正 | MS pt配分スライダーの範囲を「現在値×1.5」ではなく、編集開始時点の最大pt×1.5を右端にした固定レンジへ変更。全MSまとめスライダーと個別MSカード内スライダーの両方で同じ固定レンジを使う | スライダー操作中にmaxが現在値へ追従し、右側へ動かすほど1pxあたりのpt増加幅が変わっていたため。全域で一定間隔の操作感にするため | えいみ |
 | 2026-06-23 | 6-8 Admin MS Overview | 修正 | `全MS pt配分スライダー` の各MS行に `MS金額` を追加。右端を `pt / MS金額` 表示にし、スライダー操作中も `recomputeMsOverview.ptValueYenByMs` の再計算結果を即時反映する | 全MS横断でpt配分するとき、pt数だけでは各MSの金額インパクトを比較しづらかったため | えいみ |

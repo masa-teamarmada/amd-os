@@ -210,6 +210,7 @@ expectIncludes("src/app/api/cron/payout-reward-cache-refresh/route.ts", [
   "syncRewardSummariesForBillingCycles",
   "DEFAULT_FORWARD_CACHE_LOOKAHEAD_MONTHS",
   "lookahead",
+  "cycleYms",
   "targetPaymentYms",
   "03:05",
 ]);

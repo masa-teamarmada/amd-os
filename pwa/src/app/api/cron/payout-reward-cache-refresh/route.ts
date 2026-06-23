@@ -55,22 +55,25 @@ function targetPaymentYms(baseYm: string, lookaheadMonths: number, includePrevio
   return [...new Set(yms)];
 }
 
-async function refreshPayoutRewardCache(paymentYms: string[]) {
+async function refreshPayoutRewardCache(paymentYms: string[], cycleYms: string[] = paymentYms) {
   const db = createAdminClient();
   const cycleSelect = "project_id, ym, status, budget_yen, invoice_ym, reward_summary_json";
   const sourceYms = [...new Set(paymentYms.flatMap((ym) => candidateSourceYmsForPaymentYm(ym)))];
+  const targetCycleYms = [...new Set(cycleYms)];
 
-  const [projectsRes, explicitRes, unsetRes] = await Promise.all([
+  const [projectsRes, explicitRes, unsetRes, forecastCycleRes] = await Promise.all([
     db
       .from("projects")
       .select("project_id, project_name, client_name, status, freee_partner_id, payment_due_rule, payment_due_day"),
     db.from("billing_cycles").select(cycleSelect).in("invoice_ym", paymentYms),
     db.from("billing_cycles").select(cycleSelect).in("ym", sourceYms).is("invoice_ym", null),
+    db.from("billing_cycles").select(cycleSelect).in("ym", targetCycleYms),
   ]);
 
   if (projectsRes.error) throw projectsRes.error;
   if (explicitRes.error) throw explicitRes.error;
   if (unsetRes.error) throw unsetRes.error;
+  if (forecastCycleRes.error) throw forecastCycleRes.error;
 
   const projectMap = new Map<string, PaymentProjectRow>();
   for (const project of (projectsRes.data ?? []) as PaymentProjectRow[]) {
@@ -78,6 +81,9 @@ async function refreshPayoutRewardCache(paymentYms: string[]) {
   }
 
   const cycleMap = new Map<string, BillingCycleRow>();
+  for (const row of (forecastCycleRes.data ?? []) as BillingCycleRow[]) {
+    cycleMap.set(`${row.project_id}:${row.ym}`, row);
+  }
   for (const row of (explicitRes.data ?? []) as BillingCycleRow[]) {
     const invoiceYm = cleanYm(row.invoice_ym);
     if (invoiceYm && paymentYms.includes(invoiceYm)) {
@@ -98,6 +104,7 @@ async function refreshPayoutRewardCache(paymentYms: string[]) {
   const synced = await syncRewardSummariesForBillingCycles(db, cycles);
   return {
     paymentYms,
+    cycleYms: targetCycleYms,
     sourceYms,
     cycleCount: cycles.length,
     refreshedCount: synced.size,

@@ -57,7 +57,7 @@ flowchart TD
 
 ### 報酬キャッシュ再計算
 
-- 自動: `/api/cron/payout-reward-cache-refresh` (= 日次 03:05 JST)。通常実行は前月 + 当月から先12か月の支払 ym を対象にし、`/admin/payouts` の先12か月表で読む `forecastCycles.reward_summary_json` を事前生成する。`ym=YYYYMM` を指定した手動実行は既定でその月のみ、`lookahead=11` などを付けると指定月から先12か月まで更新する。
+- 自動: `/api/cron/payout-reward-cache-refresh` (= 日次 03:05 JST)。通常実行は前月 + 当月から先12か月の支払 ym と、同じ窓内の稼働 ym を対象にし、`/admin/payouts` の先12か月表で読む `forecastCycles.reward_summary_json` を事前生成する。`ym=YYYYMM` を指定した手動実行は既定でその月のみ、`lookahead=11` などを付けると指定月から先12か月まで更新する。
 - 手動: `/admin/payouts` の「報酬キャッシュ再計算」ボタン (= UI から `refreshRewards=1` で route 叩く)
 - 入力: `billing_cycles` + `value_milestones` + `milestone_monthly_progress` + `milestone_responsibility`
 - 出力: `billing_cycles.reward_summary_json` (= 上書き) + `budget_yen` fallback
