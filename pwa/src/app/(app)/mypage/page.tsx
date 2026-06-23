@@ -13,8 +13,10 @@ interface Member {
   codeName: string;
   email: string;
   isAdmin: boolean;
+  isOfficer: boolean;
   excludeFromPayoutNotice: boolean;
   rewardAmountHidden: boolean;
+  payoutNoticeNote: string | null;
 }
 
 interface MyPageWeeklyActivity {
@@ -51,6 +53,8 @@ interface MyPageProject {
   sectionMembers?: string | null;
   monthlyEstimatedRewardYen?: number | null;
   monthlyEarnedPt?: number | null;
+  monthlyPayoutYen?: number | null;
+  monthlyCompanyReserveYen?: number | null;
   rewardEligible: boolean;
   rewardExcludedReasons: string[];
 }
@@ -125,8 +129,8 @@ function formatRewardYen(amount: number | null | undefined, hidden: boolean) {
   return hidden ? REWARD_AMOUNT_PLACEHOLDER : formatYen(amount);
 }
 
-function shouldHideRewardAmount(memberId: string, codeName: string, excludeFromPayoutNotice?: boolean | null) {
-  return (
+function shouldHideRewardAmount(memberId: string, codeName: string, isOfficer: boolean, excludeFromPayoutNotice?: boolean | null) {
+  return !isOfficer && (
     Boolean(excludeFromPayoutNotice) ||
     NO_COMPENSATION_MEMBER_IDS.has(memberId) ||
     ["りり", "あき"].includes(codeName.trim())
@@ -139,20 +143,24 @@ function toMember(
     code_name?: string | null;
     email?: string | null;
     is_admin?: boolean | null;
+    is_officer?: boolean | null;
     exclude_from_payout_notice?: boolean | null;
   },
   fallbackEmail = ""
 ): Member {
   const memberId = row.member_id;
   const codeName = row.code_name || row.member_id;
+  const isOfficer = Boolean(row.is_officer);
   const excludeFromPayoutNotice = Boolean(row.exclude_from_payout_notice);
   return {
     memberId,
     codeName,
     email: row.email || fallbackEmail,
     isAdmin: !!row.is_admin,
+    isOfficer,
     excludeFromPayoutNotice,
-    rewardAmountHidden: shouldHideRewardAmount(memberId, codeName, excludeFromPayoutNotice),
+    rewardAmountHidden: shouldHideRewardAmount(memberId, codeName, isOfficer, excludeFromPayoutNotice),
+    payoutNoticeNote: isOfficer && excludeFromPayoutNotice ? "（役員のため支払対象外）" : null,
   };
 }
 
@@ -328,12 +336,12 @@ function weeklyActivityText(row: {
   };
 }
 
-function rewardAmount(project: Pick<MyPageProject, "monthlyEstimatedRewardYen" | "allocation">): number {
-  return project.monthlyEstimatedRewardYen ?? project.allocation ?? 0;
+function rewardAmount(project: Pick<MyPageProject, "monthlyEstimatedRewardYen" | "allocation">): number | null {
+  return project.monthlyEstimatedRewardYen ?? project.allocation ?? null;
 }
 
 function payableRewardAmount(project: MyPageProject): number {
-  return project.rewardEligible ? rewardAmount(project) : 0;
+  return project.rewardEligible ? rewardAmount(project) ?? 0 : 0;
 }
 
 async function resolveLoggedInMember(): Promise<Member> {
@@ -344,7 +352,7 @@ async function resolveLoggedInMember(): Promise<Member> {
 
   const query = supabase
     .from("members")
-    .select("member_id, code_name, email, is_admin, exclude_from_payout_notice")
+    .select("member_id, code_name, email, is_admin, is_officer, exclude_from_payout_notice")
     .eq("email", email)
     .limit(1);
 
@@ -355,7 +363,7 @@ async function resolveLoggedInMember(): Promise<Member> {
 
   ({ data, error } = await supabase
     .from("members")
-    .select("member_id, code_name, email, is_admin, exclude_from_payout_notice")
+    .select("member_id, code_name, email, is_admin, is_officer, exclude_from_payout_notice")
     .ilike("email", email)
     .limit(1));
 
@@ -372,7 +380,7 @@ async function resolvePageMember(viewer: Member, requestedMemberId?: string | nu
 
   const { data, error } = await supabase
     .from("members")
-    .select("member_id, code_name, email, is_admin, exclude_from_payout_notice")
+    .select("member_id, code_name, email, is_admin, is_officer, exclude_from_payout_notice")
     .eq("member_id", memberId)
     .maybeSingle();
   if (error) throw error;
@@ -543,7 +551,19 @@ async function loadMyPageData(requestedMemberId?: string | null): Promise<MyPage
         const allocJson = cycle?.member_allocations_json as Record<string, unknown> | undefined;
         const allocation = toNumber(allocJson?.[member.memberId]);
         const rewardSummary = cycle?.reward_summary_json as { members?: Array<Record<string, unknown>> } | undefined;
-        const reward = rewardSummary?.members?.find((m) => m.memberId === member.memberId);
+        const reward = rewardSummary?.members?.find((m) => (m.memberId ?? m.member_id) === member.memberId);
+        const payoutYen = toNumber(reward?.totalPay ?? reward?.total_pay);
+        const companyReserveYen = toNumber(
+          reward?.companyReserveYen ??
+          reward?.company_reserve_yen ??
+          reward?.officerReserveYen ??
+          reward?.officer_reserve_yen
+        );
+        const basePayYen = toNumber(reward?.basePay ?? reward?.base_pay);
+        const grossDueYen = toNumber(reward?.grossDueYen ?? reward?.gross_due_yen);
+        const displayRewardYen = member.isOfficer
+          ? companyReserveYen ?? basePayYen ?? grossDueYen ?? payoutYen
+          : payoutYen;
         const plans = plansByProject.get(pid) || [];
         const plan = plans.find((p) => ym >= p.period_start_ym && ym <= p.period_end_ym) || plans[0];
         const prev = prevYm(ym);
@@ -581,13 +601,15 @@ async function loadMyPageData(requestedMemberId?: string | null): Promise<MyPage
           billingStatus: (cycle?.status as string | undefined) || "not_started",
           milestones: milestones.sort((a, b) => a.milestoneKey.localeCompare(b.milestoneKey)),
           sectionMembers: report?.section_members || null,
-          monthlyEstimatedRewardYen: toNumber(reward?.totalPay) || null,
-          monthlyEarnedPt: toNumber(reward?.earnedPt) || null,
+          monthlyEstimatedRewardYen: displayRewardYen,
+          monthlyEarnedPt: toNumber(reward?.earnedPt ?? reward?.earned_pt),
+          monthlyPayoutYen: payoutYen,
+          monthlyCompanyReserveYen: companyReserveYen,
           rewardEligible: rewardExcludedReasons.length === 0,
           rewardExcludedReasons,
         };
       })
-      .sort((a, b) => rewardAmount(b) - rewardAmount(a));
+      .sort((a, b) => (rewardAmount(b) ?? 0) - (rewardAmount(a) ?? 0));
 
     return { ym, isCurrent: ym === yms[0], projects: projectsForMonth };
   });
@@ -652,6 +674,7 @@ export function MyPageContent({
     () => currentMonth?.projects.reduce((sum, p) => sum + payableRewardAmount(p), 0) || 0,
     [currentMonth]
   );
+  const payoutNoticeNote = data?.member.payoutNoticeNote ?? null;
   if (loading) {
     return <MyPageLoading />;
   }
@@ -683,6 +706,7 @@ export function MyPageContent({
             <div>
               <p className="text-[13px] text-[#86868b]">{formatYm(currentMonth?.ym || getCurrentYm())}</p>
               <p className="text-[13px] text-[#3c3c43] mt-1">当月報酬合計</p>
+              {payoutNoticeNote && <p className="text-[11px] text-amber-700 mt-1">{payoutNoticeNote}</p>}
             </div>
             <p className="text-[28px] font-bold tabular-nums text-[#1d1d1f]">{formatRewardYen(currentTotal, rewardAmountHidden)}</p>
           </div>
@@ -690,7 +714,7 @@ export function MyPageContent({
             <div className="mt-4 border-t border-[#e5e5e7] pt-3 space-y-1.5">
               {currentMonth?.projects.map((project) => {
                 const amount = rewardAmount(project);
-                if (amount <= 0) return null;
+                if (amount == null || amount <= 0) return null;
                 return (
                   <div key={project.projectId} className="flex items-center gap-3 text-[12px]">
                     <span className={`min-w-0 flex-1 truncate ${project.rewardEligible ? "text-[#3c3c43]" : "text-red-600 line-through decoration-2"}`}>
@@ -755,6 +779,7 @@ export function MyPageContent({
                         project={project}
                         codeName={data.member.codeName}
                         rewardAmountHidden={rewardAmountHidden}
+                        payoutNoticeNote={payoutNoticeNote}
                       />
                     ))
                   )}
@@ -973,7 +998,17 @@ function WeeklyActivitiesCard({
   );
 }
 
-function ProjectCard({ project, codeName, rewardAmountHidden }: { project: MyPageProject; codeName: string; rewardAmountHidden: boolean }) {
+function ProjectCard({
+  project,
+  codeName,
+  rewardAmountHidden,
+  payoutNoticeNote,
+}: {
+  project: MyPageProject;
+  codeName: string;
+  rewardAmountHidden: boolean;
+  payoutNoticeNote: string | null;
+}) {
   const activityText = extractMemberSection(project.sectionMembers, codeName);
   const baseReward = rewardAmount(project);
   return (
@@ -988,6 +1023,7 @@ function ProjectCard({ project, codeName, rewardAmountHidden }: { project: MyPag
             {formatRewardYen(baseReward, rewardAmountHidden)}
           </p>
           <p className="text-[11px] text-[#86868b]">{project.billingStatus}</p>
+          {payoutNoticeNote && <p className="text-[10px] text-amber-700">{payoutNoticeNote}</p>}
         </div>
       </div>
 
@@ -1000,7 +1036,7 @@ function ProjectCard({ project, codeName, rewardAmountHidden }: { project: MyPag
           {rewardAmountHidden ? REWARD_AMOUNT_PLACEHOLDER : (
             <>
               {project.monthlyEarnedPt ? `${project.monthlyEarnedPt.toFixed(1)}pt · ` : ""}
-              {baseReward ? formatYen(baseReward) : "未計算"}
+              {baseReward != null ? formatYen(baseReward) : "未計算"}
             </>
           )}
         </span>

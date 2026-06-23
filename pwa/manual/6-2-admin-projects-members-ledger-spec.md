@@ -121,14 +121,14 @@ codeName セルは admin 用マイページリンクを兼ねる。 コードネ
 | `status` | `active` / `inactive` / `left` |
 | `slack_id` | Slack ユーザー ID (= DM 送信先) |
 | `is_admin` | admin 権限 (= true なら /admin/* / /notifications を開ける) |
-| `is_officer` | 役員フラグ (= true なら報酬表示しない & 0 円扱い。UI 列名は「支払対象」、true → `対象外` / false → `対象` 表示) |
+| `is_officer` | 役員フラグ。UI 列名は「役員」。true のメンバーは支払通知書発行対象から除外しつつ、報酬計算上は会社留保 (`companyReserveYen` / `officerReserveYen`) として扱う |
 | `slack_plan` / `google_plan` | Slack / Google Workspace の課金 plan |
 | `google_calendar_status` | `missing` / `error` / `connected` (= calendar.readonly 共有状況) |
 | `google_calendar_checked_at` / `_connected_at` / `_error` | calendar 共有のヘルスチェック |
 | `last_login_at` | 最終ログイン (= middleware が 1h ごとに touch) |
 | `join_ym` / `leave_ym` | YYYYMM 文字列 |
 | `joined_at` / `left_at` | date |
-| `exclude_from_payout_notice` | true なら支払通知書発行を skip (= 例: りり / ID006 NIMS 無償出向) |
+| `exclude_from_payout_notice` | UI 列名は「支払対象」。true なら「対象外」と表示し、支払通知書発行を skip (= 例: りり / ID006 NIMS 無償出向)。非役員かつ対象外なら `/mypage` の金額表示も `ー` にする。役員かつ対象外なら金額は表示し、`（役員のため支払対象外）` を添える |
 
 ### `members.status` と `joined_at` / `left_at`
 

@@ -3,8 +3,9 @@
 ## 目的
 
 ログインユーザーが「自分が関わる全PJの当月業務と報酬」を一覧で確認できる画面。
-全PJの報酬額合計 = 当月発行される支払通知書の額 と一致する。
-ただし `ID006` / りりは NIMS からの無償出向メンバーなので、`/mypage` と `/dashboard` 埋め込み上の報酬額は金額ではなく `ー` と表示する。
+全PJの報酬額合計は、非役員の支払対象メンバーでは当月発行される支払通知書の額と一致する。
+`members.exclude_from_payout_notice=true` かつ `members.is_officer=false` のメンバーは、`/mypage` と `/dashboard` 埋め込み上の報酬額を金額ではなく `ー` と表示する。
+`members.is_officer=true` のメンバーは支払通知書発行対象から除外するが、会社留保としての金額は表示し、`exclude_from_payout_notice=true` のときは `（役員のため支払対象外）` を添える。
 
 ## 設計哲学
 
@@ -17,7 +18,8 @@
 ### 表示範囲
 - **過去6ヶ月 + 当月**（計7ヶ月分）
 - 進捗計算用の前月データのため `milestone_monthly_progress` は7ヶ月分（当月〜6ヶ月前 +1ヶ月）取得
-- りり (`ID006`) は無償出向のため、当月合計・月別合計・PJ別報酬額を `ー` 表示にする。報酬計算キャッシュ自体は他メンバーやadmin集計との整合のためそのまま読む。
+- `members.exclude_from_payout_notice=true` かつ非役員のメンバーは、当月合計・月別合計・PJ別報酬額を `ー` 表示にする。報酬計算キャッシュ自体は他メンバーやadmin集計との整合のためそのまま読む。
+- 役員 (`members.is_officer=true`) は現金支払 `totalPay=0` でも、会社留保 (`companyReserveYen` / `officerReserveYen`) または報酬発生額を金額として表示する。`exclude_from_payout_notice=true` なら `（役員のため支払対象外）` を添える。
 
 ### データ源泉（すべてSupabase既存テーブル、追加migration不要）
 | テーブル | 用途 |

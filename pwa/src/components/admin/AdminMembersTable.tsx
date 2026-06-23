@@ -19,6 +19,7 @@ export interface MemberRow {
   status: string;
   is_admin: boolean;
   is_officer: boolean;
+  exclude_from_payout_notice: boolean;
   slack_id: string | null;
   join_ym: string | null;
   leave_ym: string | null;
@@ -127,6 +128,7 @@ type EditVals = {
   leave_ym: string;
   is_admin: boolean;
   is_officer: boolean;
+  exclude_from_payout_notice: boolean;
   slack_id: string;
   contractor_name: string;
   member_address: string;
@@ -183,6 +185,7 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
       leave_ym: m.leave_ym ?? "",
       is_admin: !!m.is_admin,
       is_officer: !!m.is_officer,
+      exclude_from_payout_notice: !!m.exclude_from_payout_notice,
       slack_id: m.slack_id ?? "",
       contractor_name: m.contractor_name || defaultContractorName(m),
       member_address: m.member_address ?? "",
@@ -215,6 +218,7 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
       case "leave_ym": patch.leave_ym = (editVals.leave_ym as string) || null; break;
       case "is_admin": patch.is_admin = !!editVals.is_admin; break;
       case "is_officer": patch.is_officer = !!editVals.is_officer; break;
+      case "exclude_from_payout_notice": patch.exclude_from_payout_notice = !!editVals.exclude_from_payout_notice; break;
       case "slack_id": patch.slack_id = (editVals.slack_id as string).trim() || null; break;
       case "contractor_name": patch.contractor_name = (editVals.contractor_name as string).trim() || defaultContractorName(m); break;
       case "member_address": patch.member_address = (editVals.member_address as string).trim() || null; break;
@@ -271,7 +275,7 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
 
       {/* Table */}
       <div className="overflow-x-auto border border-border rounded-lg">
-        <table className="text-[12px] border-collapse" style={{ minWidth: "2140px" }}>
+        <table className="text-[12px] border-collapse" style={{ minWidth: "2240px" }}>
           <thead className="sticky top-0 z-30">
             <tr className="bg-muted text-muted-foreground">
               <th className="text-left px-3 py-2 font-medium sticky left-0 z-40 bg-muted w-24 border-r border-border">codeName</th>
@@ -288,7 +292,8 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
               <th className="text-left px-3 py-2 font-medium w-24">Calendar</th>
               <th className="text-left px-3 py-2 font-medium w-28">最終ログイン</th>
               <th className="text-left px-3 py-2 font-medium w-16">admin</th>
-              <th className="text-left px-3 py-2 font-medium w-16">支払対象</th>
+              <th className="text-left px-3 py-2 font-medium w-16">役員</th>
+              <th className="text-left px-3 py-2 font-medium w-20">支払対象</th>
               <th className="text-left px-3 py-2 font-medium w-32">Slack ID</th>
             </tr>
           </thead>
@@ -521,14 +526,35 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
                         <label className="flex items-center justify-center gap-1 text-[10px]">
                           <input type="checkbox" checked={!!editVals.is_officer}
                             onChange={(e) => setEditVals((v) => ({ ...v, is_officer: e.target.checked }))} />
-                          役員 (=対象外)
+                          役員
                         </label>
                         {cellActions("is_officer")}
                       </div>
                     ) : (
                       m.is_officer
-                        ? <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">対象外</span>
-                        : <span className="text-muted-foreground">対象</span>
+                        ? <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">役員</span>
+                        : <span className="text-muted-foreground">通常</span>
+                    )}
+                  </td>
+
+                  {/* exclude_from_payout_notice (boolean toggle, shown as payout target) */}
+                  <td className={`${cellCls("exclude_from_payout_notice")} text-center`} onClick={enterCell("exclude_from_payout_notice")}>
+                    {isEditingField(m, "exclude_from_payout_notice") ? (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <label className="flex items-center justify-center gap-1 text-[10px]">
+                          <input
+                            type="checkbox"
+                            checked={!editVals.exclude_from_payout_notice}
+                            onChange={(e) => setEditVals((v) => ({ ...v, exclude_from_payout_notice: !e.target.checked }))}
+                          />
+                          対象
+                        </label>
+                        {cellActions("exclude_from_payout_notice")}
+                      </div>
+                    ) : (
+                      m.exclude_from_payout_notice
+                        ? <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600">対象外</span>
+                        : <span className="text-emerald-700 font-medium">対象</span>
                     )}
                   </td>
 
@@ -550,7 +576,7 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={16} className="px-3 py-4 text-center text-muted-foreground">
+                <td colSpan={17} className="px-3 py-4 text-center text-muted-foreground">
                   該当なし
                 </td>
               </tr>
