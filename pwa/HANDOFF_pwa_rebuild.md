@@ -17,15 +17,15 @@
 - **編集UIを compact 2 pane へ修正**。左にMS基本情報、右にメンバーshare表。メンバーは1人1行で、`メンバー / share / 役割 / MS内金額 / 担当タスク` を並べる。2カラム member grid は使わない。
 - **全MS pt配分スライダーを復活・拡張**。MS一覧先頭に aggregate slider panel を置き、各MSカード内の slider と同じ編集中 state を更新する。残り割り振り可能pt、MS金額、担当者ごとのMS内金額をリアルタイム表示。
 - **スライダー加速バグを修正**。通常MSの slider max は編集開始時点の最大pt x 1.5 に固定。ドラッグ中に max が現在値へ追従しないので、右側でもpt増加ペースが一定。
-- 現在の main はこの後の payout cache / payout matrix sticky column fixes まで含む `d070807c` / `v0.34.15`。
+- 現在の main はこの後の payout cache / payout matrix sticky column fixes と、月初合意gate移行月cutoff fix まで含む `85ded65e` / `v0.34.16`。
 
 ## Repo State
 
 - Handoff docs は `main` に commit/push 済み。最新 closeout docs hash は `git log --oneline -n 5` で確認する。
-- Product code baseline before the docs-only handoff commit: `d070807c Fix payout matrix sticky columns`。
-- Production alias は docs-only handoff commit に遅れて追従することがある。closeout 中は product baseline `d070807c` から first handoff docs commit `965b5638` へ移動した (どちらも `v0.34.15` / `dirty=false`)。final docs correction `db91107f` が visible かは次セッションで `/api/build-info` を再確認する。
+- Product code baseline は `85ded65e Fix monthly agreement gate migration month` まで `origin/main` に入っている。
+- Production alias は docs/product commit に遅れて追従することがある。closeout 中の `/api/build-info` は `v0.34.15` / `db91107f` / `dirty=false` まで確認済み。`85ded65e` 以降が visible かは次セッションで再確認する。
 - 未push commit: なし。
-- dirty tracked: 月初合意 / admin payouts WIP (`v0.34.16` cutoff + gateOnly docs/guard)。対象: `pwa/BUGS.md`, `pwa/design/FEATURE_REGISTRY.md`, `pwa/design_log/sessions_2026-06.md`, `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`, `pwa/manual/9-3-appendix-changelog.md`, `pwa/scripts/check_pwa_critical_ui.cjs`, `pwa/spec/3-14-monthly-work-agreement-current-spec.md`, `pwa/src/lib/build-info.ts`, `pwa/src/lib/monthly-work-agreement-payout-gate.ts`, `pwa/src/lib/monthly-work-agreement.ts`。
+- dirty tracked: admin payouts agreement-gate follow-up WIP (`v0.34.17` candidate)。対象: `pwa/src/app/api/admin/payouts/route.ts`, `pwa/src/components/admin/AdminPayoutsClient.tsx`, `pwa/src/lib/build-info.ts`, `pwa/scripts/check_pwa_critical_ui.cjs`。main load では agreement-gate summary を省略し、`gateOnly=1` で後追い取得する差分に見えるが、この handoff では未commit。
 - untracked: `gas-slack/.clasp.json` (今回のPWA/MS作業外。GAS/Slack clasp link state っぽいので owner 判断まで commit しない)。
 
 ## Unresolved / 次アクション
@@ -37,8 +37,9 @@
 2. **`value_milestones` 見積明細混入 cleanup**:
    - 月次レポート印刷ビューで発見された別課題。印刷ビュー以外にも cockpit / `/admin/ms-overview` / 報酬計算へ影響しうる。
    - 発生源 (= 見積→MS変換の cron or 手動投入) と、既存 fixed-cycle 明細の `is_active=false` 化 / 別テーブル退避を別セッションで扱う。
-3. **月初合意 / admin payouts WIP の owner 判断**:
-   - closeout時点で tracked dirty として残っている。`source_ym <= 202605` を導入前/移行月として合意済み扱いにする cutoff と、月初合意gateの後追い取得 (`gateOnly`) docs/guard らしき差分。
+3. **admin payouts agreement-gate follow-up WIP の owner 判断**:
+   - 月初合意gate移行月cutoff本体は `85ded65e` で commit/push 済み。
+   - closeout時点で残っている tracked dirty は `pwa/src/app/api/admin/payouts/route.ts`, `pwa/src/components/admin/AdminPayoutsClient.tsx`, `pwa/src/lib/build-info.ts`, `pwa/scripts/check_pwa_critical_ui.cjs`。`gateOnly=1` 後追い取得で初期表示を軽くする差分に見える。
    - MS Overview handoff commit には含めていない。次の owner が finish / test / deploy / revert を判断する。
 4. **`gas-slack/.clasp.json` の owner 判断**:
    - 中身は見ずに残した。GAS/Slack worker が必要なら track / local exclude / regenerate の判断をする。
@@ -53,7 +54,7 @@ git log --left-right --oneline main...origin/main
 curl -fsS https://amd-os-pwa.vercel.app/api/build-info
 ```
 
-その後 `manual/6-8-admin-ms-overview-spec.md` と `design/FEATURE_REGISTRY.md` の `/admin/ms-overview` セクションを読み、ログイン済みブラウザで編集モードを確認する。月初合意 / admin payouts WIP が残っている場合、deploy script は tracked dirty で止まるため、先に owner を決める。
+その後 `manual/6-8-admin-ms-overview-spec.md` と `design/FEATURE_REGISTRY.md` の `/admin/ms-overview` セクションを読み、ログイン済みブラウザで編集モードを確認する。admin payouts dirty WIP が残っている場合、deploy script は tracked dirty で止まるため、先に owner を決める。
 
 ## Pointers
 

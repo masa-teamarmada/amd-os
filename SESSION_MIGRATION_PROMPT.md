@@ -24,7 +24,7 @@ current truth:
 1. ログイン済み admin で `/admin/ms-overview` を開き、編集モードの実UIを確認する。
 2. もし見づらさが残っていたら、既存の two-pane / one-member-row / aggregate slider 設計を崩さず微調整する。
 3. `value_milestones` の見積明細混入 cleanup は別タスク。発生源と既存データ無効化方針を確認してから扱う。
-4. 月初合意 / admin payouts WIP が dirty に残っていたら、MS Overview とは別 owner へ分ける。`source_ym <= 202605` cutoff と `gateOnly` 後追い取得 docs/guard らしき差分で、finish/test/deploy/revert は次 owner 判断。
+4. admin payouts WIP が dirty に残っていたら、MS Overview とは別 owner へ分ける。月初合意gate移行月cutoff本体は `85ded65e` で commit/push 済み。残っている dirty は `pwa/src/app/api/admin/payouts/route.ts` / `pwa/src/components/admin/AdminPayoutsClient.tsx` / `pwa/src/lib/build-info.ts` / `pwa/scripts/check_pwa_critical_ui.cjs` の `gateOnly=1` 後追い取得 + `v0.34.17` candidate に見える差分で、finish/test/deploy/revert は次 owner 判断。
 5. `gas-slack/.clasp.json` は今回のPWA/MS作業外。中身を晒さず、GAS/Slack owner 判断まで commit しない。
 
 注意:
