@@ -15,21 +15,21 @@
 - Admin MS edit UI was tightened after Masa feedback: MS basic info on the left, member share table on the right, one member per row, no two-column member grid, and each row shows `MS内金額`.
 - The original MS point allocation UX was restored: both each MS card and the new aggregate `全MS pt配分スライダー` panel can move the same edit state. The aggregate panel also shows remaining allocatable regular points and each MS amount.
 - Slider max is fixed at edit-start max point x 1.5 for normal MS. It does not follow the current value while dragging, so point increments stay visually even across the slider.
-- Current main also contains later payout-side fixes through `85ded65e` (`v0.34.16`): payout forecast cache/zero-summary fixes, sticky member payout matrix columns, and the monthly agreement gate migration-month cutoff.
+- Current main also contains later payout-side fixes through `31b841d5` (`v0.34.17`): payout forecast cache/zero-summary fixes, sticky member payout matrix columns, the monthly agreement gate migration-month cutoff, and deferred payout agreement-gate loading.
 
 ## Repo / Deploy State
 
 - Handoff docs are committed and pushed on `main`; use `git log --oneline -n 5` for the latest docs closeout hash.
-- Product code baseline now includes `85ded65e Fix monthly agreement gate migration month` on `origin/main`.
-- Production alias can lag docs/product commits. During closeout `/api/build-info` was last observed at `v0.34.15` / `db91107f` / `dirty=false`; re-check whether `85ded65e` or later is visible before relying on production behavior.
-- Remaining tracked dirty group: admin payouts agreement-gate follow-up WIP (`v0.34.17` candidate): `pwa/src/app/api/admin/payouts/route.ts`, `pwa/src/components/admin/AdminPayoutsClient.tsx`, `pwa/src/lib/build-info.ts`, `pwa/scripts/check_pwa_critical_ui.cjs`. It appears to make agreement-gate summary optional on the main load and reload it through `gateOnly=1`, with a build-version bump and critical-UI guard update, but it is not committed in this handoff.
+- Product code baseline now includes `31b841d5 fix(admin): defer payout agreement gate load` on `origin/main`.
+- Production alias can lag docs/product commits. During closeout `/api/build-info` was last observed at `v0.34.15` / `fe8caceb` / `dirty=false`; re-check whether `31b841d5` or later is visible before relying on production behavior.
+- Remaining tracked dirty files: none observed after `31b841d5` reached `origin/main`.
 - Remaining untracked file: `gas-slack/.clasp.json` (not part of this PWA/MS task; do not commit without GAS/Slack owner decision).
 
 ## Verification Already Run
 
 - For the MS overview code path: `npm exec tsc -- --noEmit --pretty false`, `npm run test:critical-ui`, `npm run build`.
 - Browser route smoke: `/admin/ms-overview` redirects to `/auth/login?next=%2Fadmin%2Fms-overview` when unauthenticated. Authenticated visual verification was not completed in this session because the local browser was at the login wall.
-- Closeout inventory after docs push: `main` aligned with `origin/main`, no unpushed commits, admin payouts agreement-gate follow-up WIP tracked dirty group plus `gas-slack/.clasp.json` untracked.
+- Closeout inventory after docs push: `main` aligned with `origin/main`, no unpushed commits, no tracked dirty files, plus `gas-slack/.clasp.json` untracked.
 
 ## Unresolved Tasks
 
@@ -39,7 +39,7 @@
    - Confirm two-pane layout, one-row member share table, aggregate slider panel, remaining point display, MS amount, member MS amount, top/footer save bars.
    - Save a tiny safe test only if Masa explicitly wants a live DB write.
 2. `value_milestones` estimate-line pollution remains a separate data cleanup task from the monthly report work. It may affect cockpit, `/admin/ms-overview`, and reward calculations if old fixed-cycle quote lines remain active.
-3. Admin payouts agreement-gate follow-up WIP needs a separate owner to finish or revert. The monthly agreement migration-month cutoff itself is already committed/pushed in `85ded65e`; the remaining dirty files are the API/client `gateOnly` follow-up fetch behavior plus its `v0.34.17` build-version and critical-UI guard updates.
+3. Admin payouts agreement-gate follow-up is committed/pushed in `31b841d5`. Next owner only needs to verify production catches up and smoke-test `/admin/payouts`.
 4. Decide the owner of `gas-slack/.clasp.json`. It looks like GAS/Slack local clasp link state, but this handoff did not inspect or classify its contents.
 
 ## Read First Next Session
@@ -62,7 +62,7 @@ git log --left-right --oneline main...origin/main
 curl -fsS https://amd-os-pwa.vercel.app/api/build-info
 ```
 
-Expected: local `main` is aligned with `origin/main`; production may still show `v0.34.15` / `db91107f` until Vercel catches up to `85ded65e` or later. If production or local main differs, inspect before touching finance/MS data. If the admin payouts dirty group is still present, route it before running deploy scripts; tracked dirty files make `pwa/scripts/deploy.sh` stop by design.
+Expected: local `main` is aligned with `origin/main`; production may still show `v0.34.15` / `fe8caceb` until Vercel catches up to `31b841d5` or later. If production or local main differs, inspect before touching finance/MS data.
 
 ## Guardrails
 
