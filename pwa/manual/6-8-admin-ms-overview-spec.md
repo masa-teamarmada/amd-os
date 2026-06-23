@@ -157,7 +157,7 @@ route の流れ:
 ### 編集できる項目
 
 - MS 名 (`title`)
-- pt (`points`; `cap_extra` は MS 期間の月数×10ptで自動算出)
+- pt (`points`; 数値入力 + pt配分スライダーで調整。`cap_extra` は MS 期間の月数×10ptで自動算出し、数値入力/スライダーとも無効)
 - tag (`normal` / `routine` / `buffer` / `cap_extra`)
 - 期間 (`period_start_ym` / `target_ym`)
 - 完了条件 (`success_criteria`)
@@ -177,6 +177,10 @@ memberYen[m] = Σ over MS of (effectivePoints × share[m] × (cap_extra ? extraU
 ```
 
 `total_points` の保存値は `regularPts + extraPts`。通常 MS の配分 pt 合計が変わっても、本契約 pt単価は動かない。`cap_extra` の pt は保存時にも API 側で MS 期間×10ptへ正規化する。
+
+編集カードは左に MS 基本情報 (MS名 / pt数値入力 / pt配分スライダー / tag / 期間 / 完了条件)、右に担当 share 表を置く。担当 share 表は **メンバー1人=1行** で、横方向に `メンバー / share / 役割 / MS内金額 / 担当タスク` を並べる。2カラムに分割しない。
+
+通常 MS の pt を動かすと、編集画面上部と全MS見出しに **残り割り振り可能pt** をリアルタイム表示する。算定式は `regularPointBasis - Σ(non-cap_extra MS effectivePoints)`。配分超過時は負数として赤系で表示する。`cap_extra` は MS期間×10pt固定の別財布なので、この残り枠には混ぜない。
 
 再計算結果は ① メトリクスカード 4 枚 (合計pt / 本契約 pt単価 / 別財布 pt単価 / 主要メンバー比較) ② 各 MS の pt 価値 ③ 担当 share 行の **MS内金額** (`effectivePoints × share × pt単価`) ④ メンバー別 年計バー + 合計金額 ⑤ ヘッダの単価表示 にリアルタイムで反映する。
 

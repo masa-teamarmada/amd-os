@@ -11,6 +11,7 @@ import {
   effectiveEditableMilestonePoints,
   isCapExtraTag,
   recomputeMsOverview,
+  sliderRange,
   toEditableMilestones,
   type EditableMilestoneInput,
 } from "@/lib/admin/ms-overview-calc";
@@ -205,6 +206,10 @@ function MsEditorRow({
   const derivedPoints = effectiveEditableMilestonePoints(current);
   const usesPeriodPoints = current.isCapExtra && derivedPoints > 0;
   const displayPoints = usesPeriodPoints ? derivedPoints : current.points;
+  const pointRange = sliderRange(displayPoints);
+  const updatePoints = (points: number) => {
+    if (!usesPeriodPoints) onChange({ points });
+  };
 
   const updateResponsibility = (
     member: MsOverviewPlanCycle["projectMembers"][number],
@@ -229,148 +234,174 @@ function MsEditorRow({
 
   return (
     <div
-      className="rounded-md border bg-card/60 px-3 py-3 mb-2"
+      className="mb-2 rounded-md border bg-card/60 p-3"
       style={{ borderColor: "var(--border, #2a2a2a)", borderWidth: "0.5px" }}
     >
-      <div className="mb-2 flex items-center gap-2">
-        <span
-          className="inline-block flex-shrink-0"
-          style={{ width: 9, height: 9, borderRadius: 2, backgroundColor: color }}
-          aria-hidden
-        />
-        <input
-          value={current.title}
-          onChange={(event) => onChange({ title: event.target.value })}
-          className="min-w-0 flex-1 rounded border border-border bg-background px-2 py-1 text-[13px] font-medium"
-          aria-label="MS名"
-        />
-        <button
-          type="button"
-          onClick={onRemove}
-          className="h-8 w-8 rounded border border-border text-[13px] text-muted-foreground hover:bg-red-500/10 hover:text-red-500"
-          title="MSを無効化"
-          aria-label="MSを無効化"
-        >
-          ×
-        </button>
-      </div>
+      <div className="grid gap-4 xl:grid-cols-[minmax(280px,420px)_minmax(0,1fr)]">
+        <div className="min-w-0 space-y-2">
+          <div className="flex items-center gap-2">
+            <span
+              className="inline-block flex-shrink-0"
+              style={{ width: 9, height: 9, borderRadius: 2, backgroundColor: color }}
+              aria-hidden
+            />
+            <input
+              value={current.title}
+              onChange={(event) => onChange({ title: event.target.value })}
+              className="min-w-0 flex-1 rounded border border-border bg-background px-2 py-1 text-[13px] font-medium"
+              aria-label="MS名"
+            />
+            <button
+              type="button"
+              onClick={onRemove}
+              className="h-8 w-8 rounded border border-border text-[13px] text-muted-foreground hover:bg-red-500/10 hover:text-red-500"
+              title="MSを無効化"
+              aria-label="MSを無効化"
+            >
+              ×
+            </button>
+          </div>
 
-      <div className="grid gap-2 md:grid-cols-[88px_128px_96px_96px_1fr]">
-        <input
-          type="number"
-          min={0}
-          step={1}
-          value={displayPoints}
-          onChange={(event) => {
-            if (!usesPeriodPoints) onChange({ points: Number(event.target.value) });
-          }}
-          disabled={usesPeriodPoints}
-          className="rounded border border-border bg-background px-2 py-1 text-right text-[12px] tabular-nums disabled:cursor-not-allowed disabled:bg-muted/40 disabled:text-muted-foreground"
-          aria-label="pt"
-          title={usesPeriodPoints ? "cap_extra pt = MS期間の月数×10pt" : "pt"}
-        />
-        <select
-          value={current.tag}
-          onChange={(event) => {
-            const tag = event.target.value;
-            onChange({ tag, isCapExtra: isCapExtraTag(tag) });
-          }}
-          className="rounded border border-border bg-background px-2 py-1 text-[12px]"
-          aria-label="tag"
-        >
-          <option value="normal">normal</option>
-          <option value="routine">routine</option>
-          <option value="buffer">buffer</option>
-          <option value="cap_extra">cap_extra</option>
-        </select>
-        <input
-          value={current.periodStartYm ?? ""}
-          onChange={(event) => onChange({ periodStartYm: event.target.value || null })}
-          placeholder="開始"
-          inputMode="numeric"
-          className="rounded border border-border bg-background px-2 py-1 text-[12px] tabular-nums"
-          aria-label="MS開始"
-        />
-        <input
-          value={current.targetYm ?? ""}
-          onChange={(event) => onChange({ targetYm: event.target.value || null })}
-          placeholder="終了"
-          inputMode="numeric"
-          className="rounded border border-border bg-background px-2 py-1 text-[12px] tabular-nums"
-          aria-label="MS終了"
-        />
-        <div className="text-right text-[12px] text-muted-foreground tabular-nums">
-          {fmtPt(displayPoints)}pt / {fmtYen(ptValueYen)}
+          <div className="grid grid-cols-[76px_minmax(112px,1fr)] gap-2 sm:grid-cols-[76px_minmax(112px,1fr)_88px_88px]">
+            <div className="space-y-1">
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={displayPoints}
+                onChange={(event) => updatePoints(Number(event.target.value))}
+                disabled={usesPeriodPoints}
+                className="w-full rounded border border-border bg-background px-2 py-1 text-right text-[12px] tabular-nums disabled:cursor-not-allowed disabled:bg-muted/40 disabled:text-muted-foreground"
+                aria-label="pt"
+                title={usesPeriodPoints ? "cap_extra pt = MS期間の月数×10pt" : "pt"}
+              />
+              <input
+                type="range"
+                min={pointRange.min}
+                max={pointRange.max}
+                step={1}
+                value={Math.min(pointRange.max, Math.max(pointRange.min, displayPoints))}
+                onChange={(event) => updatePoints(Number(event.target.value))}
+                disabled={usesPeriodPoints}
+                className="block h-3 w-full accent-emerald-600 disabled:cursor-not-allowed disabled:opacity-35"
+                aria-label="pt配分スライダー"
+                title={usesPeriodPoints ? "cap_extra pt = MS期間の月数×10pt" : "pt配分スライダー"}
+              />
+            </div>
+            <select
+              value={current.tag}
+              onChange={(event) => {
+                const tag = event.target.value;
+                onChange({ tag, isCapExtra: isCapExtraTag(tag) });
+              }}
+              className="min-w-0 rounded border border-border bg-background px-2 py-1 text-[12px]"
+              aria-label="tag"
+            >
+              <option value="normal">normal</option>
+              <option value="routine">routine</option>
+              <option value="buffer">buffer</option>
+              <option value="cap_extra">cap_extra</option>
+            </select>
+            <input
+              value={current.periodStartYm ?? ""}
+              onChange={(event) => onChange({ periodStartYm: event.target.value || null })}
+              placeholder="開始"
+              inputMode="numeric"
+              className="rounded border border-border bg-background px-2 py-1 text-[12px] tabular-nums"
+              aria-label="MS開始"
+            />
+            <input
+              value={current.targetYm ?? ""}
+              onChange={(event) => onChange({ targetYm: event.target.value || null })}
+              placeholder="終了"
+              inputMode="numeric"
+              className="rounded border border-border bg-background px-2 py-1 text-[12px] tabular-nums"
+              aria-label="MS終了"
+            />
+          </div>
+
+          <div className="rounded bg-muted/30 px-2 py-1 text-right text-[12px] text-muted-foreground tabular-nums">
+            {fmtPt(displayPoints)}pt / {fmtYen(ptValueYen)}
+          </div>
+
+          <textarea
+            value={current.successCriteria}
+            onChange={(event) => onChange({ successCriteria: event.target.value })}
+            rows={3}
+            className="w-full resize-y rounded border border-border bg-background px-2 py-1 text-[12px]"
+            placeholder="完了条件"
+            aria-label="完了条件"
+          />
         </div>
-      </div>
 
-      <textarea
-        value={current.successCriteria}
-        onChange={(event) => onChange({ successCriteria: event.target.value })}
-        rows={2}
-        className="mt-2 w-full resize-y rounded border border-border bg-background px-2 py-1 text-[12px]"
-        placeholder="完了条件"
-        aria-label="完了条件"
-      />
-
-      <div className="mt-2 border-t border-border/60 pt-2">
-        <div className="mb-1 flex items-center gap-2 text-[11px] text-muted-foreground">
-          <span>担当share / MS内金額</span>
-          <span className={Math.abs(shareSum - 1) <= 0.001 ? "text-emerald-500" : "text-amber-500"}>
-            合計 {fmtShare(shareSum)}
-          </span>
-        </div>
-        <div className="grid gap-1.5 md:grid-cols-2">
-          {projectMembers.map((member) => {
-            const resp = responsibilityByMember.get(member.memberId);
-            const sharePct = Math.round((resp?.share ?? 0) * 1000) / 10;
-            const memberYen = Math.round(displayPoints * (resp?.share ?? 0) * unitYen);
-            return (
-              <div
-                key={member.memberId}
-                className="grid grid-cols-[minmax(56px,1fr)_64px_76px_92px] items-center gap-1.5"
-              >
-                <span className="truncate text-[12px]" title={member.codeName}>{member.codeName}</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  step={5}
-                  value={sharePct}
-                  onChange={(event) => updateResponsibility(member, { share: Number(event.target.value) / 100 })}
-                  className="rounded border border-border bg-background px-2 py-1 text-right text-[12px] tabular-nums"
-                  aria-label={`${member.codeName} share`}
-                />
-                <select
-                  value={resp?.role ?? "担当"}
-                  onChange={(event) => updateResponsibility(member, { role: event.target.value })}
-                  className="rounded border border-border bg-background px-2 py-1 text-[12px]"
-                  aria-label={`${member.codeName} 役割`}
-                >
-                  {ROLE_OPTIONS.map((role) => (
-                    <option key={role} value={role}>{role}</option>
-                  ))}
-                </select>
-                <span
-                  className={
-                    "rounded bg-muted/35 px-2 py-1 text-right text-[12px] tabular-nums " +
-                    (memberYen > 0 ? "text-foreground" : "text-muted-foreground")
-                  }
-                  title={`${member.codeName}: ${fmtPt(displayPoints)}pt × ${fmtYen(unitYen)} × ${fmtShare(resp?.share ?? 0)}`}
-                  aria-label={`${member.codeName} MS内金額`}
-                >
-                  {fmtYen(memberYen)}
-                </span>
-                <input
-                  value={resp?.taskDescription ?? ""}
-                  onChange={(event) => updateResponsibility(member, { taskDescription: event.target.value || null })}
-                  className="col-span-full min-w-0 rounded border border-border bg-background px-2 py-1 text-[12px]"
-                  placeholder="担当タスク"
-                  aria-label={`${member.codeName} 担当タスク`}
-                />
+        <div className="min-w-0 rounded border border-border/60 bg-background/35 p-2">
+          <div className="mb-1.5 flex items-center gap-2 text-[11px] text-muted-foreground">
+            <span>担当share / MS内金額</span>
+            <span className={Math.abs(shareSum - 1) <= 0.001 ? "text-emerald-500" : "text-amber-500"}>
+              合計 {fmtShare(shareSum)}
+            </span>
+          </div>
+          <div className="overflow-x-auto">
+            <div className="min-w-[650px]">
+              <div className="grid grid-cols-[88px_64px_76px_104px_minmax(180px,360px)] items-center gap-1.5 px-1 pb-1 text-[10px] text-muted-foreground">
+                <span>メンバー</span>
+                <span className="text-right">share</span>
+                <span>役割</span>
+                <span className="text-right">金額</span>
+                <span>担当タスク</span>
               </div>
-            );
-          })}
+              {projectMembers.map((member) => {
+                const resp = responsibilityByMember.get(member.memberId);
+                const sharePct = Math.round((resp?.share ?? 0) * 1000) / 10;
+                const memberYen = Math.round(displayPoints * (resp?.share ?? 0) * unitYen);
+                return (
+                  <div
+                    key={member.memberId}
+                    className="grid grid-cols-[88px_64px_76px_104px_minmax(180px,360px)] items-center gap-1.5 border-t border-border/50 px-1 py-1.5"
+                  >
+                    <span className="truncate text-[12px]" title={member.codeName}>{member.codeName}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={5}
+                      value={sharePct}
+                      onChange={(event) => updateResponsibility(member, { share: Number(event.target.value) / 100 })}
+                      className="rounded border border-border bg-background px-2 py-1 text-right text-[12px] tabular-nums"
+                      aria-label={`${member.codeName} share`}
+                    />
+                    <select
+                      value={resp?.role ?? "担当"}
+                      onChange={(event) => updateResponsibility(member, { role: event.target.value })}
+                      className="rounded border border-border bg-background px-2 py-1 text-[12px]"
+                      aria-label={`${member.codeName} 役割`}
+                    >
+                      {ROLE_OPTIONS.map((role) => (
+                        <option key={role} value={role}>{role}</option>
+                      ))}
+                    </select>
+                    <span
+                      className={
+                        "rounded bg-muted/35 px-2 py-1 text-right text-[12px] tabular-nums " +
+                        (memberYen > 0 ? "text-foreground" : "text-muted-foreground")
+                      }
+                      title={`${member.codeName}: ${fmtPt(displayPoints)}pt × ${fmtYen(unitYen)} × ${fmtShare(resp?.share ?? 0)}`}
+                      aria-label={`${member.codeName} MS内金額`}
+                    >
+                      {fmtYen(memberYen)}
+                    </span>
+                    <input
+                      value={resp?.taskDescription ?? ""}
+                      onChange={(event) => updateResponsibility(member, { taskDescription: event.target.value || null })}
+                      className="min-w-0 rounded border border-border bg-background px-2 py-1 text-[12px]"
+                      placeholder="担当タスク"
+                      aria-label={`${member.codeName} 担当タスク`}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -425,6 +456,7 @@ function EditActionBar({
   isDirty,
   saveStatus,
   saveError,
+  pointSummary,
   onReset,
   onSave,
   className = "",
@@ -432,6 +464,11 @@ function EditActionBar({
   isDirty: boolean;
   saveStatus: SaveStatus;
   saveError: string | null;
+  pointSummary?: {
+    allocatedRegularPoints: number;
+    regularPoints: number;
+    remainingRegularPoints: number;
+  };
   onReset: () => void;
   onSave: () => void;
   className?: string;
@@ -454,6 +491,19 @@ function EditActionBar({
     >
       <span className={`rounded px-2 py-0.5 text-[11px] font-medium ${statusClass}`}>{statusLabel}</span>
       <span className="text-[11px] text-muted-foreground">保存先 DB / reward 再計算</span>
+      {pointSummary && (
+        <span
+          className={
+            "rounded px-2 py-0.5 text-[11px] tabular-nums " +
+            (pointSummary.remainingRegularPoints >= 0
+              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
+              : "bg-red-500/10 text-red-500")
+          }
+          title={`本契約 ${fmtPt(pointSummary.allocatedRegularPoints)}pt / ${fmtPt(pointSummary.regularPoints)}pt`}
+        >
+          残り割り振り可能pt {fmtPt(pointSummary.remainingRegularPoints)}pt
+        </span>
+      )}
       {saveStatus === "success" && (
         <span className="text-[11px] text-emerald-500">✓ 保存完了 → reward 再計算済</span>
       )}
@@ -564,6 +614,19 @@ function PlanCycleBlock({
   const baseEditingKey = useMemo(() => normalizeEditableRows(toEditableMilestones(cycle)), [cycle]);
   const currentEditingKey = useMemo(() => normalizeEditableRows(activeEditing), [activeEditing]);
   const isDirty = deletedIds.length > 0 || baseEditingKey !== currentEditingKey;
+  const pointSummary = useMemo(() => {
+    const allocatedRegularPoints = Math.round(
+      activeEditing
+        .filter((row) => !row.isCapExtra)
+        .reduce((sum, row) => sum + effectiveEditableMilestonePoints(row), 0) * 100,
+    ) / 100;
+    const regularPoints = Math.round(recomputed.regularPoints * 100) / 100;
+    return {
+      allocatedRegularPoints,
+      regularPoints,
+      remainingRegularPoints: Math.round((regularPoints - allocatedRegularPoints) * 100) / 100,
+    };
+  }, [activeEditing, recomputed.regularPoints]);
 
   const handleMilestoneChange = useCallback((milestoneId: string, patch: Partial<EditableMilestoneInput>) => {
     setEditing((prev) =>
@@ -711,6 +774,7 @@ function PlanCycleBlock({
               isDirty={isDirty}
               saveStatus={saveStatus}
               saveError={saveError}
+              pointSummary={pointSummary}
               onReset={handleResetToDb}
               onSave={handleSave}
               className="sticky top-2 z-10"
@@ -769,6 +833,19 @@ function PlanCycleBlock({
                   現役 {currentMs.length}件 / 過去分 {historyMs.length}件
                 </span>
               </h3>
+              {editMode && (
+                <span
+                  className={
+                    "rounded px-2 py-0.5 text-[11px] tabular-nums " +
+                    (pointSummary.remainingRegularPoints >= 0
+                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
+                      : "bg-red-500/10 text-red-500")
+                  }
+                  title={`本契約 ${fmtPt(pointSummary.allocatedRegularPoints)}pt / ${fmtPt(pointSummary.regularPoints)}pt`}
+                >
+                  残り割り振り可能pt {fmtPt(pointSummary.remainingRegularPoints)}pt
+                </span>
+              )}
               {editMode && (
                 <button
                   type="button"
@@ -854,6 +931,7 @@ function PlanCycleBlock({
                 isDirty={isDirty}
                 saveStatus={saveStatus}
                 saveError={saveError}
+                pointSummary={pointSummary}
                 onReset={handleResetToDb}
                 onSave={handleSave}
               />

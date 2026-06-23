@@ -681,6 +681,8 @@ expectIncludes("src/components/admin/AdminMsOverviewClient.tsx", [
   "編集モード",
   "MS追加",
   "担当share",
+  "pt配分スライダー",
+  "残り割り振り可能pt",
   "MS内金額",
   "保存先 DB",
   "DB値に戻す",
