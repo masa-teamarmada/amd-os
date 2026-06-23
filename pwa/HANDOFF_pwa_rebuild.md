@@ -21,10 +21,11 @@
 
 ## Repo State
 
-- Product HEAD before this handoff docs commit: `d070807c Fix payout matrix sticky columns` (push済, `origin/main` aligned)。
-- Production build expected before handoff docs commit: `v0.34.15`。
+- Current handoff commit: `965b5638 docs(handoff): update admin ms overview closeout` (push済, `origin/main` aligned)。
+- Product code baseline before the docs-only handoff commit: `d070807c Fix payout matrix sticky columns`。
+- Production closeout check still returned `v0.34.15` / `d070807c64caf5821a80354f6e74eadf4678695c` / `dirty=false`。handoff docs-only commit は closeout polling 中には production alias へ未反映。
 - 未push commit: なし。
-- dirty tracked: なし。
+- dirty tracked: 月初合意 / admin payouts WIP (`v0.34.16` cutoff + gateOnly docs/guard)。対象: `pwa/BUGS.md`, `pwa/design/FEATURE_REGISTRY.md`, `pwa/design_log/sessions_2026-06.md`, `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`, `pwa/manual/9-3-appendix-changelog.md`, `pwa/scripts/check_pwa_critical_ui.cjs`, `pwa/spec/3-14-monthly-work-agreement-current-spec.md`, `pwa/src/lib/build-info.ts`, `pwa/src/lib/monthly-work-agreement-payout-gate.ts`, `pwa/src/lib/monthly-work-agreement.ts`。
 - untracked: `gas-slack/.clasp.json` (今回のPWA/MS作業外。GAS/Slack clasp link state っぽいので owner 判断まで commit しない)。
 
 ## Unresolved / 次アクション
@@ -36,7 +37,10 @@
 2. **`value_milestones` 見積明細混入 cleanup**:
    - 月次レポート印刷ビューで発見された別課題。印刷ビュー以外にも cockpit / `/admin/ms-overview` / 報酬計算へ影響しうる。
    - 発生源 (= 見積→MS変換の cron or 手動投入) と、既存 fixed-cycle 明細の `is_active=false` 化 / 別テーブル退避を別セッションで扱う。
-3. **`gas-slack/.clasp.json` の owner 判断**:
+3. **月初合意 / admin payouts WIP の owner 判断**:
+   - closeout時点で tracked dirty として残っている。`source_ym <= 202605` を導入前/移行月として合意済み扱いにする cutoff と、月初合意gateの後追い取得 (`gateOnly`) docs/guard らしき差分。
+   - MS Overview handoff commit には含めていない。次の owner が finish / test / deploy / revert を判断する。
+4. **`gas-slack/.clasp.json` の owner 判断**:
    - 中身は見ずに残した。GAS/Slack worker が必要なら track / local exclude / regenerate の判断をする。
 
 ## First Next Action
@@ -49,7 +53,7 @@ git log --left-right --oneline main...origin/main
 curl -fsS https://amd-os-pwa.vercel.app/api/build-info
 ```
 
-その後 `manual/6-8-admin-ms-overview-spec.md` と `design/FEATURE_REGISTRY.md` の `/admin/ms-overview` セクションを読み、ログイン済みブラウザで編集モードを確認する。
+その後 `manual/6-8-admin-ms-overview-spec.md` と `design/FEATURE_REGISTRY.md` の `/admin/ms-overview` セクションを読み、ログイン済みブラウザで編集モードを確認する。月初合意 / admin payouts WIP が残っている場合、deploy script は tracked dirty で止まるため、先に owner を決める。
 
 ## Pointers
 

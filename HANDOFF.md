@@ -19,16 +19,17 @@
 
 ## Repo / Deploy State
 
-- Pre-handoff product HEAD: `d070807c Fix payout matrix sticky columns` on `main`, aligned with `origin/main`.
-- PWA BUILD_VERSION at that HEAD: `v0.34.15`.
-- Dirty tracked files before this handoff docs update: none.
+- Current handoff commit: `965b5638 docs(handoff): update admin ms overview closeout` on `main`, pushed to `origin/main`.
+- Product code baseline before the docs-only handoff commit: `d070807c Fix payout matrix sticky columns`.
+- Production check after handoff docs push still returned `v0.34.15` / `d070807c64caf5821a80354f6e74eadf4678695c` / `dirty=false`; the docs-only handoff commit was not yet visible on the production alias during closeout polling.
+- Remaining tracked dirty group: monthly-agreement / admin payouts WIP (`v0.34.16` cutoff + gateOnly docs/guards): `pwa/BUGS.md`, `pwa/design/FEATURE_REGISTRY.md`, `pwa/design_log/sessions_2026-06.md`, `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`, `pwa/manual/9-3-appendix-changelog.md`, `pwa/scripts/check_pwa_critical_ui.cjs`, `pwa/spec/3-14-monthly-work-agreement-current-spec.md`, `pwa/src/lib/build-info.ts`, `pwa/src/lib/monthly-work-agreement-payout-gate.ts`, `pwa/src/lib/monthly-work-agreement.ts`.
 - Remaining untracked file: `gas-slack/.clasp.json` (not part of this PWA/MS task; do not commit without GAS/Slack owner decision).
 
 ## Verification Already Run
 
 - For the MS overview code path: `npm exec tsc -- --noEmit --pretty false`, `npm run test:critical-ui`, `npm run build`.
 - Browser route smoke: `/admin/ms-overview` redirects to `/auth/login?next=%2Fadmin%2Fms-overview` when unauthenticated. Authenticated visual verification was not completed in this session because the local browser was at the login wall.
-- Closeout inventory before docs update: `main` aligned with `origin/main`, no unpushed commits, only `gas-slack/.clasp.json` untracked.
+- Closeout inventory after docs push: `main` aligned with `origin/main`, no unpushed commits, monthly-agreement/admin-payouts WIP tracked dirty group plus `gas-slack/.clasp.json` untracked.
 
 ## Unresolved Tasks
 
@@ -38,7 +39,8 @@
    - Confirm two-pane layout, one-row member share table, aggregate slider panel, remaining point display, MS amount, member MS amount, top/footer save bars.
    - Save a tiny safe test only if Masa explicitly wants a live DB write.
 2. `value_milestones` estimate-line pollution remains a separate data cleanup task from the monthly report work. It may affect cockpit, `/admin/ms-overview`, and reward calculations if old fixed-cycle quote lines remain active.
-3. Decide the owner of `gas-slack/.clasp.json`. It looks like GAS/Slack local clasp link state, but this handoff did not inspect or classify its contents.
+3. Monthly-agreement / admin payouts WIP needs a separate owner to finish or revert. It appears to add a `202606` payout-gate rollout cutoff and `gateOnly` follow-up fetch docs/anchors; it is not part of the MS Overview handoff commit.
+4. Decide the owner of `gas-slack/.clasp.json`. It looks like GAS/Slack local clasp link state, but this handoff did not inspect or classify its contents.
 
 ## Read First Next Session
 
@@ -60,7 +62,7 @@ git log --left-right --oneline main...origin/main
 curl -fsS https://amd-os-pwa.vercel.app/api/build-info
 ```
 
-Expected: local `main` is aligned with `origin/main`; production is `v0.34.15` / current main SHA or newer. If production or local main differs, inspect before touching finance/MS data.
+Expected: local `main` is aligned with `origin/main`; production is `v0.34.15` / current main SHA or newer. If production or local main differs, inspect before touching finance/MS data. If the monthly-agreement dirty group is still present, route it before running deploy scripts; tracked dirty files make `pwa/scripts/deploy.sh` stop by design.
 
 ## Guardrails
 
