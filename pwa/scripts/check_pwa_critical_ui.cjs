@@ -681,6 +681,8 @@ expectIncludes("src/components/admin/AdminMsOverviewClient.tsx", [
   "編集モード",
   "MS追加",
   "担当share",
+  "MS内金額",
+  "保存先 DB",
   "DB値に戻す",
   "保存して DB へ反映",
   "recomputeMsOverview",

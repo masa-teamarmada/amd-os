@@ -188,12 +188,14 @@ function MsEditorRow({
   current,
   projectMembers,
   ptValueYen,
+  unitYen,
   onChange,
   onRemove,
 }: {
   current: EditableMilestoneInput;
   projectMembers: MsOverviewPlanCycle["projectMembers"];
   ptValueYen: number;
+  unitYen: number;
   onChange: (patch: Partial<EditableMilestoneInput>) => void;
   onRemove: () => void;
 }) {
@@ -313,7 +315,7 @@ function MsEditorRow({
 
       <div className="mt-2 border-t border-border/60 pt-2">
         <div className="mb-1 flex items-center gap-2 text-[11px] text-muted-foreground">
-          <span>担当share</span>
+          <span>担当share / MS内金額</span>
           <span className={Math.abs(shareSum - 1) <= 0.001 ? "text-emerald-500" : "text-amber-500"}>
             合計 {fmtShare(shareSum)}
           </span>
@@ -322,8 +324,12 @@ function MsEditorRow({
           {projectMembers.map((member) => {
             const resp = responsibilityByMember.get(member.memberId);
             const sharePct = Math.round((resp?.share ?? 0) * 1000) / 10;
+            const memberYen = Math.round(displayPoints * (resp?.share ?? 0) * unitYen);
             return (
-              <div key={member.memberId} className="grid grid-cols-[72px_72px_88px_1fr] items-center gap-1.5">
+              <div
+                key={member.memberId}
+                className="grid grid-cols-[minmax(56px,1fr)_64px_76px_92px] items-center gap-1.5"
+              >
                 <span className="truncate text-[12px]" title={member.codeName}>{member.codeName}</span>
                 <input
                   type="number"
@@ -345,10 +351,20 @@ function MsEditorRow({
                     <option key={role} value={role}>{role}</option>
                   ))}
                 </select>
+                <span
+                  className={
+                    "rounded bg-muted/35 px-2 py-1 text-right text-[12px] tabular-nums " +
+                    (memberYen > 0 ? "text-foreground" : "text-muted-foreground")
+                  }
+                  title={`${member.codeName}: ${fmtPt(displayPoints)}pt × ${fmtYen(unitYen)} × ${fmtShare(resp?.share ?? 0)}`}
+                  aria-label={`${member.codeName} MS内金額`}
+                >
+                  {fmtYen(memberYen)}
+                </span>
                 <input
                   value={resp?.taskDescription ?? ""}
                   onChange={(event) => updateResponsibility(member, { taskDescription: event.target.value || null })}
-                  className="min-w-0 rounded border border-border bg-background px-2 py-1 text-[12px]"
+                  className="col-span-full min-w-0 rounded border border-border bg-background px-2 py-1 text-[12px]"
                   placeholder="担当タスク"
                   aria-label={`${member.codeName} 担当タスク`}
                 />
@@ -404,6 +420,68 @@ function MemberYearRow({
 // ---- 1 PJ ブロック ---------------------------------------------------------
 
 type SaveStatus = "idle" | "saving" | "error" | "success";
+
+function EditActionBar({
+  isDirty,
+  saveStatus,
+  saveError,
+  onReset,
+  onSave,
+  className = "",
+}: {
+  isDirty: boolean;
+  saveStatus: SaveStatus;
+  saveError: string | null;
+  onReset: () => void;
+  onSave: () => void;
+  className?: string;
+}) {
+  const statusLabel = saveStatus === "saving" ? "保存中" : isDirty ? "未保存あり" : "変更なし";
+  const statusClass =
+    saveStatus === "saving"
+      ? "bg-sky-500/15 text-sky-600 dark:text-sky-300"
+      : isDirty
+        ? "bg-amber-500/15 text-amber-600 dark:text-amber-300"
+        : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300";
+
+  return (
+    <div
+      className={
+        "flex flex-wrap items-center gap-2 rounded-md border border-border/70 bg-background/95 px-3 py-2 shadow-sm " +
+        className
+      }
+      data-testid="admin-ms-overview-edit-save-bar"
+    >
+      <span className={`rounded px-2 py-0.5 text-[11px] font-medium ${statusClass}`}>{statusLabel}</span>
+      <span className="text-[11px] text-muted-foreground">保存先 DB / reward 再計算</span>
+      {saveStatus === "success" && (
+        <span className="text-[11px] text-emerald-500">✓ 保存完了 → reward 再計算済</span>
+      )}
+      {saveStatus === "error" && (
+        <span className="min-w-0 text-[11px] text-red-500">保存失敗: {saveError}</span>
+      )}
+      <div className="ml-auto flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onReset}
+          disabled={!isDirty || saveStatus === "saving"}
+          className="h-8 rounded border border-border px-3 text-xs text-muted-foreground hover:bg-accent/30 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+          title="現状DB値に戻す"
+        >
+          ↻ DB値に戻す
+        </button>
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={!isDirty || saveStatus === "saving"}
+          className="h-8 rounded bg-emerald-600 px-3 text-xs font-medium text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {saveStatus === "saving" ? "保存中…" : "保存して DB へ反映"}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function PlanCycleBlock({
   cycle,
@@ -628,6 +706,17 @@ function PlanCycleBlock({
             )}
           </div>
 
+          {editMode && (
+            <EditActionBar
+              isDirty={isDirty}
+              saveStatus={saveStatus}
+              saveError={saveError}
+              onReset={handleResetToDb}
+              onSave={handleSave}
+              className="sticky top-2 z-10"
+            />
+          )}
+
           {/* ① メトリクスカード 4 枚 */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             <MetricCard
@@ -703,6 +792,7 @@ function PlanCycleBlock({
                         current={row}
                         projectMembers={cycle.projectMembers}
                         ptValueYen={recomputed.ptValueYenByMs.get(row.milestoneId) ?? 0}
+                        unitYen={row.isCapExtra ? recomputed.extraPtUnitYen : recomputed.regularPtUnitYen}
                         onChange={(patch) => handleMilestoneChange(row.milestoneId, patch)}
                         onRemove={() => handleRemoveMilestone(row.milestoneId)}
                       />
@@ -759,30 +849,14 @@ function PlanCycleBlock({
 
           {/* ④ 編集モードフッター (保存 / 戻す) */}
           {editMode && (
-            <div className="flex items-center gap-2 pt-3 border-t border-border/60">
-              <button
-                type="button"
-                onClick={handleResetToDb}
-                disabled={!isDirty || saveStatus === "saving"}
-                className="text-xs px-3 py-1.5 rounded border border-border text-muted-foreground hover:text-foreground hover:bg-accent/30 disabled:opacity-40 disabled:cursor-not-allowed"
-                title="現状DB値に戻す"
-              >
-                ↻ DB値に戻す
-              </button>
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={!isDirty || saveStatus === "saving"}
-                className="text-xs px-3 py-1.5 rounded bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {saveStatus === "saving" ? "保存中…" : "保存して DB へ反映"}
-              </button>
-              {saveStatus === "success" && (
-                <span className="text-[11px] text-emerald-500">✓ 保存完了 → reward 再計算済</span>
-              )}
-              {saveStatus === "error" && (
-                <span className="text-[11px] text-red-500">保存失敗: {saveError}</span>
-              )}
+            <div className="pt-3 border-t border-border/60">
+              <EditActionBar
+                isDirty={isDirty}
+                saveStatus={saveStatus}
+                saveError={saveError}
+                onReset={handleResetToDb}
+                onSave={handleSave}
+              />
             </div>
           )}
 

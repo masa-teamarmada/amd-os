@@ -178,12 +178,16 @@ memberYen[m] = Σ over MS of (effectivePoints × share[m] × (cap_extra ? extraU
 
 `total_points` の保存値は `regularPts + extraPts`。通常 MS の配分 pt 合計が変わっても、本契約 pt単価は動かない。`cap_extra` の pt は保存時にも API 側で MS 期間×10ptへ正規化する。
 
-再計算結果は ① メトリクスカード 4 枚 (合計pt / 本契約 pt単価 / 別財布 pt単価 / 主要メンバー比較) ② 各 MS の pt 価値 ③ メンバー別 年計バー + 合計金額 ④ ヘッダの単価表示 にリアルタイムで反映する。
+再計算結果は ① メトリクスカード 4 枚 (合計pt / 本契約 pt単価 / 別財布 pt単価 / 主要メンバー比較) ② 各 MS の pt 価値 ③ 担当 share 行の **MS内金額** (`effectivePoints × share × pt単価`) ④ メンバー別 年計バー + 合計金額 ⑤ ヘッダの単価表示 にリアルタイムで反映する。
 
 月次 override (`milestone_monthly_contribution_allocations.actual_share`) は読まない (= MS 設計を見る画面なので plannedShare × MS.points だけで計算)。
 
-### フッターのボタン
+### 保存導線
 
+編集モード ON の直後、MS 一覧の上部に **保存バー** を表示する。長い MS 一覧でも保存場所が迷子にならないよう、同じ操作をフッターにも重複配置する。
+
+- **未保存あり / 変更なし / 保存中** — 編集状態を表示。
+- **保存先 DB / reward 再計算** — 保存時に `value_milestones` / `milestone_responsibility` と reward cache まで反映されることを表示。
 - **↻ DB値に戻す** — 編集前の DB 値に戻す。`isDirty` のときだけ有効。
 - **保存して DB へ反映** — 編集内容を確定。`isDirty` のときだけ有効。押下時の動作:
   1. `PUT /api/admin/ms-overview/{planCycleId}` を呼ぶ (body: `{ milestones: [...], deletedMilestoneIds: [...] }`)
