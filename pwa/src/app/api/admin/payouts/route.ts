@@ -209,6 +209,7 @@ export type GenerateNoticeResult = {
 
 type LoadTargetDataOptions = {
   refreshRewards?: boolean;
+  includeAgreementGate?: boolean;
 };
 
 function addMonths(ym: string, delta: number): string {
@@ -1102,13 +1103,15 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
     cycles,
     payoutExcludedMemberIds
   );
-  const payoutAgreementGate = await buildPayoutAgreementGateSummary(db, {
-    paymentYm: ym,
-    targetAction: "view",
-    entries: expectedEntries,
-    members: (membersRes.data ?? []) as MemberRow[],
-    projects: (projectsRes.data ?? []) as PaymentProjectRow[],
-  });
+  const payoutAgreementGate = options.includeAgreementGate === false
+    ? null
+    : await buildPayoutAgreementGateSummary(db, {
+        paymentYm: ym,
+        targetAction: "view",
+        entries: expectedEntries,
+        members: (membersRes.data ?? []) as MemberRow[],
+        projects: (projectsRes.data ?? []) as PaymentProjectRow[],
+      });
 
   return {
     ym,
@@ -1181,7 +1184,16 @@ export async function GET(req: NextRequest) {
 
   try {
     const refreshRewards = req.nextUrl.searchParams.get("refreshRewards") === "1";
-    const data = await loadTargetData(ym, { refreshRewards });
+    const gateOnly = req.nextUrl.searchParams.get("gateOnly") === "1";
+    const includeAgreementGate = gateOnly || req.nextUrl.searchParams.get("includeAgreementGate") === "1";
+    const data = await loadTargetData(ym, { refreshRewards, includeAgreementGate });
+    if (gateOnly) {
+      return NextResponse.json({
+        ok: true,
+        ym: data.ym,
+        payoutAgreementGate: data.payoutAgreementGate,
+      });
+    }
     return NextResponse.json({ ok: true, ...data });
   } catch (err) {
     console.error("[admin payouts GET]", err);

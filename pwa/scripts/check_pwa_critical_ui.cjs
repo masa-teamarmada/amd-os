@@ -144,6 +144,8 @@ expectIncludes("src/components/admin/AdminMembersTable.tsx", [
 
 expectIncludes("src/app/api/admin/payouts/route.ts", [
   "refreshRewards",
+  "gateOnly",
+  "includeAgreementGate",
   "issue_notice_pdf",
   "preview_notice_pdf",
   "regular_base_pay",

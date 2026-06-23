@@ -192,7 +192,7 @@ type PayoutData = {
   notices: PayoutNotice[];
   extraRevenueRows?: ExtraRevenueSourceRow[];
   expectedEntries?: PayoutEntry[];
-  payoutAgreementGate?: PayoutAgreementGateSummary;
+  payoutAgreementGate?: PayoutAgreementGateSummary | null;
   refreshedRewards?: boolean;
 };
 
@@ -1794,6 +1794,28 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
   const savedAll = expectedEntries.length > 0 && memberRows.every((row) => row.isSaved);
   const rewardCycleCount = new Set(expectedEntries.map((entry) => `${entry.projectId}:${entry.ym}`)).size;
 
+  async function loadAgreementGateForYm(nextYm: string) {
+    try {
+      const params = new URLSearchParams({ ym: nextYm, gateOnly: "1" });
+      const res = await fetch(`/api/admin/payouts?${params.toString()}`, {
+        cache: "no-store",
+      });
+      const payload = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        payoutAgreementGate?: PayoutAgreementGateSummary | null;
+      };
+      if (!res.ok || payload.ok === false) return;
+      setData((current) =>
+        current?.ym === nextYm
+          ? { ...current, payoutAgreementGate: payload.payoutAgreementGate ?? null }
+          : current
+      );
+    } catch {
+      // Gate is enforced again on write actions, so a background view failure should not block initial display.
+    }
+  }
+
   async function loadForYm(nextYm: string, options: { refreshRewards?: boolean } = {}) {
     setLoading(true);
     setHint(options.refreshRewards ? "報酬キャッシュを再計算中..." : "");
@@ -1808,6 +1830,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
         throw new Error(payload.error || `load failed (${res.status})`);
       }
       setData(payload);
+      void loadAgreementGateForYm(nextYm);
       setHint(
         `${fmtYm(nextYm)} / ${options.refreshRewards ? "再計算済" : "キャッシュ表示"} / 対象${payload.cycles.length}件 / 報酬${payload.expectedEntries?.length ?? 0}明細`
       );
