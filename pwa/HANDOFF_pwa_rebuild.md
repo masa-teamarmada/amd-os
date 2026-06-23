@@ -23,7 +23,7 @@
 
 - Current handoff commit: `965b5638 docs(handoff): update admin ms overview closeout` (push済, `origin/main` aligned)。
 - Product code baseline before the docs-only handoff commit: `d070807c Fix payout matrix sticky columns`。
-- Production closeout check still returned `v0.34.15` / `d070807c64caf5821a80354f6e74eadf4678695c` / `dirty=false`。handoff docs-only commit は closeout polling 中には production alias へ未反映。
+- Production alias は docs-only handoff commit に遅れて追従することがある。closeout 中は product baseline `d070807c` から first handoff docs commit `965b5638` へ移動した (どちらも `v0.34.15` / `dirty=false`)。final docs correction `db91107f` が visible かは次セッションで `/api/build-info` を再確認する。
 - 未push commit: なし。
 - dirty tracked: 月初合意 / admin payouts WIP (`v0.34.16` cutoff + gateOnly docs/guard)。対象: `pwa/BUGS.md`, `pwa/design/FEATURE_REGISTRY.md`, `pwa/design_log/sessions_2026-06.md`, `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`, `pwa/manual/9-3-appendix-changelog.md`, `pwa/scripts/check_pwa_critical_ui.cjs`, `pwa/spec/3-14-monthly-work-agreement-current-spec.md`, `pwa/src/lib/build-info.ts`, `pwa/src/lib/monthly-work-agreement-payout-gate.ts`, `pwa/src/lib/monthly-work-agreement.ts`。
 - untracked: `gas-slack/.clasp.json` (今回のPWA/MS作業外。GAS/Slack clasp link state っぽいので owner 判断まで commit しない)。
