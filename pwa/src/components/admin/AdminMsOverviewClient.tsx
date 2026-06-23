@@ -190,6 +190,7 @@ function MsEditorRow({
   projectMembers,
   ptValueYen,
   unitYen,
+  pointRange,
   onChange,
   onRemove,
 }: {
@@ -197,6 +198,7 @@ function MsEditorRow({
   projectMembers: MsOverviewPlanCycle["projectMembers"];
   ptValueYen: number;
   unitYen: number;
+  pointRange: ReturnType<typeof sliderRange>;
   onChange: (patch: Partial<EditableMilestoneInput>) => void;
   onRemove: () => void;
 }) {
@@ -206,7 +208,7 @@ function MsEditorRow({
   const derivedPoints = effectiveEditableMilestonePoints(current);
   const usesPeriodPoints = current.isCapExtra && derivedPoints > 0;
   const displayPoints = usesPeriodPoints ? derivedPoints : current.points;
-  const pointRange = sliderRange(displayPoints);
+  const rowPointRange = usesPeriodPoints ? sliderRange(displayPoints) : pointRange;
   const updatePoints = (points: number) => {
     if (!usesPeriodPoints) onChange({ points });
   };
@@ -277,10 +279,10 @@ function MsEditorRow({
               />
               <input
                 type="range"
-                min={pointRange.min}
-                max={pointRange.max}
+                min={rowPointRange.min}
+                max={rowPointRange.max}
                 step={1}
-                value={Math.min(pointRange.max, Math.max(pointRange.min, displayPoints))}
+                value={Math.min(rowPointRange.max, Math.max(rowPointRange.min, displayPoints))}
                 onChange={(event) => updatePoints(Number(event.target.value))}
                 disabled={usesPeriodPoints}
                 className="block h-3 w-full accent-emerald-600 disabled:cursor-not-allowed disabled:opacity-35"
@@ -538,11 +540,13 @@ function AllMsPointSliders({
   rows,
   pointSummary,
   ptValueYenByMs,
+  pointRange,
   onChange,
 }: {
   rows: EditableMilestoneInput[];
   pointSummary: PointSummary;
   ptValueYenByMs: ReadonlyMap<string, number>;
+  pointRange: ReturnType<typeof sliderRange>;
   onChange: (milestoneId: string, points: number) => void;
 }) {
   const sortedRows = useMemo(
@@ -580,7 +584,7 @@ function AllMsPointSliders({
             const usesPeriodPoints = row.isCapExtra && derivedPoints > 0;
             const displayPoints = usesPeriodPoints ? derivedPoints : row.points;
             const msValueYen = ptValueYenByMs.get(row.milestoneId) ?? 0;
-            const pointRange = sliderRange(displayPoints);
+            const rowPointRange = usesPeriodPoints ? sliderRange(displayPoints) : pointRange;
             return (
               <div
                 key={row.milestoneId}
@@ -614,10 +618,10 @@ function AllMsPointSliders({
                 />
                 <input
                   type="range"
-                  min={pointRange.min}
-                  max={pointRange.max}
+                  min={rowPointRange.min}
+                  max={rowPointRange.max}
                   step={1}
-                  value={Math.min(pointRange.max, Math.max(pointRange.min, displayPoints))}
+                  value={Math.min(rowPointRange.max, Math.max(rowPointRange.min, displayPoints))}
                   onChange={(event) => onChange(row.milestoneId, Number(event.target.value))}
                   disabled={usesPeriodPoints}
                   className="block h-3 w-full accent-emerald-600 disabled:cursor-not-allowed disabled:opacity-35"
@@ -685,6 +689,16 @@ function PlanCycleBlock({
     () => editing.filter((row) => !deletedIds.includes(row.milestoneId)),
     [editing, deletedIds],
   );
+  const pointSliderRange = useMemo(() => {
+    const baseRows = toEditableMilestones(cycle);
+    const editableRows = baseRows.filter((row) => !row.isCapExtra);
+    const referenceRows = editableRows.length > 0 ? editableRows : baseRows;
+    const maxReferencePoints = referenceRows.reduce(
+      (max, row) => Math.max(max, effectiveEditableMilestonePoints(row)),
+      0,
+    );
+    return sliderRange(maxReferencePoints > 0 ? maxReferencePoints : 10);
+  }, [cycle]);
 
   // ---- リアルタイム再計算 -------------------------------------------------
   const recomputed = useMemo(() => {
@@ -980,6 +994,7 @@ function PlanCycleBlock({
                       rows={activeEditing}
                       pointSummary={pointSummary}
                       ptValueYenByMs={recomputed.ptValueYenByMs}
+                      pointRange={pointSliderRange}
                       onChange={handleMilestonePointsChange}
                     />
                     <div>
@@ -992,6 +1007,7 @@ function PlanCycleBlock({
                             projectMembers={cycle.projectMembers}
                             ptValueYen={recomputed.ptValueYenByMs.get(row.milestoneId) ?? 0}
                             unitYen={row.isCapExtra ? recomputed.extraPtUnitYen : recomputed.regularPtUnitYen}
+                            pointRange={pointSliderRange}
                             onChange={(patch) => handleMilestoneChange(row.milestoneId, patch)}
                             onRemove={() => handleRemoveMilestone(row.milestoneId)}
                           />

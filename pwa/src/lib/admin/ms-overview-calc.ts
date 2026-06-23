@@ -193,12 +193,13 @@ export function toEditableMilestones(cycle: MsOverviewPlanCycle): EditableMilest
 }
 
 /**
- * スライダーの min/max を MS の初期値から決める。
- * min = 2 (= 完全に 0 にできないよう下限)、max = max(初期値の 2 倍, 30) で常識的な範囲に縛る。
+ * スライダーの min/max を編集開始時点の最大ptから固定する。
+ * max が現在値に追従するとドラッグ中に 1px あたりのpt幅が変わるため、
+ * 「最大pt × 1.5」を右端にして操作感を一定にする。
  */
-export function sliderRange(initialPoints: number): { min: number; max: number } {
-  const init = Math.max(0, Math.round(safeNumber(initialPoints)));
-  const max = Math.max(init * 2, 30);
+export function sliderRange(maxReferencePoints: number): { min: number; max: number } {
+  const reference = Math.max(0, safeNumber(maxReferencePoints));
+  const max = Math.max(2, Math.ceil(reference * 1.5));
   return { min: 2, max };
 }
 
