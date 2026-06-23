@@ -1,33 +1,33 @@
-# SESSION MIGRATION PROMPT - AMD OS monthly agreement / finance tables
+# SESSION MIGRATION PROMPT - AMD OS admin MS overview
 
 ```text
 cd /Users/masa/projects/AMD/amd-os
 
-まず `HANDOFF.md` を読んで。次に `pwa/spec/3-14-monthly-work-agreement-current-spec.md`、`pwa/manual/6-5-admin-payouts-reward-notice-spec.md`、`pwa/manual/7-1-reward-calc-spec.md`、`pwa/manual/4-5-management-score-and-finance-simulation-spec.md` を読んで。その次に `pwa/BUGS.md` を読んで。必要に応じて `pwa/manual/2-2-member-workflows-quick-start.md`、`pwa/manual/6-6-member-billing-prompts-spec.md`、`pwa/design/project_pl_monthly.md`、`pwa/design_log/sessions_2026-06.md` の 2026-06-19 finance entries も読む。
+まず `HANDOFF.md` を読んで。次に `pwa/HANDOFF_pwa_rebuild.md`、`pwa/manual/6-8-admin-ms-overview-spec.md`、`pwa/design/FEATURE_REGISTRY.md` の `/admin/ms-overview` セクション、`pwa/spec/6-1-appendix-changelog.md` を読んで。その次に `pwa/BUGS.md` を読んで。必要なら `pwa/design_log/sessions_2026-06.md` の 2026-06-23 Admin MS Overview セクションも読む。
 
 作業開始前に必ず:
 1. `git fetch origin main`
-2. `git status -sb`
+2. `git status -sb --untracked-files=all`
 3. `git log --left-right --oneline main...origin/main`
 4. `curl -fsS https://amd-os-pwa.vercel.app/api/build-info`
 
 current truth:
-- 月初合意は `/admin/payouts` の支払 gate。未合意 / 条件更新あり / 修正要望中は server-side に支払データ保存・PDF生成・送付・送付済み確定を止める。admin override は reason / actor / target member/PJ/month を監査ログに残す時だけ許可。
-- CTB p06 は 202605 から freeze overlay なので、202606 月初合意・支払 gate は `not_required`。`projects.status='active'` だけで戻さない。
-- りり / ID006 と あき / ID029 は `members.exclude_from_payout_notice=true` の対象。月初合意・支払通知書・支払 gate では `not_required`。
-- SX の 202604/202605 契約前稼働が 202606 以降の未払い残として大きく見えるのは異常ではない。`stockYen` は月末未払い残で、今月支払ではない。
-- `/admin/payouts` には報酬債務台帳を置き、`carryInYen + (grossDueYen - carryInYen) - totalPay = stockYen` を member × PJ × 稼働月で読む。
-- `/admin/payouts` と `/management-score` 下部の先12か月表は `キャッシュ支払` / `会社留保` / `報酬債務` / `cap超過チェック` の4表。会社留保は支出ではなく `cap/売上枠 - 外部支払`。報酬債務は残高なので12か月合計しない。
+- `/admin/ms-overview` が MS 設計編集の正本。cockpit / HUD cockpit から MS名・pt・tag・期間・担当shareを保存しない。
+- regular pt単価分母はシーズン期間月数 x 10pt。通常MSの配分pt合計を `total_points` や pt単価分母に戻さない。
+- cap_extra も例外なしで MS期間月数 x 10pt。ZMP OkuDoor system development (202605-202610) は 60pt。
+- 編集UIは左=MS基本情報、右=メンバーshare表。メンバーは1人1行、2カラムにしない。行には `MS内金額` を出す。
+- `全MS pt配分スライダー` と各MSカード内スライダーは同じ編集中 state を動かす。まとめパネルには残り割り振り可能ptとMS金額を表示する。
+- 通常MS slider max は編集開始時点の最大pt x 1.5 で固定。ドラッグ中に現在値へ追従させない。
+- 保存は `PUT /api/admin/ms-overview/{planCycleId}`。`value_milestones` / `milestone_responsibility` 保存後、`total_points = シーズン期間月数×10 + Σcap_extra MS期間月数×10` に再計算し、reward summary を同期する。PAID月は内部でskip。
 
 次にやること:
-1. あき / ID029 の除外が実DB/codeに反映されているか確認し、未反映なら実装する。
-2. logged-in で `/admin/payouts?ym=202606`, `/management-score`, `/monthly-agreement?ym=202606`, `/admin/monthly-work-agreements?ym=202606` を確認する。
-3. 4表のUX/数字をまさの目的別にさらに整える。1表に複数目的を戻さない。
+1. ログイン済み admin で `/admin/ms-overview` を開き、編集モードの実UIを確認する。
+2. もし見づらさが残っていたら、既存の two-pane / one-member-row / aggregate slider 設計を崩さず微調整する。
+3. `value_milestones` の見積明細混入 cleanup は別タスク。発生源と既存データ無効化方針を確認してから扱う。
+4. `gas-slack/.clasp.json` は今回のPWA/MS作業外。中身を晒さず、GAS/Slack owner 判断まで commit しない。
 
 注意:
-- `stockYen` は支払予定でもPL原価でもなく、非役員メンバーへの月末未払い残高。
-- 月初合意 gate は報酬計算式を変えない。支払 action 直前の read gate。
-- hard guard の本番運用は契約改定・メンバー同意・法務レビューが前提。法的助言として断定しない。
-- PWA deploy が必要なら repo root から `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`。
 - `git add .` は使わない。
+- PWA deploy が必要なら repo root から `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`。
+- DB保存テストは、まさが明示的にOKした tiny/safe な変更だけで行う。
 ```

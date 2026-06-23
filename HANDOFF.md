@@ -1,80 +1,71 @@
 # HANDOFF - AMD OS
 
-- Last updated: 2026-06-19 (monthly agreement / payout gate / finance table closeout)
+- Last updated: 2026-06-23 (admin MS overview / payout matrix closeout)
 - Canonical root: `/Users/masa/projects/AMD/amd-os`
+- PWA root: `/Users/masa/projects/AMD/amd-os/pwa`
 - Production URL: `https://amd-os-pwa.vercel.app`
 - Default branch: `main`
-- Next thread prepared: `019eddf4-8877-7f50-8180-e53e5ee1c118` (`AMD OS finance table follow-up`)
 
 ## Latest Session Summary
 
-- 月初合意は「見える化」から `/admin/payouts` の支払 gate へ進める仕様にした。未合意 / 条件更新あり / 修正要望中は server-side で支払データ保存・PDF生成・送付・送付済み確定を止め、admin override は理由・actor・対象 member/PJ/月を監査ログへ残す。
-- CTB p06 は 202605 から freeze overlay なので、202606 月初合意・支払 gate では `not_required`。`projects.status='active'` だけで判定しない。
-- りり / ID006 (NIMS 無償出向) と あき / ID029 (無報酬稼働) は `members.exclude_from_payout_notice=true` の対象として、月初合意・支払通知書・支払 gate から外す仕様にした。
-- SX は 202604/202605 の契約前稼働があるため、202606 以降に `carryInYen` / `stockYen` として未払い残が出るのは異常ではない。本人画面と admin 合意一覧では、`今月支払` と `今月末未払い残（今月は支払われない）` を分けて表示する。
-- `/admin/payouts` に報酬債務台帳を置き、`前月残 + 今月発生 - 今月支払 = 月末未払い残` を member × PJ × 稼働月で読む仕様にした。
-- `/admin/payouts` と `/management-score` 下部の先12か月表は、`キャッシュ支払` / `会社留保` / `報酬債務` / `cap超過チェック` の4表へ分解済み。会社留保は支出ではなく `cap/売上枠 - 外部支払` として読む。
-- 詳細ログ: `pwa/design_log/sessions_2026-06.md` の `2026-06-19 — /admin/payouts 先12か月表を目的別4表へ分解`。
+- `/admin/ms-overview` is now the write boundary for MS design. Cockpit / HUD cockpit show MS design and progress, but do not save MS title / period / points / tag / planned share.
+- Admin MS edit mode can save MS title, points, tag, period, success criteria, member share, role, task text, add, and deactivate. Save bars are shown at the top and footer so long MS lists have an obvious save action.
+- The pt basis is back to the design rule: regular points = season months x 10pt, cap_extra points = each cap_extra MS period months x 10pt, and `value_plan_cycles.total_points = regular + cap_extra`. Editing normal MS allocation points no longer changes the regular pt unit.
+- cap_extra MS points are normalized from period months x 10pt on the client and again on the server. ZMP OkuDoor system development (202605-202610) is therefore 60pt, not a special-case 20pt or old 67pt.
+- Admin MS edit UI was tightened after Masa feedback: MS basic info on the left, member share table on the right, one member per row, no two-column member grid, and each row shows `MS内金額`.
+- The original MS point allocation UX was restored: both each MS card and the new aggregate `全MS pt配分スライダー` panel can move the same edit state. The aggregate panel also shows remaining allocatable regular points and each MS amount.
+- Slider max is fixed at edit-start max point x 1.5 for normal MS. It does not follow the current value while dragging, so point increments stay visually even across the slider.
+- Current main also contains later payout-side fixes through `d070807c` (`v0.34.15`): payout forecast cache/zero-summary fixes and sticky member payout matrix columns.
 
 ## Repo / Deploy State
 
-- Accepted product commit: `038d0e62 Split forward finance tables by purpose`。
-- Production check after deploy: `BUILD_VERSION=v0.28.13`, `git_sha=038d0e62e048e07c7154872a527289f59b6e739d`, `dirty=false`。
-- Current `main` also contains later docs / H-1 closeout commits (`e32d2bd2`, `010c0403`) after the finance deploy. Re-check `/api/build-info` before assuming production moved past `038d0e62`.
-- This handoff commit is docs-only. It should not change the accepted finance UI behavior.
+- Pre-handoff product HEAD: `d070807c Fix payout matrix sticky columns` on `main`, aligned with `origin/main`.
+- PWA BUILD_VERSION at that HEAD: `v0.34.15`.
+- Dirty tracked files before this handoff docs update: none.
+- Remaining untracked file: `gas-slack/.clasp.json` (not part of this PWA/MS task; do not commit without GAS/Slack owner decision).
 
 ## Verification Already Run
 
-- `npx tsc --noEmit --pretty false`
-- targeted eslint for `AdminPayoutsClient.tsx`, `management-score/page.tsx`, `/api/admin/payouts/route.ts`, `reward-summary.ts`, `build-info.ts`, `check_pwa_critical_ui.cjs`
-- `npm run test:critical-ui`
-- `npm run build`
-- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`
-- production `/api/build-info` confirmed `v0.28.13` / `038d0e62...` / `dirty=false`
-- Browser smoke for admin pages was limited by login redirect; next session should verify logged-in UI with まさ's session or Chrome state.
+- For the MS overview code path: `npm exec tsc -- --noEmit --pretty false`, `npm run test:critical-ui`, `npm run build`.
+- Browser route smoke: `/admin/ms-overview` redirects to `/auth/login?next=%2Fadmin%2Fms-overview` when unauthenticated. Authenticated visual verification was not completed in this session because the local browser was at the login wall.
+- Closeout inventory before docs update: `main` aligned with `origin/main`, no unpushed commits, only `gas-slack/.clasp.json` untracked.
 
 ## Unresolved Tasks
 
-1. Verify and, if needed, implement the actual DB/code path for あき / ID029 exclusion:
-   - `members.exclude_from_payout_notice=true`
-   - `/mypage` / `/dashboard` no-compensation display includes ID029, not only ID006
-   - `/monthly-agreement`, `/admin/monthly-work-agreements`, `/admin/payouts`, cron prebuild all treat ID029 as `not_required`
-2. Logged-in smoke:
-   - `/admin/payouts?ym=202606`
-   - `/management-score`
-   - `/monthly-agreement?ym=202606`
-   - `/admin/monthly-work-agreements?ym=202606`
-3. Continue UX refinement of the 4 finance tables. If まさ still feels "設計がいけてない", keep one table = one purpose. Do not merge company reserve, cash out, reward debt, and cap risk back into one table.
-4. Contract revision/legal rollout is still a parallel workstream. Hard guard operation must assume contract amendment, member consent, and legal review; do not present this as legal advice.
+1. Logged-in visual check for `/admin/ms-overview` edit mode:
+   - Open a real admin session.
+   - Toggle edit mode.
+   - Confirm two-pane layout, one-row member share table, aggregate slider panel, remaining point display, MS amount, member MS amount, top/footer save bars.
+   - Save a tiny safe test only if Masa explicitly wants a live DB write.
+2. `value_milestones` estimate-line pollution remains a separate data cleanup task from the monthly report work. It may affect cockpit, `/admin/ms-overview`, and reward calculations if old fixed-cycle quote lines remain active.
+3. Decide the owner of `gas-slack/.clasp.json`. It looks like GAS/Slack local clasp link state, but this handoff did not inspect or classify its contents.
 
 ## Read First Next Session
 
 1. `HANDOFF.md`
-2. `pwa/spec/3-14-monthly-work-agreement-current-spec.md`
-3. `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`
-4. `pwa/manual/7-1-reward-calc-spec.md`
-5. `pwa/manual/4-5-management-score-and-finance-simulation-spec.md`
-6. `pwa/manual/2-2-member-workflows-quick-start.md`
-7. `pwa/manual/6-6-member-billing-prompts-spec.md`
-8. `pwa/BUGS.md`
-9. `pwa/design_log/sessions_2026-06.md`
+2. `pwa/HANDOFF_pwa_rebuild.md`
+3. `pwa/manual/6-8-admin-ms-overview-spec.md`
+4. `pwa/design/FEATURE_REGISTRY.md`
+5. `pwa/spec/6-1-appendix-changelog.md`
+6. `pwa/BUGS.md`
+7. `pwa/design_log/sessions_2026-06.md`
 
 ## First Next Action
 
 ```sh
 cd /Users/masa/projects/AMD/amd-os
 git fetch origin main
-git status -sb
+git status -sb --untracked-files=all
 git log --left-right --oneline main...origin/main
 curl -fsS https://amd-os-pwa.vercel.app/api/build-info
 ```
 
-Expected: local `main` is aligned with `origin/main`; production is `v0.28.13` / `038d0e62...` / `dirty=false` or newer. If production is older/newer, inspect before making finance changes.
+Expected: local `main` is aligned with `origin/main`; production is `v0.34.15` / current main SHA or newer. If production or local main differs, inspect before touching finance/MS data.
 
 ## Guardrails
 
-- Do not revert unrelated dirty files or other sessions' docs.
-- Do not use `git add .`.
-- For PWA production deploys, use `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` from repo root.
-- 月初合意 gate は報酬計算式に混ぜない。支払 action の直前に read gate として置く。
-- `stockYen` は月末未払い残高。支払予定でもPL原価でもない。
+- Do not restore cockpit-side MS design editing. MS design writes belong in `/admin/ms-overview`.
+- Do not use `ΣMS.points` as the regular pt unit denominator. Regular denominator is season months x 10pt.
+- Do not make cap_extra a project-specific exception. It follows the same period x 10pt rule and separate extra budget pool.
+- Do not use `git add .`; stage named handoff/docs files only.
+- For PWA production-bound changes, use `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`.

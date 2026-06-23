@@ -1061,3 +1061,34 @@ deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifica
 
 ### 関連メモ更新 (Cowork memory)
 - なし (今回は memory 追加せず、spec/3-2 + manual/9-3 + design_log の正本 doc 反映で代替)
+
+---
+
+## 2026-06-23 — Admin MS Overview を MS設計の正本編集面へ集約 (v0.34.4〜v0.34.9)
+
+### コンテキスト
+- まさが ZMP/OkuDoor の別財布 pt が直したはずなのに 67pt へ戻る問題を指摘。原因候補として cockpit と admin/MS編集の 2 箇所で MS 設計を書けることが挙がった。
+- 追加で、別財布も 20pt 例外ではなく期間×10ptルールへ揃える方針に修正。OkuDoor system development (202605〜202610) は 6か月×10=60pt。
+- admin 編集ON後の保存場所が分かりづらい、メンバーshare調整時に各メンバーのMS内金額が見えない、編集モードが横長すぎる、メンバー2カラムが比較しにくい、元の全MS pt配分スライダーが消えている、残り割り振り可能ptが見えない、全MSまとめスライダーにもMS金額が必要、右側でスライダー増加速度が変わる、というUIフィードバックを順に反映。
+
+### 実装
+- **write boundary集約**: cockpit / HUD cockpit 側の MS設計保存口を止め、MS名 / pt / tag / 期間 / 完了条件 / 担当share / 役割 / 担当タスク / 追加 / 無効化は `/admin/ms-overview` の編集モードで保存する仕様へ整理。
+- **pt分母復旧**: `season-point-basis.ts` を追加し、regular points = シーズン期間月数×10pt、cap_extra points = MS期間月数×10pt、`total_points = regular + cap_extra` に統一。admin PUT は cap_extra points を期間から正規化し、通常MS配分pt合計を pt単価分母へ戻さない。
+- **リアルタイム再計算**: `src/lib/admin/ms-overview-calc.ts` で `recomputeMsOverview` を使い、編集途中のメトリクス / MS金額 / メンバー年計 / MS内金額 / 残り割り振り可能ptを JS 側で再計算。`computeSeasonPl` と同じ round 規則を使う。
+- **保存導線**: 編集モード ON 直後の上部保存バーとフッター保存バーに `DB値に戻す` / `保存して DB へ反映` / 保存先DB・reward再計算の説明を配置。
+- **UI再配置**: 編集カードを左=MS基本情報、右=担当share表の 2 pane にし、担当share表はメンバー1人=1行へ変更。2カラム member grid は廃止。
+- **pt配分スライダー復旧**: 各MSカード内の pt slider に加え、MS一覧先頭に `全MS pt配分スライダー` panel を追加。どちらを動かしても同じ編集中 state を更新する。panel 各行に現在ptとMS金額を表示。
+- **スライダー固定range**: 通常MS slider max は編集開始時点の最大pt×1.5へ固定。ドラッグ中に現在値へ追従しないので、右端でも1pxあたりのpt幅が一定。
+- **docs / guard**: `manual/6-8-admin-ms-overview-spec.md`、`design/FEATURE_REGISTRY.md`、`manual/9-3`、`spec/6-1`、`BUGS.md`、critical-ui anchors を同期。
+
+### Verified
+- `npm exec tsc -- --noEmit --pretty false` 通過。
+- `npm run test:critical-ui` 通過。
+- `npm run build` 通過。
+- browser route smoke: unauthenticated `/admin/ms-overview` は `/auth/login?next=%2Fadmin%2Fms-overview` へ redirect。ログイン済み admin UI の目視確認は未実施。
+- deploy: MS Overview 系コミットは `cad7f7f4` (v0.34.4) → `8d8107e1` (v0.34.5) → `582e3bb7` (v0.34.6) → `b0b0d83d` (v0.34.7) → `c5fcef39` (v0.34.8) → `a8bf9b2a` (v0.34.9) で main に反映済み。その後 main は payout matrix fixes まで進み、closeout時点の HEAD は `d070807c` / v0.34.15。
+
+### 残課題
+- ログイン済み admin で `/admin/ms-overview` 編集モードを実機確認する。DB保存テストはまさ明示OK時のみ tiny/safe な変更で行う。
+- `value_milestones` への見積明細混入 cleanup は別タスク。印刷ビューだけでなく cockpit / `/admin/ms-overview` / 報酬計算へ影響しうるので、発生源と既存データ無効化方針を別セッションで扱う。
+- `gas-slack/.clasp.json` は今回のPWA/MS作業外の untracked local artifact。GAS/Slack owner 判断まで commit しない。

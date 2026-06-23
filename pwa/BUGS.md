@@ -25,6 +25,16 @@
 
 ---
 
+### [admin/ms-overview] pt配分スライダーがドラッグ中に現在値追従maxへ変わり、右側ほど急に増えた (2026-06-23)
+
+- **状態**: クローズ (2026-06-23 — 通常MS slider max を編集開始時点の最大pt×1.5へ固定し、全MSまとめスライダーと個別MSスライダーの両方へ適用)。
+- **症状**: `/admin/ms-overview` 編集モードで MS の pt スライダーを右へ動かすと、途中から急に pt 増加速度が速くなり、一定間隔で配分している感覚が壊れていた。まさから「最大ptの1.5倍くらいを右端に設定しておけばいいんじゃないかな」と指摘。
+- **原因**: スライダーの最大値が現在編集中の pt 値に応じて再計算され、ドラッグ中に track の 1px あたり pt 幅が変わっていた。aggregate slider と個別 card slider が同じ state を動かすようになったことで、この動的 max の違和感がより目立った。
+- **対応内容**: 編集開始時に通常MSの最大ptから `pointSliderMax = max(10, ceil(maxInitialPoints * 1.5))` を作り、編集中 state とは独立して保持するよう変更。`cap_extra` は期間月数×10pt固定なので disabled のまま。`manual/6-8`、`FEATURE_REGISTRY`、critical-ui anchor、spec/manual changelog へ反映。
+- **再発防止**: スライダーの range はユーザー操作中に値へ追従させない。配分ツールでは、現在値ではなく編集セッション開始時の固定上限を使う。aggregate / individual の 2 導線を持つ場合も、両方が同じ固定 range を共有する。
+
+---
+
 ### [governance] BWE (ended) みなし第1回定時株主総会 同意書メール (6/18) を D-14 / D-14G が取りこぼし、コックピット総会リストにも `/notifications` 要対応にも出なかった (2026-06-22)
 
 - **状態**: クローズ (2026-06-22 — BWE p11 の `governance_watch_shareholder_meetings=true` / `governance_watch_board_meetings=true` 投入。手動 backfill で `project_shareholder_meetings` 1 行 (BWE / shareholder_written_resolution / 2026-06-22 / amd_response=consented / source_ref=`gmail://thread/19eed63f8ddd31b7`) + `action_items` 1 件 (priority=critical, due_at=6/22 18:00 JST)。SKILL / 設計 md パッチは `pwa/design/_bwe_governance_patch_2026-06-22.md` に保管 = 本セッションで本体 md への直接 Edit が並列 worker と競合して revert される現象が発生したため、新規ファイル経由で残した。本体 md への手 merge は次セッション)。
