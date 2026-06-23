@@ -1,5 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { buildMonthlyWorkAgreementBundle } from "@/lib/monthly-work-agreement";
+import {
+  buildMonthlyWorkAgreementBundle,
+  isMonthlyWorkAgreementPayoutGateMigrationYm,
+} from "@/lib/monthly-work-agreement";
 
 const OVERRIDE_REASON_MIN_LENGTH = 8;
 
@@ -208,6 +211,16 @@ export async function buildPayoutAgreementGateSummary(
       requestId: null,
       requestCreatedAt: null,
     };
+
+    if (isMonthlyWorkAgreementPayoutGateMigrationYm(entry.ym)) {
+      rows.push({
+        ...base,
+        required: true,
+        status: "agreed",
+        reason: "月初合意の導入前/移行月のため合意済み扱い",
+      });
+      continue;
+    }
 
     if (member?.is_officer || member?.exclude_from_payout_notice) {
       rows.push({

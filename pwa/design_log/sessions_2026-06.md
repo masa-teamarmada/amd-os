@@ -1064,6 +1064,28 @@ deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifica
 
 ---
 
+## 2026-06-23 — 月初合意支払 gate の導入前月 cutoff 修正 (v0.34.16)
+
+### コンテキスト
+- まさが `/admin/payouts?ym=202606` の月初合意支払 gate で、ZMP 2026/05 稼働分4名がまだ `条件更新あり` blocker になっていると指摘。
+- 月初合意機能は2026年6月途中導入のため、2026年5月以前の稼働月は本人が月初に合意できない。支払 gate 上は全員合意済み扱いでスキップする必要があった。
+
+### 実装
+- `MONTHLY_WORK_AGREEMENT_PAYOUT_GATE_START_YM = 202606` を追加。
+- `source_ym <= 202605` の支払 gate 行は `required=true` / `status='agreed'` / 理由「月初合意の導入前/移行月のため合意済み扱い」として allow。
+- 本人向け monthly-agreement bundle では同月以前を `not_required` として表示し、実際の合意 row は偽造しない。
+- `pwa/spec/3-14-monthly-work-agreement-current-spec.md`、`pwa/manual/6-5-admin-payouts-reward-notice-spec.md`、`pwa/design/FEATURE_REGISTRY.md`、`pwa/manual/9-3-appendix-changelog.md`、`pwa/BUGS.md` に同期。
+
+### Verify
+- `npx tsx -e ...buildPayoutAgreementGateSummary(...)`: `source_ym=202605` の gate row が `required=1 / agreed=1 / blockers=0 / status=agreed` になることを確認。
+- `npx tsc --noEmit`
+- `npx eslint src/lib/monthly-work-agreement.ts src/lib/monthly-work-agreement-payout-gate.ts`
+- `git diff --check`
+- `npm run build`
+- `npm run test:critical-ui`
+
+---
+
 ## 2026-06-23 — Admin MS Overview を MS設計の正本編集面へ集約 (v0.34.4〜v0.34.9)
 
 ### コンテキスト

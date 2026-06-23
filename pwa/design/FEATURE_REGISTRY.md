@@ -35,11 +35,13 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 - 支払月選択: `ym=YYYYMM` で対象月を選び、`billing_cycles.invoice_ym` を優先する。未設定cycleは `/admin/projects` の `projects.payment_due_rule` から支払月を判定する。
 - 高速初期表示: 通常GETは `billing_cycles.reward_summary_json` の報酬キャッシュを読むだけにする。毎回 `syncRewardSummariesForBillingCycles()` を再計算しない。先12か月の capped 投影 (`forecastCapped`) も `forecastCycles.reward_summary_json` から集計し、画面を開いただけで全PJの `computeForwardCappedMemberCosts()` を走らせない。
+- 月初合意gateの後追い表示: 初期表示GETは支払データ本体を先に返し、月初合意gateは `gateOnly=1` の別GETで後追い取得する。保存・発行・送付などのwrite actionではサーバー側gateを必ず実行する。
 - 報酬キャッシュ再計算: 明示的な「報酬キャッシュ再計算」操作または保存系処理だけが `refreshRewards=1` / `refreshRewards: true` で再計算する。
 - 0円キャッシュ: 報酬対象メンバーがいない月も `reward_summary_json.members=[]` の0円キャッシュとして保存し、`forecastCapped` では key 有りの0円として扱う。`null` の未計算扱いにして budget fallback へ落とさない。
 - 報酬キャッシュ日次更新: `payout-reward-cache-refresh` cron が毎日03:05 JSTに、前月 + 当月から先12か月の支払月、および同じ窓内の稼働月について `billing_cycles.reward_summary_json` を再生成する。手動で `ym=YYYYMM&lookahead=11` を付けると、指定月から先12か月のキャッシュを作れる。
 - 予定担当比率のみ: 報酬計算は MS の期間按分で当月消化ptを出し、`milestone_responsibility.share` で分配する。活動ログ由来の実績配分や手入力報酬 override は使わない。
 - 保存済み支払額の優先: `monthly_reward_payout.total_pay` に保存済みの確定額があれば、画面の支払額・`payout_notices.total_yen`・PDF生成の元データをこの保存済み額に揃える。`reward_summary_json` の再計算値で上書きしない。
+- 月初合意支払gate: `member × 稼働月 × PJ` で未合意 / 条件更新あり / 修正要望中を server-side に止める。2026年5月以前の稼働月 (`source_ym <= 202605`) は導入前/移行月として gate 上 `合意済` 扱いにし、2026年6月以降から通常判定にする。
 - 縦型PJ収支表: 「全体収支」列とPJ列を並べ、クライアント支払、バッファ、本契約cap、本契約支払、別財布支払、役員分、役員相殺、本契約残り、メンバー別支払を確認できる。
 - 先12か月 目的別4表 + メンバー別支払予定: `/admin/payouts` と `/management-score` 下部表の両方で、先12か月を `先12か月 キャッシュ支払` / `先12か月 会社留保` / `先12か月 報酬債務` / `先12か月 cap超過チェック` の4表に分ける。会社留保を支出扱いしない。会社留保は `cap/売上枠 - 外部支払` として読む。報酬債務は月末残高なので12か月分を足さず、各月残・ピーク・最終月残で見る。cap超過チェックだけが `報酬需要 - cap/売上枠` を見る。`/admin/payouts` には、行=非役員・支払対象メンバー、列=稼働月の `先12か月 メンバー別支払予定` 表も置き、セルクリックで PJ 別 `totalPay` / 本契約 / 別財布 / 発生額 / pt / 未払い残を確認できる。
 - 手入力予算確定なし: `/admin/payouts` では請求額や追加支払枠を手入力して `billing_cycles.budget_yen` を書き換えない。契約から解ける通常capと、MSタグから解ける別財布発生だけを表示する。

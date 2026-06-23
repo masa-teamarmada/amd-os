@@ -35,11 +35,14 @@
 
 `/admin/payouts` は、支払対象の `member × source_ym × project` ごとに月初合意状態を read し、未合意のまま支払データ保存・支払通知書PDF生成・通知メール送信・送付済み確定へ進ませない。
 
+2026年5月以前の稼働月 (`source_ym <= 202605`) は月初合意導入前/移行月のため、支払 gate 上は `agreed` 扱いで通す。実際の `member_monthly_work_agreements` 行を偽造せず、gate の理由を「導入前/移行月のため合意済み扱い」として表示する。2026年6月以降の稼働月から通常どおり `pending` / `stale` / `revision_requested` を blocker にする。
+
 | status | meaning | payout behavior |
 |---|---|---|
 | `not_required` | 支払額 0、役員/通知対象外、`frozen` / `lost` / `freeze_from_ym` 到達後 / active期間外PJなど | gate 対象外 |
 | `pending` | 支払対象だが本人の active `agreed` row が無い、または支払対象PJが snapshot に無い | block |
 | `agreed` | latest active `agreed.snapshot_hash === currentHash` | allow |
+| `agreed` (移行月扱い) | `source_ym <= 202605` | allow。導入前/移行月なので合意済み扱い |
 | `stale` | latest active `agreed` はあるが `snapshot_hash !== currentHash` | block (`条件更新あり`) |
 | `revision_requested` | `member_monthly_work_agreement_requests.status='open'` が member全体または当該PJにある | block |
 | `admin_override` | admin が理由を入れて server-side action を例外実行し、監査ログが残った | allow for that action |

@@ -20,6 +20,11 @@ import type {
 type JsonRecord = Record<string, unknown>;
 
 const SNAPSHOT_VERSION = "monthly_work_agreement.v2" as const;
+export const MONTHLY_WORK_AGREEMENT_PAYOUT_GATE_START_YM = "202606";
+
+export function isMonthlyWorkAgreementPayoutGateMigrationYm(ym: string): boolean {
+  return /^\d{6}$/.test(ym) && ym < MONTHLY_WORK_AGREEMENT_PAYOUT_GATE_START_YM;
+}
 
 function toNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -308,6 +313,33 @@ export async function buildMonthlyWorkAgreementBundle(
     isAdmin: Boolean(member.is_admin),
     excludeFromPayoutNotice: Boolean(member.exclude_from_payout_notice),
   };
+
+  if (isMonthlyWorkAgreementPayoutGateMigrationYm(ym)) {
+    const snapshot: MonthlyWorkAgreementSnapshot = {
+      schemaVersion: SNAPSHOT_VERSION,
+      ym,
+      member: snapshotMember,
+      projects: [],
+      totals: {
+        expectedRewardYen: 0,
+        stockYen: 0,
+        projectCount: 0,
+        reviewRequiredCount: 0,
+      },
+    };
+    return {
+      ym,
+      member: snapshotMember,
+      snapshot,
+      currentHash: hashMonthlyAgreementSnapshot(snapshot),
+      status: "not_required",
+      latestAgreement: null,
+      revisionRequests: [],
+      tableReady: true,
+      canAgree: false,
+      exclusionReason: "月初合意の導入前/移行月のため、この月の合意は不要です。",
+    };
+  }
 
   if (member.exclude_from_payout_notice === true) {
     const snapshot: MonthlyWorkAgreementSnapshot = {

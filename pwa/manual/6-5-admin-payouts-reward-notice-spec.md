@@ -66,6 +66,8 @@ flowchart TD
 
 通常 GET は **読むだけ**。 admin の保存系処理または手動ボタンだけが再計算を走らせる (= まさ #過去 教訓)。`refreshRewards=1` の場合は再計算後の `reward_summary_json` を使って同じ集計を返す。
 
+初期表示の `GET /api/admin/payouts` は、支払データ本体を先に返すため月初合意gateの重い snapshot 照合を含めない。画面は `gateOnly=1` の別GETを裏で走らせ、後から「月初合意支払ゲート」パネルだけ更新する。保存・発行・送付などの write action は従来どおりサーバー側で `buildPayoutAgreementGateSummary()` を必ず実行し、gate blocker があれば止める。
+
 ### 報酬額の手入力禁止
 
 `/admin/payouts` には、PJ・稼働月・メンバー・支払額を手で指定して報酬明細へ入れるルートを置かない。報酬額は `value_plan_cycles` / `value_milestones` / `milestone_monthly_progress` / `milestone_responsibility` から再計算できるものだけを正とする。
@@ -86,9 +88,12 @@ admin一覧では合意用の予定報酬とは別に、`reward_summary_json.mem
 
 `/admin/payouts` は支払対象の `member × 稼働月 × PJ` ごとに `member_monthly_work_agreements` / `member_monthly_work_agreement_requests` を read し、未合意・条件更新あり・修正要望中のまま支払へ進ませない。これは支払 gate であり、`reward_summary_json` の計算式には混ぜない。
 
+2026年5月以前の稼働月 (`source_ym <= 202605`) は、月初合意機能の導入前/移行月として支払 gate 上 `合意済` 扱いにする。実際の合意 row を作るのではなく、gate の表示理由を「導入前/移行月のため合意済み扱い」とし、2026年6月以降の稼働月から通常どおり未合意・条件更新・修正要望を blocker にする。
+
 | state | UI表示 | server behavior |
 |---|---|---|
 | 未合意 | `pending` | `支払データ保存` / PDF生成 / 送付 / 送付済み確定を 409 stop |
+| 移行月合意済扱い | `agreed` | `source_ym <= 202605` は導入前/移行月として allow |
 | 条件更新あり | `stale` | latest agreed snapshot hash と current hash が違うため stop |
 | 修正要望中 | `revision_requested` | open request が member全体または当該PJにあるため stop |
 | 対象外 | `not_required` | frozen/lost/active期間外PJ、支払額0、役員/通知対象外は gate 外 |

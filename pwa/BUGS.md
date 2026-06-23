@@ -5,6 +5,16 @@
 
 ---
 
+### [pwa/admin-payouts] 月初合意gateのsnapshot照合が初期表示GETに乗り、データ表示まで約15秒かかった (2026-06-23)
+
+- **状態**: クローズ (2026-06-23 — 初期表示GETから月初合意gate照合を分離し、`gateOnly=1` で後追い取得)。
+- **症状**: 報酬キャッシュ化後も `/admin/payouts` でデータが表示されるまで約15秒かかる。Chrome実測で、画面骨格は先に出るが「キャッシュ表示」になるまで約11〜15秒待っていた。
+- **原因**: 初期表示GETの末尾で `buildPayoutAgreementGateSummary()` を実行していた。これは対象明細ごとに月初合意 snapshot bundle を照合するため、Vercel Function からの複数DB往復が初期表示をブロックしていた。
+- **対応内容**: 通常GETは `includeAgreementGate=false` で支払データ本体だけ先に返す。クライアントは `gateOnly=1` を裏で叩き、戻ったら `payoutAgreementGate` だけマージする。保存・発行・送付などのwrite actionは従来どおりサーバー側gateを同期実行し、blockerがあれば止める。
+- **再発防止**: 初期表示に必要ない監査/ゲート系の重い照合は、本体GETに同期させない。write boundaryでは必ず再検査し、viewでは後追い・分離取得にする。
+
+---
+
 ### [pwa/admin-payouts] 通常GETで先12か月 capped 投影を全PJ再計算して初期表示が遅かった (2026-06-23)
 
 - **状態**: クローズ (2026-06-23 — `/api/admin/payouts` の通常GETを `forecastCycles.reward_summary_json` キャッシュ集計へ変更)。
@@ -3330,3 +3340,10 @@
 - **原因**: OkuDoor の 3 MS のうち**システム開発(67pt)だけ cap_extra で別財布化されていて、企画(20pt, 202601-08)と現地運用(20pt, 202609-12)は `tag=normal` のまま本契約 regular プールに混入している** (前々からの既知宿題)。これにより OkuDoor 関連の作業がメンバーの本契約取り分を押し上げ、あびの regular stock を高く見せていた。加えて: (a) OkuDoor現地運用は実消化0 (`milestone_monthly_progress` progress=0%) なのに予実/支払予定では将来按分で計上、(b) 報酬債務台帳の「cap不足」判定が `carryIn=0 && stock>0` を全部赤判定するため、本契約 cap 総額は足りているのに個別按分の丸め端数 (数百円) が翌月繰越しただけの行まで「cap不足」赤表示する (本物の cap 逼迫 = 202609 regStock 16,472 等と区別していない)。
 - **対応内容 (未着手)**: まさ確定方針 = OkuDoor企画・現地運用は別財布にはしない (開発じゃない)。代わりに **ZMP の MS 設計 (pt / tag / share / 期間) を一から再考する** (まさ「そもそも ZMP の MS設計から再考したほうがいい」)。特に OkuDoor企画は「あびの貢献が薄い / AMD側がそもそもあまり貢献していない」可能性があり pt と share を見直す。**次セッションの主題**。
 - **教訓**: (1) 別財布化は「開発などの別契約原資が明確にある作業」だけに限定する。同じ案件名 (OkuDoor) でも企画・運用フェーズは本契約業務の一部なら本契約 regular で正しい。**MS の tag は「どの財布の原資か」で決める、案件名で揃えない**。(2) 「金額が高すぎる」という違和感は、pt単価や cap ではなく **MS の pt 配分・share・tag 設計そのもの**に原因があることがある。算定ロジックを疑う前に MS 設計を点検する。(3) cap不足の赤判定は「cap 総額不足」と「個別按分の端数繰越」を区別すべき (閾値 or carry 由来判定)。
+
+## [monthly-agreement/payout] 2026年5月稼働分が `条件更新あり` のまま支払 gate を止めた (2026-06-23)
+
+- **症状**: `/admin/payouts?ym=202606` の月初合意支払 gate で、ZMP 2026/05 稼働分の4名が `条件更新あり` blocker になり、支払停止のまま残った。まさの期待は「月初合意機能は2026年6月途中導入なので、5月分は全員合意済み扱いでスキップ」。
+- **原因**: gate が全 `source_ym` に対して `member_monthly_work_agreements.snapshot_hash !== currentHash` を `stale` として扱っていた。2026年5月稼働分は機能導入前で本人が月初に合意できないのに、後続の報酬/MS snapshot 更新だけを見て blocker にしていた。
+- **対応内容**: `MONTHLY_WORK_AGREEMENT_PAYOUT_GATE_START_YM = 202606` を追加し、`source_ym <= 202605` は導入前/移行月として支払 gate 上 `agreed` 扱いにした。実際の合意 row は作らず、表示理由は「月初合意の導入前/移行月のため合意済み扱い」。本人向け monthly-agreement bundle も同月以前は `not_required` として表示する。
+- **再発防止策**: 月初合意 gate の rollout / 法務移行 / 契約改定前期間には明示的な cutoff を置く。snapshot hash の更新検知自体は正しいが、導入前の `source_ym` にまで適用すると「過去に合意できなかった月」を永久 blocker にする。

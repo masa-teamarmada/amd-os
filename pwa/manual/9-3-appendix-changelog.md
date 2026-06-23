@@ -14,6 +14,8 @@
 
 | 日付 | 対象章 | 種別 | 内容 | 理由 | 誰が |
 |---|---|---|---|---|---|
+| 2026-06-23 | 6-5 Admin Payouts / FEATURE_REGISTRY / BUGS | 修正 | `/admin/payouts` 初期表示GETから月初合意gateの snapshot 照合を分離。通常GETは支払データ本体だけ先に返し、画面側が `gateOnly=1` を後追い取得して `payoutAgreementGate` をマージする。保存・発行・送付などwrite actionでは従来どおりサーバー側gateを必ず実行する | キャッシュ化後も実ブラウザでデータ表示まで約11〜15秒かかり、重い月初合意gate照合が初期表示をブロックしていたため。表示速度とwrite safetyを分離する | えいみ |
+| 2026-06-23 | 6-5 Admin Payouts / 3-14 月初合意 / FEATURE_REGISTRY / BUGS | 修正 | 月初合意支払 gate で、2026年5月以前の稼働月 (`source_ym <= 202605`) を導入前/移行月として `合意済` 扱いにする仕様へ更新。実際の合意 row は偽造せず、gate 表示理由を「導入前/移行月のため合意済み扱い」とする | 月初合意機能は2026年6月途中導入で、2026年5月稼働分は本人が月初に合意できない。5月分が snapshot hash 更新により `条件更新あり` blocker になり支払停止していたため | えいみ |
 | 2026-06-23 | 6-5 Admin Payouts / FEATURE_REGISTRY | 追加 | `/admin/payouts` に `先12か月 メンバー別支払予定` 表を追加。行=非役員・支払対象メンバー、列=稼働月、セル=その月に外部支払する `totalPay` 合計。セル選択で PJ 別の支払額 / 本契約 / 別財布 / 発生額 / pt / 未払い残を表示する仕様へ更新 | 支払月単位・PJ単位だけでは、メンバーごとの今後12か月の支払予定とPJ内訳を横断確認しづらかったため | えいみ |
 | 2026-06-23 | 6-2 Admin Projects / Members 台帳 / 6-6 Member Billing Prompts / design mypage | 変更 | `/admin/members` の既存「支払対象」列を「役員」(`is_officer`) に改名し、新しい「支払対象」列 (`exclude_from_payout_notice`) を追加。非役員かつ支払対象外は `/mypage` 金額を `ー`、役員かつ支払対象外は金額表示 + `（役員のため支払対象外）`、0円は未計算扱いしない仕様へ更新 | 役員会社留保と非役員の支払通知書対象外を分離し、0円と未計算を混同しないため | えいみ |
 | 2026-06-23 | 6-5 Admin Payouts / FEATURE_REGISTRY / BUGS | 修正 | 報酬対象メンバーがいない月を `reward_summary_json=null` ではなく `members=[]` の0円キャッシュとして保存する仕様へ更新。`forecastCapped` では key 有り0円として扱い、budget fallback に落とさない | `p00` / `p09` のように旧重計算でも0円が正しい月が `null` のままだと、通常GETのキャッシュ集計では未計算扱いになり、先12か月表で本来0円のPJに支払予定が出る可能性があるため | えいみ |
