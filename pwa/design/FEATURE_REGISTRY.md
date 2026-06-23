@@ -35,6 +35,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 - 支払月選択: `ym=YYYYMM` で対象月を選び、`billing_cycles.invoice_ym` を優先する。未設定cycleは `/admin/projects` の `projects.payment_due_rule` から支払月を判定する。
 - 高速初期表示: 通常GETは `billing_cycles.reward_summary_json` の報酬キャッシュを読むだけにする。毎回 `syncRewardSummariesForBillingCycles()` を再計算しない。先12か月の capped 投影 (`forecastCapped`) も `forecastCycles.reward_summary_json` から集計し、画面を開いただけで全PJの `computeForwardCappedMemberCosts()` を走らせない。
+- SSR初回データ: `/admin/payouts` page は `loadTargetData(currentYm, { includeAgreementGate: false })` をサーバー側で実行し、`AdminPayoutsClient initialData` へ渡す。初回 client GET を省き、月変更・手動再計算・write後の再取得だけ `/api/admin/payouts` を使う。
 - 月初合意gateの後追い表示: 初期表示GETは支払データ本体を先に返し、月初合意gateは `gateOnly=1` の別GETで後追い取得する。保存・発行・送付などのwrite actionではサーバー側gateを必ず実行する。
 - 報酬キャッシュ再計算: 明示的な「報酬キャッシュ再計算」操作または保存系処理だけが `refreshRewards=1` / `refreshRewards: true` で再計算する。
 - 0円キャッシュ: 報酬対象メンバーがいない月も `reward_summary_json.members=[]` の0円キャッシュとして保存し、`forecastCapped` では key 有りの0円として扱う。`null` の未計算扱いにして budget fallback へ落とさない。

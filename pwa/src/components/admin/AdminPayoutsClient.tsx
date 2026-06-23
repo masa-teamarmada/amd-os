@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { CockpitMonthlyModal } from "@/components/cockpit/CockpitMonthlyModal";
 import { fetchCockpitFromSupabase, type CockpitData } from "@/lib/supabase-data";
 import { expandExtraRevenue, type ExtraRevenueSourceRow } from "@/lib/finance/extra-revenue";
@@ -103,7 +103,7 @@ type BillingCycle = {
   /** 別財布 (cap_extra) プールの当月支払上限。NULL=未設定 / 0=全額繰越 / N=上限 */
   extra_budget_yen?: number | null;
   invoice_ym: string | null;
-  reward_summary_json: RewardSummary | string | null;
+  reward_summary_json: unknown;
   payout_notice_uploaded_at?: string | null;
   payment_confirmed_at?: string | null;
   reward_paid_at?: string | null;
@@ -178,7 +178,7 @@ type BulkNoticeSummary = {
   results: BulkNoticeResultEntry[];
 };
 
-type PayoutData = {
+export type PayoutData = {
   ym: string;
   members: Member[];
   projects: Project[];
@@ -191,7 +191,7 @@ type PayoutData = {
   payouts: MonthlyRewardPayout[];
   notices: PayoutNotice[];
   extraRevenueRows?: ExtraRevenueSourceRow[];
-  expectedEntries?: PayoutEntry[];
+  expectedEntries?: unknown[];
   payoutAgreementGate?: PayoutAgreementGateSummary | null;
   refreshedRewards?: boolean;
 };
@@ -469,6 +469,7 @@ type NoticeMailModalState = {
 interface Props {
   initialYm: string;
   ymOptions: string[];
+  initialData?: PayoutData | null;
 }
 
 const BC_STATUS_LABEL: Record<string, string> = {
@@ -511,6 +512,10 @@ const PAYOUT_AGREEMENT_STATUS_CLASS: Record<PayoutAgreementGateStatus, string> =
 
 function fmtYm(ym: string) {
   return ym && ym.length === 6 ? `${ym.slice(0, 4)}/${ym.slice(4)}` : ym;
+}
+
+function payoutDataHint(nextYm: string, payload: PayoutData, refreshRewards = false) {
+  return `${fmtYm(nextYm)} / ${refreshRewards ? "再計算済" : "キャッシュ表示"} / 対象${payload.cycles.length}件 / 報酬${payload.expectedEntries?.length ?? 0}明細`;
 }
 
 function fmtRelativeTime(iso: string | null | undefined): string | null {
@@ -1387,12 +1392,14 @@ function buildMemberMonthlyPayoutRows({
   return [...rows.values()].sort((a, b) => b.totalPay - a.totalPay || a.memberName.localeCompare(b.memberName, "ja"));
 }
 
-export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
+export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }: Props) {
+  const initialPayload = initialData?.ym === initialYm ? initialData : null;
+  const skipInitialFetchRef = useRef(Boolean(initialPayload));
   const [ym, setYm] = useState(initialYm);
-  const [data, setData] = useState<PayoutData | null>(null);
+  const [data, setData] = useState<PayoutData | null>(initialPayload);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [hint, setHint] = useState("");
+  const [hint, setHint] = useState(() => initialPayload ? payoutDataHint(initialPayload.ym, initialPayload, Boolean(initialPayload.refreshedRewards)) : "");
   const [modalTarget, setModalTarget] = useState<ModalTarget | null>(null);
   const [noticeSavingMemberId, setNoticeSavingMemberId] = useState<string | null>(null);
   const [noticeMailModal, setNoticeMailModal] = useState<NoticeMailModalState | null>(null);
@@ -1831,9 +1838,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
       }
       setData(payload);
       void loadAgreementGateForYm(nextYm);
-      setHint(
-        `${fmtYm(nextYm)} / ${options.refreshRewards ? "再計算済" : "キャッシュ表示"} / 対象${payload.cycles.length}件 / 報酬${payload.expectedEntries?.length ?? 0}明細`
-      );
+      setHint(payoutDataHint(nextYm, payload, Boolean(options.refreshRewards)));
     } catch (err) {
       setData(null);
       setHint(err instanceof Error ? err.message : "読込エラー");
@@ -2211,6 +2216,11 @@ export function AdminPayoutsClient({ initialYm, ymOptions }: Props) {
   }
 
   useEffect(() => {
+    if (skipInitialFetchRef.current) {
+      skipInitialFetchRef.current = false;
+      void loadAgreementGateForYm(ym);
+      return;
+    }
     void loadForYm(ym);
   }, [ym]);
 

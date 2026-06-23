@@ -11,6 +11,7 @@
 - **症状**: 報酬キャッシュ化後も `/admin/payouts` でデータが表示されるまで約15秒かかる。Chrome実測で、画面骨格は先に出るが「キャッシュ表示」になるまで約11〜15秒待っていた。
 - **原因**: 初期表示GETの末尾で `buildPayoutAgreementGateSummary()` を実行していた。これは対象明細ごとに月初合意 snapshot bundle を照合するため、Vercel Function からの複数DB往復が初期表示をブロックしていた。
 - **対応内容**: 通常GETは `includeAgreementGate=false` で支払データ本体だけ先に返す。クライアントは `gateOnly=1` を裏で叩き、戻ったら `payoutAgreementGate` だけマージする。保存・発行・送付などのwrite actionは従来どおりサーバー側gateを同期実行し、blockerがあれば止める。
+- **追加対応**: 2026-06-23 v0.34.18 で、`/admin/payouts` page が `loadTargetData(currentYm, { includeAgreementGate: false })` を SSR で呼び、`AdminPayoutsClient initialData` として渡す形へ変更。初回 client GET をスキップし、月初合意gateだけ `gateOnly=1` で後追い取得する。月変更・報酬キャッシュ再計算・保存/発行後の再取得は従来どおり API を使う。
 - **再発防止**: 初期表示に必要ない監査/ゲート系の重い照合は、本体GETに同期させない。write boundaryでは必ず再検査し、viewでは後追い・分離取得にする。
 
 ---

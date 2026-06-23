@@ -1,4 +1,7 @@
 import { AdminPayoutsClient } from "@/components/admin/AdminPayoutsClient";
+import { loadTargetData } from "@/app/api/admin/payouts/route";
+
+export const dynamic = "force-dynamic";
 
 function getRecentYms(n = 6): string[] {
   const now = new Date(Date.now() + 9 * 60 * 60 * 1000);
@@ -15,6 +18,13 @@ function getRecentYms(n = 6): string[] {
 export default async function AdminPayoutsPage() {
   const currentYm = getRecentYms(1)[0];
   const ymOptions = getRecentYms(12);
+  let initialData: Awaited<ReturnType<typeof loadTargetData>> | null = null;
+
+  try {
+    initialData = await loadTargetData(currentYm, { includeAgreementGate: false });
+  } catch (err) {
+    console.error("[admin payouts page initial data]", err);
+  }
 
   return (
     <div>
@@ -25,7 +35,7 @@ export default async function AdminPayoutsPage() {
       <p className="text-xs text-muted-foreground mb-4">
         支払月ベースで報酬確定済みcycleを集約し、支払明細とメンバー別通知額を保存する。
       </p>
-      <AdminPayoutsClient initialYm={currentYm} ymOptions={ymOptions} />
+      <AdminPayoutsClient initialYm={currentYm} ymOptions={ymOptions} initialData={initialData} />
     </div>
   );
 }

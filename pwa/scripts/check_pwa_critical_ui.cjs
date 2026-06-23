@@ -171,6 +171,19 @@ expectIncludes("src/app/api/admin/payouts/route.ts", [
   "applySavedPayoutsForExistingRows",
 ]);
 
+expectIncludes("src/app/(app)/admin/payouts/page.tsx", [
+  "loadTargetData",
+  "includeAgreementGate: false",
+  "initialData",
+]);
+
+expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
+  "initialData",
+  "skipInitialFetchRef",
+  "payoutDataHint",
+  "gateOnly",
+]);
+
 expectIncludes("src/app/api/cron/payout-notice-prebuild/route.ts", [
   "payout-notice-prebuild",
   "generateNoticePdfBulk",

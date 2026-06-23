@@ -66,6 +66,8 @@ flowchart TD
 
 通常 GET は **読むだけ**。 admin の保存系処理または手動ボタンだけが再計算を走らせる (= まさ #過去 教訓)。`refreshRewards=1` の場合は再計算後の `reward_summary_json` を使って同じ集計を返す。
 
+`/admin/payouts` の初回表示は、page 側が `loadTargetData(currentYm, { includeAgreementGate: false })` を SSR で実行し、`AdminPayoutsClient initialData` として渡す。クライアントは初回 client GET をスキップし、月変更・手動再計算・保存/発行後の再取得だけ `/api/admin/payouts` を使う。これにより、キャッシュ済みデータを表示するだけなのに hydration 後の API 待ちで空表示が続く事故を避ける。
+
 初期表示の `GET /api/admin/payouts` は、支払データ本体を先に返すため月初合意gateの重い snapshot 照合を含めない。画面は `gateOnly=1` の別GETを裏で走らせ、後から「月初合意支払ゲート」パネルだけ更新する。保存・発行・送付などの write action は従来どおりサーバー側で `buildPayoutAgreementGateSummary()` を必ず実行し、gate blocker があれば止める。
 
 ### 報酬額の手入力禁止
