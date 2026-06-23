@@ -19,7 +19,7 @@
 
 ## Repo / Deploy State
 
-- Current handoff commit: `965b5638 docs(handoff): update admin ms overview closeout` on `main`, pushed to `origin/main`.
+- Handoff docs are committed and pushed on `main`; use `git log --oneline -n 5` for the latest docs closeout hash.
 - Product code baseline before the docs-only handoff commit: `d070807c Fix payout matrix sticky columns`.
 - Production alias can lag docs-only handoff commits. During closeout it moved from the product baseline `d070807c` to the first handoff docs commit `965b5638`, both `v0.34.15` / `dirty=false`; re-check `/api/build-info` for whether the final docs correction `db91107f` has become visible.
 - Remaining tracked dirty group: monthly-agreement / admin payouts WIP (`v0.34.16` cutoff + gateOnly docs/guards): `pwa/BUGS.md`, `pwa/design/FEATURE_REGISTRY.md`, `pwa/design_log/sessions_2026-06.md`, `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`, `pwa/manual/9-3-appendix-changelog.md`, `pwa/scripts/check_pwa_critical_ui.cjs`, `pwa/spec/3-14-monthly-work-agreement-current-spec.md`, `pwa/src/lib/build-info.ts`, `pwa/src/lib/monthly-work-agreement-payout-gate.ts`, `pwa/src/lib/monthly-work-agreement.ts`.

@@ -21,7 +21,7 @@
 
 ## Repo State
 
-- Current handoff commit: `965b5638 docs(handoff): update admin ms overview closeout` (push済, `origin/main` aligned)。
+- Handoff docs は `main` に commit/push 済み。最新 closeout docs hash は `git log --oneline -n 5` で確認する。
 - Product code baseline before the docs-only handoff commit: `d070807c Fix payout matrix sticky columns`。
 - Production alias は docs-only handoff commit に遅れて追従することがある。closeout 中は product baseline `d070807c` から first handoff docs commit `965b5638` へ移動した (どちらも `v0.34.15` / `dirty=false`)。final docs correction `db91107f` が visible かは次セッションで `/api/build-info` を再確認する。
 - 未push commit: なし。
