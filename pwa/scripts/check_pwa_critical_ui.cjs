@@ -681,6 +681,7 @@ expectIncludes("src/components/admin/AdminMsOverviewClient.tsx", [
   "編集モード",
   "MS追加",
   "担当share",
+  "全MS pt配分スライダー",
   "pt配分スライダー",
   "残り割り振り可能pt",
   "MS内金額",

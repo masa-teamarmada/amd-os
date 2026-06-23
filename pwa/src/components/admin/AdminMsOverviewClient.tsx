@@ -451,6 +451,11 @@ function MemberYearRow({
 // ---- 1 PJ ブロック ---------------------------------------------------------
 
 type SaveStatus = "idle" | "saving" | "error" | "success";
+type PointSummary = {
+  allocatedRegularPoints: number;
+  regularPoints: number;
+  remainingRegularPoints: number;
+};
 
 function EditActionBar({
   isDirty,
@@ -464,11 +469,7 @@ function EditActionBar({
   isDirty: boolean;
   saveStatus: SaveStatus;
   saveError: string | null;
-  pointSummary?: {
-    allocatedRegularPoints: number;
-    regularPoints: number;
-    remainingRegularPoints: number;
-  };
+  pointSummary?: PointSummary;
   onReset: () => void;
   onSave: () => void;
   className?: string;
@@ -528,6 +529,99 @@ function EditActionBar({
         >
           {saveStatus === "saving" ? "保存中…" : "保存して DB へ反映"}
         </button>
+      </div>
+    </div>
+  );
+}
+
+function AllMsPointSliders({
+  rows,
+  pointSummary,
+  onChange,
+}: {
+  rows: EditableMilestoneInput[];
+  pointSummary: PointSummary;
+  onChange: (milestoneId: string, points: number) => void;
+}) {
+  const sortedRows = useMemo(
+    () => [...rows].sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title, "ja")),
+    [rows],
+  );
+
+  return (
+    <div className="rounded-md border border-border/70 bg-background/55 p-3" aria-label="全MS pt配分スライダー一覧">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <span className="text-[12px] font-semibold">全MS pt配分スライダー</span>
+        <span
+          className={
+            "rounded px-2 py-0.5 text-[11px] tabular-nums " +
+            (pointSummary.remainingRegularPoints >= 0
+              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
+              : "bg-red-500/10 text-red-500")
+          }
+          title={`本契約 ${fmtPt(pointSummary.allocatedRegularPoints)}pt / ${fmtPt(pointSummary.regularPoints)}pt`}
+        >
+          残り割り振り可能pt {fmtPt(pointSummary.remainingRegularPoints)}pt
+        </span>
+      </div>
+      <div className="overflow-x-auto">
+        <div className="min-w-[420px] space-y-1">
+          {sortedRows.map((row) => {
+            const color = barColorForTag(row.tag, row.isCapExtra);
+            const derivedPoints = effectiveEditableMilestonePoints(row);
+            const usesPeriodPoints = row.isCapExtra && derivedPoints > 0;
+            const displayPoints = usesPeriodPoints ? derivedPoints : row.points;
+            const pointRange = sliderRange(displayPoints);
+            return (
+              <div
+                key={row.milestoneId}
+                className="grid grid-cols-[minmax(130px,1fr)_58px_minmax(150px,2fr)_58px] items-center gap-2 rounded border border-border/45 bg-card/45 px-2 py-1.5"
+              >
+                <div className="min-w-0">
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <span
+                      className="inline-block flex-shrink-0"
+                      style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: color }}
+                      aria-hidden
+                    />
+                    <span className="truncate text-[12px] font-medium" title={row.title}>
+                      {row.title || "無題MS"}
+                    </span>
+                  </div>
+                  <div className="truncate pl-[14px] text-[10px] text-muted-foreground" title={row.tag}>
+                    {row.isCapExtra ? "cap_extra / 期間×10pt固定" : row.tag || "normal"}
+                  </div>
+                </div>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={displayPoints}
+                  onChange={(event) => onChange(row.milestoneId, Number(event.target.value))}
+                  disabled={usesPeriodPoints}
+                  className="w-full rounded border border-border bg-background px-2 py-1 text-right text-[12px] tabular-nums disabled:cursor-not-allowed disabled:bg-muted/40 disabled:text-muted-foreground"
+                  aria-label={`${row.title || "無題MS"} pt`}
+                  title={usesPeriodPoints ? "cap_extra pt = MS期間の月数×10pt" : "pt"}
+                />
+                <input
+                  type="range"
+                  min={pointRange.min}
+                  max={pointRange.max}
+                  step={1}
+                  value={Math.min(pointRange.max, Math.max(pointRange.min, displayPoints))}
+                  onChange={(event) => onChange(row.milestoneId, Number(event.target.value))}
+                  disabled={usesPeriodPoints}
+                  className="block h-3 w-full accent-emerald-600 disabled:cursor-not-allowed disabled:opacity-35"
+                  aria-label={`${row.title || "無題MS"} pt配分スライダー`}
+                  title={usesPeriodPoints ? "cap_extra pt = MS期間の月数×10pt" : "pt配分スライダー"}
+                />
+                <div className="text-right text-[12px] tabular-nums text-muted-foreground">
+                  {fmtPt(displayPoints)}pt
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -633,6 +727,10 @@ function PlanCycleBlock({
       prev.map((row) => (row.milestoneId === milestoneId ? normalizeCapExtraPoint({ ...row, ...patch }) : row)),
     );
   }, []);
+
+  const handleMilestonePointsChange = useCallback((milestoneId: string, points: number) => {
+    handleMilestoneChange(milestoneId, { points });
+  }, [handleMilestoneChange]);
 
   const handleResetToDb = useCallback(() => {
     setEditing(toEditableMilestones(cycle));
@@ -861,19 +959,28 @@ function PlanCycleBlock({
                 {activeEditing.length === 0 ? (
                   <p className="text-xs text-muted-foreground">MS が登録されていない。</p>
                 ) : (
-                  [...activeEditing]
-                    .sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title, "ja"))
-                    .map((row) => (
-                      <MsEditorRow
-                        key={row.milestoneId}
-                        current={row}
-                        projectMembers={cycle.projectMembers}
-                        ptValueYen={recomputed.ptValueYenByMs.get(row.milestoneId) ?? 0}
-                        unitYen={row.isCapExtra ? recomputed.extraPtUnitYen : recomputed.regularPtUnitYen}
-                        onChange={(patch) => handleMilestoneChange(row.milestoneId, patch)}
-                        onRemove={() => handleRemoveMilestone(row.milestoneId)}
-                      />
-                    ))
+                  <div className="space-y-3">
+                    <AllMsPointSliders
+                      rows={activeEditing}
+                      pointSummary={pointSummary}
+                      onChange={handleMilestonePointsChange}
+                    />
+                    <div>
+                      {[...activeEditing]
+                        .sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title, "ja"))
+                        .map((row) => (
+                          <MsEditorRow
+                            key={row.milestoneId}
+                            current={row}
+                            projectMembers={cycle.projectMembers}
+                            ptValueYen={recomputed.ptValueYenByMs.get(row.milestoneId) ?? 0}
+                            unitYen={row.isCapExtra ? recomputed.extraPtUnitYen : recomputed.regularPtUnitYen}
+                            onChange={(patch) => handleMilestoneChange(row.milestoneId, patch)}
+                            onRemove={() => handleRemoveMilestone(row.milestoneId)}
+                          />
+                        ))}
+                    </div>
+                  </div>
                 )}
               </div>
             ) : (

@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-06-23 | FEATURE_REGISTRY / manual 6-8 | 修正 | `/admin/ms-overview` 編集モードのMS一覧先頭に `全MS pt配分スライダー` を追加。MS名 / pt数値入力 / スライダー / 現在pt だけの配分専用パネルで、個別編集カード内の `pt配分スライダー` と同じ編集中 state を更新する。通常MSの変更中は `残り割り振り可能pt` を同パネルにも表示する | 元仕様にあった全MS横断のpt配分スライダー導線が、個別編集カード内のスライダーだけになっていたため。全体比較しながらpt配分する入口と、詳細カード内での個別調整を両立させるため | えいみ |
 | 2026-06-23 | FEATURE_REGISTRY / manual 6-8 | 修正 | `/admin/ms-overview` 編集カードを左=MS基本情報 / 右=担当share表の2ペインに再編。担当share表は2カラムを廃止してメンバー1人=1行に統一。pt は数値入力に加えて `pt配分スライダー` を復帰し、通常MSの `残り割り振り可能pt = regularPointBasis - Σ(non-cap_extra MS effectivePoints)` をリアルタイム表示する | 横長すぎるフォームと2カラム担当表で比較しづらかったため。元々あったスライダーによるMS pt配分導線を維持し、配分残も見ながら調整できるようにするため | えいみ |
 | 2026-06-23 | FEATURE_REGISTRY / manual 6-8 | 修正 | `/admin/ms-overview` 編集モードの上部保存バーを contract 化し、保存先 DB / reward 再計算、`DB値に戻す`、`保存して DB へ反映` を上部とフッターの両方に表示。担当 share 行に `MS内金額` を追加し、`effectivePoints × share × pt単価` でリアルタイム表示する | 保存場所の視認性を上げ、share調整時に各メンバーがそのMSから受け取る金額をその場で判断できるようにするため | えいみ |
 | 2026-06-23 | 3-8 PJ Cockpit / FEATURE_REGISTRY | 修正 | cockpit / HUD cockpit をMS設計 read-only にし、MS設計編集を `/admin/ms-overview` へ集約。FEATURE_REGISTRY の `/admin/ms-overview` は MS名・pt・tag・期間・完了条件・担当share/役割/タスク・追加/無効化まで保存する画面へ更新し、保存時の `total_points` を `シーズン期間月数×10 + Σcap_extra MS期間月数×10` と明記。ZMP OkuDoorシステム開発は 202605〜202610 の6か月×10=60pt、total 180ptへ是正 | ZMP 別財布 pt が別画面保存で戻る可能性と、admin pt編集で本契約pt単価が変動する問題を止めるため。cockpit と admin の二重 write boundary を解消し、通常MS配分合計を単価分母に使わない。別財布も期間×10ptルールから例外にしない | えいみ |
