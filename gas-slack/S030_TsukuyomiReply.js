@@ -23,12 +23,37 @@ function reply_handleThreadEvent_(channelId, threadTs, triggerUserId, replyPerso
     // 3) userPrompt
     const userPrompt = reply_buildUserPrompt_(history, triggerUserId, projectId);
 
-    // 4) LLM
-    const replyText = llm_call_(systemPrompt, userPrompt, { maxTokens: 1500, temperature: 0.5 });
+    // 4) LLM (persona分岐: eimi → Fugu / tsukuyomi → Claude)
+    const usageRef = {};
+    const llmOpts = {
+      maxTokens: 1500,
+      temperature: 0.5,
+      persona: replyPersona,
+      usageRef: usageRef
+    };
+    const replyText = llm_call_(systemPrompt, userPrompt, llmOpts);
     if (!replyText) throw new Error("empty reply from LLM");
 
+    // 4.5) えいみだけ Fugu usage footer 付与 + Supabase log
+    let finalText = replyText;
+    if (replyPersona === "eimi" && usageRef.usage) {
+      finalText = replyText + eimi_buildFuguUsageFooter_(usageRef);
+      try {
+        eimi_logFuguUsage_({
+          channel_id: channelId,
+          thread_ts: threadTs,
+          user_id: triggerUserId,
+          model: usageRef.model || "fugu",
+          prompt_tokens: Number(usageRef.usage.prompt_tokens || 0),
+          completion_tokens: Number(usageRef.usage.completion_tokens || 0),
+          total_tokens: Number(usageRef.usage.total_tokens || 0),
+          history_messages_count: Array.isArray(history) ? history.length : 0
+        });
+      } catch (_logErr) { /* log失敗は無視 */ }
+    }
+
     // 5) 返信
-    slack_postThreadReply_(channelId, threadTs, replyText, null, replyPersona);
+    slack_postThreadReply_(channelId, threadTs, finalText, null, replyPersona);
 
     // 6) 記憶抽出（失敗しても返信には影響させない）
     try {
