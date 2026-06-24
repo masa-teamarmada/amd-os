@@ -19,8 +19,8 @@
 ## Repo State
 
 - Product baseline on `main`: `3677cd33 fix(governance): hide unreviewed meeting action candidates`, followed by docs-only handoff commit(s).
-- Production at closeout: `v0.34.22` / `3677cd3344e437a474558772f7233489c4b3cf5e` / `dirty=false`
-- Production is aligned with product code through `3677cd33`. The later handoff commit is docs-only and may not appear in `/api/build-info`.
+- Production at closeout: `v0.34.22` / `b24718ff675e4b1beb21e96195f21110e64bcc43` / `dirty=false`
+- Production is aligned with product code through `3677cd33`. Build-info may show a later docs-only handoff commit because it does not change the product baseline.
 - Dirty tracked after handoff commit: none expected.
 - Untracked: `../gas-slack/.clasp.json` (owner undecided; do not commit).
 
@@ -60,7 +60,7 @@ git log --left-right --oneline main...origin/main
 curl -fsS https://amd-os-pwa.vercel.app/api/build-info
 ```
 
-Expected: local `main` and `origin/main` align, no tracked dirty files, production product code is `v0.34.22` / `3677cd33`, and only `../gas-slack/.clasp.json` remains untracked.
+Expected: local `main` and `origin/main` align, no tracked dirty files, production product code is `v0.34.22` with product baseline through `3677cd33`, and only `../gas-slack/.clasp.json` remains untracked.
 
 ## Pointers
 

@@ -20,8 +20,8 @@ current truth:
 
 repo state at handoff:
 - product baseline on main: `3677cd33 fix(governance): hide unreviewed meeting action candidates`, followed by docs-only handoff commit(s)
-- production at closeout: `v0.34.22` / `3677cd3344e437a474558772f7233489c4b3cf5e` / `dirty=false`
-- production is aligned with product code through `3677cd33`; docs-only handoff commit(s) may not appear in `/api/build-info`.
+- production at closeout: `v0.34.22` / `b24718ff675e4b1beb21e96195f21110e64bcc43` / `dirty=false`
+- production is aligned with product code through `3677cd33`; `/api/build-info` may show a later docs-only handoff commit.
 - tracked dirty after handoff commit should be none.
 - untracked: `gas-slack/.clasp.json`; do not commit until GAS/Slack owner decides.
 
