@@ -14,6 +14,7 @@
 
 | 日付 | 対象章 | 種別 | 内容 | 理由 | 誰が |
 |---|---|---|---|---|---|
+| 2026-06-24 | 6-5 Admin Payouts / 3-14 月初合意 / FEATURE_REGISTRY / BUGS | 修正 | 月初合意支払 gate で、移行月扱いの行だけで blocker が無い場合は個別メンバー表を出さず、対象支払行数と「移行月スキップ」の summary を表示する仕様へ更新 | 2026/05稼働分のZMP支払行4件だけが `合意済` 一覧に並ぶと、他メンバーが合意対象から漏れているように見えるため。移行月は個別合意一覧ではなく支払月単位のスキップとして見せる | えいみ |
 | 2026-06-23 | 6-5 Admin Payouts / FEATURE_REGISTRY / BUGS | 修正 | `/admin/payouts` page が `loadTargetData(currentYm, { includeAgreementGate: false })` を SSR で実行し、`AdminPayoutsClient initialData` として渡す仕様へ更新。クライアントは初回 client GET をスキップし、月初合意gateだけ `gateOnly=1` で後追い取得する。月変更・手動再計算・保存/発行後の再取得は従来どおり API を使う | 報酬キャッシュと gate 分離後も、初回表示が「ページ表示 → hydration → client GET」の二段待ちになり、実ブラウザでデータ表示まで数秒残っていたため。キャッシュ済みデータは最初のサーバー応答に載せて体感待ちを削る | えいみ |
 | 2026-06-23 | 6-5 Admin Payouts / FEATURE_REGISTRY / BUGS | 修正 | `/admin/payouts` 初期表示GETから月初合意gateの snapshot 照合を分離。通常GETは支払データ本体だけ先に返し、画面側が `gateOnly=1` を後追い取得して `payoutAgreementGate` をマージする。保存・発行・送付などwrite actionでは従来どおりサーバー側gateを必ず実行する | キャッシュ化後も実ブラウザでデータ表示まで約11〜15秒かかり、重い月初合意gate照合が初期表示をブロックしていたため。表示速度とwrite safetyを分離する | えいみ |
 | 2026-06-23 | 6-5 Admin Payouts / 3-14 月初合意 / FEATURE_REGISTRY / BUGS | 修正 | 月初合意支払 gate で、2026年5月以前の稼働月 (`source_ym <= 202605`) を導入前/移行月として `合意済` 扱いにする仕様へ更新。実際の合意 row は偽造せず、gate 表示理由を「導入前/移行月のため合意済み扱い」とする | 月初合意機能は2026年6月途中導入で、2026年5月稼働分は本人が月初に合意できない。5月分が snapshot hash 更新により `条件更新あり` blocker になり支払停止していたため | えいみ |

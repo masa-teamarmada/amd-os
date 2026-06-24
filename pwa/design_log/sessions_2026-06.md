@@ -1064,6 +1064,28 @@ deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifica
 
 ---
 
+## 2026-06-24 — 月初合意支払 gate の移行月表示を summary 化 (v0.34.19)
+
+### コンテキスト
+- まさが `/admin/payouts?ym=202606` の月初合意支払 gate で、2026/05稼働分のZMP支払行4件だけが `合意済` として並び、他メンバーが表示されないのは違和感があると指摘。
+- server-side gate の対象は支払が発生する `member × source_ym × project` 行だが、移行月バイパスを通常の個別合意一覧に混ぜると「4人だけ合意済み」に見えてしまう。
+
+### 実装
+- `PayoutAgreementGateRow` に `migrationBypass` を追加し、`source_ym <= 202605` の移行月 allow 行を明示。
+- blocker が無く、required 行がすべて `migrationBypass=true` の場合は、admin UI で個別メンバー表を出さない。
+- 代わりに `対象支払行` / `移行月スキップ` / `blocker 0` の summary と、移行月として支払可能である旨を表示する。
+- `pwa/spec/3-14-monthly-work-agreement-current-spec.md`、`pwa/manual/6-5-admin-payouts-reward-notice-spec.md`、`pwa/design/FEATURE_REGISTRY.md`、`pwa/manual/9-3-appendix-changelog.md`、`pwa/BUGS.md` に同期。
+
+### Verify
+- `npx tsx -e ...buildPayoutAgreementGateSummary(...)`: `source_ym=202605` の gate row が `required=1 / agreed=1 / blockers=0 / status=agreed / migrationBypass=true` になることを確認。
+- `git diff --check`
+- `npx tsc --noEmit`
+- `npx eslint src/lib/monthly-work-agreement-payout-gate.ts src/components/admin/AdminPayoutsClient.tsx` (既存の `react-hooks/exhaustive-deps` warning 1件、error 0)
+- `npm run build`
+- `npm run test:critical-ui`
+
+---
+
 ## 2026-06-23 — 月初合意支払 gate の導入前月 cutoff 修正 (v0.34.16)
 
 ### コンテキスト

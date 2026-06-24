@@ -67,6 +67,7 @@ export type PayoutAgreementGateRow = {
   projectName: string;
   totalPay: number;
   required: boolean;
+  migrationBypass: boolean;
   status: PayoutAgreementGateStatus;
   reason: string;
   latestAgreedAt: string | null;
@@ -205,6 +206,7 @@ export async function buildPayoutAgreementGateSummary(
       projectId: entry.project_id,
       projectName: projectName(project, entry.project_id),
       totalPay,
+      migrationBypass: false,
       latestAgreedAt: null,
       snapshotHash: null,
       currentHash: null,
@@ -216,6 +218,7 @@ export async function buildPayoutAgreementGateSummary(
       rows.push({
         ...base,
         required: true,
+        migrationBypass: true,
         status: "agreed",
         reason: "月初合意の導入前/移行月のため合意済み扱い",
       });

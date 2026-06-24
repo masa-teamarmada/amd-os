@@ -238,6 +238,7 @@ type PayoutAgreementGateRow = {
   projectName: string;
   totalPay: number;
   required: boolean;
+  migrationBypass?: boolean;
   status: PayoutAgreementGateStatus;
   reason: string;
   latestAgreedAt: string | null;
@@ -2709,24 +2710,40 @@ function PayoutAgreementGatePanel({
   const blocked = blockers.length > 0;
   const tone = blocked ? "border-red-300 bg-red-50" : "border-emerald-300 bg-emerald-50";
   const textTone = blocked ? "text-red-950" : "text-emerald-950";
-  const shownRows = blocked ? blockers : gate.rows.filter((row) => row.required).slice(0, 6);
+  const requiredRows = gate.rows.filter((row) => row.required);
+  const migrationBypassOnly = !blocked && requiredRows.length > 0 && requiredRows.every((row) => row.migrationBypass);
+  const shownRows = migrationBypassOnly ? [] : blocked ? blockers : requiredRows.slice(0, 6);
 
   return (
     <section className={`rounded-lg border p-3 ${tone}`}>
       <div className="flex flex-wrap items-start gap-3">
         <div>
           <h2 className={`text-[13px] font-semibold ${textTone}`}>月初合意支払ゲート</h2>
-          <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
-            <span>required {gate.requiredCount}</span>
-            <span>agreed {gate.agreedCount}</span>
-            <span>not required {gate.notRequiredCount}</span>
-            <span>blocker {gate.blockedCount}</span>
-          </div>
+          {migrationBypassOnly ? (
+            <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+              <span>対象支払行 {requiredRows.length}</span>
+              <span>移行月スキップ {requiredRows.length}</span>
+              <span>blocker 0</span>
+            </div>
+          ) : (
+            <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+              <span>required {gate.requiredCount}</span>
+              <span>agreed {gate.agreedCount}</span>
+              <span>not required {gate.notRequiredCount}</span>
+              <span>blocker {gate.blockedCount}</span>
+            </div>
+          )}
         </div>
         <span className={`ml-auto rounded border px-2 py-1 text-[11px] ${blocked ? "border-red-300 bg-background text-red-800" : "border-emerald-300 bg-background text-emerald-800"}`}>
           {blocked ? "支払停止" : "支払可能"}
         </span>
       </div>
+
+      {migrationBypassOnly && (
+        <div className="mt-3 rounded-md border border-emerald-200 bg-background/70 px-2 py-2 text-[11px] text-emerald-900">
+          2026/05以前の稼働分は導入前/移行月として支払可能。対象支払行 {requiredRows.length} 件をまとめてスキップ中。
+        </div>
+      )}
 
       {shownRows.length > 0 && (
         <div className="mt-3 overflow-hidden rounded-md border border-background/70 bg-background/80">

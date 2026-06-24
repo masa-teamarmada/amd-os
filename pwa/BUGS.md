@@ -3348,3 +3348,10 @@
 - **原因**: gate が全 `source_ym` に対して `member_monthly_work_agreements.snapshot_hash !== currentHash` を `stale` として扱っていた。2026年5月稼働分は機能導入前で本人が月初に合意できないのに、後続の報酬/MS snapshot 更新だけを見て blocker にしていた。
 - **対応内容**: `MONTHLY_WORK_AGREEMENT_PAYOUT_GATE_START_YM = 202606` を追加し、`source_ym <= 202605` は導入前/移行月として支払 gate 上 `agreed` 扱いにした。実際の合意 row は作らず、表示理由は「月初合意の導入前/移行月のため合意済み扱い」。本人向け monthly-agreement bundle も同月以前は `not_required` として表示する。
 - **再発防止策**: 月初合意 gate の rollout / 法務移行 / 契約改定前期間には明示的な cutoff を置く。snapshot hash の更新検知自体は正しいが、導入前の `source_ym` にまで適用すると「過去に合意できなかった月」を永久 blocker にする。
+
+## [monthly-agreement/payout-ui] 移行月の4支払行だけが `合意済` 一覧に見えてしまう (2026-06-24)
+
+- **症状**: `/admin/payouts?ym=202606` の月初合意支払 gate で、2026/05稼働分のZMP支払行4件だけが `合意済` として表に並び、他メンバーが表示されないため「4人だけ合意済み」に見えた。
+- **原因**: gate の対象は支払が発生する `member × source_ym × project` 行だけだが、移行月バイパスの行を通常の `agreed` 行と同じ表に出していた。これにより「支払対象行の確認」と「全メンバーの合意状態」がUI上で混ざって見えた。
+- **対応内容**: 移行月バイパス行に `migrationBypass=true` を付与し、blocker が無く移行月バイパス行だけの場合は個別メンバー表を出さない。代わりに `対象支払行` / `移行月スキップ` / `blocker 0` の summary と、移行月として支払可能である旨を表示する。
+- **再発防止策**: rollout / migration の例外表示は個別合意一覧と混ぜず、summary 表示にする。個別メンバー行を出すのは、実際に本人合意・未合意・条件更新・修正要望を確認する通常月だけにする。

@@ -35,7 +35,9 @@
 
 `/admin/payouts` は、支払対象の `member × source_ym × project` ごとに月初合意状態を read し、未合意のまま支払データ保存・支払通知書PDF生成・通知メール送信・送付済み確定へ進ませない。
 
-2026年5月以前の稼働月 (`source_ym <= 202605`) は月初合意導入前/移行月のため、支払 gate 上は `agreed` 扱いで通す。実際の `member_monthly_work_agreements` 行を偽造せず、gate の理由を「導入前/移行月のため合意済み扱い」として表示する。2026年6月以降の稼働月から通常どおり `pending` / `stale` / `revision_requested` を blocker にする。
+2026年5月以前の稼働月 (`source_ym <= 202605`) は月初合意導入前/移行月のため、支払 gate 上は `agreed` 扱いで通す。実際の `member_monthly_work_agreements` 行を偽造せず、gate の理由を「導入前/移行月のため合意済み扱い」として保持する。2026年6月以降の稼働月から通常どおり `pending` / `stale` / `revision_requested` を blocker にする。
+
+移行月扱いの行だけで blocker が無い場合、`/admin/payouts` の gate panel は個別メンバー一覧を出さず、対象支払行数と「移行月スキップ」の summary だけを表示する。支払 gate の対象はあくまで「支払が発生する `member × source_ym × project`」なので、支払行が無い他メンバーを「合意済み一覧」に混ぜて見せない。
 
 | status | meaning | payout behavior |
 |---|---|---|
