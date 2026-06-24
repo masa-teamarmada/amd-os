@@ -1,48 +1,56 @@
 # HANDOFF - AMD OS PWA
 
-- Last updated: 2026-06-23 (Admin MS Overview write boundary / slider UI / closeout)
-- Topic: `/admin/ms-overview` is now the canonical MS design editor. Cockpit-side editing is stopped, pt unit rules are restored to period months x 10pt, and the editor UI now has aggregate/all-MS sliders plus compact member share rows.
+- Last updated: 2026-06-24 (admin payouts / monthly agreement gate closeout)
 - Canonical root: `/Users/masa/projects/AMD/amd-os`
 - PWA root: `/Users/masa/projects/AMD/amd-os/pwa`
 - Production URL: `https://amd-os-pwa.vercel.app`
 - Current branch: `main`
 
-## 直近セッション要約 (2026-06-23)
+## 直近セッション要約
 
-詳細は [`design_log/sessions_2026-06.md`](design_log/sessions_2026-06.md) の 2026-06-23 Admin MS Overview セクション、仕様正本 [`manual/6-8-admin-ms-overview-spec.md`](manual/6-8-admin-ms-overview-spec.md)、登録簿 [`design/FEATURE_REGISTRY.md`](design/FEATURE_REGISTRY.md)、教訓 [`BUGS.md`](BUGS.md) の MS editing / slider エントリ。
+詳細は [`design_log/sessions_2026-06.md`](design_log/sessions_2026-06.md) の月初合意支払 gate セクション、仕様正本 [`spec/3-14-monthly-work-agreement-current-spec.md`](spec/3-14-monthly-work-agreement-current-spec.md)、マニュアル [`manual/6-5-admin-payouts-reward-notice-spec.md`](manual/6-5-admin-payouts-reward-notice-spec.md)、教訓 [`BUGS.md`](BUGS.md)。
 
-- **MS設計の保存口を `/admin/ms-overview` に集約**。cockpit / HUD cockpit は表示・進捗確認のみ。MS名 / pt / tag / 期間 / 完了条件 / 担当share / 役割 / タスク / 追加 / 無効化は admin MS Overview の編集モードで保存する。
-- **pt単価の正本を復旧**。regular = シーズン期間月数 x 10pt、cap_extra = MS期間月数 x 10pt。通常MSの配分pt合計を `value_plan_cycles.total_points` や regular pt単価分母に使わない。
-- **cap_extra も例外なし**。ZMP OkuDoor system development (202605-202610) は 6か月 x 10 = 60pt。20pt固定でも旧67ptでもない。
-- **編集UIを compact 2 pane へ修正**。左にMS基本情報、右にメンバーshare表。メンバーは1人1行で、`メンバー / share / 役割 / MS内金額 / 担当タスク` を並べる。2カラム member grid は使わない。
-- **全MS pt配分スライダーを復活・拡張**。MS一覧先頭に aggregate slider panel を置き、各MSカード内の slider と同じ編集中 state を更新する。残り割り振り可能pt、MS金額、担当者ごとのMS内金額をリアルタイム表示。
-- **スライダー加速バグを修正**。通常MSの slider max は編集開始時点の最大pt x 1.5 に固定。ドラッグ中に max が現在値へ追従しないので、右側でもpt増加ペースが一定。
-- 現在の main はこの後の payout cache / payout matrix sticky column fixes、月初合意gate移行月cutoff fix、payout agreement-gate deferred load まで含む `31b841d5` / `v0.34.17`。
+- 2026/05以前の稼働月 (`source_ym <= 202605`) は月初合意の導入前/移行月として支払 gate 上 allow。
+- 移行月 allow は実DBの合意 row を偽造しない。server response row に `migrationBypass=true` を持たせる。
+- 移行月バイパス行だけで blocker が無い場合、`/admin/payouts` の gate panel は個別メンバー表を出さず、`対象支払行` / `移行月スキップ` / `blocker 0` の summary を表示する。
+- `/admin/payouts` 初期表示は SSR data + gate 後追い取得に整理済み。保存・PDF・送付など write action は server-side gate を必ず通す。
+- Production `v0.34.19` / `35b618ff` で `/admin/payouts?ym=202606` の summary 表示を logged-in browser で確認済み。
 
 ## Repo State
 
-- Handoff docs は `main` に commit/push 済み。最新 closeout docs hash は `git log --oneline -n 5` で確認する。
-- Product code baseline は `31b841d5 fix(admin): defer payout agreement gate load` まで `origin/main` に入っている。
-- Production alias は docs/product commit に遅れて追従することがある。closeout 中の `/api/build-info` は `v0.34.15` / `fe8caceb` / `dirty=false` まで確認済み。`31b841d5` 以降が visible かは次セッションで再確認する。
-- 未push commit: なし。
-- dirty tracked: なし。
-- untracked: `gas-slack/.clasp.json` (今回のPWA/MS作業外。GAS/Slack clasp link state っぽいので owner 判断まで commit しない)。
+- Local / `origin/main` HEAD at inventory: `3677cd33 fix(governance): hide unreviewed meeting action candidates`
+- Production at inventory: `v0.34.19` / `35b618ff` / `dirty=false`
+- `origin/main` includes later BZM nav fix (`1532f914`, `v0.34.21`) and governance confirmed-only action-item fix (`3677cd33`, `v0.34.22`) that production had not yet shown at handoff inventory.
+- Unpushed commits before this handoff update: none.
+- Dirty tracked before this handoff commit: this handoff docs bundle only (`HANDOFF.md`, `SESSION_MIGRATION_PROMPT.md`, `pwa/HANDOFF_pwa_rebuild.md`).
+- Untracked: `../gas-slack/.clasp.json` (owner undecided; do not commit).
 
-## Unresolved / 次アクション
+## Verification Run For Payout Gate
 
-1. **ログイン済み admin 実機確認**:
-   - `/admin/ms-overview` → 任意PJ → 編集モード。
-   - 上部保存バー、左MS基本情報、右メンバー1行表、全MS pt配分スライダー、残り割り振り可能pt、MS金額、MS内金額、フッター保存バーを確認。
-   - DB保存テストは、まさが明示したときだけ tiny/safe な変更で行う。
-2. **`value_milestones` 見積明細混入 cleanup**:
-   - 月次レポート印刷ビューで発見された別課題。印刷ビュー以外にも cockpit / `/admin/ms-overview` / 報酬計算へ影響しうる。
-   - 発生源 (= 見積→MS変換の cron or 手動投入) と、既存 fixed-cycle 明細の `is_active=false` 化 / 別テーブル退避を別セッションで扱う。
-3. **admin payouts agreement-gate follow-up の確認**:
-   - 月初合意gate移行月cutoff本体は `85ded65e` で commit/push 済み。
-   - `gateOnly=1` 後追い取得で初期表示を軽くする follow-up は `31b841d5` で commit/push 済み。
-   - 次の owner は production build-info が `31b841d5` 以降へ追従したかと、`/admin/payouts` の表示を確認する。
-4. **`gas-slack/.clasp.json` の owner 判断**:
-   - 中身は見ずに残した。GAS/Slack worker が必要なら track / local exclude / regenerate の判断をする。
+```bash
+npx tsx -e "...buildPayoutAgreementGateSummary(...)"
+git diff --check
+npx tsc --noEmit
+npx eslint src/lib/monthly-work-agreement-payout-gate.ts src/components/admin/AdminPayoutsClient.tsx
+npm run build
+npm run test:critical-ui
+```
+
+- ESLint: existing `react-hooks/exhaustive-deps` warning in `AdminPayoutsClient.tsx`, error 0.
+- Browser: logged-in production `/admin/payouts?ym=202606` showed `対象支払行 4 / 移行月スキップ 4 / blocker 0`, no individual member table.
+
+## Unresolved / Next Actions
+
+1. **Production catch-up**
+   - Re-check `/api/build-info`.
+   - If production still shows `35b618ff` while `origin/main` is `3677cd33` or later, deploy after this handoff commit is clean.
+2. **Governance/action-items production verification**
+   - Verify confirmed-only governance display after deploy: `review_status='confirmed'`, `status in ('open','in_progress')`, and no `source='meeting_summary'` candidates.
+3. **`gas-slack/.clasp.json`**
+   - Treat as local clasp/link artifact until GAS/Slack owner decides.
+4. **Older carried tasks**
+   - `/admin/ms-overview` logged-in visual check remains useful before touching MS editor again.
+   - `value_milestones` estimate-line pollution cleanup remains separate.
 
 ## First Next Action
 
@@ -54,22 +62,20 @@ git log --left-right --oneline main...origin/main
 curl -fsS https://amd-os-pwa.vercel.app/api/build-info
 ```
 
-その後 `manual/6-8-admin-ms-overview-spec.md` と `design/FEATURE_REGISTRY.md` の `/admin/ms-overview` セクションを読み、ログイン済みブラウザで編集モードを確認する。admin payouts は `31b841d5` 以降が production に出ているかを別途確認する。
+Then check whether production has caught up to `3677cd33`; if not, deploy through the normal PWA flow.
 
 ## Pointers
 
-- MS Overview 仕様正本: [`manual/6-8-admin-ms-overview-spec.md`](manual/6-8-admin-ms-overview-spec.md)
-- 回帰防止登録簿: [`design/FEATURE_REGISTRY.md`](design/FEATURE_REGISTRY.md) `/admin/ms-overview`
-- 報酬/pt計算: [`manual/7-1-reward-calc-spec.md`](manual/7-1-reward-calc-spec.md)、[`src/lib/season-point-basis.ts`](src/lib/season-point-basis.ts)、[`src/lib/admin/ms-overview-calc.ts`](src/lib/admin/ms-overview-calc.ts)
-- 教訓: [`BUGS.md`](BUGS.md) `[reward/admin] admin MS編集...` と `[admin/ms-overview] pt配分スライダー...`
-- セッションログ: [`design_log/sessions_2026-06.md`](design_log/sessions_2026-06.md)
+- Monthly agreement spec: [`spec/3-14-monthly-work-agreement-current-spec.md`](spec/3-14-monthly-work-agreement-current-spec.md)
+- Admin payouts manual: [`manual/6-5-admin-payouts-reward-notice-spec.md`](manual/6-5-admin-payouts-reward-notice-spec.md)
+- Registry: [`design/FEATURE_REGISTRY.md`](design/FEATURE_REGISTRY.md)
+- Bugs: [`BUGS.md`](BUGS.md)
+- Session log: [`design_log/sessions_2026-06.md`](design_log/sessions_2026-06.md)
+- Governance WIP docs: [`design/governance_action_items.md`](design/governance_action_items.md), [`manual/2-3-pj-cockpit.md`](manual/2-3-pj-cockpit.md)
 
-## Verification Run
+## Guardrails
 
-```bash
-npm exec tsc -- --noEmit --pretty false
-npm run test:critical-ui
-npm run build
-```
-
-- Browser route smoke: unauthenticated `/admin/ms-overview` は `/auth/login?next=%2Fadmin%2Fms-overview` へ redirect。ログイン済みUIのスクショ確認は未実施。
+- Migration-only monthly agreement gate stays summary-style; do not show the four ZMP rows as individual `合意済` rows.
+- Do not create fake agreement rows for migration months.
+- Do not let candidate action items leak into governance/cockpit confirmed surfaces.
+- Do not use `git add .`.
