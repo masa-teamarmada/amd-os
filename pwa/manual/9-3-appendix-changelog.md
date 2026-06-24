@@ -14,6 +14,7 @@
 
 | 日付 | 対象章 | 種別 | 内容 | 理由 | 誰が |
 |---|---|---|---|---|---|
+| 2026-06-24 | 2-3 PJ コックピット / 株主・ガバナンス | 修正 | 株主・ガバナンス欄の要対応表示を `review_status='confirmed'` かつ未完了 (`open` / `in_progress`) のみと明記し、未確認candidateはレビューキューに留める境界へ更新。`source='meeting_summary'` の会議タイトル由来候補は D-14 要対応対象外とし、会議由来の次アクションは H-1 / MTGカード側で扱う | SXなどの通常MTGタイトルが「要対応候補」として株主・ガバナンス欄に混入し、本来の総会・取締役会・保有株式・外部期限付き義務の目的とズレて見えたため | えいみ |
 | 2026-06-24 | 6-5 Admin Payouts / 3-14 月初合意 / FEATURE_REGISTRY / BUGS | 修正 | 月初合意支払 gate で、移行月扱いの行だけで blocker が無い場合は個別メンバー表を出さず、対象支払行数と「移行月スキップ」の summary を表示する仕様へ更新 | 2026/05稼働分のZMP支払行4件だけが `合意済` 一覧に並ぶと、他メンバーが合意対象から漏れているように見えるため。移行月は個別合意一覧ではなく支払月単位のスキップとして見せる | えいみ |
 | 2026-06-23 | 6-5 Admin Payouts / FEATURE_REGISTRY / BUGS | 修正 | `/admin/payouts` page が `loadTargetData(currentYm, { includeAgreementGate: false })` を SSR で実行し、`AdminPayoutsClient initialData` として渡す仕様へ更新。クライアントは初回 client GET をスキップし、月初合意gateだけ `gateOnly=1` で後追い取得する。月変更・手動再計算・保存/発行後の再取得は従来どおり API を使う | 報酬キャッシュと gate 分離後も、初回表示が「ページ表示 → hydration → client GET」の二段待ちになり、実ブラウザでデータ表示まで数秒残っていたため。キャッシュ済みデータは最初のサーバー応答に載せて体感待ちを削る | えいみ |
 | 2026-06-23 | 6-5 Admin Payouts / FEATURE_REGISTRY / BUGS | 修正 | `/admin/payouts` 初期表示GETから月初合意gateの snapshot 照合を分離。通常GETは支払データ本体だけ先に返し、画面側が `gateOnly=1` を後追い取得して `payoutAgreementGate` をマージする。保存・発行・送付などwrite actionでは従来どおりサーバー側gateを必ず実行する | キャッシュ化後も実ブラウザでデータ表示まで約11〜15秒かかり、重い月初合意gate照合が初期表示をブロックしていたため。表示速度とwrite safetyを分離する | えいみ |

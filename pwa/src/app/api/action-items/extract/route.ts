@@ -22,6 +22,13 @@ type Candidate = {
   project_id?: string | null;
   scope?: string | null;          // project/company/personal
 };
+const ALLOWED_SOURCES = new Set(["gmail", "drive", "calendar", "slack", "notion"]);
+
+function normalizeSource(source: string | null | undefined) {
+  if (!source) return "gmail";
+  const normalized = source.trim().toLowerCase();
+  return ALLOWED_SOURCES.has(normalized) ? normalized : null;
+}
 
 async function authorize(req: NextRequest): Promise<boolean> {
   const auth = req.headers.get("authorization") || "";
@@ -56,6 +63,8 @@ export async function POST(req: NextRequest) {
   for (const it of items) {
     if (!it.title || !it.source_hash) { skipped++; continue; }
     if (known.has(it.source_hash)) { skipped++; continue; }
+    const source = normalizeSource(it.source);
+    if (!source) { skipped++; continue; }
 
     const actionId = `ai:${it.source_hash}`.slice(0, 120);
     const projectId = it.project_id ?? null;
@@ -73,7 +82,7 @@ export async function POST(req: NextRequest) {
       priority: it.priority ?? null,
       action_url: it.action_url ?? null,
       assignee_member_id: "ID001",
-      source: it.source ?? "gmail",
+      source,
       source_ref: it.source_ref ?? null,
       source_hash: it.source_hash,
       detected_at: nowIso,

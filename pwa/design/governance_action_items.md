@@ -160,6 +160,7 @@ cockpit のガバナンス欄・要対応面はサーバ側 admin クライア�
 - 既存 5 生データ全部を対象にできる設計だが、**初手は Gmail** (この案件が Gmail 由来)。Drive/Calendar/Slack/Notion は同じ `action_items` に source を変えて流せる。
 - 実行系: D 群 Claude routine (`amd-os-l2-consolidated-evidence`) に Phase として同居させるのが既定。LLM 従量を PWA cron で背景実行しない (L2_DATA 原則)。重複排除は `source_hash`。
 - 採否ループ: 抽出は `review_status='candidate'` で作り、`/notifications` で confirm/reject。governance 系で期日が近いものは importance 高で通知。
+- **表示境界 (2026-06-24 修正)**: PJ cockpit の「株主・ガバナンス」欄や `/dashboard` の要対応面に出す `action_items` は、`review_status='confirmed'` かつ `status in ('open','in_progress')` のみ。`candidate` は `/notifications` のレビューキューに留め、正本欄へ混ぜない。`source='meeting_summary'` は D-14 要対応の設計外 source とし、会議由来の次アクションは H-1 / `meeting_action_items` 側で扱う。
 
 ### 3.2 株主/総会/バリュエーション
 
@@ -184,8 +185,8 @@ cockpit のガバナンス欄・要対応面はサーバ側 admin クライア�
 | 出力先 | 内容 | 実装 |
 |---|---|---|
 | **PJ cockpit「株主・ガバナンス」欄** | 株主構成サマリ / **総会・取締役会履歴一覧** + 決議 / 最新バリュエーション / AMD保有株の現在価値。終了PJでも表示 | `CockpitGovernance.tsx` を Col2 (経営ハイライト下) に。admin gate |
-| **cockpit「要対応」** | そのPJに紐づく `action_items` open を期日順 | cockpit 内の小欄 or Col3 |
-| **/dashboard・/notifications「要対応(期日順)」面** | 全 `action_items` open を期日順 + あと何日。`scope=personal/company` 含む | `ActionItemsPanel` (dashboard) / 先頭 section (notifications) |
+| **cockpit「要対応」** | そのPJに紐づく confirmed `action_items` open/in_progress を期日順。candidate や `meeting_summary` 由来は出さない | cockpit 内の小欄 or Col3 |
+| **/dashboard・/notifications「要対応(期日順)」面** | 全 confirmed `action_items` open/in_progress を期日順 + あと何日。`scope=personal/company` 含む。candidate はレビューキュー | `ActionItemsPanel` (dashboard) / 先頭 section (notifications) |
 | **D-6 strategy signal** | 「JC 2ndラウンド + Woven City採択」等の軌跡シグナル候補 | 既存 `project_strategy_signals` candidate |
 | **knowledge/jc.md** | 離脱後の JC 実態を反映 (別途) | md 更新 |
 | **保有株式ダッシュボード (任意・後続)** | AMD/まさの全PJ保有を一覧 + 合計評価額 | `/admin/holdings` |

@@ -12,6 +12,7 @@ const ENTITY_TABLE: Record<string, string> = {
   round: "project_valuation_rounds",
   meeting: "project_shareholder_meetings",
 };
+const OPEN_ACTION_STATUSES = ["open", "in_progress"];
 
 /** GET /api/governance?projectId=p09  → 当該PJの株主/ラウンド/総会/要対応 */
 export async function GET(req: NextRequest) {
@@ -26,7 +27,14 @@ export async function GET(req: NextRequest) {
     db.from("project_shareholders").select("*").eq("project_id", projectId).order("holder_type", { ascending: true }),
     db.from("project_valuation_rounds").select("*").eq("project_id", projectId).order("round_date", { ascending: false, nullsFirst: false }),
     db.from("project_shareholder_meetings").select("*").eq("project_id", projectId).order("meeting_date", { ascending: false, nullsFirst: false }),
-    db.from("action_items").select("*").eq("project_id", projectId).neq("status", "dismissed").order("due_at", { ascending: true, nullsFirst: false }),
+    db
+      .from("action_items")
+      .select("*")
+      .eq("project_id", projectId)
+      .eq("review_status", "confirmed")
+      .in("status", OPEN_ACTION_STATUSES)
+      .neq("source", "meeting_summary")
+      .order("due_at", { ascending: true, nullsFirst: false }),
   ]);
 
   const err = shareholdersRes.error || roundsRes.error || meetingsRes.error || actionsRes.error;
