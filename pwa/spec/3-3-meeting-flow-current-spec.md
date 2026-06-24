@@ -98,7 +98,7 @@ Calendar 作業枠候補が必要な場合だけ `POST /api/task-calendar/schedu
 
 - Gmail を本送信しない。draft 止まり。
 - Calendar 作業枠を `+<PJ>` prefix なしで作らない。
-- freebusy を見ずに重複枠を作らない。
+- freebusy を見ずに重複枠を作らない (= MTG カード → Calendar 一次防御 / tasks→Calendar 枠側の制約)。**Phase P の prep 枠は freebusy 不在時の F2 deterministic fallback で作ってよい** (= 2026-06-24 まさ確定、Phase P 節 + SKILL Phase P-2 A 参照)。
 - 前提データが足りない資料を強引に生成しない。
 - 旧 GAS 153 / 074 を定期 writer として復活させない。
 
@@ -146,9 +146,13 @@ WHERE pms.source_kinds LIKE '%upcoming%'
 
 各対象 MTG について順に:
 
-1. **timing 判定**: 同シリーズ前回 MTG の +1日後 から、今回 MTG の 24時間前 までの間でまさカレンダー空き枠を探す (= post-MTG即時主義)。過去同シリーズなしなら now から今回 MTG 24時間前まで
-2. **カレンダー＋枠作成**: 空き枠に `＋ <PJコード> MTG準備: <MTGタイトル>` を作成 (= 動かせるタスク)。event ID を `prep_calendar_event_id` に保存。既存枠は read してドラッグ追従
-3. **spawn 判定**: 現在時刻が prep 枠開始時刻に達してれば spawn 実行
+1. **timing 判定 (2026-06-24 まさ確定: F2+F3 フォールバック)**:
+   - **基準時刻 = `meeting_start_at - 24h`** (= 外部依存ゼロで必ず決まる、F2)
+   - Calendar `get_availability` (freebusy) が成功する場合のみ、`max(now, 同シリーズ前回 MTG +1日後 09:00 JST)` から `meeting_start_at - 24h` までの window で最初の 30 分以上の空き枠を探して**前倒し**する
+   - freebusy が `ACCESS_TOKEN_SCOPE_INSUFFICIENT` 等で取れない場合、基準時刻のまま続行する (= Phase P を skip しない)
+2. **カレンダー＋枠作成**: `＋ <PJコード> MTG準備: <MTGタイトル>` を作成 (= 動かせるタスク = まさが手動でドラッグして調整する前提)。event ID を `prep_calendar_event_id` に保存。既存枠は read してドラッグ追従
+   - **Calendar 書き込み自体が失敗した場合も spawn は進める** (= F3)。`prep_calendar_event_id` は null のまま、3 の spawn 判定では基準時刻 = `meeting_start_at - 24h` を起点とする
+3. **spawn 判定**: 現在時刻が **spawn 起点時刻** (= `prep_calendar_event_id` ある時はその start、null の時は基準時刻) に達してれば spawn 実行
 4. **codex exec で新規 session spawn** (subprocess):
    ```bash
    codex exec --skip-git-repo-check --json \
@@ -202,7 +206,7 @@ Worker 出力 (= `project_meeting_summaries` の対象 row に upsert):
 | 持参資料 | 25 | `project_documents` + `meeting_assets` + worker 生成 `prep_drive_asset_id` の合計件数。3↑ で 25、1-2 で 12、0 で 0 |
 | 前回 next_actions 消化 | 20 | 同シリーズ前回 `next_actions[]` のうち `tasks.status='done'` 比率 × 20 |
 | 相手側コンテキスト | 15 | 直近30日 Gmail 往復 + 関連 Notion ページ件数。3↑ で 15、1-2 で 8、0 で 0 |
-| アサイン明確 | 10 | `projects.facilitator_member_id` が NOT NULL かつ Calendar attendees に含まれていれば 10 |
+| アサイン明確 | 10 | `project_meeting_summaries.facilitator_member_id` (MTG 行単位) が NOT NULL かつ対応メンバーが Calendar attendees に含まれていれば 10。`projects.facilitator_member_id` 列は現状 DB に存在しない (2026-06-24 確認) ので参照しない |
 
 合計 = `prep_readiness_score`。80↑ 緑「準備OK」 / 50-79 黄「もう一押し」 / <50 赤「要相談」。
 

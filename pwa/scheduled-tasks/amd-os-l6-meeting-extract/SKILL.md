@@ -674,23 +674,28 @@ ended / frozen / `freeze_from_ym <= 当月ym` は対象外。recurring MTG は�
 
 **A) ＋ prep 枠 (Calendar event) の作成 or 追従**
 
+> **基本方針 (2026-06-24 まさ確定: F2+F3)**: prep 枠は deterministic に `meeting_start_at - 24h` 起点で作る。freebusy / get_colors / GAS color diagnostic などの外部依存に失敗しても **Phase P 全体を skip しない**。Calendar 書き込み自体が失敗した場合も spawn は進める (prep 枠は「動かせるタスク = まさが手動でドラッグ調整する」前提なので、枠が無くても worker session 自体は無条件で立ち上げる)。
+
 - `prep_calendar_event_id` が **null** の場合:
-  - 「prep 開始すべき時間帯」を以下で算出:
-    - 同シリーズ前回 MTG の `meeting_start_at` の **+1日後 09:00 JST** から、今回 MTG の **24時間前** までの window
-    - 過去同シリーズが無い場合は **now** から今回 MTG の 24時間前までの window
-  - その window 内でまさの Calendar freebusy を取得し、最初の **30分以上の空き枠** を見つける
-  - 所要時間見積: readiness 計算後の見積 (初回はまだ readiness 不明なので **暫定 1.5h**) に応じて枠サイズを決める
+  - **基準時刻**: `meeting_start_at - 24h` を prep 枠 start の基準として採用 (= 外部依存ゼロで必ず計算できる)
+  - **freebusy が取れた時のみ前倒し**: `get_availability` が成功した場合のみ、`max(now, 同シリーズ前回 MTG +1日後 09:00 JST)` から `meeting_start_at - 24h` までの window で **最初の 30 分以上の空き枠** を探し、見つかればそこに前倒しする
+  - **freebusy が取れない場合 (= `ACCESS_TOKEN_SCOPE_INSUFFICIENT` 等) は基準時刻のまま進める**。Phase P 全体を `review_required` に降ろさない
+  - 所要時間見積: **1.5h 固定** (readiness 計算後の見積を待たない)
   - Calendar に `summary='＋ <PJコード> MTG準備: <MTG タイトル>'`、`description='meeting_id=<id>'`、`extendedProperties.private={'amd_os_prep_meeting_id': '<id>'}` で event を create
-  - 作成した event id を `prep_calendar_event_id` に保存
+  - **Calendar 書き込み自体が失敗 (= `create_event` MCP エラー、scope 不足、その他) した場合**: `prep_calendar_event_id` は null のまま、ただし B 側の spawn 判定では「prep 枠が無いなら基準時刻 = `meeting_start_at - 24h` を spawn 起点として扱う」。**MTG を skip しない**
+  - 作成成功時のみ event id を `prep_calendar_event_id` に保存
 - `prep_calendar_event_id` が **NOT null** の場合 (= 既存):
   - Calendar から event を read
-  - event が **削除されてた**ら `prep_calendar_event_id=null` にして当該 H-1 run 内では skip (= 次回 run で再生成)
+  - event が **削除されてた**ら `prep_calendar_event_id=null` にして当該 H-1 run 内では再生成 (= 1 run 内で create を再試行。それでも create 失敗なら B へ進む)
   - event の `start.dateTime` が変わってた (= まさがドラッグした) ら新 start time を採用
   - 既存 spawn 状態 (`prep_worker_status='ready'` 等) は維持
 
 **B) spawn 判定**
 
-- 現在時刻が `prep_calendar_event_id` の start time に達してるか?
+- 「**spawn 起点時刻**」を決定:
+  - `prep_calendar_event_id` が NOT null → その event の start time
+  - null (= Calendar 書き込み失敗 or freebusy 経路で枠が立たなかった) → `meeting_start_at - 24h` を基準時刻として採用
+- 現在時刻が spawn 起点時刻に達してるか?
   - 達してない → skip (= 次回 H-1 run まで待つ)
   - 達してる + `prep_worker_status IS NULL or 'failed'` → spawn 実行へ
   - 達してる + `prep_worker_status IN ('preparing', 'ready')` → skip (= 既に spawn 済み or 完了済み)
@@ -742,16 +747,20 @@ H-1 run 内で `prep_worker_status='ready'` かつ `prep_concierge_nudged_at IS 
 3. Slack API でまさ DM に送信 (= unfurl 切る、link なし)
 4. 通知に含めた全 MTG (ready / failed) の `prep_concierge_nudged_at=now()` を upsert
 
-### Phase P エラーハンドリング
+### Phase P エラーハンドリング (2026-06-24 まさ確定: F2+F3 フォールバック適用)
 
 | 状況 | 対応 |
 |---|---|
-| Calendar freebusy 取得失敗 | 当該 MTG のみ skip。次回 H-1 run で再試行 |
-| Calendar event create 失敗 | `prep_calendar_event_id` セットせず、`prep_worker_status='failed'` + `reason='calendar_create_failed'` upsert |
+| Calendar `get_availability` / freebusy 取得失敗 | **当該 MTG を skip しない**。基準時刻 = `meeting_start_at - 24h` のまま A 以降を続行 |
+| Calendar `get_colors` 取得失敗 | Phase P は色を使わない (= Phase A の責務)。**Phase P 側では blocker にしない**、続行 |
+| `get_availability` の Google OAuth `ACCESS_TOKEN_SCOPE_INSUFFICIENT` | 同上。OAuth scope 修正は別タスクとして残し、Phase P は基準時刻 fallback で進める |
+| Calendar event create 失敗 | `prep_calendar_event_id` は null のまま。**spawn は進める** (= B で「枠 null なら `meeting_start_at - 24h` を起点」とする)。`prep_worker_status='failed'` にしない |
 | `codex exec` 起動失敗 | `prep_worker_status='failed'` + `reason='codex_exec_failed'`、subprocess kill |
 | `codex exec` で session id catch できず | `prep_worker_status='failed'` + `reason='session_id_not_captured'`、subprocess kill |
 | Slack DM 送信失敗 | `prep_concierge_nudged_at` 触らない (= 次回 run で再送試行) |
 | まさ slack_id 解決失敗 | nudge skip、run summary に記録 |
+
+**重要**: 過去 (2026-06-22〜24) に Phase P が毎回 `ACCESS_TOKEN_SCOPE_INSUFFICIENT` / `NEXT_PUBLIC_GAS_API_KEY` 不在 / freebusy 不能を blocker 扱いして全件 `review_required` に降ろし、11件の prep が 1度も spawn されない事故が発生 (2026-06-24 まさ確認)。本表の F2+F3 フォールバックはこの再発防止が目的。「freebusy が無いから何もしない」は禁止。
 
 ### Phase P 禁止事項
 

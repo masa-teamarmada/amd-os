@@ -49,7 +49,7 @@ Phase 1: env と対象 MTG の読み込み
    - `meeting_start_at`, `title`, `source_kinds`, `calendar_event_id`, `notion_url`, `notion_page_id`, `gmail_thread_ids`, `prep_calendar_event_id` を取得
    - `source_kinds` に `upcoming` token が無い場合は `failed` upsert して exit (= 既に開催済み or canceled)
 5. PJ コンテキスト読み込み:
-   - `projects` (`project_name`, `lane`, `status`, `drive_folder_id`, `facilitator_member_id`, `report_emails`)
+   - `projects` (`project_name`, `lane`, `status`, `drive_folder_id`, `report_emails`)。**`projects.facilitator_member_id` は現状 DB に存在しない** (2026-06-24 確認) ので参照しない。ファシリ役は `project_meeting_summaries.facilitator_member_id` (= MTG 行単位) を見る。null 許容で続行
    - `project_members` (= active members + role)
    - `projects.status NOT IN ('active', 'sales')` なら `failed` upsert して exit
 
@@ -176,7 +176,7 @@ Phase 8: Readiness Score 計算
 | 持参資料 | 25 | `project_documents` + `meeting_assets` + 今回 Worker が生成した `prep_drive_asset_id` の合計件数。3↑で 25、1-2 で 12、0 で 0 |
 | 前回 next_actions 消化 | 20 | 同シリーズ前回 `next_actions[]` のうち `tasks.status='done'` 比率 × 20 (= 100% で 20、50% で 10) |
 | 相手側コンテキスト | 15 | 直近30日 Gmail 往復 + 関連 Notion ページの合計件数。3↑で 15、1-2 で 8、0 で 0 |
-| アサイン明確 | 10 | `projects.facilitator_member_id` が NOT NULL かつ Calendar attendees に含まれていれば 10、片方欠けで 5、両方欠けで 0 |
+| アサイン明確 | 10 | `project_meeting_summaries.facilitator_member_id` (この MTG 行) が NOT NULL かつ対応 `members.email` が Calendar attendees に含まれていれば 10、片方欠けで 5、両方欠けで 0。`projects.facilitator_member_id` 列は存在しないので参照しない (2026-06-24 確認) |
 
 合計 = `prep_readiness_score`。内訳を `prep_readiness_reasons` jsonb に保存。
 
