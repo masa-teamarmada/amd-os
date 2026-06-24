@@ -240,7 +240,7 @@ export function GlobalNav({ userCodeName, isAdmin = false, memberId = null }: Gl
             立替
           </Link>
           <Link
-            href="/bzm/public"
+            href="/bzm"
             className={cn(
               "px-2.5 py-1 rounded-md transition-colors",
               pathname.startsWith("/bzm")
