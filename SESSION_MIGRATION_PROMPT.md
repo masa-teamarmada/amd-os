@@ -19,24 +19,20 @@ current truth:
 - Production check 済み: `v0.34.19` / `35b618ff` で `/admin/payouts?ym=202606` が `対象支払行 4 / 移行月スキップ 4 / blocker 0`、個別メンバー表なし。
 
 repo state at handoff:
-- local / origin main: `3677cd33 fix(governance): hide unreviewed meeting action candidates`
-- production at inventory: `v0.34.19` / `35b618ff` / `dirty=false`
-- origin/main has later `1532f914` (`v0.34.21`) and `3677cd33` (`v0.34.22`) not yet observed in production at inventory.
-- tracked dirty at handoff is only this handoff docs bundle until committed:
-  - `HANDOFF.md`
-  - `SESSION_MIGRATION_PROMPT.md`
-  - `pwa/HANDOFF_pwa_rebuild.md`
+- product baseline on main: `3677cd33 fix(governance): hide unreviewed meeting action candidates`, followed by docs-only handoff commit(s)
+- production at closeout: `v0.34.22` / `3677cd3344e437a474558772f7233489c4b3cf5e` / `dirty=false`
+- production is aligned with product code through `3677cd33`; docs-only handoff commit(s) may not appear in `/api/build-info`.
+- tracked dirty after handoff commit should be none.
 - untracked: `gas-slack/.clasp.json`; do not commit until GAS/Slack owner decides.
 
 次にやること:
-1. handoff docs commit 後に、production がまだ `3677cd33` 以降へ追いついているか確認し、必要なら通常 deploy。
-2. deploy 後、governance/cockpit confirmed surfaces が `review_status='confirmed'` + `status in ('open','in_progress')` の action items だけを表示し、`source='meeting_summary'` candidates を出していないことを確認する。
-3. 月初合意支払 gate は `v0.34.19` / `35b618ff` で本番確認済みだが、deploy 後にも `/admin/payouts?ym=202606` の migration summary が崩れていないか smoke する。
-4. `gas-slack/.clasp.json` は中身を晒さず、track / local exclude / safe remove の owner decision を取る。
+1. governance/cockpit confirmed surfaces が `review_status='confirmed'` + `status in ('open','in_progress')` の action items だけを表示し、`source='meeting_summary'` candidates を出していないことを必要に応じて smoke する。
+2. 月初合意支払 gate は `v0.34.19` / `35b618ff` で本番確認済み。production が `v0.34.22` になったので、次に payout を触る前に `/admin/payouts?ym=202606` の migration summary が崩れていないか quick smoke する。
+3. `gas-slack/.clasp.json` は中身を晒さず、track / local exclude / safe remove の owner decision を取る。
 
 注意:
 - `git add .` は使わない。
 - migration-month monthly agreement gate を個別4行の `合意済` 表示に戻さない。
 - migration month 用の偽 agreement row を作らない。
-- PWA deploy が必要なら handoff docs commit 後の clean tracked state で `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`。
+- PWA deploy が必要なら clean tracked state で `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`。
 ```

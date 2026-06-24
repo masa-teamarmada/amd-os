@@ -18,11 +18,10 @@
 
 ## Repo State
 
-- Local / `origin/main` HEAD at inventory: `3677cd33 fix(governance): hide unreviewed meeting action candidates`
-- Production at inventory: `v0.34.19` / `35b618ff` / `dirty=false`
-- `origin/main` includes later BZM nav fix (`1532f914`, `v0.34.21`) and governance confirmed-only action-item fix (`3677cd33`, `v0.34.22`) that production had not yet shown at handoff inventory.
-- Unpushed commits before this handoff update: none.
-- Dirty tracked before this handoff commit: this handoff docs bundle only (`HANDOFF.md`, `SESSION_MIGRATION_PROMPT.md`, `pwa/HANDOFF_pwa_rebuild.md`).
+- Product baseline on `main`: `3677cd33 fix(governance): hide unreviewed meeting action candidates`, followed by docs-only handoff commit(s).
+- Production at closeout: `v0.34.22` / `3677cd3344e437a474558772f7233489c4b3cf5e` / `dirty=false`
+- Production is aligned with product code through `3677cd33`. The later handoff commit is docs-only and may not appear in `/api/build-info`.
+- Dirty tracked after handoff commit: none expected.
 - Untracked: `../gas-slack/.clasp.json` (owner undecided; do not commit).
 
 ## Verification Run For Payout Gate
@@ -41,11 +40,10 @@ npm run test:critical-ui
 
 ## Unresolved / Next Actions
 
-1. **Production catch-up**
-   - Re-check `/api/build-info`.
-   - If production still shows `35b618ff` while `origin/main` is `3677cd33` or later, deploy after this handoff commit is clean.
-2. **Governance/action-items production verification**
-   - Verify confirmed-only governance display after deploy: `review_status='confirmed'`, `status in ('open','in_progress')`, and no `source='meeting_summary'` candidates.
+1. **Governance/action-items production smoke**
+   - Build-info shows `3677cd33` in production. If this area matters next, verify confirmed-only governance display: `review_status='confirmed'`, `status in ('open','in_progress')`, and no `source='meeting_summary'` candidates.
+2. **Admin payouts regression smoke**
+   - Monthly agreement migration summary was verified on production `v0.34.19`. Since production is now `v0.34.22`, quick smoke `/admin/payouts?ym=202606` before further payout edits.
 3. **`gas-slack/.clasp.json`**
    - Treat as local clasp/link artifact until GAS/Slack owner decides.
 4. **Older carried tasks**
@@ -62,7 +60,7 @@ git log --left-right --oneline main...origin/main
 curl -fsS https://amd-os-pwa.vercel.app/api/build-info
 ```
 
-Then check whether production has caught up to `3677cd33`; if not, deploy through the normal PWA flow.
+Expected: local `main` and `origin/main` align, no tracked dirty files, production product code is `v0.34.22` / `3677cd33`, and only `../gas-slack/.clasp.json` remains untracked.
 
 ## Pointers
 
@@ -71,7 +69,7 @@ Then check whether production has caught up to `3677cd33`; if not, deploy throug
 - Registry: [`design/FEATURE_REGISTRY.md`](design/FEATURE_REGISTRY.md)
 - Bugs: [`BUGS.md`](BUGS.md)
 - Session log: [`design_log/sessions_2026-06.md`](design_log/sessions_2026-06.md)
-- Governance WIP docs: [`design/governance_action_items.md`](design/governance_action_items.md), [`manual/2-3-pj-cockpit.md`](manual/2-3-pj-cockpit.md)
+- Governance docs: [`design/governance_action_items.md`](design/governance_action_items.md), [`manual/2-3-pj-cockpit.md`](manual/2-3-pj-cockpit.md)
 
 ## Guardrails
 

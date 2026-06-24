@@ -17,24 +17,19 @@
 ## Repo / Deploy State
 
 - Local branch: `main`
-- Local / `origin/main` HEAD at handoff inventory: `3677cd33 fix(governance): hide unreviewed meeting action candidates`
+- Product baseline on `main`: `3677cd33 fix(governance): hide unreviewed meeting action candidates`, followed by docs-only handoff commit(s).
 - Monthly agreement gate accepted production: `35b618ff Fix migration payout gate summary display`
-- Production `/api/build-info` at handoff inventory: `v0.34.19` / `35b618ff882a82277ca6e133d753515ac0d318e3` / `dirty=false`
-- `origin/main` is ahead of production by `1532f914` (`v0.34.21`, BZM nav pointer) and `3677cd33` (`v0.34.22`, governance confirmed-only action items). Treat production alignment as not fully caught up until `/api/build-info` shows `3677cd33` or later.
-- No unpushed commits before this handoff update.
-- The governance/action-items bundle that was dirty during inventory is now committed on `main` as `3677cd33`; it still needs production catch-up/verification if the UI change must be visible now.
+- Production `/api/build-info` at closeout: `v0.34.22` / `3677cd3344e437a474558772f7233489c4b3cf5e` / `dirty=false`
+- Production is aligned with product code through `3677cd33`. The later handoff commit is docs-only and may not appear in `/api/build-info`.
+- The governance/action-items bundle that was dirty during inventory is now committed on `main` as `3677cd33` and visible in production by build-info.
 
 ## Dirty State To Own
 
 | path | status | class | owner guess | resolution action | risk |
 |---|---:|---|---|---|---|
-| `HANDOFF.md` | `M` | this closeout | current session | stage named file and commit handoff bundle | low |
-| `SESSION_MIGRATION_PROMPT.md` | `M` | this closeout | current session | stage named file and commit handoff bundle | low |
-| `pwa/HANDOFF_pwa_rebuild.md` | `M` | this closeout | current session | stage named file and commit handoff bundle | low |
 | `gas-slack/.clasp.json` | `??` | unknown / local tooling | GAS/Slack owner or quarantine | decide track vs local exclude vs safe remove; do not print contents | low-medium: accidental secret/local link commit risk |
 
 Dirty buckets:
-- safe to commit now: three handoff docs above
 - needs Masa/GAS owner decision: `gas-slack/.clasp.json` owner/handling
 - expected after this handoff commit: no tracked dirty files; `gas-slack/.clasp.json` remains untracked
 
@@ -50,11 +45,10 @@ Dirty buckets:
 
 ## Unresolved Tasks
 
-1. **Production catch-up for `3677cd33`**
-   - `origin/main` contains BZM nav pointer fix (`1532f914`, `v0.34.21`) and governance confirmed-only action-item fix (`3677cd33`, `v0.34.22`), but production was last observed at `35b618ff` / `v0.34.19`.
-   - Run the normal PWA deploy flow if production still lags after this handoff commit.
-2. **Governance/action-items production verification**
-   - After deploy, verify governance/cockpit surfaces show only `review_status='confirmed'` + `status in ('open','in_progress')` action items and exclude `source='meeting_summary'` candidates.
+1. **Governance/action-items production smoke**
+   - Build-info shows `3677cd33` in production. If this area matters next, verify governance/cockpit surfaces show only `review_status='confirmed'` + `status in ('open','in_progress')` action items and exclude `source='meeting_summary'` candidates.
+2. **Admin payouts regression smoke**
+   - Monthly agreement migration summary was verified on production `v0.34.19`. Since production is now `v0.34.22`, a quick logged-in `/admin/payouts?ym=202606` smoke is useful before any further payout edits.
 3. **Older carried items**
    - Logged-in visual check for `/admin/ms-overview` edit mode is still useful if that area is touched again.
    - `value_milestones` estimate-line pollution remains a separate cleanup task.
@@ -81,7 +75,7 @@ git log --left-right --oneline main...origin/main
 curl -fsS https://amd-os-pwa.vercel.app/api/build-info
 ```
 
-Then check whether production has caught up to `3677cd33`; if not, deploy through the normal PWA flow.
+Expected: local `main` and `origin/main` align, no tracked dirty files, production product code is `v0.34.22` / `3677cd33`, and only `gas-slack/.clasp.json` remains untracked.
 
 ## Guardrails
 
@@ -89,4 +83,4 @@ Then check whether production has caught up to `3677cd33`; if not, deploy throug
 - Do not re-expand migration-month monthly agreement rows into individual `合意済` member rows. Migration-only gate should stay summary-style.
 - Do not create fake `member_monthly_work_agreements` rows for 2026/05 or earlier.
 - Do not use `git add .`; stage named files only.
-- For PWA production-bound changes, use `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` after this handoff commit is clean.
+- For future PWA production-bound changes, use `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` from a clean tracked state.
