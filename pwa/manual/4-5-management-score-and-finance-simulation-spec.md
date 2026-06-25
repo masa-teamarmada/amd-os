@@ -458,6 +458,8 @@ p21 の 26年4-5月は `billing_cycles.budget_yen` が 0 (reported=¥840,000 の
 - panel の「シナリオ実行」ボタンが叩く `/api/management-score/finance/simulate` にも live inputs (`gasSimulationInputs`) が渡るので、シナリオ再計算も live 駆動。
 - snapshot inputs (`company_budget_inputs`) は live builder の fallback (params/融資/スポット/シナリオ) と保険として残す。
 
+外部クライアントが同じ残高線だけを読む場合は `GET /api/finance/live-cash-balances?from=YYYYMM&to=YYYYMM` を使う。これは `company_budget_actual_monthly.cash_amount_yen` の直読みではなく、上記 live inputs で再計算した budget cash に、`category='cash_balance'` の実績残高を月別に優先マージして返す read-only API。KAGAMI の財布画面の AMD 残高スタックはこの route を正本にする。レスポンスは月次残高・実績/予算 source・runway に限定し、PJ別売上/固定費/報酬内訳は返さない。
+
 ### 予実管理のための DB 書き込み (= A案)
 
 シミュレーションだからといって DB に書かない、という方針は取らない。**書いておかないと予実管理 (予定 vs 実績) ができない**ため。将来月の予測報酬は次の流れで保存する。
