@@ -1,6 +1,6 @@
 # MTG サマリ — 設計の正本
 
-最終更新: 2026-06-18 (MTG詳細MarkdownのAMDメンバーリンク化)
+最終更新: 2026-06-25 (MTG詳細共有導線)
 正本ステータス: 進化中。仕様変更したらここを同じ commit で更新する。
 
 ---
@@ -15,6 +15,7 @@ PJ コックピット (`/project/[projectId]/cockpit`) の **MTGサマリ枠** �
 - 表示: PWA の `CockpitMeetingSummary` が Supabase を直読み
 - MTG詳細モーダルの Markdown 表示: `narrative_md` / `summary_short` / raw 配列 / 予定MTGブリーフの本文中に active AMDメンバーの `members.code_name` が出る場合、`LinkedMemberText` で `/mypage?memberId=<members.member_id>` へ自動リンクする。既存の Markdown link / code / pre は壊さず、通常テキスト部分だけをリンク対象にする。
 - 添付資料: PWA の MTG 詳細モーダルから、一般ファイル / スクショ / PDF / 画面キャプチャを `meeting_assets` に保存する。新規実体はDriveの `PJフォルダ / YYMMDD_会議名`、旧実体はprivate Storage互換で扱い、必要なものだけ `narrative_md` の Markdown 画像/リンクとして挿入する。
+- 共有出力: MTG 詳細モーダルには `PDF保存` / `メール本文コピー` / `共有URLコピー` を置く。`PDF保存` はブラウザ印刷の PDF 保存を使い、画面背景や操作ボタンを除いた議事録本文だけを印刷対象にする。`メール本文コピー` は `narrative_md` を見出し・段落中心のプレーンテキストへ整形し、`project_id` / `source_kinds` などの内輪メタは本文へ出さない。`共有URLコピー` は既存 `?meeting=<meeting_id>` deep link をコピーする内部確認用導線。
 - 予定MTG: 日時が確定しているものだけ `source_kinds='upcoming'` として同じ `project_meeting_summaries` に保存し、会議前の「決めること / 用意するもの」を MTG サマリ欄の先頭に出す。日程未確定の仮置きは `source_kinds='upcoming_tentative'` / `prep_status='tentative'` とし、確定予定 count には含めず「日程調整中MTG」として同じ上段エリアに残す。
 - future Calendar sync: H-1 automation が **今日0:00 JSTから今後60日** の確定Calendar予定を `POST /api/meeting-prep/calendar-sync` に渡す。前回議事録がまだ無いPJでも、Calendar上で確定しているMTGは `upcoming:<calendar_event_id>` としてカード化する。ただし recurring MTG は series ごとに次回1件だけを保存・表示対象にし、それ以降の回はノイズとして同期/一覧表示しない。Google Calendar の `recurring_event_id` が無い場合は weekly cadence を推定できる series だけ同じ扱いにする。今日すでに開始済みの予定も、当日中はDrive資料やURL補強のため同期対象にする。PJ Drive folder に会議日フォルダや関連資料がある場合は、`drive_files` として予定カードの `関連Drive資料` に出す。
 - 会議後 workflow: PWA `POST /api/meeting-workflow/finalize` が、routine 生成済み議事録の `decided` / `next_actions` / `narrative_md` から **日時まで明確な次MTG候補を複数抽出**し、次MTGカード・action item・Slack nudge 予約を作る。完了イベントは `POST /api/meeting-workflow/actions/:actionId/complete` で受ける。ここでは **LLM を呼ばない**。
@@ -532,6 +533,7 @@ if existing.source_hash === newHash: skip (LLM 呼ばない)
 - モーダル内: ヘッダ (日時 + title + notion link + source_kinds chip) → サマリ / narrative → 決まったこと → 進んだこと → 次やること → リスク を縦並び。各 item は `MarkdownView` で markdown 描画 (= 表/見出し/リスト/コード/引用 OK)。編集 mode では表示している section が同じ位置で textarea になる
 - 議事録なしマーカー行は `summary_short` だけ "議事録なし" が出る (decided/progress/... は空なので非表示、`Notion で開く` リンクは notion_url があれば出る)
 - 通常MTG / dialogue は詳細モーダルの「表示内容を編集」から、表示中の `narrative_md` または raw section (`summary_short / decided / progress / next_actions / risks`) を更新できる。保存先は `POST /api/meeting-summary/manual-update`。MTG 詳細モーダルには「つくよみに修正依頼」を置かず、LLM 再解釈ではなく手動編集を正本にする。
+- 通常MTG / dialogue / 予定MTG は詳細モーダルの共有操作から、印刷PDF保存・メール貼り付け用本文コピー・`?meeting=` deep link コピーを実行できる。PDFは新しいDB行や添付ファイルを作らず、画面上の `narrative_md` / fallback raw section を印刷用 DOM へ整形するだけ。メール本文コピーも同じ正本本文から作り、外部共有に不要な `project_id` / `source_kinds` は本文に入れない。
 - jsonb 配列 (decided / progress / next_actions / risks) の各要素には **GFM table を含む長文 markdown を保存する運用** に変更 (= 提案前の論点整理セッションの議事録のように、L表/U表/L×U マトリクスを各要素に埋め込んで詳細解説する用途)。表は `<div className="overflow-x-auto">` で横スクロール対応
 
 ---
@@ -599,6 +601,7 @@ R313 を会議サマリ集約方式に書き換える TODO は廃止。必要な
 | **2026-05-29** | **MTGサマリ narrative の箇条書き禁止を明文化**: H-1 routine / dialogue narrate は、欠席メンバーが背景から次の一手まで追える文章 narrative を生成する。`decided` 等の配列は検索・通知用の補助で、議事録本文を箇条書きに戻さない。 | 本セッション |
 | **2026-05-29** | **議事録本文の5見出し固定順を正本化**: 開催済みMTGの `narrative_md` は `## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の順に固定。表記ゆれや順序違いは品質 gate で保存しない。 | 本セッション |
 | **2026-06-19** | **recurring 予定MTGをシリーズカード化**: `calendar-sync` は `recurring_event_id` が取れる series を cadence 問わず次回1件だけ保存し、2件目以降を `recurring_series_future_occurrence` で skip。`recurring_event_id` がDBへ残らない既存カードでも、title が `定例` / `月次` / `毎月` 等なら曜日を外して series 推定する。`CockpitMeetingSummary` / `HudCockpitMeetingSummary` は既存DB行も series ごとに次回1枚へ畳む。build v0.28.8 | 本セッション |
+| **2026-06-25** | **MTG詳細共有導線**: `CockpitMeetingDetailModal` に `PDF保存` / `メール本文コピー` / `共有URLコピー` を追加。PDFはブラウザ印刷のPDF保存、メール本文は `narrative_md` / fallback section から社外貼り付け用プレーンテキストを生成、URLは既存 `?meeting=` deep link をコピーする。 | 本セッション |
 | **2026-05-29** | **weekly recurring 予定MTGを次回1件に制限**: `calendar-sync` は同じ weekly series の future occurrences を次回以外 skip し、`CockpitMeetingSummary` も既存DB行を series ごとに次回1件だけ表示する。複数 weekly series が同じPJにある場合はそれぞれ1件ずつ残す。 | 本セッション |
 | **2026-06-18** | **MTG詳細MarkdownのAMDメンバーリンク化**: `CockpitMeetingDetailModal` の Markdown 表示で `MarkdownView memberLinks` を有効化し、`narrative_md` 等の本文中に出る active AMDメンバー `members.code_name` を `/mypage?memberId=<members.member_id>` へリンクする。既存 Markdown link / code / pre は対象外。 | 895a1bda |
 | **2026-05-09** | **debug_meeting_inspectBlocks(pageId)** 新設 (gas/158): 任意ページの blocks 構造を JSON で返す常設 debug 関数 | fbeabb5 |

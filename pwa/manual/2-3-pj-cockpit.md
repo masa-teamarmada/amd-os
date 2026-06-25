@@ -173,6 +173,7 @@ MTG詳細モーダル内の「添付資料」は会議単位の `meeting_assets`
 - 新規添付の実ファイルは Google Drive の当該PJ folder (`projects.drive_folder_id`) 配下に `YYMMDD_会議名` folder を作成/再利用して保存する。カード上には `保存先: PJフォルダ / YYMMDD_会議名` を表示する。旧添付の private Storage `meeting-assets` は互換表示する
 - 「本文へ」を押すと、添付画像 / ファイルリンクが `narrative_md` の添付資料 block に Markdown で挿入される。本文には `/api/meeting-assets/file/{asset_id}` だけを残す
 - 各カードを開くと URL が `?meeting=<meeting_id>` に変わる。この URL を共有すると、同じ PJ コックピットを開いた時点で該当 MTG 詳細モーダルが開く
+- 詳細モーダル上部の共有操作では、`PDF保存` / `メール本文コピー` / `共有URLコピー` が使える。`PDF保存` はブラウザの印刷画面から PDF として保存する。`メール本文コピー` は `narrative_md` または fallback section を、件名候補・日時・概要・本文つきのプレーンテキストへ整える。`共有URLコピー` は OS 内で同じ MTG 詳細を開くための `?meeting=` link をコピーする
 
 ### 「まさえいMTG」とは
 - まさとえいみ (= LLM) が、チームへ提案する前の論点・提案・残課題を整理する対話セッション
