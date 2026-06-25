@@ -79,6 +79,17 @@ export const BZM_PARTS: BzmPartConfig[] = [
     description: "著者性・利害・倫理への批判と、附則 (変更履歴)。参考文献・記号・用語は各部の完成にあわせて再構築する。",
     slugs: ["ethics-and-authorship", "9-5-appendix-changelog"],
   },
+  {
+    key: "proposals_20260625",
+    label: "設計提案 (2026-06-25, 本文外)",
+    description: "本書全体を Book 0-VI 構造に再設計する議論の記録。本文ではなく提案物。順序通り読むと: (1) 全体構造案 → (2) 既存章 → 新章 mapping → (3) Book II OPENER 構造手術 Rev 1 → (4) Rev 2 (進化経済査読が条件付き受理 → 軽微修正に到達)。",
+    slugs: [
+      "2026-06-25_proposal_book0_vi",
+      "2026-06-25_mapping_existing_to_new",
+      "2026-06-25_book2_evol_econ_surgery",
+      "2026-06-25_book2_evol_econ_major_revision",
+    ],
+  },
 ];
 
 export const BZM_CHAPTERS: BzmChapterConfig[] = [
@@ -172,6 +183,26 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
     title: "附則（テキストブック変更履歴）",
     summary: "教科書の追加・変更・削除を日付つきで残す append-only の変更履歴。",
   },
+  {
+    slug: "2026-06-25_proposal_book0_vi",
+    title: "本書 Book 0-VI 構造再設計案 (synth 出力)",
+    summary: "870 ページ / 18 ヶ月の Tier 3 学術モノグラフとして本書を Book 0-VI + 付録に作り直す案。5 経済学者批判と整合性監査を吸収した synth が出した最終 TOC + 中核命題 + 18 chunk 詳細 + まさへの開放論点。設計提案の読み始め。",
+  },
+  {
+    slug: "2026-06-25_mapping_existing_to_new",
+    title: "既存章 → 新 Book 0-VI 配置 mapping (節レベル)",
+    summary: "既存 13 章 md の 194 節を、新 Book 0-VI 構造の 37 章にどう配置するかを節レベルで対応付け。新章ごと統合 view と既存グループごと解体 view の二視点。執筆時の素材棚として使う。",
+  },
+  {
+    slug: "2026-06-25_book2_evol_econ_surgery",
+    title: "Book II OPENER 構造手術 Rev 1 — 進化経済批判 NO → 条件付き受理",
+    summary: "5 経済学者批判で唯一 NO だった進化経済査読を条件付き受理に動かす構造手術。Ch 10 を Book II の OPENER に移し、BZM の進化経済学への 3 寄与 (B 起動時の τ_x レジーム切換え / F-CES の委譲不可コア / 二層非可換性) を形式的に書き起こす。",
+  },
+  {
+    slug: "2026-06-25_book2_evol_econ_major_revision",
+    title: "Book II OPENER 改訂 Rev 2 — 条件付き受理 → 軽微修正 (受理可)",
+    summary: "Rev 1 で残った 6 条件 (C2/C3 強化、Murmann/Klepper/Malerba との形式的接続、t* ファジー境界、N≈32 試験データ設計) に対応した改訂版。進化経済査読が軽微修正に動き、Cambridge UP Schumpeter モノグラフ + Research Policy 特集号への二段構え publication path が確定。",
+  },
 ];
 
 const partOrder = new Map(
@@ -198,8 +229,13 @@ export function sortBzmSlugs(slugs: string[]) {
 export function applyBzmBookNumbering(chapters: BzmChapterConfig[]): BzmNumberedChapter[] {
   const numberBySlug = new Map<string, string>();
   BZM_PARTS.forEach((part, partIdx) => {
+    const isProposals = part.key.startsWith("proposals_");
     part.slugs.forEach((slug, chapterIdx) => {
-      numberBySlug.set(slug, `${partIdx}-${chapterIdx + 1}`);
+      if (isProposals) {
+        numberBySlug.set(slug, `提案 ${chapterIdx + 1}`);
+      } else {
+        numberBySlug.set(slug, `${partIdx}-${chapterIdx + 1}`);
+      }
     });
   });
   return chapters.map((chapter) => ({
