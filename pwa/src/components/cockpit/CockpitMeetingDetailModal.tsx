@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { RefObject } from "react";
 import {
   Dialog,
   DialogContent,
@@ -51,7 +52,9 @@ function isUpcomingMeeting(meeting: ProjectMeetingSummary): boolean {
 
 function isPrepMeeting(meeting: ProjectMeetingSummary): boolean {
   const sourceKinds = sourceKindTokens(meeting.sourceKinds);
-  return meeting.meetingId.startsWith("upcoming:") || sourceKinds.has("upcoming") || sourceKinds.has("upcoming_tentative");
+  return sourceKinds.has("upcoming") ||
+    sourceKinds.has("upcoming_tentative") ||
+    (meeting.meetingId.startsWith("upcoming:") && sourceKinds.size === 0);
 }
 
 function sourceKindTokens(sourceKinds: string | null): Set<string> {
@@ -69,10 +72,13 @@ export function CockpitMeetingDetailModal({ meeting, prepMeeting = null, open, o
   const meetingId = meeting?.meetingId ?? null;
   const [editing, setEditing] = useState(false);
   const [shareNote, setShareNote] = useState<string | null>(null);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const pdfExportRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setEditing(false);
     setShareNote(null);
+    setPdfBusy(false);
   }, [meetingId]);
 
   if (!meeting) return null;
@@ -80,6 +86,8 @@ export function CockpitMeetingDetailModal({ meeting, prepMeeting = null, open, o
   const dialogue = isDialogueMeeting(meeting);
   const upcoming = isUpcomingMeeting(meeting);
   const prep = isPrepMeeting(meeting);
+  const shareBundle = buildMeetingShareBundle(meeting, prepMeeting);
+  const primaryPdfPart = shareBundle.minutes ?? shareBundle.prep;
   const notionLink = notionTranscriptLink(meeting);
   const sourceLink = meeting.sourceUrl || meeting.notionUrl;
   // dialogue 以外は元ソースを「Notion / Drive / Slack / Gmail / Calendar」と sourceKinds から推測
@@ -98,12 +106,31 @@ export function CockpitMeetingDetailModal({ meeting, prepMeeting = null, open, o
     window.setTimeout(() => setShareNote(null), 1800);
   }
 
-  async function copyEmailBody() {
+  async function copySharePart(part: MeetingSharePart, copiedLabel: string) {
     try {
-      await writeClipboardText(buildMeetingEmailBody(currentMeeting));
-      setTemporaryShareNote("メール本文をコピーしたよ");
+      await writeClipboardText(buildMeetingEmailBody(part));
+      setTemporaryShareNote(`${copiedLabel}をコピーしたよ`);
     } catch {
       setTemporaryShareNote("コピーできなかった");
+    }
+  }
+
+  async function downloadPdf() {
+    if (!primaryPdfPart || pdfBusy) return;
+    const exportElement = pdfExportRef.current ?? document.querySelector<HTMLElement>(".meeting-share-pdf-page");
+    if (!exportElement) {
+      setTemporaryShareNote("PDF用の本文を準備できなかった");
+      return;
+    }
+    setPdfBusy(true);
+    try {
+      await saveSharePartAsPdf(primaryPdfPart, exportElement);
+      setTemporaryShareNote("PDFを保存したよ");
+    } catch (error) {
+      console.error("[meeting-share-pdf]", error);
+      setTemporaryShareNote("PDF保存に失敗した");
+    } finally {
+      setPdfBusy(false);
     }
   }
 
@@ -114,11 +141,6 @@ export function CockpitMeetingDetailModal({ meeting, prepMeeting = null, open, o
     } catch {
       setTemporaryShareNote("コピーできなかった");
     }
-  }
-
-  function printPdf() {
-    setTemporaryShareNote("PDF保存は印刷画面から選んでね");
-    window.setTimeout(() => window.print(), 80);
   }
 
   return (
@@ -187,22 +209,36 @@ export function CockpitMeetingDetailModal({ meeting, prepMeeting = null, open, o
             <div className="flex flex-wrap items-center gap-1.5 border-l border-[#e5e5e7] pl-2">
               <button
                 type="button"
-                onClick={printPdf}
+                onClick={downloadPdf}
+                disabled={!primaryPdfPart || pdfBusy}
                 className="inline-flex items-center gap-1.5 rounded border border-[#d2d2d7] bg-white px-2.5 py-1 text-[11px] font-medium text-[#1d1d1f] hover:bg-[#f5f5f7]"
-                title="議事録を印刷画面で開いてPDFとして保存"
+                title="共有用の整形済みPDFを直接保存"
               >
                 <FileDown className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>PDF保存</span>
+                <span>{pdfBusy ? "PDF作成中" : "PDF保存"}</span>
               </button>
-              <button
-                type="button"
-                onClick={copyEmailBody}
-                className="inline-flex items-center gap-1.5 rounded border border-[#d2d2d7] bg-white px-2.5 py-1 text-[11px] font-medium text-[#1d1d1f] hover:bg-[#f5f5f7]"
-                title="メールへ貼り付けやすい本文をコピー"
-              >
-                <Mail className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>メール本文コピー</span>
-              </button>
+              {shareBundle.minutes && (
+                <button
+                  type="button"
+                  onClick={() => copySharePart(shareBundle.minutes!, "議事録本文")}
+                  className="inline-flex items-center gap-1.5 rounded border border-[#d2d2d7] bg-white px-2.5 py-1 text-[11px] font-medium text-[#1d1d1f] hover:bg-[#f5f5f7]"
+                  title="議事録だけをメール貼り付け用にコピー"
+                >
+                  <Mail className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>議事録コピー</span>
+                </button>
+              )}
+              {shareBundle.prep && (
+                <button
+                  type="button"
+                  onClick={() => copySharePart(shareBundle.prep!, "準備メモ")}
+                  className="inline-flex items-center gap-1.5 rounded border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-900 hover:bg-amber-100"
+                  title="会議前の準備メモだけをコピー"
+                >
+                  <Mail className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>準備メモコピー</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={copyShareUrl}
@@ -229,7 +265,7 @@ export function CockpitMeetingDetailModal({ meeting, prepMeeting = null, open, o
           meeting={meeting}
           onMeetingUpdated={onMeetingUpdated}
         />
-        <MeetingPrintDocument meeting={meeting} />
+        {primaryPdfPart && <MeetingPdfDocument part={primaryPdfPart} exportRef={pdfExportRef} />}
       </DialogContent>
     </Dialog>
   );
@@ -259,46 +295,132 @@ function buildMeetingShareUrl(meeting: ProjectMeetingSummary): string {
   return url.toString();
 }
 
-function buildMeetingEmailBody(meeting: ProjectMeetingSummary): string {
-  const kind = isPrepMeeting(meeting) ? "MTG準備メモ" : isDialogueMeeting(meeting) ? "提案整理メモ" : "議事録";
-  const subjectDate = formatHeaderDate(meeting.meetingDate, meeting.meetingStartAt).replace(/\s+\d{2}:\d{2}$/, "");
-  const lines = [
-    `件名: 【${kind}共有】${meeting.title}（${subjectDate}）`,
-    "",
-    "各位",
-    "",
-    `以下、${kind}を共有します。`,
-    "",
-    `【MTG】${meeting.title}`,
-    `【日時】${formatHeaderDate(meeting.meetingDate, meeting.meetingStartAt)}`,
-    meeting.summaryShort ? `【概要】${stripMarkdownForEmail(meeting.summaryShort)}` : "",
-    "",
-    buildMeetingEmailMainContent(meeting),
-  ];
-  return normalizeEmailWhitespace(lines.filter(Boolean).join("\n"));
+type SharePartKind = "minutes" | "prep";
+
+interface MeetingSharePart {
+  kind: SharePartKind;
+  label: string;
+  subjectKind: string;
+  title: string;
+  dateLabel: string;
+  summary: string;
+  markdown: string;
+  emptyText: string;
 }
 
-function buildMeetingEmailMainContent(meeting: ProjectMeetingSummary): string {
-  if (meeting.narrativeMd?.trim()) return stripMarkdownForEmail(meeting.narrativeMd);
+interface MeetingShareBundle {
+  minutes: MeetingSharePart | null;
+  prep: MeetingSharePart | null;
+}
 
+function buildMeetingShareBundle(meeting: ProjectMeetingSummary, prepMeeting: ProjectMeetingSummary | null): MeetingShareBundle {
+  const narrative = splitMeetingNarrative(meeting.narrativeMd);
+  const minutes = isPrepMeeting(meeting)
+    ? null
+    : buildMinutesSharePart(meeting, narrative.minutesMd);
+  const prep = isPrepMeeting(meeting)
+    ? buildPrepSharePart(meeting, narrative.prepMd ?? narrative.minutesMd)
+    : narrative.prepMd
+      ? buildPrepSharePart(meeting, narrative.prepMd)
+      : prepMeeting
+        ? buildPrepSharePart(prepMeeting)
+        : null;
+  return { minutes, prep };
+}
+
+function buildMinutesSharePart(meeting: ProjectMeetingSummary, narrativeMd: string | null): MeetingSharePart {
+  const dialogue = isDialogueMeeting(meeting);
+  return {
+    kind: "minutes",
+    label: dialogue ? "提案整理" : "議事録",
+    subjectKind: dialogue ? "提案整理メモ" : "議事録",
+    title: meeting.title,
+    dateLabel: formatHeaderDate(meeting.meetingDate, meeting.meetingStartAt),
+    summary: meeting.summaryShort || "",
+    markdown: narrativeMd?.trim() || buildMeetingFallbackMarkdown(meeting),
+    emptyText: meeting.sourceKinds === "none" ? "議事録なし" : "議事録本文はまだ整理されていません。",
+  };
+}
+
+function buildPrepSharePart(meeting: ProjectMeetingSummary, explicitMarkdown?: string | null): MeetingSharePart {
+  return {
+    kind: "prep",
+    label: "準備メモ",
+    subjectKind: "MTG準備メモ",
+    title: meeting.title,
+    dateLabel: formatHeaderDate(meeting.meetingDate, meeting.meetingStartAt),
+    summary: meeting.summaryShort || "",
+    markdown: explicitMarkdown?.trim() || buildPrepFallbackMarkdown(meeting),
+    emptyText: "準備メモ本文はまだ整理されていません。",
+  };
+}
+
+function splitMeetingNarrative(narrativeMd: string | null): { minutesMd: string | null; prepMd: string | null } {
+  const source = narrativeMd?.trim();
+  if (!source) return { minutesMd: null, prepMd: null };
+  const match = source.match(/\n\s*(?:-{3,}\s*\n\s*)?##\s*(?:参考[:：]\s*)?会議前準備メモ[^\n]*\n/i);
+  if (!match || match.index == null) return { minutesMd: source, prepMd: null };
+  const minutesMd = source.slice(0, match.index).trim();
+  const prepMd = source
+    .slice(match.index)
+    .replace(/^\s*-{3,}\s*/, "")
+    .replace(/^##\s*(?:参考[:：]\s*)?会議前準備メモ[^\n]*\n/i, "## 会議前準備メモ\n")
+    .trim();
+  return {
+    minutesMd: minutesMd || null,
+    prepMd: prepMd || null,
+  };
+}
+
+function buildMeetingFallbackMarkdown(meeting: ProjectMeetingSummary): string {
   const dialogue = isDialogueMeeting(meeting);
   const sections = [
-    formatEmailSection(dialogue ? "チームへの提案案" : "決まったこと", meeting.decided),
-    formatEmailSection(dialogue ? "議論の中で進んだこと" : "進んだこと", meeting.progress),
-    formatEmailSection("次の一手", meeting.nextActions),
-    formatEmailSection(dialogue ? "気になっていること / 残課題" : "リスク・残課題", meeting.risks),
+    formatMarkdownSection(dialogue ? "チームへの提案案" : "決まったこと", meeting.decided),
+    formatMarkdownSection(dialogue ? "議論の中で進んだこと" : "進んだこと", meeting.progress),
+    formatMarkdownSection("次の一手", meeting.nextActions),
+    formatMarkdownSection(dialogue ? "気になっていること / 残課題" : "リスク・残課題", meeting.risks),
   ].filter(Boolean);
-
   if (sections.length > 0) return sections.join("\n\n");
   return meeting.sourceKinds === "none" ? "議事録なし" : "議事録本文はまだ整理されていません。";
 }
 
-function formatEmailSection(title: string, items: string[]): string {
+function buildPrepFallbackMarkdown(meeting: ProjectMeetingSummary): string {
+  const sections = [
+    meeting.summaryShort ? `## まず読む\n\n${meeting.summaryShort}` : "",
+    formatMarkdownSection("会議後に残したい状態", meeting.decided),
+    formatMarkdownSection("いまの状況", meeting.progress),
+    formatMarkdownSection("当日までに揃えるもの", meeting.nextActions),
+    formatMarkdownSection("必ず確認すること", meeting.risks),
+  ].filter(Boolean);
+  return sections.length > 0 ? sections.join("\n\n") : "準備メモ本文はまだ整理されていません。";
+}
+
+function formatMarkdownSection(title: string, items: string[]): string {
   if (!items || items.length === 0) return "";
   return [
-    `■ ${title}`,
-    ...items.map((item) => `・${stripMarkdownForEmail(item).replace(/\n/g, "\n  ")}`),
+    `## ${title}`,
+    "",
+    ...items.map((item) => `- ${item}`),
   ].join("\n");
+}
+
+function buildMeetingEmailBody(part: MeetingSharePart): string {
+  const subjectDate = part.dateLabel.replace(/\s+\d{2}:\d{2}$/, "");
+  const body = stripMarkdownForEmail(part.markdown) || part.emptyText;
+  const lines = [
+    `件名: 【${part.subjectKind}共有】${part.title}（${subjectDate}）`,
+    "",
+    "各位",
+    "",
+    `以下、${part.subjectKind}を共有します。`,
+    "",
+    `【MTG】${part.title}`,
+    `【日時】${part.dateLabel}`,
+    part.summary ? `【概要】${stripMarkdownForEmail(part.summary)}` : "",
+    "",
+    body,
+  ];
+  return normalizeEmailWhitespace(lines.filter(Boolean).join("\n"));
 }
 
 function stripMarkdownForEmail(markdown: string): string {
@@ -308,6 +430,8 @@ function stripMarkdownForEmail(markdown: string): string {
     .replace(/^#{1,6}\s*/gm, "■ ")
     .replace(/^\s*[-*+]\s+/gm, "・")
     .replace(/^\s*\d+\.\s+/gm, "・")
+    .replace(/^\s*\|(.+)\|\s*$/gm, (_, row: string) => row.split("|").map((cell) => cell.trim()).filter(Boolean).join(" / "))
+    .replace(/^-{3,}$/gm, "")
     .replace(/\*\*([^*]+)\*\*/g, "$1")
     .replace(/\*([^*]+)\*/g, "$1")
     .replace(/__([^_]+)__/g, "$1")
@@ -324,135 +448,175 @@ function normalizeEmailWhitespace(text: string): string {
     .concat("\n");
 }
 
-function MeetingPrintDocument({ meeting }: { meeting: ProjectMeetingSummary }) {
-  const kind = isPrepMeeting(meeting) ? "MTG準備メモ" : isDialogueMeeting(meeting) ? "提案整理メモ" : "議事録";
-  const hasNarrative = !!meeting.narrativeMd?.trim();
-  const hasTopics = meeting.decided.length > 0 || meeting.progress.length > 0 || meeting.nextActions.length > 0 || meeting.risks.length > 0;
+async function saveSharePartAsPdf(part: MeetingSharePart, element: HTMLElement) {
+  await document.fonts?.ready.catch(() => undefined);
+  const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+    import("html2canvas"),
+    import("jspdf"),
+  ]);
+  const canvas = await html2canvas(element, {
+    backgroundColor: "#ffffff",
+    logging: false,
+    onclone: (clonedDoc) => {
+      clonedDoc.querySelectorAll("style, link[rel='stylesheet']").forEach((node) => {
+        if (node.textContent?.includes("meeting-share-pdf-page")) return;
+        node.parentElement?.removeChild(node);
+      });
+      clonedDoc.documentElement.style.backgroundColor = "#ffffff";
+      clonedDoc.body.style.backgroundColor = "#ffffff";
+    },
+    scale: 2,
+    useCORS: true,
+    windowWidth: element.scrollWidth,
+    windowHeight: element.scrollHeight,
+  });
+  const pdf = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 36;
+  const imageWidth = pageWidth - margin * 2;
+  const pageCanvasHeight = Math.floor((pageHeight - margin * 2) * canvas.width / imageWidth);
+  let y = 0;
+  let pageIndex = 0;
 
+  while (y < canvas.height) {
+    const sliceHeight = Math.min(pageCanvasHeight, canvas.height - y);
+    const pageCanvas = document.createElement("canvas");
+    pageCanvas.width = canvas.width;
+    pageCanvas.height = sliceHeight;
+    const ctx = pageCanvas.getContext("2d");
+    if (!ctx) throw new Error("canvas context unavailable");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+    ctx.drawImage(canvas, 0, y, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight);
+    if (pageIndex > 0) pdf.addPage();
+    const imageHeight = sliceHeight * imageWidth / canvas.width;
+    pdf.addImage(pageCanvas.toDataURL("image/png"), "PNG", margin, margin, imageWidth, imageHeight);
+    y += sliceHeight;
+    pageIndex += 1;
+  }
+
+  pdf.save(buildSharePdfFileName(part));
+}
+
+function buildSharePdfFileName(part: MeetingSharePart): string {
+  const dateMatch = part.dateLabel.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
+  const date = dateMatch
+    ? `${dateMatch[1]}${dateMatch[2].padStart(2, "0")}${dateMatch[3].padStart(2, "0")}`
+    : "meeting";
+  const safeTitle = part.title
+    .replace(/[\\/:*?"<>|]/g, "")
+    .replace(/\s+/g, "_")
+    .slice(0, 48);
+  return `${date}_${safeTitle}_${part.label}.pdf`;
+}
+
+function MeetingPdfDocument({ part, exportRef }: { part: MeetingSharePart; exportRef: RefObject<HTMLDivElement | null> }) {
   return (
     <>
       <style>{`
         @media screen {
-          #meeting-share-print-root { display: none; }
-        }
-        @media print {
-          @page { margin: 14mm; }
-          body * { visibility: hidden !important; }
-          #meeting-share-print-root,
-          #meeting-share-print-root * { visibility: visible !important; }
-          #meeting-share-print-root {
-            display: block !important;
+          .meeting-share-export-root {
             position: fixed;
-            inset: 0;
-            z-index: 2147483647;
-            width: 100vw;
-            min-height: 100vh;
-            overflow: visible;
+            left: -10000px;
+            top: 0;
+            width: 794px;
+            pointer-events: none;
             background: white;
-            color: #1d1d1f;
-            font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", "YuGothic", sans-serif;
           }
-          #meeting-share-print-root .meeting-print-page {
-            max-width: 180mm;
-            margin: 0 auto;
-            padding: 0;
-          }
-          #meeting-share-print-root .meeting-print-kicker {
-            color: #6e6e73;
-            font-size: 10pt;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-          }
-          #meeting-share-print-root h1 {
-            margin: 3mm 0 2mm;
-            font-size: 20pt;
-            line-height: 1.35;
-          }
-          #meeting-share-print-root .meeting-print-meta {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 3mm;
-            margin-bottom: 8mm;
-            color: #3c3c43;
-            font-size: 10pt;
-          }
-          #meeting-share-print-root .meeting-print-summary {
-            margin-bottom: 8mm;
-            border: 0.3mm solid #d2d2d7;
-            border-radius: 2mm;
-            padding: 4mm;
-            background: #fafafa;
-            font-size: 10.5pt;
-            line-height: 1.7;
-          }
-          #meeting-share-print-root h2 {
-            break-after: avoid;
-            margin: 7mm 0 2mm;
-            border-bottom: 0.3mm solid #d2d2d7;
-            padding-bottom: 1.5mm;
-            font-size: 13pt;
-            line-height: 1.35;
-          }
-          #meeting-share-print-root p,
-          #meeting-share-print-root li {
-            font-size: 10.5pt;
-            line-height: 1.75;
-          }
-          #meeting-share-print-root ul,
-          #meeting-share-print-root ol {
-            padding-left: 6mm;
-          }
-          #meeting-share-print-root a {
-            color: #1d4ed8;
-            text-decoration: none;
-          }
+        }
+        .meeting-share-pdf-page {
+          box-sizing: border-box;
+          width: 794px;
+          min-height: 1123px;
+          padding: 56px 64px 64px;
+          background: #ffffff;
+          color: #1d1d1f;
+          font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", "YuGothic", sans-serif;
+        }
+        .meeting-share-pdf-page .pdf-kicker {
+          color: #6e6e73;
+          font-size: 12px;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+        }
+        .meeting-share-pdf-page h1 {
+          margin: 10px 0 8px;
+          font-size: 26px;
+          line-height: 1.35;
+          font-weight: 700;
+        }
+        .meeting-share-pdf-page .pdf-meta {
+          margin-bottom: 24px;
+          color: #3c3c43;
+          font-size: 13px;
+        }
+        .meeting-share-pdf-page .pdf-summary {
+          margin-bottom: 26px;
+          border: 1px solid #d2d2d7;
+          border-radius: 8px;
+          padding: 14px 16px;
+          background: #fafafa;
+          font-size: 14px;
+          line-height: 1.75;
+        }
+        .meeting-share-pdf-page .pdf-body h1,
+        .meeting-share-pdf-page .pdf-body h2 {
+          break-after: avoid;
+          margin: 24px 0 10px;
+          border-bottom: 1px solid #d2d2d7;
+          padding-bottom: 7px;
+          font-size: 18px;
+          line-height: 1.4;
+          font-weight: 700;
+        }
+        .meeting-share-pdf-page .pdf-body h3 {
+          margin: 18px 0 8px;
+          font-size: 15px;
+          font-weight: 700;
+        }
+        .meeting-share-pdf-page .pdf-body p,
+        .meeting-share-pdf-page .pdf-body li {
+          font-size: 14px;
+          line-height: 1.85;
+        }
+        .meeting-share-pdf-page .pdf-body ul,
+        .meeting-share-pdf-page .pdf-body ol {
+          margin: 10px 0 14px;
+          padding-left: 24px;
+        }
+        .meeting-share-pdf-page .pdf-body table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 12px;
+        }
+        .meeting-share-pdf-page .pdf-body th,
+        .meeting-share-pdf-page .pdf-body td {
+          border: 1px solid #d2d2d7;
+          padding: 6px 8px;
+          vertical-align: top;
+        }
+        .meeting-share-pdf-page .pdf-body a {
+          color: #1d4ed8;
+          text-decoration: none;
         }
       `}</style>
-      <div id="meeting-share-print-root" aria-hidden="true">
-        <main className="meeting-print-page">
-          <div className="meeting-print-kicker">Team ARMADA / {kind}</div>
-          <h1>{meeting.title}</h1>
-          <div className="meeting-print-meta">
-            <span>{formatHeaderDate(meeting.meetingDate, meeting.meetingStartAt)}</span>
-          </div>
-          {meeting.summaryShort && (
-            <section className="meeting-print-summary">
-              <MarkdownView source={meeting.summaryShort} />
+      <div className="meeting-share-export-root" aria-hidden="true">
+        <main ref={exportRef} className="meeting-share-pdf-page">
+          <div className="pdf-kicker">Team ARMADA / {part.subjectKind}</div>
+          <h1>{part.title}</h1>
+          <div className="pdf-meta">{part.dateLabel}</div>
+          {part.summary && (
+            <section className="pdf-summary">
+              <MarkdownView source={part.summary} />
             </section>
           )}
-          {hasNarrative ? (
-            <article>
-              <MarkdownView source={meeting.narrativeMd!} />
-            </article>
-          ) : hasTopics ? (
-            <article>
-              <PrintTopic title={isDialogueMeeting(meeting) ? "チームへの提案案" : "決まったこと"} items={meeting.decided} />
-              <PrintTopic title={isDialogueMeeting(meeting) ? "議論の中で進んだこと" : "進んだこと"} items={meeting.progress} />
-              <PrintTopic title="次の一手" items={meeting.nextActions} />
-              <PrintTopic title={isDialogueMeeting(meeting) ? "気になっていること / 残課題" : "リスク・残課題"} items={meeting.risks} />
-            </article>
-          ) : (
-            <p>{meeting.sourceKinds === "none" ? "議事録なし" : "議事録本文はまだ整理されていません。"}</p>
-          )}
+          <article className="pdf-body">
+            <MarkdownView source={part.markdown || part.emptyText} />
+          </article>
         </main>
       </div>
     </>
-  );
-}
-
-function PrintTopic({ title, items }: { title: string; items: string[] }) {
-  if (!items || items.length === 0) return null;
-  return (
-    <section>
-      <h2>{title}</h2>
-      <ul>
-        {items.map((item, idx) => (
-          <li key={idx}>
-            <MarkdownView source={item} />
-          </li>
-        ))}
-      </ul>
-    </section>
   );
 }
 
