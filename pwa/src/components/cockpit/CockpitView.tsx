@@ -9,6 +9,7 @@ import { CockpitStrategySignals } from "./CockpitStrategySignals";
 import { CockpitGovernance } from "./CockpitGovernance";
 import { CockpitGrants } from "./CockpitGrants";
 import { CockpitProjectDocuments } from "./CockpitProjectDocuments";
+import { CockpitKuteAnnualRoadmap } from "./CockpitKuteAnnualRoadmap";
 import { CockpitMonthlyList } from "./CockpitMonthlyList";
 import { CockpitMonthlyModal } from "./CockpitMonthlyModal";
 import { CockpitNudge } from "./CockpitNudge";
@@ -354,6 +355,8 @@ export function CockpitView({ cockpit, nudges, initialModalYm }: CockpitViewProp
     <div className="max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3">
       {/* [A] Project Header (full width) */}
       <CockpitHeader project={project} />
+
+      {project.projectId === "p25" && <CockpitKuteAnnualRoadmap currentYm={currentYm} />}
 
       {/* [A2] Hero (案C: Header 直下の全幅セクション)
             - p00 (= AMD 会社全体) は AMD Management Score の時系列折れ線 + 最新値カード
