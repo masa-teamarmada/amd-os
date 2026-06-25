@@ -1136,3 +1136,80 @@ deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifica
 - ログイン済み admin で `/admin/ms-overview` 編集モードを実機確認する。DB保存テストはまさ明示OK時のみ tiny/safe な変更で行う。
 - `value_milestones` への見積明細混入 cleanup は別タスク。印刷ビューだけでなく cockpit / `/admin/ms-overview` / 報酬計算へ影響しうるので、発生源と既存データ無効化方針を別セッションで扱う。
 - `gas-slack/.clasp.json` は今回のPWA/MS作業外の untracked local artifact。GAS/Slack owner 判断まで commit しない。
+
+---
+
+## 2026-06-25 — BZM 章構成を Book 0-VI に再設計、進化経済査読を軽微修正へ (v0.34.25 → v0.34.26)
+
+### コンテキスト
+- まさが既存本書ドラフト (preface, field-*, model-overview, p-potential 等の 17 章 = 2026-06-13 確定の章割) に疑問を持ってセッション開始。「現場のリスク・先生の事業化第一歩・GAP・設立・調達の時系列スパイン + 数学厳密 + 既存経済学先行研究との差分」を求めるレベルへゴール格上げ。
+- 工学院大学 KUTE 桑折先生 MTG (2026-06-24) で抽出された「先生が抱えるリスク」(出資金/シーズ転用/COI/退路/研究室学生責任/論文-特許順序事故/取締役個人責任) を本書に統合したいという要求が起点。
+- セッション中盤で既存 BZM 本流 (`pwa/bzm/` 17 章 + `pwa/design/amd_score.md` + `pwa/design/institution_readiness.md` + `BZSF/before_zero_theory.md`) を発見。`before-zero/theory/` 配下は v3.2 時代の作業場で既に古い (PRS = P × R × S, ERS = 8軸加重和, F = CES, S = Pr(τ_x < τ_y) の戦略余力動学が既に確定モデル) ことを途中で認識。
+
+### 実装
+
+**4 つの設計提案 md を `pwa/bzm/` に push (4 commits):**
+- `2026-06-25_proposal_book0_vi.md` (commit `1088124f` 初版 + `3a557e8b` 日本語翻訳 + `274e742c` 厳格再翻訳): 新 Book 0-VI 構造の全体 TOC (870p / 18ヶ月) + 5 経済学者 persona の対立的批判 + 2 整合性監査 + 18 章詳細。workflow `wakbxq1i2` (26 agents, 1.6M tokens, 25 min) で生成。
+- `2026-06-25_mapping_existing_to_new.md` (commit `cc954d9b`): 既存 17 章 md の 194 節を新 Book 0-VI 構造の 37 章にどう配置するかを節レベルで対応付け。workflow `wl8pcv7wl` (5 agents, 363k tokens, 3 min)。
+- `2026-06-25_book2_evol_econ_surgery.md` (commit `718af3af`): Book II Ch 10 を Book II の OPENER に move、BZM の進化経済学への 3 寄与 (regime-switching τ_x at B-trigger / F-CES の non-delegable core / 二層非可換性) を形式的に書き起こす。進化経済査読が NO → 条件付き受理 (Major Revision) に動いた。workflow `wbe83ceaf` (7 agents, 273k tokens, 10 min, effort=high)。
+- `2026-06-25_book2_evol_econ_major_revision.md` (commit `4bafe452`): Rev 1 で残った 6 大幅修正課題 (C2 ρ 推定可能化 / C3 形式定理 / Murmann co-evolution・Klepper shakeout・Malerba SSI との形式接続 / t* ファジー境界 / N≈32 試験データ設計) を対応した改訂版。進化経済査読が条件付き受理 → 軽微修正に到達、Cambridge UP Schumpeter モノグラフ + Research Policy 特集号 publication path が確定。workflow `w9fa5bdjy` (10 agents, 355k tokens, 7 min, effort=high)。
+
+**サイドナビ整備** (commit `c3949656`):
+- `pwa/src/app/(app)/bzm/bzm-chapters.ts` の `BZM_PARTS` に `proposals_20260625` part を追加 (label: "設計提案 (2026-06-25, 本文外)")、`BZM_CHAPTERS` に 4 提案 chapter を追加。
+- `applyBzmBookNumbering` に特別 case を追加し、提案 part の章番号は part-chapter (`6-1`) ではなく `提案 N` プレフィックスで本書本文と区別。
+
+**Build version bump** (commit `81db5530`):
+- `BUILD_VERSION` v0.34.25 → v0.34.26。サイドナビ更新を反映するための version bump (CLAUDE.md ルール遵守の後追い対応)。
+
+**before-zero/theory/ の古い改訂を削除**:
+- まさ判断で `before-zero/theory/prs_model.md` (= 元 amd_score.md に当日改訂) と `ers_model.md` (当日新規) と `design_log/2026-06-24_ers_dual_structure.md` を削除。本流は `pwa/bzm/` + `pwa/design/` + `BZSF/` に既に存在するため重複・誤情報の元になっていた。
+
+### Verified
+- Vercel auto-deploy: `c3949656` → `274e742c` → `81db5530` 順に main に反映。production `/api/build-info` で `v0.34.26` 確認 (まさのスマホで目視)。
+- 5 経済学者 persona × 3 ラウンドの adversarial verify trajectory:
+  - Baseline (wakbxq1i2): Evolutionary Economist = NO、他 4 (DSGE / Innovation Systems / Econometric / AE Entrepreneurship) = 条件付き受理。
+  - Rev 1 (wbe83ceaf): Evolutionary Economist = 条件付き受理 (Major Revision) に動いた。
+  - Rev 2 (w9fa5bdjy): Evolutionary Economist = 軽微修正 (accept conditional)、Monograph Editor (Cambridge UP Schumpeter 系) = minor edits needed。
+- 4 md 翻訳の質改善 (commit `274e742c`): single score → 単一スコア、causal DAG → 因果 DAG、non-identified → 識別不能、first-order condition → 一次条件、endogenous → 内生的、load-bearing → 中核を支える、yes-if-fixed → 条件付き受理、retrofit → 後付け校正、regime-switching → レジーム切換え、prior/posterior → 事前/事後分布、Major/Minor Revision → 大幅/軽微修正、等を日本語訳語に置換。専門用語の固有名詞 (Cobb-Douglas, Triple Helix, CES, Nelson-Winter, Jovanovic) と数式変数 (P, R, S, σ_SU, ρ, F_char) と略号 (PRS, ERS, FOC, DAG) と journal 名 (Research Policy, Econometrica) は英語維持。
+
+### まさ最終決定
+- **提案 1 の Book 0-VI 構成で本文執筆開始**。次セッションで Book II Ch 5 (Triple Helix SSM と σ_SU の生成) から起草。
+- 推奨書き順 (synth 提案): Book II Ch 5/5.5/9 load-bearing 定理 → Book III ケース → Book 0 → I → IV → V → VI。
+- 既存 17 章本文は `pwa/bzm/` に維持、新章を別 slug で作成し、サイドナビは新章 BZM_PARTS への切替えタイミングで再編成する。
+
+### 残課題
+
+**A. 本文執筆 (大、18ヶ月想定)**
+- Book II Ch 5/5.5/6/7/8/9/10/11 を順次起草。Ch 10 (進化経済 OPENER) は提案 4 が detailed section design を含む (§10.0〜10.10、11 節、72p)。
+- Book III の 8 PJ retrofit ch 12-19 + 機関 retrofit ch 20-24 (4 機関明示 NIMS/工学院大学/愛媛大/香川大 + 3 機関匿名 京大/山口大/東京科学大) + Ch 25 層間結合 + Ch 26a/26b 整合性チェック + 予測登録簿。
+- Book 0 序章 6 章は load-bearing 定理が earned された後で書く (最後)。
+- Book I/IV/V/VI を順次。
+
+**B. 進化経済査読の軽微修正残 5 件**
+1. Pilot power calculation at N≈32 (Andrews-Quandt sup-Wald, effect size β̂_3 ∈ [0.4, 1.2])
+2. §10.8 kernel-identification non-uniqueness 解消
+3. F_char composite (ALQ4 + Grit + Resilience) measurement validity (pre-formation 測定の sensitivity analysis)
+4. International-17 cohort (MIT/EPFL/ETH/Karolinska) selection 補正 strategy
+5. Theorem 3 (Two-Layer Non-Commutativity) Causal Channel Restriction A3 の defense
+
+**C. 残 4 経済学者査読パスの構造手術 (DSGE / Innovation Systems / Econometric / AE)**
+- 各 baseline で「条件付き受理」だったので、進化経済パスより軽い surgery で軽微修正レベルに到達できる見込み。Book II Ch 5/5.5/11 と Book III Ch 25/26a/26b への補強で対応可能。
+
+**D. まさが先に判断する開放論点 (synth 8 件のうち未決)**
+1. 機関匿名化方針: 7 機関すべてタイプ名のみ vs 個別同意取得後の併記 (桑折・NIMS・愛媛大・香川大の書面同意可否を 1ヶ月以内に切り分け)
+2. 国際比較章 (Ch 24) 対象機関: MIT Deshpande / EPFL TTO / TU Munich UnternehmerTUM / KIT Karlsruhe / Tsinghua x-lab のうち AMD が一次情報アクセスできる先
+3. Prospective prediction registry (Ch 26b) の 18ヶ月以内 ≥20 case 登録 commitment の現実性 (AMD pipeline 8 PJ + 新規 12 PJ の協力先確保)
+4. Ch 21 (工学院大学) を N≥15 半構造化インタビュー program の wave-1 にするか
+5. ALQ4/Grit/Resilience の psychometric controversy (Antonakis 2016, Credé 2017) への対応 (そのまま走らせて Ch 7.4 で flag するか代替指標に置き換えるか)
+6. Ch 37 head-to-head 比較で BZM が 4 frameworks に dominate しなかった場合の reporting policy
+7. やらかし図鑑 Y-006/007/008 確定 (Y-006 unknown/not_started 誤読 / Y-007 論文-特許順序事故 / Y-008 取締役個人責任説明不在)
+8. 書き順: Book II → III → 0 → I → IV → V → VI で確定 (synth 提案)、まさ合意済み
+
+### 反省 (再発防止 — 次セッションが読むべき)
+
+1. **既存本流 (BZM)を読まずに古い v3.2 (before-zero/theory/) を最新だと誤認した**。serssion 中盤に `pwa/bzm/` と `pwa/design/amd_score.md` と `pwa/design/institution_readiness.md` を発見するまで、PRS = P × R × S と ERS = 8軸加重和 が既に確定モデルだと把握できなかった。次セッション初手: `pwa/bzm/COMMANDER_TASKS.md` + `pwa/bzm/` の章 md を必ず読む。`before-zero/theory/` は古い、本流ではない。
+2. **`pwa repo` 編集 commit で `build-info.ts` の `BUILD_VERSION` を bump up し忘れた**。`c3949656` (サイドナビ更新) と `274e742c` (再翻訳) の 2 commit で bump 漏れ。`81db5530` で後追い v0.34.26 へ bump。pwa/CLAUDE.md の「コード修正で deploy するたびに必ず patch を bump up する」 ルール明文化済みだったが守れなかった。**次セッションでは pwa repo に commit するたびに必ず BUILD_VERSION を bump up する**。
+3. **提案物を「本書本文と同列」に置いてまさを混乱させた**。「現状の本書本文 (17 章ドラフト) と、新構造の設計図 (4 提案 md) の違い」が分からず「本文はまだ書いてないの?」 と聞かれた。次回は「設計ノート / 本文外」 を最初から明示し、サイドナビでも明確に区別する (今回は「設計提案 (2026-06-25, 本文外)」 label を後付けで追加した)。
+4. **専門用語の英語混入を初回翻訳で許容してしまった**。「単一スコア / 因果 DAG / 識別不能 / 一次条件 / 内生的 / 中核を支える / 条件付き受理 / 後付け校正 / レジーム切換え」 等の日本語訳語が学術界で定着しているものを「academic 専門用語は英語のまま」 と緩く指定し、`w433q135s` の初回翻訳で残してしまった。再翻訳 `w1d60nugs` で対応したが二度手間。**学術書の翻訳指示では「日本語訳が定着している経済学・統計学用語は必ず日本語化、英語維持は人名・数式変数・略号・journal 名・ある程度定着した固有名詞 (Cobb-Douglas, Triple Helix, real options) に限定」を最初から明示する**。
+5. **task ledger (COMMANDER_TASKS.md) を本セッションで開いていなかった**。BZM 司令塔 task ledger の存在を session 後半で発見。次セッション初手で `pwa/bzm/COMMANDER_TASKS.md` を読む。
+

@@ -1,6 +1,6 @@
 # HANDOFF - AMD OS
 
-- Last updated: 2026-06-24 (admin payouts / monthly agreement gate closeout)
+- Last updated: 2026-06-25 (BZM Book 0-VI 構造再設計、進化経済査読を軽微修正へ)
 - Canonical root: `/Users/masa/projects/AMD/amd-os`
 - PWA root: `/Users/masa/projects/AMD/amd-os/pwa`
 - Production URL: `https://amd-os-pwa.vercel.app`
@@ -8,20 +8,30 @@
 
 ## Latest Session Summary
 
-- `/admin/payouts` の月初合意支払 gate を調整した。2026/05以前の稼働月 (`source_ym <= 202605`) は月初合意機能の導入前/移行月として支払可能にする。
-- 移行月バイパス行は DB に偽の合意 row を作らず、server-side gate 上で `agreed` / `migrationBypass=true` として扱う。
-- UI は移行月バイパスだけの場合、個別メンバー表を出さず `対象支払行 4 / 移行月スキップ 4 / blocker 0` の summary にする。4人だけが合意済みに見える誤読を避けるため。
-- `/admin/payouts` 初期表示は SSR で支払データ本体を返し、月初合意 gate は必要に応じて `gateOnly=1` で後追い取得する。write action は server-side gate を必ず通す。
-- 関連仕様は `pwa/spec/3-14-monthly-work-agreement-current-spec.md`、`pwa/manual/6-5-admin-payouts-reward-notice-spec.md`、`pwa/design/FEATURE_REGISTRY.md`、`pwa/BUGS.md`、`pwa/design_log/sessions_2026-06.md` に同期済み。
+- BZM (Before Zero Model = 本書) の章構成を、既存 17 章ドラフトから新 Book 0-VI 構造 (870p / 18ヶ月、Tier 3 学術モノグラフ) に再設計する設計議論を実施。4 つの設計提案 md を `pwa/bzm/` に push (本文ではなく本文外の設計ノート)。
+- 5 経済学者 persona の adversarial verify を 3 ラウンド回し、Evolutionary Economist 査読の verdict trajectory: NO → 条件付き受理 (Major Revision) → 軽微修正 (accept conditional)。Cambridge UP Schumpeter モノグラフ + Research Policy 特集号巻頭論文の publication path が確定。
+- サイドナビ (`bzm-chapters.ts`) に「設計提案 (2026-06-25, 本文外)」 part を追加して 4 md を登録。`BUILD_VERSION` v0.34.25 → v0.34.26 に bump (後追い)。
+- まさ最終決定: 提案 1 の Book 0-VI 構成で本文執筆開始。次セッションは Book II Ch 5 (Triple Helix SSM) から起草。
+- 詳細は `pwa/design_log/sessions_2026-06.md` の 2026-06-25 エントリ、台帳は `pwa/bzm/COMMANDER_TASKS.md`、4 提案物は `pwa/bzm/2026-06-25_*.md` を参照。
 
 ## Repo / Deploy State
 
 - Local branch: `main`
-- Product baseline on `main`: `3677cd33 fix(governance): hide unreviewed meeting action candidates`, followed by docs-only handoff commit(s).
-- Monthly agreement gate accepted production: `35b618ff Fix migration payout gate summary display`
-- Production `/api/build-info` at closeout: `v0.34.22` / `b24718ff675e4b1beb21e96195f21110e64bcc43` / `dirty=false`
-- Production is aligned with product code through `3677cd33`. Build-info may show a later docs-only handoff commit because it does not change the product baseline.
-- The governance/action-items bundle that was dirty during inventory is now committed on `main` as `3677cd33` and visible in production by build-info.
+- 2026-06-25 セッションで追加された commit (古→新):
+  - `1088124f` initial proposal_book0_vi (英語混在)
+  - `3a557e8b` proposal_book0_vi 日本語翻訳 v1
+  - `cc954d9b` 既存 → 新章 mapping md 追加
+  - `718af3af` Book II 構造手術 Rev 1 (進化経済 NO → 条件付き受理)
+  - `4bafe452` Book II 構造手術 Rev 2 (条件付き受理 → 軽微修正、Cambridge UP path 確定)
+  - `c3949656` サイドナビに提案 part を追加 (bzm-chapters.ts)
+  - `274e742c` 厳格再翻訳 (4 md の英語混入を経済学・統計学訳語に置換)
+  - `81db5530` BUILD_VERSION v0.34.25 → v0.34.26 (後追い bump)
+- Production `/api/build-info` at closeout: `v0.34.26` / `81db5530` / `dirty=false` (まさ目視確認)
+- Pre-existing dirty/untracked items (本セッション外):
+  - `gas-slack/.clasp.json` (前回 handoff からのキャリーオーバー、GAS/Slack owner 判断待ち)
+  - `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/outbox/` (worker outbox local artifact)
+  - `pwa/scripts/update_drive_file.mjs` (untracked script)
+  - `pwa/src/app/api/meeting-assets/replace/` (untracked api dir)
 
 ## Dirty State To Own
 
@@ -45,15 +55,22 @@ Dirty buckets:
 
 ## Unresolved Tasks
 
-1. **Governance/action-items production smoke**
-   - Build-info shows `3677cd33` in production. If this area matters next, verify governance/cockpit surfaces show only `review_status='confirmed'` + `status in ('open','in_progress')` action items and exclude `source='meeting_summary'` candidates.
-2. **Admin payouts regression smoke**
-   - Monthly agreement migration summary was verified on production `v0.34.19`. Since production is now `v0.34.22`, a quick logged-in `/admin/payouts?ym=202606` smoke is useful before any further payout edits.
-3. **Older carried items**
-   - Logged-in visual check for `/admin/ms-overview` edit mode is still useful if that area is touched again.
-   - `value_milestones` estimate-line pollution remains a separate cleanup task.
-4. **`gas-slack/.clasp.json`**
-   - Do not commit until GAS/Slack owner decides. Treat as local link/quarantine until then.
+1. **BZM 本文執筆 Book II Ch 5 から開始 (最優先、まさ最終決定)**
+   - 提案 1 (`pwa/bzm/2026-06-25_proposal_book0_vi`) の Book 0-VI 構成を採用。
+   - 推奨書き順: Book II Ch 5/5.5/9 load-bearing 定理 → Book III ケース → Book 0 → I → IV → V → VI。
+   - Book II Ch 10 (進化経済 OPENER) は提案 4 が detailed section design (§10.0〜10.10、72p) を含む。
+   - 起草時は提案 2 (mapping md) を素材棚として使う (既存 17 章の 194 節 → 新 37 章への対応表)。
+2. **進化経済査読の軽微修正残 5 件** (執筆中対応)
+   - Pilot power calculation at N≈32 / §10.8 kernel-identification 解消 / F_char measurement validity / International-17 cohort selection 補正 / Theorem 3 A3 defense。
+3. **残 4 経済学者査読パスの構造手術** (DSGE / Innovation Systems / Econometric / AE)
+   - 各 baseline で「条件付き受理」だったので進化経済より軽い surgery で軽微修正レベル到達見込み。
+4. **まさが先に判断する開放論点** (synth 8 件のうち未決の 5 件)
+   - 機関匿名化方針 / 国際比較章対象機関 / prospective prediction registry 18ヶ月 ≥20 case 現実性 / Ch 21 を N≥15 インタビュー program 化するか / ALQ4/Grit/Resilience psychometric controversy 対応。
+5. **既存 carry-over (本セッション外)**
+   - Governance/action-items production smoke (build-info `3677cd33` 検証)
+   - Admin payouts regression smoke (production v0.34.22 → 26 への smoke)
+   - `value_milestones` estimate-line pollution cleanup
+   - `gas-slack/.clasp.json` (GAS/Slack owner 判断待ち)
 
 ## Read First Next Session
 

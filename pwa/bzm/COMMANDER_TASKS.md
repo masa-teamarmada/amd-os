@@ -32,7 +32,18 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / D-7 Textbook Insi
 
 ## 未完タスク（優先順位順）
 
-1. Vercel deploy approval gate
+1. BZM 本書 Book 0-VI 構造で本文執筆開始 (2026-06-25 まさ最終決定)
+   - お願いした内容: 既存 17 章ドラフト (preface, field-*, model-overview, p-potential 等) は v1 (2026-06-13 章割) として残し、新 Book 0-VI 構造 (870p / 18ヶ月、Tier 3 学術モノグラフ) で本書を書き直す。
+   - 背景: 既存章割への疑問から 2026-06-25 セッションで構造再設計議論を実施。4 提案 md (`2026-06-25_proposal_book0_vi` / `_mapping_existing_to_new` / `_book2_evol_econ_surgery` / `_book2_evol_econ_major_revision`) を `pwa/bzm/` に push 済。5 経済学者 persona の adversarial verify 3 ラウンドで Evolutionary Economist が NO → 軽微修正に到達、Cambridge UP Schumpeter モノグラフ + Research Policy 特集号巻頭論文 publication path 確定。
+   - 現状: Active。設計提案 push 完了。本文起草は未着手。
+   - 残課題:
+     a. Book II Ch 5 (Triple Helix SSM と σ_SU の生成) から起草開始。推奨書き順 = Book II Ch 5/5.5/9 load-bearing 定理 → Book III ケース → Book 0 → I → IV → V → VI。
+     b. 進化経済査読の軽微修正残 5 件: Pilot power calc at N≈32 / §10.8 kernel-id / F_char measurement validity / International-17 cohort selection / Theorem 3 A3 defense。
+     c. 残 4 経済学者査読パス (DSGE / IS / Econometric / AE) の構造手術 (baseline で全て条件付き受理だったので軽め)。
+     d. まさ判断必要な開放論点 5 件: 機関匿名化方針 / 国際比較章対象機関 / prediction registry 18ヶ月 ≥20 case / Ch 21 を N≥15 インタビュー program 化 / ALQ4 psychometric controversy。
+   - 関連ファイル: `pwa/design_log/sessions_2026-06.md` の 2026-06-25 エントリ、`pwa/bzm/2026-06-25_*.md` 全 4、`pwa/design/amd_score.md` (PRS 設計正本)、`pwa/design/institution_readiness.md` (ERS 設計正本)、`BZSF/before_zero_theory.md` (理論正本)。
+
+2. Vercel deploy approval gate
    - お願いした内容: Vercel deploy上限は緩和されたが、当面はVercel production / preview deploy、またはVercel自動deployを起こす可能性があるpushの直前に、必ずまさ許可を取る運用へ切り替える。
    - 背景: deploy自体は再開OKになった一方、微細変更ごとのdeployやpreview乱発を戻すとquotaと確認負荷がすぐ再発するため。
    - 現状: Active。BZM司令塔の運用ルールをhard gateからapproval gateへ更新中。deploy bundle候補: BZM台帳/運用ルール更新のみ。askuserquestion承認状況: approval pending。deploy実施回数: 0。push保留: あり（branch `codex/bzm-vercel-quota-gate` のlocal commit群は未push）。
