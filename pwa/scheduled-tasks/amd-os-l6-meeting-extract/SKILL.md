@@ -63,9 +63,11 @@ Phase 0: env と calendar の準備
    CRON_SECRET=$(grep '^CRON_SECRET=' "$ENV" | cut -d= -f2- | tr -d '"')
    WORKFLOW_SECRET=$(grep '^WORKFLOW_SECRET=' "$ENV" | cut -d= -f2- | tr -d '"')
    WORKFLOW_SECRET="${WORKFLOW_SECRET:-$CRON_SECRET}"
+   APP_BASE_URL="https://amd-os-pwa.vercel.app"
    ```
-3. Calendar `mcp__509862f5-b23a-4c45-bf99-9978f6bc4d61__list_calendars` で primary calendar を確認 (= 通常まさの primary)。MAIN_CALENDAR_ID を `.env.local` に置く運用にしてないので、毎回 primary を採用。
-4. **connector が `event.colorId` / `get_colors` を返さない場合の前段 diagnostic**:
+3. 本番PWA URLは `https://amd-os-pwa.vercel.app` に固定する。`pwa.masa-aa.com` は Vercel に登録されていない古い/未使用ホストなので、H-1 の build-info / calendar-sync / finalize では使わない。
+4. Calendar `mcp__509862f5-b23a-4c45-bf99-9978f6bc4d61__list_calendars` で primary calendar を確認 (= 通常まさの primary)。MAIN_CALENDAR_ID を `.env.local` に置く運用にしてないので、毎回 primary を採用。
+5. **connector が `event.colorId` / `get_colors` を返さない場合の前段 diagnostic**:
    - `Google Calendar connector` の payload だけで色が見えないときは、待ち続けず `pwa/scripts/l6_calendar_color_diagnostic.mjs` を使う。
    - この helper は既存 PWA Google env (`GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` / `GOOGLE_OAUTH_REFRESH_TOKEN`、または `GOOGLE_SERVICE_ACCOUNT_JSON` + 必要なら `GOOGLE_SERVICE_ACCOUNT_SUBJECT`) で Calendar API v3 を read-only 実行する。
    - PWA 側 Google env が無い環境では、GAS Advanced Calendar Service の `l6_calendar_color_diagnostic(opts)` を `pwaApi runFunc` から呼ぶ。GAS 側は `gas/188_L6CalendarColorDiagnostic.js` が正本で、既存 `NEXT_PUBLIC_GAS_WEBAPP_URL` + `NEXT_PUBLIC_GAS_API_KEY` を使う。
