@@ -6,8 +6,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 const ts = require("typescript");
 
-function loadRawDataModule() {
-  const sourcePath = path.join(process.cwd(), "src/lib/management-score/raw-data.ts");
+function loadTsModule(relativePath) {
+  const sourcePath = path.join(process.cwd(), relativePath);
   const source = fs.readFileSync(sourcePath, "utf8");
   const output = ts.transpileModule(source, {
     compilerOptions: {
@@ -21,7 +21,12 @@ function loadRawDataModule() {
   return mod.exports;
 }
 
-const { classifyMeetingRetentionSignalForManagementScore } = loadRawDataModule();
+const {
+  classifyMeetingRetentionSignalForManagementScore,
+  isManagementScoreRetentionProgressEligible,
+  isPmLockedProgressSource,
+} = loadTsModule("src/lib/management-score/raw-data.ts");
+const { estimateRetentionProgressImpact } = loadTsModule("src/lib/management-score/calculate.ts");
 
 const cryoXInternalRisk = classifyMeetingRetentionSignalForManagementScore({
   summary_short: "CryoXの出資タイミングを再検討し、100mK帯の技術実証、PoC、知財・創業株主設計を整える。",
@@ -52,5 +57,47 @@ const continuationPositive = classifyMeetingRetentionSignalForManagementScore({
 assert.equal(continuationPositive.signalKey, "meeting:retention_positive");
 assert.equal(continuationPositive.appliesToCompanyScore, true);
 assert.ok(continuationPositive.signalScore > 0);
+
+assert.equal(isPmLockedProgressSource("routine_auto"), false);
+assert.equal(isPmLockedProgressSource("pm_confirmed"), true);
+assert.deepEqual(
+  isManagementScoreRetentionProgressEligible(
+    { milestone_key: "MS-p19-contract-delivery", source: "pm_confirmed" },
+    { milestone_id: "MS-p19-contract-delivery", title: "契約納品", points: 10, is_active: true },
+    { plan_cycle_id: "PC-p19-202606", project_id: "p19", status: "active" },
+  ),
+  { eligible: true, reason: "PM locked かつ契約履行・会社継続の補助材料として扱えるMS進捗" },
+);
+assert.equal(
+  isManagementScoreRetentionProgressEligible(
+    { milestone_key: "MS-p19-routine", source: "routine_auto" },
+    { milestone_id: "MS-p19-routine", title: "契約納品", points: 10, is_active: true },
+    { plan_cycle_id: "PC-p19-202606", project_id: "p19", status: "active" },
+  ).eligible,
+  false,
+);
+assert.equal(
+  isManagementScoreRetentionProgressEligible(
+    { milestone_key: "MS-p00-internal", source: "pm_confirmed" },
+    { milestone_id: "MS-p00-internal", title: "AMD OS 内部運用MS", points: 0, is_active: true },
+    { plan_cycle_id: "PC-p00-202606", project_id: "p00", status: "active" },
+  ).eligible,
+  false,
+);
+assert.equal(
+  isManagementScoreRetentionProgressEligible(
+    { milestone_key: "MS-p19-old-routine", source: "pm_confirmed" },
+    { milestone_id: "MS-p19-old-routine", title: "廃止済み月次ルーティン", points: 5, is_active: false },
+    { plan_cycle_id: "PC-p19-202606", project_id: "p19", status: "active" },
+  ).eligible,
+  false,
+);
+
+const progressRows = [
+  { source_id: "mp1", signal_value_numeric: 90, payload: { milestone_key: "MS-a" } },
+  { source_id: "mp2", signal_value_numeric: 70, payload: { milestone_key: "MS-b" } },
+  { source_id: "mp3", signal_value_numeric: 40, payload: { milestone_key: "MS-c" } },
+];
+assert.equal(estimateRetentionProgressImpact(progressRows[0], progressRows, 200 / 3), 4.1);
 
 console.log("management score retention classification ok");

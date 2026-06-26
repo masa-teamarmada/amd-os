@@ -177,6 +177,41 @@ GET /api/cron/management-score-calculate?ym=YYYYMM
 
 `amd_management_score_snapshots.inputs_json` には、raw signal 件数、axis 別件数、axis 入力、ω_pipeline 計算根拠、initiative_modifier 倍率、death_flags が保存される。
 
+## 判定ガード / 現状点検 (2026-06-26)
+
+Management Score は会社全体のバイタルサインなので、raw に残してよい材料と、スコア計算・根拠表示に使ってよい材料を分ける。詳細設計は [Management Score 再設計案](/spec/4-5-management-score-rebuild-plan) を正本にする。
+
+スコア対象外:
+
+- `p00` / 内部運用 / `points=0` / 廃止済み / 月次ルーティン系MS
+- `routine_auto` の機械按分MS
+- PM locked ではないMS進捗
+- 技術実証、PoC、出資タイミング、知財、創業株主設計など、契約・予算・入金・支援継続に直結しないPJ内部risk
+
+表示対象外:
+
+- 会社スコアへの理由が説明できない raw signal
+- 実寄与より大きく見える固定 `impact`
+- 未同期・未実装を悪化根拠のように見せる evidence
+
+修正後の運用:
+
+- `routine_auto` は `confirmed_at` が入っていても Management Score では確認済として扱わない。
+- 継続軸の進捗根拠は PM locked かつ会社継続に効くMSだけに限定し、impact は固定値ではなく概算寄与点に寄せる。
+- 先手力は `unknown` が多い月に高得点を出さない。unknown比率が高い場合は score cap と confidence 低下を入れる。
+- 財務は、実績未同期を `finance_data_missing` として分離する。本当に同期済みで実績0円なら `budget_variance` として悪化根拠に残す。
+- 方向性は、未実装sourceを `data_missing` として分離する。例: `amd_os_installations` 未作成は0件悪化ではなく confidence 低下として扱う。
+- 新規案件は deal 単位で重複排除する。`commercial_progress` は `project_id + expected_contract_ym + stage` を基本キーにまとめ、重複加点・重複表示を避ける。
+
+点検コマンド:
+
+```bash
+npm --prefix pwa run test:management-score
+npm --prefix pwa run audit:management-score -- --ym=YYYYMM --fail-on-actionable
+```
+
+`audit:management-score -- --fail-on-actionable` で P0 / P1 / P2 が1件でも残る場合は失敗扱い。P0 / P1 / P2 が0件になり、info だけが残る状態を「現状点検クリア」とする。
+
 ### 先手力 (v4 = 減点方式 + 卒業 PJ 除外)
 
 **減点方式**:デフォルトは満点 (= 100)、 「**他人主導と明確に言える events**」が観察されるたび減点する。 v1 までの加点方式 (= `AMD起点 / 全 events`) は `unknown` 多発で破綻していた (= まさ #82)。

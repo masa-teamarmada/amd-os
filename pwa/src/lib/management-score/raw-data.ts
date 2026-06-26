@@ -63,6 +63,56 @@ interface QueryLike<T extends Record<string, unknown>> extends PromiseLike<{ dat
   or(filters: string): QueryLike<T>;
 }
 
+type ProgressRow = {
+  id: string;
+  milestone_key: string;
+  ym: string;
+  progress_pct: number | string | null;
+  consumed_pt: number | string | null;
+  source: string | null;
+  confirmed_at: string | null;
+  note: string | null;
+};
+
+type MilestoneMeta = {
+  milestone_id: string;
+  plan_cycle_id: string | null;
+  title: string | null;
+  points: number | string | null;
+  tag: string | null;
+  goal_level: string | null;
+  is_active: boolean | null;
+  success_criteria: string | null;
+  period_start_ym: string | null;
+  target_ym: string | null;
+};
+
+type PlanCycleMeta = {
+  plan_cycle_id: string;
+  project_id: string | null;
+  status: string | null;
+  budget_yen: number | string | null;
+  total_points: number | string | null;
+  period_start_ym: string | null;
+  period_end_ym: string | null;
+};
+
+const PM_LOCKED_PROGRESS_SOURCES = new Set([
+  "pm_manual",
+  "pm_confirmed",
+  "pm_rejected",
+  "criteria_toggle",
+  "tsukuyomi_revision",
+]);
+
+const INTERNAL_PROGRESS_TITLE_PATTERNS = [
+  /月次ルーティン/i,
+  /monthly[-_\s]?routine/i,
+  /内部/i,
+  /AMD OS/i,
+  /management score/i,
+];
+
 function currentYmJST(): string {
   const now = new Date();
   const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
@@ -188,6 +238,49 @@ function asNumber(value: unknown): number | null {
   if (value === null || value === undefined || value === "") return null;
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
+}
+
+function uniq(values: unknown[]): string[] {
+  return Array.from(new Set(values.map((value) => String(value || "").trim()).filter(Boolean)));
+}
+
+export function isPmLockedProgressSource(source: unknown): boolean {
+  return PM_LOCKED_PROGRESS_SOURCES.has(String(source || ""));
+}
+
+function isInternalProgressTitle(value: unknown): boolean {
+  const text = String(value || "");
+  return INTERNAL_PROGRESS_TITLE_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+export function isManagementScoreRetentionProgressEligible(
+  row: Pick<ProgressRow, "milestone_key" | "source">,
+  milestone?: Partial<MilestoneMeta> | null,
+  plan?: Partial<PlanCycleMeta> | null
+): { eligible: boolean; reason: string } {
+  const milestoneKey = String(row.milestone_key || "");
+  const source = String(row.source || "");
+  const projectId = String(plan?.project_id || "");
+  const points = asNumber(milestone?.points) ?? 0;
+  const title = String(milestone?.title || "");
+  const isActive = milestone?.is_active;
+
+  if (!isPmLockedProgressSource(source)) {
+    return { eligible: false, reason: source === "routine_auto" ? "routine_auto の機械按分MS" : "PM locked ではないMS進捗" };
+  }
+  if (projectId.toLowerCase() === "p00" || milestoneKey.startsWith("MS-p00-")) {
+    return { eligible: false, reason: "p00 / AMD内部運用MS" };
+  }
+  if (points <= 0) {
+    return { eligible: false, reason: "points=0 のMS" };
+  }
+  if (isActive === false) {
+    return { eligible: false, reason: "廃止済みMS" };
+  }
+  if (isInternalProgressTitle(title)) {
+    return { eligible: false, reason: "内部運用 / 廃止済み月次ルーティンMS" };
+  }
+  return { eligible: true, reason: "PM locked かつ契約履行・会社継続の補助材料として扱えるMS進捗" };
 }
 
 function textIncludesAny(value: unknown, patterns: string[]) {
@@ -433,6 +526,25 @@ async function fetchAll<T extends Record<string, unknown>>(
   return data ?? [];
 }
 
+async function fetchByIn<T extends Record<string, unknown>>(
+  supabase: SupabaseClient,
+  table: string,
+  select: string,
+  column: string,
+  values: unknown[]
+): Promise<T[]> {
+  const ids = uniq(values);
+  const rows: T[] = [];
+  for (let i = 0; i < ids.length; i += 100) {
+    const chunk = ids.slice(i, i + 100);
+    if (chunk.length === 0) continue;
+    const { data, error } = await supabase.from(table).select(select).in(column, chunk);
+    if (error) throw new Error(`${table}: ${error.message}`);
+    rows.push(...((data ?? []) as unknown as T[]));
+  }
+  return rows;
+}
+
 async function collectInternalSignals(supabase: SupabaseClient, ym: string): Promise<RawSignal[]> {
   // v4 (2026-05-26 まさ #82, #83, #84):
   // - 戦略接近度の入力を 6 つに全面差し替え (= ファンド / 連携機関 / OS導入 / マネタイズ / 属人脱却 / 成功卒業)
@@ -473,6 +585,24 @@ async function collectInternalSignals(supabase: SupabaseClient, ym: string): Pro
     fetchAll(supabase, "project_strategy_signals", "signal_id,project_id,ym,signal_type,impact_level,decision_state,status,title,summary,confidence,signal_date,confirmed_at,created_at,updated_at,signal_scope,applies_to_company_score,pipeline_status,pipeline_probability,expected_amount_yen,expected_contract_ym,company_score_axis,scope_reason", (q) => q.or("status.eq.confirmed,status.eq.candidate")),
     fetchAll(supabase, "project_partners", "id,project_id,partner_name,partner_type,partner_role,is_sold,created_at,updated_at"),
   ]);
+
+  const progressRows = milestones as ProgressRow[];
+  const milestoneMetaRows = await fetchByIn<MilestoneMeta>(
+    supabase,
+    "value_milestones",
+    "milestone_id,plan_cycle_id,title,points,tag,goal_level,is_active,success_criteria,period_start_ym,target_ym",
+    "milestone_id",
+    progressRows.map((row) => row.milestone_key)
+  );
+  const milestoneById = new Map(milestoneMetaRows.map((row) => [String(row.milestone_id), row]));
+  const planCycleRows = await fetchByIn<PlanCycleMeta>(
+    supabase,
+    "value_plan_cycles",
+    "plan_cycle_id,project_id,status,budget_yen,total_points,period_start_ym,period_end_ym",
+    "plan_cycle_id",
+    milestoneMetaRows.map((row) => row.plan_cycle_id)
+  );
+  const planById = new Map(planCycleRows.map((row) => [String(row.plan_cycle_id), row]));
 
   // 卒業 PJ 識別 (= 先手力評価対象外 + direction の成功卒業加点用)
   // outcome_pattern in ('rocket','lifted','smb') AND amd_support_ended_at IS NOT NULL = 成功卒業 (= まさ #85)
@@ -647,20 +777,38 @@ async function collectInternalSignals(supabase: SupabaseClient, ym: string): Pro
     }));
   }
 
-  for (const row of milestones) {
+  for (const row of progressRows) {
+    const milestone = milestoneById.get(String(row.milestone_key)) ?? null;
+    const plan = milestone?.plan_cycle_id ? planById.get(String(milestone.plan_cycle_id)) ?? null : null;
+    const eligibility = isManagementScoreRetentionProgressEligible(row, milestone, plan);
+    if (!eligibility.eligible) continue;
+    const pmLocked = isPmLockedProgressSource(row.source);
     signals.push(signal({
       ym,
       axis: "retention",
       source_kind: "progress",
       source_table: "milestone_monthly_progress",
       source_id: String(row.id),
-      signal_key: row.confirmed_at ? "milestone:confirmed_progress" : "milestone:estimated_progress",
+      signal_key: pmLocked ? "milestone:confirmed_progress" : "milestone:estimated_progress",
       signal_value_numeric: asNumber(row.progress_pct),
       signal_value_text: String(row.source || ""),
+      project_id: plan?.project_id ? String(plan.project_id) : null,
       observed_at: row.confirmed_at ? String(row.confirmed_at) : null,
-      confidence: row.confirmed_at ? 0.9 : 0.6,
+      confidence: pmLocked ? 0.9 : 0.6,
       weight_hint: asNumber(row.consumed_pt) ?? 1,
-      payload: row,
+      payload: {
+        ...row,
+        management_score_progress_eligible: true,
+        progress_source_quality: pmLocked ? "pm_locked" : "estimated",
+        scope_reason: eligibility.reason,
+        milestone_title: milestone?.title ?? null,
+        milestone_points: milestone?.points ?? null,
+        milestone_tag: milestone?.tag ?? null,
+        milestone_is_active: milestone?.is_active ?? null,
+        plan_cycle_id: milestone?.plan_cycle_id ?? null,
+        plan_project_id: plan?.project_id ?? null,
+        plan_status: plan?.status ?? null,
+      },
     }));
   }
 
@@ -821,18 +969,27 @@ async function collectInternalSignals(supabase: SupabaseClient, ym: string): Pro
     payload: { count: researchPartners.length, partners: researchPartners.map((r) => ({ project_id: r.project_id, name: r.partner_name, type: r.partner_type })) },
   }));
 
-  // 入力 3: AMD OS 導入進捗 (= amd_os_installations、 まだテーブル未作成、 NULL で skip)
+  // 入力 3: AMD OS 導入進捗 (= amd_os_installations)
+  // テーブル未作成の間は 0 件ではなく data_missing として保存し、score 悪化には混ぜない。
   signals.push(signal({
     ym,
     axis: "direction",
-    source_kind: "amd_os_install",
+    source_kind: "direction_data_missing",
     source_table: "amd_os_installations",
     source_id: `amd_os_install:${ym}`,
-    signal_key: "direction:amd_os_install_count",
-    signal_value_numeric: 0,
-    signal_value_text: "amd_os_installations テーブル未作成 (= TODO)",
+    signal_key: "direction:amd_os_install_count:data_missing",
+    signal_value_numeric: null,
+    signal_value_text: "amd_os_installations テーブル未作成 (= data_missing)",
     confidence: 0.2,
-    payload: { count: 0, note: "amd_os_installations テーブル未実装、 Phase 4 で追加予定" },
+    weight_hint: 0,
+    payload: {
+      data_state: "data_missing",
+      missing_source: "amd_os_installations",
+      score_eligible: false,
+      display_eligible: true,
+      count: null,
+      note: "amd_os_installations テーブル未実装、 Phase 4 で追加予定。未実装は方向性悪化ではなく信頼度低下として扱う。",
+    },
   }));
 
   // 入力 4: マネタイズ仮説の前進 (= project_strategy_signals signal_type='commercial_progress' & decision_state='decided')

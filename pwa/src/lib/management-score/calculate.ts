@@ -146,6 +146,53 @@ function topBy<T>(rows: T[], getValue: (row: T) => number, limit = 5): T[] {
   return [...rows].sort((a, b) => Math.abs(getValue(b)) - Math.abs(getValue(a))).slice(0, limit);
 }
 
+const PM_LOCKED_PROGRESS_SOURCES = new Set([
+  "pm_manual",
+  "pm_confirmed",
+  "pm_rejected",
+  "criteria_toggle",
+  "tsukuyomi_revision",
+]);
+
+const INTERNAL_PROGRESS_TITLE_PATTERNS = [
+  /月次ルーティン/i,
+  /monthly[-_\s]?routine/i,
+  /内部/i,
+  /AMD OS/i,
+  /management score/i,
+];
+
+function isPmLockedProgressSource(source: unknown): boolean {
+  return PM_LOCKED_PROGRESS_SOURCES.has(String(source || ""));
+}
+
+function isRetentionProgressSignalEligible(row: RawSignal): boolean {
+  const payload = row.payload || {};
+  const source = String(payload.source || row.signal_value_text || "");
+  const milestoneKey = String(payload.milestone_key || "");
+  const projectId = String(payload.plan_project_id || row.project_id || "");
+  const title = String(payload.milestone_title || "");
+  const points = payload.milestone_points == null ? null : num(payload.milestone_points, 0);
+  if (!isPmLockedProgressSource(source)) return false;
+  if (payload.management_score_progress_eligible === false) return false;
+  if (String(payload.progress_source_quality || "") && payload.progress_source_quality !== "pm_locked") return false;
+  if (projectId.toLowerCase() === "p00" || milestoneKey.startsWith("MS-p00-")) return false;
+  if (points != null && points <= 0) return false;
+  if (payload.milestone_is_active === false) return false;
+  if (INTERNAL_PROGRESS_TITLE_PATTERNS.some((pattern) => pattern.test(title))) return false;
+  return true;
+}
+
+export function estimateRetentionProgressImpact(row: RawSignal, progressRows: RawSignal[], progressScore: number): number {
+  const milestoneKey = String(row.payload?.milestone_key || row.source_id || "");
+  const withoutValues = progressRows
+    .filter((candidate) => String(candidate.payload?.milestone_key || candidate.source_id || "") !== milestoneKey)
+    .map((candidate) => num(candidate.signal_value_numeric))
+    .filter((value) => value >= 0);
+  const withoutAvg = avg(withoutValues, progressScore);
+  return Math.round((progressScore - withoutAvg) * 0.35 * 10) / 10;
+}
+
 function sourceRef(row: RawSignal) {
   return `${row.source_table}:${row.source_id}:${row.signal_key}`;
 }
@@ -216,6 +263,23 @@ function originLabel(origin: unknown): string {
   }
 }
 
+function initiativeUnknownAdjustment(unknownRatio: number): {
+  cap: number | null;
+  confidenceMax: number | null;
+  label: string | null;
+} {
+  if (unknownRatio >= 0.75) {
+    return { cap: 55, confidenceMax: 0.35, label: "unknown 75%以上、先手力は最大55点" };
+  }
+  if (unknownRatio >= 0.5) {
+    return { cap: 70, confidenceMax: 0.45, label: "unknown 50%以上、先手力は最大70点" };
+  }
+  if (unknownRatio >= 0.33) {
+    return { cap: 85, confidenceMax: 0.6, label: "unknown 33%以上、先手力は最大85点" };
+  }
+  return { cap: null, confidenceMax: null, label: null };
+}
+
 function categoryLabel(category: unknown): string {
   switch (String(category || "")) {
     case "revenue": return "売上";
@@ -271,13 +335,17 @@ function scoreInitiative(rows: RawSignal[], ctx: ScoreContext): AxisScore {
   });
   const totalEvents = events.length;
   const passiveRatio = totalEvents > 0 ? passiveEvents.length / totalEvents : 0;
-  const score = clamp(100 - passiveRatio * 100, 0, 100);
+  const rawScore = clamp(100 - passiveRatio * 100, 0, 100);
 
   const amdProposedCount = events.filter((r) => r.signal_key.includes("amd_proposed")).length;
   const coDecidedCount = events.filter((r) => r.signal_key.includes("co_decided")).length;
   const unknownCount = events.filter((r) => r.signal_key.includes("unknown")).length;
+  const unknownRatio = totalEvents > 0 ? unknownCount / totalEvents : 0;
+  const unknownAdjustment = initiativeUnknownAdjustment(unknownRatio);
+  const score = unknownAdjustment.cap == null ? rawScore : Math.min(rawScore, unknownAdjustment.cap);
   const lowConfidence = totalEvents < 5;
-  const confidence = lowConfidence ? 0.3 : clamp(0.85 - (unknownCount / Math.max(1, totalEvents)) * 0.2, 0.4, 0.9);
+  const baseConfidence = lowConfidence ? 0.3 : clamp(0.85 - unknownRatio * 0.5, 0.3, 0.9);
+  const confidence = unknownAdjustment.confidenceMax == null ? baseConfidence : Math.min(baseConfidence, unknownAdjustment.confidenceMax);
 
   const prev = ctx.previousAxisScore.initiative;
   const delta = prev != null ? score - prev : null;
@@ -286,7 +354,8 @@ function scoreInitiative(rows: RawSignal[], ctx: ScoreContext): AxisScore {
     : score < 90 ? " ⚠️ 警告ゾーン (= 90% 未満、 早期対応推奨)。"
     : "";
   const dataNote = lowConfidence ? ` events 件数 ${totalEvents} < 5、 データ不足 confidence 低下。` : "";
-  const summarySentence = `先手力 ${Math.round(score)}点 (前月比 ${fmtDelta(delta)}, ${deltaDesc(delta)})。受身 events ${passiveEvents.length}/${totalEvents} 件 (= partner_proposed / external で impact≥3)、AMD起点 ${amdProposedCount} 件・共同決定 ${coDecidedCount} 件。${thresholdNote}${dataNote}`;
+  const unknownNote = unknownAdjustment.label ? ` 起点不明 ${unknownCount}/${totalEvents} 件 (${Math.round(unknownRatio * 100)}%) のため ${unknownAdjustment.label}。` : "";
+  const summarySentence = `先手力 ${Math.round(score)}点 (前月比 ${fmtDelta(delta)}, ${deltaDesc(delta)})。受身 events ${passiveEvents.length}/${totalEvents} 件 (= partner_proposed / external で impact≥3)、AMD起点 ${amdProposedCount} 件・共同決定 ${coDecidedCount} 件・起点不明 ${unknownCount} 件。${thresholdNote}${dataNote}${unknownNote}`;
 
   const formulaEvidence = {
     axis: "initiative" as const,
@@ -297,7 +366,7 @@ function scoreInitiative(rows: RawSignal[], ctx: ScoreContext): AxisScore {
     source_hash: null,
     impact: delta ?? (score - 50) / 2,
     confidence,
-    payload: { score, prev, delta, totalEvents, passiveEvents: passiveEvents.length, passiveRatio, amdProposedCount, coDecidedCount, unknownCount, scoreZone: score < 70 ? "critical" : score < 90 ? "warning" : "healthy" },
+    payload: { score, rawScore, prev, delta, totalEvents, passiveEvents: passiveEvents.length, passiveRatio, amdProposedCount, coDecidedCount, unknownCount, unknownRatio, unknownScoreCap: unknownAdjustment.cap, unknownConfidenceMax: unknownAdjustment.confidenceMax, scoreZone: score < 70 ? "critical" : score < 90 ? "warning" : "healthy" },
   };
 
   // 減点要因 (= 受身 events) を evidence として上位 6 件表示
@@ -350,7 +419,7 @@ function scoreInitiative(rows: RawSignal[], ctx: ScoreContext): AxisScore {
   return {
     score,
     confidence,
-    inputs: { totalEvents, passiveEvents: passiveEvents.length, passiveRatio, amdProposedCount, coDecidedCount, unknownCount, delta, summary: summarySentence, scoreZone: score < 70 ? "critical" : score < 90 ? "warning" : "healthy" },
+    inputs: { totalEvents, passiveEvents: passiveEvents.length, passiveRatio, rawScore, amdProposedCount, coDecidedCount, unknownCount, unknownRatio, unknownScoreCap: unknownAdjustment.cap, unknownConfidenceMax: unknownAdjustment.confidenceMax, delta, summary: summarySentence, scoreZone: score < 70 ? "critical" : score < 90 ? "warning" : "healthy" },
     evidence: [formulaEvidence, ...passiveEvidence, ...proactiveEvidence],
   };
 }
@@ -376,6 +445,9 @@ type AggregatedBudgetRow = {
   budget_amount_yen: number;
   actual_amount_yen: number;
   variance_yen: number;
+  hasActualData: boolean;
+  actualDataMissing: boolean;
+  missingActualBudgetYen: number;
   runway_months: number | null;
   cash_amount_yen: number | null;
   confidence: number;
@@ -399,6 +471,9 @@ function aggregateBudgetActualByCategory(budgetRows: RawSignal[]): AggregatedBud
       budget_amount_yen: 0,
       actual_amount_yen: 0,
       variance_yen: 0,
+      hasActualData: false,
+      actualDataMissing: false,
+      missingActualBudgetYen: 0,
       runway_months: null as number | null,
       cash_amount_yen: null as number | null,
       confidence: 0,
@@ -406,8 +481,13 @@ function aggregateBudgetActualByCategory(budgetRows: RawSignal[]): AggregatedBud
       source_hash: row.source_hash ?? null,
       source_ref: `company_budget_actual_monthly:${scope}:${projectId ?? "company"}:${category}`,
     };
-    cur.budget_amount_yen += num(row.payload?.budget_amount_yen);
-    cur.actual_amount_yen += num(row.payload?.actual_amount_yen);
+    const budgetAmount = num(row.payload?.budget_amount_yen);
+    const actualAmount = num(row.payload?.actual_amount_yen);
+    const hasActualPayload = row.payload?.actual_payload != null;
+    const hasActualValue = Math.abs(actualAmount) > 0;
+    cur.budget_amount_yen += budgetAmount;
+    cur.actual_amount_yen += actualAmount;
+    cur.hasActualData = cur.hasActualData || hasActualPayload || hasActualValue;
     const rwm = row.payload?.runway_months;
     if (rwm != null && cur.runway_months == null) cur.runway_months = num(rwm);
     const cash = row.payload?.cash_amount_yen;
@@ -417,6 +497,8 @@ function aggregateBudgetActualByCategory(budgetRows: RawSignal[]): AggregatedBud
   }
   for (const cur of map.values()) {
     cur.variance_yen = cur.actual_amount_yen - cur.budget_amount_yen;
+    cur.actualDataMissing = Math.abs(cur.budget_amount_yen) > 0 && !cur.hasActualData;
+    cur.missingActualBudgetYen = cur.actualDataMissing ? cur.budget_amount_yen : 0;
   }
   return Array.from(map.values());
 }
@@ -428,12 +510,14 @@ function scoreFinance(rows: RawSignal[], ctx: ScoreContext): AxisScore {
 
   // category 単位で集約 (= VIEW の account_key JOIN 分裂を吸収)
   const aggregated = aggregateBudgetActualByCategory(budgetRows);
+  const dataMissingRows = aggregated.filter((row) => row.actualDataMissing);
+  const varianceRows = aggregated.filter((row) => !row.actualDataMissing);
 
   const runwayRows = budgetRows.filter((row) => row.payload?.runway_months != null);
   const runway = avg(runwayRows.map((row) => num(row.payload.runway_months)).filter((n) => n > 0 && n < 999), 12);
   const runwayScore = clamp((runway / 12) * 100);
 
-  const comparable = aggregated.filter((row) => Math.abs(row.budget_amount_yen) > 0);
+  const comparable = varianceRows.filter((row) => Math.abs(row.budget_amount_yen) > 0);
   const varianceRatios = comparable.map((row) => {
     const budget = Math.abs(row.budget_amount_yen);
     const variance = Math.abs(row.variance_yen);
@@ -447,13 +531,19 @@ function scoreFinance(rows: RawSignal[], ctx: ScoreContext): AxisScore {
 
   const forecastRows = aggregated.filter((row) => ["revenue", "net_cash_flow", "operating_profit"].includes(row.category) && row.budget_amount_yen !== 0);
   const forecastScore = clamp(Math.min(1, forecastRows.length / 6) * 100);
-  const freshnessScore = freeeRows.length > 0 ? 90 : 55;
+  const freshnessScore = freeeRows.length > 0 ? 90 : dataMissingRows.length > 0 ? 45 : 55;
+  const actualExpectedCategories = aggregated.filter((row) => Math.abs(row.budget_amount_yen) > 0).length;
+  const actualDataCompleteness = actualExpectedCategories > 0
+    ? clamp((actualExpectedCategories - dataMissingRows.length) / actualExpectedCategories, 0, 1)
+    : (freeeRows.length > 0 ? 1 : 0.5);
+  const financeConfidence = clamp((freeeRows.length ? 0.78 : 0.58) * (0.65 + actualDataCompleteness * 0.35), 0.35, 0.82);
 
   const score = clamp(runwayScore * 0.3 + varianceScore * 0.25 + billingScore * 0.2 + forecastScore * 0.15 + freshnessScore * 0.1);
   const prev = ctx.previousAxisScore.finance;
   const delta = prev != null ? score - prev : null;
   const billingTotal = billingRows.length;
-  const freshnessNote = freeeRows.length === 0 ? "freee 実績未取得 (= 予算側だけで評価、確度低)" : `freee 同期済 (${freeeRows.length} 行)`;
+  const missingNote = dataMissingRows.length > 0 ? `、実績未同期 ${dataMissingRows.length} 区分` : "";
+  const freshnessNote = freeeRows.length === 0 ? `freee 実績未取得 (= 予算側だけで評価、確度低${missingNote})` : `freee 同期済 (${freeeRows.length} 行${missingNote})`;
   const billingNote = billingTotal > 0 ? `請求 ${billingTotal} 件中 入金確認 ${billingDone} 件・未入金 ${billingSentUnpaid} 件` : "当月請求 0 件";
   const summarySentence = `財務 ${Math.round(score)}点 (前月比 ${fmtDelta(delta)}, ${deltaDesc(delta)})。Runway ${runway.toFixed(1)} ヶ月、予実乖離スコア ${Math.round(varianceScore)}、${billingNote}、${freshnessNote}。`;
   const evidence: EvidenceInput[] = [
@@ -464,10 +554,24 @@ function scoreFinance(rows: RawSignal[], ctx: ScoreContext): AxisScore {
       source_type: "computed",
       source_ref: "company_budget_actual_monthly+company_actual_monthly+billing_cycles+freee.trial_pl",
       impact: delta ?? (score - 50) / 2,
-      confidence: freeeRows.length ? 0.8 : 0.55,
-      payload: { score, prev, delta, runway, runwayScore, varianceScore, billingScore, forecastScore, freshnessScore, freeeRows: freeeRows.length, billingTotal, billingDone, billingSentUnpaid, aggregatedCount: aggregated.length },
+      confidence: financeConfidence,
+      payload: { score, prev, delta, runway, runwayScore, varianceScore, billingScore, forecastScore, freshnessScore, freeeRows: freeeRows.length, billingTotal, billingDone, billingSentUnpaid, aggregatedCount: aggregated.length, actualDataMissingCategories: dataMissingRows.length, actualDataCompleteness },
     },
-    ...topBy(aggregated, (row) => row.variance_yen, 6).map((row) => {
+    ...topBy(dataMissingRows, (row) => row.missingActualBudgetYen, 4).map((row) => {
+      const cat = categoryLabel(row.category);
+      return {
+        axis: "finance" as const,
+        evidence_kind: "finance_data_missing",
+        summary: `${cat}: 予算 ${fmtYen(row.budget_amount_yen)} に対する実績が未同期 — freee/OS同期完了まで好悪判定から除外`,
+        source_type: row.source_table,
+        source_ref: row.source_ref,
+        source_hash: row.source_hash,
+        impact: 0,
+        confidence: 0.35,
+        payload: { category: cat, scope: row.scope, project_id: row.project_id, budget: row.budget_amount_yen, data_state: "data_missing", excluded_from_variance_score: true },
+      };
+    }),
+    ...topBy(varianceRows, (row) => row.variance_yen, 6).map((row) => {
       const variance = row.variance_yen;
       const budget = row.budget_amount_yen;
       const actual = row.actual_amount_yen;
@@ -484,14 +588,14 @@ function scoreFinance(rows: RawSignal[], ctx: ScoreContext): AxisScore {
         source_hash: row.source_hash,
         impact: isFavorable ? Math.min(15, Math.abs(variance) / 200000) : -Math.min(20, Math.abs(variance) / 100000),
         confidence: row.confidence,
-        payload: { category: cat, scope: row.scope, project_id: row.project_id, budget, actual, variance, isFavorable, runway_months: row.runway_months },
+        payload: { category: cat, scope: row.scope, project_id: row.project_id, budget, actual, variance, isFavorable, runway_months: row.runway_months, actual_data_state: row.hasActualData ? "actual_synced" : "data_missing" },
       };
     }),
   ];
   return {
     score,
-    confidence: freeeRows.length ? 0.78 : 0.55,
-    inputs: { runway, runwayScore, varianceScore, billingScore, forecastScore, freshnessScore, budgetRows: budgetRows.length, aggregatedCategories: aggregated.length, freeeRows: freeeRows.length, billingTotal, billingDone, billingSentUnpaid, delta, summary: summarySentence },
+    confidence: financeConfidence,
+    inputs: { runway, runwayScore, varianceScore, billingScore, forecastScore, freshnessScore, budgetRows: budgetRows.length, aggregatedCategories: aggregated.length, comparableCategories: comparable.length, actualDataMissingCategories: dataMissingRows.length, actualDataCompleteness, freeeRows: freeeRows.length, billingTotal, billingDone, billingSentUnpaid, delta, summary: summarySentence },
     evidence,
   };
 }
@@ -510,7 +614,7 @@ function scoreRetention(rows: RawSignal[], ctx: ScoreContext): AxisScore {
     ? activeCoverageScore
     : clamp(activeCoverageScore * 0.35 + activeValueRetentionScore * 0.65);
   const freezeRows = rows.filter((row) => row.signal_key.includes("active_freeze"));
-  const progressRows = rows.filter((row) => row.source_kind === "progress");
+  const progressRows = rows.filter((row) => row.source_kind === "progress" && isRetentionProgressSignalEligible(row));
   const meetingRows = rows.filter((row) => row.source_kind === "meeting_summary");
   const companyMeetingRows = meetingRows.filter((row) =>
     row.payload?.applies_to_company_score === true
@@ -531,6 +635,14 @@ function scoreRetention(rows: RawSignal[], ctx: ScoreContext): AxisScore {
   const delta = prev != null ? score - prev : null;
   const valueNote = activeValueRetentionScore == null ? "売上保持score n/a" : `売上保持score ${Math.round(activeValueRetentionScore)}`;
   const summarySentence = `継続 ${Math.round(score)}点 (前月比 ${fmtDelta(delta)}, ${deltaDesc(delta)})。retention対象PJ ${activeProjects}/${retentionProjectCount}、${valueNote}、freeze ${freezeRows.length} 件 (-${freezePenalty.toFixed(0)}点)、進捗平均 ${Math.round(progressScore)}%、会社MTGリスク ${riskMeetings} 件。`;
+  const progressEvidenceRows = topBy(
+    progressRows
+      .filter((row) => num(row.signal_value_numeric, 0) >= 70)
+      .map((row) => ({ row, impact: estimateRetentionProgressImpact(row, progressRows, progressScore) }))
+      .filter((item) => Math.abs(item.impact) >= 0.5),
+    (item) => item.impact,
+    3
+  );
   return {
     score,
     confidence: progressRows.length || companyMeetingRows.length ? 0.74 : 0.5,
@@ -648,19 +760,31 @@ function scoreRetention(rows: RawSignal[], ctx: ScoreContext): AxisScore {
           },
         };
       }),
-      ...topBy(progressRows.filter((row) => num(row.signal_value_numeric, 0) >= 70), (row) => num(row.signal_value_numeric, 0), 3).map((row) => {
+      ...progressEvidenceRows.map(({ row, impact }) => {
         const pct = num(row.signal_value_numeric, 0);
-        const confirmed = row.signal_key.includes("confirmed");
+        const title = String(row.payload?.milestone_title || row.payload?.milestone_key || "?").slice(0, 60);
+        const pjLabel = projectLabel(ctx, row.project_id);
+        const pjPart = pjLabel ? ` [${pjLabel}]` : "";
         return {
           axis: "retention" as const,
           evidence_kind: "progress_strong",
-          summary: `milestone ${row.payload?.milestone_key || "?"}: 進捗 ${Math.round(pct)}% ${confirmed ? "(確認済)" : "(推定)"} — 継続評価を支える`,
+          summary: `milestone ${title}${pjPart}: 進捗 ${Math.round(pct)}% (PM確認済) — 契約履行の補助材料`,
           source_type: row.source_table,
           source_ref: sourceRef(row),
           source_hash: row.source_hash,
-          impact: 8,
+          impact,
           confidence: num(row.confidence, 0.5),
-          payload: { milestone_key: row.payload?.milestone_key, progress_pct: pct, confirmed },
+          payload: {
+            milestone_key: row.payload?.milestone_key,
+            milestone_title: row.payload?.milestone_title,
+            project_id: row.project_id,
+            project_name: pjLabel,
+            progress_pct: pct,
+            confirmed: true,
+            source: row.payload?.source,
+            scope_reason: row.payload?.scope_reason,
+            approx_retention_contribution: impact,
+          },
         };
       }),
     ],
@@ -702,8 +826,34 @@ function scorePipeline(rows: RawSignal[], ctx: ScoreContext): AxisScore {
     const w = num(row.weight_hint, 1);
     return Math.max(0.5, Math.min(3, w));
   };
+  const commercialStage = (row: RawSignal): string => row.signal_key.replace("commercial:", "") || String(row.payload?.pipeline_status || row.payload?.decision_state || "unknown");
+  const commercialDealKey = (row: RawSignal): string => {
+    const projectId = row.project_id || (row.payload?.project_id != null ? String(row.payload.project_id) : "unknown");
+    const expectedYm = row.payload?.expected_contract_ym != null ? String(row.payload.expected_contract_ym) : row.ym;
+    return `${projectId}:${expectedYm || row.ym}:${commercialStage(row)}`;
+  };
+  const commercialValue = (row: RawSignal): number => stageProbability(row.signal_key) * impactWeightFromHint(row);
+  const commercialDeals = Array.from(commercials.reduce((map, row) => {
+    const key = commercialDealKey(row);
+    const value = commercialValue(row);
+    const current = map.get(key);
+    if (!current) {
+      map.set(key, { dealKey: key, representative: row, value, rawRows: [row] });
+      return map;
+    }
+    current.rawRows.push(row);
+    const currentConfidence = num(current.representative.confidence, 0);
+    const nextConfidence = num(row.confidence, 0);
+    if (value > current.value || (value === current.value && nextConfidence > currentConfidence)) {
+      current.representative = row;
+      current.value = value;
+    }
+    return map;
+  }, new Map<string, { dealKey: string; representative: RawSignal; value: number; rawRows: RawSignal[] }>()).values());
+  const dedupedCommercials = commercialDeals.map((deal) => deal.representative);
+  const duplicateCommercialSignals = commercials.length - dedupedCommercials.length;
 
-  const pipelineValue = commercials.reduce((sum, row) => sum + stageProbability(row.signal_key) * impactWeightFromHint(row), 0);
+  const pipelineValue = commercialDeals.reduce((sum, deal) => sum + deal.value, 0);
   const commercialScore = clamp(Math.min(1, pipelineValue / 10) * 100); // value 10 で満点目安
   const diffScore = clamp(Math.min(1, diffs.length / 8) * 100);
   const knowledgeScore = clamp(Math.min(1, knowledge.length / 25) * 100);
@@ -714,18 +864,19 @@ function scorePipeline(rows: RawSignal[], ctx: ScoreContext): AxisScore {
 
   // stage 別件数 (= 表示用)
   const stageCount = {
-    observed: commercials.filter((r) => r.signal_key.includes("observed")).length,
-    proposed: commercials.filter((r) => r.signal_key.includes("proposed")).length,
-    decided: commercials.filter((r) => r.signal_key.includes("decided")).length,
-    executing: commercials.filter((r) => r.signal_key.includes("executing")).length,
-    revised: commercials.filter((r) => r.signal_key.includes("revised")).length,
+    observed: dedupedCommercials.filter((r) => r.signal_key.includes("observed")).length,
+    proposed: dedupedCommercials.filter((r) => r.signal_key.includes("proposed")).length,
+    decided: dedupedCommercials.filter((r) => r.signal_key.includes("decided")).length,
+    executing: dedupedCommercials.filter((r) => r.signal_key.includes("executing")).length,
+    revised: dedupedCommercials.filter((r) => r.signal_key.includes("revised")).length,
   };
-  const summarySentence = `新規 ${Math.round(score)}点 (前月比 ${fmtDelta(delta)}, ${deltaDesc(delta)})。 案件追跡 ${commercials.length} 件 (proposed ${stageCount.proposed} / decided ${stageCount.decided} / executing ${stageCount.executing})、 OS未反映 diff ${diffs.length} 件、 PJ派生 knowledge ${knowledge.length} 件。 pipeline_value=${pipelineValue.toFixed(1)}/10。`;
+  const duplicateNote = duplicateCommercialSignals > 0 ? `、重複らしき signal ${duplicateCommercialSignals} 件はdeal単位に統合` : "";
+  const summarySentence = `新規 ${Math.round(score)}点 (前月比 ${fmtDelta(delta)}, ${deltaDesc(delta)})。 案件追跡 ${dedupedCommercials.length} deal / raw ${commercials.length} 件 (proposed ${stageCount.proposed} / decided ${stageCount.decided} / executing ${stageCount.executing}${duplicateNote})、 OS未反映 diff ${diffs.length} 件、 PJ派生 knowledge ${knowledge.length} 件。 pipeline_value=${pipelineValue.toFixed(1)}/10。`;
 
   return {
     score,
-    confidence: commercials.length || knowledge.length ? 0.7 : 0.4,
-    inputs: { commercials: commercials.length, stageCount, pipelineValue, commercialScore, diffScore, knowledgeScore, diffs: diffs.length, knowledge: knowledge.length, delta, summary: summarySentence },
+    confidence: dedupedCommercials.length || knowledge.length ? 0.7 : 0.4,
+    inputs: { commercials: dedupedCommercials.length, rawCommercialSignals: commercials.length, duplicateCommercialSignals, commercialDealKeys: commercialDeals.map((deal) => deal.dealKey), stageCount, pipelineValue, commercialScore, diffScore, knowledgeScore, diffs: diffs.length, knowledge: knowledge.length, delta, summary: summarySentence },
     evidence: [
       {
         axis: "pipeline" as const,
@@ -734,27 +885,29 @@ function scorePipeline(rows: RawSignal[], ctx: ScoreContext): AxisScore {
         source_type: "computed",
         source_ref: "project_strategy_signals(commercial_progress)+project_registry_diffs+project_knowledge",
         impact: delta ?? (score - 50) / 2,
-        confidence: commercials.length || knowledge.length ? 0.7 : 0.4,
-        payload: { score, prev, delta, commercials: commercials.length, stageCount, pipelineValue, diffs: diffs.length, knowledge: knowledge.length },
+        confidence: dedupedCommercials.length || knowledge.length ? 0.7 : 0.4,
+        payload: { score, prev, delta, commercials: dedupedCommercials.length, rawCommercialSignals: commercials.length, duplicateCommercialSignals, stageCount, pipelineValue, diffs: diffs.length, knowledge: knowledge.length },
       },
-      ...topBy(commercials, (row) => stageProbability(row.signal_key) * impactWeightFromHint(row), 6).map((row) => {
+      ...topBy(commercialDeals, (deal) => deal.value, 6).map((deal) => {
+        const row = deal.representative;
         const title = String(row.signal_value_text || "(無題案件)").slice(0, 60);
-        const stage = row.signal_key.replace("commercial:", "");
+        const stage = commercialStage(row);
         const pjLabel = projectLabel(ctx, row.project_id);
         const pjPart = pjLabel ? ` [${pjLabel}]` : "";
         const payloadProb = num(row.payload?.pipeline_probability, NaN);
         const prob = Number.isFinite(payloadProb) && payloadProb > 0 ? payloadProb : stageProbability(row.signal_key);
         const expectedYm = row.payload?.expected_contract_ym ? ` / 見込み ${row.payload.expected_contract_ym}` : "";
+        const mergedNote = deal.rawRows.length > 1 ? ` / ${deal.rawRows.length} signalsを統合` : "";
         return {
           axis: "pipeline" as const,
           evidence_kind: "commercial_progress",
-          summary: `案件「${title}」${pjPart} (${stage}、 確度 ${Math.round(prob * 100)}%${expectedYm}) — 新規 pipeline 形成`,
+          summary: `案件「${title}」${pjPart} (${stage}、 確度 ${Math.round(prob * 100)}%${expectedYm}${mergedNote}) — 新規 pipeline 形成`,
           source_type: row.source_table,
           source_ref: sourceRef(row),
           source_hash: row.source_hash,
           impact: Math.round(prob * 15),
           confidence: num(row.confidence, 0.5),
-          payload: { project_id: row.project_id, project_name: pjLabel, title, stage, probability: prob, expected_contract_ym: row.payload?.expected_contract_ym ?? null, expected_amount_yen: row.payload?.expected_amount_yen ?? null, scope_reason: row.payload?.scope_reason ?? null },
+          payload: { project_id: row.project_id, project_name: pjLabel, title, stage, probability: prob, expected_contract_ym: row.payload?.expected_contract_ym ?? null, expected_amount_yen: row.payload?.expected_amount_yen ?? null, deal_key: deal.dealKey, raw_signal_count: deal.rawRows.length, merged_source_ids: deal.rawRows.map((raw) => raw.source_id), scope_reason: row.payload?.scope_reason ?? null },
         };
       }),
       ...topBy(diffs, (row) => num(row.weight_hint, 1), 3).map((row) => {
@@ -781,7 +934,7 @@ function scorePipeline(rows: RawSignal[], ctx: ScoreContext): AxisScore {
  * 入力:
  * 1. ファンド設立進捗 (= funding_aggregate) — 20%
  * 2. 連携研究機関数 (= partner_growth) — 15%
- * 3. AMD OS 導入進捗 (= amd_os_install) — 25%  (= 当面 0、 amd_os_installations テーブル未実装)
+ * 3. AMD OS 導入進捗 (= amd_os_install) — 25%  (= 未実装時は data_missing として score から除外)
  * 4. マネタイズ仮説の前進 (= monetization_aggregate) — 15%
  * 5. 属人脱却率 (= non_masa_initiative) — 15%
  * 6. PJ 成功卒業進捗 (= graduation) — 10%
@@ -792,13 +945,15 @@ function scoreDirection(rows: RawSignal[], _ctx: ScoreContext): AxisScore {
   const fundingAgg = rows.find((row) => row.source_kind === "funding_aggregate");
   const partnerAgg = rows.find((row) => row.source_kind === "partner_growth");
   const amdOsInstall = rows.find((row) => row.source_kind === "amd_os_install");
+  const dataMissingRows = rows.filter((row) => row.source_kind === "direction_data_missing");
+  const amdOsInstallMissing = dataMissingRows.find((row) => row.source_table === "amd_os_installations");
   const monetizationAgg = rows.find((row) => row.source_kind === "monetization_aggregate");
   const nonMasa = rows.find((row) => row.source_kind === "non_masa_initiative");
   const graduation = rows.find((row) => row.source_kind === "graduation");
 
   const fundCount = num(fundingAgg?.signal_value_numeric, 0);
   const partnerCount = num(partnerAgg?.signal_value_numeric, 0);
-  const osInstallCount = num(amdOsInstall?.signal_value_numeric, 0);
+  const osInstallCount = amdOsInstall ? num(amdOsInstall.signal_value_numeric, 0) : null;
   const monetCount = num(monetizationAgg?.signal_value_numeric, 0);
   const nonMasaRatio = num(nonMasa?.signal_value_numeric, 0);
   const graduationCount = num(graduation?.signal_value_numeric, 0);
@@ -806,38 +961,48 @@ function scoreDirection(rows: RawSignal[], _ctx: ScoreContext): AxisScore {
   // 0-100 正規化 (= 各入力の「満点目安」 で割って 100 倍)
   const fundScore = clamp(Math.min(1, fundCount / 5) * 100); // 5 件 confirmed funding で満点
   const partnerScore = clamp(Math.min(1, partnerCount / 5) * 100); // 5 件 research/university partners で満点
-  const osInstallScore = clamp(Math.min(1, osInstallCount / 3) * 100); // 3 件導入で満点 (= 当面 0)
+  const osInstallScore = osInstallCount == null ? null : clamp(Math.min(1, osInstallCount / 3) * 100); // 3 件導入で満点
   const monetScore = clamp(Math.min(1, monetCount / 3) * 100); // 3 件 decided/executing で満点
   const nonMasaScore = clamp(nonMasaRatio * 100); // 比率 0-1 → 0-100
   const graduationScore = clamp(Math.min(1, graduationCount / 3) * 100); // 3 件成功卒業で満点
 
-  const score = clamp(
-    fundScore * 0.20
-    + partnerScore * 0.15
-    + osInstallScore * 0.25
-    + monetScore * 0.15
-    + nonMasaScore * 0.15
-    + graduationScore * 0.10,
-  );
+  const components = [
+    { key: "funding", score: fundScore, weight: 0.20 },
+    { key: "partner_growth", score: partnerScore, weight: 0.15 },
+    { key: "amd_os_install", score: osInstallScore, weight: 0.25 },
+    { key: "monetization", score: monetScore, weight: 0.15 },
+    { key: "non_masa_initiative", score: nonMasaScore, weight: 0.15 },
+    { key: "graduation", score: graduationScore, weight: 0.10 },
+  ];
+  const availableComponents = components.filter((component) => component.score != null) as Array<{ key: string; score: number; weight: number }>;
+  const availableWeight = availableComponents.reduce((sum, component) => sum + component.weight, 0);
+  const score = availableWeight > 0
+    ? clamp(availableComponents.reduce((sum, component) => sum + component.score * component.weight, 0) / availableWeight)
+    : 50;
+  const sourceCoverage = availableWeight;
+  const dataMissingSources = dataMissingRows.map((row) => String(row.payload?.missing_source || row.source_table || row.source_kind));
+  const directionConfidence = clamp(0.65 * sourceCoverage, 0.35, 0.75);
 
   const prev = _ctx.previousAxisScore.direction;
   const delta = prev != null ? score - prev : null;
-  const summarySentence = `方向 ${Math.round(score)}点 (前月比 ${fmtDelta(delta)}, ${deltaDesc(delta)})。 ファンド ${fundCount} / 研究機関 ${partnerCount} / OS導入 ${osInstallCount} / マネタイズ ${monetCount} / 属人脱却率 ${Math.round(nonMasaRatio * 100)}% / 成功卒業 ${graduationCount} 件。`;
+  const osInstallSummary = osInstallCount == null ? "OS導入 未評価(data_missing)" : `OS導入 ${osInstallCount}`;
+  const missingSummary = dataMissingSources.length > 0 ? `、未評価source ${dataMissingSources.length} 件でconfidence低下` : "";
+  const summarySentence = `方向 ${Math.round(score)}点 (前月比 ${fmtDelta(delta)}, ${deltaDesc(delta)})。 ファンド ${fundCount} / 研究機関 ${partnerCount} / ${osInstallSummary} / マネタイズ ${monetCount} / 属人脱却率 ${Math.round(nonMasaRatio * 100)}% / 成功卒業 ${graduationCount} 件${missingSummary}。`;
 
   return {
     score,
-    confidence: 0.65,
-    inputs: { fundCount, partnerCount, osInstallCount, monetCount, nonMasaRatio, graduationCount, fundScore, partnerScore, osInstallScore, monetScore, nonMasaScore, graduationScore, delta, summary: summarySentence },
+    confidence: directionConfidence,
+    inputs: { fundCount, partnerCount, osInstallCount, monetCount, nonMasaRatio, graduationCount, fundScore, partnerScore, osInstallScore, monetScore, nonMasaScore, graduationScore, availableWeight, sourceCoverage, dataMissingSources, delta, summary: summarySentence },
     evidence: [
       {
         axis: "direction" as const,
         evidence_kind: "axis_summary",
         summary: summarySentence,
         source_type: "computed",
-        source_ref: "project_strategy_signals(funding/commercial)+project_partners+amd_os_installations+member_activities(non-masa)+project_ventures(graduation)",
+        source_ref: "project_strategy_signals(funding/commercial)+project_partners+member_activities(non-masa)+project_ventures(graduation)+data_missing",
         impact: delta ?? (score - 50) / 2,
-        confidence: 0.65,
-        payload: { score, prev, delta, fundCount, partnerCount, osInstallCount, monetCount, nonMasaRatio, graduationCount },
+        confidence: directionConfidence,
+        payload: { score, prev, delta, fundCount, partnerCount, osInstallCount, monetCount, nonMasaRatio, graduationCount, availableWeight, sourceCoverage, dataMissingSources },
       },
       {
         axis: "direction" as const,
@@ -859,16 +1024,25 @@ function scoreDirection(rows: RawSignal[], _ctx: ScoreContext): AxisScore {
         confidence: 0.75,
         payload: { count: partnerCount, score: partnerScore, weight: 0.15 },
       },
-      {
+      ...(amdOsInstallMissing ? [{
+        axis: "direction" as const,
+        evidence_kind: "data_missing",
+        summary: "AMD OS 導入進捗: amd_os_installations 未実装のため未評価 — 0件悪化ではなく方向性confidence低下として扱う",
+        source_type: "amd_os_installations",
+        source_ref: "schema:data_missing",
+        impact: 0,
+        confidence: num(amdOsInstallMissing.confidence, 0.2),
+        payload: { data_state: "data_missing", missing_source: "amd_os_installations", excluded_from_score: true, weight_if_available: 0.25 },
+      }] : [{
         axis: "direction" as const,
         evidence_kind: "amd_os_install",
-        summary: `AMD OS 導入進捗: ${osInstallCount} 件 → ${Math.round(osInstallScore)}点 (重み 25%、 ⚠️ amd_os_installations テーブル未実装)`,
+        summary: `AMD OS 導入進捗: ${osInstallCount ?? 0} 件 → ${Math.round(osInstallScore ?? 0)}点 (重み 25%)`,
         source_type: "amd_os_installations",
-        source_ref: "TODO Phase 4",
-        impact: osInstallScore >= 30 ? 6 : -5,
-        confidence: 0.2,
-        payload: { count: osInstallCount, score: osInstallScore, weight: 0.25, note: "テーブル未実装" },
-      },
+        source_ref: "amd_os_installations",
+        impact: (osInstallScore ?? 0) >= 30 ? 6 : -2,
+        confidence: 0.65,
+        payload: { count: osInstallCount ?? 0, score: osInstallScore ?? 0, weight: 0.25 },
+      }]),
       {
         axis: "direction" as const,
         evidence_kind: "monetization",
@@ -954,6 +1128,11 @@ function buildSnapshotSummary(
 
   return parts.join(" ");
 }
+
+export const __managementScoreTestHooks = {
+  scoreInitiative,
+  scorePipeline,
+};
 
 export async function calculateManagementScore(
   supabase: SupabaseClient,

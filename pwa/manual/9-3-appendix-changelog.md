@@ -14,6 +14,7 @@
 
 | 日付 | 対象章 | 種別 | 内容 | 理由 | 誰が |
 |---|---|---|---|---|---|
+| 2026-06-26 | 4-5 Management Score | 変更 | Management Score の判定ガードと現状点検運用を追加。`routine_auto` / p00 / points=0 / 月次ルーティン系MSを継続根拠にしない、unknown過多の先手力をscore capする、財務未同期は `finance_data_missing`、方向性未実装は `data_missing`、新規案件はdeal単位で重複排除する仕様を明記。点検コマンド `npm --prefix pwa run audit:management-score -- --ym=YYYYMM --fail-on-actionable` で P0/P1/P2 が0件になることを完了条件にした | AMD Management Score に月次ルーティンMS、unknown高得点、未同期0円悪化、未実装source悪化、pipeline重複が混ざり、会社バイタルとして信用できない状態だったため | えいみ |
 | 2026-06-26 | 4-5 収支シミュレーション / 9-2 開発者向け | 追加 | KAGAMI など外部クライアント向けに `GET /api/finance/live-cash-balances` を追加。`company_budget_actual_monthly.cash_amount_yen` 直読みではなく、`/management-score` と同じ live monthly PL simulation を server-side で回し、過去月は `cash_balance` 実績、未来月は live 予算残高を返す。返却は月次残高・runway・actual/forecast source に限定 | KAGAMI 財布画面の AMD 残高スタックが保存済み snapshot を拾い、OS 本体のキャッシュフロー推移より過大に見えたため。外部画面でも OS 本体の live truth を使えるようにするため | えいみ |
 | 2026-06-25 | 2-3 PJ コックピット | 追加 | KUTE (`p25`) のヘッダー直下に年度内ロードマップを表示する仕様を追加。2026年6月〜2027年3月の横軸で、規程整備 (`2027年1月目途で整備完了`) と、シーズ発掘 / after GTIE (`2027年3月までに支援実務の型化`) を同時に確認する | KUTE の年度内全体スケジュールが議事録や資料内に埋もれ、コックピット最上段で現在地と年度末の着地を見られない状態だったため | えいみ |
 | 2026-06-25 | 2-3 PJ コックピット / MTGサマリ | 修正 | MTG詳細モーダルの共有操作を `PDF保存` / `議事録コピー` / `準備メモコピー` / `共有URLコピー` に更新。開催済み議事録の `narrative_md` 末尾に `参考: 会議前準備メモ` がある場合は議事録本文から分離し、準備メモだけ個別コピーできる仕様に変更。PDFはブラウザ印刷ではなく共有用DOMから直接保存する | メール本文コピーに準備メモが混ざり、PDFも同じページが繰り返される・幅が狭い・メール本文と内容がズレる問題があったため | えいみ |

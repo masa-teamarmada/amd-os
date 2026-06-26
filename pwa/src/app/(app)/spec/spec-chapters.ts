@@ -79,6 +79,7 @@ export const SPEC_SECTIONS: SpecSectionConfig[] = [
       "4-2-amd-score-current-spec",
       "4-3-ers-current-spec",
       "4-4-management-score-company-vital-scope-plan",
+      "4-5-management-score-rebuild-plan",
     ],
   },
   {
@@ -130,6 +131,7 @@ export const SPEC_CHAPTERS: SpecChapterConfig[] = [
   { slug: "4-2-amd-score-current-spec", title: "AMD Score 実装仕様", summary: "PRS primary、legacy AMD comparison、DB、route、bottleneck、FRL 境界の契約。" },
   { slug: "4-3-ers-current-spec", title: "ERS 実装仕様", summary: "研究機関 ERS の route、DB、fetch bundle、assessment upsert API、admin gate。" },
   { slug: "4-4-management-score-company-vital-scope-plan", title: "Management Score 会社バイタル分類 本修正案", summary: "Management Score材料を会社バイタル/PJ個別へ分けるDB分類、L2抽出validator、backfill、snapshot再計算の未適用設計案。" },
+  { slug: "4-5-management-score-rebuild-plan", title: "Management Score 再設計案", summary: "スコア対象・表示対象・未同期/未実装・根拠impactを分け、P0/P1/P2点検で経営スコアを監査する設計案。" },
   { slug: "5-1-document-governance-current-spec", title: "ドキュメント統制仕様", summary: "manual / spec / bzm の責務分離、附則更新ゲート、再構築要件。" },
   { slug: "5-2-development-operations-current-spec", title: "開発 / デプロイ運用仕様", summary: "repo、PWA技術スタック、deploy、build version、Supabase DDL、GAS deploy、検証 gate。" },
   { slug: "5-3-automation-responsibility-current-spec", title: "Automation 責務分担仕様", summary: "M/W/D/H L2 writer、停止済み LLM cron、allowed cron、outbox applier、再発防止。" },
