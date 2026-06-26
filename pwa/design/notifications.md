@@ -21,14 +21,14 @@ PWA は admin session 中に `CriticalRealtimeNotify` が `app_notifications` / 
 
 Swift は `app_notifications.native_notified_at IS NULL` の `connector_auth` を起動時/foreground復帰時に拾い、ローカル通知を即表示する。通知を表示したら `native_notified_at` を打つが、これは「Swiftへ配信済み」だけを表し、PWA/Swift共通の人間既読は引き続き `read_at`。Swift通知をタップすると通知ボックスを挟まず `reauth_url` を開き、`read_at` を打つ。ただし再認証リンクが閉じたり失敗した場合に再試行できるよう、Swift通知ボックスの「既読」タブにも `connector_auth` を残し、「再認証を開く」ボタンを出す。再認証は復旧レーンで、L2抽出の terminal blocker ではない。
 
-通知は表示上 `normal` と `critical` に分ける。`normal` は「OSに新データが入った / 候補が増えた / 通常レビュー」で、既存の L2 候補・MTGサマリ・VCニュース・通常の gap が入る。`critical` は「まさが見落とすと事故るもの」で、Notion等の connector 再認証、明示 critical の重大 guardrail 発火、重要 automation blocker が入る。MTG本文に NDA / 契約 / 法務 / SHA / COI / 再認証 / blocker などの語が出ただけでは critical にしない。`action_item` も「要対応」というラベルだけでは critical にしない。これらは `guardrail_match` や `contract_signals` など専用通知に変換された時点、または明示 critical / 期限超過 / blocker になった時点で鳴らす。2026-06-27時点では DB 列を増やさず、`pwa/src/lib/notification-priority.ts` が既存の `kind/l2_kind/importance/meta/title/summary` から分類する。将来のDB案は `notification_priority text check in ('normal','critical') default 'normal'` を3通知テーブルに追加し、writer 明示値を優先、空なら同じ導出関数で補完する。
+通知は表示上 `normal` と `critical` に分ける。`normal` は「OSに新データが入った / 候補が増えた / 通常レビュー」で、既存の L2 候補・MTGサマリ・VCニュース・通常の gap が入る。`critical` は「まさが見落とすと事故るもの」で、Notion等の connector 再認証、明示 critical の重大 guardrail 発火、重要 automation blocker が入る。MTG本文に NDA / 契約 / 法務 / SHA / COI / 再認証 / blocker などの語が出ただけでは critical にしない。`action_item` も「要対応」というラベルだけでは critical にしない。契約予兆や総会/役会も kind だけでは鳴らさず、明示 critical / 期限超過 / blocker / high以上の経営ガードレール発火になった時点で鳴らす。2026-06-27時点では DB 列を増やさず、`pwa/src/lib/notification-priority.ts` が既存の `kind/l2_kind/importance/meta/title/summary` から分類する。将来のDB案は `notification_priority text check in ('normal','critical') default 'normal'` を3通知テーブルに追加し、writer 明示値を優先、空なら同じ導出関数で補完する。
 
 分類ルール:
 
 | source | critical 判定 |
 |---|---|
 | `app_notifications` | `kind='connector_auth'` は常に critical。`meta.priority/severity/urgency/notification_priority/notification_channel/risk_level` が `critical` / `urgent` / `blocker` 等、または title/body/meta reason に再認証・blocker・事故・緊急・期限超過等があれば critical。 |
-| `l2_notifications` | `l2_kind in ('contract_signals','shareholder_meeting')`、または明示 `notification_priority='critical'` があれば critical。通常の候補追加・レビューは normal。`action_item` は `importance >= 8` だけでは critical にせず、期限超過 / blocker / 明示 critical だけを critical にする。法務・NDA・SHAなどの話題語だけでは critical にしない。 |
+| `l2_notifications` | 明示 `notification_priority='critical'`、または `metadata_json` の priority/severity/reason/blocker_kind 等に期限超過 / blocker / 再認証 / 緊急等の運用緊急語があれば critical。通常の候補追加・レビューは normal。`l2_kind` / `importance >= 8` / title / summary だけでは critical にせず、契約予兆・総会/役会・D-11メディア掲載も通常レビューに残す。 |
 | `meeting_notifications` | 常に normal。MTG本文は一次記録なので、再認証 / blocker / 緊急等の語が含まれても右下ポップアップにはしない。緊急扱いが必要なものは `app_notifications(kind='connector_auth')` または `l2_notifications(l2_kind='guardrail_match'/'contract_signals' 等)` として別に出す。 |
 
 ---
@@ -289,6 +289,9 @@ D-5 OS台帳差分と M-2 XRL根拠は、全文保存ではなく「OSへ入れ�
 | 2026-06-26 | **action_item critical 誤検知の絞り込み**: `l2_kind='action_item'` と title の「要対応」だけで右下ポップアップに出る問題を修正。要対応は通常通知に残し、critical は明示 critical / 期限超過 / blocker 等に限定する。 |
 | 2026-06-27 | **critical popup deep link**: L2/MTG critical ポップアップのリンクを `/notifications` 直行から `notification_id` / `meeting_id` 付きに変更。通知ページは対象rowが最新100件から漏れていても追加取得し、自動展開・スクロールする。`action_item` は `importance >= 8` だけでは critical にしない。 |
 | 2026-06-27 | **MTG critical 誤爆停止**: `meeting_notifications` は本文中に `blocked by reauthentication` 等の復旧語が含まれても normal 固定にした。MTGサマリは通常レビューとして通知ページに残し、緊急ポップアップは `connector_auth` / `guardrail_match` / `contract_signals` 等の専用通知だけに寄せる。 |
+| 2026-06-27 | **importance critical 誤爆停止**: `l2_notifications.importance >= 8` だけでは critical にしない。D-11 メディア掲載など重要度の高い通常レビューは通知ページに残し、右下ポップアップは専用 kind / 明示 critical / 復旧語に限定する。 |
+| 2026-06-27 | **L2 kind critical 誤爆停止**: `contract_signals` / `shareholder_meeting` は kind だけでは critical にしない。契約・総会/役会は通常レビューに残し、緊急ポップアップは writer が `notification_priority='critical'` を明示したもの、または期限超過 / blocker / 再認証等の復旧語を含むものに限定する。 |
+| 2026-06-27 | **L2本文 critical 誤爆停止**: `l2_notifications.title/summary` は抽出本文なので critical 判定に使わない。過去事故の説明や「blocked by ...」の引用で誤爆するため、緊急判定は `metadata_json` の明示 priority/reason/blocker 情報に限定する。 |
 | 2026-05-20 | **回答済みUI**: 「はい/いいえ/コメント」送信後は回答ボタンを消し、`回答済み` 表示へ切り替える。送信成功時に `read_at` を更新し、未対応/未読から `回答済み` タブへ即移動する。 |
 | 2026-05-20 | **AMDプロトコル通知の個別化**: protocol candidate は `project_id + ym` でまとめず、`scope_key=YYYYMM:protocol:<protocol_id>` の1候補1通知に変更。PWA詳細表示と feedback 再抽出はこの個別 scope を解釈する。 |
 | 2026-05-21 | **MTGサマリ反映の同期化**: `NEXT_PUBLIC_GAS_API_KEY` 未設定で再抽出がサイレント skip され、LST の固有名詞修正 feedback が `l2_feedbacks` に残ったまま `project_meeting_summaries` へ反映されない事故を修正。PWA は `CRON_SECRET` fallback でGAS runFuncを同期実行し、失敗時は 502。GAS pwaApi は `PWA_API_KEY` 未設定時 `CRON_SECRET` を認証キーに使う。 |

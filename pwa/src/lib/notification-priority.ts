@@ -22,11 +22,6 @@ type MeetingNotificationLike = {
   source_kinds?: string | null;
 };
 
-const CRITICAL_L2_KINDS = new Set([
-  "contract_signals",
-  "shareholder_meeting",
-]);
-
 const META_TEXT_KEYS = [
   "priority",
   "severity",
@@ -63,11 +58,9 @@ export function appNotificationPriority(notification: AppNotificationLike): Noti
 export function l2NotificationPriority(notification: L2NotificationLike): NotificationPriority {
   const meta = objectValue(notification.metadata_json);
   if (hasExplicitCritical(meta)) return "critical";
-  if (CRITICAL_L2_KINDS.has(notification.l2_kind)) return "critical";
-  if (hasOperationalCriticalToken([notification.l2_kind, notification.title, notification.summary, metaText(meta)])) {
+  if (hasOperationalCriticalToken([metaText(meta)])) {
     return "critical";
   }
-  if (notification.l2_kind !== "action_item" && (notification.importance ?? 0) >= 8) return "critical";
   return "normal";
 }
 
