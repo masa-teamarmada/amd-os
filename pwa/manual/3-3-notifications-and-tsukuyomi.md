@@ -31,9 +31,11 @@ AMD OS の通知は「お知らせ」だけではない。多くの通知は、L
 | レーン | 何を見るか | 例 |
 |---|---|---|
 | 通常通知 | OSに新データが入った、候補が増えた、通常レビューが必要 | L2候補、MTGサマリ、VCニュース、通常の取り込み経路確認 |
-| 緊急性の高い通知 | 見落とすと事故る復旧・ガードレール・重要 blocker | Notion等の再認証、契約/法務/SHA/総会/役会、重要 automation blocker |
+| 緊急性の高い通知 | 見落とすと事故る復旧・ガードレール・明示 blocker | Notion等の再認証、high以上の経営ガードレール、明示 critical の要対応、重要 automation blocker |
 
 緊急性の高い通知は、対応が終わっても削除せず、既読欄から再試行できるものがある。特に connector 再認証は、リンクを開いたことと復旧完了は別なので、復旧できたかは対象 automation の次回成功で確認する。
+
+緊急性の高い通知は右下ポップアップにも出る。ここに出してよいのは `connector_auth`、`metadata_json.notification_priority='critical'`、`metadata_json` 上の blocker / 期限超過 / 再認証など、writer が「今すぐ見るべき」と明示したものだけ。MTGサマリ、契約予兆、総会/役会、D-11メディア掲載、`importance` が高い L2 候補は、タイトルや本文に「事故」「blocker」「再認証」などの語が含まれていても通常通知に残す。
 
 ## `/notifications` でやること
 

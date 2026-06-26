@@ -1239,3 +1239,49 @@ deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifica
 ### Closeout notes
 - このfavicon作業で触った4ファイルは commit/push 済み。handoff / closeout 追記は別 commit で閉じる。
 - main checkout には H-1 / meeting assets / management score 系の別作業 dirty が残っている。favicon作業には混ぜていない。
+
+---
+
+## 2026-06-27 - 経営ガードレール実装と緊急通知の誤爆停止
+
+### コンテキスト
+- まさが SX × 三浦工業 MTG をきっかけに、「大企業への最初の入口を現場技術者だけにすると関係性が微妙になる」ような経営上の気をつけポイントを OS で先に検知したいと相談。
+- さらに、設立前SHA、NDA前開示、PoCデータ許諾、COI/兼業/職務発明など、まさの頭にあるノウハウが忙しい時に抜け落ちる問題を「経営ガードレール」として設計。
+- 通知設計では、通常通知 (= OSに新データが入った/候補が増えた) と、緊急通知 (= 見落とすと事故る復旧・ガードレール) を分離。まさ要望により緊急通知はすべて右下ポップアップにした。
+
+### 実装
+- migration `154_management_guardrails.sql` で `guardrail_tag_definitions` / `guardrail_cards` / `guardrail_matches` / `guardrail_feedbacks` を追加し、初期カード10件を seed。
+- `pwa/src/lib/management-guardrails.ts` と `POST /api/guardrails/evaluate` を追加。PJタグ + アクションタグを guardrail card と照合し、`guardrail_matches` と `l2_notifications(l2_kind='guardrail_match')` を作る。
+- `/api/notifications/feedback` は `guardrail_match` の `yes` を `acknowledged`、`no` を `dismissed` に接続。
+- `ConnectorAuthRealtimeNotify` を `CriticalRealtimeNotify` に置き換え、critical 未読の `app_notifications` / `l2_notifications` / `meeting_notifications` を Realtime + 10秒pollで右下ポップアップ表示。
+- ポップアップの L2 deep link を `/notifications?notification_id=...` にし、通知ページが対象rowを追加取得・自動展開・スクロールするようにした。
+
+### 誤爆修正
+- `SX MTG 三浦工業`: MTG本文中の NDA / 法務 / 契約語で critical になっていたため、話題語では鳴らさないよう修正。
+- `要対応: ...取締役会の招集通知`: `action_item` / `要対応` / high importance だけで critical になっていたため通常通知へ戻した。
+- `KUTE 6/23定例メモ...`: high importance の古いL2がポップアップに出る一方、通知ページの最新100件に無く見つからない問題を deep link + 追加取得で修正。
+- `ZMP pHydrogen ZeMA 訪問`: MTG本文末尾の `blocked by reauthentication` で critical になっていたため、MTG通知を常に normal に固定。
+- `D-11メディア掲載` / `shareholder_meeting`: `importance>=8` や `l2_kind` だけでは critical にしないよう修正。
+- 最終ルール: 右下ポップアップは `connector_auth`、明示 `metadata_json.notification_priority='critical'`、metadata 上の blocker / 期限超過 / 再認証等、high/critical の guardrail 発火に限定。MTG/L2本文のキーワードは優先度判定に使わない。
+
+### Commits / deploy
+- `c5ac825e feat(pwa): add management guardrails`
+- `c7b4f300 feat(pwa): popup all critical notifications`
+- `2b2b1f7c chore(pwa): retrigger production deploy`
+- `b213c734 fix(pwa): narrow critical notification keywords`
+- `fa6f69e5 fix(pwa): stop auto-critical action items`
+- `bba1c1f4 fix(pwa): deep link critical notifications`
+- `51b142d4 fix(pwa): keep meeting notifications normal`
+- `f0061e51 fix(pwa): require explicit critical l2 priority`
+- closeout時点の current truth: `132d5aae fix(pwa): restore initiative crisis threshold` / production `v0.34.31` / `/api/build-info` `dirty=false`。
+
+### Verified
+- 判定ケース: MTG with reauth words / D-11 media high importance / shareholder kind only / contract kind only は `normal`、connector auth / explicit guardrail critical / metadata blocker は `critical`。
+- `npm run --silent lint -- src/lib/notification-priority.ts src/components/notifications/CriticalRealtimeNotify.tsx src/components/notifications/NotificationsClient.tsx src/app/'(app)'/notifications/page.tsx`
+- `npm run test:critical-ui`
+- `npm run build` は通知修正時点で pass。途中の `npx tsc --noEmit` は別件 management-score WIPで一度 fail したが、後続 `132d5aae` で本番は v0.34.31 へ進んだ。
+- live unread check: final notification priority logic で未読 critical は `app=0 / L2=0 / MTG=0`。
+
+### 残課題
+- guardrail card 管理UI、PJ/MTGカード上の自動タグ付け UI、protocol から guardrail card を育てる昇格フローは未実装。
+- 通知 priority は DB列追加なしの導出関数。将来は `notification_priority text default 'normal'` を3通知テーブルに追加し、writer 明示値を優先する案が残っている。

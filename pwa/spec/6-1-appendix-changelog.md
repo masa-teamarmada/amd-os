@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-06-27 | 3-7 Notifications / 3-15 経営ガードレール | 修正 | critical 判定を明示 metadata / connector_auth / guardrail priority に限定。`meeting_notifications` は常に normal、`l2_notifications` は `l2_kind` / `importance` / title / summary だけでは critical にしない。`contract_signals` / `shareholder_meeting` も kind だけでは通常レビュー。3-15 の未実装リストから通知2分類の分離を外し、残課題を guardrail 専用UIに更新 | MTG/L2本文のキーワードや high importance で通常レビューが右下緊急ポップアップに誤爆し、緊急通知の信頼性が落ちたため | えいみ |
 | 2026-06-27 | 4-5 Management Score | 修正 | 先手力の再設計から unknown score cap を撤去し、「90未満は危機状態。ただし起点不明/分類不足は判定信頼度低下であり、総合点ペナルティを発動しない」契約へ変更 | 非合意の55点capで先手力が55点になり、総合点に×0.3が掛かる事故を防ぐため。重要閾値はspecに残し、実装者が勝手な数字を作らないようにする | えいみ |
 | 2026-06-26 | 4-5 Management Score | 追加・変更 | `4-5-management-score-rebuild-plan` を追加し、Management Score の候補材料 / スコア対象 / 表示対象、P0/P1/P2点検、軸別の除外条件、実寄与impact、unknown/data_missing扱いを定義。`/spec` 目次にも同章を追加 | 月次ルーティンMSや機械按分、unknown高得点、未同期0円、未実装source、pipeline重複が会社バイタルに混ざる問題を、実装者が再構築可能な判定契約として固定するため | えいみ |
 | 2026-06-26 | 2-1 PWA Runtime Routes / 4-5 Management Score | 追加 | `GET /api/finance/live-cash-balances` を追加。`/management-score` と同じ live monthly PL simulation で月次 `cashBalance` を再計算し、過去月は `cash_balance` 実績、未来月は live 予算残高を返す read-only route として定義。外部クライアントへ返すフィールドは `ym`, `cashBalance`, `budgetCashBalance`, `actualCashBalance`, `runwayMonths`, `source` に限定 | KAGAMI 財布画面が `company_budget_actual_monthly.cash_amount_yen` の保存済み snapshot を直読し、OS 本体のキャッシュフロー推移と乖離したため。OS画面と同じ live truth を外部画面にも渡す境界が必要だった | えいみ |

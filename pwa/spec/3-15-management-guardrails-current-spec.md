@@ -158,4 +158,4 @@ Response:
 - PJ台帳やMTGカードへの自動タグ付け UI。
 - guardrail card の管理UI。
 - protocol から guardrail card を半自動生成する昇格フロー。
-- 通知2分類の完全な仕様分離。現時点では `importance` と `metadata_json.notification_priority` でシグナルを渡す。
+- guardrail card の severity / 発火理由を、PJ cockpit や MTGカード上で事前確認する専用UI。

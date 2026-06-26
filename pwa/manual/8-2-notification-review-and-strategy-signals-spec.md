@@ -47,6 +47,18 @@ server page で `members.is_admin` を確認、 admin 以外は `notFound()`。 
 
 これを `NotificationsClient` に渡す。
 
+### 通常通知 / 緊急通知 / 右下ポップアップ
+
+通知ページの一覧は、未対応 / 未読 / 回答済み / 修正依頼ありのタブを保ったまま、表示中のカードを `normal` と `critical` に分ける。分類関数は `pwa/src/lib/notification-priority.ts`。
+
+| source | critical にしてよい条件 |
+|---|---|
+| `app_notifications` | `kind='connector_auth'`、または `meta.priority/severity/urgency/notification_priority/notification_channel/risk_level` が `critical` / `urgent` / `blocker` 等。title/body/meta reason の再認証・blocker・期限超過も critical。 |
+| `l2_notifications` | 明示 `metadata_json.notification_priority='critical'`、または `metadata_json` の priority/severity/reason/blocker_kind 等に blocker / 期限超過 / 再認証 / 緊急等がある場合だけ critical。`l2_kind`、`importance`、title、summary だけでは critical にしない。 |
+| `meeting_notifications` | 常に normal。MTG本文は一次記録なので、NDA / 契約 / 法務 / SHA / 再認証 / blocker 等の語が入っても右下ポップアップには出さない。 |
+
+`CriticalRealtimeNotify` は critical 未読だけを Realtime + 10秒poll で拾い、右下ポップアップを出す。L2 ポップアップは `/notifications?notification_id=...` に飛び、通知ページは対象rowが最新100件から漏れていても追加取得・自動展開する。MTG通知はポップアップ対象外なので、緊急扱いが必要な場合は `connector_auth` / `guardrail_match` / 明示 `notification_priority='critical'` などの専用通知として別に出す。
+
 ### フィルタタブ
 
 | タブ | 条件 |

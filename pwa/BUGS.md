@@ -3371,3 +3371,20 @@
 - **原因**: gate の対象は支払が発生する `member × source_ym × project` 行だけだが、移行月バイパスの行を通常の `agreed` 行と同じ表に出していた。これにより「支払対象行の確認」と「全メンバーの合意状態」がUI上で混ざって見えた。
 - **対応内容**: 移行月バイパス行に `migrationBypass=true` を付与し、blocker が無く移行月バイパス行だけの場合は個別メンバー表を出さない。代わりに `対象支払行` / `移行月スキップ` / `blocker 0` の summary と、移行月として支払可能である旨を表示する。
 - **再発防止策**: rollout / migration の例外表示は個別合意一覧と混ぜず、summary 表示にする。個別メンバー行を出すのは、実際に本人合意・未合意・条件更新・修正要望を確認する通常月だけにする。
+
+## [PWA/notifications] MTG/L2通常レビューが右下の「緊急通知」に誤爆した (2026-06-27)
+
+- **症状**: 右下ポップアップに、`SX MTG 三浦工業`、`要対応: ...取締役会の招集通知`、`KUTE 6/23定例メモ...`、`ZMP pHydrogen ZeMA 訪問` などが次々に「緊急通知」として出た。クリックして `/notifications` に飛んでも見つからないケースもあり、まさから「内容を読んでも緊急性が見えない」と指摘された。
+- **原因**:
+  - `meeting_notifications.summary_short` や `l2_notifications.title/summary` の本文を正規表現で見て、`NDA`、法務、`要対応`、`blocked by reauthentication`、過去事故説明の「事故」などを緊急語として扱っていた。
+  - `action_item` や `importance >= 8`、`contract_signals` / `shareholder_meeting` の kind だけで critical にしていた。
+  - 右下ポップアップは `importance desc` の未読30件を拾う一方、通知ページは `created_at desc` 最新100件だったため、ポップアップから飛んでも一覧に無い行が出た。
+- **対応内容**:
+  - `meetingNotificationPriority()` は常に `normal` に固定。MTG本文は一次記録なので、復旧語や法務語が入っても右下ポップアップ対象にしない。
+  - `l2NotificationPriority()` は `l2_kind`、`importance`、`title`、`summary` だけでは `critical` にしない。`metadata_json.notification_priority='critical'` または metadata 上の blocker / 期限超過 / 再認証等だけを critical にする。
+  - L2ポップアップは `/notifications?notification_id=...` へ deep link し、通知ページが対象rowを追加取得・自動展開するようにした。
+  - `pwa/design/notifications.md`、`pwa/spec/3-7-notifications-current-spec.md`、manual 3-3 / 8-2 にルールを同期。
+- **再発防止策**:
+  - 「重要そうな話題語」と「今すぐ割り込む緊急性」を混同しない。契約・総会・取締役会・NDA・法務・MTG・メディア掲載は通常レビューに残す。
+  - 右下ポップアップは writer が明示した critical metadata、connector 再認証、high/critical ガードレールなど、事故防止・復旧レーンだけに限定する。
+  - L2/MTG の本文は抽出結果本文であって優先度シグナルではない。本文正規表現で critical を判定しない。
