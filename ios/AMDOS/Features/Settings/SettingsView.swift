@@ -3,6 +3,12 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject var authService: AuthService
     @State private var showHUDCockpit = false
+    private var appVersionLabel: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "-"
+        let build = info?["CFBundleVersion"] as? String ?? ""
+        return build.isEmpty ? version : "\(version) (\(build))"
+    }
 
     var body: some View {
         NavigationStack {
@@ -48,7 +54,7 @@ struct SettingsView: View {
                 }
 
                 Section("アプリ情報") {
-                    LabeledContent("バージョン", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "-")
+                    LabeledContent("バージョン", value: appVersionLabel)
                 }
 
                 if let email = authService.userEmail {

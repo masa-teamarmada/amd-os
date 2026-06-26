@@ -48,8 +48,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: jp.team-armada.amdos
-        MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: 21
+        MARKETING_VERSION: "0.1.1"
+        CURRENT_PROJECT_VERSION: 22
         TARGETED_DEVICE_FAMILY: "1"
         SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: false
     info:
