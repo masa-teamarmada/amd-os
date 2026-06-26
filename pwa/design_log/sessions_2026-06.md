@@ -1213,3 +1213,29 @@ deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifica
 4. **専門用語の英語混入を初回翻訳で許容してしまった**。「単一スコア / 因果 DAG / 識別不能 / 一次条件 / 内生的 / 中核を支える / 条件付き受理 / 後付け校正 / レジーム切換え」 等の日本語訳語が学術界で定着しているものを「academic 専門用語は英語のまま」 と緩く指定し、`w433q135s` の初回翻訳で残してしまった。再翻訳 `w1d60nugs` で対応したが二度手間。**学術書の翻訳指示では「日本語訳が定着している経済学・統計学用語は必ず日本語化、英語維持は人名・数式変数・略号・journal 名・ある程度定着した固有名詞 (Cobb-Douglas, Triple Helix, real options) に限定」を最初から明示する**。
 5. **task ledger (COMMANDER_TASKS.md) を本セッションで開いていなかった**。BZM 司令塔 task ledger の存在を session 後半で発見。次セッション初手で `pwa/bzm/COMMANDER_TASKS.md` を読む。
 
+---
+
+## 2026-06-26 — Chrome tab favicon を Vercel default から AMD mark へ差し替え (v0.34.28 → v0.34.29)
+
+### コンテキスト
+- まさが Chrome タブ左の黒丸三角アイコンをスクショで指摘。「添付画像のところのアイコン」が Vercel default のままだった。
+- `AGENTS.common.md` から読み始め、root / PWA の `AGENTS.md` / `CLAUDE.md` / manual / spec を確認してから作業。
+- 既存の `icon.png` / `apple-icon.png` / manifest icons は AMD ロゴだったが、`public/favicon.ico` の ICO payload が Vercel default のままだった。
+
+### 実装
+- `pwa/public/favicon.ico` を `AMD_logo_mark.png` 由来の AMD mark ICO (16/32/48/256) に差し替え。
+- Chrome の favicon cache を避けるため、新規 `pwa/public/favicon-amd.ico` を追加。
+- `pwa/src/app/layout.tsx` の `metadata.icons.icon` / `shortcut` を `/favicon-amd.ico` 優先へ変更。`/favicon.ico` は direct fallback として同一 AMD payload にした。
+- `pwa/src/lib/build-info.ts` を `v0.34.28` へ bump。後続の別作業 commit で production は `v0.34.29` へ進んだが、favicon commit `daa44ea3` は main に含まれている。
+- `pwa/design/SPEC_pwa.md` と `pwa/BUGS.md` に今回の恒久仕様 / 再発防止を同期。
+
+### Verified
+- clean clone `/Users/masa/.codex/tmp/amd-os-favicon-deploy-OfCDDP/amd-os` で `npm ci` → `npx tsc --noEmit` → `npm run test:critical-ui` → `npm run build` all pass。
+- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` pass。favicon commit `daa44ea3` は 3分56秒で production 反映。
+- 最終 production `/api/build-info`: `v0.34.29` / `25b69730409426e70804836f253b4785a742db07` / `dirty=false`。
+- production HTML: `<link rel="shortcut icon" href="/favicon-amd.ico">` と `<link rel="icon" href="/favicon-amd.ico" sizes="any" type="image/x-icon">` を確認。
+- production `/favicon-amd.ico` と `/favicon.ico` はどちらも 32426 bytes、SHA-256 `3d58f56c4c7e2c2a93460156d7652d6b2c953f43c6f36952552822c72f153071` で一致。
+
+### Closeout notes
+- このfavicon作業で触った4ファイルは commit/push 済み。handoff / closeout 追記は別 commit で閉じる。
+- main checkout には H-1 / meeting assets / management score 系の別作業 dirty が残っている。favicon作業には混ぜていない。

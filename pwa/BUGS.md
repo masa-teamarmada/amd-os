@@ -1251,6 +1251,22 @@
 
 ---
 
+### [pwa] タブ icon が Vercel default のまま残った
+- **発見日**: 2026-06-26 (まさが Chrome タブの黒丸三角アイコンをスクショで指摘)
+- **状態**: ✅ 解決済 (`daa44ea3 fix(pwa): replace default favicon with AMD mark`、production `v0.34.29` / `25b69730` で確認)
+- **症状**: `icon.png` / `apple-icon.png` / manifest icons は AMD ロゴだったが、Chrome タブだけ Vercel default の黒丸三角アイコンのままだった。
+- **真因**: `public/favicon.ico` の ICO payload 自体が Vercel default のまま残っていた。HTML は `/favicon.ico` を優先参照していたため、AMD ロゴ版 `icon.png` より Vercel favicon が使われた。
+- **対応内容**:
+  - `AMD_logo_mark.png` から透明背景の AMD mark ICO を生成し、`public/favicon.ico` を差し替え。
+  - Chrome の favicon cache を避けるため、同一内容の `public/favicon-amd.ico` を新規追加。
+  - `src/app/layout.tsx` の `metadata.icons` を `/favicon-amd.ico` 優先へ変更。
+  - production HTML が `/favicon-amd.ico` を参照し、`/favicon-amd.ico` と `/favicon.ico` の SHA-256 が `3d58f56c...` で一致することを確認。
+- **教訓**:
+  - `icon.png` や manifest icons が正しくても、Chrome タブは `favicon.ico` を優先しうる。favicon問題では **HTML link と実ファイル hash の両方** を見る。
+  - 既存 favicon URL はブラウザ側で強く cache されるため、ブランド差し替えでは新規URL (`/favicon-amd.ico`) を用意すると切替確認が早い。
+
+---
+
 ### [GAS] SX (p21) 繰り返し MTG で議事録抽出が空になる (Notion AI ページの 3 プロパティ空問題)
 - **発見日**: 2026-05-10 (まさ指摘)、2026-05-11 真因特定 + 大半解決
 - **状態**: ✅ 設計修正完了 (cron self-healing) / 🟡 副次バグ `error_llm` 残課題

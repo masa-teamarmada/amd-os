@@ -1,6 +1,6 @@
 # HANDOFF - AMD OS
 
-- Last updated: 2026-06-25 (BZM Book 0-VI 構造再設計、進化経済査読を軽微修正へ)
+- Last updated: 2026-06-26 (PWA favicon を Vercel default から AMD mark へ差し替え)
 - Canonical root: `/Users/masa/projects/AMD/amd-os`
 - PWA root: `/Users/masa/projects/AMD/amd-os/pwa`
 - Production URL: `https://amd-os-pwa.vercel.app`
@@ -8,79 +8,64 @@
 
 ## Latest Session Summary
 
-- BZM (Before Zero Model = 本書) の章構成を、既存 17 章ドラフトから新 Book 0-VI 構造 (870p / 18ヶ月、Tier 3 学術モノグラフ) に再設計する設計議論を実施。4 つの設計提案 md を `pwa/bzm/` に push (本文ではなく本文外の設計ノート)。
-- 5 経済学者 persona の adversarial verify を 3 ラウンド回し、Evolutionary Economist 査読の verdict trajectory: NO → 条件付き受理 (Major Revision) → 軽微修正 (accept conditional)。Cambridge UP Schumpeter モノグラフ + Research Policy 特集号巻頭論文の publication path が確定。
-- サイドナビ (`bzm-chapters.ts`) に「設計提案 (2026-06-25, 本文外)」 part を追加して 4 md を登録。`BUILD_VERSION` v0.34.25 → v0.34.26 に bump (後追い)。
-- まさ最終決定: 提案 1 の Book 0-VI 構成で本文執筆開始。次セッションは Book II Ch 5 (Triple Helix SSM) から起草。
-- 詳細は `pwa/design_log/sessions_2026-06.md` の 2026-06-25 エントリ、台帳は `pwa/bzm/COMMANDER_TASKS.md`、4 提案物は `pwa/bzm/2026-06-25_*.md` を参照。
+- Chrome タブの黒丸三角 (= Vercel default favicon) が残っていた問題を修正。
+- `public/favicon.ico` の中身が Vercel default だったため、AMD mark ICO に差し替え、新規 `public/favicon-amd.ico` を追加。
+- `src/app/layout.tsx` の metadata icons は `/favicon-amd.ico` を優先する。旧 `/favicon.ico` も同一 AMD payload。
+- 恒久仕様は `pwa/design/SPEC_pwa.md`、再発防止は `pwa/BUGS.md`、作業ログは `pwa/design_log/sessions_2026-06.md` の 2026-06-26 エントリへ同期済み。
+- 詳細 commit: `daa44ea3 fix(pwa): replace default favicon with AMD mark`。その後の別作業 commit `a26c460e` / `25b69730` にもこの変更は含まれる。
 
 ## Repo / Deploy State
 
 - Local branch: `main`
-- 2026-06-25 セッションで追加された commit (古→新):
-  - `1088124f` initial proposal_book0_vi (英語混在)
-  - `3a557e8b` proposal_book0_vi 日本語翻訳 v1
-  - `cc954d9b` 既存 → 新章 mapping md 追加
-  - `718af3af` Book II 構造手術 Rev 1 (進化経済 NO → 条件付き受理)
-  - `4bafe452` Book II 構造手術 Rev 2 (条件付き受理 → 軽微修正、Cambridge UP path 確定)
-  - `c3949656` サイドナビに提案 part を追加 (bzm-chapters.ts)
-  - `274e742c` 厳格再翻訳 (4 md の英語混入を経済学・統計学訳語に置換)
-  - `81db5530` BUILD_VERSION v0.34.25 → v0.34.26 (後追い bump)
-- Production `/api/build-info` at closeout: `v0.34.26` / `81db5530` / `dirty=false` (まさ目視確認)
-- Pre-existing dirty/untracked items (本セッション外):
-  - `gas-slack/.clasp.json` (前回 handoff からのキャリーオーバー、GAS/Slack owner 判断待ち)
-  - `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/outbox/` (worker outbox local artifact)
-  - `pwa/scripts/update_drive_file.mjs` (untracked script)
-  - `pwa/src/app/api/meeting-assets/replace/` (untracked api dir)
+- Local HEAD / `origin/main`: `25b69730 fix(pwa): rebuild management score guards`
+- Favicon commit: `daa44ea3`
+- Production `/api/build-info` at closeout: `v0.34.29` / `25b69730409426e70804836f253b4785a742db07` / `dirty=false`
+- Production favicon proof:
+  - HTML links: `/favicon-amd.ico` for `shortcut icon` and `icon`.
+  - `/favicon-amd.ico` and `/favicon.ico`: 32426 bytes, SHA-256 `3d58f56c4c7e2c2a93460156d7652d6b2c953f43c6f36952552822c72f153071`.
+
+## Verification Run
+
+- `npm ci` in clean clone
+- `npx tsc --noEmit`
+- `npm run test:critical-ui`
+- `npm run build`
+- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`
+- Production checks: `/api/build-info`, HTML favicon links, favicon file hashes
 
 ## Dirty State To Own
 
-| path | status | class | owner guess | resolution action | risk |
+Favicon/handoff own files are committed or intentionally staged for this handoff. Remaining dirty is not from the favicon task.
+
+| path / group | status | class | owner guess | resolution action | risk |
 |---|---:|---|---|---|---|
-| `gas-slack/.clasp.json` | `??` | unknown / local tooling | GAS/Slack owner or quarantine | decide track vs local exclude vs safe remove; do not print contents | low-medium: accidental secret/local link commit risk |
+| `pwa/design/FEATURE_REGISTRY.md`, `pwa/design/L2_DATA.md`, `pwa/design/meeting_summaries.md`, related `manual/` / `spec/` / scheduled-task SKILL diffs | `M` | other-worker | H-1 / L6 meeting flow worker | send back to that worker; do not mix into favicon closeout | medium: docs/spec drift if abandoned |
+| `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/outbox/*.md` | `??` | other-worker / local artifact | L6 meeting prep worker | decide commit as sanitized review artifact vs move/remove | medium: stale prep artifacts confuse next H-1 run |
+| `pwa/scripts/update_drive_file.mjs`, `pwa/src/app/api/meeting-assets/replace/[assetId]/route.ts` | `??` | other-worker | meeting-assets replacement worker | send back to owner for commit or explicit carry-forward | medium: half-added API/helper route |
+| `gas-slack/.clasp.json` | `??` | deploy-link-local / unknown | GAS/Slack owner or quarantine owner | decide track vs local exclude vs safe remove; do not print contents | low-medium: accidental local-link commit risk |
 
 Dirty buckets:
-- needs Masa/GAS owner decision: `gas-slack/.clasp.json` owner/handling
-- expected after this handoff commit: no tracked dirty files; `gas-slack/.clasp.json` remains untracked
-
-## Verification Already Run For Monthly Agreement / Payout Work
-
-- `npx tsx -e ...buildPayoutAgreementGateSummary(...)`: `source_ym=202605` row returns `status=agreed`, `migrationBypass=true`, `blockers=0`.
-- `git diff --check`
-- `npx tsc --noEmit`
-- `npx eslint src/lib/monthly-work-agreement-payout-gate.ts src/components/admin/AdminPayoutsClient.tsx` (existing `react-hooks/exhaustive-deps` warning 1, error 0)
-- `npm run build`
-- `npm run test:critical-ui`
-- Logged-in browser check: `/admin/payouts?ym=202606` on production `v0.34.19` shows `対象支払行 4 / 移行月スキップ 4 / blocker 0`, no individual member table.
+- safe to remove after approval: none identified by this worker.
+- send back to owner: H-1/L6 meeting flow docs, L6 prep outbox, meeting-assets replace route/helper.
+- needs Masa decision: `gas-slack/.clasp.json` owner/handling if no GAS/Slack owner claims it.
 
 ## Unresolved Tasks
 
-1. **BZM 本文執筆 Book II Ch 5 から開始 (最優先、まさ最終決定)**
-   - 提案 1 (`pwa/bzm/2026-06-25_proposal_book0_vi`) の Book 0-VI 構成を採用。
-   - 推奨書き順: Book II Ch 5/5.5/9 load-bearing 定理 → Book III ケース → Book 0 → I → IV → V → VI。
-   - Book II Ch 10 (進化経済 OPENER) は提案 4 が detailed section design (§10.0〜10.10、72p) を含む。
-   - 起草時は提案 2 (mapping md) を素材棚として使う (既存 17 章の 194 節 → 新 37 章への対応表)。
-2. **進化経済査読の軽微修正残 5 件** (執筆中対応)
-   - Pilot power calculation at N≈32 / §10.8 kernel-identification 解消 / F_char measurement validity / International-17 cohort selection 補正 / Theorem 3 A3 defense。
-3. **残 4 経済学者査読パスの構造手術** (DSGE / Innovation Systems / Econometric / AE)
-   - 各 baseline で「条件付き受理」だったので進化経済より軽い surgery で軽微修正レベル到達見込み。
-4. **まさが先に判断する開放論点** (synth 8 件のうち未決の 5 件)
-   - 機関匿名化方針 / 国際比較章対象機関 / prospective prediction registry 18ヶ月 ≥20 case 現実性 / Ch 21 を N≥15 インタビュー program 化するか / ALQ4/Grit/Resilience psychometric controversy 対応。
-5. **既存 carry-over (本セッション外)**
-   - Governance/action-items production smoke (build-info `3677cd33` 検証)
-   - Admin payouts regression smoke (production v0.34.22 → 26 への smoke)
-   - `value_milestones` estimate-line pollution cleanup
-   - `gas-slack/.clasp.json` (GAS/Slack owner 判断待ち)
+1. Favicon task: none. It is on `main`, deployed, and production-verified.
+2. Existing carry-over from other workers:
+   - H-1 / L6 meeting flow doc and scheduled-task diffs need their owner closeout.
+   - L6 meeting prep outbox artifacts need owner decision.
+   - Meeting-assets replacement API/helper needs owner closeout.
+   - `gas-slack/.clasp.json` needs GAS/Slack owner or quarantine decision.
 
 ## Read First Next Session
 
 1. `HANDOFF.md`
-2. `pwa/spec/3-14-monthly-work-agreement-current-spec.md`
-3. `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`
-4. `pwa/design/FEATURE_REGISTRY.md`
-5. `pwa/BUGS.md`
-6. `pwa/design_log/sessions_2026-06.md`
-7. For governance production verification: `pwa/design/governance_action_items.md`, `pwa/manual/2-3-pj-cockpit.md`
+2. `pwa/design/SPEC_pwa.md`
+3. `pwa/BUGS.md`
+4. `pwa/design_log/sessions_2026-06.md`
+5. `pwa/CLAUDE.md`
+6. `pwa/AGENTS.md`
 
 ## First Next Action
 
@@ -92,12 +77,11 @@ git log --left-right --oneline main...origin/main
 curl -fsS https://amd-os-pwa.vercel.app/api/build-info
 ```
 
-Expected: local `main` and `origin/main` align, no tracked dirty files, production product code is `v0.34.22` with product baseline through `3677cd33`, and only `gas-slack/.clasp.json` remains untracked.
+Expected: local `main` and `origin/main` align at or after `25b69730`; production build stamp is at or after `25b69730`; favicon HTML still points to `/favicon-amd.ico`.
 
 ## Guardrails
 
-- Do not show candidate action items in PJ cockpit governance surfaces unless the confirmed-only WIP is intentionally completed.
-- Do not re-expand migration-month monthly agreement rows into individual `合意済` member rows. Migration-only gate should stay summary-style.
-- Do not create fake `member_monthly_work_agreements` rows for 2026/05 or earlier.
 - Do not use `git add .`; stage named files only.
-- For future PWA production-bound changes, use `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` from a clean tracked state.
+- Do not overwrite or revert dirty files from other workers while closing favicon/handoff.
+- Favicon source of truth: `pwa/public/favicon-amd.ico` and `pwa/public/favicon.ico` should have identical AMD mark payload.
+- For future PWA production-bound changes, use a clean tracked state and `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`.

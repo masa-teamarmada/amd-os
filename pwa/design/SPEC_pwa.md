@@ -77,7 +77,7 @@ pwa/
 ├── public/
 │   ├── AMD_logo_mark.png        ← team ARMADA ロゴマーク (= 雛形コピー、紹介資料 + favicon source)
 │   ├── AMD_logotype.png         ← team ARMADA ロゴタイプ (= 雛形コピー、紹介資料用)
-│   ├── favicon.ico / icon.png / apple-icon.png  ← public/ 直配信 (= app/ から移動、Next.js Route Handler 経由を停止)
+│   ├── favicon-amd.ico / favicon.ico / icon.png / apple-icon.png  ← public/ 直配信 (= app/ から移動、Next.js Route Handler 経由を停止。HTML は cache 回避のため favicon-amd.ico を優先)
 │   ├── icons/                   ← PWA installable 用 192/512 + maskable
 │   ├── manifest.json            ← 4 icons (any + maskable)
 │   └── ...

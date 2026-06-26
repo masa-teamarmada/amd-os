@@ -1,9 +1,9 @@
-# SESSION MIGRATION PROMPT - AMD OS admin payouts closeout
+# SESSION MIGRATION PROMPT - AMD OS favicon / closeout
 
 ```text
 cd /Users/masa/projects/AMD/amd-os
 
-まず `HANDOFF.md` を読んで。次に `pwa/spec/3-14-monthly-work-agreement-current-spec.md`、`pwa/manual/6-5-admin-payouts-reward-notice-spec.md`、`pwa/design/FEATURE_REGISTRY.md` を読んで。その次に `pwa/BUGS.md` を読んで。必要なら `pwa/design_log/sessions_2026-06.md` の 2026-06-23〜2026-06-24 月初合意支払 gate セクションも読む。
+まず `HANDOFF.md` を読んで。次に `pwa/design/SPEC_pwa.md`、`pwa/BUGS.md`、`pwa/design_log/sessions_2026-06.md` の 2026-06-26 favicon セクションを読んで。その次に `pwa/CLAUDE.md` / `pwa/AGENTS.md` を読んで。
 
 作業開始前に必ず:
 1. `git fetch origin main`
@@ -12,27 +12,29 @@ cd /Users/masa/projects/AMD/amd-os
 4. `curl -fsS https://amd-os-pwa.vercel.app/api/build-info`
 
 current truth:
-- 月初合意支払 gate は server-side guard。保存・PDF発行・送付・送付済み確定など write action は gate blocker があると止める。
-- 2026/05以前の稼働月 (`source_ym <= 202605`) は、月初合意機能の導入前/移行月として支払可能。DBに偽の `member_monthly_work_agreements` row は作らない。
-- 移行月バイパス row は `status='agreed'` かつ `migrationBypass=true`。blocker が無く移行月バイパス行だけの場合、admin UI は個別メンバー表を出さず、`対象支払行` / `移行月スキップ` / `blocker 0` の summary を表示する。
-- `/admin/payouts` の初期表示は SSR data を先に返し、月初合意 gate は `gateOnly=1` で後追い取得できる。write action は従来どおり server-side gate 必須。
-- Production check 済み: `v0.34.19` / `35b618ff` で `/admin/payouts?ym=202606` が `対象支払行 4 / 移行月スキップ 4 / blocker 0`、個別メンバー表なし。
+- Chrome tab favicon は Vercel default から AMD mark へ差し替え済み。
+- 変更 commit: `daa44ea3 fix(pwa): replace default favicon with AMD mark`
+- closeout時点の production: `v0.34.29` / `25b69730409426e70804836f253b4785a742db07` / `dirty=false`
+- HTML は `/favicon-amd.ico` を `shortcut icon` / `icon` として参照する。
+- `/favicon-amd.ico` と `/favicon.ico` は同一 AMD mark payload。確認済み SHA-256 は `3d58f56c4c7e2c2a93460156d7652d6b2c953f43c6f36952552822c72f153071`。
 
 repo state at handoff:
-- product baseline on main: `3677cd33 fix(governance): hide unreviewed meeting action candidates`, followed by docs-only handoff commit(s)
-- production at closeout: `v0.34.22` / `b24718ff675e4b1beb21e96195f21110e64bcc43` / `dirty=false`
-- production is aligned with product code through `3677cd33`; `/api/build-info` may show a later docs-only handoff commit.
-- tracked dirty after handoff commit should be none.
-- untracked: `gas-slack/.clasp.json`; do not commit until GAS/Slack owner decides.
+- local `main` / `origin/main` は `25b69730 fix(pwa): rebuild management score guards` で一致している想定。
+- favicon作業のファイルは commit/push/deploy 済み。
+- handoff closeout commit が追加されている場合は、その commit も main に push 済みか確認する。
+- 既存 dirty は favicon作業外:
+  - H-1 / L6 meeting flow docs and scheduled-task SKILL diffs
+  - L6 meeting prep outbox markdown files
+  - meeting-assets replacement helper/API untracked files
+  - `gas-slack/.clasp.json`
 
 次にやること:
-1. governance/cockpit confirmed surfaces が `review_status='confirmed'` + `status in ('open','in_progress')` の action items だけを表示し、`source='meeting_summary'` candidates を出していないことを必要に応じて smoke する。
-2. 月初合意支払 gate は `v0.34.19` / `35b618ff` で本番確認済み。production が `v0.34.22` になったので、次に payout を触る前に `/admin/payouts?ym=202606` の migration summary が崩れていないか quick smoke する。
-3. `gas-slack/.clasp.json` は中身を晒さず、track / local exclude / safe remove の owner decision を取る。
+1. favicon関連で追加作業があるなら、まず production HTML と `/favicon-amd.ico` hash を確認する。
+2. 残dirtyはそれぞれの owner worker に返す。favicon closeoutへ混ぜない。
+3. `gas-slack/.clasp.json` は中身を晒さず、GAS/Slack owner に track / local exclude / safe remove の判断を渡す。
 
 注意:
 - `git add .` は使わない。
-- migration-month monthly agreement gate を個別4行の `合意済` 表示に戻さない。
-- migration month 用の偽 agreement row を作らない。
+- 既存dirtyファイルを勝手にrevert / checkout / cleanしない。
 - PWA deploy が必要なら clean tracked state で `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`。
 ```
