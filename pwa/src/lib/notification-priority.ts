@@ -45,8 +45,8 @@ const META_TEXT_KEYS = [
   "signal_type",
 ];
 
-const CRITICAL_TOKEN_RE =
-  /(critical|urgent|blocker|blocked|oauth_token_invalid_grant|trigger_reauthentication|認証切れ|再認証|ブロッカー|事故|法務|契約|秘密保持|株主間契約|設立前|事前承諾|外部接点|顧客接点|取締役会|役会|総会|株主総会|議決権|決議|利益相反|反社|\bnda\b|\bsha\b|\bcoi\b)/i;
+const OPERATIONAL_CRITICAL_TOKEN_RE =
+  /(critical|urgent|blocker|blocked|oauth_token_invalid_grant|trigger_reauthentication|認証切れ|再認証|ブロッカー|事故|緊急|至急|要対応|期限超過)/i;
 
 export function notificationPriorityLabel(priority: NotificationPriority): string {
   return priority === "critical" ? "緊急" : "通常";
@@ -55,7 +55,7 @@ export function notificationPriorityLabel(priority: NotificationPriority): strin
 export function appNotificationPriority(notification: AppNotificationLike): NotificationPriority {
   if (notification.kind === "connector_auth") return "critical";
   if (hasExplicitCritical(notification.meta)) return "critical";
-  if (hasCriticalToken([notification.kind, notification.source, notification.title, notification.body, metaText(notification.meta)])) {
+  if (hasOperationalCriticalToken([notification.kind, notification.source, notification.title, notification.body, metaText(notification.meta)])) {
     return "critical";
   }
   return "normal";
@@ -66,14 +66,14 @@ export function l2NotificationPriority(notification: L2NotificationLike): Notifi
   if (CRITICAL_L2_KINDS.has(notification.l2_kind)) return "critical";
   const meta = objectValue(notification.metadata_json);
   if (hasExplicitCritical(meta)) return "critical";
-  if (hasCriticalToken([notification.l2_kind, notification.title, notification.summary, metaText(meta)])) {
+  if (hasOperationalCriticalToken([notification.l2_kind, notification.title, notification.summary, metaText(meta)])) {
     return "critical";
   }
   return "normal";
 }
 
 export function meetingNotificationPriority(notification: MeetingNotificationLike): NotificationPriority {
-  if (hasCriticalToken([notification.title, notification.summary_short, notification.source_kinds])) {
+  if (hasOperationalCriticalToken([notification.title, notification.summary_short, notification.source_kinds])) {
     return "critical";
   }
   return "normal";
@@ -89,8 +89,8 @@ function hasExplicitCritical(meta: Record<string, unknown> | null | undefined): 
   return false;
 }
 
-function hasCriticalToken(values: Array<string | null | undefined>): boolean {
-  return values.some((value) => !!value && CRITICAL_TOKEN_RE.test(value));
+function hasOperationalCriticalToken(values: Array<string | null | undefined>): boolean {
+  return values.some((value) => !!value && OPERATIONAL_CRITICAL_TOKEN_RE.test(value));
 }
 
 function metaText(meta: Record<string, unknown> | null | undefined): string {
