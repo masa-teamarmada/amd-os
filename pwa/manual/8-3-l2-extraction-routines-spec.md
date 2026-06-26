@@ -173,7 +173,7 @@ SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 
 9. **(J) ファシリ役名義で follow-up メール下書き (= まさ要求)**: 当該 MTG の facilitator (= projects.facilitator_member_id) 名義で Gmail draft 作成 (本送信禁止、ファシリが本人 Gmail で確認後送信)。本文構成 = 挨拶 / 本日サマリ / 決まったこと / 次回までの宿題 / 次回 MTG 概要 / 添付資料案内 / 結び。当日シェアした Drive 資料は exportLinks で PDF 化して attach
 10. (旧) iOS APNs 通知 (= meeting_notifications upsert)
 
-**入力**: Calendar event (= 過去 60-180 分終了 + 今日0:00 JSTから60日先の確定予定。ただし weekly recurring は series ごとに次回1件のみ) + Notion 議事録 + Gmail (= report_emails スレッド) + Drive Doc/PDF/Office/Sheets + Slack thread + PWA `meeting_assets` (= まさが直接アップロードしたスクショ / PDF / 画面キャプチャ) + `project_meeting_summaries` 過去 3 件 (= 前回比較) + `monthly_reports` 直近 3 件 (= PJ 全体文脈) + `value_milestones` + `milestone_monthly_progress` (= MS context) + Calendar freebusy (= H 用) + `projects.drive_folder_id` + `projects.facilitator_member_id` + `project_members` (= role=PL 特定)
+**入力**: Calendar event (= 過去 60-180 分終了 + 現在時刻の前後24時間にある直近予定。ただし weekly recurring は series ごとに次回1件のみ。60日先までの広い予定表メンテはM系が担当) + Notion 議事録 + Gmail (= report_emails スレッド) + Drive Doc/PDF/Office/Sheets + Slack thread + PWA `meeting_assets` (= まさが直接アップロードしたスクショ / PDF / 画面キャプチャ) + `project_meeting_summaries` 過去 3 件 (= 前回比較) + `monthly_reports` 直近 3 件 (= PJ 全体文脈) + `value_milestones` + `milestone_monthly_progress` (= MS context) + Calendar freebusy (= H 用) + `projects.drive_folder_id` + `projects.facilitator_member_id` + `project_members` (= role=PL 特定)
 
 **Calendar color diagnostic helper (= connector 色payload欠落時の前段)**:
 - Google Calendar connector が `get_colors` / raw `event.colorId` を返さない場合でも、connector 待ちだけで止めない。
@@ -186,6 +186,8 @@ SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 
 - MMO automation は Calendar event から Notion 議事録ページを見つけたら、可能な範囲で Notion page の `eventId` / 相当プロパティに Calendar event id を追記する。これは L6 writer 側の責務。
 - Notion page に `eventId` が無いことだけを理由に skip しない。eventId 検索で取れない場合は title + event date + attendees + Gemini/Drive/Gmail URL で fallback 検索し、Notion が取れない場合も Gmail / Drive / Slack / Calendar 本文で `source_kinds` を判定する。
 - eventId 追記に失敗しても抽出は続け、run summary に `notion_event_id_backfill_failed` と page id / reason を残す。`skip_no_notion_event_id` は現行仕様では禁止。
+- Notion connector が `oauth_token_invalid_grant` / `TRIGGER_REAUTHENTICATION` を返した場合は、再認証を待たず `npm run h1:local-notion-fallback -- --title "<event title>" --date "<YYYY-MM-DD>" --event-id "<calendar_event_id>"` を実行し、Notion Desktop local cache から該当 page を自動探索する。hit した page は `notion-local` source として H-1 narrative 入力に使う。
+- `source_kinds='none'` / `summary_short='議事録なし'` の開催済み marker は 24 時間だけ自動再探索する。通常 window から外れていても、`meeting_start_at` / `calendar_event_id` / `title` から event payload を再構成し、Local Notion fallback と他 source を再評価する。
 
 **held-source guard (= 2026-05-31 飯野さんケース再発防止)**:
 - `source_kinds='upcoming'` の準備カードは残しつつ、開催済みソースがある event は `meeting_id=<calendar_event_id>` の別 row 候補へ進める。既存 upcoming row がある場合は `prep_source_meeting_id='upcoming:<calendar_event_id>'` で紐付ける。
@@ -200,11 +202,11 @@ SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 
 - `## ✅決まったこと` には会議で実際に合意・確認されたことだけを書く。Drive資料や準備資料だけからの推定は `## 📊経緯` または `## ⚠️残課題` に置く。
 
 **予定MTGカード同期 (= LLM不要 / deterministic)**:
-- H-1 は議事録抽出とは別に、`today 00:00 JST` から `now + 60 days` までの確定Calendar予定を `POST /api/meeting-prep/calendar-sync` に渡す。
+- H-1 は議事録抽出とは別に、`now - 24 hours` から `now + 24 hours` までの確定Calendar予定だけを `POST /api/meeting-prep/calendar-sync` に渡す。60日先までの広い予定表メンテはM系が担当する。
 - recurring MTG は series ごとに次回1件だけ同期・表示する。Google Calendar の `recurring_event_id` が取れる series は cadence を問わず2件目以降の future occurrence を `recurring_series_future_occurrence` として skip する。`recurring_event_id` が無い場合も、title に `定例` / `月次` / `毎月` / `weekly` / `monthly` 等が含まれるものは曜日を外して series 推定し、曜日がズレる月次定例も1枚に畳む。それ以外は weekly cadence を推定できる series だけ同じ扱いにする。既にDBに残っている future row も cockpit 表示側でシリーズ1枚に畳む。
 - `title` が `+` / `＋` 始まり、全日予定、start datetime の無い予定は除外する。
 - PWA route は `project_id` が渡された場合は強制紐付け、無い場合は `projects.project_name` / `project_id` / `client_name` でPJ判定する。
-- `calendar-sync` は同日中なら開始済みの予定も更新対象にする。これにより、今日の取締役会のように開始後にDrive資料を見つけたケースでもカードを補強できる。
+- `calendar-sync` は直近24時間以内に開始済みの予定も更新対象にする。これにより、会議開始後にDrive資料を見つけたケースでもカードを補強できる。
 - `projects.drive_folder_id` があるPJでは、root直下だけでなく、会議日 token (`YYMMDD` / `YYYYMMDD` / `YYYY-MM-DD`) と title token (`取締役会` / `board` / `キックオフ` / `MTG` 等) で1階層サブフォルダを探す。
 - Docs / Slides / Sheets / PDF / Office files を最大8件 `{title,url,mime_type,modified_time,snippet}` に正規化し、`drive_files` として `calendar-sync` に渡す。route自体はDriveを読みに行かない。
 - Drive資料は `narrative_md` の `関連Drive資料` と `summary_short` / `progress` / `risks` に反映するが、Drive資料だけで `decided` に「決定済み」とは書かない。
@@ -242,13 +244,13 @@ SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 
 
 既存 H-1 automation (`amd-os-l6-meeting-flow`、name は「H-1」) の内部に prep 用 Phase P を追加する。**新 automation は作らず、H-1 1本に統合**。
 
-これは「明日 MTG あるけど準備してない、codex を毎回開いて『背景はこうで…』と説明するのがだるい」を OS 側で解決する仕組み。Phase P が翌7日の MTG ごとに **codex の新規 session を事前 spawn** する。session の中で worker prompt が文脈ロード→着地点 draft→資料 draft→readiness 計算まで完遂して待機する。まさは codex desktop で該当 session に入って対話開始 (= ターミナル操作不要)。
+これは「明日 MTG あるけど準備してない、codex を毎回開いて『背景はこうで…』と説明するのがだるい」を OS 側で解決する仕組み。Phase P が24時間以内の MTG ごとに **codex の新規 session を事前 spawn** する。session の中で worker prompt が文脈ロード→着地点 draft→資料 draft→readiness 計算まで完遂して待機する。まさは codex desktop で該当 session に入って対話開始 (= ターミナル操作不要)。
 
 **実行場所**: 既存 H-1 と同じ Mac codex automation (`~/.codex/automations/amd-os-l6-meeting-flow/`)。毎時 平日 09:00-21:00、15分発火で動く。
 
 **Phase P の流れ** (= 各 MTG ごとに順次):
 
-1. 翌7日の upcoming MTG を抽出 (`source_kinds LIKE '%upcoming%'`、`projects.status IN ('active','sales')`、`prep_worker_status IS NULL OR 'failed'`)
+1. 24時間以内の upcoming MTG を抽出 (`source_kinds LIKE '%upcoming%'`、`projects.status IN ('active','sales')`、`prep_worker_status IS NULL OR 'failed'`)
 2. **timing 判定**: post-MTG 即時主義で「前回 MTG 翌日 〜 今回 MTG 24時間前」の間でまさカレンダー空き枠を探す
 3. **カレンダー＋枠作成**: 空き枠に `＋ <PJコード> MTG準備: <MTGタイトル>` を作成 (= 動かせるタスク、ドラッグ可)。event ID を `prep_calendar_event_id` に保存
 4. **spawn 判定**: 現在時刻が prep 枠開始時刻に達してたら spawn 実行

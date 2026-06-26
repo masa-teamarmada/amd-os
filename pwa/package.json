@@ -21,6 +21,8 @@
     "audit:management-score": "node scripts/audit_management_score.cjs",
     "test:color-pj-resolution": "node scripts/check_color_pj_resolution.cjs",
     "test:l6-held-source-guard": "node scripts/l6_meeting_held_source_guard.cjs --fixture scripts/__fixtures__/l6_iino_gemini_notion_eventid_missing.json",
+    "h1:local-notion-fallback": "node scripts/h1_local_notion_fallback.mjs",
+    "test:h1-local-notion-fallback": "node scripts/check_h1_local_notion_fallback.mjs",
     "test:h1-meeting-summary-reviewer": "node scripts/check_h1_meeting_summary_reviewer.mjs",
     "notify:connector-auth": "node scripts/notify_connector_auth.mjs",
     "health:l2:actions": "node scripts/l2_health_action_loop.cjs",

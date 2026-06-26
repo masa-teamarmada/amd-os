@@ -20,13 +20,15 @@ GAS 153 `nav_meeting_pollRecentlyEndedEvents` + GAS 074 `nav_meeting_processOneE
 - **配列だけ保存禁止 / 箇条書き禁止**: `source_kinds != "none"` の開催済みMTGでは `narrative_md` が主成果物。`summary_short` / `decided` / `progress` / `next_actions` / `risks` は検索・通知用の補助であり、議事録本文の代替ではない。`narrative_md` が空・短すぎる・箇条書き中心なら、その event は保存せず run summary に `blocked_low_quality_narrative` として残す。
 - **既存 narrative 保護**: 既存 row に 300字以上の `narrative_md` がある場合、新しい抽出結果が空 / 箇条書き優勢 / 既存より明らかに薄いなら upsert しない。`project_meeting_summaries` には DB trigger でも保護があるが、routine 側でも必ず判定する。
 - **H-1 reviewer hook**: 開催済みMTGを保存した後、別automation `amd-os-l6-meeting-reviewer` を走らせる。raw Notion/Gmail/Drive/Slack/Calendar と保存済みH-1要約を比べ、CEO/代表/VC/地元勢/PoC/PRなど重大な経営判断が薄く丸まった疑いがあれば `l2_coverage_gaps` + `l2_notifications(l2_kind='coverage_gap')` に出す。reviewer は H-1 row を自動上書きしない。
-- **未来予定カード**: 終了済みMTGの議事録がまだ無いPJでも、今後60日の確定Calendar予定を `POST /api/meeting-prep/calendar-sync` に渡して `source_kinds='upcoming'` を作る。weekly recurring MTG は series ごとに次回1件だけ同期し、それ以降の occurrence はノイズとして送らない/表示しない。CLG取締役会のように前回議事録が空でも予定MTGカードを欠落させない。
+- **直近予定カード**: H-1 は毎時動くため、毎回60日先まで見ない。終了済みMTGの議事録抽出と、現在時刻の前後24時間にある確定Calendar予定・Phase P準備だけを扱う。未来60日の予定MTGカード同期は M系の定期メンテに寄せる。
 - **MTGカード→Calendar一次防御**: MTGカード/議事録側に日時・場所・対面/オンライン・持参物・返信/宿題があるのに Calendar event が無い/薄いケースは、`POST /api/meeting-calendar/upsert-plan` の dry-run で upsert payload と duplicate match を作る。PWA route は Calendar を書かない。実writeに進む場合は別途 reviewed write bundle が必要。payload は `sendUpdates=none`、外部 attendees は空、metadata は `extendedProperties.private` に寄せる。
 - **TODO→tasks + owner nudge**: MTGから生まれた担当タスク / OS task / Gmail TODO / Slack TODO は、まず `POST /api/task-calendar/register-tasks` で `tasks` に自動登録し、担当者本人だけへ Slack DM nudge する。admin review queue は作らない。作業枠が必要な場合だけ `POST /api/task-calendar/schedule-plan` の dry-run で、担当メンバー + まさ の共通空き枠に `+<PJコード> <task>` 枠を作る候補にする。PWA route は Calendar を書かない。外部招待/メール送信はしない。
 - **次MTGカードの境界**: 議事録内に日時まで明確な次MTGがある場合だけ、PWA `POST /api/meeting-workflow/finalize` 経由で `source_kinds='upcoming'` を作る。`6月3週目以降` のような日程未確定候補は自動で確定予定にしない。必要なものは `upcoming_tentative` として「日程調整中MTG」に残す。
 - **Notion eventId は MMO 側で埋める**: Calendar event から Notion 議事録ページを見つけたら、MMO automation は可能な範囲で Notion page の `eventId` / 相当プロパティに Calendar event id を追記する。これは次回以降の冪等性と traceability のためで、PWA/GAS 側ではなく L6 writer 側の責務。
 - **eventId 欠損で弾かない**: Notion page に `eventId` が無いのは欠落インシデントとして記録しつつ、必ず title + event date + attendees + Gemini/Drive/Gmail URL で fallback 検索する。`eventId` が無いことだけを理由に `source_kinds='none'` や `skip_no_notion_event_id` にしない。
 - **Notion 再認証待ち禁止**: Notion connector が `UNAUTHORIZED oauth_token_invalid_grant` / `TRIGGER_REAUTHENTICATION` を返しても、H-1 は止まらない。Chrome / local fallback と Gmail / Drive / Slack / Calendar / AMD OS artifact を同一ターンで読み、十分な会議本文があれば Notion なしで開催済み row を作る。詳細は `pwa/design/h1_source_auth_fallback.md`。
+- **Local Notion 自動 fallback**: Notion connector auth failure 時は、手動でDBを直さず、必ず `npm run h1:local-notion-fallback -- --title "<event title>" --date "<YYYY-MM-DD>" --event-id "<calendar_event_id>"` を実行する。hit したら `source_kind='notion-local'` の Notion source として扱い、`notion_page_id` / `notion_url` / `source_hash` を使って通常の H-1 narrative 抽出に進む。
+- **直近 none row recovery**: H-1 が過去 run で `source_kinds='none'` / `summary_short='議事録なし'` を入れた開催済みMTGは、次回以降 24 時間は再探索対象に戻す。対象時間窓外でも、Calendar event id / title / meeting_start_at が残っていれば Local Notion fallback と Gmail / Drive / Slack / Calendar を再実行し、本文が取れたら `none` を `notion-local+calendar` 等へ更新する。
 - **held-source preflight guard**: Calendar event に Gemini/Google Meet notes Doc 添付、Notion fallback hit、Gmail Gemini notes / follow-up がある場合は、既存 `upcoming:<event_id>` があっても開催済み `meeting_id=<event_id>` 候補へ進む。fixture guard は `npm run test:l6-held-source-guard`。これは外部サービスや DB に触らない deterministic test で、飯野さんケース相当 (`Calendar添付Geminiメモ + Notion eventId空 + report_emails空`) を落とさないことを検査する。
 
 ## ユーザー向け報告の書き方
@@ -34,7 +36,7 @@ GAS 153 `nav_meeting_pollRecentlyEndedEvents` + GAS 074 `nav_meeting_processOneE
 - 報告は、コーディングが一切分からない高校生でも理解できる日本語で書く。
 - 無駄なアルファベット、コード名、DB列名、英語の状態名をユーザー向け報告に出さない。必要な場合だけ、日本語の説明を先に書き、括弧内に短く補足する。例: `DB` ではなく「保存先」、`cron` ではなく「定期実行」、`source_hash` ではなく「取得元が同じかの確認」。
 - Notion / Calendar / Drive / Slack / Gmail は、必要なら「ノーション」「カレンダー」「ドライブ」「スラック」「メール」と書き、サービス名の羅列だけで説明を終えない。
-- Notion が取れていない場合は、報告の最初に「ノーションが取れていないので、この報告は不完全」と明記する。代替ソースだけで動いた run を「問題なし」「かなり良い」「正常」と表現しない。
+- Notion が取れていない場合でも、対象MTGが無い / 対象MTGが抽出窓外 / 予定カード同期や Phase P だけの run なら、報告全体を「不完全」とは書かない。Notion 欠落が会議本文の抽出・保存・レビュー判断に影響した場合だけ、該当MTGの説明の先頭に「ノーションが取れていないので、この報告は不完全」と明記する。代替ソースだけで会議本文を判断した run を「問題なし」「かなり良い」「正常」と表現しない。
 - raw 本文や個人情報は出さない。ただし、何が取れて何が取れていないかは、日本語で具体的に書く。
 
 ## 【絶対】 動く前に必ず Read
@@ -151,11 +153,22 @@ Phase A: Calendar events 取得 → filter → PJ 判定 (= GAS 153 移植)
 
 9. PJ 紐付けが取れた events を **処理キュー** に積む
 
-### A-2: 未来Calendar予定 → 予定MTGカード同期
+10. **直近 `議事録なし` row recovery** (= `none` marker を放置しない):
+   - Phase A の通常 window で処理キューが 0 件でも、ここで終わらない。先に Supabase から直近 24 時間の開催済みMTG marker を確認する。
+   - 対象:
+     - `meeting_start_at >= now - interval '24 hours'`
+     - `meeting_start_at < now`
+     - `source_kinds = 'none'` または `summary_short = '議事録なし'`
+     - `narrative_md` が空または 300 字未満
+     - `calendar_event_id` または `meeting_id` がある
+   - 対象 row ごとに、`title` / `meeting_start_at` / `calendar_event_id` から event 相当 payload を再構成し、通常の Phase B-D に戻す。`recovery_reason='recent_none_marker'` を run summary に残す。
+   - この recovery は「手動修復」ではなく H-1 自身の自動再抽出レーン。本文が見つからなければ `none` は維持するが、試した source と不足理由を `review_required` artifact に残す。
 
-終了済みMTGの議事録抽出とは別に、毎回 **今日0:00 JSTから今後60日** の確定Calendar予定を同期する。これは LLM 不要・deterministic で、議事録がまだ無いPJにも準備カードを作るためのルート。今日すでに開始済みの予定も、Drive資料やURL補強のために当日中は同期対象にする。
+### A-2: 直近Calendar予定 → 予定MTGカード同期
 
-1. Calendar MCP で `today 00:00 JST` から `now + 60 days` までを bounded search/list する。`title` が `+` / `＋` 始まり、全日予定、start datetime の無い予定は除外。
+終了済みMTGの議事録抽出とは別に、H-1 は毎回 **現在時刻の24時間前から24時間後** の確定Calendar予定だけを同期する。これは議事録直後の補強と Phase P 準備のための直近レーン。未来60日の予定MTGカード同期は毎時H-1では実行せず、M系の定期メンテへ移す。
+
+1. Calendar MCP で `now - 24 hours` から `now + 24 hours` までを bounded search/list する。`title` が `+` / `＋` 始まり、全日予定、start datetime の無い予定は除外。
    - weekly recurring は `recurringEventId` / `recurring_event_id` が取れる場合はその series id、取れない場合は PJ + title + 曜日 + 開始時刻で series を推定する。
    - 6〜8日間隔で続く weekly series は **次回1件だけ** `calendar-sync` に渡す。複数の weekly がある場合は series ごとに1件ずつ残す。
 2. 各 event について、PJ が解決できる場合は **Drive 関連資料も先に探す** (= LLM 不要、準備カード用 metadata):
@@ -171,7 +184,9 @@ Phase A: Calendar events 取得 → filter → PJ 判定 (= GAS 153 移植)
      --data '{"events":[{"calendar_event_id":"<event.id>","recurring_event_id":"<event.recurringEventId if any>","title":"<event.summary>","start":"<event.start>","end":"<event.end>","url":"<event.url>","description":"<event.description>","location":"<event.location>","drive_files":[{"title":"<file.title>","url":"<file.url>","mime_type":"<file.mime_type>","modified_time":"<file.modified_time>","snippet":"<short snippet>"}]}]}'
    ```
 4. PWA 側で `projects.project_name` / `project_id` / `client_name` によりPJ判定し、`upcoming:<calendar_event_id>` を upsert する。PWA route も safety net として同じ weekly series の2件目以降を skip する。既に手動編集済みの準備本文は上書きせず、Calendar由来の日時・title・URL・Drive資料リンクだけ同期する。
-5. これにより、CLG `CLG 取締役会` のような recurring board meeting も、前回MTGサマリからの `finalize` を待たずに「予定MTG / 準備中」に出る。Drive folder に会議資料がある場合は、予定カード内の `関連Drive資料` として先に見える。
+5. これにより、直近48時間内の recurring board meeting も、前回MTGサマリからの `finalize` を待たずに「予定MTG / 準備中」に出る。Drive folder に会議資料がある場合は、予定カード内の `関連Drive資料` として先に見える。
+
+**未来60日の扱い**: 60日先までの予定表メンテは H-1 では実行しない。M系の定期メンテが `calendar-sync` へ渡し、同じ `upcoming:<calendar_event_id>` と recurring series 1件化ルールを使う。H-1 は前後24時間と開催済み議事録に集中する。
 
 ═══════════════════════════════════════════════════
 Phase B: 各 event について source 取得 + source_kinds 判定 (= GAS 074 移植)
@@ -206,7 +221,20 @@ npm run test:l6-held-source-guard
     - 複数ヒット時は title 類似度、attendees、Calendar/Drive/Gmail URL一致、created/edited time で rank し、曖昧なら Notion source なしとして他 source へ進む。
 13. すべて失敗なら **notion なし** として `notionText = ""` で続行 (= Gmail / Drive / Slack 拾えるかも)。`eventId` が無いから失敗扱いにしない。
 
-**Auth failure branch**: Notion connector が `UNAUTHORIZED oauth_token_invalid_grant` / `TRIGGER_REAUTHENTICATION` / reauth required を返した場合も、ユーザーの再認証を待たない。可能なら最小 Notion connector ping だけで host 側の再認証 UI を発火し、すぐ `npm run notify:connector-auth -- --connector notion --source h1_meeting_flow --reason <reason> --context "<title / date>" --dedupe-hours 24` を実行する。この helper は connector/app ID と再認証リンクを自動解決し、`app_notifications(kind='connector_auth')` に PWA/Swift 両方が拾える復旧アクションを残す。既存未読通知がある場合は最新payloadへ更新し、Swift再通知用に `native_notified_at` も NULL に戻す。その後、Chrome / Codex Desktop のログイン済み Notion、browser history、open tabs、local cache を read-only で確認し、取れなければ `notionText=""` のまま B-3 以降へ進む。run summary には `notion_connector_reauth_bypassed`、`connector_auth_notification_created` または `connector_auth_notification_updated`、fallback 結果 (`notion_browser_fallback_used` / `notion_browser_fallback_unavailable`) を残す。terminal status として `blocked_notion_auth` / `waiting_for_reauth` を使うのは禁止。
+**Auth failure branch**: Notion connector が `UNAUTHORIZED oauth_token_invalid_grant` / `TRIGGER_REAUTHENTICATION` / reauth required を返した場合も、ユーザーの再認証を待たない。可能なら最小 Notion connector ping だけで host 側の再認証 UI を発火し、すぐ `npm run notify:connector-auth -- --connector notion --source h1_meeting_flow --reason <reason> --context "<title / date>" --dedupe-hours 24` を実行する。この helper は connector/app ID と再認証リンクを自動解決し、`app_notifications(kind='connector_auth')` に PWA/Swift 両方が拾える復旧アクションを残す。既存未読通知がある場合は最新payloadへ更新し、Swift再通知用に `native_notified_at` も NULL に戻す。
+
+その直後に **必ず Local Notion fallback helper を実行**する:
+
+```bash
+cd /Users/masa/projects/AMD/amd-os/pwa
+npm run h1:local-notion-fallback -- \
+  --title "<event title>" \
+  --date "<YYYY-MM-DD>" \
+  --event-id "<calendar_event_id>" \
+  --max-source-chars 12000
+```
+
+`status='hit'` の場合は、最上位 match の `source_text` を `notionText` とし、`page_id` を `notion_page_id`、`url` を `notion_url/source_url`、`source_hash` を H-1 の source hash に含める。`source_kind='notion-local'` は `source_kinds` 保存時には `notion` token として扱ってよいが、run summary には `notion_local_fallback_used` を残す。`status='miss'` / `unavailable` の場合だけ、Chrome / Codex Desktop のログイン済み Notion、browser history、open tabs、その他 local cache を read-only で確認し、取れなければ `notionText=""` のまま B-3 以降へ進む。run summary には `notion_connector_reauth_bypassed`、`connector_auth_notification_created` または `connector_auth_notification_updated`、fallback 結果 (`notion_local_fallback_used` / `notion_browser_fallback_used` / `notion_browser_fallback_unavailable`) を残す。terminal status として `blocked_notion_auth` / `waiting_for_reauth` を使うのは禁止。
 
 ### B-2: Notion ページ本文取得 (= GAS 074 `_meeting_fetchAiNotesBody_` + `nav_repo_notion_fetchPageBodyText` 移植)
 
@@ -654,7 +682,7 @@ workflow 側のルール:
 Phase P: MTG Prep セッション spawn (= 2026-06-22 追加)
 ═══════════════════════════════════════════════════
 
-> **役割**: 翌7日の upcoming MTG ごとに、まさカレンダーに `＋ <PJコード> MTG準備: <タイトル>` 枠を作成し、該当時刻になったら `codex exec` で新規 session を spawn する。spawn された session の中では `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md` を prompt として読み、prep 本体 (= 文脈ロード / 着地点 draft / 資料 draft / readiness 計算) を完遂する。
+> **役割**: 24時間以内の upcoming MTG ごとに、まさカレンダーに `＋ <PJコード> MTG準備: <タイトル>` 枠を作成し、該当時刻になったら `codex exec` で新規 session を spawn する。spawn された session の中では `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md` を prompt として読み、prep 本体 (= 文脈ロード / 着地点 draft / 資料 draft / readiness 計算) を完遂する。
 >
 > automation はあくまで「session を生み出す役」、prep 本体は spawn された session 内で実行する責務分離 (= まさ確定 2026-06-22)。
 >

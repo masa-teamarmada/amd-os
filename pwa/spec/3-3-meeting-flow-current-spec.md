@@ -18,8 +18,8 @@
 
 | source | 内容 |
 |---|---|
-| Calendar | 過去60-180分終了 event、今日0:00 JSTから60日先の確定予定 |
-| Notion | 議事録 page / DB |
+| Calendar | 過去60-180分終了 event、現在時刻の前後24時間にある確定予定。未来60日同期はM系メンテが担当 |
+| Notion | 議事録 page / DB。connector auth failure 時は `pwa/scripts/h1_local_notion_fallback.mjs` で Notion Desktop local cache を event title + date + event id から自動探索する |
 | Gmail | report_emails thread / follow-up draft context |
 | Drive | Docs / Slides / Sheets / PDF / Office metadata |
 | Slack | thread / file / nudge context |
@@ -81,6 +81,12 @@ Calendar 作業枠候補が必要な場合だけ `POST /api/task-calendar/schedu
 - raw array の貼り付けではなく、参加していないメンバーが理解できる段落にする。
 - `✅決まったこと` は会議で実際に合意・確認されたことだけを書く。
 - 詳細モーダルの編集 mode は、表示している section と同じ source field を編集する。`narrative_md` が主表示なら `narrative_md`、raw 配列が表示されている fallback 時だけ `decided / progress / next_actions / risks` を編集する。
+
+## Notion auth failure / recent none recovery
+
+Notion connector の `oauth_token_invalid_grant` / `TRIGGER_REAUTHENTICATION` は H-1 の停止理由にしない。H-1 は再認証通知を作りつつ、同じ run で `npm run h1:local-notion-fallback -- --title "<event title>" --date "<YYYY-MM-DD>" --event-id "<calendar_event_id>"` を実行する。hit した local Notion page は `source_kind='notion-local'` として narrative 入力に使い、保存時は `notion_page_id` / `notion_url` / `source_hash` に反映する。
+
+過去 run で `source_kinds='none'` / `summary_short='議事録なし'` になった開催済みMTGは、次回以降 24 時間は自動再探索する。通常の終了60-180分 window から外れていても、`meeting_start_at` / `calendar_event_id` / `title` から event payload を再構成し、Local Notion fallback、Gmail、Drive、Slack、Calendar を再評価する。本文が取れた場合は同じ `meeting_id` を source 付きに更新し、本文が取れない場合だけ `none` を維持する。
 
 ## 出力
 

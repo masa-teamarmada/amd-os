@@ -61,7 +61,9 @@ auth failure を検知したら、H-1 は fallback ladder と並行して再認�
 H-1 は上から順に、取れるところまで即時に試す。
 
 1. Same-source fallback
-   - Chrome / Codex Desktop のログイン済み Notion を read-only で開き、event title、event date、page URL、browser history、open tabs から該当 page を探す。
+   - 最初に deterministic helper `pwa/scripts/h1_local_notion_fallback.mjs` を実行し、Notion Desktop local cache (`notion.db`) から event title + event date + event id で該当 page を探す。実行入口は `npm run h1:local-notion-fallback -- --title "<event title>" --date "<YYYY-MM-DD>" --event-id "<calendar_event_id>"`。
+   - helper が hit したら `source_kind='notion-local'` として `source_text` を H-1 narrative 入力に使い、`page_id` / `url` / `source_hash` を保存 payload に含める。run summary には `notion_local_fallback_used` を残す。
+   - helper が miss/unavailable の場合だけ、Chrome / Codex Desktop のログイン済み Notion を read-only で開き、event title、event date、page URL、browser history、open tabs から該当 page を探す。
    - Notion Desktop / local cache / browser history が使える環境なら、同じく read-only で該当 page の有無だけ確認する。
    - 見つかった場合でも raw 全文を durable artifact に出さず、必要な短い snippets と source ref だけ扱う。
 2. Cross-source fallback
@@ -84,6 +86,12 @@ H-1 extractor は Notion Stage 1-3 のどこかで auth failure が出た時点�
 
 開催済み row を保存する条件は「Notion が読めたか」ではなく「会議本文として十分な source があるか」。Notion が読めなくても、Gmail notes や Drive議事録や Calendar attachment が十分なら `narrative_md` を生成して保存する。
 
+### Recent none-row recovery
+
+H-1 が過去 run で `source_kinds='none'` / `summary_short='議事録なし'` を入れた開催済みMTGは、次回以降 24 時間は自動再探索対象にする。通常の「終了 60-180 分」窓から外れていても、`meeting_start_at` / `calendar_event_id` / `title` が残っている場合は、H-1 が event 相当 payload を再構成し、Local Notion fallback → Gmail / Drive / Slack / Calendar の順に再取得する。
+
+この recovery は manual-update ではない。H-1 自身が `none` marker を「まだ source が見つかっていない仮状態」として扱い、本文が見つかったら同じ `meeting_id` を `notion+calendar` / `gmail+calendar` 等に更新する。本文が見つからない場合は `none` を維持し、試した source と不足理由だけを review artifact に残す。
+
 不足時は `blocked_notion_auth` ではなく、以下のどれかを使う。
 
 - `notion_connector_reauth_bypassed`
@@ -104,8 +112,10 @@ raw source が不足して重大情報の落ち検知ができない場合は、
 - `notion_connector_reauth_bypassed`: connector auth failure を検知し、fallback ladder に進んだ。
 - `connector_auth_notification_created`: `app_notifications(kind='connector_auth')` を作った。
 - `connector_auth_notification_updated`: 既存未読の再認証通知を最新の再認証アクション付きpayloadへ更新した。
+- `notion_local_fallback_used`: Local Notion fallback helper で Notion page / structured source を読んだ。
 - `notion_browser_fallback_used`: Chrome / local fallback で Notion source を読んだ。
 - `notion_browser_fallback_unavailable`: Chrome / local fallback でも Notion source が取れなかった。
+- `recent_none_marker_recovered`: 直近の `議事録なし` marker を再探索し、開催済み row を通常 source 付きに更新した。
 - `held_source_missing_after_reauth_bypass`: fallback 後も会議後本文が見つからず、開催済み row を作らなかった。
 - `review_required_raw_source_insufficient`: raw source 不足のため、人間確認候補にした。
 
@@ -124,6 +134,8 @@ Notion connector がまだ再認証待ちでも、H-1 run 全体を機械的に�
 
 ## Miura 2026-06-26 example
 
-`SX MTG 三浦工業` のように Notion connector が再認証を要求した場合、H-1 はその場で Calendar event、Gmail scheduling / follow-up、Drive の SX資料、Slack、Chrome history / logged-in Notion を確認する。
+`SX MTG 三浦工業` のように Notion connector が再認証を要求した場合、H-1 はその場で Local Notion fallback helper、Calendar event、Gmail scheduling / follow-up、Drive の SX資料、Slack、Chrome history / logged-in Notion を確認する。
+
+その run で一度 `source_kinds='none'` が入った場合でも、次回 24 時間以内の H-1 は `recent none-row recovery` として `SX MTG 三浦工業` を再探索する。対象MTGが通常の 60-180 分 window から外れていても、`meeting_start_at` と `calendar_event_id` が残っていれば救済対象にする。
 
 会議後本文が見つからない場合は、準備カードと日程調整情報だけから開催済み議事録を作らない。代わりに `held_source_missing_after_reauth_bypass` として、Notion 再認証ではなく「会議後 source 不足」を正しい未完了理由にする。
