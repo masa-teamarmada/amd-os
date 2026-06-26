@@ -27,17 +27,18 @@ const hudDisplay = Rajdhani({
 // していたが、生成 HTML が `<link href="/favicon.ico?favicon.0x3dzn~oxb6tn.ico?dpl=...">` のように
 // **`?` 2 重** の特殊 URL になっていて、シークレット 7 回でも反映されなかった。
 // → public/ 配下に手動配置に切替 + metadata.icons で **シンプル URL** を明示。
+// 2026-06-26: 旧 Vercel favicon cache を避けるため、AMD版は新規 URL `/favicon-amd.ico` を優先。
 export const metadata: Metadata = {
   title: "AMD OS",
   description: "Team ARMADA Business Operating System",
   manifest: "/manifest.json",
   icons: {
     icon: [
-      { url: "/favicon.ico", sizes: "any", type: "image/x-icon" },
+      { url: "/favicon-amd.ico", sizes: "any", type: "image/x-icon" },
       { url: "/icon.png", sizes: "512x512", type: "image/png" },
     ],
     apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
-    shortcut: [{ url: "/favicon.ico" }],
+    shortcut: [{ url: "/favicon-amd.ico" }],
   },
 };
 
