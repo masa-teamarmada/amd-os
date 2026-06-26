@@ -77,13 +77,13 @@
 - マイページ最上部 → 「通知ボックス」
 - ローカル通知タップ → `NotificationInboxView` を sheet 表示し、該当通知を展開
 - ローカル通知アクション → `はい` / `いいえ` / `コメント` を直接送信
-- `app_notifications(kind='connector_auth')` → Swiftローカル通知。これは回答対象ではなく、通知タップで `meta.reauth_url` を即開く。
+- `app_notifications(kind='connector_auth')` → Swiftローカル通知。これは回答対象ではなく、通知タップで `meta.reauth_url` を即開く。タップ時に `read_at` を打つが、失敗時に再試行できるよう通知ボックスの既読側にも残す。
 
 表示:
 - `l2_notifications` と `meeting_notifications` を作成日時降順で統合表示
-- connector auth は通知ボックスには混ぜず、OSローカル通知から直接再認証へ飛ばす。配信済み管理は `app_notifications.native_notified_at`、人間既読は `app_notifications.read_at`。
-- フィルタ: `すべて` / `未読` / `回答済み`
-- `すべて` と `未読` には未回答の通知だけを表示し、回答済みの通知は `回答済み` に移動
+- connector auth はOSローカル通知から直接再認証へ飛ばし、通知ボックスの「既読」側にも履歴アクションとして表示する。配信済み管理は `app_notifications.native_notified_at`、人間既読は `app_notifications.read_at`。再認証リンクを開く操作は復旧成功を意味しないため、既読後も「再認証を開く」ボタンから再試行できる。
+- フィルタ: `すべて` / `未読` / `既読`
+- `すべて` は全通知、`未読` は未読通知、`既読` は読んだ通知と回答済み通知を表示する。connector auth は既読後もここに残り、再認証を開き直せる。
 - カード展開で通知本文、関連データ、過去の回答・コメント、回答フォームを表示
 - 関連データは通知種別ごとに取得:
   - `meeting_summary`: `project_meeting_summaries`

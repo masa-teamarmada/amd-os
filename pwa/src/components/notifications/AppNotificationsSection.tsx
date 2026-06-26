@@ -20,11 +20,11 @@ import {
 export function AppNotificationsSection() {
   const [items, setItems] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"all" | "unread">("unread");
+  const [filter, setFilter] = useState<"all" | "unread" | "read">("unread");
 
   const reload = async () => {
     setLoading(true);
-    const list = await fetchNotifications({ limit: 200, includeRead: filter === "all" });
+    const list = await fetchNotifications({ limit: 200, includeRead: filter !== "unread" });
     setItems(list);
     setLoading(false);
   };
@@ -34,7 +34,12 @@ export function AppNotificationsSection() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
 
-  const visible = filter === "unread" ? items.filter((n) => !n.read_at) : items;
+  const visible =
+    filter === "unread"
+      ? items.filter((n) => !n.read_at)
+      : filter === "read"
+        ? items.filter((n) => n.read_at)
+        : items;
 
   return (
     <section className="mb-6 border border-border rounded-lg p-4">
@@ -44,7 +49,7 @@ export function AppNotificationsSection() {
           (task agent / cron / つくよみ から)
         </span>
         <div className="ml-auto flex items-center gap-2 text-xs">
-          {(["unread", "all"] as const).map((k) => (
+          {(["unread", "read", "all"] as const).map((k) => (
             <button
               key={k}
               onClick={() => setFilter(k)}
@@ -54,7 +59,7 @@ export function AppNotificationsSection() {
                   : "border-border hover:bg-accent"
               }`}
             >
-              {k === "unread" ? "未読" : "全部"}
+              {k === "unread" ? "未読" : k === "read" ? "既読" : "全部"}
             </button>
           ))}
           {filter === "unread" && visible.length > 0 && (

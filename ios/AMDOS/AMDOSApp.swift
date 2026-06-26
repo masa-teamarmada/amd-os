@@ -282,18 +282,24 @@ struct NotificationResponseTarget: Hashable, Sendable {
     let projectId: String?
 
     var feedbackKind: String {
-        kind == "meeting" ? "meeting_summary" : (l2Kind ?? "")
+        if kind == "connector_auth" { return "connector_auth" }
+        return kind == "meeting" ? "meeting_summary" : (l2Kind ?? "")
     }
 
     var feedbackTargetId: String {
-        kind == "meeting" ? (projectId ?? targetId) : targetId
+        if kind == "connector_auth" { return targetId }
+        return kind == "meeting" ? (projectId ?? targetId) : targetId
     }
 
     var feedbackScopeKey: String {
-        kind == "meeting" ? (meetingId ?? scopeKey) : scopeKey
+        if kind == "connector_auth" { return scopeKey }
+        return kind == "meeting" ? (meetingId ?? scopeKey) : scopeKey
     }
 
     var itemId: String {
+        if kind == "connector_auth" {
+            return "connector-auth-\(notificationId ?? targetId)"
+        }
         if kind == "meeting", let meetingId {
             return "meeting-\(meetingId)"
         }
@@ -313,6 +319,17 @@ struct NotificationResponseTarget: Hashable, Sendable {
         projectId: String?
     ) {
         guard let kind, !kind.isEmpty else { return nil }
+        if kind == "connector_auth" {
+            guard let targetId, !targetId.isEmpty else { return nil }
+            self.kind = kind
+            self.l2Kind = "connector_auth"
+            self.targetId = targetId
+            self.scopeKey = scopeKey?.isEmpty == false ? (scopeKey ?? "global") : "global"
+            self.notificationId = notificationId ?? targetId
+            self.meetingId = nil
+            self.projectId = nil
+            return
+        }
         if kind == "meeting" {
             guard let meetingId, !meetingId.isEmpty,
                   let projectId, !projectId.isEmpty else { return nil }

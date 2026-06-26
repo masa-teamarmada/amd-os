@@ -104,11 +104,11 @@ TestFlight build: 21（未 upload のまま）
   - `app_notifications(kind='connector_auth')` に `meta.reauth_url` / `meta.reauth_app_url` / `meta.connector_id` / `meta.link_id` を入れる。
 - Swift
   - `NotificationService.pollConnectorAuthNotifications()` が `kind='connector_auth' AND native_notified_at IS NULL AND read_at IS NULL AND dismissed_at IS NULL` を取得し、`AMD_CONNECTOR_AUTH_NOTIFICATION` のローカル通知を即表示。
-  - 通知タップ時は `NotificationService.handleNotificationTap` が `kind='connector_auth'` を検知し、通知ボックスを挟まず `reauthUrl` を `UIApplication.shared.open` で開く。同時に `read_at` を打つ。
+  - 通知タップ時は `NotificationService.handleNotificationTap` が `kind='connector_auth'` を検知し、通知ボックスを挟まず `reauthUrl` を `UIApplication.shared.open` で開き、`read_at` を打つ。再認証ページを開いたことは復旧成功ではないため、既読後も通知ボックスの「既読」側に残して再試行できるようにする。
 
 ### Android 反映メモ
 - `app_notifications.native_notified_at` 相当の端末配信済み marker を使う。
-- connector_auth は通常の採否通知UIへ混ぜず、通知タップで `meta.reauth_url` を直接開く。
+- connector_auth は通常の採否通知UIへ混ぜず、通知タップで `meta.reauth_url` を直接開く。リンクを開いたら既読化するが、既読欄に再認証アクションを残して再試行できる状態を維持する。
 
 ---
 

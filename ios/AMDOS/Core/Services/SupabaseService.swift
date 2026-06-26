@@ -3735,6 +3735,34 @@ extension SupabaseService {
                 case projectName = "project_name"
             }
         }
+        struct AppNotificationRow: Decodable {
+            let id: String
+            let title: String
+            let body: String?
+            let link: String?
+            let meta: [String: AnyCodable]?
+            let readAt: String?
+            let dismissedAt: String?
+            let createdAt: String
+            let updatedAt: String
+
+            enum CodingKeys: String, CodingKey {
+                case id
+                case title
+                case body
+                case link
+                case meta
+                case readAt = "read_at"
+                case dismissedAt = "dismissed_at"
+                case createdAt = "created_at"
+                case updatedAt = "updated_at"
+            }
+
+            func stringMeta(_ key: String) -> String? {
+                guard let raw = meta?[key]?.value as? String, !raw.isEmpty else { return nil }
+                return raw
+            }
+        }
 
         async let l2Task: [L2Row] = client.database
             .from("l2_notifications")
@@ -3747,6 +3775,15 @@ extension SupabaseService {
             .from("meeting_notifications")
             .select("meeting_id, project_id, title, source_kinds, summary_short, notified_at, created_at")
             .order("created_at", ascending: false)
+            .limit(limit)
+            .execute()
+            .value
+        async let connectorAuthTask: [AppNotificationRow] = client.database
+            .from("app_notifications")
+            .select("id, title, body, link, meta, read_at, dismissed_at, created_at, updated_at")
+            .eq("kind", value: "connector_auth")
+            .is("dismissed_at", value: nil)
+            .order("updated_at", ascending: false)
             .limit(limit)
             .execute()
             .value
@@ -3763,7 +3800,7 @@ extension SupabaseService {
             .execute()
             .value
 
-        let (l2Rows, meetingRows, feedbacks, projects) = try await (l2Task, meetingTask, feedbackTask, projectTask)
+        let (l2Rows, meetingRows, connectorAuthRows, feedbacks, projects) = try await (l2Task, meetingTask, connectorAuthTask, feedbackTask, projectTask)
         var items: [NotificationInboxItem] = []
         items += l2Rows.map {
             NotificationInboxItem(
@@ -3781,7 +3818,10 @@ extension SupabaseService {
                 importance: $0.importance,
                 sourceKinds: nil,
                 notifiedAt: $0.notifiedAt,
-                createdAt: $0.createdAt
+                createdAt: $0.createdAt,
+                reauthUrl: nil,
+                connector: nil,
+                reason: nil
             )
         }
         items += meetingRows.map {
@@ -3800,7 +3840,35 @@ extension SupabaseService {
                 importance: 1,
                 sourceKinds: $0.sourceKinds,
                 notifiedAt: $0.notifiedAt,
-                createdAt: $0.createdAt
+                createdAt: $0.createdAt,
+                reauthUrl: nil,
+                connector: nil,
+                reason: nil
+            )
+        }
+        items += connectorAuthRows.map {
+            let connector = $0.stringMeta("connector") ?? "connector"
+            let reason = $0.stringMeta("reason")
+            let context = $0.stringMeta("context") ?? connector
+            return NotificationInboxItem(
+                id: "connector-auth-\($0.id)",
+                kind: "connector_auth",
+                notificationId: $0.id,
+                meetingId: nil,
+                l2Kind: "connector_auth",
+                targetId: $0.id,
+                projectId: nil,
+                scopeKey: context,
+                title: $0.title,
+                body: $0.body ?? "",
+                countText: nil,
+                importance: 3,
+                sourceKinds: reason,
+                notifiedAt: $0.readAt,
+                createdAt: $0.createdAt,
+                reauthUrl: $0.stringMeta("reauth_url") ?? $0.stringMeta("reauth_install_url") ?? $0.stringMeta("reauth_app_url") ?? $0.link,
+                connector: connector,
+                reason: reason
             )
         }
         items.sort { $0.createdAt > $1.createdAt }
@@ -3818,7 +3886,13 @@ extension SupabaseService {
 
     private func markNotificationRead(target: NotificationResponseTarget) async throws {
         let iso = ISO8601DateFormatter().string(from: Date())
-        if target.kind == "meeting", let meetingId = target.meetingId {
+        if target.kind == "connector_auth" {
+            try await client.database
+                .from("app_notifications")
+                .update(AppNotificationReadUpdate(read_at: iso, updated_at: iso))
+                .eq("id", value: target.notificationId ?? target.targetId)
+                .execute()
+        } else if target.kind == "meeting", let meetingId = target.meetingId {
             try await client.database
                 .from("meeting_notifications")
                 .update(NotificationReadUpdate(notified_at: iso))
@@ -4442,6 +4516,11 @@ private struct NotificationReadUpdate: Encodable {
     let notified_at: String
 }
 
+private struct AppNotificationReadUpdate: Encodable {
+    let read_at: String
+    let updated_at: String
+}
+
 struct NotificationInboxData {
     let items: [NotificationInboxItem]
     let feedbacks: [NotificationFeedback]
@@ -4464,6 +4543,9 @@ struct NotificationInboxItem: Identifiable, Hashable {
     let sourceKinds: String?
     let notifiedAt: String?
     let createdAt: String
+    let reauthUrl: String?
+    let connector: String?
+    let reason: String?
 
     var isUnread: Bool { notifiedAt == nil }
 

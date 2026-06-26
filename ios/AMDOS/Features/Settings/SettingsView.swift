@@ -151,6 +151,9 @@ struct NotificationInboxView: View {
                                         onToggle: { toggle(item) },
                                         onSubmit: { action in
                                             Task { await submit(item: item, action: action) }
+                                        },
+                                        onOpenReauth: {
+                                            Task { await openReauth(item) }
                                         }
                                     )
                                     .id(item.id)
@@ -195,7 +198,7 @@ struct NotificationInboxView: View {
         Picker("表示", selection: $filter) {
             Text("すべて").tag(InboxFilter.all)
             Text("未読").tag(InboxFilter.unread)
-            Text("回答済み").tag(InboxFilter.feedback)
+            Text("既読").tag(InboxFilter.feedback)
         }
         .pickerStyle(.segmented)
     }
@@ -203,11 +206,11 @@ struct NotificationInboxView: View {
     private var filteredItems: [NotificationInboxItem] {
         switch filter {
         case .all:
-            return unansweredItems
+            return inbox.items
         case .unread:
-            return unansweredItems.filter(\.isUnread)
+            return inbox.items.filter(\.isUnread)
         case .feedback:
-            return inbox.items.filter(hasFeedback)
+            return inbox.items.filter { !$0.isUnread || hasFeedback($0) }
         }
     }
 
@@ -245,6 +248,21 @@ struct NotificationInboxView: View {
             if item.isUnread {
                 try? await SupabaseService.shared.markNotificationRead(item)
             }
+        }
+    }
+
+    private func openReauth(_ item: NotificationInboxItem) async {
+        guard item.kind == "connector_auth" else { return }
+        if item.isUnread {
+            try? await SupabaseService.shared.markNotificationRead(item)
+            inbox = (try? await SupabaseService.shared.fetchNotificationInbox()) ?? inbox
+        }
+        guard let rawURL = item.reauthUrl, let url = URL(string: rawURL) else {
+            toastMessage = "再認証リンクを開けなかった"
+            return
+        }
+        await MainActor.run {
+            UIApplication.shared.open(url)
         }
     }
 
@@ -321,6 +339,7 @@ private struct NotificationInboxCard: View {
     let isSubmitting: Bool
     let onToggle: () -> Void
     let onSubmit: (NotificationInboxAction) -> Void
+    let onOpenReauth: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -390,7 +409,11 @@ private struct NotificationInboxCard: View {
 
                     detailSection
                     feedbackSection
-                    responseSection
+                    if item.kind == "connector_auth" {
+                        connectorAuthSection
+                    } else {
+                        responseSection
+                    }
                 }
                 .padding(12)
                 .background(Color(.secondarySystemGroupedBackground))
@@ -519,7 +542,28 @@ private struct NotificationInboxCard: View {
         .disabled(isSubmitting)
     }
 
+    private var connectorAuthSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("再認証")
+                .font(.caption.bold())
+                .foregroundStyle(.secondary)
+            Button {
+                onOpenReauth()
+            } label: {
+                Label("再認証を開く", systemImage: "arrow.up.right.square")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            if let connector = item.connector {
+                Text([connectorLabelJa(connector), item.reason.map(reasonLabelJa)].compactMap { $0 }.joined(separator: " / "))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
     private var iconName: String {
+        if item.kind == "connector_auth" { return "key" }
         switch item.responseTarget.feedbackKind {
         case "meeting_summary": return "doc.text"
         case "ms_progress": return "chart.line.uptrend.xyaxis"
@@ -531,10 +575,12 @@ private struct NotificationInboxCard: View {
     }
 
     private var iconColor: Color {
-        item.importance >= 3 ? .orange : AMD.blue
+        if item.kind == "connector_auth" { return .red }
+        return item.importance >= 3 ? .orange : AMD.blue
     }
 
     private var kindLabel: String {
+        if item.kind == "connector_auth" { return "再認証" }
         switch item.responseTarget.feedbackKind {
         case "meeting_summary": return "議事録"
         case "ms_progress": return "MS進捗"
@@ -557,6 +603,25 @@ private struct NotificationInboxCard: View {
         fmt.timeZone = TimeZone(identifier: "Asia/Tokyo")
         fmt.dateFormat = "M/d HH:mm"
         return fmt.string(from: date)
+    }
+
+    private func connectorLabelJa(_ connector: String) -> String {
+        switch connector {
+        case "notion": return "ノーション"
+        case "gmail": return "メール"
+        case "drive": return "ドライブ"
+        case "calendar": return "カレンダー"
+        case "slack": return "スラック"
+        default: return connector
+        }
+    }
+
+    private func reasonLabelJa(_ reason: String) -> String {
+        switch reason {
+        case "oauth_token_invalid_grant": return "認証の有効期限切れ"
+        case "TRIGGER_REAUTHENTICATION", "reauth_required": return "再認証が必要"
+        default: return reason
+        }
     }
 }
 
