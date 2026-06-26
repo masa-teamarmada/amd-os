@@ -23,7 +23,6 @@ type MeetingNotificationLike = {
 };
 
 const CRITICAL_L2_KINDS = new Set([
-  "action_item",
   "contract_signals",
   "shareholder_meeting",
 ]);
@@ -46,7 +45,7 @@ const META_TEXT_KEYS = [
 ];
 
 const OPERATIONAL_CRITICAL_TOKEN_RE =
-  /(critical|urgent|blocker|blocked|oauth_token_invalid_grant|trigger_reauthentication|認証切れ|再認証|ブロッカー|事故|緊急|至急|要対応|期限超過)/i;
+  /(critical|urgent|blocker|blocked|oauth_token_invalid_grant|trigger_reauthentication|認証切れ|再認証|ブロッカー|事故|緊急|至急|期限超過)/i;
 
 export function notificationPriorityLabel(priority: NotificationPriority): string {
   return priority === "critical" ? "緊急" : "通常";
