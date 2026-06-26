@@ -24,6 +24,7 @@
 | task management | `tasks` (`assignee_member_id`, start/due, progress, parent edge, mindmap position, active flag) |
 | value plan / reward | `value_plan_cycles`, `value_milestones`, `milestone_sub_items`, `milestone_responsibility`, `milestone_monthly_progress`, `monthly_reward_payout`, `payout_notices` |
 | L2 / knowledge | `source_cache`, `protocols`, `project_knowledge`, `member_knowledge`, `project_meeting_summaries`, `project_registry_diffs`, `project_xrl_evidence`, `project_strategy_signals`, `l2_notifications`, `l2_feedbacks` |
+| management guardrails | `guardrail_tag_definitions`, `guardrail_cards`, `guardrail_matches`, `guardrail_feedbacks` |
 | decision | `amd_score_inputs`, `amd_score_alpha`, `amd_score_revisions`, `project_xrl_log`, `project_founding_members`, `project_graduation_signals` |
 | ERS | `institutions`, `institution_capability_axes`, `institution_capability_criteria`, `institution_assessments` |
 | Atlas | `atlas_signals`, `atlas_stories`, `atlas_story_merges`, `atlas_themes`, `atlas_story_themes`, `atlas_divergences` |

@@ -11,6 +11,11 @@ import {
   NOTIFICATION_KIND_LABEL,
   type AppNotification,
 } from "@/lib/notifications-data";
+import {
+  appNotificationPriority,
+  notificationPriorityLabel,
+  type NotificationPriority,
+} from "@/lib/notification-priority";
 
 /**
  * VC discover / task agent 等から作られた app_notifications を一覧表示する
@@ -40,6 +45,8 @@ export function AppNotificationsSection() {
       : filter === "read"
         ? items.filter((n) => n.read_at)
         : items;
+  const criticalItems = visible.filter((n) => appNotificationPriority(n) === "critical");
+  const normalItems = visible.filter((n) => appNotificationPriority(n) === "normal");
 
   return (
     <section className="mb-6 border border-border rounded-lg p-4">
@@ -86,17 +93,54 @@ export function AppNotificationsSection() {
           {filter === "unread" ? "未読の通知なし。" : "通知なし。"}次の cron は毎週土曜 09:00 JST。
         </div>
       ) : (
-        <ul className="space-y-2">
-          {visible.map((n) => (
-            <NotificationRow key={n.id} item={n} onChange={reload} />
-          ))}
-        </ul>
+        <div className="space-y-4">
+          {criticalItems.length > 0 && (
+            <NotificationGroup priority="critical" items={criticalItems} onChange={reload} />
+          )}
+          {normalItems.length > 0 && (
+            <NotificationGroup priority="normal" items={normalItems} onChange={reload} />
+          )}
+        </div>
       )}
     </section>
   );
 }
 
-function NotificationRow({ item, onChange }: { item: AppNotification; onChange: () => void }) {
+function NotificationGroup({
+  priority,
+  items,
+  onChange,
+}: {
+  priority: NotificationPriority;
+  items: AppNotification[];
+  onChange: () => void;
+}) {
+  return (
+    <div>
+      <div className={`mb-2 flex items-center gap-2 text-xs font-semibold ${
+        priority === "critical" ? "text-red-700" : "text-muted-foreground"
+      }`}>
+        <span>{priority === "critical" ? "緊急性の高い通知" : "通常通知"}</span>
+        <span className="font-mono text-[11px] opacity-70">{items.length}</span>
+      </div>
+      <ul className="space-y-2">
+        {items.map((n) => (
+          <NotificationRow key={n.id} item={n} priority={priority} onChange={onChange} />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function NotificationRow({
+  item,
+  priority,
+  onChange,
+}: {
+  item: AppNotification;
+  priority: NotificationPriority;
+  onChange: () => void;
+}) {
   const [busy, setBusy] = useState(false);
   const isUnread = !item.read_at;
   const meta = item.meta as {
@@ -133,7 +177,11 @@ function NotificationRow({ item, onChange }: { item: AppNotification; onChange: 
   return (
     <li
       className={`border rounded p-3 ${
-        isUnread ? "border-primary/40 bg-primary/5" : "border-border"
+        priority === "critical"
+          ? "border-red-300 bg-red-50/70"
+          : isUnread
+            ? "border-primary/40 bg-primary/5"
+            : "border-border"
       }`}
     >
       <div className="flex items-start justify-between gap-3">
@@ -141,6 +189,13 @@ function NotificationRow({ item, onChange }: { item: AppNotification; onChange: 
           <div className="flex items-center gap-2 text-[11px] mb-1 flex-wrap">
             <span className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
               {NOTIFICATION_KIND_LABEL[item.kind] ?? item.kind}
+            </span>
+            <span className={`px-1.5 py-0.5 rounded ${
+              priority === "critical"
+                ? "bg-red-100 text-red-700"
+                : "bg-slate-100 text-slate-600"
+            }`}>
+              {notificationPriorityLabel(priority)}
             </span>
             <span className="text-muted-foreground text-[10px]">
               {item.source === "cron_vc_discover" && "🤖 vc-discover"}

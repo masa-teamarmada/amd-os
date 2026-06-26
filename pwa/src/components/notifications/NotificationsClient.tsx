@@ -3,6 +3,12 @@
 import { useState, useMemo, useCallback } from "react";
 import { LinkedMemberText } from "@/components/members/LinkedMemberText";
 import { createClient } from "@/lib/supabase/client";
+import {
+  l2NotificationPriority,
+  meetingNotificationPriority,
+  notificationPriorityLabel,
+  type NotificationPriority,
+} from "@/lib/notification-priority";
 import type { Notification, MeetingNotification, Feedback } from "@/app/(app)/notifications/page";
 
 type Props = {
@@ -69,10 +75,17 @@ const L2_KIND_LABEL: Record<string, string> = {
   news_mention: "D-11 メディア掲載",
   // Coverage Scanner (不在検知 / negative space)。既存抽出器の上位の安全網。
   coverage_gap: "🛰 Coverage Scanner (不在検知)",
+  guardrail_match: "経営ガードレール",
 };
 
 function l2KindLabel(l2Kind: string): string {
   return L2_KIND_LABEL[l2Kind] ?? l2Kind;
+}
+
+function unifiedItemPriority(i: UnifiedItem): NotificationPriority {
+  return i.kind === "l2"
+    ? l2NotificationPriority(i.data)
+    : meetingNotificationPriority(i.data);
 }
 
 export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
@@ -132,7 +145,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
   };
 
   // フィルタ: 回答済み通知はその場で未読から外す。
-  const filtered = useMemo(() => {
+  const filtered = (() => {
     if (filter === "open") {
       return items.filter((i) => !isAnswered(i));
     }
@@ -146,7 +159,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
       return items.filter((i) => hasFeedbackForItem(i));
     }
     return items.filter((i) => !isAnswered(i));
-  }, [answeredMap, items, filter, localFeedbacks]);
+  })();
 
   // 展開した瞬間に未読なら read_at = now() で UPDATE → 楽観的に readMap に反映
   // (= 既読セクションには次回再描画時に移る、ただし当該カードは展開状態で残す)
@@ -663,6 +676,34 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
               ].filter(Boolean).join(" · ") || undefined,
             };
           });
+        } else if (n.l2_kind === "guardrail_match") {
+          const meta = objectValue(n.metadata_json);
+          const { data, error } = await supabase
+            .from("guardrail_matches")
+            .select("match_id, card_id, target_type, target_id, target_title, target_date, matched_tags, project_tags, action_tags, match_score, severity, status, due_at, evidence_refs_json, detected_at")
+            .eq("match_id", n.scope_key)
+            .limit(1);
+          if (error) throw error;
+          rows = (data ?? []).map((r) => {
+            const checks = Array.isArray(meta.check_items) ? meta.check_items.map(String).filter(Boolean) : [];
+            const actions = Array.isArray(meta.recommended_actions) ? meta.recommended_actions.map(String).filter(Boolean) : [];
+            return {
+              heading: `${r.card_id} / ${r.severity} [${r.status}]`,
+              body: [
+                r.target_title ? `対象: ${r.target_title}` : `対象: ${r.target_type}:${r.target_id}`,
+                checks.length > 0 ? `確認:\n${checks.map((v) => `・${v}`).join("\n")}` : "",
+                actions.length > 0 ? `次アクション:\n${actions.map((v) => `・${v}`).join("\n")}` : "",
+                `一致タグ: ${formatJsonCompact(r.matched_tags)}`,
+              ].filter(Boolean).join("\n"),
+              sub: [
+                `match=${r.match_id}`,
+                r.match_score != null ? `score=${Number(r.match_score).toFixed(2)}` : "",
+                r.target_date ? `target=${formatJST(String(r.target_date))}` : "",
+                r.due_at ? `due=${formatJST(String(r.due_at))}` : "",
+                r.detected_at ? `detected=${formatJST(String(r.detected_at))}` : "",
+              ].filter(Boolean).join(" · ") || undefined,
+            };
+          });
         }
       } else {
         // meeting_summary: project_meeting_summaries から実内容取得
@@ -827,11 +868,16 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
           const isSubmitting = submitting.has(key);
           const itemFeedbacks = findFeedbacksFor(i);
           const responseAction = responseActionFor(key, itemFeedbacks);
+          const priority = unifiedItemPriority(i);
           return (
             <div
               key={key}
               className={`border rounded-lg overflow-hidden ${
-                isReadUi(i) ? "bg-card" : "bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900"
+                priority === "critical"
+                  ? "border-red-300 bg-red-50/70 dark:border-red-900 dark:bg-red-950/20"
+                  : isReadUi(i)
+                    ? "bg-card"
+                    : "bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900"
               }`}
             >
               {/* ヘッダ (クリック展開) */}
@@ -848,6 +894,13 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
                     {formatJST(i.data.created_at)} ・{" "}
+                    <span className={`mr-1 rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                      priority === "critical"
+                        ? "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
+                        : "bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-300"
+                    }`}>
+                      {notificationPriorityLabel(priority)}
+                    </span>
                     {i.kind === "l2" ? (
                       <>
                         <span className="font-medium text-foreground/80">{l2KindLabel(i.data.l2_kind)}</span>
@@ -994,19 +1047,34 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
           );
         };
 
+        const renderPrioritySections = (bucketItems: UnifiedItem[], className = "space-y-4") => {
+          const criticalItems = bucketItems.filter((i) => unifiedItemPriority(i) === "critical");
+          const normalItems = bucketItems.filter((i) => unifiedItemPriority(i) === "normal");
+          return (
+            <div className={className}>
+              {criticalItems.length > 0 && (
+                <NotificationPrioritySection priority="critical" count={criticalItems.length}>
+                  {criticalItems.map((i) => renderCard(i))}
+                </NotificationPrioritySection>
+              )}
+              {normalItems.length > 0 && (
+                <NotificationPrioritySection priority="normal" count={normalItems.length}>
+                  {normalItems.map((i) => renderCard(i))}
+                </NotificationPrioritySection>
+              )}
+            </div>
+          );
+        };
+
         return (
           <>
             {filter === "answered" && answeredItems.length > 0 && (
-              <div className="space-y-3">
-                {answeredItems.map((i) => renderCard(i))}
-              </div>
+              renderPrioritySections(answeredItems)
             )}
 
             {/* 未読 */}
             {filter !== "answered" && unreadItems.length > 0 && (
-              <div className="space-y-3">
-                {unreadItems.map((i) => renderCard(i))}
-              </div>
+              renderPrioritySections(unreadItems)
             )}
 
             {/* 既読 (デフォルト折りたたみ) */}
@@ -1021,9 +1089,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
                   <span>既読 ({readItems.length} 件)</span>
                 </button>
                 {readSectionOpen && (
-                  <div className="space-y-3 mt-2 opacity-80">
-                    {readItems.map((i) => renderCard(i))}
-                  </div>
+                  renderPrioritySections(readItems, "space-y-4 mt-2 opacity-80")
                 )}
               </div>
             )}
@@ -1044,6 +1110,28 @@ function FilterButton({ active, onClick, children }: { active: boolean; onClick:
     >
       {children}
     </button>
+  );
+}
+
+function NotificationPrioritySection({
+  priority,
+  count,
+  children,
+}: {
+  priority: NotificationPriority;
+  count: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <div className={`mb-2 flex items-center gap-2 text-xs font-semibold ${
+        priority === "critical" ? "text-red-700 dark:text-red-300" : "text-muted-foreground"
+      }`}>
+        <span>{priority === "critical" ? "緊急性の高い通知" : "通常通知"}</span>
+        <span className="font-mono text-[11px] opacity-70">{count}</span>
+      </div>
+      <div className="space-y-3">{children}</div>
+    </div>
   );
 }
 
@@ -1178,6 +1266,13 @@ function DeepLinkForL2({ n }: { n: Notification }) {
           /admin/coverage-gaps (不在検知 gap 一覧で確認・本来の入れ先へ手当て)
         </a>
       );
+    case "guardrail_match":
+      return (
+        <span>
+          <code className="text-xs bg-muted px-1 rounded">guardrail_matches</code> match_id=
+          <code className="text-xs bg-muted px-1 rounded">{n.scope_key}</code>
+        </span>
+      );
     default:
       return <span>{n.l2_kind}</span>;
   }
@@ -1222,6 +1317,7 @@ const NOTIFICATION_COST_ESTIMATE_JPY: Record<string, number> = {
   founding_members: 10,
   meeting_summary: 0.2,
   coverage_gap: 0.3,
+  guardrail_match: 0,
 };
 
 function formatJsonCompact(value: unknown): string {

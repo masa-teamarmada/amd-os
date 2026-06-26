@@ -11,7 +11,7 @@
  *
  * Body:
  *   {
- *     l2_kind: 'member_knowledge'|'project_knowledge'|'protocols'|'ms_progress'|'ms_progress_revision'|'meeting_summary'|'project_registry_diff'|'xrl_evidence'|'project_strategy_signal'|'textbook_insight',
+ *     l2_kind: 'member_knowledge'|'project_knowledge'|'protocols'|'ms_progress'|'ms_progress_revision'|'meeting_summary'|'project_registry_diff'|'xrl_evidence'|'project_strategy_signal'|'textbook_insight'|'guardrail_match',
  *     target_id: string,            // code_name (member系) / project_id (PJ系)
  *     scope_key?: string,            // ym (PJ系) / 'global' (member系) — default 'global'
  *     notification_id?: string,      // 関連 l2_notifications (optional)
@@ -148,6 +148,7 @@ export async function POST(req: NextRequest) {
       "meeting_summary",
       "news_mention",
       "coverage_gap",
+      "guardrail_match",
     ]);
     if (!allowedKinds.has(l2Kind)) {
       return NextResponse.json({ error: `unknown l2_kind: ${l2Kind}` }, { status: 400 });
@@ -212,7 +213,7 @@ export async function POST(req: NextRequest) {
     //   誤抽出修正は cockpit の POST /api/meeting-summary/manual-update に一本化済み (2026-05-29)
     // - project_strategy_signal: 対話型 /api/notifications/feedback/dialog/* を別経路で使う (= 旧 reextractStrategySignalImmediate は廃止、2026-05-25 #71 まさ確定)
     // - ms_progress_revision: GAS 再抽出の対象外 (= revision の confirm/discard が完結処理)
-    if (l2Kind !== "meeting_summary" && l2Kind !== "project_strategy_signal" && l2Kind !== "ms_progress_revision") {
+    if (l2Kind !== "meeting_summary" && l2Kind !== "project_strategy_signal" && l2Kind !== "ms_progress_revision" && l2Kind !== "guardrail_match") {
       void triggerImmediateReExtraction({ l2Kind, targetId, scopeKey, meetingId, feedbackText: storedFeedbackText, feedbackId: data.feedback_id }).catch((e) => {
         console.warn("[feedback] immediate re-extract failed:", e);
       });
@@ -461,6 +462,32 @@ async function applyApprovedNotification(args: {
     };
   }
 
+  if (args.l2Kind === "guardrail_match") {
+    const now = new Date().toISOString();
+    const { data, error } = await args.supabase
+      .from("guardrail_matches")
+      .update({ status: "acknowledged", updated_at: now })
+      .eq("match_id", args.scopeKey)
+      .in("status", ["open", "snoozed"])
+      .select("match_id, card_id, title:target_title, severity, status");
+    if (error) return { applied: false, message: error.message };
+    const rows = data ?? [];
+    for (const row of rows) {
+      await args.supabase.from("guardrail_feedbacks").insert({
+        match_id: row.match_id,
+        card_id: row.card_id,
+        action: "acknowledge",
+        feedback_text: args.feedbackText || null,
+        created_by: args.createdBy,
+      });
+    }
+    return {
+      applied: rows.length > 0,
+      message: `acknowledged guardrail_match: ${rows.length}`,
+      row: rows,
+    };
+  }
+
   return { applied: false, message: `no automatic apply handler for ${args.l2Kind}` };
 }
 
@@ -626,6 +653,32 @@ async function rejectNotificationCandidates(args: {
       .select("gap_id");
     if (error) return { applied: false, message: error.message };
     return { applied: false, message: `rejected coverage_gap: ${(data ?? []).length}`, row: data };
+  }
+
+  if (args.l2Kind === "guardrail_match") {
+    const now = new Date().toISOString();
+    const { data, error } = await args.supabase
+      .from("guardrail_matches")
+      .update({ status: "dismissed", resolved_at: now, updated_at: now })
+      .eq("match_id", args.scopeKey)
+      .in("status", ["open", "acknowledged", "snoozed"])
+      .select("match_id, card_id, target_title, severity, status");
+    if (error) return { applied: false, message: error.message };
+    const rows = data ?? [];
+    for (const row of rows) {
+      await args.supabase.from("guardrail_feedbacks").insert({
+        match_id: row.match_id,
+        card_id: row.card_id,
+        action: "dismiss",
+        feedback_text: args.feedbackText || null,
+        created_by: args.createdBy,
+      });
+    }
+    return {
+      applied: false,
+      message: `dismissed guardrail_match: ${rows.length}`,
+      row: rows,
+    };
   }
 
   return { applied: false, message: "rejected" };

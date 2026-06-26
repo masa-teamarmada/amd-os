@@ -9,6 +9,7 @@ AMD OS の通知は「お知らせ」だけではない。多くの通知は、L
 | **通知** | ユーザーに見せるカード。単なるお知らせもあるが、多くは候補データの確認依頼。 |
 | **正本反映ゲート** | 候補を正式データにしてよいか、人間が「はい / いいえ / コメント」で判断する入口。 |
 | **L2 通知** | L2 候補や差分候補を確認する通知。例: PJ ナレッジ、MS 進捗、XRL 根拠、経営ハイライト。 |
+| **経営ガードレール** | 見落とすと後戻りが大きい注意点を、PJ / アクションのタグから事前検知する通知。 |
 | **candidate / pending** | 未確認候補。表示されても、まだ OS の確定事実ではない。 |
 | **active / confirmed / applied** | 確認済み、または正本へ反映済みの状態。 |
 | **l2_feedbacks** | 「ここが違う」「次回からこう見てほしい」という修正依頼の保存先。次回抽出の prompt に入れる。 |
@@ -22,6 +23,17 @@ AMD OS の通知は「お知らせ」だけではない。多くの通知は、L
 | MTG 通知 | `meeting_notifications` | 議事録 / MTG サマリ確認 |
 | アプリ通知 | `app_notifications` | OS 運用上の通知 |
 | Slack nudge | Slack DM + signed URL | 入金確認、PL承認など |
+
+## 通常通知と緊急性の高い通知
+
+通知画面では、同じ通知を「緊急性の高い通知」と「通常通知」に分けて表示する。
+
+| レーン | 何を見るか | 例 |
+|---|---|---|
+| 通常通知 | OSに新データが入った、候補が増えた、通常レビューが必要 | L2候補、MTGサマリ、VCニュース、通常の取り込み経路確認 |
+| 緊急性の高い通知 | 見落とすと事故る復旧・ガードレール・重要 blocker | Notion等の再認証、契約/法務/SHA/総会/役会、重要 automation blocker |
+
+緊急性の高い通知は、対応が終わっても削除せず、既読欄から再試行できるものがある。特に connector 再認証は、リンクを開いたことと復旧完了は別なので、復旧できたかは対象 automation の次回成功で確認する。
 
 ## `/notifications` でやること
 
@@ -46,6 +58,7 @@ AMD OS の通知は「お知らせ」だけではない。多くの通知は、L
 | `project_registry_diff` | `pending` | DB反映 + `applied` | `rejected` |
 | `xrl_evidence` | `candidate` | `confirmed` | `rejected` |
 | `ms_progress` | `pending revision` | `confirmed` / progress 反映 | `discarded` |
+| `guardrail_match` | `open` | `acknowledged` | `dismissed` |
 
 経営ハイライト (`project_strategy_signals`) は `candidate` / `confirmed` / `rejected` / `archived` を持つ。cockpit には candidate も表示するが、未確認であることを明示する。
 
