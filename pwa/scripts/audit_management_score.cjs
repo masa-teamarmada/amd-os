@@ -124,7 +124,7 @@ async function main() {
       .order("axis", { ascending: true })),
     supabase
       .from("amd_management_score_snapshots")
-      .select("ym,total_score,initiative_score,finance_score,retention_score,pipeline_score,direction_score,inputs_json,updated_at")
+      .select("ym,total_score,initiative_score,finance_score,retention_score,pipeline_score,direction_score,confidence,inputs_json,updated_at")
       .eq("ym", ym)
       .maybeSingle(),
   ]);
@@ -249,13 +249,34 @@ async function main() {
   const totalEvents = number(initiative.totalEvents);
   const unknownCount = number(initiative.unknownCount);
   const initiativeScore = number(snapshot?.initiative_score);
-  if (totalEvents > 0 && unknownCount / totalEvents >= 0.5 && initiativeScore >= 80) {
+  const initiativeConfidence = number(snapshot?.inputs_json?.axisConfidence?.initiative ?? snapshot?.confidence);
+  const initiativeModifier = number(snapshot?.inputs_json?.initiative_modifier, 1);
+  const unknownRatio = totalEvents > 0 ? unknownCount / totalEvents : 0;
+  if (totalEvents > 0 && unknownRatio >= 0.5 && initiativeModifier < 1) {
     findings.push(makeFinding(
       "P0",
-      "先手力が unknown だらけでも高得点になっている",
-      `unknown ${unknownCount}/${totalEvents} 件なのに先手力 ${initiativeScore} 点。分類できていない状態を良好扱いしている。`,
-      [{ unknownCount, totalEvents, initiativeScore }],
-      "unknown比率が高い場合はscore capかconfidence低下を入れる。"
+      "起点不明が多い先手力で不可逆ペナルティが発動している",
+      `unknown ${unknownCount}/${totalEvents} 件なのに initiative_modifier=${initiativeModifier}。分類不足を経営危機として総合点へ掛けている。`,
+      [{ unknownCount, totalEvents, initiativeScore, initiativeModifier }],
+      "起点不明は点数低下ではなく判定信頼度低下として扱い、分類不足の月は不可逆ペナルティを発動しない。"
+    ));
+  }
+  if (totalEvents > 0 && unknownRatio >= 0.5 && initiativeConfidence >= 0.6) {
+    findings.push(makeFinding(
+      "P1",
+      "起点不明が多い先手力の判定信頼度が高すぎる",
+      `unknown ${unknownCount}/${totalEvents} 件なのに判定信頼度 ${initiativeConfidence.toFixed(2)}。分類不足を低信頼として表示できていない。`,
+      [{ unknownCount, totalEvents, initiativeScore, initiativeConfidence }],
+      "unknown比率が高い場合は、scoreではなく判定信頼度を下げて「暫定/要確認」と表示する。"
+    ));
+  }
+  if (totalEvents > 0 && unknownRatio >= 0.5 && initiativeModifier >= 1 && initiativeConfidence < 0.6) {
+    findings.push(makeFinding(
+      "info",
+      "先手力の起点不明は判定信頼度低下に分離済み",
+      "起点不明の多さは会社の後手化ではなく分類不足として扱われ、総合点への不可逆ペナルティは発動していない。",
+      [{ unknownCount, totalEvents, initiativeScore, initiativeConfidence, initiativeModifier }],
+      "起点分類の抽出品質を上げる。"
     ));
   }
 

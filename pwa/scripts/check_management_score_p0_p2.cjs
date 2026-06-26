@@ -69,9 +69,36 @@ const unknownHeavyInitiativeRows = [
 const unknownHeavy = __managementScoreTestHooks.scoreInitiative(unknownHeavyInitiativeRows, ctx);
 assert.equal(unknownHeavy.inputs.totalEvents, 10);
 assert.equal(unknownHeavy.inputs.unknownCount, 8);
-assert.equal(unknownHeavy.inputs.unknownScoreCap, 55);
-assert.ok(unknownHeavy.score <= 55, `unknown-heavy initiative should be capped, got ${unknownHeavy.score}`);
-assert.ok(unknownHeavy.confidence <= 0.35, `unknown-heavy confidence should drop, got ${unknownHeavy.confidence}`);
+assert.equal(unknownHeavy.inputs.classifiedEvents, 2);
+assert.equal(unknownHeavy.inputs.scoreSource, "current_unclassified");
+assert.equal(unknownHeavy.score, 100, `unknown-heavy initiative should not be score-capped, got ${unknownHeavy.score}`);
+assert.ok(unknownHeavy.confidence < 0.6, `unknown-heavy confidence should drop, got ${unknownHeavy.confidence}`);
+
+const carryForwardCtx = {
+  ...ctx,
+  previousAxisScore: {
+    ...ctx.previousAxisScore,
+    initiative: 96,
+  },
+};
+const unknownCarryForward = __managementScoreTestHooks.scoreInitiative(unknownHeavyInitiativeRows, carryForwardCtx);
+assert.equal(unknownCarryForward.score, 96);
+assert.equal(unknownCarryForward.inputs.scoreSource, "previous_carry_forward");
+assert.ok(unknownCarryForward.confidence < 0.6, `carried initiative confidence should stay low, got ${unknownCarryForward.confidence}`);
+
+const unconfirmedModifier = __managementScoreTestHooks.computeInitiativeModifier(80, 0.35, {
+  classifiedEvents: 2,
+  passiveEvents: 1,
+});
+assert.equal(unconfirmedModifier.modifier, 1);
+assert.equal(unconfirmedModifier.zone, "unconfirmed");
+
+const confirmedCrisisModifier = __managementScoreTestHooks.computeInitiativeModifier(80, 0.75, {
+  classifiedEvents: 10,
+  passiveEvents: 2,
+});
+assert.equal(confirmedCrisisModifier.modifier, 0.3);
+assert.equal(confirmedCrisisModifier.zone, "critical");
 
 const duplicatePipelineRows = [
   rawSignal({

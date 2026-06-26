@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 type Axis = "initiative" | "finance" | "retention" | "pipeline" | "direction";
+type InitiativeModifierZone = "healthy" | "critical" | "unconfirmed";
 
 interface RawSignal {
   id: string;
@@ -69,8 +70,8 @@ interface CalculateResult {
  *
  *   initiative_modifier (= 不可逆閾値):
  *     先手力 ≥ 90% → ×1.0  (= 健全)
- *     先手力 70-90% → ×0.7  (= 警告ゾーン)
- *     先手力 < 70% → ×0.3  (= 致命ゾーン、巻き返し困難)
+ *     先手力 < 90%  → ×0.3  (= 危機状態、ただし判定信頼度が十分な場合のみ)
+ *     起点不明 / 分類不足 → scoreではなく判定信頼度を下げ、不可逆ペナルティは発動しない
  *
  *   death_clamp (= 死亡判定):
  *     net_assets < 0 (= 債務超過) → total = 0
@@ -109,10 +110,24 @@ function computePipelineOmega(projects: Array<{ end_ym?: string | null }>, curre
   return { omega: 0.20, remainingMonthsAvg: avg, reasoning: `現行 active PJ 平均残期間 ${avg.toFixed(1)} ヶ月 < 6、 ω 0.20 (= 営業必須、 残期間枯渇)` };
 }
 
-function computeInitiativeModifier(initiativeScore: number): { modifier: number; zone: "healthy" | "warning" | "critical"; label: string } {
-  if (initiativeScore >= 90) return { modifier: 1.0, zone: "healthy", label: "健全 (≥90%)" };
-  if (initiativeScore >= 70) return { modifier: 0.7, zone: "warning", label: "警告ゾーン (70-90%、 早期対応推奨)" };
-  return { modifier: 0.3, zone: "critical", label: "致命ゾーン (<70%、 巻き返し困難)" };
+function computeInitiativeModifier(
+  initiativeScore: number,
+  initiativeConfidence: number,
+  initiativeInputs: Record<string, unknown>
+): { modifier: number; zone: InitiativeModifierZone; label: string } {
+  if (initiativeScore >= 90) {
+    if (initiativeConfidence < 0.6) {
+      return { modifier: 1.0, zone: "unconfirmed", label: "暫定健全 (分類不足、判定信頼度低)" };
+    }
+    return { modifier: 1.0, zone: "healthy", label: "健全 (≥90%)" };
+  }
+  const classifiedEvents = num(initiativeInputs.classifiedEvents, 0);
+  const passiveEvents = num(initiativeInputs.passiveEvents, 0);
+  const isConfirmedCrisis = initiativeConfidence >= 0.6 && classifiedEvents >= 5 && passiveEvents > 0;
+  if (!isConfirmedCrisis) {
+    return { modifier: 1.0, zone: "unconfirmed", label: "判定保留 (分類不足、90未満ペナルティ不発)" };
+  }
+  return { modifier: 0.3, zone: "critical", label: "危機状態 (<90%、確認済み後手イベントあり)" };
 }
 
 function computeDeathClamp(total: number, financeInputs: Record<string, unknown>): { clampedTotal: number; flag: string | null } {
@@ -263,23 +278,6 @@ function originLabel(origin: unknown): string {
   }
 }
 
-function initiativeUnknownAdjustment(unknownRatio: number): {
-  cap: number | null;
-  confidenceMax: number | null;
-  label: string | null;
-} {
-  if (unknownRatio >= 0.75) {
-    return { cap: 55, confidenceMax: 0.35, label: "unknown 75%以上、先手力は最大55点" };
-  }
-  if (unknownRatio >= 0.5) {
-    return { cap: 70, confidenceMax: 0.45, label: "unknown 50%以上、先手力は最大70点" };
-  }
-  if (unknownRatio >= 0.33) {
-    return { cap: 85, confidenceMax: 0.6, label: "unknown 33%以上、先手力は最大85点" };
-  }
-  return { cap: null, confidenceMax: null, label: null };
-}
-
 function categoryLabel(category: unknown): string {
   switch (String(category || "")) {
     case "revenue": return "売上";
@@ -318,10 +316,13 @@ function isFavorableVariance(category: string, variance: number): boolean {
  * 先手力 v4 (= 減点方式)
  *
  * - デフォルトは 100。
+ * - 90未満は危機状態。70はアラート閾値ではなく、もう手遅れに近い状態。
  * - `partner_proposed` / `external` で **impact >= 3** の events のみ減点対象。
  * - `amd_proposed` / `co_decided` / `unknown` / `client_requested` / `impact<3` は減点しない。
+ * - `unknown` はscore低下ではなく判定信頼度低下。未知比率による点数capは禁止。
+ * - 分類済みeventが不足する月は、前月の先手力を暫定維持し、不可逆ペナルティを発動しない。
  * - 卒業 PJ 除外は raw-data 側 (= Phase 3 で member_activities filter に追加) で実施。
- * - 入力 events が極端に少ない月 (= total < 5) は confidence を 0.3 まで落とし、UI で「データ不足」表示する。
+ * - 入力 events が極端に少ない月 (= total < 5) は判定信頼度を 0.3 まで落とし、UI で「データ不足」表示する。
  *
  * v3 までの加点方式 (= AMD起点率) は origin unknown 多発で破綻していた (= まさ #82 2026-05-26 確定)。
  */
@@ -334,28 +335,37 @@ function scoreInitiative(rows: RawSignal[], ctx: ScoreContext): AxisScore {
     return impact >= 3;
   });
   const totalEvents = events.length;
-  const passiveRatio = totalEvents > 0 ? passiveEvents.length / totalEvents : 0;
+  const classifiedEvents = events.filter((row) => !row.signal_key.includes("unknown"));
+  const classifiedCount = classifiedEvents.length;
+  const classificationCoverage = totalEvents > 0 ? classifiedCount / totalEvents : 0;
+  const passiveRatio = classifiedCount > 0 ? passiveEvents.length / classifiedCount : 0;
   const rawScore = clamp(100 - passiveRatio * 100, 0, 100);
 
   const amdProposedCount = events.filter((r) => r.signal_key.includes("amd_proposed")).length;
   const coDecidedCount = events.filter((r) => r.signal_key.includes("co_decided")).length;
   const unknownCount = events.filter((r) => r.signal_key.includes("unknown")).length;
   const unknownRatio = totalEvents > 0 ? unknownCount / totalEvents : 0;
-  const unknownAdjustment = initiativeUnknownAdjustment(unknownRatio);
-  const score = unknownAdjustment.cap == null ? rawScore : Math.min(rawScore, unknownAdjustment.cap);
-  const lowConfidence = totalEvents < 5;
-  const baseConfidence = lowConfidence ? 0.3 : clamp(0.85 - unknownRatio * 0.5, 0.3, 0.9);
-  const confidence = unknownAdjustment.confidenceMax == null ? baseConfidence : Math.min(baseConfidence, unknownAdjustment.confidenceMax);
-
+  const hasUsableClassification = classifiedCount >= 5 && classificationCoverage >= 0.25;
   const prev = ctx.previousAxisScore.initiative;
+  const scoreSource = hasUsableClassification ? "current_classified" : prev != null ? "previous_carry_forward" : "current_unclassified";
+  const score = scoreSource === "previous_carry_forward" ? prev! : rawScore;
+  const lowConfidence = totalEvents < 5;
+  const confidence = lowConfidence
+    ? 0.3
+    : hasUsableClassification
+      ? clamp(0.72 + Math.min(classifiedCount, 30) / 200 - unknownRatio * 0.15, 0.6, 0.9)
+      : clamp(0.25 + classificationCoverage * 0.6, 0.25, 0.55);
+
   const delta = prev != null ? score - prev : null;
+  const scoreZone = confidence < 0.6 ? "unconfirmed" : score >= 90 ? "healthy" : passiveEvents.length > 0 ? "critical" : "unconfirmed";
   const thresholdNote =
-    score < 70 ? " 🚨 致命ゾーン (= 70% 未満、 巻き返し困難)。"
-    : score < 90 ? " ⚠️ 警告ゾーン (= 90% 未満、 早期対応推奨)。"
-    : "";
-  const dataNote = lowConfidence ? ` events 件数 ${totalEvents} < 5、 データ不足 confidence 低下。` : "";
-  const unknownNote = unknownAdjustment.label ? ` 起点不明 ${unknownCount}/${totalEvents} 件 (${Math.round(unknownRatio * 100)}%) のため ${unknownAdjustment.label}。` : "";
-  const summarySentence = `先手力 ${Math.round(score)}点 (前月比 ${fmtDelta(delta)}, ${deltaDesc(delta)})。受身 events ${passiveEvents.length}/${totalEvents} 件 (= partner_proposed / external で impact≥3)、AMD起点 ${amdProposedCount} 件・共同決定 ${coDecidedCount} 件・起点不明 ${unknownCount} 件。${thresholdNote}${dataNote}${unknownNote}`;
+    score >= 90 ? ""
+    : scoreZone === "critical" ? " 🚨 危機状態 (= 90% 未満、確認済み後手イベントあり)。"
+    : " 先手力は90未満なら危機だが、今回は分類不足のため判定保留。";
+  const dataNote = lowConfidence ? ` events 件数 ${totalEvents} < 5、 データ不足で判定信頼度低下。` : "";
+  const unknownNote = unknownCount > 0 ? ` 起点不明 ${unknownCount}/${totalEvents} 件 (${Math.round(unknownRatio * 100)}%) は点数低下ではなく判定信頼度低下として扱う。` : "";
+  const carryNote = scoreSource === "previous_carry_forward" ? " 分類済みevent不足のため前月確定値を暫定維持。" : "";
+  const summarySentence = `先手力 ${Math.round(score)}点 (前月比 ${fmtDelta(delta)}, ${deltaDesc(delta)})。受身 events ${passiveEvents.length}/${classifiedCount} 件 (= 分類済みevent中の partner_proposed / external で impact≥3)、AMD起点 ${amdProposedCount} 件・共同決定 ${coDecidedCount} 件・起点不明 ${unknownCount} 件。${thresholdNote}${dataNote}${unknownNote}${carryNote}`;
 
   const formulaEvidence = {
     axis: "initiative" as const,
@@ -366,7 +376,7 @@ function scoreInitiative(rows: RawSignal[], ctx: ScoreContext): AxisScore {
     source_hash: null,
     impact: delta ?? (score - 50) / 2,
     confidence,
-    payload: { score, rawScore, prev, delta, totalEvents, passiveEvents: passiveEvents.length, passiveRatio, amdProposedCount, coDecidedCount, unknownCount, unknownRatio, unknownScoreCap: unknownAdjustment.cap, unknownConfidenceMax: unknownAdjustment.confidenceMax, scoreZone: score < 70 ? "critical" : score < 90 ? "warning" : "healthy" },
+    payload: { score, rawScore, prev, delta, totalEvents, classifiedEvents: classifiedCount, classificationCoverage, passiveEvents: passiveEvents.length, passiveRatio, amdProposedCount, coDecidedCount, unknownCount, unknownRatio, scoreSource, scoreZone },
   };
 
   // 減点要因 (= 受身 events) を evidence として上位 6 件表示
@@ -419,7 +429,7 @@ function scoreInitiative(rows: RawSignal[], ctx: ScoreContext): AxisScore {
   return {
     score,
     confidence,
-    inputs: { totalEvents, passiveEvents: passiveEvents.length, passiveRatio, rawScore, amdProposedCount, coDecidedCount, unknownCount, unknownRatio, unknownScoreCap: unknownAdjustment.cap, unknownConfidenceMax: unknownAdjustment.confidenceMax, delta, summary: summarySentence, scoreZone: score < 70 ? "critical" : score < 90 ? "warning" : "healthy" },
+    inputs: { totalEvents, classifiedEvents: classifiedCount, classificationCoverage, passiveEvents: passiveEvents.length, passiveRatio, rawScore, scoreSource, amdProposedCount, coDecidedCount, unknownCount, unknownRatio, delta, summary: summarySentence, scoreZone },
     evidence: [formulaEvidence, ...passiveEvidence, ...proactiveEvidence],
   };
 }
@@ -1082,7 +1092,7 @@ function buildSnapshotSummary(
   totalScore: number,
   totalDelta: number | null,
   axisScores: Record<Axis, AxisScore>,
-  modifierZone: "healthy" | "warning" | "critical",
+  modifierZone: InitiativeModifierZone,
   modifierLabel: string,
   omegaReasoning: string,
   deathFlag: string | null
@@ -1109,8 +1119,8 @@ function buildSnapshotSummary(
 
   if (modifierZone === "critical") {
     parts.push(`🚨 先手力 ${Math.round(axisScores.initiative.score)}点 = ${modifierLabel}。 total に ×0.3 ペナルティ適用中。`);
-  } else if (modifierZone === "warning") {
-    parts.push(`⚠️ 先手力 ${Math.round(axisScores.initiative.score)}点 = ${modifierLabel}。 total に ×0.7 ペナルティ。`);
+  } else if (modifierZone === "unconfirmed") {
+    parts.push(`先手力 ${Math.round(axisScores.initiative.score)}点 = ${modifierLabel}。分類不足のため不可逆ペナルティは発動しない。`);
   }
 
   if (deathFlag === "insolvent") {
@@ -1132,6 +1142,7 @@ function buildSnapshotSummary(
 export const __managementScoreTestHooks = {
   scoreInitiative,
   scorePipeline,
+  computeInitiativeModifier,
 };
 
 export async function calculateManagementScore(
@@ -1217,7 +1228,7 @@ export async function calculateManagementScore(
     100,
     (Object.keys(weights) as Axis[]).reduce((sum, axis) => sum + axisScores[axis].score * weights[axis], 0),
   );
-  const modifierResult = computeInitiativeModifier(axisScores.initiative.score);
+  const modifierResult = computeInitiativeModifier(axisScores.initiative.score, axisScores.initiative.confidence, axisScores.initiative.inputs);
   const totalAfterModifier = baseTotal * modifierResult.modifier;
   const deathResult = computeDeathClamp(totalAfterModifier, axisScores.finance.inputs as Record<string, unknown>);
   const totalScore = Math.round(deathResult.clampedTotal);
@@ -1228,6 +1239,7 @@ export async function calculateManagementScore(
     rawSignalCount: rows.length,
     byAxis: Object.fromEntries((Object.keys(byAxis) as Axis[]).map((axis) => [axis, byAxis[axis].length])),
     axisInputs: Object.fromEntries((Object.keys(axisScores) as Axis[]).map((axis) => [axis, axisScores[axis].inputs])),
+    axisConfidence: Object.fromEntries((Object.keys(axisScores) as Axis[]).map((axis) => [axis, axisScores[axis].confidence])),
     weights,
     omega_pipeline: omegaResult.omega,
     omega_remaining_months_avg: omegaResult.remainingMonthsAvg,

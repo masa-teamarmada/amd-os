@@ -37,7 +37,7 @@ AMD Management Score は、AMD 全社 (= `p00`) の経営状態を月次で見�
 |---|---|---|
 | header メタ | 対象月 / 前月比 Δ / confidence / raw 件数 / 計算 timestamp / **build version** | `amd_management_score_snapshots` |
 | 今月の結論 | snapshot.summary 自動生成文 (= 1-3 行 narrative) | `amd_management_score_snapshots.summary` |
-| 死亡判定アラート | 債務超過 / runway < 1ヶ月 / 先手力 < 70% で赤帯 | `inputs_json.deathFlags` |
+| 死亡判定アラート | 債務超過 / runway < 1ヶ月 / 確認済みの先手力 < 90% で赤帯 | `inputs_json.deathFlags` |
 | score cards | Total / 先手力 / 財務 / 継続 / 新規 / 方向 (各 Δ chip 付き) | `amd_management_score_snapshots` |
 | finance metrics | Runway / Cash / 売上 予算・実績 / 純CF 予算・実績 | `company_budget_actual_monthly` |
 | 上げ要因 / 下げ要因 | evidence を axis 別 × impact 順 (= drilldown) | `amd_management_score_evidence` |
@@ -90,8 +90,8 @@ base_total =
 
 initiative_modifier (= 不可逆閾値):
   initiative_score ≥ 90% → × 1.0  (= 健全)
-  initiative_score 70-90% → × 0.7  (= 警告ゾーン)
-  initiative_score < 70% → × 0.3  (= 致命ゾーン、 巻き返し困難)
+  initiative_score < 90% → × 0.3  (= 危機状態、 ただし判定信頼度が十分な場合のみ)
+  起点不明 / 分類不足 → scoreではなく判定信頼度を下げ、不可逆ペナルティは発動しない
 
 death_clamp (= 死亡判定):
   net_assets < 0 (= 債務超過) → total = 0
@@ -116,8 +116,21 @@ death_clamp (= 死亡判定):
 - 先手力に不可逆閾値ペナルティを追加 (= まさ #82「夫婦関係冷え切ったら戻らない」アナロジー)
 - 新規軸の重みを動的化 (= まさ「工数余ってないなら新規行かない方が正解、 ただし大型案件残半年なら営業必須」)
 - 死亡判定を独立 (= 単純な加重平均では債務超過を表現できない)
-- 先手力の入力を「減点方式」に変更 (= 加点方式は unknown 多発で破綻していた)
+- 先手力の入力を「減点方式」に変更 (= 加点方式は unknown 多発で破綻していた)。ただし unknown は会社の後手化ではなく分類不足なので、点数低下ではなく判定信頼度低下として扱う。
 - 戦略接近度の入力を 6 個に全面差し替え (= まさ「AMD Score / protocol / venture / atlas は方向接近度の判定材料として弱い」)
+
+## 先手力の不可逆定義
+
+先手力は「AMDが未来を作る側に立てているか」を見る生命線であり、**90未満は危機状態**として扱う。70はアラート開始点ではない。70まで落ちた時点では、会社としてはすでに巻き返し困難に近い。
+
+ただし、危機判定に使えるのは **確認済みの後手イベント** だけ。`unknown` / 起点不明 / 分類不足 / source未取得は「会社が後手に回った証拠」ではないため、先手力点数を下げない。代わりに判定信頼度を下げ、画面では「暫定」「分類不足」「要確認」として出す。
+
+判定ルール:
+
+- 先手力 `>= 90`: 健全。不可逆ペナルティなし。
+- 先手力 `< 90` かつ判定信頼度が十分、かつ高impactの受け身eventが確認済み: 危機状態。総合点へ不可逆ペナルティをかける。
+- 先手力 `< 90` でも、分類済みevent不足・起点不明多数・判定信頼度不足: 危機候補ではあるが判定保留。総合点ペナルティは発動しない。
+- 起点不明が多い月: 前月確定値を暫定維持するか、分類済みeventだけで暫定計算し、判定信頼度を下げる。`55 / 70 / 85` のような非合意の点数capは禁止。
 
 ## raw signal 収集
 
@@ -169,7 +182,7 @@ GET /api/cron/management-score-calculate?ym=YYYYMM
 1. `amd_management_score_raw_signals` から対象 `ym` の row を全件読む
 2. axis ごとに 5 軸 score と confidence を計算する
 3. base_total を加算 (動的 ω_pipeline 込み)
-4. initiative_modifier 適用 (= 90/70% 閾値ペナルティ)
+4. initiative_modifier 適用 (= 確認済み先手力 < 90% の不可逆ペナルティ。分類不足時は発動しない)
 5. death_clamp 適用 (= 債務超過 / runway 枯渇)
 6. snapshot.summary を自動生成 (= rule-based narrative)
 7. `weights_json`, `inputs_json`, `confidence`, `summary`, `finance_cap_applied` 付きで `amd_management_score_snapshots` に `ym` upsert
@@ -198,7 +211,7 @@ Management Score は会社全体のバイタルサインなので、raw に残�
 
 - `routine_auto` は `confirmed_at` が入っていても Management Score では確認済として扱わない。
 - 継続軸の進捗根拠は PM locked かつ会社継続に効くMSだけに限定し、impact は固定値ではなく概算寄与点に寄せる。
-- 先手力は `unknown` が多い月に高得点を出さない。unknown比率が高い場合は score cap と confidence 低下を入れる。
+- 先手力は `unknown` が多い月でも点数capをかけない。分類不足は判定信頼度低下と「暫定/要確認」表示に分離する。
 - 財務は、実績未同期を `finance_data_missing` として分離する。本当に同期済みで実績0円なら `budget_variance` として悪化根拠に残す。
 - 方向性は、未実装sourceを `data_missing` として分離する。例: `amd_os_installations` 未作成は0件悪化ではなく confidence 低下として扱う。
 - 新規案件は deal 単位で重複排除する。`commercial_progress` は `project_id + expected_contract_ym + stage` を基本キーにまとめ、重複加点・重複表示を避ける。
@@ -238,7 +251,7 @@ initiative_score = clamp(100 - passive_ratio × 100, 0, 100)
 
 **減点しないもの**:`amd_proposed` / `co_decided` / `unknown` / 全 PJ の `impact < 3` の events。 「他人主導が明確かつ重要」(= partner_proposed/external × impact ≥ 3) だけが減点対象。
 
-**confidence**:`total_events < 5` の月は confidence 0.3 まで落とし、 UI に「データ不足」表示する。
+**判定信頼度**:`total_events < 5`、または分類済みeventが少ない月は判定信頼度を下げ、 UI に「データ不足 / 分類不足 / 暫定」表示する。判定信頼度が低い先手力では、総合点への不可逆ペナルティを発動しない。
 
 **抽出パイプライン** (= initiative_origin を埋めるところ):
 
@@ -371,10 +384,10 @@ direction_score =
 | 範囲 | modifier | UI 表示 |
 |---|---:|---|
 | 90% 以上 | × 1.0 | 緑 (健全) |
-| 70-90% | × 0.7 | **⚠️ 黄帯**「先手力低下傾向、 早期対応推奨」 |
-| 70% 未満 | × 0.3 | **🚨 赤帯**「存続危機、 巻き返し困難ゾーン」 |
+| 90% 未満 + 判定信頼度十分 + 確認済み後手eventあり | × 0.3 | **🚨 赤帯**「先手力危機、 即介入」 |
+| 90% 未満 + 分類不足 / 起点不明多数 / 判定信頼度不足 | × 1.0 | **灰帯**「判定保留、 分類不足」。総合点ペナルティなし |
 
-70% を**回復閾値**ではなく**致命閾値**として扱う。 90% を**警告閾値**として、 早期介入を促す (= 70% に到達してからでは遅い、 まさ #83)。
+90% 未満を**危機閾値**として扱う。70% は警告開始点ではなく、そこまで落ちた時点で会社としては手遅れに近い。したがって `70-90%` の黄帯段階は置かない。ただし、起点不明や分類不足だけで危機扱いしてはいけない。
 
 ### death_clamp (= 死亡判定)
 
@@ -399,10 +412,10 @@ direction_score =
 | `summary` | **人間が読む自然文 narrative** (= v4 で機械的 signal_key 表示から書き換え、 まさ #80) |
 | `source_type` / `source_ref` / `source_hash` | 元データへの参照 |
 | `impact` | score への概算影響。固定ラベルではなく、該当軸scoreへの寄与点に近い値を入れる |
-| `confidence` | 根拠の確からしさ |
+| `confidence` | 判定信頼度 / 根拠の確からしさ |
 | `payload` | 後から drilldown するための補助 JSON |
 
-`/management-score` の **「上げ要因 / 下げ要因」セクション**に impact 順で表示される。 各カードは「軸 chip / evidence_kind / impact / confidence / summary / source_ref / 詳細 (= payload 展開)」を表示する。 軸タブで filter 可能。
+`/management-score` の **「上げ要因 / 下げ要因」セクション**に impact 順で表示される。 各カードは「軸 chip / evidence_kind / impact / 判定信頼度 / summary / source_ref / 詳細 (= payload 展開)」を表示する。 軸タブで filter 可能。
 
 evidence summary の書き方ガイド (= v4):
 
