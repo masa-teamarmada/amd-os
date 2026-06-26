@@ -72,9 +72,7 @@ export function l2NotificationPriority(notification: L2NotificationLike): Notifi
 }
 
 export function meetingNotificationPriority(notification: MeetingNotificationLike): NotificationPriority {
-  if (hasOperationalCriticalToken([notification.title, notification.summary_short, notification.source_kinds])) {
-    return "critical";
-  }
+  void notification;
   return "normal";
 }
 

@@ -29,13 +29,13 @@ UI は `open` / `unread` / `answered` / `feedback` で絞り込み、展開時�
 | `critical` | 緊急性の高い通知 | まさが見落とすと事故る復旧・ガードレール・重要 blocker | `connector_auth`、Notion再認証、契約予兆、明示criticalの要対応、総会/役会、重要 automation blocker |
 
 実装は `pwa/src/lib/notification-priority.ts`。2026-06-26 時点では DB migration を増やさず、既存列から導出する。
-PWA の右下ポップアップは `pwa/src/components/notifications/CriticalRealtimeNotify.tsx` が担当し、`critical` と判定された未読の `app_notifications` / `l2_notifications` / `meeting_notifications` を Realtime + 10秒pollで拾う。`/notifications` の一覧・採否 UI は従来通りで、ポップアップは緊急通知を見落とさないための入口に限定する。L2/MTG のポップアップは `/notifications?notification_id=...` / `/notifications?meeting_id=...` に遷移し、通知ページは対象rowを追加取得・自動展開する。
+PWA の右下ポップアップは `pwa/src/components/notifications/CriticalRealtimeNotify.tsx` が担当し、`critical` と判定された未読の `app_notifications` / `l2_notifications` / `meeting_notifications` を Realtime + 10秒pollで拾う。`/notifications` の一覧・採否 UI は従来通りで、ポップアップは緊急通知を見落とさないための入口に限定する。L2 のポップアップは `/notifications?notification_id=...` に遷移し、通知ページは対象rowを追加取得・自動展開する。MTG 通知は本文中に緊急語があっても `normal` 固定で、緊急扱いが必要な場合は `connector_auth` / `guardrail_match` / `contract_signals` 等の専用通知として別発火させる。
 
 | source | 判定材料 |
 |---|---|
 | `app_notifications` | `kind='connector_auth'` は常に `critical`。`meta.priority/severity/urgency/notification_priority/notification_channel/risk_level` が `critical` / `urgent` / `blocker` 等なら `critical`。title/body/meta reason に再認証・blocker・事故・緊急・期限超過等の運用緊急語がある場合も `critical`。 |
 | `l2_notifications` | `l2_kind in ('contract_signals','shareholder_meeting')`、または明示 `notification_priority='critical'` がある場合は `critical`。その他の L2 候補は `normal`。`action_item` は `importance >= 8` だけでは `critical` にせず、期限超過 / blocker / 明示 critical の場合だけ `critical`。法務・NDA・SHAなどの話題語だけでは `critical` にしない。 |
-| `meeting_notifications` | MTGサマリは原則 `normal`。NDA / 契約 / 法務 / SHA / COI などの話題語だけでは `critical` にしない。緊急/至急/期限超過/認証切れ/blocker 等の明示的な事故・復旧語がある場合だけ `critical`。 |
+| `meeting_notifications` | 常に `normal`。MTGサマリは一次記録なので、NDA / 契約 / 法務 / SHA / COI / 再認証 / blocker 等の語が含まれても右下ポップアップにはしない。緊急扱いが必要なものは `connector_auth` / `guardrail_match` / `contract_signals` 等の専用通知で出す。 |
 
 将来 DB で固定する場合の設計案: `app_notifications.notification_priority` / `l2_notifications.notification_priority` / `meeting_notifications.notification_priority` を `text check in ('normal','critical') default 'normal'` で追加し、writer が明示する。後方互換のため、空なら同じ導出関数で補完する。
 
@@ -105,7 +105,7 @@ POST body:
 - `/notifications` は OS通知と L2/MTGレビューをそれぞれ「緊急性の高い通知」「通常通知」に分ける。
 - critical 未読通知は `/notifications` の表示に加えて右下ポップアップにも出る。
 - `connector_auth` は `critical` に入り、通常レビュー候補は `normal` に入る。
-- MTGサマリ本文に NDA / 契約 / 法務 / SHA / COI があるだけでは `critical` にならない。必要な緊急通知は `guardrail_match` / `contract_signals` / 明示 `notification_priority='critical'` で出す。
+- MTGサマリ本文に NDA / 契約 / 法務 / SHA / COI / 再認証 / blocker 等があっても `critical` にならない。必要な緊急通知は `connector_auth` / `guardrail_match` / `contract_signals` / 明示 `notification_priority='critical'` で出す。
 - `action_item` は「要対応」というラベルや high importance だけでは `critical` にならない。期限超過 / blocker / 明示 critical の場合だけ右下ポップアップ対象にする。
 - `?notification_id=` / `?meeting_id=` で開いた通知は、最新100件に含まれない場合も追加取得して表示し、自動展開する。
 - `comment` は `l2_feedbacks` だけ増え、候補 status を変えない。
