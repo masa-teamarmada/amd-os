@@ -116,6 +116,12 @@ raw source が不足して重大情報の落ち検知ができない場合は、
 - `waiting_for_reauth`
 - `reauth_required_stop`
 
+## user-facing report wording
+
+Notion connector がまだ再認証待ちでも、H-1 run 全体を機械的に「不完全」と書かない。対象MTGが無い、対象MTGが抽出窓外、予定カード同期 / Phase P だけを処理した run は、Notion 接続状態をメンテナンス項目として分けて報告する。
+
+「ノーションが取れていないので、この報告は不完全」は、Notion 欠落が会議本文の抽出・保存・レビュー判断に影響した対象MTGの説明にだけ付ける。再認証後の確認 run で Notion がまだ `oauth_token_invalid_grant` を返した場合は、「再認証画面は開けたが、H-1 が使う Notion 接続はまだ復旧していない」と書き、次の connector-auth 通知 ID / 未読状態を明記する。
+
 ## Miura 2026-06-26 example
 
 `SX MTG 三浦工業` のように Notion connector が再認証を要求した場合、H-1 はその場で Calendar event、Gmail scheduling / follow-up、Drive の SX資料、Slack、Chrome history / logged-in Notion を確認する。
