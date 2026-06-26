@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { LinkedMemberText } from "@/components/members/LinkedMemberText";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -15,6 +15,10 @@ type Props = {
   l2: Notification[];
   mtg: MeetingNotification[];
   feedbacks: Feedback[];
+  focus?: {
+    l2NotificationId?: string | null;
+    meetingId?: string | null;
+  };
   projectMap: Record<string, string>;
 };
 
@@ -88,7 +92,7 @@ function unifiedItemPriority(i: UnifiedItem): NotificationPriority {
     : meetingNotificationPriority(i.data);
 }
 
-export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
+export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [feedbackTexts, setFeedbackTexts] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState<Set<string>>(new Set());
@@ -105,6 +109,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
   const [unreadOverride, setUnreadOverride] = useState<Set<string>>(new Set());
   // 既読セクション全体のトグル (default 折りたたみ)
   const [readSectionOpen, setReadSectionOpen] = useState<boolean>(false);
+  const [focusHandledKey, setFocusHandledKey] = useState<string | null>(null);
 
   // 通知を時系列でマージ (l2 + meeting)
   const items: UnifiedItem[] = useMemo(() => {
@@ -119,6 +124,11 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
   // 表示判定: server の read_at (= 永続)、回答済み feedback、または readMap (= 当該セッションで開いた)
   const itemKey = (i: UnifiedItem): string =>
     i.kind === "l2" ? `l2-${i.data.notification_id}` : `mtg-${i.data.meeting_id}`;
+  const focusedKey = focus?.l2NotificationId
+    ? `l2-${focus.l2NotificationId}`
+    : focus?.meetingId
+      ? `mtg-${focus.meetingId}`
+      : null;
   const serverReadAt = (i: UnifiedItem): string | null => i.data.read_at ?? null;
   const findFeedbacksFor = (i: UnifiedItem): Feedback[] => {
     if (i.kind === "l2") {
@@ -146,19 +156,24 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
 
   // フィルタ: 回答済み通知はその場で未読から外す。
   const filtered = (() => {
+    const withFocused = (list: UnifiedItem[]) => {
+      if (!focusedKey || list.some((i) => itemKey(i) === focusedKey)) return list;
+      const focused = items.find((i) => itemKey(i) === focusedKey);
+      return focused ? [focused, ...list] : list;
+    };
     if (filter === "open") {
-      return items.filter((i) => !isAnswered(i));
+      return withFocused(items.filter((i) => !isAnswered(i)));
     }
     if (filter === "unread") {
-      return items.filter((i) => !isReadUi(i) && !isAnswered(i));
+      return withFocused(items.filter((i) => !isReadUi(i) && !isAnswered(i)));
     }
     if (filter === "answered") {
-      return items.filter((i) => isAnswered(i));
+      return withFocused(items.filter((i) => isAnswered(i)));
     }
     if (filter === "feedback") {
-      return items.filter((i) => hasFeedbackForItem(i));
+      return withFocused(items.filter((i) => hasFeedbackForItem(i)));
     }
-    return items.filter((i) => !isAnswered(i));
+    return withFocused(items.filter((i) => !isAnswered(i)));
   })();
 
   // 展開した瞬間に未読なら read_at = now() で UPDATE → 楽観的に readMap に反映
@@ -772,6 +787,30 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
     });
   };
 
+  useEffect(() => {
+    if (!focusedKey || focusHandledKey === focusedKey) return;
+    const focused = items.find((i) => itemKey(i) === focusedKey);
+    if (!focused) return;
+    setFocusHandledKey(focusedKey);
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      next.add(focusedKey);
+      return next;
+    });
+    if (!details[focusedKey]) {
+      void loadDetails(focused);
+    }
+    if (!serverReadAt(focused)) {
+      void markAsRead(focused);
+    }
+    window.setTimeout(() => {
+      document.getElementById(`notification-card-${focusedKey}`)?.scrollIntoView({
+        block: "center",
+        behavior: "smooth",
+      });
+    }, 150);
+  }, [details, focusedKey, focusHandledKey, items, loadDetails, markAsRead]);
+
   const submitFeedback = async (i: UnifiedItem, action: FeedbackAction = "comment") => {
     const key = itemKey(i);
     const text = (feedbackTexts[key] ?? "").trim();
@@ -871,6 +910,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, projectMap }: Props) {
           const priority = unifiedItemPriority(i);
           return (
             <div
+              id={`notification-card-${key}`}
               key={key}
               className={`border rounded-lg overflow-hidden ${
                 priority === "critical"

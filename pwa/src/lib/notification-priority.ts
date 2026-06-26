@@ -61,13 +61,13 @@ export function appNotificationPriority(notification: AppNotificationLike): Noti
 }
 
 export function l2NotificationPriority(notification: L2NotificationLike): NotificationPriority {
-  if ((notification.importance ?? 0) >= 8) return "critical";
-  if (CRITICAL_L2_KINDS.has(notification.l2_kind)) return "critical";
   const meta = objectValue(notification.metadata_json);
   if (hasExplicitCritical(meta)) return "critical";
+  if (CRITICAL_L2_KINDS.has(notification.l2_kind)) return "critical";
   if (hasOperationalCriticalToken([notification.l2_kind, notification.title, notification.summary, metaText(meta)])) {
     return "critical";
   }
+  if (notification.l2_kind !== "action_item" && (notification.importance ?? 0) >= 8) return "critical";
   return "normal";
 }
 

@@ -21,7 +21,14 @@ export const dynamic = "force-dynamic";
  *  4. 「⚠️ つくよみに修正依頼」フォームから l2_feedbacks INSERT
  *     → 次回の cron 抽出時に LLM プロンプトに含められる
  */
-export default async function NotificationsPage() {
+export default async function NotificationsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ notification_id?: string | string[]; meeting_id?: string | string[] }>;
+}) {
+  const params = searchParams ? await searchParams : {};
+  const focusNotificationId = firstParam(params.notification_id);
+  const focusMeetingId = firstParam(params.meeting_id);
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const email = user?.email?.toLowerCase() ?? "";
@@ -55,12 +62,33 @@ export default async function NotificationsPage() {
       .select("project_id, project_name"),
   ]);
 
+  let l2Rows = l2Res.data ?? [];
+  let mtgRows = mtgRes.data ?? [];
+
+  if (focusNotificationId && !l2Rows.some((row) => row.notification_id === focusNotificationId)) {
+    const { data } = await supabase
+      .from("l2_notifications")
+      .select("*")
+      .eq("notification_id", focusNotificationId)
+      .maybeSingle();
+    if (data) l2Rows = [data, ...l2Rows];
+  }
+
+  if (focusMeetingId && !mtgRows.some((row) => row.meeting_id === focusMeetingId)) {
+    const { data } = await supabase
+      .from("meeting_notifications")
+      .select("*")
+      .eq("meeting_id", focusMeetingId)
+      .maybeSingle();
+    if (data) mtgRows = [data, ...mtgRows];
+  }
+
   const projectMap: Record<string, string> = {};
   for (const p of projectsRes.data ?? []) {
     projectMap[p.project_id] = p.project_name;
   }
-  const l2Count = (l2Res.data ?? []).length;
-  const meetingCount = (mtgRes.data ?? []).length;
+  const l2Count = l2Rows.length;
+  const meetingCount = mtgRows.length;
   const feedbackCount = (feedbacksRes.data ?? []).length;
 
   return (
@@ -103,9 +131,10 @@ export default async function NotificationsPage() {
           <section className="dashboard-desk-section">
             <div className="dashboard-desk-section-title">L2 / MTG レビューキュー</div>
             <NotificationsClient
-              l2={(l2Res.data ?? []) as Notification[]}
-              mtg={(mtgRes.data ?? []) as MeetingNotification[]}
+              l2={l2Rows as Notification[]}
+              mtg={mtgRows as MeetingNotification[]}
               feedbacks={(feedbacksRes.data ?? []) as Feedback[]}
+              focus={{ l2NotificationId: focusNotificationId, meetingId: focusMeetingId }}
               projectMap={projectMap}
             />
           </section>
@@ -113,6 +142,11 @@ export default async function NotificationsPage() {
       </div>
     </div>
   );
+}
+
+function firstParam(value: string | string[] | undefined): string | null {
+  if (Array.isArray(value)) return value[0]?.trim() || null;
+  return value?.trim() || null;
 }
 
 // === 型 (NotificationsClient と共有、再エクスポート用にここでも宣言) ===
