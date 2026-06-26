@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import {
   fetchNotifications,
@@ -93,7 +94,21 @@ export function AppNotificationsSection() {
 function NotificationRow({ item, onChange }: { item: AppNotification; onChange: () => void }) {
   const [busy, setBusy] = useState(false);
   const isUnread = !item.read_at;
-  const meta = item.meta as { source_url?: string; vc_name?: string; news_kind?: string; task_id?: string; project_id?: string } | null;
+  const meta = item.meta as {
+    source_url?: string;
+    vc_name?: string;
+    news_kind?: string;
+    task_id?: string;
+    project_id?: string;
+    reauth_url?: string;
+    reauth_app_url?: string;
+    reauth_install_url?: string;
+    connector?: string;
+    connector_id?: string;
+    link_id?: string;
+    reason?: string;
+  } | null;
+  const primaryReauthUrl = meta?.reauth_url || meta?.reauth_install_url || meta?.reauth_app_url;
 
   const onRead = async () => {
     setBusy(true);
@@ -128,6 +143,7 @@ function NotificationRow({ item, onChange }: { item: AppNotification; onChange: 
               {item.source === "manual" && "✋ 手動"}
               {item.source === "system" && "⚙️ system"}
               {item.source === "task_agent" && "task agent"}
+              {item.source === "h1_meeting_flow" && "H-1"}
             </span>
             <span className="text-muted-foreground text-[10px] ml-auto">
               {new Date(item.created_at).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}
@@ -139,13 +155,13 @@ function NotificationRow({ item, onChange }: { item: AppNotification; onChange: 
           )}
           <div className="flex items-center gap-2 text-[11px] mt-2">
             {item.link && (
-              <Link
+              <SmartLink
                 href={item.link}
                 onClick={() => { if (isUnread) markNotificationRead(item.id).then(onChange); }}
                 className="underline text-primary"
               >
                 {item.link}
-              </Link>
+              </SmartLink>
             )}
             {meta?.source_url && (
               <a
@@ -157,6 +173,24 @@ function NotificationRow({ item, onChange }: { item: AppNotification; onChange: 
                 source
               </a>
             )}
+            {primaryReauthUrl && (
+              <SmartLink
+                href={primaryReauthUrl}
+                onClick={() => { if (isUnread) markNotificationRead(item.id).then(onChange); }}
+                className="rounded border border-primary/40 px-2 py-0.5 text-primary hover:bg-primary/10 text-[10px] whitespace-nowrap"
+              >
+                再認証を開く
+              </SmartLink>
+            )}
+            {meta?.reauth_app_url && meta.reauth_app_url !== primaryReauthUrl && (
+              <SmartLink
+                href={meta.reauth_app_url}
+                className="underline text-muted-foreground text-[10px] truncate"
+              >
+                コデックスで開く
+              </SmartLink>
+            )}
+            {meta?.connector && <span className="text-muted-foreground text-[10px] truncate">{connectorLabelJa(meta.connector)}{meta.reason ? ` / ${reasonLabelJa(meta.reason)}` : ""}</span>}
             {meta?.task_id && <span className="text-muted-foreground text-[10px] truncate">{meta.project_id} / {meta.task_id}</span>}
           </div>
         </div>
@@ -181,4 +215,61 @@ function NotificationRow({ item, onChange }: { item: AppNotification; onChange: 
       </div>
     </li>
   );
+}
+
+function SmartLink({
+  href,
+  children,
+  className,
+  onClick,
+}: {
+  href: string;
+  children: ReactNode;
+  className?: string;
+  onClick?: () => void;
+}) {
+  if (isInternalHref(href)) {
+    return (
+      <Link href={href} onClick={onClick} className={className}>
+        {children}
+      </Link>
+    );
+  }
+
+  const isWeb = href.startsWith("http://") || href.startsWith("https://");
+  return (
+    <a
+      href={href}
+      onClick={onClick}
+      target={isWeb ? "_blank" : undefined}
+      rel={isWeb ? "noreferrer" : undefined}
+      className={className}
+    >
+      {children}
+    </a>
+  );
+}
+
+function isInternalHref(href: string) {
+  return href.startsWith("/") && !href.startsWith("//");
+}
+
+function connectorLabelJa(connector: string) {
+  const labels: Record<string, string> = {
+    notion: "ノーション",
+    gmail: "メール",
+    drive: "ドライブ",
+    calendar: "カレンダー",
+    slack: "スラック",
+  };
+  return labels[connector] ?? connector;
+}
+
+function reasonLabelJa(reason: string) {
+  const labels: Record<string, string> = {
+    oauth_token_invalid_grant: "認証の有効期限切れ",
+    TRIGGER_REAUTHENTICATION: "再認証が必要",
+    reauth_required: "再認証が必要",
+  };
+  return labels[reason] ?? reason;
 }

@@ -1,6 +1,6 @@
 # MTG サマリ — 設計の正本
 
-最終更新: 2026-06-25 (MTG詳細共有導線の分離とPDF直接保存)
+最終更新: 2026-06-26 (Notion再認証待ち禁止 / H-1 source auth fallback)
 正本ステータス: 進化中。仕様変更したらここを同じ commit で更新する。
 
 ---
@@ -20,6 +20,7 @@ PJ コックピット (`/project/[projectId]/cockpit`) の **MTGサマリ枠** �
 - future Calendar sync: H-1 automation が **今日0:00 JSTから今後60日** の確定Calendar予定を `POST /api/meeting-prep/calendar-sync` に渡す。前回議事録がまだ無いPJでも、Calendar上で確定しているMTGは `upcoming:<calendar_event_id>` としてカード化する。ただし recurring MTG は series ごとに次回1件だけを保存・表示対象にし、それ以降の回はノイズとして同期/一覧表示しない。Google Calendar の `recurring_event_id` が無い場合は weekly cadence を推定できる series だけ同じ扱いにする。今日すでに開始済みの予定も、当日中はDrive資料やURL補強のため同期対象にする。PJ Drive folder に会議日フォルダや関連資料がある場合は、`drive_files` として予定カードの `関連Drive資料` に出す。
 - 会議後 workflow: PWA `POST /api/meeting-workflow/finalize` が、routine 生成済み議事録の `decided` / `next_actions` / `narrative_md` から **日時まで明確な次MTG候補を複数抽出**し、次MTGカード・action item・Slack nudge 予約を作る。完了イベントは `POST /api/meeting-workflow/actions/:actionId/complete` で受ける。ここでは **LLM を呼ばない**。
 - Notion 文字起こし導線: PWA の MTG サマリ / 予定MTGカードは、`project_meeting_summaries.notion_url` があれば **Notion文字起こしを開く** CTA を出す。未連携の場合、予定MTGは `source_url` の Calendar 予定を開き、Notion 側で録音/文字起こしを開始しやすくする。PWA から Notion の録音開始 API / 自動録音開始は呼ばない。あとから L6 が `notion_url` を埋めた場合に拾えるよう、カード上部に `メモ再読込` を置く。
+- Notion 再認証待ち禁止 + 即時復旧導線: Notion connector の `UNAUTHORIZED oauth_token_invalid_grant` / `TRIGGER_REAUTHENTICATION` は terminal blocker ではない。H-1 は Chrome / local fallback と Gmail / Drive / Slack / Calendar / AMD OS local artifact を同一ターンで試し、十分な会議本文があれば Notion なしで開催済み row を作る。同時に `app_notifications(kind='connector_auth')` で connector/app ID と再認証リンク付きの復旧アクションを作り、次回以降の connector を復旧させる。詳細は [`h1_source_auth_fallback.md`](h1_source_auth_fallback.md)。
 - H-1 reviewer: H-1保存直後に別automation `amd-os-l6-meeting-reviewer` が raw source と保存済み `summary_short` / `narrative_md` / 配列を突き合わせる。rawに CEO/社長/代表/VC/フルコミット/地元勢/PoC/PR など重大な経営判断があるのにH-1要約が薄い場合、H-1本文を自動上書きせず `l2_coverage_gaps` + `l2_notifications(l2_kind='coverage_gap')` に `proposed_target_l2='strategy_signal'` の review candidate を出す。詳細は [`../scheduled-tasks/amd-os-l6-meeting-reviewer/SKILL.md`](../scheduled-tasks/amd-os-l6-meeting-reviewer/SKILL.md)。
 
 このドキュメントは **PWA / GAS / Supabase 横断の正本**。
@@ -36,6 +37,7 @@ PJ コックピット (`/project/[projectId]/cockpit`) の **MTGサマリ枠** �
 - **旧GAS LLM cron**: 153 / 152 は kill switch 維持。Gemini 経路なので復活させない。LLM 非依存の運用 cron はこの禁止対象ではない。
 - **Notion eventId 方針**: Calendar event と Notion page の両方を見ている MMO automation が、該当 Notion page に `eventId` / 相当プロパティを可能な範囲で追記する。`eventId` が空でも title + event date + attendees + Gemini/Drive/Gmail URL で fallback し、欠損だけを理由に議事録を skip しない。
 - **held-source guard**: Calendar 添付の Gemini / Google Meet notes Doc、Notion eventId 空の fallback match、`projects.report_emails` 空 PJ の Gmail Gemini notes / follow-up hit は、開催済みソースとして扱う。既存 `upcoming:<calendar_event_id>` は残し、開催済み row は `meeting_id=<calendar_event_id>` で別行作成し、可能なら `prep_source_meeting_id` で紐付ける。再発防止 fixture は `npm run test:l6-held-source-guard`。
+- **Notion auth fallback**: Notion connector の再認証要求は停止理由にしない。Chrome / local fallback で Notion を探し、取れない場合も Gmail / Drive / Slack / Calendar / upcoming prep artifact へ進む。Notion なしで十分な本文が取れたら `source_kinds` は実 source だけにして保存する。本文不足なら `held_source_missing_after_reauth_bypass` / `review_required_raw_source_insufficient` として試行経路を残し、`blocked_notion_auth` / `waiting_for_reauth` では止めない。正本は [`h1_source_auth_fallback.md`](h1_source_auth_fallback.md)。
 
 品質劣化の主因は「元のAI議事録が低品質」ではなく、OS側が `summary_short` と配列へ潰して表示していたこと。正しい修正は、routine が `narrative_md` を本文として保存し、UI がそれを主表示すること。
 
@@ -577,6 +579,7 @@ R313 を会議サマリ集約方式に書き換える TODO は廃止。必要な
 | 日付 | 範囲 | commit / 状態 |
 |---|---|---|
 | 2026-05-08 | Phase 1 仕様 md 初版 + PWA UI + GAS 実装 + migration 024 / 025 | 7f1aa74 |
+| 2026-06-26 | **Notion再認証待ち禁止 + connector_auth再認証アクションを正本化**: H-1 extractor / reviewer は `oauth_token_invalid_grant` / `TRIGGER_REAUTHENTICATION` を terminal blocker にせず、Chrome / local fallback と Gmail / Drive / Slack / Calendar / AMD OS artifact へ即時分岐する。同時に `app_notifications(kind='connector_auth')` を作り、connector/app ID と再認証リンクを残す。新規設計 [`h1_source_auth_fallback.md`](h1_source_auth_fallback.md)。 | 本セッション |
 | 2026-05-09 | **Phase 2 移行** (本仕様書き直し) | brave-cohen-15d352 セッション |
 | 2026-05-09 | gas/074_MeetingSummaryRepo.js を Phase 2 に書き直し (Notion + Gmail 結合) | 同上 |
 | 2026-05-09 | gas/092_AdminLLMExtractors.js: meeting_extract prompt v2 (combined sources) + version 260509_02 | 同上 |

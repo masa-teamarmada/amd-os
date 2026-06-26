@@ -93,6 +93,25 @@ TestFlight build: 21（未 upload のまま）
 
 ---
 
+## 2026-06-26 追記: connector_auth 再認証通知
+
+### 15. connector_auth reauth notification
+**動機**: Notion connector などが `TRIGGER_REAUTHENTICATION` / `oauth_token_invalid_grant` で切れたとき、PWAだけでなくSwift版でも即ローカル通知を出し、通知タップで再認証へ直行できるようにした。
+
+- DB
+  - `app_notifications.native_notified_at` を追加。Swiftローカル通知の配信済み marker。人間既読は既存 `read_at` のまま。
+- PWA/H-1
+  - `app_notifications(kind='connector_auth')` に `meta.reauth_url` / `meta.reauth_app_url` / `meta.connector_id` / `meta.link_id` を入れる。
+- Swift
+  - `NotificationService.pollConnectorAuthNotifications()` が `kind='connector_auth' AND native_notified_at IS NULL AND read_at IS NULL AND dismissed_at IS NULL` を取得し、`AMD_CONNECTOR_AUTH_NOTIFICATION` のローカル通知を即表示。
+  - 通知タップ時は `NotificationService.handleNotificationTap` が `kind='connector_auth'` を検知し、通知ボックスを挟まず `reauthUrl` を `UIApplication.shared.open` で開く。同時に `read_at` を打つ。
+
+### Android 反映メモ
+- `app_notifications.native_notified_at` 相当の端末配信済み marker を使う。
+- connector_auth は通常の採否通知UIへ混ぜず、通知タップで `meta.reauth_url` を直接開く。
+
+---
+
 ## 18:30 追記: バリュープラン確定UI + マイページ想定報酬表示
 
 ### 12. `180db47` Add admin-only "Fix plan" button to PJ progress

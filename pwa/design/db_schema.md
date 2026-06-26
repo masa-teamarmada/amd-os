@@ -263,6 +263,7 @@ PRIMARY KEY: `id`
 | 11 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 | 12 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
 | 13 | `related_seed_id` | `uuid` | NULL | `` |
+| 14 | `native_notified_at` | `timestamptz` | NULL | `` |
 
 ## atlas_decisions
 

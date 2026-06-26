@@ -11,7 +11,7 @@
 > - えいみ（Win側 Android担当）が「これ知らない画面なんだけど…」となったら必ずここを参照する
 > - えいみがここを見て知らない画面があるならアラート → 即同期する
 >
-> 最終更新: 2026-05-20 (Swift 通知受信箱・回答導線を追加)
+> 最終更新: 2026-06-26 (connector_auth 再認証通知を追加)
 
 ---
 
@@ -77,9 +77,11 @@
 - マイページ最上部 → 「通知ボックス」
 - ローカル通知タップ → `NotificationInboxView` を sheet 表示し、該当通知を展開
 - ローカル通知アクション → `はい` / `いいえ` / `コメント` を直接送信
+- `app_notifications(kind='connector_auth')` → Swiftローカル通知。これは回答対象ではなく、通知タップで `meta.reauth_url` を即開く。
 
 表示:
 - `l2_notifications` と `meeting_notifications` を作成日時降順で統合表示
+- connector auth は通知ボックスには混ぜず、OSローカル通知から直接再認証へ飛ばす。配信済み管理は `app_notifications.native_notified_at`、人間既読は `app_notifications.read_at`。
 - フィルタ: `すべて` / `未読` / `回答済み`
 - `すべて` と `未読` には未回答の通知だけを表示し、回答済みの通知は `回答済み` に移動
 - カード展開で通知本文、関連データ、過去の回答・コメント、回答フォームを表示

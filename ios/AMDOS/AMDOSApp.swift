@@ -74,7 +74,13 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             intentIdentifiers: [],
             options: []
         )
-        center.setNotificationCategories([l2, meeting])
+        let connectorAuth = UNNotificationCategory(
+            identifier: "AMD_CONNECTOR_AUTH_NOTIFICATION",
+            actions: [],
+            intentIdentifiers: [],
+            options: []
+        )
+        center.setNotificationCategories([l2, meeting, connectorAuth])
     }
 
     /// foreground 中でもバナー + サウンドを出す
@@ -200,6 +206,55 @@ struct MeetingNotification: Codable, Identifiable, Sendable {
         case summaryShort = "summary_short"
         case notifiedAt = "notified_at"
         case createdAt = "created_at"
+    }
+}
+
+struct AppConnectorAuthNotification: Decodable, Identifiable {
+    let id: String
+    let kind: String
+    let title: String
+    let body: String?
+    let link: String?
+    let meta: [String: AnyCodable]?
+    let nativeNotifiedAt: String?
+    let readAt: String?
+    let dismissedAt: String?
+    let createdAt: String
+    let updatedAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case kind
+        case title
+        case body
+        case link
+        case meta
+        case nativeNotifiedAt = "native_notified_at"
+        case readAt = "read_at"
+        case dismissedAt = "dismissed_at"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+
+    var reauthURL: String? {
+        stringMeta("reauth_url")
+            ?? stringMeta("reauth_install_url")
+            ?? stringMeta("reauth_app_url")
+            ?? link
+    }
+
+    var connector: String {
+        stringMeta("connector") ?? "connector"
+    }
+
+    var reason: String {
+        stringMeta("reason") ?? "reauth_required"
+    }
+
+    private func stringMeta(_ key: String) -> String? {
+        guard let value = meta?[key]?.value as? String else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }
 
@@ -367,14 +422,20 @@ final class NotificationService: ObservableObject {
 
         async let l2Count = pollL2Notifications()
         async let mtgCount = pollMeetingNotifications()
+        async let connectorAuthCount = pollConnectorAuthNotifications()
 
         let l2 = (try? await l2Count) ?? 0
         let mtg = (try? await mtgCount) ?? 0
+        let connectorAuth = (try? await connectorAuthCount) ?? 0
         lastFetchedAt = Date()
-        lastShownCount = l2 + mtg
+        lastShownCount = l2 + mtg + connectorAuth
     }
 
     func handleNotificationTap(userInfo: [AnyHashable: Any]) {
+        if (userInfo["kind"] as? String) == "connector_auth" {
+            openConnectorAuthReauth(userInfo: userInfo)
+            return
+        }
         guard let link = NotificationDeepLink(userInfo: userInfo) else {
             lastError = "通知の遷移情報を読めなかった"
             return
@@ -519,5 +580,94 @@ final class NotificationService: ObservableObject {
             .update(["notified_at": iso])
             .eq("meeting_id", value: meetingId)
             .execute()
+    }
+
+    // MARK: - Connector Auth Notifications (app_notifications)
+
+    @discardableResult
+    func pollConnectorAuthNotifications() async throws -> Int {
+        do {
+            let rows: [AppConnectorAuthNotification] = try await client
+                .from("app_notifications")
+                .select("id,kind,title,body,link,meta,native_notified_at,read_at,dismissed_at,created_at,updated_at")
+                .eq("kind", value: "connector_auth")
+                .is("native_notified_at", value: nil)
+                .is("read_at", value: nil)
+                .is("dismissed_at", value: nil)
+                .order("updated_at", ascending: false)
+                .limit(20)
+                .execute()
+                .value
+
+            for row in rows {
+                await showConnectorAuthLocalNotification(row)
+                try? await markConnectorAuthNativeNotified(id: row.id)
+            }
+            return rows.count
+        } catch {
+            lastError = "connector_auth fetch failed: \(error.localizedDescription)"
+            throw error
+        }
+    }
+
+    private func showConnectorAuthLocalNotification(_ n: AppConnectorAuthNotification) async {
+        let content = UNMutableNotificationContent()
+        content.title = n.title
+        content.body = (n.body ?? "").isEmpty
+            ? "\(n.connector) / \(n.reason)。タップして再認証を開く。"
+            : (n.body ?? "")
+        content.sound = .default
+        content.threadIdentifier = "connector-auth"
+        content.categoryIdentifier = "AMD_CONNECTOR_AUTH_NOTIFICATION"
+        content.userInfo = [
+            "kind": "connector_auth",
+            "notificationId": n.id,
+            "connector": n.connector,
+            "reason": n.reason,
+            "reauthUrl": n.reauthURL ?? "",
+        ]
+        let req = UNNotificationRequest(
+            identifier: "connector-auth-\(n.id)",
+            content: content,
+            trigger: nil
+        )
+        try? await UNUserNotificationCenter.current().add(req)
+    }
+
+    private func markConnectorAuthNativeNotified(id: String) async throws {
+        let iso = ISO8601DateFormatter().string(from: Date())
+        try await client
+            .from("app_notifications")
+            .update(["native_notified_at": iso])
+            .eq("id", value: id)
+            .execute()
+    }
+
+    private func markConnectorAuthRead(id: String) async throws {
+        let iso = ISO8601DateFormatter().string(from: Date())
+        try await client
+            .from("app_notifications")
+            .update(["read_at": iso, "updated_at": iso])
+            .eq("id", value: id)
+            .execute()
+    }
+
+    private func openConnectorAuthReauth(userInfo: [AnyHashable: Any]) {
+        let notificationId = userInfo["notificationId"] as? String
+        if let notificationId {
+            Task { try? await markConnectorAuthRead(id: notificationId) }
+        }
+        guard let rawURL = userInfo["reauthUrl"] as? String,
+              let url = URL(string: rawURL) else {
+            lastError = "再認証リンクを開けなかった"
+            return
+        }
+        UIApplication.shared.open(url) { success in
+            if !success {
+                Task { @MainActor in
+                    self.lastError = "再認証リンクを開けなかった"
+                }
+            }
+        }
     }
 }

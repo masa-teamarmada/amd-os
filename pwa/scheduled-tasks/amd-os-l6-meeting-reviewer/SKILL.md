@@ -16,18 +16,21 @@ H-1 extractor の問いは「この会議を議事録化する」。
 
 ## 報告言語
 
-- 最終報告、H-1結果報告への追記、ツッコミ本文は **日本語** で書く。
-- `project_meeting_summaries` / `coverage_gap` / `source_hash` などのコード識別子、DB列名、route名だけはそのまま英語でよい。
-- 「No issues」「reviewed」「flagged」などの英語だけの報告は禁止。必ず「確認件数」「要確認件数」「送信したcoverage gap」「ブロッカー」のように日本語で書く。
+- 最終報告、H-1結果報告への追記、ツッコミ本文は、コーディングが一切分からない高校生でも理解できる日本語で書く。
+- 無駄なアルファベット、コード名、DB列名、英語の状態名をユーザー向け報告に出さない。必要な場合だけ、日本語の説明を先に書き、括弧内に短く補足する。例: `DB` ではなく「保存先」、`coverage_gap` ではなく「要確認として残した見落とし候補」。
+- Notion / Calendar / Drive / Slack / Gmail は、必要なら「ノーション」「カレンダー」「ドライブ」「スラック」「メール」と書き、サービス名の羅列だけで説明を終えない。
+- 「No issues」「reviewed」「flagged」などの英語だけの報告は禁止。必ず「確認件数」「要確認件数」「要確認として残した見落とし候補」「ブロッカー」のように日本語で書く。
+- Notion が取れていない場合は、報告の最初に「ノーションが取れていないので、この確認は不完全」と明記する。代替ソースだけで確認した結果を「問題なし」「重大な落ちは検知なし」と言い切らない。
 
 ## 必ず読む
 
 1. `pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md`
 2. `pwa/design/meeting_summaries.md`
-3. `pwa/design/coverage_gap_scanner.md`
-4. `pwa/design/L2_DATA.md`
-5. `pwa/design/db_schema.md`
-6. `pwa/scripts/lib/h1_meeting_summary_reviewer.mjs`
+3. `pwa/design/h1_source_auth_fallback.md`
+4. `pwa/design/coverage_gap_scanner.md`
+5. `pwa/design/L2_DATA.md`
+6. `pwa/design/db_schema.md`
+7. `pwa/scripts/lib/h1_meeting_summary_reviewer.mjs`
 
 ## 実行タイミング
 
@@ -48,7 +51,9 @@ raw source:
 
 - Notion: visible summary だけで止まらず、**文字起こし / transcript block** まで読む。
 - Gmail/Drive/Slack/Calendar: H-1が使った source refs があれば同じ raw を再取得する。
-- Notion connector が `UNAUTHORIZED oauth_token_invalid_grant` の場合、Codex Desktop / Chrome のログイン済みNotionを使って確認する。認証切れだけで諦めない。
+- Notion connector が `UNAUTHORIZED oauth_token_invalid_grant` / `TRIGGER_REAUTHENTICATION` の場合、再認証を待たずに Codex Desktop / Chrome のログイン済みNotion、browser history、open tabs、local cache を read-only で確認する。取れない場合も Gmail / Drive / Slack / Calendar source refs でレビューを続ける。
+- auth failure を検知したら `npm run notify:connector-auth -- --connector notion --source h1_meeting_flow --reason <reason> --context "<meeting_id / title>" --dedupe-hours 24` を best-effort で実行し、PWA/Swift 両方が拾える connector/app ID と再認証リンク付きの復旧アクションを即作る。
+- raw source が不足してレビュー不能な場合は `review_required_raw_source_insufficient` として coverage gap candidate に回す。`reviewer_blocked_notion_auth` / `waiting_for_reauth` は terminal status として使わない。
 
 ## レビュー観点
 
@@ -144,18 +149,19 @@ H-1 run summary / result chat には、レビュアーの結果を必ず日本�
 ```
 H-1レビュアー:
 - 要確認: 1
-  - SX 1on1 杉浦先生: rawに CEO/VC/地元勢転換があるのにH-1要約がBizDev分担へ丸まり気味。coverage_gap に送信済み。
+  - SX 杉浦先生との会議: 元の会議メモでは代表を誰が担うか、資金調達の方針転換、地元企業との進め方が話されているのに、H-1要約では担当分担の話に薄まっている。要確認として残した。
 ```
 
 ゼロ件なら:
 
 ```
-H-1レビュアー: 重大な落ちは検知なし
+H-1レビュアー: ノーションまで確認できた範囲では、重大な見落としは見つからなかった
 ```
 
 ## 禁止
 
 - H-1 row を reviewer が自動上書きしない。修正は `coverage_gap` → `/notifications` → 人間確認後。
 - raw Notion/Gmail/Slack/Drive全文を DB に保存しない。
-- 「Notion認証切れ」だけでレビューを諦めない。少なくとも `reviewer_blocked_notion_auth` を run summary に残す。
+- 「Notion認証切れ」だけでレビューを諦めない。Chrome / local fallback と Gmail / Drive / Slack / Calendar source refs を試す。
+- `reviewer_blocked_notion_auth` / `waiting_for_reauth` を terminal status にしない。fallback 後も raw が足りなければ `review_required_raw_source_insufficient` と試行経路を残す。
 - 普通のTODOや日程調整を gap にしない。これは「重大情報が落ちたか」だけを見る。

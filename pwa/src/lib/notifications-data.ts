@@ -11,6 +11,7 @@ export type NotificationKind =
   | "vc_news"
   | "vc_fund"
   | "task_created"
+  | "connector_auth"
   | "misc";
 
 export interface AppNotification {
@@ -22,6 +23,7 @@ export interface AppNotification {
   meta: Record<string, unknown> | null;
   related_vc_id: string | null;
   source: string;
+  native_notified_at: string | null;
   read_at: string | null;
   dismissed_at: string | null;
   created_at: string;
@@ -33,6 +35,7 @@ export const NOTIFICATION_KIND_LABEL: Record<string, string> = {
   vc_news: "📰 VC ニュース",
   vc_fund: "💰 ファンド更新",
   task_created: "タスク追加",
+  connector_auth: "再認証",
   misc: "その他",
 };
 

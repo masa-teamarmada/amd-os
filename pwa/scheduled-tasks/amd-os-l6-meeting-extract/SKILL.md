@@ -26,18 +26,28 @@ GAS 153 `nav_meeting_pollRecentlyEndedEvents` + GAS 074 `nav_meeting_processOneE
 - **次MTGカードの境界**: 議事録内に日時まで明確な次MTGがある場合だけ、PWA `POST /api/meeting-workflow/finalize` 経由で `source_kinds='upcoming'` を作る。`6月3週目以降` のような日程未確定候補は自動で確定予定にしない。必要なものは `upcoming_tentative` として「日程調整中MTG」に残す。
 - **Notion eventId は MMO 側で埋める**: Calendar event から Notion 議事録ページを見つけたら、MMO automation は可能な範囲で Notion page の `eventId` / 相当プロパティに Calendar event id を追記する。これは次回以降の冪等性と traceability のためで、PWA/GAS 側ではなく L6 writer 側の責務。
 - **eventId 欠損で弾かない**: Notion page に `eventId` が無いのは欠落インシデントとして記録しつつ、必ず title + event date + attendees + Gemini/Drive/Gmail URL で fallback 検索する。`eventId` が無いことだけを理由に `source_kinds='none'` や `skip_no_notion_event_id` にしない。
+- **Notion 再認証待ち禁止**: Notion connector が `UNAUTHORIZED oauth_token_invalid_grant` / `TRIGGER_REAUTHENTICATION` を返しても、H-1 は止まらない。Chrome / local fallback と Gmail / Drive / Slack / Calendar / AMD OS artifact を同一ターンで読み、十分な会議本文があれば Notion なしで開催済み row を作る。詳細は `pwa/design/h1_source_auth_fallback.md`。
 - **held-source preflight guard**: Calendar event に Gemini/Google Meet notes Doc 添付、Notion fallback hit、Gmail Gemini notes / follow-up がある場合は、既存 `upcoming:<event_id>` があっても開催済み `meeting_id=<event_id>` 候補へ進む。fixture guard は `npm run test:l6-held-source-guard`。これは外部サービスや DB に触らない deterministic test で、飯野さんケース相当 (`Calendar添付Geminiメモ + Notion eventId空 + report_emails空`) を落とさないことを検査する。
+
+## ユーザー向け報告の書き方
+
+- 報告は、コーディングが一切分からない高校生でも理解できる日本語で書く。
+- 無駄なアルファベット、コード名、DB列名、英語の状態名をユーザー向け報告に出さない。必要な場合だけ、日本語の説明を先に書き、括弧内に短く補足する。例: `DB` ではなく「保存先」、`cron` ではなく「定期実行」、`source_hash` ではなく「取得元が同じかの確認」。
+- Notion / Calendar / Drive / Slack / Gmail は、必要なら「ノーション」「カレンダー」「ドライブ」「スラック」「メール」と書き、サービス名の羅列だけで説明を終えない。
+- Notion が取れていない場合は、報告の最初に「ノーションが取れていないので、この報告は不完全」と明記する。代替ソースだけで動いた run を「問題なし」「かなり良い」「正常」と表現しない。
+- raw 本文や個人情報は出さない。ただし、何が取れて何が取れていないかは、日本語で具体的に書く。
 
 ## 【絶対】 動く前に必ず Read
 
 1. `pwa/manual/3-2-data-and-extraction.md` (§3.1 取り込み path / §3.2 M/W/D/H L2正本 / §3.4 修正依頼ループ)
 2. `pwa/manual/9-1-decisions-and-history.md` (§5.4 責務分担マトリクス / §5.7 L2 ghost 復旧計画)
 3. `pwa/design/meeting_summaries.md` (= MTG サマリ仕様正本)
-4. `pwa/design/db_schema.md` (= **列名は想像で書かない、必ず grep**)
-5. `pwa/design/l2_extract_claude_routine.md` (= 設計議論)
-6. `gas/074_MeetingSummaryRepo.js` (= 元実装、source_kinds 判定 / Notion 3 段 fallback / Notion AI transcription block 取得 / Gmail thread filter)
-7. `gas/153_MeetingHourlyTrigger.js` (= 元 polling)
-8. `gas/079_NameAliasMap.js` (= 名前正規化マップ)
+4. `pwa/design/h1_source_auth_fallback.md` (= Notion 再認証待ち禁止 / fallback ladder)
+5. `pwa/design/db_schema.md` (= **列名は想像で書かない、必ず grep**)
+6. `pwa/design/l2_extract_claude_routine.md` (= 設計議論)
+7. `gas/074_MeetingSummaryRepo.js` (= 元実装、source_kinds 判定 / Notion 3 段 fallback / Notion AI transcription block 取得 / Gmail thread filter)
+8. `gas/153_MeetingHourlyTrigger.js` (= 元 polling)
+9. `gas/079_NameAliasMap.js` (= 名前正規化マップ)
 
 ═══════════════════════════════════════════════════
 Phase 0: env と calendar の準備
@@ -193,6 +203,8 @@ npm run test:l6-held-source-guard
     - 1 件採用
     - 複数ヒット時は title 類似度、attendees、Calendar/Drive/Gmail URL一致、created/edited time で rank し、曖昧なら Notion source なしとして他 source へ進む。
 13. すべて失敗なら **notion なし** として `notionText = ""` で続行 (= Gmail / Drive / Slack 拾えるかも)。`eventId` が無いから失敗扱いにしない。
+
+**Auth failure branch**: Notion connector が `UNAUTHORIZED oauth_token_invalid_grant` / `TRIGGER_REAUTHENTICATION` / reauth required を返した場合も、ユーザーの再認証を待たない。可能なら最小 Notion connector ping だけで host 側の再認証 UI を発火し、すぐ `npm run notify:connector-auth -- --connector notion --source h1_meeting_flow --reason <reason> --context "<title / date>" --dedupe-hours 24` を実行する。この helper は connector/app ID と再認証リンクを自動解決し、`app_notifications(kind='connector_auth')` に PWA/Swift 両方が拾える復旧アクションを残す。既存未読通知がある場合は最新payloadへ更新し、Swift再通知用に `native_notified_at` も NULL に戻す。その後、Chrome / Codex Desktop のログイン済み Notion、browser history、open tabs、local cache を read-only で確認し、取れなければ `notionText=""` のまま B-3 以降へ進む。run summary には `notion_connector_reauth_bypassed`、`connector_auth_notification_created` または `connector_auth_notification_updated`、fallback 結果 (`notion_browser_fallback_used` / `notion_browser_fallback_unavailable`) を残す。terminal status として `blocked_notion_auth` / `waiting_for_reauth` を使うのは禁止。
 
 ### B-2: Notion ページ本文取得 (= GAS 074 `_meeting_fetchAiNotesBody_` + `nav_repo_notion_fetchPageBodyText` 移植)
 
@@ -802,6 +814,7 @@ Phase E: run summary
 - bot メール / bot Slack メッセージ / 自動配信を抽出対象に含める (= GAS と同じ noise reduction)
 - service_role 以外で Supabase を叩く (= anon key は RLS で蹴られる、必ず SUPABASE_SERVICE_ROLE_KEY)
 - Calendar `list_events` の `eventTypeFilter` で `outOfOffice` 等の noise type を含める (= default 値で OK)
+- Notion 再認証を terminal blocker にする (= `blocked_notion_auth` / `waiting_for_reauth` 禁止。`pwa/design/h1_source_auth_fallback.md` の fallback ladder を実行する)
 
 ═══════════════════════════════════════════════════
 【参考】
