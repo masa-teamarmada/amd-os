@@ -29,6 +29,7 @@ UI は `open` / `unread` / `answered` / `feedback` で絞り込み、展開時�
 | `critical` | 緊急性の高い通知 | まさが見落とすと事故る復旧・ガードレール・重要 blocker | `connector_auth`、Notion再認証、契約予兆、要対応、総会/役会、重要 automation blocker |
 
 実装は `pwa/src/lib/notification-priority.ts`。2026-06-26 時点では DB migration を増やさず、既存列から導出する。
+PWA の右下ポップアップは `pwa/src/components/notifications/CriticalRealtimeNotify.tsx` が担当し、`critical` と判定された未読の `app_notifications` / `l2_notifications` / `meeting_notifications` を Realtime + 10秒pollで拾う。`/notifications` の一覧・採否 UI は従来通りで、ポップアップは緊急通知を見落とさないための入口に限定する。
 
 | source | 判定材料 |
 |---|---|
@@ -102,6 +103,7 @@ POST body:
 
 - `/notifications` は non-admin で表示されない。
 - `/notifications` は OS通知と L2/MTGレビューをそれぞれ「緊急性の高い通知」「通常通知」に分ける。
+- critical 未読通知は `/notifications` の表示に加えて右下ポップアップにも出る。
 - `connector_auth` は `critical` に入り、通常レビュー候補は `normal` に入る。
 - `comment` は `l2_feedbacks` だけ増え、候補 status を変えない。
 - `yes` / `no` は対象 table の status 遷移と `l2_feedbacks.feedback_text` prefix (`[はい]` / `[いいえ]`) を確認する。

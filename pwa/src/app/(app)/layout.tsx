@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { GlobalNav } from "@/components/nav/GlobalNav";
 import { PageTitleSetter } from "@/components/nav/PageTitleSetter";
-import { ConnectorAuthRealtimeNotify } from "@/components/notifications/ConnectorAuthRealtimeNotify";
+import { CriticalRealtimeNotify } from "@/components/notifications/CriticalRealtimeNotify";
 import { TsukuyomiChatBridge } from "@/components/tsukuyomi/TsukuyomiChatBridge";
 import { createClient } from "@/lib/supabase/server";
 
@@ -109,7 +109,7 @@ export default async function AppLayout({
       <PageTitleSetter />
       {!useHudShellOnly && <GlobalNav userCodeName={userCodeName} isAdmin={isAdmin} memberId={memberId} />}
       <main className={hudSkinned ? "amd-hud-page-skin flex-1" : "flex-1"}>{children}</main>
-      {isAdmin && <ConnectorAuthRealtimeNotify />}
+      {isAdmin && <CriticalRealtimeNotify />}
       <TsukuyomiChatBridge />
     </>
   );
