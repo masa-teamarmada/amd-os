@@ -195,6 +195,218 @@ function textIncludesAny(value: unknown, patterns: string[]) {
   return patterns.some((pattern) => text.includes(pattern.toLowerCase()));
 }
 
+function normalizeRetentionText(value: string): string {
+  return value.replace(/請求項/g, "クレーム");
+}
+
+function textList(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => (typeof item === "string" ? item : JSON.stringify(item)))
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  if (value == null) return [];
+  const text = String(value).trim();
+  return text ? [text] : [];
+}
+
+const RETENTION_STRONG_NEGATIVE_PATTERNS = [
+  "失注",
+  "解約",
+  "打ち切り",
+  "契約終了",
+  "契約停止",
+  "継続停止",
+  "支援停止",
+  "予算難",
+  "予算不足",
+  "予算未確保",
+  "予算縮小",
+  "入金遅延",
+  "支払遅延",
+  "支払い遅延",
+  "未払い",
+  "請求未回収",
+  "凍結",
+  "freeze",
+];
+
+const RETENTION_CONDITIONAL_NEGATIVE_PATTERNS = [
+  "停止",
+  "中止",
+  "見送り",
+  "遅延",
+  "滞留",
+  "リスク",
+  "難航",
+  "未確定",
+];
+
+const RETENTION_BUSINESS_CONTEXT_PATTERNS = [
+  "amd",
+  "チームアルマダ",
+  "契約",
+  "継続",
+  "更新",
+  "支援",
+  "受託",
+  "委託",
+  "売上",
+  "請求",
+  "入金",
+  "支払",
+  "支払い",
+  "予算",
+  "報酬",
+  "稼働",
+  "体制",
+  "pm",
+  "顧客",
+  "クライアント",
+  "取り分",
+  "ランウェイ",
+];
+
+const RETENTION_OPERATING_CONTEXT_PATTERNS = [
+  "amd",
+  "チームアルマダ",
+  "支援",
+  "受託",
+  "委託",
+  "売上",
+  "請求",
+  "入金",
+  "支払",
+  "支払い",
+  "予算",
+  "報酬",
+  "稼働",
+  "体制",
+  "pm",
+  "顧客",
+  "クライアント",
+  "取り分",
+  "ランウェイ",
+];
+
+const PROJECT_INTERNAL_ONLY_PATTERNS = [
+  "技術実証",
+  "100mk",
+  "nmr",
+  "mri",
+  "poc",
+  "センサー",
+  "知財",
+  "創業株主",
+  "エクイティ",
+  "出資",
+  "資本",
+  "特許",
+  "実験",
+  "研究",
+  "装置",
+  "dd",
+  "投資判断",
+];
+
+const RETENTION_STRONG_POSITIVE_PATTERNS = [
+  "支援継続",
+  "契約更新",
+  "契約継続",
+  "次期契約",
+  "来期契約",
+  "追加契約",
+  "予算確保",
+  "受注",
+  "請求",
+  "入金",
+];
+
+export interface MeetingRetentionClassification {
+  signalKey: "meeting:retention_risk" | "meeting:retention_positive" | "meeting:context";
+  signalScore: number;
+  appliesToCompanyScore: boolean;
+  evidenceText: string | null;
+  matchedRisks: string[];
+  matchedPositives: string[];
+  excludedRisks: string[];
+  scopeReason: string;
+}
+
+function isCompanyRetentionRisk(text: string): boolean {
+  const normalized = normalizeRetentionText(text);
+  const hasStrongNegative = textIncludesAny(normalized, RETENTION_STRONG_NEGATIVE_PATTERNS);
+  const hasConditionalNegative = textIncludesAny(normalized, RETENTION_CONDITIONAL_NEGATIVE_PATTERNS);
+  const hasBusinessContext = textIncludesAny(normalized, RETENTION_BUSINESS_CONTEXT_PATTERNS);
+  const hasOperatingContext = textIncludesAny(normalized, RETENTION_OPERATING_CONTEXT_PATTERNS);
+  const hasProjectInternalContext = textIncludesAny(normalized, PROJECT_INTERNAL_ONLY_PATTERNS);
+  if (hasProjectInternalContext && !hasOperatingContext) return false;
+  return hasStrongNegative || (hasConditionalNegative && hasBusinessContext);
+}
+
+function isCompanyRetentionPositive(text: string): boolean {
+  const normalized = normalizeRetentionText(text);
+  const hasStrongPositive = textIncludesAny(normalized, RETENTION_STRONG_POSITIVE_PATTERNS);
+  const hasOperatingContext = textIncludesAny(normalized, RETENTION_OPERATING_CONTEXT_PATTERNS);
+  const hasProjectInternalContext = textIncludesAny(normalized, PROJECT_INTERNAL_ONLY_PATTERNS);
+  if (hasProjectInternalContext && !hasOperatingContext) return false;
+  const hasContractContinuation = textIncludesAny(normalized, ["契約"]) && textIncludesAny(normalized, ["継続", "更新", "延長", "追加", "増額", "次期", "来期"]);
+  const hasSupportContinuation = textIncludesAny(normalized, ["支援"]) && textIncludesAny(normalized, ["継続", "延長", "追加", "拡大", "次期", "来期"]);
+  return hasStrongPositive || hasContractContinuation || hasSupportContinuation;
+}
+
+export function classifyMeetingRetentionSignalForManagementScore(row: Record<string, unknown>): MeetingRetentionClassification {
+  const risks = textList(row.risks);
+  const positives = [
+    ...textList(row.decided),
+    ...textList(row.progress),
+    ...textList(row.next_actions),
+  ];
+  const matchedRisks = risks.filter(isCompanyRetentionRisk);
+  const matchedPositives = positives.filter(isCompanyRetentionPositive);
+  const excludedRisks = risks.filter((item) => !matchedRisks.includes(item));
+
+  if (matchedRisks.length > 0) {
+    const score = -Math.min(18, 6 + (matchedRisks.length - 1) * 3);
+    return {
+      signalKey: "meeting:retention_risk",
+      signalScore: score,
+      appliesToCompanyScore: true,
+      evidenceText: matchedRisks[0],
+      matchedRisks,
+      matchedPositives,
+      excludedRisks,
+      scopeReason: "契約・予算・入金・支援継続など会社の既存PJ継続に直接効くrisk",
+    };
+  }
+
+  if (matchedPositives.length > 0) {
+    const score = Math.min(12, 4 + (matchedPositives.length - 1) * 2);
+    return {
+      signalKey: "meeting:retention_positive",
+      signalScore: score,
+      appliesToCompanyScore: true,
+      evidenceText: matchedPositives[0],
+      matchedRisks,
+      matchedPositives,
+      excludedRisks,
+      scopeReason: "契約更新・支援継続・追加予算など会社の既存PJ継続を支えるsignal",
+    };
+  }
+
+  return {
+    signalKey: "meeting:context",
+    signalScore: 0,
+    appliesToCompanyScore: false,
+    evidenceText: null,
+    matchedRisks,
+    matchedPositives,
+    excludedRisks,
+    scopeReason: "技術・出資・知財・調査不足などPJ内部文脈のためManagement Score継続軸から除外",
+  };
+}
+
 function signal(input: RawSignal): RawSignal {
   return {
     confidence: 0.7,
@@ -476,20 +688,32 @@ async function collectInternalSignals(supabase: SupabaseClient, ym: string): Pro
     const risksText = JSON.stringify(row.risks ?? []);
     const nextText = JSON.stringify(row.next_actions ?? []);
     const decidedText = JSON.stringify(row.decided ?? []);
+    const meetingRetention = classifyMeetingRetentionSignalForManagementScore(row);
     signals.push(signal({
       ym,
       axis: "retention",
       source_kind: "meeting_summary",
       source_table: "project_meeting_summaries",
       source_id: String(row.meeting_id),
-      signal_key: textIncludesAny(risksText, ["停止", "失注", "予算", "遅延", "リスク"]) ? "meeting:risk" : "meeting:progress",
-      signal_value_numeric: (Array.isArray(row.progress) ? row.progress.length : 0) - (Array.isArray(row.risks) ? row.risks.length : 0),
-      signal_value_text: String(row.summary_short || row.title || ""),
+      signal_key: meetingRetention.signalKey,
+      signal_value_numeric: meetingRetention.signalScore,
+      signal_value_text: meetingRetention.evidenceText || String(row.summary_short || row.title || ""),
       project_id: String(row.project_id),
       observed_at: row.meeting_date ? `${row.meeting_date}T00:00:00.000Z` : null,
-      confidence: 0.7,
-      weight_hint: 1 + (Array.isArray(row.decided) ? row.decided.length : 0),
-      payload: { ...row, nextText, decidedText, risksText },
+      confidence: meetingRetention.appliesToCompanyScore ? 0.75 : 0.45,
+      weight_hint: Math.max(1, Math.abs(meetingRetention.signalScore)),
+      payload: {
+        ...row,
+        nextText,
+        decidedText,
+        risksText,
+        applies_to_company_score: meetingRetention.appliesToCompanyScore,
+        company_score_axis: meetingRetention.appliesToCompanyScore ? "retention" : null,
+        scope_reason: meetingRetention.scopeReason,
+        matched_retention_risks: meetingRetention.matchedRisks,
+        matched_retention_positive: meetingRetention.matchedPositives,
+        excluded_retention_risks: meetingRetention.excludedRisks,
+      },
     }));
   }
 

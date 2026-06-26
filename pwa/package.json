@@ -14,6 +14,7 @@
     "test:next-period-ui": "node scripts/check_next_period_ms_period_ui.cjs",
     "test:critical-ui": "node scripts/check_pwa_critical_ui.cjs",
     "test:payout-notice-pdf": "node scripts/check_payout_notice_pdf_golden.cjs",
+    "test:management-score-retention": "node scripts/check_management_score_retention_logic.cjs",
     "test:color-pj-resolution": "node scripts/check_color_pj_resolution.cjs",
     "test:l6-held-source-guard": "node scripts/l6_meeting_held_source_guard.cjs --fixture scripts/__fixtures__/l6_iino_gemini_notion_eventid_missing.json",
     "test:h1-meeting-summary-reviewer": "node scripts/check_h1_meeting_summary_reviewer.mjs",

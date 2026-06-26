@@ -150,10 +150,6 @@ function sourceRef(row: RawSignal) {
   return `${row.source_table}:${row.source_id}:${row.signal_key}`;
 }
 
-function brief(row: RawSignal) {
-  return String(row.signal_value_text || row.signal_key || sourceRef(row)).slice(0, 120);
-}
-
 function fmtYen(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return "-";
   const abs = Math.abs(value);
@@ -180,6 +176,27 @@ function deltaDesc(delta: number | null | undefined): string {
 function projectLabel(ctx: ScoreContext, projectId: string | null | undefined): string {
   if (!projectId) return "";
   return ctx.projectNames.get(projectId) || projectId;
+}
+
+function payloadText(row: RawSignal, key: string): string {
+  const value = row.payload?.[key];
+  return typeof value === "string" ? value : "";
+}
+
+function projectFeeAmount(row: RawSignal): number {
+  return Math.max(0, num(row.payload?.fee_amount, 0));
+}
+
+function projectInTargetWindow(row: RawSignal): boolean {
+  const startYm = payloadText(row, "start_ym");
+  const endYm = payloadText(row, "end_ym");
+  return (!startYm || startYm <= row.ym) && (!endYm || endYm >= row.ym);
+}
+
+function isRetentionRelevantProject(row: RawSignal): boolean {
+  const status = payloadText(row, "status");
+  if (status === "active" || status === "frozen") return true;
+  return status !== "ended" && projectFeeAmount(row) > 0 && projectInTargetWindow(row);
 }
 
 function memberLabel(ctx: ScoreContext, payload: Record<string, unknown>): string {
@@ -481,25 +498,62 @@ function scoreFinance(rows: RawSignal[], ctx: ScoreContext): AxisScore {
 
 function scoreRetention(rows: RawSignal[], ctx: ScoreContext): AxisScore {
   const projectRows = rows.filter((row) => row.source_kind === "project_master");
-  const activeProjects = projectRows.filter((row) => row.signal_key.includes("active_in_month")).length;
+  const activeProjectRows = projectRows.filter((row) => row.signal_key.includes("active_in_month"));
+  const retentionProjectRows = projectRows.filter(isRetentionRelevantProject);
+  const activeProjects = activeProjectRows.length;
+  const retentionProjectCount = retentionProjectRows.length || activeProjects;
+  const activeCoverageScore = retentionProjectCount ? clamp((activeProjects / retentionProjectCount) * 100) : 50;
+  const currentMonthlyValue = retentionProjectRows.reduce((sum, row) => sum + projectFeeAmount(row), 0);
+  const activeMonthlyValue = activeProjectRows.reduce((sum, row) => sum + projectFeeAmount(row), 0);
+  const activeValueRetentionScore = currentMonthlyValue > 0 ? clamp((activeMonthlyValue / currentMonthlyValue) * 100) : null;
+  const activeScore = activeValueRetentionScore == null
+    ? activeCoverageScore
+    : clamp(activeCoverageScore * 0.35 + activeValueRetentionScore * 0.65);
   const freezeRows = rows.filter((row) => row.signal_key.includes("active_freeze"));
   const progressRows = rows.filter((row) => row.source_kind === "progress");
   const meetingRows = rows.filter((row) => row.source_kind === "meeting_summary");
+  const companyMeetingRows = meetingRows.filter((row) =>
+    row.payload?.applies_to_company_score === true
+    || row.signal_key === "meeting:retention_risk"
+    || row.signal_key === "meeting:retention_positive"
+  );
+  const meetingRiskRows = companyMeetingRows.filter((row) => row.signal_key === "meeting:retention_risk");
+  const meetingPositiveRows = companyMeetingRows.filter((row) => row.signal_key === "meeting:retention_positive");
+  const meetingImpactTotal = clamp(companyMeetingRows.reduce((sum, row) => sum + num(row.signal_value_numeric, 0), 0), -30, 24);
   const progressScore = avg(progressRows.map((row) => num(row.signal_value_numeric)).filter((n) => n >= 0), 55);
-  const meetingSignal = meetingRows.length
-    ? clamp(50 + avg(meetingRows.map((row) => num(row.signal_value_numeric)), 0) * 10)
+  const meetingSignal = companyMeetingRows.length
+    ? clamp(50 + meetingImpactTotal)
     : 50;
-  const activeScore = projectRows.length ? clamp((activeProjects / projectRows.length) * 100) : 50;
-  const freezePenalty = Math.min(40, freezeRows.length * 18);
+  const freezePenalty = Math.min(30, freezeRows.length * 8);
   const score = clamp(activeScore * 0.35 + progressScore * 0.35 + meetingSignal * 0.2 + 70 * 0.1 - freezePenalty);
-  const riskMeetings = meetingRows.filter((row) => row.signal_key.includes("risk")).length;
+  const riskMeetings = meetingRiskRows.length;
   const prev = ctx.previousAxisScore.retention;
   const delta = prev != null ? score - prev : null;
-  const summarySentence = `継続 ${Math.round(score)}点 (前月比 ${fmtDelta(delta)}, ${deltaDesc(delta)})。active PJ ${activeProjects}/${projectRows.length}、freeze ${freezeRows.length} 件 (-${freezePenalty.toFixed(0)}点 ペナルティ)、進捗平均 ${Math.round(progressScore)}%、MTG risk 言及 ${riskMeetings} 件。`;
+  const valueNote = activeValueRetentionScore == null ? "売上保持score n/a" : `売上保持score ${Math.round(activeValueRetentionScore)}`;
+  const summarySentence = `継続 ${Math.round(score)}点 (前月比 ${fmtDelta(delta)}, ${deltaDesc(delta)})。retention対象PJ ${activeProjects}/${retentionProjectCount}、${valueNote}、freeze ${freezeRows.length} 件 (-${freezePenalty.toFixed(0)}点)、進捗平均 ${Math.round(progressScore)}%、会社MTGリスク ${riskMeetings} 件。`;
   return {
     score,
-    confidence: progressRows.length || meetingRows.length ? 0.72 : 0.45,
-    inputs: { activeProjects, projectRows: projectRows.length, progressScore, meetingSignal, freezeCount: freezeRows.length, freezePenalty, riskMeetings, delta, summary: summarySentence },
+    confidence: progressRows.length || companyMeetingRows.length ? 0.74 : 0.5,
+    inputs: {
+      activeProjects,
+      projectRows: projectRows.length,
+      retentionProjectRows: retentionProjectCount,
+      activeScore,
+      activeCoverageScore,
+      activeValueRetentionScore,
+      activeMonthlyValue,
+      currentMonthlyValue,
+      progressScore,
+      meetingSignal,
+      companyMeetingSignals: companyMeetingRows.length,
+      meetingImpactTotal,
+      freezeCount: freezeRows.length,
+      freezePenalty,
+      riskMeetings,
+      positiveMeetings: meetingPositiveRows.length,
+      delta,
+      summary: summarySentence,
+    },
     evidence: [
       {
         axis: "retention",
@@ -508,10 +562,29 @@ function scoreRetention(rows: RawSignal[], ctx: ScoreContext): AxisScore {
         source_type: "computed",
         source_ref: "projects+milestone_monthly_progress+project_meeting_summaries+project_freeze_periods",
         impact: delta ?? (score - 50) / 2,
-        confidence: 0.72,
-        payload: { score, prev, delta, activeProjects, projectRows: projectRows.length, progressScore, meetingSignal, freezeCount: freezeRows.length, riskMeetings },
+        confidence: 0.74,
+        payload: {
+          score,
+          prev,
+          delta,
+          activeProjects,
+          projectRows: projectRows.length,
+          retentionProjectRows: retentionProjectCount,
+          activeScore,
+          activeCoverageScore,
+          activeValueRetentionScore,
+          activeMonthlyValue,
+          currentMonthlyValue,
+          progressScore,
+          meetingSignal,
+          companyMeetingSignals: companyMeetingRows.length,
+          meetingImpactTotal,
+          freezeCount: freezeRows.length,
+          riskMeetings,
+          positiveMeetings: meetingPositiveRows.length,
+        },
       },
-      ...topBy(freezeRows, (row) => 1, 3).map((row) => {
+      ...topBy(freezeRows, () => 1, 3).map((row) => {
         const pjLabel = projectLabel(ctx, row.project_id);
         const reason = String(row.signal_value_text || "理由未記録");
         const restart = row.payload?.restart_ym ? `、再開予定 ${row.payload.restart_ym}` : "";
@@ -522,24 +595,57 @@ function scoreRetention(rows: RawSignal[], ctx: ScoreContext): AxisScore {
           source_type: row.source_table,
           source_ref: sourceRef(row),
           source_hash: row.source_hash,
-          impact: -18,
+          impact: -8,
           confidence: num(row.confidence, 0.5),
           payload: { project_id: row.project_id, project_name: pjLabel, reason, restart_ym: row.payload?.restart_ym },
         };
       }),
-      ...topBy(meetingRows.filter((row) => row.signal_key.includes("risk")), (row) => -num(row.signal_value_numeric, 0), 3).map((row) => {
+      ...topBy(meetingRiskRows, (row) => -num(row.signal_value_numeric, 0), 3).map((row) => {
         const pjLabel = projectLabel(ctx, row.project_id);
         const snippet = String(row.signal_value_text || "").slice(0, 80);
+        const impact = Math.round(num(row.signal_value_numeric, 0) * 0.2 * 10) / 10;
         return {
           axis: "retention" as const,
           evidence_kind: "meeting_risk",
-          summary: `${pjLabel} 直近MTG で risk 言及: 「${snippet}」 — 継続確度を下げる兆候`,
+          summary: `${pjLabel} MTGで継続リスク: 「${snippet}」 — 契約・予算・入金・支援継続に効く兆候`,
           source_type: row.source_table,
           source_ref: sourceRef(row),
           source_hash: row.source_hash,
-          impact: -10,
+          impact,
           confidence: num(row.confidence, 0.5),
-          payload: { project_id: row.project_id, project_name: pjLabel, snippet, meeting_date: row.observed_at },
+          payload: {
+            project_id: row.project_id,
+            project_name: pjLabel,
+            snippet,
+            meeting_date: row.observed_at,
+            scope_reason: row.payload?.scope_reason,
+            summary_short: row.payload?.summary_short,
+            raw_signal_score: row.signal_value_numeric,
+          },
+        };
+      }),
+      ...topBy(meetingPositiveRows, (row) => num(row.signal_value_numeric, 0), 3).map((row) => {
+        const pjLabel = projectLabel(ctx, row.project_id);
+        const snippet = String(row.signal_value_text || "").slice(0, 80);
+        const impact = Math.round(num(row.signal_value_numeric, 0) * 0.2 * 10) / 10;
+        return {
+          axis: "retention" as const,
+          evidence_kind: "meeting_positive",
+          summary: `${pjLabel} MTGで継続材料: 「${snippet}」 — 既存PJの継続/伸長を支える`,
+          source_type: row.source_table,
+          source_ref: sourceRef(row),
+          source_hash: row.source_hash,
+          impact,
+          confidence: num(row.confidence, 0.5),
+          payload: {
+            project_id: row.project_id,
+            project_name: pjLabel,
+            snippet,
+            meeting_date: row.observed_at,
+            scope_reason: row.payload?.scope_reason,
+            summary_short: row.payload?.summary_short,
+            raw_signal_score: row.signal_value_numeric,
+          },
         };
       }),
       ...topBy(progressRows.filter((row) => num(row.signal_value_numeric, 0) >= 70), (row) => num(row.signal_value_numeric, 0), 3).map((row) => {
@@ -805,8 +911,7 @@ function buildSnapshotSummary(
   modifierZone: "healthy" | "warning" | "critical",
   modifierLabel: string,
   omegaReasoning: string,
-  deathFlag: string | null,
-  _rawSignalCount: number
+  deathFlag: string | null
 ): string {
   const parts: string[] = [];
   const totalDeltaStr = fmtDelta(totalDelta);
@@ -939,7 +1044,7 @@ export async function calculateManagementScore(
   const totalScore = Math.round(deathResult.clampedTotal);
   const totalDelta = previousSnapshot?.total_score != null ? totalScore - Number(previousSnapshot.total_score) : null;
   const confidence = avg((Object.keys(axisScores) as Axis[]).map((axis) => axisScores[axis].confidence), 0.5);
-  const summary = buildSnapshotSummary(ym, totalScore, totalDelta, axisScores, modifierResult.zone, modifierResult.label, omegaResult.reasoning, deathResult.flag, rows.length);
+  const summary = buildSnapshotSummary(ym, totalScore, totalDelta, axisScores, modifierResult.zone, modifierResult.label, omegaResult.reasoning, deathResult.flag);
   const inputs = {
     rawSignalCount: rows.length,
     byAxis: Object.fromEntries((Object.keys(byAxis) as Axis[]).map((axis) => [axis, byAxis[axis].length])),

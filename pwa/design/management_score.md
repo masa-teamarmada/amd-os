@@ -238,12 +238,13 @@ retention_value =
 
 | シグナル | 影響 |
 |---|---|
-| `projects.status='active'` かつ期間内 | baseline high |
+| `projects.status='active'` かつ期間内 | baseline high。母数は歴史上の全PJではなく、active/frozen/当月売上を持つ retention 対象PJ |
 | `end_ym` が近いが次期 plan cycle なし | 減点 |
 | `milestone_monthly_progress` が大幅遅延 | 減点 |
 | MTG サマリに継続・拡大・次期相談あり | 加点 |
-| MTG サマリに失注・停止・予算難あり | 減点 |
-| `project_freeze_periods` active | 大きく減点 |
+| MTG サマリに契約継続・予算未確保・入金/請求・支援停止など会社継続へ直接効くriskあり | 減点 |
+| MTG サマリ内の技術実証・PoC・出資タイミング・知財・創業株主設計などPJ内部risk | Management Score 継続軸から除外 |
+| `project_freeze_periods` active | 1件あたり8点、最大30点を減点 |
 | 請求/報告ルーティンが滞留 | 減点 |
 
 表示:
@@ -252,7 +253,7 @@ retention_value =
 - continuation probability 下位 PJ
 - 今月の要注意 PJ
 - 伸長見込み PJ
-- 根拠 snippets
+- 根拠 snippets。MTG risk evidence は `summary_short` ではなく、実際に会社継続riskとして判定したrisk文を出す。impact は固定値ではなく、retention scoreへの概算寄与点として出す。
 
 ### 4. 新規案件獲得
 

@@ -1636,10 +1636,12 @@ function axisInputFacts(axis: EvidenceRow["axis"], inputs: Record<string, unknow
     ];
   }
   return [
-    `active PJ ${humanizeValue(inputs.activeProjects)}件`,
+    `retention PJ ${humanizeValue(inputs.activeProjects)}/${humanizeValue(inputs.retentionProjectRows)}`,
+    `売上保持score ${humanizeValue(inputs.activeValueRetentionScore)}`,
     `freeze ${humanizeValue(inputs.freezeCount)}件`,
     `進捗score ${humanizeValue(inputs.progressScore)}`,
-    `MTG risk ${humanizeValue(inputs.riskMeetings)}件`,
+    `会社MTG signal ${humanizeValue(inputs.companyMeetingSignals)}件`,
+    `会社MTG risk ${humanizeValue(inputs.riskMeetings)}件`,
   ];
 }
 

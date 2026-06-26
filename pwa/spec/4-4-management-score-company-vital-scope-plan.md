@@ -12,6 +12,8 @@
 
 暫定対応として、Management Score側では `project_id='p00'` を会社全体シグナルとして扱い、`p00` かつ高確度の `commercial_progress` candidateだけをpipeline材料へ入れるguardを入れた。根本修正後は `applies_to_company_score=true` を正本として読む。backfill前の古い row に限り `p00` guardを fallback として残す。
 
+2026-06-26追記: `project_strategy_signals` だけでなく、`project_meeting_summaries` 由来の retention signal も同じ会社バイタル境界を守る。MTGの `risks` に「リスク」等の単語があるだけでは Management Score に入れない。契約継続、予算未確保、入金/請求、支援停止、稼働/体制など AMD会社全体の既存PJ継続へ直接効くものだけ `meeting:retention_risk` / `meeting:retention_positive` とし、技術実証・PoC・出資タイミング・知財・創業株主設計などPJ内部のriskは `meeting:context` として除外する。
+
 ## 入れてよい情報 / 入れてはいけない情報
 
 Management Scoreに入れてよい情報:
@@ -26,6 +28,7 @@ Management Scoreに入れてはいけない情報:
 
 - 個別PJの技術進捗、実験結果、シーズ評価。
 - 個別PJの設立予定、事業内容インプット、特許、顧客、装置、研究論点。
+- 個別PJの技術実証、PoC、出資タイミング、知財、創業株主設計など、契約継続・入金・支援停止に直結しないMTG risk。
 - LST/p07など特定PJ内部の進捗や論点。
 - Before Zero実践知として価値があっても、AMD会社全体の経営バイタルではないもの。
 

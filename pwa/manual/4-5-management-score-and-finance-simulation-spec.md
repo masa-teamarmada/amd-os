@@ -253,14 +253,18 @@ finance_score =
 
 ```text
 retention_score =
-  35% active_project_ratio
+  35% active_value_retention
 + 35% milestone_progress
-+ 20% meeting_signal
++ 20% company_retention_meeting_signal
 + 10% baseline
 - freeze_penalty
 ```
 
-`project_freeze_periods` が active の場合は 1 件あたり 18 点、最大 40 点を減点する。
+`active_value_retention` は歴史上の全PJを母数にしない。`projects.status='active'/'frozen'` または当月の売上/契約期間を持つ retention 対象PJだけを母数にし、active件数カバー率と active売上保持率を合成する。
+
+`company_retention_meeting_signal` は `project_meeting_summaries` の全riskを使わない。契約継続、予算未確保、入金/請求、支援停止、体制/稼働など AMD 会社全体の既存PJ継続に直接効くものだけを入れる。技術実証、PoC、出資タイミング、知財、創業株主設計などPJ内部のriskは `meeting:context` として raw には残すが、Management Score 継続軸の加減点から除外する。
+
+`project_freeze_periods` が active の場合は 1 件あたり 8 点、最大 30 点を減点する。単一PJのfreezeが会社全体の継続scoreを過大に落とさないよう、impact evidence も固定 `-18` ではなく `-8` を基準にする。
 
 ### 新規獲得 (v4 = Gmail/Slack 案件追跡)
 
@@ -359,7 +363,7 @@ direction_score =
 | `evidence_kind` | `axis_summary`, `budget_variance`, `freeze`, `meeting_risk`, `seed_candidate`, `venture_portfolio` 等 |
 | `summary` | **人間が読む自然文 narrative** (= v4 で機械的 signal_key 表示から書き換え、 まさ #80) |
 | `source_type` / `source_ref` / `source_hash` | 元データへの参照 |
-| `impact` | score への概算影響 |
+| `impact` | score への概算影響。固定ラベルではなく、該当軸scoreへの寄与点に近い値を入れる |
 | `confidence` | 根拠の確からしさ |
 | `payload` | 後から drilldown するための補助 JSON |
 
@@ -369,6 +373,7 @@ evidence summary の書き方ガイド (= v4):
 
 - 「**何が起きて、 なぜ score に効いたか**」を 1 文で書く
 - 機械的な `signal_key: brief` 表記は禁止 (= まさ #80「数字だけで根拠じゃない」)
+- MTG risk evidence は `summary_short` を丸ごと引用せず、会社継続riskとして判定したrisk文を引用する。PJ内部riskを会社継続riskのように表示しない。
 - 例 (= 良):「シーズ候補「非麻薬性オピオイド鎮痛薬」 (観察中, AMD評価 3/5 / life) — 新規案件 pipeline を形成」
 - 例 (= 悪):「seed:investigating: 非麻薬性オピオイド鎮痛薬」 (= 何を意味するか UI からは分からない)
 
