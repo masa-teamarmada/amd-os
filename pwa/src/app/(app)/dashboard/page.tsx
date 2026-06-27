@@ -40,7 +40,6 @@ import { ActionItemsPanel } from "@/components/governance/ActionItemsPanel";
 import { FundingStatsCard } from "@/components/dashboard/FundingStatsCard";
 import { ProactiveTodoBadge } from "@/components/proactive-todo/ProactiveTodoBadge";
 import { isInstitutionDashboardProject } from "@/lib/institution-projects";
-import { oneRelation, projectDisplayName } from "@/lib/project-labels";
 
 function getCurrentYm() {
   const now = new Date();
@@ -367,7 +366,7 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
     const memberId = row.member_id ? String(row.member_id) : null;
     const member = memberId ? membersById.get(memberId) : null;
     if (!member || String(member.status || "") !== "active") return [];
-    const photoAsset = oneRelation(row.media_assets);
+    const photoAsset = Array.isArray(row.media_assets) ? row.media_assets[0] ?? null : row.media_assets ?? null;
     return [{
       memberProfileId: row.member_profile_id ? String(row.member_profile_id) : null,
       memberId,
@@ -437,16 +436,18 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
 
   const historyFallback: CompanyHistoryPreview[] = (venturesRes.data ?? [])
     .map((row) => {
-      const project = oneRelation(row.projects as { project_name?: string | null; client_name?: string | null } | { project_name?: string | null; client_name?: string | null }[] | null);
+      const projects = row.projects as
+        | { project_name?: string | null; client_name?: string | null }
+        | { project_name?: string | null; client_name?: string | null }[]
+        | null;
+      const project = Array.isArray(projects) ? projects[0] ?? null : projects ?? null;
+      const projectId = row.project_id ? String(row.project_id) : null;
+      const title = project?.project_name || project?.client_name || projectId || "Venture";
       return {
         id: `venture-${row.project_id}`,
-        projectId: row.project_id ? String(row.project_id) : null,
+        projectId,
         occurredOn: row.amd_support_started_at || row.founded_at ? String(row.amd_support_started_at || row.founded_at) : null,
-        title: projectDisplayName({
-          project_id: row.project_id ? String(row.project_id) : null,
-          project_name: project?.project_name ?? null,
-          client_name: project?.client_name ?? null,
-        }),
+        title,
         kind: row.amd_support_started_at ? "support_started" : "venture",
       };
     })
