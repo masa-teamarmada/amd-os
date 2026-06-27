@@ -3388,3 +3388,37 @@
   - 「重要そうな話題語」と「今すぐ割り込む緊急性」を混同しない。契約・総会・取締役会・NDA・法務・MTG・メディア掲載は通常レビューに残す。
   - 右下ポップアップは writer が明示した critical metadata、connector 再認証、high/critical ガードレールなど、事故防止・復旧レーンだけに限定する。
   - L2/MTG の本文は抽出結果本文であって優先度シグナルではない。本文正規表現で critical を判定しない。
+
+## [PWA/deploy] Vercel Hobby plan の cron 制限で v0.35.0 deploy が build error blocked (2026-06-27)
+
+- **症状**: v0.35.0 の git push 後、Vercel build が失敗。GitHub statuses は `Vercel: Deployment failed`、target_url が `https://vercel.link/3Fpeeb1` (= `vercel.com/docs/cron-jobs/usage-and-pricing`) を指していた。デプロイ自体が deploy queue で reject されており、ビルドログには到達しない。
+- **原因**: `pwa/vercel.json` の crons[] 末尾に `proactive-todo-extract` を毎時 (`"15 * * * *"`) で追加した。既存の 11 cron は全て daily だった。AMD OS の Vercel project は Hobby plan で、毎時 cron は (cron 数 × 頻度の制限で) 弾かれる。これまでは「Pro plan で動いてるはず」という思い込みで毎時を選んでいた。
+- **対応内容**: schedule を `"15 0 * * *"` (= daily 00:15 UTC / 09:15 JST) に変更し v0.35.1 で再 push。spec/manual/scheduled-tasks README の「毎時」表記もすべて「daily」に同期。頻度足りなければ Pro 化 or Mac LaunchAgent 移管の方針を spec 2-4 に明記。
+- **再発防止策**:
+  - PWA に新 cron を追加するときは、**既存 vercel.json の他 cron がすべて daily か** を最初に確認する。daily 縛り = Hobby plan の制限下にある strong signal。
+  - 毎時運用が要件なら、PWA cron ではなく Mac LaunchAgent / Codex automation 経由が AMD OS の正規ルート (例: `amd-os-l6-meeting-flow` は MMO Windows Task Scheduler)。
+  - Vercel 側の deploy failure は `gh api /repos/.../commits/<sha>/status` で「state=failure + target_url」が拾える。`vercel inspect ... --logs` が空でも、status API は理由 URL を返す。
+
+## [PWA/deploy] 別 worker の untracked ファイルへの import が残り build error (2026-06-27)
+
+- **症状**: v0.35.1 push 後、Vercel build が `Module not found: Can't resolve '@/lib/project-labels'` で失敗。原因ファイル `pwa/src/lib/project-labels.ts` はローカルには存在するが、git untracked = origin には到達していない。ローカル `npm run build` は通っていた (= ローカルだけ通って本番で落ちる典型パターン)。
+- **原因**: セッション開始時に「前セッションの未処理が残っています」と SessionStart hook が出ていた 84 件の未コミット変更の中に、別 worker が作った新規ファイル `project-labels.ts` と、それを import するように書き換えられた `dashboard/page.tsx` (modified) が含まれていた。私はその modified の `LoopKernelBoard` import 差し替えだけ見て commit したため、`oneRelation` / `projectDisplayName` の import 文が残ったまま push された。
+- **対応内容**: dashboard/page.tsx から `@/lib/project-labels` の import を除去、`oneRelation` を `Array.isArray ? [0] : value` inline に、`projectDisplayName` を `project_name || client_name || project_id` の直書きに置き換えて v0.35.2 で再 push。別 worker の `project-labels.ts` 本体には触らず保留。
+- **再発防止策**:
+  - **修正したいファイルが既に modified (= 別 worker が書き換え中) の場合、差分全体を `git diff <file>` で必ず確認する**。自分の編集対象行だけ見て commit すると、他 worker の中途半端な参照を巻き込んで本番が落ちる。
+  - 新規 import 文がある変更を commit する場合、import 先がコミット済みか (`git ls-files` でヒットするか) を確認してから push する。untracked ファイルへの import は本番で必ず落ちる。
+  - 前セッション残骸を `git stash` で温存する手法は有効だったが、stash 後の build と push 前の build は別物。stash 後にもう一度ローカル `npm run build` を回すと事前検知できた (今回は stash したのが push 直前で、build を再回避していた)。
+
+## [PWA/DB] proactive_todos の UNIQUE INDEX 内 COALESCE が supabase-js onConflict と紐付かず silent insert 失敗 (2026-06-27)
+
+- **症状**: v0.35.3 (cron route ヒューリスティック修正後) で本番 cron を手動キックしても `upserted: 0`。`scanned.past_meetings=21` で counterpart skip 11 件分を除いた 10 件分は upsert されるはずだったのに、proactive_todos テーブルは空のまま。
+- **原因**: migration 157 で UNIQUE INDEX を `(project_id, trigger_kind, COALESCE(source_meeting_id, ''), COALESCE(source_event_id, ''), title)` で作っていた。supabase-js の `.upsert({...}, { onConflict: 'project_id,trigger_kind,source_meeting_id,source_event_id,title' })` は **plain な column list の UNIQUE constraint / unique index** にしか紐付かず、COALESCE のような expression index は無視される。結果として upsert は通常の insert として扱われ、NOT NULL 違反でも UNIQUE 違反でもなく **error も返さず silent fail** していた (`if (!upsertErr) nextActionInserted++` のカウンタが回らないだけだった)。
+- **対応内容**:
+  - migration 158 で `source_meeting_id` / `source_event_id` を `NOT NULL DEFAULT ''` に変更し、UNIQUE INDEX を `(project_id, trigger_kind, source_meeting_id, source_event_id, title)` の plain 複合 UNIQUE に作り直し。
+  - cron route 内の upsert payload を `null` → `''` へ変更。
+  - upsert error を `console.error` で stderr に出すように追加 (Vercel Function Logs から確認可能、silent fail 再発の早期検知用)。
+- **再発防止策**:
+  - PostgreSQL の **expression index (COALESCE / lower / etc.) は supabase-js / postgrest の onConflict 文字列とマッチしない**。NULL を区別したい場合は NOT NULL DEFAULT を使って plain UNIQUE にする。
+  - upsert を書くときは **error チェックを必ず log に残す**。`if (!err) counter++` だけだと silent fail と「条件未マッチで何も起きてない」が区別不能になる。
+  - 初回 backfill のような重要な write は、ローカル `node -e ...` で直接 supabase-js を叩いて 1 行返ることを確認してから cron route を本番に出す。本番 cron 経由でしか動かない設計は debug ループが長くなる。
+

@@ -1,6 +1,6 @@
 # HANDOFF - AMD OS PWA
 
-- Last updated: 2026-06-24 (admin payouts / monthly agreement gate closeout)
+- Last updated: 2026-06-27 (旧 /loop 5段ループ廃止 → /proactive 先手TODO 白紙やり直し)
 - Canonical root: `/Users/masa/projects/AMD/amd-os`
 - PWA root: `/Users/masa/projects/AMD/amd-os/pwa`
 - Production URL: `https://amd-os-pwa.vercel.app`
@@ -8,47 +8,47 @@
 
 ## 直近セッション要約
 
-詳細は [`design_log/sessions_2026-06.md`](design_log/sessions_2026-06.md) の月初合意支払 gate セクション、仕様正本 [`spec/3-14-monthly-work-agreement-current-spec.md`](spec/3-14-monthly-work-agreement-current-spec.md)、マニュアル [`manual/6-5-admin-payouts-reward-notice-spec.md`](manual/6-5-admin-payouts-reward-notice-spec.md)、教訓 [`BUGS.md`](BUGS.md)。
+詳細は [`design_log/sessions_2026-06.md`](design_log/sessions_2026-06.md) の「2026-06-27 (v0.35.0 → v0.35.4) 旧 /loop 5段ループを廃止し /proactive 先手TODOへ白紙やり直し」セクション、仕様正本 [`spec/2-4-proactive-todo-current-spec.md`](spec/2-4-proactive-todo-current-spec.md)、マニュアル [`manual/2-6-admin-ops.md`](manual/2-6-admin-ops.md)、教訓 [`BUGS.md`](BUGS.md) の `2026-06-27` 3 件。
 
-- 2026/05以前の稼働月 (`source_ym <= 202605`) は月初合意の導入前/移行月として支払 gate 上 allow。
-- 移行月 allow は実DBの合意 row を偽造しない。server response row に `migrationBypass=true` を持たせる。
-- 移行月バイパス行だけで blocker が無い場合、`/admin/payouts` の gate panel は個別メンバー表を出さず、`対象支払行` / `移行月スキップ` / `blocker 0` の summary を表示する。
-- `/admin/payouts` 初期表示は SSR data + gate 後追い取得に整理済み。保存・PDF・送付など write action は server-side gate を必ず通す。
-- Production `v0.34.19` / `35b618ff` で `/admin/payouts?ym=202606` の summary 表示を logged-in browser で確認済み。
+- まさ指摘「先手力維持に旧 /loop は機能してない、白紙やり直してもいい」を受けて、旧 5 段盤面 (観測→評価→判断→実行→学習) を全廃。
+- 代わりに `/proactive` (admin) の 1 画面・期限順・3 ボタン完了UI (✅完了 / ⏸ブロック / 🗑関係ない) を実装。
+- 検知は `/api/cron/proactive-todo-extract` が daily 09:15 JST で MTG 議事録 next_actions + 7日以内の予定MTGを sweep し、文字列ヒューリスティック (LLM 不使用、`members` 実名動的 fetch) で AMD ボール判定して `proactive_todos` に upsert。
+- 初回 backfill: 86 件 (amd 28 / ambiguous 58)、PJ別 SX 32 / ZMP 17 / KUTE 15 / SE 9 / VSX・CLG 4 / CryoX 3 / LiSTie 1 / p00 1。Production `v0.35.4` / `72a0a919` で本番反映済み (deploy 後 docs(bzm) commit が別 worker から続いて `ccc5eb68`が現行 git_sha)。
+- まさはこれから触ってフィードバック予定。次セッションで誤検知パターン整理 + ヒューリスティック調整に入る想定。
 
 ## Repo State
 
-- Product baseline on `main`: `3677cd33 fix(governance): hide unreviewed meeting action candidates`, followed by docs-only handoff commit(s).
-- Production at closeout: `v0.34.22` / `b24718ff675e4b1beb21e96195f21110e64bcc43` / `dirty=false`
-- Production is aligned with product code through `3677cd33`. Build-info may show a later docs-only handoff commit because it does not change the product baseline.
-- Dirty tracked after handoff commit: none expected.
-- Untracked: `../gas-slack/.clasp.json` (owner undecided; do not commit).
+- Production: `v0.35.4` / `git_sha=ccc5eb68` / `dirty=false` (PWA build 自体は v0.35.4 で stable、その後 docs(bzm) commit が積まれて build-info が更新された)
+- Local main HEAD: `origin/main` と完全同期、最新 `67dfa2a4 docs(bzm): re-add D-045..D-055 + D-034 追認 + Ch 5.5/9/10.4 skeleton L3`
+- 私のセッションのコミット (origin/main 上):
+  - `72a0a919 chore(pwa): regenerate db_schema.md after migration 158`
+  - `294d6c3c fix(pwa): 先手TODO upsert の onConflict が COALESCE INDEX で機能しなかった問題を修正 (v0.35.4)`
+  - `68012810 feat(pwa): 先手TODO ball_owner判定にAMDメンバー実名取り込み + 予定MTG窓を7日へ拡大 (v0.35.3)`
+  - `09fd8d04 fix(pwa): dashboard から未存在 @/lib/project-labels への import を除去 (v0.35.2)`
+  - `11dc27eb fix(pwa): 先手TODO cron を daily へ (Vercel Hobby plan制限対応 / v0.35.1)`
+  - `da9f52b2 feat(pwa): 旧 /loop 5段ループを廃止し /proactive 先手TODOへ白紙やり直し (v0.35.0)`
+- **Uncommitted (= 前セッション残骸として保留中、私は触ってない / 触れない)**:
+  - `M pwa/design_log/sessions_2026-06.md` (= 前セッション分 + 今回追記分が merge 済み、commit 主体未定で保留)
+  - `M` 多数 (gas/, pwa/design/, pwa/manual/, pwa/scripts/, pwa/src/...) — セッション開始時の 84 件残骸が stash pop で復帰
+  - 新規 untracked: `gas-slack/.clasp.json`, `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/outbox/`, `pwa/scripts/migrations/153/155/156_*.sql`, `pwa/scripts/update_drive_file.mjs`, `pwa/src/app/api/meeting-assets/replace/`, `pwa/src/lib/project-labels.ts`
+  - → **当該 worker / セッションで処理する想定**。今回セッションは触らないことで安全側に倒した。
 
-## Verification Run For Payout Gate
+## 本番動作確認 (実施済み)
 
-```bash
-npx tsx -e "...buildPayoutAgreementGateSummary(...)"
-git diff --check
-npx tsc --noEmit
-npx eslint src/lib/monthly-work-agreement-payout-gate.ts src/components/admin/AdminPayoutsClient.tsx
-npm run build
-npm run test:critical-ui
-```
-
-- ESLint: existing `react-hooks/exhaustive-deps` warning in `AdminPayoutsClient.tsx`, error 0.
-- Browser: logged-in production `/admin/payouts?ym=202606` showed `対象支払行 4 / 移行月スキップ 4 / blocker 0`, no individual member table.
+- `curl https://amd-os-pwa.vercel.app/api/build-info` → v0.35.4 確認 (deploy 完了)
+- `curl -H "Bearer ${CRON_SECRET}" .../api/cron/proactive-todo-extract` → `{"ok":true, ..., "upserted":{"meeting_next_action":77, "next_meeting_prep":10}}` 確認
+- supabase 直 query で `proactive_todos` 86 件確認 (上記 PJ 別内訳)
+- **未確認**: ブラウザでまさのログイン状態での `/proactive` 画面表示 / dashboard 上段バッジ表示 / 3 ボタン挙動。**まさが次セッション以降に手で触る予定**。
 
 ## Unresolved / Next Actions
 
-1. **Governance/action-items production smoke**
-   - Build-info shows `3677cd33` in production. If this area matters next, verify confirmed-only governance display: `review_status='confirmed'`, `status in ('open','in_progress')`, and no `source='meeting_summary'` candidates.
-2. **Admin payouts regression smoke**
-   - Monthly agreement migration summary was verified on production `v0.34.19`. Since production is now `v0.34.22`, quick smoke `/admin/payouts?ym=202606` before further payout edits.
-3. **`gas-slack/.clasp.json`**
-   - Treat as local clasp/link artifact until GAS/Slack owner decides.
-4. **Older carried tasks**
-   - `/admin/ms-overview` logged-in visual check remains useful before touching MS editor again.
-   - `value_milestones` estimate-line pollution cleanup remains separate.
+1. **まさのフィードバックを次セッションで聞き取る** (= 86 件中どれが誤検知 / どれが期待通り / ヒューリスティック追加調整)
+2. **誤検知パターンの整理**: 初回 backfill で「CLG側」が AMD ボール判定で抽出された (実態は CLG ベンチャー側 = counterpart)。社外取締役 / advisor 系 PJ では PJ コード+側 を AMD ボール扱いしない調整候補
+3. **cockpit 側の旧 `ProactiveQueuePanel` 処遇**: 今回 dashboard 側だけ刷新、cockpit `CockpitView.tsx` の旧 panel は `proactive_outbox` を見続けてる。データが古いまま放置されると混乱の元。完全に消すか、`proactive_todos` ベースの新 cockpit panel に置き換えるかは別 Phase
+4. **完了 → 学習段 (Protocol / Textbook insight) への流し込み**: resolved_note を learning レイヤーへ流す Step 3 は未着手
+5. **Gmail / Slack の催促文言検知** (= 残り 20% カバー): Phase 2 以降
+6. **`sent` 状態 (相手にボールを渡した) の追加**: まさ判断「最初はなしでもいい、必要だと感じたら追加」
+7. **前セッション残骸の処理**: 84 件の M + untracked は別 worker 由来で保留中。当該 worker / セッション側で commit or 削除判断を期待
 
 ## First Next Action
 
@@ -56,24 +56,31 @@ npm run test:critical-ui
 cd /Users/masa/projects/AMD/amd-os
 git fetch origin main
 git status -sb --untracked-files=all
-git log --left-right --oneline main...origin/main
-curl -fsS https://amd-os-pwa.vercel.app/api/build-info
+curl -fsS https://amd-os-pwa.vercel.app/api/build-info  # v0.35.4 系のはず
 ```
 
-Expected: local `main` and `origin/main` align, no tracked dirty files, production product code is `v0.34.22` with product baseline through `3677cd33`, and only `../gas-slack/.clasp.json` remains untracked.
+その後まさから「触ってみたフィードバック」を聞き取り、誤検知 / 抜け / 期待外れのパターンを整理する。優先順位の高そうな調整:
+- ヒューリスティックの追加 (社外取締役系 PJ の扱い、AMD メンバー名で誤マッチする一般単語があるか)
+- 表示順 / chip 配色 / 行内 UX の調整
+- daily 09:15 JST 自動 run が翌朝動いた結果の確認 (= cron が production で問題なく回るか)
 
 ## Pointers
 
-- Monthly agreement spec: [`spec/3-14-monthly-work-agreement-current-spec.md`](spec/3-14-monthly-work-agreement-current-spec.md)
-- Admin payouts manual: [`manual/6-5-admin-payouts-reward-notice-spec.md`](manual/6-5-admin-payouts-reward-notice-spec.md)
+- 先手 TODO 仕様 (current): [`spec/2-4-proactive-todo-current-spec.md`](spec/2-4-proactive-todo-current-spec.md)
+- 旧 /loop 設計 (廃止マーク + 履歴温存): [`design/proactive_operating_loop.md`](design/proactive_operating_loop.md)
+- マニュアル (使い方): [`manual/2-6-admin-ops.md`](manual/2-6-admin-ops.md) の「/proactive 先手 TODO リスト」節
+- DB schema: [`design/db_schema.md`](design/db_schema.md) の `proactive_todos` セクション
 - Registry: [`design/FEATURE_REGISTRY.md`](design/FEATURE_REGISTRY.md)
-- Bugs: [`BUGS.md`](BUGS.md)
-- Session log: [`design_log/sessions_2026-06.md`](design_log/sessions_2026-06.md)
-- Governance docs: [`design/governance_action_items.md`](design/governance_action_items.md), [`manual/2-3-pj-cockpit.md`](manual/2-3-pj-cockpit.md)
+- Bugs (今回 3 件追記): [`BUGS.md`](BUGS.md) の `2026-06-27` 3 件
+- Session log: [`design_log/sessions_2026-06.md`](design_log/sessions_2026-06.md) 末尾
+- Scheduled tasks 索引: [`scheduled-tasks/README.md`](scheduled-tasks/README.md)
 
 ## Guardrails
 
-- Migration-only monthly agreement gate stays summary-style; do not show the four ZMP rows as individual `合意済` rows.
-- Do not create fake agreement rows for migration months.
-- Do not let candidate action items leak into governance/cockpit confirmed surfaces.
-- Do not use `git add .`.
+- `/loop` ルート、`LoopKernelBoard.tsx`、`proactive-heartbeat` SKILL、`spec/2-4-loop-kernel-role-lenses-plan.md` は 2026-06-27 廃止済み。**復活させない**。
+- `proactive_outbox` / `proactive_loops` / `proactive_loop_events` / `project_commander_threads` の旧テーブルは migration 117 で存在するが、本セッションで写し換え対象から外した。**新規 write しない**。`design/proactive_operating_loop.md` 末尾の「廃止マーク」を必ず読んでから触る。
+- `proactive_todos` の UNIQUE INDEX に COALESCE / lower 等の expression を入れない (supabase-js onConflict と紐付かず silent fail する。教訓は BUGS.md 2026-06-27 参照)。
+- Vercel cron を新規追加するときは、**既存 vercel.json crons[] がすべて daily か確認**。Hobby plan の毎時 cron は deploy 自体が block される。
+- 別 worker が修正中の tracked ファイル (`git status` で M) を触るときは、**差分全体を `git diff <file>` で確認してから commit**。自分の編集箇所だけ見ると、別 worker の中途半端な import で本番が落ちる。
+- ball_owner 判定で AMD メンバー実名を使う場合、`members` テーブルの `member_name` は半角スペース込み (例: 「輕部 琢真」)。fetch 時にスペース除去版 (「輕部琢真」) と姓のみ (「輕部」) を両方 set に入れる。
+- HANDOFF はスリム維持。設計詳細は `spec/`、使い方は `manual/`、判断ログは `design_log/`、教訓は `BUGS.md`。
