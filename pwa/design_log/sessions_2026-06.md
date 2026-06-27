@@ -1507,3 +1507,52 @@ deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifica
 - 新規: `~/.claude/projects/-Users-masa-projects-AMD-before-zero/memory/feedback_commit_push_no_approval_for_docs.md`
 - 新規: `~/.claude/projects/-Users-masa-projects-AMD-before-zero/memory/feedback_git_staged_set_verification.md`
 - MEMORY.md インデックス更新
+
+---
+
+## 2026-06-27 — 通知ノイズ停止 (task / MTG action / 議事録作成ログ)
+
+### コンテキスト
+`/notifications` の通常通知に、task 作成ログ、次MTG action 作成ログ、議事録 / MTGサマリ作成ログが並んでいた。まさの指摘は「読んでも何かアクションできるわけではないので、通知として抽出しないべき」。
+
+### 実装
+- `task_created` / `meeting_action` は発生源で `app_notifications` を作らないように変更。
+- migration 155 `skip_non_actionable_app_notifications` を追加し、旧 writer が insert しても DB trigger で捨てる。
+- migration 156 `skip_meeting_summary_notifications` を追加し、`meeting_notifications` の insert / writer upsert update を DB trigger で捨てる。
+- `/notifications`、未読バッジ、右下 critical poll から `task_created` / `meeting_action` / `meeting_notifications` を除外。
+- `gas/153_MeetingHourlyTrigger.js` の `_meeting_insertNotification_` は no-op に変更し、議事録は `project_meeting_summaries` / MTGカードだけを正本にする。
+
+### Production DB
+- migration 155 / 156 は本番 Supabase に適用済み。
+- 既存の noisy unread (`task_created` / `meeting_action`) は既読化済み。
+- `meeting_notifications` のテスト insert は DB trigger により persisted 0 / unread 0 を確認済み。
+
+### 残課題
+- repo 側は現行 main へ再適用したローカル WIP。未コミットのため、次回は指定ファイルだけを staged set 確認して commit し、build version bump 後に deploy する。
+- 作業開始時点から別 worker 由来の dirty / untracked が残っている。通知変更と混ぜて commit しない。
+
+---
+
+## 2026-06-27 — 文字化け MTGサマリ 2 件を Gmail/Drive 元データから再 narrate (worktree: frosty-chatelet)
+
+### コンテキスト
+- `project_meeting_summaries` の 2 row が LANG=C 起因で日本語 → ASCII '?' 置換のまま保存されていた事故。
+  - p10 SE `7s67r4galqsnj8t1dc0hfo9a3i` (2026-06-18、`source_kinds=gmail`、`source_url=gmail thread`)
+  - p19 ZeMA `bivl92dr7vhaa1fmi7325lnlis_20260610T000000Z` (2026-06-10、`source_kinds=calendar+drive+gmail`)
+- L6 H-1 automation の `macbook_fallback` / 手動 curl 経路で起きた。`generated_by_model` は `codex_gpt5_l6_manual_*` / `codex:gpt-5@amd-os-l6-meeting-flow`。
+- `source_kinds!='none'` のため L6 の「24h 以内 + source='none'」自動再評価対象から外れ、自動では復旧しない構造的問題があった。
+- 同じ session で先に `isGarbledText` guard を proactive-todo-extract に追加 (v0.35.5) + 化けた `proactive_todos` 7件 delete 済み。
+
+### 実装
+- `pwa/scripts/renarrate_garbled_meeting_summaries.mjs` を新規作成。
+  - `--scan` で 254 row 全体から garbled 検出 (`/\?{4,}/` 4連続 + `?` 文字割合 > 5% のヒューリスティック)。
+  - `--meeting-id <id> --reset-for-l6` で `narrative_md` / 4配列クリア + `source_hash=NULL` で L6 再評価対象化。
+  - `--meeting-id <id> --payload <path>` で手動 narrative payload 投入。`narrative_md` の見出し 5 種 (`## 🎯背景` / `## 📊経緯` / `## ✅決まったこと` / `## ▶️次の一手` / `## ⚠️残課題`) を validation で必須化。
+- 元データ取得経路: p10 SE は Gmail MCP `search_threads` で正しい thread (`19edaa5de3970051`) を発見 (DB の `19ed8eaf092f9849` は存在しない thread。文字化けと同時に thread ID も誤保存)、藤原暉雄氏宛 御礼メール + 返信から WiPoT / 国交省本格研究 / 北九州市橋梁 / 川尻先生 / 6/29 顔合わせの議事録を起こした。p19 ZeMA は Gmail thread `19eaf0af32a68b68` (Gemini ノート) + Drive doc `1Qch3wSVytZkDinIKy9K5nRqWB36cNi4a4Uv7k8itQeQ` (会議メモ + 文字起こし) から 3本柱 (TUS / Phydrogen / Jamongan) + 補助金プライオリティ1 + AirRegi/AirPay + 金町未来協議会の議事録を起こした。
+- 両 MTG とも `title` / `summary_short` / `narrative_md` / 4 配列を本物の日本語で UPDATE 完了 (`generated_by_model='manual-garbled-recovery-2026-06-27'`)。
+- 再 scan で garbled 0 件確認。proactive-todo-extract を本番に叩き、`next_action_garbled:0` + 両 MTG の next_actions が `proactive_todos` に新規 upsert されることを確認。
+
+### 残課題
+- 同じ事故が再発したら `pwa/scripts/renarrate_garbled_meeting_summaries.mjs --scan` で即検出可能。再 narrate は元 Gmail thread / Drive doc を Gmail MCP / Drive MCP で取って payload.json を作る運用。
+- L6 macbook_fallback 経路の LANG / locale 設定を恒久 fix する余地あり (= 別 codex 側マターなので未着手)。それまでは scan ツールで随時クリーンアップ。
+- `gmail_thread_ids` に誤った thread ID (`19ed8eaf092f9849`) が残っているのは更新せず、参照価値が出たら別途修正。
