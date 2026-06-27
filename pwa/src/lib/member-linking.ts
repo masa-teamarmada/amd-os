@@ -17,8 +17,9 @@ const RIGHT_TEXT_BOUNDARY = `(?=$|[^\\p{L}\\p{M}\\p{N}_]|[${JAPANESE_PARTICLE_CL
 export function normalizeMemberDisplayText(value: string, members: MemberLinkTarget[]): string {
   if (!value || members.length === 0) return value;
 
+  const surnameCounts = countMemberSurnames(members);
   const replacements = members
-    .flatMap((member) => buildMemberNameReplacements(member))
+    .flatMap((member) => buildMemberNameReplacements(member, surnameCounts))
     .sort((a, b) => b.length - a.length);
 
   let normalized = value;
@@ -91,7 +92,7 @@ function codePointLengthAt(value: string, index: number) {
   return charAt(value, index).length || 1;
 }
 
-function buildMemberNameReplacements(member: MemberLinkTarget) {
+function buildMemberNameReplacements(member: MemberLinkTarget, surnameCounts: Map<string, number>) {
   const codeName = member.codeName.trim();
   const memberName = member.memberName?.trim();
   if (!codeName || !memberName) return [];
@@ -123,7 +124,7 @@ function buildMemberNameReplacements(member: MemberLinkTarget) {
     aliases.set(`surname:${surname}`, {
       pattern: escapeRegExp(surname),
       length: surname.length,
-      suffixRequired: true,
+      suffixRequired: (surnameCounts.get(surname) ?? 0) !== 1,
     });
   }
 
@@ -141,4 +142,14 @@ function buildMemberNameReplacements(member: MemberLinkTarget) {
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function countMemberSurnames(members: MemberLinkTarget[]) {
+  const counts = new Map<string, number>();
+  for (const member of members) {
+    const surname = member.memberName?.trim().split(/\s+/).filter(Boolean)[0] ?? "";
+    if (!surname || surname.length < 2) continue;
+    counts.set(surname, (counts.get(surname) ?? 0) + 1);
+  }
+  return counts;
 }

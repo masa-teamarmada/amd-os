@@ -348,7 +348,7 @@ pwa/
 - 目的は可読性と追跡性。青字リンクで目立たせ、誰の話かをその場で辿れるようにする。
 - `/mypage?memberId=...` はadmin閲覧用。他メンバーのマイページを一般ユーザーが閲覧する導線にはしない。
 - `member_id` は `members.member_id` の値をそのまま使う（例: `ID001`）。`001` のように `ID` prefix を削ったURLは無効。
-- 社内OSの自由文・通知・カード内で AMD メンバーの本名 / 姓+敬称 (例: `山地さん`) が混ざった場合も、active `members` の alias map で `code_name` に寄せてからリンクする。正式な対外提出物など、個別 spec が本名表示を明示している画面だけ例外。
+- 社内OSの自由文・通知・カード内で AMD メンバーの本名 / 姓+敬称 (例: `山地さん`) / active member 内で一意な姓 (例: `[owner: 山地]`) が混ざった場合も、active `members` の alias map で `code_name` に寄せてからリンクする。正式な対外提出物など、個別 spec が本名表示を明示している画面だけ例外。
 - 自由文の自動リンクは standalone mention のみ対象にする。`しかるべき` 内の `かる` や `こうして` 内の `こう` のように、長い日本語/英数字の語へ埋まった code_name はリンクしない。短い code_name を確実にリンクしたい場合は Markdown の明示リンクを書く。
 - `/admin/members` の codeName セルは `/mypage?memberId=<member_id>` への基準リンクUI。コードネームクリックでマイページを開き、台帳編集はセル内の編集ボタンから行う。
 
