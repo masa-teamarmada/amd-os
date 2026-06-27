@@ -1,0 +1,524 @@
+{
+  "ch_overview": {
+    "core_proposition": "起業家中核資源 F を F = CES(F_char, F_cap; a, ρ) として二層形式で定義する。外側集約は CES、内側は F_char (委譲不可能コア = ALQ4 + Grit + Resilience の心理測定構成体) と F_cap (委譲可能経営実行力 = 経験順序の Markov 構造 + 補完成功) に分解される。本章は (a) F-CES の公理化 (Inada 条件 + 一次同次性 + 準凹性) + 内側 CFA / Markov 形式化、(b) 委譲不可能 vs 委譲可能境界を三層 (delegation operator D 公理 = 公理層 / 時間ラグ ΔT + 委譲先存在 + 共起観測の三基準 = 操作層 / 残された経験順序補題 = identification 層) で画定、(c) (a, ρ) の Bayesian posterior 校正手続き (Stan/NUTS の R̂<1.01 / ESS>400 健全性基準 + Cobb-Douglas / Leontief / 加法的への horse-race を WAIC + LOO + Bayes factor の三系統で評価) + 事前登録 H_C2: P(ρ<0|data) ≥ 0.95、(d) Antonakis 2016 / Credé 2017 心理測定論争への三層 defense (測定不変性 Δχ² + Fornell-Larcker AVE + 360 度評価補正) + Grit Perseverance のみ採用で Consistency 除外、(e) BWE 健全型 / TIEM 早すぎ起業 / CTB の 3 ケース後付け校正の横断比較を担う。ρ Kmenta 識別は Ch 10.3、H_C2 commission は Ch 26b に分担し、本章は形式 + 校正 + 委譲不可能性論証に専念する (D-006 / D-031 / D-032 / D-038 / D-047)。",
+    "load_bearing_claims": [
+      "L1 (D-006): F-CES 外側形式 F = [a · F_char^ρ + (1-a) · F_cap^ρ]^(1/ρ), a ∈ (0,1), ρ ∈ (-∞, 1] を本章で初めて形式定義する。補完弾力性 σ = 1/(1-ρ)、ρ→0 で Cobb-Douglas、ρ→-∞ で Leontief、ρ→1 で加法的の三極限に収束する。数値 a=0.6 / ρ=-2 は §7.5 illustrative 出力としてのみ登場し、Book 0 / I / III 章アンカーには持ち込まない。",
+      "L2 (P-005, P-008c): 内側 F_char は ALQ4 (Walumbwa 2008) 二階因子 + Grit (Duckworth 2007) + Resilience (Markman 2005) の CFA で集約され、内側 F_cap は経験順序 (Beckman 2006) の Markov 構造 + 補完成功 (Roberts-Eesley 2011) の co-founder fit 指標で集約される。F_char measurement validity 課題 (P-008c 進化経済査読軽微修正残) は §7.4 で解消宣言する。",
+      "L3: 委譲不可能 vs 委譲可能の境界は三層で画定される — (公理層) delegation operator D の公理 (linearity / idempotency / agent-substitution) と F_char ⊥ D 不変性、(操作層) 三基準 (時間ラグ ΔT 創業前確定 vs 創業後獲得 / 委譲先存在 CEO 以外への割り当て可能性 / 共起観測 自己-360 度差分の安定性)、(identification 層) 残された経験順序補題 — F_char で説明されない分散が F_cap Markov 状態に残る。",
+      "L4 (D-032): F-CES の (a, ρ) は Bayesian posterior として推定する。事前分布 a ~ Beta(2,2) (中立 + Bernstein 2017 RCT の F_char 支配シグナルと整合)、ρ ~ Normal(-1, 1.5) on (-∞, 1] (Inada コーナー側にやや弱い + Nelson-Winter 復権 P(ρ≥0)>0.05 余地を残す)。Stan/NUTS で 4 chains / warmup 2000 / R̂<1.01 / ESS>400 を健全性基準とする。",
+      "L5 (D-032): horse-race を M1 CES (ρ free) vs M2 Cobb-Douglas (ρ=0) vs M3 Leontief (ρ→-∞ 近似) vs M4 加法的 (ρ=1) の 4 モデルで WAIC + LOO + Bayes factor + 事後モデル確率の四系統で評価する。Bayes factor BF(M1 vs M2) > 3 かつ BF(M1 vs M4) > 3 を CES 一般形支配の閾値とする。",
+      "L6 (P-005): Antonakis 2016 ALQ controversy には三層 defense で対応する — (i) 測定不変性 Δχ² 検定で起業家 sub-sample が一般 sample と等価、(ii) Fornell-Larcker AVE > 平方相関で因子分離度、(iii) 360 度評価補正で自己報告 bias 補正。Grit は Credé 2017 メタ分析対応として Perseverance of Effort のみ採用、Consistency of Interest は明示除外する。",
+      "L7 (D-038): ρ の点識別は Kmenta 1967 二次モーメント線形化に依拠する。本章 §7.3 は校正フレーム (事前 + 尤度 + 事後 + horse-race) のみを与え、識別の正準オーナーは Ch 10.3 に分担する。本章は §7.3 末尾 + §7.6 で Kmenta 概略 1 段落 + Ch 10.3 引き渡しを明示する。",
+      "L8 (D-031 Tier B / D-047): 事前登録 H_C2: P(ρ<0|data) ≥ 0.95 → Inada コーナー = 委譲不可能性確立、P(ρ≥0)>0.05 → Nelson-Winter 復権余地、の commission は Tier B として Ch 26b に引き渡す。本章 Tier A 範囲では事前登録 frame の設計のみを担う。証明はスケッチ本文 + 完全証明付録 A.7.1 / A.7.3 (D-047)。"
+    ],
+    "logical_arc": "§7.0 章頭フックは分離膜素材スタートアップ審査会の二択投資判断 (「CFO は雇える / Grit は雇えない」) を type 名匿名化で提示し、現場の評価言語が F_char / F_cap を混同している問題を s-survival.md「替えのきかない核」直観の延長で提起する → §7.1 で F-CES 外側集約 (Arrow-Chenery-Minhas-Solow 1961 系譜) + 内側 CFA (F_char 二階因子モデル) + Markov 構造 (F_cap 経験順序) を formal に書き下し、Inada コーナー命題 7.1 のスケッチ証明を提示 (完全証明は付録 A.7.1) → §7.2 で境界画定を三層 (delegation operator D 公理 / 三基準操作化 / 残された経験順序補題) で組み立て、Bernstein 2017 RCT を a > 0.5 弱情報事前の根拠として §7.3 に引き渡す → §7.3 で a, ρ の Bayesian posterior 校正を proxy 構築 (F_char proxy / F_cap proxy / F proxy = 5 年生存 × ARR 成長率) + Stan/NUTS 健全性基準 + horse-race 四系統評価で実装、Kmenta 識別概略 + Ch 10.3 引き渡しを明示 → §7.4 で Antonakis 2016 / Credé 2017 controversy への三層 defense + Grit Perseverance のみ採用で P-008c 解消を宣言 → §7.5 で BWE 健全型 / TIEM 早すぎ起業 / CTB の 3 ケースを横断比較表 (F_char / F_cap / F-CES / posterior 信用区間 / horse-race 勝者) で並べ、Book III Ch 13 / Ch 12 / Ch 16 への往復参照リンクを明示 → §7.6 章末問いで Ch 8 戦略余力動学 / Ch 10.3 ρ Kmenta 識別 / Ch 11 BVAR / Ch 13 BWE 後付け校正 / Ch 26b H_C2 commission への章間 supply chain を閉じる。",
+    "synthesis_rationale": "overall_winner (3 judges 全てで B) を骨格に採用しつつ、A の delegation operator D 公理化 (§7.2 公理層) と §7.5 BWE/TIEM/CTB 横断比較表を graft、C の三基準操作化 (時間ラグ ΔT + 委譲先存在 + 共起観測) を §7.2 操作層に併設し、§7.0 章頭フックは C の「CFO は雇える / Grit は雇えない」二択の生々しさで s-survival.md 直観との fidelity を確保した。これにより §7.2 境界画定が三層 (公理 + 操作 + identification) の階層構造となり、Tier A 強度と現場読みやすさを両立。§7.3 校正手続きは B の Stan/NUTS 実装基準 + 4 系統 horse-race 評価を採用し、Kmenta 1 段落概略 + Ch 10.3 引き渡しの二段構えで自己完結性と分担規律を両立。§7.4 三層 defense + Grit Perseverance のみ採用は B/C 共通の最強応答として確定。falsifiable_claims は B の 8 項目を骨格に C の ω_h > 0.70 (McDonald's omega-hierarchical) と Eesley-Roberts 2012 補完性統合解釈を追加して 9 項目化。"
+  },
+  "sections": [
+    {
+      "section_id": "7.0",
+      "title": "章頭フック — 分離膜審査会で問われた「替えのきく能力」と「替えのきかない核」",
+      "pages": 2.5,
+      "math_level": "なし (定性描写 + 章間予告のみ)",
+      "anchor_claims": [
+        "分離膜素材スタートアップの VC 審査会場面 (type 名匿名化、人物名記号化) で、創業者の Grit は明らかに高いが CFO 不在で資金計画が破綻している case を提示し、投資委員の「CFO は雇える」と「あの粘りは雇えない」の二択投資判断が F_cap (委譲可能) と F_char (委譲不可能) の境界画定問題そのものであることを示す。",
+        "現場の評価言語 (Grit / リーダーシップ / 経営力 / 実行力) が混在し、何が委譲可能で何が委譲不可能かが切り分けられていない問題を s-survival.md「F の二層 — 替えのきかない核」直観の延長として提起する。",
+        "Bernstein 2017 RCT (founder 評価が投資意思決定の支配的シグナル) を引用し、実務側が暗黙に F_char を支配的にみている事実を本章が公理化の対象とする旨を宣言する。",
+        "Ch 2 PRS = P × R × S の S を本章で F へと内側展開し、F = CES(F_char, F_cap; a, ρ) の二層集約を提案する。Ch 8 戦略余力動学 S = Pr(τ_x < τ_y) のための F を本章で供給し、Ch 10.3 で ρ Kmenta 識別、Ch 11 BVAR、Ch 13 BWE 健全型後付け校正、Ch 26b H_C2 commission へと渡す章間配置を予告する。"
+      ],
+      "paragraph_outline": [
+        "パラグラフ 1: 分離膜素材スタートアップ審査会場面 (type 名のみ匿名化、人物名 A 氏 / B 投資委員等に記号化) — PoC 通過 / Series A 検討 / 三年後の事業停止までの時系列要約。",
+        "パラグラフ 2: 投資委員の発言「あの創業者の粘り (Grit) は本物だ。だが CFO がいない。CFO は雇える。粘りは雇えない」を引用し、二択投資判断の生々しさを描写する。",
+        "パラグラフ 3: 別の投資委員の反論「いや、CFO 不在で資金計画が立てられないなら、粘りも空回りする。両方ないと意味がない」を引用し、F_char × F_cap の補完性 (ρ<0) の直観が現場でも語られていることを示す。",
+        "パラグラフ 4: 現場の評価言語 (Grit / リーダーシップ / 経営力 / 実行力 / Authenticity) が混在し、何が委譲可能で何が委譲不可能かが切り分けられていない問題を提起する。",
+        "パラグラフ 5: Bernstein, Korteweg & Laws 2017 JF RCT (founder シグナル支配) を引用し、実務側が無意識に F_char を支配的扱いしている事実を §7.2 境界画定と §7.3 事前分布 (a > 0.5 弱情報) の根拠として位置づける。",
+        "パラグラフ 6: Ch 2 PRS = P×R×S の S を本章で F へと内側展開する宣言。F = CES(F_char, F_cap; a, ρ) の二層集約形式を提案する。",
+        "パラグラフ 7: 本章の役割 — F-CES 形式 (§7.1) + 三層境界画定 (§7.2) + Bayesian posterior 校正 (§7.3) + 心理測定 defense (§7.4) + 後付け校正サンプル (§7.5) — を箇条で予告する。",
+        "パラグラフ 8: 章間 supply/receive を箇条で明示 — 受け取り (Ch 2 PRS / Ch 5 σ_SU / Ch 6 PRS 期待値分解)、引き渡し (Ch 8 戦略余力動学 / Ch 10.3 ρ Kmenta 識別 / Ch 11 BVAR / Ch 13 BWE / Ch 12 TIEM / Ch 16 CTB / Ch 26b H_C2 commission)。",
+        "パラグラフ 9: D-006 規律の宣言 — 数値 (a=0.6, ρ=-2) は §7.5 illustrative 出力としてのみ登場し、Book 0 / I / III 章アンカーには持ち込まないこと、本章 Tier A の範囲 (D-031) と Tier B 部分 (H_C2 commission) の境界を明示する。",
+        "パラグラフ 10: 章頭フックの締め — 「替えのきく能力」と「替えのきかない核」の切り分け語彙を本章が CES 集約 + 三層境界画定 + Bayesian posterior という三つの形式装置で提供することを宣言する。"
+      ],
+      "new_writing_required": "全面新規執筆 2.5p。s-survival.md の「F の二層」直観を Tier 3 学術化トーンに書き換えつつ、分離膜審査会の二択投資判断 (C 案の生々しさ) を新規描写する。",
+      "existing_reuse": "pwa/bzm/s-survival.md §「S を支える三要素」+「F の二層 — F_char + F_cap」+「合成は両方ないと成立しない CES」の motivation 部分を 0.7p 圧縮再利用 (数値は §7.5 まで遅延)。",
+      "upstream_dependencies": [
+        "Ch 2 PRS = P × R × S の S 定義",
+        "Ch 5 σ_SU 形式",
+        "Ch 6 PRS 期待値分解"
+      ],
+      "downstream_dependencies": [
+        "§7.1 F-CES 形式定義への motivation 接続",
+        "§7.2 三層境界画定への接続",
+        "Ch 8 戦略余力動学 S = Pr(τ_x < τ_y) への F 供給予告"
+      ],
+      "references": [
+        "Bernstein, Korteweg & Laws (2017) JF RCT — founder 評価支配シグナル",
+        "Beckman (2006) AMJ",
+        "Roberts (1991, 2004) MIT cohort",
+        "Ch 2 / Ch 5 / Ch 6 / Ch 8 (内部参照)"
+      ],
+      "source_drafts": [
+        "B §7.0 (Bernstein 2017 連鎖)",
+        "C §7.0 (CFO は雇える / Grit は雇えない 二択フック)",
+        "A §7.0 (章間 supply/receive 予告)"
+      ]
+    },
+    {
+      "section_id": "7.1",
+      "title": "F-CES の二層形式 — 外側集約 + 内側 CFA / Markov 構造",
+      "pages": 6.5,
+      "math_level": "高 (CES 公理 + Inada 条件 + CFA 二階因子モデル + Markov 遷移行列 + 補題スケッチ証明、完全証明は付録 A.7.1)",
+      "anchor_claims": [
+        "F-CES 外側形式: F = [a · F_char^ρ + (1-a) · F_cap^ρ]^(1/ρ), a ∈ (0,1), ρ ∈ (-∞, 1]、補完弾力性 σ = 1/(1-ρ) を定義する。Arrow-Chenery-Minhas-Solow 1961 / Sato 1975 の CES 文献系譜を継承する。",
+        "外側 CES 公理 — 正値性 / 一次同次性 / 単調性 / 準凹性 / Inada 条件 (両入力の境界で限界寄与が発散) — を書き下し、ρ → 0 で Cobb-Douglas、ρ → -∞ で Leontief、ρ → 1 で加法的 (Nelson-Winter 系の代替仮説) に収束する標準性質を補題 7.1.1 として提示する。",
+        "内側 F_char は ALQ4 (Walumbwa 2008) の 4 サブ因子 (自己認識 / 関係透明性 / 内面化道徳 / バランス処理) を二階因子モデルで F_char に集約 + Grit (Duckworth 2007) + Resilience (Markman 2005) の CFA: F_char = Λ_char · η_char + ε_char で記述する。",
+        "内側 F_cap は経験順序 (Beckman 2006 founding team) を Markov 遷移行列 P_exp で記述 + 補完成功 (Roberts-Eesley 2011 MIT alumni) を co-founder fit 指標で測定する: F_cap = Λ_cap · η_cap + ε_cap。経験順序が「残された (residual)」変数として §7.2 残された経験順序補題に繋がることを伏線として明示する。",
+        "Inada コーナー命題 7.1: ρ < 0 + 連続性 + Inada 条件下で F_char → 0 ならば F → 0 (= 委譲不可能コアが必須)。スケッチ証明本文 + 完全証明付録 A.7.1 (D-047)。"
+      ],
+      "paragraph_outline": [
+        "パラグラフ 1: CES 関数族の選好理由 — Cobb-Douglas / Leontief / 加法的の三を ρ パラメータで内包し horse-race できる単一フレーム。Nelson-Winter (1982) routine 進化系の加法代替仮説 vs 委譲不可能性論争への橋渡し。",
+        "パラグラフ 2: F-CES 外側形式 F = [a · F_char^ρ + (1-a) · F_cap^ρ]^(1/ρ) の定義 + パラメータ範囲 (a ∈ (0,1) シェア、ρ ∈ (-∞, 1] 補完弾力性指標)。",
+        "パラグラフ 3: 補完弾力性 σ = 1/(1-ρ) の解釈表 — ρ < 0 補完的 / ρ = 0 Cobb-Douglas / 0 < ρ < 1 代替的 / ρ → 1 加法的 / ρ → -∞ Leontief コーナーの段階区分。",
+        "パラグラフ 4: 外側 CES 公理 (正値性 / 一次同次性 / 単調性 / 準凹性 / Inada 条件) を formal に列挙し、F-CES が委譲不可能性 (一方の入力で他方を完全代替できない) を内包する条件を導く。",
+        "パラグラフ 5: 標準性質補題 7.1.1 — ρ → 0 / ρ → -∞ / ρ → 1 の三極限における収束。Cobb-Douglas / Leontief / 加法的への極限を §7.3 horse-race の理論根拠として明示。",
+        "パラグラフ 6: 内側 F_char の構成概念 — ALQ4 (Walumbwa 2008) の 4 サブ因子 (自己認識 SA / 関係透明性 RT / 内面化道徳 IM / バランス処理 BP) + Grit (Duckworth 2007) + Resilience (Markman 2005) を導入する。",
+        "パラグラフ 7: F_char の二階因子モデル CFA: 一階因子 (ALQ4 二階因子 + Grit + Resilience) → 二階因子 F_char。Antonakis 2016 弁別妥当性議論への先行配慮として ALQ4 を二階因子化する規律を §7.4 の三層 defense に橋渡しする。",
+        "パラグラフ 8: 測定方程式 F_char = Λ_char · η_char + ε_char、ε_char ~ N(0, Σ_char) の formal 記述。自己報告と 360 度評価の二重測定で Σ_char 構造を §7.4 で識別する伏線。",
+        "パラグラフ 9: 内側 F_cap の構成 — Beckman 2006 経験順序 (共同起業経験 → 機能多様化の順序効果) を Markov 遷移行列 P_exp で記述。",
+        "パラグラフ 10: F_cap の co-founder fit 指標 — Roberts-Eesley 2011 MIT alumni 縦断データに基づく補完成功率を観測可能変数として書き下す。",
+        "パラグラフ 11: F_cap 測定方程式 F_cap = Λ_cap · η_cap + ε_cap。経験順序が「残された (residual)」変数として §7.2 残された経験順序補題に位置することを伏線として明示する。",
+        "パラグラフ 12: Inada コーナー命題 7.1 の提示 — ρ < 0 下で F_char → 0 ならば F → 0、つまり委譲不可能コアが必須である数理的本体を命題化する。",
+        "パラグラフ 13: 命題 7.1 スケッチ証明 — ρ < 0 + 連続性 + Inada 条件から F_char^ρ → ∞ as F_char → 0、よって a · F_char^ρ + (1-a) · F_cap^ρ → ∞、よって F = [·]^(1/ρ) → 0 (ρ<0 なので 1/ρ < 0)。完全証明は付録 A.7.1 (D-047)。",
+        "パラグラフ 14: 集約のロバスト性 — F_char 因子数 = 3 (ALQ4 二階因子 / Grit / Resilience) vs 6 (ALQ4 サブ因子分離) の感度を §7.4 horse-race + open_issues に予告する。",
+        "パラグラフ 15: 本章の数値校正 (a=0.6, ρ=-2) は §7.5 illustrative 出力としてのみ登場することを再確認 (D-006 規律)。Ch 10.3 Kmenta 識別後の posterior 数値が最終確定値を更新する分担を明示する。"
+      ],
+      "new_writing_required": "全面新規執筆 6p。F-CES 公理化 + 二階因子 CFA + Markov 構造 + Inada コーナー命題は本書初出。",
+      "existing_reuse": "pwa/bzm/s-survival.md「両方ないと成立しない CES」の直観を命題 7.1 + スケッチ証明として公理化 + 形式化 (0.5p 再利用)。",
+      "upstream_dependencies": [
+        "§7.0 章頭フック (境界画定動機)",
+        "Ch 5 σ_SU 形式"
+      ],
+      "downstream_dependencies": [
+        "§7.2 三層境界画定 (公理層 + 操作層 + identification 層)",
+        "§7.3 校正手続き (proxy 構築 + Bayesian posterior)",
+        "§7.4 心理測定 defense (二階因子モデル)",
+        "§7.5 BWE/TIEM/CTB 後付け校正",
+        "Ch 8 戦略余力動学への F 供給",
+        "Ch 10.3 ρ Kmenta 識別",
+        "Ch 11 BVAR",
+        "付録 A.7.1 完全証明"
+      ],
+      "references": [
+        "Arrow, Chenery, Minhas, Solow (1961)",
+        "Sato (1975)",
+        "Walumbwa, Avolio, Gardner, Wernsing & Peterson (2008) ALQ4",
+        "Duckworth, Peterson, Matthews & Kelly (2007) Grit Scale",
+        "Markman & Baron (2005) Resilience",
+        "Beckman (2006) AMJ founding team",
+        "Roberts & Eesley (2011) Foundations & Trends",
+        "Nelson & Winter (1982)"
+      ],
+      "source_drafts": [
+        "B §7.1 (二階因子 CFA + Markov 構造)",
+        "A §7.1 (公理 + Inada 命題)",
+        "C §7.1 (CES 文献系譜 + Inada コーナー解釈)"
+      ]
+    },
+    {
+      "section_id": "7.2",
+      "title": "委譲不可能 vs 委譲可能 — 三層境界画定 (公理層 + 操作層 + identification 層)",
+      "pages": 6.5,
+      "math_level": "中高 (delegation operator D の公理 + 三基準操作化 + 残された経験順序補題 + スケッチ証明)",
+      "anchor_claims": [
+        "公理層: delegation operator D を公理化する — (i) linearity (D(αF_1 + βF_2) = αD(F_1) + βD(F_2))、(ii) idempotency (D(D(F)) = D(F))、(iii) agent-substitution (D は agent identity に作用)。F_char ⊥ delegation: D(F_char) = F_char (D 不変)、F_cap は D により他主体に移譲可能。",
+        "操作層: 三基準で境界を実証可能化する — (i) 時間ラグ ΔT (創業前確定 vs 創業後獲得可能性)、(ii) 委譲先存在 (CEO 以外への割り当て可能性)、(iii) 共起観測 (自己報告 vs 360 度評価の差分安定性)。ALQ4 / Grit / Resilience は三基準全てを満たし F_char 帰属、経験順序 / 補完成功は F_cap 帰属。",
+        "identification 層: 残された経験順序補題 7.2.1 — F_char で説明されない分散が F_cap Markov 状態に残るという identification 視点を提示する。Ch 10.3 ρ Kmenta 識別 + Ch 11 BVAR への supply chain を強化する。",
+        "中間ゾーン (FRL Charisma / Transformational Leadership) の扱い — 本章 Tier A 範囲では F-CES 外側に取り込まず、Tier B 拡張として Ch 26b に保留する (D-031 Tier A 規律遵守)。"
+      ],
+      "paragraph_outline": [
+        "パラグラフ 1: 境界画定問題の提示 — なぜ「リーダーシップ」「Grit」「経営実行力」が現場で混同されるか。心理学 vs 戦略経営 vs entrepreneurship の用語非統一の歴史的経緯。",
+        "パラグラフ 2: 三層アプローチの宣言 — 公理層 (delegation operator D) + 操作層 (三基準) + identification 層 (残された経験順序補題) の階層化により Tier A 強度と現場読みやすさを両立する。",
+        "パラグラフ 3: 公理層 — delegation operator D の三公理 (linearity / idempotency / agent-substitution) を formal に書き下す。dynamic capabilities (Teece 1997) との用語衝突を回避するため D を「主体間移譲作用素」と限定し、capability 動学とは独立に扱う旨を脚注で明示。",
+        "パラグラフ 4: F_char ⊥ delegation 命題 7.2.1 — D(F_char) = F_char (D 不変)。スケッチ証明: ALQ4 / Grit / Resilience が agent identity に紐づく psychometric 構成体であることから D 作用下で消失しない。",
+        "パラグラフ 5: F_cap 委譲可能性命題 7.2.2 — F_cap は D により他主体への移譲可能。経験順序 (共同起業 → 機能多様化) の sequence 構造は他主体への移譲時にも保存される条件を formal に示す。",
+        "パラグラフ 6: 操作層 — 三基準の操作化定義。(i) 時間ラグ ΔT (創業前確定 vs 創業後獲得) を Roberts 1991 MIT コホート縦断データで実証可能化、ALQ4 / Grit / Resilience は ΔT > 創業ウィンドウ。",
+        "パラグラフ 7: 基準 (ii) 委譲先存在 — F の各構成成分について「CEO 以外に割り当てられるか」を問う。ALQ4 内の Authenticity (自己一貫性) は他者割り当て不可、Resource Acquisition は CFO 等への委譲可能、と区分する。",
+        "パラグラフ 8: 基準 (iii) 共起観測 — 自己報告 ALQ4 vs 360 度評価の差分が安定 (= 測定誤差小) であれば構成概念として確立。不安定なら測定誤差モデルで吸収 (§7.4 三層 defense への橋)。",
+        "パラグラフ 9: identification 層 — 残された経験順序補題 7.2.1 の formal 提示。F_char で説明されない分散 (F - g_char(·)) が F_cap の Markov 状態に残るという identification 視点。",
+        "パラグラフ 10: 補題 7.2.1 スケッチ証明 — F-CES 残差分解 + Markov 構造 + 観測可能 proxy の identification 条件。完全証明は付録 A.7.2 (D-047)。Ch 10.3 Kmenta 識別 + Ch 11 BVAR への supply chain を明示。",
+        "パラグラフ 11: Bernstein 2017 RCT (founder 評価支配シグナル) を境界画定の実証根拠として位置づける。実務側が a > 0.5 を暗黙に支持していることを §7.3 事前分布 a ~ Beta(2,2) (中立 + 弱情報的) の根拠として引き渡す。",
+        "パラグラフ 12: ALQ4 / Grit / Resilience の F_char 帰属確定 — 三基準全てを満たすことを表形式で整理する。Antonakis 2016 批判 (ALQ4 弁別妥当性) は §7.4 で個別対応する旨を予告。",
+        "パラグラフ 13: 経験順序 (Beckman 2006) と補完成功 (Roberts-Eesley 2011) の F_cap 帰属確定 — 三基準による位置づけ。BWE 健全型 (F_char 高 × F_cap 後発補完) を §7.5 校正サンプルに繋ぐ。",
+        "パラグラフ 14: 中間ゾーンの扱い — FRL Charisma / Transformational Leadership は三基準で曖昧 (ΔT 確定するが委譲先存在は議論あり)。本章 Tier A 範囲では取り込まず、Tier B 拡張として Ch 26b に保留する (D-031 規律)。Tedeschi-Calhoun PTG も同様に Resilience 動学拡張として Tier B 保留。",
+        "パラグラフ 15: 境界画定の限界 — シリアル起業家で F_char と F_cap が分離困難な case (TIEM との関連) を §7.5 後付け校正に予告する。",
+        "パラグラフ 16: 三層境界画定のまとめ — 公理 (D 不変性) + 操作 (三基準) + identification (残された経験順序補題) の三層が §7.3 校正手続き + §7.4 心理測定 defense + §7.5 後付け校正に supply される構造を再確認。"
+      ],
+      "new_writing_required": "全面新規執筆 6p。delegation operator D 公理化 + 三基準操作化 + 残された経験順序補題の三層統合は本書初出。",
+      "existing_reuse": "pwa/bzm/s-survival.md「替えのきかない核」の直観を delegation operator D 公理 + 三基準操作化の二層で形式化 (0.5p 再利用)。",
+      "upstream_dependencies": [
+        "§7.1 F-CES 形式定義 + 内側 CFA/Markov",
+        "Ch 2 PRS = P×R×S",
+        "Ch 6 PRS 期待値分解"
+      ],
+      "downstream_dependencies": [
+        "§7.3 校正手続きでの ρ 推定 + 事前分布 a ~ Beta(2,2) の根拠供給",
+        "§7.4 心理測定 defense (三基準 iii と接続)",
+        "§7.5 BWE / TIEM / CTB 後付け校正",
+        "Ch 10.3 ρ Kmenta 識別",
+        "Ch 11 BVAR identification",
+        "Ch 26b H_C2 commission + 中間ゾーン Tier B 編入"
+      ],
+      "references": [
+        "Beckman (2006) AMJ",
+        "Roberts & Eesley (2011)",
+        "Roberts (1991, 2004) MIT cohort",
+        "Bernstein, Korteweg & Laws (2017) JF",
+        "Antonakis et al. (2016) (先行参照)",
+        "Bass & Avolio FRL",
+        "Teece (1997) dynamic capabilities (用語衝突回避脚注)"
+      ],
+      "source_drafts": [
+        "A §7.2 (delegation operator D 公理化)",
+        "B §7.2 (残された経験順序補題)",
+        "C §7.2 (三基準操作化 ΔT + 委譲先存在 + 共起観測)"
+      ]
+    },
+    {
+      "section_id": "7.3",
+      "title": "(a, ρ) の Bayesian posterior 校正手続き + horse-race",
+      "pages": 7.5,
+      "math_level": "高 (Bayesian inference + 事前分布設計 + Stan/NUTS 実装基準 + horse-race 四系統評価 + Kmenta 概略)",
+      "anchor_claims": [
+        "F-CES (a, ρ) は Bayesian posterior として推定する (D-032)。事前分布 a ~ Beta(2,2) (中立 + Bernstein 2017 整合の弱情報的)、ρ ~ Normal(-1, 1.5) on (-∞, 1] (Inada コーナー側にやや弱い + Nelson-Winter 復権余地 P(ρ≥0)>0.05 を残す均衡設計)。",
+        "proxy 構築: F_char proxy = ALQ4 二階因子 + Grit + Resilience の標準化合成、F_cap proxy = 経験順序 (Markov 遷移指標) + 補完成功 (co-founder fit) の標準化合成、F proxy = 5 年生存 × ARR 成長率 (Ch 6 PRS 期待値分解との整合性は open_issue)。",
+        "Stan/NUTS 実装健全性基準: 4 chains / warmup 2000 / sample 2000 / R̂ < 1.01 / ESS > 400 を本章で規律化する。posterior 事後中央値 + 95% / 90% / 50% 信用区間の階層提示。",
+        "horse-race を 4 モデル (M1 CES ρ free / M2 Cobb-Douglas ρ=0 / M3 Leontief ρ→-∞ 近似 / M4 加法的 ρ=1) で WAIC + LOO + Bayes factor + 事後モデル確率の四系統評価。BF(M1 vs M2) > 3 かつ BF(M1 vs M4) > 3 を CES 一般形支配の閾値とする。",
+        "ρ Kmenta 1967 二次モーメント識別 (C2) の概略を §7.3 末で 1 段落フラッシュ、識別の正準オーナー = Ch 10.3 (D-038) への分担を明示する。本章は校正フレーム (事前 + 尤度 + 事後 + horse-race) のみ。",
+        "事前登録 H_C2: P(ρ<0|data) ≥ 0.95 → Inada コーナー = 委譲不可能性、P(ρ≥0) > 0.05 → Nelson-Winter 復権余地、の commission は Tier B として Ch 26b へ引き渡す (D-031)。"
+      ],
+      "paragraph_outline": [
+        "パラグラフ 1: 校正手続きの全体フロー図 — 観測データ (Bernstein 2017 + Beckman 2006 + Roberts-Eesley 2011 + ALQ4/Grit/Resilience 心理測定 batch) → proxy 構築 → 構造方程式 → Bayesian posterior → horse-race → 信用区間 + 事前登録判定の処理パイプライン。D-032 規律の宣言。",
+        "パラグラフ 2: proxy 構築 — F_char proxy = ALQ4 二階因子 + Grit (Perseverance のみ) + Resilience の標準化合成。具体的合成式と正規化手続きを書き下す。",
+        "パラグラフ 3: F_cap proxy = 経験順序 (Beckman 2006 Markov 遷移指標) + 補完成功 (Roberts-Eesley 2011 co-founder fit) の標準化合成。F proxy = 5 年生存 × ARR 成長率 (代理転帰)。",
+        "パラグラフ 4: 事前分布 a ~ Beta(2,2) の設計理由 — 分配パラメータとしての対称弱情報、Bernstein 2017 RCT (founder 評価支配) との整合で a > 0.5 にやや弱い事前。",
+        "パラグラフ 5: 事前分布 ρ ~ Normal(-1, 1.5) on (-∞, 1] の設計理由 — Inada コーナー (-∞) と加法上限 (1) を含み、Inada コーナー側にやや弱い事前 + Nelson-Winter 復権余地 (P(ρ≥0) > 0.05) を残す均衡。",
+        "パラグラフ 6: 心理測定誤差 ε_char, ε_cap の事前 — Half-Cauchy(0, 1) を標準偏差の事前として採用。Σ_char 構造は §7.4 三層 defense との接続で識別する。",
+        "パラグラフ 7: 尤度関数の構築 — F_char/F_cap の潜在因子推定 (CFA/SEM) と起業転帰 y を結合した joint posterior。観測モデル + 構造モデルの分離。",
+        "パラグラフ 8: Stan/NUTS 実装基準 — 4 chains / warmup 2000 / sample 2000 / R̂ < 1.01 / ESS > 400 を健全性基準として明示。divergent transitions チェックも含む。",
+        "パラグラフ 9: 事後分布の報告 — 事後中央値 + 95% / 90% / 50% 信用区間の階層提示。ρ 信用区間が 0 を含むか否かを判定基準として §7.5 / Ch 10.3 / Ch 26b に橋渡し。",
+        "パラグラフ 10: horse-race 設計 — M1 CES (ρ free) vs M2 Cobb-Douglas (ρ=0 ネスト) vs M3 Leontief (ρ→-∞ 近似、実装は ρ = -10 で代用) vs M4 加法的 (ρ=1) の 4 モデル。",
+        "パラグラフ 11: horse-race 評価指標 — WAIC + LOO-CV (Vehtari-Gelman-Gabry 2017) + Bayes factor (周辺尤度比) + 事後モデル確率の四系統。BF(M1 vs M2) > 3 かつ BF(M1 vs M4) > 3 で CES 一般形支配の閾値。",
+        "パラグラフ 12: posterior predictive check — BWE 健全型 / TIEM 早すぎ起業 / CTB の挙動再現性を §7.5 後付け校正で評価。事後予測分布の生成 + 観測分布との KS 検定。",
+        "パラグラフ 13: Kmenta 1967 二次モーメント識別の概略 — log F の Taylor 展開で ρ が分散構造から識別可能であることを 1 段落で示す。識別の正準オーナー = Ch 10.3 (D-038)、本章は校正フレームのみという分担を明示。",
+        "パラグラフ 14: 事前分布 sensitivity 分析 — a ~ Beta(1,1) flat、ρ ~ Cauchy(0, 1) など代替事前との posterior 比較。本章末では要点のみ、詳細は付録 A.7.3。",
+        "パラグラフ 15: 事前登録 H_C2 の宣言 — P(ρ<0|data) ≥ 0.95 → Inada コーナー = 委譲不可能性、P(ρ≥0) > 0.05 → Nelson-Winter 復権余地。Tier B として Ch 26b へ commission。本章は frame 設計のみ (D-031)。",
+        "パラグラフ 16: 数値 (a=0.6, ρ=-2 illustrative) の提示は §7.5 後付け校正サンプルで初めて行うことを再確認 (D-006 規律)。Ch 10.3 Kmenta 識別の最終確定値が本章 illustrative を更新する章間更新プロトコルは Ch 7 入稿時に編集判断 (open_issue)。",
+        "パラグラフ 17: 完全証明 + posterior 導出は付録 A.7.3 に格納 (D-047)。本文はスケッチ + 実装基準 + 評価指標まで。"
+      ],
+      "new_writing_required": "全面新規執筆 7p。proxy 構築 + Stan/NUTS 実装基準 + horse-race 四系統評価 + Kmenta 概略は本書初出。",
+      "existing_reuse": "なし (D-006 規律により数値は本章初出のため、既存ドラフトからの数値引用は禁止)。",
+      "upstream_dependencies": [
+        "§7.1 F-CES 形式定義",
+        "§7.2 三層境界画定 (a 事前分布根拠 + 残された経験順序補題)"
+      ],
+      "downstream_dependencies": [
+        "§7.4 心理測定 defense (測定誤差モデル + 360 度補正)",
+        "§7.5 BWE / TIEM / CTB 後付け校正 + posterior predictive check",
+        "Ch 10.3 ρ Kmenta 識別 (核心数値判定)",
+        "Ch 11 BVAR",
+        "Ch 26b H_C2 事前登録 commission",
+        "付録 A.7.3 posterior 導出"
+      ],
+      "references": [
+        "Kmenta (1967) Econometrica CES linearization",
+        "Klump, McAdam, Willman (2007)",
+        "Gelman et al. Bayesian Data Analysis 3rd ed.",
+        "Vehtari, Gelman, Gabry (2017) WAIC/LOO",
+        "Stan Development Team / NUTS 標準",
+        "Bernstein, Korteweg & Laws (2017) JF (事前分布根拠)",
+        "Nelson & Winter (1982) (ρ≥0 復権根拠)",
+        "Beckman (2006)",
+        "Roberts & Eesley (2011)"
+      ],
+      "source_drafts": [
+        "B §7.3 (proxy 構築 + Stan/NUTS 健全性基準 + 四系統 horse-race)",
+        "A §7.3 (事前分布 sensitivity + WAIC + posterior predictive)",
+        "C §7.3 (ρ ~ N(0,1) 代替事前 + Kmenta 概略 + 感度分析)"
+      ]
+    },
+    {
+      "section_id": "7.4",
+      "title": "心理測定論争への三層 defense — Antonakis 2016 / Credé 2017 への応答",
+      "pages": 5.5,
+      "math_level": "中 (測定不変性 χ² 検定 + Fornell-Larcker AVE + CFA/SEM 二階因子モデル + McDonald's omega-hierarchical)",
+      "anchor_claims": [
+        "Antonakis 2016 ALQ controversy への三層 defense: (i) 測定不変性 Δχ² 検定 (起業家 sub-sample で ALQ4 因子構造が一般 sample と等価)、(ii) Fornell-Larcker AVE > 平方相関 (因子分離度)、(iii) 360 度評価補正 (自己報告 bias を共同創業者 + メンター + 投資家評価で補正)。",
+        "Credé 2017 Grit メタ分析 controversy への応答: Grit を Perseverance of Effort と Consistency of Interest の二因子に分解し、起業家文脈では Perseverance のみを F_char に組み込む。Consistency は明示除外する規律を命題 7.4 として宣言。",
+        "Resilience (Markman 2005) は entrepreneurship 文脈で確立しているが、自己報告偏り対策として 360 度評価を併用し、自己 / 他者差分を測定誤差構造 Σ_char に組み込む。Tedeschi-Calhoun PTG は Resilience 動学拡張として Ch 26b Tier B 保留。",
+        "二階因子モデル (ALQ4 4 サブ因子 → F_char 二次因子) で弁別妥当性議論を回避しつつ、AVE > 平方相関 + 360 度補正の重ね打ちで Antonakis 2016 批判を多層的に吸収する。",
+        "P-008c (進化経済査読軽微修正残) で残された F_char measurement validity 課題は、本節で測定モデル + 事前分布設計 + 三層 defense + Grit 二因子分離として完全に閉じる (P-005 / P-008c 解消宣言)。"
+      ],
+      "paragraph_outline": [
+        "パラグラフ 1: 心理測定論争の概観 — Authentic Leadership ALQ4 を巡る Antonakis 2016 の三批判 (構成概念循環 / 共通方法バイアス / 因子の独立性 / 弁別妥当性疑義)、Grit を巡る Credé 2017 メタ分析 (Perseverance vs Consistency 二因子の差 + 効果サイズ過大評価)、自己報告バイアスの一般問題。",
+        "パラグラフ 2: 三層 defense の宣言 — (i) 測定不変性 + (ii) 因子分離度 AVE + (iii) 360 度評価補正の三層を Tier A 規律 (D-031) として明示する。",
+        "パラグラフ 3: 三層 defense その 1 — 測定不変性 Δχ² 検定。起業家 sub-sample (n ≥ 500 想定) で ALQ4 因子構造が一般 sample と Vandenberg-Lance 2000 基準で等価を示す手続きを書き下す。",
+        "パラグラフ 4: 三層 defense その 2 — Fornell-Larcker 1981 AVE > 平方相関による因子分離度。ALQ4 を 4 サブ因子分離して F_char 二次因子に集約する CFA の妥当性を AVE 閾値で担保する。",
+        "パラグラフ 5: 二階因子モデルの採用 — 一階因子間相関を許容しつつ二次因子 F_char に集約することで、Antonakis 2016 の弁別妥当性議論を構造モデルで回避。McDonald's omega-hierarchical ω_h > 0.70 を信頼性指標として採用。",
+        "パラグラフ 6: 三層 defense その 3 — 360 度評価補正。共同創業者 + メンター + 投資家評価で自己報告 bias を補正、Bernstein 2017 RCT で外部評価が支配的シグナルだった事実と整合。Σ_char 構造に自己 / 他者差分を反映。",
+        "パラグラフ 7: Credé 2017 Grit メタ分析の整理 — Perseverance of Effort と Consistency of Interest の二因子分離、Consistency の予測妥当性が Conscientiousness と弁別困難 (ρ_meta ≈ 0.84) であることを要約。",
+        "パラグラフ 8: Credé 2017 への応答 — 命題 7.4 として Grit を Perseverance のみ採用、Consistency は明示除外する規律を宣言。起業家文脈で Resilience との交互作用が弁別性を補強することを示す。",
+        "パラグラフ 9: 自己報告バイアス対策の formal — ALQ4 自己版 + 360 度版を併用し、共起の安定性 (§7.2 基準 iii) を測定誤差モデル ε_char ~ N(0, Σ_char) の Σ_char 構造に反映する。",
+        "パラグラフ 10: Resilience (Markman 2005) の entrepreneurship 文脈確立を引証 — 起業家 sample での予測妥当性を Markman 2005 + 後続研究で確認。Tedeschi-Calhoun PTG (Post-Traumatic Growth) を Resilience 動学拡張として Ch 26b Tier B 保留する規律を明示。",
+        "パラグラフ 11: 測定モデル全体 — F_char = Λ_char · η_char + ε_char (二階因子 CFA/SEM 表記) と F-CES 外側集約を joint estimation する設計。Σ_char 構造 + 360 度補正 + AVE 閾値の三層が §7.3 校正手続きの事前分布に流れる接続。",
+        "パラグラフ 12: 心理測定論争が ρ 推定の事前分布に与える影響 — F_char 測定誤差が大きい場合の attenuation bias を §7.3 の posterior 設計でどう吸収するかを補足。",
+        "パラグラフ 13: P-008c (進化経済査読軽微修正残) の解消宣言 — 本節で F_char measurement validity 課題を三層 defense + Grit 二因子分離 + Tedeschi-Calhoun PTG の Tier B 保留として完全に閉じる旨を明示する。",
+        "パラグラフ 14: 本節の射程限界 — psychometric debate そのものの決着は本書の射程外、本書は工学的に F_char を運用可能にする条件を示すに留める。Tier B 感度分析 (一階四因子 vs 二階一因子 horse-race) は Ch 26b に commission する余地を open_issue として残す。"
+      ],
+      "new_writing_required": "全面新規執筆 5.5p。三層 defense + Grit 二因子分離 + 二階因子モデル + ω_h 閾値の統合は本書初出。",
+      "existing_reuse": "pwa/bzm/s-survival.md「F_char の難測定性」言及を学術論争コンテキストで Tier 3 拡張 (0.3p 再利用)。",
+      "upstream_dependencies": [
+        "§7.1 内側 CFA 二階因子モデル",
+        "§7.2 三基準操作化 (共起観測)",
+        "§7.3 校正手続きの事前分布 + 測定誤差モデル"
+      ],
+      "downstream_dependencies": [
+        "§7.5 後付け校正サンプル (測定 instrument を健全型に適用)",
+        "§7.6 章末問い (P-008c 解消宣言)",
+        "Ch 10.3 ρ 識別実装での測定誤差処理",
+        "Ch 26b 査読対応 + Tier B 感度分析"
+      ],
+      "references": [
+        "Walumbwa et al. (2008) ALQ4 原典",
+        "Antonakis et al. (2016) Leadership Quarterly ALQ critique",
+        "Duckworth & Quinn (2009) Grit-S",
+        "Credé, Tynan & Harms (2017) Grit メタ分析 JPSP",
+        "Markman & Baron (2005)",
+        "Fornell & Larcker (1981) AVE 基準",
+        "Vandenberg & Lance (2000) 測定不変性",
+        "McDonald (1999) omega-hierarchical",
+        "Tedeschi & Calhoun PTG (Tier B 保留)"
+      ],
+      "source_drafts": [
+        "B §7.4 (三層 defense + Grit Perseverance のみ採用)",
+        "C §7.4 (二階因子モデル + ω_h 閾値)",
+        "A §7.4 (Resilience との交互作用 + 自己報告 / 360 度補正)"
+      ]
+    },
+    {
+      "section_id": "7.5",
+      "title": "BWE 健全型 / TIEM 早すぎ起業 / CTB — F-CES 後付け校正サンプル横断比較",
+      "pages": 5.5,
+      "math_level": "中 (3 ケースに F-CES 数値 illustrative 適用 + posterior 一致度比較 + 横断比較表)",
+      "anchor_claims": [
+        "BWE 健全型 (F_char 高 × F_cap 後発補完) は ρ<0 校正下で F-CES の主要成功経路として posterior と整合する。Bernstein 2017 + Korteweg-Laws 2024 + Roberts-Eesley 2011 連続起業家データに当て、Book III Ch 13 BWE 健全型の主要事例として往復参照する。",
+        "TIEM 早すぎ起業 (F_char 高 × F_cap 不在 × 委譲先不在) は ρ<0 下で F-CES が Leontief コーナーで F → 0 に押される。Markman 2005 Resilience 文脈 + Beckman 2006 経験順序未蓄積データで論証し、Ch 12 TIEM への往復参照。",
+        "CTB (F_char 低 × F_cap 過剰) は ρ<0 下で F_char コーナーが効き F_cap 過剰でも F が回復しない例。Roberts-Eesley 2011 経験順序逆転 case で posterior predictive check に使われ、Ch 16 CTB への往復参照。",
+        "F-CES illustrative 数値 (a=0.6, ρ=-2) は本節で初出 (D-006 規律遵守)。Book 0 / I / III アンカーには遡及しない。Ch 10.3 Kmenta 識別最終値は本章 illustrative を更新する。",
+        "横断比較表 — F_char / F_cap 値 / F-CES 出力 / posterior 95% 信用区間 / horse-race 勝者 (M1 CES / M2 CD / M3 Leontief / M4 加法的) を 3 ケース × 5 列で並列提示する。Eesley-Roberts 2012 生得 vs 経験論争を補完性 (ρ<0) で統合解釈する。"
+      ],
+      "paragraph_outline": [
+        "パラグラフ 1: 後付け校正の方針 — 本章 §7.5 は 3 ケース (BWE 健全型 / TIEM / CTB) を type 名匿名化で illustrative 提示、本格実装は Book III Ch 13 / Ch 12 / Ch 16 に分担する境界を明示する。",
+        "パラグラフ 2: BWE (Born With Endowment 健全型) サンプル — F_char 高 (ALQ4 二階因子 + Grit + Resilience 高) × F_cap 後発補完 (経験豊富な COO/CFO 採用) を Bernstein 2017 + Korteweg-Laws 2024 データに当てる。",
+        "パラグラフ 3: BWE 健全型の F-CES 出力 (a=0.6, ρ=-2 illustrative) — F が大きく上昇するパターンを posterior 更新で示す。Roberts-Eesley 2011 連続起業家補完者調達成功率と整合。Ch 13 BWE 健全型の主要事例として往復参照。",
+        "パラグラフ 4: TIEM (Too Early Entrepreneurial Move) サンプル — F_char 高だが F_cap 不在 × 委譲先不在で起業した case。Markman 2005 Resilience 文脈 + Beckman 2006 経験順序未蓄積データで論証。",
+        "パラグラフ 5: TIEM の F-CES 出力 — ρ<0 下で F_cap → 0 のコーナーで F → 0 (Leontief 崩壊)。Inada コーナー命題 7.1 の実証例。Ch 12 TIEM への往復参照。",
+        "パラグラフ 6: CTB (Cross-Type Bridging) サンプル — F_char 低 × F_cap 過剰 (経験豊富な大企業 OB 創業者 case) を Roberts-Eesley 2011 経験順序逆転データにマッピング。",
+        "パラグラフ 7: CTB の F-CES 出力 — ρ<0 下で F_char コーナーが効き F_cap 過剰でも F が回復しない。posterior predictive check で確認。Ch 16 CTB への往復参照。",
+        "パラグラフ 8: 横断比較表の提示 — F_char / F_cap 値 / F-CES 出力 / posterior 95% 信用区間 / horse-race 勝者 (M1 CES / M2 CD / M3 Leontief / M4 加法的) を 3 ケース × 5 列で並列提示。BWE → M1 dominant、TIEM → M3 dominant、CTB → M3 dominant の傾向を示す。",
+        "パラグラフ 9: Eesley & Roberts 2012 SEJ の生得 vs 経験論争を F_char / F_cap の補完性 (ρ<0) として統合解釈 — 生得 = F_char、経験 = F_cap、両者の交互作用項が posterior 信用区間で負 (補完的) を支持することを示す。既存文献の対立を本書枠組で解消する。",
+        "パラグラフ 10: posterior predictive check の方法論 — BWE 健全型 (F_char 高 × F_cap 後発補完) の事後 F が ρ=-2 校正下で TIEM ケース (F_char 高 × F_cap 不在) を統計的に支配することを 95% 信用区間で検証する。",
+        "パラグラフ 11: TIEM ケースの反事実 falsification — F_char 低 (Resilience 下位 25%) で F_cap を仮想的に最大値に置いても F が Inada コーナーで頭打ち (F < median F) になることを示す。委譲不可能性の反事実検証。",
+        "パラグラフ 12: 後付け校正の限界 — 3 ケースは illustrative であり、本格的 ρ 識別は Ch 10.3 Kmenta 実装に委ねる。Ch 26b H_C2 commission が最終判定を持つ。サンプル数 + 反事実推論の制約を明示。",
+        "パラグラフ 13: Book III への引き渡し — Ch 13 BWE 健全型 / Ch 12 TIEM / Ch 16 CTB への往復参照リンクを表形式で明示。本章 §7.5 は形式 + posterior illustrative、本格校正は Book III に分担。"
+      ],
+      "new_writing_required": "全面新規執筆 5.5p。3 ケース横断比較表 + posterior predictive check + Eesley-Roberts 2012 補完性統合解釈は本書初出。",
+      "existing_reuse": "pwa/bzm/s-survival.md の BWE / TIEM 直観言及 (1p) を 3 ケース posterior 比較として Tier 3 再構築。",
+      "upstream_dependencies": [
+        "§7.3 校正手続き + Bayesian posterior + horse-race",
+        "§7.4 心理測定 defense"
+      ],
+      "downstream_dependencies": [
+        "§7.6 章末問い",
+        "Ch 8 戦略余力動学",
+        "Ch 10.3 ρ Kmenta 識別",
+        "Ch 11 BVAR",
+        "Ch 12 TIEM 本格校正",
+        "Ch 13 BWE 健全型本格校正",
+        "Ch 16 CTB 本格校正"
+      ],
+      "references": [
+        "Bernstein, Korteweg & Laws (2017)",
+        "Korteweg & Laws (2024)",
+        "Beckman (2006)",
+        "Roberts & Eesley (2011)",
+        "Eesley & Roberts (2012) SEJ",
+        "Markman & Baron (2005)"
+      ],
+      "source_drafts": [
+        "A §7.5 (3 ケース横断比較表 + Book III 往復参照)",
+        "B §7.5 (BWE > TIEM 統計支配 + posterior predictive)",
+        "C §7.5 (TIEM 二重コーナー + Eesley-Roberts 2012 統合解釈)"
+      ]
+    },
+    {
+      "section_id": "7.6",
+      "title": "章末問い + 開放論点 — Ch 8 / Ch 10.3 / Ch 11 / Ch 13 / Ch 26b への橋渡し",
+      "pages": 2.5,
+      "math_level": "なし (定性まとめ + 引き渡し命題のみ)",
+      "anchor_claims": [
+        "本章で確立したもの: F-CES 二層形式 (§7.1) / 三層境界画定 (§7.2 公理 + 操作 + identification) / Bayesian posterior 校正手続き (§7.3) / 心理測定論争三層 defense (§7.4) / 3 ケース後付け校正横断比較 (§7.5)。",
+        "本章で確立しなかったもの (分担表): ρ 数値識別 = Ch 10.3 (D-038) / H_C2 事前登録 final 判定 = Ch 26b (D-031 Tier B) / F_char 測定の長期改善 = P-008c 残課題は本章で大部分解消 / FRL Charisma + PTG の Tier B 編入可否 = Ch 26b。",
+        "Ch 8 戦略余力動学 S = Pr(τ_x < τ_y) への F 供給リンク、Ch 10.3 ρ Kmenta 識別への形式供給リンク、Ch 11 BVAR への identification 供給リンク、Ch 13 BWE / Ch 12 TIEM / Ch 16 CTB への後付け校正リンク、Ch 26b H_C2 commission への事前登録 frame 供給リンクを明示する。",
+        "章末問い 3 つ — (1) F_char の 360 度評価を超えた測定改善余地、(2) horse-race 勝者が加法的 (ρ=1) に転じた場合の Nelson-Winter 復権書き直し、(3) F-CES 集約形が経営チーム入れ替え後にも保存される条件 (delegation operator D の動学化)。"
+      ],
+      "paragraph_outline": [
+        "パラグラフ 1: 本章の到達点総括 — F-CES 二層形式 (§7.1) + 三層境界画定 (§7.2 公理層 delegation operator D + 操作層三基準 + identification 層残された経験順序補題) + Bayesian posterior 校正 (§7.3) + 心理測定三層 defense (§7.4) + 3 ケース後付け校正横断比較 (§7.5) を箇条要約する。",
+        "パラグラフ 2: 本章で確立しなかったもの分担表 — (i) ρ 点識別 = Ch 10.3 Kmenta (D-038)、(ii) H_C2 事前登録 final commission = Ch 26b (D-031 Tier B)、(iii) BWE / TIEM / CTB 本格校正 = Ch 13 / Ch 12 / Ch 16、(iv) FRL Charisma + PTG の Tier B 編入可否 = Ch 26b。",
+        "パラグラフ 3: P-005 / P-008c の解消状況 — §7.4 三層 defense + Grit Perseverance のみ採用で P-008c F_char measurement validity 課題を大部分解消したことを再宣言する。残課題 (Tier B 感度分析) は Ch 26b へ。",
+        "パラグラフ 4: 章間 supply / receive の最終整理 — Ch 8 戦略余力動学への F 供給、Ch 10.3 への形式 + 校正 frame 供給、Ch 11 BVAR への identification 供給、Ch 12 / 13 / 16 への後付け校正リンク、Ch 26b H_C2 commission frame 供給を箇条で明示する。",
+        "パラグラフ 5: 章末問い 1 — F_char の 360 度評価を超えた測定改善余地。生理学的指標 (ストレス応答) や行動観察データを将来取り込めるかの問い。Tier B 拡張の方向性。",
+        "パラグラフ 6: 章末問い 2 — horse-race 勝者が加法的 (ρ=1) に転じた場合の Nelson-Winter 復権書き直し。本書の F_char 委譲不可能性論証は弱形に後退する条件 (BF(M1 vs M4) < 1) と、その場合の章書き換え方針。",
+        "パラグラフ 7: 章末問い 3 — F-CES 集約形が経営チーム入れ替え後にも保存される条件。delegation operator D の動学化 (時間軸 t 上の D_t の連続性 + 不変性) の Tier B 拡張可能性。",
+        "パラグラフ 8: 章頭分離膜審査会場面 (§7.0) への回帰 — 「CFO は雇える / Grit は雇えない」の二択投資判断に対し、本章は「両者の補完性 (ρ<0) が支配的なら両方ないと F は成立しない」と暫定回答する。決定的判断は Ch 13 BWE 健全型の本格校正後 + Ch 26b H_C2 final commission 後に得られる旨を明示する。"
+      ],
+      "new_writing_required": "全面新規執筆 2.5p。章間 supply / receive 整理 + 章末問い 3 つ + §7.0 回帰は Ch 7 末尾の規律部分として本章初出。",
+      "existing_reuse": "なし",
+      "upstream_dependencies": [
+        "§7.0 章頭分離膜審査会場面",
+        "§7.1 - §7.5 全体"
+      ],
+      "downstream_dependencies": [
+        "Ch 8 戦略余力動学 S = Pr(τ_x < τ_y)",
+        "Ch 10.3 ρ Kmenta 識別",
+        "Ch 11 BVAR identification",
+        "Ch 12 TIEM 本格校正",
+        "Ch 13 BWE 健全型本格校正",
+        "Ch 16 CTB 本格校正",
+        "Ch 26b H_C2 事前登録 commission + Tier B 感度分析"
+      ],
+      "references": [
+        "BOOK_DECISIONS.md D-006 / D-031 / D-032 / D-038 / D-047",
+        "Ch 8 / Ch 10.3 / Ch 11 / Ch 12 / Ch 13 / Ch 16 / Ch 26b (内部参照)"
+      ],
+      "source_drafts": [
+        "B §7.6 (章間 supply/receive 完全閉鎖 + P-008c 解消宣言)",
+        "A §7.6 (章末問い 3 つの設計)",
+        "C §7.6 (§7.0 場面回帰 + Tier B 動学拡張保留)"
+      ]
+    }
+  ],
+  "open_issues_for_masa": [
+    {
+      "issue": "F-CES illustrative 数値 (a=0.6, ρ=-2) の §7.5 初出と Ch 10.3 Kmenta 識別最終値との章間更新プロトコル",
+      "why_masa_decides": "D-006 規律 (Book 0 / I / III アンカーから F-CES 数値を削除し、Ch 7 で初出 + Ch 10.3 で識別) の運用が、Ch 7 入稿時に Ch 10.3 数値が未確定の場合にどう成立するかは編集判断 + 章間規律。3 案とも open_issue として残しており masa 確定が必要。",
+      "options": [
+        "A: §7.5 で placeholder (a=0.6, ρ=-2 を illustrative と明記) を置き、Ch 10.3 最終値で校正後に章間更新する二段プロトコル",
+        "B: Ch 7 と Ch 10.3 を同時 commission し、§7.5 と Ch 10.3 結果を双方向参照する単一更新で確定する",
+        "C: Ch 7 §7.5 では数値を示さず分布形状のみ提示し、Ch 10.3 で初めて数値確定する (本章は完全に校正フレームのみ)"
+      ],
+      "recommendation": "A (placeholder + 二段プロトコル)。理由: 本章は formal 章として自己完結性が必要で数値 illustrative がないと §7.5 横断比較表が機能しない。Ch 10.3 最終値での更新は出版前最終校で実施するルールを編集規律として明文化すれば運用可能。"
+    },
+    {
+      "issue": "ALQ4 の正本化 — 4 サブ因子分離 (Antonakis 批判リスク) vs 二階因子モデル一本化 (情報損失) vs horse-race 報告 (記述複雑化) の三択",
+      "why_masa_decides": "P-005 ALQ controversy への対応戦略は §7.1 形式 + §7.4 心理測定 defense + §7.3 校正手続きの整合性を全章にわたって規定する。A 案 (4 因子 latent)、B 案 (horse-race 報告)、C 案 (二階因子一本化) で分岐しており masa の方針確定が査読耐性を左右する。",
+      "options": [
+        "A: ALQ4 を 4 サブ因子のまま保持し AVE > 平方相関で弁別性を担保 (情報量最大、Antonakis 批判への直接応答)",
+        "B: ALQ4 を二階因子モデル一本化 (Antonakis 弁別妥当性議論を構造で回避、エレガント)、Tier B 感度分析として 4 因子 horse-race を Ch 26b commission",
+        "C: §7.1 では二階因子モデル、§7.4 で AVE 4 因子分離度を併報、§7.3 horse-race で M1' (二階因子) vs M1'' (4 因子) も含めて 6 モデル比較"
+      ],
+      "recommendation": "B (二階因子モデル一本化 + Tier B 感度分析 Ch 26b commission)。理由: D-031 Tier A 規律下で本文の formal 強度を確保しつつ、Antonakis 2016 批判は構造モデルで回避、4 因子 horse-race は Tier B として Ch 26b に逃がす分担が本書 architecture と整合的。"
+    },
+    {
+      "issue": "horse-race の対象モデル数 — 4 モデル (CES / CD / Leontief / 加法的) で固定するか、ALQ4 horse-race や F_char 因子数 horse-race を追加するか",
+      "why_masa_decides": "D-032 horse-race 規律の範囲設定は §7.3 校正手続きの計算負荷 + 章紙数配分 + Ch 10.3 / Ch 26b 分担を直接規定する。4 モデル統一なら §7.3 は 7.5p で収まるが、追加 horse-race を入れると 8.5p+ に膨張し他節を圧迫する。",
+      "options": [
+        "A: 4 モデル (M1 CES / M2 CD / M3 Leontief / M4 加法的) で固定、ALQ4 因子数 horse-race は Tier B として Ch 26b に分担",
+        "B: 4 モデル + ALQ4 二階因子 vs 4 因子の心理測定 horse-race を §7.3 末尾に追加 (計 6 モデル)、§7.3 = 8.5p に膨張",
+        "C: 4 モデル + 内側 F_char 因子数 horse-race + 内側 F_cap Markov 構造 vs 単純合成 horse-race を全て §7.3 に統合 (計 8 モデル)、§7.4 と統合して 12p に再配分"
+      ],
+      "recommendation": "A (4 モデル固定 + ALQ4 horse-race は Ch 26b 分担)。理由: 本章は F-CES 形式 + 校正手続きの正本確立が主目的で、心理測定 horse-race は §7.4 三層 defense (AVE + 360 度補正 + 二階因子モデル) で対応済み。Tier A 規律 + 章紙数 38p の制約下で 4 モデル固定が最も clean。"
+    },
+    {
+      "issue": "delegation operator D の公理化 (§7.2 公理層) を採用するか、三基準操作化 (§7.2 操作層) のみで境界画定を完結させるか",
+      "why_masa_decides": "A 案独自の delegation operator D 公理化は Teece 1997 dynamic capabilities 系との用語衝突リスクを A 自身が open_issue で認めている。formal 強度と用語衝突リスクのトレードオフは masa の Tier A 章の rigor 方針に依存する。",
+      "options": [
+        "A: delegation operator D を公理化し三層境界画定 (公理 + 操作 + identification) の完全形を採用 (formal 最強、用語衝突リスクあり)",
+        "B: 公理層を省き操作層 (三基準) + identification 層 (残された経験順序補題) の二層で完結 (用語衝突回避、formal 強度やや劣る)",
+        "C: delegation operator D を「主体間移譲作用素」と限定名で導入し、Teece 1997 capability 動学とは独立に扱う旨を脚注で明示しつつ公理化を採用 (rigor + 衝突回避の両立)"
+      ],
+      "recommendation": "C (限定名 + 脚注で衝突回避しつつ公理化採用)。理由: §7.2 三層境界画定が本章の formal anchor として最も野心的で、Tier A 章として delegation operator D は Inada コーナー命題 7.1 + 残された経験順序補題 7.2.1 と並ぶ独自の数理装置。脚注で用語衝突回避を明示すれば査読耐性も確保可能。"
+    },
+    {
+      "issue": "事前分布 ρ の中心位置 — Normal(-1, 1.5) (Inada コーナー寄り) vs Normal(0, 2) (Cobb-Douglas 中立) vs Normal(0, 1) (より sharp な中立)",
+      "why_masa_decides": "事前登録 H_C2 (P(ρ<0|data) ≥ 0.95) の判定に対する事前分布の影響は本書の committment 強度を規定する。Bernstein 2017 RCT 整合の弱情報的事前 (Normal(-1, 1.5)) は P(ρ<0) を事前に押し上げるが、これは Nelson-Winter 復権余地を狭めるトレードオフ。",
+      "options": [
+        "A: Normal(-1, 1.5) on (-∞, 1] (Inada コーナー側にやや弱い + Bernstein 2017 整合 + Nelson-Winter 復権余地 P(ρ≥0) > 0.05 確保)",
+        "B: Normal(0, 2^2) on (-∞, 1] (Cobb-Douglas 中立、Bernstein 2017 を尤度に任せる中立的姿勢)",
+        "C: Normal(0, 1) on (-∞, 1] (より sharp な中立、感度分析でロバスト性を強調)"
+      ],
+      "recommendation": "A (Normal(-1, 1.5))、ただし sensitivity 分析として B / C を §7.3 末尾 + 付録 A.7.3 で必ず報告する。理由: H_C2 commission の committment 強度と Bernstein 2017 整合性を両立しつつ、sensitivity 分析で査読耐性を確保する均衡設計。"
+    },
+    {
+      "issue": "Grit の Credé 2017 対応 — Perseverance のみ採用 (B) vs 二因子別パラメータ推定 (C) vs Resilience 交互作用 (A) の三択",
+      "why_masa_decides": "Credé 2017 メタ分析 (Grit の Conscientiousness との弁別困難) への応答戦略は §7.4 三層 defense の形と §7.1 F_char 内側 CFA の構造を直接規定する。3 案で分岐しており masa 確定が必要。",
+      "options": [
+        "A: Resilience との交互作用項で弁別性を確保 (情報量最大、formal 複雑)",
+        "B: Perseverance of Effort のみ採用、Consistency of Interest は明示除外 (最もクリーン、情報損失あり)",
+        "C: 二因子別パラメータ推定 + posterior 信用区間で報告 (情報損失最小、解釈複雑化)"
+      ],
+      "recommendation": "B (Perseverance のみ採用 + Consistency 明示除外、命題 7.4 として宣言)。理由: Credé 2017 メタ分析批判への最もクリーンな応答であり Tier A 規律下で formal 強度が高い。Consistency 除外による情報損失は起業家文脈 (短期高強度 effort) では実証的に正当化可能。"
+    }
+  ],
+  "falsifiable_claims": [
+    "F-CES posterior において P(ρ<0|data) ≥ 0.95 が成立する (= F_char と F_cap は補完的であり、Inada コーナーが存在する。失敗時は Nelson-Winter 加法代替仮説の復権余地が残り、本書 F_char 委譲不可能性論証は弱形に後退する) — H_C2 事前登録、Ch 26b で正準 commission。",
+    "F-CES posterior において a の 95% 信用区間下限が 0.5 を上回る (a > 0.5 with 95% 事後確率) — Bernstein 2017 RCT 整合の F_char 支配仮説。失敗時は F_char と F_cap が対称シェアとなり、本書の F_char 重視論証は中立化する。",
+    "horse-race の事後モデル確率で M1 (CES ρ free) が WAIC + LOO で M2 (Cobb-Douglas ρ=0) を Bayes factor BF(M1 vs M2) > 3 で支配し、かつ M4 (加法的 ρ=1) を BF(M1 vs M4) > 3 で支配する — 委譲不可能性命題が Cobb-Douglas 復権 + Nelson-Winter 加法代替の両方を排除する強さを持つ。",
+    "ALQ4 二階因子モデルでの McDonald's omega-hierarchical ω_h > 0.70 が成立する (= F_char の構成概念信頼性が確立し、Antonakis 2016 / Credé 2017 controversy への三層 defense が成功)。失敗時は P-008c 課題が顕在化し Ch 26b Tier B 感度分析が必要。",
+    "ALQ4 起業家 sub-sample での測定不変性 Δχ² 検定 (Vandenberg-Lance 2000 基準) で一般 sample と等価が成立する — Antonakis 2016 構成概念循環批判への defense の falsifiable 部分。失敗時は 360 度補正 + Σ_char 構造調整で吸収。",
+    "Grit Perseverance of Effort 単独で F_char 内 predictive validity を保持し、Consistency of Interest を除外しても F-CES 校正に有意な影響なし (Credé 2017 整合) — Perseverance/Consistency 二因子分離規律の正当化。",
+    "F_char proxy と F_cap proxy の相関が 0.4 未満 (因子分離度閾値) — 委譲不可能 / 委譲可能境界画定 (§7.2 三層) の操作的有効性。失敗時は §7.2 操作層基準の見直しが必要。",
+    "BWE 健全型ケース (F_char 高 × F_cap 後発補完) の事後 F が ρ=-2 校正下で TIEM ケース (F_char 高 × F_cap 不在) を 95% 信用区間で統計的に支配する — F_cap 後発補完経路の有効性 + 委譲不可能性命題の事例レベル整合。",
+    "TIEM ケース (F_char 低、特に Resilience 下位 25%) で F_cap を仮想的に最大値に置いても F が Inada コーナー側で頭打ち (F < median F) — 委譲不可能性の反事実 falsification。",
+    "Eesley-Roberts 2012 SEJ の生得 vs 経験論争を F_char (生得 + 早期形成) と F_cap (経験順序) の補完性 (ρ<0) として統合解釈したとき、両者を独立変数として並列投入した起業転帰モデルで両者の交互作用項が posterior 信用区間で負 (補完的) を支持する — 既存文献の対立を本書枠組で解消する論理力。",
+    "delegation operator D 公理 (§7.2 公理層) 下で F_char が D 不変であることが Beckman 2006 経験順序データ (経営チーム入れ替え事例) と整合する — 委譲不可能性公理の実証 falsification。失敗時は公理層を撤回し操作層 + identification 層のみで境界画定を維持。"
+  ],
+  "cross_chapter_supply": [
+    {
+      "target_chapter": "Ch 8 戦略余力動学",
+      "what_supplies": "§7.1 F-CES 外側集約 + 内側 CFA/Markov 形式 + §7.3 校正 (a, ρ) posterior 中央値 + 95% 信用区間 + §7.5 BWE/TIEM/CTB 後付け校正サンプルで example 化された F 値を、Ch 8 戦略余力動学 S = Pr(τ_x < τ_y) の F 入力として供給する。"
+    },
+    {
+      "target_chapter": "Ch 10.3 ρ Kmenta 二次モーメント識別",
+      "what_supplies": "§7.1 F-CES 形式定義 + §7.3 Bayesian posterior 校正フレーム (proxy 構築 + 事前分布 + 尤度 + 健全性基準) + Kmenta 1967 概略 1 段落を供給する。Ch 10.3 が ρ 点識別の正準オーナーとして最終確定値を返す (D-038 分担)。"
+    },
+    {
+      "target_chapter": "Ch 11 BVAR",
+      "what_supplies": "§7.2 残された経験順序補題 7.2.1 (F_char で説明されない分散が F_cap Markov 状態に残る identification 視点) + §7.3 Bayesian 校正手続き (Stan/NUTS 健全性基準 + 4 系統 horse-race 評価) を Ch 11 BVAR の identification strategy + 事前分布規律として供給する。"
+    },
+    {
+      "target_chapter": "Ch 12 TIEM 早すぎ起業 (Book III)",
+      "what_supplies": "§7.5 TIEM サンプル (F_char 高 × F_cap 不在 × 委譲先不在、ρ<0 下で Leontief コーナーで F → 0) の posterior illustrative + §7.2 三基準操作化 (時間ラグ ΔT + 委譲先存在 + 共起観測) を Ch 12 TIEM 本格校正の出発点として供給する。"
+    },
+    {
+      "target_chapter": "Ch 13 BWE 健全型 (Book III)",
+      "what_supplies": "§7.5 BWE 健全型サンプル (F_char 高 × F_cap 後発補完、ρ<0 下で F-CES 主要成功経路) の posterior illustrative + §7.3 校正手続き全体を Ch 13 BWE 健全型本格校正に供給する。Book III 後付け校正の正本実装。"
+    },
+    {
+      "target_chapter": "Ch 16 CTB (Book III)",
+      "what_supplies": "§7.5 CTB サンプル (F_char 低 × F_cap 過剰、ρ<0 下で F_char コーナーで F 回復しない) の posterior illustrative + §7.2 中間ゾーン (FRL Charisma / Transformational) 扱い保留を Ch 16 CTB 本格校正に供給する。"
+    },
+    {
+      "target_chapter": "Ch 26b H_C2 事前登録 commission",
+      "what_supplies": "§7.3 事前登録 H_C2 frame (P(ρ<0|data) ≥ 0.95 → 委譲不可能性、P(ρ≥0) > 0.05 → Nelson-Winter 復権余地) の事前 + 尤度 + 事後設計を Tier B として Ch 26b に commission する。§7.4 ALQ4 二階因子 vs 4 因子 horse-race の Tier B 感度分析 + FRL Charisma + PTG の Tier B 編入可否も Ch 26b に分担。"
+    }
+  ],
+  "masa_negotiation_handles": [
+    "F-CES illustrative 数値 (a=0.6, ρ=-2) の §7.5 初出と Ch 10.3 Kmenta 識別最終値との章間更新プロトコル — placeholder 二段更新 (推奨) vs 同時 commission vs 数値完全遅延の三択。出版前最終校での更新ルール明文化",
+    "ALQ4 の正本化 — 二階因子モデル一本化 (推奨、Tier B 4 因子感度分析を Ch 26b commission) vs 4 サブ因子保持 (AVE 弁別性担保) vs §7.3 で内側 horse-race (6 モデル化、紙数膨張) の三択",
+    "horse-race の対象モデル数 — 4 モデル固定 (推奨、Tier A 章紙数 38p 順守) vs 6 モデル (ALQ4 horse-race 追加、§7.3 = 8.5p に膨張) vs 8 モデル (内側 F_cap Markov vs 単純合成も追加、§7.3+§7.4 = 12p 再配分) の三択",
+    "§7.2 公理層 delegation operator D の採用方針 — 限定名 + 脚注で Teece 1997 dynamic capabilities 衝突回避しつつ公理化採用 (推奨) vs 公理層省略で操作層 + identification 層の二層に簡素化 vs full operator 公理化 (用語衝突リスク高) の三択",
+    "事前分布 ρ の中心位置 — Normal(-1, 1.5) on (-∞, 1] (推奨、Bernstein 2017 整合 + Nelson-Winter 復権余地確保) vs Normal(0, 2^2) (Cobb-Douglas 中立) vs Normal(0, 1) (sharp 中立) + sensitivity 分析の付録配置判断",
+    "Grit の Credé 2017 対応 — Perseverance のみ採用 + Consistency 明示除外 (推奨、命題 7.4 として宣言) vs 二因子別パラメータ推定 (情報損失最小、解釈複雑) vs Resilience 交互作用 (formal 複雑) の三択",
+    "§7.0 章頭フックのトーン — C 案「CFO は雇える / Grit は雇えない」生々しさ (推奨、s-survival.md fidelity) vs B 案「PoC 通過 / Series A 失敗 / 三年後停止」時系列学術化 vs A 案「審査会描写 + 章間予告中心」の三択",
+    "中間ゾーン (FRL Charisma / Transformational + Tedeschi-Calhoun PTG) の扱い — Ch 26b Tier B 保留 (推奨、D-031 Tier A 規律遵守) vs §7.2 末尾で部分編入 (本章 Tier A 強度を犠牲) vs 完全除外 (情報損失) の三択"
+  ]
+}
