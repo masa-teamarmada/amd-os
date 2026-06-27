@@ -4,101 +4,43 @@
 
 ## §5.0 章頭フック — CX 三位一体加速 (S₁→S₂) と YD の P 律速 NO_GO (S₀ stuck) (2.5p)
 
-### 5.0.1 二つの領域、同じ時刻、対照的なレジーム — 章頭問い
-- **core_proposition**: 2020-23 年の同一窓に CX 系と YD 系を置き、片方では Triple Helix 三レーンが同期加速し σ_SU が観測史上最高水準、他方では政策密度 P が立ち上がらず σ_SU が低位に張り付いた事実を示し、同じ歴史時刻が異領域では異なる選抜圧として観測される問いを提示する。
-- **figures**: 図 5.0.1 CX vs YD σ_SU 時系列 4 panel (P / B / V / σ_SU 合成、2020Q4-2023Q4、type 匿名化)
-- **references**: Atlas signals CX 領域 P/N/R 速報値; AMD OS TripleHelixMatrix.tsx
-- **math_objects**: σ_SU(t) 予告、μ_A, μ_I, μ_G 予告
+*構造改訂 2026-06-27 (まさ確定): 旧 12 sub-section (各 200 字 ### 見出し) は「sub-section を立てたのに本文が薄い」違和感の構造原因と判明。### sub-section を 4 個に統合し、各 sub-section 内部を通常段落で 3-5 段落展開 (合計 §5.0 = 6,000-8,000 字目安、1 sub-section 1,500-2,000 字)。本書全体 940p × 約 3,000 字/p ≒ 282 万字目安に整合させるための一次調整。旧 12 段落 core_proposition は 4 sub-section 内に graft、要素 (figures / references / math_objects / cross_chapter_refs) はすべて保存。*
+
+### 5.0.1 対照的な二領域 — 章頭問いと政策密度 P の段階的上昇 [旧 5.0.1 + 5.0.2 統合]
+- **core_proposition**: 2020Q4-2023Q4 の同一窓に CX (カーボンニュートラル / GX) 系領域と YD (養殖 / フード) 系領域を並置観察し、片方では Triple Helix 三レーンが同位相で加速し σ_SU が本書 8 PJ 後付け校正のなかで観測史上最高水準に達した一方、他方では政策密度 P_t が立ち上がらず σ_SU が低位に張り付いた事実を示す。同じ歴史時刻が異なる領域では異なる選抜圧として観測されるという章頭問いを据え、その非対称の起点を 2020 年 10 月 26 日 CN 宣言 (菅 2020) に同定する。CX 系領域の P_t が四半期単位で階段状に上昇した経緯を Atlas signals 速報値から素描し、これが μ_G の構成要素 P が外生的政治ショックで離散ジャンプした記述的事実であること、滑らかな連続時間拡散では捉えにくいこの段階性こそが §5.3 で導入するマルコフレジーム切換え状態空間モデル (MS-SSM) の直接的動機素材となることを宣言する。
+- **internal_paragraphs**: 3-4 段落で展開。(1) 章頭観察の場面設定 (CX vs YD 並置、図 5.0.1 参照、観察者目線で「同じ時刻なのに違う選抜圧」)、(2) 非対称の起点 = 2020/10/26 CN 宣言 (菅 2020) + 四半期階段プロット (図 5.0.2) + 「政策密度 P とは何か = 政府レーンの圧力強度を四半期単位で量化したスカラー」のような **まさっぽい読者向け補足**、(3) §5.3 MS-SSM への動機素材としての位置づけ + Tier A 規律自己宣言の予告。
+- **figures**: 図 5.0.1 CX vs YD σ_SU 時系列 4 panel (P / B / V / σ_SU 合成、2020Q4-2023Q4、type 匿名化); 図 5.0.2 CX 領域 政策密度 P_t 四半期階段プロット (CN 宣言・GX 移行債・GX-ETS・SIP CE 第3期注記入り)
+- **references**: 菅義偉 (2020) 所信表明演説; Atlas signals CX 領域 P/N/R 速報値; AMD OS TripleHelixMatrix.tsx
+- **math_objects**: σ_SU(t) 予告、μ_A, μ_I, μ_G 予告、μ_G の P 成分予告
 - **cross_chapter_refs**: §5.3, §5.6, Ch 11
-- **estimated_words**: 140
+- **estimated_words**: 1,500-2,000 (本文展開後)
 
-### 5.0.2 政策密度 P の段階的上昇 — 2020 年 10 月 CN 宣言を起点とする
-- **core_proposition**: 2020 年 10 月 CN 宣言を起点として CX 系領域の政策密度 P_t が四半期単位で階段状に上昇した経緯を Atlas signals 速報値で素描する。μ_G の構成要素 P が外生ショックで離散ジャンプした記述的事実であり、§5.3 MS-SSM レジーム切換えの動機素材となる。
-- **figures**: 図 5.0.2 CX 領域 政策密度 P_t 四半期階段プロット (CN 宣言・GX 移行債・GX-ETS・SIP CE 第3期注記入り)
-- **references**: 菅義偉 (2020) 所信表明演説; 内閣府 SIP 第3期 CE2023 公募要領
-- **math_objects**: μ_G の P 成分予告
-- **cross_chapter_refs**: §5.3, §5.6
-- **estimated_words**: 120
+### 5.0.2 CX 三位一体加速の事実構造 — 公募予算 B 並走立ち上げと産業 μ_I × 学術 μ_A の連動上昇、σ_SU 本書最高水準到達 [旧 5.0.3 + 5.0.4 + 5.0.5 統合]
+- **core_proposition**: CN 宣言は予算を呼び込んだ。2021-23 年にかけて GX 経済移行債、GX-ETS、SIP 第 3 期 CE2023 (内閣府 2023 公募要領) が連続して立ち上がり、CX 系領域の公募予算 B_t が政策密度 P_t と同位相で上昇した事実を Atlas signals で示す。政策宣言 P と公募予算 B が同位相で立ち上がる事象は経済史的にきわめて稀で、通常は 8-12 四半期のラグが入る本書事前分布のもと、それが 4-6 四半期に縮んだ事実を強い事前分布下の事後分布要約として記録する (Tier A、D-031)。同期間に CVC・VC の脱炭素配分 V_t がピークを記録し、論文流量 N_t と政府研究費 I_R が連動上昇、政策ショックから研究応答までのラグが 8-12Q から 4-6Q に縮んだ事実を Atlas signals 横断で観察。すなわち μ_A・μ_I・μ_G の三本のレーンドリフトが同位相で同時に立ち上がった、本書 18 年窓のなかでも稀少な瞬間が CX 系領域で生じた。三レーン同期の帰結として CX 系 σ_SU は 7 を超え本書 8 PJ 後付け校正のなかで最高水準に達した (図 5.0.1 右下パネル)。本章 §5.3 ではこれを K=3 MS-SSM レジーム S₂ (三位一体追い風) として同定する手続きを正式に与えることを予告。ただし本書はこれを「validation された因果効果」とは呼ばない。あくまで Tier A の illustrative example であり、強い事前分布下の事後分布要約の域を出ない (D-031, D-033)。
+- **internal_paragraphs**: 4-5 段落で展開。(1) 公募予算 B 並走立ち上げ (GX 経済移行債 / GX-ETS / SIP CE 第3期) の事実列挙 + 表 5.0.1 + 「公募予算 B とは何か = 政府が事業化候補に投入する競争的研究費の総量」のような読者向け補足、(2) 政策-研究ラグ 8-12Q → 4-6Q 縮減 (図 5.0.3)、(3) μ_A・μ_I・μ_G 三レーンの同期駆動の稀少性、(4) σ_SU 本書最高水準到達 (図 5.0.4) + S₂ レジーム予告、(5) Tier 規律自己宣言 (「校正と validation の境界とは何か」を読者に明示)。
+- **figures**: 表 5.0.1 CX 系領域 主要公募 B イベント表 (2021-23、type 匿名化 LP 集合); 図 5.0.3 μ_A (N, I_R), μ_I (V), μ_G (P, B) 三レーン時系列重ね描き、ラグ相関注記; 図 5.0.4 σ_SU(t) CX 系 vs 8 PJ 後付け校正ヒストグラム上の位置 (top decile)
+- **references**: 内閣府 SIP 第3期 CE2023 公募要領; Atlas signals CX 領域 N / I_R / V / σ_SU 後付け校正; AMD OS TripleHelixMatrix.tsx
+- **math_objects**: μ_G の B 成分、μ_A・μ_I・μ_G 三成分予告、σ_SU(t) MS-SSM 予告、S₂ レジーム予告
+- **cross_chapter_refs**: §5.2, §5.3, §5.6, Ch 11, Ch 26b F-5.1
+- **estimated_words**: 1,800-2,200 (本文展開後)
 
-### 5.0.3 公募予算 B の並走立ち上げ — GX 経済移行債 / GX-ETS / SIP CE 第3期
-- **core_proposition**: 2021-23 年に GX 経済移行債、GX-ETS、SIP CE 第3期が連続立ち上げされ、CX 系領域の公募予算 B_t が同期して上昇した事実を Atlas signals で示す。政策宣言 P と予算 B の同期は稀であり、これが三レーン共振の前提条件となった (Tier A、強い事前分布下の事後分布要約)。
-- **figures**: 表 5.0.1 CX 系領域 主要公募 B イベント表 (2021-23、type 匿名化 LP 集合)
-- **references**: 内閣府 SIP 第3期 CE2023 公募要領; Atlas signals CX 領域 B 速報値
-- **math_objects**: μ_G の B 成分予告
-- **cross_chapter_refs**: §5.3, Ch 11
-- **estimated_words**: 130
+### 5.0.3 対照事例 YD と σ_SU の必要条件性 — μ_G フラット / Cobb-Douglas 幾何平均構造 / 二層非可換性の入口 / K=3 レジーム物語的予告 [旧 5.0.6 + 5.0.7 + 5.0.8 統合]
+- **core_proposition**: 同じ三年余りの窓を YD 系領域で見直してみる。同期間、YD 系では P_t も B_t も立ち上がらず μ_G はほぼフラットに推移、学術レーン μ_A と産業レーン μ_I はそれなりに動いていたにもかかわらず合成スカラー σ_SU は 3-4 帯に抑制されたまま動かない。これは Cobb-Douglas 合成 σ_{SU,t} = Π_{l∈{A,I,G}} (μ_{l,t}+1)^{ω_l} − 1 の幾何平均構造の含意である。代替弾力性が 1 であるため一レーンが零近傍にあるとそのレーンが他二レーンを引きずる — つまり「一本でも零なら全体が零」という極端な補完性が CD の経済学的含意であり、章頭フックでまずこの直感を読者に体感してもらう illustrative 導入として、この対照は使い勝手がよい。YD 系 PJ は AMD OS 上で UE (顧客発見・人材確保) 段階の判定が律速となり NO_GO に留まった (匿名化スクリーンショット、図 5.0.5)。σ_SU が低位領域にあるのだから NO_GO は当然の帰結である。だが本章の問いはそこではない。CX 系のように σ_SU が高位に振れていたとしても、それだけで GO が自動的に成立するわけではない、ということである。σ_SU はあくまで Problem-fit ベクトル P との非可換結合を経て GO ゲートに到達する。すなわち σ_SU は GO の必要条件であって十分条件ではない。この二層非可換性 (Ch 9 で代数構造として展開) の入口を、読者にはまずこの対照から体感してほしい。ここまでの観察を K=3 レジーム MS-SSM の物語的予告として読み直しておく。YD 系領域はレジーム S₀ stuck (沈静)、CX 系の 2020-21 移行期は S₁ (中位)、2022-23 期は S₂ (三位一体追い風) と読む。制度状態数 K=3 という pre-commit は D-045 に従い §5.3 で正式に置く。観測等価類の問題に対しては Ch 11 で K∈{2,3,4} 間の horse-race を Hamilton (1989) -Kim (1994) 系譜の周辺尤度比較によって実施する旨を、本章冒頭で宣言しておく。
+- **internal_paragraphs**: 4-5 段落で展開。(1) YD 系領域への視点切換え + μ_G フラットの事実 (図 5.0.5)、(2) Cobb-Douglas 合成式 + 「幾何平均型集約 = 三つの量を掛け合わせて立方根を取る操作 = 一本でも零なら全体が零」のような **まさっぽい読者向け補足**、(3) AMD OS UE 律速 NO_GO 事例 (図 5.0.6) + σ_SU 必要条件性、(4) 二層非可換性入口 (「鍵が二つで両方回らないと開かない」のような比喩を 1 文で控えめに)、(5) K=3 レジーム S₀/S₁/S₂ 物語的予告 (図 5.0.7) + horse-race commission の予告。
+- **figures**: 図 5.0.5 YD 系領域 μ_A / μ_I / μ_G 三レーン + σ_SU 合成時系列、CX との対比凡例; 図 5.0.6 YD 系 PJ の AMD OS GO/NO_GO 判定パネル匿名化スクショ、UE 律速ハイライト、type 名のみ; 図 5.0.7 S₀ / S₁ / S₂ 三レジーム概念図 (CX 時系列上に S₁→S₂ transition、YD 上に S₀ stuck 符号注記)
+- **references**: Atlas signals YD 領域 P/N/R 速報値; AMD OS TripleHelixMatrix.tsx; amd_score.md Triple Helix 観測モデル節; Hamilton-Kim filter 教科書
+- **math_objects**: CD 合成 G[μ_t; ω] 予告、命題 5.1b 予告、二層非可換性予告、P_UE 律速予告、MS-SSM K=3 予告、命題 5.1 予告
+- **cross_chapter_refs**: §5.2, §5.3, Ch 6, Ch 9, Ch 5.5, Ch 11, Ch 26b F-5.1
+- **estimated_words**: 1,800-2,200 (本文展開後)
 
-### 5.0.4 産業 μ_I と学術 μ_A の連動上昇 — 政策-研究ラグの 4-6Q 縮減
-- **core_proposition**: 同期間に CVC・VC の脱炭素配分 V_t がピーク、論文 N_t と研究費 I_R が連動上昇、政策ショック→研究応答ラグが通常の 8-12Q から 4-6Q に縮んだ事実を Atlas signals 横断で観察。μ_A・μ_I・μ_G の三レーンが同位相で動いた稀な瞬間の記述、§5.3 の S₂ 同定素材となる。
-- **figures**: 図 5.0.3 μ_A (N, I_R), μ_I (V), μ_G (P, B) 三レーン時系列重ね描き、ラグ相関注記
-- **references**: Atlas signals CX 領域 N / I_R / V 速報値
-- **math_objects**: μ_A, μ_I, μ_G 三成分予告
-- **cross_chapter_refs**: §5.2, §5.3
-- **estimated_words**: 130
-
-### 5.0.5 CX 系 σ_SU の本書最高水準到達 — S₂ レジームの予告
-- **core_proposition**: 三レーン同期の結果、CX 系 σ_SU 観測値が本書 8 PJ 後付け校正の中で最高水準 (7 超) に達した事実を提示し、§5.3 で MS-SSM レジーム S₂ (三位一体追い風) に同定することを予告。Tier A illustrative example であり、validation でも因果効果主張でもない (D-031)。
-- **figures**: 図 5.0.4 σ_SU(t) CX 系 vs 8 PJ 後付け校正ヒストグラム上の位置 (top decile)
-- **references**: Atlas signals CX 領域 σ_SU 後付け校正; AMD OS TripleHelixMatrix.tsx
-- **math_objects**: σ_SU(t) MS-SSM 予告、S₂ レジーム予告
-- **cross_chapter_refs**: §5.3, §5.6, Ch 11, Ch 26b F-5.1
-- **estimated_words**: 140
-
-### 5.0.6 対照事例 YD — μ_G フラット、Cobb-Douglas 幾何平均構造による σ_SU 抑制
-- **core_proposition**: 同期間の YD 系 PJ では P と B が立ち上がらず μ_G がフラット推移、CD 合成 σ_SU = Π_l (μ_l+1)^{ω_l} - 1 の幾何平均構造により、μ_A と μ_I がそれなりに動いていても σ_SU 全体が 3-4 に抑えられた事実を示す。CD の代替弾力性 1 の含意 (一レーン零近傍が全体を引きずる) の illustrative 導入。
-- **figures**: 図 5.0.5 YD 系領域 μ_A / μ_I / μ_G 三レーン + σ_SU 合成時系列、CX との対比凡例
-- **references**: Atlas signals YD 領域 P/N/R 速報値
-- **math_objects**: CD 合成 G[μ_t; ω] 予告、命題 5.1b 予告
-- **cross_chapter_refs**: §5.2, §5.3
-- **estimated_words**: 150
-
-### 5.0.7 YD の P 律速 NO_GO — σ_SU は必要条件にすぎない
-- **core_proposition**: YD 系は AMD OS 上で UE (顧客発見/人材確保段階) が律速判定で NO_GO に留まった事実を匿名化スクショで示す。σ_SU 低位領域では当然 NO_GO だが、CX 系でも σ_SU 高位だけでは GO が自動成立せず、P (Problem-fit) ベクトルとの非可換結合が必要。σ_SU は GO の必要条件であって十分条件ではないという二層非可換性 (Ch 9) を体感させる。
-- **figures**: 図 5.0.6 YD 系 PJ の AMD OS GO/NO_GO 判定パネル匿名化スクショ、UE 律速ハイライト、type 名のみ
-- **references**: AMD OS TripleHelixMatrix.tsx; amd_score.md Triple Helix 観測モデル節
-- **math_objects**: 二層非可換性予告、P_UE 律速予告
-- **cross_chapter_refs**: Ch 6, Ch 9, Ch 5.5
-- **estimated_words**: 160
-
-### 5.0.8 レジーム S₀ stuck / S₁ 中位 / S₂ 三位一体追い風 — K=3 MS-SSM の物語的予告
-- **core_proposition**: YD 系を S₀ stuck、CX 系の 2020-21 移行期を S₁、2022-23 期を S₂ と読む K=3 レジーム MS-SSM の物語的予告。K=3 は D-045 に従い §5.3 で pre-commit、Ch 11 で K∈{2,3,4} horse-race 実施を宣言。
-- **figures**: 図 5.0.7 S₀ / S₁ / S₂ 三レジーム概念図 (CX 時系列上に S₁→S₂ transition、YD 上に S₀ stuck 符号注記)
-- **references**: Hamilton-Kim filter 教科書
-- **math_objects**: MS-SSM K=3 予告、命題 5.1 予告
-- **cross_chapter_refs**: §5.3, Ch 11, Ch 26b F-5.1
-- **estimated_words**: 130
-
-### 5.0.9 Triple Helix 三レーン同時駆動の稀少性 — Markov イベントとしての記述妥当性
-- **core_proposition**: Etzkowitz-Leydesdorff Triple Helix が同位相同時駆動する瞬間は経済史的に稀であり、これを連続時間拡散 (単純 OU) ではなくレジーム切換え内蔵 MS-SSM で記述する選択が、Markov 構造化された稀少イベントの統計言語として妥当であることを宣言する。Etzkowitz vs Leydesdorff 系譜整理は Book 0 Ch 0.3 へ逆流委託。
-- **figures**: なし
-- **references**: Etzkowitz & Leydesdorff (2000) Research Policy; Leydesdorff (2021) JASIST
-- **math_objects**: MS-SSM 設計動機
-- **cross_chapter_refs**: §5.3, Book 0 Ch 0.3
-- **estimated_words**: 120
-
-### 5.0.10 Nelson-Winter 選抜環境への意味論的橋渡し — σ_SU は選抜強度のスカラー要約 [D-048 圧縮 1/3]
-- **core_proposition**: σ_SU は Nelson-Winter (1982) 進化経済学的選抜環境 (selection environment) 強度を単一スカラーに要約する写像であり、lane-specific (μ_A, μ_I, μ_G) は選抜の異質性 (どのレーンが選抜していたか) を保存する。本格展開は Book 0 Ch 0.3 へ逆流委託し、本章では参照と概念橋渡しのみ (D-048)。§5.3 冒頭で再訪。
-- **figures**: なし
-- **references**: Nelson & Winter (1982); Dosi (1982) Research Policy
-- **math_objects**: σ_SU の意味論的位置づけ
-- **cross_chapter_refs**: §5.3 冒頭, Book 0 Ch 0.3
-- **estimated_words**: 140
-
-### 5.0.11 本章境界宣言 — Ch 5 の射程と他章への委託
-- **core_proposition**: Ch 5 が扱うのは σ_SU の生成過程 (DGP) のみであり、GO ゲート閾値 θ_σ* の最適停止理論は Ch 5.5、二層非可換性の代数構造は Ch 9、Jovanovic / Klepper / Murmann 拡張は Ch 10.2 / 10.5 / 10.7、BVAR 推定実装と horse-race は Ch 11、F-5.1〜F-5.6 反証可能仮説の事前登録は Ch 26b に委ねる章分担を読者に明示する。
+### 5.0.4 方法論的位置取りと本章境界宣言 — Markov イベント記述妥当性 / Nelson-Winter 選抜環境橋渡し / Ch 5 射程 / load-bearing 命題予告 [旧 5.0.9 + 5.0.10 + 5.0.11 + 5.0.12 統合, D-048 圧縮 1/3]
+- **core_proposition**: ここから章末に向けて、本章の方法論的位置取りを四段階で読者に約束する。第一に Etzkowitz-Leydesdorff Triple Helix (Leydesdorff 2003 Res Pol 32(3); Etzkowitz 2008) において学術・産業・政府の三レーンが同位相で同時駆動する瞬間は経済史的にきわめて稀である。本章ではこの稀少イベントを滑らかな連続時間拡散過程 (単純 OU) で記述しない。レジーム切換えを内蔵した MS-SSM (Hamilton 1989; Kim & Nelson 1999) で記述する。これは Markov 構造化された稀少現象を統計言語に落とすという方法論的選択であり、稀少を稀少として扱う規律の表明である。Etzkowitz と Leydesdorff の系譜整理は Book 0 Ch 0.3 に逆流委託する。第二に合成スカラー σ_SU は Nelson and Winter (1982) 進化経済学的な選抜環境 (selection environment) の強度を単一スカラーに要約する写像として位置づけられる。同時に lane-specific な (μ_A, μ_I, μ_G) は選抜が「どのレーンから働いていたか」という異質性を保存する。Schumpeter (1942) 創造的破壊、Dosi (1982) 技術パラダイム、Malerba (2002) sectoral systems との系譜整理は Book 0 Ch 0.3 に逆流委託し (D-048)、本章では参照と概念橋渡しのみに圧縮する。§5.3 冒頭で再訪する。第三に Ch 5 の射程を明示的に区切っておく。本章が扱うのは σ_SU の生成過程 (DGP) のみである。GO ゲート閾値 θ_σ* の最適停止理論 (real options) は §5.5、二層非可換性の代数構造 (σ_SU と P の結合) は Ch 9、Jovanovic (1982) / Klepper (1996) / Murmann (2003) 系譜への拡張は Ch 10.2 / 10.5 / 10.7、BVAR 推定実装と horse-race は Ch 11、反証可能仮説 F-5.1〜F-5.6 の事前登録は Ch 26b にそれぞれ委ねる。射程逸脱は本書全体の反証可能性管理の観点から忌避される、と読者に約束する。第四に本章で順次提示する load-bearing 命題を一行ずつ予告する。命題 5.1 (σ_SU の MS-SSM 状態空間定義)、命題 5.1b (Cobb-Douglas 合成作用素 G[μ_t; ω])、命題 5.3b (逐次識別順序 μ_G→μ_A→μ_I)、命題 5.5 (政策ショック前後 Π^pre / Π^post の二段識別)、命題 5.6 (η_jt の softmax coupling)、そして cross-walk 三定理 (定理 5.1.1-5.1.3) と系 5.1.4 — これらを §5.1 の方法論 pre-commit、すなわち証明スケッチを本文に置き完全証明を付録 A に格納する pre-commit (D-047) へ橋渡しする。物語はここまでである。ここから先は数学装置の話に入る。
+- **internal_paragraphs**: 4 段落で展開 (= 第一〜第四の四段階に対応)。(1) Markov イベント記述妥当性 + Etzkowitz vs Leydesdorff 系譜の Book 0 委託、(2) Nelson-Winter 選抜環境 + Schumpeter/Dosi/Malerba 系譜の Book 0 委託 (D-048 圧縮 1/3)、(3) 本章境界宣言 + 章間 supply 表 5.0.2 (なぜ Ch 9/Ch 10/Ch 11/Ch 26b に委譲するかの理由を一文ずつ)、(4) load-bearing 命題予告 + §5.1 D-047 pre-commit + 物語ブックエンド「ここから先は数学装置の話に入る」。
 - **figures**: 表 5.0.2 Ch 5 章間 supply 表 (送り先章 × supply 内容)
-- **references**: なし
-- **math_objects**: 章間 supply 全体
-- **cross_chapter_refs**: Ch 5.5, Ch 9, Ch 10.2, Ch 10.5, Ch 10.7, Ch 11, Ch 26b
-- **estimated_words**: 130
-
-### 5.0.12 §5.1-§5.7 load-bearing 命題の一行予告
-- **core_proposition**: 本章で提示する load-bearing 命題 5.1 (σ_SU MS-SSM 定義), 命題 5.1b (CD 合成 operator G[μ_t; ω]), 命題 5.3b (逐次識別順序 μ_G→μ_A→μ_I), 命題 5.5 (Π^pre/Π^post 二段識別), 命題 5.6 (η_jt softmax coupling), cross-walk 三定理 (定理 5.1.1-5.1.3) + 系 5.1.4 を各一行で予告し、§5.1 の方法論 pre-commit (証明スケッチ本文 + 完全証明付録 A, D-047) に橋渡しする。
-- **figures**: なし
-- **references**: なし
-- **math_objects**: 命題 5.1, 5.1b, 5.3b, 5.5, 5.6; 定理 5.1.1-5.1.3; 系 5.1.4
-- **cross_chapter_refs**: §5.1, 付録 A
-- **estimated_words**: 130
+- **references**: Etzkowitz & Leydesdorff (2000) Research Policy; Leydesdorff (2003) Res Pol 32(3); Etzkowitz (2008) The Triple Helix; Hamilton (1989) Econometrica 57(2); Kim & Nelson (1999) State-Space Models with Regime Switching, MIT Press; Nelson & Winter (1982) An Evolutionary Theory of Economic Change; Schumpeter (1942); Dosi (1982) Research Policy 11(3); Malerba (2002) Research Policy 31(2); Jovanovic (1982) Econometrica 50(3); Klepper (1996) AER 86(3); Murmann (2003) Knowledge and Competitive Advantage
+- **math_objects**: MS-SSM 設計動機、σ_SU の意味論的位置づけ、章間 supply 全体、命題 5.1 / 5.1b / 5.3b / 5.5 / 5.6 / 定理 5.1.1-5.1.3 / 系 5.1.4
+- **cross_chapter_refs**: §5.1, §5.3, §5.5, Ch 5.5, Ch 9, Ch 10.2, Ch 10.5, Ch 10.7, Ch 11, Ch 26b, 付録 A, Book 0 Ch 0.3
+- **estimated_words**: 1,800-2,200 (本文展開後)
 
 ## §5.1 Triple Helix 相互情報 T(AIG) と Cobb-Douglas σ_SU の cross-walk 三定理 (5p)
 

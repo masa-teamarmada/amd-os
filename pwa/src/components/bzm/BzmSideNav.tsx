@@ -2,17 +2,20 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, CheckCircle2, CircleDot, Circle } from "lucide-react";
+import type { BzmChapterStatus } from "@/app/(app)/bzm/bzm-chapters";
 
 export interface BzmSideNavGroup {
   key: string;
   label: string;
-  chapters: { slug: string; number: string; title: string }[];
+  chapters: { slug: string; number: string; title: string; status?: BzmChapterStatus }[];
 }
 
 /**
  * 教科書の左サイドバー目次 (= manual の ManualGlobalToc 相当)。
  * BZM_PARTS でグループ化し、現在表示中の章をハイライトする。
+ * 各 chapter に status (completed / in-progress / not-started / legacy) を持たせ、
+ * 完成済セクションは緑チェック、進行中は黄半円、未着手はグレー丸でアイコン + 色を変える。
  */
 export function BzmSideNav({
   groups,
@@ -43,10 +46,26 @@ export function BzmSideNav({
         <Link href="/bzm" className="text-sm font-black text-slate-950 hover:underline">
           教科書 — 目次
         </Link>
+        <div className="mt-1.5 flex items-center gap-2 text-[10px] text-slate-500">
+          <span className="inline-flex items-center gap-0.5">
+            <CheckCircle2 className="size-3 text-emerald-600" />
+            完成
+          </span>
+          <span className="inline-flex items-center gap-0.5">
+            <CircleDot className="size-3 text-amber-500" />
+            進行中
+          </span>
+          <span className="inline-flex items-center gap-0.5">
+            <Circle className="size-3 text-slate-300" />
+            未着手
+          </span>
+        </div>
       </div>
       <div className="space-y-2">
         {groups.map(({ key, label, chapters }) => {
           const isOpen = Boolean(openById[key]);
+          const completedCount = chapters.filter((c) => c.status === "completed").length;
+          const inProgressCount = chapters.filter((c) => c.status === "in-progress").length;
           return (
             <div key={key} className="border-b border-slate-100 pb-2 last:border-b-0 last:pb-0">
               <div className="flex items-center gap-1">
@@ -64,23 +83,58 @@ export function BzmSideNav({
                   onClick={() => toggle(key)}
                   className="min-w-0 flex-1 rounded-md px-1.5 py-1 text-left leading-snug text-slate-950 transition-colors hover:bg-slate-50"
                 >
-                  <span className="min-w-0 truncate text-[12px] font-black">{label}</span>
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span className="min-w-0 truncate text-[12px] font-black">{label}</span>
+                    {(completedCount > 0 || inProgressCount > 0) && (
+                      <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold tabular-nums text-slate-600">
+                        {completedCount > 0 && <span className="text-emerald-700">{completedCount}</span>}
+                        {completedCount > 0 && inProgressCount > 0 && <span>/</span>}
+                        {inProgressCount > 0 && <span className="text-amber-700">{inProgressCount}</span>}
+                        {(completedCount > 0 || inProgressCount > 0) && <span>/{chapters.length}</span>}
+                      </span>
+                    )}
+                  </span>
                 </button>
               </div>
               {isOpen && (
                 <div className="ml-6 mt-1 space-y-0.5">
                   {chapters.map((chapter) => {
                     const isActive = chapter.slug === activeSlug;
+                    const status: BzmChapterStatus = chapter.status ?? "not-started";
+                    const statusIcon =
+                      status === "completed" ? (
+                        <CheckCircle2 className="size-3 text-emerald-600" aria-label="完成" />
+                      ) : status === "in-progress" ? (
+                        <CircleDot className="size-3 text-amber-500" aria-label="進行中" />
+                      ) : status === "legacy" ? (
+                        <Circle className="size-3 text-slate-400" aria-label="旧版" />
+                      ) : (
+                        <Circle className="size-3 text-slate-300" aria-label="未着手" />
+                      );
+                    const textTone =
+                      status === "completed"
+                        ? "text-emerald-950 font-bold"
+                        : status === "in-progress"
+                          ? "text-amber-950 font-semibold"
+                          : status === "legacy"
+                            ? "text-slate-600 font-medium"
+                            : "text-slate-400 font-medium";
+                    const bgTone = isActive
+                      ? "bg-cyan-50 ring-1 ring-cyan-200"
+                      : status === "completed"
+                        ? "hover:bg-emerald-50"
+                        : status === "in-progress"
+                          ? "hover:bg-amber-50"
+                          : "hover:bg-slate-50";
                     return (
                       <Link
                         key={chapter.slug}
                         href={`/bzm/${encodeURIComponent(chapter.slug)}`}
-                        className={`grid grid-cols-[2.4rem_minmax(0,1fr)] gap-1.5 rounded-md px-1.5 py-1.5 text-[11px] leading-snug transition-colors ${
-                          isActive
-                            ? "bg-cyan-50 font-black text-cyan-950 ring-1 ring-cyan-200"
-                            : "font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-950"
+                        className={`grid grid-cols-[1rem_2.4rem_minmax(0,1fr)] gap-1.5 rounded-md px-1.5 py-1.5 text-[11px] leading-snug transition-colors ${bgTone} ${
+                          isActive ? "font-black text-cyan-950" : textTone
                         }`}
                       >
+                        <span className="grid place-items-center">{statusIcon}</span>
                         <span className="tabular-nums text-slate-500">{chapter.number}</span>
                         <span className="min-w-0">{chapter.title}</span>
                       </Link>
