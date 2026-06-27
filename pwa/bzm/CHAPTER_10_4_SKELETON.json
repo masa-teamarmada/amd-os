@@ -1,0 +1,297 @@
+{
+  "ch_overview": {
+    "core_proposition": "案件 PRS = (P,R,S) ∈ R_{>0}^3 と機関 ERS A = (A_1,...,A_K) ∈ R_{≥0}^K を結合する案件価値関数 f : R_{>0}^3 × R_{≥0}^K → R_{≥0} について、公理 (A1) PRS 消滅 / (A2) ERS 単調性 / (A3) 因果チャネル制限 / (A4) 領域内連続性 の四公理を同時に満たす f は、いかなる狭義増加スカラー値関数 (g, h) と狭義増加合成関数 Φ : R^2 → R を用いた表現 f = Φ(g(P,R,S), h(A)) も持たない (Theorem 3 — 二層非可換性 Arrow 型不可能性定理)。とくに純乗法 PRS·ERS は (A1) を満たすが (A3) を破り、純加法 PRS+ERS は (A3) を満たすが (A1) を破り、一般単調合成は Krantz-Luce-Suppes-Tversky (1971) 結合測定の二重キャンセル axiom の不成立を介して排除される。本定理は理論的不可能性命題であると同時に、系 3.1 の経験的反証子三組 (Simpson 反転 / PRS 四分位横断 γ_k 不安定性 / Hausman 棄却) によって反証可能であり、三反証子すべての棄却失敗時にのみ Nelson-Winter 流スカラー適合度モデルが経験的に復権する反証可能性 commitment を伴う。",
+    "load_bearing_claims": [
+      "Theorem 3 本体: 公理 (A1)-(A4) を満たす f は f = Φ(g(P,R,S), h(A)) 形式の二層分離表現を持たない。三方向崩壊排除 (純乗法 / 純加法 / 一般単調合成) は同一不可能性命題の三段論法として整理される。",
+      "公理 (A1) PRS 消滅は Ch 7 + Ch 10.3 で確立された F-CES 委譲不可能コア C2 (事後 P(ρ<0|data) ≥ 0.95) の論理的等価物として正当化される — F-CES y = (Σ α_i x_i^ρ)^{1/ρ} の ρ → −∞ 極限が min 演算子に収束し、min(P,R,S)=0 ⇒ f=0 という A1 と一致する (D-038 接続)。",
+      "公理 (A3) 因果チャネル制限 ∂f/∂A_k = (∂f/∂R)(∂R/∂A_k) + (∂f/∂S)(∂S/∂A_k) は ERS が (R,S) 時間導関数を介してのみ作用するという因果 DAG 制約であり、GMM moment condition E[(∂f/∂A_k − (∂f/∂R)(∂R/∂A_k) − (∂f/∂S)(∂S/∂A_k)) · z] = 0 として書き下され、Hansen J 過剰識別検定として Ch 26b に事前登録される (P-008e formal 化)。",
+      "Theorem 3 の証明骨格は Arrow (1963) 独立性公理崩壊テンプレートを Krantz-Luce-Suppes-Tversky (1971) Ch 6 結合測定の二重キャンセル axiom (Thomsen 条件) の構成的不成立として再構築する。Debreu (1960) topological cardinal utility は連続単調選好の加法的表現条件を与え、本章はその双対 (単調合成表現の非存在) を扱う。",
+      "系 3.1 経験的反証子: (i) ERS 係数 γ_k のプール推定と PRS 層別推定における Simpson 型符号反転、(ii) PRS 四分位を横切る γ_k の >2σ 不安定性、(iii) プールド GMM と PRS 条件付き GMM の Hausman 検定 p<0.05 棄却 — の三組は Ch 11 BVAR 実装と Ch 26b 事前登録に検定統計量レベルで引き渡される。四反証子すべての棄却失敗のみが Nelson-Winter スカラー適合度モデルの復権条件を構成する (負の判定基準)。"
+    ],
+    "logical_arc": "章頭ストーリー (§10.4.0) で URA 型機関の会議場面を匿名 type 名で描き、担当者の提案『機関補正済み案件価値 V = PRS × ERS (Σ w_k A_k)』への数学的反論場面を起点とする。§10.4.1 で 4 公理 (A1)-(A4) を提示し、各公理の経済学的・因果論的・測度論的根拠 (A1 と F-CES C2 結合 / A3 の因果 DAG 表現 / A4 の Debreu 系譜) を Ch 7 / Ch 9 から継承する形で defense し、Arrow / Debreu / KLST 三テンプレート移植戦略を補題 10.4.1 (二重キャンセル axiom の本章記号化) として準備する。§10.4.2 で Theorem 3 本体を Case (a) 純乗法 / (b) 純加法 / (c) 一般単調合成の三方向崩壊排除として証明し、各 case が公理 (A1)-(A4) のどれと衝突するかを 1 対 1 対応で明示する (Case (c) では PRS 縮退方向と ERS が (R,S) 時間導関数を介して相殺する方向の二点ペアで Thomsen 条件の構成的反例を提示)。§10.4.3 で系 3.1 の三反証子を検定統計量レベルで定義し Ch 11 / Ch 26b への引き渡し protocol を確定する。章末では Nelson-Winter スカラー復権条件を『負の判定基準』として formal statement 化し、Popper-Lakatos 反証可能性 commitment として位置付けて Book VI BZM 精緻化宣言 (Triple Helix / Nelson-Winter の精緻化) への伏線を張る。",
+    "synthesis_rationale": "三案合議で B 案 (Lens A 方法論的厳密性 / Lens B publishability / Lens C masa-fidelity の三審査者すべてが overall_winner) を骨格として採用。理由は (1) §10.4.1 で Arrow/Debreu/KLST 三テンプレートを補題 10.4.1 として統合的に formal 化することで Theorem 3 本体 (§10.4.2) の証明負荷配分が査読者期待値と整合、(2) Case (a)(b)(c) 三方向崩壊排除を並列構造で扱い各 case が公理 (A1)-(A4) のどれと衝突するかを 1 対 1 対応で明示する設計が反論武器化として最も実用的、(3) §10.4.3 で A1-F-CES 結合 (D-038) と A3 GMM 過剰識別制約 (P-008e) の formal 化と三反証子の検定統計量レベル定義を担う設計が Tier 規律 (D-031) と整合。さらに A 案からは命題段階提示の pedagogical 構造と open_issues での Φ 滑らかさ仮定論点と URA 匿名化リスク提起を grafting、C 案からは Aghion-Howitt 境界退化例の formal 画定 (h(A) ≡ const 時の Theorem 3 trivial 不成立) と Nelson-Winter 復権条項の Popper-Lakatos 系譜フレーミングを grafting。8p 配分は §10.4.0 (1p) / §10.4.1 (2p) / §10.4.2 (3p) / §10.4.3 (2p) の指示通りに調整、B 案の §10.4.5 (1.5p) を §10.4.3 に統合することで章末問いの formal 化を担保。"
+  },
+  "sections": [
+    {
+      "section_id": "10.4.0",
+      "title": "章頭ストーリー — URA 提案『機関補正済み案件価値 = PRS × ERS』への数学的反論",
+      "pages": 1,
+      "math_level": "low (会議場面描写 + 形式設定の予告)",
+      "anchor_claims": [
+        "URA 型機関の実務提案『案件価値 V = PRS × ERS (Σ w_k A_k)』は二層分離仮説 f = Φ(g(P,R,S), h(A)) の特殊ケースであり、本章はこれを反例として却下し二層非可換性を不可能性定理として確立する。",
+        "URA 提案の魅力 (単純性・順序保存・透明性・実装容易性) と Schumpeter / Nelson-Winter 進化経済理論からの違和感 (案件と機関の補完性は乗法では飼い慣らせない) の対比が本章の問いを動機付ける。"
+      ],
+      "paragraph_outline": [
+        "匿名化された URA 型機関 (type 名 R1) の会議場面 — 担当者がスライドで『機関補正済み案件価値 V = PRS スカラー × ERS スカラー (Σ w_k A_k)』を提示し、案件ランキングの透明性と政策決定への有用性を主張する開幕シーン。",
+        "まさ側からの反論セリフ『PRS のいずれかが 0 のときも ERS が大きければ正の値を取りうるか — その瞬間に F-CES 委譲不可能コアが破れる』を提示し、暗黙乗法仮定の経済的含意を可視化。",
+        "URA 提案の魅力 (単純性 / 順序保存 / 透明性 / 実装容易性) の整理 — なぜ単一スコア化が政策実務で根強いかを正当に描写し、本章が単純な批判で終わらないことを宣言。",
+        "Schumpeter (1934) / Nelson-Winter (1982) 進化経済理論からの違和感 — 案件と機関の補完性は乗法では飼い慣らせないという直観の源泉、ルーティン強度の単一スカラー化が進化経済学内部でも限界を持つことの再確認。",
+        "本章の問い: どの公理集合の下で乗法 / 加法 / 一般単調合成のすべてが排除されるか — 不可能性定理として Arrow テンプレートを移植する戦略の予告。",
+        "章構成プレビュー: §10.4.1 (4 公理 + Arrow/Debreu/KLST 移植準備) → §10.4.2 (Theorem 3 本体 + 三方向崩壊排除) → §10.4.3 (系 3.1 反証子 + Nelson-Winter 復権条項 + 章末問い) の論理弧を明示。",
+        "型名匿名化方針の脚注: URA 業界内識別を可能にする機関タイプ (国立大 TLO / 私立大 TLO / 民間 CVC) の特定は避けつつ、読者が実在機関を想起できる程度の具体性を保つバランス (Ch 5 / Ch 7 既出ストーリーとの匿名化レベル整合性)。"
+      ],
+      "new_writing_required": "章頭ストーリー全面新規。URA 会議シーン (type 名は機関 R1 等で匿名化)、まさ側反論セリフ、暗黙乗法仮定の言語化、章構成プレビュー。L1 §11 章型に従う。",
+      "existing_reuse": "Ch 7 章頭ストーリー型の文体継承、Ch 10.1-10.3 の URA 文脈接続、Ch 1 序論の Schumpeter / Nelson-Winter 引用からの継承。",
+      "upstream_dependencies": [
+        "Ch 7 F-CES 委譲不可能コア C2 (反論セリフの理論的根拠)",
+        "Ch 10.1-10.3 二層構造導入",
+        "Ch 1 序論の Schumpeter / Nelson-Winter 引用"
+      ],
+      "downstream_dependencies": [
+        "§10.4.1 (4 公理化される直観の準備)",
+        "§10.4.3 (Nelson-Winter スカラー復権条件の予告)",
+        "Book VI 新領域宣言の伏線"
+      ],
+      "references": [
+        "Schumpeter (1934) Theory of Economic Development",
+        "Nelson & Winter (1982) An Evolutionary Theory of Economic Change"
+      ],
+      "source_drafts": [
+        "A 10.4.1 章頭ストーリー方針",
+        "B 10.4.1 URA 会議シーン具体性",
+        "C 10.4.1 章構成プレビューと匿名化方針"
+      ]
+    },
+    {
+      "section_id": "10.4.1",
+      "title": "四公理の提示と Arrow / Debreu / KLST 移植準備 — (A1) PRS 消滅 / (A2) ERS 単調性 / (A3) 因果チャネル制限 / (A4) 連続性 + 補題 10.4.1 二重キャンセル axiom",
+      "pages": 2,
+      "math_level": "medium (公理 formal 提示 + 補題 10.4.1 KLST 二重キャンセル axiom の本章記号化)",
+      "anchor_claims": [
+        "公理 (A1)-(A4) は経済学的・因果論的・測度論的に独立に正当化される最小公理集合である。(A1) は F-CES 委譲不可能コア C2 の Bayesian justification (Ch 7) を継承、(A2) は機関の厚みが案件価値に対し弱単調という最小限の経済常識、(A3) は因果 DAG 制約として GMM 過剰識別検定可能 (P-008e formal 化)、(A4) は Debreu (1960) 系譜の topological 条件。",
+        "補題 10.4.1 (Krantz-Luce-Suppes-Tversky 1971 Ch 6 結合測定): 二要素族 (X_1, X_2) 上の選好 ≿ が単調合成 f = Φ(g(x_1), h(x_2)) (Φ 各引数で狭義増加) で表現可能 ⇔ 二重キャンセル axiom (Thomsen 条件) を満たす。本章では X_1 = PRS 空間、X_2 = ERS 空間として翻訳する。",
+        "Arrow (1963) 独立性公理崩壊テンプレートは KLST 結合測定の Thomsen 条件不成立として再構成され、Debreu (1960) cardinal utility の双対 (単調合成表現の非存在) として Theorem 3 が定式化される。"
+      ],
+      "paragraph_outline": [
+        "形式設定: (P,R,S) ∈ R_{>0}^3、A = (A_1,...,A_K) ∈ R_{≥0}^K、f : R_{>0}^3 × R_{≥0}^K → R_{≥0} の定義域と値域を明示。Ch 5 σ_SU MS-SSM の R,S 時間導関数表現と Ch 9 ERS 加重和 Σ w_k A_k の代数バックボーンからの記号引き継ぎ宣言。",
+        "公理 (A1) PRS 消滅: min(P,R,S)=0 ⇒ f(P,R,S,A)=0 (∀A)。Ch 7 F-CES 委譲不可能コア C2 との論理的同値性 — F-CES y = (Σ α_i x_i^ρ)^{1/ρ} で ρ → −∞ のとき min 演算子に収束し、事後 P(ρ<0|data) ≥ 0.95 が A1 の Bayesian justification として機能する (D-038 接続)。詳細展開は §10.4.3 に委譲。",
+        "公理 (A2) ERS 単調性: ∂f/∂A_k ≥ 0、開部分集合上で狭義。Ch 9 ERS 加重和 Σ w_k A_k の代数バックボーンとの整合 — Σ w_k A_k は h(A) 候補として機能するが、Theorem 3 はそれを含むあらゆる h に拡張されることを明示。",
+        "公理 (A3) 因果チャネル制限: ∂f/∂A_k = (∂f/∂R)(∂R/∂A_k) + (∂f/∂S)(∂S/∂A_k)。ERS が (R,S) の時間導関数を介してのみ f に作用する identification 仮定の因果 DAG 表現。査読者反例 (機関ブランド A_k の signaling 効果が f に直接入る) を脚注で予告し、A3 を GMM moment condition として Ch 26b に事前登録する戦略を §10.4.3 に予告 (P-008e formal 化)。",
+        "公理 (A4) 領域内部での連続性: 微分可能性ではなく連続性で十分であることの注記 (Debreu 1960 topological cardinal utility 系譜)。ただし §10.4.2 の偏微分比較証明では局所的 C^1 級を前提とし、非滑らか単調変換 (階段関数極限) の場合は KLST 順序論的経路に帰着させる方針を明示。",
+        "四公理の独立性確認: 各公理を欠いた場合に二層分離が許容される反例の構成プレビュー — (A1) を欠けば純加法復権、(A3) を欠けば純乗法復権、(A2) を欠けば trivial、(A4) を欠けば階段関数復権。これにより四公理が最小集合であることを示唆。",
+        "Arrow (1963) 社会選択不可能性テンプレートの紹介: (i) 公理列挙 → (ii) 公理充足族の空性 → (iii) 反例構成による証明の三段。Theorem 3 もこの三段で書かれることを予告。Debreu (1960) cardinal utility 定理 (Thomsen 条件 + 本質性 + 制約付き解消性 ⇔ 加法的表現の存在) との双対構造 (本章は非存在を示す) を強調。",
+        "補題 10.4.1 (KLST 1971 Ch 6 結合測定 conjoint measurement 定理の本章記号化): 二要素族 (X_1, X_2) 上の選好 ≿ が単調合成 Φ(g(x_1), h(x_2)) (Φ 各引数で狭義増加) で表現可能 ⇔ 二重キャンセル axiom (Thomsen 条件) を満たす。X_1 = PRS 空間、X_2 = ERS 空間、選好 ≿ を f の順序構造に置き換えた本章版として formal statement を提示。",
+        "Holmstrom-Milgrom (1991) Multitask P-A の代替不可能タスクとの formal 対応 — タスク間の代替不可能性が 1 次元成績指標を排除する構造と PRS-ERS 二層構造が単一スコアを排除する構造が同型であることを脚注で対応付け。Aghion-Howitt (1992) スカラー品質ラダーは『排除されるベンチマーク』として位置付け、機関層 trivial (h(A) ≡ const) 時の境界退化例として §10.4.2 末で扱うことを予告。",
+        "Tier 規律 (D-031) の本節での適用: §10.4.1 は理論的記述として Tier A、A3 GMM 過剰識別検定の事前登録は Ch 26b で Tier B、Simpson 反転 / 四分位不安定性 / Hausman 棄却の実装は Ch 11 で Tier A という三層構造を明示。"
+      ],
+      "new_writing_required": "四公理の formal 提示と経済的解釈の対応表、補題 10.4.1 (KLST 二重キャンセル axiom の本章記号化) の formal 書き直し、Arrow / Debreu / KLST 三テンプレートの統一的紹介、四公理の独立性確認の反例プレビュー、Φ 滑らかさ仮定の明文化。",
+      "existing_reuse": "Ch 5 σ_SU MS-SSM の R,S 時間導関数表現、Ch 9 ERS 加重和 Σ w_k A_k の代数表記、Ch 7 F-CES C2 の事後分布表現 (引用のみ、再証明なし)。Debreu (1960) / Arrow (1963) / KLST (1971) の文献的位置付けを移植。",
+      "upstream_dependencies": [
+        "§10.4.0 (URA 提案の直観)",
+        "Ch 5 σ_SU MS-SSM (R,S 時間導関数の存在)",
+        "Ch 7 F-CES 委譲不可能コア C2 (A1 の経済的妥当性)",
+        "Ch 9 ERS 加重和の代数バックボーン (A の領域 R_{≥0}^K)"
+      ],
+      "downstream_dependencies": [
+        "§10.4.2 (Theorem 3 本体への公理供給と補題 10.4.1 適用)",
+        "§10.4.3 (A3 GMM 過剰識別検定の事前登録)",
+        "Ch 26b 事前登録 (A3 過剰識別検定)",
+        "Ch 11 BVAR (A2 単調性検定)"
+      ],
+      "references": [
+        "Arrow (1963) Social Choice and Individual Values 2nd ed.",
+        "Debreu (1960) Topological Methods in Cardinal Utility Theory",
+        "Krantz, Luce, Suppes & Tversky (1971) Foundations of Measurement Vol I, ch. 6",
+        "Holmstrom & Milgrom (1991) Multitask Principal-Agent Analyses, JLEO",
+        "Aghion & Howitt (1992) A Model of Growth Through Creative Destruction, Econometrica",
+        "Hansen (1982) Large Sample Properties of GMM Estimators, Econometrica"
+      ],
+      "source_drafts": [
+        "A 10.4.1 4 公理集合提示",
+        "B 10.4.1-10.4.2 補題 10.4.1 独立節化",
+        "C 10.4.2 公理独立性確認"
+      ]
+    },
+    {
+      "section_id": "10.4.2",
+      "title": "Theorem 3 — 二層非可換性不可能性定理と三方向崩壊排除 (純乗法 / 純加法 / 一般単調合成)",
+      "pages": 3,
+      "math_level": "high (本体証明、三補題による反例構成、二重キャンセル axiom 不成立)",
+      "anchor_claims": [
+        "Theorem 3 (二層非可換性): 公理 (A1)-(A4) を満たす f : R_{>0}^3 × R_{≥0}^K → R_{≥0} は、各引数で狭義増加なスカラー値関数 (g, h) と狭義増加な Φ : R^2 → R を用いた表現 f(PRS, A) = Φ(g(PRS), h(A)) を持たない。",
+        "三方向崩壊排除: (a) 純乗法 f = g(PRS)·h(A) は (A1) を満たすが (A3) 因果チャネル制限と矛盾、(b) 純加法 f = g(PRS) + h(A) は (A3) を満たすが (A1) PRS 消滅と矛盾、(c) 一般単調合成 Φ(g,h) は補題 10.4.1 の二重キャンセル axiom (Thomsen 条件) の構成的不成立により排除される。",
+        "Case (c) の核: PRS 縮退方向 (一成分が 0 に接近) と ERS が (R,S) 時間導関数を介して相殺する方向の二点ペアで Thomsen 条件を構成的に反証する反例を具体的に構成する。Aghion-Howitt スカラー品質ラダーは機関層 trivial (h(A) ≡ const) 時の境界退化例として Theorem 3 の射程を画定する。"
+      ],
+      "paragraph_outline": [
+        "Theorem 3 の formal statement と証明戦略予告: Arrow (1963) 独立性公理崩壊テンプレートを KLST 二重キャンセル axiom の不成立として再構成する移植戦略。背理法による三方向反例構成 (Case (a) 純乗法 → Case (b) 純加法 → Case (c) 一般単調合成) の順で論理階段を構築。",
+        "補題 10.4.2 (Case (a) 純乗法排除): f = g(P,R,S) · h(A) を仮定する。(A3) より ∂f/∂A_k = (∂f/∂R)(∂R/∂A_k) + (∂f/∂S)(∂S/∂A_k) = h(A)[(∂g/∂R)(∂R/∂A_k) + (∂g/∂S)(∂S/∂A_k)]。一方乗法形より ∂f/∂A_k = g(P,R,S) · ∂h/∂A_k。両式の比較から g(P,R,S) · ∂h/∂A_k = h(A)[(∂g/∂R)(∂R/∂A_k) + (∂g/∂S)(∂S/∂A_k)] が任意の (P,R,S,A) で成立する必要があるが、左辺は P 依存性を保持し右辺は (R,S,A) のみの関数なので、P 方向の偏微分を取ると ∂g/∂P · ∂h/∂A_k = 0 (∀k)。これは g の P 依存性と h の A 単調性 (A2) の同時要請に矛盾する。",
+        "補題 10.4.2 の経済的解釈: 純乗法 PRS·ERS は『機関 ERS が案件 PRS と独立に乗数として効く』URA 暗黙因果モデルを排除する。実際には ERS は研究者-機関ペアリングを通じて R (Readiness) と S (Soul) の調整速度に作用する (Aghion-Howitt 1992 品質ラダー上の調整速度として解釈)。Holmstrom-Milgrom (1991) Multitask の代替不可能タスクとの formal 対応 — 乗法形式はタスク間代替を許容する点で本章の non-substitutability 主張と矛盾。",
+        "補題 10.4.3 (Case (b) 純加法排除): f = g(P,R,S) + h(A) を仮定する。(P,R,S) = (0, R_0, S_0) で (A1) より g(0,R_0,S_0) + h(A) = 0 (∀A) が要求される。これは h が定数関数 h(A) ≡ -g(0,R_0,S_0) であることを含意し、(A2) ERS 単調性 (開集合上で狭義) と矛盾する。",
+        "補題 10.4.3 の経済的解釈: URA 提案『機関ベースライン + 案件加点』型モデルがこの加法構造に該当し、min(P,R,S)=0 で g=0 でも h>0 なら f>0 となり F-CES 委譲不可能コアと両立しない。Debreu (1960) cardinal utility における加法的効用表現の本章への移植であることを明示。",
+        "補題 10.4.4 (Case (c) 一般単調合成排除): f = Φ(g(P,R,S), h(A)) (Φ 各引数で狭義増加、g, h スカラー値) を仮定する。補題 10.4.1 (KLST 二重キャンセル axiom) を適用するため、PRS 空間内の二点 PRS^a, PRS^b と ERS 空間内の二点 A^a, A^b に対する Thomsen 条件 [f(PRS^a, A^b) = f(PRS^b, A^a) かつ f(PRS^b, A^c) = f(PRS^c, A^b) ⇒ f(PRS^a, A^c) = f(PRS^c, A^a)] を構成的に反証する反例を構成する。",
+        "補題 10.4.4 の構成的反例: PRS^a を PRS 縮退方向 (P → 0) に取ると (A1) より f(PRS^a, A) = 0 (∀A)。PRS^b, PRS^c を内点に取り、ERS の A^c を A^a, A^b より十分大きく取る。(A3) より A^c の f への作用は (R,S) 時間導関数を介して伝わるため、PRS^b, PRS^c 内点では f(PRS^b, A^c) > f(PRS^b, A^b) > 0 かつ f(PRS^c, A^c) > 0、しかし PRS^a 縮退点では f(PRS^a, A^c) = 0 = f(PRS^a, A^b)。Thomsen 条件は f(PRS^a, A^c) = f(PRS^c, A^a) を要求するが、PRS^c を内点に取る限り右辺は正となり矛盾。",
+        "補題 10.4.4 の解釈: 二重キャンセル axiom の不成立は (A1) PRS 消滅境界における Φ の特異性 (Φ(g_0, h(A)) = 0 ∀A、g_0 = g(0,R,S)) と (A3) チャネル制限の同時要請から構成的に証明される。Φ の第二引数で狭義増加という前提と矛盾する境界条件が抽出される。",
+        "Theorem 3 本体の statement と証明統合: 補題 10.4.2 / 10.4.3 / 10.4.4 のいずれの単調合成も (A1)-(A4) と両立しない ⇒ Theorem 3 が確立される。F-CES 委譲不可能コア C2 (Ch 7) の事後分布が A1 を経験的に支えていることを再確認し、本章の理論的不可能性が D-038 の論理的延長線上にあることを明示。",
+        "可換性 (commutativity) の崩壊系: 『PRS で先にスクリーニング → ERS で重み付け』と『ERS でプール構築 → PRS で順位付け』の二手順が異なる順序付けを与えること (二層非可換性) を Theorem 3 の系として簡潔に述べ、§10.4.3 系 3.1 の経験的反証子へと橋渡し。",
+        "Aghion-Howitt (1992) スカラー品質ラダーの境界退化例としての位置付け: 機関層が trivial (h(A) ≡ const) な場合は Theorem 3 が trivially 不成立 (単一品質次元の R&D モデルでは本不可能性は意味を持たない)。PRS-ERS 二層構造では原理的に不可能、という対比により Theorem 3 の射程を明示的に画定する。",
+        "Arrow テンプレートとの構造的対比: Arrow 不可能性が social choice 公理の論理的非両立性を示したのと同様、Theorem 3 は institution-deal interaction の四公理非両立性を示す。違いは Theorem 3 が経験的反証子 (系 3.1) を伴う点であり、これが BZM を Triple Helix / Nelson-Winter の精緻化として位置付ける根拠となる (Book VI 接続予告)。",
+        "Φ の滑らかさ仮定の明示: 補題 10.4.2-10.4.3 は局所的 C^1 級を前提とし、補題 10.4.4 は KLST 順序論的定式化に帰着するため非滑らか単調変換 (階段関数極限) でも成立する。Φ の局所的非滑らかさへの拡張は Appendix 候補として open_issue に残す。"
+      ],
+      "new_writing_required": "Theorem 3 本体 statement、補題 10.4.2 / 10.4.3 / 10.4.4 の三補題 formal 証明 (とくに補題 10.4.4 の Thomsen 条件構成的反例)、可換性崩壊系の statement、Aghion-Howitt 境界退化例の formal 画定、Arrow テンプレート構造的対比、Φ 滑らかさ仮定の明示。",
+      "existing_reuse": "§10.4.1 補題 10.4.1 (KLST 二重キャンセル axiom)、Ch 5 σ_SU MS-SSM の R,S 時間導関数表現、Ch 9 Σ w_k A_k は h(A) 候補として参照されつつ Theorem 3 の不可能性がそれを含むあらゆる h に拡張されることを確認、Ch 7 F-CES C2 の事後分布。",
+      "upstream_dependencies": [
+        "§10.4.1 (4 公理 + 補題 10.4.1 二重キャンセル axiom)",
+        "Ch 5 σ_SU MS-SSM (補助)",
+        "Ch 7 F-CES C2 (A1 の経済的妥当性)",
+        "Ch 9 ERS 加重和"
+      ],
+      "downstream_dependencies": [
+        "§10.4.3 (系 3.1 反証子への論理的基盤)",
+        "Ch 25 層間結合検証",
+        "Ch 26 整合性チェック",
+        "Book VI Triple Helix / Nelson-Winter 精緻化宣言"
+      ],
+      "references": [
+        "Arrow (1963) Social Choice and Individual Values",
+        "Debreu (1960) Topological Methods in Cardinal Utility Theory",
+        "Krantz, Luce, Suppes & Tversky (1971) Foundations of Measurement Vol I",
+        "Holmstrom & Milgrom (1991) Multitask Principal-Agent Analyses",
+        "Aghion & Howitt (1992) A Model of Growth Through Creative Destruction"
+      ],
+      "source_drafts": [
+        "A 10.4.2-10.4.4 三段崩壊排除の独立命題化",
+        "B 10.4.3 Case (a)(b)(c) 並列構造と Thomsen 条件構成的反例",
+        "C 10.4.3 三補題独立構成と Aghion-Howitt 境界退化"
+      ]
+    },
+    {
+      "section_id": "10.4.3",
+      "title": "公理 (A1) と F-CES 委譲不可能コアの論理的結合、公理 (A3) の GMM 過剰識別事前登録、系 3.1 経験的反証子三組と Nelson-Winter スカラー復権条項",
+      "pages": 2,
+      "math_level": "medium (経済的解釈 + 検定統計量 formal 定義 + 事前登録 protocol)",
+      "anchor_claims": [
+        "公理 (A1) PRS 消滅は Ch 7 F-CES 委譲不可能コア C2 の事後 P(ρ<0|data) ≥ 0.95 によって経験的に支持され、両者は同一経済命題の異なる formal 化である (D-038 接続)。",
+        "公理 (A3) 因果チャネル制限を GMM moment condition E[(∂f/∂A_k − (∂f/∂R)(∂R/∂A_k) − (∂f/∂S)(∂S/∂A_k)) · z] = 0 として書き下し、Hansen J = N·g_N(θ̂)' Ŵ g_N(θ̂) 統計量による過剰識別検定を Ch 26b に事前登録する (P-008e formal 化)。",
+        "系 3.1 経験的反証子三組 — (i) Simpson 型符号反転、(ii) PRS 四分位横断 γ_k >2σ 不安定性、(iii) Hausman 検定 p<0.05 棄却 — は Ch 11 BVAR 実装と Ch 26b 事前登録に検定統計量レベルで引き渡される。少なくとも一つ成立で Theorem 3 が経験的に支持される。",
+        "Nelson-Winter スカラー復権条件 (負の判定基準): 四反証子 (Hansen J + 系 3.1 三反証子) すべての棄却失敗時にのみ Nelson-Winter 流単一ルーティン強度モデルが経験的に復権する。Popper-Lakatos 反証可能性 commitment として位置付ける。"
+      ],
+      "paragraph_outline": [
+        "(A1) と F-CES C2 の論理的同値性の formal 化: F-CES y = (Σ α_i x_i^ρ)^{1/ρ} で ρ → −∞ のとき min 演算子に収束、これが Ch 7 で確立された委譲不可能コアであり min(P,R,S)=0 ⇒ f=0 という A1 の構造的等価物。事後 P(ρ<0|data) ≥ 0.95 という Ch 7 結果が A1 の Bayesian justification として機能。D-038 (F-CES active) と D-039 (Theorem 3 active) の正典オーナーチェーン上の整合性を確認。",
+        "(A3) 因果チャネル制限の脆弱性議論: 査読者反例として『機関ブランド A_k が案件価値 f に直接 signaling 効果として入る』ケースを正当に提示し、これが A3 を破ることを認める。本章は A3 を ad hoc に擁護せず、GMM 過剰識別制約として事前登録的に検定可能な形式に翻訳する戦略を採る。",
+        "A3 の GMM moment condition 書き下し: 操作変数 z (例: 機関 ERS への外生ショック、政策変更を natural experiment として活用) を用いた moment condition E[(∂f/∂A_k − (∂f/∂R)(∂R/∂A_k) − (∂f/∂S)(∂S/∂A_k)) · z] = 0 を formal に提示。識別条件と自由度カウント (dim(moment) − dim(θ)) を明示。Hansen (1982) GMM 推定の枠組みに帰着させる。",
+        "Hansen J 過剰識別検定の事前登録 protocol: J = N·g_N(θ̂)' Ŵ g_N(θ̂) が χ^2_{dim(moment)−dim(θ)} 分布に従う、棄却域 p<0.10 (A3 棄却失敗を保守的に検定するため緩めに設定)、Ch 26b 事前登録対象 (Tier B)。棄却失敗は A3 を経験的に支持、棄却は ERS 直接効果の存在を示唆し Theorem 3 の前提が崩れる。",
+        "系 3.1 (i) Simpson 反転検定の formal 定義: プール推定係数 γ_k^pool と PRS 四分位条件付き推定 γ_k^q (q=1,...,4) の符号一致を検定。符号反転 sign(γ_k^pool) ≠ sign(γ_k^q) for some q が >1 機関要素で観測されれば二層非可換性の直接的兆候。Simpson (1951) パラドックスの本章への移植。",
+        "系 3.1 (ii) PRS 四分位横断不安定性検定の formal 定義: |γ_k^q − γ_k^{q'}| / SE(γ_k^q − γ_k^{q'}) > 2 となる四分位ペア (q, q') の存在を検定。ERS×PRS 交互作用項の有意性として BVAR 事後 HPD 95% が 0 を排除する形で定式化 (Ch 11 BVAR 実装との整合)。",
+        "系 3.1 (iii) Hausman 棄却の formal 定義: プールド GMM 推定量 θ̂_pool と PRS 条件付き GMM 推定量 θ̂_cond の差を (V̂_cond − V̂_pool)^{-1} で重み付けた Hausman (1978) 統計量 H = (θ̂_cond − θ̂_pool)' (V̂_cond − V̂_pool)^{-1} (θ̂_cond − θ̂_pool) が χ^2_{dim(θ)} 分布に従う、棄却域 p<0.05。",
+        "三反証子の Ch 11 BVAR 実装対応表: 識別戦略 (PRS 四分位による層別、ERS 操作変数)、事前分布 (γ_k に弱情報事前、PRS 交互作用項に Horseshoe)、MCMC 設定 (NUTS / 4 chain / 2000 warmup) を Ch 11 引き渡し仕様として明示。Tier A 実装対象。",
+        "Ch 26b 事前登録 protocol (Tier B): 四反証子の検定統計量・有意水準・多重比較補正 (Bonferroni 補正を保守的に採用、family-wise error rate を 5% に保つため各検定 α=0.0167) の取り扱いを事前登録対象として明示。BH 補正との比較は open_issue に残す。",
+        "Nelson-Winter スカラー復権条件の formal statement: 四反証子 (Hansen J p≥0.10 ∧ Simpson 反転 p≥0.05 ∧ 四分位不安定性 p≥0.05 ∧ Hausman p≥0.05、Bonferroni 補正後) のすべてが棄却失敗するときに限り Nelson-Winter (1982) 流単一ルーティン強度モデルが本データで経験的に支持される。これは負の判定基準として本章の反証可能性 commitment を構成する (Popper 1959 / Lakatos 1970 系譜)。",
+        "可換性崩壊系の経験的兆候: §10.4.2 で導出した『PRS スクリーニング先 vs ERS プール構築先』の順序非可換性は、実務的には系 3.1 (i) Simpson 反転として観察される。両者の理論-実証対応を明示し、Theorem 3 の経験的内容を強化。",
+        "Tier 規律 (D-031) の本節適用: §10.4.3 は理論的記述として Tier A、Hansen J 検定 / 系 3.1 三反証子は Ch 26b 事前登録 (Tier B) + Ch 11 BVAR 実装 (Tier A) という二層構造を明示。Tier 規律と本章定理の反証可能性 commitment が整合することを確認。",
+        "章末問い: Theorem 3 と系 3.1 の総括として『単一スコアは原理的に不可能だとして、政策決定者が直面する順位付けの実務をどう設計しうるか — PRS 充足判定を gate、ERS を score とする二段判定の formal 化』を Ch 25 への問いとして残す。さらに『二層非可換性が研究機関と案件の境界 (organizational boundary) を内生的に決定する原理として機能しうるか』を Book VI 中核問題として開く。",
+        "Book VI BZM 精緻化宣言への伏線: BZM は Triple Helix (Etzkowitz & Leydesdorff 2000) と Nelson-Winter (1982) 進化経済学のスカラー適合度モデルの精緻化として位置付けられ、Theorem 3 はその数学的根拠を提供する。復権条項は『精緻化が経験的に支持される世界線でのみ Book VI が意味を持つ』という条件付き宣言として伏線を張る。"
+      ],
+      "new_writing_required": "(A1)-F-CES 同値性の formal 化、A3 GMM moment condition と Hansen J 検定の事前登録 protocol、三反証子の検定統計量レベル定義 (Simpson 反転 / 四分位 >2σ 不安定性 / Hausman 棄却)、Ch 11 BVAR 実装対応表、Ch 26b 事前登録 protocol、Nelson-Winter 復権条件の formal statement、章末問い、Book VI 伏線。",
+      "existing_reuse": "Ch 7 F-CES C2 の事後分布 P(ρ<0|data) ≥ 0.95、Ch 9 ERS 加重和、§10.4.2 Theorem 3 と可換性崩壊系、Ch 11 BVAR 識別戦略 template、Ch 26 整合性チェック template。",
+      "upstream_dependencies": [
+        "§10.4.2 (Theorem 3 + 可換性崩壊系)",
+        "§10.4.1 (公理 A3)",
+        "Ch 7 F-CES C2",
+        "P-008e (進化経済 軽微修正残課題)"
+      ],
+      "downstream_dependencies": [
+        "Ch 11 反証子実装 (Tier A)",
+        "Ch 25 層間結合検証",
+        "Ch 26 整合性チェック",
+        "Ch 26b 事前登録 (Tier B)",
+        "Book VI BZM 精緻化新領域宣言"
+      ],
+      "references": [
+        "Hansen (1982) Large Sample Properties of GMM Estimators, Econometrica",
+        "Hausman (1978) Specification Tests in Econometrics, Econometrica",
+        "Simpson (1951) The Interpretation of Interaction in Contingency Tables, JRSS-B",
+        "Nelson & Winter (1982) An Evolutionary Theory of Economic Change",
+        "Etzkowitz & Leydesdorff (2000) The Dynamics of Innovation: Triple Helix",
+        "Popper (1959) The Logic of Scientific Discovery",
+        "Lakatos (1970) Falsification and the Methodology of Scientific Research Programmes"
+      ],
+      "source_drafts": [
+        "A 10.4.4-10.4.5 A3 defense と章末問い",
+        "B 10.4.4-10.4.5 A1-F-CES 結合独立節と Nelson-Winter 負の判定基準",
+        "C 10.4.4-10.4.5 BVAR 実装対応表"
+      ]
+    }
+  ],
+  "open_issues_for_masa": [
+    {
+      "issue": "公理 (A3) 因果チャネル制限の弱形式 A3' の Appendix 扱い — 査読者反例『ERS の signaling 効果が f に直接入る』に対し、A3 を弱めた A3' (∂f/∂A_k = (∂f/∂R)(∂R/∂A_k) + (∂f/∂S)(∂S/∂A_k) + ε_k, |ε_k| ≤ δ) でも Theorem 3 が成立する δ 閾値を本章 Appendix で扱うか、Ch 11 数値探索に委譲するか。",
+      "why_masa_decides": "本章 (Tier A 数学的負荷 8p) の頁配分と Appendix 設置可否は本書全体構成 (Book II 全体 Appendix 方針) に関わる編集判断であり、まさの章間バランス感覚が必要。査読耐性 (進化経済 5 persona) と Tier 規律 (D-031) のトレードオフを最終調整できるのはまさのみ。",
+      "options": [
+        "(a) §10.4.2 末で A3' 弱形式の Theorem 3 成立条件を 0.3p で言及し詳細は Appendix B に分離、(b) §10.4.2 で言及せず Ch 11 数値探索 (Tier A 実装) に完全委譲、(c) §10.4.1 公理 (A3) 提示時に弱形式版を脚注で予告し本章 Appendix 不要"
+      ],
+      "recommendation": "(a) 推奨。A3 は本章最論争的仮定であり Appendix での δ 閾値分析は査読耐性を大きく高める。Ch 11 委譲のみでは進化経済 persona の事前登録検定力分析期待を裏切るリスク。"
+    },
+    {
+      "issue": "系 3.1 三反証子の多重比較補正方式 — (i) Simpson 反転 / (ii) 四分位 >2σ 不安定性 / (iii) Hausman 棄却の三検定の family-wise error rate 制御を Bonferroni / Benjamini-Hochberg / 補正なし のいずれで Ch 26b に事前登録するか。",
+      "why_masa_decides": "多重検定補正の選択は Ch 26b 事前登録 protocol の核心であり、進化経済 5 persona の査読印象 (保守的 vs 検定力重視) を左右する。Ch 11 BVAR 実装と Ch 26b 事前登録の Tier 規律設計はまさの全体構成判断が必要。",
+      "options": [
+        "(a) Bonferroni (保守的 FWER、α/3 = 0.0167)、(b) Benjamini-Hochberg (FDR 制御、検定力重視)、(c) 補正なし + Theorem 3 支持は『少なくとも一つ棄却』として明示"
+      ],
+      "recommendation": "(a) Bonferroni 推奨。三反証子は独立性が完全保証されないため (Simpson 反転が四分位不安定性を含意しうる)、保守的 FWER 制御が査読耐性に有利。Nelson-Winter 復権条項 (全棄却失敗) との対称性も担保される。"
+    },
+    {
+      "issue": "Aghion-Howitt (1992) スカラー品質ラダーの境界退化例の扱い — Theorem 3 の射程画定として『機関層 trivial (h(A) ≡ const) 時は本不可能性が trivially 不成立』を §10.4.2 末で何行使うか、Appendix 化するか。",
+      "why_masa_decides": "境界退化例の扱いは Theorem 3 の射程と進化経済学先行研究との位置関係を決め、Book VI 接続強度に直結する。査読者が『Aghion-Howitt との関係』を必ず問う論点であり、まさの章間構成判断が必要。",
+      "options": [
+        "(a) §10.4.2 末で 0.3p の境界退化補題として formal 化、(b) §10.4.1 Holmstrom-Milgrom 脚注に統合し §10.4.2 では言及せず、(c) Appendix C 化"
+      ],
+      "recommendation": "(a) 推奨。境界退化補題として formal 化することで Theorem 3 の射程が明示され、Aghion-Howitt との位置関係が clean に画定される。Book VI 接続も強化される。"
+    },
+    {
+      "issue": "URA 章頭ストーリーの匿名化レベル — type 名匿名化 (機関 R1 等) の指示に対し、機関タイプ (国立大 TLO / 私立大 TLO / 民間 CVC / NEDO / AMED / JST 等) の特定が URA 業界内識別を可能にするリスクをどう扱うか。Ch 5 / Ch 7 既出ストーリーとの匿名化レベル整合性。",
+      "why_masa_decides": "本書全体の匿名化ポリシー (実在組織保護 vs 読者の臨場感) のバランスはまさが構築してきた信頼関係に直結し、編集段階での最終判断はまさのみが下せる。type 名の具体度設定は反論武器化の効果を直接左右する。",
+      "options": [
+        "(a) 機関タイプを完全に汎化 (『大型機関』『中規模機関』等)、(b) 機関タイプは特定するが組織カテゴリで停止 (『大学 TLO』『公的研究機関』)、(c) 機関 R1 等の符号化で具体度を保ちつつ匿名性確保"
+      ],
+      "recommendation": "(c) 推奨。Ch 5 / Ch 7 の既出パターンと整合し、反論武器化の臨場感を保ちながら業界内識別リスクを最小化する。"
+    },
+    {
+      "issue": "Book VI 新領域宣言への接続強度 — §10.4.3 章末問いで Triple Helix / Nelson-Winter 精緻化への伏線を張るが、Book VI 構成案 (まだ確定していない) との具体的命題接続 (二層非可換性が Triple Helix のどの界面に対応するか) を本章でどこまで予告するか。",
+      "why_masa_decides": "Book VI 構成案は BZM 全体の研究計画 commitment であり、まさの戦略判断が必要。本章での接続予告強度は Book II 全体の論調を決める。",
+      "options": [
+        "(a) 『精緻化として位置付けられる』レベルの控えめ接続、(b) 二層非可換性が Triple Helix の大学-産業-政府三界面のうち大学-産業界面に対応する formal 仮説を予告、(c) Book VI 構成案確定まで接続予告を保留し本章は Theorem 3 + 系 3.1 で閉じる"
+      ],
+      "recommendation": "(a) 推奨。Book VI 構成案未確定の段階での過度な接続予告は後の修正コストを上げる。控えめ接続で章末問いを開いた状態に保ち、Book VI 確定後に Ch 26 整合性チェック段階で接続強度を調整する。"
+    }
+  ],
+  "falsifiable_claims": [
+    "系 3.1 反証子 (i) Simpson 反転: ERS 係数 γ_k のプール OLS/GMM 推定 γ_k^pool と PRS 四分位条件付き推定 γ_k^q (q=1,...,4) の符号が >1 機関要素で反転する (sign(γ_k^pool) ≠ sign(γ_k^q) for some q)。Ch 11 BVAR 事後 P>0.95 で検出、Ch 26b 事前登録対象 (Tier B、Bonferroni 補正 α=0.0167)。",
+    "系 3.1 反証子 (ii) PRS 四分位横断不安定性: |γ_k^q − γ_k^{q'}| / SE(γ_k^q − γ_k^{q'}) > 2 となる四分位ペア (q, q') が少なくとも一つ存在する (ERS×PRS 交互作用項の事後 HPD 95% が 0 を排除)。Ch 11 BVAR 実装、Ch 26b 事前登録対象 (Tier B、Bonferroni 補正 α=0.0167)。",
+    "系 3.1 反証子 (iii) Hausman 棄却: プールド GMM 推定量 θ̂_pool と PRS 条件付き GMM 推定量 θ̂_cond の Hausman 統計量 H = (θ̂_cond − θ̂_pool)' (V̂_cond − V̂_pool)^{-1} (θ̂_cond − θ̂_pool) が χ^2_{dim(θ)} 分布の p<0.05 棄却域に入る。Ch 11 実装、Ch 26b 事前登録対象 (Tier B、Bonferroni 補正 α=0.0167)。",
+    "公理 (A3) 因果チャネル制限の Hansen J 過剰識別検定: ERS 外生ショックを操作変数 z とした moment condition E[(∂f/∂A_k − (∂f/∂R)(∂R/∂A_k) − (∂f/∂S)(∂S/∂A_k)) · z] = 0 に基づく Hansen J = N·g_N(θ̂)' Ŵ g_N(θ̂) 統計量が χ^2_{dim(moment)−dim(θ)} 分布の 5% 棄却域 (保守的に p<0.10) を超えない (= A3 を棄却できない)。棄却されれば A3 が反証され Theorem 3 の前提が崩れる。Ch 11 実装、Ch 26b 事前登録対象 (Tier B、P-008e 解消)。",
+    "公理 (A1) PRS 消滅の F-CES 経験的接続: F-CES 委譲不可能コア C2 の事後分布 P(ρ<0|data) ≥ 0.95 が Ch 7 既存データに加えて Ch 11 で追加される独立データセット (URA / 民間 CVC / 公的研究機関の三層パネル) でも再現される。再現失敗は A1 の経験的基礎を弱め Theorem 3 の Bayesian justification が崩れる (D-038 を介した A1 の間接的反証可能性)。",
+    "Nelson-Winter スカラー復権条件 (負の判定基準): 上記反証子 (i) ∧ (ii) ∧ (iii) のすべてが p≥0.05 (Hansen J は p≥0.10、Bonferroni 補正後 α=0.0167) で棄却失敗するときに限り、Nelson-Winter (1982) 流単一ルーティン強度モデルが本データで経験的に支持される。三反証子のうち少なくとも一つが棄却されれば Theorem 3 が支持され Nelson-Winter スカラーは経験的に却下される。Ch 26b 事前登録で『負の判定基準』として明示 (Tier B)。"
+  ],
+  "cross_chapter_supply": [
+    {
+      "target_chapter": "Ch 11 反証子実装 (Tier A)",
+      "what_supplies": "系 3.1 三反証子の検定統計量レベル仕様書 — (i) Simpson 反転検定 (γ_k^pool vs γ_k^q 符号一致検定)、(ii) PRS 四分位横断不安定性検定 (|γ_k^q − γ_k^{q'}| / SE > 2σ)、(iii) Hausman 検定 (H 統計量 formal 式) と BVAR 実装対応表 (識別戦略 / 事前分布 / MCMC 設定 NUTS 4 chain 2000 warmup)。A3 Hansen J 過剰識別検定の moment condition formal 式と操作変数 z の候補 (ERS 外生ショック)。"
+    },
+    {
+      "target_chapter": "Ch 25 層間結合検証",
+      "what_supplies": "Theorem 3 二層非可換性命題と可換性崩壊系 (PRS スクリーニング先 vs ERS プール構築先の順序非可換性) — 層間結合検証の理論的基盤として提供。章末問い『PRS gate + ERS score の二段判定 formal 化』を Ch 25 への問いとして開く。"
+    },
+    {
+      "target_chapter": "Ch 26 整合性チェック",
+      "what_supplies": "公理 (A1)-(A4) と Theorem 3 の Book II 内整合性 — Ch 7 F-CES C2 (D-038) との論理的同値性 (A1)、Ch 9 ERS 加重和 (h(A) 候補としての位置付け)、Ch 5 σ_SU MS-SSM (R,S 時間導関数表現の補助) の整合性チェック対象として明示。"
+    },
+    {
+      "target_chapter": "Ch 26b 事前登録 (Tier B)",
+      "what_supplies": "A3 Hansen J 過剰識別検定 (moment condition + 自由度カウント + 棄却域 p<0.10) と系 3.1 三反証子 (検定統計量 + 有意水準 + Bonferroni 補正 α=0.0167 + Nelson-Winter 負の判定基準 formal statement) の事前登録 protocol 完全仕様。"
+    },
+    {
+      "target_chapter": "Book VI BZM 精緻化新領域宣言",
+      "what_supplies": "Theorem 3 を BZM の Triple Helix (Etzkowitz & Leydesdorff 2000) / Nelson-Winter (1982) 進化経済学スカラー適合度モデルの精緻化として位置付ける数学的根拠。章末問い『二層非可換性が研究機関と案件の organizational boundary を内生的に決定する原理として機能しうるか』を Book VI 中核問題として開く。Nelson-Winter 復権条項を Popper-Lakatos 反証可能性 commitment として位置付け、Book VI が経験的に支持される世界線でのみ意味を持つ条件付き宣言として伏線を張る。"
+    }
+  ],
+  "masa_negotiation_handles": [
+    "8p 配分の最終決定 — §10.4.0 (1p) / §10.4.1 (2p) / §10.4.2 (3p) / §10.4.3 (2p) の目安で進めるが、§10.4.2 三補題証明の密度次第で §10.4.3 を 1.5p に圧縮 (章末問い軽量化) するか、§10.4.1 を 1.5p に圧縮 (補題 10.4.1 を脚注化) するかの調整余地。まさの heavy 8p 制約感覚で最終決定。",
+    "公理 (A3) 弱形式 A3' の Appendix 化判断 — 査読耐性 (進化経済 5 persona) と Tier 規律 (D-031) のトレードオフ。Appendix B 設置で 0.3p 追加か、Ch 11 数値探索委譲か。",
+    "URA 章頭ストーリーの匿名化レベル設定 — 機関 R1 等の符号化具体度 (大学 TLO / 公的研究機関 / 民間 CVC のタイプ特定度) と Ch 5 / Ch 7 既出パターンとの整合性。反論武器化の臨場感と業界内識別リスクのバランス。",
+    "Aghion-Howitt 境界退化例 (h(A) ≡ const 退化) の扱い — §10.4.2 末で formal 補題化 (0.3p) か、§10.4.1 脚注統合か。Theorem 3 射程画定の明示度と Book VI 接続強度に直結。",
+    "三反証子の多重比較補正方式 — Bonferroni (保守的 FWER) vs BH (FDR 検定力重視) vs 補正なし。Ch 26b 事前登録 protocol の核心判断。Nelson-Winter 復権条項との対称性を保つには Bonferroni 推奨だが、まさの戦略次第。",
+    "Book VI 接続強度の調整 — 章末問いで控えめ接続 (『精緻化として位置付けられる』) で開いた状態に保つか、Triple Helix 三界面の formal 仮説を予告するか。Book VI 構成案確定時期との整合。",
+    "Φ の滑らかさ仮定の明文化 — 補題 10.4.2-10.4.3 の C^1 級前提と補題 10.4.4 の KLST 順序論的経路の役割分担を §10.4.2 でどこまで明示するか。非滑らか単調変換 (階段関数極限) への拡張を Appendix 候補に残すか本章で完結させるか。",
+    "章末問いの formal 化レベル — 『PRS gate + ERS score の二段判定』を Ch 25 への問いとしてどこまで具体化するか、『organizational boundary 内生決定』を Book VI 問いとしてどこまで開くか。Theorem 3 の射程を超えるリスクと反論武器持ち帰り力のバランス。"
+  ]
+}

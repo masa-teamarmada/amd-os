@@ -293,7 +293,7 @@
 
 ### D-034: 機関匿名化方針の暫定運用 (supersedes D-011 匿名化部分)
 - **judgment**: P-001 解決まで全 7 機関を type 名のみで通す。L1 §8 機関ケース割当て表でも実機関名 (NIMS / KUTE / 愛媛 / 香川 / 京大 / 山口大 / 東京科学大) を露出せず、type 名 (Research-Org-Type / Private-Engineering-Univ-Type / Regional-National-Univ-Type 群 / Integrated-Large-Univ-Type / International-TTO-Type) のみで言及。実機関名は L2 ledger (本ファイル) と内部メモのみで保持。P-001 解決時に再 supersede 予定
-- **rationale**: DSGE persona: semi-state な匿名化は擁護不能、完全 identification か完全 typological のどちらかにコミット必要。append-only ルール下で「暫定 active」状態を明示的に独立判決化
+- **rationale**: DSGE persona: semi-state な匿名化は擁護不能、完全 identification か完全 typological のどちらかにコミット必要。append-only ルール下で「暫定 active」状態を明示的に独立判決化。2026-06-27 まさ追認: 本書執筆全期間で type 名のみ運用、P-001 解決時に再判断する立場で確定
 - **applies_to_chapters**: Ch 0.0, Ch 20-24, L1 §8
 - **date**: 2026-06-27
 - **status**: active
@@ -369,6 +369,83 @@
 - **date**: 2026-06-27
 - **status**: pending
 - *注: P-009 で確定後、D-001 を supersede する*
+
+### D-045: σ_SU MS-SSM の regime 数 K=3 を Ch 5 で pre-commit + Ch 11 で K∈{2,3,4} horse-race
+- **judgment**: Ch 5.3 σ_SU MS-SSM の regime 数を K=3 (S₀ 沈静 / S₁ 中位 / S₂ 三位一体追い風) として Ch 5 で pre-commit。Ch 11 BVAR 推定で K∈{2,3,4} horse-race を AIC / BIC / log-marginal-likelihood で比較。反証可能仮説 F-5.1 として Ch 26b 予測登録簿に事前登録
+- **rationale**: K=2 では CX 三位一体 (S₂) と CX 前 (S₁) と YD (S₀) の 3 状態 narrative が分離できず §5.0 章頭フックと §5.6 装置適用が弱まる。K≥4 は識別困難。Ch 5 Kingpin 1 として擦り合わせ確定
+- **applies_to_chapters**: Ch 5.3, Ch 5.4, Ch 5.6, Ch 11, Ch 26b
+- **date**: 2026-06-27
+- **status**: active
+
+### D-046: Cobb-Douglas weight ω を Ch 11 で IV 推定、baseline (1/3,1/3,1/3) は観測等価類の中心として残置
+- **judgment**: σ_SU CD の重み ω = (ω_A, ω_I, ω_G), Σω_x=1 を Ch 11 で IV 推定 (政策ショック G への先行効果 / A,I への lag 効果を外生変動として使う)。baseline (1/3,1/3,1/3) は現行 amd_score.md と整合する「観測等価類の中心」として §5.2 で参照、棄却・採択は Ch 11 で実施。領域依存性 (CX/YD/VSX で異なる ω) は反証可能仮説 F-5.5 として Ch 26b に事前登録
+- **rationale**: Triple Helix 文献への BZM の貢献 (CD theoretical justification + SIP CE2023 institutional grounding) の頑健性は ω の external validity に依存。baseline 固定では Park-Leydesdorff (2010) との差別化が弱い。Ch 5 Kingpin 2 として擦り合わせ確定
+- **applies_to_chapters**: Ch 5.2, Ch 5.7, Ch 11, Ch 26b
+- **date**: 2026-06-27
+- **status**: active
+
+### D-047: Book II load-bearing 章の証明深さ = スケッチ本文 + 完全証明付録 A
+- **judgment**: Ch 5 (§5.1 cross-walk 三定理 / §5.2 識別補題 / §5.3 MS-SSM 命題 / §5.4 命題 5.5) および Book II load-bearing 章 (Ch 5.5 GO 演算子 / Ch 7 F-CES / Ch 9 ERS 加重和 / Ch 10.3 ρ Kmenta / Ch 10.4 Theorem 3 / Ch 10.5-10.8 など) の証明は本文ではスケッチ (5-10 行)、完全証明は付録 A 数学補遺に逃がす。§5.1 冒頭で本方針を pre-commit
+- **rationale**: 28p heavy 数学の頁配分上、全証明本文は §5.6 装置適用 demonstration を圧迫し、Triple Helix 文献への貢献 3 点 (§5.7) も短縮を余儀なくされる。Cambridge UP モノグラフの慣例的方針 (証明スケッチ + 詳細付録) とも整合。Ch 5 Kingpin 3 として擦り合わせ確定
+- **applies_to_chapters**: Ch 5, Ch 5.5, Ch 7, Ch 9, Ch 10.3, Ch 10.4, Ch 10.5, Ch 10.6, Ch 10.7, Ch 10.8, 付録 A
+- **date**: 2026-06-27
+- **status**: active
+
+### D-048: Nelson-Winter 選抜環境節を §5.0 末尾 + §5.3 冒頭で 1p 弱に圧縮、本格展開は Book 0 Ch 0.3 へ逆流
+- **judgment**: Ch 5 内で Nelson-Winter (1982) 選抜環境を σ_SU の意味論的母体として位置付ける議論は §5.0 末尾 + §5.3 冒頭で 1p 弱 (3-4 段落) に圧縮。Schumpeter → Nelson-Winter → Dosi → Malerba 系譜整理は本格展開を Book 0 Ch 0.3 (進化経済系譜の意味論的母体) へ逆流させ、Ch 5 では参照のみ
+- **rationale**: Ch 5 28p heavy 数学の頁配分上、独立節 3p 確保は §5.6 装置適用を圧迫。Evolutionary persona への意味論的 supply は最小限で十分、本格展開は本書序章で先行宣言する方が論理弧が clean。Ch 5 Kingpin 8 として擦り合わせ確定
+- **applies_to_chapters**: Ch 5.0, Ch 5.3, Book 0 Ch 0.3
+- **date**: 2026-06-27
+- **status**: active
+
+### D-049: Ch 5 内 補題番号衝突の解消 — §5.2.15 を補題 5.2 に renumber、§5.1.14 系 5.1.4 は保持
+- **judgment**: 段落 outline 段階で発見された衝突 (§5.2.15 補題 5.4 missing 観測下識別パワー vs §5.1.14 系 5.1.4 局所単調等価) を numbering 衝突として解消。§5.2.15 を補題 5.2 (missing 観測下識別パワー) に renumber、§5.1.14 系 5.1.4 (T(AIG) と log(1+σ_SU) 局所等価) はそのまま保持
+- **rationale**: Ch 5 段落 outline workflow w0ad2jjb0 の synth が指摘した integration 課題。numbering 衝突は読者混乱と査読指摘リスク
+- **applies_to_chapters**: Ch 5.1, Ch 5.2
+- **date**: 2026-06-27
+- **status**: active
+
+### D-050: Ch 26b 反証可能仮説 F-5.5 = ω 領域依存性、F-5.6 = η_jt Granger 先行関係 (Ch 26b 事前登録正本)
+- **judgment**: F-5.1 = MS-SSM K=3 horse-race / F-5.2 = τ_B Bai-Perron 不連続 / F-5.3 = regime posterior narrative 一致 / F-5.4 = 退出ハザード単調 / F-5.5 = ω 領域依存性 / F-5.6 = η_jt (教育制度) → σ_SU の S₁ 滞在確率 4Q 先行 Granger 因果。全 6 件を Ch 26b で OSF 事前登録対象として commission
+- **rationale**: source draft で F-5.5 が ω 領域依存性 (§5.7.5) と η_E Granger (§5.5.6) で衝突。synth が再整理した結果を本書正本として確定
+- **applies_to_chapters**: Ch 5.7, Ch 26b, Ch 11
+- **date**: 2026-06-27
+- **status**: active
+
+### D-051: Book II load-bearing 章の記号表記正本 (C / Π / Σ / κ / θ) を付録 A 冒頭に置く
+- **judgment**: Ch 5 / 5.5 / 9 / 10.4 を含む Book II load-bearing 章の symbol convention 表を付録 A 冒頭に統一配置。C = loading matrix (7×3)、Π = transition matrix (regime switching)、Σ = covariance matrix、κ = mean reversion rate、θ = long-run mean、ω = CD weight (Σω=1)、η_jt = institutional state (8 軸 ERS)
+- **rationale**: source draft で H (loading) や Φ (transition) など別表記の散逸を synth が C / Π に統一。Book II 全章で一貫させるため付録 A 冒頭に正本を置く
+- **applies_to_chapters**: Ch 5, Ch 5.5, Ch 9, Ch 10.4, Ch 7, Ch 10.3, Ch 10.5-10.10, Ch 11, Ch 11.5, 付録 A
+- **date**: 2026-06-27
+- **status**: active
+
+### D-052: Phase 2 データ実装 commission 日 = 2026Q4 (Ch 11 BVAR 推定の実機関 J* と整合)
+- **judgment**: AMD OS 開発要件として、Phase 2 観測量実装 (B: e-Gov 補正予算公開データ / V: INITIAL+CB Insights / I_R: KAKEN 拡張 / C: SPEEDA+Crunchbase) の完了目標を 2026Q4 とする。Ch 11 BVAR 推定の実機関 J* を 2027Q1 から走らせる前提
+- **rationale**: Ch 5 補題 5.4 (missing 観測下識別パワー) で μ_I posterior が事前依存になる問題は Phase 2 実装で改善。Atlas J 機関 × 8 PJ panel で O(J) 識別パワー
+- **applies_to_chapters**: Ch 5.2, Ch 11, AMD OS 開発要件
+- **date**: 2026-06-27
+- **status**: active
+
+### D-053: AMD OS UI SVG export → 本書 figure 版下方針 (type 記号匿名化 static layer)
+- **judgment**: AMD OS の TripleHelixMatrix.tsx と Ch 5/9 関連 UI から SVG export を本書 figure source とする。版下用には type 記号 (R1, P1, ...) のみで匿名化した static layer を切り出して使用
+- **rationale**: D-034 機関匿名化方針と整合。AMD OS UI の動的データを本書 figure に転用する経路を確定
+- **applies_to_chapters**: Ch 5.0, Ch 5.6, Ch 9.0, Ch 11, AMD OS 開発要件
+- **date**: 2026-06-27
+- **status**: active
+
+### D-054: Foster-Lyapunov ergodicity の Book V 受け皿 = Ch 22 (institutional rigidity 動学)
+- **judgment**: Ch 5.4.5 で軽量に提示する Foster-Lyapunov ergodicity と institutional rigidity ρ(A_{s,r}) の本格展開は Book V Ch 22 (institutional rigidity 動学) で扱う。Ch 21 (機関 ERS 観測方程式) とは別
+- **rationale**: synth integration で Book V 受け皿が未確定だったため、Ch 9 / Ch 5.5 supply chain と整合する Ch 22 を受け皿に指定
+- **applies_to_chapters**: Ch 5.4, Ch 22
+- **date**: 2026-06-27
+- **status**: active
+
+### D-055: 系 5.1.4 局所等価条件を Triple Helix 非典型な退化条件として §5.1.14 で明示
+- **judgment**: 系 5.1.4 (T(AIG) と log(1+σ_SU) が独立性 + entropy unit + ω=(1/3,1/3,1/3) の下で局所単調等価) について、§5.1.14 段落本文で「独立性は Triple Helix の典型ではない退化条件である」旨を明示する。これにより定理 5.1.3 (概念的非等価) との緊張を解消し、Tier A 規律の下で「非典型条件下の局所等価」を読者に伝える
+- **rationale**: synth integration で『局所等価が存在する条件下では BZM の貢献 1 主張が相対化される』という緊張が指摘された。退化条件 flag で BZM の独立な対象主張を保持
+- **applies_to_chapters**: Ch 5.1
+- **date**: 2026-06-27
+- **status**: active
 
 ---
 

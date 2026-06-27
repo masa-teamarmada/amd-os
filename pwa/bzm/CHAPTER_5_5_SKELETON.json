@@ -1,0 +1,458 @@
+{
+  "ch_overview": {
+    "core_proposition": "GO 演算子 GO(t,i) = 𝟙[σ_SU(t) ≥ θ_σ*(P,F,B,Π;μ)] · g_TRL(t) を、創業者-機関ペアが参入時刻 τ を選ぶ実オプション最適停止問題のベルマン方程式に対する一次条件 (value-matching + smooth-pasting) として導出し、内生閾値 θ_σ* を価格 P・財務余力 F・バーンレート B・レジーム遷移行列 Π (および事後信念 μ) の陰関数として一意決定する。これにより GO ゲートを Ch 1-4 の「ラベル付き指示関数」から「経済構造的対象」へ昇格させ、DSGE/Macro 計量 persona 4 条件 #2 (マイクロファウンデーション) を充足させると同時に、Ch 5 確定の MS-SSM 過程と Ch 9 二層非可換性・Ch 10.2 退出ハザード・Ch 11 BVAR 推定・Ch 26b 予測登録簿を構造的に橋渡しする。",
+    "load_bearing_claims": [
+      "命題 5.5.1 (最適停止解の存在と一意性): 創業者-機関ペアによる連続時間最適停止問題 sup_τ E[∫_τ^∞ e^{-rt}(P·R(t)·S(t) - B) dt - I | F_0] s.t. (B - R_net) ≤ F は well-posed で、価値関数 V(σ, F, k) は K=3 レジーム coupled HJB の粘性解 (Crandall-Ishii-Lions の意味) として一意存在する。Π^pre/Π^post 二段下では V は二段の連続接続として構成される。",
+      "命題 5.5.2 (一次条件と θ_σ* の陰関数化 + 4 成分分解): 自由境界 ∂C 上の value-matching V(θ_σ*, F, k) = G(θ_σ*, F, k) - I と smooth-pasting ∂V/∂σ|_{σ=θ_σ*} = ∂G/∂σ|_{σ=θ_σ*} の連立から θ_σ*(k; P,F,B,Π) が陰関数として一意に決まり、(a) 即時参入価値 G-I、(b) Dixit-Pindyck 不確実性プレミアム、(c) Bertola 不可逆性プレミアム (I に比例)、(d) レジーム切換えオプション価値 (Π 構造に依存) の 4 成分に分解可能。smooth-pasting の verification は Peskir-Shiryaev (2006) の regularity 条件を K=3 coupling 下で確認する。",
+      "命題 5.5.3 (比較静学 + Π^pre/Π^post ジャンプ): ∂θ_σ*/∂P < 0、∂θ_σ*/∂B > 0 (parameter region 内、待機コスト効果が参入後コスト効果に支配される領域で)、∂θ_σ*/∂F < 0、∂θ_σ*(k)/∂π_kk < 0、θ_σ*(S₀) > θ_σ*(S₁) > θ_σ*(S₂)。離散事象 τ_event 前後で θ_σ* はジャンプし、ジャンプ幅 Δθ_σ*(k) は KL(Π^post‖Π^pre) × F × P と単調正相関する。これが Ch 9 二層非可換性 (規制 × 市場 Π 合成順序依存) の経済学的内容となる。",
+      "命題 5.5.4 (g_TRL 直交分解定理): Ch 5 Π^pre/Π^post 二段構造の TRL-orthogonality (σ_SU regime と TRL ramp の条件付き独立性) の下で、最適政策は GO(t,i) = 𝟙[σ_SU(t) ≥ θ_σ*(k_t, μ_t)] · g_TRL(t) と乗法分離可能で、g_TRL(t) は決定論的・時間のみ・有界・非減少として宣言され、具体的 functional form (シグモイド / 区分線形 / Gompertz) は Ch 11 推定に委ねる。これにより GO 演算子は Ch 1-4 ラベルから経済構造的対象へ昇格する。",
+      "系 5.5.5 (Bayesian 拡張と識別可能性への橋渡し): σ_SU 部分観測下では事後信念 μ_t (Wonham filter で更新) に依存する閾値 θ_σ*(μ) は stochastic dominance 順で単調かつ信念 sharpness について凸であり、Hamilton-Kim 価値関数反復 + Bertsekas-Tsitsiklis ADP で数値計算可能、Ch 11 BVAR の gate observation model y_t = f(σ_SU, θ_σ*(P,F,B,Π,μ)) + ε_t に射影されて Ch 26b 事前登録仮説として反証可能になる。"
+    ],
+    "logical_arc": "起 (§5.5.0, 2p): AMD OS PJ の GO/WAIT/NO_GO 判定の匿名化合成事例 (type 名のみ、§L1 11 ガイドライン準拠) を 2 件展開し、「σ_SU 閾値超過なのに WAIT」「未達なのに GO」の逸脱事例を提示。Ch 1-4 のラベル付き指示関数運用の三つの限界 (恣意性・政策不変性の欠如・反証可能性の弱さ) を明示し、DSGE persona 4 条件 #2 への構造手術として本章を位置付ける。承 (§5.5.1, 3p): Ch 5 σ_SU MS-SSM + Ch 6 PRS + Ch 7 F-CES + Ch 8 strategic slack S を所与とし、創業者-機関ペアの単一表現主体化 (共同価値最大化 baseline)、状態空間 (σ_SU, F, k, μ)、行動空間 {wait, go}、参入コスト I の定数化、F-CES 制約の absorbing barrier 化を formal に陳述。転 (§5.5.2, 4p / §5.5.3, 4p / §5.5.4, 3p): HJB 連立系の導出と粘性解一意性 (§5.5.2)、value-matching + smooth-pasting からの θ_σ* 陰関数化と 4 成分分解 + Peskir-Shiryaev verification (§5.5.3)、比較静学 4 符号 + Π^pre/Π^post ジャンプ式 + g_TRL 直交分解 + Bayesian 拡張 θ_σ*(μ) (§5.5.4)。結 (§5.5.5, 2p): matchstick 2 事例事後検証、Ch 26b 反証可能仮説 4 個 commission、Ch 9・10.2・11 への delivery、章末問い 4 個。",
+    "synthesis_rationale": "Lens A (methodological rigor) で C が overall_winner、Lens B (publishability) で A が overall_winner、Lens C (masa-fidelity) で A が overall_winner — A 骨格を backbone として採り、C の Bayesian 拡張 (Wonham filter + θ_σ*(μ) の単調性・凸性) + Peskir-Shiryaev verification + ADP 継承を §5.5.3・§5.5.4 にグラフト、B の創業者-機関ペア三択提示 + Hamilton-Kim アルゴリズム明示を §5.5.1・§5.5.5 にグラフトした。A の θ_σ* 4 成分分解 (シグネチャ命題) と Π^pre/Π^post ジャンプ式 (KL×F×P) + AMD OS PJ type A/B 2 事例 matchstick は最も現場親和性と Ch 9 supply が強いため backbone として保持。cross_cutting_concerns のうち参入コスト I は §5.5.1 で定数化し §5.5.3 4 成分分解の Bertola 項に明示反映、smooth-pasting verification は §5.5.3 本文 + 付録 A.5.5 、ペア化正当化は §5.5.1 で baseline 採用と Ch 9 委譲、F-CES 扱いは absorbing barrier で確定 (Ch 7 と擦り合わせ open_issue)、Bayesian 拡張は §5.5.4 で系 5.5.5 として軽く扱い数値実装は Ch 11 へ、という中間路線で 18p に収める。ページ配分 2+3+4+4+3+2=18p は B 案を参考に現実的に計画し、derivation 4p × 2 を中盤に集中させた。"
+  },
+  "sections": [
+    {
+      "section_id": "5.5.0",
+      "title": "章頭ストーリー — GO/WAIT/NO_GO 判定の現場と「ラベル付き指示関数」問題",
+      "pages": 2,
+      "math_level": "light",
+      "anchor_claims": [
+        "Ch 1-4 で運用されてきた GO 演算子 GO(t,i)=𝟙[σ_SU ≥ θ_σ*]·g_TRL(t) は θ_σ* の数値ではなく経済的意味が未定義のラベルにすぎず、(a) 恣意性、(b) 政策不変性 (Lucas 批判) の欠如、(c) 反証可能性の弱さの三つの限界を持つ。",
+        "AMD OS PJ 内 type A/B 2 事例 (匿名化合成、§L1 11 ガイドライン準拠) で観察される逸脱判定 (σ_SU 閾値超過なのに WAIT / 未達なのに GO) は、判定者が暗黙に (P, F, B, Π, 信念 μ) を勘案している証拠である。",
+        "本章は GO 演算子を実オプション最適停止問題の一次条件として導出し経済構造的対象へ昇格させることで、DSGE/Macro 計量 persona 4 条件 #2 (マイクロファウンデーション) への構造手術を完了する。"
+      ],
+      "paragraph_outline": [
+        "導入: AMD OS PJ で URA/EIR が GO 判定を求められる現場感、§L1 11 ガイドライン準拠の type 名匿名化方針宣言",
+        "type A 事例 (合成): σ_SU は閾値超過、しかし WAIT 判断 — 残存資金 F が薄く参入後バーンに耐えられない構造",
+        "type B 事例 (合成): σ_SU 未達だが GO 判断 — 規制承認イベント (Π^pre → Π^post 切換え) 直前で待機オプションが急減した構造",
+        "判定者が暗黙に勘案していた要素 (P 価格期待、F 残存資金、B バーンレート、Π レジーム持続感、μ 信念 sharpness) の言語化",
+        "Ch 1-4 ラベル運用の三つの限界: (a) 閾値の恣意性、(b) Lucas 批判への脆弱性 (政策変更で θ_σ* が変わるはず)、(c) 反証可能仮説を立てづらい",
+        "Ch 5 確定判決 (σ_SU は K=3 MS-SSM、命題 5.1、Π^pre/Π^post 二段、命題 5.5) の本章での引き取り",
+        "DSGE/Macro 計量 persona 4 条件 #2 (マイクロファウンデーション) の本章での到達課題: θ_σ* を内生決定する",
+        "Bayesian persona 宣言: 創業者-機関ペアの信念更新 (Ch 11 識別可能性とは役割分担) を Ch 5.5 内で布石",
+        "Dixit-Pindyck (1994) / Stokey (2009) / Bertola (1998) / Caballero (1999) からの理論継承宣言",
+        "本章の logical arc 4 ステップ (定式化 → HJB → FOC・θ_σ* 陰関数化 → 比較静学・分離) のロードマップ",
+        "Ch 5/6/7/8 からの supply 整理と Ch 9/10.2/11/26b への delivery 予告"
+      ],
+      "new_writing_required": "全段落新規。AMD OS PJ design log から 3-4 件の GO/WAIT/NO_GO 判定場面を type A/B 2 事例に合成 (§L1 11 ガイドライン準拠)。三つの限界の言語化と DSGE 4 条件 #2 への位置付けは本章独自。Bayesian persona 布石も新規。",
+      "existing_reuse": "Ch 1-4 GO 演算子ラベル定義 (1 段落で圧縮再掲)、Ch 5 命題 5.1 / 命題 5.5 を結果として参照、Ch 1 DSGE 4 条件の該当箇所のみ再掲。",
+      "upstream_dependencies": [
+        "L1 §10-11 章型規律と type 匿名化ガイドライン",
+        "Ch 1 序章 DSGE persona 4 条件",
+        "Ch 4 GO 演算子ラベル定義 + σ_SU/g_TRL 分離原則",
+        "Ch 5 命題 5.1 (MS-SSM)",
+        "Ch 5 命題 5.5 (Π^pre/Π^post 二段)"
+      ],
+      "downstream_dependencies": [
+        "§5.5.1 最適停止問題の formal 定式化への動機付け",
+        "§5.5.5 matchstick 2 事例の事後解釈で 5.5.0 逸脱を回収"
+      ],
+      "references": [
+        "Dixit & Pindyck (1994) Investment under Uncertainty",
+        "Stokey (2009) The Economics of Inaction ch.5-7",
+        "Bertola (1998) Irreversible Investment",
+        "Caballero (1999) Aggregate Investment",
+        "Christiano-Eichenbaum-Trabandt (2018)",
+        "Smets-Wouters (2007)",
+        "AMD OS PJ internal design log (匿名化)"
+      ],
+      "source_drafts": [
+        "A §5.5.0 (三つの限界と type A/B 2 事例構造)",
+        "C §5.5.0 (逸脱事例提示と §5.5.5 への事後解釈コール)",
+        "B §5.5.0 (三択提示の詳細化)"
+      ]
+    },
+    {
+      "section_id": "5.5.1",
+      "title": "実オプション最適停止問題の定式化 — プリミティブから価値関数へ",
+      "pages": 3,
+      "math_level": "heavy",
+      "anchor_claims": [
+        "創業者-機関ペアの参入決定主体化は (a) Nash 交渉解、(b) 共同価値最大化、(c) Stackelberg 階層の三択であり、本章は共同価値最大化を暫定採用 (非対称信念ケースは Ch 9 二層非可換性へ全面委譲) する。",
+        "状態空間は (σ_SU, F, k, μ) の四次元: σ_SU ∈ ℝ (Ch 5 MS-SSM 駆動の連続スカラー)、F ∈ ℝ₊ (残存資金、F=0 で強制退出 = Ch 10.2 退出ハザード origin)、k ∈ {S₀, S₁, S₂} (Ch 5 レジーム)、μ ∈ Δ^{K-1} (信念、§5.5.4 で系 5.5.5 として扱う)。行動空間は {wait, go} 一度きり不可逆、参入コスト I は定数。",
+        "目的関数 sup_τ E[∫_τ^∞ e^{-rt}(P·R(t)·S(t) - B) dt - I | F_0] s.t. dF = (R_net - B)dt, F ≥ 0 は well-posed で、価値関数 V(σ, F, k) は有界かつ Lipschitz 連続。"
+      ],
+      "paragraph_outline": [
+        "決定主体の選択: 創業者単独・機関 (AMD) 単独・創業者-機関ペアの三モード、AMD OS 現場では 3 モード混在",
+        "ペア化の正当化三択 (Nash 交渉解 / 共同価値最大化 / Stackelberg) を明示提示し、共同価値最大化を本章 baseline として暫定採用する宣言と Ch 9 への委譲",
+        "状態方程式 1: σ_SU の MS-SSM (Ch 5 命題 5.1 を 1 段落で再掲、生成作用素 L_k のみ明示)",
+        "状態方程式 2: 資金 dF = (R_net(σ_SU, k) - B) dt、F=0 で absorbing barrier (Ch 7 F-CES との整合、open issue 化)",
+        "状態方程式 3: レジーム k のマルコフ切換え (Π^pre と Π^post、命題 5.5 を継承)",
+        "行動空間と一度きり不可逆性 (Dixit-Pindyck 核心仮定)、参入コスト I の定数化と Bertola 不可逆性プレミアム導出のための明示",
+        "評価関数の構築: P (Ch 7 F-CES から)、R(t) (Ch 6 PRS 期待値分解から)、S(t) (Ch 8 strategic slack から) の合成",
+        "g_TRL(t) の決定論的取扱い: 状態変数 t を明示して非自治的問題への帰着、関数形 (シグモイド baseline) は Ch 11 推定に委ねる宣言",
+        "情報構造: σ_SU 完全観測ケースを本章 baseline、部分観測 + 事後信念 μ_t は §5.5.4 系 5.5.5 で Wonham filter 導入 — Bayesian persona 布石",
+        "観測等価類と Ch 11 識別可能性との分業設計 (本章は構造を与え、識別は Ch 11 へ)",
+        "最適停止問題の正式陳述: sup_τ∈T E[∫_τ^∞ e^{-rt}(P·R·S - B) dt - I | σ_0,F_0,k_0]",
+        "well-posed 条件: π の Lipschitz 連続性 + r > 0 + 強マルコフ性、価値関数 V(σ, F, k) の有界性と単調性",
+        "命題 5.5.1 の statement (価値関数の存在・一意性、K=3 coupled HJB の粘性解として)、証明スケッチ本文 + 完全証明付録 A.5.5 (D-047 継承)",
+        "次節への接続: HJB が解けたとして θ_σ* がどう特徴付けられるかを §5.5.2 へ"
+      ],
+      "new_writing_required": "ペア化三択 + 共同価値最大化暫定採用の宣言、状態空間 (σ_SU, F, k, μ) の四次元設計、F-CES の absorbing barrier 化、参入コスト I の定数明示、g_TRL の非自治化、Bayesian 布石、命題 5.5.1 statement と証明スケッチ。",
+      "existing_reuse": "Ch 5 命題 5.1 (MS-SSM)、Ch 6 PRS、Ch 7 F-CES、Ch 8 strategic slack は引用のみ。Dixit-Pindyck・Stokey・Bertola・Pham・Crandall-Ishii-Lions は標準結果として引用。",
+      "upstream_dependencies": [
+        "Ch 5 命題 5.1 (σ_SU MS-SSM)",
+        "Ch 5 命題 5.5 (Π^pre/Π^post)",
+        "Ch 6 PRS 期待値分解",
+        "Ch 7 F-CES (Π^pre/Π^post 制約)",
+        "Ch 8 strategic slack S=Pr(τ_x<τ_y)"
+      ],
+      "downstream_dependencies": [
+        "§5.5.2 HJB と粘性解",
+        "§5.5.4 Bayesian 拡張系 5.5.5",
+        "Ch 9 二層非可換性 (非対称信念委譲先)",
+        "Ch 10.2 Jovanovic 退出ハザード (F=0 absorbing barrier)",
+        "Ch 11 観測等価類と識別可能性",
+        "付録 A.5.5 完全証明"
+      ],
+      "references": [
+        "Dixit & Pindyck (1994) ch.4-5",
+        "Stokey (2009) ch.2-3, 5",
+        "Bertola (1998)",
+        "Pham (2009) Continuous-time Stochastic Control and Optimization ch.4",
+        "Crandall-Ishii-Lions (1992) viscosity solutions user's guide",
+        "Øksendal (2003) Stochastic Differential Equations"
+      ],
+      "source_drafts": [
+        "A §5.5.1 (状態・行動・評価関数の formal 設計と PRS/F-CES/slack supply)",
+        "B §5.5.1 (ペア化三択の明示提示と g_TRL 非自治化)",
+        "C §5.5.1 (信念 μ の状態空間への布石)"
+      ]
+    },
+    {
+      "section_id": "5.5.2",
+      "title": "ベルマン方程式と HJB 連立系 — K=3 レジーム coupling 下の粘性解",
+      "pages": 4,
+      "math_level": "derivation",
+      "anchor_claims": [
+        "価値関数 V(σ, F, k) は連続時間 HJB max{(L_k V)(σ, F) + π(σ, F, k) - rV, 0} = 0 を満たし、L_k V には Markov 切換え項 Σ_j π_kj (V(·,·,j) - V(·,·,k)) を含む。",
+        "K=3 個の HJB が Π^pre 下で coupled 連立系を成し、Π^pre → Π^post 切換え時刻 τ_event で V は連続的に貼り合わされる二段構造を持つ (Ch 5 命題 5.5 の直接継承)。",
+        "粘性解の存在は Crandall-Ishii-Lions 枠組み、一意性は K=3 coupling 下での comparison principle により確立 — Guo-Zhang (2004) の特殊解は本問題の閉形式 limit として再現される。"
+      ],
+      "paragraph_outline": [
+        "動的計画原理 (DPP) からの離散時間ベルマン V = max{0, π·Δt + e^{-r Δt} E[V'|·]} の連続時間極限",
+        "HJB 方程式の明示形 max{(L_k V) + π - rV, 0} = 0、L_k V のドリフト + 拡散 + レジーム切換え項展開",
+        "境界条件: F=0 で V=0 (強制退出 absorbing barrier)、σ → -∞ で V → 0、σ → +∞ で V → 参入後期待価値の上限",
+        "K=3 個の HJB の coupling: V(·,·,S₀), V(·,·,S₁), V(·,·,S₂) が Π^pre を介して連立 ODE 系をなす",
+        "Π^pre/Π^post 二段の HJB への組み込み: 切換え時刻 τ_event 前後で価値関数を連続接続する境界条件",
+        "連続領域 C と停止領域 S = {V=0} の分割、自由境界 ∂C の幾何",
+        "粘性解 (Crandall-Ishii-Lions 1992) の存在: π の Lipschitz 連続性 + 強マルコフ性から従う",
+        "一意性: K=3 coupling 下での comparison principle の verification (本問題で comparison が機能する成長条件の明示)",
+        "Markov 切換え最適停止の先行研究 (Guo & Zhang 2004, Pham 2009 ch.4) との対応関係 — Guo-Zhang の閉形式は K=2、定常 Π、幾何 BM 限定",
+        "本問題の特殊ケース (定常レジーム + 対数効用 + 幾何 BM 近似) で Guo-Zhang 解を再現することの確認",
+        "Ch 5 §5.2 baseline ω=(1/3,1/3,1/3) と Ch 11 推定値 ω̂ の HJB への代入手続きの予告",
+        "命題 5.5.1 (HJB 連立粘性解の存在と一意性) の formal 陳述、価値関数の (a) 存在、(b) 一意性、(c) σ・F に関する単調性、(d) k について S₂ > S₁ > S₀ の順序の証明スケッチ",
+        "数値解法予告: Hamilton (1989) フィルタ + Kim (1994) スムーザ + Bertsekas-Tsitsiklis ADP の組み合わせ、詳細は §5.5.5 と Ch 11 へ",
+        "完全証明への付録 A.5.5 送り (D-047 継承)、特に comparison principle の verification を付録へ",
+        "次節への接続: HJB が解けたとして自由境界 ∂C 上の一次条件 (value-matching + smooth-pasting) を §5.5.3 で導出"
+      ],
+      "new_writing_required": "HJB 連立系の MS-SSM 拡張への導出、K=3 coupling 下の comparison principle verification (本文スケッチ + 付録完全証明)、Π^pre/Π^post 二段の HJB 接続境界条件、命題 5.5.1 formal 陳述。Guo-Zhang 閉形式との対応確認。",
+      "existing_reuse": "§5.5.1 状態方程式と価値関数、Ch 5 命題 5.1 (MS-SSM 生成作用素) と命題 5.5 (Π 二段)、Stokey (2009) ch.5 の最適停止理論。",
+      "upstream_dependencies": [
+        "§5.5.1 最適停止問題の定式化",
+        "Ch 5 命題 5.1 MS-SSM 生成作用素 L_k",
+        "Ch 5 命題 5.5 Π^pre/Π^post"
+      ],
+      "downstream_dependencies": [
+        "§5.5.3 自由境界と滑らかな貼り合わせ",
+        "§5.5.5 Hamilton-Kim 数値解法",
+        "付録 A.5.5 完全証明 (comparison principle)"
+      ],
+      "references": [
+        "Stokey (2009) ch.5-7",
+        "Pham (2009) ch.4",
+        "Guo & Zhang (2004) Closed-form solutions for perpetual American put options",
+        "Crandall, Ishii & Lions (1992) Viscosity solutions user's guide",
+        "Hamilton (1989) A New Approach to the Economic Analysis of Nonstationary Time Series",
+        "Kim (1994) Dynamic linear models with Markov-switching"
+      ],
+      "source_drafts": [
+        "A §5.5.2 (HJB 導出と K=3 coupling 、Guo-Zhang 位置付け)",
+        "B §5.5.1・§5.5.2 (粘性解枠組み、Crandall-Ishii-Lions 明示)",
+        "C §5.5.1 (§5.2 baseline と ω̂ 代入手続き)"
+      ]
+    },
+    {
+      "section_id": "5.5.3",
+      "title": "一次条件 — value-matching・smooth-pasting と θ_σ* の陰関数化・4 成分分解",
+      "pages": 4,
+      "math_level": "derivation",
+      "anchor_claims": [
+        "命題 5.5.2: 自由境界 ∂C 上で value-matching V(θ_σ*(k), F, k) = G(θ_σ*(k), F, k) - I と smooth-pasting ∂V/∂σ|_{σ=θ_σ*(k)} = ∂G/∂σ|_{σ=θ_σ*(k)} が成立し、これが GO 演算子の一次条件である。",
+        "smooth-pasting の verification は Peskir-Shiryaev (2006) の regularity 条件 (価値関数の C¹ 接続) を K=3 coupling と Π^pre/Π^post 二段の下で確認することで成立する。",
+        "陰関数定理により θ_σ*(k) = Φ_k(P, F, B, Π) が局所一意に存在し、4 成分 (即時参入価値 G-I / Dixit-Pindyck 不確実性プレミアム / Bertola 不可逆性プレミアム (I 比例) / レジーム切換えオプション価値) に分解可能。",
+        "K=3 各レジームで θ_σ*(S₀) > θ_σ*(S₁) > θ_σ*(S₂) (悪いレジームほど高い閾値) が成立する。"
+      ],
+      "paragraph_outline": [
+        "自由境界問題への移行: HJB を C 上の PDE + ∂C 上の境界条件に書き直す (Stokey 2009 ch.6 標準形)",
+        "value-matching 条件の導出: ∂C 上で参入価値 G-I と継続価値 V が連続的に一致 (連続性条件)",
+        "value-matching の経済的解釈: 境界での参入直後価値と待機価値の一致",
+        "smooth-pasting 条件の導出: ∂C 上で価値関数の σ 方向 C¹ 接続 (Dixit-Pindyck 1994 ch.4 核心)",
+        "smooth-pasting の経済的意味: 「あと少し待つ」マージン価値と「今参入する」マージン価値の一致",
+        "smooth-pasting verification の必要性 (Peskir-Shiryaev 2006): K=3 coupling 下での regularity 条件の本問題での確認",
+        "verification の本文スケッチ: 価値関数の単調性 (§5.5.2 (c)) + 拡散項の非退化 + Π 既約性 から従う",
+        "MS-SSM レジーム拡張下の連立 ODE 系: 各レジーム k で value-matching + smooth-pasting + Π 結合",
+        "陰関数定理の適用条件 (Jacobian 非特異性) の verification、退化ケース (P/B 極端、Π が吸収レジームを持つ場合) の除外",
+        "θ_σ*(k) = Φ_k(P, F, B, Π) の陰関数表現と命題 5.5.2 statement",
+        "4 成分分解 (本章のシグネチャ): θ_σ*(k) = G^{-1}(I) + UP_DP(σ_SU 拡散項) + UP_Bertola(I) + UP_Π(Π 構造)",
+        "成分 1 (即時参入価値 G-I): Ch 6 PRS + Ch 7 F-CES + Ch 8 S からの代数計算可能",
+        "成分 2 (Dixit-Pindyck 不確実性プレミアム): σ_SU 拡散項 Σ(k) に比例、Ch 5 ボラ大ほど θ_σ* 上昇",
+        "成分 3 (Bertola 不可逆性プレミアム): I が大きいほど θ_σ* 上昇、I=0 で degenerate",
+        "成分 4 (レジーム切換えオプション価値): 「悪いレジームから良いレジームへ切り換わる」可能性が θ_σ*(S₀) を下げる Π 構造依存項",
+        "K=3 順序: θ_σ*(S₀) > θ_σ*(S₁) > θ_σ*(S₂) の証明スケッチ (V の k に関する単調性から)",
+        "matchstick 数値例 (本節): 単一レジーム simplification (定常 Π + 幾何 BM 近似) で θ_σ* の閉形式と baseline (P=1, B=0.1, F=∞, r=0.05, I=0.5) の数値",
+        "完全証明への付録 A.5.5 送り、特に Peskir-Shiryaev verification の完全版",
+        "ラベルから経済構造的対象への昇格を formal 宣言: GO(t,i) = 𝟙[σ_SU ≥ Φ_k(P,F,B,Π)] · g_TRL(t)",
+        "次節への接続: 比較静学 (符号と弾力性) と Π^pre/Π^post ジャンプ + g_TRL 分離 + Bayesian 拡張へ"
+      ],
+      "new_writing_required": "value-matching + smooth-pasting の MS-SSM 拡張への一般化と本文 verification (Peskir-Shiryaev 2006 の K=3 coupling 下での確認)、θ_σ* 陰関数化、4 成分分解、命題 5.5.2 formal 陳述、matchstick 単一レジーム数値例。本章の中核手術。",
+      "existing_reuse": "§5.5.2 HJB 連立系、Ch 6 PRS、Ch 7 F-CES、Ch 8 strategic slack、Dixit-Pindyck の不確実性プレミアム公式、Bertola の不可逆性プレミアム公式。",
+      "upstream_dependencies": [
+        "§5.5.1 状態空間と F-CES 制約",
+        "§5.5.2 HJB 連立粘性解",
+        "Ch 5 命題 5.1 MS-SSM 拡散項 Σ(k)",
+        "Ch 6 PRS",
+        "Ch 7 F-CES",
+        "Ch 8 strategic slack"
+      ],
+      "downstream_dependencies": [
+        "§5.5.4 比較静学 + Π ジャンプ + g_TRL 分離 + Bayesian 拡張",
+        "§5.5.5 matchstick demonstration と反証可能仮説",
+        "Ch 9 二層非可換性 (4 成分のうちレジーム切換えオプション価値)",
+        "Ch 11 BVAR gate observation model",
+        "付録 A.5.5"
+      ],
+      "references": [
+        "Dixit & Pindyck (1994) ch.4-5",
+        "Bertola (1998)",
+        "Stokey (2009) ch.5-6",
+        "Peskir & Shiryaev (2006) Optimal Stopping and Free-Boundary Problems",
+        "Guo & Zhang (2004)"
+      ],
+      "source_drafts": [
+        "A §5.5.3 (4 成分分解シグネチャ命題・K=3 順序)",
+        "C §5.5.2 (Peskir-Shiryaev verification と K=3 連立 ODE)",
+        "B §5.5.2 (matchstick 数値例と陰関数表現)"
+      ]
+    },
+    {
+      "section_id": "5.5.4",
+      "title": "比較静学・Π^pre/Π^post ジャンプ・g_TRL 直交分解・Bayesian 拡張",
+      "pages": 3,
+      "math_level": "heavy",
+      "anchor_claims": [
+        "命題 5.5.3 (比較静学): ∂θ_σ*/∂P < 0、∂θ_σ*/∂B > 0 (待機コスト効果が参入後コスト効果を支配する parameter region 内、region 分割を明示)、∂θ_σ*/∂F < 0、∂θ_σ*(k)/∂π_kk < 0。",
+        "Π^pre/Π^post 切換え時刻 τ_event 前後で θ_σ*(k) はジャンプし、ジャンプ幅 Δθ_σ*(k) は KL(Π^post‖Π^pre) × F × P と単調正相関する — これが Ch 9 二層非可換性 (規制 × 市場 Π 合成順序依存) の経済学的内容を与える。",
+        "命題 5.5.4 (g_TRL 直交分解定理): Ch 5 Π^pre/Π^post 二段の TRL-orthogonality 条件 (σ_SU regime と g_TRL ramp の条件付き独立性 σ_SU ⊥ g_TRL | k) の下で、最適政策は GO(t,i) = 𝟙[σ_SU(t) ≥ θ_σ*(k_t)] · g_TRL(t) と乗法分離可能。",
+        "系 5.5.5 (Bayesian 拡張): σ_SU 部分観測下の事後信念 μ_t (Wonham filter 1965 / Liptser-Shiryaev 2001 で更新) に依存する閾値 θ_σ*(μ) は stochastic dominance 順で単調かつ信念 sharpness について凸 (Bertsekas-Tsitsiklis 1996 / Powell 2007 ADP)。創業者-機関の非対称信念は Ch 9 二層非可換性へ委譲。"
+      ],
+      "paragraph_outline": [
+        "比較静学の手続き: value-matching + smooth-pasting 連立から陰関数定理で ∂θ_σ*/∂(·) を導出",
+        "符号 1 ∂θ_σ*/∂P < 0 の証明 (価格上昇は参入後価値を増し、待機価値を相対的に低下)",
+        "符号 2 ∂θ_σ*/∂B の符号: parameter region 依存 — 待機コスト効果 (∂θ_σ*/∂B < 0) と参入後コスト効果 (∂θ_σ*/∂B > 0) の競合、後者支配 region (F が十分大、Π が定常) を明示",
+        "符号 3 ∂θ_σ*/∂F < 0 の証明 (F → 0 で θ_σ* → -∞ で強制参入もしくは退出、Ch 10.2 origin)",
+        "符号 4 ∂θ_σ*(k)/∂π_kk < 0 の証明 (持続確率上昇で当該レジーム評価強化)",
+        "弾力性の log-log 表現と Ch 11 BVAR 推定対象としての明示",
+        "Π^pre/Π^post 二段ジャンプ式の導出: τ_event 前後での Δθ_σ*(k) = α · KL(Π^post‖Π^pre) · F · P + 高次項",
+        "ジャンプ幅の経済的意味: 事象の情報量 × 残存資金 × 価格、規制承認とパートナーシップ締結の AMD OS UI 表示への直結",
+        "Ch 9 への supply: 規制 × 市場 の Π 合成順序非可換性 (Π_reg ∘ Π_market ≠ Π_market ∘ Π_reg) が θ_σ* ジャンプ系列の経路依存性を生む",
+        "命題 5.5.3 formal 陳述 (4 符号 + region 分割 + ジャンプ式)",
+        "g_TRL 直交分解定理 (命題 5.5.4) の導出: HJB の variable separation argument",
+        "TRL-orthogonality 条件 σ_SU ⊥ g_TRL | k の Ch 5 Π^pre/Π^post 二段構造下での verification",
+        "g_TRL(t) の宣言: 決定論的・時間のみ・有界・非減少、関数形 (シグモイド baseline / 区分線形 / Gompertz) は Ch 11 ロバストネス比較に委ねる (open issue)",
+        "GO 演算子の最終形 GO(t,i) = 𝟙[σ_SU(t) ≥ θ_σ*(k_t, μ_t; P,F,B,Π)] · g_TRL(t) と Ch 1-4 ラベル定義との対比 — 昇格完了宣言",
+        "DSGE persona 4 条件 #2 (マイクロファウンデーション) 充足の formal 宣言",
+        "Bayesian 拡張 (系 5.5.5) の導入: σ_SU は合成スカラー、実観測は信号ベクトル y_t (Ch 11 観測等価類)",
+        "Wonham filter による事後信念更新 dμ_t の明示 (Liptser-Shiryaev 2001 参照)",
+        "(σ, μ) 拡張状態でのベルマン方程式の再定式化 (本文スケッチのみ、詳細は Ch 11 へ)",
+        "θ_σ*(μ) の stochastic dominance 順単調性と信念 sharpness 凸性の証明スケッチ",
+        "創業者-機関の非対称信念ケースは Ch 9 二層非可換性へ全面委譲する旨の明示",
+        "Robbins-Stigler (1974) bandit との関連 (exploration-exploitation 緊張) の言及"
+      ],
+      "new_writing_required": "陰関数定理による比較静学 4 符号 + ∂θ_σ*/∂B の region 分割、Π^pre/Π^post ジャンプ式 (KL × F × P 弾力性)、g_TRL 直交分解定理 (命題 5.5.4) と TRL-orthogonality verification、Bayesian 拡張系 5.5.5 (Wonham filter + θ_σ*(μ) 単調性凸性)、GO 演算子昇格完了宣言。",
+      "existing_reuse": "§5.5.3 θ_σ* 陰関数化 + 4 成分分解、Ch 5 命題 5.5 Π^pre/Π^post、Dixit-Pindyck 弾力性公式、Ch 4 σ_SU/g_TRL 分離原則。",
+      "upstream_dependencies": [
+        "§5.5.3 θ_σ* 陰関数化",
+        "Ch 5 命題 5.5 Π^pre/Π^post",
+        "Ch 4 σ_SU/g_TRL 分離原則",
+        "Ch 11 観測等価類 (Bayesian 拡張のため)"
+      ],
+      "downstream_dependencies": [
+        "§5.5.5 matchstick + 反証可能仮説",
+        "Ch 9 二層非可換性 (Π 合成順序非可換 + 非対称信念)",
+        "Ch 10.2 Jovanovic 退出ハザード (F=0 absorbing + θ_σ* 経路依存)",
+        "Ch 11 BVAR 推定 (gate observation model + Wonham filter 実装)",
+        "Ch 26b 予測登録簿"
+      ],
+      "references": [
+        "Dixit & Pindyck (1994) ch.5-6",
+        "Caballero (1999) Aggregate Investment",
+        "Bertola (1998)",
+        "Wonham (1965)",
+        "Liptser & Shiryaev (2001) Statistics of Random Processes",
+        "Bertsekas & Tsitsiklis (1996) Neuro-Dynamic Programming",
+        "Powell (2007) Approximate Dynamic Programming",
+        "Robbins & Stigler (1974)"
+      ],
+      "source_drafts": [
+        "A §5.5.4 (比較静学 4 符号 + Π^pre/Π^post ジャンプ式 KL×F×P)",
+        "C §5.5.3-5.5.4 (Wonham filter と θ_σ*(μ) 単調性凸性、g_TRL 直交分解定理)",
+        "B §5.5.4 (GO 演算子昇格完了宣言と同値性命題)"
+      ]
+    },
+    {
+      "section_id": "5.5.5",
+      "title": "matchstick demonstration・Hamilton-Kim 数値解法・反証可能仮説 commission・章末問い",
+      "pages": 2,
+      "math_level": "medium",
+      "anchor_claims": [
+        "AMD OS PJ matchstick 2 事例 (type A: GO タイミング差分検証、type B: WAIT 継続整合性) で (P, F, B, Π) を粗推定し θ_σ*(k) を逆算、§5.5.0 逸脱事例を 4 成分分解と比較静学で事後解釈する。",
+        "Hamilton (1989) フィルタ + Kim (1994) スムーザ + Bertsekas-Tsitsiklis ADP の組み合わせにより θ_σ*(k; P,F,B,Π,μ) は数値計算可能、Ch 11 BVAR gate observation model y_t = f(σ_SU(t), θ_σ*) + ε_t に射影される。",
+        "Ch 26b 事前登録対象として 4 個の反証可能仮説を commission する。(P, F, B) に関する仮説は Tier B 事前登録、Π に関する仮説は Ch 11 BVAR 同時推定との独立性の弱さから Ch 11 側 (事後識別) と分離する。"
+      ],
+      "paragraph_outline": [
+        "matchstick 1: type A 事例 (合成) で (P, F, B, Π^pre) plausible 推定 → θ_σ*(S₁) 逆算 → 実際の WAIT 判定タイミングとの整合性検証",
+        "matchstick 2: type B 事例 (合成) で τ_event (規制承認) 前後の Π^pre/Π^post 切換え → θ_σ* ジャンプ → GO 判定タイミングとの整合性",
+        "matchstick 解釈: §5.5.0 逸脱 (σ_SU 閾値超過 WAIT / 未達 GO) が 4 成分分解 + Π ジャンプ + F 制約 で構造的に説明可能なことの確認",
+        "matchstick の限界: 識別可能性は Ch 11 BVAR へ、サンプルサイズは Ch 26b 予測登録簿で扱う",
+        "Hamilton-Kim 数値解法の骨子: フィルタで p(k_t | y_{1:t}) 計算 → 価値関数反復 → θ_σ*(k) 数値解、完全アルゴリズムは付録 B (もしくは Ch 11)",
+        "Ch 11 BVAR への射影: gate observation model y_t = f(σ_SU(t), θ_σ*(P,F,B,Π,μ)) + ε_t の明示と推定方針",
+        "Ch 26b 事前登録仮説 4 個の commission: H-5.5-1 (∂θ_σ*/∂P 符号)、H-5.5-2 (∂θ_σ*/∂F 符号)、H-5.5-3 (g_TRL 分離形の条件付き独立性)、H-5.5-4 (信念 sharpness ↔ SNR)、∂θ_σ*/∂Π は Ch 11 BVAR 同時推定との独立性が弱いため Ch 11 側 (事後識別) と分離 (open issue まさ判断)",
+        "Tier 規律 D-031 との整合: (P, F, B) 仮説は Tier B 事前登録、Π 仮説は Tier A 事後分析",
+        "Ch 9 二層非可換性への delivery: 規制 × 市場 Π 合成順序非可換 + 創業者-機関非対称信念",
+        "Ch 10.2 Jovanovic 退出ハザード拡張への delivery: F → 0 absorbing barrier + θ_σ* 経路依存",
+        "Ch 11 BVAR への delivery: gate observation model + Wonham filter 実装 + g_TRL 関数形ロバストネス比較",
+        "Ch 26b 予測登録簿への delivery: 反証可能仮説 4 個の事前登録フォーマット",
+        "AMD 前提 (経営チーム AMD 組成 + 知財収益還流 + C→B ハイブリッド型) と θ_σ*(k) の関連 — Book III への布石",
+        "章末問い 1: θ_σ*(μ) の関数形は実証データから識別可能か (Ch 11 観測等価類との接続)",
+        "章末問い 2: 創業者と機関の非対称信念下での Pareto 効率性 (Ch 9 二層非可換性)",
+        "章末問い 3: Π^pre/Π^post 切換えを creator (創業者) が選択できる場合 (内生事象化) の停止問題拡張 — AMD OS の規制申請タイミング選択機能と直結",
+        "章末問い 4: g_TRL の決定論性仮定の頑健性 (stochastic TRL 拡張、Jovanovic 1982 学習-退出統合)"
+      ],
+      "new_writing_required": "AMD OS PJ matchstick 2 事例の合成と事後検証、Hamilton-Kim 骨子、Ch 11 gate observation model 射影、Ch 26b 反証可能仮説 4 個 commission ((P,F,B) は Tier B、Π は Ch 11 へ分離)、Ch 9・10.2・11・26b への delivery、章末問い 4 個。",
+      "existing_reuse": "§5.5.0 type A/B 事例、§5.5.3 4 成分分解、§5.5.4 比較静学とジャンプ式、Ch 11 推定方針、Ch 26b 予測登録簿フォーマット。",
+      "upstream_dependencies": [
+        "§5.5.0 type A/B 逸脱事例",
+        "§5.5.3 θ_σ* 陰関数化と 4 成分分解",
+        "§5.5.4 比較静学・ジャンプ・g_TRL 分離・Bayesian"
+      ],
+      "downstream_dependencies": [
+        "Ch 9 二層非可換性",
+        "Ch 10.2 Jovanovic 退出ハザード",
+        "Ch 11 BVAR 推定 + Wonham filter + g_TRL ロバストネス",
+        "Ch 26b 予測登録簿",
+        "Book III (AMD 前提との接続)"
+      ],
+      "references": [
+        "Hamilton (1989)",
+        "Kim (1994)",
+        "Hamilton (1994) Time Series Analysis ch.22",
+        "Jovanovic (1982) Selection and the Evolution of Industry",
+        "Ch 11 識別可能性",
+        "Ch 26b 予測登録簿",
+        "AMD OS internal records (匿名化)"
+      ],
+      "source_drafts": [
+        "A §5.5.5 (type A/B matchstick 2 事例 + 4 反証可能仮説 + 章末問い)",
+        "B §5.5.5 (Hamilton-Kim アルゴリズム + 符号制約事前分布形式)",
+        "C §5.5.5 (章末問い 4 個 + Tier 分離設計)"
+      ]
+    }
+  ],
+  "open_issues_for_masa": [
+    {
+      "issue": "参入コスト I の扱い: 定数化するか確率変数化するか",
+      "why_masa_decides": "Bertola 不可逆性プレミアムの導出に I が必須だが、確率化すると stochastic obstacle problem になり 18p に収まらない。Ch 10.2 退出ハザードとの分業設計に関わるため理論方針判断",
+      "options": [
+        "(a) 本章 I 定数、確率化は Ch 10.2 退出ハザードに統合",
+        "(b) 本章 I 定数、確率化は別途 Ch 5.5 末尾の章注で軽く言及",
+        "(c) 本章で I 確率化を本格扱い (18p 超過リスク大)"
+      ],
+      "recommendation": "(a) を採用。Ch 10.2 でハザード化と統合する方が章間構造的に clean、本章は Bertola 不可逆性プレミアム導出に必要な最小限の I 定数モデルで止める"
+    },
+    {
+      "issue": "創業者-機関ペアの単一表現主体化: Nash 交渉解 / 共同価値最大化 / Stackelberg のどれを baseline に採るか",
+      "why_masa_decides": "ミクロ経済学レフェリー (Research Policy 査読者) は『誰の最適化か曖昧』を必ず指摘。AMD OS UI でも創業者単独 / 機関単独 / ペアの3モード混在しており、本章の baseline 選択は UI 設計に直結",
+      "options": [
+        "(a) 共同価値最大化を本章 baseline、非対称信念ケースは Ch 9 二層非可換性へ全面委譲 (本案 §5.5.1 で採用)",
+        "(b) Nash 交渉解を baseline (交渉力パラメタを追加状態化)",
+        "(c) Stackelberg 階層 (機関がリーダー、創業者がフォロワー) で時間整合性問題を明示扱い"
+      ],
+      "recommendation": "(a) 共同価値最大化 baseline + Ch 9 全面委譲。Stackelberg は AMD 機関の役割が現実には flexible で時間整合性問題に踏み込むと章が 25p に膨れる。Nash 交渉は交渉力パラメタの識別が Ch 11 で困難"
+    },
+    {
+      "issue": "Bayesian 拡張 (Wonham filter + θ_σ*(μ)) を §5.5.4 で本格扱いするか、Ch 11 に全面委譲するか",
+      "why_masa_decides": "Bayesian persona の充足度と Ch 11 識別可能性との役割重複の trade-off。本案 (§5.5.4 で系 5.5.5 として軽く扱い、(σ,μ) 拡張ベルマンは本文スケッチのみ、Wonham 数値実装は Ch 11) は中間路線",
+      "options": [
+        "(a) 本案: §5.5.4 で系 5.5.5 として軽く扱い、Wonham 数値実装は Ch 11 へ (4p 配分維持)",
+        "(b) §5.5.4 を §5.5.4 (比較静学・分離) と §5.5.5 (Bayesian 拡張) に分割して 4p 確保、章末を 1p に圧縮",
+        "(c) Bayesian 拡張を Ch 11 に全面委譲し、本章は完全観測のみ扱う"
+      ],
+      "recommendation": "(a) 本案維持。Bayesian persona 布石としては系 5.5.5 + Wonham filter 言及で十分、(σ,μ) 拡張ベルマンを本格化すると Ch 11 観測等価類と重複し 18p 超過リスク大。Ch 11 が implementation を引き取る分業設計が clean"
+    },
+    {
+      "issue": "F-CES 制約 (B - R_net ≤ F) の HJB 組み込み: absorbing barrier / reflecting + penalty / hard constraint",
+      "why_masa_decides": "Ch 7 F-CES の数学的扱いと整合させる必要があり、本案 (F=0 absorbing barrier = Ch 10.2 退出ハザード origin) は Ch 10.2 接続を clean にするが、Ch 7 が reflecting + penalty を採るなら齟齬",
+      "options": [
+        "(a) 本案: F=0 absorbing barrier (強制退出、Ch 10.2 origin)",
+        "(b) reflecting barrier + バーンレート penalty (F=0 で部分退出)",
+        "(c) hard constraint として制約 set に組み込み (Lagrange 緩和)"
+      ],
+      "recommendation": "(a) 本案維持、ただし Ch 7 F-CES 節の現状確認後にまさが Ch 7 と擦り合わせ。Ch 10.2 退出ハザードとの接続上 absorbing barrier が最も clean"
+    },
+    {
+      "issue": "Ch 26b 事前登録仮説の commission 範囲: (P, F, B) のみか Π も含めるか",
+      "why_masa_decides": "Π は Ch 11 BVAR 同時推定対象で、本章で事前登録すると独立性が弱く Tier 規律 D-031 違反リスク。本案は (P, F, B) と g_TRL 分離形 + 信念 sharpness の 4 個に絞り、Π を Ch 11 事後識別と分離",
+      "options": [
+        "(a) 本案: (P, F, B) + g_TRL 分離 + SNR の 4 仮説を Tier B 事前登録、Π は Ch 11 事後識別 (Tier A)",
+        "(b) Π 仮説も含めて 5-6 仮説を全て Tier B 事前登録 (独立性弱いが reviewer 訴求力大)",
+        "(c) (P, F, B) のみ 3 仮説に絞り、g_TRL と SNR は章末問いに格下げ"
+      ],
+      "recommendation": "(a) 本案維持。Tier 規律 D-031 と Ch 11 との独立性確保のバランスとして最適"
+    }
+  ],
+  "falsifiable_claims": [
+    "H-5.5-1 (Tier B 事前登録): 実プロジェクトデータ N≥40 (AMD OS PJ + 公開比較群) で構造推定した θ̂_σ*(k) は P (Ch 6 PRS から事前計測した期待収益スケール代理) について有意な負の偏回帰係数を持つ (符号制約事前分布 P[β_P < 0] ≥ 0.95)。Ch 11 BVAR + Ch 26b 検証。",
+    "H-5.5-2 (Tier B 事前登録): θ̂_σ*(k) は F (Ch 7 F-CES から推定した財務余力代理) について有意な負の偏回帰係数を持つ (符号制約事前分布 P[β_F < 0] ≥ 0.95)、かつ B (バーンレート) について parameter region (F が十分大、Π 定常な region) 内で有意な正の偏回帰係数を持つ。region 内外の場合分け仮説。Ch 11 BVAR + Ch 26b 検証。",
+    "H-5.5-3 (Tier B 事前登録 / g_TRL 直交分解): GO 時点条件付きで g_TRL(t) は σ_SU(t) と統計的に条件付き独立 (条件付き独立性検定 p > 0.10)、これにより乗法分離形 GO(t,i) = 𝟙[σ_SU ≥ θ_σ*] · g_TRL(t) が支持される。Ch 5 Π^pre/Π^post 二段の TRL-orthogonality 主張の直接反証可能化。",
+    "H-5.5-4 (Tier B 事前登録 / Bayesian): Ch 11 観測モデルから推定した信号 SNR (信念 sharpness 代理) が高いプロジェクトほど観測 GO 時点の σ_SU は低い (信念 sharpness 高 → θ_σ*(μ) 低下、stochastic dominance 順)。SNR と σ_SU^GO の負相関を 90% credible interval で予測登録、Bayesian persona の構造主張の固有反証可能化。",
+    "H-5.5-5 (commission 候補、Tier 配分はまさ判断 / Π^pre/Π^post ジャンプ): 規制承認・パートナーシップ締結などの離散事象 τ_event 前後で θ̂_σ*(k) はジャンプし、ジャンプ幅 Δθ̂_σ*(k) は KL(Π̂^post‖Π̂^pre) × F × P と単調正相関する (event study + 弾力性符号テスト)。ただし Π̂ が Ch 11 BVAR 同時推定対象であるため事前登録の独立性が弱く、Ch 11 事後識別 (Tier A) との分離が要まさ判断"
+  ],
+  "cross_chapter_supply": [
+    {
+      "target_chapter": "Ch 9 二層非可換性",
+      "what_supplies": "(1) §5.5.4 命題 5.5.3 の Π^pre/Π^post ジャンプ式 Δθ_σ*(k) = α · KL(Π^post‖Π^pre) · F · P により、規制 × 市場 の Π 合成順序非可換 (Π_reg ∘ Π_market ≠ Π_market ∘ Π_reg) が θ_σ* ジャンプ系列の経路依存性を生むという経済学的内容を供給。(2) §5.5.4 で扱わなかった創業者-機関の非対称信念 (Bayesian 拡張系 5.5.5 末尾で布石、Ch 9 へ全面委譲) を二層構造の上層 (機関) と下層 (創業者) の信念非可換性として展開する素材。(3) §5.5.3 θ_σ* の 4 成分分解のうちレジーム切換えオプション価値成分が Ch 9 二層構造で再分解される。"
+    },
+    {
+      "target_chapter": "Ch 10.2 Jovanovic 退出ハザード拡張",
+      "what_supplies": "(1) §5.5.1 状態方程式 dF = (R_net - B)dt + §5.5.2 F=0 absorbing barrier 条件が退出ハザードの origin を供給。(2) §5.5.3 命題 5.5.2 の θ_σ*(k) 経路依存性 (Π^pre/Π^post ジャンプ + F 経路依存) が Jovanovic (1982) 学習-退出モデルの拡張に投入される構造。(3) 参入コスト I を定数で扱った本章の限定を、Ch 10.2 で確率化 (sunk cost の学習過程化) として統合する分業設計。"
+    },
+    {
+      "target_chapter": "Ch 11 BVAR 推定 + 観測等価類",
+      "what_supplies": "(1) §5.5.5 で明示した gate observation model y_t = f(σ_SU(t), θ_σ*(P,F,B,Π,μ)) + ε_t、Hamilton (1989) フィルタ + Kim (1994) スムーザ + Bertsekas-Tsitsiklis (1996) / Powell (2007) ADP の数値実装方針。(2) §5.5.4 系 5.5.5 で布石した Wonham filter による事後信念更新を Ch 11 で実装する設計。(3) g_TRL(t) の関数形 (シグモイド baseline / 区分線形 / Gompertz) ロバストネス比較を Ch 11 に委譲する分業。(4) Π^pre/Π^post 同時推定対象としての BVAR identification 設計。"
+    },
+    {
+      "target_chapter": "Ch 26b 予測登録簿",
+      "what_supplies": "(1) 反証可能仮説 H-5.5-1 (∂θ_σ*/∂P < 0)・H-5.5-2 (∂θ_σ*/∂F < 0 + ∂θ_σ*/∂B > 0 の region 内仮説)・H-5.5-3 (g_TRL 条件付き独立性)・H-5.5-4 (SNR ↔ σ_SU^GO) を Tier B 事前登録対象として commission。(2) 符号制約事前分布 P[β < 0] ≥ 0.95 という Bayesian 事前登録フォーマット。(3) (P, F, B) は Tier B 事前登録、Π は Ch 11 BVAR 同時推定との独立性の弱さから Ch 11 事後識別 (Tier A) と分離する Tier 規律 D-031 整合設計。"
+    },
+    {
+      "target_chapter": "Book III (AMD 前提との接続)",
+      "what_supplies": "§5.5.5 章末問い 3 (Π^pre/Π^post 切換えを creator が選択する内生事象化) と AMD 前提 (経営チーム AMD 組成・C→B ハイブリッド型本命・知財収益還流) との関連で θ_σ*(k) がどう変質するかの素材。AMD OS の規制申請タイミング選択機能と直結。"
+    },
+    {
+      "target_chapter": "付録 A.5.5 完全証明",
+      "what_supplies": "(1) 命題 5.5.1 (K=3 coupled HJB の粘性解一意性 + comparison principle verification)、(2) 命題 5.5.2 (Peskir-Shiryaev 2006 regularity 条件の K=3 coupling + Π^pre/Π^post 二段下での verification)、(3) §5.5.4 命題 5.5.3 比較静学の陰関数定理 + 退化ケース除外の完全証明、(4) 系 5.5.5 stochastic dominance 単調性と凸性の Bertsekas-Tsitsiklis / Powell ADP 継承証明。本文は証明スケッチ + 付録完全証明の D-047 継承。"
+    }
+  ],
+  "masa_negotiation_handles": [
+    "kingpin 1: 創業者-機関ペアの単一表現主体化 baseline を共同価値最大化に確定するか (本案推奨)、Nash 交渉解 / Stackelberg の代替を採るか — Ch 9 二層非可換性との分業設計に直結",
+    "kingpin 2: 参入コスト I を本章で定数化し確率化は Ch 10.2 へ統合する分業 (本案推奨) を確定するか — Bertola 不可逆性プレミアムと Jovanovic 学習-退出の章間構造",
+    "kingpin 3: Bayesian 拡張 (Wonham filter + θ_σ*(μ)) を §5.5.4 で系 5.5.5 として軽く扱い数値実装を Ch 11 へ委譲する中間路線 (本案推奨) を確定するか — Bayesian persona 充足度と Ch 11 識別可能性との役割重複の trade-off",
+    "kingpin 4: F-CES 制約を F=0 absorbing barrier として扱う本案を Ch 7 と擦り合わせて確定するか — Ch 10.2 退出ハザード origin の数学的接続点",
+    "kingpin 5: Ch 26b 事前登録対象を (P, F, B) + g_TRL 分離 + SNR の 4 仮説に絞り Π は Ch 11 事後識別と分離する本案 (Tier 規律 D-031 整合) を確定するか",
+    "kingpin 6: g_TRL(t) の baseline 関数形 (シグモイド) を本章で宣言するか Ch 11 ロバストネス比較に完全委譲するか — AMD OS UI の readiness ランプ表示設計と直結",
+    "kingpin 7: §5.5.0 章頭ストーリー type A/B 2 事例の合成粒度 (type 名のみ匿名化 + ε-DP 合成の併用要否) を §L1 11 ガイドラインと擦り合わせて確定するか — Privacy 規律と現場親和性の trade-off",
+    "kingpin 8: §5.5.3 4 成分分解 (即時参入価値 / Dixit-Pindyck 不確実性プレミアム / Bertola 不可逆性プレミアム / レジーム切換えオプション価値) を本章のシグネチャ命題 5.5.2 として確定するか — Research Policy / Cambridge UP 査読者への新規性 appeal の中軸"
+  ]
+}
