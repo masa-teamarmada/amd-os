@@ -197,5 +197,35 @@ Raw Data / L2 Data / Cron Control を見る admin 専用の運用台帳。
 
 ---
 
+## /proactive (= 先手 TODO リスト)
+
+URL: `/proactive`
+
+### 何をする画面か
+全 PJ 横断・期限順・1 画面の先手 TODO リスト。「外部 MTG が終わったあと AMD ボールが止まる」「次回 MTG 前に進行案が出ない」「相手から催促されるまで動かない」を防ぐためのリスト。
+
+### どこから TODO が湧くか
+毎時 :15 JST に動く `/api/cron/proactive-todo-extract` が自動投入する。検知元は 2 つ:
+
+1. **過去 14 日の開催済みMTGの `next_actions`**: AMD ボール or 主語不明のものだけ。「○○先生が」「相手側」など相手主語のものは入らない
+2. **3 営業日以内に開催される予定MTG**: agenda / 進行案を先に出す TODO を 1 件積む
+
+### 使い方
+- タブ: 未対応 / ブロック中 / 完了 / 関係ない
+- 行をクリックで展開、元 MTG・元 next_action テキスト・期限・ボール種別が見える
+- 3 ボタン:
+  - **✅ 完了**: やった
+  - **⏸ ブロック中**: 待ち中 (任意で 1 行メモ、3 日経つと自動で「未対応」に復帰する)
+  - **🗑 関係ない**: cron 誤検知扱い、二度と同じものを積まない
+- 期限超過の open は 🔴 red になり、dashboard 上段のバッジが赤くなる
+
+### dashboard 上段のバッジ
+左上の「先手 TODO」バッジは admin のみ表示。未対応件数 / 期限超過件数を 1 行で出し、クリックで `/proactive` へ。
+
+### 過去の経緯
+2026-06-12 に「ループカーネル × 役割レンズ」として `/loop` の 5 段ループ盤面 (観測 → 評価 → 判断 → 実行 → 学習) と dashboard 上段の `LoopKernelBoard` を実装したが、(a) 5 段のうち先手と関係する段が「実行」だけだった (b) 完了UIが無く超過 666h の seed が叫び続けた (c) heartbeat の受け側 (= 司令塔セッションのえいみ) が実運用で機能しなかった、という理由で 2026-06-27 まさ判断で**白紙やり直し**。詳細仕様は [`pwa/spec/2-4-proactive-todo-current-spec.md`](../spec/2-4-proactive-todo-current-spec.md)。
+
+---
+
 ## 関連
 - 設計議論: [`pwa/design/FEATURE_REGISTRY.md`](../design/FEATURE_REGISTRY.md) (= 各画面の消してはいけない業務導線), [`pwa/design/routine.md`](../design/routine.md) (= 月次ルーティン廃止)

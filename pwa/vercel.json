@@ -11,6 +11,7 @@
     { "path": "/api/cron/macro-aggregate-indicators", "schedule": "0 19 1 * *" },
     { "path": "/api/cron/management-score-raw-data?includeFreee=1", "schedule": "0 21 * * *" },
     { "path": "/api/cron/management-score-calculate", "schedule": "30 21 * * *" },
-    { "path": "/api/cron/contract-billing-auto-confirm", "schedule": "0 22 1 * *" }
+    { "path": "/api/cron/contract-billing-auto-confirm", "schedule": "0 22 1 * *" },
+    { "path": "/api/cron/proactive-todo-extract", "schedule": "15 * * * *" }
   ]
 }

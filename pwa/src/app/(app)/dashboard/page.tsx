@@ -36,11 +36,11 @@ import {
 import { AAA_PROJECT_ID } from "@/lib/demo-aaa-data";
 import { InstitutionReadinessList } from "@/components/dashboard/InstitutionReadinessList";
 import { fetchErsBundle, type ErsBundle } from "@/lib/ers-data";
-import { ProactiveQueuePanel } from "@/components/proactive/ProactiveQueuePanel";
 import { ActionItemsPanel } from "@/components/governance/ActionItemsPanel";
 import { FundingStatsCard } from "@/components/dashboard/FundingStatsCard";
-import { LoopKernelBoard } from "@/components/loop/LoopKernelBoard";
+import { ProactiveTodoBadge } from "@/components/proactive-todo/ProactiveTodoBadge";
 import { isInstitutionDashboardProject } from "@/lib/institution-projects";
+import { oneRelation, projectDisplayName } from "@/lib/project-labels";
 
 function getCurrentYm() {
   const now = new Date();
@@ -150,7 +150,7 @@ export default function DashboardPage() {
     return Object.fromEntries(
       projects.map((project) => [
         project.projectId,
-        project.shortLabel || project.displayName || project.projectName || project.projectId,
+        project.projectName || project.projectId,
       ])
     );
   }, [projects]);
@@ -173,8 +173,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(520px,640px)] gap-4">
           <main className="space-y-4 min-w-0">
             <FundingStatsCard />
-            <LoopKernelBoard hideWhenNoAccess showHeader />
-            <ProactiveQueuePanel projectLabels={projectLabels} variant="dashboard" limit={3} />
+            <ProactiveTodoBadge />
             <ActionItemsPanel projectLabels={projectLabels} variant="dashboard" limit={5} />
             <DashboardScoreOverview
               managementScore={managementScore}
@@ -344,7 +343,7 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
       .limit(10),
     supabase
       .from("project_ventures")
-      .select("project_id,display_name,short_label,founded_at,amd_support_started_at")
+      .select("project_id,founded_at,amd_support_started_at,projects(project_name,client_name)")
       .order("amd_support_started_at", { ascending: false, nullsFirst: false })
       .limit(10),
     supabase
@@ -437,13 +436,20 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
   }));
 
   const historyFallback: CompanyHistoryPreview[] = (venturesRes.data ?? [])
-    .map((row) => ({
-      id: `venture-${row.project_id}`,
-      projectId: row.project_id ? String(row.project_id) : null,
-      occurredOn: row.amd_support_started_at || row.founded_at ? String(row.amd_support_started_at || row.founded_at) : null,
-      title: String(row.display_name || row.short_label || row.project_id || "Project"),
-      kind: row.amd_support_started_at ? "support_started" : "venture",
-    }))
+    .map((row) => {
+      const project = oneRelation(row.projects as { project_name?: string | null; client_name?: string | null } | { project_name?: string | null; client_name?: string | null }[] | null);
+      return {
+        id: `venture-${row.project_id}`,
+        projectId: row.project_id ? String(row.project_id) : null,
+        occurredOn: row.amd_support_started_at || row.founded_at ? String(row.amd_support_started_at || row.founded_at) : null,
+        title: projectDisplayName({
+          project_id: row.project_id ? String(row.project_id) : null,
+          project_name: project?.project_name ?? null,
+          client_name: project?.client_name ?? null,
+        }),
+        kind: row.amd_support_started_at ? "support_started" : "venture",
+      };
+    })
     .filter((row) => row.occurredOn);
 
   const mediaMentions: CompanyMediaMentionPreview[] = (mediaMentionsRes.data ?? []).map((row) => ({
@@ -633,8 +639,4 @@ async function fetchMyProjectIds(supabase: ReturnType<typeof createClient>): Pro
 function visibleScoreInputs(rows: Awaited<ReturnType<typeof fetchAllAmdScoreInputs>>) {
   const today = new Date().toISOString().slice(0, 10);
   return rows.filter((row) => row.evaluated_at.slice(0, 10) <= today);
-}
-
-function oneRelation<T>(value: T | T[] | null | undefined): T | null {
-  return Array.isArray(value) ? value[0] ?? null : value ?? null;
 }

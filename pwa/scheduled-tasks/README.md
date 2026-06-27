@@ -28,7 +28,7 @@
 | D-13 | Claude routine + PWA route | `amd-os-l2-consolidated-evidence` Phase K-B / `POST /api/contracts/extract-l2` | daily 08:00 JST | Contract Signals |
 | M-2 XRL 根拠 | Codex automation + outbox applier | `amd-os-l8-xrl-evidence-extract` | 6h ごと (L7 +15 分) | `project_xrl_evidence` |
 | D-6 経営ハイライト | Codex automation + outbox applier | `amd-os-l9-strategy-signal-extract` | daily 03:20 JST | `project_strategy_signals` |
-| control | Codex automation / worker heartbeat | `amd-os-proactive-heartbeat` | 10:15-20:15 JST 毎時15分 | `proactive_outbox` → PJ司令塔 thread通知 → `mark-sent` |
+| 先手 TODO | PWA non-LLM cron | `/api/cron/proactive-todo-extract` | 毎時 15 分 | `project_meeting_summaries.next_actions` + 次回MTG予定 (3営業日内) から `proactive_todos` upsert。仕様: pwa/spec/2-4-proactive-todo-current-spec.md。旧 `amd-os-proactive-heartbeat` (proactive_outbox 用) は 2026-06-27 廃止 |
 
 ## 関連 md
 

@@ -1,7 +1,28 @@
-# Proactive Operating Loop — 先手力維持ループ設計
+# Proactive Operating Loop — 先手力維持ループ設計 (廃止 / 2026-06-27)
 
 作成日: 2026-05-31
-ステータス: design proposal。今回は実装しない。次 worker が DB / automation / UI 実装へ進めるための設計正本候補。
+廃止日: 2026-06-27
+ステータス: **廃止済み**。本設計の `proactive_loops` / `proactive_outbox` / `proactive_loop_events` テーブル群と司令塔通知 heartbeat は実装に進まない。理由は実運用で司令塔セッションが消滅し、heartbeat 受け側が成立しなくなったため。
+
+## 廃止と次の正本
+
+- **正本の置き換え先**: [`pwa/spec/2-4-proactive-todo-current-spec.md`](../spec/2-4-proactive-todo-current-spec.md) (先手 TODO 正本仕様)
+- **置き換え後のテーブル**: `proactive_todos` (新規、シンプル版)。旧 `proactive_outbox` / `proactive_loops` / `proactive_loop_events` は作らない。
+- **置き換え後の検知主体**: PWA cron `/api/cron/proactive-todo-extract` (毎時)。LLM 不使用、文字列ヒューリスティックで AMD ボール判定。
+- **置き換え後の UI**: `/proactive` (admin 限定、3 ボタン完了 UI) + dashboard 上段の件数バッジ。`/loop` ルートと 5 段カーネル盤面 (`LoopKernelBoard`) は削除済み。
+
+## なぜ白紙にしたか (2026-06-27 まさ判断)
+
+1. 5 段ループ盤面 (`/loop` / dashboard 埋め込み) は実態が「DB candidate のテーブルダンプ」になっており、先手力維持と無関係の段が 4/5 を占めた。
+2. 実行段の `proactive_outbox` には完了 UI が無く、超過 666h の古い seed が残骸として叫び続け、信頼できない TODO リストになった。
+3. 「司令塔セッションのえいみ → worker → ドラフト生成」というワークフローが運用上成立せず (= Codex 側の司令塔セッションが機能せず廃止)、heartbeat の受け側が消えた。
+4. 検知の起点を MTG (議事録 `next_actions` + 次回 MTG 予定) に絞れば 80% カバーできる、という仮説に賭けて MVP を再設計した。
+
+旧本文は履歴として以下に残すが、参照しない。新規実装は必ず `pwa/spec/2-4-proactive-todo-current-spec.md` を見ること。
+
+---
+
+# (以下、2026-05-31 時点の旧本文 — 参照しない)
 
 ## Executive summary
 
