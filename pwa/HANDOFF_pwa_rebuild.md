@@ -1,6 +1,6 @@
 # HANDOFF - AMD OS PWA
 
-- Last updated: 2026-06-27 (旧 /loop 5段ループ廃止 → /proactive 先手TODO 白紙やり直し)
+- Last updated: 2026-06-27 (後始末セッション: 前セッション残骸の design_log merge 分を commit、untracked 8件は別 worker 帰属を明記して保留)
 - Canonical root: `/Users/masa/projects/AMD/amd-os`
 - PWA root: `/Users/masa/projects/AMD/amd-os/pwa`
 - Production URL: `https://amd-os-pwa.vercel.app`
@@ -18,20 +18,28 @@
 
 ## Repo State
 
-- Production: `v0.35.4` / `git_sha=ccc5eb68` / `dirty=false` (PWA build 自体は v0.35.4 で stable、その後 docs(bzm) commit が積まれて build-info が更新された)
-- Local main HEAD: `origin/main` と完全同期、最新 `67dfa2a4 docs(bzm): re-add D-045..D-055 + D-034 追認 + Ch 5.5/9/10.4 skeleton L3`
-- 私のセッションのコミット (origin/main 上):
+- Production: `v0.35.4` / `git_sha=6279bba1` / `dirty=false` (PWA build 自体は v0.35.4 で stable、その後 docs(bzm) + design_log merge commit が積まれて build-info が更新された)
+- Local main HEAD: `origin/main` と完全同期、最新 `245a1ea6 docs(pwa): sessions_2026-06.md に 3 worker 分のセッション追記を merge コミット`
+- /proactive やり直しセッションの commit (origin/main 上):
   - `72a0a919 chore(pwa): regenerate db_schema.md after migration 158`
   - `294d6c3c fix(pwa): 先手TODO upsert の onConflict が COALESCE INDEX で機能しなかった問題を修正 (v0.35.4)`
   - `68012810 feat(pwa): 先手TODO ball_owner判定にAMDメンバー実名取り込み + 予定MTG窓を7日へ拡大 (v0.35.3)`
   - `09fd8d04 fix(pwa): dashboard から未存在 @/lib/project-labels への import を除去 (v0.35.2)`
   - `11dc27eb fix(pwa): 先手TODO cron を daily へ (Vercel Hobby plan制限対応 / v0.35.1)`
   - `da9f52b2 feat(pwa): 旧 /loop 5段ループを廃止し /proactive 先手TODOへ白紙やり直し (v0.35.0)`
-- **Uncommitted (= 前セッション残骸として保留中、私は触ってない / 触れない)**:
-  - `M pwa/design_log/sessions_2026-06.md` (= 前セッション分 + 今回追記分が merge 済み、commit 主体未定で保留)
-  - `M` 多数 (gas/, pwa/design/, pwa/manual/, pwa/scripts/, pwa/src/...) — セッション開始時の 84 件残骸が stash pop で復帰
-  - 新規 untracked: `gas-slack/.clasp.json`, `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/outbox/`, `pwa/scripts/migrations/153/155/156_*.sql`, `pwa/scripts/update_drive_file.mjs`, `pwa/src/app/api/meeting-assets/replace/`, `pwa/src/lib/project-labels.ts`
-  - → **当該 worker / セッションで処理する想定**。今回セッションは触らないことで安全側に倒した。
+- 後始末セッションの commit (origin/main 上):
+  - `245a1ea6 docs(pwa): sessions_2026-06.md に 3 worker 分のセッション追記を merge コミット` — 前セッション merge 済みだった design_log 末尾追記を正式 commit
+- **Uncommitted (= 別 worker の WIP / artifact、本セッションは触らず保留)**:
+  - 前セッション開始時の 84件残骸は別セッションで処理されたらしく、現時点は 8 件まで縮小:
+  - `?? gas-slack/.clasp.json` — GAS Slack 連携の clasp 設定 (= 別 GAS worker 担当、本リポにコミットすべきかは別 worker 判断)
+  - `?? pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/outbox/*.md` (5件) — L6 meeting-prep-worker の artifact (上書きされる prep_draft / status snapshot)。outbox は `.gitignore` 対象にすべき性質だが、未追加。**L6 worker セッションが .gitignore 整備 or 削除判断**
+  - `?? pwa/scripts/migrations/153_project_venture_legacy_name_hygiene.sql` — project_ventures display_name 正規化 (LisTie → LiSTie)。**migration 153 担当 worker 側で apply + commit**
+  - `?? pwa/scripts/migrations/155_skip_non_actionable_app_notifications.sql` — app_notifications の task_created / meeting_action を trigger でドロップ。**migration 155 担当 worker 側で apply + commit**
+  - `?? pwa/scripts/migrations/156_skip_meeting_summary_notifications.sql` — meeting_notifications の重複 insert/update を trigger でドロップ。**migration 156 担当 worker 側で apply + commit**
+  - `?? pwa/scripts/update_drive_file.mjs` — Google Drive へファイル更新する 1-off スクリプト (OAuth refresh token 使用)。**1-off スクリプト or commit 対象判断は作成者 worker 側**
+  - `?? pwa/src/app/api/meeting-assets/replace/[assetId]/route.ts` — meeting assets を Drive 経由で再差し替えする新 API route。**meeting-assets 担当 worker 側で test + spec/manual 同期 + commit**
+  - `?? pwa/src/lib/project-labels.ts` — `projectShortName` / `projectDisplayName` ヘルパー。**前セッションが v0.35.2 で「未存在 @/lib/project-labels への import を除去」した経緯あり (commit `09fd8d04`)。この untracked がそれと別 worker の実装中ファイルなのか、再 import するなら HANDOFF に明記が必要**。本セッションは触らず保留
+  - → **すべて別 worker / セッションで処理する想定**。本セッションは触らないことで安全側に倒した
 
 ## 本番動作確認 (実施済み)
 
@@ -48,7 +56,7 @@
 4. **完了 → 学習段 (Protocol / Textbook insight) への流し込み**: resolved_note を learning レイヤーへ流す Step 3 は未着手
 5. **Gmail / Slack の催促文言検知** (= 残り 20% カバー): Phase 2 以降
 6. **`sent` 状態 (相手にボールを渡した) の追加**: まさ判断「最初はなしでもいい、必要だと感じたら追加」
-7. **前セッション残骸の処理**: 84 件の M + untracked は別 worker 由来で保留中。当該 worker / セッション側で commit or 削除判断を期待
+7. **前セッション残骸の処理**: 8 件の untracked が別 worker 由来で保留中 (= migration 153/155/156、meeting-assets/replace、project-labels.ts、L6 outbox artifact、gas-slack/.clasp.json、update_drive_file.mjs)。当該 worker / セッション側で commit or 削除判断を期待。Repo State セクションに帰属を明記済み
 
 ## First Next Action
 
