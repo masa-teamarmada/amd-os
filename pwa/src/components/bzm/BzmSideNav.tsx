@@ -153,12 +153,11 @@ export function BzmSideNav({
                       <Link
                         key={chapter.slug}
                         href={`/bzm/${encodeURIComponent(chapter.slug)}`}
-                        className={`grid grid-cols-[1rem_2.4rem_minmax(0,1fr)] gap-1.5 rounded-md px-1.5 py-1.5 leading-snug transition-colors ${levelClass} ${bgTone} ${
+                        className={`grid grid-cols-[1rem_minmax(0,1fr)] gap-1.5 rounded-md px-1.5 py-1.5 leading-snug transition-colors ${levelClass} ${bgTone} ${
                           isActive ? "font-black text-cyan-950" : `${textTone} ${levelWeight}`
                         }`}
                       >
                         <span className="grid place-items-center">{statusIcon}</span>
-                        <span className="tabular-nums text-slate-500">{chapter.number}</span>
                         <span className="min-w-0">{chapter.title}</span>
                       </Link>
                     );

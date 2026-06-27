@@ -60,18 +60,9 @@ export function getBzmBookChapters(chapters: BzmChapterConfig[]) {
 }
 
 /**
- * h1 の冒頭に章番号を注入する。
- * manual と違い、h2 には「§ 番号」を振らない (= 各 md が独自の節番号 "1." "2." を持つため)。
+ * h1 への章番号注入はまさ確定 2026-06-28 で廃止 (= 番号と title 内 "Ch 1" 等の重複ミスリーディングを回避)。
+ * h1 はそのまま、各 md の `# §X.Y.Z タイトル` を尊重する。
  */
-export function normalizeBzmMarkdownSource(source: string, chapter: BzmNumberedChapter) {
-  return source
-    .split("\n")
-    .map((line) => {
-      if (line.startsWith("# ")) {
-        const title = line.replace(/^#\s+/, "").trim();
-        return `# ${chapter.number}　${title}`;
-      }
-      return line;
-    })
-    .join("\n");
+export function normalizeBzmMarkdownSource(source: string, _chapter: BzmNumberedChapter) {
+  return source;
 }

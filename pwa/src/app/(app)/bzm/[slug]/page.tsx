@@ -60,9 +60,8 @@ export default async function BzmChapterPage({ params }: { params: Promise<{ slu
     // 未着手 stub: entry のメタ情報を執筆待機中として表示
     const title = chapterEntry?.title ?? decoded;
     const summary = chapterEntry?.summary ?? "";
-    const numberPrefix = numberedForSlug ? `${numberedForSlug.number}　` : "";
     displaySource = [
-      `# ${numberPrefix}${title}`,
+      `# ${title}`,
       "",
       "> **このセクションは執筆待機中です。**",
       ">",
@@ -131,14 +130,14 @@ export default async function BzmChapterPage({ params }: { params: Promise<{ slu
           <nav className="mt-10 flex justify-between gap-4 border-t border-border pt-4 text-xs">
             {prev ? (
               <Link href={`/bzm/${encodeURIComponent(prev)}`} className="text-muted-foreground hover:text-foreground">
-                ← {prevChapter ? `${prevChapter.number} ${prevChapter.title}` : prev}
+                ← {prevChapter ? prevChapter.title : prev}
               </Link>
             ) : (
               <span />
             )}
             {next ? (
               <Link href={`/bzm/${encodeURIComponent(next)}`} className="text-right text-muted-foreground hover:text-foreground">
-                {nextChapter ? `${nextChapter.number} ${nextChapter.title}` : next} →
+                {nextChapter ? nextChapter.title : next} →
               </Link>
             ) : (
               <span />

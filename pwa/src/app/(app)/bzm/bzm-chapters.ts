@@ -520,24 +520,15 @@ export function sortBzmSlugs(slugs: string[]) {
 }
 
 /**
- * 章番号を part-chapter 形式 (= "2-1" など) で振る。
- * 序章は part index 0。
+ * 章番号 (旧 "1-1" 等の part-chapter index) はまさ確定 2026-06-28 で廃止。
+ * title 自体に "Ch 1" "§1.0" "§1.0.1" のような章番号が入っているため、
+ * その前にさらに part index を振るのはミスリーディング。
+ * BzmNumberedChapter インターフェース互換のため空文字を返す。
  */
 export function applyBzmBookNumbering(chapters: BzmChapterConfig[]): BzmNumberedChapter[] {
-  const numberBySlug = new Map<string, string>();
-  BZM_PARTS.forEach((part, partIdx) => {
-    const isProposals = part.key.startsWith("proposals_");
-    part.slugs.forEach((slug, chapterIdx) => {
-      if (isProposals) {
-        numberBySlug.set(slug, `提案 ${chapterIdx + 1}`);
-      } else {
-        numberBySlug.set(slug, `${partIdx}-${chapterIdx + 1}`);
-      }
-    });
-  });
   return chapters.map((chapter) => ({
     ...chapter,
-    number: numberBySlug.get(chapter.slug) ?? "--",
+    number: "",
   }));
 }
 
