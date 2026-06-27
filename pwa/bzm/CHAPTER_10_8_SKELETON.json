@@ -1,0 +1,335 @@
+{
+  "ch_overview": {
+    "core_proposition": "Ch 10.5 Klepper 入れ子のシャープな統合ハザード τ_B (h↓0 極限) と Ch 11.5 登録簿運用の滑らかな wave 段階 (h↑∞ 極限) は対立する二極ではなく、核関数 K と境界鋭さ parameter h でパラメータ化される単一の h パラメータ族 B_h(t) = K((t − t*_mid)/h) の両端極限である。Zadeh (1965) fuzzy sets / Donoho-Johnstone (1994) soft thresholding / Black-Rangarajan (1996) graduated non-convexity の連続化思想を制度境界に移植し、Bai-Perron (1998) Econometrica 多重分断検定 (sup-F + Hannan-Quinn) で境界幅区間 [t*_start, t*_end] と h を一致推定する正準オーナー章として Ch 10.8 を D-040 に従って確立する。反証可能主張 F6 (corr(ĥ_{jt}, σ_{ΔPRS_{jt}}) > 0) は Tier B (Ch 26b OSF 事前登録) に commission し、Book III TIEM (h小) / CLG (h大) PJ への結合点を明示する。",
+    "load_bearing_claims": [
+      "定義 6.1: B_h(t) = K((t − t*_mid)/h)、K は単調連続 CDF 型核関数 (Gaussian-CDF or logistic、P-008b で Ch 11 BVAR 実装時にデータ駆動 = Mallows Cp / cross-validation でまさ判断確定)、h > 0 は境界鋭さ parameter、t*_mid は境界中央、境界幅区間は [t*_start, t*_end] = [t*_mid − c·h, t*_mid + c·h] (c は K の significance level に対応)",
+      "命題 6.1 (シャープ ↔ ファジー連続極限): (i) lim_{h↓0} B_h(t) = 𝟙{t ≥ t*_mid} が a.s. かつ Ch 10.5 シャープ τ_B 不連続境界 (D-035) を各点で再現、(ii) 適切な affine 正規化 B̃_h(t) = B_h(t*_mid + h·s) の下で lim_{h↑∞} B̃_h は [t*_start, t*_end] 上で線形補間に一様収束し Ch 11.5 滑らかな wave (D-037) と一致する",
+      "命題 6.2 (Bai-Perron 一致推定): Bai-Perron (1998) Econometrica 多重分断検定 (sup-F_T(ℓ+1|ℓ)) と Hannan-Quinn 情報量規準による分断数選定の組み合わせにより、機関 j × 時間 t のサンプルから (ĥ_{jt}, t̂*_start, t̂*_end) は √T 一致推定量であり、信頼区間は Andrews (1993) sup-Wald 漸近理論と Hansen (2000) threshold bootstrap で構成可能",
+      "反証可能主張 F6: 機関 j × 四半期 t について Pearson 相関 corr(ĥ_{jt}, σ_{ΔPRS_{jt}}) > 0 — 境界がぼけている時期 (ĥ 大) ほど PRS 一階差分の rolling 標準偏差が大きい、すなわち境界鋭さは識別不能ではなく経験的に testable。Tier B (Ch 26b OSF 事前登録、D-031)",
+      "Klepper (D-035, h↓0) / Murmann (D-037, h↑∞) / ファジー境界 (D-040, 0 < h < ∞) の三件は h-spectrum を形成する単一族の異なる実現値であり、Ch 10.8 が補間正準オーナー (D-040 確定) として Book II の整合性を保つ"
+    ],
+    "logical_arc": "節頭ストーリー §10.8.0 で TIEM 型のシャープな撤退と CLG 型の段階的フェードを匿名化対比し『観察者には別現象に見えるが同一族の両端極限である』という本章の中核主張を提示 → §10.8.1 で定義 6.1 と命題 6.1 を Zadeh fuzzy sets / Donoho-Johnstone soft thresholding / Black-Rangarajan GNC の連続化系譜に接続して核関数族の数学的正当性と両極限収束を証明スケッチ (完全証明は付録 A、D-047) → §10.8.2 で Bai-Perron 多重分断検定により h と境界幅区間が一致推定可能であることを命題 6.2 として確立し、観測者が ĥ の信頼区間から境界の crispness を定量判定できる (識別不能主張への反論) ことを現場可読な言葉で示す → §10.8.3 で反証可能主張 F6 を提示し Ch 11 BVAR (kernel 選択 + panel-Bai-Perron + ĥ_{jt} posterior + F6 準備) / Ch 26b (OSF Tier B 事前登録) / Book III TIEM (h小) vs CLG (h大) 各 PJ への commission を分離して渡し、章末で D-040 オーナーシップと D-035/D-037/D-040 連続 spectrum 主張を再宣言して Ch 10.9 への bridge を打つ",
+    "synthesis_rationale": "A 案を骨格として採用 (Lens B/C 両方で最高評価、Bai-Perron 周辺漸近理論の網羅性 + 現場 URA 可読性 + Book III 結合具体性 + §10.8.0/§10.8.3 二度の D-040 宣言による章末伏線回収構造)。C 案から persona 系譜 (Zadeh / Klir-Yuan / Donoho-Johnstone soft thresholding / Black-Rangarajan GNC) を §10.8.1 に graft し D-040 進化経済 persona 満足度を強化、命題 6.1 (ii) の正規化規約明示と Ch 11.5 整合性 open issue 化を C から graft。B 案から Mallows Cp / cross-validation による P-008b data-driven 選択手順、Ch 11 commission 4 項目分解、Hannan-Quinn を BIC/AIC 中間として正当化する段落、命題 6.1 経験的含意 2 件 (シャープ機関で ĥ ≒ 0 / 滑らか機関で ĥ ≫ 0) を falsifiable_claims に graft。Cross-cutting concerns として (a) D-051 記号正本に c を追加する要請、(b) 機関数 J < 20 / 時系列 T < 100 の panel-Bai-Perron 有限サンプル補正 open issue 化、(c) F6 効果量・多重比較補正の Ch 26b 完全委譲、(d) 節頭ストーリー匿名化 D-038 整合、(e) Hannan-Quinn (1979) JRSS-B 原典参照、を全て吸収。"
+  },
+  "sections": [
+    {
+      "section_id": "10.8.0",
+      "title": "節頭ストーリー — シャープな撤退と段階的フェードはどちらも『境界』である",
+      "pages": 1,
+      "math_level": "low (B_h, h, t*_mid を語彙導入レベルで参照、数式なし)",
+      "anchor_claims": [
+        "Ch 10.5 シャープな統合ハザード τ_B (h↓0) と Ch 11.5 滑らかな登録簿運用 (h↑∞) は同一現象の両極限であり、Ch 10.8 が h パラメータ族で連続的に補間する D-040 正準オーナー章である",
+        "TIEM 型 (シャープ撤退、h 小) と CLG 型 (段階的フェード、h 大) は別個の理論ではなく、境界鋭さ h の異なる実現値として h-spectrum 上の二点に位置付く",
+        "D-035 Klepper / D-037 Murmann / D-040 ファジー境界の三件は連続 spectrum を形成し、本章はその補間理論の正準オーナー宣言を担う"
+      ],
+      "paragraph_outline": [
+        "節頭ストーリー第 1 場面: ある産業の TIEM 型 PJ (匿名化) で、PRS 撤退判定がある月を境にシャープに不連続に確定し、統合ハザード τ_B が階段状に立ち上がった観察を提示 (Ch 10.5 経由参照)。観察者からは『境界はシャープ』に見える",
+        "節頭ストーリー第 2 場面: 隣接 type の CLG 型 PJ (匿名化) で、同種の撤退判定が 8 四半期かけて段階的にフェードした観察を対置 (Ch 11.5 経由参照)。同じ観察者からは『境界はぼけている』に見える",
+        "問題提起 par: Ch 10.5 (Klepper 入れ子) は τ_B 不連続を前提とし、Ch 11.5 (Murmann wave) は滑らかな段階を前提とする。両者を別理論として並置すると Book II 全体の整合性が破れる — D-035 / D-037 / D-040 連続 spectrum 主張が成立しない",
+        "Ch 10.8 の宣言 par: 核関数 K と境界鋭さ parameter h を持つ族 B_h(t) = K((t − t*_mid)/h) を導入し、h↓0 が Ch 10.5、h↑∞ が Ch 11.5 に対応する補間理論として両章を統一する。BOOK_DECISIONS.md D-040 の確定『Ch 10.8 = ファジー境界 h パラメータ族 (C6) の正準オーナー』を本節冒頭で明示",
+        "Tier 規律の予告 par: 本章本体は Tier A (定義 + 命題 + 一致推定)、反証可能主張 F6 のみ Ch 26b Tier B OSF 事前登録に逃がす (D-031)。証明スケッチは本文、完全証明は付録 A に分離 (D-047)",
+        "本節 roadmap par: §10.8.1 定義 6.1 + 命題 6.1 (両極限への収束) で族の数学的正当性、§10.8.2 命題 6.2 Bai-Perron 多重分断検定で h と境界幅区間 [t*_start, t*_end] を一致推定、§10.8.3 反証可能主張 F6 + Ch 11 / 26b / Book III への commission を予告して章末"
+      ],
+      "new_writing_required": "節頭ストーリー全文 (TIEM / CLG 匿名化 type 比較、D-038 規則に従い完全匿名 + 脚注で Book III 参照に倒す方針) は新規執筆。D-040 オーナーシップ宣言文と Tier 規律予告 / roadmap も新規。1p",
+      "existing_reuse": "Ch 10 章頭 OPENER の構造変化問題提起、Ch 10.5 シャープ統合ハザード τ_B の不連続境界記述、Ch 11.5 滑らかな登録簿運用 wave 段階の予告、BOOK_DECISIONS.md D-035 / D-037 / D-040 / D-031 / D-047 確定判決の参照",
+      "upstream_dependencies": [
+        "Ch 10 章頭 OPENER (Ch 10 全体の構造変化 motivation)",
+        "Ch 10.5 シャープ統合ハザード τ_B (h↓0 極限の到達点)",
+        "Ch 11.5 滑らかな登録簿運用 wave 段階 (h↑∞ 極限の到達点)",
+        "Ch 5.5 GO ゲート θ_σ* (境界鋭さ概念の動機)",
+        "BOOK_DECISIONS.md D-035 / D-037 / D-040 / D-031 / D-047"
+      ],
+      "downstream_dependencies": [
+        "§10.8.1 (定義 6.1 + 命題 6.1 へ動機を橋渡し)",
+        "§10.8.3 章末 (D-040 / spectrum 主張の伏線回収先)",
+        "Book III TIEM PJ (h 小ケース)",
+        "Book III CLG PJ (h 大ケース)"
+      ],
+      "references": [
+        "Klepper (2002) MS — Ch 10.5 経由参照",
+        "Murmann (2003) Cambridge UP — Ch 11.5 経由参照",
+        "Ch 10 OPENER 自己参照",
+        "BOOK_DECISIONS.md D-035/D-037/D-040/D-031/D-047"
+      ],
+      "source_drafts": [
+        "A §10.8.0 骨格",
+        "C §10.8.0 D-040 二度宣言の伏線回収構造"
+      ]
+    },
+    {
+      "section_id": "10.8.1",
+      "title": "定義 6.1 (h パラメータ族) と命題 6.1 — シャープ ↔ ファジー連続極限",
+      "pages": 2,
+      "math_level": "high (定義 + 両極限命題 + 証明スケッチ、完全証明は付録 A、D-047)",
+      "anchor_claims": [
+        "定義 6.1: B_h: ℝ → [0,1]、B_h(t) = K((t − t*_mid)/h)、K は単調連続 CDF 型核関数で K(−∞)=0, K(+∞)=1, K'(0) > 0 を満たす。h > 0 は境界鋭さ parameter、t*_mid は境界中央、境界幅区間 [t*_start, t*_end] = [t*_mid − c·h, t*_mid + c·h] (c は K の significance level 対応定数、D-051 記号正本に追記要請)",
+        "Gaussian-CDF と logistic の二候補は P-008b でまさ判断、Ch 11 BVAR 実装時に Mallows Cp / cross-validation でデータ駆動確定。両者の漸近差分は h の再 scale で吸収可能",
+        "命題 6.1 (i) シャープ極限: 各 t ≠ t*_mid で lim_{h↓0} B_h(t) = 𝟙{t ≥ t*_mid} に各点収束、Ch 10.5 シャープ τ_B 不連続境界 (D-035) と一致",
+        "命題 6.1 (ii) 滑らか極限: 適切な affine 正規化 B̃_h(t) = B_h(t*_mid + h·s) の下で lim_{h↑∞} B̃_h は [t*_start, t*_end] 上で線形補間に一様収束、Ch 11.5 滑らかな wave (D-037) と一致",
+        "Zadeh (1965) fuzzy sets と Donoho-Johnstone (1994) soft thresholding および Black-Rangarajan (1996) graduated non-convexity の連続化思想が、本族 B_h における h の連続化と同型構造を持つ (進化経済 persona / D-040)"
+      ],
+      "paragraph_outline": [
+        "定義 6.1 の formal statement par: B_h(t) = K((t − t*_mid)/h) の正式定義。K の条件 (単調連続 CDF、両端極限、K'(0) > 0) を列挙。h ∈ (0, ∞)、t*_mid ∈ ℝ、境界幅区間 [t*_start, t*_end] = [t*_mid − c·h, t*_mid + c·h] (c は K の significance level、例: K = Φ で c = Φ^{-1}(0.975))。記号は D-051 表記正本に従い B_h, K, h, t, t*_mid, t*_start, t*_end を採用 (c は本章で新規導入し D-051 並行更新要請)",
+        "核関数候補 par: Gaussian-CDF K(u) = Φ(u) と logistic K(u) = 1/(1 + exp(−u)) の二候補を提示。前者は Bai-Perron 検定との親和性 (sup-F 漸近分布が Gaussian 系)、後者は閉形式微分の扱いやすさ (BVAR 尤度評価コスト低)。両者の漸近差分は h の再 scale で吸収可能であり、最終確定は P-008b としてまさ判断に commission、Ch 11 BVAR 実装時に Mallows Cp / cross-validation でデータ駆動選択する",
+        "persona 系譜 par (D-040 進化経済): Zadeh (1965) fuzzy membership と Klir-Yuan (1995) degree of crispness の系譜が、本族 B_h における h ↓ 0 (crisp) / h ↑ ∞ (fully fuzzy) の両端と一対一対応する。さらに Donoho-Johnstone (1994) soft thresholding と Black-Rangarajan (1996) graduated non-convexity が同型の連続化操作を信号処理 / 早期視覚で提供しており、Ch 10.8 はこの連続化思想を制度境界に移植する",
+        "命題 6.1 (i) statement par: 各 t ≠ t*_mid で lim_{h↓0} B_h(t) = 𝟙{t ≥ t*_mid} (各点収束、t = t*_mid では K(0) に値が留まる)。Ch 10.5 シャープ統合ハザード τ_B の不連続境界 (Lebesgue 測度 0 の境界点を除き) に一致",
+        "命題 6.1 (ii) statement par: affine 正規化 B̃_h(t) = B_h(t*_mid + h·s) の下で、s ∈ [−c, c] について lim_{h↑∞} B̃_h(s) は線形補間 (s/(2c) + 1/2) に一様収束。これは Ch 11.5 滑らかな登録簿運用 wave 段階の関数形と一致。正規化規約は Ch 11.5 側の表記と整合確認が必要 (open issue)",
+        "証明スケッチ par: (i) は K の単調性 + 境界条件 (K(−∞)=0, K(+∞)=1) からの点別収束で導出、(ii) は K の 1 次 Taylor 展開で B_h(t*_mid + h·s) ≈ K(s) → s·K'(0) + 1/2 の一様収束評価で導出。Tikhonov-Arsenin (1977) 正則化型評価による完全証明は付録 A.6.1 / A.6.2 に委譲 (D-047)",
+        "整合性確認 par: D-035 (Klepper, h↓0) / D-037 (Murmann, h↑∞) / D-040 (ファジー境界, 0 < h < ∞) の三件は h パラメータ族の異なる実現値であり、Book II 全体で連続 spectrum を形成する。本節は D-040 オーナーシップ宣言の数学的中核",
+        "経験的含意の予告 par: 命題 6.1 (i)(ii) は単なる math limit ではなく経験的 testable である — シャープ τ_B モデル適合機関では Bai-Perron 推定 ĥ_{jt} が 0 に有意に近い、滑らかな wave モデル適合機関では ĥ_{jt} が標本期間長の有意な fraction を超える。§10.8.2 命題 6.2 の Bai-Perron 一致推定がこれを実装可能にする (B 案 graft)",
+        "下流接続 par: 本節の定義 6.1 + 命題 6.1 は §10.8.2 (命題 6.2 一致推定) と §10.8.3 (反証 F6) の前提を供給し、Ch 11 BVAR (kernel 選択 + posterior) と Book III (TIEM/CLG h 推定値) に渡される"
+      ],
+      "new_writing_required": "定義 6.1 全文 (c の導入含む)、Gaussian-CDF vs logistic 比較段落、Zadeh / Klir-Yuan / Donoho-Johnstone / Black-Rangarajan persona 系譜註、命題 6.1 (i)(ii) formal statement + 証明スケッチ本文、整合性確認段落、経験的含意予告段落は全て新規。完全証明 (付録 A.6.1 / A.6.2) は別途新規。2p",
+      "existing_reuse": "Ch 10.5 シャープ τ_B 不連続境界の式、Ch 11.5 滑らかな wave 段階の関数形、D-051 記号表記正本の既存定義 (B_h, K, h, t*_mid, t*_start, t*_end)、D-047 付録 A 分離規約",
+      "upstream_dependencies": [
+        "§10.8.0 (族導入の動機)",
+        "Ch 10.5 (シャープ τ_B 不連続の正式定義、h↓0 極限の対応物)",
+        "Ch 11.5 (滑らかな wave 段階の関数形、h↑∞ 極限の対応物)",
+        "D-051 記号表記正本",
+        "D-047 証明スケッチ / 付録 A 分離規約",
+        "P-008b 核関数選択まさ判断"
+      ],
+      "downstream_dependencies": [
+        "§10.8.2 (命題 6.2 Bai-Perron 一致推定の前提)",
+        "§10.8.3 (反証可能主張 F6 の数学的足場)",
+        "Ch 11 BVAR 実装 (kernel 選択 P-008b 確定 + posterior 計算)",
+        "付録 A.6.1 / A.6.2 (命題 6.1 完全証明)"
+      ],
+      "references": [
+        "Zadeh (1965) Fuzzy sets, Information and Control 8: 338-353",
+        "Klir & Yuan (1995) Fuzzy Sets and Fuzzy Logic, Prentice Hall",
+        "Donoho & Johnstone (1994) Ideal spatial adaptation by wavelet shrinkage, Biometrika 81: 425-455",
+        "Black & Rangarajan (1996) On the unification of line processes, outlier rejection, and robust statistics, IJCV 19: 57-91",
+        "Tikhonov & Arsenin (1977) Solutions of Ill-Posed Problems",
+        "Wahba (1990) Spline Models for Observational Data",
+        "Hastie-Tibshirani-Friedman (2009) ESL",
+        "BOOK_DECISIONS.md D-040, D-047, D-051"
+      ],
+      "source_drafts": [
+        "A §10.8.1 骨格 (定義 6.1 + 命題 6.1 + 証明スケッチ + 整合性確認)",
+        "C §10.8.1 persona 系譜 (Zadeh / Klir-Yuan / Donoho-Johnstone / Black-Rangarajan) と (ii) の affine 正規化明示",
+        "B §10.8.1 Wahba / ESL / Tikhonov 文献接続と P-008b data-driven 選択手順"
+      ]
+    },
+    {
+      "section_id": "10.8.2",
+      "title": "命題 6.2 — Bai-Perron 多重分断検定による h と境界幅 [t*_start, t*_end] の一致推定",
+      "pages": 1.5,
+      "math_level": "high (Bai-Perron sup-F 統計量、Hannan-Quinn 規準、Andrews sup-Wald 信頼区間構成、完全証明は付録 A.6.3、D-047)",
+      "anchor_claims": [
+        "命題 6.2: 機関 j × 時間 t のパネルで Bai-Perron (1998) Econometrica 多重分断検定 (sup-F_T(ℓ+1|ℓ)) と Hannan-Quinn 情報量規準による分断数選定により、(ĥ_{jt}, t̂*_start, t̂*_end) は √T 一致推定量、信頼区間は Andrews (1993) sup-Wald 漸近棄却域 + Hansen (2000) threshold bootstrap で構成可能",
+        "ĥ_{jt} と境界幅区間 [t̂*_start, t̂*_end] の関係: ĥ_{jt} = (t̂*_end − t̂*_start)/(2c) (c は K の significance level、定義 6.1 で導入)。Bai-Perron 推定値から h への変換 mapping を operational に与える",
+        "現場 URA/EIR 可読化メッセージ: ĥ_{jt} が小さい時期 = 境界がシャープ (TIEM 型)、ĥ_{jt} が大きい時期 = 境界が拡がっている (CLG 型)。観測者は ĥ の信頼区間から境界がぼけているか否かを定量判定可能 — 識別不能の主張への反論",
+        "Hannan-Quinn 採用の正当化: BIC は分断数を過小評価、AIC は過大評価、Hannan-Quinn が中間で誤判定率制御に優れる (Bai-Perron 2003 JAE 推奨、Hannan-Quinn 1979 JRSS-B 原典)"
+      ],
+      "paragraph_outline": [
+        "設定段落: 観測 PRS 時系列 {ΔPRS_{jt}}_{t=1}^T を機関 j × 四半期 t のパネルで取り、構造変化点 m 個を持つ Bai-Perron モデル y_{jt} = μ_j + β_j · B_h(t; t*_mid_j) + ε_{jt} を当てはめる。各分断点の信頼区間が境界幅 [t*_start, t*_end] に対応",
+        "命題 6.2 statement par: T → ∞ で (i) ĥ_{jt} →ᵖ h_{jt} (一致推定)、(ii) (t̂*_start, t̂*_end) の信頼区間は Andrews (1993) sup-Wald 漸近棄却域で T^{1/2} order 精度で構成可能 (Bai-Perron 1998 Theorem 3 系)、(iii) Hansen (2000) JE threshold bootstrap で有限サンプル補正可能。完全証明は付録 A.6.3 に委譲 (D-047)、Assumption A1-A6 (Bai-Perron 1998) は条件名のみ本文・列挙は付録",
+        "Bai-Perron 手続き 3 段階 par: (1) sup-F_T(ℓ+1|ℓ) 統計量で帰無『分断 ℓ 個』を逐次棄却、(2) 分断数 m を Hannan-Quinn 情報量規準で選定、(3) 各分断点近傍で核関数 K を局所 fit して h を最尤推定。Bai (1997) JBES の単一分断漸近を多重に拡張",
+        "変換 mapping par: 推定された境界幅区間から ĥ_{jt} = (t̂*_end − t̂*_start)/(2c) で h を operational に取り出す (c は P-008b で確定する K に対応)。例: K = Gaussian-CDF で 95% 区間なら c = 1.96 (B 案 graft)",
+        "Hannan-Quinn 採用根拠 par: BIC は過小 / AIC は過大 / Hannan-Quinn (1979) JRSS-B が中間でバランス、Bai-Perron (2003) JAE 推奨。ESL Ch 7 model selection 文脈とも整合。HAC robust 化で ε_{jt} の serial correlation に対応 (C 案 graft)",
+        "弱識別問題 par: h が極端に大きい (境界がほぼ線形 = h↑∞ 領域) ときの Bai-Perron sup-F の power 低下、および機関数 J < 20 / 時系列長 T < 100 の小サンプルでの有限サンプル補正方針 (Hansen bootstrap)。Book III TIEM/CLG PJ レベル時系列での適用に向けた注意喚起 (A + C graft)",
+        "現場可読化 par: ĥ_{jt} が大きい時期 = 境界が拡がっている (CLG 型)、ĥ_{jt} が小さい時期 = 境界がシャープ (TIEM 型)。観測者は ĥ の信頼区間から境界がぼけているか否かを定量判定可能 — 『境界ぼけ』は識別不能な ad hoc 概念ではなく Bai-Perron 推定で testable (Lens C 核 / A 案 graft)",
+        "Ch 11 / 26b / Book III への接続 par: 推定された ĥ_{jt} は (a) Ch 11.6 BVAR 推定の kernel parameter として Bayesian prior に変換 (Ch 11 commission)、(b) Ch 26b F6 事前登録の入力統計量、(c) Book III 各 PJ における TIEM vs CLG 対比の定量指標として下流に渡される"
+      ],
+      "new_writing_required": "命題 6.2 formal statement + 証明スケッチ、Bai-Perron 3 段階手続き、変換 mapping ĥ = (t̂*_end − t̂*_start)/(2c)、Hannan-Quinn 採用根拠、弱識別 + 機関数 J 小サンプル補正段落、現場可読化段落、下流接続段落は全て新規。完全証明 (付録 A.6.3) は別途新規。1.5p",
+      "existing_reuse": "§10.8.1 で定義した B_h(t) と c、Ch 5.5 GO ゲート θ_σ* で既出の Andrews (1993) 漸近理論、Ch 10.5 τ_B 識別議論の枠組み、D-051 記号 (t*_start, t*_end, h)",
+      "upstream_dependencies": [
+        "§10.8.1 (定義 6.1 + 命題 6.1)",
+        "Ch 5.5 (GO ゲート θ_σ* の Andrews 検定枠組み)",
+        "Ch 10.5 (τ_B 識別議論)",
+        "D-051 記号表記正本"
+      ],
+      "downstream_dependencies": [
+        "§10.8.3 (反証 F6 の経験的検証は本節の推定量に依存)",
+        "Ch 11.6 BVAR 推定 (panel-Bai-Perron 適用 + Bayesian prior 変換 + kernel + posterior)",
+        "Ch 26b Tier B 事前登録 (推定 ĥ_{jt} を入力統計量に)",
+        "Book III TIEM PJ / CLG PJ (機関別 ĥ_{jt} 推定による spectrum 上位置付け)",
+        "付録 A.6.3 (命題 6.2 完全証明)"
+      ],
+      "references": [
+        "Bai (1997) Estimation of a change point in multiple regression models, JBES 15",
+        "Bai & Perron (1998) Estimating and testing linear models with multiple structural changes, Econometrica 66: 47-78",
+        "Bai & Perron (2003) Computation and analysis of multiple structural change models, JAE 18: 1-22",
+        "Andrews (1993) Tests for parameter instability and structural change with unknown change point, Econometrica 61: 821-856",
+        "Hansen (2000) Sample splitting and threshold estimation, Econometrica 68",
+        "Hannan & Quinn (1979) The determination of the order of an autoregression, JRSS-B 41: 190-195"
+      ],
+      "source_drafts": [
+        "A §10.8.2 骨格 (Bai-Perron 3 段階 + Andrews + Hansen bootstrap + 現場可読化)",
+        "B §10.8.2 変換 mapping ĥ = (t̂*_end − t̂*_start)/(2c) と Hannan-Quinn BIC/AIC 中間正当化",
+        "C §10.8.2 弱識別問題 + HAC robust 化"
+      ]
+    },
+    {
+      "section_id": "10.8.3",
+      "title": "反証可能主張 F6 と Ch 11 / Ch 26b / Book III への commission — 章末",
+      "pages": 1.5,
+      "math_level": "mid (Fisher-z 検定統計量、Tier B 事前登録手続き概要、commission リスト)",
+      "anchor_claims": [
+        "反証可能主張 F6: 機関 j × 四半期 t について Pearson 相関 corr(ĥ_{jt}, σ_{ΔPRS_{jt}}) > 0 (境界がぼけている時期 = ĥ 大ほど PRS 一階差分の rolling 標準偏差 σ が大)。検定統計量は Fisher-z 変換、有意水準と多重比較補正は Ch 26b 事前登録時に確定",
+        "F6 は Tier B (Ch 26b OSF 事前登録、D-031) に commission、本章 Ch 10.8 本体は Tier A (定義 6.1 + 命題 6.1 + 命題 6.2)",
+        "Ch 11 commission 4 項目: (i) kernel K の Gaussian-CDF / logistic 確定 (P-008b)、(ii) bandwidth h の data-driven 選択 (Mallows Cp / cross-validation)、(iii) panel-Bai-Perron による ĥ_{jt} 時系列推定 + Bayesian prior 変換 + posterior、(iv) F6 検定の事前登録準備",
+        "Book III 各 PJ で ĥ を spectrum 上位置付け指標として活用: TIEM 型は ĥ↓0 寄り (シャープ撤退) 事例、CLG 型は ĥ↑∞ 寄り (段階的フェード) 事例として h パラメータ族の両端を実証",
+        "D-035 / D-037 / D-040 連続 spectrum 主張も反証可能: TIEM PJ と CLG PJ の ĥ_{jt} 信頼区間が完全重複 (統計的に区別不能) なら二極補間の意義喪失"
+      ],
+      "paragraph_outline": [
+        "反証可能主張 F6 formal statement par: H_0: corr(ĥ_{jt}, σ_{ΔPRS_{jt}}) ≤ 0 vs H_1: corr > 0。データは Ch 11 BVAR 推定の機関 × 四半期 panel、σ_{ΔPRS_{jt}} は Ch 5 PRS の四半期一階差分の rolling 標準偏差。検定統計量は Fisher-z 変換 (Spearman 順位相関で頑健性確認)、有意水準 (α=0.05 片側候補) と多重比較補正方針は Ch 26b 事前登録時に確定",
+        "F6 の non-trivial 反証可能性 par: (a) §10.8.2 命題 6.2 で ĥ_{jt} が一致推定可能、(b) σ_{ΔPRS_{jt}} は Ch 5 既出の観測量、(c) 両者の相関の符号は境界ぼけ → 制度 crispness 低下 → PRS 不安定化という理論的予測で正と予測される。F6 棄却なら『境界鋭さ h は識別不能』というより強い帰無に戻る危険 (B 案 graft) — Tier B 事前登録の意義が読者に伝わる",
+        "Tier 規律確認 par: D-031 に従い、本章本体は Tier A (定義 + 命題 + 一致推定)、F6 は Ch 26b Tier B OSF 事前登録に逃がす。本章は Fisher-z statement までで止め、F6 効果量 (最小実質的差) / 必要サンプル数 / 多重比較補正は Ch 26b に完全委譲することを明示",
+        "Ch 11 commission 4 項目 par: (i) kernel K の Gaussian-CDF / logistic 確定 — P-008b でまさ判断、Ch 11 BVAR 実装時に Mallows Cp / cross-validation でデータ駆動選択、(ii) bandwidth h の data-driven 選択、(iii) panel-Bai-Perron による ĥ_{jt} 推定 + Bayesian prior 変換 + posterior + 信頼区間出力、(iv) F6 検定の事前登録準備 (検定統計量計算手順の標準化)。Ch 11.5 滑らかな登録簿との接続を明示 (B 案 graft)",
+        "Ch 26b commission par: F6 を OSF preregistration protocol (Nosek et al. 2018) に登録、サンプル取得期間・除外基準・統計手続き・棄却閾値・多重比較補正・効果量の最小実質的差を確定する作業を Ch 26b に委譲。Tier B 規律 (D-031) 準拠",
+        "Book III ブリッジ par: TIEM 型 PJ (匿名化) は ĥ↓0 寄りの実証事例、CLG 型 PJ (匿名化) は ĥ↑∞ 寄りの実証事例として Book II Ch 10.8 の h パラメータ族の両端を実証する。Book III 各章で機関 j × type 別 ĥ_{jt} 推定値を spectrum 上の位置として連続値で提示する commission (閾値による『シャープ寄り』『ファジー寄り』の二値化は各 PJ 章で個別判断)",
+        "spectrum 主張の経験的反証 par: D-035 / D-037 / D-040 連続 spectrum 主張は反証可能 — TIEM PJ で推定された ĥ_{TIEM} と CLG PJ で推定された ĥ_{CLG} の信頼区間が完全重複し統計的に区別不能なら、二極補間の意義 (Klepper-Murmann を spectrum の両端と見做す) が失われる。Book III 各章での ĥ_{jt} 推定が Book II Ch 10.8 の経験的整合性検証となる (A 案独自 graft)",
+        "章末まとめ par: D-040 (Ch 10.8 = ファジー境界 h パラメータ族の正準オーナー) を再宣言、D-035 (Klepper, h↓0) / D-037 (Murmann, h↑∞) / D-040 (ファジー境界, 0 < h < ∞) の三件が連続 spectrum を形成することを最終確認。§10.8.0 節頭での宣言と二度宣言する伏線回収構造で章を閉じ、Ch 10.9 (Ch 10 章末統合) への接続を予告"
+      ],
+      "new_writing_required": "F6 formal statement + Fisher-z + non-trivial 反証可能性 3 点正当化、Tier 規律確認、Ch 11 commission 4 項目、Ch 26b commission、Book III TIEM/CLG ブリッジ、spectrum 主張経験的反証、章末 D-040 二度宣言は全て新規。1.5p",
+      "existing_reuse": "Ch 5 PRS 定義と σ_{ΔPRS} の表記、Ch 26b OSF 事前登録手続きの既存テンプレ、D-031 Tier 規律の既存記述、§10.8.0 D-040 宣言の伏線回収、§10.8.1 定義 6.1、§10.8.2 ĥ_{jt} 推定手続き",
+      "upstream_dependencies": [
+        "§10.8.0 (D-040 宣言の伏線、二度宣言回収先)",
+        "§10.8.1 (定義 6.1 h パラメータ族)",
+        "§10.8.2 (ĥ_{jt} 一致推定可能性 — F6 testable の前提)",
+        "Ch 5 (PRS 定義と σ_{ΔPRS})",
+        "D-031 Tier 規律 / D-040 オーナーシップ / D-047 証明委譲方針"
+      ],
+      "downstream_dependencies": [
+        "Ch 10.9 章末統合",
+        "Ch 11.6 BVAR 実装 (kernel + bandwidth + panel-Bai-Perron + F6 準備の 4 項目)",
+        "Ch 26b OSF 事前登録 (F6 protocol 詳細化)",
+        "Book III TIEM PJ (ĥ 小 = シャープ撤退 事例)",
+        "Book III CLG PJ (ĥ 大 = 段階的フェード 事例)"
+      ],
+      "references": [
+        "Fisher (1921) On the probable error of a coefficient of correlation, Metron 1: 3-32",
+        "Nosek et al. (2018) The preregistration revolution, PNAS 115: 2600-2606",
+        "BOOK_DECISIONS.md D-031, D-035, D-037, D-040, D-047, D-051",
+        "P-008b (kernel 選択まさ判断)",
+        "Ch 5 PRS 章自己参照",
+        "Ch 26b Tier B 事前登録章自己参照",
+        "Ch 11.5 / Ch 11.6 自己参照"
+      ],
+      "source_drafts": [
+        "A §10.8.3 骨格 (F6 + Tier 規律 + Book III ブリッジ + spectrum 経験的反証 + 章末 D-040 二度宣言)",
+        "B §10.8.3 Ch 11 commission 4 項目分解 + F6 棄却 → 強い帰無への帰結",
+        "C §10.8.3 Fisher-z 検定統計量明示 + Nosek (2018) preregistration revolution 引用 + F6 non-trivial 反証可能性 3 点正当化"
+      ]
+    }
+  ],
+  "open_issues_for_masa": [
+    {
+      "issue": "P-008b 核関数 K の Gaussian-CDF vs logistic 選択を Ch 10.8 本文でどう扱うか — (a) default 仮定 (Gaussian-CDF) を本文に置き logistic は脚注、(b) 両論併記し Ch 11 BVAR 実装時にデータ駆動 (Mallows Cp / cross-validation) で確定、(c) 完全に Ch 11 へ commission し本文は名前のみ",
+      "why_masa_decides": "Ch 10.5 / 10.7 との notation 一貫性、Bai-Perron 検定との親和性 (Gaussian 系尤度)、BVAR 計算コストの三つのトレードオフはまさのこれまでの kernel selection 哲学 (D-040 進化経済 persona) に依存する。Ch 11 章主と coordination が必要",
+      "options": [
+        "(a) Gaussian-CDF を default 仮定として本文に置く (Bai-Perron 親和性 / Ch 10.5 / 10.7 整合性を優先)",
+        "(b) 両論併記 + P-008b で Ch 11 実装時データ駆動確定 (中庸案、B/C 案準拠)",
+        "(c) 本文は kernel 名のみ、選択は完全に Ch 11 へ commission (Tier A 規律最重視)"
+      ],
+      "recommendation": "(b) 両論併記 + P-008b で Ch 11 実装時データ駆動確定。理由: Cambridge UP referee に対する選択論の正当性が確保され、かつ Ch 11 BVAR 実装の自由度を保つ。Ch 10.5 / 10.7 との notation 整合性は K を抽象的に B_h で扱うことで吸収可能"
+    },
+    {
+      "issue": "境界幅区間定数 c の D-051 記号表記正本への追加 — 定義 6.1 で [t*_start, t*_end] = [t*_mid − c·h, t*_mid + c·h] と c を導入したが、D-051 には現状 B_h / K / h / t / t*_mid / t*_start / t*_end のみ。c を D-051 に追加するか、本章ローカル定数として扱うか",
+      "why_masa_decides": "D-051 記号表記正本の更新は BOOK_DECISIONS.md の改訂を伴うため、Book II 全体への波及 (Ch 10.5 / 10.7 / 11.5 / 26b で c が必要になるか) をまさが判断する必要",
+      "options": [
+        "(a) c を D-051 に追加し Book II 全章で使用可能にする",
+        "(b) 本章ローカル定数として注釈、D-051 は更新しない",
+        "(c) c を使わず [t*_start, t*_end] を K の significance level α と直接書き換える"
+      ],
+      "recommendation": "(a) c を D-051 に追加。理由: Ch 11.6 BVAR 実装と Ch 26b F6 事前登録の両方で c が operational に必要 (ĥ = (t̂*_end − t̂*_start)/(2c) の変換 mapping)、Book II 全体での運用整合性が確保される"
+    },
+    {
+      "issue": "panel-Bai-Perron の機関数 J < 20 / 時系列長 T < 100 における有限サンプル補正方針 — Book III TIEM / CLG PJ レベル時系列は典型的に小サンプル。本章 §10.8.2 で注意喚起のみに留めるか、補正手順 (Hansen 2000 bootstrap、Maddala-Wu panel test 等) を本文に書くか",
+      "why_masa_decides": "Book III 各 PJ の実装可能性に直結し、Cambridge UP / Research Policy referee が必ず突く実証上の弱点。Ch 11 BVAR 章主との coordination で本文 vs commission の分担を決める必要",
+      "options": [
+        "(a) §10.8.2 本文で Hansen (2000) bootstrap + HAC robust 化を具体的に提示",
+        "(b) 注意喚起のみ本文、補正手順は Ch 11.6 BVAR 実装に commission",
+        "(c) §10.8.2 で言及せず Ch 26b F6 事前登録 protocol で扱う"
+      ],
+      "recommendation": "(b) 注意喚起のみ本文 + 補正手順は Ch 11.6 BVAR commission。理由: Tier A 章の理論性を保ちつつ、Book III 実装時の弾薬を Ch 11.6 で確保。referee 突きには Ch 11.6 を指し示して防御可能"
+    },
+    {
+      "issue": "節頭ストーリー §10.8.0 の TIEM / CLG 匿名化レベル — D-038 規則に従うが、(a) 完全匿名 + 脚注で Book III 参照 (b) type 名 (TIEM/CLG) は使い続け年・地理のみ匿名化 (c) 別記号 (X 型 / Y 型) で再匿名化、のいずれを採るか",
+      "why_masa_decides": "Book III 章主との coordination と、Book II 全体の匿名化ポリシー一貫性。まさの D-038 解釈に依存",
+      "options": [
+        "(a) 完全匿名 + 脚注で Book III 参照に倒す (A 案推奨)",
+        "(b) TIEM / CLG type 名は維持、年・地理のみ匿名化 (B/C 案デフォルト)",
+        "(c) X 型 / Y 型に再匿名化 (最も保守的)"
+      ],
+      "recommendation": "(a) 完全匿名 + 脚注で Book III 参照。理由: Tier A 理論章の抽象性を保ち、具体 case 描写は Book III に逃がす方が Cambridge UP の構成として清潔"
+    },
+    {
+      "issue": "命題 6.1 (ii) 滑らか極限の正規化規約 (affine 正規化 B̃_h(t) = B_h(t*_mid + h·s) の下で [t*_start, t*_end] 上 線形補間に一様収束) と Ch 11.5 滑らかな wave 段階の関数形との整合性確認 — Ch 11.5 側の表記が本章の正規化規約と一致するか",
+      "why_masa_decides": "Ch 11.5 章主との coordination が必須、本章の命題 6.1 (ii) が Ch 11.5 の wave 段階関数形を再現することが D-040 spectrum 主張の数学的基盤",
+      "options": [
+        "(a) Ch 11.5 側の表記を本章の affine 正規化に合わせる (本章主導)",
+        "(b) 本章の正規化規約を Ch 11.5 側の wave 関数形に合わせる (Ch 11.5 主導)",
+        "(c) 両章で並行 review 後、付録 A.6.2 で正規化変換の対応関係を明示"
+      ],
+      "recommendation": "(c) 並行 review + 付録 A.6.2 で対応関係明示。理由: D-047 (完全証明は付録 A) 規律と整合し、両章の章主が独立に作業可能。referee 突きには付録 A.6.2 を指し示して防御"
+    }
+  ],
+  "falsifiable_claims": [
+    "F6 (本章で正式提示、Ch 26b で Tier B OSF 事前登録): 機関 j × 四半期 t について Pearson 相関 corr(ĥ_{jt}, σ_{ΔPRS_{jt}}) > 0。データは Ch 11 BVAR 推定の panel 出力、σ_{ΔPRS_{jt}} は Ch 5 PRS 一階差分の rolling 標準偏差、検定統計量は Fisher-z 変換 (Spearman 順位相関で頑健性確認)、棄却閾値・多重比較補正は Ch 26b 事前登録時に確定。棄却された場合は『境界鋭さ h は識別不能』というより強い帰無に戻る (Tier B 規律、D-031)",
+    "命題 6.1 (i) シャープ極限の経験的含意: Ch 10.5 シャープ τ_B モデルを当てはめた機関 j について、Bai-Perron 推定の ĥ_{jt} が 0 に有意に近い (信頼区間が 0 を含む) — 棄却されれば当該機関にシャープモデル自体が不適合 (B 案 graft)",
+    "命題 6.1 (ii) 滑らか極限の経験的含意: Ch 11.5 滑らかな登録簿運用を行う機関 j について、Bai-Perron 推定の ĥ_{jt} が標本期間長の有意な fraction を超える (ĥ_{jt} ≫ 0) — 棄却されれば登録簿運用の『滑らかさ』記述が再考対象 (B 案 graft)",
+    "命題 6.1 (i)(ii) の収束速度: 実データで ĥ↓0 領域における B_h(t) が Ch 10.5 シャープ τ_B 不連続関数と一致しない (sup_t |B_ĥ(t) − 𝟙{t≥t*_mid}| が予測される収束速度より遅い) 場合に命題 6.1 自体が反証される",
+    "命題 6.2 一致推定の Monte Carlo 検証: Bai-Perron 多重分断検定で得られる ĥ_{jt} の Andrews 信頼区間が真の h を被覆する確率が公称水準 (95%) を下回る場合、命題 6.2 が反証される (シミュレーション or 既知境界を持つ自然実験で検証可能、Ch 11.6 で実装)",
+    "D-035 / D-037 / D-040 連続 spectrum 主張の反証可能性: Book III TIEM PJ で推定された ĥ_{TIEM} と CLG PJ で推定された ĥ_{CLG} の信頼区間が完全重複し統計的に区別不能の場合、Klepper-Murmann を h パラメータ族の両端と見做す二極補間の意義が失われ、D-040 オーナーシップ宣言の経験的根拠が弱まる (A 案独自 graft、Book II → Book III 整合性検証)",
+    "本族 B_h の経験的有用性自体の副次的反証: 実データで ĥ_{jt} が両端極限 (h↓0 or h↑∞) のみに集中し中間領域 (0 < h < ∞) に落ちる PJ が存在しない場合、本族 B_h を連続化として導入する意義が否定される (C 案 graft)"
+  ],
+  "cross_chapter_supply": [
+    {
+      "target_chapter": "Ch 10.5 (シャープ統合ハザード τ_B、Klepper 入れ子)",
+      "what_supplies": "Ch 10.5 から受け取る: τ_B 不連続境界の正式定義 (B_h の h↓0 極限の到達点)。Ch 10.5 へ渡す: 命題 6.1 (i) によって τ_B が h パラメータ族の h↓0 極限として連続化されることの正当化 (D-035 Klepper を spectrum の片端に位置付ける) と、Bai-Perron 推定 ĥ ≒ 0 領域での経験的検証可能性"
+    },
+    {
+      "target_chapter": "Ch 11.5 (滑らかな登録簿運用 wave 段階、Murmann)",
+      "what_supplies": "Ch 11.5 から受け取る: 滑らかな wave 段階の関数形 (B_h の h↑∞ 極限の到達点)。Ch 11.5 へ渡す: 命題 6.1 (ii) によって wave が h パラメータ族の h↑∞ 極限として連続化されることの正当化 (D-037 Murmann を spectrum の片端に位置付ける)。正規化規約は両章で並行 review (open issue)"
+    },
+    {
+      "target_chapter": "Ch 11.6 (BVAR 推定実装)",
+      "what_supplies": "Ch 11.6 へ渡す: (i) kernel K の Gaussian-CDF / logistic 確定 (P-008b、Mallows Cp / cross-validation でデータ駆動選択)、(ii) bandwidth h の posterior 推定、(iii) panel-Bai-Perron による ĥ_{jt} 時系列推定 + Bayesian prior 変換、(iv) F6 検定の事前登録準備 — Ch 11 commission 4 項目"
+    },
+    {
+      "target_chapter": "Ch 26b (Tier B OSF 事前登録)",
+      "what_supplies": "Ch 26b へ渡す: 反証可能主張 F6 (corr(ĥ_{jt}, σ_{ΔPRS_{jt}}) > 0) の formal statement と Fisher-z 検定統計量。Ch 26b で詳細化する項目: 有意水準・多重比較補正・サンプル取得期間・除外基準・効果量の最小実質的差・OSF 登録手順 (Nosek 2018 protocol)"
+    },
+    {
+      "target_chapter": "Ch 5 (PRS 定義)",
+      "what_supplies": "Ch 5 から受け取る: PRS 観測量と σ_{ΔPRS_{jt}} (四半期一階差分の rolling 標準偏差) の表記。Ch 5 へは何も供給しない (一方向 supply)"
+    },
+    {
+      "target_chapter": "Ch 5.5 (GO ゲート θ_σ*)",
+      "what_supplies": "Ch 5.5 から受け取る: 境界鋭さの動機概念と Andrews (1993) sup-F 漸近理論枠組み。Ch 5.5 へは何も供給しない"
+    },
+    {
+      "target_chapter": "Ch 10 章頭 OPENER",
+      "what_supplies": "Ch 10 OPENER から受け取る: 構造変化を扱う Ch 10 全体の motivation。Ch 10 OPENER へは何も供給しない"
+    },
+    {
+      "target_chapter": "Ch 10.9 (Ch 10 章末統合)",
+      "what_supplies": "Ch 10.9 へ渡す: D-040 ファジー境界 h パラメータ族の正準オーナー宣言 + D-035/D-037/D-040 連続 spectrum 主張の最終確認。Ch 10.9 で Ch 10 全体の統合的位置付けに組み込む"
+    },
+    {
+      "target_chapter": "Book III TIEM PJ (h 小、シャープ撤退事例)",
+      "what_supplies": "Book III TIEM PJ へ渡す: ĥ_{TIEM,jt} 推定値が h↓0 寄りに落ちる経験的事例として spectrum 片端を実証する commission。閾値による『シャープ寄り』二値化は PJ 章で個別判断"
+    },
+    {
+      "target_chapter": "Book III CLG PJ (h 大、段階的フェード事例)",
+      "what_supplies": "Book III CLG PJ へ渡す: ĥ_{CLG,jt} 推定値が h↑∞ 寄りに落ちる経験的事例として spectrum 片端を実証する commission。TIEM と CLG の ĥ 信頼区間が区別可能であることが spectrum 主張の経験的根拠"
+    },
+    {
+      "target_chapter": "付録 A.6 (証明)",
+      "what_supplies": "付録 A.6.1 (命題 6.1 (i) 完全証明)、A.6.2 (命題 6.1 (ii) 完全証明 + Ch 11.5 正規化変換対応)、A.6.3 (命題 6.2 完全証明 + Bai-Perron Assumption A1-A6 列挙) を新規執筆 commission (D-047)"
+    }
+  ],
+  "masa_negotiation_handles": [
+    "核関数選択 P-008b: Gaussian-CDF を default に置くか / 両論併記か / 完全に Ch 11 commission か — Ch 10.5 / 10.7 との notation 整合性、Bai-Perron 親和性、BVAR 計算コストのトレードオフ。推奨 (b) 両論併記 + Ch 11 でデータ駆動確定",
+    "境界幅区間定数 c の D-051 追加: Book II 全章で使用可能にするか / 本章ローカルか — Ch 11.6 と Ch 26b で c が operational に必要。推奨 (a) D-051 に追加",
+    "panel-Bai-Perron 小サンプル補正の本文 vs commission 分担: 機関数 J < 20 / 時系列 T < 100 の補正を本文に書くか / Ch 11.6 commission か — Book III 実装可能性と referee 突き対策。推奨 (b) 注意喚起のみ本文 + Ch 11.6 commission",
+    "節頭ストーリー §10.8.0 匿名化レベル (D-038): 完全匿名 + Book III 脚注 / type 名維持 / 別記号再匿名化 — Book III 章主との coordination 要。推奨 (a) 完全匿名 + Book III 脚注",
+    "命題 6.1 (ii) 滑らか極限の正規化規約 (affine 正規化 B̃_h = B_h(t*_mid + h·s)) と Ch 11.5 wave 関数形の整合確認 — D-040 spectrum 主張の数学的基盤。推奨 (c) 並行 review + 付録 A.6.2 で対応関係明示",
+    "Bai-Perron 分断数選択規準: Hannan-Quinn を default にしつつ BIC / AIC / sup-F 逐次検定との sensitivity analysis を Ch 11.6 commission に — referee 弾薬として Bai-Perron (2003) JAE 推奨 + Hannan-Quinn (1979) JRSS-B 原典の両方を参照",
+    "F6 効果量 (最小実質的差) と多重比較補正の Ch 26b 完全委譲: 本章は Fisher-z statement までで止め、Ch 26b で OSF 事前登録 protocol を詳細化 — Tier A/B 分離 (D-031) 規律準拠",
+    "spectrum 主張の経験的反証 (ĥ_{TIEM} vs ĥ_{CLG} 信頼区間区別性) を Book III 各章にどう commission するか: ĥ の閾値による二値化を PJ 章で個別判断する自由度を残すか / Book II 側で統一基準を提示するか — Book III 章主との coordination"
+  ]
+}
