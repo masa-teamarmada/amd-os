@@ -82,9 +82,9 @@ MS / PlanCycle が未設定の PJ は報酬計算対象外。支払が必要な�
 
 この表が `/admin/payouts` の主作業面なので、サマリ直下・報酬債務台帳より上に置く。
 
-支払通知書の正式発行・送付は、先に `支払データ保存` を実行して `monthly_reward_payout` と `payout_notices.total_yen` を確定してから行う。保存時点ではメール送信しない。金額が変わった未送付 PDF は `pdf_url` / `last_generated_at` をクリアし、次の一括発行・cron prebuild で再生成対象へ戻す。
+支払通知書の正式発行・送付に使う税抜支払額は、最新の報酬キャッシュから自動で `monthly_reward_payout` と `payout_notices.total_yen` に同期する。同期時点ではメール送信しない。金額が変わった未送付 PDF は `pdf_url` / `last_generated_at` をクリアし、次の一括発行・cron prebuild で再生成対象へ戻す。
 
-UI では上部の一括操作列に加えて、「メンバー別支払」見出しと未保存行の支払通知書操作欄にも同じ保存CTAを出し、発行ボタンが disabled の時でも次に押す場所が分かるようにする。未保存の場合でも、`保存して全員分PDF発行` を押せば `支払データ保存` → `bulk_issue_notice_pdf` を連続実行するため、別々に押す必要はない。
+UI では上部の一括操作列と「メンバー別支払」見出しに `自動保存済み` / `自動保存中` / `自動保存できない` の状態を表示する。正式な個別発行・全員分PDF一括発行・強制再発行・送付は、サーバー側でも最新計算額を同期してから実行するため、運用者が先に保存ボタンを押す必要はない。月初合意 gate や本契約cap blocker がある場合だけ同期を止め、admin override または blocker 解消を待つ。
 
 ### 月初合意ステータスとの境界
 
@@ -102,7 +102,7 @@ admin一覧では合意用の予定報酬とは別に、`reward_summary_json.mem
 
 | state | UI表示 | server behavior |
 |---|---|---|
-| 未合意 | `pending` | `支払データ保存` / PDF生成 / 送付 / 送付済み確定を 409 stop |
+| 未合意 | `pending` | 支払データ自動保存 / PDF生成 / 送付 / 送付済み確定を 409 stop |
 | 移行月合意済扱い | `agreed` | `source_ym <= 202605` は導入前/移行月として allow |
 | 条件更新あり | `stale` | latest agreed snapshot hash と current hash が違うため stop |
 | 修正要望中 | `revision_requested` | open request が member全体または当該PJにあるため stop |
@@ -214,11 +214,11 @@ GAS rv2 の最終計算結果を per-PJ × per-ym × per-member で保存する 
 | ヘッダー | 公式ロゴ画像 (= `PAYOUT_LOGO_FILE_ID`) + `PAYOUT_LOGOTYPE_FILE_ID` |
 | 背景 | 白地、 青アクセント |
 | 宛先 | `members.contractor_name` (= 未設定時は `member_name` / `code_name`) + `members.member_address` + `members.invoice_registration_number` |
-| 発行者 | AMDの会社名 / 住所 / 適格請求書発行事業者登録番号 (`T7021001064067`、Script Properties で上書き可) |
+| 発行者 | AMDの会社名 / 住所 / インボイス登録番号 (`T7021001064067`、Script Properties で上書き可)。ロゴ画像・会社名・住所・インボイス登録番号は右端に揃える |
 | 明細表 | 青ヘッダで、 PJ 別の base_pay / bonus / total |
 | 税内訳 | `小計（税抜）` = admin/payouts の支払額、`消費税（10%）` = 税抜額 × 10%、`合計（税込）` = 小計 + 消費税 |
 | 支払予定 / 方法 | 支払予定日と支払方法を表示。振込先欄はPDFから削除する |
-| 右上情報 | 通知書番号 / 作成日 (= 送付時は送信用PDFを再生成し、送信日を表示) |
+| 右上情報 | 作成日 / 通知書番号を右寄せで表示 (= 送付時は送信用PDFを再生成し、送信日を表示) |
 
 税計算の検算例:
 
@@ -267,14 +267,13 @@ curl -X POST "https://amd-os-pwa.vercel.app/api/cron/payout-notice-prebuild" \
 
 `force: true` で差分検出を無視して全員強制再生成。`lookahead: N` で当月+N ヶ月先まで対象を広げる (デフォルト 1)。
 
-#### 手動: `/admin/payouts` の「保存して全員分PDF発行」「全員分PDF一括発行」「全員分PDF確認」
+#### 手動: `/admin/payouts` の「全員分PDF一括発行」「全員分PDF確認」
 
 上部操作列と `メンバー別支払` 見出しのボタンから即時で全員分を並列生成。
 
-- 「保存して全員分PDF発行」: 未保存時の主導線。`POST /api/admin/payouts` で `monthly_reward_payout` / `payout_notices.total_yen` を保存してから、続けて `bulk_issue_notice_pdf` action を実行する
-- 「全員分PDF一括発行」: `bulk_issue_notice_pdf` action。 差分検出あり、 本番 notice_no で `payout_notices` に保存。保存済みの場合はそのまま active、未保存の場合は `保存して全員分PDF発行` として表示する
-- 「全員分PDF確認」: `bulk_preview_notice_pdf` action。 確認用 (= `notice_no` は `PREVIEW-...` 固定で DB 保存しない)。 保存前でも押せる
-- 「強制再発行 (全員)」 (= 黄色ボタン、2026-05-28 追加): `bulk_issue_notice_pdf` action を **`force: true`** で叩く。未保存なら先に保存する。差分検出を無視して全員分を強制再生成する。 PDF フォーマット変更 (= 表記ラベル / レイアウト) を反映したい時に使う (= 金額が変わってないと差分検出でスキップされてラベル変更が反映されない問題への対処)。 確認ダイアログあり
+- 「全員分PDF一括発行」: `bulk_issue_notice_pdf` action。サーバー側で最新計算額を自動同期してから、差分検出あり、本番 notice_no で `payout_notices` に保存する
+- 「全員分PDF確認」: `bulk_preview_notice_pdf` action。 確認用 (= `notice_no` は `PREVIEW-...` 固定で DB 保存しない)
+- 「強制再発行 (全員)」 (= 黄色ボタン、2026-05-28 追加): `bulk_issue_notice_pdf` action を **`force: true`** で叩く。サーバー側で最新計算額を自動同期してから、差分検出を無視して全員分を強制再生成する。 PDF フォーマット変更 (= 表記ラベル / レイアウト) を反映したい時に使う (= 金額が変わってないと差分検出でスキップされてラベル変更が反映されない問題への対処)。 確認ダイアログあり
 
 レスポンスには `{ targetCount, generated, skipped, failed, results[] }` が入る。 失敗があったメンバーは UI 上部の赤い帯に最大 8 件表示される。
 
@@ -290,11 +289,11 @@ curl -X POST "https://amd-os-pwa.vercel.app/api/cron/payout-notice-prebuild" \
 | `total_yen` が一致しない | はい (= 金額が変わった) |
 | 上記すべて該当なし | **いいえ** (= スキップして既存 `pdf_url` を再利用) |
 
-#### `saveAll` (= 「支払データ保存」) との連携
+#### 自動保存との連携
 
-`saveAll` 内で、 既存 `payout_notices.total_yen` と新計算値を比較し、 **金額が変わったメンバーは `pdf_url` / `last_generated_at` を NULL クリア**する (`sent_at` が立っている行は触らない)。 これで次回 cron / 一括発行で差分検出が再生成を発火させる仕組み。
+画面表示中の自動保存、正式PDF発行、全員分PDF一括発行、強制再発行、送付の直前で、既存 `payout_notices.total_yen` と新計算値を比較し、 **金額が変わったメンバーは `pdf_url` / `last_generated_at` を NULL クリア**する (`sent_at` が立っている行は触らない)。 これで次回 cron / 一括発行で差分検出が再生成を発火させる仕組み。
 
-`saveAll` の DB write 前にも月初合意支払 gate を通す。blocker がある場合、`monthly_reward_payout` / `payout_notices` へ保存しない。admin override reason がある場合だけ、監査ログ保存後に例外実行する。
+自動保存の DB write 前にも月初合意支払 gate を通す。blocker がある場合、`monthly_reward_payout` / `payout_notices` へ保存しない。admin override reason がある場合だけ、監査ログ保存後に例外実行する。
 
 #### UI
 

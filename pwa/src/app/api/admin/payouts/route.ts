@@ -212,6 +212,22 @@ type LoadTargetDataOptions = {
   includeAgreementGate?: boolean;
 };
 
+type SavePayoutSnapshotResult =
+  | {
+      ok: true;
+      data: TargetData;
+      savedPayoutRows: number;
+      savedNoticeRows: number;
+      clearedStaleNoticePdfs: number;
+    }
+  | {
+      ok: false;
+      status: number;
+      error: string;
+      data?: TargetData;
+      gate?: PayoutAgreementGateSummary;
+    };
+
 function addMonths(ym: string, delta: number): string {
   const y = Number(ym.slice(0, 4));
   const m = Number(ym.slice(4, 6));
@@ -572,44 +588,6 @@ function buildPayoutEntries(cycles: BillingCycleRow[], excludedMemberIds: Set<st
   }
 
   return entries;
-}
-
-function applySavedPayoutsForExistingRows(
-  entries: PayoutEntry[],
-  payouts: MonthlyRewardPayoutRow[],
-  cycles: BillingCycleRow[],
-  excludedMemberIds: Set<string> = new Set()
-): PayoutEntry[] {
-  const cycleKeys = new Set(cycles.map((cycle) => cycleKey(cycle)));
-  const byKey = new Map(entries.map((entry) => [`${entry.project_id}:${entry.ym}:${entry.member_id}`, entry]));
-
-  for (const payout of payouts) {
-    if (!cycleKeys.has(`${payout.project_id}:${payout.ym}`)) continue;
-    if (excludedMemberIds.has(payout.member_id)) continue;
-    const totalPay = yenValue(payout.total_pay);
-    if (totalPay <= 0) continue;
-    byKey.set(`${payout.project_id}:${payout.ym}:${payout.member_id}`, {
-      project_id: payout.project_id,
-      ym: payout.ym,
-      member_id: payout.member_id,
-      earned_pt: numberValue(payout.earned_pt),
-      base_pay: yenValue(payout.base_pay),
-      bonus_pt: yenValue(payout.bonus_pt),
-      total_pay: totalPay,
-      regular_base_pay: yenValue(payout.base_pay),
-      extra_base_pay: 0,
-      regular_paid_yen: totalPay,
-      extra_paid_yen: 0,
-      regular_stock_yen: 0,
-      extra_stock_yen: 0,
-    });
-  }
-
-  return [...byKey.values()].sort((a, b) => {
-    if (a.ym !== b.ym) return a.ym.localeCompare(b.ym);
-    if (a.member_id !== b.member_id) return a.member_id.localeCompare(b.member_id);
-    return a.project_id.localeCompare(b.project_id);
-  });
 }
 
 function payoutEntryDbPayload(entry: PayoutEntry) {
@@ -1102,12 +1080,7 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
     (membersRes.data ?? []) as MemberRow[]
   );
 
-  const expectedEntries = applySavedPayoutsForExistingRows(
-    buildPayoutEntries(cycles, payoutExcludedMemberIds),
-    (payoutsRes.data ?? []) as MonthlyRewardPayoutRow[],
-    cycles,
-    payoutExcludedMemberIds
-  );
+  const expectedEntries = buildPayoutEntries(cycles, payoutExcludedMemberIds);
   const payoutAgreementGate = options.includeAgreementGate === false
     ? null
     : await buildPayoutAgreementGateSummary(db, {
@@ -1175,6 +1148,120 @@ function agreementGateBlockedResponse(data: TargetData, gate: PayoutAgreementGat
       payoutAgreementGate: gate,
     },
     { status: 409 }
+  );
+}
+
+async function savePayoutDataSnapshot(
+  db: SupabaseClient,
+  ym: string,
+  options: { overrideReason?: string | null; actorEmail?: string | null } = {}
+): Promise<SavePayoutSnapshotResult> {
+  const before = await loadTargetData(ym, { refreshRewards: true });
+  const entries = before.expectedEntries;
+  const payoutExcludedMemberIds = ((before.members ?? []) as MemberRow[])
+    .filter((member) => member.is_officer || member.exclude_from_payout_notice)
+    .map((member) => member.member_id);
+  const missingBudgetCycles = findMissingBudgetCycles(before.cycles as BillingCycleRow[], entries);
+  if (missingBudgetCycles.length > 0) {
+    return {
+      ok: false,
+      status: 409,
+      error: `PJ予算未設定のcycleがあるため保存できない: ${missingBudgetCycles
+        .map((cycle) => `${cycle.project_id}:${cycle.ym}`)
+        .join(", ")}`,
+      data: before,
+    };
+  }
+
+  const gate = await enforceAgreementGateForAction(db, before, {
+    targetAction: "save_payout_data",
+    overrideReason: options.overrideReason,
+    actorEmail: options.actorEmail,
+  });
+  if (!gate.allowed) {
+    return {
+      ok: false,
+      status: 409,
+      error: payoutAgreementGateErrorMessage(gate),
+      data: before,
+      gate,
+    };
+  }
+
+  const notices = aggregateNotices(ym, entries, before.members as MemberRow[]);
+  const targetProjectIds = [...new Set((before.cycles as BillingCycleRow[]).map((cycle) => cycle.project_id))];
+  const targetSourceYms = [...new Set((before.cycles as BillingCycleRow[]).map((cycle) => cycle.ym))];
+
+  if (payoutExcludedMemberIds.length > 0 && targetProjectIds.length > 0 && targetSourceYms.length > 0) {
+    const { error } = await db
+      .from("monthly_reward_payout")
+      .delete()
+      .in("project_id", targetProjectIds)
+      .in("ym", targetSourceYms)
+      .in("member_id", payoutExcludedMemberIds);
+    if (error) throw error;
+
+    const { error: noticeDeleteError } = await db
+      .from("payout_notices")
+      .delete()
+      .eq("ym", ym)
+      .in("member_id", payoutExcludedMemberIds)
+      .is("sent_at", null);
+    if (noticeDeleteError) throw noticeDeleteError;
+  }
+
+  if (entries.length > 0) {
+    const { error } = await db
+      .from("monthly_reward_payout")
+      .upsert(entries.map(payoutEntryDbPayload), { onConflict: "project_id,ym,member_id" });
+    if (error) throw error;
+  }
+
+  // 金額が変わったメンバーの古い pdf_url / last_generated_at を NULL クリアして、
+  // 次回 cron payout-notice-prebuild または UI 一括発行で差分検出が再生成を発火するようにする。
+  // ただし sent_at が立っている (= 既にメンバーに送付済) 行は触らない (= 履歴保護)。
+  const beforeNoticeByMember = new Map<string, number>();
+  for (const row of (before.notices ?? []) as Array<{ member_id: string; total_yen: number | string | null }>) {
+    beforeNoticeByMember.set(row.member_id, yenValue(row.total_yen));
+  }
+  const staleMemberIds = notices
+    .filter((notice) => {
+      const previous = beforeNoticeByMember.get(notice.member_id);
+      return typeof previous === "number" && previous !== notice.total_yen;
+    })
+    .map((notice) => notice.member_id);
+  let clearedStaleNoticePdfs = 0;
+  if (staleMemberIds.length > 0) {
+    const cleared = await clearStalePayoutNoticePdfs(db, ym, staleMemberIds);
+    clearedStaleNoticePdfs = cleared.cleared;
+  }
+
+  if (notices.length > 0) {
+    const { error } = await db
+      .from("payout_notices")
+      .upsert(notices, { onConflict: "member_id,ym" });
+    if (error) throw error;
+  }
+
+  const after = await loadTargetData(ym);
+  return {
+    ok: true,
+    data: after,
+    savedPayoutRows: entries.length,
+    savedNoticeRows: notices.length,
+    clearedStaleNoticePdfs,
+  };
+}
+
+function payoutSaveBlockedResponse(result: Extract<SavePayoutSnapshotResult, { ok: false }>) {
+  if (result.data && result.gate) return agreementGateBlockedResponse(result.data, result.gate);
+  return NextResponse.json(
+    {
+      ok: false,
+      error: result.error,
+      ...(result.data ?? {}),
+    },
+    { status: result.status }
   );
 }
 
@@ -1295,7 +1382,12 @@ export async function PATCH(req: NextRequest) {
       }
 
       // send_notice_email
-      const targetData = await loadTargetData(ym);
+      const snapshot = await savePayoutDataSnapshot(db, ym, {
+        overrideReason: textValue(body.agreementOverrideReason),
+        actorEmail: auth.user.email,
+      });
+      if (!snapshot.ok) return payoutSaveBlockedResponse(snapshot);
+      const targetData = snapshot.data;
       const gate = await enforceAgreementGateForAction(db, targetData, {
         targetAction: "send_notice_email",
         memberIds: [memberId],
@@ -1458,7 +1550,14 @@ export async function PATCH(req: NextRequest) {
 
     try {
       const db = createAdminClient();
-      const data = await loadTargetData(ym);
+      const snapshot = previewOnly
+        ? null
+        : await savePayoutDataSnapshot(db, ym, {
+            overrideReason: textValue(body.agreementOverrideReason),
+            actorEmail: auth.user.email,
+          });
+      if (snapshot && !snapshot.ok) return payoutSaveBlockedResponse(snapshot);
+      const data = snapshot?.ok ? snapshot.data : await loadTargetData(ym);
       const gate = await enforceAgreementGateForAction(db, data, {
         targetAction: previewOnly ? "preview_notice_pdf" : "issue_notice_pdf",
         memberIds: [memberId],
@@ -1518,7 +1617,14 @@ export async function PATCH(req: NextRequest) {
 
     try {
       const db = createAdminClient();
-      const data = await loadTargetData(ym);
+      const snapshot = previewOnly
+        ? null
+        : await savePayoutDataSnapshot(db, ym, {
+            overrideReason: textValue(body.agreementOverrideReason),
+            actorEmail: auth.user.email,
+          });
+      if (snapshot && !snapshot.ok) return payoutSaveBlockedResponse(snapshot);
+      const data = snapshot?.ok ? snapshot.data : await loadTargetData(ym);
 
       // 当月の支払対象メンバーを expectedEntries から抽出 (= aggregateNotices と同じロジック)。
       // 役員 / exclude_from_payout_notice を除外し、support_pay > 0 のメンバーだけ。
@@ -1618,93 +1724,18 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const before = await loadTargetData(ym, { refreshRewards: true });
     const db = createAdminClient();
-    const entries = before.expectedEntries;
-    const payoutExcludedMemberIds = ((before.members ?? []) as MemberRow[])
-      .filter((member) => member.is_officer || member.exclude_from_payout_notice)
-      .map((member) => member.member_id);
-    const missingBudgetCycles = findMissingBudgetCycles(before.cycles as BillingCycleRow[], entries);
-    if (missingBudgetCycles.length > 0) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: `PJ予算未設定のcycleがあるため保存できない: ${missingBudgetCycles
-            .map((cycle) => `${cycle.project_id}:${cycle.ym}`)
-            .join(", ")}`,
-        },
-        { status: 409 }
-      );
-    }
-    const gate = await enforceAgreementGateForAction(db, before, {
-      targetAction: "save_payout_data",
+    const snapshot = await savePayoutDataSnapshot(db, ym, {
       overrideReason: textValue(body.agreementOverrideReason),
       actorEmail: auth.user.email,
     });
-    if (!gate.allowed) return agreementGateBlockedResponse(before, gate);
-
-    const notices = aggregateNotices(ym, entries, before.members as MemberRow[]);
-    const targetProjectIds = [...new Set((before.cycles as BillingCycleRow[]).map((cycle) => cycle.project_id))];
-    const targetSourceYms = [...new Set((before.cycles as BillingCycleRow[]).map((cycle) => cycle.ym))];
-
-    if (payoutExcludedMemberIds.length > 0 && targetProjectIds.length > 0 && targetSourceYms.length > 0) {
-      const { error } = await db
-        .from("monthly_reward_payout")
-        .delete()
-        .in("project_id", targetProjectIds)
-        .in("ym", targetSourceYms)
-        .in("member_id", payoutExcludedMemberIds);
-      if (error) throw error;
-
-      const { error: noticeDeleteError } = await db
-        .from("payout_notices")
-        .delete()
-        .eq("ym", ym)
-        .in("member_id", payoutExcludedMemberIds)
-        .is("sent_at", null);
-      if (noticeDeleteError) throw noticeDeleteError;
-    }
-
-    if (entries.length > 0) {
-      const { error } = await db
-        .from("monthly_reward_payout")
-        .upsert(entries.map(payoutEntryDbPayload), { onConflict: "project_id,ym,member_id" });
-      if (error) throw error;
-    }
-
-    // 金額が変わったメンバーの古い pdf_url / last_generated_at を NULL クリアして、
-    // 次回 cron payout-notice-prebuild または UI 一括発行で差分検出が再生成を発火するようにする。
-    // ただし sent_at が立っている (= 既にメンバーに送付済) 行は触らない (= 履歴保護)。
-    const beforeNoticeByMember = new Map<string, number>();
-    for (const row of (before.notices ?? []) as Array<{ member_id: string; total_yen: number | string | null }>) {
-      beforeNoticeByMember.set(row.member_id, yenValue(row.total_yen));
-    }
-    const staleMemberIds = notices
-      .filter((notice) => {
-        const previous = beforeNoticeByMember.get(notice.member_id);
-        return typeof previous === "number" && previous !== notice.total_yen;
-      })
-      .map((notice) => notice.member_id);
-    let clearedStaleNoticePdfs = 0;
-    if (staleMemberIds.length > 0) {
-      const cleared = await clearStalePayoutNoticePdfs(db, ym, staleMemberIds);
-      clearedStaleNoticePdfs = cleared.cleared;
-    }
-
-    if (notices.length > 0) {
-      const { error } = await db
-        .from("payout_notices")
-        .upsert(notices, { onConflict: "member_id,ym" });
-      if (error) throw error;
-    }
-
-    const after = await loadTargetData(ym);
+    if (!snapshot.ok) return payoutSaveBlockedResponse(snapshot);
     return NextResponse.json({
       ok: true,
-      savedPayoutRows: entries.length,
-      savedNoticeRows: notices.length,
-      clearedStaleNoticePdfs,
-      ...after,
+      savedPayoutRows: snapshot.savedPayoutRows,
+      savedNoticeRows: snapshot.savedNoticeRows,
+      clearedStaleNoticePdfs: snapshot.clearedStaleNoticePdfs,
+      ...snapshot.data,
     });
   } catch (err) {
     console.error("[admin payouts POST]", err);

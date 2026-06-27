@@ -805,60 +805,6 @@ function buildEntries(
   });
 }
 
-function applySavedPayoutsForExistingRows({
-  entries,
-  payouts,
-  cycles,
-  memberMap,
-  excludedMemberIds,
-}: {
-  entries: PayoutEntry[];
-  payouts: MonthlyRewardPayout[];
-  cycles: BillingCycle[];
-  memberMap: Map<string, string>;
-  excludedMemberIds: Set<string>;
-}): PayoutEntry[] {
-  const cycleByKey = new Map(cycles.map((cycle) => [`${cycle.project_id}:${cycle.ym}`, cycle]));
-  const byKey = new Map(entries.map((entry) => [entryKey(entry), entry]));
-
-  for (const payout of payouts) {
-    if (excludedMemberIds.has(payout.member_id)) continue;
-    const cycle = cycleByKey.get(`${payout.project_id}:${payout.ym}`);
-    if (!cycle) continue;
-    const totalPay = Math.round(numberValue(payout.total_pay));
-    if (totalPay <= 0) continue;
-    byKey.set(`${payout.project_id}:${payout.ym}:${payout.member_id}`, {
-      projectId: payout.project_id,
-      ym: payout.ym,
-      invoiceYm: cycle.invoice_ym || cycle.ym,
-      memberId: payout.member_id,
-      memberName: memberMap.get(payout.member_id) || payout.member_id,
-      earnedPt: numberValue(payout.earned_pt),
-      basePay: Math.round(numberValue(payout.base_pay)),
-      bonusPt: Math.round(numberValue(payout.bonus_pt)),
-      totalPay,
-      regularBasePay: Math.round(numberValue(payout.base_pay)),
-      extraBasePay: 0,
-      regularPaidYen: totalPay,
-      extraPaidYen: 0,
-      regularStockYen: 0,
-      extraStockYen: 0,
-      regularGrossDueYen: totalPay,
-      extraGrossDueYen: 0,
-      grossDueYen: totalPay,
-      carryInYen: 0,
-      stockYen: 0,
-      cappedFrom: totalPay,
-    });
-  }
-
-  return [...byKey.values()].sort((a, b) => {
-    if (a.memberName !== b.memberName) return a.memberName.localeCompare(b.memberName, "ja");
-    if (a.ym !== b.ym) return a.ym.localeCompare(b.ym);
-    return a.projectId.localeCompare(b.projectId);
-  });
-}
-
 function buildProjectMonthlyFinanceRows({
   months,
   cycles,
@@ -1402,6 +1348,7 @@ function buildMemberMonthlyPayoutRows({
 export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }: Props) {
   const initialPayload = initialData?.ym === initialYm ? initialData : null;
   const skipInitialFetchRef = useRef(Boolean(initialPayload));
+  const autoSaveAttemptKeyRef = useRef("");
   const [ym, setYm] = useState(initialYm);
   const [data, setData] = useState<PayoutData | null>(initialPayload);
   const [loading, setLoading] = useState(false);
@@ -1481,14 +1428,8 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
   }, [data?.members]);
 
   const expectedEntries = useMemo(
-    () => applySavedPayoutsForExistingRows({
-      entries: buildEntries(data?.cycles ?? [], memberMap, payoutExcludedMemberIds),
-      payouts: data?.payouts ?? [],
-      cycles: data?.cycles ?? [],
-      memberMap,
-      excludedMemberIds: payoutExcludedMemberIds,
-    }),
-    [data?.cycles, data?.payouts, memberMap, payoutExcludedMemberIds]
+    () => buildEntries(data?.cycles ?? [], memberMap, payoutExcludedMemberIds),
+    [data?.cycles, memberMap, payoutExcludedMemberIds]
   );
 
   const officerReserveEntries = useMemo(
@@ -1806,6 +1747,27 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
   const regularBaseTotal = memberRows.reduce((sum, row) => sum + row.regularBasePay, 0);
   const extraBaseTotal = memberRows.reduce((sum, row) => sum + row.extraBasePay, 0);
   const savedAll = expectedEntries.length > 0 && memberRows.every((row) => row.isSaved);
+  const noticeTotalsByMember = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const entry of expectedEntries) {
+      if (payoutExcludedMemberIds.has(entry.memberId)) continue;
+      map.set(entry.memberId, (map.get(entry.memberId) ?? 0) + entry.totalPay);
+    }
+    return map;
+  }, [expectedEntries, payoutExcludedMemberIds]);
+  const unsyncedNoticeCount = useMemo(() => {
+    let count = 0;
+    for (const [memberId, totalYen] of noticeTotalsByMember.entries()) {
+      const notice = noticeMap.get(memberId);
+      if (!notice || Math.round(numberValue(notice.total_yen)) !== Math.round(totalYen)) count += 1;
+    }
+    return count;
+  }, [noticeMap, noticeTotalsByMember]);
+  const syncedAll = savedAll && unsyncedNoticeCount === 0;
+  const autoSaveNeeded = expectedEntries.length > 0 && !syncedAll;
+  const unsyncedPayoutEntryCount = cycleStats.size > 0
+    ? [...cycleStats.values()].reduce((sum, stats) => sum + Math.max(0, stats.expectedCount - stats.savedCount), 0)
+    : 0;
   const rewardCycleCount = new Set(expectedEntries.map((entry) => `${entry.projectId}:${entry.ym}`)).size;
   const savePayoutDataDisabled =
     loading ||
@@ -1815,14 +1777,29 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
     expectedEntries.length === 0 ||
     hasBudgetBlocker ||
     guardedActionDisabled;
-  const savePayoutDataTitle = hasBudgetBlocker
-    ? "本契約cap未設定または超過があるため保存できない"
+  const autoSaveBlocked = autoSaveNeeded && (hasBudgetBlocker || guardedActionDisabled);
+  const autoSaveStatusLabel = saving
+    ? "自動保存中..."
+    : expectedEntries.length === 0
+      ? "自動保存対象なし"
+      : autoSaveBlocked
+        ? "自動保存できない"
+        : autoSaveNeeded
+          ? "自動保存待ち"
+          : "自動保存済み";
+  const autoSaveStatusTitle = hasBudgetBlocker
+    ? "本契約cap未設定または超過があるため自動保存できない"
     : guardedActionTitle ??
-      (expectedEntries.length === 0
-        ? "保存できる報酬明細がない"
-        : savedAll
-          ? "全メンバー分の支払データを再保存する"
-          : "全メンバー分の支払データを保存すると、支払通知書を発行・送付できる");
+      (autoSaveNeeded
+        ? `未同期: 報酬明細 ${unsyncedPayoutEntryCount}件 / 通知額 ${unsyncedNoticeCount}件`
+        : "最新計算額が monthly_reward_payout と payout_notices.total_yen に同期済み");
+  const autoSaveStatusClass = saving
+    ? "border-sky-200 bg-sky-50 text-sky-800"
+    : autoSaveBlocked
+      ? "border-red-200 bg-red-50 text-red-800"
+      : autoSaveNeeded
+        ? "border-amber-200 bg-amber-50 text-amber-800"
+        : "border-emerald-200 bg-emerald-50 text-emerald-800";
   const bulkPdfBaseDisabled =
     loading ||
     saving ||
@@ -1831,27 +1808,29 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
     bulkPdfMode != null ||
     memberRows.length === 0 ||
     guardedActionDisabled;
-  const bulkIssueDisabled = bulkPdfBaseDisabled || !savedAll;
-  const saveAndIssueDisabled = savedAll ? bulkPdfBaseDisabled : bulkPdfBaseDisabled || savePayoutDataDisabled;
-  const bulkPreviewTitle = guardedActionTitle ?? "保存前でも全員分の確認用PDFを並列生成 (DB保存なし)";
+  const bulkIssueDisabled = bulkPdfBaseDisabled || hasBudgetBlocker;
+  const saveAndIssueDisabled = bulkIssueDisabled || (autoSaveNeeded && savePayoutDataDisabled);
+  const bulkPreviewTitle = guardedActionTitle ?? "全員分の確認用PDFを並列生成 (DB保存なし)";
   const bulkIssueTitle = guardedActionTitle ??
     (memberRows.length === 0
       ? "対象メンバーがいない"
-      : !savedAll
-        ? "未保存の支払データがあるため、先に保存が必要"
+      : autoSaveNeeded
+        ? "最新計算額を自動同期してから全員分の支払通知書PDFを並列発行"
         : "全員分の支払通知書PDFを並列発行 (差分検出あり)");
   const saveAndIssueTitle = guardedActionTitle ??
     (memberRows.length === 0
       ? "対象メンバーがいない"
-      : savedAll
-        ? "保存済みの支払データから全員分の支払通知書PDFを一括発行する"
-        : `${savePayoutDataTitle}。保存後に全員分の支払通知書PDFを一括発行する`);
+      : hasBudgetBlocker
+        ? "本契約cap未設定または超過があるため発行できない"
+        : "最新計算額を自動同期してから全員分の支払通知書PDFを一括発行する");
   const forceBulkIssueTitle = guardedActionTitle ??
     (memberRows.length === 0
       ? "対象メンバーがいない"
-      : savedAll
+      : hasBudgetBlocker
+        ? "本契約cap未設定または超過があるため発行できない"
+        : syncedAll
         ? "差分検出を無視して全員分のPDFを強制再生成 (コードラベル変更などを反映する用)"
-        : `${savePayoutDataTitle}。保存後に全員分のPDFを強制再生成する`);
+        : "最新計算額を自動同期してから全員分のPDFを強制再生成する");
 
   async function loadAgreementGateForYm(nextYm: string) {
     try {
@@ -1939,10 +1918,6 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
       openPdfUrl(row.notice.pdf_url);
       return;
     }
-    if (!row.isSaved) {
-      setHint("先に支払データを保存してからPDFを発行してね");
-      return;
-    }
 
     const pdfWindow = openPdfPlaceholderWindow();
     setNoticeSavingMemberId(row.memberId);
@@ -2008,7 +1983,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
         throw new Error("確認用PDFのURLが返ってこなかった");
       }
       showGeneratedPdf(pdfWindow, payload.issuedNotice.pdfUrl);
-      setHint(`${row.memberName} の確認用PDFを開いた（支払データ・通知書URLは未保存）`);
+      setHint(`${row.memberName} の確認用PDFを開いた（DB保存なし）`);
     } catch (err) {
       closePdfPlaceholder(pdfWindow);
       setHint(err instanceof Error ? err.message : "確認用PDFの作成エラー");
@@ -2134,11 +2109,11 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
     }
   }
 
-  async function savePayoutData() {
+  async function savePayoutData(options: { auto?: boolean } = {}) {
     if (expectedEntries.length === 0) {
       throw new Error("保存できる報酬明細がない");
     }
-    setHint("保存中...");
+    setHint(options.auto ? "支払データを自動保存中..." : "支払データを同期中...");
     const res = await fetch("/api/admin/payouts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -2154,7 +2129,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
       throw new Error(payload.error || `save failed (${res.status})`);
     }
     setData(payload);
-    setHint(`保存した: 報酬${payload.savedPayoutRows ?? 0}明細 / 通知額${payload.savedNoticeRows ?? 0}件`);
+    setHint(`${options.auto ? "自動保存" : "同期"}した: 報酬${payload.savedPayoutRows ?? 0}明細 / 通知額${payload.savedNoticeRows ?? 0}件`);
     return payload;
   }
 
@@ -2183,6 +2158,46 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
     }
     await runBulkPdf(false, options);
   }
+
+  const autoSaveSignature = useMemo(() => {
+    if (!data || expectedEntries.length === 0) return "";
+    const entrySig = expectedEntries
+      .map((entry) => `${entry.projectId}:${entry.ym}:${entry.memberId}:${Math.round(entry.totalPay)}`)
+      .sort()
+      .join("|");
+    const noticeSig = [...noticeTotalsByMember.entries()]
+      .map(([memberId, totalYen]) => `${memberId}:${Math.round(totalYen)}`)
+      .sort()
+      .join("|");
+    return `${ym}::${entrySig}::${noticeSig}`;
+  }, [data, expectedEntries, noticeTotalsByMember, ym]);
+
+  useEffect(() => {
+    if (!autoSaveNeeded || !autoSaveSignature || autoSaveBlocked) return;
+    if (loading || saving || noticeSavingMemberId != null || noticeMailLoading || noticeMailSending || paymentNudgeSending || bulkPdfMode != null) return;
+    if (autoSaveAttemptKeyRef.current === autoSaveSignature) return;
+
+    autoSaveAttemptKeyRef.current = autoSaveSignature;
+    setSaving(true);
+    void savePayoutData({ auto: true })
+      .catch((err) => {
+        setHint(err instanceof Error ? err.message : "自動保存エラー");
+      })
+      .finally(() => {
+        setSaving(false);
+      });
+  }, [
+    autoSaveBlocked,
+    autoSaveNeeded,
+    autoSaveSignature,
+    bulkPdfMode,
+    loading,
+    noticeMailLoading,
+    noticeMailSending,
+    noticeSavingMemberId,
+    paymentNudgeSending,
+    saving,
+  ]);
 
   async function sendPaymentNudges() {
     setPaymentNudgeSending(true);
@@ -2333,15 +2348,12 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
           報酬キャッシュ再計算
         </button>
 
-        <button
-          type="button"
-          onClick={saveAll}
-          disabled={savePayoutDataDisabled}
-          title={savePayoutDataTitle}
-          className="h-9 rounded-md bg-foreground px-4 text-[12px] font-medium text-background disabled:opacity-50"
+        <span
+          title={autoSaveStatusTitle}
+          className={`inline-flex h-9 items-center rounded-md border px-3 text-[12px] font-medium ${autoSaveStatusClass}`}
         >
-          {saving ? "保存中..." : savedAll ? "再保存" : "支払データ保存"}
-        </button>
+          {autoSaveStatusLabel}
+        </span>
 
         <button
           type="button"
@@ -2359,7 +2371,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
           title={saveAndIssueTitle}
           className="h-9 rounded-md border border-emerald-300 bg-emerald-50 px-3 text-[12px] text-emerald-900 hover:bg-emerald-100 disabled:opacity-50"
         >
-          {bulkPdfMode === "issue" ? "本番PDF発行中..." : savedAll ? "全員分PDF一括発行" : "保存して全員分PDF発行"}
+          {bulkPdfMode === "issue" ? "本番PDF発行中..." : "全員分PDF一括発行"}
         </button>
 
         <button
@@ -2382,7 +2394,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
           title={forceBulkIssueTitle}
           className="h-9 rounded-md border border-amber-300 bg-amber-50 px-3 text-[12px] text-amber-900 hover:bg-amber-100 disabled:opacity-50"
         >
-          {bulkPdfMode === "issue" ? "強制再発行中..." : savedAll ? "強制再発行 (全員)" : "保存して強制再発行"}
+          {bulkPdfMode === "issue" ? "強制再発行中..." : "強制再発行 (全員)"}
         </button>
 
         <div className="ml-auto flex flex-wrap items-center gap-3 text-[12px]">
@@ -2424,7 +2436,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
 
       <div className="grid gap-2 md:grid-cols-6">
         <SummaryBox label="対象cycle" value={`${data?.cycles.length ?? 0}件`} sub={`${rewardCycleCount}件に報酬明細あり`} />
-        <SummaryBox label="報酬明細" value={`${expectedEntries.length}件`} sub={savedAll ? "保存済み" : "未保存あり"} />
+        <SummaryBox label="報酬明細" value={`${expectedEntries.length}件`} sub={syncedAll ? "自動保存済み" : "自動保存中"} />
         <SummaryBox label="支払メンバー" value={`${memberRows.length}人`} sub={`通知額 ${data?.notices.length ?? 0}件`} />
         <SummaryBox label="本契約発生" value={fmtYen(regularBaseTotal)} sub="regular MS" />
         <SummaryBox label="別財布発生" value={fmtYen(extraBaseTotal)} sub="cap_extra MS" />
@@ -2440,20 +2452,12 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
             </span>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
-            {!savedAll && (
-              <span className="rounded-md bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
-                発行・送付の前に保存が必要
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={saveAll}
-              disabled={savePayoutDataDisabled}
-              title={savePayoutDataTitle}
-              className="h-8 rounded-md bg-foreground px-3 text-[11px] font-medium text-background disabled:opacity-50"
+            <span
+              title={autoSaveStatusTitle}
+              className={`inline-flex h-8 items-center rounded-md border px-2.5 text-[11px] font-medium ${autoSaveStatusClass}`}
             >
-              {saving ? "保存中..." : savedAll ? "再保存" : "支払データ保存"}
-            </button>
+              {autoSaveStatusLabel}
+            </span>
             <button
               type="button"
               onClick={() => saveThenRunBulkIssue()}
@@ -2461,7 +2465,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
               title={saveAndIssueTitle}
               className="h-8 rounded-md border border-emerald-300 bg-emerald-50 px-3 text-[11px] font-medium text-emerald-900 hover:bg-emerald-100 disabled:opacity-50"
             >
-              {bulkPdfMode === "issue" ? "発行中..." : savedAll ? "全員分PDF一括発行" : "保存して全員分PDF発行"}
+              {bulkPdfMode === "issue" ? "発行中..." : "全員分PDF一括発行"}
             </button>
             <button
               type="button"
@@ -2482,14 +2486,14 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
               title={forceBulkIssueTitle}
               className="h-8 rounded-md border border-amber-300 bg-amber-50 px-3 text-[11px] text-amber-900 hover:bg-amber-100 disabled:opacity-50"
             >
-              {bulkPdfMode === "issue" ? "再発行中..." : savedAll ? "強制再発行" : "保存して強制再発行"}
+              {bulkPdfMode === "issue" ? "再発行中..." : "強制再発行"}
             </button>
           </div>
         </div>
         <div className="flex flex-wrap gap-x-4 gap-y-1 rounded-md border border-border bg-muted/25 px-3 py-2 text-[11px] text-muted-foreground">
           <span>
-            <span className="font-medium text-foreground">保存:</span>{" "}
-            支払額と通知額を確定。メール送信はしない。金額変更分はPDF再生成対象。
+            <span className="font-medium text-foreground">自動保存:</span>{" "}
+            最新計算額を税抜で同期。メール送信はしない。金額変更分はPDF再生成対象。
           </span>
           <span>
             <span className="font-medium text-foreground">一括発行:</span>{" "}
@@ -2603,13 +2607,10 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                           noticeSavingMemberId != null ||
                           noticeMailLoading ||
                           noticeMailSending ||
+                          hasBudgetBlocker ||
                           (agreementBlockedMemberIds.has(row.memberId) && !canUseAgreementOverride)
                         }
                         saving={noticeSavingMemberId === row.memberId || (noticeMailLoading && noticeMailModal?.row.memberId === row.memberId)}
-                        savingAll={saving}
-                        canSavePayoutData={!savePayoutDataDisabled}
-                        savePayoutDataTitle={savePayoutDataTitle}
-                        onSavePayoutData={saveAll}
                         onIssueNoticePdf={issueNoticePdf}
                         onOpenPdf={openPdfUrl}
                         onPreviewNoticePdf={previewNoticePdf}
@@ -3813,51 +3814,43 @@ function PayoutNoticeActions({
   onPreviewNoticePdf,
   onUpdateNoticeSent,
   onOpenSendMailModal,
-  savingAll,
-  canSavePayoutData,
-  savePayoutDataTitle,
-  onSavePayoutData,
 }: {
   row: MemberPayoutRow;
   disabled: boolean;
   saving: boolean;
-  savingAll: boolean;
-  canSavePayoutData: boolean;
-  savePayoutDataTitle: string;
   onIssueNoticePdf: (row: MemberPayoutRow, options?: { forceReissue?: boolean }) => void;
   onOpenPdf: (pdfUrl: string | null | undefined) => void;
   onPreviewNoticePdf: (row: MemberPayoutRow) => void;
   onUpdateNoticeSent: (row: MemberPayoutRow, patch: NoticeSavePatch) => void;
   onOpenSendMailModal: (row: MemberPayoutRow) => void;
-  onSavePayoutData: () => void;
 }) {
   if (row.noticeExcluded) {
     return <span className="block text-right text-[11px] text-muted-foreground">通知対象外</span>;
   }
 
   const blocked = disabled || saving;
-  const canIssuePdf = !blocked && row.isSaved;
-  const hasPdf = Boolean(row.notice?.pdf_url);
+  const canIssuePdf = !blocked && row.totalPay > 0;
   const canPreviewPdf = !blocked && row.totalPay > 0;
   const isSent = Boolean(row.notice?.sent_at);
-  const canOpenSendModal = !blocked && hasPdf && row.isSaved && !isSent;
   const canClearSent = !blocked && isSent;
   const savedNoticeTotal = Math.round(numberValue(row.notice?.total_yen));
   const totalMismatch = savedNoticeTotal > 0 && savedNoticeTotal !== Math.round(row.totalPay);
+  const hasPdf = Boolean(row.notice?.pdf_url) && row.isSaved && !totalMismatch;
+  const canOpenSendModal = !blocked && (hasPdf || Boolean(row.notice?.pdf_url)) && !isSent;
   const issueTitle = row.isSaved
     ? hasPdf
       ? "改善版フォーマットの支払通知書PDFを再発行する"
       : "改善版フォーマットの支払通知書PDFを発行する"
-    : "先に支払データ保存を押すと発行できる";
+    : "最新計算額を自動同期してから支払通知書PDFを発行する";
   const pdfTitle = hasPdf
     ? "保存済みPDFを別タブで確認する"
-    : "支払データ保存前でも確認用PDFを作成してフォーマットを見る";
+    : "確認用PDFを作成してフォーマットを見る";
   const sentTitle = isSent
     ? "送付済みを取り消して未送付に戻す (メールは取り消されない)"
-    : hasPdf
-      ? row.isSaved
+    : row.notice?.pdf_url
+      ? row.isSaved && !totalMismatch
         ? "確認モーダルを開いてメンバーに支払通知メールを送信する"
-        : "先に支払データ保存を押すと送信できる"
+        : "送信時に最新計算額へ同期し、送信用PDFを再生成して送信する"
       : "PDF発行後に送信できる";
 
   return (
@@ -3865,7 +3858,7 @@ function PayoutNoticeActions({
       <div className="flex flex-wrap justify-end gap-1.5">
         <button
           type="button"
-          onClick={() => onIssueNoticePdf(row, { forceReissue: hasPdf })}
+          onClick={() => onIssueNoticePdf(row, { forceReissue: Boolean(row.notice?.pdf_url) })}
           disabled={!canIssuePdf}
           title={issueTitle}
           className="rounded-md border border-border px-2 py-1 text-[11px] hover:bg-muted/40 disabled:opacity-50"
@@ -3909,19 +3902,8 @@ function PayoutNoticeActions({
         )}
       </div>
       {!row.isSaved && (
-        <div className="flex flex-col items-end gap-1">
-          <button
-            type="button"
-            onClick={onSavePayoutData}
-            disabled={!canSavePayoutData}
-            title={savePayoutDataTitle}
-            className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-50"
-          >
-            {savingAll ? "保存中..." : "支払データ保存"}
-          </button>
-          <div className="max-w-[260px] text-right text-[10px] leading-snug text-amber-700">
-            PDF確認は保存前でも可。保存すると発行・送付が有効。
-          </div>
+        <div className="max-w-[260px] text-right text-[10px] leading-snug text-amber-700">
+          最新計算額を自動保存中。発行時にも同期してからPDFを作成。
         </div>
       )}
       {row.isSaved && !isSent && (

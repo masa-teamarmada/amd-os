@@ -33,7 +33,7 @@
 
 ## Payout Gate
 
-`/admin/payouts` は、支払対象の `member × source_ym × project` ごとに月初合意状態を read し、未合意のまま支払データ保存・支払通知書PDF生成・通知メール送信・送付済み確定へ進ませない。
+`/admin/payouts` は、支払対象の `member × source_ym × project` ごとに月初合意状態を read し、未合意のまま支払データ自動保存・支払通知書PDF生成・通知メール送信・送付済み確定へ進ませない。
 
 2026年5月以前の稼働月 (`source_ym <= 202605`) は月初合意導入前/移行月のため、支払 gate 上は `agreed` 扱いで通す。実際の `member_monthly_work_agreements` 行を偽造せず、gate の理由を「導入前/移行月のため合意済み扱い」として保持する。2026年6月以降の稼働月から通常どおり `pending` / `stale` / `revision_requested` を blocker にする。
 
@@ -51,7 +51,7 @@
 
 gate は `/admin/payouts` の server action で実行する。UI の警告だけにはしない。
 
-- `POST /api/admin/payouts` (`支払データ保存`)
+- `POST /api/admin/payouts` (`支払データ自動保存`)
 - `PATCH /api/admin/payouts` の `issue_notice_pdf` / `preview_notice_pdf`
 - `PATCH /api/admin/payouts` の `bulk_issue_notice_pdf` / `bulk_preview_notice_pdf`
 - `PATCH /api/admin/payouts` の `send_notice_email`

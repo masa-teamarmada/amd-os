@@ -454,7 +454,7 @@ payYen[member]   = round(earnedPt[member] × ptUnit)      # = そのまま支払
 |---|---|
 | 自動 (日次 03:05 JST) | `/api/cron/payout-reward-cache-refresh` |
 | 手動ボタン | `/admin/payouts` の「報酬キャッシュ再計算」 |
-| 保存系操作 | `/admin/payouts` で「支払データ保存」「通知書発行」「送付済化」を叩いたとき (= `refreshRewards=1` 付与) |
+| 保存系操作 | `/admin/payouts` の支払データ自動保存、通知書発行、送付済化を行うとき (= `refreshRewards=1` 付与) |
 
 **通常 GET (= `/admin/payouts?ym=YYYYMM` を開くだけ) は絶対に再計算しない**。 過去事故: GET でも自動再計算してた頃、 admin が画面開いただけで承認済の過去月の数字がズレるという UX 事故が発生 (= 6-5 章「通常 GET は読むだけ原則」参照)。
 
@@ -468,7 +468,7 @@ payYen[member]   = round(earnedPt[member] × ptUnit)      # = そのまま支払
 
 snapshot hash が変わったときは「条件更新あり」として再合意を促す。これは報酬計算の入力変更ではなく、本人/admin が条件変更を見落とさないための状態。
 
-`/admin/payouts` の支払 gate は、この月初合意レイヤーを server-side に read する。未合意 (`pending`) / 条件更新あり (`stale`) / 修正要望中 (`revision_requested`) の `member × 稼働月 × PJ` がある場合、支払データ保存・支払通知書PDF生成・送付・送付済み確定を止める。admin override は理由・actor・対象 member/PJ/月を `member_monthly_work_agreement_payout_overrides` に残した場合だけ許可する。
+`/admin/payouts` の支払 gate は、この月初合意レイヤーを server-side に read する。未合意 (`pending`) / 条件更新あり (`stale`) / 修正要望中 (`revision_requested`) の `member × 稼働月 × PJ` がある場合、支払データ自動保存・支払通知書PDF生成・送付・送付済み確定を止める。admin override は理由・actor・対象 member/PJ/月を `member_monthly_work_agreement_payout_overrides` に残した場合だけ許可する。
 
 この gate は「支払へ進めるか」の判定であり、`buildRewardSummary`、cap、stockYen、carry-over、pt unit、PM locked progress の計算には影響しない。業務委託契約上の個別発注 / SOW / 条件確認として hard guard を本番運用するには、契約改定・メンバー同意・法務レビューを前提にする。ここでは法的助言として断定しない。
 

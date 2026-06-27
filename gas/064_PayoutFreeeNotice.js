@@ -327,10 +327,16 @@ function payoutBuildNoticePdfBlob_(p){
     .setWrap(true);
 
   // ====== 右：通知日/番号 + 正本ロゴ ======
-  sh.getRange("G5:H5").merge().setValue("作成日").setFontSize(14).setFontColor(MUTED);
-  sh.getRange("I5:L5").merge().setValue(issueDate).setFontSize(14).setHorizontalAlignment("left");
-  sh.getRange("G6:H6").merge().setValue("通知書番号").setFontSize(14).setFontColor(MUTED);
-  sh.getRange("I6:L6").merge().setValue(noticeNo).setFontSize(13).setFontColor(MUTED).setHorizontalAlignment("left");
+  sh.getRange("G5:L5").merge()
+    .setValue(`作成日：${issueDate}`)
+    .setFontSize(14)
+    .setFontColor(MUTED)
+    .setHorizontalAlignment("right");
+  sh.getRange("G6:L6").merge()
+    .setValue(`通知書番号：${noticeNo}`)
+    .setFontSize(14)
+    .setFontColor(MUTED)
+    .setHorizontalAlignment("right");
 
   const logoMarkBlob = payoutGetPayoutLogoBlob_();
   const logotypeBlob = payoutGetPayoutLogotypeBlob_();
@@ -338,13 +344,13 @@ function payoutBuildNoticePdfBlob_(p){
     throw new Error("PAYOUT_LOGO_FILE_ID / PAYOUT_LOGOTYPE_FILE_ID is required for payout notice logo assets");
   }
   sh.getRange("G7:L7").merge().clearContent();
-  sh.insertImage(logoMarkBlob, 10, 7, 18, 3).setWidth(27).setHeight(27);
-  sh.insertImage(logotypeBlob, 10, 7, 52, 7).setWidth(178).setHeight(22);
+  sh.insertImage(logoMarkBlob, 10, 7, 76, 3).setWidth(27).setHeight(27);
+  sh.insertImage(logotypeBlob, 10, 7, 110, 7).setWidth(178).setHeight(22);
 
   sh.getRange("G8:L8").merge().setValue(COMPANY_NAME).setFontSize(14).setFontWeight("bold").setHorizontalAlignment("right");
   sh.getRange("G9:L9").merge().setValue(COMPANY_ADDR).setFontSize(12).setFontColor(MUTED).setHorizontalAlignment("right");
   sh.getRange("G10:L10").merge()
-    .setValue(`適格請求書発行事業者登録番号：${COMPANY_INVOICE_REGISTRATION_NUMBER}`)
+    .setValue(`インボイス登録番号：${COMPANY_INVOICE_REGISTRATION_NUMBER}`)
     .setFontSize(12).setFontColor(MUTED).setHorizontalAlignment("right");
 
   // ====== サマリ ======

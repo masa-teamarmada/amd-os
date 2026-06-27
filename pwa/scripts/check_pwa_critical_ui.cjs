@@ -128,8 +128,9 @@ expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
   "全員分PDF確認",
   "bulk_issue_notice_pdf",
   "bulk_preview_notice_pdf",
+  "自動保存済み",
+  "autoSaveStatusLabel",
   "fmtRelativeTime",
-  "applySavedPayoutsForExistingRows",
 ]);
 
 expectIncludes("src/components/admin/AdminMembersTable.tsx", [
@@ -162,13 +163,13 @@ expectIncludes("src/app/api/admin/payouts/route.ts", [
   "generateNoticePdfForMember",
   "generateNoticePdfBulk",
   "shouldRegenerateNotice",
+  "savePayoutDataSnapshot",
   "clearStalePayoutNoticePdfs",
   "last_generated_at",
   "contractor_name",
   "payeeAddress",
   "invoiceRegistrationNumber",
   "bankInfo",
-  "applySavedPayoutsForExistingRows",
 ]);
 
 expectIncludes("src/app/(app)/admin/payouts/page.tsx", [
@@ -217,6 +218,7 @@ expectIncludes("../gas/064_PayoutFreeeNotice.js", [
 
 expectNotIncludes("../gas/064_PayoutFreeeNotice.js", [
   '.setValue("振込先")',
+  "適格請求書発行事業者登録番号",
 ]);
 
 expectNotIncludes("../gas/064_PayoutFreeeNotice.js", [
