@@ -1242,6 +1242,33 @@ deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifica
 
 ---
 
+## 2026-06-26 - H-1 Notion AI Meeting Notes 事前コンテキスト設計
+
+### コンテキスト
+- まさ相談: Notion文字起こし後の補正ではなく、Notion側で会議前に自動生成される AI Meeting Notes page 自体へ、MTG前にPJ固有名詞・略称・拾うべき論点を入れて、Notion議事録の認識精度を上げたい。
+- Notion側では AI Meeting Notes という特殊DB/導線で事前にMTG page が作られ、文字起こし後に通常の議事録DBへ移動される。既存の「文字起こし後に議事録DBを読む」だけでは上流精度改善にならない。
+- 方針は「新automationは作らず、既存 H-1 Phase P / prep worker に入れる」。H-1 が毎時動くため、24時間以内MTGの prep と同じタイミングで実行する。
+
+### 実装メモ
+- `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md` に Phase 4 の AI Meeting Notes page探索、Phase 5.5 の `notion_ai_context_md` 生成/insert-only 注入、Phase 9 の `prep_notion_page_id` / `notion_url` 保存方針を追加。
+- `pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md` の Phase P 説明へ、Notion AI Meeting Notes 事前コンテキスト注入を追加。
+- `pwa/spec/3-3-meeting-flow-current-spec.md`、`pwa/design/meeting_summaries.md`、`pwa/manual/8-3-l2-extraction-routines-spec.md`、`pwa/manual/3-2-data-and-extraction.md`、`pwa/manual/2-3-pj-cockpit.md` に write boundary とユーザー向け説明を同期。
+- `amd-os:notion-ai-context:{meeting_id}:{context_digest}` marker を使い、同じcontextの重複挿入を避ける設計。内容は固有名詞辞書・今回の論点・迷った時のルールだけ。raw Gmail / Slack / transcript は入れない。
+
+### Read-only verification
+- `git diff --check` は H-1/meeting-flow 変更対象7ファイルで通過。
+- Supabase read-only: upcoming 7 days は8件。現時点では全件 `notion_url=false` / `notion_page_id=false`。
+- Notion read-only: future exact match は見つからず。既存 AI Meeting Notes sample page `38b97749-c608-8165-88f3-cc093ed31850` を fetch し、parent data source `collection://2a297749-c608-80c9-b666-000b2ce5e923` named `議事録` と schema (`eventId` / `sourceAiPageId` / `名前` / `日付` / `最終更新日時`) を確認。
+- Data source latest rows では `日付` が `null` の AI生成行があるため、`日付` filter だけに依存せず、title / updated time / fetched body の `<meeting-notes>` / mention-date で照合する必要がある。
+
+### 残課題
+- 次回 H-1 run 後に、対象MTGの `prep_worker_status` / `prep_readiness_reasons` / `prep_notion_page_id` / `notion_url` / `notion_page_id` を確認する。
+- Notion page が見つかった場合は、read-only fetch で `amd-os:notion-ai-context` block が1つだけ入り、transcript / summary / 開催後本文が置換されていないことを確認する。
+- Notion page が見つからない場合も、worker が `failed` ではなく `ready` または通常の prep 状態で進み、readiness reason に `notion_ai_note_not_found` 相当が残ることを確認する。
+- 実run確認後、H-1/Notion context bundle だけ named-file commit する。main checkout の他dirtyは混ぜない。
+
+---
+
 ## 2026-06-27 - 経営ガードレール実装と緊急通知の誤爆停止
 
 ### コンテキスト
@@ -1288,7 +1315,49 @@ deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifica
 
 ---
 
-## 2026-06-27 (v0.35.0) 旧 /loop 5段ループを廃止し /proactive 先手TODOへ白紙やり直し
+## 2026-06-27 - Management Score 先手力90未満危機定義の復旧
+
+### コンテキスト
+- まさが AMD Management Score の急落を見て、「少なくとも先手力が下がるのはおかしい。これが下がるときは会社が潰れるとき」と指摘。
+- さらに「先手力は90未満は危機的状態と定義したはず。70でアラートでは遅い」と明確化。
+- 重要定義がmd正本に残っていないこと自体が問題だったため、実装修正だけでなく manual/spec へ定義を固定した。
+
+### 原因
+- `scoreInitiative` が `unknown` 多数を「判定信頼度低下」ではなく `55 / 70 / 85` の点数上限補正として扱っていた。
+- 202606は `unknown 124/124`、後手event 0、rawScore 100 だったが、起点不明が多いだけで先手力が55相当に落ち、`initiative_modifier=0.3` が総合点へ掛かっていた。
+- audit側も、起点不明を罰すること自体ではなく「unknown高得点」を問題視する古い見方が残っていた。
+
+### 実装
+- `pwa/src/lib/management-score/calculate.ts` で `unknown` 点数上限補正を撤去。
+- 起点不明 / 分類不足 / source欠損は、先手力スコアではなく判定信頼度を下げる扱いへ変更。
+- 先手力90未満でも、判定信頼度不足・分類済みevent不足・確認済み後手eventなしなら、総合点への不可逆ペナルティを発動しない。
+- 分類不足時は前月値の暫定維持を許可し、表示は `暫定健全 (分類不足、判定信頼度低)` のように判定保留を明示する。
+- `pwa/scripts/audit_management_score.cjs` と `pwa/scripts/check_management_score_p0_p2.cjs` を更新し、起点不明が多い月に点数・総合点を落とす事故を検出するようにした。
+- `pwa/manual/4-5-management-score-and-finance-simulation-spec.md`、`pwa/spec/4-5-management-score-rebuild-plan.md`、manual/spec changelog、`pwa/BUGS.md` に同期。
+
+### Verified
+- `npm run test:management-score`
+- `npx tsc --noEmit`
+- `npx eslint src/lib/management-score/calculate.ts scripts/audit_management_score.cjs scripts/check_management_score_p0_p2.cjs`
+- `npm run calculate:management-score -- --ym=202606`
+- `npm run audit:management-score -- --ym=202606 --fail-on-actionable`
+- `npm run build`
+- production `/api/build-info`: `v0.34.31` / `132d5aaec9151deb1d1bad48375f98e81c54715e` / `dirty=false`
+
+### 現在値
+- 202606: 総合65 / 先手力96 / 財務58 / 継続62 / 新規38 / 方向20。
+- P0/P1/P2: 0件。
+- 先手力: `unknownCount=124`、`initiativeConfidence=0.25`、`initiativeModifier=1`。
+- 解釈: 先手力は「健全確定」ではなく「会社の後手化を示す分類済み証拠が足りないため、判定保留でペナルティなし」。
+
+### 残課題
+- `member_activities.initiative_origin` が202606でほぼ全件 `unknown` になっている原因を追い、抽出・分類品質を上げる。
+- p00 / internal / calendar-only activities が先手力や継続根拠に混ざっていないか、raw-data層で確認する。
+- 財務・継続・新規・方向も、同じ思想で「材料不足」「判定保留」「真の悪化」を分ける改善を続ける。
+
+---
+
+## 2026-06-27 (v0.35.0 → v0.35.4) 旧 /loop 5段ループを廃止し /proactive 先手TODOへ白紙やり直し
 
 ### 背景
 まさ指摘: 「先手力を維持するためにこのループ (/loop の5段盤面) が有効だというのが、いまいち実感として湧かない」「ただ情報の差分を並べてるだけ」「実行段に出てる3件はとっくに完了してるけど完了させるUIもない」「一度白紙に戻して、最適なコンテンツは何なのかを考えてもいい」。
@@ -1300,20 +1369,23 @@ deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifica
 4. 「司令塔セッションのえいみ → worker → ドラフト生成」のワークフローが運用上消滅 (Codex 側の司令塔セッションは廃止済み)、heartbeat の受け側が消えた
 
 ### まさ判断 (3問合意)
-1. **検知の起点を MTG に絞る (80% カバー仮説)**: 過去14日の議事録 next_actions + 3営業日以内の予定MTG。残り20%の突発 (Slack催促 / Gmail催促) は Phase 2 以降
+1. **検知の起点を MTG に絞る (80% カバー仮説)**: 過去14日の議事録 next_actions + 7日以内の予定MTG。残り20%の突発 (Slack催促 / Gmail催促) は Phase 2 以降
 2. **5段ループ盤面は捨てる**: /loop ルート、LoopKernelBoard.tsx、dashboard 埋め込み、design/proactive_operating_loop.md、spec/2-4 旧版を全廃
 3. **えいみが積む形 (cron 半自動投入) が理想**: 司令塔セッションが死んだ今、人手で積み続ける仕組みは成立しない前提で設計
 
 ### 実装 (まさ判断後の白紙やり直し)
 - migration 157 で `proactive_todos` 新規追加 (UNIQUE + RLS admin/service_role only)
   - status: open / done / blocked / dismissed (MVP は4状態のみ。sent は必要になれば追加)
-  - UNIQUE: (project_id, trigger_kind, source_meeting_id, source_event_id, title)
-- `/api/cron/proactive-todo-extract` (毎時 :15、Vercel cron):
+- migration 158 で UNIQUE INDEX を COALESCE 抜きの plain 複合 UNIQUE に作り直し
+  - 157 では `COALESCE(source_meeting_id, ''), COALESCE(source_event_id, '')` で UNIQUE を作ったが、supabase-js の `.upsert(..., { onConflict: '...' })` が COALESCE INDEX に紐付けず silent insert 失敗で 0 件問題
+- `/api/cron/proactive-todo-extract` (daily 09:15 JST, Vercel Hobby 制限のため毎時不可):
   - Stage 1: 過去14日の `source_kinds NOT IN (upcoming, none)` のMTGの next_actions を sweep
     - 文字列ヒューリスティックで ball_owner 判定 (LLM 不使用 = 課金 LLM cron 禁止ルール遵守)
-    - counterpart 判定の next_action は保存しない、amd/ambiguous のみ upsert
-    - テンプレ next_action (「関連資料.*前回までの論点.*当日確認」) は skip
-  - Stage 2: 3営業日以内の upcoming MTG に「agenda準備」TODO を upsert
+    - members から active メンバー実名 (フルネーム / 姓 / コードネーム) を fetch して amd 主語に動的追加
+    - counterpart 判定: 「○○氏 / さん / 先生 / 教授 / 社長 / 代表」「相手側」「○○氏と××氏は」の並列
+    - AMD 主語: 「AMD側」「アルマダ」「SX/CX/CryoX/SolvioraX/ZeMA/DAVP/NIMS OS 等の PJ コード/プロダクト名側」「えいみ/つくよみ/まさ」「こちら/当方」
+    - 「漏れより誤検知許容」設計: ambiguous も AMD ボール扱いで upsert
+  - Stage 2: 7日以内の upcoming MTG に「agenda準備」TODO を upsert
   - Stage 3: 期限超過 open → red 昇格
   - Stage 4: blocked で 3日経過したものを open に復帰
 - `/api/proactive-todos/:id/resolve` (admin auth + members.code_name 記録)
@@ -1332,9 +1404,16 @@ deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifica
 - `pwa/spec/6-1` / `pwa/manual/9-3` changelog に追記
 - `pwa/src/app/(app)/spec/spec-chapters.ts` の 2-4 slug 差し替え
 
+### 初回 backfill 結果 (2026-06-27 deploy 直後の手動キック)
+- 過去14日MTG = 21件 scan、予定MTG = 14件 scan
+- meeting_next_action upsert = 77件 (ball_owner: amd=28 / ambiguous=58 / counterpart=11 skip)
+- next_meeting_prep upsert = 10件 (4件は7日窓外で skip)
+- PJ別: SX=32 / ZMP=17 / KUTE=15 / SE=9 / VSX=4 / CLG=4 / CryoX=3 / LiSTie=1 / p00=1
+
 ### 残課題 / 持ち越し
 - **cockpit 側の `ProactiveQueuePanel`**: dashboard 側だけ刷新、cockpit `CockpitView.tsx` の旧 panel は今回触らず (= 別 Phase で対応)。dashboard 上段の旧 LoopKernelBoard / ProactiveQueuePanel 埋め込みは両方除去済み
 - **Gmail / Slack の催促文言検知**: MTG 起点で 80% 仮説に賭けたため MVP では未実装
 - **完了 → 学習段への流し込み**: resolved_note を AMD Protocol / textbook insight 候補へ流す Step 3 は未着手
 - **`sent` 状態 (相手にボールを渡した)**: まさ判断「最初はなしでもいい、必要だと感じたら追加」
-- **本セッション開始時点の前セッション未処理残骸 (84件 modified + untracked) は今回 stash で温存。私のセッションで触っていない別worker由来のため、別途処理が必要**
+- **本セッション開始時点の前セッション未処理残骸 (84件 modified + untracked) は今回 stash で温存後 pop で復帰。design_log/sessions_2026-06.md は conflict したため `--theirs` で前セッション分を残し、本セッション分を末尾に追加で merge した。他は触らず保留 (= 別 worker 由来のため、当該 worker / セッションで処理する想定)**
+- **ヒューリスティック精度の継続調整**: 初回 backfill では「CLG側」が AMD ボール判定で抽出された (実態は CLG ベンチャー側 = counterpart)。誤検知は /proactive の 🗑関係ない で消せるが、頻繁にあるなら PJ 主語パターンを CLG/LST のような社外取締役 / advisor 系では別扱いにする調整が要る
