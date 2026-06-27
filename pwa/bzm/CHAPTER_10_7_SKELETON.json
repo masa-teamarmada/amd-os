@@ -1,0 +1,368 @@
+{
+  "ch_overview": {
+    "core_proposition": "Murmann (2003) Knowledge and Competitive Advantage の dyestuffs 産業共進化叙述 (companies × institutions の双方向共進化) を、η_jt ∈ R^8 を機関 type × 時間の制度状態ベクトルとする VAR(1) η_{j,t+1} = A η_jt + Ψ · N_jt + ξ_{jt} として formal 化 (命題 10.6.3) し、累積法人化数 N_jt から制度状態 η_jt への 8 軸別フィードバック係数 Ψ を、Ch 5.5 GO ゲート閾値 θ_σ* に近接した近傍で σ_SU 観測値 - θ_σ* を駆動変数 (running variable) とするファジー回帰不連続デザインで局所 LATE として nonparametric identification する (定理 10.6.5)。さらに Sims (1980) Cholesky 識別順序 (η → τ_B → ΔPRS) と Ch 9 ERS 加重和代数 + Ch 10.4 Theorem 3 マッチング単調性から導かれる符号制約 Cov(η^k_{j,t-1}, ΔPRS_{j,t}) > 0 のもとで命題 10.6.4 Granger リードラグを確立し、Murmann が言語的にしか論じられなかった『institutions と companies のどちらが先か』の逆因果交絡を、(a) ファジー RD による Ψ 局所識別 + (b) Granger 符号制約による A と η→ΔPRS 分離、の二段論法で formal に解決する。Ch 10.4 Theorem 3 (D-039) / Ch 10.5 Klepper 統合ハザード (D-035) / Ch 10.6 Malerba 全射 (D-036) と並ぶ Ch 10 制度動学の Murmann 軸正準オーナー章 (D-037)。",
+    "load_bearing_claims": [
+      "命題 10.6.3 (η_jt VAR(1) + Ψ フィードバック): 制度状態 η_jt = (η^1_jt, ..., η^8_jt)^T ∈ R^8 は機関 type j ∈ J (|J|=7、D-034) × 時間 t (年単位、Phase 2 で AMD OS に観測量実装、D-052 2026Q4) のパネル状態ベクトルで、η_{j,t+1} = A η_jt + Ψ · N_jt + ξ_{jt}、A ∈ R^{8×8} は institutions autoregression、Ψ ∈ R^{8×1} (baseline) は companies → institutions フィードバック係数、ξ_jt は機関固有ショックでフィルトレーション F_t に対する martingale difference E[ξ_{jt} | F_t] = 0、共分散 Σ_ξ は正定値、spectral radius ρ(A) < 1 のもとで Foster-Lyapunov ドリフト V(η) = η^T P η による定常性が成立",
+      "命題 10.6.4 (Granger リードラグ符号制約): η^k_{j,t-1} は ΔPRS_{j,t} を Granger 因果し、Cov(η^k_{j,t-1}, ΔPRS_{j,t} | F_{t-2}) > 0 が軸 k 別に成立 (符号は Ch 9 ERS 加重和の同符号加重 + Ch 10.4 Theorem 3 マッチング単調性から理論的に導出)、逆方向 ΔPRS → η は τ_B 通過確率を介在変数として経由する間接効果のみで直接 Granger 因果なし、Sims (1980) Cholesky 識別順序 (η → τ_B → ΔPRS、制度が最も粘着的・案件出力が最も速応答) のもとで構造 VAR 識別が確定",
+      "定理 10.6.5 (τ_B ファジー RD Ψ identification): 駆動変数 R_{ijt} := σ_SU 観測値 - θ_σ* を Ch 5.5 GO ゲートから継承し、4 つの識別仮定 — (10.6.A) 連続性 (Lee 2008 manipulation 不在、E[ξ|R] と P(τ_B|R) が R=0 で連続)、(10.6.B) first stage 不連続性 (Imbens-Lemieux 2008、lim_{R↓0} - lim_{R↑0} P(τ_B|R) = π > 0)、(10.6.C) 単調性 (Hahn-Todd-van der Klaauw 2001、no defiers)、(10.6.D) 排除制約 (excluded restriction、σ_SU は τ_B 経由でのみ η に影響、Ch 5 σ_SU MS-SSM の『σ_SU は ERS の関数でなく案件側状態』に根拠) — のもとで Ψ^k_LATE = [lim_{R↓0} E[Δη^k|R] - lim_{R↑0} E[Δη^k|R]] / [lim_{R↓0} P(τ_B|R) - lim_{R↑0} P(τ_B|R)] が cutoff 近傍の complier における局所 LATE として nonparametric identification 可能",
+      "Murmann (2003) 言語的逆因果交絡 (institutions vs companies どちらが先か) の formal 解決は二段論法: (a) §10.7.2 ファジー RD で companies → institutions の Ψ を局所 LATE で識別、(b) §10.7.3 Granger 符号制約で A (institutions の autoregression) と η → ΔPRS (institutions → companies leading) を分離、両者の合成で Murmann 物語の双方向共進化が formal 動学として書き下される"
+    ],
+    "logical_arc": "§10.7.0 節頭で Murmann 2003 dyestuffs 物語 (ドイツが英国を 1880s-1900s で逆転した過程、Technische Hochschule と BASF/Hoechst/Bayer の交互育ち合いを Murmann 自身が『どちらが先か分離できない』と留保したこと) を導入し、Engineering-Univ-Type 桑折 KUTE 7 論点 (Book III Ch 21、D-034 type 名匿名化遵守) を η_jt 8 軸との対応表として本節で新規作成して読者に提示 → §10.7.1 で η_jt VAR(1) を formal 状態方程式として確立し、Foster-Lyapunov V(η) = η^T P η による安定性証明スケッチと A-Ψ 観測等価類問題 (η_jt と N_jt の同時内生性で OLS では分離不能) を提示、homogeneous Ψ vs heterogeneous Ψ_j (Pesaran-Smith 1995) の baseline 選択を明示 → §10.7.2 で Ch 5.5 GO ゲート θ_σ* を駆動変数源とするファジー RD setup を構築し、4 つの識別仮定 10.6.A-D を formal 列挙 (B 案のラベル付き形式) し、定理 10.6.5 で Ψ^k 局所 LATE を nonparametric 識別、排除制約を Ch 5 σ_SU MS-SSM 構造に紐付け → §10.7.3 で Sims Cholesky 順序 (η → τ_B → ΔPRS) を確立し、命題 10.6.4 Granger 符号制約を Ch 9 加重和 + Ch 10.4 マッチング単調性から formal 導出、Murmann 言語的交絡解決を (a) RD + (b) Granger の二段論法で総括、Ch 11 BVAR (Ψ 推定 + panel VAR IRF) と Ch 26b (Tier B 事前登録: first stage 有意性 + McCrary manipulation + Granger F 検定 + 軸別 Ψ^k 符号予想) への commission table、Book V 機関章 (Ψ^k 軸別政策含意) と Book III Ch 21 (KUTE 7 論点の leading/lagging 軸分類による戦略含意翻訳) への引渡しで章を閉じ、D-037 オーナーシップを再確認。",
+    "synthesis_rationale": "3 judges 全員が C を overall_winner に選んだ (Lens A 厳密性、Lens B publishability + D-037 進化経済 persona) が、Lens C (masa-fidelity) では A が勝者で KUTE 7 論点の対応表新規作成コミットと Book III Ch 21 への leading/lagging 翻訳経路、open_issues / falsifiable_claims の網羅性 (9+9) が決定的優位とされた。本統合は C 骨格 (Sims Cholesky 順序、Foster-Lyapunov V(η) ドリフト、排除制約の Ch 5 根拠付け、homogeneous vs heterogeneous Ψ_j、Granger 符号制約の Ch 9 + Ch 10.4 formal 導出、panel VAR IRF commission、Murmann 解決二段論法総括) をベースに、A から (1) §10.7.0 ¶4 KUTE 7 論点 × η_jt 8 軸対応表の本節新規作成コミット、(2) §10.7.3 KUTE 論点 leading/lagging 軸分類による Book III Ch 21 戦略含意翻訳経路、(3) compliers external validity を Book V 機関章に commission、(4) ξ_jt の martingale difference + F_t フィルトレーション仕様、(5) VMA(∞) 表現の証明スケッチ、(6) Holtz-Eakin-Newey-Rosen (1988) panel Granger 参照、(7) Murmann 歴史人名 (BASF/Hoechst/Bayer) の D-034 匿名化 exempt 規律確認の open_issue、(8) open_issues 9 件と falsifiable 9 件の網羅性、(9) Ψ ∈ R^{8×1} vs R^{8×K} の baseline 議論、(10) Driscoll-Kraay / cluster-robust SE / donut RD 代替戦略の open_issues、を移植。B から (i) 識別仮定 10.6.A/10.6.B/10.6.C/10.6.D のラベル付き番号体系、(ii) VAR(1) lag 次数選択 (VAR(1) vs VAR(p)) を open_issue として明示、(iii) §10.7.0 KUTE 7 論点 7 項目の具体列挙 (TLO 整備度、産学連携契約様式、教員兼業規程、学生起業支援、共同研究費プール、特許帰属ルール、機関 VC 連携)、(iv) Cattaneo-Frandsen-Titiunik 2015 randomization inference 参照、(v) 連続性仮定の Ch 5/5.5 出力依存を open_issue として明示、を graft。これにより 3 lens 全てで最強の draft を構築。"
+  },
+  "sections": [
+    {
+      "section_id": "10.7.0",
+      "title": "節頭ストーリー — Murmann 2003 dyestuffs 共進化と KUTE 7 論点の η_jt 観測例示",
+      "pages": 1,
+      "math_level": "low (言語的叙述中心、η_jt と N_jt と Ψ の記号予告のみ、KUTE 7 論点 × η_jt 8 軸対応表を本節で新規作成)",
+      "anchor_claims": [
+        "Murmann (2003) Knowledge and Competitive Advantage は 19 世紀ドイツ・英国 dyestuffs 産業で companies (BASF, Hoechst, Bayer) と institutions (Technische Hochschule の有機化学講座、特許制度、化学学会) の双方向共進化を歴史的に追ったが、formal モデルと identification 戦略を欠き、Murmann 自身が『institutions と companies のどちらが先か分離不能』と留保した",
+        "BZM Ch 10.7 はこの言語的叙述を η_jt VAR(1) + Ψ · N_jt フィードバック (命題 10.6.3) として formal 化し、τ_B GO ゲート閾値 θ_σ* 近傍のファジー RD で Ψ を局所 LATE 識別 (定理 10.6.5)、Sims Cholesky 順序付き Granger 符号制約 (命題 10.6.4) で A と η→ΔPRS を分離する二段論法で逆因果交絡を破る",
+        "Engineering-Univ-Type 桑折 KUTE 7 論点 (Book III Ch 21、D-034 type 名匿名化) を η_jt 8 軸との対応表として本節で新規作成: KUTE 論点 1 (TLO 整備度) → η^1_jt (学術連携軸)、KUTE 論点 2 (産学連携契約様式) → η^2_jt (制度連携契約軸)、KUTE 論点 3 (教員兼業規程) → η^3_jt (人材還流軸)、KUTE 論点 4 (学生起業支援) → η^4_jt (起業育成軸)、KUTE 論点 5 (共同研究費プール) → η^5_jt (資金プール軸)、KUTE 論点 6 (特許帰属ルール) → η^6_jt (知財帰属軸)、KUTE 論点 7 (機関 VC 連携) → η^7_jt (機関 VC 軸)、第 8 軸 η^8_jt (独立 IPO 許容軸) は KUTE に対応せず Ch 9 ERS 8 軸から継承"
+      ],
+      "paragraph_outline": [
+        "¶1: Murmann 2003 dyestuffs 物語の要約 — 1880s-1900s でドイツが英国を合成染料市場で逆転した過程に、Technische Hochschule の有機化学講座設置と BASF/Hoechst/Bayer の R&D ラボ確立が同時期に交互形成された歴史叙述、特許制度・大学カリキュラム・企業 R&D が相互に育ち合った 50 年スパンを brief に紹介",
+        "¶2: Murmann 命題の言語的弱点 — co-evolution は『rich historical narrative』として提示されるが、Murmann 自身が結論章で『どの軸でどちらが先行したかは分離不能』と留保しており、formal モデルと identification 戦略がない",
+        "¶3: BZM Ch 10.7 formalization 戦略の予告 — η_jt VAR(1) で institutions autoregression A と companies → institutions feedback Ψ を分離、companies → institutions は累積 N_jt で、institutions → companies は ΔPRS_jt と τ_B 通過率で観測する非対称構造、Ch 10.6 Malerba 全射 (D-036 sectoral systems の集合) との分担を明示 (Ch 10.7 は『制度状態の動学』を扱う)",
+        "¶4: KUTE 7 論点 × η_jt 8 軸対応表を本節で新規作成 (D-034 type 名匿名化遵守) — Engineering-Univ-Type 機関 j の 7 論点を η_jt の 7 軸 (k=1..7) に写像し、第 8 軸 (独立 IPO 許容軸) は KUTE 非対応で Ch 9 から継承、Book III Ch 21 への supply 関係を明示し §10.7.3 章末で leading/lagging 軸分類による戦略含意翻訳に再回収",
+        "¶5: Ψ^k 軸別符号予想の予告 — Ψ^1 (学術連携) > 0、Ψ^2 (連携契約) > 0、Ψ^7 (機関 VC) > 0 (累積ベンチャー数が機関連携と機関 VC を強化)、Ψ^6 (知財帰属) は混合、Ψ^8 (独立 IPO) ≈ 0 (累積ベンチャーが IPO 市場慣行を直接変えるのは弱い)、軸別 pattern は Ch 26b で事前登録 (HARKing 補正は open_issue)",
+        "¶6: 章末ロードマップと Tier 規律 — §10.7.1 VAR formal + 命題 10.6.3、§10.7.2 ファジー RD + 定理 10.6.5、§10.7.3 Granger 10.6.4 + 章末 commission、本章本体 Tier A、経験的検証 Ch 26b Tier B、推定実装 Ch 11 (D-031)、Phase 2 データ実装 2026Q4 (D-052) を 1 行で明示"
+      ],
+      "new_writing_required": "全段落新規。特に ¶4 の KUTE 7 論点 × η_jt 8 軸対応表は本節で新規作成し Book III Ch 21 への supply 関係を確立する load-bearing コミット (judge 3 が masa-fidelity で最重要視)。Murmann 2003 dyestuffs 物語の BZM 文脈での要約 (¶1-¶2) と formalization 戦略予告 (¶3) は §10.7.1-§10.7.3 への motivation として新規執筆。",
+      "existing_reuse": "Murmann (2003) 引用は Book II 序論および Ch 10.6 (Malerba sectoral systems) から差別化引用 (Malerba = 全射、Murmann = 双方向 dynamics)。Ch 9 ERS 8 軸の定義は記号再掲のみ、KUTE 7 論点リストは Book III Ch 21 から要約引用 (D-034 type 名匿名化遵守)、N_jt 記号は Ch 10.5 D-035 Klepper から定義復習のみ。",
+      "upstream_dependencies": [
+        "Book II 序論 (Murmann 引用初出)",
+        "Ch 9 ERS 加重和代数 (η_jt 8 軸構造の supplier)",
+        "Ch 5.5 GO ゲート θ_σ* (RD 駆動変数 cutoff の予告)",
+        "Ch 10.5 Klepper 統合ハザード (N_jt 累積の supplier、D-035)",
+        "Ch 10.6 Malerba 全射 (sectoral systems との分担、D-036)",
+        "Book III Ch 21 (KUTE 7 論点の正本、D-034)",
+        "D-034 機関匿名化方針",
+        "D-037 Murmann 双方向 ERS-PRS coupling 正準オーナー判定"
+      ],
+      "downstream_dependencies": [
+        "§10.7.1 (η_jt VAR formal の motivation)",
+        "§10.7.3 (KUTE 7 論点が leading/lagging 軸分類で Book III Ch 21 戦略含意翻訳に再回収)",
+        "Book III Ch 21 (KUTE 7 論点が η_jt 観測量の具体例として参照)"
+      ],
+      "references": [
+        "Murmann (2003) Knowledge and Competitive Advantage Ch 1-3, 8, Cambridge UP",
+        "Nelson & Winter (1982) An Evolutionary Theory of Economic Change",
+        "North (1990) Institutions, Institutional Change and Economic Performance",
+        "Book III Ch 21 (KUTE 7 論点正本、type 名匿名化のみ参照)"
+      ],
+      "source_drafts": [
+        "A §10.7.0 (KUTE 7 論点 × η_jt 軸対応表の本節新規作成コミットを採用)",
+        "B §10.7.0 (KUTE 7 論点 7 項目の具体列挙 — TLO 整備度、産学連携契約様式、教員兼業規程、学生起業支援、共同研究費プール、特許帰属ルール、機関 VC 連携 — を採用)",
+        "C §10.7.0 (Murmann 自身の『どちらが先か分離不能』留保引用と Ch 10.6 Malerba 全射との分担明示を採用)"
+      ]
+    },
+    {
+      "section_id": "10.7.1",
+      "title": "η_jt VAR(1) formal setup と命題 10.6.3 — 制度状態の自己回帰 + Ψ フィードバック",
+      "pages": 3,
+      "math_level": "high (VAR(1) 状態方程式、Foster-Lyapunov V(η) ドリフト負安定性条件、ξ_jt の martingale difference 仕様、VMA(∞) 表現、A-Ψ 観測等価類問題、homogeneous vs heterogeneous Ψ_j の panel 選択)",
+      "anchor_claims": [
+        "定義 10.6.1: η_jt = (η^1_jt, ..., η^8_jt)^T ∈ R^8 は機関 type j ∈ J (|J|=7、D-034) × 時間 t ∈ {0,1,...,T} (年単位、D-052 Phase 2 2026Q4 実装) の 8 軸 ERS 制度状態ベクトル、各軸 k = 1..8 は Ch 9 ERS 加重和の k 番目要素",
+        "定義 10.6.2: N_jt = Σ_{s≤t} 1{機関 j で時間 s に法人化したベンチャー} は累積法人化数 (Ch 10.5 Klepper 統合ハザード D-035 からの積分供給)、N_jt は単調非減少",
+        "命題 10.6.3 (η_jt VAR(1) + Ψ フィードバック): η_{j,t+1} = A η_jt + Ψ · N_jt + ξ_{jt}、A ∈ R^{8×8} は institutions autoregression、Ψ ∈ R^{8×1} (baseline) は companies → institutions フィードバック、ξ_jt は機関固有ショックでフィルトレーション F_t に対する martingale difference E[ξ_{jt} | F_t] = 0、共分散 Σ_ξ は正定値、spectral radius ρ(A) < 1 のもとで Foster-Lyapunov ドリフト V(η) = η^T P η が負になり定常性が成立",
+        "VMA(∞) 表現: η_jt = Σ_{s=0}^∞ A^s (Ψ N_{j,t-1-s} + ξ_{j,t-s})、N_jt が劣多項式成長なら η_jt は確率的に有界 (Meyn-Tweedie 2009)",
+        "観測等価類問題: η_jt と N_jt の同時内生性 (N_jt は Ch 10.4 ERS-PRS マッチング経由で η_jt から派生) により単純 OLS では A と Ψ を分離不能、§10.7.2 のファジー RD が identification を担う",
+        "homogeneous Ψ vs heterogeneous Ψ_j (Pesaran-Smith 1995): 本書 baseline は homogeneous Ψ (|J|=7 type で自由度制約)、heterogeneous Ψ_j 拡張は Ch 11 BVAR に commission"
+      ],
+      "paragraph_outline": [
+        "¶1: 状態空間 η_jt ∈ R^8 の formal 定義 — 各軸 k を Ch 9 ERS 8 軸と対応付け、機関 j は D-034 type 名のみ (本書 |J|=7 type) で索引、時間 t は年単位 (D-052 Phase 2 2026Q4 で AMD OS に観測量実装予定)",
+        "¶2: 累積法人化数 N_jt = Σ_{s≤t} 1{post-B at j, s} の定義 — Ch 10.5 統合ハザード (D-035 Klepper) からの積分供給を明示、N_jt は単調非減少の cumulative venture count",
+        "¶3: 命題 10.6.3 VAR(1) 状態方程式の宣言 — η_{j,t+1} = A η_jt + Ψ · N_jt + ξ_{jt}、A ∈ R^{8×8} (D-051 表記)、Ψ ∈ R^{8×1} (baseline、Ψ ∈ R^{8×K} 拡張は open_issue)、ξ_jt ∈ R^8 はフィルトレーション F_t に対する martingale difference E[ξ_{jt} | F_t] = 0 (A 案採用)、共分散 Σ_ξ 正定値、機関間ショック相関 Cov(ξ_jt, ξ_{j't}) ≠ 0 は Ch 11 で BVAR prior 設計に commission",
+        "¶4: 命題 10.6.3 声明と定常性条件 — (a) ρ(A) < 1 なら η_jt は機関 j 内で弱定常、(b) Ψ ≠ 0 が Murmann co-evolution の formal 定義、(c) Foster-Lyapunov ドリフト V(η) = η^T P η が負になる P > 0 が存在 (Meyn-Tweedie 2009、Ch 10.4 D-039 との理論的整合)",
+        "¶5: 証明スケッチ (D-047、完全証明は付録 A.10.7.1) — Lütkepohl (2005) §2.1 多変量定常性 Lemma を機関パネルに拡張、ρ(A) < 1 から VMA(∞) 表現 η_jt = Σ_{s=0}^∞ A^s (Ψ N_{j,t-1-s} + ξ_{j,t-s}) の収束を示し、N_jt 劣多項式成長 (Ch 10.5 ハザード積分の漸近) と Foster-Lyapunov ドリフト負で η_jt 有界性を確立",
+        "¶6: A-Ψ 観測等価類問題 — 観測量 η_jt のみでは A と Ψ は単純 OLS で分離不能 (η_jt と N_jt の動学的共線性 + N_jt の Ch 10.4 経由内生性)、Murmann 言語的逆因果交絡は formally Ψ vs A の混同として表現される",
+        "¶7: 標準的 identification 戦略の限界提示 — Sims (1980) short-run 制約、Bernanke (1986) long-run 制約は historical sequence の事前知識を要するが、機関 ERS では事前知識が薄く、Ψ identification には companies 側の外生変動が必要",
+        "¶8: §10.7.2 ファジー RD への bridge 予告 — Ch 5.5 GO ゲート θ_σ* 近傍の σ_SU 観測値ノイズが companies → institutions 方向の外生変動を提供し、Ψ を局所 LATE で識別可能になる伏線",
+        "¶9: 軸別 Ψ^k 解釈の事前期待 — Ψ^1 (学術連携) > 0、Ψ^2 (連携契約) > 0、Ψ^7 (機関 VC) > 0、Ψ^8 (独立 IPO) ≈ 0 など軸別 pattern (KUTE 対応表 §10.7.0 ¶4 と整合)、Murmann 2003 dyestuffs の Hochschule × BASF 双方向共進化の formal 翻訳",
+        "¶10: Ψ の構造選択 (baseline と拡張) — baseline は Ψ ∈ R^{8×1} (N_jt スカラー累積)、拡張 Ψ ∈ R^{8×K} (N_jt を K 種ベンチャー type に分解) は open_issue、A 行列の off-diagonal block で軸間相互作用を回収する設計も明示",
+        "¶11: homogeneous Ψ vs heterogeneous Ψ_j の panel 選択 — Pesaran-Smith (1995) heterogeneous panel VAR は |J|=7 type の自由度制約で baseline 困難、本書 baseline は homogeneous Ψ、heterogeneous 推定は Ch 11 BVAR で Phase 2 データ蓄積後に再検討",
+        "¶12: VAR(1) lag 次数の確定 — 本章では VAR(1) を formal baseline とし、VAR(p) (p ≥ 2) 拡張は Lütkepohl (2005) lag selection を Ch 11 BVAR でデータ依存に決定、本章本体は VAR(1) に縛る (B 案 open_issue を本文確定に昇格)"
+      ],
+      "new_writing_required": "命題 10.6.3 本体声明と Foster-Lyapunov 安定性証明スケッチ (¶4-¶5)、ξ_jt の martingale difference + F_t フィルトレーション仕様 (¶3、A 案採用)、VMA(∞) 表現 (¶5、A 案採用)、homogeneous vs heterogeneous Ψ_j panel 選択 (¶11、C 案採用)、Ψ の R^{8×1} vs R^{8×K} 構造選択 (¶10)、VAR(1) lag 次数の本文確定 (¶12、B 案 open_issue 昇格)、軸別 Ψ^k 解釈 (¶9) は全て新規執筆。",
+      "existing_reuse": "Ch 9 ERS 8 軸代数 (η^k の k=1..8 構造) は Ch 9 から記号継承、N_jt 蓄積過程は Ch 10.5 D-035 から供給、ΔPRS_jt 定義は Ch 10.4 D-039 から再利用 (§10.7.3 で使用)、Lütkepohl 2005 多変量 VAR 定常性 Lemma は標準引用、Foster-Lyapunov Meyn-Tweedie 2009 は Ch 10.4 との理論的整合。",
+      "upstream_dependencies": [
+        "§10.7.0 (Murmann 物語と KUTE 対応表)",
+        "Ch 9 ERS 加重和代数 (8 軸構造)",
+        "Ch 10.5 統合ハザード N_jt (D-035 Klepper)",
+        "Ch 10.4 Theorem 3 ΔPRS_jt (D-039、Foster-Lyapunov の理論的対応物)",
+        "Ch 10.6 Malerba 全射 (D-036)",
+        "D-051 記号正本 (η_jt, A, Ψ, N_jt, ξ_jt)",
+        "D-034 機関匿名化"
+      ],
+      "downstream_dependencies": [
+        "§10.7.2 (Ψ identification のための駆動変数導入と観測等価類解消)",
+        "§10.7.3 (Granger リードラグの formal 化)",
+        "Ch 11 BVAR (推定実装 + heterogeneous Ψ_j 拡張 + VAR(p) lag 選択、D-031 Tier A)",
+        "Ch 26b (命題 10.6.4 リードラグ事前登録、D-031 Tier B)",
+        "付録 A.10.7.1 (Foster-Lyapunov 完全証明、D-047)"
+      ],
+      "references": [
+        "Lütkepohl (2005) New Introduction to Multiple Time Series Analysis Ch 2-3 §2.1, Springer",
+        "Sims (1980) Macroeconomics and Reality, Econometrica 48(1)",
+        "Bernanke (1986) Alternative Explanations of the Money-Income Correlation",
+        "Pesaran & Smith (1995) Estimating Long-run Relationships from Dynamic Heterogeneous Panels, J Econometrics 68(1)",
+        "Meyn & Tweedie (2009) Markov Chains and Stochastic Stability (Foster-Lyapunov)",
+        "Nelson & Winter (1982) selection environment 概念"
+      ],
+      "source_drafts": [
+        "C §10.7.1 (Foster-Lyapunov V(η) ドリフト負証明スケッチ + homogeneous vs heterogeneous Ψ_j panel 選択 + Pesaran-Smith 1995 を採用)",
+        "A §10.7.1 (martingale difference + F_t フィルトレーション仕様 + VMA(∞) 表現証明スケッチ + Ψ ∈ R^{8×1} vs R^{8×K} 構造選択 + Sims/Bernanke 制約限界 bridge を採用)",
+        "B §10.7.1 (観測等価類問題の §10.7.1 → §10.7.2 bridge clean 設計 + VAR(1) lag 次数 open_issue を本文確定に昇格採用)"
+      ]
+    },
+    {
+      "section_id": "10.7.2",
+      "title": "τ_B ファジー回帰不連続による Ψ identification — 定理 10.6.5",
+      "pages": 3,
+      "math_level": "high (ファジー RD setup、4 つの識別仮定 10.6.A-D のラベル付き列挙、first stage discontinuity、reduced form jump、LATE Wald 比公式、Imbens-Kalyanaraman + Calonico-Cattaneo-Titiunik bandwidth、Cattaneo-Frandsen-Titiunik randomization inference、McCrary + Cattaneo-Jansson-Ma manipulation テスト)",
+      "anchor_claims": [
+        "駆動変数 (running variable) R_{ijt} := σ_SU 観測値 - θ_σ* を Ch 5.5 GO ゲートから継承、R > 0 で GO 候補・R < 0 で NO-GO 候補、cutoff |R| < h 近傍で as-if random 割当 (Lee 2008)",
+        "ファジー RD (Hahn-Todd-van der Klaauw 2001) を採用する理由: τ_B 通過は σ_SU ≥ θ_σ* に加えて他の条件 (実行者覚悟、PRS gate 通過、審査主観) にも依存するため sharp ではなく probabilistic jump、first stage = lim_{R↓0} Pr(τ_B = pass | R) - lim_{R↑0} Pr(τ_B = pass | R) = π > 0",
+        "識別仮定 4 つを formal ラベル付き列挙 (B 案ラベル形式採用): (10.6.A) 連続性 (Lee 2008、E[ξ|R] と P(τ_B|R) が R=0 で連続、manipulation 不在)、(10.6.B) first stage 不連続性 (Imbens-Lemieux 2008、π > 0)、(10.6.C) 単調性 (Hahn-Todd-van der Klaauw 2001、no defiers)、(10.6.D) 排除制約 (excluded restriction、σ_SU は τ_B 経由でのみ η に影響、Ch 5 σ_SU MS-SSM の『σ_SU は ERS の関数でなく案件側状態』に根拠)",
+        "定理 10.6.5 (Ψ^k 局所 LATE identification): 仮定 10.6.A-D のもとで Ψ^k_LATE = [lim_{R↓0} E[Δη^k_{j,t+1}|R] - lim_{R↑0} E[Δη^k_{j,t+1}|R]] / [lim_{R↓0} P(τ_B|R) - lim_{R↑0} P(τ_B|R)] が cutoff 近傍の complier における局所 LATE として nonparametric 一致推定可能 (Imbens-Lee 2008)",
+        "bandwidth 選択: Imbens-Kalyanaraman (2012) MSE 最適 + Calonico-Cattaneo-Titiunik (2014) robust bias-corrected の両方を併記、Ch 11 BVAR 推定章へ実装 commission、Cattaneo-Frandsen-Titiunik (2015) randomization inference を堅牢性チェックに採用"
+      ],
+      "paragraph_outline": [
+        "¶1: §10.7.1 で残された identification 問題の再提示 — A-Ψ 観測等価類、なぜ standard IV や OLS が不十分か (N_jt と η_jt 同時内生性、有効 instrument 不在)、companies → institutions 外生変動の必要性",
+        "¶2: ファジー RD motivation — Ch 5.5 GO ゲート閾値 θ_σ* (D-051) が σ_SU の自然 cutoff を提供、cutoff 近傍では σ_SU 観測値が θ_σ* をわずかに上下することは案件の microscopic 揺らぎで運営者 manipulation 困難 → Lee 2008 連続性仮定が成立する根拠",
+        "¶3: RD setup の formal 定義 — 駆動変数 R = σ_SU - θ_σ*、treatment T = 1{τ_B 通過}、outcome Δη^k = η^k_{j,t+1} - (A η_jt)^k の左辺、sharp RD でなく fuzzy RD を採用する理由 (τ_B 通過は σ_SU ≥ θ_σ* に加えて他条件にも依存するため probabilistic jump)",
+        "¶4: 仮定 10.6.A (連続性、Lee 2008) を formal 提示 — E[ξ_jt | R = r] と P(τ_B | R = r) が r = 0 で連続、manipulation 不在は Cattaneo-Jansson-Ma (2020) 密度推定と McCrary (2008) density test で経験的検証 (Ch 26b Tier B 事前登録)",
+        "¶5: 仮定 10.6.B (first stage 不連続性、Imbens-Lemieux 2008) を formal 提示 — lim_{R↓0} P(τ_B|R) - lim_{R↑0} P(τ_B|R) = π > 0、π の経験的推定と弱識別チェックは Ch 26b Tier B 事前登録 (D-031)",
+        "¶6: 仮定 10.6.C (単調性、Hahn-Todd-van der Klaauw 2001) を formal 提示 — no defiers (R cutoff を上回ると τ_B 通過確率が下がる病理的案件不在)、Imbens-Angrist (1994) LATE 単調性の RD 版、Frandsen-Frölich-Melly (2012) 単調性テスト",
+        "¶7: 仮定 10.6.D (排除制約、excluded restriction) を formal 提示 — σ_SU が τ_B を経由せず η_jt に直接影響するチャンネルが存在しない、根拠は Ch 5 σ_SU MS-SSM で σ_SU は ERS の関数でなく案件側状態 (Ch 9 加重和の入力ではない)、Cambridge UP referee が必ず突くポイントを先回り (judge 1/2 全員が重要視)",
+        "¶8: 定理 10.6.5 本体声明 — 仮定 10.6.A-D + 共変量条件付け (機関 j 固定効果、時刻 t トレンド) のもとで Ψ^k_LATE = δ^k / π が complier における Ψ^k の局所 LATE として一致推定可能",
+        "¶9: 証明スケッチ (D-047、完全証明は付録 A.10.7.2) — Hahn-Todd-van der Klaauw (2001) Theorem 3 (fuzzy RD identification) を BZM 8 軸 panel 設定に拡張、機関 j 固定効果と時刻 t トレンドの吸収を local linear regression で実装、分子 ITT (intent-to-treat) と分母 first stage の比が IV identification の局所版",
+        "¶10: bandwidth 選択と推定実装 commission — Imbens-Kalyanaraman (2012) MSE 最適 + Calonico-Cattaneo-Titiunik (2014) robust bias-corrected 両方を Ch 11 BVAR に commission、bias correction と robust 標準誤差は Cattaneo-Idrobo-Titiunik (2020) RD Designs Vol I-II、randomization inference は Cattaneo-Frandsen-Titiunik (2015) を堅牢性チェックに採用",
+        "¶11: 仮定の経験的検証可能性 — McCrary (2008) 駆動変数密度連続性テスト、Cattaneo-Jansson-Ma (2020) manipulation テスト、共変量バランステスト、機関規模/地域/専門分野の cutoff 近傍不連続チェックは全て Ch 26b Tier B 事前登録項目 (D-031)、manipulation テスト棄却時の代替戦略 (donut RD で cutoff 近傍除外、または局所 IV) は open_issue",
+        "¶12: 局所 LATE の解釈限界と Murmann 言語的交絡解決の核 — Ψ^k_LATE は θ_σ* 近傍の compliers (cutoff 近傍で GO/NOGO が R で flip するベンチャー) のみの平均効果、外挿可能性 (external validity) は Wing-Bello-Diem (2024) 議論を参照し Book V 機関章に commission、Murmann 言語的逆因果交絡を破る論理は『cutoff 近傍 as-if random で companies → institutions の Ψ を局所 LATE として nonparametric identification、institutions → companies は A 経由間接で §10.7.3 Granger リードラグが分離』として総括"
+      ],
+      "new_writing_required": "定理 10.6.5 本体声明と証明スケッチ (¶8-¶9)、4 つの識別仮定 10.6.A-D の formal ラベル付き列挙 (¶4-¶7、特に ¶7 排除制約の Ch 5 σ_SU MS-SSM 根拠付けは C 案の核を継承)、ファジー RD と Ch 5.5 GO ゲートとの接続 (¶2-¶3)、軸別 Ψ^k_LATE 解釈と Murmann 言語的交絡解決の核 (¶12) は全節新規。Hahn-Todd-van der Klaauw 2001 と Cattaneo-Idrobo-Titiunik 2020 の標準は重ね書きで援用。",
+      "existing_reuse": "σ_SU 観測値と θ_σ* GO ゲートは Ch 5 MS-SSM および Ch 5.5 から記号継承、τ_B 通過点は Ch 10.4 Theorem 3 (D-039) から、N_jt は Ch 10.5 (D-035) から、η_jt の VAR(1) 構造は §10.7.1 から、A 行列の役割は §10.7.1 ¶6 観測等価類問題から bridge。",
+      "upstream_dependencies": [
+        "Ch 5 σ_SU MS-SSM (排除制約 10.6.D の根拠、連続性 10.6.A の根拠)",
+        "Ch 5.5 GO ゲート θ_σ* (駆動変数 R の cutoff 供給)",
+        "Ch 10.4 Theorem 3 τ_B (D-039)",
+        "Ch 10.5 統合ハザード N_jt (D-035)",
+        "§10.7.1 η_jt VAR(1) と観測等価類問題"
+      ],
+      "downstream_dependencies": [
+        "§10.7.3 (Granger 因果系で A vs η→ΔPRS 分離、Murmann 解決二段論法の (b))",
+        "Ch 11 BVAR (Ψ^k 推定実装、bandwidth 選択、bias correction、IRF、D-031 Tier A 実装)",
+        "Ch 26b (定理 10.6.5 経験的検証事前登録 — McCrary + Cattaneo-Jansson-Ma manipulation テスト + 共変量バランス + first stage 弱識別 + randomization inference、D-031 Tier B)",
+        "Book V 機関章 (Ψ^k 政策含意 + compliers external validity の Wing-Bello-Diem 2024 議論)",
+        "Book III Ch 21 (KUTE 7 論点が compliers として解釈される)",
+        "付録 A.10.7.2 (定理 10.6.5 完全証明、D-047)"
+      ],
+      "references": [
+        "Hahn, Todd & van der Klaauw (2001) Identification and Estimation of Treatment Effects with a Regression-Discontinuity Design, Econometrica 69(1)",
+        "Imbens & Lemieux (2008) Regression Discontinuity Designs: A Guide to Practice, J Econometrics 142(2)",
+        "Lee (2008) Randomized Experiments from Non-random Selection in U.S. House Elections, J Econometrics 142(2)",
+        "Imbens & Kalyanaraman (2012) Optimal Bandwidth Choice for the RD Estimator, Rev. Econ. Stud. 79(3)",
+        "Calonico, Cattaneo & Titiunik (2014) Robust Nonparametric Confidence Intervals for RD Designs, Econometrica 82(6)",
+        "Cattaneo, Idrobo & Titiunik (2020) A Practical Introduction to Regression Discontinuity Designs Vol I-II",
+        "McCrary (2008) Manipulation of the Running Variable in the RD Design, J Econometrics 142(2)",
+        "Cattaneo, Jansson & Ma (2020) Simple Local Polynomial Density Estimators, JASA",
+        "Cattaneo, Frandsen & Titiunik (2015) Randomization Inference in the RD Design, JASA",
+        "Frandsen, Frölich & Melly (2012) Quantile Treatment Effects in the RD Design, J Econometrics",
+        "Imbens & Angrist (1994) Identification and Estimation of LATE, Econometrica 62(2)",
+        "Wing, Bello-Gomez & Diem (2024) External validity in RD"
+      ],
+      "source_drafts": [
+        "C §10.7.2 (排除制約 (iv) を独立仮定として明示し Ch 5 σ_SU MS-SSM 構造に根拠付ける核心設計を採用、Imbens-Kalyanaraman + Calonico-Cattaneo-Titiunik 両 bandwidth 併記)",
+        "B §10.7.2 (識別仮定 10.6.A/10.6.B/10.6.C のラベル付き番号体系を採用し 10.6.D を追加、Cattaneo-Frandsen-Titiunik 2015 randomization inference 参照採用)",
+        "A §10.7.2 (compliers external validity を Wing-Bello-Diem 2024 引用とともに Book V 機関章へ commission する設計を採用、manipulation テスト棄却時の donut RD 代替戦略を open_issue で提起)"
+      ]
+    },
+    {
+      "section_id": "10.7.3",
+      "title": "Granger リードラグ系命題 10.6.4 と章末 — Sims Cholesky 順序 + Murmann 解決総括 + Ch 11/26b commission + Book V/III Ch 21 引渡し",
+      "pages": 1.5,
+      "math_level": "medium (Granger 因果 formal 定義、命題 10.6.4 と符号制約の Ch 9 + Ch 10.4 根拠導出、Sims Cholesky 識別順序 (η → τ_B → ΔPRS)、Lütkepohl panel VAR IRF、commission table)",
+      "anchor_claims": [
+        "定義 10.6.6 (Granger 因果、Granger 1969 + Sims 1980 VAR 解釈): η^k_jt が ΔPRS_jt を Granger 因果 ⇔ E[ΔPRS_jt | F_{t-1}^全] ≠ E[ΔPRS_jt | F_{t-1}^{ΔPRS, exogenous}]、機関パネルでは Holtz-Eakin-Newey-Rosen (1988) で機関固定効果吸収後の panel Granger を定義",
+        "命題 10.6.4 (Granger リードラグ符号制約): η^k_{j,t-1} は ΔPRS_{j,t} を Granger 因果し Cov(η^k_{j,t-1}, ΔPRS_{j,t} | F_{t-2}) > 0 が軸 k 別に成立、符号制約 > 0 の根拠は Ch 9 ERS 加重和代数 (η^k と PRS_kt の同符号加重) + Ch 10.4 Theorem 3 マッチング単調性 (η 上昇 → ERS-PRS マッチング確率上昇 → ΔPRS 上昇)、逆方向 ΔPRS → η は τ_B 通過を介在変数として経由する間接効果のみで直接 Granger 因果なし",
+        "Sims (1980) Cholesky 識別順序 (η_jt → τ_B → ΔPRS_jt): 順序の理論的根拠は『制度は最も粘着的、案件出力は最も速応答』(進化経済学の constitutive 直感)、Cholesky 分解で構造 VAR 識別、Lütkepohl (2005) §9 panel VAR インパルス応答 (IRF) を Ch 11 BVAR で実装し η ショックの ΔPRS 伝播を可視化",
+        "Murmann 言語的逆因果交絡の formal 解決の総括: (a) §10.7.2 ファジー RD で companies → institutions の Ψ を局所 LATE で nonparametric identification、(b) §10.7.3 Granger 符号制約で A (institutions の autoregression) と η → ΔPRS (institutions → companies leading) を分離、両者の合成で Murmann 双方向共進化が formal 動学として書き下される",
+        "章末 commission table: (i) Ψ 推定実装 + panel VAR IRF + bandwidth 選択 → Ch 11 BVAR (D-031 Tier A)、(ii) first stage 弱識別 + McCrary/Cattaneo-Jansson-Ma manipulation + 共変量バランス + Granger F 検定 + 軸別 Ψ^k 符号事前登録 → Ch 26b OSF (Tier B、D-031)、(iii) Phase 2 データ実装 (η_jt 観測量 + N_jt 累積) → AMD OS 2026Q4 (D-052)、(iv) Ψ^k 軸別政策含意 + compliers external validity → Book V 機関章、(v) KUTE 7 論点 leading/lagging 軸分類による戦略含意翻訳 → Book III Ch 21"
+      ],
+      "paragraph_outline": [
+        "¶1: Granger (1969) 因果性定義の援用 — η^k_jt → ΔPRS_jt の Granger 予測改善は機関の制度状態が次期の案件 PRS 変化を予測すること、機関パネルでは Holtz-Eakin-Newey-Rosen (1988) で機関固定効果吸収後の panel Granger を定義 (A 案参照採用)、検定統計量は F 検定 (Lütkepohl 2005 §3.6) または LR 検定",
+        "¶2: 命題 10.6.4 本体声明 — η^k_{j,t-1} は ΔPRS_{j,t} を Granger 因果し Cov(η^k_{j,t-1}, ΔPRS_{j,t} | F_{t-2}) > 0 が軸 k 別に成立、逆方向 η_jt → N_jt は §10.7.1 Ψ 経由間接、双方向ではあるが時間スケールが異なる非対称構造、Sims Cholesky 順序 (η → τ_B → ΔPRS) で SVAR 識別確定",
+        "¶3: 符号制約 Cov > 0 の理論的根拠の formal 導出 (C 案の核継承) — Ch 9 ERS 加重和代数で η^k と PRS_kt は同符号加重 (例: k=1 学術連携軸では PRS の publication 出力に正寄与)、Ch 10.4 Theorem 3 で ERS-PRS マッチングは単調 (η 上昇 → マッチング確率上昇 → PRS 上昇)、よって Cov(η^k_{j,t-1}, ΔPRS_{j,t}) > 0 は『理論的帰結』として符号制約に格上げ (judges 全員が C 案最強と評価した核)",
+        "¶4: 証明スケッチ (D-047) — Hamilton (1994) Granger 因果の VAR 内表現を η_jt と (N_jt, τ_B_jt, ΔPRS_jt) の joint VAR に拡張、A 行列の off-diagonal block の符号制約として書き下す、完全証明は付録 A.10.7.3",
+        "¶5: 8 軸別の符号 pattern 仮説 — 学術連携軸 η^1 は ΔPRS_jt を強く Granger 因果 (機関連携が案件着火を早める)、独立 IPO 軸 η^8 は弱、軸別 pattern は Ch 26b 事前登録 (HARKing 補正と multiple testing 規律は open_issue)",
+        "¶6: Murmann 言語的逆因果交絡の formal 解決の総括 (C 案 §10.7.3 ¶4 の二段論法を継承強化) — Murmann 2003 が『dyestuffs では Technische Hochschule の有機化学教育が BASF の R&D を leading し、BASF の累積特許が Hochschule のカリキュラムを lagging で形成した』と言語的に述べた pattern を、(a) §10.7.2 ファジー RD で Ψ を局所 LATE 識別、(b) §10.7.3 Granger 符号制約で η → ΔPRS leading と A の autoregression を分離、の二段論法で formal 解決された旨を 1 段で総括",
+        "¶7: KUTE 7 論点の Granger leading/lagging 軸分類 (A 案 §10.7.3 ¶6 採用、§10.7.0 ¶4 対応表に再回収) — Engineering-Univ-Type 機関 j で 7 論点のうち leading 軸 (KUTE 1 学術連携、KUTE 2 連携契約、KUTE 7 機関 VC) と lagging 軸 (KUTE 6 知財帰属、KUTE 8 ≈ Ch 9 第 8 軸 独立 IPO 許容) を η_jt の軸 k 別に分類、Book III Ch 21 で論点毎の戦略含意翻訳に変換する旨を明示",
+        "¶8: 章末 commission table — (i) Ψ 推定実装 + panel VAR IRF + Imbens-Kalyanaraman/Calonico-Cattaneo-Titiunik bandwidth → Ch 11 BVAR (D-031 Tier A)、(ii) 定理 10.6.5 経験的検証 (first stage 弱識別 + McCrary + Cattaneo-Jansson-Ma manipulation + 共変量バランス + Granger F 検定 + 軸別 Ψ^k 符号事前登録 + Cattaneo-Frandsen-Titiunik 2015 randomization inference) → Ch 26b 事前登録 (D-031 Tier B)、(iii) Phase 2 データ実装 → AMD OS 2026Q4 (D-052) で η_jt 観測量定義、(iv) Ψ^k 軸別政策含意と compliers external validity → Book V 機関章、(v) KUTE 7 論点 leading/lagging 軸分類による戦略含意 → Book III Ch 21",
+        "¶9: Ch 10 OPENER 11 節構成における 10.7 位置づけ閉じ — Ch 10.4 Theorem 3 (τ_B 静的 ERS-PRS マッチング、D-039)、Ch 10.5 Klepper (post-B 動学 N_jt 統合ハザード、D-035)、Ch 10.6 Malerba (sectoral systems 全射、D-036)、Ch 10.7 Murmann (双方向 coupling、D-037) の論理連鎖で Ch 10 制度動学 4 本柱が完結、Ch 10.7 だけが『逆向きフィードバック Ψ』を formal identification する旨を確認、D-037 オーナーシップ再確認、Ch 10.8 以降への bridge"
+      ],
+      "new_writing_required": "命題 10.6.4 本体声明と符号制約 Cov > 0 の Ch 9 + Ch 10.4 formal 導出 (¶2-¶3、C 案の核を継承、judges 全員最重要視)、Sims Cholesky 順序の確立 (¶2、C 案核継承)、Murmann 解決二段論法総括 (¶6、C 案 §10.7.3 ¶4 強化)、KUTE 7 論点 leading/lagging 軸分類による Book III Ch 21 戦略含意翻訳経路 (¶7、A 案核継承、judge 3 masa-fidelity 最重要)、章末 commission table 5 項目 (¶8) は全て新規執筆。",
+      "existing_reuse": "ΔPRS_jt は Ch 10.4 D-039 から、N_jt は Ch 10.5 D-035 から、η_jt VAR(1) と Foster-Lyapunov は §10.7.1 から、ファジー RD identification は §10.7.2 から、KUTE 7 論点は Book III Ch 21 (D-034 type 名匿名化)、Murmann 物語は §10.7.0 から再利用。",
+      "upstream_dependencies": [
+        "§10.7.1 命題 10.6.3 (VAR(1) 構造)",
+        "§10.7.2 定理 10.6.5 (Ψ identification)",
+        "Ch 10.4 Theorem 3 (D-039 マッチング単調性、符号制約根拠)",
+        "Ch 10.5 統合ハザード N_jt (D-035)",
+        "Ch 10.6 Malerba (D-036)",
+        "Ch 9 ERS 加重和代数 (符号制約根拠)",
+        "§10.7.0 KUTE 7 論点対応表"
+      ],
+      "downstream_dependencies": [
+        "Ch 11 BVAR (Ψ^k 推定 + panel VAR IRF、Tier A 実装、D-031)",
+        "Ch 26b (命題 10.6.4 リードラグ + 定理 10.6.5 fuzzy RD の事前登録、Tier B、D-031)",
+        "Book V 機関章 (双方向 coupling 政策含意 + Ψ^k 軸別 + compliers external validity)",
+        "Book III Ch 21 (KUTE 7 論点 leading/lagging 軸分類による戦略含意翻訳)",
+        "AMD OS Phase 2 実装 (D-052 2026Q4 η_jt 観測量)",
+        "付録 A.10.7.3 (命題 10.6.4 完全証明、D-047)"
+      ],
+      "references": [
+        "Granger (1969) Investigating Causal Relations by Econometric Models and Cross-spectral Methods, Econometrica 37(3)",
+        "Sims (1980) Macroeconomics and Reality, Econometrica 48(1)",
+        "Hamilton (1994) Time Series Analysis Ch 11",
+        "Lütkepohl (2005) New Introduction to Multiple Time Series Analysis §3.6 (Granger), §9 (panel VAR IRF), Springer",
+        "Holtz-Eakin, Newey & Rosen (1988) Estimating Vector Autoregressions with Panel Data, Econometrica 56(6)",
+        "Pesaran & Smith (1995) Estimating Long-run Relationships from Dynamic Heterogeneous Panels, J Econometrics 68(1)",
+        "Murmann (2003) Knowledge and Competitive Advantage Ch 1, 8 dyestuffs co-evolution",
+        "Book III Ch 21 KUTE 7 論点 (D-034 type 名匿名化)"
+      ],
+      "source_drafts": [
+        "C §10.7.3 (Sims Cholesky 識別順序 (η → τ_B → ΔPRS) の本文確立 + 符号制約 Cov > 0 の Ch 9 加重和 + Ch 10.4 単調性からの formal 導出 + Murmann 解決二段論法総括 + panel VAR IRF commission を採用)",
+        "A §10.7.3 (KUTE 7 論点 leading/lagging 軸分類による Book III Ch 21 戦略含意翻訳経路 + Holtz-Eakin-Newey-Rosen 1988 panel Granger 参照 + 章末 D-037 オーナーシップ再確認を採用)",
+        "B §10.7.3 (命題 10.6.4 の clean な formal 声明 + falsifiable claim としての『逆方向 PRS → η 直接効果ゼロ』明示を採用)"
+      ]
+    }
+  ],
+  "open_issues_for_masa": [
+    {
+      "issue": "KUTE 7 論点 × η_jt 8 軸対応表の正本所在 — §10.7.0 ¶4 で本節新規作成するか、Book III Ch 21 を正本にして本節は forward reference のみにするか",
+      "why_masa_decides": "masa が Book III Ch 21 (Engineering-Univ-Type 桑折 KUTE) の戦略章としての位置づけと、Book II Ch 10.7 の Murmann 双方向 coupling 章としての位置づけのどちらを主たる読者経路と想定するかで対応表の正本性が決まる。judge 3 (masa-fidelity) が最重要視した論点で、D-034 type 名匿名化規律と整合性確認も masa の編集規律判断が必要",
+      "options": [
+        "(a) §10.7.0 ¶4 を正本とし、Book III Ch 21 は本節対応表を参照する forward reference 構造 — Book II Ch 10.7 が Murmann 軸正準オーナー (D-037) である強み",
+        "(b) Book III Ch 21 を正本とし、§10.7.0 ¶4 は『KUTE 7 論点と η_jt 8 軸の対応は Book III Ch 21 を参照』と forward reference のみ — Book III が戦略章として KUTE を主に扱う強み",
+        "(c) 両章で重複定義し、章間で記述揺れがないか cross-reference policy で監視 — 読者体験の冗長性増だが頑健性確保"
+      ],
+      "recommendation": "(a) §10.7.0 ¶4 を正本とする推奨。理由: D-037 で Ch 10.7 が Murmann 双方向 ERS-PRS coupling の正準オーナーと判定されており、η_jt 観測量と KUTE 論点の対応は理論側 (Book II) で確定すべき。Book III Ch 21 は戦略含意翻訳側として §10.7.3 ¶7 leading/lagging 軸分類を受け取り、その上で論点毎の戦略を展開する分担が clean"
+    },
+    {
+      "issue": "Murmann 2003 歴史人名 (BASF, Hoechst, Bayer, Technische Hochschule) の §10.7.0 引用が D-034 機関匿名化規律と衝突するか — 19 世紀ドイツ企業名と大学名を本文に固有名詞で出すことの可否",
+      "why_masa_decides": "D-034 は本書で『機関は type 名のみ』を正本とするが、Murmann 2003 の歴史的引用は学術 secondary literature の引用であり、歴史人名 exempt が認められるかは Book 編集規律 (匿名化の射程) の masa 判断事項。Cambridge UP referee がここを突く可能性があり (匿名化の一貫性)、判定を前倒しで確定したい",
+      "options": [
+        "(a) 歴史人名 exempt — 19 世紀の歴史的固有名詞は学術引用として匿名化対象外、§10.7.0 で BASF/Hoechst/Bayer/Technische Hochschule を実名で記述",
+        "(b) 歴史人名も type 名のみ — Murmann 2003 を引用する際も『19 世紀ドイツの大手化学企業群』『独逸圏の technical 大学』など type 化して記述、D-034 規律の徹底",
+        "(c) 歴史人名は実名、現代 BZM 観測対象 (Phase 2 で AMD OS が観測する機関) は type 名のみ — 時間軸での切り分け、本書独自の編集規律として明示"
+      ],
+      "recommendation": "(c) 時間軸での切り分けを推奨。理由: Murmann 2003 引用は 100 年以上前の歴史的事実で公開情報、固有名詞を消すと読者の理解が著しく損なわれる。一方 Phase 2 観測対象 (現代の機関) は D-034 匿名化規律を守る必要があり、両者を時間軸で明示的に分けると D-034 の本来意図 (現代機関の保護) を維持しつつ読者体験を守れる。本書編集規律として §10.7.0 脚注で明示すべき"
+    },
+    {
+      "issue": "ファジー RD の manipulation テスト (McCrary 2008 + Cattaneo-Jansson-Ma 2020) が経験的に棄却された場合の代替戦略 — donut RD (cutoff 近傍を除外) と局所 IV のどちらを Ch 26b 事前登録に sensitivity 分析として含めるか",
+      "why_masa_decides": "定理 10.6.5 の identification 仮定 10.6.A 連続性が経験的に破綻した場合の plan B を事前登録段階で確定する必要があり、Ch 26b OSF の事前登録規律と Phase 2 D-052 2026Q4 データ取得計画と整合的な選択が必要。masa の事前登録方針 (HARKing 補正の厳しさ、sensitivity 分析の網羅性) で判断",
+      "options": [
+        "(a) donut RD のみ事前登録 — cutoff から ε 距離内を除外して再推定、Cattaneo-Idrobo-Titiunik (2020) Vol II の標準堅牢性チェック",
+        "(b) 局所 IV のみ事前登録 — σ_SU の measurement error 誘発の attenuation bias を IV で補正、Frandsen-Frölich-Melly (2012) の RD-IV 拡張",
+        "(c) donut RD と局所 IV の両方を事前登録 — Tier B 経験的検証の網羅性最大化、ただし multiple testing 補正が必要",
+        "(d) どちらも事前登録しない — 命題 10.6.4 の falsifiability を最大化、manipulation 棄却なら定理 10.6.5 は破綻として報告"
+      ],
+      "recommendation": "(c) 両方を事前登録を推奨。理由: BZM は formal 識別の頑健性を本書の load-bearing 強みとして打ち出しており (judge 2 publishability 観点)、sensitivity 分析の網羅性で referee を説得する戦略が overall winning move。multiple testing 補正は Bonferroni または BH FDR を事前登録に明示すれば HARKing 疑念を回避できる"
+    },
+    {
+      "issue": "homogeneous Ψ vs heterogeneous Ψ_j (Pesaran-Smith 1995) の Phase 2 データ次元との整合性 — |J|=7 機関 type × T 年 (Phase 2 2026Q4 開始) で heterogeneous Ψ_j 推定の自由度が確保できるか、できない場合の本書 baseline 確定",
+      "why_masa_decides": "Phase 2 D-052 2026Q4 で AMD OS が η_jt 観測量を取得する設計上、T (観測年数) と |J|=7 type の組み合わせが heterogeneous Ψ_j 推定に十分かを masa の Phase 2 設計判断 (AMD OS スキーマ + 観測頻度 + 観測期間) で確定する必要。本書 baseline を homogeneous Ψ で確定するか、heterogeneous Ψ_j に拡張余地を残すかで命題 10.6.3 の formal 記述が変わる",
+      "options": [
+        "(a) baseline = homogeneous Ψ、heterogeneous Ψ_j 拡張は Ch 11 BVAR で T 増加後に再検討 — 本書 publishability 重視、自由度制約を正面で扱う",
+        "(b) baseline = heterogeneous Ψ_j、homogeneous Ψ は constraint としてテスト — Pesaran-Smith 1995 流の panel 拡張を本書 baseline に、機関 type 間異質性を最大限尊重",
+        "(c) Ψ ∈ R^{8×K} (N_jt を K 種ベンチャー type に分解) を本書 baseline、heterogeneous Ψ_j は K 種への拡張の特殊形 — 軸間相互作用を回収できる強み、ただし自由度ガッツリ消費"
+      ],
+      "recommendation": "(a) homogeneous Ψ を baseline、heterogeneous Ψ_j は Ch 11 commission を推奨。理由: judges 全員が本書 |J|=7 type の自由度制約を重視しており、Phase 2 開始時点では T が小さく heterogeneous 推定は不安定。homogeneous Ψ を baseline に置くことで命題 10.6.3 の formal 記述が clean になり、Ch 26b 事前登録の検出力も確保できる。heterogeneous Ψ_j は T が一定以上蓄積した時点で Ch 11 BVAR で sensitivity 分析として実施"
+    },
+    {
+      "issue": "軸別 Ψ^k 符号予想 (Ψ^1 学術連携 +、Ψ^7 機関 VC +、Ψ^8 独立 IPO ≈ 0) を Ch 26b 事前登録に formal hypothesis として登録するか、loose な事前期待として登録するか — HARKing 補正と multiple testing tradeoff",
+      "why_masa_decides": "Ch 26b OSF 事前登録の規律で、軸別符号予想を 8 軸全てに対して pre-specified hypothesis として登録すると multiple testing 補正が厳しくなり検出力が下がる。一方 loose に登録すると HARKing 疑念 (事後合理化) を referee に突かれる。masa の事前登録方針 (Tier B 経験的検証の厳格性) で判断",
+      "options": [
+        "(a) 8 軸全てに対して符号 pre-specify + Bonferroni 補正 — 最も厳格、HARKing 完全回避、検出力低下",
+        "(b) 主要 3 軸 (Ψ^1, Ψ^2, Ψ^7) のみ符号 pre-specify、残り 5 軸は exploratory として報告 — judge 2 が言及した中道、検出力と HARKing 回避のバランス",
+        "(c) 8 軸全てに対して符号 pre-specify + BH FDR 補正 — Bonferroni より検出力高い、FDR 解釈の追加説明が必要",
+        "(d) 符号 pre-specify せず exploratory として全 8 軸報告 — 検出力最大、HARKing 疑念は事前登録 timestamp で防御"
+      ],
+      "recommendation": "(b) 主要 3 軸 pre-specify + 残り 5 軸 exploratory を推奨。理由: judge 2 が指摘した検出力と HARKing 回避のバランス点で、Ψ^1/Ψ^2/Ψ^7 は §10.7.1 ¶9 と KUTE 7 論点対応で理論的根拠が明確 (Murmann dyestuffs 物語の核)、残り 5 軸は探索的に扱う方が referee 説得力高い。事前登録テキストで『主要 3 軸の符号は Murmann 2003 + Ch 9 ERS 加重和代数 + Ch 10.4 マッチング単調性から理論的に予測』と明示し HARKing 防御"
+    }
+  ],
+  "falsifiable_claims": [
+    "F1 (命題 10.6.3 定常性検証): η_jt VAR(1) η_{j,t+1} = A η_jt + Ψ N_jt + ξ_{jt} の Phase 2 観測パネルでの推定で spectral radius ρ(A) ≥ 1 (η_jt 非定常) または ADF/KPSS 単位根検定で定常仮説が棄却されれば、命題 10.6.3 の定常性は反証され、差分化または cointegration 拡張が必要",
+    "F2 (命題 10.6.3 Ψ ≠ 0 検証): Ψ = 0 が 95% CI で棄却できなければ Murmann co-evolution の formal 表現は本書設定では支持されず、companies → institutions feedback は存在しないことになる",
+    "F3 (定理 10.6.5 first stage 弱識別検証): fuzzy RD の first stage π = lim_{R↓0} Pr(τ_B|R) - lim_{R↑0} Pr(τ_B|R) が統計的に 0 と区別できない (Stock-Yogo 弱識別基準で F < 10) なら、駆動変数 R_jt は弱識別となり Ψ^k_LATE は推定不能",
+    "F4 (定理 10.6.5 連続性仮定 10.6.A 検証): McCrary (2008) 駆動変数密度連続性テストまたは Cattaneo-Jansson-Ma (2020) manipulation テストで密度の不連続が p < 0.05 で検出されれば、σ_SU 観測値の戦略的操作疑念で fuzzy RD identification 全体が破綻",
+    "F5 (定理 10.6.5 排除制約 10.6.D 検証): σ_SU が τ_B を経由せず η_jt に直接影響するチャンネル (例: σ_SU 観測値の公開で機関の評判効果が即座に η_jt に反映) が経験的に検出される、または Ψ_LATE と OLS Ψ の乖離が systematic に存在すれば、排除制約は破綻し局所 LATE 解釈不能",
+    "F6 (定理 10.6.5 共変量バランス検証): 機関 j 固定効果と時刻 t トレンド以外の事前共変量 (機関規模、地域、専門分野、機関設立年) が駆動変数 R_jt の cutoff 近傍で不連続なら identification 仮定破綻",
+    "F7 (命題 10.6.4 Granger 因果検証): Cov(η^k_{j,t-1}, ΔPRS_{j,t} | F_{t-2}) > 0 が 8 軸別検定で 0 軸 (全軸非有意 at p < 0.05) なら institutions → companies の leading 経路が支持されず、Murmann co-evolution の一方向 (companies → institutions のみ) のみ支持、本書の双方向 coupling 仮説が反証",
+    "F8 (命題 10.6.4 非対称性検証): ΔPRS → η の直接効果 (τ_B 介在を除く拡張 VAR で PRS_{j,t-1} 係数) が有意 (p < 0.05) なら本書の τ_B 介在仮説は破綻し、Ch 10.4 Theorem 3 (D-039) の τ_B の役割を再定式化する必要 (Murmann 言語的交絡を破る論理の核反証)",
+    "F9 (8 軸別 Ψ^k pattern 検証): Ψ^k_LATE の軸別符号が主要 3 軸事前仮説 (学術連携軸 Ψ^1 +、連携契約軸 Ψ^2 +、機関 VC 軸 Ψ^7 +) と整合しなければ、Ch 9 の 8 軸 ERS 構造または機関 type 分類 (D-034) を再考する必要、KUTE 7 論点 × η_jt 対応表 (§10.7.0 ¶4) の再構成も誘発",
+    "F10 (Sims Cholesky 順序頑健性検証): Cholesky 順序 (η → τ_B → ΔPRS) を入替 (ΔPRS → η の recursive 等) して IRF の符号が逆転すれば、§10.7.3 の構造 VAR 識別は順序依存で頑健性を欠き、Bernanke (1986) long-run 制約等の代替識別が必要"
+  ],
+  "cross_chapter_supply": [
+    {
+      "target_chapter": "Ch 5 σ_SU MS-SSM",
+      "what_supplies": "識別仮定 10.6.A 連続性 (σ_SU 密度連続性) と仮定 10.6.D 排除制約 (σ_SU は ERS の関数でなく案件側状態、τ_B 経由でのみ η に影響) の根拠を Ch 5 構造から受け取り、§10.7.2 ¶4 と ¶7 で identification 仮定として明示活用"
+    },
+    {
+      "target_chapter": "Ch 5.5 GO ゲート θ_σ*",
+      "what_supplies": "駆動変数 R_{ijt} := σ_SU 観測値 - θ_σ* の cutoff 供給を Ch 5.5 から受け取り、§10.7.2 ¶2-¶3 でファジー RD setup の核とする"
+    },
+    {
+      "target_chapter": "Ch 9 ERS 加重和代数",
+      "what_supplies": "η_jt の 8 軸構造 (η^k, k=1..8) を Ch 9 から継承して §10.7.1 ¶1 で定義、§10.7.3 ¶3 で η^k と PRS_kt の同符号加重を Granger 符号制約 Cov > 0 の理論的根拠として活用"
+    },
+    {
+      "target_chapter": "Ch 10.4 Theorem 3 (D-039)",
+      "what_supplies": "ΔPRS_jt 定義と ERS-PRS マッチング単調性を Ch 10.4 から受け取り、§10.7.3 ¶3 で Granger 符号制約 Cov(η^k, ΔPRS) > 0 の formal 導出根拠とする (η 上昇 → マッチング上昇 → ΔPRS 上昇)、Foster-Lyapunov 安定性は §10.7.1 ¶4 で理論的整合"
+    },
+    {
+      "target_chapter": "Ch 10.5 Klepper 統合ハザード (D-035)",
+      "what_supplies": "累積法人化数 N_jt = Σ_{s≤t} 1{post-B at j, s} を Ch 10.5 から受け取り、§10.7.1 ¶2 で Ψ フィードバックの入力変数として活用、N_jt の劣多項式成長が §10.7.1 ¶5 Foster-Lyapunov 有界性証明スケッチに供給"
+    },
+    {
+      "target_chapter": "Ch 10.6 Malerba 全射 (D-036)",
+      "what_supplies": "sectoral systems of innovation の全射写像を Ch 10.6 から受け取り、§10.7.0 ¶3 で Ch 10.7 (制度状態の動学) との分担を明示 (Ch 10.6 は集合写像、Ch 10.7 は動学双方向 coupling)"
+    },
+    {
+      "target_chapter": "Ch 11 BVAR (D-031 Tier A 実装)",
+      "what_supplies": "§10.7.3 ¶8 commission table (i) で Ψ^k 推定実装 + Imbens-Kalyanaraman/Calonico-Cattaneo-Titiunik bandwidth 選択 + Lütkepohl panel VAR インパルス応答 (IRF) を Ch 11 に渡し、heterogeneous Ψ_j 拡張 (Pesaran-Smith 1995) と VAR(p) lag selection もデータ依存決定を委ねる"
+    },
+    {
+      "target_chapter": "Ch 26b OSF 事前登録 (D-031 Tier B 経験的検証)",
+      "what_supplies": "§10.7.3 ¶8 commission table (ii) で定理 10.6.5 と命題 10.6.4 の経験的検証事前登録 (first stage 弱識別 + McCrary 2008 + Cattaneo-Jansson-Ma 2020 manipulation + 共変量バランス + Granger F 検定 + 主要 3 軸 Ψ^k 符号 pre-specify + Cattaneo-Frandsen-Titiunik 2015 randomization inference + donut RD と局所 IV sensitivity 分析) を Ch 26b に渡す"
+    },
+    {
+      "target_chapter": "Book V 機関章",
+      "what_supplies": "§10.7.2 ¶12 と §10.7.3 ¶8 commission table (iv) で Ψ^k 軸別政策含意 + compliers external validity (Wing-Bello-Gomez-Diem 2024) を Book V に渡し、機関 type 別 Ψ_j の政策解釈を委ねる"
+    },
+    {
+      "target_chapter": "Book III Ch 21 (Engineering-Univ-Type 桑折 KUTE 7 論点)",
+      "what_supplies": "§10.7.0 ¶4 で本節新規作成した KUTE 7 論点 × η_jt 8 軸対応表を Book III Ch 21 に supply、§10.7.3 ¶7 で KUTE 7 論点を leading 軸 (KUTE 1, 2, 7) と lagging 軸 (KUTE 6, 8) に Granger 分類し、Book III Ch 21 での論点毎の戦略含意翻訳に渡す"
+    },
+    {
+      "target_chapter": "AMD OS Phase 2 実装 (D-052 2026Q4)",
+      "what_supplies": "§10.7.3 ¶8 commission table (iii) で η_jt 観測量 (機関 type j × 時間 t × 8 軸) と N_jt 累積 (Ch 10.5 統合ハザードからの積分) のスキーマ定義を AMD OS Phase 2 実装に渡す"
+    },
+    {
+      "target_chapter": "付録 A (D-047 完全証明)",
+      "what_supplies": "命題 10.6.3 Foster-Lyapunov 完全証明 (付録 A.10.7.1)、定理 10.6.5 完全証明 (付録 A.10.7.2)、命題 10.6.4 完全証明 (付録 A.10.7.3) を付録 A に commission、本文は証明スケッチに留める"
+    }
+  ],
+  "masa_negotiation_handles": [
+    "H1 (KUTE 7 論点 × η_jt 8 軸対応表の正本): §10.7.0 ¶4 で本節新規作成するか Book III Ch 21 を正本にするか — masa の Book III/II の主たる読者経路想定で判断 (推奨: §10.7.0 ¶4 正本、D-037 オーナーシップと整合)",
+    "H2 (Murmann 歴史人名の D-034 匿名化 exempt): 19 世紀ドイツ企業名 (BASF/Hoechst/Bayer) と Technische Hochschule を §10.7.0 で実名記述するか — masa の本書編集規律 (時間軸での切り分け or 全面匿名化) で判断 (推奨: 時間軸切り分け、歴史 exempt + 現代 type 名)",
+    "H3 (homogeneous Ψ vs heterogeneous Ψ_j baseline): Phase 2 D-052 2026Q4 開始時の T と |J|=7 の自由度制約を踏まえ、本書 baseline を homogeneous Ψ に確定するか heterogeneous Ψ_j 拡張余地を残すか — masa の Phase 2 設計判断 (推奨: homogeneous Ψ baseline、heterogeneous は Ch 11 commission)",
+    "H4 (Ψ 構造 R^{8×1} vs R^{8×K}): N_jt をスカラー累積で扱うか K 種ベンチャー type に分解するか — masa の Phase 2 ベンチャー type 分類スキーマ判断 (推奨: R^{8×1} baseline、R^{8×K} は Ch 11 拡張)",
+    "H5 (manipulation テスト棄却時の代替戦略): donut RD と局所 IV のどちらを Ch 26b 事前登録に sensitivity 分析として含めるか — masa の事前登録方針 (HARKing 補正の厳しさと検出力の tradeoff) で判断 (推奨: 両方を事前登録 + BH FDR multiple testing 補正)",
+    "H6 (軸別 Ψ^k 符号予想の Ch 26b 事前登録粒度): 8 軸全 pre-specify + Bonferroni か、主要 3 軸 pre-specify + 残り 5 軸 exploratory か — masa の Tier B 経験的検証の厳格性方針で判断 (推奨: 主要 3 軸 pre-specify、judge 2 中道採用)",
+    "H7 (Sims Cholesky 順序の頑健性チェック): η → τ_B → ΔPRS 順序の入替頑健性を §10.7.3 本文で扱うか Ch 11 BVAR に commission するか — masa の SVAR 識別頑健性の本書扱い方針で判断 (推奨: Ch 11 commission + Ch 26b sensitivity 分析として事前登録)",
+    "H8 (VAR(1) lag 次数の本章確定): VAR(1) を formal baseline に縛るか VAR(p) 拡張を本章 §10.7.1 ¶12 で扱うか — masa の本章の formal 抽象度と Ch 11 commission の境界判断 (推奨: VAR(1) baseline 本章確定、VAR(p) は Ch 11 でデータ依存決定)"
+  ]
+}
