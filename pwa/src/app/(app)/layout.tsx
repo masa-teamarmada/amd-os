@@ -96,19 +96,13 @@ export default async function AppLayout({
       redirect(`/auth/login?next=${encodeURIComponent(pathname || "/dashboard")}&error=calendar_required`);
     }
   }
-  const hudSkinned =
-    pathname.startsWith("/hud") ||
-    pathname.startsWith("/atlas") ||
-    pathname.startsWith("/seeds") ||
-    pathname.startsWith("/vcs") ||
-    pathname.startsWith("/venture-map/amd-score");
   const useHudShellOnly = pathname.startsWith("/hud");
 
   return (
     <>
       <PageTitleSetter />
       {!useHudShellOnly && <GlobalNav userCodeName={userCodeName} isAdmin={isAdmin} memberId={memberId} />}
-      <main className={hudSkinned ? "amd-hud-page-skin flex-1" : "flex-1"}>{children}</main>
+      <main className="flex-1">{children}</main>
       {isAdmin && <CriticalRealtimeNotify />}
       <TsukuyomiChatBridge />
     </>
