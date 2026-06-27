@@ -104,10 +104,13 @@ server page で `members.is_admin` を確認、 admin 以外は `notFound()`。 
 | `xrl_evidence` | `candidate` | `confirmed` | `rejected` |
 | `strategy_signal` | `candidate` | `confirmed` (= まさえいMTGで `decision_state` 別途進む) | `rejected` |
 | `raw_data_gap` | (通知のみ) | feedback 記録 + 再抽出 / 経路確認、 現物 DB 取り込みは保証しない | feedback 記録 |
+| `coverage_gap` | `l2_coverage_gaps.review_status='candidate'` | `confirmed`。`proposed_target_l2='strategy_signal'` なら `project_strategy_signals.status='confirmed'` も自動作成し、`routed_to` に行き先を残す | `rejected` |
 
 > `protocols` の「はい」は `confirmed` であって `active` ではない (= まさ #68 current truth 2026-05-25)。 旧 md / コードで `active` と書いてあったら正本訂正対象。
 
 > `raw_data_gap` は **例外**。 「はい」を押せば現物が OS に入る、 と勘違いする UX を作らない。 通知タイトルは `〜が OS 未取り込み` ではなく `〜の取り込み経路を確認` のように、 押した後に起きることを明示する書き方にする。
+
+> `coverage_gap` は `raw_data_gap` と違い、OS のカバレッジ漏れ候補を扱う。押したあとに手作業で別L2へ入れる運用にしない。安全にルートできる候補は「はい」と同時に下流テーブルへ自動反映する。2026-06-27 時点では `proposed_target_l2='strategy_signal'` を D-6 経営ハイライトへ自動昇格する。
 
 ## 経営ハイライト確認 UI (= CockpitStrategySignals)
 

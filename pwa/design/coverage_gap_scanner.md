@@ -206,11 +206,12 @@ Phase M の手順:
 |---|---|
 | 「これは要対応」 | `action_items` candidate へルート、`routed_to` 記録、gap=confirmed |
 | 「これは株主総会/ラウンド」 | governance テーブル候補へルート |
-| 「これは経営シグナル」 | `project_strategy_signals` candidate へルート |
+| 「これは経営シグナル」 | `project_strategy_signals` へ自動ルート。通知の「はい」では `status='confirmed'` / `decision_state='observed'` で upsert し、`l2_coverage_gaps.routed_to` に行き先を残す |
 | 「これは新カテゴリ」 | gap=confirmed + `gap_class='structural_gap'` で設計TODO 一覧へ (= 受け皿づくりのバックログ) |
 | 「無視」 | `rejected` + `l2_feedbacks` へ学習 (= 類似 salience を次回抑制) |
 
 extractor_miss (既存L2にマップできた gap) は、ルートと同時に「該当抽出器が漏らした」記録を残し、抽出器プロンプト改善の入力にする (= ループで取りこぼしを減らす)。
+採否後にまさやえいみが手作業で本来の入れ先へ登録することを標準経路にしない。安全に自動ルートできる `proposed_target_l2` は、通知の「はい」と同時に下流テーブルへ反映し、未実装 target は `routed_to` が空の confirmed gap として設計 gap に残す。2026-06-27 時点では `strategy_signal` ルートを実装済み。
 
 ---
 

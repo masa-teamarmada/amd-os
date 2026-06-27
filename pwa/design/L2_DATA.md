@@ -75,6 +75,7 @@ D-1〜D-14 の抽出器は「自分がプログラムされたパターン」し
 
 - 実行: `amd-os-l2-consolidated-evidence` の **最終 Phase M** に同居 (= 全 D-Phase の後に走らせ、その日の不在を計算)。5生データを **ungated** (report_emails/active PJ で絞らない) にスイープ。
 - table: `l2_coverage_gaps` (migration 138)。route: `POST /api/coverage-gaps/extract`。通知: `l2_notifications(l2_kind='coverage_gap')`。一覧+指標: `/admin/coverage-gaps`。採否: `/notifications` (はい=confirmed / いいえ=rejected)。
+- 採否後の手作業ルートを標準にしない。2026-06-27 時点では `proposed_target_l2='strategy_signal'` の「はい」で `project_strategy_signals.status='confirmed'` / `decision_state='observed'` を自動upsertし、`l2_coverage_gaps.routed_to='project_strategy_signals:<signal_id>'` を保存する。
 - `gap_class`: `extractor_miss` (既存L2が拾えたはず→抽出器改善) / `structural_gap` (受け皿なし→設計TODO) / `uncertain` (分類先未確定→捨てずに残す)。
 - 既存 `raw_data_gap` 通知 (受動的) を能動的な第一級レイヤーに昇格させたもの。
 - 設計正本: [coverage_gap_scanner.md](coverage_gap_scanner.md)。再現性指標の目玉は **Manual-catch escapes** (まさが手動でOS化した案件のうち Scanner が事前に flag できなかった数 → 0 が目標)。
@@ -433,6 +434,7 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 
 | 日付 | 変更 |
 |---|---|
+| 2026-06-27 | **coverage_gap 承認後の手作業ルートを廃止**。`coverage_gap` の「はい」が gap confirmed で止まり、D-6化が人間作業になっていたため、`proposed_target_l2='strategy_signal'` を `project_strategy_signals.status='confirmed'` へ自動upsertするようにした。`routed_to` に行き先を残し、未実装 target は設計 gap として残す。 |
 | 2026-06-26 | **H-1 source auth fallback + connector_auth再認証アクションを正本化**。Notion connector の `oauth_token_invalid_grant` / `TRIGGER_REAUTHENTICATION` は terminal blocker ではなく、H-1 extractor / reviewer は `npm run h1:local-notion-fallback` による Notion Desktop local cache 自動探索と Gmail/Drive/Slack/Calendar/AMD OS artifact へ即時分岐する。同時に `app_notifications(kind='connector_auth')` を作り、connector/app ID と再認証リンクを残す。24時間内の既存未読通知は最新payloadへ更新する。PWA は Realtime + 10秒pollで即カード/Browser Notificationを出し、Swift は `native_notified_at` でローカル通知配信済みを管理して通知タップから `reauth_url` を直接開く。`source_kinds='none'` / `議事録なし` marker は直近24時間だけ再探索し、通常window外でも source が取れたら同じ meeting_id を更新する。`blocked_notion_auth` / `reviewer_blocked_notion_auth` / `waiting_for_reauth` は禁止し、不足時は `held_source_missing_after_reauth_bypass` / `review_required_raw_source_insufficient` で扱う。設計 `design/h1_source_auth_fallback.md`。 |
 | 2026-06-18 | **H-1 Meeting Reviewer 追加**。H-1 `project_meeting_summaries` 保存直後に別automation `amd-os-l6-meeting-reviewer` が raw Notion/Gmail/Drive/Slack/Calendar と保存済み要約を突き合わせ、CEO/代表/VC/フルコミット/地元勢/PoC/PRなど重大な経営判断が薄く丸まった疑いを `l2_coverage_gaps` + `l2_notifications(l2_kind='coverage_gap')` へ送る。正本上書きはせず `proposed_target_l2='strategy_signal'`, `gap_class='extractor_miss'` のレビュー候補にする。起点は 2026-06-10 SX 愛媛大訪問のCEO/資金調達方針転換が初回抽出で薄まった事故。 |
 | 2026-06-16 | **D-14G Governance Email Sweep 追加**。`projects` に `governance_watch_shareholder_meetings` / `governance_watch_board_meetings` を追加し、`/admin/projects` の「総会」「役会」checkboxでON/OFFできるようにした。`GET /api/cron/governance-email-sweep` はON PJの `report_emails` × ガバナンスkeywordだけをGmail検索し、既定は `/api/governance/extract` candidate、`apply=1` で canonical + Drive添付保存。初期ONは AMD (`p00`)、LST (`p07`)、CLG (`p24`)。 |

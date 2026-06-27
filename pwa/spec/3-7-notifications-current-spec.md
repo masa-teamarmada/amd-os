@@ -77,9 +77,11 @@ POST body:
 | `founding_members` | `project_founding_members.status='active'` | `status='invalid'` |
 | `project_strategy_signal` | `project_strategy_signals.status='confirmed'` | `status='rejected'` |
 | `textbook_insight` | `textbook_insight_candidates.status='approved'`。その後 local applier が `pwa/bzm/*.md` へ追記 | `status='rejected'` |
+| `coverage_gap` | `l2_coverage_gaps.review_status='confirmed'`。`proposed_target_l2='strategy_signal'` は同時に `project_strategy_signals.status='confirmed'` を upsert し、`l2_coverage_gaps.routed_to='project_strategy_signals:<signal_id>'` を保存 | `review_status='rejected'` |
 | `guardrail_match` | `guardrail_matches.status='acknowledged'` | `status='dismissed'` |
 
 すべての action は `l2_feedbacks` に保存し、`tsukuyomi_learnings` にも通知回答として残す。
+`coverage_gap` は「確認してから手作業で別L2へ入れる」通知ではない。安全に自動ルートできる `proposed_target_l2` は「はい」の同一トランザクション相当の処理で下流テーブルへ反映し、未対応の target は `routed_to` が空のまま残して設計 gap として扱う。
 
 ## 禁止事項
 

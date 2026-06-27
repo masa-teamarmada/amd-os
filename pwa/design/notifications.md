@@ -207,10 +207,13 @@ D-5 OS台帳差分と M-2 XRL根拠は、全文保存ではなく「OSへ入れ�
 | `xrl_evidence` | `candidate` | `confirmed` | `rejected` |
 | `meeting_summary` | 抽出時に確定保存 (status概念なし) | 確認マークのみ (feedback記録 + 既読化、再抽出しない) | feedback記録 |
 | `raw_data_gap` | 通知のみ | feedback記録 + 再抽出/抽出経路確認。現物のDB取り込みは保証しない | feedback記録 |
+| `coverage_gap` | `l2_coverage_gaps.review_status='candidate'` | `confirmed`。`proposed_target_l2='strategy_signal'` は `project_strategy_signals.status='confirmed'` へ自動upsertし、`routed_to` に行き先を残す | `rejected` |
 
 コメントだけ送る場合は正本反映せず、`l2_feedbacks` / つくよみ学習リストへ残す。
 
 `raw_data_gap` は例外。これは「はいを押せばOSに現物が入る候補」ではなく、raw source は見つかったが L2 化先・backfill 経路・helper/UI 対応が未確定であることを示す運用通知。反映可能な候補を作れる場合は `raw_data_gap` を主成果にせず、`project_registry_diff` / `xrl_evidence` / `ms_progress` revision / `meeting_summary` など、押した後のDB反映先が明確な kind に寄せる。
+
+`coverage_gap` は「あとで人間が本来の入れ先へ手当てする」通知にしない。安全に反映先が分かる場合は、「はい」と同時に下流テーブルへ自動ルートする。2026-06-27 時点の実装は `proposed_target_l2='strategy_signal'` を D-6 経営ハイライトへ昇格する。H-1 reviewer 由来の gap は `status='confirmed'` / `decision_state='observed'` の `project_strategy_signals` を作り、会社として正式決定済みとは扱わない。
 
 ### POST API
 [pwa/src/app/api/notifications/feedback/route.ts](../src/app/api/notifications/feedback/route.ts)
@@ -292,6 +295,7 @@ D-5 OS台帳差分と M-2 XRL根拠は、全文保存ではなく「OSへ入れ�
 | 2026-06-27 | **importance critical 誤爆停止**: `l2_notifications.importance >= 8` だけでは critical にしない。D-11 メディア掲載など重要度の高い通常レビューは通知ページに残し、右下ポップアップは専用 kind / 明示 critical / 復旧語に限定する。 |
 | 2026-06-27 | **L2 kind critical 誤爆停止**: `contract_signals` / `shareholder_meeting` は kind だけでは critical にしない。契約・総会/役会は通常レビューに残し、緊急ポップアップは writer が `notification_priority='critical'` を明示したもの、または期限超過 / blocker / 再認証等の復旧語を含むものに限定する。 |
 | 2026-06-27 | **L2本文 critical 誤爆停止**: `l2_notifications.title/summary` は抽出本文なので critical 判定に使わない。過去事故の説明や「blocked by ...」の引用で誤爆するため、緊急判定は `metadata_json` の明示 priority/reason/blocker 情報に限定する。 |
+| 2026-06-27 | **coverage_gap の自動ルート追加**: `coverage_gap` の「はい」が gap confirmed で止まり、D-6化を手作業にしていた問題を修正。`proposed_target_l2='strategy_signal'` は `project_strategy_signals.status='confirmed'` へ自動upsertし、`l2_coverage_gaps.routed_to` に `project_strategy_signals:<signal_id>` を保存する。 |
 | 2026-05-20 | **回答済みUI**: 「はい/いいえ/コメント」送信後は回答ボタンを消し、`回答済み` 表示へ切り替える。送信成功時に `read_at` を更新し、未対応/未読から `回答済み` タブへ即移動する。 |
 | 2026-05-20 | **AMDプロトコル通知の個別化**: protocol candidate は `project_id + ym` でまとめず、`scope_key=YYYYMM:protocol:<protocol_id>` の1候補1通知に変更。PWA詳細表示と feedback 再抽出はこの個別 scope を解釈する。 |
 | 2026-05-21 | **MTGサマリ反映の同期化**: `NEXT_PUBLIC_GAS_API_KEY` 未設定で再抽出がサイレント skip され、LST の固有名詞修正 feedback が `l2_feedbacks` に残ったまま `project_meeting_summaries` へ反映されない事故を修正。PWA は `CRON_SECRET` fallback でGAS runFuncを同期実行し、失敗時は 502。GAS pwaApi は `PWA_API_KEY` 未設定時 `CRON_SECRET` を認証キーに使う。 |

@@ -11,7 +11,7 @@
  *
  * Body:
  *   {
- *     l2_kind: 'member_knowledge'|'project_knowledge'|'protocols'|'ms_progress'|'ms_progress_revision'|'meeting_summary'|'project_registry_diff'|'xrl_evidence'|'project_strategy_signal'|'textbook_insight'|'guardrail_match',
+ *     l2_kind: 'member_knowledge'|'project_knowledge'|'protocols'|'ms_progress'|'ms_progress_revision'|'meeting_summary'|'project_registry_diff'|'xrl_evidence'|'project_strategy_signal'|'textbook_insight'|'coverage_gap'|'guardrail_match',
  *     target_id: string,            // code_name (member系) / project_id (PJ系)
  *     scope_key?: string,            // ym (PJ系) / 'global' (member系) — default 'global'
  *     notification_id?: string,      // 関連 l2_notifications (optional)
@@ -441,24 +441,56 @@ async function applyApprovedNotification(args: {
   }
 
   if (args.l2Kind === "coverage_gap") {
-    // 「はい」= まさが「これは確かに未OS化の gap だ」と認める。gap を confirmed にする。
-    // proposed_target_l2 (= action_item / shareholder_meeting 等) への実ルートは、
-    // 既存の admin UI / 抽出器に委ねる (= ここでは gap の確定と routed_to 記録まで)。
-    // scope_key = gap_id (= extract route が scope_key に gap_id を入れている)。
+    // 「はい」= まさが「これは確かに未OS化の gap だ」と認める。
+    // proposed_target_l2 が自動反映可能なものはこの場で実ルートまで完了し、
+    // routed_to に行き先を残す。手動後処理を標準経路にしない。
     const now = new Date().toISOString();
+    const { data: gap, error: gapError } = await args.supabase
+      .from("l2_coverage_gaps")
+      .select("gap_id, source, source_ref, source_hash, title, summary, salience_score, proposed_target_l2, gap_class, project_id, scope, due_at, review_status, routed_to, evidence_refs_json, detected_at")
+      .eq("gap_id", args.scopeKey)
+      .maybeSingle();
+    if (gapError) return { applied: false, message: gapError.message };
+    if (!gap) return { applied: false, message: `coverage_gap not found: ${args.scopeKey}` };
+    if (gap.review_status === "rejected") {
+      return { applied: false, message: `coverage_gap already rejected: ${args.scopeKey}`, row: gap };
+    }
+
+    const routeResult = await routeCoverageGapIfSupported({
+      supabase: args.supabase,
+      gap: gap as CoverageGapRow,
+      createdBy: args.createdBy,
+      feedbackText: args.feedbackText,
+      now,
+    });
+    if (routeResult.error) return { applied: false, message: routeResult.error, row: gap };
+
+    const patch: Record<string, unknown> = {
+      review_status: "confirmed",
+      reviewed_at: now,
+      updated_at: now,
+    };
+    if (routeResult.routedTo) {
+      patch.routed_to = routeResult.routedTo;
+      patch.routed_at = now;
+    }
+
     const { data, error } = await args.supabase
       .from("l2_coverage_gaps")
-      .update({ review_status: "confirmed", reviewed_at: now, routed_at: now, updated_at: now })
+      .update(patch)
       .eq("gap_id", args.scopeKey)
-      .eq("review_status", "candidate")
-      .select("gap_id, proposed_target_l2, gap_class");
+      .neq("review_status", "rejected")
+      .select("gap_id, proposed_target_l2, gap_class, review_status, routed_to");
     if (error) return { applied: false, message: error.message };
     const row = (data ?? [])[0] as Record<string, unknown> | undefined;
     const target = row ? String(row.proposed_target_l2 ?? "未確定") : "";
     return {
       applied: (data ?? []).length > 0,
-      message: `confirmed coverage_gap: ${(data ?? []).length}${target ? ` (本来の入れ先候補=${target})` : ""}`,
-      row: data,
+      message: [
+        `confirmed coverage_gap: ${(data ?? []).length}${target ? ` (本来の入れ先候補=${target})` : ""}`,
+        routeResult.message,
+      ].filter(Boolean).join(" / "),
+      row: { gap: data, routed: routeResult.row },
     };
   }
 
@@ -489,6 +521,191 @@ async function applyApprovedNotification(args: {
   }
 
   return { applied: false, message: `no automatic apply handler for ${args.l2Kind}` };
+}
+
+type CoverageGapRow = {
+  gap_id: string;
+  source: string | null;
+  source_ref: string | null;
+  source_hash: string | null;
+  title: string | null;
+  summary: string | null;
+  salience_score: number | string | null;
+  proposed_target_l2: string | null;
+  gap_class: string | null;
+  project_id: string | null;
+  scope: string | null;
+  due_at: string | null;
+  review_status: string | null;
+  routed_to: string | null;
+  evidence_refs_json: unknown;
+  detected_at: string | null;
+};
+
+async function routeCoverageGapIfSupported(args: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  gap: CoverageGapRow;
+  createdBy: string | null;
+  feedbackText: string;
+  now: string;
+}): Promise<{ routedTo?: string; message?: string; row?: unknown; error?: string }> {
+  const target = normalizeCoverageTarget(args.gap.proposed_target_l2);
+  if (target !== "strategy_signal") {
+    return {
+      message: target
+        ? `route not automated yet: ${target}`
+        : "route skipped: proposed_target_l2 is empty",
+    };
+  }
+
+  const projectId = String(args.gap.project_id || "").trim();
+  if (!projectId) return { error: "coverage_gap strategy_signal route requires project_id" };
+
+  const signalRow = buildStrategySignalFromCoverageGap(args.gap, {
+    projectId,
+    createdBy: args.createdBy,
+    feedbackText: args.feedbackText,
+    now: args.now,
+  });
+
+  const { data, error } = await args.supabase
+    .from("project_strategy_signals")
+    .upsert(signalRow, { onConflict: "project_id,scope_key,signal_type,source_hash" })
+    .select("signal_id, project_id, ym, signal_type, title, status, source_hash")
+    .single();
+  if (error) return { error: `project_strategy_signals route failed: ${error.message}` };
+  const signalId = String(data?.signal_id || "");
+  return {
+    routedTo: signalId ? `project_strategy_signals:${signalId}` : "project_strategy_signals",
+    message: signalId ? `routed project_strategy_signals:${signalId}` : "routed project_strategy_signals",
+    row: data,
+  };
+}
+
+function buildStrategySignalFromCoverageGap(
+  gap: CoverageGapRow,
+  opts: { projectId: string; createdBy: string | null; feedbackText: string; now: string }
+): Record<string, unknown> {
+  const evidence = objectValue(gap.evidence_refs_json);
+  const sourceTitle = cleanOneLine(textValue(evidence.title) || stripCoverageGapTitle(gap.title) || "Coverage gap");
+  const rawSignal = extractBetween(gap.summary || "", "raw transcriptには", "が出ているが")
+    || extractBetween(gap.summary || "", "Notion文字起こしには", "が出ているが")
+    || cleanOneLine(gap.summary || "");
+  const missingContext = extractBetween(gap.summary || "", "H-1保存結果では", "可能性がある")
+    || extractBetween(gap.summary || "", "H-1保存結果は", "。")
+    || "H-1要約では薄くなった重要文脈";
+  const signalTitleCore = rawSignal
+    ? `${sourceTitle}: ${truncateText(rawSignal, 92)}`
+    : `${sourceTitle}: H-1 reviewer が拾った経営ハイライト`;
+  const signalTitle = truncateText(signalTitleCore, 180);
+  const signalDate = ymdValue(evidence.meeting_date)
+    || ymdValue(gap.due_at)
+    || ymdValue(gap.detected_at)
+    || ymdValue(opts.now);
+  const ym = signalDate ? signalDate.slice(0, 7).replace("-", "") : null;
+  const sourceRefs = [{
+    kind: "coverage_gap",
+    gap_id: gap.gap_id,
+    source: gap.source,
+    source_ref: gap.source_ref,
+    source_hash: gap.source_hash,
+    source_url: textValue(evidence.notion_url) || textValue(evidence.source_url) || null,
+    meeting_id: textValue(evidence.meeting_id) || textValue(evidence.calendar_event_id) || null,
+    snippet: truncateText(rawSignal || gap.summary || "", 260),
+  }];
+  const summaryParts = [
+    `${sourceTitle}で、${rawSignal || "H-1要約から漏れた可能性がある重要文脈"} が確認された。`,
+    `H-1 reviewer では「${truncateText(cleanOneLine(missingContext), 160)}」として検知され、Coverage Scanner の承認によりD-6経営ハイライトへ自動昇格した。`,
+    opts.feedbackText ? `承認コメント: ${truncateText(cleanOneLine(opts.feedbackText), 220)}` : "",
+  ].filter(Boolean);
+  const salience = numberValue(gap.salience_score, 0.6);
+
+  return {
+    project_id: opts.projectId,
+    ym,
+    signal_date: signalDate,
+    signal_type: inferStrategySignalType(`${gap.title || ""}\n${gap.summary || ""}`),
+    title: signalTitle,
+    summary: truncateText(summaryParts.join("\n"), 1200),
+    impact_level: salience >= 0.75 ? "high" : "medium",
+    decision_state: "observed",
+    status: "confirmed",
+    source_refs_json: sourceRefs,
+    source_hash: `coverage-gap:${gap.source_hash || gap.gap_id}`,
+    confidence: Math.max(0.5, Math.min(0.95, salience)),
+    extraction_run_id: gap.gap_id,
+    created_by: opts.createdBy || "notification_feedback",
+    confirmed_by: opts.createdBy || "notification_feedback",
+    confirmed_at: opts.now,
+    updated_at: opts.now,
+    polarity: inferStrategySignalPolarity(`${gap.title || ""}\n${gap.summary || ""}`),
+    score_impact_summary: "H-1で薄まった経営判断をD-6へ自動昇格",
+    signal_scope: "project",
+    applies_to_company_score: false,
+    scope_reason: "Coverage Scanner のH-1 reviewer由来。まずPJ内の経営ハイライトとして反映し、会社スコア対象化は別途D-6/Management Score側で判断する。",
+  };
+}
+
+function normalizeCoverageTarget(value: string | null): string {
+  const v = String(value || "").trim().toLowerCase();
+  if (["strategy_signal", "project_strategy_signal", "d-6", "d6"].includes(v)) return "strategy_signal";
+  if (["action_item", "action_items", "governance_action_item"].includes(v)) return "action_item";
+  if (["shareholder_meeting", "governance", "project_shareholder_meeting"].includes(v)) return "shareholder_meeting";
+  return v;
+}
+
+function inferStrategySignalType(text: string): string {
+  if (/リスク|訴訟|督促|解約|破綻|資金繰り|期限超過/.test(text)) return "risk";
+  if (/VC前提|前提|方針|判断|転換|ピボット|破れ/.test(text)) return "strategic_pivot";
+  if (/契約|商談|PoC|PR|顧客|売上|共同開発|サンプル/.test(text)) return "commercial_progress";
+  if (/提携|協業|パートナー/.test(text)) return "partnership";
+  if (/資金調達|投資|VC|株式|ラウンド/.test(text)) return "funding";
+  return "business_progress";
+}
+
+function inferStrategySignalPolarity(text: string): string {
+  if (/リスク|訴訟|督促|解約|破綻|資金繰り|期限超過/.test(text)) return "risk";
+  if (/前提|方針|判断|転換|ピボット|破れ/.test(text)) return "pivot";
+  if (/採択|受賞|契約|PoC|PR|共同開発|資金調達|投資/.test(text)) return "forward";
+  return "forward";
+}
+
+function numberValue(value: unknown, fallback: number): number {
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function cleanOneLine(value: string): string {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function truncateText(value: string, max: number): string {
+  const text = cleanOneLine(value);
+  return text.length > max ? `${text.slice(0, Math.max(0, max - 1))}…` : text;
+}
+
+function extractBetween(value: string, start: string, end: string): string {
+  const source = String(value || "");
+  const i = source.indexOf(start);
+  if (i < 0) return "";
+  const from = i + start.length;
+  const j = source.indexOf(end, from);
+  if (j < 0) return "";
+  return cleanOneLine(source.slice(from, j));
+}
+
+function stripCoverageGapTitle(value: string | null): string {
+  return cleanOneLine(String(value || "")
+    .replace(/^H-1要約で/, "")
+    .replace(/^未OS化の可能性:\s*/, "")
+    .replace(/が薄まった可能性/g, "")
+    .replace(/が議事録なしになった可能性/g, ""));
+}
+
+function ymdValue(value: unknown): string | null {
+  const text = textValue(value);
+  const match = text.match(/20\d{2}-\d{2}-\d{2}/);
+  return match ? match[0] : null;
 }
 
 /**
