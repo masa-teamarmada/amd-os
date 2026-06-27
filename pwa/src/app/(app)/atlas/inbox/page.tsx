@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   fetchAtlasSignals,
@@ -25,8 +24,6 @@ function formatDate(ts: string) {
 type SourceFilter = "all" | "news" | "policy";
 
 export default function AtlasInboxPage() {
-  const pathname = usePathname();
-  const atlasBase = pathname.startsWith("/hud/") ? "/hud/atlas" : "/atlas";
   const [signals, setSignals] = useState<AtlasSignal[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -81,7 +78,7 @@ export default function AtlasInboxPage() {
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <div>
-          <Link href={atlasBase} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+          <Link href="/atlas" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
             ← Atlas
           </Link>
           <h1 className="text-lg font-bold mt-1">Atlas Inbox</h1>
@@ -128,7 +125,7 @@ export default function AtlasInboxPage() {
             </button>
           )}
           <Link
-            href={`${atlasBase}/inbox/submit`}
+            href="/atlas/inbox/submit"
             className="text-xs px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium"
           >
             + 投入

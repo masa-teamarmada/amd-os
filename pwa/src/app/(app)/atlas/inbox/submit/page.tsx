@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { addAtlasSignal, type AtlasSignal } from "@/lib/supabase-data";
 
@@ -35,8 +35,6 @@ const SOURCE_TYPES: { value: AtlasSignal["source_type"]; label: string }[] = [
 
 export default function AtlasSubmitPage() {
   const router = useRouter();
-  const pathname = usePathname();
-  const atlasBase = pathname.startsWith("/hud/") ? "/hud/atlas" : "/atlas";
   const [form, setForm] = useState({
     title: "",
     content: "",
@@ -130,7 +128,7 @@ export default function AtlasSubmitPage() {
     });
     setSubmitting(false);
     if (ok) {
-      router.push(`${atlasBase}/inbox`);
+      router.push("/atlas/inbox");
     } else {
       setError("投入に失敗。ログインしてるか確認して");
     }
@@ -139,7 +137,7 @@ export default function AtlasSubmitPage() {
   return (
     <div className="p-4 md:p-6 max-w-xl mx-auto space-y-5">
       <div>
-        <Link href={`${atlasBase}/inbox`} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+        <Link href="/atlas/inbox" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
           ← Inbox
         </Link>
         <h1 className="text-lg font-bold mt-1">シグナル投入</h1>

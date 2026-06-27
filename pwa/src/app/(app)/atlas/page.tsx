@@ -2,7 +2,6 @@
 
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import {
   fetchAtlasSignals,
   fetchAtlasStories,
@@ -12,7 +11,6 @@ import {
   type AtlasStory,
 } from "@/lib/supabase-data";
 import { cn } from "@/lib/utils";
-import { tagColorClass } from "@/lib/atlas-tags";
 import { domainColor, domainLabel, domainKey } from "@/lib/atlas-domains";
 
 const importanceBadge: Record<string, string> = {
@@ -40,38 +38,38 @@ function formatYmd(ts: string) {
   });
 }
 
-function hexToRgbString(hex: string): string {
-  const normalized = hex.replace("#", "");
-  if (normalized.length !== 6) return "103, 232, 249";
-  const n = Number.parseInt(normalized, 16);
-  return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`;
-}
+const TAG_STYLE_PALETTE = [
+  { bg: "#ffe4e6", fg: "#9f1239", border: "#fecdd3" },
+  { bg: "#ffedd5", fg: "#9a3412", border: "#fed7aa" },
+  { bg: "#fef3c7", fg: "#92400e", border: "#fde68a" },
+  { bg: "#fef9c3", fg: "#854d0e", border: "#fef08a" },
+  { bg: "#ecfccb", fg: "#3f6212", border: "#d9f99d" },
+  { bg: "#d1fae5", fg: "#065f46", border: "#a7f3d0" },
+  { bg: "#ccfbf1", fg: "#115e59", border: "#99f6e4" },
+  { bg: "#cffafe", fg: "#155e75", border: "#a5f3fc" },
+  { bg: "#e0f2fe", fg: "#075985", border: "#bae6fd" },
+  { bg: "#dbeafe", fg: "#1e40af", border: "#bfdbfe" },
+  { bg: "#e0e7ff", fg: "#3730a3", border: "#c7d2fe" },
+  { bg: "#ede9fe", fg: "#5b21b6", border: "#ddd6fe" },
+  { bg: "#fae8ff", fg: "#86198f", border: "#f5d0fe" },
+  { bg: "#fce7f3", fg: "#9d174d", border: "#fbcfe8" },
+];
 
-function tagHudColor(tag: string): string {
-  const palette = [
-    "#f472b6",
-    "#fb7185",
-    "#fb923c",
-    "#facc15",
-    "#a3e635",
-    "#34d399",
-    "#2dd4bf",
-    "#22d3ee",
-    "#38bdf8",
-    "#60a5fa",
-    "#818cf8",
-    "#a78bfa",
-    "#c084fc",
-  ];
+function tagStyle(tag: string, active = false): CSSProperties {
+  if (active) {
+    return {
+      backgroundColor: "hsl(var(--primary))",
+      borderColor: "hsl(var(--primary))",
+      color: "hsl(var(--primary-foreground))",
+    };
+  }
   let h = 0;
   for (let i = 0; i < tag.length; i++) h = (h * 31 + tag.charCodeAt(i)) >>> 0;
-  return palette[h % palette.length];
-}
-
-function chipStyle(color: string): CSSProperties & Record<string, string> {
+  const tone = TAG_STYLE_PALETTE[h % TAG_STYLE_PALETTE.length];
   return {
-    "--chip-rgb": hexToRgbString(color),
-    "--chip-color": color,
+    backgroundColor: tone.bg,
+    borderColor: tone.border,
+    color: tone.fg,
   };
 }
 
@@ -80,8 +78,6 @@ interface StoryWithSignals extends AtlasStory {
 }
 
 export default function AtlasPage() {
-  const pathname = usePathname();
-  const atlasBase = pathname.startsWith("/hud/") ? "/hud/atlas" : "/atlas";
   const [stories, setStories] = useState<StoryWithSignals[]>([]);
   const [orphanSignals, setOrphanSignals] = useState<AtlasSignal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -141,7 +137,6 @@ export default function AtlasPage() {
 
   useEffect(() => {
     reload();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // タグ・ドメイン集計はストーリー内のシグナルから
@@ -235,37 +230,31 @@ export default function AtlasPage() {
         </div>
         <div className="flex gap-2 text-xs flex-wrap">
           <Link
-            href={`${atlasBase}/macrotrends`}
-            className="px-3 py-1.5 rounded-md bg-cyan-500 hover:bg-cyan-600 text-white transition-colors font-medium"
-          >
-            Macrotrend
-          </Link>
-          <Link
-            href={`${atlasBase}/map`}
+            href="/atlas/map"
             className="px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium"
           >
             🗺 Map
           </Link>
           <Link
-            href={`${atlasBase}/divergence`}
+            href="/atlas/divergence"
             className="px-3 py-1.5 rounded-md bg-amber-500 hover:bg-amber-600 text-white transition-colors font-medium"
           >
-            📊 差分
+            📊 トレンド
           </Link>
           <Link
-            href={`${atlasBase}/decisions`}
+            href="/atlas/decisions"
             className="px-2.5 py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground transition-colors"
           >
             判断ログ
           </Link>
           <Link
-            href={`${atlasBase}/inbox`}
+            href="/atlas/inbox"
             className="px-2.5 py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground transition-colors"
           >
             Inbox
           </Link>
           <Link
-            href={`${atlasBase}/admin/themes`}
+            href="/atlas/admin/themes"
             className="px-2.5 py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground transition-colors"
           >
             テーマ管理
@@ -317,10 +306,12 @@ export default function AtlasPage() {
                   key={k}
                   onClick={() => setDomainFilterKey(domainFilterKey === k ? null : k)}
                   className={cn(
-                    "atlas-hud-chip text-sm font-medium px-2.5 py-0.5 transition-colors"
+                    "text-sm font-medium px-2.5 py-0.5 rounded-full transition-colors",
+                    domainFilterKey === k
+                      ? "ring-2 ring-offset-1 ring-offset-background"
+                      : ""
                   )}
-                  data-active={domainFilterKey === k}
-                  style={chipStyle(domainColor(k))}
+                  style={{ background: domainColor(k), color: "white" }}
                 >
                   {domainLabel(k)} <span className="text-xs opacity-80 ml-0.5">{c}</span>
                 </button>
@@ -340,10 +331,9 @@ export default function AtlasPage() {
                   key={t}
                   onClick={() => setTagFilter(tagFilter === t ? null : t)}
                   className={cn(
-                    "atlas-hud-chip text-sm px-2.5 py-1 font-medium transition-colors"
+                    "text-sm px-2.5 py-1 rounded-full border font-medium transition-colors hover:brightness-95"
                   )}
-                  data-active={tagFilter === t}
-                  style={chipStyle(tagHudColor(t))}
+                  style={tagStyle(t, tagFilter === t)}
                 >
                   #{t} <span className="ml-0.5 opacity-60 text-xs">{c}</span>
                 </button>
@@ -624,9 +614,9 @@ function StoryCard({
                               onTagClick(t);
                             }}
                             className={cn(
-                              "text-xs font-medium px-2 py-0.5 rounded-full transition-colors",
-                              tagColorClass(t, activeTag === t)
+                              "text-xs font-medium px-2 py-0.5 rounded-full border transition-colors hover:brightness-95"
                             )}
+                            style={tagStyle(t, activeTag === t)}
                           >
                             #{t}
                           </button>
@@ -685,9 +675,9 @@ function StoryCard({
                   key={t}
                   onClick={() => onTagClick(t)}
                   className={cn(
-                    "text-xs font-medium px-2 py-0.5 rounded-full transition-colors",
-                    tagColorClass(t, activeTag === t)
+                    "text-xs font-medium px-2 py-0.5 rounded-full border transition-colors hover:brightness-95"
                   )}
+                  style={tagStyle(t, activeTag === t)}
                 >
                   #{t}
                 </button>
@@ -1094,9 +1084,9 @@ function OrphanSignalRow({
               key={t}
               onClick={() => onTagClick(t)}
               className={cn(
-                "text-xs font-medium px-2 py-0.5 rounded-full transition-colors",
-                tagColorClass(t, activeTag === t)
+                "text-xs font-medium px-2 py-0.5 rounded-full border transition-colors hover:brightness-95"
               )}
+              style={tagStyle(t, activeTag === t)}
             >
               #{t}
             </button>
