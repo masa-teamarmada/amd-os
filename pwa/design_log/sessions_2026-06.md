@@ -1285,3 +1285,56 @@ deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifica
 ### 残課題
 - guardrail card 管理UI、PJ/MTGカード上の自動タグ付け UI、protocol から guardrail card を育てる昇格フローは未実装。
 - 通知 priority は DB列追加なしの導出関数。将来は `notification_priority text default 'normal'` を3通知テーブルに追加し、writer 明示値を優先する案が残っている。
+
+---
+
+## 2026-06-27 (v0.35.0) 旧 /loop 5段ループを廃止し /proactive 先手TODOへ白紙やり直し
+
+### 背景
+まさ指摘: 「先手力を維持するためにこのループ (/loop の5段盤面) が有効だというのが、いまいち実感として湧かない」「ただ情報の差分を並べてるだけ」「実行段に出てる3件はとっくに完了してるけど完了させるUIもない」「一度白紙に戻して、最適なコンテンツは何なのかを考えてもいい」。
+
+旧設計の構造的問題を 4 点で言語化:
+1. 「先手力維持ループ」と言いながら、5段中4段 (観測/評価/判断/学習) は先手力と無関係のテーブルダンプになっていた
+2. 実行段 (proactive_outbox) には完了UIが無く、超過666hのseedが残骸として叫び続け、信頼できないTODOリストになった
+3. Phase 2 の自動検知 (Gmail/Slack の催促検知、heartbeat) が未稼働、proactive_outbox は手動 seed のみ
+4. 「司令塔セッションのえいみ → worker → ドラフト生成」のワークフローが運用上消滅 (Codex 側の司令塔セッションは廃止済み)、heartbeat の受け側が消えた
+
+### まさ判断 (3問合意)
+1. **検知の起点を MTG に絞る (80% カバー仮説)**: 過去14日の議事録 next_actions + 3営業日以内の予定MTG。残り20%の突発 (Slack催促 / Gmail催促) は Phase 2 以降
+2. **5段ループ盤面は捨てる**: /loop ルート、LoopKernelBoard.tsx、dashboard 埋め込み、design/proactive_operating_loop.md、spec/2-4 旧版を全廃
+3. **えいみが積む形 (cron 半自動投入) が理想**: 司令塔セッションが死んだ今、人手で積み続ける仕組みは成立しない前提で設計
+
+### 実装 (まさ判断後の白紙やり直し)
+- migration 157 で `proactive_todos` 新規追加 (UNIQUE + RLS admin/service_role only)
+  - status: open / done / blocked / dismissed (MVP は4状態のみ。sent は必要になれば追加)
+  - UNIQUE: (project_id, trigger_kind, source_meeting_id, source_event_id, title)
+- `/api/cron/proactive-todo-extract` (毎時 :15、Vercel cron):
+  - Stage 1: 過去14日の `source_kinds NOT IN (upcoming, none)` のMTGの next_actions を sweep
+    - 文字列ヒューリスティックで ball_owner 判定 (LLM 不使用 = 課金 LLM cron 禁止ルール遵守)
+    - counterpart 判定の next_action は保存しない、amd/ambiguous のみ upsert
+    - テンプレ next_action (「関連資料.*前回までの論点.*当日確認」) は skip
+  - Stage 2: 3営業日以内の upcoming MTG に「agenda準備」TODO を upsert
+  - Stage 3: 期限超過 open → red 昇格
+  - Stage 4: blocked で 3日経過したものを open に復帰
+- `/api/proactive-todos/:id/resolve` (admin auth + members.code_name 記録)
+- `/proactive` (admin server-side gate + ProactiveTodoBoard.tsx)
+  - タブ: 未対応 / ブロック中 / 完了 / 関係ない
+  - 3ボタン: ✅完了 / ⏸ブロック中 (3日後復帰、1行メモ任意) / 🗑関係ない
+- dashboard 上段に ProactiveTodoBadge.tsx (admin限定、件数+overdue+red+/proactive リンク)
+- 旧 `amd-os-proactive-heartbeat` SKILL 削除、scheduled-tasks/README.md 更新
+
+### Docs 更新
+- 新章 `pwa/spec/2-4-proactive-todo-current-spec.md` (= /spec 正本、置き換え経緯も末尾に保存)
+- 旧 `pwa/spec/2-4-loop-kernel-role-lenses-plan.md` 削除
+- 旧 `pwa/design/proactive_operating_loop.md` は廃止マーク + 履歴本文として温存
+- `pwa/manual/2-6-admin-ops.md` に「/proactive 先手TODOリスト」新節
+- `pwa/design/FEATURE_REGISTRY.md` の旧 ProactiveQueuePanel 記述を ProactiveTodoBadge 記述へ置換
+- `pwa/spec/6-1` / `pwa/manual/9-3` changelog に追記
+- `pwa/src/app/(app)/spec/spec-chapters.ts` の 2-4 slug 差し替え
+
+### 残課題 / 持ち越し
+- **cockpit 側の `ProactiveQueuePanel`**: dashboard 側だけ刷新、cockpit `CockpitView.tsx` の旧 panel は今回触らず (= 別 Phase で対応)。dashboard 上段の旧 LoopKernelBoard / ProactiveQueuePanel 埋め込みは両方除去済み
+- **Gmail / Slack の催促文言検知**: MTG 起点で 80% 仮説に賭けたため MVP では未実装
+- **完了 → 学習段への流し込み**: resolved_note を AMD Protocol / textbook insight 候補へ流す Step 3 は未着手
+- **`sent` 状態 (相手にボールを渡した)**: まさ判断「最初はなしでもいい、必要だと感じたら追加」
+- **本セッション開始時点の前セッション未処理残骸 (84件 modified + untracked) は今回 stash で温存。私のセッションで触っていない別worker由来のため、別途処理が必要**

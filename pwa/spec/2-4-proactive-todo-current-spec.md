@@ -36,7 +36,7 @@ AMD の提供価値は「Before 0 におけるビジョン注入力、技術戦�
 │    └ H-1 MTG flow が writer (Windows MMO Codex Desktop)      │
 │  - source_kinds='upcoming' な未来MTG                         │
 └─────────────────────────────────────────────────────────────┘
-                          ↓ 毎時 :15 JST
+                          ↓ daily 09:15 JST
 ┌─────────────────────────────────────────────────────────────┐
 │ /api/cron/proactive-todo-extract  (PWA non-LLM cron)         │
 │  - 過去14日 開催済みMTGの next_actions sweep                 │
@@ -91,7 +91,7 @@ admin (= `members.is_admin = true`) と `service_role` のみ ALL。anon SELECT 
 
 正本: `pwa/src/app/api/cron/proactive-todo-extract/route.ts`
 
-スケジュール: 毎時 :15 JST (Vercel cron)。
+スケジュール: daily 09:15 JST (Vercel cron `"15 0 * * *"` = 00:15 UTC)。MVP は daily 運用。Vercel Hobby plan の cron 制限のため毎時運用は不可、頻度が足りないと体感したら Pro へアップグレードするか Mac LaunchAgent / Codex automation 経由で毎時化する選択肢を取る。
 - `pwa/vercel.json` の `crons` に登録。
 - 認証: `Authorization: Bearer ${CRON_SECRET}` (= Vercel 環境変数)。
 

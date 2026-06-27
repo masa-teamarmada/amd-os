@@ -205,7 +205,7 @@ URL: `/proactive`
 全 PJ 横断・期限順・1 画面の先手 TODO リスト。「外部 MTG が終わったあと AMD ボールが止まる」「次回 MTG 前に進行案が出ない」「相手から催促されるまで動かない」を防ぐためのリスト。
 
 ### どこから TODO が湧くか
-毎時 :15 JST に動く `/api/cron/proactive-todo-extract` が自動投入する。検知元は 2 つ:
+毎朝 09:15 JST に動く `/api/cron/proactive-todo-extract` が自動投入する (= MVP は daily 運用。物足りなければ後で頻度を上げる)。検知元は 2 つ:
 
 1. **過去 14 日の開催済みMTGの `next_actions`**: AMD ボール or 主語不明のものだけ。「○○先生が」「相手側」など相手主語のものは入らない
 2. **3 営業日以内に開催される予定MTG**: agenda / 進行案を先に出す TODO を 1 件積む

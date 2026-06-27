@@ -1,5 +1,5 @@
 /**
- * proactive-todo-extract cron — 先手 TODO の自動抽出
+ * proactive-todo-extract cron — 先手 TODO の自動抽出 (daily 09:15 JST)
  *
  * 仕様正本: pwa/spec/2-4-proactive-todo-current-spec.md
  *
