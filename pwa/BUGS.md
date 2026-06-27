@@ -3461,3 +3461,9 @@
   - 上記 staged set 検証ルール (73f92211 事故の再発防止) と同一の rule で多くは防げる
   - commit summary (X files changed, Y insertions) が想定 file/lines 数と合致しているか必ず確認 (1 file changed, 1 insertion なら追加内容が空に近い signal)
 
+## [PWA/Atlas-HUD] `/atlas` reload 後に HUD skin が残り Dashboard まで汚染した (2026-06-28)
+
+- **症状**: Atlas top の tag 色が消え、`/atlas/map` の node / label / link が HUD 風の glow / outline / cyan link になった。いったん修正後も `/atlas/map` を reload すると HUD skin に戻り、その状態で `/dashboard` へ戻っても画面全体が暗い HUD 調のまま残った。
+- **原因**: shared `(app)` layout が `/atlas` / `/seeds` / `/vcs` / `/venture-map/amd-score` にも `amd-hud-page-skin` を付けていた。Next.js App Router の parent layout は client navigation で持続するため、Atlas reload 時に parent layout に乗った HUD skin が通常 Dashboard へも伝播した。さらに通常 Atlas Map 側の canvas drawing も HUD 実験用の glow / outlined label に寄っていた。
+- **対応内容**: `amd-hud-page-skin` を shared `(app)` layout から削除し、HUD skin を `components/hud/HudShell.tsx` 配下の `/hud/*` に限定した。通常 `/atlas/map` は non-HUD の domain palette / readable label に戻し、通常 `/atlas/macrotrends` は `/atlas/divergence` へ redirect、HUD 実験版は `/hud/atlas/macrotrends` に移した。Atlas top の tag chip 色は dynamic Tailwind class 依存をやめ、inline palette で復活させた。
+- **再発防止策**: visual skin を route group の shared parent layout へ広く付けない。HUD など実験的 UI skin は専用 shell / route-local component に閉じる。通常 route と HUD route が同じ data source を読む場合でも、canvas drawing / tag chip / typography の design token は別管理にする。reload と通常 Dashboard への戻りを必ず確認する。

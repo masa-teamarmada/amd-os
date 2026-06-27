@@ -25,6 +25,7 @@ HUD版
 | 現行 UX を落とさない | `/dashboard` や現行 cockpit を直接 HUD 化しない |
 | DB/API は共有 | データ取得・保存処理は現行と同じ Supabase / API を使う |
 | UI は分離 | HUD 化する部品は `components/hud/*` へ複製してから変更する |
+| skin は route-local | `amd-hud-page-skin` は `/hud/*` の shell だけで付与し、shared `(app)` layout や通常 `/atlas` / `/seeds` / `/vcs` / `/dashboard` には付けない |
 | parity を先に確認 | 表示項目、クリック、modal、DB 書き込み、権限、空状態を現行と照合する |
 | visual language を守る | `pwa/design/hud_visual_language.md` が正本。暗いカード UI に戻さない |
 
@@ -42,6 +43,8 @@ HUD版
 | `/hud/dashboard/embed` | 外部プレゼン用の公開 embed route |
 
 `/hud/*` 配下では通常の GlobalNav を隠し、HUD shell nav を使う。
+
+通常 route の `/atlas`, `/seeds`, `/vcs`, `/venture-map/amd-score`, `/dashboard` は HUD mirror ではない。reload や client navigation 後に HUD skin が残るのを防ぐため、shared app layout は常に通常 skin のままにし、HUD の背景・typography・glow・shell nav は `components/hud/HudShell.tsx` 配下で完結させる。
 
 ## HUD dashboard のデータ入力
 

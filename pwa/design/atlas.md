@@ -132,6 +132,7 @@ atlas_decisions (
 - **サイズ**: signal 数 + high importance
 - **強調**: high importance かつ signal 3 件以上は pulse、直近24h更新は `NEW`
 - **時間軸**: `all` / `30d` / `7d` / `24h` の time range filter
+- **visual boundary**: 通常 `/atlas/map` は白背景 + non-HUD の domain 色 + readable label。HUD 向けの glow / cyan link / outlined label / monospace shell は `/hud/atlas/*` に閉じ込める
 
 ### インタラクション
 - **タップ**: そのノードを中心に再レイアウト、詳細パネル展開
@@ -223,9 +224,22 @@ atlas_decisions (
 - `/atlas/inbox` → signal review
 - `/atlas/inbox/submit` → manual signal submit
 - `/atlas/admin/themes` → story theme cluster / apply
-- `/atlas/macrotrends` → ASPI 8 domain の上位課題地図
+- `/atlas/macrotrends` → 現行は `/atlas/divergence` へ redirect。HUD実験版の macrotrend map は `/hud/atlas/macrotrends`
 - `/atlas/divergence` → theme 単位の世界 / 日本差分
 - `/atlas/decisions` → 判断ログ
+
+### 2026-06-28 HUD skin rollback boundary
+
+通常 Atlas と HUD Atlas は同じ data source を読んでも visual skin を共有しない。
+
+| 領域 | 正 |
+|---|---|
+| `/atlas` | 通常 GlobalNav + 白背景 + Atlas domain palette。トップページの分野/tag chip は domain/tag ごとの色を残す |
+| `/atlas/map` | 通常 Atlas Map。node / label / link は non-HUD の読みやすい配色 |
+| `/atlas/macrotrends` | `/atlas/divergence` へ redirect |
+| `/hud/atlas/*` | HUD shell + HUD visual language。実験的な glow / dark cockpit 表現はここだけ |
+
+`amd-hud-page-skin` は shared `(app)` layout に置かない。通常 route で reload しても HUD skin が残る事故を避けるため、HUD skin は `components/hud/HudShell.tsx` 配下だけで付与する。
 
 ---
 

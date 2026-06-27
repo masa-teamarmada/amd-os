@@ -191,12 +191,20 @@ flowchart LR
 | URL | 役割 |
 |---|---|
 | `/atlas` | 入口。 ストーリー一覧 + Inbox バッジ |
+| `/atlas/map` | story node graph。通常 Atlas の白背景 / domain palette / readable label を使う |
 | `/atlas/inbox` | signal 受信箱 (= `status='inbox'`)、 swipe で story 紐付け / dismiss |
 | `/atlas/stories` | story 一覧 / 検索 |
 | `/atlas/stories/[id]` | story 詳細 (= 時系列 signal + 紐付け theme + 関連 PJ) |
 | `/atlas/themes` | theme 一覧 + divergence 表示 |
-| `/atlas/macrotrends` | lane 別の macro index 時系列グラフ |
+| `/atlas/macrotrends` | 現行は `/atlas/divergence` へ redirect。HUD 実験版は `/hud/atlas/macrotrends` |
+| `/atlas/divergence` | theme 単位の global / Japan 乖離 |
 | `/atlas/decisions` | AMD 判断ログ |
+
+### Atlas visual boundary
+
+通常 `/atlas` 系 route は HUD ではない。`/atlas` の分野 / tag chip は各 domain / tag の色を表示し、`/atlas/map` の node / title / edge は通常 Atlas の domain palette と読みやすい label を使う。HUD 用の glow、cyan link、outlined label、dark cockpit skin は `/hud/atlas/*` に限定する。
+
+`amd-hud-page-skin` を `(app)` shared layout から通常 Atlas に適用しない。reload 後に Dashboard へ戻っても HUD skin が残るため、HUD skin は `HudShell` 配下の `/hud/*` route だけに閉じる。
 
 ## 関連 cron (= 停止中)
 

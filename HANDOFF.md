@@ -2,57 +2,46 @@
 
 最終更新: 2026-06-28 JST
 対象: `/Users/masa/projects/AMD/amd-os`
+トピック: Atlas 通常UIから HUD skin を分離
 
 ## いまの結論
 
 - local branch: `main`
-- local HEAD / origin/main at functional base: `3b9a4ae6e6fc651f76c67f25030fd51e275dcaa5`
-- 最新機能コミット: `fix(pwa): normalize bare member surnames`
-- production deployment for `3b9a4ae6e6fc651f76c67f25030fd51e275dcaa5`: `dpl_ELcmUxd6L4waMs5C4KE9YGezFKs7`
-- production `/api/build-info` checked 2026-06-28 JST: `v0.36.21` / `3b9a4ae6e6fc651f76c67f25030fd51e275dcaa5` / `dirty=false`
-- staged はなし。
-- working tree は mixed dirty。archive はまだ不可。
-- 契約管理の最新設計は「契約書ファイル一覧」ではなく、`/admin/contracts` の契約台帳。1行は Drive file / folder / MTG / 議事録ではなく、1契約または契約ファミリー。
+- accepted functional fix: `b1564928 fix(pwa): confine hud skin to hud routes`
+- production `/api/build-info` checked: `v0.36.23` / `b1564928200b1d7d43ad158205890b69051d4070` / `dirty=false`
+- handoff/docs bundle: `v0.36.24` bump を含む。次回は `git rev-parse HEAD origin/main` と production `/api/build-info` を live check する。
+- Atlas 通常UIは復旧済み。`/atlas` top tag 色、`/atlas/map` の non-HUD node / label / edge、Dashboard への戻りで HUD skin が残らない挙動をまさが確認済み。
 
-## 今回の handoff / closeout でやったこと
+## 今回やったこと
 
-- 契約台帳の表示境界を正本化した。
-- `pwa/spec/5-6-contracts-management-current-spec.md` に、台帳列、`registry_status`、`ledger` filter、Drive backfill時の folder/evidence/contract row の役割分担を追記。
-- `pwa/manual/6-7-contracts-management-spec.md` に、ユーザー向けの契約台帳仕様と `metadata不足` filter を追記。
-- `pwa/design/SPEC_pwa.md` の `/admin/contracts` route説明が、MTG/議事録/Drive folder を契約行にしない設計になっていることを確認。
-- `pwa/BUGS.md` に、MTG/議事録/Drive folder が契約書リストへ混入した事故と再発防止策を追加。
-- `pwa/design_log/sessions_2026-06.md` に、契約台帳正規化セッションを追記。
+- `/atlas` top の tag chip 色を inline palette で復活。
+- `/atlas/map` の canvas drawing を通常 Atlas の domain palette / readable label に戻した。
+- HUD Macrotrend 実験画面を `/hud/atlas/macrotrends` に隔離し、通常 `/atlas/macrotrends` は `/atlas/divergence` redirect に戻した。
+- shared `(app)` layout から `amd-hud-page-skin` 付与を削除し、HUD skin を `components/hud/HudShell.tsx` 配下の `/hud/*` に限定。
+- `pwa/design/atlas.md`、`pwa/manual/4-2-atlas-macrotrend-signal-spec.md`、`pwa/manual/5-2-hud-and-venture-map-spec.md`、`pwa/BUGS.md`、`pwa/design_log/sessions_2026-06.md` に仕様・事故・教訓を同期。
 
-## 契約管理の current truth
+## Verification
 
-- 実装済み bundle: `v0.28.12` / commit `b2277b5f` で契約台帳UIと migration `147_contracts_registry_metadata.sql` を deploy 済み。
-- 本番DBには `contracts.canonical_title`、`registry_status`、発効日、満了日、更新通知日、契約金額、owner、notes 系metadataを追加済み。
-- 既存 `contracts` 2,159件は再分類済み。通常台帳に出すのは `accepted` / `candidate`、周辺証跡は `evidence_only` / `rejected`。
-- `pwa/src/lib/build-info.ts` の `v0.36.21` bump と bare member surname normalize は `3b9a4ae6e6fc651f76c67f25030fd51e275dcaa5` で main に入っている。
+- `npx tsc --noEmit --pretty false` 成功。
+- `npm run build` 成功。
+- deploy script `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` 成功。
+- production `/api/build-info` が `v0.36.22` -> `v0.36.23` と順に一致することを確認。
+- 未ログイン Playwright は `/auth/login` まで。ログイン後の目視はまさ側確認で「なおった」。
+
+## Current Truth
+
+- 通常 `/atlas`, `/atlas/map`, `/atlas/divergence`, `/atlas/decisions` は HUD ではない。
+- `amd-hud-page-skin` は shared `(app)` layout に置かない。
+- HUD 表現、glow、dark shell、HUD nav は `/hud/*` の `HudShell` だけに閉じる。
+- 通常 `/atlas/macrotrends` は `/atlas/divergence` へ redirect。HUD 実験版は `/hud/atlas/macrotrends`。
 
 ## Unresolved Tasks
 
-1. `/admin/contracts` をログイン済み状態で開き、台帳表が `ledger` filter で MTG/議事録/folder を隠していることを確認する。
-2. Drive上の契約書監査を続ける場合も、Drive folder / MTG / 議事録は `contracts` 行に昇格させず、`contract_documents` / `contract_signals` の evidence として扱う。
-3. 現在の mixed dirty は契約作業と別bundleが多い。次回は `git status -sb --untracked-files=all` で再分類してから触る。
+1. 次回開始時に production `/api/build-info` が handoff/docs deploy 後の最新 commit / version と一致しているか確認する。
+2. ログイン済みブラウザで余裕があれば `/atlas` -> `/atlas/map` reload -> `/dashboard` を再度目視し、HUD skin が残らないことを確認する。
+3. mixed dirty は別作業由来が多い。`git add .` は使わず、owner / bundle ごとに分ける。
 
 ## Dirty / Untracked Classification
-
-### own-necessary / carry-forward
-
-- `HANDOFF.md`
-- `SESSION_MIGRATION_PROMPT.md`
-- `pwa/spec/5-6-contracts-management-current-spec.md`
-- `pwa/manual/6-7-contracts-management-spec.md`
-- `pwa/design_log/sessions_2026-06.md`
-
-扱い: この handoff で追加した契約台帳ドキュメント。次回、他bundleと混ぜずに targeted staging / commit する。
-
-### mixed preexisting + own
-
-- `pwa/BUGS.md`: 既存の notification stop 追記に、今回の contracts bug entry を追加。
-
-扱い: mixed dirty。commit時は既存差分の owner を確認し、同じ docs bundle として閉じるか、必要なら patch split する。
 
 ### preexisting / likely other-worker WIP
 
@@ -62,21 +51,12 @@
   - `pwa/design/l2_extract_claude_routine.md`
   - `pwa/design/meeting_summaries.md`
   - `pwa/design/notifications.md`
-  - `pwa/manual/2-6-admin-ops.md`
-  - `pwa/manual/3-1-system-architecture.md`
-  - `pwa/manual/3-3-notifications-and-tsukuyomi.md`
-  - `pwa/manual/6-1-operations-settings-spec.md`
-  - `pwa/manual/8-2-notification-review-and-strategy-signals-spec.md`
-  - `pwa/manual/8-3-l2-extraction-routines-spec.md`
-  - `pwa/spec/3-3-meeting-flow-current-spec.md`
-  - `pwa/spec/3-7-notifications-current-spec.md`
-  - `pwa/spec/5-5-cross-platform-gas-ios-current-spec.md`
-  - `pwa/spec/5-7-task-management-current-spec.md`
   - notification/task API and component files
   - migrations `155_skip_non_actionable_app_notifications.sql` / `156_skip_meeting_summary_notifications.sql`
 - contract / monthly agreement docs WIP:
+  - `output/doc/monthly-work-agreement-outsourcing-contract-draft-20260628.docx`
   - `pwa/proposals/monthly-work-agreement-contract-revision-and-rollout-draft-20260628.md`
-- Atlas UI WIP: multiple `pwa/src/app/(app)/atlas/**` files.
+  - contract spec/manual dirty files
 - Admin/Kiyo / meeting-assets / project-label WIP:
   - `pwa/src/app/(app)/admin/kiyo/page.tsx`
   - `pwa/src/app/api/meeting-assets/replace/[assetId]/route.ts`
@@ -86,21 +66,20 @@
 - H-1 prep outbox markdowns under `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/outbox/`.
 - local artifact: `gas-slack/.clasp.json`.
 
-扱い: 契約台帳handoffとは別bundle。`git add .` 禁止。owner へ戻すか cleanup worker で分類。
+扱い: 今回の Atlas/HUD fix とは別bundle。owner へ戻すか cleanup worker で分類。
 
 ## First Next Action
 
-1. `HANDOFF.md` -> `pwa/spec/5-6-contracts-management-current-spec.md` -> `pwa/manual/6-7-contracts-management-spec.md` -> `pwa/BUGS.md` の順で読む。
-2. `git status -sb --untracked-files=all` と `git diff --name-status` で mixed dirty を再確認する。
-3. 契約 docs を閉じるなら、上の own/mixed docs だけを対象に patch split して commit する。
-4. UI確認をするならログイン済みブラウザで `/admin/contracts` を開き、MTG/議事録/folder が初期台帳に出ないことを確認する。
+1. `HANDOFF.md` -> `pwa/design/atlas.md` -> `pwa/manual/4-2-atlas-macrotrend-signal-spec.md` -> `pwa/manual/5-2-hud-and-venture-map-spec.md` -> `pwa/BUGS.md` の順で読む。
+2. `git fetch origin main --prune`、`git status -sb --untracked-files=all`、production `/api/build-info` を確認する。
+3. Atlas/HUD に触るなら、通常 route と `/hud/*` route の skin boundary を先に確認する。
 
 ## Archive 判定
 
-do not archive / handoff required。
+handoff required。
 
 理由:
 
-- handoff docs と既存WIPが mixed dirty。
-- main / origin / production は一致しているが、uncommitted / untracked が大量に残っている。
-- owner 未確定の WIP が残っている。
+- Atlas/HUD fix は main / production に入った。
+- ただし repo には preexisting / other-worker dirty と untracked が残っている。
+- 今回 bundle 以外を巻き込まず、次 owner が bundle 単位で閉じる必要がある。

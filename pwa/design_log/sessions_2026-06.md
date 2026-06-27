@@ -1607,3 +1607,29 @@ deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifica
 ### 残課題
 - 現在の main は `v0.36.19` まで進んでいるため、契約台帳のUI/データが現行本番でも同じ表示になっているか、ログイン済み状態で `/admin/contracts` を再確認する。
 - Drive上の契約書がすべて台帳に紐づいているかは継続監査が必要。ただし次回以降も、Drive folder / MTG / 議事録を `contracts` 行に昇格させず、`contract_documents` / `contract_signals` の evidence として扱う。
+
+---
+
+## 2026-06-28 — Atlas 通常UIから HUD skin を分離
+
+### コンテキスト
+- まさから「Atlasページとその配下がHUD系UIに汚染されてる」と指摘。
+- `/atlas` top の tag 色が消え、`/atlas/map` の node / label / link が HUD 風の glow / outline / cyan link になっていた。
+- 初回修正後も `/atlas/map` を reload すると HUD skin に戻り、その状態で Dashboard へ戻っても HUD skin が残った。
+
+### 実装
+- 通常 Atlas Map の canvas drawing を non-HUD の domain palette / readable label に戻した。
+- `/atlas` top の tag chip 色を inline palette で復活させた。
+- HUD Macrotrend 実験画面を `/hud/atlas/macrotrends` に隔離し、通常 `/atlas/macrotrends` は `/atlas/divergence` redirect に戻した。
+- shared `(app)` layout から `amd-hud-page-skin` 付与を削除し、HUD skin は `components/hud/HudShell.tsx` 配下の `/hud/*` に限定した。
+
+### Deploy / verification
+- `fix(pwa): restore atlas non-hud styling` (`0675261c`) を `v0.36.22` として deploy。
+- `fix(pwa): confine hud skin to hud routes` (`b1564928`) を `v0.36.23` として deploy。
+- `npx tsc --noEmit --pretty false` 成功。
+- `npm run build` 成功。
+- deploy script で production `/api/build-info` が `v0.36.23` / `b1564928200b1d7d43ad158205890b69051d4070` / `dirty=false` まで一致することを確認。
+
+### 教訓
+- HUD などの visual skin は shared parent layout に付けず、専用 shell / route-local component で完結させる。
+- App Router の parent layout は client navigation で持続するため、reload 後に通常画面へ戻る確認が必要。
