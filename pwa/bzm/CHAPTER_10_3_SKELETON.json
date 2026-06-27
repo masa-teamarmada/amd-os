@@ -1,0 +1,385 @@
+{
+  "ch_overview": {
+    "core_proposition": "F = CES(F_char, F_cap; a, ρ) の補完弾力性 ρ を Kmenta (1967) 二次モーメント展開で線形化し、Beckman (2006) / Roberts (1991, 2004) / Eesley-Roberts (2012) の MIT 創業者三コホート (N≈170+250+2067) を統合した Bayesian posterior として点識別する。命題 1 で y_i = δ_0 + δ_1 z_{c,i} + δ_2 z_{k,i} + δ_3 (z_{c,i}-z_{k,i})^2 + ε_i の sign(ρ) = sign(δ_3) を A1-A3 のもと点識別公式 ρ̂ = 2δ̂_3 / [α̂(1-α̂)] (α̂ = δ̂_1/(δ̂_1+δ̂_2)) で得て、系 1 で確証 P(ρ<0|data) ≥ 0.95 ⇒ Inada コーナー lim_{F_char↓0} ∂F/∂F_char = ∞ ⇒ 委譲不可能性 / 反駁 P(ρ≥0) > 0.05 ⇒ Nelson-Winter スカラー適合度ベンチマーク復権の二分岐を確立する。Heckman 二段階補正 (Eesley-Roberts 生得 vs 経験分割を exclusion restriction の自然源とする) と Hsieh-Klenow 分散ベース識別による独立な大域識別チャネルで A1-A2 単独依存を頑健化し、事前登録 H_C2 を Ch 26b OSF commission として Tier B 規律で固定、ρ 事後分布を Ch 11 BVAR 構造方程式の事前分布として渡す。",
+    "load_bearing_claims": [
+      "命題 1 (点識別): A1 (F_char,i の法人化前測定) ∧ A2 (コホート × 産業の固定効果による共通選抜吸収) ∧ A3 ((z_c, z_k) における共通支持) のもと、Kmenta 線形化方程式 y_i = δ_0 + δ_1 z_{c,i} + δ_2 z_{k,i} + δ_3 (z_{c,i}-z_{k,i})^2 + ε_i の (δ_1, δ_2, δ_3) は OLS / Bayesian posterior で一致推定可能であり、ρ̂ = 2δ̂_3 / [α̂(1-α̂)], α̂ = δ̂_1/(δ̂_1+δ̂_2), sign(ρ) = sign(δ_3) として ρ が点識別される (符号規約は付録 A.10.3 で被説明変数 y = log τ_B = -log F + const の反転を含めて canonical fix)",
+      "系 1 (Inada コーナー対応): P(ρ<0 | data) ≥ 0.95 ⇒ lim_{F_char↓0} ∂F/∂F_char = ∞ ⇒ F_char の委譲不可能性 (C2 支持) / P(ρ≥0 | data) > 0.05 ⇒ C2 反駁 ⇒ Nelson-Winter ルーチン的完全委譲可能ベンチマークへの復権",
+      "Bayesian posterior 定式化: 弱情報事前分布 ρ ~ N(0, 1), α ~ Beta(2, 2), δ_0 ~ N(0, 10²) のもと Sims-Zha (1998) 流の弱情報事前 + Chib-Greenberg (1995) MCMC で π(ρ | data) を構築 (D-032)、horse-race Bayes factor で Cobb-Douglas (ρ=0) / Leontief (ρ→-∞ truncated) / 加法的 (ρ=1) の 3 つの nested ベンチマークに対し log BF ≥ 3 (Jeffreys 'strong evidence') を反証可能閾値として CES 内 ρ<0 領域への posterior 質量集中を二重検証",
+      "Heckman 二段階補正: Eesley-Roberts (2012) の生得 vs 経験分割を Heckman 第一段プロビット (創業実行選択方程式) の exclusion restriction の自然源として正当化 (生得特性は創業選択に影響し成果には創業後経路のみで影響する仮定) し、逆ミルズ比 λ̂_i を Kmenta 推定式に Bayesian data augmentation で同時投入する。Beckman / Roberts コホートでは地域起業エコシステム密度 (Bernstein 系) を補助 instrument として併用",
+      "Hsieh-Klenow 分散ベース識別: 産業内 log F の分散 Var(log F | industry) が ρ の単調関数になることを用い、Kmenta 局所近似 (ρ=0 近傍) と独立な大域的識別チャネルを補助で得る。両識別の 95% 信用区間 overlap を robustness 判定基準として Tier A で確定",
+      "事前登録 H_C2 (D-031 Tier B): 閾値 0.95、事前分布 ρ ~ N(0,1) / α ~ Beta(2,2)、データ 3 コホート pooling 規則、Heckman 第一段共変量集合 (コホート別)、horse-race ベンチマーク、MCMC chain 4 / burn-in 5000 / 反復 20000 を実行前に OSF にコミット (Ch 26b commission)、p-hacking 排除"
+    ],
+    "logical_arc": "§10.3.0 章頭フックで Eesley-Roberts (2012) N≈2067 の生得 vs 経験分割が F_char / F_cap への稀少な準実験的写像を提供する事実を提示し、Ch 7 形式 + Ch 10.2 τ_B 構造 (y = log time-to-B-trigger) を受領して §10.3 が Ch 10 OPENER の C2 (委譲不可能性) 識別中核を担うことを D-038 脚注 cluster で宣言する → §10.3.1 で F-CES の log を ρ=0 (Cobb-Douglas) 近傍で二次 Taylor 展開し、Sato (1975) / Klump-McAdam-Willman (2007) / Diewert (1971) 正規化 CES 推定系譜に位置づけて Kmenta 線形化方程式を導出 (Lemma 10.3.1 で y_i と log F の符号関係を canonical fix、剰余項 Lagrange 評価を本文スケッチ + 付録 A 完全証明に分割 D-047) → §10.3.2 で命題 1 (Khan-Tamer 流点識別を Kmenta 線形性に適用) と系 1 (Inada コーナー ⇔ 委譲不可能性 / Nelson-Winter 復権の二分岐) を formal に厳密化、Bayesian posterior と horse-race Bayes factor の二重検証を組み込む → §10.3.3 で Heckman 二段階補正 (Eesley-Roberts 生得 vs 経験分割を exclusion restriction の自然源、コホート別 instrument を OSF に permissive 化) と Hsieh-Klenow 分散ベース識別 (Kmenta 局所近似と独立な大域チャネル、信用区間 overlap を robustness 判定基準) で A1-A2 単独依存を頑健化 → §10.3.4 で残るリスク 5 件 (Kmenta 局所近似 / F_char 測定誤差 / コホート時代差 + MIT 同窓 sample 外的妥当性 / Heckman exclusion restriction 検証不能性 / Hsieh-Klenow 不整合) と H_C2 OSF 事前登録仕様の Tier B 明文化、Ch 11 BVAR への ρ 事後分布 inter-chapter contract と Ch 26b H_C2 commission を確定して章を閉じる。",
+    "synthesis_rationale": "Lens A (方法論的厳密性) で最強の Draft B を骨格としつつ、Lens C (masa-fidelity) で最強の Draft C の章間 supply/receive 形式化 (D-038 脚注 cluster, Ch 11 inter-chapter contract 段落、Ch 26b commission への明示 bridge)、Lens B (publishability) で全 judge が graft 推奨した Draft C の Lemma 10.3.1 (y と log F の符号関係) と Eesley-Roberts 生得 vs 経験分割の Heckman exclusion restriction 自然源化を統合した。Draft A から (i) Kmenta 符号規約の D-038 sub-decision 化要求 (3 judge が必須 graft と判定)、(ii) MIT 同窓 sample の外的妥当性を残るリスクに明示 (Research Policy reviewer 対策で必須)、(iii) 正規化 CES 推定系譜 (Sato / Klump-McAdam-Willman / Diewert) への明示位置づけ、(iv) Bernstein 系地域起業エコシステム密度を Beckman/Roberts コホート用補助 instrument として統合した。Draft B から (i) horse-race Bayes factor (Cobb-Douglas / Leontief / 加法的 nested) と log BF ≥ 3 反証可能閾値、(ii) 弱情報事前分布の具体値と Sims-Zha + Chib-Greenberg 系譜、(iii) Jeffreys-Lindley パラドックス対策 (truncation vs reference prior) の open_issue 提起、(iv) Heckman を Bayesian data augmentation として同時推定する frame、(v) Heckman と Hsieh-Klenow の直交性 (観測選抜 vs 分散構造) の formal 論証を graft。9p heavy 配分は §10.3.0=1p / §10.3.1=3.5p / §10.3.2=2.5p / §10.3.3=1p / §10.3.4=1p = 9p で確定し、Ch 5 / 5.5 / 9 / 10.4 の skeleton 規律 (残るリスク 5 件 bullet 形式) と編集統一する。Tier 規律 (D-031) は本章基本 Tier A、H_C2 事前登録部分のみ Tier B として §10.3.4 で Box 形式 (Ch 5 / 5.5 / 9 / 10.4 踏襲) で視覚的に分離する。"
+  },
+  "sections": [
+    {
+      "section_id": "10.3.0",
+      "title": "章頭フック — MIT 創業者三コホートと委譲不可能コアの前向き判定問題",
+      "pages": 1,
+      "math_level": "low — F-CES 関数形と y = log time-to-B-trigger の再掲のみ、推定式は §10.3.1 へ繰り延べ",
+      "anchor_claims": [
+        "§10.3 は Ch 10 OPENER 11 節構成のうち C2 (委譲不可能性の前向き検定) を担う中核節であり、D-038 で Ch 7 形式 + Ch 10.3 識別の分業正準オーナーとして確定",
+        "Beckman (2006, AMJ, N≈170) / Roberts (1991 MIT 創業者パネル, 2004 revisit, N≈250) / Eesley-Roberts (2012, SEJ, MIT 同窓生 N≈2067, 生得 vs 経験の明示的分割) の三コホートを共通の (z_c, z_k, y) 観測構造で統合する",
+        "識別問題は『F-CES の補完弾力性 ρ を、自己選抜に汚染されたコホート観測から点識別できるか』に集約され、Inada コーナー lim_{F_char↓0} ∂F/∂F_char = ∞ の有無が F_char の委譲不可能性 (C2) の経験的判定基準である"
+      ],
+      "paragraph_outline": [
+        "フック (1段落目): Eesley-Roberts (2012) N≈2067 の MIT 同窓生パネルが innate (生得) と experiential (経験) を明示分割記録している事実から導入し、これが F_char (キャラクタ起源) と F_cap (経験/資本起源) を経験的に分離する稀少な準実験的写像を提供することを宣言",
+        "三コホート提示 (2段落目): Beckman (2006) N≈170 創業チーム所属、Roberts (1991, 2004) N≈250 MIT スピンオフ、Eesley-Roberts (2012) N≈2067 同窓生創業者を共通の (z_c, z_k, y) 観測構造として 1 表に整理 (figure / table 番号付与)、N と観測単位を可視化",
+        "Ch 7 受領 (3段落目): Ch 7 で形式定義された F = CES(F_char, F_cap; a, ρ) を式番号で再掲、ρ が委譲可能性 (1/(1-ρ)) の構造パラメタであることを 1 段落で確認、D-006 規律により数値は出さず識別戦略の定性スケッチに留める",
+        "Ch 10.2 受領 (4段落目): Ch 10.2 Jovanovic τ_B (B-trigger 到達時間) からの構造的接続として y_i = log time-to-B-trigger を被説明変数に取る戦略を予告、log τ_B と log F の monotone 関係 (符号規約) は §10.3.1 Lemma 10.3.1 で formal fix することを宣言",
+        "問題提起 (5段落目): ρ は本来非線形パラメタで OLS では点識別困難、Cobb-Douglas (ρ→0 極限) は ρ ≠ 0 の符号方向を区別できない、という古典的問題を明示し、Kmenta (1967) 二次モーメント展開がこれを線形回帰へ落として識別可能化する経路を予告",
+        "解法予告 (6段落目): §10.3.1 Kmenta 線形化導出 → §10.3.2 命題 1 (sign 識別 + 点識別公式) + 系 1 (Inada コーナー対応 = 委譲不可能性 / Nelson-Winter 復権の二分岐) → §10.3.3 Heckman + Hsieh-Klenow 二重識別による頑健化 → §10.3.4 残るリスク + H_C2 事前登録 commission の 4 段論法を bullet で宣言",
+        "章間 supply/receive 図 (7段落目): Ch 7 F-CES 形式 + Ch 10.2 τ_B 構造を上流から受領、Ch 11 BVAR へ ρ 事後分布を構造方程式の事前分布として供給、Ch 26b H_C2 を OSF 事前登録 として commission、Book III へ F = SOUL 委譲不可能コア解釈を渡す inter-chapter contract を脚注 cluster (D-038 / D-031 / D-032 / D-047 / D-006) で明示",
+        "Tier 規律宣言 (8段落目): 本章は基本 Tier A (識別結論の関数解析的厳密性最大)、ただし H_C2 事前登録部分のみ Tier B (D-031) として §10.3.4 で Box 形式 (Ch 5 / 5.5 / 9 / 10.4 踏襲) で視覚的に分離することを宣言"
+      ],
+      "new_writing_required": "全文新規 1p。Eesley-Roberts (2012) 生得 vs 経験分割を F_char / F_cap への準実験的写像として説明する導入段落、三コホート N と観測単位を 1 表に統合する figure、§10.3 が C2 を担う中核節であるという OPENER 内位置付け宣言、Ch 7 + Ch 10.2 受領と Ch 11 + Ch 26b + Book III 供給の章間 supply/receive 図 (脚注 cluster で D-038 / D-031 / D-032 / D-047 / D-006 を参照) が新規。",
+      "existing_reuse": "Ch 7 §7.x の F-CES (F_char, F_cap; a, ρ) 形式定義を式番号で再掲 (再記載しない)、Ch 10.2 Jovanovic τ_B の y_i = log time-to-B-trigger を 1 文で再参照、Ch 10 OPENER 第 0 節の 11 節ロードマップから §10.3 の位置を引用、BOOK_DECISIONS.md D-038 を脚注 cluster で参照。",
+      "upstream_dependencies": [
+        "Ch 7 F-CES 形式定義 (F_char, F_cap; a, ρ)",
+        "Ch 10.2 Jovanovic τ_B 構造 (y_i = log time-to-B-trigger)",
+        "Ch 10 OPENER §10.0 の 11 節ロードマップと C1/C2/C3 仮説提示",
+        "BOOK_DECISIONS.md D-038 (Ch 10.3 が C2 識別正準オーナー)"
+      ],
+      "downstream_dependencies": [
+        "§10.3.1 Kmenta 線形化導出 (被説明変数 y の受け渡し)",
+        "§10.3.4 残るリスク + 事前登録 (C2 判定構造のループ閉じ)"
+      ],
+      "references": [
+        "Beckman 2006 AMJ",
+        "Roberts 1991 MIT 創業者パネル",
+        "Roberts 2004 MIT Sloan revisit",
+        "Eesley & Roberts 2012 SEJ",
+        "Ch 7 F-CES 形式",
+        "Ch 10.2 Jovanovic τ_B",
+        "BOOK_DECISIONS.md D-038 / D-031 / D-032 / D-047 / D-006"
+      ],
+      "source_drafts": [
+        "A §10.3.0",
+        "B §10.3.0",
+        "C §10.3.0"
+      ]
+    },
+    {
+      "section_id": "10.3.1",
+      "title": "Kmenta 1967 二次モーメント展開による F-CES 線形化",
+      "pages": 3.5,
+      "math_level": "high — F-CES の log を ρ=0 (Cobb-Douglas) 近傍で対数二次までテイラー展開し、係数対応 (δ_1, δ_2, δ_3) ↔ (α, ρ) を陽に導出する中核命題 (命題 1 の前段) を構築。Lemma 10.3.1 (y と log F の符号関係) を本章固有の小補題として明示。完全証明と剰余項 Lagrange 評価は付録 A.10.3.1 (D-047) へ繰り延べ、本文は導出スケッチ + 中間補題 2 つ",
+      "anchor_claims": [
+        "log F = α log F_char + (1-α) log F_cap - (1/2) α(1-α) ρ (log F_char - log F_cap)^2 + O(ρ²) (Kmenta 1967 展開)、Sato (1975) / Klump-McAdam-Willman (2007) 正規化 CES 推定 / Diewert (1971) flexible functional forms 系譜に位置づけ",
+        "Lemma 10.3.1: y_i = log time-to-B-trigger は log F の monotone 減少関数 (log τ_B = -log F + const)、本章 canonical 符号規約として被説明変数側の符号反転を fix",
+        "Kmenta 推定式 y_i = δ_0 + δ_1 z_{c,i} + δ_2 z_{k,i} + δ_3 (z_{c,i}-z_{k,i})^2 + ε_i において (δ_1, δ_2, δ_3) は識別可能パラメータの再パラメータ化であり、係数復元: α = δ_1/(δ_1+δ_2)、ρ = 2δ_3/[α(1-α)]、sign(ρ) = sign(δ_3) (Lemma 10.3.1 の符号反転を取り込んだ canonical 規約として確定)",
+        "Kmenta 局所近似は |ρ| ≤ 1 オーダーで剰余項 o(1)、それを超える領域では §10.3.3 Hsieh-Klenow 分散ベース識別が独立な大域チャネルとして補完"
+      ],
+      "paragraph_outline": [
+        "導入 (1段落目): CES の ρ は非線形に入るため OLS では点識別困難という古典的問題の提示、Cobb-Douglas が ρ→0 極限であることの強調、Kmenta (1967) Econometrica の二次モーメント展開がこれを線形回帰へ落として識別可能化する戦略の motivation",
+        "系譜位置づけ (2段落目): Kmenta 線形化を Sato (1975) Production Functions and Aggregation, Klump-McAdam-Willman (2007) 正規化 CES 推定, Diewert (1971) JPE flexible functional forms の系譜に明示位置づけ、二次形式が必要かつ十分なオーダーであることを Diewert 流に正当化",
+        "導出 1/4 (3段落目): F-CES = a [α F_char^ρ + (1-α) F_cap^ρ]^{1/ρ} の log を取り、log F = log a + (1/ρ) log[α F_char^ρ + (1-α) F_cap^ρ] と書き直す。z_c = log F_char, z_k = log F_cap を導入し、内部を ρ=0 近傍で展開する戦略を formal に提示 (中間ステップ式 4-5 本)",
+        "導出 2/4 (4段落目): 一次項から (δ_1, δ_2) = (α, 1-α) の再パラメータ化、二次の交差項 (z_c - z_k)^2 から係数 -(1/2) α(1-α) ρ が出ることを行ごとに示す代数 (補題 1 として boxed)",
+        "導出 3/4 (5段落目): 剰余項 O(ρ²(z_c-z_k)³) を Lagrange 形式で評価し、A3 (共通支持) のもとで一様に小さいことを述べる。本文は評価式のみ、完全な剰余項証明は付録 A.10.3.1 (D-047) へ送る (補題 2)",
+        "Lemma 10.3.1 (6段落目): y_i = log time-to-B-trigger を log F の monotone 減少関数 (log τ_B = -log F + const) として formal に lemma 化、本章 canonical 符号規約 fix。Ch 10.2 Jovanovic τ_B 構造との接合点を明示し、constant 項の Heckman 補正下での扱いは §10.3.3 へ flag",
+        "推定式提示 (7段落目): Lemma 10.3.1 の符号反転を取り込んだ Kmenta 推定式 y_i = δ_0 + δ_1 z_{c,i} + δ_2 z_{k,i} + δ_3 (z_{c,i}-z_{k,i})^2 + ε_i を boxed で命題 1 の前段として提示。係数復元 α = δ_1/(δ_1+δ_2), ρ = 2δ_3/[α(1-α)], sign(ρ) = sign(δ_3) を canonical 規約 (符号反転込み) として確定",
+        "誤差構造 (8段落目): ε_i にコホート × 産業の固定効果 (A2) を吸収する two-way fixed effects 仕様を adopt、heteroskedasticity-robust 標準誤差、(z_c, z_k) の中心化と (z_c-z_k)^2 の直交化 (multicollinearity 対策) を整理",
+        "Bayesian 化への接続 (9段落目): D-032 に従い OLS でなく Bayesian posterior を取る理由を 1 段落で説明 — 弱情報事前分布 ρ ~ N(0, 1), α ~ Beta(2, 2), δ_0 ~ N(0, 10²) のもと Sims-Zha (1998) 流の弱情報事前 + Chib-Greenberg (1995) MCMC で δ_3 の事後分布から ρ の事後分布を delta method なしに propagate する優位性",
+        "horse-race 予告 (10段落目): Cobb-Douglas (ρ=0) / Leontief (ρ→-∞ truncated) / 加法的 (ρ=1) の 3 つの nested ベンチマークを Bayes factor で比較する設計を §10.3.2 に組み込むことを予告、Jeffreys-Lindley パラドックス対策 (Leontief 境界極限の truncation / reference prior) は付録 A に flag",
+        "仮定 A1-A3 予告 (11段落目): A1 (法人化前測定) / A2 (コホート × 産業の固定効果) / A3 ((z_c, z_k) 共通支持) を §10.3.2 で formal 厳密化することを予告、Tier A 規律 (D-031) で記号操作の厳密性を最大に保つことを明示",
+        "limitations (12段落目): Kmenta 展開は ρ=0 近傍の局所近似であり |ρ| 大領域で bias が入る — §10.3.3 Hsieh-Klenow 分散ベース識別が独立な大域識別チャネルとして補完的 robustness を与える旨の予告、Kmenta 局所近似が破綻した場合のフォールバック (非線形 GMM / Bayesian 非線形 MCMC) は §10.3.4 残るリスクで commission"
+      ],
+      "new_writing_required": "Kmenta 二次モーメント展開の formal な行ごと導出 (~2p)、正規化 CES 推定系譜 (Sato / Klump-McAdam-Willman / Diewert) への明示位置づけ段落 (~0.3p)、剰余項 Lagrange 評価本文スケッチ (~0.3p、完全評価は付録 A.10.3.1 へ D-047)、Lemma 10.3.1 (y と log F の符号関係) 本章固有小補題 (~0.3p)、Bayesian 化動機 (弱情報事前 + Sims-Zha + Chib-Greenberg 引用) (~0.3p)、horse-race 予告 + Jeffreys-Lindley 対策 flag (~0.3p)。証明スケッチを本文、完全証明 (D-047) を付録 A.10.3.1 へ。",
+      "existing_reuse": "Ch 7 F-CES 関数形 (a, α, ρ パラメトリゼーション) を式番号で参照、Ch 10.2 Jovanovic τ_B 構造 (y = log time-to-B-trigger) を 1 式で再掲、Kmenta (1967) Econometrica 二次モーメント展開の原典計算は引用 + 注釈、Sato (1975) / Klump-McAdam-Willman (2007) / Diewert (1971) は標準引用、Sims-Zha (1998) BVAR 弱情報事前 / Chib-Greenberg (1995) MCMC は標準引用のみで再構築しない。",
+      "upstream_dependencies": [
+        "§10.3.0 章頭フックの三コホート提示と F-CES 形式再掲",
+        "Ch 7 F-CES 形式 (F_char, F_cap; a, ρ)",
+        "Ch 10.2 Jovanovic τ_B 構造 (y_i = log time-to-B-trigger)"
+      ],
+      "downstream_dependencies": [
+        "§10.3.2 命題 1 + 系 1 (δ_3 → ρ 復元、Bayesian posterior、horse-race)",
+        "§10.3.3 Heckman + Hsieh-Klenow (Kmenta 局所近似の補完)",
+        "§10.3.4 残るリスク (R1 Kmenta 局所近似フォールバック)",
+        "付録 A.10.3.1 完全証明 + 剰余項 Lagrange 評価 (D-047)",
+        "Ch 11 BVAR (ρ 事後分布 supply 準備)"
+      ],
+      "references": [
+        "Kmenta 1967 Econometrica",
+        "Arrow, Chenery, Minhas & Solow 1961 RES (CES 原典)",
+        "Sato 1975 Production Functions and Aggregation",
+        "Klump, McAdam & Willman 2007 (正規化 CES)",
+        "Diewert 1971 JPE (flexible functional forms)",
+        "Sims & Zha 1998 (BVAR 弱情報事前)",
+        "Chib & Greenberg 1995 (MCMC)",
+        "Ch 7 F-CES, Ch 10.2 Jovanovic τ_B"
+      ],
+      "source_drafts": [
+        "B §10.3.1 (骨格)",
+        "A §10.3.1 (正規化 CES 系譜)",
+        "C §10.3.1 (Lemma 10.3.1)"
+      ]
+    },
+    {
+      "section_id": "10.3.2",
+      "title": "命題 1 + 系 1 — 点識別と Bayesian posterior 下での H_C2 二分岐判定",
+      "pages": 2.5,
+      "math_level": "high — A1-A3 のもとでの点識別を Khan-Tamer 流に formal 厳密化 (本文スケッチ + 付録 A.10.3.2 完全証明 D-047)、Bayesian posterior π(ρ | data) の MCMC 構築、horse-race Bayes factor (Cobb-Douglas / Leontief / 加法的 nested 比較) の Jeffreys 'strong evidence' log BF ≥ 3 反証可能閾値、系 1 の Inada コーナー対応 (CES 限界生産性の極限評価)",
+      "anchor_claims": [
+        "命題 1 (点識別): 確率空間 (Ω, F, P, y_i, z_{c,i}, z_{k,i}, ε_i) において A1 (F_char,i 法人化前測定 ⇒ Cov(F_char,i, ε_i) = 0) ∧ A2 (コホート × 産業固定効果 ⇒ 共通選抜吸収) ∧ A3 ((z_c, z_k) 共通支持 ⇒ delta method 適用可能性) のもと、(δ_1, δ_2, δ_3) は OLS / Bayesian posterior で一致推定可能、ρ̂ = 2δ̂_3/[α̂(1-α̂)], α̂ = δ̂_1/(δ̂_1+δ̂_2) が一致推定量、sign(ρ) = sign(δ_3) (Lemma 10.3.1 符号反転規約込み)",
+        "Bayesian 定式化: 弱情報事前分布 ρ ~ N(0, 1), α ~ Beta(2, 2), δ_0 ~ N(0, 10²), δ_3 ~ N(0, σ_δ²) のもと Chib-Greenberg (1995) MCMC で事後分布 π(ρ | data) を構築、P(ρ<0 | data) と 95% 信用区間 [ρ_{0.025}, ρ_{0.975}] を出力 (D-032)",
+        "horse-race Bayes factor (二重検証): Cobb-Douglas (ρ=0) / Leontief (ρ→-∞ truncated) / 加法的 (ρ=1) の 3 つの nested ベンチマークに対し log BF ≥ 3 (Jeffreys 'strong evidence' 閾値) で CES 自由 ρ モデルが優越し、ρ<0 領域への posterior 質量集中が二重検証される",
+        "系 1.a (Inada コーナー対応): P(ρ<0 | data) ≥ 0.95 ⇒ CES 限界生産性 ∂F/∂F_char ∝ α F_char^{ρ-1} [α F_char^ρ + (1-α) F_cap^ρ]^{1/ρ - 1} の F_char↓0 極限が ∞ に発散 (Inada コーナー) ⇒ F_char の委譲不可能性 (F_cap でいくら代替しても F_char の不足は埋まらない)",
+        "系 1.b (反駁分岐): P(ρ≥0 | data) > 0.05 ⇒ C2 反駁 ⇒ Nelson-Winter (1982) ルーチン的完全委譲可能ベンチマーク (ρ=0 Cobb-Douglas または ρ>0 加法的) への復権、F は完全委譲可能スカラー適合度に退化",
+        "事前登録 H_C2 (D-031 Tier B): ρ<0 事後確率閾値 0.95、コホート pooling 規則、Heckman 第一段共変量集合 (コホート別)、MCMC 設定、horse-race ベンチマークを実行前に OSF (Ch 26b commission) にコミット、frequentist p 値解釈を排して posterior 解釈で確証 / 反駁を裁定"
+      ],
+      "paragraph_outline": [
+        "命題 1 formal statement (1段落目): 確率空間 (Ω, F, P, y_i, z_{c,i}, z_{k,i}, ε_i) で A1 (法人化前測定 ⇒ Cov(F_char,i, ε_i) = 0), A2 (コホート × 産業固定効果ダミーで共通選抜吸収), A3 ((z_c, z_k) 共通支持 ⇒ delta method 適用可能性) のもとで δ̂_3 が一致推定量、ρ̂ = 2δ̂_3/[α̂(1-α̂)] が一致推定量となることを boxed で formal に提示 (measure-theoretic な書き方)",
+        "A1-A3 の役割分解 (2段落目): A1 ⇒ 内生性源 (reverse causality, measurement error in F_char) の遮断、A2 ⇒ unobserved heterogeneity の two-way fixed effects 吸収、A3 ⇒ 識別領域の外挿リスク排除、をそれぞれ 1 段落で説明 (Ch 6 計量経済学的識別の章があれば用語を継承、なければ本節で自立定義)",
+        "命題 1 証明スケッチ (3段落目): Khan-Tamer (2010) 流の点識別議論を Kmenta 線形性に適用 — δ_3 = -(1/2)α(1-α)ρ (§10.3.1 導出) かつ α ∈ (0,1) なので α(1-α) > 0、Lemma 10.3.1 の被説明変数符号反転を取り込むと sign(ρ) = sign(δ_3) が canonical 規約として確定。完全証明 (剰余項評価 + 同定識別の一意性) は付録 A.10.3.2 (D-047) へ",
+        "Bayesian 定式化 (4段落目): 弱情報事前分布 ρ ~ N(0, 1), α ~ Beta(2, 2), δ_0 ~ N(0, 10²) を Sims-Zha (1998) 流の弱情報事前正当化で導入、Chib-Greenberg (1995) MCMC で事後分布 π(ρ | data) を構築する手順。chain 4 / burn-in 5000 / 反復 20000 を §10.3.4 OSF commission に固定することを宣言",
+        "horse-race 設計 (5段落目): Cobb-Douglas (ρ=0) / Leontief (ρ→-∞ truncated) / 加法的 (ρ=1) の 3 つの nested ベンチマークを Bayes factor で比較する設計を boxed で提示、log BF ≥ 3 (Jeffreys 'strong evidence' 閾値) を CES 自由 ρ モデルの優越判定基準として確定",
+        "Jeffreys-Lindley 対策 (6段落目): Leontief (ρ→-∞) は CES 内の境界極限であり Bayes factor 計算で Jeffreys-Lindley パラドックスを引き起こす可能性、対策として ρ の事前分布を truncation (例: ρ ∈ [-10, 10]) するか reference prior を採用するかを §10.3.4 OSF commission で事前固定、技術詳細は付録 A.10.3.2 へ",
+        "系 1.a Inada コーナー導出 (7段落目): F-CES の限界生産性 ∂F/∂F_char ∝ α F_char^{ρ-1} [α F_char^ρ + (1-α) F_cap^ρ]^{1/ρ - 1} を ρ<0 と F_char↓0 で極限評価し lim → ∞ を formal に示す (Inada 1963 RES 条件)。代数 1-2 行で boxed",
+        "系 1.a 解釈 (8段落目): Inada コーナー = F_char が 0 に近づくとき限界生産が無限大 ⇒ F_cap (チーム能力 / 資本 / 経験) でいかに代替しても F_char の不足は埋まらない ⇒ 委譲不可能性の経験的定義 (C2 の作業仮説形式)。F = SOUL の委譲不可能コアとしての解釈を Book III へ予告",
+        "系 1.b 反駁分岐 (9段落目): P(ρ≥0 | data) > 0.05 ⇒ F_char と F_cap は代替可能 ⇒ Nelson & Winter (1982) ルーチン的完全委譲可能スカラー適合度ベンチマーク (Ch 11 受領予定の進化経済) への復権、F は完全委譲可能ベンチマークに退化 (C2 反駁)",
+        "二分岐判定 boxed (10段落目): 系 1.a/1.b を boxed で並列提示、確証 P(ρ<0|data) ≥ 0.95 ⇒ 委譲不可能性 / 反駁 P(ρ≥0)>0.05 ⇒ Nelson-Winter 復権の二分岐 mapping を OSF 事前登録 H_C2 の事前-事後マッピングとして明文化",
+        "事前登録 H_C2 contract (11段落目): D-031 Tier B 規律で事前登録仕様 (閾値 0.95, 弱情報事前分布, コホート pooling 規則, Heckman 第一段共変量集合, horse-race ベンチマーク, MCMC 設定) を Ch 26b OSF commission に送る contract 段落、frequentist p 値解釈の排除と posterior 解釈の commit を明示",
+        "結節 (12段落目): 命題 1 + 系 1 は本章固有の中核結果である一方、δ_3 の一致推定は A1-A2 (法人化前測定 + 固定効果) に依存し選抜バイアス + 内生性脅威に晒される、これを §10.3.3 Heckman 二段階補正 + Hsieh-Klenow 分散ベース識別の二重識別で補強する流れを宣言"
+      ],
+      "new_writing_required": "命題 1 を確率空間 (Ω, F, P, ...) として formal statement 厳密版 (~0.4p)、Khan-Tamer 流の点識別証明スケッチ本文 (~0.4p、完全証明は付録 A.10.3.2 へ D-047)、Bayesian 弱情報事前分布の具体仕様 (ρ ~ N(0,1), α ~ Beta(2,2), δ_0 ~ N(0,10²)) と Sims-Zha + Chib-Greenberg 正当化 (~0.3p)、horse-race Bayes factor 設計 + log BF ≥ 3 閾値 + Jeffreys-Lindley 対策 (~0.4p)、系 1.a Inada コーナー formal 極限評価 (~0.3p)、系 1.b Nelson-Winter 復権 (~0.2p)、二分岐 mapping boxed (~0.2p)、事前登録 H_C2 contract (~0.3p)。Tier A 規律 (D-031) で記号操作の厳密性を最大に保つ。",
+      "existing_reuse": "§10.3.1 Kmenta 線形化方程式と δ_3 = -(1/2)α(1-α)ρ 構造関係、Lemma 10.3.1 符号規約、Ch 7 F-CES 限界生産性表式、Inada (1963) RES 条件、Khan & Tamer (2010) 点識別文献、Chib-Greenberg (1995) MCMC、Sims-Zha (1998) 弱情報事前、Nelson & Winter (1982) ルーチン進化、Tier B 規律のもとでの H_C2 事前登録仕様 (Ch 26b 既定)。",
+      "upstream_dependencies": [
+        "§10.3.1 Kmenta 線形化導出 (推定式 + 係数復元 + Lemma 10.3.1)",
+        "Ch 7 F-CES 形式 + Inada 条件解釈",
+        "Ch 6 計量経済学的識別の用語 (もし存在)、なければ A1-A3 をここで自立定義",
+        "BOOK_DECISIONS.md D-038 / D-031 / D-032 / D-047"
+      ],
+      "downstream_dependencies": [
+        "§10.3.3 Heckman + Hsieh-Klenow 補強 (A1-A2 robustness)",
+        "§10.3.4 残るリスク + 事前登録 commission",
+        "Ch 11 BVAR (ρ 事後分布 supply)",
+        "Ch 26b OSF H_C2 事前登録 (commission)",
+        "Book III (F = SOUL 委譲不可能コア解釈)",
+        "付録 A.10.3.2 命題 1 完全証明 (D-047)"
+      ],
+      "references": [
+        "Khan & Tamer 2010 (点識別)",
+        "Chib & Greenberg 1995 MCMC",
+        "Sims & Zha 1998 BVAR 弱情報事前",
+        "Inada 1963 RES",
+        "Nelson & Winter 1982 (反対ベンチマーク)",
+        "Kmenta 1967",
+        "Ch 7 F-CES, Ch 10.2 τ_B, Ch 26b H_C2 事前登録",
+        "BOOK_DECISIONS.md D-038 / D-031 / D-032 / D-047"
+      ],
+      "source_drafts": [
+        "B §10.3.2 (骨格 + horse-race + 弱情報事前)",
+        "C §10.3.2 (確率空間 formal + Cov 表現)",
+        "A §10.3.2 (Tier 境界 + Inada コーナー解釈)"
+      ]
+    },
+    {
+      "section_id": "10.3.3",
+      "title": "Heckman 二段階補正 + Hsieh-Klenow 分散ベース識別 — A1-A2 単独依存の頑健化",
+      "pages": 1,
+      "math_level": "medium — Heckman 二段階補正 (プロビット → 逆ミルズ比) の Kmenta 推定式への Bayesian data augmentation 同時投入、Hsieh-Klenow (2009 QJE) 産業内 log F 分散を ρ の単調関数として読む補助識別の式提示。両補正の直交性 (観測選抜 vs 分散構造) の formal 論証。完全導出は付録 B (D-047)",
+      "anchor_claims": [
+        "Heckman 二段階補正: MIT 創業者三コホート (Beckman / Roberts / Eesley-Roberts) はすべて『創業を実行した個人の事後観測』であり自己選抜サンプル、Heckman (1979) 第一段プロビット (創業選択方程式) → 逆ミルズ比 λ̂_i を Kmenta 推定式に追加共変量として Bayesian data augmentation (Chib-Greenberg 流) で同時推定",
+        "Exclusion restriction の自然源 (Eesley-Roberts): Eesley-Roberts (2012) SEJ の生得 (innate ALQ4 サブスケール, 家族背景) vs 経験 (experiential) 分割は『生得特性は創業選択に影響し成果には創業後経路 = F_cap 蓄積を通じてのみ影響する』仮定のもと Heckman 第一段の自然な exclusion restriction を提供",
+        "コホート別 instrument: Beckman (2006) / Roberts (1991, 2004) コホートは Eesley-Roberts の生得 vs 経験分割を持たないため、Bernstein 系 (地域起業エコシステム密度, VC 集積指数, コホート時点) を補助 instrument として併用、コホート別第一段共変量集合を OSF (Ch 26b) に permissive に commission",
+        "Hsieh-Klenow 分散ベース識別: 産業内 log F の分散 Var(log F | industry) は ρ の単調関数 (Hsieh & Klenow 2009 QJE) として読め、Kmenta 線形化 (ρ=0 近傍の局所近似) と独立な大域的識別チャネルを提供、|ρ| が大きい領域での Kmenta bias を補完",
+        "両補正の直交性: Heckman = 観測選抜の補正 (誰が観測されるか)、Hsieh-Klenow = 観測された分散の構造補正、両者が独立に ρ<0 を支持すれば C2 の posterior 集中度はさらに上がる",
+        "Robustness 判定基準 (Tier A 確定): ρ̂^{Kmenta} の 95% 信用区間と ρ̂^{Hsieh-Klenow} の 95% 信用区間が overlap すれば命題 1 robust、overlap しなければ §10.3.4 残るリスク R5 として格上げ報告"
+      ],
+      "paragraph_outline": [
+        "選抜問題提示 (1段落目): 三コホート (Beckman N≈170, Roberts N≈250, Eesley-Roberts N≈2067) はすべて『創業を実行した個人の事後観測』であり、創業しなかった個人は y_i = log τ_B を持たない、E[ε_i | 創業=1] ≠ 0 の可能性を A1-A2 単独依存の identification 脅威として明示 (Heckman 1979 Econometrica 流)",
+        "Heckman 第一段 (2段落目): プロビット P(創業 = 1 | X_i) を共変量 X_i (生得特性 + コホート × 産業ダミー + 補助 instrument) で推定し、逆ミルズ比 λ̂_i を §10.3.1 Kmenta 推定式に追加共変量として投入。Bayesian 文脈では Chib-Greenberg 流 data augmentation で同時推定し、補正後 δ̂_3^{Heckman} と ρ̂^{Heckman} の事後分布を出力",
+        "Exclusion restriction 自然源 (3段落目): Eesley-Roberts (2012) SEJ の生得 vs 経験分割が『生得特性は創業選択に影響し成果には創業後経路 = F_cap 蓄積を通じてのみ影響する』仮定のもと Heckman 第一段の自然な exclusion restriction を提供することを本書独自の経験的貢献として明示 (Lens A judge から graft された rigor 強化)",
+        "コホート別 instrument (4段落目): Beckman / Roberts コホートでは Eesley-Roberts の生得 vs 経験分割が利用不能、Bernstein 系 (コホート時点の地域起業エコシステム密度, VC 集積指数) を補助 instrument として併用する設計を提示、コホート別第一段共変量集合の OSF permissive 度を Ch 26b commission に明示送り",
+        "Hsieh-Klenow 補助識別 (5段落目): Hsieh & Klenow (2009) QJE の分散ベース識別を補助として導入、産業内 log F 分散の分散分解 Var(y) = δ_1² Var(z_c) + δ_2² Var(z_k) + 2 δ_1 δ_2 Cov(z_c, z_k) + ... + 4 δ_3² Var((z_c-z_k)²) から ρ への独立な制約を 1-2 行の式で提示、SIC2 / SIC4 産業分類粒度の選択は付録 B に flag",
+        "両補正の直交性 (6段落目): Heckman = 観測選抜の補正 (誰が観測されるか)、Hsieh-Klenow = 観測された分散の構造補正 (大域的識別チャネル)、両者が独立な情報を使う 1 段落 formal 論証 (Lens A judge が B から graft 推奨した formal 化)",
+        "Robustness 判定基準 (7段落目): ρ̂^{Kmenta + Heckman} の 95% 信用区間と ρ̂^{Hsieh-Klenow} の 95% 信用区間が overlap すれば命題 1 robust、overlap しなければ §10.3.4 残るリスク R5 として格上げ報告する判定基準を Tier A で確定",
+        "実推定数値の繰り延べ (8段落目): D-006 規律により本章では実推定数値を出さず、定性的識別戦略の確立に留め、実数値推定は Ch 11 BVAR で扱う旨を明示"
+      ],
+      "new_writing_required": "Heckman 二段階補正の Bayesian data augmentation 化 (~0.2p)、Eesley-Roberts 生得 vs 経験分割を exclusion restriction の自然源として正当化する論証 (~0.2p、本章独自の経験的貢献)、コホート別 instrument 設計 (Bernstein 系を Beckman / Roberts に併用) (~0.15p)、Hsieh-Klenow 分散ベース識別の補助識別式提示 (~0.15p)、両補正の直交性 formal 論証 (~0.15p)、Robustness 判定基準 (信用区間 overlap) Tier A 確定 (~0.15p)。詳細仕様は Ch 26b commission に送る。",
+      "existing_reuse": "Heckman (1979) Econometrica 二段階補正、Hsieh & Klenow (2009) QJE 分散ベース識別、Bernstein et al. 地域起業エコシステム研究、Eesley & Roberts (2012) SEJ 生得 vs 経験分割、§10.3.1 Kmenta 線形化方程式、§10.3.2 A1-A3 仮定、Chib-Greenberg (1995) data augmentation。",
+      "upstream_dependencies": [
+        "§10.3.2 命題 1 + 系 1 (A1-A2 一致推定の脅威分析)",
+        "§10.3.1 Kmenta 線形化方程式",
+        "§10.3.0 Beckman / Roberts / Eesley-Roberts 経験データソース提示"
+      ],
+      "downstream_dependencies": [
+        "§10.3.4 残るリスク R5 (Hsieh-Klenow と Kmenta 不整合シナリオ)",
+        "Ch 26b H_C2 事前登録 (コホート別 Heckman 共変量集合 commission)",
+        "Ch 11 BVAR (実推定数値、D-006 規律により本章では出さず Ch 11 で)",
+        "付録 B Heckman 補正 Bayesian 同時推定 + Hsieh-Klenow 整合性完全導出 (D-047)"
+      ],
+      "references": [
+        "Heckman 1979 Econometrica",
+        "Hsieh & Klenow 2009 QJE",
+        "Eesley & Roberts 2012 SEJ",
+        "Bernstein et al. (地域起業エコシステム文献)",
+        "Chib & Greenberg 1995 (data augmentation)",
+        "BOOK_DECISIONS.md D-006"
+      ],
+      "source_drafts": [
+        "C §10.3.3 (骨格 + Eesley-Roberts exclusion restriction 自然源)",
+        "B §10.3.3 (直交性 formal 論証 + Bayesian data augmentation)",
+        "A §10.3.3 (Bernstein 系 instrument 補助)"
+      ]
+    },
+    {
+      "section_id": "10.3.4",
+      "title": "残るリスク 5 件 + H_C2 事前登録 + Ch 11 / Ch 26b / Book III への inter-chapter contract",
+      "pages": 1,
+      "math_level": "low — 議論主体。残るリスク 5 件を Ch 5 / 5.5 / 9 / 10.4 skeleton 規律で bullet 形式列挙、H_C2 事前登録 OSF プロトコル仕様 (閾値 0.95 / 弱情報事前分布 / コホート pooling / Heckman 共変量 / horse-race / MCMC 設定) を Tier B 規律で全固定、Ch 11 BVAR への ρ 事後分布 inter-chapter contract 段落形式化、Ch 26b H_C2 commission、Book III F = SOUL 委譲不可能コア解釈の引き渡しを明示",
+      "anchor_claims": [
+        "残るリスク 5 件 (Ch 5 / 5.5 / 9 / 10.4 skeleton 規律): R1 Kmenta 局所近似 (|ρ| 大領域 bias、フォールバック非線形 GMM / Bayesian 非線形 MCMC を Ch 26b commission 候補) / R2 F_char (ALQ4 + Grit + Resilience) 運用化測定誤差 (コホート × 産業固定効果 + Bayesian 階層モデルで縮約) / R3 コホート時代差 (Beckman 2006 / Roberts 1991, 2004 / Eesley-Roberts 2012) + MIT 同窓 sample 外的妥当性 (AMD pipeline 8 PJ への一般化問題、コホート固定効果 + 感度分析を Ch 11 BVAR で実施) / R4 Heckman exclusion restriction 検証不能性 (overidentification test 不可、感度分析を Ch 11 で実施) / R5 Hsieh-Klenow と Kmenta 識別不整合 (信用区間非 overlap シナリオ、§10.3.3 直交性ロジックの再確認)",
+        "H_C2 事前登録仕様 (D-031 Tier B 規律): ρ<0 事後確率閾値 0.95、弱情報事前分布 (ρ ~ N(0,1), α ~ Beta(2,2), δ_0 ~ N(0,10²))、コホート pooling 規則 (弱階層事前分布で Beckman / Roberts / Eesley-Roberts を pool)、Heckman 第一段共変量集合 (コホート別: Eesley-Roberts = 生得 vs 経験分割 / Beckman + Roberts = Bernstein 系地域起業エコシステム密度)、horse-race ベンチマーク (Cobb-Douglas / Leontief truncated / 加法的 + Jeffreys-Lindley 対策 truncation or reference prior)、MCMC chain 4 / burn-in 5000 / 反復 20000 を OSF (Ch 26b commission) に実行前に全固定",
+        "Ch 11 BVAR inter-chapter contract: ρ 事後分布 (mean, 95% 信用区間 [ρ_{0.025}, ρ_{0.975}], P(ρ<0|data)) を Ch 11 構造 VAR の事前分布として渡す段落形式の inter-chapter contract を明文化",
+        "Ch 26b H_C2 commission: H_C2 OSF 事前登録の Tier B 正典化を 1 段落で declare、推定実行前のプロトコル凍結 (上記 H_C2 仕様全項目) を約束",
+        "Book III 引き渡し: 命題 1 + 系 1 が成立すれば F は SOUL の委譲不可能コアとして経験的に確立される、反証可能性 (P(ρ≥0) > 0.05 で C2 反駁 ⇒ Nelson-Winter 復権の構造) を保ったまま Book III へ進む宣言"
+      ],
+      "paragraph_outline": [
+        "残るリスク 5 件 bullet (1段落目): Ch 5 / 5.5 / 9 / 10.4 と同じ skeleton 規律で R1-R5 を bullet 形式列挙、各 1-2 行で本書のどこで再対処するかを明示 (R1 → 付録 A + Ch 26b フォールバック commission, R2 → Ch 10.4, R3 → Ch 11 BVAR コホート固定効果 + 感度分析, R4 → Ch 11 感度分析, R5 → §10.3.3 直交性ロジック再確認)",
+        "外的妥当性 (R3 詳述, 2段落目): MIT 同窓 sample (Roberts + Eesley-Roberts) と Beckman の創業チーム所属 N≈170 が AMD pipeline 8 PJ (大学発シーズ / ディープテック SU) への一般化を担保するかを Research Policy reviewer 期待を意識して 1 段落で明示、外部 replication sample (例: Stanford / 東大発 SU パネル) の取得を Book III 以降の課題として明文化",
+        "Tier 規律分離 (3段落目): D-031 規律により本章 §10.3.0-3 は Tier A (識別結論の関数解析的厳密性)、§10.3.4 H_C2 事前登録部分のみ Tier B (commit プロトコル) として Box 形式 (Ch 5 / 5.5 / 9 / 10.4 と同じ skeleton 規律) で視覚的に分離することを明示",
+        "H_C2 事前登録仕様 boxed (4段落目): OSF プロトコル仕様を Tier B Box で全項目固定 — (a) 閾値 0.95, (b) 弱情報事前分布 ρ ~ N(0,1) / α ~ Beta(2,2) / δ_0 ~ N(0,10²), (c) コホート pooling 規則 (弱階層事前分布), (d) Heckman 第一段共変量集合 (コホート別: Eesley-Roberts = 生得 vs 経験 / Beckman + Roberts = Bernstein 系), (e) horse-race ベンチマーク + Jeffreys-Lindley 対策, (f) MCMC chain 4 / burn-in 5000 / 反復 20000",
+        "Ch 11 BVAR inter-chapter contract (5段落目): 段落レベルで形式化 — 『§10.3 は ρ 事後分布 (mean, 95% 信用区間 [ρ_{0.025}, ρ_{0.975}], P(ρ<0|data), Heckman 補正版 ρ̂^{Heckman} と Hsieh-Klenow 補助識別 ρ̂^{HK} の 95% 信用区間 overlap 判定) を Ch 11 構造 VAR の事前分布として渡す』を明文 contract として確定",
+        "Ch 26b H_C2 commission (6段落目): H_C2 OSF 事前登録の Tier B 正典化、推定実行前のプロトコル凍結を 1 段落で declare、commission template (Ch 26b 既定) に H_C2 仕様全項目を流し込む",
+        "Book III 引き渡し (7段落目): 命題 1 + 系 1 が成立すれば F は SOUL の委譲不可能コアとして経験的に確立される、ただし反証可能性 (P(ρ≥0) > 0.05 で C2 反駁 ⇒ Nelson-Winter スカラー適合度ベンチマーク復権) を構造として保持したまま Book III へ進む宣言",
+        "章末 supply ledger (8段落目): §10.3 → Ch 11 BVAR (ρ 事後分布) / §10.3 → Ch 26b (H_C2 OSF 事前登録仕様) / §10.3 → Book III (F = SOUL 委譲不可能コア解釈) / §10.3 ← Ch 7 (F-CES 形式) / §10.3 ← Ch 10.2 (y = log τ_B 構造) を 4-5 行で図示風に列挙、Ch 5 / 5.5 / 9 / 10.4 章末様式に揃える",
+        "結節 (9段落目): 本章で確立したのは (a) Kmenta 線形化導出 + Lemma 10.3.1 符号規約 fix, (b) 命題 1 sign 識別 + 点識別公式 ρ̂ = 2δ̂_3/[α̂(1-α̂)], (c) 系 1 Inada コーナー対応 = 委譲不可能性 / Nelson-Winter 復権の二分岐 mapping, (d) Heckman + Hsieh-Klenow 二重識別による A1-A2 単独依存頑健化, (e) 残るリスク 5 件 + H_C2 事前登録 Tier B commit。§10.4 (Jovanovic 構造拡張 / 進化経済 closing) へ識別済み F-CES と ρ 事後分布を渡して節を閉じる"
+      ],
+      "new_writing_required": "残るリスク 5 件 bullet 形式 (Ch 5 / 5.5 / 9 / 10.4 skeleton 規律) + 各 mitigation (~0.25p)、AMD pipeline 8 PJ への外的妥当性 (MIT 同窓 sample 問題) を R3 詳述 (~0.1p)、Tier 規律分離 (Box 形式) (~0.1p)、H_C2 OSF プロトコル仕様の Tier B Box 全項目固定 (~0.25p)、Ch 11 BVAR inter-chapter contract 段落形式化 (~0.15p)、Ch 26b H_C2 commission declare (~0.05p)、Book III 引き渡し宣言 (~0.05p)、章末 supply ledger 図示 (~0.05p)。",
+      "existing_reuse": "§10.3.1-10.3.3 全結論、Ch 7 F-CES 形式、Ch 10.2 τ_B 構造、Ch 26b 事前登録仕様 commission template (既定)、D-031 Tier 規律、D-038 章間分担、D-032 Bayesian posterior 化、D-047 証明スケッチ + 完全証明付録、D-006 数値非提示、Ch 5 / 5.5 / 9 / 10.4 残るリスク bullet skeleton + 章末 supply ledger 様式。",
+      "upstream_dependencies": [
+        "§10.3.1 Kmenta 線形化導出 + Lemma 10.3.1",
+        "§10.3.2 命題 1 + 系 1 + Bayesian posterior + horse-race",
+        "§10.3.3 Heckman + Hsieh-Klenow 二重識別",
+        "BOOK_DECISIONS.md D-038 / D-031 / D-032 / D-047 / D-006"
+      ],
+      "downstream_dependencies": [
+        "Ch 10.4 (Jovanovic 拡張 / 進化経済 closing) へ識別済み F-CES + ρ 事後分布",
+        "Ch 11 BVAR (ρ 事後分布 supply: mean / 95% 信用区間 / P(ρ<0|data) / Heckman 補正版 / Hsieh-Klenow 補助識別)",
+        "Ch 26b OSF H_C2 事前登録 commission (Tier B 正典化)",
+        "Book III (F = SOUL 委譲不可能コア解釈活用)"
+      ],
+      "references": [
+        "OSF 事前登録仕様 (Ch 26b commission template)",
+        "BOOK_DECISIONS.md D-038 / D-031 / D-032 / D-047 / D-006",
+        "Ch 5 / 5.5 / 9 / 10.4 残るリスク bullet skeleton + 章末 supply ledger 様式",
+        "Nelson & Winter 1982 (反証分岐ベンチマーク)"
+      ],
+      "source_drafts": [
+        "C §10.3.4 (骨格 + Ch 11 inter-chapter contract 形式化)",
+        "B §10.3.4 (H_C2 仕様 Tier B Box + supply ledger)",
+        "A §10.3.4 (外的妥当性 R3 + Tier 境界明示)"
+      ]
+    }
+  ],
+  "open_issues_for_masa": [
+    {
+      "issue": "Kmenta 展開の符号規約矛盾の D-038 sub-decision 化: §10.3.1 で δ_3 = -(1/2)α(1-α)ρ と素直に導けば α(1-α) > 0 より sign(ρ) = -sign(δ_3) になる一方、Lemma 10.3.1 で y = log τ_B = -log F + const の被説明変数符号反転を取り込むと sign(ρ) = sign(δ_3) になる。本書 canonical 規約を D-038 sub-decision として確定し、付録 A.10.3.1 (D-047) で曖昧さなく fix する必要がある",
+      "why_masa_decides": "本書全体の命題 1 stating + Ch 11 BVAR への ρ supply contract + Ch 26b OSF 事前登録 commission の符号規約一貫性に関わる正典決定であり、masa が D-038 補遺として正式に判決すべき",
+      "options": [
+        "Option A: Lemma 10.3.1 で被説明変数符号反転を取り込み sign(ρ) = sign(δ_3) を canonical 規約とする (Draft B 方式、reviewer 期待に最も親和的)",
+        "Option C: Kmenta 慣行を維持し sign(ρ) = -sign(δ_3) を canonical 規約とする (Draft A open_issue が flag した方向、Kmenta 原典との一貫性)",
+        "Option B: 両規約を併記し付録 A.10.3.1 で formal 等価性を示す (最も丁寧だがページ膨張)"
+      ],
+      "recommendation": "Option A を推奨。Lemma 10.3.1 で y = log τ_B と log F の符号関係を formal に lemma 化し sign(ρ) = sign(δ_3) を canonical 規約として確定する方が、Ch 10.2 Jovanovic τ_B 構造との接合点を本章で消化でき、reviewer (Cambridge UP / Research Policy / ICC) の符号疑義に先回りできる。Draft B の方式を踏襲しつつ Draft C の Lemma 10.3.1 を加えるのが最強"
+    },
+    {
+      "issue": "三コホート (Beckman N≈170 / Roberts N≈250 / Eesley-Roberts N≈2067) の統合戦略 (pooling vs 弱階層事前分布 vs meta-analysis) を本章で確定するか Ch 11 BVAR 側に送るか: H_C2 OSF 事前登録 (D-031 Tier B) は実行前にプロトコル全固定が要件であるため、本章 §10.3.4 で確定するのが筋だが、Ch 11 BVAR の構造方程式が pooling 結果に依存するため両章のいずれが正典オーナーかが宙吊り",
+      "why_masa_decides": "Tier B 事前登録の commit 範囲 (本章 vs Ch 11) を確定するのは masa の章間分業判決事項であり、D-038 補遺 (または D-038-sub) として明文化する必要がある",
+      "options": [
+        "Option A: 本章 §10.3.4 で弱階層事前分布 (Beckman / Roberts / Eesley-Roberts を pool、hyperparameter τ ~ HalfCauchy(0, 1)) として全固定し OSF commit、Ch 11 BVAR は確定 pooling 結果を受け取るのみ (推奨: Tier B 事前登録の趣旨に最も整合)",
+        "Option B: 本章は識別戦略 (pooling 可能性の理論的正当化) のみ提示し、具体的 hyperparameter 設定は Ch 11 BVAR に commission (Ch 11 章間分担を活かす)",
+        "Option C: 本章で 3 つの pooling 戦略 (完全 pool / 弱階層 / separate + meta-analysis) を horse-race として §10.3.2 Bayes factor に追加し、事後的に選ぶ (技術的に最丁寧だがページ膨張)"
+      ],
+      "recommendation": "Option A を推奨。H_C2 OSF 事前登録の Tier B 規律 (D-031) は実行前プロトコル全固定が core 趣旨であるため、本章 §10.3.4 H_C2 commission Box に弱階層事前分布 + hyperparameter 設定を全固定するのが正典として強い。Ch 11 BVAR は確定結果を受領するのみとすべき"
+    },
+    {
+      "issue": "AMD pipeline 8 PJ への外的妥当性 (MIT 同窓 sample の一般化問題): Roberts + Eesley-Roberts は MIT 同窓 sample 限定、Beckman も米国 high-tech 創業チーム N≈170 で、AMD が対象とする日本の大学発シーズ / ディープテック SU 8 PJ (東大 / 京大 / 阪大 / 東工大系) への一般化が本質的に reviewer (Research Policy / ICC) から指摘される。本章 §10.3.4 残るリスク R3 に外的妥当性を明示するのは確定として、外部 replication sample (Stanford / 東大発 SU パネル等) の取得を Book III 課題とするか Ch 11 BVAR で部分対応するかが open",
+      "why_masa_decides": "AMD pipeline 8 PJ への適用可能性は本書の実務的 raison d'être であり、masa の戦略判断 (Book III での replication コミット範囲) に直結",
+      "options": [
+        "Option A: 本章 §10.3.4 R3 に外的妥当性問題を明示し、Book III の課題として外部 replication (Stanford 創業者 panel + 東大 TLO 創業者 panel) commit を予告 (推奨: 反証可能性を構造として最大化)",
+        "Option B: 本章 §10.3.4 R3 は MIT sample 限定を flag するのみで、外部 replication は別書 / 別論文に送る (本書 scope 縮小)",
+        "Option C: 本章 §10.3.3 に AMD pipeline 8 PJ (N≈8) を independent validation sample として追加投入する設計を提示 (技術的に最強だが N≈8 は推定不能)"
+      ],
+      "recommendation": "Option A を推奨。AMD pipeline 8 PJ の N≈8 は本章 Bayesian posterior 推定には小さすぎるが、Book III での Stanford + 東大 TLO replication commit を予告することで反証可能性を構造として最大化でき、Research Policy / ICC reviewer の外的妥当性指摘に正面から応答できる"
+    },
+    {
+      "issue": "F_char 運用化 (ALQ4 + Grit + Resilience) のスコア合成式の章間オーナーシップ: Ch 7 既定義か本章 §10.3.0 初出かが BOOK_DECISIONS.md に未記載。Heckman 第一段 exclusion restriction の自然源 (Eesley-Roberts 生得 vs 経験分割 = ALQ4 サブスケール) との接合点でもあり、合成式の確定オーナーが本章か Ch 7 かで §10.3.0 と §10.3.3 の paragraph 設計が変わる",
+      "why_masa_decides": "Ch 7 と Ch 10.3 の章間分業 (D-038) の細部に関わり、F_char という本書中核概念の運用化責任オーナーは masa 判決事項",
+      "options": [
+        "Option A: Ch 7 既定義として本章は受領のみ (Ch 7 で ALQ4 + Grit + Resilience 合成式を formal 提示済みと前提し本章は §10.3.0 で 1 段落 reuse)",
+        "Option B: 本章 §10.3.0 初出として F_char 運用化合成式を新規定義 (Ch 7 形式 + Ch 10.3 識別の分業を運用化レベルまで広げる)",
+        "Option C: Ch 7 = 概念定義 / 本章 = 運用化の 2 段構成 (Ch 7 で F_char を理論構成概念として定義、本章 §10.3.0 で経験的運用化を ALQ4 + Grit + Resilience 合成として定義)"
+      ],
+      "recommendation": "Option C を推奨。Ch 7 = 理論構成概念 / Ch 10.3 = 経験的運用化の 2 段構成は D-038 の Ch 7 形式 + Ch 10.3 識別の分業精神と最も整合し、本章 §10.3.0 で ALQ4 + Grit + Resilience 合成を §10.3.3 Heckman exclusion restriction (Eesley-Roberts 生得 vs 経験分割) と直接接続できる"
+    },
+    {
+      "issue": "y = log time-to-B-trigger の打ち切り (B-trigger 未到達企業) の正準オーナー (Ch 10.2 vs Ch 10.3): Ch 10.2 Jovanovic τ_B 章で打ち切り構造を定義済みと前提するか、本章 §10.3.4 R5 で再確認するか、Heckman 補正の打ち切り依存の formal 接合をどこで処理するかが宙吊り",
+      "why_masa_decides": "Ch 10.2 ↔ Ch 10.3 の章間境界の D-038 補遺判決事項であり、masa が章間 supply/receive の細部を確定すべき",
+      "options": [
+        "Option A: Ch 10.2 で打ち切り構造を全確定し、本章は受領のみ (推奨: D-038 章間分業精神に整合)",
+        "Option B: 本章 §10.3.4 R5 で打ち切り構造を再確認し Heckman 補正との接合を formal 化 (本章で Heckman 関連を全消化)",
+        "Option C: 打ち切り構造の Ch 10.2 既定義 + Heckman 補正との接合は §10.3.3 で formal 化 (混合)"
+      ],
+      "recommendation": "Option C を推奨。Ch 10.2 で打ち切り構造を既定とし (D-038 章間分業)、本章 §10.3.3 で Heckman 補正との formal 接合のみ消化することで、Ch 10.2 ↔ Ch 10.3 の supply/receive を清潔に保ちつつ Heckman 補正の identification を本章内で完結できる"
+    }
+  ],
+  "falsifiable_claims": [
+    "H_C2 主仮説: P(ρ < 0 | data) ≥ 0.95 が三コホート (Beckman 2006 N≈170 + Roberts 1991, 2004 N≈250 + Eesley-Roberts 2012 N≈2067) の pooled Bayesian posterior で成立する (不成立 ⇒ C2 = F_char 委譲不可能性は反駁され、Nelson-Winter スカラー適合度ベンチマーク復権)",
+    "命題 1 点識別: A1 (F_char,i 法人化前測定) ∧ A2 (コホート × 産業固定効果による共通選抜吸収) ∧ A3 ((z_c, z_k) における共通支持) のもと ρ は ρ̂ = 2δ̂_3/[α̂(1-α̂)] で点識別される (実データで A3 共通支持が崩れる region では当該 region で局所的に点識別不能と判定)",
+    "Kmenta 二次モーメント展開の打ち切り誤差は |ρ| ≤ 1 の領域で o(1) であり、本章三コホートの posterior 中央値が |ρ| ≤ 1 に収まる (補題 2、付録 A.10.3.1 剰余項 Lagrange 評価で検証可能、収まらない場合 R1 フォールバック非線形 GMM / Bayesian 非線形 MCMC を Ch 26b commission)",
+    "Heckman 二段階補正前後で ρ̂ の posterior 中央値が連動して変化しない (符号 sign(ρ̂) が反転しない、95% 信用区間が overlap する) ことが、A1-A2 単独依存からの頑健性の必要条件として観測される (反転 ⇒ 選抜バイアスが本質的 ⇒ Heckman 補正版が正本)",
+    "Eesley-Roberts (2012) 生得 vs 経験分割を Heckman 第一段 exclusion restriction として使用したとき、生得特性 → 創業成果への直接効果は経由 (創業後 F_cap 蓄積経路) のみという仮定の overidentification test を通過する (通過しない ⇒ §10.3.4 R4 として明示、Beckman / Roberts コホートでは Bernstein 系地域起業エコシステム密度を補助 instrument として再検定)",
+    "Hsieh-Klenow 分散ベース識別の ρ̂^{HK} と Kmenta 線形化の ρ̂^{Kmenta + Heckman} の 95% 信用区間が overlap する (整合性チェック、§10.3.3 Tier A 判定基準、不整合 ⇒ §10.3.4 R5 として格上げ、Kmenta 局所近似 or Hsieh-Klenow 仮定 or A1-A3 のいずれかが破綻)",
+    "Bayes factor horse-race で CES (ρ 自由) モデルが Cobb-Douglas (ρ=0) / Leontief (ρ→-∞ truncated) / 加法的 (ρ=1) の 3 つの nested ベンチマーク全てに対し log BF ≥ 3 (Jeffreys 'strong evidence' 閾値) で優越する (§10.3.2、優越しない ⇒ horse-race 段階で C2 反駁の代替モデルが posterior 質量を分け合う)",
+    "F_char (ALQ4 + Grit + Resilience) と F_cap (チーム能力 + 経験指数) の運用化が三コホート横断で同一の構成概念を測定している (測定不変性検定 — 通過しない ⇒ コホート × 構成概念交互作用を §10.3.3 に追加投入、§10.3.4 R2 として明示)",
+    "コホート × 産業の two-way fixed effects (A2) を投入した後の δ̂_3 の posterior 中央値が、fixed effects なし naive OLS の δ̂_3 と統計的に区別不能 (区別される ⇒ A2 吸収が本質的、命題 1 の identification は A2 に決定的に依存)",
+    "F_char,i の法人化前測定 (A1) が Beckman / Roberts / Eesley-Roberts 各データで実装可能である (一つでも法人化前測定が不可能 ⇒ そのコホートは本章の identification 集合から除外、§10.3.4 R2 として明示)"
+  ],
+  "cross_chapter_supply": [
+    {
+      "target_chapter": "Ch 7 (F-CES 形式)",
+      "what_supplies": "受領のみ: F = CES(F_char, F_cap; a, ρ) 形式定義、Inada 条件解釈、限界生産性表式、α / ρ パラメトリゼーション規約を §10.3.0 + §10.3.1 + §10.3.2 で式番号参照で reuse"
+    },
+    {
+      "target_chapter": "Ch 10.2 (Jovanovic τ_B 構造)",
+      "what_supplies": "受領のみ: y_i = log time-to-B-trigger 構造、打ち切り定義、Lemma 10.3.1 (y と log F の符号関係 log τ_B = -log F + const) の上流根拠を §10.3.0 + §10.3.1 で reuse、§10.3.3 Heckman 補正の打ち切り依存接合を §10.3.4 R5 で再確認"
+    },
+    {
+      "target_chapter": "Ch 11 (BVAR 構造方程式)",
+      "what_supplies": "供給: §10.3.4 inter-chapter contract 段落として ρ 事後分布 (posterior mean, 95% 信用区間 [ρ_{0.025}, ρ_{0.975}], P(ρ<0|data), Heckman 補正版 ρ̂^{Heckman}, Hsieh-Klenow 補助識別 ρ̂^{HK} の信用区間 overlap 判定) を Ch 11 構造 VAR の事前分布として渡す。三コホート pooling の弱階層事前分布結果も同時に渡す (もし open_issue 2 Option A が採択されれば本章 §10.3.4 で全固定)"
+    },
+    {
+      "target_chapter": "Ch 26b (H_C2 OSF 事前登録)",
+      "what_supplies": "供給 (commission): H_C2 OSF プロトコル仕様 (Tier B 規律) を §10.3.4 H_C2 commission Box で全項目固定 — (a) 閾値 0.95, (b) 弱情報事前分布 ρ ~ N(0,1) / α ~ Beta(2,2) / δ_0 ~ N(0,10²), (c) コホート pooling 規則 (弱階層事前分布 + hyperparameter), (d) Heckman 第一段共変量集合 (コホート別: Eesley-Roberts = 生得 vs 経験 / Beckman + Roberts = Bernstein 系), (e) horse-race ベンチマーク (Cobb-Douglas / Leontief truncated / 加法的) + Jeffreys-Lindley 対策 (truncation or reference prior), (f) MCMC chain 4 / burn-in 5000 / 反復 20000"
+    },
+    {
+      "target_chapter": "Ch 10.4 (Jovanovic 拡張 / 進化経済 closing)",
+      "what_supplies": "供給: 識別済み F-CES + ρ 事後分布を §10.3.4 章末で渡す。Ch 10.4 では F_char 運用化 (open_issue 4 Option C が採択された場合の本章 §10.3.0 経験的運用化) を理論構成概念に戻す方向で扱う"
+    },
+    {
+      "target_chapter": "Book III (F = SOUL 委譲不可能コア解釈)",
+      "what_supplies": "供給: §10.3.4 Book III 引き渡し宣言段落として、命題 1 + 系 1 が成立した場合 F は SOUL の委譲不可能コアとして経験的に確立されることを渡す。同時に反証可能性 (P(ρ≥0) > 0.05 で C2 反駁 ⇒ Nelson-Winter 復権) を構造として保持。AMD pipeline 8 PJ への外的妥当性 (open_issue 3 Option A 採択時) は Book III で Stanford + 東大 TLO 創業者 panel への replication commit として渡す"
+    },
+    {
+      "target_chapter": "付録 A.10.3 (完全証明)",
+      "what_supplies": "供給 (D-047): A.10.3.1 = Kmenta 二次モーメント展開完全証明 + 剰余項 Lagrange 評価, A.10.3.2 = 命題 1 一致性完全証明 + Jeffreys-Lindley 対策技術詳細 + Lemma 10.3.1 符号規約 canonical fix の 2 本立てを供給。付録 A 番号体系は open_issue 4 とは別系統 (Book II 全体付録番号体系) で D-038 補遺確定対象"
+    },
+    {
+      "target_chapter": "付録 B (Heckman + Hsieh-Klenow 完全導出)",
+      "what_supplies": "供給 (D-047): Heckman 二段階補正の Bayesian data augmentation 同時推定完全導出、Hsieh-Klenow 分散ベース識別の分散分解式完全形と SIC2 / SIC4 産業分類粒度選択の formal 議論を §10.3.3 から繰り延べ"
+    }
+  ],
+  "masa_negotiation_handles": [
+    "ハンドル A (Kmenta 符号規約 canonical fix): Option A (Lemma 10.3.1 で sign(ρ) = sign(δ_3) を canonical) を推奨。masa 判決を D-038 sub-decision として明文化、付録 A.10.3.1 で曖昧さなく fix。本章 §10.3.1 + §10.3.2 + Ch 11 BVAR contract + Ch 26b OSF commission の符号一貫性を全章規律する正典決定",
+    "ハンドル B (三コホート pooling 戦略 章間分業): Option A (本章 §10.3.4 で弱階層事前分布 hyperparameter τ ~ HalfCauchy(0, 1) を全固定し OSF commit) を推奨。Tier B 事前登録の実行前プロトコル全固定要件 (D-031) に最も整合、Ch 11 BVAR は確定 pooling 結果を受領のみ",
+    "ハンドル C (AMD pipeline 8 PJ 外的妥当性): Option A (本章 §10.3.4 R3 で MIT 同窓 sample 問題を明示 + Book III で Stanford + 東大 TLO replication commit) を推奨。Research Policy / ICC reviewer の外的妥当性指摘に正面応答、反証可能性を構造として最大化",
+    "ハンドル D (F_char 運用化オーナー): Option C (Ch 7 = 理論構成概念 / 本章 §10.3.0 = 経験的運用化 ALQ4 + Grit + Resilience 合成) を推奨。D-038 章間分業精神と整合、§10.3.3 Heckman exclusion restriction (Eesley-Roberts 生得 vs 経験分割) と直接接続可能",
+    "ハンドル E (Ch 10.2 ↔ Ch 10.3 打ち切り構造境界): Option C (Ch 10.2 既定 + §10.3.3 Heckman 接合 formal 化) を推奨。章間 supply/receive 清潔性と Heckman identification 本章完結を両立",
+    "ハンドル F (horse-race Bayes factor 採否): §10.3.2 内に Cobb-Douglas / Leontief truncated / 加法的 の Bayes factor horse-race を log BF ≥ 3 反証可能閾値で組み込むかは本章 publishability の鍵。Draft B から graft 推奨、masa 判断で採否",
+    "ハンドル G (Jeffreys-Lindley 対策の OSF 事前固定): Leontief 境界極限 (ρ→-∞) の Bayes factor 計算で Jeffreys-Lindley パラドックス対策として ρ の事前分布を truncation (ρ ∈ [-10, 10]) するか reference prior を採用するかを §10.3.4 OSF commission に事前固定する技術判決事項",
+    "ハンドル H (Tier 規律 Box 形式統一): §10.3.4 H_C2 事前登録部分の Tier B 視覚分離を Ch 5 / 5.5 / 9 / 10.4 で確立した Box 形式 (boxed boxed) で踏襲するかの編集規律判決事項。3 案 + 3 judge 全て graft 推奨"
+  ]
+}
