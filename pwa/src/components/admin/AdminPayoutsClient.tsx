@@ -1823,6 +1823,35 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
         : savedAll
           ? "全メンバー分の支払データを再保存する"
           : "全メンバー分の支払データを保存すると、支払通知書を発行・送付できる");
+  const bulkPdfBaseDisabled =
+    loading ||
+    saving ||
+    noticeSavingMemberId != null ||
+    paymentNudgeSending ||
+    bulkPdfMode != null ||
+    memberRows.length === 0 ||
+    guardedActionDisabled;
+  const bulkIssueDisabled = bulkPdfBaseDisabled || !savedAll;
+  const saveAndIssueDisabled = savedAll ? bulkPdfBaseDisabled : bulkPdfBaseDisabled || savePayoutDataDisabled;
+  const bulkPreviewTitle = guardedActionTitle ?? "保存前でも全員分の確認用PDFを並列生成 (DB保存なし)";
+  const bulkIssueTitle = guardedActionTitle ??
+    (memberRows.length === 0
+      ? "対象メンバーがいない"
+      : !savedAll
+        ? "未保存の支払データがあるため、先に保存が必要"
+        : "全員分の支払通知書PDFを並列発行 (差分検出あり)");
+  const saveAndIssueTitle = guardedActionTitle ??
+    (memberRows.length === 0
+      ? "対象メンバーがいない"
+      : savedAll
+        ? "保存済みの支払データから全員分の支払通知書PDFを一括発行する"
+        : `${savePayoutDataTitle}。保存後に全員分の支払通知書PDFを一括発行する`);
+  const forceBulkIssueTitle = guardedActionTitle ??
+    (memberRows.length === 0
+      ? "対象メンバーがいない"
+      : savedAll
+        ? "差分検出を無視して全員分のPDFを強制再生成 (コードラベル変更などを反映する用)"
+        : `${savePayoutDataTitle}。保存後に全員分のPDFを強制再生成する`);
 
   async function loadAgreementGateForYm(nextYm: string) {
     try {
@@ -2105,35 +2134,54 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
     }
   }
 
-  async function saveAll() {
+  async function savePayoutData() {
     if (expectedEntries.length === 0) {
-      setHint("保存できる報酬明細がない");
-      return;
+      throw new Error("保存できる報酬明細がない");
     }
-    setSaving(true);
     setHint("保存中...");
+    const res = await fetch("/api/admin/payouts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ym,
+        agreementOverrideReason: agreementOverrideReasonTrimmed || undefined,
+      }),
+    });
+    const payload = (await res.json()) as (
+      PayoutData & { ok?: boolean; error?: string; savedPayoutRows?: number; savedNoticeRows?: number }
+    );
+    if (!res.ok || payload.ok === false) {
+      throw new Error(payload.error || `save failed (${res.status})`);
+    }
+    setData(payload);
+    setHint(`保存した: 報酬${payload.savedPayoutRows ?? 0}明細 / 通知額${payload.savedNoticeRows ?? 0}件`);
+    return payload;
+  }
+
+  async function saveAll() {
+    setSaving(true);
     try {
-      const res = await fetch("/api/admin/payouts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ym,
-          agreementOverrideReason: agreementOverrideReasonTrimmed || undefined,
-        }),
-      });
-      const payload = (await res.json()) as (
-        PayoutData & { ok?: boolean; error?: string; savedPayoutRows?: number; savedNoticeRows?: number }
-      );
-      if (!res.ok || payload.ok === false) {
-        throw new Error(payload.error || `save failed (${res.status})`);
-      }
-      setData(payload);
-      setHint(`保存した: 報酬${payload.savedPayoutRows ?? 0}明細 / 通知額${payload.savedNoticeRows ?? 0}件`);
+      await savePayoutData();
     } catch (err) {
       setHint(err instanceof Error ? err.message : "保存エラー");
     } finally {
       setSaving(false);
     }
+  }
+
+  async function saveThenRunBulkIssue(options: { force?: boolean } = {}) {
+    if (!savedAll) {
+      setSaving(true);
+      try {
+        await savePayoutData();
+      } catch (err) {
+        setHint(err instanceof Error ? err.message : "保存エラー");
+        return;
+      } finally {
+        setSaving(false);
+      }
+    }
+    await runBulkPdf(false, options);
   }
 
   async function sendPaymentNudges() {
@@ -2306,41 +2354,19 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
 
         <button
           type="button"
-          onClick={() => runBulkPdf(false)}
-          disabled={
-            loading ||
-            saving ||
-            noticeSavingMemberId != null ||
-            paymentNudgeSending ||
-            bulkPdfMode != null ||
-            !savedAll ||
-            memberRows.length === 0 ||
-            guardedActionDisabled
-          }
-          title={
-            guardedActionTitle ??
-            (!savedAll
-              ? "先に「支払データ保存」を実行してね"
-              : "全員分の支払通知書PDFを並列発行 (差分検出あり)")
-          }
+          onClick={() => saveThenRunBulkIssue()}
+          disabled={saveAndIssueDisabled}
+          title={saveAndIssueTitle}
           className="h-9 rounded-md border border-emerald-300 bg-emerald-50 px-3 text-[12px] text-emerald-900 hover:bg-emerald-100 disabled:opacity-50"
         >
-          {bulkPdfMode === "issue" ? "本番PDF発行中..." : "全員分PDF一括発行"}
+          {bulkPdfMode === "issue" ? "本番PDF発行中..." : savedAll ? "全員分PDF一括発行" : "保存して全員分PDF発行"}
         </button>
 
         <button
           type="button"
           onClick={() => runBulkPdf(true)}
-          disabled={
-            loading ||
-            saving ||
-            noticeSavingMemberId != null ||
-            paymentNudgeSending ||
-            bulkPdfMode != null ||
-            memberRows.length === 0 ||
-            guardedActionDisabled
-          }
-          title={guardedActionTitle ?? "保存前でも全員分の確認用PDFを並列生成 (DB保存なし)"}
+          disabled={bulkPdfBaseDisabled}
+          title={bulkPreviewTitle}
           className="h-9 rounded-md border border-border bg-background px-3 text-[12px] hover:bg-muted/40 disabled:opacity-50"
         >
           {bulkPdfMode === "preview" ? "確認用PDF生成中..." : "全員分PDF確認"}
@@ -2350,27 +2376,13 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
           type="button"
           onClick={() => {
             if (!window.confirm("全員分の支払通知書PDFを強制的に再生成する (= 差分検出を無視)。\n金額が変わってなくてもラベル変更などのコード変更を反映したい時用。\n進める?")) return;
-            void runBulkPdf(false, { force: true });
+            void saveThenRunBulkIssue({ force: true });
           }}
-          disabled={
-            loading ||
-            saving ||
-            noticeSavingMemberId != null ||
-            paymentNudgeSending ||
-            bulkPdfMode != null ||
-            !savedAll ||
-            memberRows.length === 0 ||
-            guardedActionDisabled
-          }
-          title={
-            guardedActionTitle ??
-            (!savedAll
-              ? "先に「支払データ保存」を実行してね"
-              : "差分検出を無視して全員分のPDFを強制再生成 (コードラベル変更などを反映する用)")
-          }
+          disabled={saveAndIssueDisabled}
+          title={forceBulkIssueTitle}
           className="h-9 rounded-md border border-amber-300 bg-amber-50 px-3 text-[12px] text-amber-900 hover:bg-amber-100 disabled:opacity-50"
         >
-          {bulkPdfMode === "issue" ? "強制再発行中..." : "強制再発行 (全員)"}
+          {bulkPdfMode === "issue" ? "強制再発行中..." : savedAll ? "強制再発行 (全員)" : "保存して強制再発行"}
         </button>
 
         <div className="ml-auto flex flex-wrap items-center gap-3 text-[12px]">
@@ -2418,6 +2430,200 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
         <SummaryBox label="別財布発生" value={fmtYen(extraBaseTotal)} sub="cap_extra MS" />
         <SummaryBox label="支払総額" value={fmtYen(grandTotal)} sub={`支払月 ${fmtYm(ym)}`} />
       </div>
+
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-[13px] font-semibold">メンバー別支払</h2>
+            <span className="text-[11px] text-muted-foreground">
+              支払額は税抜をDB保存し、支払通知書PDFで消費税10%を上乗せ
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {!savedAll && (
+              <span className="rounded-md bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
+                発行・送付の前に保存が必要
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={saveAll}
+              disabled={savePayoutDataDisabled}
+              title={savePayoutDataTitle}
+              className="h-8 rounded-md bg-foreground px-3 text-[11px] font-medium text-background disabled:opacity-50"
+            >
+              {saving ? "保存中..." : savedAll ? "再保存" : "支払データ保存"}
+            </button>
+            <button
+              type="button"
+              onClick={() => saveThenRunBulkIssue()}
+              disabled={saveAndIssueDisabled}
+              title={saveAndIssueTitle}
+              className="h-8 rounded-md border border-emerald-300 bg-emerald-50 px-3 text-[11px] font-medium text-emerald-900 hover:bg-emerald-100 disabled:opacity-50"
+            >
+              {bulkPdfMode === "issue" ? "発行中..." : savedAll ? "全員分PDF一括発行" : "保存して全員分PDF発行"}
+            </button>
+            <button
+              type="button"
+              onClick={() => runBulkPdf(true)}
+              disabled={bulkPdfBaseDisabled}
+              title={bulkPreviewTitle}
+              className="h-8 rounded-md border border-border bg-background px-3 text-[11px] hover:bg-muted/40 disabled:opacity-50"
+            >
+              {bulkPdfMode === "preview" ? "確認用生成中..." : "全員分PDF確認"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!window.confirm("全員分の支払通知書PDFを強制的に再生成する (= 差分検出を無視)。\n金額が変わってなくてもラベル変更などのコード変更を反映したい時用。\n進める?")) return;
+                void saveThenRunBulkIssue({ force: true });
+              }}
+              disabled={saveAndIssueDisabled}
+              title={forceBulkIssueTitle}
+              className="h-8 rounded-md border border-amber-300 bg-amber-50 px-3 text-[11px] text-amber-900 hover:bg-amber-100 disabled:opacity-50"
+            >
+              {bulkPdfMode === "issue" ? "再発行中..." : savedAll ? "強制再発行" : "保存して強制再発行"}
+            </button>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 rounded-md border border-border bg-muted/25 px-3 py-2 text-[11px] text-muted-foreground">
+          <span>
+            <span className="font-medium text-foreground">保存:</span>{" "}
+            支払額と通知額を確定。メール送信はしない。金額変更分はPDF再生成対象。
+          </span>
+          <span>
+            <span className="font-medium text-foreground">一括発行:</span>{" "}
+            全員分の正式PDFを作成し、通知番号とPDF URLを保存。送付は別操作。
+          </span>
+        </div>
+        <div className="overflow-hidden rounded-lg border border-border">
+          <table className="w-full text-[12px]">
+            <thead className="border-b border-border bg-muted/40">
+              <tr>
+                <th className="px-3 py-2 text-left font-medium">メンバー</th>
+                <th className="px-3 py-2 text-left font-medium">内訳</th>
+                <th className="px-3 py-2 text-right font-medium">保存済</th>
+                <th className="px-3 py-2 text-right font-medium">
+                  <span className="block">支払額</span>
+                  <span className="block text-[10px] font-normal text-muted-foreground">税抜 / 税込</span>
+                </th>
+                <th className="px-3 py-2 text-left font-medium">通知</th>
+                <th className="px-3 py-2 text-right font-medium">支払通知書</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {memberRows.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
+                    報酬確定済みのメンバーがいない
+                  </td>
+                </tr>
+              ) : (
+                memberRows.map((row) => (
+                  <tr key={row.memberId} className="align-top hover:bg-muted/20">
+                      <td className="px-3 py-2">
+                          <div className="font-semibold">{row.memberName}</div>
+                          <div className="font-mono text-[10px] text-muted-foreground">{row.memberId}</div>
+                          {(row.regularBasePay > 0 || row.extraBasePay > 0) && (
+                            <div className="mt-1 flex flex-wrap gap-1 text-[10px]">
+                              {row.regularBasePay > 0 && <span className="rounded bg-emerald-100 px-1 text-emerald-800">本契約 {fmtYen(row.regularBasePay)}</span>}
+                              {row.extraBasePay > 0 && <span className="rounded bg-indigo-100 px-1 text-indigo-800">別財布 {fmtYen(row.extraBasePay)}</span>}
+                            </div>
+                          )}
+                        {(row.stockYen > 0 || row.carryInYen > 0) && (
+                            <div className="mt-1 flex flex-wrap gap-1 text-[10px]">
+                            {row.carryInYen > 0 && <span className="rounded bg-sky-100 px-1 text-sky-800">繰越入 {fmtYen(row.carryInYen)}</span>}
+                            {row.stockYen > 0 && <span className="rounded bg-amber-100 px-1 text-amber-900">未払い残 {fmtYen(row.stockYen)}</span>}
+                          </div>
+                        )}
+                      </td>
+                    <td className="px-3 py-2">
+                      <div className="space-y-1">
+                        {row.entries.map((entry) => {
+                          const project = projectMap.get(entry.projectId);
+                          return (
+                            <button
+                              type="button"
+                              key={entryKey(entry)}
+                              onClick={() => openMonthlyModal(entry.projectId, entry.ym, `${project?.project_name ?? entry.projectId} ${fmtYm(entry.ym)}`)}
+                              className="flex w-full flex-wrap items-center gap-x-2 gap-y-0.5 rounded px-1 py-0.5 text-left text-[11px] hover:bg-muted/60 focus:outline-none focus:ring-1 focus:ring-foreground/20"
+                            >
+                              <span className="font-medium">{project?.project_name ?? entry.projectId}</span>
+                                <span className="font-mono text-muted-foreground">{fmtYm(entry.ym)}</span>
+                                <span className="text-muted-foreground">{fmtPt(entry.earnedPt)}</span>
+                                  <span className="text-muted-foreground">base {fmtYen(entry.basePay)}</span>
+                                  {entry.regularBasePay > 0 ? (
+                                    <span className="text-emerald-700">本契約 {fmtYen(entry.regularBasePay)}</span>
+                                  ) : null}
+                                  {entry.extraBasePay > 0 ? (
+                                    <span className="text-indigo-700">別財布 {fmtYen(entry.extraBasePay)}</span>
+                                  ) : null}
+                                  {entry.bonusPt > 0 ? (
+                                    <span className="text-muted-foreground">bonus {fmtYen(entry.bonusPt)}</span>
+                                ) : null}
+                                {entry.carryInYen > 0 ? (
+                                  <span className="text-sky-700">繰越 {fmtYen(entry.carryInYen)}</span>
+                                ) : null}
+                                  <span className="font-medium">支払 税抜 {fmtYen(entry.totalPay)}</span>
+                              <span className="text-muted-foreground">税込 {fmtTaxIncludedYen(entry.totalPay)}</span>
+                                {entry.stockYen > 0 ? (
+                                  <span className="text-amber-700">未払い残 {fmtYen(entry.stockYen)}</span>
+                                ) : null}
+                                {entry.grossDueYen > entry.totalPay ? (
+                                  <span className="text-muted-foreground">発生+繰越 {fmtYen(entry.grossDueYen)}</span>
+                                ) : null}
+                              </button>
+                          );
+                        })}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <div className={row.isSaved ? "font-semibold text-emerald-700" : "font-semibold text-amber-700"}>
+                        税抜 {fmtYen(row.savedTotal)}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">税込 {fmtTaxIncludedYen(row.savedTotal)}</div>
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <div className="font-semibold">税抜 {fmtYen(row.totalPay)}</div>
+                      <div className="text-[10px] text-muted-foreground">税込 {fmtTaxIncludedYen(row.totalPay)}</div>
+                    </td>
+                    <td className="px-3 py-2">
+                      <NoticeBadge
+                        notice={row.notice}
+                        expectedTotal={row.totalPay}
+                        excluded={row.noticeExcluded}
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <PayoutNoticeActions
+                        row={row}
+                        disabled={
+                          loading ||
+                          saving ||
+                          noticeSavingMemberId != null ||
+                          noticeMailLoading ||
+                          noticeMailSending ||
+                          (agreementBlockedMemberIds.has(row.memberId) && !canUseAgreementOverride)
+                        }
+                        saving={noticeSavingMemberId === row.memberId || (noticeMailLoading && noticeMailModal?.row.memberId === row.memberId)}
+                        savingAll={saving}
+                        canSavePayoutData={!savePayoutDataDisabled}
+                        savePayoutDataTitle={savePayoutDataTitle}
+                        onSavePayoutData={saveAll}
+                        onIssueNoticePdf={issueNoticePdf}
+                        onOpenPdf={openPdfUrl}
+                        onPreviewNoticePdf={previewNoticePdf}
+                        onUpdateNoticeSent={updateNoticeSent}
+                        onOpenSendMailModal={openNoticeMailModal}
+                      />
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <RewardDebtLedgerPanel
         rows={rewardDebtLedgerRows}
@@ -2472,14 +2678,14 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                   </td>
                 </tr>
               ) : (
-	                (data?.cycles ?? []).map((cycle) => {
-	                  const project = projectMap.get(cycle.project_id);
-	                  const stats = cycleStats.get(`${cycle.project_id}:${cycle.ym}`);
-	                  const regularCapYen = baseCapYenFor(
-	                    baseClientAmountForCycle(cycle, project),
-	                    Math.round(numberValue(cycle.budget_buffer_amount))
-	                  );
-	                  const status = cycle.status ?? "unknown";
+                  (data?.cycles ?? []).map((cycle) => {
+                    const project = projectMap.get(cycle.project_id);
+                    const stats = cycleStats.get(`${cycle.project_id}:${cycle.ym}`);
+                    const regularCapYen = baseCapYenFor(
+                      baseClientAmountForCycle(cycle, project),
+                      Math.round(numberValue(cycle.budget_buffer_amount))
+                    );
+                    const status = cycle.status ?? "unknown";
                   const statusClass =
                     BC_STATUS_COLOR[status] ?? "border-zinc-200 bg-zinc-50 text-zinc-500";
                   return (
@@ -2496,189 +2702,35 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                           {BC_STATUS_LABEL[status] ?? status}
                         </span>
                       </td>
-		                      <td className="px-3 py-2 text-right font-medium">
-		                        <div>{fmtYen(stats?.totalPay ?? 0)}</div>
-		                        {(stats?.regularBasePay ?? 0) > 0 && (
-		                          <div className="text-[10px] font-normal text-emerald-700">
-		                            本契約 {fmtYen(stats?.regularBasePay)} / cap {fmtYen(regularCapYen)}
-		                          </div>
-		                        )}
-		                        {(stats?.extraBasePay ?? 0) > 0 && (
-		                          <div className="text-[10px] font-normal text-indigo-700">
-		                            別財布 {fmtYen(stats?.extraBasePay)}
-		                          </div>
-		                        )}
-		                        {(stats?.stockYen ?? 0) > 0 && (
-		                          <div className="text-[10px] font-normal text-amber-700">
-	                            未払い残 {fmtYen(stats?.stockYen)}
-	                          </div>
-	                        )}
-	                        {(stats?.carryInYen ?? 0) > 0 && (
-	                          <div className="text-[10px] font-normal text-sky-700">
-	                            繰越入 {fmtYen(stats?.carryInYen)}
-	                          </div>
-	                        )}
-	                      </td>
+                          <td className="px-3 py-2 text-right font-medium">
+                            <div>{fmtYen(stats?.totalPay ?? 0)}</div>
+                            {(stats?.regularBasePay ?? 0) > 0 && (
+                              <div className="text-[10px] font-normal text-emerald-700">
+                                本契約 {fmtYen(stats?.regularBasePay)} / cap {fmtYen(regularCapYen)}
+                              </div>
+                            )}
+                            {(stats?.extraBasePay ?? 0) > 0 && (
+                              <div className="text-[10px] font-normal text-indigo-700">
+                                別財布 {fmtYen(stats?.extraBasePay)}
+                              </div>
+                            )}
+                            {(stats?.stockYen ?? 0) > 0 && (
+                              <div className="text-[10px] font-normal text-amber-700">
+                              未払い残 {fmtYen(stats?.stockYen)}
+                            </div>
+                          )}
+                          {(stats?.carryInYen ?? 0) > 0 && (
+                            <div className="text-[10px] font-normal text-sky-700">
+                              繰越入 {fmtYen(stats?.carryInYen)}
+                            </div>
+                          )}
+                        </td>
                       <td className="px-3 py-2 text-right text-muted-foreground">
                         {stats ? `${stats.savedCount}/${stats.expectedCount}` : "—"}
                       </td>
                     </tr>
                   );
                 })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="space-y-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="text-[13px] font-semibold">メンバー別支払</h2>
-            <span className="text-[11px] text-muted-foreground">
-              支払額は税抜をDB保存し、支払通知書PDFで消費税10%を上乗せ
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            {!savedAll && (
-              <span className="rounded-md bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
-                発行・送付の前に保存が必要
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={saveAll}
-              disabled={savePayoutDataDisabled}
-              title={savePayoutDataTitle}
-              className="h-8 rounded-md bg-foreground px-3 text-[11px] font-medium text-background disabled:opacity-50"
-            >
-              {saving ? "保存中..." : savedAll ? "再保存" : "支払データ保存"}
-            </button>
-          </div>
-        </div>
-        <div className="overflow-hidden rounded-lg border border-border">
-          <table className="w-full text-[12px]">
-            <thead className="border-b border-border bg-muted/40">
-              <tr>
-                <th className="px-3 py-2 text-left font-medium">メンバー</th>
-                <th className="px-3 py-2 text-left font-medium">内訳</th>
-                <th className="px-3 py-2 text-right font-medium">保存済</th>
-                <th className="px-3 py-2 text-right font-medium">
-                  <span className="block">支払額</span>
-                  <span className="block text-[10px] font-normal text-muted-foreground">税抜 / 税込</span>
-                </th>
-                <th className="px-3 py-2 text-left font-medium">通知</th>
-                <th className="px-3 py-2 text-right font-medium">支払通知書</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {memberRows.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
-                    報酬確定済みのメンバーがいない
-                  </td>
-                </tr>
-              ) : (
-                memberRows.map((row) => (
-                  <tr key={row.memberId} className="align-top hover:bg-muted/20">
-	                    <td className="px-3 py-2">
-		                      <div className="font-semibold">{row.memberName}</div>
-		                      <div className="font-mono text-[10px] text-muted-foreground">{row.memberId}</div>
-		                      {(row.regularBasePay > 0 || row.extraBasePay > 0) && (
-		                        <div className="mt-1 flex flex-wrap gap-1 text-[10px]">
-		                          {row.regularBasePay > 0 && <span className="rounded bg-emerald-100 px-1 text-emerald-800">本契約 {fmtYen(row.regularBasePay)}</span>}
-		                          {row.extraBasePay > 0 && <span className="rounded bg-indigo-100 px-1 text-indigo-800">別財布 {fmtYen(row.extraBasePay)}</span>}
-		                        </div>
-		                      )}
-	                      {(row.stockYen > 0 || row.carryInYen > 0) && (
-		                        <div className="mt-1 flex flex-wrap gap-1 text-[10px]">
-	                          {row.carryInYen > 0 && <span className="rounded bg-sky-100 px-1 text-sky-800">繰越入 {fmtYen(row.carryInYen)}</span>}
-	                          {row.stockYen > 0 && <span className="rounded bg-amber-100 px-1 text-amber-900">未払い残 {fmtYen(row.stockYen)}</span>}
-	                        </div>
-	                      )}
-	                    </td>
-                    <td className="px-3 py-2">
-                      <div className="space-y-1">
-                        {row.entries.map((entry) => {
-                          const project = projectMap.get(entry.projectId);
-                          return (
-                            <button
-                              type="button"
-                              key={entryKey(entry)}
-                              onClick={() => openMonthlyModal(entry.projectId, entry.ym, `${project?.project_name ?? entry.projectId} ${fmtYm(entry.ym)}`)}
-                              className="flex w-full flex-wrap items-center gap-x-2 gap-y-0.5 rounded px-1 py-0.5 text-left text-[11px] hover:bg-muted/60 focus:outline-none focus:ring-1 focus:ring-foreground/20"
-                            >
-                              <span className="font-medium">{project?.project_name ?? entry.projectId}</span>
-	                              <span className="font-mono text-muted-foreground">{fmtYm(entry.ym)}</span>
-	                              <span className="text-muted-foreground">{fmtPt(entry.earnedPt)}</span>
-		                              <span className="text-muted-foreground">base {fmtYen(entry.basePay)}</span>
-		                              {entry.regularBasePay > 0 ? (
-		                                <span className="text-emerald-700">本契約 {fmtYen(entry.regularBasePay)}</span>
-		                              ) : null}
-		                              {entry.extraBasePay > 0 ? (
-		                                <span className="text-indigo-700">別財布 {fmtYen(entry.extraBasePay)}</span>
-		                              ) : null}
-		                              {entry.bonusPt > 0 ? (
-		                                <span className="text-muted-foreground">bonus {fmtYen(entry.bonusPt)}</span>
-	                              ) : null}
-	                              {entry.carryInYen > 0 ? (
-	                                <span className="text-sky-700">繰越 {fmtYen(entry.carryInYen)}</span>
-	                              ) : null}
-		                              <span className="font-medium">支払 税抜 {fmtYen(entry.totalPay)}</span>
-                              <span className="text-muted-foreground">税込 {fmtTaxIncludedYen(entry.totalPay)}</span>
-	                              {entry.stockYen > 0 ? (
-	                                <span className="text-amber-700">未払い残 {fmtYen(entry.stockYen)}</span>
-	                              ) : null}
-	                              {entry.grossDueYen > entry.totalPay ? (
-	                                <span className="text-muted-foreground">発生+繰越 {fmtYen(entry.grossDueYen)}</span>
-	                              ) : null}
-	                            </button>
-                          );
-                        })}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <div className={row.isSaved ? "font-semibold text-emerald-700" : "font-semibold text-amber-700"}>
-                        税抜 {fmtYen(row.savedTotal)}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground">税込 {fmtTaxIncludedYen(row.savedTotal)}</div>
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <div className="font-semibold">税抜 {fmtYen(row.totalPay)}</div>
-                      <div className="text-[10px] text-muted-foreground">税込 {fmtTaxIncludedYen(row.totalPay)}</div>
-                    </td>
-                    <td className="px-3 py-2">
-                      <NoticeBadge
-                        notice={row.notice}
-                        expectedTotal={row.totalPay}
-                        excluded={row.noticeExcluded}
-                      />
-                    </td>
-                    <td className="px-3 py-2">
-                      <PayoutNoticeActions
-                        row={row}
-                        disabled={
-                          loading ||
-                          saving ||
-                          noticeSavingMemberId != null ||
-                          noticeMailLoading ||
-                          noticeMailSending ||
-                          (agreementBlockedMemberIds.has(row.memberId) && !canUseAgreementOverride)
-                        }
-                        saving={noticeSavingMemberId === row.memberId || (noticeMailLoading && noticeMailModal?.row.memberId === row.memberId)}
-                        savingAll={saving}
-                        canSavePayoutData={!savePayoutDataDisabled}
-                        savePayoutDataTitle={savePayoutDataTitle}
-                        onSavePayoutData={saveAll}
-                        onIssueNoticePdf={issueNoticePdf}
-                        onOpenPdf={openPdfUrl}
-                        onPreviewNoticePdf={previewNoticePdf}
-                        onUpdateNoticeSent={updateNoticeSent}
-                        onOpenSendMailModal={openNoticeMailModal}
-                      />
-                    </td>
-                  </tr>
-                ))
               )}
             </tbody>
           </table>

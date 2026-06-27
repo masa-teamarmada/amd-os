@@ -80,7 +80,11 @@ MS / PlanCycle が未設定の PJ は報酬計算対象外。支払が必要な�
 
 メンバー行 × PJ 列のマトリクス。 各セルに per-PJ の per-member 支払額。 行末に各メンバーの月次合計、 PJ 列末に各 PJ の月次合計。
 
-支払通知書の正式発行・送付は、先に `支払データ保存` を実行して `monthly_reward_payout` と `payout_notices.total_yen` を確定してから行う。UI では上部の一括操作列に加えて、「メンバー別支払」見出しと未保存行の支払通知書操作欄にも同じ保存CTAを出し、発行ボタンが disabled の時でも次に押す場所が分かるようにする。
+この表が `/admin/payouts` の主作業面なので、サマリ直下・報酬債務台帳より上に置く。
+
+支払通知書の正式発行・送付は、先に `支払データ保存` を実行して `monthly_reward_payout` と `payout_notices.total_yen` を確定してから行う。保存時点ではメール送信しない。金額が変わった未送付 PDF は `pdf_url` / `last_generated_at` をクリアし、次の一括発行・cron prebuild で再生成対象へ戻す。
+
+UI では上部の一括操作列に加えて、「メンバー別支払」見出しと未保存行の支払通知書操作欄にも同じ保存CTAを出し、発行ボタンが disabled の時でも次に押す場所が分かるようにする。未保存の場合でも、`保存して全員分PDF発行` を押せば `支払データ保存` → `bulk_issue_notice_pdf` を連続実行するため、別々に押す必要はない。
 
 ### 月初合意ステータスとの境界
 
@@ -263,13 +267,14 @@ curl -X POST "https://amd-os-pwa.vercel.app/api/cron/payout-notice-prebuild" \
 
 `force: true` で差分検出を無視して全員強制再生成。`lookahead: N` で当月+N ヶ月先まで対象を広げる (デフォルト 1)。
 
-#### 手動: `/admin/payouts` の「全員分PDF一括発行」「全員分PDF確認」
+#### 手動: `/admin/payouts` の「保存して全員分PDF発行」「全員分PDF一括発行」「全員分PDF確認」
 
-ヘッダのボタンから即時で全員分を並列生成。
+上部操作列と `メンバー別支払` 見出しのボタンから即時で全員分を並列生成。
 
-- 「全員分PDF一括発行」: `bulk_issue_notice_pdf` action。 差分検出あり、 本番 notice_no で `payout_notices` に保存。 **支払データ保存済の場合だけ active** になる
+- 「保存して全員分PDF発行」: 未保存時の主導線。`POST /api/admin/payouts` で `monthly_reward_payout` / `payout_notices.total_yen` を保存してから、続けて `bulk_issue_notice_pdf` action を実行する
+- 「全員分PDF一括発行」: `bulk_issue_notice_pdf` action。 差分検出あり、 本番 notice_no で `payout_notices` に保存。保存済みの場合はそのまま active、未保存の場合は `保存して全員分PDF発行` として表示する
 - 「全員分PDF確認」: `bulk_preview_notice_pdf` action。 確認用 (= `notice_no` は `PREVIEW-...` 固定で DB 保存しない)。 保存前でも押せる
-- 「強制再発行 (全員)」 (= 黄色ボタン、2026-05-28 追加): `bulk_issue_notice_pdf` action を **`force: true`** で叩く。 差分検出を無視して全員分を強制再生成する。 PDF フォーマット変更 (= 表記ラベル / レイアウト) を反映したい時に使う (= 金額が変わってないと差分検出でスキップされてラベル変更が反映されない問題への対処)。 確認ダイアログあり
+- 「強制再発行 (全員)」 (= 黄色ボタン、2026-05-28 追加): `bulk_issue_notice_pdf` action を **`force: true`** で叩く。未保存なら先に保存する。差分検出を無視して全員分を強制再生成する。 PDF フォーマット変更 (= 表記ラベル / レイアウト) を反映したい時に使う (= 金額が変わってないと差分検出でスキップされてラベル変更が反映されない問題への対処)。 確認ダイアログあり
 
 レスポンスには `{ targetCount, generated, skipped, failed, results[] }` が入る。 失敗があったメンバーは UI 上部の赤い帯に最大 8 件表示される。
 

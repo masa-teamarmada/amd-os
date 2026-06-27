@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-06-27 | FEATURE_REGISTRY / SPEC_pwa / Admin Payouts | 修正 | `メンバー別支払` をサマリ直下・報酬債務台帳より上に置く contract へ変更。`支払データ保存` は支払額/通知額の確定でメール送信しないこと、未保存時の `保存して全員分PDF発行` が保存→`bulk_issue_notice_pdf` を連続実行することを定義 | payouts の主作業がメンバー別支払なのに下段にあり、一括発行ボタンも保存前に disabled で使いづらかったため | えいみ |
 | 2026-06-27 | FEATURE_REGISTRY / SPEC_pwa / admin/kiyo | 変更 | `/admin/kiyo` の対象PJを active のみに変更。支払明細、立替精算、請求書送付確認の集計から active 以外のPJを除外する contract を追記 | きよ向けの月次チェックでは inactive / ended / frozen / sales / lost を非表示にするため | えいみ |
 | 2026-06-27 | FEATURE_REGISTRY / SPEC_pwa / Admin Payouts | 修正 | 支払通知書の `送付` は確認モーダル後の `はい・送信` で実メール送信することを明記し、送信時に送信用PDFを強制再生成して `作成日` を送信日 (JST) にする contract へ変更。PDFフォーマットはタイトル以外のフォント拡大、項目名と値の距離短縮、振込先欄削除、AMD適格請求書発行事業者登録番号 `T7021001064067` 表示を定義 | 送付ボタンの挙動、作成日ロジック、PDFの可読性、振込先表示、AMDインボイス番号の不足をまとめて修正するため | えいみ |
 | 2026-06-27 | FEATURE_REGISTRY / SPEC_pwa / admin/kiyo | 追加 | `/admin/kiyo` を追加。支払月のメンバー支払額、選択月の全PJ立替精算、請求書送付状況と `keiri@team-armada.jp` 証跡を read-only で横断表示する contract を定義 | きよ向けに月次経理チェックの入口を admin 内へ作り、送付済みと keiri 送信確認を混同しないため | えいみ |
