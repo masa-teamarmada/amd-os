@@ -40,7 +40,7 @@
 - `SESSION_MIGRATION_PROMPT.md`
 - `pwa/design_log/sessions_2026-06.md`
 
-扱い: この handoff の own-necessary。今回は stage せず explicit carry-forward。次セッションで内容確認後、必要なら targeted staging / commit。
+扱い: handoff-doc bundle。commit / push 済みなら `git status` に出ない。まだ dirty に残る場合は、この 3 つだけを targeted staging / commit する。
 
 ### 2. notification stop / admin routing 系の既存 WIP
 
