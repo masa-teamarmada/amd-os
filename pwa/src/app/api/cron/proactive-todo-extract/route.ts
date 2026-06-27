@@ -18,6 +18,7 @@
  *    各 next_action テキストから ball_owner を判定:
  *      - 「相手企業/先生/先方/相手側」っぽい主語 → counterpart (= skip)
  *      - 「AMD側/SX側/CX側/えいみ/まさ/AMDから/こちらで」っぽい主語 → amd
+ *      - 「名前さん:」「名前先生:」など、AMDメンバーではない名指し担当者 → counterpart (= skip)
  *      - それ以外 → ambiguous (= AMD ボール扱い、TODO に積む)
  *    due_at は meeting_date + 7日。
  *
@@ -52,14 +53,19 @@ const BLOCKED_RESURFACE_DAYS = 3;
 //
 // AMD メンバーは `members` を実行時 fetch して動的に AMD 主語に加える。
 
+const PERSON_NAME_HEAD = "[ぁ-んァ-ヶー一-龥A-Za-z][ぁ-んァ-ヶー一-龥A-Za-z・ー]{0,11}";
+const HONORIFIC = "(?:先生|教授|社長|代表|氏|さん|様)";
+const SUBJECT_DELIMITER = "\\s*(?:[:：、,]|が|は)";
+
 // 「相手側」と判定する主語パターン
 const COUNTERPART_SUBJECT_PATTERNS = [
-  // 「○○氏」「○○さん」「○○先生」「○○教授」「○○社長」「○○代表」が主語
-  /^[\s「『（]*[ぁ-んァ-ヶー一-龥A-Za-z]{1,12}(?:先生|教授|社長|代表|氏|さん)(?:が|は|と|の|を|により)/,
+  // 「○○氏」「○○さん」「○○先生」「○○教授」「○○社長」「○○代表」が主語。
+  // H-1 next_actions は「杉浦さん: 工場見学を行う」のような担当者prefix形式も出る。
+  new RegExp(`^[\\s「『（(【\\[]*${PERSON_NAME_HEAD}${HONORIFIC}${SUBJECT_DELIMITER}`),
   // 「相手側」「先方」「○○大学側」「○○社側」「○○側」が主語
   /^[\s「『（]*(?:相手|先方|大学側|相手側|相手企業|相手チーム|教授会|事務局)/,
   // 「複数の人 氏 と 氏 が」(冒頭固定で出てくるパターン)
-  /^[\s「『（]*[ぁ-んァ-ヶー一-龥A-Za-z]{1,12}(?:氏|さん)と[ぁ-んァ-ヶー一-龥A-Za-z]{1,12}(?:氏|さん)(?:は|が)/,
+  new RegExp(`^[\\s「『（(【\\[]*${PERSON_NAME_HEAD}(?:氏|さん)\\s*と\\s*${PERSON_NAME_HEAD}(?:氏|さん)(?:は|が|:|：)`),
 ];
 
 // 「AMD ボール」と判定する主語パターン (固定部分)
@@ -95,12 +101,13 @@ function isGarbledText(s: string): boolean {
 function detectBallOwner(text: string, amdMemberNames: Set<string>): "amd" | "counterpart" | "ambiguous" {
   const t = text.trim().slice(0, 200);
 
-  // AMD メンバー実名が冒頭近くに主語として来てたら amd
+  // AMD メンバー実名が冒頭近くに主語/担当者prefixとして来てたら amd。
+  // 例: 「山地さん: ...」「まさ: ...」は、下の honorific counterpart 判定より先に拾う。
   for (const name of amdMemberNames) {
     if (!name || name.length < 2) continue;
-    // 冒頭 ~ 30 文字以内に「{name}は」「{name}が」のパターン
+    const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const head = t.slice(0, 40);
-    if (new RegExp(`${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:が|は|と|に|を|から|の)`).test(head)) {
+    if (new RegExp(`${escapedName}(?:${HONORIFIC})?(?:\\s*(?:[:：、,]|が|は|と|に|を|から|の|で)|\\s+)`).test(head)) {
       return "amd";
     }
   }

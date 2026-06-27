@@ -105,8 +105,9 @@ admin (= `members.is_admin = true`) と `service_role` のみ ALL。anon SELECT 
 1. テンプレ next_action (`関連資料.*前回までの論点.*当日確認` 正規表現にマッチ) は skip。
 2. `detectBallOwner(text, amdMemberNames)` で主語を判定:
    - **counterpart**: 「○○氏」「○○さん」「○○先生」「○○教授」「○○社長」「○○代表」「相手側」「先方」「○○大学側」が主語の文。「○○氏と××氏は」のような並列も counterpart
+     - H-1 next_actions の担当者prefix形式 (`杉浦さん: ...`, `軽部さん: ...`, `○○先生: ...`) は、prefix 名が `members` の active AMD メンバー名 / code_name に一致しない限り counterpart。AMD 側から相手へ依頼・調整する文 (`○○先生に依頼する`, `○○さんから受領する`) は、非AMD担当者のTODOとは扱わない。
    - **amd**: 以下のいずれか:
-     - AMD メンバー実名 (フルネーム/姓だけ/コードネーム) が冒頭 40 文字以内に主語として現れる (`{name}は/が/と/に/を/から/の`)。`members` テーブルから実行時 fetch
+     - AMD メンバー実名 (フルネーム/姓だけ/コードネーム) が冒頭 40 文字以内に主語または担当者prefixとして現れる (`{name}は/が/と/に/を/から/の`, `{name}さん:` など)。`members` テーブルから実行時 fetch
      - 「AMD側」「アルマダ」「SX側/CX側/CryoX側/ZeMA側 等の PJ コード/プロダクト名側」「えいみ/つくよみ/まさ」「こちら/当方/当社/当チーム」
    - **ambiguous**: 上記いずれにも該当しない (= AMD ボール扱いで TODO に積む。漏れない方針)
 3. `counterpart` 判定なら skip (= counterpart は本 cron では保存しない)。`amd` / `ambiguous` のみ upsert。
