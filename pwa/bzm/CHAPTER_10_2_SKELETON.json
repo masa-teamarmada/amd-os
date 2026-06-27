@@ -1,0 +1,376 @@
+{
+  "ch_overview": {
+    "core_proposition": "Jovanovic (1982) noisy selection モデルを τ_B における法人化前/法人化後の不連続切換えを持つ二レジーム確率系に拡張する。pre-B レジームは創業者が σ_SU 信号を Bayesian 学習する相 (遷移核 Π^pre, 観測核 A^pre, Ch 5 命題 5.5)、post-B レジームは法人化後の生産選抜が Klepper 型密度依存ハザードと結合する相 (Π^post, A^post)。τ_B = inf{t : P(r_t = S₂ | F_t) ≥ θ_σ*} は Ch 5.5 GO ゲートの確率論的定式化として stopping time に格上げされ、Π^pre ≠ Π^post の不連続 shift が Bai-Perron 検出対象 (Ch 26b) として現れる。σ_SU regime r_t ∈ {S₀, S₁, S₂} (Ch 5 D-045 K=3) は Hamilton (1989) / Kim-Nelson (1999) / Krolzig (1997) MS-VAR 系譜内の Markov-切換え regime variable として両レジーム共通の latent state を担い、退出ハザード λ_i(t) = (1 - I[t ≥ τ_B])·h_pre(η_i, π_t; σ_SU) + I[t ≥ τ_B]·h_post(η_i, n_t; σ_SU) の indicator スプライス形が Ch 10.5 統合ハザードへ pre-form として供給される。Ch 10.2 は D-004 正準オーナーとして二レジーム拡張 formal を担い、係数 identification は Ch 11 BVAR / Ch 26b 事前登録に明示分離委譲する (D-031 Tier 規律)。",
+    "load_bearing_claims": [
+      "L1: Jovanovic (1982) noisy selection は産業 entry 後の Bayesian 学習 + 雑音観測 + 退出選抜を単一レジームで扱い entry timing τ_B 自体は外生だが、BZM は Ch 5.5 GO ゲートで τ_B を stopping time として内生化し、pre-B 学習相と post-B 選抜相の二レジーム確率系を構築する",
+      "L2: pre-B レジーム (Π^pre, A^pre) では創業者が σ_SU 信号 y_t = η_i + ε_t (ε_t ~ N(0, σ²_SU(r_t))) を観測し、prior F_char (Ch 7 F-CES から受領) を Bayes 更新する。Ch 5 命題 5.5 を本節で具体形に落として再掲し Ch 10.2 を D-004 正準オーナーとして固定する",
+      "L3: post-B レジーム (Π^post, A^post) では Klepper (1996, 2002) 型密度依存ハザードと ERS 機関環境 (Ch 9) が支配し、A^pre から A^post への不連続 shift が τ_B で生じる (Ch 5 命題 5.5)。post-B 法人格は Aghion-Bolton (1987) incomplete contracts 下の財産権配分として解釈される",
+      "L4: σ_SU regime r_t ∈ {S₀, S₁, S₂} (Ch 5 D-045 K=3) は Hamilton (1989) MS-AR / Kim-Nelson (1999) MS-SSM / Krolzig (1997) MS-VAR / Frühwirth-Schnatter (2006) の枠組内で pre-B/post-B 両相共通の latent regime variable として整合的に embed される",
+      "L5: 退出ハザード coupling 形 λ_i(t) = (1 - I[t ≥ τ_B])·h_pre + I[t ≥ τ_B]·h_post は indicator スプライスで Ch 10.5 統合ハザードへ pre-form として供給される。h_pre は Bayesian 信念崩壊型 (事後分散 Σ_t 依存)、h_post は Klepper 密度依存型 (Cox-type proportional λ_0(σ_SU)·exp(β·η̂ + γ·n·1_{t≥τ_B}) を preview)",
+      "L6: Pakes-Ericson (1998) JET active learning は pre-B 探索行動 a_t 選択相に、passive learning は post-B 生産結果 q_i,t 外生観測相に formal 対応する。Ericson-Pakes (1995) RES Markov-Perfect Industry Dynamics 均衡概念で σ_SU 内蔵 industry dynamics を定式化",
+      "L7: 不連続 shift Π^pre ≠ Π^post は Ch 26b で Bai-Perron (1998, 2003) + Hansen (1996) sup-LR 構造変化検定により事前登録され、break date prior = τ_B 内生分布 / 内生 break vs 外生 break の区別 / 複数 break 数 m 指定方針が OSF 登録項目として明示される"
+    ],
+    "logical_arc": "§10.2.0 節頭ストーリー (TIEM 早すぎ起業 = pre-B Bayesian 学習が θ_σ* 未達のまま τ_B 通過 → post-B 退出ハザード急増、CTB 鋸歯 = pre-B 学習成功 + post-B 法人格による補充契約で λ_i(t) 低減、type 名匿名化) で二レジーム不連続 shift の臨床像を直観提示 → §10.2.1 で Jovanovic (1982) noisy selection を最小数式で復習し entry timing 外生の制約を抽出、τ_B = inf{t : 事後信念 ≥ θ_σ*} stopping time 定式化により Ch 5.5 GO ゲートを本節の確率言語で再定式化、Ch 10.2 を D-004 正準オーナーとして Π^pre/Π^post / A^pre/A^post を再掲固定、pre-B Bayesian 更新の closed-form (μ_t, Σ_t) → (μ_{t+1}, Σ_{t+1}) を導出、post-B Klepper 密度依存 + ERS 機関環境を SSM 形で導入、不連続 shift 命題を Bai-Perron 検出対象として宣言、σ_SU を Hamilton/Kim-Nelson/Krolzig MS-VAR に embed し Ericson-Pakes MPE 接続を明示 → §10.2.2 で退出ハザード λ_i(t) の indicator スプライス coupling 形を導出 (h_pre Bayesian 信念崩壊型 + h_post Klepper Cox-type proportional の preview)、Pakes-Ericson active/passive learning との formal 対応を 1 table で整理、Aghion-Bolton incomplete contracts による post-B 法人格解釈を提示、identification rank 条件と IV 候補 (σ_SU regime indicator) を Ch 11 BVAR / Ch 26b へ pre-form として渡す境界線を明示 → §10.2.3 で Ch 10.5 統合ハザード (Hamilton-Kim フィルタ尤度評価接続)、Ch 11 BVAR (MS-VAR identification, Kim filter vs Hamilton filter 採用は Ch 11 委譲)、Ch 26b (Bai-Perron break date prior, 内生/外生 break 区別, m 指定方針) への commission table を整理、章末で Ch 10.3 (ρ Kmenta, pre-B/post-B 不連続が ρ 推定構造変化と整合) + Ch 10.4 (Nelson-Winter ルーチン, pre-B 学習行動の routine 基盤) への双方向接続宣言、Tier 規律 (Tier A formal 拡張 / Ch 11/26b identification 委譲) の確認",
+    "synthesis_rationale": "Lens A/B/C いずれも overall_winner = B を選出した judgement に従い、B の (i) τ_B stopping time 確率論的定式化、(ii) indicator スプライス coupling 形、(iii) D-004 正準オーナー固定宣言、(iv) Aghion-Bolton incomplete contracts 接続、(v) Ch 10.3 + Ch 10.4 双方向接続、(vi) Ch 26b OSF テンプレ整合性 (break date prior / 内生 vs 外生 break / m 指定) を骨格として採用。これに A の独自強みである (a) Cox-type proportional λ_0(σ_SU)·exp(β·η̂ + γ·n·1_{t≥τ_B}) の具体係数符号予測、(b) τ_B 跳躍条件 A^post(τ_B) = g(A^pre(τ_B^-), GO信号) の formal + Ch 5.5 参照 hybrid、(c) F5 (τ_B と Ch 5.5 θ_σ* の 95%CI 重複検定)、(d) Klette-Kortum (2004) JPE 簡潔参照を §10.2.2 / §10.2.1 に grafting。さらに C の独自強みである (e) Hamilton/Kim-Nelson/Krolzig/Frühwirth-Schnatter MS-VAR 4 系譜並列 embed、(f) pre-B Bayesian 更新 closed-form 導出、(g) F4 (K=3 vs K=2/K=4 Bayes factor) と F6 (τ_B 内生 vs 外生 Bayes factor)、(h) Kim filter vs Hamilton filter 採用 Ch 11 委譲の deferred open issue、(i) 節頭 P3 roadmap 明示宣言を §10.2.1 / §10.2.3 / open_issues に grafting。Cross-cutting concerns で全 lens 共通指摘された Ch 5.5 正準オーナー競合 (B O1)、Ch 7 F-CES prior 未確定リスク (B O2 / C open issue)、Ch 10.4 receive 関係明示 (B のみ)、Pakes-Ericson formal mapping 粒度調整 (Tier 規律 + 6p 制約)、type 名匿名化の Ch 11.5 整合は open_issues_for_masa で推奨付き提起。Tier 規律 (D-031) は本節 Tier A (formal 拡張) / Ch 11・26b (係数 identification) の分離を §10.2.3 で明示。"
+  },
+  "sections": [
+    {
+      "section_id": "10.2.0",
+      "title": "節頭ストーリー — TIEM 早すぎ起業と CTB 鋸歯生存、二レジーム不連続 shift の直観",
+      "pages": 1,
+      "math_level": "narrative + 軽微 notation 導入 (τ_B, θ_σ*, S₀/S₁/S₂ の予告のみ)",
+      "anchor_claims": [
+        "TIEM 早すぎ起業 type = pre-B Bayesian 学習が θ_σ* 閾値未達のまま τ_B 通過 → post-B 生産選抜相で退出ハザード λ_i(t) 急増",
+        "CTB 鋸歯生存 type = pre-B 学習成功 (事後信念 S₂ 集中) + post-B 法人格による補充契約 (Ch 9 ERS) で λ_i(t) 低減",
+        "二レジーム不連続 shift は τ_B における Π^pre → Π^post 構造変化として観察可能、Bai-Perron 検出対象 (Ch 26b へ supply)",
+        "Ch 10.2 は本書 C1 中核 (進化経済軽微修正 = Jovanovic 拡張二レジーム) の正準オーナー (D-004)"
+      ],
+      "paragraph_outline": [
+        "¶1 TIEM 型 (匿名化, 業種開示は Ch 11.5 整合方針に従い抑制) の臨床像 — σ_SU 信号観測回数不足のまま GO ゲート θ_σ* を通過、post-B 即座に Klepper 密度依存ハザード環境で退出。pre-B 学習不足が post-B 選抜相で η_i 劣位識別を加速する narrative",
+        "¶2 CTB 型 (匿名化) の臨床像 — pre-B Bayesian 学習が σ_SU 信号 S₂ regime に集中するまで進行、τ_B 通過後の post-B で法人格による補充契約 (Ch 9 ERS) が λ_i(t) を抑制、鋸歯生存の対照像",
+        "¶3 両 type のコントラストから「pre-B 学習相 / post-B 選抜相」の二レジーム構造を直観抽出、τ_B 内生切換え + Π^pre ≠ Π^post 不連続 shift が本節中核命題であることを宣告",
+        "¶4 Jovanovic (1982) noisy selection との関係 — entry timing 外生という制約を本節で τ_B 内生化により克服する旨を予告、Ch 5.5 GO ゲート θ_σ* の確率論的定式化 (stopping time τ_B) を§10.2.1 で行う宣言",
+        "¶5 本節 roadmap (P3 形式) — (i) Jovanovic 拡張 + 二レジーム formal を§10.2.1、(ii) 退出ハザード coupling 形 + Pakes-Ericson active/passive 対応を§10.2.2、(iii) Ch 10.5/11/26b commission + Ch 10.3/10.4 接続を§10.2.3 で扱う旨の明示宣言",
+        "¶6 Ch 10.0/10.1 序論 (進化経済 Jovanovic/Klepper 二系譜整理) からの引継ぎと Ch 10.3 ρ Kmenta / Ch 10.4 Nelson-Winter への送り出し前線、type 名匿名化規約は Ch 11.5 と整合"
+      ],
+      "new_writing_required": "TIEM/CTB 二類型臨床像と本節 roadmap の節頭ストーリー全文を新規執筆。type 名匿名化 (Ch 11.5 整合) を適用。Jovanovic (1982) との対応予告は 1 段落で簡潔に。stopping time τ_B と Π^pre/Π^post の notation は予告のみで formal は§10.2.1 で展開",
+      "existing_reuse": "Ch 5 D-045 σ_SU K=3 (S₀/S₁/S₂) regime 設定、Ch 5.5 GO ゲート θ_σ* 定義、Ch 5 命題 5.1/5.5 表記、Ch 10.0/10.1 進化経済 OPENER の Jovanovic/Klepper 二系譜語彙、Ch 6 PRS (post-B 生産選抜) / Ch 9 ERS (補充契約環境) supply の臨床的反映",
+      "upstream_dependencies": [
+        "Ch 5 命題 5.1 (σ_SU MS-SSM)",
+        "Ch 5 命題 5.5 (Π^pre/Π^post 切換え)",
+        "Ch 5 D-045 K=3 regime",
+        "Ch 5.5 τ_B GO ゲート θ_σ* 内生決定",
+        "Ch 6 PRS (post-B 生産選抜)",
+        "Ch 9 ERS (補充契約環境)",
+        "Ch 10.0/10.1 序論 (進化経済 Jovanovic/Klepper 二系譜整理)",
+        "Book III TIEM/CTB ケース校正 (匿名化規約は Ch 11.5)"
+      ],
+      "downstream_dependencies": [
+        "§10.2.1 二レジーム formal 拡張への直観的橋渡し",
+        "§10.2.2 退出ハザード coupling 形の臨床的解釈",
+        "Ch 10.3 ρ Kmenta への bridge",
+        "Ch 11.5 type 名匿名化規約整合"
+      ],
+      "references": [
+        "Jovanovic (1982) Econometrica 50(3): 649-670",
+        "Klepper (1996) AER 86(3): 562-583",
+        "Ch 5 命題 5.1 / 5.5",
+        "Ch 5.5 GO ゲート",
+        "BOOK_DECISIONS D-004 / D-051"
+      ],
+      "source_drafts": [
+        "B §10.2.0 ¶1-3 (TIEM/CTB 臨床結合 + Ch 9 ERS 補充契約への明示帰属)",
+        "C §10.2.0 P3 (本節 roadmap 明示宣言を ¶5 に grafting)",
+        "A §10.2.0 ¶3 (C1 中核担当宣言を anchor_claim に格上げ)"
+      ]
+    },
+    {
+      "section_id": "10.2.1",
+      "title": "Jovanovic noisy selection 復習と二レジーム拡張 formal — τ_B stopping time, Π^pre/Π^post 不連続 shift, σ_SU regime variable",
+      "pages": 2.5,
+      "math_level": "heavy — Bayesian 更新 closed-form, stopping time 定式化, 二レジーム SSM, MS-VAR embed, 不連続 shift 命題",
+      "anchor_claims": [
+        "Jovanovic (1982) noisy selection は entry 後の Bayesian 学習 + 雑音観測 + 退出選抜を単一レジームで扱い entry timing 外生",
+        "τ_B = inf{t : P(r_t = S₂ | F_t) ≥ θ_σ*} を stopping time として定式化、Ch 5.5 GO ゲートを本節の確率言語で再定式化 (Ch 10.2 = D-004 正準オーナー固定)",
+        "pre-B Bayesian 学習相: 信号 y_t = η_i + ε_t (ε_t ~ N(0, σ²_SU(r_t))) を A^pre 経由で観測、prior F_char (Ch 7 F-CES) を closed-form (μ_t, Σ_t) → (μ_{t+1}, Σ_{t+1}) で Bayes 更新",
+        "post-B 生産選抜相: Klepper (1996, 2002) 密度依存 + ERS (Ch 9) を内蔵、A^pre → A^post の不連続 shift、τ_B 跳躍条件 A^post(τ_B) = g(A^pre(τ_B^-), GO 信号) を formal + Ch 5.5 参照 hybrid で提示",
+        "σ_SU regime r_t ∈ {S₀, S₁, S₂} (Ch 5 D-045 K=3) は Hamilton (1989) MS-AR / Kim-Nelson (1999) MS-SSM / Krolzig (1997) MS-VAR / Frühwirth-Schnatter (2006) 4 系譜内で pre-B/post-B 両相共通の latent regime variable として embed",
+        "Π^pre ≠ Π^post 不連続 shift は Bai-Perron 検出可能な構造変化点として Ch 26b へ supply",
+        "Ericson-Pakes (1995) RES MPIDM との formal 接続: σ_SU 内蔵 MPE 均衡における二レジーム拡張、Hopenhayn (1992) industry equilibrium との対比"
+      ],
+      "paragraph_outline": [
+        "¶1 Jovanovic (1982) noisy selection 復習 — true productivity η_i + ε_i,t 雑音観測、Bayes 更新による事後分散単調減少、生存閾値 η̂_i,t < threshold 退出選抜の原型を最小数式で再提示。entry timing 外生制約を明示 (0.5p)",
+        "¶2 BZM 二レジーム確率系の formal 定義 — 状態空間 (r_t, η_i, F_t)、レジーム指示 R_t ∈ {pre, post}、停止時刻 τ_B = inf{t : P(r_t = S₂ | F_t) ≥ θ_σ*} を Ch 5.5 GO ゲートの確率論的定式化として導入。Ch 5 命題 5.5 の Π^pre/Π^post と A^pre/A^post を本節で再掲固定し Ch 10.2 = D-004 正準オーナー位置確定 (Ch 5.5 = 時系列・信念動学正本 / Ch 10.2 = 二レジーム確率系拡張正本の分担宣言)",
+        "¶3 pre-B Bayesian 学習相 formal — 信号方程式 y_t = η_i + ε_t (ε_t ~ N(0, σ²_SU(r_t)))、prior F_char (Ch 7 F-CES から受領、形状未確定時は汎用正規 prior で起草)、closed-form 更新 (μ_t, Σ_t) → (μ_{t+1}, Σ_{t+1}) (正規 prior/正規 likelihood standard form) を導出。事後信念 π_t = P(r_t = S₂ | F_t) の動学を Π^pre 下で記述",
+        "¶4 post-B 生産選抜相 formal — 法人化後は ERS 機関環境 (Ch 9) と Klepper 密度依存ハザード介在、観測核 A^post が生産結果 q_i,t ベースに切換わる。Π^post は post-B 密度依存遷移を含む。pre-B が低 SNR (active learning コスト + σ_SU 信号雑音)、post-B が高 SNR (生産選抜由来) という非対称性を明示",
+        "¶5 τ_B 跳躍条件と不連続 shift Π^pre ≠ Π^post — A^post(τ_B) = g(A^pre(τ_B^-), GO 信号) の関数 g を formal 提示 + Ch 5.5 参照の hybrid (A draft idea grafting)。不連続 shift が Bai-Perron 検出可能な構造変化点となることを Ch 26b へ supply 宣言",
+        "¶6 σ_SU regime variable 化の MS-VAR 4 系譜 embedding — r_t ∈ {S₀, S₁, S₂} (Ch 5 D-045 K=3) を Hamilton (1989) MS-AR / Kim-Nelson (1999) MS-SSM / Krolzig (1997) MS-VAR / Frühwirth-Schnatter (2006) の枠組内で pre-B/post-B 両相共通 latent state として embed。Kim filter vs Hamilton filter の正準採用は Ch 11 起草時委譲 (deferred design, C draft grafting)",
+        "¶7 Ericson-Pakes (1995) RES Markov-Perfect Industry Dynamics との formal 接続 — σ_SU 内蔵 MPE 均衡における二レジーム拡張、Hopenhayn (1992) industry equilibrium 比較。τ_B 内生決定は MPE 標準には含まれない BZM 拡張点 (1 段落、formal mapping 詳細は Tier 規律 + 6p 制約で§10.2.2 に簡潔展開)",
+        "¶8 章間 supply/receive 確認 — Ch 5 命題 5.1/5.5 (σ_SU MS-SSM)、Ch 5.5 GO ゲート、Ch 7 F-CES F_char prior、Ch 6 PRS (post-B 生産選抜)、Ch 9 ERS (機関環境) からの receive 構造、Ch 10.3 ρ Kmenta (τ_B 前後の生産関数連結)、Ch 10.4 Nelson-Winter ルーチン (pre-B 学習行動の routine 基盤) との双方向接続予告"
+      ],
+      "new_writing_required": "Jovanovic 復習 0.5p (教科書水準で簡潔)、stopping time τ_B 定式化と Ch 5.5 GO ゲート再定式化 0.3p、Π^pre/Π^post 再掲固定宣言 0.2p、pre-B Bayesian 更新 closed-form 導出 0.5p、post-B Klepper + ERS SSM 定式化 0.4p、τ_B 跳躍条件 g 提示 0.2p、σ_SU MS-VAR 4 系譜 embed 0.3p、Ericson-Pakes MPE 接続 0.1p。L1 §10 専門用語日本語化方針遵守。",
+      "existing_reuse": "Ch 5 命題 5.1/5.5/5.6 (σ_SU MS-SSM, Π^pre/Π^post, A^pre/A^post) は本節で再掲固定、Ch 5 D-045 K=3 regime 設定継承、Ch 5.5 GO ゲート θ_σ* 定義を stopping time として再定式化、Ch 7 F-CES F_char prior 構造を pre-B Bayesian 更新の prior として参照 (形状未確定時は汎用正規 prior で代替)、Ch 6 PRS / Ch 9 ERS supply を post-B 観測核 A^post 構成に反映",
+      "upstream_dependencies": [
+        "Ch 5 命題 5.1/5.5/5.6 (σ_SU MS-SSM, Π^pre/Π^post, A^pre/A^post)",
+        "Ch 5 D-045 K=3 regime",
+        "Ch 5.5 τ_B GO ゲート θ_σ* (stopping time として再定式化)",
+        "Ch 7 F-CES F_char prior (形状未確定時は汎用正規 prior 代替)",
+        "Ch 6 PRS (post-B 生産選抜 input)",
+        "Ch 9 ERS (post-B 機関環境)",
+        "Ch 10.0/10.1 序論"
+      ],
+      "downstream_dependencies": [
+        "§10.2.2 退出ハザード coupling 形の前提",
+        "Ch 10.3 ρ Kmenta (τ_B 前後の生産関数連結)",
+        "Ch 10.4 Nelson-Winter (pre-B 学習行動の routine 基盤接続)",
+        "Ch 10.5 統合ハザード h_pre + h_post",
+        "Ch 10.7 Murmann 共進化",
+        "Ch 11 BVAR identification (MS-VAR, Kim/Hamilton filter 選択委譲)",
+        "Ch 26b Bai-Perron 事前登録"
+      ],
+      "references": [
+        "Jovanovic (1982) Econometrica 50(3): 649-670",
+        "Hamilton (1989) Econometrica 57(2): 357-384",
+        "Kim and Nelson (1999) State-Space Models with Regime Switching, MIT Press",
+        "Krolzig (1997) Markov-Switching Vector Autoregressions, Springer",
+        "Frühwirth-Schnatter (2006) Finite Mixture and Markov-Switching Models, Springer",
+        "Ericson and Pakes (1995) RES 62(1): 53-82",
+        "Pakes and Ericson (1998) JET 79(1): 1-45",
+        "Hopenhayn (1992) Econometrica 60(5): 1127-1150",
+        "Lucas (1978) BJE 9(2): 508-523",
+        "Ch 5 命題 5.1/5.5/5.6",
+        "Ch 5.5 GO ゲート",
+        "Ch 7 F-CES",
+        "BOOK_DECISIONS D-004/D-051"
+      ],
+      "source_drafts": [
+        "B §10.2.1 ¶2 (停止時刻 τ_B = inf{...} 定式化と D-004 正準オーナー固定宣言)",
+        "B §10.2.1 ¶4 (Π^post 不連続 shift 意味解釈)",
+        "C §10.2.1 ¶3 (pre-B Bayesian 更新 closed-form 導出)",
+        "C §10.2.1 ¶5 (σ_SU MS-VAR 4 系譜 embed)",
+        "A §10.2.1 ¶4 (τ_B 跳躍条件 g formal 提示 hybrid)",
+        "B §10.2.1 ¶6 (Ericson-Pakes MPE 接続)"
+      ]
+    },
+    {
+      "section_id": "10.2.2",
+      "title": "退出ハザード coupling 形 λ_i(t) と Pakes-Ericson active/passive learning 対応",
+      "pages": 1.75,
+      "math_level": "heavy — indicator スプライス hazard, Cox-type proportional preview, active/passive formal mapping",
+      "anchor_claims": [
+        "退出ハザード λ_i(t) = (1 - I[t ≥ τ_B])·h_pre(η_i, π_t; σ_SU) + I[t ≥ τ_B]·h_post(η_i, n_t; σ_SU) の indicator スプライス coupling 形 (B draft 中核)",
+        "h_pre = Bayesian 信念崩壊型 — 事後分散 Σ_t が大きいほど誤判定 hazard 上昇、Jovanovic (1982) 退出選抜の二レジーム化、TIEM 早すぎ起業との対応",
+        "h_post = Klepper (1996, 2002) 密度依存型 — Cox-type proportional λ_0(σ_SU(t))·exp(β·η̂_i,t + γ·n_t·1_{t≥τ_B}) として preview (A draft grafting)、β は pre-B/post-B 同符号 (η_i 劣位で退出)、γ は post-B のみ正値 (Klepper 密度依存)",
+        "Pakes-Ericson (1998) active learning = pre-B 探索行動 a_t 選択相、passive learning = post-B 生産結果 q_i,t 外生観測相、formal mapping 1 table で整理",
+        "post-B 法人格 = Aghion-Bolton (1987) incomplete contracts 下の財産権配分という解釈 (B draft 独自加点)",
+        "identification rank 条件 + IV 候補 (σ_SU regime indicator) を Ch 11 BVAR / Ch 26b へ pre-form として渡す境界線明示 (Tier A formal 拡張 / Tier B/C identification 委譲)"
+      ],
+      "paragraph_outline": [
+        "¶1 退出ハザード二レジーム表現の導入 — λ_i(t) = (1 - I[t ≥ τ_B])·h_pre + I[t ≥ τ_B]·h_post の indicator スプライス coupling 形を定義、Ch 5 命題 5.6 の具体化として位置づけ、Ch 10.5 統合ハザード supply の標準形宣言",
+        "¶2 pre-B 部 h_pre(t; η_i, π_t, σ_SU) — Bayesian 信念崩壊型ハザード、事後分散 Σ_t (§10.2.1 closed-form 由来) が大きいほど誤判定退出 hazard 上昇、信号雑音 σ²_SU(r_t) が S₀/S₁/S₂ regime で異なる (Ch 5 D-045 継承)、創業者の自主退出 (起業断念) を h_pre 内に統合、TIEM 早すぎ起業 (§10.2.0) との対応付け",
+        "¶3 post-B 部 h_post(t; η_i, n_t, σ_SU) — Klepper (1996, 2002) 密度依存 + ERS 機関環境 (Ch 9) を内蔵、Cox-type proportional λ_0(σ_SU(t))·exp(β·η̂_i,t + γ·n_t·1_{t≥τ_B}) を preview (A draft Cox-type 具体形 grafting)、σ_SU regime shift で baseline jump、CTB 鋸歯生存 (§10.2.0) との対応付け",
+        "¶4 Pakes-Ericson (1998) active/passive learning formal 対応 — active learning (経営者が σ_SU 信号観測を能動選択し情報蓄積に投資、探索行動 a_t) = pre-B 創業者の σ_SU 信号探索行動、passive learning (生産行動の副産物として情報生成、生産結果 q_i,t 外生観測) = post-B 生産選抜の暗黙的 η_i 顕示。formal mapping を 1 table で整理 (Tier 規律 + 6p 制約で深掘りは Ch 10.6/10.7 委譲)",
+        "¶5 Aghion-Bolton (1987) incomplete contracts による post-B 法人格解釈 — 法人化 = 不完全契約下の財産権配分、Ch 9 ERS との整合範囲は open issue として明示。Tirole (1991) IO 接続も簡潔参照 (B draft 独自加点)",
+        "¶6 Klette-Kortum (2004) JPE innovation framework との対比 — 簡潔 1 段落参照、深掘りは Ch 10.5 委譲 (A draft grafting)",
+        "¶7 identification 条件 pre-form — η_i と σ_SU(t) coupling の Ch 11 BVAR identification rank 条件、IV 候補 (σ_SU regime indicator)、Ch 26b で Bai-Perron 不連続 shift 検定の powering / break date prior 要件を pre-form として渡す境界線明示。本節 Tier A は coupling 存在と二レジーム合成構造のみ、関数形係数 identification は Ch 11/26b 完全委譲 (D-031 Tier 規律)",
+        "¶8 Ericson-Pakes (1995) MPE 均衡における退出ハザード coupling 形の位置づけ — MPE framework の特殊型として二レジーム拡張が定式化される旨を§10.2.1 ¶7 を受けて補足"
+      ],
+      "new_writing_required": "indicator スプライス λ_i(t) coupling 形 0.3p、h_pre Bayesian 信念崩壊型 0.3p、h_post Klepper Cox-type proportional preview 0.4p、Pakes-Ericson active/passive formal mapping table 0.3p、Aghion-Bolton 接続 0.15p、Klette-Kortum 簡潔参照 0.1p、identification pre-form 0.2p。Tier 規律 (D-031) で本節 Tier A、関数形 identification は Ch 11/26b 委譲を明示",
+      "existing_reuse": "Ch 5 命題 5.6 (σ_SU 信号 - 退出ハザード coupling) を本節で具体形に落とす、Klepper (1996, 2002) 密度依存ハザード語彙、Ch 9 ERS 機関環境、Ch 6 PRS 生産選抜強度、§10.2.0 TIEM/CTB 臨床像との対応付け、§10.2.1 Bayesian 更新 closed-form の Σ_t を h_pre 入力として参照",
+      "upstream_dependencies": [
+        "§10.2.1 (二レジーム formal, pre-B Bayesian 更新 closed-form, post-B SSM)",
+        "Ch 5 命題 5.6 (σ_SU 信号 - 退出ハザード coupling)",
+        "Ch 5 D-045 K=3 regime",
+        "Ch 6 PRS (生産選抜強度 supply)",
+        "Ch 9 ERS (機関環境による生産選抜強度調整)"
+      ],
+      "downstream_dependencies": [
+        "§10.2.3 commission",
+        "Ch 10.5 統合ハザード (h_pre + h_post pre-form 受領)",
+        "Ch 10.7 Murmann 共進化 (退出ハザードの機関環境結合)",
+        "Ch 11 BVAR identification (rank 条件, IV 候補)",
+        "Ch 26b Bai-Perron 事前登録 (不連続 shift 検出, 退出ハザード coupling 関数形)"
+      ],
+      "references": [
+        "Jovanovic (1982) Econometrica 50(3): 649-670",
+        "Pakes and Ericson (1998) JET 79(1): 1-45",
+        "Ericson and Pakes (1995) RES 62(1): 53-82",
+        "Klepper (1996) AER 86(3): 562-583",
+        "Klepper (2002) RAND 33(1): 37-61",
+        "Klette and Kortum (2004) JPE 112(5): 986-1018",
+        "Aghion and Bolton (1987) JPE 95(2): 388-401",
+        "Tirole (1991) The Theory of Industrial Organization, MIT Press",
+        "Hopenhayn (1992) Econometrica 60(5): 1127-1150",
+        "Ch 5 命題 5.6",
+        "Ch 6 PRS",
+        "Ch 9 ERS",
+        "BOOK_DECISIONS D-031 Tier 規律"
+      ],
+      "source_drafts": [
+        "B §10.2.2 ¶1 (indicator スプライス coupling 形 λ_i(t) = (1-I)·h_pre + I·h_post)",
+        "A §10.2.2 ¶1 (Cox-type proportional 具体形 λ_0·exp(β·η̂ + γ·n·1_{t≥τ_B}))",
+        "B §10.2.2 ¶4 (Aghion-Bolton incomplete contracts 接続)",
+        "B §10.2.2 ¶5 (identification rank 条件 + IV 候補)",
+        "A §10.2.2 ¶5 (Klette-Kortum 簡潔参照)",
+        "C §10.2.2 ¶4 (Pakes-Ericson active/passive formal 対応 table)"
+      ]
+    },
+    {
+      "section_id": "10.2.3",
+      "title": "Ch 10.5 / Ch 11 / Ch 26b への commission と Ch 10.3 / Ch 10.4 双方向接続, 章末小結",
+      "pages": 0.75,
+      "math_level": "narrative + commission table",
+      "anchor_claims": [
+        "Ch 10.5 統合ハザードへの supply: h_pre + h_post τ_B スプライスを pre-form として渡す + Hamilton-Kim フィルタ尤度評価への接続条項 (B draft grafting)",
+        "Ch 11 BVAR identification への supply: Π^pre/Π^post 不連続 shift の rank 条件 + IV 候補 (σ_SU regime indicator)、Kim filter vs Hamilton filter 正準採用は Ch 11 起草時委譲 (C draft deferred design grafting)",
+        "Ch 26b OSF 事前登録への supply: Bai-Perron (1998, 2003) + Hansen (1996) sup-LR 構造変化検定、break date prior = τ_B 内生分布、内生 break vs 外生 break 区別、複数 break 数 m 指定方針",
+        "Ch 10.3 ρ Kmenta (pre-B/post-B 不連続が ρ 推定構造変化と整合) + Ch 10.4 Nelson-Winter ルーチン (pre-B 学習行動の routine 基盤) との双方向接続宣言 (B draft 章末 grafting)",
+        "Tier 規律 (D-031) 明示分離: 本節 Tier A (二レジーム確率系存在 + Π^pre ≠ Π^post 不連続性) / Ch 11/26b Tier B/C (退出ハザード coupling 関数形係数 identification, σ_SU 信号雑音 σ²_SU regime 別値)"
+      ],
+      "paragraph_outline": [
+        "¶1 commission table — (i) Ch 10.5 へ: 退出ハザード coupling 形 h_pre + h_post τ_B スプライス pre-form、Hamilton-Kim フィルタ尤度評価接続条項、(ii) Ch 10.7 Murmann 共進化へ: 退出ハザード機関環境結合点、(iii) Ch 11 BVAR へ: MS-VAR identification 戦略 (二レジーム + K=3 regime σ_SU 同時推定)、Π^pre/Π^post 差分検定、Kim filter vs Hamilton filter 採用判断委譲、(iv) Ch 26b OSF へ: Bai-Perron + Hansen sup-LR 構造変化検定、break date prior = τ_B 内生分布、内生 break vs 外生 break 区別、複数 break 数 m 指定方針、retrospective bias 対策、退出ハザード coupling 関数形係数の rank 条件と IV 候補事前登録",
+        "¶2 Tier 規律確認 (D-031) — 本節 Tier A (二レジーム確率系の存在、Π^pre ≠ Π^post 不連続性、indicator スプライス coupling 形の合成構造は理論的確立)、Ch 11/26b Tier B/C (退出ハザード coupling 関数形係数 β/γ の identification、σ_SU 信号雑音 σ²_SU(S₀)/σ²_SU(S₁)/σ²_SU(S₂) regime 別値、Kim/Hamilton filter 選択は Ch 11 起草時委譲)",
+        "¶3 章末双方向接続宣言 — Ch 10.3 (ρ Kmenta 弾力性、pre-B/post-B 不連続 shift が ρ 推定の構造変化として現れる予告)、Ch 10.4 (Nelson-Winter ルーチン、pre-B 学習行動の routine 基盤として 10.4 → 10.2 receive 関係を明示)、Ch 10.7 (Murmann 共進化) への送り出し、D-007 書き順における Ch 10.2 の位置確認",
+        "¶4 章末小結 — C1 中核主張 (進化経済軽微修正 = Jovanovic 拡張二レジーム) の再宣告、Ch 10.0/10.1 序論からの bridge 完了、Ch 10.2 = D-004 正準オーナーとしての二レジーム確率系拡張正本確定 (Ch 5.5 = 時系列・信念動学正本との分担)、Book III TIEM/CTB ケース校正への接続予告"
+      ],
+      "new_writing_required": "commission table 0.25p、Tier 規律確認 0.15p、Ch 10.3/10.4 双方向接続宣言 0.2p、章末小結 0.15p。短く明確に。",
+      "existing_reuse": "BOOK_DECISIONS D-004/D-007/D-031/D-051 参照、Ch 10.0/10.1 序論からの bridge、Ch 11.5 OSF 事前登録テンプレート、§10.2.1/§10.2.2 の formal 結果を commission 文言に反映",
+      "upstream_dependencies": [
+        "§10.2.1 / §10.2.2 (formal 拡張 + coupling 形)",
+        "D-004 / D-007 / D-031 / D-051",
+        "Ch 11.5 OSF 事前登録テンプレート"
+      ],
+      "downstream_dependencies": [
+        "Ch 10.3 ρ Kmenta",
+        "Ch 10.4 Nelson-Winter (receive 関係明示)",
+        "Ch 10.5 統合ハザード",
+        "Ch 10.7 Murmann 共進化",
+        "Ch 11 BVAR (MS-VAR identification, Kim/Hamilton filter 選択)",
+        "Ch 26b OSF 事前登録 (Bai-Perron + Hansen sup-LR, break date prior, m 指定方針)",
+        "Book III TIEM/CTB ケース校正"
+      ],
+      "references": [
+        "Bai and Perron (1998) Econometrica 66(1): 47-78",
+        "Bai and Perron (2003) JAE 18(1): 1-22",
+        "Hansen (1996) Econometrica 64(2): 413-430",
+        "Hamilton (1989) Econometrica 57(2): 357-384",
+        "Kim and Nelson (1999) MIT Press",
+        "BOOK_DECISIONS D-004 / D-007 / D-031 / D-051"
+      ],
+      "source_drafts": [
+        "B §10.2.3 ¶1-2 (Ch 10.5 Hamilton-Kim フィルタ尤度接続条項 + Ch 26b break date prior 内生/外生 break 区別 + m 指定方針)",
+        "B 章末 ¶3 (Ch 10.3 + Ch 10.4 双方向接続)",
+        "C §10.2.3 P1 (Tier 規律明示分離)",
+        "C open issue (Kim filter vs Hamilton filter 採用 Ch 11 委譲 deferred design)",
+        "A §10.2.3 ¶3 (D-007 書き順における Ch 10.2 位置確認)"
+      ]
+    }
+  ],
+  "open_issues_for_masa": [
+    {
+      "issue": "O1: Ch 5.5 GO ゲート θ_σ* と Ch 10.2 stopping time τ_B = inf{t : 事後信念 ≥ θ_σ*} の正準オーナー競合処理 (D-004 = Ch 10.2 正準オーナーだが Ch 5.5 が時系列・信念動学の正本) — §10.2.1 ¶2 冒頭で「Ch 5.5 = 時系列・信念動学正本 / Ch 10.2 = 二レジーム確率系拡張正本」の分担を明示宣言する方針で起草するか確認",
+      "why_masa_decides": "D-004 正準オーナー設定と章間 supply chain 設計はまさの所掌",
+      "options": [
+        "A: §10.2.1 ¶2 で分担宣言を明示し Ch 10.2 で stopping time 確率論的定式化を担う (二重正本化リスクあり)",
+        "B: Ch 5.5 を時系列・信念動学正本に固定、Ch 10.2 は Ch 5.5 参照のみで stopping time formal は Ch 5.5 委譲 (Ch 10.2 の formal 厚みが減る)",
+        "C: Ch 5.5 = GO ゲート θ_σ* 内生決定正本 / Ch 10.2 = 確率系拡張下の stopping time 表現正本という機能分担を明示 (hybrid 解、推奨)"
+      ],
+      "recommendation": "C (機能分担明示 hybrid)。Ch 5.5 は GO ゲート θ_σ* の内生決定過程 (事後信念動学と閾値交差) を担い、Ch 10.2 は二レジーム確率系内での stopping time τ_B 表現と Π^pre → Π^post 不連続 shift を担う、と§10.2.1 ¶2 冒頭で明示宣言する。D-051 記号正本では θ_σ* と τ_B を別記号として既に分離しており整合的"
+    },
+    {
+      "issue": "O2: Ch 7 F-CES の F_char prior 形状未確定問題 (Ch 7 が D-007 書き順で Ch 10.2 より前だが prior 分布形が Dirichlet / Gauss / その他で未確定の場合) — §10.2.1 ¶3 pre-B Bayesian 更新 closed-form を汎用正規 prior で起草するか F_char 形状確定を待つか",
+      "why_masa_decides": "Ch 7 F-CES 設計はまさの所掌",
+      "options": [
+        "A: 汎用正規 prior で起草、F_char 形状確定後に Ch 7 から正規化整合性の supply を受領して§10.2.1 ¶3 を更新 (推奨)",
+        "B: F_char 形状確定まで Ch 10.2 起草を保留 (D-007 書き順が遅延)",
+        "C: F_char を非正規 (Dirichlet 等) と仮定し汎用 conjugate prior で起草 (Bayesian 更新 closed-form 表記が複雑化)"
+      ],
+      "recommendation": "A (汎用正規 prior で起草、Ch 7 確定後に再整合)。Ch 7 F-CES 起草段階で F_char 形状を Gauss 系で確定する方針なら§10.2.1 ¶3 closed-form (μ_t, Σ_t) → (μ_{t+1}, Σ_{t+1}) はそのまま生かせる。Dirichlet 系の場合は§10.2.1 ¶3 に注記追加で対応可"
+    },
+    {
+      "issue": "O3: 退出ハザード λ_i(t) coupling 関数形の具体粒度 — §10.2.2 で Cox-type proportional λ_0(σ_SU)·exp(β·η̂ + γ·n·1_{t≥τ_B}) を preview として明示するか、indicator スプライス h_pre + h_post の合成構造のみに留めるか (Tier 規律 D-031 との関係)",
+      "why_masa_decides": "Tier 規律 D-031 の運用判断",
+      "options": [
+        "A: Cox-type proportional 具体形を§10.2.2 ¶3 で preview 明示、係数 β/γ 符号予測を falsifiable claim F3 として登録 (推奨、Ch 10.5 supply の使いやすさ最大)",
+        "B: indicator スプライス合成構造のみで関数形は完全に Ch 11/26b 委譲 (Tier A 厳守だが Ch 10.5 supply 粒度が抽象的)",
+        "C: Cox-type proportional を§10.2.2 で preview + §10.2.3 commission で「具体係数 identification は Ch 11/26b」と明示分離 (hybrid)"
+      ],
+      "recommendation": "C (Cox-type preview + commission 明示分離 hybrid)。§10.2.2 ¶3 で Cox-type 具体形を preview として提示し Ch 10.5 統合ハザードへの pre-form 粒度を確保、§10.2.3 commission で係数 identification の Ch 11/26b 委譲を明示する hybrid 設計"
+    },
+    {
+      "issue": "O4: TIEM/CTB type 名匿名化レベルの Ch 11.5 整合 — §10.2.0 節頭ストーリーで業種開示 (electronic measurement / commercial trade-batch) の程度を Ch 11.5 確定前にどう抑えるか",
+      "why_masa_decides": "Book III 編集権者まさの所掌",
+      "options": [
+        "A: §10.2.0 では type 名のみ匿名化 (TIEM/CTB) で業種開示なし、Ch 11.5 確定後に必要なら業種開示追加 (推奨)",
+        "B: 業種開示を§10.2.0 で含める (読者の臨床像理解が容易だが Ch 11.5 と齟齬リスク)",
+        "C: type 名も完全匿名化 (Type α/β 等) で起草、Ch 11.5 確定後に TIEM/CTB に置換"
+      ],
+      "recommendation": "A (type 名匿名化のみ + 業種開示なし)。Ch 11.5 確定を待つ間の保守的方針として§10.2.0 では「TIEM 型 (匿名化)」「CTB 型 (匿名化)」と表記し業種詳細は Ch 11.5 へ委譲"
+    },
+    {
+      "issue": "O5: Aghion-Bolton (1987) incomplete contracts による post-B 法人格解釈の§10.2.2 ¶5 配置粒度 — 進化経済 + 制度経済の架橋点として独自加点だが、Ch 9 ERS との整合範囲が未確定で「突発的」と査読されるリスク",
+      "why_masa_decides": "Ch 9 ERS - Ch 10.2 章間設計はまさの所掌",
+      "options": [
+        "A: §10.2.2 ¶5 で簡潔 1 段落参照、Ch 9 ERS との整合範囲は§10.2.3 commission で明示 (推奨)",
+        "B: §10.2.2 から削除し Ch 9 ERS または Ch 10.7 Murmann に完全委譲",
+        "C: §10.2.2 ¶5 で formal 接続まで踏み込み Tirole (1991) IO も追加 (頁数増、Tier 規律抵触リスク)"
+      ],
+      "recommendation": "A (簡潔参照 + Ch 9 ERS 整合範囲明示)。Research Policy / ICC 査読への訴求として残しつつ Ch 9 ERS supply chain との整合は§10.2.3 で確認"
+    }
+  ],
+  "falsifiable_claims": [
+    "F1: τ_B 前後の不連続 shift Bai-Perron 検定 — Π^pre ≠ Π^post の構造変化 break date がコホート登記簿 + 財務 panel 上で τ_B (法人化日) と一致する仮説を Bai-Perron (1998, 2003) で検定可能 (Ch 26b 事前登録)。break date が τ_B から有意に乖離 (>6 か月) すれば C1 主張は反証",
+    "F2: τ_B 内生決定点と Ch 5.5 GO ゲート θ_σ* 推定値の整合性 — Ch 5.5 で推定された θ_σ* と Ch 11 で推定された τ_B が 95% 信頼区間で重複するか検定 (A draft F5 grafting)。重複しなければ Ch 5.5 / Ch 10.2 supply chain 整合が反証",
+    "F3: 退出ハザード coupling 形 λ_i(t) = λ_0(σ_SU(t))·exp(β·η̂_i,t + γ·n_t·1_{t≥τ_B}) の係数符号予測 — β は pre-B/post-B 両相で同符号 (η_i 劣位ほど退出)、γ は post-B のみ正値 (Klepper 密度依存) (A draft F3 grafting)。符号反転なら coupling 形は反証",
+    "F4: σ_SU regime 数 K=3 (S₀/S₁/S₂) の Bayes factor 検定 — Ch 5 D-045 K=3 仕様が K=2 / K=4 仕様より Ch 11 MS-VAR の周辺尤度が高いことを Bayes factor で検証 (C draft F4 grafting)。K=3 が他仕様に劣れば Ch 5 D-045 が反証",
+    "F5: τ_B 内生化の Bayes factor 検定 — τ_B 外生固定モデルが τ_B を Ch 5.5 GO ゲートで内生化したモデルより周辺尤度が低いことを Bayes factor で検証 (C draft F6 grafting)。差が出なければ τ_B 内生化主張は反証",
+    "F6: pre-B Bayesian 学習相の事後分散 V_i,t 単調減少 — Jovanovic noisy selection の事後分散単調性が BZM 拡張下でも保持される (A draft F4 grafting)。単調性が破れれば pre-B Bayesian 学習相の formal 定式化が反証",
+    "F7: TIEM 型 (pre-B 学習不足) の post-B hazard 高位仮説 — TIEM 早すぎ起業 type で π_t < θ_σ* のまま τ_B 通過した個体は post-B 退出ハザード h_post(t) が CTB 鋸歯 type より統計有意に高い、を Cox 比例ハザード + σ_SU regime ダミーで Ch 11 検定 (A draft F7 grafting)、Ch 26b 事前登録",
+    "F8: Pakes-Ericson active/passive learning 対応検定 — pre-B 期 (active) では創業者の探索行動指標 (試作回数、ピボット数、σ_SU 信号探索投資率) が事後信念 π_t 収束速度と正相関、post-B 期 (passive) では生産量 q_i,t が σ_SU 推定精度と正相関、を OLS / IV で検定可能 (B draft F4 grafting)。両相で対応関係が示せなければ active/passive mapping は反証",
+    "F9: σ_SU regime 遷移行列の pre-B/post-B 共通性 — Ch 5 D-045 の r_t 遷移行列 P が pre-B/post-B 両相で同一 (regime 識別の不変性) を Hamilton-Kim フィルタで pre-B/post-B 別々に推定して検証 (B draft F5 + L4 grafting)。不一致なら σ_SU regime variable の両相共通性主張が反証"
+  ],
+  "cross_chapter_supply": [
+    {
+      "target_chapter": "Ch 5 (σ_SU MS-SSM)",
+      "what_supplies": "Ch 5 命題 5.1 (σ_SU MS-SSM) + 命題 5.5 (Π^pre/Π^post, A^pre/A^post) + 命題 5.6 (σ_SU 信号 - 退出ハザード coupling) + D-045 K=3 regime r_t ∈ {S₀, S₁, S₂} を§10.2.1 で受領、本節で Π^pre/Π^post / A^pre/A^post を D-004 正準オーナーとして再掲固定。Ch 5 へは特に return supply なし (Ch 5 が時系列・信念動学正本)"
+    },
+    {
+      "target_chapter": "Ch 5.5 (τ_B GO ゲート)",
+      "what_supplies": "Ch 5.5 GO ゲート θ_σ* 内生決定を§10.2.1 ¶2 で stopping time τ_B = inf{t : P(r_t = S₂ | F_t) ≥ θ_σ*} として受領・確率論的再定式化。Ch 5.5 = 時系列・信念動学正本 / Ch 10.2 = 二レジーム確率系拡張正本の機能分担を§10.2.1 冒頭で明示宣言 (O1 推奨案)"
+    },
+    {
+      "target_chapter": "Ch 6 (PRS)",
+      "what_supplies": "Ch 6 PRS (生産選抜強度) を§10.2.1 ¶4 post-B Klepper 密度依存 + ERS 機関環境構成と§10.2.2 ¶3 h_post Cox-type proportional preview に input として受領"
+    },
+    {
+      "target_chapter": "Ch 7 (F-CES)",
+      "what_supplies": "Ch 7 F-CES の F_char prior を§10.2.1 ¶3 pre-B Bayesian 更新 closed-form の prior として受領 (Ch 7 形状未確定時は汎用正規 prior 代替、O2 推奨案)"
+    },
+    {
+      "target_chapter": "Ch 9 (ERS)",
+      "what_supplies": "Ch 9 ERS (機関環境による生産選抜強度調整) を§10.2.1 ¶4 post-B 観測核 A^post 構成と§10.2.2 ¶3 h_post / ¶5 Aghion-Bolton 接続に input として受領"
+    },
+    {
+      "target_chapter": "Ch 10.3 (ρ Kmenta)",
+      "what_supplies": "§10.2.3 章末で pre-B/post-B 不連続 shift Π^pre ≠ Π^post が ρ 推定の構造変化として現れる予告を supply。Ch 10.3 は τ_B 前後の生産関数連結 (CES ρ-技術選抜) を§10.2 の不連続 shift framework 上で展開"
+    },
+    {
+      "target_chapter": "Ch 10.4 (Nelson-Winter ルーチン)",
+      "what_supplies": "§10.2.3 章末で Ch 10.4 → Ch 10.2 receive 関係を明示 (D-007 書き順で 10.4 が 10.2 より前)、pre-B 学習行動の routine 基盤として Nelson-Winter ルーチンを§10.2.1 ¶3 / §10.2.2 ¶4 active learning に接続"
+    },
+    {
+      "target_chapter": "Ch 10.5 (統合ハザード h_pre + h_post)",
+      "what_supplies": "退出ハザード coupling 形 λ_i(t) = (1 - I[t ≥ τ_B])·h_pre + I[t ≥ τ_B]·h_post の indicator スプライス pre-form (Cox-type proportional λ_0(σ_SU)·exp(β·η̂ + γ·n·1_{t≥τ_B}) preview 付き) + Hamilton-Kim フィルタ尤度評価接続条項を§10.2.3 commission で supply"
+    },
+    {
+      "target_chapter": "Ch 10.7 (Murmann 共進化)",
+      "what_supplies": "退出ハザードの機関環境結合点 (Ch 9 ERS / Aghion-Bolton incomplete contracts による post-B 法人格解釈) を§10.2.2 ¶5 / §10.2.3 commission で supply"
+    },
+    {
+      "target_chapter": "Ch 11 (BVAR identification)",
+      "what_supplies": "MS-VAR identification 戦略 (二レジーム + K=3 regime σ_SU 同時推定)、Π^pre/Π^post 差分検定、退出ハザード coupling 形係数 (β/γ) identification rank 条件 + IV 候補 (σ_SU regime indicator)、Kim filter vs Hamilton filter 正準採用判断委譲 (deferred design) を§10.2.3 commission で supply"
+    },
+    {
+      "target_chapter": "Ch 26b (OSF 事前登録)",
+      "what_supplies": "Bai-Perron (1998, 2003) + Hansen (1996) sup-LR 構造変化検定、break date prior = τ_B 内生分布、内生 break vs 外生 break 区別、複数 break 数 m 指定方針、retrospective bias 対策、退出ハザード coupling 関数形係数の rank 条件 + IV 候補事前登録項目を§10.2.3 commission で supply"
+    },
+    {
+      "target_chapter": "Book III (TIEM/CTB ケース校正)",
+      "what_supplies": "§10.2.0 節頭ストーリー (TIEM 早すぎ起業 = pre-B 学習不足、CTB 鋸歯 = pre-B 学習成功 + post-B 法人格による補充契約) を Book III 校正事例の formal framework として supply、type 名匿名化規約は Ch 11.5 と整合 (O4 推奨案)"
+    },
+    {
+      "target_chapter": "Ch 11.5 (実証 type 開示方針)",
+      "what_supplies": "§10.2.0 TIEM/CTB type 名匿名化規約の整合受領 (O4)、§10.2.3 commission で Ch 11.5 OSF 事前登録テンプレートとの整合確認"
+    }
+  ],
+  "masa_negotiation_handles": [
+    "H1: §10.2.1 ¶2 冒頭の Ch 5.5 / Ch 10.2 機能分担宣言文言 — 「Ch 5.5 = GO ゲート θ_σ* 内生決定 (事後信念動学と閾値交差) 正本 / Ch 10.2 = 二レジーム確率系拡張下の stopping time τ_B 表現と Π^pre → Π^post 不連続 shift 正本」(O1 推奨案 C) を採用するか、より簡素な分担表記にするか",
+    "H2: §10.2.2 ¶3 の退出ハザード Cox-type proportional 具体形 λ_0(σ_SU(t))·exp(β·η̂_i,t + γ·n_t·1_{t≥τ_B}) を preview として明示するか、indicator スプライス h_pre + h_post 合成構造のみに留めるか (O3 推奨案 C = preview + commission 分離 hybrid)",
+    "H3: §10.2.1 ¶3 の pre-B Bayesian 更新を正規 prior / 正規 likelihood standard form で起草 (Ch 7 F-CES 形状確定後再整合) するか、Ch 7 確定待ち (O2 推奨案 A = 汎用正規 prior 起草)",
+    "H4: §10.2.2 ¶5 の Aghion-Bolton (1987) incomplete contracts による post-B 法人格解釈の配置粒度 (O5 推奨案 A = 簡潔 1 段落参照) を採用するか、Ch 9 ERS / Ch 10.7 完全委譲とするか",
+    "H5: §10.2.1 ¶6 の σ_SU MS-VAR embed 4 系譜 (Hamilton 1989 / Kim-Nelson 1999 / Krolzig 1997 / Frühwirth-Schnatter 2006) のうち本節で正準採用を宣言する系譜数 (4 系譜並列で Ch 11 委譲、または 2-3 系譜に絞り込み)",
+    "H6: §10.2.0 TIEM/CTB type 名匿名化レベル (O4 推奨案 A = type 名匿名化のみ + 業種開示なし)、Ch 11.5 確定までの暫定方針確認",
+    "H7: §10.2.3 commission table の粒度 — Hamilton-Kim フィルタ尤度評価接続条項 + Kim filter vs Hamilton filter 採用判断 Ch 11 委譲 + break date prior 内生/外生 break 区別 + 複数 break 数 m 指定方針までの 4 項目を§10.2.3 ¶1 で明示する深度",
+    "H8: §10.2.1 ¶7 Ericson-Pakes MPE 接続 + §10.2.2 ¶6 Klette-Kortum 簡潔参照 + §10.2.2 ¶4 Pakes-Ericson active/passive table の 3 項目を 6p 制約内でどこまで形式化するか (formal mapping table の table 1 個まで許容、深掘りは Ch 10.6/10.7 委譲)"
+  ]
+}

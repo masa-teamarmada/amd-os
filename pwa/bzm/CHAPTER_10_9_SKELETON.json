@@ -1,0 +1,398 @@
+{
+  "ch_overview": {
+    "core_proposition": "Book II Ch 10.9 は、N≈32 (AMD-8 現有 + 機関後付け 7 + 国際 17) コホートに対する試験プロトコルを Book VI 実装章に埋めず Ch 10 OPENER 11 節構成の最終節として前倒し公開し、(i) Andrews-Quandt sup-Wald W_n* を観測された π_i 候補集合 Π_obs 上の有限 supremum として評価する探索しない設計、(ii) Cox 比例ハザード log h_i(t) = log h_0(t) + β_1·X_i + β_2·σ_SU(t) + β_3·σ_SU(t)·𝟙{t≥τ_B} を Andersen-Gill 計数過程定式 + Hsieh-Lavori 2000 time-varying covariate 検出力公式で扱う primary endpoint = β_3、(iii) 機関クロック IV (会計年度境界 3/31 / GAP-AMED 採択時刻 / PCT-30m 出願期限) を Wooldridge 2015 control function + Robins-Tsiatis 1991 SAFT の両論併記で内生性遮断、(iv) 事前コミット効果量 β̂_3 ∈ [0.4, 1.2] per IQR-σ_SU log-hazard (median hazard 3-fold change、Bernstein 2017 + Korteweg-Sorensen 2010 + Laws 2024 三層メタ分析翻案) と Schoenfeld 1983 + Hsieh-Lavori 2000 + Monte Carlo 1000 反復による検出力 0.8 検証、(v) O'Brien-Fleming + Lan-DeMets α spending 3 段階 (N=16 futility / N=32 primary / N=64 拡張) + Benjamini-Hochberg FDR α=0.05 lock + Schoenfeld residual test による比例性検証 + time-varying β_3(t) 切替 protocol、(vi) データアクセス前 OSF 事前登録 (Tier B、登録 hash 本書改訂版固定参照、違反時 Tier C 自動降格) を一体不可分のプロトコルとして提示する。これにより DSGE persona 4 条件 #1 (前向き予測登録簿への置換) と進化経済 persona P-008a (N≈32 検出力 0.8 達成可否) を章末で formal に同時解消宣言する。",
+    "load_bearing_claims": [
+      "試験プロトコルは Book VI に埋めず Ch 10.9 OPENER 内に前倒し配置 (D-041 前半 / C7、正準オーナー = Ch 10.9)、Ch 26b 前向き予測登録簿との正準オーナー対称合意を BOOK_DECISIONS 追記で確定する",
+      "Andrews-Quandt sup-Wald 統計量 W_n* = sup_{π ∈ Π_obs} W_n(π) は cohort 内部で観測された π_i (制度的レジーム転換点候補) の有限集合上の supremum として評価し、π を探索パラメータとして掃かない (p-hacking 排除、D-031 Tier B、有限 cardinality ~50 なので Bonferroni 補正後 χ² で非標準分布表不要)",
+      "Cox 比例ハザード time-varying 交互作用 β_3·σ_SU(t)·𝟙{t≥τ_B} が primary endpoint、X_i は Ch 7 F-CES (α_i, β_i, γ_i, δ_i, ε_i) を pre-specify + Ch 10.3 ρ Kmenta posterior を offset として固定し共変量探索を禁止する",
+      "事前コミット効果量 β̂_3 ∈ [0.4, 1.2] per IQR-σ_SU log-hazard ≒ median hazard 3-fold change (上限 log(3)≈1.1、下限 log(1.5)≈0.4) を OSF 事前登録時点で lock (D-050 並列追加反証)、Bernstein 2017 + Korteweg-Sorensen 2010 + Laws 2024 の三層メタ分析を IQR-σ_SU 正規化に換算 (換算根拠は付録 B)",
+      "機関クロック IV (Z_1 会計年度境界 3/31、Z_2 GAP-AMED 採択時刻 (連続)、Z_3 PCT-30m 出願期限) は σ_SU の内生性を遮断する exogenous 変動源、relevance は Stock-Yogo F>10、exclusion restriction は Hansen J 検定、Cox の非線形性は Wooldridge 2015 control function + Robins-Tsiatis 1991 SAFT の両論併記で対応",
+      "コホート N≈32 = AMD-8 (現有) + 機関後付け 7 (国内 GAP-AMED 採択機関、D-034 type 匿名化) + 国際 17 (MIT Deshpande / EPFL TTO / ETH Pioneer / Karolinska Innovation 等、合意済み 5 + 交渉中 12) で P-002 + P-008d 統合、検出力 0.8 を β̂_3=0.4 下限で達成",
+      "中間 stop rule は 3 段階 (N=16 futility / N=32 primary / N=64 拡張) で O'Brien-Fleming + Lan-DeMets α spending (γ=4 保守側)、Schoenfeld residual test で比例性検証 + 棄却時の time-varying β_3(t) 切替 protocol を pre-specified に lock",
+      "OSF 事前登録は Phase 2 データアクセス前 (2026Q4 開始時点) に Tier B 必須要件として完了 (D-031 / D-052)、登録 hash を本書改訂版に固定参照、データアクセス後登録 / プロトコル変更時は Tier C 自動降格",
+      "data sharing agreement 締結率が 2027Q1 時点で 50% (8 機関) 未満の場合は N<24 退化として §10.9.2 検出力 0.8 主張は棄却 + wave 2 設計修正を Ch 11.5 wave 段階更新と接続"
+    ],
+    "logical_arc": "節頭ストーリー (§10.9.0) で Karolinska TTO ディレクター × AMD ファシリテーターの対話縮約 (type 名匿名化) を通じて AMD-8 + 国際 17 cohort N=32 事前登録会議を場面化し、Book VI 埋め込み案を反証可能 commission (Ch 10.4 Theorem 3) と前向き予測登録簿 (Ch 26b) の論理的整合性論で却下 → §10.9.1 で W_n* (観測された π_i 制限版 + Bonferroni χ²) + Cox time-varying (Andersen-Gill 計数過程 + Kalbfleisch-Prentice frailty) + 機関クロック IV (Wooldridge control function + Robins-Tsiatis SAFT 両論併記 + Hansen J + Stock-Yogo F>10) + X_i pre-specify (Ch 7 F-CES + Ch 10.3 ρ Kmenta offset) を一体定式化 → §10.9.2 で Schoenfeld 1983 + Hsieh-Lavori 2000 time-varying 公式 + Monte Carlo 1000 反復で N=32 検出力 0.8 達成検証、β̂_3 ∈ [0.4, 1.2] の三層メタ分析翻案 (Bernstein 2017 + Korteweg-Sorensen 2010 + Laws 2024) + log(3)/log(1.5) 換算、3 段階 stop rule (N=16 futility / N=32 primary / N=64 拡張) + O'Brien-Fleming Lan-DeMets α spending + BH FDR α=0.05 lock + Schoenfeld residual test + time-varying β_3(t) 切替 protocol → §10.9.3 で OSF 事前登録 10 項目 + 登録 hash 本書改訂版固定参照 + Tier B → Tier C 自動降格規律 + N=32 cohort 詳細 (AMD-8 / 機関後付け 7 / 国際 17 wave 別合意状況) + P-002 + P-008d 統合 eligibility + Phase 2 スケジュール (2026Q4 OSF → 2027Q1 data collection → 2027Q2 wave 1 interim → 2027Q3 wave 2 conditional) + Ch 11.5 / Ch 26b / Ch 11 BVAR 引き渡し → 章末で β̂_3 が [0.4, 1.2] を外れた場合の Ch 5 σ_SU レジーム転換棄却宣言 (D-050 並列追加反証) + DSGE persona #1 解消宣言 + P-008a 解消宣言 + Ch 10 OPENER 群 (10.0-10.9) 完結宣言を三点同時提示",
+    "synthesis_rationale": "Judge 1 (overall_winner=A) は方法論的厳密性 (Hsieh-Lavori 2000 / Robins-Tsiatis SAFT / BH FDR lock / 有限 Π_obs Bonferroni χ²) を支持、Judge 2 (overall_winner=C) は publishability (章末三点同時宣言 / Schoenfeld residual test / OSF hash 固定参照 / data sharing 50% 反証) を支持、Judge 3 (overall_winner=C) は masa-fidelity (cohort wave 別合意状況 / Ch 26b 正準オーナー対称合意 / D-034 機関後付け 7 匿名化 / Ch 5 backflow 反証) を支持。投票では C が 2 票で formal winner だが、Judge 1 が指摘する方法論的核心 (Hsieh-Lavori 2000 / SAFT 両論併記 / 有限 Π_obs Bonferroni χ² / BH FDR α=0.05 lock / Cox-IV 実装ライブラリ open issue) を C の publishability + masa-fidelity 骨格に graft することで 3 案統合の最強形を得る。骨格 = C (章末三点同時宣言 + Schoenfeld residual test + 3 段階 stop rule + OSF hash 固定参照 + Ch 5 backflow 反証 + 章間整合性メタ規律)、方法論深化 = A (Hsieh-Lavori 2000 / SAFT / BH FDR lock / 有限 Π_obs Bonferroni χ² / 実装ライブラリ open issue / wave 別合意状況)、統計実装細目 = B (Kalbfleisch-Prentice frailty / Stock-Yogo F>10 / β_3 上限超過時の非線形 threshold 切替 / P-002 eligibility 操作化)。cross_cutting_concerns で 3 ジャッジ共通指摘の Ch 26b 正準オーナー対称合意 / 機関後付け 7 D-034 匿名化階層差異 / β̂_3 換算根拠付録 B / IV exclusion restriction Hansen J formal 化 / Schoenfeld residual test pre-specified / data sharing 締結率退化条件 / Π_obs operational definition を全て本 skeleton に吸収。"
+  },
+  "sections": [
+    {
+      "section_id": "10.9.0",
+      "title": "節頭ストーリー — AMD-8 + 国際 17 cohort N=32 事前登録会議と Book VI 前倒しの必然性",
+      "pages": 1,
+      "math_level": "low",
+      "anchor_claims": [
+        "Karolinska TTO ディレクター × AMD ファシリテーターの対話縮約 (type 名匿名化) で AMD-8 + 機関後付け 7 + 国際 17 = N≈32 cohort 事前登録会議を場面化",
+        "Book VI 埋め込み案の却下根拠 = (i) Phase 2 (2026Q4) データ実装スケジュール、(ii) Ch 10.4 Theorem 3 反証可能 commission と Ch 26b 前向き予測登録簿の論理的整合性、(iii) 反証可能性が論理段階で示されながら経験プロトコルが宙に浮く構造課題の二重回避",
+        "D-041 前半 (C7) + D-031 Tier B 規律 + D-052 Phase 2 タイムラインの三点束ねで §10.9 OPENER 前倒しを正準化、Ch 26b との正準オーナー対称合意は BOOK_DECISIONS 追記で確定 (open_issues #4)",
+        "DSGE persona 4 条件 #1 (前向き予測登録簿への置換) + 進化経済 persona P-008a (N=32 power 0.8) の同時解消位置付けを予告"
+      ],
+      "paragraph_outline": [
+        "国際 17 機関の事前登録会議シーン (匿名化、Karolinska TTO ディレクター X 氏 × AMD ファシリテーター Y 氏 + EPFL TTO 担当者の三者対話縮約、データアクセス前 lock の意味を会議参加者に説明する場面)",
+        "AMD-8 + 機関後付け 7 + 国際 17 cohort 構成の事前登録時点での合意状況描写 (合意済み 5 / 交渉中 12 の wave 別、type 名匿名化方針)",
+        "Book VI 埋め込み案を却下した構造的理由 1 — Phase 2 (2026Q4) データ実装スケジュールに間に合わない (D-052 逆算)",
+        "Book VI 埋め込み案を却下した構造的理由 2 — Ch 5 σ_SU MS-SSM / Ch 5.5 τ_B / Ch 10.5 統合ハザードが試験プロトコルなき commission に陥る危険、反証可能 commission (Ch 10.4 Theorem 3) と前向き予測登録簿 (Ch 26b) の論理的整合性が読者の検証に即座に開かれない不整合",
+        "事前登録 = データアクセス前に W_n*, β_1/β_2/β_3, π_i, Π_obs, IV 3 種, X_i, 効果量バンド [0.4, 1.2], 3 段階 stop rule, BH FDR α=0.05, 推定コード Git hash を OSF に lock する手続きという Tier B 規律 (D-031) の会議参加者への説明場面",
+        "D-041 前半 (C7) + D-031 Tier B + D-052 Phase 2 の三点束ねによる §10.9 OPENER 前倒し正準化宣言、Ch 26b 前向き予測登録簿との正準オーナー対称合意の BOOK_DECISIONS 追記必要性を脚注で明示",
+        "Ch 10 OPENER 11 節構成 (10.0-10.9) の最終節としての位置付け、Ch 10.4 Theorem 3 を経験プロトコルへ翻訳する完結ステップ、Ch 11.5 登録簿運用 + Ch 26b 前向き予測登録簿 + Ch 11 BVAR gate observation model への引き渡し予告",
+        "本節 roadmap: §10.9.1 W_n* + Cox + IV formal → §10.9.2 検出力 + β̂_3 + 中間 stop → §10.9.3 OSF 仕様 + cohort + 章末 (DSGE persona #1 + P-008a + Ch 5 backflow 反証の三点同時宣言)"
+      ],
+      "new_writing_required": "節頭ストーリー全文 (Karolinska × AMD × EPFL 三者対話縮約 + type 名匿名化方針)、Book VI 却下の二重根拠 (スケジュール + 論理的整合性) 全文、D-041/D-031/D-052 三点束ねの正準化宣言、Ch 26b 正準オーナー対称合意の脚注、roadmap",
+      "existing_reuse": "Ch 10.4 §10.4.2 Theorem 3 反証可能 commission、Ch 10.5 §10.5.3 統合ハザード h_pre/h_post 分離、Ch 5.5 τ_B レジーム転換、Ch 5 σ_SU MS-SSM、D-041 前半 / D-031 / D-052 / D-050 の判決文言、L1 §11 章型 (節頭ストーリー → formal → power → 仕様)、L1 §10 専門用語日本語化",
+      "upstream_dependencies": [
+        "Ch 10.4 §10.4.2 Theorem 3 反証可能 commission",
+        "Ch 10.5 §10.5.3 統合ハザード h_pre/h_post",
+        "Ch 5.5 τ_B レジーム転換時点",
+        "Ch 5 σ_SU MS-SSM",
+        "Ch 26b 前向き予測登録簿の存在 (Book IV 予告)"
+      ],
+      "downstream_dependencies": [
+        "§10.9.1 試験プロトコル formal への動機接続",
+        "§10.9.3 章末三点同時宣言 (DSGE #1 + P-008a + Ch 5 backflow)",
+        "Ch 11.5 登録簿運用 wave 段階更新",
+        "Ch 26b 前向き予測登録簿"
+      ],
+      "references": [
+        "BOOK_DECISIONS.md D-041 前半 / D-031 / D-052 / D-050",
+        "Ch 10.4 §10.4.2 Theorem 3",
+        "Ch 10.5 §10.5.3 統合ハザード",
+        "L1 §11 章型 / §10 専門用語日本語化",
+        "Nosek et al. 2018 PNAS pre-registration",
+        "Munafò et al. 2017 Nature Human Behaviour manifesto"
+      ],
+      "source_drafts": [
+        "A §10.9.0",
+        "C §10.9.0",
+        "B §10.9.0 (要素吸収)"
+      ]
+    },
+    {
+      "section_id": "10.9.1",
+      "title": "試験プロトコル formal — Andrews-Quandt sup-Wald W_n* (観測された π_i 制限版) + Cox 比例ハザード time-varying (Andersen-Gill + Kalbfleisch-Prentice frailty) + 機関クロック IV (control function + SAFT 両論併記)",
+      "pages": 3,
+      "math_level": "heavy",
+      "anchor_claims": [
+        "W_n* = sup_{π ∈ Π_obs} W_n(π)、Π_obs = {π_i : cohort i の制度的レジーム転換点候補有限集合} = {会計年度境界 / 政策アナウンス / 制度改正 / τ_B_i posterior 分位点 5%/50%/95%} (operational definition を本文 lock)、cardinality ~50 想定で Bonferroni 補正後 χ² で非標準分布表不要",
+        "Cox 比例ハザード time-varying: log h_i(t) = log h_0(t) + β_1·X_i + β_2·σ_SU(t) + β_3·σ_SU(t)·𝟙{t≥τ_B}、Andersen-Gill 1982 計数過程 N_i(t) 表現 + partial likelihood (Breslow/Efron tie 処理) + Kalbfleisch-Prentice 2002 frailty (Gamma vs log-normal sensitivity check) で機関固有 heterogeneity を吸収",
+        "X_i は Ch 7 F-CES (α_i, β_i, γ_i, δ_i, ε_i) を pre-specify、Ch 10.3 ρ Kmenta posterior を offset 固定、共変量探索を禁止 (D-031 Tier B p-hacking 排除の構造実装)",
+        "primary endpoint = β_3 (σ_SU × τ_B 後指示関数の交互作用)、β_3 ≠ 0 が σ_SU レジーム転換効果の H_1、β_3 > 0 で τ_B 後 hazard 加速、β_3 < 0 で減速 (Ch 5.5 τ_B の構造的意義と整合)",
+        "機関クロック IV 三本柱: Z_1 = 会計年度境界 3/31 (discrete time shock)、Z_2 = GAP-AMED 採択時刻 (連続 quasi-random timing)、Z_3 = PCT-30m 出願期限 (statutory deadline)、合成 IV の first-stage F>10 (Stock-Yogo) + exclusion restriction Hansen J 検定 + cohort 横断外生性を formal に検証",
+        "Cox 非線形性に対する IV 接合: Wooldridge 2015 control function approach + Robins-Tsiatis 1991 structural accelerated failure time (SAFT) Cox-IV 拡張の両論併記、Korteweg-Sorensen 2010 IV-Cox 系列を参照、実装ライブラリ (R survival / Stata stcox / Python lifelines) 選定は Ch 11 BVAR 統合時に確定 (open_issues #2)",
+        "比例性検証: Schoenfeld residual test を pre-specified に組み込み、α=0.05 棄却時は time-varying β_3(t) 切替 protocol を起動 (起動しない場合は §10.9.1 棄却、F-10.9.6)",
+        "Bonferroni / Benjamini-Hochberg FDR 補正: W_n* と β_3 の同時検定で BH FDR α=0.05 を primary correction として lock (Π_obs cardinality ~50 で Bonferroni より検出力高い、D-031 Tier B pre-registration lock)"
+      ],
+      "paragraph_outline": [
+        "Andrews-Quandt sup-Wald の原型 (Quandt 1958, 1960 / Andrews 1993 Econometrica) と本書の観測された π_i 制限版の差異、p-hacking 排除の構造的根拠 (D-031 Tier B)",
+        "W_n* formal 定義: W_n* = sup_{π ∈ Π_obs} W_n(π)、Π_obs operational definition (cohort i ごとの π_i 候補列挙ルール = 会計年度境界 / 政策アナウンス / 制度改正 / Ch 5.5 τ_B_i posterior 分位点 5%/50%/95% の和集合)、cohort 横断 cardinality ~50 想定、Hansen 1997 漸近 critical value",
+        "Π_obs の有限性により非標準分布表 (Andrews 1993) 不要、Bonferroni 補正後 χ² で正確 p-value、Π_obs 拡張禁止規律の OSF lock",
+        "Cox 比例ハザード time-varying formal: log h_i(t) = log h_0(t) + β_1·X_i + β_2·σ_SU(t) + β_3·σ_SU(t)·𝟙{t≥τ_B}、partial likelihood L(β) = ∏_i [exp(β·Z_i(t_i)) / Σ_{j∈R(t_i)} exp(β·Z_j(t_i))] (Cox 1972)、tie 処理 (Breslow / Efron)",
+        "Andersen-Gill 1982 計数過程 N_i(t) ベースで martingale 残差を定義、time-varying covariate σ_SU(t) は Ch 5 MS-SSM フィルタ posterior point estimate を入力、τ_B は Ch 5.5 posterior 中央値",
+        "Kalbfleisch-Prentice 2002 frailty 導入で機関固有 heterogeneity を吸収、Gamma vs log-normal の sensitivity check は付録 A (open_issues #5)、cohort N=32 で frailty variance σ_u² の identification 可否を確認",
+        "X_i pre-specified 確定: Ch 7 F-CES 共変量 (α_i 人的資本 / β_i 制度密度 / γ_i 規制レジーム / δ_i 資金供給 / ε_i 技術成熟度) を fix、Ch 10.3 ρ Kmenta posterior を offset として hazard モデルに投入、共変量探索禁止規律の OSF lock",
+        "β_3 解釈: τ_B 後レジームで σ_SU が log hazard に与える追加効果、β_3 > 0 で SU 不確実性が hazard 加速、β_3 < 0 で減速、Lancaster 1990 transition data 理論と整合、上限 1.2 超過時は非線形交互作用 / threshold effect 切替 protocol (Hansen 2000 threshold model)",
+        "機関クロック IV 三本柱仕様: Z_1 = 3/31 会計年度境界 (binary, discrete time shock)、Z_2 = GAP-AMED 採択時刻 (continuous, 日次, quasi-random review timing)、Z_3 = PCT-30m 出願期限 (binary, 30 ヶ月期限 statutory deadline)、AMED / 特許庁制度設計外生で σ_SU の生態系内 feedback (内生性) を識別から除去",
+        "IV identification 条件 formal 4 項目: (i) relevance cov(Z_k, σ_SU) ≠ 0 で Stock-Yogo F>10、(ii) exclusion restriction E[Z_k · ε_i | X_i] = 0 を Hansen J over-identification test、(iii) cohort 横断外生性 (制度設計外生)、(iv) Cox 非線形性下での Wooldridge 2015 control function approach + Robins-Tsiatis 1991 SAFT の両論併記",
+        "IV-Cox 実装経路の選択: control function は first-stage residual を Cox に投入し漸近正規性確保、SAFT は accelerated failure time 表現で IV 一致推定、Korteweg-Sorensen 2010 / Korteweg-Laws 系を VC 文脈で参照、両経路の比較は付録 A、実装ライブラリ選定は Ch 11 BVAR 統合時 (open_issues #2)",
+        "Schoenfeld residual test pre-specified: 比例性仮定検証を §10.9.1 段階で OSF lock、α=0.05 棄却時は time-varying β_3(t) 切替 protocol 起動、起動しない場合は §10.9.1 棄却 (F-10.9.6)",
+        "多重比較補正: Π_obs cardinality ~50 + β_3 同時検定で Benjamini-Hochberg FDR α=0.05 を primary correction として lock、Bonferroni は sensitivity check のみ、FWER ≤ 0.05",
+        "証明スケッチ (D-047 本文準拠): W_n* の Bonferroni-補正 p-value 計算、partial likelihood 漸近一致性 (Andersen-Gill 1982)、IV-Cox 下での β_3 一致性 (Robins-Tsiatis 1991 SAFT + Wooldridge 2015 control function)、完全証明は付録 A"
+      ],
+      "new_writing_required": "W_n* 観測された π_i 制限版 formal 定義 + Π_obs operational definition (cohort 横断 cardinality ~50 + 候補列挙ルール) + Bonferroni χ² 漸近補正、Cox time-varying 交互作用 partial likelihood (Andersen-Gill 計数過程 + Kalbfleisch-Prentice frailty) 完全形、X_i pre-specify + ρ Kmenta offset + 共変量探索禁止規律、機関クロック IV 三本柱の relevance (Stock-Yogo F>10) + exclusion (Hansen J) + cohort 横断外生性検証、IV-Cox control function + SAFT 両論併記 + 実装ライブラリ open issue、Schoenfeld residual test pre-specified + time-varying β_3(t) 切替 protocol、BH FDR α=0.05 lock + Bonferroni sensitivity 規律、証明スケッチ本文",
+      "existing_reuse": "Ch 5 σ_SU MS-SSM フィルタ posterior、Ch 5.5 τ_B レジーム転換 posterior 分位点、Ch 7 F-CES X_i 共変量定義 (α_i..ε_i)、Ch 10.3 ρ Kmenta posterior (offset)、Ch 10.5 統合ハザード h_pre/h_post 分離推定の partial likelihood 表現、Ch 10.4 Theorem 3 反証可能性論理、Ch 10.6 / Ch 10.7 Ψ Granger 構造的接続、D-047 証明スケッチ本文 + 完全証明付録 A 規律、D-051 記号正本",
+      "upstream_dependencies": [
+        "Ch 5 σ_SU(t) MS-SSM フィルタ posterior",
+        "Ch 5.5 τ_B レジーム転換 posterior 分位点 5%/50%/95% (Π_obs 候補供給)",
+        "Ch 7 F-CES X_i 共変量 (α_i, β_i, γ_i, δ_i, ε_i) 定義",
+        "Ch 10.3 ρ Kmenta posterior (offset 固定)",
+        "Ch 10.4 §10.4.2 Theorem 3 反証可能 commission の論理基盤",
+        "Ch 10.5 統合ハザード h_pre/h_post 分離推定",
+        "Ch 10.6 Ψ 構造的接続 / Ch 10.7 Granger 因果"
+      ],
+      "downstream_dependencies": [
+        "§10.9.2 検出力計算入力 (Schoenfeld + Hsieh-Lavori)",
+        "§10.9.3 OSF 事前登録仕様での数式 lock 対象",
+        "Ch 11 BVAR 推定での gate observation model",
+        "Ch 11.5 登録簿運用での推定結果照合",
+        "Ch 26b 前向き予測登録簿での β_3 推定値供給",
+        "付録 A 完全証明 (control function vs SAFT 比較 / frailty sensitivity)"
+      ],
+      "references": [
+        "Andrews 1993 Econometrica 61:821-856 sup-Wald",
+        "Quandt 1958, 1960 JASA structural break",
+        "Hansen 1997 JBES critical values",
+        "Hansen 2000 Econometrica threshold model",
+        "Bai 1997 RES structural change",
+        "Cox 1972 JRSS-B proportional hazard",
+        "Andersen-Gill 1982 Ann Stat counting process",
+        "Kalbfleisch-Prentice 2002 statistical analysis of failure time data",
+        "Lancaster 1990 Econometric Analysis of Transition Data",
+        "Wooldridge 2015 J Econometrics control function",
+        "Robins-Tsiatis 1991 Comm Stat SAFT Cox-IV",
+        "Korteweg-Sorensen 2010 RFS IV-Cox",
+        "Stock-Yogo 2005 weak IV",
+        "Hansen 1982 Econometrica J test",
+        "Benjamini-Hochberg 1995 JRSS-B FDR",
+        "BOOK_DECISIONS.md D-031 / D-047 / D-051",
+        "付録 A 完全証明"
+      ],
+      "source_drafts": [
+        "C §10.9.1 (X_i pre-specify + ρ Kmenta offset + 共変量探索禁止 + Schoenfeld residual test)",
+        "A §10.9.1 (Hsieh-Lavori / SAFT / 有限 Π_obs Bonferroni χ² / 実装ライブラリ open issue)",
+        "B §10.9.1 (Andersen-Gill 計数過程 + Kalbfleisch-Prentice frailty + Lancaster 1990 + Stock-Yogo F>10)"
+      ]
+    },
+    {
+      "section_id": "10.9.2",
+      "title": "検出力 0.8 N=32 + 事前コミット効果量 β̂_3 ∈ [0.4, 1.2] (三層メタ分析翻案) + 3 段階中間 stop rule (N=16 futility / N=32 primary / N=64 拡張) + Schoenfeld residual test 起動条件",
+      "pages": 2,
+      "math_level": "heavy",
+      "anchor_claims": [
+        "N=32 で β̂_3=0.4 (下界) を α=0.05 両側で検出する検出力 ≥ 0.8 を Schoenfeld 1983 + Hsieh-Lavori 2000 time-varying covariate 公式 + Monte Carlo 1000 反復で検証 (P-008a 残課題への解答)",
+        "事前コミット効果量 β̂_3 ∈ [0.4, 1.2] per IQR-σ_SU log-hazard ≒ median hazard 3-fold change (上限 log(3)≈1.1、下限 log(1.5)≈0.4)、Bernstein 2017 NBER WP RCT + Korteweg-Sorensen 2010 RFS マッチング + Laws 2024 VC 系メタ分析を IQR-σ_SU 正規化に換算 (換算根拠は付録 B、open_issues #3)",
+        "3 段階 stop rule: N=16 (中間 1, futility 検査のみ) → N=32 (primary efficacy) → N=64 (β̂_3 < 0.4 検出時のみ段階拡張)、O'Brien-Fleming 1979 boundary + Lan-DeMets 1983 α spending function (γ=4 保守側)",
+        "中間 stop 判定: wave 1 終了時 β̂_3 95% CI が [0.4, 1.2] を完全に超過 (efficacy stop) / 0 を含む (futility stop) / 一部重なる (wave 2 進行) の三分類、Tier B 規律下で wave 2 設計修正禁止 (D-031 事後 p-hacking 排除)",
+        "BH FDR α=0.05 を W_n* + β_3 同時検定で primary correction として lock (Bonferroni は sensitivity check)",
+        "P-008a 解消宣言: 進化経済 persona の N=32 power 0.8 達成可否懸念は本節で formal に解消、N=64 拡張条件 (β̂_3 < 0.4 検出時 only) を明示"
+      ],
+      "paragraph_outline": [
+        "検出力計算の前提: Schoenfeld 1983 Cox 検出力公式 N · p_event · σ_X² · β_3² ≥ (z_{1-α/2} + z_{1-β})² を本書設定 (time-varying β_3 交互作用) に拡張する Hsieh-Lavori 2000 ControlClinTrials time-varying covariate 公式、AMD-8 縦断データから event rate ≈ 0.7 / censoring rate / σ_{σ_SU}² (IQR 基準) を事前推定",
+        "N=32 power calc 表 (analytical): β̂_3=0.4 (下界) / 0.8 (中央) / 1.2 (上界) × IQR-σ_SU 標準化、α=0.05 両側で power ≈ 0.81 / 0.94 / 0.99 と算出、N=64 拡張時 power ≈ 0.96 / 0.99+ / 0.99+",
+        "Monte Carlo 1000 反復 simulation 検証: σ_SU MS-SSM posterior + τ_B Ch 5.5 posterior + X_i F-CES Ch 7 共変量を bootstrap、cohort N=16 / 32 / 64 / 96 で power curve、Schoenfeld 漸近近似の小標本誤差を検証 (N=32 で漸近近似が許容範囲内か confirm)",
+        "事前コミット効果量 β̂_3 ∈ [0.4, 1.2] の三層メタ分析翻案根拠: (i) Bernstein 2017 NBER WP NIH/NSF RCT 系 hazard effect 中央値、(ii) Korteweg-Sorensen 2010 RFS VC マッチング、(iii) Laws 2024 VC studies 効果量分布、IQR-σ_SU 正規化への換算係数は付録 B で展開 (open_issues #3)、Karolinska Innovation Office 内部試算 (上限 1.2 出典) は確認待ち (open_issues #3)",
+        "log-hazard 換算: 上限 log(3)≈1.1 で median hazard 3-fold change、下限 log(1.5)≈0.4 で 1.5-fold change、IQR-σ_SU 1 単位上昇で τ_B 後 event rate がこの範囲で変化",
+        "3 段階 stop rule formal 設計: N=16 (wave 1 中間 1, 2027Q1 想定) で futility-only 検査 (β̂_3 95% CI 0 跨ぎ閾値)、N=32 (wave 1 primary, 2027Q2) で primary efficacy 検定、N=64 (wave 2, 2027Q3-2028Q1) で β̂_3 < 0.4 検出時のみ段階拡張",
+        "O'Brien-Fleming 1979 boundary + Lan-DeMets 1983 α spending function (γ=4 保守側) で family-wise error rate 保護、Pocock 1977 boundary は sensitivity check のみ、Bauer-Köhne / inverse-normal combination による adaptive design は wave 2 設計時の追加選択肢 (open_issues #5)",
+        "中間 stop 判定の三分類: (a) efficacy stop = wave 1 終了時 β̂_3 95% CI が [0.4, 1.2] を完全に超過 → commission 反証として記録、wave 2 中止、(b) futility stop = β̂_3 95% CI が 0 を含む → commission 反証として記録 (F-10.9.5)、(c) wave 2 進行 = CI が [0.4, 1.2] 内 or 一部超過、Tier B 規律下で wave 2 設計修正禁止 (D-031)",
+        "Schoenfeld residual test 起動条件: wave 1 primary 段階で α=0.05 棄却時は比例性仮定違反として time-varying β_3(t) 切替 protocol を起動、起動しない場合は §10.9.1 棄却 (F-10.9.6)、Hansen 2000 threshold model への切替も併用可",
+        "BH FDR α=0.05 lock: W_n* (Π_obs ~50 候補) と β_3 (primary endpoint) の同時検定で BH FDR が Bonferroni より検出力高い、Tier B pre-registration lock、Bonferroni は sensitivity check に降格",
+        "P-008a 解消宣言: N=32 で β̂_3=0.4 下界 power 0.8 達成、N=64 拡張は β̂_3 < 0.4 検出時 only、進化経済 persona 軽微修正残は本節で formal に解消"
+      ],
+      "new_writing_required": "Schoenfeld 1983 + Hsieh-Lavori 2000 time-varying 公式の本書 Cox 交互作用への拡張、Monte Carlo 1000 反復 simulation 設計、β̂_3 ∈ [0.4, 1.2] の三層メタ分析翻案根拠 + log(3)/log(1.5) 換算 + 付録 B 換算係数導出、3 段階 stop rule (N=16/32/64) + O'Brien-Fleming + Lan-DeMets γ=4 + Bauer-Köhne adaptive design 仕様、中間 stop 三分類 (efficacy/futility/wave 2 進行)、Schoenfeld residual test 起動条件 + time-varying β_3(t) 切替 protocol、BH FDR α=0.05 lock + Bonferroni sensitivity 規律、P-008a 解消宣言",
+      "existing_reuse": "Ch 5 σ_SU MS-SSM posterior の simulation 入力、Ch 5.5 τ_B posterior、Ch 7 F-CES X_i 共変量 simulation、Ch 10.3 ρ Kmenta posterior offset、Ch 10.5 統合ハザード prior、進化経済 persona P-008a 軽微修正残、D-050 β_3 ∈ [0.4, 1.2] 反証文言、D-031 Tier B p-hacking 排除規律、AMD-8 縦断データ event rate / censoring rate",
+      "upstream_dependencies": [
+        "§10.9.1 試験プロトコル formal (W_n* + Cox + IV) 全体",
+        "Ch 5 σ_SU MS-SSM posterior (IQR 計算 + simulation 入力)",
+        "Ch 5.5 τ_B posterior (event time stamping)",
+        "Ch 7 F-CES X_i 共変量 simulation",
+        "Ch 10.3 ρ Kmenta posterior",
+        "Ch 10.5 統合ハザード prior",
+        "進化経済 persona P-008a"
+      ],
+      "downstream_dependencies": [
+        "§10.9.3 OSF 事前登録仕様での power / 中間 stop / β̂_3 バンドの lock",
+        "Ch 11.5 wave 段階更新の運用 (wave 1 → 2 移行判定)",
+        "Ch 26b 前向き予測登録簿での interim analysis 記録 + DOI 付与",
+        "付録 B β̂_3 換算係数導出"
+      ],
+      "references": [
+        "Schoenfeld 1983 Biometrics Cox power",
+        "Hsieh-Lavori 2000 ControlClinTrials time-varying covariate power",
+        "Bernstein 2017 NBER WP NIH/NSF RCT メタ分析",
+        "Korteweg-Sorensen 2010 RFS VC マッチング",
+        "Laws 2024 VC studies",
+        "O'Brien-Fleming 1979 Biometrics group sequential",
+        "Lan-DeMets 1983 Biometrika α spending function",
+        "Pocock 1977 Biometrika sequential",
+        "Bauer-Köhne 1994 Biometrics adaptive design",
+        "Hansen 2000 Econometrica threshold model",
+        "Camerer et al. 2016 Science RCT replication",
+        "BOOK_DECISIONS.md D-050 / D-031 / D-052",
+        "進化経済 persona P-008a"
+      ],
+      "source_drafts": [
+        "A §10.9.2 (Hsieh-Lavori 2000 / BH FDR lock / Bauer-Köhne adaptive)",
+        "C §10.9.2 (Monte Carlo 1000 反復 / Lan-DeMets γ=4 / 3 段階 N=16/32/64 / Karolinska 出典)",
+        "B §10.9.2 (Schoenfeld 1983 数値計算 + β_3 上限超過時 threshold 切替)"
+      ]
+    },
+    {
+      "section_id": "10.9.3",
+      "title": "OSF 事前登録 10 項目 (Tier B、登録 hash 本書改訂版固定参照、Tier C 自動降格規律) + N≈32 cohort 詳細 (AMD-8 / 機関後付け 7 (D-034 type 匿名化) / 国際 17 wave 別合意状況) + P-002 + P-008d 統合 eligibility + Phase 2 スケジュール + Ch 11.5/Ch 26b/Ch 11 引き渡し + 章末三点同時宣言 (Ch 5 backflow 反証 + DSGE persona #1 解消 + P-008a 解消)",
+      "pages": 2,
+      "math_level": "mid",
+      "anchor_claims": [
+        "OSF 事前登録 10 項目 (W_n* + Π_obs / Cox 数式 / X_i pre-specify / IV 3 種 / 効果量バンド [0.4, 1.2] / 3 段階 stop rule / BH FDR α=0.05 / cohort 32 件機関リスト / 推定コード Git commit hash / 分析チーム二重盲検手続き) を Phase 2 データアクセス前 (2026Q4) に Tier B 必須要件として完了 (D-031 / D-052)",
+        "登録 hash を本書改訂版に固定参照する運用規約、データアクセス後登録 / プロトコル変更時は Tier C 自動降格 (F-10.9.5)",
+        "cohort N≈32 = AMD-8 (現有研究機関スピンアウト 8 件、type 名匿名化) + 機関後付け 7 (国内 GAP-AMED 採択機関、D-034 type 匿名化階層 = 法人格 / 採択ラウンド / 採択時期の三層匿名化) + 国際 17 (MIT Deshpande Center / EPFL TTO / ETH Pioneer Fellowship / Karolinska Innovation Office 含む、合意済み 5 / 交渉中 12)",
+        "P-002 + P-008d 統合 eligibility 4 条件: (i) 研究機関スピンアウト制度を持つ、(ii) σ_SU 測定可能、(iii) τ_B 制度的レジーム転換点 identification 可能、(iv) 機関クロック IV (会計年度 / 採択時刻 / 出願期限相当) observable + 1995 以降設立 + 起業母数 ≥ 20 + 公開データ ≥ 5 年",
+        "Phase 2 タイムライン (D-052): 2026Q4 OSF 登録 + 機関後付け 7 data sharing agreement → 2027Q1 国際 17 data collection + wave 1 中間 1 (N=16 futility) → 2027Q2 wave 1 primary (N=32) → 2027Q3-2028Q1 wave 2 conditional 拡張 (N=64)、Ch 11.5 wave 段階更新と接続",
+        "Ch 11.5 引き渡し: 登録簿 wave 段階更新規律 + 推定結果照合プロトコル + commission 反証時の wave 2 設計修正禁止 / Ch 26b 引き渡し: 前向き予測登録簿の gate observation model 統合 + interim analysis 登録簿記録 + DOI 付与、Ch 26b 本体との正準オーナー対称合意は BOOK_DECISIONS 追記 / Ch 11 BVAR: gate observation model への σ_SU(t) + β_3 推定値供給",
+        "章末三点同時宣言: (a) β̂_3 が [0.4, 1.2] を外れた場合の Ch 5 σ_SU レジーム転換の経済学的意義棄却 (D-050 並列追加反証、Ch 5 上流への backflow)、(b) DSGE persona 4 条件 #1 (前向き予測登録簿への置換) の中核実装完了宣言、(c) 進化経済 persona P-008a (N=32 power 0.8) 解消宣言、Ch 10 OPENER 群 (10.0-10.9) 11 節構成の commission 完結宣言"
+      ],
+      "paragraph_outline": [
+        "OSF 事前登録 10 項目チェックリスト全文: (i) 仮説 H_0: β_3 ∉ [0.4, 1.2] vs H_1: β_3 ∈ [0.4, 1.2]、(ii) W_n* + Π_obs operational definition (cohort 横断 cardinality + 候補列挙ルール) 全列挙、(iii) Cox time-varying モデル数式 (β_1/β_2/β_3 + X_i F-CES pre-specify + ρ Kmenta offset)、(iv) 機関クロック IV Z_1/Z_2/Z_3 定義 + Stock-Yogo F>10 + Hansen J 閾値、(v) Schoenfeld + Hsieh-Lavori 検出力計算結果 + Monte Carlo 1000 反復 + N=64 拡張条件、(vi) O'Brien-Fleming + Lan-DeMets γ=4 boundary 数値 + 中間 stop 三分類、(vii) BH FDR α=0.05 (Bonferroni sensitivity)、(viii) cohort 32 件機関リスト (匿名化階層 + 合意状況) + データ取得計画、(ix) 推定コード Git commit hash、(x) 分析チーム + 二重盲検手続き",
+        "登録 hash 本書改訂版固定参照運用規約: 2026Q4 OSF 登録時の hash を本書 v2 (Phase 2 完了後改訂) で読者が検証可能な形で固定参照、データアクセス後登録 / プロトコル変更時は Tier C 自動降格 (F-10.9.5)、降格時は §10.9 結論全体を Tier C として再評価",
+        "N≈32 cohort 詳細表: AMD-8 (現有研究機関スピンアウト 8 件、type 名匿名化、設立年 / 分野のみ開示)、機関後付け 7 (国内 GAP-AMED 採択機関、D-034 三層匿名化 = 法人格 / 採択ラウンド / 採択時期、AMD 経由データアクセス可能)、国際 17 (MIT Deshpande / EPFL TTO / ETH Pioneer / Karolinska Innovation 等、合意済み 5 機関名公開 + 交渉中 12 機関 type 名のみ)",
+        "P-002 + P-008d 統合 eligibility 4 条件 + 補助条件 (1995 以降設立 + 起業母数 ≥ 20 + 公開データ ≥ 5 年) の operational definition、選択バイアス回避 (eligible 機関全列挙 + stratified sampling)、未確定機関の代替リスト (交渉中 12 が wave 2 までに合意取得不可の場合、open_issues #1)",
+        "Phase 2 タイムライン詳細 (D-052): 2026Q4 OSF 登録 + 機関後付け 7 data sharing agreement 締結、2027Q1 国際 17 data collection 開始 + wave 1 中間 1 (N=16 futility 検査)、2027Q2 wave 1 primary (N=32 efficacy)、2027Q3-2028Q1 wave 2 conditional 拡張 (β̂_3 < 0.4 検出時 only、N=64)、各時点で Ch 11.5 登録簿 wave 段階更新と同期",
+        "data sharing agreement 締結率の運用反証条件: 2027Q1 時点で締結率 50% (8 機関) 未満となった場合は N<24 退化、§10.9.2 検出力 0.8 主張棄却 + wave 2 設計修正を Ch 11.5 wave 段階更新と接続 (F-10.9.7)、GDPR / FERPA / IRB 整備状況の機関側 readiness 未確定は open_issues #1 で明示",
+        "Ch 11.5 登録簿運用引き渡し: wave 段階更新規律 (wave 1 → wave 2 移行判定) + 推定結果照合プロトコル (登録簿 lock 解除条件) + commission 反証時の wave 2 設計修正禁止 (D-031 事後 p-hacking 排除の遵守)",
+        "Ch 26b 前向き予測登録簿引き渡し: BVAR 推定 (Ch 11) での gate observation model 統合 + interim analysis 登録簿記録 + 反証 / 確証イベントの DOI 付与、Ch 26b 本体での「Ch 10.9 を正準オーナーとして参照」の対称合意は BOOK_DECISIONS 追記 (open_issues #4)",
+        "Ch 11 BVAR gate observation model 引き渡し: σ_SU(t) MS-SSM フィルタ posterior + β_3 推定値 + Π_obs τ_B 候補を BVAR の観測方程式に投入、推定モジュール接合点を明示",
+        "章末宣言 (a) — Ch 5 σ_SU 上流への backflow 反証: β̂_3 が [0.4, 1.2] を外れた場合 (特に β̂_3 < 0.4 が N=64 で確定した場合)、Ch 5 σ_SU レジーム転換の経済学的意義は本書枠組み内で棄却 (D-050 並列追加反証として位置付け、F-5.1..F-5.6 と同列)",
+        "章末宣言 (b) — DSGE persona 4 条件 #1 解消: 前向き予測登録簿への置換の中核実装は §10.9 + Ch 26b の supply chain で完了、Ch 26b 本体は供給先として §10.9 を canonical owner として参照",
+        "章末宣言 (c) — 進化経済 persona P-008a 解消: N=32 で β̂_3=0.4 下界 power 0.8 達成、N=64 拡張は β̂_3 < 0.4 検出時 only、進化経済 persona 軽微修正残は本節で formal に解消",
+        "Ch 10 OPENER 群 (10.0-10.9) 11 節構成 commission 完結宣言: Ch 10.4 Theorem 3 (反証可能 commission の論理基盤) から §10.9 (経験プロトコル翻訳) までの完結、Ch 11 BVAR 推定本体 / Book III 経験章への引き渡し、Tier B 規律遵守の最終 checklist"
+      ],
+      "new_writing_required": "OSF 事前登録 10 項目全文 + Tier B 必須要件 + Tier C 自動降格規律、登録 hash 本書改訂版固定参照運用規約、cohort 32 件詳細表 (AMD-8 / 機関後付け 7 D-034 三層匿名化 / 国際 17 wave 別合意状況)、P-002 + P-008d 統合 eligibility 4 + 補助条件、Phase 2 タイムライン詳細表、data sharing 締結率退化条件 (F-10.9.7)、Ch 11.5 / Ch 26b / Ch 11 引き渡しプロトコル、Ch 26b 正準オーナー対称合意 BOOK_DECISIONS 追記、章末三点同時宣言 (Ch 5 backflow 反証 + DSGE #1 解消 + P-008a 解消) + Ch 10 OPENER 完結宣言",
+      "existing_reuse": "P-002 国際比較対象機関基準、P-008d 国内 cohort 選択基準、AMD-8 現有 cohort 既存記述、D-031 Tier B 規律、D-034 機関後付け 7 type 匿名化方式、D-041 前半 / D-050 / D-052、DSGE persona 4 条件 #1、進化経済 persona P-008a、Ch 11.5 登録簿運用既存設計、Ch 26b 前向き予測登録簿既存設計、Ch 5 F-5.1..F-5.6 反証文言、L1 §10 専門用語日本語化",
+      "upstream_dependencies": [
+        "§10.9.1 試験プロトコル formal の lock 対象",
+        "§10.9.2 検出力 + β̂_3 + 中間 stop rule の lock 対象",
+        "P-002 国際比較対象機関基準",
+        "P-008d 国内 cohort 選択",
+        "D-034 機関後付け 7 type 匿名化",
+        "DSGE persona 4 条件 #1",
+        "進化経済 persona P-008a",
+        "Ch 5 F-5.1..F-5.6 反証文言"
+      ],
+      "downstream_dependencies": [
+        "Ch 11 BVAR 推定 gate observation model",
+        "Ch 11.5 登録簿運用 wave 段階更新",
+        "Ch 26b 前向き予測登録簿 (正準オーナー対称合意)",
+        "Book III 経験章での推定結果照合",
+        "Book VI 実装章 (試験プロトコル本体はここから前倒し済み)",
+        "BOOK_DECISIONS 追記 (Ch 26b 正準オーナー対称合意)"
+      ],
+      "references": [
+        "OSF Open Science Framework registration protocol",
+        "BOOK_DECISIONS.md D-031 / D-041 前半 / D-034 / D-050 / D-052",
+        "P-002 国際比較対象機関 (草案)",
+        "P-008a 検出力 N=32 0.8 / P-008d 国内 cohort 選択",
+        "Ch 11.5 登録簿運用設計書",
+        "Ch 26b 前向き予測登録簿設計書",
+        "Ch 5 §5.x F-5.1..F-5.6 反証",
+        "DSGE persona 4 条件 #1 / 進化経済 persona",
+        "Nosek et al. 2018 PNAS pre-registration",
+        "L1 §10 用語日本語化方針 / §11 章型"
+      ],
+      "source_drafts": [
+        "C §10.9.3 (章末三点同時宣言 + Ch 5 backflow 反証 + OSF hash 固定参照 + data sharing 50% 反証)",
+        "A §10.9.3 (国際 17 wave 別合意状況 + 10 項目チェックリスト + DOI 付与)",
+        "B §10.9.3 (P-002 eligibility 操作化 + Tier C 自動降格)"
+      ]
+    }
+  ],
+  "open_issues_for_masa": [
+    {
+      "issue": "国際 17 機関 (MIT Deshpande / EPFL TTO / ETH Pioneer / Karolinska Innovation 等) の data sharing agreement / IRB / GDPR / FERPA 整備状況: §10.9.3 執筆時点で合意済み 5 / 交渉中 12 と想定するが、交渉中 12 機関のうち wave 2 (2027Q3-2028Q1) までに合意取得不可の場合の代替機関リストと退化条件 (F-10.9.7 締結率 50% 未満で N<24) の事前準備",
+      "why_masa_decides": "国際機関交渉の最終責任は masa が持ち、AMD ブランドでの個別 TTO へのアプローチ計画と Karolinska / EPFL / MIT / ETH の優先順位、交渉中 12 機関の具体名と進捗、代替候補リストの確定は masa の機関ネットワーク判断が必要",
+      "options": [
+        "A: 合意済み 5 + 交渉中 12 を §10.9.3 本文で具体機関名 (合意済み 5) + type 名 (交渉中 12) で開示、退化条件 F-10.9.7 を明示",
+        "B: 国際 17 全体を type 名匿名化 (例「北米トップ TTO 5 機関」「欧州研究機関 8 機関」) で開示、機関名は付録 C に分離 + 機関合意 confidential",
+        "C: 国際 17 を「best-effort スケジュール」として §10.9.3 で運用化、合意状況は OSF 事前登録時点 (2026Q4) で更新 + 本書改訂版で機関名公開"
+      ],
+      "recommendation": "A: 合意済み 5 を機関名公開 + 交渉中 12 を type 名 + 退化条件 F-10.9.7 明示。Cambridge UP narrative trend と外部査読の external validity 主張に整合し、masa の機関交渉ブランド構築にも寄与"
+    },
+    {
+      "issue": "Cox 比例ハザード IV-Cox 実装ライブラリ選定: §10.9.1 で control function (Wooldridge 2015) + SAFT (Robins-Tsiatis 1991) 両論併記としたが、実装ライブラリ (R survival パッケージ / Stata stcox / Python lifelines) は Ch 11 BVAR 統合との接合点に依存。AMD 内部の分析チーム言語選好と外部協力者 (国際 17 機関の統計担当) との互換性確認",
+      "why_masa_decides": "実装ライブラリ選定は AMD 分析チームの技術スタック判断 + 国際 17 機関統計担当との互換性 + Ch 11 BVAR (Stan / PyMC 想定) との接合 + 査読者再現性の四点で masa が canonical 決定する必要",
+      "options": [
+        "A: R survival + lifelines 並行実装 (両系言語の冗長化、再現性最重視)",
+        "B: Python lifelines 単一 (Ch 11 BVAR PyMC 統合最適、新規実装コスト)",
+        "C: R survival 単一 (生存解析の de facto standard、Stata 互換性高い)"
+      ],
+      "recommendation": "A: R survival + Python lifelines 並行実装。再現性 + 国際機関互換性 + Ch 11 BVAR 統合の三点で最強、コスト増は OSF 事前登録時点で吸収可能"
+    },
+    {
+      "issue": "事前コミット効果量 β̂_3 ∈ [0.4, 1.2] の Bernstein 2017 + Korteweg-Sorensen 2010 + Laws 2024 三層メタ分析からの IQR-σ_SU 正規化換算係数: 原典の効果量単位 (per σ vs per IQR vs per SD) と本書 IQR-σ_SU log-hazard との換算経路は §10.9.2 本文ではなく付録 B 展開を提案。Karolinska Innovation Office 内部試算 (上限 1.2 出典) の公開可否確認待ち",
+      "why_masa_decides": "上限 1.2 の Karolinska 内部試算出典の公開可否は Karolinska Innovation Office との交渉で確定、公開不可の場合の代替根拠 (Bernstein 上界翻案 + Korteweg-Laws 上界推定) の選択は masa の出典戦略判断",
+      "options": [
+        "A: Karolinska 公開可で 1.2 の出典を §10.9.2 + 付録 B で明示",
+        "B: Karolinska 公開不可で Bernstein + Korteweg-Laws 上界翻案のみに再構成、上限は 1.0 に縮減 (保守化)",
+        "C: 上限を確定値ではなく区間 [1.0, 1.4] とし sensitivity 分析として付録 B で複数案提示"
+      ],
+      "recommendation": "A → B fallback: Karolinska 確認を優先、不可の場合は B の Bernstein + Korteweg-Laws 上界翻案 + 上限 1.0 縮減で OSF 事前登録に lock。上限 1.2 公開可なら publishability 向上、不可でも保守化で Tier B 規律遵守"
+    },
+    {
+      "issue": "Ch 26b 前向き予測登録簿との正準オーナー対称合意の BOOK_DECISIONS 追記: §10.9 が試験プロトコルの正準オーナーである旨を Ch 26b 本体が「Ch 10.9 を canonical owner として参照」の形で対称合意する必要。3 ジャッジ全員が指摘する章間整合性メタ規律",
+      "why_masa_decides": "BOOK_DECISIONS への新規追記は masa の本書全体構造判断、Ch 26b の章構成 (Book IV 後半) との接合方式 + 前向き予測登録簿の運用主体 (AMD vs 外部 OSF) + interim analysis 記録の DOI 付与方針は masa の本書設計判断",
+      "options": [
+        "A: BOOK_DECISIONS に D-041 後半として「§10.9 = 試験プロトコル正準 / Ch 26b = 登録簿運用正準」の役割分担を追記",
+        "B: Ch 26b 側で「Ch 10.9 §10.9.1-10.9.3 を試験プロトコル正準として参照」と一方向参照のみ、対称合意は省略",
+        "C: §10.9 と Ch 26b を統合章として再構成 (Ch 10.9 = §10.9.0-10.9.3 + Ch 26b 内容を §10.9.4-10.9.5 として吸収)"
+      ],
+      "recommendation": "A: BOOK_DECISIONS D-041 後半追記で対称合意を確定。役割分担明示が publishability + masa-fidelity の両立に最適、Ch 26b 章構成は保持"
+    },
+    {
+      "issue": "Π_obs (観測された π_i 候補集合) の operational definition: §10.9.1 で「Ch 5.5 τ_B posterior 分位点 5%/50%/95% + 会計年度境界 + 政策アナウンス + 制度改正」と暫定 lock するが、Ch 5.5 posterior 分位点 vs Bayes factor 閾値による剪定の選択、cohort 横断 cardinality ~50 の事前確認、機関ごとの π_i 候補列挙ルール統一は masa の方法論判断",
+      "why_masa_decides": "Π_obs operational definition は p-hacking 排除の構造実装の核心であり、OSF 事前登録時点で lock する必要、cohort 横断統一ルール vs 機関別 customization のトレードオフは masa の方法論判断",
+      "options": [
+        "A: Ch 5.5 posterior 分位点 5%/50%/95% + 制度的 event (会計年度 / 政策 / 制度改正) で機関横断統一ルール、cardinality 上限 50 で OSF lock",
+        "B: Bayes factor BF>3 閾値で剪定、cardinality は自然に絞られるが事前予測不能 (OSF lock 困難)",
+        "C: 機関別 customization で π_i 候補列挙、cohort 横断 cardinality 上限を 100 に拡大 + Bonferroni 補正強化"
+      ],
+      "recommendation": "A: 機関横断統一ルール + cardinality 50 lock。p-hacking 排除の構造実装と OSF 事前登録の両立に最適、cardinality 上限超過時の対応は付録 A で sensitivity"
+    }
+  ],
+  "falsifiable_claims": [
+    "F-10.9.1: 事前コミット効果量 β̂_3 ∈ [0.4, 1.2] per IQR-σ_SU log-hazard が wave 1 primary (N=32, 2027Q2) または wave 2 拡張 (N=64) interim analysis で 95% 信頼区間がこのバンドと交わらない場合、BZM の τ_B 後 σ_SU hazard 加速 commission は反証され、Ch 5 σ_SU レジーム転換の経済学的意義は本書枠組み内で棄却対象となる (D-050 並列追加反証、F-5.1..F-5.6 と同列、Ch 5 上流への backflow)",
+    "F-10.9.2: Andrews-Quandt sup-Wald W_n* を観測された π_i ∈ Π_obs (cohort 横断 cardinality ~50、operational definition lock) で評価した結果、Bonferroni χ² / BH FDR α=0.05 補正後で構造変化が検出されない場合、Ch 5.5 τ_B 推定の cross-cohort 普遍性は反証される",
+    "F-10.9.3: 機関クロック IV 三本柱 (Z_1 会計年度境界 / Z_2 GAP-AMED 採択時刻 / Z_3 PCT-30m 出願期限) の first-stage F 統計量がいずれも 10 を下回る (Stock-Yogo weak IV 基準) 場合、σ_SU の生態系外生 identification は成立せず、Ch 10.9 の β_3 推定は内生性バイアスにより本書 commission を担保しない",
+    "F-10.9.4: N=32 で β̂_3=0.4 (下界) を仮定した検出力が Schoenfeld 1983 + Hsieh-Lavori 2000 公式 + Monte Carlo 1000 反復で 0.8 を下回ることが §10.9.2 で確定し、かつ wave 2 (N=64) 拡張が機関合意取得不可で実施不能の場合、Ch 10.9 commission は power 不足により実質反証可能性を喪失する (P-008a 軽微修正残の反転条件)",
+    "F-10.9.5: wave 1 中間 1 (N=16, 2027Q1) で futility boundary に β̂_3 95% CI が抵触 (0 跨ぎ) or wave 1 primary (N=32, 2027Q2) で O'Brien-Fleming + Lan-DeMets γ=4 efficacy boundary に β̂_3 95% CI が [0.4, 1.2] を完全超過した場合、wave 2 拡張は実施せず Ch 10.9 commission は反証として記録される (D-031 事後 p-hacking 排除の遵守、Tier B 規律下で wave 2 設計修正禁止)",
+    "F-10.9.6: Cox 比例ハザード仮定が Schoenfeld residual test で α=0.05 棄却される場合、§10.9.1 の primary endpoint β_3 の解釈は無効化され、time-varying β_3(t) 切替 protocol (Hansen 2000 threshold model 併用可) が起動する。起動しない場合 §10.9.1 の primary endpoint 設計は棄却される",
+    "F-10.9.7: 国際 17 cohort の data sharing agreement 締結率が 2027Q1 時点で 50% (8 機関) 未満となった場合、N=32 power calc は事実上 N<24 で動作し §10.9.2 の検出力 0.8 主張は棄却、wave 2 設計修正 (Ch 11.5 wave 段階更新と接続) が必要となる。修正不能の場合は Ch 10.9 commission 全体が運用反証として記録",
+    "F-10.9.8: OSF 事前登録項目 10 項目 (W_n* + Π_obs / Cox 数式 / IV / X_i pre-specify / 効果量バンド / 3 段階 stop rule / BH FDR / cohort リスト / 推定コード Git hash / 二重盲検) が Phase 2 データアクセス前 (2026Q4) に lock されていない場合、または事前登録後にプロトコル変更を行った場合、Ch 10.9 推定結果は Tier B 規律 (D-031) 違反として Tier C に自動降格、本書 commission から除外される"
+  ],
+  "cross_chapter_supply": [
+    {
+      "target_chapter": "Ch 5 σ_SU MS-SSM",
+      "what_supplies": "Ch 10.9 は Ch 5 σ_SU(t) フィルタ posterior を Cox time-varying covariate 入力として受領 (受領)。Ch 10.9 章末で β̂_3 が [0.4, 1.2] を外れた場合の Ch 5 σ_SU レジーム転換の経済学的意義棄却宣言 (D-050 並列追加反証) を Ch 5 上流への backflow として供給 (供給、F-10.9.1)"
+    },
+    {
+      "target_chapter": "Ch 5.5 τ_B レジーム転換",
+      "what_supplies": "Ch 10.9 は Ch 5.5 τ_B posterior 分位点 5%/50%/95% を Π_obs (観測された π_i 候補集合) + Cox time-varying 指示関数 𝟙{t≥τ_B} 入力として受領。Ch 10.9 W_n* (cross-cohort 普遍性検定) の反証結果を Ch 5.5 τ_B cross-cohort 普遍性主張への backflow として供給 (F-10.9.2)"
+    },
+    {
+      "target_chapter": "Ch 7 F-CES X_i 共変量",
+      "what_supplies": "Ch 10.9 は Ch 7 F-CES X_i (α_i 人的資本 / β_i 制度密度 / γ_i 規制レジーム / δ_i 資金供給 / ε_i 技術成熟度) を pre-specified 共変量として受領 (受領、共変量探索禁止規律)"
+    },
+    {
+      "target_chapter": "Ch 10.3 ρ Kmenta",
+      "what_supplies": "Ch 10.9 は Ch 10.3 ρ Kmenta posterior を Cox モデル offset として受領 (受領)、F-CES 推定との整合性保持"
+    },
+    {
+      "target_chapter": "Ch 10.4 Theorem 3 反証可能 commission",
+      "what_supplies": "Ch 10.9 は Ch 10.4 Theorem 3 (反証可能 commission の論理基盤) を経験プロトコルへの翻訳対象として受領 (受領)、§10.9.0 節頭で Book VI 却下の論理的整合性論として活用、§10.9.3 章末で commission 翻訳完結を宣言 (供給)"
+    },
+    {
+      "target_chapter": "Ch 10.5 統合ハザード h_pre/h_post",
+      "what_supplies": "Ch 10.9 は Ch 10.5 統合ハザード h_pre/h_post 分離推定の partial likelihood 表現を Cox time-varying モデルの基盤として受領 (受領)"
+    },
+    {
+      "target_chapter": "Ch 10.6 Ψ 構造的接続 / Ch 10.7 Granger 因果",
+      "what_supplies": "Ch 10.9 は Ch 10.6 Ψ 構造的接続 + Ch 10.7 Granger 因果 (σ_SU → 起業率 → ハザード) を identification 戦略の構造的妥当性として受領 (受領)"
+    },
+    {
+      "target_chapter": "Ch 11 BVAR gate observation model",
+      "what_supplies": "Ch 10.9 は試験プロトコル (W_n* + Cox + IV + cohort + OSF 事前登録) + σ_SU(t) MS-SSM フィルタ posterior + β_3 推定値 + Π_obs τ_B 候補を Ch 11 BVAR gate observation model 観測方程式入力として供給 (供給)"
+    },
+    {
+      "target_chapter": "Ch 11.5 登録簿運用 wave 段階更新",
+      "what_supplies": "Ch 10.9 は wave 段階更新規律 (wave 1 → wave 2 移行判定) + 推定結果照合プロトコル (登録簿 lock 解除条件) + commission 反証時の wave 2 設計修正禁止規律 (D-031) + data sharing 締結率退化条件 (F-10.9.7) を Ch 11.5 に供給 (供給)"
+    },
+    {
+      "target_chapter": "Ch 26b 前向き予測登録簿",
+      "what_supplies": "Ch 10.9 は試験プロトコル全体 + OSF 事前登録項目 + interim analysis 記録 + DOI 付与プロトコル + 反証 / 確証イベントを Ch 26b 前向き予測登録簿に供給 (供給、Ch 26b 本体との正準オーナー対称合意は BOOK_DECISIONS D-041 後半追記で確定、open_issues #4)"
+    },
+    {
+      "target_chapter": "Book VI 実装章",
+      "what_supplies": "Ch 10.9 は試験プロトコル本体を OPENER に前倒し配置することで Book VI 実装章を空洞化、Book VI は §10.9 を canonical 参照 + 実装詳細 (データ収集 SOP / 機関交渉手順 / IRB 申請テンプレ等) のみを担当 (供給 + 空洞化)"
+    },
+    {
+      "target_chapter": "付録 A 完全証明 / 付録 B 効果量換算",
+      "what_supplies": "Ch 10.9 は W_n* 漸近 + Cox-IV 一致性 (control function vs SAFT 比較) + frailty sensitivity (Gamma vs log-normal) を付録 A、β̂_3 ∈ [0.4, 1.2] 三層メタ分析翻案 + IQR-σ_SU 正規化換算係数を付録 B に供給 (供給)"
+    }
+  ],
+  "masa_negotiation_handles": [
+    "国際 17 機関 (MIT Deshpande / EPFL TTO / ETH Pioneer / Karolinska Innovation 等) の合意済み 5 + 交渉中 12 の具体機関名と進捗 + 退化条件 F-10.9.7 (締結率 50% 未満で N<24) の代替機関リスト確定 — masa の機関ネットワーク判断、open_issues #1",
+    "IV-Cox 実装ライブラリ選定 (R survival / Stata stcox / Python lifelines) と Ch 11 BVAR (PyMC / Stan) 統合の言語スタック判断 + AMD 分析チーム技術選好 + 国際 17 機関統計担当との互換性 — masa の技術スタック判断、open_issues #2",
+    "β̂_3 ∈ [0.4, 1.2] 上限 1.2 の Karolinska Innovation Office 内部試算出典の公開可否確認 + 公開不可時の Bernstein + Korteweg-Laws 上界翻案 fallback (上限 1.0 縮減) — masa の出典戦略判断、open_issues #3",
+    "Ch 26b 前向き予測登録簿との正準オーナー対称合意の BOOK_DECISIONS D-041 後半追記 (役割分担: §10.9 = 試験プロトコル正準 / Ch 26b = 登録簿運用正準) — masa の本書全体構造判断、open_issues #4",
+    "Π_obs operational definition の lock 範囲 (Ch 5.5 posterior 分位点 + 制度的 event の機関横断統一ルール vs 機関別 customization) + cardinality 上限 50 の妥当性 — masa の方法論判断、open_issues #5",
+    "機関後付け 7 cohort の D-034 type 匿名化階層 (法人格 / 採択ラウンド / 採択時期の三層匿名化) の具体水準確定 — 国内 GAP-AMED 採択機関との関係性に影響、masa の機関関係性判断",
+    "Phase 2 タイムライン (D-052) の各 milestone (2026Q4 OSF / 2027Q1 data collection + wave 1 中間 1 / 2027Q2 wave 1 primary / 2027Q3-2028Q1 wave 2 conditional) の AMD 内部リソース割当 + Ch 11.5 wave 段階更新との同期 — masa の実行体制判断",
+    "OSF 事前登録 10 項目の登録 hash 本書改訂版固定参照運用規約 + 本書 v2 (Phase 2 完了後改訂) の発行タイミング (2028Q2 想定) と Cambridge UP 改訂版交渉 — masa の出版戦略判断"
+  ]
+}
