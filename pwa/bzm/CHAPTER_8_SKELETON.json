@@ -1,0 +1,519 @@
+{
+  "ch_overview": {
+    "core_proposition": "戦略余力動学を (x, y) 平面上の 2D jump-diffusion 確率過程として明示的に formal 化し、生存確率 S = Pr(τ_x < τ_y) を 2 次元初到達確率 (first passage probability) として、Crandall-Ishii-Lions 粘性解の意味で well-posed な PIDE Dirichlet 問題の解として定義する。事業化到達度 x ∈ [0,1] は Ch 6 PRS 進捗の累積、戦略余力 y ∈ ℝ_{≥0} は cash / moat / trust / options / focus の 5 成分を月単位共通換算で集約したスカラーで、集約関数 Φ は CES 形を基本に fiat 加法形を sensitivity として併設する (D-025、1 次同次性によりスカラー化を正当化)。light-tail jump 領域では Lundberg-Cramér 型指数上界、heavy-tail jump 領域 (Foss-Korshunov-Zachary subexponential class) では Embrechts-Goldie-Veraverbeke 型漸近に従い、両漸近の cross-over は Ch 11 BVAR + jump + gate 推定に supply する。鋸歯型 / ゾンビ型 / 即落型 / 健全型の 4 軌跡分類はパラメータ空間 Θ の互いに素な領域として formal partition され、観測等価類は Ch 25 / 26b 事前登録レジストリで反証可能となる。健全性指標 H = y / T_remaining は局所マルコフ近似と弱定常条件のもとで S の単調変換となり (命題 P8.4.1)、現場 KPI として Tier A 記述的指標になる。Ch 5.5 GO(t,i) ゲートは 2D jump-diffusion の起動イベント τ_B として埋め込まれ、Bertsekas-Powell-Pakes-Ericson 系列 sequential decision の最適停止問題 (Bellman max{continuation, GO}) として Dixit-Pindyck real options の特殊ケースに位置付ける。",
+    "load_bearing_claims": [
+      "D-024: 戦略余力動学は (x,y) 平面上の 2D jump-diffusion SDE dx = μ_x(R, σ_SU, x) dt + σ_x dW_x + J_x dN_x(λ_x(σ_SU, ERS)), dy = μ_y(R_net - B, y) dt + σ_y dW_y + J_y dN_y(λ_y(B-shock, Y-001/004/005)) として明示され、S = Pr(τ_x < τ_y) は PIDE Dirichlet 問題 (Crandall-Ishii-Lions 粘性解) として well-posed",
+      "D-025: 戦略余力 y は 5 成分 (cash 月 / moat 月 / trust 月 / options 月 / focus 月) を月単位共通換算した後、CES 形 y = (Σ w_i z_i^ρ)^{1/ρ} を基本 (ρ ∈ (0,1] 弱補完仮定)、fiat 加法形 y = Σ w_i z_i を sensitivity として併設、1 次同次性によりスカラー化が正当化される",
+      "S の漸近は light-tail 領域で Lundberg-Cramér 型指数上界 Pr(τ_y < ∞) ≍ C e^{-γ y_0}、heavy-tail (Foss-Korshunov-Zachary subexponential class) 領域で Embrechts-Goldie-Veraverbeke 型漸近に従い、両漸近の cross-over 領域は Ch 11 BVAR + jump + gate 推定で同定可能",
+      "4 軌跡類型 (鋸歯 Θ_saw / ゾンビ Θ_zombie / 即落 Θ_crash / 健全 Θ_healthy) はパラメータ空間 Θ の互いに素な領域として formal partition、観測等価類 (同一観測列を生成する θ 同値類) は Ch 26b 事前登録レジストリで区別子 (高頻度サンプリング / J_y イベント直接観測 / KOL 信用 proxy) と共に反証可能",
+      "命題 P8.4.1 (局所マルコフ単調変換): 局所マルコフ近似 + 弱定常条件 + light-tail jump 下で H = y / T_remaining は生存確率 S の単調増加変換 ∂S/∂H > 0 (Doob h-変換型)。運用閾値 H > 1 余裕期 / H < 0.5 警戒期 / H < 0.2 危険期 は Tier A 経験則、Ch 25 で経験的較正",
+      "Ch 5.5 GO(t,i) ゲートは 2D jump-diffusion の起動イベント τ_B として埋め込まれ、t < τ_B では B = 0 で y dynamics 休眠、t ≥ τ_B で μ_y(R_net - B) が始動。Bertsekas-Powell-Pakes-Ericson sequential decision の最適停止問題 (Bellman max{continuation, GO}) として Dixit-Pindyck real options の特殊ケースに位置付け、本書貢献は (i) 5D → 1D スカラー縮約、(ii) σ_SU 経由 GO 内生化",
+      "鋸歯型 (per-PJ SDE level) と Ch 10.5 Klepper shakeout (post-B industry hazard level) は二層の別現象として表記分離 (D-035)、相関 ≤ 0.3 の falsifiable で維持"
+    ],
+    "logical_arc": "§8.0 機能性材料案件 BATNA 喪失型ストーリー (匿名化) で 'x 進展に対し y 5 成分同時崩壊 → τ_y 先着 → 生存失敗' を直観化し 4 類型をプレビュー → §8.1 (x,y) 平面と y 5 成分月単位共通換算 (CES 主・加法 sensitivity)、1 次同次性によるスカラー化正当化、binding 成分縮約規約 → §8.2 2D jump-diffusion SDE の formal 定式化、PIDE Dirichlet 問題 (Crandall-Ishii-Lions 粘性解) としての well-posedness、light-tail (Lundberg-Cramér) と heavy-tail (Foss-Korshunov-Zachary subexponential) 双方の漸近、Asmussen-Glynn (2007) importance sampling Monte Carlo、命題 P8.2.1 (initial-position monotonicity)、観測等価類の Ch 11 BVAR への identification 委譲 → §8.3 4 軌跡類型をパラメータ空間 Θ の互いに素な領域として formal partition、Bertola-Caballero sS rule (ゾンビ) / Pakes-Ericson zombie firm (ゾンビ) / Embrechts-Goldie-Veraverbeke subexponential (即落) / Klepper 入れ子化 (鋸歯と shakeout のスケール分離) → §8.4 健全性指標 H の局所マルコフ単調変換 (命題 P8.4.1)、Tier A 経験則閾値 (H > 1 / < 0.5 / < 0.2)、Ch 5.5 GO ゲート τ_B 接続 (SDE 切替 + optional stopping time)、sequential decision view (Bertsekas-Powell-Pakes-Ericson Bellman) と Dixit-Pindyck real options 特殊ケース位置付け、ゾンビ型の SDE 上 τ_y 不発火問題と T_review 人為発火 → §8.5 CTB 鋸歯 / TIEM ゾンビ / YD 即落 / BWE 健全の 4 PJ 後付け校正 (λ_y^+ E[J_y^+] / |μ_y| ≈ 1 近傍など定量境界)、章末問い 5 件 (Ch 10.5 / 11 / 25 / 26b / Book IV) への引き渡し、Tier A 規律遵守宣言 + 交渉論を Book IV へ移管",
+    "synthesis_rationale": "Judge 1 と Judge 2 は B (heavy-tail 二段構え + PIDE viscosity + 命題番号化 + Ch 26b 区別子先取り + 文献縫合 + falsifiable 質) を winner、Judge 3 は C (H 運用閾値 + sequential decision + Klepper スケール分離 + 1 次同次性) を winner。Lens A (方法論的厳密性) と Lens B (publishability + Ch 26b) は B 母体、Lens C (masa-fidelity) は C 母体を推奨。統合原則として B を骨格に据え (heavy-tail 漸近 / PIDE Dirichlet / 命題番号化 / Ch 26b 区別子 / 文献縫合 / falsifiable 質)、C から (i) §8.4 sequential decision view (Bertsekas-Powell-Pakes-Ericson Bellman) + Dixit-Pindyck real options 特殊ケース、(ii) H Tier A 経験則閾値 (>1 / <0.5 / <0.2)、(iii) 1 次同次性によるスカラー化正当化、(iv) binding 成分縮約、(v) 鋸歯 (SDE) と Klepper shakeout (industry hazard) のスケール分離規約、(vi) λ_y^+ E[J_y^+] / |μ_y| ≈ 1 近傍の鋸歯型定量境界、A から (i) τ_B 前後 [y,y]_t 二次変動 break test (falsifiable)、(ii) Cohen's κ / ICC による D-025 5 成分換算の観察者間信頼性 (falsifiable)、(iii) ゾンビ型 T_review 人為的 τ_y 発火、(iv) Lundberg-Cramér 上界 exp(-R_∗ y_0) の即落型 early NO_GO 閾値、(v) 観測等価類 disjoint 主張 + mixture を Ch 26b null hypothesis にする設計を grafting。3 judges cross_cutting_concerns 全 35 項を吸収し、§8.2/§8.3 膨張リスクは付録 A (D-047) 完全証明への押し出し境界を明示することで管理。"
+  },
+  "sections": [
+    {
+      "section_id": "8.0",
+      "title": "章頭フック — 機能性材料案件 BATNA 喪失と (x, y) 平面の 4 軌跡直観",
+      "pages": 3,
+      "math_level": "narrative + 軽い数式 (τ_y < τ_x 不等式と (x,y) 軸定義のみ)",
+      "anchor_claims": [
+        "事業化到達度 x が 1 に達する前に戦略余力 y が 0 を切れば、技術が正しくても案件は死ぬ。これが本章が扱う 2D first passage problem の核心直観",
+        "戦略余力 y は単一指標ではなく cash / moat / trust / options / focus の 5 成分を月単位で集約したスカラーで、どの成分が先に切れるかで死に方が決まる (binding 成分問題)",
+        "鋸歯型 / ゾンビ型 / 即落型 / 健全型の 4 軌跡は熟練投資家・URA・EIR の暗黙知として現場に存在し、本章はそれを 2D jump-diffusion 確率過程のパラメータ領域として formal 化する",
+        "本章は Tier A 記述的類型論 (D-031)、経験的検証は Ch 25 (Tier A) + Ch 26b (Tier B 事前登録) へ supply、交渉論・ライセンス料率実務は Book IV (Ch 30/31) へ移管"
+      ],
+      "paragraph_outline": [
+        "機能性材料スタートアップ匿名ケース (Y-001 級 BATNA 喪失イベント) の導入 — license 交渉で並走候補が 1 社に絞られた瞬間、options 成分が崩落しライセンス料率が叩かれ cash runway と trust (KOL 推薦) が連鎖崩壊して τ_y 先着で生存失敗",
+        "x (PoC 完了度) は順調進展していたが y (options × cash × trust 連鎖) が急落した観察 — 単一指標 (cash 月数だけ) では捉えられない多次元 reserve の崩壊",
+        "(x, y) 平面と τ_x / τ_y 概念図 (図 g8.0.1、f6 slack plane 継承) — 事業化到達 τ_x が先か、戦略余力枯渇 τ_y が先か、Doob optional stopping の経済学版",
+        "鋸歯グラフ (図 g8.0.2、f7 sawtooth 継承) の直観 — CTB 創薬 GAP fund 補充 / マイルストーン受領で y が周期的に正方向 jump 補充されるパターン (creative destruction 型)",
+        "4 類型のプレビュー: 鋸歯 (CTB GAP fund 補充) / ゾンビ (TIEM 早すぎ + 機能性材料案件) / 即落 (YD UE 律速 NO_GO) / 健全 (BWE F_char × F_cap 補完)、各類型を (μ_x, μ_y, λ_y^+/-) パラメータ領域で予告",
+        "Lundberg-Cramér 賭博者破産問題 (1903, 1930) との類似性予告 — y は 'reserve'、5 成分集約は 'multi-pillar reserve'、即落型は heavy-tail downward jump 支配",
+        "本章の問い 4 件 preview: (i) (x,y) 過程をどう特定するか、(ii) S = Pr(τ_x<τ_y) をどう書くか、(iii) 4 類型をどうパラメータ領域として分割するか、(iv) 健全性指標 H が KPI として何を担うか",
+        "Tier A 規律宣言 (D-031): 本章は記述的類型論 + 確率過程 formal 化に集中、経験的検証は Ch 25/26b、交渉論・料率実務は Book IV へ",
+        "章マップ: §8.1 → §8.2 → §8.3 → §8.4 → §8.5 の道筋、各節の Tier 階層 (8.2/8.4 が Tier 3 学術化 core、8.1/8.3/8.5 は Tier A 記述)",
+        "章間 supply / receive 一覧 (Ch 5/5.5/6/7/9 から受け、Ch 10.5/11/25/26b/Book III/Book IV へ渡す) を冒頭で明示"
+      ],
+      "new_writing_required": "章頭フック 1.5p (匿名化機能性材料ケースを strategic-slack.md から圧縮再構成)、4 類型プレビュー 0.5p、Tier A 規律宣言 + 章間 supply 表 0.5p、章マップ 0.5p",
+      "existing_reuse": "pwa/bzm/strategic-slack.md 冒頭の機能性材料ケース叙述を約 60% 流用 (匿名化徹底)、図 f6 (slack plane) → g8.0.1、図 f7 (sawtooth) → g8.0.2 として継承 (注釈は章頭用に書き直し)",
+      "upstream_dependencies": [
+        "Ch 1 序章 (BZM 全体マップ)",
+        "Ch 5 σ_SU MS-SSM (λ_x intensity の起源)",
+        "Ch 5.5 GO ゲート (τ_B 法人化起動)",
+        "Ch 6 PRS (x の進捗構成)",
+        "Ch 7 F-CES (moat / options 成分との F 制約)",
+        "Ch 9 ERS (μ_y を間接変調)"
+      ],
+      "downstream_dependencies": [
+        "§8.1 (x,y) 平面 formal 定義",
+        "§8.3 4 類型 visual narrative",
+        "§8.5 機能性材料案件の Θ_zombie 境界事例再分類"
+      ],
+      "references": [
+        "pwa/bzm/strategic-slack.md (機能性材料ケース、鋸歯グラフ、4 類型予告)",
+        "Lundberg (1903) — ruin probability の起源として注に置く",
+        "BOOK_DECISIONS.md D-024 / D-025 / D-031 / D-035 / D-047 / D-051",
+        "Book II Ch 0 章型定義 (L1 §11)"
+      ],
+      "source_drafts": [
+        "A §8.0 (BATNA 喪失事例の章頭ストーリー化、Tier 規律明示)",
+        "B §8.0 (匿名材料 SU ケース + 4 類型 preview + Lundberg-Cramér 予告)",
+        "C §8.0 (機能性材料 BATNA 喪失 + 4 類型直観 + Tier A 規律 + 章間 supply 表)"
+      ]
+    },
+    {
+      "section_id": "8.1",
+      "title": "(x, y) 平面と戦略余力 y の 5 成分月単位共通換算",
+      "pages": 4.5,
+      "math_level": "中 (集約関数 Φ の CES / 加法形代数、月単位換算式、1 次同次性、binding 成分縮約)",
+      "anchor_claims": [
+        "x ∈ [0,1] は Ch 6 PRS マイルストーン累積の正規化として unidirectional accumulating (μ_x ≥ 0 + J_x の正 jump 主流、NO_GO のみ J_x << 0 例外) で定義、τ_x = inf{t : x_t ≥ 1} は事業化到達時刻 (黒字 cash flow / IPO / M&A 候補)",
+        "y ∈ ℝ_{≥0} は 5 成分の月単位共通換算スカラー: z_cash = runway 月、z_moat = 競合追随遅延月、z_trust = KOL+査読履歴の月換算、z_options = log(1+並走候補数) × BATNA 月換算、z_focus = 集中可能月",
+        "集約関数 Φ は CES 形 y = (Σ w_i z_i^ρ)^{1/ρ} (ρ ∈ (0,1] 弱補完仮定) を主軸、fiat 加法形 y = Σ w_i z_i を sensitivity 軸として併設 (D-025)、ρ → 1 で加法縮約、ρ → 0 で Leontief min 集約に漸近",
+        "1 次同次性: Φ(α z_1, ..., α z_5) = α Φ(z) によりスカラー化が正当化され、τ_y = inf{t : y_t ≤ 0} は尺度不変、5D 問題が 1D τ_y 問題に縮約し PIDE 解析が tractable に",
+        "T_remaining(t) = E[τ_x - t | F_t] (主観 horizon、典型 36-60 ヶ月、Ch 5.5 fund 期間と整合) を導入し §8.4 H = y/T_remaining の単位整合の基盤を確立",
+        "binding 成分縮約: cash-binding (YD 即落型) / options-binding (機能性材料案件ゾンビ型) / trust-binding (TIEM 早すぎゾンビ型) / focus-binding / moat-binding により 5D → 周辺ケース縮約、§8.3 4 類型分類の精緻化"
+      ],
+      "paragraph_outline": [
+        "x 軸 formal 定義 — Ch 6 PRS 進捗の月単位累積 ([0,1] 正規化)、unidirectional accumulating の subordinator 風構造 (μ_x ≥ 0 + 正 jump 主流)、NO_GO 事象は λ_x の負 jump (J_x << 0) として例外扱い、τ_x = inf{t: x_t ≥ 1} の operational definition",
+        "y 軸 5 成分定義 (D-025) — cash (runway 月、現金 / 月間 burn)、moat (競合追随遅延月)、trust (KOL+査読+評判ストックの月換算)、options (BATNA × 並走候補数の交渉余命月)、focus (集中可能月、注意 budget 残)。各成分の 5W1H と観測可能性を表 t8.1.1 で整理",
+        "月単位共通換算の根拠 — 'なぜ月か' = B 燃焼の自然 tick + Ch 7 F-CES の月次予算と整合 + T_remaining (法人化残期間 / fund 残期間) と同じ単位で割れる (H = y/T_remaining に直結)",
+        "集約関数 Φ の CES vs 加法選択 (D-025) — CES y = (Σ w_i z_i^ρ)^{1/ρ} を主軸、ρ ∈ (0,1] の弱補完仮定 (5 成分は相互補完: cash があっても trust ゼロなら BATNA 死ぬ)。fiat 加法を sensitivity baseline として残し、ρ の値は Ch 11 BVAR 推定にゆだねる",
+        "1 次同次性とスカラー化正当化 — Φ(α z) = α Φ(z)、τ_y の尺度不変、5D → 1D 縮約により PIDE 解析が tractable に。Ch 7 F-CES の ρ との関係 (共有 / 別パラメータ化) は open issue として保留",
+        "binding 成分縮約 — 5 成分のうち一つが dominate するときの reduction: cash-binding (runway 急落) / options-binding (BATNA 急落) / trust-binding (KOL 信用蒸発) / focus-binding (集中分散) / moat-binding (競合追随)。機能性材料案件 = options-binding ゾンビ型として §8.3 で再分類予告",
+        "重み w_i の決定問題 — Ch 9 ERS 経営チーム属性で部分説明され、Ch 11 BVAR 推定にゆだねる (本章ではパラメータとして外生)、感度分析設計を §8.5 章末問いに送る",
+        "(x, y) 状態空間 Ω = (0, 1) × (0, ∞) と境界 ∂Ω = {x=1} ∪ {y=0} — Doob optional stopping の経済学版、τ_x / τ_y の Markov 性確認",
+        "図 g8.1.1 (x,y) 平面に 4 軌跡サンプル経路 preview (f6 slack plane の Tier 3 拡張)、表 t8.1.1 5 成分換算式と観測可能性",
+        "Y-001 (BATNA 喪失) / Y-004 (KOL 離反) / Y-005 (主要顧客喪失) 級イベントが y のどの成分に影響するかの mapping 表 (z_options / z_trust / z_moat) を §8.2 λ_y への引数として準備"
+      ],
+      "new_writing_required": "5 成分月単位共通換算規約 formal 化 1.5p、CES vs 加法の代数比較 + 1 次同次性 + スカラー化正当化 1p、binding 成分縮約 1p、表 t8.1.1 + 図 g8.1.1 新規 1p",
+      "existing_reuse": "strategic-slack.md の 5 成分節 (cash/moat/trust/options/focus 命名と運用感) を約 70% 流用、g24 (5 柱) / g25 (条件) 図版を表化、機能性材料案件の options-binding 直観",
+      "upstream_dependencies": [
+        "Ch 5 σ_SU MS-SSM (記号 σ_SU 継承、x の進行速度上流)",
+        "Ch 5.5 GO ゲート (記号 GO(t,i), R, S 継承、τ_B 起動)",
+        "Ch 6 PRS (x への寄与)",
+        "Ch 7 F-CES (cash 成分の B - R_net 制約、CES ρ との関係)",
+        "Ch 9 ERS (重み w_i の規定)"
+      ],
+      "downstream_dependencies": [
+        "§8.2 SDE 状態空間定義",
+        "§8.3 binding 成分による 4 類型精緻化",
+        "§8.4 H = y/T_remaining の単位整合",
+        "Ch 11 BVAR 推定 (w_i, ρ)",
+        "Ch 25 周辺密度 + 観察者間信頼性検証"
+      ],
+      "references": [
+        "BOOK_DECISIONS.md D-025 (y 集約ルール)",
+        "BOOK_DECISIONS.md D-051 記号表記正本",
+        "strategic-slack.md 5 柱節 + g24/g25 図",
+        "Arrow-Chenery-Minhas-Solow (1961) CES production function 原典",
+        "Ch 5 σ_SU、Ch 6 PRS、Ch 7 F-CES"
+      ],
+      "source_drafts": [
+        "A §8.1 (y 5 成分の月単位換算ルールの正本化、CES と fiat 加法の代数比較)",
+        "B §8.1 (CES vs 加法の sensitivity 設計、Ch 7 F-CES 整合性、表 t8.1.1)",
+        "C §8.1 (1 次同次性とスカラー化正当化、binding 成分縮約、機能性材料 options-binding 再分類)"
+      ]
+    },
+    {
+      "section_id": "8.2",
+      "title": "2D jump-diffusion SDE と初到達確率 S = Pr(τ_x < τ_y) の formal 化",
+      "pages": 6.5,
+      "math_level": "高 (Tier 3 学術化 core: SDE、Itô-Lévy 分解、PIDE Dirichlet + Crandall-Ishii-Lions 粘性解、Lundberg-Cramér 漸近 + Foss-Korshunov-Zachary subexponential 漸近、Asmussen-Glynn importance sampling Monte Carlo)",
+      "anchor_claims": [
+        "(x, y) は 2D jump-diffusion SDE: dx = μ_x(R, σ_SU, x) dt + σ_x dW_x + J_x dN_x(λ_x(σ_SU, ERS)), dy = μ_y(R_net - B, y) dt + σ_y dW_y + J_y dN_y(λ_y(B-shock, Y-001/004/005)), Cov(dW_x, dW_y) = ρ_{xy} dt として確率基底 (Ω, F, F_t, P) 上で定式化 (D-024)",
+        "x dynamics は unidirectional accumulating (μ_x ≥ 0, J_x ≥ 0 主流、NO_GO のみ J_x << 0 例外) で subordinator 風構造、y dynamics は drift + Brownian + 上下 jump の混合過程",
+        "S(x_0, y_0) = Pr_{(x_0,y_0)}(τ_x < τ_y) は jump-diffusion 生成作用素 L = ½ Σ ∂²/∂x_i∂x_j + μ · ∇ + Σ_k λ_k ∫ [u(z + J) - u(z)] F_{J_k}(dJ) の PIDE Dirichlet 問題 L S = 0 on Ω, S|_{x=1} = 1, S|_{y=0} = 0 の Crandall-Ishii-Lions 粘性解として一意に定まる (本文スケッチ、完全証明は付録 A、D-047)",
+        "Light-tail 漸近 (E[e^{θ J_y}] < ∞): Lundberg-Cramér 型指数上界 Pr(τ_y < ∞) ≍ C e^{-γ y_0} (γ = 調整係数、Asmussen-Albrecher 2010 ch.4)、戦略余力 cushion 解釈 → 即落型 early NO_GO 閾値 (§8.3/§8.5 接続)",
+        "Heavy-tail 漸近 (Foss-Korshunov-Zachary subexponential class): Embrechts-Goldie-Veraverbeke (1979) 定理による Pr(τ_y < ∞) ≍ \\overline{F}(y_0) / (ρ - 1) 型漸近、VC 投資 heavy-tail upside / downside 対称性、即落型 (Θ_crash) の formal 起源",
+        "Monte Carlo 評価: Asmussen-Glynn (2007) importance sampling on λ_y による rare event 推定、Euler-Maruyama + Poisson 飛躍 thinning、τ_y オーバーシュート補正、Ch 11 BVAR + jump + gate 推定への接続インタフェース",
+        "命題 P8.2.1 (initial-position monotonicity): S(x_0, y_0) は x_0 で単調増加、y_0 で単調増加 (Doob optional stopping + Itô-Lévy 公式)、本文スケッチ + 付録 A 完全証明",
+        "観測等価類: 同じ S を生むパラメータ多様体 (μ_y と λ_y E[J_y] の trade-off) は無限、identification は Ch 11 BVAR にゆだね、本章は 4 領域分類 (§8.3) が同定的になる条件を提示"
+      ],
+      "paragraph_outline": [
+        "SDE formal 定式化 — 確率基底 (Ω, F, F_t, P)、フィルトレーション可測性、Itô-Lévy 分解。x が subordinator 風 unidirectional accumulating であることの意味と NO_GO 例外",
+        "Drift 構造 — μ_x(R, σ_SU, x) は Ch 6 PRS 進捗速度関数 (R = リソース投入の限界生産性、σ_SU 状態依存)、μ_y(R_net - B, y) は Ch 7 F-CES 月次バランス (R_net = 純収益、B = 法人運営コスト) の単調減少関数",
+        "Brownian 拡散行列 Σ = [[σ_x^2, ρ_{xy} σ_x σ_y], [ρ_{xy} σ_x σ_y, σ_y^2]] — 日常的小揺らぎ、相関 ρ_{xy} は通常正 (技術進捗が moat/trust を高める)、危機局面で負転 (focus が x に集中し y 維持削減)。Ch 11 BVAR で推定",
+        "強度関数 λ_x(σ_SU, ERS) — σ_SU が S 状態 (Ch 5) なら λ_x^+ ↑ (breakthrough 飛躍)、ERS 介入 (Ch 9) で λ_x^+ ↑↑、NO_GO 事象は λ_x^- (Ch 5.5 から)",
+        "強度関数 λ_y(B-shock, Y-001/004/005) — Y-001 BATNA 喪失 → z_options 急落、Y-004 KOL 離反 → z_trust 急落、Y-005 主要顧客喪失 → z_moat 急落、J_y^- 典型 0.3-0.7 y の lump 減少、λ_y^+ (GAP fund / マイルストーン入金 / ライセンス前金) は鋸歯型の供給源",
+        "停止時刻 τ_x = inf{t : x_t ≥ 1}, τ_y = inf{t : y_t ≤ 0}, τ = τ_x ∧ τ_y の a.s. 有限性条件 (μ_x または λ_x^+ 正、または μ_y または λ_y^- 負側で τ_y 有限)",
+        "S の PIDE Dirichlet 表現 — 生成作用素 L S = 0 on Ω, 境界条件 S|_{x=1} = 1, S|_{y=0} = 0、Crandall-Ishii-Lions (1992) 粘性解の意味で一意に well-posed、Itô-Markov 性で表現定理。完全証明は付録 A (D-047)",
+        "Light-tail 漸近導出スケッチ — Lundberg-Cramér 調整係数 γ の Cramér-Lundberg equation E[e^{γ J_y}] λ_y = γ μ_y 解、Asmussen-Albrecher (2010) ch.4 への参照、Doob martingale 経由の指数上界 Pr(τ_y < ∞) ≍ C e^{-γ y_0}",
+        "Heavy-tail 漸近導出スケッチ — Foss-Korshunov-Zachary (2013) subexponential class F ∈ S の定義、Embrechts-Goldie-Veraverbeke (1979) 定理による Pr(τ_y < ∞) ≍ \\overline{F}(y_0) / (ρ - 1) 漸近、Pareto / regularly varying / Weibull tail の使い分け、VC 投資 heavy-tail 対称性",
+        "Cross-over 領域 — light-tail と heavy-tail の境界は jump 分布の moment generating function 存在性で判定、両領域の cross-over は Ch 11 BVAR + jump + gate 推定で同定可能 (falsifiable 設計、F8.2)",
+        "Monte Carlo 評価アルゴリズム — Asmussen-Glynn (2007) importance sampling on λ_y による rare event 推定、Euler-Maruyama scheme + Poisson 飛躍 thinning、τ_y オーバーシュート補正、収束次数と計算予算、Ch 11 BVAR への接続インタフェース",
+        "命題 P8.2.1 (initial-position monotonicity) スケッチ — Doob optional stopping + Itô-Lévy 公式で ∂S/∂x_0 > 0, ∂S/∂y_0 > 0 の証明スケッチ、完全証明は付録 A",
+        "観測等価類の制約と Ch 11 委譲 — 同じ S を生む (μ_y, λ_y E[J_y]) 多様体は無限、identification は Ch 11 BVAR にゆだね、本章は 4 領域分類 (§8.3) が同定的になる条件を提示",
+        "図 g8.2.1 (典型サンプル経路、f6 拡張) と図 g8.2.2 (PIDE 境界値問題と粘性解の概念図、新規)"
+      ],
+      "new_writing_required": "本節全体が Tier 3 学術化 core — SDE formal 定式化 1.5p、PIDE Dirichlet + Crandall-Ishii-Lions 粘性解 1p、Lundberg-Cramér + Foss-Korshunov-Zachary 双方の漸近 1.5p、Asmussen-Glynn Monte Carlo + 命題 P8.2.1 + 観測等価類 1.5p、図 g8.2.1-2 1p。完全証明は付録 A へ別送 (D-047)",
+      "existing_reuse": "strategic-slack.md には SDE 表現がなく、本節はほぼゼロから新規記述。S = Pr(τ_x<τ_y) の motivation (戦略余力切れメタファ) のみ継承",
+      "upstream_dependencies": [
+        "§8.1 (x,y) 平面定義と 5 成分集約",
+        "Ch 5 σ_SU MS-SSM (λ_x 変調)",
+        "Ch 5.5 GO ゲート + NO_GO J_x",
+        "Ch 6 PRS (μ_x の R 引数)",
+        "Ch 7 F-CES (μ_y の R_net - B 引数)",
+        "Ch 9 ERS (λ_x / μ_y 間接変調)"
+      ],
+      "downstream_dependencies": [
+        "§8.3 4 類型のパラメータ空間 Θ 分割",
+        "§8.4 H 局所マルコフ単調性",
+        "Ch 10.5 Klepper 鋸歯型統合ハザード (D-035)",
+        "Ch 11 BVAR + jump + gate 推定",
+        "Ch 25 層間結合 + 経験的検証",
+        "Book II 付録 A 完全証明 (D-047)"
+      ],
+      "references": [
+        "Lundberg (1903) Approximerad framställning af sannolikhetsfunktionen",
+        "Cramér (1930) On the mathematical theory of risk",
+        "Asmussen (2003) Applied Probability and Queues ch.IV",
+        "Asmussen-Albrecher (2010) Ruin Probabilities ch.4-5",
+        "Asmussen-Glynn (2007) Stochastic Simulation",
+        "Foss-Korshunov-Zachary (2013) Heavy-Tailed and Subexponential Distributions",
+        "Embrechts-Goldie-Veraverbeke (1979) Subexponentiality and infinite divisibility",
+        "Embrechts-Klüppelberg-Mikosch (1997) Modelling Extremal Events",
+        "Crandall-Ishii-Lions (1992) viscosity solutions of PIDE (User's guide)",
+        "Itô-Stroock-Varadhan SDE 系譜",
+        "Dixit-Pindyck (1994) Investment under Uncertainty ch.5-6"
+      ],
+      "source_drafts": [
+        "A §8.2 (SDE → Doob 境界値問題 → Lundberg-Cramér 上界 → Monte Carlo 流れ)",
+        "B §8.2 (light-tail/heavy-tail 二段構え、PIDE viscosity solution、Asmussen-Glynn IS、命題 P8.2.1 番号化、観測等価類)",
+        "C §8.2 (生成作用素 L の Dirichlet 問題、Crandall-Ishii-Lions 粘性解、観測等価類の Ch 11 委譲、付録 A 押し出し境界)"
+      ]
+    },
+    {
+      "section_id": "8.3",
+      "title": "軌跡 4 類型 (鋸歯 / ゾンビ / 即落 / 健全) のパラメータ空間 Θ 領域分割",
+      "pages": 6.5,
+      "math_level": "中〜高 (Tier 3 領域分割 + Tier A 類型論: パラメータ Θ の不等式定義、phase plane、観測等価類、Klepper 入れ子化スケール分離)",
+      "anchor_claims": [
+        "パラメータベクトル θ = (μ_x, μ_y, λ_x, E[J_x], λ_y^+, E[J_y^+], λ_y^-, E[J_y^-], σ_x, σ_y, ρ_{xy}, F_J 分布) ∈ Θ ⊂ ℝ^k を 4 領域 Θ_saw, Θ_zombie, Θ_crash, Θ_healthy に互いに素な partition、各領域からの (x,y) 軌跡が対応類型を確率 1-ε で示す (Tier A 記述的類型論)",
+        "鋸歯型 Θ_saw: μ_y < 0 (継続消耗) + λ_y^+ > 0, E[J_y^+] > 0 (補充 jump、GAP fund / マイルストーン入金 / ライセンス前金) で μ_x > 0、生存条件 λ_y^+ E[J_y^+] + μ_y ≥ 0 (期待ドリフト非負)、典型 λ_y^+ E[J_y^+] / |μ_y| ≈ 1 近傍。CTB 創薬 GAP fund 補充パターン",
+        "ゾンビ型 Θ_zombie: μ_x ≈ 0 (R/S 進捗停滞) + μ_y < 0 緩 + λ_x, λ_y 小 + λ_y^+ 不在、(x, y) ≈ (x_0, y_0) 停留領域。Bertola-Caballero (1990, 1994) inertia + Pakes-Ericson (1998) zombie firm dynamics と整合、TIEM 早すぎ + 機能性材料 options-binding 慢性消耗",
+        "即落型 Θ_crash: λ_y^- > 0 で heavy-tail downward jump |J_y^-| ≫ y_0 高確率発生 (Foss-Korshunov-Zachary subexponential) で τ_y < τ_x 短時間実現、ないし μ_y << 0 急、ないし Ch 5.5 GO ゲートで NO_GO J_x << 0 発火 (YD UE 律速 NO_GO)。Lundberg-Cramér 上界 exp(-R_∗ y_0) 閾値以下で early NO_GO 判定",
+        "健全型 Θ_healthy: μ_x > 0 + μ_y ≥ 0 + λ_y^- 小 + ρ_{xy} > 0、F_char × F_cap (Ch 7) 補完で μ_y ≥ 0 維持、λ_x^+ active。BWE 補完パターン、S → 1 領域、判定基準 S ≥ 0.8 + (μ_y / μ_x), (λ_y E[J_y] / μ_x) 2 比",
+        "観測等価類: 同一観測列を生成する θ 同値類は disjoint partition を主張、mixture / 連続スペクトル可能性は Ch 26b 事前登録 null hypothesis として供出、区別子 (高頻度サンプリング / J_y イベント直接観測 / KOL 信用 proxy / BATNA proxy) で識別",
+        "Klepper 入れ子化 (D-035): 鋸歯型は本章で per-PJ SDE level の上向き補充 jump 領域として formal、Ch 10.5 で post-B industry hazard level の Klepper shakeout として接続。両者はスケール分離された別現象 (相関 ≤ 0.3、F8.8 falsifiable)"
+      ],
+      "paragraph_outline": [
+        "4 類型分類戦略 — 平均挙動 (μ_x, μ_y) × 飛躍頻度 (λ_x, λ_y) × 飛躍方向 (J 符号) × Brownian 相関 (ρ_{xy}) の 4 軸で領域分割、phase plane (x,y) 上の典型サンプル経路を 4 類型ごとに図示 (f8 trajectories 拡張)",
+        "Θ_saw 鋸歯型 formal 定義 — μ_y < 0 を λ_y^+ E[J_y^+] が補充する periodic structure、生存条件 λ_y^+ E[J_y^+] + μ_y ≥ 0、典型 λ_y^+ E[J_y^+] / |μ_y| ≈ 1 近傍。Bertola-Caballero (1990) sS rule との類似 (固定 trigger による discrete adjustment)。CTB 創薬 GAP fund 補充の臨床試験マイルストーン入金パターン",
+        "鋸歯型上向き jump 間隔の regular 構造 — exponential よりも regular (Weibull shape > 1 もしくは Gamma) になる傾向、CTB GAP fund 補充間隔データで Kolmogorov-Smirnov 検定 falsifiable (F8.5)",
+        "Θ_zombie ゾンビ型 formal 定義 — μ_x ≈ 0 + μ_y < 0 緩 + jump 小、(x, y) ≈ (x_0, y_0) 停留領域、Bertola-Caballero inertia (固定費 + 不確実性で動かない) + Pakes-Ericson (1998) zombie firm dynamics と接続、real options literature (Dixit-Pindyck 1994) wait region 対応",
+        "ゾンビ型の構造的問題と T_review 接続 — SDE 上は機会費用累積するが破産しない、Ch 5.5 の T_review (再評価ゲート) で人為的に τ_y を発火させる必要 (Ch 5.5 接続)。TIEM 早すぎ Y-001 状態 / 機能性材料案件 options-binding 慢性消耗が該当、σ_SU 状態と x_t flat 期間の同期 (F8.6 falsifiable)",
+        "Θ_crash 即落型 formal 定義 — heavy-tail downward jump 支配領域 (Foss-Korshunov-Zachary subexponential class)、Embrechts-Goldie-Veraverbeke 漸近、初期 y_0 cushion 不足、Lundberg-Cramér 上界 exp(-R_∗ y_0) 閾値以下で early NO_GO 推奨。YD UE 律速 NO_GO (Ch 5.5 GO ゲート発火) との接続",
+        "即落型サブ類型 — (a) BATNA 喪失型 (Y-001 → z_options 急落)、(b) KOL 信用蒸発型 (Y-004 → z_trust 急落)、(c) 主要顧客喪失型 (Y-005 → z_moat 急落)、(d) NO_GO 律速型 (Ch 5.5 GO ゲートで J_x << 0)、F8.4 falsifiable: 即落型は (a) or (b) で識別可能",
+        "Θ_healthy 健全型 formal 定義 — μ_x > 0 + μ_y ≥ 0 + ρ_{xy} > 0 + λ_y^- 小 + λ_x^+ active、F_char × F_cap (Ch 7) 補完で μ_y ≥ 0 維持、moat / trust が x 進捗とともに増殖。BWE 補完パターン、判定基準 S ≥ 0.8 領域、(μ_y / μ_x) と (λ_y E[J_y] / μ_x) の 2 比で formal 化",
+        "観測等価類と Ch 26b 区別子 — disjoint partition 主張 + mixture を null hypothesis 化、区別子: (i) 高頻度サンプリング (μ trajectory の局所推定)、(ii) J_y イベント直接観測 (Y-001/004/005 タイミング)、(iii) KOL 信用 proxy (z_trust の時系列観測)、(iv) BATNA proxy (z_options の並走候補数推移)",
+        "境界の連続性と相転移 — Θ_saw → Θ_zombie (補充 jump 弱化)、Θ_zombie → Θ_crash (重い裾 jump 出現)、機能性材料案件は Θ_zombie 境界で 'options-binding 即落寸前ゾンビ' として扱い、Ch 26b 事前登録の型安定性主張",
+        "Klepper 入れ子化 (D-035) スケール分離規約 — 鋸歯型は本章 per-PJ SDE level の補充 jump 領域、Ch 10.5 Klepper shakeout は post-B industry hazard level の累積ハザード、両者は別現象 (相関 ≤ 0.3、F8.8 falsifiable)。本章では shakeout の起源ではなく per-PJ 鋸歯動学に限定、Ch 10.5 接続インタフェース (μ_y, λ_y^+ の機関→産業集約) を明示",
+        "L1 §3.6 反証可能性 — 4 類型 disjoint partition 主張が経験的に支持されない条件 (混合類型 > 30% / 連続スペクトル) を Ch 26b 事前登録 null hypothesis として登録、F8.1 (混合類型 ≤ 2 PJ) falsifiable",
+        "図 g8.3.1 4 類型のパラメータ領域図 (Θ 平面、新規)、図 g8.3.2 4 類型 sample path 比較 (f8 拡張)、表 t8.3.1 4 類型の (μ_x, μ_y, λ_x, λ_y, J) プロファイル + 文献接続 + 典型 PJ"
+      ],
+      "new_writing_required": "4 領域 Θ の formal 不等式定義 2.5p、Bertola-Caballero / Pakes-Ericson / Foss-Korshunov-Zachary 接続 1p、観測等価類 + Ch 26b 区別子先取り 1p、Klepper 入れ子化スケール分離規約 0.5p、図 g8.3.1-2 / 表 t8.3.1 新規 1.5p、ゾンビ型 T_review 接続 + 即落型サブ類型 + 健全型 F_char × F_cap 接続",
+      "existing_reuse": "strategic-slack.md の 4 類型 (鋸歯/ゾンビ/即落/健全) 命名と現場感覚記述を約 50% 流用、f8 trajectories 図を g8.3.2 として SDE 軌跡サンプル図に Tier 3 化",
+      "upstream_dependencies": [
+        "§8.2 SDE と λ_x, λ_y 構造",
+        "§8.1 binding 成分縮約",
+        "Ch 5 σ_SU (λ_x 変調 + TIEM 早すぎ Y-001)",
+        "Ch 5.5 T_review (ゾンビ型人為発火) + NO_GO J_x (即落型律速)",
+        "Ch 7 F-CES (健全型 F_char × F_cap 補完)",
+        "Ch 9 ERS (Y-001/004/005)",
+        "Book III 8 PJ メタデータ"
+      ],
+      "downstream_dependencies": [
+        "§8.5 4 PJ 後付け校正",
+        "Ch 10.5 Klepper 鋸歯型統合ハザード (D-035 接続インタフェース)",
+        "Ch 11 BVAR + jump + gate 推定 (4 領域識別)",
+        "Ch 25 機関→案件 R/S 速度の 4 類型分別",
+        "Ch 26b 軌跡型予測事前登録レジストリ (区別子 + null hypothesis)",
+        "Book III Ch 12-19 8 PJ 後付け校正章群"
+      ],
+      "references": [
+        "Klepper (1996, 2002) AER shakeout / entry-exit-growth-innovation",
+        "Bertola-Caballero (1990, 1994) RFS kinked adjustment costs / irreversible investment",
+        "Pakes-Ericson (1998) JET zombie firm dynamics",
+        "Dixit-Pindyck (1994) Investment under Uncertainty (wait region)",
+        "Embrechts-Goldie-Veraverbeke (1979) subexponential class",
+        "Foss-Korshunov-Zachary (2013) ch.3-4 subexponentiality",
+        "strategic-slack.md 4 類型節 (現場感覚)",
+        "BOOK_DECISIONS.md D-031 Tier A 規律 / D-035 Klepper 入れ子化"
+      ],
+      "source_drafts": [
+        "A §8.3 (4 類型 disjoint パラメータ領域、観測等価類、Lundberg-Cramér 生存条件、early NO_GO 閾値)",
+        "B §8.3 (Bertola-Caballero / Pakes-Ericson / Embrechts-Goldie-Veraverbeke 文献縫合、Ch 26b 区別子先取り、即落型サブ類型)",
+        "C §8.3 (パラメータ Θ の不等式定義、機能性材料 options-binding 境界事例、Klepper スケール分離規約、定量境界 λ_y^+ E[J_y^+] / |μ_y| ≈ 1)"
+      ]
+    },
+    {
+      "section_id": "8.4",
+      "title": "健全性指標 H = y / T_remaining の局所マルコフ単調変換と Ch 5.5 GO ゲート τ_B 接続",
+      "pages": 4.5,
+      "math_level": "中〜高 (Tier 3 + Tier A: 局所マルコフ近似、Doob h-変換型単調変換、命題 P8.4.1、SDE 切替 + optional stopping time、Bertsekas-Powell-Pakes-Ericson Bellman 最適停止 + Dixit-Pindyck real options 特殊ケース)",
+      "anchor_claims": [
+        "健全性指標 H_t = y_t / T_remaining(t) は月単位無次元量 ('あと何ヶ月分の余力を残り horizon あたりで持っているか')、現場 URA / EIR の monthly review 直接観測可能な KPI",
+        "命題 P8.4.1 (局所マルコフ単調変換): 局所マルコフ近似 (短時間 τ ≪ T_remaining で μ, λ, J 分布凍結) + 弱定常条件 (μ_y, λ_y, J_y 分布が H に弱依存) + light-tail jump 下で、H は S(x, y, T_remaining) の単調増加変換 ∂S/∂H > 0 (Doob h-変換型)。本文スケッチ + 付録 A 完全証明 (D-047)、global identification は Ch 25 へ supply",
+        "Tier A 経験則閾値: H > 1 余裕期 / H ∈ [0.5, 1] 通常期 / H ∈ [0.2, 0.5] 警戒期 / H < 0.2 危険期、Ch 25 経験的較正で機関タイプ依存性検証 (章末問い iv)",
+        "Ch 5.5 GO(t,i) ゲートは 2D jump-diffusion の起動イベント τ_B = inf{t : GO(t, i) = 1} として埋め込まれ optional stopping time として well-defined、t < τ_B では B = 0 で y dynamics 休眠 (機関内 R のみ進行で x 進展)、t ≥ τ_B で μ_y(R_net - B) 始動 (B 燃焼で μ_y < 0 支配)",
+        "Sequential decision view (Bertsekas-Powell-Pakes-Ericson): GO 起動を 2D jump-diffusion 上の最適停止問題 (Bellman max{continuation value, GO value}) として書き、Dixit-Pindyck (1994) investment threshold の特殊ケースに位置付け。本書貢献は (i) 5D → 1D スカラー縮約、(ii) σ_SU 経由 GO 内生化。Approximate Dynamic Programming (Powell 2007) 完全解は Book IV へ",
+        "近似破れの場合: 重い裾 jump (Y-001 級)、ρ_{xy} 強相関、binding 成分急変、σ_SU 状態遷移直後 — H は記述指標として残るが S 単調変換性は失われる (Tier A 限界宣言)",
+        "ゾンビ型の SDE 上 τ_y 不発火問題 — H は緩降下するが SDE 上 y > 0 で τ_y far、Ch 5.5 T_review (再評価ゲート) で人為的 τ_y 発火が政策含意 (機能性材料 options-binding 慢性消耗の救済路)",
+        "τ_B 前後で y(t) の二次変動 [y, y]_t は構造変化、Ch 11 BVAR + gate 推定 break test で検証可能 (F8.9 falsifiable)"
+      ],
+      "paragraph_outline": [
+        "H = y / T_remaining 定義と motivation — 戦略余力 y は absolute level ではなく事業化までの残時間で正規化されて初めて意味を持つ (strategic-slack.md 健全性論の再定式化)、月単位無次元量",
+        "T_remaining(t) = E[τ_x - t | F_t] の定義 — SDE から原理的に評価可能、運用上はマイルストーン残数 × 平均月数 (CTB 5 年 / TIEM 3 年 / YD 2 年 / BWE 4 年など) で近似、Ch 5.5 fund 期間と整合",
+        "局所マルコフ近似の formal 設定 — 短時間スケール τ ≪ T_remaining で drift / intensity / jump 分布凍結、(x, y) の短時間挙動を 1D 賭博者破産問題に reduction する条件 (Asmussen 2003 ch.III)",
+        "命題 P8.4.1 スケッチ — 弱定常条件 + light-tail jump 下で Doob h-変換型に ∂S/∂H > 0、Cramér-Lundberg equation で γ = γ(H) と書け H の単調変換性が従う、完全証明は付録 A (D-047)",
+        "Tier A 経験則閾値の運用 — H > 1 / 0.5 / 0.2 の階層、現場 monthly review での H trend 監視、各 4 類型の H trajectory 特徴 (鋸歯: 周期回復 / ゾンビ: 緩降下 / 即落: 階段状暴落 / 健全: 平坦上昇)、Ch 25 経験的較正で機関タイプ依存性検証 (章末問い iv)",
+        "近似限界宣言 — 重い裾 jump / 強 ρ_{xy} / binding 成分急変 / σ_SU 遷移直後で H 単調変換性破綻、Tier A 'KPI として有用、因果モデルではない' の規律",
+        "Ch 5.5 GO ゲート τ_B 接続 (1) — τ_B = inf{t : GO(t,i) = 1} の optional stopping time としての well-definedness (σ_SU MS-SSM 適合フィルトレーション)、t < τ_B で B = 0, y dynamics 休眠、t ≥ τ_B で μ_y(R_net - B) 始動",
+        "Ch 5.5 GO ゲート τ_B 接続 (2) — τ_B 前後で y(t) の二次変動 [y, y]_t 構造変化、Ch 11 BVAR + gate 推定 break test で検証可能 (F8.9 falsifiable)、p < 0.1 で有意なら formal 化支持",
+        "Sequential decision view (Bertsekas-Tsitsiklis 1996 NDP, Powell 2007 ADP, Pakes-Ericson 1998 退出問題双対) — GO 起動を 2D jump-diffusion 上の最適停止問題、Bellman 方程式 V(x, y, σ_SU) = max{continuation value, GO value}、閾値ルール近似",
+        "Real options 接続 (Dixit-Pindyck 1994) — investment threshold が 2D jump-diffusion 拡張の特殊ケース、本書貢献は 5D → 1D スカラー縮約 + σ_SU 経由 GO 内生化、Book IV (Ch 30/31) 交渉論で ADP 完全解と接続",
+        "ゾンビ型再特徴化 — τ_B 遅延 + T_review 稀発火、SDE 上 τ_y 不発火問題、T_review (Ch 5.5) で人為的 τ_y 発火が政策含意 (機能性材料 options-binding 慢性消耗の救済路)",
+        "健全型再特徴化 — τ_B 適時 + ρ_{xy} > 0 + λ_x^+ active、H 増加 trajectory、BWE F_char × F_cap 補完が μ_y ≥ 0 起源",
+        "図 g8.4.1 4 類型 H trajectory 比較 (鋸歯周期回復 / ゾンビ緩降下 / 即落階段状暴落 / 健全平坦上昇)、図 g8.4.2 τ_B 起動前後の SDE 切替概念図 (新規)、g25 condition を τ_B 接続図に再構築"
+      ],
+      "new_writing_required": "H 局所マルコフ単調変換命題 P8.4.1 + スケッチ 1p、Tier A 経験則閾値 0.5p、τ_B optional stopping time + SDE 切替 + 二次変動 break test 1p、sequential decision view (Bertsekas-Powell-Pakes-Ericson Bellman + Dixit-Pindyck real options 特殊ケース) 1p、ゾンビ型 T_review 人為発火 + 図 g8.4.1-2 1p",
+      "existing_reuse": "strategic-slack.md の H = y/T_remaining 定義 + 運用感を約 60% 流用、g25 (条件図) を τ_B 接続図に再構築",
+      "upstream_dependencies": [
+        "§8.2 SDE",
+        "§8.3 4 類型",
+        "§8.1 月単位共通換算",
+        "Ch 5 σ_SU MS-SSM (τ_B フィルトレーション)",
+        "Ch 5.5 GO ゲート + T_review"
+      ],
+      "downstream_dependencies": [
+        "§8.5 4 PJ 校正",
+        "Ch 11 BVAR + jump + gate 推定 (二次変動 break test)",
+        "Ch 25 H と S 単調性完全証明 + 機関タイプ依存閾値較正",
+        "Ch 26b H_0 からの 4 類型予測事前登録",
+        "Book IV Ch 30/31 (real options 完全解 + 交渉論)",
+        "Book II 付録 A 完全証明"
+      ],
+      "references": [
+        "Doob (1953) Stochastic Processes h-変換",
+        "Asmussen (2003) ch.III 賭博者破産",
+        "Bertsekas-Tsitsiklis (1996) Neuro-Dynamic Programming",
+        "Powell (2007) Approximate Dynamic Programming",
+        "Pakes-Ericson (1998) JET",
+        "Dixit-Pindyck (1994) Investment under Uncertainty ch.5-6",
+        "Ch 5.5 GO ゲート定義",
+        "BOOK_DECISIONS.md D-051 記号表記正本",
+        "strategic-slack.md 健全性節 + g25"
+      ],
+      "source_drafts": [
+        "A §8.4 (H 単調変換性の記述的所見、τ_B 接続、ゾンビ型 T_review 人為発火)",
+        "B §8.4 (命題 P8.4.1 番号化、弱定常条件、Doob h-変換、Ch 25 supply)",
+        "C §8.4 (H 運用閾値 > 1 / < 0.5 / < 0.2、sequential decision view Bertsekas-Powell-Pakes-Ericson Bellman、Dixit-Pindyck real options 特殊ケース、本書貢献明示)"
+      ]
+    },
+    {
+      "section_id": "8.5",
+      "title": "4 PJ 後付け校正 (CTB 鋸歯 / TIEM ゾンビ / YD 即落 / BWE 健全) と章末問い",
+      "pages": 5.5,
+      "math_level": "中 (Tier A 記述的校正: 4 PJ 各 θ プロファイル + 領域分類整合性、定量推定は Ch 11/26b へ supply、定量境界 λ_y^+ E[J_y^+] / |μ_y| ≈ 1 など)",
+      "anchor_claims": [
+        "CTB (創薬 SU) は Θ_saw 鋸歯型として後付け校正 — μ_x > 0 (PoC → IND → P1 monotone 進展)、μ_y < 0 (継続消耗) を λ_y^+ > 0 (GAP fund / マイルストーン入金 / ライセンス前金) で λ_y^+ E[J_y^+] / |μ_y| ≈ 1 近傍に補充、鋸歯振動再現。Ch 10.5 post-B Klepper shakeout 接続候補 (D-035 入れ子化)",
+        "TIEM (早すぎイノベーション) は Θ_zombie ゾンビ型として後付け校正 — σ_SU 早すぎ Y-001 状態下で μ_x ≈ 0 (技術飛躍待ち)、μ_y ≈ 0 緩 (社会的余力 trust が cushion で B 微小)、λ_y^+ 不在、T_review (Ch 5.5) 発火による人為的 τ_y が政策含意。Bertola-Caballero inertia / Pakes-Ericson zombie firm と整合",
+        "YD (UE 律速 NO_GO) は Θ_crash 即落型として後付け校正 — Ch 5.5 GO ゲートで UE 想定下振れ → NO_GO J_x << 0 発火 (サブ類型 d)、ないし機能性材料案件 BATNA 喪失型 (サブ類型 a) として heavy-tail downward jump (license 交渉決裂 → z_options 1 → 0 → z_cash 連鎖) で τ_y < τ_x 短時間実現、Lundberg-Cramér 上界 exp(-R_∗ y_0) 閾値以下で early NO_GO",
+        "BWE (補完型) は Θ_healthy 健全型として後付け校正 — F_char × F_cap (Ch 7 F-CES 補完) で μ_x > 0, μ_y ≥ 0, ρ_{xy} > 0、λ_x^+ active、H trajectory 平坦上昇、補充 jump 依存度低。F-CES 補完群 vs 非補完群 oddsratio ≥ 2.0 (F8.7 falsifiable、Ch 7 と Ch 8 を経験的に結ぶ)。Book III BWE 章ドラフト経験的根拠の事前確認が必要 (open issue)",
+        "4 類型分類は Tier A 記述的整合性のみ保証、定量推定は Ch 11 BVAR + jump + gate へ、4 類型予測の反証可能性確保は Ch 26b 事前登録レジストリへ supply",
+        "残り 4 PJ (Book III Ch 16-19) は本章 4 類型分類を受けて Book III 各章末追録で 4 類型ラベル割当、F8.1 (混合類型 ≤ 2 PJ) falsifiable に直結",
+        "章末問い 5 件: (i) Φ 加法 ↔ CES sensitivity の 4 類型分類安定性 (Ch 25)、(ii) heavy-tail jump 裾分布クラス (Foss-Korshunov-Zachary) の Θ_crash 境界感度 (Ch 11)、(iii) GO ゲート τ_B optional stopping time の本章 SDE 整合性 (Ch 11 BVAR + gate)、(iv) Ch 25 で 4 類型周辺密度モード分離しない場合の主張修正方針 (Ch 26b null hypothesis)、(v) 鋸歯型 (per-PJ) と Klepper shakeout (post-B 産業淘汰) 別現象維持条件 (D-035)"
+      ],
+      "paragraph_outline": [
+        "後付け校正方法論 — Tier A 章では parameter 推定は記述的、構造的 identification は Ch 11 BVAR + Ch 25 経験的層間結合に委ね、本章は 4 類型ラベル割当 + Θ 領域整合性確認のみ。Book III Ch 12-19 ドラフトから素材抽出、各 PJ の (μ_x, μ_y, λ_x, λ_y^+, λ_y^-, J 分布) ラフプロファイル提示",
+        "CTB 創薬 Θ_saw 校正 — μ_x 中程度 (PoC → IND → P1 進展)、μ_y < 0 (高 burn)、λ_y^+ > 0 で GAP fund / 臨床試験マイルストーン入金 / ライセンス前金の正 jump、λ_y^+ E[J_y^+] / |μ_y| ≈ 1 近傍で鋸歯周期再現、上向き jump 間隔は exponential より Weibull shape > 1 / Gamma の regular 構造 (F8.5 falsifiable)、Ch 10.5 post-B Klepper shakeout 接続候補",
+        "TIEM ゾンビ型 Θ_zombie 校正 — σ_SU 早すぎ Y-001 状態の同定、μ_x ≈ 0 (技術飛躍待ち、λ_x^+ 稀)、μ_y ≈ 0 緩 (社会的余力 trust cushion + B 微小)、λ_y^+ 不在、T_review 発火による人為的 τ_y が政策含意。σ_SU 状態系列と x_t flat 期間の重なり ≥ 80% (F8.6 falsifiable)、Bertola-Caballero inertia 期間分布との整合",
+        "YD UE 律速 NO_GO Θ_crash 校正 — Ch 5.5 GO ゲートで UE 想定下振れ → NO_GO J_x << 0 発火、τ_x 事実上無限大に飛び τ_y を待たず早期停止 (即落型変種 = τ_stop が τ_y より先)、サブ類型 (d) NO_GO 律速型。代替に機能性材料案件 (BATNA 喪失型) を即落型のサブ類型 (a) として併記 — heavy-tail downward jump (license 交渉決裂 → z_options 1 → 0 → z_cash 連鎖) で τ_y < τ_x 短時間実現、Lundberg-Cramér 上界 exp(-R_∗ y_0) 閾値以下で early NO_GO 警戒",
+        "BWE 健全型 Θ_healthy 校正 — F_char × F_cap (Ch 7 F-CES 補完) で μ_x > 0, μ_y ≥ 0, ρ_{xy} > 0、λ_x^+ active、H trajectory 平坦上昇、補充 jump 依存度低。F-CES 補完群 vs 非補完群の oddsratio ≥ 2.0 (F8.7 falsifiable、Ch 7 と Ch 8 を経験的に結ぶ最良の橋)。Book III BWE 章ドラフトの事前根拠確認 (open issue)",
+        "校正まとめ表 t8.5.1 — PJ × 類型 × 主要 jump イベント × (μ_x, μ_y, λ_x, λ_y) ラフ値 × Ch 11/25/26b 検証計画",
+        "図 g8.5.1 4 PJ の (x, y) 平面 sample trajectory 比較、図 g8.5.2 4 PJ の H trajectory 比較",
+        "後付け校正の限界 — 4 PJ は本書執筆時点で観察済 trajectory、Ch 26b 事前登録は未観察 PJ で 4 類型予測の反証可能性を確保する設計、observation-based calibration の identification 限界宣言",
+        "残り 4 PJ (Book III Ch 16-19) への適用予告 — 主要 4 PJ + 残 4 PJ で計 8 PJ、F8.1 (混合類型 ≤ 2 PJ) falsifiable に直結",
+        "章末問い (i) Φ 加法 ↔ CES sensitivity の 4 類型分類安定性 (≥ 80% 一致、F8.7b) — Ch 25 で経験的検証",
+        "章末問い (ii) heavy-tail jump 裾分布クラス (Foss-Korshunov-Zachary subexponential, Pareto / regularly varying / Weibull) の Θ_crash 境界感度 — 4 PJ では識別不能 (limit-aware falsifiable F8.12)、Ch 25 全 8 PJ で初めて判別可能、Ch 11 BVAR で推定",
+        "章末問い (iii) GO ゲート τ_B optional stopping time の本章 SDE 整合性 — Ch 11 BVAR + gate 推定での y(t) 二次変動 [y, y]_t break test (p < 0.1 有意なら formal 化支持、F8.9 falsifiable)",
+        "章末問い (iv) Ch 25 経験的検証で 4 類型周辺密度モード分離しなかった場合の本章主張修正方針 — Ch 26b null hypothesis (混合類型 > 30% / 連続スペクトル) を事前登録、disjoint partition 主張が反証された場合の連続スペクトル再定式化",
+        "章末問い (v) 鋸歯型 (per-PJ SDE level) と Klepper shakeout (post-B industry hazard level, Ch 10.5) 別現象維持条件 — D-035 入れ子化、相関 ≤ 0.3 (F8.8 falsifiable) の維持",
+        "章間 supply 一覧 (Ch 5/5.5/6/7/9 → Ch 8 → Ch 10.5/11/25/26b/Book III/Book IV) を章末で再掲",
+        "観察者間信頼性 (Cohen's κ / ICC) による D-025 5 成分月単位換算の検証設計 (F8.10 falsifiable、Ch 25 で 8 PJ × 複数評価者の独立評価)",
+        "Tier A 規律遵守宣言 (D-031) と Book IV (Ch 30/31) 交渉論・ライセンス料率実務移管確認"
+      ],
+      "new_writing_required": "4 PJ 校正各 0.7p × 4 = 2.8p、まとめ表 t8.5.1 + 図 g8.5.1-2 1p、章末問い 5 件 1p、章間 supply 再掲 + Tier A 規律宣言 + Book IV 移管 0.5p、観察者間信頼性 falsifiable 設計 0.2p",
+      "existing_reuse": "strategic-slack.md の機能性材料案件 (YD 即落型 BATNA 喪失型サブ類型 a として併用) を約 50% 流用、CTB/TIEM/BWE は Book III Ch 12 (CTB) / Ch 14 (TIEM) / Ch 15 or 16 (BWE) ドラフトから素材抽出 (新規再構成)",
+      "upstream_dependencies": [
+        "§8.1-§8.4 全節",
+        "Ch 5.5 GO ゲート + T_review",
+        "Ch 6 PRS (4 PJ 適用)",
+        "Ch 7 F-CES (BWE 健全型補完起源)",
+        "Ch 9 ERS (TIEM Y-001 + YD/機能性材料 Y-001/004/005)",
+        "Book III Ch 12 (CTB) / Ch 13 (YD) / Ch 14 (TIEM) / Ch 15 or 16 (BWE) ドラフト"
+      ],
+      "downstream_dependencies": [
+        "Ch 10.5 Klepper 鋸歯型統合ハザード (CTB 接続候補)",
+        "Ch 11 BVAR + jump + gate 推定",
+        "Ch 25 層間結合 (機関→案件 R/S 速度の 4 類型分別 + 観察者間信頼性検証 + Tier A 経験則閾値較正)",
+        "Ch 26b 4 類型予測事前登録レジストリ (区別子 + null hypothesis + 残 4 PJ 予測登録)",
+        "Book III Ch 12-19 8 PJ 後付け校正 (主要 4 PJ + 残 4 PJ)",
+        "Book IV Ch 30/31 (交渉論・ライセンス料率実務 + ADP real options 完全解)"
+      ],
+      "references": [
+        "Book III Ch 12 (CTB) / Ch 13 (YD) / Ch 14 (TIEM) / Ch 15 or 16 (BWE) ドラフト",
+        "pwa/bzm/strategic-slack.md 機能性材料ケース",
+        "BOOK_DECISIONS.md D-024 / D-025 / D-031 / D-035 / D-047 / D-051",
+        "Ch 5.5 GO ゲート / T_review、Ch 7 F-CES、Ch 9 ERS、Ch 10.5 Klepper、Ch 11 BVAR、Ch 25 層間結合、Ch 26b 事前登録"
+      ],
+      "source_drafts": [
+        "A §8.5 (4 PJ 校正 + 章末問い 4 件 + Ch 25/Ch 26b 引き継ぎ明示、Cohen's κ / ICC 検証設計)",
+        "B §8.5 (CTB/TIEM/YD/BWE 校正 + 章末問い + サブ類型細分化 + F-CES 補完 oddsratio falsifiable)",
+        "C §8.5 (4 PJ 校正 + 定量境界 λ_y^+ E[J_y^+] / |μ_y| ≈ 1、章末問い 5 件 + Klepper スケール分離維持、Book IV 移管確認、機能性材料境界事例)"
+      ]
+    }
+  ],
+  "open_issues_for_masa": [
+    {
+      "issue": "y 集約関数 Φ の CES vs fiat 加法選択 (D-025 解釈細目) — 本章は CES (ρ ∈ (0,1]) 主軸 + 加法 sensitivity を提案するが、3 草案で揺れあり (A: 加法主・CES sensitivity / B: 加法基本・CES sensitivity / C: CES 主・加法 baseline)。Ch 7 F-CES の ρ と共有するか別パラメータ化するかも未確定",
+      "why_masa_decides": "D-025 確定判決の運用解釈であり、Ch 7 F-CES との数理的整合 + 5 成分の弱補完性 (cash あっても trust ゼロなら BATNA 死ぬ) という現場感覚をどう数式化するかの哲学判断。masa の '5 成分は補完不能性が core' という直観の強度が決め手",
+      "options": [
+        "案 X: CES 主軸 (ρ ∈ (0,1])、加法 sensitivity、Ch 7 ρ と共有 (1 パラメータ)",
+        "案 Y: 加法主軸、CES sensitivity、Ch 7 ρ と独立 (2 パラメータ)",
+        "案 Z: CES 主軸、Ch 7 ρ と独立 (2 パラメータ、最も柔軟だが推定負担増)"
+      ],
+      "recommendation": "案 X (CES 主軸 + Ch 7 ρ 共有)。理由: (i) 5 成分弱補完性の現場感覚が CES と整合、(ii) 1 次同次性によるスカラー化正当化 (C 案 §8.1 採用) が CES で自然、(iii) Ch 7 F-CES と ρ 共有で推定負担減 + 章間整合性向上、(iv) 加法は ρ → 1 縮約として sensitivity に残せる。Ch 11 BVAR で ρ 値推定し、ρ ≪ 1 なら CES の補完性が経験的支持、ρ ≈ 1 なら加法縮約が支持される設計"
+    },
+    {
+      "issue": "Ch 5.5 GO ゲート τ_B 以前の x_t 進行をどう扱うか — t < τ_B では機関内 R で x 進展する設計だが、その上流動学を Ch 5.5 から完全 supply で受け取れるか、本章で SDE 切替として書くか",
+      "why_masa_decides": "Ch 5.5 skeleton 側との境界画定。τ_B 以前の x dynamics を Ch 5.5 で扱うと本章 SDE は τ_B 以後のみ、Ch 8 で扱うと t < τ_B の y dynamics 休眠と t ≥ τ_B の y dynamics 始動の二段 SDE を書く必要がある",
+      "options": [
+        "案 X: τ_B 以前の x 進行は Ch 5.5 で扱い、本章 SDE は τ_B 以後 (effective t=0) のみ",
+        "案 Y: 本章で二段 SDE (t < τ_B: y 休眠 + x 機関内 R 進行 / t ≥ τ_B: y 始動 + B 燃焼) を formal 化、τ_B は optional stopping time",
+        "案 Z: t < τ_B は shadow dynamics (B = 0 + 機関内 R による μ_x 縮小版) として本章で軽く扱い、formal SDE は τ_B 以後"
+      ],
+      "recommendation": "案 Y (本章で二段 SDE)。理由: (i) C 案 §8.4 の sequential decision view (Bellman max{continuation, GO}) が二段 SDE と最も整合、(ii) τ_B 前後の二次変動 [y, y]_t break test (A 案 falsifiable 6 → F8.9) が二段 SDE で初めて検証可能、(iii) Ch 5.5 GO ゲート評価と本章 SDE 始動の境界が明示的になり Ch 5.5 skeleton 側との分担が clear に。Ch 5.5 と境界調整必要 — Ch 5.5 は GO 意思決定論、Ch 8 は GO 前後の SDE 動学"
+    },
+    {
+      "issue": "Lundberg-Cramér light-tail と Foss-Korshunov-Zachary heavy-tail subexponential の本文配分 — 3 judges 全員が heavy-tail の §8.2 正面導入を推奨、ただし 32p 制約下で §8.2 (6.5p) に両漸近を詰めると膨張リスク",
+      "why_masa_decides": "Tier 3 学術化の数理水準と読みやすさの trade-off。ICC / 応用確率系査読対応として heavy-tail 必須だが、masa の読者層 (URA / EIR / 投資家) が両漸近を本文で追いきれるか、付録 A に push するかの哲学判断",
+      "options": [
+        "案 X: 本文で両漸近を formal 提示 (B 案路線)、付録 A は完全証明のみ、§8.2 は 7p 拡張",
+        "案 Y: 本文は light-tail (Lundberg-Cramér) を主軸 + heavy-tail (Foss-Korshunov-Zachary) を §8.2 末で対照節 (0.5p) として補強、完全 heavy-tail formal は付録 A、§8.2 は 6.5p 維持",
+        "案 Z: 本文は light-tail のみ formal、heavy-tail は付録 A に全部 push、本文では即落型 (Θ_crash) で heavy-tail 起源を言及のみ"
+      ],
+      "recommendation": "案 Y (本文 light-tail 主軸 + heavy-tail 対照節 + 付録 A 完全証明)。理由: (i) 32p 配分維持、(ii) ICC / Cambridge UP 査読対応として heavy-tail 言及は本文必須、(iii) 即落型 (Θ_crash) の formal 起源が heavy-tail である主張 (§8.3) と整合、(iv) Lundberg-Cramér 上界 exp(-R_∗ y_0) の early NO_GO 閾値解釈 (A 案 grafted) は light-tail で完結可能。Foss-Korshunov-Zachary 完全 formal は付録 A で D-047 規律を遵守"
+    },
+    {
+      "issue": "Y-001 / Y-004 / Y-005 級イベント番号と内容の確定 — 3 草案全て placeholder で、用語集 / BOOK_DECISIONS.md 側の確定が必要 (本 skeleton は仮番号で記述)",
+      "why_masa_decides": "用語集と BOOK_DECISIONS.md の確定判決事項。Y-001 (BATNA 喪失) / Y-004 (KOL 離反) / Y-005 (主要顧客喪失) の番号と内容を確定すれば本章 §8.2 λ_y(B-shock, Y-001/004/005) と §8.3 即落型サブ類型が確定する",
+      "options": [
+        "案 X: 現状の仮番号 (Y-001 BATNA / Y-004 KOL / Y-005 主要顧客) で確定 (本 skeleton と一致)",
+        "案 Y: 別番号体系 (例: Ch 9 ERS と整合する番号付け) で確定",
+        "案 Z: 番号付けせず記述名 (BATNA 喪失イベント等) のみで運用、Ch 9 ERS で同じ記述を使う"
+      ],
+      "recommendation": "案 X (現状の仮番号で確定) を BOOK_DECISIONS.md 側で確定。理由: (i) 3 草案全てが Y-001/004/005 を仮採用しており skeleton 統合性高い、(ii) Ch 9 ERS との整合は Ch 9 skeleton 起草時に番号体系で吸収可能、(iii) 番号付けにより λ_y(B-shock, Y-001/004/005) の引数明示が formal SDE 記述で便利。Ch 9 skeleton と相互調整して最終確定"
+    },
+    {
+      "issue": "Ch 10.5 Klepper 入れ子化 (D-035) の鋸歯 (SDE level) vs shakeout (industry hazard level) スケール分離の表記規約 — 本章では per-PJ SDE level の鋸歯型として formal、Ch 10.5 では post-B 産業淘汰累積ハザードとして formal、両者の coherence を Ch 10.5 skeleton と相互調整",
+      "why_masa_decides": "Ch 10.5 skeleton 側との境界画定。本章で鋸歯型を 'SDE 上の補充 jump 領域 Θ_saw' として書くが、Ch 10.5 で 'post-B Klepper shakeout の累積ハザード' として書く際、機関→産業集約 (μ_y / λ_y^+ の aggregation 規約) を本章で予告するか Ch 10.5 で初出させるか",
+      "options": [
+        "案 X: 本章 §8.3 で Klepper 入れ子化スケール分離規約を明示 + 相関 ≤ 0.3 falsifiable を本章で立てる (C 案路線)、Ch 10.5 で受ける",
+        "案 Y: 本章では言及のみで予告に留め、Klepper 入れ子化の formal は Ch 10.5 で初出",
+        "案 Z: 本章で 鋸歯 (SDE) + shakeout (hazard) 両方を formal、Ch 10.5 は per-PJ → industry 集約のみ扱う"
+      ],
+      "recommendation": "案 X (本章 §8.3 でスケール分離規約 + falsifiable 立て)。理由: (i) D-035 入れ子化を本章でスケール分離規約として明示しておかないと Ch 10.5 で混乱、(ii) 相関 ≤ 0.3 falsifiable (F8.8) は本章で立てておく方が Ch 26b 事前登録レジストリへの supply 設計と整合、(iii) Ch 10.5 は機関→産業集約の具体的 hazard model に集中できる。Ch 10.5 skeleton 起草時に最終調整"
+    },
+    {
+      "issue": "観測等価類を disjoint partition として主張するか mixture / 連続スペクトルを許すか — 3 草案で揺れあり (A: disjoint 主張 + mixture を null hypothesis に / B: disjoint partition / C: 境界遷移 + 混合許容)。Ch 26b 事前登録の null hypothesis 仕様と整合させる必要",
+      "why_masa_decides": "Tier A 主張の強度判断。disjoint partition を本章で強く主張すれば反証可能性は高いが、現実観測 (8 PJ や 30+ 案件) で混合類型が多数出る場合の科学的撤退ラインを設計する必要",
+      "options": [
+        "案 X: disjoint partition を本章で formal 主張、mixture > 30% を Ch 26b null hypothesis として登録 (A 案 + B 案融合)",
+        "案 Y: 境界遷移 + 混合許容を本章で明示 (C 案路線)、disjoint partition は 'idealized 4 類型' として記述に留める",
+        "案 Z: 主類型 + 境界事例 (機能性材料 = 'options-binding 即落寸前ゾンビ' など) を formal 化、境界事例は別領域として 5 番目に追加"
+      ],
+      "recommendation": "案 X (disjoint partition 主張 + mixture を Ch 26b null hypothesis)。理由: (i) Lens B (publishability + Ch 26b) judge 2 推奨、(ii) F8.1 (混合類型 ≤ 2 PJ) falsifiable が disjoint partition で明確、(iii) Ch 26b 事前登録の DSGE 4 条件 #1 置換設計と最強整合、(iv) 経験的に mixture > 30% なら本章主張は反証され連続スペクトル再定式化に移行する撤退ラインが clear。境界事例 (機能性材料案件) は Θ_zombie の境界として §8.3 で扱う (C 案 'options-binding 即落寸前ゾンビ' 表現を採用)"
+    }
+  ],
+  "falsifiable_claims": [
+    "F8.1 (4 類型 disjoint partition): BZM 8 PJ (CTB/YD/TIEM/BWE/残 4) のうち少なくとも 6 PJ は 鋸歯型 / ゾンビ型 / 即落型 / 健全型 の 4 類型のいずれか一つに排他的に分類でき、混合類型を要する PJ は 2 PJ 以下である。Ch 25/26b で K-means / GMM クラスタリングで検証、混合類型 > 30% なら本章 disjoint partition 主張は反証され連続スペクトル再定式化",
+    "F8.2 (light-tail / heavy-tail cross-over): τ_y 初到達確率は light-tail jump 領域 (E[e^{θ J_y}] < ∞) では Lundberg-Cramér 漸近 Pr(τ_y < ∞) ≍ C e^{-γ y_0} に従い、heavy-tail 領域 (Foss-Korshunov-Zachary subexponential class) では Embrechts-Goldie-Veraverbeke 漸近 \\overline{F}(y_0) / (ρ-1) 型に従う — 8 PJ Monte Carlo 校正で cross-over 領域が同定可能 (Ch 11 BVAR + jump + gate 推定で moment generating function 存在性検定)",
+    "F8.3 (H 単調変換性): 健全性指標 H_t = y_t / T_remaining(t) は局所マルコフ近似下で S と単調関係にあり、H_0 から τ_y の事前予測が 8 PJ 中 6 PJ 以上で 95% 信頼区間内 (Ch 26b 事前登録で評価)。Spearman 相関 ρ(H, S_emp) < 0.3 なら反証",
+    "F8.3b (H Tier A 経験則閾値): 健全性指標 H_t を ローリング 6 ヶ月窓で測定したとき、案件停止 / 継続の二値結果に対して H < 0.2 危険期予測の AUC ≥ 0.7 を達成する (Tier A 記述閾値、Ch 25 で機関タイプ依存性較正)",
+    "F8.4 (即落型サブ類型二者択一): 即落型 (Θ_crash) 軌跡は BATNA 喪失 (Y-001 → z_options 急落) または KOL 信用蒸発 (Y-004 → z_trust 急落) のいずれかを heavy-tail downward jump trigger として持つ — 8 PJ のうち即落型と分類された PJ は全例この 2 種類のいずれかが識別可能 (Ch 25)。識別不能例 ≥ 30% なら反証",
+    "F8.5 (鋸歯型 jump 間隔 regular 構造): 鋸歯型 (Θ_saw) 軌跡の上向き jump 間隔は exponential 分布よりも regular (Weibull shape > 1 もしくは Gamma) に従う — CTB GAP fund 補充間隔データで Kolmogorov-Smirnov 検定 p < 0.05 で exponential 棄却 (Ch 11)",
+    "F8.6 (ゾンビ型 σ_SU 同期): ゾンビ型 (Θ_zombie) 軌跡は μ_x ≈ 0 期間が σ_SU 早すぎ Y-001 状態と統計的に同期 — TIEM ケースで σ_SU 状態系列と x_t flat 期間の重なりが 80% 以上 (Ch 5 MS-SSM 出力と接続、Ch 25)。重なり < 50% なら反証",
+    "F8.7 (F-CES 補完群 oddsratio): F-CES 配分 (Ch 7) が F_char × F_cap 補完となっている案件は健全型 (Θ_healthy) 軌跡を辿る確率が 2 倍以上高い — 8 PJ 中 F-CES 補完群 vs 非補完群で軌跡分類の oddsratio が 2.0 以上 (Ch 25 層間結合)。oddsratio < 1.5 なら反証 (Ch 7 と Ch 8 を経験的に結ぶ最良の橋)",
+    "F8.7b (Φ 加法 ↔ CES 分類安定性): y 集約関数を CES (ρ < 1) から加法 (ρ = 1) に変えても、4 類型分類は 80% 以上の案件で一致する (Φ 仕様の堅牢性、Ch 25)。一致率 < 60% なら本章 D-025 解釈は反証",
+    "F8.8 (鋸歯 / Klepper shakeout スケール分離): Klepper shakeout (Ch 10.5) と本章鋸歯型は経験的に独立な現象である — 鋸歯型 (per-PJ SDE level) に分類された案件群と Klepper shakeout 局面 (industry hazard level) に入った産業群の相関 ≤ 0.3 (D-035 維持条件、Ch 25 層間結合)。相関 > 0.5 なら D-035 入れ子化のスケール分離規約は反証",
+    "F8.9 (τ_B 二次変動 break test): Ch 5.5 GO ゲート τ_B 起動前後で y(t) の二次変動 [y, y]_t の経験的不連続性 (Ch 11 BVAR + jump + gate 推定での break test) が p < 0.1 で有意である — 不有意なら τ_B 凍結 → 始動の formal 化は反証され τ_B は連続接続として再定式化必要 (Ch 11)",
+    "F8.10 (D-025 観察者間信頼性): y 5 成分の月単位共通換算指標 (cash / moat / trust / options / focus 月) の観察者間信頼性 (Cohen's κ または ICC) が κ ≥ 0.4 / ICC ≥ 0.5 を達成する — Ch 25 で 8 PJ × 複数評価者の独立評価で検証、κ < 0.4 / ICC < 0.5 (poor agreement) なら D-025 月単位集約は経験的支持されず operational definition の再設計が必要",
+    "F8.11 (Lundberg-Cramér 上界 early NO_GO 閾値): 即落型 PJ (Ch 26b 事前認定) のうち Lundberg-Cramér 上界 exp(-R_∗ y_0) が閾値以上 (本章定式では即落しないはずの cushion 領域) のものが ≥ 30% を占めるなら、本章の即落型 cushion 不足主張 (early NO_GO 推奨) は反証される (Ch 25)",
+    "F8.12 (heavy-tail 4 PJ 識別不能性宣言): heavy-tail jump 裾分布クラス (Pareto / Weibull tail / lognormal tail) の事後選択は 4 PJ サンプルでは決まらない (識別不能性宣言)。Ch 25 全 8 PJ + 後付け校正データで初めて判別可能 — limit-aware falsifiable として本章はこの限界を明示宣言"
+  ],
+  "cross_chapter_supply": [
+    {
+      "target_chapter": "Ch 5 σ_SU MS-SSM",
+      "what_supplies": "λ_x(σ_SU, ERS) intensity の σ_SU 状態依存性を §8.2 で formal 化し、ゾンビ型 (Θ_zombie) の σ_SU 早すぎ Y-001 状態との同期性 (F8.6) を §8.3 で主張。Ch 5 σ_SU MS-SSM 出力 (状態列) を §8.5 TIEM ゾンビ型校正の入力として受ける"
+    },
+    {
+      "target_chapter": "Ch 5.5 GO ゲート + T_review",
+      "what_supplies": "GO(t, i) ゲートを 2D jump-diffusion の起動イベント τ_B = inf{t : GO(t, i) = 1} として §8.4 で formal 化し、τ_B 前後の SDE 切替 (二段 SDE) + 二次変動 [y, y]_t break test (F8.9) を Ch 11 推定へ supply。T_review (再評価ゲート) によるゾンビ型 (Θ_zombie) の人為的 τ_y 発火政策含意を §8.4/§8.5 で提示。Ch 5.5 NO_GO J_x << 0 を即落型 (Θ_crash) サブ類型 (d) NO_GO 律速型として §8.3 で受ける"
+    },
+    {
+      "target_chapter": "Ch 6 PRS",
+      "what_supplies": "x ∈ [0,1] = Ch 6 PRS マイルストーン累積の正規化として §8.1 で formal 化、μ_x(R) drift を §8.2 で受ける。健全型 (Θ_healthy) の μ_x > 0 維持条件として F_char (Ch 7) との補完性を §8.3 で接続"
+    },
+    {
+      "target_chapter": "Ch 7 F-CES",
+      "what_supplies": "y の cash 成分 (runway 月) の B - R_net 制約 + 月単位共通換算の月次予算整合を §8.1 で確立、F_char × F_cap 補完による健全型 (Θ_healthy) 軌跡の formal 起源を §8.3 で明示。F-CES 補完群 vs 非補完群の oddsratio ≥ 2.0 (F8.7) で Ch 7 と Ch 8 を経験的に結ぶ。Ch 7 F-CES の ρ と §8.1 y 集約 ρ の共有 / 別パラメータ化は open issue #1 で確認"
+    },
+    {
+      "target_chapter": "Ch 9 ERS",
+      "what_supplies": "λ_y(B-shock, Y-001/004/005) と λ_x(σ_SU, ERS) の経営チーム持続力経由の間接変調を §8.2 で受ける。Y-001 BATNA 喪失 / Y-004 KOL 離反 / Y-005 主要顧客喪失級イベントを §8.3 即落型 (Θ_crash) サブ類型 (a)(b)(c) として formal 化、§8.5 4 PJ 校正で具体化"
+    },
+    {
+      "target_chapter": "Ch 10.5 Klepper shakeout (D-035 入れ子化)",
+      "what_supplies": "鋸歯型 (Θ_saw、per-PJ SDE level) と Klepper shakeout (post-B industry hazard level) のスケール分離規約を §8.3 で明示、機関→産業集約 (μ_y, λ_y^+ の aggregation) インタフェースを §8.3 で予告、相関 ≤ 0.3 (F8.8) の falsifiable で維持。Ch 10.5 では本章 §8.3 の Θ_saw 領域定義を受け、post-B 産業淘汰累積ハザードに集約"
+    },
+    {
+      "target_chapter": "Ch 11 BVAR + jump + gate 推定",
+      "what_supplies": "2D jump-diffusion SDE のパラメータ (μ_x, μ_y, λ_x, λ_y^+, λ_y^-, J 分布, Σ, ρ_{xy}, w_i, ρ) を BVAR + jump + gate 推定で構造的同定 — Asmussen-Glynn (2007) importance sampling Monte Carlo (§8.2) を接続インタフェース、light-tail / heavy-tail cross-over 同定 (F8.2)、τ_B 二次変動 break test (F8.9)、鋸歯 jump 間隔 Weibull/Gamma 検定 (F8.5)、観測等価類の identification を受ける"
+    },
+    {
+      "target_chapter": "Ch 25 層間結合 + 経験的検証 (Tier A)",
+      "what_supplies": "機関→案件 R/S 速度の 4 類型分別 (F8.1, F8.7)、H Tier A 経験則閾値 (> 1 / < 0.5 / < 0.2) の機関タイプ依存性較正 (F8.3b 章末問い iv)、観察者間信頼性 (Cohen's κ / ICC, F8.10) による D-025 5 成分換算検証、Φ 加法 ↔ CES 分類安定性 (F8.7b)、ゾンビ型 σ_SU 同期 (F8.6)、即落型サブ類型識別 (F8.4)、heavy-tail 全 8 PJ 判別 (F8.12) を全て Ch 25 経験的層間結合で受ける"
+    },
+    {
+      "target_chapter": "Ch 26b 軌跡型予測事前登録レジストリ (Tier B)",
+      "what_supplies": "4 類型予測の disjoint partition 主張を事前登録 (open issue #6 採用案 X)、観測等価類区別子 (高頻度サンプリング / J_y イベント直接観測 / KOL 信用 proxy / BATNA proxy) を §8.3 で先取り、null hypothesis (混合類型 > 30% / 連続スペクトル) を登録、残 4 PJ (Book III Ch 16-19) を未観察 PJ として 4 類型予測登録、H_0 からの τ_y 事前予測 (F8.3) を登録"
+    },
+    {
+      "target_chapter": "Book III Ch 12-19 8 PJ 後付け校正",
+      "what_supplies": "CTB 鋸歯 (Ch 12) / YD 即落 (Ch 13) / TIEM ゾンビ (Ch 14) / BWE 健全 (Ch 15 or 16) の主要 4 PJ 校正を §8.5 で提示、残 4 PJ (Ch 16-19) への適用は Book III 各章末追録で 4 類型ラベル割当。Book III は本章 4 類型分類を受けて具体的 PJ narrative を展開"
+    },
+    {
+      "target_chapter": "Book IV Ch 30/31 交渉論・ライセンス料率実務 + ADP real options 完全解",
+      "what_supplies": "本章は確率過程 formal 化に集中し、交渉論・ライセンス料率実務は Book IV に移管 (§8.0 Tier A 規律宣言 + §8.5 末尾再掲)。§8.4 sequential decision view (Bellman 最適停止) の Approximate Dynamic Programming 完全解 (Powell 2007) と Dixit-Pindyck real options 投資閾値の交渉論応用は Book IV で受ける"
+    },
+    {
+      "target_chapter": "Book II 付録 A 完全証明 (D-047)",
+      "what_supplies": "§8.2 PIDE Dirichlet 問題の Crandall-Ishii-Lions 粘性解 well-posedness 完全証明、Lundberg-Cramér 漸近の Doob martingale 経由完全証明、Foss-Korshunov-Zachary subexponential Embrechts-Goldie-Veraverbeke 完全証明、命題 P8.2.1 (initial-position monotonicity) 完全証明、§8.4 命題 P8.4.1 (H 局所マルコフ単調変換) 完全証明 — 本文はスケッチに留め完全証明は付録 A で D-047 遵守"
+    }
+  ],
+  "masa_negotiation_handles": [
+    "H1 (Φ ρ 共有判断): y 5 成分集約の CES 形 ρ を Ch 7 F-CES の ρ と共有するか別パラメータ化するか — masa の '5 成分弱補完性が core' 直観の強度で決定 (open issue #1)。共有なら推定負担減 + 章間整合性向上、別なら 5 成分独自の補完性表現の柔軟性確保。本 skeleton は共有案 X 推奨",
+    "H2 (τ_B 二段 SDE 採否): 本章で t < τ_B と t ≥ τ_B の二段 SDE を formal 化するか、τ_B 以後のみで済ますか (open issue #2)。二段なら sequential decision view (Bellman) + 二次変動 break test (F8.9) が integrated、単段なら §8.2 簡潔化。本 skeleton は二段案 Y 推奨 (sequential decision view と break test 整合のため)",
+    "H3 (heavy-tail 本文配分): Foss-Korshunov-Zachary subexponential heavy-tail を本文 §8.2 で formal 提示するか、付録 A に push して本文は light-tail のみにするか (open issue #3)。本文配分なら ICC / Cambridge UP 査読対応強化、付録 A push なら §8.2 6.5p 維持で読みやすさ確保。本 skeleton は本文 light-tail 主軸 + heavy-tail 対照節 0.5p + 付録 A 完全証明の案 Y 推奨",
+    "H4 (4 類型 disjoint vs mixture): 観測等価類を disjoint partition として強く主張するか、境界遷移 + 混合を許容するか (open issue #6)。disjoint なら反証可能性高 + Ch 26b 事前登録最強整合、混合許容なら現実観測との整合性高 + 撤退ライン緩。本 skeleton は disjoint 主張 + mixture > 30% を Ch 26b null hypothesis 化の案 X 推奨",
+    "H5 (機能性材料案件分類): 機能性材料 BATNA 喪失案件を即落型 Θ_crash サブ類型 (a) として扱うか、ゾンビ型 Θ_zombie 境界事例 ('options-binding 即落寸前ゾンビ') として扱うか — §8.0 章頭フックは即落寄り narrative、§8.3 境界事例議論はゾンビ寄り formal。本 skeleton は §8.0 narrative では即落寄り (BATNA 喪失型) + §8.3 formal では境界事例として両義性を保持 (機能性材料案件は両側面を持つ実例として活用)",
+    "H6 (Y-001/004/005 番号確定): 仮番号 (Y-001 BATNA / Y-004 KOL / Y-005 主要顧客) を BOOK_DECISIONS.md で確定するか、Ch 9 ERS と整合する別番号体系で振り直すか (open issue #4)。本 skeleton は現状仮番号案 X 推奨、Ch 9 skeleton 起草時に最終調整",
+    "H7 (Klepper 入れ子化スケール分離本章 / Ch 10.5 配分): 鋸歯 (SDE level) vs Klepper shakeout (industry hazard level) の表記規約を本章 §8.3 で明示するか、Ch 10.5 で初出させるか (open issue #5)。本 skeleton は本章 §8.3 で明示 + 相関 ≤ 0.3 falsifiable (F8.8) を本章で立てる案 X 推奨 (Ch 26b 事前登録レジストリへの supply 設計整合)",
+    "H8 (BWE 健全型認定強度): BWE F_char × F_cap 補完 = 健全型 Θ_healthy 認定は §8.5 で強い主張、Book III BWE 章ドラフトの経験的根拠の事前確認が必要。十分なら強主張維持、不十分なら 'BWE は健全型候補' とトーンダウンの選択。本 skeleton は事前確認後に確定、暫定で強主張維持"
+  ]
+}
