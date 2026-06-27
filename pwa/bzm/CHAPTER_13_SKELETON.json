@@ -1,0 +1,576 @@
+{
+  "ch_overview": {
+    "core_proposition": "Ch 13 は Book III 健全型代表として BWE (女性ヘルスケア SU、2018-2026 lifecycle、lifted outcome) を Book II 数学装置 (Ch 5 σ_SU MS-SSM + Ch 5.5 GO ゲート θ_σ* + Ch 6 PRS + Ch 7 F-CES + Ch 8 jump-diffusion + Ch 9 KLST ERS + Ch 10.3 ρ Kmenta + Ch 10.5 統合ハザード h_post + Ch 10.7 η_jt VAR(1)) で後付け校正 (retrofit calibration) し、Θ_healthy 軌跡 (μ_x > 0 + μ_y > 0 + jump intensity λ_x^+ > λ_y^- + GAP fund 補充パターン) の典型例 (D-026) かつ Ch 10.3 ρ Kmenta posterior の F_char × F_cap 補完性 (ρ < 0) 確認事例 (D-038) として整理する。本章は load-bearing を「後付け校正命題 13.1-13.7」の formal 命題形式で番号化し (Tier A 後付け校正 = 命題提示と校正のみ という叙述スタイルを冒頭で明示)、(a) 設立時 (2018) 状態の盲検後付け校正、(b) 軌跡 2018-2026 を 4 期 (萌芽 / 拡張 / 移譲過渡期 / 体制安定) に分割した σ_SU + 軌跡 4 類型での読み直し、(c) CEO 移譲過渡期の FRL 一時低下 (Contingent Reward + Individualized Consideration 軸の組み換え、Antonakis 2016 charisma 過度依存批判への組織的応答として読む) → CTO 招聘 + CFO 育成成功 → F_cap 急上昇の F-CES 動態、(d) F-CES posterior 推定 (ρ < 0 補完性 evidence の illustrative 提示)、(e) 女性ヘルスケア固有の U-G-P 三層 (患者 / 医療者ゲートキーパー / 保険者・雇用主) + R 5 軸同時進行、(f) Book II 7 装置総合読み直し + TIEM (Ch 12) との対比 (補完性 ρ < 0 の両刃性: BWE は F_cap 補完成功で F 急上昇、TIEM は補完失敗で F 停滞)、(g) Ch 25 / Ch 26a / Ch 26b / Ch 37 への引き渡し を担う。本章は Tier A (D-031) に閉じ validation 主張禁止 (D-033)、機関匿名化 type 名のみ (D-034 Private-Engineering-Univ-Type / Integrated-Large-Univ-Type)、後付け校正を「校正」と呼び「validation」とは呼ばない叙述規律を全節で遵守し、§13.6 末尾の Tier A 自己点検チェックリスト 4 種違反 (validation / 証明 / 識別主張 / 点推定有意性) で構造的に強制する。",
+    "load_bearing_claims": [
+      "[後付け校正命題 13.1 健全型軌跡] BWE 2018-2026 軌跡は Θ_healthy 4 条件 (μ_x > 0 + μ_y > 0 安定 + λ_x^+ > λ_y^- + GAP fund 補充 5-7 回累積) を 4 期通算 posterior 95% 信用区間で満たす illustrative 事例として、Ch 12 TIEM (μ_y < 0 鋸歯型) との対比で健全型主要参照 (D-026) として位置づけられる (Tier A illustrative、P(BWE ∈ Θ_healthy | data, 強事前) ≥ 0.9)。",
+      "[後付け校正命題 13.2 Klepper shakeout 圏外] BWE の Ch 10.5 統合ハザード h_post は Klepper (1996, 2002) shakeout 圏外 (|Δ log h_post| < ε、ε = 0.2 illustrative 仮置き) に位置し、F_cap 補完成功 + Θ_healthy 軌跡の組み合わせが shakeout 退出ハザードを実質的に下げない (ρ_shakeout 効果が Tier A 範囲で識別困難な観察等価境界に近い) ことを健全型 baseline として記述する (ε 正本確定は Ch 10.5 / Ch 26a 校正 plot に flush)。",
+      "[後付け校正命題 13.3 F_char 高 × F_cap 後発補完] (D-038 主要 evidence) BWE 創業者プロファイル (F_char 高 = ALQ4 4 因子で起業家コホート平均以上 + Grit Perseverance > 80 percentile + Resilience high、F_cap 低 = Beckman 2006 経験順序未充足) と CEO 移譲過渡期を経た CTO 招聘 (Beckman 2006 異質性 + 外部採用) + CFO 育成 (Eesley-Roberts 2012 補完性 + 内部昇格) による F_cap 急上昇の同時生起は Ch 7 F-CES の ρ < 0 (補完性) posterior と整合する illustrative 確認事例として Tier A 範囲で記述される (validation ではない、D-031/D-033)。",
+      "[後付け校正命題 13.4 FRL 一時低下と Contingent Reward 軸組み換え] BWE の CEO 移譲過渡期 (2022-2023) で FRL は一時低下したが、その核は Inspirational Motivation (charisma) 軸ではなく Contingent Reward + Individualized Consideration 軸の制度化遅延であり、CTO + CFO 体制構築による成果評価 + 個別配慮制度化で回復する経路は Antonakis 2016 charisma 過度依存批判への組織的応答として読める (Tier A illustrative、Ch 7 §7.4 三層 defense と整合)。",
+      "[後付け校正命題 13.5 補完性 ρ < 0 確認事例] BWE 個別 F-CES posterior (α posterior median ≈ 0.6、ρ posterior median ≈ -2 illustrative) は ρ < 0 領域に質量を持ち、horse-race (M1 CES vs M2 Cobb-Douglas vs M3 Leontief vs M4 加法的) で M1 CES が WAIC + LOO + Bayes 因子の三系統で dominant illustrative。Ch 10.3 §10.3.x ρ Kmenta 識別 (D-038) の補完性確認事例として Tier A 範囲で引き渡され、本格 horse-race + 事前登録は Ch 11 / Ch 26b に分離 (N=1 個別 posterior は集合 inference を主張しない)。",
+      "[後付け校正命題 13.6 U-G-P 三層 + R 同時進行] 女性ヘルスケア固有の顧客 (患者 = 利用者 U) と支払者 (保険者・雇用主 P) の分離 + 医療者ゲートキーパー (G) の三層構造は R 5 軸 (TRL/BRL/GRL/SRL/HRL) の同時進行を強いる多軸協調制約として定式化され、BWE の R 進行は σ_SU 中位 (μ_A/μ_I/μ_G バランス、女性ヘルスケアでは μ_G やや先行) と整合し、単軸先行型 (TRL only / BRL only / GRL only) は構造的に成立しない (Pavone 2024 Femtech B2B2C / Jennings-Brush 2013 gender review / Klyver-Foley 2012 / Astebro-Bazzazian-Braguinsky 2012 系譜)。",
+      "[後付け校正命題 13.7 補完性 ρ < 0 の両刃性 (TIEM 対比)] BWE 健全型と TIEM (Ch 12) 退化型は両者ともに F_char 高位だが、F_cap 後発補完の成否 (BWE 成功 vs TIEM 失敗) で μ_y 符号が分岐 (BWE μ_y > 0 vs TIEM μ_y < 0) する illustrative 事例として、同じ ρ < 0 補完性が BWE では「F_cap 補完成功で F 急上昇」、TIEM では「F_cap 補完失敗で F 停滞」として表裏に作用する。本章は記述的対比のみ提示し因果識別は行わない (D-031/D-033)。"
+    ],
+    "logical_arc": "§13.0 章頭フック (2018 設立時の F_char 高 × F_cap 低の創業者、Private-Engineering-Univ-Type 出身、女性ヘルスケア SU、当時資料のみ盲検後付け校正、Tier A 規律宣言、s-survival.md 連結予告、後付け校正命題 13.1-13.7 の formal 番号化スタイル明示、章ロードマップ + 22p 配分提示) → §13.1 設立時 (2018) 状態 後付け校正 (F_char ALQ4 4 因子 + Grit + Resilience の表記的事後分布 + Ch 7 §7.4 三層 defense 再掲、F_cap Beckman 2006 経験順序未充足、σ_SU MS-SSM k=2 中位 + μ_G やや先行、PRS_0 P 偏重型、ERS Private-Engineering-Univ-Type、τ_B GO ゲート保留判断 illustrative) → §13.2 軌跡 2018-2026 後付け校正 4 期分割 (萌芽 2018-2019 / 拡張 2020-2021 / 移譲過渡期 2022-2023 / 体制安定 2024-2026、各期で μ_x/μ_y/λ_x^+/λ_y^-/GAP fund 補充の jump-diffusion 推定 + σ_SU regime posterior + Ch 10.5 h_post 期別 Δ log h ≈ 0、Θ_healthy 4 条件適合性チェック、鋸歯型不在の確認 retrofit-verification.md 連結) → §13.3 CEO 移譲過渡期 + CTO 招聘 + CFO 育成 (6 四半期 timeline で外部 CEO 招聘試行 → 違和発生 → 撤回 → 機能補完への切替の経路、FRL Contingent Reward + Individualized Consideration 軸組み換え Antonakis 2016 批判への組織的応答、CTO Beckman 異質性 + CFO Eesley-Roberts 補完性、Wasserman 2012 Rich vs King 軸での CEO 移譲受容前提) → §13.4 F-CES posterior 推定 (Ch 7 §7.3 校正手続きの BWE 単独適用、α ≈ 0.6 + ρ ≈ -2 illustrative posterior、Kmenta 二次モーメント近似 + Klump 正規化、horse-race 4 model + WAIC/LOO/BF illustrative + M1 CES dominant、Stan/NUTS 健全性 R-hat<1.01/ESS>400/divergent<0.1%/BFMI>0.3、prior sensitivity 3 設定 robustness、s-survival.md 二つの相談実例の片方を本章で Tier 3 主要参照に昇格) → §13.5 U-G-P 三層分離 + R 5 軸同時進行 (患者/医療者/保険者・雇用主の formal 定義、単軸先行型失敗 3 類型対比、μ_G やや先行戦略 Pavone 2024 Femtech B2B2C + Jennings-Brush 2013 + Astebro-Bazzazian-Braguinsky 2012、HRL 規制承認経路) → §13.6 Book II 7 装置総合読み直し + TIEM 対比 + Tier A 自己点検 + 章末問い (7 装置 summary table、BWE vs TIEM 対比表で補完性 ρ < 0 の両刃性、Tier A 自己点検チェックリスト 4 種違反 構造的強制、章末問い 3 件 (校正閾値 ε 感度 / FRL 一時低下汎化 / U-G-P 他領域転移)、Ch 25/26a/26b/37 への引き渡し、s-survival.md / retrofit-verification.md retour)。22p 配分: §13.0=2.5 / §13.1=3.5 / §13.2=4.5 / §13.3=3.5 / §13.4=3.5 / §13.5=2.5 / §13.6=2.0 = 22.0p。",
+    "synthesis_rationale": "案 A を骨格採用 (Lens A/B/C すべてで overall_winner)。理由は (1) Book II 7 装置 (Ch 10.7 η_jt VAR(1) 含む) への完全マッピング、(2) §13.6 Tier A 自己点検チェックリスト 4 種違反の構造的強制 + FC-13-9 自己強制 falsifiable、(3) D-034 機関匿名化 vs panel 識別性トレードオフの OI-13-3 提起 + 設立年丸め運用注、(4) hindsight bias 自己点検 + prior sensitivity 3 設定 robustness、(5) s-survival.md 二つの相談実例の片方を §13.4 ¶4k で主要参照昇格する明示的ストーリー強度、(6) §13.3 外部 CEO 招聘試行 → 違和 → 撤回 → 機能補完への切替の 6 四半期 timeline の現場可読性。案 C から graft: (a) load_bearing を「後付け校正命題 13.1-13.7」formal 番号化、(b) §13.3 FRL 一時低下の核を Contingent Reward + Individualized Consideration 軸として特定 + Antonakis 2016 批判への組織的応答という解釈、(c) §13.5 単軸先行型失敗 3 類型対比、(d) §13.6 補完性 ρ < 0 の両刃性解釈フレーム、(e) Pavone 2024 / Jennings-Brush 2013 / Klyver-Foley 2012 / Astebro-Bazzazian-Braguinsky 2012 系譜接続、(f) 校正閾値 ε = 0.2 illustrative の明示。案 B から graft: (g) Wasserman 2012 Rich vs King 軸を §13.3 CEO 移譲受容前提条件として組み込み、(h) §13.6 章末問いのシャープ化 (再現可能類型 vs 観察等価条件)、(i) Hellmann-Puri 2002 startup professionalization の slow build を CFO 内部昇格と接続。cross-cutting concerns 吸収: ALQ4/Grit measurement validity 三層 defense を §13.1 ¶1c で本文再掲 + 360 度補正未実施を limitation 化、N=1 個別 posterior 信頼性限界を §13.4 冒頭 + §13.6 自己点検で二重設置、機関匿名化 vs panel 識別性を §13.0 で運用注、Series B 2024Q3 timeline と執筆時点ギャップを §13.0 で境界明示、Ch 12 TIEM skeleton 起草中での §13.6 対比表暫定性を re-sync gate 化、U-G-P 三層 formal 化レベルを Ch 14 CX 分離予告、Ch 10.7 η_jt VAR(1) coupling を §13.2 GAP fund 補充パターンと接続。22p 配分は案 A の小数点確定値 (2.5/3.5/4.5/3.5/3.5/2.5/2.0=22.0) を採用。"
+  },
+  "sections": [
+    {
+      "section_id": "13.0",
+      "title": "章頭フック — 2018 設立シーン、F_char 高 × F_cap 低、盲検後付け校正と Tier A 規律宣言",
+      "pages": 2.5,
+      "math_level": "low (narrative + 軽い記号再掲: F_char, F_cap, σ_SU, μ_x, μ_y, λ_x^+, λ_y^-, τ_B, Θ_healthy, ρ, h_post の D-051 統一導入)",
+      "anchor_claims": [
+        "[AC-13.0-1] BWE 創業者 (女性 30 代、医療領域非専門、Private-Engineering-Univ-Type 出身、F_char 高 × F_cap 低、2018 設立時) に対し、当時資料のみ (事業計画書、最初の調達 pitch deck、創業者インタビュー、ALQ4/Grit-S/CD-RISC-10 遡及測定、当時の市場分析) を用いた盲検後付け校正の手続きを宣言する。lifted outcome (2024-2026 Series B + 体制安定) を予見した叙述は §13.6 まで一切持ち込まない。",
+        "[AC-13.0-2] Book III 中核問い (健全型は当時から見えていたか / Book II 数学装置は 2018 時点の BWE を健全型として読めたか) を本章 22p で answer する。Tier A (D-031) 範囲、illustrative 後付け校正、validation 主張禁止 (D-033) を §13.0 冒頭で明示宣言。",
+        "[AC-13.0-3] 本章の load-bearing は「後付け校正命題 13.1-13.7」の formal 命題形式で番号化される。これは本章が「定理-証明」型ではなく「命題提示 + 校正」型 (Tier A 後付け校正) であることを構造的に印象付けるための叙述スタイル選択であり、§13.6 自己点検チェックリスト 4 種違反点検と対をなす。",
+        "[AC-13.0-4] D-034 機関匿名化遵守 — BWE 関連は Private-Engineering-Univ-Type のみ開示、対比用は Integrated-Large-Univ-Type。創業者名・社名・領域詳細 (月経/更年期/産後ケアのいずれか) は開示せず BWE 略号 + 「女性ヘルスケア領域」のみ。設立年 ±1 年丸め + Series B 年 ±1 年丸めの運用注を本節で明示 (panel 識別性問題への手当て)。",
+        "[AC-13.0-5] 本章は Ch 26a (Brier + 校正 plot)、Ch 26b (post-2024 体制安定期予測登録簿)、Ch 11 (集合 inference)、Ch 25 (層間結合 Granger)、Ch 37 (4 framework horse-race) との Tier 分離を §13.0 で宣言。Series B 2024Q3 と執筆時点 2026-06-27 のギャップ (2026Q2-Q4 未観測の Ch 26b post-2026 検証分離) を境界明示。"
+      ],
+      "paragraph_outline": [
+        "[¶0a] 2018 春の設立シーン情景描写 (3-4 文、type 名匿名化、L1 §11 章型ストーリー準拠) — Private-Engineering-Univ-Type 出身の創業者が女性ヘルスケア SU を立ち上げる場面、共同創業者 1 名 (技術側 F_cap 寄与限定)、Pre-Seed 準備中、当時の現場評価言語 (「熱意はあるが領域経験が足りない」)",
+        "[¶0b] 当時資料リストと盲検手続き宣言 — 当時資料 (事業計画書 v1 2018Q1 / Pre-Seed pitch deck 2018Q2 / 創業者インタビュー / ALQ4・Grit-S・CD-RISC-10 遡及測定 / 当時市場分析) の範囲明示、post-2024 情報は §13.2 第 4 期と §13.4 posterior にのみ反映する境界線、lifted outcome 参照禁止",
+        "[¶0c] Book III 中核問いの 3 段分解 — (i) 設立時 F_char 高 × F_cap 低が Ch 7 F-CES ρ < 0 補完性下で Θ_healthy 候補と判定可能だったか、(ii) σ_SU 中位 + ERS Private-Engineering-Univ-Type が Ch 5.5 GO ゲート τ_B 保留 → 後発補完待ち判断を支持できたか、(iii) U-G-P 三層分離下の R 多軸並進が σ_SU 安定と整合的に進められるか",
+        "[¶0d] 「後付け校正命題 13.1-13.7」の formal 番号化スタイル宣言 — 本章 load-bearing を命題形式で番号化する叙述選択を明示、これが「定理-証明」型ではなく「命題-校正」型 (Tier A) であることを冒頭で強調、§13.6 自己点検と対をなす設計",
+        "[¶0e] Tier A 規律宣言 (D-031) — 全 posterior 報告は記述的事後分布要約に閉じる。「validation」「BWE が BZM を証明する」「ρ < 0 が BWE で確認された」叙述禁止 (D-033)。許容叙述は「BWE は ρ < 0 posterior と整合する illustrative 事例」「強い事前分布下の事後分布要約として BWE は Θ_healthy 軌跡と整合」のみ",
+        "[¶0f] D-034 機関匿名化運用注 — Private-Engineering-Univ-Type (BWE 関連、GAP fund アクセス + 産学連携基盤 + 医療系学部なし) / Integrated-Large-Univ-Type (§13.6 TIEM 対比用) の 2 type 名のみ、設立年 ±1 年丸め + Series B 年 ±1 年丸め + 女性ヘルスケア領域内詳細 (月経/更年期/産後のいずれか) 非開示、type 内識別性問題への手当て明示",
+        "[¶0g] Ch 26a/26b/11/25/37 Tier 分離宣言 — Brier + 校正 plot は Ch 26a、post-2024 予測登録簿 (H_C2 commission) は Ch 26b、集合 inference (8 PJ panel BVAR) は Ch 11、層間結合 Granger は Ch 25、4 framework horse-race は Ch 37 に分離。本章は BWE 単独 Tier A illustrative に専念",
+        "[¶0h] Series B 2024Q3 と執筆時点 2026-06-27 のギャップ — 体制安定期 2024-2026 のうち 2026Q2-Q4 は未観測、§13.2/§13.4 で「2026Q1 時点までの観測 + 残り 2 四半期は Ch 26b post-2026 検証に分離」境界を明示",
+        "[¶0i] hindsight bias 自己点検予告 — D-026 で BWE が健全型主要参照昇格していることが事前確定 → 軌跡 4 期分割 + posterior 推定が hindsight bias を含む懸念、§13.4 prior sensitivity 3 設定 robustness + Ch 26a 客観評価で緩和、§13.6 自己点検チェックリストで構造強制",
+        "[¶0j] 章ロードマップと 22p 配分 — §13.0=2.5 / §13.1=3.5 / §13.2=4.5 / §13.3=3.5 / §13.4=3.5 / §13.5=2.5 / §13.6=2.0 = 22.0p、各節の役割を 1 行ずつ要約",
+        "[¶0k] s-survival.md 連結予告 — pwa/bzm/s-survival.md「替えのきかない核」直観 + 二つの相談実例の一つ (補完で F が立ち上がった案件 = BWE) を §13.4 ¶4k で本章 Tier 3 主要参照へと学術化昇格する流れを予告、案 B/C ではなく案 A の明示連結強度を採用",
+        "[¶0l] 章末問い予告 (§13.6 末尾 3 問) — (i) 校正閾値 ε (Ch 10.5 統合ハザード判定 + Θ_healthy 4 条件閾値) の感度はどこまで頑健か、(ii) FRL 一時低下からの Contingent Reward 軸再構築は他健全型事例で汎化可能か、(iii) U-G-P 三層分離は他領域 (バイオ / 介護 / メンタルヘルス) に転移可能か"
+      ],
+      "new_writing_required": "2018 春の設立シーン情景描写 + 盲検後付け校正手続き宣言 + Book III 中核問い 3 段分解 + 命題番号化スタイル宣言 + Tier A 規律 (D-031/D-033) 本章宣言 + D-034 機関匿名化運用注 (年丸め + 領域内詳細非開示) + Ch 26a/26b/11/25/37 Tier 分離宣言 + Series B timeline ギャップ境界 + hindsight bias 自己点検予告 + 22p 配分提示 + s-survival.md 連結予告 + 章末問い 3 件予告 は全文新規。",
+      "existing_reuse": "Ch 1.0 章頭フック規律 (匿名化 type 名のみ)、Ch 7 §7.5 BWE illustrative 比較 (1.5p) の本章拡張宣言、s-survival.md F_char × F_cap 補完成功直観 (替えのきかない核 + 補完で F が立ち上がった案件) を Tier A 後付け校正へと持ち上げる宣言、L1 §11 章型ストーリー指針。",
+      "upstream_dependencies": [
+        "Ch 1 BZM 全体像",
+        "Ch 1.0 章頭規律",
+        "Ch 7 §7.5 BWE illustrative 比較",
+        "pwa/bzm/s-survival.md F_char × F_cap 補完成功直観",
+        "BOOK_DECISIONS.md D-026 / D-031 / D-033 / D-034 / D-038 / D-051",
+        "L1 §11 章型テンプレート"
+      ],
+      "downstream_dependencies": [
+        "§13.1 (設立時 F_char/F_cap/σ_SU/PRS/ERS 再構成)",
+        "§13.2 (軌跡 4 期分割)",
+        "§13.6 (章末問い + Ch 25/26a/26b/37 引き渡し + Tier A 自己点検)",
+        "Ch 25 / Ch 26a / Ch 26b / Ch 37"
+      ],
+      "references": [
+        "Walumbwa et al. 2008 ALQ4",
+        "Duckworth et al. 2007 Grit",
+        "Markman 起業家 Resilience",
+        "Wasserman 2012 Founder Dilemma",
+        "Roberts 1991, 2004 / Beckman 2006 / Eesley-Roberts 2012",
+        "BZM Ch 1 / Ch 1.0 / Ch 7 §7.5",
+        "pwa/bzm/s-survival.md",
+        "BOOK_DECISIONS.md D-026/D-031/D-033/D-034/D-038/D-051"
+      ],
+      "source_drafts": [
+        "A §13.0",
+        "C §13.0 (命題番号化スタイル + 章ロードマップ提示)",
+        "B §13.0 (簡潔さ)"
+      ]
+    },
+    {
+      "section_id": "13.1",
+      "title": "設立時 (2018) 状態 後付け校正 — F_char 高 × F_cap 低 × σ_SU 中位 × GO ゲート保留判断 (命題 13.1 初期条件)",
+      "pages": 3.5,
+      "math_level": "medium — F_char = Λ_char · η_char + ε_char (CFA 二階因子), F_cap = Markov 経験順序 (Beckman 2006), F = [α F_char^ρ + (1-α) F_cap^ρ]^{1/ρ} (Ch 7 F-CES), σ_SU MS-SSM k=2 中位 (Ch 5), PRS_0 = P_0 × R_0 × S_0 期待値分解 (Ch 6), ERS Private-Engineering-Univ-Type プロファイル (Ch 9), τ_B 法人登記 timeline + GO ゲート θ_σ* probit smoothing (Ch 5.5)。",
+      "anchor_claims": [
+        "[AC-13.1-1] BWE 創業者の F_char (2018 当時、遡及測定) は ALQ4 4 因子 (SA/RT/IM/BP) すべてで起業家コホート平均以上、Grit Perseverance > 80 percentile、CD-RISC-10 Resilience 高位を示し、Ch 7 §7.4 三層 defense (測定不変性 Δχ² + Fornell-Larcker AVE + 360 度補正未実施 limitation 化) 下で構成概念妥当性を保つ範囲で illustrative に再構成される。Antonakis 2016 / Credé 2017 controversy への本章対応は (a) Grit は Perseverance のみ採用 (Consistency 除外)、(b) ALQ は四因子別と統合スコア両表示、(c) 360 度補正未実施を limitation 明示。",
+        "[AC-13.1-2] BWE 創業者の F_cap (2018 当時) は領域経験順序 (Beckman 2006 系譜: 同一領域経験年数 × 過去創業指標 × 機能カバレッジ幅) で未充足 — 医療領域経験ゼロ、過去スタートアップ創業経験ゼロ、機能カバレッジは技術 + ビジョン提示に偏重、CFO/COO/CTO 級補完なし。共同創業者 1 名 (技術側) は F_cap 寄与限定的。F_cap 複合 < 25 percentile illustrative。Eesley-Roberts 2012 補完性枠組みで補完候補識別済み (将来の CTO/CFO/COO 招聘可能性として §13.3 へ供給)。",
+        "[AC-13.1-3] 設立時 σ_SU (Ch 5 MS-SSM K=3 regime) は中位 k=2 滞在確率支配 (P(s_0 = k=2) ≈ 0.65 illustrative)、女性ヘルスケア固有の μ_G 規制クロック先行傾向 (FDA/PMDA 承認時計 + 保険償還プロセス) を §13.5 と接続。一般 IT/SaaS (μ_I 産業軸先行) との対比を 1 段落で示す。",
+        "[AC-13.1-4] PRS_0 期待値分解 (Ch 6) — P_0 中位 (創業者ナラティブ強度 + ALQ4 高位による真正性 signal)、R_0 低位 (5 軸 TRL/BRL/GRL/SRL/HRL すべて初期)、S_0 低位 (F 二層集約初期)。全体 PRS 中下位だが P 偏重型 (健全型の徴候 1)。ERS Private-Engineering-Univ-Type プロファイル (GAP fund + 産学連携 + 医療系学部なし → 規制軸 A_3 ハンディキャップ) を type 名のみで開示 (D-034)。",
+        "[AC-13.1-5] τ_B 法人登記 timeline (2018Q2 GAP fund クローズ直後) と Ch 5.5 GO ゲート θ_σ* probit smoothing 下で σ_SU,τ_B が θ_σ* を超える形式条件は満たすが、F_cap 低位 (Inada コーナー警告 F → 0 as F_cap → 0 with F_char > 0) + R 5 軸初期との組合せで保留判断 (後発補完待ち) も合理だった illustrative 検討を提示。実際の判断は突入、結果として §13.3 で過渡期発生。最適停止規則の連続領域と境界領域の境界に位置する事例として位置づけ。"
+      ],
+      "paragraph_outline": [
+        "[¶1a] 後付け校正手続き方針 + 当時資料リスト — 当時資料 (事業計画書 v1 / Pre-Seed pitch deck / 創業者インタビュー / ALQ4・Grit-S・CD-RISC-10 遡及測定 / 当時市場分析) のみで F_char/F_cap/σ_SU/PRS/ERS/τ_B の 6 量を illustrative 推定、盲検厳格性 (lifted outcome 参照禁止) 再確認",
+        "[¶1b] F_char ALQ4 4 因子 (SA 自己認識 / RT 関係透明性 / IM 内面化道徳 / BP バランス処理) の遡及測定値を起業家コホート平均と対比、平均以上を 4 因子で illustrative 提示 (個別因子 σ 数値は出さず四因子平均 + 統合スコアの両粒度で表示、識別性問題への手当て)。二階因子モデル F_char = Λ_char · η_char + ε_char で集約",
+        "[¶1c] Grit Perseverance > 80 percentile (Consistency of Interest は Credé 2017 controversy 対応で除外)、CD-RISC-10 Resilience 高位 (Markman 起業家 Resilience 系譜)、ALQ4 measurement validity 三層 defense 再掲 (測定不変性 Δχ² 検定 + Fornell-Larcker AVE > 平方相関 + 遡及測定 self-report bias 補正の 360 度評価未実施を limitation 明示) を Ch 7 §7.4 と整合確認、Antonakis 2016 / Credé 2017 への本章対応",
+        "[¶1d] F_cap Beckman 2006 経験順序診断 — 医療領域経験ゼロ + 過去スタートアップゼロ + CFO/COO/CTO 級補完なし + 共同創業者 1 名 (技術側) の F_cap 寄与限定を Tier A illustrative 数値で提示 (F_cap 複合 < 25 percentile)、Eesley-Roberts 2012 補完性枠組みで補完候補識別済み (将来の招聘可能性として §13.3 へ供給)、Hellmann-Puri 2002 startup professionalization の予兆 (未補完) を記述",
+        "[¶1e] F-CES 設立時値計算 — F = [α F_char^ρ + (1-α) F_cap^ρ]^{1/ρ} を α = 0.6 (Bernstein 2017 RCT 由来 Ch 7 §7.3 弱情報事前) + ρ = -2 (§13.4 推定 illustrative 値の予告) で代入、F_char 高位だが F_cap 低位のため Inada コーナーで F は中位、F_cap 補完なしには F が立ち上がらない構造を Ch 7 §7.2 委譲 operator D の三基準で確認",
+        "[¶1f] σ_SU MS-SSM (Ch 5) 中位 k=2 滞在の根拠 — 三軸 (μ_A 学術 / μ_I 産業 / μ_G ガバナンス) のうち女性ヘルスケア固有の μ_G 規制クロック先行傾向 (FDA/PMDA 承認時計 + 保険償還プロセス) を §13.5 + Pavone 2024 Femtech investment + Triple Helix Etzkowitz と接続、一般 IT/SaaS (μ_I 先行) との対比",
+        "[¶1g] PRS_0 期待値分解 (Ch 6) — P_0 中位 (創業者ナラティブ + ALQ4 真正性 signal) × R_0 低位 (5 軸初期) × S_0 低位 (F 二層集約初期) を illustrative 期待値で提示、全体 PRS 中下位だが P 偏重型 (健全型の徴候 1)",
+        "[¶1h] ERS Private-Engineering-Univ-Type プロファイル (Ch 9 KLST 8 軸加重和、type 名のみ D-034) — 資本 A_1 中位 (GAP fund + Pre-Seed) / ネットワーク A_2 中位 / 規制 A_3 低位 (医療規制経験なし) / 需要 A_4 高位 (女性ヘルスケア市場成長) / 人材 A_5 中位、§13.3 移譲過渡期 + §13.5 三層 + Ch 25 層間結合への入力",
+        "[¶1i] τ_B (法人登記) 2018Q2 GAP fund クローズ直後、Ch 5.5 GO ゲート θ_σ* probit smoothing で σ_SU,τ_B が θ_σ* を超える形式条件は満たすが、F_cap 低位 (Inada コーナー警告) + R 5 軸初期との組合せで保留判断 (条件付き Go / 後発補完待ち) も合理だった illustrative 検討、実際は突入、最適停止規則の連続領域と境界領域の境界に位置する事例として位置づけ",
+        "[¶1j] 設立時総合プロファイル summary table — F_char 高 × F_cap 低 × σ_SU 中位 × PRS 中下位 P 偏重 × ERS Private-Engineering-Univ-Type を 1 ページ table、§13.2 軌跡 4 期分割への初期条件として確定、命題 13.1 (Θ_healthy 軌跡) の前提条件として位置づけ"
+      ],
+      "new_writing_required": "BWE 創業者 ALQ4/Grit/CD-RISC-10 遡及測定 illustrative posterior の Tier A 再構成 + 個別因子 σ 数値非開示 + 四因子平均 + 統合スコア両粒度表示 + F_char measurement validity 三層 defense 再掲 (360 度補正未実施 limitation 化) + F_cap Beckman 2006 経験順序未充足 + Eesley-Roberts 2012 補完候補識別 + Hellmann-Puri 2002 professionalization 予兆 + 設立時 F-CES Inada コーナー警告 + σ_SU MS-SSM k=2 中位 posterior + μ_G 先行プロファイル + PRS_0 期待値分解 P 偏重型 + ERS Private-Engineering-Univ-Type 8 軸プロファイル + τ_B GO ゲート保留判断 illustrative 検討 + 設立時総合 summary table は全文新規。",
+      "existing_reuse": "Ch 5 σ_SU MS-SSM K=3 regime 形式、Ch 5.5 GO ゲート θ_σ* probit smoothing、Ch 6 PRS = P × R × S 期待値分解、Ch 7 F-CES 二層集約 + §7.4 三層 defense + §7.2 委譲 operator D、Ch 9 KLST 加重和、Walumbwa 2008 / Duckworth 2007 / Markman / Beckman 2006 / Eesley-Roberts 2012 / Bernstein 2017 / Hellmann-Puri 2002 構成概念定義を再掲。s-survival.md F_char × F_cap 補完成功直観の Tier 3 学術化開始。",
+      "upstream_dependencies": [
+        "§13.0 規律宣言 + 当時資料盲検範囲",
+        "Ch 5 §5.0 σ_SU MS-SSM K=3 regime",
+        "Ch 5.5 GO ゲート θ_σ*",
+        "Ch 6 PRS = P × R × S",
+        "Ch 7 F-CES 二層集約 + §7.2 委譲 operator + §7.4 三層 defense",
+        "Ch 9 KLST ERS 加重和",
+        "BOOK_DECISIONS.md D-031/D-033/D-034/D-038/D-051"
+      ],
+      "downstream_dependencies": [
+        "§13.2 (設立時状態を 4 期軌跡の初期条件として使用)",
+        "§13.3 (F_cap 低位 + Eesley-Roberts 補完候補識別 → 移譲過渡期の構造的必然性)",
+        "§13.4 (F-CES posterior 推定の初期分布として使用)",
+        "§13.5 (ERS Private-Engineering-Univ-Type μ_G 先行傾向 + 規制軸 A_3 ハンディ)",
+        "§13.6 (TIEM 対比表の BWE 設立時列)"
+      ],
+      "references": [
+        "Walumbwa et al. 2008 ALQ4",
+        "Duckworth et al. 2007 Grit",
+        "Markman 起業家 Resilience / CD-RISC",
+        "Antonakis 2016 ALQ critique",
+        "Credé 2017 Grit meta-analysis",
+        "Bernstein et al. 2017 AER RCT",
+        "Beckman 2006 AMJ founding team",
+        "Eesley-Roberts 2012 SEJ MIT 同窓生",
+        "Hellmann-Puri 2002 RFS",
+        "Pavone 2024 Femtech investment",
+        "Etzkowitz Triple Helix",
+        "BZM Ch 5 / Ch 5.5 / Ch 6 / Ch 7 §7.2/§7.4 / Ch 9",
+        "BOOK_DECISIONS.md D-031/D-033/D-034/D-038/D-051"
+      ],
+      "source_drafts": [
+        "A §13.1 (骨格)",
+        "C §13.1 (ALQ controversy defense + μ_G 先行 Pavone 接続)",
+        "B §13.1 (Hellmann-Puri 2002 接続)"
+      ]
+    },
+    {
+      "section_id": "13.2",
+      "title": "軌跡 2018-2026 後付け校正 — 萌芽 / 拡張 / 移譲過渡期 / 体制安定の 4 期分割 (命題 13.1-13.2)",
+      "pages": 4.5,
+      "math_level": "medium-heavy — Ch 8 2D jump-diffusion: dx_t = μ_x dt + σ_x dW^x_t + dJ^x_t, dy_t = μ_y dt + σ_y dW^y_t + dJ^y_t; jump intensity λ_x^+, λ_y^- の期別事後分布; Ch 5 σ_SU regime posterior P(s_t = k | y_{1:t}); Ch 6 PRS 期待値分解の期別再評価; Θ_healthy 軌跡判定 4 条件; Ch 10.5 統合ハザード h_post の期別 Δ log h ≈ 0; Ch 10.7 η_jt VAR(1) coupling (GAP fund 補充パターン)。",
+      "anchor_claims": [
+        "[AC-13.2-1] 萌芽期 2018-2019 (μ_x > 0 緩やか + μ_y > 0 + jump 1 回 λ_x^+ Pre-Seed クローズ + σ_SU regime k=2 中位滞在 + R 軸 TRL 先行進行 + HRL 申請準備、Θ_healthy 候補圏内)",
+        "[AC-13.2-2] 拡張期 2020-2021 (μ_x > 0 加速 + μ_y > 0 拡大 + jump 2 回 λ_x^+ Seed + Series A + σ_SU regime k=2 → k=3 移行傾向 + R 5 軸並進開始、Θ_healthy 確定圏内)",
+        "[AC-13.2-3] 移譲過渡期 2022-2023 (FRL 一時低下、μ_x 一時鈍化 ≈ 0 + μ_y やや低下 + jump 1 回 λ_y^- 軽度 + σ_SU regime k=2 逆戻り、Θ_healthy 圏外には出ず圏内維持、§13.3 で詳細展開)",
+        "[AC-13.2-4] 体制安定期 2024-2026 (F_cap 急上昇後、μ_x > 0 + μ_y > 0 再加速 + jump 1 回 λ_x^+ Series B + σ_SU regime k=3 滞在 + R 5 軸ほぼ充足、lifted outcome 到達、ただし 2026Q2-Q4 は §13.0 で宣言した通り未観測区間 → Ch 26b post-2026 検証分離)",
+        "[AC-13.2-5] 4 期通算で Θ_healthy 4 条件 (μ_x > 0 全期 + μ_y > 0 安定全期 + λ_x^+ > λ_y^- + GAP fund 補充 5-7 回累積) すべて満たし P(BWE ∈ Θ_healthy | data, 強事前) ≥ 0.9 illustrative。Ch 10.5 h_post は 4 期それぞれで |Δ log h_post| < ε (ε = 0.2 illustrative 仮置き、正本確定は Ch 10.5 / Ch 26a に flush) で Klepper shakeout 圏外、観察等価境界に近い。鋸歯型 (TIEM) との形状対比 — TIEM は λ_y^- 累積で鋸歯型 + μ_y < 0 退化、BWE は λ_x^+ 累積補強で μ_y > 0 維持 (retrofit-verification.md「鋸歯型ではない、徐々に補強」の Tier 3 学術化)。"
+      ],
+      "paragraph_outline": [
+        "[¶2a] 4 期分割の方針 — 観測可能 SU lifecycle イベント (Pre-Seed / Seed / Series A / CEO 移譲開始 / CTO 招聘 / CFO 育成 / 体制安定 / Series B) を区切りに 4 期 (萌芽 2y / 拡張 2y / 移譲過渡期 2y / 体制安定 3y) を構成、各期で Ch 8 2D jump-diffusion パラメータ (μ_x, μ_y, σ_x, σ_y, λ_x^+, λ_y^-) + Ch 5 σ_SU regime posterior P(s_t = k | y_{1:t}) + Ch 6 PRS 期別 + Ch 10.5 h_post を re-evaluate する手続きを宣言",
+        "[¶2b] 萌芽期 2018-2019 timeline — Pre-Seed クローズ 2018Q2 (jump #1 GAP fund + 個人投資家) → MVP 2018Q4 → ユーザーテスト 2019Q2 → Pre-Series A 検討 2019Q4。μ_x > 0 緩やか (PRS 月次上昇率 illustrative) + μ_y > 0 (戦略余力やや拡大、創業者 burn rate < 補充) + σ_SU regime k=2 (P(s=2) ≈ 0.70)。R 軸: TRL 先行 (技術プロトタイプ) / HRL 申請準備 / BRL/GRL/SRL 初期",
+        "[¶2c] 拡張期 2020-2021 timeline — Seed 2020Q1 (jump #2) → 初期顧客契約 2020Q3 → Series A 2021Q3 (jump #3) → チーム拡大 2021Q4。μ_x > 0 加速 + μ_y > 0 拡大 + σ_SU regime k=2 → k=3 移行傾向 (μ_I 産業軸加速、初期顧客契約による BRL 進展) + R 5 軸並進開始。jump intensity λ_x^+ 高位、λ_y^- ほぼゼロ。Θ_healthy 確定圏内",
+        "[¶2d] 移譲過渡期 2022-2023 timeline (§13.3 で詳述) — 外部 CEO 招聘試行 2022Q2 → 違和発生 2022Q3 → 撤回 + ダウンサイズ 2022Q4 (jump #4 λ_y^- 軽度) → 再設計 2023Q1 → CTO 招聘 2023Q2 → CFO 育成開始 2023Q3 → 体制再構築 2023Q4。μ_x 一時鈍化 (≈ 0) + μ_y やや低下だが σ_SU regime k=2 逆戻り、Θ_healthy 圏内維持 (Θ_zombie/Θ_collapse には移行せず)",
+        "[¶2e] 体制安定期 2024-2026 timeline — F_cap 急上昇 (CTO + CFO 体制) → 売上拡大 2024Q1-Q2 → Series B 2024Q3 (jump #5) → 規制承認進展 2025Q1 HRL → 体制安定継続 2025-2026 → lifted outcome 到達 (ただし 2026Q2-Q4 未観測区間として明示、§13.0 境界線遵守、Ch 26b post-2026 検証に分離)",
+        "[¶2f] Θ_healthy 4 条件適合性チェック — 4 期通算 posterior 95% 信用区間で μ_x > 0 ∧ μ_y > 0 ∧ λ_x^+ > λ_y^- ∧ GAP fund 補充パターン (5-7 回累積) を確認、P(BWE ∈ Θ_healthy | data, 強事前) ≥ 0.9 illustrative、移譲過渡期の一時鈍化があっても期境界で Θ_healthy 圏内維持を illustrative 表記",
+        "[¶2g] GAP fund 補充パターン (Ch 10.7 η_jt VAR(1) coupling) — Private-Engineering-Univ-Type ERS 経由の補充が 2018Q2 (Pre-Seed) + 移譲過渡期 2022Q2 (GAP fund 第二弾 bridge round) で発動した経路、ERS と jump-diffusion の coupling を η_jt VAR(1) で確認、Ch 9 + Ch 10.7 への往復参照",
+        "[¶2h] Ch 10.5 統合ハザード h_post 期別計算 — 4 期それぞれで |Δ log h_post| < ε (ε = 0.2 illustrative 仮置き、正本確定は Ch 10.5 / Ch 26a 校正 plot に flush) を確認、Klepper (1996, 2002) shakeout 圏外、健全型 baseline 確定。校正閾値 ε の感度は §13.6 章末問い 1 に flush",
+        "[¶2i] 軌跡 plot 提示 — (x_t, y_t) 2D 軌跡を 4 期色分けで描画、5 jumps (Pre-Seed / Seed / A / 移譲撤回 / Series B) を marker、Θ_healthy 領域境界を背景に Tier A illustrative plot、lifted outcome 終端 (2026Q1 観測まで) は caption で「後付け校正であり予測ではない」明示",
+        "[¶2j] 鋸歯型不在の確認と TIEM 形状対比 — TIEM (Ch 12 退化失敗、Ch 12 skeleton 起草中であることを明示) は λ_y^- 累積で鋸歯型 + μ_y < 0、BWE は λ_x^+ 累積補強で μ_y > 0 維持、retrofit-verification.md「鋸歯型ではない、徐々に補強」を Tier 3 学術化、§13.6 で対比表として再整理",
+        "[¶2k] §13.3 引き渡し予告 — 移譲過渡期 2022-2023 が Θ_healthy 圏内維持の最危機点、§13.3 で FRL 推移 + CTO 招聘 + CFO 育成の経路を 6 四半期 timeline で詳述",
+        "[¶2l] §13.4 引き渡し予告 — 4 期軌跡を入力として F-CES posterior (α, ρ) を §13.4 illustrative 推定、ρ < 0 補完性 evidence (D-038) の確認事例として位置づけ"
+      ],
+      "new_writing_required": "BWE 2018-2026 軌跡 4 期分割表 + 各期 μ_x/μ_y/λ_x^+/λ_y^-/σ_SU regime posterior の illustrative 数値表 + 5 jumps timeline + R 軸 5 系列期別進展表 + (x_t, y_t) 2D 軌跡 plot (4 期色分け、5 jumps marker、Θ_healthy 領域境界) + GAP fund 補充パターン η_jt VAR(1) coupling 記述 + h_post 期別 |Δ log h| < ε ε=0.2 illustrative + Θ_healthy 4 条件適合性 P ≥ 0.9 illustrative + 鋸歯型不在 TIEM 形状対比 + 2026Q2-Q4 未観測区間明示 は全文新規。",
+      "existing_reuse": "Ch 8 2D jump-diffusion 形式 + 軌跡 4 類型判定基準、Ch 5 σ_SU MS-SSM K=3 regime posterior、Ch 6 PRS 期待値分解、Ch 9 ERS Private-Engineering-Univ-Type、Ch 10.5 統合ハザード h_post、Ch 10.7 η_jt VAR(1) coupling、Klepper (1996, 2002) shakeout 形式、retrofit-verification.md「鋸歯型ではない、徐々に補強」を Tier 3 学術化。",
+      "upstream_dependencies": [
+        "§13.1 設立時状態を 4 期軌跡の初期条件として使用",
+        "Ch 8 2D jump-diffusion 軌跡 4 類型",
+        "Ch 5 σ_SU MS-SSM regime posterior",
+        "Ch 6 PRS 期待値分解",
+        "Ch 9 ERS Private-Engineering-Univ-Type",
+        "Ch 10.5 統合ハザード h_post Klepper shakeout",
+        "Ch 10.7 η_jt VAR(1) coupling"
+      ],
+      "downstream_dependencies": [
+        "§13.3 (移譲過渡期 6 四半期 timeline 詳述)",
+        "§13.4 (F-CES posterior 推定、4 期軌跡を入力)",
+        "§13.5 (R 5 軸 stacked timeline の元データ)",
+        "§13.6 (Θ_healthy 4 期通算判定を TIEM 対比表 + 章末問い 1 (ε 感度) に使用)",
+        "Ch 25 (機関 ERS の BWE 速度効果、4 期軌跡を Granger 検定対象)",
+        "Ch 26a (BWE 校正 plot に供給)",
+        "Ch 26b (post-2026 体制安定期予測登録簿)"
+      ],
+      "references": [
+        "Ch 8 §8.1-§8.3 軌跡 4 類型",
+        "Ch 5 §5.0-§5.4 σ_SU MS-SSM",
+        "Ch 6 PRS 期待値分解",
+        "Ch 9 ERS KLST",
+        "Ch 10.5 統合ハザード",
+        "Ch 10.7 η_jt VAR(1)",
+        "Klepper (1996, 2002) shakeout",
+        "pwa/bzm/retrofit-verification.md",
+        "BOOK_DECISIONS.md D-026 (健全型主要参照昇格)"
+      ],
+      "source_drafts": [
+        "A §13.2 (骨格 + ε 閾値)",
+        "C §13.2 (Θ_healthy 4 条件適合性 P ≥ 0.9 illustrative)",
+        "B §13.2 (鋸歯型不在 retrofit-verification.md 接続)"
+      ]
+    },
+    {
+      "section_id": "13.3",
+      "title": "CEO 移譲過渡期 (2022-2023) + CTO 招聘 + CFO 育成 — FRL Contingent Reward 軸組み換えと F_cap 後発補完成功 (命題 13.3-13.4)",
+      "pages": 3.5,
+      "math_level": "medium-heavy — Bass-Avolio FRL 5 因子 (Idealized Influence / Inspirational Motivation / Intellectual Stimulation / Individualized Consideration / Contingent Reward + Management-by-Exception) の F_cap 軸四半期推移 (2.5 → 1.8 → 3.5 illustrative); Ch 7 §7.2 委譲 operator D 三基準 (ΔT 時間ラグ + 委譲先存在 + 共起観測); Beckman (2006) AMJ 創業チーム異質性 (CTO 外部採用); Eesley-Roberts (2012) MIT 同窓生補完性 (CFO 内部昇格); Wasserman (2012) Founder Dilemma Rich vs King 軸; Hellmann-Puri (2002) startup professionalization slow build; Ch 8 jump-diffusion 移譲過渡期 λ_y^- 軽度 + 復元。",
+      "anchor_claims": [
+        "[AC-13.3-1] 2022Q2 外部 CEO 招聘試行 — 急成長 + 規制対応 + 組織拡大の 3 課題同時発生で F_cap 軸補完が急務、外部 CEO への委譲判断、創業者は CTO 的役割 + ビジョン保持へ移行設計。Ch 7 §7.2 委譲 operator D の試行解釈。Wasserman 2012 Rich vs King 軸では Rich 寄り選好 (企業価値 > 実権) を当時資料で確認、CEO 移譲受容の前提条件として機能。",
+        "[AC-13.3-2] 2022Q3-Q4 違和発生 → 撤回 — 外部 CEO との価値観・意思決定スピード乖離 (F_char ALQ4 IM 内面化道徳の不整合 illustrative)、創業者 F_char 高位の委譲不可能コア (Ch 7 Inada コーナー: F → 0 as F_char → 0 with F_cap > 0) が露呈、撤回判断、Bass-Avolio FRL F_cap 軸 2.5 → 1.8 一時低下、Ch 8 jump #4 λ_y^- 軽度 (組織ダウンサイズ + bridge round)。",
+        "[AC-13.3-3] FRL 一時低下の核は Inspirational Motivation (charisma) 軸ではなく Contingent Reward + Individualized Consideration 軸の制度化遅延 — 創業者個人 charisma は維持されたが、組織拡大に伴う成果評価 + 個別配慮の制度化が遅れた。これは Antonakis 2016 charisma 過度依存批判への組織的応答として読める (Tier A illustrative、Ch 7 §7.4 三層 defense と整合)。",
+        "[AC-13.3-4] 2023Q1-Q2 再設計 + CTO 招聘 — 委譲ではなく機能補完への切替、CTO は領域経験 (ヘルスケア技術 5+ 年) + 外部採用 (Beckman 2006 異質性) + 機能補完 (技術リード + 規制対応) で招聘、F_cap 急上昇 (Markov 経験順序補完)、Roberts (1991, 2004) MIT 創業者パネル系譜での後発補完成功事例と整合。",
+        "[AC-13.3-5] 2023Q3-Q4 CFO 育成 + 体制安定 — CFO は内部昇格 (経理経験 2 年 + 創業者との価値観整合) + 育成 (外部メンター + 専門研修)、Eesley-Roberts (2012) 補完性 (内部育成 by 補完性 high) + Hellmann-Puri (2002) startup professionalization slow build と整合、FRL F_cap 軸 1.8 → 3.5 急上昇、Contingent Reward 軸の制度化が CTO + CFO 体制で進み 2023 末 FRL 回復、Ch 8 軌跡で μ_x 復元 + μ_y > 0 再加速。",
+        "[AC-13.3-6] F_char × F_cap 後発補完成功 (Roberts 1991/2004 + Beckman 2006 + Eesley-Roberts 2012 + Hellmann-Puri 2002 系譜) は Ch 7 F-CES ρ < 0 (補完性) posterior と整合する illustrative 経路として Tier A 範囲で記述、命題 13.5 (補完性 ρ < 0 確認事例) の §13.4 への入力 evidence、validation 主張ではない (D-033)。"
+      ],
+      "paragraph_outline": [
+        "[¶3a] 移譲過渡期 6 四半期 timeline 図 — 2022Q1 (拡張期末) → 2022Q2 (外部 CEO 招聘) → 2022Q3 (違和発生) → 2022Q4 (撤回 + ダウンサイズ jump #4) → 2023Q1 (再設計) → 2023Q2 (CTO 招聘) → 2023Q3 (CFO 育成開始) → 2023Q4 (体制安定) → 2024Q1 (体制安定期入り) を FRL F_cap 軸推移 + μ_x 推移 + jump marker で重畳描画",
+        "[¶3b] 外部 CEO 招聘試行 (2022Q2) 動機構造 — 急成長 + 規制対応 + 組織拡大の 3 課題同時発生、F_cap 軸補完急務、外部 CEO 委譲が当時合理的だった経緯。Wasserman 2012 Rich vs King 軸での Rich 寄り選好 (企業価値 > 実権) を当時資料で確認、CEO 移譲受容の前提条件として機能、Ch 7 §7.2 委譲 operator D 試行解釈との対応を illustrative 提示",
+        "[¶3c] 違和発生 (2022Q3-Q4) — 外部 CEO との意思決定スピード乖離 + 価値観 (ALQ4 IM 内面化道徳) 不整合 illustrative。F_char 高位の委譲不可能コア (Ch 7 §7.2 公理層 F → 0 as F_char → 0 with F_cap > 0 Inada コーナー) が露呈、Bass-Avolio FRL F_cap 軸 2.5 → 1.8、組織ダウンサイズ + bridge round (Ch 8 jump #4 λ_y^- 軽度)",
+        "[¶3d] FRL 5 因子 (Idealized Influence / Inspirational Motivation / Intellectual Stimulation / Individualized Consideration / Contingent Reward + MBE) の当時資料時系列推定 — 公開取材 + IR + 寄稿 + 内部発信の代理指標、FRL 一時低下の核を Inspirational Motivation (charisma) 軸ではなく Contingent Reward + Individualized Consideration 軸の制度化遅延として特定、Antonakis 2016 charisma 過度依存批判への組織的応答という解釈 (Credé 2017 controversy + Ch 7 §7.4 三層 defense と整合)",
+        "[¶3e] 撤回判断と再設計 (2023Q1) — 委譲ではなく機能補完への切替、創業者 CEO 継続 + 経営チーム機能補完 (CTO + CFO) の二層分業を再設計、Ch 7 §7.2 委譲 operator D 三基準 (ΔT + 委譲先存在 + 共起観測) の再評価",
+        "[¶3f] CTO 招聘 (2023Q2) — 領域経験 (ヘルスケア技術 5+ 年) + 外部採用 (Beckman 2006 異質性) + 機能補完 (技術リード + 規制対応) の三条件、F_cap 急上昇 (Markov 経験順序補完)、Roberts (1991, 2004) MIT 創業者パネル系譜の後発補完成功事例と整合",
+        "[¶3g] CFO 育成 (2023Q3-Q4) — 内部昇格 (経理経験 2 年) + 育成 (外部メンター + CFO 専門研修 + 創業者との価値観整合) で CFO 機能構築、Eesley-Roberts (2012) 補完性 (内部育成 by 補完性 high、co-founder fit 指標) + Hellmann-Puri (2002) startup professionalization slow build と整合、外部採用ではなく内部育成を選んだ判断 = F_char 創業者保持 + 価値観整合優先",
+        "[¶3h] FRL F_cap 軸推移 plot — Bass-Avolio FRL F_cap 軸を 6 四半期で推移描画: 2022Q1 = 2.5 (拡張期末) → 2022Q4 = 1.8 (低下) → 2023Q2 = 2.5 (CTO 招聘) → 2023Q4 = 3.5 (体制安定) illustrative、F_char 軸は同期間 4.5 で安定維持、Contingent Reward 軸の制度化推移を別系列で plot",
+        "[¶3i] Ch 7 F-CES での読み直し — 移譲過渡期前 (F_char 高 × F_cap 低 → F 中位) → 撤回時 (F_char 高 × F_cap 低 → F 中位停滞) → CTO 招聘後 (F_char 高 × F_cap 中位 → F 中上位) → 体制安定 (F_char 高 × F_cap 高位 → F 高位) の F-CES 出力推移を ρ = -2 illustrative で計算、ρ < 0 補完性下で F_cap 補完が F を急上昇させる構造を確認",
+        "[¶3j] Ch 8 jump-diffusion での読み直し — 移譲過渡期 jump #4 (λ_y^- 軽度) → CTO 招聘期 jump 無し (μ_x 復元) → 体制安定期 jump #5 (λ_x^+ Series B)、Θ_healthy 圏内維持",
+        "[¶3k] F_char は第 3 期も維持の検証 — 当時資料 (創業者寄稿 / 公開取材 / 内部発信) で ALQ4 4 因子は維持、Grit Perseverance 維持、委譲不可能性命題 (Ch 7) の事例レベル整合、F_char 軸 4.5 安定維持を確認",
+        "[¶3l] 後付け校正からの示唆 — BWE 移譲過渡期は委譲 operator D 試行 → 撤回 → 機能補完への切替の経路を illustrative に示し、F_char 高位委譲不可能コア + F_cap 後発補完 (機能別) 二層分業が F-CES ρ < 0 posterior と整合する事例 (D-038 主要 evidence の §13.4 入力)、§13.6 で TIEM (Ch 12) との分岐点として再整理"
+      ],
+      "new_writing_required": "BWE 移譲過渡期 6 四半期 timeline 図 + 外部 CEO 招聘試行・違和発生・撤回・再設計・CTO 招聘・CFO 育成の経路詳述 + FRL 5 因子時系列推定 + Contingent Reward + Individualized Consideration 軸特定 + Antonakis 2016 batter 批判への組織的応答解釈 + Bass-Avolio FRL F_cap/F_char 軸推移 plot + Wasserman 2012 Rich vs King 軸での CEO 移譲受容前提 + Ch 7 F-CES 期別出力 illustrative 推移 + Ch 8 jump-diffusion 期別 μ_x/μ_y 推移 + Beckman 2006 異質性 / Eesley-Roberts 2012 補完性 / Roberts 1991/2004 / Hellmann-Puri 2002 系譜接続 + 後付け校正示唆 は全文新規。",
+      "existing_reuse": "Ch 7 §7.2 委譲 operator D 三基準 + Inada コーナー、Ch 7 F-CES 二層集約、Ch 8 jump-diffusion μ_x/μ_y/λ_x^+/λ_y^-、Bass-Avolio FRL 定義 (Ch 4 / Ch 7 §7.3)、Beckman (2006) / Eesley-Roberts (2012) / Roberts (1991, 2004) / Wasserman (2012) / Hellmann-Puri (2002) / Antonakis (2016) 構成概念定義を再掲。s-survival.md「補完で F が立ち上がった案件」直観を移譲過渡期叙述として Tier 3 学術化。",
+      "upstream_dependencies": [
+        "§13.1 設立時 F_cap 低位 + Eesley-Roberts 補完候補識別",
+        "§13.2 4 期軌跡 (移譲過渡期の境界条件)",
+        "Ch 7 §7.2 委譲 operator D",
+        "Ch 7 §7.3 F-CES posterior 校正手続き",
+        "Ch 7 §7.4 Antonakis-Credé 三層 defense",
+        "Ch 8 jump-diffusion",
+        "Bass-Avolio FRL"
+      ],
+      "downstream_dependencies": [
+        "§13.4 (F-CES posterior 推定の移譲過渡期 illustrative 入力)",
+        "§13.6 (TIEM 対比表の F_cap 後発補完成否 + 章末問い 2 FRL 一時低下汎化)",
+        "Ch 25 (機関 ERS の移譲過渡期速度効果)",
+        "Ch 26b (FRL 一時低下からの Contingent Reward 軸再構築の汎化可能性 commission)"
+      ],
+      "references": [
+        "Walumbwa et al. 2008 ALQ4 IM",
+        "Bass & Avolio 1995 FRL",
+        "Antonakis 2016 charisma 批判",
+        "Credé 2017 Grit meta-analysis",
+        "Beckman 2006 AMJ",
+        "Eesley-Roberts 2012 SEJ",
+        "Roberts 1991, 2004 MIT entrepreneurs",
+        "Hellmann-Puri 2002 RFS startup professionalization",
+        "Wasserman 2012 Founder Dilemma",
+        "BZM Ch 7 §7.2/§7.3/§7.4 / Ch 8 / Ch 4",
+        "BOOK_DECISIONS.md D-033/D-038"
+      ],
+      "source_drafts": [
+        "A §13.3 (6 四半期 timeline + 委譲試行失敗経路)",
+        "C §13.3 (FRL 5 因子 Contingent Reward 軸特定 + Antonakis 批判への組織応答)",
+        "B §13.3 (Wasserman Rich vs King 軸 + Hellmann-Puri slow build)"
+      ]
+    },
+    {
+      "section_id": "13.4",
+      "title": "F-CES posterior 推定 — ρ < 0 補完性 evidence 確認事例 (命題 13.5, Tier A illustrative)",
+      "pages": 3.5,
+      "math_level": "heavy — F_i = [α F_char,i^ρ + (1-α) F_cap,i^ρ]^{1/ρ} の BWE 個別 posterior; 弱情報事前 α ~ Beta(2, 2), ρ ~ Normal(-1, 1.5) (Ch 7 §7.3 / Ch 10.3 と整合); Kmenta (1967) 二次モーメント近似 + Klump et al. (2007) 正規化 CES 対数線型化; horse-race (M1 CES vs M2 Cobb-Douglas ρ→0 vs M3 Leontief ρ→-∞ vs M4 加法的 ρ→1) を WAIC + LOO + Bayes 因子で評価; Stan/NUTS 4 chains × 4000 iterations + R-hat < 1.01 + ESS > 400 + divergent < 0.1% + BFMI > 0.3; prior sensitivity 3 設定 robustness; Tier A illustrative 限定明示。",
+      "anchor_claims": [
+        "[AC-13.4-1] BWE 個別 F-CES posterior (α, ρ) を Tier A illustrative で推定: α posterior median ≈ 0.6 (95% CI [0.45, 0.78])、ρ posterior median ≈ -2 (95% CI [-3.2, -0.5])。ρ posterior 質量の 90+% が ρ < 0 領域に位置する illustrative 結果 (Ch 7 §7.5 illustrative + s-survival.md (a=0.6, ρ=-2) 数値例の Tier 3 学術化)。",
+        "[AC-13.4-2] horse-race 結果: M1 CES (柔軟 ρ) が WAIC + LOO + Bayes 因子の三系統で M2 Cobb-Douglas / M3 Leontief / M4 加法的を上回る dominant illustrative。Bayes 因子 BF(M1/M2) ≈ 8.5、BF(M1/M3) ≈ 4.2、BF(M1/M4) ≈ 12.3 illustrative。本格 horse-race + 事前登録は Ch 11 (8 PJ panel BVAR) + Ch 26b に分離。",
+        "[AC-13.4-3] ρ posterior が ρ < 0 領域に集中する事実は F_char × F_cap 補完性 (委譲不可能性) と整合する illustrative 確認事例として Ch 10.3 §10.3.x ρ Kmenta 識別 (D-038) に Tier A 範囲で引き渡される。本章では P(ρ < 0 | data) の点推定信頼性判定は行わず、Tier B (H_C2 commission) は Ch 26b に明示分離。",
+        "[AC-13.4-4] Tier A illustrative 限定明示 — N=1 個別 posterior は信頼性が限定的、本章 posterior は「BWE は F-CES ρ < 0 posterior と整合する illustrative 事例」以上の主張を持たない。集合 inference は Ch 11 BVAR + Ch 26b 事前登録に分離する境界線を §13.4 冒頭 + §13.6 自己点検で二重設置。",
+        "[AC-13.4-5] Stan/NUTS 健全性基準 4 種 (R-hat < 1.01 / ESS > 400 / divergent < 0.1% / BFMI > 0.3) を illustrative 推定で報告、prior sensitivity 3 設定 (ρ ~ Normal(-1, 1.5) / Normal(0, 2) / Normal(-2, 1)) で robustness 確認 (3 設定すべてで ρ posterior が ρ < 0 領域集中) → hindsight bias (D-026 前提汚染) 緩和。"
+      ],
+      "paragraph_outline": [
+        "[¶4a] §13.4 Tier A 限定宣言 — 本節 posterior は BWE 個別 N=1 illustrative、集合 inference は Ch 11 BVAR、horse-race 事前登録は Ch 26b に分離する境界線を冒頭明示、validation 主張禁止 (D-033) 再確認、N=1 で数値を出す正当化 (prior 依存性下で「ρ < 0 領域に質量があるか」の領域判定として読み、点推定値ではなく landing 領域として解釈)",
+        "[¶4b] 観測代理変数構築 — F_char,i (BWE) = ALQ4 二階因子 + Grit Perseverance + CD-RISC-10 の遡及測定複合 (Ch 7 §7.3 proxy 構築)、F_cap,i (BWE 4 期別) = 領域経験順序 (Beckman 2006) × 共同創業者補完 (Eesley-Roberts 2012) × 機能カバレッジ幅、F proxy = 5 年生存指標 + ARR 成長率 + Series B 到達指標 illustrative",
+        "[¶4c] 弱情報事前分布 — α ~ Beta(2, 2) 中立、ρ ~ Normal(-1, 1.5) (Ch 7 §7.3 / Ch 10.3 と整合、Eesley-Roberts 2012 メタ的傾向との整合)、F_char proxy 測定誤差 SIMEX 考慮、F_cap 補完成功 indicator を共変量に",
+        "[¶4d] Kmenta 二次モーメント近似 — log F_i ≈ log F* + α·d log F_char,i + (1-α)·d log F_cap,i + (ρ/2)·α(1-α)·(d log F_char,i − d log F_cap,i)^2 + o(·) を BWE 4 期パネル適用、δ_3 係数符号で sign(ρ) 識別、Klump et al. (2007) 正規化 CES 対数線型化と Ch 10.3 §10.3.x の整合",
+        "[¶4e] Stan/NUTS 推定実行 — 4 chains × 4000 iterations (warm-up 2000)、R-hat < 1.01 / ESS > 400 / divergent < 0.1% / BFMI > 0.3 を確認、posterior summary 表 (α median + 95% CI、ρ median + 95% CI、F_char/F_cap partial derivative)",
+        "[¶4f] horse-race 評価 (M1 CES vs M2 Cobb-Douglas vs M3 Leontief vs M4 加法的) — WAIC + LOO + Bayes 因子の三系統評価、M1 CES dominant illustrative を表で提示 (BF illustrative 数値付き)、本格 horse-race + 事前登録は Ch 11 / Ch 26b 分離を再確認",
+        "[¶4g] prior sensitivity 3 設定 robustness — ρ ~ Normal(-1, 1.5) / Normal(0, 2) / Normal(-2, 1) で再推定、3 設定すべてで ρ posterior が ρ < 0 領域集中する illustrative 結果を確認、prior 依存性を 1 段落評価、hindsight bias (D-026 前提汚染) への緩和効果",
+        "[¶4h] BWE 4 期別 posterior 推移 — 萌芽期 / 拡張期 / 移譲過渡期 / 体制安定期で α, ρ posterior の推移 (Tier A illustrative、Bayesian updating chain 表示)、移譲過渡期で ρ posterior 不確実性が拡大する経緯を Ch 7 §7.2 委譲 operator D 試行と関連付け",
+        "[¶4i] Ch 10.3 への引き渡し — BWE 個別 posterior の ρ < 0 集中は補完性 (委譲不可能性) と整合する illustrative 確認事例として Ch 10.3 §10.3.x ρ Kmenta 識別 (D-038) に引き渡し、8 PJ 集合 posterior + Heckman 補正 + Hsieh-Klenow robustness は Ch 10.3 / Ch 11 / Ch 26b の領域",
+        "[¶4j] Tier A 自己点検 — 本節 posterior 報告で「ρ < 0 が BWE で証明された」「BWE が補完性仮説を validation した」と読まれうる叙述がないかを §13.6 自己点検チェックリストに繰り上げ、illustrative 性を文末 1 段落で再強調",
+        "[¶4k] s-survival.md 連結確認 (主要参照昇格の明示宣言) — pwa/bzm/s-survival.md F_char × F_cap 補完成功事例 (a=0.6, ρ=-2 illustrative) を本章 §13.4 posterior (α=0.6, ρ=-2 illustrative) で Tier 3 学術化、s-survival.md「二つの相談実例の一つ」(補完で F が立ち上がった案件 = BWE) を Book III 主要参照へと明示的に昇格する流れを宣言"
+      ],
+      "new_writing_required": "BWE 個別 F-CES posterior 推定 (α, ρ illustrative posterior + 95% CI) + Kmenta 二次モーメント近似の BWE 4 期パネル適用 + horse-race 4 model 評価 (WAIC + LOO + Bayes 因子) + prior sensitivity 3 設定 robustness + 4 期別 posterior 推移 + Stan/NUTS 健全性 4 種報告 + Ch 10.3 ρ Kmenta 引き渡し + Tier A 自己点検 + s-survival.md 主要参照昇格宣言 + N=1 個別 posterior 正当化 (領域判定として読む叙述) は全文新規。",
+      "existing_reuse": "Ch 7 §7.3 F-CES posterior 校正手続き (proxy 構築 + Stan/NUTS 健全性 + 4 系統 horse-race 評価)、Ch 7 §7.5 BWE illustrative 比較、Ch 10.3 ρ Kmenta 識別 + Klump et al. (2007) 正規化 + Heckman 補正手続き、Bernstein 2017 RCT α > 0.5 弱情報事前、s-survival.md F_char × F_cap 補完成功事例 (a=0.6, ρ=-2) を再掲・連結。",
+      "upstream_dependencies": [
+        "§13.1 設立時 F_char/F_cap (初期 posterior 入力)",
+        "§13.2 4 期軌跡 (期別 F proxy 構築)",
+        "§13.3 移譲過渡期 + CTO/CFO 補完 (F_cap 推移)",
+        "Ch 7 §7.3 F-CES posterior 校正",
+        "Ch 7 §7.5 BWE illustrative 比較",
+        "Ch 10.3 ρ Kmenta 識別",
+        "pwa/bzm/s-survival.md F_char × F_cap 直観"
+      ],
+      "downstream_dependencies": [
+        "§13.6 (TIEM 対比表の ρ posterior 列 + Tier A 自己点検)",
+        "Ch 10.3 §10.3.x (BWE illustrative 確認事例として引き渡し)",
+        "Ch 11 (8 PJ 集合 posterior の BWE 寄与)",
+        "Ch 26a (BWE Brier + 校正 plot)",
+        "Ch 26b (H_C2 commission post-2024 予測登録簿)",
+        "Ch 37 (4 framework horse-race BWE 分類への ρ posterior 入力)"
+      ],
+      "references": [
+        "Kmenta 1967 JoE CES 二次モーメント近似",
+        "Klump et al. 2007 JEDC 正規化 CES",
+        "Stan/NUTS (Hoffman-Gelman 2014)",
+        "WAIC (Watanabe 2010)",
+        "LOO (Vehtari et al. 2017)",
+        "Bernstein et al. 2017 AER RCT",
+        "Eesley-Roberts 2012",
+        "Korteweg-Laws 2024",
+        "Roberts-Eesley 2011",
+        "BZM Ch 7 §7.3/§7.5 / Ch 10.3",
+        "pwa/bzm/s-survival.md",
+        "BOOK_DECISIONS.md D-031/D-033/D-038"
+      ],
+      "source_drafts": [
+        "A §13.4 (Stan/NUTS 健全性 4 種 + prior sensitivity 3 設定 + horse-race 4 model)",
+        "C §13.4 (N=1 領域判定として読む叙述 + 命題 13.5)",
+        "B §13.4 (Tier A 規律文言設計 + 数値そのものではなく landing 位置)"
+      ]
+    },
+    {
+      "section_id": "13.5",
+      "title": "顧客と支払者の分離 — U-G-P 三層下の R 多軸同時進行と μ_G やや先行 (命題 13.6)",
+      "pages": 2.5,
+      "math_level": "low-medium — 顧客 (utilizer) U / ゲートキーパー (gatekeeper) G / 支払者 (payer) P の三層 demand-side; R 5 軸 (TRL / BRL / GRL / SRL / HRL) の stacked timeline; σ_SU MS-SSM μ_G ガバナンス軸先行傾向 (Ch 5); BWE 4 期別 R 進展 plot; 単軸先行型失敗 3 類型 (TRL only / BRL only / GRL only) 対比。",
+      "anchor_claims": [
+        "[AC-13.5-1] 女性ヘルスケアの demand-side は U-G-P 三層分離 — 患者 (利用者 U) / 医療者 (ゲートキーパー G、処方/紹介/認可権限) / 保険者・雇用主 (支払者 P) — に分かれ、一般消費財の単層 demand とは異なり 3 層すべての align が事業成立の必要条件 (formal 定義: 顧客効用 U(·) + ゲートキーパー認可確率 P_G(·) + 支払者意思 W_P(·) の積構造、より formal な定式化は Ch 14 CX に分離)。",
+        "[AC-13.5-2] BWE は U (患者: 女性ヘルスケア領域) を直接相手にする DTC モデルから出発し、拡張期で G (医療者) との連携 + P (雇用主向け福利厚生 Femtech B2B2C) を取り込む二段階展開、体制安定期で HRL (規制承認) 経由で保険適用範囲拡大視野に入れた経路を illustrative にたどった。",
+        "[AC-13.5-3] R 5 軸同時進行制約 — TRL + BRL + GRL + SRL + HRL は U-G-P 三層分離下で同時並進が必要、特に HRL (PMDA/FDA 承認時計) と SRL (女性ヘルスケアタブー解除の社会受容) の時計が事業速度を律する。単軸先行型失敗 3 類型: (i) TRL only 先行 (技術完成しても処方されない) / (ii) BRL only 先行 (事業計画はあっても規制不通過) / (iii) GRL only 先行 (規制通過しても患者不在) は type 名匿名化で言及。",
+        "[AC-13.5-4] σ_SU MS-SSM 女性ヘルスケアプロファイル: μ_G やや先行 (規制 + 保険償還 + Femtech B2B2C 雇用主導入クロック)、μ_A + μ_I 中位バランス、BWE 4 期通算で σ_SU regime k=2 中位滞在支配 (R 多軸並進の安定性)、体制安定期で k=3 移行 (規制承認 + 保険適用視野)。Pavone 2024 Femtech investment B2B2C 構造 + Jennings-Brush 2013 gender review + Klyver-Foley 2012 + Astebro-Bazzazian-Braguinsky 2012 scientist entrepreneurship 系譜 + Triple Helix Etzkowitz と整合。",
+        "[AC-13.5-5] U-G-P 三層分離と F-CES の関係 — F_char (ALQ4 IM 内面化道徳 + Authentic Leadership) は U (患者) に対する真正性 signal として高位 (女性ヘルスケアタブー領域での当事者性 + 真正性優位)、F_cap (経験順序) は G (医療者連携) + P (保険・福利厚生 BD) に対する機能補完として CTO/CFO 補完後に高位、ρ < 0 補完性が三層 align を支える illustrative 構造。"
+      ],
+      "paragraph_outline": [
+        "[¶5a] U-G-P 三層 demand-side 構造の formal 定義 — 一般消費財 (単層 demand) との対比、医療・ヘルスケア固有の三層分離 (U 利用者 / G ゲートキーパー / P 支払者) の女性ヘルスケアにおける具体化、formal 定式化 (U 効用 + G 認可確率 + P 意思 の積構造) のレベルを示し、より formal な定式化は Ch 14 CX に分離する境界明示",
+        "[¶5b] BWE の二段階 demand-side 展開 — 萌芽 + 拡張期 DTC (U 直接) → 移譲過渡期 + 体制安定期で G (医療者連携) + P (雇用主福利厚生 Femtech B2B2C) を取り込む経路を Tier A illustrative 提示、各 jump (Pre-Seed/Seed/Series A/Series B) の demand-side 構造との対応を timeline で示す",
+        "[¶5c] R 5 軸 stacked timeline plot — TRL/BRL/GRL/SRL/HRL を 8 年間 stacked area で描画、各軸進展速度の illustrative 比較、HRL (PMDA/FDA 承認時計) と SRL (社会受容) の律速性を視覚化、TRL は早期先行 + BRL は jump イベントで階段状進展",
+        "[¶5d] 単軸先行型失敗 3 類型対比 (type 名匿名化) — (i) TRL only 先行 (技術完成しても処方されない) / (ii) BRL only 先行 (事業計画はあっても規制不通過) / (iii) GRL only 先行 (規制通過しても患者不在) を type 名で言及、BWE がいずれにも陥らず R 同時進行で σ_SU 中位を維持した経路を対比強調",
+        "[¶5e] σ_SU MS-SSM 女性ヘルスケアプロファイル — μ_G やや先行 (規制クロック + 保険償還 + Femtech B2B2C) を Ch 5 K=3 regime posterior で確認、BWE 4 期通算 σ_SU regime k=2 中位滞在支配 → 体制安定期 k=3 移行を illustrative 提示、一般 IT/SaaS (μ_I 先行) との対比",
+        "[¶5f] U-G-P 三層分離と F-CES の関係 — F_char (Authentic Leadership 高位) が U に対する真正性 signal (女性ヘルスケアタブー領域での当事者性 + 真正性優位、Jennings-Brush 2013 gender review との接続)、F_cap (CTO/CFO 補完後) が G + P に対する機能補完として align、ρ < 0 補完性が三層 align を支える illustrative 構造",
+        "[¶5g] HRL 規制承認進展経路 — 萌芽期 (申請準備) → 拡張期 (申請 + 一次審査) → 移譲過渡期 (規制対応負荷増、移譲試行の動機の一つ) → 体制安定期 (承認進展) の HRL 経路を 1 段落詳述、HRL が σ_SU regime 遷移の鍵だった illustrative 経緯、Pavone 2024 Femtech investment + Astebro-Bazzazian-Braguinsky 2012 scientist entrepreneurship + Triple Helix と接続",
+        "[¶5h] §13.6 引き渡し — U-G-P 三層分離 + R 多軸同時進行 + σ_SU μ_G 先行プロファイルを Tier A 範囲で記述、TIEM (Ch 12) との対比表で「demand-side 構造の三層分離」を分岐要因の一つとして §13.6 で再整理、章末問い 3 (U-G-P 他領域 バイオ/介護/メンタルヘルス 転移可能性) に flush"
+      ],
+      "new_writing_required": "U-G-P 三層 demand-side 構造の formal 定義 + BWE 二段階展開 (DTC → G+P Femtech B2B2C) + R 5 軸 stacked timeline plot + 単軸先行型失敗 3 類型対比 + σ_SU MS-SSM 女性ヘルスケアプロファイル (μ_G 先行) + Pavone 2024 + Jennings-Brush 2013 + Klyver-Foley 2012 + Astebro-Bazzazian-Braguinsky 2012 + Triple Helix 接続 + HRL 規制承認経路 + F-CES との関係 + Ch 14 CX への formal 化分離予告 は全文新規。",
+      "existing_reuse": "Ch 5 σ_SU MS-SSM K=3 regime + μ_A/μ_I/μ_G、Ch 6 R 5 軸 (TRL/BRL/GRL/SRL/HRL) 定義、Ch 7 F-CES + F_char Authentic Leadership 真正性 signal 機能、§13.1 ERS Private-Engineering-Univ-Type 規制軸 A_3 低位、§13.2 軌跡 4 期 を再掲・連結。",
+      "upstream_dependencies": [
+        "§13.1 設立時 ERS Private-Engineering-Univ-Type (規制軸 A_3 低位)",
+        "§13.2 軌跡 4 期 (R 多軸進展期別データ)",
+        "Ch 5 σ_SU MS-SSM μ_A/μ_I/μ_G 三軸",
+        "Ch 6 R 5 軸 TRL/BRL/GRL/SRL/HRL",
+        "Ch 9 ERS (機関側三層対応、Triple Helix)"
+      ],
+      "downstream_dependencies": [
+        "§13.6 (TIEM 対比表の demand-side 構造分岐要因 + 章末問い 3 他領域転移)",
+        "Ch 14 CX (U-G-P 三層 formal 化レベル分離)",
+        "Ch 25 (機関 ERS の R 多軸速度効果)",
+        "Ch 37 (4 framework の demand-side 構造扱い比較)"
+      ],
+      "references": [
+        "Ch 5 σ_SU MS-SSM",
+        "Ch 6 R 5 軸 + PRS",
+        "Ch 7 F-CES + Authentic Leadership 真正性 signal",
+        "Pavone 2024 Femtech investment",
+        "Jennings-Brush 2013 RP gender review",
+        "Klyver-Foley 2012 JBV",
+        "Astebro-Bazzazian-Braguinsky 2012 RP scientist entrepreneurship",
+        "Etzkowitz Triple Helix",
+        "BWE 女性ヘルスケア市場分析資料 (Tier 3 institutional archive)",
+        "BOOK_DECISIONS.md D-031/D-033/D-034"
+      ],
+      "source_drafts": [
+        "A §13.5 (U-G-P 三層 + R 5 軸 stacked + HRL 律速)",
+        "C §13.5 (formal 定義 + 単軸先行失敗 3 類型 + Pavone/Jennings-Brush/Klyver-Foley/Astebro 系譜接続)",
+        "B §13.5 (μ_G 先行の Triple Helix 接続)"
+      ]
+    },
+    {
+      "section_id": "13.6",
+      "title": "Book II 数学装置で読み直し + TIEM 対比 + Tier A 自己点検 + 章末問い (命題 13.7)",
+      "pages": 2,
+      "math_level": "low-medium — Ch 5/5.5/6/7/8/9/10.3/10.5/10.7 8 装置の BWE 後付け校正総合読み直し summary table; BWE vs TIEM 対比表 (F_char / F_cap / Θ 類型 / μ_y 符号 / h_post / ρ posterior / R 同時進行 / U-G-P 三層); Tier A 自己点検チェックリスト 4 種違反 + 章末問い 3 件 + Ch 25/26a/26b/11/37 引き渡し。",
+      "anchor_claims": [
+        "[AC-13.6-1] BWE 後付け校正は Book II 数学装置 8 つ (Ch 5 σ_SU MS-SSM / Ch 5.5 GO ゲート / Ch 6 PRS / Ch 7 F-CES / Ch 8 jump-diffusion / Ch 9 ERS / Ch 10.3 ρ Kmenta / Ch 10.5 h_post / Ch 10.7 η_jt VAR(1)) で総合的に整合する illustrative 事例として Tier A 範囲で読み直し完結、健全型主要参照 (D-026) として位置づけ。",
+        "[AC-13.6-2] BWE (健全型) vs TIEM (Ch 12 ゾンビ型/退化型) 対比表 — 両者 F_char 高位だが F_cap 後発補完成否 (BWE 成功 vs TIEM 失敗) で μ_y 符号分岐 (BWE μ_y > 0 vs TIEM μ_y < 0)、Θ 類型分岐 (BWE Θ_healthy vs TIEM Θ_zombie/Θ_collapse)、ρ posterior 整合 (両者 ρ < 0 と整合だが F_cap 補完成否で帰結分岐) を 1 ページ表で提示。命題 13.7 補完性 ρ < 0 の両刃性 (BWE では F_cap 補完成功で F 急上昇 / TIEM では補完失敗で F 停滞、同じ補完性が表裏に作用) を illustrative 解釈フレームで示す。Ch 12 skeleton 起草中であり Phase 5-Ch12 完了後の re-sync gate が必要。",
+        "[AC-13.6-3] Tier A 自己点検チェックリスト 4 種違反 — (i) BWE 後付け校正を「validation」と呼ぶ叙述、(ii) ρ < 0 が BWE で「証明された」叙述、(iii) Ch 8 Θ_healthy 軌跡が「BWE で確認された」識別主張、(iv) F_char × F_cap 補完性の点推定有意性主張、を §13.6 末尾で全節横断点検、違反箇所は本文修正リスト提示、違反なしの場合「Tier A 違反 0 件、本章全体で D-031/D-033 規律遵守」明示。違反 1 件以上検出時は章完成保留 (FC-13-9 自己強制 falsifiable)。",
+        "[AC-13.6-4] 章末問い 3 件 — (i) 校正閾値 ε (Ch 10.5 統合ハザード判定 |Δ log h_post| < ε で ε = 0.2 illustrative 仮置き、Θ_healthy 4 条件閾値) の感度はどこまで頑健か、Ch 26a 校正 plot で検証、(ii) FRL 一時低下からの Contingent Reward + Individualized Consideration 軸再構築は他健全型事例で汎化可能か、Ch 26b 事前登録に flush、(iii) U-G-P 三層分離 (女性ヘルスケア) は他領域 (バイオ / 介護 / メンタルヘルス) に転移可能か、Ch 37 BZM vs 4 frameworks 比較に flush。",
+        "[AC-13.6-5] 章間 supply chain — Ch 25 (機関 ERS の BWE 速度効果 Granger) + Ch 26a (Brier + 校正 plot) + Ch 26b (post-2024 体制安定期予測登録簿 ✓) + Ch 11 (集合 inference 8 PJ panel BVAR への BWE 寄与) + Ch 37 (4 framework horse-race BWE 分類: Klepper shakeout 圏外 / Murmann coupling / Malerba SSI / KLST ERS 各 framework BWE 位置づけ) への引き渡しを表形式で明示。"
+      ],
+      "paragraph_outline": [
+        "[¶6a] Book II 8 装置総合読み直し summary table — Ch 5/5.5/6/7/8/9/10.3/10.5/10.7 各装置で BWE 後付け校正結果を 1 行ずつ要約 (装置名 + BWE 読み直し結論 + Tier A illustrative 限定明示) を 1 ページ表",
+        "[¶6b] BWE vs TIEM 対比表 (1 ページ) — 列: BWE (健全型) / TIEM (ゾンビ型・退化型)、行: 設立時 F_char / 設立時 F_cap / 移譲過渡期の有無と帰結 / Θ 類型 / μ_x 符号 / μ_y 符号 / λ_x^+ vs λ_y^- / h_post |Δ log h| / ρ posterior 整合 / R 多軸同時進行 / U-G-P or 単層 demand-side / ERS type。両者の分岐点が F_cap 後発補完成否にあることを可視化、Ch 12 skeleton 起草中である旨と re-sync gate 必要を明示",
+        "[¶6c] 命題 13.7 補完性 ρ < 0 の両刃性 解釈 — 両者 ρ < 0 補完性 + F_char 高位を共有するが、BWE は ρ < 0 が「F_cap 補完成功で F 急上昇」として作用、TIEM は同じ ρ < 0 が「F_cap 補完失敗で F 停滞」として作用、補完性の両刃性が両事例対比で illustrative 表現される、Ch 7 §7.2 委譲 operator D 試行 → 撤回 → 機能補完への切替が BWE 成功の鍵だった illustrative 解釈",
+        "[¶6d] Tier A 自己点検チェックリスト 4 種違反点検 (§13.0-§13.5 各節横断) — (i) validation / (ii) 証明 / (iii) 識別主張 / (iv) 点推定有意性 を全節点検、違反候補リスト + 本文修正提案、違反なし時「Tier A 違反 0 件、D-031/D-033 規律遵守」明示、違反 1 件以上時は章完成保留 (FC-13-9 自己強制)",
+        "[¶6e] 章末問い 3 件 + 各問への暫定回答方向 — (i) ε 感度: Ch 26a 校正 plot で検証、本章は ε = 0.2 illustrative 仮置き、(ii) FRL Contingent Reward 軸再構築の汎化: Ch 26b 事前登録、Antonakis 2016 charisma 過度依存批判への組織応答という解釈が他健全型に転移可能か、(iii) U-G-P 三層分離の他領域転移: Ch 37 4 framework 比較で バイオ/介護/メンタルヘルスへの拡張可能性を検討、本章は再現可能類型主張せず Tier A 後付け校正に留まる",
+        "[¶6f] 章間 supply chain 引き渡し表 — Ch 25 / Ch 26a / Ch 26b / Ch 11 / Ch 37 への引き渡しを箇条で明示、Series B 2024Q3 と執筆時点 2026-06-27 ギャップ (2026Q2-Q4 未観測) は Ch 26b post-2026 検証に分離する境界再確認",
+        "[¶6g] s-survival.md / retrofit-verification.md retour — pwa/bzm/s-survival.md F_char × F_cap 補完成功事例 + retrofit-verification.md「鋸歯型ではない、徐々に補強」を本章 Book III 主要参照として Tier 3 学術化した経路を 1 段落で振り返り、Book I/II/III 内の BWE 言及の一貫性確認、後付け校正命題 13.1-13.7 の formal 番号化スタイルが §13.0 ¶0d 宣言と対をなして章を閉じることを再確認"
+      ],
+      "new_writing_required": "Book II 8 装置総合読み直し summary table + BWE vs TIEM 対比表 + 命題 13.7 補完性 ρ < 0 両刃性解釈 + Tier A 自己点検チェックリスト 4 種違反点検 + 章末問い 3 件 + 各問暫定回答方向 + 章間 supply chain 引き渡し表 + Series B timeline ギャップ Ch 26b 分離再確認 + s-survival.md / retrofit-verification.md retour + 命題番号化スタイル §13.0 との対応再確認 は全文新規。",
+      "existing_reuse": "Ch 5/5.5/6/7/8/9/10.3/10.5/10.7 各装置形式、Ch 12 TIEM 後付け校正結果 (Ch 12 skeleton から往復参照、起草中)、pwa/bzm/s-survival.md F_char × F_cap 補完成功事例、pwa/bzm/retrofit-verification.md 健全型軌跡記述 を再掲・連結。",
+      "upstream_dependencies": [
+        "§13.1-§13.5 全節",
+        "Ch 12 TIEM 後付け校正 (対比対象、Ch 12 skeleton 起草中 → Phase 5-Ch12 完了後 re-sync gate 必要)",
+        "Ch 5/5.5/6/7/8/9/10.3/10.5/10.7 装置形式",
+        "pwa/bzm/s-survival.md",
+        "pwa/bzm/retrofit-verification.md"
+      ],
+      "downstream_dependencies": [
+        "Ch 25 機関 ERS Granger 検定",
+        "Ch 26a Brier + 校正 plot (ε 感度検証)",
+        "Ch 26b post-2024 予測登録簿 (FRL 汎化 + post-2026 timeline gap 検証)",
+        "Ch 11 集合 inference 8 PJ panel BVAR",
+        "Ch 37 4 framework horse-race BWE 分類 (U-G-P 他領域転移)",
+        "Book III Ch 17+ pre-firm 徴候判別"
+      ],
+      "references": [
+        "BZM Ch 5 / Ch 5.5 / Ch 6 / Ch 7 / Ch 8 / Ch 9 / Ch 10.3 / Ch 10.5 / Ch 10.7 / Ch 12 (skeleton 起草中)",
+        "pwa/bzm/s-survival.md",
+        "pwa/bzm/retrofit-verification.md",
+        "Antonakis 2016 charisma 批判 (FRL Contingent Reward 軸組み換え汎化への接続)",
+        "BOOK_DECISIONS.md D-026/D-031/D-033/D-034/D-038"
+      ],
+      "source_drafts": [
+        "A §13.6 (Tier A 自己点検 4 種違反 + FC-13-9 自己強制 + supply chain)",
+        "C §13.6 (補完性 ρ < 0 両刃性解釈 + 章末問い ε 感度)",
+        "B §13.6 (章末問いのシャープさ: 再現可能類型 vs 観察等価条件)"
+      ]
+    }
+  ],
+  "open_issues_for_masa": [
+    {
+      "issue": "F_char 遡及測定 (2024 実施想定で 6-8 年経過後の self-report) の measurement validity bias 緩和策の運用レベル",
+      "why_masa_decides": "ALQ4 / Grit / CD-RISC-10 の遡及測定は治療後汚染 + 結果バイアス (lifted outcome を知った後の自己評価上方修正) のリスクが高く、Ch 7 §7.4 三層 defense でも完全除去できない。Cambridge UP + Research Policy 査読での measurement validity 押し戻しは AE persona 説得の核なので、まさの判断で運用基準を確定する必要",
+      "options": [
+        "(A) §13.1 で遡及測定を illustrative 限定強化、360 度補正未実施を limitation 明示 + Tier B Ch 26b 事前登録で BWE 遡及測定 sub-sample 除外 (案 A の OI-13-1 路線)",
+        "(B) §13.1 で 360 度補正 (当時の共同創業者・初期投資家・初期メンバー数名への質問紙) を実施可能なら Tier 3 institutional archive 経由で追加し、bias 緩和を本文で組み込む",
+        "(C) 遡及測定を本章では使わず、当時資料 (事業計画書 / pitch deck / インタビュー記録) からの行動指標 + ナラティブ分析のみで F_char を推定 (測定 modality 変更)"
+      ],
+      "recommendation": "(A) を採用。360 度補正 (B) は Tier 3 archive 経由で当時の関係者にアクセスできる前提が必要で、本章執筆スケジュールに対して非現実的。行動指標のみ (C) は Walumbwa 2008 ALQ4 + Duckworth 2007 Grit の標準的測定枠組みから外れ、Cambridge UP 査読で別の押し戻し可能性。(A) で limitation 明示 + Ch 26b で sub-sample 除外境界明示が、Tier A illustrative 範囲を守りつつ Antonakis 2016 / Credé 2017 批判への defense として妥当"
+    },
+    {
+      "issue": "BWE 機関匿名化 vs panel 識別性のトレードオフ (D-034) の具体的丸め基準",
+      "why_masa_decides": "Private-Engineering-Univ-Type + 女性 30 代 + 女性ヘルスケア + 2018 設立 + Series B 2024Q3 + GAP fund アクセスの組合せは type 内で識別性が高すぎる可能性。Book III 公開時の panel 識別性問題は AMD network + 創業者本人への影響を伴うのでまさが決める",
+      "options": [
+        "(A) 設立年 ±1 年丸め (2017-2019 のいずれか) + Series B 年 ±1 年丸め (2023-2025 のいずれか) + 女性ヘルスケア領域内詳細 (月経/更年期/産後ケアのいずれか) 非開示 + 創業者年代も「30 代」のみ (案 A の OI-13-3 路線)",
+        "(B) 設立年・Series B 年は実年で開示 + 女性ヘルスケア領域内詳細のみ非開示 + 創業者属性は「女性研究者出身」のみで年代非開示",
+        "(C) BWE 略号のみで設立年・Series B 年・領域内詳細・創業者属性すべて非開示、Book III 公開時に再評価"
+      ],
+      "recommendation": "(A) が妥当。(B) は Series B 2024Q3 が公知情報 (調達発表) なので隠す意味が薄く、(C) は本章の後付け校正の説得力が大きく落ちる。(A) で年丸め + 領域内非開示 + 年代のみ開示が、Cambridge UP の anonymization 審査と現場本人保護のバランスで適切。創業者本人への事前確認 (公開範囲合意) を §13.0 執筆前にまさが取る前提"
+    },
+    {
+      "issue": "Series B 2024Q3 timeline と執筆時点 2026-06-27 のギャップ (2026Q2-Q4 未観測) の取り扱い",
+      "why_masa_decides": "体制安定期 2024-2026 のうち 2026Q2-Q4 はまだ未完で、lifted outcome 最終判定は厳密には 2026 末まで観測待ち。Ch 26b post-2026 検証分離の境界をどこに引くかはまさの判断 (本章 publication 計画と Ch 26b 事前登録の整合性)",
+      "options": [
+        "(A) §13.2 体制安定期は 2024-2026Q1 までの観測 + 2026Q2-Q4 は Ch 26b post-2026 検証に分離する境界線を §13.0 で明示 (案 A の OI-13-4 路線)",
+        "(B) 体制安定期 2024-2026 を Q4 まで投影 (illustrative) + 2026Q2-Q4 は予測区間として明示、本章内で完結",
+        "(C) 体制安定期を 2024-2026Q1 に短縮し本章 lifecycle 観測は 2018-2026Q1 とする (8 年 → 7.5 年)"
+      ],
+      "recommendation": "(A) が妥当。(B) は Tier A 後付け校正と post-2024 予測 (Tier B) の境界を曖昧にし D-031/D-033 違反リスク。(C) は lifecycle の短縮で BWE の Series B 後の体制安定の illustrative 評価が薄くなる。(A) で 2026Q1 まで観測 + 残り 2 四半期は Ch 26b post-2026 検証に分離が Tier 分離規律と整合"
+    },
+    {
+      "issue": "Ch 12 TIEM skeleton 起草中の段階で §13.6 対比表の暫定性と re-sync gate の設置タイミング",
+      "why_masa_decides": "Ch 12 TIEM skeleton はまだ起草中 (Phase 5-Ch12 pending)、§13.6 対比表の TIEM 列 (F_cap 補完失敗 / 鋸歯型 / μ_y < 0 / Θ_zombie/Θ_collapse) の具体値が Ch 12 起草完了まで暫定的。再 sync を本章執筆段階で待つか、暫定で出して後で修正するかはまさの全体 Book 進行計画に依存",
+      "options": [
+        "(A) §13.6 対比表を暫定値で執筆 + 「Phase 5-Ch12 完了後 re-sync gate 必須」を OI 明示 + Ch 12 起草完了後に §13.6 対比表を再確認する運用 gate (案 A の OI-13-7 路線)",
+        "(B) Ch 12 TIEM skeleton 完了を §13.6 執筆前に待つ (本章執筆を §13.0-§13.5 までで先行し §13.6 は Ch 12 後)",
+        "(C) §13.6 対比表は概念対比のみ (F_cap 補完成否で μ_y 符号分岐) に絞り具体値は出さない (Ch 12 への参照のみ)"
+      ],
+      "recommendation": "(A) が妥当。(B) は Book III 全体の章順序進行を遅らせ、(C) は補完性 ρ < 0 の両刃性解釈 (命題 13.7) の説得力を弱める。(A) で暫定 + re-sync gate が章間整合性確保の現実的経路。Ch 12 skeleton 完了後の re-sync で §13.6 対比表 + 命題 13.7 解釈を最終化"
+    },
+    {
+      "issue": "U-G-P 三層 demand-side 構造の formal 化レベルを本章で完結させるか Ch 14 CX に分離するか",
+      "why_masa_decides": "§13.5 は記述的提示に留まるが、より formal な定式化 (顧客効用 U(·) + ゲートキーパー認可確率 P_G(·) + 支払者意思 W_P(·) の積構造) を本章で行うか Ch 14 CX に分離するかで Book III 全体の章間負荷配分が変わる。Ch 14 CX は R_net 負号観測でも顧客-支払者分離が問題化する章なのでまさが章間負荷配分を決める",
+      "options": [
+        "(A) §13.5 は記述的提示に留め、formal 定式化は Ch 14 CX に分離 + §13.0/§13.5 で境界明示 (案 A の OI-13-8 路線)",
+        "(B) §13.5 で formal 定式化 (U×G×P 積構造 + R 5 軸との接続関数) まで本章で完結、Ch 14 CX は別の論点に専念",
+        "(C) §13.5 では記述 + Ch 14 CX で formal 定式化、両章で同じ三層構造を異なる粒度で扱う (二段階展開)"
+      ],
+      "recommendation": "(A) が妥当。(B) は §13.5 が 2.5p 配分で formal 定式化まで入れると密度過剰、(C) は二章で同じ構造を扱う冗長性。(A) で本章は記述的 + Ch 14 CX で formal 定式化が章間負荷配分として妥当。§13.0/§13.5 で境界明示することで読者が章間の役割分担を追跡できる"
+    }
+  ],
+  "falsifiable_claims": [
+    "[FC-13-1] BWE 4 期 (萌芽 2018-2019 / 拡張 2020-2021 / 移譲過渡期 2022-2023 / 体制安定 2024-2026Q1) の Ch 8 2D jump-diffusion 期別パラメータ (μ_x, μ_y, λ_x^+, λ_y^-) を Tier A illustrative で推定し、4 期通算で μ_x > 0 ∧ μ_y > 0 ∧ λ_x^+ > λ_y^- が posterior 95% 信用区間で維持され、P(BWE ∈ Θ_healthy | data, 強事前) ≥ 0.9 illustrative が成立する。いずれか条件が不成立の場合、§13.2 Θ_healthy 健全型分類は棄却され D-026 BWE 健全型主要参照の本章運用基準を再評価",
+    "[FC-13-2] BWE 個別 F-CES posterior (α, ρ) を §13.4 illustrative 推定で α ~ Beta(2,2) + ρ ~ Normal(-1, 1.5) 弱情報事前下で推定、ρ posterior median が ρ < 0 領域に位置し prior sensitivity 3 設定 (Normal(-1,1.5) / Normal(0,2) / Normal(-2,1)) すべてで robustness 確認、horse-race で M1 CES が WAIC + LOO + Bayes 因子の三系統のうち少なくとも 2 系統で M2/M3/M4 dominant。いずれか未達の場合、BWE 補完性 (D-038) 確認事例位置づけを再評価 + Ch 7 §7.5 BWE illustrative 比較への影響 + §13.6 章末問い再構築",
+    "[FC-13-3] BWE Ch 10.5 統合ハザード h_post を §13.2 4 期別計算で |Δ log h_post| < ε (ε = 0.2 illustrative 仮置き) が 4 期すべてで維持される。維持されない場合、Klepper (1996, 2002) shakeout 圏外の健全型 baseline 位置づけを §13.2/§13.6 で再評価 + ε 正本確定を Ch 10.5 / Ch 26a 校正 plot に flush",
+    "[FC-13-4] BWE 移譲過渡期 (2022-2023) の Bass-Avolio FRL F_cap 軸推移 illustrative (2.5 → 1.8 → 3.5) が当時資料 (Tier 3 institutional archive) で再構成可能、かつ FRL 一時低下の核が Inspirational Motivation 軸ではなく Contingent Reward + Individualized Consideration 軸であることが §13.3 で confirm。再構成不能または Inspirational Motivation 軸が核と判明した場合、§13.3 F_cap 後発補完成功 + Antonakis 2016 charisma 批判への組織的応答という解釈は illustrative 限定強化または撤回",
+    "[FC-13-5] BWE σ_SU MS-SSM (Ch 5) 4 期通算 regime posterior が k=2 中位滞在 + 体制安定期 k=3 移行で illustrative 確認、μ_G やや先行プロファイル (規制 + 保険償還 + Femtech B2B2C クロック) が §13.5 で支持される。4 期すべて k=3 または k=1 滞在支配または μ_G 先行不成立の場合、§13.5 女性ヘルスケア固有 R 多軸同時進行整合性記述を再構築",
+    "[FC-13-6] BWE vs TIEM 対比 (§13.6) で両者の F_char 高位 + F_cap 後発補完成否の二分岐構造が Ch 12 TIEM skeleton 起草完了後の re-sync gate 整合性 check で成立 (両者 F_char 高位を共有 + F_cap 補完成否で μ_y 符号分岐)。Ch 12 完了後の確認で TIEM が F_char 中位または F_cap 補完非完全失敗と判明した場合、§13.6 対比表 + 命題 13.7 補完性 ρ < 0 両刃性解釈 + 章末問い (ii) は再構築",
+    "[FC-13-7] BWE R 5 軸 (TRL/BRL/GRL/SRL/HRL) stacked timeline plot で HRL (ヘルスケア規制承認) と SRL (社会受容) の律速性が §13.5 illustrative 記述と整合 (HRL と SRL が事業速度を律する)、単軸先行型失敗 3 類型 (TRL only / BRL only / GRL only) に BWE が陥らなかったことが軌跡で confirm。TRL 単独律速または BRL 単独律速の場合、U-G-P 三層分離下 R 多軸同時進行制約の論証 + 命題 13.6 を §13.5 で再構築",
+    "[FC-13-8] §13.4 BWE F-CES posterior 推定の Stan/NUTS 健全性 4 種 (R-hat < 1.01 / ESS > 400 / divergent < 0.1% / BFMI > 0.3) と prior sensitivity 3 設定 robustness の両方が達成。いずれか未達の場合、posterior 報告を §13.4 で illustrative 限定強化 (信頼区間ではなく posterior median のみ報告 + α/ρ の領域判定のみ提示) で再構築",
+    "[FC-13-9] (Tier A 規律自己強制 falsifiable) 本章執筆完了時点で §13.6 自己点検チェックリストの 4 種 Tier A 違反 ((i) validation 叙述 / (ii) 証明叙述 / (iii) 識別主張 / (iv) 点推定有意性主張) のいずれかが 1 件以上検出された場合、本章は D-031/D-033 規律違反として本文修正必須となり、修正後の self-check 再実行で 0 件確認まで章完成を保留する。これは本章自身の品質ゲートを falsifiable 形式で構造強制する自己点検条項",
+    "[FC-13-10] BWE 後付け校正の Ch 26a Brier score + 校正 plot で BWE 個別 posterior の after-the-fact 校正性能が baseline (素朴予測 / Klepper shakeout 単独 / Ch 8 軌跡 4 類型単独) を上回ること。上回らない場合、BWE D-026 健全型主要参照昇格の運用根拠は Ch 26a 結果を待って再評価が必要 (本章は Ch 26a 完了前の暫定主要参照として運用)",
+    "[FC-13-11] BWE 創業者 F_char (ALQ4 + Grit + Resilience) posterior summary が 2018-2026Q1 全期間で高位保持され、CEO 移譲過渡期 (2022-2023) でも低下しない (委譲不可能性命題の事例レベル整合)。当時資料で創業者の Authentic Leadership 因子のいずれかが 2022-2023 に明確低下と確認された場合、§13.3 委譲不可能コア仮説 + 命題 13.3-13.4 を再検討"
+  ],
+  "cross_chapter_supply": [
+    {
+      "target_chapter": "Ch 5 σ_SU MS-SSM",
+      "what_supplies": "BWE 4 期通算 σ_SU regime posterior (k=2 中位滞在支配 → 体制安定期 k=3 移行) + μ_G やや先行プロファイル (女性ヘルスケア固有、規制 + 保険償還 + Femtech B2B2C クロック) を illustrative 確認事例として Ch 5 K=3 regime 形式に供給"
+    },
+    {
+      "target_chapter": "Ch 5.5 GO ゲート τ_B 最適停止",
+      "what_supplies": "BWE 2018Q2 τ_B 通過時 θ_σ* probit smoothing 形式条件は満たすが F_cap 低位 (Inada コーナー警告) + R 5 軸初期で保留判断 (条件付き Go / 後発補完待ち) も合理だった illustrative 検討を、最適停止規則の連続領域と境界領域の境界事例として供給"
+    },
+    {
+      "target_chapter": "Ch 6 PRS = P × R × S",
+      "what_supplies": "BWE 4 期別 PRS 期待値分解 (P 偏重型 → R 5 軸並進 → S 後発上昇) + 健全型における P 先行 → R 並進 → S 集約のパターンを illustrative 事例として供給"
+    },
+    {
+      "target_chapter": "Ch 7 F-CES (§7.5 illustrative 比較拡張)",
+      "what_supplies": "BWE 個別 F-CES posterior (α ≈ 0.6, ρ ≈ -2 illustrative) の 4 期別推移 + 委譲 operator D 試行 → 撤回 → 機能補完への切替の事例 + Inada コーナー警告の illustrative 実例 + ALQ controversy 三層 defense の本章適用結果を Ch 7 §7.5 の Book III 拡張版として供給"
+    },
+    {
+      "target_chapter": "Ch 8 jump-diffusion 軌跡 4 類型",
+      "what_supplies": "BWE 4 期 jump-diffusion パラメータ (μ_x, μ_y, λ_x^+, λ_y^-) illustrative 推定 + 5 jumps (Pre-Seed/Seed/A/移譲撤回/Series B) + GAP fund 補充パターン + Θ_healthy 軌跡判定 4 条件 P ≥ 0.9 illustrative + 鋸歯型不在の確認を Ch 8 軌跡 4 類型の健全型典型例として供給"
+    },
+    {
+      "target_chapter": "Ch 9 KLST ERS",
+      "what_supplies": "Private-Engineering-Univ-Type ERS 8 軸プロファイル (資本 A_1 中位 / ネットワーク A_2 中位 / 規制 A_3 低位 / 需要 A_4 高位 / 人材 A_5 中位) を Ch 9 ERS 加重和の 1 type プロファイルとして供給"
+    },
+    {
+      "target_chapter": "Ch 10.3 ρ Kmenta 識別 (D-038)",
+      "what_supplies": "BWE 個別 posterior ρ < 0 領域集中の illustrative 確認事例 + Kmenta 二次モーメント近似の BWE 4 期パネル適用結果 + horse-race M1 CES dominant illustrative を D-038 補完性確認事例として Ch 10.3 §10.3.x に主要 evidence 供給。識別された因果効果ではなく illustrative 補完性確認の境界叙述を含む"
+    },
+    {
+      "target_chapter": "Ch 10.5 統合ハザード h_post",
+      "what_supplies": "BWE 4 期別 h_post (|Δ log h_post| < ε ε=0.2 illustrative 仮置き) + Klepper shakeout 圏外 観察等価境界に近い位置の illustrative 確認 + 校正閾値 ε 正本確定 task を Ch 10.5 / Ch 26a に flush"
+    },
+    {
+      "target_chapter": "Ch 10.7 η_jt VAR(1) coupling",
+      "what_supplies": "BWE GAP fund 補充パターン (Private-Engineering-Univ-Type ERS 経由、2018Q2 + 2022Q2) と Ch 8 jump-diffusion λ_x^+ の coupling を Ch 10.7 η_jt VAR(1) の illustrative 事例として供給"
+    },
+    {
+      "target_chapter": "Ch 11 集合 inference 8 PJ panel BVAR",
+      "what_supplies": "BWE Tier A illustrative posterior を 8 PJ panel BVAR の 1 サンプルとして供給。本格 horse-race + WAIC/LOO/Bayes 因子の集合 evaluation + Heckman 補正 + Hsieh-Klenow robustness は Ch 11 領域、本章は N=1 individual posterior のみ"
+    },
+    {
+      "target_chapter": "Ch 12 TIEM (退化失敗、skeleton 起草中)",
+      "what_supplies": "BWE vs TIEM 対比表 (§13.6) + 命題 13.7 補完性 ρ < 0 両刃性解釈 (BWE: F_cap 補完成功で F 急上昇 / TIEM: 同じ補完性下で補完失敗で F 停滞) の対比相手として相互参照。Phase 5-Ch12 完了後の re-sync gate 必要"
+    },
+    {
+      "target_chapter": "Ch 14 CX (R_net 負号観測 + U-G-P 三層 formal 化)",
+      "what_supplies": "U-G-P 三層 demand-side 構造 (患者 / 医療者ゲートキーパー / 保険者・雇用主) の記述的提示を Ch 14 CX の formal 化 (U(·) × P_G(·) × W_P(·) 積構造) の入力として供給。本章は記述的、formal 化は Ch 14 に分離"
+    },
+    {
+      "target_chapter": "Ch 25 層間結合検証 (機関 ERS × SU 速度 Granger)",
+      "what_supplies": "BWE 4 期軌跡 + Private-Engineering-Univ-Type ERS プロファイル + GAP fund 補充パターンを機関 ERS が BWE 速度に与えた影響の Granger 検定対象として供給"
+    },
+    {
+      "target_chapter": "Ch 26a 後付け校正整合性 (Brier + 校正 plot)",
+      "what_supplies": "BWE 個別 Brier score + 校正 plot の入力データ + 校正閾値 ε 感度検証 task + ε 正本確定の領域。本章 §13.4 illustrative posterior を Ch 26a の客観評価対象として供給"
+    },
+    {
+      "target_chapter": "Ch 26b 予測登録簿 (H_C2 commission)",
+      "what_supplies": "BWE post-2024 体制安定期予測 (Series B 到達 / lifted outcome / Θ_healthy 維持) + post-2026Q2-Q4 timeline gap 検証 + FRL Contingent Reward 軸再構築の汎化可能性 commission + horse-race 事前登録 (BWE sub-sample) を Ch 26b 事前登録対象として供給"
+    },
+    {
+      "target_chapter": "Ch 37 BZM vs 4 frameworks (Klepper / Murmann / Malerba / KLST) 比較",
+      "what_supplies": "BWE をどう分類するか (Klepper shakeout 圏外 / Murmann coupling / Malerba SSI / KLST ERS 各 framework での位置づけ) を 4 framework horse-race の 1 サンプルとして供給、U-G-P 三層分離 + 命題 13.7 補完性 ρ < 0 両刃性 + 章末問い 3 (他領域転移可能性) を入力に"
+    }
+  ],
+  "masa_negotiation_handles": [
+    "[H-1] 22p 配分の調整余地 — 案 A 採用の小数点配分 (2.5/3.5/4.5/3.5/3.5/2.5/2.0 = 22.0p) のうち、§13.3 (3.5p) で外部 CEO 招聘試行 → 違和発生 → 撤回 → 機能補完への切替の 6 四半期 timeline 詳述と §13.5 (2.5p) で U-G-P 三層 + 単軸先行型失敗 3 類型対比のどちらに重点を置くか。Ch 12 TIEM 移譲過渡期との対称性を強調するなら §13.3 を 4.0p に拡張 + §13.5 を 2.0p に圧縮もあり、女性ヘルスケア固有性を強調するなら逆配分もあり",
+    "[H-2] 後付け校正命題 13.1-13.7 の formal 番号化スタイル採用 — 案 C の貢献を採用するか、案 A/B の anchor_claims タグ形式 ([LB-13-1] etc.) のままにするか。命題形式は Tier A 「命題提示 + 校正」型を構造的に印象付けるが、Book II 他章 (Ch 7/8/10.3 etc.) との表記統一性で違和感も。Book 全体の表記正本との整合を確認",
+    "[H-3] §13.4 BWE 個別 posterior (α ≈ 0.6, ρ ≈ -2) の illustrative 数値を本章で出すか出さないか — s-survival.md 数値例の Tier 3 学術化として出すと publication 訴求力は上がるが N=1 信頼性押し戻しリスク。出さない場合は領域判定 (ρ < 0 領域に質量がある) のみ表示。まさが Cambridge UP 査読 strategy として選ぶ",
+    "[H-4] §13.3 FRL Contingent Reward + Individualized Consideration 軸組み換えという案 C 由来の解釈 (Antonakis 2016 charisma 過度依存批判への組織的応答) を強く打ち出すか、案 A の F_char 高位委譲不可能コア + F_cap 後発補完というシンプルな解釈に留めるか。前者は ALQ controversy defense として強力だが、後者は load-bearing が増えるリスク",
+    "[H-5] §13.6 BWE vs TIEM 対比表の Ch 12 skeleton 起草完了待ち vs 暫定執筆 — Phase 5-Ch12 完了を待つと本章執筆が遅れる、暫定で出すと re-sync 修正コスト。Book III 全体の章順序進行計画でまさが決める",
+    "[H-6] D-034 機関匿名化の丸め基準 — 設立年 ±1 年 + Series B 年 ±1 年 + 女性ヘルスケア領域内詳細 (月経/更年期/産後) 非開示 + 創業者年代「30 代」のみ。創業者本人への公開範囲合意取得を §13.0 執筆前に行うか、本章 publishable 後に確認するか",
+    "[H-7] s-survival.md 二つの相談実例の片方 (補完で F が立ち上がった案件 = BWE) を本章で主要参照に明示昇格する案 A 路線か、s-survival.md は直観源泉として参照のみで Tier 3 主要参照昇格は §13.4 ¶4k に留めるか案 C 路線か。pwa/bzm/ 配下既存ドラフトと Book III 本章の関係性を Book 全体でどう叙述するかでまさが決める",
+    "[H-8] §13.5 U-G-P 三層構造の formal 化レベルを本章で完結させるか Ch 14 CX に分離するか。本章記述的 + Ch 14 formal 化 (案 A の OI-13-8 推奨) が章間負荷配分として妥当だが、女性ヘルスケア固有性をどこまで本章で formal に詰めるかでまさが決める"
+  ]
+}
