@@ -787,6 +787,31 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
     });
   };
 
+  const restoreScrollAfterAnswer = (answeredKey: string) => {
+    const visibleKeys = filtered.map((i) => itemKey(i));
+    const index = visibleKeys.indexOf(answeredKey);
+    const anchorKey = index >= 0
+      ? (visibleKeys[index + 1] ?? visibleKeys[index - 1] ?? null)
+      : null;
+    const anchorEl = anchorKey ? document.getElementById(`notification-card-${anchorKey}`) : null;
+    const answeredEl = document.getElementById(`notification-card-${answeredKey}`);
+    const beforeTop = (anchorEl ?? answeredEl)?.getBoundingClientRect().top ?? null;
+    const beforeScrollY = window.scrollY;
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const nextAnchorEl = anchorKey ? document.getElementById(`notification-card-${anchorKey}`) : null;
+        if (nextAnchorEl && beforeTop != null) {
+          const delta = nextAnchorEl.getBoundingClientRect().top - beforeTop;
+          if (Math.abs(delta) > 1) window.scrollBy(0, delta);
+          return;
+        }
+        const maxScrollY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+        window.scrollTo(0, Math.min(beforeScrollY, maxScrollY));
+      });
+    });
+  };
+
   useEffect(() => {
     if (!focusedKey || focusHandledKey === focusedKey) return;
     const focused = items.find((i) => itemKey(i) === focusedKey);
@@ -846,6 +871,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
       }
       const created = await res.json();
       // 楽観的反映
+      restoreScrollAfterAnswer(key);
       setLocalFeedbacks((prev) => [created.feedback as Feedback, ...prev]);
       setAnsweredMap((prev) => ({ ...prev, [key]: action }));
       setFeedbackTexts((prev) => ({ ...prev, [key]: "" }));
