@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-06-27 12:51 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-06-27 13:53 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -2323,8 +2323,8 @@ PRIMARY KEY: `id`
 | 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
 | 2 | `project_id` | `text` | NOT NULL | `` |
 | 3 | `trigger_kind` | `text` | NOT NULL | `` |
-| 4 | `source_meeting_id` | `text` | NULL | `` |
-| 5 | `source_event_id` | `text` | NULL | `` |
+| 4 | `source_meeting_id` | `text` | NOT NULL | `''::text` |
+| 5 | `source_event_id` | `text` | NOT NULL | `''::text` |
 | 6 | `title` | `text` | NOT NULL | `` |
 | 7 | `detail` | `text` | NULL | `` |
 | 8 | `ball_owner` | `text` | NOT NULL | `'ambiguous'::text` |
