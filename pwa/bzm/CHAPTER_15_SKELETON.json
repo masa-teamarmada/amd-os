@@ -1,0 +1,513 @@
+{
+  "ch_overview": {
+    "core_proposition": "SX (半導体材料 SU、2025-2028 planning、planning outcome) を Book III における σ_SU 追い風 (μ_G ジャンプ) × R_net 共食い (親研究室主力テーマと顧客重複) × GRL 律速 (5 軸 readiness のうち Government Readiness Level が R-bundle min) の三因子同時発火事例として後付け校正し、D-027 (SX = Ch 2.3 R-bundle min の主要事例) を確立する。2025-12 PSI Step2 採択で μ_G が離散ジャンプし σ_SU を最大化する一方、PSI Step2 採択は GRL を直接押し上げない (μ_G ⊥ GRL 別軸テーゼ) ため GRL 律速 (SEMI / 輸出規制 / 環境規制 / 安全規格 の整備リードタイム) により μ_x が制約される構造を Tier A illustrative に示す。Y-002 CTO 非開示 (情報設計事故) は Aghion-Tirole formal/real authority の枠組みで簡潔に位置づけ、formal model 詳細と COI 兼業株式論点は付録 C / Ch 21 KUTE 章へ pointer 形式で渡す。",
+    "load_bearing_claims": [
+      "D-027: SX = Ch 2.3 R-bundle min (GRL 律速) の主要事例である",
+      "2025-12 PSI Step2 採択は μ_G の離散ジャンプを生み σ_SU 観測値を急上昇させる (Ch 5 MS-SSM 後付け校正)",
+      "μ_G と GRL は別軸であり、PSI Step2 採択は μ_G を動かすが GRL は動かさない (Tier A 観測可能テーゼ)",
+      "親研究室主力テーマと NewCo 想定顧客レイヤの重複は R_net 共食い類似 CX として Ch 6 PRS の負項に入り、Θ_healthy ながら μ_x が制約される",
+      "GRL は SEMI / 輸出規制 / 環境規制 / 安全規格 にサブ分解可能で、半導体材料 SU の規制・標準化整備リードタイムが律速となる (Tassey 2007 / Kelchtermans-Veugelers 2013)",
+      "Y-002 CTO 非開示は Aghion-Tirole formal/real authority の枠組みで情報設計事故として位置づけられ、詳細は付録 C へ pointer",
+      "COI 兼業株式論点 (桑折 KUTE MTG 7 論点の論点 5) は Ch 21 KUTE 章へ pointer 形式で委譲する",
+      "SX 設立計画 (2027-04 NewCo) は post-2028 予測対象として Ch 25 / Ch 26a / Ch 26b へ falsifiable 予測を渡す"
+    ],
+    "logical_arc": "§15.0 PSI Step2 採択直後の事業計画会議ストーリー (補助金高揚と本業重複懸念の同時性) → §15.1 2027-04 NewCo 設立計画 を後付け校正の起点として置き、Tier 規律 / D-010 / D-034 / pointer 配分を declared scope として宣言 → §15.2 2025-2028 軌跡 8 評価点 + μ_G ジャンプ動学を Ch 5 MS-SSM + Ch 5.5 GO + Ch 6 PRS + Ch 10.7 Murmann η_jt に接続 (Murmann 単一事例推定不可留保を本文に埋め込み) → §15.3 σ_SU 追い風と R_net 共食いの同時発火を Ch 6 PRS の正項・負項として式展開、Ch 9 ERS Research-Org-Type 産学連携集約型 と Ch 10.6 Malerba w_6 で診断、Ch 14 CX 構造類似を Book III pattern として明示 → §15.4 GRL 律速 (R-bundle min) を D-027 主要事例として formal 化、GRL を SEMI / 輸出規制 / 環境規制 / 安全規格 にサブ分解、μ_G と GRL の別軸テーゼ、Mowery (2009) 半導体史 cumulative innovation × 標準化 bottleneck との構造同型 → §15.5 Y-002 + COI を Aghion-Tirole formal/real authority で簡潔に位置づけ、Ch 21 / 付録 C へ pointer → §15.6 Book II 装置統合表と章末問い 3 つを post-2028 (Ch 25 / Ch 26a / Ch 26b) へ 1:1 で transfer",
+    "synthesis_rationale": "winner B 骨格 (amd_score.md 8 評価点 timeline の一貫参照、GRL サブ要素分解、Tassey/Kelchtermans-Veugelers 引用、declared scope 規律、falsifiable claims の observable 性) を中核に据えつつ、C の μ_G ⊥ GRL 別軸分離テーゼ・Aghion-Tirole formal/real authority による Y-002 位置づけ・Research-Org-Type 産学連携集約型 sub-type を §15.4-§15.5 に graft、A の Mowery (2009) cumulative innovation × 標準化 bottleneck 構造同型・章末問い 3 つの Ch 25/26a/26b 1:1 transfer 設計・Ch 14 CX pattern 比較を §15.4 / §15.6 / §15.3 に graft する。formal model 三層は付録 C へ移送し本文密度を Lens C (URA/EIR 現場読者) に最適化、Cohen-Levinthal ACAP を §15.3 に追加して親研究室知識共有の表裏両面 (正の転移 + 負の顧客重複) を扱う。"
+  },
+  "sections": [
+    {
+      "section_id": "15.0",
+      "title": "章頭ストーリー — PSI Step2 採択直後の事業計画会議",
+      "pages": 2.5,
+      "math_level": "なし (語り、σ_SU / μ_G / R_net / GRL を埋め込み導入)",
+      "anchor_claims": [
+        "2025-12 PSI Step2 採択直後の事業計画会議で、補助金採択による σ_SU 追い風と親研究室主力テーマとの顧客重複懸念 (R_net 共食い類似 CX) が同時に議題化された",
+        "5 軸 readiness ダッシュボードで GRL のみ低位に留まる構造が会議冒頭から提示され、章全体の問い (三因子同時発火) を規定する",
+        "Ch 15 は SX を illustrative 後付け校正事例として扱い validation 主張は行わない (D-031 Tier A 規律)"
+      ],
+      "paragraph_outline": [
+        "2025-12 PSI Step2 採択通知直後の事業計画会議シーン描写 (Research-Org-Type 匿名化、D-034 準拠)",
+        "補助金獲得高揚と本業重複懸念の同時性を場面化 (illustrative scene、固有名詞伏字)",
+        "親研究室主力テーマ顧客リストと NewCo 想定顧客レイヤの重複が PPT 上で可視化された瞬間",
+        "5 軸 readiness ダッシュボード (TRL / MRL / CRL / IRL / GRL) で GRL のみ低位に留まる数値表示の場面化 (R-bundle min 予告)",
+        "桑折 KUTE MTG 7 論点が議題リストに並ぶが、本章では COI 兼業株式論点は Ch 21 へ委譲する旨の予告",
+        "Y-002 CTO 非開示が情報設計事故として後段で扱われる旨の予告 (付録 C pointer 予告)",
+        "Ch 15 の射程宣言: σ_SU 追い風 × R_net 共食い × GRL 律速 の三因子同時発火を後付け校正する主章",
+        "Tier A 規律 / D-010 露出制限なし (SX は Ch 15 主章) / D-034 機関匿名化 の規律宣言",
+        "本章の問い: σ_SU 追い風と R_net 共食いが同時に走るとき、5 軸 readiness の何が律速か / 補助金は何を動かし何を動かさないか",
+        "章末問い (post-2028 予測) と Ch 25 / Ch 26a / Ch 26b への橋渡し予告"
+      ],
+      "new_writing_required": "章頭ストーリー全文 (2.5p) を新規執筆。PSI Step2 採択日付シーン、事業計画会議の登場人物配置 (匿名化)、5 軸ダッシュボード GRL 低位の場面化、本章射程と Tier / D-010 / D-034 / pointer 規律の declared scope 宣言",
+      "existing_reuse": "pwa/design/amd_score.md SX retrofit 8 評価点 (2025-2028 planning) から場面素材を Tier 3 学術化引用、桑折 KUTE MTG 議事録を背景情報として活用",
+      "upstream_dependencies": [
+        "Ch 1 BZM 全体導入と後付け校正方法論",
+        "L1 §11 章型定義",
+        "Ch 2.3 R-bundle min D-027 予告",
+        "D-031 Tier A 規律 / D-034 機関匿名化"
+      ],
+      "downstream_dependencies": [
+        "§15.1 設立計画 declared scope",
+        "§15.4 GRL 律速",
+        "§15.5 Y-002 + COI pointer",
+        "§15.6 章末問い"
+      ],
+      "references": [
+        "pwa/design/amd_score.md (SX retrofit 8 評価点)",
+        "pwa/bzm/r-readiness.md (GRL 定義)",
+        "桑折 KUTE MTG 議事録 (背景)"
+      ],
+      "source_drafts": [
+        "B §15.0 (3 案で最も具体的、5 軸ダッシュボード GRL 低位の場面化を中核に据える)",
+        "C §15.0 (Tier 規律と pointer 宣言の declared scope 形式を graft)",
+        "A §15.0 (3 因子同時提示 Hook と Ch 25/26 への橋渡し予告を graft)"
+      ]
+    },
+    {
+      "section_id": "15.1",
+      "title": "設立計画 (2027-04 NewCo) と後付け校正の起点 — declared scope と章間 pointer 配分",
+      "pages": 3.5,
+      "math_level": "軽 (planning outcome テーブル、Tier A 形式定義のみ)",
+      "anchor_claims": [
+        "SX は 2027-04 NewCo 設立計画段階 (planning outcome) であり、setup 時点を t=0 とする後付け校正対象である",
+        "設立計画は親研究室の研究資産・人的資産・顧客資産を継承する設計であり R_net 共食い類似 CX を構造的に内包する (planning 段階で既に三因子が組み込まれている)",
+        "Research-Org-Type 分類 (Ch 9 ERS) において SX は産学連携集約型に該当し、GRL 整備が他軸より遅延する型である",
+        "桑折 KUTE 7 論点のうち 5 論点は Ch 15 内処理、COI 兼業株式論点 (論点 5) は Ch 21 委譲、Y-002 は付録 C 委譲 の declared scope を本節で宣言する"
+      ],
+      "paragraph_outline": [
+        "SX 案件の planning outcome 性質と、planning outcome 後付け校正の方法論的位置づけ (Ch 1 から受け取り)",
+        "2027-04 NewCo 設立計画の構造 (資本構成・技術移転・人的継承・顧客資産継承) を匿名化済みで提示",
+        "Research-Org-Type 表記 (D-034) による親機関匿名化、地理情報・固有テーマ名の伏字方針の運用詳細",
+        "Tier A 規律: SX は Ch 15 主章 (D-010 露出制限なし) だが validation 主張は禁じる — illustrative retrofit に留める方針宣言",
+        "2025-2028 評価点 8 つを後付け校正対象 timeline として提示 (μ_G ジャンプ点を含む、§15.2 詳細展開の伏線)",
+        "桑折 KUTE 7 論点の章間配分: 5 論点は Ch 15 内処理 (§15.2-§15.4 で吸収)、COI 兼業株式論点 (論点 5) は Ch 21 委譲、Y-002 は付録 C 委譲 の declared scope 表",
+        "Research-Org-Type 産学連携集約型における SX の位置と GRL 律速の予兆 (Ch 9 ERS sub-type への接続)",
+        "設立計画段階で σ_SU 追い風と R_net 共食いが同時に planning に組み込まれていた事実 (親研究室顧客資産継承 = R_net 共食い類似 CX の planning-built-in)",
+        "Mazzucato (2013) Entrepreneurial State と Mowery-Steinmueller (1994) Path to Cyberspace の政策起業文脈で SX を位置づけ",
+        "本節の illustrative 範囲と Book III 三因子 (σ_SU / R_net / GRL) への対応付け宣言、§15.2 軌跡分析への接続"
+      ],
+      "new_writing_required": "設立計画の構造記述 (匿名化)、後付け校正方法論の節用展開、Research-Org-Type 産学連携集約型 sub-type の SX マッピング、桑折 KUTE 7 論点の章間配分 declared scope 表、Mazzucato / Mowery-Steinmueller 政策起業文脈の節用記述",
+      "existing_reuse": "Ch 1 後付け校正方法論、Ch 2.3 R-bundle min 定義の短い再掲、Ch 9 ERS Research-Org-Type 分類、pwa/design/amd_score.md SX 8 評価点を timeline 表として整理、pwa/bzm/r-readiness.md GRL 定義の予告参照",
+      "upstream_dependencies": [
+        "Ch 1 後付け校正フレーム",
+        "Ch 2.3 R-bundle min",
+        "Ch 9 ERS Research-Org-Type",
+        "§15.0 章頭"
+      ],
+      "downstream_dependencies": [
+        "§15.2 軌跡 + μ_G ジャンプ",
+        "§15.3 σ_SU × R_net 同時発火",
+        "§15.4 GRL 律速",
+        "§15.5 Y-002 + COI pointer",
+        "Ch 21 KUTE 章 (COI 委譲先)",
+        "付録 C (Y-002 委譲先)"
+      ],
+      "references": [
+        "Mazzucato (2013) Entrepreneurial State",
+        "Mowery-Steinmueller (1994) Path to Cyberspace",
+        "pwa/design/amd_score.md",
+        "pwa/bzm/r-readiness.md"
+      ],
+      "source_drafts": [
+        "B §15.1 (declared scope 宣言と Tier 規律明示を中核骨格として採用)",
+        "C §15.1 (Research-Org-Type 産学連携集約型 sub-type マッピングと planning-built-in 構造の指摘を graft)",
+        "A §15.1 (Mazzucato / Mowery-Steinmueller 政策起業文脈引用を graft)"
+      ]
+    },
+    {
+      "section_id": "15.2",
+      "title": "軌跡 2025-2028 + μ_G ジャンプ動学 — Ch 5 MS-SSM への接続",
+      "pages": 4.5,
+      "math_level": "中-高 (μ_G(t) 離散ジャンプ、σ_SU(t) 応答、Ch 5 MS-SSM 政策イベント駆動成分)",
+      "anchor_claims": [
+        "2025-2028 planning 軌跡の 8 評価点は σ_SU の単調増加ではなく、2025-12 PSI Step2 採択時点で離散ジャンプを示す",
+        "μ_G(t) 離散ジャンプは Ch 5 σ_SU MS-SSM の政策イベント駆動成分として後付け校正される",
+        "Ch 5.5 GO ゲート条件は 2025-12 採択時点で達成され、Ch 6 PRS の Research-Org-Type 適合度も同時に閾値超過する",
+        "Murmann η_jt の単一事例 SX 適用は推定対象ではなく構造の言語として援用する (validation 不能、illustrative 留保を本文に明示)"
+      ],
+      "paragraph_outline": [
+        "2025-2028 planning の 8 評価点を時系列表で提示 (Tier 3 学術化、Research-Org-Type 匿名化、ordinal 比較に留め cardinal スコアは出さない規律)",
+        "PSI Step1 / Step2 / NewCo 設立準備 / 設立予定 の段階区分と評価点配置",
+        "μ_G(t) 離散ジャンプの動学定式化: Ch 5 MS-SSM の σ_SU = f(μ_G, η_jt, ...) における政策イベント項として位置づけ",
+        "Tassey (2007) RP standards economics の政府コミットメント信号としての μ_G 解釈",
+        "2025-12 PSI Step2 採択前後の σ_SU 観測値変化を illustrative に提示 (前後 6 ヶ月平均比較、validation 主張なし)",
+        "Ch 5.5 GO ゲート達成条件と Ch 6 PRS 適合度の同時閾値超過の構造図示",
+        "Ch 10.6 Malerba Deep-tech レーン w_6 重みの SX 適用: 政府補助金 secured レーンへのモード遷移",
+        "Ch 10.7 Murmann η_jt 政策 ↔ 産業 coupling の SX への適用 — 推定対象ではなく構造の言語として援用する方法論的留保を本文埋め込み",
+        "Mowery (2009) RP semiconductor cumulative innovation + 政府調達史の系譜接続、PSI 政策との位置づけ",
+        "Lee-Lim (2001) RP catch-up の path-following → path-creating 遷移枠組での SX 位置づけ",
+        "μ_G と GRL の別軸性予告: PSI Step2 採択は μ_G を動かすが GRL を動かさない構造 (§15.4 詳細展開の伏線)",
+        "§15.3 への橋渡し: σ_SU 追い風が最大化する瞬間に R_net 共食いも同時最大化する構造予告"
+      ],
+      "new_writing_required": "8 評価点時系列表、μ_G(t) 離散ジャンプ動学の SX 固有定式化、Ch 5 MS-SSM の SX retrofit 適用、Murmann η_jt 単一事例推定不可留保の本文埋め込み、Mowery (2009) + Lee-Lim (2001) 半導体政策史系譜接続、μ_G ⊥ GRL 別軸性予告",
+      "existing_reuse": "Ch 5 σ_SU MS-SSM 装置、Ch 5.5 GO ゲート判定式、Ch 6 PRS、Ch 10.6 Malerba w_6 定義、Ch 10.7 Murmann η_jt 定義、pwa/design/amd_score.md SX 8 評価点 (再掲なし、参照のみ)",
+      "upstream_dependencies": [
+        "Ch 5 σ_SU MS-SSM",
+        "Ch 5.5 GO ゲート",
+        "Ch 6 PRS",
+        "Ch 10.6 Malerba w_6",
+        "Ch 10.7 Murmann η_jt",
+        "§15.1 設立計画"
+      ],
+      "downstream_dependencies": [
+        "§15.3 σ_SU × R_net 同時発火",
+        "§15.4 GRL 律速 (μ_G ⊥ GRL 別軸テーゼ)",
+        "§15.6 Book II 装置統合"
+      ],
+      "references": [
+        "Tassey (2007) RP standards economics",
+        "Mowery (2009) RP semiconductor",
+        "Mazzucato (2013) Entrepreneurial State",
+        "Lee-Lim (2001) RP catch-up",
+        "Murmann (2003) Knowledge and Competitive Advantage",
+        "Malerba (2002) sectoral innovation system",
+        "pwa/design/amd_score.md"
+      ],
+      "source_drafts": [
+        "B §15.2 (8 評価点時系列 + Ch 5 MS-SSM 接続 + Murmann 単一事例留保の本文埋め込みを骨格採用)",
+        "A §15.2 (Mowery 2009 + Lee-Lim 2001 半導体政策史系譜接続を graft)",
+        "C §15.2 (μ_G ⊥ GRL 別軸性予告を §15.4 への伏線として graft)"
+      ]
+    },
+    {
+      "section_id": "15.3",
+      "title": "σ_SU 追い風 × R_net 共食い 同時発火 — Ch 6 PRS × Ch 9 ERS × Cohen-Levinthal ACAP 表裏",
+      "pages": 3.5,
+      "math_level": "中-高 (Ch 6 PRS 正項 σ_SU + 負項 R_net 共食い項、ACAP 表裏構造)",
+      "anchor_claims": [
+        "σ_SU 追い風と R_net 共食いは独立事象ではなく、PSI Step2 採択という同一政策イベントで同時発火する",
+        "親研究室主力テーマと NewCo 想定顧客レイヤの重複は R_net 共食い類似 CX として Ch 6 PRS の負項に入り、Ch 14 CX 章 R_net 共食いと構造類似 (Book III pattern)",
+        "Research-Org-Type 産学連携集約型では σ_SU 追い風強度と R_net 共食い強度の相関が構造的に正である (SX 単一事例では falsify 不能、Book III 後続事例で検証可能な仮説として置く)",
+        "Cohen-Levinthal (1990) ACAP の表裏構造: 親研究室 ACAP が NewCo へ転移する正の側面と、同一 ACAP 基盤ゆえに顧客重複が不可避になる負の側面を同時に扱う"
+      ],
+      "paragraph_outline": [
+        "σ_SU 追い風の機構: μ_G ジャンプ後の investor / partner シグナリング効果 (Tassey 2007)",
+        "R_net 共食い類似 CX の構造: 親研究室主力テーマ顧客リストと NewCo 想定顧客レイヤの集合重複を illustrative に図示 (匿名化)",
+        "Ch 6 PRS の式展開: 正項 σ_SU と負項 R_net 共食いの同時発火を式上で確認",
+        "Cohen-Levinthal (1990) ACAP の表裏構造: 親研究室 ACAP 転移の正側面 (NewCo 立ち上げの基盤) と、同一 ACAP ゆえに顧客重複が不可避になる負側面の同時扱い",
+        "Ch 8 Θ_healthy 評価: 経営チーム健全性は維持されているが μ_x が制約される構造への接続 (§15.4 GRL 律速への橋渡し)",
+        "Ch 9 ERS Research-Org-Type 産学連携集約型における σ_SU ↔ R_net 構造的正相関の仮説提示 (SX 1 事例では falsify 不能と明記)",
+        "Ch 10.6 Malerba Deep-tech レーン w_6 の SX 適用: Deep-tech 特有の親研究室依存性が R_net 共食いを誘発する機構",
+        "Ch 14 CX 章 R_net 共食いとの構造類似テーブル — Book III pattern として明示 (Ch 25 への transfer 伏線)",
+        "σ_SU 追い風と R_net 共食いの同時性が章の問いを鋭くする — 追い風だけ見ると過剰投資、共食いだけ見ると撤退、両方見ると GRL 律速の発見へ",
+        "本節の留保: 顧客リスト重複の数値化は planning outcome 段階では illustrative に留まり、ordinal 比較のみ",
+        "§15.4 への橋渡し: 同時発火状態でも GRL が律速になることで μ_x は σ_SU 上限に達しない"
+      ],
+      "new_writing_required": "Ch 6 PRS 正項 σ_SU + 負項 R_net 共食い 同時発火の式展開、Cohen-Levinthal ACAP 表裏構造の SX 適用、Research-Org-Type 産学連携集約型での正相関仮説 (Book III 後続検証への移譲)、Ch 14 CX 構造類似テーブル (Book III pattern 明示)、Malerba w_6 Deep-tech 親研究室依存性の SX 適用",
+      "existing_reuse": "Ch 6 PRS、Ch 8 Θ_healthy + μ_x 制約、Ch 9 ERS Research-Org-Type、Ch 10.6 Malerba w_6、Ch 14 CX 章 R_net 共食い記述、pwa/design/amd_score.md",
+      "upstream_dependencies": [
+        "Ch 5 σ_SU",
+        "Ch 6 PRS",
+        "Ch 8 Θ_healthy + μ_x 制約",
+        "Ch 9 ERS",
+        "Ch 10.6 Malerba",
+        "Ch 14 CX 章 R_net 共食い",
+        "§15.2 軌跡"
+      ],
+      "downstream_dependencies": [
+        "§15.4 GRL 律速",
+        "§15.5 COI 兼業株式 (Ch 21 pointer)",
+        "§15.6 章末問い",
+        "Ch 25 Book III pattern 統合"
+      ],
+      "references": [
+        "Cohen-Levinthal (1990) ACAP",
+        "Malerba (2002) sectoral innovation system",
+        "Tassey (2007) RP standards economics",
+        "Ch 14 CX 章",
+        "pwa/design/amd_score.md"
+      ],
+      "source_drafts": [
+        "C §15.3 (Ch 6 PRS 正項負項同時発火式展開 + Research-Org-Type 正相関仮説を骨格採用)",
+        "B §15.3 (顧客重複度単調増加の falsifiable 設計を graft)",
+        "A §15.3 (Ch 14 CX 構造類似 Book III pattern 主張を graft)",
+        "judge3 ACAP 表裏 graft (Cohen-Levinthal を追加し親研究室知識共有の正負両面を扱う)"
+      ]
+    },
+    {
+      "section_id": "15.4",
+      "title": "GRL 律速 (R-bundle min) — D-027 主要事例 + μ_G ⊥ GRL 別軸テーゼ",
+      "pages": 4,
+      "math_level": "高 (R-bundle min = min{TRL, MRL, CRL, IRL, GRL} の SX 適用、μ_x = f(R_min) 形式記述)",
+      "anchor_claims": [
+        "D-027: SX では 5 軸 readiness のうち GRL が最小値となり R-bundle min を規定する (主要事例)",
+        "GRL は SEMI / 輸出規制 / 環境規制 / 安全規格 にサブ分解可能で、半導体材料 SU 固有の規制・標準化整備リードタイムが律速となる",
+        "PSI Step2 採択は μ_G を動かすが GRL を動かさない (μ_G ⊥ GRL 別軸テーゼ、Tier A 観測可能)",
+        "σ_SU 追い風が最大化していても GRL 律速により μ_x は σ_SU 上限に達しない (Θ_healthy 条件下での μ_x 制約)",
+        "Mowery (2009) 半導体史 cumulative innovation × 標準化 bottleneck と現代 SX GRL 律速は構造同型である"
+      ],
+      "paragraph_outline": [
+        "R-bundle min 復習 (D-027): 5 軸 readiness の Liebig 律 (bundle-min) と GRL の運用定義 (pwa/bzm/r-readiness.md)",
+        "5 軸 readiness (TRL / MRL / CRL / IRL / GRL) の SX 評価表 (ordinal 比較に留め cardinal スコアは出さない規律)",
+        "D-027 R-bundle min の SX 適用: R_min = GRL = min{TRL, MRL, CRL, IRL, GRL} を formal 表記",
+        "μ_x = f(R_min) = f(GRL) の formal 記述、GRL 律速下での μ_x 上限制約構造",
+        "GRL サブ要素分解 1: SEMI 業界標準 (半導体材料規格、Tassey 2007)",
+        "GRL サブ要素分解 2: 輸出規制 (経済安全保障連動)",
+        "GRL サブ要素分解 3: 環境規制 (化学物質規制、PFAS 等)",
+        "GRL サブ要素分解 4: 安全規格 (作業環境・取扱規制)",
+        "Kelchtermans-Veugelers (2013) RP regulatory readiness の研究機関内投資不足構造と SX GRL 整備遅延の対応",
+        "μ_G ⊥ GRL 別軸テーゼ: PSI Step2 採択 (μ_G ジャンプ) は補助金採択イベントであり、GRL (規制・標準化整備) を直接押し上げない構造 — falsifiable claim として明示",
+        "Ch 8 Θ_healthy 条件と組み合わせた含意: 健全な経営チームでも GRL 律速なら計画通り進まない (μ_x 制約の伝達経路)",
+        "Mowery (2009) RP semiconductor cumulative innovation × 標準化 bottleneck の歴史アナロジー: 現代 SX GRL 律速の構造同型として位置づけ",
+        "本節の中核含意: SX は 5 軸 readiness で GRL を独立カテゴリとして扱う必要性 (4 軸ではなく 5 軸) を示す illustrative 事例",
+        "§15.5 への橋渡し: GRL 律速下では情報設計事故 (Y-002) と COI 兼業株式が μ_x に与える相対的影響が拡大する"
+      ],
+      "new_writing_required": "GRL サブ要素分解 4 種 (SEMI / 輸出規制 / 環境規制 / 安全規格)、D-027 R-bundle min の SX formal 記述、μ_G ⊥ GRL 別軸テーゼの falsifiable 化、Mowery (2009) 半導体史アナロジー、5 軸ベクトル ordinal 評価表 (cardinal 回避規律)、Kelchtermans-Veugelers SX 適用",
+      "existing_reuse": "Ch 2.3 R-bundle min 装置、Ch 8 Θ_healthy + μ_x 制約、D-027 設置済み定義、pwa/bzm/r-readiness.md GRL 定義、Ch 5 MS-SSM σ_SU 再参照",
+      "upstream_dependencies": [
+        "Ch 2.3 R-bundle min D-027",
+        "Ch 8 Θ_healthy + μ_x 制約",
+        "Ch 10.6 Malerba w_6",
+        "§15.2 μ_G ジャンプ",
+        "§15.3 σ_SU + R_net 同時発火",
+        "pwa/bzm/r-readiness.md"
+      ],
+      "downstream_dependencies": [
+        "§15.5 Y-002 + COI pointer",
+        "§15.6 Book II 装置統合 + 章末問い",
+        "Ch 25 Book III pattern",
+        "Ch 26a post-2028 σ_SU 剥落時の GRL 挙動",
+        "Ch 26b 制度設計連動 η_jt"
+      ],
+      "references": [
+        "Tassey (2007) RP standards economics",
+        "Kelchtermans-Veugelers (2013) RP regulatory readiness",
+        "Mowery (2009) RP semiconductor",
+        "Malerba (2002) sectoral innovation system",
+        "pwa/bzm/r-readiness.md",
+        "Ch 2.3"
+      ],
+      "source_drafts": [
+        "B §15.4 (GRL サブ要素分解 4 種 + Tassey/Kelchtermans-Veugelers 引用 + R-bundle min formal 記述を骨格採用、4p 最厚配分)",
+        "C §15.4 (μ_G ⊥ GRL 別軸テーゼ + μ_x = f(R_min) formal 記述を graft)",
+        "A §15.4 (Mowery 2009 cumulative innovation × 標準化 bottleneck 歴史アナロジーを graft)",
+        "judge1 cross-cutting ordinal 規律 graft (cardinal スコア回避を明示)"
+      ]
+    },
+    {
+      "section_id": "15.5",
+      "title": "Y-002 CTO 非開示と COI 兼業株式論点 — 情報設計事故の位置づけと章間 pointer",
+      "pages": 2.5,
+      "math_level": "軽 (Aghion-Tirole formal/real authority の概念導入のみ、formal model 詳細は付録 C 委譲)",
+      "anchor_claims": [
+        "Y-002 CTO 非開示は Aghion-Tirole (1997) formal/real authority の枠組みで情報設計事故として位置づけられる (real authority の非対称配分)",
+        "Y-002 → R_net 信頼項 (trust subcomponent) 低下 → R_net 共食い構造の悪化 という伝達経路が SX で観測される",
+        "COI 兼業株式論点 (桑折 KUTE MTG 論点 5) は Ch 21 KUTE 章で詳細展開され、本章では構造接続のみ示す",
+        "Y-002 formal model 詳細 (Holmstrom-Milgrom multitask / Bolton-Dewatripont Contract Theory) は付録 C へ移送し本章本文の密度を Lens C 読者向けに保つ"
+      ],
+      "paragraph_outline": [
+        "Y-002 事案の概要 (CTO 候補者情報の関係者への非開示) を匿名化済みで簡潔に記述",
+        "Aghion-Tirole (1997) formal/real authority の枠組み導入: 非開示は real authority の非対称配分を生む構造として位置づけ",
+        "Y-002 → R_net 信頼項 (trust subcomponent) 低下 → §15.3 R_net 共食い構造の悪化 という伝達経路図示",
+        "付録 C 参照宣言: Y-002 詳細経緯、Holmstrom-Milgrom multitask / Bolton-Dewatripont Contract Theory による formal 化、再発防止プロセス、教訓は付録 C で展開",
+        "COI 兼業株式論点の Ch 15 における取扱い宣言: 親研究室主力テーマ重複 (§15.3) と兼業株式は別論点として分離",
+        "Ch 21 KUTE 章 pointer: COI 兼業株式 governance の制度設計議論 (桑折 KUTE MTG 論点 5) は Ch 21 で展開、本章では存在のみ明記し構造接続点を示す",
+        "GRL 律速下で情報設計事故と COI 兼業株式が μ_x に与える相対的影響が拡大する構造 (§15.4 受け取り)",
+        "桑折 KUTE MTG 残り 5 論点の Ch 15 内処理状況の整理 (§15.2-§15.4 で吸収済みの mapping 確認)"
+      ],
+      "new_writing_required": "Y-002 Tier A 学術化記述 (匿名化)、Aghion-Tirole formal/real authority の節用導入 (formal model 詳細は付録 C 委譲)、情報設計事故 → R_net 信頼項 → R_net 共食い悪化 の経路図、Ch 21 / 付録 C への pointer 文の declared scope、桑折 KUTE 7 論点 mapping 確認表",
+      "existing_reuse": "桑折 KUTE MTG 議事録 (Tier 3 学術化)、付録 C Y-002 詳細記述 (formal model 三層を付録 C で展開)、Ch 21 KUTE 章 skeleton との整合確認、Ch 9 ERS 接続",
+      "upstream_dependencies": [
+        "§15.3 R_net 共食い",
+        "§15.4 GRL 律速",
+        "Ch 9 ERS",
+        "Book II 情報設計装置"
+      ],
+      "downstream_dependencies": [
+        "Ch 21 KUTE 章 (COI 兼業株式論点 5 詳細)",
+        "付録 C (Y-002 + formal model 三層詳細)",
+        "§15.6 章末"
+      ],
+      "references": [
+        "Aghion-Tirole (1997) JPE formal/real authority",
+        "桑折 KUTE MTG 議事録 (内部資料)",
+        "付録 C (本書、Holmstrom-Milgrom 1991 / Bolton-Dewatripont 2005 への参照)",
+        "Ch 21 KUTE 章"
+      ],
+      "source_drafts": [
+        "C §15.5 (Aghion-Tirole formal/real authority による Y-002 位置づけを骨格採用、ただし Holmstrom-Milgrom / Bolton-Dewatripont は付録 C 委譲して本文密度を Lens C 向けに調整)",
+        "B §15.5 (情報設計事故 → R_net 信頼項低下経路と Ch 21 / 付録 C pointer 規律を graft)",
+        "A §15.5 (桑折 KUTE 7 論点 mapping 確認表を graft)"
+      ]
+    },
+    {
+      "section_id": "15.6",
+      "title": "Book II 装置統合と章末問い — post-2028 予測の Ch 25 / Ch 26a / Ch 26b への 1:1 transfer",
+      "pages": 2.5,
+      "math_level": "中 (Book II 装置統合表、章末問い 3 つの falsifiable 形式)",
+      "anchor_claims": [
+        "Book II 装置 (Ch 5 MS-SSM + Ch 5.5 GO + Ch 6 PRS + Ch 8 Θ_healthy + Ch 9 ERS + Ch 10.6 Malerba w_6 + Ch 10.7 Murmann η_jt) を SX に統合適用し三因子同時事例として後付け校正が完結する",
+        "SX 後付け校正は Ch 5 σ_SU MS-SSM + Ch 2.3 R-bundle min + Ch 10.7 Murmann η_jt の核心三装置で再現可能 (illustrative)",
+        "章末問い 3 つは post-2028 予測対象として Ch 25 (Book III pattern) / Ch 26a (σ_SU 剥落時の GRL 挙動) / Ch 26b (制度設計連動 η_jt 動学) へ 1:1 で transfer する",
+        "validation 主張禁止 (D-031 Tier A) を遵守し、post-2028 軌跡で確証/反証される予測対象は Ch 26 へ繰り延べる"
+      ],
+      "paragraph_outline": [
+        "Book II 装置 7 種を SX に統合適用した summary 表 (各装置 × SX 評価点 = illustrative 出力)",
+        "σ_SU 追い風 + R_net 共食い + GRL 律速 + Y-002 + COI を 1 枚に統合する map (三因子 + 二事故の構造図)",
+        "学術系譜の最終位置づけ: Mowery-Steinmueller (1994) + Mowery (2009) + Mazzucato (2013) + Lee-Lim (2001) + Malerba (2002) + Murmann (2003) + Tassey (2007) + Kelchtermans-Veugelers (2013) + Cohen-Levinthal (1990) + Aghion-Tirole (1997)",
+        "Ch 21 KUTE 章 (COI 兼業株式論点 5) と付録 C (Y-002 formal model 三層) への pointer 再確認",
+        "章末問い 1: σ_SU 追い風が剥落した場合 GRL 律速はどう振る舞うか → Ch 26a へ transfer (falsifiable: μ_G 後退時の σ_SU 反応と GRL 不変性)",
+        "章末問い 2: R_net 共食いを CX → SX 間で構造比較すると Book III pattern として何が見えるか → Ch 25 へ transfer (falsifiable: Research-Org-Type 産学連携集約型での σ_SU ↔ R_net 正相関仮説)",
+        "章末問い 3: GRL 律速の制度設計連動 (政策 ↔ 産業 coupling η_jt) は post-2028 でどう動くか → Ch 26b へ transfer (falsifiable: GRL サブ要素 4 種の改善 timeline)",
+        "次章 (Ch 16) への接続宣言と Book III pattern 累積の予告"
+      ],
+      "new_writing_required": "Book II 装置 7 種統合表、三因子 + 二事故 統合 map、章末問い 3 つの falsifiable 形式定式化、Ch 25 / Ch 26a / Ch 26b への 1:1 transfer 設計、学術系譜の最終位置づけ",
+      "existing_reuse": "Ch 5 / Ch 5.5 / Ch 6 / Ch 8 / Ch 9 / Ch 10.6 / Ch 10.7 装置をそのまま継承、§15.0-§15.5 の各装置適用結果を集約",
+      "upstream_dependencies": [
+        "§15.0-§15.5 全節",
+        "Book II 装置群"
+      ],
+      "downstream_dependencies": [
+        "Ch 16 (次章 Book III 後続事例)",
+        "Ch 21 KUTE 章",
+        "Ch 25 Book III pattern 統合",
+        "Ch 26a post-2028 予測 (σ_SU 剥落 + GRL)",
+        "Ch 26b post-2028 予測 (制度設計連動 η_jt)",
+        "付録 C (Y-002 + formal model 三層)"
+      ],
+      "references": [
+        "Mowery-Steinmueller (1994)",
+        "Mowery (2009)",
+        "Mazzucato (2013)",
+        "Lee-Lim (2001)",
+        "Malerba (2002)",
+        "Murmann (2003)",
+        "Tassey (2007)",
+        "Kelchtermans-Veugelers (2013)",
+        "Cohen-Levinthal (1990)",
+        "Aghion-Tirole (1997)"
+      ],
+      "source_drafts": [
+        "A §15.6 (章末問い 3 つを Ch 25 / Ch 26a / Ch 26b へ 1:1 transfer する分配設計を骨格採用)",
+        "B §15.6 (post-2028 falsifiable 予測候補の整理を graft)",
+        "C §15.6 (Ch 25 / Ch 26a / Ch 26b transfer 形式を graft)"
+      ]
+    }
+  ],
+  "open_issues_for_masa": [
+    {
+      "issue": "Y-002 formal model 三層 (Aghion-Tirole / Holmstrom-Milgrom / Bolton-Dewatripont) を本文 §15.5 にどこまで埋め込み、付録 C にどこから委譲するかの境界線",
+      "why_masa_decides": "Lens C (URA/EIR 現場読者の落とし穴ストーリーとしての読みやすさ) と Lens B (publishability、ICC / Research Policy の microeconomic foundation 要求) のトレードオフは、本書のターゲット読者層配分 (現場 vs 学術) の判断であり、まさの編集方針決定に属する",
+      "options": [
+        "案 a: §15.5 本文は Aghion-Tirole 1 本のみ概念導入、Holmstrom-Milgrom / Bolton-Dewatripont は付録 C で formal 展開 (本案採用)",
+        "案 b: §15.5 本文に formal model 三層をすべて配置し 3.5p に拡張、§15.4 GRL 律速を 3.5p に縮小",
+        "案 c: §15.5 本文では情報設計事故 → R_net 信頼項経路のみに留め、Aghion-Tirole も付録 C へ完全移送 (B 案寄り)"
+      ],
+      "recommendation": "案 a: §15.5 は 2.5p で Aghion-Tirole 概念導入のみ、formal model 詳細は付録 C 委譲。Lens C 現場読者の章リズムを守りつつ、付録 C で Research Policy reviewer 向けの formal apparatus を確保する分業が三 lens 最適"
+    },
+    {
+      "issue": "GRL = Government Readiness Level の定義 (pwa/bzm/r-readiness.md 出典) を Ch 2.3 R-bundle min で先出しする粒度と、§15.4 SX で SEMI / 輸出規制 / 環境規制 / 安全規格 サブ要素分解する粒度の分担",
+      "why_masa_decides": "Book I (Ch 2.3) と Book III (Ch 15) の章間境界の決定であり、5 軸 readiness 全般を Book I で先出しすると Ch 15 の独自性が薄れ、Ch 15 初出にすると Ch 2.3 R-bundle min D-027 主要事例宣言の根拠が宙づりになる — 編集設計のまさ判断",
+      "options": [
+        "案 a: Ch 2.3 で 5 軸定義と GRL 一般定義のみ先出し、Ch 15 §15.4 で SX 固有サブ要素 4 種分解を初出 (本案採用)",
+        "案 b: Ch 2.3 で SEMI / 輸出規制 / 環境規制 / 安全規格 サブ要素も含めて完全先出し、§15.4 は SX 適用に専念",
+        "案 c: Ch 2.3 では D-027 宣言のみ、GRL 定義と全サブ要素を Ch 15 §15.4 で初出"
+      ],
+      "recommendation": "案 a: Ch 2.3 で 5 軸 readiness 全般定義と GRL 一般定義 (Government Readiness Level、規制・標準化適合) を先出し、Ch 15 §15.4 で半導体材料 SU 固有の SEMI / 輸出規制 / 環境規制 / 安全規格 サブ要素分解を初出する分担。Book I の汎用性と Book III の事例固有性のバランスが取れる"
+    },
+    {
+      "issue": "桑折 KUTE MTG 7 論点のうち §15.2-§15.4 で Ch 15 内吸収する 5 論点の特定 (どの 5 論点が SX 文脈で構造的に不可分か)",
+      "why_masa_decides": "桑折 KUTE MTG 議事録の論点 1-4, 6, 7 の各内容と SX 三因子 (σ_SU / R_net / GRL) との対応付けは内部資料を保有するまさにしか判断できず、論点ごとの章間配分は本書全体の編集設計に属する",
+      "options": [
+        "案 a: 論点 1 (PSI 採択動学) → §15.2、論点 2 (顧客重複) → §15.3、論点 3-4 (GRL 関連) → §15.4、論点 6-7 (補助金後動向) → §15.6 のような構造的配分",
+        "案 b: 論点 5 (COI) のみ Ch 21 委譲、論点 7 (Y-002 隣接) のみ付録 C 委譲、残り 5 論点を §15.2-§15.4 で内容に応じて吸収",
+        "案 c: まさが桑折 KUTE MTG 議事録の論点番号と内容を skeleton 段階で開示し、執筆フェーズで節ごとに分配を確定する"
+      ],
+      "recommendation": "案 c: skeleton 段階では「5 論点を §15.2-§15.4 で吸収」と declared scope のみ宣言し、執筆フェーズでまさから論点番号と内容を開示してもらい節ごとの分配 mapping 表を §15.1 末尾に置く。論点内容を skeleton 段階で固定すると後付け校正過程で再調整リスクが残る"
+    },
+    {
+      "issue": "5 軸 readiness の SX 評価表 (§15.4) を ordinal 比較に留めるか cardinal スコア (例えば 1-9 段階の数値) で提示するかの規律",
+      "why_masa_decides": "Tier A 規律 (validation 主張禁止) と falsifiable claim としての観測可能性のトレードオフは、本書全体の Tier A 厳格度の判断であり、Research Policy 論文化 (reviewer 2 が cardinal スコアを必ず突く) と Cambridge UP 単行本 (cardinal 容認可) で出版経路により判断が変わる — まさの出版戦略決定に属する",
+      "options": [
+        "案 a: ordinal 比較のみ (例: GRL < TRL ≤ MRL ≤ CRL ≤ IRL)、cardinal スコア回避 (本案採用、Research Policy 論文版併存を想定)",
+        "案 b: cardinal スコア (1-9 段階) で提示し pwa/bzm/r-readiness.md の運用と整合させる (Cambridge UP 単行本特化)",
+        "案 c: 本文は ordinal、付録 C で cardinal スコアと illustrative 留保を併記"
+      ],
+      "recommendation": "案 a: ordinal 比較のみで §15.4 を構成し、Tier A 規律と Research Policy reviewer 対応を両立。amd_score.md の数値は背景情報として参照するが本書本文には cardinal で出さない"
+    },
+    {
+      "issue": "Murmann η_jt の SX 単一事例適用について、Ch 10.7 側で「単一事例推定不可」を一般原則として宣言済みか、Ch 15 §15.2 で個別に留保するかの分担",
+      "why_masa_decides": "Ch 10.7 Murmann 章 (Book II) の skeleton 確定状況によりこの分担が決まる。Ch 10.7 で一般原則として宣言済みなら Ch 15 では参照のみで済み、未宣言なら Ch 15 §15.2 で個別留保が必要 — Book II 全体の編集進行状況のまさ把握に属する",
+      "options": [
+        "案 a: Ch 10.7 で「単一事例 η_jt 推定は識別不能、構造の言語として援用」を一般原則として先出し、Ch 15 §15.2 は参照のみ (推奨)",
+        "案 b: Ch 15 §15.2 末尾で個別留保 (本 skeleton 採用)、Ch 10.7 は一般定義のみに留める",
+        "案 c: 両方で記述 (Ch 10.7 一般原則 + Ch 15 §15.2 SX 個別留保)"
+      ],
+      "recommendation": "案 a または c: Ch 10.7 で一般原則を先出ししておくと Book III 他事例 (CX, KX 等) でも参照可能となり経済的。Ch 15 §15.2 では参照と SX 固有の illustrative 留保のみに留める"
+    }
+  ],
+  "falsifiable_claims": [
+    "2025-2028 planning 軌跡の 8 評価点において σ_SU 観測値は 2025-12 PSI Step2 採択前後で前後 6 ヶ月平均比較において離散ジャンプを示す (μ_G ジャンプ仮説、Ch 5 MS-SSM 後付け校正で観測可能)",
+    "D-027: SX の 5 軸 readiness ベクトル (TRL / MRL / CRL / IRL / GRL) を ordinal 比較すると min 演算結果が GRL となる (R-bundle min 律速、planning outcome 段階で ordinal 観測可能)",
+    "親研究室主力テーマと NewCo 想定顧客レイヤは設立計画段階で集合重複を持ち、R_net 共食い類似 CX 構造を内包する (顧客レイヤ重複の有無として匿名化下で illustrative 観測可能)",
+    "PSI Step2 採択は μ_G を動かすが GRL を動かさない (μ_G ⊥ GRL 別軸テーゼ、採択前後で GRL の ordinal スコアが不変であることが観測可能)",
+    "Θ_healthy 条件が維持されても GRL 律速下では μ_x が σ_SU 追い風を完全には享受できない (Ch 8 ↔ Ch 2.3 連結仮説、μ_x < σ_SU 上限が observable)",
+    "GRL は SEMI / 輸出規制 / 環境規制 / 安全規格 の 4 サブ要素に分解可能で、PSI Step2 採択後も 4 サブ要素いずれも改善 timeline が μ_G ジャンプより遅行する (Tassey 2007 / Kelchtermans-Veugelers 2013、サブ要素別 timeline で観測可能)",
+    "Ch 14 CX の R_net 共食い構造 と Ch 15 SX の R_net 共食い構造 は構造類似 (親研究室主力テーマと顧客重複) であり Book III pattern として繰り返される (CX-SX 構造比較で観測可能、Ch 25 検証対象)",
+    "Research-Org-Type 産学連携集約型では σ_SU 追い風強度と R_net 共食い強度の相関が構造的に正である (SX 単一事例では falsify 不能、Book III 後続事例で複数観測すれば検証可能、本章では illustrative 仮説として置く)",
+    "2027-04 NewCo 設立計画は GRL が一定閾値 (ordinal threshold) を超えない限り遅延する (GRL 律速 → μ_x 制約仮説、D-027、post-2028 観測で確証/反証)",
+    "Y-002 CTO 非開示は Aghion-Tirole formal/real authority の枠組みで real authority の非対称配分を生み、R_net 信頼項の低下として SX 内で観測可能 (詳細 formal 化と再現可能性は付録 C で展開)"
+  ],
+  "cross_chapter_supply": [
+    {
+      "target_chapter": "Ch 5 σ_SU MS-SSM",
+      "what_supplies": "§15.2 が μ_G(t) 離散ジャンプを Ch 5 MS-SSM の政策イベント駆動成分として後付け校正適用する (2025-12 PSI Step2 採択点を illustrative 観測点として供給)。Ch 5 側で μ_G ジャンプの状態空間表現が拡張済みかどうかは open_issue として持ち越し"
+    },
+    {
+      "target_chapter": "Ch 5.5 GO ゲート",
+      "what_supplies": "§15.2 が 2025-12 PSI Step2 採択を GO ゲート達成イベントとして適用し、PRS 適合度の同時閾値超過構造を SX 事例として供給"
+    },
+    {
+      "target_chapter": "Ch 6 PRS",
+      "what_supplies": "§15.3 が Ch 6 PRS の正項 σ_SU + 負項 R_net 共食い の同時発火を SX で式展開し、PRS の Research-Org-Type 適合度を産学連携集約型で具体化する事例として供給"
+    },
+    {
+      "target_chapter": "Ch 8 Θ_healthy + μ_x 制約",
+      "what_supplies": "§15.4 が GRL 律速下で Θ_healthy だが μ_x が制約される条件を SX で具体化し、μ_x = f(R_min) = f(GRL) の formal 連結を Ch 8 ↔ Ch 2.3 の橋として供給"
+    },
+    {
+      "target_chapter": "Ch 9 ERS Research-Org-Type",
+      "what_supplies": "§15.1 / §15.3 が Research-Org-Type 産学連携集約型 sub-type の SX マッピングと、産学連携集約型では σ_SU ↔ R_net 構造的正相関仮説を ERS の sub-type 別構造仮説として供給"
+    },
+    {
+      "target_chapter": "Ch 10.6 Malerba w_6 Deep-tech レーン",
+      "what_supplies": "§15.2 / §15.3 が Deep-tech 親研究室依存性が R_net 共食いを誘発する機構を SX で具体化し、w_6 重みの政府補助金 secured レーンへのモード遷移事例を供給"
+    },
+    {
+      "target_chapter": "Ch 10.7 Murmann η_jt",
+      "what_supplies": "§15.2 が η_jt 政策 ↔ 産業 coupling を SX に illustrative 適用しつつ、単一事例推定不可留保を明示することで Ch 10.7 一般原則の事例運用例を供給"
+    },
+    {
+      "target_chapter": "Ch 14 CX 章",
+      "what_supplies": "§15.3 が SX R_net 共食いと Ch 14 CX R_net 共食いの構造類似テーブルを提示し、Book III pattern の繰り返しを Ch 14 → Ch 15 連結として供給"
+    },
+    {
+      "target_chapter": "Ch 21 KUTE 章",
+      "what_supplies": "§15.1 declared scope + §15.5 で COI 兼業株式論点 (桑折 KUTE MTG 論点 5) を pointer 形式で委譲し、Ch 15 で SX 文脈の構造接続点 (親研究室主力テーマ重複と兼業株式の論点分離) のみ示すことで Ch 21 詳細展開の前提を供給"
+    },
+    {
+      "target_chapter": "Ch 25 Book III pattern 統合",
+      "what_supplies": "§15.3 Ch 14 CX 構造類似テーブル + §15.6 章末問い 2 (R_net 共食い CX → SX 構造比較) を Ch 25 へ transfer し、Research-Org-Type 産学連携集約型での σ_SU ↔ R_net 正相関仮説を Book III 後続検証対象として供給"
+    },
+    {
+      "target_chapter": "Ch 26a post-2028 予測 (σ_SU 剥落 + GRL)",
+      "what_supplies": "§15.6 章末問い 1 (σ_SU 追い風が剥落した場合 GRL 律速はどう振る舞うか) を Ch 26a へ transfer し、μ_G 後退時の σ_SU 反応と GRL 不変性の falsifiable 予測を供給"
+    },
+    {
+      "target_chapter": "Ch 26b post-2028 予測 (制度設計連動 η_jt)",
+      "what_supplies": "§15.6 章末問い 3 (GRL 律速の制度設計連動は post-2028 でどう動くか) を Ch 26b へ transfer し、GRL サブ要素 4 種 (SEMI / 輸出規制 / 環境規制 / 安全規格) の改善 timeline を falsifiable 予測対象として供給"
+    },
+    {
+      "target_chapter": "付録 C",
+      "what_supplies": "§15.5 が Y-002 CTO 非開示の概要と Aghion-Tirole formal/real authority による位置づけを示し、Holmstrom-Milgrom (1991) multitask + Bolton-Dewatripont (2005) Contract Theory による formal model 詳細と再発防止プロトコル展開を付録 C へ供給"
+    }
+  ],
+  "masa_negotiation_handles": [
+    "Y-002 formal model 三層 (Aghion-Tirole / Holmstrom-Milgrom / Bolton-Dewatripont) の §15.5 本文 vs 付録 C 分担: 案 a (Aghion-Tirole のみ本文、残り付録 C) / 案 b (三層すべて本文 3.5p) / 案 c (三層すべて付録 C、§15.5 は経路図のみ) の選択",
+    "GRL サブ要素分解 (SEMI / 輸出規制 / 環境規制 / 安全規格) の Ch 2.3 先出し vs Ch 15 §15.4 初出 分担: Book I 汎用性と Book III 事例固有性のバランス調整",
+    "桑折 KUTE MTG 7 論点のうち §15.2-§15.4 で Ch 15 内吸収する 5 論点の特定 — まさから論点番号と内容開示後、節ごとの分配 mapping 表を §15.1 末尾に確定",
+    "5 軸 readiness 評価表の ordinal 比較 vs cardinal スコア 規律 — Research Policy 論文化 vs Cambridge UP 単行本の出版経路選択と連動",
+    "Ch 14 CX 章の R_net 共食い記述ぶり確定後の §15.3 構造類似主張詳細度の再校正 — CX 章 skeleton 進行状況に依存",
+    "post-2028 予測対象 (2027-04 NewCo 設立可否 / GRL 改善 timeline / 顧客重複解消パス) の Ch 25 / Ch 26a / Ch 26b 三章への配分: 章末問い 1:1 transfer 設計の最終確認",
+    "Research-Org-Type 産学連携集約型 における σ_SU ↔ R_net 正相関仮説の Tier A 規律下での表現強度 — 単一事例 falsify 不能の自覚を §15.3 本文と falsifiable_claim でどう書き分けるか"
+  ]
+}
