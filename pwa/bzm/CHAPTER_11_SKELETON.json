@@ -1,0 +1,558 @@
+{
+  "ch_overview": {
+    "core_proposition": "案件 PRS (月次, jump 成分) × 機関 ERS (年次, 緩慢ドリフト) × GO ゲート (σ_SU 閾値, probit smoothing) を BVAR + jump + gate 二層同時推定として Bayesian 推定する三時計の計量装置を構築する。Mariano-Murasawa (2003) 混合頻度 state-space で月次・年次混合観測を統合し、Minnesota prior (Litterman 1986, Doan-Litterman-Sims 1984) + Hierarchical prior (Gelman-Hill 2007, PJ × 機関 × 領域 三層) + jump intensity prior (Johannes-Polson 2009) の三層事前分布を構成、Hamilton (1989) Markov 切換え + Kim (1994) smoother + Hamilton-Kim filter + Pitt-Shephard (1999) auxiliary particle filter + NUTS (Hoffman-Gelman 2014) + Gibbs (Chib-Greenberg 1995) の 4 段 hybrid MCMC で K=3 regime posterior と jump-diffusion を同時推定する。Rubio-Ramirez-Waggoner-Zha (2010) sign restriction で ω = (ω_A, ω_I, ω_G) の構造ショック識別 (D-046) を達成し、F-CES 事後分布 (D-032)、ρ Kmenta 識別 (D-038)、K=2/3/4 horse-race (D-045) を実装する。本章は Tier A (記述的事後分布要約) に限定し (D-031)、F-5.1..F-5.6 / H_C2 / Klepper 命題 5 / w(L) 符号 / Ψ Granger / θ_σ* 比較静学 の事前登録は Ch 26b (Tier B) に明示分離する。",
+    "load_bearing_claims": [
+      "[LB-11-1] (命題 11.1-11.2) 二層 BVAR 標準形 y_t = ν + Σ_p Π_p y_{t-p} + Σ_ε^{1/2} ε_t + J_t·η_t を Sims-Zha (1998) 形式で書き下し、Mariano-Murasawa (2003) 混合頻度 state-space (loading C 行列、Ch 5 補題 5.3) + Ch 9 KLST representation (Theorem 9.1) + Ch 10.6 全射 φ + w(L) 符号制約と線形整合する形で案件月次層と機関年次層を block-recursive Π = [[Π^PP, Π^PI],[0, Π^II]] に統合できる。",
+      "[LB-11-2] (命題 11.3) Minnesota prior (Π^* 縮退, λ_1, λ_2, λ_3) + 3 層階層 prior (PJ × 機関 × 領域, Inverse-Wishart + Half-Cauchy) + jump intensity prior (λ ~ Gamma) の三層事前分布が、N=8 PJ × 16Q の小標本下でも posterior の properness を保ち、Rubio-Ramirez-Waggoner-Zha (2010) sign restriction (政策ショック G ≥ 0 先行 / A, I lag) と組み合わせて ω = (ω_A, ω_I, ω_G) の集合識別を達成する (D-046 IV、BB tier 1 政策アナウンス / 研究予算改革を IV 候補)。",
+      "[LB-11-3] (命題 11.4-11.5 + 系 11.2.1) Mariano-Murasawa (2003) skip-sampling + Pitt-Shephard (1999) auxiliary particle filter (first-stage importance weight w_i^(1) ∝ p(z_t | μ(y*_{t-1}^i))) + Johannes-Polson (2010) MCMC + Rao-Blackwell 化により、jump intensity λ_x(σ_SU, ERS) を Ch 5 K=3 regime k 別の階段関数 λ_x^k で構成し Ch 8 2D jump-diffusion と整合させる (λ_y trigger には Ch 10.4 三反証子を流用)。",
+      "[LB-11-4] (命題 11.6-11.7 + 系 11.3.1) Ch 5.5 GO ゲート θ_σ*(P, F, B, Π, μ) を probit smoothing Φ((σ_SU,t - θ_σ*)/τ_B) (Albert-Chib 1993 data augmentation で MCMC 化) で観測モデル化し、Hamilton (1989) MS + Kim (1994) smoother で K=3 regime posterior を復元、Wonham filter (連続時間, Ch 5.5 Bayesian 拡張) と Hamilton-Kim filter (離散時間) の asymptotic 等価性により Stan/NUTS との合流可能性を確保する。",
+      "[LB-11-5] (命題 11.8) 4 段 hybrid MCMC = (i) Hamilton-Kim filter で離散 regime s_t を周辺化 / (ii) Pitt-Shephard particle filter で jump J_t を sampling / (iii) NUTS で連続 parameter (Π, Σ_ε, ω, ρ, α, λ, θ_σ*) を sampling / (iv) Gibbs で結合、non-centered parameterization (Betancourt-Girolami 2015) で funnel 問題を回避、収束基準 R-hat < 1.01 / ESS > 400 / divergent < 0.1% / BFMI > 0.3 を必須報告とする (wall time 12時間/run M2 Max 想定)。",
+      "[LB-11-6] (命題 11.9-11.10) F-CES 事後分布 (D-032, ρ Normal(-1, 1.5), α Beta(2,2)) を Cobb-Douglas (ρ→0) / Leontief (ρ→-∞ truncation) / 加法的 (ρ→1) horse-race と WAIC + LOO + Bayes 因子で比較し、K=2/3/4 horse-race (D-045) と併せて prior sensitivity 6 設定 (Minnesota λ 三段階 × Hierarchical scale 二段階) で robustness を必須報告する。",
+      "[LB-11-7] (規律 D-031) 本章の全 posterior 報告は Tier A (記述的事後分布要約) に閉じる。F-5.1 (ω G 先行) / F-5.2 (F-CES horse-race) / F-5.3 (K=3) / F-5.4 (θ_σ* 比較静学) / F-5.5 (Ψ Granger) / F-5.6 (機関 cluster) / H_C2 (ρ Kmenta) / Klepper 命題 5 / w(L) 符号 の事前登録は Ch 26b (Tier B) に 1:1 対応で分離、後付け校正 plot は Ch 26a に分離する。Tier A 違反 (validation 主張漏れ) 自体を falsifiable claim (FC-11-10) として構造的に強制する。"
+    ],
+    "logical_arc": "§11.0 Y-005 Cabot ショック (匿名化 type 名のみ) を章頭ストーリーとして、PRS jump + ERS ドリフト + σ_SU 閾値突破の三同時発生が単時計 VAR / OU / probit では識別不能 (ω 観測等価類で散乱) な demo を提示 → §11.1 BVAR 標準形 y_t = ν + Σ Π_p y_{t-p} + ε_t + J_t·η_t (Sims-Zha 1998) を block-recursive Π = [[Π^PP, Π^PI],[0, Π^II]] で構築、Minnesota prior の超パラメータ (λ_1=0.2, λ_2=0.5, λ_3=1) を Ch 7 F-CES 規模感で設定、RRWZ (2010) sign restriction で ω_G ≥ 0 先行 / ω_A, ω_I lag 効果を Ch 10.6 全射 φ + w(L) 符号制約 + Ch 9 KLST と整合検証、D-046 IV (BB tier 1 政策アナウンス + 研究予算改革) を Cragg-Donald F + Stock-Yogo (2005) 閾値 10 で弱 IV 検定 → §11.2 Mariano-Murasawa (2003) skip-sampling で月次 latent x_t と年次観測 y_t^q を loading C 行列 (stock 平均集約 / flow 加算集約 区別) で結合、Kim-Nelson (1999) missing observation handling で PJ × 機関 panel 非整合 sampling を吸収、jump 成分 J_t·η_t を Pitt-Shephard (1999) auxiliary particle filter (N_p = 10000) で推定、Ch 8 軌跡 4 類型 + Ch 10.7 η_jt VAR(1) + Ψ·N_jt フィードバックと統合 → §11.3 GO ゲート probit smoothing (Albert-Chib 1993) を Hamilton-Kim filter forward-backward で K=3 regime posterior P(s_t=k|y_{1:T}) に統合、Wonham filter (連続時間) と asymptotic 等価性 (系 11.3.1) で Stan/NUTS 合流確保、K=2/3/4 horse-race の WAIC/LOO/Bayes 因子評価 prep → §11.4 三層階層 prior (PJ × 機関 × 領域, Inverse-Wishart + Half-Cauchy) + 4 段 hybrid MCMC (Hamilton-Kim 周辺化 + 粒子フィルタ + NUTS + Gibbs) + non-centered parameterization (Betancourt-Girolami 2015) を Stan/NumPyro/PyMC の選択判断付きで実装、収束診断 (R-hat < 1.01 / ESS > 400 / divergent < 0.1% / BFMI > 0.3) と prior sensitivity 6 設定 を必須報告 → §11.5 8 PJ + 7 機関 panel posterior 要約 (Π, Σ_ε, ω, ρ, α, λ, η_jt, θ_σ*) + 4 horse-race (F-CES vs Cobb-Douglas/Leontief/加法的) + K=2/3/4 + ω IV 推定 + Y-005 軌跡 decomposition、合成 vs 実データ分離記法を冒頭明示 (Phase 2 D-052 2026Q4 まで合成 + 8 PJ 既存範囲) → §11.6 章末問い 4 問 + Ch 11.5 (OSF 登録簿 wave 段階更新) / Ch 25 (η_jt → ΔPRS_jt 速度効果) / Ch 26a (後付け校正 Brier) / Ch 26b (F-5.1..F-5.6 事前登録 1:1 対応マップ) / Ch 37 (4 framework horse-race) / Book III (PJ 後付け校正) への引き渡し、Tier A 規律 D-031 の最終再確認。",
+    "synthesis_rationale": "B (overall_winner per judges 2 and 3) を骨格として採用 — LB-/OI-/FC- tag システム、Tier A 規律の運用強制力 ([FC-11-10] で D-031 違反を falsifiable claim 化)、Phase 2 D-052 dry-run 境界の明示 ([OI-11-1])、Y-005 匿名化と panel 識別性のバランス ([OI-11-8])、prior sensitivity 6 設定の必須報告、4 段 hybrid MCMC architecture の明示性、Ch 9 KLST + Ch 10.6 全射 φ との整合 check が三案中最も強い。C (judge 1 winner) から graft: 命題 11.1-11.10 + 系の formal proposition 番号体系 (Ch 5/9/10.x との形式整合, D-047 付録 A 接続)、Wonham filter ↔ Hamilton-Kim asymptotic 等価性 (系 11.3.1)、Albert-Chib (1993) data augmentation、λ_x^k の σ_SU regime 階段関数構成 (Ch 5↔Ch 11 bridge)、BB tier 1 政策アナウンス + 研究予算改革 IV 候補名、Pitt-Shephard first-stage importance weight の formal 化、Johannes-Polson Rao-Blackwell 化、λ_y trigger に Ch 10.4 三反証子流用、Eraker (2004) embedding correspondence。A (judge 1 third) から graft: block-recursive Π = [[Π^PP, Π^PI],[0, Π^II]] の PPC (posterior predictive check) による Π^IP = 0 反証可能化、loading C 行列の stock (平均集約) vs flow (加算集約) 変数別判別、wall time 12時間/run M2 Max 試算、Atlas J=20 statistical power 試算 (95% CI 幅半減)、Inverse-Wishart prior ν_0 = d+2 弱情報設定、Empirical Bayes による λ_1 選択、weak IV robustness check 手順、Y-005 軌跡 4 類型 posterior decomposition、計算予算 (chains × iterations) の現実的上限。命題は Tier A safe な「方法存在」claim に限定し、判定 (K=3 が選好される / ω_G > 1/3 など) は Ch 26b 事前登録に分離する境界線を §11.5 冒頭で明示する (judge 2 cross-cutting concern を吸収)。28p 配分は §11.0=2.5 / §11.1=4.5 / §11.2=4.5 / §11.3=4.5 / §11.4=3.5 / §11.5=5.5 / §11.6=2.5 = 27.5p で 28p heavy 枠内。"
+  },
+  "sections": [
+    {
+      "section_id": "11.0",
+      "title": "章頭ストーリー — Y-005 Cabot ショックの三時計識別問題と Tier A 規律宣言",
+      "pages": 2.5,
+      "math_level": "low (narrative + 軽い記号再掲 y_t, μ_t, σ_SU,t, η_jt, θ_σ*, J_t·η_t の D-051 統一導入)",
+      "anchor_claims": [
+        "[AC-11.0-1] Y-005 Cabot ショック (type 名匿名化、Ch 1.0 規律踏襲) は案件 PRS の jump + 機関 ERS の緩慢シフト + σ_SU 閾値突破が同時刻に発生し、単時計推定 (PRS 単独 VAR / ERS 単独 OU / gate 単独 probit) では ω = (ω_A, ω_I, ω_G) が観測等価類で散乱して識別不能になる。",
+        "[AC-11.0-2] 三時計 (月次案件 / 年次機関 / イベント gate) の混合頻度・混合動学を BVAR + jump + gate 二層同時推定で扱う必然性 — Ch 5 σ_SU MS-SSM + Ch 5.5 GO ゲート θ_σ* + Ch 6 PRS + Ch 7 F-CES + Ch 8 jump-diffusion + Ch 9 KLST + Ch 10.3-10.7 を一つの計量装置に統合する。",
+        "[AC-11.0-3] 本章は Tier A (記述的事後分布要約) であり (D-031)、F-5.1..F-5.6 / H_C2 / Klepper 命題 5 / w(L) 符号 / Ψ Granger / θ_σ* 比較静学 の事前登録は Ch 26b (Tier B) に、8 PJ 後付け校正 plot は Ch 26a に分離する。impulse response の 95% CI が 0 を跨ぐ/跨がない という判定的記述は Tier B 越境として禁止する境界線を冒頭で明示する。",
+        "[AC-11.0-4] Phase 2 データ実装は D-052 により 2026Q4 開始、実機関 J* posterior は 2027Q1 から。本章執筆時点 (2026-06-27) の §11.5 推定結果は合成データ + 8 PJ 既存範囲の dry-run に限定され、合成 vs 実データの分離記法を §11.5 冒頭で必ず明示する。"
+      ],
+      "paragraph_outline": [
+        "[¶0a] Y-005 Cabot ショック (type X 匿名化、A/B/C 化はせず type 名のみ開示) の 16Q time line を提示し、PRS 月次パルス + ERS 年次ドリフト + σ_SU 閾値突破 + GO ゲート発火の四同時発生を観測列の重畳 plot で示す (Ch 5-10.7 各章の単時計推定では分離できなかった残余として登場)。",
+        "[¶0b] 三時計重ね描き plot (Draft A から graft) — 月次 PRS 系列 / 年次 ERS 系列 / イベント jump 系列を同一時間軸で重畳描画、三時計が同一観測列に折り畳まれた識別問題を視覚化。",
+        "[¶0c] 単時計 demo 1: PRS 単独 VAR(1) を 8 PJ で走らせ、ω 係数の posterior が 観測等価類で散らばる例 (Ch 10.4 Theorem 3 Arrow 不可能性と接続)。",
+        "[¶0d] 単時計 demo 2: ERS 単独 OU + gate 単独 probit を独立に推定し、Π^pre/Π^post 二段が分離不能な例 (Ch 5 命題 5.5 接続)。",
+        "[¶0e] 三時計同時推定の必要条件 — 混合頻度 state-space (Mariano-Murasawa 2003) + Markov switching (Hamilton 1989, Kim 1994) + jump-diffusion (Pitt-Shephard 1999) の三本柱を導入宣言。",
+        "[¶0f] 本章の全体図 (Ch 5 σ_SU + Ch 5.5 gate + Ch 6 PRS + Ch 7 F-CES + Ch 8 jump-diffusion + Ch 9 KLST + Ch 10.3-10.7 を統合する計量装置の俯瞰図)。",
+        "[¶0g] Tier A 規律 (D-031) の本章宣言 — posterior 要約のみ、validation 主張・事前登録仮説検定は禁止、Tier A 違反は §11.5 冒頭で再点検する規律を予告。",
+        "[¶0h] Ch 26b 事前登録 (Tier B) との 1:1 対応マップ予告 — F-5.1 (ω G 先行) / F-5.2 (F-CES horse-race) / F-5.3 (K=3) / F-5.4 (θ_σ* 比較静学) / F-5.5 (Ψ Granger) / F-5.6 (機関 cluster) を §11.6 で確定。",
+        "[¶0i] Phase 2 D-052 タイムライン (2026Q4 → 実機関 J* 2027Q1) と本章執筆時点 (2026-06-27) のギャップ、§11.5 で合成 vs 実データ分離記法を必須化する旨を明言。",
+        "[¶0j] Y-005 type 名匿名化と §11.5 8 PJ panel 識別性のトレードオフ — type 名のみ開示で読者が posterior を追える最小限の識別性を維持する運用注 (Ch 1.0 規律踏襲)。",
+        "[¶0k] 章末問いの予告 — 28p 後に Ch 11.5 OSF 登録 wave 設計 / Ch 25 η_jt → ΔPRS_jt 速度効果 / Ch 26a 後付け校正 / Ch 26b 事前登録 / Ch 37 4 framework horse-race / Book III PJ 後付け校正 へ引き渡す構造を提示。"
+      ],
+      "new_writing_required": "Y-005 Cabot 三時計重ね描き plot + 単時計 demo (PRS VAR / ERS OU / gate probit) の identification 不能性 illustrative example + Tier A/B 境界線 (impulse response 95% CI 記述の許容/禁止) + 合成 vs 実データ分離記法宣言 + Y-005 匿名化と panel 識別性バランスの運用注 + Ch 26b 事前登録との 1:1 対応マップ予告 は全文新規。",
+      "existing_reuse": "Ch 1.0 Y-005 Cabot ストーリーの匿名化済 type 名のみ開示版、Ch 5 §5.0 σ_SU MS-SSM 動機付け、Ch 5.5 GO ゲート θ_σ*、Ch 8 jump-diffusion 軌跡 4 類型、Ch 10.4 Theorem 3 Arrow 不可能性、Ch 10.7 η_jt VAR(1) の図と記号を再掲のみ。",
+      "upstream_dependencies": [
+        "Ch 1 BZM 全体像 (二層 PRS/ERS + GO ゲート)",
+        "Ch 1.0 Y-005 Cabot 章頭 (匿名化規律)",
+        "Ch 5 §5.0 σ_SU MS-SSM K=3 regime",
+        "Ch 5.5 GO ゲート θ_σ*",
+        "Ch 8 jump-diffusion 2D",
+        "Ch 10.4 Theorem 3 (Arrow 観測等価類)",
+        "Ch 10.7 η_jt VAR(1)",
+        "BOOK_DECISIONS.md D-021 (Ch 11 Tier A 化) / D-031 (Tier A 規律) / D-051 (記号正本) / D-052 (Phase 2 タイムライン)"
+      ],
+      "downstream_dependencies": [
+        "§11.1 (BVAR 標準形の動機付け、ω 識別問題の formal 化)",
+        "§11.5 (合成 vs 実データ分離記法、Y-005 軌跡 decomposition)",
+        "§11.6 (章末問い 4 問、Ch 26b 1:1 対応マップ)",
+        "Ch 25 (η_jt → ΔPRS_jt 動機)",
+        "Ch 26b (Tier B 事前登録への分離宣言)"
+      ],
+      "references": [
+        "Sims (1980) Macroeconomics and Reality",
+        "Mariano-Murasawa (2003) JAE",
+        "Hamilton (1989) Econometrica",
+        "Kim (1994) JoE",
+        "Pitt-Shephard (1999) JASA",
+        "BZM Ch 1 / Ch 5 / Ch 5.5 / Ch 8 / Ch 10.4 / Ch 10.7",
+        "BOOK_DECISIONS.md D-021 / D-031 / D-051 / D-052"
+      ],
+      "source_drafts": [
+        "B §11.0 (Tier A 規律宣言・[OI-11-1] Phase 2 dry-run 境界・[OI-11-8] 匿名化バランス)",
+        "C §11.0 (単時計 demo / 三時計重ね描き / 全体図)",
+        "A §11.0 (Tier A/B 境界線・三時計図 illustrative)"
+      ]
+    },
+    {
+      "section_id": "11.1",
+      "title": "BVAR 標準形 + Minnesota prior + sign restriction による ω 構造ショック識別",
+      "pages": 4.5,
+      "math_level": "heavy — BVAR reduced form y_t = c + Σ Π^*_p y_{t-p} + ε_t, ε_t ~ N(0, Σ_ε); Minnesota prior (λ_1 overall tightness=0.2, λ_2 cross-equation=0.5, λ_3 lag decay=1.0, Inverse-Wishart ν_0=d+2 弱情報); Rubio-Ramirez-Waggoner-Zha (2010) Q-R 分解 sign restriction algorithm; ω = (ω_A, ω_I, ω_G) IV 推定 (D-046, BB tier 1 政策アナウンス + 研究予算改革); Cragg-Donald F + Stock-Yogo (2005) 閾値 10 弱 IV 検定; PPC Π^IP = 0 反証可能化。証明スケッチ本文 + 完全証明付録 A.11.1-A.11.3 (D-047)。",
+      "anchor_claims": [
+        "[AC-11.1-1] 命題 11.1: 案件 PRS y_t^P (月次) と機関 ERS y_τ^I (年次) の縦結合状態に対する BVAR(p) は Mariano-Murasawa (2003) 形式の loading 行列 C で観測方程式に対応付け可能、Π = [[Π^PP, Π^PI],[0, Π^II]] の block-recursive 制約で機関 → 案件 の一方向因果を identification 制約として据えることができる (Π^IP = 0 の PPC p-value > 0.05 で反証可能化)。",
+        "[AC-11.1-2] 命題 11.2: Litterman (1986) + Doan-Litterman-Sims (1984) Minnesota prior + Inverse-Wishart Σ_ε prior (ν_0 = d+2 弱情報) は N=8 PJ × 16Q (n=128 月次 + n=28 年次) 小標本下で posterior の properness を保証する (Bañbura-Giannone-Reichlin 2010 dummy observation 形式)。λ_1 は Empirical Bayes で選択。",
+        "[AC-11.1-3] 命題 11.3: Rubio-Ramirez-Waggoner-Zha (2010) Q-R 分解 sign restriction (政策ショック G → ERS_G > 0 かつ G → σ_SU < 0 で ω_G ≥ 0 先行、A, I → σ_SU > 0 で ω_A, ω_I lag 効果) は ω = (ω_A, ω_I, ω_G) の集合識別を与え、Ch 10.6 全射 φ + w(L) 符号制約 + Ch 9 KLST representation (Theorem 9.1) と整合する整合性 cross-check に合格する。",
+        "[AC-11.1-4] 系 11.1.1: D-046 IV 推定 — 政策ショック G の外生変動を IV (BB tier 1 政策アナウンス、研究予算改革) で識別、weak IV 検定 (Cragg-Donald F > Stock-Yogo 2005 閾値 10) を必須報告、未達時は identification-robust 信用区間 (Andrews-Mikusheva) に切替併記。"
+      ],
+      "paragraph_outline": [
+        "[¶1a] BVAR reduced form の標準形定義と D-051 記号正本 (Π^*, ν, Σ_ε, J, η, y, μ, σ_SU, θ_σ*, τ_B, ω, β, λ) の確定使用と対応表。",
+        "[¶1b] 状態ベクトル分解 y_t = (PRS_jt, ERS_kt, σ_SU,t, μ_t)' と Ch 5/6/9/10.7 との対応、観測式 y_t^obs = C x_t + δ_t の loading C 行列定義 (Ch 5 補題 5.3 再掲、stock/flow 区別は §11.2 で詳述)。",
+        "[¶1c] 命題 11.1 (state 縦結合と block-recursive Π) の statement + 経済学的正当化 (機関 ERS は案件 PRS に影響するが単一案件 PRS は集約後でない限り機関 ERS に影響しない) + 証明スケッチ (完全証明は付録 A.11.1)。",
+        "[¶1d] Π^IP = 0 制約の PPC (posterior predictive check) による反証可能化 — p-value > 0.05 で棄却されない条件を §11.5 falsifiable claim に接続 (A draft graft)。",
+        "[¶1e] Minnesota prior の三層構造 — (i) 自己ラグ 平均 1, 他変数 0, (ii) variance tightness λ_1·(λ_2/lag)^2, (iii) cross-equation λ_3·σ_i/σ_j。baseline (λ_1=0.2, λ_2=0.5, λ_3=1.0) を Ch 7 F-CES 規模感で Empirical Bayes 調整。",
+        "[¶1f] 命題 11.2 (posterior properness) の statement + 証明スケッチ (Bañbura-Giannone-Reichlin 2010 dummy observation 形式利用、完全証明は付録 A.11.2)。",
+        "[¶1g] Σ_ε の Inverse-Wishart prior W^{-1}(Ψ_0, ν_0), ν_0 = d+2 弱情報設定 (A draft graft)。",
+        "[¶1h] 構造ショック識別問題 — reduced form ε_t = B u_t の B 行列が観測等価類で集合識別される構造を Rothenberg (1971) 流に提示、Ch 10.4 Theorem 3 (Arrow) との接続。",
+        "[¶1i] 命題 11.3 (sign restriction 集合識別) の statement + Rubio-Ramirez-Waggoner-Zha (2010) Q-R 分解 algorithm の本章実装、符号制約集合 (政策ショック G → ERS_G > 0 / G → σ_SU < 0 / A, I → σ_SU > 0) を最小集合で明示。",
+        "[¶1j] sign restriction と Ch 10.6 全射 φ + w(L) 符号制約 + Ch 9 KLST representation の整合性 check (B [OI-11-4] graft) — formal cross-check を本節で実施し、整合性が崩れたら反証 (FC-11-2 接続)。",
+        "[¶1k] ω = (ω_A, ω_I, ω_G) の意味解釈 — A (アカデミア), I (機関), G (政策) と Ch 9 KLST w_k 加重との formal 整合。",
+        "[¶1l] 系 11.1.1 (D-046 IV 推定) の statement — 政策ショック G の外生変動 IV 候補: (i) BB tier 1 政策アナウンス、(ii) 研究予算改革 (C graft)、(iii) 補助金制度変更。A, I は lag 構造 (AR(2) 以上) で識別。",
+        "[¶1m] weak IV 検定 — Cragg-Donald F 統計量 > Stock-Yogo (2005) 閾値 10 を全 7 機関で必須、未達時の identification-robust 信用区間 (Andrews-Mikusheva) 代替戦略を明示 (judge 2 cross-cutting concern 吸収)。",
+        "[¶1n] baseline ω = (1/3, 1/3, 1/3) からの posterior shift 方向の事前予想 — 政策ショック G 先行 / A, I lag は Tier A 範囲 (方法存在 claim)、shift の有意性判定は Ch 26b F-5.1 事前登録対象として分離 (judge 2 cross-cutting concern: 命題 が outcome forecast にならない境界線を厳守)。",
+        "[¶1o] §11.2 への引き渡し — Π^*, Σ_ε, B, ω の reduced form parameter を混合頻度 + jump 拡張の入力として確定。"
+      ],
+      "new_writing_required": "二層 BVAR 標準形の D-051 記号統一書き下し + 命題 11.1-11.3 + 系 11.1.1 の statement + 証明スケッチ + 付録 A.11.1-A.11.3 参照 + Minnesota prior の Ch 7 F-CES 規模感に合わせた Empirical Bayes 設定 + ω_G を IV 先行 + ω_A, ω_I を lag とする sign restriction の最小集合明示 + Ch 10.6 全射 φ + w(L) 符号制約 + Ch 9 KLST との整合性 cross-check + BB tier 1 政策アナウンス + 研究予算改革 IV の具体記述 + weak IV (Cragg-Donald F + Stock-Yogo 閾値) + identification-robust 代替 + Π^IP = 0 の PPC 反証可能化 は全て新規。",
+      "existing_reuse": "Ch 5 補題 5.3 (loading C 行列), Ch 5 命題 5.5 (Π^pre/Π^post 二段), Ch 9 Theorem 9.1 (KLST representation), Ch 10.3 ρ Kmenta 識別 命題 1 + Heckman 補正、Ch 10.4 Theorem 3 (Arrow 観測等価類), Ch 10.6 全射 φ + w(L) 符号制約。",
+      "upstream_dependencies": [
+        "§11.0 (三時計動機、ω 識別問題の illustrative)",
+        "Ch 5 補題 5.3/5.4 (loading C, missing obs)",
+        "Ch 5 命題 5.5 (Π^pre/Π^post)",
+        "Ch 7 F-CES 事後分布化 D-032",
+        "Ch 9 Theorem 9.1 (KLST)",
+        "Ch 10.3 命題 1 (ρ Kmenta) + Heckman",
+        "Ch 10.4 Theorem 3 (Arrow)",
+        "Ch 10.6 全射 φ + w(L) 符号制約",
+        "BOOK_DECISIONS.md D-046 (ω IV) / D-047 (証明付録) / D-051 (記号)"
+      ],
+      "downstream_dependencies": [
+        "§11.2 (混合頻度 + jump 拡張、Π^*, Σ_ε, B を引き継ぎ)",
+        "§11.3 (gate 観測モデル)",
+        "§11.4 (階層 prior MCMC, Minnesota prior を機関階層に拡張)",
+        "§11.5 (ω posterior 8 PJ、Π^IP = 0 PPC)",
+        "Ch 26b F-5.1 (ω G 先行) 事前登録 spec"
+      ],
+      "references": [
+        "Sims (1980) Econometrica",
+        "Sims-Zha (1998)",
+        "Litterman (1986) JBES",
+        "Doan-Litterman-Sims (1984) Econometric Reviews",
+        "Rubio-Ramirez-Waggoner-Zha (2010) RES",
+        "Bañbura-Giannone-Reichlin (2010) JAE",
+        "Rothenberg (1971) Econometrica",
+        "Stock-Yogo (2005) Identification and Inference",
+        "Andrews-Mikusheva (2016) identification-robust CI",
+        "Robertson-Tallman (1999)"
+      ],
+      "source_drafts": [
+        "C §11.1 (命題 11.1-11.3 + 系 + BB tier 1 政策アナウンス IV + 研究予算改革)",
+        "B §11.1 (LB-/OI- tag、sign restriction + Ch 10.6 全射 φ 整合 check)",
+        "A §11.1 (block-recursive Π + PPC Π^IP=0 反証 + Inverse-Wishart ν_0=d+2 + Empirical Bayes)"
+      ]
+    },
+    {
+      "section_id": "11.2",
+      "title": "混合頻度 state-space 集約 + jump 成分の particle filter 統合",
+      "pages": 4.5,
+      "math_level": "heavy — Mariano-Murasawa (2003) skip-sampling formulation x_t = T x_{t-1} + R η_t / z_t = H_t x_t、loading C の stock 平均集約 (1/12)·[1,...,1] vs flow 加算集約 [1,...,1] の変数別判別、Kim-Nelson (1999) missing observation handling; jump-diffusion dy_t = μ dt + σ dW_t + J_t·η_t dN_t、jump intensity λ_x^k (σ_SU regime k 階段関数, k=1,2,3) + λ_y(B-shock)(Ch 10.4 三反証子 trigger); Pitt-Shephard (1999) auxiliary particle filter (first-stage importance weight w_i^(1) ∝ p(z_t | μ(y*_{t-1}^i))、N_p = 10000); Johannes-Polson (2010) MCMC + Rao-Blackwell 化; Eraker (2004) stochastic volatility with jumps embedding。証明スケッチ本文 + 完全証明付録 A.11.4-A.11.6。",
+      "anchor_claims": [
+        "[AC-11.2-1] 命題 11.4: Mariano-Murasawa (2003) skip-sampling により案件月次 PRS と機関年次 ERS の混合頻度観測を単一 state-space y*_t = T y*_{t-1} + R η_t / z_t = H_t y*_t に統合できる。loading C 行列は stock 変数 (ERS_k,τ など) で平均集約 (1/12)·[1,...,1], flow 変数 (PRS_jt など) で加算集約 [1,...,1] に変数別判別する (Ch 5 補題 5.3 specialization)。",
+        "[AC-11.2-2] 命題 11.5: jump-diffusion 成分 J_t·η_t dN_t の jump intensity λ_x(σ_SU, ERS) は σ_SU regime k に対し λ_x^k 階段関数 (k=1 低 vol / k=2 中 / k=3 高 vol で単調増加) で構成され Ch 5 命題 5.1 K=3 regime + Ch 8 2D jump-diffusion 軌跡 4 類型と整合する。λ_y(B-shock) trigger は Ch 10.4 三反証子 (Simpson 反転 / 四分位 >2σ / Hausman 棄却) で外生 jump 成分を識別。",
+        "[AC-11.2-3] 命題 11.6: Pitt-Shephard (1999) auxiliary particle filter は first-stage importance weight w_i^(1) ∝ p(z_t | μ(y*_{t-1}^i)) に jump 発生確率を組み込むことで Eraker (2004) stochastic volatility with jumps の degeneracy 問題を緩和する (N_p = 10000, ESS > 500 monitoring 必須)。",
+        "[AC-11.2-4] 系 11.2.1: Johannes-Polson (2010) MCMC for continuous-time models の jump times {τ_i} block sampler は particle filter と Rao-Blackwell 化により combine され、Ch 10.7 η_jt VAR(1) + Ψ·N_jt フィードバックを particle filter に embed できる。"
+      ],
+      "paragraph_outline": [
+        "[¶2a] Mariano-Murasawa (2003) skip-sampling formulation の全体図 — 月次 latent x_t と年次観測 y_τ^q = Σ_{m=0}^{11} w_m x_{12τ-m} を時間集約行列 H_t で結ぶ。",
+        "[¶2b] loading C 行列の stock vs flow 変数別判別 (A draft graft) — ERS_k,τ (stock) は平均集約 (1/12)·[1,...,1], PRS_jt (flow) は加算集約 [1,...,1] に明示区分。Ch 5 補題 5.3 の本章 specialization。",
+        "[¶2c] 状態方程式 x_t = A x_{t-1} + B u_t (連続成分) + J_t·η_t dN_t (jump 成分) + 観測方程式 z_t = D x_t + Σ_obs^{1/2} ω_t の書き下し、§11.1 BVAR 標準形からの拡張増分明示。",
+        "[¶2d] 命題 11.4 (混合頻度 state-space 集約) の statement + 証明スケッチ (Harvey 1989 Kalman filter 時間集約版 + Ch 5 補題 5.4 missing 観測パワー、完全証明は付録 A.11.4)。",
+        "[¶2e] Kim-Nelson (1999) missing observation handling — PJ × 機関 panel の非整合 sampling を Kalman smoother で補完、年次観測の月内 11ヶ月 missing を Ch 5 補題 5.4 で識別。",
+        "[¶2f] jump-diffusion dy_t = μ dt + σ dW_t + J_t·η_t dN_t の formulation、Ch 8 2D jump-diffusion (S = Pr(τ_x<τ_y), 軌跡 4 類型) との 1D 各成分対応。",
+        "[¶2g] jump intensity λ_x(σ_SU, ERS) の階段関数構成 λ_x^k (k=1 低 vol / k=2 中 / k=3 高 vol) — 命題 11.5 の statement + 証明スケッチ (Ch 5 K=3 regime index 利用、単調増加 λ_x^1 < λ_x^2 < λ_x^3 の事前予想は Ch 26b F-5.7 事前登録対象として分離)。",
+        "[¶2h] λ_y(B-shock) trigger — Ch 10.4 三反証子 (Simpson 反転 / 四分位 >2σ / Hausman 棄却) を外生 jump 成分の identification 条件として流用 (C graft)。",
+        "[¶2i] Pitt-Shephard (1999) auxiliary particle filter の本章実装 — first-stage importance weight w_i^(1) ∝ p(z_t | μ(y*_{t-1}^i)) で jump 発生 candidate を pre-screen、second-stage で full likelihood で resampling。proposal 設計の擬似コード提示。",
+        "[¶2j] particle 数 N_p = 10000, ESS > 500 monitoring, sensitivity analysis (500/1000/2000/10000 で wall time 比較、A graft) の本章選択。",
+        "[¶2k] 命題 11.6 (auxiliary particle filter degeneracy 緩和) の statement + Eraker (2004) との比較 + 証明スケッチ (完全証明は付録 A.11.5)。",
+        "[¶2l] Johannes-Polson (2010) MCMC jump times {τ_i} block sampler との組み合わせ — 系 11.2.1 (Rao-Blackwell 化) の statement + Ch 10.7 命題 10.6.4 Granger リードラグ + 定理 10.6.5 ファジー RD Ψ identification との接合。",
+        "[¶2m] Eraker (2004) stochastic volatility with jumps の本章 BVAR + jump 形式への embedding correspondence — 数式詳細は付録 A.11.6 に委ね、本文では mapping のみ。",
+        "[¶2n] 計算複雑度概算 — particle 数 N_p = 10000, MCMC iterations 20000, burn-in 5000, 8 PJ × 16Q で wall-clock 約 12 時間/run (M2 Max 想定, A graft)、Stan vs NumPyro vs PyMC 実装選択は §11.4 で詳述。",
+        "[¶2o] §11.3 への引き渡し — 混合頻度 + jump 拡張後の中間 latent state を gate 観測モデル + Hamilton-Kim filter の入力として確定。"
+      ],
+      "new_writing_required": "Mariano-Murasawa skip-sampling の D-051 記号書き下し + loading C 行列の stock 平均集約 vs flow 加算集約 変数別判別 + jump intensity λ_x^k (σ_SU regime k 階段関数) の Ch 5 + Ch 9 連動仕様 + λ_y trigger に Ch 10.4 三反証子流用 + Pitt-Shephard auxiliary particle filter first-stage importance weight の formal 化と proposal 設計擬似コード + Johannes-Polson Rao-Blackwell 化と Ch 10.7 Ψ identification 接合 + Eraker (2004) embedding correspondence + particle 数 sensitivity (500/1000/2000/10000) + wall time 12時間/run M2 Max 試算 は全て新規。命題 11.4-11.6 + 系 11.2.1 + 付録 A.11.4-A.11.6 参照を新規。",
+      "existing_reuse": "Ch 5 補題 5.3 (loading C), 補題 5.4 (missing 観測パワー), 命題 5.1 (K=3 regime), Ch 8 2D jump-diffusion (S = Pr(τ_x<τ_y), 軌跡 4 類型), Ch 9 Theorem 9.1 (KLST representation), Ch 10.4 三反証子, Ch 10.7 η_jt VAR(1) + Ψ·N_jt フィードバック + 定理 10.6.5 ファジー RD Ψ identification。",
+      "upstream_dependencies": [
+        "§11.1 (BVAR 標準形、Π^*, Σ_ε, B)",
+        "Ch 5 補題 5.3/5.4 (loading C, missing obs)",
+        "Ch 5 命題 5.1 (K=3 regime)",
+        "Ch 8 jump-diffusion 2D + 軌跡 4 類型",
+        "Ch 9 Theorem 9.1 (KLST)",
+        "Ch 10.4 三反証子",
+        "Ch 10.7 η_jt VAR(1) + ファジー RD Ψ"
+      ],
+      "downstream_dependencies": [
+        "§11.3 (gate 観測モデル、jump 後の中間 latent state を入力)",
+        "§11.4 (MCMC particle filter algorithm)",
+        "§11.5 (jump intensity λ_x^k posterior, λ_y trigger)",
+        "Ch 25 (η_jt → ΔPRS_jt 速度効果, Ψ posterior)",
+        "Ch 26b F-5.5 (Ψ Granger) / F-5.7 (jump intensity 単調性) 事前登録"
+      ],
+      "references": [
+        "Mariano-Murasawa (2003) JAE",
+        "Kim-Nelson (1999) State-Space Models with Regime Switching",
+        "Pitt-Shephard (1999) JASA",
+        "Johannes-Polson (2010) Handbook of Financial Econometrics",
+        "Eraker (2004) Journal of Finance",
+        "Harvey (1989) Forecasting, Structural Time Series Models",
+        "Chib-Greenberg (1995) JASA",
+        "Bañbura-Giannone-Reichlin (2010) JAE"
+      ],
+      "source_drafts": [
+        "C §11.2 (命題 11.4-11.6 + 系 + first-stage weight + Eraker embedding + Johannes-Polson Rao-Blackwell)",
+        "B §11.2 (4 段 hybrid 中 particle filter block 役割 + missing obs handling)",
+        "A §11.2 (stock/flow 区別 + wall time + particle 数 sensitivity)"
+      ]
+    },
+    {
+      "section_id": "11.3",
+      "title": "GO ゲート観測モデル + Hamilton-Kim filter + K=3 regime 同時推定",
+      "pages": 4.5,
+      "math_level": "heavy — probit smoothing P(G_t=1|σ_SU,t, θ_σ*) = Φ((σ_SU,t - θ_σ*)/τ_B), Albert-Chib (1993) data augmentation で MCMC 化; Hamilton (1989) Markov 切換え transition P[S_t=j|S_{t-1}=i] の K=3 構成 + Kim (1994) smoother backward recursion P(S_t=k|y_{1:T}) = Σ_j ... ; Hamilton-Kim filter forward filtering + backward smoothing; Wonham filter (連続時間 OU + 離散 K=3 regime joint posterior, Ch 5.5 Bayesian 拡張); WAIC (Watanabe 2010) = -2 lppd + 2 p_WAIC + LOO-CV pareto-smoothed importance sampling (Vehtari-Gelman-Gabry 2017) + Bayes 因子 BF_{3,2}, BF_{3,4}。証明スケッチ本文 + 完全証明付録 A.11.7-A.11.9。",
+      "anchor_claims": [
+        "[AC-11.3-1] 命題 11.7: Ch 5.5 GO ゲート θ_σ*(P, F, B, Π, μ) を probit smoothing P(G_t=1|σ_SU,t, θ_σ*) = Φ((σ_SU,t - θ_σ*)/τ_B) で観測モデル化し、Albert-Chib (1993) data augmentation で Hamilton-Kim filter の観測方程式に MCMC 化可能な形で統合できる。smoothing parameter τ_B → 0 で sharp gate に収束。",
+        "[AC-11.3-2] 命題 11.8: Hamilton (1989) Markov 切換え transition 行列 P + Kim (1994) smoother により Ch 5 K=3 regime posterior P(S_t=k|y_{1:T}) を BVAR + jump + gate 同時推定下で復元できる (forward filtering + backward smoothing の jump 成分との直交化補題、完全証明は付録 A.11.7)。",
+        "[AC-11.3-3] 命題 11.9 (D-045): K=2/3/4 horse-race を WAIC + LOO-CV + Bayes 因子で比較できる (方法存在 claim, Tier A safe)。K=3 が選好される判定は Ch 26b F-5.3 事前登録対象として分離する。",
+        "[AC-11.3-4] 系 11.3.1: Wonham filter (連続時間 σ_SU OU 駆動 + 離散 K=3 regime joint posterior, Ch 5.5 Bayesian 拡張) と Hamilton-Kim filter (離散時間) は asymptotic に等価であり、Stan/NUTS との合流可能性を確保する (連続化 → 離散化の bridge は付録 A.11.8)。",
+        "[AC-11.3-5] 命題 11.10: θ_σ* の 4 成分分解 (Ch 5.5 命題 5.5.1-5.5.4 + 系 5.5.5) は Bayesian 拡張下で各成分の posterior を分離抽出可能 (方法存在 claim, Tier A safe)。比較静学 (∂θ_σ*/∂P など) の符号判定は Ch 26b F-5.4 事前登録対象として分離。"
+      ],
+      "paragraph_outline": [
+        "[¶3a] Ch 5.5 GO ゲート θ_σ*(P, F, B, Π, μ) の 4 成分分解 (命題 5.5.1-5.5.4 + 系 5.5.5) を復習し、probit smoothing P(G_t=1|σ_SU,t, θ_σ*) = Φ((σ_SU,t - θ_σ*)/τ_B) で観測モデル化する formulation。",
+        "[¶3b] 命題 11.7 (gate 観測モデル統合) の statement + 証明スケッチ (smoothing parameter τ_B → 0 で sharp gate 収束、Albert-Chib 1993 data augmentation で MCMC 化)。",
+        "[¶3c] θ_σ* の 4 成分分解 + Bayesian 拡張 — θ_σ* = θ_P + θ_F + θ_B + θ_Π + θ_μ, 各成分 prior 弱情報 Normal(0, 1)。命題 11.10 の statement (方法存在 claim, Tier A safe)。",
+        "[¶3d] Hamilton (1989) Markov 切換え transition 行列 P[S_t=j|S_{t-1}=i] の K=3 構成 (低 / 中 / 高 σ_SU regime) と Ch 5 σ_SU MS-SSM の対応、Dirichlet prior。",
+        "[¶3e] Kim (1994) smoother backward recursion P(S_t=k|y_{1:T}) = Σ_j P(S_t=k|S_{t+1}=j, y_{1:t}) P(S_{t+1}=j|y_{1:T}) の本章実装、forward filtering + backward smoothing 擬似コード。",
+        "[¶3f] 命題 11.8 (K=3 regime posterior 復元) の statement + 証明スケッチ (jump 成分との直交化補題、完全証明は付録 A.11.7)。",
+        "[¶3g] Wonham filter Bayesian 拡張 (Ch 5.5) — 連続時間 σ_SU OU 駆動 + 離散 K=3 regime の joint posterior、Ch 5 Π^pre/Π^post 二段との接合。",
+        "[¶3h] 系 11.3.1 (Wonham filter ↔ Hamilton-Kim filter asymptotic 等価性) の statement + 証明スケッチ (連続化 → 離散化 bridge は付録 A.11.8、Stan/NUTS 合流可能性確保)。",
+        "[¶3i] D-045 K=2/3/4 horse-race の評価指標準備 — WAIC (Watanabe 2010) = -2 lppd + 2 p_WAIC, LOO-CV pareto-smoothed importance sampling (Vehtari-Gelman-Gabry 2017), Bayes 因子 BF_{3,2}, BF_{3,4}。",
+        "[¶3j] 命題 11.9 (K=2/3/4 horse-race 方法存在) の statement (Tier A safe, K=3 選好判定は Ch 26b F-5.3 へ分離) + prior sensitivity 6 設定 (Minnesota λ 三段階 × Hierarchical scale 二段階, B graft) で robustness 必須報告。",
+        "[¶3k] K=4 が posterior で選好された場合の Ch 5 (K=3 baseline 固定) への retroactive 修正 mechanism (judge 2/3 cross-cutting concern) — wave 段階更新で対応する旨を §11.6 引き渡しで明示。",
+        "[¶3l] Hamilton-Kim filter + particle filter (§11.2) の二段階 hybrid — discrete regime は Hamilton-Kim 周辺化、continuous jump は particle filter で sampling、Chib-Greenberg (1995) Gibbs で結合 (§11.4 で詳述)。",
+        "[¶3m] θ_σ* 比較静学 (P, F, B, Π, μ 各成分の偏微分符号) は Ch 26b F-5.4 事前登録対象であり本章では posterior 要約のみ — Tier A 規律 (D-031) の本節再確認。",
+        "[¶3n] §11.4 への引き渡し — 各 conditional posterior の形を確認し、NUTS + Gibbs + particle filter + Hamilton-Kim filter の 4 段 hybrid scheme を予告。"
+      ],
+      "new_writing_required": "GO ゲート probit smoothing の Albert-Chib data augmentation 実装 + 命題 11.7-11.10 + 系 11.3.1 の statement + 証明スケッチ + 付録 A.11.7-A.11.9 参照 + Wonham filter ↔ Hamilton-Kim filter asymptotic 等価性の formal 化 + K=4 retroactive 修正 mechanism (wave 段階更新) + prior sensitivity 6 設定の必須報告規律 + Tier A 規律本節再確認 は全て新規。",
+      "existing_reuse": "Ch 5 命題 5.1 (K=3 regime), Ch 5 命題 5.5 (Π^pre/Π^post), Ch 5.5 命題 5.5.1-5.5.4 + 系 5.5.5 (θ_σ* 4 成分分解), Ch 5.5 Wonham filter Bayesian 拡張。",
+      "upstream_dependencies": [
+        "§11.1 (BVAR 標準形)",
+        "§11.2 (混合頻度 + jump、中間 latent state)",
+        "Ch 5 命題 5.1 (K=3 regime)",
+        "Ch 5 命題 5.5 (Π^pre/Π^post 二段)",
+        "Ch 5.5 GO ゲート θ_σ* + 4 成分分解 + Wonham filter"
+      ],
+      "downstream_dependencies": [
+        "§11.4 (MCMC hybrid 4 段)",
+        "§11.5 (K horse-race posterior, θ_σ* 4 成分 posterior)",
+        "Ch 26b F-5.3 (K=3) / F-5.4 (θ_σ* 比較静学) 事前登録",
+        "Ch 11.5 OSF wave 段階更新 (K=4 retroactive trigger)"
+      ],
+      "references": [
+        "Hamilton (1989) Econometrica",
+        "Kim (1994) JoE",
+        "Kim-Nelson (1999) State-Space Models with Regime Switching",
+        "Albert-Chib (1993) JASA",
+        "Watanabe (2010) JMLR (WAIC)",
+        "Vehtari-Gelman-Gabry (2017) Stat Comput (LOO)",
+        "Wonham (1965) SIAM J Control",
+        "Chib (1996)",
+        "BZM Ch 5.5"
+      ],
+      "source_drafts": [
+        "C §11.3 (命題 11.7-11.10 + 系 11.3.1 + Wonham asymptotic 等価性 + Albert-Chib + Hamilton-Kim 詳細)",
+        "B §11.3 (4 段 hybrid 中 Hamilton-Kim block 役割 + prior sensitivity 6 設定)",
+        "A §11.3 (probit smoothing 4 成分 + K=2/3/4 WAIC/LOO/BF 評価)"
+      ]
+    },
+    {
+      "section_id": "11.4",
+      "title": "三層階層 prior + 4 段 hybrid MCMC 実装 — Stan/NUTS + Gibbs + particle filter + Hamilton-Kim",
+      "pages": 3.5,
+      "math_level": "heavy — Hierarchical Bayes 3 階 (PJ β_j ~ N(β_inst, τ_β^2) → 機関 β_inst ~ N(β_domain, τ_inst^2) → 領域 β_domain ~ N(0, τ_domain^2), Gelman-Hill 2007); Half-Cauchy(0, 2.5) hyperprior (Gelman 2006); 4 段 hybrid sampler (i) Hamilton-Kim discrete s_t 周辺化 (ii) particle filter jump J_t sampling (iii) NUTS continuous param (Π, Σ_ε, ω, ρ, α, λ, θ_σ*) (iv) Gibbs/Metropolis 結合 (Chib-Greenberg 1995); non-centered parameterization η_j (raw) + β_j = β_inst + τ_β η_j (Betancourt-Girolami 2015) で funnel 回避; 収束診断 R-hat < 1.01 (Vehtari et al. 2021 split-R-hat) + ESS > 400 + divergent < 0.1% + BFMI > 0.3; Stan vs NumPyro vs PyMC 実装選択判断。",
+      "anchor_claims": [
+        "[AC-11.4-1] 命題 11.11: PJ レベル β_j ~ N(β_inst, τ_β^2), 機関レベル β_inst ~ N(β_domain, τ_inst^2), 領域レベル β_domain ~ N(0, τ_domain^2) の 3 階階層 prior は N=8 PJ × J=7 機関 × D=3 領域 (生命科学 / 物質 / 情報) で partial pooling を達成し、N=8 PJ × 16Q の小標本下で posterior properness を保つ。",
+        "[AC-11.4-2] 命題 11.12: 4 段 hybrid MCMC = (i) Hamilton-Kim filter で離散 regime s_t を周辺化 + (ii) Pitt-Shephard particle filter で jump J_t を sampling + (iii) NUTS (Hoffman-Gelman 2014) で連続 parameter を sampling + (iv) Gibbs (Chib-Greenberg 1995) で結合、は各 conditional posterior を tractable に与える。",
+        "[AC-11.4-3] 系 11.4.1: non-centered parameterization (Betancourt-Girolami 2015) η_j (raw) + β_j = β_inst + τ_β η_j で階層 model funnel 問題を回避できる (divergent transitions 多発時の必須切替)。",
+        "[AC-11.4-4] 命題 11.13: 収束判定基準 R-hat < 1.01 (Vehtari et al. 2021 split-R-hat) + ESS > 400 + divergent transitions < 0.1% + energy BFMI > 0.3 を必須報告基準とし、未達成パラメータが全 parameter 数の 1% を超えた場合は §11.5 結果報告から降格 (Tier A 報告対象外) する運用規律 (B [FC-11-4] graft)。"
+      ],
+      "paragraph_outline": [
+        "[¶4a] 3 階階層 prior の動機 — N=8 PJ の小標本下で PJ-specific 推定は不安定、領域横断 partial pooling が必要、Gelman-Hill (2007) Multilevel Models framework。",
+        "[¶4b] 命題 11.11 (3 階階層 prior properness) の statement + hyperparameter (τ_β, τ_inst, τ_domain) の Half-Cauchy(0, 2.5) 事前分布 (Gelman 2006) + Ch 7 F-CES (D-032) + Ch 10.3 ρ Kmenta (H_C2 prior) との整合。",
+        "[¶4c] 4 段 hybrid sampler 全体図 — (i) Hamilton-Kim filter で discrete s_t 周辺化 (ii) particle filter で jump J_t sampling (iii) NUTS で continuous param (iv) Gibbs/Metropolis で結合 の役割分担を擬似コード提示。",
+        "[¶4d] 命題 11.12 (4 段 hybrid MCMC tractability) の statement + Chib-Greenberg (1995) Metropolis-within-Gibbs の本章応用 + 各 conditional posterior の形 (NUTS 用 differentiable / Gibbs 用 conjugate / particle filter 用 likelihood evaluation)。",
+        "[¶4e] non-centered parameterization (Betancourt-Girolami 2015) — funnel 問題の geometry 解説 + η_j (raw) + β_j = β_inst + τ_β η_j 再 parameterize、系 11.4.1 statement。",
+        "[¶4f] Stan vs NumPyro vs PyMC 実装選択判断 — (i) NUTS auto-differentiation の堅牢性 (Stan), (ii) JAX JIT による particle filter 高速化 (NumPyro), (iii) Theano-PyMC の柔軟性 (PyMC)。本章は Stan + NumPyro hybrid (NUTS は Stan, particle filter は NumPyro) を baseline 選択 (B graft)。",
+        "[¶4g] MCMC 診断 — ESS (effective sample size), split-R-hat (Vehtari et al. 2021), divergent transitions, energy BFMI の monitoring。命題 11.13 (収束判定基準) の statement + 未達成時の Tier A 報告対象外降格規律 (B [FC-11-4] graft)。",
+        "[¶4h] 計算予算 — N=8 PJ × 16Q で chains 4 × iterations 4000 + warmup 2000 + particle N_p = 10000 で wall time 約 12 時間/run (M2 Max 想定, A graft)、D-052 Atlas 拡張 (J 機関 × 8 PJ panel) 時の scaling 試算。",
+        "[¶4i] prior sensitivity 6 設定の必須実施 — Minnesota λ_1 三段階 (0.1, 0.2, 0.4) × Hierarchical τ_β scale 二段階 (0.5, 1.0) = 6 設定で全 posterior の robustness を必須報告 (B graft)、horse-race 順位 6 設定中 4 設定以上で安定なら Tier A 報告。",
+        "[¶4j] Phase 2 D-052 タイムライン (2026Q4 → 実機関 J* 2027Q1) との接続 — 本章 §11.5 推定結果は合成データ + 8 PJ 既存範囲の dry-run、実機関 BVAR 推定は 2027Q1 から、§11.5 で合成 vs 実データ分離記法明示。",
+        "[¶4k] §11.5 への引き渡し — 4 段 hybrid MCMC で得られた posterior を 8 PJ + 7 機関 panel 要約 + 4 horse-race + Y-005 軌跡 decomposition の入力として確定。"
+      ],
+      "new_writing_required": "3 階階層 prior + 4 段 hybrid sampler + 命題 11.11-11.13 + 系 11.4.1 + Stan + NumPyro hybrid 実装選択 + 収束未達時の Tier A 降格規律 + prior sensitivity 6 設定必須報告 + wall time 12時間/run M2 Max + D-052 Phase 2 dry-run 接続 + Atlas scaling 試算 は全て新規。",
+      "existing_reuse": "§11.1 Minnesota prior + §11.2 particle filter + §11.3 Hamilton-Kim filter を 4 段 hybrid sampler に統合。Ch 7 F-CES 事後分布化 (D-032) MCMC 設定 (ρ Normal(-1, 1.5), α Beta(2,2))、Ch 10.3 ρ Kmenta H_C2 prior 設計を本章 §11.4 に統合。Ch 5 命題 5.1 K=3 regime を Hamilton-Kim 周辺化対象として再利用。",
+      "upstream_dependencies": [
+        "§11.1 (Minnesota prior)",
+        "§11.2 (particle filter)",
+        "§11.3 (Hamilton-Kim filter)",
+        "Ch 7 F-CES 事後分布化 D-032",
+        "Ch 10.3 ρ Kmenta H_C2 prior",
+        "BOOK_DECISIONS.md D-052 (Phase 2 タイムライン)"
+      ],
+      "downstream_dependencies": [
+        "§11.5 (推定結果)",
+        "§11.6 (引き渡し)",
+        "Ch 11.5 (OSF 登録簿 wave 段階更新 mechanism、収束診断の wave 段階更新)",
+        "Ch 26b (prior sensitivity + 収束基準を pre-registration spec として固定)"
+      ],
+      "references": [
+        "Gelman-Hill (2007) Data Analysis Using Regression and Multilevel/Hierarchical Models",
+        "Gelman (2006) Bayesian Analysis (Half-Cauchy)",
+        "Hoffman-Gelman (2014) JMLR (NUTS)",
+        "Chib-Greenberg (1995) JASA",
+        "Betancourt-Girolami (2015) Current Trends in Bayesian Methodology",
+        "Vehtari et al. (2021) Bayesian Analysis (split-R-hat)",
+        "Stan / NumPyro / PyMC documentation",
+        "Bañbura-Giannone-Reichlin (2010)"
+      ],
+      "source_drafts": [
+        "B §11.4 (4 段 hybrid 役割分担 + Stan/NumPyro/PyMC 選択 + 収束降格規律 + prior sensitivity 6 設定)",
+        "A §11.4 (wall time 12時間/run + chains × iterations 具体値 + Inverse-Wishart 弱情報)",
+        "C §11.4 (命題 11.10-11.12 + non-centered parameterization + split-R-hat)"
+      ]
+    },
+    {
+      "section_id": "11.5",
+      "title": "Tier A posterior 推定結果 — 8 PJ + 7 機関 + 4 horse-race + Y-005 decomposition",
+      "pages": 5.5,
+      "math_level": "medium — posterior 要約 (median, 89% credible interval, posterior model probability, Bayes 因子 BF), F-CES vs Cobb-Douglas vs Leontief vs 加法的 4 horse-race の WAIC/LOO/BF 比較表, ω = (ω_A, ω_I, ω_G) posterior shift table, K=2/3/4 horse-race table, Y-005 軌跡 decomposition (jump 寄与 vs 連続変動 vs gate 効果 vs ω 構造ショック), Atlas J=20 statistical power 試算 (95% CI 幅半減), 合成 vs 実データ分離記法。",
+      "anchor_claims": [
+        "[AC-11.5-1] Tier A 規律 (D-031) 本節再確認 — 本節 posterior 報告は全て記述的事後分布要約に閉じ、impulse response の 95% CI が 0 を跨ぐ/跨がない の判定的記述、horse-race 順位の選好的記述、ω shift 方向の有意性判定 は全て Tier B 越境として禁止し Ch 26b へ分離する。FC-11-10 で Tier A 違反を falsifiable claim 化 (B graft)。",
+        "[AC-11.5-2] 合成 vs 実データ分離記法 — Phase 2 D-052 (2026Q4 → 実機関 J* 2027Q1) 以前の本章 posterior は (i) 合成データ (simulation-based), (ii) 8 PJ 既存範囲 (現実 PRS/ERS 観測) の二系統に分離記法して報告 (B [OI-11-1] graft)。実機関 BVAR posterior は 2027Q1 以降の §11 supplement 章で報告予定。",
+        "[AC-11.5-3] 命題 11.14: 8 PJ + 7 機関 panel posterior 要約 (Π, Σ_ε, ω, ρ, α, λ, η_jt, θ_σ*) を median + 89% credible interval + R-hat / ESS / divergent / BFMI 診断付きで提示できる (方法存在 claim, Tier A safe)。具体的 shift 判定は Ch 26b 事前登録対象。",
+        "[AC-11.5-4] 命題 11.15 (D-032 + D-045): F-CES (ρ, α) vs Cobb-Douglas (ρ→0) vs Leontief (ρ→-∞ truncation at ρ=-100) vs 加法的 (ρ→1) 4 horse-race と K=2/3/4 horse-race を WAIC + LOO-CV + Bayes 因子で比較表として提示できる (方法存在 claim)。選好順位の判定は Ch 26b F-5.2 / F-5.3 事前登録対象。",
+        "[AC-11.5-5] 命題 11.16: Y-005 Cabot ショックの posterior decomposition — jump 寄与 vs 連続変動 vs gate 効果 vs ω 構造ショック の 4 成分分解を Ch 8 軌跡 4 類型と接合して提示できる (方法存在 claim, A graft)。軌跡帰属の有意性判定は Ch 26b 事前登録対象。",
+        "[AC-11.5-6] 命題 11.17: Atlas 拡張 (D-052 2026Q4) で J 機関 × 8 PJ panel に拡張した場合の identification 精度 (Π posterior 95% CI 幅) を J=7 → J=20 で半減する statistical power 試算 (A graft) を §11.6 引き渡しに提示。"
+      ],
+      "paragraph_outline": [
+        "[¶5a] Tier A 規律の本節冒頭再確認 (D-031) — posterior 要約のみ、validation 主張・有意性判定・選好順位の事前登録仮説検定は禁止、Ch 26a 後付け校正 + Ch 26b 事前登録への明確分離宣言。FC-11-10 で Tier A 違反を falsifiable claim 化する旨を明示。",
+        "[¶5b] 合成 vs 実データ分離記法 — Phase 2 D-052 (2026Q4 → 実機関 J* 2027Q1) 以前の本章 posterior は (i) 合成データ (simulation-based for method verification), (ii) 8 PJ 既存範囲 (現実 PRS/ERS 観測) の二系統で分離記法、各 table で明示ラベル付け (B [OI-11-1] graft)。",
+        "[¶5c] 8 PJ panel posterior 要約 table 1 — 各 PJ について PRS_jt の Π 行 + Σ_ε 対角 + jump intensity λ_x posterior median + 89% credible interval + R-hat / ESS / divergent / BFMI 診断付き。",
+        "[¶5d] 7 機関 panel posterior 要約 table 2 — 各機関について ERS_k,τ の Π 行 + 機関 random effect b_k + ω 寄与 (政策 G / アカデミア A / 機関 I) posterior。Y-005 type 名匿名化と panel 識別性のバランス運用 (Ch 1.0 規律踏襲)。",
+        "[¶5e] ω = (ω_A, ω_I, ω_G) posterior shift table 3 — 8 PJ 横断 median + 89% credible interval + baseline (1/3, 1/3, 1/3) からの shift 方向 (Tier A 記述、有意性判定は Ch 26b F-5.1 へ分離)。",
+        "[¶5f] D-046 IV 推定結果 — weak IV 検定 (Cragg-Donald F + Stock-Yogo 2005 閾値 10) の全 7 機関達成可否 + 政策ショック G 先行効果 impulse response (lag 0-2Q) + A, I lag 効果 (lag 2-6Q) profile plot + identification-robust 信用区間 (Andrews-Mikusheva) 併記。",
+        "[¶5g] F-CES 事後分布 (D-032) horse-race table 4 — F-CES (ρ posterior median + 89% CI, α posterior) vs Cobb-Douglas (ρ→0) vs Leontief (ρ→-100 truncation) vs 加法的 (ρ→1) の WAIC / LOO / Bayes 因子 BF 比較 (方法存在報告, 選好判定は Ch 26b F-5.2 へ)。",
+        "[¶5h] K=2/3/4 σ_SU regime horse-race table 5 — posterior model probability + BF_{3,2} / BF_{3,4} + prior sensitivity 6 設定での順位安定性 (B graft)。順位提示は Tier A safe、K=3 選好の判定は Ch 26b F-5.3 へ分離。K=4 が posterior で優位となった場合の Ch 5 (K=3 baseline) への retroactive 修正は Ch 11.5 wave 段階更新 mechanism に委ねる旨を明示。",
+        "[¶5i] 7 機関 ERS posterior の cluster 構造 — 領域 (生命科学 / 物質 / 情報) 横断の partial pooling 効果と Ch 9 KLST representation w_k 加重との posterior correlation (Tier A 記述、3 cluster の判定は Ch 26b F-5.6 へ分離)。",
+        "[¶5j] θ_σ* 4 成分分解 (P, F, B, Π, μ) posterior 要約 — 各成分の median + 89% CI、Ch 5.5 命題 5.5.1-5.5.4 との対応 (Tier A 記述、比較静学符号判定は Ch 26b F-5.4 へ分離)。",
+        "[¶5k] jump intensity λ_x^k posterior (σ_SU regime k=1,2,3 別) + λ_y(B-shock) trigger 達成回数 (Ch 10.4 三反証子) + Ch 8 軌跡 4 類型との対応 (Tier A 記述、単調増加 λ_x^1 < λ_x^2 < λ_x^3 の判定は Ch 26b へ分離)。",
+        "[¶5l] η_jt VAR(1) + Ψ·N_jt フィードバック (Ch 10.7) posterior — Ψ の posterior median + 89% CI、定理 10.6.5 ファジー RD Ψ identification の cutoff 局所連続性条件達成 (Tier A 記述、Ψ Granger 因果性判定は Ch 26b F-5.5 へ分離)。",
+        "[¶5m] Y-005 Cabot ショック軌跡 decomposition (A graft) — §11.0 で導入した Y-005 を本節 posterior で 4 成分分解 (jump 寄与 vs 連続変動 vs gate 効果 vs ω 構造ショック) し Ch 8 軌跡 4 類型のどれに帰属するかの posterior probability 提示 (Tier A 記述)。",
+        "[¶5n] Atlas 拡張 (D-052 2026Q4) statistical power 試算 (A graft) — J=7 → J=20 で Π posterior 95% CI 幅が半減する事前試算、実機関 J* 2027Q1 以降の §11 supplement 章での本格推定戦略を §11.6 引き渡しで明示。",
+        "[¶5o] Tier A 規律の最終確認 — 本節提示は全て記述的事後分布要約、validation 主張・選好判定・有意性判定は全て Ch 26a (後付け校正 Brier) / Ch 26b (事前登録 F-5.x) へ分離、FC-11-10 違反検知の作業 list 明示。"
+      ],
+      "new_writing_required": "Tier A 規律本節再確認 + 合成 vs 実データ分離記法 + 8 PJ / 7 機関 panel posterior 5 table + ω IV 推定結果 + F-CES + K=2/3/4 horse-race + θ_σ* 4 成分 posterior + jump intensity λ_x^k + Ψ posterior + Y-005 軌跡 decomposition + Atlas J=20 statistical power 試算 + FC-11-10 違反検知作業 list は全て新規。命題 11.14-11.17 + 付録 A 参照は新規。posterior 数値は Phase 2 データ実装 (D-052 2026Q4) 後の合成 + 8 PJ 既存範囲で確定するため本章 v1 では計算手順 + plot template + 報告フォーマット まで。",
+      "existing_reuse": "§11.1-§11.4 全結果を統合表示。Ch 5 K=3 regime posterior、Ch 5.5 4 成分分解、Ch 7 F-CES horse-race、Ch 8 軌跡 4 類型、Ch 9 KLST w_k、Ch 10.3 ρ Kmenta、Ch 10.7 Ψ identification を posterior 形式で再表現。",
+      "upstream_dependencies": [
+        "§11.1 ω 構造ショック識別 + IV (D-046)",
+        "§11.2 jump intensity λ_x^k + λ_y",
+        "§11.3 K=3 regime posterior + θ_σ* + Wonham filter",
+        "§11.4 4 段 hybrid MCMC 実装結果",
+        "Ch 5 命題 5.1, 5.5",
+        "Ch 5.5 命題 5.5.1-5.5.4 + 系 5.5.5",
+        "Ch 7 F-CES D-032",
+        "Ch 9 Theorem 9.1 KLST",
+        "Ch 10.3 命題 1 + 系 1 + H_C2",
+        "Ch 10.4 三反証子",
+        "Ch 10.7 η_jt + Ψ + 定理 10.6.5",
+        "BOOK_DECISIONS.md D-031 / D-032 / D-038 / D-045 / D-046 / D-052"
+      ],
+      "downstream_dependencies": [
+        "§11.6 (章末問い + 引き渡し)",
+        "Ch 11.5 (OSF 登録簿 wave 段階更新、posterior 要約)",
+        "Ch 25 (η_jt → ΔPRS_jt 速度効果、posterior 入力)",
+        "Ch 26a (8 PJ 後付け校正 Brier / 校正 plot)",
+        "Ch 26b (F-5.1..F-5.6 事前登録 spec 構築)",
+        "Ch 37 (BZM vs 4 frameworks horse-race)",
+        "Book III Ch 12-19 (PJ 後付け校正)"
+      ],
+      "references": [
+        "Gelman et al. (2013) BDA3",
+        "Vehtari-Gelman-Gabry (2017) LOO-CV",
+        "Watanabe (2010) WAIC",
+        "Stock-Yogo (2005) weak IV",
+        "Andrews-Mikusheva (2016) identification-robust CI",
+        "Heckman (1979)",
+        "Hsieh-Klenow (2009)",
+        "BZM Ch 7 / Ch 9 / Ch 10.7",
+        "BOOK_DECISIONS.md D-031 / D-032 / D-045 / D-046 / D-052"
+      ],
+      "source_drafts": [
+        "B §11.5 (Tier A 規律再確認 + 合成 vs 実データ分離 + prior sensitivity 6 設定 + FC-11-10 違反検知)",
+        "C §11.5 (paragraph_outline 11 項目網羅 + 命題 + 機関 cluster + Ψ posterior)",
+        "A §11.5 (Y-005 軌跡 decomposition + Atlas J=20 power 試算 + 5 table 構造 + impulse response plot)"
+      ]
+    },
+    {
+      "section_id": "11.6",
+      "title": "章末問い + 引き渡しマップ — Ch 11.5 / Ch 25 / Ch 26a / Ch 26b / Ch 37 / Book III への分離",
+      "pages": 2.5,
+      "math_level": "narrative + 規律確認 + 引き渡し作業 list (table 形式)",
+      "anchor_claims": [
+        "[AC-11.6-1] 本章は BVAR + jump + gate 二層同時推定の計量装置を構築した Tier A 章であり (D-031)、validation 主張・有意性判定・選好順位の事前登録仮説検定は Ch 26b (Tier B) に、後付け校正 plot は Ch 26a に、η_jt → ΔPRS_jt 速度効果は Ch 25 に、wave 段階更新 mechanism は Ch 11.5 に明示分離する。",
+        "[AC-11.6-2] Ch 26b 事前登録 1:1 対応マップ — F-5.1 (ω G 先行) / F-5.2 (F-CES horse-race) / F-5.3 (K=3 horse-race) / F-5.4 (θ_σ* 比較静学) / F-5.5 (Ψ Granger) / F-5.6 (機関 cluster) / F-5.7 (jump intensity 単調性) / H_C2 (ρ Kmenta) / Klepper 命題 5 (Δlog h 符号) / w(L) 符号制約 の事前登録 spec を本章 posterior から 1:1 で構築する作業 list を明示。",
+        "[AC-11.6-3] Ch 11.5 OSF 登録簿運用 wave 段階更新 — Phase 2 D-052 (2026Q4 合成データ + 8 PJ 既存範囲 → 実機関 J* 2027Q1) の wave 設計を引き渡す。K=4 が posterior で優位となった場合の Ch 5 (K=3 baseline) への retroactive 修正 trigger もここで処理。",
+        "[AC-11.6-4] 章末問い 4 問 — (Q1) 三時計同時推定下で識別不能は完全に解消されたか / (Q2) Tier A posterior 要約と Ch 26b 事前登録 Tier B の境界線をどう運用するか / (Q3) 8 PJ 標本から J 機関 panel への Atlas 拡張で identification 精度はどう変わるか (A statistical power 試算接続) / (Q4) horse-race 順位は機関ごと・領域ごとに変動するか。"
+      ],
+      "paragraph_outline": [
+        "[¶6a] 章のまとめ — 三時計 (案件月次 / 機関年次 / gate イベント) を BVAR + jump + gate 二層同時推定で統合した計量装置の全体像、Y-005 Cabot ショックを再度参照し §11.0 識別問題の §11.5 posterior decomposition での解決を確認。",
+        "[¶6b] Tier A 規律 (D-031) 最終再確認 — 本章 posterior 要約は記述的、validation 主張・選好判定禁止、Tier A 違反は FC-11-10 で falsifiable claim 化されている旨を再確認。",
+        "[¶6c] 引き渡しマップ table — Ch 11.5 / Ch 25 / Ch 26a / Ch 26b / Ch 37 / Book III それぞれに何を渡すかの 1:1 対応表 (B graft + C graft)。",
+        "[¶6d] Ch 11.5 OSF 登録簿運用 — wave 段階更新 mechanism (Phase 2 D-052 2026Q4 合成 → 8 PJ 既存 → 実機関 J* 2027Q1) の wave 設計引き渡し + K=4 retroactive 修正 trigger 条件 + posterior を prior として継承する Bayesian updating vs 全データで re-fit の判断 mechanism (A graft)。",
+        "[¶6e] Ch 25 層間結合検証 — η_jt → ΔPRS_jt の機関 → 案件 速度効果の posterior を入力として渡す + Ch 10.7 定理 10.6.5 ファジー RD Ψ identification との整合確認。",
+        "[¶6f] Ch 26a 8 PJ 後付け校正 — Brier score / 校正 plot の計算手順引き渡し、Tier A 規律 (validation 主張禁止) の再確認、3 案 cross-cutting concern の合成 vs 実データ分離記法を Ch 26a 後付け校正で継承。",
+        "[¶6g] Ch 26b 事前登録 — F-5.1 (ω G 先行) / F-5.2 (F-CES horse-race) / F-5.3 (K=3) / F-5.4 (θ_σ* 比較静学) / F-5.5 (Ψ Granger) / F-5.6 (機関 cluster) / F-5.7 (jump intensity 単調性) / H_C2 (ρ Kmenta 識別) / Klepper 命題 5 (Δlog h 符号) / w(L) 符号制約 の事前登録 spec を本章 §11.5 posterior から 1:1 で構築する作業 list、各仮説の事前分布 / 帰無仮説 / 棄却基準 / 信用区間 を明示 (B graft、judge 1/3 cross-cutting concern 吸収)。",
+        "[¶6h] Ch 37 (BZM vs 4 frameworks horse-race) — 本章 BVAR + jump + gate 結果を DSGE / 標準 VAR / RVA / 4 framework と horse-race 比較する入力として渡す。",
+        "[¶6i] Book III Ch 12-19 (PJ 後付け校正) — 8 PJ 個別の Tier A 後付け校正への posterior 引き渡し。",
+        "[¶6j] 章末問い 4 問 — (Q1) 三時計同時推定下で識別不能は完全に解消されたか? (Q2) Tier A posterior 要約と Ch 26b 事前登録 Tier B の境界線をどう運用するか? (Q3) 8 PJ → Atlas J=20 機関 panel 拡張で identification 精度はどう変わるか? (Q4) horse-race 順位は機関ごと・領域ごとに変動するか?",
+        "[¶6k] 次章 (Ch 11.5 登録簿運用 + Book III PJ 後付け校正) への橋渡し — wave 段階更新 mechanism と OSF 登録 workflow の予告。"
+      ],
+      "new_writing_required": "章末まとめ + 引き渡しマップ table (Ch 11.5 / 25 / 26a / 26b / 37 / Book III に 1:1 対応) + Ch 26b F-5.1..F-5.7 + H_C2 + Klepper 命題 5 + w(L) 符号 の事前登録 spec 構築作業 list + 章末問い 4 問 + Tier A 規律の最終確認 + Atlas re-estimation strategy (Bayesian updating vs re-fit) は全て新規。",
+      "existing_reuse": "§11.0 Y-005 Cabot ショックを章末で再参照、§11.5 posterior 要約を引き渡し spec に再構成、Ch 5-10.7 章末問いフォーマット、Ch 26b 前向き予測登録簿の枠組み、BOOK_DECISIONS.md D-021/D-031/D-052 確定判決。",
+      "upstream_dependencies": [
+        "§11.0-§11.5 全節",
+        "BOOK_DECISIONS.md D-021 / D-031 / D-032 / D-038 / D-045 / D-046 / D-047 / D-051 / D-052"
+      ],
+      "downstream_dependencies": [
+        "Ch 11.5 (OSF 登録簿 wave 段階更新 mechanism)",
+        "Ch 25 (η_jt → ΔPRS_jt 層間結合検証)",
+        "Ch 26a (8 PJ 後付け校正 Brier)",
+        "Ch 26b (F-5.1..F-5.7 + H_C2 + Klepper 命題 5 + w(L) 符号 事前登録 spec)",
+        "Ch 37 (BZM vs 4 frameworks horse-race)",
+        "Book III Ch 12-19 (PJ 後付け校正)"
+      ],
+      "references": [
+        "BZM Ch 1 / Ch 5 / Ch 5.5 / Ch 11.5 / Ch 25 / Ch 26a / Ch 26b / Ch 37",
+        "BOOK_DECISIONS.md D-021 / D-031 / D-032 / D-038 / D-045 / D-046 / D-047 / D-051 / D-052",
+        "Nosek et al. (2018) OSF preregistration",
+        "Vehtari-Gelman-Gabry (2017)"
+      ],
+      "source_drafts": [
+        "B §11.6 (LB-/OI-/FC- tag 引き渡し + Tier A 規律再確認 + 4 章末問い)",
+        "C §11.6 (F-5.1..F-5.6 + H_C2 + Klepper + w(L) 1:1 対応マップ + 章末問い 3 問)",
+        "A §11.6 (Atlas re-estimation strategy + Bayesian updating vs re-fit 判断)"
+      ]
+    }
+  ],
+  "open_issues_for_masa": [
+    {
+      "issue": "Tier A 規律 (D-031) の §11.5 数値判定許容度 — impulse response の 95% CI が 0 を跨ぐ/跨がない、horse-race 順位の選好的記述、ω shift 方向の有意性判定、F-CES Bayes 因子 > 10 などの記述が Tier A safe (記述的事後分布要約) か Tier B 越境 (validation 主張) かの判定基準を §11.5 冒頭でどこまで明示するか。3 judges 全員が cross-cutting concern として挙げている。",
+      "why_masa_decides": "本章全体の運用規律 + Ch 26a/26b との分離境界の本物判断であり、編集判断ではなく masa の規律設計の本質に直結。",
+      "options": [
+        "(a) 厳格運用: 数値判定 (CI 0 跨ぎ / Bayes 因子閾値 / horse-race 順位判定) は全て Tier B 越境とみなし、§11.5 では posterior median + CI 幅の数値提示のみに留め、判定文を一切書かない",
+        "(b) 中間運用: posterior median + CI + 数値表の提示は Tier A、選好判定文 (「K=3 が選好される」「F-CES が優位」) は Tier B として §11.5 文章では「〜という事前予想」「〜という方法存在 claim」に限定",
+        "(c) 緩運用: posterior の数値判定 (CI 0 跨ぎ / BF > 3 など) までは Tier A、政策含意・予測力主張のみ Tier B として禁止"
+      ],
+      "recommendation": "(b) 中間運用 — judge 2 が指摘するように「方法存在 claim」(Tier A safe) と「outcome forecast」(Tier B 越境) の境界を厳守し、命題 11.14-11.17 + §11.5 paragraph_outline は全て「〜の posterior を提示できる (方法存在)」形にする。FC-11-10 で Tier A 違反検知を falsifiable claim 化して構造的に強制する設計を採用 (B [FC-11-10] graft)。"
+    },
+    {
+      "issue": "Y-005 Cabot ショックの匿名化粒度 — Ch 1.0 (type 名のみ開示) と §11.5 8 PJ panel posterior 報告での PJ 識別性のトレードオフをどう取るか。全 PJ 匿名化すると読者が posterior を追えなくなる懸念 (B [OI-11-8])。",
+      "why_masa_decides": "PJ 機密保持 + 読者の追跡可能性 + AMD 内部 vs 外部公開版の運用差分 の判断は masa の編集規律と関係者調整の本物。",
+      "options": [
+        "(a) 全 PJ 完全匿名化 (PJ_1, PJ_2, ..., PJ_8 のみ) — 機密保持最強だが読者の追跡性最弱",
+        "(b) type 名のみ開示 + PJ コード 匿名化 (現 Ch 1.0 規律踏襲) — Y-005 type X の §11.0 ストーリーと §11.5 panel の PJ_5 を type 名で結び付ける運用",
+        "(c) AMD 内部公開版は実 PJ 名、外部公開版は完全匿名化の二系統を §11.5 で分離管理"
+      ],
+      "recommendation": "(b) Ch 1.0 規律踏襲 + §11.0 と §11.5 共通の運用注を §11.0 ¶0j に明文化。Y-005 type X (§11.0) ↔ PJ_5 type X (§11.5) を type 名のみで結び付け、PJ コードは匿名化する運用が現実的。"
+    },
+    {
+      "issue": "D-046 ω IV 推定の IV 候補の具体性と Phase 2 D-052 dry-run 戦略 — BB tier 1 政策アナウンス + 研究予算改革 + 補助金制度変更 のうちどれを baseline IV とし、weak IV (Cragg-Donald F < Stock-Yogo 閾値 10) 時の identification-robust 代替 (Andrews-Mikusheva) をどう運用するか。Phase 2 (2026Q4) 以前は合成データのみで identification 検証を行う dry-run 範囲をどこまで広げるか。",
+      "why_masa_decides": "IV 候補の選定は AMD の政策ショック観測実態に直結し、masa が AMD 関係者と握る本物の知識が必要。Phase 2 dry-run 戦略は本書 publication timeline (Ch 11 v1 → v2) と本物に関係。",
+      "options": [
+        "(a) BB tier 1 政策アナウンス を baseline IV、研究予算改革 を sensitivity 用、補助金制度変更 を robustness 用の三段構成",
+        "(b) 三 IV を同等扱いし、weak IV 達成 IV のみ採用する pragmatic 運用",
+        "(c) Phase 2 (2026Q4) まで dry-run は合成データ + 8 PJ 既存範囲のみ、IV 候補は §11.5 で「方法存在」として記述、実 IV 検定は Ch 11 supplement (2027Q1+) に分離"
+      ],
+      "recommendation": "(a) + (c) の組合せ — baseline IV を BB tier 1 政策アナウンス として §11.1 + §11.5 で記述、Phase 2 dry-run は合成 + 8 PJ 既存の二系統分離 (B [OI-11-1] graft)、実 IV 検定は §11.5 で「方法存在」記述 + Ch 11 supplement (2027Q1+) で本格推定の二段構成。"
+    },
+    {
+      "issue": "K=2/3/4 horse-race (D-045) で K=4 が posterior で優位となった場合の Ch 5 (K=3 baseline 固定) への retroactive 修正 mechanism — Ch 11 で K=4 が選好された場合に Ch 5 を書き直すか、Ch 5 K=3 baseline を維持して Ch 11.5 wave 段階更新で対応するか。",
+      "why_masa_decides": "本書 Ch 5/Ch 11 coherence の根幹判断であり、masa の本書全体構造設計と直結。judge 1/3 が cross-cutting concern として指摘。",
+      "options": [
+        "(a) Ch 5 K=3 baseline を維持し、Ch 11.5 wave 段階更新 mechanism で K=4 posterior が出た場合の対応を mechanism 化 (本章 §11.6 で引き渡し)",
+        "(b) Ch 11 §11.5 で K=4 が prior sensitivity 6 設定中 4 設定以上で優位なら Ch 5 を書き直す trigger 条件を明示",
+        "(c) Ch 5 を K=3 baseline + K=4 sensitivity の二系統に書き直し、Ch 11 で両方検証"
+      ],
+      "recommendation": "(a) Ch 5 K=3 baseline 維持 + Ch 11.5 wave 段階更新で対応 — Ch 5 は理論的 baseline、Ch 11.5 は経験的更新の役割分担で本書全体構造を保つ。§11.6 ¶6d で wave 段階更新 trigger 条件を明示。"
+    },
+    {
+      "issue": "Ch 26b 事前登録対象 (F-5.1..F-5.7 / H_C2 / Klepper 命題 5 / w(L) 符号 / Ψ Granger / θ_σ* 比較静学) の Ch 11 §11.5 posterior との 1:1 対応マップの精度 — どこまで Ch 11 §11.6 で確定し、どこから Ch 26b 本体に委ねるか。",
+      "why_masa_decides": "Ch 11 と Ch 26b の責務分担は本書全体の Tier A/B 構造設計の核心。masa の判断必須。",
+      "options": [
+        "(a) Ch 11 §11.6 で F-5.x + H_C2 + Klepper + w(L) の全 spec (事前分布 + 帰無仮説 + 棄却基準 + 信用区間 + sample size) を確定",
+        "(b) Ch 11 §11.6 では「何を Ch 26b に渡すか」の list のみ確定 (事前登録 spec 詳細は Ch 26b 本体)",
+        "(c) Ch 11 §11.6 で 1:1 対応マップ + 各仮説の事前分布 + 帰無仮説のみ確定、棄却基準 + 信用区間 + sample size は Ch 26b 本体"
+      ],
+      "recommendation": "(c) Ch 11 §11.6 で 1:1 対応マップ + 事前分布 + 帰無仮説まで確定、棄却基準 + 信用区間 + sample size は Ch 26b 本体に委ねる中間運用 — Ch 11 が Ch 26b の前提を作り、Ch 26b が前向き予測の運用を担う役割分担を明確化 (B graft)。"
+    },
+    {
+      "issue": "計算予算と publication timeline の整合 — wall time 12時間/run M2 Max + chains 4 × iterations 4000 + particle N_p = 10000 の baseline 設定で Phase 2 (2026Q4) + Atlas (J=20) 拡張時の現実的 wall time、Stan vs NumPyro vs PyMC の baseline 選択を §11.4 で確定するか、§11.6 OI に逃がすか。",
+      "why_masa_decides": "実装選択は本書 v1 → v2 の作業負荷と Phase 2 (D-052 2026Q4) timeline の本物の判断。masa の計算資源と人員配置に直結。",
+      "options": [
+        "(a) §11.4 で Stan + NumPyro hybrid (NUTS は Stan, particle filter は NumPyro) を baseline 確定",
+        "(b) §11.4 で Stan のみ baseline + NumPyro/PyMC を sensitivity, 実装は本書 v2 (Phase 2 後)",
+        "(c) §11.6 OI に逃がし、実装選択は Phase 2 (2026Q4) 開始時に確定"
+      ],
+      "recommendation": "(a) Stan + NumPyro hybrid を §11.4 baseline 確定 — NUTS auto-differentiation の堅牢性 (Stan) + JAX JIT による particle filter 高速化 (NumPyro) のメリット組合せが現実的。実装作業は本書 v1 (2026Q3) → v2 (Phase 2 後 2027Q1) の二段構成。"
+    }
+  ],
+  "falsifiable_claims": [
+    "[FC-11-1] (LB-11-1 接続) BVAR 標準形 + Minnesota prior の超パラメータ (λ_1=0.2, λ_2=0.5, λ_3=1.0, λ_4=100 baseline) で Empirical Bayes 調整した λ_1* が Ch 7 F-CES posterior (D-032) の規模感と整合する (規模差が桁違いなら反証、§11.1)。",
+    "[FC-11-2] (LB-11-2 接続) ω = (ω_A, ω_I, ω_G) の sign restriction (政策ショック G ≥ 0 先行 / G → σ_SU < 0 / A, I → σ_SU > 0) が Ch 10.6 全射 φ + w(L) 符号制約 + Ch 9 KLST representation (Theorem 9.1) と整合する整合性 cross-check に合格する (整合性が崩れたら反証、§11.1)。",
+    "[FC-11-3] (LB-11-1 接続) Mariano-Murasawa (2003) 混合頻度集約 + loading C 行列の stock 平均集約 vs flow 加算集約 変数別判別が Ch 5 補題 5.3 + Ch 9 KLST representation と線形整合する (整合性が崩れたら反証、§11.2)。",
+    "[FC-11-4] (LB-11-5 接続) 4 段 hybrid MCMC が R-hat < 1.01 (split-R-hat) + ESS > 400 + divergent transitions < 0.1% + energy BFMI > 0.3 を全 8 PJ × 7 機関 chains で達成し、未達成パラメータが全 parameter 数の 1% 以下に収まる (一つでも未達なら §11.5 結果報告は Tier A 報告対象外に降格、§11.4)。",
+    "[FC-11-5] (LB-11-2 接続) D-046 ω IV 推定で BB tier 1 政策アナウンス IV の Cragg-Donald F 統計量 > Stock-Yogo (2005) 閾値 10 を全 7 機関で達成、未達時は identification-robust 信用区間 (Andrews-Mikusheva) に切替して両者併記する (併記が漏れたら反証、§11.1 + §11.5)。",
+    "[FC-11-6] (LB-11-1 接続) block-recursive Π = [[Π^PP, Π^PI],[0, Π^II]] の Π^IP = 0 制約は posterior predictive check で棄却されない (PPC p-value > 0.05、§11.1 + §11.5)。",
+    "[FC-11-7] (LB-11-6 接続) prior sensitivity 6 設定 (Minnesota λ 三段階 × Hierarchical scale 二段階) で全 posterior の robustness を必須報告し、horse-race 順位 (F-CES vs Cobb-Douglas/Leontief/加法的、K=2/3/4) が 6 設定中 4 設定以上で安定 (順位提示は Tier A safe、4 設定未満なら「順位不確定」と Tier A 報告、§11.5)。",
+    "[FC-11-8] (LB-11-3 接続) Pitt-Shephard auxiliary particle filter (N_p = 10000) の ESS > 500 monitoring を全 t で達成、未達時の N_p sensitivity (500/1000/2000/10000) で degeneracy 改善を確認する (改善が見られなければ §11.2 algorithm 設計失敗として記録、§11.2)。",
+    "[FC-11-9] (LB-11-3 接続) Y-005 Cabot ショック (§11.0) の posterior decomposition が jump 寄与 + 連続変動 + gate 効果 + ω 構造ショック の 4 成分に分離でき、各成分の posterior median と Ch 8 軌跡 4 類型との対応 posterior probability を §11.5 で提示できる (方法存在 claim、§11.5)。",
+    "[FC-11-10] (LB-11-7 接続, Tier A 規律 D-031 構造的強制) §11.5 全 posterior 報告において validation 主張・有意性判定・選好順位の事前登録仮説検定 が全て Ch 26a (後付け校正) / Ch 26b (事前登録) に分離されており、本章本文に validation 主張漏れ (impulse response 95% CI 0 跨ぎ判定文 / 「K=3 が選好される」「F-CES が優位」などの選好判定文 / Bayes 因子閾値判定文) が混入していない (混入を検知したら D-031 違反として §11.5 全体を書き直し、§11.5)。",
+    "[FC-11-11] (LB-11-3 接続) Ch 5 補題 5.3 + Ch 5.5 Wonham filter Bayesian 拡張 と Hamilton-Kim filter (離散時間) の asymptotic 等価性 (系 11.3.1) が Stan/NUTS 実装で離散 regime s_t 周辺化と整合する (整合性が崩れたら hybrid MCMC 設計失敗、§11.3 + §11.4)。",
+    "[FC-11-12] (LB-11-1 接続) Phase 2 D-052 (2026Q4 → 実機関 J* 2027Q1) までの本章 §11.5 posterior は (i) 合成データ (simulation-based) + (ii) 8 PJ 既存範囲 の二系統に分離記法されており、実機関 BVAR posterior は 2027Q1 以降の §11 supplement 章で報告予定の旨が §11.5 冒頭と §11.6 引き渡しで明示されている (分離記法漏れがあれば D-052 規律違反として §11.5/§11.6 書き直し、§11.5 + §11.6)。"
+  ],
+  "cross_chapter_supply": [
+    {
+      "target_chapter": "Ch 11.5 (登録簿運用)",
+      "what_supplies": "§11.5 posterior 要約 (8 PJ + 7 機関 panel の Π, Σ_ε, ω, ρ, α, λ, η_jt, θ_σ*) を OSF 登録対象として渡し、wave 段階更新 mechanism の trigger 条件 (Phase 2 D-052 2026Q4 合成 → 8 PJ 既存 → 実機関 J* 2027Q1) + K=4 retroactive 修正 trigger + posterior を prior として継承する Bayesian updating vs 全データ re-fit の判断 mechanism を §11.6 で引き渡す。"
+    },
+    {
+      "target_chapter": "Ch 25 (層間結合検証)",
+      "what_supplies": "§11.2 + §11.5 の η_jt VAR(1) + Ψ·N_jt フィードバック (Ch 10.7 定理 10.6.5 ファジー RD Ψ identification) の posterior median + 89% CI を渡し、機関 → 案件 速度効果 η_jt → ΔPRS_jt の posterior 入力 + cutoff 局所連続性条件達成を §11.6 で引き渡す。"
+    },
+    {
+      "target_chapter": "Ch 26a (標本内整合性 / 8 PJ 後付け校正)",
+      "what_supplies": "§11.5 posterior 要約から 8 PJ 後付け校正 Brier score + 校正 plot の計算手順を渡し、Tier A 規律 (validation 主張禁止) + 合成 vs 実データ分離記法を継承する旨を §11.6 で引き渡す。"
+    },
+    {
+      "target_chapter": "Ch 26b (前向き予測登録簿)",
+      "what_supplies": "§11.5 posterior 1:1 対応マップ — F-5.1 (ω G 先行) / F-5.2 (F-CES horse-race) / F-5.3 (K=3) / F-5.4 (θ_σ* 比較静学) / F-5.5 (Ψ Granger) / F-5.6 (機関 cluster) / F-5.7 (jump intensity 単調性) / H_C2 (ρ Kmenta) / Klepper 命題 5 (Δlog h 符号) / w(L) 符号制約 の事前登録 spec (事前分布 + 帰無仮説 + 棄却基準 + 信用区間 + sample size) を §11.6 で引き渡す。"
+    },
+    {
+      "target_chapter": "Ch 37 (BZM vs 4 frameworks horse-race)",
+      "what_supplies": "§11.5 BVAR + jump + gate posterior 結果 + 4 horse-race (F-CES vs Cobb-Douglas/Leontief/加法的) + K=2/3/4 horse-race を渡し、DSGE / 標準 VAR / RVA / 4 framework との比較入力を §11.6 で引き渡す。"
+    },
+    {
+      "target_chapter": "Book III Ch 12-19 (PJ 後付け校正)",
+      "what_supplies": "§11.5 8 PJ 個別 posterior (Π_j, ω_j, λ_j, θ_σ*_j) を渡し、Book III の PJ 個別 Tier A 後付け校正の入力を §11.6 で引き渡す。"
+    },
+    {
+      "target_chapter": "Ch 5 (σ_SU MS-SSM)",
+      "what_supplies": "§11.3 + §11.5 で K=2/3/4 horse-race が K=4 で優位となった場合の Ch 5 K=3 baseline retroactive 修正 trigger 条件 + Ch 11.5 wave 段階更新 mechanism での処理方針 を §11.6 で引き渡す (本書全体構造 Ch 5 理論 vs Ch 11 計量の役割分担明示)。"
+    }
+  ],
+  "masa_negotiation_handles": [
+    "Tier A 規律 (D-031) の §11.5 数値判定許容度 — (a) 厳格運用 (CI/BF/順位判定文 全禁止) vs (b) 中間運用 (方法存在 claim 限定 + outcome forecast 禁止) vs (c) 緩運用 (政策含意のみ禁止) の三選択。推奨 (b) + FC-11-10 で構造的強制。",
+    "Y-005 Cabot 匿名化粒度 — (a) 全 PJ 完全匿名化 vs (b) type 名のみ開示 + PJ コード匿名化 (Ch 1.0 規律踏襲) vs (c) AMD 内部版 vs 外部公開版 二系統。推奨 (b)。",
+    "D-046 ω IV baseline 候補 — (a) BB tier 1 政策アナウンス vs (b) 研究予算改革 vs (c) 補助金制度変更 の三選択 + weak IV 時の identification-robust 代替 (Andrews-Mikusheva) 併記運用。推奨 (a) baseline + 残り二つは sensitivity/robustness。",
+    "K=4 posterior 優位時の Ch 5 retroactive 修正 — (a) Ch 11.5 wave 段階更新で対応 (Ch 5 K=3 baseline 維持) vs (b) Ch 5 を書き直す trigger 条件明示 vs (c) Ch 5 を K=3 + K=4 二系統に書き直し。推奨 (a)。",
+    "Ch 26b 事前登録 spec の Ch 11 §11.6 確定範囲 — (a) F-5.x + H_C2 + Klepper + w(L) 全 spec 確定 vs (b) list のみ確定 vs (c) 事前分布 + 帰無仮説まで + 残りは Ch 26b 本体。推奨 (c)。",
+    "実装選択 (Stan vs NumPyro vs PyMC) — (a) Stan + NumPyro hybrid baseline 確定 vs (b) Stan のみ baseline + NumPyro/PyMC は sensitivity vs (c) Phase 2 開始時 (2026Q4) に確定。推奨 (a) hybrid。",
+    "命題番号体系 — (a) C 案踏襲 (命題 11.1-11.17 + 系) で Ch 5/9/10.x と整合 vs (b) B 案踏襲 (tag [LB-N-k] のみ命題番号無し) vs (c) ハイブリッド (主要命題は番号付け + 補題は tag のみ)。推奨 (a) C 案踏襲 (judge 1 winner, masa の本書全体形式整合性に合致)。",
+    "Phase 2 D-052 (2026Q4 → 2027Q1) dry-run 範囲 — (a) 合成 + 8 PJ 既存範囲のみ §11.5 報告、実機関は §11 supplement (2027Q1+) vs (b) §11.5 で実機関 placeholder も提示 vs (c) §11.5 v1 は合成のみ、v2 (2027Q1+) で本格 rewrite。推奨 (a) 二系統分離記法 + supplement 章戦略。"
+  ]
+}
