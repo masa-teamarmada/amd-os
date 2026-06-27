@@ -67,7 +67,21 @@ export const BZM_PARTS: BzmPartConfig[] = [
     label: "Book I — 領土の定義 (110p, 4 章)",
     description: "観測量と典型動学。状態空間 / PRS / ERS / 失敗パターンの抽象。",
     slugs: [
+      // Ch 1 (= 章 level 1) → §1.0〜§1.7 (= 節 level 2) → §1.0.1〜 (= サブセクション level 3) の三層 (執筆中)
       "new-book1-ch-1",
+      "new-book1-ch-1-section-0",
+      "new-book1-ch-1-section-0-1",
+      "new-book1-ch-1-section-0-2",
+      "new-book1-ch-1-section-0-3",
+      "new-book1-ch-1-section-0-4",
+      "new-book1-ch-1-section-1",
+      "new-book1-ch-1-section-2",
+      "new-book1-ch-1-section-3",
+      "new-book1-ch-1-section-4",
+      "new-book1-ch-1-section-5",
+      "new-book1-ch-1-section-6",
+      "new-book1-ch-1-section-7",
+      // Ch 2-4 (level 1 のみ、節レベル展開は執筆順序に応じて追加)
       "new-book1-ch-2",
       "new-book1-ch-3",
       "new-book1-ch-4",
@@ -342,7 +356,21 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
   { slug: "new-book0-ch-0-4", title: "Ch 0.4 — 本書の貢献の三つ", summary: "何を新規に主張するか。load-bearing 定理 (二層非可換性 / GO 最適停止 / F-CES) の front-load 予告。8p。", status: "not-started" },
 
   // Book I — 領土の定義 (110p, 4 章)
-  { slug: "new-book1-ch-1", title: "Ch 1 — 状態空間と観測量", summary: "Before Zero を測るとはどういうことか。30p。", status: "not-started" },
+  { slug: "new-book1-ch-1", title: "Ch 1 — 状態空間と観測量", summary: "Before Zero を測るとはどういうことか。状態空間 (= プロジェクトを 1 点として打つ多次元の空間)、観測量 (= 状態から漏れ出てくる代理指標)、二層観測 (= 案件層 PRS + 機関層 ERS) の足場を立てる章。30p。執筆中 (§1.0 章頭フックから着手)。", status: "in-progress", level: 1 },
+  // Ch 1 節レベル (level 2) — Workflow wlewsdw8l outline 由来
+  { slug: "new-book1-ch-1-section-0", title: "§1.0 — 章頭フック: 三人の起業家、三つの「測れなさ」 (2.5p)", summary: "Before Zero 段階で「いま自分のプロジェクトはどこにいるのか」を答えられない三つの典型場面を提示し、状態空間と観測量という二つの装置を本章で立ち上げることを予告する。4 サブセクション (§1.0.1〜§1.0.4)。", status: "in-progress", level: 2 },
+  { slug: "new-book1-ch-1-section-1", title: "§1.1 — 「測る」とは何をすることか: 状態・観測・推定の三項 (4p)", summary: "対象物理学的な「測定」と社会経済的な「測定」の違いを整理し、状態 (見えない) と観測量 (見える) と推定 (橋渡し) という三項関係を Before Zero 文脈で定義する。", status: "not-started", level: 2 },
+  { slug: "new-book1-ch-1-section-2", title: "§1.2 — 状態空間 (state space) という発想: プロジェクトを 1 点として打つ (5p)", summary: "プロジェクトを多次元空間の 1 点として捉える視点を導入し、本書が採用する三因子 (天井 P、到達度 R、生存確率 S) の状態ベクトルを比喩と図で説明する。", status: "not-started", level: 2 },
+  { slug: "new-book1-ch-1-section-3", title: "§1.3 — 観測量 (observable) と代理指標: 見えないものを見える数で挟む (5p)", summary: "状態は直接観測できないため、論文数・特許・調達額・採用ペース等の代理指標を経由する必要があることを示し、観測量の選び方が推定の質を決めることを論じる。", status: "not-started", level: 2 },
+  { slug: "new-book1-ch-1-section-4", title: "§1.4 — Before Zero がとりわけ難しい理由: 製品 0・売上 0・会社未満の観測問題 (5p)", summary: "売上・顧客・製品がまだ存在しない段階での観測の困難 (シグナル/ノイズ比の低さ、survivorship bias、観測コスト) を整理し、それでも測る必要性を関係者間の共通言語・判断の構造化・再現可能性の三点で示す。", status: "not-started", level: 2 },
+  { slug: "new-book1-ch-1-section-5", title: "§1.5 — 二層観測の予告: 案件層 (PRS) と機関層 (ERS) (4p)", summary: "個別案件 j を見る層 (PRS = Project Readiness Signals) と、機関 i の生態を見る層 (ERS = Ecosystem Readiness Signals) という二層構造を予告し、Ch 2 と Ch 3 への接続を示す。", status: "not-started", level: 2 },
+  { slug: "new-book1-ch-1-section-6", title: "§1.6 — 失敗パターンと校正: 観測が壊れるとき (3p)", summary: "観測量と状態のリンクが切れる典型失敗 (Goodhart 化、観測の自己実現、欠測の系統性) を提示し、Ch 4 (失敗パターン) と Book III (validation) への送りを置く。", status: "not-started", level: 2 },
+  { slug: "new-book1-ch-1-section-7", title: "§1.7 — 本章のまとめと Book II への橋渡し (1.5p)", summary: "本章で立てた状態空間と観測量の足場を、Book II 機構層 (天井動学・到達動学・生存動学の数学装置) がどう引き取るかを 1 ページで予告する。", status: "not-started", level: 2 },
+  // Ch 1 §1.0 サブセクション (level 3)
+  { slug: "new-book1-ch-1-section-0-1", title: "§1.0.1 — 同じ問いの前で立ち尽くす三人 (章頭場面)", summary: "2024 年初秋の一週間に開かれた三つの面談 (月曜 国立大学産学連携本部 A 氏 / 水曜 都内 VC B 氏 / 金曜 地方公設試 C 氏) を blockquote 並置。三者三様の領域・段階・相手だが、底に流れる同じ問い「いま、このプロジェクトは、どこにいるのか」。Before Zero / 状態 (state) / 観測量 (observable) を直後括弧定義、Kalman 1960 / Stokey-Lucas-Prescott 1989 / Simon 1962 引用、軽い式 $s_t = (P_t, R_t, S_t)$ + $y_t = g(s_t) + \\varepsilon_t$ を display で。完成 v1 (約 2,390 字 5 段落、まさレビュー待ち)。", status: "completed", level: 3 },
+  { slug: "new-book1-ch-1-section-0-2", title: "§1.0.2 — 「測れない」の正体: 状態と観測量のずれ", summary: "三場面に共通する「測れなさ」を、状態 (見えない真実) と観測量 (見える代理指標) のずれとして整理し、Before Zero 段階ではこのずれが特に大きいことを明示する。1,500-2,500 字。", status: "not-started", level: 3 },
+  { slug: "new-book1-ch-1-section-0-3", title: "§1.0.3 — それでも測る理由: 共通言語・判断・再現可能性", summary: "測れないなら測らなくてよいわけではなく、関係者の共通言語、判断の構造化、再現可能性という三つの実務的要請のために、不完全でも測る必要があることを論じる。1,500-2,500 字。", status: "not-started", level: 3 },
+  { slug: "new-book1-ch-1-section-0-4", title: "§1.0.4 — 本章の道筋: 状態空間と二層観測へ", summary: "§1.1〜§1.4 で状態空間と観測量の基礎概念を立て、§1.5 で二層観測 (PRS / ERS) を予告し、§1.6 で失敗、§1.7 で Book II 接続というロードマップを提示する。1,500-2,500 字。", status: "not-started", level: 3 },
   { slug: "new-book1-ch-2", title: "Ch 2 — PRS — 天井 × 到達 × 生存の概念体系", summary: "PRS = P × R × S。30p。", status: "not-started" },
   { slug: "new-book1-ch-3", title: "Ch 3 — ERS — 苗床という第二の対象", summary: "含: unknown vs not_started 区別の正準オーナー = Ch 3.5。30p。", status: "not-started" },
   { slug: "new-book1-ch-4", title: "Ch 4 — 失敗パターンの抽象", summary: "Book II 数学装置への索引 (前方参照ティーザー)。20p。", status: "not-started" },
