@@ -310,6 +310,10 @@ export async function extractContractL2Data(
         amountTaxIncl: candidate.amountTaxIncl,
         periodStart: candidate.periodStart,
         periodEnd: candidate.periodEnd,
+        deliverablesRequired: candidate.deliverablesRequired,
+        deliverablesNote: candidate.deliverablesNote,
+        expenseReimbursementAllowed: candidate.expenseReimbursementAllowed,
+        expenseReimbursementNote: candidate.expenseReimbursementNote,
       })),
       sources: projectSources.map((item) => ({
         table: item.sourceTable,

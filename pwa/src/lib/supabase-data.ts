@@ -89,6 +89,23 @@ export interface PlanCycleBundle {
   memberActivities: MemberActivity[];
 }
 
+export interface ProjectContractTerms {
+  monthlyFeeYen?: number | string | null;
+  contractStartYm?: string | null;
+  contractEndYm?: string | null;
+  actualWorkStartYm?: string | null;
+  billingStartYm?: string | null;
+  rewardPoolYen?: number | string | null;
+  monthlyRewardCapYen?: number | string | null;
+  deliverablesRequired?: boolean | string | null;
+  deliverablesNote?: string | null;
+  expenseReimbursementAllowed?: boolean | string | null;
+  expenseReimbursementNote?: string | null;
+  sourceTitle?: string | null;
+  sourceRef?: string | null;
+  notes?: string | null;
+}
+
 export interface CockpitData {
   project: {
     projectId: string;
@@ -96,9 +113,14 @@ export interface CockpitData {
 	    clientName: string;
 	    status: string;
 	    projectCategory?: string;
-	    projectType?: string;
+    projectType?: string;
     feeType?: string | null;
     feeAmount?: number | null;
+    startYm?: string | null;
+    endYm?: string | null;
+    paymentDueRule?: string | null;
+    paymentDueDay?: number | null;
+    contractTerms?: ProjectContractTerms | null;
     freezeFromYm?: string | null;
     restartExpectedYm?: string | null;
   };
@@ -2109,9 +2131,16 @@ export async function fetchCockpitFromSupabase(
       clientName: pj.client_name || "",
 	      status: pj.status || "",
 	      projectCategory: pj.project_category || "dtsu",
-	      projectType: pj.project_type || "",
+      projectType: pj.project_type || "",
       feeType: pj.fee_type || null,
       feeAmount: pj.fee_amount != null ? Number(pj.fee_amount) : null,
+      startYm: pj.start_ym || null,
+      endYm: pj.end_ym || null,
+      paymentDueRule: pj.payment_due_rule || null,
+      paymentDueDay: pj.payment_due_day != null ? Number(pj.payment_due_day) : null,
+      contractTerms: pj.contract_terms_json && typeof pj.contract_terms_json === "object"
+        ? pj.contract_terms_json as ProjectContractTerms
+        : null,
       freezeFromYm: pj.freeze_from_ym || null,
       restartExpectedYm: pj.restart_expected_ym || null,
     },

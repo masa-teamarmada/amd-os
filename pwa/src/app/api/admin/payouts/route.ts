@@ -467,6 +467,11 @@ function formatDueDateTextJp(d: Date): string {
   return `${y}年${m}月${day}日 17:00まで`;
 }
 
+function nowJstIsoString(): string {
+  const jst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  return jst.toISOString().replace("Z", "+09:00");
+}
+
 function composePayoutNoticeMailBody(memberName: string, dueDateText: string): string {
   return [
     `${memberName}様`,
@@ -797,7 +802,7 @@ export async function generateNoticePdfForMember(
   }
 
   const payeeName = textValue(member.contractor_name) || textValue(member.member_name) || textValue(member.code_name) || memberId;
-  const issuedAt = new Date().toISOString();
+  const issuedAt = nowJstIsoString();
 
   let gasResult: Record<string, unknown>;
   try {
@@ -1284,6 +1289,7 @@ export async function PATCH(req: NextRequest) {
             pdfDriveFileId,
             totalYen: yenValue(notice?.total_yen),
             alreadySentAt: notice?.sent_at ?? null,
+            pdfWillRegenerateOnSend: true,
           },
         });
       }
@@ -1298,6 +1304,30 @@ export async function PATCH(req: NextRequest) {
       });
       if (!gate.allowed) return agreementGateBlockedResponse(targetData, gate);
 
+      const regenerated = await generateNoticePdfForMember(db, targetData, {
+        memberId,
+        force: true,
+      });
+      if (regenerated.status === "failed") {
+        return NextResponse.json(
+          { ok: false, error: regenerated.error || "支払通知書PDFの再生成に失敗" },
+          { status: regenerated.reason === "no_member" ? 404 : 500 }
+        );
+      }
+      if (regenerated.status === "skipped" && regenerated.reason === "no_entries") {
+        return NextResponse.json({ ok: false, error: "no payout entries for notice" }, { status: 409 });
+      }
+      const mailPdfUrl = textValue(regenerated.pdfUrl) || pdfUrl;
+      const mailPdfDriveFileId = extractDriveFileId(mailPdfUrl);
+      if (!mailPdfUrl || !mailPdfDriveFileId) {
+        return NextResponse.json(
+          { ok: false, error: "送信用PDFの再生成後に Drive fileId を抽出できなかった" },
+          { status: 500 }
+        );
+      }
+      const mailNoticeNo = textValue(regenerated.noticeNo) || notice?.notice_no || defaultNoticeNo(ym, memberId);
+      const mailTotalYen = Math.round(regenerated.totalYen ?? yenValue(notice?.total_yen));
+
       const customBody = textValue(body.body) || defaultBody;
       const gasResult = await callGasSendNoticeMail({
         to: toEmail,
@@ -1305,7 +1335,7 @@ export async function PATCH(req: NextRequest) {
         ym,
         dueDateText,
         body: customBody,
-        pdfDriveFileId,
+        pdfDriveFileId: mailPdfDriveFileId,
         from: PAYOUT_NOTICE_MAIL_FROM,
         subject: PAYOUT_NOTICE_MAIL_SUBJECT,
         bcc: PAYOUT_NOTICE_MAIL_BCC,
@@ -1319,9 +1349,9 @@ export async function PATCH(req: NextRequest) {
             member_id: memberId,
             ym,
             sent_at: sentAt,
-            notice_no: notice?.notice_no ?? defaultNoticeNo(ym, memberId),
-            pdf_url: pdfUrl,
-            total_yen: yenValue(notice?.total_yen),
+            notice_no: mailNoticeNo,
+            pdf_url: mailPdfUrl,
+            total_yen: mailTotalYen,
           },
           { onConflict: "member_id,ym" }
         );
@@ -1337,6 +1367,8 @@ export async function PATCH(req: NextRequest) {
           bcc: PAYOUT_NOTICE_MAIL_BCC,
           subject: PAYOUT_NOTICE_MAIL_SUBJECT,
           sentAt,
+          pdfUrl: mailPdfUrl,
+          pdfRegeneratedAt: regenerated.lastGeneratedAt ?? sentAt,
           gas: gasResult,
         },
         ...after,

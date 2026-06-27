@@ -18,7 +18,7 @@
 
 | field | meaning |
 |---|---|
-| `project` | `project_id`, name, status, category, fee/freeze info |
+| `project` | `project_id`, name, status, category, fee/freeze info, payment terms, `contract_terms_json` summary |
 | `currentYm` | current display month |
 | `billingCycles` | monthly / finance state |
 | `planCycle` / `milestones` / `subItems` / `responsibilities` | value plan and MS |
@@ -62,7 +62,7 @@ This route is read-only during load. It does not create a duplicate project or w
 
 | section | component | source |
 |---|---|---|
-| header | `CockpitHeader` | project metadata |
+| header | `CockpitHeader` | project metadata + PJリスト由来のサマリー。PJメンバー、契約条件、業務委託料、支払い条件、提出物の有無、立替精算可否を `projects` / `project_members` / `projects.contract_terms_json` から表示する |
 | KUTE annual roadmap | `CockpitKuteAnnualRoadmap` | KUTE (`p25`) only。`CockpitHeader` 直下で、2026-06〜2027-03 の年度内ロードマップを表示する。規程整備レーンは 2027-01 整備完了目途、シーズ発掘 / after GTIE レーンは 2027-03 型化目途。現時点の source は 6/11 キックオフ資料 / `PROJECT_BRIEF` 由来の静的 contract |
 | venture status | `CockpitVentureStatus` | `project_ventures`, `project_xrl_log`, related data |
 | AMD / Management score hero | `CockpitManagementScoreHero` | AMD Score / Management Score derived data |

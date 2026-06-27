@@ -68,6 +68,10 @@ type ContractTerms = {
   billingStartYm?: string | null;
   rewardPoolYen?: number | string | null;
   monthlyRewardCapYen?: number | string | null;
+  deliverablesRequired?: boolean | string | null;
+  deliverablesNote?: string | null;
+  expenseReimbursementAllowed?: boolean | string | null;
+  expenseReimbursementNote?: string | null;
   sourceTitle?: string | null;
   sourceRef?: string | null;
   notes?: string | null;
@@ -125,6 +129,43 @@ function fmtYen(value: number | string | null | undefined) {
 
 function textValue(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function contractFlagInputValue(value: unknown) {
+  if (value === true || value === "true" || value === "あり" || value === "可" || value === "yes") return "true";
+  if (value === false || value === "false" || value === "なし" || value === "不可" || value === "no") return "false";
+  return "";
+}
+
+function parseContractFlag(value: unknown): boolean | null {
+  const normalized = contractFlagInputValue(value);
+  if (normalized === "true") return true;
+  if (normalized === "false") return false;
+  return null;
+}
+
+function contractFlagLabel(value: unknown, trueLabel: string, falseLabel: string) {
+  const normalized = parseContractFlag(value);
+  if (normalized === true) return trueLabel;
+  if (normalized === false) return falseLabel;
+  return "不明";
+}
+
+function contractFlagClass(value: unknown) {
+  const normalized = parseContractFlag(value);
+  if (normalized === true) return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  if (normalized === false) return "border-slate-200 bg-slate-50 text-slate-600";
+  return "border-amber-200 bg-amber-50 text-amber-800";
+}
+
+function compactContractTerms(terms: ContractTerms): ContractTerms | null {
+  const entries = Object.entries(terms).filter(([, value]) => value !== null && value !== undefined && value !== "");
+  if (entries.length === 0) return null;
+  return Object.fromEntries(entries) as ContractTerms;
+}
+
+function mergeContractTerms(base: ContractTerms | null | undefined, patch: ContractTerms) {
+  return compactContractTerms({ ...(base ?? {}), ...patch });
 }
 
 function contractTermValue(terms: ContractTerms | null | undefined, key: keyof ContractTerms) {
@@ -193,6 +234,10 @@ type EditVals = {
   contract_billing_start_ym: string;
   contract_reward_pool_yen: string;
   contract_monthly_reward_cap_yen: string;
+  contract_deliverables_required: string;
+  contract_deliverables_note: string;
+  contract_expense_reimbursement_allowed: string;
+  contract_expense_reimbursement_note: string;
   contract_source_title: string;
   contract_source_ref: string;
   contract_notes: string;
@@ -262,6 +307,10 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
       contract_billing_start_ym: contractTermValue(p.contract_terms_json, "billingStartYm"),
       contract_reward_pool_yen: contractTermValue(p.contract_terms_json, "rewardPoolYen"),
       contract_monthly_reward_cap_yen: contractTermValue(p.contract_terms_json, "monthlyRewardCapYen"),
+      contract_deliverables_required: contractFlagInputValue(p.contract_terms_json?.deliverablesRequired),
+      contract_deliverables_note: contractTermValue(p.contract_terms_json, "deliverablesNote"),
+      contract_expense_reimbursement_allowed: contractFlagInputValue(p.contract_terms_json?.expenseReimbursementAllowed),
+      contract_expense_reimbursement_note: contractTermValue(p.contract_terms_json, "expenseReimbursementNote"),
       contract_source_title: contractTermValue(p.contract_terms_json, "sourceTitle"),
       contract_source_ref: contractTermValue(p.contract_terms_json, "sourceRef"),
       contract_notes: contractTermValue(p.contract_terms_json, "notes"),
@@ -404,12 +453,29 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
           billingStartYm: textValue(editVals.contract_billing_start_ym) || null,
           rewardPoolYen: parseYenInput(editVals.contract_reward_pool_yen as string) || null,
           monthlyRewardCapYen: parseYenInput(editVals.contract_monthly_reward_cap_yen as string) || null,
+          deliverablesRequired: parseContractFlag(editVals.contract_deliverables_required),
+          deliverablesNote: textValue(editVals.contract_deliverables_note) || null,
+          expenseReimbursementAllowed: parseContractFlag(editVals.contract_expense_reimbursement_allowed),
+          expenseReimbursementNote: textValue(editVals.contract_expense_reimbursement_note) || null,
           sourceTitle: textValue(editVals.contract_source_title) || null,
           sourceRef: textValue(editVals.contract_source_ref) || null,
           notes: textValue(editVals.contract_notes) || null,
         };
-        const hasValue = Object.values(terms).some((value) => value !== null && value !== "");
-        patch.contract_terms_json = hasValue ? terms : null;
+        patch.contract_terms_json = mergeContractTerms(p.contract_terms_json, terms);
+        break;
+      }
+      case "contract_deliverables": {
+        patch.contract_terms_json = mergeContractTerms(p.contract_terms_json, {
+          deliverablesRequired: parseContractFlag(editVals.contract_deliverables_required),
+          deliverablesNote: textValue(editVals.contract_deliverables_note) || null,
+        });
+        break;
+      }
+      case "contract_expense_reimbursement": {
+        patch.contract_terms_json = mergeContractTerms(p.contract_terms_json, {
+          expenseReimbursementAllowed: parseContractFlag(editVals.contract_expense_reimbursement_allowed),
+          expenseReimbursementNote: textValue(editVals.contract_expense_reimbursement_note) || null,
+        });
         break;
       }
       case "invoice_send":
@@ -480,7 +546,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
 
       {/* Table */}
       <div className="overflow-x-auto border border-border rounded-lg">
-        <table className="text-[12px] border-collapse" style={{ minWidth: "2100px" }}>
+        <table className="text-[12px] border-collapse" style={{ minWidth: "2320px" }}>
           <thead className="sticky top-0 z-30">
             <tr className="bg-muted text-muted-foreground">
               <th className="text-left px-3 py-2 font-medium sticky left-0 z-40 bg-muted w-14">PJID</th>
@@ -496,6 +562,8 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
               <th className="text-left px-3 py-2 font-medium w-32">請求書送付</th>
               <th className="text-left px-3 py-2 font-medium w-36">業務委託料</th>
               <th className="text-left px-3 py-2 font-medium w-60">契約条件</th>
+              <th className="text-left px-3 py-2 font-medium w-28">提出物</th>
+              <th className="text-left px-3 py-2 font-medium w-28">立替精算</th>
               <th className="text-left px-3 py-2 font-medium w-24">支払条件</th>
               <th className="text-left px-3 py-2 font-medium w-20">開始ym</th>
               <th className="text-left px-3 py-2 font-medium w-20">終了ym</th>
@@ -894,6 +962,80 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                     )}
                   </td>
 
+                  {/* deliverablesRequired / deliverablesNote */}
+                  <td className={`${cellCls("contract_deliverables")} align-top`} onClick={enterCell("contract_deliverables")}>
+                    {isEditingField(p, "contract_deliverables") ? (
+                      <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
+                        <select
+                          value={editVals.contract_deliverables_required || ""}
+                          autoFocus
+                          onChange={(e) => setEditVals((v) => ({ ...v, contract_deliverables_required: e.target.value }))}
+                          className="w-full rounded border border-border bg-background px-1.5 py-0.5 text-[11px]"
+                        >
+                          <option value="">不明</option>
+                          <option value="true">あり</option>
+                          <option value="false">なし</option>
+                        </select>
+                        <textarea
+                          value={editVals.contract_deliverables_note as string}
+                          onChange={(e) => setEditVals((v) => ({ ...v, contract_deliverables_note: e.target.value }))}
+                          rows={2}
+                          placeholder="根拠/補足"
+                          className="w-full rounded border border-border bg-background px-1.5 py-0.5 text-[11px]"
+                        />
+                        {cellActions("contract_deliverables")}
+                      </div>
+                    ) : (
+                      <div className="space-y-1 text-[11px]">
+                        <span className={`inline-flex rounded border px-1.5 py-0.5 text-[10px] font-medium ${contractFlagClass(p.contract_terms_json?.deliverablesRequired)}`}>
+                          {contractFlagLabel(p.contract_terms_json?.deliverablesRequired, "あり", "なし")}
+                        </span>
+                        {p.contract_terms_json?.deliverablesNote ? (
+                          <div className="line-clamp-2 text-[10px] text-muted-foreground" title={p.contract_terms_json.deliverablesNote}>
+                            {p.contract_terms_json.deliverablesNote}
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+                  </td>
+
+                  {/* expenseReimbursementAllowed / expenseReimbursementNote */}
+                  <td className={`${cellCls("contract_expense_reimbursement")} align-top`} onClick={enterCell("contract_expense_reimbursement")}>
+                    {isEditingField(p, "contract_expense_reimbursement") ? (
+                      <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
+                        <select
+                          value={editVals.contract_expense_reimbursement_allowed || ""}
+                          autoFocus
+                          onChange={(e) => setEditVals((v) => ({ ...v, contract_expense_reimbursement_allowed: e.target.value }))}
+                          className="w-full rounded border border-border bg-background px-1.5 py-0.5 text-[11px]"
+                        >
+                          <option value="">不明</option>
+                          <option value="true">可</option>
+                          <option value="false">不可</option>
+                        </select>
+                        <textarea
+                          value={editVals.contract_expense_reimbursement_note as string}
+                          onChange={(e) => setEditVals((v) => ({ ...v, contract_expense_reimbursement_note: e.target.value }))}
+                          rows={2}
+                          placeholder="根拠/補足"
+                          className="w-full rounded border border-border bg-background px-1.5 py-0.5 text-[11px]"
+                        />
+                        {cellActions("contract_expense_reimbursement")}
+                      </div>
+                    ) : (
+                      <div className="space-y-1 text-[11px]">
+                        <span className={`inline-flex rounded border px-1.5 py-0.5 text-[10px] font-medium ${contractFlagClass(p.contract_terms_json?.expenseReimbursementAllowed)}`}>
+                          {contractFlagLabel(p.contract_terms_json?.expenseReimbursementAllowed, "可", "不可")}
+                        </span>
+                        {p.contract_terms_json?.expenseReimbursementNote ? (
+                          <div className="line-clamp-2 text-[10px] text-muted-foreground" title={p.contract_terms_json.expenseReimbursementNote}>
+                            {p.contract_terms_json.expenseReimbursementNote}
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+                  </td>
+
                   {/* payment_due_rule */}
                   <td className={cellCls("payment_due_rule")} onClick={enterCell("payment_due_rule")}>
                     {isEditingField(p, "payment_due_rule") ? (
@@ -1041,7 +1183,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={21} className="px-3 py-4 text-center text-muted-foreground">
+                <td colSpan={23} className="px-3 py-4 text-center text-muted-foreground">
                   該当なし
                 </td>
               </tr>

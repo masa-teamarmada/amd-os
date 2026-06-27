@@ -130,6 +130,8 @@ sequenceDiagram
   PWA->>PWA: PATCH /api/admin/payouts action=preview_notice_email
   PWA-->>Admin: 確認モーダル (件名固定 / 本文テンプレ / 添付PDF / Bcc) を表示
   Admin->>PWA: 「はい・送信」(本文編集後でも可)
+  PWA->>GAS: runFunc payoutCreatePwaNoticePdf (force=true, 作成日=送信日)
+  PWA->>DB: payout_notices.pdf_url / last_generated_at 更新
   PWA->>GAS: runFunc payout_sendNoticeMailV2_ (from=keiri@, BCC=masa+kyoko, PDF添付)
   GAS->>Gmail: GmailApp.sendEmail (実送信)
   PWA->>DB: payout_notices.sent_at = now()
@@ -141,6 +143,7 @@ sequenceDiagram
 - 件名: `支払通知書のご案内` (固定・編集不可)
 - Bcc: `masa@team-armada.jp` , `kyoko@team-armada.jp` (固定)
 - 添付: `payout_notices.pdf_url` の Drive fileId から `DriveApp.getFileById().getBlob()` で実 PDF 添付。ファイル名は `支払通知書_{ym}_{memberName}.pdf`
+- 作成日: 確認モーダルを開いただけでは送信しない。「はい・送信」時に送信用PDFを強制再生成し、PDF右上の `作成日` はその送信日 (JST) にする。cron prebuild / 事前発行PDFの日付は送付時に置き換わる。
 - 本文テンプレ (確認モーダル既定値):
   ```
   {memberName}様
@@ -205,10 +208,11 @@ GAS rv2 の最終計算結果を per-PJ × per-ym × per-member で保存する 
 | ヘッダー | 公式ロゴ画像 (= `PAYOUT_LOGO_FILE_ID`) + `PAYOUT_LOGOTYPE_FILE_ID` |
 | 背景 | 白地、 青アクセント |
 | 宛先 | `members.contractor_name` (= 未設定時は `member_name` / `code_name`) + `members.member_address` + `members.invoice_registration_number` |
+| 発行者 | AMDの会社名 / 住所 / 適格請求書発行事業者登録番号 (`T7021001064067`、Script Properties で上書き可) |
 | 明細表 | 青ヘッダで、 PJ 別の base_pay / bonus / total |
 | 税内訳 | `小計（税抜）` = admin/payouts の支払額、`消費税（10%）` = 税抜額 × 10%、`合計（税込）` = 小計 + 消費税 |
-| 支払予定 / 方法 / 振込先 | `members.bank_info` を出力 |
-| 右上情報 | 通知書番号 / 作成日 (= 2026-05-28 まさ要望で「支払通知日」表記を「作成日」に変更、`gas/064_PayoutFreeeNotice.js` line 312) |
+| 支払予定 / 方法 | 支払予定日と支払方法を表示。振込先欄はPDFから削除する |
+| 右上情報 | 通知書番号 / 作成日 (= 送付時は送信用PDFを再生成し、送信日を表示) |
 
 税計算の検算例:
 
@@ -289,6 +293,8 @@ curl -X POST "https://amd-os-pwa.vercel.app/api/cron/payout-notice-prebuild" \
 
 `NoticeBadge` 内に最終生成時刻を相対表示 (= 「生成 3分前」「生成 15時間前」)。 まさが朝開いた時に「最新の PDF か古いキャッシュか」を即判別できる。
 
+`メンバー別支払` の `支払額` は、DB保存・支払通知書PDF生成の正本である **税抜** と、消費税10%を上乗せした **税込** を併記する。`monthly_reward_payout.total_pay` / `payout_notices.total_yen` には税抜を保存し、GAS PDF 生成時に税込合計を出す。月初合意 gate と先12か月メンバー別支払予定の詳細でも、`支払額` と書く列は税抜 / 税込を同時に表示する。
+
 ### golden test
 
 `pwa/scripts/__fixtures__/payout_notice_golden.png` + SHA256 が回帰防止用 golden。 PDF レイアウト変更時は同 commit で golden を更新する。
@@ -319,7 +325,7 @@ GAS 064 が読む:
 
 先12か月では、会社留保を支出として表示しない。`キャッシュ支払` 表は非役員・支払通知対象メンバーへの外部支払だけを見る。`会社留保` 表は `cap/売上枠 - 外部支払` を留保増加額として表示し、役員の `regularCompanyReserveYen` / `extraCompanyReserveYen` はその内訳として読む。`cap超過チェック` 表だけは、役員会社留保も含めた報酬需要が cap/売上枠を超えていないかを見る。
 
-`先12か月 メンバー別支払予定` 表は、行を非役員・支払対象メンバー、列を稼働月にした外部支払マトリクス。セルの主値は `reward_summary_json.members[].totalPay` のメンバー・稼働月合計で、役員会社留保・支払対象外メンバー・未払い残 `stockYen` は支払額に混ぜない。セルを選ぶと、その稼働月の PJ 別内訳として `project_id` / `totalPay` / `regularPaidYen` / `extraPaidYen` / `basePay` / `earnedPt` / `stockYen` を表示する。
+`先12か月 メンバー別支払予定` 表は、行を非役員・支払対象メンバー、列を稼働月にした外部支払マトリクス。セルの主値は `reward_summary_json.members[].totalPay` のメンバー・稼働月合計 (= 税抜) で、役員会社留保・支払対象外メンバー・未払い残 `stockYen` は支払額に混ぜない。セルを選ぶと、その稼働月の PJ 別内訳として `project_id` / `totalPay` / `regularPaidYen` / `extraPaidYen` / `basePay` / `earnedPt` / `stockYen` を表示し、支払額は税抜 / 税込を併記する。
 
 ## 報酬債務台帳
 
@@ -392,7 +398,7 @@ ZMP の通常固定費は 300,000 円 × 65% = 195,000 円が通常cap。OkuDoor
 |---|---|
 | 支払額が出ない | `billing_cycles.reward_summary_json` の該当 ym 行、 cron `payout-reward-cache-refresh` 実行履歴 |
 | メンバーが行に出ない | `members.status='active'`、 `exclude_from_payout_notice=false`、 `project_members.is_active=true` |
-| PDF 確認で宛名 / 住所 / 振込先が空 | `members.contractor_name` / `member_address` / `bank_info` 入力 |
+| PDF 確認で宛名 / 住所 / インボイス番号が空 | `members.contractor_name` / `member_address` / `invoice_registration_number` 入力 |
 | 通知書発行で notice_no 重複 | `payout_notices` 既存行 (= UNIQUE PK は `(member_id, ym)`)、 再発行は既存行を update |
 | GAS Payout 権限エラー | `gas-main/A066_PayoutPaidRepo.js` の OAuth 再認可、 [`pwa/design/invoice_url_payout_auth.md`](../design/invoice_url_payout_auth.md) |
 | 旧フォーマット復活 | `npm run test:critical-ui` で `brandCell` / `setValue("team ARMADA")` を検出、 golden png 比較 |

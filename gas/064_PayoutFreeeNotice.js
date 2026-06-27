@@ -33,7 +33,7 @@ function payoutCreateFreeeNotice(payload){
   const noticeId = "AMD_PN_" + ym + "_" + memberId + "_" + uuid.slice(0, 8);
   const noticeNo = "PN-" + ym + "-" + memberId + "-" + uuid.slice(0, 4);
 
-  // 宛名（memberName優先）＋住所（memberAddress）＋振込先（bankInfo）
+  // 宛名（memberName優先）＋住所（memberAddress）。bankInfo は旧 payload 互換で取得するがPDFには出さない。
   let payeeName = memberId;
   let payeeAddress = "";
   let invoiceRegistrationNumber = "";
@@ -184,7 +184,6 @@ function payoutBuildNoticePdfBlob_(p){
   const payeeName = String(p.payeeName || "").trim() || memberId;
   const payeeAddress = String(p.payeeAddress || "").trim();
   const invoiceRegistrationNumber = String(p.invoiceRegistrationNumber || p.invoice_registration_number || "").trim();
-  const bankInfo = String(p.bankInfo || "").trim();
   const issuedAtJst = String(p.issuedAtJst || "").trim();
   const noticeNo = String(p.noticeNo || "").trim();
   const totalYen = Number(p.totalYen || 0);
@@ -250,6 +249,7 @@ function payoutBuildNoticePdfBlob_(p){
 
   const COMPANY_NAME = "株式会社チームアルマダ";
   const COMPANY_ADDR = "〒305-0031 茨城県つくば市吾妻1-10-1";
+  const COMPANY_INVOICE_REGISTRATION_NUMBER = payoutCompanyInvoiceRegistrationNumber_();
   const PAYMENT_METHOD = "指定の口座へ振込";
   const BLUE = "#2563eb";
   const TEXT = "#1f2937";
@@ -277,25 +277,30 @@ function payoutBuildNoticePdfBlob_(p){
   }
 
   for (let r = 1; r <= 80; r++){
-    sh.setRowHeight(r, 20);
+    sh.setRowHeight(r, 24);
   }
   sh.setRowHeight(1, 32);
   sh.setRowHeight(2, 34);
   sh.setRowHeight(3, 5);
-  sh.setRowHeight(4, 26);
-  sh.setRowHeight(7, 34);
-  sh.setRowHeight(11, 18);
-  sh.setRowHeight(12, 26);
-  sh.setRowHeight(13, 26);
+  sh.setRowHeight(4, 28);
+  sh.setRowHeight(5, 30);
+  sh.setRowHeight(6, 28);
+  sh.setRowHeight(7, 36);
+  sh.setRowHeight(8, 28);
+  sh.setRowHeight(9, 28);
+  sh.setRowHeight(10, 20);
+  sh.setRowHeight(11, 20);
+  sh.setRowHeight(12, 30);
+  sh.setRowHeight(13, 30);
   sh.setRowHeight(14, 12);
-  sh.setRowHeight(15, 24);
-  sh.setRowHeight(16, 24);
-  sh.setRowHeight(17, 22);
+  sh.setRowHeight(15, 28);
+  sh.setRowHeight(16, 28);
+  sh.setRowHeight(17, 26);
 
   sh.getRange("A1:L80")
     .setFontFamily("Noto Sans JP")
     .setFontColor(TEXT)
-    .setFontSize(11)
+    .setFontSize(14)
     .setVerticalAlignment("middle");
 
   // ====== タイトル ======
@@ -310,22 +315,22 @@ function payoutBuildNoticePdfBlob_(p){
   sh.getRange("A5:F5").merge();
   sh.getRange("A5")
     .setValue(`${payeeName}　様`)
-    .setFontSize(14).setFontWeight("bold")
+    .setFontSize(18).setFontWeight("bold")
     .setBorder(false, false, true, false, false, false, "#6b7280", SpreadsheetApp.BorderStyle.SOLID);
   sh.getRange("A6:F6").merge()
     .setValue(payeeAddress || "（住所未登録）")
-    .setFontSize(9).setFontColor(MUTED)
+    .setFontSize(14).setFontColor(MUTED)
     .setWrap(true);
   sh.getRange("A7:F7").merge()
     .setValue(invoiceRegistrationNumber ? `インボイス登録番号：${invoiceRegistrationNumber}` : "インボイス登録番号：（未登録）")
-    .setFontSize(9).setFontColor(MUTED)
+    .setFontSize(14).setFontColor(MUTED)
     .setWrap(true);
 
   // ====== 右：通知日/番号 + 正本ロゴ ======
-  sh.getRange("G5:H5").merge().setValue("作成日").setFontSize(9).setFontColor(MUTED);
-  sh.getRange("I5:L5").merge().setValue(issueDate).setFontSize(10).setHorizontalAlignment("right");
-  sh.getRange("G6:H6").merge().setValue("通知書番号").setFontSize(9).setFontColor(MUTED);
-  sh.getRange("I6:L6").merge().setValue(noticeNo).setFontSize(9).setFontColor(MUTED).setHorizontalAlignment("right");
+  sh.getRange("G5:H5").merge().setValue("作成日").setFontSize(14).setFontColor(MUTED);
+  sh.getRange("I5:L5").merge().setValue(issueDate).setFontSize(14).setHorizontalAlignment("left");
+  sh.getRange("G6:H6").merge().setValue("通知書番号").setFontSize(14).setFontColor(MUTED);
+  sh.getRange("I6:L6").merge().setValue(noticeNo).setFontSize(13).setFontColor(MUTED).setHorizontalAlignment("left");
 
   const logoMarkBlob = payoutGetPayoutLogoBlob_();
   const logotypeBlob = payoutGetPayoutLogotypeBlob_();
@@ -336,13 +341,16 @@ function payoutBuildNoticePdfBlob_(p){
   sh.insertImage(logoMarkBlob, 10, 7, 18, 3).setWidth(27).setHeight(27);
   sh.insertImage(logotypeBlob, 10, 7, 52, 7).setWidth(178).setHeight(22);
 
-  sh.getRange("G8:L8").merge().setValue(COMPANY_NAME).setFontSize(10).setFontWeight("bold").setHorizontalAlignment("right");
-  sh.getRange("G9:L9").merge().setValue(COMPANY_ADDR).setFontSize(8).setFontColor(MUTED).setHorizontalAlignment("right");
+  sh.getRange("G8:L8").merge().setValue(COMPANY_NAME).setFontSize(14).setFontWeight("bold").setHorizontalAlignment("right");
+  sh.getRange("G9:L9").merge().setValue(COMPANY_ADDR).setFontSize(12).setFontColor(MUTED).setHorizontalAlignment("right");
+  sh.getRange("G10:L10").merge()
+    .setValue(`適格請求書発行事業者登録番号：${COMPANY_INVOICE_REGISTRATION_NUMBER}`)
+    .setFontSize(12).setFontColor(MUTED).setHorizontalAlignment("right");
 
   // ====== サマリ ======
   sh.getRange("A12:L13").merge()
     .setValue(`お支払金額　　　${fmtYen(tax.gross)}（税込）`)
-    .setFontSize(20)
+    .setFontSize(22)
     .setFontWeight("bold")
     .setHorizontalAlignment("center")
     .setBackground(PALE)
@@ -350,7 +358,7 @@ function payoutBuildNoticePdfBlob_(p){
 
   // ====== 件名 ======
   sh.getRange("A16:L16").merge();
-  sh.getRange("A16").setValue("件名： " + subject).setFontSize(10).setFontColor(MUTED);
+  sh.getRange("A16").setValue("件名： " + subject).setFontSize(14).setFontColor(MUTED);
 
   // ====== 明細表 ======
   const startRow = 17;
@@ -367,7 +375,7 @@ function payoutBuildNoticePdfBlob_(p){
     const r = startRow + 1 + i;
     const d = details[i] || { desc:"", yen:0 };
 
-    sh.setRowHeight(r, 24);
+    sh.setRowHeight(r, 30);
     sh.getRange(`A${r}:L${r}`).setBackground(i === 0 ? "#ffffff" : PALE);
     sh.getRange(`A${r}:F${r}`).merge().setValue(d.desc || "").setHorizontalAlignment("left");
     sh.getRange(`G${r}:H${r}`).merge().setValue(d.desc ? 1 : "").setHorizontalAlignment("right");
@@ -385,26 +393,20 @@ function payoutBuildNoticePdfBlob_(p){
   totalRows.forEach((row, idx) => {
     const r = taxBoxTop + idx;
     sh.getRange(`H${r}:J${r}`).merge().setValue(row[0]).setFontColor(row[2] ? TEXT : MUTED).setFontWeight(row[2] ? "bold" : "normal").setHorizontalAlignment("right");
-    sh.getRange(`K${r}:L${r}`).merge().setValue(row[1]).setFontSize(row[2] ? 13 : 10).setFontWeight(row[2] ? "bold" : "normal").setHorizontalAlignment("right");
+    sh.getRange(`K${r}:L${r}`).merge().setValue(row[1]).setFontSize(row[2] ? 17 : 14).setFontWeight(row[2] ? "bold" : "normal").setHorizontalAlignment("right");
   });
   sh.getRange(`G${taxBoxTop+2}:L${taxBoxTop+2}`).setBorder(false, false, true, false, false, false, BLUE, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 
-  // ====== 左下：支払予定/方法 + 振込先 ======
+  // ====== 左下：支払予定/方法 ======
   const payTop = taxBoxTop + 5;
-  sh.getRange(`A${payTop}:B${payTop}`).merge().setValue("支払予定日").setFontColor(MUTED).setFontWeight("bold");
-  sh.getRange(`C${payTop}:H${payTop}`).merge().setValue(formatDateJa(payDate)).setFontSize(11).setFontWeight("bold").setHorizontalAlignment("center");
-  sh.getRange(`A${payTop+2}:B${payTop+2}`).merge().setValue("支払方法").setFontColor(MUTED).setFontWeight("bold");
-  sh.getRange(`C${payTop+2}:H${payTop+2}`).merge().setValue(PAYMENT_METHOD).setHorizontalAlignment("left");
-  sh.getRange(`A${payTop+4}:B${payTop+4}`).merge().setValue("振込先").setFontColor(MUTED).setFontWeight("bold");
-  sh.getRange(`A${payTop+5}:H${payTop+6}`).merge()
-    .setValue(bankInfo || "（未登録）")
-    .setFontSize(10).setVerticalAlignment("top").setWrap(true)
-    .setBackground(PALE)
-    .setBorder(true, true, true, true, false, false, LINE, SpreadsheetApp.BorderStyle.SOLID);
+  sh.getRange(`A${payTop}:B${payTop}`).merge().setValue("支払予定日").setFontSize(14).setFontColor(MUTED).setFontWeight("bold");
+  sh.getRange(`C${payTop}:F${payTop}`).merge().setValue(formatDateJa(payDate)).setFontSize(15).setFontWeight("bold").setHorizontalAlignment("left");
+  sh.getRange(`A${payTop+2}:B${payTop+2}`).merge().setValue("支払方法").setFontSize(14).setFontColor(MUTED).setFontWeight("bold");
+  sh.getRange(`C${payTop+2}:F${payTop+2}`).merge().setValue(PAYMENT_METHOD).setFontSize(15).setHorizontalAlignment("left");
 
   // ====== 備考 ======
-  const noteTop = payTop + 9;
-  sh.getRange(`A${noteTop}:B${noteTop}`).merge().setValue("備考").setFontColor(MUTED).setFontWeight("bold");
+  const noteTop = payTop + 5;
+  sh.getRange(`A${noteTop}:B${noteTop}`).merge().setValue("備考").setFontSize(14).setFontColor(MUTED).setFontWeight("bold");
   sh.getRange(`A${noteTop+1}:L${noteTop+3}`).merge()
     .setBackground(PALE)
     .setBorder(true, true, true, true, false, false, LINE, SpreadsheetApp.BorderStyle.SOLID);
@@ -480,6 +482,19 @@ function payoutGetPayoutLogoBlob_(){
 
 function payoutGetPayoutLogotypeBlob_(){
   return payoutGetPayoutAssetBlob_(["PAYOUT_LOGOTYPE_FILE_ID", "LOGOTYPE_FILE_ID"], ["ロゴタイプ.png", "ロゴタイプ.png", "AMD_logotype.png"]);
+}
+
+function payoutCompanyInvoiceRegistrationNumber_(){
+  try{
+    const props = PropertiesService.getScriptProperties();
+    const fromProps = String(
+      props.getProperty("AMD_INVOICE_REGISTRATION_NUMBER") ||
+      props.getProperty("TEAM_ARMADA_INVOICE_REGISTRATION_NUMBER") ||
+      ""
+    ).trim();
+    if (fromProps) return fromProps;
+  } catch(e){}
+  return "T7021001064067";
 }
 
 function payoutGetPayoutAssetBlob_(propKeys, fileNames){

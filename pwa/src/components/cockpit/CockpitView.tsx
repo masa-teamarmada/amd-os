@@ -58,6 +58,23 @@ interface PlanCycleBundle {
   }>;
 }
 
+interface ProjectContractTerms {
+  monthlyFeeYen?: number | string | null;
+  contractStartYm?: string | null;
+  contractEndYm?: string | null;
+  actualWorkStartYm?: string | null;
+  billingStartYm?: string | null;
+  rewardPoolYen?: number | string | null;
+  monthlyRewardCapYen?: number | string | null;
+  deliverablesRequired?: boolean | string | null;
+  deliverablesNote?: string | null;
+  expenseReimbursementAllowed?: boolean | string | null;
+  expenseReimbursementNote?: string | null;
+  sourceTitle?: string | null;
+  sourceRef?: string | null;
+  notes?: string | null;
+}
+
 interface CockpitViewProps {
   cockpit: {
     project: {
@@ -69,6 +86,11 @@ interface CockpitViewProps {
       projectType?: string;
       feeType?: string | null;
       feeAmount?: number | null;
+      startYm?: string | null;
+      endYm?: string | null;
+      paymentDueRule?: string | null;
+      paymentDueDay?: number | null;
+      contractTerms?: ProjectContractTerms | null;
       freezeFromYm?: string | null;
       restartExpectedYm?: string | null;
     };
@@ -250,7 +272,7 @@ export function CockpitView({ cockpit, nudges, initialModalYm }: CockpitViewProp
     setModalInitialTab(undefined);
   }
 
-  const { project, currentYm, billingCycles, planCycle, milestones, progress, reports, subItems, responsibilities, memberMap, pastPlanCycles, msActivities, memberActivities, strategySignals } = cockpit;
+  const { project, currentYm, billingCycles, planCycle, milestones, progress, reports, members, subItems, responsibilities, memberMap, pastPlanCycles, msActivities, memberActivities, strategySignals } = cockpit;
   const usesMsProgress = usesMsProgressCategory(project.projectCategory);
 
   const currentProgress = mergeProgress(progress, progressPatches);
@@ -354,7 +376,7 @@ export function CockpitView({ cockpit, nudges, initialModalYm }: CockpitViewProp
     //    col3 = ステータスバッジ + nudge (sticky)
     <div className="max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3">
       {/* [A] Project Header (full width) */}
-      <CockpitHeader project={project} />
+      <CockpitHeader project={project} members={members} />
 
       {project.projectId === "p25" && <CockpitKuteAnnualRoadmap currentYm={currentYm} />}
 

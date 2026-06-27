@@ -44,9 +44,11 @@ p00 にも他 PJ と同じく月次カード + 月次モーダルが出る。`bi
 /project/[projectId]/cockpit (CockpitView)
 container: max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3
 
-[A]   CockpitHeader (full width)                PJ 名 / clientName / status chip
+[A]   CockpitHeader (full width)                PJ 名 / clientName / status chip / PJリスト由来の契約サマリー
 [A2]  CockpitVentureStatus (full width hero)    PJ Status — 内部で AMD Score chart と XRL chart を xl: 横並び
                                                 ecosystem PJ は AMD Score 対象外で非表示
+
+CockpitHeader は `/admin/projects` の正本から、PJメンバー、契約条件、業務委託料、支払い条件、提出物の有無、立替精算可否を細いサマリー帯で表示する。提出物/立替精算は `projects.contract_terms_json.deliverablesRequired` / `deliverablesNote` / `expenseReimbursementAllowed` / `expenseReimbursementNote` を読む。値は契約書/見積書から `contract_terms.extracted_terms_json` に抽出され、Contract Apply 後に `projects.contract_terms_json` へ畳まれる。曖昧な場合は「不明」のまま表示する。
 
 [A3]  Cockpit tabs                              SU 系 PJ では Hero 下に「進捗管理 / スコア詳細」タブ。
                                                 Hero はタブ外なので AMD Score + XRL は常時表示。
@@ -283,7 +285,7 @@ XRL も同パターン (`xrl_feedbacks` → `/api/.../xrl-revise` → 手動 `/v
 
 ## 既存 UI を消したケース (反省)
 
-- 2026-05-06 セッション後半で `CockpitHeader` に独断で `⚙️ config` リンク (→ /admin/projects) を追加。「PJ 台帳に飛ぶ」ためまさに却下された。2026-05-22時点でもコックピットから `/project/[projectId]/config` へ飛ぶ導線は置かない。CockpitHeader は **PJ 名 + clientName + status chip だけのシンプル構成**、PJごとの契約・請求・支払条件は `/admin/projects` が正本。
+- 2026-05-06 セッション後半で `CockpitHeader` に独断で `⚙️ config` リンク (→ /admin/projects) を追加。「PJ 台帳に飛ぶ」ためまさに却下された。2026-05-22時点でもコックピットから `/project/[projectId]/config` へ飛ぶ導線は置かない。CockpitHeader は **PJ 名 + clientName + status chip + PJリスト由来の契約サマリー**に限定し、PJごとの契約・請求・支払条件の編集正本は `/admin/projects` のまま。
 - **教訓**: 「過去にあったリンクの復活」を頼まれたとき、`git log -S` で履歴を確認せず推測で実装すると、まったく別のものを「復活」してしまう。今後は git history から確実に復元するか、まさに飛び先を確認してから追加する。
 
 ---

@@ -117,6 +117,7 @@ type ContractTerm = {
   currency: string;
   billing_distribution: string;
   billing_distribution_json: Record<string, unknown> | null;
+  extracted_terms_json: Record<string, unknown> | null;
   fee_type_hint: string;
   confidence: number;
   review_required: boolean;
@@ -181,6 +182,10 @@ type TermCandidate = {
   taxAmount: number | null;
   amountTaxIncl: number | null;
   feeTypeHint: string;
+  deliverablesRequired: boolean | null;
+  deliverablesNote: string | null;
+  expenseReimbursementAllowed: boolean | null;
+  expenseReimbursementNote: string | null;
   confidence: number;
   reviewRequired: boolean;
 };
@@ -299,6 +304,19 @@ function contractTypeLabel(value: string) {
 function yen(value: number | null | undefined) {
   if (!value) return "-";
   return `${value.toLocaleString("ja-JP")}円`;
+}
+
+function boolish(value: unknown): boolean | null {
+  if (value === true || value === "true" || value === "あり" || value === "可" || value === "yes") return true;
+  if (value === false || value === "false" || value === "なし" || value === "不可" || value === "no") return false;
+  return null;
+}
+
+function termFlag(value: unknown, trueLabel: string, falseLabel: string) {
+  const normalized = boolish(value);
+  if (normalized === true) return trueLabel;
+  if (normalized === false) return falseLabel;
+  return "不明";
 }
 
 function statusBadge(status: ContractStatus) {
@@ -870,9 +888,28 @@ export function ContractsClient() {
                               <span>相手先: {term.counterparty_name || "-"}</span>
                               <span>期間: {dateOnly(term.period_start)} - {dateOnly(term.period_end)}</span>
                               <span>税抜/税込: {yen(term.amount_tax_excl)} / {yen(term.amount_tax_incl)}</span>
+                              <span>
+                                提出物: {termFlag(
+                                  term.extracted_terms_json?.deliverables_required ?? term.extracted_terms_json?.deliverablesRequired,
+                                  "あり",
+                                  "なし",
+                                )}
+                              </span>
+                              <span>
+                                立替精算: {termFlag(
+                                  term.extracted_terms_json?.expense_reimbursement_allowed ?? term.extracted_terms_json?.expenseReimbursementAllowed,
+                                  "可",
+                                  "不可",
+                                )}
+                              </span>
                               <span>配分: {term.billing_distribution}</span>
                               <span>review: {term.review_status}</span>
                             </div>
+                            {Boolean(term.extracted_terms_json?.deliverables_note || term.extracted_terms_json?.expense_reimbursement_note) && (
+                              <p className="mt-2 line-clamp-2 text-xs text-slate-500">
+                                {[term.extracted_terms_json?.deliverables_note, term.extracted_terms_json?.expense_reimbursement_note].filter(Boolean).map(String).join(" / ")}
+                              </p>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -1000,6 +1037,14 @@ export function ContractsClient() {
                       <p className="mt-1 text-xs text-slate-500">
                         税抜 {yen(candidate.amountTaxExcl)} / 税込 {yen(candidate.amountTaxIncl)} / {candidate.feeTypeHint}
                       </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        提出物 {termFlag(candidate.deliverablesRequired, "あり", "なし")} / 立替精算 {termFlag(candidate.expenseReimbursementAllowed, "可", "不可")}
+                      </p>
+                      {(candidate.deliverablesNote || candidate.expenseReimbursementNote) && (
+                        <p className="mt-1 line-clamp-2 text-xs text-slate-500">
+                          {[candidate.deliverablesNote, candidate.expenseReimbursementNote].filter(Boolean).join(" / ")}
+                        </p>
+                      )}
                     </div>
                   ))}
                   {(signalDryRun?.candidates || []).slice(0, 12).map((candidate) => (

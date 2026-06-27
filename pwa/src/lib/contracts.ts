@@ -98,6 +98,10 @@ export type ContractTermCandidate = {
   feeTypeHint: "monthly_fixed" | "contract_total" | "milestone" | "variable" | "unknown";
   billingDistribution: "review_required" | "monthly_average" | "schedule_based" | "manual";
   billingDistributionJson: Record<string, unknown>;
+  deliverablesRequired: boolean | null;
+  deliverablesNote: string | null;
+  expenseReimbursementAllowed: boolean | null;
+  expenseReimbursementNote: string | null;
   confidence: number;
   reviewRequired: boolean;
   reviewStatus: "pending";
@@ -324,6 +328,66 @@ function findLabeledText(text: string, labels: string[], maxLength = 180) {
   return null;
 }
 
+type BooleanTermExtraction = {
+  value: boolean | null;
+  note: string | null;
+};
+
+function clauseAroundTerms(text: string, terms: string[], maxLength = 180) {
+  const normalized = text.normalize("NFKC").replace(/[ \t]+/g, " ");
+  const lines = normalized
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const lineHit = lines.find((line) => terms.some((term) => hasTerm(line, term)));
+  if (lineHit) return truncate(lineHit, maxLength);
+
+  const source = normalized.replace(/\s+/g, " ").trim();
+  const normalizedSource = normalizeText(source);
+  for (const term of terms) {
+    const index = normalizedSource.indexOf(normalizeText(term));
+    if (index >= 0) {
+      const start = Math.max(0, index - Math.floor(maxLength / 2));
+      return truncate(source.slice(start, start + maxLength), maxLength);
+    }
+  }
+  return null;
+}
+
+function extractBooleanClause(
+  text: string,
+  config: {
+    focusTerms: string[];
+    positiveTerms: string[];
+    negativeTerms: string[];
+  },
+): BooleanTermExtraction {
+  const note = clauseAroundTerms(text, config.focusTerms);
+  if (!note) return { value: null, note: null };
+  const hasPositive = config.positiveTerms.some((term) => hasTerm(note, term));
+  const hasNegative = config.negativeTerms.some((term) => hasTerm(note, term));
+  const hasException = /ただし|但し|除く|例外/.test(note);
+  if (hasNegative && (!hasPositive || !hasException)) return { value: false, note };
+  if (hasPositive && !hasNegative) return { value: true, note };
+  return { value: null, note };
+}
+
+function extractDeliverables(text: string): BooleanTermExtraction {
+  return extractBooleanClause(text, {
+    focusTerms: ["成果物", "提出物", "納品物", "納入物", "報告書", "業務報告", "完了報告"],
+    positiveTerms: ["提出", "納品", "納入", "作成", "交付", "報告書", "業務報告", "完了報告"],
+    negativeTerms: ["なし", "無し", "不要", "定めない", "特になし", "該当なし", "提出を要しない", "納品物なし", "成果物なし"],
+  });
+}
+
+function extractExpenseReimbursement(text: string): BooleanTermExtraction {
+  return extractBooleanClause(text, {
+    focusTerms: ["立替", "実費", "経費", "交通費", "旅費", "宿泊費", "出張費", "精算"],
+    positiveTerms: ["立替精算", "実費精算", "別途請求", "別途支払", "別途負担", "精算する", "請求できる", "支払う", "負担する"],
+    negativeTerms: ["含む", "別途支給しない", "負担しない", "請求できない", "精算不可", "不可", "なし", "無し", "自己負担"],
+  });
+}
+
 function extractPeriod(text: string) {
   const normalized = text.normalize("NFKC");
   const periodMatch = normalized.match(/(?:履行期間|契約期間|期間|業務期間)[^\n0-9]{0,30}((?:20\d{2}年\s*\d{1,2}月\s*\d{1,2}日)|(?:20\d{6})|(?:20\d{2}[-/]\d{1,2}[-/]\d{1,2}))[^\n0-9]{0,18}((?:20\d{2}年\s*\d{1,2}月\s*\d{1,2}日)|(?:20\d{6})|(?:20\d{2}[-/]\d{1,2}[-/]\d{1,2}))/);
@@ -499,6 +563,8 @@ export function buildContractTermCandidate(evidence: ContractSourceEvidence): Co
   const quoteNo = combined.match(/\bQ-\d{8,}\b/)?.[0] ?? null;
   const { start: periodStart, end: periodEnd } = extractPeriod(combined);
   const amounts = extractAmounts(combined);
+  const deliverables = extractDeliverables(combined);
+  const expenseReimbursement = extractExpenseReimbursement(combined);
   const contractTitle = findLabeledText(combined, ["調達件名", "契約件名", "件名"], 180);
   const counterpartyName = inferCounterparty(combined);
   const hasPrimaryTerm = Boolean(
@@ -552,6 +618,10 @@ export function buildContractTermCandidate(evidence: ContractSourceEvidence): Co
     amount_tax_incl: amounts.amountTaxIncl,
     fee_type_hint: feeTypeHint,
     target_ym: targetYm,
+    deliverables_required: deliverables.value,
+    deliverables_note: deliverables.note,
+    expense_reimbursement_allowed: expenseReimbursement.value,
+    expense_reimbursement_note: expenseReimbursement.note,
   };
   const sourceTermHash = hashLike(JSON.stringify(extractedTerms));
 
@@ -579,6 +649,10 @@ export function buildContractTermCandidate(evidence: ContractSourceEvidence): Co
     feeTypeHint,
     billingDistribution: scheduleDistribution ? "schedule_based" : "review_required",
     billingDistributionJson,
+    deliverablesRequired: deliverables.value,
+    deliverablesNote: deliverables.note,
+    expenseReimbursementAllowed: expenseReimbursement.value,
+    expenseReimbursementNote: expenseReimbursement.note,
     confidence: Number(score.toFixed(2)),
     reviewRequired: true,
     reviewStatus: "pending",

@@ -209,9 +209,14 @@ expectIncludes("../gas/064_PayoutFreeeNotice.js", [
   "合計（税込）",
   "支払予定日",
   "支払方法",
-  "振込先",
+  "payoutCompanyInvoiceRegistrationNumber_",
+  "T7021001064067",
   "インボイス登録番号",
   "備考",
+]);
+
+expectNotIncludes("../gas/064_PayoutFreeeNotice.js", [
+  '.setValue("振込先")',
 ]);
 
 expectNotIncludes("../gas/064_PayoutFreeeNotice.js", [

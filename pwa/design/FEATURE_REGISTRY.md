@@ -48,8 +48,9 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - 手入力予算確定なし: `/admin/payouts` では請求額や追加支払枠を手入力して `billing_cycles.budget_yen` を書き換えない。契約から解ける通常capと、MSタグから解ける別財布発生だけを表示する。
 - 別財布支払: ZMP のような月額固定PJは通常枠を `fee_amount × 65%` に保ち、OkuDoor追加開発など追加受託分は `tag='cap_extra'` のMSとして `extraBasePay` / `extraPaidYen` / `extraCompanyReserveYen` に分ける。画面上で `本契約発生` / `別財布発生` / `別財布使用` を別表示する。
 - 支払データ保存: `monthly_reward_payout` に明細、`payout_notices.total_yen` にメンバー別通知額を保存する。役員または `exclude_from_payout_notice` のメンバーは通知対象外にする。
-- 支払通知書発行: 「メンバー別支払」行に `支払通知書発行` / `PDF確認` / `送付` の3操作を置く。`PDF確認` は支払データ確定前でも改善版フォーマットの確認用PDFを生成して開くが、`payout_notices` には保存しない。正式な `支払通知書発行` は `monthly_reward_payout` 保存後に活性化し、`payout_notices.notice_no` / `pdf_url` を保存する。`送付` はPDF保存後に `sent_at` を保存する。PDF URLの手入力欄は置かない。
-- 支払通知書PDFフォーマット: 正本は `gas/064_PayoutFreeeNotice.js` の `payoutBuildNoticePdfBlob_`。2026-04改善版の白地・青アクセント・正本ロゴ画像フォーマットを維持する。admin/payouts の支払額 (`monthly_reward_payout.total_pay` / `payout_notices.total_yen`) は税抜として扱い、PDF上で消費税10%を上乗せして「お支払金額」「合計（税込）」に表示する。宛先は `members.contractor_name` (= 未設定時は `member_name` / `code_name`) と `members.member_address`、インボイス登録番号は `members.invoice_registration_number`、振込先は `members.bank_info` を使う。必須要素は、中央青見出し `支払通知書`、青ライン、右上の `作成日` / `通知書番号` (= 2026-05-28 まさ要望で「支払通知日」→「作成日」に変更)、公式ロゴ画像 (`PAYOUT_LOGO_FILE_ID` / `PAYOUT_LOGOTYPE_FILE_ID`)、「お支払金額」サマリbox、青ヘッダ明細表 (`摘要` / `数量` / `単価` / `金額`)、右寄せ合計 (`小計（税抜）` / `消費税（10%）` / `合計（税込）`)、`支払予定日` / `支払方法` / `振込先` / `備考`。旧GASの黒罫線フォーマット、テキストで作った `team ARMADA` ロゴ、PDF URL手入力欄へ戻さない。
+- メンバー別支払の税区分: `メンバー別支払` / 月初合意 gate / 先12か月メンバー別支払予定の詳細で、`支払額` は税抜と税込を併記する。DB (`monthly_reward_payout.total_pay` / `payout_notices.total_yen`) は税抜を保存し、GAS PDF生成時に消費税10%を上乗せする。
+- 支払通知書発行: 「メンバー別支払」行に `支払通知書発行` / `PDF確認` / `送付` の3操作を置く。`PDF確認` は支払データ確定前でも改善版フォーマットの確認用PDFを生成して開くが、`payout_notices` には保存しない。正式な `支払通知書発行` は `monthly_reward_payout` 保存後に活性化し、`payout_notices.notice_no` / `pdf_url` を保存する。`送付` は確認モーダルを開くだけで、`はい・送信` 時に送信用PDFを強制再生成して `作成日` を送信日 (JST) にし、`keiri@team-armada.jp` から実メール送信してから `sent_at` を保存する。PDF URLの手入力欄は置かない。
+- 支払通知書PDFフォーマット: 正本は `gas/064_PayoutFreeeNotice.js` の `payoutBuildNoticePdfBlob_`。2026-04改善版の白地・青アクセント・正本ロゴ画像フォーマットを維持する。admin/payouts の支払額 (`monthly_reward_payout.total_pay` / `payout_notices.total_yen`) は税抜として扱い、PDF上で消費税10%を上乗せして「お支払金額」「合計（税込）」に表示する。宛先は `members.contractor_name` (= 未設定時は `member_name` / `code_name`) と `members.member_address`、メンバー側インボイス登録番号は `members.invoice_registration_number` を使う。発行者側には AMD の適格請求書発行事業者登録番号 (`T7021001064067`) を表示する。必須要素は、中央青見出し `支払通知書`、青ライン、右上の `作成日` / `通知書番号`、公式ロゴ画像 (`PAYOUT_LOGO_FILE_ID` / `PAYOUT_LOGOTYPE_FILE_ID`)、「お支払金額」サマリbox、青ヘッダ明細表 (`摘要` / `数量` / `単価` / `金額`)、右寄せ合計 (`小計（税抜）` / `消費税（10%）` / `合計（税込）`)、`支払予定日` / `支払方法` / `備考`。PDFには振込先欄を出さない。旧GASの黒罫線フォーマット、テキストで作った `team ARMADA` ロゴ、PDF URL手入力欄へ戻さない。
 - 入金確認nudge: `payment-confirm-nudges` を手動実行でき、Slack DMの `/payment-confirm` とつながる。
 - 月次モーダル導線: cycle明細やPJ収支表の稼働月から `CockpitMonthlyModal` を開き、報酬根拠に戻れる。
 
@@ -60,6 +61,24 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - 支払通知書PDFの golden PNG は `pwa/scripts/__fixtures__/payout_notice_golden.png` (改善版フォーマットの 1 ページ目を PNG 化したもの) を正本とし、`pwa/scripts/__fixtures__/payout_notice_golden.png.sha256` に SHA256 を固定する。`npm run test:critical-ui` が golden の存在と SHA256 一致を検査し、 fixture が壊れていれば落ちる。
 - 改善版PDFを意図的に更新したら、まさが新PNGを目視確認したうえで `payout_notice_golden.png` と `payout_notice_golden.png.sha256` を再生成して commit する。新規 PDF を PNG 化したファイルとの突合は `npm run test:payout-notice-pdf -- --diff <input.png>` で同じスクリプトを再利用する。
 - この画面で UI を削る変更は、`FEATURE_REGISTRY.md` と `SPEC_pwa.md` を同時に更新する。
+
+## /admin/kiyo
+
+目的: きよ向けに、active PJ の月次の支払・立替精算・請求書送付確認を 1 画面で横断確認する read-only 台帳。
+
+必須機能:
+
+- 月選択: `ym=YYYYMM` で対象月を選ぶ。未指定時は JST の当月。
+- メンバー支払額: `/admin/payouts` と同じ `loadTargetData(ym, { includeAgreementGate: false })` を使い、`expectedEntries` のうち active PJ の明細だけをメンバー別・PJ別に集計する。表示のために `syncRewardSummariesForBillingCycles()` を走らせない。
+- 立替精算: 選択月の `reimbursements` を active PJ 行だけで表示し、`submitted` / `pmApproved` / `approved` / `billed_ym` を PM待ち / 経理待ち / 承認済 / 反映済に分ける。
+- 請求書送付: active PJ の `billing_cycles.invoice_ym=ym`、または `invoice_ym IS NULL` の cycle を `projects.payment_due_rule` で支払月判定した対象cycleを集約する。`invoice_sent_at` は送付済み判定、`invoice_sent_by` または `billing_log` に `keiri@team-armada.jp` の証跡がある場合だけ `keiri確認` とする。
+- 証跡境界: `invoice_sent_at` があっても keiri 証跡が無ければ `要確認` と表示する。送付元を断定しない。
+
+回帰防止:
+
+- `/admin/kiyo` は確認専用。支払保存、PDF生成、メール送信、立替承認、請求送付の write action を追加しない。
+- active 以外のPJを表示しない。inactive / ended / frozen / sales / lost はこの画面の対象外。
+- AdminSidebar の `きよ` 導線、`/admin/kiyo` route、keiri 証跡境界を消す変更は、`FEATURE_REGISTRY.md` と `SPEC_pwa.md` を同時に更新する。
 
 ## /admin/season-pl
 
@@ -165,6 +184,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 必須機能:
 
 - レイアウト: `max-w-[1600px]` の幅広 container、上 Header → hero (PJ Status) → MS / 経営ハイライト / ステータス・nudge → 下段 2 カラム (`月次カード / 休止期間 + MTGサマリ`) の案C系構成。`max-w-[1060px]` + 左 720 / 右 220 の旧 2 カラムには戻さない。最下段の旧 TODO かんばんは主要導線から外す。
+- Header契約サマリー: `CockpitHeader` はPJ名/status/分類に加え、PJリスト正本からPJメンバー、契約条件、業務委託料、支払い条件、提出物の有無、立替精算可否を表示する。提出物/立替精算は `projects.contract_terms_json.deliverablesRequired` / `deliverablesNote` / `expenseReimbursementAllowed` / `expenseReimbursementNote` を読む。コックピットから `/admin/projects` や旧configへ飛ばす導線は置かない。
 - KUTE年度内ロードマップ: `projectId === 'p25'` では Header 直下に `CockpitKuteAnnualRoadmap` を表示する。6/11キックオフ資料 / `PROJECT_BRIEF` の年度内スケジュールを根拠に、規程整備 (`2027-01` 完了目途) とシーズ発掘 / after GTIE (`2027-03` 型化目途) を同じ横軸で見せる。研究機関コックピット `/institutions/inst_kute/cockpit` でも同じ `CockpitView` 経由で表示する。
 - 上 hero: PJ ごとに出し分け。p00 (= AMD 会社全体) は `CockpitManagementScoreHero` で AMD Management Score の時系列折れ線 + 最新値カード。SU 系 PJ は `CockpitVentureStatus` 内で AMD Score 折れ線と XRL 折れ線を `xl:flex-row` で横並びにする。`xl` 未満では縦並びへ自動 fallback する。
 - Hero 下タブ: SU 系 PJ は `進捗管理` / `スコア詳細` を切り替える。AMD Score / XRL hero はタブ外に置いて常時表示し、`進捗管理` に従来の cockpit 本文、`スコア詳細` に `AmdScoreView` の embedded 表示を出す。

@@ -458,6 +458,7 @@ type NoticeMailPreview = {
   pdfDriveFileId: string;
   totalYen: number;
   alreadySentAt: string | null;
+  pdfWillRegenerateOnSend?: boolean;
 };
 
 type NoticeMailModalState = {
@@ -538,6 +539,11 @@ function fmtRelativeTime(iso: string | null | undefined): string | null {
 function fmtYen(value: number | string | null | undefined) {
   const n = Number(value ?? 0);
   return n > 0 && Number.isFinite(n) ? `¥${Math.round(n).toLocaleString("ja-JP")}` : "—";
+}
+
+function fmtTaxIncludedYen(value: number | string | null | undefined) {
+  const n = Number(value ?? 0);
+  return n > 0 && Number.isFinite(n) ? fmtYen(Math.round(n * 1.1)) : "—";
 }
 
 function fmtFlowYen(value: number | string | null | undefined) {
@@ -2521,7 +2527,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
         <div className="flex items-center justify-between">
           <h2 className="text-[13px] font-semibold">メンバー別支払</h2>
           <span className="text-[11px] text-muted-foreground">
-            `reward_summary_json.members` から `monthly_reward_payout` を作る
+            支払額は税抜をDB保存し、支払通知書PDFで消費税10%を上乗せ
           </span>
         </div>
         <div className="overflow-hidden rounded-lg border border-border">
@@ -2531,7 +2537,10 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                 <th className="px-3 py-2 text-left font-medium">メンバー</th>
                 <th className="px-3 py-2 text-left font-medium">内訳</th>
                 <th className="px-3 py-2 text-right font-medium">保存済</th>
-                <th className="px-3 py-2 text-right font-medium">支払額</th>
+                <th className="px-3 py-2 text-right font-medium">
+                  <span className="block">支払額</span>
+                  <span className="block text-[10px] font-normal text-muted-foreground">税抜 / 税込</span>
+                </th>
                 <th className="px-3 py-2 text-left font-medium">通知</th>
                 <th className="px-3 py-2 text-right font-medium">支払通知書</th>
               </tr>
@@ -2589,7 +2598,8 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
 	                              {entry.carryInYen > 0 ? (
 	                                <span className="text-sky-700">繰越 {fmtYen(entry.carryInYen)}</span>
 	                              ) : null}
-	                              <span className="font-medium">{fmtYen(entry.totalPay)}</span>
+		                              <span className="font-medium">支払 税抜 {fmtYen(entry.totalPay)}</span>
+                              <span className="text-muted-foreground">税込 {fmtTaxIncludedYen(entry.totalPay)}</span>
 	                              {entry.stockYen > 0 ? (
 	                                <span className="text-amber-700">未払い残 {fmtYen(entry.stockYen)}</span>
 	                              ) : null}
@@ -2602,11 +2612,15 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                       </div>
                     </td>
                     <td className="px-3 py-2 text-right">
-                      <span className={row.isSaved ? "text-emerald-700" : "text-amber-700"}>
-                        {fmtYen(row.savedTotal)}
-                      </span>
+                      <div className={row.isSaved ? "font-semibold text-emerald-700" : "font-semibold text-amber-700"}>
+                        税抜 {fmtYen(row.savedTotal)}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">税込 {fmtTaxIncludedYen(row.savedTotal)}</div>
                     </td>
-                    <td className="px-3 py-2 text-right font-semibold">{fmtYen(row.totalPay)}</td>
+                    <td className="px-3 py-2 text-right">
+                      <div className="font-semibold">税抜 {fmtYen(row.totalPay)}</div>
+                      <div className="text-[10px] text-muted-foreground">税込 {fmtTaxIncludedYen(row.totalPay)}</div>
+                    </td>
                     <td className="px-3 py-2">
                       <NoticeBadge
                         notice={row.notice}
@@ -2755,7 +2769,10 @@ function PayoutAgreementGatePanel({
                 <th className="px-2 py-1.5 text-left font-medium">稼働月</th>
                 <th className="px-2 py-1.5 text-left font-medium">status</th>
                 <th className="px-2 py-1.5 text-left font-medium">reason</th>
-                <th className="px-2 py-1.5 text-right font-medium">支払額</th>
+                <th className="px-2 py-1.5 text-right font-medium">
+                  <span className="block">支払額</span>
+                  <span className="block text-[10px] font-normal text-muted-foreground">税抜 / 税込</span>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
@@ -2776,7 +2793,10 @@ function PayoutAgreementGatePanel({
                     </span>
                   </td>
                   <td className="px-2 py-1.5 text-muted-foreground">{row.reason}</td>
-                  <td className="px-2 py-1.5 text-right font-medium">{fmtYen(row.totalPay)}</td>
+                  <td className="px-2 py-1.5 text-right">
+                    <div className="font-medium">税抜 {fmtYen(row.totalPay)}</div>
+                    <div className="text-[10px] text-muted-foreground">税込 {fmtTaxIncludedYen(row.totalPay)}</div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -3652,8 +3672,8 @@ function MemberMonthlyPayoutMatrix({
               <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">{selectedCell.memberId}</div>
             </div>
             <div className="ml-auto text-right">
-              <div className="text-[16px] font-semibold tabular-nums text-red-800">{fmtFlowYen(selectedCell.totalPay)}</div>
-              <div className="text-[10px] text-muted-foreground">{selectedCell.entries.length} PJ</div>
+              <div className="text-[16px] font-semibold tabular-nums text-red-800">税抜 {fmtFlowYen(selectedCell.totalPay)}</div>
+              <div className="text-[10px] text-muted-foreground">税込 {fmtTaxIncludedYen(selectedCell.totalPay)} / {selectedCell.entries.length} PJ</div>
             </div>
           </div>
 
@@ -3662,7 +3682,10 @@ function MemberMonthlyPayoutMatrix({
               <thead className="border-b border-border bg-muted/40">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium">PJ</th>
-                  <th className="px-3 py-2 text-right font-medium">支払額</th>
+                  <th className="px-3 py-2 text-right font-medium">
+                    <span className="block">支払額</span>
+                    <span className="block text-[10px] font-normal text-muted-foreground">税抜 / 税込</span>
+                  </th>
                   <th className="px-3 py-2 text-right font-medium">本契約</th>
                   <th className="px-3 py-2 text-right font-medium">別財布</th>
                   <th className="px-3 py-2 text-right font-medium">発生額</th>
@@ -3677,7 +3700,10 @@ function MemberMonthlyPayoutMatrix({
                       <div className="font-medium">{entry.projectName}</div>
                       <div className="font-mono text-[10px] text-muted-foreground">{entry.projectId}</div>
                     </td>
-                    <td className="px-3 py-2 text-right font-semibold tabular-nums">{fmtFlowYen(entry.totalPay)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      <div className="font-semibold">税抜 {fmtFlowYen(entry.totalPay)}</div>
+                      <div className="text-[10px] text-muted-foreground">税込 {fmtTaxIncludedYen(entry.totalPay)}</div>
+                    </td>
                     <td className="px-3 py-2 text-right tabular-nums">{entry.regularPaidYen > 0 ? fmtYen(entry.regularPaidYen) : "—"}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{entry.extraPaidYen > 0 ? fmtYen(entry.extraPaidYen) : "—"}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{fmtYen(entry.basePay)}</td>
@@ -3795,6 +3821,11 @@ function PayoutNoticeActions({
       {!row.isSaved && (
         <div className="text-right text-[10px] text-amber-700">確認用PDFは保存前でも作成可 / 発行・送付は保存後</div>
       )}
+      {row.isSaved && !isSent && (
+        <div className="max-w-[260px] text-right text-[10px] leading-snug text-muted-foreground">
+          送付は確認モーダルを開くだけ。そこで「はい・送信」を押すと、送信用PDFを再生成してから keiri@ で実メール送信、Bccに masa / kyoko、成功時に送付済み化。
+        </div>
+      )}
     </div>
   );
 }
@@ -3842,6 +3873,10 @@ function PayoutNoticeMailModal({
         </div>
 
         <div className="max-h-[70vh] overflow-y-auto px-4 py-3 space-y-3 text-[12px]">
+          <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-[11px] leading-relaxed text-blue-900">
+            この画面ではまだ送信されない。「はい・送信」を押した時点で送信用PDFを再生成し、PDFの作成日は送信日になる。そのPDFを添付して keiri@team-armada.jp から実メール送信し、成功したら送付済みにする。
+          </div>
+
           <div className="grid grid-cols-[80px_1fr] gap-x-3 gap-y-1.5">
             <div className="text-muted-foreground">From</div>
             <div className="font-mono">{preview.from}</div>
@@ -3868,6 +3903,9 @@ function PayoutNoticeMailModal({
               </a>
               <span className="ml-2 text-muted-foreground">fileId: {preview.pdfDriveFileId.slice(0, 8)}...</span>
               <span className="ml-2 text-muted-foreground">合計 {fmtYen(preview.totalYen)}</span>
+              {preview.pdfWillRegenerateOnSend && (
+                <span className="ml-2 text-blue-700">送信時に再生成</span>
+              )}
             </div>
             <div className="text-muted-foreground">期日</div>
             <div>{preview.dueDateText}</div>
@@ -3927,8 +3965,8 @@ function PayoutNoticeMailModal({
         </div>
 
         <div className="flex items-center justify-between border-t border-border px-4 py-3">
-          <span className="text-[10px] text-muted-foreground">
-            「はい・送信」を押すと {preview.to} に Gmail から実送信されます
+          <span className="max-w-md text-[10px] leading-snug text-muted-foreground">
+            「はい・送信」を押すと {preview.to} に Gmail から実送信されます。送信用PDFは直前に再生成され、作成日は送信日になります。
           </span>
           <div className="flex gap-2">
             <button

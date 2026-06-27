@@ -70,6 +70,21 @@ function num(value: unknown): number {
   return Number.isFinite(n) ? Math.round(n) : 0;
 }
 
+function text(value: unknown, maxLength = 240) {
+  return typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, maxLength) : "";
+}
+
+function optionalText(value: unknown, maxLength = 240) {
+  const normalized = text(value, maxLength);
+  return normalized || null;
+}
+
+function booleanOrNull(value: unknown): boolean | null {
+  if (value === true || value === "true" || value === "あり" || value === "可" || value === "yes") return true;
+  if (value === false || value === "false" || value === "なし" || value === "不可" || value === "no") return false;
+  return null;
+}
+
 function ymToInt(ym: string): number {
   return /^\d{6}$/.test(ym) ? Number(ym) : 0;
 }
@@ -107,6 +122,7 @@ export function deriveContractApplyPlan(term: AppliedTermRow): ContractApplyPlan
   const dist = (term.billing_distribution || "review_required").toLowerCase();
   const feeHint = (term.fee_type_hint || "unknown").toLowerCase();
   const bdj = (term.billing_distribution_json || {}) as Record<string, unknown>;
+  const extractedTerms = (term.extracted_terms_json || {}) as Record<string, unknown>;
   const warnings: string[] = [];
 
   // 期間。term の period_*_ym を最優先、無ければ billing_distribution_json の months から導出
@@ -132,6 +148,14 @@ export function deriveContractApplyPlan(term: AppliedTermRow): ContractApplyPlan
     counterpartyName: term.counterparty_name || null,
     contractNo: term.contract_no || null,
     quoteNo: term.quote_no || null,
+    deliverablesRequired: booleanOrNull(extractedTerms.deliverables_required ?? extractedTerms.deliverablesRequired),
+    deliverablesNote: optionalText(extractedTerms.deliverables_note ?? extractedTerms.deliverablesNote),
+    expenseReimbursementAllowed: booleanOrNull(
+      extractedTerms.expense_reimbursement_allowed ?? extractedTerms.expenseReimbursementAllowed,
+    ),
+    expenseReimbursementNote: optionalText(
+      extractedTerms.expense_reimbursement_note ?? extractedTerms.expenseReimbursementNote,
+    ),
     appliedAt: new Date().toISOString(),
   };
 

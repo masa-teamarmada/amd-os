@@ -12,7 +12,7 @@ AMD OS の **中心画面**。各 PJ ごとに 1 つあり、URL は `/project/{
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  PJ ヘッダー (= 名前 / レーン / アウトカム / 設立日)   │
+│  PJ ヘッダー (= 名前 / status / 分類 / 契約サマリー)    │
 ├─────────────────────────────────────────────────────┤
 │  AMD スコアグラフ │ PRS / legacy M-X-F │ XRL 進捗グラフ    │
 ├──────────────────┬──────────────────┬──────────────┤
@@ -26,6 +26,8 @@ AMD OS の **中心画面**。各 PJ ごとに 1 つあり、URL は `/project/{
 ```
 
 (= 3 カラム x 2 段、まさ #28 確定 2026-05-24)
+
+PJ ヘッダー最上部には、PJリスト (`/admin/projects`) の正本から、PJメンバー、契約条件、業務委託料、支払い条件、提出物の有無、立替精算可否を表示する。提出物/立替精算は `projects.contract_terms_json` の `deliverablesRequired` / `deliverablesNote` / `expenseReimbursementAllowed` / `expenseReimbursementNote` を見る。値は契約書/見積書から `contract_terms.extracted_terms_json` へ抽出され、Contract Apply 後に PJ 正本へ畳まれる。曖昧な条項は不明のまま表示する。
 
 SU 系 PJ では、PRS primary / legacy M-X-F / XRL グラフは常時表示し、その下で **進捗管理** と **スコア詳細** をタブ切り替えする。2つのタブは横幅いっぱいを左右半分ずつ使う。進捗管理タブは従来のコックピット本文、スコア詳細タブは `/venture-map/amd-score/{projectId}` 相当の PRS Primary / PRS history / legacy M-X-F 詳細 / FRL / XRL チェックリストを cockpit 内に埋め込む。スコア詳細は画面表示直後に裏で読み込み、同じコックピットを見ている間は数分単位で再利用するため、2回目以降のタブ切り替えでは読み込み待ちが出にくい。
 
