@@ -1807,6 +1807,22 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
   const extraBaseTotal = memberRows.reduce((sum, row) => sum + row.extraBasePay, 0);
   const savedAll = expectedEntries.length > 0 && memberRows.every((row) => row.isSaved);
   const rewardCycleCount = new Set(expectedEntries.map((entry) => `${entry.projectId}:${entry.ym}`)).size;
+  const savePayoutDataDisabled =
+    loading ||
+    saving ||
+    noticeSavingMemberId != null ||
+    paymentNudgeSending ||
+    expectedEntries.length === 0 ||
+    hasBudgetBlocker ||
+    guardedActionDisabled;
+  const savePayoutDataTitle = hasBudgetBlocker
+    ? "本契約cap未設定または超過があるため保存できない"
+    : guardedActionTitle ??
+      (expectedEntries.length === 0
+        ? "保存できる報酬明細がない"
+        : savedAll
+          ? "全メンバー分の支払データを再保存する"
+          : "全メンバー分の支払データを保存すると、支払通知書を発行・送付できる");
 
   async function loadAgreementGateForYm(nextYm: string) {
     try {
@@ -2272,16 +2288,8 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
         <button
           type="button"
           onClick={saveAll}
-          disabled={
-            loading ||
-            saving ||
-            noticeSavingMemberId != null ||
-            paymentNudgeSending ||
-            expectedEntries.length === 0 ||
-            hasBudgetBlocker ||
-            guardedActionDisabled
-          }
-          title={hasBudgetBlocker ? "本契約cap未設定または超過があるため保存できない" : guardedActionTitle}
+          disabled={savePayoutDataDisabled}
+          title={savePayoutDataTitle}
           className="h-9 rounded-md bg-foreground px-4 text-[12px] font-medium text-background disabled:opacity-50"
         >
           {saving ? "保存中..." : savedAll ? "再保存" : "支払データ保存"}
@@ -2524,11 +2532,29 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
       </section>
 
       <section className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h2 className="text-[13px] font-semibold">メンバー別支払</h2>
-          <span className="text-[11px] text-muted-foreground">
-            支払額は税抜をDB保存し、支払通知書PDFで消費税10%を上乗せ
-          </span>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-[13px] font-semibold">メンバー別支払</h2>
+            <span className="text-[11px] text-muted-foreground">
+              支払額は税抜をDB保存し、支払通知書PDFで消費税10%を上乗せ
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {!savedAll && (
+              <span className="rounded-md bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
+                発行・送付の前に保存が必要
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={saveAll}
+              disabled={savePayoutDataDisabled}
+              title={savePayoutDataTitle}
+              className="h-8 rounded-md bg-foreground px-3 text-[11px] font-medium text-background disabled:opacity-50"
+            >
+              {saving ? "保存中..." : savedAll ? "再保存" : "支払データ保存"}
+            </button>
+          </div>
         </div>
         <div className="overflow-hidden rounded-lg border border-border">
           <table className="w-full text-[12px]">
@@ -2640,6 +2666,10 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                           (agreementBlockedMemberIds.has(row.memberId) && !canUseAgreementOverride)
                         }
                         saving={noticeSavingMemberId === row.memberId || (noticeMailLoading && noticeMailModal?.row.memberId === row.memberId)}
+                        savingAll={saving}
+                        canSavePayoutData={!savePayoutDataDisabled}
+                        savePayoutDataTitle={savePayoutDataTitle}
+                        onSavePayoutData={saveAll}
                         onIssueNoticePdf={issueNoticePdf}
                         onOpenPdf={openPdfUrl}
                         onPreviewNoticePdf={previewNoticePdf}
@@ -3731,15 +3761,23 @@ function PayoutNoticeActions({
   onPreviewNoticePdf,
   onUpdateNoticeSent,
   onOpenSendMailModal,
+  savingAll,
+  canSavePayoutData,
+  savePayoutDataTitle,
+  onSavePayoutData,
 }: {
   row: MemberPayoutRow;
   disabled: boolean;
   saving: boolean;
+  savingAll: boolean;
+  canSavePayoutData: boolean;
+  savePayoutDataTitle: string;
   onIssueNoticePdf: (row: MemberPayoutRow, options?: { forceReissue?: boolean }) => void;
   onOpenPdf: (pdfUrl: string | null | undefined) => void;
   onPreviewNoticePdf: (row: MemberPayoutRow) => void;
   onUpdateNoticeSent: (row: MemberPayoutRow, patch: NoticeSavePatch) => void;
   onOpenSendMailModal: (row: MemberPayoutRow) => void;
+  onSavePayoutData: () => void;
 }) {
   if (row.noticeExcluded) {
     return <span className="block text-right text-[11px] text-muted-foreground">通知対象外</span>;
@@ -3819,7 +3857,20 @@ function PayoutNoticeActions({
         )}
       </div>
       {!row.isSaved && (
-        <div className="text-right text-[10px] text-amber-700">確認用PDFは保存前でも作成可 / 発行・送付は保存後</div>
+        <div className="flex flex-col items-end gap-1">
+          <button
+            type="button"
+            onClick={onSavePayoutData}
+            disabled={!canSavePayoutData}
+            title={savePayoutDataTitle}
+            className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-50"
+          >
+            {savingAll ? "保存中..." : "支払データ保存"}
+          </button>
+          <div className="max-w-[260px] text-right text-[10px] leading-snug text-amber-700">
+            PDF確認は保存前でも可。保存すると発行・送付が有効。
+          </div>
+        </div>
       )}
       {row.isSaved && !isSent && (
         <div className="max-w-[260px] text-right text-[10px] leading-snug text-muted-foreground">

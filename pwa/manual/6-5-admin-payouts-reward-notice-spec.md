@@ -80,6 +80,8 @@ MS / PlanCycle が未設定の PJ は報酬計算対象外。支払が必要な�
 
 メンバー行 × PJ 列のマトリクス。 各セルに per-PJ の per-member 支払額。 行末に各メンバーの月次合計、 PJ 列末に各 PJ の月次合計。
 
+支払通知書の正式発行・送付は、先に `支払データ保存` を実行して `monthly_reward_payout` と `payout_notices.total_yen` を確定してから行う。UI では上部の一括操作列に加えて、「メンバー別支払」見出しと未保存行の支払通知書操作欄にも同じ保存CTAを出し、発行ボタンが disabled の時でも次に押す場所が分かるようにする。
+
 ### 月初合意ステータスとの境界
 
 `/admin/monthly-work-agreements?ym=YYYYMM` で、支払対象になりうる active member / active project member が当月の遂行内容・予定報酬に合意済みかを確認できる。ここで保存される `member_monthly_work_agreements` は月初計画 snapshot と hash の監査レイヤーで、`/admin/payouts` の報酬計算や支払通知書発行額を直接変更しない。
