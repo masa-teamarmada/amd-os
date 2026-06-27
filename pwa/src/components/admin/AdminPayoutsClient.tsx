@@ -1769,24 +1769,12 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
     : 0;
   const rewardCycleCount = new Set(expectedEntries.map((entry) => `${entry.projectId}:${entry.ym}`)).size;
   const snapshotSyncBlocked = snapshotSyncNeeded && (hasBudgetBlocker || guardedActionDisabled);
-  const snapshotSyncStatusLabel = expectedEntries.length === 0
-    ? "同期対象なし"
-    : snapshotSyncBlocked
-      ? "同期できない"
-      : snapshotSyncNeeded
-        ? "発行時に同期"
-        : "同期済み";
   const snapshotSyncStatusTitle = hasBudgetBlocker
     ? "本契約cap未設定または超過があるため同期できない"
     : guardedActionTitle ??
       (snapshotSyncNeeded
         ? `表示中のDBスナップショット差分: 報酬明細 ${unsyncedPayoutEntryCount}件 / 通知額 ${unsyncedNoticeCount}件。発行・送付時は同期してから進む。画面は読み取りだけで定期更新する`
         : "最新計算額が monthly_reward_payout と payout_notices.total_yen に同期済み");
-  const snapshotSyncStatusClass = snapshotSyncBlocked
-    ? "border-red-200 bg-red-50 text-red-800"
-    : snapshotSyncNeeded
-      ? "border-amber-200 bg-amber-50 text-amber-800"
-      : "border-emerald-200 bg-emerald-50 text-emerald-800";
   const bulkPdfBaseDisabled =
     loading ||
     noticeSavingMemberId != null ||
@@ -2287,12 +2275,14 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
           報酬キャッシュ再計算
         </button>
 
-        <span
-          title={snapshotSyncStatusTitle}
-          className={`inline-flex h-9 items-center rounded-md border px-3 text-[12px] font-medium ${snapshotSyncStatusClass}`}
-        >
-          {snapshotSyncStatusLabel}
-        </span>
+        {snapshotSyncBlocked && (
+          <span
+            title={snapshotSyncStatusTitle}
+            className="inline-flex h-9 items-center rounded-md border border-red-200 bg-red-50 px-3 text-[12px] font-medium text-red-800"
+          >
+            同期できない
+          </span>
+        )}
 
         <button
           type="button"
@@ -2375,7 +2365,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
 
       <div className="grid gap-2 md:grid-cols-6">
         <SummaryBox label="対象cycle" value={`${data?.cycles.length ?? 0}件`} sub={`${rewardCycleCount}件に報酬明細あり`} />
-        <SummaryBox label="報酬明細" value={`${expectedEntries.length}件`} sub={syncedAll ? "同期済み" : "発行時同期"} />
+        <SummaryBox label="報酬明細" value={`${expectedEntries.length}件`} sub="税抜ベース" />
         <SummaryBox label="支払メンバー" value={`${memberRows.length}人`} sub={`通知額 ${data?.notices.length ?? 0}件`} />
         <SummaryBox label="本契約発生" value={fmtYen(regularBaseTotal)} sub="regular MS" />
         <SummaryBox label="別財布発生" value={fmtYen(extraBaseTotal)} sub="cap_extra MS" />
@@ -2391,12 +2381,14 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
             </span>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <span
-              title={snapshotSyncStatusTitle}
-              className={`inline-flex h-8 items-center rounded-md border px-2.5 text-[11px] font-medium ${snapshotSyncStatusClass}`}
-            >
-              {snapshotSyncStatusLabel}
-            </span>
+            {snapshotSyncBlocked && (
+              <span
+                title={snapshotSyncStatusTitle}
+                className="inline-flex h-8 items-center rounded-md border border-red-200 bg-red-50 px-2.5 text-[11px] font-medium text-red-800"
+              >
+                同期できない
+              </span>
+            )}
             <button
               type="button"
               onClick={() => saveThenRunBulkIssue()}
@@ -3839,11 +3831,6 @@ function PayoutNoticeActions({
           <span className="ml-1">送付 {new Date(row.notice.sent_at).toLocaleString("ja-JP")}</span>
         )}
       </div>
-      {!row.isSaved && (
-        <div className="max-w-[260px] text-right text-[10px] leading-snug text-amber-700">
-          発行・送付時に同期してPDFを作成。
-        </div>
-      )}
       {row.isSaved && !isSent && (
         <div className="max-w-[260px] text-right text-[10px] leading-snug text-muted-foreground">
           送付は確認モーダルを開くだけ。そこで「はい・送信」を押すと、送信用PDFを再生成してから keiri@ で実メール送信、Bccに masa / kyoko、成功時に送付済み化。

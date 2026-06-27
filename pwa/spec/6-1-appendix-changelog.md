@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-06-27 | FEATURE_REGISTRY / SPEC_pwa / Admin Payouts | 修正 | `/admin/payouts` の通常同期差分バッジを非表示にし、`同期できない` だけを月初合意gate・本契約cap blocker の停止表示として残す contract へ変更 | 発行・送付時に自動同期する差分を押せないバッジとして見せると、運用者が手動操作を探してしまうため | えいみ |
 | 2026-06-27 | FEATURE_REGISTRY / SPEC_pwa / Admin Payouts | 修正 | 同期差分ありの状態表示を `未同期` から `発行時に同期` に変更し、`/admin/payouts` の開きっぱなしタブが 60 秒ごとに read-only 再取得して同期状態へ追随する contract を追加 | 6月分の実DB差分が0でも古い画面stateで `未同期` が残り、発行可否が分かりにくかったため | えいみ |
 | 2026-06-27 | FEATURE_REGISTRY / SPEC_pwa / Admin Payouts | 修正 | `/admin/payouts` 表示時の自動POST保存を廃止し、画面上は `同期済み` / `未同期` / `同期できない` の状態表示に変更。`payout-notice-prebuild` cron は `savePayoutDataSnapshot` で支払データ同期後に正式PDFを事前生成する contract へ変更 | ページを開いただけで `自動保存中` になる体験をなくし、発行ボタン押下時に数分待つ運用を減らすため | えいみ |
 | 2026-06-27 | FEATURE_REGISTRY / SPEC_pwa / Admin Payouts | 変更 | `/admin/payouts` の支払額 source を最新計算額へ戻し、`monthly_reward_payout` / `payout_notices.total_yen` を自動同期スナップショットとして扱う contract に変更。正式PDF発行・一括発行・強制再発行・送付は直前にサーバー側同期を実行し、月初合意gate・本契約cap blocker の時だけ停止する。支払通知書PDFは発行者側ラベルを `インボイス登録番号` に変更し、作成日/通知書番号/ロゴ/会社情報を右揃えにする | 保存ボタンを押す運用をなくし、金額変更とPDF表示を自動で追随させるため | えいみ |
