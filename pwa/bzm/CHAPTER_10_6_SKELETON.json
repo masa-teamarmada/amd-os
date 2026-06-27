@@ -1,0 +1,349 @@
+{
+  "ch_overview": {
+    "core_proposition": "Malerba (2002, 2004) Sectoral Systems of Innovation (SSI) 5 次元 {K=Knowledge, A=Actors, I=Institutions, D=Demand, T=Technology} を BZM の機関 ERS 8 軸 {1=産学連携, 2=起業支援制度, 3=シーズ発掘, 4=兼業COI規程, 5=人材接続, 6=資金接続, 7=文化実績, 8=設立後継続支援} へ全射埋め込みする写像 φ: {1..8} → 2^{K,A,I,D,T} を formal 構成し、命題 5.M (カバレッジ全射 + 各軸非空 + 極小被覆) を 8×5 カバレッジ行列で確立する。3 レーン L ∈ {Deep-tech, Bio, Material} のレーン重み w(L) を確率単体 Δ^7 上で定義し、階層 Dirichlet 事前分布 (基底 w_0 + レーン偏差 + 符号制約 truncation) として Ch 9 加重和 Σ w_k(L) A_k のレーン分解に乗せる。Klevorick-Levin-Nelson-Winter (1995) 三つ組 (技術機会 / 占有可能性 / 累積性) を SSI T 次元の内訳として接続し、Aghion-Howitt creative destruction + Cohen-Levinthal absorptive capacity との整合を補強層として、3 不等式 (S1) w_2(Bio) > others, (S2) w_8(Material) > others, (S3) w_6(Deep-tech) > others を事前コミット (Ch 26b OSF, Tier B)。系 5.NW (Nelson-Winter pre-firm 双対) を τ_B 前後の選抜オペレータ可換性 / 連続性命題として formal 化し、Malerba SSI が扱う firm 後を pre-firm 段階で補完する位置付けを確立。Cooke (1992) RIS / Lundvall (1992) NIS / Saxenian (1994) Regional Advantage との階層整合 (SSI ⊂ RIS ⊂ NIS) を w(L) の地域・国 fixed effect 吸収として明示。",
+    "load_bearing_claims": [
+      "命題 5.M (カバレッジ全射 + 極小被覆): 全射 φ: {1..8} → 2^{K,A,I,D,T} は (i) ∀k, φ(k) ≠ ∅, (ii) ∪_k φ(k) = {K,A,I,D,T}, (iii) 補題 10.6.1 として極小被覆性は構造的に成立せず 8→5 の冗長性が ERS 機関軸の運用定義の帰結であることを示す。8×5 カバレッジ行列 M_{kd} ∈ {0,1} で行和 ≥ 1 かつ列和 ≥ 1 として表現",
+      "レーン重み w_k(L) ∈ Δ^7 (w_k(L) ≥ 0, Σ_k w_k(L) = 1) を Ch 9 加重和 Σ w_k A_k のレーン分解として定義。階層 Dirichlet 事前分布 (基底 w_0 + レーン偏差 + 符号制約 truncation) で Ch 11 BVAR 推定へ送る",
+      "事前コミット符号制約 (Ch 26b OSF 事前登録, Tier B): (S1) w_2(Bio) > w_2(Deep-tech), w_2(Material) — Bio は高占有可能性 (特許 + 薬事規制) → I 次元支配 → 起業支援制度軸; (S2) w_8(Material) > w_8(Deep-tech), w_8(Bio) — Material は高累積性 (量産安定性) → A+T+D → 設立後継続支援 + 文化実績軸; (S3) w_6(Deep-tech) > w_6(Bio), w_6(Material) — Deep-tech は高技術機会 + 低占有可能性 → 長期 D 接続必要 → 資金接続軸",
+      "符号制約根拠の三段論法: KLN-W 三つ組をレーン別プロファイルとして導入 → SSI T 次元の内訳として接続 → 三つ組プロファイル経由で SSI 次元支配を導出 → φ の M_{kd} 行を通じて ERS 軸の優位性へ翻訳。Aghion-Howitt creative destruction (Deep-tech 長期資金) + Cohen-Levinthal absorptive capacity (Bio/Material 累積性) を補強層として整合確認",
+      "系 5.NW (Nelson-Winter pre-firm 双対): 機関 ERS は Nelson-Winter (1982) 選抜環境の τ_B 前段 (法人化前) の双対表現。τ_B 連続性命題として選抜オペレータの引き継ぎ条件を formal stating、Ch 10.4 Theorem 3 (A1)-(A4) の順序入替不可性と整合。BZM は Malerba SSI を pre-firm 段階へ拡張する補完位置付け",
+      "Cooke RIS + Lundvall NIS + Saxenian Regional Advantage との階層整合: SSI ⊂ RIS ⊂ NIS の入れ子で BZM 機関 ERS は SSI 層、地域・国層は w(L) の地域・国 fixed effect として吸収 (Ch 11 BVAR 階層モデルへ commission)",
+      "Ch 10.5 (Klepper 時間構造 = post-B 統合ハザード) / Ch 10.6 (Malerba 空間構造 = SSI 5 次元カバレッジ + w(L) 符号制約) / Ch 10.7 (Murmann 共進化 = η_jt sector 分解) の三節分担を時間 × 空間 × 共進化で直交的に確立"
+    ],
+    "logical_arc": "§10.6.0 で 3 機関 (type R = Deep-tech 強い研究大学 / type M = Bio 強い医療系大学 / type P = Material 強い高専・地方大型、D-034 匿名化) の ERS プロファイル対比を提示し、同じ 8 軸でもレーンごとに支配軸が質的に異なる observation を URA/EIR 直感言語で語る。Malerba SSI 5 次元の ad-hoc 性 + Klepper (時間) / Murmann (共進化) との分担 (Ch 10.6 = 空間) を予告 → §10.6.1 で SSI 5 次元の operational 再定義 + 全射 φ formal 定義 + 8×5 カバレッジ行列 M (cell 根拠を Malerba 原典節番号と対応付け、付録 A へ完全証明委譲, D-047) + 命題 5.M 証明スケッチ (全カバー + 各軸非空 + 補題 10.6.1 極小被覆) + ker φ と観測等価類 + 識別仮定 + SSI/RIS/NIS 階層整合 → §10.6.2 で w(L) 確率単体定義 + 階層 Dirichlet 事前 + KLN-W 三つ組を SSI T 次元の内訳として接続 + 3 レーン三つ組プロファイル + 符号制約 (S1)(S2)(S3) 導出 + Aghion-Howitt / Cohen-Levinthal 補強 + RIS/NIS 地域・国 fixed effect 吸収 + Saxenian Silicon Valley vs Route 128 再解釈 + Tier 規律宣言 + Ch 11/26b commission → §10.6.3 で系 5.NW formal stating (選抜オペレータ可換性 / τ_B 連続性命題) + Ch 10.4 Theorem 3 (A1)-(A4) 整合 + BZM が Malerba SSI を pre-firm 拡張する位置付け + Ch 10 三節分担表 (時間 × 空間 × 共進化) + 下流 commission (Ch 10.7 / Ch 11 / Ch 26b / Ch 32 / Book III / 付録 A) + 章末まとめ",
+    "synthesis_rationale": "3 judges が分割 (Lens A = B, Lens B = B, Lens C = C) したため、winner 多数決の B を骨格に採用しつつ、Lens C judge が高評価した C の RIS/NIS/Saxenian 階層整合 + 8×5 行列 cell 根拠の Malerba 原典節番号対応 + 現場語彙節頭ストーリーを graft し、Lens A の極小被覆性 (補題 10.6.1) + 選抜オペレータ可換性による系 5.NW formal 化 + Tier 規律明示を加える。具体的には: (1) 骨格 = B (確率単体 Δ^7 + 階層 Dirichlet + ker φ + Aghion-Howitt/Cohen-Levinthal + 時間×空間×共進化分担), (2) C から graft = RIS/NIS 階層整合 + Saxenian 再解釈 + 8×5 cell 原典節番号対応 + Ch 32 レーン×軸処方, (3) A から graft = 補題 10.6.1 極小被覆性 + 選抜オペレータ可換性で系 5.NW formal 化 + Tier A/B 規律明示 + 三つ組 strict inequality BVAR 実装 open issue。これにより Lens A (rigor) + Lens B (publishability) + Lens C (masa-fidelity) を 7p 内で同時最大化"
+  },
+  "sections": [
+    {
+      "section_id": "10.6.0",
+      "title": "節頭ストーリー — 同じ ERS、違うレーン: 3 機関 3 プロファイルと空間構造の問い",
+      "pages": 1,
+      "math_level": "low (記述中心、φ / w(L) / ERS 8 軸の記号導入のみ)",
+      "anchor_claims": [
+        "同じ ERS 8 軸チェックリストで Deep-tech 強い研究大学 type R / Bio 強い医療系大学 type M / Material 強い高専・地方大型 type P を採点すると、強い軸 / 弱い軸のプロファイルが系統的に異なる",
+        "プロファイル差は機関個性ではなく、当該機関が属するレーン (セクター系) の技術機会・占有可能性・累積性に駆動される空間構造の表れである",
+        "Malerba (2002, 2004) SSI 5 次元 (K, A, I, D, T) は ad-hoc な質的分類のまま放置されており、BZM は機関 ERS 8 軸との formal 写像 φ + レーン重み w(L) の符号制約事前コミットでこの ad-hoc 性を解消する",
+        "Ch 10.6 は Ch 10.5 (Klepper 時間構造) と Ch 10.7 (Murmann 共進化) の中間で空間構造 (どのセクターが何を要求するか) を担う"
+      ],
+      "paragraph_outline": [
+        "導入: ある研究機関連携合議の場面で同じ ERS 8 軸チェックリストを 3 機関 (type R / type M / type P, D-034 匿名化) に当てた採点シートが並び、軸プロファイルが質的に異なることを観察者の問として提示",
+        "type R = Deep-tech 強い研究大学: ERS 軸 6 (資金接続) と軸 1 (産学連携) が突出、軸 7 (文化実績) は薄い。長期 patient capital 必要性が前面に出るレーン感覚",
+        "type M = Bio 強い医療系大学: ERS 軸 2 (起業支援制度) と軸 4 (兼業COI規程) が突出、軸 8 (設立後継続支援) も中位。医薬規制 + IRB + GxP 由来の制度依存度が前面に出るレーン感覚",
+        "type P = Material 強い高専・地方大型: ERS 軸 7 (文化実績 = 量産安定性) と軸 8 (設立後継続支援) が突出、軸 6 (資金接続) は薄い。累積的経験と長期顧客関係に依存するレーン感覚",
+        "観察者の問: この差は機関能力差か、レーン (セクター) 差か。レーン差ならば formal な写像装置が要る。Ch 10.5 (Klepper, 時間: ライフサイクル) や Ch 10.7 (Murmann, 時間+関係: 共進化) では捉えられない空間構造 (どのセクターが何を要求するか) がここに存在する",
+        "Malerba (2002, 2004) Sectoral Systems of Innovation を簡潔導入: SSI 5 次元 {K=Knowledge, A=Actors, I=Institutions, D=Demand, T=Technology} は ad-hoc な質的分類のまま 20 年使われており、機関 ERS 8 軸との対応は文献上未確立",
+        "Klevorick-Levin-Nelson-Winter (1995) 三つ組 (技術機会 / 占有可能性 / 累積性) と Cooke (1992) RIS / Lundvall (1992) NIS / Saxenian (1994) Regional Advantage を簡略導入し、本節 10.6 がこれらを w(L) 符号制約と階層整合として組み込むことを予告",
+        "Ch 10 三節分担表を一枚で提示: Ch 10.5 = Klepper 時間構造 (post-B 統合ハザード) / Ch 10.6 = Malerba 空間構造 (SSI φ + w(L) 符号制約) / Ch 10.7 = Murmann 共進化 (η_jt sector 分解)。時間 × 空間 × 共進化で直交する",
+        "章方針: §10.6.1 全射 φ + 命題 5.M (3 条件 + 補題 10.6.1) / §10.6.2 w(L) + KLN-W 三つ組経由符号制約 / §10.6.3 系 5.NW + commission の順で 7p heavy で進めることを予告。完全証明は付録 A (D-047) に委譲し、経験的検証は Ch 11/26b (Tier B) に commission する規律 (D-031) を最後に明示"
+      ],
+      "new_writing_required": "節頭ストーリー全体 (type R/M/P 3 機関の ERS プロファイル対比、Ch 10.6 ロードマップ、Ch 10 三節分担表)。type 名匿名化は Ch 10.4/10.5 節頭様式と整合",
+      "existing_reuse": "Ch 3 ERS 8 軸概念体系、Ch 9 加重和 Σ w_k A_k の表記、Ch 10.5 節頭ストーリー様式 (D-034 匿名化準拠)",
+      "upstream_dependencies": [
+        "Ch 3 ERS 8 軸概念定義",
+        "Ch 9 ERS 加重和代数 Σ w_k A_k",
+        "Ch 10.4 二層非可換性 Theorem 3 と (A1)-(A4)",
+        "Ch 10.5 統合ハザード (Klepper post-B 分担確認)"
+      ],
+      "downstream_dependencies": [
+        "§10.6.1 全射 φ formal 定義への動機",
+        "§10.6.2 w(L) レーン別重みの直感的基礎",
+        "Book III セクターレーン章 (Bio/Material/Deep-tech 機関ケース)"
+      ],
+      "references": [
+        "Malerba (2002) Sectoral systems of innovation and production, Research Policy 31(2)",
+        "Malerba (2004) Sectoral Systems of Innovation: Concepts, Issues and Analyses of Six Major Sectors, Cambridge UP",
+        "Klevorick, Levin, Nelson, Winter (1995) Research Policy 24 (簡略導入)",
+        "Ch 3, Ch 9, Ch 10.4, Ch 10.5 本書内参照"
+      ],
+      "source_drafts": [
+        "B 節頭の type R/M/P 軸別具体プロファイル提示を骨格採用",
+        "C から RIS/NIS/Saxenian の簡略導入と Ch 10 三節分担表の §10.6.0 提示を graft",
+        "A から章方針宣言 (3 章末 commission の予告) と D-031 Tier 規律の最終言及を graft"
+      ]
+    },
+    {
+      "section_id": "10.6.1",
+      "title": "全射 φ: ERS 8 軸 → SSI 5 次元 と命題 5.M (カバレッジ全射 + 極小被覆 + 識別可能性)",
+      "pages": 2.5,
+      "math_level": "heavy (写像論 / 全射 / 8×5 カバレッジ行列 / 命題 5.M + 補題 10.6.1 + ker φ + 観測等価類)",
+      "anchor_claims": [
+        "定義 10.6.1: φ: {1..8} → 2^{K,A,I,D,T} を機関 ERS 8 軸 k ∈ {1..8} を Malerba SSI 5 次元の冪集合に対応させる写像 φ(k) ⊆ {K, A, I, D, T} として formal 定義",
+        "命題 5.M (カバレッジ全射 + 各軸非空 + 極小被覆構造的不成立): (i) ∀k, φ(k) ≠ ∅ (各 ERS 軸が少なくとも 1 SSI 次元をカバー), (ii) ∪_k φ(k) = {K,A,I,D,T} (全 5 SSI 次元が少なくとも 1 ERS 軸でカバー = 全射), (iii) 補題 10.6.1 として極小被覆性は構造的に成立しない (8 → 5 の冗長性は ERS 運用定義の帰結)",
+        "8×5 カバレッジ行列 M_{kd} ∈ {0,1} で formal 表現: M_{kd} = 1 iff d ∈ φ(k)。各 cell の根拠は Malerba (2002, 2004) 原典節番号と対応付け、完全証明は付録 A (D-047)",
+        "ER S 8 軸の SSI 次元割当て (BOOK_DECISIONS で正本固定要): k=1 産学連携 → {K, A}, k=2 起業支援制度 → {I, A}, k=3 シーズ発掘 → {K, T}, k=4 兼業COI規程 → {I, A}, k=5 人材接続 → {A, K}, k=6 資金接続 → {D, I, A}, k=7 文化実績 → {A, T, D}, k=8 設立後継続支援 → {I, A, T, D}",
+        "ker φ と観測等価類 / 識別可能性: φ は全射だが非単射 (8 > 5)。ker φ の幾何 (どの 8 軸ベクトル差が SSI 5 次元では区別できないか) を明示し、識別可能性は §10.6.2 の w(L) 符号制約で初めて回復される",
+        "SSI ⊂ RIS ⊂ NIS の階層整合: 本節 φ は SSI 層を担い、RIS 層 (地域) と NIS 層 (国) は §10.6.2 で w(L) の地域・国 fixed effect として吸収 (Ch 11 BVAR 階層モデルへ commission)"
+      ],
+      "paragraph_outline": [
+        "Malerba SSI 5 次元 {K, A, I, D, T} の operational 再定義 (BZM 文脈): K = 当該セクターの知識基盤 (科学 vs 経験、暗黙 vs 形式)、A = 主体集合 (大学 / 公的研究機関 / 企業 / 利用者 / 規制者)、I = 制度 (特許制度 / 規制 / 慣習 / 兼業規定)、D = 需要 (顧客タイプ / 公的調達 / 規制需要)、T = 技術構造 (技術機会 / 占有可能性 / 累積性)。Malerba 原典との表記対応を明記し、T 次元の内訳が §10.6.2 で KLN-W 三つ組と接続することを予告",
+        "定義 10.6.1 の formal stating: 写像 φ: {1..8} → 2^{K,A,I,D,T}, φ(k) ⊆ {K, A, I, D, T} は ERS 軸 k がカバーする SSI 次元の集合。なぜ単純写像でなく冪集合写像か (機関 ERS 軸の多次元性) を 1 段落で説明",
+        "ERS 8 軸 → SSI 次元割当て表の提示: k=1 → {K, A} / k=2 → {I, A} / k=3 → {K, T} / k=4 → {I, A} / k=5 → {A, K} / k=6 → {D, I, A} / k=7 → {A, T, D} / k=8 → {I, A, T, D}。各 cell の根拠を Malerba (2002, 2004) 原典の節番号と短く対応付け、完全な根拠付けは付録 A へ委譲",
+        "8×5 カバレッジ行列 M_{kd} ∈ {0,1}^{8×5} の formal 提示: M_{kd} = 1 iff d ∈ φ(k)。表として行 = ERS 軸 1..8、列 = SSI 次元 K, A, I, D, T で並べ、行和 / 列和 を表外に付す",
+        "命題 5.M を 3 条件で formal stating: (i) ∀k ∈ {1..8}, Σ_d M_{kd} ≥ 1 (各 ERS 軸非空), (ii) ∀d ∈ {K,A,I,D,T}, Σ_k M_{kd} ≥ 1 (全 SSI 次元カバー = 全射), (iii) 補題 10.6.1 として極小被覆性は構造的に成立しない (8 軸冗長性は ERS 運用定義の帰結)",
+        "命題 5.M 証明スケッチ (D-047 準拠、本文): 上の M 行列で行和 / 列和 を直接確認することで (i)(ii) を構成的に証明。補題 10.6.1 (極小被覆性不成立) は任意の 1 軸を除去して残り 7 軸でなお全 5 次元カバーが成立する反例構成で示し、構造的冗長性が ERS 運用定義の帰結であることを論じる。完全証明は付録 A (D-047)",
+        "ker φ の幾何と観測等価類: φ は全射だが非単射 (8 > 5)。例えば k=1 と k=5 がともに K を含み、k=4 と k=2 がともに I を含む。ker φ = {Δw ∈ R^8 | Σ_k Δw_k M_{kd} = 0 for all d} の幾何を確認し、観測等価類が w(L) なしでは識別不可能であることを示す",
+        "識別可能性の回復: φ 単独では 8 軸の独立識別は不可能だが、§10.6.2 の w(L) 符号制約 (S1)(S2)(S3) を加えると 3 レーン × 8 軸の連立で識別可能性が回復することを Ch 11 BVAR 識別仮定の前哨として明示",
+        "Cooke (1992) RIS + Lundvall (1992) NIS + Asheim-Gertler (2005) RIS 概観との階層整合: SSI ⊂ RIS ⊂ NIS の入れ子で本節 φ は SSI 層を担う。RIS 層 (地域) と NIS 層 (国) は w(L) の地域・国 fixed effect として §10.6.2 で吸収する方針を予告",
+        "Ch 11 BVAR への送り: φ の 8×5 行列 M を識別行列として渡し、Ch 32 ERS 8 軸別処方には φ(k) を機関タイプ別処方の根拠として渡すことを commission"
+      ],
+      "new_writing_required": "定義 10.6.1, 命題 5.M, 補題 10.6.1, 8×5 カバレッジ行列の表組み, ER S 8 軸 → SSI 5 次元割当て表 (cell 根拠は Malerba 原典節番号対応), ker φ と観測等価類の幾何議論, 識別可能性回復の Ch 11 BVAR 前哨, SSI/RIS/NIS 階層整合段落",
+      "existing_reuse": "Ch 3 ERS 8 軸定義 (k=1..8 ラベル), Ch 9 加重和 Σ w_k A_k 表記, D-051 記号正本 (φ, K, A, I, D, T, k, ERS)",
+      "upstream_dependencies": [
+        "§10.6.0 節頭ストーリー (3 機関プロファイル動機)",
+        "Ch 3 ERS 8 軸定義",
+        "Ch 9 ERS 加重和代数",
+        "Ch 10.4 Theorem 3 (A1)-(A4) との両立制約",
+        "Malerba (2002, 2004) SSI 5 次元"
+      ],
+      "downstream_dependencies": [
+        "§10.6.2 w(L) 符号制約は φ の上に乗る",
+        "§10.6.3 系 5.NW は φ の Nelson-Winter 双対",
+        "Ch 10.7 Murmann 共進化 η_jt の sector 分解は φ + w(L) を入力",
+        "Ch 11 BVAR 識別行列入力",
+        "Ch 32 ERS 8 軸別処方は φ(k) で機関タイプ分類",
+        "付録 A 完全証明 (D-047)"
+      ],
+      "references": [
+        "Malerba (2002) Res Pol 31(2)",
+        "Malerba (2004) Sectoral Systems of Innovation, CUP",
+        "Edquist (1997) Systems of Innovation",
+        "Cooke (1992) Regional Innovation Systems, Geoforum 23(3)",
+        "Lundvall (1992) National Systems of Innovation, Pinter",
+        "Asheim-Gertler (2005) Oxford Handbook of Innovation, Ch 11"
+      ],
+      "source_drafts": [
+        "B の SSI 5 次元 operational 再定義 + 8 軸割当て + ker φ + 観測等価類 + 識別可能性議論を骨格採用",
+        "A から命題 5.M を 3 条件 + 補題 10.6.1 (極小被覆性構造的不成立) で stating する formal 厳密度を graft",
+        "C から 8×5 行列 cell 根拠を Malerba 原典節番号と対応付ける D-047 運用規律 + SSI/RIS/NIS 階層整合の §10.6.1 内予告を graft"
+      ]
+    },
+    {
+      "section_id": "10.6.2",
+      "title": "レーン重み w(L) と Klevorick-Levin-Nelson-Winter 三つ組経由の符号制約事前コミット",
+      "pages": 2.5,
+      "math_level": "heavy (確率単体 Δ^7 / 階層 Dirichlet truncation 事前 / 不等式制約 / KLN-W 三つ組 → 符号制約導出論理)",
+      "anchor_claims": [
+        "定義 10.6.2: レーン重み w(L) = (w_1(L), ..., w_8(L)) ∈ Δ^7 = {w | w_k ≥ 0, Σ_k w_k = 1} をレーン L ∈ {Deep-tech, Bio, Material} ごとに確率単体上で定義。Ch 9 加重和 Σ w_k A_k のレーン分解 H(L) = Σ_k w_k(L) A_k(j, L)",
+        "階層 Dirichlet 事前分布: w(L) ~ Dirichlet(α_0 + α(L)) を基底重み w_0 + レーン偏差 + 符号制約 truncation の階層構造で構成。Ch 11 BVAR 推定 (Tier A) へ送り、Ch 26b OSF 事前登録 (Tier B) で符号制約を凍結",
+        "Klevorick-Levin-Nelson-Winter (1995) 三つ組 (技術機会 opportunity / 占有可能性 appropriability / 累積性 cumulativeness) を SSI T 次元の内訳として §10.6.1 の T 定義と接続。Yale Survey 型操作化を Ch 11 / Book III へ commission",
+        "3 レーン三つ組プロファイル: Bio = (機会 中, 占有可能性 高 [特許 + 薬事規制], 累積性 中) → I 次元支配 / Material = (機会 中, 占有可能性 中, 累積性 高 [量産安定性履歴]) → A + T + D 次元支配 / Deep-tech = (機会 高, 占有可能性 低 [汎用性 + 模倣リスク], 累積性 高 [長期 R&D]) → D + I 次元支配",
+        "事前コミット符号制約 (Ch 26b OSF 事前登録, Tier B): (S1) w_2(Bio) > w_2(Deep-tech), w_2(Material) / (S2) w_8(Material) > w_8(Deep-tech), w_8(Bio) / (S3) w_6(Deep-tech) > w_6(Bio), w_6(Material)。strict inequality を採用、truncated Dirichlet で BVAR 実装",
+        "Aghion-Howitt (1992) creative destruction + Cohen-Levinthal (1990) absorptive capacity との整合補強: Deep-tech 高機会 + 低占有可能性 = creative destruction 圧力 → 軸 6 patient capital で horizon 確保 / Bio・Material 累積性 = absorptive capacity 蓄積 → 軸 7・8 文化実績 + 継続支援で組織学習を支える",
+        "Cooke RIS + Lundvall NIS + Saxenian (1994) Silicon Valley vs Route 128 階層整合: w(L) の地域 fixed effect = RIS 層 / 国 fixed effect = NIS 層に吸収。Saxenian 比較は w(L) の地域別分散として再解釈、Book III セクターレーン章での地域機関ケースへ伏線"
+      ],
+      "paragraph_outline": [
+        "定義 10.6.2 の formal stating: w(L) = (w_1(L), ..., w_8(L)) ∈ Δ^7 を確率単体上で定義し、レーン分解加重和 H(L) = Σ_k w_k(L) A_k(j, L) を Ch 9 Σ w_k A_k のレーン特化として位置付け。3 レーンで 3 つの異なる w ベクトルが φ の全射構造と直交する識別パラメータとして並列する",
+        "階層 Dirichlet 事前分布の具体仕様: w(L) ~ Dirichlet(α_0 + α(L)) として、基底重み w_0 (8 軸 uniform) + レーン偏差 α(L) (符号制約方向に shift) + 符号制約 truncation で formal 化。Ch 11 BVAR 推定 (Tier A) と Ch 26b OSF 事前登録 (Tier B) の連動を明示",
+        "Klevorick-Levin-Nelson-Winter (1995) 三つ組の formal 導入: 技術機会 = セクター単位 R&D 投入あたり生産性向上の上限 / 占有可能性 = イノベーターの利益捕捉度 (特許 / 秘匿 / lead time / 補完資産) / 累積性 = 過去の技術蓄積が次期成功確率を高める度合。三つ組が SSI T 次元の内訳を成すことを §10.6.1 の T 定義と接続",
+        "3 レーン三つ組プロファイル比較表: Bio = (機会 中, 占有可能性 高 [FDA + 特許], 累積性 中) / Material = (機会 中, 占有可能性 中, 累積性 高 [量産安定性履歴]) / Deep-tech = (機会 高, 占有可能性 低 [汎用性 + 模倣リスク], 累積性 高 [長期 R&D])。これがレーン重み w(L) のプロファイル差を駆動する理論的根拠",
+        "三つ組 → SSI 次元支配 → ERS 軸支配の 3 段階導出論理: Bio 高占有可能性 → 制度 I 依存度上昇 → φ(2) = {I, A}, φ(4) = {I, A} 経由で軸 2 / 軸 4 重み増 → w_2(Bio) > others. Material 高累積性 → A + T + D 依存度上昇 → φ(7) = {A, T, D}, φ(8) = {I, A, T, D} 経由で軸 7 / 軸 8 重み増 → w_8(Material) > others. Deep-tech 高機会 + 低占有可能性 → 長期 D 接続必要 → φ(6) = {D, I, A} 経由で軸 6 重み増 → w_6(Deep-tech) > others",
+        "事前コミット符号制約 (S1)(S2)(S3) の formal stating: (S1) w_2(Bio) > max{w_2(Deep-tech), w_2(Material)} / (S2) w_8(Material) > max{w_8(Bio), w_8(Deep-tech)} / (S3) w_6(Deep-tech) > max{w_6(Bio), w_6(Material)}。strict inequality を採用、truncated Dirichlet による BVAR 実装方針を Ch 11 へ commission",
+        "Aghion-Howitt (1992) creative destruction + Cohen-Levinthal (1990) absorptive capacity との整合補強: Deep-tech 高機会 + 低占有可能性 = creative destruction 圧力に対応 → 軸 6 patient capital で long horizon 確保。Bio・Material 高累積性 = absorptive capacity 蓄積に対応 → 軸 7 / 8 文化実績 + 継続支援で組織的学習基盤を支える。三つ組プロファイル前提と進化経済学主流伝統の整合確認",
+        "Cooke (1992) RIS / Lundvall (1992) NIS / Saxenian (1994) Regional Advantage 階層整合: w(L) の地域 fixed effect = RIS 層 / 国 fixed effect = NIS 層に吸収。Silicon Valley vs Route 128 の対比は w(L) の地域別分散として再解釈し、Book III セクターレーン章 + Ch 11 BVAR 階層モデルへ commission",
+        "Tier 規律 (D-031) の明示: 本文 (Ch 10.6) の formal 構造 = Tier A、符号制約 (S1)(S2)(S3) の経験的検証 = Tier B (Ch 11 BVAR + Ch 26b OSF 事前登録)。本章では事前コミット形式のみを確立し、検証は commission として後置。Tier 違反時の解釈規律 (BZM 仮定 + 三つ組プロファイル前提が再考対象) も明記",
+        "Klepper (Ch 10.5) との分担再確認: Ch 10.5 の生存ハザード時間構造に対し本節は w(L) のレーン空間構造を担い、両者の合成は Ch 10.7 Murmann 共進化 (η_jt sector 分解) に渡される"
+      ],
+      "new_writing_required": "定義 10.6.2 (確率単体 Δ^7 上の w(L) + 階層 Dirichlet truncation 事前), KLN-W 三つ組 → SSI T 次元接続段落, 3 レーン三つ組プロファイル比較表, 符号制約 (S1)(S2)(S3) strict inequality stating + 3 段階導出論理, Aghion-Howitt + Cohen-Levinthal 整合補強段落, Saxenian Silicon Valley vs Route 128 の w(L) 地域別分散再解釈, Tier A/B 規律宣言と違反時解釈規律",
+      "existing_reuse": "Ch 9 加重和 Σ w_k A_k, §10.6.1 の φ + 8×5 行列, Ch 10.5 統合ハザード分担, Ch 26b OSF 事前登録枠組み, D-031 Tier 規律, D-051 記号正本 (w, L)",
+      "upstream_dependencies": [
+        "§10.6.1 全射 φ + 命題 5.M",
+        "Ch 9 ERS 加重和代数",
+        "Ch 10.4 (A1)-(A4)",
+        "Ch 10.5 Klepper 時間構造との分担",
+        "Klevorick et al. (1995) 三つ組"
+      ],
+      "downstream_dependencies": [
+        "§10.6.3 系 5.NW",
+        "Ch 10.7 Murmann 共進化 η_jt sector 分解",
+        "Ch 11 BVAR レーン別重み推定 + 階層 Dirichlet 事前",
+        "Ch 26b OSF 事前登録 (S1)-(S3) 凍結",
+        "Ch 32 ERS 8 軸別処方 (レーン × 軸の二次元処方)",
+        "Book III セクターレーン章 (Bio/Material/Deep-tech)"
+      ],
+      "references": [
+        "Klevorick, Levin, Nelson, Winter (1995) On the sources and significance of interindustry differences in technological opportunities, Res Pol 24",
+        "Levin, Klevorick, Nelson, Winter (1987) Appropriating the returns from industrial R&D, Brookings Papers",
+        "Aghion & Howitt (1992) A model of growth through creative destruction, Econometrica",
+        "Cohen & Levinthal (1990) Absorptive capacity, ASQ",
+        "Saxenian (1994) Regional Advantage, Harvard UP",
+        "Malerba (2002, 2004)",
+        "Nelson & Winter (1982) Evolutionary Theory, Harvard UP"
+      ],
+      "source_drafts": [
+        "B の確率単体 Δ^7 + 階層 Dirichlet truncation 事前分布仕様 + KLN-W → SSI T 次元接続 + Aghion-Howitt + Cohen-Levinthal 整合補強を骨格採用",
+        "C から Saxenian Silicon Valley vs Route 128 を w(L) 地域別分散として再解釈する装置 + RIS/NIS 階層整合の w(L) fixed effect 吸収を graft",
+        "A から strict inequality 採用 + truncated Dirichlet による BVAR 実装方針 + Tier A/B 規律宣言 + 違反時解釈規律 (三つ組プロファイル前提再考) を graft"
+      ]
+    },
+    {
+      "section_id": "10.6.3",
+      "title": "系 5.NW (Nelson-Winter pre-firm 双対) + Ch 10 三節分担 + Ch 11/26b/32/Book III commission + 章末",
+      "pages": 1,
+      "math_level": "medium (系 5.NW formal stating + τ_B 連続性命題 + 選抜オペレータ可換性 + commission リスト)",
+      "anchor_claims": [
+        "系 5.NW (Nelson-Winter pre-firm 双対): 機関 ERS は Nelson-Winter (1982) 選抜環境の τ_B (法人化時刻) より前段の双対表現である。τ_B 連続性命題として選抜オペレータの引き継ぎ条件 (可換性 / ステージ分解) を formal stating",
+        "Ch 10.4 Theorem 3 (A1)-(A4) との整合: ERS と N-W 選抜の順序入替不可性。前段 ERS をスキップすると後段 N-W 選抜の identifiability が破られる",
+        "BZM が Malerba SSI を補完する位置付け: Malerba SSI は firm 後 (法人化後) sector 構造を扱うが、BZM 機関 ERS はこの pre-firm 段階 (τ_B 前) を formal 化することで Malerba 枠組みを法人化前へ拡張",
+        "Ch 10 内三節分担表: Ch 10.5 = Klepper 時間構造 (post-B 統合ハザード) / Ch 10.6 = Malerba 空間構造 (SSI φ + w(L) 符号制約) / Ch 10.7 = Murmann 共進化 (η_jt sector 分解 + 関係構造)。時間 × 空間 × 共進化で直交する分担",
+        "下流 commission: (i) Ch 10.7 へ φ + w(L) を渡し η_jt sector 分解の入力, (ii) Ch 11 BVAR へ階層 Dirichlet 事前 + 符号制約 (S1)-(S3) を渡し Tier A 推定, (iii) Ch 26b OSF 事前登録に (S1)-(S3) を Tier B 検証として凍結, (iv) Ch 32 で ERS 8 軸別処方をレーン × 軸の二次元で展開, (v) Book III セクターレーン章で Bio/Material/Deep-tech 機関ケース type 名匿名提示 (D-034), (vi) 付録 A で命題 5.M + 補題 10.6.1 完全証明 (D-047)"
+      ],
+      "paragraph_outline": [
+        "系 5.NW の formal stating: 機関 ERS = N-W (1982) 選抜環境の pre-firm (τ_B 前) 段階の双対表現。τ_B 連続性命題として、選抜オペレータ S_ERS (τ_B 前) と S_NW (τ_B 後) の引き継ぎ条件 (可換性ではなくステージ分解 = 順序入替不可) を formal stating。完全な圏論的双対化は付録 A または将来章へ委譲",
+        "BZM の Malerba SSI 補完位置付け: Malerba SSI は firm 後 sector 構造を扱い pre-firm 段階を欠く。BZM 機関 ERS = τ_B 前段の空白を埋め、Malerba 枠組みを法人化前へ拡張する補完関係。命題 5.M + w(L) 符号制約 + 系 5.NW の 4 要素が pre-firm → post-firm の連続性を確立",
+        "Ch 10.4 Theorem 3 (A1)-(A4) との整合確認: ERS と N-W の二段選抜は順序入替不可。前段 ERS をスキップしても後段 N-W の identifiability が保たれる事例が観測されれば二段選抜双対は反証される (falsifiable_claims に明記)",
+        "Ch 10 三節分担表の再掲: 10.5 Klepper = industry life cycle + shakeout (時間: post-B 統合ハザード) / 10.6 Malerba = sector 空間構造 (本節 φ + w(L)) / 10.7 Murmann = 産業-科学共進化 (時間 + 関係構造: η_jt sector 分解)。3 節は時間 × 空間 × 共進化で互いに直交する役割を担う",
+        "Ch 10.6 下流 commission リスト: (i) Ch 10.7 へ φ + w(L) を供給し Murmann η_jt の sector 分解の入力, (ii) Ch 11 BVAR へ階層 Dirichlet 事前 + 符号制約 (S1)-(S3) を渡し Tier A 推定, (iii) Ch 26b OSF 事前登録に符号制約 (S1)-(S3) + 三つ組プロファイル前提を Tier B 検証として凍結, (iv) Ch 32 で ERS 8 軸別処方をレーン × 軸の二次元で展開 (機関タイプ別処方), (v) Book III セクターレーン章で Bio/Material/Deep-tech の機関ケース type 名匿名提示 + 地域 fixed effect (RIS) + 国 fixed effect (NIS) の事例展開, (vi) 付録 A で命題 5.M + 補題 10.6.1 完全証明 (D-047)",
+        "章末まとめ: Ch 10.6 は SSI の空間構造 (どのセクターが何を要求するか) を全射 φ + レーン重み w(L) で formal 化し、Ch 10.5 (時間) / Ch 10.7 (共進化) と合わせて Book II Ch 10 機関-産業-進化三位一体の中心を構成。Tier A (本文 formal 構造) と Tier B (Ch 11/26b 経験的検証) の分担を再確認し、次節 Ch 10.7 Murmann 共進化 (時間 × 空間の積) への接続を予告"
+      ],
+      "new_writing_required": "系 5.NW formal stating (τ_B 連続性命題 + 選抜オペレータステージ分解), Ch 10.4 (A1)-(A4) 整合確認, BZM が Malerba SSI を pre-firm 拡張する位置付け, Ch 10 三節分担表再掲 (時間 × 空間 × 共進化直交), 下流 commission リスト 6 件, 章末まとめ",
+      "existing_reuse": "Ch 10.4 二層非可換性 Theorem 3 + (A1)-(A4), Ch 10.5 統合ハザード分担, Ch 9 加重和, Ch 3 ERS 8 軸, §10.6.1 φ, §10.6.2 w(L) 符号制約, D-031 Tier 規律, D-035 Klepper 分担, D-037 Murmann 分担",
+      "upstream_dependencies": [
+        "§10.6.1 全射 φ + 命題 5.M",
+        "§10.6.2 w(L) 符号制約 + KLN-W 三つ組",
+        "Ch 10.4 Theorem 3 (A1)-(A4)",
+        "Nelson & Winter (1982) 選抜環境"
+      ],
+      "downstream_dependencies": [
+        "Ch 10.7 Murmann 共進化 η_jt sector 分解 (時間 × 空間の積)",
+        "Ch 11 BVAR レーン別推定 + 階層 Dirichlet 事前",
+        "Ch 26b OSF 事前登録 (S1)-(S3) 凍結 + 三つ組プロファイル",
+        "Ch 32 ERS 8 軸別処方 (レーン × 軸)",
+        "Book III セクターレーン章 (Bio/Material/Deep-tech)",
+        "付録 A 命題 5.M + 補題 10.6.1 完全証明 (D-047)"
+      ],
+      "references": [
+        "Nelson & Winter (1982) An Evolutionary Theory of Economic Change, Harvard UP",
+        "Malerba (2002, 2004)",
+        "Klepper (1996) AER (Ch 10.5 接続)",
+        "Murmann (2003) Knowledge and Competitive Advantage, CUP (Ch 10.7 接続)",
+        "Ch 10.4, 10.5, 10.7, 11, 26b, 32, Book III 本書内参照",
+        "付録 A 完全証明"
+      ],
+      "source_drafts": [
+        "B の Ch 10 三節分担表 (時間 × 空間 × 共進化直交) + commission 5 項目 + BZM の Malerba pre-firm 補完位置付けを骨格採用",
+        "A から系 5.NW を選抜オペレータステージ分解 + τ_B 連続性命題で formal stating する数理的踏み込み + Ch 10.4 (A1)-(A4) 整合確認の明示を graft",
+        "C から Ch 32 レーン × 軸処方 + Book III 地域・国 fixed effect (RIS/NIS) 事例展開 + 章末 Ch 10.7 接続予告 (時間 × 空間の積) を graft"
+      ]
+    }
+  ],
+  "open_issues_for_masa": [
+    {
+      "issue": "8×5 カバレッジ行列 M_{kd} の各 cell (k, d) 正本割当ての最終確定 — 3 案で k=4 兼業COI規程 (I のみ vs {I, A}), k=6 資金接続 ({I, D} vs {A, D, I}), k=7 文化実績 ({A, D} vs {I, D, T} vs {A, T, D}), k=8 設立後継続支援 ({I, A, T} vs {A, I, D} vs {I, A, T, D}) でズレあり。skeleton では §10.6.1 paragraph 3 で統合案 (k=1→{K,A}, k=2→{I,A}, k=3→{K,T}, k=4→{I,A}, k=5→{A,K}, k=6→{D,I,A}, k=7→{A,T,D}, k=8→{I,A,T,D}) を提示しているが、Malerba 原典 5 次元定義と機関 ERS 8 軸運用定義との突き合わせで最終確定が必要",
+      "why_masa_decides": "8×5 行列は命題 5.M 証明 + ker φ + 観測等価類 + Ch 11 BVAR 識別行列 + Ch 32 機関タイプ処方すべての基底となる正本データ。BOOK_DECISIONS への補遺登録 (D-036 補遺) が必要で、まさのドメイン感覚 (URA/EIR 現場 + 機関タイプ運用) に基づく最終裁定が要る",
+      "options": [
+        "Option A: 統合案 (k=4→{I,A}, k=6→{D,I,A}, k=7→{A,T,D}, k=8→{I,A,T,D}) を採用し、cell 根拠を §10.6.1 内に Malerba 原典節番号で 1 行ずつ対応付け",
+        "Option B: 案 A の最小割当て (k=4→{I}, k=6→{I,D}, k=7→{A,D}, k=8→{I,A,T}) を採用し冗長性を抑制、補題 10.6.1 の極小被覆性議論の厚みを稼ぐ",
+        "Option C: §10.6.1 内では暫定割当てに留め、正本確定は付録 A の完全証明と連動して BOOK_DECISIONS D-036 補遺で別途凍結"
+      ],
+      "recommendation": "Option A (統合案 + 原典節番号対応) を推奨。理由: (1) 補題 10.6.1 極小被覆性議論は cell が広めの方が反例構成しやすい、(2) Ch 32 レーン × 軸処方は cell が広い方が機関タイプ間の差別化が立ち上がる、(3) Malerba 原典節番号対応の D-047 運用規律と整合"
+    },
+    {
+      "issue": "符号制約 (S1)(S2)(S3) を strict inequality (>) として事前コミットする方針が 3 案で一致しているが、BVAR 実装方式 (truncated Dirichlet / Bayesian inequality constraint / 階層 Dirichlet truncation) の選択と検出力計算を Ch 11 起草前にどこまで Ch 10.6 本文で確定するか",
+      "why_masa_decides": "Ch 26b OSF 事前登録の検出力計算と整合させる必要があり、Tier B 検証の運用 (one-sided posterior probability 閾値 etc.) はまさが pre-registration 文化との整合で最終裁定するパラメータ",
+      "options": [
+        "Option A: §10.6.2 本文では strict inequality + truncated Dirichlet (階層) のみ確定し、具体的 prior 形 (α_0, α(L)) と検出力閾値は Ch 11 / Ch 26b 起草に commission",
+        "Option B: §10.6.2 で 階層 Dirichlet の具体 prior 形まで踏み込み Ch 11 BVAR の identifiability 議論まで先取り (Cambridge UP 査読対応の formal 厚み確保)",
+        "Option C: strict inequality を weak inequality (≥) に弱め検出力確保を優先 (Ch 11 推定の現実的成功率を上げる)"
+      ],
+      "recommendation": "Option A を推奨。理由: (1) Ch 10.6 = 空間構造 formal 化、Ch 11 = 実装、の役割分担を守る、(2) Cambridge UP 査読には truncated Dirichlet 階層 prior の方向性提示で十分、(3) strict 維持で BZM 仮定の falsifiable 強度を確保"
+    },
+    {
+      "issue": "系 5.NW (Nelson-Winter pre-firm 双対) の formal 度合いをどこまで本文で踏み込むか — 3 案で verbal 双対 (案 C, open issue), 図式記述 (案 B), 選抜オペレータ可換性 / ステージ分解 (案 A) と割れている。skeleton §10.6.3 では選抜オペレータステージ分解 + τ_B 連続性命題で formal stating する方針を採用しているが、§10.6.3 が 1p 配分で commission リスト + Ch 10 分担表 + 章末まとめと同居するため密度過剰のリスクあり",
+      "why_masa_decides": "Ch 10.4 Theorem 3 (A1)-(A4) との数理的整合度合いと、付録 A への委譲量、§10.6.3 のページ伸縮 (1p vs 1.5p vs 2p) を連動して決める必要があり、math density 配分 (D-047) の最終裁定はまさ",
+      "options": [
+        "Option A: §10.6.3 = 1p のまま、選抜オペレータステージ分解 + τ_B 連続性命題は formal stating のみ + 完全な圏論的双対は付録 A or 将来章へ委譲 (skeleton 既定)",
+        "Option B: §10.6.3 = 1.5p に拡張、選抜オペレータ可換性 / 順序入替不可性を Ch 10.4 (A1)-(A4) と並行表記し formal 厚みを確保",
+        "Option C: §10.6.3 = 2p に拡張、圏論的双対 (category dual) として完全 formal 化 (Cambridge UP 数理章として最大密度)"
+      ],
+      "recommendation": "Option B を推奨。理由: (1) §10.6.0 を 0.5p 圧縮 + §10.6.3 を 1.5p 拡張で 7p 配分維持可能、(2) Ch 10.4 (A1)-(A4) 整合の formal 厚みが Cambridge UP 査読対応で load-bearing、(3) 圏論的双対 (Option C) は射程が広すぎ Ch 10.6 本筋から逸れる"
+    },
+    {
+      "issue": "Cooke RIS / Lundvall NIS / Saxenian Regional Advantage の階層整合 (SSI ⊂ RIS ⊂ NIS) の扱い深度 — skeleton では §10.6.1 paragraph 9 で予告 + §10.6.2 paragraph 8 で w(L) 地域・国 fixed effect 吸収 + Saxenian 再解釈として組み込んでいるが、Ch 10 OPENER 11 節構成で RIS 専用節 (Ch 10.8 or 10.9) を別立てするか Ch 10.6 内で吸収するかの方針が未確定",
+      "why_masa_decides": "Ch 10 OPENER 11 節構成 (D-031 Tier 規律と連動) はまさが Book II 全体の章立てとして握る項目で、RIS/NIS 専用節の有無は Ch 10.6 の 7p 配分と Book III セクターレーン章の地域論との結合で連動",
+      "options": [
+        "Option A: skeleton 既定通り Ch 10.6 内で RIS/NIS/Saxenian を w(L) 階層吸収として軽く扱い、独立節は立てない (Ch 10.6 単独で完結)",
+        "Option B: Ch 10.8 として RIS 専用節を別立てし、Ch 10.6 では SSI に集中 (RIS/NIS への言及は最小限の伏線のみ)",
+        "Option C: Ch 10.6 内で §10.6.2 paragraph 8 を 0.5p に拡張し RIS/NIS/Saxenian の階層整合を本格的に扱う (innovation systems 文献射程の最大化)"
+      ],
+      "recommendation": "Option A を推奨。理由: (1) 7p heavy 配分内で RIS/NIS は w(L) 階層吸収で十分、(2) Ch 10 OPENER 11 節構成で RIS 専用節を立てるとシラバス過剰、(3) Book III セクターレーン章で地域論を厚く展開すれば本書全体としては網羅される"
+    },
+    {
+      "issue": "節頭ストーリー §10.6.0 の 3 機関 type 名 (skeleton では type R / type M / type P) の命名規約 — D-034 機関匿名化方針との整合で、アルファベット 1 文字 (R/M/P が Research/Medical/Polytechnic を示唆しすぎる懸念) vs より中立な記号 (Type-α/β/γ or Type-1/2/3) の選択",
+      "why_masa_decides": "D-034 機関匿名化方針の運用解釈はまさが Book III 機関ケース提示との一貫性で裁定する項目で、Ch 10.4/10.5 節頭の既存 type 命名との整合も連動",
+      "options": [
+        "Option A: type R/M/P を維持し、§10.6.0 冒頭で「アルファベットは説明便宜上の symbol で実在機関タイプとの対応はない」と明示",
+        "Option B: Type-α/β/γ に変更しレーン (Bio/Material/Deep-tech) との 1-to-1 対応のみを明示",
+        "Option C: Type-1/2/3 に変更し Ch 10.4/10.5/10.6 で番号を連番に統一 (本書全体の type 名 namespace を整理)"
+      ],
+      "recommendation": "Option B (Type-α/β/γ) を推奨。理由: (1) アルファベット 1 文字より中立性が高い、(2) レーンとの対応が明示的で URA/EIR 読みやすい、(3) Ch 10.4/10.5 既存 type 命名を確認し必要なら遡って統一"
+    }
+  ],
+  "falsifiable_claims": [
+    "命題 5.M (i) 各軸非空: 8×5 カバレッジ行列 M_{kd} の全行に少なくとも 1 つの 1 が立つ。反証 = いずれかの ERS 軸が SSI 5 次元のいずれも覆わない事例の構成 (理論的反証, 付録 A で形式的に検証)",
+    "命題 5.M (ii) 全 SSI 次元カバー (全射性): M_{kd} の全列に少なくとも 1 つの 1 が立つ。反証 = SSI のある次元 (例: D = 需要) がいかなる ERS 軸でも覆われない事例 (理論的反証 + Ch 11 BVAR 機関データで経験的検証)",
+    "補題 10.6.1 極小被覆性構造的不成立: 8 軸のうちいずれか 1 軸を除去しても残り 7 軸で SSI 5 次元を全カバー可能 (構造的冗長性)。反証 = ある 1 軸の除去で SSI のいずれかの次元が未カバーになる事例 (8 → 5 冗長性が崩れ補題 10.6.1 が再定式化を要する)",
+    "符号制約 (S1) w_2(Bio) > w_2(Deep-tech), w_2(Material): Bio レーンで起業支援制度軸 2 の係数が他レーンより有意に大きい (Ch 11 BVAR レーン別推定で one-sided posterior probability > 0.9 等の Ch 26b OSF 事前登録閾値)。反証 = 逆符号または non-significant",
+    "符号制約 (S2) w_8(Material) > w_8(Bio), w_8(Deep-tech): Material レーンで設立後継続支援軸 8 の係数が他レーンより有意に大きい。反証 = 逆符号または non-significant",
+    "符号制約 (S3) w_6(Deep-tech) > w_6(Bio), w_6(Material): Deep-tech レーンで資金接続軸 6 の係数が他レーンより有意に大きい。反証 = 逆符号または non-significant",
+    "KLN-W 三つ組プロファイル前提 (連動仮説): Bio = 高占有可能性 / Material = 高累積性 / Deep-tech = 高技術機会 + 低占有可能性 のプロファイル前提が Yale Survey 型機関アンケート (Ch 26b 事前登録) でレーン別平均値順序として反証されれば、符号制約 (S1)-(S3) の根拠が崩れる連動仮説",
+    "系 5.NW τ_B 連続性命題: τ_B 前段で機関 ERS 加重和上位に評価された pre-firm シーズ群が τ_B 後段の N-W 選抜 (Klepper Ch 10.5 統合ハザード) で系統的に下位転落する負の相関が観測されれば二段選抜双対は反証",
+    "系 5.NW 順序入替不可性 (Ch 10.4 (A1)-(A4) 整合): 前段 ERS をスキップしても後段 N-W 選抜の identifiability が保たれる事例 (例: 機関 ERS 評価データなしでも Klepper 統合ハザードが識別される) が観測されれば二段選抜双対 = 順序入替不可性が反証",
+    "全射 φ の現実適合性: 機関 ERS 8 軸を Bio/Material/Deep-tech 3 レーンで実機関データに当てはめた際、SSI 5 次元のいずれかが系統的に観測不能 (例: D 次元が ERS 軸 6, 7, 8 のいずれでも実質的に計測不能) なら全射性が経験的に破られる",
+    "Aghion-Howitt creative destruction 整合 (Deep-tech): Deep-tech レーンで軸 6 (資金接続) の long horizon 効果が creative destruction 圧力下の生存率と正の相関を示す。Ch 11 BVAR + Ch 10.5 統合ハザードとの交叉検証で反証可能",
+    "Cohen-Levinthal absorptive capacity 整合 (Bio/Material): Bio/Material レーンで軸 7 (文化実績) + 軸 8 (設立後継続支援) の累積効果が absorptive capacity 蓄積指標 (例: 共著ネットワーク密度, R&D継続率) と正の相関を示す。Ch 11 + Book III セクターレーン章で反証可能",
+    "RIS/NIS 階層整合: w(L) の地域 fixed effect (RIS 層) と国 fixed effect (NIS 層) の分散寄与が non-zero。Ch 11 BVAR 階層モデルの分散分解で検証可能、zero なら階層整合が反証",
+    "観測等価類と識別可能性: w(L) 符号制約を外した場合に φ パラメータの識別が失われ posterior が flat になることをシミュレーションで反証可能 (Ch 26b 事前登録の事前シミュレーション項目)"
+  ],
+  "cross_chapter_supply": [
+    {
+      "target_chapter": "Ch 3 (ERS 概念体系)",
+      "what_supplies": "Ch 3 から ERS 8 軸 (k=1 産学連携 ... k=8 設立後継続支援) の概念定義 + 運用語彙を受け取り、§10.6.1 の写像 φ の domain として用いる"
+    },
+    {
+      "target_chapter": "Ch 9 (ERS 加重和代数)",
+      "what_supplies": "Ch 9 から加重和 Σ w_k A_k の代数を受け取り、§10.6.2 でレーン分解 H(L) = Σ_k w_k(L) A_k(j, L) として確率単体 Δ^7 上に再定義"
+    },
+    {
+      "target_chapter": "Ch 10.4 (二層非可換性 Theorem 3)",
+      "what_supplies": "Ch 10.4 から Theorem 3 + (A1)-(A4) を受け取り、§10.6.3 系 5.NW (τ_B 連続性命題 + 選抜オペレータ順序入替不可性) との整合を確保。前段 ERS スキップが後段 N-W 識別を破ることを (A1)-(A4) と並行表記"
+    },
+    {
+      "target_chapter": "Ch 10.5 (Klepper 統合ハザード)",
+      "what_supplies": "Ch 10.5 から post-B 統合ハザードの時間構造を受け取り、§10.6.2 末で空間 (本節) vs 時間 (Ch 10.5) 分担を明示。系 5.NW の τ_B 後段選抜が Klepper ハザードに引き継がれる関係を §10.6.3 で formal 化"
+    },
+    {
+      "target_chapter": "Ch 10.7 (Murmann 共進化)",
+      "what_supplies": "Ch 10.7 へ φ + w(L) を渡し η_jt の sector 分解の入力にする。本節の空間構造 + Klepper の時間構造の積として Murmann 共進化が位置付けられることを §10.6.3 章末で予告"
+    },
+    {
+      "target_chapter": "Ch 11 (BVAR レーン別推定)",
+      "what_supplies": "Ch 11 へ φ の 8×5 識別行列 M_{kd} + w(L) の階層 Dirichlet truncation 事前分布 (基底 w_0 + レーン偏差 + 符号制約 (S1)(S2)(S3) truncation) + 三つ組プロファイル前提を渡し Tier A 推定を委ねる。RIS/NIS 階層は地域・国 fixed effect として階層モデルに吸収"
+    },
+    {
+      "target_chapter": "Ch 26b (OSF 事前登録)",
+      "what_supplies": "Ch 26b へ符号制約 (S1)(S2)(S3) strict inequality + 三つ組プロファイル前提 + 系 5.NW τ_B 連続性命題 + 命題 5.M を Tier B 検証として凍結登録 (D-031 規律)。検出力計算 (one-sided posterior probability 閾値) の方法論決定は Ch 26b で握る"
+    },
+    {
+      "target_chapter": "Ch 32 (ERS 8 軸別処方)",
+      "what_supplies": "Ch 32 へ φ(k) (機関タイプ別カバレッジ) + w(L) (レーン別重み) を渡し、レーン × 軸の二次元処方マトリクスを展開。機関タイプ別介入ロジックの根拠基底として用いる"
+    },
+    {
+      "target_chapter": "Book III セクターレーン章 (Bio/Material/Deep-tech)",
+      "what_supplies": "Book III へ 3 レーン三つ組プロファイル + w(L) 符号制約 + RIS/NIS 階層 + Saxenian 地域別分散再解釈を渡し、機関ケース type 名匿名提示 (D-034) + 地域・国 fixed effect の事例展開へ commission"
+    },
+    {
+      "target_chapter": "付録 A (完全証明)",
+      "what_supplies": "付録 A へ命題 5.M + 補題 10.6.1 (極小被覆性構造的不成立) + 8×5 カバレッジ行列 M_{kd} cell 根拠 (Malerba 原典節番号対応) + 系 5.NW τ_B 連続性命題の完全証明を D-047 規律に従い委譲"
+    }
+  ],
+  "masa_negotiation_handles": [
+    "8×5 カバレッジ行列 M_{kd} の正本割当て: 統合案 (k=1→{K,A}, k=2→{I,A}, k=3→{K,T}, k=4→{I,A}, k=5→{A,K}, k=6→{D,I,A}, k=7→{A,T,D}, k=8→{I,A,T,D}) を BOOK_DECISIONS D-036 補遺登録するか、案 A の最小割当てに留めて補題 10.6.1 の formal 厚みを稼ぐか",
+    "符号制約 strict (>) vs weak (≥) inequality と BVAR 実装方式 (truncated Dirichlet vs Bayesian inequality constraint vs 階層 Dirichlet truncation) — Ch 26b OSF 事前登録の検出力計算と連動して決定",
+    "系 5.NW の formal 度合いと §10.6.3 ページ伸縮: 1p (skeleton 既定, 選抜オペレータステージ分解) vs 1.5p (Ch 10.4 (A1)-(A4) 並行表記) vs 2p (圏論的双対 formal 化)。§10.6.0 圧縮との連動",
+    "Cooke RIS / Lundvall NIS / Saxenian の扱い深度: Ch 10.6 内 w(L) 階層吸収 (skeleton 既定) vs Ch 10.8 RIS 専用節別立て vs §10.6.2 内 0.5p 拡張",
+    "節頭ストーリー §10.6.0 の 3 機関 type 命名規約: type R/M/P (skeleton 既定) vs Type-α/β/γ (中立性向上) vs Type-1/2/3 (連番統一)。Ch 10.4/10.5 既存 type 命名との一貫性確認",
+    "三つ組プロファイル前提 (Bio = 高占有 / Material = 高累積 / Deep-tech = 高機会 + 低占有) の Yale Survey 型機関アンケートによる operationalization を Ch 11 / Ch 26b / Book III のどこで実施するか — 連動仮説として falsifiable_claims に組み込み済みだが、計測方法論の commission 先を確定",
+    "Aghion-Howitt creative destruction + Cohen-Levinthal absorptive capacity 整合補強段落の §10.6.2 内配置 — paragraph 7 として独立段落 (skeleton 既定) vs 符号制約導出 paragraph 5 に統合 vs 章末 §10.6.3 で再言及",
+    "命題 5.M 証明スケッチの本文 vs 付録 A 委譲量 — 構成的証明 + 補題 10.6.1 反例構成は本文に置く (skeleton 既定) vs 完全に付録 A 委譲 (本文は stating のみ)"
+  ]
+}
