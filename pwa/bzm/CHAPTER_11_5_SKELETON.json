@@ -1,0 +1,465 @@
+{
+  "ch_overview": {
+    "core_proposition": "Ch 10.9 で commission した N≈32 試験プロトコルを実運用に落とすため、Ch 11.5 は AMD-8 から N=64 まで 5 wave の段階更新登録簿を、O'Brien-Fleming sequential boundary を frequentist primary・Pocock boundary を sensitivity・Bayesian posterior probability monitoring (P(β_3 > 0.4 | data_{wave_k}) > 0.95 で efficacy stop / P(β_3 ≤ 0 | data_{wave_k}) > 0.95 で futility stop) を独立条件とするハイブリッド中間 stop rule、ならびに F-5.1〜F-5.6 + H_C2 + Klepper 命題 5 符号 + Malerba w(L) 符号 + Ψ Granger 符号 + θ_σ* 比較静学 + β̂_3 ∈ [0.4, 1.2] の 8 系統 ≈ 20 反証可能仮説を Bayesian model averaging で sequential 更新し Bayesian FDR (Storey 2003) で multiplicity 補正する運用 mechanism として確立する。wave 内は OSF への SHA-256 ハッシュコミットによる sealed analysis plan で p-hacking を排除し、wave 間は事前登録した適応規則 (sample size re-estimation、cohort 追加優先順位、stop boundary 厳格化、Hofstede 個人主義/集団主義層化による国際 cohort 選定) のみを許容、それ以外は protocol violation として Ch 26b 登録簿に black-flag 記録する。W_n* < χ²_{2, 0.90} OR β̂_3 ≤ 0 で wave 全体停止し Ch 26b §26b.5 再定式化 protocol (48h 内 reversal log SHA-256 commit → 90日内 BZM Book VI 撤回交渉 → phoenix wave 起動、wave numbering 連続性保持) を発動、3-of-5 wave で β̂_3 ≤ 0 → 全棄却、それ以外 → 境界条件再 commission の hierarchical decision rule で BZM 理論の falsifiability を構造的に保証する。",
+    "load_bearing_claims": [
+      "wave 段階更新プロトコル: wave 1 = AMD-8 (2026Q4-2027Q1) / wave 2 = + 機関後付け 7 = N=15 (2027Q1-Q2) / wave 3 = + 国際 17 = N=32 (2027Q3) / wave 4 = + 国際拡張 16 = N=48 (2028Q2) / wave 5 = N=64 (2029Q1) を D-052 Phase 2/Phase 3 schedule に紐付け OSF に SHA-256 ハッシュコミットで事前登録",
+      "情報時間 τ_k = n_k / N_max (τ_1=0.125, τ_2≈0.234, τ_3=0.5, τ_4=0.75, τ_5=1.0) を Lan-DeMets alpha spending function α*(t) = 2{1 - Φ(z_{α/2}/√t)} に明示 mapping、O'Brien-Fleming boundary c_k = z_{α/2}√(K/k) で family-wise α=0.05 を保守的に配分 (wave 1 α≈0.00001、wave 5 α≈0.045)",
+      "中間 stop rule のハイブリッド設計: O'Brien-Fleming を primary、Pocock を sensitivity、Bayesian posterior monitoring (efficacy P > 0.95 / futility P < 0.05) を独立条件、両者一致時のみ stop を発動する慎重規約、false stop 確率 < 0.01 を定理 11.5.1 として commission (完全証明は付録 A.11.5)",
+      "反証可能仮説の sequential 事後分布更新: F-5.1〜F-5.6 (6) + H_C2 (1) + Klepper 命題 5 符号 + Malerba w(L) 符号 + Ψ Granger 符号 + θ_σ* 比較静学 + β̂_3 ∈ [0.4, 1.2] = 8 系統 ≈ 20 仮説を、各 wave で Bayesian model averaging により事後分布更新、model space は BVAR / Klepper 線形回帰 / Malerba diffusion / Granger VAR / 試験 reduced form の 5 model、BMA 重み w_m^{(k)} を WAIC で計算 (Vehtari et al. 2017 LOO-CV を sensitivity)、Bayesian FDR (Storey 2003, q ≤ 0.05) で multiplicity 補正",
+      "p-hacking 排除規約: wave 内では OSF に SHA-256 ハッシュコミット sealed analysis plan、wave 間では事前登録適応規則 (sample size re-estimation, cohort 比率調整, stop boundary 厳格化) のみ許容、primary endpoint = β_3 ∈ [0.4, 1.2] と secondary endpoint = F-5.x は wave 間変更不能、post-hoc subgroup analysis は exploratory として black-flag 強制報告 (Simmons-Nelson-Simonsohn 2011)、exploratory finding は次 wave の confirmatory hypothesis として OSF 新規登録 (Wagenmakers 2012)、moderator は wave 開始 30 日前と完了時に 2 重 audit",
+      "反転条件 + Ch 26b 再定式化 protocol: W_n* < χ²_{2, 0.90}=4.605 (Ch 10.4/10.9 commission) OR β̂_3 ≤ 0 (95% posterior CI が 0 以下) で wave 全体停止、48 時間以内に Ch 26b に reversal log を SHA-256 ハッシュコミット、90 日以内に BZM Book VI 新領域宣言を撤回または再交渉、Research Policy 特集号巻頭 + ICC 第三伴走に erratum 添付、phoenix wave 起動 (wave numbering 連続性保持、登録簿全履歴永久保存)、3-of-5 wave で β̂_3 ≤ 0 → BZM 全棄却宣言、それ以外 → 境界条件再 commission の hierarchical decision rule",
+      "external validity 担保: Bertrand-Mullainathan matched pair design + Hofstede 個人主義/集団主義次元による国際 cohort 層化、wave 4 拡張 cohort 優先順位 (アジア > 欧州 > 南米、文化的距離 minimization)、Hofstede × β_3 交互作用を wave 別 monitoring、wave 5 完了時の地域別 estimate credible interval 重複で external validity を falsifiable に検証"
+    ],
+    "logical_arc": "§11.5.0 章頭 Wave 1 完了 OSF 登録簿更新会議 (匿名化 type 名、SHA-256 ハッシュ照合、3 名独立統計家による中間解析報告書レビュー) で運用 mechanism の臨場感と Ch 10.9/Ch 26b/Ch 11.5 三層分担を提示 → §11.5.1 wave 1-5 段階設計 + 情報時間 τ_k mapping + N=32 → N=64 適応規則 (Cui-Hung-Wang 1999 保護つき weighted test) + Hofstede 層化による external validity → §11.5.2 中間 stop rule ハイブリッド (O'Brien-Fleming primary + Pocock sensitivity + Bayesian posterior monitoring + 定理 11.5.1 false stop < 0.01) + conditional power CP_k と sample size re-estimation 接続 → §11.5.3 反証仮説 sequential update (BMA 5 model + WAIC 重み + Bayesian FDR multiplicity 補正 + frequentist Bonferroni-Holm 並走 + wave 別 posterior 行列 + Wagenmakers exploratory vs confirmatory 規律) → §11.5.4 反転条件 twin trigger + Ch 26b §26b.5 再定式化 48h/90日 timeline + phoenix wave 起動 + 章間 supply フロー図 (Ch 25/Ch 37/Book VI/Research Policy/ICC) + Ch 12 横断データ拡張への接続",
+    "synthesis_rationale": "Judge 3 名のうち 2 名が C を overall winner とし wave 完了タイミングの D-052 schedule fidelity、Hofstede 層化の運用具体性、定理 11.5.1 による false stop quantitative guarantee、章間 supply フロー図の systematic 性、3-of-5 hierarchical decision rule を高く評価。Judge B (publishability lens) は B を winner とし SHA-256 ハッシュコミット、Lan-DeMets τ_k mapping、Bayesian FDR、48h/90 日 timeline、falsifiable claim の数値化を強く評価。統合案は C の wave timeline / Hofstede 層化 / 定理 11.5.1 / supply フロー図 / hierarchical decision rule を骨格とし、B の τ_k mapping / SHA-256 sealed update / Cui-Hung-Wang 保護つき weighted test / Bayesian FDR / 48h+90日 timeline / falsifiable 数値閾値を技術装備として吸収、A の phoenix wave 連続性 + Wagenmakers exploratory-confirmatory + moderator 2 重 audit + BF deactivation 履歴永久保存を運用粒度として graft する。wave 1 開始時期は D-052 Phase 2 = 2026Q4 起点に整合させるため B の 2026Q4 開始を採用 (C の 2027Q1 開始から前倒し)、wave 5 完了は C の 2029Q1 (final analysis 重視) を採用。BMA model space は C の 5 model を採用しつつ WAIC vs BF vs LOO-CV の trade-off は C の open issue として明示。判定統合規則は C のハイブリッド一致時のみ stop を default、disagreement log は B 案を採用して両論併記、false stop 確率 < 0.01 を定理 11.5.1 として証明 (D-047 完全証明分離)。"
+  },
+  "sections": [
+    {
+      "section_id": "11.5.0",
+      "title": "章頭 — Wave 1 完了時の OSF 登録簿更新会議と三層分担宣言",
+      "pages": 1.75,
+      "math_level": "low",
+      "anchor_claims": [
+        "Wave 段階更新は事前登録 + 中間 stop + 適応設計 + SHA-256 ハッシュ sealed の四点セットを満たさない限り p-hacking と構造的に区別不能である",
+        "Ch 10.9 で commission した N≈32 試験は単発の cross-sectional 試験ではなく 5 wave の sequential 試験として運用される、その運用 mechanism の正本オーナーが Ch 11.5",
+        "三層分担: Ch 10.9 = 試験プロトコル commission (静的設計) / Ch 26b = レジストリ仕様 + reformation archive (静的仕様) / Ch 11.5 = wave 段階運用 mechanism (動的運用) を D-041 後半判決として宣言"
+      ],
+      "paragraph_outline": [
+        "P1: 章頭ストーリー — 2027Q1、Wave 1 = AMD-8 完了時の OSF 登録簿更新会議シーン、type 名は SHA-256 ハッシュで匿名化、β̂_3 中間推定値と W_n* 中間統計量を OSF time-stamped で公開、3 名の独立統計家 (Sims 流派 Bayesian / Nosek 流派 preregistration / Jennison-Turnbull 流派 group sequential) が中間解析報告書をレビューし wave 2 進行 / early stop / プロトコル修正の三択を判定する場面を描写",
+        "P2: 会議の 3 議題提示 — (a) wave 1 暫定 β̂_3 と 95% posterior credible interval、(b) F-5.1〜F-5.6 + H_C2 + Klepper/Malerba/Granger 符号 + θ_σ* + β̂_3 の 8 系統 ≈ 20 仮説の Bayes factor 暫定値、(c) wave 2 移行可否を O'Brien-Fleming boundary と Bayesian posterior threshold で二重判定",
+        "P3: 本章の問い 4 点を提示 — (a) wave 段階をどう設計するか (N=32 → N=64 適応含む)、(b) 中間 stop rule をどう設計するか (frequentist + Bayesian ハイブリッド + 定理 11.5.1 false stop < 0.01)、(c) 反証可能仮説 ≈ 20 をどう sequential update するか (BMA + Bayesian FDR)、(d) 反転時に Ch 26b 再定式化をどう発動するか (48h/90日 timeline + phoenix wave)",
+        "P4: Ch 10.9 (試験プロトコル commission) と Ch 26b (登録簿仕様 + reformation archive) と本章 (運用 mechanism + wave 段階) の三層分担を D-041 後半判決として明示、住み分け図を提示",
+        "P5: Pre-registration methodology (Nosek et al. 2018 PNAS preregistration revolution, Munafò et al. 2017 Nature HBe reproducibility manifesto, Camerer et al. 2018 NHB social science replication) を方法論的支柱として引用、本章の論証規範を宣言",
+        "P6: SHA-256 ハッシュコミットによる OSF sealed update の technical lock 機構の概念提示 (Center for Open Science protocol 準拠)、analysis plan の wave 内 lock と wave 間 適応規則 commit の二段階",
+        "P7: D-031 Tier B 規律下の本章位置づけ (OSF 事前登録 + 適応設計 + 中間 stop 必須)、D-047 (証明スケッチ本文 + 完全証明付録 A) 規律の宣言",
+        "P8: 節構成 navigation — §11.5.1 wave 段階設計 + N=32 → N=64 適応、§11.5.2 中間 stop rule ハイブリッド + 定理 11.5.1、§11.5.3 反証仮説 sequential update + BMA + Bayesian FDR、§11.5.4 反転条件 twin trigger + Ch 26b 再定式化 48h/90日 + phoenix wave + 章間 supply"
+      ],
+      "new_writing_required": "全文新規。章頭ストーリーは Wave 1 完了時の OSF 登録簿更新会議シーンとして書き下ろし (type 名 SHA-256 ハッシュ匿名化、3 名独立統計家の流派を Sims/Nosek/Jennison-Turnbull で記号化、中間解析報告書レビューと三択判定の実務を具体描写)、三層分担図 (Ch 10.9 / Ch 26b / Ch 11.5) は新規作成、SHA-256 sealed update の技術機構説明も新規",
+      "existing_reuse": "Ch 10.9 §10.9.4 試験プロトコルを 1 段落で要約引用、Ch 26b §26b.1 レジストリ仕様の差し戻し参照 (図表再掲なし)、Ch 5/5.5/10.3-10.7 反証可能仮説リストは箇条書きで参照のみ",
+      "upstream_dependencies": [
+        "Ch 10.9 §10.9.4 (N=32 試験プロトコル commission)",
+        "Ch 26b §26b.1 (レジストリ仕様 forward reference)",
+        "Ch 5/5.5/10.3-10.7 (反証可能仮説 commission)",
+        "D-041 後半判決 (Ch 11.5 新設 + 正準オーナー)",
+        "D-031 Tier B 規律",
+        "D-047 証明スケッチ本文 + 完全証明付録 A",
+        "P-011 OSF 事前登録タイミング"
+      ],
+      "downstream_dependencies": [
+        "§11.5.1 wave 段階設計の起点",
+        "§11.5.4 章末で Ch 26b 再定式化 protocol との首尾照応"
+      ],
+      "references": [
+        "Nosek et al. (2018) PNAS 115(11): 2600-2606 『The preregistration revolution』",
+        "Munafò et al. (2017) Nature Human Behaviour『A manifesto for reproducible science』",
+        "Camerer et al. (2018) Nature Human Behaviour『Evaluating the replicability of social science experiments』",
+        "Sims (2010)『Understanding non-Bayesians』",
+        "Center for Open Science OSF protocol documentation",
+        "Ch 10.9 / Ch 26b 内部参照"
+      ],
+      "source_drafts": [
+        "C §11.5.0 章頭シーン骨格",
+        "A §11.5.0 三層分担宣言",
+        "B SHA-256 ハッシュコミット technical lock"
+      ]
+    },
+    {
+      "section_id": "11.5.1",
+      "title": "Wave 段階設計 — 5 wave プロトコル + 情報時間 τ_k mapping + N=32 → N=64 適応規則",
+      "pages": 3.5,
+      "math_level": "medium",
+      "anchor_claims": [
+        "wave 1 = AMD-8 (2026Q4-2027Q1, pilot α 消費なし) / wave 2 = N=15 (+ 機関後付け 7, 2027Q1-Q2) / wave 3 = N=32 (+ 国際 17, 2027Q3, primary endpoint 確定) / wave 4 = N=48 (+ 国際拡張 16, 2028Q2) / wave 5 = N=64 (2029Q1, final analysis) を D-052 Phase 2/Phase 3 schedule に紐付け OSF SHA-256 ハッシュコミットで事前登録",
+        "情報時間 τ_k = n_k / N_max (τ_1=0.125, τ_2≈0.234, τ_3=0.5, τ_4=0.75, τ_5=1.0) を Lan-DeMets alpha spending function に明示 mapping、wave 完了時期が schedule からずれても α 配分を保つ",
+        "N=32 → N=64 拡張は事前登録した適応規則 (conditional power CP_3 < 0.5 で sample size re-estimation 発動、Cui-Hung-Wang 1999 保護つき weighted test 使用) のみで発動",
+        "国際 cohort 選定で Bertrand-Mullainathan matched pair design + Hofstede 個人主義/集団主義次元による層化、wave 4 拡張 cohort 優先順位 = アジア > 欧州 > 南米 (文化的距離 minimization)、Hofstede × β_3 交互作用を wave 別 monitoring で external validity 担保",
+        "適応規則の事前登録 lock 機構: wave 開始 30 日前までに OSF AsPredicted フォーム + SHA-256 ハッシュコミットで sealed、変更可能 parameter (sample size, cohort 比率, stop boundary 厳格化) と変更不能 parameter (primary endpoint β_3, secondary endpoint F-5.x, statistical model 形式) の境界明示"
+      ],
+      "paragraph_outline": [
+        "P1: wave 段階全体設計表 (table 11.5.1) — wave_k, 累積 N, 構成 cohort (AMD-8 / 機関後付け 7 / 国際 17 / 国際拡張 16), 完了時期 (D-052 Phase 2 = 2026Q4-2027Q2, Phase 3 = 2028Q2-2029Q1), 中間解析 milestone, OSF 公開更新タイミング, 情報時間 τ_k, 累積 α 配分を 1 表に集約",
+        "P2: 情報時間 τ_k = n_k / N_max の定義と Lan-DeMets 1983 alpha spending function α*(t) = 2{1 - Φ(z_{α/2}/√t)} への mapping、wave 完了時期が schedule からずれた場合 (cohort 募集遅延等) にも α 配分を保つ機構を数式と図 11.5.1 で提示",
+        "P3: wave 1 = AMD-8 (2026Q4-2027Q1) — pilot wave、α 消費なし (descriptive のみ)、conditional power 計算で wave 2 sample size を再見積もり、β̂_3 中間推定値の posterior credible interval 報告、empirical Bayes prior 更新は禁止 (p-hacking リスク回避) を明示",
+        "P4: wave 2 = N=15 (+ 機関後付け 7, 2027Q1-Q2) — 機関後付け cohort 選定基準の事前登録、Tier B 規律下での生存バイアス補正 (Heckman 二段階を Ch 10.4 から継承)、IPW で自己選択 bias 調整",
+        "P5: wave 3 = N=32 (+ 国際 17, 2027Q3) — Ch 10.9 メインスペック β̂_3 ∈ [0.4, 1.2] の primary endpoint が確定する wave、Bertrand-Mullainathan matched pair design で domestic 15 と international 17 を Hofstede 個人主義/集団主義スコアで層化、地域別 covariate を投入",
+        "P6: wave 4 = N=48 (+ 国際拡張 16, 2028Q2) — N=32 中間解析で CP_3 < 0.5 だった場合のみ発動する適応規則 (事前登録)、追加 cohort 優先順位 (アジア > 欧州 > 南米、文化的距離 minimization)、Cui-Hung-Wang 1999 保護つき weighted test で sample size re-estimation 後の type I error 保護",
+        "P7: wave 5 = N=64 (2029Q1) — final wave、α 消費の大部分 (≈0.045) をここで実行 (O'Brien-Fleming boundary)、final analysis として 8 系統 ≈ 20 仮説の事後分布を確定、Ch 26b 登録簿の reference 版を公開、Book VI 新領域宣言の証拠ベース確定",
+        "P8: 適応規則の事前登録 lock 機構詳細 — wave 開始 30 日前までに OSF AsPredicted フォームに『どの自由度を、どの条件で、どの方向に動かすか』の決定木を SHA-256 ハッシュコミット sealed、変更可能 (sample size re-estimation, cohort 比率, stop boundary 厳格化) と変更不能 (primary endpoint = β_3 ∈ [0.4, 1.2], secondary endpoint = F-5.x, statistical model 形式, primary outcome 定義) の境界を表として明示",
+        "P9: N=32 → N=64 拡張 power 計算 — Ch 10.9 で N=32, β_3=0.4, σ²=0.25 の下で power ≈ 0.78、N=64 拡張で power ≈ 0.94、effect size 検出感度の wave 別曲線を図 11.5.2 で提示、Cui-Hung-Wang 保護つき weighted test の理論的支柱 (Biometrics 1999) を引用",
+        "P10: external validity 担保 mechanism — Hofstede 個人主義/集団主義次元 × β_3 交互作用を wave 別 posterior monitoring、wave 5 完了時の地域別 estimate credible interval 重複で external validity を falsifiable に検証 (F-11.5.8)、Schwartz value survey / WVS の代替使用は open issue として保留",
+        "P11: 運用上の罠と contingency plan — cohort 募集遅延 (国際 17 cohort の特定地域集中)、機関後付け cohort の生存者バイアス、国際 cohort の言語データ品質を protocol 記載済み contingency plan として明示",
+        "P12: wave 完了から判定会議までの timeline — データ凍結 → BVAR 再推定 → BF / posterior 計算 → OSF moderator 検証 (wave 開始時と完了時の 2 重 audit) → 判定公表の運用フローを図 11.5.3 で提示"
+      ],
+      "new_writing_required": "全文新規。table 11.5.1 (wave 段階全体設計表) と figure 11.5.1 (情報時間 τ_k と alpha spending function mapping)、figure 11.5.2 (N=32 → N=64 power 計算曲線)、figure 11.5.3 (運用フロー)、Hofstede 層化 + Bertrand-Mullainathan matched pair design、wave 4 拡張 cohort 優先順位 (アジア > 欧州 > 南米)、Cui-Hung-Wang 保護つき weighted test 引用、変更可能/不能 parameter 境界表は全て新規執筆。",
+      "existing_reuse": "Ch 10.9 §10.9.2 の N=32 メインスペック β̂_3 ∈ [0.4, 1.2] を wave 3 primary endpoint として再掲のみ (再導出なし)、Ch 10.9 §10.9.3 の power 計算式を N=64 へ拡張する形で 1 段落再利用、Ch 10.4 §10.4.x の Heckman 二段階補正を継承、D-052 Phase 2/Phase 3 schedule を引用",
+      "upstream_dependencies": [
+        "Ch 10.9 §10.9.2-10.9.3 (N=32 メインスペック + power)",
+        "Ch 10.4 (Heckman 二段階補正 + W_n* 統計量定義)",
+        "D-052 (Phase 2 = 2026Q4-2027Q2, Phase 3 = 2028Q2-2029Q1 データ実装 schedule)"
+      ],
+      "downstream_dependencies": [
+        "§11.5.2 中間 stop rule (wave 境界 τ_k で発火)",
+        "§11.5.3 sequential update (wave 別 BMA 重み更新点)",
+        "§11.5.4 反転条件 (CP_k < 0.5 トリガと連動)",
+        "Ch 26b (wave 別公開更新タイミング)"
+      ],
+      "references": [
+        "Nosek et al. (2018) PNAS preregistration revolution",
+        "Camerer et al. (2018) Nature Human Behaviour",
+        "Chow & Chang (2008)『Adaptive Design Methods in Clinical Trials』",
+        "Cui, Hung & Wang (1999) Biometrics『Modification of sample size in group sequential clinical trials』",
+        "Lan & DeMets (1983) Biometrika 70(3): 659-663 alpha spending function",
+        "Hofstede (2001)『Culture's Consequences』個人主義/集団主義次元",
+        "Bertrand & Mullainathan (2004) matched pair design",
+        "Jennison & Turnbull (2000)『Group Sequential Methods』Ch 3-4",
+        "FDA (2019) Adaptive Designs for Clinical Trials Guidance §IV.A"
+      ],
+      "source_drafts": [
+        "C §11.5.1 wave 段階 + Hofstede 層化 + 優先順位骨格",
+        "B §11.5.1 情報時間 τ_k mapping + Cui-Hung-Wang 引用 + SHA-256 lock",
+        "A §11.5.1 適応規則 3 自由度 + moderator audit + 罠の列挙"
+      ]
+    },
+    {
+      "section_id": "11.5.2",
+      "title": "中間 stop rule — O'Brien-Fleming boundary + Pocock sensitivity + Bayesian posterior monitoring ハイブリッド (定理 11.5.1 false stop < 0.01)",
+      "pages": 2.75,
+      "math_level": "high",
+      "anchor_claims": [
+        "frequentist primary: O'Brien-Fleming sequential boundary c_k = z_{α/2}√(K/k) (K=5) を採用、wave 1 boundary ≈ 4.38 / wave 5 ≈ 1.96、α 消費表 wave 1 α≈0.00001 / wave 5 α≈0.045、wave 5 final analysis 重視の AMD context に Jennison-Turnbull 2000 §3.2 表 3.2 で最適性を根拠付け",
+        "frequentist sensitivity: Pocock boundary (一定境界 z=2.41) を併走し early wave での過剰停止リスクを sensitivity analysis、O'Brien-Fleming との比較で boundary 選定の頑健性を担保",
+        "alpha spending function α*(t) = 2{1 - Φ(z_{α/2}/√t)} (Lan-DeMets 1983) で wave 進行率 τ_k = n_k/N_max に応じて α を逐次配分、family-wise α=0.05 保持",
+        "Bayesian 独立条件 (posterior probability monitoring): P(β_3 > 0.4 | data_{1:k}) > 0.95 で efficacy early stop、P(β_3 ≤ 0 | data_{1:k}) > 0.95 で futility early stop、prior は Ch 10.9 で commission した β_3 ~ N(0.6, 0.3²) を採用",
+        "ハイブリッド判定規約 (慎重規約): O'Brien-Fleming で reject H_0 AND P(β_3 > 0.4) > 0.95 → efficacy stop / accept H_0 AND P(β_3 ≤ 0) > 0.95 → futility stop / 不一致時は wave 進行継続 + Ch 26b に disagreement log SHA-256 commit、定理 11.5.1 で false stop 確率 < 0.01 を保証 (Monte Carlo 10,000 反復で検証、完全証明付録 A.11.5.1)",
+        "conditional power CP_k = P(reject H_0 at wave 5 | data_{1:k}, β_3 = β̂_3^{(k)}) を各 wave で計算、CP_k < 0.5 で wave 4 → wave 5 sample size re-estimation 発動 (§11.5.1 適応規則と連動)"
+      ],
+      "paragraph_outline": [
+        "P1: 中間 stop rule の三本柱と必要性 — wave 段階運用で各境界での『停止 vs 継続』判定が必要、type I error inflation を防ぐ sequential testing 枠組み、O'Brien-Fleming (primary) + Pocock (sensitivity) + Bayesian posterior monitoring (独立条件) のハイブリッド設計動機を提示",
+        "P2: O'Brien-Fleming boundary 数式導出 — c_k = z_{α/2}√(K/k)、K=5 (wave 数)、wave 別具体値 (wave 1 ≈ 4.38, wave 2 ≈ 3.10, wave 3 ≈ 2.19, wave 4 ≈ 1.79, wave 5 ≈ 1.96 [α=0.05 両側]) を表 11.5.2 で提示、α 消費表 (wave 1 α≈0.00001, wave 5 α≈0.045)",
+        "P3: Pocock boundary 比較 — 全 wave 一定境界 z=2.41、early wave で α 消費が大きく wave 1-2 過剰停止リスク、final analysis 検出力低下、AMD context (wave 5 重視) で O'Brien-Fleming 選択を Jennison-Turnbull 2000 §3.2 表 3.2 で根拠付け、Pocock は sensitivity として併走",
+        "P4: alpha spending function α*(t) = 2{1 - Φ(z_{α/2}/√t)} (Lan-DeMets 1983 O'Brien-Fleming 型) を採用、wave 完了時期が schedule からずれても α 配分を保つ、Pocock 型 α*(t) = α log(1+(e-1)t) との比較を OSF 登録時の選択肢として明示",
+        "P5: Bayesian posterior probability monitoring — 各 wave 完了時に p_k^{eff} = P(β_3 > 0.4 | data_{1:k}) と p_k^{fut} = P(β_3 ≤ 0 | data_{1:k}) を計算、prior は Ch 10.9 commission の β_3 ~ N(0.6, 0.3²)、sensitivity として weakly informative N(0,1) と reference prior の 3 種類を並列 OSF 登録、Berger 1985 decision theory に基づく閾値根拠 0.95 を明示",
+        "P6: ハイブリッド判定規約 — O'Brien-Fleming reject AND p_k^{eff} > 0.95 で efficacy stop / accept AND p_k^{fut} > 0.95 で futility stop / 不一致時は wave 進行継続 + Ch 26b に disagreement log SHA-256 commit (Sims 2010 Understanding non-Bayesians に倣う両論併記)、wave 5 まで不一致継続時は両者を併記して読者判断に委ねる",
+        "P7: 定理 11.5.1 (ハイブリッド stop rule の false stop 確率保証) — 慎重規約 (両者一致時のみ stop) で family-wise false stop 確率 < 0.01 を保証、証明スケッチを本文に提示、完全証明は付録 A.11.5.1 (D-047 規律)、Monte Carlo 10,000 反復シミュレーションで検証 (F-11.5.4 として falsifiable)",
+        "P8: conditional power CP_k 計算 — CP_k = P(reject H_0 at wave 5 | data_{1:k}, β_3 = β̂_3^{(k)}) を各 wave で計算、wave 3 完了時に CP_3 < 0.5 で wave 4 → wave 5 sample size re-estimation 発動 (§11.5.1.6 と連動、Cui-Hung-Wang 1999 保護つき weighted test で type I error 保護)",
+        "P9: boundary 評価点と alpha 配分の運用 table — 表 11.5.2 で wave × {τ_k, O'Brien-Fleming z_k, Pocock z, Bayesian threshold, α 配分, CP 閾値} を一覧化、boundary 曲線を図 11.5.4 で可視化",
+        "P10: P-011 OSF 事前登録タイミングとの統合 — alpha spending function 形式、Bayesian threshold (0.95 / 0.05)、prior 仕様、判定統合規則、disagreement log 規約を wave 1 開始 30 日前までに OSF AsPredicted + SHA-256 ハッシュコミットで full commitment",
+        "P11: 実装 protocol — wave 完了から判定会議までの timeline (データ凍結 → BVAR 再推定 → BF / posterior 計算 → OSF moderator 2 重 audit → 判定公表) を §11.5.1 図 11.5.3 と接続"
+      ],
+      "new_writing_required": "全文新規。表 11.5.2 (wave 別 boundary + α 配分)、図 11.5.4 (boundary 曲線)、定理 11.5.1 (false stop 確率 < 0.01) と証明スケッチ本文 + 完全証明付録 A.11.5.1 (D-047)、Monte Carlo 10,000 反復シミュレーション設計、conditional power CP_k と sample size re-estimation の §11.5.1 接続式、disagreement log SHA-256 commit 規約は全て新規執筆。Jennison-Turnbull 2000 §3.2 表 3.2 引用による boundary 選定根拠も新規。",
+      "existing_reuse": "Ch 10.9 §10.9.2 の β_3 ∈ [0.4, 1.2] と prior N(0.6, 0.3²) を Bayesian threshold 出発点として再掲、Ch 10.4 §10.4.x の W_n* 統計量定義を 1 段落で参照、Ch 11 BVAR 推定結果を empirical Bayes prior の supply source として参照 (再導出なし)",
+      "upstream_dependencies": [
+        "§11.5.1 (wave 数 K=5, τ_k)",
+        "Ch 10.9 §10.9.2 (β_3 prior + CI)",
+        "Ch 10.4 (W_n* 統計量)",
+        "Ch 11 (BVAR 推定結果)"
+      ],
+      "downstream_dependencies": [
+        "§11.5.3 sequential update (stop 判定後の事後分布更新)",
+        "§11.5.4 反転条件 (W_n* / β̂_3 ≤ 0 の上流 trigger)",
+        "付録 A.11.5.1 ハイブリッド stop rule 完全証明"
+      ],
+      "references": [
+        "O'Brien & Fleming (1979) Biometrics 35(3): 549-556",
+        "Pocock (1977) Biometrika 64(2): 191-199『Group sequential methods』",
+        "Lan & DeMets (1983) Biometrika 70(3): 659-663",
+        "Jennison & Turnbull (2000)『Group Sequential Methods with Applications to Clinical Trials』Ch 3.2-3.4",
+        "Berger (1985)『Statistical Decision Theory and Bayesian Analysis』",
+        "Berry et al. (2010)『Bayesian Adaptive Methods for Clinical Trials』",
+        "FDA (2019) Adaptive Designs Guidance §IV.B",
+        "Sims (2010)『Understanding non-Bayesians』",
+        "Cui, Hung & Wang (1999) Biometrics"
+      ],
+      "source_drafts": [
+        "C §11.5.2 O'Brien-Fleming 数値 + 定理 11.5.1 + 付録分離骨格",
+        "B §11.5.2 alpha spending + disagreement log + sensitivity Pocock",
+        "A §11.5.2 prior 並列 OSF 登録 + Berger 1985 閾値根拠"
+      ]
+    },
+    {
+      "section_id": "11.5.3",
+      "title": "反証可能仮説の sequential 事後分布更新 — BMA 5 model + WAIC 重み + Bayesian FDR 補正 + frequentist 並走",
+      "pages": 3.5,
+      "math_level": "high",
+      "anchor_claims": [
+        "8 系統 ≈ 20 反証可能仮説 = F-5.1〜F-5.6 (Ch 5, 6 系統) + H_C2 (Ch 10.3, 1) + Klepper 命題 5 符号 (Ch 10.5, 4 系統) + Malerba w(L) 符号 (Ch 10.6, 3 系統) + Ψ Granger 符号 (Ch 10.7, 3 系統) + θ_σ* 比較静学 (Ch 5.5, 2 系統) + β̂_3 ∈ [0.4, 1.2] (Ch 10.9, primary endpoint) を各 wave で Bayesian model averaging で sequential 事後分布更新 (D-050 正本 + D-051 表記規律)",
+        "BMA model space = {M_1 BVAR (Ch 11), M_2 Klepper 線形回帰 (Ch 10.5), M_3 Malerba diffusion (Ch 10.6), M_4 Granger VAR (Ch 10.7), M_5 試験 reduced form (Ch 10.9)} の 5 model、BMA 重み w_m^{(k)} = exp(-WAIC_m^{(k)}/2) / Σ_j exp(-WAIC_j^{(k)}/2) を wave k で sequential 更新、LOO-CV (Vehtari et al. 2017) を sensitivity として併走",
+        "wave 別 sequential 更新規約: posterior_{k+1}(θ | data_{1:k+1}) ∝ likelihood(data_{wave_{k+1}} | θ) × posterior_k(θ | data_{1:k})、各 wave 完了時に 20 仮説の credible interval / Bayes factor BF_{10} / WAIC を再計算、表 11.5.3b (wave 別 posterior 行列) として Ch 26b 公開、Stan 実装 (4 chains × 2000 iter、R̂ < 1.01)",
+        "Bayes factor 閾値 (Kass-Raftery 1995): BF_{10} > 10 substantial、> 30 strong、> 100 decisive を wave 別累積で監視、wave 5 完了時に 8 系統中 5 系統以上で strong evidence (BF_{10} > 10) 達成で BZM 全体支持判定",
+        "Multiplicity 補正の二段構え: 一次 = Bayesian FDR (Storey 2003, q-value ≤ 0.05) を BMA 後に適用、二次 sensitivity = frequentist Bonferroni-Holm 補正 + alpha spending を並走、20 仮説 × 5 wave = 100 検定の overall α 制御を担保 (Tier B 規律)",
+        "p-hacking 排除規約: wave 内 OSF SHA-256 sealed analysis plan、wave 間は事前登録適応規則のみ、primary endpoint β_3 / secondary endpoint F-5.x は wave 間変更不能、post-hoc subgroup は black-flag exploratory として強制報告 (Simmons-Nelson-Simonsohn 2011)、exploratory finding は次 wave の confirmatory hypothesis として OSF 新規登録 (Wagenmakers 2012 exploratory vs confirmatory 規律)、deactivation 履歴は永久保存 (削除禁止)"
+      ],
+      "paragraph_outline": [
+        "P1: 8 系統 ≈ 20 反証可能仮説の正本リスト (D-050 + D-051 規律) — F-5.1〜F-5.6 (Ch 5 §5.x, 6 系統)、H_C2 (Ch 10.3 §10.3.x, 1)、Klepper 命題 5 符号 (Ch 10.5 §10.5.x, 4 系統)、Malerba w(L) 符号 (Ch 10.6 §10.6.x, 3 系統)、Ψ Granger 符号 (Ch 10.7 §10.7.x, 3 系統)、θ_σ* 比較静学 (Ch 5.5 §5.5.x, 2 系統)、β̂_3 ∈ [0.4, 1.2] (Ch 10.9 §10.9.x, primary endpoint) を表 11.5.3a に整理、各仮説の正本オーナー章とポインタを明示",
+        "P2: BMA model space 定義 — M_1 BVAR (Ch 11)、M_2 Klepper 線形回帰 (Ch 10.5)、M_3 Malerba diffusion (Ch 10.6)、M_4 Granger VAR (Ch 10.7)、M_5 試験 reduced form (Ch 10.9) の 5 model を Ch 37 horse-race の 4 frameworks (BZM vs Klepper/Malerba/NSI/制度学派) と整合させて選定、制度学派 model は Ch 37 で扱い本章 model space からは除外する設計判断を明示",
+        "P3: wave 0 prior 設定 — 各仮説 plausible sign 上の uniform、scale 上の weakly informative (Gelman et al. 2014)、β_3 のみ Ch 10.9 commission の N(0.6, 0.3²) を採用、empirical Bayes prior 更新は wave 間で禁止 (p-hacking リスク回避、§11.5.1 wave 1 pilot 化と整合)",
+        "P4: sequential 更新一般式 — posterior_{k+1}(θ | data_{1:k+1}) ∝ likelihood(data_{wave_{k+1}} | θ) × posterior_k(θ | data_{1:k}) を MCMC (Stan, 4 chains × 2000 iter、R̂ < 1.01) で実装、wave_{k+1} の posterior が wave_k posterior × wave_{k+1} likelihood で再現可能であることを sequential 整合性として F-11.5.7 で falsifiable に検証",
+        "P5: Bayesian model averaging — w_m^{(k)} = exp(-WAIC_m^{(k)}/2) / Σ_j exp(-WAIC_j^{(k)}/2) で wave k 更新、predictive 結合 P(H_j | data_{1:k}) = Σ_m w_m^{(k)} P(H_j | M_m, data_{1:k})、LOO-CV (Vehtari et al. 2017) を sensitivity として併走、small sample (N=15-32) での WAIC 不安定性は open issue として明示",
+        "P6: Bayes factor BF_{10} 累積監視 — log BF_k^{(j)} = log p(data_{wave_k} | H_j) - log p(data_{wave_k} | H_null) を wave 進行で累積、Kass-Raftery 1995 基準で 4 段階 (weak 1-3 / substantial 3-10 / strong 10-30 / decisive >30 [両側 log] = > 100 / 1-3 substantial / 3-5 strong / >5 decisive) で証拠強度分類、wave 別累積曲線を図 11.5.5 で提示",
+        "P7: Multiplicity 補正 — 一次 = Bayesian FDR (Storey 2003, Annals of Statistics) を BMA 後 20 仮説に適用、目標 q-value ≤ 0.05、最大 q-value を wave 別報告、二次 sensitivity = frequentist Bonferroni-Holm + O'Brien-Fleming 並走で 20×5=100 検定の overall α 制御",
+        "P8: wave 別 sequential update 運用詳細 — wave 1 で 8 系統初回 posterior (pilot で α 消費なし、descriptive のみ)、wave 2 で機関後付け cohort 追加 (IPW + Heckman 補正)、wave 3 で N=32 primary endpoint 確定 (Ch 10.9 接続点)、wave 4-5 で国際 cohort 追加後 robustness 確認、wave 別 posterior 行列を表 11.5.3b として Ch 26b sequential 公開",
+        "P9: BMA model 重み trajectory — table 11.5.3c (wave 別 w_m^{(k)}) で model uncertainty を露出、BVAR への過度依存 (w_BVAR > 0.4 を許容下限) を F-11.5.3 として falsifiable 監視、wave 3 以降で Malerba diffusion 重み上昇なら産業ライフサイクル効果顕在化と解釈",
+        "P10: frequentist 並走 — Bonferroni-Holm 補正 + O'Brien-Fleming sequential boundary で FWER α=0.05 制御、Bayesian と frequentist の結論分岐時の解釈 protocol (D-031 Tier B 両論併記)、disagreement log を §11.5.2 ハイブリッド規約と統合",
+        "P11: p-hacking 排除 wave 内 mechanism — analysis plan を wave 開始 30 日前 OSF AsPredicted に SHA-256 ハッシュコミット sealed、data 確定後の仮説変更・covariate 追加・outcome 再定義を全禁止、moderator が wave 開始時と完了時の 2 重 audit (Munafò et al. 2017)、violation 発見時は Ch 26b に black-flag 永久記録",
+        "P12: p-hacking 排除 wave 間 mechanism — 適応規則 (反証仮説集合 deactivation、新仮説 commission、prior 更新規約、sample size re-estimation、cohort 比率調整、stop boundary 厳格化) のみ wave 間で動かせる自由度、それ以外の analysis plan 変更は protocol violation として Ch 26b 登録簿 black-flag、Camerer et al. 2018 garden of forking paths を構造的閉鎖",
+        "P13: 新仮説 commission 規約 (Wagenmakers 2012) — wave 間で発見された exploratory findings は次 wave 以降の confirmatory hypothesis として OSF 新規登録、当該 wave での confirmatory 扱い禁止、exploratory vs confirmatory の規律を堅持、post-hoc subgroup analysis は black-flag 付き exploratory として強制報告 (Simmons-Nelson-Simonsohn 2011)",
+        "P14: 反証仮説 deactivation 規約 — BF_k が strong evidence against (log BF_k < -3, Kass-Raftery) に到達した仮説は次 wave 以降 deactivation、deactivation 履歴は Ch 26b 登録簿に永久保存 (削除禁止)、deactivation 後の復活には新 wave 開始 30 日前の OSF 再登録が必要",
+        "P15: 図 11.5.5 (wave 1-5 で各仮説の posterior probability + log BF_k trajectory) と表 11.5.3a/b/c (仮説リスト/posterior 行列/BMA 重み) を提示、Ch 25 層間結合 / Ch 37 horse-race への引き渡し sketch"
+      ],
+      "new_writing_required": "全文新規。表 11.5.3a (20 仮説正本リスト)、表 11.5.3b (wave 別 posterior 行列 template)、表 11.5.3c (BMA model 重み wave 別)、図 11.5.5 (posterior + log BF trajectory) は新規作成。BMA formalism と sequential 更新規約は本章で正本化 (Ch 26b は仕様、本章は運用)。Bayesian FDR と Bonferroni-Holm 並走、Wagenmakers exploratory vs confirmatory 規律、Simmons-Nelson-Simonsohn black-flag 強制、deactivation 履歴永久保存規約は全て新規。Stan 実装詳細 (4 chains × 2000 iter, R̂ < 1.01) も新規。",
+      "existing_reuse": "F-5.1〜F-5.6 (Ch 5 既存定義, D-050 で Ch 26b 正本確定)、θ_σ* 比較静学 (Ch 5.5)、H_C2 (Ch 10.3)、Klepper 命題 5 符号 (Ch 10.5)、Malerba w(L) 符号 (Ch 10.6)、Ψ Granger 符号 (Ch 10.7)、β̂_3 ∈ [0.4, 1.2] (Ch 10.9)、Ch 11 BVAR 推定結果。これらは参照のみで再定義しない (D-051 正本表記規律)。Kass-Raftery 1995 BF 基準を 1 段落で要約参照。",
+      "upstream_dependencies": [
+        "§11.5.1 (wave 完了タイミング + 適応規則)",
+        "§11.5.2 (Bayesian posterior threshold + ハイブリッド規約)",
+        "Ch 5 F-5.1〜F-5.6",
+        "Ch 5.5 θ_σ* 比較静学",
+        "Ch 10.3 H_C2",
+        "Ch 10.5 Klepper 命題 5 符号",
+        "Ch 10.6 Malerba w(L) 符号",
+        "Ch 10.7 Ψ Granger 符号",
+        "Ch 10.9 β̂_3 ∈ [0.4, 1.2]",
+        "Ch 11 BVAR 推定結果",
+        "D-050 反証可能仮説正本",
+        "D-051 正本表記規律"
+      ],
+      "downstream_dependencies": [
+        "§11.5.4 反転条件 (BMA 後 posterior trigger)",
+        "Ch 26b (公開 + 登録簿更新 + reformation archive)",
+        "Ch 25 層間結合 (BMA 後 posterior 引き渡し)",
+        "Ch 37 BZM vs 4 frameworks horse-race (BMA 重み引き渡し)"
+      ],
+      "references": [
+        "Hoeting et al. (1999) Statistical Science 14(4)『Bayesian model averaging』",
+        "Vehtari, Gelman & Gabry (2017) Statistics and Computing 27『WAIC / LOO-CV』",
+        "Kass & Raftery (1995) JASA 90『Bayes factors』",
+        "Storey (2003) Annals of Statistics『The positive false discovery rate』",
+        "Holm (1979) Scandinavian Journal of Statistics 6『Bonferroni-Holm』",
+        "Benjamin et al. (2018) Nature Human Behaviour 2『Redefine statistical significance』",
+        "Wagenmakers et al. (2012)『An agenda for purely confirmatory research』",
+        "Simmons, Nelson & Simonsohn (2011) Psychological Science『False-positive psychology』",
+        "Munafò et al. (2017) Nature Human Behaviour",
+        "Camerer et al. (2018) Nature Human Behaviour",
+        "Gelman et al. (2014)『Bayesian Data Analysis 3rd』",
+        "Stan Development Team (2024)"
+      ],
+      "source_drafts": [
+        "C §11.5.3 BMA 5 model + 仮説リスト骨格",
+        "B §11.5.3 Bayesian FDR + Stan 実装詳細",
+        "A §11.5.3 Wagenmakers exploratory-confirmatory + deactivation 履歴永久保存 + moderator 2 重 audit"
+      ]
+    },
+    {
+      "section_id": "11.5.4",
+      "title": "反転条件 twin trigger + Ch 26b §26b.5 再定式化 protocol (48h/90日) + phoenix wave + 章間 supply + 章末",
+      "pages": 2.5,
+      "math_level": "medium",
+      "anchor_claims": [
+        "反転条件 twin trigger: (a) frequentist 経路 W_n* < χ²_{2, 0.90} = 4.605 (Ch 10.4 / Ch 10.9 §10.9.5 commission, df=2, α=0.10) OR (b) Bayesian 経路 P(β_3 ≤ 0 | data_{1:k}) > 0.95 (主係数符号反転、95% posterior credible interval が 0 以下) のいずれか発動で wave 全体停止、判定 hierarchy = 単一仮説 deactivation (§11.5.3) は wave 進行継続、8 系統 20 仮説の集約証拠で twin trigger 満了で wave 全体停止",
+        "Ch 26b §26b.5 再定式化 protocol (運用 timeline 確定): 反転発動 → 48 時間以内に Ch 26b に reversal log を SHA-256 ハッシュコミット (OSF time-stamp + DOI 付与) → 90 日以内に BZM Book VI 新領域宣言を撤回または再交渉、Research Policy 特集号巻頭原稿 + ICC 第三伴走に erratum 添付義務",
+        "再定式化 4 段階 + phoenix wave 起動: (1) 新反証仮説の再 commission (発動原因 = どの軸 = 文化次元 / 産業ライフサイクル / cohort 規模 で BZM 不成立かを特定、Ch 5/5.5/10.3-10.7 のどの仮説層を修正するか)、(2) alpha 再配分 (残余 α を新仮説に O'Brien-Fleming boundary 再計算)、(3) cohort 再設計 (発動原因 cohort heterogeneity に応じた新 strata)、(4) phoenix wave 起動 (wave numbering 連続性保持、登録簿全履歴永久保存、analysis plan は通常 wave と同じ 30 日前 OSF SHA-256 commitment)",
+        "Hierarchical decision rule: 3-of-5 wave で β̂_3 ≤ 0 → BZM 全棄却宣言 + Book VI 撤回、それ以外 (反転 1-2 wave) → 境界条件再 commission + phoenix wave、wave 5 まで twin trigger 不発で β̂_3 ∈ [0.4, 1.2] かつ 8 系統中 5 系統以上で strong evidence 達成なら BZM 全体支持確定",
+        "Ch 11.5 が下流に渡す output: wave 段階更新済み事後分布 + 中間/最終 stop 判定記録 + BMA 重み行列 + protocol violation 記録 + disagreement log + 反転発動の有無を Ch 26b 公開 + Ch 25 層間結合 + Ch 37 BZM vs 4 frameworks horse-race + Book VI 新領域宣言の証拠ベース + Research Policy 特集号巻頭 + ICC 第三伴走 + Ch 12 横断データ拡張へ systematic supply"
+      ],
+      "paragraph_outline": [
+        "P1: 反転条件 twin trigger 正式定義 — (a) frequentist W_n* < χ²_{2, 0.90} = 4.605 (Ch 10.4 H_C 全停止基準 + Ch 10.9 §10.9.5 commission を引用、df=2, α=0.10)、(b) Bayesian P(β_3 ≤ 0 | data_{1:k}) > 0.95、OR 条件で発動 (慎重 stop と対照的に反転は感度高く)、判定タイミングは wave 5 final または中間 futility stop 時",
+        "P2: 判定 hierarchy 明示 — 単一仮説 deactivation (§11.5.3 BF < -3 で発動) は wave 進行継続、8 系統 20 仮説の集約証拠で twin trigger 満了で wave 全体停止、wave 全体停止 vs 単一仮説 deactivation の使い分けを表 11.5.4a で明示",
+        "P3: Ch 26b §26b.5 再定式化発動 protocol 時間制約 — 反転発動から 48 時間以内に reversal log を SHA-256 ハッシュコミット (OSF time-stamp + DOI 付与、permanent black-record)、90 日以内に BZM Book VI 新領域宣言を撤回または再交渉、Research Policy 特集号巻頭 + ICC 第三伴走の編集部に erratum 添付義務 (Open Science Collaboration 2015 流の reproducibility 規範)",
+        "P4: 再定式化 4 段階 — (1) 新反証仮説の再 commission (発動原因軸 = 文化次元 / 産業ライフサイクル段階 / cohort 規模 の特定、Ch 5/5.5/10.3-10.7 のどの仮説層を修正するか)、(2) alpha 再配分 (残余 α を新仮説に O'Brien-Fleming boundary 再計算)、(3) cohort 再設計 (発動原因 cohort heterogeneity に応じた新 strata 設計)、(4) phoenix wave 起動",
+        "P5: phoenix wave 規約 (A の novel idea を吸収) — 再定式化前後の登録簿は全履歴永久保存 (削除禁止)、phoenix wave の analysis plan は通常 wave と同じ 30 日前 OSF SHA-256 commitment、wave numbering は連続性保持 (例 wave 5 で停止 → phoenix wave 6 起動)、再定式化の理論的根拠は本章補論 + Ch 26b §26b.5 archive に公開、phoenix wave 後の long-run type I error 累積 control は付録 A.11.5.2 で扱う (open issue)",
+        "P6: hierarchical decision rule — 3-of-5 wave で β̂_3 ≤ 0 → BZM 全棄却宣言 + Book VI 撤回、それ以外 (反転 1-2 wave) → 境界条件再 commission + phoenix wave、wave 5 まで twin trigger 不発かつ β̂_3 ∈ [0.4, 1.2] かつ 8 系統中 5 系統以上で strong evidence 達成なら BZM 全体支持確定 (F-11.5.1)、判定 logic を flowchart として図 11.5.6 で提示",
+        "P7: frequentist / Bayesian disagreement の章末扱い — §11.5.2 で導入した disagreement log が wave 5 まで継続した場合の両論併記原則 (Sims 2010)、Research Policy 特集号巻頭の編集方針との整合は open issue として明示、両論併記でも primary 結論は Bayesian posterior monitoring (連続的証拠更新性が運用適合) を採用",
+        "P8: Ch 26b との住み分け再確認 (章末) — 表 11.5.4b で『新仮説 commission / 反証仮説 deactivation / alpha 再配分 / phoenix wave / 48h reversal log』のオーナーを Ch 11.5 (運用 mechanism、動的) vs Ch 26b (レジストリ仕様 + reformation archive、静的) で分担、境界線を確定",
+        "P9: 章間 supply フロー図 — 図 11.5.7 で Ch 11.5 → {Ch 26b 公開, Ch 25 層間結合, Ch 37 BZM vs 4 frameworks horse-race, Book VI 新領域宣言の証拠ベース, Research Policy 特集号巻頭, ICC 第三伴走, Ch 12 横断データ拡張, 後続論文} の供給フローを systematic 図表化、各供給先に渡す output (事後分布 / BMA 重み行列 / stop 判定 / protocol violation 記録 / 反転発動有無) を明示",
+        "P10: 残課題 + open issue — phoenix wave 後の long-run type I error 累積 control (wave 連続再定式化時の error rate explosion)、国際 17 cohort 募集の geopolitical risk (特定地域集中)、機関後付け cohort 生存者バイアス、Hofstede vs Schwartz vs WVS 文化次元選択、BMA model space と Ch 37 horse-race 4 frameworks 整合性を後続論文 + Ch 26b に bridge",
+        "P11: 章末 reflection — 適応設計 + sequential 更新 + p-hacking 排除の三点セットが Tier B 規律の核心、wave 5 (N=64) 完了は 2029Q1 予定、本章の運用 mechanism は BZM 全体 falsifiability を担保する最終 layer、Nosek 流 preregistration revolution の社会科学版実装として Camerer et al. 2018 NHB replication crisis に対する constructive response として宣言、次章 Ch 12 (横断データ拡張) への接続 (wave 段階で蓄積したデータが横断比較の基盤となる)"
+      ],
+      "new_writing_required": "全文新規。表 11.5.4a (wave 全体停止 vs 単一仮説 deactivation の使い分け hierarchy)、表 11.5.4b (Ch 11.5 vs Ch 26b 住み分け表)、図 11.5.6 (hierarchical decision rule flowchart, 3-of-5 全棄却 vs 境界条件再 commission)、図 11.5.7 (章間 supply フロー)は全て新規作成。Ch 26b §26b.5 再定式化発動 protocol の 48h/90日 timeline、phoenix wave 規約、4 段階再定式化、hierarchical decision rule (3-of-5) はすべて本章で初出 (D-041 後半 = Ch 11.5 正本オーナー)。",
+      "existing_reuse": "Ch 10.4 W_n* < χ²_{2, 0.90} 判定基準と Ch 10.9 §10.9.5 β̂_3 ≤ 0 反転境界を再掲のみ、Ch 26b §26b.5 reformation protocol 骨格を 1 段落差し戻し参照、§11.5.2 ハイブリッド規約と §11.5.3 BMA + Bayesian FDR 結果を統合的に呼び出し",
+      "upstream_dependencies": [
+        "§11.5.2 (中間 stop rule + W_n* / Bayesian posterior trigger)",
+        "§11.5.3 (BMA 後 posterior + BF_k 累積)",
+        "Ch 10.4 / Ch 10.9 §10.9.5 (W_n* + β̂_3 ≤ 0 反転境界)",
+        "Ch 26b §26b.5 (reformation protocol 骨格)"
+      ],
+      "downstream_dependencies": [
+        "Ch 26b 公開 + 登録簿更新 + reformation archive",
+        "Ch 25 層間結合 (BZM 1-3 層整合性確認)",
+        "Ch 37 BZM vs 4 frameworks horse-race (Klepper/Malerba/NSI/制度学派)",
+        "Book VI 新領域宣言の証拠ベース",
+        "Research Policy 特集号巻頭原稿",
+        "ICC 第三伴走",
+        "Ch 12 横断データ拡張",
+        "後続論文 (BZM 方法論章として本章引用)"
+      ],
+      "references": [
+        "Popper (1959)『Logic of Scientific Discovery』反証主義",
+        "Lakatos (1970)『Methodology of Scientific Research Programmes』hard core",
+        "Nosek et al. (2018) PNAS preregistration revolution",
+        "Munafò et al. (2017) Nature Human Behaviour reproducibility manifesto",
+        "Sims (2010)『Understanding non-Bayesians』",
+        "Open Science Collaboration (2015) Science『Estimating reproducibility of psychological science』",
+        "Simmons, Nelson & Simonsohn (2011) Psychological Science",
+        "FDA (2019) Adaptive Designs Guidance §V futility stop"
+      ],
+      "source_drafts": [
+        "C §11.5.4 反転条件 + hierarchical decision rule + Ch 12 接続骨格",
+        "B §11.5.4 48h reversal log + 90日 Book VI 撤回 + Research Policy erratum timeline",
+        "A §11.5.4 phoenix wave + 履歴永久保存 + Ch 26b 住み分け表 + 章末 Camerer constructive response"
+      ]
+    }
+  ],
+  "open_issues_for_masa": [
+    {
+      "issue": "wave 1 開始時期: B案 2026Q4 開始 vs C案 2027Q1 開始 — D-052 Phase 2 = 2026Q4 起点規律との整合と AMD-8 cohort 募集前準備期間の trade-off",
+      "why_masa_decides": "Ch 10.9 試験プロトコル commission の timeline と D-052 schedule fidelity に関わる経営判断 + AMD-8 cohort 募集の実務的準備期間 (まさが伴走 PI として承知すべき)",
+      "options": [
+        "2026Q4 開始 (B 案、D-052 整合最大、前準備期間 tight)",
+        "2027Q1 開始 (C 案、AMD-8 募集 + IRB 取得期間 3 ヶ月確保)",
+        "2026Q4 = pilot 準備期間 / 2027Q1 = wave 1 正式開始の二段階 (統合案)"
+      ],
+      "recommendation": "2026Q4 = pilot 準備 + IRB / OSF 事前登録 / 統計家招聘、2027Q1 = wave 1 正式開始の二段階運用 (D-052 起点を維持しつつ前準備を確保、wave 5 final = 2029Q1 を堅持)"
+    },
+    {
+      "issue": "ハイブリッド stop rule の判定統合規則 — AND default (慎重) vs OR (twin trigger 感度高) vs AND-default + 反転条件は OR (二層構造)",
+      "why_masa_decides": "反証可能性と false stop 確率の trade-off は本書の論証基盤 (Tier B 規律) に直結、まさが BZM 全棄却リスクと early stop 過剰保守化のどちらを優先するかの方針判断",
+      "options": [
+        "AND default (両者一致時のみ stop) + 反転条件 (W_n* / β̂_3 ≤ 0) は OR の二層構造 (C 案 + 統合)",
+        "OR (twin trigger) — early stop 感度高、wave 1-2 誤反転リスク",
+        "AND + 不一致時 disagreement log 永久記録 (B 案、両論併記)"
+      ],
+      "recommendation": "二層構造案を採用: stop rule (efficacy/futility 判定) は AND default (定理 11.5.1 で false stop < 0.01 保証)、反転条件 (BZM 全停止) は OR (W_n* OR β̂_3 ≤ 0、感度高く)、不一致は disagreement log SHA-256 commit で記録 (B 案統合)"
+    },
+    {
+      "issue": "BMA model space の Ch 37 horse-race との整合性 — C 案 5 model (BVAR/Klepper/Malerba/Granger/試験 reduced form) vs Ch 37 の 4 frameworks (BZM vs Klepper/Malerba/NSI/制度学派) の対応",
+      "why_masa_decides": "Ch 37 horse-race と本章 BMA の model space が異なると論文間整合性が破綻、まさが本書全体の論証統一性として方針確定すべき",
+      "options": [
+        "BMA 5 model + Ch 37 で NSI / 制度学派を追加 horse-race (本章は推定 model、Ch 37 は理論 framework の対応分離)",
+        "BMA を 4 model に縮小して Ch 37 と完全整合 (BVAR を BZM 推定の primary とし、Klepper/Malerba/NSI/制度学派 model に揃える)",
+        "BMA は推定 model space、Ch 37 は理論 framework として明示的に分離 (現状の C 案 + 解説段落追加)"
+      ],
+      "recommendation": "BMA 5 model (推定 model space) と Ch 37 4 frameworks (理論 framework horse-race) を明示的に分離、§11.5.3 P2 で『BMA = 推定 model 不確実性、Ch 37 = 理論 framework 比較』の境界を明示する解説段落を追加"
+    },
+    {
+      "issue": "Multiplicity 補正の primary 選定 — Bayesian FDR (Storey 2003) vs Bonferroni-Holm vs 階層 Bayes shrinkage (Gelman 2008)",
+      "why_masa_decides": "20 仮説 × 5 wave = 100 検定の overall α 制御は反証可能性の生命線、Tier B 規律下での primary 補正手法選定はまさの査読戦略 (Research Policy + ICC) と直結",
+      "options": [
+        "Bayesian FDR primary + Bonferroni-Holm sensitivity (B 案統合、replication crisis 対応)",
+        "Bonferroni-Holm primary + Bayesian FDR sensitivity (frequentist 保守的)",
+        "階層 Bayes shrinkage primary (Gelman 2008、small sample に頑健だが理論複雑)"
+      ],
+      "recommendation": "Bayesian FDR (q ≤ 0.05) primary + Bonferroni-Holm sensitivity を併走 (B 案統合)、§11.5.3 P7 で両論併記、Research Policy 査読では Bayesian FDR が replication crisis 対応として通用しやすい"
+    },
+    {
+      "issue": "P-011 OSF 事前登録タイミングの specific 仕様 — wave 開始 30 日前 commit + SHA-256 ハッシュコミット sealed の二段階で確定するか",
+      "why_masa_decides": "P-011 は本書全体の preregistration policy の specific 仕様化、まさが OSF 運用の technical lock 機構を承認すべき (Center for Open Science protocol 準拠)",
+      "options": [
+        "wave 開始 30 日前 OSF AsPredicted フォーム commit + SHA-256 ハッシュコミット sealed の二段階 (本統合案)",
+        "wave 開始時点 commit のみ (短期 lock、軽量だが p-hacking リスク)",
+        "wave 開始 60 日前 (より厳格、cohort 募集との timeline 整合確認要)"
+      ],
+      "recommendation": "本統合案 (30 日前 AsPredicted + SHA-256 sealed) を採用、moderator 2 重 audit (wave 開始時と完了時) を併用、Center for Open Science protocol との formal 準拠を本章 §11.5.0 で宣言"
+    },
+    {
+      "issue": "国際 cohort 文化次元層化の変数選択 — Hofstede 個人主義/集団主義 vs Schwartz value survey vs WVS (World Values Survey)",
+      "why_masa_decides": "external validity 担保の運用変数選定は wave 4-5 拡張の根幹、まさが本書の文化次元理論 (Ch 5.5 θ_σ* 比較静学) との整合性で判断",
+      "options": [
+        "Hofstede 個人主義/集団主義 primary (本統合案、運用実績豊富、Ch 5.5 θ_σ* と整合容易)",
+        "Schwartz value survey primary (10 次元、より細かいが N=17-33 に対し overspecified)",
+        "Hofstede primary + Schwartz/WVS sensitivity 併走 (頑健性高いが 14p 制約下で運用 cost)"
+      ],
+      "recommendation": "Hofstede 個人主義/集団主義 primary を採用 (§11.5.1 P5/P10)、Schwartz/WVS sensitivity は付録 A.11.5.3 に分離、Ch 5.5 θ_σ* 比較静学との整合を §11.5.1 で明示"
+    }
+  ],
+  "falsifiable_claims": [
+    "F-11.5.1 (wave 5 完了時 primary BZM 全体支持判定): β̂_3^{(wave 5)} ∈ [0.4, 1.2] かつ O'Brien-Fleming boundary z_5 ≈ 1.96 超過 AND P(β_3 > 0.4 | data_{1:5}) > 0.95 AND 8 系統 ≈ 20 仮説中 5 系統以上で BF_{10} > 10 (Kass-Raftery strong evidence) を全て満たした時のみ BZM 全体支持を確定、いずれか不成立で BZM 全体支持判定は反証され Ch 26b 再定式化発動 or 全棄却判定",
+    "F-11.5.2 (反転条件 twin trigger 発動規約): wave k 完了時 (中間 futility stop または wave 5 final) に W_n* < χ²_{2, 0.90} = 4.605 (Ch 10.4 / Ch 10.9 §10.9.5 commission) OR β̂_3 ≤ 0 (95% posterior credible interval が 0 以下) のいずれか発動で wave 全体停止、3-of-5 wave で β̂_3 ≤ 0 → BZM 全棄却宣言 + Book VI 撤回、それ以外 → 境界条件再 commission + phoenix wave 起動",
+    "F-11.5.3 (BMA model 重みの BVAR 過度依存検証): wave 5 完了時に Ch 11 BVAR model の BMA 重み w_BVAR^{(5)} > 0.4 を満たす。それ以下で BMA が他 model (Klepper / Malerba / Granger / 試験 reduced form) に分散していれば BVAR 過度依存仮説が棄却され、産業構造解釈は multi-model BMA に修正、特に Malerba diffusion 重み w_M^{(5)} > 0.2 の場合は産業ライフサイクル効果顕在化と解釈",
+    "F-11.5.4 (ハイブリッド stop rule false stop 確率保証): 定理 11.5.1 で示すハイブリッド規約 (frequentist O'Brien-Fleming AND Bayesian posterior monitoring 一致時のみ stop) の family-wise false stop 確率 (type I error inflation) が Monte Carlo 10,000 反復シミュレーションで < 0.01 を満たす。inflation > 0.01 で定理 11.5.1 反証、判定統合規則を再設計",
+    "F-11.5.5 (frequentist vs Bayesian disagreement 頻度): O'Brien-Fleming boundary と Bayesian posterior threshold P(β_3 > 0.4) > 0.95 の判定一致率が wave 1-5 を通じて 80% 以上なら双対経路設計を validate、50% 未満なら方法論的に経路選択を再検討、30% 以上 disagreement で sensitivity 経路 (Pocock + reference prior) への再設計が必要",
+    "F-11.5.6 (p-hacking 排除規約の事後検証): wave 1-5 完了後に独立第三者 (Nosek 流 OSF audit) が protocol violation 数 = 0 を確認、wave 内 SHA-256 sealed analysis plan と公開原稿 analysis 実装の差分が non-trivial (適応規則外の outcome 変更・統計手法変更・cohort 定義変更) と reversal log で確認された場合は p-hacking 排除規約が反証され Tier C (より厳格な moderator 監督) に強化",
+    "F-11.5.7 (sequential update 整合性): wave_{k+1} の posterior が wave_k posterior × wave_{k+1} likelihood で再現可能 (Bayesian sequential 更新の数学的整合性)、再現不能なら BMA 実装 or model specification にバグ、本章 protocol 全体が無効化されて再実装必要",
+    "F-11.5.8 (国際 cohort 外的妥当性 — Hofstede 文化次元層化検証): wave 3 (N=32) と wave 5 (N=64) で β̂_3 の国内/国際 cohort 別 estimate の 95% credible interval が重なる (文化的交絡が β_3 を有意に歪めない)、Hofstede 個人主義/集団主義 × β_3 交互作用の 95% credible interval が 0 を含む。重ならない/含まない場合は θ_σ* 比較静学 (Ch 5.5) が文化次元依存であることが示され、Ch 5.5 修正 + 層別 BMA 再設計",
+    "F-11.5.9 (conditional power の predictive validity + sample size re-estimation): wave 3 (N=32) 時点で計算した CP_3 と wave 5 (N=64) 完了時の actual rejection 結果が相関 ρ > 0.7 を満たす。相関低ければ conditional power 計算が AMD context で機能せず、Cui-Hung-Wang 1999 保護つき weighted test の sample size re-estimation 規約 (§11.5.1.6) が無効化されて再設計",
+    "F-11.5.10 (wave 完了タイミング schedule fidelity): wave 1-5 の事前登録完了タイミング (2026Q4 pilot 準備 / 2027Q1 wave 1 / 2027Q1-Q2 wave 2 / 2027Q3 wave 3 / 2028Q2 wave 4 / 2029Q1 wave 5) が D-052 Phase 2/Phase 3 schedule に照らして +6 ヶ月以上遅延した場合、wave 段階設計の実行可能性が反証され適応規則 (sample size re-estimation + alpha 再配分) で対応",
+    "F-11.5.11 (Ch 26b §26b.5 再定式化 timeline 履行): 反転条件発動時に 48 時間以内の reversal log SHA-256 commit + 90 日以内の BZM Book VI 撤回交渉 + Research Policy 巻頭 erratum 添付が履行されない場合、Ch 26b 連携 protocol が反証され Tier B 規律全体が破綻、phoenix wave 起動の OSF 信頼性が失われる"
+  ],
+  "cross_chapter_supply": [
+    {
+      "target_chapter": "Ch 5 (F-5.1〜F-5.6)",
+      "what_supplies": "wave 5 完了時の各 F-5.x の 8 系統 ≈ 20 仮説 sequential 事後分布 + BF_{10} 累積 + deactivation 履歴を Ch 5 反証可能仮説層への updated evidence として返送、F-5.x の sign / magnitude robustness の wave 別 trajectory を Ch 5 §5.x 末尾の forward reference 表に追記"
+    },
+    {
+      "target_chapter": "Ch 5.5 (θ_σ* 比較静学)",
+      "what_supplies": "Hofstede 個人主義/集団主義 × β_3 交互作用 monitoring 結果 + 国際 cohort 別 estimate を θ_σ* 比較静学の文化次元依存性検証として供給、F-11.5.8 で交互作用 0 含まないなら Ch 5.5 修正を trigger"
+    },
+    {
+      "target_chapter": "Ch 10.3 (H_C2)",
+      "what_supplies": "wave 別 H_C2 posterior probability + BF_{10} 累積を Ch 10.3 反証仮説層への sequential 更新として供給"
+    },
+    {
+      "target_chapter": "Ch 10.4 (W_n* 統計量)",
+      "what_supplies": "wave 別 W_n* 中間統計量 + χ²_{2, 0.90} = 4.605 反転境界の wave 別到達状況を Ch 10.4 H_C 全停止基準の実証結果として供給"
+    },
+    {
+      "target_chapter": "Ch 10.5 (Klepper 命題 5 符号)",
+      "what_supplies": "wave 別 Klepper 命題 5 符号の事後分布 + BMA 重み w_Klepper^{(k)} の trajectory を Ch 10.5 の反証可能仮説層への sequential 更新として供給、Ch 37 horse-race の Klepper framework 対応"
+    },
+    {
+      "target_chapter": "Ch 10.6 (Malerba w(L) 符号)",
+      "what_supplies": "wave 別 Malerba w(L) 符号の事後分布 + BMA 重み w_Malerba^{(k)} の trajectory、特に wave 3 以降で重み上昇なら産業ライフサイクル効果顕在化として Ch 10.6 への evidence return"
+    },
+    {
+      "target_chapter": "Ch 10.7 (Ψ Granger 符号)",
+      "what_supplies": "wave 別 Ψ Granger 符号の事後分布 + BMA 重み w_Granger^{(k)} の trajectory を Ch 10.7 への sequential 更新として供給"
+    },
+    {
+      "target_chapter": "Ch 10.9 (β̂_3 ∈ [0.4, 1.2] 試験プロトコル)",
+      "what_supplies": "wave 段階で運用化された β̂_3 の wave 別 posterior + credible interval + N=32 → N=64 拡張時の power 達成状況 + W_n* 反転境界到達状況を Ch 10.9 §10.9.4 forward reference の運用結果として返送、本章は Ch 10.9 commission の直接的運用 mechanism"
+    },
+    {
+      "target_chapter": "Ch 11 (BVAR)",
+      "what_supplies": "wave 別 BVAR 推定の sequential 更新結果 + BMA 重み w_BVAR^{(k)} の trajectory + BVAR 過度依存仮説 (F-11.5.3) の検証結果を Ch 11 への evidence return"
+    },
+    {
+      "target_chapter": "Ch 12 (横断データ拡張)",
+      "what_supplies": "wave 段階で蓄積した 64 cohort データセット + 機関後付け + 国際 cohort の wave 別構造を Ch 12 横断比較の基盤データとして供給、Hofstede 層化変数も継承"
+    },
+    {
+      "target_chapter": "Ch 25 (層間結合)",
+      "what_supplies": "wave 段階更新済み 8 系統 ≈ 20 仮説の事後分布 + BMA 重み行列を Ch 25 の BZM 1-3 層整合性確認に供給、early stop 判定結果も渡す"
+    },
+    {
+      "target_chapter": "Ch 26b (登録簿仕様 + reformation archive)",
+      "what_supplies": "wave 別 OSF SHA-256 ハッシュコミット + analysis plan sealed + posterior 行列 + BMA 重み trajectory + protocol violation 記録 + disagreement log + 反転発動時の reversal log + phoenix wave 履歴を Ch 26b 登録簿に sequential 公開 + reformation archive に永久保存"
+    },
+    {
+      "target_chapter": "Ch 37 (BZM vs 4 frameworks horse-race)",
+      "what_supplies": "wave 5 完了時の BMA 重み w_m^{(5)} (BVAR / Klepper / Malerba / Granger / 試験 reduced form の 5 model) と各 framework の posterior model probability を Ch 37 の BZM vs Klepper/Malerba/NSI/制度学派 horse-race に供給、NSI / 制度学派 model は Ch 37 で追加"
+    },
+    {
+      "target_chapter": "Book VI (新領域宣言)",
+      "what_supplies": "wave 5 完了時の N=64 事後分布 + BZM 全体支持判定 (F-11.5.1) or 全棄却判定 (3-of-5 wave β̂_3 ≤ 0) を Book VI 新領域宣言の証拠ベースとして供給、反転発動時は 90 日以内の Book VI 撤回交渉 trigger"
+    },
+    {
+      "target_chapter": "Research Policy 特集号巻頭",
+      "what_supplies": "wave 段階運用 protocol + Bayesian FDR multiplicity 補正 + p-hacking 排除規約を Research Policy 特集号巻頭の方法論章として本章引用 + 反転発動時の erratum 添付義務"
+    },
+    {
+      "target_chapter": "ICC 第三伴走",
+      "what_supplies": "wave 段階運用 + adaptive design + sequential update mechanism を ICC 第三伴走の方法論章として本章引用 + 反転時 erratum 添付"
+    },
+    {
+      "target_chapter": "後続論文 (BZM 方法論)",
+      "what_supplies": "ハイブリッド stop rule + 定理 11.5.1 + phoenix wave 規約 + BMA 5 model + Bayesian FDR を後続論文の preregistration revolution 社会科学版実装として本章引用"
+    }
+  ],
+  "masa_negotiation_handles": [
+    "wave 1 開始時期: 2026Q4 pilot 準備 + 2027Q1 wave 1 正式開始の二段階運用案 — D-052 起点と AMD-8 cohort 募集準備期間の trade-off、wave 5 final = 2029Q1 を堅持するか前倒しするか",
+    "ハイブリッド stop rule の二層構造案: stop rule (efficacy/futility) は AND default + 反転条件 (W_n* / β̂_3 ≤ 0) は OR の二層構造 — false stop 確率 < 0.01 vs 早期反転感度の trade-off、まさが BZM 全棄却リスクと early stop 過剰保守化のどちらを優先するか",
+    "BMA model space と Ch 37 horse-race の境界画定: BMA 5 model (推定 model 不確実性) vs Ch 37 4 frameworks (理論 framework horse-race) を明示的に分離する設計を採用するか、BMA を 4 model に縮小して Ch 37 と完全整合させるか",
+    "Multiplicity 補正の primary: Bayesian FDR (Storey 2003) primary + Bonferroni-Holm sensitivity 併走 — Research Policy + ICC 査読戦略との整合 (replication crisis 対応として Bayesian FDR が通用しやすい)",
+    "p-hacking 排除の SHA-256 sealed update 採用: wave 開始 30 日前 OSF AsPredicted + SHA-256 ハッシュコミット sealed の二段階 + moderator 2 重 audit を Center for Open Science protocol 準拠として宣言するか",
+    "phoenix wave 規約と long-run type I error 累積 control: 再定式化後の wave numbering 連続性保持 + 履歴永久保存を採用、phoenix wave 後の long-run error rate explosion 問題は付録 A.11.5.2 に分離するか本文で扱うか",
+    "国際 cohort 文化次元層化変数: Hofstede 個人主義/集団主義 primary + Schwartz/WVS は付録 A.11.5.3 に sensitivity 分離 — Ch 5.5 θ_σ* 比較静学との整合性を §11.5.1 で明示",
+    "Ch 26b §26b.5 再定式化 timeline (48h reversal log + 90日 Book VI 撤回交渉): まさが本書全体の reproducibility 規範として承認するか、Research Policy 巻頭 + ICC 第三伴走の編集部との erratum protocol 事前交渉が必要か"
+  ]
+}
