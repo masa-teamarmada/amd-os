@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useLayoutEffect, useRef } from "react";
 import { LinkedMemberText } from "@/components/members/LinkedMemberText";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -27,6 +27,7 @@ type UnifiedItem =
   | { kind: "meeting"; data: MeetingNotification };
 
 type FeedbackAction = "yes" | "no" | "comment";
+const ANSWERED_CARD_HIDE_MS = 3500;
 
 // 展開時に lazy fetch する実データの型
 type DetailRow = {
@@ -98,6 +99,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
   const [submitting, setSubmitting] = useState<Set<string>>(new Set());
   const [localFeedbacks, setLocalFeedbacks] = useState<Feedback[]>(feedbacks);
   const [answeredMap, setAnsweredMap] = useState<Record<string, FeedbackAction>>({});
+  const [recentlyAnsweredKeys, setRecentlyAnsweredKeys] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<"open" | "unread" | "answered" | "feedback">("open");
   // 展開時に取得した実データ (key = itemKey(item))
   const [details, setDetails] = useState<Record<string, DetailRow>>({});
@@ -110,6 +112,13 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
   // 既読セクション全体のトグル (default 折りたたみ)
   const [readSectionOpen, setReadSectionOpen] = useState<boolean>(false);
   const [focusHandledKey, setFocusHandledKey] = useState<string | null>(null);
+  const answerHideTimeoutsRef = useRef<Record<string, number>>({});
+  const scrollRestoreRef = useRef<{
+    primaryKey: string;
+    fallbackKey: string | null;
+    beforeTop: number | null;
+    beforeScrollY: number;
+  } | null>(null);
 
   // 通知を時系列でマージ (l2 + meeting)
   const items: UnifiedItem[] = useMemo(() => {
@@ -147,6 +156,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
     return "comment";
   };
   const isAnswered = (i: UnifiedItem): boolean => !!responseActionFor(itemKey(i), findFeedbacksFor(i));
+  const isRecentlyAnswered = (i: UnifiedItem): boolean => recentlyAnsweredKeys.has(itemKey(i));
   const hasFeedbackForItem = (i: UnifiedItem): boolean => findFeedbacksFor(i).length > 0;
   const isReadUi = (i: UnifiedItem): boolean => {
     const key = itemKey(i);
@@ -162,10 +172,10 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
       return focused ? [focused, ...list] : list;
     };
     if (filter === "open") {
-      return withFocused(items.filter((i) => !isAnswered(i)));
+      return withFocused(items.filter((i) => !isAnswered(i) || isRecentlyAnswered(i)));
     }
     if (filter === "unread") {
-      return withFocused(items.filter((i) => !isReadUi(i) && !isAnswered(i)));
+      return withFocused(items.filter((i) => (!isReadUi(i) && !isAnswered(i)) || isRecentlyAnswered(i)));
     }
     if (filter === "answered") {
       return withFocused(items.filter((i) => isAnswered(i)));
@@ -788,29 +798,68 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
   };
 
   const restoreScrollAfterAnswer = (answeredKey: string) => {
-    const visibleKeys = filtered.map((i) => itemKey(i));
-    const index = visibleKeys.indexOf(answeredKey);
-    const anchorKey = index >= 0
-      ? (visibleKeys[index + 1] ?? visibleKeys[index - 1] ?? null)
-      : null;
-    const anchorEl = anchorKey ? document.getElementById(`notification-card-${anchorKey}`) : null;
-    const answeredEl = document.getElementById(`notification-card-${answeredKey}`);
-    const beforeTop = (anchorEl ?? answeredEl)?.getBoundingClientRect().top ?? null;
-    const beforeScrollY = window.scrollY;
-
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => {
-        const nextAnchorEl = anchorKey ? document.getElementById(`notification-card-${anchorKey}`) : null;
-        if (nextAnchorEl && beforeTop != null) {
-          const delta = nextAnchorEl.getBoundingClientRect().top - beforeTop;
-          if (Math.abs(delta) > 1) window.scrollBy(0, delta);
-          return;
-        }
-        const maxScrollY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
-        window.scrollTo(0, Math.min(beforeScrollY, maxScrollY));
-      });
-    });
+    const answeredId = `notification-card-${answeredKey}`;
+    const cards = Array.from(document.querySelectorAll<HTMLElement>("[id^='notification-card-']"));
+    const index = cards.findIndex((el) => el.id === answeredId);
+    const fallbackEl = index >= 0 ? (cards[index + 1] ?? cards[index - 1] ?? null) : null;
+    const fallbackKey = fallbackEl?.id.replace(/^notification-card-/, "") ?? null;
+    const answeredEl = document.getElementById(answeredId);
+    scrollRestoreRef.current = {
+      primaryKey: answeredKey,
+      fallbackKey,
+      beforeTop: (answeredEl ?? fallbackEl)?.getBoundingClientRect().top ?? null,
+      beforeScrollY: window.scrollY,
+    };
   };
+
+  const showAnsweredCardTemporarily = (answeredKey: string) => {
+    const existingTimeout = answerHideTimeoutsRef.current[answeredKey];
+    if (existingTimeout) window.clearTimeout(existingTimeout);
+
+    setRecentlyAnsweredKeys((prev) => {
+      const next = new Set(prev);
+      next.add(answeredKey);
+      return next;
+    });
+
+    answerHideTimeoutsRef.current[answeredKey] = window.setTimeout(() => {
+      restoreScrollAfterAnswer(answeredKey);
+      setRecentlyAnsweredKeys((prev) => {
+        if (!prev.has(answeredKey)) return prev;
+        const next = new Set(prev);
+        next.delete(answeredKey);
+        return next;
+      });
+      delete answerHideTimeoutsRef.current[answeredKey];
+    }, ANSWERED_CARD_HIDE_MS);
+  };
+
+  useLayoutEffect(() => {
+    const snapshot = scrollRestoreRef.current;
+    if (!snapshot) return;
+    scrollRestoreRef.current = null;
+
+    const applyRestore = () => {
+      const anchorEl = document.getElementById(`notification-card-${snapshot.primaryKey}`)
+        ?? (snapshot.fallbackKey ? document.getElementById(`notification-card-${snapshot.fallbackKey}`) : null);
+      if (anchorEl && snapshot.beforeTop != null) {
+        const delta = anchorEl.getBoundingClientRect().top - snapshot.beforeTop;
+        if (Math.abs(delta) > 1) window.scrollBy(0, delta);
+        return;
+      }
+      const maxScrollY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+      window.scrollTo(0, Math.min(snapshot.beforeScrollY, maxScrollY));
+    };
+
+    applyRestore();
+    window.requestAnimationFrame(applyRestore);
+  }, [answeredMap, localFeedbacks, recentlyAnsweredKeys]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(answerHideTimeoutsRef.current).forEach((timeoutId) => window.clearTimeout(timeoutId));
+    };
+  }, []);
 
   useEffect(() => {
     if (!focusedKey || focusHandledKey === focusedKey) return;
@@ -874,6 +923,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
       restoreScrollAfterAnswer(key);
       setLocalFeedbacks((prev) => [created.feedback as Feedback, ...prev]);
       setAnsweredMap((prev) => ({ ...prev, [key]: action }));
+      showAnsweredCardTemporarily(key);
       setFeedbackTexts((prev) => ({ ...prev, [key]: "" }));
       void markAsRead(i);
     } catch (e) {
@@ -922,9 +972,9 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
           const key = itemKey(i);
           return !!serverReadAt(i) || !!answeredMap[key] || findFeedbacksFor(i).length > 0;
         };
-        const unansweredItems = filtered.filter((i) => !isAnswered(i));
-        const unreadItems = unansweredItems.filter((i) => !isReadBucket(i));
-        const readItems = unansweredItems.filter((i) => isReadBucket(i));
+        const activeReviewItems = filtered.filter((i) => !isAnswered(i) || isRecentlyAnswered(i));
+        const unreadItems = activeReviewItems.filter((i) => isRecentlyAnswered(i) || !isReadBucket(i));
+        const readItems = activeReviewItems.filter((i) => !isRecentlyAnswered(i) && isReadBucket(i));
         const answeredItems = filtered.filter((i) => isAnswered(i));
 
         const renderCard = (i: UnifiedItem) => {
