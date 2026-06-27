@@ -4,6 +4,7 @@ import { cleanYm, currentYmJst } from "@/lib/payment-groups";
 import {
   generateNoticePdfBulk,
   loadTargetData,
+  savePayoutDataSnapshot,
   type GenerateNoticeResult,
 } from "@/app/api/admin/payouts/route";
 import {
@@ -15,8 +16,9 @@ import {
 export const runtime = "nodejs";
 
 // payout-notice-prebuild: 毎日深夜 (vercel.json では 0 17 * * * UTC = JST 02:00) に起動し、
-// 当月と翌月の支払 ym 全部について、各メンバーの支払通知書 PDF を「金額が変わったもの・まだ無いもの」
-// だけ事前生成して payout_notices.pdf_url / last_generated_at に埋めておく。
+// 当月と翌月の支払 ym 全部について、支払データを最新計算額で同期してから、
+// 各メンバーの支払通知書 PDF を「金額が変わったもの・まだ無いもの」だけ事前生成し、
+// payout_notices.pdf_url / last_generated_at に埋めておく。
 //
 // 朝、まさが /admin/payouts を開いた時点で「確認」「発行」ボタンが既存 PDF を即開けるようにするのが目的。
 // 仕様: pwa/manual/6-5-admin-payouts-reward-notice-spec.md「先回り生成」セクション。
@@ -64,7 +66,10 @@ type YmResult = {
 
 async function prebuildForYm(ym: string, force: boolean): Promise<YmResult> {
   const db = createAdminClient();
-  const data = await loadTargetData(ym);
+  const snapshot = await savePayoutDataSnapshot(db, ym, {
+    actorEmail: "payout-notice-prebuild",
+  });
+  const data = snapshot.ok ? snapshot.data : snapshot.data ?? await loadTargetData(ym);
 
   const excludedMemberIds = new Set(
     (data.members as MemberRow[])
@@ -82,6 +87,27 @@ async function prebuildForYm(ym: string, force: boolean): Promise<YmResult> {
 
   if (targetMemberIds.length === 0) {
     return { ym, targetCount: 0, generated: 0, skipped: 0, failed: 0, results: [] };
+  }
+
+  if (!snapshot.ok) {
+    const blockedMemberIds = snapshot.gate?.blockers.length
+      ? [...new Set(snapshot.gate.blockers.map((row) => row.memberId))]
+      : targetMemberIds;
+    const blockedResults: GenerateNoticeResult[] = blockedMemberIds.map((memberId) => ({
+      memberId,
+      status: "failed",
+      reason: "snapshot_sync_blocked",
+      error: snapshot.error,
+    }));
+    return {
+      ym,
+      targetCount: targetMemberIds.length,
+      generated: 0,
+      skipped: 0,
+      failed: blockedResults.length,
+      results: blockedResults,
+      payoutAgreementGate: snapshot.gate,
+    };
   }
 
   const gate = await enforcePayoutAgreementGate(db, {

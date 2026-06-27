@@ -199,7 +199,8 @@ export type GenerateNoticeResult = {
     | "no_pdf_url"
     | "preview_notice_no"
     | "total_yen_changed"
-    | "agreement_gate";
+    | "agreement_gate"
+    | "snapshot_sync_blocked";
   noticeNo?: string;
   pdfUrl?: string;
   totalYen?: number;
@@ -1151,7 +1152,7 @@ function agreementGateBlockedResponse(data: TargetData, gate: PayoutAgreementGat
   );
 }
 
-async function savePayoutDataSnapshot(
+export async function savePayoutDataSnapshot(
   db: SupabaseClient,
   ym: string,
   options: { overrideReason?: string | null; actorEmail?: string | null } = {}

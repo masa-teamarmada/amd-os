@@ -1348,11 +1348,9 @@ function buildMemberMonthlyPayoutRows({
 export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }: Props) {
   const initialPayload = initialData?.ym === initialYm ? initialData : null;
   const skipInitialFetchRef = useRef(Boolean(initialPayload));
-  const autoSaveAttemptKeyRef = useRef("");
   const [ym, setYm] = useState(initialYm);
   const [data, setData] = useState<PayoutData | null>(initialPayload);
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [hint, setHint] = useState(() => initialPayload ? payoutDataHint(initialPayload.ym, initialPayload, Boolean(initialPayload.refreshedRewards)) : "");
   const [modalTarget, setModalTarget] = useState<ModalTarget | null>(null);
   const [noticeSavingMemberId, setNoticeSavingMemberId] = useState<string | null>(null);
@@ -1764,65 +1762,52 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
     return count;
   }, [noticeMap, noticeTotalsByMember]);
   const syncedAll = savedAll && unsyncedNoticeCount === 0;
-  const autoSaveNeeded = expectedEntries.length > 0 && !syncedAll;
+  const snapshotSyncNeeded = expectedEntries.length > 0 && !syncedAll;
   const unsyncedPayoutEntryCount = cycleStats.size > 0
     ? [...cycleStats.values()].reduce((sum, stats) => sum + Math.max(0, stats.expectedCount - stats.savedCount), 0)
     : 0;
   const rewardCycleCount = new Set(expectedEntries.map((entry) => `${entry.projectId}:${entry.ym}`)).size;
-  const savePayoutDataDisabled =
-    loading ||
-    saving ||
-    noticeSavingMemberId != null ||
-    paymentNudgeSending ||
-    expectedEntries.length === 0 ||
-    hasBudgetBlocker ||
-    guardedActionDisabled;
-  const autoSaveBlocked = autoSaveNeeded && (hasBudgetBlocker || guardedActionDisabled);
-  const autoSaveStatusLabel = saving
-    ? "自動保存中..."
-    : expectedEntries.length === 0
-      ? "自動保存対象なし"
-      : autoSaveBlocked
-        ? "自動保存できない"
-        : autoSaveNeeded
-          ? "自動保存待ち"
-          : "自動保存済み";
-  const autoSaveStatusTitle = hasBudgetBlocker
-    ? "本契約cap未設定または超過があるため自動保存できない"
+  const snapshotSyncBlocked = snapshotSyncNeeded && (hasBudgetBlocker || guardedActionDisabled);
+  const snapshotSyncStatusLabel = expectedEntries.length === 0
+    ? "同期対象なし"
+    : snapshotSyncBlocked
+      ? "同期できない"
+      : snapshotSyncNeeded
+        ? "未同期"
+        : "同期済み";
+  const snapshotSyncStatusTitle = hasBudgetBlocker
+    ? "本契約cap未設定または超過があるため同期できない"
     : guardedActionTitle ??
-      (autoSaveNeeded
-        ? `未同期: 報酬明細 ${unsyncedPayoutEntryCount}件 / 通知額 ${unsyncedNoticeCount}件`
+      (snapshotSyncNeeded
+        ? `未同期: 報酬明細 ${unsyncedPayoutEntryCount}件 / 通知額 ${unsyncedNoticeCount}件。画面を開くだけでは保存せず、夜間の先回り生成または発行/送付時に同期する`
         : "最新計算額が monthly_reward_payout と payout_notices.total_yen に同期済み");
-  const autoSaveStatusClass = saving
-    ? "border-sky-200 bg-sky-50 text-sky-800"
-    : autoSaveBlocked
-      ? "border-red-200 bg-red-50 text-red-800"
-      : autoSaveNeeded
-        ? "border-amber-200 bg-amber-50 text-amber-800"
-        : "border-emerald-200 bg-emerald-50 text-emerald-800";
+  const snapshotSyncStatusClass = snapshotSyncBlocked
+    ? "border-red-200 bg-red-50 text-red-800"
+    : snapshotSyncNeeded
+      ? "border-amber-200 bg-amber-50 text-amber-800"
+      : "border-emerald-200 bg-emerald-50 text-emerald-800";
   const bulkPdfBaseDisabled =
     loading ||
-    saving ||
     noticeSavingMemberId != null ||
     paymentNudgeSending ||
     bulkPdfMode != null ||
     memberRows.length === 0 ||
     guardedActionDisabled;
   const bulkIssueDisabled = bulkPdfBaseDisabled || hasBudgetBlocker;
-  const saveAndIssueDisabled = bulkIssueDisabled || (autoSaveNeeded && savePayoutDataDisabled);
+  const saveAndIssueDisabled = bulkIssueDisabled;
   const bulkPreviewTitle = guardedActionTitle ?? "全員分の確認用PDFを並列生成 (DB保存なし)";
   const bulkIssueTitle = guardedActionTitle ??
     (memberRows.length === 0
       ? "対象メンバーがいない"
-      : autoSaveNeeded
-        ? "最新計算額を自動同期してから全員分の支払通知書PDFを並列発行"
+      : snapshotSyncNeeded
+        ? "最新計算額を同期してから全員分の支払通知書PDFを並列発行"
         : "全員分の支払通知書PDFを並列発行 (差分検出あり)");
   const saveAndIssueTitle = guardedActionTitle ??
     (memberRows.length === 0
       ? "対象メンバーがいない"
       : hasBudgetBlocker
         ? "本契約cap未設定または超過があるため発行できない"
-        : "最新計算額を自動同期してから全員分の支払通知書PDFを一括発行する");
+        : "最新計算額を同期してから全員分の支払通知書PDFを一括発行する");
   const forceBulkIssueTitle = guardedActionTitle ??
     (memberRows.length === 0
       ? "対象メンバーがいない"
@@ -1830,7 +1815,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
         ? "本契約cap未設定または超過があるため発行できない"
         : syncedAll
         ? "差分検出を無視して全員分のPDFを強制再生成 (コードラベル変更などを反映する用)"
-        : "最新計算額を自動同期してから全員分のPDFを強制再生成する");
+        : "最新計算額を同期してから全員分のPDFを強制再生成する");
 
   async function loadAgreementGateForYm(nextYm: string) {
     try {
@@ -2109,95 +2094,9 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
     }
   }
 
-  async function savePayoutData(options: { auto?: boolean } = {}) {
-    if (expectedEntries.length === 0) {
-      throw new Error("保存できる報酬明細がない");
-    }
-    setHint(options.auto ? "支払データを自動保存中..." : "支払データを同期中...");
-    const res = await fetch("/api/admin/payouts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ym,
-        agreementOverrideReason: agreementOverrideReasonTrimmed || undefined,
-      }),
-    });
-    const payload = (await res.json()) as (
-      PayoutData & { ok?: boolean; error?: string; savedPayoutRows?: number; savedNoticeRows?: number }
-    );
-    if (!res.ok || payload.ok === false) {
-      throw new Error(payload.error || `save failed (${res.status})`);
-    }
-    setData(payload);
-    setHint(`${options.auto ? "自動保存" : "同期"}した: 報酬${payload.savedPayoutRows ?? 0}明細 / 通知額${payload.savedNoticeRows ?? 0}件`);
-    return payload;
-  }
-
-  async function saveAll() {
-    setSaving(true);
-    try {
-      await savePayoutData();
-    } catch (err) {
-      setHint(err instanceof Error ? err.message : "保存エラー");
-    } finally {
-      setSaving(false);
-    }
-  }
-
   async function saveThenRunBulkIssue(options: { force?: boolean } = {}) {
-    if (!savedAll) {
-      setSaving(true);
-      try {
-        await savePayoutData();
-      } catch (err) {
-        setHint(err instanceof Error ? err.message : "保存エラー");
-        return;
-      } finally {
-        setSaving(false);
-      }
-    }
     await runBulkPdf(false, options);
   }
-
-  const autoSaveSignature = useMemo(() => {
-    if (!data || expectedEntries.length === 0) return "";
-    const entrySig = expectedEntries
-      .map((entry) => `${entry.projectId}:${entry.ym}:${entry.memberId}:${Math.round(entry.totalPay)}`)
-      .sort()
-      .join("|");
-    const noticeSig = [...noticeTotalsByMember.entries()]
-      .map(([memberId, totalYen]) => `${memberId}:${Math.round(totalYen)}`)
-      .sort()
-      .join("|");
-    return `${ym}::${entrySig}::${noticeSig}`;
-  }, [data, expectedEntries, noticeTotalsByMember, ym]);
-
-  useEffect(() => {
-    if (!autoSaveNeeded || !autoSaveSignature || autoSaveBlocked) return;
-    if (loading || saving || noticeSavingMemberId != null || noticeMailLoading || noticeMailSending || paymentNudgeSending || bulkPdfMode != null) return;
-    if (autoSaveAttemptKeyRef.current === autoSaveSignature) return;
-
-    autoSaveAttemptKeyRef.current = autoSaveSignature;
-    setSaving(true);
-    void savePayoutData({ auto: true })
-      .catch((err) => {
-        setHint(err instanceof Error ? err.message : "自動保存エラー");
-      })
-      .finally(() => {
-        setSaving(false);
-      });
-  }, [
-    autoSaveBlocked,
-    autoSaveNeeded,
-    autoSaveSignature,
-    bulkPdfMode,
-    loading,
-    noticeMailLoading,
-    noticeMailSending,
-    noticeSavingMemberId,
-    paymentNudgeSending,
-    saving,
-  ]);
 
   async function sendPaymentNudges() {
     setPaymentNudgeSending(true);
@@ -2318,7 +2217,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
           <select
             value={ym}
             onChange={(event) => setYm(event.target.value)}
-            disabled={loading || saving || noticeSavingMemberId != null}
+            disabled={loading || noticeSavingMemberId != null}
             className="h-9 rounded-md border border-border bg-background px-2 text-[12px] font-mono"
           >
             {ymOptions.map((option) => (
@@ -2332,7 +2231,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
         <button
           type="button"
           onClick={() => loadForYm(ym)}
-          disabled={loading || saving || noticeSavingMemberId != null}
+          disabled={loading || noticeSavingMemberId != null}
           className="h-9 rounded-md border border-border bg-background px-3 text-[12px] hover:bg-muted/40 disabled:opacity-50"
         >
           {loading ? "読込中..." : "再読込"}
@@ -2341,7 +2240,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
         <button
           type="button"
           onClick={() => loadForYm(ym, { refreshRewards: true })}
-          disabled={loading || saving || noticeSavingMemberId != null}
+          disabled={loading || noticeSavingMemberId != null}
           title="billing_cycles.reward_summary_json を再計算してキャッシュを更新する"
           className="h-9 rounded-md border border-border bg-background px-3 text-[12px] hover:bg-muted/40 disabled:opacity-50"
         >
@@ -2349,16 +2248,16 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
         </button>
 
         <span
-          title={autoSaveStatusTitle}
-          className={`inline-flex h-9 items-center rounded-md border px-3 text-[12px] font-medium ${autoSaveStatusClass}`}
+          title={snapshotSyncStatusTitle}
+          className={`inline-flex h-9 items-center rounded-md border px-3 text-[12px] font-medium ${snapshotSyncStatusClass}`}
         >
-          {autoSaveStatusLabel}
+          {snapshotSyncStatusLabel}
         </span>
 
         <button
           type="button"
           onClick={sendPaymentNudges}
-          disabled={loading || saving || noticeSavingMemberId != null || paymentNudgeSending || bulkPdfMode != null}
+          disabled={loading || noticeSavingMemberId != null || paymentNudgeSending || bulkPdfMode != null}
           className="h-9 rounded-md border border-border bg-background px-3 text-[12px] hover:bg-muted/40 disabled:opacity-50"
         >
           {paymentNudgeSending ? "nudge送信中..." : "入金確認nudge"}
@@ -2436,7 +2335,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
 
       <div className="grid gap-2 md:grid-cols-6">
         <SummaryBox label="対象cycle" value={`${data?.cycles.length ?? 0}件`} sub={`${rewardCycleCount}件に報酬明細あり`} />
-        <SummaryBox label="報酬明細" value={`${expectedEntries.length}件`} sub={syncedAll ? "自動保存済み" : "自動保存中"} />
+        <SummaryBox label="報酬明細" value={`${expectedEntries.length}件`} sub={syncedAll ? "同期済み" : "未同期"} />
         <SummaryBox label="支払メンバー" value={`${memberRows.length}人`} sub={`通知額 ${data?.notices.length ?? 0}件`} />
         <SummaryBox label="本契約発生" value={fmtYen(regularBaseTotal)} sub="regular MS" />
         <SummaryBox label="別財布発生" value={fmtYen(extraBaseTotal)} sub="cap_extra MS" />
@@ -2453,10 +2352,10 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
             <span
-              title={autoSaveStatusTitle}
-              className={`inline-flex h-8 items-center rounded-md border px-2.5 text-[11px] font-medium ${autoSaveStatusClass}`}
+              title={snapshotSyncStatusTitle}
+              className={`inline-flex h-8 items-center rounded-md border px-2.5 text-[11px] font-medium ${snapshotSyncStatusClass}`}
             >
-              {autoSaveStatusLabel}
+              {snapshotSyncStatusLabel}
             </span>
             <button
               type="button"
@@ -2492,8 +2391,8 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
         </div>
         <div className="flex flex-wrap gap-x-4 gap-y-1 rounded-md border border-border bg-muted/25 px-3 py-2 text-[11px] text-muted-foreground">
           <span>
-            <span className="font-medium text-foreground">自動保存:</span>{" "}
-            最新計算額を税抜で同期。メール送信はしない。金額変更分はPDF再生成対象。
+            <span className="font-medium text-foreground">バックグラウンド同期:</span>{" "}
+            夜間の先回り生成で最新計算額を税抜同期し、正式PDFまで作成。画面を開くだけでは保存しない。
           </span>
           <span>
             <span className="font-medium text-foreground">一括発行:</span>{" "}
@@ -2603,7 +2502,6 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                         row={row}
                         disabled={
                           loading ||
-                          saving ||
                           noticeSavingMemberId != null ||
                           noticeMailLoading ||
                           noticeMailSending ||
@@ -3841,7 +3739,7 @@ function PayoutNoticeActions({
     ? hasPdf
       ? "改善版フォーマットの支払通知書PDFを再発行する"
       : "改善版フォーマットの支払通知書PDFを発行する"
-    : "最新計算額を自動同期してから支払通知書PDFを発行する";
+    : "最新計算額を同期してから支払通知書PDFを発行する";
   const pdfTitle = hasPdf
     ? "保存済みPDFを別タブで確認する"
     : "確認用PDFを作成してフォーマットを見る";
@@ -3903,7 +3801,7 @@ function PayoutNoticeActions({
       </div>
       {!row.isSaved && (
         <div className="max-w-[260px] text-right text-[10px] leading-snug text-amber-700">
-          最新計算額を自動保存中。発行時にも同期してからPDFを作成。
+          未同期。夜間の先回り生成、または発行・送付時に同期してPDFを作成。
         </div>
       )}
       {row.isSaved && !isSent && (

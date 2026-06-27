@@ -128,8 +128,8 @@ expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
   "全員分PDF確認",
   "bulk_issue_notice_pdf",
   "bulk_preview_notice_pdf",
-  "自動保存済み",
-  "autoSaveStatusLabel",
+  "同期済み",
+  "snapshotSyncStatusLabel",
   "fmtRelativeTime",
 ]);
 
@@ -187,6 +187,7 @@ expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
 
 expectIncludes("src/app/api/cron/payout-notice-prebuild/route.ts", [
   "payout-notice-prebuild",
+  "savePayoutDataSnapshot",
   "generateNoticePdfBulk",
   "loadTargetData",
   "CRON_SECRET",

@@ -82,9 +82,9 @@ MS / PlanCycle が未設定の PJ は報酬計算対象外。支払が必要な�
 
 この表が `/admin/payouts` の主作業面なので、サマリ直下・報酬債務台帳より上に置く。
 
-支払通知書の正式発行・送付に使う税抜支払額は、最新の報酬キャッシュから自動で `monthly_reward_payout` と `payout_notices.total_yen` に同期する。同期時点ではメール送信しない。金額が変わった未送付 PDF は `pdf_url` / `last_generated_at` をクリアし、次の一括発行・cron prebuild で再生成対象へ戻す。
+支払通知書の正式発行・送付に使う税抜支払額は、最新の報酬キャッシュから `monthly_reward_payout` と `payout_notices.total_yen` に同期する。画面を開いただけでは保存せず、夜間の `payout-notice-prebuild` cron、正式PDF発行、一括発行、送付のタイミングで同期する。同期時点ではメール送信しない。金額が変わった未送付 PDF は `pdf_url` / `last_generated_at` をクリアし、次の一括発行・cron prebuild で再生成対象へ戻す。
 
-UI では上部の一括操作列と「メンバー別支払」見出しに `自動保存済み` / `自動保存中` / `自動保存できない` の状態を表示する。正式な個別発行・全員分PDF一括発行・強制再発行・送付は、サーバー側でも最新計算額を同期してから実行するため、運用者が先に保存ボタンを押す必要はない。月初合意 gate や本契約cap blocker がある場合だけ同期を止め、admin override または blocker 解消を待つ。
+UI では上部の一括操作列と「メンバー別支払」見出しに `同期済み` / `未同期` / `同期できない` の状態を表示する。未同期でも画面表示中に自動POSTはしない。正式な個別発行・全員分PDF一括発行・強制再発行・送付は、サーバー側で最新計算額を同期してから実行するため、運用者が先に保存ボタンを押す必要はない。月初合意 gate や本契約cap blocker がある場合だけ同期を止め、admin override または blocker 解消を待つ。
 
 ### 月初合意ステータスとの境界
 
@@ -102,7 +102,7 @@ admin一覧では合意用の予定報酬とは別に、`reward_summary_json.mem
 
 | state | UI表示 | server behavior |
 |---|---|---|
-| 未合意 | `pending` | 支払データ自動保存 / PDF生成 / 送付 / 送付済み確定を 409 stop |
+| 未合意 | `pending` | 支払データ同期 / PDF生成 / 送付 / 送付済み確定を 409 stop |
 | 移行月合意済扱い | `agreed` | `source_ym <= 202605` は導入前/移行月として allow |
 | 条件更新あり | `stale` | latest agreed snapshot hash と current hash が違うため stop |
 | 修正要望中 | `revision_requested` | open request が member全体または当該PJにあるため stop |
@@ -250,6 +250,7 @@ admin/payouts 支払額 (= 税抜) 731,740円
 
 - vercel cron で **毎日 02:00 JST (= `0 17 * * *` UTC)** に起動
 - 対象: 当月 + 翌月の 2 支払 ym
+- PDF生成前に `savePayoutDataSnapshot` で `monthly_reward_payout` と `payout_notices.total_yen` を最新計算額へ同期する
 - 各 ym で、 `exclude_from_payout_notice=false` かつ `is_officer=false` で支払額 > 0 のメンバー全員を対象に並列生成 (= concurrency 3)
 - 月初合意支払 gate に blocker があるメンバーは PDF 生成せず、`agreement_gate` failure として結果に出す
 - **差分検出**: 既に `payout_notices.pdf_url` があり、 かつ `total_yen` が一致しているメンバーは **スキップ** (= GAS を叩かない)
@@ -271,9 +272,9 @@ curl -X POST "https://amd-os-pwa.vercel.app/api/cron/payout-notice-prebuild" \
 
 上部操作列と `メンバー別支払` 見出しのボタンから即時で全員分を並列生成。
 
-- 「全員分PDF一括発行」: `bulk_issue_notice_pdf` action。サーバー側で最新計算額を自動同期してから、差分検出あり、本番 notice_no で `payout_notices` に保存する
+- 「全員分PDF一括発行」: `bulk_issue_notice_pdf` action。サーバー側で最新計算額を同期してから、差分検出あり、本番 notice_no で `payout_notices` に保存する
 - 「全員分PDF確認」: `bulk_preview_notice_pdf` action。 確認用 (= `notice_no` は `PREVIEW-...` 固定で DB 保存しない)
-- 「強制再発行 (全員)」 (= 黄色ボタン、2026-05-28 追加): `bulk_issue_notice_pdf` action を **`force: true`** で叩く。サーバー側で最新計算額を自動同期してから、差分検出を無視して全員分を強制再生成する。 PDF フォーマット変更 (= 表記ラベル / レイアウト) を反映したい時に使う (= 金額が変わってないと差分検出でスキップされてラベル変更が反映されない問題への対処)。 確認ダイアログあり
+- 「強制再発行 (全員)」 (= 黄色ボタン、2026-05-28 追加): `bulk_issue_notice_pdf` action を **`force: true`** で叩く。サーバー側で最新計算額を同期してから、差分検出を無視して全員分を強制再生成する。 PDF フォーマット変更 (= 表記ラベル / レイアウト) を反映したい時に使う (= 金額が変わってないと差分検出でスキップされてラベル変更が反映されない問題への対処)。 確認ダイアログあり
 
 レスポンスには `{ targetCount, generated, skipped, failed, results[] }` が入る。 失敗があったメンバーは UI 上部の赤い帯に最大 8 件表示される。
 
@@ -289,11 +290,11 @@ curl -X POST "https://amd-os-pwa.vercel.app/api/cron/payout-notice-prebuild" \
 | `total_yen` が一致しない | はい (= 金額が変わった) |
 | 上記すべて該当なし | **いいえ** (= スキップして既存 `pdf_url` を再利用) |
 
-#### 自動保存との連携
+#### 支払データ同期との連携
 
-画面表示中の自動保存、正式PDF発行、全員分PDF一括発行、強制再発行、送付の直前で、既存 `payout_notices.total_yen` と新計算値を比較し、 **金額が変わったメンバーは `pdf_url` / `last_generated_at` を NULL クリア**する (`sent_at` が立っている行は触らない)。 これで次回 cron / 一括発行で差分検出が再生成を発火させる仕組み。
+`payout-notice-prebuild`、正式PDF発行、全員分PDF一括発行、強制再発行、送付の直前で、既存 `payout_notices.total_yen` と新計算値を比較し、 **金額が変わったメンバーは `pdf_url` / `last_generated_at` を NULL クリア**する (`sent_at` が立っている行は触らない)。 これで次回 cron / 一括発行で差分検出が再生成を発火させる仕組み。
 
-自動保存の DB write 前にも月初合意支払 gate を通す。blocker がある場合、`monthly_reward_payout` / `payout_notices` へ保存しない。admin override reason がある場合だけ、監査ログ保存後に例外実行する。
+支払データ同期の DB write 前にも月初合意支払 gate を通す。blocker がある場合、`monthly_reward_payout` / `payout_notices` へ保存しない。admin override reason がある場合だけ、監査ログ保存後に例外実行する。
 
 #### UI
 
