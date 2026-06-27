@@ -1,0 +1,537 @@
+{
+  "ch_overview": {
+    "core_proposition": "TIEM (透明断熱エアロゲル素材 SU、2007-2022 lifecycle、smb 失敗 outcome) を Book III ゾンビ型主要参照ケースとして盲検後付け校正する。設立時 (2012) は σ_SU 高位 (Triple Helix 全レーン同期加速 = 断熱材政策 + GX 補助金 + 量産化期待) + R_internal ほぼゼロ (研究室外再現失敗) + F_char 中位 + F_cap ほぼゼロという不整合状態で GO 通過し、その後 10 年間 Ch 8 Θ_zombie 軌跡 (μ_x≈0 + μ_y<0 + J_x ジャンプなし、徐々に枯渇) を辿って Ch 10.5 統合ハザード Δ log h<0 の燃え尽き型ソフトランディング (D-035 Klepper 入れ子主要事例) に至った。GO 通過の不整合は Y-001 シリーズA命名 (調達金額 ≠ 評価額の混同、評価額固定 + 安易な希薄化) と Y-004 早すぎる拡大 (PoC 未完了での量産設備投資、月次バーン爆増) の二重意思決定 bias で説明され、Ch 7 F-CES の補完弾力性 ρ posterior << 0 (CFO 候補 3 社面談すべて失敗) が F_char × F_cap の退化失敗 (D-038、Inada コーナー反証ではなく) として表記的に校正される。本章は Tier A illustrative 後付け校正のみを行い、TIEM 1 例で validation 主張・因果効果識別主張は行わない (D-033 / D-047)。露出は Ch 4 / Ch 12 / Ch 26 / Ch 37 / 付録 C のみ (D-010)、Book III 他 PJ 章での TIEM 言及禁止。",
+    "load_bearing_claims": [
+      "TIEM は Ch 8 軌跡 4 類型のうち Θ_zombie (μ_x≈0 + μ_y<0 + J_x ジャンプなし) の典型 illustrative 例であり、Θ_unicorn / Θ_pivot / Θ_pre-τ_B 死亡 とは観測等価類の枠内で区別される (Tier A 範囲内の反証可能性)",
+      "TIEM 設立時 (2012) の状態ベクトルは σ_SU ≈ 高位 (表記的事後分布要約値: Ch 5 スケール規約に従い高位帯) + R_internal ≈ ほぼゼロ + F_char ≈ 中位 + F_cap ≈ ほぼゼロという内部矛盾を抱えており、GO 通過は Ch 5.5 θ_σ* 閾値の機能不全ではなく Y-001 + Y-004 の意思決定 bias によって説明される",
+      "Ch 6 PRS で TIEM は P 高位 (政策追い風) × R 低位 (研究室外再現性ギャップ) × S 中位 (大手建材 LOI あり) → 期待値積として中位、起業家は P × S 表層のみで GO 判断し R 軽視が後付け校正で確認される",
+      "Ch 7 F-CES の補完弾力性 ρ posterior は CFO 候補 3 社面談すべて条件不一致による補完失敗で << 0 と表記的に校正され、Inada コーナーによる反証ではなく F_char × F_cap の退化失敗として解釈される (D-038)",
+      "Y-001 シリーズA命名 (シリーズA命名強迫観念 + 調達金額 ≠ 評価額の混同 + 安易な希薄化) と Y-004 早すぎる拡大 (PoC 未完了量産設備投資 + 月次バーン爆増) は独立事故ではなく、σ_SU 高位環境下で同時誘発される二重事故メカニズムを構成する",
+      "TIEM 軌跡 2012-2022 は 4 期 (2012-2014 シリーズA命名期 / 2015-2017 量産投資期 / 2018-2020 補完試行期 / 2021-2022 ソフトランディング期) に分割でき、4 期分割境界は μ_x / μ_y 符号変化点 + 取締役会意思決定転換点の両基準を併用する",
+      "Ch 10.5 統合ハザード h_pre は τ_B (2022 実質清算決議) 前 Δ log h<0 で単調減衰し、急停止 (h_post スパイク) のない燃え尽き型ソフトランディング = D-035 Klepper 入れ子の主要事例として位置づけられる",
+      "盲検後付け校正は著者当事者性により完全盲検は不可能だが、2022 年以降の知識 (清算後談 / 競合 outcome / 政策転換) を遮断した弱盲検プロトコル (段ボール 2 箱の当時資料のみ、当時時点文献のみ) として運用される",
+      "本章は Tier A illustrative であり、validation 主張禁止 / 識別された因果効果叙述禁止 / 校正・illustrative・強い事前分布下の表記的事後分布要約のみ使用 (D-033 / D-047)、TIEM の露出は Ch 4 / Ch 12 / Ch 26 / Ch 37 / 付録 C のみで Book III 他 PJ 章での言及禁止 (D-010)"
+    ],
+    "logical_arc": "§12.0 で段ボール 2 箱の盲検後付け校正メタ手続き (弱盲検プロトコル + Tier A 規律 + D-010 露出制限) を読者に開示 → §12.1 で 2012 設立時状態ベクトル (σ_SU / R_internal / F_char / F_cap) を Ch 5/5.5/6/7 記号体系で後付け校正し、σ_SU 高位 + R_internal ほぼゼロの不整合 + GO 通過の構造的説明 (Y-001/Y-004 の伏線) を提示 → §12.2 で軌跡 2012-2022 を 4 期分割 (μ_x / μ_y 符号変化点 + 取締役会意思決定転換点) で後付け校正し Ch 8 Θ_zombie 同定 + Ch 10.5 Δ log h<0 を導く → §12.3 で Y-001 シリーズA命名メカニズムを Cardon entrepreneurial passion + Ries vanity metric + Branscomb-Auerswald Valley of Death の文献装置で剖検 → §12.4 で Y-004 早すぎる拡大メカニズムを Eisenmann Speed Trap + Pisano Science Business (材料系 production scale-up) + Brown-Eisenhardt Time Pacing の文献装置で剖検し、Y-001 + Y-004 複合事故 → ρ posterior << 0 → Θ_zombie → Δ log h<0 の段階連鎖を構築 → §12.5 で Book II 7 装置 (Ch 5/5.5/6/7/8/9/10.5) への横断マッピング表 + 論理鎖段階接続を統合提示し Tier A 規律を再確認 → §12.6 で章末問い 8 項目 (Tier A 範囲内の反証可能性に限定) + Ch 25/26a/26b/37 への supply 明示 + D-010 露出制限再宣言で閉じる",
+    "synthesis_rationale": "Judge consensus で B が最高得点 (8.3-8.5)、A が methodological rigor lens で 8.5、C が論理鎖と材料系特有性で 8.2 を獲得した。B 骨格 (弱盲検プロトコル明示 + 多階層 D-034 匿名化 + メタ問い設計 + 章間 supply 体系性) を採用しつつ、A から §12.5 Book II 7 装置横断マッピング表 (Ch 9 ERS を含む完全形) と falsifiable_claims の Book II 装置別反証条件、open_issues での分量整合自己点検を graft。C から §12.5 論理鎖段階接続 (Ch 5→5.5→6→7→8→10.5) と §12.1 表記的事後分布要約スコア表、§12.4 の Y-001+Y-004 複合事故段階連鎖記述、Branscomb-Auerswald + Pisano + Brown-Eisenhardt 三接続を graft する。cross_cutting_concerns のうち分量 24p フィット (§12.2 を 5p に圧縮 / §12.5 を 3p に圧縮)、scale 規約は Ch 5 §5.x 借用明示で本章独自規約導入回避、Y-001/Y-004 と付録 C の分業は本章 illustrative summary + メカニズム剖検 / 付録 C は資料原典として明示、Engineering-Univ-Type 匿名化は投資家側 (VC type / CFO 候補 type) にも一貫適用、Ch 26b retrospective registration の Tier 緊張は §12.5 末尾と §12.6 Q6 で『Tier A 範囲内の反証可能性』として明示的に解消する。"
+  },
+  "sections": [
+    {
+      "section_id": "12.0",
+      "title": "章頭フック: 段ボール 2 箱の盲検後付け校正と弱盲検プロトコル",
+      "pages": 2.5,
+      "math_level": "数式なし (記号は σ_SU / R_internal / F_char / F_cap / Θ_zombie / τ_B / h_pre / Δ log h のみ参照、定式化なし)",
+      "anchor_claims": [
+        "TIEM 後付け校正は段ボール 2 箱の当時資料 (2012-2022 議事録 / 投資契約書 / 月次資金繰り表 / 実験ノート / 退任時引継書) のみに基づく弱盲検プロトコルで実施される",
+        "著者当事者性により完全盲検は不可能だが、2022 年以降の知識 (清算後談 / 競合他社 outcome / 政策転換 / BZM 完成形) を遮断した時点予測再構築という弱盲検手続きを定義し本章の認識論的限界を明示開示する",
+        "本章は Tier A illustrative 後付け校正であり、校正 / illustrative / 強い事前分布下の表記的事後分布要約 のみ使用、validation 主張・因果効果識別主張・予測登録主張は行わない (D-033 / D-047)",
+        "TIEM は Book III ゾンビ型主要参照ケースとして Ch 8 Θ_zombie + Ch 10.5 Δ log h<0 の典型 illustrative 例を提供し、露出は Ch 4 / Ch 12 / Ch 26 / Ch 37 / 付録 C のみに留め Book III 他 PJ 章での言及は禁止される (D-010)",
+        "TIEM 関連の機関・人名・社名・調達相手は D-034 に従い type 名のみで匿名化される (Engineering-Univ-Type / Tier-1-VC-Type / Tier-2-CVC-Type / Finance-Pro-Type 等)"
+      ],
+      "paragraph_outline": [
+        "P1: 段ボール 2 箱の発見と物語化 — 2025 後半に Engineering-Univ-Type 元 TLO 倉庫から TIEM 関連 2 箱を回収、2012-2022 の議事録・term sheet・月次資金繰り表・実験ノート・退任時引継書が含まれていた事実の提示",
+        "P2: 盲検プロトコルの定義 — 当時資料 + 当時時点で公刊済みだった文献のみ参照、2022 以降の知識 (清算後談 / 競合他社 outcome / 政策転換 / BZM 完成形 / BOOK_DECISIONS.md / Ch 8 jump-diffusion 定式化) を遮断する手続き",
+        "P3: 弱盲検性の認識論的限界の明示開示 — 著者は当事者であり完全盲検は不可能、しかし時点予測再構築という弱盲検手続きにより認識論的厳密性を担保する立場を取る (Research Policy 査読耐性のための誠実な限界開示)",
+        "P4: 盲検性混入チェック手順 — Book II 数学装置語彙 (σ_SU / θ_σ* / F-CES / Θ_zombie / Δ log h 等) を後付け校正値の判定基準としてのみ用い、当時資料に存在しない事後的解釈 (例: 当時想像し得なかった政策転換の確証バイアス) をログ化して章末問いに繰り延べる",
+        "P5: なぜ TIEM を Ch 12 の主要参照に選んだか — Ch 8 Θ_zombie の典型 illustrative 例であり、Ch 10.5 Δ log h<0 燃え尽き型ソフトランディング (D-035 Klepper 入れ子主要事例) を最も鮮明に示すケース",
+        "P6: D-010 露出制限の宣言 — TIEM は Ch 4 (ケースカタログ予備提示) / Ch 12 (本章詳細展開) / Ch 26 (後付け校正整合性) / Ch 37 (BZM vs 4 frameworks 比較) / 付録 C (Y-001 + Y-004 完全展開) のみで言及、Book III 他 PJ 章 (Ch 13-22 ユニコーン型 / ピボット型 / pre-τ_B 死亡型) では言及禁止",
+        "P7: D-034 機関匿名化の宣言 — Engineering-Univ-Type (発スピンアウト元) / Tier-1-VC-Type + Tier-2-CVC-Type (調達相手) / Finance-Pro-Type (CFO 候補面談相手) 等、投資家側にも一貫して type 名のみ使用、人名・社名・固有名詞排除",
+        "P8: Tier A 規律の冒頭宣言 (D-033 / D-047) — 本章で使用する用語の限定リスト (校正 / illustrative / 表記的事後分布要約 / 強い事前分布下の事後要約)、禁止する用語のリスト (validation / identification / causal effect / predict and validate)",
+        "P9: 章型予告 — §12.1 設立時状態 → §12.2 軌跡 4 期分割 → §12.3 Y-001 メカニズム → §12.4 Y-004 メカニズム → §12.5 Book II 7 装置統合 → §12.6 章末問い 8 項目 + 章間 bridge",
+        "P10: 章頭の問い設定 — σ_SU 高位 (Triple Helix 全レーン同期追い風) + R_internal ほぼゼロ (研究室外再現失敗) という不整合状態でなぜ GO が通り、なぜ 10 年かけて緩慢に枯渇したのか、を本章で後付け校正により読み解く"
+      ],
+      "new_writing_required": "完全新規。段ボール 2 箱の章頭ストーリーの Tier 3 学術化、弱盲検プロトコル定義と限界開示、盲検性混入チェック手順、Tier A 規律宣言、D-010 / D-034 多階層匿名化の読者向け説明はすべて本章独自",
+      "existing_reuse": "pwa/bzm/retrofit-verification.md の段ボール 2 箱物語と TIEM 後付け校正プロトコル節を、当事者一人称から研究者三人称へ変換し Tier A 言語で学術化",
+      "upstream_dependencies": [
+        "Ch 1 BZM 公理 (盲検後付け校正の認識論的位置づけ)",
+        "Ch 4 ケースカタログ TIEM 予備提示 (D-010)",
+        "Ch 11 後付け校正一般論 (盲検プロトコルの普遍形)",
+        "D-010 露出制限 / D-033 Tier 規律 / D-034 機関匿名化 / D-047 Tier A 範囲 / D-051 記号表記正本"
+      ],
+      "downstream_dependencies": [
+        "§12.1 設立時後付け校正への導入",
+        "Ch 26a 後付け校正整合性 (盲検プロトコル共有 + Brier / 校正 plot 供給予告)",
+        "Ch 26b 予測登録簿 (TIEM は predicted but not registered の retrospective example)"
+      ],
+      "references": [
+        "pwa/bzm/retrofit-verification.md (TIEM 後付け校正プロトコル節)",
+        "pwa/bzm/BOOK_DECISIONS.md (D-010 / D-033 / D-034 / D-047 / D-051)",
+        "Branscomb & Auerswald (2002) Between Invention and Innovation",
+        "Aldrich & Ruef (2006) Organizations Evolving"
+      ],
+      "source_drafts": [
+        "B §12.0 P2 弱盲検手続き定義 (骨格)",
+        "A §12.0 Tier A 規律二重宣言 (graft)",
+        "C §12.0 D-010 明示宣言 + Tier 規律語彙限定 (graft)"
+      ]
+    },
+    {
+      "section_id": "12.1",
+      "title": "設立時 (2012) 後付け校正: σ_SU 高位 × R_internal ほぼゼロの不整合と GO 通過",
+      "pages": 4.5,
+      "math_level": "中。Ch 5 σ_SU MS-SSM 状態ベクトル + Ch 5.5 GO ゲート θ_σ* 閾値 + Ch 6 PRS P × R × S 期待値分解 + Ch 7 F-CES F_char × F_cap (ρ 表記参照、定式化は Ch 7 へ委譲)。スケール規約は Ch 5 §5.x 借用明示",
+      "anchor_claims": [
+        "TIEM 2012 設立時の状態ベクトルは σ_SU ≈ 高位 + R_internal ≈ ほぼゼロ + F_char ≈ 中位 + F_cap ≈ ほぼゼロ の不整合プロファイル (表記的事後分布要約値は Ch 5 スケール規約に従い summary 表で提示)",
+        "σ_SU 高位の構成要素は Triple Helix 全レーン同期加速 = (a) 政府レーン (断熱材高性能化指針 + GX 補助金 + 法改正期待) (b) 産業レーン (大手建材メーカー LOI 複数 + 量産化期待) (c) 学術レーン (エアロゲル国際会議高被引用 + Engineering-Univ-Type 大学発シーズ) の K=S₂ 共鳴状態",
+        "R_internal ほぼゼロの根拠は研究室内 A4 サンプル成功 vs 研究室外パイロットライン規模での歩留まり崩壊 (透過率 / 熱伝導率 spec 外)、Engineering-Univ-Type PI 暗黙知依存 (当時技術検証ログから後付け校正)",
+        "F_char 中位は PI 1 名 + 大学院生 2 名 + 大手建材出身 COO 候補の体制 (技術中核は揃うが CEO/CFO/量産技術トップ欠落)、F_cap ほぼゼロは設立時調達経験ゼロ + CFO 不在 + エンジェル 1 名のみ",
+        "GO 通過は Ch 5.5 θ_σ* 閾値の機能不全ではなく、σ_SU > θ_σ* overshoot + R_internal 低位遮蔽 = Y-001/Y-004 意思決定 bias の伏線として後付け校正で説明される",
+        "Ch 6 PRS で P 高位 × R 低位 × S 中位 → 期待値積として中位、起業家は P × S 表層のみで GO 判断し R 低位が掛け算で効くべき構造を外的期待値で覆い隠した機序"
+      ],
+      "paragraph_outline": [
+        "P1: 2012 TIEM 設立背景 — Engineering-Univ-Type 発スピンアウト、透明断熱エアロゲル素材の技術シーズ、当時資料からの設立趣意書要約",
+        "P2: σ_SU 後付け校正方法論 — 設立趣意書 + 補助金申請書 + 業界誌記事を proxy として Triple Helix 全レーン (政府 / 産業 / 学術) の構成要素を分解、Ch 5 MS-SSM K=S₂ 三同期状態として読み直す",
+        "P3: σ_SU 高位の構成要素詳細 — (a) 政府レーン (断熱材高性能化指針 + GX 補助金) (b) 産業レーン (大手建材 LOI + 量産化期待) (c) 学術レーン (エアロゲル国際会議被引用 + Engineering-Univ-Type シーズ)、三同期の証拠資料明示",
+        "P4: R_internal 後付け校正方法論 — 当時実験ノート + 内部技術検証ログ 3 件 (パイロットライン歩留まり崩壊事例) から研究室外再現性を proxy 化",
+        "P5: R_internal ほぼゼロの根拠 — 研究室内 A4 サンプル成功は確認されたが、研究室外パイロットライン規模で歩留まり崩壊、Engineering-Univ-Type PI 暗黙知依存の構造",
+        "P6: F_char 中位の根拠 — PI 1 名 + 大学院生 2 名 + 大手建材出身 COO 候補、技術中核は揃うが CEO 候補 (Branscomb-Auerswald 起業家欠如型) / CFO / 量産技術トップが欠落",
+        "P7: F_cap ほぼゼロの根拠 — 設立時調達経験ゼロ、CFO 不在、エンジェル 1 名のみ、§12.4 で F-CES ρ posterior << 0 退化として再解釈する伏線",
+        "P8: Ch 5.5 GO ゲート θ_σ* との比較 — 通常運用ではこの状態ベクトル (R_internal 低位) は NO-GO のはず、しかし σ_SU 高位 overshoot により R_internal 不足が遮蔽された機序",
+        "P9: Ch 6 PRS 期待値分解 — P 高位 × R 低位 × S 中位 → 期待値積として中位、R 低位が掛け算で効くべき構造を P × S 表層が覆い隠した機序",
+        "P10: GO 通過の意思決定起源仮説 — Y-001 シリーズA命名強迫観念 (§12.3 で展開) + Y-004 早すぎる拡大の前兆 (§12.4 で展開) が GO ゲート overshoot を許容した構造の伏線提示",
+        "P11: 設立時状態の不整合 summary 表 — σ_SU / R_internal / F_char / F_cap の表記的事後分布要約値 (Ch 5 スケール規約借用、本章独自スケール導入なし)、Tier A illustrative 注記 (表 1)",
+        "P12: 設立時状態と本章後続節の接続予告 — §12.2 軌跡の起点状態、§12.3-4 Y-001/Y-004 意思決定 bias の起源、§12.5 Book II 7 装置統合への伏線",
+        "P13: D-034 機関匿名化遵守の確認 — Engineering-Univ-Type 表記、調達相手 = Tier-1-VC-Type / Tier-2-CVC-Type、固有名詞排除",
+        "P14: §12.1 まとめ — 設立時すでに退化失敗の種が植えられていた (不整合プロファイル + GO ゲート overshoot)、Tier A illustrative 規律内での記述に留める"
+      ],
+      "new_writing_required": "完全新規。状態ベクトル 4 成分の後付け校正方法論、Triple Helix 三同期の構成要素分解、Ch 5.5 GO ゲート overshoot の構造的説明、不整合 summary 表 (表 1)、Ch 6 PRS 期待値分解の TIEM 文脈適用",
+      "existing_reuse": "pwa/bzm/retrofit-verification.md の TIEM 設立期記述 (技術シーズ / 創業チーム / 初期調達) を Ch 5/5.5/6/7 記号体系で再構成し Tier 3 学術化",
+      "upstream_dependencies": [
+        "Ch 5 σ_SU MS-SSM (K=S₂ 三位一体追い風 + スケール規約)",
+        "Ch 5.5 GO ゲート θ_σ* 閾値定義",
+        "Ch 6 PRS 期待値分解 (P × R × S)",
+        "Ch 7 F-CES 初期定義 (F_char / F_cap 分解 + ρ 表記)",
+        "D-034 機関匿名化 / D-051 記号表記正本"
+      ],
+      "downstream_dependencies": [
+        "§12.2 軌跡 4 期分割の起点状態",
+        "§12.3 Y-001 シリーズA命名 (GO 通過 bias の起源)",
+        "§12.4 Y-004 早すぎる拡大 (F_cap ほぼゼロからの ρ posterior << 0 退化)",
+        "§12.5 Book II 7 装置統合マッピング",
+        "Ch 25 層間結合検証 (機関 ERS が σ_SU に与えた影響)"
+      ],
+      "references": [
+        "Etzkowitz & Leydesdorff (1995, 2000) Triple Helix",
+        "Klepper (1996, 2010) entry conditions + spinout 文献",
+        "Branscomb & Auerswald (2002) Valley of Death",
+        "Pisano (2010) Science Business Ch 2-3",
+        "Block, Henkel, Schweisfurth & Stiegler (2016) RP Material innovation",
+        "Sarasvathy (2001) Causation vs Effectuation",
+        "Ch 5 §5.x / Ch 5.5 §5.5.x / Ch 6 §6.x / Ch 7 §7.x 本書内参照"
+      ],
+      "source_drafts": [
+        "B §12.1 設立時 4 変数後付け校正 (骨格)",
+        "C §12.1 表記的事後分布要約スコア表 (graft)",
+        "A §12.1 不整合 summary 表設計 (graft)",
+        "C §12.1 Ch 5.5 GO ゲート overshoot の Y-001 起源接続 (graft)"
+      ]
+    },
+    {
+      "section_id": "12.2",
+      "title": "軌跡 2012-2022 後付け校正: Θ_zombie 4 期分割と Δ log h<0 形成",
+      "pages": 5,
+      "math_level": "中-高。Ch 8 jump-diffusion (μ_x, μ_y, σ_x, σ_y, J_x) の 4 期パラメータ表記的事後分布要約、Ch 10.5 統合ハザード h_pre Δ log h 表記。定式化は Book II 章へ委譲、本章は記号の TIEM 値適用のみ",
+      "anchor_claims": [
+        "TIEM 10 年軌跡は (a) 2012-2014 シリーズA命名期 (b) 2015-2017 量産投資期 (c) 2018-2020 補完試行期 (d) 2021-2022 ソフトランディング期 の 4 期に分割される",
+        "4 期分割境界は μ_x / μ_y 符号変化点 + 取締役会意思決定転換点の両基準を併用 (符号変化点で機械的に決まる部分と、シリーズA命名・量産投資決議・CFO 候補面談開始・解散決議の質的判断で決まる部分の混合)",
+        "全期間を通じて J_x ジャンプ (R の非連続上方修正、技術 breakthrough) は一度も観測されず、Θ_converge への分岐点が訪れなかった",
+        "μ_x ≈ 0 (R 改善なし) + μ_y < 0 (流動性 burn-only) + J_x ジャンプなし の組合せで Ch 8 Θ_zombie 軌跡を構成し、Θ_halt (急停止) ではなく緩慢な枯渇として終端",
+        "Ch 10.5 統合ハザード h_pre は τ_B (2022 実質清算決議) 前 Δ log h<0 で単調減衰、h_post スパイク (急停止) なし = 燃え尽き型ソフトランディング (D-035 Klepper 入れ子主要事例)"
+      ],
+      "paragraph_outline": [
+        "P1: 4 期分割の方法論 — μ_x / μ_y 符号変化点の機械的検出 + 取締役会意思決定転換点 (シリーズA命名 / 量産投資決議 / CFO 候補面談開始 / 解散決議) の質的判断の併用基準",
+        "P2: 第1期 2012-2014 シリーズA命名期 — シードラウンド成功 + シリーズA命名 + パイロットライン構築、μ_x ≈ +小 (見かけ進捗) + μ_y ≈ +小 (調達流入) + J_x なし、外形的には Θ_converge 候補に見えた",
+        "P3: 第1期の R_internal 据置 — 研究室外再現性ギャップ未解消、政策追い風 PR でメディア露出が R 真値を覆い隠した機序、Y-001 シリーズA命名 (§12.3) がこの期に発生",
+        "P4: 第2期 2015-2017 量産投資期 — 中試設備 (中規模量産ライン) 発注 + factory 候補ゼネコン契約、月次バーン 3 倍化、μ_x ≈ 0 (再現性ギャップ rigid 化) + μ_y << 0 (burn-only)、Θ_zombie 確定の起点",
+        "P5: 第2期の Y-004 早すぎる拡大発動 — PoC (lab → 中試 → factory 再現性検証) 完了前の量産投資意思決定、§12.4 で詳細剖検",
+        "P6: 第3期 2018-2020 補完試行期 — F_cap 補完試行 (CFO 候補 3 社面談 = Finance-Pro-Type-A / B / C、すべて条件不一致で離脱) + bridge 調達 2 回 (実質ダウンラウンド回避) + PoC 再設計試行、μ_x ≈ 0 のまま μ_y < 0 継続",
+        "P7: 第3期の ρ posterior << 0 — Ch 7 F-CES 補完弾力性が負大、F_char × F_cap の退化失敗 (D-038、Inada コーナー反証ではなく)、§12.4 / §12.5 で再解釈",
+        "P8: 第4期 2021-2022 ソフトランディング期 — 月次資金繰り限界 + J_x 期待 (大企業吸収 / 政策ピボット) ゼロ + 解散決議 + IP 残置のみ清算、Δ log h<0 で h_pre 単調減衰",
+        "P9: 4 期パラメータ表記的事後分布要約 — 各期の (μ_x, μ_y, σ_x, σ_y, J_x 強度) を summary 表 (表 2) で提示、Tier A illustrative 注記、推定ではない旨明示",
+        "P10: Ch 8 Θ_zombie 同定論理 — 4 類型 (Θ_unicorn / Θ_pivot / Θ_pre-τ_B 死亡 / Θ_zombie) のうち μ_x ≈ 0 + μ_y < 0 + J_x ジャンプなし は Θ_zombie に該当することを観測等価類の枠内で確認",
+        "P11: Ch 10.5 統合ハザード Δ log h<0 の校正 — h_pre が 2018-2022 にかけて単調減衰、h_post スパイクなし = 燃え尽き型ソフトランディング = D-035 Klepper 入れ子主要事例 (Ch 10.5 へ supply)、概念プロットを図 1 として提示",
+        "P12: 4 期を通じての σ_SU 推移 — 2012-2017 高位維持、2018 以降漸減 (政策転換 + GX 補助金縮小)、しかし σ_SU 減少が μ_y < 0 を加速したとは因果識別しない (Tier A 規律遵守)",
+        "P13: Δ log h プロット配置の章間調整 — 本章 §12.2 では概念図のみ、定量プロットは Ch 26a 校正 plot へ supply (重複回避)",
+        "P14: §12.2 まとめ — TIEM は Ch 8 Θ_zombie 軌跡 + Ch 10.5 Δ log h<0 燃え尽き型の illustrative 典型例として後付け校正される、Tier A 規律内で観測等価類論一般化は Ch 8 に委ねる"
+      ],
+      "new_writing_required": "完全新規。4 期分割の境界基準 (機械的 + 質的判断の併用)、各期の Ch 8 変数 (μ_x, μ_y, J_x) 表記的事後分布要約、Ch 10.5 Δ log h<0 概念プロット (図 1)、Θ_zombie 同定論理、4 期パラメータ summary 表 (表 2)",
+      "existing_reuse": "pwa/bzm/retrofit-verification.md と pwa/bzm/legacy/ の TIEM 履歴情報 (年表 / 月次 P/L / 技術マイルストン / 資金調達履歴) を Ch 8 / Ch 10.5 記号体系で 4 期分割形式に再構成",
+      "upstream_dependencies": [
+        "§12.1 設立時状態 (2012 起点)",
+        "Ch 8 jump-diffusion 4 類型 (Θ_zombie 定義)",
+        "Ch 10.5 統合ハザード h_pre Δ log h (D-035 Klepper 入れ子)",
+        "Ch 7 F-CES (ρ posterior、第3期 補完失敗の解釈)"
+      ],
+      "downstream_dependencies": [
+        "§12.3 Y-001 (第1期に発生、シリーズA命名 bias)",
+        "§12.4 Y-004 (第2期に発生、PoC 未完量産投資 bias)",
+        "§12.5 Book II 7 装置統合マッピング",
+        "Ch 25 層間結合検証 (機関 ERS × TIEM 軌跡速度)",
+        "Ch 26a 後付け校正整合性 (TIEM Brier / 校正 plot 定量供給)"
+      ],
+      "references": [
+        "Klepper (2002) Firm Survival and the Evolution of Oligopoly",
+        "Jovanovic (1982) Selection and Evolution of Industry",
+        "Hopenhayn (1992) entry-exit dynamics",
+        "Brown & Eisenhardt (1997) Time Pacing",
+        "Ch 8 §8.x jump-diffusion 4 類型 / Ch 10.5 §10.5.x 統合ハザード"
+      ],
+      "source_drafts": [
+        "B §12.2 4 期分割 + 符号変化点による機械的定義 (骨格)",
+        "C §12.2 取締役会意思決定転換点による質的定義 (graft、両基準併用)",
+        "A §12.2 4 期パラメータ表記的事後分布要約表 (graft)",
+        "C §12.2 Δ log h プロット配置と Ch 26a 分担 (graft)"
+      ]
+    },
+    {
+      "section_id": "12.3",
+      "title": "Y-001 シリーズA命名メカニズム: 調達金額 ≠ 評価額の混同と命名強迫観念",
+      "pages": 3.5,
+      "math_level": "低-中。希薄化率と調達金額の単純計算 + Ch 5 σ_SU + Ch 5.5 GO ゲート θ_σ* との関係を叙述、定式化なし",
+      "anchor_claims": [
+        "Y-001 シリーズA命名は『シリーズAを《シリーズA命名》したい強迫観念』により調達金額 ≠ 評価額 ≠ 事業マイルストーンの三項が混同される意思決定 bias パターン (付録 C 完全展開を本章では illustrative summary)",
+        "TIEM 2013 シリーズA命名時の意思決定資料 (term sheet + 取締役会議事録) から、評価額決定プロセスが事業マイルストーンと脱結合していた事実が後付け校正で抽出される",
+        "Y-001 は σ_SU 高位環境下で誘発されやすい — Triple Helix 追い風が『今シリーズAを打たねば』という時間圧迫と『メディア露出 = 調達成功』という vanity metric を生む",
+        "Y-001 単独では smb 失敗を直接引き起こさないが、評価額固定 + 安易な希薄化が後ラウンド bridge 不能 (実質ダウンラウンド回避不能) を生み Y-004 と複合して bankrun 加速の伏線になる",
+        "Cardon-Wincent-Singh-Drnovsek (2009) entrepreneurial passion + Ries (2011) Lean Startup vanity metric + Branscomb-Auerswald (2002) Valley of Death の三文献装置で Y-001 メカニズムを剖検"
+      ],
+      "paragraph_outline": [
+        "P1: Y-001 の定義 (付録 C 完全展開を参照) — シリーズA命名強迫観念 (調達ラウンドを《シリーズA》《シリーズB》と命名したい欲求が、評価額と調達金額の経済合理性を歪める失敗パターン)、本章は illustrative summary のみで詳細は付録 C",
+        "P2: TIEM 2013 シリーズA命名時の意思決定再構成 — 当時 term sheet + 取締役会議事録から、評価額決定プロセスが事業マイルストーン (歩留まり / unit economics) と脱結合していた事実を抽出、政策追い風 PR + メディア露出が背景",
+        "P3: 命名強迫観念の root cause 分析 — 周辺 SU 同期 (同時期シリーズAラウンド事例) + メディア露出期待 + Tier-1-VC-Type 関与による格付け効果、Triple Helix 共鳴が《シリーズA》フレームを与えた機序",
+        "P4: Cardon-Wincent-Singh-Drnovsek (2009) entrepreneurial passion 文献装置 — 『シリーズAを打つこと自体への passion』が rational decision を歪めるメカニズム、TIEM 創業チームの passion 構造への適用",
+        "P5: Ries (2011) Lean Startup vanity metric 概念での読み直し — シリーズA命名は vanity metric の典型、actionable metric (歩留まり / unit economics / R_internal 改善) と乖離した指標で意思決定",
+        "P6: Branscomb-Auerswald (2002) Valley of Death 文脈での解釈 — 『メディア露出 = 調達成功』誤認の典型例、技術成熟タイムスケールと資本市場タイムスケールのミスマッチが Y-001 で具体化",
+        "P7: Y-001 と F_cap ほぼゼロの相互作用 — CFO 不在で評価額算定能力が欠落、命名優先が許容された機序、F_cap 補完試行は §12.4 で再論",
+        "P8: TIEM 後続ラウンドへの連鎖効果 — シリーズA評価額固定が 2015-2017 bridge 調達で実質ダウンラウンド回避不能を生み、希薄化加速で創業チーム持分稀薄化、F_char にも影響波及",
+        "P9: Y-001 と Ch 5.5 GO ゲート overshoot の結合 — σ_SU 高位の追い風表層が θ_σ* overshoot を許容する経路は Y-001 強迫観念で説明可能 (因果方向は §12.5 で慎重に扱う、Tier A 規律内)",
+        "P10: Y-001 と Y-004 の橋渡し — Y-001 単独では bankrun を引き起こさない、Y-004 (PoC 未完量産投資) と複合することで月次バーン爆増 → ρ posterior << 0 → Θ_zombie へ連鎖 (§12.4 で展開)",
+        "P11: §12.3 まとめ — Y-001 は σ_SU 高位 × F_cap ほぼゼロ × 命名強迫観念の三項複合、Tier A illustrative 規律内で記述、付録 C で完全展開を参照"
+      ],
+      "new_writing_required": "完全新規。Y-001 メカニズムの BZM 数理装置 (σ_SU / GO ゲート / F_cap) への接続、TIEM 2013 シリーズA命名時意思決定再構成、Cardon + Ries + Branscomb-Auerswald 三文献装置の統合",
+      "existing_reuse": "pwa/bzm/legacy/ の TIEM 調達履歴 + 付録 C Y-001 ドラフト (D-013 確定) を本章用に illustrative summary として要約引用、詳細は付録 C へ参照",
+      "upstream_dependencies": [
+        "§12.1 設立時 F_cap ほぼゼロ + σ_SU 高位",
+        "§12.2 第1期 2012-2014 シリーズA命名期",
+        "付録 C Y-001 シリーズA命名 完全展開 (D-013)",
+        "Ch 5 σ_SU MS-SSM / Ch 5.5 GO ゲート θ_σ*",
+        "Ch 7 F-CES F_cap 定義"
+      ],
+      "downstream_dependencies": [
+        "§12.4 Y-004 (Y-001 + Y-004 複合事故)",
+        "§12.5 Book II 数学装置統合 (Y-001 起源説明の論理鎖位置)",
+        "Ch 37 BZM vs 4 frameworks 比較 (Y-001 を Sarasvathy effectuation / Ries Lean Startup でどう分類するか)",
+        "付録 C Y-001 完全展開"
+      ],
+      "references": [
+        "Cardon, Wincent, Singh & Drnovsek (2009) JBR entrepreneurial passion",
+        "Ries (2011) Lean Startup (vanity metric)",
+        "Eisenmann (2021) Why Startups Fail",
+        "Branscomb & Auerswald (2002) Valley of Death",
+        "Sarasvathy (2001) Causation vs Effectuation",
+        "Pisano (2010) Science Business Ch 5",
+        "BOOK_DECISIONS.md D-013"
+      ],
+      "source_drafts": [
+        "B §12.3 Cardon + Ries 文献装置 (骨格)",
+        "C §12.3 命名強迫観念 root cause 分析 + GO ゲート overshoot 結合 (graft)",
+        "A §12.3 Y-001 単独限界 + Y-004 橋渡し記述 (graft)"
+      ]
+    },
+    {
+      "section_id": "12.4",
+      "title": "Y-004 早すぎる拡大メカニズム: PoC 未完了量産投資と F-CES 退化失敗",
+      "pages": 3.5,
+      "math_level": "中。Ch 7 F-CES 補完弾力性 ρ posterior << 0 表記 + 月次バーン爆増の単純計算 + Ch 6 PRS の R 概念参照。定式化は Ch 7 へ委譲",
+      "anchor_claims": [
+        "Y-004 早すぎる拡大は PoC (lab → 中試 → factory 再現性検証) 完了前に量産設備投資を実行し月次バーンが爆増する意思決定 bias パターン (付録 C 完全展開を本章では illustrative summary)",
+        "TIEM 2015-2016 中試設備投資 + factory 候補ゼネコン契約の意思決定資料から、R_internal が 0.3 程度のまま (lab → 中試 transfer で透過率 spec 外、PI 暗黙知依存) 量産投資が実行された事実が後付け校正で抽出される",
+        "Y-004 を正当化した外的圧力 = GX 補助金枠の駆け込み利用 + 量産化期待 (σ_SU 由来 Triple Helix 圧) + Y-001 で確保した資金の使途プレッシャー",
+        "Ch 7 F-CES F_cap 補完試行 (CFO 候補 3 社 = Finance-Pro-Type-A/B/C、面談すべて条件不一致で離脱) の ρ posterior << 0 は Inada コーナー反証ではなく F_char × F_cap の退化失敗として解釈される (D-038)",
+        "Y-001 + Y-004 複合事故メカニズム: Y-001 過大調達 → Y-004 過大支出 → F_cap 補完試行困難 → ρ posterior << 0 (Ch 7) → Θ_zombie 確定 (Ch 8) → Δ log h<0 (Ch 10.5) の段階連鎖"
+      ],
+      "paragraph_outline": [
+        "P1: Y-004 の定義 (付録 C 完全展開を参照) — R_internal 未充足 (PoC 未完了) のまま量産設備投資 + 組織肥大化 + バーン爆増、Eisenmann (2021) Speed Trap 概念の BZM 文脈翻訳、本章は illustrative summary のみ",
+        "P2: TIEM 2015-2016 量産投資意思決定の再構成 — 中試設備 (中規模量産ライン) 発注 + factory 候補ゼネコン契約、当時取締役会資料 + 月次資金繰り表から PoC 未完了状態の証拠抽出",
+        "P3: PoC 未完了の証拠 — R_internal ≈ 0.3 のまま (lab → 中試 transfer で透過率 spec 外、Engineering-Univ-Type PI 暗黙知依存)、当時実験ノートの検証ログ要約",
+        "P4: 月次バーン 3 倍化の影響 — F_cap ほぼゼロの基盤で月次バーン爆増 → bridge 調達依存度上昇 → Y-001 の評価額固定との衝突",
+        "P5: Y-004 を正当化した外的圧力 — GX 補助金枠の駆け込み利用 + 量産化期待 (σ_SU 由来 Triple Helix 圧) + Y-001 で確保した資金の使途プレッシャー (vanity 調達後の支出圧)",
+        "P6: Eisenmann (2021) Why Startups Fail Speed Trap の TIEM 文脈翻訳 — 外的時計 (補助金期限 + 政策窓) が内的成熟度 (R 真値) を犠牲にする構造、Y-004 の核心メカニズム",
+        "P7: Pisano (2010) Science Business 接続 — 材料系は production scale-up で R が露呈する特殊性、TIEM の lab → 中試 transfer 失敗はこの普遍構造の具体化",
+        "P8: Brown & Eisenhardt (1997) Time Pacing 接続 — 外的時計に追随する組織は内的成熟度を犠牲にする、TIEM の補助金駆け込み利用は外的 time pacing の典型",
+        "P9: F_cap 補完試行の失敗系列 — CFO 候補 3 社 (Finance-Pro-Type-A 商社系 / B 投資銀行系 / C 起業家系) すべて条件不一致で離脱、量産技術顧問 2 名招聘失敗、法務顧問選定遅延 (当時退任時引継書から復元)",
+        "P10: ρ posterior << 0 の解釈規律 (D-038) — Ch 7 F-CES 補完弾力性が著しく負、F_char × F_cap の補完なし、Inada コーナー反証ではなく退化失敗、F_char が F_cap を救えない構造",
+        "P11: Y-001 + Y-004 複合事故 mechanism — Y-001 過大調達 → Y-004 過大支出 → F_cap 補完困難 → ρ posterior << 0 → Θ_zombie → Δ log h<0 の段階連鎖 (因果叙述ではなく Tier A 後付け校正による段階記述)",
+        "P12: §12.4 まとめ — Y-004 は R_internal 低位 × σ_SU 高位 × F_cap ほぼゼロの三項複合、Y-001 と複合して Θ_zombie 軌跡と Δ log h<0 燃え尽きを形成、Tier A illustrative 規律内"
+      ],
+      "new_writing_required": "完全新規。Y-004 メカニズムの BZM 数理装置 (R_internal / F_cap / ρ posterior) への接続、TIEM 2015-2016 量産投資意思決定再構成、CFO 候補 3 件失敗表 (D-034 多階層匿名化 Finance-Pro-Type-A/B/C)、Eisenmann + Pisano + Brown-Eisenhardt 三接続、Y-001 + Y-004 複合事故段階連鎖",
+      "existing_reuse": "pwa/bzm/legacy/ の TIEM 量産設備投資履歴 + 月次 P/L + 付録 C Y-004 ドラフト (D-013 確定) を本章用に illustrative summary として要約引用",
+      "upstream_dependencies": [
+        "§12.1 設立時 R_internal ほぼゼロ + F_cap ほぼゼロ",
+        "§12.2 第2期 2015-2017 量産投資期 + 第3期 2018-2020 補完試行期",
+        "§12.3 Y-001 (複合事故の前段)",
+        "付録 C Y-004 早すぎる拡大 完全展開 (D-013)",
+        "Ch 6 PRS R 概念 / Ch 7 F-CES (F_char × F_cap、ρ posterior、Kmenta 表記)",
+        "D-038 ρ Kmenta 退化失敗解釈規律"
+      ],
+      "downstream_dependencies": [
+        "§12.5 Book II 数学装置統合 (Y-001+Y-004 → ρ posterior << 0 → Θ_zombie の論理鎖)",
+        "§12.6 章末問い (Y-001 + Y-004 複合事故の一般化問い)",
+        "Ch 25 層間結合検証 (機関 ERS × Y-004 量産投資の関係)",
+        "Ch 26b 予測登録簿 (TIEM は predicted but not registered の retrospective example)",
+        "Ch 37 BZM vs 4 frameworks 比較",
+        "付録 C Y-004 完全展開"
+      ],
+      "references": [
+        "Eisenmann (2021) Why Startups Fail (Speed Trap)",
+        "Pisano (2010) Science Business Ch 4-5",
+        "Brown & Eisenhardt (1997) Time Pacing",
+        "Hogan, Hogan & Kaiser (2010) dark side leadership",
+        "Block, Henkel, Schweisfurth & Stiegler (2016) Material innovation",
+        "Branscomb & Auerswald (2002) Valley of Death",
+        "Ries (2011) Lean Startup (PoC / pivot)",
+        "BOOK_DECISIONS.md D-013 / D-038"
+      ],
+      "source_drafts": [
+        "B §12.4 Eisenmann Speed Trap + Hogan dark side leadership (骨格)",
+        "C §12.4 Pisano 材料系 production scale-up + Brown-Eisenhardt Time Pacing 三接続 (graft)",
+        "C §12.4 Y-001+Y-004 複合事故段階連鎖記述 (graft)",
+        "A §12.4 CFO 候補 3 件失敗表 (graft、D-034 多階層匿名化適用)"
+      ]
+    },
+    {
+      "section_id": "12.5",
+      "title": "Book II 7 装置統合読み直し: 横断マッピング表と論理鎖段階接続",
+      "pages": 3,
+      "math_level": "中-高。Book II 7 装置 (Ch 5/5.5/6/7/8/9/10.5) の TIEM 値適用を統合提示、定式化は各 Book II 章へ委譲、本章は記号の TIEM 適用と論理鎖段階接続のみ",
+      "anchor_claims": [
+        "TIEM ケースは Book II 7 装置 (Ch 5 MS-SSM / Ch 5.5 GO ゲート / Ch 6 PRS / Ch 7 F-CES / Ch 8 jump-diffusion / Ch 9 ERS / Ch 10.5 統合ハザード) すべてに完全マッピングできる illustrative 事例である (横断マッピング表として表 3 で提示)",
+        "TIEM lifecycle の論理鎖段階接続: Ch 5 σ_SU 高位 → Ch 5.5 GO ゲート overshoot → Ch 6 PRS R 軽視 → Ch 7 F-CES ρ posterior << 0 退化 → Ch 8 Θ_zombie → Ch 10.5 Δ log h<0 ソフトランディング (因果叙述ではなく Tier A 後付け校正による段階記述)",
+        "Ch 8 4 類型のうち Θ_zombie (μ_x≈0 + μ_y<0 + J_x ジャンプなし、徐々に枯渇) の illustrative 典型例として確定、観測等価類論一般化は Ch 8 に委ねる",
+        "Ch 9 ERS で Engineering-Univ-Type の機関 ERS が TIEM 軌跡速度に与えた影響は Ch 25 層間結合検証へ supply (D-034 匿名化下での記述深度に注意)",
+        "本章は Tier A illustrative で TIEM 1 例から validation 主張・因果効果識別主張は行わない (D-033 / D-047)、Ch 26b 予測登録簿に TIEM を retrospective example として登録する用語は『predicted but not registered』と確定 (Tier A 範囲内の反証可能性として解釈)"
+      ],
+      "paragraph_outline": [
+        "P1: Book II 7 装置横断マッピング表 (表 3) — 各装置の入力変数 / TIEM 後付け校正値 / 表記的事後分布要約 / 章間 supply 先 を一覧、A 案骨格を採用",
+        "P2: Ch 5 MS-SSM 読み直し — TIEM 設立時 K=S₂ 三位一体追い風 + 軌跡 4 期での σ_SU 推移 (2012-2017 高位維持 → 2018 以降漸減)",
+        "P3: Ch 5.5 GO ゲート読み直し — σ_SU > θ_σ* overshoot による R_internal 低位遮蔽の機序、Y-001 命名強迫観念が overshoot を許容した経路 (§12.3 から接続)",
+        "P4: Ch 6 PRS 期待値分解読み直し — P 高位 × R 低位 × S 中位の積、R 軽視の構造が 4 期推移で確認",
+        "P5: Ch 7 F-CES 読み直し — ρ posterior << 0 の表記的事後分布、F_char × F_cap 退化失敗、CFO 候補 3 件失敗の解釈 (D-038 規律遵守、Inada コーナー反証と区別)",
+        "P6: Ch 8 jump-diffusion 読み直し — 4 期パラメータ統合で Θ_zombie 軌跡確定、4 類型のうち Θ_zombie 同定 (μ_x≈0 + μ_y<0 + J_x ジャンプなし)、観測等価類論一般化は Ch 8 へ委ねる",
+        "P7: Ch 9 ERS 読み直し — Engineering-Univ-Type 機関 ERS が TIEM 速度に与えた影響、Ch 25 層間結合検証へ supply (D-034 匿名化下、機関 type 細分化は Ch 9 skeleton と調整)",
+        "P8: Ch 10.5 統合ハザード h_pre Δ log h<0 読み直し — 燃え尽き型ソフトランディング、急停止 (h_post スパイク) なし、D-035 Klepper 入れ子主要事例として Ch 10.5 へ supply",
+        "P9: 論理鎖段階接続の明示 (C 案 graft) — Ch 5 → 5.5 → 6 → 7 → 8 → 10.5 の段階接続を TIEM で illustrative に提示、因果叙述ではなく後付け校正による段階記述 (Tier A 規律内)",
+        "P10: Tier A 規律の再確認 (二重宣言、A 案 graft) — TIEM 1 例で validation 主張禁止 + 識別された因果効果叙述禁止 + 観測等価類の限定性は Ch 8 一般論へ委ねる + Ch 26b 予測登録簿は『predicted but not registered』として retrospective example 注記 (Tier A 範囲内の反証可能性)",
+        "P11: 章間 supply 先の明示 — Ch 25 層間結合 (機関 ERS × TIEM 速度) / Ch 26a 後付け校正整合性 (Brier / 校正 plot 定量供給) / Ch 26b 予測登録簿 (retrospective example) / Ch 37 BZM vs 4 frameworks 比較"
+      ],
+      "new_writing_required": "完全新規。Book II 7 装置横断マッピング表 (表 3、A 案 graft)、論理鎖段階接続記述 (C 案 graft)、Tier A 規律二重宣言 (A 案 graft)、章間 supply 明示",
+      "existing_reuse": "§12.1-12.4 の各装置記述、Ch 5/5.5/6/7/8/9/10.5 の正本定義をそのまま参照",
+      "upstream_dependencies": [
+        "§12.1-12.4 全体",
+        "Ch 5 / 5.5 / 6 / 7 / 8 / 9 / 10.5 (Book II 数学装置)",
+        "D-033 / D-035 / D-038 / D-047 / D-051"
+      ],
+      "downstream_dependencies": [
+        "§12.6 章末問い",
+        "Ch 25 層間結合検証 (機関 ERS × TIEM 速度)",
+        "Ch 26a 後付け校正整合性 (TIEM Brier / 校正 plot 定量供給)",
+        "Ch 26b 予測登録簿 (predicted but not registered の retrospective example)",
+        "Ch 37 BZM vs 4 frameworks 比較"
+      ],
+      "references": [
+        "Klepper (2002, 2010)",
+        "Jovanovic (1982) Selection and Evolution of Industry",
+        "Ch 5/5.5/6/7/8/9/10.5 本書内参照",
+        "BOOK_DECISIONS.md D-033 / D-035 / D-038 / D-047 / D-051"
+      ],
+      "source_drafts": [
+        "A §12.5 Book II 7 装置横断マッピング表 (骨格、Ch 9 ERS 含む完全形)",
+        "C §12.5 論理鎖段階接続記述 (graft、段階接続として併存)",
+        "A §12.5 Tier A 規律二重宣言 (graft)",
+        "B §12.5 章間 supply 体系 (骨格保持)"
+      ]
+    },
+    {
+      "section_id": "12.6",
+      "title": "章末問い 8 項目 + Ch 25/26a/26b/37 への bridge と D-010 露出制限再宣言",
+      "pages": 2,
+      "math_level": "数式なし。Book III 他章への参照のみ",
+      "anchor_claims": [
+        "章末問い 8 項目は Tier A 範囲内の反証可能性に限定し、validation 主張を要する問いは Ch 26 系へ繰り延べる",
+        "TIEM 後付け校正は Ch 25 (層間結合) / Ch 26a (校正整合性) / Ch 26b (予測登録簿) / Ch 37 (4 frameworks 比較) へ supply するが、Book III 他 PJ 章 (Ch 13-22) での TIEM 言及は D-010 により禁止される",
+        "TIEM は Book III 全体の illustrative 基準点として本章で完結し、以降は校正データとしてのみ参照される",
+        "メタ問い (盲検性 / 匿名化 / 一般化可能性) を章末問いに含めることで Tier A 規律と認識論的厳密性の緊張を読者に明示開示する"
+      ],
+      "paragraph_outline": [
+        "P1: 章末問い Q1 — σ_SU 高位 × R_internal 低位の不整合状態で GO が通る一般条件は何か? (Ch 5.5 ゲート理論への問い、Tier A 範囲内の比較可能性)",
+        "P2: Q2 — Y-001 シリーズA命名強迫観念は材料系 SU 特有か、Bio / SaaS でも観測されるか? (Ch 13-22 他 PJ 章との対立類型比較への問い、ただし本章では TIEM データ再利用禁止)",
+        "P3: Q3 — Y-004 早すぎる拡大は外的時計 (補助金期限) と内的時計 (R 成熟度) のミスマッチ指標で予測可能か? (Brown-Eisenhardt Time Pacing 一般化への問い)",
+        "P4: Q4 — ρ posterior << 0 (F-CES 退化失敗) は CFO 候補面談数や bridge 調達回数で操作的に観測可能か? (Ch 7 への問い)",
+        "P5: Q5 — Θ_zombie ソフトランディング (Δ log h<0) は急性死亡型 (Δ log h>>0) より組織学習を残すか? IP 残置の社会的価値は? (Ch 10.5 + 政策含意への問い)",
+        "P6: Q6 — TIEM を Ch 26b 予測登録簿に retrospective registration した場合の Brier はどうなるか? (Tier A 範囲内の反証可能性 = predicted but not registered の認識論的位置づけを §12.5 で確定済、Ch 26a/26b への問い)",
+        "P7: Q7 — D-034 機関匿名化 (Engineering-Univ-Type + 投資家側 type) は科学的再現性を阻害するか? 匿名化と再現性のトレードオフは Book III 全体でどう扱うか? (Ch 9 ERS + Ch 25 への問い、メタ問い)",
+        "P8: Q8 — 弱盲検後付け校正 (著者当事者性下の盲検プロトコル) の認識論的担保はどこまで可能か? TIEM の illustrative 性はどこまで一般化可能か? (§12.0 弱盲検プロトコルへの問い、メタ問い)",
+        "P9: Ch 25 への supply — 機関 ERS (Engineering-Univ-Type) × TIEM 軌跡速度の層間結合検証データ提供",
+        "P10: Ch 26a への supply — TIEM の Brier / 校正 plot 用後付け校正値定量供給 (§12.2 概念図から定量プロットへ)",
+        "P11: Ch 26b への supply — TIEM は predicted but not registered の retrospective example として登録簿規律の必要性を illustrate",
+        "P12: Ch 37 への supply — BZM vs 4 frameworks (Lean / Stage-Gate / Effectuation / Real Options) で TIEM をどう分類するか",
+        "P13: D-010 露出制限の再宣言 — Book III Ch 13 以降の他 PJ 章 (ユニコーン型 / ピボット型 / pre-τ_B 死亡型) では TIEM を引かない、章間相互参照の透明性確保、対立類型比較は対立類型ケース側で行う",
+        "P14: §12.6 まとめ — TIEM は Book III ゾンビ型主要参照ケースとしての役割を本章で完結、付録 C で Y-001 + Y-004 完全展開、Ch 26/37 で校正データとして再登場"
+      ],
+      "new_writing_required": "完全新規。章末問い 8 項目の精密な定式化 (Tier A 範囲内の反証可能性に限定)、Ch 25/26a/26b/37 への bridge 文言、D-010 露出制限再宣言、メタ問い (Q6-Q8) の設計",
+      "existing_reuse": "Ch 11 章末問い形式、retrofit-verification.md の問い項目",
+      "upstream_dependencies": [
+        "§12.0-12.5 全体",
+        "D-010 露出制限 / D-013 / D-035 / D-038 / D-047"
+      ],
+      "downstream_dependencies": [
+        "Ch 13-22 Book III 他 PJ ケース章 (対立類型)",
+        "Ch 25 層間結合検証",
+        "Ch 26a 後付け校正整合性",
+        "Ch 26b 予測登録簿",
+        "Ch 37 BZM vs 4 frameworks 比較",
+        "付録 C Y-001 + Y-004 完全展開"
+      ],
+      "references": [
+        "BOOK_DECISIONS.md D-010 / D-013 / D-035 / D-038 / D-047",
+        "Ch 4 ケースカタログ",
+        "Ch 26a / 26b 後付け校正整合性 + 予測登録簿",
+        "Ch 37 BZM vs 4 frameworks",
+        "Klepper (1996, 2002, 2010) / Aldrich & Ruef (2006)"
+      ],
+      "source_drafts": [
+        "B §12.6 章末問い 8 項目 + メタ問い (Q6-Q8) (骨格)",
+        "C §12.6 Q1-Q8 の Ch 5.5/13-22/7/10.5/26a-b/9+25/37 bridge (graft)",
+        "A §12.6 D-010 露出制限再宣言 (graft)",
+        "C §12.5 Ch 26b retrospective registration 用語確定 (Q6 へ接続)"
+      ]
+    }
+  ],
+  "open_issues_for_masa": [
+    {
+      "issue": "D-034 機関匿名化下で Engineering-Univ-Type の細分化レベル (例: Engineering-Univ-Type-A / B 等のサブタイプ導入) と、Tier-1-VC-Type / Tier-2-CVC-Type / Finance-Pro-Type-A/B/C の多階層匿名化の解像度をどこまで本章で確定するか。再識別リスクと科学的再現性のトレードオフが緊張。Ch 9 ERS skeleton の機関 type 分類と整合させる必要",
+      "why_masa_decides": "TIEM の Engineering-Univ-Type は実在の発スピンアウト元と紐づくため、まさの実生活上の利害関係 (関係者対応 / 倫理) と Book III 全体の機関匿名化方針が直接関わる。査読耐性と当事者保護のバランスをまさの最終判断で確定すべき。",
+      "options": [
+        "(a) Engineering-Univ-Type 単一表記で統一、サブタイプ導入せず識別性を最小化",
+        "(b) Engineering-Univ-Type-A 等のサブタイプを導入し Ch 9 ERS 機関別速度成分の科学的有用性を確保",
+        "(c) 本章は Engineering-Univ-Type 単一表記、Ch 9 ERS で初めてサブタイプ導入する分業"
+      ],
+      "recommendation": "(c) 推奨。本章 (Tier A illustrative) では識別性最小化を優先し、Ch 9 ERS (Tier A-B 境界) で機関別速度成分を扱う際に初めてサブタイプ導入する分業。§12.5 P7 と章末問い Q7 で『機関 type 細分化は Ch 9 ERS skeleton と調整』と明示しまさの最終判断を Ch 9 確定時に繰り延べる。"
+    },
+    {
+      "issue": "設立時 σ_SU / R_internal / F_char / F_cap の表記的事後分布要約値 (例: σ_SU ≈ 7.5 / R_internal ≈ 0.2 / F_char ≈ 0.4 / F_cap ≈ 0.05) のスケール規約 (0-10 表記か 0-1 表記か log か標準化か) を本章でどう扱うか。3 案で表記が分散しており Ch 5 §5.x スケール規約との整合が必要",
+      "why_masa_decides": "スケール規約は Book II 全体の記号正本 (D-051) に関わり、Ch 5/5.5/6/7 全章のスケール規約と統一する必要がある。本章単独では決められず、まさが Book II 章群との一括調整で決めるべき",
+      "options": [
+        "(a) Ch 5 §5.x スケール規約を借用し本章独自スケール導入を回避、不整合 summary 表 (表 1) は Ch 5 スケールで表記",
+        "(b) 本章で 0-10 表記を採用し Ch 5 へ supply (本章先行型)",
+        "(c) 質的記述 (高位 / 中位 / 低位 / ほぼゼロ) に留め数値スコア提示を回避"
+      ],
+      "recommendation": "(a) 推奨。本章は Ch 5 §5.x スケール規約借用を §12.1 P11 で明示し本章独自スケール導入を回避、不整合 summary 表 (表 1) は Ch 5 スケールで表記。Ch 5 skeleton 確定後にスケール規約をまさ最終確認"
+    },
+    {
+      "issue": "Y-001 / Y-004 の付録 C 完全展開と本章 illustrative summary の分業ライン (本章で何を要約し付録 C で何を詳述するか) の確定",
+      "why_masa_decides": "付録 C は D-013 で確定済だが完全展開の深度がまさの執筆方針 (やらかし図鑑としての一般化レベル) に依存。本章は TIEM 文脈のメカニズム剖検まで含めるか、定義と参照のみに留めるかで分量と読みやすさが変わる",
+      "options": [
+        "(a) 本章 §12.3/12.4 は Y-001/Y-004 の定義 + TIEM 文脈での illustrative summary + メカニズム剖検 (Cardon/Ries/Eisenmann 文献装置接続) まで含め、付録 C は原典資料 + 一般化",
+        "(b) 本章は定義と参照のみに留め、メカニズム剖検は付録 C で完全展開",
+        "(c) 本章は TIEM 文脈のメカニズム剖検のみ、Y-001/Y-004 一般定義は付録 C へ完全委譲"
+      ],
+      "recommendation": "(a) 推奨。本章自己完結性と読みやすさを優先し §12.3/12.4 でメカニズム剖検まで含める。付録 C は原典資料 (term sheet 抜粋 / 月次 P/L 抜粋) + Y-001/Y-004 の他 PJ 横展開一般化を担当する分業"
+    },
+    {
+      "issue": "Ch 26b 予測登録簿で TIEM を retrospective example として扱う際の用語 (predicted but not registered か retrospectively calibrated か) の本章での仮確定",
+      "why_masa_decides": "Ch 26b skeleton は未確定だが本章 §12.5/12.6 で言及する以上、仮確定が必要。Tier A 規律 (validation 主張禁止 D-033) と反証可能性 (Tier A 範囲内) の緊張をどう用語で表現するかは Book III 全体の認識論的立場に関わる",
+      "options": [
+        "(a) 『predicted but not registered』を採用し『当時 BZM を知っていれば登録できたが実際には登録されなかった retrospective example』として位置づけ",
+        "(b) 『retrospectively calibrated』を採用し『当時の予測ではなく事後校正された事例』として弱い位置づけ",
+        "(c) 両用語を併用し §12.5 で予測登録簿の規律必要性を illustrate する文脈で『predicted but not registered』、§12.6 章末問い Q6 で『retrospective registration 仮想シナリオ』として両建て"
+      ],
+      "recommendation": "(c) 推奨。§12.5 P10 で『predicted but not registered』として retrospective example 注記し Ch 26b 予測登録簿の規律必要性を illustrate、§12.6 Q6 で『retrospective registration 仮想シナリオでの Brier』として両建て。Ch 26b skeleton 確定後にまさが最終調整"
+    },
+    {
+      "issue": "本章 24p 配分のフィット確認 — 現案は §12.0=2.5p / §12.1=4.5p / §12.2=5.0p / §12.3=3.5p / §12.4=3.5p / §12.5=3.0p / §12.6=2.0p で合計 24.0p に圧縮済だが、§12.2 と §12.5 の段落数 (14/11 段落) と pages の整合性を実装段階で再確認する必要",
+      "why_masa_decides": "分量はまさの執筆密度 (1 段落あたりの紙面占有) に依存し、本 skeleton 段階では暫定。実装段階で §12.2 5.0p に 14 段落が収まらない場合に §12.3-12.4 のメカニズム剖検を圧縮するか、§12.5 を 3.5p に拡張するかでまさの判断が分かれる",
+      "options": [
+        "(a) 現案 24.0p 配分を維持し実装段階で段落圧縮で対応",
+        "(b) §12.2 を 5.5p に拡張し §12.5 を 2.5p に圧縮 (4 期分割の詳細を優先)",
+        "(c) §12.5 を 3.5p に拡張し §12.2 を 4.5p に圧縮 (Book II 統合マッピングを優先)"
+      ],
+      "recommendation": "(a) 推奨。現案 24.0p 配分を維持し実装段階の段落密度で吸収。仮に §12.2 が収まらない場合に (c) を fallback として §12.5 拡張を選択 (Book II 7 装置統合は本章の認識論的中核のため優先順位が高い)"
+    }
+  ],
+  "falsifiable_claims": [
+    "TIEM 軌跡 2012-2022 を Ch 8 jump-diffusion 4 類型で分類すると Θ_zombie (μ_x≈0 + μ_y<0 + J_x ジャンプなし、徐々に枯渇) に該当する — 反証: 当時資料からの後付け校正で μ_x > 0.2 が継続観測される、または μ_y ≥ 0 の期が存在する、または J_x ジャンプ (R の非連続上方修正 / 技術 breakthrough) が一度でも観測される、あるいは Θ_unicorn / Θ_pivot / Θ_pre-τ_B 死亡 のいずれかへの分類が表記的事後分布として支持される",
+    "TIEM の Ch 10.5 統合ハザード h_pre は τ_B (2022 実質清算決議) 前 Δ log h<0 で単調減衰し、h_post スパイク (急停止) は観測されない (燃え尽き型ソフトランディング) — 反証: 月次資金繰りデータから急停止パターン (h_post スパイク) が復元される、または Δ log h>>0 急性死亡型として整合する",
+    "TIEM の Ch 7 F-CES 補完弾力性 ρ posterior は明確に負大 (退化失敗) であり、Inada コーナー反証ではない — 反証: ρ posterior が 0 近傍または正である、または CFO 候補面談が 3 社未満であった、または 1 社でも条件合致で組成成立していた",
+    "TIEM 設立時 (2012) の状態ベクトルは σ_SU 高位 + R_internal ほぼゼロ + F_char 中位 + F_cap ほぼゼロの不整合プロファイルである — 反証: 設立趣意書 + 技術 due diligence + 補助金申請書から逆プロファイル (σ_SU 低位 or R_internal 中位以上) が復元される、または研究室外パイロットライン規模での歩留まり安定確認が当時資料に存在する",
+    "TIEM 設立時に GO が通った理由は σ_SU > θ_σ* overshoot により R_internal 低位が遮蔽されたためである — 反証: GO 判定が R_internal を主因としていた、または θ_σ* 閾値が機能不全 (definition 上の bug) ではなく Y-001/Y-004 意思決定 bias 以外の説明が当時取締役会議事録から復元される",
+    "Y-001 シリーズA命名 (調達金額 ≠ 評価額の混同 + 評価額固定 + 安易な希薄化) は TIEM 2013 シリーズA命名時の term sheet + 取締役会議事録から後付け校正で識別可能 — 反証: term sheet に評価額が事業マイルストーン (歩留まり / unit economics) と合理的に紐づいたパターンが見られる、または希薄化率と調達金額が経済合理性を保っている",
+    "Y-004 早すぎる拡大は TIEM 2015-2016 中試設備投資 + factory 候補ゼネコン契約が PoC (lab → 中試 → factory 再現性検証) 完了前 (R_internal ≈ 0.3) に実行されたことで識別可能 — 反証: PoC 完了タイミング (R_internal ≥ 閾値) が量産投資より先行している、または月次バーン 3 倍化のタイミングが補助金期限と無相関",
+    "TIEM は Book III 他 PJ 章 (Ch 13-22) で言及されない (D-010 露出制限) — 反証: Ch 4 / Ch 12 / Ch 26 / Ch 37 / 付録 C 以外で TIEM への参照 (機関名 / 技術名 / 軌跡データ) が発生する (本書 cross-reference grep で確認可能)",
+    "盲検後付け校正は弱盲検プロトコル (2022 以降の知識遮断 + 当時資料のみ + 当時時点文献のみ) として運用され、混入チェック手順が §12.0 P4 で明示される — 反証: 本章本文中で 2022 以降の事後解釈 (清算後談 / 競合 outcome / 政策転換) が遮断されずに引用されている、または当時資料に存在しない数値・事象が表記的事後分布要約値として提示されている"
+  ],
+  "cross_chapter_supply": [
+    {
+      "target_chapter": "Ch 5 (σ_SU MS-SSM)",
+      "what_supplies": "本章 §12.1 で TIEM 設立時 σ_SU 高位 (Triple Helix 全レーン同期 K=S₂) を Ch 5 スケール規約で校正、§12.2 で 4 期推移を Ch 5 σ_SU 時系列として供給。Ch 5 スケール規約は本章で借用 (本章独自スケール導入なし) で逆供給は受ける側"
+    },
+    {
+      "target_chapter": "Ch 5.5 (GO ゲート θ_σ*)",
+      "what_supplies": "本章 §12.1 P8 で TIEM 設立時 GO 通過の θ_σ* overshoot 事例を Ch 5.5 ゲート理論への illustrative input として供給、§12.5 P3 で Y-001 起源説明と接続"
+    },
+    {
+      "target_chapter": "Ch 6 (PRS 期待値分解)",
+      "what_supplies": "本章 §12.1 P9 で TIEM の P 高位 × R 低位 × S 中位の積を Ch 6 PRS illustrative 事例として供給、R 軽視の構造を 4 期推移で確認 (§12.5 P4)"
+    },
+    {
+      "target_chapter": "Ch 7 (F-CES F_char × F_cap × ρ)",
+      "what_supplies": "本章 §12.4 で TIEM の ρ posterior << 0 退化失敗 (CFO 候補 3 社失敗) を Ch 7 F-CES illustrative 事例として供給、D-038 規律遵守 (Inada コーナー反証ではなく退化失敗) の典型例"
+    },
+    {
+      "target_chapter": "Ch 8 (jump-diffusion 4 類型)",
+      "what_supplies": "本章 §12.2 で TIEM 4 期パラメータ表記的事後分布要約 (μ_x, μ_y, J_x) を Ch 8 Θ_zombie illustrative 典型例として供給、観測等価類論一般化は Ch 8 へ委ねる (§12.5 P6)"
+    },
+    {
+      "target_chapter": "Ch 9 (ERS 機関別速度)",
+      "what_supplies": "本章 §12.5 P7 で Engineering-Univ-Type 機関 ERS の TIEM 軌跡速度への影響を Ch 9 ERS illustrative 事例として供給。機関 type 細分化は Ch 9 skeleton と調整 (D-034 匿名化レベル open_issue)"
+    },
+    {
+      "target_chapter": "Ch 10.5 (統合ハザード h_pre + D-035 Klepper 入れ子)",
+      "what_supplies": "本章 §12.2 P11 + §12.5 P8 で TIEM の Δ log h<0 燃え尽き型ソフトランディングを D-035 Klepper 入れ子主要事例として供給、概念プロット (図 1) を Ch 10.5 へ"
+    },
+    {
+      "target_chapter": "Ch 25 (層間結合検証)",
+      "what_supplies": "本章 §12.5 P7 + §12.6 P9 で機関 ERS (Engineering-Univ-Type) × TIEM 軌跡速度の層間結合検証データを供給、Ch 9 ERS と Ch 8 jump-diffusion の層間結合 illustrative 事例"
+    },
+    {
+      "target_chapter": "Ch 26a (後付け校正整合性)",
+      "what_supplies": "本章 §12.2 概念図 (図 1) を Ch 26a で TIEM Brier / 校正 plot 定量プロットとして展開、盲検プロトコル (§12.0) を Ch 26a 校正整合性検証手続きとして共有"
+    },
+    {
+      "target_chapter": "Ch 26b (予測登録簿)",
+      "what_supplies": "本章 §12.5 P10 + §12.6 Q6 で TIEM を predicted but not registered の retrospective example として供給、予測登録簿規律の必要性を illustrate"
+    },
+    {
+      "target_chapter": "Ch 37 (BZM vs 4 frameworks 比較)",
+      "what_supplies": "本章全体の TIEM 後付け校正データを Ch 37 で Lean / Stage-Gate / Effectuation / Real Options の各 framework での再分類 illustrative 事例として供給、§12.6 Q8 で問い提示"
+    },
+    {
+      "target_chapter": "付録 C (Y-001 + Y-004 完全展開)",
+      "what_supplies": "本章 §12.3/12.4 の TIEM 文脈 Y-001/Y-004 illustrative summary + メカニズム剖検を付録 C 完全展開への参照ポインタとして供給、付録 C は原典資料 (term sheet 抜粋 / 月次 P/L 抜粋) + 他 PJ 横展開一般化を担当"
+    },
+    {
+      "target_chapter": "Ch 13-22 (Book III 他 PJ ケース章)",
+      "what_supplies": "TIEM データ再利用は D-010 で禁止 — 対立類型 (Θ_unicorn / Θ_pivot / Θ_pre-τ_B 死亡) との比較構造提示のみ、TIEM 言及禁止を §12.6 P13 で再宣言"
+    }
+  ],
+  "masa_negotiation_handles": [
+    "§12.0 弱盲検プロトコルの限界開示深度 — 著者当事者性の認識論的弱点をどこまで詳細に §12.0 P3 で開示するか (B 案レベルの誠実開示 vs より控えめな宣言)。Research Policy 査読耐性 vs 読みやすさのトレードオフをまさが調整",
+    "§12.1 設立時状態の表記的事後分布要約値スケール (σ_SU ≈ 7.5 / R_internal ≈ 0.2 等の数値表記 vs 高位/低位の質的表記) — Ch 5 スケール規約借用方針の確定。Ch 5 skeleton 確定との同期タイミングをまさが決定",
+    "§12.2 4 期分割の境界基準 — μ_x/μ_y 符号変化点 (機械的) と取締役会意思決定転換点 (質的) の両基準併用の重みづけ。境界年 (2014/15, 2017/18, 2020/21) の確定はまさの当時記憶との整合で判断",
+    "§12.3/12.4 Y-001/Y-004 メカニズム剖検の本章内深度と付録 C 分業ライン — 本章で文献装置接続 (Cardon/Ries/Eisenmann/Pisano/Brown-Eisenhardt) をどこまで詳細に展開するか、付録 C は原典資料 + 他 PJ 横展開一般化担当という分業をまさが確定",
+    "§12.5 Book II 7 装置横断マッピング表 (表 3) と論理鎖段階接続の併存 — 表形式 (A 案) と段階接続記述 (C 案) の両方を §12.5 内で持つかの判断。3.0p フィットとの兼ね合いをまさが判断",
+    "§12.6 章末問い Q6-Q8 メタ問い (Ch 26b retrospective registration Brier / D-034 匿名化と再現性 / 弱盲検性の担保限界) の Tier A 規律内での扱い — Tier 緊張をまさが明示開示として読者に提示するか、控えめにするかの判断",
+    "D-034 機関匿名化の多階層化レベル — Engineering-Univ-Type サブタイプ化、Tier-1-VC-Type / Finance-Pro-Type-A/B/C の解像度をまさが Ch 9 ERS skeleton 確定と同期して調整",
+    "Δ log h プロット配置 — 本章 §12.2 P11 で概念図 (図 1)、Ch 26a で定量プロット供給という分業を確定するか、本章でも定量プロット部分提示するかをまさが判断"
+  ]
+}
