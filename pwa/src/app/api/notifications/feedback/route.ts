@@ -7,7 +7,7 @@
  * 通知に出た候補は「はい」だけで正本反映する。
  * candidate/tentative 系の L2 は yes=active/confirmed、no=rejected/invalid。
  * protocols は UI 正本に合わせて yes=confirmed。
- * meeting_summary は通知に出る時点で抽出済み・確定保存済みなので、「はい」は確認マーク (feedback 記録 + 既読化) のみ。再抽出しない。
+ * meeting_summary 通知は legacy。新規の議事録作成通知は作らず、既存分の「はい」は確認マーク (feedback 記録 + 既読化) のみ。再抽出しない。
  *
  * Body:
  *   {
@@ -15,7 +15,7 @@
  *     target_id: string,            // code_name (member系) / project_id (PJ系)
  *     scope_key?: string,            // ym (PJ系) / 'global' (member系) — default 'global'
  *     notification_id?: string,      // 関連 l2_notifications (optional)
- *     meeting_id?: string,           // 関連 meeting_notifications (optional)
+ *     meeting_id?: string,           // legacy meeting feedback 用 (optional)
  *     feedback_text: string          // comment action では必須。yes/no では任意コメント
  *     action?: 'yes'|'no'|'comment'  // 通知への回答。yes は安全なものだけDB反映も行う
  *   }
@@ -492,10 +492,9 @@ async function applyApprovedNotification(args: {
 }
 
 /**
- * MTGサマリ通知の「はい・反映」承認。
+ * legacy MTGサマリ通知の「はい・反映」承認。
  *
- * MTGサマリは通知に出る時点で既に Notion 議事録から抽出され、`project_meeting_summaries` /
- * `meeting_notifications` に確定保存されている (= 通知が立つ = 抽出完了)。よって通知の「はい」は
+ * 新規の議事録作成通知は廃止済み。既存の MTGサマリ通知に対する「はい」は
  * 「確認した」マーク (feedback 記録 + 既読化) であり、再抽出する対象は存在しない。
  *
  * かつて (2026-05-21) は固有名詞の修正コメントを付けた「はい」で Notion から再抽出して直す

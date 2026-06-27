@@ -82,7 +82,7 @@ container: max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3
 - **凍結/再開履歴**: `project_freeze_periods` が正本。`projects.freeze_from_ym` / `restart_expected_ym` は現在状態の表示用キャッシュ。CTB のように「202412で一度終了 → 再開 → 202605で再凍結」のような複数期間は `project_freeze_periods` に複数行で保存する。
 - **CockpitFreezeBackfill**: `freeze_period_backfills` テーブルから `(project_id, freeze_from_ym, restart_ym)` を fetch、再開月以降に「📦 休止期間サマリ」パネルを MTGサマリの直上に表示。データソースは `cron/freeze-period-backfill` が休止期間中の monthly_reports + project_meeting_summaries を Sonnet で 400-700 字に統合
 - **PM月次ルーティン廃止**: `canEditRoutine` / `CockpitRoutineGas` は current cockpit から外す。月次確認は `CockpitMonthlyList` / `CockpitMonthlyModal`、請求運用は admin billing / payouts 側で扱う。
-- **タブタイトル動的化**: `/project/[projectId]/layout.tsx` の generateMetadata が `projects.project_name` → `project_ventures.display_name` 順で fallback して `<PJ名> - AMD OS` を返す
+- **タブタイトル動的化**: `/project/[projectId]/layout.tsx` の generateMetadata は `projects.project_name` を正本として `<PJ名> - AMD OS` を返す
 - **MTG添付資料トレイ**: `CockpitMeetingDetailModal` 内の `MeetingAssetsPanel` で、選択 / drag & drop / clipboard paste / browser screen capture の4経路から一般ファイルを `meeting_assets` に保存する。新規アップロード実体は Drive の `PJフォルダ / YYMMDD_会議名` に置き、カード上に保存先を表示する。`本文へ` は添付一覧を `narrative_md` の Markdown block に挿入し、Meet/Gmail 自動議事録に落ちない画面共有情報を後から補完できるようにする。
 
 ### 今期MSの表示対象
@@ -170,7 +170,7 @@ MSは報酬配分の最小単位でもある。`milestone_responsibility.share` 
 
 | Modal                            | 開き方                                    | 用途                                                                 |
 |----------------------------------|------------------------------------------|----------------------------------------------------------------------|
-| CockpitVentureMetaEditModal      | Header 各要素タップ                      | display_name / lane / founded_at / outcome / AMD 支援期間 / origin / 概要 |
+| CockpitVentureMetaEditModal      | Header 各要素タップ                      | lane / founded_at / outcome / AMD 支援期間 / origin / 概要。PJ名 / 会社名は `projects` 正本 |
 | CockpitVentureStatusEditModal    | AMD スコアチャート空白 / ドットタップ    | イベント追加・編集 (自由文 + Gemini 構造化)                          |
 | CockpitMembersModal              | 👥 メンバー                              | project_venture_members 編集 (member_kind: amd_internal / su_internal / support_org) |
 | CockpitFoundingMembersModal      | 🧑‍🤝‍🧑 関連メンバー                         | project_founding_members 表示。**関連メンバー (HRL評価のベース)** として運用。対象は `category in ('amd','startup','university')` (= AMD伴走 / 該当SU 社員・創業候補 / 大学キーパーソン)。VC / 顧客 / 行政 / 産業パートナーは HRL根拠外として `status='invalid'` 化する。AMDメンバーは `members.code_name` で記録 (フルネーム / 姓のみ表記は重複として invalid)。つくよみ修正依頼UIから追加・修正・invalid化を依頼できる。HRL 簡易推定 (ルールベース 0-9、`amd`+`startup`+`university` で算出) を末尾表示。詳細は [`xrl_evidence.md`](xrl_evidence.md) / [`../manual/4-4-frl-related-members-score-spec.md`](../manual/4-4-frl-related-members-score-spec.md) |

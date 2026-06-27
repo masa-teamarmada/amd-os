@@ -1,14 +1,14 @@
 # 通知 + つくよみ修正依頼 — 設計の正本
 
-最終更新: 2026-06-27 (MTG critical 誤爆停止)
+最終更新: 2026-06-27 (議事録作成通知の停止)
 正本ステータス: 進化中。仕様変更したらここを同じ commit で更新する。
 
 ---
 
 ## このドキュメントが扱う範囲
 
-Phase 4 で蓄積される 2 つの通知テーブル (`l2_notifications` + `meeting_notifications`) を
-PWA 画面 + iOS で確認し、誤抽出に対して **「つくよみ (LLM 抽出 cron) に修正依頼」** を出す仕組み。
+Phase 4 で蓄積される L2 通知 (`l2_notifications`) と、運用復旧用の app 通知 (`app_notifications`) を
+PWA 画面で確認し、誤抽出に対して **「つくよみ (LLM 抽出 cron) に修正依頼」** を出す仕組み。
 
 修正依頼は `l2_feedbacks` テーブル (migration 032) に蓄積され、上流 cron が次回抽出時に
 LLM プロンプトに含めて再抽出する → 「過去の指摘が反映された L2 データ」が育つ。
@@ -17,11 +17,13 @@ LLM プロンプトに含めて再抽出する → 「過去の指摘が反映�
 
 connector 再認証は `app_notifications(kind='connector_auth')` に置く。H-1 は Notion connector の `oauth_token_invalid_grant` / `TRIGGER_REAUTHENTICATION` を検知したら、抽出を止めずに `pwa/scripts/notify_connector_auth.mjs` で未読の再認証アクションを作る。同じ connector の未読通知が24時間内にあれば新規作成せず、既存通知を最新の再認証アクション付きpayloadへ更新する。通知には `meta.connector` / `meta.connector_id` / `meta.link_id` / `meta.reason` / `meta.reauth_url` / `meta.reauth_app_url` / `meta.reauth_install_url` / `meta.fallback_continues=true` を入れる。
 
-PWA は admin session 中に `CriticalRealtimeNotify` が `app_notifications` / `l2_notifications` / `meeting_notifications` を Realtime 購読し、Realtime が落ちた場合も10秒pollで補完する。`notification-priority.ts` が `critical` と判定する未読通知は画面右下に即カード表示し、Browser Notification 権限があれば OS 通知も出す。`connector_auth` はカードから `reauth_url` を開いた時点で `read_at` を打つ。ただし再認証ページを開いたことは復旧成功の証拠ではないため、既読後も `/notifications` の「既読」タブに残し、そこから再試行できる状態にする。L2 critical はカードから `/notifications?notification_id=...` へ遷移し、通知ページ側で対象rowを追加取得・自動展開する。既読化・採否は既存の通知ページ UI に委ねる。MTG 通知は本文中に再認証・blocker 等の語が混じっても右下ポップアップには出さず、必要なら `connector_auth` / `guardrail_match` / `contract_signals` 等の専用通知として別発火させる。
+通知は「読んだあとにまさが採否・復旧・確認・再試行などの具体アクションを取れるもの」だけにする。task 作成ログ、meeting action 作成ログ、議事録作成ログのように、既に `tasks` / `meeting_action_items` / `project_meeting_summaries` / 次回MTGカードへ保存済みで、通知側に固有の判断や完了導線がないものは通知に入れない。migration 155 の `skip_non_actionable_app_notifications` trigger が `task_created` / `meeting_action` の insert をDB側でも捨てる。migration 156 の `skip_meeting_summary_notifications` trigger は `meeting_notifications` の insert と writer upsert update をDB側で捨てる。既存行はPWAのOS通知一覧・未読バッジ・critical poll から除外する。
+
+PWA は admin session 中に `CriticalRealtimeNotify` が `app_notifications` / `l2_notifications` を Realtime 購読し、Realtime が落ちた場合も10秒pollで補完する。`notification-priority.ts` が `critical` と判定する未読通知は画面右下に即カード表示し、Browser Notification 権限があれば OS 通知も出す。`connector_auth` はカードから `reauth_url` を開いた時点で `read_at` を打つ。ただし再認証ページを開いたことは復旧成功の証拠ではないため、既読後も `/notifications` の「既読」タブに残し、そこから再試行できる状態にする。L2 critical はカードから `/notifications?notification_id=...` へ遷移し、通知ページ側で対象rowを追加取得・自動展開する。既読化・採否は既存の通知ページ UI に委ねる。MTG本文中に再認証・blocker 等の語が混じっても議事録作成通知は出さず、必要なら `connector_auth` / `guardrail_match` / `contract_signals` 等の専用通知として別発火させる。
 
 Swift は `app_notifications.native_notified_at IS NULL` の `connector_auth` を起動時/foreground復帰時に拾い、ローカル通知を即表示する。通知を表示したら `native_notified_at` を打つが、これは「Swiftへ配信済み」だけを表し、PWA/Swift共通の人間既読は引き続き `read_at`。Swift通知をタップすると通知ボックスを挟まず `reauth_url` を開き、`read_at` を打つ。ただし再認証リンクが閉じたり失敗した場合に再試行できるよう、Swift通知ボックスの「既読」タブにも `connector_auth` を残し、「再認証を開く」ボタンを出す。再認証は復旧レーンで、L2抽出の terminal blocker ではない。
 
-通知は表示上 `normal` と `critical` に分ける。`normal` は「OSに新データが入った / 候補が増えた / 通常レビュー」で、既存の L2 候補・MTGサマリ・VCニュース・通常の gap が入る。`critical` は「まさが見落とすと事故るもの」で、Notion等の connector 再認証、明示 critical の重大 guardrail 発火、重要 automation blocker が入る。MTG本文に NDA / 契約 / 法務 / SHA / COI / 再認証 / blocker などの語が出ただけでは critical にしない。`action_item` も「要対応」というラベルだけでは critical にしない。契約予兆や総会/役会も kind だけでは鳴らさず、明示 critical / 期限超過 / blocker / high以上の経営ガードレール発火になった時点で鳴らす。2026-06-27時点では DB 列を増やさず、`pwa/src/lib/notification-priority.ts` が既存の `kind/l2_kind/importance/meta/title/summary` から分類する。将来のDB案は `notification_priority text check in ('normal','critical') default 'normal'` を3通知テーブルに追加し、writer 明示値を優先、空なら同じ導出関数で補完する。
+通知は表示上 `normal` と `critical` に分ける。`normal` は「OSに新データが入った / 候補が増えた / 通常レビュー」で、既存の L2 候補・VCニュース・通常の gap が入る。`critical` は「まさが見落とすと事故るもの」で、Notion等の connector 再認証、明示 critical の重大 guardrail 発火、重要 automation blocker が入る。MTG本文に NDA / 契約 / 法務 / SHA / COI / 再認証 / blocker などの語が出ただけでは通知を作らない。`action_item` も「要対応」というラベルだけでは critical にしない。契約予兆や総会/役会も kind だけでは鳴らさず、明示 critical / 期限超過 / blocker / high以上の経営ガードレール発火になった時点で鳴らす。2026-06-27時点では DB 列を増やさず、`pwa/src/lib/notification-priority.ts` が既存の `kind/l2_kind/importance/meta/title/summary` から分類する。
 
 分類ルール:
 
@@ -29,7 +31,7 @@ Swift は `app_notifications.native_notified_at IS NULL` の `connector_auth` �
 |---|---|
 | `app_notifications` | `kind='connector_auth'` は常に critical。`meta.priority/severity/urgency/notification_priority/notification_channel/risk_level` が `critical` / `urgent` / `blocker` 等、または title/body/meta reason に再認証・blocker・事故・緊急・期限超過等があれば critical。 |
 | `l2_notifications` | 明示 `notification_priority='critical'`、または `metadata_json` の priority/severity/reason/blocker_kind 等に期限超過 / blocker / 再認証 / 緊急等の運用緊急語があれば critical。通常の候補追加・レビューは normal。`l2_kind` / `importance >= 8` / title / summary だけでは critical にせず、契約予兆・総会/役会・D-11メディア掲載も通常レビューに残す。 |
-| `meeting_notifications` | 常に normal。MTG本文は一次記録なので、再認証 / blocker / 緊急等の語が含まれても右下ポップアップにはしない。緊急扱いが必要なものは `app_notifications(kind='connector_auth')` または `l2_notifications(l2_kind='guardrail_match'/'contract_signals' 等)` として別に出す。 |
+| `meeting_notifications` | 廃止済み。議事録作成通知は作らず、PWA通知にも数えない。緊急扱いが必要なものは `app_notifications(kind='connector_auth')` または `l2_notifications(l2_kind='guardrail_match'/'contract_signals' 等)` として別に出す。 |
 
 ---
 
@@ -95,7 +97,7 @@ Phase 4 cron は LLM ベース抽出なので、入力データの混入や PJ �
 [PWAで人間が開く → l2_notifications.read_at = now()]
    ↓ まさが内容確認 → 誤抽出に気づく
 [PWA `/notifications` を開く] (or iOS 通知タップ → 該当画面)
-   ├─ 一覧表示 (l2_notifications + meeting_notifications を created_at 降順マージ)
+   ├─ 一覧表示 (l2_notifications を created_at 降順)
    ├─ 各通知を展開 → summary / 元データへの deep link / 既存 feedback 表示
    └─ 「⚠️ つくよみに修正依頼」textarea + 送信ボタン
         ↓ POST /api/notifications/feedback
@@ -117,7 +119,7 @@ CREATE TABLE l2_feedbacks (
   target_id       TEXT NOT NULL,             -- code_name (member系) / project_id (PJ系) / meeting_id (meeting系)
   scope_key       TEXT NOT NULL DEFAULT 'global',  -- ym (PJ系) / 'global' (member/meeting系)
   notification_id UUID,                      -- 関連 l2_notifications (オプション)
-  meeting_id      TEXT,                      -- 関連 meeting_notifications (オプション)
+  meeting_id      TEXT,                      -- legacy meeting feedback 用 (新規 meeting_notifications は作らない)
   feedback_text   TEXT NOT NULL,             -- まさの修正依頼文
   status          TEXT NOT NULL DEFAULT 'active',  -- 'active' | 'archived'
   created_by      TEXT,
@@ -142,14 +144,14 @@ RLS:
 ### Server page
 [pwa/src/app/(app)/notifications/page.tsx](../src/app/\(app\)/notifications/page.tsx)
 - server-sideで `members.is_admin` を確認し、admin以外は `notFound()`。
-- l2_notifications (100 件) + meeting_notifications (100 件) + l2_feedbacks (200 件) + projects を fetch
+- l2_notifications (100 件) + l2_feedbacks (200 件) + projects を fetch
 - NotificationsClient に props 渡し
 
 ### Client component
 [pwa/src/components/notifications/NotificationsClient.tsx](../src/components/notifications/NotificationsClient.tsx)
 - フィルタタブ: 未対応 / 未読 (`read_at IS NULL` かつ未回答) / 回答済み / 修正依頼あり
 - 通知カード (時系列降順):
-  - title (l2 通知は絵文字付き、meeting 通知は "📋 議事録: ..." を表示)
+  - title (l2 通知は絵文字付き)
   - 補助メタ: 日時 / l2_kind / target / 未読 badge / 修正依頼 N 件 badge
 - カードクリックで展開:
   - summary (本文)
@@ -218,7 +220,7 @@ D-5 OS台帳差分と M-2 XRL根拠は、全文保存ではなく「OSへ入れ�
 - 認証: Supabase Auth セッション + `members.is_admin=true` 必須
 - created_by: members.email = auth user.email から code_name を resolve
 - **`meeting_summary` の「はい・反映」は再抽出しない。確認マーク (feedback 記録 + 既読化) のみ**。
-  - MTGサマリは通知に出る時点で既に Notion 議事録から抽出され `project_meeting_summaries` / `meeting_notifications` に確定保存済み (= 通知が立つ = 抽出完了)。よって「はい」で作り直す対象は存在しない。`applyResult` は常に `applied:true`、502 は返さない。
+  - MTGサマリ通知は廃止済み。議事録は `project_meeting_summaries` / MTGカードに確定保存し、通知ではなく cockpit の手動修正導線で直す。
   - かつて (2026-05-21) は固有名詞の修正コメント付き「はい」で `nav_meeting_processOneEvent_` を同期再抽出する "修正依頼ルート" があった。だが誤抽出修正は cockpit の「議事録を手動修正」(`POST /api/meeting-summary/manual-update`) に一本化された (2026-05-29) ため、通知側の同期再抽出は不要になり**廃止した**。
   - 過去事故 (2026-06-02): 手動作成サマリ `manual:p00:20260601-lg-cho-visit` を通知から承認しようとして `送信失敗: notion_page_not_found` で弾かれた。`manual:`(手動) / `dialogue:`(まさえいMTG) / `upcoming:`(予定枠) 由来は Notion ページを持たないため、再抽出すると構造的に必ず失敗する。2026-05-29 に修正依頼ルートが廃止されたのに通知の「はい=再抽出」だけが取り残されていたのが原因。
 
@@ -241,7 +243,7 @@ D-5 OS台帳差分と M-2 XRL根拠は、全文保存ではなく「OSへ入れ�
 ### MTGサマリ (gas/074) / PWA progress-estimator (D-2 MS進捗)
 
 - gas/074 `nav_meeting_processOneEvent_`: `_l2_loadFeedbackBlock_("meeting_summary", projectId, eventId)` を組み込み済み。feedback 追加で `source_hash` が変わり、再抽出が走る。
-- `nav_meeting_processOneEvent_` は単体実行時も `meeting_notifications` を upsert し、通知カード側の短いサマリも最新化する。
+- `nav_meeting_processOneEvent_` は単体実行時も `project_meeting_summaries` を更新するが、`meeting_notifications` は作らない。
 - pwa/src/lib/progress-estimator.ts: `l2_kind="ms_progress"` で feedback を取得 → systemPrompt に追加
 
 ---
@@ -292,6 +294,8 @@ D-5 OS台帳差分と M-2 XRL根拠は、全文保存ではなく「OSへ入れ�
 | 2026-06-27 | **importance critical 誤爆停止**: `l2_notifications.importance >= 8` だけでは critical にしない。D-11 メディア掲載など重要度の高い通常レビューは通知ページに残し、右下ポップアップは専用 kind / 明示 critical / 復旧語に限定する。 |
 | 2026-06-27 | **L2 kind critical 誤爆停止**: `contract_signals` / `shareholder_meeting` は kind だけでは critical にしない。契約・総会/役会は通常レビューに残し、緊急ポップアップは writer が `notification_priority='critical'` を明示したもの、または期限超過 / blocker / 再認証等の復旧語を含むものに限定する。 |
 | 2026-06-27 | **L2本文 critical 誤爆停止**: `l2_notifications.title/summary` は抽出本文なので critical 判定に使わない。過去事故の説明や「blocked by ...」の引用で誤爆するため、緊急判定は `metadata_json` の明示 priority/reason/blocker 情報に限定する。 |
+| 2026-06-27 | **非アクション通知の抽出停止**: task 作成ログ (`task_created`) と MTG action 作成ログ (`meeting_action`) を OS通知から外した。今後は発生源で `app_notifications` に入れず、migration 155 trigger でも insert を捨てる。既存行もOS通知一覧・未読バッジ・critical poll から除外する。通知は採否・復旧・確認・再試行など読後アクションがあるものだけに限定する。 |
+| 2026-06-27 | **議事録作成通知の停止**: `meeting_notifications` の議事録 / MTGサマリ作成通知を OS通知から外した。H-1 は `project_meeting_summaries` / MTGカードだけを更新し、migration 156 trigger が古い writer の insert / upsert update を捨てる。既存 meeting notification は read/notified 済みに倒し、PWA一覧・未読バッジ・critical poll から除外する。 |
 | 2026-05-20 | **回答済みUI**: 「はい/いいえ/コメント」送信後は回答ボタンを消し、`回答済み` 表示へ切り替える。送信成功時に `read_at` を更新し、未対応/未読から `回答済み` タブへ即移動する。 |
 | 2026-05-20 | **AMDプロトコル通知の個別化**: protocol candidate は `project_id + ym` でまとめず、`scope_key=YYYYMM:protocol:<protocol_id>` の1候補1通知に変更。PWA詳細表示と feedback 再抽出はこの個別 scope を解釈する。 |
 | 2026-05-21 | **MTGサマリ反映の同期化**: `NEXT_PUBLIC_GAS_API_KEY` 未設定で再抽出がサイレント skip され、LST の固有名詞修正 feedback が `l2_feedbacks` に残ったまま `project_meeting_summaries` へ反映されない事故を修正。PWA は `CRON_SECRET` fallback でGAS runFuncを同期実行し、失敗時は 502。GAS pwaApi は `PWA_API_KEY` 未設定時 `CRON_SECRET` を認証キーに使う。 |

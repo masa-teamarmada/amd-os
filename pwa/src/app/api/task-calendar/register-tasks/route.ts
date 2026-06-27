@@ -151,19 +151,6 @@ export async function POST(req: NextRequest) {
       } else {
         action = "created";
         task = data;
-        await db.from("app_notifications").insert({
-          kind: "task_created",
-          title: `タスク追加: ${source.title}`.slice(0, 180),
-          body: `${source.projectId} に H-1 がタスクを追加したよ。`,
-          link: `/project/${source.projectId}/cockpit`,
-          source: "h1_meeting_flow",
-          meta: {
-            task_id: source.taskId,
-            project_id: source.projectId,
-            source_kind: source.sourceKind,
-            source_key: source.sourceKey,
-          },
-        }).then(() => undefined, () => undefined);
       }
     }
 

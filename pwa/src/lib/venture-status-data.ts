@@ -1,7 +1,7 @@
 /**
  * Cockpit の PJ Status セクション用データアクセス層 (client-side)。
  *
- * - `project_ventures`: PJ の SU メタ (lane / founded_at / outcome_pattern / display_name 等)
+ * - `project_ventures`: PJ の SU メタ (lane / founded_at / outcome_pattern 等)
  * - `project_xrl_log`: TRL/BRL/HRL 時系列
  * - `project_events`: AMD スコア / 沿革を駆動する汎用イベント (採用 / 調達 / 契約 / etc)
  *
@@ -11,6 +11,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
+import { oneRelation, projectDisplayName, projectShortName } from "@/lib/project-labels";
 import type { LaneId, OutcomePattern } from "@/lib/venture-map-data";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
@@ -39,8 +40,9 @@ function getAuthClient() {
 
 export interface ProjectVentureRow {
   project_id: string;
-  display_name: string;
-  short_label: string | null;
+  project_name: string;
+  client_name: string | null;
+  project_label: string;
   lane: LaneId;
   founded_at: string | null;
   outcome_pattern: OutcomePattern | "tbd" | "planning" | "stalled";
@@ -178,12 +180,36 @@ export interface VentureStatusBundle {
   events: ProjectEventRow[];
 }
 
+type ProjectRelation = {
+  project_name: string | null;
+  client_name: string | null;
+};
+
+type RawProjectVentureRow = Omit<ProjectVentureRow, "project_name" | "client_name" | "project_label"> & {
+  projects: ProjectRelation | ProjectRelation[] | null;
+};
+
+function normalizeProjectVenture(row: RawProjectVentureRow): ProjectVentureRow {
+  const project = oneRelation(row.projects);
+  const projectNameSource = {
+    project_id: row.project_id,
+    project_name: project?.project_name ?? null,
+    client_name: project?.client_name ?? null,
+  };
+  return {
+    ...row,
+    project_name: projectShortName(projectNameSource),
+    client_name: project?.client_name ?? null,
+    project_label: projectDisplayName(projectNameSource),
+  };
+}
+
 // ============================================================
 // 取得
 // ============================================================
 
 const VENTURE_COLUMNS =
-  "project_id, display_name, short_label, lane, founded_at, outcome_pattern, origin_org, origin_pi, amd_role, short_description, long_description, amd_support_started_at, amd_support_ended_at, is_public, narrative_text, narrative_generated_at, narrative_invalidated_at";
+  "project_id, lane, founded_at, outcome_pattern, origin_org, origin_pi, amd_role, short_description, long_description, amd_support_started_at, amd_support_ended_at, is_public, narrative_text, narrative_generated_at, narrative_invalidated_at, projects(project_name, client_name)";
 
 export async function fetchVentureStatus(projectId: string): Promise<VentureStatusBundle> {
   const [ventureRes, xrlRes, eventRes] = await Promise.all([
@@ -205,7 +231,7 @@ export async function fetchVentureStatus(projectId: string): Promise<VentureStat
   if (eventRes.error) console.error("[fetchVentureStatus] events", eventRes.error);
 
   return {
-    venture: (ventureRes.data as ProjectVentureRow | null) ?? null,
+    venture: ventureRes.data ? normalizeProjectVenture(ventureRes.data as unknown as RawProjectVentureRow) : null,
     xrlLog: (xrlRes.data as ProjectXrlRow[] | null) ?? [],
     events: (eventRes.data as ProjectEventRow[] | null) ?? [],
   };
@@ -584,8 +610,6 @@ export async function deleteProjectEvent(eventId: string): Promise<boolean> {
 // ============================================================
 
 export interface VentureMetaPatch {
-  display_name?: string;
-  short_label?: string | null;
   lane?: LaneId;
   founded_at?: string | null;
   outcome_pattern?: OutcomePattern | "tbd" | "planning" | "stalled";
@@ -611,7 +635,7 @@ export async function updateProjectVenture(
     .from("project_ventures")
     .update(update)
     .eq("project_id", projectId)
-    .select()
+    .select(VENTURE_COLUMNS)
     .single();
   if (error) {
     console.error("[updateProjectVenture]", error);
@@ -622,7 +646,7 @@ export async function updateProjectVenture(
     .from("project_ventures")
     .update({ narrative_invalidated_at: new Date().toISOString() })
     .eq("project_id", projectId);
-  return data as ProjectVentureRow;
+  return normalizeProjectVenture(data as unknown as RawProjectVentureRow);
 }
 
 // ============================================================

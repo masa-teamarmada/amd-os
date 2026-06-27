@@ -44,13 +44,13 @@ Migration history: `pwa/scripts/migrations/136_tasks_management_fields.sql`, `pw
 - authenticated user、または `Authorization: Bearer ${CRON_SECRET}` の agent access を許可する。
 - DB write は `service_role` 経由。browser client から直接 `tasks` を書かせない。
 - `DELETE` / physical removal は使わない。非表示は `active=false`。
-- agent / non-manual source 由来の `app_notifications(kind='task_created')` は残すが、`link` は `/tasks` ではなく `/project/{projectId}/cockpit` にする。
+- agent / non-manual source 由来でも、単なる task 作成ログは `app_notifications(kind='task_created')` にしない。読んでも採否・復旧・担当者アクションがないため、OS通知ではなく task row / caller response / 必要なら同一セッション内の短い報告で扱う。
 
 ### `/api/task-calendar/register-tasks`
 
 - H-1 Meeting Flow が MTG から生まれた next action を `tasks` に登録する入口。
 - 重複は `task_id` で止め、既存 task には既定で再通知しない。
-- Slack nudge は担当者本人だけへ送る。本文リンクは対象 PJ cockpit へ向ける。
+- Slack nudge は担当者本人だけへ送る。本文リンクは対象 PJ cockpit へ向ける。task row 作成だけを admin 向け OS通知にはしない。
 - admin review queue は作らない。
 
 ### `/api/task-calendar/schedule-plan`

@@ -134,7 +134,7 @@ export function SuDetailView({ venture, xrlLog, macroLog }: Props) {
           <div>
             <div className="flex items-center gap-3">
               <span className="text-2xl">{outcome?.emoji}</span>
-              <h1 className="text-xl font-bold">{venture.display_name}</h1>
+              <h1 className="text-xl font-bold">{venture.project_label}</h1>
               <span
                 className="text-[11px] font-mono px-2 py-0.5 rounded-full border"
                 style={{ color: laneColor, borderColor: laneColor }}

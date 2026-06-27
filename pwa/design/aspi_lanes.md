@@ -182,12 +182,12 @@ domain D の papers count(t)  =  Σ_p ( papers_p(t) × weight_{p,D} )
 
 ## 10 PJ 確定 mapping (2026-05-11、まさ承認)
 
-| project_id | display_name | 旧 lane | 新 lanes |
+| project_id | project label (`projects` 正本) | 旧 lane | 新 lanes |
 |---|---|---|---|
 | p03 | ティエムファクトリ (透明断熱 PMSQ) | materials | `[{advanced_materials_manufacturing: 1.0}]` |
 | p04 | 輝翠TECH (月面探査 → 農業ロボ) | robo | `[{defence_space_robotics_transport: 1.0}]` |
 | p06 | CrestecBio (創薬) | life | `[{biotechnology: 1.0}]` |
-| p07 | LisTie (国産リチウム + 核融合) | gx_circular | `[{advanced_materials_manufacturing: 0.5}, {energy_environment: 0.5}]` |
+| p07 | LiSTie (国産リチウム + 核融合) | gx_circular | `[{advanced_materials_manufacturing: 0.5}, {energy_environment: 0.5}]` |
 | p09 | JOYCLE (廃棄物 deep化) | gx_circular | `[{energy_environment: 1.0}]` |
 | p11 | Blue Water Energy (RED 海水温度差発電) | gx_energy | `[{energy_environment: 1.0}]` |
 | p18 | Yellow Duck (波力発電) | gx_energy | `[{energy_environment: 1.0}]` |
@@ -342,4 +342,3 @@ curl -sL "$URL/api/cron/kaken-ingest" -H "Authorization: Bearer $SECRET" | jq
 curl -sL "$URL/api/cron/grant-ingest" -H "Authorization: Bearer $SECRET" | jq
 curl -sL "$URL/api/cron/vc-investment-ingest" -H "Authorization: Bearer $SECRET" | jq
 ```
-

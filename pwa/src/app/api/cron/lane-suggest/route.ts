@@ -23,13 +23,14 @@ import {
   type AspiDomainId,
   type LaneWeight,
 } from "@/lib/aspi-lanes";
+import { oneRelation, projectDisplayName } from "@/lib/project-labels";
 
 export const maxDuration = 300;
 export const runtime = "nodejs";
 
 interface VentureForSuggest {
   project_id: string;
-  display_name: string;
+  project_label: string;
   short_description: string | null;
   long_description: string | null;
   origin_org: string | null;
@@ -68,7 +69,7 @@ export async function GET(req: NextRequest) {
   // 直近 30 日に pending suggestion がなく、最後の承認が 180 日以上前 (= 再評価したい) のもの
   const { data: ventures, error: vErr } = await db
     .from("project_ventures")
-    .select("project_id, display_name, short_description, long_description, origin_org, origin_pi, amd_role, outcome_pattern, founded_at, lanes")
+    .select("project_id, short_description, long_description, origin_org, origin_pi, amd_role, outcome_pattern, founded_at, lanes, projects(project_name, client_name)")
     .order("project_id");
   if (vErr) return NextResponse.json({ error: vErr.message }, { status: 500 });
 
@@ -83,7 +84,18 @@ export async function GET(req: NextRequest) {
     if (s.status === "pending") pendingByPj.set(s.project_id, true);
   }
 
-  const candidates = (ventures ?? []).filter((v): v is VentureForSuggest => {
+  const candidates = (ventures ?? []).map((v) => {
+    const raw = v as VentureForSuggest & { projects?: { project_name?: string | null; client_name?: string | null } | { project_name?: string | null; client_name?: string | null }[] | null };
+    const project = oneRelation(raw.projects);
+    return {
+      ...raw,
+      project_label: projectDisplayName({
+        project_id: raw.project_id,
+        project_name: project?.project_name ?? null,
+        client_name: project?.client_name ?? null,
+      }),
+    };
+  }).filter((v): v is VentureForSuggest => {
     const pv = v as VentureForSuggest;
     if (pv.lanes === null) return true; // 未設定
     return false; // 既に lanes ある PJ は今回スキップ (再評価は manual で)
@@ -99,7 +111,7 @@ export async function GET(req: NextRequest) {
 
 PJ 情報:
 - ID: ${v.project_id}
-- 名称: ${v.display_name}
+- 名称: ${v.project_label}
 - 短説明: ${v.short_description ?? "(なし)"}
 - 長説明: ${v.long_description ?? "(なし)"}
 - 出身組織: ${v.origin_org ?? "(なし)"}

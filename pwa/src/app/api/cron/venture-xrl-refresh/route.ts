@@ -14,13 +14,14 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { oneRelation, projectDisplayName } from "@/lib/project-labels";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
 interface VentureRow {
   project_id: string;
-  display_name: string;
+  project_label: string;
   lane: string;
   founded_at: string | null;
   outcome_pattern: string;
@@ -50,7 +51,7 @@ async function proposeForProject(
     supabase.from("project_venture_members").select("full_name, role, started_at, ended_at").eq("project_id", v.project_id),
   ]);
 
-  const prompt = `AMD のディープテック PJ「${v.display_name}」の現時点の XRL レベル (TRL / BRL / HRL) を判定してください。
+  const prompt = `AMD のディープテック PJ「${v.project_label}」の現時点の XRL レベル (TRL / BRL / HRL) を判定してください。
 内閣府 SIP 第 3 期の XRL 体系 (TRL=技術成熟度、BRL=事業化成熟度、HRL=人材・市場成熟度、各 1-9)。
 
 PJ メタ:
@@ -115,13 +116,27 @@ export async function GET(req: Request) {
   const supabase = createAdminClient();
   const { data: ventures, error } = await supabase
     .from("project_ventures")
-    .select("project_id, display_name, lane, founded_at, outcome_pattern, short_description, long_description")
+    .select("project_id, lane, founded_at, outcome_pattern, short_description, long_description, projects(project_name, client_name)")
     .eq("is_public", true);
   if (error || !ventures) {
     return NextResponse.json({ error: "fetch ventures failed", detail: error }, { status: 500 });
   }
 
-  const projectIds = [...new Set((ventures as VentureRow[]).map((v) => v.project_id))];
+  const ventureRows = (ventures as Array<Omit<VentureRow, "project_label"> & {
+    projects?: { project_name?: string | null; client_name?: string | null } | { project_name?: string | null; client_name?: string | null }[] | null;
+  }>).map((v) => {
+    const project = oneRelation(v.projects);
+    return {
+      ...v,
+      project_label: projectDisplayName({
+        project_id: v.project_id,
+        project_name: project?.project_name ?? null,
+        client_name: project?.client_name ?? null,
+      }),
+    };
+  });
+
+  const projectIds = [...new Set(ventureRows.map((v) => v.project_id))];
   if (projectIds.length === 0) {
     return NextResponse.json({ total: 0, skippedEcosystem: 0, results: [] });
   }
@@ -138,8 +153,8 @@ export async function GET(req: Request) {
       row.project_category || "dtsu",
     ])
   );
-  const targetVentures = (ventures as VentureRow[]).filter((v) => categoryByProject.get(v.project_id) !== "ecosystem");
-  const skippedEcosystem = (ventures as VentureRow[]).filter((v) => categoryByProject.get(v.project_id) === "ecosystem");
+  const targetVentures = ventureRows.filter((v) => categoryByProject.get(v.project_id) !== "ecosystem");
+  const skippedEcosystem = ventureRows.filter((v) => categoryByProject.get(v.project_id) === "ecosystem");
 
   const today = new Date().toISOString().slice(0, 10);
   const results: { project_id: string; status: "skipped" | "proposed" | "error"; reason?: string }[] = skippedEcosystem.map((v) => ({

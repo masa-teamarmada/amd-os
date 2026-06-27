@@ -5,6 +5,26 @@
 
 ---
 
+### [management-score] 起点不明の先手力を55点相当に落とし、総合点まで崩した (2026-06-27)
+
+- **状態**: クローズ (2026-06-27 — `132d5aae fix(pwa): restore initiative crisis threshold` / production `v0.34.31` で確認済み)。
+- **症状**: AMD Management Score の先手力が急に55点相当まで下がり、総合点にも不可逆ペナルティが掛かった。202606の材料を見ると、分類済みの後手eventは0件なのに、起点不明が124/124件あり、それだけで「危機」扱いになっていた。
+- **原因**: 先手力の再構築時に、まさが合意していない `55 / 70 / 85` の点数上限補正を実装側で作っていた。さらに「90未満は危機、70では遅い」という重要定義が正本mdに残っておらず、起点不明を会社の後手化ではなく抽出・分類不足として扱う境界も弱かった。
+- **対応内容**: 起点不明・分類不足を点数低下ではなく判定信頼度低下へ分離。先手力の不可逆ペナルティは「90未満 + 判定信頼度十分 + 分類済みevent十分 + 確認済み後手eventあり」の時だけ発動するようにした。202606を再計算し、先手力96、判定信頼度0.25、総合点ペナルティなし、audit P0/P1/P2=0を確認した。
+- **再発防止**: 先手力90未満の危機定義、非合意の点数上限補正禁止、起点不明は判定信頼度へ逃がすルールを `pwa/manual/4-5-management-score-and-finance-simulation-spec.md` と `pwa/spec/4-5-management-score-rebuild-plan.md` に固定。auditも「起点不明が多い時に点数や総合点を落としていないか」を見る形へ変更した。
+
+---
+
+### [ops/handoff] H-1 Notion AI context設計で、実検証前に止まって未完了状態が見えにくくなった (2026-06-26)
+
+- **状態**: 対応済み (2026-06-26 — Handoff / design_log / manual changelog に次アクションを記録。実動作は次回 H-1 run で確認待ち)。
+- **症状**: Notion AI Meeting Notes への事前コンテキスト注入設計について、docs/spec 反映後に実際の dry-run / 次アクション記録まで進まず、まさから「完了してないのに止まった意味が分からん」と指摘された。
+- **原因**: 「仕様を md に入れた」ことと「次の H-1 で何を確認すべきかを closeout まで固定した」ことを分けず、未完了の実動作確認を handoff/ledger に残す前に会話を閉じた。
+- **対応内容**: Notion read-only dry-run と Supabase upcoming query を実施し、AI Meeting Notes parent data source / `日付` null fallback / upcoming rows の `notion_url` 欠損を確認。`HANDOFF.md` と `pwa/design_log/sessions_2026-06.md` に、次回 H-1 run で見る fields と成功/skip 条件を明記した。
+- **再発防止**: automation設計変更は、実run未確認なら「完了」ではなく `handoff required` として、次に見る evidence field / owner / commit条件まで書いてから止める。特にH-1はユーザー体験に直結するため、docs反映だけで閉じない。
+
+---
+
 ### [pwa/admin-payouts] 月初合意gateのsnapshot照合が初期表示GETに乗り、データ表示まで約15秒かかった (2026-06-23)
 
 - **状態**: クローズ (2026-06-23 — 初期表示GETから月初合意gate照合を分離し、`gateOnly=1` で後追い取得)。

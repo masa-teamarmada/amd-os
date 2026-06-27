@@ -279,23 +279,6 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await db.from("tasks").insert(row).select("*").single();
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-  if (access.accessKind === "agent" || row.task_source !== "manual") {
-    await db.from("app_notifications").insert({
-      kind: "task_created",
-      title: `タスク追加: ${title}`.slice(0, 180),
-      body: `${projectId} に ${access.actor} がタスクを追加したよ。`,
-      link: `/project/${projectId}/cockpit`,
-      source: "task_agent",
-      meta: {
-        task_id: data.task_id,
-        project_id: projectId,
-        task_source: row.task_source,
-        agent_kind: row.agent_kind,
-        agent_session_id: row.agent_session_id,
-        agent_session_url: row.agent_session_url,
-      },
-    }).then(() => undefined, () => undefined);
-  }
   return NextResponse.json({ ok: true, task: toClientTask(data as Record<string, unknown>) });
 }
 

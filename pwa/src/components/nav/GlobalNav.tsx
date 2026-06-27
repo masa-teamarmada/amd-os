@@ -8,6 +8,7 @@ import { fetchAtlasInboxCount } from "@/lib/supabase-data";
 import { fetchVcInboxCount } from "@/lib/vc-data";
 import { fetchSeedInboxCount } from "@/lib/seeds-data";
 import { BUILD_VERSION } from "@/lib/build-info";
+import { NON_ACTIONABLE_APP_NOTIFICATION_KIND_FILTER } from "@/lib/notifications-data";
 
 interface GlobalNavProps {
   userCodeName?: string;
@@ -304,7 +305,7 @@ export function GlobalNav({ userCodeName, isAdmin = false, memberId = null }: Gl
 }
 
 // 通知ベル (= /notifications へのリンク + 未読バッジ)
-// l2_notifications + meeting_notifications + app_notifications の未読合算。
+// l2_notifications + app_notifications の未読合算。
 // 60 秒 polling + 背景タブで停止 (= 2026-05-28 egress 削減)。
 function NotificationBell() {
   const pathname = usePathname();
@@ -315,22 +316,19 @@ function NotificationBell() {
       try {
         const { createClient } = await import("@/lib/supabase/client");
         const supabase = createClient();
-        const [l2Res, mtgRes, appRes] = await Promise.all([
+        const [l2Res, appRes] = await Promise.all([
           supabase
             .from("l2_notifications")
             .select("notification_id", { count: "exact", head: true })
             .is("read_at", null),
           supabase
-            .from("meeting_notifications")
-            .select("meeting_id", { count: "exact", head: true })
-            .is("read_at", null),
-          supabase
             .from("app_notifications")
             .select("id", { count: "exact", head: true })
+            .not("kind", "in", NON_ACTIONABLE_APP_NOTIFICATION_KIND_FILTER)
             .is("read_at", null)
             .is("dismissed_at", null),
         ]);
-        const total = (l2Res.count ?? 0) + (mtgRes.count ?? 0) + (appRes.count ?? 0);
+        const total = (l2Res.count ?? 0) + (appRes.count ?? 0);
         setUnread(total);
       } catch {
         // ignore

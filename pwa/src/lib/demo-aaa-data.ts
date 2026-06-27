@@ -5,8 +5,9 @@ export const AAA_PROJECT_ID = "p99";
 
 export const aaaVenture: VentureRow = {
   project_id: AAA_PROJECT_ID,
-  display_name: "AAA",
-  short_label: "AAA",
+  project_name: "AAA",
+  client_name: "Autonomous Adaptive Assembly",
+  project_label: "Autonomous Adaptive Assembly",
   lane: "gx_energy",
   lanes: [
     { domain: "energy_environment", weight: 0.38 },

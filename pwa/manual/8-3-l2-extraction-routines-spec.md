@@ -160,7 +160,7 @@ SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 
 - 結果: 深夜 (22:00-08:00) は完全不発火、日中も実際に MTG event がある時だけ重い Phase B-J が走る
 - 土日 9-21 時も毎時走る (= AMD は柔軟、土日 MTG / 朝晩 MTG も拾う)
 
-**役割**: 議事録抽出を超えて MTG 1 回のライフサイクル全体を自動化 (= Phase A-J、10 機能):
+**役割**: 議事録抽出を超えて MTG 1 回のライフサイクル全体を自動化 (= Phase A-J、10 機能 + KUTE専用外部共有closeout):
 
 1. (A) 議事録抽出 + 高品質化 narrative_md (= 前後 MTG / PJ 全体 / 関連 MS を踏まえた `## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の5見出し構成)
 2. (C) 次 MTG カード生成 + Calendar event 登録 + 参加者招待 + Notion DB に「📋 準備情報 / 📝 議事録」toggle
@@ -172,6 +172,13 @@ SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 
 8. **(I) automation 内で資料即生成 (= まさ要求)**: 「議事録 + monthly_reports + 既存 Drive 資料で前提が揃う」「成果物が text/markdown/Google Docs/Slides/Sheets」と判定したものは Phase I で LLM が本文生成 → Drive 保存 → Calendar 作業枠の description に「📎 資料 draft: <drive_url>」追記
 9. **(J) ファシリ役名義で follow-up メール下書き (= まさ要求)**: 当該 MTG の facilitator (= projects.facilitator_member_id) 名義で Gmail draft 作成 (本送信禁止、ファシリが本人 Gmail で確認後送信)。本文構成 = 挨拶 / 本日サマリ / 決まったこと / 次回までの宿題 / 次回 MTG 概要 / 添付資料案内 / 結び。当日シェアした Drive 資料は exportLinks で PDF 化して attach
 10. (旧) iOS APNs 通知 (= meeting_notifications upsert)
+
+**KUTE専用外部共有closeout (= 2026-06-27追加)**:
+- KUTE (`project_id=p25`) の開催済みMTGで、H-1が `narrative_md` を新規保存または本文更新できた場合、まさから「共有したい」と言われるのを待たず、同じ H-1 run で `/Users/masa/projects/AMD/kute` のKUTE外部共有クローズアウトworkerを起動する。
+- 対象外: `source_kinds='none'`、`source_kinds` に `upcoming` / `upcoming_tentative` を含む予定MTG、品質gateで保存しなかったMTG、`skipped_unchanged`。
+- worker起動前に `/tmp/kute-share-closeout-<meeting_hash>.json` を作り、会議ID、日付、タイトル、`source_kinds`、保存済み `narrative_md` だけを渡す。raw Notion / Gmail / Drive / Slack本文、URL、secretはpayloadに含めない。
+- KUTE workerは `docs/EXTERNAL_SHARE_PACKAGE_PLAYBOOK.md` と `scripts/prepare-external-share-package.mjs` を使い、`output/mtg_YYYYMMDD/share/` に外部送付用の別成果物、安全版、PDF、manifest、メール下書きを作る。元資料は直接編集しない。
+- Gmail文脈から宛先・返信スレッドが確認できる場合は、PDFだけを添付してGmail下書きまで作る。KUTE worker側でGmail下書きを作れない場合でも、H-1本体がGmail文脈を確認できているならH-1側で下書き作成を引き取る。送信はしない。
 
 **入力**: Calendar event (= 過去 60-180 分終了 + 現在時刻の前後24時間にある直近予定。ただし weekly recurring は series ごとに次回1件のみ。60日先までの広い予定表メンテはM系が担当) + Notion 議事録 + Gmail (= report_emails スレッド) + Drive Doc/PDF/Office/Sheets + Slack thread + PWA `meeting_assets` (= まさが直接アップロードしたスクショ / PDF / 画面キャプチャ) + `project_meeting_summaries` 過去 3 件 (= 前回比較) + `monthly_reports` 直近 3 件 (= PJ 全体文脈) + `value_milestones` + `milestone_monthly_progress` (= MS context) + Calendar freebusy (= H 用) + `projects.drive_folder_id` + `projects.facilitator_member_id` + `project_members` (= role=PL 特定)
 
@@ -222,6 +229,7 @@ SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 
 - `notion_url` が無い予定MTGは、`source_url` の Calendar 予定へ遷移する `Calendarから開始` CTA を出す。Notionの録音/文字起こし開始は Notion 側で行う。
 - `notion_url` も `source_url` も無い場合は `Notion未連携` と表示し、DB write / DDL / Notion page 自動作成はしない。
 - L6 automation が後から `notion_url` / `eventId` を補完した場合は、PWA の `メモ再読込` で `project_meeting_summaries` を再取得する。
+- 2026-06-26 追記: Notion 側で会議前に自動生成される **AI Meeting Notes page** が見つかった場合、H-1 Phase P の prep worker は PJ 固有名詞・略称・拾うべき論点を `amd-os:notion-ai-context` marker 付き block として insert-only で入れてよい。PWA は録音開始/API writeをしないまま、`notion_url` が埋まれば既存CTAからその page を開く。summary / transcript / 開催後議事録本文は書き換えない。
 
 **H-1 reviewer (= 重大情報の落ち検知 / L3 Coverage接続)**:
 - H-1保存直後または H-1 run end で、別automation `amd-os-l6-meeting-reviewer` が直近更新された開催済みMTGを再読する。
@@ -244,7 +252,7 @@ SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 
 
 既存 H-1 automation (`amd-os-l6-meeting-flow`、name は「H-1」) の内部に prep 用 Phase P を追加する。**新 automation は作らず、H-1 1本に統合**。
 
-これは「明日 MTG あるけど準備してない、codex を毎回開いて『背景はこうで…』と説明するのがだるい」を OS 側で解決する仕組み。Phase P が24時間以内の MTG ごとに **codex の新規 session を事前 spawn** する。session の中で worker prompt が文脈ロード→着地点 draft→資料 draft→readiness 計算まで完遂して待機する。まさは codex desktop で該当 session に入って対話開始 (= ターミナル操作不要)。
+これは「明日 MTG あるけど準備してない、codex を毎回開いて『背景はこうで…』と説明するのがだるい」を OS 側で解決する仕組み。Phase P が24時間以内の MTG ごとに **codex の新規 session を事前 spawn** する。session の中で worker prompt が文脈ロード→着地点 draft→Notion AI Meeting Notes 事前コンテキスト注入→資料 draft→readiness 計算まで完遂して待機する。まさは codex desktop で該当 session に入って対話開始 (= ターミナル操作不要)。
 
 **実行場所**: 既存 H-1 と同じ Mac codex automation (`~/.codex/automations/amd-os-l6-meeting-flow/`)。毎時 平日 09:00-21:00、15分発火で動く。
 
@@ -261,14 +269,14 @@ SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 
      "あなたは {MTG} 専属 prep worker。pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md を読んで meeting_id={...} project_id={...} で実行。"
    ```
 6. **SESSION_ID 取得**: codex stdout の `session id: {UUID}` 行から取得 → `prep_worker_session_id` に保存
-7. session 内で worker prompt が `prep_*` 列を upsert + Phase 完遂で `prep_worker_status='ready'`
+7. session 内で worker prompt が `prep_*` 列を upsert。会議前 AI Meeting Notes page が見つかれば `## AI Meeting Notes用コンテキスト` block を insert-only で入れ、Phase 完遂で `prep_worker_status='ready'`
 8. **Slack DM nudge**: H-1 run の Phase P 末尾で `ready` 達成MTG を まさ専用 Slack DM にまとめて送る
 
 **保存先列** (`project_meeting_summaries`):
 - `prep_readiness_score` (0-100) / `prep_readiness_reasons` (jsonb 内訳)
 - `prep_draft_md` (= 着地点 / 背景 / 想定質問 / 持参物 Markdown)
 - `prep_drive_asset_id` (= Drive 生成資料 draft の file ID、`_prep/` フォルダ配下)
-- `prep_notion_page_id` (= アジェンダ草案入り議事録ページ)
+- `prep_notion_page_id` (= AI Meeting Notes context 注入先、またはアジェンダ草案入り議事録ページ)
 - `prep_worker_session_id` (= codex SESSION_ID、まさが codex desktop で開く)
 - `prep_worker_status` (`preparing` / `ready` / `failed`)
 - `prep_calendar_event_id` (= ＋ prep 枠の Calendar event ID、ドラッグ追従用)
@@ -285,7 +293,8 @@ SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 
 
 **禁止事項**:
 - Phase P / Worker は MTG 本体の議事録 (`narrative_md` / `decided` 等) を書き換えない (= 既存 H-1 Phase A の責務)
-- worker draft を本ページ / 本資料 / Calendar event description に自動反映しない (= `_prep/` フォルダ / draft Notion page / DB の prep_* 列のみ)
+- worker draft を本ページ / 本資料 / Calendar event description に自動反映しない (= `_prep/` フォルダ / draft Notion page / DB の prep_* 列のみ)。例外は会議前 AI Meeting Notes page への `amd-os:notion-ai-context` block の insert-only 注入だけ。
+- AI Meeting Notes の summary / transcript / 開催後議事録本文は置換しない。
 - ended / frozen PJ、`source_kinds='upcoming_tentative'` は対象外
 - recurring MTG は series ごとに次回1件のみ
 - 同じ MTG に複数 session を spawn しない (`prep_worker_status` で防御)

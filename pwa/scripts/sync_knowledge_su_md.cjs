@@ -25,6 +25,15 @@ require("dotenv").config({ path: path.resolve(__dirname, "../.env.local") });
 
 const KNOWLEDGE_DIR = "/Users/masa/projects/knowledge";
 
+function oneRelation(value) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function projectLabel(row) {
+  const project = oneRelation(row.projects) || {};
+  return project.client_name || project.project_name || row.project_id;
+}
+
 async function main() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -36,7 +45,7 @@ async function main() {
 
   const { data: ventures, error } = await db
     .from("project_ventures")
-    .select("project_id, display_name, master_md_slug")
+    .select("project_id, master_md_slug, projects(project_name, client_name)")
     .not("master_md_slug", "is", null);
   if (error) {
     console.error("fetch project_ventures failed:", error.message);
@@ -51,9 +60,10 @@ async function main() {
   let missing = 0;
   for (const v of ventures) {
     const slug = v.master_md_slug;
+    const label = projectLabel(v);
     const filePath = path.join(KNOWLEDGE_DIR, `${slug}.md`);
     if (!fs.existsSync(filePath)) {
-      console.warn(`[skip] ${v.project_id} (${v.display_name}): ${filePath} not found`);
+      console.warn(`[skip] ${v.project_id} (${label}): ${filePath} not found`);
       missing++;
       continue;
     }
@@ -69,7 +79,7 @@ async function main() {
       console.error(`[error] ${v.project_id}: ${updateError.message}`);
       continue;
     }
-    console.log(`[ok] ${v.project_id} (${v.display_name}) ← ${slug}.md (${text.length} chars)`);
+    console.log(`[ok] ${v.project_id} (${label}) ← ${slug}.md (${text.length} chars)`);
     synced++;
   }
   console.log(`\nDone. synced=${synced}, missing=${missing}`);

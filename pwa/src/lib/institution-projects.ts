@@ -37,14 +37,12 @@ export function getInstitutionProjectLink(institutionId: string): InstitutionPro
 export function isInstitutionDashboardProject(project: {
   projectId?: string | null;
   projectName?: string | null;
-  displayName?: string | null;
-  shortLabel?: string | null;
   projectCategory?: string | null;
 }) {
   const category = (project.projectCategory || "dtsu").toLowerCase();
   if (category === "ecosystem") return true;
   const id = String(project.projectId || "");
   if (INSTITUTION_DASHBOARD_PROJECT_IDS.has(id)) return true;
-  const label = `${project.projectName || ""} ${project.displayName || ""} ${project.shortLabel || ""}`.toLowerCase();
+  const label = `${project.projectName || ""}`.toLowerCase();
   return label.includes("kute");
 }

@@ -411,7 +411,7 @@ function Scene({
                     "polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px)",
                 }}
               >
-                ▸ {(vd.venture.short_label || vd.venture.project_id).toUpperCase()}
+                ▸ {(vd.venture.project_name || vd.venture.project_id).toUpperCase()}
               </div>
             </Html>
           </group>

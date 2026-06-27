@@ -17,6 +17,7 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/supabase/api-auth";
+import { oneRelation, projectDisplayName } from "@/lib/project-labels";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -83,7 +84,7 @@ const SYSTEM = `あなたは「つくよみ」、AMD のディープテックス
 ヒアリング情報が完全に空でも、ベース情報のみで試算表を作って done=true で返してよい。`;
 
 interface VentureBase {
-  display_name: string;
+  project_label: string;
   lane: string;
   founded_at: string | null;
   outcome_pattern: string;
@@ -122,7 +123,7 @@ export async function POST(
   ] = await Promise.all([
     supabase
       .from("project_ventures")
-      .select("display_name, lane, founded_at, outcome_pattern, short_description, long_description, amd_support_started_at, amd_support_ended_at")
+      .select("project_id, lane, founded_at, outcome_pattern, short_description, long_description, amd_support_started_at, amd_support_ended_at, projects(project_name, client_name)")
       .eq("project_id", projectId)
       .maybeSingle(),
     supabase.from("project_events").select("occurred_on, kind, label, meta").eq("project_id", projectId).order("occurred_on", { ascending: true }),
@@ -134,14 +135,22 @@ export async function POST(
   ]);
 
   if (!venture) return NextResponse.json({ error: "venture not found" }, { status: 404 });
-  const v = venture as VentureBase;
+  const project = oneRelation((venture as { projects?: { project_name?: string | null; client_name?: string | null } | { project_name?: string | null; client_name?: string | null }[] | null }).projects);
+  const v = {
+    ...(venture as Omit<VentureBase, "project_label">),
+    project_label: projectDisplayName({
+      project_id: projectId,
+      project_name: project?.project_name ?? null,
+      client_name: project?.client_name ?? null,
+    }),
+  };
 
   const historyText = (body.history ?? []).map((qa, i) => `Q${i + 1}: ${qa.q}\nA${i + 1}: ${qa.a}`).join("\n\n");
   const learnings = ((learningsRows as { lesson_text: string }[] | null) ?? []).map((l) => l.lesson_text);
   const learningsBlock = learnings.length > 0 ? `\n# つくよみが学んだルール\n${learnings.map((l) => `- ${l}`).join("\n")}` : "";
 
   const userPrompt = `# PJ メタ
-表示名: ${v.display_name}
+表示名: ${v.project_label}
 レーン: ${v.lane}
 設立日: ${v.founded_at ?? "未設立"}
 アウトカム: ${v.outcome_pattern}

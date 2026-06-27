@@ -10,6 +10,7 @@
  */
 
 import { createClient } from "@/lib/supabase/server";
+import { oneRelation, projectDisplayName, projectShortName } from "@/lib/project-labels";
 // ASPI 8 domain の型・定数は client/server 両用なので別モジュール (aspi-lanes) に分離している。
 // LaneBadges 等の "use client" コンポネントは直接 @/lib/aspi-lanes から import すること。
 import type { LaneWeight } from "@/lib/aspi-lanes";
@@ -28,8 +29,9 @@ export type OutcomePattern = "rocket" | "lifted" | "deep_pivot" | "burnout" | "u
 export interface VentureRow {
   /** projects.project_id (例: 'p03', 'p11')。旧 ventures.id ('tiem' 等) は廃止済み (008 migration) */
   project_id: string;
-  display_name: string;
-  short_label: string | null;
+  project_name: string;
+  client_name: string | null;
+  project_label: string;
   /** 旧 5 lane (cron 互換用に当面残置)。新 UI / 集計は lanes (ASPI 8 domain) を優先。 */
   lane: LaneId;
   /** ASPI 8 domain weighted (migration 041)。null = 未設定 (新規 PJ 用)。 */
@@ -60,8 +62,6 @@ export interface LaneWeightRow {
 
 type RawVentureRow = {
   project_id: string;
-  display_name: string;
-  short_label: string | null;
   lane: LaneId;
   lanes: LaneWeight[] | null;
   founded_at: string | null;
@@ -73,15 +73,21 @@ type RawVentureRow = {
   is_public: boolean;
   amd_support_started_at: string | null;
   amd_support_ended_at: string | null;
-  projects: { status: string } | { status: string }[] | null;
+  projects: { project_name: string | null; client_name: string | null; status: string | null } | { project_name: string | null; client_name: string | null; status: string | null }[] | null;
 };
 
 function flattenVentureRow(r: RawVentureRow): VentureRow {
-  const project = Array.isArray(r.projects) ? r.projects[0] : r.projects;
+  const project = oneRelation(r.projects);
+  const projectNameSource = {
+    project_id: r.project_id,
+    project_name: project?.project_name ?? null,
+    client_name: project?.client_name ?? null,
+  };
   return {
     project_id: r.project_id,
-    display_name: r.display_name,
-    short_label: r.short_label,
+    project_name: projectShortName(projectNameSource),
+    client_name: project?.client_name ?? null,
+    project_label: projectDisplayName(projectNameSource),
     lane: r.lane,
     lanes: r.lanes,
     founded_at: r.founded_at,
@@ -98,7 +104,7 @@ function flattenVentureRow(r: RawVentureRow): VentureRow {
 }
 
 const VENTURE_SELECT =
-  "project_id, display_name, short_label, lane, lanes, founded_at, outcome_pattern, origin_org, origin_pi, amd_role, short_description, is_public, amd_support_started_at, amd_support_ended_at, projects(status)";
+  "project_id, lane, lanes, founded_at, outcome_pattern, origin_org, origin_pi, amd_role, short_description, is_public, amd_support_started_at, amd_support_ended_at, projects(project_name, client_name, status)";
 
 /** 公開可な PJ (SU 系) を全件、設立日昇順で取得 */
 export async function fetchVenturesForMap(): Promise<VentureRow[]> {

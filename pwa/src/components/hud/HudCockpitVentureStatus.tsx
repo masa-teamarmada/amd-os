@@ -131,7 +131,7 @@ function dateToYearDecimal(iso: string): number {
 // Component
 // ============================================================
 
-type MetaFocus = "outcome" | "founded_at" | "origin_pi" | "origin_org" | "lane" | "name" | "description";
+type MetaFocus = "outcome" | "founded_at" | "origin_pi" | "origin_org" | "lane" | "description";
 
 interface RoleMembers {
   pls: string[];
@@ -352,13 +352,9 @@ export function HudCockpitVentureStatus({ projectId }: { projectId: string }) {
         >
           {outcome?.emoji}
         </button>
-        <button
-          onClick={() => setMetaEditing("name")}
-          className="text-[15px] font-black text-white hover:underline decoration-dotted"
-          title="PJ 名を編集"
-        >
-          {venture.display_name}
-        </button>
+        <span className="text-[15px] font-black text-white" title={venture.project_name}>
+          {venture.project_label}
+        </span>
         <button
           onClick={() => setMetaEditing("lane")}
           className="border px-1.5 py-0.5 font-mono text-[10px] hover:bg-cyan-300/8"
@@ -892,7 +888,7 @@ export function HudCockpitVentureStatus({ projectId }: { projectId: string }) {
       {narrativeOpen && venture && (
         <CockpitNarrativeModal
           projectId={projectId}
-          displayName={venture.display_name}
+          displayName={venture.project_label}
           onClose={() => setNarrativeOpen(false)}
         />
       )}
@@ -949,8 +945,9 @@ export function HudCockpitVentureStatus({ projectId }: { projectId: string }) {
 function buildAaaVentureStatusBundle(source: VentureStatusBundle): VentureStatusBundle {
   const venture: ProjectVentureRow = {
     project_id: AAA_PROJECT_ID,
-    display_name: aaaVenture.display_name,
-    short_label: aaaVenture.short_label,
+    project_name: aaaVenture.project_name,
+    client_name: aaaVenture.client_name,
+    project_label: aaaVenture.client_name || aaaVenture.project_name,
     lane: aaaVenture.lane,
     founded_at: aaaVenture.founded_at,
     outcome_pattern: aaaVenture.outcome_pattern,

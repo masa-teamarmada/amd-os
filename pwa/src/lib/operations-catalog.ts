@@ -49,7 +49,7 @@ export const rawDataSources: RawDataSource[] = [
     label: "Google Calendar",
     owner: "GAS",
     refresh: "毎時0分",
-    landsIn: ["project_meeting_summaries", "meeting_notifications", "project_strategy_signals", "contract_signals"],
+    landsIn: ["project_meeting_summaries", "project_strategy_signals", "contract_signals"],
     notes: "会議eventを主軸に、終了60-180分後のPJ関連MTGを拾う。",
   },
   {
@@ -326,7 +326,7 @@ export const cronOperations: CronOperation[] = [
     cadence: "毎時0分",
     trigger: "nav_meeting_pollRecentlyEndedEvents",
     input: "Google Calendar + Notion AI議事録 + Gmail",
-    output: "project_meeting_summaries / meeting_notifications",
+    output: "project_meeting_summaries",
   }),
   disabledCron({
     id: "gas-monthly-fallback",
@@ -776,7 +776,7 @@ export const cronOperations: CronOperation[] = [
     trigger: "AMD OS H-1 MTGフロー / amd-os-l6-meeting-flow-launcher",
     defaultParams: "(SKILL.md に従う、5 ソース全部見る = Calendar + Notion + Gmail + Drive + Slack)",
     input: "Calendar events + Notion 議事録 (Stage 1-3 fallback + AI transcription) + Gmail thread + Drive Doc + Slack thread / l2_feedbacks",
-    output: "project_meeting_summaries / meeting_notifications",
+    output: "project_meeting_summaries",
     run: { type: "manual", reason: CODEX_WRITER_MANUAL_REASON },
   },
   {

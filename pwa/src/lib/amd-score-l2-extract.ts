@@ -17,6 +17,7 @@ import { fetchDriveContext, type DriveHit } from "@/lib/sources/drive";
 import { fetchGmailContext, type GmailHit } from "@/lib/sources/gmail";
 import { fetchCalendarContext, type CalendarHit } from "@/lib/sources/calendar";
 import { fetchWebSearchContext } from "@/lib/sources/web-search";
+import { oneRelation, projectDisplayName } from "@/lib/project-labels";
 
 const SYSTEM_PROMPT = `あなたは AMD OS (Before Zero Theory v3.2) の AMD Score を生データから抽出する専門家。
 
@@ -61,7 +62,7 @@ const SYSTEM_PROMPT = `あなたは AMD OS (Before Zero Theory v3.2) の AMD Sco
 
 interface PjInfo {
   project_id: string;
-  display_name: string;
+  project_label: string;
   origin_org: string | null;
   origin_pi: string | null;
   founded_at: string | null;
@@ -96,11 +97,19 @@ export interface ExtractResult {
 async function loadPjInfo(supabase: ReturnType<typeof createAdminClient>, projectId: string): Promise<PjInfo | null> {
   const { data: v, error } = await supabase
     .from("project_ventures")
-    .select("project_id, display_name, lane, origin_org, origin_pi, founded_at, amd_role, amd_support_started_at, amd_support_ended_at, short_description, outcome_pattern")
+    .select("project_id, lane, origin_org, origin_pi, founded_at, amd_role, amd_support_started_at, amd_support_ended_at, short_description, outcome_pattern, projects(project_name, client_name)")
     .eq("project_id", projectId)
     .maybeSingle();
   if (error || !v) return null;
-  return v as unknown as PjInfo;
+  const project = oneRelation((v as { projects?: { project_name?: string | null; client_name?: string | null } | { project_name?: string | null; client_name?: string | null }[] | null }).projects);
+  return {
+    ...(v as unknown as Omit<PjInfo, "project_label">),
+    project_label: projectDisplayName({
+      project_id: projectId,
+      project_name: project?.project_name ?? null,
+      client_name: project?.client_name ?? null,
+    }),
+  };
 }
 
 async function loadProjectCategory(supabase: ReturnType<typeof createAdminClient>, projectId: string): Promise<string> {
@@ -131,7 +140,7 @@ async function loadNarrative(supabase: ReturnType<typeof createAdminClient>, pro
 }
 
 function buildSearchQuery(pj: PjInfo): { full: string; keywords: string[]; slackChannelPatterns: string[] } {
-  const name = pj.display_name;
+  const name = pj.project_label;
   const origin = pj.origin_org ?? "";
   const keywords = [name, origin].filter(Boolean);
   return {
@@ -153,7 +162,7 @@ async function gatherRaw(pj: PjInfo, supabase: ReturnType<typeof createAdminClie
       fetchDriveContext(q.full, 6),
       fetchGmailContext(q.full, 12),
       fetchCalendarContext(q.full, { limit: 25 }),
-      fetchWebSearchContext(pj.display_name, q.keywords),
+      fetchWebSearchContext(pj.project_label, q.keywords),
     ]);
   // dedupe slack
   const slackMap = new Map<string, SlackHit>();
@@ -233,7 +242,7 @@ function rawToPrompt(b: RawBundle): string {
 
   if (b.webSearchSummary) s += sec("WebSearch 結果 (Anthropic web_search)", b.webSearchSummary);
 
-  s += `\n\n上記 ${b.pj.project_id} (${b.pj.display_name}) について、AMD Score timeline を JSON で出してください。`;
+  s += `\n\n上記 ${b.pj.project_id} (${b.pj.project_label}) について、AMD Score timeline を JSON で出してください。`;
   return s;
 }
 
