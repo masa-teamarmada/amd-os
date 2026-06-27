@@ -132,7 +132,7 @@ function formatRoundedNumber(value: number | null | undefined) {
 // Component
 // ============================================================
 
-type MetaFocus = "outcome" | "founded_at" | "origin_pi" | "origin_org" | "lane" | "description";
+type MetaFocus = "outcome" | "founded_at" | "origin_pi" | "origin_org" | "lane" | "name" | "description";
 
 interface RoleMembers {
   pls: string[];
@@ -398,9 +398,13 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
         >
           {outcome?.emoji}
         </button>
-        <span className="text-[15px] font-bold" title={venture.project_name}>
-          {venture.project_label}
-        </span>
+        <button
+          onClick={() => setMetaEditing("name")}
+          className="text-[15px] font-bold hover:underline decoration-dotted"
+          title="PJ 名を編集"
+        >
+          {venture.display_name}
+        </button>
         <button
           onClick={() => setMetaEditing("lane")}
           className="text-[10px] font-mono px-1.5 py-0.5 rounded-full border hover:bg-[#fafafa]"
@@ -963,7 +967,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
       {narrativeOpen && venture && (
         <CockpitNarrativeModal
           projectId={projectId}
-          displayName={venture.project_label}
+          displayName={venture.display_name}
           onClose={() => setNarrativeOpen(false)}
         />
       )}

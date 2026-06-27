@@ -5,8 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 import {
   appNotificationPriority,
   l2NotificationPriority,
+  meetingNotificationPriority,
 } from "@/lib/notification-priority";
-import { NON_ACTIONABLE_APP_NOTIFICATION_KIND_FILTER } from "@/lib/notifications-data";
 
 type AppCriticalRow = {
   id: string;
@@ -48,6 +48,17 @@ type L2CriticalRow = {
   created_at: string;
 };
 
+type MeetingCriticalRow = {
+  meeting_id: string;
+  project_id: string;
+  title: string;
+  source_kinds: string | null;
+  summary_short: string | null;
+  notified_at: string | null;
+  read_at: string | null;
+  created_at: string;
+};
+
 type CriticalNotification =
   | {
       source: "app";
@@ -74,6 +85,19 @@ type CriticalNotification =
       createdAt: string;
       browserTag: string;
       row: L2CriticalRow;
+    }
+  | {
+      source: "meeting";
+      key: string;
+      id: string;
+      title: string;
+      body: string | null;
+      badge: string;
+      actionLabel: string;
+      actionUrl: string;
+      createdAt: string;
+      browserTag: string;
+      row: MeetingCriticalRow;
     };
 
 const L2_KIND_LABEL: Record<string, string> = {
@@ -120,11 +144,10 @@ export function CriticalRealtimeNotify() {
   }, [emitBrowserNotification]);
 
   const loadCritical = useCallback(async () => {
-    const [appRes, l2Res] = await Promise.all([
+    const [appRes, l2Res, meetingRes] = await Promise.all([
       supabase
         .from("app_notifications")
         .select("id,kind,title,body,link,meta,source,read_at,dismissed_at,created_at,updated_at")
-        .not("kind", "in", NON_ACTIONABLE_APP_NOTIFICATION_KIND_FILTER)
         .is("read_at", null)
         .is("dismissed_at", null)
         .order("updated_at", { ascending: false })
@@ -136,11 +159,18 @@ export function CriticalRealtimeNotify() {
         .order("importance", { ascending: false })
         .order("created_at", { ascending: false })
         .limit(30),
+      supabase
+        .from("meeting_notifications")
+        .select("meeting_id,project_id,title,source_kinds,summary_short,notified_at,read_at,created_at")
+        .is("read_at", null)
+        .order("created_at", { ascending: false })
+        .limit(30),
     ]);
 
     const critical = [
       ...((appRes.data ?? []) as AppCriticalRow[]).flatMap(appRowToCritical),
       ...((l2Res.data ?? []) as L2CriticalRow[]).flatMap(l2RowToCritical),
+      ...((meetingRes.data ?? []) as MeetingCriticalRow[]).flatMap(meetingRowToCritical),
     ].sort((a, b) => timestamp(b.createdAt) - timestamp(a.createdAt));
 
     itemsRef.current = critical;
@@ -160,6 +190,7 @@ export function CriticalRealtimeNotify() {
       .channel("critical-notifications-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "app_notifications" }, refresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "l2_notifications" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "meeting_notifications" }, refresh)
       .subscribe();
 
     return () => {
@@ -263,6 +294,23 @@ function l2RowToCritical(row: L2CriticalRow): CriticalNotification[] {
     actionUrl: `/notifications?notification_id=${encodeURIComponent(row.notification_id)}`,
     createdAt: row.notified_at || row.created_at,
     browserTag: `critical-l2-${row.notification_id}-${row.notified_at || row.created_at}`,
+    row,
+  }];
+}
+
+function meetingRowToCritical(row: MeetingCriticalRow): CriticalNotification[] {
+  if (meetingNotificationPriority(row) !== "critical") return [];
+  return [{
+    source: "meeting",
+    key: `meeting:${row.meeting_id}:${row.notified_at || row.created_at}`,
+    id: row.meeting_id,
+    title: row.title,
+    body: row.summary_short,
+    badge: "MTG",
+    actionLabel: "通知ページで確認",
+    actionUrl: `/notifications?meeting_id=${encodeURIComponent(row.meeting_id)}`,
+    createdAt: row.notified_at || row.created_at,
+    browserTag: `critical-meeting-${row.meeting_id}-${row.notified_at || row.created_at}`,
     row,
   }];
 }

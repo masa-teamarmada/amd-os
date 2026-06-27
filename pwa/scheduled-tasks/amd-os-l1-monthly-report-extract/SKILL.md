@@ -23,7 +23,6 @@ M-1 `monthly_reports` は、MS 進捗、PJ ナレッジ、XRL 根拠、月次FIX
 - 既存 `final_content` がある `monthly_reports` は `force: true` が明示されない限り上書きしない。
 - メール全文・議事録全文・Slack全文を row に保存しない。保存するのは draft、短い source refs / snippet / hash、collection summary。
 - 未完成でも、確認済み事実があるなら no-data テンプレのまま放置しない。小さくても使える月次断面を積む。
-- M系メンテとして、未来60日の予定MTGカード同期も担当する。H-1 は毎時動くため、60日先までの全量カレンダー確認はしない。
 
 ## 必ず読む正本
 
@@ -71,23 +70,11 @@ gap check で見る 5 生データ:
 
 - Gmail: report_emails / 関係先ドメイン / PJ 名 / PJ コード / 既知固有語 / Gemini notes
 - Drive: PJ folder、月次・議事録・提案・契約・実験・試算表・発表資料
-- Calendar: 対象月の MTG event、attendees、description、Notion/Drive URL。加えて M系メンテとして、今日0:00 JSTから60日先までの確定MTG予定を確認し、欠落している予定MTGカードを `calendar-sync` で補う
+- Calendar: 対象月の MTG event、attendees、description、Notion/Drive URL
 - Slack: PJ channel、関連 thread、資料共有、進捗報告
 - Notion: 議事録 DB、PJ page、設計 docs、会議ページ
 
 5 生データ connector が使えない場合は、その connector 名と理由を `collection_summary_json.missing_connectors` と notes に残す。使えない connector があるだけで「データなし」とは書かない。
-Notion の `oauth_token_invalid_grant` / 再認証だけを理由に `notifications[]` へ `raw_data_gap` を出さない。再認証アクションは `app_notifications(kind='connector_auth')` 経路で扱い、M-1 outbox では `missing_connectors` / notes にだけ残す。Notion未確認が特定のL2候補や人間判断に直結する場合だけ、反映先が明確な通知にする。
-
-## 未来60日の予定MTGカード同期
-
-M-1 automation は、月次断面の抽出に加えて、未来60日の予定MTGカード同期を日次メンテとして担当する。
-
-- 範囲: 今日0:00 JSTから60日先までの確定Calendar予定。
-- 対象: MTGと判断できる予定のみ。全日予定、作業枠、`+` / `＋` 始まりの個人作業枠は除外する。
-- 保存先: 既存 route `POST /api/meeting-prep/calendar-sync`。PWA route 自体はCalendarを読まないため、このautomationが読んだ予定metadataを渡す。
-- 重複防止: `meeting_id='upcoming:<calendar_event_id>'` を主キーにし、recurring MTG は series ごとに次回1件だけ残す。
-- 上書き禁止: 既に手動編集された準備本文は上書きしない。同期するのは日時、title、Calendar URL、短いDrive資料metadataまで。
-- H-1との境界: H-1 は毎時runなので、現在時刻の前後24時間にある直近予定とPhase P準備だけを見る。60日先までの広い予定表メンテはここで行う。
 
 ## draft_content 方針
 

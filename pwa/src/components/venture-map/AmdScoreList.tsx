@@ -59,7 +59,7 @@ export function AmdScoreList({ ventures, inputs, alpha }: Props) {
     } else if (sortBy === "score_asc") {
       list.sort((a, b) => scoreSortValue(a) - scoreSortValue(b));
     } else {
-      list.sort((a, b) => a.venture.project_label.localeCompare(b.venture.project_label));
+      list.sort((a, b) => a.venture.display_name.localeCompare(b.venture.display_name));
     }
     return list;
   }, [rows, sortBy]);
@@ -119,7 +119,7 @@ export function AmdScoreList({ ventures, inputs, alpha }: Props) {
                     href={`/venture-map/amd-score/${r.venture.project_id}`}
                     className="hover:underline font-medium"
                   >
-                    {r.venture.project_label}
+                    {r.venture.display_name}
                   </Link>
                 </td>
                 <td className="px-3 py-2"><LaneBadges lanes={r.venture.lanes} fallback={r.venture.lane} /></td>

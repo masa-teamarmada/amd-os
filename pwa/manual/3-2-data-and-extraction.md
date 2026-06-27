@@ -173,7 +173,7 @@ D-1D-3D-4H-1の復旧/移管状況は [8-3 章](8-3-l2-extraction-routines-spec.
 
 ### H-1 予定MTGカード同期
 
-H-1は毎時動くため、終了済みMTGの議事録抽出と、現在時刻の前後24時間にある直近予定だけを見る。60日先までの確定Calendar予定は M系メンテが `POST /api/meeting-prep/calendar-sync` へ渡す。`calendar-sync` は `source_kinds='upcoming'` の予定MTGカードを `project_meeting_summaries` に upsert し、直近で開始済みの予定もDrive資料・URL補強の対象にする。ただし recurring MTG は series ごとに次回1件だけ同期・表示し、それ以降の future occurrence はノイズとして扱う。Google Calendar の `recurring_event_id` が無い場合でも、title に `定例` / `月次` / `毎月` / `weekly` / `monthly` 等が含まれる予定は曜日を外して series 推定する。それ以外は weekly cadence が推定できる series だけ同じ扱いにする。
+H-1は、終了済みMTGの議事録抽出とは別に、今日0:00 JSTから60日先までの確定Calendar予定を `POST /api/meeting-prep/calendar-sync` へ渡す。`calendar-sync` は `source_kinds='upcoming'` の予定MTGカードを `project_meeting_summaries` に upsert し、同日中なら開始済み予定もDrive資料・URL補強の対象にする。ただし recurring MTG は series ごとに次回1件だけ同期・表示し、それ以降の future occurrence はノイズとして扱う。Google Calendar の `recurring_event_id` が無い場合でも、title に `定例` / `月次` / `毎月` / `weekly` / `monthly` 等が含まれる予定は曜日を外して series 推定する。それ以外は weekly cadence が推定できる series だけ同じ扱いにする。
 
 PJに `drive_folder_id` がある場合、automation側でDrive root直下と会議日/title token に合う1階層サブフォルダを探し、Docs / Slides / Sheets / PDF / Office files の metadata を `drive_files` として渡す。PWA route はDriveを直接読まず、渡された metadata を `narrative_md` の `関連Drive資料` に載せる。Drive資料は補助根拠であり、資料に書かれているだけで当日決定事項とは扱わない。
 
@@ -185,9 +185,7 @@ MTGカード / 議事録 / Gmail TODO / Slack TODO から次アクションが�
 
 PWA の MTGサマリ / 予定MTGカードは、L6 が読む Notion メモをまさが会議前・会議中に開きやすくする入口を持つ。`project_meeting_summaries.notion_url` があれば `Notion文字起こし` CTA で Notion ページを別タブ表示する。`notion_url` が無い予定MTGでは、`source_url` の Calendar 予定を開く導線を出し、Notion 側の録音/文字起こし開始に移れるようにする。どちらも無い場合は `Notion未連携` と表示する。
 
-この導線は UI 補助であり、AMD OS から Notion の録音開始 API を呼んだり、PWA route が DB write / DDL を伴って Notion ページを自動作成したりしない。L6 automation が後から Notion page を見つけて `notion_url` / `eventId` を補完した場合は、PWA の `メモ再読込` で `project_meeting_summaries` を読み直して反映する。
-
-2026-06-26 以降、H-1 Phase P の prep worker は、Notion 側で会議前に自動生成された AI Meeting Notes page を search/fetch で見つけた場合だけ、PJ 固有名詞・略称・拾うべき論点を `amd-os:notion-ai-context` marker 付き block として insert-only で入れてよい。これは Notion 本体の議事録精度を上げる上流処理で、PWA の録音開始や開催後議事録上書きではない。summary / transcript / 開催後本文は触らない。
+この導線は UI 補助であり、AMD OS から Notion の録音開始 API を呼んだり、DB write / DDL を伴って Notion ページを自動作成したりしない。L6 automation が後から Notion page を見つけて `notion_url` / `eventId` を補完した場合は、PWA の `メモ再読込` で `project_meeting_summaries` を読み直して反映する。
 
 ### H-1 Notion eventId fallback
 

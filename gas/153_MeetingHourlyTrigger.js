@@ -27,7 +27,7 @@
  *       重複は Supabase の source_hash 差分検知で防ぐので広めでも問題ない
  *    c) PJ 判定 (CFG_ColorPJHistory + CFG_PJAlias)
  *    d) 各 event について `nav_meeting_processOneEvent_(eventId, projectId)` (074)
- *    e) sourceKinds != 'none' でも meeting_notifications は作らない
+ *    e) sourceKinds != 'none' なら meeting_notifications に upsert (Swift APNs 通知用)
  * 3. 03:00 daily cron (152 nav_cronMonthlyExtractAt3) は **拾い漏れ救済 fallback** として
  *    Phase 2 月単位抽出 (`nav_meeting_extractForProjectYm_`) を引き続き実行
  *
@@ -342,10 +342,19 @@ function _meeting_resolveCalendarId_(calendarIdOverride) {
 }
 
 /**
- * 議事録作成は project_meeting_summaries / MTGカードに保存するだけで通知化しない。
- * 2026-06-27: 「議事録を作った」だけの通知は読後アクションがないため廃止。
+ * meeting_notifications テーブルに upsert (Swift APNs 通知用)。
+ * 同 meeting_id で複数通知しないよう PK = meeting_id。
+ * iOS 側は notified_at IS NULL の行を polling して APNs 送信、送信後 notified_at = now() に更新。
  */
 function _meeting_insertNotification_(payload) {
-  const meetingId = String(payload && payload.meetingId || "");
-  return { ok: true, skipped: true, meeting_id: meetingId, reason: "non_actionable_meeting_summary_notification_disabled" };
+  const row = {
+    meeting_id: String(payload.meetingId || ""),
+    project_id: String(payload.projectId || ""),
+    title: String(payload.title || ""),
+    source_kinds: String(payload.sourceKinds || ""),
+    summary_short: String(payload.summaryShort || "")
+    // notified_at / created_at は DB default
+  };
+  if (!row.meeting_id) return { ok: false, message: "meeting_id empty" };
+  return supa_upsert("meeting_notifications", row, "meeting_id");
 }

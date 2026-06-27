@@ -20,7 +20,6 @@ GAS 153 `nav_meeting_pollRecentlyEndedEvents` + GAS 074 `nav_meeting_processOneE
 - **配列だけ保存禁止 / 箇条書き禁止**: `source_kinds != "none"` の開催済みMTGでは `narrative_md` が主成果物。`summary_short` / `decided` / `progress` / `next_actions` / `risks` は検索・通知用の補助であり、議事録本文の代替ではない。`narrative_md` が空・短すぎる・箇条書き中心なら、その event は保存せず run summary に `blocked_low_quality_narrative` として残す。
 - **既存 narrative 保護**: 既存 row に 300字以上の `narrative_md` がある場合、新しい抽出結果が空 / 箇条書き優勢 / 既存より明らかに薄いなら upsert しない。`project_meeting_summaries` には DB trigger でも保護があるが、routine 側でも必ず判定する。
 - **H-1 reviewer hook**: 開催済みMTGを保存した後、別automation `amd-os-l6-meeting-reviewer` を走らせる。raw Notion/Gmail/Drive/Slack/Calendar と保存済みH-1要約を比べ、CEO/代表/VC/地元勢/PoC/PRなど重大な経営判断が薄く丸まった疑いがあれば `l2_coverage_gaps` + `l2_notifications(l2_kind='coverage_gap')` に出す。reviewer は H-1 row を自動上書きしない。
-- **KUTE external share closeout hook**: KUTE (`project_id=p25`) の開催済みMTGで `narrative_md` を新規保存または更新できたら、まさから「共有したい」と言われるのを待たず、同じH-1 runでKUTE外部共有クローズアウトworkerを起動する。実行主体はこのCodex Desktop automation。Vercel/PWA/GASは、外部共有可否チェック、安全版作成、PDF化、Gmail下書き作成の実行主体にしない。
 - **直近予定カード**: H-1 は毎時動くため、毎回60日先まで見ない。終了済みMTGの議事録抽出と、現在時刻の前後24時間にある確定Calendar予定・Phase P準備だけを扱う。未来60日の予定MTGカード同期は M系の定期メンテに寄せる。
 - **MTGカード→Calendar一次防御**: MTGカード/議事録側に日時・場所・対面/オンライン・持参物・返信/宿題があるのに Calendar event が無い/薄いケースは、`POST /api/meeting-calendar/upsert-plan` の dry-run で upsert payload と duplicate match を作る。PWA route は Calendar を書かない。実writeに進む場合は別途 reviewed write bundle が必要。payload は `sendUpdates=none`、外部 attendees は空、metadata は `extendedProperties.private` に寄せる。
 - **TODO→tasks + owner nudge**: MTGから生まれた担当タスク / OS task / Gmail TODO / Slack TODO は、まず `POST /api/task-calendar/register-tasks` で `tasks` に自動登録し、担当者本人だけへ Slack DM nudge する。admin review queue は作らない。作業枠が必要な場合だけ `POST /api/task-calendar/schedule-plan` の dry-run で、担当メンバー + まさ の共通空き枠に `+<PJコード> <task>` 枠を作る候補にする。PWA route は Calendar を書かない。外部招待/メール送信はしない。
@@ -679,38 +678,11 @@ workflow 側のルール:
 - `6月3週目以降`、`日程調整`、`候補日未定` のような曖昧な候補は確定予定として自動保存しない。必要なら `POST /api/meeting-prep` に `is_tentative=true` を渡して `source_kinds='upcoming_tentative'` として仮置き保存する。仮置き row は PWA の「日程調整中MTG」に残る。
 - 旧 fallback の「次MTG指定がなければ7日後に1件」は禁止。架空カードを作らない。
 
-### D-5: KUTE外部共有クローズアウト hook
-
-このhookはKUTE (`project_id=p25`) 専用。開催済みMTGの `narrative_md` を今回のH-1 runで新規保存または本文更新できたときだけ実行する。`source_kinds='none'`、`upcoming` / `upcoming_tentative`、品質gateで保存しなかったMTG、`skipped_unchanged` は対象外。
-
-実行主体はこのCodex Desktop automation。Vercel/PWA/GASに外部共有可否チェック、安全版作成、PDF化、Gmail下書き作成を任せない。
-
-対象になったら、同じH-1 run内で `/Users/masa/projects/AMD/kute` にKUTEクローズアウトworkerを起動し、完了状態を1つ返させる。worker起動前に `/tmp/kute-share-closeout-{meeting_id_hash}.json` を作り、会議ID、日付、タイトル、`source_kinds`、保存済み `narrative_md` だけを入れる。raw Notion / Gmail / Drive / Slack本文、URL、secretはpayloadに含めない。
-
-```bash
-codex exec --skip-git-repo-check --json \
-  --output-last-message /tmp/kute-share-closeout-{meeting_id_hash}-out.txt \
-  -C /Users/masa/projects/AMD/kute \
-  "あなたはKUTE外部共有クローズアウトworker。まず /Users/masa/projects/AGENTS.common.md、AGENTS.md、README.md、docs/PROJECT_BRIEF.md、docs/EXTERNAL_SHARE_PACKAGE_PLAYBOOK.md を読む。payload_path=/tmp/kute-share-closeout-{meeting_id_hash}.json を読み、meeting_id / meeting_date / title / narrative_md を使う。payloadの narrative_md はH-1で保存済みのrawではない議事録本文として扱ってよい。output/mtg_<YYYYMMDD>/share/ に外部送付用成果物を作り、scripts/prepare-external-share-package.mjs --source-dir output/mtg_<YYYYMMDD> --pdf を実行する。Gmail文脈から宛先と返信スレッドが確認できる場合はPDFだけを添付したGmail下書きまで作る。送信はしない。最終状態は ready_to_draft / gmail_draft_created / review_required / blocked のどれかで返す。"
-```
-
-worker側の必須挙動:
-
-- ローカルに議事録mdが無い場合は、一時payloadの `narrative_md` を使って `output/mtg_YYYYMMDD/share/` に外部送付用の議事録mdを作る。raw文字起こしやNotion本文を永続化しない。
-- 元資料は直接編集しない。安全版は必ず `share/` に別成果物として作る。
-- `scripts/prepare-external-share-package.mjs` はデフォルトの議事録必須モードで実行する。MTG前予備チェック用の `--no-require-minutes` は使わない。
-- メール添付は `share/` にあるPDFだけにする。`output/mtg_YYYYMMDD/` 直下の元資料はチェック対象にしても添付しない。
-- Gmail下書きは宛先・スレッドがGmail文脈から確認できる場合だけ作る。送信はしない。
-- KUTE worker側でGmail下書きを作れず `ready_to_draft` で返った場合でも、H-1本体がGmail文脈から宛先・返信スレッドを確認できているなら、H-1側でPDF添付のGmail下書きを作成し、最終状態を `gmail_draft_created` に上げる。
-- 宛先確認不能、安全版未作成、PDF化失敗、秘匿情報混入疑いがある場合は `review_required` または `blocked` とし、manifestとローカルのメール下書きまで残す。
-
-H-1のrun summaryには、KUTE closeoutの対象件数、完了状態、Gmail下書きIDがあればそれだけを書く。raw本文、URL、個人情報、添付の内部パス詳細は出さない。
-
 ═══════════════════════════════════════════════════
 Phase P: MTG Prep セッション spawn (= 2026-06-22 追加)
 ═══════════════════════════════════════════════════
 
-> **役割**: 24時間以内の upcoming MTG ごとに、まさカレンダーに `＋ <PJコード> MTG準備: <タイトル>` 枠を作成し、該当時刻になったら `codex exec` で新規 session を spawn する。spawn された session の中では `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md` を prompt として読み、prep 本体 (= 文脈ロード / 着地点 draft / Notion AI Meeting Notes 事前コンテキスト注入 / 資料 draft / readiness 計算) を完遂する。
+> **役割**: 24時間以内の upcoming MTG ごとに、まさカレンダーに `＋ <PJコード> MTG準備: <タイトル>` 枠を作成し、該当時刻になったら `codex exec` で新規 session を spawn する。spawn された session の中では `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md` を prompt として読み、prep 本体 (= 文脈ロード / 着地点 draft / 資料 draft / readiness 計算) を完遂する。
 >
 > automation はあくまで「session を生み出す役」、prep 本体は spawn された session 内で実行する責務分離 (= まさ確定 2026-06-22)。
 >
@@ -783,7 +755,7 @@ codex exec --skip-git-repo-check --json \
 - ただし起動直後の最初の数秒は wait して `session id: <UUID>` 行が標準出力に出るのを catch
 - catch した UUID を `prep_worker_session_id` に保存
 - 同時に upsert: `prep_worker_status='preparing'` + `prep_worker_spawned_at=now()`
-- subprocess は background で走り続け、session 内の worker prompt が Phase 1-10 完遂すると `prep_worker_status='ready'` + `prep_worker_ready_at=now()` を自分で upsert する。worker は会議前 AI Meeting Notes page が見つかった場合、`amd-os:notion-ai-context` marker 付き context block を insert-only で入れる。見つからない/書けない場合も Phase P spawn 自体は成功扱いで、worker 側の readiness reason に残す
+- subprocess は background で走り続け、session 内の worker prompt が Phase 1-10 完遂すると `prep_worker_status='ready'` + `prep_worker_ready_at=now()` を自分で upsert する
 
 **D) ready 達成検知**
 

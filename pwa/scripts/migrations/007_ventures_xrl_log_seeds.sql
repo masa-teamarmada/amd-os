@@ -57,7 +57,7 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 -- =====================================================================
--- LST / LiSTie (gx_circular, 2023-active, rocket)
+-- LST / LisTie (gx_circular, 2023-active, rocket)
 -- リチウム回収 / TRL4で立上 / オンサイトPoC開始中
 -- =====================================================================
 INSERT INTO ventures_xrl_log (venture_id, observed_at, trl, brl, hrl, grl, srl, bottleneck, milestone_label)

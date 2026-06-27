@@ -15,7 +15,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generateNarrativeItems, type NarrativeInput } from "./narrative-generator";
-import { oneRelation, projectDisplayName } from "./project-labels";
 
 interface FeedbackRow {
   id: string;
@@ -95,13 +94,12 @@ export async function refreshNarrativeForProject(
   const { data: v, error: vErr } = await supabase
     .from("project_ventures")
     .select(
-      "project_id, lane, founded_at, outcome_pattern, origin_org, origin_pi, amd_role, amd_support_started_at, amd_support_ended_at, short_description, long_description, projects(project_name, client_name)"
+      "project_id, display_name, lane, founded_at, outcome_pattern, origin_org, origin_pi, amd_role, amd_support_started_at, amd_support_ended_at, short_description, long_description"
     )
     .eq("project_id", projectId)
     .maybeSingle();
   if (vErr || !v) return { ok: false, count: 0, lessons: 0, error: "venture not found" };
 
-  const project = oneRelation((v as { projects?: { project_name?: string | null; client_name?: string | null } | { project_name?: string | null; client_name?: string | null }[] | null }).projects);
   const [
     { data: xrl },
     { data: events },
@@ -153,11 +151,7 @@ export async function refreshNarrativeForProject(
   ].map((l) => l.lesson_text);
 
   const input: NarrativeInput = {
-    project_label: projectDisplayName({
-      project_id: projectId,
-      project_name: project?.project_name ?? null,
-      client_name: project?.client_name ?? null,
-    }),
+    display_name: v.display_name as string,
     lane: v.lane as string,
     founded_at: (v.founded_at as string | null) ?? null,
     outcome_pattern: v.outcome_pattern as string,

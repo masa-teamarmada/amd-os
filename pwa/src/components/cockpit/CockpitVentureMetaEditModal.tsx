@@ -1,9 +1,8 @@
 "use client";
 
 /**
- * PJ Status のヘッダー (lane / outcome / 設立日 / origin / short_description)
+ * PJ Status のヘッダー (PJ 名 / lane / outcome / 設立日 / origin / short_description)
  * を直接編集するモーダル。`project_ventures` テーブルを直接更新する。
- * PJ 名 / 会社名は `projects` が正本なので `/admin/projects` 側で編集する。
  */
 
 import { useState } from "react";
@@ -41,12 +40,14 @@ const AMD_ROLE_OPTIONS = [
 interface Props {
   venture: ProjectVentureRow;
   /** どのフィールドにフォーカスするか (UI ヒント) */
-  focus?: "outcome" | "founded_at" | "origin_pi" | "origin_org" | "lane" | "description";
+  focus?: "outcome" | "founded_at" | "origin_pi" | "origin_org" | "lane" | "name" | "description";
   onClose: () => void;
   onSaved: () => void;
 }
 
 export function CockpitVentureMetaEditModal({ venture, focus, onClose, onSaved }: Props) {
+  const [displayName, setDisplayName] = useState(venture.display_name);
+  const [shortLabel, setShortLabel] = useState(venture.short_label ?? "");
   const [lane, setLane] = useState<LaneId>(venture.lane);
   const [foundedAt, setFoundedAt] = useState(venture.founded_at ?? "");
   const [outcome, setOutcome] = useState<string>(venture.outcome_pattern);
@@ -60,9 +61,15 @@ export function CockpitVentureMetaEditModal({ venture, focus, onClose, onSaved }
   const [error, setError] = useState<string | null>(null);
 
   const onSave = async () => {
+    if (!displayName.trim()) {
+      setError("PJ 名は必須");
+      return;
+    }
     setSaving(true);
     setError(null);
     const r = await updateProjectVenture(venture.project_id, {
+      display_name: displayName.trim(),
+      short_label: shortLabel.trim() || null,
       lane,
       founded_at: foundedAt || null,
       outcome_pattern: outcome as ProjectVentureRow["outcome_pattern"],
@@ -100,6 +107,27 @@ export function CockpitVentureMetaEditModal({ venture, focus, onClose, onSaved }
           </button>
         </div>
         <div className="px-4 py-3 grid grid-cols-2 gap-3">
+          <label className={`flex flex-col gap-1 text-[12px] col-span-2 ${focusRing("name")} rounded`}>
+            <span className="text-muted-foreground">PJ 名 (display_name)</span>
+            <input
+              type="text"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              autoFocus={focus === "name"}
+              className="border border-[#e5e5e7] rounded-md px-2 py-1.5 text-[13px]"
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-[12px]">
+            <span className="text-muted-foreground">短縮名 (short_label)</span>
+            <input
+              type="text"
+              value={shortLabel}
+              onChange={(e) => setShortLabel(e.target.value)}
+              className="border border-[#e5e5e7] rounded-md px-2 py-1.5 text-[13px]"
+            />
+          </label>
+
           <label className={`flex flex-col gap-1 text-[12px] ${focusRing("lane")} rounded`}>
             <span className="text-muted-foreground">レーン</span>
             <select

@@ -20,11 +20,9 @@ AMD OS の通知は「お知らせ」だけではない。多くの通知は、L
 | 種類 | 主なテーブル | 役割 |
 |---|---|---|
 | L2 通知 | `l2_notifications` | L2 候補・差分候補の確認 |
-| MTG 通知 | `meeting_notifications` | 廃止済み。議事録 / MTGサマリは PJ cockpit / MTGカードで確認 |
+| MTG 通知 | `meeting_notifications` | 議事録 / MTG サマリ確認 |
 | アプリ通知 | `app_notifications` | OS 運用上の通知 |
 | Slack nudge | Slack DM + signed URL | 入金確認、PL承認など |
-
-通知は「読んだあとに何かできるもの」だけにする。タスクや次MTGアクションを作っただけのログ、議事録を作っただけのログは、`tasks` / `meeting_action_items` / `project_meeting_summaries` / MTGカード側に残し、OS通知には出さない。
 
 ## 通常通知と緊急性の高い通知
 
@@ -32,12 +30,12 @@ AMD OS の通知は「お知らせ」だけではない。多くの通知は、L
 
 | レーン | 何を見るか | 例 |
 |---|---|---|
-| 通常通知 | OSに新データが入った、候補が増えた、通常レビューが必要 | L2候補、VCニュース、通常の取り込み経路確認 |
+| 通常通知 | OSに新データが入った、候補が増えた、通常レビューが必要 | L2候補、MTGサマリ、VCニュース、通常の取り込み経路確認 |
 | 緊急性の高い通知 | 見落とすと事故る復旧・ガードレール・明示 blocker | Notion等の再認証、high以上の経営ガードレール、明示 critical の要対応、重要 automation blocker |
 
 緊急性の高い通知は、対応が終わっても削除せず、既読欄から再試行できるものがある。特に connector 再認証は、リンクを開いたことと復旧完了は別なので、復旧できたかは対象 automation の次回成功で確認する。
 
-緊急性の高い通知は右下ポップアップにも出る。ここに出してよいのは `connector_auth`、`metadata_json.notification_priority='critical'`、`metadata_json` 上の blocker / 期限超過 / 再認証など、writer が「今すぐ見るべき」と明示したものだけ。契約予兆、総会/役会、D-11メディア掲載、`importance` が高い L2 候補は、タイトルや本文に「事故」「blocker」「再認証」などの語が含まれていても通常通知に残す。MTGサマリは通知ではなく PJ cockpit / MTGカードで確認する。
+緊急性の高い通知は右下ポップアップにも出る。ここに出してよいのは `connector_auth`、`metadata_json.notification_priority='critical'`、`metadata_json` 上の blocker / 期限超過 / 再認証など、writer が「今すぐ見るべき」と明示したものだけ。MTGサマリ、契約予兆、総会/役会、D-11メディア掲載、`importance` が高い L2 候補は、タイトルや本文に「事故」「blocker」「再認証」などの語が含まれていても通常通知に残す。
 
 ## `/notifications` でやること
 

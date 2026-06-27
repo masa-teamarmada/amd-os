@@ -55,6 +55,8 @@ async function syncRewardsForPlanCycle(planCycleId: string): Promise<void> {
 export interface DashProject {
   projectId: string;
   projectName: string;
+  displayName?: string;
+  shortLabel?: string;
   roleLine?: string;
   clientName: string;
   status: string;
@@ -1668,11 +1670,9 @@ function nextYmString(ym: string): string {
   return m === 12 ? `${y + 1}01` : `${y}${String(m + 1).padStart(2, "0")}`;
 }
 
-function normalizeDashboardProjectName(projectId: string, projectName: string, clientName: string | null | undefined) {
-  if (projectId === "p24" || projectName.includes("チャレナジー") || String(clientName || "").includes("チャレナジー")) {
-    return "Challenergy";
-  }
-  return projectName;
+function normalizeDashboardProjectName(projectId: string, displayName: string) {
+  if (projectId === "p24" || displayName.includes("チャレナジー")) return "Challenergy";
+  return displayName;
 }
 
 /**
@@ -1687,6 +1687,18 @@ export async function fetchProjectsFromSupabase(): Promise<DashProject[]> {
   if (error) throw new Error(`projects: ${error.message}`);
 
   const projectIds = (data || []).map((r) => r.project_id);
+  const { data: ventureRows } = projectIds.length
+    ? await supabase
+      .from("project_ventures")
+      .select("project_id, display_name, short_label")
+      .in("project_id", projectIds)
+    : { data: [] };
+  const ventureMap = new Map(
+    (ventureRows || []).map((r) => [
+      r.project_id,
+      { displayName: r.display_name || "", shortLabel: r.short_label || "" },
+    ])
+  );
   const { data: projectMemberRows } = projectIds.length
     ? await supabase
       .from("project_members")
@@ -1719,7 +1731,9 @@ export async function fetchProjectsFromSupabase(): Promise<DashProject[]> {
 
   return (data || []).map((r) => ({
     projectId: r.project_id,
-    projectName: normalizeDashboardProjectName(r.project_id, r.project_name, r.client_name),
+    projectName: r.project_name,
+    displayName: normalizeDashboardProjectName(r.project_id, ventureMap.get(r.project_id)?.displayName || r.project_name),
+    shortLabel: ventureMap.get(r.project_id)?.shortLabel || r.project_name,
     roleLine: roleLineMap.get(r.project_id) || "PL -- / PM -- / Closer --",
     clientName: r.client_name || "",
     // 2026-05-11 まさ指摘 8 番: 旧コードは r.status || "active" だったため、

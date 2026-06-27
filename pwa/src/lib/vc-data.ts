@@ -14,7 +14,6 @@ import type {
   VcListItem,
   VcDetail,
 } from "@/types/vc";
-import { projectShortName } from "@/lib/project-labels";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
@@ -65,10 +64,18 @@ export async function fetchVcList(): Promise<VcListItem[]> {
   );
   const pjNameMap = new Map<string, string>();
   if (pjIds.length > 0) {
-    // 「AMD PJ への出資」列は projects.project_name で統一。
-    const { data: projects } = await supabase.from("projects").select("project_id, project_name").in("project_id", pjIds);
-    for (const p of (projects ?? []) as { project_id: string; project_name: string | null }[]) {
-      pjNameMap.set(p.project_id, projectShortName(p));
+    // まさ要望 2026-05-11: 「AMD PJ への出資」列は pjName (= projects.project_name) で統一。
+    // 旧: project_ventures.short_label (例 "p01") を優先 → 短縮コード混在の事故
+    // 新: projects.project_name を最優先、なければ project_ventures.display_name 補完
+    const [projectsRes, pvRes] = await Promise.all([
+      supabase.from("projects").select("project_id, project_name").in("project_id", pjIds),
+      supabase.from("project_ventures").select("project_id, display_name").in("project_id", pjIds),
+    ]);
+    for (const p of (pvRes.data ?? []) as { project_id: string; display_name: string }[]) {
+      pjNameMap.set(p.project_id, p.display_name);
+    }
+    for (const p of (projectsRes.data ?? []) as { project_id: string; project_name: string }[]) {
+      pjNameMap.set(p.project_id, p.project_name); // projects.project_name 最優先
     }
   }
 
@@ -223,7 +230,7 @@ export async function fetchVcDetail(vcId: string): Promise<VcDetail | null> {
 
   const [pjRes, contactNameRes, memberRes] = await Promise.all([
     pjIds.length > 0
-      ? supabase.from("projects").select("project_id, project_name").in("project_id", pjIds)
+      ? supabase.from("project_ventures").select("project_id, display_name").in("project_id", pjIds)
       : Promise.resolve({ data: [] }),
     contactIds.length > 0
       ? supabase.from("vc_contacts").select("id, name").in("id", contactIds)
@@ -233,8 +240,8 @@ export async function fetchVcDetail(vcId: string): Promise<VcDetail | null> {
       : Promise.resolve({ data: [] }),
   ]);
   const pjMap = new Map<string, string>();
-  for (const p of (pjRes.data ?? []) as { project_id: string; project_name: string | null }[]) {
-    pjMap.set(p.project_id, projectShortName(p));
+  for (const p of (pjRes.data ?? []) as { project_id: string; display_name: string }[]) {
+    pjMap.set(p.project_id, p.display_name);
   }
   const contactMap = new Map<string, string>();
   for (const c of (contactNameRes.data ?? []) as { id: string; name: string }[]) {

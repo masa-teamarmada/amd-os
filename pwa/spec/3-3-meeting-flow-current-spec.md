@@ -100,24 +100,6 @@ Notion connector の `oauth_token_invalid_grant` / `TRIGGER_REAUTHENTICATION` �
 | Drive file | automation が生成できる資料 draft |
 | Gmail draft | facilitator 名義 follow-up draft。本送信は禁止 |
 
-## KUTE 外部共有クローズアウト
-
-KUTE (`project_id=p25`) の開催済みMTGで、H-1が議事録本文を保存または更新できた場合は、まさから「共有したい」と言われるのを待たず、同じH-1 runからKUTE外部共有クローズアウトworkerを起動する。実行主体はCodex Desktop automationであり、Vercel/PWAは保存・表示・APIの境界に留める。
-
-トリガー条件:
-
-- `project_id='p25'`
-- `source_kinds` が `none` ではない
-- `source_kinds` に `upcoming` / `upcoming_tentative` を含まない
-- `narrative_md` が開催済み議事録として品質gateを通っている
-- 今回のH-1 runで新規保存または本文更新された
-
-H-1はworker起動前に `/tmp/kute-share-closeout-<meeting_hash>.json` を作り、会議ID、日付、タイトル、`source_kinds`、保存済み `narrative_md` だけを渡す。raw Notion / Gmail / Drive / Slack本文、URL、secretはpayloadに含めない。
-
-workerは `/Users/masa/projects/AMD/kute` を作業場所にして、`docs/EXTERNAL_SHARE_PACKAGE_PLAYBOOK.md` を読む。ローカルの `output/mtg_YYYYMMDD/` に議事録ファイルがまだ無い場合は、payloadの `narrative_md` をrawではない議事録本文として使い、`output/mtg_YYYYMMDD/share/` に外部送付用の議事録mdを作ってから、`scripts/prepare-external-share-package.mjs --source-dir output/mtg_YYYYMMDD --pdf` を実行する。
-
-Gmail文脈から宛先と返信スレッドが確認できる場合は、PDFだけを添付してGmail下書きまで作る。KUTE worker側でGmail下書きを作れない場合でも、H-1本体がGmail文脈を確認できているなら、H-1側で下書き作成を引き取る。送信はしない。確認不能、PDF化不可、安全版未作成などがあれば、ローカルのmanifestとメール下書きまで残して `review_required` または `blocked` とする。
-
 ## 禁止事項
 
 - Gmail を本送信しない。draft 止まり。
@@ -140,7 +122,6 @@ Gmail文脈から宛先と返信スレッドが確認できる場合は、PDFだ
 - **カレンダー枠化**。prep 作業自体を「**＋ <PJコード> MTG準備: <タイトル>**」というタイトル先頭 `＋` 付きの動かせる Calendar event として まさカレンダーに作る。
 - **ドラッグ追従**。Calendar の `＋ prep枠` がまさによって移動されたら、その新しい日時を spawn 時刻として追従する (= 毎時 H-1 が走るたびに Calendar 状態を再確認)。
 - **対象 facilitator はまさだけ** (2026-06-22 まさ確定)。他メンバーの Calendar には prep 枠を作らない。
-- **Notion AI Meeting Notes 事前コンテキスト** (2026-06-26 まさ確定): Notion 側で会議前に自動生成される AI Meeting Notes ページを探し、会議開始前に PJ 固有名詞・略称・拾うべき論点を短い marker 付き block として入れる。会議後に議事録DBへ移動された後の抽出ではなく、Notion 本体の議事録精度を上げるための上流処理。
 
 ### 既存 H-1 automation との統合
 
@@ -187,7 +168,7 @@ WHERE pms.source_kinds LIKE '%upcoming%'
    ```
 5. **SESSION_ID 取得**: codex stdout の `session id: {UUID}` 行から取得 → `prep_worker_session_id` に保存
 6. **DB upsert**: `prep_worker_status='preparing'` + `prep_worker_spawned_at=now()`
-7. session 内で worker prompt が、Notion AI Meeting Notes page の探索・事前コンテキスト注入・`prep_*` 列 upsert を完遂し、Phase 完遂で `prep_worker_status='ready'`
+7. session 内で worker prompt が `prep_*` 列を upsert + Phase 完遂で `prep_worker_status='ready'`
 8. **Slack DM nudge**: H-1 run の Phase P 末尾で `ready` 達成MTG を まさ専用 Slack DM にまとめて送る
 
 ### Worker SKILL の役割 (= spawn された session の中で走る)
@@ -207,7 +188,7 @@ Worker 入力:
 | `project_xrl_evidence` | XRL 根拠 |
 | `tasks` | 当該 PJ の未完了 task |
 | Calendar | event detail + attendees + freebusy |
-| Notion | 会議前 AI Meeting Notes page 候補、議事録 page (既存 / 新規) |
+| Notion | 議事録 page (既存 / 新規) |
 | Gmail | 関連 thread |
 | Drive | PJ folder + 既存資料 |
 
@@ -219,24 +200,15 @@ Worker 出力 (= `project_meeting_summaries` の対象 row に upsert):
 | `prep_readiness_reasons` | jsonb 内訳 |
 | `prep_draft_md` | 着地点 / 背景 / 想定質問 / 持参物 の Markdown draft |
 | `prep_drive_asset_id` | `_prep/` フォルダ配下 Drive file ID |
-| `prep_notion_page_id` | AI Meeting Notes 事前コンテキスト注入先、またはアジェンダ草案入り Notion 議事録ページ |
-| `notion_url` / `notion_page_id` | 既存値が空で、会議前 AI Meeting Notes page を特定できた場合だけ保存 |
+| `prep_notion_page_id` | アジェンダ草案入り Notion 議事録ページ |
 | `prep_worker_status='ready'` | Phase 完遂時 |
 | `prep_worker_ready_at` | now |
-
-#### Notion AI Meeting Notes 事前コンテキスト
-
-worker は Calendar event の title / date / attendees と Notion search を使って、会議前に自動生成済みの AI Meeting Notes page を探す。search が直撃しない場合は、既存 AI Meeting Notes page の親 `議事録` data source を query し、`名前` / `eventId` / `sourceAiPageId` / `最終更新日時` と fetch本文の `<meeting-notes>` / mention-date で照合する。2026-06-26 実地確認では、AI Meeting Notes由来の row は `日付` プロパティが空のことがあるため、日付 query だけに依存しない。fetch した本文に `<meeting-notes` があり、日時・title・参加者のいずれかが矛盾しない page だけを対象にする。`meeting_start_at <= now()` または transcript / summary が既に入っている page は、開催後 page と見なして事前注入しない。
-
-注入内容は `## AI Meeting Notes用コンテキスト` から始まる短い block とし、`amd-os:notion-ai-context:{meeting_id}:{digest}` marker で二重書きを防ぐ。中身は PJ 固有名詞、正式表記、別表記/読み間違い候補、今日拾ってほしい論点、迷った時のルールだけ。raw Notion / Gmail / Slack / Drive 本文は入れない。
-
-Notion update は insert-only。`<meeting-notes>` block、summary、transcript、開催後議事録本文は置換しない。AI Meeting Notes page が見つからない/書けない場合も prep は失敗扱いにせず、`prep_draft_md` に手動貼り付け用 context を残し、`prep_readiness_reasons.notion_ai_context.status` に `not_found` / `write_failed` を記録する。
 
 ### Readiness Score 計算
 
 | シグナル | 重み | 取り方 |
 |---|---|---|
-| アジェンダ存在 | 30 | Notion 議事録ページ本文文字数 + Calendar description 文字数。AI Meeting Notes context が注入済みなら agenda 存在としても扱う。100↑ で 30、50-99 で 15、<50 で 5 |
+| アジェンダ存在 | 30 | Notion 議事録ページ本文文字数 + Calendar description 文字数。100↑ で 30、50-99 で 15、<50 で 5 |
 | 持参資料 | 25 | `project_documents` + `meeting_assets` + worker 生成 `prep_drive_asset_id` の合計件数。3↑ で 25、1-2 で 12、0 で 0 |
 | 前回 next_actions 消化 | 20 | 同シリーズ前回 `next_actions[]` のうち `tasks.status='done'` 比率 × 20 |
 | 相手側コンテキスト | 15 | 直近30日 Gmail 往復 + 関連 Notion ページ件数。3↑ で 15、1-2 で 8、0 で 0 |
@@ -297,8 +269,7 @@ migration 151 で追加:
 
 ### 禁止事項 (prep セッション)
 
-- worker が生成した draft を**自動で Notion 本ページ・Drive 本資料・Calendar event description に書き込まない**。すべて `_prep/` フォルダ / draft Notion page / DB の `prep_*` 列に置き、まさ確認後の手動反映 or 別 route 経由で本反映する。ただし、会議開始前の AI Meeting Notes page への `amd-os:notion-ai-context` block の insert-only 注入だけは例外として許可する。
-- AI Meeting Notes の summary / transcript / 開催後の議事録本文は書き換えない。
+- worker が生成した draft を**自動で Notion 本ページ・Drive 本資料・Calendar event description に書き込まない**。すべて `_prep/` フォルダ / draft Notion page / DB の `prep_*` 列に置き、まさ確認後の手動反映 or 別 route 経由で本反映する。
 - worker は Gmail 本送信しない (= 既存 H-1 と同じ)。
 - Phase P / Worker は MTG 本体の議事録 (`narrative_md` / `decided` 等) を書き換えない。これは既存 H-1 抽出 Phase A の責務。
 - ended / frozen PJ、`source_kinds='upcoming_tentative'` は対象外 (= 既存 H-1 と同じ進捗ベース原則)。

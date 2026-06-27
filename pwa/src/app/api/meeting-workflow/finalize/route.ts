@@ -721,6 +721,18 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  if (primaryPrepMeetingId && insertedActions.length > 0) {
+    const link = `/project/${row.project_id}/cockpit?meeting=${encodeURIComponent(primaryPrepMeetingId)}`;
+    await admin.from("app_notifications").insert(insertedActions.map((a) => ({
+      kind: "meeting_action",
+      title: `次MTGまで: ${a.title}`.slice(0, 180),
+      body: a.detail,
+      link,
+      source: "meeting_workflow",
+      meta: { meeting_id: row.meeting_id, prep_meeting_id: primaryPrepMeetingId, action_id: a.action_id },
+    })));
+  }
+
   const membersById = new Map(projectMembers.map((m) => [m.member_id, m]));
   const slack = primaryPrepMeetingId
     ? await sendSlackNudges({

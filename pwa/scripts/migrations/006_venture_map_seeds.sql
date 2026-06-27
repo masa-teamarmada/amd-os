@@ -12,7 +12,7 @@ VALUES
   ('bwe',  'Blue Water Energy', 'BWE',     'gx_energy',   '2019-04-01', 'active',        'lifted',     'BWE',              '山地正洋',  'studio',         'スタジオモデル第1号 / 濃度差発電 / 長崎西部下水で大型PoC実施', true),
   ('jc',   'JOYCLE',            'JC',      'gx_circular', '2023-07-01', 'terminated',    'deep_pivot', '群馬大学',         '小柳裕太郎','support',        'IRSプリミティブ熱分解で立上 → 群大野田先生の流動層熱分解で後付けdeep化', true),
   ('ctb',  'CrestecBio',        'CTB',     'life',        '2023-04-01', 'active',        'rocket',     '筑波大学',         '丸島',      'studio',         '虚血性脳卒中薬 CTB211 / 大動物試験OK / AMED採択', true),
-  ('lst',  'LiSTie',            'LST',     'gx_circular', '2023-04-01', 'active',        'rocket',     'QST',              NULL,        'studio',         'リチウム回収 / TRL4で立上 / オンサイトPoC開始中', true),
+  ('lst',  'LisTie',            'LST',     'gx_circular', '2023-04-01', 'active',        'rocket',     'QST',              NULL,        'studio',         'リチウム回収 / TRL4で立上 / オンサイトPoC開始中', true),
   ('kt',   '輝翠TECH',          'KT',      'robo',        '2022-04-01', 'active',        'lifted',     '東北大学',         NULL,        'studio',         '農業ロボ / オンサイトPoC完了', true),
   ('cx',   'CryoX (仮称)',      'CX',      'gx_energy',   '2026-04-01', 'pre_founding',  'rocket',     'NIMS',             '神谷宏治',  'founder_studio', 'NIMS発磁気冷凍 → CO2フリーDC冷却 + 量子QC冷却 / Build VC 7月出資想定', true),
   ('sx',   'SolvioraX',         'SX',      'gx_circular', '2025-07-01', 'pre_founding',  'rocket',     '愛媛大学',         '杉浦美羽',  'founder_studio', 'シアノバクテリア排水処理 / PSI Step2 / 2027-04設立目標', true),

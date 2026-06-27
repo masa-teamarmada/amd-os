@@ -72,6 +72,8 @@ const primarySignalStatuses = new Set(["active", "ended"]);
 const demoSignalProject: DashProject = {
   projectId: AAA_PROJECT_ID,
   projectName: "AAA",
+  displayName: "AAA",
+  shortLabel: "AAA",
   roleLine: "PL まさ / PM えいみ / Closer まさ",
   clientName: "Event Demo",
   status: "active",
@@ -203,7 +205,7 @@ function buildSignals(
     const initiative = hasSignalScore ? clamp(Math.round(health * 0.72 + scoreFor(p.projectId, 23) * 0.28), 12, 98) : scoreFor(p.projectId, 31);
     const scoreSpark = scoreHistory[p.projectId] ?? [];
     const currentScore = scoreSpark.length ? scoreSpark[scoreSpark.length - 1] : 0;
-    return { ...p, initials: projectInitials(p.projectName, p.projectId), x, f, m, xBar, fBar, mBar, hasSignalScore, health, initiative, currentScore, scoreSpark };
+    return { ...p, initials: projectInitials(p.shortLabel || p.projectName, p.projectId), x, f, m, xBar, fBar, mBar, hasSignalScore, health, initiative, currentScore, scoreSpark };
   });
   return signals.sort((a, b) => {
     const scoreDiff = b.currentScore - a.currentScore;

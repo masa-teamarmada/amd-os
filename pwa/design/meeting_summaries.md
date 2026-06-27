@@ -1,6 +1,6 @@
 # MTG サマリ — 設計の正本
 
-最終更新: 2026-06-26 (Notion再認証待ち禁止 / H-1 source auth fallback / AI Meeting Notes事前コンテキスト)
+最終更新: 2026-06-26 (Notion再認証待ち禁止 / H-1 source auth fallback)
 正本ステータス: 進化中。仕様変更したらここを同じ commit で更新する。
 
 ---
@@ -17,9 +17,9 @@ PJ コックピット (`/project/[projectId]/cockpit`) の **MTGサマリ枠** �
 - 添付資料: PWA の MTG 詳細モーダルから、一般ファイル / スクショ / PDF / 画面キャプチャを `meeting_assets` に保存する。新規実体はDriveの `PJフォルダ / YYMMDD_会議名`、旧実体はprivate Storage互換で扱い、必要なものだけ `narrative_md` の Markdown 画像/リンクとして挿入する。
 - 共有出力: MTG 詳細モーダルには `PDF保存` / `議事録コピー` / `準備メモコピー` / `共有URLコピー` を置く。`PDF保存` は印刷ダイアログではなく、共有用 DOM を `html2canvas` + `jsPDF` で直接PDF化し、ブラウザのURL/日時/header/footerを混ぜない。`議事録コピー` は `narrative_md` の議事録本文だけを見出し・段落中心のプレーンテキストへ整形する。`narrative_md` 末尾に `## 参考: 会議前準備メモ` が保持されている場合、その以降は議事録コピー/PDFから除外し、`準備メモコピー` の本文に回す。`project_id` / `source_kinds` などの内輪メタは本文へ出さない。`共有URLコピー` は既存 `?meeting=<meeting_id>` deep link をコピーする内部確認用導線。
 - 予定MTG: 日時が確定しているものだけ `source_kinds='upcoming'` として同じ `project_meeting_summaries` に保存し、会議前の「決めること / 用意するもの」を MTG サマリ欄の先頭に出す。日程未確定の仮置きは `source_kinds='upcoming_tentative'` / `prep_status='tentative'` とし、確定予定 count には含めず「日程調整中MTG」として同じ上段エリアに残す。
-- Calendar sync: H-1 automation は毎時動くため、**現在時刻の24時間前から24時間後** の直近予定だけを `POST /api/meeting-prep/calendar-sync` に渡す。未来60日の確定Calendar予定は M系の定期メンテで同期する。どちらも Calendar上で確定しているMTGを `upcoming:<calendar_event_id>` としてカード化し、recurring MTG は series ごとに次回1件だけを保存・表示対象にする。直近で開始済みの予定も、Drive資料やURL補強のため同期対象にする。PJ Drive folder に会議日フォルダや関連資料がある場合は、`drive_files` として予定カードの `関連Drive資料` に出す。
+- future Calendar sync: H-1 automation が **今日0:00 JSTから今後60日** の確定Calendar予定を `POST /api/meeting-prep/calendar-sync` に渡す。前回議事録がまだ無いPJでも、Calendar上で確定しているMTGは `upcoming:<calendar_event_id>` としてカード化する。ただし recurring MTG は series ごとに次回1件だけを保存・表示対象にし、それ以降の回はノイズとして同期/一覧表示しない。Google Calendar の `recurring_event_id` が無い場合は weekly cadence を推定できる series だけ同じ扱いにする。今日すでに開始済みの予定も、当日中はDrive資料やURL補強のため同期対象にする。PJ Drive folder に会議日フォルダや関連資料がある場合は、`drive_files` として予定カードの `関連Drive資料` に出す。
 - 会議後 workflow: PWA `POST /api/meeting-workflow/finalize` が、routine 生成済み議事録の `decided` / `next_actions` / `narrative_md` から **日時まで明確な次MTG候補を複数抽出**し、次MTGカード・action item・Slack nudge 予約を作る。完了イベントは `POST /api/meeting-workflow/actions/:actionId/complete` で受ける。ここでは **LLM を呼ばない**。
-- Notion 文字起こし導線: PWA の MTG サマリ / 予定MTGカードは、`project_meeting_summaries.notion_url` があれば **Notion文字起こしを開く** CTA を出す。未連携の場合、予定MTGは `source_url` の Calendar 予定を開き、Notion 側で録音/文字起こしを開始しやすくする。PWA から Notion の録音開始 API / 自動録音開始は呼ばない。あとから L6 が `notion_url` を埋めた場合に拾えるよう、カード上部に `メモ再読込` を置く。H-1 Phase P の prep worker は、会議前に Notion 側で自動生成された AI Meeting Notes page が見つかった場合だけ、PJ 固有名詞・略称・拾うべき論点を `amd-os:notion-ai-context` marker 付き block として insert-only で入れてよい。summary / transcript / 開催後本文は書き換えない。
+- Notion 文字起こし導線: PWA の MTG サマリ / 予定MTGカードは、`project_meeting_summaries.notion_url` があれば **Notion文字起こしを開く** CTA を出す。未連携の場合、予定MTGは `source_url` の Calendar 予定を開き、Notion 側で録音/文字起こしを開始しやすくする。PWA から Notion の録音開始 API / 自動録音開始は呼ばない。あとから L6 が `notion_url` を埋めた場合に拾えるよう、カード上部に `メモ再読込` を置く。
 - Notion 再認証待ち禁止 + 即時復旧導線: Notion connector の `UNAUTHORIZED oauth_token_invalid_grant` / `TRIGGER_REAUTHENTICATION` は terminal blocker ではない。H-1 は Chrome / local fallback と Gmail / Drive / Slack / Calendar / AMD OS local artifact を同一ターンで試し、十分な会議本文があれば Notion なしで開催済み row を作る。同時に `app_notifications(kind='connector_auth')` で connector/app ID と再認証リンク付きの復旧アクションを作り、次回以降の connector を復旧させる。詳細は [`h1_source_auth_fallback.md`](h1_source_auth_fallback.md)。
 - H-1 reviewer: H-1保存直後に別automation `amd-os-l6-meeting-reviewer` が raw source と保存済み `summary_short` / `narrative_md` / 配列を突き合わせる。rawに CEO/社長/代表/VC/フルコミット/地元勢/PoC/PR など重大な経営判断があるのにH-1要約が薄い場合、H-1本文を自動上書きせず `l2_coverage_gaps` + `l2_notifications(l2_kind='coverage_gap')` に `proposed_target_l2='strategy_signal'` の review candidate を出す。詳細は [`../scheduled-tasks/amd-os-l6-meeting-reviewer/SKILL.md`](../scheduled-tasks/amd-os-l6-meeting-reviewer/SKILL.md)。
 
@@ -38,7 +38,6 @@ PJ コックピット (`/project/[projectId]/cockpit`) の **MTGサマリ枠** �
 - **Notion eventId 方針**: Calendar event と Notion page の両方を見ている MMO automation が、該当 Notion page に `eventId` / 相当プロパティを可能な範囲で追記する。`eventId` が空でも title + event date + attendees + Gemini/Drive/Gmail URL で fallback し、欠損だけを理由に議事録を skip しない。
 - **held-source guard**: Calendar 添付の Gemini / Google Meet notes Doc、Notion eventId 空の fallback match、`projects.report_emails` 空 PJ の Gmail Gemini notes / follow-up hit は、開催済みソースとして扱う。既存 `upcoming:<calendar_event_id>` は残し、開催済み row は `meeting_id=<calendar_event_id>` で別行作成し、可能なら `prep_source_meeting_id` で紐付ける。再発防止 fixture は `npm run test:l6-held-source-guard`。
 - **Notion auth fallback**: Notion connector の再認証要求は停止理由にしない。Chrome / local fallback で Notion を探し、取れない場合も Gmail / Drive / Slack / Calendar / upcoming prep artifact へ進む。Notion なしで十分な本文が取れたら `source_kinds` は実 source だけにして保存する。本文不足なら `held_source_missing_after_reauth_bypass` / `review_required_raw_source_insufficient` として試行経路を残し、`blocked_notion_auth` / `waiting_for_reauth` では止めない。正本は [`h1_source_auth_fallback.md`](h1_source_auth_fallback.md)。
-- **AI Meeting Notes 事前コンテキスト**: Notion 側では会議前に AI Meeting Notes page が先に作られ、文字起こし後に議事録DBへ移動される運用がある。H-1 Phase P / `amd-os-l6-meeting-prep-worker` は、会議前 page を Calendar title + date + attendees で search/fetch し、`<meeting-notes>` block を確認できた時だけ `## AI Meeting Notes用コンテキスト` を insert-only で入れる。内容は固有名詞辞書・今回の論点・迷った時のルールだけで、raw transcript / raw mail / raw Slack は入れない。page が見つからない/書けない場合も prep は継続し、`prep_draft_md` に手動貼り付け用文面を残す。
 
 品質劣化の主因は「元のAI議事録が低品質」ではなく、OS側が `summary_short` と配列へ潰して表示していたこと。正しい修正は、routine が `narrative_md` を本文として保存し、UI がそれを主表示すること。
 
@@ -244,7 +243,7 @@ Phase 3 で議事録が拾えたら `meeting_notifications` テーブル (PK: me
 
 `POST /api/meeting-prep` は `project_meeting_summaries` へ予定MTG row を upsert する。admin session または event-driven workflow 用の `Authorization: Bearer ${WORKFLOW_SECRET}` で実行できる。`WORKFLOW_SECRET` 未設定の環境では `CRON_SECRET` を fallback として許可する。`meeting_start_at` が空、または `is_tentative=true` / `prep_status='tentative'` の場合は `source_kinds='upcoming_tentative'` として保存する。
 
-`POST /api/meeting-prep/calendar-sync` は、H-1 routine または M系メンテがGoogle Calendar MCPで読んだ Calendar event を受け取り、PJ判定して `source_kinds='upcoming'` row を upsert する。PWA route 自体はGoogle Calendarへアクセスしない。H-1 から渡すのは現在時刻の前後24時間、M系から渡すのは未来60日まで。受け付ける event metadata は `calendar_event_id` / `recurring_event_id` / `title` / `start` / `end` / `url` / `description` / `location`。`project_id` を event ごとに渡した場合は強制紐付け、無い場合は `projects.project_name` / `project_id` / `client_name` で判定する。既に手動編集された準備本文は上書きせず、日時・title・Calendar URLだけ同期する。
+`POST /api/meeting-prep/calendar-sync` は、H-1 routine がGoogle Calendar MCPで読んだ future events を受け取り、PJ判定して `source_kinds='upcoming'` row を upsert する。PWA route 自体はGoogle Calendarへアクセスしない。受け付ける event metadata は `calendar_event_id` / `recurring_event_id` / `title` / `start` / `end` / `url` / `description` / `location`。`project_id` を event ごとに渡した場合は強制紐付け、無い場合は `projects.project_name` / `project_id` / `client_name` で判定する。既に手動編集された準備本文は上書きせず、日時・title・Calendar URLだけ同期する。
 
 recurring MTG は、Google Calendar の `recurring_event_id` が取れる場合はその series id で cadence を問わず次回1件だけを upsert する。`recurring_event_id` が取れない場合は、title に `定例` / `月次` / `毎月` / `weekly` / `monthly` 等が含まれるものを PJ + normalized title + 開始時刻で series 推定し、曜日がズレる月次定例も次回1件だけに畳む。title から series 推定できないものは PJ + title + 曜日 + 開始時刻で fallback し、6〜8日間隔の連続予定なら次回1件だけを upsert する。同じPJに複数の series がある場合も series ごとに1件ずつ残す。既にDBに複数回分が存在している場合に備え、`CockpitMeetingSummary` / `HudCockpitMeetingSummary` 側でも一覧表示を series ごとに次回1枚へ畳む。
 
@@ -345,7 +344,7 @@ MTG カード自体の生成は `POST /api/meeting-prep` が Bearer (CRON_SECRET
 
 - `POST /api/meeting-workflow/finalize` は `next_meeting.meeting_start_at` が明示された場合、その1件を優先してカード化する。
 - 明示入力がない場合も、議事録の `decided` / `next_actions` / `summary_short` / `narrative_md` から、`6/11（水）15:00` や `2026-06-11 15:00` のように **日付と時刻が両方ある** MTG表現だけを抽出する。
-- Calendar sync は `finalize` を待たない。前回MTGサマリが空でも、Calendar上で確定している未来予定は `calendar-sync` で予定MTGカード化する。H-1 は前後24時間、M系メンテは未来60日を担当する。
+- future Calendar sync は `finalize` を待たない。前回MTGサマリが空でも、Calendar上で確定している未来予定は `calendar-sync` で予定MTGカード化する。
 - `6月3週目以降`、`来月以降`、`日程調整` のような曖昧な候補は、予定MTGカードを自動生成しない。必要なら `POST /api/meeting-prep` で `is_tentative=true` の仮置きカードとして手動保存する。
 - 旧実装の「次MTG指定がなければ7日後に1件作る」fallback は廃止。架空の予定カードを作らないため。
 - 抽出候補が複数ある場合は最大6件まで `source_kinds='upcoming'` で保存する。ただし Google Calendar event は自動作成しない。Calendar作成は `next_meeting.create_calendar=true` の明示入力時だけ。
@@ -517,7 +516,7 @@ if existing.source_hash === newHash: skip (LLM 呼ばない)
 | [pwa/src/components/cockpit/CockpitMeetingSummary.tsx](../src/components/cockpit/CockpitMeetingSummary.tsx) | 一覧 UI (行クリックで `CockpitMeetingDetailModal` を開く) |
 | [pwa/src/components/cockpit/CockpitMeetingDetailModal.tsx](../src/components/cockpit/CockpitMeetingDetailModal.tsx) | **詳細モーダル (2026-05-23 新設)**。`@base-ui/react` Dialog を `!max-w-[1100px] w-[92vw] max-h-[88vh]` で開く。summary_short / decided / progress / next_actions / risks を `MarkdownView` で描画 |
 | [pwa/src/app/api/meeting-prep/route.ts](../src/app/api/meeting-prep/route.ts) | **予定MTG準備 API (2026-05-25 新設)**。`source_kinds='upcoming'` row を upsert |
-| [pwa/src/app/api/meeting-prep/calendar-sync/route.ts](../src/app/api/meeting-prep/calendar-sync/route.ts) | **future Calendar sync API (2026-05-27 新設)**。H-1またはM系メンテが読んだ未来Calendar eventから `source_kinds='upcoming'` row を deterministic upsert |
+| [pwa/src/app/api/meeting-prep/calendar-sync/route.ts](../src/app/api/meeting-prep/calendar-sync/route.ts) | **future Calendar sync API (2026-05-27 新設)**。H-1が読んだ未来Calendar eventから `source_kinds='upcoming'` row を deterministic upsert |
 | [pwa/src/app/api/meeting-summary/manual-update/route.ts](../src/app/api/meeting-summary/manual-update/route.ts) | **議事録手動修正 API (2026-05-27 新設)**。通常MTG / dialogue row の表示用フィールドを上書きする。`source_hash` は変更しない |
 | [pwa/src/app/api/meeting-workflow/finalize/route.ts](../src/app/api/meeting-workflow/finalize/route.ts) | **会議後 workflow API (2026-05-26 新設)**。routine 生成済み議事録から次MTGカード / Calendar / action item / Slack nudge 予約を作る。LLM 呼び出しなし |
 | [pwa/src/app/api/meeting-workflow/actions/[actionId]/complete/route.ts](../src/app/api/meeting-workflow/actions/[actionId]/complete/route.ts) | **準備action完了 API (2026-05-26 新設)**。Slackボタン / OS UI / webhook から action を done にし、prep_status を ready/nudging に更新。LLM 呼び出しなし |

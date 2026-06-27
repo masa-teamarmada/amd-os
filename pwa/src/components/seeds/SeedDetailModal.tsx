@@ -42,7 +42,8 @@ interface MemberLite {
 }
 interface ProjectLite {
   project_id: string;
-  project_name: string | null;
+  display_name: string;
+  short_label: string | null;
 }
 
 export function SeedDetailModal({
@@ -72,7 +73,7 @@ export function SeedDetailModal({
     const sb = createClient();
     Promise.all([
       sb.from("members").select("member_id, code_name").order("code_name"),
-      sb.from("projects").select("project_id, project_name").order("project_name"),
+      sb.from("project_ventures").select("project_id, display_name, short_label").order("display_name"),
     ]).then(([m, p]) => {
       setMembers((m.data ?? []) as MemberLite[]);
       setProjects((p.data ?? []) as ProjectLite[]);
@@ -631,7 +632,7 @@ function SeedEditForm({
             <option value="">—</option>
             {projects.map((p) => (
               <option key={p.project_id} value={p.project_id}>
-                {p.project_name || p.project_id}
+                {p.short_label ?? p.display_name}
               </option>
             ))}
           </select>

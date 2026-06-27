@@ -238,7 +238,7 @@ export function SuDetailModal({ venture, xrl, onClose }: Props) {
                     letterSpacing: "0.04em",
                   }}
                 >
-                  {venture.project_label}
+                  {venture.display_name}
                   <span
                     style={{
                       marginLeft: 10,
@@ -249,7 +249,7 @@ export function SuDetailModal({ venture, xrl, onClose }: Props) {
                       textTransform: "uppercase",
                     }}
                   >
-                    [{venture.project_name || venture.project_id}]
+                    [{venture.short_label || venture.project_id}]
                   </span>
                 </div>
                 <div

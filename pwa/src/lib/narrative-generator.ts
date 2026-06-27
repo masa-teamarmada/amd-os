@@ -16,7 +16,7 @@ export interface NarrativeItem {
 }
 
 export interface NarrativeInput {
-  project_label: string;
+  display_name: string;
   lane: string;
   founded_at: string | null;
   outcome_pattern: string;
@@ -82,7 +82,7 @@ export async function generateNarrativeItems(
           .join("\n")}\n`
       : "";
 
-  const prompt = `AMD (株式会社チームアルマダ) のディープテック PJ「${input.project_label}」の沿革を、
+  const prompt = `AMD (株式会社チームアルマダ) のディープテック PJ「${input.display_name}」の沿革を、
 一般的な会社の「沿革」のように、年月とそのときに起きたことを並べたリストとして書いてください。
 ${learningsBlock}${feedbackBlock}
 PJ メタ:

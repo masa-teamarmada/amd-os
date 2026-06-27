@@ -16,7 +16,8 @@
 | `amd_role` | AMD の役割 text |
 | `short_description` | 1 行説明 |
 | `long_description` | 詳細説明 |
-| PJ名 / 会社名 | `projects.project_name` / `projects.client_name` が正本。`project_ventures.display_name` / `short_label` は表示・編集に使わない |
+| `display_name` | 表示名 (= `projects.project_name` と別の場合あり) |
+| `short_label` | 短縮ラベル |
 | `is_public` | 公開可否 |
 | `amd_support_started_at` / `amd_support_ended_at` | AMD 伴走期間 (= ended が set されたら卒業) |
 | `narrative_text` | 沿革 narrative (= LLM 生成 Markdown) |

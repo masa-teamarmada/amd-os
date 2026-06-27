@@ -84,7 +84,7 @@ function addAlias(set: Set<string>, value: unknown) {
 async function loadAliasProfiles(supabase: SupabaseClient): Promise<AliasProfile[]> {
   const [{ data: projects }, { data: ventures }] = await Promise.all([
     supabase.from("projects").select("project_id, project_name, client_name"),
-    supabase.from("project_ventures").select("project_id, origin_org, origin_pi"),
+    supabase.from("project_ventures").select("project_id, display_name, short_label, origin_org, origin_pi"),
   ]);
   const { data: knowledgeAliases } = await supabase
     .from("project_knowledge")
@@ -104,6 +104,8 @@ async function loadAliasProfiles(supabase: SupabaseClient): Promise<AliasProfile
     addAlias(aliases, project.project_name);
     addAlias(aliases, project.client_name);
     for (const venture of ventureByProject.get(projectId) || []) {
+      addAlias(aliases, venture.display_name);
+      addAlias(aliases, venture.short_label);
       addAlias(aliases, venture.origin_org);
       addAlias(aliases, venture.origin_pi);
     }

@@ -300,7 +300,7 @@ export function AmdScoreRetrofit({ ventures, inputs, initialAlpha }: Props) {
                         href={`/venture-map/amd-score/${r.venture.project_id}`}
                         className="hover:underline font-medium"
                       >
-                        {r.venture.project_label}
+                        {r.venture.display_name}
                       </Link>
                     </td>
                     <td className="px-3 py-2 font-mono text-[10px] text-muted-foreground">

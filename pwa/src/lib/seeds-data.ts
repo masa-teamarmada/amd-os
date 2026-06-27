@@ -4,7 +4,6 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
-import { projectShortName } from "@/lib/project-labels";
 import type {
   Seed,
   SeedFunding,
@@ -62,11 +61,11 @@ export async function fetchSeedList(): Promise<SeedListItem[]> {
   const pjNameMap = new Map<string, string>();
   if (pjIds.length > 0) {
     const { data: pjs } = await supabase
-      .from("projects")
-      .select("project_id, project_name")
+      .from("project_ventures")
+      .select("project_id, display_name, short_label")
       .in("project_id", pjIds);
-    for (const p of (pjs ?? []) as { project_id: string; project_name: string | null }[]) {
-      pjNameMap.set(p.project_id, projectShortName(p));
+    for (const p of (pjs ?? []) as { project_id: string; display_name: string; short_label: string | null }[]) {
+      pjNameMap.set(p.project_id, p.short_label ?? p.display_name);
     }
   }
 
@@ -158,12 +157,13 @@ export async function fetchSeedDetail(seedId: string): Promise<SeedDetail | null
   let spunOffProjectName: string | null = null;
   if (seed.spun_off_project_id) {
     const { data: pj } = await supabase
-      .from("projects")
-      .select("project_id, project_name")
+      .from("project_ventures")
+      .select("display_name, short_label")
       .eq("project_id", seed.spun_off_project_id)
       .maybeSingle();
     if (pj) {
-      spunOffProjectName = projectShortName(pj as { project_id: string; project_name: string | null });
+      const p = pj as { display_name: string; short_label: string | null };
+      spunOffProjectName = p.short_label ?? p.display_name;
     }
   }
 

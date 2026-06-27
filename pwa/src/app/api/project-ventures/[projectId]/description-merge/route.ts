@@ -15,7 +15,6 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/supabase/api-auth";
-import { oneRelation, projectDisplayName } from "@/lib/project-labels";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -65,21 +64,14 @@ export async function POST(
   const supabase = createAdminClient();
   const { data: venture, error: vErr } = await supabase
     .from("project_ventures")
-    .select("project_id, short_description, long_description, projects(project_name, client_name)")
+    .select("display_name, short_description, long_description")
     .eq("project_id", projectId)
     .maybeSingle();
   if (vErr || !venture) {
     return NextResponse.json({ error: "venture not found" }, { status: 404 });
   }
 
-  const project = oneRelation(venture.projects as { project_name?: string | null; client_name?: string | null } | { project_name?: string | null; client_name?: string | null }[] | null);
-  const projectLabel = projectDisplayName({
-    project_id: projectId,
-    project_name: project?.project_name ?? null,
-    client_name: project?.client_name ?? null,
-  });
-
-  const userPrompt = `PJ: ${projectLabel}
+  const userPrompt = `PJ: ${venture.display_name}
 
 既存 short_description (1 行):
 ${venture.short_description || "(未設定)"}

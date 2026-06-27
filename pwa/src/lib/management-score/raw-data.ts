@@ -581,7 +581,7 @@ async function collectInternalSignals(supabase: SupabaseClient, ym: string): Pro
     fetchAll(supabase, "project_meeting_summaries", "meeting_id,project_id,ym,meeting_date,title,summary_short,decided,progress,next_actions,risks,source_hash,source_url,updated_at", (q) => q.eq("ym", ym)),
     fetchAll(supabase, "project_registry_diffs", "diff_id,project_id,ym,scope_key,diff_kind,target_table,target_key,proposed_patch_json,evidence_refs_json,confidence,status,created_at,updated_at", (q) => q.or(`ym.eq.${ym},created_at.gte.${monthStartIso(ym)}`).lt("created_at", monthEndExclusiveIso(ym))),
     fetchAll(supabase, "project_knowledge", "id,project_id,category,entity_name,fact_text,confidence,source,status,updated_at", (q) => q.gte("updated_at", monthStartIso(ym)).lt("updated_at", monthEndExclusiveIso(ym))),
-    fetchAll(supabase, "project_ventures", "project_id,lane,lanes,outcome_pattern,amd_role,amd_support_started_at,amd_support_ended_at,updated_at"),
+    fetchAll(supabase, "project_ventures", "project_id,lane,lanes,display_name,outcome_pattern,amd_role,amd_support_started_at,amd_support_ended_at,updated_at"),
     fetchAll(supabase, "project_strategy_signals", "signal_id,project_id,ym,signal_type,impact_level,decision_state,status,title,summary,confidence,signal_date,confirmed_at,created_at,updated_at,signal_scope,applies_to_company_score,pipeline_status,pipeline_probability,expected_amount_yen,expected_contract_ym,company_score_axis,scope_reason", (q) => q.or("status.eq.confirmed,status.eq.candidate")),
     fetchAll(supabase, "project_partners", "id,project_id,partner_name,partner_type,partner_role,is_sold,created_at,updated_at"),
   ]);

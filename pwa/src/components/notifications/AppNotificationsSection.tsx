@@ -18,7 +18,7 @@ import {
 } from "@/lib/notification-priority";
 
 /**
- * VC discover / connector auth 等から作られた app_notifications を一覧表示する
+ * VC discover / task agent 等から作られた app_notifications を一覧表示する
  * /notifications ページの先頭セクション。
  * L2 抽出 / MTG サマリ通知とは別系統 (NotificationsClient で扱う)。
  */
@@ -53,7 +53,7 @@ export function AppNotificationsSection() {
       <div className="flex items-baseline gap-3 mb-3 flex-wrap">
         <h2 className="text-sm font-semibold">OS通知</h2>
         <span className="text-xs text-muted-foreground">
-          (cron / つくよみ / 復旧アクション から)
+          (task agent / cron / つくよみ から)
         </span>
         <div className="ml-auto flex items-center gap-2 text-xs">
           {(["unread", "read", "all"] as const).map((k) => (

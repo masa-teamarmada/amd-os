@@ -30,8 +30,6 @@ export interface AppNotification {
   updated_at: string;
 }
 
-export const NON_ACTIONABLE_APP_NOTIFICATION_KIND_FILTER = "(task_created,meeting_action)";
-
 export const NOTIFICATION_KIND_LABEL: Record<string, string> = {
   vc_new: "🆕 新 VC",
   vc_news: "📰 VC ニュース",
@@ -51,7 +49,6 @@ export async function fetchNotifications(opts?: {
   let q = c
     .from("app_notifications")
     .select("*")
-    .not("kind", "in", NON_ACTIONABLE_APP_NOTIFICATION_KIND_FILTER)
     .order("created_at", { ascending: false })
     .limit(opts?.limit ?? 100);
   if (!opts?.includeDismissed) q = q.is("dismissed_at", null);
@@ -65,7 +62,6 @@ export async function fetchUnreadNotificationCount(): Promise<number> {
   const { count } = await c
     .from("app_notifications")
     .select("*", { count: "exact", head: true })
-    .not("kind", "in", NON_ACTIONABLE_APP_NOTIFICATION_KIND_FILTER)
     .is("read_at", null)
     .is("dismissed_at", null);
   return count ?? 0;
@@ -86,7 +82,6 @@ export async function markAllNotificationsRead(): Promise<{ ok: boolean; error?:
   const { error } = await c
     .from("app_notifications")
     .update({ read_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-    .not("kind", "in", NON_ACTIONABLE_APP_NOTIFICATION_KIND_FILTER)
     .is("read_at", null)
     .is("dismissed_at", null);
   if (error) return { ok: false, error: error.message };

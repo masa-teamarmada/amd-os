@@ -18,7 +18,6 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { oneRelation, projectDisplayName } from "@/lib/project-labels";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -43,11 +42,12 @@ export async function GET(req: NextRequest) {
 
   const { data: ventures, error: vErr } = await db
     .from("project_ventures")
-    .select("project_id, founded_at, outcome_pattern, amd_support_started_at, amd_support_ended_at, origin_org, origin_pi, lane, projects(project_name, client_name)");
+    .select("project_id, display_name, founded_at, outcome_pattern, amd_support_started_at, amd_support_ended_at, origin_org, origin_pi, lane");
   if (vErr) return NextResponse.json({ ok: false, error: vErr.message }, { status: 500 });
 
   type V = {
     project_id: string;
+    display_name: string | null;
     founded_at: string | null;
     outcome_pattern: string | null;
     amd_support_started_at: string | null;
@@ -55,7 +55,6 @@ export async function GET(req: NextRequest) {
     origin_org: string | null;
     origin_pi: string | null;
     lane: string | null;
-    projects?: { project_name?: string | null; client_name?: string | null } | { project_name?: string | null; client_name?: string | null }[] | null;
   };
   const list = (ventures ?? []) as V[];
   let totalSynced = 0;
@@ -81,12 +80,7 @@ export async function GET(req: NextRequest) {
         status: "active",
       });
     };
-    const project = oneRelation(v.projects);
-    push("PJ 表示名", projectDisplayName({
-      project_id: v.project_id,
-      project_name: project?.project_name ?? null,
-      client_name: project?.client_name ?? null,
-    }));
+    push("PJ 表示名", v.display_name);
     push("起源組織", v.origin_org);
     push("PI / 研究者", v.origin_pi);
     push("レーン", v.lane);

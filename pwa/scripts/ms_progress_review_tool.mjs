@@ -25,7 +25,6 @@ loadEnv(path.join(ROOT, ".env.local"));
 loadEnv(path.join(ROOT, ".env.production.local"));
 const DEFAULT_MAX_SNAPSHOT_AGE_HOURS = positiveNumber(process.env.AMD_OS_MAX_SNAPSHOT_AGE_HOURS, 48);
 const DEFAULT_REQUEST_TIMEOUT_MS = positiveNumber(process.env.AMD_OS_HELPER_TIMEOUT_MS, 15000);
-const CONNECTOR_AUTH_DEDUPE_HOURS = positiveNumber(process.env.AMD_OS_CONNECTOR_AUTH_DEDUPE_HOURS, 24);
 
 const SUPABASE_URL = env("NEXT_PUBLIC_SUPABASE_URL");
 const SERVICE_KEY = env("SUPABASE_SERVICE_ROLE_KEY");
@@ -155,17 +154,6 @@ function inList(values) {
 
 const projectCategoryCache = new Map();
 const SCORE_L2_NOTIFICATION_KINDS = new Set(["xrl_evidence", "founding_members"]);
-const CONNECTOR_AUTH_RE = /(oauth_token_invalid_grant|trigger_reauthentication|reauthentication_required|reauth_required|再認証|認証切れ|認証の有効期限切れ)/i;
-const CONNECTOR_DEFAULTS = {
-  notion: {
-    labelJa: "ノーション",
-    connector_id: "asdk_app_69c18c28f1188191bf5b8445c4ab0a2e",
-    link_id: "link_69ee427bb90481919a44fb327ae7ed75",
-    app_url: "app://asdk_app_69c18c28f1188191bf5b8445c4ab0a2e",
-    install_url: "https://chatgpt.com/apps/notion/asdk_app_69c18c28f1188191bf5b8445c4ab0a2e",
-    resource_uri: "/asdk_app_69c18c28f1188191bf5b8445c4ab0a2e/link_69ee427bb90481919a44fb327ae7ed75/notion-create-view",
-  },
-};
 
 // PWA の通知採否ループ (src/app/api/notifications/feedback/route.ts の allowedKinds) が
 // 受け付ける l2_kind の正本リスト。ここに無い l2_kind を l2_notifications へ書くと、
@@ -998,26 +986,6 @@ async function notify(file) {
   // project_config_gap (= 台帳/抽出経路の欠落) に矯正する。元の野良 kind は metadata に痕跡として残す。
   let l2Kind = rawL2Kind;
   let metadataJson = payload.metadata_json || payload.metadata || {};
-  if (shouldRouteToConnectorAuth(payload, l2Kind, metadataJson)) {
-    try {
-      const routed = await upsertConnectorAuthNotification(payload, metadataJson);
-      return {
-        ok: true,
-        skipped: true,
-        reason: "connector_auth_routed_out_of_l2_review_queue",
-        connector: routed.connector,
-        appNotification: routed,
-      };
-    } catch (error) {
-      console.warn(`[notify] connector auth notification failed; suppressing non-actionable L2 notification: ${error?.message || error}`);
-      return {
-        ok: true,
-        skipped: true,
-        reason: "connector_auth_l2_suppressed_app_notification_failed",
-        error: error?.message || String(error),
-      };
-    }
-  }
   if (!PWA_FEEDBACK_L2_KINDS.has(l2Kind)) {
     console.warn(`[notify] PWA 非対応の l2_kind "${rawL2Kind}" を project_config_gap に矯正 (target=${payload.target_id}, scope=${payload.scope_key})`);
     l2Kind = "project_config_gap";
@@ -1042,111 +1010,6 @@ async function notify(file) {
     },
   });
   return { ok: true, written: written?.[0] || null };
-}
-
-function shouldRouteToConnectorAuth(payload, l2Kind, metadataJson) {
-  if (!["raw_data_gap", "project_config_gap"].includes(String(l2Kind || ""))) return false;
-  const connector = normalizeConnector(metadataJson.connector || metadataJson.missing_connector?.connector || payload.connector);
-  if (!connector || !CONNECTOR_DEFAULTS[connector]) return false;
-  const text = [
-    payload.title,
-    payload.summary,
-    payload.target_id,
-    payload.scope_key,
-    metadataJson.reason,
-    metadataJson.review_note,
-    metadataJson.missing_connector?.reason,
-  ].filter(Boolean).join("\n");
-  return CONNECTOR_AUTH_RE.test(text);
-}
-
-function normalizeConnector(value) {
-  const text = String(value || "").trim().toLowerCase();
-  if (!text) return "";
-  if (text.includes("notion") || text.includes("ノーション")) return "notion";
-  if (text.includes("gmail") || text.includes("mail") || text.includes("メール")) return "gmail";
-  if (text.includes("drive") || text.includes("ドライブ")) return "drive";
-  if (text.includes("calendar") || text.includes("カレンダー")) return "calendar";
-  if (text.includes("slack") || text.includes("スラック")) return "slack";
-  return text;
-}
-
-async function upsertConnectorAuthNotification(payload, metadataJson = {}) {
-  const connector = normalizeConnector(metadataJson.connector || metadataJson.missing_connector?.connector || payload.connector);
-  const defaults = CONNECTOR_DEFAULTS[connector] || {};
-  const now = new Date().toISOString();
-  const source = String(metadataJson.source || metadataJson.automation || payload.source || "monthly_report_extract").slice(0, 120);
-  const reason = String(metadataJson.reason || metadataJson.missing_connector?.reason || "reauth_required").slice(0, 240);
-  const context = String(metadataJson.context || payload.scope_key || payload.target_id || "").slice(0, 240);
-  const labelJa = defaults.labelJa || connector;
-  const reauthUrl = defaults.install_url || defaults.app_url || "";
-  const row = {
-    kind: "connector_auth",
-    title: `再認証が必要: ${labelJa}`.slice(0, 180),
-    body: buildConnectorAuthBody({ labelJa, reason, context, reauthUrl }),
-    link: "/notifications",
-    source,
-    native_notified_at: null,
-    meta: {
-      connector,
-      connector_id: defaults.connector_id || null,
-      link_id: defaults.link_id || null,
-      reason,
-      context: context || null,
-      source_l2_kind: payload.l2_kind || null,
-      source_target_id: payload.target_id || null,
-      source_scope_key: payload.scope_key || null,
-      reauth_url: reauthUrl || null,
-      reauth_app_url: defaults.app_url || null,
-      reauth_install_url: defaults.install_url || null,
-      host_action: "TRIGGER_REAUTHENTICATION",
-      resource_uri: defaults.resource_uri || null,
-      fallback_continues: true,
-      detected_at: now,
-      dedupe_hours: CONNECTOR_AUTH_DEDUPE_HOURS,
-    },
-  };
-
-  const since = new Date(Date.now() - CONNECTOR_AUTH_DEDUPE_HOURS * 60 * 60 * 1000).toISOString();
-  const metaFilter = enc(JSON.stringify({ connector }));
-  const existing = await get(
-    "app_notifications",
-    `select=id,created_at,updated_at&kind=eq.connector_auth&source=eq.${enc(source)}&read_at=is.null&dismissed_at=is.null&created_at=gte.${enc(since)}&meta=cs.${metaFilter}&order=updated_at.desc&limit=1`,
-  );
-  if (existing?.length) {
-    const updated = await requestJson(rest("app_notifications", `id=eq.${enc(existing[0].id)}&select=id,created_at,updated_at`), {
-      method: "PATCH",
-      headers: restHeaders({ prefer: "return=representation" }),
-      body: { ...row, updated_at: now },
-    });
-    return { ok: true, action: "updated_existing", connector, notification_id: updated?.[0]?.id || existing[0].id };
-  }
-
-  const inserted = await requestJson(rest("app_notifications", "select=id,created_at"), {
-    method: "POST",
-    headers: restHeaders({ prefer: "return=representation" }),
-    body: row,
-  });
-  return { ok: true, action: "inserted", connector, notification_id: inserted?.[0]?.id || null };
-}
-
-function buildConnectorAuthBody({ labelJa, reason, context, reauthUrl }) {
-  const lines = [
-    `${labelJa}の接続が切れているみたい。抽出は他のソースと既存L2で続け、再認証はこの復旧通知に寄せるよ。`,
-    `理由: ${reasonLabelJa(reason)}`,
-  ];
-  if (context) lines.push(`対象: ${context}`);
-  lines.push(reauthUrl
-    ? "この通知の「再認証を開く」から復旧できる。復旧後は次回の抽出で読み直す。"
-    : "接続設定から該当サービスを再認証してね。");
-  return lines.join("\n");
-}
-
-function reasonLabelJa(reason) {
-  const text = String(reason || "");
-  if (/oauth_token_invalid_grant/i.test(text)) return "認証の有効期限切れ";
-  if (/trigger_reauthentication|reauthentication_required|reauth_required/i.test(text)) return "再認証が必要";
-  return text || "再認証が必要";
 }
 
 // 文字化けゲート: LLM (Codex automation) が outbox を書く際、日本語 (multibyte) が

@@ -356,12 +356,12 @@ export function AmdScoreView({
               result={result}
               alpha={alpha}
               editable={editable}
-              ventureName={venture.project_label}
+              ventureName={venture.display_name}
               latestXrlLog={latestXrlLog}
               atlasMacroSignals={atlasMacroSignals}
               tripleHelix={tripleHelix}
             />
-            <FrlAlqPanel editable={editable} effectiveFrl={effectiveFrl} ventureName={venture.project_label} />
+            <FrlAlqPanel editable={editable} effectiveFrl={effectiveFrl} ventureName={venture.display_name} />
           </section>
           <details className="rounded-xl border border-slate-200 bg-white shadow-sm">
             <summary className="cursor-pointer list-none px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">
@@ -408,7 +408,7 @@ export function AmdScoreView({
           >
             ↩ コックピット
           </Link>
-          <h1 className="ml-2 text-2xl font-bold tracking-tight text-slate-900">{venture.project_label}</h1>
+          <h1 className="ml-2 text-2xl font-bold tracking-tight text-slate-900">{venture.display_name}</h1>
           <span className="text-xs font-semibold tracking-wide text-slate-500">PRS primary / legacy AMD</span>
           <Link
             href="/venture-map/amd-score/retrofit"
@@ -463,12 +463,12 @@ export function AmdScoreView({
           result={result}
           alpha={alpha}
           editable={editable}
-          ventureName={venture.project_label}
+          ventureName={venture.display_name}
           latestXrlLog={latestXrlLog}
           atlasMacroSignals={atlasMacroSignals}
           tripleHelix={tripleHelix}
         />
-        <FrlAlqPanel editable={editable} effectiveFrl={effectiveFrl} ventureName={venture.project_label} />
+        <FrlAlqPanel editable={editable} effectiveFrl={effectiveFrl} ventureName={venture.display_name} />
         <XrlChecklistPanel
           projectId={venture.project_id}
           latestInput={latest}

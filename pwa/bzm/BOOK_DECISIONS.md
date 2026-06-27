@@ -293,7 +293,7 @@
 
 ### D-034: 機関匿名化方針の暫定運用 (supersedes D-011 匿名化部分)
 - **judgment**: P-001 解決まで全 7 機関を type 名のみで通す。L1 §8 機関ケース割当て表でも実機関名 (NIMS / KUTE / 愛媛 / 香川 / 京大 / 山口大 / 東京科学大) を露出せず、type 名 (Research-Org-Type / Private-Engineering-Univ-Type / Regional-National-Univ-Type 群 / Integrated-Large-Univ-Type / International-TTO-Type) のみで言及。実機関名は L2 ledger (本ファイル) と内部メモのみで保持。P-001 解決時に再 supersede 予定
-- **rationale**: DSGE persona: semi-state な匿名化は擁護不能、完全 identification か完全 typological のどちらかにコミット必要。append-only ルール下で「暫定 active」状態を明示的に独立判決化。2026-06-27 まさ追認: 本書執筆全期間で type 名のみ運用、P-001 解決時に再判断する立場で確定
+- **rationale**: DSGE persona: semi-state な匿名化は擁護不能、完全 identification か完全 typological のどちらかにコミット必要。append-only ルール下で「暫定 active」状態を明示的に独立判決化
 - **applies_to_chapters**: Ch 0.0, Ch 20-24, L1 §8
 - **date**: 2026-06-27
 - **status**: active
@@ -369,34 +369,6 @@
 - **date**: 2026-06-27
 - **status**: pending
 - *注: P-009 で確定後、D-001 を supersede する*
-
-### D-045: σ_SU MS-SSM の regime 数 K=3 を Ch 5 で pre-commit + Ch 11 で K∈{2,3,4} horse-race
-- **judgment**: Ch 5.3 σ_SU MS-SSM の regime 数を K=3 (S₀ 沈静 / S₁ 中位 / S₂ 三位一体追い風) として Ch 5 で pre-commit。Ch 11 BVAR 推定で K∈{2,3,4} horse-race を AIC / BIC / log-marginal-likelihood で比較。反証可能仮説 F-5.1 として Ch 26b 予測登録簿に事前登録
-- **rationale**: K=2 では CX 三位一体 (S₂) と CX 前 (S₁) と YD (S₀) の 3 状態 narrative が分離できず §5.0 章頭フックと §5.6 装置適用が弱まる。K≥4 は識別困難。Ch 5 Kingpin 1 として擦り合わせ確定
-- **applies_to_chapters**: Ch 5.3, Ch 5.4, Ch 5.6, Ch 11, Ch 26b
-- **date**: 2026-06-27
-- **status**: active
-
-### D-046: Cobb-Douglas weight ω を Ch 11 で IV 推定、baseline (1/3,1/3,1/3) は観測等価類の中心として残置
-- **judgment**: σ_SU CD の重み ω = (ω_A, ω_I, ω_G), Σω_x=1 を Ch 11 で IV 推定 (政策ショック G への先行効果 / A,I への lag 効果を外生変動として使う)。baseline (1/3,1/3,1/3) は現行 amd_score.md と整合する「観測等価類の中心」として §5.2 で参照、棄却・採択は Ch 11 で実施。領域依存性 (CX/YD/VSX で異なる ω) は反証可能仮説 F-5.5 として Ch 26b に事前登録
-- **rationale**: Triple Helix 文献への BZM の貢献 (CD theoretical justification + SIP CE2023 institutional grounding) の頑健性は ω の external validity に依存。baseline 固定では Park-Leydesdorff (2010) との差別化が弱い。Ch 5 Kingpin 2 として擦り合わせ確定
-- **applies_to_chapters**: Ch 5.2, Ch 5.7, Ch 11, Ch 26b
-- **date**: 2026-06-27
-- **status**: active
-
-### D-047: Book II load-bearing 章の証明深さ = スケッチ本文 + 完全証明付録 A
-- **judgment**: Ch 5 (§5.1 cross-walk 三定理 / §5.2 識別補題 / §5.3 MS-SSM 命題 / §5.4 命題 5.5) および Book II load-bearing 章 (Ch 5.5 GO 演算子 / Ch 7 F-CES / Ch 9 ERS 加重和 / Ch 10.3 ρ Kmenta / Ch 10.4 Theorem 3 / Ch 10.5-10.8 など) の証明は本文ではスケッチ (5-10 行)、完全証明は付録 A 数学補遺に逃がす。§5.1 冒頭で本方針を pre-commit
-- **rationale**: 28p heavy 数学の頁配分上、全証明本文は §5.6 装置適用 demonstration を圧迫し、Triple Helix 文献への貢献 3 点 (§5.7) も短縮を余儀なくされる。Cambridge UP モノグラフの慣例的方針 (証明スケッチ + 詳細付録) とも整合。Ch 5 Kingpin 3 として擦り合わせ確定
-- **applies_to_chapters**: Ch 5, Ch 5.5, Ch 7, Ch 9, Ch 10.3, Ch 10.4, Ch 10.5, Ch 10.6, Ch 10.7, Ch 10.8, 付録 A
-- **date**: 2026-06-27
-- **status**: active
-
-### D-048: Nelson-Winter 選抜環境節を §5.0 末尾 + §5.3 冒頭で 1p 弱に圧縮、本格展開は Book 0 Ch 0.3 へ逆流
-- **judgment**: Ch 5 内で Nelson-Winter (1982) 選抜環境を σ_SU の意味論的母体として位置付ける議論は §5.0 末尾 + §5.3 冒頭で 1p 弱 (3-4 段落) に圧縮。Schumpeter → Nelson-Winter → Dosi → Malerba 系譜整理は本格展開を Book 0 Ch 0.3 (進化経済系譜の意味論的母体) へ逆流させ、Ch 5 では参照のみ
-- **rationale**: Ch 5 28p heavy 数学の頁配分上、独立節 3p 確保は §5.6 装置適用を圧迫。Evolutionary persona への意味論的 supply は最小限で十分、本格展開は本書序章で先行宣言する方が論理弧が clean。Ch 5 Kingpin 8 として擦り合わせ確定
-- **applies_to_chapters**: Ch 5.0, Ch 5.3, Book 0 Ch 0.3
-- **date**: 2026-06-27
-- **status**: active
 
 ---
 

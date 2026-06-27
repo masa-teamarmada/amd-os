@@ -11,13 +11,12 @@ import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/supabase/api-auth";
-import { oneRelation, projectDisplayName } from "@/lib/project-labels";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 interface VentureRow {
-  project_label: string;
+  display_name: string;
   lane: string;
   founded_at: string | null;
   outcome_pattern: string;
@@ -62,7 +61,7 @@ export async function POST(
   const [{ data: venture }, { data: log }, { data: events }, { data: members }] = await Promise.all([
     supabase
       .from("project_ventures")
-      .select("project_id, lane, founded_at, outcome_pattern, short_description, long_description, projects(project_name, client_name)")
+      .select("display_name, lane, founded_at, outcome_pattern, short_description, long_description")
       .eq("project_id", projectId)
       .maybeSingle(),
     supabase
@@ -82,18 +81,10 @@ export async function POST(
   ]);
 
   if (!venture || !log) return NextResponse.json({ error: "not found" }, { status: 404 });
-  const project = oneRelation((venture as { projects?: { project_name?: string | null; client_name?: string | null } | { project_name?: string | null; client_name?: string | null }[] | null }).projects);
-  const v = {
-    ...(venture as Omit<VentureRow, "project_label">),
-    project_label: projectDisplayName({
-      project_id: projectId,
-      project_name: project?.project_name ?? null,
-      client_name: project?.client_name ?? null,
-    }),
-  };
+  const v = venture as VentureRow;
   const x = log as XrlLogRow;
 
-  const prompt = `AMD のディープテック PJ「${v.project_label}」の XRL 観測 (${x.observed_at}) について、
+  const prompt = `AMD のディープテック PJ「${v.display_name}」の XRL 観測 (${x.observed_at}) について、
 まさからのフィードバックを反映して再評価してください。
 ${targetAxis ? `フィードバックの主対象軸: ${targetAxis}` : ""}
 

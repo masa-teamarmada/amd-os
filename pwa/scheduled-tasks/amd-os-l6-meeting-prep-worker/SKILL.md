@@ -1,6 +1,6 @@
 ---
 name: amd-os-l6-meeting-prep-worker
-description: AMD OS H-1 MTG Prep Worker prompt (= H-1 内 Phase P が `codex exec` で spawn する新規 session の中で読まれる prompt)。1 MTG = 1 session = 1 worker。文脈ロード→着地点draft→Notion AI Meeting Notes事前コンテキスト注入→Drive資料draft→Notion議事録draft→readiness 計算→`project_meeting_summaries` の prep_* 列 upsert を完遂し、まさが codex desktop で session に入ってきたら対話継続できる状態で待機する。cron では走らない (= H-1 自身が cron、worker は H-1 から spawn される)。
+description: AMD OS H-1 MTG Prep Worker prompt (= H-1 内 Phase P が `codex exec` で spawn する新規 session の中で読まれる prompt)。1 MTG = 1 session = 1 worker。文脈ロード→着地点draft→Drive資料draft→Notion議事録draft→readiness 計算→`project_meeting_summaries` の prep_* 列 upsert を完遂し、まさが codex desktop で session に入ってきたら対話継続できる状態で待機する。cron では走らない (= H-1 自身が cron、worker は H-1 から spawn される)。
 ---
 
 # AMD OS H-1 MTG Prep Worker
@@ -12,7 +12,7 @@ description: AMD OS H-1 MTG Prep Worker prompt (= H-1 内 Phase P が `codex exe
 - **1 MTG = 1 専属 session**。複数 MTG をまとめた俯瞰 session は作らない (= context 汚染回避)。
 - **過去同類 MTG の議事録全 read を前提**。着地点は「過去の流れを踏まえて」推定する。
 - **session 終了しない**。Phase 1-10 完遂後も codex session は idle で待機。まさが codex desktop で SESSION_ID から開いてきたら、`prep_draft_md` を文脈に対話継続。
-- **draft は draft 置き場にしか書かない**: Drive は `PJfolder/YYMMDD_MTG名_prep/`、Notion は原則 draft ページ、Calendar の本 event は書き換えない。ただし **会議前に Notion が自動生成した AI Meeting Notes ページ** は、本番の議事録精度を上げるため、marker 付きの短い事前コンテキストだけ限定追記してよい。summary / transcript / 開催後議事録本文は触らない。
+- **draft は draft 置き場にしか書かない**: Drive は `PJfolder/YYMMDD_MTG名_prep/`、Notion は新規 draft ページ (本ページではない)、Calendar の本 event は書き換えない。
 - **claude code は使わない** (= まさ確定で codex 一本化)。
 - **定額外トークン課金経路を使わない** (= worker は codex session 内で動くため自動的にサブスク枠)。
 
@@ -38,7 +38,7 @@ Phase 1: env と対象 MTG の読み込み
 ═══════════════════════════════════════════════════
 
 1. cwd を `/Users/masa/projects/AMD/amd-os` に固定
-2. `pwa/.env.local` から `NEXT_PUBLIC_SUPABASE_URL` (= REST base) / `SUPABASE_SERVICE_ROLE_KEY` をロード。`SUPABASE_URL` という名前だけを見に行かない
+2. `pwa/.env.local` から SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY をロード
 3. `prep_worker_status='preparing'` に upsert (= UI 側の chip が「準備中」になる)
 4. 対象 MTG を読み込み:
    ```
@@ -84,7 +84,7 @@ Phase 3: PJ 全体文脈の read
 - 直近の `project_meeting_summaries` (source_kinds='dialogue', = まさえいMTG)
 
 ═══════════════════════════════════════════════════
-Phase 4: 外部 source / Notion AI Meeting Notes ページの read
+Phase 4: 外部 source の read
 ═══════════════════════════════════════════════════
 
 並列で (= codex に組み込みの Calendar / Notion / Gmail / Drive MCP 経由):
@@ -92,24 +92,6 @@ Phase 4: 外部 source / Notion AI Meeting Notes ページの read
 - Notion: 既存 `notion_page_id` があれば本文 read。無ければ skip
 - Gmail: `projects.report_emails` 配下の直近30日 thread。相手側メールのやり取り抜き出し
 - Drive: PJ folder 直下 + 直近 modified 上位10件のファイル metadata
-
-Notion は追加で、**会議前の AI Meeting Notes ページ候補**を探す:
-
-1. `notion_page_id` / `notion_url` がある場合はその page を fetch し、本文に `<meeting-notes` が含まれるかを見る。
-2. 無い場合は Notion search で次のキーを順に試す:
-   - `"{MTG title}" "{YYYY-MM-DD}"`
-   - `"{MTG title}" "AI Meeting Notes"`
-   - `"{Calendar attendee name/email local}" "{YYYY-MM-DD}"` (= title が薄い時だけ)
-3. Search で直撃しない場合は、直近の既存 AI Meeting Notes page から親 data source を fetch し、`議事録` data source を query する。2026-06-26 実地確認では `eventId` / `sourceAiPageId` / `名前` / `日付` / `最終更新日時` を持つ `議事録` data source が読めるが、会議直後/AI生成直後の row は `日付` が空のことがある。日付 query だけに依存せず、`名前` + `最終更新日時` + fetch本文の `<meeting-notes>` / mention-date で照合する
-4. 候補 page を fetch し、以下を満たすものだけ `notion_ai_meeting_note` として扱う:
-   - 本文に `<meeting-notes` がある
-   - title / mention-date / ancestor / attendees のいずれかが Calendar event と矛盾しない
-   - `meeting_start_at > now()` (= 会議前)。transcript / summary が既に入っている開催後 page は事前注入対象にしない
-5. 見つかった場合:
-   - `project_meeting_summaries.notion_page_id` / `notion_url` が空なら、その page id / url を後続 Phase 9 で保存する
-   - `prep_notion_page_id` には同じ page id を保存してよい (= worker が扱った Notion prep target)
-6. 見つからない場合:
-   - blocker にしない。Phase 5.5 は `notion_ai_note_not_found` として skip し、`prep_draft_md` 内に貼り付け用文面を残す
 
 ═══════════════════════════════════════════════════
 Phase 5: 着地点 / 想定質問 / 持参物 draft 生成
@@ -138,9 +120,6 @@ Phase 5: 着地点 / 想定質問 / 持参物 draft 生成
 ## ⚠️ 留意点
 {過去の議事録から「次回気をつけるべき」と書かれた残課題、相手側の機嫌・関係性の留意、過去 missed deadline 等}
 
-## 🧠 AI Meeting Notes用コンテキスト
-{Phase 5.5 で Notion に入れる短い文脈ブロック。見つからない場合も、まさが手動で貼れるよう残す}
-
 ## 🗂 参照済みソース
 - 過去同シリーズ {N}件: {meeting_date list}
 - 関連 monthly_reports: {ym list}
@@ -154,53 +133,6 @@ Phase 5: 着地点 / 想定質問 / 持参物 draft 生成
 - 「決定済み」と推定で書かない (= 過去の `decided` に無いものは『推定』『提案』として書く)
 - 相手側の言い分・温度感は Gmail thread と過去議事録から読み取れる範囲だけで
 - 持参物は実際に存在する Drive ファイルだけを link する。架空の資料を書かない
-
-═══════════════════════════════════════════════════
-Phase 5.5: Notion AI Meeting Notes 事前コンテキスト注入
-═══════════════════════════════════════════════════
-
-目的は、Notion 側の AI Meeting Notes が会議中/会議後に summary を作る前に、PJ 固有名詞・略称・論点を短く渡して、文字起こし/要約の表記揺れを減らすこと。
-
-### A) context block を作る
-
-`notion_ai_context_md` を生成する。長さは **最大 1200 字 or 40 行**。raw Gmail / raw Notion / raw Slack / raw Drive 本文を貼らない。source refs も不要。
-
-```md
-## AI Meeting Notes用コンテキスト
-`amd-os:notion-ai-context:{meeting_id}:{context_digest}`
-
-### 固有名詞
-- {正式表記}: {別表記 / 読み間違い候補 / 1行文脈}
-
-### 今日の会議で拾ってほしい論点
-- {決定/未決定を分けて拾うべき論点}
-
-### 迷った時のルール
-- 固有名詞辞書と会議文脈に明確に合う時だけ正式表記に寄せる
-- 不確かな表記は勝手に断定せず「要確認: ...」として残す
-```
-
-材料:
-- `projects.project_name` / `client_name` / `project_id`
-- `project_knowledge(status='active')` の `category in ('people','org','tech','term','competitor','partner','funding','strategy','ip','market','basic_fact')`
-- `project_founding_members` の active / current な人物・所属・役割
-- `project_members` + `members.code_name` / `members.member_name` / email local
-- 過去同シリーズ MTG の `narrative_md` / `decided` / `next_actions` から繰り返し出る固有名詞
-- Calendar title / attendees / description に出る固有名詞
-
-### B) Notion page に限定追記する
-
-`notion_ai_meeting_note` が見つかった場合だけ実行する。
-
-1. page fetch 結果に `amd-os:notion-ai-context:{meeting_id}:` が既にある場合は何もしない (= 二重書き防止)
-2. 無い場合、Notion update は **insert only**:
-   - 第一候補: AI Meeting Notes page の notes 欄に追記できる tool/API があるなら notes 欄の先頭
-   - fallback: page 本文の先頭に `insert_content` で追記
-3. `replace_content` は使わない。`<meeting-notes>` block、`<summary>`、`<transcript>` を置換しない。
-4. 追記後に page を fetch して marker が見えることだけ確認する。長い本文や transcript を run summary / DB / docs に出さない。
-5. 書き込みに失敗しても `prep_worker_status='failed'` にしない。`prep_readiness_reasons.notion_ai_context.status='write_failed'` として続行する。
-
-`notion_ai_context_md` は `prep_draft_md` にも残す。Notion が見つからない/書けない時でも、まさが会議前に手動で貼れるようにするため。
 
 ═══════════════════════════════════════════════════
 Phase 6: Drive 資料 draft 生成
@@ -219,25 +151,18 @@ Phase 6: Drive 資料 draft 生成
 - 前提データが足りない (= 過去 narrative も Gmail も Drive も薄い) のに「それっぽい」draft を作らない
 
 ═══════════════════════════════════════════════════
-Phase 7: Notion 議事録ページ draft 作成 / AI Meeting Notes target の保存
+Phase 7: Notion 議事録ページ draft 作成
 ═══════════════════════════════════════════════════
 
-1. Phase 4 で `notion_ai_meeting_note` が見つかった場合:
-   - 新規 Notion page は作らない
-   - `prep_notion_page_id` にはその page id を保存する
-   - `project_meeting_summaries.notion_url` / `notion_page_id` が空なら、その page URL / id を保存する
-   - 既に Phase 5.5 で context marker が入っていれば、これを Notion prep 完了と扱う
-2. 既存 `notion_page_id` があるが `<meeting-notes>` ではない場合:
-   - 既存ページ本文は書き換えない
-   - `prep_draft_md` に Notion AI context を残し、readiness reason に `notion_existing_non_ai_page` を入れる
-3. 既存が無い場合のみ:
+1. 既存 `notion_page_id` がある場合は skip (= 既存ページを書き換えない)
+2. 既存が無い場合のみ:
    - Notion 議事録 DB に新規ページを作成
    - title = MTG タイトル
    - eventId = calendar_event_id
    - body = Phase 5 で生成した `prep_draft_md` をアジェンダ草案として貼り付け
    - 冒頭に `## 📋 準備情報 (worker draft, {生成時刻})` toggle を入れる
-4. 作成した page ID を `prep_notion_page_id` に保存
-5. PWA の cockpit が `notion_url` 未連携 MTGでこの prep notion page を表示できるよう、`project_meeting_summaries.notion_url` も併せて upsert (= ただし既存 `notion_url` がある場合は上書きしない)
+3. 作成した page ID を `prep_notion_page_id` に保存
+4. PWA の cockpit が `notion_url` 未連携 MTG でこの prep notion page を表示できるよう、`project_meeting_summaries.notion_url` も併せて upsert (= ただし既存 `notion_url` がある場合は上書きしない)
 
 ═══════════════════════════════════════════════════
 Phase 8: Readiness Score 計算
@@ -253,7 +178,7 @@ Phase 8: Readiness Score 計算
 | 相手側コンテキスト | 15 | 直近30日 Gmail 往復 + 関連 Notion ページの合計件数。3↑で 15、1-2 で 8、0 で 0 |
 | アサイン明確 | 10 | `project_meeting_summaries.facilitator_member_id` (この MTG 行) が NOT NULL かつ対応 `members.email` が Calendar attendees に含まれていれば 10、片方欠けで 5、両方欠けで 0。`projects.facilitator_member_id` 列は存在しないので参照しない (2026-06-24 確認) |
 
-合計 = `prep_readiness_score`。内訳を `prep_readiness_reasons` jsonb に保存。`prep_readiness_reasons.notion_ai_context` には `status` (`injected` / `already_present` / `not_found` / `write_failed` / `skipped_after_meeting`) と page URL、context digest だけを残す。context 本文や transcript は入れない。
+合計 = `prep_readiness_score`。内訳を `prep_readiness_reasons` jsonb に保存。
 
 ═══════════════════════════════════════════════════
 Phase 9: DB upsert + status='ready' へ遷移
@@ -267,8 +192,6 @@ PATCH /rest/v1/project_meeting_summaries?meeting_id=eq.{meeting_id}
   "prep_draft_md": "...",
   "prep_drive_asset_id": "...",
   "prep_notion_page_id": "...",
-  "notion_url": "<only if existing value was null and target page found/created>",
-  "notion_page_id": "<only if existing value was null and target page found/created>",
   "prep_worker_status": "ready",
   "prep_worker_ready_at": "{now ISO}"
 }
@@ -292,8 +215,6 @@ Phase 10: session を待機状態で保持
 | `meeting_id` not found | `prep_worker_status='failed'` upsert + run summary に `reason='meeting_not_found'` |
 | `projects.status NOT IN ('active','sales')` | `prep_worker_status='failed'` upsert + `reason='project_not_active'` |
 | 過去同シリーズ 0件 (= 完全初回 MTG) | 続行。Phase 2 は skip、Phase 5 で「過去同類MTG無し、相手側 Gmail と PJ context のみから推定」と明記 |
-| Notion AI Meeting Notes ページが見つからない | 続行。`prep_draft_md` に貼り付け用 context を残し、`prep_readiness_reasons.notion_ai_context.status='not_found'` |
-| Notion AI Meeting Notes への context 追記失敗 | 続行。`write_failed` と理由だけ保存し、既存 page / transcript を壊さない |
 | Drive 書き込み失敗 | `prep_drive_asset_id=null` のまま続行、Phase 5 の「持参物」に「Drive 書き込み失敗、手動で資料作成必要」 |
 | Notion 作成失敗 | `prep_notion_page_id=null` のまま続行、`prep_readiness_reasons.agenda.note` に「Notion未連携」 |
 | MCP 呼び失敗 | リトライ 1回、再失敗で `prep_worker_status='failed'` + `reason='mcp_error:<which>'` |
@@ -302,8 +223,7 @@ Phase 10: session を待機状態で保持
 
 - 本 MTG の `narrative_md` / `decided` / `progress` / `next_actions` / `risks` (= H-1 抽出 routine の責務) を書き換えない
 - 本資料フォルダに書き込まない (= `_prep/` 専用)
-- 既存 Notion ページを丸ごと書き換えない。例外は、会議開始前の AI Meeting Notes page に `amd-os:notion-ai-context:{meeting_id}:...` marker 付き context block を insert-only で入れる場合だけ
-- AI Meeting Notes の `<summary>` / `<transcript>` / 開催後議事録本文を置換・削除・要約し直さない
+- 既存 Notion ページを書き換えない
 - Calendar event の description / attendees を変更しない
 - Gmail を本送信しない (= 既存 H-1 と同じ、worker は Gmail draft 含めて書き出さない)
 - まさへ直接 nudge しない (= nudge は H-1 Phase P の末尾で deterministic に Slack DM 送信される)
