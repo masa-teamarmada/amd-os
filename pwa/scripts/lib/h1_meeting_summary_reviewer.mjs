@@ -164,7 +164,7 @@ export function reviewMeetingSummary(meeting) {
     source_ref: meeting.notion_page_id ?? meeting.notionPageId ?? meeting.notion_url ?? meeting.notionUrl ?? meetingId,
     source_hash: `h1-review:${sourceHash}`,
     title: inferTitle(meeting, presentGroups, missingGroups),
-    summary: `raw transcriptには ${presentLabel} が出ているが、H-1保存結果では ${missingLabel} が薄い/欠落している可能性がある。raw再読込とD-6経営ハイライト候補化を確認する。`,
+    summary: `raw transcriptには ${presentLabel} が出ているが、H-1保存結果では ${missingLabel} が薄い/欠落している可能性がある。通知の承認でD-6経営ハイライトへ反映する。追加のraw再確認が必要な場合はH-1 reviewer/fallback側で扱う。`,
     salience_score: Number(salienceScore.toFixed(2)),
     matched_patterns: {
       reviewer: "h1_meeting_summary_reviewer",

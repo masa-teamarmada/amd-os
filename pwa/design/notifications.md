@@ -213,7 +213,7 @@ D-5 OS台帳差分と M-2 XRL根拠は、全文保存ではなく「OSへ入れ�
 
 `raw_data_gap` は例外。これは「はいを押せばOSに現物が入る候補」ではなく、raw source は見つかったが L2 化先・backfill 経路・helper/UI 対応が未確定であることを示す運用通知。反映可能な候補を作れる場合は `raw_data_gap` を主成果にせず、`project_registry_diff` / `xrl_evidence` / `ms_progress` revision / `meeting_summary` など、押した後のDB反映先が明確な kind に寄せる。
 
-`coverage_gap` は「あとで人間が本来の入れ先へ手当てする」通知にしない。安全に反映先が分かる場合は、「はい」と同時に下流テーブルへ自動ルートする。2026-06-27 時点の実装は `proposed_target_l2='strategy_signal'` を D-6 経営ハイライトへ昇格する。H-1 reviewer 由来の gap は `status='confirmed'` / `decision_state='observed'` の `project_strategy_signals` を作り、会社として正式決定済みとは扱わない。
+`coverage_gap` は「あとで人間が本来の入れ先へ手当てする」通知にしない。安全に反映先が分かる場合は、「はい」と同時に下流テーブルへ自動ルートする。2026-06-27 時点の実装は `proposed_target_l2='strategy_signal'` を D-6 経営ハイライトへ昇格する。H-1 reviewer 由来の gap は `status='confirmed'` / `decision_state='observed'` の `project_strategy_signals` を作り、会社として正式決定済みとは扱わない。通知の採否APIは raw source の再取得を担当しない。raw再確認が必要な場合は H-1 reviewer / source fallback 側で再実行する。
 
 ### POST API
 [pwa/src/app/api/notifications/feedback/route.ts](../src/app/api/notifications/feedback/route.ts)
