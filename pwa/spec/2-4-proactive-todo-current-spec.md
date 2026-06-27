@@ -148,6 +148,7 @@ admin (= `members.is_admin = true`) と `service_role` のみ ALL。anon SELECT 
 - 並び順: priority asc, due_at asc (= 期限切迫順)
 - 行: 期限chip + 検知種別chip + ボール種別chip + PJ名 + title
 - 展開: クリックで detail + メタ情報 + 3 ボタン
+- AMD メンバー名表示: title / detail / resolved_by / resolved_note に active AMD メンバーの本名・姓+敬称 (`山地さん` など) が混ざった場合、表示時に `members.code_name` へ正規化し、`/mypage?memberId=<members.member_id>` へリンクする。raw の `proactive_todos` 本文は検証用に保持してよいが、OS UI では本名のまま出さない。
 - 3 ボタン:
   - ✅ **完了** → `status='done'`, `resolved_at=now()`
   - ⏸ **ブロック中** → `status='blocked'` + 任意1行メモ、3日後 cron が `open` 復帰

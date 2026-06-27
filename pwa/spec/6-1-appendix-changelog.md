@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-06-28 | 2-4 先手 TODO / SPEC_pwa | 修正 | `/proactive` の title / detail / 処理メモに AMD メンバーの本名・姓+敬称が混ざった場合、表示時に `members.code_name` へ正規化し、コードネームを `/mypage?memberId=<members.member_id>` へリンクする contract を追加。共通 `LinkedMemberText` も active members の `member_name` alias を code_name 表示へ寄せる | `山地さん` のような本名由来表記が先手 TODO に表示され、社内OSのコードネーム運用とマイページ導線ルールから外れていたため | えいみ |
 | 2026-06-28 | 2-4 先手 TODO | 修正 | H-1 next_actions の `名前さん:` / `名前先生:` 担当者prefixを、active AMDメンバー名 / code_name に一致しない限り counterpart として skip する contract に変更。既存 open TODO の非AMD担当者prefix混入分も dismissed で整理する運用を追記 | `杉浦さん: 工場見学を行う` のような相手側・SU側メンバーTODOが `ambiguous` として先手 TODO に混入し、AMD が動くべきTODOリストの信頼性を下げていたため | えいみ |
 | 2026-06-28 | 2-4 先手 TODO | 修正 | `/proactive` の3ボタン押下後はリスト全体を即時再読込せず、対象カードを約3.5秒「処理済み」表示してから現在タブの一覧から外す contract に変更。除去時は隣接カード位置を維持し、ページ最上部へ戻さない | まさが通知/先手TODOを連続処理するとき、1件リアクションするたびに画面が最上部へ戻り、どこを見ていたか分からなくなるため | えいみ |
 | 2026-06-27 | FEATURE_REGISTRY / SPEC_pwa / Admin Payouts | 修正 | `/admin/payouts` の通常同期差分バッジを非表示にし、`同期できない` だけを月初合意gate・本契約cap blocker の停止表示として残す contract へ変更 | 発行・送付時に自動同期する差分を押せないバッジとして見せると、運用者が手動操作を探してしまうため | えいみ |

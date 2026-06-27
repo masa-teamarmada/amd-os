@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type KeyboardEvent, type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Clock3, PauseCircle, Trash2, X, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
+import { LinkedMemberText } from "@/components/members/LinkedMemberText";
 import { createClient } from "@/lib/supabase/client";
 
 /**
@@ -307,6 +308,13 @@ export function ProactiveTodoBoard() {
             const busy = busyId === row.id;
             const transientStatus = recentlyResolved[row.id] ?? null;
             const transientWillLeave = transientStatus ? transientStatus !== tab : false;
+            const toggleExpanded = () => setExpandedId(expanded ? null : row.id);
+            const toggleExpandedFromKeyboard = (event: KeyboardEvent<HTMLDivElement>) => {
+              if (event.target instanceof HTMLElement && event.target.closest("a")) return;
+              if (event.key !== "Enter" && event.key !== " ") return;
+              event.preventDefault();
+              toggleExpanded();
+            };
             return (
               <li
                 key={row.id}
@@ -316,10 +324,12 @@ export function ProactiveTodoBoard() {
                   row.priority === "red" || due.overdue ? "border-red-200" : "border-border"
                 }`}
               >
-                <button
-                  type="button"
-                  onClick={() => setExpandedId(expanded ? null : row.id)}
-                  className="flex w-full items-start gap-2 px-3 py-2 text-left hover:bg-muted/20"
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={toggleExpanded}
+                  onKeyDown={toggleExpandedFromKeyboard}
+                  className="flex w-full cursor-pointer items-start gap-2 px-3 py-2 text-left hover:bg-muted/20 focus:outline-none focus:ring-2 focus:ring-primary/30"
                 >
                   <span
                     className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-semibold ${due.tone}`}
@@ -335,20 +345,24 @@ export function ProactiveTodoBoard() {
                   <span className="min-w-0 flex-1 text-sm text-foreground">
                     <span className="font-medium">{projectName}</span>
                     <span className="mx-1.5 text-muted-foreground">/</span>
-                    <span className="text-foreground/90">{row.title.replace(/^[a-z0-9]+\s/i, "")}</span>
+                    <LinkedMemberText
+                      text={row.title.replace(/^[a-z0-9]+\s/i, "")}
+                      className="text-foreground/90"
+                      stopPropagation
+                    />
                   </span>
                   {expanded ? (
                     <ChevronUp className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
                   ) : (
                     <ChevronDown className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
                   )}
-                </button>
+                </div>
 
                 {expanded ? (
                   <div className="space-y-3 border-t border-border bg-muted/5 px-3 py-3">
                     {row.detail ? (
                       <div className="rounded border border-border bg-background px-3 py-2 text-xs whitespace-pre-wrap leading-relaxed">
-                        {row.detail}
+                        <LinkedMemberText text={row.detail} />
                       </div>
                     ) : null}
 
@@ -366,10 +380,10 @@ export function ProactiveTodoBoard() {
                         <Meta label="元予定MTG" value={row.source_event_id} colSpan={2} />
                       ) : null}
                       {row.resolved_note ? (
-                        <Meta label="メモ" value={row.resolved_note} colSpan={2} />
+                        <Meta label="メモ" value={<LinkedMemberText text={row.resolved_note} />} colSpan={2} />
                       ) : null}
                       {row.resolved_by ? (
-                        <Meta label="処理者" value={row.resolved_by} colSpan={2} />
+                        <Meta label="処理者" value={<LinkedMemberText text={row.resolved_by} />} colSpan={2} />
                       ) : null}
                     </div>
 
@@ -478,7 +492,7 @@ function ResultIcon({ status }: { status: Status }) {
   return <CheckCircle2 className="h-3.5 w-3.5" />;
 }
 
-function Meta({ label, value, colSpan = 1 }: { label: string; value: string; colSpan?: 1 | 2 }) {
+function Meta({ label, value, colSpan = 1 }: { label: string; value: ReactNode; colSpan?: 1 | 2 }) {
   return (
     <div
       className={`rounded border border-border bg-background px-2 py-1.5 ${colSpan === 2 ? "col-span-2" : ""}`}

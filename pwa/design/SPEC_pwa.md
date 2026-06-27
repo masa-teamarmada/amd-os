@@ -128,7 +128,7 @@ pwa/
 | `/venture-map/amd-score/[projectId]` | AMD Score 個別 (PRS Primary / PRS history / legacy Triple Helix M-X-F / 軸クリックで Tsukuyomi) |
 | `/venture-map/amd-score/retrofit` | α 重み調整 + 全 PJ シミュレーション (タブバー非表示、詳細ページからリンク) |
 | `/management-score` | AMD Management Score (会社全体の経営状況スコア: 先手力 / 財務耐久 / 既存PJ継続 / 新規案件獲得 / 戦略接近度)。詳細は [`management_score.md`](management_score.md) |
-| `/admin/contracts` | 契約管理。admin左メニュー配下で契約予定枠、status、相手先、関連PJ、version history、押印版metadata、5生データ予兆dry-run、Slack nudge dry-runを扱う。実ファイル本体は `共有ドライブ/ARMADA/a3_backoffice/契約` に置き、DBにはDrive metadata/linkだけ保存する。詳細は [`/spec/5-6-contracts-management-current-spec`](/spec/5-6-contracts-management-current-spec) |
+| `/admin/contracts` | 契約管理。admin左メニュー配下の契約台帳で、初期表示は `registry_status IN ('accepted','candidate')` かつ cancelled 以外の「1行=1契約/契約ファミリー」だけを出す。MTG、議事録、テンプレート、Drive folder は契約行ではなく evidence として扱う。契約予定枠、status、相手先、関連PJ、締結/発効日、終了/更新日、version history、押印版metadata、5生データ予兆dry-run、Slack nudge dry-runを扱う。実ファイル本体は `共有ドライブ/ARMADA/a3_backoffice/契約` に置き、DBにはDrive metadata/linkだけ保存する。詳細は [`/spec/5-6-contracts-management-current-spec`](/spec/5-6-contracts-management-current-spec) |
 | `/venture-map/oscillator` | (実験) coupled oscillator 可視化 |
 | `/venture-map/state-space` | (実験) Triple Helix 状態空間 |
 | `/scholar` | 学術トレンド (μ_A 観測量 N) — lane × quarter の論文数 line chart + 前年同期比。OpenAlex 由来。詳細は [`amd_score.md`](amd_score.md) Triple Helix 観測モデル参照 |
@@ -348,6 +348,7 @@ pwa/
 - 目的は可読性と追跡性。青字リンクで目立たせ、誰の話かをその場で辿れるようにする。
 - `/mypage?memberId=...` はadmin閲覧用。他メンバーのマイページを一般ユーザーが閲覧する導線にはしない。
 - `member_id` は `members.member_id` の値をそのまま使う（例: `ID001`）。`001` のように `ID` prefix を削ったURLは無効。
+- 社内OSの自由文・通知・カード内で AMD メンバーの本名 / 姓+敬称 (例: `山地さん`) が混ざった場合も、active `members` の alias map で `code_name` に寄せてからリンクする。正式な対外提出物など、個別 spec が本名表示を明示している画面だけ例外。
 - 自由文の自動リンクは standalone mention のみ対象にする。`しかるべき` 内の `かる` や `こうして` 内の `こう` のように、長い日本語/英数字の語へ埋まった code_name はリンクしない。短い code_name を確実にリンクしたい場合は Markdown の明示リンクを書く。
 - `/admin/members` の codeName セルは `/mypage?memberId=<member_id>` への基準リンクUI。コードネームクリックでマイページを開き、台帳編集はセル内の編集ボタンから行う。
 
