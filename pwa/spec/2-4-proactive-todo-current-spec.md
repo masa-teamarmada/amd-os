@@ -101,6 +101,7 @@ admin (= `members.is_admin = true`) と `service_role` のみ ALL。anon SELECT 
 
 各 `next_actions[]` テキストに対し:
 
+0. **文字化け guard**: `meetingTitle` または `text` が `isGarbledText` (連続 3 個以上の `?`、または ASCII `?` が 30% 超) なら skip。化けた summary が修復されるまで通知に出さない。
 1. テンプレ next_action (`関連資料.*前回までの論点.*当日確認` 正規表現にマッチ) は skip。
 2. `detectBallOwner(text, amdMemberNames)` で主語を判定:
    - **counterpart**: 「○○氏」「○○さん」「○○先生」「○○教授」「○○社長」「○○代表」「相手側」「先方」「○○大学側」が主語の文。「○○氏と××氏は」のような並列も counterpart
@@ -116,7 +117,7 @@ admin (= `members.is_admin = true`) と `service_role` のみ ALL。anon SELECT 
 
 対象: `source_kinds = 'upcoming'` かつ `meeting_date >= today` の `project_meeting_summaries`。
 
-7 日以内 (土日除外) に開催される MTG のみ TODO 化:
+7 日以内 (土日除外) に開催される MTG のみ TODO 化。`meetingTitle` が `isGarbledText` なら skip (= 「??? の準備をする」通知を出さない)。
 
 - `title = {project_id} {MTG title}: agenda / 進行案を先に提示する`
 - `detail = {meeting_date} 開催予定。AMD から agenda / 進行案 / 論点表を先に出して、相手側が議論をリードする状態を避ける。`

@@ -5,6 +5,25 @@
 
 ---
 
+### [pwa/proactive] 文字化けした meeting summary から `?????` だらけの先手 TODO が通知に出た (2026-06-27)
+
+- **状態**: クローズ (2026-06-27 — extract 側に `isGarbledText` guard を追加 / v0.35.5。化けた summary の修復は別タスクへ切り出し)。
+- **症状**: `/proactive` に「p10 MTG SE@???: ?????WiPoT????????????NEDO?JST??RFI??????????」のような **題名・本文ともに ASCII の `?` だらけ** の TODO が複数届いた (p10 SE = 3 件、p25 KUTE = 4 件)。`title_bytes = title_chars` で純 ASCII (= ブラウザ表示の文字化けではなく **DB 行が既に `?` 文字として保存されていた**)。
+- **根本原因**:
+  - 上流 `project_meeting_summaries` の 3 row (p10/p19/p25) が **Codex L6 meeting-flow の `macbook_fallback` / 手動 curl 経路で生成された時に、shell 環境の encoding 不一致で日本語が全て `?` に置換されて Supabase に書き込まれた**。
+    - `generated_by_model`: `codex_gpt5_l6_manual_20260618` / `codex:gpt-5-l6-meeting-flow:macbook_fallback:v7_fixed_heading_narrative` / `codex:gpt-5@amd-os-l6-meeting-flow`
+    - Gemini / Claude / 他の Codex モデル経由の 264 row は全て正常 UTF-8 で書けており、**特定経路だけで起きる encoding 事故**だった
+  - `proactive-todo-extract` cron は化けた summary を素材にしても何も気付かず、`???` 文字列をそのまま title/detail に詰めて TODO 生成 → 通知へ流れた
+- **解決策**:
+  1. **構造的防止 (= 本 commit)**: `proactive-todo-extract` に `isGarbledText` (連続 `?` が 3 個以上、または `?` が全体の 30% 超) guard を追加。化けた title または next_action テキストは Stage 1/2 双方で skip し、`skipped.next_action_garbled` / `skipped.prep_garbled` でカウント。化けた summary が修復されるまで通知に出ない
+  2. **データ修復 (= 本 commit、部分)**: p25 KUTE はタイトルだけ化けて本文無事だったので `title = '[KUTE] 定例 via Zoom'` で UPDATE。化けた `proactive_todos` 7 件は DELETE。p10 SE と p19 ZeMA は本文も全て `?` 化されており復元不能 = 別タスク (Gmail thread / Drive doc から再 narrate) として切り出し
+  3. **再発検知**: spec `2-4-proactive-todo-current-spec.md` Stage 1/2 に「Stage 0: 文字化け guard」を明文化。今後 macbook_fallback 系の生成経路が再び化けた場合は `skipped.*_garbled` カウンタで早期検知できる
+- **教訓**:
+  - 外部 AI session (Codex) が REST 経由で書き込んだデータは「UTF-8 で書けているか」を盲信できない。下流 (本ケースでは extract cron) で encoding sanity check を入れて、通知層まで素通りさせない
+  - 通知ノイズの根本原因が「上流の summary 自体が化けてる」ケースは、通知層側の guard だけでは半解決。**summary 修復タスクを別に走らせる必要がある** (= 本 commit ではスコープ外として spawn_task / 残課題に積む)
+
+---
+
 ### [pwa/admin-payouts] 月初合意gateのsnapshot照合が初期表示GETに乗り、データ表示まで約15秒かかった (2026-06-23)
 
 - **状態**: クローズ (2026-06-23 — 初期表示GETから月初合意gate照合を分離し、`gateOnly=1` で後追い取得)。

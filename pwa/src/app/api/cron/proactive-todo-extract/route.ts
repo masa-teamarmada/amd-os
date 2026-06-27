@@ -74,6 +74,24 @@ const AMD_FIXED_SUBJECT_PATTERNS = [
   /(?:こちら|当方|当社|当チーム)(?:側|から|で|が|は)/,
 ];
 
+// --- 文字化け (ASCII '?' 置換) guard ---
+//
+// 過去事故 (2026-06-27): Codex L6 meeting-flow の macbook_fallback / 手動 curl 経路で
+// 生成された一部 project_meeting_summaries が、shell 環境の encoding 不一致で
+// 日本語が全て ASCII '?' に置換された状態で保存された (p10 SE / p19 ZeMA など)。
+// 化けた summary を素材に proactive_todos を作ると、title/detail が ??? だらけの
+// 「何のことか分からない通知」がまさに届く事故になる。
+//
+// extract 側で「化けた」と判定したら skip して、化けた summary が修復されるまで
+// 通知に出さない。判定: 連続 3 個以上の '?' を含む、または ASCII '?' が全体の
+// 30% 超を占める (= 日本語が全部 '?' に置換された状態の signature)。
+function isGarbledText(s: string): boolean {
+  if (!s) return false;
+  if (/\?{3,}/.test(s)) return true;
+  const qCount = (s.match(/\?/g) ?? []).length;
+  return qCount > 0 && qCount / s.length > 0.3;
+}
+
 function detectBallOwner(text: string, amdMemberNames: Set<string>): "amd" | "counterpart" | "ambiguous" {
   const t = text.trim().slice(0, 200);
 
@@ -183,6 +201,7 @@ export async function GET(req: NextRequest) {
   let nextActionInserted = 0;
   let nextActionSkippedCounterpart = 0;
   let nextActionSkippedTemplate = 0;
+  let nextActionSkippedGarbled = 0;
 
   for (const m of pastMeetings ?? []) {
     const meetingId = String(m.meeting_id);
@@ -191,6 +210,9 @@ export async function GET(req: NextRequest) {
     const meetingTitle = String(m.title ?? "");
     const actions = Array.isArray(m.next_actions) ? (m.next_actions as unknown[]) : [];
 
+    // 化けた MTG (= title / next_actions が ASCII '?' 化されている) は、修復されるまで通知に出さない
+    const meetingTitleGarbled = isGarbledText(meetingTitle);
+
     for (const action of actions) {
       const text = String(action ?? "").trim();
       if (!text) continue;
@@ -198,6 +220,12 @@ export async function GET(req: NextRequest) {
       // テンプレ next_action (= upcoming だったMTGが開催済みに転じる前に残ってる) は skip
       if (/関連資料.{0,20}前回までの論点.{0,20}当日確認/.test(text)) {
         nextActionSkippedTemplate++;
+        continue;
+      }
+
+      // 文字化け guard: MTG title または next_action 本文が ??? だらけなら skip
+      if (meetingTitleGarbled || isGarbledText(text)) {
+        nextActionSkippedGarbled++;
         continue;
       }
 
@@ -250,12 +278,19 @@ export async function GET(req: NextRequest) {
 
   let prepInserted = 0;
   let prepSkippedFar = 0;
+  let prepSkippedGarbled = 0;
 
   for (const m of upcomingMeetings ?? []) {
     const projectId = String(m.project_id);
     const meetingDate = String(m.meeting_date);
     const meetingTitle = String(m.title ?? "");
     const meetingId = String(m.meeting_id);
+
+    // 文字化け guard: 化けた MTG タイトルから prep TODO を作ると「??? の準備をする」になるので skip
+    if (isGarbledText(meetingTitle)) {
+      prepSkippedGarbled++;
+      continue;
+    }
 
     // NEXT_MEETING_PREP_WINDOW_DAYS 日後より先の MTG は skip
     const horizonIso = new Date(Date.now() + NEXT_MEETING_PREP_WINDOW_DAYS * 86400_000).toISOString();
@@ -341,7 +376,9 @@ export async function GET(req: NextRequest) {
     skipped: {
       next_action_counterpart: nextActionSkippedCounterpart,
       next_action_template: nextActionSkippedTemplate,
+      next_action_garbled: nextActionSkippedGarbled,
       prep_far_future: prepSkippedFar,
+      prep_garbled: prepSkippedGarbled,
     },
     escalated_to_red: escalated,
     resurfaced_from_blocked: resurfaced,

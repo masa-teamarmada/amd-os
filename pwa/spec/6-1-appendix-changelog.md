@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-06-27 | 2-4 先手 TODO | 修正 | Stage 1/2 に「Stage 0: 文字化け guard」を追加 (`isGarbledText`: 連続 `?` 3個以上または `?` が全体30%超で skip)。化けた meeting summary が修復されるまで `proactive_todos` に流れないよう契約化 | Codex L6 macbook_fallback 経路で生成された 3 row が日本語 → ASCII `?` 置換されたまま保存され、`/proactive` に `?????WiPoT...` のような化け通知が出た事故への構造的防止策 | えいみ |
 | 2026-06-27 | 3-7 Notifications / 3-15 経営ガードレール | 修正 | critical 判定を明示 metadata / connector_auth / guardrail priority に限定。`meeting_notifications` は常に normal、`l2_notifications` は `l2_kind` / `importance` / title / summary だけでは critical にしない。`contract_signals` / `shareholder_meeting` も kind だけでは通常レビュー。3-15 の未実装リストから通知2分類の分離を外し、残課題を guardrail 専用UIに更新 | MTG/L2本文のキーワードや high importance で通常レビューが右下緊急ポップアップに誤爆し、緊急通知の信頼性が落ちたため | えいみ |
 | 2026-06-27 | 4-5 Management Score | 修正 | 先手力の再設計から unknown score cap を撤去し、「90未満は危機状態。ただし起点不明/分類不足は判定信頼度低下であり、総合点ペナルティを発動しない」契約へ変更 | 非合意の55点capで先手力が55点になり、総合点に×0.3が掛かる事故を防ぐため。重要閾値はspecに残し、実装者が勝手な数字を作らないようにする | えいみ |
 | 2026-06-26 | 4-5 Management Score | 追加・変更 | `4-5-management-score-rebuild-plan` を追加し、Management Score の候補材料 / スコア対象 / 表示対象、P0/P1/P2点検、軸別の除外条件、実寄与impact、unknown/data_missing扱いを定義。`/spec` 目次にも同章を追加 | 月次ルーティンMSや機械按分、unknown高得点、未同期0円、未実装source、pipeline重複が会社バイタルに混ざる問題を、実装者が再構築可能な判定契約として固定するため | えいみ |
