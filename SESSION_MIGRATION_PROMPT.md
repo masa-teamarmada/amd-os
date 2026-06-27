@@ -7,10 +7,10 @@ cd /Users/masa/projects/AMD/amd-os
 
 今回の current truth:
 - local branch: `main`
-- local HEAD / origin/main functional base: `8f252f2451188c03518bd67afa859f14b90e575c`
-- latest functional commit: `fix(pwa): normalize member names in proactive todos`
-- production deployment for `8f252f2451188c03518bd67afa859f14b90e575c`: `dpl_Cx1saiVY2Kn5Qcy91rB4hvJt7f85`
-- production `/api/build-info` checked 2026-06-28 JST: `v0.36.20` / `8f252f2451188c03518bd67afa859f14b90e575c` / `dirty=false`
+- local HEAD / origin/main functional base: `3b9a4ae6e6fc651f76c67f25030fd51e275dcaa5`
+- latest functional commit: `fix(pwa): normalize bare member surnames`
+- production deployment for `3b9a4ae6e6fc651f76c67f25030fd51e275dcaa5`: `dpl_ELcmUxd6L4waMs5C4KE9YGezFKs7`
+- production `/api/build-info` checked 2026-06-28 JST: `v0.36.21` / `3b9a4ae6e6fc651f76c67f25030fd51e275dcaa5` / `dirty=false`
 - working tree: dirty mixed WIP
 - 契約管理の正本方針: `/admin/contracts` は契約台帳。1行は Drive file / folder / MTG / 議事録ではなく、1契約または契約ファミリー。
 

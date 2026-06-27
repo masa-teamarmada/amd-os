@@ -6,10 +6,10 @@
 ## いまの結論
 
 - local branch: `main`
-- local HEAD / origin/main at functional base: `8f252f2451188c03518bd67afa859f14b90e575c`
-- 最新機能コミット: `fix(pwa): normalize member names in proactive todos`
-- production deployment for `8f252f2451188c03518bd67afa859f14b90e575c`: `dpl_Cx1saiVY2Kn5Qcy91rB4hvJt7f85`
-- production `/api/build-info` checked 2026-06-28 JST: `v0.36.20` / `8f252f2451188c03518bd67afa859f14b90e575c` / `dirty=false`
+- local HEAD / origin/main at functional base: `3b9a4ae6e6fc651f76c67f25030fd51e275dcaa5`
+- 最新機能コミット: `fix(pwa): normalize bare member surnames`
+- production deployment for `3b9a4ae6e6fc651f76c67f25030fd51e275dcaa5`: `dpl_ELcmUxd6L4waMs5C4KE9YGezFKs7`
+- production `/api/build-info` checked 2026-06-28 JST: `v0.36.21` / `3b9a4ae6e6fc651f76c67f25030fd51e275dcaa5` / `dirty=false`
 - staged はなし。
 - working tree は mixed dirty。archive はまだ不可。
 - 契約管理の最新設計は「契約書ファイル一覧」ではなく、`/admin/contracts` の契約台帳。1行は Drive file / folder / MTG / 議事録ではなく、1契約または契約ファミリー。
@@ -28,7 +28,7 @@
 - 実装済み bundle: `v0.28.12` / commit `b2277b5f` で契約台帳UIと migration `147_contracts_registry_metadata.sql` を deploy 済み。
 - 本番DBには `contracts.canonical_title`、`registry_status`、発効日、満了日、更新通知日、契約金額、owner、notes 系metadataを追加済み。
 - 既存 `contracts` 2,159件は再分類済み。通常台帳に出すのは `accepted` / `candidate`、周辺証跡は `evidence_only` / `rejected`。
-- `pwa/src/lib/build-info.ts` の `v0.36.20` bump と member-name normalize は `8f252f2451188c03518bd67afa859f14b90e575c` で main に入っている。
+- `pwa/src/lib/build-info.ts` の `v0.36.21` bump と bare member surname normalize は `3b9a4ae6e6fc651f76c67f25030fd51e275dcaa5` で main に入っている。
 
 ## Unresolved Tasks
 

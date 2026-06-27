@@ -1580,6 +1580,7 @@ deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifica
 - 2026-06-28 JST 追加確認: handoff docs-only commit 後、local `main` / `origin/main` / production は `5e69d3d5499d63ed9289f604a769f8483d8772e9` で一致。production `/api/build-info` は `v0.36.19` / `dirty=false`、deployment `dpl_2stejrWhjSZT8SpmsxcNsKPYeFZa` は READY。
 - その時点では working tree 側の `pwa/src/lib/build-info.ts` が未コミットで `v0.36.20` に bump 済みだった。その後 `8f252f2451188c03518bd67afa859f14b90e575c` で main に入った。
 - 2026-06-28 JST 追加確認2: `fix(pwa): normalize member names in proactive todos` (`8f252f2451188c03518bd67afa859f14b90e575c`) が main / origin に入り、deployment `dpl_Cx1saiVY2Kn5Qcy91rB4hvJt7f85` は READY。production `/api/build-info` は `v0.36.20` / `8f252f2451188c03518bd67afa859f14b90e575c` / `dirty=false`。
+- 2026-06-28 JST 追加確認3: `fix(pwa): normalize bare member surnames` (`3b9a4ae6e6fc651f76c67f25030fd51e275dcaa5`) が main / origin に入り、deployment `dpl_ELcmUxd6L4waMs5C4KE9YGezFKs7` は READY。production `/api/build-info` は `v0.36.21` / `3b9a4ae6e6fc651f76c67f25030fd51e275dcaa5` / `dirty=false`。
 
 ---
 
