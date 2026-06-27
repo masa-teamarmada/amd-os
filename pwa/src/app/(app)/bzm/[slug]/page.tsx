@@ -107,6 +107,7 @@ export default async function BzmChapterPage({ params }: { params: Promise<{ slu
           number: num.number,
           title: num.title,
           status: ch?.status,
+          level: ch?.level,
         };
       })
       .filter((c): c is NonNullable<typeof c> => c != null),

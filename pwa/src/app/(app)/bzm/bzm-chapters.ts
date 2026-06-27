@@ -17,6 +17,14 @@
 
 export type BzmChapterStatus = "completed" | "in-progress" | "not-started" | "legacy";
 
+/**
+ * 目次階層:
+ * 1 = 章 (例: Ch 5, Ch 5.5, Ch 6, ...) — bold で表示、indent 0
+ * 2 = 節 (例: §5.0 章頭フック, §5.1 cross-walk 三定理, ...) — 通常 weight、indent 1 段
+ * 3 = サブセクション (例: §5.0.1, §5.0.2, ...) — 細字、indent 2 段
+ */
+export type BzmChapterLevel = 1 | 2 | 3;
+
 export interface BzmPartConfig {
   key: string;
   label: string;
@@ -29,6 +37,7 @@ export interface BzmChapterConfig {
   title: string;
   summary: string;
   status?: BzmChapterStatus;
+  level?: BzmChapterLevel;
 }
 
 export interface BzmNumberedChapter extends BzmChapterConfig {
@@ -36,67 +45,13 @@ export interface BzmNumberedChapter extends BzmChapterConfig {
 }
 
 export const BZM_PARTS: BzmPartConfig[] = [
-  {
-    key: "preface",
-    label: "序章",
-    description: "この本の読み方。研究成果が会社になる前の混乱を、現場 → モデル → 実践の順で読む。",
-    slugs: ["preface"],
-  },
-  {
-    key: "field",
-    label: "第 I 部 — Before Zero の現場",
-    description: "会社になる前に勝負が決まる場所。関係者の時計のズレ、鬼門、誰が何を背負うか。",
-    slugs: ["field-before-zero", "field-clocks", "field-gates", "field-who-carries"],
-  },
-  {
-    key: "model",
-    label: "第 II 部 — Before Zero Model",
-    description: "PRS × 戦略余力。天井 P・到達度 R・生存確率 S と、その土台になる (x, y) の動学。",
-    slugs: [
-      "why-valuation-fails",
-      "model-overview",
-      "p-potential",
-      "r-readiness",
-      "s-survival",
-      "score-and-bottleneck",
-      "strategic-slack",
-      "model-critiques",
-      "retrofit-verification",
-    ],
-  },
-  {
-    key: "nursery",
-    label: "第 III 部 — 苗床",
-    description: "研究機関をベンチャーを生み育てる装置として読む。整備度の測り方と制度設計。",
-    slugs: ["nursery-ers"],
-  },
-  {
-    key: "toolkit",
-    label: "第 IV 部 — 実践ツールキット",
-    description: "面談の問い、開示台本、判断チェックリスト、90日 pilot charter。現場で使う道具集。",
-    slugs: ["field-toolkit"],
-  },
-  {
-    key: "appendix",
-    label: "巻末資料",
-    description: "著者性・利害・倫理への批判と、附則 (変更履歴)。参考文献・記号・用語は各部の完成にあわせて再構築する。",
-    slugs: ["ethics-and-authorship", "9-5-appendix-changelog"],
-  },
-  {
-    key: "proposals_20260625",
-    label: "設計提案 (2026-06-25, 本文外)",
-    description: "本書全体を Book 0-VI 構造に再設計する議論の記録。本文ではなく提案物。順序通り読むと: (1) 全体構造案 → (2) 既存章 → 新章 mapping → (3) Book II OPENER 構造手術 Rev 1 → (4) Rev 2 (進化経済査読が条件付き受理 → 軽微修正に到達)。",
-    slugs: [
-      "2026-06-25_proposal_book0_vi",
-      "2026-06-25_mapping_existing_to_new",
-      "2026-06-25_book2_evol_econ_surgery",
-      "2026-06-25_book2_evol_econ_major_revision",
-    ],
-  },
-  // --- 新 BZM 本書 940p (Cambridge UP Schumpeter モノグラフ + Research Policy 特集号 + ICC 三経路) ---
+  // ============================================================
+  // 新 BZM 本書 940p (Cambridge UP Schumpeter モノグラフ + Research Policy 特集号 + ICC 三経路)
+  // — 一番上に配置 (まさ確定 2026-06-27、執筆中)
+  // ============================================================
   {
     key: "new-bzm-book0",
-    label: "新 BZM 本書 — Book 0 序章 (70p, 6 章)",
+    label: "Book 0 — 序章 (70p, 6 章)",
     description: "Before Zero という領土の宣言。本書の射程 / 状態空間 / 四スクール継承 / 未engage 文献 / 二層 readiness 方法論 / 本書の貢献の三つ。",
     slugs: [
       "new-book0-ch-0-0",
@@ -109,7 +64,7 @@ export const BZM_PARTS: BzmPartConfig[] = [
   },
   {
     key: "new-bzm-book1",
-    label: "新 BZM 本書 — Book I 領土の定義 (110p, 4 章)",
+    label: "Book I — 領土の定義 (110p, 4 章)",
     description: "観測量と典型動学。状態空間 / PRS / ERS / 失敗パターンの抽象。",
     slugs: [
       "new-book1-ch-1",
@@ -120,14 +75,24 @@ export const BZM_PARTS: BzmPartConfig[] = [
   },
   {
     key: "new-bzm-book2",
-    label: "新 BZM 本書 — Book II 機構 (272p, 9 章 + Ch 10 11 節, load-bearing core)",
-    description: "数学装置層。Triple Helix SSM / GO ゲート / PRS 期待値分解 / F-CES / 戦略余力動学 / ERS 加重和 / Ch 10 進化経済形式接続 (11 節 OPENER) / h パラメータ族 / 試験運用実装。",
+    label: "Book II — 機構 (272p, 9 章 + Ch 10 11 節, load-bearing core)",
+    description: "数学装置層。Triple Helix SSM / GO ゲート / PRS 期待値分解 / F-CES / 戦略余力動学 / ERS 加重和 / Ch 10 進化経済形式接続 / h パラメータ族 / 試験運用実装。",
     slugs: [
+      // Ch 5 (= 章 level 1) → §5.0〜§5.7 (= 節 level 2) → §5.0.1〜 (= サブセクション level 3) の三層
       "new-book2-ch-5",
+      "new-book2-ch-5-section-0",
       "new-book2-ch-5-section-0-1",
       "new-book2-ch-5-section-0-2",
       "new-book2-ch-5-section-0-3",
       "new-book2-ch-5-section-0-4",
+      "new-book2-ch-5-section-1",
+      "new-book2-ch-5-section-2",
+      "new-book2-ch-5-section-3",
+      "new-book2-ch-5-section-4",
+      "new-book2-ch-5-section-5",
+      "new-book2-ch-5-section-6",
+      "new-book2-ch-5-section-7",
+      // 他章 (level 1 のみ、節レベル展開は執筆順序に応じて追加)
       "new-book2-ch-5-5",
       "new-book2-ch-6",
       "new-book2-ch-7",
@@ -150,7 +115,7 @@ export const BZM_PARTS: BzmPartConfig[] = [
   },
   {
     key: "new-bzm-book3",
-    label: "新 BZM 本書 — Book III 動機付け事例とパターン・ライブラリ (200p, 16 章)",
+    label: "Book III — 動機付け事例とパターン・ライブラリ (200p, 16 章)",
     description: "8 PJ ケース + 5 機関ケース + 層間結合 3 章。TIEM / BWE / CX / SX / CTB / YD / JC / CLG / 機関 type 5 種 / Ch 25-26b。",
     slugs: [
       "new-book3-ch-12", "new-book3-ch-13", "new-book3-ch-14", "new-book3-ch-15",
@@ -161,7 +126,7 @@ export const BZM_PARTS: BzmPartConfig[] = [
   },
   {
     key: "new-bzm-book4",
-    label: "新 BZM 本書 — Book IV 時系列現場接続 (110p, 5 章)",
+    label: "Book IV — 時系列現場接続 (110p, 5 章)",
     description: "実践の背骨。掘り起こし / 第一歩 / GAP / 設立 / 資金調達。",
     slugs: [
       "new-book4-ch-27", "new-book4-ch-28", "new-book4-ch-29",
@@ -170,7 +135,7 @@ export const BZM_PARTS: BzmPartConfig[] = [
   },
   {
     key: "new-bzm-book5",
-    label: "新 BZM 本書 — Book V 機関側設計 (90p, 4 章)",
+    label: "Book V — 機関側設計 (90p, 4 章)",
     description: "機関側プレイブック。ERS 8 軸別処方 / 三制度導線 / 地域 産学官 / 政策含意。",
     slugs: [
       "new-book5-ch-32", "new-book5-ch-33", "new-book5-ch-34", "new-book5-ch-35",
@@ -178,7 +143,7 @@ export const BZM_PARTS: BzmPartConfig[] = [
   },
   {
     key: "new-bzm-book6",
-    label: "新 BZM 本書 — Book VI 新領域宣言 (60p, 3 章)",
+    label: "Book VI — 新領域宣言 (60p, 3 章)",
     description: "新領域宣言と次の研究プログラム。機関 KPI / 真正面の比較 / 新領域宣言。",
     slugs: [
       "new-book6-ch-36", "new-book6-ch-37", "new-book6-ch-38",
@@ -186,10 +151,71 @@ export const BZM_PARTS: BzmPartConfig[] = [
   },
   {
     key: "new-bzm-appendix",
-    label: "新 BZM 本書 — 付録 (160p, A/B/C)",
+    label: "付録 (160p, A/B/C)",
     description: "数学補遺 70p + データ仕様 55p + やらかし図鑑 35p。",
     slugs: [
       "new-appendix-a", "new-appendix-b", "new-appendix-c",
+    ],
+  },
+
+  // ============================================================
+  // 旧 BZM (2026-06-13 章割) — 過去のドラフト、参考用に保持 (まさ確定 2026-06-27)
+  // ============================================================
+  {
+    key: "legacy-preface",
+    label: "[旧版 2026-06-13] 序章",
+    description: "旧版 (章頭ストーリー型教科書) の序章。新 BZM 本書では Book 0 Ch 0.0 に再編される。",
+    slugs: ["preface"],
+  },
+  {
+    key: "legacy-field",
+    label: "[旧版 2026-06-13] 第 I 部 — Before Zero の現場",
+    description: "旧版の第 I 部。新 BZM 本書では Book I (Ch 1-4) に再編される。",
+    slugs: ["field-before-zero", "field-clocks", "field-gates", "field-who-carries"],
+  },
+  {
+    key: "legacy-model",
+    label: "[旧版 2026-06-13] 第 II 部 — Before Zero Model",
+    description: "旧版の第 II 部。新 BZM 本書では Book II (Ch 5-11.5) に再編・拡張される。",
+    slugs: [
+      "why-valuation-fails",
+      "model-overview",
+      "p-potential",
+      "r-readiness",
+      "s-survival",
+      "score-and-bottleneck",
+      "strategic-slack",
+      "model-critiques",
+      "retrofit-verification",
+    ],
+  },
+  {
+    key: "legacy-nursery",
+    label: "[旧版 2026-06-13] 第 III 部 — 苗床",
+    description: "旧版の第 III 部 (ERS 機関整備度)。新 BZM 本書では Book III + Book V に再編される。",
+    slugs: ["nursery-ers"],
+  },
+  {
+    key: "legacy-toolkit",
+    label: "[旧版 2026-06-13] 第 IV 部 — 実践ツールキット",
+    description: "旧版の第 IV 部 (実践道具集)。新 BZM 本書では Book IV + 付録 B に再編される。",
+    slugs: ["field-toolkit"],
+  },
+  {
+    key: "legacy-appendix",
+    label: "[旧版 2026-06-13] 巻末資料",
+    description: "旧版の巻末資料 (倫理・変更履歴)。新 BZM 本書では Ch 0.0 + 付録 に再編される。",
+    slugs: ["ethics-and-authorship", "9-5-appendix-changelog"],
+  },
+  {
+    key: "proposals_20260625",
+    label: "[本文外] 設計提案 (2026-06-25)",
+    description: "本書全体を Book 0-VI 構造に再設計する議論の記録。本文ではなく提案物。順序通り読むと: (1) 全体構造案 → (2) 既存章 → 新章 mapping → (3) Book II OPENER 構造手術 Rev 1 → (4) Rev 2。",
+    slugs: [
+      "2026-06-25_proposal_book0_vi",
+      "2026-06-25_mapping_existing_to_new",
+      "2026-06-25_book2_evol_econ_surgery",
+      "2026-06-25_book2_evol_econ_major_revision",
     ],
   },
 ];
@@ -322,11 +348,21 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
   { slug: "new-book1-ch-4", title: "Ch 4 — 失敗パターンの抽象", summary: "Book II 数学装置への索引 (前方参照ティーザー)。20p。", status: "not-started" },
 
   // Book II — 機構 (272p, 9 章 + Ch 10 11 節)
-  { slug: "new-book2-ch-5", title: "Ch 5 — Triple Helix SSM と σ_SU の生成", summary: "Cobb-Douglas σ_SU = ∛((μ_A+1)(μ_I+1)(μ_G+1)) - 1, K=3 MS-SSM (S₀/S₁/S₂), Π^pre/Π^post 二段, η_jt softmax coupling, cross-walk 三定理。Ch 5.1 = Leydesdorff mutual information T(AIG) との cross-walk。28p heavy 数学。執筆中。", status: "in-progress" },
-  { slug: "new-book2-ch-5-section-0-1", title: "§5.0.1 — 対照的な二領域と政策密度 P の段階的上昇", summary: "2020Q4-2023Q4 の同一窓に CX (カーボンニュートラル/GX) 系と YD (養殖/フード) 系を並置観察。片方は Triple Helix 三レーンが同位相加速し σ_SU が本書最高水準、他方は政策密度 P_t が立ち上がらず σ_SU 低位張り付き。非対称の起点 = 2020/10/26 CN 宣言。MS-SSM への動機素材。完成 (2,020 字、4 段落、まさレビュー待ち)。", status: "completed" },
-  { slug: "new-book2-ch-5-section-0-2", title: "§5.0.2 — CX 三位一体加速の事実構造", summary: "GX 経済移行債・GX-ETS・SIP CE 第3期の連続立ち上げによる公募予算 B 並走、CVC/VC 脱炭素配分 V ピーク、論文 N + 研究費 I_R 連動上昇、政策-研究ラグ 8-12Q → 4-6Q 縮減、σ_SU 本書最高水準到達 (S₂ レジーム予告)。1,500-2,000 字。", status: "not-started" },
-  { slug: "new-book2-ch-5-section-0-3", title: "§5.0.3 — 対照事例 YD と σ_SU の必要条件性", summary: "YD 系領域 μ_G フラット、Cobb-Douglas 幾何平均構造による σ_SU 抑制、AMD OS UE 律速 NO_GO、σ_SU は GO の必要条件であって十分条件ではない (二層非可換性入口)、K=3 レジーム S₀/S₁/S₂ 物語的予告。1,500-2,000 字。", status: "not-started" },
-  { slug: "new-book2-ch-5-section-0-4", title: "§5.0.4 — 方法論的位置取りと本章境界宣言", summary: "Markov イベント記述妥当性、Nelson-Winter 選抜環境への意味論的橋渡し (D-048 圧縮、Book 0 Ch 0.3 へ逆流)、Ch 5 射程と他章への委託、load-bearing 命題 5.1/5.1b/5.3b/5.5/5.6 + cross-walk 三定理 + 系 5.1.4 の予告、§5.1 D-047 pre-commit への橋渡し。1,500-2,000 字。", status: "not-started" },
+  { slug: "new-book2-ch-5", title: "Ch 5 — Triple Helix SSM と σ_SU の生成", summary: "Cobb-Douglas σ_SU = ∛((μ_A+1)(μ_I+1)(μ_G+1)) - 1, K=3 MS-SSM (S₀/S₁/S₂), Π^pre/Π^post 二段, η_jt softmax coupling, cross-walk 三定理。Ch 5.1 = Leydesdorff mutual information T(AIG) との cross-walk。28p heavy 数学。執筆中 (§5.0 章頭フックから着手)。", status: "in-progress", level: 1 },
+  // Ch 5 節レベル (level 2)
+  { slug: "new-book2-ch-5-section-0", title: "§5.0 — 章頭フック (2.5p)", summary: "CX vs YD の対照観察を起点に、4 サブセクションで Ch 5 全体の動機を立てる。§5.0.1 対照的な二領域 / §5.0.2 CX 三位一体加速 / §5.0.3 対照事例 YD と σ_SU 必要条件性 / §5.0.4 方法論的位置取りと境界宣言。", status: "in-progress", level: 2 },
+  { slug: "new-book2-ch-5-section-1", title: "§5.1 — cross-walk 三定理 (5p)", summary: "Leydesdorff の Triple Helix 相互情報量 T(AIG) と Cobb-Douglas σ_SU の cross-walk。定理 5.1.1-5.1.3 + 系 5.1.4。BZM の Triple Helix 文献への貢献 1 (事業化用途 CD 採用の理論的根拠化)。", status: "not-started", level: 2 },
+  { slug: "new-book2-ch-5-section-2", title: "§5.2 — 観測方程式と loading matrix C (5p)", summary: "7 観測量 (P/B/V/R/I_R/N/C_compete) と loading 行列 C、三段識別補題 5.3、命題 5.3b (逐次識別順序 μ_G→μ_A→μ_I)、Phase 2 欠損下の識別パワー。", status: "not-started", level: 2 },
+  { slug: "new-book2-ch-5-section-3", title: "§5.3 — σ_SU の Markov 切換え状態空間モデル正準形 (5p)", summary: "命題 5.1 (K=3 MS-SSM 正準形)、命題 5.1b (CD 合成 operator G[μ_t; ω])。Hamilton (1989)-Kim (1994) filter の Triple Helix 適用。Nelson-Winter 選抜環境節 (D-048 圧縮 2/3)。", status: "not-started", level: 2 },
+  { slug: "new-book2-ch-5-section-4", title: "§5.4 — τ_B 不連続 shift Π^pre ≠ Π^post と Jovanovic/Klepper supply (4p)", summary: "命題 5.5 (τ_B 不連続 shift)、Jovanovic (1982) 退出ハザード coupling、Klepper (1996) shakeout 対称二相、Pakes-Ericson active/passive learning。", status: "not-started", level: 2 },
+  { slug: "new-book2-ch-5-section-5", title: "§5.5 — 制度状態 η_jt と σ_SU の coupling (2.5p)", summary: "命題 5.6 (η_jt softmax coupling Π(η_jt))、Murmann (2003) 共進化への pre-form、F-5.6 (η_E Granger 先行関係) commission。", status: "not-started", level: 2 },
+  { slug: "new-book2-ch-5-section-6", title: "§5.6 — 装置を当てる: CX/YD への適用と 8 PJ generalizability (3p)", summary: "Kalman + Hamilton-Kim joint filter、CX の (μ_A, μ_I, μ_G) 3 レーン分解、CX regime posterior S₁→S₂、YD regime S₀ stuck、SIP CE2023 政策→産業→学術 Granger 先行関係。", status: "not-started", level: 2 },
+  { slug: "new-book2-ch-5-section-7", title: "§5.7 — Triple Helix 文献への 3 貢献確定 + 下流章 supply + 章末問い (1p)", summary: "貢献 1 (CD 理論的根拠化) / 貢献 2 (SIP CE2023 5RL 体系接続) / 貢献 3 (regime-switching SSM 化)。Ch 26b への F-5.1〜F-5.6 commission、horse-race protocol 確定、章末の問い。", status: "not-started", level: 2 },
+  // Ch 5 §5.0 サブセクション (level 3)
+  { slug: "new-book2-ch-5-section-0-1", title: "§5.0.1 — 対照的な二領域と政策密度 P の段階的上昇", summary: "2020Q4-2023Q4 の同一窓に CX (カーボンニュートラル/GX) 系と YD (養殖/フード) 系を並置観察。片方は Triple Helix 三レーンが同位相加速し σ_SU が本書最高水準、他方は政策密度 P_t が立ち上がらず σ_SU 低位張り付き。非対称の起点 = 2020/10/26 CN 宣言。MS-SSM への動機素材。完成 v3 (2,280 字、5 段落、まさレビュー反映済み)、引用+式入りの v4 起草中。", status: "completed", level: 3 },
+  { slug: "new-book2-ch-5-section-0-2", title: "§5.0.2 — CX 三位一体加速の事実構造", summary: "GX 経済移行債・GX-ETS・SIP CE 第3期の連続立ち上げによる公募予算 B 並走、CVC/VC 脱炭素配分 V ピーク、論文 N + 研究費 I_R 連動上昇、政策-研究ラグ 8-12Q → 4-6Q 縮減、σ_SU 本書最高水準到達 (S₂ レジーム予告)。1,500-2,000 字。", status: "not-started", level: 3 },
+  { slug: "new-book2-ch-5-section-0-3", title: "§5.0.3 — 対照事例 YD と σ_SU の必要条件性", summary: "YD 系領域 μ_G フラット、Cobb-Douglas 幾何平均構造による σ_SU 抑制、AMD OS UE 律速 NO_GO、σ_SU は GO の必要条件であって十分条件ではない (二層非可換性入口)、K=3 レジーム S₀/S₁/S₂ 物語的予告。1,500-2,000 字。", status: "not-started", level: 3 },
+  { slug: "new-book2-ch-5-section-0-4", title: "§5.0.4 — 方法論的位置取りと本章境界宣言", summary: "Markov イベント記述妥当性、Nelson-Winter 選抜環境への意味論的橋渡し (D-048 圧縮、Book 0 Ch 0.3 へ逆流)、Ch 5 射程と他章への委託、load-bearing 命題 5.1/5.1b/5.3b/5.5/5.6 + cross-walk 三定理 + 系 5.1.4 の予告、§5.1 D-047 pre-commit への橋渡し。1,500-2,000 字。", status: "not-started", level: 3 },
   { slug: "new-book2-ch-5-5", title: "Ch 5.5 — GO ゲートの導出", summary: "実オプション最適停止からの一次条件。GO(t,i) = 𝟙[σ_SU ≥ θ_σ*] · g_TRL(t)、θ_σ* は (P, F, B, レジーム遷移) に対して内生的。18p。", status: "not-started" },
   { slug: "new-book2-ch-6", title: "Ch 6 — PRS = P × R × S 期待値分解", summary: "honest 位置付け。22p。", status: "not-started" },
   { slug: "new-book2-ch-7", title: "Ch 7 — S の内部構造 — F-CES と委譲不可能コア", summary: "F = CES(F_char, F_cap; a, ρ)。形式定義 + 校正手続き。38p。", status: "not-started" },
@@ -388,11 +424,61 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
   { slug: "new-appendix-c", title: "付録 C — やらかし図鑑 Y-001〜Y-008 全文", summary: "TIEM 露出制限 (D-010) の対象外。35p。", status: "not-started" },
 ];
 
+// --- 旧 BZM (2026-06-13 章割) の slug 集合 — 動的 status 判定用 ---
+const LEGACY_SLUGS = new Set<string>([
+  "preface",
+  "field-before-zero", "field-clocks", "field-gates", "field-who-carries",
+  "why-valuation-fails", "model-overview", "p-potential", "r-readiness", "s-survival",
+  "score-and-bottleneck", "strategic-slack", "model-critiques", "retrofit-verification",
+  "nursery-ers",
+  "field-toolkit",
+  "ethics-and-authorship", "9-5-appendix-changelog",
+  "2026-06-25_proposal_book0_vi", "2026-06-25_mapping_existing_to_new",
+  "2026-06-25_book2_evol_econ_surgery", "2026-06-25_book2_evol_econ_major_revision",
+]);
+
+/**
+ * slug pattern から目次階層を動的判定。
+ * - new-book2-ch-5-section-0-1 → level 3 (サブセクション = §5.0.1)
+ * - new-book2-ch-5-section-0 → level 2 (節 = §5.0)
+ * - new-book2-ch-5 / new-book0-ch-0-0 / それ以外 → level 1 (章)
+ * entry に level field が明示されていればそれを優先。
+ */
+export function getDefaultBzmLevel(slug: string): BzmChapterLevel {
+  const m = slug.match(/-section-\d+(?:-\d+)?$/);
+  if (!m) return 1;
+  // -section-X-Y → サブセクション、-section-X → 節
+  const sectionPart = m[0];
+  const dashCount = (sectionPart.match(/\d+/g) ?? []).length;
+  return dashCount >= 2 ? 3 : 2;
+}
+
+/**
+ * slug から status を動的判定 (entry に status field がない場合のフォールバック)。
+ * 旧 BZM slug は legacy、新 BZM 章は not-started を既定値とする。
+ */
+export function getDefaultBzmStatus(slug: string): BzmChapterStatus {
+  if (LEGACY_SLUGS.has(slug)) return "legacy";
+  return "not-started";
+}
+
 const partOrder = new Map(
   BZM_PARTS.flatMap((part, partIdx) => part.slugs.map((slug, slugIdx) => [slug, partIdx * 100 + slugIdx] as const)),
 );
 
 const chapterBySlug = new Map(BZM_CHAPTERS.map((chapter) => [chapter.slug, chapter]));
+
+/** entry の status を取得 (明示 > 動的判定) */
+export function getBzmChapterStatus(slug: string): BzmChapterStatus {
+  const ch = chapterBySlug.get(slug);
+  return ch?.status ?? getDefaultBzmStatus(slug);
+}
+
+/** entry の level を取得 (明示 > 動的判定) */
+export function getBzmChapterLevel(slug: string): BzmChapterLevel {
+  const ch = chapterBySlug.get(slug);
+  return ch?.level ?? getDefaultBzmLevel(slug);
+}
 
 export function sortBzmSlugs(slugs: string[]) {
   return [...slugs].sort((a, b) => {

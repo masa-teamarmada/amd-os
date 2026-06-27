@@ -3,12 +3,18 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronRight, CheckCircle2, CircleDot, Circle } from "lucide-react";
-import type { BzmChapterStatus } from "@/app/(app)/bzm/bzm-chapters";
+import type { BzmChapterLevel, BzmChapterStatus } from "@/app/(app)/bzm/bzm-chapters";
 
 export interface BzmSideNavGroup {
   key: string;
   label: string;
-  chapters: { slug: string; number: string; title: string; status?: BzmChapterStatus }[];
+  chapters: {
+    slug: string;
+    number: string;
+    title: string;
+    status?: BzmChapterStatus;
+    level?: BzmChapterLevel;
+  }[];
 }
 
 /**
@@ -101,6 +107,7 @@ export function BzmSideNav({
                   {chapters.map((chapter) => {
                     const isActive = chapter.slug === activeSlug;
                     const status: BzmChapterStatus = chapter.status ?? "not-started";
+                    const level: BzmChapterLevel = chapter.level ?? 1;
                     const statusIcon =
                       status === "completed" ? (
                         <CheckCircle2 className="size-3 text-emerald-600" aria-label="完成" />
@@ -111,14 +118,30 @@ export function BzmSideNav({
                       ) : (
                         <Circle className="size-3 text-slate-300" aria-label="未着手" />
                       );
+                    // level 別 indent (章 = 0, 節 = ml-3, サブセクション = ml-6) と文字サイズ・太さ
+                    const levelClass =
+                      level === 1
+                        ? "ml-0 text-[11px]"
+                        : level === 2
+                          ? "ml-3 text-[10.5px]"
+                          : "ml-6 text-[10px]";
+                    // level 別 font weight (章 = bold/black, 節 = semibold, サブセクション = medium)
+                    const levelWeight =
+                      level === 1
+                        ? status === "completed"
+                          ? "font-black"
+                          : "font-bold"
+                        : level === 2
+                          ? "font-semibold"
+                          : "font-medium";
                     const textTone =
                       status === "completed"
-                        ? "text-emerald-950 font-bold"
+                        ? "text-emerald-950"
                         : status === "in-progress"
-                          ? "text-amber-950 font-semibold"
+                          ? "text-amber-950"
                           : status === "legacy"
-                            ? "text-slate-600 font-medium"
-                            : "text-slate-400 font-medium";
+                            ? "text-slate-600"
+                            : "text-slate-400";
                     const bgTone = isActive
                       ? "bg-cyan-50 ring-1 ring-cyan-200"
                       : status === "completed"
@@ -130,8 +153,8 @@ export function BzmSideNav({
                       <Link
                         key={chapter.slug}
                         href={`/bzm/${encodeURIComponent(chapter.slug)}`}
-                        className={`grid grid-cols-[1rem_2.4rem_minmax(0,1fr)] gap-1.5 rounded-md px-1.5 py-1.5 text-[11px] leading-snug transition-colors ${bgTone} ${
-                          isActive ? "font-black text-cyan-950" : textTone
+                        className={`grid grid-cols-[1rem_2.4rem_minmax(0,1fr)] gap-1.5 rounded-md px-1.5 py-1.5 leading-snug transition-colors ${levelClass} ${bgTone} ${
+                          isActive ? "font-black text-cyan-950" : `${textTone} ${levelWeight}`
                         }`}
                       >
                         <span className="grid place-items-center">{statusIcon}</span>
