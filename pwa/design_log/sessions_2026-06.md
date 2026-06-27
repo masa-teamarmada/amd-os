@@ -1556,3 +1556,23 @@ deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifica
 - 同じ事故が再発したら `pwa/scripts/renarrate_garbled_meeting_summaries.mjs --scan` で即検出可能。再 narrate は元 Gmail thread / Drive doc を Gmail MCP / Drive MCP で取って payload.json を作る運用。
 - L6 macbook_fallback 経路の LANG / locale 設定を恒久 fix する余地あり (= 別 codex 側マターなので未着手)。それまでは scan ツールで随時クリーンアップ。
 - `gmail_thread_ids` に誤った thread ID (`19ed8eaf092f9849`) が残っているのは更新せず、参照価値が出たら別途修正。
+
+---
+
+## 2026-06-28 — closeout / handoff current truth refresh
+
+### コンテキスト
+- 別セッションの deploy 進行後、repo / origin / production の current truth を再確認した。
+- local `main` と `origin/main` は `0f0a7dbc79085a39ceaed4d4a69c17711cdb0f4c` で一致。
+- production `/api/build-info` は初回確認では `v0.36.18` / `a07c7d889545c4f41e20b95ffd913fb4c21ca787` のままだったが、最終確認で `v0.36.19` / `0f0a7dbc79085a39ceaed4d4a69c17711cdb0f4c` / `dirty=false` まで追いついた。
+
+### 実施
+- closeout inventory を取り直し、dirty / untracked を notification stop、Atlas UI、H-1 prep outbox、owner 未確定 WIP に分類した。
+- root `HANDOFF.md` が deleted 状態だったため、現状の handoff 正本として復元した。
+- `SESSION_MIGRATION_PROMPT.md` を current truth と dirty classification に合わせて更新した。
+- 元の `/admin/payouts` 15秒問題は、この closeout では追加調査・修正していない。次回は `pwa/BUGS.md` の `[pwa/admin-payouts]` 2026-06-23 entries から再開する。
+
+### 残課題
+- archive 不可。`main aligned / production aligned / dirty mixed WIP` の状態。
+- 次回は本番が `0f0a7dbc / v0.36.19 / dirty=false` のままか軽く確認し、その後 dirty WIP の束分けから始める。
+- dirty WIP は `git add .` せず、notification / Atlas UI / Admin-Kiyo / meeting-assets / H-1 outbox を分けて扱う。

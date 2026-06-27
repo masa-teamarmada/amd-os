@@ -1,45 +1,74 @@
-# SESSION MIGRATION PROMPT - AMD OS management guardrails / critical notifications closeout
+# SESSION MIGRATION PROMPT - AMD OS closeout refresh
 
 ```text
 cd /Users/masa/projects/AMD/amd-os
 
-まず `HANDOFF.md` を読んで。次に `pwa/spec/3-7-notifications-current-spec.md`、`pwa/spec/3-15-management-guardrails-current-spec.md`、`pwa/BUGS.md`、`pwa/design_log/sessions_2026-06.md` の「2026-06-27 - 経営ガードレール実装と緊急通知の誤爆停止」を読んで。その次に `pwa/manual/3-3-notifications-and-tsukuyomi.md`、`pwa/manual/8-2-notification-review-and-strategy-signals-spec.md`、`pwa/design/notifications.md`、`pwa/CLAUDE.md` / `pwa/AGENTS.md` を読んで。
+まず `HANDOFF.md` を読んで。次に仕様正本として `pwa/spec/3-7-notifications-current-spec.md` / `pwa/spec/3-3-meeting-flow-current-spec.md` / `pwa/spec/5-7-task-management-current-spec.md` を読み、そのあと `pwa/BUGS.md`、`CLAUDE.md`、`AGENTS.md`、`pwa/CLAUDE.md` を読んで。
+
+今回の current truth:
+- local branch: `main`
+- local HEAD / origin/main: `0f0a7dbc79085a39ceaed4d4a69c17711cdb0f4c` (`fix(pwa): exclude counterpart proactive todos`)
+- production `/api/build-info` checked 2026-06-28 JST: `v0.36.19` / `0f0a7dbc79085a39ceaed4d4a69c17711cdb0f4c` / `dirty=false`
+- main alignment: main aligned
+- production alignment: production aligned
+- unpushed commits: none
+- working tree: dirty mixed WIP
+
+未解決の本筋:
+- `/admin/payouts` は、まさの観測ではまだデータ表示まで約15秒かかる。
+- この closeout では性能修正はしていない。次回は関連 md を先に読む。
+- 入口: `pwa/BUGS.md` の `[pwa/admin-payouts]` 2026-06-23 entries、`pwa/design/db_schema.md` の `billing_cycles` / `payout_agreement` / `payout_notices`、`pwa/design/management_score.md` の payout / reward cache 周辺。
+- その後、`/api/admin/payouts` 通常GET、SSR `loadTargetData(... includeAgreementGate:false)`、client revalidation、`gateOnly=1` のどこで15秒待っているかを切り分ける。
 
 作業開始前に必ず:
-1. `git fetch origin main`
+1. `git fetch origin main --prune`
 2. `git status -sb --untracked-files=all`
 3. `git log --left-right --oneline main...origin/main`
-4. `curl -fsS https://amd-os-pwa.vercel.app/api/build-info`
+4. `curl -fsSL https://amd-os-pwa.vercel.app/api/build-info`
+5. `git diff --name-status`
 
-current truth:
-- functional base before the handoff-doc commit は `132d5aae fix(pwa): restore initiative crisis threshold`。production `/api/build-info` は `v0.34.31` / `132d5aaec9151deb1d1bad48375f98e81c54715e` / `dirty=false` だった。
-- この handoff bundle は manual/spec が production-visible なため `pwa/src/lib/build-info.ts` を `v0.34.32` に bump している。closeout後は `git log -1 --oneline` と production `/api/build-info` を見て最新 SHA を確認する。
-- 経営ガードレールは実装済み: migration `154_management_guardrails.sql`、`pwa/src/lib/management-guardrails.ts`、`POST /api/guardrails/evaluate`、`/api/notifications/feedback`、初期 guardrail card 10件。
-- 通知は通常通知と緊急通知に分離済み。緊急通知は右下ポップアップに出る。
-- 最終 critical rule:
-  - `connector_auth` は critical。
-  - `metadata_json.notification_priority='critical'` や metadata 上の blocker / 期限超過 / 再認証は critical。
-  - high/critical の `guardrail_match` は critical。
-  - `meeting_notifications` は常に normal。
-  - `l2_notifications` は `l2_kind`、`importance`、title、summary だけでは critical にしない。
-  - 契約、総会、取締役会、NDA、法務、D-11メディア掲載、high importance L2 は通常レビューに残す。
-- ポップアップから L2 通知へ飛ぶ時は `/notifications?notification_id=...`。通知ページは対象rowが最新100件から漏れていても追加取得して自動展開する。
-- closeout直前の live unread check では final priority logic で `app=0 / L2=0 / MTG=0` critical unread。
+dirty の大きな塊:
+- notification noise stop WIP:
+  - `gas/153_MeetingHourlyTrigger.js`
+  - `pwa/src/lib/notifications-data.ts`
+  - `pwa/src/components/nav/GlobalNav.tsx`
+  - `pwa/src/components/notifications/AppNotificationsSection.tsx`
+  - `pwa/src/components/notifications/CriticalRealtimeNotify.tsx`
+  - `pwa/src/app/(app)/notifications/page.tsx`
+  - `pwa/src/app/api/tasks/route.ts`
+  - `pwa/src/app/api/task-calendar/register-tasks/route.ts`
+  - `pwa/src/app/api/meeting-workflow/finalize/route.ts`
+  - `pwa/src/app/api/notifications/feedback/route.ts`
+  - `pwa/src/lib/operations-catalog.ts`
+  - `pwa/scripts/migrations/155_skip_non_actionable_app_notifications.sql`
+  - `pwa/scripts/migrations/156_skip_meeting_summary_notifications.sql`
+  - related spec/design/manual/BUGS/design_log docs
+- Atlas visual/UI WIP:
+  - multiple `pwa/src/app/(app)/atlas/**` files
+- Admin/Kiyo WIP:
+  - `pwa/src/components/admin/AdminSidebar.tsx`
+  - `pwa/src/app/(app)/admin/kiyo/page.tsx`
+- meeting assets / project labels WIP:
+  - `pwa/src/app/api/meeting-assets/replace/[assetId]/route.ts`
+  - `pwa/src/lib/project-labels.ts`
+  - `pwa/scripts/update_drive_file.mjs`
+  - `pwa/scripts/migrations/153_project_venture_legacy_name_hygiene.sql`
+- H-1 meeting prep outbox markdowns under:
+  - `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/outbox/`
+- local-only artifact:
+  - `gas-slack/.clasp.json`
 
-repo state:
-- checkout には大量の unrelated dirty が残る前提。H-1 / meeting assets / venture map / admin / cockpit / finance / management-score / task-notification 系のWIPを、この通知/guardrail作業に混ぜない。
-- `git add .` は使わない。
-- 既存dirtyを勝手に revert / checkout / clean しない。
-- mixed hunks があるファイルは guardrail/critical-notification hunk だけを stage する。
+次の進め方:
+1. まずどの bundle を閉じるか決める。notification / Atlas UI / Admin-Kiyo / meeting-assets / H-1 outbox を混ぜない。
+2. `git add .` は絶対に使わず、選んだ bundle のファイルだけ個別 stage する。
+3. stage 後に `git diff --staged --stat` と `git diff --staged --name-status` を確認する。
+4. notification stop bundle を触る場合は、DB migration 155/156 の適用有無、GAS writer 停止、PWA表示除外、manual/spec同期をまとめて検証する。
+5. PWA deploy が必要なら `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` を使う。直接 `npx vercel deploy` は使わない。
+6. deploy 後は `/api/build-info` で build version / git sha / dirty=false を確認する。
 
-次にやること:
-1. まさがまた右下の「緊急通知」誤爆を見たら、まず live row の source table と metadata を見る。MTG/L2 の title/body keyword scanning は復活させない。
-2. 経営ガードレールを続けるなら、`pwa/spec/3-15-management-guardrails-current-spec.md` から guardrail card 管理UI、PJ/MTG/action の自動タグ付け UI、protocol から guardrail card への昇格フローを進める。
-3. 通知priorityをさらに固めるなら、3通知テーブルへ `notification_priority text default 'normal'` を追加し、writer 明示値を一次ソースにする migration を検討する。
-4. PWA deploy が必要なら main push = Vercel auto deploy。直接 `npx vercel deploy` は禁止。
-
-注意:
-- MTG本文や L2本文の「事故」「blocker」「再認証」などの語は、緊急性の根拠にしない。
-- `contract_signals` / `shareholder_meeting` / `action_item` kind だけで critical にしない。
-- raw Gmail / Slack / Notion transcript や secret を handoff / outbox / chat に貼らない。
+守ること:
+- AMD OS は main 一本。main と本番の差分を曖昧にしない。
+- dirty tree から見えた未確認ファイルは勝手に削除しない。
+- `COMMANDER_TASKS.md` はオーケストレーションボードではない。タスク登録の正本と混同しない。
+- `/tasks` はすでに廃止対象。新規 UI 変更と混ぜない。
 ```

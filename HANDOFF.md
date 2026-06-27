@@ -1,90 +1,152 @@
-# HANDOFF - AMD OS
+# AMD OS Handoff
 
-- Last updated: 2026-06-27 (経営ガードレール実装 / 緊急通知の誤爆停止 closeout)
-- Canonical root: `/Users/masa/projects/AMD/amd-os`
-- PWA root: `/Users/masa/projects/AMD/amd-os/pwa`
-- Production URL: `https://amd-os-pwa.vercel.app`
-- Default branch: `main`
+最終更新: 2026-06-28 JST
+対象: `/Users/masa/projects/AMD/amd-os`
 
-## Latest Session Summary
+## いまの結論
 
-- SX x 三浦工業 MTG をきっかけに、設立前SHA・大企業入口設計・NDA前開示・PoCデータ許諾のような経営ノウハウを、忙しい時でも OS が先回り検知する「経営ガードレール」として設計・実装した。
-- `guardrail_tag_definitions` / `guardrail_cards` / `guardrail_matches` / `guardrail_feedbacks` と `POST /api/guardrails/evaluate` を追加し、初期 guardrail card 10件を seed した。
-- 通知は通常通知と緊急通知に分け、まさ要望どおり緊急通知は右下ポップアップにした。
-- その後、MTGサマリや L2 通常レビューが「緊急通知」に誤爆したため、critical 判定を明示 metadata / connector_auth / guardrail priority に限定した。
-- `meeting_notifications` は常に normal。`l2_notifications` は `l2_kind` / `importance` / title / summary だけでは critical にしない。
-- 詳細ログ: `pwa/design_log/sessions_2026-06.md` の「2026-06-27 - 経営ガードレール実装と緊急通知の誤爆停止」。
+- `main` / `origin/main` / production は一致済み。
+- HEAD: `0f0a7dbc79085a39ceaed4d4a69c17711cdb0f4c`
+- 最新コミット: `fix(pwa): exclude counterpart proactive todos`
+- 本番 `/api/build-info`: `v0.36.19` / `0f0a7dbc79085a39ceaed4d4a69c17711cdb0f4c` / `dirty=false`
+- 判定: `main aligned`
+- staged はなし。ただし dirty / untracked が多いので、archive はまだ不可。
 
-## Repo / Deploy State
+## 今回の closeout / handoff でやったこと
 
-- Local branch: `main`
-- Functional base before this handoff-doc commit: `132d5aae fix(pwa): restore initiative crisis threshold`
-- `origin/main` before this handoff-doc commit: `132d5aae fix(pwa): restore initiative crisis threshold`
-- Production before this handoff-doc commit: `/api/build-info` = `v0.34.31` / `132d5aaec9151deb1d1bad48375f98e81c54715e` / `dirty=false`
-- This handoff bundle bumps PWA build version to `v0.34.32` because manual/spec content is production-visible.
-- Unrelated dirty state remains large and intentional. Do not use `git add .`, `git checkout --`, `git reset --hard`, or broad cleanup.
-- If this file is at `HEAD`, the latest commit is the handoff/docs closeout commit. Re-check `git log -1 --oneline` and production `/api/build-info` before claiming current deployment truth.
+- closeout inventory を取り直した。
+- `git fetch origin main --prune` 後、local `main` と `origin/main` が一致していることを確認した。
+- production `/api/build-info` を確認し、本番も `0f0a7dbc / v0.36.19` まで追いついていることを確認した。
+- mixed dirty / untracked を bundle ごとに分類した。
+- product code、DB migration、GAS deploy、build、staging は実行していない。
 
-## Verification Run
+## Open User Task
 
-- Priority rules tested:
-  - MTG with `blocked by reauthentication`: `normal`
-  - D-11 media high importance: `normal`
-  - shareholder/board kind only: `normal`
-  - contract kind only: `normal`
-  - connector auth: `critical`
-  - explicit guardrail critical metadata: `critical`
-  - action item high importance: `normal`
-  - action item blocker only in summary: `normal`
-  - action item blocker in metadata: `critical`
-- `npm run --silent lint -- src/lib/notification-priority.ts src/components/notifications/CriticalRealtimeNotify.tsx src/components/notifications/NotificationsClient.tsx src/app/'(app)'/notifications/page.tsx`: passed.
-- `npm run test:critical-ui`: passed.
-- `npm run build`: passed during the notification-fix sequence before this docs handoff. Full local dirty tree should not be treated as clean proof because many unrelated WIP files remain.
-- Live unread check under final priority logic: `app=0 / L2=0 / MTG=0` critical unread.
+元の依頼は `/admin/payouts` の初期表示がまだ約15秒かかる件。
 
-## Unresolved Tasks
+- まさの観測: 「まだデータが表示されるまでに15秒くらいかかってる」
+- この closeout では payout 性能の追加調査・修正はしていない。
+- 次セッションは、まず関連 md を読む:
+  - `pwa/BUGS.md` の `[pwa/admin-payouts]` 2026-06-23 entries
+  - `pwa/design/db_schema.md` の `billing_cycles` / `payout_agreement` / `payout_notices`
+  - `pwa/design/management_score.md` の payout / reward cache 周辺
+- その後、`/api/admin/payouts` の通常GETが本当に cache-only になっているか、SSR `loadTargetData(... includeAgreementGate:false)` と client-side revalidation / `gateOnly=1` のどこで15秒待っているかを切り分ける。
 
-1. Guardrail card 管理UIを作る。
-2. PJカード / MTGカード / action 入力時の自動タグ付け UI を作る。
-3. protocol から guardrail card を半自動生成する昇格フローを設計する。
-4. 経営ガードレールの発火理由・severity を PJ cockpit / MTGカード上で事前確認できる UI を作る。
-5. 通知 priority は今は導出関数。将来、3通知テーブルに `notification_priority text default 'normal'` を追加して writer 明示値を一次ソースにする案が残っている。
+## Dirty / Untracked Classification
 
-## Dirty State Notes
+### 1. この handoff / closeout で扱ったもの
 
-- Current checkout includes unrelated WIP in H-1 / meeting assets / venture map / admin / cockpit / finance / management-score / task-notification areas.
-- Notification source files may appear dirty locally because other workers are active. This handoff only records the shipped current rule and docs/manual closeout.
-- Stage and commit only named files for the current task. If a file contains mixed hunks, stage only the guardrail/critical-notification hunk.
+- `HANDOFF.md`
+- `SESSION_MIGRATION_PROMPT.md`
+- `pwa/design_log/sessions_2026-06.md`
 
-## Read First Next Session
+扱い: この handoff の own-necessary。今回は stage せず explicit carry-forward。次セッションで内容確認後、必要なら targeted staging / commit。
 
-1. `HANDOFF.md`
-2. `pwa/spec/3-7-notifications-current-spec.md`
-3. `pwa/spec/3-15-management-guardrails-current-spec.md`
-4. `pwa/BUGS.md`
-5. `pwa/design_log/sessions_2026-06.md`
-6. `pwa/manual/3-3-notifications-and-tsukuyomi.md`
-7. `pwa/manual/8-2-notification-review-and-strategy-signals-spec.md`
-8. `pwa/design/notifications.md`
-9. `pwa/CLAUDE.md`
-10. `pwa/AGENTS.md`
+### 2. notification stop / admin routing 系の既存 WIP
 
-## First Next Action
+tracked modified:
 
-```sh
-cd /Users/masa/projects/AMD/amd-os
-git fetch origin main
-git status -sb --untracked-files=all
-git log --left-right --oneline main...origin/main
-curl -fsS https://amd-os-pwa.vercel.app/api/build-info
-```
+- `gas/153_MeetingHourlyTrigger.js`
+- `pwa/BUGS.md`
+- `pwa/design/L2_DATA.md`
+- `pwa/design/l2_extract_claude_routine.md`
+- `pwa/design/meeting_summaries.md`
+- `pwa/design/notifications.md`
+- `pwa/manual/2-6-admin-ops.md`
+- `pwa/manual/3-1-system-architecture.md`
+- `pwa/manual/3-3-notifications-and-tsukuyomi.md`
+- `pwa/manual/6-1-operations-settings-spec.md`
+- `pwa/manual/8-2-notification-review-and-strategy-signals-spec.md`
+- `pwa/manual/8-3-l2-extraction-routines-spec.md`
+- `pwa/spec/3-3-meeting-flow-current-spec.md`
+- `pwa/spec/3-7-notifications-current-spec.md`
+- `pwa/spec/5-5-cross-platform-gas-ios-current-spec.md`
+- `pwa/spec/5-7-task-management-current-spec.md`
+- `pwa/src/app/(app)/notifications/page.tsx`
+- `pwa/src/app/api/meeting-workflow/finalize/route.ts`
+- `pwa/src/app/api/notifications/feedback/route.ts`
+- `pwa/src/app/api/task-calendar/register-tasks/route.ts`
+- `pwa/src/app/api/tasks/route.ts`
+- `pwa/src/components/admin/AdminSidebar.tsx`
+- `pwa/src/components/nav/GlobalNav.tsx`
+- `pwa/src/components/notifications/AppNotificationsSection.tsx`
+- `pwa/src/components/notifications/CriticalRealtimeNotify.tsx`
+- `pwa/src/lib/notifications-data.ts`
+- `pwa/src/lib/operations-catalog.ts`
 
-If まさ sees another right-bottom emergency popup, inspect the live row's source table and metadata first. Do not reintroduce title/body keyword scanning for MTG or L2 rows.
+untracked related:
 
-## Guardrails
+- `pwa/scripts/migrations/155_skip_non_actionable_app_notifications.sql`
+- `pwa/scripts/migrations/156_skip_meeting_summary_notifications.sql`
 
-- Do not make MTG summaries critical based on body text.
-- Do not make `l2_notifications` critical from `l2_kind`, `importance`, title, or summary alone.
-- Do not treat contract/board/shareholder/NDA topic words as immediate interruption signals.
-- Keep connector reauth, explicit blocker/overdue metadata, and high/critical management guardrails as the right-bottom popup lane.
-- Do not mix unrelated dirty work into notification/guardrail handoff commits.
+扱い: pre-existing / likely other-worker WIP。notification bundle として targeted diff review する。Atlas / H-1 outbox / Kiyo と混ぜない。
+
+### 3. Atlas visual / UI 系の既存 WIP
+
+- `pwa/src/app/(app)/atlas/admin/themes/page.tsx`
+- `pwa/src/app/(app)/atlas/decisions/page.tsx`
+- `pwa/src/app/(app)/atlas/divergence/page.tsx`
+- `pwa/src/app/(app)/atlas/inbox/page.tsx`
+- `pwa/src/app/(app)/atlas/inbox/submit/page.tsx`
+- `pwa/src/app/(app)/atlas/macrotrends/page.tsx`
+- `pwa/src/app/(app)/atlas/map/page.tsx`
+- `pwa/src/app/(app)/atlas/page.tsx`
+- `pwa/src/app/(app)/hud/atlas/macrotrends/page.tsx`
+
+扱い: pre-existing / likely Atlas UI worker WIP。notification bundle と混ぜない。
+
+### 4. H-1 prep outbox 系の既存 WIP
+
+- `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/outbox/2026-06-24-upcoming-2fgest2loktp847bdngl26jhic-p26-vsx-prep-draft.md`
+- `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/outbox/2026-06-25-upcoming-2fgest2loktp847bdngl26jhic-p26-vsx-prep-rerun-status.md`
+- `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/outbox/2026-06-25-upcoming-2fgest2loktp847bdngl26jhic-p26-vsx-prep-worker-current-status.md`
+- `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/outbox/2026-06-25-upcoming-4so2kr7b2d19g67fk8ou181o9m-p21-sx-miura-prep-draft.md`
+- `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/outbox/2026-06-25-upcoming-ouf25bgoukki7ljafou1t0e13e-20260625T060000Z-p21-sx-internal-prep-draft.md`
+
+扱い: H-1 prep worker artifact。消さない。owner に戻すか、outbox artifact として review / commit。
+
+### 5. owner 未確定の既存 WIP / local artifact
+
+- `gas-slack/.clasp.json`
+- `pwa/scripts/migrations/153_project_venture_legacy_name_hygiene.sql`
+- `pwa/scripts/update_drive_file.mjs`
+- `pwa/src/app/(app)/admin/kiyo/page.tsx`
+- `pwa/src/app/api/meeting-assets/replace/[assetId]/route.ts`
+- `pwa/src/lib/project-labels.ts`
+
+扱い: owner 未確定。quarantine owner は AMD OS cleanup worker。次回、file intent を読んで targeted commit / owner 返却 / まさ判断へ分ける。
+
+### 6. ignored / local-only tooling
+
+- `.vercel/project.json`: present / ignored。project は `amd-os-pwa`。
+- `pwa/.next`, `pwa/node_modules`: present / ignored。
+- `ios/supabase/.temp/linked-project.json`: ignored。
+- `ios/supabase/.temp/project-ref`: local temp 系として注意。status に出る場合は ignore/local cleanup を検討。
+
+## Design / Manual Coverage
+
+この closeout / handoff セッションでは product behavior の新仕様は追加していない。
+
+| 新仕様/仕様変更 | spec/design正本 | OSマニュアル章 | 状態 |
+|---|---|---|---|
+| closeout / handoff current truth refresh | `HANDOFF.md`, `SESSION_MIGRATION_PROMPT.md`, `pwa/design_log/sessions_2026-06.md` | 対象外: product仕様変更なし | ✅ |
+| notification stop 既存WIP | `pwa/design/notifications.md`, `pwa/spec/3-7-notifications-current-spec.md` などに未commit dirty | `pwa/manual/*` に未commit dirty | ⚠️ 未検証。別bundleで扱う |
+| Atlas visual / UI 既存WIP | Atlas app files | 未確認 | ⚠️ 未検証。別bundleで扱う |
+
+## 次の最初の一手
+
+1. `HANDOFF.md` -> relevant `SPEC*.md` -> `BUGS.md` の順で読む。
+2. `git status -sb --untracked-files=all` と `git diff --stat` で dirty を再確認する。
+3. dirty WIP は `git add .` しない。notification stop / Atlas UI / H-1 prep / Admin-Kiyo / meeting-assets / owner未確定 group を分ける。
+4. まず閉じるなら notification stop bundle が最優先。DB migration 155/156 の適用有無、PWA表示除外、GAS writer 停止、manual/spec同期を1つの bundle として検証する。
+5. deploy が必要なら `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` を使う。直接 `npx vercel deploy` は使わない。
+
+## Archive 判定
+
+do not archive / handoff required。
+
+理由:
+
+- main / production は揃ったが、uncommitted / untracked が大量に残っている。
+- owner 未確定の WIP が含まれている。
+- notification / Atlas / H-1 outbox / Admin-Kiyo / meeting-assets の bundle が混在している。
