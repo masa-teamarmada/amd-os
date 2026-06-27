@@ -1,24 +1,26 @@
-# SESSION MIGRATION PROMPT - AMD OS closeout refresh
+# SESSION MIGRATION PROMPT - AMD OS contracts handoff
 
 ```text
 cd /Users/masa/projects/AMD/amd-os
 
-まず `HANDOFF.md` を読んで。次に仕様正本として `pwa/spec/3-7-notifications-current-spec.md` / `pwa/spec/3-3-meeting-flow-current-spec.md` / `pwa/spec/5-7-task-management-current-spec.md` を読み、そのあと `pwa/BUGS.md`、`CLAUDE.md`、`AGENTS.md`、`pwa/CLAUDE.md` を読んで。
+まず `HANDOFF.md` を読んで。次に仕様正本として `pwa/spec/5-6-contracts-management-current-spec.md` を読み、そのあと `pwa/manual/6-7-contracts-management-spec.md`、`pwa/BUGS.md`、`CLAUDE.md`、`AGENTS.md`、`pwa/CLAUDE.md` を読んで。
 
 今回の current truth:
 - local branch: `main`
-- local HEAD / origin/main: `0f0a7dbc79085a39ceaed4d4a69c17711cdb0f4c` (`fix(pwa): exclude counterpart proactive todos`)
-- production `/api/build-info` checked 2026-06-28 JST: `v0.36.19` / `0f0a7dbc79085a39ceaed4d4a69c17711cdb0f4c` / `dirty=false`
-- main alignment: main aligned
-- production alignment: production aligned
-- unpushed commits: none
+- local HEAD / origin/main functional base: `8f252f2451188c03518bd67afa859f14b90e575c`
+- latest functional commit: `fix(pwa): normalize member names in proactive todos`
+- production deployment for `8f252f2451188c03518bd67afa859f14b90e575c`: `dpl_Cx1saiVY2Kn5Qcy91rB4hvJt7f85`
+- production `/api/build-info` checked 2026-06-28 JST: `v0.36.20` / `8f252f2451188c03518bd67afa859f14b90e575c` / `dirty=false`
 - working tree: dirty mixed WIP
+- 契約管理の正本方針: `/admin/contracts` は契約台帳。1行は Drive file / folder / MTG / 議事録ではなく、1契約または契約ファミリー。
 
-未解決の本筋:
-- `/admin/payouts` は、まさの観測ではまだデータ表示まで約15秒かかる。
-- この closeout では性能修正はしていない。次回は関連 md を先に読む。
-- 入口: `pwa/BUGS.md` の `[pwa/admin-payouts]` 2026-06-23 entries、`pwa/design/db_schema.md` の `billing_cycles` / `payout_agreement` / `payout_notices`、`pwa/design/management_score.md` の payout / reward cache 周辺。
-- その後、`/api/admin/payouts` 通常GET、SSR `loadTargetData(... includeAgreementGate:false)`、client revalidation、`gateOnly=1` のどこで15秒待っているかを切り分ける。
+契約管理の重要仕様:
+- 初期表示は `ledger` filter。
+- 表示対象は `registry_status IN ('accepted','candidate')` かつ `status!='cancelled'`。
+- `evidence_only` / `rejected` は初期台帳に出さない。
+- Drive folder、MTG、議事録、テンプレート、契約語を含むだけの周辺資料は `contract_documents` / `contract_signals` / `contract_terms` の証跡であり、`contracts` 行ではない。
+- 台帳列は契約名、種別、相手先、PJ、状態、締結/発効、終了/更新、文書。
+- `metadata不足` filter で、相手先・締結/発効日・終了/更新日などを補うべき行を確認する。
 
 作業開始前に必ず:
 1. `git fetch origin main --prune`
@@ -27,48 +29,23 @@ cd /Users/masa/projects/AMD/amd-os
 4. `curl -fsSL https://amd-os-pwa.vercel.app/api/build-info`
 5. `git diff --name-status`
 
-dirty の大きな塊:
-- notification noise stop WIP:
-  - `gas/153_MeetingHourlyTrigger.js`
-  - `pwa/src/lib/notifications-data.ts`
-  - `pwa/src/components/nav/GlobalNav.tsx`
-  - `pwa/src/components/notifications/AppNotificationsSection.tsx`
-  - `pwa/src/components/notifications/CriticalRealtimeNotify.tsx`
-  - `pwa/src/app/(app)/notifications/page.tsx`
-  - `pwa/src/app/api/tasks/route.ts`
-  - `pwa/src/app/api/task-calendar/register-tasks/route.ts`
-  - `pwa/src/app/api/meeting-workflow/finalize/route.ts`
-  - `pwa/src/app/api/notifications/feedback/route.ts`
-  - `pwa/src/lib/operations-catalog.ts`
-  - `pwa/scripts/migrations/155_skip_non_actionable_app_notifications.sql`
-  - `pwa/scripts/migrations/156_skip_meeting_summary_notifications.sql`
-  - related spec/design/manual/BUGS/design_log docs
-- Atlas visual/UI WIP:
-  - multiple `pwa/src/app/(app)/atlas/**` files
-- Admin/Kiyo WIP:
-  - `pwa/src/components/admin/AdminSidebar.tsx`
-  - `pwa/src/app/(app)/admin/kiyo/page.tsx`
-- meeting assets / project labels WIP:
-  - `pwa/src/app/api/meeting-assets/replace/[assetId]/route.ts`
-  - `pwa/src/lib/project-labels.ts`
-  - `pwa/scripts/update_drive_file.mjs`
-  - `pwa/scripts/migrations/153_project_venture_legacy_name_hygiene.sql`
-- H-1 meeting prep outbox markdowns under:
-  - `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/outbox/`
-- local-only artifact:
-  - `gas-slack/.clasp.json`
+最初の一手:
+1. ログイン済みブラウザで `/admin/contracts` を開き、MTG/議事録/folder が初期台帳に出ないことを確認する。
+2. 契約docsを閉じるなら、`HANDOFF.md`、`SESSION_MIGRATION_PROMPT.md`、`pwa/spec/5-6-contracts-management-current-spec.md`、`pwa/manual/6-7-contracts-management-spec.md`、`pwa/design_log/sessions_2026-06.md`、`pwa/BUGS.md` だけを確認する。
+3. `pwa/BUGS.md` は既存 notification 差分との mixed dirty。既存差分の owner を確認してから stage する。
+4. `git add .` は絶対に使わない。選んだ bundle のファイルだけ個別 stage。
 
-次の進め方:
-1. まずどの bundle を閉じるか決める。notification / Atlas UI / Admin-Kiyo / meeting-assets / H-1 outbox を混ぜない。
-2. `git add .` は絶対に使わず、選んだ bundle のファイルだけ個別 stage する。
-3. stage 後に `git diff --staged --stat` と `git diff --staged --name-status` を確認する。
-4. notification stop bundle を触る場合は、DB migration 155/156 の適用有無、GAS writer 停止、PWA表示除外、manual/spec同期をまとめて検証する。
-5. PWA deploy が必要なら `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` を使う。直接 `npx vercel deploy` は使わない。
-6. deploy 後は `/api/build-info` で build version / git sha / dirty=false を確認する。
+残っている別bundle dirty:
+- notification stop / meeting flow / task notification WIP
+- Atlas UI WIP
+- Admin/Kiyo WIP
+- meeting-assets / project-label WIP
+- contract / monthly agreement docs WIP
+- H-1 prep outbox markdowns
+- `gas-slack/.clasp.json` local artifact
 
 守ること:
-- AMD OS は main 一本。main と本番の差分を曖昧にしない。
-- dirty tree から見えた未確認ファイルは勝手に削除しない。
-- `COMMANDER_TASKS.md` はオーケストレーションボードではない。タスク登録の正本と混同しない。
-- `/tasks` はすでに廃止対象。新規 UI 変更と混ぜない。
+- AMD OS は main 一本。BUILD_VERSIONを巻き戻さない。
+- PWA deploy が必要なら `.vercel/project.json` が `amd-os-pwa / prj_raZW3HSKIszzPUwNTHfy7xDGzLHm` であることを確認し、`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` を使う。
+- Drive folder / MTG / 議事録を契約行として再昇格させない。
 ```

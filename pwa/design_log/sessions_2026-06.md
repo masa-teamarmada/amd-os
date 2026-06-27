@@ -1565,6 +1565,7 @@ deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifica
 - 別セッションの deploy 進行後、repo / origin / production の current truth を再確認した。
 - local `main` と `origin/main` は `0f0a7dbc79085a39ceaed4d4a69c17711cdb0f4c` で一致。
 - production `/api/build-info` は初回確認では `v0.36.18` / `a07c7d889545c4f41e20b95ffd913fb4c21ca787` のままだったが、最終確認で `v0.36.19` / `0f0a7dbc79085a39ceaed4d4a69c17711cdb0f4c` / `dirty=false` まで追いついた。
+- その後 handoff docs-only commit が乗るため、次セッションは固定 sha ではなく `git rev-parse HEAD origin/main` と production `/api/build-info` の live check を正にする。
 
 ### 実施
 - closeout inventory を取り直し、dirty / untracked を notification stop、Atlas UI、H-1 prep outbox、owner 未確定 WIP に分類した。
@@ -1576,3 +1577,32 @@ deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifica
 - archive 不可。`main aligned / production aligned / dirty mixed WIP` の状態。
 - 次回は本番が `0f0a7dbc / v0.36.19 / dirty=false` のままか軽く確認し、その後 dirty WIP の束分けから始める。
 - dirty WIP は `git add .` せず、notification / Atlas UI / Admin-Kiyo / meeting-assets / H-1 outbox を分けて扱う。
+- 2026-06-28 JST 追加確認: handoff docs-only commit 後、local `main` / `origin/main` / production は `5e69d3d5499d63ed9289f604a769f8483d8772e9` で一致。production `/api/build-info` は `v0.36.19` / `dirty=false`、deployment `dpl_2stejrWhjSZT8SpmsxcNsKPYeFZa` は READY。
+- その時点では working tree 側の `pwa/src/lib/build-info.ts` が未コミットで `v0.36.20` に bump 済みだった。その後 `8f252f2451188c03518bd67afa859f14b90e575c` で main に入った。
+- 2026-06-28 JST 追加確認2: `fix(pwa): normalize member names in proactive todos` (`8f252f2451188c03518bd67afa859f14b90e575c`) が main / origin に入り、deployment `dpl_Cx1saiVY2Kn5Qcy91rB4hvJt7f85` は READY。production `/api/build-info` は `v0.36.20` / `8f252f2451188c03518bd67afa859f14b90e575c` / `dirty=false`。
+
+---
+
+## 2026-06-28 — 契約管理: 契約台帳の正規化と MTG/Drive evidence 混入防止
+
+### コンテキスト
+- `/admin/contracts` に Drive backfill と 5生データ抽出由来の行が大量に入り、MTG、議事録、Drive folder、テンプレートが契約書リストに見えていた。
+- まさから「一般的な契約書リストとしての表を先に定義して、これまで抽出したデータをそこに埋めるべき」と指摘。
+- 契約リストの標準的な考え方として、契約 repository / CLM の台帳は「契約名、相手先、種別、状態、発効日、満了日、更新、owner、文書」を持つ searchable repository であり、ファイル/会議/証跡の一覧とは分ける方針にした。
+
+### 実装済み
+- DB migration `pwa/scripts/migrations/147_contracts_registry_metadata.sql` で `contracts` に `canonical_title`、`registry_status`、発効日、満了日、更新通知日、更新種別、契約金額、owner、notes を追加。
+- 本番DBへ非破壊DDLを適用済み。
+- 既存 `contracts` 2,159件を再分類し、通常台帳に出す行を `accepted` / `candidate`、証跡や非契約を `evidence_only` / `rejected` に分けた。
+- `/admin/contracts` の初期表示を `ledger` filter に変更。`1行=1契約または契約ファミリー` の表として、契約名、種別、相手先、PJ、状態、締結/発効、終了/更新、文書数を表示。
+- `metadata不足` filter を追加し、相手先・発効日・満了日などを補完すべき契約行を確認できるようにした。
+- `pwa/spec/5-6-contracts-management-current-spec.md`、`pwa/manual/6-7-contracts-management-spec.md`、`pwa/design/SPEC_pwa.md`、`pwa/BUGS.md` に台帳境界と再発防止を追記。
+
+### Deploy / verification
+- 契約台帳実装は以前の deploy で本番反映済み: `v0.28.12` / commit `b2277b5f`。
+- 当時の検証: migration apply、DB再分類、`npx eslint src/components/contracts/ContractsClient.tsx src/app/api/contracts/route.ts src/lib/build-info.ts`、`npm run build`、`git diff --check`。
+- Browser確認は未ログイン状態で `/auth/login?next=%2Fadmin%2Fcontracts` に redirect したため、表UIの目視はログイン済みブラウザで再確認が必要。
+
+### 残課題
+- 現在の main は `v0.36.19` まで進んでいるため、契約台帳のUI/データが現行本番でも同じ表示になっているか、ログイン済み状態で `/admin/contracts` を再確認する。
+- Drive上の契約書がすべて台帳に紐づいているかは継続監査が必要。ただし次回以降も、Drive folder / MTG / 議事録を `contracts` 行に昇格させず、`contract_documents` / `contract_signals` の evidence として扱う。
