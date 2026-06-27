@@ -216,7 +216,7 @@ export async function GET(req: NextRequest) {
           project_id: projectId,
           trigger_kind: "meeting_next_action",
           source_meeting_id: meetingId,
-          source_event_id: null,
+          source_event_id: "",
           title,
           detail: text,
           ball_owner: ballOwner,
@@ -225,7 +225,11 @@ export async function GET(req: NextRequest) {
         },
         { onConflict: "project_id,trigger_kind,source_meeting_id,source_event_id,title", ignoreDuplicates: false },
       );
-      if (!upsertErr) nextActionInserted++;
+      if (upsertErr) {
+        console.error("[proactive-todo] upsert error (meeting_next_action):", upsertErr.message, projectId, meetingId);
+      } else {
+        nextActionInserted++;
+      }
     }
   }
 
@@ -270,7 +274,7 @@ export async function GET(req: NextRequest) {
       {
         project_id: projectId,
         trigger_kind: "next_meeting_prep",
-        source_meeting_id: null,
+        source_meeting_id: "",
         source_event_id: meetingId,
         title,
         detail,
@@ -280,7 +284,11 @@ export async function GET(req: NextRequest) {
       },
       { onConflict: "project_id,trigger_kind,source_meeting_id,source_event_id,title", ignoreDuplicates: false },
     );
-    if (!upsertErr) prepInserted++;
+    if (upsertErr) {
+      console.error("[proactive-todo] upsert error (next_meeting_prep):", upsertErr.message, projectId, meetingId);
+    } else {
+      prepInserted++;
+    }
   }
 
   // ============================================
