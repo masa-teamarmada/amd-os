@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Clock3, PauseCircle, Trash2, X, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -79,6 +79,28 @@ const BALL_LABEL: Record<BallOwner, string> = {
   counterpart: "相手ボール",
 };
 
+const RESOLVED_CARD_HIDE_MS = 3500;
+
+const RESULT_LABEL: Record<Status, string> = {
+  open: "未対応に戻した",
+  done: "完了にした",
+  blocked: "ブロック中にした",
+  dismissed: "関係ないにした",
+};
+
+const RESULT_TONE: Record<Status, string> = {
+  open: "border-border bg-card text-foreground",
+  done: "border-emerald-300 bg-emerald-50 text-emerald-800",
+  blocked: "border-amber-300 bg-amber-50 text-amber-800",
+  dismissed: "border-zinc-300 bg-zinc-50 text-zinc-700",
+};
+
+type ScrollRestore = {
+  anchorDomId: string | null;
+  anchorTop: number | null;
+  scrollY: number;
+};
+
 export function ProactiveTodoBoard() {
   const [rows, setRows] = useState<TodoRow[]>([]);
   const [projects, setProjects] = useState<Record<string, string>>({});
@@ -87,6 +109,10 @@ export function ProactiveTodoBoard() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [recentlyResolved, setRecentlyResolved] = useState<Record<string, Status>>({});
+  const hideTimeoutsRef = useRef<Record<string, number>>({});
+  const scrollRestoreRef = useRef<ScrollRestore | null>(null);
+  const tabRef = useRef<Status>(tab);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -120,6 +146,34 @@ export function ProactiveTodoBoard() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    tabRef.current = tab;
+  }, [tab]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(hideTimeoutsRef.current).forEach((timer) => window.clearTimeout(timer));
+      hideTimeoutsRef.current = {};
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    const restore = scrollRestoreRef.current;
+    if (!restore) return;
+    scrollRestoreRef.current = null;
+
+    if (restore.anchorDomId) {
+      const anchor = document.getElementById(restore.anchorDomId);
+      if (anchor && restore.anchorTop !== null) {
+        const delta = anchor.getBoundingClientRect().top - restore.anchorTop;
+        if (Math.abs(delta) > 1) window.scrollBy(0, delta);
+        return;
+      }
+    }
+
+    window.scrollTo(0, restore.scrollY);
+  }, [rows, recentlyResolved]);
+
   const counts = useMemo(() => {
     const c: Record<Status, number> = { open: 0, done: 0, blocked: 0, dismissed: 0 };
     for (const r of rows) c[r.status]++;
@@ -131,20 +185,72 @@ export function ProactiveTodoBoard() {
     [rows],
   );
 
+  const captureNeighborAnchor = useCallback((id: string) => {
+    const rowDomId = `proactive-todo-${id}`;
+    const cards = Array.from(document.querySelectorAll<HTMLElement>("[data-proactive-todo-row='true']"));
+    const index = cards.findIndex((el) => el.id === rowDomId);
+    const anchor = index >= 0 ? (cards[index + 1] ?? cards[index - 1] ?? null) : null;
+
+    scrollRestoreRef.current = {
+      anchorDomId: anchor?.id ?? null,
+      anchorTop: anchor?.getBoundingClientRect().top ?? null,
+      scrollY: window.scrollY,
+    };
+  }, []);
+
+  const scheduleStatusTransition = useCallback(
+    (id: string, nextStatus: Status, fromTab: Status) => {
+      const previousTimer = hideTimeoutsRef.current[id];
+      if (previousTimer) window.clearTimeout(previousTimer);
+
+      setRecentlyResolved((prev) => ({ ...prev, [id]: nextStatus }));
+      hideTimeoutsRef.current[id] = window.setTimeout(() => {
+        delete hideTimeoutsRef.current[id];
+        setRecentlyResolved((prev) => {
+          if (prev[id] !== nextStatus) return prev;
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
+
+        if (tabRef.current === fromTab && nextStatus !== fromTab) {
+          captureNeighborAnchor(id);
+          setRows((prev) => prev.filter((row) => row.id !== id));
+          setExpandedId((current) => (current === id ? null : current));
+        }
+      }, RESOLVED_CARD_HIDE_MS);
+    },
+    [captureNeighborAnchor],
+  );
+
   const resolve = async (id: string, action: "done" | "blocked" | "dismissed", note?: string) => {
     setBusyId(id);
     try {
+      const normalizedNote = note?.trim() ? note.trim() : null;
       const res = await fetch(`/api/proactive-todos/${id}/resolve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, note: note ?? null }),
+        body: JSON.stringify({ action, note: normalizedNote }),
       });
       if (!res.ok) {
         const e = await res.json().catch(() => ({}));
         throw new Error(e.error || res.statusText);
       }
-      await load();
-      setExpandedId(null);
+      const nowIso = new Date().toISOString();
+      setRows((prev) =>
+        prev.map((row) =>
+          row.id === id
+            ? {
+                ...row,
+                resolved_note: normalizedNote ?? row.resolved_note,
+                updated_at: nowIso,
+              }
+            : row,
+        ),
+      );
+      setError(null);
+      setExpandedId(id);
+      scheduleStatusTransition(id, action, tab);
     } catch (e) {
       setError(e instanceof Error ? e.message : "送信エラー");
     } finally {
@@ -199,9 +305,13 @@ export function ProactiveTodoBoard() {
             const projectName = projects[row.project_id] || row.project_id;
             const expanded = expandedId === row.id;
             const busy = busyId === row.id;
+            const transientStatus = recentlyResolved[row.id] ?? null;
+            const transientWillLeave = transientStatus ? transientStatus !== tab : false;
             return (
               <li
                 key={row.id}
+                id={`proactive-todo-${row.id}`}
+                data-proactive-todo-row="true"
                 className={`rounded-md border bg-card ${
                   row.priority === "red" || due.overdue ? "border-red-200" : "border-border"
                 }`}
@@ -263,7 +373,19 @@ export function ProactiveTodoBoard() {
                       ) : null}
                     </div>
 
-                    {row.status === "open" || row.status === "blocked" ? (
+                    {transientStatus ? (
+                      <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+                        <span
+                          className={`inline-flex min-h-9 items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-semibold ${RESULT_TONE[transientStatus]}`}
+                        >
+                          <ResultIcon status={transientStatus} />
+                          {RESULT_LABEL[transientStatus]}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground">
+                          {transientWillLeave ? "数秒後にこの一覧から外すよ。" : "このタブに移動済み。"}
+                        </span>
+                      </div>
+                    ) : row.status === "open" || row.status === "blocked" ? (
                       <div className="flex flex-wrap gap-2 border-t border-border pt-3">
                         <button
                           type="button"
@@ -305,12 +427,25 @@ export function ProactiveTodoBoard() {
                         try {
                           // 再開 = status='open' に戻す (resolve API は 4状態だが、open 戻しは別 patch で)
                           const supabase = createClient();
-                          await supabase
+                          const { error: reopenError } = await supabase
                             .from("proactive_todos")
                             .update({ status: "open", resolved_note: null, resolved_by: null, resolved_at: null })
                             .eq("id", row.id);
-                          await load();
-                          setExpandedId(null);
+                          if (reopenError) throw new Error(reopenError.message);
+
+                          const nowIso = new Date().toISOString();
+                          setRows((prev) =>
+                            prev.map((item) =>
+                              item.id === row.id
+                                ? { ...item, resolved_note: null, resolved_by: null, updated_at: nowIso }
+                                : item,
+                            ),
+                          );
+                          setError(null);
+                          setExpandedId(row.id);
+                          scheduleStatusTransition(row.id, "open", tab);
+                        } catch (e) {
+                          setError(e instanceof Error ? e.message : "送信エラー");
                         } finally {
                           setBusyId(null);
                         }
@@ -334,6 +469,13 @@ export function ProactiveTodoBoard() {
       )}
     </section>
   );
+}
+
+function ResultIcon({ status }: { status: Status }) {
+  if (status === "open") return <Clock3 className="h-3.5 w-3.5" />;
+  if (status === "blocked") return <PauseCircle className="h-3.5 w-3.5" />;
+  if (status === "dismissed") return <Trash2 className="h-3.5 w-3.5" />;
+  return <CheckCircle2 className="h-3.5 w-3.5" />;
 }
 
 function Meta({ label, value, colSpan = 1 }: { label: string; value: string; colSpan?: 1 | 2 }) {

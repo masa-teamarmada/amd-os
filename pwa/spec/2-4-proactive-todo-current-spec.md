@@ -151,6 +151,7 @@ admin (= `members.is_admin = true`) と `service_role` のみ ALL。anon SELECT 
   - ✅ **完了** → `status='done'`, `resolved_at=now()`
   - ⏸ **ブロック中** → `status='blocked'` + 任意1行メモ、3日後 cron が `open` 復帰
   - 🗑 **関係ない** → `status='dismissed'`, 二度と cron が同じ key で作らない
+- 3 ボタン押下後はリスト全体を即時再読込しない。押したカードだけをその場で「完了にした / ブロック中にした / 関係ないにした」として約 3.5 秒表示し、現在タブから外れる status ならその後に一覧から除去する。除去時は隣接カードの位置を維持し、ページ最上部へ戻さない。
 - done/dismissed タブからは「未対応に戻す」ボタンで `open` 復帰可能
 
 ### dashboard 上段バッジ
