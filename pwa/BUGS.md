@@ -3441,3 +3441,23 @@
   - upsert を書くときは **error チェックを必ず log に残す**。`if (!err) counter++` だけだと silent fail と「条件未マッチで何も起きてない」が区別不能になる。
   - 初回 backfill のような重要な write は、ローカル `node -e ...` で直接 supabase-js を叩いて 1 行返ることを確認してから cron route を本番に出す。本番 cron 経由でしか動かない設計は debug ループが長くなる。
 
+## [bzm/git] `git add <file>` 後の `git commit` が staged 全 72 files を巻き込み push (2026-06-27)
+
+- **症状**: BZM 本書 L2 BOOK_DECISIONS.md だけ commit する意図で `git add pwa/bzm/BOOK_DECISIONS.md && git commit -m "..." && git push` を実行したら、72 files (PJ 内の WIP code/spec を含む) が commit + push されてしまった (73f92211)。
+- **原因**: `git commit` (オプションなし) は **staged 全件** を commit する標準動作。前 commit (ccc5eb68) 直後の git status を確認していなかったため、別 worker または以前の作業で stage されていた他 file が残っていたことに気付かなかった。CLAUDE 指示 "個別 file add" を遵守したつもりが、commit 側のオプション指定が抜けた。
+- **対応内容**: `git revert -n 73f92211` で打ち消し commit (45a831e3) を作成 + push。WIP 71 files は workdir に残るので、まさが必要に応じて再整理して commit 可能。memory rule `feedback_git_staged_set_verification.md` を新規追加。
+- **再発防止策**:
+  - 各 commit chain の冒頭で `git status --short` と `git diff --staged --stat` を必ず実行
+  - 個別 file commit には `git commit -- <file...>` を使うか、`git add <file>; git diff --staged --stat; git commit` の三段で staged set 検証
+  - 大量 staged 状態を見たら `git reset HEAD <unwanted>` で unstage して個別 add やり直し
+
+## [bzm/git] `git revert -n` 後の `git add` が空 diff で D-045..D-048 がロスト (2026-06-27)
+
+- **症状**: 73f92211 事故対応で `git revert -n 73f92211 && git commit && git add pwa/bzm/BOOK_DECISIONS.md` + `git commit` の chain で「D-045..D-048 を再投入」と意図したが、後で grep したら L2 に D-045..D-048 が存在しない (= 411eba9e commit が空 diff だった)。
+- **原因**: `git revert` は **workdir/index 両方** に逆 patch を当てる (= 私の Edit で投入した D-045..D-048 を revert が消した)。`git add pwa/bzm/BOOK_DECISIONS.md` した時点で workdir は ccc5eb68 時点に戻っており、stage しても diff 0。commit は通ったが内容は空、当時 commit summary も気付かず "L2 BOOK_DECISIONS.md に Ch 5 Kingpin 確定判決を再投入" と誤報告。
+- **対応内容**: 後で grep で発見 → Edit で D-034 rationale 末尾追記 + D-045..D-055 全 11 件を D-044 直後に append → 67dfa2a4 で正しく commit + push。
+- **再発防止策**:
+  - `git revert` 後の再 commit chain では、`git add` 前に対象 file を `Read` または `grep` で内容確認 (workdir が想定状態か検証)
+  - 上記 staged set 検証ルール (73f92211 事故の再発防止) と同一の rule で多くは防げる
+  - commit summary (X files changed, Y insertions) が想定 file/lines 数と合致しているか必ず確認 (1 file changed, 1 insertion なら追加内容が空に近い signal)
+

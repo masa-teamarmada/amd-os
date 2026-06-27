@@ -1465,3 +1465,45 @@ deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifica
 ### 関連メモ更新 (Cowork memory)
 - 新規: `memory/feedback-return-to-origin-in-loose-brainstorm.md` (ふわっとブレスト中核戻りルール)
 - MEMORY.md インデックスにエントリ追加
+
+---
+
+## 2026-06-27 — BZM 本書 Book II 100% + Book III 4 章 + 本文 draft 試作品
+
+### コンテキスト
+2026-06-25 セッションで Book 0-VI 構造 (940p / 18ヶ月、Cambridge UP + Research Policy + ICC 三経路) と書き順が確定済み。本セッションは実行フェーズ。まさの「全体感を先に設計してから順番に workflow を進めたい」要望から、3 層 md frame (L1 不変項 + L2 判決台帳 + L3 章単位進捗) を確立して章単位 skeleton を起草。
+
+### 実装
+- **L1 (不変項)** `pwa/bzm/BOOK_MASTER_PLAN.md` (16 セクション、中核命題 6 + Tier A/B 階層分離 + 書き順 + ケース割当て)
+- **L2 (判決台帳)** `pwa/bzm/BOOK_DECISIONS.md` (R-1..R-5 + D-001..D-055 + P-001..P-011)。本セッションで D-045..D-055 11 件 + D-034 追認を新規 append
+- **L3 (章単位)** 22 章 skeleton を Workflow tool (3 persona × 3 judge × synth) で起草:
+  - Book II 19/19 章完成 (Ch 5/5.5/6/7/8/9/10.0-10.10/11/11.5、累計 272p)
+  - Book III 4 章着手 (Ch 12 TIEM / Ch 13 BWE 進行中 wi0pizhng / Ch 14 CX / Ch 15 SX)
+- **段落 outline 2 節** (Ch 5 96 段落 / Ch 5.5 73 段落)
+- **本文 draft 試作品 1 節** = Ch 5 §5.0 章頭フック 2,280 字 12 段落 (witapvxv9 output)
+- **memory rule 2 件追加** = `feedback_commit_push_no_approval_for_docs.md` + `feedback_git_staged_set_verification.md`
+
+### Verified
+- L1/L2/L3 すべて `pwa/bzm/` 配下に Write + git push 済み。最終 commit = `d21fc958 docs(bzm): add L3 CHAPTER_12_SKELETON.json (TIEM ゾンビ型 24p)`
+- Workflow tool 25 件起動、累計 subagent_tokens ≈ 10M
+
+### まさレビュー (本文 draft 試作品)
+- トーンは好きだが読者親和性をもう少しアップ、まさっぽい説明の厚みを足したい、セクションが短すぎる
+- まさは「説明が分かりやすい」と評価される文体を持つ、これを守らないと「まさの本」じゃない
+- 専門性は譲らないが、説明を厚くして読みやすさを担保
+
+### 反省 (再発防止 — 次セッションが読むべき)
+1. **`git commit` (オプションなし) は staged 全件を commit する** — `git add <file>` で個別 stage したつもりが、前作業 staged 残り file を巻き込み 72 files commit + push (73f92211)。`git revert` で対処 (45a831e3) + memory rule 追加。詳細 `pwa/BUGS.md`
+2. **`git revert` は workdir/index 両方に逆 patch を当てる** — revert 後の `git add` が空 diff で D-045..D-048 がロスト commit (411eba9e)。後で grep で発見 → 67dfa2a4 で補正。詳細 `pwa/BUGS.md`
+3. **本文 draft で「短すぎる」を見落とした** — Ch 5 §5.0 は 2,280 字 12 段落で paragraph_outline 通りと判断したが、まさのトーン基準では薄い。次回は v1 起草時点で段落あたり 200-400 字、合計 3,500-4,500 字に再設定
+4. **トーン feedback は本文起草前に取るべき** — まさのトーン基準を L1 BOOK_MASTER_PLAN.md §11 章型に「読者親和性 + まさっぽい説明の厚み」として追加すべき (次セッション sub-task)
+5. **Token 累計の自己モニタリング不足** — 25 workflows × 7 agents × effort=high で 10M tokens 消費。まさの 18:00 リセットまでに 98% 到達
+
+### 次セッション起点
+- `HANDOFF_BZM_BOOK_2026-06-27.md` を最初に読む
+- First Next Action = Ch 5 §5.0 本文 draft v2 起草 (まさトーン feedback 反映、1 段落 200-400 字 / 合計 3,500-4,500 字)
+
+### 関連メモ更新 (Cowork memory)
+- 新規: `~/.claude/projects/-Users-masa-projects-AMD-before-zero/memory/feedback_commit_push_no_approval_for_docs.md`
+- 新規: `~/.claude/projects/-Users-masa-projects-AMD-before-zero/memory/feedback_git_staged_set_verification.md`
+- MEMORY.md インデックス更新
