@@ -1348,6 +1348,7 @@ function buildMemberMonthlyPayoutRows({
 export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }: Props) {
   const initialPayload = initialData?.ym === initialYm ? initialData : null;
   const skipInitialFetchRef = useRef(Boolean(initialPayload));
+  const backgroundReloadingRef = useRef(false);
   const [ym, setYm] = useState(initialYm);
   const [data, setData] = useState<PayoutData | null>(initialPayload);
   const [loading, setLoading] = useState(false);
@@ -1773,13 +1774,13 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
     : snapshotSyncBlocked
       ? "同期できない"
       : snapshotSyncNeeded
-        ? "未同期"
+        ? "発行時に同期"
         : "同期済み";
   const snapshotSyncStatusTitle = hasBudgetBlocker
     ? "本契約cap未設定または超過があるため同期できない"
     : guardedActionTitle ??
       (snapshotSyncNeeded
-        ? `未同期: 報酬明細 ${unsyncedPayoutEntryCount}件 / 通知額 ${unsyncedNoticeCount}件。画面を開くだけでは保存せず、夜間の先回り生成または発行/送付時に同期する`
+        ? `表示中のDBスナップショット差分: 報酬明細 ${unsyncedPayoutEntryCount}件 / 通知額 ${unsyncedNoticeCount}件。発行・送付時は同期してから進む。画面は読み取りだけで定期更新する`
         : "最新計算額が monthly_reward_payout と payout_notices.total_yen に同期済み");
   const snapshotSyncStatusClass = snapshotSyncBlocked
     ? "border-red-200 bg-red-50 text-red-800"
@@ -1839,9 +1840,11 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
     }
   }
 
-  async function loadForYm(nextYm: string, options: { refreshRewards?: boolean } = {}) {
-    setLoading(true);
-    setHint(options.refreshRewards ? "報酬キャッシュを再計算中..." : "");
+  async function loadForYm(nextYm: string, options: { refreshRewards?: boolean; silent?: boolean } = {}) {
+    if (!options.silent) {
+      setLoading(true);
+      setHint(options.refreshRewards ? "報酬キャッシュを再計算中..." : "");
+    }
     try {
       const params = new URLSearchParams({ ym: nextYm });
       if (options.refreshRewards) params.set("refreshRewards", "1");
@@ -1854,12 +1857,14 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
       }
       setData(payload);
       void loadAgreementGateForYm(nextYm);
-      setHint(payoutDataHint(nextYm, payload, Boolean(options.refreshRewards)));
+      if (!options.silent) setHint(payoutDataHint(nextYm, payload, Boolean(options.refreshRewards)));
     } catch (err) {
-      setData(null);
-      setHint(err instanceof Error ? err.message : "読込エラー");
+      if (!options.silent) {
+        setData(null);
+        setHint(err instanceof Error ? err.message : "読込エラー");
+      }
     } finally {
-      setLoading(false);
+      if (!options.silent) setLoading(false);
     }
   }
 
@@ -2209,6 +2214,41 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
     void loadForYm(ym);
   }, [ym]);
 
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      if (
+        backgroundReloadingRef.current ||
+        loading ||
+        noticeSavingMemberId != null ||
+        noticeMailLoading ||
+        noticeMailSending ||
+        paymentNudgeSending ||
+        bulkPdfMode != null ||
+        noticeMailModal != null ||
+        modalTarget != null
+      ) {
+        return;
+      }
+      backgroundReloadingRef.current = true;
+      void loadForYm(ym, { silent: true }).finally(() => {
+        backgroundReloadingRef.current = false;
+      });
+    }, 60_000);
+
+    return () => window.clearInterval(intervalId);
+  }, [
+    bulkPdfMode,
+    loading,
+    modalTarget,
+    noticeMailLoading,
+    noticeMailModal,
+    noticeMailSending,
+    noticeSavingMemberId,
+    paymentNudgeSending,
+    ym,
+  ]);
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-end gap-3">
@@ -2335,7 +2375,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
 
       <div className="grid gap-2 md:grid-cols-6">
         <SummaryBox label="対象cycle" value={`${data?.cycles.length ?? 0}件`} sub={`${rewardCycleCount}件に報酬明細あり`} />
-        <SummaryBox label="報酬明細" value={`${expectedEntries.length}件`} sub={syncedAll ? "同期済み" : "未同期"} />
+        <SummaryBox label="報酬明細" value={`${expectedEntries.length}件`} sub={syncedAll ? "同期済み" : "発行時同期"} />
         <SummaryBox label="支払メンバー" value={`${memberRows.length}人`} sub={`通知額 ${data?.notices.length ?? 0}件`} />
         <SummaryBox label="本契約発生" value={fmtYen(regularBaseTotal)} sub="regular MS" />
         <SummaryBox label="別財布発生" value={fmtYen(extraBaseTotal)} sub="cap_extra MS" />
@@ -3801,7 +3841,7 @@ function PayoutNoticeActions({
       </div>
       {!row.isSaved && (
         <div className="max-w-[260px] text-right text-[10px] leading-snug text-amber-700">
-          未同期。夜間の先回り生成、または発行・送付時に同期してPDFを作成。
+          発行・送付時に同期してPDFを作成。
         </div>
       )}
       {row.isSaved && !isSent && (

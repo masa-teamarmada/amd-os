@@ -129,6 +129,7 @@ expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
   "bulk_issue_notice_pdf",
   "bulk_preview_notice_pdf",
   "同期済み",
+  "発行時に同期",
   "snapshotSyncStatusLabel",
   "fmtRelativeTime",
 ]);
