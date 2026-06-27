@@ -42,33 +42,55 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const LOOKBACK_DAYS = 14;
-const NEXT_MEETING_PREP_WINDOW_DAYS = 3;
+const NEXT_MEETING_PREP_WINDOW_DAYS = 7;
 const BLOCKED_RESURFACE_DAYS = 3;
 
 // --- ball_owner ヒューリスティック ---
+//
+// 設計判断: AMD ボールの判定は「明らかに相手側だけ」を弾く方針 (= ambiguous は AMD 扱い)。
+// 精度より「漏れない」を優先する。誤って積まれた TODO は /proactive の 🗑関係ない で1クリック消せる。
+//
+// AMD メンバーは `members` を実行時 fetch して動的に AMD 主語に加える。
 
-// 「相手側」と判定する主語パターン (これらが先頭近くに来るなら counterpart 扱い → skip)
+// 「相手側」と判定する主語パターン
 const COUNTERPART_SUBJECT_PATTERNS = [
-  /^[\s「『（]*(?:相手|先方|先生(?:が|は|に)|教授|社長|代表|大学側|相手側|相手企業|相手チーム)/,
-  /(?:先生|社長|代表|教授)が[^。]{0,40}(?:確認|準備|提示|連絡|送付|手配|調整|提出|検討|判断|決定)/,
-  /^[\s「『（]*[ぁ-んァ-ヶー一-龥A-Za-z]{1,12}(?:先生|社長|代表|教授|さん)が/,
+  // 「○○氏」「○○さん」「○○先生」「○○教授」「○○社長」「○○代表」が主語
+  /^[\s「『（]*[ぁ-んァ-ヶー一-龥A-Za-z]{1,12}(?:先生|教授|社長|代表|氏|さん)(?:が|は|と|の|を|により)/,
+  // 「相手側」「先方」「○○大学側」「○○社側」「○○側」が主語
+  /^[\s「『（]*(?:相手|先方|大学側|相手側|相手企業|相手チーム|教授会|事務局)/,
+  // 「複数の人 氏 と 氏 が」(冒頭固定で出てくるパターン)
+  /^[\s「『（]*[ぁ-んァ-ヶー一-龥A-Za-z]{1,12}(?:氏|さん)と[ぁ-んァ-ヶー一-龥A-Za-z]{1,12}(?:氏|さん)(?:は|が)/,
 ];
 
-// 「AMD ボール」と判定する主語パターン
-const AMD_SUBJECT_PATTERNS = [
+// 「AMD ボール」と判定する主語パターン (固定部分)
+const AMD_FIXED_SUBJECT_PATTERNS = [
   /(?:AMD|amd)(?:側|から|は|が|チーム)/,
-  /(?:SX|CX|ZMP|KUTE|VSX|CLG|LST|BWE|MMO|ZMP|OkuDoor)側/,
+  /(?:アルマダ|チームアルマダ)(?:側|から|は|が|チーム)?/,
+  // PJ コード + 側
+  /(?:SX|CX|ZMP|KUTE|VSX|CLG|LST|BWE|MMO|OkuDoor|KGW|VasculaX|SolvioraX|CryoX|ZeMA|DAVP|NIMS\s?OS|SE)側/,
+  // つくよみ / えいみ / まさ
   /(?:えいみ|つくよみ|まさ)(?:が|は|に)/,
+  // 当方系
   /(?:こちら|当方|当社|当チーム)(?:側|から|で|が|は)/,
-  /AMD\s?(?:から|側で|チーム)/,
 ];
 
-function detectBallOwner(text: string): "amd" | "counterpart" | "ambiguous" {
-  const t = text.trim().slice(0, 160);
+function detectBallOwner(text: string, amdMemberNames: Set<string>): "amd" | "counterpart" | "ambiguous" {
+  const t = text.trim().slice(0, 200);
+
+  // AMD メンバー実名が冒頭近くに主語として来てたら amd
+  for (const name of amdMemberNames) {
+    if (!name || name.length < 2) continue;
+    // 冒頭 ~ 30 文字以内に「{name}は」「{name}が」のパターン
+    const head = t.slice(0, 40);
+    if (new RegExp(`${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:が|は|と|に|を|から|の)`).test(head)) {
+      return "amd";
+    }
+  }
+
   for (const re of COUNTERPART_SUBJECT_PATTERNS) {
     if (re.test(t)) return "counterpart";
   }
-  for (const re of AMD_SUBJECT_PATTERNS) {
+  for (const re of AMD_FIXED_SUBJECT_PATTERNS) {
     if (re.test(t)) return "amd";
   }
   return "ambiguous";
@@ -128,6 +150,21 @@ export async function GET(req: NextRequest) {
   const today = new Date().toISOString().slice(0, 10);
   const lookbackFrom = new Date(Date.now() - LOOKBACK_DAYS * 86400_000).toISOString().slice(0, 10);
 
+  // AMD メンバー実名 (本名 + コードネーム) を fetch して ball_owner 判定に使う
+  const { data: memberRows } = await db
+    .from("members")
+    .select("member_name, code_name")
+    .eq("status", "active");
+  const amdMemberNames = new Set<string>();
+  for (const m of memberRows ?? []) {
+    // 本名: 「山地 正洋」を「山地正洋」「山地」「正洋」に分解。フルネームと姓だけを入れる。
+    const full = String(m.member_name ?? "").replace(/\s+/g, "");
+    const lastName = String(m.member_name ?? "").trim().split(/\s+/)[0] ?? "";
+    if (full) amdMemberNames.add(full);
+    if (lastName && lastName.length >= 2) amdMemberNames.add(lastName);
+    if (m.code_name) amdMemberNames.add(String(m.code_name));
+  }
+
   // ============================================
   // Stage 1: 過去 LOOKBACK_DAYS 以内の開催済みMTGから next_action を抽出
   // ============================================
@@ -164,7 +201,7 @@ export async function GET(req: NextRequest) {
         continue;
       }
 
-      const ballOwner = detectBallOwner(text);
+      const ballOwner = detectBallOwner(text, amdMemberNames);
       if (ballOwner === "counterpart") {
         nextActionSkippedCounterpart++;
         continue;
@@ -216,10 +253,10 @@ export async function GET(req: NextRequest) {
     const meetingTitle = String(m.title ?? "");
     const meetingId = String(m.meeting_id);
 
-    // 3 営業日後より先の MTG は skip (3 営業日切ったら積む)
-    const threeBizDaysFromNow = ymdAddBusinessDays(today, NEXT_MEETING_PREP_WINDOW_DAYS);
+    // NEXT_MEETING_PREP_WINDOW_DAYS 日後より先の MTG は skip
+    const horizonIso = new Date(Date.now() + NEXT_MEETING_PREP_WINDOW_DAYS * 86400_000).toISOString();
     const meetingStart = m.meeting_start_at ? String(m.meeting_start_at) : ymdToIsoDayEnd(meetingDate);
-    if (new Date(meetingStart).getTime() > new Date(threeBizDaysFromNow).getTime()) {
+    if (new Date(meetingStart).getTime() > new Date(horizonIso).getTime()) {
       prepSkippedFar++;
       continue;
     }

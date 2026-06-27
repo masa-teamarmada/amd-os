@@ -6,7 +6,7 @@
 
 ## この章は何か
 
-過去 14 日のMTG議事録の `next_actions` と、3 営業日以内に開催される予定MTGから、AMD ボール (= AMD/PJ チームが次に動くべきもの) の先手 TODO を自動抽出し、admin 画面 `/proactive` で 1 画面・期限順・3 ボタン完了UI で消化する仕組みの正本仕様。
+過去 14 日のMTG議事録の `next_actions` と、7 日以内に開催される予定MTGから、AMD ボール (= AMD/PJ チームが次に動くべきもの) の先手 TODO を自動抽出し、admin 画面 `/proactive` で 1 画面・期限順・3 ボタン完了UI で消化する仕組みの正本仕様。
 
 「先手力を維持する」のサイクルが OS データとして閉じるための最小実装 MVP。
 
@@ -41,7 +41,7 @@ AMD の提供価値は「Before 0 におけるビジョン注入力、技術戦�
 │ /api/cron/proactive-todo-extract  (PWA non-LLM cron)         │
 │  - 過去14日 開催済みMTGの next_actions sweep                 │
 │  - 文字列ヒューリスティックで ball_owner 判定                │
-│  - 3営業日以内の upcoming MTGに「agenda準備」TODO            │
+│  - 7日以内の upcoming MTG に「agenda準備」TODO               │
 │  - 期限超過 open を red に昇格                               │
 │  - 3日経過 blocked を open に復帰                            │
 └─────────────────────────────────────────────────────────────┘
@@ -102,10 +102,12 @@ admin (= `members.is_admin = true`) と `service_role` のみ ALL。anon SELECT 
 各 `next_actions[]` テキストに対し:
 
 1. テンプレ next_action (`関連資料.*前回までの論点.*当日確認` 正規表現にマッチ) は skip。
-2. `detectBallOwner(text)` で主語を判定:
-   - **counterpart**: 「相手側」「先方」「○○先生が」「教授が」「社長が」「相手企業」等の主語が先頭近くにある
-   - **amd**: 「AMD側/AMDから」「SX側/CX側/ZMP側 等の PJ ボール主語」「えいみ/つくよみ/まさ」「こちら/当方/当社」
-   - **ambiguous**: 上記いずれにも該当しない (= AMD ボール扱いで TODO に積む)
+2. `detectBallOwner(text, amdMemberNames)` で主語を判定:
+   - **counterpart**: 「○○氏」「○○さん」「○○先生」「○○教授」「○○社長」「○○代表」「相手側」「先方」「○○大学側」が主語の文。「○○氏と××氏は」のような並列も counterpart
+   - **amd**: 以下のいずれか:
+     - AMD メンバー実名 (フルネーム/姓だけ/コードネーム) が冒頭 40 文字以内に主語として現れる (`{name}は/が/と/に/を/から/の`)。`members` テーブルから実行時 fetch
+     - 「AMD側」「アルマダ」「SX側/CX側/CryoX側/ZeMA側 等の PJ コード/プロダクト名側」「えいみ/つくよみ/まさ」「こちら/当方/当社/当チーム」
+   - **ambiguous**: 上記いずれにも該当しない (= AMD ボール扱いで TODO に積む。漏れない方針)
 3. `counterpart` 判定なら skip (= counterpart は本 cron では保存しない)。`amd` / `ambiguous` のみ upsert。
 4. `due_at = meeting_date + 7 日`。
 5. UNIQUE 制約で `(project_id, 'meeting_next_action', meeting_id, '', title)` で冪等。
@@ -114,7 +116,7 @@ admin (= `members.is_admin = true`) と `service_role` のみ ALL。anon SELECT 
 
 対象: `source_kinds = 'upcoming'` かつ `meeting_date >= today` の `project_meeting_summaries`。
 
-3 営業日以内 (土日除外) に開催される MTG のみ TODO 化:
+7 日以内 (土日除外) に開催される MTG のみ TODO 化:
 
 - `title = {project_id} {MTG title}: agenda / 進行案を先に提示する`
 - `detail = {meeting_date} 開催予定。AMD から agenda / 進行案 / 論点表を先に出して、相手側が議論をリードする状態を避ける。`
