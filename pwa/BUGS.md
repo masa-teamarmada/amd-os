@@ -3522,3 +3522,13 @@
 - **原因**: reminder の diff snapshot が **Edit 直後の状態ではなく古いコミット時点** を表示することがあると気付かなかった。実際は私の Edit はすべて反映されており、Bash で `grep` / `wc -l` で確認したら全部残っていた。
 - **対応内容**: まさから「他セッションがデプロイ中に避難させてただけ」と説明され再 Edit を試みた際、`Edit` が「String to replace not found」を返したことで「実際は既に変更済」と気付いた。`grep -n` で型定義・新規 entry・新規節レベル entry がすべて存在することを確認。
 - **再発防止策**: reminder の diff snapshot を「現在のファイル状態」と即断せず、`Bash grep` / `wc -l` / `Read` の少数行で実際の状態を確認してから「revert された」と判断する。特に複数ファイル並列 Edit 後に reminder が長い diff を返した場合は必ず実体確認。
+
+## [bzm/workflow] Workflow tool の `args` パラメータが script に届かず subsection_id が undefined (2026-06-28)
+
+- **症状**: BZM Ch 1 §1.0.2 / §1.0.3 / §1.0.4 を 3 並列 Workflow で起草するつもりで、同一 script `ch1_section_0_234_workflow.js` を args 違いで 3 回起動 (wtxayd7d2 = §1.0.2 / w2gjg7csm = §1.0.3 / wt15sygwa = §1.0.4)。3 つとも完了したが、§1.0.3 と §1.0.4 の synth output が両方とも「§1.0.2 状態と観測量のずれ」を題名にした §1.0.2 と同じ内容を生成。引用も §1.0.3 の citation_pool で渡した Hayek 1945 / Simon 1955 / Popper 1959 ではなく、 §1.0.2 系の Spence 1973 / Shannon 1948 / Heckman 1979 / Polanyi 1966 / Scheffer 2009 が出てきた。
+- **原因**: Workflow script 内で `const SUB = args` で args object を期待していたが、Workflow tool の args パラメータは **string として渡される** (= JSON object literal を `<parameter name="args">{...}</parameter>` で書いても tool harness は string に丸める)。`SUB` が string になったため `SUB.subsection_id` などのプロパティ参照はすべて undefined。COMMON_TASK template は `ID: undefined / 提案タイトル: undefined / core proposition: undefined` のような prompt になり、agent は本書 BOOK_CONTEXT と SECTION_0_HEADER から「§1.0.X (X 不明) → §1.0 全景予告で先頭にある §1.0.2 の話題に寄せる」と推測した結果、3 つとも §1.0.2 を書いた。`log()` で `undefined persona drafting` と出ていたのが diagnostic だったが、agents は完了していたので異常に気付くまでに時間がかかった。
+- **対応内容**: §1.0.2 の出力は §1.0.2 として採用 (3,100 字 6 段落、品質 OK)。§1.0.3 と §1.0.4 は新規 script `ch1_section_0_3_workflow.js` / `ch1_section_0_4_workflow.js` を別ファイルとして書き、SUB constant を **inline で hardcode** (= args 渡しを使わない) して再起動。
+- **再発防止策**:
+  - Workflow tool の args は **string で来る可能性** を前提に、script 内で `const SUB = typeof args === 'string' ? JSON.parse(args) : (args || {})` のような defensive guard を入れる。あるいは inline constant で hardcode し args を使わない。
+  - 起動直後の `log()` が `undefined persona drafting:` を返したら **即時 abort** (= 後続 phase を走らせない)。最小限の sentinel として `if (!SUB?.subsection_id) return { error: 'SUB undefined' }` を冒頭に置く。
+  - 同一 script を args 違いで多数回起動する場合は、最初の 1 件で args が正しく届いたかを confirm してから残りを起動する (= 3 並列で一気にやらず、まず 1 件で smoke test)。
