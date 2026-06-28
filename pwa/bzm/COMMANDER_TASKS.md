@@ -1,8 +1,8 @@
 # BZM Commander Tasks
 
-Last updated: 2026-06-04
+Last updated: 2026-06-28
 Owner: BZM司令塔
-Scope: Before Zero Model / BZM theory / Textbook theory gate / D-7 Textbook Insights Textbook Insights theory review
+Scope: Before Zero Model / BZM theory / Textbook theory gate / D-7 Textbook Insights Textbook Insights theory review / 新 BZM 本書執筆 (Cambridge UP Schumpeter モノグラフ 940p)
 
 このファイルは、BZM司令塔が抱えているタスクの台帳。
 まさがここを開けば、コードやworker報告を読まなくても「何を頼んだか / なぜ頼んだか / 今どうなっているか / 何が残っているか」が分かる状態にする。
@@ -32,16 +32,28 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / D-7 Textbook Insi
 
 ## 未完タスク（優先順位順）
 
-1. BZM 本書 Book 0-VI 構造で本文執筆開始 (2026-06-25 まさ最終決定)
-   - お願いした内容: 既存 17 章ドラフト (preface, field-*, model-overview, p-potential 等) は v1 (2026-06-13 章割) として残し、新 Book 0-VI 構造 (870p / 18ヶ月、Tier 3 学術モノグラフ) で本書を書き直す。
-   - 背景: 既存章割への疑問から 2026-06-25 セッションで構造再設計議論を実施。4 提案 md (`2026-06-25_proposal_book0_vi` / `_mapping_existing_to_new` / `_book2_evol_econ_surgery` / `_book2_evol_econ_major_revision`) を `pwa/bzm/` に push 済。5 経済学者 persona の adversarial verify 3 ラウンドで Evolutionary Economist が NO → 軽微修正に到達、Cambridge UP Schumpeter モノグラフ + Research Policy 特集号巻頭論文 publication path 確定。
-   - 現状: Active。設計提案 push 完了。本文起草は未着手。
+1. 新 BZM 本書 940p 本文起草 (= Cambridge UP Schumpeter モノグラフ、まさ確定書き順 2026-06-28 = 1-1 から順)
+   - お願いした内容: 既存 17 章ドラフト (preface, field-*, model-overview, p-potential 等) は **実戦書** (= 後から出版予定の実践書、まさ確定 2026-06-28) として残し、新 Book 0-VI 構造 (940p / 18ヶ月、Tier 3 学術モノグラフ) を **Book I Ch 1 (1-1) から順に** 起草する。
+   - 背景: 2026-06-27 セッションで Book II 19 章 skeleton 完成 + Ch 5 §5.0 本文 draft 試作品 v1 を起草、まさからトーン feedback。2026-06-28 セッションで Ch 5 §5.0.1 v3 (narrative tone) → v4 (引用 + 式) と反復し「めっちゃいい」評価。その後まさが「やっぱり 1-1 から順に見たい」と判断、Book II 中核先行の D-007 書き順を一旦保留して Book I Ch 1 から進める運用に切り替え。
+   - 現状: Active。本文起草中 (= Ch 5 §5.0.1 v4 完成 + Ch 1 §1.0 節本文 v1 完成 + Ch 1 §1.0.1 v1 完成、まさレビュー待ち)。
+   - まさ確定: **Zero = 会社を設立する瞬間 / Before Zero = ゼロより前** (本書全体の中核フレーミング、2026-06-28 確定)
+   - まさ確定文体: 既存 narrative パート (preface / model-overview / s-survival) と統一、大学1年生でも読める、引用文献を読まずに完結、「すべて理解できなくても、すべて読破したくなる」照準、冒頭ナラティブパートは markdown blockquote (`>`) で囲い box 化
    - 残課題:
-     a. Book II Ch 5 (Triple Helix SSM と σ_SU の生成) から起草開始。推奨書き順 = Book II Ch 5/5.5/9 load-bearing 定理 → Book III ケース → Book 0 → I → IV → V → VI。
-     b. 進化経済査読の軽微修正残 5 件: Pilot power calc at N≈32 / §10.8 kernel-id / F_char measurement validity / International-17 cohort selection / Theorem 3 A3 defense。
-     c. 残 4 経済学者査読パス (DSGE / IS / Econometric / AE) の構造手術 (baseline で全て条件付き受理だったので軽め)。
-     d. まさ判断必要な開放論点 5 件: 機関匿名化方針 / 国際比較章対象機関 / prediction registry 18ヶ月 ≥20 case / Ch 21 を N≥15 インタビュー program 化 / ALQ4 psychometric controversy。
-   - 関連ファイル: `pwa/design_log/sessions_2026-06.md` の 2026-06-25 エントリ、`pwa/bzm/2026-06-25_*.md` 全 4、`pwa/design/amd_score.md` (PRS 設計正本)、`pwa/design/institution_readiness.md` (ERS 設計正本)、`BZSF/before_zero_theory.md` (理論正本)。
+     a. まさ確認 OK 後、§1.0.2 / §1.0.3 / §1.0.4 を **並列で 3 Workflow** 起動。§1.0 (= Ch 1 章頭フック 2.5p) 完了後、§1.1 (測るとは, 4p) から順に。
+     b. Ch 5 §5.0.2 / §5.0.3 / §5.0.4 もまさ確認 OK 後に並列起草可 (Book II Ch 5 の §5.0 を埋める、書き順とは独立)。
+     c. 進化経済査読の軽微修正残 5 件: Pilot power calc at N≈32 / §10.8 kernel-id / F_char measurement validity / International-17 cohort selection / Theorem 3 A3 defense (= P-008a-e)。
+     d. まさ判断必要な開放論点 11 件: P-001..P-011 (`pwa/bzm/BOOK_DECISIONS.md` §4)。
+   - 完成済 (まさレビュー OK / 待ち):
+     - Ch 5 §5.0.1 v4 = 3,320 字 6 段落、引用 (菅 2020 / Etzkowitz & Leydesdorff 2000 / Leydesdorff 2003 / Hamilton 1989 / Kim & Nelson 1999 / Atlas signals) + ディスプレイ式 σ_SU = ((μ_A+1)(μ_I+1)(μ_G+1))^(1/3) − 1 + 軽い式 P_t − P_{t-1} (v3 で「めっちゃいい」評価、v4 で引用 + 式追加)
+     - Ch 1 §1.0 節本文 v1 = 1,380 字 4 段落、Zero / Before Zero 定義確定 + 4 サブセクション一望橋渡し (まさレビュー待ち)
+     - Ch 1 §1.0.1 v1 = 2,390 字 5 段落、三人の面談 (月曜国立大学 A 氏 / 水曜 VC B 氏 / 金曜公設試 C 氏) blockquote 並置 + Kalman 1960 / Stokey-Lucas-Prescott 1989 / Simon 1962 引用 + 軽い式 s_t = (P_t, R_t, S_t) + y_t = g(s_t) + ε_t (まさレビュー待ち)
+   - インフラ (2026-06-28 整備済):
+     - `bzm-chapters.ts` に全 60 章 entry + status (completed / in-progress / not-started / legacy) + level (章 / 節 / サブセクション 三層) field
+     - `BzmSideNav` に status indicator + level 別 indent + 「実戦書」凡例
+     - `BzmMarkdown` blockquote を四方枠 + 薄背景 + shadow の囲み box に
+     - `[slug]page` の未着手 stub fallback
+     - 目次順序: 新 BZM 940p 上 / 実戦書下、目次番号「1-1」削除
+   - 関連ファイル: `HANDOFF_BZM_BOOK_2026-06-28.md`、`pwa/design_log/sessions_2026-06.md` の 2026-06-28 entry、`pwa/bzm/BOOK_MASTER_PLAN.md` (L1)、`pwa/bzm/BOOK_DECISIONS.md` (L2)、`pwa/bzm/CHAPTER_5_PARAGRAPH_OUTLINE.md` (Ch 5 outline は 4 sub-section へ書き換え済)、`pwa/bzm/new-book2-ch-5-section-0-1.md` (§5.0.1 v4)、`pwa/bzm/new-book1-ch-1-section-0.md` / `new-book1-ch-1-section-0-1.md` (Ch 1 §1.0 + §1.0.1 v1)。
 
 2. Vercel deploy approval gate
    - お願いした内容: Vercel deploy上限は緩和されたが、当面はVercel production / preview deploy、またはVercel自動deployを起こす可能性があるpushの直前に、必ずまさ許可を取る運用へ切り替える。

@@ -5,6 +5,48 @@
 
 ---
 
+### [pwa/contracts] MTG / 議事録 / Drive folder が契約書リストに混ざった (2026-06-28)
+
+- **状態**: クローズ (契約台帳の表示境界を `registry_status` と台帳filterで固定。spec/manualへ反映済み)。
+- **症状**: `/admin/contracts` の契約リストに、`KUTE キックオフMTG`、`取締役会`、Drive上の親フォルダ名、議事録由来の周辺資料が契約行として並んだ。契約書リストとして見ると、契約相手・種別・締結日・満了日が分からない行が大量に混ざり、実務台帳として使えない状態だった。
+- **原因**:
+  - Drive backfill / 5生データ抽出が「契約に関連する証跡」と「契約台帳の1行」を分けきれていなかった。
+  - `contract_documents` に保存すべき文書・フォルダ・議事録証跡を、`contracts` の契約行として昇格させていた。
+  - `status` だけで表示可否を判断しており、契約として成立した行、候補、証跡のみ、非契約を分ける品質境界がなかった。
+- **対応内容**:
+  1. `contracts` に `canonical_title`、`registry_status`、発効日/満了日/更新通知日/金額/owner系metadataを追加。
+  2. 既存2,159件を再分類し、通常台帳に出す行を `accepted` / `candidate` へ、MTG/議事録/テンプレート/フォルダ等を `evidence_only` / `rejected` へ落とした。
+  3. `/admin/contracts` の初期filterを `ledger` にし、`1行=1契約または契約ファミリー` の表へ変更。
+  4. `metadata不足` filterで、相手先・締結/発効日・終了/更新日などを埋めるべき契約行を確認できるようにした。
+- **再発防止策**:
+  - 契約台帳行は契約または契約ファミリーだけ。Drive file、folder、MTG、議事録、テンプレートは evidence として扱う。
+  - `contract_documents` / `contract_signals` / `contract_terms` と `contracts` を混同しない。
+  - Backfill時は `registry_status` を必ず付け、初期表示に出す前に `canonical_title`、契約種別、相手先、期間の観点で台帳行として成立しているか確認する。
+
+---
+
+### [pwa/notifications] 読んでも動けない task / MTG action / 議事録作成ログが OS通知に積まれた (2026-06-27)
+
+- **状態**: クローズ (2026-06-27 — DB trigger で本番止血済み。repo 側は発生源・表示・spec/manual を同ルールへ同期)。
+- **症状**: `/notifications` の通常通知に `task_created`、`meeting_action`、議事録 / MTGサマリ作成通知が並んだ。読む側では採否・復旧・確認・再試行・完了などのアクションが取れず、既読にする以外の意味がない通知になっていた。
+- **原因**:
+  - task 作成 API と H-1 task register が、agent / non-manual source の task 追加を `app_notifications(kind='task_created')` として記録していた。
+  - meeting workflow finalize が、抽出した次回アクションを `meeting_action` app notification として記録していた。
+  - H-1/GAS 系の古い meeting writer が、議事録保存と同時に `meeting_notifications` を作る前提のまま残っていた。
+  - `/notifications` / nav badge / critical poll が、これらの non-actionable 行を他の通知と同じ未読として数えていた。
+- **対応内容**:
+  1. 発生源で `task_created` / `meeting_action` の `app_notifications` insert を削除。
+  2. migration 155 `skip_non_actionable_app_notifications` を本番適用し、旧 writer が insert しても DB trigger で捨てる。
+  3. migration 156 `skip_meeting_summary_notifications` を本番適用し、`meeting_notifications` の insert / writer upsert update を捨てる。
+  4. PWA の通知一覧・未読バッジ・右下 critical poll から `task_created` / `meeting_action` / `meeting_notifications` を除外。
+  5. manual/spec/design に「通知は読後アクションがあるものだけ」と明文化。
+- **再発防止策**:
+  - 通知を増やす前に、その通知を読んだ人が取れる action を1つ以上言えるか確認する。
+  - 既に `tasks`、`meeting_action_items`、`project_meeting_summaries`、MTGカードなどの正本 row に保存されているだけの作成ログは通知にしない。
+  - 旧 automation / GAS writer が残っても、DB guard で non-actionable 通知を捨てる。
+
+---
+
 ### [pwa/proactive] 文字化けした meeting summary から `?????` だらけの先手 TODO が通知に出た (2026-06-27)
 
 - **状態**: クローズ (2026-06-27 — extract 側に `isGarbledText` guard を追加 / v0.35.5。化けた summary の修復は別タスクへ切り出し)。
@@ -3460,10 +3502,23 @@
   - `git revert` 後の再 commit chain では、`git add` 前に対象 file を `Read` または `grep` で内容確認 (workdir が想定状態か検証)
   - 上記 staged set 検証ルール (73f92211 事故の再発防止) と同一の rule で多くは防げる
   - commit summary (X files changed, Y insertions) が想定 file/lines 数と合致しているか必ず確認 (1 file changed, 1 insertion なら追加内容が空に近い signal)
-
 ## [PWA/Atlas-HUD] `/atlas` reload 後に HUD skin が残り Dashboard まで汚染した (2026-06-28)
 
 - **症状**: Atlas top の tag 色が消え、`/atlas/map` の node / label / link が HUD 風の glow / outline / cyan link になった。いったん修正後も `/atlas/map` を reload すると HUD skin に戻り、その状態で `/dashboard` へ戻っても画面全体が暗い HUD 調のまま残った。
 - **原因**: shared `(app)` layout が `/atlas` / `/seeds` / `/vcs` / `/venture-map/amd-score` にも `amd-hud-page-skin` を付けていた。Next.js App Router の parent layout は client navigation で持続するため、Atlas reload 時に parent layout に乗った HUD skin が通常 Dashboard へも伝播した。さらに通常 Atlas Map 側の canvas drawing も HUD 実験用の glow / outlined label に寄っていた。
 - **対応内容**: `amd-hud-page-skin` を shared `(app)` layout から削除し、HUD skin を `components/hud/HudShell.tsx` 配下の `/hud/*` に限定した。通常 `/atlas/map` は non-HUD の domain palette / readable label に戻し、通常 `/atlas/macrotrends` は `/atlas/divergence` へ redirect、HUD 実験版は `/hud/atlas/macrotrends` に移した。Atlas top の tag chip 色は dynamic Tailwind class 依存をやめ、inline palette で復活させた。
 - **再発防止策**: visual skin を route group の shared parent layout へ広く付けない。HUD など実験的 UI skin は専用 shell / route-local component に閉じる。通常 route と HUD route が同じ data source を読む場合でも、canvas drawing / tag chip / typography の design token は別管理にする。reload と通常 Dashboard への戻りを必ず確認する。
+
+## [bzm/workflow] Workflow script の未定義変数 `NARRARATIVE_OR_NARRATIVE` typo で agent_count=0 failed (2026-06-28)
+
+- **症状**: BZM Ch 5 §5.0.1 v4 起草 Workflow `wwn93pngc` を起動した直後、agent_count=0 / duration_ms=11 で即 failed。エラー: `NARRARATIVE_OR_NARRATIVE is not defined`。
+- **原因**: Workflow script の template literal 内で `${NARRATIVE_SAMPLES}` を意図したが、`.replace('${NARRARATIVE_OR_NARRATIVE}', NARRATIVE_SAMPLES)` という冗長な後処理を書いた際に **タイポ** (NARRATIVE → NARRARATIVE) で別の未定義変数名を参照した。JS の template literal は parse 時に `${...}` の中身を変数解決するため、parse 段階で ReferenceError。
+- **対応内容**: `.replace(...)` を削除し、直接 `${NARRATIVE_SAMPLES}` interpolation に変更して再起動 (`wacixd7zc` で 4 agents 全 completed、3,320 字 synth 成功)。
+- **再発防止策**: Workflow script で複雑な文字列組み立てを避け、template literal の interpolation だけで完結させる。`.replace(...)` で template literal の中身を後処理するパターンは tokens 重複と typo 機会を生む。
+
+## [claude/file-state] reminder の古い snapshot diff で「revert された」と誤判断 (2026-06-28)
+
+- **症状**: 私が複数の Edit を連続実行した直後、reminder で複数ファイルの diff snapshot が表示された (= bzm-chapters.ts が「順序入れ替え前」、BzmSideNav.tsx が「level 表示なし」、§5.0.1 md が「v3 内容」)。これを「全 Edit が他要因で revert された」と誤判断し、まさに「revert されたが、再 Edit すべきか?」と確認依頼を出した。
+- **原因**: reminder の diff snapshot が **Edit 直後の状態ではなく古いコミット時点** を表示することがあると気付かなかった。実際は私の Edit はすべて反映されており、Bash で `grep` / `wc -l` で確認したら全部残っていた。
+- **対応内容**: まさから「他セッションがデプロイ中に避難させてただけ」と説明され再 Edit を試みた際、`Edit` が「String to replace not found」を返したことで「実際は既に変更済」と気付いた。`grep -n` で型定義・新規 entry・新規節レベル entry がすべて存在することを確認。
+- **再発防止策**: reminder の diff snapshot を「現在のファイル状態」と即断せず、`Bash grep` / `wc -l` / `Read` の少数行で実際の状態を確認してから「revert された」と判断する。特に複数ファイル並列 Edit 後に reminder が長い diff を返した場合は必ず実体確認。
