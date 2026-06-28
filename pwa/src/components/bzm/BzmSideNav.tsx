@@ -52,7 +52,7 @@ export function BzmSideNav({
         <Link href="/bzm" className="text-sm font-black text-slate-950 hover:underline">
           教科書 — 目次
         </Link>
-        <div className="mt-1.5 flex items-center gap-2 text-[10px] text-slate-500">
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-slate-500">
           <span className="inline-flex items-center gap-0.5">
             <CheckCircle2 className="size-3 text-emerald-600" />
             完成
@@ -64,6 +64,10 @@ export function BzmSideNav({
           <span className="inline-flex items-center gap-0.5">
             <Circle className="size-3 text-slate-300" />
             未着手
+          </span>
+          <span className="inline-flex items-center gap-0.5">
+            <Circle className="size-3 text-slate-400" />
+            実戦書
           </span>
         </div>
       </div>
@@ -114,7 +118,7 @@ export function BzmSideNav({
                       ) : status === "in-progress" ? (
                         <CircleDot className="size-3 text-amber-500" aria-label="進行中" />
                       ) : status === "legacy" ? (
-                        <Circle className="size-3 text-slate-400" aria-label="旧版" />
+                        <Circle className="size-3 text-slate-400" aria-label="実戦書" />
                       ) : (
                         <Circle className="size-3 text-slate-300" aria-label="未着手" />
                       );

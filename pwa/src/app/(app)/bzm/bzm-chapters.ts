@@ -173,24 +173,27 @@ export const BZM_PARTS: BzmPartConfig[] = [
   },
 
   // ============================================================
-  // 旧 BZM (2026-06-13 章割) — 過去のドラフト、参考用に保持 (まさ確定 2026-06-27)
+  // 実戦書 (= 後から出版予定の実践書、まさ確定 2026-06-28)
+  // 新 BZM 本書 940p (Cambridge UP 学術モノグラフ) とは別の道として、現場運用に直接使える実戦的な内容を
+  // ナラティブ + 道具集の形でまとめる本。素材は 2026-06-13 章割で起草済み (preface/field/model/nursery/toolkit)。
+  // 学術書 (新 BZM 本書) で立てた理論を、実戦書で現場へ橋渡しする二段構え。
   // ============================================================
   {
-    key: "legacy-preface",
-    label: "[旧版 2026-06-13] 序章",
-    description: "旧版 (章頭ストーリー型教科書) の序章。新 BZM 本書では Book 0 Ch 0.0 に再編される。",
+    key: "practical-preface",
+    label: "[実戦書] 序章 — この本の読み方",
+    description: "実戦書 (= 現場運用向け実践書) の序章。学術書 (新 BZM 本書) で立てた天井 × 到達 × 生存のモデルを、研究者・支援者・投資家の現場で明日から使える形にまとめる。",
     slugs: ["preface"],
   },
   {
-    key: "legacy-field",
-    label: "[旧版 2026-06-13] 第 I 部 — Before Zero の現場",
-    description: "旧版の第 I 部。新 BZM 本書では Book I (Ch 1-4) に再編される。",
+    key: "practical-field",
+    label: "[実戦書] 第 I 部 — Before Zero の現場",
+    description: "実戦書の第 I 部 (現場誌)。会社になる前に何が起きるか、関係者の時計のズレ、鬼門、誰が何を背負うかを現場目線で描く。学術書では Book I (Ch 1-4) として再編・形式化。",
     slugs: ["field-before-zero", "field-clocks", "field-gates", "field-who-carries"],
   },
   {
-    key: "legacy-model",
-    label: "[旧版 2026-06-13] 第 II 部 — Before Zero Model",
-    description: "旧版の第 II 部。新 BZM 本書では Book II (Ch 5-11.5) に再編・拡張される。",
+    key: "practical-model",
+    label: "[実戦書] 第 II 部 — Before Zero Model",
+    description: "実戦書の第 II 部 (モデル説明)。PRS = 天井 P × 到達 R × 生存 S と戦略余力を、現場で使える形で説明する。学術書では Book II (Ch 5-11.5) として理論的に再編・拡張。",
     slugs: [
       "why-valuation-fails",
       "model-overview",
@@ -204,21 +207,21 @@ export const BZM_PARTS: BzmPartConfig[] = [
     ],
   },
   {
-    key: "legacy-nursery",
-    label: "[旧版 2026-06-13] 第 III 部 — 苗床",
-    description: "旧版の第 III 部 (ERS 機関整備度)。新 BZM 本書では Book III + Book V に再編される。",
+    key: "practical-nursery",
+    label: "[実戦書] 第 III 部 — 苗床",
+    description: "実戦書の第 III 部 (ERS 機関整備度)。研究機関をベンチャーを生み育てる装置として読み、整備度の測り方と制度設計を扱う。学術書では Book III + Book V として再編される。",
     slugs: ["nursery-ers"],
   },
   {
-    key: "legacy-toolkit",
-    label: "[旧版 2026-06-13] 第 IV 部 — 実践ツールキット",
-    description: "旧版の第 IV 部 (実践道具集)。新 BZM 本書では Book IV + 付録 B に再編される。",
+    key: "practical-toolkit",
+    label: "[実戦書] 第 IV 部 — 実践ツールキット",
+    description: "実戦書の第 IV 部 (実践道具集)。面談の問い、開示台本、判断チェックリスト、九十日 pilot charter など、明日から使える道具集。学術書では Book IV + 付録 B として再編される。",
     slugs: ["field-toolkit"],
   },
   {
-    key: "legacy-appendix",
-    label: "[旧版 2026-06-13] 巻末資料",
-    description: "旧版の巻末資料 (倫理・変更履歴)。新 BZM 本書では Ch 0.0 + 付録 に再編される。",
+    key: "practical-appendix",
+    label: "[実戦書] 巻末資料",
+    description: "実戦書の巻末資料 (倫理・変更履歴)。著者性・利害・倫理への批判と附則。学術書では Ch 0.0 + 付録 として再編される。",
     slugs: ["ethics-and-authorship", "9-5-appendix-changelog"],
   },
   {
@@ -358,7 +361,7 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
   // Book I — 領土の定義 (110p, 4 章)
   { slug: "new-book1-ch-1", title: "Ch 1 — 状態空間と観測量", summary: "Before Zero を測るとはどういうことか。状態空間 (= プロジェクトを 1 点として打つ多次元の空間)、観測量 (= 状態から漏れ出てくる代理指標)、二層観測 (= 案件層 PRS + 機関層 ERS) の足場を立てる章。30p。執筆中 (§1.0 章頭フックから着手)。", status: "in-progress", level: 1 },
   // Ch 1 節レベル (level 2) — Workflow wlewsdw8l outline 由来
-  { slug: "new-book1-ch-1-section-0", title: "§1.0 — 章頭フック: 三人の起業家、三つの「測れなさ」 (2.5p)", summary: "Before Zero 段階で「いま自分のプロジェクトはどこにいるのか」を答えられない三つの典型場面を提示し、状態空間と観測量という二つの装置を本章で立ち上げることを予告する。4 サブセクション (§1.0.1〜§1.0.4)。", status: "in-progress", level: 2 },
+  { slug: "new-book1-ch-1-section-0", title: "§1.0 — 章頭フック: 三人の起業家、三つの「測れなさ」 (2.5p)", summary: "Ch 1 全体と §1.0 章頭フックの入口。Zero = 会社を設立する瞬間 / Before Zero = ゼロより前という本書の核心定義を確定し、ゼロイチ本との対比から本書独自の位置取りを示す。会社未満の時間にこそその後の十年を左右する判断 (誰と組むか / 応用領域 / 法人化タイミング / 知財帰属) が詰まること、製品 0・売上 0・会社未満で「測る」という奇妙な営みの中心問いを立てる。4 サブセクション §1.0.1〜§1.0.4 (場面 → ずれの正体 → 三つの実務的要請 → ロードマップ) を一望し、月曜の国立大学キャンパスの一室へと §1.0.1 へ橋渡しする節の冒頭文 (1,380 字 4 段落、完成)。", status: "completed", level: 2 },
   { slug: "new-book1-ch-1-section-1", title: "§1.1 — 「測る」とは何をすることか: 状態・観測・推定の三項 (4p)", summary: "対象物理学的な「測定」と社会経済的な「測定」の違いを整理し、状態 (見えない) と観測量 (見える) と推定 (橋渡し) という三項関係を Before Zero 文脈で定義する。", status: "not-started", level: 2 },
   { slug: "new-book1-ch-1-section-2", title: "§1.2 — 状態空間 (state space) という発想: プロジェクトを 1 点として打つ (5p)", summary: "プロジェクトを多次元空間の 1 点として捉える視点を導入し、本書が採用する三因子 (天井 P、到達度 R、生存確率 S) の状態ベクトルを比喩と図で説明する。", status: "not-started", level: 2 },
   { slug: "new-book1-ch-1-section-3", title: "§1.3 — 観測量 (observable) と代理指標: 見えないものを見える数で挟む (5p)", summary: "状態は直接観測できないため、論文数・特許・調達額・採用ペース等の代理指標を経由する必要があることを示し、観測量の選び方が推定の質を決めることを論じる。", status: "not-started", level: 2 },
@@ -452,7 +455,8 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
   { slug: "new-appendix-c", title: "付録 C — やらかし図鑑 Y-001〜Y-008 全文", summary: "TIEM 露出制限 (D-010) の対象外。35p。", status: "not-started" },
 ];
 
-// --- 旧 BZM (2026-06-13 章割) の slug 集合 — 動的 status 判定用 ---
+// --- 実戦書 (= 2026-06-13 章割で起草済みの実践書、後から出版予定) の slug 集合 — 動的 status 判定用。
+// status: "legacy" は「学術書 (新 BZM 本書) とは別の道として整理中」を意味する (まさ確定 2026-06-28)。
 const LEGACY_SLUGS = new Set<string>([
   "preface",
   "field-before-zero", "field-clocks", "field-gates", "field-who-carries",
