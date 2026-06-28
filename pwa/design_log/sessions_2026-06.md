@@ -1633,3 +1633,103 @@ deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifica
 ### 教訓
 - HUD などの visual skin は shared parent layout に付けず、専用 shell / route-local component で完結させる。
 - App Router の parent layout は client navigation で持続するため、reload 後に通常画面へ戻る確認が必要。
+
+---
+
+## 2026-06-28 (Claude セッション) — 文字化け先手TODO通知の手当てを試みたが、別 worker が上位互換で完遂済みだったため畳まれた
+
+### コンテキスト
+- まさからの依頼: `/proactive` に届いた「p10 MTG SE@???: ?????WiPoT???NEDO?JST??RFI???」のような文字化け通知の根本原因特定と修正。
+- セッション冒頭の git status は前々セッション (= 2026-06-27 /proactive 白紙やり直し) の手当て継続として開始。HANDOFF.md は別 worker が Atlas/HUD fix で正本更新中。
+
+### 調査と一次手当て (本セッション)
+- 化け通知 row (`source_meeting_id=7s67r4galqsnj8t1dc0hfo9a3i`) を Supabase 直 query で確認。`title_bytes=title_chars=61` で純 ASCII = DB が既に `?` 文字保存。ブラウザ文字化けではなく上流の encoding 事故。
+- `project_meeting_summaries` 全行 scan: garbled は 3 row (p10 SE / p19 ZeMA / p25 KUTE)。`generated_by_model` で `codex_gpt5_l6_manual_20260618` / `codex:gpt-5-l6-meeting-flow:macbook_fallback:v7_fixed_heading_narrative` / `codex:gpt-5@amd-os-l6-meeting-flow` の **macbook_fallback / 手動 curl 経路** に共通。shell 環境の encoding 不一致で日本語が `?` に置換された状態で Supabase REST に POST されたと推測。Gemini / Claude / 他 Codex モデル経由の 264 row は全て正常。
+- 一次手当てを 5 ファイルで commit (`6ec83976 fix(pwa): 文字化け meeting summary から先手TODOを生成しないよう guard 追加 (v0.35.5)`):
+  - `proactive-todo-extract` cron に `isGarbledText` (連続 `?` 3個以上または `?` が全体30%超) guard を Stage 1/2 双方に追加 → 化け summary を素材にした TODO 生成を skip
+  - p25 KUTE のタイトル `[KUTE] ??? via Zoom` → `[KUTE] 定例 via Zoom` を UPDATE (本文無事 = タイトルだけ化け)
+  - 化け `proactive_todos` 7件 (p10 SE 3 + p25 KUTE 4) を DELETE
+  - spec/2-4 / spec/6-1 changelog / BUGS.md に同期
+- deploy.sh で `v0.35.5 / 6ec83976` を本番反映。本番 cron 再キックで `skipped.next_action_garbled=4` を確認、`proactive_todos` の garbled = 0 件を確認。
+- 残課題 (p10 SE / p19 ZeMA の本文再 narrate) を spawn_task `task_cb72b346 化けた meeting summary 2 row を Gmail/Drive から再 narrate` に切り出し。
+
+### 別 worker が上位互換で完遂 (= 本セッションの commit が畳まれた経緯)
+- 別 worker が並行して以下の commit を main に積んだ:
+  - `99c43249 fix(automation): reject mojibake outbox before writing to DB + clean 11 garbled rows` — **上流 outbox 層 (= meeting-extract automation)** で mojibake を reject する guard を入れ、過去 row 11件を一括 clean。私の v0.35.5 は extract cron 層 (= 下流) だったが、別 worker は automation 層 (= 上流) で根本ブロックした上位互換版
+  - `1aceea7f fix(pwa): re-narrate 2 garbled meeting summaries + add scan tool` — 私が spawn_task に切り出した p10/p19 再 narrate を別セッションで完遂。scan tool も追加
+- 結果として本セッションの v0.35.5 commit は origin/main から消えた (= rebase / hard reset で削除されたか、別 worker が同じ意図のより良い実装で置き換えた)。本セッションが触った 5 ファイル (`proactive-todo-extract/route.ts` / `build-info.ts` / `spec/2-4` / `spec/6-1` / `BUGS.md`) の現在 diff は全てゼロ = origin/main に取り込まれた状態。
+- production も別 worker の継続作業で `v0.36.25` まで進行。本セッションの v0.35.5 は痕跡として残ってない。
+
+### 結論 (handoff 判断)
+- 本セッション独立の commit は origin/main に残っていない (= 上位互換に置き換わって畳まれた)。
+- 化け通知の根本解決は **automation 層 (`99c43249`) + 過去 row clean (11件)** + **p10/p19 再 narrate (`1aceea7f`)** で完遂済み。
+- root `HANDOFF.md` は別 worker (Atlas/HUD fix bundle) が正本更新中なので、本セッションの handoff は触らない。私のセッションの事実関係は本 design_log だけに残す。
+- 残骸 44件は前回 root `HANDOFF.md` で既に Dirty/Untracked Classification として分類済み = 本セッション関与なし。
+
+### 教訓
+- まさが「変な通知を一個ずつ処理しよう」と言ったセッションで、同じ事故をより上流で潰す別 worker が並走していた場合、自分の修正は畳まれる可能性が高い。`git fetch && git log origin/main --oneline -20` をセッション冒頭で確認し、同じ領域に別 worker の commit が積まれているか先に見るべきだった。
+- 「下流 (extract cron) で guard」 vs 「上流 (automation/outbox) で reject」では後者の方が常に上位互換。同じ事故で再発防止を入れるなら、まず上流境界を探す。
+- 本セッションの v0.35.5 は無駄ではなかった (= 別 worker への hint になった可能性 + 関連 row delete は実用) が、commit としては残らなかった。これは並列 worker 構造の不可避コスト。
+
+---
+
+## 2026-06-28 — BZM 本書執筆: §5.0.1 v3→v4 + Ch 1 §1.0 + §1.0.1 + 目次三層インフラ + Before Zero 定義確定 + 実戦書表記
+
+### コンテキスト
+- 2026-06-27 の handoff (Book II 19 章 skeleton 完成 + Ch 5 §5.0 本文 draft 試作品 v1 = 2,280 字 12 段落) を受け、まさからのトーン feedback を反映した v2-v4 反復起草と、Ch 1 (1-1) からの順次起草フェーズに移行。
+- まさからのトーン feedback の核心 = 「Tier 3 学術モノグラフのまま専門家向けに書く」ではなく、「既存 narrative パート (preface / model-overview / s-survival) と語調統一、どの学部の大学1年生でも読める、引用文献を読まずに本文だけで完結、すべて理解できなくてもすべて読破したくなる、を照準」へ大きく転換。
+- BzmMarkdown / BzmSideNav / [slug]page / bzm-chapters 全体に目次三層階層化 (章 / 節 / サブセクション) と status indicator を整備。
+
+### Ch 5 §5.0.1 反復起草 (v2 → v3 → v4)
+- **v2 (旧 12 sub-section × 各 200 字)**: 「### sub-section が立っているのに数百字で終わる」違和感の構造原因と判明。L3 outline (`CHAPTER_5_PARAGRAPH_OUTLINE.md`) の §5.0 を **4 sub-section** (旧 12 を §5.0.1 / §5.0.2 / §5.0.3 / §5.0.4 に統合) へ書き換え。1 サブセクション 1,500-2,000 字目安。
+- **v3 (4 サブセクション構造、引用なし)**: まさレビュー「めっちゃいい」評価。冒頭ストーリー (2023/4 水曜日、午前 CX 系 / 午後 YD 系の月次定例、対話形式)、専門用語の直後括弧定義、比喩 (三人で漕ぐボートの揃いの良さ / 階段と踊り場 / 走行モード)、章末で §5.0.3 / §5.0.4 / §5.3 への次節予告。2,280 字 5 段落。
+- **v4 (引用復活 + 軽い式 + 「読破したくなる」照準)**: まさ指摘で v3 から修正。学術引用 (菅 2020 / Etzkowitz & Leydesdorff 2000 RP 29(2); Leydesdorff 2003 同誌 32(3) / Hamilton 1989 Econometrica 57(2); Kim & Nelson 1999 MIT Press / Atlas signals) を本文に出すが引用先未読でも完結。ディスプレイ式 σ_SU = ((μ_A+1)(μ_I+1)(μ_G+1))^(1/3) − 1、軽い式 P_t − P_{t-1} の階段表現、英語フルスペル括弧定義 (URA = University Research Administrator / CVC = Corporate Venture Capital / GX-ETS = Emissions Trading Scheme / SIP = 戦略的イノベーション創造プログラム)。3,320 字 6 段落 (260/480/780/320/950/530)。
+
+### Ch 1 (1-1) §1.0 + §1.0.1 v1 起草 (まさ確定 = 今後 Book I から順に進める)
+- **§1.0.1 v1** (2,390 字 5 段落): 「同じ問いの前で立ち尽くす三人 — 章頭場面と『いまどこにいるのか』」。2024 年初秋の一週間に開かれた三つの面談 (月曜 国立大学産学連携本部 A 氏 ペロブスカイト / 水曜 都内 VC ポスドク B 氏 創薬 / 金曜 地方公設試 C 氏 陸上養殖) を blockquote 並置。「いま、このプロジェクトは、どこにいるのか」太字章頭問い。Kalman 1960 / Stokey-Lucas-Prescott 1989 / Simon 1962 引用、軽い式 $s_t = (P_t, R_t, S_t)$ + $y_t = g(s_t) + \varepsilon_t$ を display で。比喩 (地図の駒、霧の中の山頂、漏れる足音と風の音)。
+- **§1.0 節本文 v1** (1,380 字 4 段落): §1.0 章頭フックの節としての顔。Ch 1 全体の動機を一望し、4 サブセクション (§1.0.1〜§1.0.4) を橋渡し。Zero / Before Zero 定義の早期確定。末尾「物語は、ある月曜日の朝、国立大学のキャンパスの一室から始まります」で §1.0.1 へ橋渡し (s-survival 末尾オマージュ)。
+- まさが「セクション概要がメモ書きでしかない」と指摘した結果、§1.0 が節として独立したページ md を持つ運用に。
+
+### 目次三層インフラ整備 (= 本書全体の preview 機能)
+- `bzm-chapters.ts` に L1 §5 TOC の **新 BZM 940p 全章 entry 約 60 章** + `BzmChapterStatus` (`completed` / `in-progress` / `not-started` / `legacy`) + `BzmChapterLevel` (1 = 章, 2 = 節, 3 = サブセクション) を追加。`getDefaultBzmStatus` / `getDefaultBzmLevel` helpers + `LEGACY_SLUGS` 集合で動的判定。
+- `BzmSideNav.tsx` に status indicator (緑チェック=完成 / 黄半円=進行中 / グレー丸=未着手 / 灰色丸=実戦書) と level 別 indent + font weight 識別を追加。Part ラベル横に「完成数 / 進行数 / 総数」カウンタ。
+- `BzmMarkdown.tsx` の blockquote styling を「左縦線 + 薄背景」から **「四方枠 + 薄背景 + shadow」の囲み box** へ変更。冒頭ナラティブパートを `>` で囲うとナラティブミックス教科書の雰囲気に。
+- `[slug]/page.tsx` の未着手 stub fallback で md なしでも執筆待機表示。`generateStaticParams` で entry の全 slug を含むよう調整。
+- 目次順序: 新 BZM 940p (Book 0-VI + 付録 8 Part) を **一番上**、実戦書 (= 旧 2026-06-13 章割) は **下に配置**。
+- 目次番号「1-1」「2-3」削除: 各 entry title に「Ch 1」「§1.0」「§1.0.1」のような章番号が含まれているため、`applyBzmBookNumbering` を空文字返却に変更、`normalizeBzmMarkdownSource` を no-op に、`BzmSideNav` の number 列 + `[slug]page` の prev/next 番号も削除。
+
+### 重要確定: Before Zero の定義 (まさ確定 2026-06-28)
+- **Zero = 会社を設立する瞬間**
+- 一般に「ゼロイチ (0 → 1)」と呼ばれるフェーズは設立直後から製品・顧客・組織を 0 → 1 に育てていく時期 = ゼロ点はすでに会社が存在している起算点
+- 本書が扱うのはその一段手前 = 会社になる前の時間 = **Before Zero (= ゼロより前)**
+- ゼロイチを論じる本は世にあふれているが、ゼロより前——ゼロイチが始まる前の、会社になるかどうかさえ決まっていない時間——を正面から扱う本はほとんどない (= 本書の核心フレーミング)
+- §1.0 節本文 + §1.0.1 本文 (修正版) の両方に明示。Ch 5 §5.0.1 v4 では Before Zero 定義は登場しない (= Ch 5 は Triple Helix SSM が主題)。
+
+### 重要確定: 「実戦書」表記 (まさ確定 2026-06-28)
+- 旧 BZM 2026-06-13 章割 (preface / field-* / why-valuation-fails / model-overview / p-potential / r-readiness / s-survival / score-and-bottleneck / strategic-slack / model-critiques / retrofit-verification / nursery-ers / field-toolkit / ethics-and-authorship / 9-5-appendix-changelog) は「後から出版予定の実戦書」と位置付け。
+- `bzm-chapters.ts` の 6 Part label を「[旧版 2026-06-13] ...」→「[実戦書] ...」へ変更、Part key を `legacy-*` → `practical-*` へ、description を「学術書 (新 BZM 本書) で立てた理論を、実戦書で現場へ橋渡しする二段構え」フレーミングに書き換え。
+- 学術書 (Cambridge UP Schumpeter モノグラフ) と実戦書の二段構え。
+- `BzmSideNav` の legacy アイコン aria-label「旧版」→「実戦書」、凡例にも「実戦書」(灰色丸) を追加。
+
+### Workflow (Ultracode on で 4 つ起動)
+- `wfs37xjax` (= §5.0.1 v2 起草、4 agents、failed by stop): 旧 12 sub-section 構造の Workflow、結果は破棄。
+- `wze184pnp` (= §5.0.1 v3 起草、4 agents、completed): narrative 路線で 2,280 字 5 段落。
+- `wacixd7zc` (= §5.0.1 v4 起草、4 agents、completed): 引用 + 軽い式 + 読破照準で 3,320 字 6 段落。
+- `wlewsdw8l` (= Ch 1 §1.0.1 v1 起草、5 agents = 1 outline + 3 persona + 1 synth、completed): Ch 1 全体 8 節 outline + §1.0 4 サブセクション outline + §1.0.1 本文 2,390 字 5 段落。
+- `w1nr6rr4g` (= Ch 1 §1.0 節本文 v1 起草、4 agents、completed): 節の冒頭 1,380 字 4 段落。
+
+### Deploy / verification
+- 計 9 commit を `main` へ push: a6665886 (TOC + status indicator) / 7adcfd87 (v3 narrative tone) / 81e41f04 (v4 + 三層階層化 + 新 BZM 上配置) / 8be31987 (blockquote box) / c1c05e49 (Ch 1 §1.0.1 v1) / a07c7d88 (目次番号削除 + Before Zero 定義修正) / 3df1e540 (§1.0 節本文 v1 + 実戦書表記)。
+- BUILD_VERSION: `v0.36.9` → `v0.36.25` まで bump (= linter / 他セッションが間に bump した分含む)。
+- Vercel 自動 deploy 起動 (まさは preview URL でスマホ確認運用)。
+- 未確認: BzmMarkdown の blockquote 四方枠 styling が本番でナラティブパートとして読みやすく描画されているかは、まさのスマホ目視結果待ち。
+
+### 残課題 (次セッションへ)
+- §1.0 + §1.0.1 v1 のまさ確認待ち。OK が出れば §1.0.2 / §1.0.3 / §1.0.4 を同じ Workflow 設計で並列起草。
+- Ch 5 §5.0.1 v4 のまさ確認待ち (前 turn で「めっちゃいい」評価済、blockquote 化 + 引用復活も同方向)。OK 後に §5.0.2 / §5.0.3 / §5.0.4 を並列起草。
+- 次節 (§1.1) 以降は §1.0 完了後。
+
+### 教訓
+- L3 outline の `### §X.Y.Z` を本文の `### 小見出し` にそのまま転写すると「見出しを立てたのに数百字で終わる」違和感が出る。outline は「段落見出し」、本文では「節見出し」または「段落区切り」のどちらか、明示的に設計し直す。
+- 「Tier 3 学術モノグラフ」と「大学1年生でも読める」「引用なしで完結」は両立可能 (= Cambridge UP Schumpeter シリーズ自体が読みやすさを兼ねる)。L1 BOOK_MASTER_PLAN.md の「Tier 3 学術モノグラフ」記述だけで判断すると masa の意図 (= 既存 narrative パートとの語調統一) を取り違える。既存 narrative パートを必ず読み込んでから起草する。
+- 学術引用は「読まなくても本文で完結」が真の指示。引用ありで完結する書き方 = 引用直後に「= 〇〇」「とは△△のこと」と本文で補足する。引用を消すと「学術書らしさ」と「専門家の評価」が崩れる。
