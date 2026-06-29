@@ -1733,3 +1733,47 @@ deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifica
 - L3 outline の `### §X.Y.Z` を本文の `### 小見出し` にそのまま転写すると「見出しを立てたのに数百字で終わる」違和感が出る。outline は「段落見出し」、本文では「節見出し」または「段落区切り」のどちらか、明示的に設計し直す。
 - 「Tier 3 学術モノグラフ」と「大学1年生でも読める」「引用なしで完結」は両立可能 (= Cambridge UP Schumpeter シリーズ自体が読みやすさを兼ねる)。L1 BOOK_MASTER_PLAN.md の「Tier 3 学術モノグラフ」記述だけで判断すると masa の意図 (= 既存 narrative パートとの語調統一) を取り違える。既存 narrative パートを必ず読み込んでから起草する。
 - 学術引用は「読まなくても本文で完結」が真の指示。引用ありで完結する書き方 = 引用直後に「= 〇〇」「とは△△のこと」と本文で補足する。引用を消すと「学術書らしさ」と「専門家の評価」が崩れる。
+
+---
+
+## 2026-06-29 — Management Score: キャッシュ残高予測を実績接続見込みへ変更
+
+### コンテキスト
+- まさから `/management-score` の残高予測について、「今月時点で予実の乖離が大きくなっていて、予測ラインが使えない情報になっている」と相談。
+- 先に `/Users/masa/projects/AGENTS.common.md`、root / pwa の AGENTS / CLAUDE、4-5 manual、management_score / project_pl_monthly design、関連コードを読んだ。
+- 方針は「当初計画残高は予実差分を見る線として残し、意思決定用の未来残高は最新 freee 実績残高から未来CFを積み上げる」に確定。
+
+### 実装
+- `GasMonthlySimulationPanel` に `buildActualConnectedCashProjection()` を追加。
+- chart に `実績接続見込み` を追加し、既存の予算線を `当初計画残高`、実績線を `実績残高` として分離。
+- KPI の最終残高を、実績アンカーがある場合は実績接続見込みベースに変更。
+- `/api/finance/live-cash-balances` は、実績残高がある場合 `cashBalance` を実績接続見込み、`budgetCashBalance` を当初計画として返す contract に変更。`forecastBasis` で `actual_connected` / `budget` を返す。
+- 仕様同期先:
+  - `pwa/manual/4-5-management-score-and-finance-simulation-spec.md`
+  - `pwa/design/management_score.md`
+  - `pwa/design/project_pl_monthly.md`
+  - `pwa/manual/9-3-appendix-changelog.md`
+  - `pwa/spec/6-1-appendix-changelog.md`
+  - `pwa/BUGS.md`
+
+### Deploy / verification
+- 実装 commit: `81520b2a Connect cash forecast to latest actual balance`
+- `pwa` で `npx tsc --noEmit` 成功。
+- `pwa` で `npm run build` 成功。
+- 対象ファイルの `eslint` 成功。
+- `git diff --check` 成功。
+- local API `/api/finance/live-cash-balances?from=202601&to=202612` で future row が `forecastBasis:"actual_connected"` になり、`cashBalance` と `budgetCashBalance` が分離していることを確認。
+- deploy script `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` 成功。`v0.36.29` / `81520b2a9ec1a66d6e152a6017dd27603bbadb50` の production 反映を確認。
+- その後、別 worker / まさ側 deploy で current production は `v0.36.32` / `3d90054e0ac37a30855f7e67c41c20047c4c6a9b` へ進行。`81520b2a` は main 履歴に残っている。
+- 未ログイン browser check は `/auth/login` redirect まで。ログイン後の実画面はまさが「実装された」と確認済み。
+
+### Closeout
+- main/default alignment: `main aligned`。
+- root `HANDOFF.md` と `SESSION_MIGRATION_PROMPT.md` を今回の management-score closeout へ更新。
+- visible checkout には preexisting / other-worker dirty が残るが、今回 bundle の実装ファイルは main 側に統合済み。
+- mixed dirty は notification stop / meeting flow / task notification、contract / monthly agreement、Admin/Kiyo、meeting-assets / project-label、H-1 prep outbox、local `gas-slack/.clasp.json` など別 bundle として分類。
+
+### 教訓
+- キャッシュ残高では「当初計画を残すこと」と「未来見込みの主線にすること」は別。予実乖離が大きくなった後は、最新実績残高から未来CFを積み上げないと資金繰り判断が現実に接続しない。
+- 予算を実績で上書きしないのは正しい。ただし予測 UI では `当初計画残高`、`実績残高`、`実績接続見込み` を言葉と線種で分ける。
+- AMD OS は常に dirty な checkout になりがちなので、本番反映で止まらない。必要なら今回差分だけ clean clone に切り出し、main push + deploy script で production まで進める。

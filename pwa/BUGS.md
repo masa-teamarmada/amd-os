@@ -5,6 +5,20 @@
 
 ---
 
+### [finance] `/management-score` の残高予測が当初計画線のまま伸び、実績乖離後の資金判断に使いにくかった (2026-06-29)
+
+- **状態**: クローズ (2026-06-29 — `v0.36.29` で実績接続見込みを追加。後続 deploy により current production は `v0.36.32` / `3d90054e...`、実装 commit `81520b2a` は main 履歴に残存)。
+- **症状**: `/management-score` のキャッシュ残高予測で、今月時点の実績残高と当初計画残高の乖離が大きくなった後も、未来の予測線が当初計画残高をそのまま伸ばしていた。実際の手元資金から見た将来残高ではなく、過去に作った計画線へ戻るように見えるため、資金繰り判断の主線として使いにくかった。
+- **原因**: 予算残高と意思決定用の未来見込みを同じ `cashBalance` 的な線として扱っていた。予実差分を見るために当初計画を残すこと自体は正しいが、実績残高が同期済みになった後の未来予測まで当初計画線を主線にすると、現在の現実残高が反映されない。
+- **対応内容**:
+  1. `/management-score` のチャートに `実績接続見込み` を追加し、最新 `actualCashBalance` をアンカーに未来月の見込み月次CFを累積する主線へ変更。
+  2. 既存の予算線は `当初計画残高` として残し、実績残高線と分離。
+  3. `/api/finance/live-cash-balances` は、実績残高がある場合 `cashBalance` を実績接続見込み、`budgetCashBalance` を当初計画として返す contract に変更。
+  4. `pwa/manual/4-5-management-score-and-finance-simulation-spec.md`、`pwa/design/management_score.md`、`pwa/design/project_pl_monthly.md`、appendix changelog へ同期。
+- **再発防止策**: 残高予測は「予実差分を見る線」と「意思決定に使う未来見込み」を分ける。実績残高がある場合、未来の主見込みは最新実績残高を起点にする。ただし予算残高は上書きせず、予実乖離を見える状態で残す。
+
+---
+
 ### [pwa/contracts] MTG / 議事録 / Drive folder が契約書リストに混ざった (2026-06-28)
 
 - **状態**: クローズ (契約台帳の表示境界を `registry_status` と台帳filterで固定。spec/manualへ反映済み)。
