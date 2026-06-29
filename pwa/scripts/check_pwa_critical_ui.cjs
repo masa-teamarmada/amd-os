@@ -131,9 +131,9 @@ expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
   "同期できない",
   "snapshotSyncBlocked",
   "fmtRelativeTime",
-  "送信用PDFとメール本文を準備中",
-  "送信用PDF準備済み",
-  "添付PDFはこの確認前に準備済み",
+  "保存済みPDFとメール本文を確認中",
+  "正式PDF確認済み",
+  "添付PDFは保存済み正式PDFです",
 ]);
 
 expectNotIncludes("src/components/admin/AdminPayoutsClient.tsx", [
@@ -318,7 +318,7 @@ expectIncludes("design/FEATURE_REGISTRY.md", [
   "会社留保を支出扱いしない",
   "monthly_reward_payout.total_pay",
   "縦型PJ収支表",
-  "送付モーダル準備",
+  "保存済み正式PDFが最新DBと一致",
 ]);
 
 expectIncludes("src/app/(app)/management-score/page.tsx", [

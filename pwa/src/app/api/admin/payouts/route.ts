@@ -573,6 +573,49 @@ async function callGasSendNoticeMail(payload: {
   return result;
 }
 
+function validatePreparedNoticeForMail(
+  notice: PayoutNoticeRow | null | undefined,
+  member: MemberRow,
+  expectedTotalYen: number | null
+): {
+  ok: boolean;
+  status: number;
+  error?: string;
+  pdfUrl?: string;
+  pdfDriveFileId?: string;
+  totalYen?: number;
+} {
+  if (!notice || textValue(notice.sent_at)) {
+    return { ok: false, status: notice?.sent_at ? 409 : 404, error: notice?.sent_at ? "already sent" : "送信用PDFが未発行です。先に支払通知書発行を実行してください。" };
+  }
+
+  const pdfUrl = textValue(notice.pdf_url);
+  const pdfDriveFileId = extractDriveFileId(pdfUrl);
+  if (!pdfUrl || !pdfDriveFileId) {
+    return { ok: false, status: 409, error: "送信用PDFが未発行です。先に支払通知書発行を実行してください。" };
+  }
+  if (noticeNoIsPreview(notice.notice_no)) {
+    return { ok: false, status: 409, error: "確認用PDFは送付できません。先に正式な支払通知書発行を実行してください。" };
+  }
+  if (expectedTotalYen != null && yenValue(notice.total_yen) !== Math.round(expectedTotalYen)) {
+    return { ok: false, status: 409, error: "支払額がPDF生成後に変わっています。先に支払通知書発行で正式PDFを作り直してください。" };
+  }
+  if (noticeSourceProfileIsStale(notice, member.updated_at)) {
+    return { ok: false, status: 409, error: "メンバー台帳がPDF生成後に更新されています。先に支払通知書発行で正式PDFを作り直してください。" };
+  }
+  if (noticeTemplateIsStale(notice)) {
+    return { ok: false, status: 409, error: "支払通知書テンプレートがPDF生成後に更新されています。先に支払通知書発行で正式PDFを作り直してください。" };
+  }
+
+  return {
+    ok: true,
+    status: 200,
+    pdfUrl,
+    pdfDriveFileId,
+    totalYen: yenValue(notice.total_yen),
+  };
+}
+
 function buildPayoutEntries(cycles: BillingCycleRow[], excludedMemberIds: Set<string> = new Set()): PayoutEntry[] {
   const entries: PayoutEntry[] = [];
 
@@ -1430,7 +1473,7 @@ export async function PATCH(req: NextRequest) {
       const [memberRes, noticeRes] = await Promise.all([
         db
           .from("members")
-          .select("member_id, member_name, contractor_name, code_name, email, exclude_from_payout_notice, is_officer")
+          .select("member_id, member_name, contractor_name, code_name, email, exclude_from_payout_notice, is_officer, updated_at")
           .eq("member_id", memberId)
           .maybeSingle(),
         db
@@ -1448,11 +1491,21 @@ export async function PATCH(req: NextRequest) {
       if (!member) {
         return NextResponse.json({ ok: false, error: "member not found" }, { status: 404 });
       }
-      if (member.exclude_from_payout_notice || member.is_officer) {
+      const targetData = await loadTargetData(ym, { includeAgreementGate: false });
+      const latestMember = findMember(memberId, targetData.members) ?? member;
+      const latestNotice = ((targetData.notices ?? []) as PayoutNoticeRow[])
+        .find((row) => row.member_id === memberId && row.ym === ym) ?? notice;
+      const expectedTotalYen = Math.round(
+        targetData.expectedEntries
+          .filter((entry) => entry.member_id === memberId)
+          .reduce((sum, entry) => sum + yenValue(entry.total_pay), 0)
+      );
+
+      if (latestMember.exclude_from_payout_notice || latestMember.is_officer) {
         return NextResponse.json({ ok: false, error: "this member is excluded from payout notice" }, { status: 409 });
       }
-      const memberName = textValue(member.contractor_name) || textValue(member.member_name) || textValue(member.code_name) || memberId;
-      const toEmail = textValue(member.email);
+      const memberName = textValue(latestMember.contractor_name) || textValue(latestMember.member_name) || textValue(latestMember.code_name) || memberId;
+      const toEmail = textValue(latestMember.email);
       if (!toEmail) {
         return NextResponse.json(
           { ok: false, error: `members.email が未設定: ${memberName} (${memberId})` },
@@ -1461,47 +1514,22 @@ export async function PATCH(req: NextRequest) {
       }
       const dueDateText = formatDueDateTextJp(ymDueDate(ym));
       const defaultBody = composePayoutNoticeMailBody(memberName, dueDateText);
+      const clientTotalYen = Number.isFinite(Number(body.totalYen))
+        ? Math.round(Number(body.totalYen))
+        : null;
+      if (clientTotalYen != null && clientTotalYen !== expectedTotalYen) {
+        return NextResponse.json(
+          { ok: false, error: "画面の支払額が最新DBとずれています。再読み込み後、先に支払通知書発行を実行してください。" },
+          { status: 409 }
+        );
+      }
+      const preparedNotice = validatePreparedNoticeForMail(latestNotice, latestMember, expectedTotalYen);
 
       if (body.action === "preview_notice_email") {
-        if (notice?.sent_at) {
-          return NextResponse.json({ ok: false, error: "already sent" }, { status: 409 });
-        }
-        const snapshot = await savePayoutDataSnapshot(db, ym, {
-          overrideReason: textValue(body.agreementOverrideReason),
-          actorEmail: auth.user.email,
-        });
-        if (!snapshot.ok) return payoutSaveBlockedResponse(snapshot);
-        const targetData = await loadTargetData(ym);
-        const gate = await enforceAgreementGateForAction(db, targetData, {
-          targetAction: "send_notice_email",
-          memberIds: [memberId],
-          overrideReason: textValue(body.agreementOverrideReason),
-          actorEmail: auth.user.email,
-        });
-        if (!gate.allowed) return agreementGateBlockedResponse(targetData, gate);
-
-        const prepared = await generateNoticePdfForMember(db, targetData, {
-          memberId,
-          force: true,
-        });
-        if (prepared.status === "failed") {
+        if (!preparedNotice.ok) {
           return NextResponse.json(
-            { ok: false, error: prepared.error || "送信用PDFの準備に失敗" },
-            { status: prepared.reason === "no_member" ? 404 : 500 }
-          );
-        }
-        if (prepared.status === "skipped") {
-          return NextResponse.json(
-            { ok: false, error: prepared.reason === "no_entries" ? "no payout entries for notice" : "送信用PDFを準備できなかった" },
-            { status: prepared.reason === "no_entries" ? 409 : 500 }
-          );
-        }
-        const preparedPdfUrl = textValue(prepared.pdfUrl);
-        const preparedPdfDriveFileId = extractDriveFileId(preparedPdfUrl);
-        if (!preparedPdfUrl || !preparedPdfDriveFileId) {
-          return NextResponse.json(
-            { ok: false, error: "送信用PDFの準備後に Drive fileId を抽出できなかった" },
-            { status: 500 }
+            { ok: false, error: preparedNotice.error || "送信用PDFを準備できなかった" },
+            { status: preparedNotice.status }
           );
         }
 
@@ -1516,31 +1544,34 @@ export async function PATCH(req: NextRequest) {
             bcc: PAYOUT_NOTICE_MAIL_BCC,
             body: defaultBody,
             dueDateText,
-            pdfUrl: preparedPdfUrl,
-            pdfDriveFileId: preparedPdfDriveFileId,
-            totalYen: Math.round(prepared.totalYen ?? yenValue(notice?.total_yen)),
-            alreadySentAt: notice?.sent_at ?? null,
+            pdfUrl: preparedNotice.pdfUrl,
+            pdfDriveFileId: preparedNotice.pdfDriveFileId,
+            totalYen: Math.round(preparedNotice.totalYen ?? yenValue(latestNotice?.total_yen)),
+            alreadySentAt: latestNotice?.sent_at ?? null,
             pdfPreparedBeforeSend: true,
           },
-          ...targetData,
         });
       }
 
       // send_notice_email
-      if (notice?.sent_at) {
-        return NextResponse.json({ ok: false, error: "already sent" }, { status: 409 });
-      }
-      const pdfUrl = textValue(notice?.pdf_url);
-      const mailPdfUrl = pdfUrl;
-      const mailPdfDriveFileId = extractDriveFileId(mailPdfUrl);
-      if (!mailPdfUrl || !mailPdfDriveFileId) {
+      if (!preparedNotice.ok) {
         return NextResponse.json(
-          { ok: false, error: "送信用PDFの Drive fileId を抽出できなかった" },
-          { status: 500 }
+          { ok: false, error: preparedNotice.error || "送信用PDFを準備できなかった" },
+          { status: preparedNotice.status }
         );
       }
-      const mailNoticeNo = notice?.notice_no || defaultNoticeNo(ym, memberId);
-      const mailTotalYen = yenValue(notice?.total_yen);
+      const gate = await enforceAgreementGateForAction(db, targetData, {
+        targetAction: "send_notice_email",
+        memberIds: [memberId],
+        overrideReason: textValue(body.agreementOverrideReason),
+        actorEmail: auth.user.email,
+      });
+      if (!gate.allowed) return agreementGateBlockedResponse(targetData, gate);
+
+      const mailPdfUrl = preparedNotice.pdfUrl || "";
+      const mailPdfDriveFileId = preparedNotice.pdfDriveFileId || "";
+      const mailNoticeNo = latestNotice?.notice_no || defaultNoticeNo(ym, memberId);
+      const mailTotalYen = Math.round(preparedNotice.totalYen ?? yenValue(latestNotice?.total_yen));
 
       const customBody = textValue(body.body) || defaultBody;
       const gasResult = await callGasSendNoticeMail({
@@ -1582,7 +1613,7 @@ export async function PATCH(req: NextRequest) {
           subject: PAYOUT_NOTICE_MAIL_SUBJECT,
           sentAt,
           pdfUrl: mailPdfUrl,
-          pdfPreparedAt: notice?.last_generated_at ?? null,
+          pdfPreparedAt: latestNotice?.last_generated_at ?? null,
           gas: gasResult,
         },
         ...after,

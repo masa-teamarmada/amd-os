@@ -1368,6 +1368,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
   const [noticeSavingMemberId, setNoticeSavingMemberId] = useState<string | null>(null);
   const [noticeMailModal, setNoticeMailModal] = useState<NoticeMailModalState | null>(null);
   const [noticeMailLoading, setNoticeMailLoading] = useState(false);
+  const [noticeMailLoadingMemberId, setNoticeMailLoadingMemberId] = useState<string | null>(null);
   const [noticeMailSending, setNoticeMailSending] = useState(false);
   const [noticeMailError, setNoticeMailError] = useState<string | null>(null);
   const [paymentNudgeSending, setPaymentNudgeSending] = useState(false);
@@ -1985,8 +1986,9 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
 
   async function openNoticeMailModal(row: MemberPayoutRow) {
     setNoticeMailLoading(true);
+    setNoticeMailLoadingMemberId(row.memberId);
     setNoticeMailError(null);
-    setHint("送信用PDFとメール本文を準備中...");
+    setHint("保存済みPDFとメール本文を確認中...");
     try {
       const res = await fetch("/api/admin/payouts", {
         method: "PATCH",
@@ -1995,14 +1997,17 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
           action: "preview_notice_email",
           ym,
           memberId: row.memberId,
+          totalYen: row.totalPay,
           agreementOverrideReason: agreementOverrideReasonTrimmed || undefined,
         }),
       });
       const payload = (await res.json()) as PayoutData & { ok?: boolean; error?: string; preview?: NoticeMailPreview };
       if (!res.ok || payload.ok === false || !payload.preview) {
-        throw new Error(payload.error || `送信用PDFとメール本文の準備に失敗 (${res.status})`);
+        throw new Error(payload.error || `保存済みPDFとメール本文の確認に失敗 (${res.status})`);
       }
-      setData(payload);
+      if (Array.isArray(payload.members) && Array.isArray(payload.notices)) {
+        setData(payload);
+      }
       setNoticeMailModal({
         row,
         preview: payload.preview,
@@ -2011,9 +2016,10 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
       });
       setHint("");
     } catch (err) {
-      setHint(err instanceof Error ? err.message : "送信用PDFとメール本文の準備に失敗");
+      setHint(err instanceof Error ? err.message : "保存済みPDFとメール本文の確認に失敗");
     } finally {
       setNoticeMailLoading(false);
+      setNoticeMailLoadingMemberId(null);
     }
   }
 
@@ -2043,6 +2049,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
           action: "send_notice_email",
           ym,
           memberId: row.memberId,
+          totalYen: row.totalPay,
           body: editedBody,
           agreementOverrideReason: agreementOverrideReasonTrimmed || undefined,
         }),
@@ -2519,12 +2526,12 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                         disabled={
                           loading ||
                           noticeSavingMemberId != null ||
-                          noticeMailLoading ||
                           noticeMailSending ||
                           hasBudgetBlocker ||
                           (agreementBlockedMemberIds.has(row.memberId) && !canUseAgreementOverride)
                         }
-                        saving={noticeSavingMemberId === row.memberId || (noticeMailLoading && noticeMailModal?.row.memberId === row.memberId)}
+                        issuing={noticeSavingMemberId === row.memberId}
+                        sendPreparing={noticeMailLoadingMemberId === row.memberId}
                         onIssueNoticePdf={issueNoticePdf}
                         onOpenPdf={openPdfUrl}
                         onUpdateNoticeSent={updateNoticeSent}
@@ -3721,7 +3728,8 @@ function MemberMonthlyPayoutMatrix({
 function PayoutNoticeActions({
   row,
   disabled,
-  saving,
+  issuing,
+  sendPreparing,
   onIssueNoticePdf,
   onOpenPdf,
   onUpdateNoticeSent,
@@ -3729,7 +3737,8 @@ function PayoutNoticeActions({
 }: {
   row: MemberPayoutRow;
   disabled: boolean;
-  saving: boolean;
+  issuing: boolean;
+  sendPreparing: boolean;
   onIssueNoticePdf: (row: MemberPayoutRow, options?: { forceReissue?: boolean }) => void;
   onOpenPdf: (pdfUrl: string | null | undefined) => void;
   onUpdateNoticeSent: (row: MemberPayoutRow, patch: NoticeSavePatch) => void;
@@ -3739,16 +3748,16 @@ function PayoutNoticeActions({
     return <span className="block text-right text-[11px] text-muted-foreground">通知対象外</span>;
   }
 
-  const blocked = disabled || saving;
+  const blocked = disabled || issuing || sendPreparing;
   const canIssuePdf = !blocked && row.totalPay > 0;
   const canPreviewPdf = !blocked && row.totalPay > 0;
   const isSent = Boolean(row.notice?.sent_at);
   const canClearSent = !blocked && isSent;
   const savedNoticeTotal = Math.round(numberValue(row.notice?.total_yen));
   const totalMismatch = savedNoticeTotal > 0 && savedNoticeTotal !== Math.round(row.totalPay);
-  const hasPdf = Boolean(row.notice?.pdf_url) && row.isSaved && !totalMismatch;
+  const hasPdf = Boolean(row.notice?.pdf_url) && row.isSaved && !totalMismatch && !String(row.notice?.notice_no || "").startsWith("PREVIEW-");
   const canConfirmPdf = canPreviewPdf && hasPdf && !row.noticeProfileStale;
-  const canOpenSendModal = !blocked && row.totalPay > 0 && !isSent;
+  const canOpenSendModal = !blocked && row.totalPay > 0 && !isSent && hasPdf && !row.noticeProfileStale;
   const issueTitle = row.isSaved
     ? hasPdf
       ? "最新DBの住所・宛名・登録番号で支払通知書PDFを再発行する"
@@ -3761,7 +3770,13 @@ function PayoutNoticeActions({
       : "生成済みPDFがありません。先に支払通知書発行を実行してください";
   const sentTitle = isSent
     ? "送付済みを取り消して未送付に戻す (メールは取り消されない)"
-    : "送信用PDFと本文を準備して確認モーダルを開く";
+    : row.noticeProfileStale
+      ? "メンバー台帳がPDF生成後に更新されています。先に支払通知書発行で正式PDFを作り直してください"
+      : totalMismatch
+        ? "支払額がPDF生成後に変わっています。先に支払通知書発行で正式PDFを作り直してください"
+        : hasPdf
+          ? "保存済み正式PDFとメール本文を確認する"
+          : "送信用の正式PDFがありません。先に支払通知書発行を実行してください";
 
   return (
     <div className="flex flex-col items-end gap-1.5">
@@ -3773,7 +3788,7 @@ function PayoutNoticeActions({
           title={issueTitle}
           className="rounded-md border border-border px-2 py-1 text-[11px] hover:bg-muted/40 disabled:opacity-50"
         >
-          {saving ? "発行中..." : "支払通知書発行"}
+          {issuing ? "発行中..." : "支払通知書発行"}
         </button>
         <button
           type="button"
@@ -3795,7 +3810,7 @@ function PayoutNoticeActions({
           title={sentTitle}
           className="rounded-md bg-foreground px-2 py-1 text-[11px] font-medium text-background disabled:opacity-50"
         >
-          {isSent ? "送付取消" : "送付"}
+          {isSent ? "送付取消" : sendPreparing ? "確認中..." : "送付"}
         </button>
       </div>
       <div className="text-right text-[10px] text-muted-foreground">
@@ -3816,7 +3831,7 @@ function PayoutNoticeActions({
       )}
       {row.isSaved && !isSent && (
         <div className="max-w-[260px] text-right text-[10px] leading-snug text-muted-foreground">
-          送付を押すと送信用PDFと本文を準備。確認後の送信は keiri@ から実メール送信し、Bccに masa / kyoko、成功時に送付済み化。
+          送付は保存済み正式PDFが最新の時だけ確認画面を開く。確認後の送信は keiri@ から実メール送信し、Bccに masa / kyoko、成功時に送付済み化。
         </div>
       )}
     </div>
@@ -3867,7 +3882,7 @@ function PayoutNoticeMailModal({
 
         <div className="max-h-[70vh] overflow-y-auto px-4 py-3 space-y-3 text-[12px]">
           <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-[11px] leading-relaxed text-blue-900">
-            この画面ではまだ送信されない。送信用PDFは準備済みなので、確認後は keiri@team-armada.jp から実メール送信し、成功したら送付済みにする。
+            この画面ではまだ送信されない。保存済みの正式PDFを添付して、確認後に keiri@team-armada.jp から実メール送信し、成功したら送付済みにする。
           </div>
 
           <div className="grid grid-cols-[80px_1fr] gap-x-3 gap-y-1.5">
@@ -3896,7 +3911,7 @@ function PayoutNoticeMailModal({
               </a>
               <span className="ml-2 text-muted-foreground">fileId: {preview.pdfDriveFileId.slice(0, 8)}...</span>
               <span className="ml-2 text-muted-foreground">合計 {fmtYen(preview.totalYen)}</span>
-              {preview.pdfPreparedBeforeSend && <span className="ml-2 text-emerald-700">送信用PDF準備済み</span>}
+              {preview.pdfPreparedBeforeSend && <span className="ml-2 text-emerald-700">正式PDF確認済み</span>}
             </div>
             <div className="text-muted-foreground">期日</div>
             <div>{preview.dueDateText}</div>
@@ -3957,7 +3972,7 @@ function PayoutNoticeMailModal({
 
         <div className="flex items-center justify-between border-t border-border px-4 py-3">
           <span className="max-w-md text-[10px] leading-snug text-muted-foreground">
-            「はい・送信」を押すと {preview.to} に Gmail から実送信されます。添付PDFはこの確認前に準備済みです。
+            「はい・送信」を押すと {preview.to} に Gmail から実送信されます。添付PDFは保存済み正式PDFです。
           </span>
           <div className="flex gap-2">
             <button
