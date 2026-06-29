@@ -24,6 +24,7 @@ const YM_RE = /^[0-9]{6}$/;
 // 一括PDF生成時の並列度。GAS payoutCreatePwaNoticePdf のスループットに配慮して 3 で固定。
 // 上げすぎると Apps Script 側の同時実行制限 (project あたり 30) や freee 連携待ちで詰まる。
 const BULK_NOTICE_CONCURRENCY = 3;
+const PAYOUT_NOTICE_PDF_TEMPLATE_UPDATED_AT = "2026-06-29T04:50:00.000Z";
 
 type BillingCycleRow = {
   project_id: string;
@@ -199,6 +200,7 @@ export type GenerateNoticeResult = {
     | "no_pdf_url"
     | "preview_notice_no"
     | "total_yen_changed"
+    | "template_version_changed"
     | "agreement_gate"
     | "snapshot_sync_blocked";
   noticeNo?: string;
@@ -668,13 +670,22 @@ function noticeNoIsPreview(noticeNo: string | null | undefined): boolean {
   return text.startsWith("PREVIEW-");
 }
 
+function noticeTemplateIsStale(existing: PayoutNoticeRow): boolean {
+  if (textValue(existing.sent_at)) return false;
+  const generatedAt = textValue(existing.last_generated_at);
+  if (!generatedAt) return true;
+  const generatedMs = Date.parse(generatedAt);
+  const templateMs = Date.parse(PAYOUT_NOTICE_PDF_TEMPLATE_UPDATED_AT);
+  return Number.isFinite(generatedMs) && Number.isFinite(templateMs) && generatedMs < templateMs;
+}
+
 /**
  * 既存の payout_notices と「今回計算した total_yen」を比較して、
  * GAS を再度叩いて PDF を作り直す必要があるかを判定する。
  *
  * - previewOnly: 確認用 PDF は毎回新規生成 (= notice_no も PREVIEW-... 固定で DB保存もしない)
  * - force: 強制再生成
- * - 既存 pdf_url が無い / notice_no が PREVIEW-... / total_yen が変わっている → 再生成
+ * - 既存 pdf_url が無い / notice_no が PREVIEW-... / total_yen が変わっている / 未送付PDFのテンプレートが古い → 再生成
  * - それ以外 → スキップ
  */
 export function shouldRegenerateNotice(
@@ -690,6 +701,7 @@ export function shouldRegenerateNotice(
   if (yenValue(existing.total_yen) !== Math.round(expectedTotalYen)) {
     return { regenerate: true, reason: "total_yen_changed" };
   }
+  if (noticeTemplateIsStale(existing)) return { regenerate: true, reason: "template_version_changed" };
   return { regenerate: false, reason: "no_change" };
 }
 

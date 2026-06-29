@@ -253,7 +253,7 @@ admin/payouts 支払額 (= 税抜) 731,740円
 - PDF生成前に `savePayoutDataSnapshot` で `monthly_reward_payout` と `payout_notices.total_yen` を最新計算額へ同期する
 - 各 ym で、 `exclude_from_payout_notice=false` かつ `is_officer=false` で支払額 > 0 のメンバー全員を対象に並列生成 (= concurrency 3)
 - 月初合意支払 gate に blocker があるメンバーは PDF 生成せず、`agreement_gate` failure として結果に出す
-- **差分検出**: 既に `payout_notices.pdf_url` があり、 かつ `total_yen` が一致しているメンバーは **スキップ** (= GAS を叩かない)
+- **差分検出**: 既に `payout_notices.pdf_url` があり、 `total_yen` が一致し、かつ未送付PDFの `last_generated_at` が現行テンプレート更新時刻以降なら **スキップ** (= GAS を叩かない)
 - 差分があるメンバーのみ GAS に投げて、 `pdf_url` / `notice_no` / `total_yen` / `last_generated_at` を更新
 - 朝、 まさが `/admin/payouts` を開いた時点でほとんどのメンバーの PDF が既に存在する状態にする
 
@@ -288,6 +288,7 @@ curl -X POST "https://amd-os-pwa.vercel.app/api/cron/payout-notice-prebuild" \
 | `pdf_url` が NULL / 空 | はい |
 | `notice_no` が `PREVIEW-...` | はい (= 仮 PDF を本番化) |
 | `total_yen` が一致しない | はい (= 金額が変わった) |
+| 未送付PDFの `last_generated_at` が現行テンプレート更新時刻より古い / 空 | はい (= 表記ラベル・レイアウト変更を反映) |
 | 上記すべて該当なし | **いいえ** (= スキップして既存 `pdf_url` を再利用) |
 
 #### 支払データ同期との連携
