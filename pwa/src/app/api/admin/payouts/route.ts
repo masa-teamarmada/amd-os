@@ -223,6 +223,7 @@ type SavePayoutSnapshotResult =
       savedPayoutRows: number;
       savedNoticeRows: number;
       clearedStaleNoticePdfs: number;
+      deletedStaleNoticeRows: number;
     }
   | {
       ok: false;
@@ -1281,6 +1282,26 @@ export async function savePayoutDataSnapshot(
     clearedStaleNoticePdfs = cleared.cleared;
   }
 
+  const activeNoticeMemberIds = new Set(notices.map((notice) => notice.member_id));
+  const staleNoticeRowsToDelete = ((before.notices ?? []) as PayoutNoticeRow[])
+    .filter((notice) => {
+      if (textValue(notice.sent_at)) return false;
+      return !activeNoticeMemberIds.has(notice.member_id);
+    })
+    .map((notice) => notice.member_id);
+  let deletedStaleNoticeRows = 0;
+  if (staleNoticeRowsToDelete.length > 0) {
+    const { data, error } = await db
+      .from("payout_notices")
+      .delete()
+      .eq("ym", ym)
+      .in("member_id", staleNoticeRowsToDelete)
+      .is("sent_at", null)
+      .select("member_id");
+    if (error) throw error;
+    deletedStaleNoticeRows = data?.length ?? 0;
+  }
+
   const noticesToUpsert = notices.filter((notice) => !sentNoticeMemberIds.has(notice.member_id));
   if (noticesToUpsert.length > 0) {
     const { error } = await db
@@ -1296,6 +1317,7 @@ export async function savePayoutDataSnapshot(
     savedPayoutRows: entries.length,
     savedNoticeRows: noticesToUpsert.length,
     clearedStaleNoticePdfs,
+    deletedStaleNoticeRows,
   };
 }
 
@@ -1765,6 +1787,7 @@ export async function POST(req: NextRequest) {
       savedPayoutRows: snapshot.savedPayoutRows,
       savedNoticeRows: snapshot.savedNoticeRows,
       clearedStaleNoticePdfs: snapshot.clearedStaleNoticePdfs,
+      deletedStaleNoticeRows: snapshot.deletedStaleNoticeRows,
       ...snapshot.data,
     });
   } catch (err) {

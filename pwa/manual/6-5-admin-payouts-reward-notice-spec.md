@@ -253,6 +253,7 @@ admin/payouts 支払額 (= 税抜) 731,740円
 - PDF生成前に `savePayoutDataSnapshot` で `monthly_reward_payout` と `payout_notices.total_yen` を最新計算額へ同期する
 - 各 ym で、 `exclude_from_payout_notice=false` かつ `is_officer=false` で支払額 > 0 のメンバー、または既存の未送付 `payout_notices` があるメンバーを対象に並列生成 (= concurrency 3)
 - `sent_at` が立っている通知書は履歴として保護し、cron / 一括発行 / `force=true` でも `pdf_url` / `total_yen` / `last_generated_at` を上書きしない
+- 最新支払計算に対応する明細が無い未送付 `payout_notices` は孤立レコードとして削除し、古いPDFリンクを active な通知書として残さない
 - 月初合意支払 gate に blocker があるメンバーは PDF 生成せず、`agreement_gate` failure として結果に出す
 - **差分検出**: 既に `payout_notices.pdf_url` があり、 `total_yen` が一致し、かつ未送付PDFの `last_generated_at` が現行テンプレート更新時刻以降なら **スキップ** (= GAS を叩かない)
 - 差分があるメンバーのみ GAS に投げて、 `pdf_url` / `notice_no` / `total_yen` / `last_generated_at` を更新
