@@ -124,6 +124,11 @@ function kpiYen(value: number): string {
   return `¥${fmt(value)}`;
 }
 
+function signedYen(value: number): string {
+  const prefix = value > 0 ? "+" : value < 0 ? "-" : "";
+  return `${prefix}¥${fmt(Math.abs(value))}`;
+}
+
 function mergeActualRows(result: GasSimulationResult, baselineRows: GasMonthlyRow[]): GasSimulationResult {
   const actualByYm = new Map(baselineRows.map((row) => [row.ym, row]));
   return {
@@ -148,6 +153,55 @@ function mergeActualRows(result: GasSimulationResult, baselineRows: GasMonthlyRo
         actualCashBalance: actual?.actualCashBalance ?? null,
       };
     }),
+  };
+}
+
+type CashProjection = {
+  data: (number | null)[];
+  anchor:
+    | {
+        ym: number;
+        actualCash: number;
+        variance: number;
+      }
+    | null;
+  finalCash: number | null;
+  lowestCash: { ym: number; cash: number } | null;
+};
+
+function buildActualConnectedCashProjection(rows: GasMonthlyRow[]): CashProjection {
+  const data: (number | null)[] = rows.map(() => null);
+  let anchorIndex = -1;
+  for (let index = 0; index < rows.length; index += 1) {
+    if (rows[index].actualCashBalance != null) anchorIndex = index;
+  }
+
+  if (anchorIndex < 0) {
+    return { data, anchor: null, finalCash: null, lowestCash: null };
+  }
+
+  const anchorRow = rows[anchorIndex];
+  let runningCash = anchorRow.actualCashBalance ?? anchorRow.cashBalance;
+  data[anchorIndex] = runningCash;
+
+  let lowestCash = { ym: anchorRow.ym, cash: runningCash };
+  for (let index = anchorIndex + 1; index < rows.length; index += 1) {
+    runningCash += rows[index].netCashFlow;
+    data[index] = runningCash;
+    if (runningCash < lowestCash.cash) {
+      lowestCash = { ym: rows[index].ym, cash: runningCash };
+    }
+  }
+
+  return {
+    data,
+    anchor: {
+      ym: anchorRow.ym,
+      actualCash: anchorRow.actualCashBalance ?? 0,
+      variance: (anchorRow.actualCashBalance ?? 0) - anchorRow.cashBalance,
+    },
+    finalCash: data[data.length - 1] ?? null,
+    lowestCash,
   };
 }
 
@@ -180,6 +234,8 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
       }));
   }, [inputs]);
 
+  const cashProjection = useMemo(() => buildActualConnectedCashProjection(rows), [rows]);
+
   const kpis = useMemo(() => {
     const totalRev = rows.reduce((sum, row) => sum + row.revenue, 0);
     const totalProfit = rows.reduce((sum, row) => sum + row.operatingProfit, 0);
@@ -192,10 +248,10 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
       avgRev,
       avgProfit,
       avgCf,
-      cash: last?.cashBalance ?? 0,
+      cash: cashProjection.finalCash ?? last?.cashBalance ?? 0,
       runway: rows[0]?.runway ?? null,
     };
-  }, [rows]);
+  }, [cashProjection.finalCash, rows]);
 
   useEffect(() => {
     if (!canvasRef.current || rows.length === 0) return;
@@ -208,18 +264,18 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
         labels,
         datasets: [
           {
-            label: "キャッシュ残高(予算)",
+            label: "当初計画残高",
             data: rows.map((row) => row.cashBalance),
-            borderColor: "#1b3a6b",
-            backgroundColor: "rgba(27,58,107,0.05)",
+            borderColor: "#7b8794",
+            backgroundColor: "rgba(123,135,148,0.05)",
             borderDash: [5, 3],
             fill: false,
-            borderWidth: 2.5,
+            borderWidth: 2,
             pointRadius: 2,
-            order: 1,
+            order: 3,
           },
           {
-            label: "キャッシュ残高(実績)",
+            label: "実績残高",
             data: actualBalanceData,
             borderColor: "#27ae60",
             backgroundColor: "rgba(39,174,96,0.04)",
@@ -227,6 +283,17 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
             spanGaps: false,
             borderWidth: 2.5,
             pointRadius: 3,
+            order: 1,
+          },
+          {
+            label: "実績接続見込み",
+            data: cashProjection.data,
+            borderColor: "#1f6feb",
+            backgroundColor: "rgba(31,111,235,0.06)",
+            fill: false,
+            spanGaps: false,
+            borderWidth: 3,
+            pointRadius: 2.5,
             order: 0,
           },
           {
@@ -238,7 +305,7 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
             yAxisID: "cf",
             stack: "cf",
             barPercentage: 0.6,
-            order: 2,
+            order: 4,
           },
           {
             label: "支出",
@@ -249,7 +316,7 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
             yAxisID: "cf",
             stack: "cf",
             barPercentage: 0.6,
-            order: 2,
+            order: 4,
           },
         ],
       },
@@ -292,7 +359,7 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
       chartRef.current?.destroy();
       chartRef.current = null;
     };
-  }, [rows]);
+  }, [cashProjection.data, rows]);
 
   const switchToggle = (key: keyof ToggleState) => {
     setToggleState((current) => ({ ...current, [key]: !current[key] }));
@@ -542,7 +609,42 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
         .chart-wrap {
           flex: 1;
           min-width: 0;
+        }
+        .chart-frame {
           height: 220px;
+        }
+        .projection-strip {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 8px;
+          margin-top: 8px;
+        }
+        .projection-item {
+          min-width: 0;
+          border: 1px solid #e0e4ec;
+          border-radius: 8px;
+          background: #f8f9fc;
+          padding: 8px 10px;
+        }
+        .projection-label {
+          color: #777;
+          font-size: 10px;
+          white-space: nowrap;
+        }
+        .projection-value {
+          margin-top: 2px;
+          color: #1a1a1a;
+          font-family: "Consolas", monospace;
+          font-size: 13px;
+          font-weight: 700;
+          font-variant-numeric: tabular-nums;
+          overflow-wrap: anywhere;
+        }
+        .projection-value.positive {
+          color: #118ab2;
+        }
+        .projection-value.negative {
+          color: #d84d7a;
         }
         .table-wrap {
           overflow-x: auto;
@@ -763,6 +865,9 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
           }
+          .projection-strip {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
         }
       `}</style>
 
@@ -797,7 +902,7 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
             <div className={`value ${kpis.avgProfit < 0 ? "negative" : ""}`}>{kpiYen(kpis.avgProfit)}</div>
           </div>
           <div className="kpi">
-            <div className="label">最終キャッシュ残高</div>
+            <div className="label">最終見込み残高</div>
             <div className={`value ${kpis.cash < 0 ? "negative" : ""}`}>{kpiYen(kpis.cash)}</div>
           </div>
           <div className="kpi">
@@ -806,7 +911,43 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
           </div>
         </div>
         <div className="chart-wrap">
-          <canvas ref={canvasRef} height="220" />
+          <div className="chart-frame">
+            <canvas ref={canvasRef} height="220" />
+          </div>
+          <div className="projection-strip">
+            <div className="projection-item">
+              <div className="projection-label">最新実績</div>
+              <div className="projection-value">
+                {cashProjection.anchor ? `${fmtYm(cashProjection.anchor.ym)} ${kpiYen(cashProjection.anchor.actualCash)}` : "-"}
+              </div>
+            </div>
+            <div className="projection-item">
+              <div className="projection-label">当初計画差分</div>
+              <div
+                className={`projection-value ${
+                  (cashProjection.anchor?.variance ?? 0) < 0
+                    ? "negative"
+                    : (cashProjection.anchor?.variance ?? 0) > 0
+                      ? "positive"
+                      : ""
+                }`}
+              >
+                {cashProjection.anchor ? signedYen(cashProjection.anchor.variance) : "-"}
+              </div>
+            </div>
+            <div className="projection-item">
+              <div className="projection-label">最終見込み</div>
+              <div className={`projection-value ${(cashProjection.finalCash ?? 0) < 0 ? "negative" : ""}`}>
+                {cashProjection.finalCash == null ? "-" : kpiYen(cashProjection.finalCash)}
+              </div>
+            </div>
+            <div className="projection-item">
+              <div className="projection-label">最低見込み</div>
+              <div className={`projection-value ${(cashProjection.lowestCash?.cash ?? 0) < 0 ? "negative" : ""}`}>
+                {cashProjection.lowestCash ? `${fmtYm(cashProjection.lowestCash.ym)} ${kpiYen(cashProjection.lowestCash.cash)}` : "-"}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

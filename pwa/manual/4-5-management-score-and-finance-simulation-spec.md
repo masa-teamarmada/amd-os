@@ -511,7 +511,7 @@ p21 の 26年4-5月は `billing_cycles.budget_yen` が 0 (reported=¥840,000 の
 - panel の「シナリオ実行」ボタンが叩く `/api/management-score/finance/simulate` にも live inputs (`gasSimulationInputs`) が渡るので、シナリオ再計算も live 駆動。
 - snapshot inputs (`company_budget_inputs`) は live builder の fallback (params/融資/スポット/シナリオ) と保険として残す。
 
-外部クライアントが同じ残高線だけを読む場合は `GET /api/finance/live-cash-balances?from=YYYYMM&to=YYYYMM` を使う。これは `company_budget_actual_monthly.cash_amount_yen` の直読みではなく、上記 live inputs で再計算した budget cash に、`category='cash_balance'` の実績残高を月別に優先マージして返す read-only API。KAGAMI の財布画面の AMD 残高スタックはこの route を正本にする。レスポンスは月次残高・実績/予算 source・runway に限定し、PJ別売上/固定費/報酬内訳は返さない。
+外部クライアントが同じ残高線だけを読む場合は `GET /api/finance/live-cash-balances?from=YYYYMM&to=YYYYMM` を使う。これは `company_budget_actual_monthly.cash_amount_yen` の直読みではなく、上記 live inputs で再計算した budget cash に、`category='cash_balance'` の実績残高を月別に優先マージして返す read-only API。実績残高がある場合、未来月の主 `cashBalance` は「最新実績残高 + 以後の見込み月次CF累計」で出し、当初計画は `budgetCashBalance` として併記する。KAGAMI の財布画面の AMD 残高スタックはこの route を正本にする。レスポンスは月次残高・実績/予算 source・runway に限定し、PJ別売上/固定費/報酬内訳は返さない。
 
 ### 予実管理のための DB 書き込み (= A案)
 
@@ -536,8 +536,8 @@ panel 自体の表示構造は不変 (エンジン `monthly-pl-simulation.ts` �
 
 | 表示 | 内容 |
 |---|---|
-| KPI | 月平均売上、月平均営業利益、最終キャッシュ残高、現在のランウェイ |
-| chart | キャッシュ残高(予算) line (破線)、キャッシュ残高(実績) line (緑・実線、実績確定月まで)、収入 / 支出 bar。予算と実績の残高推移を1枚で予実比較する |
+| KPI | 月平均売上、月平均営業利益、最終見込み残高、現在のランウェイ |
+| chart | 実績接続見込み line (青・主線)、当初計画残高 line (グレー破線)、実績残高 line (緑・実線、実績確定月まで)、収入 / 支出 bar。最新実績残高をアンカーにして未来の月次CFを積み上げるため、今月時点の予実乖離が大きい場合も残高予測が元の計画線へ戻らない |
 | 月次 table | 売上、粗利、固定費、社保、臨時収入、臨時支出、営業利益、融資、返済、利息、消費税、法人税、月次CF、キャッシュ。**縦スクロールさせず全行を常時表示** (max-height 撤廃、横スクロールのみ許容) |
 | 展開 row | 売上計の PJ 別内訳、**売上原価の PJ 別 内製/外注内訳** (行クリックで `▶/▼` トグル)、固定費の科目別内訳、粗利周辺の原価 |
 | 予実列 | 各月に 予算 (live試算) / 実績 (freee PL・入金確認) / 差分 を並べる (下記「予実管理」セクション) |
@@ -661,7 +661,7 @@ DB分類として、`project_strategy_signals` に `signal_scope` / `applies_to_
 | 見るもの | 正本 | UI上の扱い |
 |---|---|---|
 | freee PL実績 | `company_actual_monthly` / `company_budget_actual_monthly.actual_amount_yen` | `売上実績 freee PL`、`固定費実績 freee`、`実績差引` |
-| freee口座残高実績 | `company_actual_monthly` の `category='cash_balance'` (生成元: `pwa/scripts/sync_freee_cash_balances.cjs`、freee `wallet_txns.balance` 月末合算) | `キャッシュ残高(実績)` line と月次表 `キャッシュ` 実績欄に使う。予算残高 (`company_budget_monthly.cash_amount_yen`) は上書きしない |
+| freee口座残高実績 | `company_actual_monthly` の `category='cash_balance'` (生成元: `pwa/scripts/sync_freee_cash_balances.cjs`、freee `wallet_txns.balance` 月末合算) | `キャッシュ残高(実績)` line と月次表 `キャッシュ` 実績欄に使う。未来月の主残高線は最新実績残高に月次CF見込みを足した `実績接続見込み` として表示し、予算残高 (`company_budget_monthly.cash_amount_yen`) は上書きしない |
 | 入金確認済み | `billing_cycles.payment_confirmed_at` + `budget_reported_amount` / `invoice_base_lines_json` | 税込入金として `入金確認済` に集計。CTB 202604 のように `invoice_ym=202605` なら入金月側に寄せる |
 | 支払通知書 | `payout_notices.sent_at` / `total_yen` | `支払通知書送付済(税抜)` として表示。実績差引では税込相当を cash outflow として扱う |
 | 報酬支払済み | `billing_cycles.reward_paid_at` | 支払済み反映の有無をアラートに使う |
@@ -670,7 +670,7 @@ DB分類として、`project_strategy_signals` に `signal_scope` / `applies_to_
 
 月次予実表で比較する項目は、少なくとも `売上計`、`入金`、`売上原価`、`粗利`、`固定費`、`社保`、`臨時収入`、`臨時支出`、`営業利益`、`融資実行`、`借入返済`、`税金`、`月次CF`、`支払い`、`キャッシュ` を含める。実績sourceは行ラベルに chip で出す。未来月や未確定月の実績欄は `未確定`、過去月なのに実績sourceが無い欄は `未反映`、OS側に実績sourceがまだ無い項目は `未連携` と表示する。数字色は、予算をグレー、実績を黒、差分をプラス水色・マイナスピンクで区別する。
 
-この画面では `actual` と `forecast` を同じ数字として混ぜない。実績は `payment_confirmed_at` / `sent_at` / freee PL / freee `wallet_txns.balance` のように OS が確認済みのデータだけ、予定は予算・請求サイクル・支払ルールに基づく見込み、未確認は請求未送付・入金未確認・支払済み未反映として label を出す。キャッシュ判断パネルは補助であり、主UIは下部の月次試算表を予実表として読むこと。実績キャッシュを同期しても予算キャッシュは書き換えない (= 予実差分を残す)。
+この画面では `actual` と `forecast` を同じ数字として混ぜない。実績は `payment_confirmed_at` / `sent_at` / freee PL / freee `wallet_txns.balance` のように OS が確認済みのデータだけ、予定は予算・請求サイクル・支払ルールに基づく見込み、未確認は請求未送付・入金未確認・支払済み未反映として label を出す。キャッシュ判断パネルは補助であり、主UIは下部の月次試算表を予実表として読むこと。実績キャッシュを同期しても予算キャッシュは書き換えない (= 予実差分を残す)。ただし意思決定用の残高予測は、最新実績残高を起点に以後の見込み月次CFを積み上げる `実績接続見込み` を主線にする。
 
 意思決定アラートは次を出す。
 

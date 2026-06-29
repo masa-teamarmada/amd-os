@@ -469,8 +469,8 @@ PJ cockpit の `📊 試算表` は、会社全体予実から PJ 単位へ dril
 
 7. 外部クライアント向け live cash API
    - KAGAMI など OS 外の画面で会社残高だけを使う場合は、保存済み view の `cash_amount_yen` を直読せず、`/api/finance/live-cash-balances` を使う。
-   - API は `/management-score` と同じ live PL simulation を server-side で実行し、過去月は `category='cash_balance'` の実績残高、未来月は live 予算残高を返す。
-   - レスポンスは月次残高・runway・actual/forecast source に限定し、PJ別内訳や固定費・報酬内訳は返さない。
+   - API は `/management-score` と同じ live PL simulation を server-side で実行し、過去月は `category='cash_balance'` の実績残高を返す。実績残高がある場合、未来月の主 `cashBalance` は最新実績残高から以後の見込み月次CFを累積した `実績接続見込み` とし、当初計画は `budgetCashBalance` に残す。
+   - レスポンスは月次残高・当初計画残高・runway・actual/forecast source に限定し、PJ別内訳や固定費・報酬内訳は返さない。
 
 ---
 

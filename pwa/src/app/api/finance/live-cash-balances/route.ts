@@ -19,6 +19,17 @@ type ActualCashRow = {
 
 type CashSource = "actual" | "forecast";
 
+type CashBalanceRow = {
+  ym: string;
+  cashBalance: number;
+  budgetCashBalance: number;
+  actualCashBalance: number | null;
+  runwayMonths: number;
+  source: CashSource;
+  forecastBasis: "actual_connected" | "budget";
+  netCashFlow: number;
+};
+
 function isYm(value: string | null): value is string {
   return Boolean(value && /^\d{6}$/.test(value));
 }
@@ -93,20 +104,38 @@ export async function GET(req: NextRequest) {
       actualCashByYm.set(row.ym, (actualCashByYm.get(row.ym) ?? 0) + row.actual_amount_yen);
     }
 
-    const rows = simulation.rows
-      .map((row) => {
-        const ym = String(row.ym).padStart(6, "0");
-        const actualCashBalance = actualCashByYm.get(ym) ?? null;
-        const source: CashSource = actualCashBalance == null ? "forecast" : "actual";
-        return {
-          ym,
-          cashBalance: actualCashBalance ?? row.cashBalance,
-          budgetCashBalance: row.cashBalance,
-          actualCashBalance,
-          runwayMonths: row.runway,
-          source,
-        };
-      })
+    const projectedRows: CashBalanceRow[] = simulation.rows.map((row) => {
+      const ym = String(row.ym).padStart(6, "0");
+      const actualCashBalance = actualCashByYm.get(ym) ?? null;
+      const source: CashSource = actualCashBalance == null ? "forecast" : "actual";
+      return {
+        ym,
+        cashBalance: actualCashBalance ?? row.cashBalance,
+        budgetCashBalance: row.cashBalance,
+        actualCashBalance,
+        runwayMonths: row.runway,
+        source,
+        forecastBasis: actualCashBalance == null ? "budget" : "actual_connected",
+        netCashFlow: row.netCashFlow,
+      };
+    });
+
+    let anchorIndex = -1;
+    for (let index = 0; index < projectedRows.length; index += 1) {
+      if (projectedRows[index].actualCashBalance != null) anchorIndex = index;
+    }
+    if (anchorIndex >= 0) {
+      let runningCash = projectedRows[anchorIndex].actualCashBalance ?? projectedRows[anchorIndex].budgetCashBalance;
+      projectedRows[anchorIndex].cashBalance = runningCash;
+      projectedRows[anchorIndex].forecastBasis = "actual_connected";
+      for (let index = anchorIndex + 1; index < projectedRows.length; index += 1) {
+        runningCash += projectedRows[index].netCashFlow;
+        projectedRows[index].cashBalance = runningCash;
+        projectedRows[index].forecastBasis = "actual_connected";
+      }
+    }
+
+    const rows = projectedRows
       .filter((row) => (!from || row.ym >= from) && (!to || row.ym <= to));
 
     return NextResponse.json(
@@ -114,7 +143,15 @@ export async function GET(req: NextRequest) {
         ok: true,
         source: "management-score-live",
         warnings: live.warnings,
-        rows,
+        rows: rows.map((row) => ({
+          ym: row.ym,
+          cashBalance: row.cashBalance,
+          budgetCashBalance: row.budgetCashBalance,
+          actualCashBalance: row.actualCashBalance,
+          runwayMonths: row.runwayMonths,
+          source: row.source,
+          forecastBasis: row.forecastBasis,
+        })),
       },
       { headers: { "Cache-Control": "no-store" } }
     );
