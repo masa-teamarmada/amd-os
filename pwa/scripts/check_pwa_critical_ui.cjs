@@ -131,6 +131,14 @@ expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
   "同期できない",
   "snapshotSyncBlocked",
   "fmtRelativeTime",
+  "送信用PDFとメール本文を準備中",
+  "送信用PDF準備済み",
+  "添付PDFはこの確認前に準備済み",
+]);
+
+expectNotIncludes("src/components/admin/AdminPayoutsClient.tsx", [
+  "送信時に再生成",
+  "作成日は送信日",
 ]);
 
 expectIncludes("src/components/admin/AdminMembersTable.tsx", [
@@ -170,6 +178,20 @@ expectIncludes("src/app/api/admin/payouts/route.ts", [
   "payeeAddress",
   "invoiceRegistrationNumber",
   "bankInfo",
+  "preview_notice_email",
+  "send_notice_email",
+  "composePayoutNoticeMailBody",
+  "ご確認期間が短くなっており恐縮",
+  "15:00まで",
+  "pdfPreparedBeforeSend",
+  "PAYOUT_NOTICE_SEND_PREP_TTL_MS",
+  "noticeIsPreparedForImmediateSend",
+]);
+
+expectNotIncludes("src/app/api/admin/payouts/route.ts", [
+  "pdfWillRegenerateOnSend",
+  "17:00まで",
+  "regenerated.lastGeneratedAt",
 ]);
 
 expectIncludes("src/app/(app)/admin/payouts/page.tsx", [
@@ -275,6 +297,7 @@ expectIncludes("design/FEATURE_REGISTRY.md", [
   "会社留保を支出扱いしない",
   "monthly_reward_payout.total_pay",
   "縦型PJ収支表",
+  "送付モーダル準備",
 ]);
 
 expectIncludes("src/app/(app)/management-score/page.tsx", [

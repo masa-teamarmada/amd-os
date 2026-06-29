@@ -25,6 +25,7 @@ const YM_RE = /^[0-9]{6}$/;
 // 上げすぎると Apps Script 側の同時実行制限 (project あたり 30) や freee 連携待ちで詰まる。
 const BULK_NOTICE_CONCURRENCY = 3;
 const PAYOUT_NOTICE_PDF_TEMPLATE_UPDATED_AT = "2026-06-29T04:50:00.000Z";
+const PAYOUT_NOTICE_SEND_PREP_TTL_MS = 60 * 60 * 1000;
 
 type BillingCycleRow = {
   project_id: string;
@@ -483,9 +484,11 @@ function ymDueDate(ym: string): Date {
 
 function formatDueDateTextJp(d: Date): string {
   const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(d.getUTCDate()).padStart(2, "0");
-  return `${y}年${m}月${day}日 17:00まで`;
+  const m = d.getUTCMonth() + 1;
+  const day = d.getUTCDate();
+  const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
+  const weekday = weekdays[d.getUTCDay()] ?? "";
+  return `${y}年${m}月${day}日（${weekday}）15:00まで`;
 }
 
 function nowJstIsoString(): string {
@@ -496,16 +499,25 @@ function nowJstIsoString(): string {
 function composePayoutNoticeMailBody(memberName: string, dueDateText: string): string {
   return [
     `${memberName}様`,
+    ``,
     `いつもお世話になっております。`,
     `株式会社チームアルマダです。`,
     ``,
     `支払通知書を本メールにてお送りいたします。`,
     `内容をご確認のうえ、修正やご不明点がございましたら下記期日までにご連絡ください。`,
     ``,
-    `--------`,
+    `ご確認期間が短くなっており恐縮ですが、ご対応のほどよろしくお願いいたします。`,
+    ``,
+    `――――――――――――`,
     `【内容確認・修正の締切】`,
     `${dueDateText}`,
-    `--------`,
+    `――――――――――――`,
+    ``,
+    `期日までにご連絡がない場合は、内容をご承認いただいたものとしてお手続きを進めさせていただきます。`,
+    ``,
+    `ご連絡はkeiri@team-armada.jpまでお願いいたします。`,
+    ``,
+    `引き続きどうぞよろしくお願いいたします。`,
   ].join("\n");
 }
 
@@ -679,6 +691,13 @@ function noticeTemplateIsStale(existing: PayoutNoticeRow): boolean {
   const generatedMs = Date.parse(generatedAt);
   const templateMs = Date.parse(PAYOUT_NOTICE_PDF_TEMPLATE_UPDATED_AT);
   return Number.isFinite(generatedMs) && Number.isFinite(templateMs) && generatedMs < templateMs;
+}
+
+function noticeIsPreparedForImmediateSend(existing: PayoutNoticeRow | null): boolean {
+  if (!existing || !textValue(existing.pdf_url) || noticeTemplateIsStale(existing)) return false;
+  const generatedAt = textValue(existing.last_generated_at);
+  const generatedMs = Date.parse(generatedAt);
+  return Number.isFinite(generatedMs) && Date.now() - generatedMs <= PAYOUT_NOTICE_SEND_PREP_TTL_MS;
 }
 
 /**
@@ -1393,7 +1412,7 @@ export async function PATCH(req: NextRequest) {
           .maybeSingle(),
         db
           .from("payout_notices")
-          .select("member_id, ym, sent_at, notice_no, pdf_url, total_yen")
+          .select("member_id, ym, sent_at, notice_no, pdf_url, total_yen, last_generated_at")
           .eq("member_id", memberId)
           .eq("ym", ym)
           .maybeSingle(),
@@ -1417,18 +1436,52 @@ export async function PATCH(req: NextRequest) {
           { status: 409 }
         );
       }
-      const pdfUrl = textValue(notice?.pdf_url);
-      const pdfDriveFileId = extractDriveFileId(pdfUrl);
-      if (!pdfUrl || !pdfDriveFileId) {
-        return NextResponse.json(
-          { ok: false, error: "支払通知書PDFが未発行 / Drive fileId 抽出失敗" },
-          { status: 409 }
-        );
-      }
       const dueDateText = formatDueDateTextJp(ymDueDate(ym));
       const defaultBody = composePayoutNoticeMailBody(memberName, dueDateText);
 
       if (body.action === "preview_notice_email") {
+        if (notice?.sent_at) {
+          return NextResponse.json({ ok: false, error: "already sent" }, { status: 409 });
+        }
+        const snapshot = await savePayoutDataSnapshot(db, ym, {
+          overrideReason: textValue(body.agreementOverrideReason),
+          actorEmail: auth.user.email,
+        });
+        if (!snapshot.ok) return payoutSaveBlockedResponse(snapshot);
+        const targetData = snapshot.data;
+        const gate = await enforceAgreementGateForAction(db, targetData, {
+          targetAction: "send_notice_email",
+          memberIds: [memberId],
+          overrideReason: textValue(body.agreementOverrideReason),
+          actorEmail: auth.user.email,
+        });
+        if (!gate.allowed) return agreementGateBlockedResponse(targetData, gate);
+
+        const prepared = await generateNoticePdfForMember(db, targetData, {
+          memberId,
+          force: true,
+        });
+        if (prepared.status === "failed") {
+          return NextResponse.json(
+            { ok: false, error: prepared.error || "送信用PDFの準備に失敗" },
+            { status: prepared.reason === "no_member" ? 404 : 500 }
+          );
+        }
+        if (prepared.status === "skipped") {
+          return NextResponse.json(
+            { ok: false, error: prepared.reason === "no_entries" ? "no payout entries for notice" : "送信用PDFを準備できなかった" },
+            { status: prepared.reason === "no_entries" ? 409 : 500 }
+          );
+        }
+        const preparedPdfUrl = textValue(prepared.pdfUrl);
+        const preparedPdfDriveFileId = extractDriveFileId(preparedPdfUrl);
+        if (!preparedPdfUrl || !preparedPdfDriveFileId) {
+          return NextResponse.json(
+            { ok: false, error: "送信用PDFの準備後に Drive fileId を抽出できなかった" },
+            { status: 500 }
+          );
+        }
+
         return NextResponse.json({
           ok: true,
           preview: {
@@ -1440,53 +1493,37 @@ export async function PATCH(req: NextRequest) {
             bcc: PAYOUT_NOTICE_MAIL_BCC,
             body: defaultBody,
             dueDateText,
-            pdfUrl,
-            pdfDriveFileId,
-            totalYen: yenValue(notice?.total_yen),
+            pdfUrl: preparedPdfUrl,
+            pdfDriveFileId: preparedPdfDriveFileId,
+            totalYen: Math.round(prepared.totalYen ?? yenValue(notice?.total_yen)),
             alreadySentAt: notice?.sent_at ?? null,
-            pdfWillRegenerateOnSend: true,
+            pdfPreparedBeforeSend: true,
           },
+          ...targetData,
         });
       }
 
       // send_notice_email
-      const snapshot = await savePayoutDataSnapshot(db, ym, {
-        overrideReason: textValue(body.agreementOverrideReason),
-        actorEmail: auth.user.email,
-      });
-      if (!snapshot.ok) return payoutSaveBlockedResponse(snapshot);
-      const targetData = snapshot.data;
-      const gate = await enforceAgreementGateForAction(db, targetData, {
-        targetAction: "send_notice_email",
-        memberIds: [memberId],
-        overrideReason: textValue(body.agreementOverrideReason),
-        actorEmail: auth.user.email,
-      });
-      if (!gate.allowed) return agreementGateBlockedResponse(targetData, gate);
-
-      const regenerated = await generateNoticePdfForMember(db, targetData, {
-        memberId,
-        force: true,
-      });
-      if (regenerated.status === "failed") {
-        return NextResponse.json(
-          { ok: false, error: regenerated.error || "支払通知書PDFの再生成に失敗" },
-          { status: regenerated.reason === "no_member" ? 404 : 500 }
-        );
+      if (notice?.sent_at) {
+        return NextResponse.json({ ok: false, error: "already sent" }, { status: 409 });
       }
-      if (regenerated.status === "skipped" && regenerated.reason === "no_entries") {
-        return NextResponse.json({ ok: false, error: "no payout entries for notice" }, { status: 409 });
-      }
-      const mailPdfUrl = textValue(regenerated.pdfUrl) || pdfUrl;
+      const pdfUrl = textValue(notice?.pdf_url);
+      const mailPdfUrl = pdfUrl;
       const mailPdfDriveFileId = extractDriveFileId(mailPdfUrl);
       if (!mailPdfUrl || !mailPdfDriveFileId) {
         return NextResponse.json(
-          { ok: false, error: "送信用PDFの再生成後に Drive fileId を抽出できなかった" },
+          { ok: false, error: "送信用PDFの Drive fileId を抽出できなかった" },
           { status: 500 }
         );
       }
-      const mailNoticeNo = textValue(regenerated.noticeNo) || notice?.notice_no || defaultNoticeNo(ym, memberId);
-      const mailTotalYen = Math.round(regenerated.totalYen ?? yenValue(notice?.total_yen));
+      if (!noticeIsPreparedForImmediateSend(notice)) {
+        return NextResponse.json(
+          { ok: false, error: "送付モーダルで送信用PDFを準備してから送信してね" },
+          { status: 409 }
+        );
+      }
+      const mailNoticeNo = notice?.notice_no || defaultNoticeNo(ym, memberId);
+      const mailTotalYen = yenValue(notice?.total_yen);
 
       const customBody = textValue(body.body) || defaultBody;
       const gasResult = await callGasSendNoticeMail({
@@ -1528,7 +1565,7 @@ export async function PATCH(req: NextRequest) {
           subject: PAYOUT_NOTICE_MAIL_SUBJECT,
           sentAt,
           pdfUrl: mailPdfUrl,
-          pdfRegeneratedAt: regenerated.lastGeneratedAt ?? sentAt,
+          pdfPreparedAt: notice?.last_generated_at ?? null,
           gas: gasResult,
         },
         ...after,
