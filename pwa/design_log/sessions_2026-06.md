@@ -1814,3 +1814,39 @@ deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifica
 ### 残課題
 - Accepted payout notice fix は完了。
 - Repo には notification / L2 / H-1 / contract / admin-kiyo 系の別 worker WIP が残っている。今回 bundle には含めず、`HANDOFF.md` の dirty classification に送る。
+
+---
+
+## 2026-06-30 — 月次報告書ルールの admin/projects / cockpit 反映 + Calendar 作成枠
+
+### コンテキスト
+- まさから、契約条件抽出済みの中に月次報告書提出ルールもあるはずなので、`/admin/projects` に列追加し、各PJ cockpitにも表示してほしいと依頼。
+- 追加で、`要提出` だけではなくフォーマット・必要記載事項・提出期限まで、指定が無い場合は `指定なし` と明記する方針に修正。
+- KUTE は契約書に義務記載が無いが、まさ指示で `契約上の義務はないが要提出：フォーマットは自由` と扱う。
+- その後、毎月23-28日の範囲でPJ別の月次報告書作成予定を Calendar に作る依頼。既存予定を見て配置調整。
+
+### 実装 / DB
+- `/admin/projects` に `月次報告` 表示を追加。主値は `要提出` / `要確認` など短く表示し、時期・提出期限・フォーマット・記載事項・根拠は補足表示。
+- `CockpitHeader` でも同じ `projects.contract_terms_json.monthlyReportSubmission*` を表示。
+- Contract Apply / extraction で monthly report fields を `projects.contract_terms_json` に畳む。
+- DB current values:
+  - CX `p20`: rule `要確認`; timing `月次`; deadline `指定なし`; format `指定なし`; required items `業務実施計画書、月次進捗報告（詳細項目は未確認）`
+  - SX `p21`: rule `要提出`; timing `月次請求時`; deadline `請求書提出時`; format `指定なし`; required items `指定なし`
+  - KUTE `p25`: rule `要提出`; timing `月次`; deadline `指定なし`; format `自由`; required items `指定なし`; note `契約上の義務はないが要提出：フォーマットは自由`
+- Product commits: `6d3b95b7 Add monthly report contract rules to project ledger`, `f75ca7ff Refine monthly report contract metadata`.
+- Production confirmed: `v0.36.35` / `f75ca7ff5fda5fa590ad63606d3dde5a8c772aee` / `dirty=false`.
+
+### Calendar
+- Created 3 recurring series, then adjusted after reading bounded event windows.
+- CX: `＋CX 月次報告書作成`, color `9`, 10:00-12:00 on first Wed/Thu in the 23-28 window, `COUNT=3`. Sep 2026 instance moved to Thu 2026-09-24 because Wed 2026-09-23 is all-day `不在`.
+- SX: `＋SX 月次報告書作成`, color `4`, 08:00-10:00 on first Mon/Tue in the 23-28 window, `COUNT=9` through Mar 2027.
+- KUTE: `＋KUTE 月次報告書作成`, color `11`, 16:00-18:00 on first Mon/Tue in the 23-28 window, `COUNT=9` through Mar 2027.
+- `freebusy` endpoint failed with `ACCESS_TOKEN_SCOPE_INSUFFICIENT`; event-list search was used as the practical availability source.
+
+### Docs / handoff
+- Spec/manual/design synced by product commits: `pwa/manual/6-2-admin-projects-members-ledger-spec.md`, `pwa/manual/2-3-pj-cockpit.md`, `pwa/manual/6-7-contracts-management-spec.md`, `pwa/spec/5-6-contracts-management-current-spec.md`, `pwa/spec/3-8-cockpit-current-spec.md`, `pwa/design/cockpit.md`, `pwa/design/SPEC_pwa.md`, changelogs.
+- Root `HANDOFF.md` / `SESSION_MIGRATION_PROMPT.md` updated to this lane.
+
+### 残課題
+- Product / Calendar lane: none.
+- Separate root checkout WIP remains classified in `HANDOFF.md`.
