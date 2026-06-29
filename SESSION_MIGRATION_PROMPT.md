@@ -1,17 +1,19 @@
-# SESSION MIGRATION PROMPT - AMD OS Management Score cash forecast handoff
+# SESSION MIGRATION PROMPT - AMD OS Admin Payouts payout notice handoff
 
 ```text
 cd /Users/masa/projects/AMD/amd-os
 
-まず `HANDOFF.md` を読んで。次に仕様正本として `pwa/manual/4-5-management-score-and-finance-simulation-spec.md` を読み、そのあと `pwa/design/management_score.md`、`pwa/design/project_pl_monthly.md`、`pwa/BUGS.md`、`CLAUDE.md`、`AGENTS.md`、`pwa/CLAUDE.md` を読んで。
+まず `HANDOFF.md` を読んで。次に仕様正本として `pwa/manual/6-5-admin-payouts-reward-notice-spec.md` を読み、そのあと `pwa/design/FEATURE_REGISTRY.md`、`pwa/design/SPEC_pwa.md`、`pwa/BUGS.md`、`CLAUDE.md`、`AGENTS.md`、`pwa/CLAUDE.md` を読んで。
 
 今回の current truth:
-- `/management-score` のキャッシュ残高予測は、当初計画残高をそのまま主線にしない。
-- 主線は `実績接続見込み`: 最新 freee 実績残高 (`company_actual_monthly category='cash_balance'`) + 以後の見込み月次CF累計。
-- `当初計画残高` は予実差分を見るために残す。実績で上書きしない。
-- `実績残高` は freee `wallet_txns.balance` 月末合算由来の actual line。
-- `/api/finance/live-cash-balances` は、実績残高がある場合 `cashBalance` = 実績接続見込み、`budgetCashBalance` = 当初計画、`actualCashBalance` = 実績残高、`forecastBasis` = `actual_connected` を返す。
-- 実装 commit `81520b2a Connect cash forecast to latest actual balance` は main 履歴に入っている。handoff 時点の current production は `v0.36.32` / `3d90054e0ac37a30855f7e67c41c20047c4c6a9b` / `dirty=false`。
+- `/admin/payouts` の支払通知書PDFは、宛先側・発行者側ともラベルを `登録番号` に統一済み。
+- `/admin/members` の登録番号は admin API 経由で保存し、保存時・PDF生成時に全角T / T風文字 / 空白 / ハイフンを正規化する。
+- `支払通知書発行` / `強制再発行` が生成入口。金額差分がなくても、再生成時は最新DBの `members` 情報を必ず読み直す。
+- 未送付PDFは `members.updated_at > last_generated_at` なら stale。住所・登録番号など member 情報の変更だけでも再生成対象。
+- `PDF確認` は保存済み正式PDFを開くだけ。確認用PDFや正式PDFを生成しない。
+- `送付` / `preview_notice_email` / `send_notice_email` はPDF生成・支払データ同期をしない。保存済み正式PDFが最新DBと一致し、確認用PDFではなく、未送付であることを照合してからメール送信する。
+- メール本文テンプレは、まさ指定の確認締切付き文面へ更新済み。
+- 実装 product commit `3d90054e Stop payout send from regenerating PDFs` は main 履歴に入っている。closeout docs / prompt はその後の main commit に入っている。
 
 作業開始前に必ず:
 1. `git fetch origin main --prune`
@@ -21,21 +23,22 @@ cd /Users/masa/projects/AMD/amd-os
 5. `git diff --name-status`
 
 最初の一手:
-1. production が handoff 時点の最新 version / commit / dirty=false になっているか確認する。
-2. ログイン済みブラウザで `/management-score` を開き、キャッシュ残高 chart に `実績接続見込み` / `当初計画残高` / `実績残高` が分離表示されることを見る。
-3. finance 表や API を触る場合は、PL / cash / 支払予定 / 会社留保 / 報酬債務 / capリスクのどれを扱っているかを先に固定する。
+1. production が `v0.36.32` / latest main git_sha / `dirty=false` になっているか確認する。
+2. ログイン済みブラウザで `/admin/payouts?ym=202606` を開く。
+3. stale rows は `支払通知書発行` / `強制再発行` を促し、`PDF確認` と `送付` がPDF生成を走らせないことを確認する。
+4. 送付確認モーダルは保存済み正式PDFだけを使う。送付押下後に再生成しない。
 
 残っている別bundle dirty:
-- notification stop / meeting flow / task notification WIP
-- contract / monthly agreement docs WIP
-- Admin/Kiyo WIP
-- meeting-assets / project-label WIP
-- H-1 prep outbox markdowns
+- notification / L2 / meeting-flow docs and TS files
+- contract / monthly agreement docs + docx/proposal
+- Admin Kiyo / meeting-assets replace / project-labels / migration 153
+- H-1 prep worker outbox markdowns
 - `gas-slack/.clasp.json` local artifact
+- `ios/supabase/.temp/project-ref` local Supabase artifact
 
 守ること:
 - AMD OS は main 一本。BUILD_VERSIONを巻き戻さない。
 - PWA deploy が必要なら `.vercel/project.json` が `amd-os-pwa / prj_raZW3HSKIszzPUwNTHfy7xDGzLHm` であることを確認し、`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` を使う。
 - `git add .` は絶対に使わない。選んだ bundle のファイルだけ個別 stage。
-- 予算残高を実績で上書きしない。ただし意思決定用の未来残高は最新実績残高から接続する。
+- 支払通知書の生成入口を増やさない。`PDF確認` と `送付` は read/validate/send のみ。
 ```
