@@ -68,6 +68,8 @@ interface ProjectContractTerms {
   monthlyRewardCapYen?: number | string | null;
   deliverablesRequired?: boolean | string | null;
   deliverablesNote?: string | null;
+  monthlyReportSubmissionRule?: string | null;
+  monthlyReportSubmissionNote?: string | null;
   expenseReimbursementAllowed?: boolean | string | null;
   expenseReimbursementNote?: string | null;
   sourceTitle?: string | null;

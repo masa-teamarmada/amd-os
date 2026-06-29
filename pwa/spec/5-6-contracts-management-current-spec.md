@@ -35,6 +35,36 @@ status:
 | `stalled` | 押印版未保存のまま停滞 |
 | `cancelled` | 中止/失注 |
 
+## 契約台帳としての表示境界
+
+`/admin/contracts` の主リストは、Drive folder や MTG、議事録、テンプレート一覧ではなく、**1 行 = 1 契約または契約ファミリー**の契約台帳として扱う。契約書ファイル、修正案、押印版、議事録上の言及は `contract_documents` / `contract_signals` / `contract_terms` の証跡であり、台帳行そのものではない。
+
+台帳行に必須の観点:
+
+| column | meaning |
+|---|---|
+| 契約名 | `canonical_title` を優先し、Drive path や MTG title そのものを契約名にしない |
+| 契約種別 | NDA / 業務委託 / 共同研究 / MOU / 覚書 / 発注書など |
+| 相手先 | `counterparty_name`。未設定なら metadata不足として扱う |
+| 関連PJ | `project_id` / `projects.name` |
+| 状態 | `status` と `registry_status` の両方で判断する |
+| 締結/発効 | `signed_at` / `effective_date` |
+| 終了/更新 | `expiration_date` / `renewal_notice_date` / `renewal_type` |
+| 文書 | `contract_documents` の件数、最新版、押印版の有無 |
+
+`contracts.registry_status` は台帳に出すかどうかの品質境界。
+
+| value | behavior |
+|---|---|
+| `accepted` | 契約台帳の通常行。契約または契約ファミリーとして成立している |
+| `candidate` | 高確度だが相手先・期間・文書種別などの確認が必要。台帳には出すが review badge を付ける |
+| `evidence_only` | 契約関連の証跡。MTG/議事録/フォルダ/テンプレート/契約語を含む周辺資料など。台帳の初期表示には出さない |
+| `rejected` | 契約ではないと判断済み。初期表示には出さない |
+
+初期表示 filter は `ledger`。`registry_status IN ('accepted','candidate')` かつ `status!='cancelled'` の行だけを表示する。`needs_metadata` filter は、台帳行のうち相手先、締結/発効日、終了/更新日などの主要 metadata が欠けているものを表示する。
+
+Drive backfill では、契約書そのものに見える PDF / Doc / xlsx / signed document を `contract_documents` に登録し、親フォルダ名や MTG名だけで `contracts` 行を増やさない。フォルダは grouping hint、文書は evidence、契約台帳行は normalized registry という役割分担を守る。
+
 ## API
 
 | route | method | write? | contract |
@@ -58,7 +88,7 @@ status:
 
 判定語は `契約書`、`NDA`、`業務委託`、`共同研究契約`、`MOU`、`押印`、`電子署名`、`DocuSign`、`クラウドサイン`、`修正案`、`法務確認`、`redline` など。単に `契約` / `締結` が議事録本文に出るだけでは自動予定枠にしない。
 
-D-13 は契約予兆 (`contract_signals`) に加えて、契約No・見積No・期間・金額・相手先・提出物の有無・立替精算可否を検出できた場合に `contract_terms` へ `status='candidate'` / `review_status='pending'` の候補を作る。提出物/立替精算は `extracted_terms_json.deliverables_required` / `deliverables_note` / `expense_reimbursement_allowed` / `expense_reimbursement_note` に短い根拠メモつきで保存する。これは Contract Apply の前段であり、候補の時点では `projects.contract_terms_json`、`projects.fee_*`、`billing_cycles` は更新しない。
+D-13 は契約予兆 (`contract_signals`) に加えて、契約No・見積No・期間・金額・相手先・提出物の有無・月次報告書の提出ルール・立替精算可否を検出できた場合に `contract_terms` へ `status='candidate'` / `review_status='pending'` の候補を作る。提出物/月次報告/立替精算は `extracted_terms_json.deliverables_required` / `deliverables_note` / `monthly_report_submission_rule` / `monthly_report_submission_note` / `expense_reimbursement_allowed` / `expense_reimbursement_note` に短い根拠メモつきで保存する。これは Contract Apply の前段であり、候補の時点では `projects.contract_terms_json`、`projects.fee_*`、`billing_cycles` は更新しない。
 
 ## 自動予定枠化の品質境界
 
@@ -97,13 +127,13 @@ MVPでは `CONTRACTS_DRIVE_FOLDER_ID` が設定されているかを画面に出
 
 | 層 | 反映先 | 列 | 用途 |
 |---|---|---|---|
-| ① 契約メタ正本 | `projects.contract_terms_json` (jsonb) | `monthlyFeeYen` / `contractStartYm` / `contractEndYm` / `actualWorkStartYm` / `billingStartYm` / `rewardPoolYen` / `monthlyRewardCapYen` / `deliverablesRequired` / `deliverablesNote` / `expenseReimbursementAllowed` / `expenseReimbursementNote` / `sourceTitle` / `sourceRef` / `notes` | `/admin/projects` の契約カラム群が表示・編集する正本。`contract_terms` 抽出結果はまずここへ畳む |
+| ① 契約メタ正本 | `projects.contract_terms_json` (jsonb) | `monthlyFeeYen` / `contractStartYm` / `contractEndYm` / `actualWorkStartYm` / `billingStartYm` / `rewardPoolYen` / `monthlyRewardCapYen` / `deliverablesRequired` / `deliverablesNote` / `monthlyReportSubmissionRule` / `monthlyReportSubmissionNote` / `expenseReimbursementAllowed` / `expenseReimbursementNote` / `sourceTitle` / `sourceRef` / `notes` | `/admin/projects` の契約カラム群が表示・編集する正本。`contract_terms` 抽出結果はまずここへ畳む |
 | ② 売上計上パラメータ | `projects` | `fee_type` (`monthly_fixed` / `variable`) / `fee_amount` / `start_ym` / `end_ym` | 月次収支シミュレータ (`buildLiveMonthlyPlInputs`) が固定収益を立てる入力。**`end_ym` が null だと契約終了後も無期限で売上が立ち続ける** (CX 事故。契約は 2026-06〜09 なのに `end_ym=null` のまま 202702 以降も ¥290,000 を計上していた) |
 | ③ 月別売上 (変動) | `billing_cycles` | `ym` ごとの `budget_yen` / `budget_reported_amount` | `billing_distribution='schedule_based'` 等で月により金額が違う契約は、②の `monthly_fixed` 一律ではなく月別 cycle に展開する。シミュレータは変動収益をここから取る |
 
 ### `/admin/projects` の契約カラム
 
-`AdminProjectsTable` は `projects.contract_terms_json` を展開した編集列を持つ (`contract_monthly_fee_yen` / `contract_start_ym` / `contract_end_ym` / `contract_actual_work_start_ym` / `contract_billing_start_ym` / `contract_reward_pool_yen` / `contract_monthly_reward_cap_yen` / `contract_deliverables_required` / `contract_deliverables_note` / `contract_expense_reimbursement_allowed` / `contract_expense_reimbursement_note` / `contract_source_title` / `contract_source_ref` / `contract_notes`)。`contract_terms` フィールド群を保存すると `contract_terms_json` (①) に upsert される。`fee` / `start_ym` / `end_ym` (②) は別カラムとして個別に保存する。
+`AdminProjectsTable` は `projects.contract_terms_json` を展開した編集列を持つ (`contract_monthly_fee_yen` / `contract_start_ym` / `contract_end_ym` / `contract_actual_work_start_ym` / `contract_billing_start_ym` / `contract_reward_pool_yen` / `contract_monthly_reward_cap_yen` / `contract_deliverables_required` / `contract_deliverables_note` / `contract_monthly_report_submission_rule` / `contract_monthly_report_submission_note` / `contract_expense_reimbursement_allowed` / `contract_expense_reimbursement_note` / `contract_source_title` / `contract_source_ref` / `contract_notes`)。`contract_terms` フィールド群を保存すると `contract_terms_json` (①) に upsert される。`fee` / `start_ym` / `end_ym` (②) は別カラムとして個別に保存する。
 
 ✅ **実装済み (2026-06-18)**: `contract_terms` (D-13 抽出結果、`status='applied'`) から ①②③ へ自動反映する Contract Apply writer を実装した。
 
@@ -117,7 +147,7 @@ MVPでは `CONTRACTS_DRIVE_FOLDER_ID` が設定されているかを画面に出
 分岐ロジック:
 - `billing_distribution='schedule_based'` (または `monthly[]` があり `monthly_average` でない) → `fee_type='variable'` / `fee_amount=null` にし、`billing_distribution_json.monthly[]` を ③ `billing_cycles.budget_yen` に月別展開する。各月の `budget_yen` は `reward_cap_yen` をそのまま使う (無ければ `round(amount_tax_excl × 0.65)`)。`contract_source_term_id` を各 cycle に刻む (= 後段の自動確定 cron が「契約由来」と判定する印)。
 - `monthly_fixed` / `monthly_average` → `fee_type='monthly_fixed'` / `fee_amount = billing_distribution_json.monthly_tax_excl` (無ければ総額 ÷ 月数) を ② に立てる。③ は触らない (月次収支シミュレータが ② から固定収益を立てる)。
-- どちらの場合も ① `contract_terms_json` に契約メタ (期間 / pool / cap / 提出物 / 立替精算 / 出典) を畳む。
+- どちらの場合も ① `contract_terms_json` に契約メタ (期間 / pool / cap / 提出物 / 月次報告 / 立替精算 / 出典) を畳む。
 
 冪等性: ③ upsert は `onConflict='project_id,ym'`。既に `budget_confirmed` / `allocation_confirmed` / `invoice_sent` / `payment_confirmed` の月は `budget_yen` を上書きしない (人が確定した請求額確定を契約 apply で巻き戻さない)。
 

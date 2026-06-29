@@ -312,6 +312,8 @@ export async function extractContractL2Data(
         periodEnd: candidate.periodEnd,
         deliverablesRequired: candidate.deliverablesRequired,
         deliverablesNote: candidate.deliverablesNote,
+        monthlyReportSubmissionRule: candidate.monthlyReportSubmissionRule,
+        monthlyReportSubmissionNote: candidate.monthlyReportSubmissionNote,
         expenseReimbursementAllowed: candidate.expenseReimbursementAllowed,
         expenseReimbursementNote: candidate.expenseReimbursementNote,
       })),

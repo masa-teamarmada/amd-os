@@ -20,6 +20,8 @@ type ProjectContractTerms = {
   monthlyRewardCapYen?: number | string | null;
   deliverablesRequired?: boolean | string | null;
   deliverablesNote?: string | null;
+  monthlyReportSubmissionRule?: string | null;
+  monthlyReportSubmissionNote?: string | null;
   expenseReimbursementAllowed?: boolean | string | null;
   expenseReimbursementNote?: string | null;
   sourceTitle?: string | null;
@@ -123,6 +125,11 @@ export function CockpitHeader({ project, members }: Props) {
       note: terms?.deliverablesNote || null,
     },
     {
+      label: "月次報告",
+      value: terms?.monthlyReportSubmissionRule || "不明",
+      note: terms?.monthlyReportSubmissionNote || null,
+    },
+    {
       label: "立替精算",
       value: flagLabel(terms?.expenseReimbursementAllowed, "可", "不可"),
       note: terms?.expenseReimbursementNote || null,
@@ -144,7 +151,7 @@ export function CockpitHeader({ project, members }: Props) {
         </span>
       </div>
 
-      <dl className="grid gap-1.5 rounded-md border border-[#d6d6da] bg-white px-3 py-2 text-[11px] shadow-sm sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <dl className="grid gap-1.5 rounded-md border border-[#d6d6da] bg-white px-3 py-2 text-[11px] shadow-sm sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-7">
         {summaryItems.map((item) => (
           <div key={item.label} className="min-w-0 border-b border-[#e5e5ea] pb-1.5 last:border-b-0 sm:border-b-0 sm:border-r sm:pr-2 sm:last:border-r-0">
             <dt className="text-[10px] font-medium text-[#86868b]">{item.label}</dt>

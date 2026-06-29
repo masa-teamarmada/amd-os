@@ -100,6 +100,8 @@ export type ContractTermCandidate = {
   billingDistributionJson: Record<string, unknown>;
   deliverablesRequired: boolean | null;
   deliverablesNote: string | null;
+  monthlyReportSubmissionRule: string | null;
+  monthlyReportSubmissionNote: string | null;
   expenseReimbursementAllowed: boolean | null;
   expenseReimbursementNote: string | null;
   confidence: number;
@@ -380,6 +382,23 @@ function extractDeliverables(text: string): BooleanTermExtraction {
   });
 }
 
+function extractMonthlyReportSubmission(text: string): { rule: string | null; note: string | null } {
+  const note = clauseAroundTerms(
+    text,
+    ["月次報告書", "月次進捗報告", "月次報告", "業務報告書", "進捗報告"],
+    240,
+  );
+  if (!note) return { rule: null, note: null };
+  const requiresReport = /提出|提出する|提出が必要|提出を要|交付|添付|報告/.test(note);
+  const monthlyTiming = /月次|毎月|毎月末|月末締め|翌月|月ごと|各月/.test(note);
+  const reportTerm = "(?:月次報告書|月次進捗報告|月次報告|業務報告書|進捗報告)";
+  const negativeTerm = "(?:不要|なし|無し|提出を要しない|特になし|該当なし)";
+  const noReport = new RegExp(`${reportTerm}.{0,24}${negativeTerm}|${negativeTerm}.{0,24}${reportTerm}`).test(note);
+  if (noReport) return { rule: "不要", note };
+  if (requiresReport || monthlyTiming) return { rule: note, note };
+  return { rule: null, note };
+}
+
 function extractExpenseReimbursement(text: string): BooleanTermExtraction {
   return extractBooleanClause(text, {
     focusTerms: ["立替", "実費", "経費", "交通費", "旅費", "宿泊費", "出張費", "精算"],
@@ -564,6 +583,7 @@ export function buildContractTermCandidate(evidence: ContractSourceEvidence): Co
   const { start: periodStart, end: periodEnd } = extractPeriod(combined);
   const amounts = extractAmounts(combined);
   const deliverables = extractDeliverables(combined);
+  const monthlyReportSubmission = extractMonthlyReportSubmission(combined);
   const expenseReimbursement = extractExpenseReimbursement(combined);
   const contractTitle = findLabeledText(combined, ["調達件名", "契約件名", "件名"], 180);
   const counterpartyName = inferCounterparty(combined);
@@ -620,6 +640,8 @@ export function buildContractTermCandidate(evidence: ContractSourceEvidence): Co
     target_ym: targetYm,
     deliverables_required: deliverables.value,
     deliverables_note: deliverables.note,
+    monthly_report_submission_rule: monthlyReportSubmission.rule,
+    monthly_report_submission_note: monthlyReportSubmission.note,
     expense_reimbursement_allowed: expenseReimbursement.value,
     expense_reimbursement_note: expenseReimbursement.note,
   };
@@ -651,6 +673,8 @@ export function buildContractTermCandidate(evidence: ContractSourceEvidence): Co
     billingDistributionJson,
     deliverablesRequired: deliverables.value,
     deliverablesNote: deliverables.note,
+    monthlyReportSubmissionRule: monthlyReportSubmission.rule,
+    monthlyReportSubmissionNote: monthlyReportSubmission.note,
     expenseReimbursementAllowed: expenseReimbursement.value,
     expenseReimbursementNote: expenseReimbursement.note,
     confidence: Number(score.toFixed(2)),

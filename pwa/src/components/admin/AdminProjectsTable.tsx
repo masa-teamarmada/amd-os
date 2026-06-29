@@ -70,6 +70,8 @@ type ContractTerms = {
   monthlyRewardCapYen?: number | string | null;
   deliverablesRequired?: boolean | string | null;
   deliverablesNote?: string | null;
+  monthlyReportSubmissionRule?: string | null;
+  monthlyReportSubmissionNote?: string | null;
   expenseReimbursementAllowed?: boolean | string | null;
   expenseReimbursementNote?: string | null;
   sourceTitle?: string | null;
@@ -236,6 +238,8 @@ type EditVals = {
   contract_monthly_reward_cap_yen: string;
   contract_deliverables_required: string;
   contract_deliverables_note: string;
+  contract_monthly_report_submission_rule: string;
+  contract_monthly_report_submission_note: string;
   contract_expense_reimbursement_allowed: string;
   contract_expense_reimbursement_note: string;
   contract_source_title: string;
@@ -309,6 +313,8 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
       contract_monthly_reward_cap_yen: contractTermValue(p.contract_terms_json, "monthlyRewardCapYen"),
       contract_deliverables_required: contractFlagInputValue(p.contract_terms_json?.deliverablesRequired),
       contract_deliverables_note: contractTermValue(p.contract_terms_json, "deliverablesNote"),
+      contract_monthly_report_submission_rule: contractTermValue(p.contract_terms_json, "monthlyReportSubmissionRule"),
+      contract_monthly_report_submission_note: contractTermValue(p.contract_terms_json, "monthlyReportSubmissionNote"),
       contract_expense_reimbursement_allowed: contractFlagInputValue(p.contract_terms_json?.expenseReimbursementAllowed),
       contract_expense_reimbursement_note: contractTermValue(p.contract_terms_json, "expenseReimbursementNote"),
       contract_source_title: contractTermValue(p.contract_terms_json, "sourceTitle"),
@@ -455,6 +461,8 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
           monthlyRewardCapYen: parseYenInput(editVals.contract_monthly_reward_cap_yen as string) || null,
           deliverablesRequired: parseContractFlag(editVals.contract_deliverables_required),
           deliverablesNote: textValue(editVals.contract_deliverables_note) || null,
+          monthlyReportSubmissionRule: textValue(editVals.contract_monthly_report_submission_rule) || null,
+          monthlyReportSubmissionNote: textValue(editVals.contract_monthly_report_submission_note) || null,
           expenseReimbursementAllowed: parseContractFlag(editVals.contract_expense_reimbursement_allowed),
           expenseReimbursementNote: textValue(editVals.contract_expense_reimbursement_note) || null,
           sourceTitle: textValue(editVals.contract_source_title) || null,
@@ -468,6 +476,13 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
         patch.contract_terms_json = mergeContractTerms(p.contract_terms_json, {
           deliverablesRequired: parseContractFlag(editVals.contract_deliverables_required),
           deliverablesNote: textValue(editVals.contract_deliverables_note) || null,
+        });
+        break;
+      }
+      case "contract_monthly_report_submission": {
+        patch.contract_terms_json = mergeContractTerms(p.contract_terms_json, {
+          monthlyReportSubmissionRule: textValue(editVals.contract_monthly_report_submission_rule) || null,
+          monthlyReportSubmissionNote: textValue(editVals.contract_monthly_report_submission_note) || null,
         });
         break;
       }
@@ -546,7 +561,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
 
       {/* Table */}
       <div className="overflow-x-auto border border-border rounded-lg">
-        <table className="text-[12px] border-collapse" style={{ minWidth: "2320px" }}>
+        <table className="text-[12px] border-collapse" style={{ minWidth: "2460px" }}>
           <thead className="sticky top-0 z-30">
             <tr className="bg-muted text-muted-foreground">
               <th className="text-left px-3 py-2 font-medium sticky left-0 z-40 bg-muted w-14">PJID</th>
@@ -563,6 +578,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
               <th className="text-left px-3 py-2 font-medium w-36">業務委託料</th>
               <th className="text-left px-3 py-2 font-medium w-60">契約条件</th>
               <th className="text-left px-3 py-2 font-medium w-28">提出物</th>
+              <th className="text-left px-3 py-2 font-medium w-36">月次報告</th>
               <th className="text-left px-3 py-2 font-medium w-28">立替精算</th>
               <th className="text-left px-3 py-2 font-medium w-24">支払条件</th>
               <th className="text-left px-3 py-2 font-medium w-20">開始ym</th>
@@ -993,6 +1009,53 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                         {p.contract_terms_json?.deliverablesNote ? (
                           <div className="line-clamp-2 text-[10px] text-muted-foreground" title={p.contract_terms_json.deliverablesNote}>
                             {p.contract_terms_json.deliverablesNote}
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+                  </td>
+
+                  {/* monthlyReportSubmissionRule / monthlyReportSubmissionNote */}
+                  <td className={`${cellCls("contract_monthly_report_submission")} align-top`} onClick={enterCell("contract_monthly_report_submission")}>
+                    {isEditingField(p, "contract_monthly_report_submission") ? (
+                      <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
+                        <textarea
+                          value={editVals.contract_monthly_report_submission_rule as string}
+                          autoFocus
+                          onChange={(e) => setEditVals((v) => ({ ...v, contract_monthly_report_submission_rule: e.target.value }))}
+                          rows={2}
+                          placeholder="提出ルール"
+                          className="w-full rounded border border-border bg-background px-1.5 py-0.5 text-[11px]"
+                        />
+                        <textarea
+                          value={editVals.contract_monthly_report_submission_note as string}
+                          onChange={(e) => setEditVals((v) => ({ ...v, contract_monthly_report_submission_note: e.target.value }))}
+                          rows={2}
+                          placeholder="根拠/補足"
+                          className="w-full rounded border border-border bg-background px-1.5 py-0.5 text-[11px]"
+                        />
+                        {cellActions("contract_monthly_report_submission")}
+                      </div>
+                    ) : (
+                      <div className="space-y-1 text-[11px]">
+                        {p.contract_terms_json?.monthlyReportSubmissionRule ? (
+                          <div
+                            className="line-clamp-3 font-medium text-foreground"
+                            title={p.contract_terms_json.monthlyReportSubmissionRule}
+                          >
+                            {p.contract_terms_json.monthlyReportSubmissionRule}
+                          </div>
+                        ) : (
+                          <span className="inline-flex rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
+                            不明
+                          </span>
+                        )}
+                        {p.contract_terms_json?.monthlyReportSubmissionNote ? (
+                          <div
+                            className="line-clamp-2 text-[10px] text-muted-foreground"
+                            title={p.contract_terms_json.monthlyReportSubmissionNote}
+                          >
+                            {p.contract_terms_json.monthlyReportSubmissionNote}
                           </div>
                         ) : null}
                       </div>

@@ -150,6 +150,12 @@ export function deriveContractApplyPlan(term: AppliedTermRow): ContractApplyPlan
     quoteNo: term.quote_no || null,
     deliverablesRequired: booleanOrNull(extractedTerms.deliverables_required ?? extractedTerms.deliverablesRequired),
     deliverablesNote: optionalText(extractedTerms.deliverables_note ?? extractedTerms.deliverablesNote),
+    monthlyReportSubmissionRule: optionalText(
+      extractedTerms.monthly_report_submission_rule ?? extractedTerms.monthlyReportSubmissionRule,
+    ),
+    monthlyReportSubmissionNote: optionalText(
+      extractedTerms.monthly_report_submission_note ?? extractedTerms.monthlyReportSubmissionNote,
+    ),
     expenseReimbursementAllowed: booleanOrNull(
       extractedTerms.expense_reimbursement_allowed ?? extractedTerms.expenseReimbursementAllowed,
     ),

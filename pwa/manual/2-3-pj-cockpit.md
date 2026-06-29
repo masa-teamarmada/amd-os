@@ -27,7 +27,7 @@ AMD OS の **中心画面**。各 PJ ごとに 1 つあり、URL は `/project/{
 
 (= 3 カラム x 2 段、まさ #28 確定 2026-05-24)
 
-PJ ヘッダー最上部には、PJリスト (`/admin/projects`) の正本から、PJメンバー、契約条件、業務委託料、支払い条件、提出物の有無、立替精算可否を表示する。提出物/立替精算は `projects.contract_terms_json` の `deliverablesRequired` / `deliverablesNote` / `expenseReimbursementAllowed` / `expenseReimbursementNote` を見る。値は契約書/見積書から `contract_terms.extracted_terms_json` へ抽出され、Contract Apply 後に PJ 正本へ畳まれる。曖昧な条項は不明のまま表示する。
+PJ ヘッダー最上部には、PJリスト (`/admin/projects`) の正本から、PJメンバー、契約条件、業務委託料、支払い条件、提出物の有無、月次報告書の提出ルール、立替精算可否を表示する。提出物/月次報告/立替精算は `projects.contract_terms_json` の `deliverablesRequired` / `deliverablesNote` / `monthlyReportSubmissionRule` / `monthlyReportSubmissionNote` / `expenseReimbursementAllowed` / `expenseReimbursementNote` を見る。値は契約書/見積書から `contract_terms.extracted_terms_json` へ抽出され、Contract Apply 後に PJ 正本へ畳まれる。曖昧な条項は不明または要確認候補のまま表示する。
 
 SU 系 PJ では、PRS primary / legacy M-X-F / XRL グラフは常時表示し、その下で **進捗管理** と **スコア詳細** をタブ切り替えする。2つのタブは横幅いっぱいを左右半分ずつ使う。進捗管理タブは従来のコックピット本文、スコア詳細タブは `/venture-map/amd-score/{projectId}` 相当の PRS Primary / PRS history / legacy M-X-F 詳細 / FRL / XRL チェックリストを cockpit 内に埋め込む。スコア詳細は画面表示直後に裏で読み込み、同じコックピットを見ている間は数分単位で再利用するため、2回目以降のタブ切り替えでは読み込み待ちが出にくい。
 
@@ -186,17 +186,20 @@ MTG詳細モーダル内の「添付資料」は会議単位の `meeting_assets`
 
 ### MTG Prep セッション自動立ち上げ (2026-06-22 まさ確定)
 
-> **何が嬉しいか**: 「明日 MTG あるけどまだ準備してない、codex を毎回開いて『背景はこうで…』と説明するのがだるい」を OS 側で解決する。**既存 H-1 automation の Phase P** が、翌7日の MTG ごとに **codex の新規 session を事前 spawn** する。session の中で文脈ロード・着地点 draft・資料 draft・readiness 計算まで終わって待機する。まさは Slack DM で「{MTG} の prep セッション立ち上げといたよー」と通知を受け、自分で codex desktop を起動して該当 session に入る (= 普段どおりの操作、ターミナル不要)。
+> **何が嬉しいか**: 「明日 MTG あるけどまだ準備してない、codex を毎回開いて『背景はこうで…』と説明するのがだるい」を OS 側で解決する。**既存 H-1 automation の Phase P** が、翌7日の MTG ごとに **codex の新規 session を事前 spawn** する。session の中で文脈ロード・会議設計スターター・着地点 draft・資料 draft・readiness 計算まで終わって待機する。まさは codex desktop で該当 session に入り、「前回こうだった、今回の着地はこうだと思う」から会議設計の相談を始められる (= 普段どおりの操作、ターミナル不要)。
 
 #### prep の timing
 
 - **post-MTG 即時主義**。前回 MTG の翌日から、今回 MTG の 24時間前までの間で、まさカレンダーの空き枠を探して prep を入れる
+- 24時間前が土日など H-1 が動かない日に当たる場合は、同じ時刻のまま直前の稼働日に繰り上げる。例: 月曜12:00のMTGなら、金曜12:00に prep 枠を作る
+- セッションは prep 枠の開始時刻までに立ち上げ完了している状態を目標にする。H-1 が毎時15分に動く都合で、金曜12:00枠なら直前の金曜11:15 run で session を起動する
 - 過去同シリーズが無い MTG (= 完全初回) は、検知された瞬間から prep を始められる
 - ギリギリではなく、余裕がある日に前倒しでやる (= 先手先手主義)
 
 #### prep 枠 (= まさカレンダー上の prep 作業時間)
 
 - prep 作業自体を **「＋ <PJコード> MTG準備: <MTGタイトル>」** という Calendar event としてまさカレンダーに作る
+- prep 枠には、その PJ の Calendar 色を自動で付ける。色は `CFG_ColorPJHistory` を PJコードから逆引きして決め、既存 prep 枠が無色・別色なら次の H-1 run で色だけ補正する
 - タイトル先頭 `＋` = 動かせるタスク (= 既存 H-1 `+<PJ>` 規約と統一)
 - まさが「この日無理」と思って枠を別日時にドラッグしたら、次の H-1 run (毎時) で追従して spawn 時刻を再計算する
 - 対象は **まさのカレンダーだけ** (= 他メンバーには prep 枠を作らない、まさ確定)
@@ -207,11 +210,19 @@ MTG詳細モーダル内の「添付資料」は会議単位の `meeting_assets`
   - **readiness pill**: 緑 80↑ (準備OK) / 黄 50-79 (もう一押し) / 赤 <50 (要相談)
   - **session 状態 chip**: 「prep セッション準備中」 / 「ready (codex で開いてね)」 / 「起動失敗」
 - worker が生成した資料 draft は Drive `PJfolder/YYMMDD_MTG名_prep/` に置かれる (= 本資料フォルダではなく draft フォルダ)
-- worker が作成したアジェンダ草案入り Notion 議事録ページは事前に MTG カードの `notion_url` として表示される
+- worker が会議前の AI Meeting Notes page を見つけた場合は、PJ 固有名詞・略称・拾うべき論点を `AI Meeting Notes用コンテキスト` として先に入れ、MTGカードの `notion_url` から開けるようにする。見つからない場合は、worker が作成したアジェンダ草案入り Notion 議事録ページまたは手動貼り付け用 context を表示する
+
+#### prep session の第一声
+
+- prep session を開いた時の最初の有用出力は、`ready` や保存先の技術報告ではなく、まさと会議設計を始めるための第一声にする
+- 最低限、「前回/直近の流れ」「今回の着地仮説」「冒頭で確認したいこと」「まさへの確認問い」を出す
+- 会議後も同じ session で、H-1 議事録を読んだうえで「こういう結果だった、次回はどうする？」という相談に続けられる前提で残す
 
 #### Slack DM nudge
 
-- H-1 run で `prep_worker_status='ready'` になった MTG をその run の末尾で まさ専用 Slack DM にまとめて送る (= 1日複数回起こり得る、ただし同じMTGには重複送信しない)
+- H-1 run は `prep_worker_status='ready'` になった MTG を自動で Slack DM しない。MTGカードに readiness / threadId を保存するのが既定動作
+- まさから明示的に通知依頼がある場合だけ、まさ専用 Slack DM にまとめて送る (= 同じMTGには重複送信しない)
+- 送信ルートは `/Users/masa/projects/AMD/amd-os/scripts/send-eimi-slack.mjs` 固定。Codex / ChatGPT / Slack connector から直接送らない
 - 形式 (つくよみ口調):
   ```
   🌙 まさ、prep セッション立ち上げといたよー
@@ -224,7 +235,7 @@ MTG詳細モーダル内の「添付資料」は会議単位の `meeting_assets`
      readiness 35/100  🔴
      codex で開いてね、資料draftは作ったけど着地点要相談
   ```
-- まさは codex desktop を自分で起動 → 該当 session に入って対話開始。ターミナル操作不要
+- まさは codex desktop を自分で起動 → 該当 session に入って対話開始。ターミナル操作不要。session 側は保存完了報告ではなく、会議設計スターターで待機する
 - 各 PJ の facilitator (= kaz / かる / ちこ等) には同じDMを送らない (= **まさ専用 DM だけ**、まさ確定)
 
 #### codex のみで spawn 統一
@@ -250,6 +261,20 @@ PM 向けの cockpit 右カラム step UI は廃止済み。コックピット�
 | 請求書発行/送付 | 請求書番号・PDF・freee連携、送付済み管理 | `/admin/billing` |
 
 月カード (`2026.05稼働分`) をクリックすると月次の集約モーダルを開く。`?step=<stepId>&ym=YYYYMM` は legacy query で、現行 cockpit は step modal を開かない。
+
+### 月次報告書の社内保存用 / 提出用
+
+月次モーダルの `📝 社内保存用を編集` は全 PJ 共通の `monthly_reports` 本文を生成・修正・FIXする場所。ここで確定した本文が AMD 社内保存用の正本で、提出用テンプレートの本文ソースにもなる。
+
+CX (`p20`) / SX (`p21`) / KUTE (`p25`) は月次提出が必要なため、月次モーダルのヘッダと本文エリアに `提出用` リンクを出す。各リンクは印刷ビューへ `template` query を付けて開き、提出先ごとの構成へ分岐する。
+
+| PJ | 提出用リンク | 出力フォーマット |
+|---|---|---|
+| CX (`p20`) | `NIMS提出` | NIMS Pilot CX月次レビュー |
+| SX (`p21`) | `愛媛大提出` | 愛媛大学 SX月次報告 |
+| KUTE (`p25`) | `工学院提出` | 工学院大学 KUTE月次報告 |
+
+上記以外の PJ は AMD 標準の `PDF` リンクだけを表示する。PDFファイル自動生成は行わず、印刷ビューを開いて Cmd+P → PDF保存で出力する。
 
 `billing_cycles.invoice_ym` が稼働月と違う場合 (= 複数月を後からまとめて請求) でも、PM cockpit に請求 step は出さない。請求月の繰延は `/admin/billing` / `/admin/payouts` / finance 系で扱う。
 
