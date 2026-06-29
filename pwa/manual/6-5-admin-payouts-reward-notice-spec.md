@@ -82,7 +82,7 @@ MS / PlanCycle が未設定の PJ は報酬計算対象外。支払が必要な�
 
 この表が `/admin/payouts` の主作業面なので、サマリ直下・報酬債務台帳より上に置く。
 
-支払通知書の正式発行・送付に使う税抜支払額は、最新の報酬キャッシュから `monthly_reward_payout` と `payout_notices.total_yen` に同期する。画面を開いただけでは保存せず、夜間の `payout-notice-prebuild` cron、正式PDF発行、一括発行、送付モーダル準備のタイミングで同期する。同期時点ではメール送信しない。金額が変わった未送付 PDF は `pdf_url` / `last_generated_at` をクリアし、次の一括発行・cron prebuild で再生成対象へ戻す。
+支払通知書の正式発行・送付に使う税抜支払額は、最新の報酬キャッシュから `monthly_reward_payout` と `payout_notices.total_yen` に同期する。画面を開いただけでは保存せず、夜間の `payout-notice-prebuild` cron、正式PDF発行、一括発行、送付モーダル準備のタイミングで同期する。同期時点ではメール送信しない。金額が変わった未送付 PDF は `pdf_url` / `last_generated_at` をクリアし、次の一括発行・cron prebuild で再生成対象へ戻す。金額が変わっていなくても、未送付PDFの `last_generated_at` より `members.updated_at` が新しい場合は、メンバー台帳の住所・宛名・登録番号が変わった可能性があるため再生成対象にする。
 
 UI では通常の同期差分をバッジ表示しない。差分があっても画面表示中に自動POSTはしない。開きっぱなしのタブでは 60 秒ごとに read-only 再取得し、夜間 cron や別操作で同期済みになった状態へ追随する。正式な個別発行・全員分PDF一括発行・強制再発行・送付モーダル準備は、サーバー側で最新計算額を同期し、その後に DB から `members` / `monthly_reward_payout` / `payout_notices` を読み直してから実行する。金額が変わっていなくても、`/admin/members` で更新した `contractor_name` / `member_address` / `invoice_registration_number` は再発行PDFへ反映する。運用者が先に保存ボタンを押す必要はない。月初合意 gate や本契約cap blocker がある場合だけ `同期できない` を表示して同期を止め、admin override または blocker 解消を待つ。
 
@@ -266,7 +266,7 @@ admin/payouts 支払額 (= 税抜) 731,740円
 - `sent_at` が立っている通知書は履歴として保護し、cron / 一括発行 / `force=true` でも `pdf_url` / `total_yen` / `last_generated_at` を上書きしない
 - 最新支払計算に対応する明細が無い未送付 `payout_notices` は孤立レコードとして削除し、古いPDFリンクを active な通知書として残さない
 - 月初合意支払 gate に blocker があるメンバーは PDF 生成せず、`agreement_gate` failure として結果に出す
-- **差分検出**: 既に `payout_notices.pdf_url` があり、 `total_yen` が一致し、かつ未送付PDFの `last_generated_at` が現行テンプレート更新時刻以降なら **スキップ** (= GAS を叩かない)
+- **差分検出**: 既に `payout_notices.pdf_url` があり、 `total_yen` が一致し、未送付PDFの `last_generated_at` が現行テンプレート更新時刻以降で、かつ `members.updated_at` 以降なら **スキップ** (= GAS を叩かない)
 - 差分があるメンバーのみ GAS に投げて、 `pdf_url` / `notice_no` / `total_yen` / `last_generated_at` を更新
 - 朝、 まさが `/admin/payouts` を開いた時点でほとんどのメンバーの PDF が既に存在する状態にする
 
@@ -281,13 +281,14 @@ curl -X POST "https://amd-os-pwa.vercel.app/api/cron/payout-notice-prebuild" \
 
 `force: true` で差分検出を無視して未送付の対象者を強制再生成。送付済み通知書は保護する。`lookahead: N` で当月+N ヶ月先まで対象を広げる (デフォルト 1)。
 
-#### 手動: `/admin/payouts` の「全員分PDF一括発行」「全員分PDF確認」
+#### 手動: `/admin/payouts` の「全員分PDF一括発行」「確認用PDF生成」
 
 上部操作列と `メンバー別支払` 見出しのボタンから即時で全員分を並列生成。
 
 - 「全員分PDF一括発行」: `bulk_issue_notice_pdf` action。サーバー側で最新計算額を同期し、同期後に DB を再読込してから、差分検出あり、本番 notice_no で `payout_notices` に保存する
-- 「全員分PDF確認」: `bulk_preview_notice_pdf` action。 確認用 (= `notice_no` は `PREVIEW-...` 固定で DB 保存しない)
+- 「確認用PDF生成」: `bulk_preview_notice_pdf` action。 確認用 (= `notice_no` は `PREVIEW-...` 固定で DB 保存しない)。正式PDFの「PDF確認」とは別物
 - 「強制再発行 (全員)」 (= 黄色ボタン、2026-05-28 追加): `bulk_issue_notice_pdf` action を **`force: true`** で叩く。サーバー側で最新計算額を同期し、同期後に DB を再読込してから、送付済みを除く対象者分を強制再生成する。 PDF フォーマット変更 (= 表記ラベル / レイアウト) や `/admin/members` の住所・宛名・登録番号修正を反映したい時に使う (= 金額が変わってないと差分検出でスキップされて変更が反映されない問題への対処)。 確認ダイアログあり
+- 行の「PDF確認」は生成済みの正式PDFを開くだけで、PDF生成は行わない。PDFが未生成、またはメンバー台帳更新後で古くなっている場合は、先に「支払通知書発行」または「強制再発行」で正式PDFを作り直す。
 
 レスポンスには `{ targetCount, generated, skipped, failed, results[] }` が入る。 失敗があったメンバーは UI 上部の赤い帯に最大 8 件表示される。
 
@@ -302,6 +303,7 @@ curl -X POST "https://amd-os-pwa.vercel.app/api/cron/payout-notice-prebuild" \
 | `notice_no` が `PREVIEW-...` | はい (= 仮 PDF を本番化) |
 | `total_yen` が一致しない | はい (= 金額が変わった) |
 | 未送付PDFの `last_generated_at` が現行テンプレート更新時刻より古い / 空 | はい (= 表記ラベル・レイアウト変更を反映) |
+| 未送付PDFの `last_generated_at` より `members.updated_at` が新しい | はい (= 住所・宛名・登録番号などメンバー台帳更新を反映) |
 | `sent_at` が立っている | **いいえ** (= 送付済み履歴を保護) |
 | 上記すべて該当なし | **いいえ** (= スキップして既存 `pdf_url` を再利用) |
 
@@ -309,7 +311,7 @@ curl -X POST "https://amd-os-pwa.vercel.app/api/cron/payout-notice-prebuild" \
 
 `payout-notice-prebuild`、正式PDF発行、全員分PDF一括発行、強制再発行、送付モーダル準備の直前で、既存 `payout_notices.total_yen` と新計算値を比較し、 **金額が変わったメンバーは `pdf_url` / `last_generated_at` を NULL クリア**する (`sent_at` が立っている行は触らない)。 これで次回 cron / 一括発行で差分検出が再生成を発火させる仕組み。
 
-正式PDF発行・強制再発行・送付モーダル準備のような admin の明示操作では、金額差分の有無に関係なく同期後に DB を再読込し、`members` の最新宛先情報を GAS へ渡す。cron の先回り生成だけは、未送付PDFの `last_generated_at` / `total_yen` / テンプレート更新時刻による差分検出で GAS 呼び出しを抑制できる。
+正式PDF発行・強制再発行・送付モーダル準備のような admin の明示操作では、金額差分の有無に関係なく同期後に DB を再読込し、`members` の最新宛先情報を GAS へ渡す。cron の先回り生成だけは、未送付PDFの `last_generated_at` / `total_yen` / テンプレート更新時刻 / `members.updated_at` による差分検出で GAS 呼び出しを抑制できる。
 
 支払データ同期の DB write 前にも月初合意支払 gate を通す。blocker がある場合、`monthly_reward_payout` / `payout_notices` へ保存しない。admin override reason がある場合だけ、監査ログ保存後に例外実行する。
 

@@ -117,7 +117,7 @@ codeName セルは admin 用マイページリンクを兼ねる。 コードネ
 | `member_name` | 個人の法律名 |
 | `contractor_name` | 契約者名 (= 支払通知書 / 契約書の宛名。既定は `member_name`、法人契約時だけ法人名へ手入力) |
 | `member_address` | 住所 (= 支払通知書の宛先住所) |
-| `invoice_registration_number` | インボイス登録番号 (= 支払通知書PDFの宛先ブロックに表示。未登録時はPDF上で未登録表示) |
+| `invoice_registration_number` | インボイス登録番号 (= 支払通知書PDFの宛先ブロックに表示。未登録時はPDF上で未登録表示)。保存時とPDF生成時に全角T・キリル文字のT風文字・空白/ハイフンを正規化して `T` + 数字へ寄せる |
 | `bank_info` | 振込先 (= 支払通知書) |
 | `role` | `manager` / `engineer` 等 (= 自由 text) |
 | `status` | `active` / `inactive` / `left` |

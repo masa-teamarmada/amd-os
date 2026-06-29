@@ -167,6 +167,7 @@ type MemberRow = {
   email?: string | null;
   is_officer?: boolean | null;
   exclude_from_payout_notice?: boolean | null;
+  updated_at?: string | null;
 };
 
 type ProjectMemberRow = {
@@ -200,6 +201,7 @@ export type GenerateNoticeResult = {
     | "no_pdf_url"
     | "preview_notice_no"
     | "total_yen_changed"
+    | "member_profile_changed"
     | "template_version_changed"
     | "sent_protected"
     | "agreement_gate"
@@ -288,6 +290,16 @@ function asRewardSummary(value: unknown): RewardSummary | null {
 
 function textValue(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeInvoiceRegistrationNumber(value: unknown): string {
+  const text = textValue(value);
+  if (!text) return "";
+  return text
+    .normalize("NFKC")
+    .replace(/[\s-]/g, "")
+    .replace(/^[Tt\u0422\u0442]/, "T")
+    .toUpperCase();
 }
 
 function numberValue(value: unknown): number {
@@ -692,19 +704,30 @@ function noticeTemplateIsStale(existing: PayoutNoticeRow): boolean {
   return Number.isFinite(generatedMs) && Number.isFinite(templateMs) && generatedMs < templateMs;
 }
 
+function noticeSourceProfileIsStale(existing: PayoutNoticeRow, sourceUpdatedAt: string | null | undefined): boolean {
+  if (textValue(existing.sent_at)) return false;
+  const generatedAt = textValue(existing.last_generated_at);
+  const sourceUpdated = textValue(sourceUpdatedAt);
+  if (!generatedAt || !sourceUpdated) return false;
+  const generatedMs = Date.parse(generatedAt);
+  const sourceMs = Date.parse(sourceUpdated);
+  return Number.isFinite(generatedMs) && Number.isFinite(sourceMs) && sourceMs > generatedMs;
+}
+
 /**
  * 既存の payout_notices と「今回計算した total_yen」を比較して、
  * GAS を再度叩いて PDF を作り直す必要があるかを判定する。
  *
  * - previewOnly: 確認用 PDF は毎回新規生成 (= notice_no も PREVIEW-... 固定で DB保存もしない)
  * - force: 強制再生成
- * - 既存 pdf_url が無い / notice_no が PREVIEW-... / total_yen が変わっている / 未送付PDFのテンプレートが古い → 再生成
+ * - 既存 pdf_url が無い / notice_no が PREVIEW-... / total_yen が変わっている
+ *   / member 台帳が PDF 生成後に更新された / 未送付PDFのテンプレートが古い → 再生成
  * - それ以外 → スキップ
  */
 export function shouldRegenerateNotice(
   existing: PayoutNoticeRow | null,
   expectedTotalYen: number,
-  options: { previewOnly?: boolean; force?: boolean } = {}
+  options: { previewOnly?: boolean; force?: boolean; sourceUpdatedAt?: string | null } = {}
 ): { regenerate: boolean; reason: GenerateNoticeResult["reason"] } {
   if (existing && !options.previewOnly && textValue(existing.sent_at)) {
     return { regenerate: false, reason: "sent_protected" };
@@ -716,6 +739,9 @@ export function shouldRegenerateNotice(
   if (noticeNoIsPreview(existing.notice_no)) return { regenerate: true, reason: "preview_notice_no" };
   if (yenValue(existing.total_yen) !== Math.round(expectedTotalYen)) {
     return { regenerate: true, reason: "total_yen_changed" };
+  }
+  if (noticeSourceProfileIsStale(existing, options.sourceUpdatedAt)) {
+    return { regenerate: true, reason: "member_profile_changed" };
   }
   if (noticeTemplateIsStale(existing)) return { regenerate: true, reason: "template_version_changed" };
   return { regenerate: false, reason: "no_change" };
@@ -773,7 +799,11 @@ export async function generateNoticePdfForMember(
   }
   const existing = (existingRaw ?? null) as PayoutNoticeRow | null;
 
-  const decision = shouldRegenerateNotice(existing, totalYen, { previewOnly, force });
+  const decision = shouldRegenerateNotice(existing, totalYen, {
+    previewOnly,
+    force,
+    sourceUpdatedAt: member.updated_at,
+  });
   if (!decision.regenerate && existing) {
     return {
       memberId,
@@ -820,7 +850,7 @@ export async function generateNoticePdfForMember(
       noticeNo,
       payeeName,
       payeeAddress: textValue(member.member_address),
-      invoiceRegistrationNumber: textValue(member.invoice_registration_number),
+      invoiceRegistrationNumber: normalizeInvoiceRegistrationNumber(member.invoice_registration_number),
       payeeEmail: textValue(member.email),
       bankInfo: textValue(member.bank_info),
       totalYen,
@@ -983,7 +1013,7 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
   const [membersRes, projectsRes, projectMembersRes, invoiceCyclesRes, unsetInvoiceCyclesRes, forecastCyclesRes, forecastPlanCyclesRes] = await Promise.all([
     db
       .from("members")
-      .select("member_id, code_name, member_name, contractor_name, member_address, invoice_registration_number, bank_info, email, status, is_officer, exclude_from_payout_notice")
+      .select("member_id, code_name, member_name, contractor_name, member_address, invoice_registration_number, bank_info, email, status, is_officer, exclude_from_payout_notice, updated_at")
       .eq("status", "active")
       .order("code_name"),
     db
@@ -1670,8 +1700,26 @@ export async function PATCH(req: NextRequest) {
         const code = result.reason === "no_member" ? 404 : 500;
         return NextResponse.json({ ok: false, error: result.error || "notice pdf failed" }, { status: code });
       }
-      if (result.status === "skipped" && result.reason === "no_entries") {
-        return NextResponse.json({ ok: false, error: "no payout entries for notice" }, { status: 409 });
+      if (result.status === "skipped") {
+        const error = result.reason === "sent_protected"
+          ? "送付済みの支払通知書は再発行できません。先に送付取消で未送付に戻してください。"
+          : result.reason === "no_entries"
+            ? "no payout entries for notice"
+            : `支払通知書PDFが再生成されませんでした (${result.reason ?? "skipped"})`;
+        return NextResponse.json(
+          {
+            ok: false,
+            error,
+            issuedNotice: {
+              memberId,
+              noticeNo: result.noticeNo,
+              pdfUrl: result.pdfUrl,
+              totalYen: result.totalYen,
+              lastGeneratedAt: result.lastGeneratedAt,
+            },
+          },
+          { status: 409 }
+        );
       }
 
       const after = await loadTargetData(ym);
@@ -1762,6 +1810,34 @@ export async function PATCH(req: NextRequest) {
       };
 
       const after = await loadTargetData(ym);
+      const unexpectedSkips = force && !previewOnly
+        ? results.filter((r) => r.status === "skipped" && r.reason !== "sent_protected")
+        : [];
+      if (summary.failed > 0 || unexpectedSkips.length > 0) {
+        console.error("[admin payouts PATCH bulk_notice_pdf] partial failure", {
+          ym,
+          previewOnly,
+          force,
+          summary,
+          failedResults: results.filter((r) => r.status === "failed"),
+          unexpectedSkips,
+        });
+        const failedNames = [
+          ...results.filter((r) => r.status === "failed").map((r) => `${r.memberId}:${r.reason ?? "failed"}`),
+          ...unexpectedSkips.map((r) => `${r.memberId}:${r.reason ?? "skipped"}`),
+        ].join(", ");
+        return NextResponse.json(
+          {
+            ok: false,
+            error: `一括PDF生成で失敗または未再生成がありました: ${failedNames}`,
+            previewOnly,
+            bulkResult: summary,
+            ...after,
+          },
+          { status: 500 }
+        );
+      }
+      console.info("[admin payouts PATCH bulk_notice_pdf] complete", { ym, previewOnly, force, summary });
       return NextResponse.json({
         ok: true,
         previewOnly,

@@ -12,11 +12,13 @@ type Member = {
   member_name: string | null;
   contractor_name?: string | null;
   member_address?: string | null;
+  invoice_registration_number?: string | null;
   bank_info?: string | null;
   email: string | null;
   status: string;
   is_officer?: boolean | null;
   exclude_from_payout_notice?: boolean | null;
+  updated_at?: string | null;
 };
 
 type Project = {
@@ -396,6 +398,7 @@ type MemberPayoutRow = {
   memberName: string;
   noticeExcluded: boolean;
   notice: PayoutNotice | null;
+  noticeProfileStale: boolean;
   totalPay: number;
   savedTotal: number;
   regularBasePay: number;
@@ -534,6 +537,14 @@ function fmtRelativeTime(iso: string | null | undefined): string | null {
   const diffD = Math.round(diffH / 24);
   if (diffD < 30) return `${diffD}日前`;
   return new Date(iso).toLocaleDateString("ja-JP");
+}
+
+function noticeIsOlderThanMemberProfile(notice: PayoutNotice | null | undefined, member: Member | null | undefined) {
+  if (!notice?.pdf_url || notice.sent_at) return false;
+  if (!notice.last_generated_at || !member?.updated_at) return false;
+  const generatedMs = new Date(notice.last_generated_at).getTime();
+  const memberUpdatedMs = new Date(member.updated_at).getTime();
+  return Number.isFinite(generatedMs) && Number.isFinite(memberUpdatedMs) && memberUpdatedMs > generatedMs;
 }
 
 function fmtYen(value: number | string | null | undefined) {
@@ -1376,6 +1387,14 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
     return map;
   }, [data?.members]);
 
+  const memberRecordMap = useMemo(() => {
+    const map = new Map<string, Member>();
+    for (const member of data?.members ?? []) {
+      map.set(member.member_id, member);
+    }
+    return map;
+  }, [data?.members]);
+
   const projectMap = useMemo(() => {
     const map = new Map<string, Project>();
     for (const project of data?.projects ?? []) {
@@ -1706,13 +1725,15 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
   const memberRows = useMemo<MemberPayoutRow[]>(() => {
     const byMember = new Map<string, MemberPayoutRow>();
     for (const entry of expectedEntries) {
+      const notice = noticeMap.get(entry.memberId) ?? null;
       const row =
         byMember.get(entry.memberId) ??
         {
           memberId: entry.memberId,
           memberName: entry.memberName,
           noticeExcluded: payoutExcludedMemberIds.has(entry.memberId),
-          notice: noticeMap.get(entry.memberId) ?? null,
+          notice,
+          noticeProfileStale: noticeIsOlderThanMemberProfile(notice, memberRecordMap.get(entry.memberId)),
           totalPay: 0,
           savedTotal: 0,
           regularBasePay: 0,
@@ -1740,7 +1761,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
     }
 
     return [...byMember.values()].sort((a, b) => b.totalPay - a.totalPay);
-  }, [expectedEntries, payoutExcludedMemberIds, noticeMap, payoutMap]);
+  }, [expectedEntries, memberRecordMap, payoutExcludedMemberIds, noticeMap, payoutMap]);
 
   const grandTotal = memberRows.reduce((sum, row) => sum + row.totalPay, 0);
   const regularBaseTotal = memberRows.reduce((sum, row) => sum + row.regularBasePay, 0);
@@ -1784,7 +1805,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
     guardedActionDisabled;
   const bulkIssueDisabled = bulkPdfBaseDisabled || hasBudgetBlocker;
   const saveAndIssueDisabled = bulkIssueDisabled;
-  const bulkPreviewTitle = guardedActionTitle ?? "全員分の確認用PDFを並列生成 (DB保存なし)";
+  const bulkPreviewTitle = guardedActionTitle ?? "全員分の確認用PDFを並列生成 (DB保存なし・正式PDFは更新しない)";
   const bulkIssueTitle = guardedActionTitle ??
     (memberRows.length === 0
       ? "対象メンバーがいない"
@@ -1926,45 +1947,6 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
     } catch (err) {
       closePdfPlaceholder(pdfWindow);
       setHint(err instanceof Error ? err.message : "支払通知書PDFの発行エラー");
-    } finally {
-      setNoticeSavingMemberId(null);
-    }
-  }
-
-  async function previewNoticePdf(row: MemberPayoutRow) {
-    if (row.notice?.pdf_url) {
-      openPdfUrl(row.notice.pdf_url);
-      return;
-    }
-
-    const pdfWindow = openPdfPlaceholderWindow();
-    setNoticeSavingMemberId(row.memberId);
-    setHint("確認用の支払通知書PDFを作成中...");
-    try {
-      const res = await fetch("/api/admin/payouts", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "preview_notice_pdf",
-          ym,
-          memberId: row.memberId,
-          agreementOverrideReason: agreementOverrideReasonTrimmed || undefined,
-        }),
-      });
-      const payload = (await res.json()) as (
-        PayoutData & { ok?: boolean; error?: string; issuedNotice?: { pdfUrl?: string } }
-      );
-      if (!res.ok || payload.ok === false) {
-        throw new Error(payload.error || `notice pdf preview failed (${res.status})`);
-      }
-      if (!payload.issuedNotice?.pdfUrl) {
-        throw new Error("確認用PDFのURLが返ってこなかった");
-      }
-      showGeneratedPdf(pdfWindow, payload.issuedNotice.pdfUrl);
-      setHint(`${row.memberName} の確認用PDFを開いた（DB保存なし）`);
-    } catch (err) {
-      closePdfPlaceholder(pdfWindow);
-      setHint(err instanceof Error ? err.message : "確認用PDFの作成エラー");
     } finally {
       setNoticeSavingMemberId(null);
     }
@@ -2142,6 +2124,10 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
         bulkResult?: BulkNoticeSummary;
       };
       if (!res.ok || payload.ok === false) {
+        if (payload.ym && payload.members && payload.projects && payload.cycles && payload.payouts && payload.notices) {
+          setData(payload);
+        }
+        if (payload.bulkResult) setBulkPdfResult(payload.bulkResult);
         throw new Error(payload.error || `一括PDF生成失敗 (${res.status})`);
       }
       setData(payload);
@@ -2308,7 +2294,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
           title={bulkPreviewTitle}
           className="h-9 rounded-md border border-border bg-background px-3 text-[12px] hover:bg-muted/40 disabled:opacity-50"
         >
-          {bulkPdfMode === "preview" ? "確認用PDF生成中..." : "全員分PDF確認"}
+          {bulkPdfMode === "preview" ? "確認用PDF生成中..." : "確認用PDF生成"}
         </button>
 
         <button
@@ -2403,7 +2389,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
               title={bulkPreviewTitle}
               className="h-8 rounded-md border border-border bg-background px-3 text-[11px] hover:bg-muted/40 disabled:opacity-50"
             >
-              {bulkPdfMode === "preview" ? "確認用生成中..." : "全員分PDF確認"}
+              {bulkPdfMode === "preview" ? "確認用生成中..." : "確認用PDF生成"}
             </button>
             <button
               type="button"
@@ -2541,7 +2527,6 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
                         saving={noticeSavingMemberId === row.memberId || (noticeMailLoading && noticeMailModal?.row.memberId === row.memberId)}
                         onIssueNoticePdf={issueNoticePdf}
                         onOpenPdf={openPdfUrl}
-                        onPreviewNoticePdf={previewNoticePdf}
                         onUpdateNoticeSent={updateNoticeSent}
                         onOpenSendMailModal={openNoticeMailModal}
                       />
@@ -3739,7 +3724,6 @@ function PayoutNoticeActions({
   saving,
   onIssueNoticePdf,
   onOpenPdf,
-  onPreviewNoticePdf,
   onUpdateNoticeSent,
   onOpenSendMailModal,
 }: {
@@ -3748,7 +3732,6 @@ function PayoutNoticeActions({
   saving: boolean;
   onIssueNoticePdf: (row: MemberPayoutRow, options?: { forceReissue?: boolean }) => void;
   onOpenPdf: (pdfUrl: string | null | undefined) => void;
-  onPreviewNoticePdf: (row: MemberPayoutRow) => void;
   onUpdateNoticeSent: (row: MemberPayoutRow, patch: NoticeSavePatch) => void;
   onOpenSendMailModal: (row: MemberPayoutRow) => void;
 }) {
@@ -3764,15 +3747,18 @@ function PayoutNoticeActions({
   const savedNoticeTotal = Math.round(numberValue(row.notice?.total_yen));
   const totalMismatch = savedNoticeTotal > 0 && savedNoticeTotal !== Math.round(row.totalPay);
   const hasPdf = Boolean(row.notice?.pdf_url) && row.isSaved && !totalMismatch;
+  const canConfirmPdf = canPreviewPdf && hasPdf && !row.noticeProfileStale;
   const canOpenSendModal = !blocked && row.totalPay > 0 && !isSent;
   const issueTitle = row.isSaved
     ? hasPdf
       ? "最新DBの住所・宛名・登録番号で支払通知書PDFを再発行する"
       : "最新DBの住所・宛名・登録番号で支払通知書PDFを発行する"
     : "最新計算額と最新DBのメンバー情報を同期してから支払通知書PDFを発行する";
-  const pdfTitle = hasPdf
-    ? "保存済みPDFを別タブで確認する"
-    : "確認用PDFを作成してフォーマットを見る";
+  const pdfTitle = row.noticeProfileStale
+    ? "メンバー台帳がPDF生成後に更新されています。支払通知書発行で再発行してください"
+    : hasPdf
+      ? "保存済みPDFを別タブで確認する"
+      : "生成済みPDFがありません。先に支払通知書発行を実行してください";
   const sentTitle = isSent
     ? "送付済みを取り消して未送付に戻す (メールは取り消されない)"
     : "送信用PDFと本文を準備して確認モーダルを開く";
@@ -3791,8 +3777,8 @@ function PayoutNoticeActions({
         </button>
         <button
           type="button"
-          onClick={() => (hasPdf ? onOpenPdf(row.notice?.pdf_url) : onPreviewNoticePdf(row))}
-          disabled={!canPreviewPdf}
+          onClick={() => onOpenPdf(row.notice?.pdf_url)}
+          disabled={!canConfirmPdf}
           title={pdfTitle}
           className="rounded-md border border-border px-2 py-1 text-[11px] hover:bg-muted/40 disabled:opacity-50"
         >
@@ -3825,6 +3811,9 @@ function PayoutNoticeActions({
           <span className="ml-1">送付 {new Date(row.notice.sent_at).toLocaleString("ja-JP")}</span>
         )}
       </div>
+      {row.noticeProfileStale && (
+        <div className="text-right text-[10px] text-amber-700">メンバー台帳更新後の再発行が必要</div>
+      )}
       {row.isSaved && !isSent && (
         <div className="max-w-[260px] text-right text-[10px] leading-snug text-muted-foreground">
           送付を押すと送信用PDFと本文を準備。確認後の送信は keiri@ から実メール送信し、Bccに masa / kyoko、成功時に送付済み化。

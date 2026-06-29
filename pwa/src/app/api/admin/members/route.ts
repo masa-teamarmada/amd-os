@@ -116,7 +116,7 @@ function normalizeMemberPatch(rawPatch: Record<string, unknown>) {
 
   if (hasOwn(rawPatch, "invoice_registration_number")) {
     const text = stringValue(rawPatch.invoice_registration_number);
-    patch.invoice_registration_number = text ? text.toUpperCase() : null;
+    patch.invoice_registration_number = text ? normalizeInvoiceRegistrationNumber(text) : null;
   }
 
   if (hasOwn(rawPatch, "status")) {
@@ -150,6 +150,15 @@ function stringValue(value: unknown) {
   if (typeof value !== "string") return null;
   const text = value.trim();
   return text || null;
+}
+
+function normalizeInvoiceRegistrationNumber(value: string) {
+  return value
+    .trim()
+    .normalize("NFKC")
+    .replace(/[\s-]/g, "")
+    .replace(/^[Tt\u0422\u0442]/, "T")
+    .toUpperCase();
 }
 
 function booleanValue(value: unknown) {
