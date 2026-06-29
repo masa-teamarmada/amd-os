@@ -48,7 +48,7 @@ container: max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3
 [A2]  CockpitVentureStatus (full width hero)    PJ Status — 内部で AMD Score chart と XRL chart を xl: 横並び
                                                 ecosystem PJ は AMD Score 対象外で非表示
 
-CockpitHeader は `/admin/projects` の正本から、PJメンバー、契約条件、業務委託料、支払い条件、提出物の有無、月次報告書の提出ルール、立替精算可否を細いサマリー帯で表示する。提出物/月次報告/立替精算は `projects.contract_terms_json.deliverablesRequired` / `deliverablesNote` / `monthlyReportSubmissionRule` / `monthlyReportSubmissionNote` / `expenseReimbursementAllowed` / `expenseReimbursementNote` を読む。値は契約書/見積書から `contract_terms.extracted_terms_json` に抽出され、Contract Apply 後に `projects.contract_terms_json` へ畳まれる。曖昧な場合は「不明」または「要確認候補」のまま表示する。
+CockpitHeader は `/admin/projects` の正本から、PJメンバー、契約条件、業務委託料、支払い条件、提出物の有無、月次報告書の状態と詳細、立替精算可否を細いサマリー帯で表示する。提出物/月次報告/立替精算は `projects.contract_terms_json.deliverablesRequired` / `deliverablesNote` / `monthlyReportSubmissionRule` / `monthlyReportSubmissionTiming` / `monthlyReportSubmissionDeadline` / `monthlyReportSubmissionFormat` / `monthlyReportSubmissionRequiredItems` / `monthlyReportSubmissionNote` / `expenseReimbursementAllowed` / `expenseReimbursementNote` を読む。月次報告は `要提出` などの短い状態を主値にし、時期・提出期限・フォーマット・記載事項・根拠を補足表示する。値は契約書/見積書から `contract_terms.extracted_terms_json` に抽出され、Contract Apply 後に `projects.contract_terms_json` へ畳まれる。契約上の義務ではない運用提出も同じJSONで扱い、曖昧な場合は「不明」または「要確認」のまま表示する。
 
 [A3]  Cockpit tabs                              SU 系 PJ では Hero 下に「進捗管理 / スコア詳細」タブ。
                                                 Hero はタブ外なので AMD Score + XRL は常時表示。

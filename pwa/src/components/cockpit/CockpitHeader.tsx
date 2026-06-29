@@ -21,6 +21,10 @@ type ProjectContractTerms = {
   deliverablesRequired?: boolean | string | null;
   deliverablesNote?: string | null;
   monthlyReportSubmissionRule?: string | null;
+  monthlyReportSubmissionTiming?: string | null;
+  monthlyReportSubmissionDeadline?: string | null;
+  monthlyReportSubmissionFormat?: string | null;
+  monthlyReportSubmissionRequiredItems?: string | null;
   monthlyReportSubmissionNote?: string | null;
   expenseReimbursementAllowed?: boolean | string | null;
   expenseReimbursementNote?: string | null;
@@ -92,6 +96,31 @@ function flagLabel(value: unknown, trueLabel: string, falseLabel: string) {
   return "不明";
 }
 
+function textValue(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function monthlyReportStatusLabel(value: unknown) {
+  const text = textValue(value);
+  if (!text) return "不明";
+  if (text.includes("要確認")) return "要確認";
+  if (text.includes("不要")) return "不要";
+  if (text.includes("指定なし")) return "指定なし";
+  if (text.includes("提出") || text.includes("必要")) return "要提出";
+  return text;
+}
+
+function buildMonthlyReportNote(terms: ProjectContractTerms | null) {
+  const parts = [
+    terms?.monthlyReportSubmissionTiming ? `時期: ${terms.monthlyReportSubmissionTiming}` : null,
+    terms?.monthlyReportSubmissionDeadline ? `提出期限: ${terms.monthlyReportSubmissionDeadline}` : null,
+    terms?.monthlyReportSubmissionFormat ? `フォーマット: ${terms.monthlyReportSubmissionFormat}` : null,
+    terms?.monthlyReportSubmissionRequiredItems ? `記載事項: ${terms.monthlyReportSubmissionRequiredItems}` : null,
+    terms?.monthlyReportSubmissionNote ? `根拠: ${terms.monthlyReportSubmissionNote}` : null,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(" / ") : null;
+}
+
 function buildContractCondition(project: Props["project"]) {
   const terms = project.contractTerms;
   const start = terms?.contractStartYm || project.startYm || "";
@@ -126,8 +155,8 @@ export function CockpitHeader({ project, members }: Props) {
     },
     {
       label: "月次報告",
-      value: terms?.monthlyReportSubmissionRule || "不明",
-      note: terms?.monthlyReportSubmissionNote || null,
+      value: monthlyReportStatusLabel(terms?.monthlyReportSubmissionRule),
+      note: buildMonthlyReportNote(terms),
     },
     {
       label: "立替精算",
@@ -159,7 +188,7 @@ export function CockpitHeader({ project, members }: Props) {
               {item.value}
             </dd>
             {item.note && (
-              <dd className="mt-0.5 truncate text-[10px] text-[#86868b]" title={item.note}>
+              <dd className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-[#86868b]" title={item.note}>
                 {item.note}
               </dd>
             )}

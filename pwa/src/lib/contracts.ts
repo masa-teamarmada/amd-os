@@ -101,6 +101,10 @@ export type ContractTermCandidate = {
   deliverablesRequired: boolean | null;
   deliverablesNote: string | null;
   monthlyReportSubmissionRule: string | null;
+  monthlyReportSubmissionTiming: string | null;
+  monthlyReportSubmissionDeadline: string | null;
+  monthlyReportSubmissionFormat: string | null;
+  monthlyReportSubmissionRequiredItems: string | null;
   monthlyReportSubmissionNote: string | null;
   expenseReimbursementAllowed: boolean | null;
   expenseReimbursementNote: string | null;
@@ -335,6 +339,15 @@ type BooleanTermExtraction = {
   note: string | null;
 };
 
+type MonthlyReportSubmissionExtraction = {
+  rule: string | null;
+  timing: string | null;
+  deadline: string | null;
+  format: string | null;
+  requiredItems: string | null;
+  note: string | null;
+};
+
 function clauseAroundTerms(text: string, terms: string[], maxLength = 180) {
   const normalized = text.normalize("NFKC").replace(/[ \t]+/g, " ");
   const lines = normalized
@@ -382,21 +395,37 @@ function extractDeliverables(text: string): BooleanTermExtraction {
   });
 }
 
-function extractMonthlyReportSubmission(text: string): { rule: string | null; note: string | null } {
+function extractMonthlyReportSubmission(text: string): MonthlyReportSubmissionExtraction {
   const note = clauseAroundTerms(
     text,
     ["月次報告書", "月次進捗報告", "月次報告", "業務報告書", "進捗報告"],
     240,
   );
-  if (!note) return { rule: null, note: null };
-  const requiresReport = /提出|提出する|提出が必要|提出を要|交付|添付|報告/.test(note);
+  if (!note) return { rule: null, timing: null, deadline: null, format: null, requiredItems: null, note: null };
+  const requiresReport = /提出|提出する|提出が必要|提出を要|交付|添付/.test(note);
   const monthlyTiming = /月次|毎月|毎月末|月末締め|翌月|月ごと|各月/.test(note);
   const reportTerm = "(?:月次報告書|月次進捗報告|月次報告|業務報告書|進捗報告)";
   const negativeTerm = "(?:不要|なし|無し|提出を要しない|特になし|該当なし)";
   const noReport = new RegExp(`${reportTerm}.{0,24}${negativeTerm}|${negativeTerm}.{0,24}${reportTerm}`).test(note);
-  if (noReport) return { rule: "不要", note };
-  if (requiresReport || monthlyTiming) return { rule: note, note };
-  return { rule: null, note };
+  if (noReport) return { rule: "不要", timing: null, deadline: null, format: null, requiredItems: null, note };
+  const rule = requiresReport ? "要提出" : monthlyTiming ? "要確認" : null;
+  const timing = /毎月末|月末締め/.test(note) ? "毎月末締め"
+    : /翌月/.test(note) ? "翌月"
+      : monthlyTiming ? "月次" : null;
+  const nextMonthDay = note.match(/翌月\s*(\d{1,2})\s*日/);
+  const deadline = nextMonthDay ? `翌月${nextMonthDay[1]}日`
+    : /翌月末/.test(note) ? "翌月末"
+      : /請求書/.test(note) && /提出/.test(note) ? "請求書提出時"
+        : rule ? "指定なし" : null;
+  const format = /自由|任意/.test(note) ? "自由"
+    : /様式|フォーマット|テンプレート/.test(note) ? truncate(note, 120)
+      : rule ? "指定なし" : null;
+  const requiredItems = /業務実施計画書/.test(note) || /月次進捗報告/.test(note)
+    ? "業務実施計画書、月次進捗報告"
+    : /業務報告書|業務報告/.test(note)
+      ? "業務遂行状況"
+      : rule ? "指定なし" : null;
+  return { rule, timing, deadline, format, requiredItems, note };
 }
 
 function extractExpenseReimbursement(text: string): BooleanTermExtraction {
@@ -641,6 +670,10 @@ export function buildContractTermCandidate(evidence: ContractSourceEvidence): Co
     deliverables_required: deliverables.value,
     deliverables_note: deliverables.note,
     monthly_report_submission_rule: monthlyReportSubmission.rule,
+    monthly_report_submission_timing: monthlyReportSubmission.timing,
+    monthly_report_submission_deadline: monthlyReportSubmission.deadline,
+    monthly_report_submission_format: monthlyReportSubmission.format,
+    monthly_report_submission_required_items: monthlyReportSubmission.requiredItems,
     monthly_report_submission_note: monthlyReportSubmission.note,
     expense_reimbursement_allowed: expenseReimbursement.value,
     expense_reimbursement_note: expenseReimbursement.note,
@@ -674,6 +707,10 @@ export function buildContractTermCandidate(evidence: ContractSourceEvidence): Co
     deliverablesRequired: deliverables.value,
     deliverablesNote: deliverables.note,
     monthlyReportSubmissionRule: monthlyReportSubmission.rule,
+    monthlyReportSubmissionTiming: monthlyReportSubmission.timing,
+    monthlyReportSubmissionDeadline: monthlyReportSubmission.deadline,
+    monthlyReportSubmissionFormat: monthlyReportSubmission.format,
+    monthlyReportSubmissionRequiredItems: monthlyReportSubmission.requiredItems,
     monthlyReportSubmissionNote: monthlyReportSubmission.note,
     expenseReimbursementAllowed: expenseReimbursement.value,
     expenseReimbursementNote: expenseReimbursement.note,

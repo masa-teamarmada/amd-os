@@ -88,7 +88,7 @@ Drive backfill では、契約書そのものに見える PDF / Doc / xlsx / sig
 
 判定語は `契約書`、`NDA`、`業務委託`、`共同研究契約`、`MOU`、`押印`、`電子署名`、`DocuSign`、`クラウドサイン`、`修正案`、`法務確認`、`redline` など。単に `契約` / `締結` が議事録本文に出るだけでは自動予定枠にしない。
 
-D-13 は契約予兆 (`contract_signals`) に加えて、契約No・見積No・期間・金額・相手先・提出物の有無・月次報告書の提出ルール・立替精算可否を検出できた場合に `contract_terms` へ `status='candidate'` / `review_status='pending'` の候補を作る。提出物/月次報告/立替精算は `extracted_terms_json.deliverables_required` / `deliverables_note` / `monthly_report_submission_rule` / `monthly_report_submission_note` / `expense_reimbursement_allowed` / `expense_reimbursement_note` に短い根拠メモつきで保存する。これは Contract Apply の前段であり、候補の時点では `projects.contract_terms_json`、`projects.fee_*`、`billing_cycles` は更新しない。
+D-13 は契約予兆 (`contract_signals`) に加えて、契約No・見積No・期間・金額・相手先・提出物の有無・月次報告書の状態/時期/提出期限/フォーマット/必要記載事項・立替精算可否を検出できた場合に `contract_terms` へ `status='candidate'` / `review_status='pending'` の候補を作る。提出物/月次報告/立替精算は `extracted_terms_json.deliverables_required` / `deliverables_note` / `monthly_report_submission_rule` / `monthly_report_submission_timing` / `monthly_report_submission_deadline` / `monthly_report_submission_format` / `monthly_report_submission_required_items` / `monthly_report_submission_note` / `expense_reimbursement_allowed` / `expense_reimbursement_note` に短い根拠メモつきで保存する。これは Contract Apply の前段であり、候補の時点では `projects.contract_terms_json`、`projects.fee_*`、`billing_cycles` は更新しない。
 
 ## 自動予定枠化の品質境界
 
@@ -127,13 +127,13 @@ MVPでは `CONTRACTS_DRIVE_FOLDER_ID` が設定されているかを画面に出
 
 | 層 | 反映先 | 列 | 用途 |
 |---|---|---|---|
-| ① 契約メタ正本 | `projects.contract_terms_json` (jsonb) | `monthlyFeeYen` / `contractStartYm` / `contractEndYm` / `actualWorkStartYm` / `billingStartYm` / `rewardPoolYen` / `monthlyRewardCapYen` / `deliverablesRequired` / `deliverablesNote` / `monthlyReportSubmissionRule` / `monthlyReportSubmissionNote` / `expenseReimbursementAllowed` / `expenseReimbursementNote` / `sourceTitle` / `sourceRef` / `notes` | `/admin/projects` の契約カラム群が表示・編集する正本。`contract_terms` 抽出結果はまずここへ畳む |
+| ① 契約メタ正本 | `projects.contract_terms_json` (jsonb) | `monthlyFeeYen` / `contractStartYm` / `contractEndYm` / `actualWorkStartYm` / `billingStartYm` / `rewardPoolYen` / `monthlyRewardCapYen` / `deliverablesRequired` / `deliverablesNote` / `monthlyReportSubmissionRule` / `monthlyReportSubmissionTiming` / `monthlyReportSubmissionDeadline` / `monthlyReportSubmissionFormat` / `monthlyReportSubmissionRequiredItems` / `monthlyReportSubmissionNote` / `expenseReimbursementAllowed` / `expenseReimbursementNote` / `sourceTitle` / `sourceRef` / `notes` | `/admin/projects` の契約カラム群が表示・編集する正本。`contract_terms` 抽出結果はまずここへ畳む |
 | ② 売上計上パラメータ | `projects` | `fee_type` (`monthly_fixed` / `variable`) / `fee_amount` / `start_ym` / `end_ym` | 月次収支シミュレータ (`buildLiveMonthlyPlInputs`) が固定収益を立てる入力。**`end_ym` が null だと契約終了後も無期限で売上が立ち続ける** (CX 事故。契約は 2026-06〜09 なのに `end_ym=null` のまま 202702 以降も ¥290,000 を計上していた) |
 | ③ 月別売上 (変動) | `billing_cycles` | `ym` ごとの `budget_yen` / `budget_reported_amount` | `billing_distribution='schedule_based'` 等で月により金額が違う契約は、②の `monthly_fixed` 一律ではなく月別 cycle に展開する。シミュレータは変動収益をここから取る |
 
 ### `/admin/projects` の契約カラム
 
-`AdminProjectsTable` は `projects.contract_terms_json` を展開した編集列を持つ (`contract_monthly_fee_yen` / `contract_start_ym` / `contract_end_ym` / `contract_actual_work_start_ym` / `contract_billing_start_ym` / `contract_reward_pool_yen` / `contract_monthly_reward_cap_yen` / `contract_deliverables_required` / `contract_deliverables_note` / `contract_monthly_report_submission_rule` / `contract_monthly_report_submission_note` / `contract_expense_reimbursement_allowed` / `contract_expense_reimbursement_note` / `contract_source_title` / `contract_source_ref` / `contract_notes`)。`contract_terms` フィールド群を保存すると `contract_terms_json` (①) に upsert される。`fee` / `start_ym` / `end_ym` (②) は別カラムとして個別に保存する。
+`AdminProjectsTable` は `projects.contract_terms_json` を展開した編集列を持つ (`contract_monthly_fee_yen` / `contract_start_ym` / `contract_end_ym` / `contract_actual_work_start_ym` / `contract_billing_start_ym` / `contract_reward_pool_yen` / `contract_monthly_reward_cap_yen` / `contract_deliverables_required` / `contract_deliverables_note` / `contract_monthly_report_submission_rule` / `contract_monthly_report_submission_timing` / `contract_monthly_report_submission_deadline` / `contract_monthly_report_submission_format` / `contract_monthly_report_submission_required_items` / `contract_monthly_report_submission_note` / `contract_expense_reimbursement_allowed` / `contract_expense_reimbursement_note` / `contract_source_title` / `contract_source_ref` / `contract_notes`)。月次報告列は `要提出` などの状態を短く表示し、時期・提出期限・フォーマット・記載事項・根拠を下段に出す。`contract_terms` フィールド群を保存すると `contract_terms_json` (①) に upsert される。`fee` / `start_ym` / `end_ym` (②) は別カラムとして個別に保存する。
 
 ✅ **実装済み (2026-06-18)**: `contract_terms` (D-13 抽出結果、`status='applied'`) から ①②③ へ自動反映する Contract Apply writer を実装した。
 

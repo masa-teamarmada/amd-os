@@ -69,6 +69,10 @@ interface ProjectContractTerms {
   deliverablesRequired?: boolean | string | null;
   deliverablesNote?: string | null;
   monthlyReportSubmissionRule?: string | null;
+  monthlyReportSubmissionTiming?: string | null;
+  monthlyReportSubmissionDeadline?: string | null;
+  monthlyReportSubmissionFormat?: string | null;
+  monthlyReportSubmissionRequiredItems?: string | null;
   monthlyReportSubmissionNote?: string | null;
   expenseReimbursementAllowed?: boolean | string | null;
   expenseReimbursementNote?: string | null;

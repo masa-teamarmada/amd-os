@@ -24,7 +24,7 @@ URL: `/admin/projects`。 全 PJ 台帳を編集する admin 専用画面。
 | 月次予算 (= 通常 cap) | `projects.fee_amount` |
 | 契約条件 | `projects.contract_terms_json` (= 契約書/見積書から抽出した期間・月額・請求開始・実働開始・報酬原資) |
 | 提出物 | `projects.contract_terms_json.deliverablesRequired` / `deliverablesNote` (= 契約書/見積書から抽出。`true`=あり、`false`=なし、null=不明) |
-| 月次報告 | `projects.contract_terms_json.monthlyReportSubmissionRule` / `monthlyReportSubmissionNote` (= 契約書/見積書から抽出した月次報告書の提出ルール。null=不明、弱い根拠は要確認候補として表示) |
+| 月次報告 | `projects.contract_terms_json.monthlyReportSubmissionRule` / `monthlyReportSubmissionTiming` / `monthlyReportSubmissionDeadline` / `monthlyReportSubmissionFormat` / `monthlyReportSubmissionRequiredItems` / `monthlyReportSubmissionNote` (= 月次報告書の状態・時期・提出期限・フォーマット・必要記載事項・根拠。状態は `要提出` / `不要` / `指定なし` / `要確認` / `不明` を短く表示し、契約上または運用上の詳細を下段に表示する。指定が無い場合は空欄にせず `指定なし` と書く) |
 | 立替精算 | `projects.contract_terms_json.expenseReimbursementAllowed` / `expenseReimbursementNote` (= 契約書/見積書から抽出。`true`=可、`false`=不可、null=不明) |
 | 請求条件 | `invoice_send_deadline_rule` / `payment_due_rule` / `payment_due_day` |
 | 請求先メール | `invoice_to_emails` / `invoice_cc_emails` / `invoice_bcc_emails` |
@@ -81,7 +81,7 @@ URL: `/admin/projects`。 全 PJ 台帳を編集する admin 専用画面。
 | `project_id` | `p00` (= AMD全体) / `p07` 等 |
 | `fee_type` | `fixed` (= 月額固定 cap) / `point` (= ポイント従量) 等 |
 | `fee_amount` | 月額 (= 通常 cap、 numeric) |
-| `contract_terms_json` | 契約書/見積書から抽出した横断比較用 JSON。主キーは `monthlyFeeYen`, `contractStartYm`, `contractEndYm`, `actualWorkStartYm`, `billingStartYm`, `rewardPoolYen`, `monthlyRewardCapYen`, `deliverablesRequired`, `deliverablesNote`, `monthlyReportSubmissionRule`, `monthlyReportSubmissionNote`, `expenseReimbursementAllowed`, `expenseReimbursementNote`, `sourceTitle`, `sourceRef`, `notes` |
+| `contract_terms_json` | 契約書/見積書から抽出した横断比較用 JSON。主キーは `monthlyFeeYen`, `contractStartYm`, `contractEndYm`, `actualWorkStartYm`, `billingStartYm`, `rewardPoolYen`, `monthlyRewardCapYen`, `deliverablesRequired`, `deliverablesNote`, `monthlyReportSubmissionRule`, `monthlyReportSubmissionTiming`, `monthlyReportSubmissionDeadline`, `monthlyReportSubmissionFormat`, `monthlyReportSubmissionRequiredItems`, `monthlyReportSubmissionNote`, `expenseReimbursementAllowed`, `expenseReimbursementNote`, `sourceTitle`, `sourceRef`, `notes`。契約条項に無いがPJ運用として提出が必要な場合も、`monthlyReportSubmissionNote` に「契約上の義務はないが要提出」等の根拠を残して同じJSONで管理する |
 | `invoice_send_deadline_rule` | 送付期限ルール (= `"末締め翌月10日"` 等の文字列) |
 | `payment_due_rule` | 支払サイト (= `"末締め翌月末払い"` 等) |
 | `payment_due_day` | 支払日 (= 月末を 0 とする日付 integer) |

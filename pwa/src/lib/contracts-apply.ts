@@ -153,6 +153,18 @@ export function deriveContractApplyPlan(term: AppliedTermRow): ContractApplyPlan
     monthlyReportSubmissionRule: optionalText(
       extractedTerms.monthly_report_submission_rule ?? extractedTerms.monthlyReportSubmissionRule,
     ),
+    monthlyReportSubmissionTiming: optionalText(
+      extractedTerms.monthly_report_submission_timing ?? extractedTerms.monthlyReportSubmissionTiming,
+    ),
+    monthlyReportSubmissionDeadline: optionalText(
+      extractedTerms.monthly_report_submission_deadline ?? extractedTerms.monthlyReportSubmissionDeadline,
+    ),
+    monthlyReportSubmissionFormat: optionalText(
+      extractedTerms.monthly_report_submission_format ?? extractedTerms.monthlyReportSubmissionFormat,
+    ),
+    monthlyReportSubmissionRequiredItems: optionalText(
+      extractedTerms.monthly_report_submission_required_items ?? extractedTerms.monthlyReportSubmissionRequiredItems,
+    ),
     monthlyReportSubmissionNote: optionalText(
       extractedTerms.monthly_report_submission_note ?? extractedTerms.monthlyReportSubmissionNote,
     ),
