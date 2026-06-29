@@ -1777,3 +1777,40 @@ deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifica
 - キャッシュ残高では「当初計画を残すこと」と「未来見込みの主線にすること」は別。予実乖離が大きくなった後は、最新実績残高から未来CFを積み上げないと資金繰り判断が現実に接続しない。
 - 予算を実績で上書きしないのは正しい。ただし予測 UI では `当初計画残高`、`実績残高`、`実績接続見込み` を言葉と線種で分ける。
 - AMD OS は常に dirty な checkout になりがちなので、本番反映で止まらない。必要なら今回差分だけ clean clone に切り出し、main push + deploy script で production まで進める。
+
+## 2026-06-29 — Admin Payouts 支払通知書 PDF / 送付確認 UX 修正
+
+### コンテキスト
+- まさから `/admin/payouts` の支払通知書PDFで、宛先側・発行者側の `インボイス登録番号` 表記を `登録番号` に変える依頼。
+- その後、強制再発行しても一部メンバーだけ古い住所・登録番号・ラベルが残る、`PDF確認` が生成している、`送付` 押下後に数分固まる、という複合不具合が判明。
+- 最終設計は「生成は `支払通知書発行` / `強制再発行` のみ」「`PDF確認` と `送付` は保存済み正式PDFの確認・照合だけ」に確定。
+
+### 実装内容
+- PDFラベルを宛先側・発行者側とも `登録番号` に統一。
+- `/admin/members` の保存を admin API 経由へ寄せ、登録番号は保存時・PDF生成時に全角T / T風文字 / 空白 / ハイフンを正規化。
+- 支払通知書生成時は、金額差分の有無に関係なく最新DBの `members` 情報を読み直す。未送付PDFは `members.updated_at` が `last_generated_at` より新しければ stale と判定。
+- 行の `PDF確認` は保存済み正式PDFを開くだけに変更。確認用PDFの生成や正式PDFの再生成はしない。
+- 行の `送付` から `savePayoutDataSnapshot` / `generateNoticePdfForMember(force: true)` を撤去。`preview_notice_email` と `send_notice_email` は、保存済み正式PDFが最新DBのメンバー情報・金額と一致するかだけ照合する。
+- メール本文テンプレをまさ指定文に変更し、確認締切を明示する文面へ更新。
+- `送付` ボタンは保存済み正式PDFが存在し、未送付で、確認用PDFではなく、最新DBと一致する場合だけ開けるようにした。
+
+### 設計判断
+- 「API直叩きでも1時間以内に準備されたPDFだけ送れる」制約は撤回。古いPDFを禁止する軸は時間ではなく、最新DBとの一致・送付済み状態・確認用PDFではないこと。
+- `PDF確認` は名前通り read-only。生成の入口は `支払通知書発行` / `強制再発行` に限定する。
+- `送付` はメール送信の入口であり、PDF生成の入口ではない。送信前は保存済み正式PDFの照合と月初合意gateだけを行う。
+
+### Deploy / verification
+- product commits:
+  - `f27346da Fix member edits for payout notice regeneration` (`v0.36.30`)
+  - `03719cb3 Fix payout notice regeneration after member edits` (`v0.36.31`)
+  - `3d90054e Stop payout send from regenerating PDFs` (`v0.36.32`)
+- `npm exec tsc -- --noEmit` passed.
+- `npm run test:critical-ui` passed.
+- `git diff --check` passed for the payout bundle.
+- `npm run build` passed.
+- production `/api/build-info` confirmed `v0.36.32` / `3d90054e0ac37a30855f7e67c41c20047c4c6a9b` / `dirty=false`.
+- unauthenticated `PATCH /api/admin/payouts` returned `401 Unauthorized`, confirming the production route is live and protected.
+
+### 残課題
+- Accepted payout notice fix は完了。
+- Repo には notification / L2 / H-1 / contract / admin-kiyo 系の別 worker WIP が残っている。今回 bundle には含めず、`HANDOFF.md` の dirty classification に送る。

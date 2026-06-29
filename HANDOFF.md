@@ -2,89 +2,74 @@
 
 最終更新: 2026-06-29 JST
 対象: `/Users/masa/projects/AMD/amd-os`
-トピック: `/management-score` のキャッシュ残高予測を実績接続見込みへ変更
+トピック: `/admin/payouts` 支払通知書の登録番号・再発行・送付確認UX修正
 
-## いまの結論
+## 最新セッション要約
 
-- main/default alignment: `main aligned`
-- 実装 commit: `81520b2a Connect cash forecast to latest actual balance`
-- handoff 開始時の current main / production: `v0.36.32` / `3d90054e0ac37a30855f7e67c41c20047c4c6a9b` / `dirty=false`
-- `81520b2a` は `origin/main` の履歴に含まれている。後続の payout notice commits により production build version は `v0.36.32` まで進行済み。
-- 今回の accepted behavior: 残高予測の主線は、当初計画残高ではなく「最新 freee 実績残高 + 以後の見込み月次CF累計」の `実績接続見込み`。
+詳細ログは `pwa/design_log/sessions_2026-06.md` の「2026-06-29 — Admin Payouts 支払通知書 PDF / 送付確認 UX 修正」を見る。
 
-## 今回やったこと
+- 支払通知書PDF上の宛先側・発行者側ラベルを `インボイス登録番号` から `登録番号` に変更済み。
+- `/admin/members` の保存を API 経由へ寄せ、登録番号は保存時・PDF生成時に全角T / T風文字 / 空白 / ハイフンを正規化する。
+- 未送付PDFの `last_generated_at` より `members.updated_at` が新しい場合は、金額差分がなくても再生成対象にした。
+- 行の `PDF確認` は保存済み正式PDFを開くだけにし、生成はしない。
+- 行の `送付` もPDF生成・再生成・支払データ同期をしない。保存済み正式PDFが最新DBと一致し、確認用PDFではなく、未送付の場合だけ確認モーダルを開く。
+- `preview_notice_email` に残っていた `force: true` PDF再生成を撤去。`send_notice_email` は送信前に同じ照合と月初合意gateを通す。
+- メール本文テンプレはまさ指定文へ更新済み。
 
-- `/management-score` のキャッシュ残高チャートに `実績接続見込み` を追加し、主線へ変更。
-- 既存の予算線は `当初計画残高` として残し、実績残高線と分離。
-- `/api/finance/live-cash-balances` の `cashBalance` を実績接続見込み、`budgetCashBalance` を当初計画として返す contract へ変更。
-- KPI の最終残高表示を、実績がある場合は実績接続見込みベースへ変更。
-- `pwa/manual/4-5-management-score-and-finance-simulation-spec.md`、`pwa/design/management_score.md`、`pwa/design/project_pl_monthly.md`、appendix changelog に仕様を同期。
-- 本 handoff で `pwa/BUGS.md` と `pwa/design_log/sessions_2026-06.md` に closeout 記録を追加。
+## Repo / Production State
 
-## Verification
+- branch: `main`
+- accepted product commit: `3d90054e Stop payout send from regenerating PDFs`
+- closeout docs are committed on top of `origin/main`; run `git log -1 --oneline` for the exact current HEAD.
+- `origin/main`: aligned after closeout push
+- production `/api/build-info`: `v0.36.32` / latest closeout git SHA after push / `dirty=false`
+- Vercel deployment before closeout docs: `https://amd-os-pepgb3i1d-armada0130.vercel.app` / Ready / aliases include `https://amd-os-pwa.vercel.app`
+- main alignment: `main aligned`
 
-- `pwa` で `npx tsc --noEmit` 成功。
-- `pwa` で `npm run build` 成功。
-- 対象ファイルの `eslint` 成功。
-- `git diff --check` 成功。
-- local API `/api/finance/live-cash-balances?from=202601&to=202612` で future row が `forecastBasis:"actual_connected"` になり、`cashBalance` と `budgetCashBalance` が分離していることを確認。
-- deploy script `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` 成功。`v0.36.29` / `81520b2a...` の production 反映を確認。
-- その後、別 worker / まさ側 deploy で `v0.36.32` / `3d90054e...` へ進行。`81520b2a` は main 履歴に残存。
-- 未ログイン browser check は `/auth/login` redirect まで。ログイン後の実画面はまさが「実装された」と確認済み。
+## Verification Run
 
-## Current Truth
-
-- 予算残高は実績で上書きしない。予実差分を見るために `当初計画残高` として残す。
-- 意思決定用の未来残高は `実績接続見込み` を読む。
-- 実績アンカーは `company_actual_monthly` の `category='cash_balance'`、生成元は freee `wallet_txns.balance` 月末合算。
-- 未来月は最新実績残高から、その後の見込み月次CFを累積する。
-- `cashBalance` = 主見込み、`budgetCashBalance` = 当初計画、`actualCashBalance` = 実績残高。
-
-## Unresolved Tasks
-
-1. ログイン済み画面で余裕があれば `/management-score` の chart tooltip と summary strip を目視確認する。
-2. 次に finance 表を触る時は、PL / cash / 支払予定 / 会社留保 / 報酬債務 / capリスクのどれを表示しているかを先に固定する。
-3. mixed dirty は別作業由来が多い。`git add .` は使わず、owner / bundle ごとに分ける。
+- `npm exec tsc -- --noEmit` passed.
+- `npm run test:critical-ui` passed.
+- `git diff --check` passed for the payout bundle.
+- `npm run build` passed.
+- production `/api/build-info` confirmed `v0.36.32`.
+- unauthenticated `PATCH /api/admin/payouts` returned `401 Unauthorized`, confirming the production route is live and protected.
 
 ## Dirty / Untracked Classification
 
-### preexisting / likely other-worker WIP
+Current task bundle is committed and pushed. Remaining dirty state is preexisting / other-worker WIP and must not be swept with `git add .`.
 
-- notification stop / meeting flow / task notification bundle:
-  - `gas/153_MeetingHourlyTrigger.js`
-  - `pwa/design/L2_DATA.md`
-  - `pwa/design/l2_extract_claude_routine.md`
-  - `pwa/design/meeting_summaries.md`
-  - `pwa/design/notifications.md`
-  - notification/task API and component files
-  - migrations `155_skip_non_actionable_app_notifications.sql` / `156_skip_meeting_summary_notifications.sql`
-- contract / monthly agreement docs WIP:
-  - `output/doc/monthly-work-agreement-outsourcing-contract-draft-20260628.docx`
-  - `pwa/proposals/monthly-work-agreement-contract-revision-and-rollout-draft-20260628.md`
-  - contract spec/manual dirty files
-- Admin/Kiyo / meeting-assets / project-label WIP:
-  - `pwa/src/app/(app)/admin/kiyo/page.tsx`
-  - `pwa/src/app/api/meeting-assets/replace/[assetId]/route.ts`
-  - `pwa/src/lib/project-labels.ts`
-  - `pwa/scripts/update_drive_file.mjs`
-  - migration `153_project_venture_legacy_name_hygiene.sql`
-- H-1 prep outbox markdowns under `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/outbox/`.
-- local artifact: `gas-slack/.clasp.json`.
+| group | class | owner guess | resolution action | risk |
+|---|---|---|---|---|
+| notification / L2 / meeting-flow docs and TS files | other-worker | notification / H-1 worker | send back to original worker or cleanup worker for bundle commit/revert decision | medium: accidental mixed commit can alter notification behavior |
+| contract / monthly agreement docs + docx/proposal | other-worker | contract/legal worker | keep as WIP, commit only with contract bundle | medium: legal draft provenance can blur |
+| Admin Kiyo / meeting-assets replace / project-labels / migration 153 | other-worker | admin/kiyo and meeting-assets worker | owner must finish tests/spec/manual or discard | high: untracked imports/routes can break production if partially committed |
+| H-1 prep worker outbox markdowns | other-worker artifact | H-1 prep worker | decide gitignore vs artifact commit in that worker | low-medium: repo noise and privacy/provenance confusion |
+| `gas-slack/.clasp.json` | deploy-link-local | GAS Slack worker | verify whether local-only; do not commit without owner | medium: local clasp link can point at wrong GAS project |
+| `ios/supabase/.temp/project-ref` | deploy-link-local | local Supabase tooling | leave local or add ignore in dedicated cleanup | low |
 
-扱い: 今回の management-score bundle とは別。owner へ戻すか cleanup worker で分類。
+## Unresolved Tasks
+
+- None for the accepted payout notice fix.
+- Remaining repo dirty state requires separate owner cleanup; do not archive the overall workspace as clean.
 
 ## First Next Action
 
-1. `HANDOFF.md` -> `pwa/manual/4-5-management-score-and-finance-simulation-spec.md` -> `pwa/design/management_score.md` -> `pwa/design/project_pl_monthly.md` -> `pwa/BUGS.md` の順で読む。
-2. `git fetch origin main --prune`、`git status -sb --untracked-files=all`、production `/api/build-info` を確認する。
-3. `/management-score` を触るなら、`actualCashBalance`、`cashBalance`、`budgetCashBalance` の意味を先に確認する。
+1. Read this `HANDOFF.md`.
+2. Then read `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`, `pwa/design/FEATURE_REGISTRY.md`, `pwa/design/SPEC_pwa.md`, and `pwa/BUGS.md`.
+3. Run:
+
+```bash
+cd /Users/masa/projects/AMD/amd-os
+git fetch origin main --prune
+git status -sb --untracked-files=all
+curl -fsS 'https://amd-os-pwa.vercel.app/api/build-info'
+```
+
+4. If continuing payout work, test logged-in `/admin/payouts?ym=202606`: stale rows should require `支払通知書発行` / `強制再発行`, while `PDF確認` and `送付` should not generate PDFs.
 
 ## Archive 判定
 
-handoff required。
+handoff required.
 
-理由:
-
-- management-score 残高予測 fix は main / production に入った。
-- ただし repo には preexisting / other-worker dirty と untracked が残っている。
-- 今回 bundle 以外を巻き込まず、次 owner が bundle 単位で閉じる必要がある。
+理由: payout fix は main / production aligned だが、repo には別 worker の dirty / untracked WIP が残っている。今回 bundle は完了、workspace 全体は cleanup owner が必要。

@@ -3543,6 +3543,13 @@
 - **原因**: Workflow script 内で `const SUB = args` で args object を期待していたが、Workflow tool の args パラメータは **string として渡される** (= JSON object literal を `<parameter name="args">{...}</parameter>` で書いても tool harness は string に丸める)。`SUB` が string になったため `SUB.subsection_id` などのプロパティ参照はすべて undefined。COMMON_TASK template は `ID: undefined / 提案タイトル: undefined / core proposition: undefined` のような prompt になり、agent は本書 BOOK_CONTEXT と SECTION_0_HEADER から「§1.0.X (X 不明) → §1.0 全景予告で先頭にある §1.0.2 の話題に寄せる」と推測した結果、3 つとも §1.0.2 を書いた。`log()` で `undefined persona drafting` と出ていたのが diagnostic だったが、agents は完了していたので異常に気付くまでに時間がかかった。
 - **対応内容**: §1.0.2 の出力は §1.0.2 として採用 (3,100 字 6 段落、品質 OK)。§1.0.3 と §1.0.4 は新規 script `ch1_section_0_3_workflow.js` / `ch1_section_0_4_workflow.js` を別ファイルとして書き、SUB constant を **inline で hardcode** (= args 渡しを使わない) して再起動。
 - **再発防止策**:
-  - Workflow tool の args は **string で来る可能性** を前提に、script 内で `const SUB = typeof args === 'string' ? JSON.parse(args) : (args || {})` のような defensive guard を入れる。あるいは inline constant で hardcode し args を使わない。
-  - 起動直後の `log()` が `undefined persona drafting:` を返したら **即時 abort** (= 後続 phase を走らせない)。最小限の sentinel として `if (!SUB?.subsection_id) return { error: 'SUB undefined' }` を冒頭に置く。
-  - 同一 script を args 違いで多数回起動する場合は、最初の 1 件で args が正しく届いたかを confirm してから残りを起動する (= 3 並列で一気にやらず、まず 1 件で smoke test)。
+- Workflow tool の args は **string で来る可能性** を前提に、script 内で `const SUB = typeof args === 'string' ? JSON.parse(args) : (args || {})` のような defensive guard を入れる。あるいは inline constant で hardcode し args を使わない。
+- 起動直後の `log()` が `undefined persona drafting:` を返したら **即時 abort** (= 後続 phase を走らせない)。最小限の sentinel として `if (!SUB?.subsection_id) return { error: 'SUB undefined' }` を冒頭に置く。
+- 同一 script を args 違いで多数回起動する場合は、最初の 1 件で args が正しく届いたかを confirm してから残りを起動する (= 3 並列で一気にやらず、まず 1 件で smoke test)。
+
+## [PWA/admin-payouts] 支払通知書の確認・送付がPDF再生成を持っていて members 更新が反映されない (2026-06-29)
+
+- **症状**: 支払通知書PDFの `インボイス登録番号` 表記を直したあとも、強制再発行後のPDFに古い表記・古い住所・`登録番号: (未登録)` が残るケースがあった。`/admin/members` で住所から登録番号を削除し、登録番号列へ入れ直しても、しんちゃんのPDFでは番号が住所欄に残り、登録番号側は未登録のままだった。さらに `送付` 押下後に数分固まるUXも出た。
+- **原因**: 支払通知書の stale 判定が実質的に金額中心で、`members.updated_at` を source profile の freshness として見ていなかった。加えて、`PDF確認` / `preview_notice_email` / `send_notice_email` の周辺に古い「確認・送付準備でPDFを再生成する」経路が残っていたため、生成入口が複数化し、どの時点の member snapshot が使われるか分かりにくくなっていた。`/admin/members` の登録番号保存・正規化もAPI境界で統一されていなかった。
+- **対応内容**: PDFラベルを `登録番号` に統一し、members 保存は admin API 経由へ寄せた。登録番号は保存時・PDF生成時に全角T / T風文字 / 空白 / ハイフンを正規化する。支払通知書生成時は金額差分に関係なく最新DBの members 情報を読み直し、未送付PDFは `members.updated_at > last_generated_at` なら stale と判定する。`PDF確認` は保存済み正式PDFを開くだけにし、`送付` / `preview_notice_email` / `send_notice_email` からPDF生成・支払データ同期を撤去した。送付前は保存済み正式PDFが最新DBと一致し、確認用PDFではなく、未送付であることだけを照合する。
+- **再発防止策**: PDF生成入口は `支払通知書発行` / `強制再発行` に限定する。`確認` と名の付く操作は read-only として扱い、生成・同期を入れない。PDFのfreshnessは時間ではなく、latest DB source (`members.updated_at` と支払金額) との一致で判定する。生成フローを変更するときは、UIボタン・API action・GAS送信直前・manual/spec/test anchor を全入口でgrepし、旧経路が残っていないか確認する。
