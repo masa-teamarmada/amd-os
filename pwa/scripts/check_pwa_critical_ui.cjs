@@ -142,6 +142,7 @@ expectNotIncludes("src/components/admin/AdminPayoutsClient.tsx", [
 ]);
 
 expectIncludes("src/components/admin/AdminMembersTable.tsx", [
+  "/api/admin/members",
   "contractor_name",
   "member_address",
   "invoice_registration_number",
@@ -149,6 +150,22 @@ expectIncludes("src/components/admin/AdminMembersTable.tsx", [
   "住所",
   "インボイス登録番号",
   "defaultContractorName",
+]);
+
+expectNotIncludes("src/components/admin/AdminMembersTable.tsx", [
+  'from("members").update',
+  "from('members').update",
+  "createBrowserAuthClient",
+]);
+
+expectIncludes("src/app/api/admin/members/route.ts", [
+  "requireAdmin",
+  "createAdminClient",
+  "PATCHABLE_FIELDS",
+  "member_address",
+  "invoice_registration_number",
+  "select(\"*\")",
+  "member not found or not updated",
 ]);
 
 expectIncludes("src/app/api/admin/payouts/route.ts", [
@@ -184,6 +201,8 @@ expectIncludes("src/app/api/admin/payouts/route.ts", [
   "ご確認期間が短くなっており恐縮",
   "15:00まで",
   "pdfPreparedBeforeSend",
+  "最新 DB 正本",
+  "金額差分が無くても",
 ]);
 
 expectNotIncludes("src/app/api/admin/payouts/route.ts", [

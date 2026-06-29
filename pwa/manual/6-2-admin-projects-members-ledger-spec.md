@@ -187,8 +187,10 @@ Calendar 共有は **Google Workspace ログイン時に `calendar.readonly` を
 
 PJ 台帳 / メンバー台帳の更新は admin 経由のみ:
 
-- UI 上の編集 → `POST /api/admin/projects/{project_id}` または `/api/admin/members/{member_id}`
+- UI 上の編集 → `PATCH /api/admin/projects/{project_id}` または `PATCH /api/admin/members`
 - すべて `members.is_admin=true` 必須
+- メンバー台帳は browser から `members` を直接 update しない。`PATCH /api/admin/members` が `requireAdmin()` 後に service_role で更新し、DB から返った保存済み row で UI state を置き換える
+- 支払通知書の宛名・住所・登録番号は `members.contractor_name` / `member_address` / `invoice_registration_number` が正本。支払通知書の再発行はこの DB 最新値を読み直して PDF を作る
 - 変更履歴は現状 explicit な audit log なし (= `updated_at` のみ)
 - 詳細監査は git の `pwa/design/db_schema.md` 履歴と Supabase Edge Function ログを併用
 
@@ -198,7 +200,7 @@ PJ 台帳 / メンバー台帳の更新は admin 経由のみ:
 |---|---|
 | 新メンバー追加したのに `/mypage` に出ない | `members.status='active'`、 `members.email` が Google ログイン email と一致、 `project_members.is_active=true` |
 | `/admin/billing` で PJ が出ない | `projects.status IN ('active','ended','frozen')`、 `ended` は `end_ym` 以前のみ表示 |
-| 支払通知書に住所 / 振込先が出ない | `members.member_address` / `bank_info` の入力、 `exclude_from_payout_notice=false` |
+| 支払通知書に住所 / 登録番号 / 振込先が出ない | `members.member_address` / `invoice_registration_number` / `bank_info` の入力、 `exclude_from_payout_notice=false`。編集後は `/admin/members` の保存が `PATCH /api/admin/members` で成功していることを確認し、支払通知書を再発行する |
 | 週次活動が出ない | `google_calendar_status='connected'`、 `last_login_at` が最近、 calendar.readonly scope |
 | sticky thead が動かない | スクロールコンテナの overflow 設定、 `top-0 z-30` の値 |
 

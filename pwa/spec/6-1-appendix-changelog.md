@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-06-29 | SPEC_pwa / FEATURE_REGISTRY / Admin Members / Admin Payouts | 修正 | `PATCH /api/admin/members` を追加し、`/admin/members` の編集を admin + service_role 経由で保存済み row を返す contract に変更。支払通知書の正式発行・強制再発行・送付モーダル準備は、支払額同期後にDBを再読込し、最新の `members.contractor_name` / `member_address` / `invoice_registration_number` をGASへ渡す contract を追加 | RLS等で browser 直接更新がDBに反映されないままUIだけ変わると、再発行PDFが古い住所・登録番号を使い続けるため。金額差分が無くても、admin の再生成操作では最新メンバー台帳を反映する必要がある | えいみ |
 | 2026-06-29 | 4-5 Management Score / Finance Simulation | 変更 | キャッシュ残高チャートと live cash API の残高 contract を、当初計画残高・実績残高・実績接続見込みの3層へ更新。`/api/finance/live-cash-balances` は `cashBalance` を最新実績残高から月次CFを累積した主見込み、`budgetCashBalance` を当初計画として返す | 今月実績と当初計画の乖離が大きい場合に、元の計画線だけが未来へ伸びると資金繰り判断に使えないため。予算線は上書きせず、予実差分と意思決定用見込みを分離する | えいみ |
 | 2026-06-29 | FEATURE_REGISTRY / SPEC_pwa / Admin Payouts | 修正 | 支払通知書PDFの宛先側・発行者側の表示ラベルを `登録番号` に変更する contract を追加。DB項目・admin入力欄としてのインボイス登録番号は維持 | PDF上の表記を短くし、まさ指定の文言に合わせるため | えいみ |
 | 2026-06-29 | 3-3 Meeting Flow / H-1 Phase P / Prep Worker | 修正 | 6/26 に追加した Notion AI Meeting Notes 事前コンテキスト注入仕様を、現行 visible thread 版 worker に復元。会議前 AI Meeting Notes page を検索し、`amd-os:notion-ai-context:{meeting_id}:{digest}` marker 付きで PJ固有名詞・略称・拾うべき論点を insert-only 追記する。見つからない/書けない場合も prep failure にはせず、`prep_readiness_reasons.notion_ai_context` と `prep_draft_md` に手動貼り付け用 context を残す | 6/26 の履歴には仕様が残っていたが、後続の WIP revert / visible thread 修正後の worker 手順から Phase 5.5 相当が欠落し、6/29 MTG prep で固有名詞メモが Notion に事前注入されなかったため | えいみ |

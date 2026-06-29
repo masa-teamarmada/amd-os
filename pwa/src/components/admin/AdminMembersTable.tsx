@@ -3,11 +3,6 @@
 import Link from "next/link";
 import { useState, useMemo } from "react";
 import { Pencil } from "lucide-react";
-import { createClient as createBrowserAuthClient } from "@/lib/supabase/client";
-
-// auth (browser) client。anon RLS で write が弾かれるため、ログイン中ユーザーで書き込む
-// (PJ リストと同様に 2026-05-08 で auth client 化)
-const supabase = createBrowserAuthClient();
 
 export interface MemberRow {
   id: string;
@@ -199,7 +194,7 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
 
   const saveCell = async (m: MemberRow, field: string) => {
     setSaving(m.id);
-    const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    const patch: Record<string, unknown> = {};
     switch (field) {
       case "code_name": patch.code_name = (editVals.code_name as string).trim() || m.code_name; break;
       case "member_name": {
@@ -224,13 +219,22 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
       case "member_address": patch.member_address = (editVals.member_address as string).trim() || null; break;
       case "invoice_registration_number": patch.invoice_registration_number = (editVals.invoice_registration_number as string).trim().toUpperCase() || null; break;
     }
-    const { error } = await supabase.from("members").update(patch).eq("id", m.id);
-    if (error) {
-      setHint(`保存エラー: ${error.message}`);
-    } else {
-      setMembers((prev) => prev.map((x) => x.id === m.id ? { ...x, ...patch } as MemberRow : x));
-      setHint(`${m.code_name} の ${field} を保存しました`);
+    try {
+      const res = await fetch("/api/admin/members", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: m.id, patch }),
+      });
+      const payload = (await res.json()) as { ok?: boolean; error?: string; member?: MemberRow };
+      if (!res.ok || payload.ok === false || !payload.member) {
+        throw new Error(payload.error || `保存エラー (${res.status})`);
+      }
+      const savedMember = payload.member;
+      setMembers((prev) => prev.map((x) => x.id === m.id ? savedMember : x));
+      setHint(`${savedMember.code_name} の ${field} を保存しました`);
       setEditingCell(null);
+    } catch (err) {
+      setHint(err instanceof Error ? `保存エラー: ${err.message}` : "保存エラー");
     }
     setSaving(null);
   };

@@ -2314,7 +2314,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
         <button
           type="button"
           onClick={() => {
-            if (!window.confirm("全員分の支払通知書PDFを強制的に再生成する (= 差分検出を無視)。\n金額が変わってなくてもラベル変更などのコード変更を反映したい時用。\n進める?")) return;
+            if (!window.confirm("全員分の支払通知書PDFを、最新DBの住所・宛名・登録番号で強制再生成する (= 差分検出を無視)。\n金額が変わってなくてもメンバー台帳の修正やラベル変更を反映したい時用。\n進める?")) return;
             void saveThenRunBulkIssue({ force: true });
           }}
           disabled={saveAndIssueDisabled}
@@ -2408,7 +2408,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
             <button
               type="button"
               onClick={() => {
-                if (!window.confirm("全員分の支払通知書PDFを強制的に再生成する (= 差分検出を無視)。\n金額が変わってなくてもラベル変更などのコード変更を反映したい時用。\n進める?")) return;
+                if (!window.confirm("全員分の支払通知書PDFを、最新DBの住所・宛名・登録番号で強制再生成する (= 差分検出を無視)。\n金額が変わってなくてもメンバー台帳の修正やラベル変更を反映したい時用。\n進める?")) return;
                 void saveThenRunBulkIssue({ force: true });
               }}
               disabled={saveAndIssueDisabled}
@@ -3767,9 +3767,9 @@ function PayoutNoticeActions({
   const canOpenSendModal = !blocked && row.totalPay > 0 && !isSent;
   const issueTitle = row.isSaved
     ? hasPdf
-      ? "改善版フォーマットの支払通知書PDFを再発行する"
-      : "改善版フォーマットの支払通知書PDFを発行する"
-    : "最新計算額を同期してから支払通知書PDFを発行する";
+      ? "最新DBの住所・宛名・登録番号で支払通知書PDFを再発行する"
+      : "最新DBの住所・宛名・登録番号で支払通知書PDFを発行する"
+    : "最新計算額と最新DBのメンバー情報を同期してから支払通知書PDFを発行する";
   const pdfTitle = hasPdf
     ? "保存済みPDFを別タブで確認する"
     : "確認用PDFを作成してフォーマットを見る";

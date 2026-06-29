@@ -726,7 +726,8 @@ export function shouldRegenerateNotice(
  * issue_notice_pdf / preview_notice_pdf / bulk_*_notice_pdf / cron payout-notice-prebuild
  * の共通実装。
  *
- * - data は呼び出し側で 1 回 loadTargetData() した結果を渡す (= bulk で N+1 を避けるため)
+ * - data は呼び出し側で loadTargetData() した最新 DB 正本を渡す
+ *   (= 明示再生成では金額差分がなくても住所・宛名・登録番号を最新化する)
  * - previewOnly=true なら DB upsert を行わず、確認用 PDF URL だけ返す
  * - force=false (デフォルト) の場合は差分検出でスキップ可
  */
@@ -1440,7 +1441,7 @@ export async function PATCH(req: NextRequest) {
           actorEmail: auth.user.email,
         });
         if (!snapshot.ok) return payoutSaveBlockedResponse(snapshot);
-        const targetData = snapshot.data;
+        const targetData = await loadTargetData(ym);
         const gate = await enforceAgreementGateForAction(db, targetData, {
           targetAction: "send_notice_email",
           memberIds: [memberId],
@@ -1648,7 +1649,7 @@ export async function PATCH(req: NextRequest) {
             actorEmail: auth.user.email,
           });
       if (snapshot && !snapshot.ok) return payoutSaveBlockedResponse(snapshot);
-      const data = snapshot?.ok ? snapshot.data : await loadTargetData(ym);
+      const data = await loadTargetData(ym);
       const gate = await enforceAgreementGateForAction(db, data, {
         targetAction: previewOnly ? "preview_notice_pdf" : "issue_notice_pdf",
         memberIds: [memberId],
@@ -1657,8 +1658,8 @@ export async function PATCH(req: NextRequest) {
       });
       if (!gate.allowed) return agreementGateBlockedResponse(data, gate);
 
-      // 個別ボタン経由は常に force=true (= 既存PDFがあっても明示再発行できるように)。
-      // 差分検出スキップが必要なケースは bulk / cron 側で処理する。
+      // 個別ボタン経由は常に force=true。
+      // 金額差分が無くても、直前にDBから読み直した住所・宛名・登録番号でPDFを作り直す。
       const result = await generateNoticePdfForMember(db, data, {
         memberId,
         previewOnly,
@@ -1715,7 +1716,7 @@ export async function PATCH(req: NextRequest) {
             actorEmail: auth.user.email,
           });
       if (snapshot && !snapshot.ok) return payoutSaveBlockedResponse(snapshot);
-      const data = snapshot?.ok ? snapshot.data : await loadTargetData(ym);
+      const data = await loadTargetData(ym);
 
       // 最新計算上の支払対象に加えて、既存の未送付通知書も対象に含める。
       // PDFテンプレート更新時に、金額差分がない未送付PDFだけ古いまま残る事故を防ぐ。
