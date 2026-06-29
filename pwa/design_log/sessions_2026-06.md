@@ -1834,7 +1834,7 @@ deploy.sh が別件の未commit(gas/CLAUDE.md, gas/DEBUG.md, pwa/design/notifica
   - SX `p21`: rule `要提出`; timing `月次請求時`; deadline `請求書提出時`; format `指定なし`; required items `指定なし`
   - KUTE `p25`: rule `要提出`; timing `月次`; deadline `指定なし`; format `自由`; required items `指定なし`; note `契約上の義務はないが要提出：フォーマットは自由`
 - Product commits: `6d3b95b7 Add monthly report contract rules to project ledger`, `f75ca7ff Refine monthly report contract metadata`.
-- Production confirmed: `v0.36.35` / `f75ca7ff5fda5fa590ad63606d3dde5a8c772aee` / `dirty=false`.
+- Production confirmed for the product/UI bundle: `v0.36.35` / `f75ca7ff5fda5fa590ad63606d3dde5a8c772aee` / `dirty=false`. Later docs-only handoff closeout commits may sit on top, so use live `/api/build-info` for the exact latest SHA.
 
 ### Calendar
 - Created 3 recurring series, then adjusted after reading bounded event windows.

@@ -11,7 +11,7 @@ cd /Users/masa/projects/AMD/amd-os
 - 表示文言は `月次報告` カラム内なので、主値は `要提出` / `不要` / `指定なし` / `要確認` / `不明` など短く出す。`月次報告書を提出` のような冗長文は避ける。
 - 指定が無い情報は空欄にせず `指定なし` と書く。これも重要な契約情報。
 - KUTE は契約書に月次報告書義務が書かれていないが、運用上の指示として `契約上の義務はないが要提出：フォーマットは自由` を `monthlyReportSubmissionNote` に残す。
-- accepted product commits are `6d3b95b7` and `f75ca7ff`; production verified as `v0.36.35 / f75ca7ff / main / dirty=false`.
+- accepted product commits are `6d3b95b7` and `f75ca7ff`; production verified as `v0.36.35 / main / dirty=false`. Check live `/api/build-info` for the exact latest SHA because docs-only closeout commits may sit on top.
 
 DB current values:
 - CX `p20`: rule `要確認`; timing `月次`; deadline `指定なし`; format `指定なし`; required items `業務実施計画書、月次進捗報告（詳細項目は未確認）`

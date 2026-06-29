@@ -20,16 +20,16 @@ See `pwa/design_log/sessions_2026-06.md` section "2026-06-30 — 月次報告書
 - accepted product commits:
   - `6d3b95b7 Add monthly report contract rules to project ledger`
   - `f75ca7ff Refine monthly report contract metadata`
-- production `/api/build-info` verified on 2026-06-30 JST:
+- production `/api/build-info` verified on 2026-06-30 JST. Use the live endpoint for the exact latest SHA because docs-only closeout commits may sit on top of the product commits:
   - `build_version`: `v0.36.35`
-  - `git_sha`: `f75ca7ff5fda5fa590ad63606d3dde5a8c772aee`
+  - product/UI commit included: `f75ca7ff5fda5fa590ad63606d3dde5a8c772aee`
   - `git_branch`: `main`
   - `dirty`: `false`
 - main/default alignment: `main aligned` for the accepted monthly-report product change.
 
 ## Verification Run
 
-- Production build-info confirmed `v0.36.35 / f75ca7ff / main / dirty=false`.
+- Production build-info confirmed `v0.36.35 / main / dirty=false`; live `/api/build-info` is the source for the exact latest docs-closeout SHA.
 - Calendar event search confirmed created monthly-report blocks for July 2026 through the relevant contract windows.
 - Calendar availability freebusy endpoint returned `ACCESS_TOKEN_SCOPE_INSUFFICIENT`; event-list search was used as the working availability source.
 - No build/test was run in this closeout-only handoff pass. The product commits were already deployed before this handoff.
