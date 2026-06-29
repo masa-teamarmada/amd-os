@@ -4,6 +4,7 @@ import { cleanYm, currentYmJst } from "@/lib/payment-groups";
 import {
   generateNoticePdfBulk,
   loadTargetData,
+  payoutNoticeTargetMemberIds,
   savePayoutDataSnapshot,
   type GenerateNoticeResult,
 } from "@/app/api/admin/payouts/route";
@@ -71,19 +72,7 @@ async function prebuildForYm(ym: string, force: boolean): Promise<YmResult> {
   });
   const data = snapshot.ok ? snapshot.data : snapshot.data ?? await loadTargetData(ym);
 
-  const excludedMemberIds = new Set(
-    (data.members as MemberRow[])
-      .filter((member) => member.exclude_from_payout_notice || member.is_officer)
-      .map((member) => member.member_id)
-  );
-  const totalByMember = new Map<string, number>();
-  for (const entry of data.expectedEntries) {
-    if (excludedMemberIds.has(entry.member_id)) continue;
-    totalByMember.set(entry.member_id, (totalByMember.get(entry.member_id) ?? 0) + entry.total_pay);
-  }
-  const targetMemberIds = [...totalByMember.entries()]
-    .filter(([, total]) => total > 0)
-    .map(([memberId]) => memberId);
+  const targetMemberIds = payoutNoticeTargetMemberIds(data);
 
   if (targetMemberIds.length === 0) {
     return { ym, targetCount: 0, generated: 0, skipped: 0, failed: 0, results: [] };

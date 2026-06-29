@@ -251,7 +251,8 @@ admin/payouts 支払額 (= 税抜) 731,740円
 - vercel cron で **毎日 02:00 JST (= `0 17 * * *` UTC)** に起動
 - 対象: 当月 + 翌月の 2 支払 ym
 - PDF生成前に `savePayoutDataSnapshot` で `monthly_reward_payout` と `payout_notices.total_yen` を最新計算額へ同期する
-- 各 ym で、 `exclude_from_payout_notice=false` かつ `is_officer=false` で支払額 > 0 のメンバー全員を対象に並列生成 (= concurrency 3)
+- 各 ym で、 `exclude_from_payout_notice=false` かつ `is_officer=false` で支払額 > 0 のメンバー、または既存の未送付 `payout_notices` があるメンバーを対象に並列生成 (= concurrency 3)
+- `sent_at` が立っている通知書は履歴として保護し、cron / 一括発行 / `force=true` でも `pdf_url` / `total_yen` / `last_generated_at` を上書きしない
 - 月初合意支払 gate に blocker があるメンバーは PDF 生成せず、`agreement_gate` failure として結果に出す
 - **差分検出**: 既に `payout_notices.pdf_url` があり、 `total_yen` が一致し、かつ未送付PDFの `last_generated_at` が現行テンプレート更新時刻以降なら **スキップ** (= GAS を叩かない)
 - 差分があるメンバーのみ GAS に投げて、 `pdf_url` / `notice_no` / `total_yen` / `last_generated_at` を更新
@@ -266,7 +267,7 @@ curl -X POST "https://amd-os-pwa.vercel.app/api/cron/payout-notice-prebuild" \
   -d '{ "ym": "202605", "force": false }'
 ```
 
-`force: true` で差分検出を無視して全員強制再生成。`lookahead: N` で当月+N ヶ月先まで対象を広げる (デフォルト 1)。
+`force: true` で差分検出を無視して未送付の対象者を強制再生成。送付済み通知書は保護する。`lookahead: N` で当月+N ヶ月先まで対象を広げる (デフォルト 1)。
 
 #### 手動: `/admin/payouts` の「全員分PDF一括発行」「全員分PDF確認」
 
@@ -274,7 +275,7 @@ curl -X POST "https://amd-os-pwa.vercel.app/api/cron/payout-notice-prebuild" \
 
 - 「全員分PDF一括発行」: `bulk_issue_notice_pdf` action。サーバー側で最新計算額を同期してから、差分検出あり、本番 notice_no で `payout_notices` に保存する
 - 「全員分PDF確認」: `bulk_preview_notice_pdf` action。 確認用 (= `notice_no` は `PREVIEW-...` 固定で DB 保存しない)
-- 「強制再発行 (全員)」 (= 黄色ボタン、2026-05-28 追加): `bulk_issue_notice_pdf` action を **`force: true`** で叩く。サーバー側で最新計算額を同期してから、差分検出を無視して全員分を強制再生成する。 PDF フォーマット変更 (= 表記ラベル / レイアウト) を反映したい時に使う (= 金額が変わってないと差分検出でスキップされてラベル変更が反映されない問題への対処)。 確認ダイアログあり
+- 「強制再発行 (全員)」 (= 黄色ボタン、2026-05-28 追加): `bulk_issue_notice_pdf` action を **`force: true`** で叩く。サーバー側で最新計算額を同期してから、送付済みを除く対象者分を強制再生成する。 PDF フォーマット変更 (= 表記ラベル / レイアウト) を反映したい時に使う (= 金額が変わってないと差分検出でスキップされてラベル変更が反映されない問題への対処)。 確認ダイアログあり
 
 レスポンスには `{ targetCount, generated, skipped, failed, results[] }` が入る。 失敗があったメンバーは UI 上部の赤い帯に最大 8 件表示される。
 
@@ -283,12 +284,13 @@ curl -X POST "https://amd-os-pwa.vercel.app/api/cron/payout-notice-prebuild" \
 | 状況 | 再生成する？ |
 |---|---|
 | `previewOnly=true` | はい (= preview は毎回新規生成、 DB保存なし) |
-| `force=true` | はい |
+| `force=true` | はい。ただし送付済み通知書は保護して再生成しない |
 | 既存行なし | はい |
 | `pdf_url` が NULL / 空 | はい |
 | `notice_no` が `PREVIEW-...` | はい (= 仮 PDF を本番化) |
 | `total_yen` が一致しない | はい (= 金額が変わった) |
 | 未送付PDFの `last_generated_at` が現行テンプレート更新時刻より古い / 空 | はい (= 表記ラベル・レイアウト変更を反映) |
+| `sent_at` が立っている | **いいえ** (= 送付済み履歴を保護) |
 | 上記すべて該当なし | **いいえ** (= スキップして既存 `pdf_url` を再利用) |
 
 #### 支払データ同期との連携

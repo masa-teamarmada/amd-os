@@ -201,6 +201,7 @@ export type GenerateNoticeResult = {
     | "preview_notice_no"
     | "total_yen_changed"
     | "template_version_changed"
+    | "sent_protected"
     | "agreement_gate"
     | "snapshot_sync_blocked";
   noticeNo?: string;
@@ -693,6 +694,9 @@ export function shouldRegenerateNotice(
   expectedTotalYen: number,
   options: { previewOnly?: boolean; force?: boolean } = {}
 ): { regenerate: boolean; reason: GenerateNoticeResult["reason"] } {
+  if (existing && !options.previewOnly && textValue(existing.sent_at)) {
+    return { regenerate: false, reason: "sent_protected" };
+  }
   if (options.force) return { regenerate: true, reason: "force" };
   if (options.previewOnly) return { regenerate: true, reason: "preview_always_regen" };
   if (!existing) return { regenerate: true, reason: "no_existing" };
@@ -1125,6 +1129,31 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
 
 type TargetData = Awaited<ReturnType<typeof loadTargetData>>;
 
+export function payoutNoticeTargetMemberIds(data: TargetData, onlyMemberIds: string[] | null = null): string[] {
+  const excludedMemberIds = new Set(
+    (data.members as MemberRow[])
+      .filter((member) => member.exclude_from_payout_notice || member.is_officer)
+      .map((member) => member.member_id)
+  );
+  const targetMemberIds = new Set<string>();
+
+  for (const entry of data.expectedEntries) {
+    if (excludedMemberIds.has(entry.member_id)) continue;
+    if (entry.total_pay > 0) targetMemberIds.add(entry.member_id);
+  }
+  for (const notice of (data.notices ?? []) as PayoutNoticeRow[]) {
+    const memberId = textValue(notice.member_id);
+    if (!memberId || excludedMemberIds.has(memberId)) continue;
+    if (textValue(notice.sent_at)) continue;
+    if (yenValue(notice.total_yen) > 0 || textValue(notice.pdf_url)) targetMemberIds.add(memberId);
+  }
+
+  const allowed = onlyMemberIds && onlyMemberIds.length > 0 ? new Set(onlyMemberIds) : null;
+  return [...targetMemberIds]
+    .filter((memberId) => !allowed || allowed.has(memberId))
+    .sort((a, b) => a.localeCompare(b));
+}
+
 function entriesForMembers(data: TargetData, memberIds: string[] | null): PayoutEntry[] {
   if (!memberIds) return data.expectedEntries;
   const allow = new Set(memberIds);
@@ -1234,11 +1263,14 @@ export async function savePayoutDataSnapshot(
   // 次回 cron payout-notice-prebuild または UI 一括発行で差分検出が再生成を発火するようにする。
   // ただし sent_at が立っている (= 既にメンバーに送付済) 行は触らない (= 履歴保護)。
   const beforeNoticeByMember = new Map<string, number>();
-  for (const row of (before.notices ?? []) as Array<{ member_id: string; total_yen: number | string | null }>) {
+  const sentNoticeMemberIds = new Set<string>();
+  for (const row of (before.notices ?? []) as PayoutNoticeRow[]) {
     beforeNoticeByMember.set(row.member_id, yenValue(row.total_yen));
+    if (textValue(row.sent_at)) sentNoticeMemberIds.add(row.member_id);
   }
   const staleMemberIds = notices
     .filter((notice) => {
+      if (sentNoticeMemberIds.has(notice.member_id)) return false;
       const previous = beforeNoticeByMember.get(notice.member_id);
       return typeof previous === "number" && previous !== notice.total_yen;
     })
@@ -1249,10 +1281,11 @@ export async function savePayoutDataSnapshot(
     clearedStaleNoticePdfs = cleared.cleared;
   }
 
-  if (notices.length > 0) {
+  const noticesToUpsert = notices.filter((notice) => !sentNoticeMemberIds.has(notice.member_id));
+  if (noticesToUpsert.length > 0) {
     const { error } = await db
       .from("payout_notices")
-      .upsert(notices, { onConflict: "member_id,ym" });
+      .upsert(noticesToUpsert, { onConflict: "member_id,ym" });
     if (error) throw error;
   }
 
@@ -1261,7 +1294,7 @@ export async function savePayoutDataSnapshot(
     ok: true,
     data: after,
     savedPayoutRows: entries.length,
-    savedNoticeRows: notices.length,
+    savedNoticeRows: noticesToUpsert.length,
     clearedStaleNoticePdfs,
   };
 }
@@ -1639,25 +1672,9 @@ export async function PATCH(req: NextRequest) {
       if (snapshot && !snapshot.ok) return payoutSaveBlockedResponse(snapshot);
       const data = snapshot?.ok ? snapshot.data : await loadTargetData(ym);
 
-      // 当月の支払対象メンバーを expectedEntries から抽出 (= aggregateNotices と同じロジック)。
-      // 役員 / exclude_from_payout_notice を除外し、support_pay > 0 のメンバーだけ。
-      const excludedMemberIds = new Set(
-        (data.members as MemberRow[])
-          .filter((member) => member.exclude_from_payout_notice || member.is_officer)
-          .map((member) => member.member_id)
-      );
-      const totalByMember = new Map<string, number>();
-      for (const entry of data.expectedEntries) {
-        if (excludedMemberIds.has(entry.member_id)) continue;
-        totalByMember.set(entry.member_id, (totalByMember.get(entry.member_id) ?? 0) + entry.total_pay);
-      }
-      let targetMemberIds = [...totalByMember.entries()]
-        .filter(([, total]) => total > 0)
-        .map(([memberId]) => memberId);
-      if (onlyMemberIds && onlyMemberIds.length > 0) {
-        const allowSet = new Set(onlyMemberIds);
-        targetMemberIds = targetMemberIds.filter((memberId) => allowSet.has(memberId));
-      }
+      // 最新計算上の支払対象に加えて、既存の未送付通知書も対象に含める。
+      // PDFテンプレート更新時に、金額差分がない未送付PDFだけ古いまま残る事故を防ぐ。
+      const targetMemberIds = payoutNoticeTargetMemberIds(data, onlyMemberIds);
 
       if (targetMemberIds.length === 0) {
         const after = await loadTargetData(ym);
