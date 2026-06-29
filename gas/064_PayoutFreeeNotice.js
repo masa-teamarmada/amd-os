@@ -322,7 +322,7 @@ function payoutBuildNoticePdfBlob_(p){
     .setFontSize(14).setFontColor(MUTED)
     .setWrap(true);
   sh.getRange("A7:F7").merge()
-    .setValue(invoiceRegistrationNumber ? `インボイス登録番号：${invoiceRegistrationNumber}` : "インボイス登録番号：（未登録）")
+    .setValue(invoiceRegistrationNumber ? `登録番号：${invoiceRegistrationNumber}` : "登録番号：（未登録）")
     .setFontSize(14).setFontColor(MUTED)
     .setWrap(true);
 
@@ -350,7 +350,7 @@ function payoutBuildNoticePdfBlob_(p){
   sh.getRange("G8:L8").merge().setValue(COMPANY_NAME).setFontSize(14).setFontWeight("bold").setHorizontalAlignment("right");
   sh.getRange("G9:L9").merge().setValue(COMPANY_ADDR).setFontSize(12).setFontColor(MUTED).setHorizontalAlignment("right");
   sh.getRange("G10:L10").merge()
-    .setValue(`インボイス登録番号：${COMPANY_INVOICE_REGISTRATION_NUMBER}`)
+    .setValue(`登録番号：${COMPANY_INVOICE_REGISTRATION_NUMBER}`)
     .setFontSize(12).setFontColor(MUTED).setHorizontalAlignment("right");
 
   // ====== サマリ ======

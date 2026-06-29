@@ -213,8 +213,8 @@ GAS rv2 の最終計算結果を per-PJ × per-ym × per-member で保存する 
 |---|---|
 | ヘッダー | 公式ロゴ画像 (= `PAYOUT_LOGO_FILE_ID`) + `PAYOUT_LOGOTYPE_FILE_ID` |
 | 背景 | 白地、 青アクセント |
-| 宛先 | `members.contractor_name` (= 未設定時は `member_name` / `code_name`) + `members.member_address` + `members.invoice_registration_number` |
-| 発行者 | AMDの会社名 / 住所 / インボイス登録番号 (`T7021001064067`、Script Properties で上書き可)。ロゴ画像・会社名・住所・インボイス登録番号は右端に揃える |
+| 宛先 | `members.contractor_name` (= 未設定時は `member_name` / `code_name`) + `members.member_address` + `members.invoice_registration_number`。PDF上の表示ラベルは `登録番号` |
+| 発行者 | AMDの会社名 / 住所 / インボイス登録番号 (`T7021001064067`、Script Properties で上書き可)。ロゴ画像・会社名・住所・`登録番号` は右端に揃える |
 | 明細表 | 青ヘッダで、 PJ 別の base_pay / bonus / total |
 | 税内訳 | `小計（税抜）` = admin/payouts の支払額、`消費税（10%）` = 税抜額 × 10%、`合計（税込）` = 小計 + 消費税 |
 | 支払予定 / 方法 | 支払予定日と支払方法を表示。振込先欄はPDFから削除する |

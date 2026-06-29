@@ -213,7 +213,7 @@ expectIncludes("../gas/064_PayoutFreeeNotice.js", [
   "支払方法",
   "payoutCompanyInvoiceRegistrationNumber_",
   "T7021001064067",
-  "インボイス登録番号",
+  "登録番号",
   "備考",
 ]);
 
