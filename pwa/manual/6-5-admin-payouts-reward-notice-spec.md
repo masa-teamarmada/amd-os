@@ -152,7 +152,6 @@ sequenceDiagram
 - Bcc: `masa@team-armada.jp` , `kyoko@team-armada.jp` (固定)
 - 添付: 「送付」クリック時に準備した `payout_notices.pdf_url` の Drive fileId から `DriveApp.getFileById().getBlob()` で実 PDF 添付。ファイル名は `支払通知書_{ym}_{memberName}.pdf`
 - 作成日: 「送付」クリック時に送信用PDFを強制再生成し、PDF右上の `作成日` はその送付準備日 (JST) にする。確認モーダルの「はい・送信」では PDF を再生成せず、準備済み PDF を即添付して送る。cron prebuild / 事前発行PDFの日付は送付モーダル準備時に置き換わる。
-- 送信APIは、準備から 1 時間以内かつ現行テンプレートの `payout_notices.pdf_url` だけを受け付ける。古い PDF を直叩きで送ろうとした場合は、送付モーダルを開き直して再準備させる。
 - 本文テンプレ (確認モーダル既定値):
   ```
   {memberName}様

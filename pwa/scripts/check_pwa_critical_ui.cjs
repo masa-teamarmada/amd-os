@@ -184,8 +184,6 @@ expectIncludes("src/app/api/admin/payouts/route.ts", [
   "ご確認期間が短くなっており恐縮",
   "15:00まで",
   "pdfPreparedBeforeSend",
-  "PAYOUT_NOTICE_SEND_PREP_TTL_MS",
-  "noticeIsPreparedForImmediateSend",
 ]);
 
 expectNotIncludes("src/app/api/admin/payouts/route.ts", [

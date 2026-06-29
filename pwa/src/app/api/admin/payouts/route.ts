@@ -25,7 +25,6 @@ const YM_RE = /^[0-9]{6}$/;
 // 上げすぎると Apps Script 側の同時実行制限 (project あたり 30) や freee 連携待ちで詰まる。
 const BULK_NOTICE_CONCURRENCY = 3;
 const PAYOUT_NOTICE_PDF_TEMPLATE_UPDATED_AT = "2026-06-29T04:50:00.000Z";
-const PAYOUT_NOTICE_SEND_PREP_TTL_MS = 60 * 60 * 1000;
 
 type BillingCycleRow = {
   project_id: string;
@@ -691,13 +690,6 @@ function noticeTemplateIsStale(existing: PayoutNoticeRow): boolean {
   const generatedMs = Date.parse(generatedAt);
   const templateMs = Date.parse(PAYOUT_NOTICE_PDF_TEMPLATE_UPDATED_AT);
   return Number.isFinite(generatedMs) && Number.isFinite(templateMs) && generatedMs < templateMs;
-}
-
-function noticeIsPreparedForImmediateSend(existing: PayoutNoticeRow | null): boolean {
-  if (!existing || !textValue(existing.pdf_url) || noticeTemplateIsStale(existing)) return false;
-  const generatedAt = textValue(existing.last_generated_at);
-  const generatedMs = Date.parse(generatedAt);
-  return Number.isFinite(generatedMs) && Date.now() - generatedMs <= PAYOUT_NOTICE_SEND_PREP_TTL_MS;
 }
 
 /**
@@ -1514,12 +1506,6 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json(
           { ok: false, error: "送信用PDFの Drive fileId を抽出できなかった" },
           { status: 500 }
-        );
-      }
-      if (!noticeIsPreparedForImmediateSend(notice)) {
-        return NextResponse.json(
-          { ok: false, error: "送付モーダルで送信用PDFを準備してから送信してね" },
-          { status: 409 }
         );
       }
       const mailNoticeNo = notice?.notice_no || defaultNoticeNo(ym, memberId);
