@@ -14,15 +14,18 @@ type Shareholder = {
   id: string; holder_type: string | null; holder_name: string; holder_member_id: string | null;
   share_class: string | null; shares: number | null; ownership_pct: number | null; invested_yen: number | null; as_of_ym: string | null; notes: string | null;
 };
+type ContributionStatus = "full" | "partial" | "none" | "unreviewed";
 type RoundInvestor = { name?: string; amount_yen?: number; security_type?: string; tranche?: string; lead?: boolean; note?: string };
 type Round = {
   id: string; round_name: string | null; round_date: string | null; round_ym: string | null;
   pre_money_yen: number | null; post_money_yen: number | null; raised_yen: number | null; price_per_share_yen: number | null;
   lead_investor: string | null; security_type: string | null; status: string | null; investors_json: RoundInvestor[] | null; notes: string | null;
+  amd_contribution_status: ContributionStatus | null; amd_contributed_yen: number | null; amd_contribution_note: string | null;
 };
 type Grant = {
   id: string; grant_name: string; agency: string | null; grant_type: string | null; amount_yen: number | null;
   status: string; is_current: boolean | null; adopted_date: string | null; period_start_ym: string | null; period_end_ym: string | null;
+  amd_contribution_status: ContributionStatus | null; amd_contributed_yen: number | null; amd_contribution_note: string | null;
 };
 type Meeting = {
   id: string; meeting_type: string | null; meeting_date: string | null; meeting_ym: string | null; location: string | null;
@@ -36,6 +39,21 @@ type ActionItem = {
 const num = (v: string) => (v.trim() === "" ? null : Number(v));
 const txt = (v: string) => (v.trim() === "" ? null : v.trim());
 const attachmentUrl = (a: { url?: string; webViewLink?: string; web_view_link?: string }) => a.url || a.webViewLink || a.web_view_link || "";
+const contributionStatus = (v: string): ContributionStatus => {
+  const raw = v.trim();
+  return raw === "full" || raw === "partial" || raw === "none" || raw === "unreviewed" ? raw : "unreviewed";
+};
+const contributionLabel: Record<ContributionStatus, string> = {
+  full: "AMD全額",
+  partial: "AMD一部",
+  none: "非貢献",
+  unreviewed: "未判定",
+};
+function contributedYen(status: ContributionStatus | null, total: number | null, explicit: number | null) {
+  if (status === "full") return explicit ?? total ?? null;
+  if (status === "partial") return explicit ?? null;
+  return 0;
+}
 
 export function AdminGovernanceClient({ projects, initialProjectId }: { projects: PjOption[]; initialProjectId: string | null }) {
   const [projectId, setProjectId] = useState<string>(initialProjectId || projects[0]?.projectId || "");
@@ -124,11 +142,18 @@ export function AdminGovernanceClient({ projects, initialProjectId }: { projects
           </Section>
 
           <Section title="資金調達ラウンド / 発行証券 / バリュエーション">
-            <Table head={["ラウンド", "証券", "状態", "日付", "調達額", "post", "投資家内訳", ""]}>
+            <Table head={["ラウンド", "証券", "状態", "日付", "調達額", "AMD貢献", "post", "投資家内訳", ""]}>
               {gov.rounds.map((r) => (
                 <tr key={r.id} className="border-t border-border align-top">
                   <Td>{r.round_name}</Td><Td>{r.security_type ?? "—"}</Td><Td>{r.status ?? "—"}</Td><Td>{r.round_date}</Td>
-                  <Td>{r.raised_yen?.toLocaleString() ?? "—"}</Td><Td>{r.post_money_yen?.toLocaleString() ?? "—"}</Td>
+                  <Td>{r.raised_yen?.toLocaleString() ?? "—"}</Td>
+                  <Td>
+                    <ContributionCell
+                      status={r.amd_contribution_status}
+                      amountYen={contributedYen(r.amd_contribution_status, r.raised_yen, r.amd_contributed_yen)}
+                    />
+                  </Td>
+                  <Td>{r.post_money_yen?.toLocaleString() ?? "—"}</Td>
                   <Td className="max-w-[280px]">
                     {Array.isArray(r.investors_json) && r.investors_json.length > 0
                       ? r.investors_json.map((iv, i) => (
@@ -154,6 +179,9 @@ export function AdminGovernanceClient({ projects, initialProjectId }: { projects
                 { k: "price_per_share_yen", ph: "1株単価(円)", num: true },
                 { k: "lead_investor", ph: "Lead投資家" },
                 { k: "investors", ph: "投資家内訳 (名前:金額:トランシェ:lead を / 区切り)" },
+                { k: "amd_contribution_status", ph: "AMD貢献(full/partial/none/unreviewed)" },
+                { k: "amd_contributed_yen", ph: "AMD貢献額(円)", num: true },
+                { k: "amd_contribution_note", ph: "AMD貢献メモ" },
               ]}
               required={["round_name"]}
               onAdd={(v) => post("round", {
@@ -162,9 +190,12 @@ export function AdminGovernanceClient({ projects, initialProjectId }: { projects
                 raised_yen: num(v.raised_yen), pre_money_yen: num(v.pre_money_yen), post_money_yen: num(v.post_money_yen),
                 price_per_share_yen: num(v.price_per_share_yen), lead_investor: txt(v.lead_investor),
                 investors_json: parseInvestorLines(v.investors),
+                amd_contribution_status: contributionStatus(v.amd_contribution_status || ""),
+                amd_contributed_yen: num(v.amd_contributed_yen),
+                amd_contribution_note: txt(v.amd_contribution_note),
               })}
             />
-            <p className="text-[10px] text-muted-foreground">投資家内訳の書式: <code>DG Daiwa:100000000:第1回:lead / Adlib Tech:20000000:第1回 / ごうぎん:30000000:第2回</code></p>
+            <p className="text-[10px] text-muted-foreground">投資家内訳の書式: <code>DG Daiwa:80000000:第1回:lead / Adlib Tech:20000000:第1回 / ごうぎん:50000000:第1回追加</code></p>
           </Section>
 
           <Section title="株主総会・取締役会 / 決議">
@@ -234,11 +265,17 @@ export function AdminGovernanceClient({ projects, initialProjectId }: { projects
           </Section>
 
           <Section title="助成金・補助金 (NEDO/SBIR/JST/文科省/自治体 等)">
-            <Table head={["状態", "名称", "交付元", "種別", "採択額", "期間", "現在", ""]}>
+            <Table head={["状態", "名称", "交付元", "種別", "採択額", "AMD貢献", "期間", "現在", ""]}>
               {grants.map((g) => (
                 <tr key={g.id} className="border-t border-border">
                   <Td>{g.status}</Td><Td>{g.grant_name}</Td><Td>{g.agency}</Td><Td>{g.grant_type}</Td>
                   <Td>{g.amount_yen?.toLocaleString() ?? "—"}</Td>
+                  <Td>
+                    <ContributionCell
+                      status={g.amd_contribution_status}
+                      amountYen={contributedYen(g.amd_contribution_status, g.amount_yen, g.amd_contributed_yen)}
+                    />
+                  </Td>
                   <Td>{[g.period_start_ym, g.period_end_ym].filter(Boolean).join("〜") || "—"}</Td>
                   <Td>{g.is_current === false ? "—" : "受給中"}</Td>
                   <Td><DelBtn onClick={() => delGrant(g.id)} /></Td>
@@ -255,6 +292,9 @@ export function AdminGovernanceClient({ projects, initialProjectId }: { projects
                 { k: "adopted_date", ph: "採択日YYYY-MM-DD" },
                 { k: "period_start_ym", ph: "開始YYYYMM" },
                 { k: "period_end_ym", ph: "終了YYYYMM" },
+                { k: "amd_contribution_status", ph: "AMD貢献(full/partial/none/unreviewed)" },
+                { k: "amd_contributed_yen", ph: "AMD貢献額(円)", num: true },
+                { k: "amd_contribution_note", ph: "AMD貢献メモ" },
               ]}
               required={["grant_name"]}
               onAdd={(v) => postGrant({
@@ -262,6 +302,9 @@ export function AdminGovernanceClient({ projects, initialProjectId }: { projects
                 status: txt(v.status) || "active", adopted_date: txt(v.adopted_date),
                 period_start_ym: txt(v.period_start_ym), period_end_ym: txt(v.period_end_ym),
                 is_current: !["completed", "rejected", "withdrawn"].includes(txt(v.status) || "active"),
+                amd_contribution_status: contributionStatus(v.amd_contribution_status || ""),
+                amd_contributed_yen: num(v.amd_contributed_yen),
+                amd_contribution_note: txt(v.amd_contribution_note),
               })}
             />
           </Section>
@@ -315,6 +358,22 @@ function Td({ children, className = "" }: { children: React.ReactNode; className
 }
 function DelBtn({ onClick }: { onClick: () => void }) {
   return <button onClick={onClick} className="rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-muted hover:text-rose-600">削除</button>;
+}
+
+function ContributionCell({ status, amountYen }: { status: ContributionStatus | null; amountYen: number | null }) {
+  const s = status || "unreviewed";
+  const cls =
+    s === "full" || s === "partial"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+      : s === "none"
+        ? "border-slate-200 bg-slate-50 text-slate-600"
+        : "border-amber-200 bg-amber-50 text-amber-800";
+  return (
+    <div className="flex flex-col items-start gap-0.5">
+      <span className={`rounded border px-1.5 py-0.5 text-[10px] ${cls}`}>{contributionLabel[s]}</span>
+      <span className="tabular-nums text-muted-foreground">{amountYen == null ? "—" : amountYen.toLocaleString()}</span>
+    </div>
+  );
 }
 
 function AddForm({ fields, required, onAdd }: { fields: { k: string; ph: string; num?: boolean }[]; required: string[]; onAdd: (v: Record<string, string>) => void }) {

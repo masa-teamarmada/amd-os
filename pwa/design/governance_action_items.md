@@ -216,12 +216,13 @@ cockpit のガバナンス欄・要対応面はサーバ側 admin クライア�
 
 ## 7. ラウンド明細 + 助成金 + 累計アピール数字 (2026-06-17 まさ依頼で追補)
 
-起点: LST(p07) 今回ラウンド確定 (DG Daiwa 100M / Adlib Tech 20M / ごうぎん 30M, J-KISS)。「各ラウンドで発行した証券(プロダクト)種別」「投資家別内訳」「創業者シェアのラウンド推移」「各PJの受給中助成金」「AMD全体の累計調達額/助成金額 (営業アピール)」を OS に持たせる。
+起点: LST(p07) 今回ラウンド確定 (DG Daiwa 80M / Adlib Tech 20M / ごうぎん 50M, J-KISS)。「各ラウンドで発行した証券(プロダクト)種別」「投資家別内訳」「創業者シェアのラウンド推移」「各PJの受給中助成金」「AMD全体の累計調達額/助成金額 (営業アピール)」を OS に持たせる。
 
-### 7.1 DDL (migration 143 / 144)
+### 7.1 DDL (migration 143 / 144 / 159)
 
 - **143**: `project_valuation_rounds` に `security_type`(発行証券種別 J-KISS/普通株/A種優先株 等)・`investors_json`(投資家別内訳 `[{name,amount_yen,security_type,units,tranche,lead,note}]`)・`status`(planned/committed/closed) を追加。`project_shareholders` に `round_id`(どのラウンド直後の cap table 断面か, nullable) を追加。
 - **144**: `project_grants` 新規 (助成金/補助金/委託費)。`grant_name` / `agency`(交付元) / `grant_type` / `amount_yen`(採択額=アピール数字) / `disbursed_yen` / `status`(applied/adopted/active/completed/rejected/withdrawn) / `is_current` / `period_*_ym`。RLS は cap table と違い **authenticated SELECT 可** (メンバーが自PJの受給状況を見る)、write は admin/service。
+- **159**: `project_valuation_rounds` / `project_grants` に `amd_contribution_status` (`full` / `partial` / `none` / `unreviewed`)・`amd_contributed_yen`・`amd_contribution_note` を追加。登録済み総額と、AMD貢献として累計に入れる金額を分離する。
 
 ### 7.2 表示・入力
 
@@ -229,21 +230,21 @@ cockpit のガバナンス欄・要対応面はサーバ側 admin クライア�
 |---|---|---|
 | **PJ cockpit「株主・ガバナンス」欄** | ラウンドごとに 発行証券種別 chip + 投資家別内訳 (金額/トランシェ/Lead) + 状態。株主構成は is_current 断面。`as_of_ym` 断面が 2 つ以上なら **創業者シェア推移マトリクス** | `CockpitGovernance.tsx` (admin gate) |
 | **PJ cockpit「助成金・補助金」欄** | 各PJの助成金一覧 (状態/名称/交付元/採択額/期間) + このPJの獲得累計。**メンバーにも表示** | `CockpitGrants.tsx` (`/api/grants` read=requireAuth) |
-| **/admin/governance** | ラウンド add-form に 発行証券/状態/投資家内訳(`名前:金額:トランシェ:lead` を `/` 区切り) を追加。助成金 CRUD セクションを追加 | `AdminGovernanceClient.tsx` |
-| **/dashboard 先頭カード** | AMD全体 **累計資金調達額** + **累計獲得助成金額** (営業アピール)。合計のみ (per-PJ cap table 内訳は出さない) | `FundingStatsCard.tsx` (`/api/funding-stats` service_role集計, read=requireAuth) |
+| **/admin/governance** | ラウンド add-form に 発行証券/状態/投資家内訳(`名前:金額:トランシェ:lead` を `/` 区切り) と AMD貢献判定 (`full` / `partial` / `none` / `unreviewed`) を追加。助成金 CRUD セクションにも同じ AMD貢献判定を持たせる | `AdminGovernanceClient.tsx` |
+| **/dashboard 先頭カード** | AMD全体 **AMD貢献 累計資金調達額** + **AMD貢献 累計助成金額**。会社別・行別に全ラウンド/助成金を表示し、非貢献/未判定もリストには残す。投資家別cap table内訳は出さない | `FundingStatsCard.tsx` (`/api/funding-stats` service_role集計, read=requireAuth) |
 
 ### 7.3 J-KISS / 累計数字の注意
 
 - **J-KISS は新株予約権** = 次の優先株ラウンドでの転換まで普通株 cap table の持株比率は未変動。LST の今回ラウンドでは founder/AMD/まさ の `ownership_pct` を勝手に動かさない (転換時に推移として記録)。pre/post-money・転換条件(評価上限/ディスカウント) は要記録欄。
-- LST 今回ラウンド = 第1回J-KISS 120個 1.2億 (DG Daiwa 100M + Adlib 20M, 2026-06-16 取締役会書面決議で承認・まさ consented、定時株主総会 最終7/10 で発行決議) + 第2回 ごうぎん 30M (後続承認予定)。計 150M。
-- 累計アピール数字は **OS に登録済みのラウンド/助成金の合計** = 過去案件の backfill が進むほど正確。未登録分は含まれない (カード下に明記、silent cap にしない)。
+- LST 今回ラウンド = 2026-06 J-KISS 150M。6/26時点で DG Daiwa 80M + Adlib Tech 20M は契約締結・7/10クロージング予定。6/30にごうぎんキャピタル 50M が投資委員会で確定し、不足分20Mを上回ったため、改めて株主総会を実施して第1回3J-KISS型新株予約権を追加発行予定。J-KISSは未転換のため、転換までは普通株 cap table の持株比率は未変動。
+- 累計アピール数字は **OS に登録済みのラウンド/助成金のうち、AMD貢献として明示された金額だけ**。非貢献 (`none`) と未判定 (`unreviewed`) は行別リストには残すが、累計値には入れない。部分貢献 (`partial`) は `amd_contributed_yen` だけ入れる。全額貢献 (`full`) は `amd_contributed_yen` があればその額、無ければ行の調達額/採択額を入れる。
 
 ### 7.4 全案件 backfill (2026-06-17 並列リサーチ実施)
 
 Drive + Web + AMD OS DB を全PJ横断で調査(subagent並列)し、出典の取れた助成金/調達を一括登録。捏造防止のため **出典が取れた金額のみ数値化、不確実は amount=null + notes**。融資(借入)・株式譲渡(exit)・設立資本金は除外。
 
 - 登録時点の概算: **累計資金調達額 ≈ 74億円** (OQC 21.5 / CLG 19.8 / tiem 12.2 / MC 11.5 / LST 3.0 / CTB 2.5 / JC 1.53 / KT 1.5 / CCC 0.6)、**累計獲得助成金 ≈ 24.5億円** (LST 17 / CTB 3.3 / MC 1.65 / BWE 1.0 / SX 0.78 / ZMP 0.6 / VasculaX 0.17)。
-- ダッシュボード `FundingStatsCard` は **累計 ⇄ PJ別内訳トグル**。`/api/funding-stats` は PJ別合計までを返し、cap table 内訳は返さない。
+- ダッシュボード `FundingStatsCard` は **累計 / 会社別 / 行別** の3表示。`/api/funding-stats` は会社名・ラウンド/助成金名・日付・登録額・AMD貢献額・貢献ステータスまでを返し、投資家別内訳・持株比率・cap table snapshot は返さない。
 - backfill 投入は一回限り script `pwa/tmp/seed_grants_rounds.mjs` (tmp、commit対象外)。
 - 注意/要確認: tiem 2018年4億は二次情報のみ(low)。CTB AMED 3億は社内認識値(公式per-company非開示)。BWE SIP7.5億はNIMS委託課題予算でBWE単独交付でないため amount=null。JC グローバルサウス補助金55.8MとZMP水素補助は applied(採択未確定)のため累計には非計上。VasculaX/CXは法人未設立でPI科研費・将来枠。p14 aerota は会社実体が中確度のため未登録。
 
@@ -251,4 +252,4 @@ Drive + Web + AMD OS DB を全PJ横断で調査(subagent並列)し、出典の�
 
 - `project_valuation_rounds` / `project_shareholders` の既存列・既存 admin-RLS を変えない (列追加のみ)。
 - `CockpitGovernance` の admin gate を維持。`CockpitGrants` は read 開放だが write は admin。
-- 累計数字 API (`/api/funding-stats`) は合計のみ返し、per-PJ の調達額・cap table 内訳を member に晒さない。
+- 累計数字 API (`/api/funding-stats`) は会社別/行別の登録額とAMD貢献額を返すが、投資家別内訳・持株比率・cap table snapshot は member に晒さない。

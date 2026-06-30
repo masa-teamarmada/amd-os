@@ -39,6 +39,16 @@ URL: `/project/p00/cockpit`。**会社全体 (= AMD 株式会社) を 1 つの P
 
 `drafted` は「司令塔/worker が内部資料を作成済み」の状態。ここからは、まさまたは担当司令塔が内容を確認し、外部送付する / 追加修正する / 完了扱いにする、のどれかへ進める。
 
+## Dashboard の累計実績
+
+`/dashboard` の上部に、AMD全体の資金調達・助成金の累計実績カードを表示する。ここで大きく出す累計値は、会社の登録済み総額ではなく、`amd_contribution_status` で AMD貢献として明示された金額だけを合計する。
+
+- `full`: その行の全額を AMD貢献として累計に入れる。`amd_contributed_yen` が入っていればその額を優先する。
+- `partial`: `amd_contributed_yen` だけを累計に入れる。
+- `none` / `unreviewed`: 会社別・行別リストには表示するが、累計には入れない。
+
+行別表示では、各会社のラウンド/助成金を残したまま、AMD貢献部分だけ色つきで強調する。投資家別内訳・持株比率・cap table snapshot は `/dashboard` には出さず、admin の governance 画面側で扱う。
+
 ## Dashboard の Company Content shelf
 
 `/dashboard` の本文は、左/mainカラム内で PJ一覧 → 研究機関ERSリスト の順に並べる。研究機関リストはPJ一覧の続きとして見せ、右カラムのMyPageより下へ落とさない。Company Content shelf はその下の全幅下段に置く。

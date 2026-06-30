@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-06-27 13:53 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-06-30 21:59 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -51,7 +51,7 @@ UNIQUE: `(source_hash)` (constraint: `action_items_source_hash_key`)
 
 ## amd_management_score_evidence
 
-行数 (概算): 183
+行数 (概算): 184
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -72,7 +72,7 @@ PRIMARY KEY: `id`
 
 ## amd_management_score_raw_signals
 
-行数 (概算): 4,425
+行数 (概算): 4,453
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -124,7 +124,7 @@ UNIQUE: `(ym)` (constraint: `amd_management_score_snapshots_ym_key`)
 
 ## amd_management_score_source_runs
 
-行数 (概算): 57
+行数 (概算): 85
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -394,7 +394,7 @@ PRIMARY KEY: `id`
 
 ## atlas_stories
 
-行数 (概算): 303
+行数 (概算): 308
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -1568,7 +1568,7 @@ PRIMARY KEY: `meeting_id`
 
 ## member_activities
 
-行数 (概算): 328
+行数 (概算): 394
 PRIMARY KEY: `id`
 UNIQUE: `(member_id,project_id,source,source_item_id)` (constraint: `member_activities_member_id_project_id_source_source_item_i_key`)
 
@@ -2004,7 +2004,7 @@ UNIQUE: `(report_id)` (constraint: `monthly_reports_report_id_key`)
 
 ## monthly_reward_payout
 
-行数 (概算): -1
+行数 (概算): 16
 PRIMARY KEY: `id`
 UNIQUE: `(project_id,ym,member_id)` (constraint: `monthly_reward_payout_project_id_ym_member_id_key`)
 
@@ -2188,7 +2188,7 @@ UNIQUE: `(project_id,member_id)` (constraint: `payout_agreement_project_id_membe
 
 ## payout_notices
 
-行数 (概算): 18
+行数 (概算): 15
 PRIMARY KEY: `member_id, ym`
 
 | # | column | type | nullable | default |
@@ -2315,7 +2315,7 @@ PRIMARY KEY: `outbox_id`
 
 ## proactive_todos
 
-行数 (概算): -1
+行数 (概算): 119
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -2520,6 +2520,9 @@ PRIMARY KEY: `id`
 | 16 | `updated_by` | `text` | NULL | `` |
 | 17 | `created_at` | `timestamptz` | NULL | `now()` |
 | 18 | `updated_at` | `timestamptz` | NULL | `now()` |
+| 19 | `amd_contribution_status` | `text` | NOT NULL | `'unreviewed'::text` |
+| 20 | `amd_contributed_yen` | `int8` | NULL | `` |
+| 21 | `amd_contribution_note` | `text` | NULL | `` |
 
 ## project_knowledge
 
@@ -2561,7 +2564,7 @@ PRIMARY KEY: `id`
 
 ## project_meeting_summaries
 
-行数 (概算): 245
+行数 (概算): 260
 PRIMARY KEY: `meeting_id`
 
 | # | column | type | nullable | default |
@@ -2816,7 +2819,7 @@ PRIMARY KEY: `signal_id`
 
 ## project_valuation_rounds
 
-行数 (概算): -1
+行数 (概算): 29
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -2838,6 +2841,9 @@ PRIMARY KEY: `id`
 | 15 | `security_type` | `text` | NULL | `` |
 | 16 | `investors_json` | `jsonb` | NULL | `` |
 | 17 | `status` | `text` | NULL | `'closed'::text` |
+| 18 | `amd_contribution_status` | `text` | NOT NULL | `'unreviewed'::text` |
+| 19 | `amd_contributed_yen` | `int8` | NULL | `` |
+| 20 | `amd_contribution_note` | `text` | NULL | `` |
 
 ## project_vc_relations
 
@@ -3207,7 +3213,7 @@ UNIQUE: `(key)` (constraint: `settings_key_key`)
 
 ## source_cache
 
-行数 (概算): 3,573
+行数 (概算): 3,829
 PRIMARY KEY: `id`
 UNIQUE: `(cache_id)` (constraint: `source_cache_cache_id_key`)
 UNIQUE: `(project_id,source,item_id)` (constraint: `source_cache_project_id_source_item_id_key`)
