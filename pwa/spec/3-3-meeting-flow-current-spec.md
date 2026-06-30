@@ -122,6 +122,7 @@ Notion connector の `oauth_token_invalid_grant` / `TRIGGER_REAUTHENTICATION` �
 - **カレンダー枠化**。prep 作業自体を「**＋ <PJコード> MTG準備: <タイトル>**」というタイトル先頭 `＋` 付きの動かせる Calendar event として まさカレンダーに作る。
 - **ドラッグ追従**。Calendar の `＋ prep枠` がまさによって移動されたら、その新しい日時を spawn 時刻として追従する (= 毎時 H-1 が走るたびに Calendar 状態を再確認)。
 - **対象 facilitator はまさだけ** (2026-06-22 まさ確定)。他メンバーの Calendar には prep 枠を作らない。
+- **Notion AI Meeting Notes context gate**。prep worker は固有名詞・略称・拾うべき論点の context を生成するだけでは完了扱いにしない。`pwa/scripts/l6_prep_notion_context_gate.cjs` で、当日の AI Meeting Notes page に `amd-os:notion-ai-context:{meeting_id}:{digest}` marker が入ったこと、または `not_found` / `write_failed` / `ambiguous` / `wrong_page` 等の完了状態を確認してから `ready` へ進む。
 
 ### 既存 H-1 automation との統合
 
@@ -204,6 +205,21 @@ Worker 出力 (= `project_meeting_summaries` の対象 row に upsert):
 | `prep_worker_status='ready'` | Phase 完遂時 |
 | `prep_worker_ready_at` | now |
 
+`prep_readiness_reasons.notion_ai_context` には Notion AI Meeting Notes 事前コンテキストの gate 結果を保存する。
+
+| status | 意味 | ready 判定 |
+|---|---|---|
+| `injected` | 今回 worker が marker 付き context を当日 AI Meeting Notes page へ insert し、再fetchで確認した | 可 |
+| `already_present` | marker がすでに当日 page にあった | 可 |
+| `not_found` | 当日 AI Meeting Notes page を特定できなかった。`prep_draft_md` に手動貼り付け用 context を残す | 可 |
+| `write_failed` | target page は見つかったが insert / 再fetch確認に失敗した。手動貼り付け用 context を残す | 可 |
+| `ambiguous` | 候補 page が複数あり決め切れない。過去 page へ誤挿入しない | 可 |
+| `wrong_page` | 既存 `prep_notion_page_id` が別日/別MTG page を指す。そこへは追記しない | 可 |
+| `skipped_after_meeting` | 会議開始後または開催済み summary があり、事前注入対象外 | 可 |
+| `needs_insert` | target page は見つかったが marker 未挿入。insert-only 後の再fetch確認が未完了 | **不可** |
+
+`needs_insert` のまま `prep_worker_status='ready'` にしてはいけない。worker は Notion MCP で append-only insert → page 再fetch → gate 再実行を行い、`injected` / `already_present` または完了扱いの失敗状態へ遷移させる。
+
 ### Readiness Score 計算
 
 | シグナル | 重み | 取り方 |
@@ -249,6 +265,7 @@ H-1 run の Phase P の最後に、その run で `prep_worker_status='ready'` �
 
 - **SKILL (本体)**: `pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md` (= 既存 H-1 SKILL に Phase P 追加)
 - **Worker SKILL (codex exec から読まれる prompt)**: `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md`
+- **Notion context ready gate**: `pwa/scripts/l6_prep_notion_context_gate.cjs` (`npm run test:l6-prep-notion-context-gate`)
 - **automation 登録**: `~/.codex/automations/amd-os-l6-meeting-flow/automation.toml` (`name = "H-1"` に変更済み、`prompt` に prep Phase 追記済み)
 
 L6 シリーズ (= meeting flow 関連) として既存 `amd-os-l6-meeting-extract` / `amd-os-l6-meeting-reviewer` と並ぶ。`amd-os-l6-meeting-prep-spawner/` と `amd-os-l6-meeting-prep-nudge/` は **昨夜 (2026-06-22) いったん作ったが H-1 統合に再設計したため削除**。

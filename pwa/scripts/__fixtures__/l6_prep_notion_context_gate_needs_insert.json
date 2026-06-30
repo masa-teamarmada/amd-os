@@ -1,0 +1,26 @@
+{
+  "now": "2026-07-01T09:00:00+09:00",
+  "meeting": {
+    "meeting_id": "upcoming:test-meeting-1",
+    "calendar_event_id": "calendar-test-1",
+    "title": "MTG KENQ teamARMADA",
+    "meeting_start_at": "2026-07-02T10:00:00+09:00",
+    "attendees": ["kenq@example.com", "masa@example.com"]
+  },
+  "context_md": "Context for exact insertion.",
+  "notionPages": [
+    {
+      "id": "notion-page-1",
+      "url": "https://notion.so/notion-page-1",
+      "title": "MTG KENQ teamARMADA",
+      "eventId": "calendar-test-1",
+      "date": "2026-07-02",
+      "has_meeting_notes": true,
+      "content_md": "<meeting-notes>\nAgenda is empty."
+    }
+  ],
+  "expected": {
+    "status": "needs_insert",
+    "ready_gate": "blocked_until_insert"
+  }
+}

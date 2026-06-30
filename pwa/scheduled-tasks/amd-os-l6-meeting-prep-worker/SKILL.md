@@ -23,6 +23,7 @@ description: AMD OS H-1 MTG Prep Worker prompt (= H-1 内 Phase P が `codex exe
 3. `pwa/manual/8-3-l2-extraction-routines-spec.md` の「H-1 内 Phase P」節 (= 既存 H-1 抽出との境界)
 4. `pwa/design/db_schema.md` の `project_meeting_summaries` (= **列名は想像で書かない、必ず grep**)
 5. `pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md` (= 既存 H-1 抽出と Phase P の関係)
+6. `pwa/scripts/l6_prep_notion_context_gate.cjs` (= Notion AI Meeting Notes 事前コンテキストが実際に入ったかの ready gate)
 
 ## 入力 (= H-1 Phase P から渡される引数)
 
@@ -135,6 +136,40 @@ Phase 5: 着地点 / 想定質問 / 持参物 draft 生成
 - 持参物は実際に存在する Drive ファイルだけを link する。架空の資料を書かない
 
 ═══════════════════════════════════════════════════
+Phase 5.5: Notion AI Meeting Notes 事前コンテキスト注入 gate
+═══════════════════════════════════════════════════
+
+目的は「固有名詞・略称・今日拾うべき論点」を Notion AI Meeting Notes のメモ欄へ先に入れ、当日の文字起こし/議事録生成で誤字を減らすこと。`prep_draft_md` に手動貼り付け用 context を残しただけでは完了扱いにしない。
+
+1. `prep_draft_md` から、AI Meeting Notes 用の短い `context_md` を作る:
+   - PJ固有名詞、相手名、会社名、略称、表記揺れしやすい語
+   - 今日の会議で拾うべき論点、前回からの持ち越し、確認したい決定事項
+   - raw Gmail / raw Slack / raw Notion / raw Drive 本文は入れない。要約済み・短文化済みの context だけにする
+2. Notion MCP で、対象 MTG の AI Meeting Notes page を探す:
+   - eventId / calendar_event_id exact を最優先
+   - fallback は title + meeting date + attendees
+   - 既存 `prep_notion_page_id` があっても、それが別日/別MTGなら使わない
+3. `/tmp/l6-prep-notion-context-gate-{meeting_id_hash}.json` を作り、以下の sanitized payload を入れる:
+   - `meeting`: `meeting_id`, `calendar_event_id`, `title`, `meeting_start_at`, `attendees`, `prep_notion_page_id`
+   - `notionPages`: 候補 page の `id`, `url`, `title`, `eventId`, `date`, `has_meeting_notes`, marker 確認に必要な短い本文だけ
+   - `context_md`: 1 の context
+   - `now`: 現在時刻
+4. `node pwa/scripts/l6_prep_notion_context_gate.cjs --fixture /tmp/l6-prep-notion-context-gate-{meeting_id_hash}.json --json` を実行する。
+5. gate 結果が `needs_insert` の場合:
+   - `insert_plan.page_id` に対して Notion MCP `insert_content` / append-only で marker + `context_md` を追記する
+   - 同じ page を再fetchし、`write_attempted=true` で gate payload を作り直して再実行する
+   - 再実行後も `needs_insert` のままなら `prep_worker_status='ready'` にしてはいけない。`write_failed` または `not_found` 等の完了状態に落とし、手動貼り付け用 context を `prep_draft_md` に残す
+6. `prep_readiness_reasons.notion_ai_context` に gate 結果を保存する:
+   - 正常: `injected` / `already_present`
+   - 完了扱いの失敗: `not_found` / `write_failed` / `ambiguous` / `wrong_page` / `skipped_after_meeting`
+   - 中間状態: `needs_insert` は保存して ready に進めない
+
+**ready 条件**:
+- `needs_insert` が残っている間は `prep_worker_status='ready'` 禁止
+- `prep_notion_page_id` が過去 page を指す場合は `wrong_page` として保存し、当日 page への自動挿入をやり直す。過去 page へ追記しない
+- Notion page が見つからない/書けない場合でも prep 全体は failure にしない。ただし `prep_readiness_reasons.notion_ai_context.status` と `prep_draft_md` の手動貼り付け用 context には必ず残す
+
+═══════════════════════════════════════════════════
 Phase 6: Drive 資料 draft 生成
 ═══════════════════════════════════════════════════
 
@@ -192,10 +227,20 @@ PATCH /rest/v1/project_meeting_summaries?meeting_id=eq.{meeting_id}
   "prep_draft_md": "...",
   "prep_drive_asset_id": "...",
   "prep_notion_page_id": "...",
+  "prep_readiness_reasons": {
+    "...": "...",
+    "notion_ai_context": {
+      "status": "injected|already_present|not_found|write_failed|ambiguous|wrong_page|skipped_after_meeting",
+      "marker": "amd-os:notion-ai-context:{meeting_id}:{digest}",
+      "target_page_id": "..."
+    }
+  },
   "prep_worker_status": "ready",
   "prep_worker_ready_at": "{now ISO}"
 }
 ```
+
+`prep_readiness_reasons.notion_ai_context.status='needs_insert'` のまま `ready` にするのは禁止。
 
 `prep_worker_session_id` / `prep_calendar_event_id` / `prep_worker_spawned_at` は Phase P 側で先に書かれているので touch しない。
 
@@ -217,6 +262,7 @@ Phase 10: session を待機状態で保持
 | 過去同シリーズ 0件 (= 完全初回 MTG) | 続行。Phase 2 は skip、Phase 5 で「過去同類MTG無し、相手側 Gmail と PJ context のみから推定」と明記 |
 | Drive 書き込み失敗 | `prep_drive_asset_id=null` のまま続行、Phase 5 の「持参物」に「Drive 書き込み失敗、手動で資料作成必要」 |
 | Notion 作成失敗 | `prep_notion_page_id=null` のまま続行、`prep_readiness_reasons.agenda.note` に「Notion未連携」 |
+| Notion AI Meeting Notes page に context 未挿入 | `needs_insert` の間は `ready` 禁止。insert-only 後に再fetchし、`injected` / `already_present` か、`not_found` / `write_failed` / `ambiguous` / `wrong_page` の完了状態を保存 |
 | MCP 呼び失敗 | リトライ 1回、再失敗で `prep_worker_status='failed'` + `reason='mcp_error:<which>'` |
 
 ## 禁止事項

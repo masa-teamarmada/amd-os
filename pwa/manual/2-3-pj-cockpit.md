@@ -211,6 +211,7 @@ MTG詳細モーダル内の「添付資料」は会議単位の `meeting_assets`
   - **session 状態 chip**: 「prep セッション準備中」 / 「ready (codex で開いてね)」 / 「起動失敗」
 - worker が生成した資料 draft は Drive `PJfolder/YYMMDD_MTG名_prep/` に置かれる (= 本資料フォルダではなく draft フォルダ)
 - worker が会議前の AI Meeting Notes page を見つけた場合は、PJ 固有名詞・略称・拾うべき論点を `AI Meeting Notes用コンテキスト` として先に入れ、MTGカードの `notion_url` から開けるようにする。見つからない場合は、worker が作成したアジェンダ草案入り Notion 議事録ページまたは手動貼り付け用 context を表示する
+- `AI Meeting Notes用コンテキスト` は「作った」だけでは完了扱いにしない。worker は当日の AI Meeting Notes page に marker 付きで入ったことを確認してから `ready` にする。見つからない、書けない、候補が曖昧、既存 `prep_notion_page_id` が過去 page を指す場合は、その状態を `prep_readiness_reasons.notion_ai_context` に残し、`prep_draft_md` に手動貼り付け用 context を残す
 
 #### prep session の第一声
 

@@ -21,6 +21,7 @@ GAS 153 `nav_meeting_pollRecentlyEndedEvents` + GAS 074 `nav_meeting_processOneE
 - **既存 narrative 保護**: 既存 row に 300字以上の `narrative_md` がある場合、新しい抽出結果が空 / 箇条書き優勢 / 既存より明らかに薄いなら upsert しない。`project_meeting_summaries` には DB trigger でも保護があるが、routine 側でも必ず判定する。
 - **H-1 reviewer hook**: 開催済みMTGを保存した後、別automation `amd-os-l6-meeting-reviewer` を走らせる。raw Notion/Gmail/Drive/Slack/Calendar と保存済みH-1要約を比べ、CEO/代表/VC/地元勢/PoC/PRなど重大な経営判断が薄く丸まった疑いがあれば `l2_coverage_gaps` + `l2_notifications(l2_kind='coverage_gap')` に出す。reviewer は H-1 row を自動上書きしない。
 - **直近予定カード**: H-1 は毎時動くため、毎回60日先まで見ない。終了済みMTGの議事録抽出と、現在時刻の前後24時間にある確定Calendar予定・Phase P準備だけを扱う。未来60日の予定MTGカード同期は M系の定期メンテに寄せる。
+- **prep Notion context gate**: prep worker は `prep_worker_status='ready'` にする前に `pwa/scripts/l6_prep_notion_context_gate.cjs` を実行する。Notion AI Meeting Notes page が見つかっているのに marker 未挿入の `needs_insert` が残っている場合、H-1 は ready と見なさない。
 - **MTGカード→Calendar一次防御**: MTGカード/議事録側に日時・場所・対面/オンライン・持参物・返信/宿題があるのに Calendar event が無い/薄いケースは、`POST /api/meeting-calendar/upsert-plan` の dry-run で upsert payload と duplicate match を作る。PWA route は Calendar を書かない。実writeに進む場合は別途 reviewed write bundle が必要。payload は `sendUpdates=none`、外部 attendees は空、metadata は `extendedProperties.private` に寄せる。
 - **TODO→tasks + owner nudge**: MTGから生まれた担当タスク / OS task / Gmail TODO / Slack TODO は、まず `POST /api/task-calendar/register-tasks` で `tasks` に自動登録し、担当者本人だけへ Slack DM nudge する。admin review queue は作らない。作業枠が必要な場合だけ `POST /api/task-calendar/schedule-plan` の dry-run で、担当メンバー + まさ の共通空き枠に `+<PJコード> <task>` 枠を作る候補にする。PWA route は Calendar を書かない。外部招待/メール送信はしない。
 - **次MTGカードの境界**: 議事録内に日時まで明確な次MTGがある場合だけ、PWA `POST /api/meeting-workflow/finalize` 経由で `source_kinds='upcoming'` を作る。`6月3週目以降` のような日程未確定候補は自動で確定予定にしない。必要なものは `upcoming_tentative` として「日程調整中MTG」に残す。
@@ -748,14 +749,14 @@ ended / frozen / `freeze_from_ym <= 当月ym` は対象外。recurring MTG は�
 codex exec --skip-git-repo-check --json \
   --output-last-message /tmp/amd-os-prep-{meeting_id_hash}-out.txt \
   -C /Users/masa/projects/AMD/amd-os \
-  "あなたは {MTG タイトル} 専属の prep worker。pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md を読んで、meeting_id={meeting_id} project_id={project_id} で実行。Phase 1-10 完遂後、対話可能な状態で待機する (= 自動で session を閉じない、まさが入ってきたら prep_draft_md を文脈に対話継続)。"
+  "あなたは {MTG タイトル} 専属の prep worker。pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md と pwa/scripts/l6_prep_notion_context_gate.cjs を読んで、meeting_id={meeting_id} project_id={project_id} で実行。Notion AI Meeting Notes context gate が needs_insert のままなら ready にしない。Phase 1-10 完遂後、対話可能な状態で待機する (= 自動で session を閉じない、まさが入ってきたら prep_draft_md を文脈に対話継続)。"
 ```
 
 - subprocess 起動。終了を await しない (= H-1 はすぐ次の MTG に進む)
 - ただし起動直後の最初の数秒は wait して `session id: <UUID>` 行が標準出力に出るのを catch
 - catch した UUID を `prep_worker_session_id` に保存
 - 同時に upsert: `prep_worker_status='preparing'` + `prep_worker_spawned_at=now()`
-- subprocess は background で走り続け、session 内の worker prompt が Phase 1-10 完遂すると `prep_worker_status='ready'` + `prep_worker_ready_at=now()` を自分で upsert する
+- subprocess は background で走り続ける。session 内の worker prompt は、Notion AI Meeting Notes context gate が `injected` / `already_present`、または完了扱いの失敗状態 (`not_found` / `write_failed` / `ambiguous` / `wrong_page` / `skipped_after_meeting`) になるまで `prep_worker_status='ready'` にしない。`needs_insert` のまま ready upsert するのは禁止。
 
 **D) ready 達成検知**
 

@@ -1,0 +1,36 @@
+{
+  "now": "2026-07-01T09:00:00+09:00",
+  "existing_prep_notion_page_id": "old-page",
+  "meeting": {
+    "meeting_id": "upcoming:test-meeting-3",
+    "calendar_event_id": "calendar-test-3",
+    "title": "MTG Ishihara AMD OS",
+    "meeting_start_at": "2026-07-02T14:00:00+09:00",
+    "attendees": ["masa@example.com"]
+  },
+  "context_md": "Context should not go to old page.",
+  "notionPages": [
+    {
+      "id": "old-page",
+      "url": "https://notion.so/old-page",
+      "title": "MTG Ishihara AMD OS",
+      "eventId": "different-calendar-event",
+      "date": "2026-06-17",
+      "has_meeting_notes": true,
+      "content_md": "<meeting-notes>\nOld meeting page."
+    },
+    {
+      "id": "notion-page-3",
+      "url": "https://notion.so/notion-page-3",
+      "title": "MTG Ishihara AMD OS",
+      "eventId": "calendar-test-3",
+      "date": "2026-07-02",
+      "has_meeting_notes": true,
+      "content_md": "<meeting-notes>\nCurrent meeting page."
+    }
+  ],
+  "expected": {
+    "status": "wrong_page",
+    "ready_gate": "complete_with_manual_context"
+  }
+}

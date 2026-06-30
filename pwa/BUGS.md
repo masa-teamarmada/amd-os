@@ -5,6 +5,19 @@
 
 ---
 
+### [meeting-prep] Notion AI Meeting Notes 用の固有名詞メモを作っただけで、当日 page への実挿入確認が無かった (2026-07-01)
+
+- **状態**: 対応中 (2026-07-01 — `l6_prep_notion_context_gate` を追加し、ready gate と spec/manual を同期。実 H-1 automation での本番挙動確認は次セッション)。
+- **症状**: KENQ などの prep で、固有名詞・略称・拾うべき論点の context は生成されていたが、Notion AI Meeting Notes の当日 page メモ欄に入ったことを確認できていなかった。結果として、「三井科学」「川尻さん」のような固有名詞誤字を事前に防ぐ仕組みとして機能しなかった。
+- **原因**: worker 手順が「context を作る」「見つからなければ手動貼り付け用に残す」と「当日の AI Meeting Notes page に marker 付きで実挿入され、再fetchで確認できた」を分けていなかった。さらに既存 `prep_notion_page_id` が過去 page を指す場合の `wrong_page` 判定が無く、誤った page に完了扱いが寄る可能性があった。
+- **対応内容**:
+  1. `pwa/scripts/l6_prep_notion_context_gate.cjs` を追加し、target page 判定、`needs_insert` ready禁止、append-only後の再fetch確認、`not_found` / `write_failed` / `ambiguous` / `wrong_page` / `skipped_after_meeting` 保存を deterministic に判定できるようにした。
+  2. prep worker prompt に Phase 5.5 を追加し、Notion MCP で insert-only 追記 → 再fetch → gate再実行を必須化した。
+  3. `pwa/spec/3-3-meeting-flow-current-spec.md`、`pwa/manual/2-3-pj-cockpit.md`、`pwa/manual/8-3-l2-extraction-routines-spec.md`、appendix changelog に同期した。
+- **再発防止策**: MTG prep の ready は、OS/Calendar/Gmail/Drive/Notion の文脈を読んだだけでなく、Notion AI Meeting Notes context の実挿入状態も `prep_readiness_reasons.notion_ai_context.status` で説明できる時だけ許可する。`needs_insert` は中間状態であり、ready 保存禁止。
+
+---
+
 ### [finance] `/management-score` の残高予測が当初計画線のまま伸び、実績乖離後の資金判断に使いにくかった (2026-06-29)
 
 - **状態**: クローズ (2026-06-29 — `v0.36.29` で実績接続見込みを追加。後続 deploy により current production は `v0.36.32` / `3d90054e...`、実装 commit `81520b2a` は main 履歴に残存)。

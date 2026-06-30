@@ -274,6 +274,12 @@ SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 
 - `prep_calendar_event_id` (= ＋ prep 枠の Calendar event ID、ドラッグ追従用)
 - `prep_worker_spawned_at` / `prep_worker_ready_at` / `prep_concierge_nudged_at`
 
+**Notion AI Meeting Notes context gate**:
+- worker は `pwa/scripts/l6_prep_notion_context_gate.cjs` で、当日の AI Meeting Notes page に `amd-os:notion-ai-context:{meeting_id}:{digest}` marker が入ったか確認する。
+- target page があり marker 未挿入の `needs_insert` は中間状態で、`prep_worker_status='ready'` にしてはいけない。Notion MCP で append-only insert → page 再fetch → gate 再実行まで行う。
+- `prep_readiness_reasons.notion_ai_context.status` は `injected` / `already_present` / `not_found` / `write_failed` / `ambiguous` / `wrong_page` / `skipped_after_meeting` のいずれかで保存する。`needs_insert` のまま ready 保存は禁止。
+- 既存 `prep_notion_page_id` が別日/別MTG page を指す場合は `wrong_page` として扱い、過去 page へ context を追記しない。
+
 **ドラッグ追従**: まさが `＋ prep 枠` を別日時に移動したら、次の H-1 run (毎時) で `prep_calendar_event_id` 経由で Calendar を read し、新しい start time を spawn 予定時刻として更新する。
 
 **Slack DM nudge** (= 同 H-1 run 内、Phase P 末尾):

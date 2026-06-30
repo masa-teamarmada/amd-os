@@ -1,0 +1,27 @@
+{
+  "now": "2026-07-01T09:00:00+09:00",
+  "write_attempted": true,
+  "meeting": {
+    "meeting_id": "upcoming:test-meeting-2",
+    "calendar_event_id": "calendar-test-2",
+    "title": "SX management meeting",
+    "meeting_start_at": "2026-07-02T11:00:00+09:00",
+    "attendees": ["masa@example.com"]
+  },
+  "context_md": "Context already inserted.",
+  "notionPages": [
+    {
+      "id": "notion-page-2",
+      "url": "https://notion.so/notion-page-2",
+      "title": "SX management meeting",
+      "eventId": "calendar-test-2",
+      "date": "2026-07-02",
+      "has_meeting_notes": true,
+      "content_md": "<meeting-notes>\namd-os:notion-ai-context:upcoming:test-meeting-2:bf454303c68d\nContext already inserted."
+    }
+  ],
+  "expected": {
+    "status": "injected",
+    "ready_gate": "complete"
+  }
+}
