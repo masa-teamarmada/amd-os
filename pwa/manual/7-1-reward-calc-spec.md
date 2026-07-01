@@ -33,8 +33,8 @@
 | `plannedShare` | MS 設計時点の予定担当比率 (= `milestone_responsibility.share`) |
 | `actualShare` | 当月の活動ログから算出・確認した実績配分 (= `milestone_monthly_contribution_allocations.actual_share`) |
 | `share` | 報酬計算に使う比率。`actualShare` が `auto_applied` / `confirmed` / `pm_override` なら実績配分、なければ `plannedShare` |
-| `earnedPt` | メンバーの当月獲得 pt = `Σ_ms (consumedPt × share)` |
-| `basePay` | `round(earnedPt × ptUnit)` (= ベース報酬) |
+| `earnedPt` | メンバーの当月獲得 pt 表示値 = `Σ_ms round(consumedPt × share, 2桁)`。円額計算の正本は丸め前の `earnedPtRaw` |
+| `basePay` | MSごとの `round(currCumEarnedPtRaw × ptUnit) - round(prevCumEarnedPtRaw × ptUnit)` の合算 (= ベース報酬) |
 | `bonusPt` | bonus ポイント (= **現状 0 固定**、 後述) |
 | `totalPay` | cap 前は `basePay + bonusPt`、 cap 後は実支払額 |
 | `grossDue` | `totalPay + carryIn` (= cap 前にメンバーが「本来もらえる額」) |
@@ -354,8 +354,12 @@ for each member in members:                      # earnedPt 降順
 
 ```text
 # キャップ・キャリーストックを通さず、その月消化分だけで確定
-earnedPt[member] = Σ_ms (consumedPt[ms] × share[member, ms])
-payYen[member]   = round(earnedPt[member] × ptUnit)      # = そのまま支払額扱い
+earnedPtRaw[ms, member] = consumedPt[ms] × share[member, ms]
+earnedPt[member]        = Σ_ms round(earnedPtRaw[ms, member], 2桁)  # pt 表示用
+payYen[member]          = Σ_ms (
+  round(currCumEarnedPtRaw[ms, member] × ptUnit)
+  - round(prevCumEarnedPtRaw[ms, member] × ptUnit)
+)
 ```
 
 `buildRewardSummary` (= capped) との違いは **月次キャップ・carryIn・stockYen を一切通さない**こと。 「その月に得た pt だけでその月の報酬が決まる」という素の定義そのもの。 capped 版は、 この uncapped の値に対して支払い上限と繰越平準化 (キャリーストック) をかけた**支払いスケジュール**にすぎない。

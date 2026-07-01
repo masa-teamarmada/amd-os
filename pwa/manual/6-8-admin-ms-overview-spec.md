@@ -4,7 +4,7 @@
 
 シーズン予実表 (`/admin/season-pl`) が「請求・原資・支払いが閉じているか」の **安全網** なのに対し、こちらは MS 設計そのものの **歪み検知**。実消化 (`milestone_monthly_progress`) は読まず、`plannedShare` ベースの `pt×単価` 年計を並べる。
 
-円額を出すときは、表示用に丸めた合計ptへ最後に単価を掛けない。**MSごとに `earnedPt = round(points × share, 2桁)` → `payYen = round(earnedPt × ptUnit)` → メンバー合算** の順で計算する。月次報酬側 (`reward-summary.ts`) は `round(累計earnedPt×ptUnit) - round(前月までの累計earnedPt×ptUnit)` で当月額を出し、シーズン合計が同じ MS単位の `pt×単価` に収束するようにする。
+円額を出すときは、表示用に丸めた合計ptへ最後に単価を掛けない。**MSごとに `earnedPtRaw = points × share` → `payYen = round(earnedPtRaw × ptUnit)` → メンバー合算** の順で計算する。`earnedPt = round(earnedPtRaw, 2桁)` は pt 表示専用で、円額計算には使わない。月次報酬側 (`reward-summary.ts`) は `round(累計earnedPtRaw×ptUnit) - round(前月までの累計earnedPtRaw×ptUnit)` で当月額を出し、シーズン合計が同じ MS 単位の raw `pt×単価` に収束するようにする。
 
 ---
 
@@ -53,7 +53,7 @@ active メンバー (`project_members.is_active=true`) について、シーズ�
 
 - 1 本の横バーに **本契約 (濃い緑 `#1D9E75`) + 別財布 (淡い紫 `#7F77DD`, 不透明度 0.65)** を積み上げ
 - 右に合計円額。別財布が乗っている人は `(本 ¥xx 別 ¥yy)` の内訳もインライン表示
-- 計算式: `Σ_ms round(round(effectivePoints × share, 2桁) × ptUnit)` を tag (cap_extra か否か) で regular / extra に積む
+- 計算式: `Σ_ms round(effectivePoints × share × ptUnit)` を tag (cap_extra か否か) で regular / extra に積む。pt 表示だけ `round(effectivePoints × share, 2桁)` に丸める
 
 ### ④ PJ ヘルス順での並び替え (2026-06-21 追加)
 
@@ -96,7 +96,7 @@ normal / routine / cap_extra の色サンプル + ラベルを横並びで表示
 
 API: `GET /api/admin/ms-overview` (`src/app/api/admin/ms-overview/route.ts`)
 
-**最重要原則: `/admin/ms-overview` の円額は `pt×単価` で表示してよいが、丸め単位を reward-summary と一致させる。** 具体的には、メンバーごとの合計ptへ最後に単価を掛けるのではなく、MSごとに `earnedPt = round(points × share, 2桁)`、`payYen = round(earnedPt × ptUnit)` を出してから合算する。月次支払側は累計円額の差分で当月額を出すため、シーズン合計では同じ MS単位の `pt×単価` に収束する (= 2026-07-01 修正方針)。
+**最重要原則: `/admin/ms-overview` の円額は `pt×単価` で表示してよいが、丸め単位を reward-summary と一致させる。** 具体的には、メンバーごとの合計ptへ最後に単価を掛けるのではなく、MSごとに `earnedPtRaw = points × share`、`payYen = round(earnedPtRaw × ptUnit)` を出してから合算する。`earnedPt = round(earnedPtRaw, 2桁)` は pt 表示専用で、円額計算には使わない。月次支払側は累計円額の差分で当月額を出すため、シーズン合計では同じ MS単位の raw `pt×単価` に収束する (= 2026-07-01 修正方針)。
 
 route の流れ:
 
@@ -104,7 +104,7 @@ route の流れ:
 2. 各 plan cycle について、`computeSeasonPl` で本契約/別財布の pt単価を確定する
 3. `value_milestones.is_active=true` かつ `goal_level ≠ monthly` を pt 順に並べる
 4. `cap_extra` 系 MS は MS 期間月数×10ptを effective points とし、`extraPoints` に積む
-5. メンバー別年計は `round(effectivePoints × share, 2桁) × ptUnit` を MS単位で丸め、tag で regular / extra 円額に振り分ける
+5. メンバー別年計は `effectivePoints × share × ptUnit` を MS単位で円丸めし、tag で regular / extra 円額に振り分ける。`round(effectivePoints × share, 2桁)` は pt 表示用だけに使う
 
 別財布判定の tag セット (season-pl と一致させる):
 `cap_extra` / `extra_contract` / `contract_extra` / `cap_outside` / `uncapped`
@@ -171,8 +171,9 @@ pt / tag / share を動かすたびに、API を叩かず **JS 側で即座に�
 ```text
 regularPts   = シーズン期間の月数 × 10pt
 extraPts     = Σ(cap_extra MS の期間月数 × 10pt)
-earnedPt     = round(effectivePoints × share[m], 2桁)
-memberYen[m] = Σ over MS of round(earnedPt × ptUnit)
+earnedPtRaw  = effectivePoints × share[m]
+earnedPt     = round(earnedPtRaw, 2桁)       # pt 表示用
+memberYen[m] = Σ over MS of round(earnedPtRaw × ptUnit)
 ```
 
 `total_points` の保存値は `regularPts + extraPts`。`cap_extra` の pt は保存時にも API 側で MS 期間×10ptへ正規化する。
@@ -223,6 +224,6 @@ MS Overview は **設計値そのものを見せる画面** だから。実消�
 ## 関連
 
 - MS Overview pt×単価計算: [`pwa/src/lib/admin/ms-overview-calc.ts`](../src/lib/admin/ms-overview-calc.ts) の `recomputeMsOverview`
-- 報酬計算正本: [`pwa/manual/7-1-reward-calc-spec.md`](7-1-reward-calc-spec.md) (別財布章、plannedShare/actualShare の関係)。MS Overview の円額も、MS単位の `earnedPt` / `payYen` 丸め順をここに揃える。
+- 報酬計算正本: [`pwa/manual/7-1-reward-calc-spec.md`](7-1-reward-calc-spec.md) (別財布章、plannedShare/actualShare の関係)。MS Overview の円額も、MS単位の raw `earnedPt × ptUnit` の丸め順をここに揃える。
 - 姉妹画面: [`pwa/manual/6-5-admin-payouts-reward-notice-spec.md`](6-5-admin-payouts-reward-notice-spec.md) §シーズン予実表 (= 実消化ベースの安全網)
 - 設計セッション起点: `pwa/design_log/sessions_2026-06.md` 2026-06-20 ZMP MS 設計再考セッション

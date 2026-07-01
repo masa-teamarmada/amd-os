@@ -7,7 +7,7 @@
  * メンバー別 年計 (pt×単価) を plannedShare ベースで返す。
  *
  * ここで出す円額は「表示用に丸めたpt×単価」ではなく、reward-summary.ts と同じく
- * MSごとに earnedPt を2桁丸め → 円丸め → メンバー合算する。
+ * MSごとの raw earnedPt × 単価を円丸めしてからメンバー合算する。
  */
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -153,7 +153,7 @@ async function loadPlanCycles(db: SupabaseClient): Promise<PlanCycleInput[]> {
 /**
  * 1 plan cycle 分の MS overview を組み立てる。
  * pt単価は season-pl の正本式で確定させ、メンバー年計は reward-summary と同じ
- * 「MS単位でpt丸め→円丸め→合算」の順で計算する。
+ * 「MS単位で raw pt × 単価 → 円丸め → 合算」の順で計算する。
  */
 async function buildOverviewForPlanCycle(
   db: SupabaseClient,
