@@ -14,9 +14,10 @@
 --   external 生成は `monthly_report_scope = 'internal_and_external'` の PJ のみ。
 --
 -- backfill (このファイルには含めない、apply 時に execute_sql で別途反映済):
---   p25 (KUTE), p21 (SX): internal_and_external
+--   p25 (KUTE), p21 (SX), p20 (CX NIMS): internal_and_external
 --   p00 (AMD), p07 (LST), p10 (SE), p19 (ZMP), p24 (CLG), p26 (VasculaX): internal_only
---   p20 (CX/NIMS), p06 (CTB): none
+--   p06 (CTB): none
+--   (2026-07-01 20 時 まさ追加確定で p20 CX を none → internal_and_external に変更)
 --
 -- 適用方法:
 --   python -X utf8 scripts/apply_ddl.py scripts/migrations/160_monthly_report_scope.sql

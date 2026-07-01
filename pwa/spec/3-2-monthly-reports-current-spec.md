@@ -208,8 +208,8 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 
 | scope | PJ | 動作 |
 |---|---|---|
-| `internal_and_external` | p25 KUTE / p21 SX | 内部保存版 + 対外提出版 + PDF 生成 |
+| `internal_and_external` | p25 KUTE / p21 SX / p20 CX (NIMS) | 内部保存版 + 対外提出版 + PDF 生成 |
 | `internal_only` | p00 AMD / p07 LST / p10 SE / p19 ZMP / p24 CLG / p26 VasculaX | 内部保存版のみ生成、対外版と PDF は skip |
-| `none` | p20 CX/NIMS / p06 CTB | routine 対象外 |
+| `none` | p06 CTB | routine 対象外 |
 
 scope は `/admin/projects` の「月報 scope」列でまさが編集可能。
