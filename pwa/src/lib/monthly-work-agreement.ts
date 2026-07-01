@@ -341,7 +341,12 @@ export async function buildMonthlyWorkAgreementBundle(
     };
   }
 
-  if (member.exclude_from_payout_notice === true) {
+  const adminPreviewExclusionReason =
+    member.exclude_from_payout_notice === true && member.is_admin === true
+      ? "admin/支払通知対象外メンバーのため、合意保存は不要です。確認用に内容だけ表示しています。"
+      : null;
+
+  if (member.exclude_from_payout_notice === true && member.is_admin !== true) {
     const snapshot: MonthlyWorkAgreementSnapshot = {
       schemaVersion: SNAPSHOT_VERSION,
       ym,
@@ -675,12 +680,13 @@ export async function buildMonthlyWorkAgreementBundle(
     revisionRequests = ((requestData ?? []) as Array<JsonRecord>).map(toRevisionRequest);
   }
 
-  const status: MonthlyAgreementStatus =
+  const agreementStatus: MonthlyAgreementStatus =
     latestAgreement?.status === "agreed" && latestAgreement.snapshotHash === currentHash
       ? "agreed"
       : latestAgreement?.status === "agreed"
         ? "needs_reagreement"
         : "pending";
+  const status: MonthlyAgreementStatus = adminPreviewExclusionReason ? "not_required" : agreementStatus;
 
   return {
     ym,
@@ -691,7 +697,8 @@ export async function buildMonthlyWorkAgreementBundle(
     latestAgreement,
     revisionRequests,
     tableReady,
-    canAgree: tableReady && (!params.viewerMemberId || params.viewerMemberId === params.memberId),
+    canAgree: !adminPreviewExclusionReason && tableReady && (!params.viewerMemberId || params.viewerMemberId === params.memberId),
+    exclusionReason: adminPreviewExclusionReason,
   };
 }
 

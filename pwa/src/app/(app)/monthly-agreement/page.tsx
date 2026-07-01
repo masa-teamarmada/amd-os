@@ -396,7 +396,7 @@ function ProjectAgreementCard({ project }: { project: MonthlyWorkAgreementProjec
         <div className="mt-4 overflow-hidden rounded-md border border-[#e5e5e7]">
           <div className="grid grid-cols-[minmax(0,1fr)_74px_92px_102px] bg-[#f5f5f7] px-3 py-2 text-[11px] font-semibold text-[#6e6e73]">
             <span>遂行対象</span>
-            <span className="text-right">share</span>
+            <span className="text-right">貢献率</span>
             <span className="text-right">到達目標</span>
             <span className="text-right">予定報酬</span>
           </div>

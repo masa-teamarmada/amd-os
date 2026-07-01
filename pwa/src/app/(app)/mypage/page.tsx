@@ -855,7 +855,9 @@ function MonthlyAgreementCard({ memberId }: { memberId: string }) {
           </div>
           <p className="mt-1 text-[12px] leading-relaxed text-[#86868b]">
             {isNotRequired
-              ? `${formatYm(bundle.ym)} / 月初合意は不要`
+              ? bundle.snapshot.totals.projectCount > 0
+                ? `${formatYm(bundle.ym)} / 確認用 ${bundle.snapshot.totals.projectCount} PJ / 予定 ${formatYen(bundle.snapshot.totals.expectedRewardYen)}`
+                : `${formatYm(bundle.ym)} / 月初合意は不要`
               : `${formatYm(bundle.ym)} / ${bundle.snapshot.totals.projectCount} PJ / 予定 ${formatYen(bundle.snapshot.totals.expectedRewardYen)}`}
           </p>
           {bundle.status === "needs_reagreement" && (

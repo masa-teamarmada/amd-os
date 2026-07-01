@@ -23,7 +23,7 @@ GAS 066 `A066_PayoutPaidRepo.js` の `admin_listPayoutYmCandidates` が、 admin
 4. 合計額 > 0 のメンバーを表示
 ```
 
-`exclude_from_payout_notice=true` のメンバー (= 例: りり / ID006 NIMS 無償出向、あき / ID029 無報酬稼働) は通知書発行を skip。月初合意も `not_required` とし、admin の合意一覧・合意保存・修正要望保存の対象から外す。
+`exclude_from_payout_notice=true` のメンバー (= 例: りり / ID006 NIMS 無償出向、あき / ID029 無報酬稼働) は通知書発行を skip。月初合意も `not_required` とし、admin の合意一覧・合意保存・修正要望保存の対象から外す。ただし `is_admin=true` の確認用アカウントは、合意保存は不要のまま `/monthly-agreement` にPJ/MS/貢献率/予定報酬のsnapshotを表示して、管理者が本人画面の見え方を確認できるようにする。
 
 ## 月次サイクル
 
