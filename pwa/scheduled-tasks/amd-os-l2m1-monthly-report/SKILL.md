@@ -22,7 +22,7 @@ description: AMD OS L2 M-1 月次業務報告書生成 routine (= 旧 amd-os-l1-
 - **最終日判定**: cron に「月の最終日」概念は無いため `28-31` で月末候補日に発火し、**Phase 0 で JST 判定**。今日が当月最終日でなければ本処理を一切実行せず 1 行 summary で即 exit (= 空振り run。月 3-4 回、daily run cap には全く触れない)。
 - **対象**: `projects.monthly_report_required = true AND status IN ('active','sales')` のみ。`monthly_report_required = false` の PJ は M-1 routine の対象外 (= 月次報告書納品義務がない PJ)。
 - **実行環境**: claude.ai/code/routines (cloud sandbox VM、Pro/Max/Team サブスク内)。**model = `claude-opus-4-8`、effort = `ultracode` (xhigh) を想定** (= 内部保存版が後続 L2/MS/XRL/Management Signal の入力になるため、品質を最優先)。
-- **入力**: AMD OS repo auto-clone + Connector (Supabase / Gmail / Drive / Calendar / Notion / Slack / `mcp__slack__slack_send_message` / `mcp__drive__*`)。
+- **入力**: AMD OS repo auto-clone + Connector (Supabase / Gmail / Drive / Calendar / Notion / Slack read / `mcp__drive__*`)。Slack **書き込み** は `scripts/send-eimi-slack.mjs` (= GAS webapp 経由の えいみ persona bot) のみ経由する (MCP `slack_send_message` を bot として叩く運用は禁止)。
 - **完了目標**: 03:00 開始 → **当日業務開始 (= まさが朝最初に画面を見る) までに全 PJ の PDF + Slack 完了通知が揃っている**こと。
 
 ## 内部保存版 / 対外提出版の境界 (= 必ず守る)
@@ -67,7 +67,7 @@ Phase 1: 対象 PJ 一覧取得
 
 ```
 GET /rest/v1/projects
-    ?select=project_id,project_name,client_name,status,project_category,slack_channel_id,drive_folder_id,report_emails,start_ym,monthly_report_required
+    ?select=project_id,project_name,client_name,status,project_category,drive_folder_id,report_emails,start_ym,monthly_report_required,work_content,report_local_alias,report_extra_allow_terms
     &monthly_report_required=eq.true
     &status=in.(active,sales)
     &order=project_id.asc
@@ -75,8 +75,8 @@ GET /rest/v1/projects
 
 - `monthly_report_required = true` AND `status IN ('active','sales')` のみ。
 - `project_category = 'ecosystem'` は M-1 対象外として明示 skip (= AMD Score 対象外 / 月次納品義務なし)。skip 件数は run summary に残す。
-- `slack_channel_id` 未設定の PJ は **Phase 2.1 / 2.7 Slack 通知 skip**、run summary の notifications[] に `slack_channel_missing` を積む。
 - `drive_folder_id` 未設定の PJ は **Phase 2.6 共有 Drive 配置 skip**、ローカル PDF だけ残し notifications[] に `drive_folder_missing` を積む。
+- Slack 通知は PJ に紐付かず「まさ DM に集約」する設計なので、`slack_channel_id` は Phase 1 の select に含めない (= PJ チャンネル通知は行わない、まさ 2026-06-30 確定)。
 
 ═══════════════════════════════════════════════════
 Phase 2: PJ ごとループ
@@ -84,27 +84,32 @@ Phase 2: PJ ごとループ
 
 各 PJ について、Phase 2.1 → 2.7 を**順に** inline 実行する。1 PJ の途中で失敗したら次 PJ に進む (= 全 PJ 完走優先)、失敗した PJ は Phase 3 summary で必ず通知する。
 
-### Phase 2.1: Slack 開始通知 (えいみ名義)
+### Phase 2.1: Slack 開始通知 (えいみ名義、まさ DM 宛)
 
-- 送信先: `projects.slack_channel_id`
-- 内容: 「月次報告書作り始めるよ！claude来て！」+ まさへの mention
+- **送信先: まさとの DM channel** (= `members.slack_id` where `code_name='まさ' AND is_admin=true`)
+  - PJ 側 `slack_channel_id` には投げない (= 内部運用通知、PJ 関係者には流さない)
+- **送信手段: `scripts/send-eimi-slack.mjs` 経由 (= GAS webapp で えいみ persona bot 発信)**
+  - MCP `slack_send_message` 直叩き禁止 (= えいみ人格を確実に維持するため)
 - まさ slack_id 解決:
   ```sql
   SELECT slack_id FROM members
   WHERE is_admin = true AND code_name = 'まさ' AND slack_id IS NOT NULL
   LIMIT 1;
   ```
-  - 取れなければ mention を `@まさ` の通常テキストにする (= mention 失敗で routine を止めない)
-- 送信は `mcp__833b660c-3bc6-43e7-923e-68e2bd3b6695__slack_send_message`:
-  - channel = PJ の `slack_channel_id`
-  - text 例:
-    ```
-    <@U_MASA_ID> 月次業務報告書、作り始めるよ！
-    PJ: <project_name> (<project_id>)
-    対象月: <YYYY-MM>
-    Claude Code routine `amd-os-l2m1-monthly-report` が走ってる。完了したらまた声かけるね。
-    ```
-- `slack_send_message` が失敗したら notes に `slack_start_notify_failed:<reason>` を残して **続行** (= 通知失敗で本処理を止めない)。
+  - 取れなければ notes に `masa_slack_id_unresolved` を残して **続行** (= 通知 skip で本処理を止めない)
+- 送信コマンド:
+  ```bash
+  node scripts/send-eimi-slack.mjs \
+    --channel "$MASA_SLACK_ID" \
+    --text "$(cat <<'EOF'
+  <@U_MASA_ID> 月次業務報告書、作り始めるよ！claude来て！
+  PJ: <project_name> (<project_id>)
+  対象月: <YYYY-MM>
+  Claude Code routine `amd-os-l2m1-monthly-report` が走ってる。できたらまた声かけるね。ばっちこい！
+  EOF
+  )"
+  ```
+- スクリプト失敗 (exit code != 0) したら notes に `slack_start_notify_failed:<reason>` を残して **続行**。
 
 ### Phase 2.2: 当月の関連 DB データ全 fetch
 
@@ -214,14 +219,15 @@ Phase 2: PJ ごとループ
 - `drive_folder_id` 未設定 PJ はローカルだけ残し、notifications に `drive_folder_missing` を積む。
 - PDF 生成自体が失敗 → notifications に `pdf_generation_failed:<project_id>:<reason>` を積み、Phase 2.7 Slack 完了通知は失敗版テンプレで送る。
 
-### Phase 2.7: Slack 完了通知 (えいみ名義)
+### Phase 2.7: Slack 完了通知 (えいみ名義、まさ DM 宛)
 
-- 送信先: `projects.slack_channel_id`
+- **送信先: まさとの DM channel** (Phase 2.1 で解決した `$MASA_SLACK_ID`)
+- **送信手段: `scripts/send-eimi-slack.mjs` 経由**
 - 内容: 完了 / hard_fail / pdf_failed の 3 パターン:
 
 成功時:
 ```
-<@U_MASA_ID> 月次業務報告書できたよ！レビューよろしく
+<@U_MASA_ID> できたー！月次業務報告書、内部版も対外版も PDF も全部いっちゃったよ！レビューよろしくー！
 PJ: <project_name> (<project_id>)
 対象月: <YYYY-MM>
 PDF: <共有 Drive ファイルリンク>
@@ -232,18 +238,18 @@ cockpit: <PWA cockpit URL = https://amd-os-pwa.vercel.app/project/<project_id>?y
 
 hard_fail 時:
 ```
-<@U_MASA_ID> 月次業務報告書、対外版で禁止語 hard_fail が出たから止めたよ
+<@U_MASA_ID> もおおおおお！対外版で禁止語出ちゃって PDF 止めたよ…
 PJ: <project_name> (<project_id>)
 対象月: <YYYY-MM>
 内部保存版: monthly_reports に保存済
 対外提出版: ビルド失敗 (= 禁止語: <detected_words>)
 cockpit: <PWA cockpit URL>
-strip_internal_jargon.py のルール再確認 or allow_list / プロンプトの修正お願い
+strip_internal_jargon.py のルール or allow_list / プロンプトの見直しお願い！
 ```
 
 pdf_failed 時:
 ```
-<@U_MASA_ID> 月次業務報告書、対外版 markdown はできたけど PDF 生成で落ちた
+<@U_MASA_ID> 対外版 markdown まではできたけど PDF 生成でコケたよ…
 PJ: <project_name> (<project_id>)
 対象月: <YYYY-MM>
 内部保存版: monthly_reports に保存済
@@ -253,7 +259,7 @@ PDF: 生成失敗 (= <reason>)
 cockpit: <PWA cockpit URL>
 ```
 
-- 送信は Phase 2.1 と同様 `mcp__833b660c-3bc6-43e7-923e-68e2bd3b6695__slack_send_message`。
+- 送信は Phase 2.1 と同様 `node scripts/send-eimi-slack.mjs --channel "$MASA_SLACK_ID" --text ...`。
 - Slack 送信に失敗しても次 PJ には進む (= 通知失敗で routine を止めない)。
 
 ═══════════════════════════════════════════════════
@@ -268,9 +274,9 @@ Phase 3: 全 PJ 完了後サマリー
    - 全 notifications[] 内訳
    - outbox path
 
-2. **#amd-os-runs チャンネルに run summary を投稿** (= `mcp__833b660c-3bc6-43e7-923e-68e2bd3b6695__slack_send_message`):
+2. **まさとの DM に run summary を投稿** (`node scripts/send-eimi-slack.mjs --channel "$MASA_SLACK_ID" --text ...`):
    ```
-   🗓️ L2 M-1 monthly_report routine 完了 (<YYYY-MM-DD HH:MM JST>)
+   <@U_MASA_ID> 🗓️ L2 M-1 monthly_report routine 完了 (<YYYY-MM-DD HH:MM JST>)
    対象月: <YYYY-MM>
    対象 PJ: <N> 件 (= projects.monthly_report_required=true AND status IN ('active','sales'))
    成功: <X> PJ (内部版 + 対外版 + PDF + Drive 配置)
@@ -283,7 +289,7 @@ Phase 3: 全 PJ 完了後サマリー
    notifications[] 全件: outbox path に保存済
    ```
    - 失敗 PJ が 1 件でもあれば必ず通知 (= 沈黙させない)。
-   - #amd-os-runs の channel ID は env / config から取得。未設定なら notes に `runs_channel_missing` を残し、まさに直接 DM (= `members.slack_id` where code_name='まさ' AND is_admin=true) で fallback。
+   - まさ slack_id 未解決の場合は notes に `masa_slack_id_unresolved` を残す。#amd-os-runs 等のチャンネル分岐運用は廃止 (= 全通知はまさ DM に集約、まさ 2026-06-30 確定)。
 
 3. run summary はログ末尾にも 1 行で出す:
    ```
@@ -305,7 +311,8 @@ Phase 3: 全 PJ 完了後サマリー
 - **対外版を `monthly_reports.final_content` に上書きする** (= 対外版は `monthly_reports_external` 専用)。
 - **`monthly_report_required = false` の PJ を勝手に対象に含める** (= 月次納品義務がない PJ に勝手に PDF を作って渡さない)。
 - **`project_category = 'ecosystem'` を対象にする** (= AMD Score 対象外 / 月次納品義務なし)。
-- **Slack 通知を Codex / ChatGPT / Slack connector の `send_message` 系 tool でまさ本人名義 / "ChatGPT 経由" 表示で送る** (= えいみ名義 = `mcp__833b660c-...__slack_send_message` を bot として叩く運用に固定)。
+- **Slack 通知を Codex / ChatGPT / MCP `slack_send_message` 等の別経路で送る** (= えいみ名義 = 必ず `scripts/send-eimi-slack.mjs` 経由で GAS webapp から発信、これ以外の経路禁止、まさ 2026-06-30 確定)。
+- **PJ の `slack_channel_id` に routine から通知を投げる** (= 全通知はまさ DM に集約、PJ チャンネルには流さない)。
 - **未来月 / 開始前 (`start_ym` より前) を backfill する**。
 - **進捗なし & ended/frozen PJ で内部版を生成する**。
 - **`source_cache` だけを見て「データなし」と決める** (= 5 生データ実体 + L2 snapshot を必ず横断確認)。
