@@ -47,6 +47,8 @@ export interface MonthlyWorkAgreementProject {
   allocationStatus: string;
   expectedRewardYen: number | null;
   payoutYen: number | null;
+  currentCyclePayoutYen: number | null;
+  paymentYm: string | null;
   stockYen: number | null;
   grossDueYen: number | null;
   carryInYen: number | null;

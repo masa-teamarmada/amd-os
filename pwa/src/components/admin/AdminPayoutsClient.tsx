@@ -5,6 +5,7 @@ import { CockpitMonthlyModal } from "@/components/cockpit/CockpitMonthlyModal";
 import { fetchCockpitFromSupabase, type CockpitData } from "@/lib/supabase-data";
 import { expandExtraRevenue, type ExtraRevenueSourceRow } from "@/lib/finance/extra-revenue";
 import { basePayoutCapYen, contractBackedClientAmount } from "@/lib/contract-money";
+import { effectivePaymentYmForCycle } from "@/lib/payment-groups";
 
 type Member = {
   member_id: string;
@@ -30,6 +31,10 @@ type Project = {
   fee_amount?: number | string | null;
   start_ym?: string | null;
   end_ym?: string | null;
+  freee_partner_id?: string | null;
+  payment_due_rule: string | null;
+  payment_due_day: number | null;
+  invoice_send_deadline_rule?: string | null;
 };
 
 type ProjectMember = {
@@ -105,6 +110,8 @@ type BillingCycle = {
   /** 別財布 (cap_extra) プールの当月支払上限。NULL=未設定 / 0=全額繰越 / N=上限 */
   extra_budget_yen?: number | null;
   invoice_ym: string | null;
+  invoice_issued_at?: string | null;
+  invoice_sent_at?: string | null;
   reward_summary_json: unknown;
   payout_notice_uploaded_at?: string | null;
   payment_confirmed_at?: string | null;
@@ -188,6 +195,7 @@ export type PayoutData = {
   cycles: BillingCycle[];
   forecastMonths?: string[];
   forecastCycles?: BillingCycle[];
+  forecastPaymentCycles?: BillingCycle[];
   forecastPlanCycles?: ForecastPlanCycle[];
   forecastCapped?: ForecastCappedRow[];
   payouts: MonthlyRewardPayout[];
@@ -731,13 +739,17 @@ function buildEntries(
   cycles: BillingCycle[],
   memberMap: Map<string, string>,
   excludedMemberIds: Set<string> = new Set(),
-  options: { useCompanyReserveYen?: boolean } = {}
+  options: { useCompanyReserveYen?: boolean; projectMap?: Map<string, Project> } = {}
 ): PayoutEntry[] {
   const entries: PayoutEntry[] = [];
 
   for (const cycle of cycles) {
     const cycleEntries: PayoutEntry[] = [];
     const summary = asRewardSummary(cycle.reward_summary_json);
+    const project = options.projectMap?.get(cycle.project_id);
+    const invoiceYm = options.projectMap
+      ? effectivePaymentYmForCycle(cycle, project)
+      : cycle.invoice_ym || cycle.ym;
     for (const member of summary?.members ?? []) {
       const memberId = memberIdOf(member);
       if (!memberId) continue;
@@ -785,7 +797,7 @@ function buildEntries(
       cycleEntries.push({
         projectId: cycle.project_id,
         ym: cycle.ym,
-        invoiceYm: cycle.invoice_ym || cycle.ym,
+        invoiceYm,
         memberId,
         memberName: memberNameOf(member) || memberMap.get(memberId) || memberId,
         earnedPt: numberValue(member.earnedPt ?? member.earned_pt),
@@ -880,12 +892,12 @@ function buildProjectMonthlyFinanceRows({
       carryOverYen: Math.round(numberValue(row.carryOverYen)),
     });
   }
-  const nonOfficerEntries = buildEntries(cycles, memberMap, new Set([...payoutExcludedMemberIds, ...officerMemberIds]));
+  const nonOfficerEntries = buildEntries(cycles, memberMap, new Set([...payoutExcludedMemberIds, ...officerMemberIds]), { projectMap });
   const officerEntries = buildEntries(
     cycles,
     memberMap,
     new Set([...memberMap.keys()].filter((memberId) => !officerMemberIds.has(memberId))),
-    { useCompanyReserveYen: true }
+    { useCompanyReserveYen: true, projectMap }
   );
   const nonOfficerByCycle = new Map<string, PayoutEntry[]>();
   const officerByCycle = new Map<string, PayoutEntry[]>();
@@ -1329,7 +1341,8 @@ function buildMemberMonthlyPayoutRows({
 
   for (const entry of entries) {
     if (entry.totalPay <= 0) continue;
-    if (!months.includes(entry.ym)) continue;
+    const paymentYm = entry.invoiceYm || entry.ym;
+    if (!months.includes(paymentYm)) continue;
     const row =
       rows.get(entry.memberId) ??
       {
@@ -1338,7 +1351,7 @@ function buildMemberMonthlyPayoutRows({
         totalPay: 0,
         cells: makeCells(entry.memberId, entry.memberName),
       };
-    const cell = row.cells.find((item) => item.ym === entry.ym);
+    const cell = row.cells.find((item) => item.ym === paymentYm);
     if (!cell) continue;
     const line: MemberMonthlyPayoutProjectLine = {
       ...entry,
@@ -1447,8 +1460,8 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
   }, [data?.members]);
 
   const expectedEntries = useMemo(
-    () => buildEntries(data?.cycles ?? [], memberMap, payoutExcludedMemberIds),
-    [data?.cycles, memberMap, payoutExcludedMemberIds]
+    () => buildEntries(data?.cycles ?? [], memberMap, payoutExcludedMemberIds, { projectMap }),
+    [data?.cycles, memberMap, payoutExcludedMemberIds, projectMap]
   );
 
   const officerReserveEntries = useMemo(
@@ -1456,9 +1469,9 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
       data?.cycles ?? [],
       memberMap,
       new Set((data?.members ?? []).filter((member) => !member.is_officer).map((member) => member.member_id)),
-      { useCompanyReserveYen: true }
+      { useCompanyReserveYen: true, projectMap }
     ),
-    [data?.cycles, data?.members, memberMap]
+    [data?.cycles, data?.members, memberMap, projectMap]
   );
 
   const cycleStats = useMemo(() => {
@@ -1686,8 +1699,8 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
 
   const forecastMonths = useMemo(() => data?.forecastMonths?.length ? data.forecastMonths : [ym], [data?.forecastMonths, ym]);
   const memberMonthlyPayoutEntries = useMemo(
-    () => buildEntries(data?.forecastCycles ?? [], memberMap, payoutExcludedMemberIds).filter((entry) => entry.totalPay > 0),
-    [data?.forecastCycles, memberMap, payoutExcludedMemberIds]
+    () => buildEntries(data?.forecastPaymentCycles ?? data?.forecastCycles ?? [], memberMap, payoutExcludedMemberIds, { projectMap }).filter((entry) => entry.totalPay > 0),
+    [data?.forecastPaymentCycles, data?.forecastCycles, memberMap, payoutExcludedMemberIds, projectMap]
   );
   const memberMonthlyPayoutRows = useMemo(
     () => buildMemberMonthlyPayoutRows({
@@ -3574,7 +3587,7 @@ function MemberMonthlyPayoutMatrix({
         <div className="min-w-0">
           <h2 className="text-[13px] font-semibold">先12か月 メンバー別支払予定</h2>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            非役員・支払対象メンバーへの外部支払を稼働月ごとに集計。
+            非役員・支払対象メンバーへの外部支払を支払月ごとに集計。
           </p>
         </div>
         <div className="ml-auto flex flex-wrap justify-end gap-2 text-[11px]">
@@ -3702,6 +3715,7 @@ function MemberMonthlyPayoutMatrix({
                     <td className="px-3 py-2">
                       <div className="font-medium">{entry.projectName}</div>
                       <div className="font-mono text-[10px] text-muted-foreground">{entry.projectId}</div>
+                      <div className="text-[10px] text-muted-foreground">稼働月 {fmtYm(entry.ym)} / 支払月 {fmtYm(entry.invoiceYm)}</div>
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums">
                       <div className="font-semibold">税抜 {fmtFlowYen(entry.totalPay)}</div>
