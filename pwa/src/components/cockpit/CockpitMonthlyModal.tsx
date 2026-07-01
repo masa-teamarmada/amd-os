@@ -702,33 +702,10 @@ function milestoneKeywords(title: string) {
   return Array.from(new Set([normalized, ...chunks])).filter((s) => s.length >= 2);
 }
 
-function extractReportSnippets(report: Report | null, title: string, includeFallback = false): string[] {
-  const text = report?.finalExcerpt || report?.draftExcerpt || "";
-  if (!text.trim()) return [];
-  const keywords = milestoneKeywords(title);
-  const paragraphs = text
-    .split(/\n{2,}|(?<=。)\s*/)
-    .map((p) => p.trim())
-    .filter(Boolean);
-  const matches: string[] = [];
-  for (const paragraph of paragraphs) {
-    const normalized = normalizeTextForMatch(paragraph);
-    const hitCount = keywords.filter((keyword) => normalized.includes(keyword)).length;
-    if (hitCount === 0) continue;
-    matches.push(paragraph.length > 220 ? `${paragraph.slice(0, 220)}...` : paragraph);
-    if (matches.length >= 2) break;
-  }
-  if (matches.length === 0 && includeFallback) {
-    const fallbackKeywords = ["コスト", "試算", "収益", "経済性", "ワークシート", "市場", "調査", "事業計画", "設立", "進捗", "資本政策", "poc"];
-    for (const paragraph of paragraphs) {
-      const normalized = normalizeTextForMatch(paragraph);
-      if (!fallbackKeywords.some((keyword) => normalized.includes(normalizeTextForMatch(keyword)))) continue;
-      matches.push(paragraph.length > 220 ? `${paragraph.slice(0, 220)}...` : paragraph);
-      if (matches.length >= 2) break;
-    }
-  }
-  return matches;
-}
+// extractReportSnippets は正本仕様外 (design/cockpit.md L105 / manual/2-3-pj-cockpit.md L111)。
+// MS 展開「現状」欄は `milestone_monthly_progress.note` + `member_ms_activities` + `member_activities`
+// の 3 ソースが正本で、monthly_reports.final_content からのキーワード抽出はしない。
+// (2026-07-01 まさ確定、KUTE 準拠新プロンプト導入後の table 大量出力で MS カードが破綻したため削除)
 
 // シンプルなMarkdownレンダラー（react-markdown不要）
 function parseBold(text: string): React.ReactNode {
@@ -1700,7 +1677,6 @@ function RewardTab({
               progressNote={progressDetailMap.get(ms.milestoneId)?.note || null}
               activities={activityMap.get(ms.milestoneId) || []}
               memberActivities={memberActivityMap.get(ms.milestoneId) || []}
-              reportSnippets={extractReportSnippets(report, ms.title, Math.max(0, (ymProgress.get(ms.milestoneId) || 0) - (prevProgress.get(ms.milestoneId) || 0)) > 0)}
               prevPct={prevProgress.get(ms.milestoneId) || 0}
               schedule={msSchedules[ms.milestoneId]}
               expectedPct={msSchedules[ms.milestoneId]?.expectedCumPct ?? expectedPct}
@@ -1765,8 +1741,7 @@ function RewardTab({
                   progressNote={progressDetailMap.get(ms.milestoneId)?.note || null}
                   activities={activityMap.get(ms.milestoneId) || []}
                   memberActivities={memberActivityMap.get(ms.milestoneId) || []}
-                  reportSnippets={extractReportSnippets(report, ms.title, Math.max(0, (ymProgress.get(ms.milestoneId) || 0) - (prevProgress.get(ms.milestoneId) || 0)) > 0)}
-                  prevPct={prevProgress.get(ms.milestoneId) || 0}
+                      prevPct={prevProgress.get(ms.milestoneId) || 0}
                   schedule={msSchedules[ms.milestoneId]}
                   expectedPct={msSchedules[ms.milestoneId]?.expectedCumPct ?? expectedPct}
                   monthlyDeltaPct={Math.max(0, (ymProgress.get(ms.milestoneId) || 0) - (prevProgress.get(ms.milestoneId) || 0))}
@@ -1899,7 +1874,7 @@ function RewardTab({
 
 function MsBarRow({
   ms, pct, resps, est, memberMap, subItems,
-  progressNote, activities, memberActivities, reportSnippets, prevPct, schedule, expectedPct, monthlyDeltaPct,
+  progressNote, activities, memberActivities, prevPct, schedule, expectedPct, monthlyDeltaPct,
   revisions, revisionLoading, revisionTarget, revisionText, revisionMsg,
   isManualEditing, manualEditPct, isModifying, modifyPct, modifyReason, actionLoading,
   onManualEdit, onManualEditCancel, onManualEditPctChange, onManualSave,
@@ -1915,7 +1890,6 @@ function MsBarRow({
   progressNote?: string | null;
   activities: MemberMsActivityInfo[];
   memberActivities: MemberActivityInfo[];
-  reportSnippets: string[];
   prevPct: number;
   schedule?: MsScheduleInfo;
   expectedPct: number | null;
@@ -1963,8 +1937,7 @@ function MsBarRow({
   ) : null;
   const hasWork = !!progressNote?.trim()
     || activities.some((a) => a.narrative?.trim() || a.learnedAddendum?.trim())
-    || memberActivities.some((a) => a.contentPreview?.trim() || a.title?.trim())
-    || reportSnippets.length > 0;
+    || memberActivities.some((a) => a.contentPreview?.trim() || a.title?.trim());
   const pendingRevision = revisions.find((r) => r.status === "pending");
   const isRevisionEditing = revisionTarget === ms.milestoneId;
   const scheduleLabel = schedule
@@ -2219,11 +2192,6 @@ function MsBarRow({
                     </p>
                   );
                 })}
-                {reportSnippets.map((snippet, index) => (
-                  <p key={`report_${index}`} className="text-[11px] text-muted-foreground leading-snug whitespace-pre-wrap">
-                    <span className="font-medium text-slate-600">月次レポート: </span>{snippet}
-                  </p>
-                ))}
               </div>
             ) : (
               <p className="text-[11px] text-muted-foreground/70">
