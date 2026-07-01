@@ -336,18 +336,7 @@ function ProjectAgreementCard({ project, ym }: { project: MonthlyWorkAgreementPr
   const hasPayout = currentMonthPayoutYen > 0;
   const hasScheduledPayout = scheduledPayoutYen != null && scheduledPayoutYen > 0;
   const currentCyclePaysThisMonth = hasScheduledPayout && project.paymentYm === ym;
-  const headlineLabel = hasScheduledPayout
-    ? currentCyclePaysThisMonth
-      ? "今月支払"
-      : "支払予定"
-    : hasPayout
-      ? "今月支払"
-      : "予定報酬";
-  const headlineValue = hasScheduledPayout
-    ? scheduledPayoutYen
-    : hasPayout
-      ? currentMonthPayoutYen
-      : project.expectedRewardYen;
+  const headlineValue = project.expectedRewardYen ?? null;
   const carryInYen = project.carryInYen ?? 0;
   const currentDueYen = project.grossDueYen == null ? null : Math.max(0, project.grossDueYen - carryInYen);
   const showStockBreakdown =
@@ -366,14 +355,14 @@ function ProjectAgreementCard({ project, ym }: { project: MonthlyWorkAgreementPr
         <div className={`rounded-md border px-3 py-2 text-right ${hasStock ? "border-amber-200 bg-amber-50" : "border-transparent bg-[#f5f5f7]"}`}>
           <div className="flex items-center justify-end gap-1 text-[11px] font-semibold text-[#86868b]">
             <CircleDollarSign className="size-3.5" />
-            {headlineLabel}
+            予定報酬
           </div>
           <p className="mt-1 text-[20px] font-semibold tabular-nums text-[#1d1d1f]">
             {formatYen(headlineValue)}
           </p>
           {hasScheduledPayout && project.paymentYm ? (
             <p className="mt-1 text-[10px] tabular-nums text-[#86868b]">
-              この稼働月ぶんは {formatYm(project.paymentYm)} 支払{currentCyclePaysThisMonth ? "" : "予定"}
+              この稼働月ぶんの支払予定 {formatYm(project.paymentYm)} {formatYen(scheduledPayoutYen)}
             </p>
           ) : null}
           {hasPayout && !currentCyclePaysThisMonth ? (
