@@ -8,12 +8,15 @@ description: AMD OS L2 M-1 月次業務報告書生成 routine (= 旧 amd-os-l1-
 > **これは何か**: 月末最終日に発火し、`projects.monthly_report_scope IN ('internal_only','internal_and_external')` な active/sales PJ ごとに**内部保存版 + 対外提出版 (scope に応じて片方または両方)** の月次業務報告書を Opus 4.8 + ultracode で 1 ターンで作り切り、PDF を共有 Drive に配置するまでを 1 routine に束ねたもの。
 > 2026-07-01 まさ確定の現行設計。旧 `amd-os-l1-monthly-report-extract` を `git mv` リネーム + 内部/対外 2 段化 + PDF 配送 + Slack 通知統合。**scope 判定は monthly_report_scope 列を正本にする** (`monthly_report_required` bool は backward compat のみ残す)。
 
-## 🚨 登録事故の current truth (2026-06-04 継承)
+## 🚨 登録・実行環境の current truth (2026-07-01 まさ確定で書き直し)
 
 - このリポの SKILL は素材であって、claude routine 登録済みの証拠ではない。
-- **claude routine** = `claude.ai/code/routines` に存在し `ACTIVE` / `next run` / `last run` を確認できるものだけ。
-- claude routine (cloud) はマシン非依存。Mac を閉じても・どのマシンが OFF でも Anthropic クラウドで発火する。
-- 旧 Mac Local scheduled task (`~/.claude/scheduled-tasks/`) はマシン依存で全 disabled・未実行だった。これに戻さない。
+- **登録先 = まさの mac local Claude Code アプリの Scheduled Tasks** (`~/.claude/scheduled-tasks/<taskId>/SKILL.md`)。MCP `create_scheduled_task` で作る。
+- **実行環境 = まさの mac local**。Claude Code アプリが open されているときに cron / fireAt に従って発火する。**Anthropic クラウド sandbox で自動発火する仕組みではない** (これは 2026-07-01 のテスト実走で判明、それまでの「cloud sandbox VM で発火」記述は誤り)。
+- **前提条件**: まさの mac は 24 時間常時起動 + Claude Code アプリ常時 open (= 月末最終日 03:00 JST でも走る)。mac がスリープ / アプリが閉じている時に発火時刻を過ぎた場合、次回アプリ起動時に走る (= 遅延発火、月末実行はズレる可能性あり)。
+- 実行時に読める env: `.env.local` / `.env` / `~/.zshrc` などの mac local 設定。`SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `NEXT_PUBLIC_GAS_WEBAPP_URL` 等は `/Users/masa/projects/AMD/amd-os/pwa/.env.local` に存在。
+- repo は `/Users/masa/projects/AMD/amd-os` に存在する前提 (auto-clone は不要)。
+- 過去記述の「claude routine (cloud) はマシン非依存」「Anthropic クラウド sandbox VM で発火」は誤り。上書きしたので次回以降は本節を正本とする。
 
 ## 設計の要点 (2026-06-30 まさ確定)
 
@@ -24,8 +27,8 @@ description: AMD OS L2 M-1 月次業務報告書生成 routine (= 旧 amd-os-l1-
   - `scope = 'internal_only'`: 内部保存版 (`monthly_reports.final_content`) のみ生成、対外版・PDF・Drive 配置は skip。**AMD (p00) / LST (p07) / SE (p10) / ZMP (p19) / CLG (p24) / VasculaX (p26)** が該当 (2026-07-01 まさ確定)。
   - `scope = 'internal_and_external'`: 内部保存版 → 対外提出版 → PDF → Drive 配置まで実行。**KUTE (p25) / SX (p21) / CX (p20 NIMS)** が該当 (2026-07-01 まさ確定)。
   - `scope = 'none'`: **CTB (p06)** が該当 (2026-07-01 まさ確定、routine 対象外)。
-- **実行環境**: claude.ai/code/routines (cloud sandbox VM、Pro/Max/Team サブスク内)。**model = `claude-opus-4-8`、effort = `ultracode` (xhigh) を想定** (= 内部保存版が後続 L2/MS/XRL/Management Signal の入力になるため、品質を最優先)。
-- **入力**: AMD OS repo auto-clone + Connector (Supabase / Gmail / Drive / Calendar / Notion / Slack read / `mcp__drive__*`)。Slack **書き込み** は `scripts/send-eimi-slack.mjs` (= GAS webapp 経由の えいみ persona bot) のみ経由する (MCP `slack_send_message` を bot として叩く運用は禁止)。
+- **実行環境**: **まさの mac local Claude Code アプリ内** (アプリ open 時に発火)。**model = `claude-opus-4-8`、effort = `ultracode` (xhigh) を想定** (= 内部保存版が後続 L2/MS/XRL/Management Signal の入力になるため、品質を最優先)。定額サブスク枠内で消化。
+- **入力**: AMD OS repo (`/Users/masa/projects/AMD/amd-os`) を local で参照 + Connector (Supabase / Gmail / Drive / Calendar / Notion / Slack read / `mcp__drive__*`)。Slack **書き込み** は `scripts/send-eimi-slack.mjs` (= GAS webapp 経由の えいみ persona bot) のみ経由する (MCP `slack_send_message` を bot として叩く運用は禁止)。env は `/Users/masa/projects/AMD/amd-os/pwa/.env.local` を参照。
 - **完了目標**: 03:00 開始 → **当日業務開始 (= まさが朝最初に画面を見る) までに全 PJ の PDF + Slack 完了通知が揃っている**こと。
 
 ## 内部保存版 / 対外提出版の境界 (= 必ず守る)
