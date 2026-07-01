@@ -3566,3 +3566,10 @@
 - **原因**: 支払通知書の stale 判定が実質的に金額中心で、`members.updated_at` を source profile の freshness として見ていなかった。加えて、`PDF確認` / `preview_notice_email` / `send_notice_email` の周辺に古い「確認・送付準備でPDFを再生成する」経路が残っていたため、生成入口が複数化し、どの時点の member snapshot が使われるか分かりにくくなっていた。`/admin/members` の登録番号保存・正規化もAPI境界で統一されていなかった。
 - **対応内容**: PDFラベルを `登録番号` に統一し、members 保存は admin API 経由へ寄せた。登録番号は保存時・PDF生成時に全角T / T風文字 / 空白 / ハイフンを正規化する。支払通知書生成時は金額差分に関係なく最新DBの members 情報を読み直し、未送付PDFは `members.updated_at > last_generated_at` なら stale と判定する。`PDF確認` は保存済み正式PDFを開くだけにし、`送付` / `preview_notice_email` / `send_notice_email` からPDF生成・支払データ同期を撤去した。送付前は保存済み正式PDFが最新DBと一致し、確認用PDFではなく、未送付であることだけを照合する。
 - **再発防止策**: PDF生成入口は `支払通知書発行` / `強制再発行` に限定する。`確認` と名の付く操作は read-only として扱い、生成・同期を入れない。PDFのfreshnessは時間ではなく、latest DB source (`members.updated_at` と支払金額) との一致で判定する。生成フローを変更するときは、UIボタン・API action・GAS送信直前・manual/spec/test anchor を全入口でgrepし、旧経路が残っていないか確認する。
+
+## [PWA/DB] 手動cockpit backfillでschema/check constraintとPRS実装式を見ずに初回writeが失敗した (2026-07-01)
+
+- **症状**: JC株主報告会/5月末試算表の手動backfillで、初回のPostgREST writeが複数回 400 で止まった。具体的には `project_documents.drive_web_url` 不存在、`project_strategy_signals.scope_key` generated column、`polarity` check constraint、`project_xrl_evidence.axis` check constraint に引っかかった。さらに最初のPRS改定履歴で独自の単純積概算を使い、実装式より一桁大きい値を一度書いた後に修正した。
+- **原因**: `pwa/design/db_schema.md` と migration の constraint を最初に全部確認せず、過去記憶/類推で列名・許容値を組んだ。PRSも `pwa/src/lib/amd-score.ts` の `calculatePrsScore` / `computeFrlCES` ではなく、簡易式で旧/新スコアを出してしまった。
+- **対応内容**: write script を修正し、実列名 `web_view_link` / `file_name`、generated column除外、`polarity in (breakthrough, forward, pivot, risk)`、`axis in (trl, brl, grl, srl, hrl)` に合わせた。PRS概算関数を実装式に合わせ、`amd_score_inputs.notes` と `amd_score_revisions` を `1389 -> 5294` に上書き修正。反映後に `jc_db_read.mjs` で documents/signals/events/PL/XRL/evidence/score/revision を読み直して確認した。
+- **再発防止策**: 手動backfillでも、書き込み前に `pwa/design/db_schema.md` と該当 migration / UI実装の実コードを grep する。PostgREST generated column と check constraint は特に先に見る。スコア系の履歴を書き込むときは、必ず表示面と同じ実装関数または同等ロジックで計算し、独自の近似式を使わない。途中で誤ったrevision値を書いた場合は、最終報告前に同じ行を正しい値で上書きし、読み直しで確認する。

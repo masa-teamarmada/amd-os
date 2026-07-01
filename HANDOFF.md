@@ -2,77 +2,74 @@
 
 Last updated: 2026-07-01 JST
 Target: `/Users/masa/projects/AMD/amd-os`
-Topic: MTG prep Notion AI Meeting Notes context gate
+Topic: JC shareholder materials cockpit backfill + PRS update
 
 ## Latest Session Summary
 
-See `pwa/design_log/sessions_2026-07.md` section "2026-07-01 — MTG prep Notion AI Meeting Notes context gate".
+See `pwa/design_log/sessions_2026-07.md` section "2026-07-01 — JC shareholder materials cockpit backfill + PRS update".
 
-- The previous uncommitted Notion context-gate work was not present on current `main`, so this session restored it onto current `origin/main`.
-- Added deterministic guard `pwa/scripts/l6_prep_notion_context_gate.cjs`.
-- Added fixtures for `needs_insert`, `injected`, and `wrong_page`.
-- Updated prep worker / H-1 extract prompt / spec / manual so `needs_insert` cannot become `prep_worker_status='ready'`.
-- Added BUGS entry for the KENQ-style failure mode: context was generated but not verified as inserted into the actual Notion AI Meeting Notes page.
+- Read the shared Drive folder `p09_jc/総会関連資料`. New files were `2026年6月-株主報告会.pdf` and `月次決算（5月末締）.pdf`; no exact `定時株主総会` file was found.
+- Registered both PDFs in `project_documents` with Drive links.
+- Added/updated JC cockpit data: 4 `project_strategy_signals`, 4 `project_events`, 202605 `project_pl_monthly`, 1 `project_xrl_log`, and 5 `project_xrl_evidence` rows.
+- Updated JC PRS primary input for 2026-07-01: old score 1,389 -> new score 5,294. Main inputs: `P=6`, `R_net=4`, `mu_i=9`, `TRL=6.5`, `BRL=8`, `GRL=6`, `SRL=7`, `HRL=6`, `FRL=5.5`, `FRL_cap=4.5`.
+- Enriched the 2026-06 A preferred round with investor breakdown, and changed its AMD contribution status from provisional `full` to `unreviewed`.
+- Turned on `projects.governance_watch_shareholder_meetings` for JC.
+- No participant contact details / raw personal data were written to durable artifacts.
 
 ## Repo State
 
 - canonical branch: `main` / `origin/main`
-- starting clean HEAD for this handoff lane: `38f60767 Count dashboard funding by AMD contribution`
-- target bundle files:
-  - `pwa/scripts/l6_prep_notion_context_gate.cjs`
-  - `pwa/scripts/__fixtures__/l6_prep_notion_context_gate_*.json`
-  - `pwa/package.json`
-  - `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md`
-  - `pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md`
-  - `pwa/spec/3-3-meeting-flow-current-spec.md`
-  - `pwa/manual/2-3-pj-cockpit.md`
-  - `pwa/manual/8-3-l2-extraction-routines-spec.md`
-  - `pwa/manual/9-3-appendix-changelog.md`
-  - `pwa/spec/6-1-appendix-changelog.md`
-  - `pwa/BUGS.md`
-  - `pwa/design_log/sessions_2026-07.md`
-  - `HANDOFF.md`
-  - `SESSION_MIGRATION_PROMPT.md`
+- HEAD observed during handoff: `bae00be4`
+- `git log --branches --not --remotes --oneline`: empty when checked during handoff.
+- This JC data task did not change app code or DB schema.
+- Pre-existing unrelated dirty state was present before this handoff write and was not touched:
+  - tracked: `gas/074_MeetingSummaryRepo.js`, `gas/160_MeetingAiBackfill.js`, `pwa/design/L2_DATA.md`, `pwa/design/meeting_summaries.md`, `pwa/manual/3-2-data-and-extraction.md`, `pwa/manual/8-3-l2-extraction-routines-spec.md`, `pwa/package.json`, `pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md`, `pwa/spec/3-1-l2-data-extraction-current-spec.md`
+  - untracked: `pwa/scripts/l6_notion_meeting_property_guard.cjs`, `pwa/scripts/__fixtures__/l6_notion_property_guard_exact_root.json`, `pwa/scripts/__fixtures__/l6_notion_property_guard_missing_root.json`
+- Handoff/doc files changed by this closeout: `HANDOFF.md`, `SESSION_MIGRATION_PROMPT.md`, `pwa/design_log/sessions_2026-07.md`, `pwa/BUGS.md`, plus repo-external `/Users/masa/projects/knowledge/jc.md`.
 
 ## Verification Run
 
 ```bash
-npm --prefix pwa run test:l6-prep-notion-context-gate
-git diff --check
+node /Users/masa/Documents/Codex/2026-07-01/new-chat/work/jc_db_apply.mjs
+node /Users/masa/Documents/Codex/2026-07-01/new-chat/work/jc_db_read.mjs > /Users/masa/Documents/Codex/2026-07-01/new-chat/work/jc_db_after.json
+git status -s
 ```
 
-Passed locally before handoff write.
+Observed DB counts after write: documents 2, strategy signals 4, events 5 total for JC, monthly PL 1, score rows 12, XRL logs 6, XRL evidence 5. Latest PRS revision row is `old_value=1389`, `new_value=5294`, `evaluated_at=2026-07-01`.
 
 ## Design Records
 
-- Canonical spec: `pwa/spec/3-3-meeting-flow-current-spec.md`
-- User/dev manual: `pwa/manual/2-3-pj-cockpit.md`, `pwa/manual/8-3-l2-extraction-routines-spec.md`
-- Changelogs: `pwa/manual/9-3-appendix-changelog.md`, `pwa/spec/6-1-appendix-changelog.md`
+- PRS spec: `pwa/spec/4-2-amd-score-current-spec.md`
+- Cockpit documents/signals spec: `pwa/spec/3-8-cockpit-current-spec.md`, `pwa/design/project_strategy_signals.md`
+- DB schema reference: `pwa/design/db_schema.md`
 - Bug/lesson: `pwa/BUGS.md`
 - Session log: `pwa/design_log/sessions_2026-07.md`
+- Project long-term note: `/Users/masa/projects/knowledge/jc.md`
+- Output memo: `/Users/masa/Documents/Codex/2026-07-01/new-chat/outputs/jc_shareholder_materials_check_2026-07-01.md`
 
 ## Unresolved Tasks
 
-1. Live H-1 automation verification is still needed. This session tested the deterministic gate with fixtures only; it did not run an actual Notion MCP insert on a live meeting page.
-2. Broader Phase P text still needs a dedicated reconciliation pass: current files contain older `codex exec` / auto Slack DM wording, while the latest user expectation is visible Codex thread, no unauthorized auto DM, and Eimi-name routing only when explicitly requested.
-3. After commit/push/deploy, verify the deployed/current repo still contains `npm run test:l6-prep-notion-context-gate` and the automation prompt references `l6_prep_notion_context_gate.cjs`.
+1. JC request itself: none. The cockpit backfill and PRS update are done.
+2. JC optional review: A preferred round AMD contribution is now `unreviewed`; if needed, later review whether any part should be `partial` after checking contribution evidence. AA/AAA investment contracts remain outside this session.
+3. Carry-forward from previous H-1 handoff: live H-1 automation verification and Phase P spawn/notification wording reconciliation are still unresolved and were not touched in this JC session.
+4. Carry-forward dirty tree: the unrelated H-1/Notion property guard bundle listed above needs its own owner/closeout.
 
 ## First Next Action
 
 1. Read this `HANDOFF.md`.
-2. Then read `pwa/spec/3-3-meeting-flow-current-spec.md`.
+2. Then read `pwa/spec/4-2-amd-score-current-spec.md` and `pwa/spec/3-8-cockpit-current-spec.md`.
 3. Then read `pwa/BUGS.md`.
-4. Run:
+4. If continuing JC, inspect current DB truth first rather than re-running extraction:
 
 ```bash
 cd /Users/masa/projects/AMD/amd-os
 git status -sb --untracked-files=all
-npm --prefix pwa run test:l6-prep-notion-context-gate
-rg -n "l6_prep_notion_context_gate|needs_insert|prep_concierge|codex exec|create_thread" pwa/scheduled-tasks pwa/spec/3-3-meeting-flow-current-spec.md pwa/manual/8-3-l2-extraction-routines-spec.md
+node /Users/masa/Documents/Codex/2026-07-01/new-chat/work/jc_db_read.mjs > /Users/masa/Documents/Codex/2026-07-01/new-chat/work/jc_db_current.json
+rg -n "project_documents|project_strategy_signals|project_pl_monthly|amd_score_revisions|project_xrl_evidence" pwa/design/db_schema.md pwa/spec pwa/design
 ```
 
-5. If continuing H-1 Phase P, first reconcile spawn/notification behavior before changing live automation.
+5. If continuing the unrelated H-1 dirty bundle, do not treat this JC handoff as validation for those files; start from the dirty-state list above.
 
 ## Archive Decision
 
-handoff required until closeout commit/push/deploy is confirmed and live H-1 insertion behavior is verified.
+JC shareholder-materials backfill is handoff-ready. Keep the thread open only if まさ wants follow-up analysis on JC valuation / AMD contribution attribution.
