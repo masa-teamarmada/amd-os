@@ -35,7 +35,7 @@
 
 `/admin/payouts` は、支払対象の `member × source_ym × project` ごとに月初合意状態を read し、未合意のまま支払データ同期・支払通知書PDF生成・通知メール送信・送付済み確定へ進ませない。
 
-2026年5月以前の稼働月 (`source_ym <= 202605`) は月初合意導入前/移行月のため、支払 gate 上は `agreed` 扱いで通す。実際の `member_monthly_work_agreements` 行を偽造せず、gate の理由を「導入前/移行月のため合意済み扱い」として保持する。2026年6月以降の稼働月から通常どおり `pending` / `stale` / `revision_requested` を blocker にする。
+2026年6月以前の稼働月 (`source_ym <= 202606`) は月初合意導入前/移行月のため、支払 gate 上は `agreed` 扱いで通す。6月は契約改定前かつシステム未完成期間だったため、合意条件として支払いを止めない。実際の `member_monthly_work_agreements` 行を偽造せず、gate の理由を「導入前/移行月のため合意済み扱い」として保持する。2026年7月以降の稼働月から通常どおり `pending` / `stale` / `revision_requested` を blocker にする。
 
 移行月扱いの行だけで blocker が無い場合、`/admin/payouts` の gate panel は個別メンバー一覧を出さず、対象支払行数と「移行月スキップ」の summary だけを表示する。支払 gate の対象はあくまで「支払が発生する `member × source_ym × project`」なので、支払行が無い他メンバーを「合意済み一覧」に混ぜて見せない。
 
@@ -44,7 +44,7 @@
 | `not_required` | 支払額 0、役員/通知対象外、`frozen` / `lost` / `freeze_from_ym` 到達後 / active期間外PJなど | gate 対象外 |
 | `pending` | 支払対象だが本人の active `agreed` row が無い、または支払対象PJが snapshot に無い | block |
 | `agreed` | latest active `agreed.snapshot_hash === currentHash` | allow |
-| `agreed` (移行月扱い) | `source_ym <= 202605` | allow。導入前/移行月なので合意済み扱い |
+| `agreed` (移行月扱い) | `source_ym <= 202606` | allow。導入前/移行月なので合意済み扱い |
 | `stale` | latest active `agreed` はあるが `snapshot_hash !== currentHash` | block (`条件更新あり`) |
 | `revision_requested` | `member_monthly_work_agreement_requests.status='open'` が member全体または当該PJにある | block |
 | `admin_override` | admin が理由を入れて server-side action を例外実行し、監査ログが残った | allow for that action |

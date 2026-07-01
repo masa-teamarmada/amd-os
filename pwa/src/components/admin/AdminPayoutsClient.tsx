@@ -2758,7 +2758,7 @@ function PayoutAgreementGatePanel({
 
       {migrationBypassOnly && (
         <div className="mt-3 rounded-md border border-emerald-200 bg-background/70 px-2 py-2 text-[11px] text-emerald-900">
-          2026/05以前の稼働分は導入前/移行月として支払可能。対象支払行 {requiredRows.length} 件をまとめてスキップ中。
+          2026/06以前の稼働分は導入前/移行月として支払可能。対象支払行 {requiredRows.length} 件をまとめてスキップ中。
         </div>
       )}
 

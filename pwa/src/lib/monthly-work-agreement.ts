@@ -20,7 +20,7 @@ import type {
 type JsonRecord = Record<string, unknown>;
 
 const SNAPSHOT_VERSION = "monthly_work_agreement.v2" as const;
-export const MONTHLY_WORK_AGREEMENT_PAYOUT_GATE_START_YM = "202606";
+export const MONTHLY_WORK_AGREEMENT_PAYOUT_GATE_START_YM = "202607";
 
 export function isMonthlyWorkAgreementPayoutGateMigrationYm(ym: string): boolean {
   return /^\d{6}$/.test(ym) && ym < MONTHLY_WORK_AGREEMENT_PAYOUT_GATE_START_YM;

@@ -96,14 +96,14 @@ admin一覧では合意用の予定報酬とは別に、`reward_summary_json.mem
 
 `/admin/payouts` は支払対象の `member × 稼働月 × PJ` ごとに `member_monthly_work_agreements` / `member_monthly_work_agreement_requests` を read し、未合意・条件更新あり・修正要望中のまま支払へ進ませない。これは支払 gate であり、`reward_summary_json` の計算式には混ぜない。
 
-2026年5月以前の稼働月 (`source_ym <= 202605`) は、月初合意機能の導入前/移行月として支払 gate 上 `合意済` 扱いにする。実際の合意 row を作るのではなく、gate の表示理由を「導入前/移行月のため合意済み扱い」とし、2026年6月以降の稼働月から通常どおり未合意・条件更新・修正要望を blocker にする。
+2026年6月以前の稼働月 (`source_ym <= 202606`) は、月初合意機能の導入前/移行月として支払 gate 上 `合意済` 扱いにする。6月は契約改定前かつシステム未完成期間だったため、合意条件として支払いを止めない。実際の合意 row を作るのではなく、gate の表示理由を「導入前/移行月のため合意済み扱い」とし、2026年7月以降の稼働月から通常どおり未合意・条件更新・修正要望を blocker にする。
 
 移行月扱いの行だけで blocker が無い場合、admin UI は個別メンバー一覧を出さず、対象支払行数と「移行月スキップ」の summary だけを表示する。支払 gate は支払発生行を守る仕組みなので、支払行が無い他メンバーを個別の `合意済` 行として見せない。
 
 | state | UI表示 | server behavior |
 |---|---|---|
 | 未合意 | `pending` | 支払データ同期 / PDF生成 / 送付 / 送付済み確定を 409 stop |
-| 移行月合意済扱い | `agreed` | `source_ym <= 202605` は導入前/移行月として allow |
+| 移行月合意済扱い | `agreed` | `source_ym <= 202606` は導入前/移行月として allow |
 | 条件更新あり | `stale` | latest agreed snapshot hash と current hash が違うため stop |
 | 修正要望中 | `revision_requested` | open request が member全体または当該PJにあるため stop |
 | 対象外 | `not_required` | frozen/lost/active期間外PJ、支払額0、役員/通知対象外は gate 外 |
