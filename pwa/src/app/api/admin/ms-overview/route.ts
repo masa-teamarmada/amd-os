@@ -298,7 +298,7 @@ async function buildOverviewForPlanCycle(
 
   // ④ メンバー年計 (plannedShare ベース理論値)
   //    各 MS について points × share を、tag が cap_extra か否かで regular/extra pt に振り分け、
-  //    MS単位で earnedPt / payYen を丸めてから合算する。reward-summary.ts の丸め順と揃える。
+  //    pt は表示用に丸めるが、円は raw pt × ptUnit で丸める。reward-summary.ts の payYen と揃える。
   type Acc = { regularPt: number; extraPt: number; regularYen: number; extraYen: number };
   const acc = new Map<string, Acc>();
   for (const ms of milestones) {
@@ -310,8 +310,9 @@ async function buildOverviewForPlanCycle(
     for (const r of resps) {
       const share = normalizeShare(r.share);
       if (share <= 0) continue;
-      const earnedPt = roundPt(points * share);
-      const earnedYen = Math.round(earnedPt * unit);
+      const earnedPtRaw = points * share;
+      const earnedPt = roundPt(earnedPtRaw);
+      const earnedYen = Math.round(earnedPtRaw * unit);
       const a = acc.get(r.member_id) ?? { regularPt: 0, extraPt: 0, regularYen: 0, extraYen: 0 };
       if (isExtra) {
         a.extraPt += earnedPt;

@@ -355,8 +355,8 @@ function MsEditorRow({
               {projectMembers.map((member) => {
                 const resp = responsibilityByMember.get(member.memberId);
                 const sharePct = Math.round((resp?.share ?? 0) * 1000) / 10;
-                const memberPt = Math.round(displayPoints * (resp?.share ?? 0) * 100) / 100;
-                const memberYen = Math.round(memberPt * unitYen);
+                const memberPtRaw = displayPoints * (resp?.share ?? 0);
+                const memberYen = Math.round(memberPtRaw * unitYen);
                 return (
                   <div
                     key={member.memberId}

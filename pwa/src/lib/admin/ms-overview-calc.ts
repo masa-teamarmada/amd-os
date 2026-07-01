@@ -8,8 +8,8 @@
  * 正本式:
  *   regularPts   = シーズン期間の月数 × 10pt
  *   extraPts     = Σ(cap_extra MS の points)
- *   earnedPt     = round(MS.points × share, 2)
- *   memberYen[m] = Σ over MS of round(earnedPt × ptUnit)
+ *   earnedPt     = round(MS.points × share, 2)       # pt 表示用
+ *   memberYen[m] = Σ over MS of round(MS.points × share × ptUnit)
  *
  * 月按分は無視 (= MS 設計レビュー画面なので plannedShare × points だけで十分)。
  * `milestone_monthly_contribution_allocations.actual_share` は読まない (= 実消化を見ない)。
@@ -126,9 +126,10 @@ export function recomputeMsOverview(input: RecomputeInput): RecomputeResult {
     for (const r of ms.responsibilities) {
       const share = safeNumber(r.share);
       if (share <= 0) continue;
-      const earnedPt = roundPt(points * share);
+      const earnedPtRaw = points * share;
+      const earnedPt = roundPt(earnedPtRaw);
       if (earnedPt <= 0) continue;
-      const earnedYen = Math.round(earnedPt * unit);
+      const earnedYen = Math.round(earnedPtRaw * unit);
       const a = acc.get(r.memberId) ?? { regularPt: 0, extraPt: 0, regularYen: 0, extraYen: 0, codeName: r.codeName };
       if (ms.isCapExtra) {
         a.extraPt += earnedPt;

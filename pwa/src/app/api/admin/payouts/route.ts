@@ -109,6 +109,7 @@ type RewardSummary = {
   totalPaySum?: unknown;
   totalGrossDueYen?: unknown;
   capBudgetYen?: unknown;
+  effectiveCapBudgetYen?: unknown;
   carryOverYen?: unknown;
   regularTotalGrossDueYen?: unknown;
   extraTotalGrossDueYen?: unknown;
@@ -116,6 +117,15 @@ type RewardSummary = {
   extraCarryOverYen?: unknown;
   regularCapBudgetYen?: unknown;
   extraCapBudgetYen?: unknown;
+  effectiveRegularCapBudgetYen?: unknown;
+  effectiveExtraCapBudgetYen?: unknown;
+  regularCapCarryInYen?: unknown;
+  extraCapCarryInYen?: unknown;
+  regularUnusedCapCarryOutYen?: unknown;
+  extraUnusedCapCarryOutYen?: unknown;
+  regularFinalCapTopUpYen?: unknown;
+  extraFinalCapTopUpYen?: unknown;
+  finalCapTopUpYen?: unknown;
   externalRegularPayoutCapYen?: unknown;
   externalExtraPayoutCapYen?: unknown;
   regularCompanyReserveYen?: unknown;
@@ -275,6 +285,7 @@ function asRewardSummary(value: unknown): RewardSummary | null {
     totalPaySum: record.totalPaySum,
     totalGrossDueYen: record.totalGrossDueYen,
     capBudgetYen: record.capBudgetYen,
+    effectiveCapBudgetYen: record.effectiveCapBudgetYen,
     carryOverYen: record.carryOverYen,
     regularTotalGrossDueYen: record.regularTotalGrossDueYen,
     extraTotalGrossDueYen: record.extraTotalGrossDueYen,
@@ -282,6 +293,15 @@ function asRewardSummary(value: unknown): RewardSummary | null {
     extraCarryOverYen: record.extraCarryOverYen,
     regularCapBudgetYen: record.regularCapBudgetYen,
     extraCapBudgetYen: record.extraCapBudgetYen,
+    effectiveRegularCapBudgetYen: record.effectiveRegularCapBudgetYen,
+    effectiveExtraCapBudgetYen: record.effectiveExtraCapBudgetYen,
+    regularCapCarryInYen: record.regularCapCarryInYen,
+    extraCapCarryInYen: record.extraCapCarryInYen,
+    regularUnusedCapCarryOutYen: record.regularUnusedCapCarryOutYen,
+    extraUnusedCapCarryOutYen: record.extraUnusedCapCarryOutYen,
+    regularFinalCapTopUpYen: record.regularFinalCapTopUpYen,
+    extraFinalCapTopUpYen: record.extraFinalCapTopUpYen,
+    finalCapTopUpYen: record.finalCapTopUpYen,
     externalRegularPayoutCapYen: record.externalRegularPayoutCapYen,
     externalExtraPayoutCapYen: record.externalExtraPayoutCapYen,
     regularCompanyReserveYen: record.regularCompanyReserveYen,

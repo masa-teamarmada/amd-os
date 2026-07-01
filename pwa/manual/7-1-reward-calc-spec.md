@@ -292,7 +292,7 @@ extra_budget_yen: 202605〜202609 = 0 (全額繰越) / 202610 = 1,300,000 (完�
 
 `budget_buffer_amount` がある月は、請求額の 65% からその額を先に AMD 回収分として差し引く。契約自動確定では `budget_yen = round(invoiceYen × 0.65) - budget_buffer_amount` として保存するため、報酬計算側が見る `capBudgetYen` はすでにバッファ消化後の値になる。
 
-契約最終月に `ptUnit = round(cycleBudget / totalPt)` の円丸めで少額の stock が残る場合は、最終月の `billing_cycles.budget_yen` に丸め差分を加算して stock を 0 円にする。通常月 cap は契約月額 × 65% を維持し、丸め調整は最終月だけに限定する。
+シーズン内で使い切らなかった cap は、同じプール内の翌月以降へ繰り越す。これはメンバーへの未払 `stockYen` とは別の「未使用支払枠」で、`billing_cycles.budget_yen` / `extra_budget_yen` 自体は月次の基本 cap として維持する。契約最終月は、繰越 cap を使った後に `ptUnit = round(cycleBudget / totalPt)` などの円丸めで 10,000 円以下の少額 stock が残る場合だけ、最終月の有効 cap に差分を足して `stockYen = 0` に閉じる。通常月 cap は契約月額 × 65% を維持し、シーズン全体では全 PJ が未払ゼロ着地になる。10,000 円を超える不足は丸め誤差ではなく設計・契約・billing の不整合として扱い、自動で隠さない。
 
 ### 会社留保の扱い
 
@@ -335,6 +335,8 @@ for each member in members:                      # earnedPt 降順
 ### 前月繰越 (= carryIn)
 
 前月 `billing_cycles.reward_summary_json.members[*].stockYen` を読んで `carryIn[memberId]` として加算。
+
+同時に、前月までに使い切らなかった支払 cap もプール別に繰り越す。regular の未使用 cap は regular の支払い・会社留保だけに、cap_extra の未使用 cap は cap_extra の支払い・会社留保だけに使う。これにより、前半で MS 消化が薄い月の cap を捨てず、後半で MS 消化が厚くなった月に自然に充当できる。
 
 特例: **当月の members 配列に居なくても、 前月 stockYen が残ってるメンバーは「carry-only 行」として members に追加** される (= `earnedPt = 0, basePay = 0, grossDue = carryIn`)。 これで「過去に働いて未払いだったメンバー」が忘れ去られない。
 
@@ -396,10 +398,14 @@ payYen[member]   = round(earnedPt[member] × ptUnit)      # = そのまま支払
   "totalPaySum": 195000,
   "totalGrossDueYen": 251000,
   "capBudgetYen": 195000,
+  "effectiveCapBudgetYen": 227000,
   "capped": true,
   "carryInYen": 32000,
   "carryOverYen": 56000,
   "monthlyBudget65": 195000,
+  "regularCapCarryInYen": 32000,
+  "regularUnusedCapCarryOutYen": 0,
+  "finalCapTopUpYen": 0,
   "planCycleId": "pc_xxx",
   "annualBudget": 3000000,
   "grossBudget": 2340000,

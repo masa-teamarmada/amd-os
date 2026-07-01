@@ -191,6 +191,7 @@ export interface RewardSummary {
   carryOverYen?: number;
   carryInYen?: number;
   capBudgetYen?: number;
+  effectiveCapBudgetYen?: number;
   totalGrossDueYen?: number;
   totalPaySum?: number;
   monthlyBudget65?: number;
@@ -198,6 +199,15 @@ export interface RewardSummary {
   extraPtUnit?: number;
   regularCapBudgetYen?: number;
   extraCapBudgetYen?: number;
+  effectiveRegularCapBudgetYen?: number;
+  effectiveExtraCapBudgetYen?: number;
+  regularCapCarryInYen?: number;
+  extraCapCarryInYen?: number;
+  regularUnusedCapCarryOutYen?: number;
+  extraUnusedCapCarryOutYen?: number;
+  regularFinalCapTopUpYen?: number;
+  extraFinalCapTopUpYen?: number;
+  finalCapTopUpYen?: number;
   regularTotalGrossDueYen?: number;
   extraTotalGrossDueYen?: number;
   regularCarryOverYen?: number;
