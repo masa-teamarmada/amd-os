@@ -16,6 +16,7 @@ import type {
   MonthlyWorkAgreementBundle,
   MonthlyWorkAgreementMember,
   MonthlyWorkAgreementMilestone,
+  MonthlyWorkAgreementPayoutScheduleEntry,
   MonthlyWorkAgreementProject,
   MonthlyWorkAgreementRecord,
   MonthlyWorkAgreementSnapshot,
@@ -62,6 +63,13 @@ function prevYm(ym: string): string {
   const y = Number(ym.slice(0, 4));
   const m = Number(ym.slice(4, 6));
   return m === 1 ? `${y - 1}12` : `${y}${String(m - 1).padStart(2, "0")}`;
+}
+
+function addMonths(ym: string, delta: number): string {
+  const y = Number(ym.slice(0, 4));
+  const m = Number(ym.slice(4, 6));
+  const d = new Date(Date.UTC(y, m - 1 + delta, 1));
+  return `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
 function inYmRange(
@@ -177,6 +185,34 @@ function paymentRuleCycle(cycle: JsonRecord, fallbackYm: string) {
 
 function memberPayoutYenFromCycle(cycle: JsonRecord | undefined, memberId: string): number {
   return yenFromRecord(rewardSummaryMember(cycle, memberId), ["totalPay", "total_pay"]) ?? 0;
+}
+
+function payoutScheduleEntryFromCycle(
+  cycle: JsonRecord,
+  project: JsonRecord,
+  memberId: string,
+  currentYm: string,
+): MonthlyWorkAgreementPayoutScheduleEntry | null {
+  const rewardMember = rewardSummaryMember(cycle, memberId);
+  if (!rewardMember) return null;
+  const basePayYen = yenFromRecord(rewardMember, ["basePay", "base_pay"]) ?? splitBasePayFromRecord(rewardMember) ?? 0;
+  const carryInYen = yenFromRecord(rewardMember, ["carryInYen", "carry_in_yen"]) ?? 0;
+  const grossDueYen = yenFromRecord(rewardMember, ["grossDueYen", "gross_due_yen"]) ?? basePayYen + carryInYen;
+  const totalPayYen = yenFromRecord(rewardMember, ["totalPay", "total_pay"]) ?? 0;
+  const stockYen = yenFromRecord(rewardMember, ["stockYen", "stock_yen", "deferredYen", "deferred_yen"]) ?? 0;
+  if (basePayYen <= 0 && carryInYen <= 0 && grossDueYen <= 0 && totalPayYen <= 0 && stockYen <= 0) return null;
+  const sourceYm = cleanYm(cycle.ym) ?? currentYm;
+  return {
+    sourceYm,
+    paymentYm: effectivePaymentYmForCycle(paymentRuleCycle(cycle, sourceYm), paymentRuleProject(project)),
+    status: typeof cycle.status === "string" ? cycle.status : null,
+    basePayYen,
+    carryInYen,
+    grossDueYen,
+    totalPayYen,
+    stockYen,
+    isCurrentYm: sourceYm === currentYm,
+  };
 }
 
 function routineExpectations(role: { is_pm?: boolean | null; is_pl?: boolean | null }): string[] {
@@ -416,6 +452,8 @@ export async function buildMonthlyWorkAgreementBundle(
     .filter((row) => typeof row.project_id === "string")
     .filter((row) => inYmRange(ym, { join_ym: row.join_ym as string | null, leave_ym: row.leave_ym as string | null }));
   const projectIds = Array.from(new Set(activeMemberships.map((row) => row.project_id as string)));
+  const scheduleStartYm = addMonths(ym, -6);
+  const scheduleEndYm = addMonths(ym, 12);
 
   const [
     projectsRes,
@@ -423,6 +461,7 @@ export async function buildMonthlyWorkAgreementBundle(
     cyclesRes,
     explicitPayoutCyclesRes,
     unsetPayoutCyclesRes,
+    scheduleCyclesRes,
     plansRes,
   ] = await Promise.all([
     projectIds.length
@@ -454,6 +493,15 @@ export async function buildMonthlyWorkAgreementBundle(
       : Promise.resolve({ data: [], error: null }),
     projectIds.length
       ? supabase
+          .from("billing_cycles")
+          .select("*")
+          .in("project_id", projectIds)
+          .gte("ym", scheduleStartYm)
+          .lte("ym", scheduleEndYm)
+          .order("ym", { ascending: true })
+      : Promise.resolve({ data: [], error: null }),
+    projectIds.length
+      ? supabase
           .from("value_plan_cycles")
           .select("plan_cycle_id, project_id, status, budget_yen, total_points, period_start_ym, period_end_ym")
           .in("project_id", projectIds)
@@ -465,6 +513,7 @@ export async function buildMonthlyWorkAgreementBundle(
   if (cyclesRes.error) throw cyclesRes.error;
   if (explicitPayoutCyclesRes.error) throw explicitPayoutCyclesRes.error;
   if (unsetPayoutCyclesRes.error) throw unsetPayoutCyclesRes.error;
+  if (scheduleCyclesRes.error) throw scheduleCyclesRes.error;
   if (plansRes.error) throw plansRes.error;
 
   const freezePeriodsByProject = new Map<string, JsonRecord[]>();
@@ -481,6 +530,23 @@ export async function buildMonthlyWorkAgreementBundle(
     .filter((row) => inYmRange(ym, { start_ym: row.start_ym as string | null, end_ym: row.end_ym as string | null }));
   const projectMap = new Map(projects.map((row) => [row.project_id as string, row]));
   const cyclesByProject = new Map(((cyclesRes.data ?? []) as Array<JsonRecord>).map((row) => [row.project_id as string, row]));
+  const payoutScheduleByProject = new Map<string, MonthlyWorkAgreementPayoutScheduleEntry[]>();
+  for (const row of (scheduleCyclesRes.data ?? []) as Array<JsonRecord>) {
+    const projectId = row.project_id as string;
+    const project = projectMap.get(projectId);
+    if (!project) continue;
+    const entry = payoutScheduleEntryFromCycle(row, project, params.memberId, ym);
+    if (!entry) continue;
+    const list = payoutScheduleByProject.get(projectId) ?? [];
+    list.push(entry);
+    payoutScheduleByProject.set(projectId, list);
+  }
+  for (const [projectId, list] of payoutScheduleByProject.entries()) {
+    payoutScheduleByProject.set(
+      projectId,
+      list.sort((a, b) => a.sourceYm.localeCompare(b.sourceYm) || a.paymentYm.localeCompare(b.paymentYm)),
+    );
+  }
   const payoutYenByProject = new Map<string, number>();
   for (const row of (explicitPayoutCyclesRes.data ?? []) as Array<JsonRecord>) {
     const projectId = row.project_id as string;
@@ -655,12 +721,14 @@ export async function buildMonthlyWorkAgreementBundle(
 
       const sortedMilestones = roleMilestones.sort((a, b) => a.milestoneId.localeCompare(b.milestoneId));
       const expectedRewardYen = expectedProjectRewardYen;
+      const payoutSchedule = payoutScheduleByProject.get(projectId) ?? [];
       const hasDisplayableReward =
         (expectedRewardYen ?? 0) > 0 ||
         (currentCyclePayoutYen ?? 0) > 0 ||
         (payoutYen ?? 0) > 0 ||
         (stockYen ?? 0) > 0 ||
-        (grossDueYen ?? 0) > 0;
+        (grossDueYen ?? 0) > 0 ||
+        payoutSchedule.length > 0;
 
       if (!hasDisplayableReward && roleMilestones.length === 0) return null;
 
@@ -696,6 +764,7 @@ export async function buildMonthlyWorkAgreementBundle(
         conditions: [],
         reviewReasons,
         milestones: sortedMilestones,
+        payoutSchedule,
         routineExpectations: routineExpectations(membership),
       };
     })

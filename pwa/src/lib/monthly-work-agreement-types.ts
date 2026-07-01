@@ -23,6 +23,18 @@ export interface MonthlyWorkAgreementMilestone {
   state: "ready" | "review_required";
 }
 
+export interface MonthlyWorkAgreementPayoutScheduleEntry {
+  sourceYm: string;
+  paymentYm: string;
+  status: string | null;
+  basePayYen: number;
+  carryInYen: number;
+  grossDueYen: number;
+  totalPayYen: number;
+  stockYen: number;
+  isCurrentYm: boolean;
+}
+
 export interface MonthlyWorkAgreementRevisionRequest {
   id: string;
   ym: string;
@@ -57,6 +69,7 @@ export interface MonthlyWorkAgreementProject {
   conditions: string[];
   reviewReasons: string[];
   milestones: MonthlyWorkAgreementMilestone[];
+  payoutSchedule: MonthlyWorkAgreementPayoutScheduleEntry[];
   routineExpectations: string[];
 }
 

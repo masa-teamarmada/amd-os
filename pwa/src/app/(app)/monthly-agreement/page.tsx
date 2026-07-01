@@ -341,6 +341,7 @@ function ProjectAgreementCard({ project, ym }: { project: MonthlyWorkAgreementPr
   const currentDueYen = project.grossDueYen == null ? null : Math.max(0, project.grossDueYen - carryInYen);
   const showStockBreakdown =
     hasStock && (carryInYen > 0 || currentDueYen != null || hasPayout || hasScheduledPayout);
+  const payoutSchedule = project.payoutSchedule ?? [];
   return (
     <article className="rounded-lg border border-[#e5e5e7] bg-white p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -372,19 +373,19 @@ function ProjectAgreementCard({ project, ym }: { project: MonthlyWorkAgreementPr
           ) : null}
           {hasStock && (
             <div className="mt-2 border-t border-amber-200 pt-2 text-left">
-              <p className="text-[10px] font-semibold text-amber-800">今月末未払い残（今月は支払われない）</p>
+              <p className="text-[10px] font-semibold text-amber-800">支払予定後の未払い残</p>
               <p className="mt-0.5 text-right text-[16px] font-semibold tabular-nums text-amber-800">{formatYen(stockYen)}</p>
               {showStockBreakdown && (
                 <dl className="mt-1.5 space-y-0.5 text-[10px] text-[#86868b]">
                   {carryInYen > 0 && (
                     <div className="flex items-center justify-between gap-3">
-                      <dt>前月繰越</dt>
+                      <dt>前回からの繰越</dt>
                       <dd className="tabular-nums">{formatYen(carryInYen)}</dd>
                     </div>
                   )}
                   {currentDueYen != null && (
                     <div className="flex items-center justify-between gap-3">
-                      <dt>今月発生</dt>
+                      <dt>この稼働月の発生</dt>
                       <dd className="tabular-nums">{formatYen(currentDueYen)}</dd>
                     </div>
                   )}
@@ -409,6 +410,10 @@ function ProjectAgreementCard({ project, ym }: { project: MonthlyWorkAgreementPr
           )}
         </div>
       </div>
+
+      {payoutSchedule.length > 0 && (
+        <PayoutScheduleTable rows={payoutSchedule} />
+      )}
 
       {project.milestones.length > 0 && (
         <div className="mt-4 overflow-hidden rounded-md border border-[#e5e5e7]">
@@ -439,5 +444,55 @@ function ProjectAgreementCard({ project, ym }: { project: MonthlyWorkAgreementPr
         </div>
       )}
     </article>
+  );
+}
+
+function PayoutScheduleTable({ rows }: { rows: MonthlyWorkAgreementProject["payoutSchedule"] }) {
+  return (
+    <div className="mt-4 overflow-hidden rounded-md border border-[#e5e5e7]">
+      <div className="flex flex-wrap items-center justify-between gap-2 bg-[#f5f5f7] px-3 py-2">
+        <h3 className="text-[12px] font-semibold text-[#3c3c43]">未払いストックの流れ</h3>
+        <span className="text-[10px] text-[#86868b]">新規発生 + 繰越 → 支払予定 → 支払後残</span>
+      </div>
+      <div className="max-h-[260px] overflow-auto">
+        <table className="min-w-[720px] w-full text-[11px]">
+          <thead className="sticky top-0 bg-white text-[#6e6e73]">
+            <tr className="border-b border-[#e5e5e7]">
+              <th className="px-3 py-2 text-left font-semibold">稼働月</th>
+              <th className="px-3 py-2 text-right font-semibold">新規発生</th>
+              <th className="px-3 py-2 text-right font-semibold">支払対象</th>
+              <th className="px-3 py-2 text-right font-semibold">支払予定</th>
+              <th className="px-3 py-2 text-right font-semibold">支払後残</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#e5e5e7]">
+            {rows.map((row) => (
+              <tr key={`${row.sourceYm}:${row.paymentYm}`} className={row.isCurrentYm ? "bg-amber-50/70" : undefined}>
+                <td className="px-3 py-2 align-top">
+                  <div className="font-semibold text-[#1d1d1f]">{formatYm(row.sourceYm)}</div>
+                  {row.isCurrentYm && <div className="text-[10px] font-semibold text-amber-800">今回の合意対象</div>}
+                </td>
+                <td className="px-3 py-2 text-right align-top tabular-nums">
+                  <div className="font-semibold text-[#3c3c43]">{formatYen(row.basePayYen)}</div>
+                </td>
+                <td className="px-3 py-2 text-right align-top tabular-nums">
+                  <div className="font-semibold text-[#3c3c43]">{formatYen(row.grossDueYen)}</div>
+                  {row.carryInYen > 0 && <div className="text-[10px] text-[#86868b]">繰越 {formatYen(row.carryInYen)}</div>}
+                </td>
+                <td className="px-3 py-2 text-right align-top tabular-nums">
+                  <div className="font-semibold text-[#1d1d1f]">{formatYen(row.totalPayYen)}</div>
+                  <div className="text-[10px] text-[#86868b]">{formatYm(row.paymentYm)}</div>
+                </td>
+                <td className="px-3 py-2 text-right align-top tabular-nums">
+                  <div className={row.stockYen > 0 ? "font-semibold text-amber-800" : "text-[#86868b]"}>
+                    {formatYen(row.stockYen)}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
