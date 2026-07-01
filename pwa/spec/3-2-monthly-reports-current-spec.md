@@ -1,25 +1,63 @@
-# L2M-1 Monthly Reports 仕様
+# L2M-1 Monthly Reports 仕様 (v2 — 2026-07-01 まさ確定)
 
-> **この章は何か**: `monthly_reports` の writer、上書き禁止、source refs、outbox 反映、旧 R313 / PWA route の扱いを固定する章。運用者向けの説明は `/manual/3-2-data-and-extraction` と `/manual/8-3-l2-extraction-routines-spec` にも残す。
+> **この章は何か**: `monthly_reports` / `monthly_reports_external` の writer、内部保存版 + 対外提出版の 2 段生成、月末最終日発火の Claude routine、`llm_prompts` DB 管理化、旧 Codex `amd-os-l2` (M-1 月次報告抽出) の廃止を固定する章。運用者向けの説明は `/manual/3-2-data-and-extraction` と `/manual/8-3-l2-extraction-routines-spec` にも残す。
+
+## v1 → v2 の要点差分 (2026-07-01)
+
+| 観点 | v1 (〜2026-06-30) | v2 (2026-07-01〜) |
+|---|---|---|
+| primary writer | Codex automation `amd-os-l2` (name="AMD OS M-1 月次報告抽出") | Claude routine `amd-os-l2m1-monthly-report` |
+| 実行環境 | Codex Desktop MMOマシン (gpt-5.5 + reasoning_effort=high) | Anthropic クラウド sandbox (opus-4-8 想定 + ultracode/xhigh) |
+| schedule | daily 05:30 JST (毎日) | **月末最終日 03:00 JST** (cron `0 3 28-31 * *` + Phase 0 で JST 最終日判定) |
+| 出力 | 内部保存版のみ (`monthly_reports.final_content`) | **内部保存版 + 対外提出版**の 2 段生成 (`monthly_reports.final_content` + `monthly_reports_external.body_md` + PDF) |
+| 対象判定 | 全 active/sales PJ (対外提出義務の概念なし) | `projects.monthly_report_scope IN ('internal_only','internal_and_external')` の 3 状態 enum |
+| プロンプト | SKILL.md / prompt に直書き | `llm_prompts` table 正本 (`prompt_key='l2m1.monthly_report.internal.v2'` / `'l2m1.monthly_report.external.v2'`)、admin UI で編集可能 |
+| PDF 生成 | なし | Claude routine が pandoc + Chrome headless (sandbox 内試行) → 失敗時 outbox → ローカル LaunchAgent fallback |
+| Slack 通知 | なし (Codex automation は run summary のみ) | まさ DM に集約 (`scripts/send-eimi-slack.mjs` = GAS webapp えいみ persona bot 経由)、PJ チャンネルには投げない |
+| 通知タイミング | なし | Phase 2.1 (開始) + Phase 2.7 (PJ 完了、scope 別 4 パターン) + Phase 3 (全体サマリ) |
 
 ## 正本テーブル
 
 | table | 用途 |
 |---|---|
-| `monthly_reports` | PJ × ym の月次レポート本文。`draft_content` と `final_content` を持つ |
+| `monthly_reports` | 内部保存版の PJ × ym 月次レポート本文。`draft_content` と `final_content` を持つ |
+| `monthly_reports_external` | **v2 新設**。対外提出版の PJ × ym レポート本文 (`body_md`) + PDF リンク + jargon check 結果。1 PJ × 1 ym で UNIQUE |
 | `source_cache` | Gmail / Slack などの source refs / short snippet / hash 証跡。no-data 判定の正本ではない |
+| `llm_prompts` | プロンプト本文の正本。`prompt_key='l2m1.monthly_report.internal.v2'` / `'l2m1.monthly_report.external.v2'` の 2 本。admin UI で編集可能 |
+| `llm_prompt_revisions` | プロンプト書き換え履歴 (admin UI 経由 save 時に 1 行追加) |
+| `projects.monthly_report_scope` | routine 対象範囲 3 状態 enum (`'none'` / `'internal_only'` / `'internal_and_external'`) |
+| `projects.work_content` | 業務内容配列 (対外版の第 N 領域章に展開) |
+| `projects.report_local_alias` | ローカル output ディレクトリ命名 (KUTE / SX / AMD 等) |
+| `projects.report_extra_allow_terms` | 対外版 jargon check の allow_list |
+| `contracts.tax_basis` | 税基準 (`'included'` / `'excluded'`)、業務委託料表記に直結 |
+| `contracts.recipient_emails` | 送付確認 to: マッチ用 email 一覧 |
+| `project_documents.delivered_to_client_at` | 顧客に正式に渡した時刻 |
 
 `monthly_reports` は後続 L2 の一次入力になるため、完全版を待たず、確認済み事実だけでも draft を積む。
 
-## 現行 writer
+## 現行 writer (v2)
 
 | 項目 | 値 |
 |---|---|
-| primary writer | Codex automation `AMD OS L2M-1 月次報告抽出` |
-| schedule | daily 05:30 JST |
-| input | Gmail / Drive / Calendar / Slack / Notion 5 生データ + OS snapshot |
-| output | `~/.codex/automations/amd-os-ms/outbox/*.json` の `monthlyReports` |
-| applier | LaunchAgent + `pwa/scripts/ms_progress_review_tool.mjs apply-outbox-dir` |
+| primary writer | Claude routine `amd-os-l2m1-monthly-report` |
+| taskId | `amd-os-l2m1-monthly-report` (list_scheduled_tasks で取得可能) |
+| schedule | `0 3 28-31 * *` (LOCAL time = JST) + Phase 0 で「今日 == 当月最終日 JST」判定、非最終日は即 exit |
+| repo 正本 SKILL | `pwa/scheduled-tasks/amd-os-l2m1-monthly-report/SKILL.md` |
+| model / effort | claude-opus-4-8 + ultracode (xhigh) 想定 (SKILL.md description の散文で指定) |
+| input | Gmail / Drive / Calendar / Slack / Notion 5 生データ + L2 スナップショット + contracts + members + AMD Score + XRL + MS 進捗 + action_items + grants + media + documents |
+| プロンプト | `llm_prompts` table から fetch (SKILL.md / コードにハードコード禁止) |
+| 内部保存版 output | `monthly_reports.final_content` (force なし上書き禁止) |
+| 対外提出版 output | `monthly_reports_external.body_md` + PDF (共有 Drive `projects.drive_folder_id / 月次業務報告書 / YYYY-MM/` + ローカル outbox) |
+| Slack 通知 | まさ DM (= `scripts/send-eimi-slack.mjs` 経由、`members` where `code_name='まさ' AND is_admin=true` の `slack_id` を解決) |
+
+## v1 廃止済 writer (参考、復活禁止)
+
+| 項目 | 値 |
+|---|---|
+| Codex automation | `~/.codex/automations/amd-os-l2/automation.toml` (id=`amd-os-l2`, name="AMD OS M-1 月次報告抽出") — **2026-07-01 に `status = "PAUSED"` に変更、復活禁止** |
+| 旧 schedule | daily 05:30 JST |
+| 旧 output | `~/.codex/automations/amd-os-ms/outbox/*.json` の `monthlyReports` |
+| 旧 applier | LaunchAgent + `pwa/scripts/ms_progress_review_tool.mjs apply-outbox-dir` (= 他 outbox 処理のため LaunchAgent 自体は残存、amd-os-l2 分の入力は絶えるので実質不動) |
 
 ## 上書きルール
 
@@ -64,9 +102,11 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 | `api_generateMonthlyReport` | L2M-1 automation の定期経路として使わない |
 | PWA `/api/report/generate` | 手動復旧用。定期 writer にしない |
 | PWA `/api/cron/monthly-reports-backfill` | 重い手動 backfill route。定期 writer にしない。ただし上記「生成対象ガード」の実装はこの route が持つ (進捗ベース判定の正本実装) |
-| paid external LLM API direct call | automation 外で新規に使わない |
+| Codex automation `amd-os-l2` (M-1 月次報告抽出) | **v2 で PAUSED 済 (2026-07-01)**。復活禁止。gpt-5.5 + daily 05:30 の旧 writer |
+| MCP `slack_send_message` を bot として直叩き | えいみ persona 通知に使わない。必ず `scripts/send-eimi-slack.mjs` (GAS webapp 経由) |
+| Anthropic / OpenAI / Gemini 従量課金 API 直叩き | Claude routine 自身の定額サブスク model 以外の LLM 呼び出しは禁止 |
 
-> ⚠️ **writer 間のガード整合**: 上記「生成対象ガード」は backfill route だけでなく、primary writer (Codex automation `AMD OS L2M-1 月次報告抽出`) も通す必要がある。現状ガードのコード実装は backfill route にあり、Codex automation 側は automation.toml のプロンプト指示で同等の判定をかける。両 writer が「進捗なし & ended/frozen は生成しない」を守ることが正本。
+> ⚠️ **writer 間のガード整合**: 上記「生成対象ガード」は backfill route だけでなく、primary writer (Claude routine `amd-os-l2m1-monthly-report`) も通す必要がある。ガードのコード実装は backfill route にあり、Claude routine 側は SKILL.md の Phase 2 プロンプト指示で同等の判定をかける。両 writer が「進捗なし & ended/frozen は生成しない」を守ることが正本。
 
 ## 5 生データ確認
 
@@ -135,6 +175,41 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 
 `monthly_reports.final_content` (markdown) が **§C 当月の進捗** 本文の主出力。`draft_content` フォールバック、両方空なら `project_monthly_notes.body`、それも空なら「未生成」表示。`generated_at` / `fixed_at` / `confirmed_by` は **§J 改訂履歴** に反映される。
 
-### 外販含む大学・研究機関提出での運用
+### 外販含む大学・研究機関提出での運用 (v1 時代の設計、v2 で位置付け更新)
 
-CX (NIMS) / SX (愛媛大) / KUTE (工学院大学) の月次提出はこの印刷ビューを正本にする。固有テンプレートが必要になったら `print-client.tsx` の §セクションを差し替えるか、`reportTemplate` クエリパラメータで分岐させる (未実装、必要になったら追加)。
+- **v1**: この印刷ビュー (`/project/[projectId]/report/[ym]/print` + Cmd+P PDF) を対外提出正本にした。
+- **v2 (2026-07-01〜)**: この印刷ビューは **cockpit 内での内部保存版レビュー用** に位置付ける。対外提出版は Claude routine `amd-os-l2m1-monthly-report` が生成する `monthly_reports_external.body_md` + 自動 PDF を正本にする (下記「対外提出版」節参照)。既存の印刷ビュー §01-§07 章立ては cockpit 内で「内部保存版のリッチプレビュー」として引き続き提供、章立てを削除しない。
+
+## 対外提出版 (v2 新設、2026-07-01〜)
+
+### 生成経路
+
+1. **Claude routine が月末最終日 03:00 JST に発火** (Phase 0 で最終日判定)
+2. **Phase 2.3**: `monthly_reports.final_content` (内部保存版 markdown) を生成
+3. **Phase 2.4**: `scope='internal_and_external'` の PJ のみ、内部版 markdown を入力に対外版 markdown を生成 (LLM が対外用語・章削除・言い換えを行う)
+4. **Phase 2.5**: 禁止語チェック (`scripts/strip_internal_jargon.py`)。hard_fail → PDF 生成停止、まさ DM 通知
+5. **Phase 2.6**: PDF 生成 (`scripts/generate_monthly_report.py` = pandoc → HTML → colgroup 注入 → Chrome headless)。cloud sandbox で試行、失敗時は outbox 経由でローカル LaunchAgent (`com.amd-os.l2m1-pdf-renderer`) fallback
+6. **配置**: ローカル `/Users/masa/projects/AMD/{report_local_alias}/output/monthly_reports/` + 共有 Drive `projects.drive_folder_id / 月次業務報告書 / YYYY-MM/`
+
+### 対外提出版のフォーマット (KUTE 実納品準拠)
+
+- 章構成: 1. 業務概要 → 2. 当月の実施内容 → 3..N. 業務内容の各領域 → N+1. 体制および打合せ実施記録 → N+2. 主要成果物 → N+3. その他活動 (任意) → N+4. 来月以降の予定 → N+5. 継続協議事項 (任意)
+- 文体: である体、儀礼挨拶なし、締め「以上のとおり報告する。」
+- 自社メンバーは本名のみ (code_name 削除)、客先関係者は「XX 先生」「XX 様」維持
+- 業務期間・契約金額は `contracts.contract_terms_json` + `contracts.tax_basis` の verbatim
+- 内部評価指標 (RAG / XRL / KPI / signals / pt / Δ 等) は全削除
+- 「お願い・確認」セクション原則なし
+
+### 対外版の allow_list (jargon check)
+
+`projects.report_extra_allow_terms[]` + `projects.project_name` + `contracts.title` の和集合を allow_list として渡す。禁止語リストは opus-4-8 プロンプト内に埋め込み、`scripts/strip_internal_jargon.py` が最終ゲート。
+
+### 対象 PJ (2026-07-01 まさ確定)
+
+| scope | PJ | 動作 |
+|---|---|---|
+| `internal_and_external` | p25 KUTE / p21 SX | 内部保存版 + 対外提出版 + PDF 生成 |
+| `internal_only` | p00 AMD / p07 LST / p10 SE / p19 ZMP / p24 CLG / p26 VasculaX | 内部保存版のみ生成、対外版と PDF は skip |
+| `none` | p20 CX/NIMS / p06 CTB | routine 対象外 |
+
+scope は `/admin/projects` の「月報 scope」列でまさが編集可能。
