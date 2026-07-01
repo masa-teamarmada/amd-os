@@ -22,6 +22,8 @@ type BillingCycleRow = {
   status: string | null;
   budget_yen: number | null;
   invoice_ym: string | null;
+  invoice_issued_at?: string | null;
+  invoice_sent_at?: string | null;
   reward_summary_json: unknown;
 };
 
@@ -57,7 +59,7 @@ function targetPaymentYms(baseYm: string, lookaheadMonths: number, includePrevio
 
 async function refreshPayoutRewardCache(paymentYms: string[], cycleYms: string[] = paymentYms) {
   const db = createAdminClient();
-  const cycleSelect = "project_id, ym, status, budget_yen, invoice_ym, reward_summary_json";
+  const cycleSelect = "project_id, ym, status, budget_yen, invoice_ym, invoice_issued_at, invoice_sent_at, reward_summary_json";
   const sourceYms = [...new Set(paymentYms.flatMap((ym) => candidateSourceYmsForPaymentYm(ym)))];
   const targetCycleYms = [...new Set(cycleYms)];
 

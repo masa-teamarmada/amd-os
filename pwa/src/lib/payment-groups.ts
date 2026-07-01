@@ -18,6 +18,7 @@ export type PaymentCycleRow = {
   invoice_base_lines_json: string | null;
   invoice_subject: string | null;
   invoice_issued_at: string | null;
+  invoice_sent_at: string | null;
   freee_invoice_number: string | null;
   payment_confirmed_at: string | null;
 };
@@ -72,7 +73,7 @@ export function cleanYm(value: string | null | undefined): string | null {
 }
 
 export function candidateSourceYmsForPaymentYm(paymentYm: string): string[] {
-  return [paymentYm, addMonths(paymentYm, -1), addMonths(paymentYm, -2)];
+  return [paymentYm, addMonths(paymentYm, -1), addMonths(paymentYm, -2), addMonths(paymentYm, -3)];
 }
 
 function numberValue(value: unknown): number {
@@ -119,12 +120,17 @@ function expectedGrossFromNet(net: number): number {
 }
 
 export function effectivePaymentYmForCycle(
-  cycle: Pick<PaymentCycleRow, "invoice_ym" | "ym">,
+  cycle: Pick<PaymentCycleRow, "invoice_ym" | "ym"> & Partial<Pick<PaymentCycleRow, "invoice_sent_at" | "invoice_issued_at">>,
   project: Pick<PaymentProjectRow, "payment_due_rule" | "payment_due_day"> | undefined
 ): string {
   const explicit = cleanYm(cycle.invoice_ym);
   if (explicit) return explicit;
-  return computePaymentYmByRule(cycle.ym, project?.payment_due_rule ?? null, project?.payment_due_day ?? null);
+  return computePaymentYmByRule(
+    cycle.ym,
+    project?.payment_due_rule ?? null,
+    project?.payment_due_day ?? null,
+    cycle.invoice_sent_at ?? cycle.invoice_issued_at ?? null
+  );
 }
 
 export async function loadPaymentConfirmationGroups(
@@ -145,6 +151,7 @@ export async function loadPaymentConfirmationGroups(
     "invoice_base_lines_json",
     "invoice_subject",
     "invoice_issued_at",
+    "invoice_sent_at",
     "freee_invoice_number",
     "payment_confirmed_at",
   ].join(", ");
@@ -188,7 +195,8 @@ export async function loadPaymentConfirmationGroups(
     const invoiceYm = effectivePaymentYmForCycle(cycle, project);
     if (invoiceYm !== targetYm) continue;
     const key = `${cycle.project_id}:${invoiceYm}`;
-    const dueDate = computePaymentDueDateByRule(cycle.ym, project.payment_due_rule, project.payment_due_day);
+    const referenceDate = cycle.invoice_sent_at ?? cycle.invoice_issued_at ?? null;
+    const dueDate = computePaymentDueDateByRule(cycle.ym, project.payment_due_rule, project.payment_due_day, referenceDate);
     const current =
       groupMap.get(key) ??
       {
@@ -213,7 +221,7 @@ export async function loadPaymentConfirmationGroups(
     current.expectedNetAmountYen += expectedNetForCycle(cycle, project);
     if (cycle.freee_invoice_number) current.freeeInvoiceNumbers.push(cycle.freee_invoice_number);
     if (cycle.ym > current.cycles[0].ym) {
-      current.dueDate = computePaymentDueDateByRule(cycle.ym, project.payment_due_rule, project.payment_due_day);
+      current.dueDate = computePaymentDueDateByRule(cycle.ym, project.payment_due_rule, project.payment_due_day, referenceDate);
     }
     groupMap.set(key, current);
   }

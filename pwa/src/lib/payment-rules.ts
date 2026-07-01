@@ -7,6 +7,7 @@ export type PaymentDueRule =
   | "next_month_25"
   | "second_month_eom"
   | "second_month_25"
+  | "invoice_received_60_days"
   | "issue_month_eom"
   | "issue_month_25"
   | "issue_month_25th"
@@ -21,6 +22,7 @@ export const PAYMENT_DUE_RULE_OPTIONS: Array<{ value: string; label: string }> =
   { value: "next_month_25", label: "翌月25日" },
   { value: "second_month_eom", label: "翌々月末" },
   { value: "second_month_25", label: "翌々月25日" },
+  { value: "invoice_received_60_days", label: "請求書受理後60日以内" },
 ];
 
 function addMonthsYm(ym: string, delta: number): string {
@@ -42,6 +44,25 @@ function isoForYmDay(ym: string, day: number): string {
   return `${ym.slice(0, 4)}-${ym.slice(4, 6)}-${String(safeDay).padStart(2, "0")}`;
 }
 
+function addDaysIso(isoDate: string, days: number): string {
+  const date = new Date(`${isoDate}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime())) return isoDate;
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function cleanIsoDate(value: string | null | undefined): string | null {
+  const raw = (value ?? "").trim();
+  const match = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (!match) return null;
+  const date = new Date(`${match[1]}T00:00:00.000Z`);
+  return Number.isNaN(date.getTime()) ? null : match[1];
+}
+
+function invoiceReceiptBaseDate(bizYm: string, referenceDate?: string | null): string {
+  return cleanIsoDate(referenceDate) ?? isoForYmDay(bizYm, lastDayOfMonth(bizYm));
+}
+
 export function normalizePaymentDueRule(rule: string | null | undefined): PaymentDueRule | null {
   const value = (rule ?? "").trim();
   if (!value) return null;
@@ -55,6 +76,7 @@ export function normalizePaymentDueRule(rule: string | null | undefined): Paymen
     value === "next_month_25" ||
     value === "second_month_eom" ||
     value === "second_month_25" ||
+    value === "invoice_received_60_days" ||
     value === "next_month_15"
   ) {
     return value;
@@ -72,6 +94,7 @@ export function paymentDueRuleLabel(rule: string | null | undefined, legacyDueDa
   if (normalized === "next_month_25" || normalized === "next_month_15") return "翌月25日";
   if (normalized === "second_month_eom") return "翌々月末";
   if (normalized === "second_month_25") return "翌々月25日";
+  if (normalized === "invoice_received_60_days") return "請求書受理後60日以内";
   if (legacyDueDay && legacyDueDay > 0) return `翌月${legacyDueDay}日`;
   return "翌月末";
 }
@@ -79,11 +102,16 @@ export function paymentDueRuleLabel(rule: string | null | undefined, legacyDueDa
 export function computePaymentDueDateByRule(
   bizYm: string,
   rule: string | null | undefined,
-  legacyDueDay?: number | null
+  legacyDueDay?: number | null,
+  referenceDate?: string | null
 ): string {
   if (!/^\d{6}$/.test(bizYm)) return new Date().toISOString().slice(0, 10);
 
   const normalized = normalizePaymentDueRule(rule);
+  if (normalized === "invoice_received_60_days") {
+    return adjustToPreviousBusinessDay(addDaysIso(invoiceReceiptBaseDate(bizYm, referenceDate), 60));
+  }
+
   let paymentYm = addMonthsYm(bizYm, 1);
   let day = lastDayOfMonth(paymentYm);
 
@@ -121,7 +149,8 @@ export function computePaymentDueDateByRule(
 export function computePaymentYmByRule(
   bizYm: string,
   rule: string | null | undefined,
-  legacyDueDay?: number | null
+  legacyDueDay?: number | null,
+  referenceDate?: string | null
 ): string {
-  return computePaymentDueDateByRule(bizYm, rule, legacyDueDay).slice(0, 7).replace("-", "");
+  return computePaymentDueDateByRule(bizYm, rule, legacyDueDay, referenceDate).slice(0, 7).replace("-", "");
 }

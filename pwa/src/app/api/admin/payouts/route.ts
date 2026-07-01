@@ -35,6 +35,8 @@ type BillingCycleRow = {
   budget_buffer_amount?: number | null;
   extra_budget_yen?: number | null;
   invoice_ym: string | null;
+  invoice_issued_at?: string | null;
+  invoice_sent_at?: string | null;
   reward_summary_json: unknown;
   payout_notice_uploaded_at?: string | null;
   payment_confirmed_at?: string | null;
@@ -1049,7 +1051,7 @@ async function callGasPayoutNoticePdf(payload: Record<string, unknown>) {
 export async function loadTargetData(ym: string, options: LoadTargetDataOptions = {}) {
   const db = createAdminClient();
   const cycleSelect =
-    "project_id, ym, status, budget_yen, budget_reported_amount, budget_buffer_amount, extra_budget_yen, invoice_ym, reward_summary_json, payout_notice_uploaded_at, payment_confirmed_at, reward_paid_at";
+    "project_id, ym, status, budget_yen, budget_reported_amount, budget_buffer_amount, extra_budget_yen, invoice_ym, invoice_issued_at, invoice_sent_at, reward_summary_json, payout_notice_uploaded_at, payment_confirmed_at, reward_paid_at";
 
   const candidateYms = candidateSourceYmsForPaymentYm(ym);
   const forecastEndYm = addMonths(ym, 11);

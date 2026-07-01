@@ -101,11 +101,11 @@ async function loadOfficerReserve(
       .select("project_id, project_name, client_name, status, freee_partner_id, payment_due_rule, payment_due_day"),
     supabase
       .from("billing_cycles")
-      .select("project_id, ym, invoice_ym, reward_summary_json")
+      .select("project_id, ym, invoice_ym, invoice_issued_at, invoice_sent_at, reward_summary_json")
       .eq("invoice_ym", paymentYm),
     supabase
       .from("billing_cycles")
-      .select("project_id, ym, invoice_ym, reward_summary_json")
+      .select("project_id, ym, invoice_ym, invoice_issued_at, invoice_sent_at, reward_summary_json")
       .in("ym", candidateYms)
       .is("invoice_ym", null),
   ]);
@@ -123,7 +123,14 @@ async function loadOfficerReserve(
     projectMap.set(project.project_id, project);
   }
 
-  type Cycle = { project_id: string; ym: string; invoice_ym: string | null; reward_summary_json: unknown };
+  type Cycle = {
+    project_id: string;
+    ym: string;
+    invoice_ym: string | null;
+    invoice_issued_at?: string | null;
+    invoice_sent_at?: string | null;
+    reward_summary_json: unknown;
+  };
   const cycleMap = new Map<string, Cycle>();
   for (const cycle of (explicitCyclesRes.data ?? []) as Cycle[]) {
     cycleMap.set(`${cycle.project_id}:${cycle.ym}`, cycle);
