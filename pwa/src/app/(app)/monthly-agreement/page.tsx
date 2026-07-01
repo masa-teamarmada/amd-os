@@ -454,6 +454,7 @@ function PayoutScheduleTable({ rows }: { rows: MonthlyWorkAgreementProject["payo
         <h3 className="text-[12px] font-semibold text-[#3c3c43]">未払いストックの流れ</h3>
         <span className="text-[10px] text-[#86868b]">新規発生 + 繰越 → 支払予定 → 支払後残</span>
       </div>
+      <PayoutFlowBars rows={rows} />
       <div className="max-h-[260px] overflow-auto">
         <table className="min-w-[720px] w-full text-[11px]">
           <thead className="sticky top-0 bg-white text-[#6e6e73]">
@@ -492,6 +493,73 @@ function PayoutScheduleTable({ rows }: { rows: MonthlyWorkAgreementProject["payo
             ))}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+}
+
+function PayoutFlowBars({ rows }: { rows: MonthlyWorkAgreementProject["payoutSchedule"] }) {
+  const maxGrossDueYen = Math.max(1, ...rows.map((row) => row.grossDueYen));
+  const currentSourceYm = rows.find((item) => item.isCurrentYm)?.sourceYm ?? null;
+  const chartRows = currentSourceYm
+    ? rows.filter((row) => row.isCurrentYm || row.sourceYm >= currentSourceYm)
+    : rows;
+  const visibleRows = chartRows.length > 0 ? chartRows : rows;
+  return (
+    <div className="border-b border-[#e5e5e7] bg-white p-3">
+      <div className="mb-2 flex flex-wrap gap-2 text-[10px] text-[#6e6e73]">
+        <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-[#d1d1d6]" />繰越</span>
+        <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-sky-300" />新規発生</span>
+        <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-emerald-400" />支払予定</span>
+        <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-amber-300" />支払後残</span>
+      </div>
+      <div className="max-h-[260px] overflow-auto pr-1">
+        <div className="min-w-[680px] space-y-2">
+          {visibleRows.map((row) => (
+            <PayoutFlowBarRow key={`${row.sourceYm}:${row.paymentYm}`} row={row} maxGrossDueYen={maxGrossDueYen} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PayoutFlowBarRow({
+  row,
+  maxGrossDueYen,
+}: {
+  row: MonthlyWorkAgreementProject["payoutSchedule"][number];
+  maxGrossDueYen: number;
+}) {
+  const grossDueYen = Math.max(1, row.grossDueYen);
+  const barWidthPct = Math.max(4, Math.min(100, (grossDueYen / maxGrossDueYen) * 100));
+  const carryPct = Math.min(100, (row.carryInYen / grossDueYen) * 100);
+  const basePct = Math.min(100, (row.basePayYen / grossDueYen) * 100);
+  const paidPct = Math.min(100, (row.totalPayYen / grossDueYen) * 100);
+  const stockPct = Math.min(100, (row.stockYen / grossDueYen) * 100);
+  return (
+    <div className={`grid grid-cols-[92px_minmax(0,1fr)_190px] items-center gap-3 rounded px-2 py-2 ${row.isCurrentYm ? "bg-amber-50" : "bg-white"}`}>
+      <div className="min-w-0">
+        <div className="text-[11px] font-semibold text-[#1d1d1f]">{formatYm(row.sourceYm)}</div>
+        <div className="text-[10px] text-[#86868b]">{formatYm(row.paymentYm)}支払</div>
+      </div>
+      <div className="space-y-1">
+        <div className="h-3 rounded-r-full bg-[#f5f5f7]" style={{ width: `${barWidthPct}%` }}>
+          <div className="flex h-full overflow-hidden rounded-r-full">
+            <div className="bg-[#d1d1d6]" style={{ width: `${carryPct}%` }} />
+            <div className="bg-sky-300" style={{ width: `${basePct}%` }} />
+          </div>
+        </div>
+        <div className="h-3 rounded-r-full bg-[#f5f5f7]" style={{ width: `${barWidthPct}%` }}>
+          <div className="flex h-full overflow-hidden rounded-r-full">
+            <div className="bg-emerald-400" style={{ width: `${paidPct}%` }} />
+            <div className="bg-amber-300" style={{ width: `${stockPct}%` }} />
+          </div>
+        </div>
+      </div>
+      <div className="text-right text-[10px] leading-tight text-[#6e6e73] tabular-nums">
+        <div>新規 {formatYen(row.basePayYen)} / 支払 {formatYen(row.totalPayYen)}</div>
+        <div>対象 {formatYen(row.grossDueYen)} / 残 {formatYen(row.stockYen)}</div>
       </div>
     </div>
   );
