@@ -35,6 +35,7 @@ export type PaymentProjectRow = {
   freee_partner_id: string | null;
   payment_due_rule: string | null;
   payment_due_day: number | null;
+  invoice_send_deadline_rule?: string | null;
 };
 
 export type PaymentConfirmationGroup = {
@@ -119,9 +120,35 @@ function expectedGrossFromNet(net: number): number {
   return Math.round(net * 1.1);
 }
 
+function invoiceDeadlineDay(rule: string | null | undefined): number | null {
+  const match = String(rule ?? "").match(/\d{1,2}/);
+  if (!match) return null;
+  const day = Number(match[0]);
+  return Number.isFinite(day) ? Math.max(1, Math.min(31, day)) : null;
+}
+
+function isoForYmDay(ym: string, day: number): string | null {
+  if (!YM_RE.test(ym)) return null;
+  const year = Number(ym.slice(0, 4));
+  const month = Number(ym.slice(4, 6));
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return `${ym.slice(0, 4)}-${ym.slice(4, 6)}-${String(Math.min(day, lastDay)).padStart(2, "0")}`;
+}
+
+function paymentRuleReferenceDate(
+  cycle: Pick<PaymentCycleRow, "ym"> & Partial<Pick<PaymentCycleRow, "invoice_sent_at" | "invoice_issued_at">>,
+  project: Pick<PaymentProjectRow, "payment_due_rule" | "invoice_send_deadline_rule"> | undefined
+): string | null {
+  if (cycle.invoice_sent_at) return cycle.invoice_sent_at;
+  if (cycle.invoice_issued_at) return cycle.invoice_issued_at;
+  if (project?.payment_due_rule !== "invoice_received_60_days") return null;
+  const deadlineDay = invoiceDeadlineDay(project.invoice_send_deadline_rule);
+  return deadlineDay ? isoForYmDay(addMonths(cycle.ym, 1), deadlineDay) : null;
+}
+
 export function effectivePaymentYmForCycle(
   cycle: Pick<PaymentCycleRow, "invoice_ym" | "ym"> & Partial<Pick<PaymentCycleRow, "invoice_sent_at" | "invoice_issued_at">>,
-  project: Pick<PaymentProjectRow, "payment_due_rule" | "payment_due_day"> | undefined
+  project: Pick<PaymentProjectRow, "payment_due_rule" | "payment_due_day" | "invoice_send_deadline_rule"> | undefined
 ): string {
   const explicit = cleanYm(cycle.invoice_ym);
   if (explicit) return explicit;
@@ -129,7 +156,7 @@ export function effectivePaymentYmForCycle(
     cycle.ym,
     project?.payment_due_rule ?? null,
     project?.payment_due_day ?? null,
-    cycle.invoice_sent_at ?? cycle.invoice_issued_at ?? null
+    paymentRuleReferenceDate(cycle, project)
   );
 }
 
@@ -160,7 +187,7 @@ export async function loadPaymentConfirmationGroups(
   const [projectsRes, explicitRes, unsetRes] = await Promise.all([
     db
       .from("projects")
-      .select("project_id, project_name, client_name, status, fee_type, fee_amount, start_ym, end_ym, freee_partner_id, payment_due_rule, payment_due_day"),
+      .select("project_id, project_name, client_name, status, fee_type, fee_amount, start_ym, end_ym, freee_partner_id, payment_due_rule, payment_due_day, invoice_send_deadline_rule"),
     db.from("billing_cycles").select(cycleSelect).eq("invoice_ym", targetYm),
     db.from("billing_cycles").select(cycleSelect).in("ym", candidates).is("invoice_ym", null),
   ]);
@@ -195,7 +222,7 @@ export async function loadPaymentConfirmationGroups(
     const invoiceYm = effectivePaymentYmForCycle(cycle, project);
     if (invoiceYm !== targetYm) continue;
     const key = `${cycle.project_id}:${invoiceYm}`;
-    const referenceDate = cycle.invoice_sent_at ?? cycle.invoice_issued_at ?? null;
+    const referenceDate = paymentRuleReferenceDate(cycle, project);
     const dueDate = computePaymentDueDateByRule(cycle.ym, project.payment_due_rule, project.payment_due_day, referenceDate);
     const current =
       groupMap.get(key) ??

@@ -66,7 +66,7 @@ async function refreshPayoutRewardCache(paymentYms: string[], cycleYms: string[]
   const [projectsRes, explicitRes, unsetRes, forecastCycleRes] = await Promise.all([
     db
       .from("projects")
-      .select("project_id, project_name, client_name, status, freee_partner_id, payment_due_rule, payment_due_day"),
+      .select("project_id, project_name, client_name, status, freee_partner_id, payment_due_rule, payment_due_day, invoice_send_deadline_rule"),
     db.from("billing_cycles").select(cycleSelect).in("invoice_ym", paymentYms),
     db.from("billing_cycles").select(cycleSelect).in("ym", sourceYms).is("invoice_ym", null),
     db.from("billing_cycles").select(cycleSelect).in("ym", targetCycleYms),

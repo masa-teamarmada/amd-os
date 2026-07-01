@@ -51,6 +51,7 @@ type ProjectRow = {
   freeze_from_ym: string | null;
   payment_due_rule: string | null;
   payment_due_day: number | null;
+  invoice_send_deadline_rule?: string | null;
 };
 
 type BillingRow = {
@@ -96,6 +97,29 @@ function ymFromIsoDate(value: string | null | undefined): string | null {
   return `${match[1]}${match[2]}`;
 }
 
+function addMonths(ym: string, delta: number): string {
+  const year = Number(ym.slice(0, 4));
+  const month = Number(ym.slice(4, 6));
+  const date = new Date(Date.UTC(year, month - 1 + delta, 1));
+  return `${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function invoiceDeadlineDay(rule: string | null | undefined): number | null {
+  const match = String(rule ?? "").match(/\d{1,2}/);
+  if (!match) return null;
+  const day = Number(match[0]);
+  return Number.isFinite(day) ? Math.max(1, Math.min(31, day)) : null;
+}
+
+function invoiceDeadlineReferenceDate(billingYm: string, project: ProjectRow | undefined): string | null {
+  if (project?.payment_due_rule !== "invoice_received_60_days") return null;
+  const deadlineDay = invoiceDeadlineDay(project.invoice_send_deadline_rule);
+  if (!deadlineDay) return null;
+  const referenceYm = addMonths(billingYm, 1);
+  const lastDay = new Date(Date.UTC(Number(referenceYm.slice(0, 4)), Number(referenceYm.slice(4, 6)), 0)).getUTCDate();
+  return `${referenceYm.slice(0, 4)}-${referenceYm.slice(4, 6)}-${String(Math.min(deadlineDay, lastDay)).padStart(2, "0")}`;
+}
+
 function resolveExtraRevenueCashYm(
   row: ExtraRevenueRow,
   entry: ExtraRevenueEntry,
@@ -106,7 +130,14 @@ function resolveExtraRevenueCashYm(
 
   const billingYm = ymFromIsoDate(entry.billing_date);
   if (billingYm) {
-    return ymToInt(computePaymentYmByRule(billingYm, project?.payment_due_rule ?? null, project?.payment_due_day ?? null));
+    return ymToInt(
+      computePaymentYmByRule(
+        billingYm,
+        project?.payment_due_rule ?? null,
+        project?.payment_due_day ?? null,
+        invoiceDeadlineReferenceDate(billingYm, project)
+      )
+    );
   }
 
   // Legacy entries without billing_date keep the historical behavior: cash in billing_cycles.ym.
@@ -158,7 +189,7 @@ export async function buildLiveMonthlyPlInputs(
   const [projectsRes, recurringRes] = await Promise.all([
     supabase
       .from("projects")
-      .select("project_id, project_name, status, fee_type, fee_amount, start_ym, end_ym, freeze_from_ym, payment_due_rule, payment_due_day")
+      .select("project_id, project_name, status, fee_type, fee_amount, start_ym, end_ym, freeze_from_ym, payment_due_rule, payment_due_day, invoice_send_deadline_rule")
       .limit(500),
     supabase
       .from("company_finance_recurring_items")

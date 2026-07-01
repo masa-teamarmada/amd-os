@@ -98,7 +98,7 @@ async function loadOfficerReserve(
       .eq("status", "active"),
     supabase
       .from("projects")
-      .select("project_id, project_name, client_name, status, freee_partner_id, payment_due_rule, payment_due_day"),
+      .select("project_id, project_name, client_name, status, freee_partner_id, payment_due_rule, payment_due_day, invoice_send_deadline_rule"),
     supabase
       .from("billing_cycles")
       .select("project_id, ym, invoice_ym, invoice_issued_at, invoice_sent_at, reward_summary_json")

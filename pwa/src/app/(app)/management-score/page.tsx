@@ -157,6 +157,7 @@ type PaymentProjectRow = {
   freee_partner_id: string | null;
   payment_due_rule: string | null;
   payment_due_day: number | null;
+  invoice_send_deadline_rule?: string | null;
 };
 
 type PaymentMemberRow = {
@@ -2027,7 +2028,7 @@ export default async function ManagementScorePage() {
     safeSelect<PaymentProjectRow[]>(() =>
       supabase
         .from("projects")
-        .select("project_id,project_name,client_name,status,fee_type,fee_amount,start_ym,end_ym,freee_partner_id,payment_due_rule,payment_due_day")
+        .select("project_id,project_name,client_name,status,fee_type,fee_amount,start_ym,end_ym,freee_partner_id,payment_due_rule,payment_due_day,invoice_send_deadline_rule")
         .limit(500)
     ),
     safeSelect<PaymentMemberRow[]>(() =>
