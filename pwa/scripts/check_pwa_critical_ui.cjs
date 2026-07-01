@@ -742,35 +742,49 @@ expectIncludes("design/FEATURE_REGISTRY.md", [
 
 // /admin/ms-overview — 全PJ MS設計 一望 (Milestone Overview)
 expectIncludes("src/app/api/admin/ms-overview/route.ts", [
-  "computeSeasonPl",
   "value_plan_cycles",
   "milestone_responsibility",
-  "extra_budget_yen",
+  "regularPointBasisForCycle",
+  "memberPointTotals",
   "planCycles",
   "project_freeze_periods",
   "deriveHealthState",
   "healthState",
 ]);
+expectNotIncludes("src/app/api/admin/ms-overview/route.ts", [
+  "computeSeasonPl",
+  "ptValueYen",
+  "memberYearTotals",
+  "regularPtUnitYen",
+  "extraPtUnitYen",
+  "extraPoolBudgetYen",
+]);
 
 expectIncludes("src/components/admin/AdminMsOverviewClient.tsx", [
   "/api/admin/ms-overview",
   "全MS",
-  "メンバー別 年計",
+  "メンバー別 pt配分",
   "cap_extra",
   "編集モード",
   "MS追加",
   "担当share",
+  "担当pt",
   "全MS pt配分スライダー",
   "pt配分スライダー",
   "残り割り振り可能pt",
-  "MS金額",
-  "MS内金額",
   "保存先 DB",
   "DB値に戻す",
   "保存して DB へ反映",
   "recomputeMsOverview",
   "HealthChip",
   "groupHealthRank",
+]);
+expectNotIncludes("src/components/admin/AdminMsOverviewClient.tsx", [
+  "fmtYen",
+  "pt価値",
+  "MS金額",
+  "MS内金額",
+  "メンバー別 年計",
 ]);
 
 expectIncludes("src/app/(app)/admin/ms-overview/page.tsx", [
@@ -785,6 +799,8 @@ expectIncludes("src/components/admin/AdminSidebar.tsx", [
 
 expectIncludes("design/FEATURE_REGISTRY.md", [
   "/admin/ms-overview",
+  "支払額に見える円換算",
+  "memberPointTotals",
 ]);
 
 require("./check_payout_notice_pdf_golden.cjs");

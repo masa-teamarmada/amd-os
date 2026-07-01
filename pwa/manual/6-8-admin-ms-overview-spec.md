@@ -1,17 +1,17 @@
 # 6-8. Admin / MS Overview (全PJ MS設計 一望)
 
-`/admin/ms-overview` は AMD OS が抱える全 active シーズン (plan cycle) の MS (Milestone) 設計を 1 画面で並べて、「pt 配分が他 MS と比べて妥当か」「メンバー間の序列がおかしくないか」をまさが目で判断するための **設計レビュー画面**。
+`/admin/ms-overview` は AMD OS が抱える全 active シーズン (plan cycle) の MS (Milestone) 設計を 1 画面で並べて、「pt 配分が他 MS と比べて妥当か」「メンバー間の担当量がおかしくないか」をまさが目で判断するための **設計レビュー画面**。
 
-シーズン予実表 (`/admin/season-pl`) が「請求・原資・支払いが閉じているか」の **安全網** なのに対し、こちらは MS 設計そのものの **歪み検知**。実消化 (`milestone_monthly_progress`) は読まず、`plannedShare` ベースの理論値だけを並べる。
+シーズン予実表 (`/admin/season-pl`) が「請求・原資・支払いが閉じているか」の **安全網** なのに対し、こちらは MS 設計そのものの **歪み検知**。実消化 (`milestone_monthly_progress`) と支払額は読まず、`plannedShare` ベースの pt 配分だけを並べる。
 
 ---
 
 ## 開く場面
 
 - 新規シーズンの MS 設計をレビュー / 編集する
-- メンバーから「自分の年計が他のメンバーと比べておかしくないか」と相談された
+- メンバーから「自分の担当量が他のメンバーと比べておかしくないか」と相談された
 - まさ自身が「あびと しんで序列がおかしくなってないか」を一望したい
-- 別財布 (cap_extra) を入れた PJ で「本契約と別財布で pt 単価が正しく分離されているか」をまとめて確認したい
+- 別財布 (cap_extra) を入れた PJ で「本契約と別財布の pt 配分が混ざっていないか」をまとめて確認したい
 
 MS 設計値の書き換え口はこの画面に集約する。cockpit は MS の表示と月次進捗確認に専念し、MS 本体・期間・pt・tag・担当 share の編集は `/admin/ms-overview` の編集モードで行う。
 
@@ -28,9 +28,9 @@ PJ ブロックを開くと以下の 4 ブロックが縦に並ぶ:
 | カード | 値 | 補助情報 |
 |---|---|---|
 | 合計pt | `total_points` | 本契約 / 別財布 の pt 内訳 |
-| 本契約 pt単価 | `regularPtUnitYen` | 原資 ÷ 本契約 pt |
-| 別財布 pt単価 | `extraPtUnitYen` (無ければ `—`) | `Σ extra_budget_yen ÷ Σextra pt` |
-| 主要メンバー比較 | 年計上位 2 名の金額 | 比 (倍率) |
+| 本契約pt | `regularPoints` | 通常 MS の割当pt / 残り割り振り可能pt |
+| 別財布pt | `extraPoints` (無ければ `—`) | cap_extra MS の pt 合計 |
+| 主要メンバー比較 | pt配分上位 2 名の totalPt | 比 (倍率) |
 
 ### ② 全MS (pt順)
 
@@ -38,20 +38,19 @@ MS を `pt` 降順で並べ、各行に以下を出す:
 
 - **MS 名 / 期間 (`period_start_ym` – `target_ym`) / tag** — tag は色付きで表示 (cap_extra 系は `cap_extra` と固定表示)
 - **pt** — `value_milestones.points`
-- **pt価値 (円)** — `points × pt単価` (cap_extra なら extra 単価、そうでなければ regular 単価)
-- **横バー** — `ptValueYen` の最大値に対する比率で幅を取る
+- **横バー** — `points` の最大値に対する比率で幅を取る
   - normal (本契約): `#1D9E75`
   - routine: `#888780`
   - cap_extra (別財布): `#7F77DD`
 - **担当 share** — `milestone_responsibility` の share 降順、`codeName share%` 形式。担当未設定は赤字で警告。
 
-### ③ メンバー別 年計 (plannedShare 理論値)
+### ③ メンバー別 pt配分 (plannedShare)
 
-active メンバー (`project_members.is_active=true`) について、シーズン全期間の理論年計を `totalYen` 降順で出す:
+active メンバー (`project_members.is_active=true`) について、シーズン全期間の担当 pt を `totalPt` 降順で出す:
 
 - 1 本の横バーに **本契約 (濃い緑 `#1D9E75`) + 別財布 (淡い紫 `#7F77DD`, 不透明度 0.65)** を積み上げ
-- 右に合計金額。別財布が乗っている人は `(本 ¥xxx 別 ¥yyy)` の内訳もインライン表示
-- 計算式: `Σ (MS points × share × pt単価)` を tag (cap_extra か否か) で振り分けて regular / extra に積む
+- 右に合計 pt。別財布が乗っている人は `(本 xxpt 別 yypt)` の内訳もインライン表示
+- 計算式: `Σ (MS points × share)` を tag (cap_extra か否か) で振り分けて regular / extra に積む
 
 ### ④ PJ ヘルス順での並び替え (2026-06-21 追加)
 
@@ -82,7 +81,7 @@ MS 一覧は plan_cycle ブロックの中でさらに **現役 MS** と **過�
 - 過去分 MS はデフォルト折りたたみ、`▸ 過去分 (N件) を表示` トグルで展開
 - 見出しに「現役 N件 / 過去分 N件」を出して件数だけは常に見える
 - 編集モードでは全 MS を設計エディタとして並べる。保存対象は画面内の全 active MS。
-- 折りたたまれた過去分は表示されないが、メトリクス・メンバー年計・pt 単価には変わらず含まれる (= 計算からは外さない)
+- 折りたたまれた過去分は表示されないが、メトリクス・メンバー別 pt 配分には変わらず含まれる (= 計算からは外さない)
 
 ### ⑦ tag 凡例
 
@@ -94,16 +93,15 @@ normal / routine / cap_extra の色サンプル + ラベルを横並びで表示
 
 API: `GET /api/admin/ms-overview` (`src/app/api/admin/ms-overview/route.ts`)
 
-**最重要原則: 算定ロジックを `computeSeasonPl` から剥がして route 内で再実装しない**。pt 単価と原資の正本は常に `src/lib/season-pl.ts` 側に置く。これを破ると `/admin/season-pl` (予実表) と乖離して、まさが見る数字が画面によって違うバグになる (= 2026-06-20 確定方針)。
+**最重要原則: `/admin/ms-overview` では支払額に見える円換算を作らない**。この画面は MS 設計レビュー専用なので、扱うのは pt と share だけ。実際の支払額は `reward-summary.ts` / `/admin/season-pl` / `/admin/payouts` 側を正本にする。別ロジックで「似たような年間支払額」を出すと、実支払額と数百円単位でズレて事故るため廃止する (= 2026-07-01 確定方針)。
 
 route の流れ:
 
 1. `value_plan_cycles` を active ステータス絞りで全件 load
-2. 各 plan cycle について `computeSeasonPl({ progress: [] })` を呼ぶ
-   - `progress` を空配列で渡すのは、この画面が **実消化を読まないため**
-   - `regularPtUnitYen` / `extraPtUnitYen` / `extraPoolBudgetYen` / `extraPointsSum` だけ使う
-3. MS 一覧は `value_milestones.is_active=true` かつ `goal_level ≠ monthly` を pt 順に並べ、`ptValueYen = points × (isCapExtra ? extraPtUnitYen : regularPtUnitYen)` で計算
-4. メンバー年計は `Σ (points × share)` を tag で regular / extra プールに振り分け、最後に pt 単価を掛ける
+2. 各 plan cycle について、シーズン期間から `regularPoints = 月数 × 10pt` を出す
+3. `value_milestones.is_active=true` かつ `goal_level ≠ monthly` を pt 順に並べる
+4. `cap_extra` 系 MS は MS 期間月数×10ptを effective points とし、`extraPoints` に積む
+5. メンバー別配分は `Σ (effectivePoints × share)` を tag で regular / extra pt に振り分ける
 
 別財布判定の tag セット (season-pl と一致させる):
 `cap_extra` / `extra_contract` / `contract_extra` / `cap_outside` / `uncapped`
@@ -114,37 +112,33 @@ route の流れ:
 {
   "ok": true,
   "planCycles": [
-    {
-      "planCycleId": "...",
-      "projectId": "p19",
-      "projectName": "ZMP",
-      "periodStartYm": "202601",
-      "periodEndYm": "202612",
-      "budgetYen": 2340000,
-      "totalPoints": 180,
-      "regularPoints": 120,
-      "extraPoints": 60,
-      "regularPtUnitYen": 19500,
-      "extraPtUnitYen": 21667,
-      "extraPoolBudgetYen": 1300000,
-      "projectMembers": [{ "memberId": "ID002", "codeName": "あび" }],
-      "milestones": [
-        {
-          "milestoneId": "...",
-          "title": "ファシリテーション",
-          "points": 20,
-          "tag": "normal",
-          "goalLevel": "annual",
-          "isCapExtra": false,
-          "ptValueYen": 390000,
-          "responsibilities": [{ "memberId": "ID002", "codeName": "あび", "share": 1, "role": "担当", "taskDescription": null }]
-        }
-      ],
-      "memberYearTotals": [
-        { "memberId": "ID002", "codeName": "あび", "regularYen": 700000, "extraYen": 0, "totalYen": 700000 }
-      ]
-    }
-  ]
+	    {
+	      "planCycleId": "...",
+	      "projectId": "p19",
+	      "projectName": "ZMP",
+	      "periodStartYm": "202601",
+	      "periodEndYm": "202612",
+	      "budgetYen": 2340000,
+	      "totalPoints": 180,
+	      "regularPoints": 120,
+	      "extraPoints": 60,
+	      "projectMembers": [{ "memberId": "ID002", "codeName": "あび" }],
+	      "milestones": [
+	        {
+	          "milestoneId": "...",
+	          "title": "ファシリテーション",
+	          "points": 20,
+	          "tag": "normal",
+	          "goalLevel": "annual",
+	          "isCapExtra": false,
+	          "responsibilities": [{ "memberId": "ID002", "codeName": "あび", "share": 1, "role": "担当", "taskDescription": null }]
+	        }
+	      ],
+	      "memberPointTotals": [
+	        { "memberId": "ID002", "codeName": "あび", "regularPt": 20, "extraPt": 0, "totalPt": 20 }
+	      ]
+	    }
+	  ]
 }
 ```
 
@@ -166,25 +160,23 @@ route の流れ:
 
 ### リアルタイム再計算
 
-pt / tag / share を動かすたびに、API を叩かず **JS 側で即座に再計算** する。算定式は `src/lib/admin/ms-overview-calc.ts` の `recomputeMsOverview` で、`src/lib/season-pl.ts` の `computeSeasonPl` のメンバー予算配分式と完全一致 (= 編集中も DB 保存後も `/admin/season-pl` と齟齬が出ない):
+pt / tag / share を動かすたびに、API を叩かず **JS 側で即座に再計算** する。算定式は `src/lib/admin/ms-overview-calc.ts` の `recomputeMsOverview`。支払額に見える円換算は行わず、編集画面内の判断材料は pt だけにする:
 
 ```text
 regularPts   = シーズン期間の月数 × 10pt
-regularUnit  = round(budget_yen / regularPts)
 extraPts     = Σ(cap_extra MS の期間月数 × 10pt)
-extraUnit    = round(extraPoolBudgetYen / extraPts)   // 別財布があるときのみ
-memberYen[m] = Σ over MS of (effectivePoints × share[m] × (cap_extra ? extraUnit : regularUnit))
+memberPt[m]  = Σ over MS of (effectivePoints × share[m])
 ```
 
-`total_points` の保存値は `regularPts + extraPts`。通常 MS の配分 pt 合計が変わっても、本契約 pt単価は動かない。`cap_extra` の pt は保存時にも API 側で MS 期間×10ptへ正規化する。
+`total_points` の保存値は `regularPts + extraPts`。`cap_extra` の pt は保存時にも API 側で MS 期間×10ptへ正規化する。
 
-編集モードでは、MS 一覧の先頭に **全MS pt配分スライダー** を置く。これは MS 名 / pt数値入力 / スライダー / 現在pt / **MS金額** を並べた配分専用パネルで、全 MS の pt と金額インパクトを比較しながら調整するための入口。各編集カード内にも pt 数値入力 + pt配分スライダーを残し、どちらを動かしても同じ編集中 state を更新する。通常 MS のスライダー範囲は編集開始時点の最大 pt × 1.5 を右端に固定し、ドラッグ中に max を変えない (= 1px あたりの pt 幅を一定に保つ)。`cap_extra` は MS 期間の月数×10pt固定なので、まとめパネル・個別カードの両方で disabled 表示にする。
+編集モードでは、MS 一覧の先頭に **全MS pt配分スライダー** を置く。これは MS 名 / pt数値入力 / スライダー / 現在pt を並べた配分専用パネルで、全 MS の pt 重みを比較しながら調整するための入口。各編集カード内にも pt 数値入力 + pt配分スライダーを残し、どちらを動かしても同じ編集中 state を更新する。通常 MS のスライダー範囲は編集開始時点の最大 pt × 1.5 を右端に固定し、ドラッグ中に max を変えない (= 1px あたりの pt 幅を一定に保つ)。`cap_extra` は MS 期間の月数×10pt固定なので、まとめパネル・個別カードの両方で disabled 表示にする。
 
-編集カードは左に MS 基本情報 (MS名 / pt数値入力 / pt配分スライダー / tag / 期間 / 完了条件)、右に担当 share 表を置く。担当 share 表は **メンバー1人=1行** で、横方向に `メンバー / share / 役割 / MS内金額 / 担当タスク` を並べる。2カラムに分割しない。
+編集カードは左に MS 基本情報 (MS名 / pt数値入力 / pt配分スライダー / tag / 期間 / 完了条件)、右に担当 share 表を置く。担当 share 表は **メンバー1人=1行** で、横方向に `メンバー / share / 役割 / 担当pt / 担当タスク` を並べる。2カラムに分割しない。
 
 通常 MS の pt を動かすと、編集画面上部と全MS見出しに **残り割り振り可能pt** をリアルタイム表示する。算定式は `regularPointBasis - Σ(non-cap_extra MS effectivePoints)`。配分超過時は負数として赤系で表示する。`cap_extra` は MS期間×10pt固定の別財布なので、この残り枠には混ぜない。
 
-再計算結果は ① メトリクスカード 4 枚 (合計pt / 本契約 pt単価 / 別財布 pt単価 / 主要メンバー比較) ② 各 MS の pt 価値 ③ 担当 share 行の **MS内金額** (`effectivePoints × share × pt単価`) ④ メンバー別 年計バー + 合計金額 ⑤ ヘッダの単価表示 にリアルタイムで反映する。
+再計算結果は ① メトリクスカード 4 枚 (合計pt / 本契約pt / 別財布pt / 主要メンバー比較) ② 各 MS の pt 比 ③ 担当 share 行の **担当pt** (`effectivePoints × share`) ④ メンバー別 pt 配分バー ⑤ ヘッダの pt 表示 にリアルタイムで反映する。
 
 月次 override (`milestone_monthly_contribution_allocations.actual_share`) は読まない (= MS 設計を見る画面なので plannedShare × MS.points だけで計算)。
 
@@ -223,7 +215,7 @@ MS Overview は **設計値そのものを見せる画面** だから。実消�
 
 ## 関連
 
-- 計算正本: [`pwa/src/lib/season-pl.ts`](../src/lib/season-pl.ts) の `computeSeasonPl`
-- 報酬計算正本: [`pwa/manual/7-1-reward-calc-spec.md`](7-1-reward-calc-spec.md) (別財布章、plannedShare/actualShare の関係)
+- MS Overview pt計算: [`pwa/src/lib/admin/ms-overview-calc.ts`](../src/lib/admin/ms-overview-calc.ts) の `recomputeMsOverview`
+- 報酬計算正本: [`pwa/manual/7-1-reward-calc-spec.md`](7-1-reward-calc-spec.md) (別財布章、plannedShare/actualShare の関係)。支払額の円計算はここから派生する reward cache / payout 側だけで扱う。
 - 姉妹画面: [`pwa/manual/6-5-admin-payouts-reward-notice-spec.md`](6-5-admin-payouts-reward-notice-spec.md) §シーズン予実表 (= 実消化ベースの安全網)
 - 設計セッション起点: `pwa/design_log/sessions_2026-06.md` 2026-06-20 ZMP MS 設計再考セッション
