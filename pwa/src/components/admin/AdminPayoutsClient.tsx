@@ -437,6 +437,8 @@ type MemberMonthlyPayoutRow = {
   memberId: string;
   memberName: string;
   totalPay: number;
+  regularPaidYen: number;
+  extraPaidYen: number;
   cells: MemberMonthlyPayoutCell[];
 };
 
@@ -1335,6 +1337,8 @@ function buildMemberMonthlyPayoutRows({
       memberId: member.member_id,
       memberName,
       totalPay: 0,
+      regularPaidYen: 0,
+      extraPaidYen: 0,
       cells: makeCells(member.member_id, memberName),
     });
   }
@@ -1349,6 +1353,8 @@ function buildMemberMonthlyPayoutRows({
         memberId: entry.memberId,
         memberName: entry.memberName,
         totalPay: 0,
+        regularPaidYen: 0,
+        extraPaidYen: 0,
         cells: makeCells(entry.memberId, entry.memberName),
       };
     const cell = row.cells.find((item) => item.ym === paymentYm);
@@ -1363,6 +1369,8 @@ function buildMemberMonthlyPayoutRows({
     cell.entries.push(line);
     cell.entries.sort((a, b) => b.totalPay - a.totalPay || a.projectName.localeCompare(b.projectName, "ja"));
     row.totalPay += entry.totalPay;
+    row.regularPaidYen += entry.regularPaidYen;
+    row.extraPaidYen += entry.extraPaidYen;
     rows.set(entry.memberId, row);
   }
 
@@ -3571,10 +3579,14 @@ function MemberMonthlyPayoutMatrix({
     () => months.map((month) => ({
       ym: month,
       totalPay: rows.reduce((sum, row) => sum + (row.cells.find((cell) => cell.ym === month)?.totalPay ?? 0), 0),
+      regularPaidYen: rows.reduce((sum, row) => sum + (row.cells.find((cell) => cell.ym === month)?.regularPaidYen ?? 0), 0),
+      extraPaidYen: rows.reduce((sum, row) => sum + (row.cells.find((cell) => cell.ym === month)?.extraPaidYen ?? 0), 0),
     })),
     [months, rows]
   );
   const grandTotal = monthTotals.reduce((sum, month) => sum + month.totalPay, 0);
+  const grandRegularPaidYen = monthTotals.reduce((sum, month) => sum + month.regularPaidYen, 0);
+  const grandExtraPaidYen = monthTotals.reduce((sum, month) => sum + month.extraPaidYen, 0);
   const activeMonths = monthTotals.filter((month) => month.totalPay > 0).length;
   const payingMembers = rows.filter((row) => row.totalPay > 0).length;
   const selectedCell = selected
@@ -3593,6 +3605,8 @@ function MemberMonthlyPayoutMatrix({
         <div className="ml-auto flex flex-wrap justify-end gap-2 text-[11px]">
           <span className="rounded bg-muted/50 px-2 py-1">対象 {payingMembers}人</span>
           <span className="rounded bg-muted/50 px-2 py-1">発生月 {activeMonths}か月</span>
+          {grandRegularPaidYen > 0 && <span className="rounded bg-emerald-50 px-2 py-1 text-emerald-800">本契約 {fmtFlowYen(grandRegularPaidYen)}</span>}
+          {grandExtraPaidYen > 0 && <span className="rounded bg-indigo-50 px-2 py-1 text-indigo-800">別財布 {fmtFlowYen(grandExtraPaidYen)}</span>}
           <span className="rounded bg-red-50 px-2 py-1 font-semibold text-red-800">12か月 {fmtFlowYen(grandTotal)}</span>
         </div>
       </div>
@@ -3629,11 +3643,19 @@ function MemberMonthlyPayoutMatrix({
                 <tr className="bg-muted/20">
                   <th className="sticky left-0 z-10 w-[176px] min-w-[176px] max-w-[176px] border-b border-r border-border bg-muted px-3 py-2 text-left font-semibold">合計</th>
                   <td className="sticky left-[176px] z-10 w-[144px] min-w-[144px] max-w-[144px] border-b border-r border-border bg-muted px-3 py-2 text-right font-semibold tabular-nums text-red-800">
-                    {fmtFlowYen(grandTotal)}
+                    <span className="block">{fmtFlowYen(grandTotal)}</span>
+                    {grandExtraPaidYen > 0 && (
+                      <span className="block text-[10px] font-normal text-indigo-700">別 {fmtYen(grandExtraPaidYen)}</span>
+                    )}
                   </td>
                   {monthTotals.map((month) => (
                     <td key={month.ym} className="w-[118px] min-w-[118px] max-w-[118px] border-b border-r border-border px-2 py-2 text-right font-semibold tabular-nums">
-                      {month.totalPay > 0 ? fmtFlowYen(month.totalPay) : <span className="text-muted-foreground">—</span>}
+                      {month.totalPay > 0 ? (
+                        <>
+                          <span className="block">{fmtFlowYen(month.totalPay)}</span>
+                          {month.extraPaidYen > 0 && <span className="block text-[10px] font-normal text-indigo-700">別 {fmtYen(month.extraPaidYen)}</span>}
+                        </>
+                      ) : <span className="text-muted-foreground">—</span>}
                     </td>
                   ))}
                 </tr>
@@ -3644,7 +3666,17 @@ function MemberMonthlyPayoutMatrix({
                       <div className="font-mono text-[10px] text-muted-foreground">{row.memberId}</div>
                     </th>
                     <td className="sticky left-[176px] z-10 w-[144px] min-w-[144px] max-w-[144px] border-b border-r border-border bg-background px-3 py-2 text-right align-top font-semibold tabular-nums">
-                      {row.totalPay > 0 ? fmtFlowYen(row.totalPay) : <span className="text-muted-foreground">—</span>}
+                      {row.totalPay > 0 ? (
+                        <>
+                          <span className="block">{fmtFlowYen(row.totalPay)}</span>
+                          <span className="mt-0.5 block text-[10px] font-normal text-muted-foreground">
+                            本 {fmtYen(row.regularPaidYen)}
+                          </span>
+                          {row.extraPaidYen > 0 && (
+                            <span className="block text-[10px] font-normal text-indigo-700">別 {fmtYen(row.extraPaidYen)}</span>
+                          )}
+                        </>
+                      ) : <span className="text-muted-foreground">—</span>}
                     </td>
                     {row.cells.map((cell) => {
                       const isSelected = selected?.memberId === cell.memberId && selected.ym === cell.ym;
@@ -3662,6 +3694,7 @@ function MemberMonthlyPayoutMatrix({
                               }`}
                             >
                               <span className="block text-[12px] font-semibold">{fmtFlowYen(cell.totalPay)}</span>
+                              {cell.extraPaidYen > 0 && <span className="block text-[10px] text-indigo-700">別 {fmtYen(cell.extraPaidYen)}</span>}
                               <span className="block text-[10px] text-muted-foreground">{cell.entries.length} PJ</span>
                             </button>
                           ) : (

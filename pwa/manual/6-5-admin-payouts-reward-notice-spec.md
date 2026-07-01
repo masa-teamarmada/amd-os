@@ -350,7 +350,7 @@ GAS 064 が読む:
 
 先12か月では、会社留保を支出として表示しない。`キャッシュ支払` 表は非役員・支払通知対象メンバーへの外部支払だけを見る。`会社留保` 表は `cap/売上枠 - 外部支払` を留保増加額として表示し、役員の `regularCompanyReserveYen` / `extraCompanyReserveYen` はその内訳として読む。`cap超過チェック` 表だけは、役員会社留保も含めた報酬需要が cap/売上枠を超えていないかを見る。
 
-`先12か月 メンバー別支払予定` 表は、行を非役員・支払対象メンバー、列を稼働月にした外部支払マトリクス。セルの主値は `reward_summary_json.members[].totalPay` のメンバー・稼働月合計 (= 税抜) で、役員会社留保・支払対象外メンバー・未払い残 `stockYen` は支払額に混ぜない。セルを選ぶと、その稼働月の PJ 別内訳として `project_id` / `totalPay` / `regularPaidYen` / `extraPaidYen` / `basePay` / `earnedPt` / `stockYen` を表示し、支払額は税抜 / 税込を併記する。
+`先12か月 メンバー別支払予定` 表は、行を非役員・支払対象メンバー、列を支払月にした外部支払マトリクス。セルの主値は `reward_summary_json.members[].totalPay` のメンバー・支払月合計 (= 税抜) で、役員会社留保・支払対象外メンバー・未払い残 `stockYen` は支払額に混ぜない。12か月合計・月合計・メンバー行・月セルには、本契約 `regularPaidYen` と別財布 `extraPaidYen` の内訳を併記し、別財布が支払予定に入っているかを一覧上で確認できるようにする。セルを選ぶと、その支払月の PJ 別内訳として `project_id` / `totalPay` / `regularPaidYen` / `extraPaidYen` / `basePay` / `earnedPt` / `stockYen` を表示し、支払額は税抜 / 税込を併記する。
 
 ## 報酬債務台帳
 
