@@ -292,6 +292,12 @@ type EditVals = {
   freeze_from_ym: string;
   restart_expected_ym: string;
   news_search_query: string;
+  monthly_report_scope: string;
+  report_local_alias: string;
+  /** カンマ区切り文字列で編集し、保存時に string[] に変換 */
+  report_extra_allow_terms: string;
+  /** JSON 文字列で編集し、保存時に array<{name, description?}> に parse */
+  work_content: string;
 };
 
 export function AdminProjectsTable({ projects: initialProjects }: Props) {
@@ -371,6 +377,10 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
       freeze_from_ym: p.freeze_from_ym ?? "",
       restart_expected_ym: p.restart_expected_ym ?? "",
       news_search_query: p.news_search_query ?? "",
+      monthly_report_scope: p.monthly_report_scope || "none",
+      report_local_alias: p.report_local_alias ?? "",
+      report_extra_allow_terms: (p.report_extra_allow_terms || []).join(", "),
+      work_content: JSON.stringify(p.work_content || [], null, 2),
     });
   };
 
@@ -562,6 +572,43 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
       case "news_search_query":
         patch.news_search_query = (editVals.news_search_query as string)?.trim() || null;
         break;
+      case "monthly_report_scope": {
+        const v = (editVals.monthly_report_scope as string) || "none";
+        patch.monthly_report_scope = (v === "internal_only" || v === "internal_and_external") ? v : "none";
+        break;
+      }
+      case "report_local_alias":
+        patch.report_local_alias = (editVals.report_local_alias as string)?.trim() || null;
+        break;
+      case "report_extra_allow_terms": {
+        const raw = (editVals.report_extra_allow_terms as string) || "";
+        patch.report_extra_allow_terms = raw
+          .split(/[,、]/)
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
+        break;
+      }
+      case "work_content": {
+        const raw = (editVals.work_content as string)?.trim() || "";
+        if (!raw) {
+          patch.work_content = [];
+          break;
+        }
+        try {
+          const parsed = JSON.parse(raw);
+          if (!Array.isArray(parsed)) {
+            setHint("業務内容は配列 [] 形式で入力してください");
+            setSaving(null);
+            return;
+          }
+          patch.work_content = parsed;
+        } catch (e) {
+          setHint(`業務内容 JSON parse エラー: ${(e as Error).message}`);
+          setSaving(null);
+          return;
+        }
+        break;
+      }
     }
     // updated_at は API 側で付与するので patch から除外
     const { updated_at: _drop, ...projectsPatch } = patch as Record<string, unknown> & { updated_at?: unknown };
@@ -634,7 +681,11 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
               <th className="text-left px-3 py-2 font-medium w-36">業務委託料</th>
               <th className="text-left px-3 py-2 font-medium w-60">契約条件</th>
               <th className="text-left px-3 py-2 font-medium w-28">提出物</th>
-              <th className="text-left px-3 py-2 font-medium w-52">月次報告</th>
+              <th className="text-left px-3 py-2 font-medium w-52">月次報告 契約条件</th>
+              <th className="text-left px-3 py-2 font-medium w-32" title="L2M-1 routine の対象範囲。none=対象外 / internal_only=内部のみ / internal_and_external=内部+対外">月報 scope</th>
+              <th className="text-left px-3 py-2 font-medium w-24" title="対外納品時のエイリアス (KUTE / SX 等)">エイリアス</th>
+              <th className="text-left px-3 py-2 font-medium w-36" title="対外版 jargon check の allow_list (PJ 固有で許可したい語)">禁止語 allow</th>
+              <th className="text-left px-3 py-2 font-medium w-40" title="業務内容配列 (対外版の第N領域章に展開)">業務内容 JSON</th>
               <th className="text-left px-3 py-2 font-medium w-28">立替精算</th>
               <th className="text-left px-3 py-2 font-medium w-24">支払条件</th>
               <th className="text-left px-3 py-2 font-medium w-20">開始ym</th>
@@ -1134,6 +1185,113 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                             <span className="text-foreground/70">{label}:</span> {value}
                           </div>
                         ))}
+                      </div>
+                    )}
+                  </td>
+
+                  {/* monthly_report_scope (L2M-1 routine 対象範囲) */}
+                  <td className={cellCls("monthly_report_scope")} onClick={enterCell("monthly_report_scope")}>
+                    {isEditingField(p, "monthly_report_scope") ? (
+                      <div className="flex items-center gap-1">
+                        <select
+                          value={(editVals.monthly_report_scope as string) || "none"}
+                          autoFocus
+                          onChange={(e) => setEditVals((v) => ({ ...v, monthly_report_scope: e.target.value }))}
+                          onKeyDown={(e) => { if (e.key === "Enter") saveCell(p, "monthly_report_scope"); if (e.key === "Escape") cancelEdit(); }}
+                          className="rounded border border-border bg-background px-1.5 py-0.5 text-[11px]"
+                        >
+                          <option value="none">対象外</option>
+                          <option value="internal_only">内部のみ</option>
+                          <option value="internal_and_external">内部+対外</option>
+                        </select>
+                        {cellActions("monthly_report_scope")}
+                      </div>
+                    ) : (
+                      <span
+                        className={
+                          p.monthly_report_scope === "internal_and_external"
+                            ? "text-xs font-semibold text-emerald-700 dark:text-emerald-400"
+                            : p.monthly_report_scope === "internal_only"
+                            ? "text-xs text-blue-700 dark:text-blue-400"
+                            : "text-xs text-muted-foreground"
+                        }
+                      >
+                        {p.monthly_report_scope === "internal_and_external"
+                          ? "内部+対外"
+                          : p.monthly_report_scope === "internal_only"
+                          ? "内部のみ"
+                          : "対象外"}
+                      </span>
+                    )}
+                  </td>
+
+                  {/* report_local_alias */}
+                  <td className={cellCls("report_local_alias")} onClick={enterCell("report_local_alias")}>
+                    {isEditingField(p, "report_local_alias") ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="text"
+                          value={(editVals.report_local_alias as string) || ""}
+                          autoFocus
+                          onChange={(e) => setEditVals((v) => ({ ...v, report_local_alias: e.target.value }))}
+                          onKeyDown={(e) => { if (e.key === "Enter") saveCell(p, "report_local_alias"); if (e.key === "Escape") cancelEdit(); }}
+                          placeholder="KUTE / SX / AMD"
+                          className="w-full rounded border border-border bg-background px-1.5 py-0.5 text-[11px]"
+                        />
+                        {cellActions("report_local_alias")}
+                      </div>
+                    ) : (
+                      <span className="text-xs font-mono">{p.report_local_alias || "—"}</span>
+                    )}
+                  </td>
+
+                  {/* report_extra_allow_terms (comma-separated) */}
+                  <td className={cellCls("report_extra_allow_terms")} onClick={enterCell("report_extra_allow_terms")}>
+                    {isEditingField(p, "report_extra_allow_terms") ? (
+                      <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
+                        <textarea
+                          value={(editVals.report_extra_allow_terms as string) || ""}
+                          onChange={(e) => setEditVals((v) => ({ ...v, report_extra_allow_terms: e.target.value }))}
+                          rows={2}
+                          placeholder="カンマ区切り (例: AMD, 特別語)"
+                          className="w-full rounded border border-border bg-background px-1.5 py-0.5 text-[11px]"
+                        />
+                        {cellActions("report_extra_allow_terms")}
+                      </div>
+                    ) : (
+                      <span className="text-[11px] text-muted-foreground line-clamp-2" title={p.report_extra_allow_terms.join(", ")}>
+                        {p.report_extra_allow_terms.length > 0 ? p.report_extra_allow_terms.join(", ") : "—"}
+                      </span>
+                    )}
+                  </td>
+
+                  {/* work_content (JSON, textarea) */}
+                  <td className={cellCls("work_content")} onClick={enterCell("work_content")}>
+                    {isEditingField(p, "work_content") ? (
+                      <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
+                        <textarea
+                          value={(editVals.work_content as string) || ""}
+                          onChange={(e) => setEditVals((v) => ({ ...v, work_content: e.target.value }))}
+                          rows={4}
+                          placeholder='[{"name":"規程策定","description":"..."}]'
+                          className="w-full rounded border border-border bg-background px-1.5 py-0.5 text-[10px] font-mono"
+                        />
+                        {cellActions("work_content")}
+                      </div>
+                    ) : (
+                      <div className="space-y-0.5">
+                        {p.work_content.length > 0 ? (
+                          p.work_content.slice(0, 3).map((wc, i) => (
+                            <div key={i} className="text-[11px] line-clamp-1" title={wc.description || wc.name}>
+                              {i + 1}. {wc.name}
+                            </div>
+                          ))
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                        {p.work_content.length > 3 && (
+                          <div className="text-[10px] text-muted-foreground">+{p.work_content.length - 3} more</div>
+                        )}
                       </div>
                     )}
                   </td>
