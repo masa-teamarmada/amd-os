@@ -1,12 +1,12 @@
 ---
 name: amd-os-l2m1-monthly-report
-description: AMD OS L2 M-1 月次業務報告書生成 routine (= 旧 amd-os-l1-monthly-report-extract のリネーム + 内部/対外 2 段生成 + PDF 配送)。月末末日 03:00 JST 起動 (cron `0 3 28-31 * *` + Phase 0 で「今日 == 当月最終日」を JST 判定し、最終日でなければ即 exit)。対象は `projects.monthly_report_required = true` かつ `status IN ('active','sales')` の PJ のみ。各 PJ ごとに (1) Slack 開始通知、(2) 当月の Supabase 関連データを全 fetch、(3) `llm_prompts.l2m1.monthly_report.internal.v2` で内部保存版 markdown 生成 → `monthly_reports.final_content` upsert、(4) `llm_prompts.l2m1.monthly_report.external.v2` + 禁止語/allow_list で対外提出版 markdown 生成 → `monthly_reports_external` insert、(5) 禁止語チェック (`scripts/strip_internal_jargon.py`)、(6) PDF 生成 (`scripts/generate_monthly_report.py`、pandoc→HTML→colgroup 注入→Chrome headless→PDF) でローカル + 共有 Drive 配置、(7) Slack 完了通知の順で inline 実行。Claude Code routine、model = `claude-opus-4-8`、effort = `ultracode` (xhigh) 想定。プロンプト本文は SKILL に書かず `llm_prompts` table から取得 (= AGENTS.common.md L510-514、ハードコード絶対禁止)。Anthropic / OpenAI 等の従量課金 API 直叩き禁止、`monthly_reports.final_content` の force なし上書き禁止、progress guard (= hasActivity / 未来月 / 開始前 / ended-frozen) は旧 SKILL から継承。daily 分 (D-1〜D-11) は別 routine `amd-os-l2-consolidated-evidence`、month-end の M-2/M-3 は `amd-os-l2-monthend-evidence`、毎時 (H-1) は MMOマシン Codex Desktop automation。
+description: AMD OS L2 M-1 月次業務報告書生成 routine (= 旧 amd-os-l1-monthly-report-extract のリネーム + 内部/対外 2 段生成 + PDF 配送)。月末末日 03:00 JST 起動 (cron `0 3 28-31 * *` + Phase 0 で「今日 == 当月最終日」を JST 判定し、最終日でなければ即 exit)。対象は `projects.monthly_report_scope IN ('internal_only','internal_and_external')` かつ `status IN ('active','sales')` の PJ のみ。scope='internal_only' は内部保存版のみ生成 (対外版・PDF・Drive 配置 skip)、scope='internal_and_external' は 2 段生成 + PDF まで実行。各 PJ ごとに (1) Slack 開始通知、(2) 当月の Supabase 関連データを全 fetch、(3) `llm_prompts.l2m1.monthly_report.internal.v2` で内部保存版 markdown 生成 → `monthly_reports.final_content` upsert、(4) scope='internal_and_external' のみ: `llm_prompts.l2m1.monthly_report.external.v2` + 禁止語/allow_list で対外提出版 markdown 生成 → `monthly_reports_external` insert、(5) 禁止語チェック (`scripts/strip_internal_jargon.py`)、(6) PDF 生成 (`scripts/generate_monthly_report.py`、pandoc→HTML→colgroup 注入→Chrome headless→PDF) でローカル + 共有 Drive 配置、(7) Slack 完了通知の順で inline 実行。Claude Code routine、model = `claude-opus-4-8`、effort = `ultracode` (xhigh) 想定。プロンプト本文は SKILL に書かず `llm_prompts` table から取得 (= AGENTS.common.md L510-514、ハードコード絶対禁止)。Anthropic / OpenAI 等の従量課金 API 直叩き禁止、`monthly_reports.final_content` の force なし上書き禁止、progress guard (= hasActivity / 未来月 / 開始前 / ended-frozen) は旧 SKILL から継承。daily 分 (D-1〜D-11) は別 routine `amd-os-l2-consolidated-evidence`、month-end の M-2/M-3 は `amd-os-l2-monthend-evidence`、毎時 (H-1) は MMOマシン Codex Desktop automation。
 ---
 
 # AMD OS L2 M-1 月次業務報告書生成 routine
 
-> **これは何か**: 月末最終日に発火し、`projects.monthly_report_required=true` な active/sales PJ ごとに**内部保存版 + 対外提出版**の月次業務報告書を Sonnet/Opus 4.8 + ultracode で 1 ターンで作り切り、PDF を共有 Drive に配置するまでを 1 routine に束ねたもの。
-> 2026-06-30 まさ確定の現行設計。旧 `amd-os-l1-monthly-report-extract` を `git mv` リネーム + 内部/対外 2 段化 + PDF 配送 + Slack 通知統合。
+> **これは何か**: 月末最終日に発火し、`projects.monthly_report_scope IN ('internal_only','internal_and_external')` な active/sales PJ ごとに**内部保存版 + 対外提出版 (scope に応じて片方または両方)** の月次業務報告書を Opus 4.8 + ultracode で 1 ターンで作り切り、PDF を共有 Drive に配置するまでを 1 routine に束ねたもの。
+> 2026-07-01 まさ確定の現行設計。旧 `amd-os-l1-monthly-report-extract` を `git mv` リネーム + 内部/対外 2 段化 + PDF 配送 + Slack 通知統合。**scope 判定は monthly_report_scope 列を正本にする** (`monthly_report_required` bool は backward compat のみ残す)。
 
 ## 🚨 登録事故の current truth (2026-06-04 継承)
 
@@ -17,10 +17,13 @@ description: AMD OS L2 M-1 月次業務報告書生成 routine (= 旧 amd-os-l1-
 
 ## 設計の要点 (2026-06-30 まさ確定)
 
-- **背景**: M-1 monthly_reports は MS 進捗・XRL 根拠・月次FIX の前提になる中核 L2。さらに 2026-06-30 以降は「`monthly_report_required=true` な PJ には対外提出版 PDF を月末に必ず納品する」運用が乗ったため、内部保存版生成 + 対外向け書き下ろし + 禁止語チェック + PDF 生成 + Slack 通知 + 共有 Drive 配置を**1 本の routine** で完結させる。
+- **背景**: M-1 monthly_reports は MS 進捗・XRL 根拠・月次FIX の前提になる中核 L2。さらに 2026-07-01 以降は「PJ の性質に応じて内部保存版のみ or 内部+対外 2 段生成」という 3 状態の運用が確定したため、内部保存版生成 + 対外向け書き下ろし + 禁止語チェック + PDF 生成 + Slack 通知 + 共有 Drive 配置を**1 本の routine** で完結させる。
 - **発火**: 月末候補日 03:00 JST。cron `0 3 28-31 * *`。
 - **最終日判定**: cron に「月の最終日」概念は無いため `28-31` で月末候補日に発火し、**Phase 0 で JST 判定**。今日が当月最終日でなければ本処理を一切実行せず 1 行 summary で即 exit (= 空振り run。月 3-4 回、daily run cap には全く触れない)。
-- **対象**: `projects.monthly_report_required = true AND status IN ('active','sales')` のみ。`monthly_report_required = false` の PJ は M-1 routine の対象外 (= 月次報告書納品義務がない PJ)。
+- **対象**: `projects.monthly_report_scope IN ('internal_only','internal_and_external') AND status IN ('active','sales')` のみ。`scope = 'none'` の PJ は M-1 routine の対象外。
+  - `scope = 'internal_only'`: 内部保存版 (`monthly_reports.final_content`) のみ生成、対外版・PDF・Drive 配置は skip。**AMD (p00) / LST (p07) / SE (p10) / ZMP (p19) / CLG (p24) / VasculaX (p26)** が該当 (2026-07-01 まさ確定)。
+  - `scope = 'internal_and_external'`: 内部保存版 → 対外提出版 → PDF → Drive 配置まで実行。**KUTE (p25) / SX (p21)** が該当 (2026-07-01 まさ確定)。
+  - `scope = 'none'`: **CTB (p06) / CX/NIMS (p20)** が該当 (2026-07-01 まさ確定、routine 対象外)。
 - **実行環境**: claude.ai/code/routines (cloud sandbox VM、Pro/Max/Team サブスク内)。**model = `claude-opus-4-8`、effort = `ultracode` (xhigh) を想定** (= 内部保存版が後続 L2/MS/XRL/Management Signal の入力になるため、品質を最優先)。
 - **入力**: AMD OS repo auto-clone + Connector (Supabase / Gmail / Drive / Calendar / Notion / Slack read / `mcp__drive__*`)。Slack **書き込み** は `scripts/send-eimi-slack.mjs` (= GAS webapp 経由の えいみ persona bot) のみ経由する (MCP `slack_send_message` を bot として叩く運用は禁止)。
 - **完了目標**: 03:00 開始 → **当日業務開始 (= まさが朝最初に画面を見る) までに全 PJ の PDF + Slack 完了通知が揃っている**こと。
@@ -67,16 +70,20 @@ Phase 1: 対象 PJ 一覧取得
 
 ```
 GET /rest/v1/projects
-    ?select=project_id,project_name,client_name,status,project_category,drive_folder_id,report_emails,start_ym,monthly_report_required,work_content,report_local_alias,report_extra_allow_terms
-    &monthly_report_required=eq.true
+    ?select=project_id,project_name,client_name,status,project_category,drive_folder_id,report_emails,start_ym,monthly_report_scope,work_content,report_local_alias,report_extra_allow_terms
+    &monthly_report_scope=in.(internal_only,internal_and_external)
     &status=in.(active,sales)
     &order=project_id.asc
 ```
 
-- `monthly_report_required = true` AND `status IN ('active','sales')` のみ。
-- `project_category = 'ecosystem'` は M-1 対象外として明示 skip (= AMD Score 対象外 / 月次納品義務なし)。skip 件数は run summary に残す。
+- `monthly_report_scope IN ('internal_only','internal_and_external')` AND `status IN ('active','sales')` のみ。
+  - `scope = 'internal_only'`: Phase 2.3 (内部保存版) のみ実行、Phase 2.4-2.6 (対外版 + PDF + Drive 配置) は skip。完了通知は「内部保存版のみ生成」の文言に変える。
+  - `scope = 'internal_and_external'`: Phase 2.3 → 2.4 → 2.5 → 2.6 全て実行。
+  - `scope = 'none'`: routine 対象外 (= この select で fetch されない)。
+- `project_category = 'ecosystem'` は M-1 対象外**扱いしない**。KUTE (p25) は ecosystem だが `scope=internal_and_external` で対外版まで作る (= まさ 2026-07-01 確定、scope 列を正本に判定する)。
 - `drive_folder_id` 未設定の PJ は **Phase 2.6 共有 Drive 配置 skip**、ローカル PDF だけ残し notifications[] に `drive_folder_missing` を積む。
 - Slack 通知は PJ に紐付かず「まさ DM に集約」する設計なので、`slack_channel_id` は Phase 1 の select に含めない (= PJ チャンネル通知は行わない、まさ 2026-06-30 確定)。
+- 旧 `monthly_report_required` bool は列としては残っているが判定には使わない (= backward compat 用、削除は別 migration)。
 
 ═══════════════════════════════════════════════════
 Phase 2: PJ ごとループ
@@ -178,6 +185,8 @@ Phase 2: PJ ごとループ
 
 ### Phase 2.4: 対外提出版 markdown 生成 → `monthly_reports_external` insert
 
+**scope ガード (先頭で必ず判定)**: 当該 PJ の `monthly_report_scope` が `'internal_and_external'` でなければ Phase 2.4 / 2.5 / 2.6 を **完全に skip** し、Phase 2.7 完了通知は「内部保存版のみ生成完了」の文言で送る。`scope='internal_only'` はここで抜ける (= AMD / LST / SE / ZMP / CLG / VasculaX は内部版だけで終了)。
+
 1. プロンプト取得:
    ```
    GET /rest/v1/llm_prompts
@@ -223,11 +232,20 @@ Phase 2: PJ ごとループ
 
 - **送信先: まさとの DM channel** (Phase 2.1 で解決した `$MASA_SLACK_ID`)
 - **送信手段: `scripts/send-eimi-slack.mjs` 経由**
-- 内容: 完了 / hard_fail / pdf_failed の 3 パターン:
+- 内容: scope に応じて 4 パターン (internal_only 完了 / internal_and_external 完了 / hard_fail / pdf_failed):
 
-成功時:
+**scope='internal_only' 成功時**:
 ```
-<@U_MASA_ID> できたー！月次業務報告書、内部版も対外版も PDF も全部いっちゃったよ！レビューよろしくー！
+<@U_MASA_ID> できたー！<project_name> の月次報告書、内部保存版だけ作ったよ (対外版は不要 scope)！レビューよろしくー！
+PJ: <project_name> (<project_id>)
+対象月: <YYYY-MM>
+内部保存版: monthly_reports に保存済
+cockpit: <PWA cockpit URL = https://amd-os-pwa.vercel.app/project/<project_id>?ym=<YYYYMM>>
+```
+
+**scope='internal_and_external' 成功時**:
+```
+<@U_MASA_ID> できたー！<project_name> の月次業務報告書、内部版も対外版も PDF も全部いっちゃったよ！レビューよろしくー！
 PJ: <project_name> (<project_id>)
 対象月: <YYYY-MM>
 PDF: <共有 Drive ファイルリンク>
@@ -267,9 +285,11 @@ Phase 3: 全 PJ 完了後サマリー
 ═══════════════════════════════════════════════════
 
 1. ログを集計:
-   - 対象 PJ 数 / 生成成功数 / hard_fail 数 / pdf_failed 数 / ecosystem 等 skip 数
+   - 対象 PJ 数 (scope 別: internal_only 件数 / internal_and_external 件数)
+   - 生成成功数 (internal_only 完走 / internal_and_external 完走 / internal のみ完走で external skip 等)
+   - hard_fail 数 / pdf_failed 数 / 進捗なし frozen 等 skip 数
    - 内部版 saved (新規 / final 保護 / upsert) / 対外版 saved
-   - Slack 通知 sent / skipped (= channel_missing) / failed
+   - Slack 通知 sent / skipped (= masa_slack_id_unresolved) / failed
    - Drive 配置 placed / skipped (= folder_missing) / failed
    - 全 notifications[] 内訳
    - outbox path
@@ -278,14 +298,17 @@ Phase 3: 全 PJ 完了後サマリー
    ```
    <@U_MASA_ID> 🗓️ L2 M-1 monthly_report routine 完了 (<YYYY-MM-DD HH:MM JST>)
    対象月: <YYYY-MM>
-   対象 PJ: <N> 件 (= projects.monthly_report_required=true AND status IN ('active','sales'))
-   成功: <X> PJ (内部版 + 対外版 + PDF + Drive 配置)
+   対象 PJ: <N> 件 (= monthly_report_scope IN ('internal_only','internal_and_external') AND status IN ('active','sales'))
+     - internal_only: <A> 件 / internal_and_external: <B> 件
+   成功: <X> PJ
+     - internal_only 完了: <list of project_id>
+     - internal_and_external 完了 (対外版 + PDF + Drive 配置): <list of project_id>
    ⚠️ 失敗: <Y> PJ
-     - hard_fail: <list of project_id>
+     - hard_fail (禁止語検出、対外版止め): <list of project_id>
      - pdf_failed: <list of project_id>
      - external_helper_missing: <list of project_id>
      - missing_llm_prompts: <list of project_id>
-   skip: <Z> PJ (= ecosystem / 進捗なし frozen / 未来月 / 開始前)
+   skip: <Z> PJ (= 進捗なし frozen / 未来月 / 開始前)
    notifications[] 全件: outbox path に保存済
    ```
    - 失敗 PJ が 1 件でもあれば必ず通知 (= 沈黙させない)。
