@@ -1,8 +1,8 @@
-# 探索系アセット — Atlas / Seeds / VC / Scholar の使い方
+# 探索・知識アセット — Atlas / Seeds / VC / Scholar / Knowledge Map の使い方
 
-AMD OS は、既存 PJ を管理するだけでなく、次の PJ 候補を探すための探索系アセットも持つ。この章は、AMD メンバーが「どの画面を見れば何が分かるか」を最短で掴むための入口。
+AMD OS は、既存 PJ を管理するだけでなく、次の PJ 候補を探すための探索系アセットと、AMD 内に溜まったノウハウを眺める知識アセットを持つ。この章は、AMD メンバーが「どの画面を見れば何が分かるか」を最短で掴むための入口。
 
-## 4 つの役割
+## 5 つの役割
 
 | 画面 | 一言でいうと | 使う場面 |
 |---|---|---|
@@ -10,14 +10,16 @@ AMD OS は、既存 PJ を管理するだけでなく、次の PJ 候補を探�
 | `/seeds` | 研究シーズ候補の棚 | 大学・国研・高専などの技術シーズを、AMD 視点で調査・接触・PJ 化まで追う |
 | `/vcs` | 国内 deeptech VC マスタ | どの VC がどの領域・ステージ・ファンド残にいるかを見る |
 | `/scholar` | 学術トレンド | OpenAlex 論文数を lane x quarter で見て、AMD Score の M 軸根拠に使う |
+| `/knowledge-map` | AMD ノウハウ地図 | OS 内の L2 / manual / spec / BZM 候補を横断して、判断軸・根拠・PJ事例を眺める |
 
-この 4 つは似ているが、混ぜない。
+この 5 つは似ているが、混ぜない。
 
 ```text
-Atlas   = 外部マクロ signal / story / decision
-Seeds   = 研究シーズそのもの
-VC      = 投資家・ファンド・接点
-Scholar = 学術活動量の時系列
+Atlas        = 外部マクロ signal / story / decision
+Seeds        = 研究シーズそのもの
+VC           = 投資家・ファンド・接点
+Scholar      = 学術活動量の時系列
+KnowledgeMap = OS 内の L2 / manual / spec / BZM 候補を束ねる内部ノウハウ地図
 ```
 
 ## Atlas を見る
@@ -109,6 +111,26 @@ Venture Map は、探索系アセットを使って「どの波にいつ PJ を�
 
 細かいモデルは [5-2 章 HUD / Venture Map 仕様](5-2-hud-and-venture-map-spec.md)、AMD Score の式は [4-3 章](4-3-amd-score-spec.md) を見る。
 
+## Knowledge Map を見る
+
+Knowledge Map は、NotebookLM に渡す Knowledge Pack の OS 側プレビュー。NotebookLM へコピーする前に、AMD OS 内で「どんなノウハウがどこにあるか」をマインドマップ風に確認する。
+
+| 見るもの | 内容 |
+|---|---|
+| 中央ノード | AMD Knowledge Pack。OS 内のノウハウを束ねる入口 |
+| domain node | Protocol、Project Knowledge、Member Knowledge、Meeting Memory、Strategy Signals、Readiness、Monthly、Textbook などの知識領域 |
+| source node | `protocols` / `project_knowledge` / `member_knowledge` / `project_meeting_summaries` などのテーブル単位 |
+| item node | 直近の代表 row。短い summary / source ref / status だけを表示 |
+| detail panel | 選んだ node の説明、件数、関連 route への link |
+
+使い方:
+1. `/knowledge-map` を開く
+2. 左上の検索で PJ 名、メンバー名、source kind、知識カテゴリを探す
+3. domain filter で Protocol / Meeting / Strategy などに絞る
+4. 気になる node を選び、右 panel から cockpit / notifications / admin などの正本画面へ戻る
+
+Knowledge Map は読み取り専用。DB write、LLM 呼び出し、外部 NotebookLM への自動同期はしない。NotebookLM へ渡す md / PDF / text pack は、OS 側の同じ情報境界から別途 export する。
+
 ## 注意
 
 - Atlas 候補、Seeds inbox、VC news inbox は、確認前は正本ではない
@@ -116,3 +138,4 @@ Venture Map は、探索系アセットを使って「どの波にいつ PJ を�
 - VC の `amd_rating` は「世間的に良い VC」ではなく「AMD にとっての相性」
 - Scholar は論文本文の要約ではなく、学術活動量の観測
 - Macrotrend は単発ニュースではなく、構造課題と変化仮説を見るレイヤー
+- Knowledge Map は正本そのものではなく、OS 正本への入口。メール全文・Slack全文・議事録全文を保存/表示する場所にしない

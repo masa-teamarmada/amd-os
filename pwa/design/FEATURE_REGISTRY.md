@@ -27,6 +27,22 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - global `TsukuyomiChatBridge` は従来どおり invisible event bridge のまま。`Mascot.tsx` を `(app)/layout.tsx` に戻さない。
 - マニュアル章の追加・削除・構成変更は `pwa/src/app/(app)/manual/manual-chapters.ts` と `pwa/design/os_manual.md`、必要なら `pwa/manual/9-3-appendix-changelog.md` を同じ作業単位で更新する。
 
+## /knowledge-map
+
+目的: OS 内の L2 / manual / spec / BZM 候補を、NotebookLM へ渡す Knowledge Pack の OS 側プレビューとして読み、AMD ノウハウの位置関係をマインドマップ風に眺める。
+
+必須機能:
+
+- read-only route: `/knowledge-map` は DB write、LLM 呼び出し、外部 NotebookLM 同期を行わない。
+- data sources: `protocols` / `project_knowledge` / `member_knowledge` / `project_meeting_summaries` / `project_strategy_signals` / `project_xrl_evidence` / `monthly_reports` / `textbook_insight_candidates` の件数と直近代表 row を読む。
+- graph controls: 検索、domain filter、expand/collapse、zoom、node detail panel、source route link を持つ。
+- source hygiene: メール全文、Slack全文、議事録全文、資料全文を fetch / 保存 / 表示しない。短い L2 text、summary、source ref、status だけを使う。
+
+回帰防止:
+
+- `/knowledge-map` route、GlobalNav 導線、`KnowledgeMapView`、`fetchKnowledgeMapData` を消す変更は、`FEATURE_REGISTRY.md`、`/spec/2-1`、`/spec/2-2`、manual 2-5 を同時に更新する。
+- NotebookLM export を追加するときも、OS 側が正本で、NotebookLM はコピー先という境界を崩さない。
+
 ## /admin/payouts
 
 目的: 支払月単位で、対象cycleの報酬確認、PJ別収支確認、支払データ同期状態、支払通知書発行、入金確認nudgeを一画面で運用する。

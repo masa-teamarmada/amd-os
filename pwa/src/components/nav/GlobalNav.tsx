@@ -140,6 +140,19 @@ export function GlobalNav({ userCodeName, isAdmin = false, memberId = null }: Gl
           Venture Map
         </Link>
 
+        <Link
+          href="/knowledge-map"
+          className={cn(
+            "text-xs px-2.5 py-1 rounded-md transition-colors",
+            pathname.startsWith("/knowledge-map")
+              ? "bg-accent text-accent-foreground font-medium"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+          title="AMD Knowledge Map — L2 / manual / spec / BZM を横断するノウハウ地図"
+        >
+          Knowledge
+        </Link>
+
         {/* 研究機関 (ERS / 苗床レイヤー) — Venture Map (個体) の隣に機関 (苗床) を並べる */}
         <Link
           href="/institutions"

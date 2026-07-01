@@ -42,6 +42,7 @@
 | `/manual` | AMD OS マニュアル。使い方・運用者向け |
 | `/spec` | 設計書。確定実装仕様。admin 限定 |
 | `/bzm` | BZM テキストブック。理論・数式・rubric 導出 |
+| `/knowledge-map` | AMD Knowledge Map。L2 / manual / spec / BZM 候補を横断する読み取り専用ノウハウ地図 |
 | `/venture-map/amd-score` | AMD Score 一覧 |
 | `/venture-map/amd-score/[projectId]` | AMD Score 詳細 |
 | `/atlas` / `/atlas/*` | Atlas signal / story / divergence / map |

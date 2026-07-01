@@ -113,6 +113,7 @@ pwa/
 | `/institutions/[institutionId]/cockpit` | 研究機関カードから開く機関コックピット。KUTE (`inst_kute`) は既存KUTE PJ (`p25`)、NIMS (`inst_nims`) は既存関連PJ CX (`p20`) の `CockpitView` を同画面へマウントし、MS進捗・月次・MTG履歴を操作/確認する。新規PJを作らず、既存PJコックピットの内容も研究機関ERS側の評価内容も削除しない。上部にERS概要と readiness snapshot を置き、進捗管理とスコア詳細をタブで分ける |
 | `/project/[projectId]/config` | 旧PJ設定。コックピットからは導線を外し、PJごとの契約・請求・支払条件は `/admin/projects` を正本にする |
 | `/manual` `/manual/[slug]` | AMD OS マニュアル。`pwa/manual/*.md` を正本として表示し、左カラムで章タイトル / summary / 見出し / 本文 / 画面パス / テーブル名を全文検索できる。`/manual` と各章だけに Gemini 実験版の `ManualTsukuyomiFloat` を出し、`POST /api/manual/tsukuyomi/ask` が該当章のマニュアル本文を根拠に回答する。DB 書き込みや既存つくよみ修正 tool は持たない |
+| `/knowledge-map` | AMD Knowledge Map。`protocols` / `project_knowledge` / `member_knowledge` / `project_meeting_summaries` / `project_strategy_signals` / `project_xrl_evidence` / `monthly_reports` / `textbook_insight_candidates` の件数と直近代表 node を force graph で表示する read-only route。NotebookLM へ渡す Knowledge Pack の OS 側プレビューであり、raw本文は持たず、L2 text / short refs / status だけを表示する |
 | `/reimburse` | 立替精算 |
 | `/admin/settings` | Operations Settings。admin限定で Raw Data / L2 Data / Cron Control を一覧化する。停止中cronはここに旧頻度・入力・出力・停止理由を表示する。`/settings` は一般ユーザー誤操作防止のため削除 |
 | `/atlas` | シグナル & ストーリー一覧 |
@@ -167,7 +168,7 @@ pwa/
 
 ### Cron (`vercel.json`、UTC、Hobby plan で maxDuration=300 上限)
 
-2026-05-29時点で Vercel cron に残すのは、LLMを使わない運用・同期系だけ。LLM利用cronは `vercel.disabled-crons.json` に退避し、復活にはownerの明示承認を要する。D-2 MS進捗の旧 GAS 154 → PWA `/api/cron/hourly-estimate` も停止済みで、定期抽出は MMO/Codex automation 側へ寄せる。
+2026-07-01時点で Vercel cron に残すのは、LLMを使わない運用・同期系だけ。LLM利用cronは `vercel.disabled-crons.json` に退避し、復活にはownerの明示承認を要する。D-2 MS進捗の旧 GAS 154 → PWA `/api/cron/hourly-estimate` も停止済みで、旧MMO writer は現行運用から外す。D-2 LLMズレ検知は rehome required、H-1 は local Codex / Codex automation 側を現行 writer とする。
 
 | path | schedule (UTC) | JST | 内容 |
 |---|---|---|---|

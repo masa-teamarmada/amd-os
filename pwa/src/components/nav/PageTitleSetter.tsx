@@ -26,6 +26,7 @@ function pathToTitle(pathname: string): string | null {
   if (pathname.startsWith("/venture-map/state-space")) return "Venture State Space";
   if (pathname.startsWith("/venture-map/su/")) return "SU Detail";
   if (pathname === "/venture-map") return "Venture Map";
+  if (pathname.startsWith("/knowledge-map")) return "Knowledge Map";
   if (pathname === "/seeds") return "Seeds";
   if (pathname === "/vcs") return "VC";
   if (pathname === "/mypage") return "マイページ";

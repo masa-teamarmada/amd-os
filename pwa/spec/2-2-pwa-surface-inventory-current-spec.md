@@ -12,6 +12,7 @@
 | member | `/mypage`, `/reimburse` | メンバー活動、週次活動、立替精算 | `mypage/page.tsx`, `reimburse/page.tsx` |
 | admin | `/admin/*` | billing / finance / projects / members / payouts / prompts / settings / protocols / tsukuyomi / weekly (週次活動×月次報酬マトリクス: `/api/admin/weekly` が member_activities(member_weekly) と表示月の `billing_cycles.reward_summary_json` の `members[].totalPay` を返し、右端列=メンバー別月合計・最下行=PJ別月合計・総合計を描画) | `admin/*/page.tsx` |
 | docs | `/manual`, `/spec`, `/bzm` | manual / design spec / textbook を OS 画面で表示 | `manual/*`, `spec/*`, `bzm/*` |
+| knowledge | `/knowledge-map` | AMD Knowledge Map。L2 counts と直近代表 node を source table 別に読み、NotebookLM Knowledge Pack の OS 側プレビューとして表示する。raw本文は保存/表示しない | `knowledge-map/page.tsx`, `KnowledgeMapView.tsx` |
 | notifications | `/notifications` | L2 / MTG / app notifications の確認と採否 | `notifications/page.tsx` |
 | decision | `/venture-map/amd-score`, `/management-score`, `/institutions`, `/institutions/assess` | AMD Score / Management Score / ERS | related page files |
 | discovery | `/atlas/*`, `/seeds/*`, `/vcs/*`, `/scholar` | 外部シグナル、研究シーズ、VC、学術トレンド | related page files |

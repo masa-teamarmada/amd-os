@@ -1,0 +1,13 @@
+import { KnowledgeMapView } from "@/components/knowledge-map/KnowledgeMapView";
+import { fetchKnowledgeMapData } from "@/lib/knowledge-map-data";
+
+export const metadata = {
+  title: "Knowledge Map | AMD OS",
+};
+
+export const dynamic = "force-dynamic";
+
+export default async function KnowledgeMapPage() {
+  const data = await fetchKnowledgeMapData();
+  return <KnowledgeMapView data={data} />;
+}
