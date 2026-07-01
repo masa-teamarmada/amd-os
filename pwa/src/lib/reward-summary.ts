@@ -1017,15 +1017,20 @@ export function buildRewardSummaryUncapped({
       activeMemberIds,
     }).filter((resp) => resp.share > 0);
     for (const resp of resps) {
-      const earnedPt = Math.round(msConsumedPt * resp.share * 100) / 100;
-      const payYen = Math.round(earnedPt * ptUnit);
+      const prevEarnedPtRaw = Math.max(0, prev * resp.share);
+      const currEarnedPtRaw = Math.max(0, curr * resp.share);
+      const earnedPtRaw = Math.max(0, currEarnedPtRaw - prevEarnedPtRaw);
+      const earnedPt = Math.round(earnedPtRaw * 100) / 100;
+      // 円額は「累計pt×単価」の差分で出す。月ごとの earnedPt 丸めを先に噛ませると、
+      // SX DD対応のような長いMSで 0.01pt 分の年計ドリフトが出るため。
+      const payYen = Math.max(0, Math.round(currEarnedPtRaw * ptUnit) - Math.round(prevEarnedPtRaw * ptUnit));
       const current = memberPt.get(resp.member_id) || { total: 0, regular: 0, extra: 0, regularBasePay: 0, extraBasePay: 0 };
-      current.total += earnedPt;
+      current.total += earnedPtRaw;
       if (pool === "cap_extra") {
-        current.extra += earnedPt;
+        current.extra += earnedPtRaw;
         current.extraBasePay += payYen;
       } else {
-        current.regular += earnedPt;
+        current.regular += earnedPtRaw;
         current.regularBasePay += payYen;
       }
       memberPt.set(resp.member_id, current);

@@ -744,31 +744,30 @@ expectIncludes("design/FEATURE_REGISTRY.md", [
 expectIncludes("src/app/api/admin/ms-overview/route.ts", [
   "value_plan_cycles",
   "milestone_responsibility",
-  "regularPointBasisForCycle",
-  "memberPointTotals",
+  "computeSeasonPl",
+  "memberYearTotals",
+  "ptValueYen",
+  "regularPtUnitYen",
   "planCycles",
   "project_freeze_periods",
   "deriveHealthState",
   "healthState",
 ]);
 expectNotIncludes("src/app/api/admin/ms-overview/route.ts", [
-  "computeSeasonPl",
-  "ptValueYen",
-  "memberYearTotals",
-  "regularPtUnitYen",
-  "extraPtUnitYen",
-  "extraPoolBudgetYen",
+  "buildRewardCachePayoutEntries",
+  "memberPayoutTotals",
 ]);
 
 expectIncludes("src/components/admin/AdminMsOverviewClient.tsx", [
   "/api/admin/ms-overview",
   "全MS",
-  "メンバー別 pt配分",
+  "メンバー別 年計",
   "cap_extra",
   "編集モード",
   "MS追加",
   "担当share",
-  "担当pt",
+  "MS内金額",
+  "MS金額",
   "全MS pt配分スライダー",
   "pt配分スライダー",
   "残り割り振り可能pt",
@@ -780,11 +779,7 @@ expectIncludes("src/components/admin/AdminMsOverviewClient.tsx", [
   "groupHealthRank",
 ]);
 expectNotIncludes("src/components/admin/AdminMsOverviewClient.tsx", [
-  "fmtYen",
-  "pt価値",
-  "MS金額",
-  "MS内金額",
-  "メンバー別 年計",
+  "メンバー別 pt配分",
 ]);
 
 expectIncludes("src/app/(app)/admin/ms-overview/page.tsx", [
@@ -799,8 +794,8 @@ expectIncludes("src/components/admin/AdminSidebar.tsx", [
 
 expectIncludes("design/FEATURE_REGISTRY.md", [
   "/admin/ms-overview",
-  "支払額に見える円換算",
-  "memberPointTotals",
+  "MSごとに earnedPt を2桁丸め",
+  "memberYearTotals",
 ]);
 
 require("./check_payout_notice_pdf_golden.cjs");

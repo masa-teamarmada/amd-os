@@ -29,16 +29,21 @@ export type MsOverviewMilestone = {
   isCapExtra: boolean;
   periodStartYm: string | null;
   targetYm: string | null;
+  /** この MS の pt 価値 (円) = points × (cap_extra なら extraPtUnitYen, 違えば regularPtUnitYen) */
+  ptValueYen: number;
   /** plannedShare ベースの担当一覧 (share 降順) */
   responsibilities: MsOverviewResponsibility[];
 };
 
-export type MsOverviewMemberPointTotal = {
+export type MsOverviewMemberYearTotal = {
   memberId: string;
   codeName: string;
   regularPt: number;
   extraPt: number;
   totalPt: number;
+  regularYen: number;
+  extraYen: number;
+  totalYen: number;
 };
 
 /**
@@ -61,6 +66,9 @@ export type MsOverviewPlanCycle = {
   totalPoints: number;
   regularPoints: number;
   extraPoints: number;
+  regularPtUnitYen: number;
+  extraPtUnitYen: number;
+  extraPoolBudgetYen: number;
   /** PJ の健全性 (= 同 PJ の全 cycle で共通の値、並び替えに使う) */
   healthState: ProjectHealthState;
   /** projects.status の生値 (= "active" / "ended" / "suspended" 等) */
@@ -69,7 +77,7 @@ export type MsOverviewPlanCycle = {
   projectFreezeFromYm: string | null;
   projectMembers: MsOverviewProjectMember[];
   milestones: MsOverviewMilestone[];
-  memberPointTotals: MsOverviewMemberPointTotal[];
+  memberYearTotals: MsOverviewMemberYearTotal[];
 };
 
 export type MsOverviewResponse = {

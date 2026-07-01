@@ -64,7 +64,7 @@ monthlyConsumedPt = Σ_ms consumedPt[ms]
 
 # 個人配分
 earnedPt[member]  = Σ_ms (consumedPt[ms] × share[member, ms]) # share は実績配分優先
-basePay[member]   = round(earnedPt[member] × ptUnit)
+basePay[member]   = Σ_ms (round(cumEarnedPt[ms,member] × ptUnit) − round(prevCumEarnedPt[ms,member] × ptUnit))
 totalPay[member]  = basePay[member] + bonusPt[member]        # bonusPt は現状 0
 
 # キャップ制御 (= 月次支払上限)
@@ -90,6 +90,8 @@ companyReserveUnfundedYen[officer] = grossDueForCap[officer] − allocated[offic
 stockYen[officer] = companyReserveUnfundedYen[officer]      # 翌月 carryIn[officer] へ
 paid[officer] = 0
 ```
+
+`basePay` は月ごとの `earnedPt` を2桁丸めしてから円換算しない。MSごと・メンバーごとに `round(累計earnedPt×ptUnit) - round(前月までの累計earnedPt×ptUnit)` を当月額にする。これにより、期間按分で月をまたいでもシーズン合計は必ず `round(MS総pt×share×ptUnit)` に収束する。
 
 > **2026-06-19 まさ確定 — 役員 stock 繰越**: 旧実装は役員 (`is_officer`) の `carryIn` を 0 にし、cap 不足月に留保しきれなかった分 (`companyReserveUnfundedYen`) を翌月へ繰り越さず捨てていた。SX のように cap が慢性的に逼迫する PJ では、これにより**役員 (= AMD 会社留保) が年間で pt 比どおりに受け取れず構造的に取りこぼす**事故になっていた (SX 現行サイクルだけで役員計 約189万、3 active PJ で約192万)。役員も非役員と同じく stock を繰り越す方式に変更し、`年間原資 = Σ(pt × pt単価)`、`Σ月cap = 年間原資` の下で**月次の前後はあっても年間で全員 pt 比に収束**することをシミュレーション+本番再計算で検証済み。実装は `pwa/src/lib/reward-summary.ts` の `applyRewardCapsForMonth` (cap 按分母数に officer の carryIn を含める / 役員返却ブロックで `stockYen` を繰り越す) の 2 箇所。
 
