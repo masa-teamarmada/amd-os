@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Anthropic from "@anthropic-ai/sdk";
+import { getBackgroundAnthropic, BackgroundAnthropicDisabledError } from "@/lib/anthropic-client";
 import { attachStory } from "@/lib/atlas-stories-server";
 
 interface SeedSignal {
@@ -37,12 +38,19 @@ export async function POST(req: NextRequest) {
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const anthroKey = process.env.ANTHROPIC_API_KEY;
-  if (!url || !key || !anthroKey) {
-    return NextResponse.json({ error: "env missing (supabase or anthropic)" }, { status: 500 });
+  if (!url || !key) {
+    return NextResponse.json({ error: "env missing (supabase)" }, { status: 500 });
   }
   const db = createClient(url, key);
-  const anthropic = new Anthropic({ apiKey: anthroKey });
+  let anthropic: Anthropic;
+  try {
+    anthropic = getBackgroundAnthropic("atlas/seed");
+  } catch (e) {
+    if (e instanceof BackgroundAnthropicDisabledError) {
+      return NextResponse.json({ ok: true, disabled: true, reason: "background anthropic disabled" });
+    }
+    throw e;
+  }
 
   const autoTag = async (s: SeedSignal): Promise<{ tags: string[]; importance: string | null }> => {
     const prompt = `あなたはマクロトレンド分析のタグ付けエディタです。

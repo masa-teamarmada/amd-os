@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { getBackgroundAnthropic } from "@/lib/anthropic-client";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdmin } from "@/lib/supabase/api-auth";
 
@@ -89,17 +89,15 @@ export async function POST(req: NextRequest) {
 
     // LLM 提案モード: signal の内容から新ストーリー骨子を提案させる
     if (body.useLlmProposal || !title) {
-      const anthroKey = process.env.ANTHROPIC_API_KEY;
-      if (anthroKey) {
-        try {
-          const anthropic = new Anthropic({ apiKey: anthroKey });
-          const r = await anthropic.messages.create({
-            model: "claude-haiku-4-5-20251001",
-            max_tokens: 512,
-            messages: [
-              {
-                role: "user",
-                content: `次のシグナルを単独で1つの新規ストーリーとして立てたい。
+      try {
+        const anthropic = getBackgroundAnthropic("atlas/move-signal");
+        const r = await anthropic.messages.create({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 512,
+          messages: [
+            {
+              role: "user",
+              content: `次のシグナルを単独で1つの新規ストーリーとして立てたい。
 タイトルは「ホルムズ海峡危機」「中国希土類輸出規制」のような実体ベースの名詞句にすること。
 
 シグナル:
@@ -109,23 +107,22 @@ export async function POST(req: NextRequest) {
 
 JSON のみで返答（前置き不要）:
 {"title": "60字以内の実体ベースの名詞句", "summary": "100-200字でストーリーの輪郭"}`,
-              },
-            ],
-          });
-          const block = r.content[0];
-          const text = block?.type === "text" ? block.text : "";
-          const m = text.match(/\{[\s\S]*\}/);
-          if (m) {
-            const parsed = JSON.parse(m[0]) as {
-              title?: string;
-              summary?: string;
-            };
-            if (!title && parsed.title) title = parsed.title;
-            if (!summary && parsed.summary) summary = parsed.summary;
-          }
-        } catch (e) {
-          console.warn("createNew LLM proposal err:", e);
+            },
+          ],
+        });
+        const block = r.content[0];
+        const text = block?.type === "text" ? block.text : "";
+        const m = text.match(/\{[\s\S]*\}/);
+        if (m) {
+          const parsed = JSON.parse(m[0]) as {
+            title?: string;
+            summary?: string;
+          };
+          if (!title && parsed.title) title = parsed.title;
+          if (!summary && parsed.summary) summary = parsed.summary;
         }
+      } catch (e) {
+        console.warn("createNew LLM proposal err:", e);
       }
     }
 

@@ -32,6 +32,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { getBackgroundAnthropic, BackgroundAnthropicDisabledError } from "@/lib/anthropic-client";
 import { createClient } from "@supabase/supabase-js";
 import { attachStory } from "@/lib/atlas-stories-server";
 
@@ -60,12 +61,19 @@ export async function POST(req: NextRequest) {
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const anthroKey = process.env.ANTHROPIC_API_KEY;
-  if (!url || !key || !anthroKey) {
+  if (!url || !key) {
     return NextResponse.json({ error: "env missing" }, { status: 500 });
   }
   const db = createClient(url, key);
-  const anthropic = new Anthropic({ apiKey: anthroKey });
+  let anthropic: Anthropic;
+  try {
+    anthropic = getBackgroundAnthropic("atlas/signals-ingest");
+  } catch (e) {
+    if (e instanceof BackgroundAnthropicDisabledError) {
+      return NextResponse.json({ ok: true, disabled: true, reason: "background anthropic disabled" });
+    }
+    throw e;
+  }
 
   let body: { signals?: SignalInput[] };
   try {

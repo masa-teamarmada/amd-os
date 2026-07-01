@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { getBackgroundAnthropic, BackgroundAnthropicDisabledError } from "@/lib/anthropic-client";
 import { createClient } from "@supabase/supabase-js";
 import { attachStory } from "@/lib/atlas-stories-server";
 
@@ -33,7 +34,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "env missing" }, { status: 500 });
   }
   const db = createClient(url, key);
-  const anthropic = new Anthropic({ apiKey: anthroKey });
+  let anthropic: Anthropic;
+  try {
+    anthropic = getBackgroundAnthropic("cron/atlas-collect");
+  } catch (e) {
+    if (e instanceof BackgroundAnthropicDisabledError) {
+      return NextResponse.json({ ok: true, disabled: true, reason: "background anthropic disabled" });
+    }
+    throw e;
+  }
 
   // 直近48hの投入タイトルを「重複回避リスト」として渡す
   const since = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();

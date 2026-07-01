@@ -19,6 +19,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import Anthropic from "@anthropic-ai/sdk";
+import { getBackgroundAnthropic, BackgroundAnthropicDisabledError } from "@/lib/anthropic-client";
 
 export const maxDuration = 300;
 
@@ -287,7 +288,15 @@ export async function GET(req: NextRequest) {
   }
 
   const supabase = getServiceClient();
-  const anthropic = new Anthropic({ apiKey: anthropicKey });
+  let anthropic: Anthropic;
+  try {
+    anthropic = getBackgroundAnthropic("cron/frl-grit-resilience-extract");
+  } catch (e) {
+    if (e instanceof BackgroundAnthropicDisabledError) {
+      return NextResponse.json({ ok: true, disabled: true, reason: "background anthropic disabled" });
+    }
+    throw e;
+  }
 
   const prompt = await loadPrompt(supabase);
   if (!prompt) {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { getBackgroundAnthropic } from "@/lib/anthropic-client";
 import { requireAuth } from "@/lib/supabase/api-auth";
 
 /**
@@ -21,15 +21,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "ANTHROPIC_API_KEY not set" },
-        { status: 500 }
-      );
-    }
-
-    const client = new Anthropic({ apiKey });
+    const client = getBackgroundAnthropic("atlas/auto-tag");
 
     const prompt = `あなたはマクロトレンド分析のタグ付けエディタです。
 以下のシグナルから、後で横串検索するためのタグを 6〜12 個提案してください。

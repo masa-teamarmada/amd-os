@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { getBackgroundAnthropic, BackgroundAnthropicDisabledError } from "@/lib/anthropic-client";
 import { createClient } from "@supabase/supabase-js";
 import { attachStory } from "@/lib/atlas-stories-server";
 
@@ -23,12 +24,19 @@ export async function GET(req: NextRequest) {
 
   const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supaKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const anthroKey = process.env.ANTHROPIC_API_KEY;
-  if (!supaUrl || !supaKey || !anthroKey) {
+  if (!supaUrl || !supaKey) {
     return NextResponse.json({ error: "env missing" }, { status: 500 });
   }
   const db = createClient(supaUrl, supaKey);
-  const anthropic = new Anthropic({ apiKey: anthroKey });
+  let anthropic: Anthropic;
+  try {
+    anthropic = getBackgroundAnthropic("atlas/match-stories");
+  } catch (e) {
+    if (e instanceof BackgroundAnthropicDisabledError) {
+      return NextResponse.json({ ok: true, disabled: true, reason: "background anthropic disabled" });
+    }
+    throw e;
+  }
 
   // story_id 未付与のシグナルを古い順に
   const { data: targets, error } = await db

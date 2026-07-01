@@ -16,6 +16,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { getBackgroundAnthropic, BackgroundAnthropicDisabledError } from "@/lib/anthropic-client";
 import { createClient } from "@supabase/supabase-js";
 import {
   ASPI_DOMAIN_IDS,
@@ -62,7 +63,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "env missing" }, { status: 500 });
   }
   const db = createClient(url, key);
-  const anthropic = new Anthropic({ apiKey: anthroKey });
+  let anthropic: Anthropic;
+  try {
+    anthropic = getBackgroundAnthropic("cron/lane-suggest");
+  } catch (e) {
+    if (e instanceof BackgroundAnthropicDisabledError) {
+      return NextResponse.json({ ok: true, disabled: true, reason: "background anthropic disabled" });
+    }
+    throw e;
+  }
 
   // 候補抽出: lanes IS NULL (= seed されてない新規 PJ) または、既存 lanes があるが
   // 直近 30 日に pending suggestion がなく、最後の承認が 180 日以上前 (= 再評価したい) のもの

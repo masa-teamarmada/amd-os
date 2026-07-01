@@ -3,7 +3,7 @@
  * Supabase から期間内のシグナルを取得し、Anthropic API で要約を生成して atlas_reports に保存する。
  */
 
-import Anthropic from "@anthropic-ai/sdk";
+import { getBackgroundAnthropic } from "@/lib/anthropic-client";
 import { createClient } from "@supabase/supabase-js";
 import type { AtlasSignal } from "./supabase-data";
 
@@ -15,7 +15,7 @@ function getServiceClient() {
 }
 
 function getAnthropicClient() {
-  return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY || "" });
+  return getBackgroundAnthropic("lib/atlas-report");
 }
 
 // ────────────────────────────────────────────────

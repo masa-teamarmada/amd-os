@@ -9,7 +9,7 @@
  * 一括スクリプト版: pwa/scripts/extract_amd_score_from_l2.py
  */
 
-import Anthropic from "@anthropic-ai/sdk";
+import { getBackgroundAnthropic } from "@/lib/anthropic-client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchSlackContext, fetchSlackChannelHistory, type SlackHit } from "@/lib/sources/slack";
 import { fetchNotionContext, type NotionHit } from "@/lib/sources/notion";
@@ -275,7 +275,7 @@ async function callSonnet(prompt: string): Promise<ExtractedJson | null> {
     console.error("[l2-extract] ANTHROPIC_API_KEY not set");
     return null;
   }
-  const anthropic = new Anthropic({ apiKey });
+  const anthropic = getBackgroundAnthropic("lib/amd-score-l2-extract");
   const r = await anthropic.messages.create({
     model: "claude-sonnet-4-5-20250929",
     max_tokens: 8000,

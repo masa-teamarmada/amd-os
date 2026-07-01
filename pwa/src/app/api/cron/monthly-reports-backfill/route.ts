@@ -19,6 +19,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import Anthropic from "@anthropic-ai/sdk";
+import { getBackgroundAnthropic, BackgroundAnthropicDisabledError } from "@/lib/anthropic-client";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -55,7 +56,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "env missing" }, { status: 500 });
   }
   const db = createClient(url, key);
-  const anthropic = new Anthropic({ apiKey: anthroKey });
+  let anthropic: Anthropic;
+  try {
+    anthropic = getBackgroundAnthropic("cron/monthly-reports-backfill");
+  } catch (e) {
+    if (e instanceof BackgroundAnthropicDisabledError) {
+      return NextResponse.json({ ok: true, disabled: true, reason: "background anthropic disabled" });
+    }
+    throw e;
+  }
 
   const limitRaw = parseInt(req.nextUrl.searchParams.get("limit") || "", 10);
   const limit = Math.max(1, Math.min(40, Number.isFinite(limitRaw) ? limitRaw : DEFAULT_LIMIT));

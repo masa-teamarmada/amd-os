@@ -18,7 +18,7 @@
 
 import { createHash } from "crypto";
 import { createClient } from "@supabase/supabase-js";
-import Anthropic from "@anthropic-ai/sdk";
+import { getBackgroundAnthropic } from "@/lib/anthropic-client";
 import { syncRewardSummaryForCycle } from "@/lib/reward-summary";
 import {
   isYm,
@@ -30,10 +30,6 @@ import {
   PM_LOCKED_PROGRESS_SOURCES,
   type ProgressAnchor,
 } from "@/lib/ms-schedule-shared";
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY || "",
-});
 
 function getServiceClient() {
   return createClient(
@@ -1594,6 +1590,7 @@ export async function estimateProgress(
   // 7. LLM呼び出し
   let raw = "";
   try {
+    const anthropic = getBackgroundAnthropic("lib/progress-estimator");
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-5-20250929",
       max_tokens: 2048,

@@ -17,6 +17,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { getBackgroundAnthropic, BackgroundAnthropicDisabledError } from "@/lib/anthropic-client";
 import { createClient } from "@supabase/supabase-js";
 
 export const maxDuration = 300;
@@ -51,7 +52,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "env missing" }, { status: 500 });
   }
   const db = createClient(url, key);
-  const anthropic = new Anthropic({ apiKey: anthroKey });
+  let anthropic: Anthropic;
+  try {
+    anthropic = getBackgroundAnthropic("cron/vc-discover");
+  } catch (e) {
+    if (e instanceof BackgroundAnthropicDisabledError) {
+      return NextResponse.json({ ok: true, disabled: true, reason: "background anthropic disabled" });
+    }
+    throw e;
+  }
 
   // 既知 VC リストを名前で渡す (重複検知用)
   const { data: existing } = await db.from("vcs").select("id, name, name_en, slug");

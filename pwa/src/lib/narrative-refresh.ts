@@ -13,6 +13,7 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
+import { getBackgroundAnthropic } from "@/lib/anthropic-client";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generateNarrativeItems, type NarrativeInput } from "./narrative-generator";
 
@@ -187,7 +188,7 @@ export async function refreshNarrativeForProject(
       .eq("project_id", projectId);
 
     const fbList = (openFeedbacks as FeedbackRow[] | null) ?? [];
-    const anthropic = anthropicKey ? new Anthropic({ apiKey: anthropicKey }) : null;
+    const anthropic = anthropicKey ? getBackgroundAnthropic("lib/narrative-refresh") : null;
     for (const fb of fbList) {
       if (anthropic) {
         const lessons = await extractLessons(anthropic, { ...fb, project_id: projectId });

@@ -12,6 +12,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { getBackgroundAnthropic } from "@/lib/anthropic-client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runGraduationDetection } from "@/lib/graduation-detection/calculate";
 
@@ -47,8 +48,11 @@ export async function GET(req: NextRequest) {
     // signal 1 (talker_ratio) と signal 3 (report_attribution) が LLM 経路で埋まる。
     // 片方だけ active でも OK。 両方 inactive なら従来通り 0 で保存され、 readiness_score は
     // signal 2/4/5/6 だけから計算される (= MVP 通り)。
-    const anthropicKey = process.env.ANTHROPIC_API_KEY;
-    const anthropic = anthropicKey ? new Anthropic({ apiKey: anthropicKey }) : null;
+    // ALLOW_PWA_LLM_CRONS ガードは上で通過済み。key があるときだけ background client を作り、
+    // 無ければ null (= signal 2/4/5/6 だけで readiness_score を計算する MVP モード)。
+    const anthropic: Anthropic | null = process.env.ANTHROPIC_API_KEY
+      ? getBackgroundAnthropic("cron/graduation-detection")
+      : null;
     const result = await runGraduationDetection(createAdminClient(), ym, anthropic);
     return NextResponse.json(result);
   } catch (error) {

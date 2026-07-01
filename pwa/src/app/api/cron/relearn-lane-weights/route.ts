@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { getBackgroundAnthropic, BackgroundAnthropicDisabledError } from "@/lib/anthropic-client";
 import { createClient } from "@supabase/supabase-js";
 import { ASPI_DOMAIN_IDS, ASPI_DOMAIN_LABEL_JP, type AspiDomainId } from "@/lib/aspi-lanes";
 
@@ -45,7 +46,15 @@ export async function GET(req: NextRequest) {
   }
 
   const db = createClient(url, key);
-  const anthropic = new Anthropic({ apiKey: anthroKey });
+  let anthropic: Anthropic;
+  try {
+    anthropic = getBackgroundAnthropic("cron/relearn-lane-weights");
+  } catch (e) {
+    if (e instanceof BackgroundAnthropicDisabledError) {
+      return NextResponse.json({ ok: true, disabled: true, reason: "background anthropic disabled" });
+    }
+    throw e;
+  }
 
   const [macroResp, papersResp, venturesResp] = await Promise.all([
     db

@@ -18,6 +18,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import Anthropic from "@anthropic-ai/sdk";
+import { getBackgroundAnthropic, BackgroundAnthropicDisabledError } from "@/lib/anthropic-client";
 
 function getServiceClient() {
   return createClient(
@@ -466,7 +467,15 @@ export async function GET(req: NextRequest) {
   }
 
   const supabase = getServiceClient();
-  const anthropic = new Anthropic({ apiKey: anthropicKey });
+  let anthropic: Anthropic;
+  try {
+    anthropic = getBackgroundAnthropic("cron/member-activities");
+  } catch (e) {
+    if (e instanceof BackgroundAnthropicDisabledError) {
+      return NextResponse.json({ ok: true, disabled: true, reason: "background anthropic disabled" });
+    }
+    throw e;
+  }
 
   const systemPrompt = await loadExtractPrompt(supabase);
   if (!systemPrompt) {

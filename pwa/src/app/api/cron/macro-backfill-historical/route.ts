@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { getBackgroundAnthropic, BackgroundAnthropicDisabledError } from "@/lib/anthropic-client";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { ASPI_DOMAIN_IDS, type AspiDomainId } from "@/lib/aspi-lanes";
 
@@ -164,7 +165,15 @@ export async function GET(req: NextRequest) {
   }
 
   const db = createClient(url, key);
-  const anthropic = new Anthropic({ apiKey: anthroKey });
+  let anthropic: Anthropic;
+  try {
+    anthropic = getBackgroundAnthropic("cron/macro-backfill-historical");
+  } catch (e) {
+    if (e instanceof BackgroundAnthropicDisabledError) {
+      return NextResponse.json({ ok: true, disabled: true, reason: "background anthropic disabled" });
+    }
+    throw e;
+  }
 
   // パラメータ
   const laneParam = req.nextUrl.searchParams.get("lane");

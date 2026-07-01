@@ -13,7 +13,7 @@
  *
  * dialog ID は client 側で UUID 発行。server は state 持たない (= telemetry / log のみ)。
  */
-import Anthropic from "@anthropic-ai/sdk";
+import { getBackgroundAnthropic } from "@/lib/anthropic-client";
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -153,7 +153,7 @@ export async function generateProposal(args: {
   if (!apiKey) return { ok: false, message: "ANTHROPIC_API_KEY missing in env" };
   if (!args.conversation.length) return { ok: false, message: "conversation empty" };
 
-  const client = new Anthropic({ apiKey });
+  const client = getBackgroundAnthropic("lib/strategy-signal-dialog");
   const systemPrompt = `あなたは AMD OS の経営ハイライト (= D-6 project_strategy_signal) を、まさからの修正依頼に基づいて **対話的に** 改訂するつくよみ (LLM)。
 
 入力:

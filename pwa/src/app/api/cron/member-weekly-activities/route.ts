@@ -14,6 +14,7 @@ import { google } from "googleapis";
 import type { OAuth2Client } from "google-auth-library";
 import { getGoogleAuthAsync, getMemberGoogleAuth } from "@/lib/sources/google";
 import Anthropic from "@anthropic-ai/sdk";
+import { getBackgroundAnthropic, BackgroundAnthropicDisabledError } from "@/lib/anthropic-client";
 
 export const runtime = "nodejs";
 
@@ -452,7 +453,14 @@ async function synthesizeActivityGroups(groups: ActivityGroup[]): Promise<Map<st
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey || groups.length === 0) return result;
 
-  const anthropic = new Anthropic({ apiKey });
+  let anthropic: Anthropic;
+  try {
+    anthropic = getBackgroundAnthropic("cron/member-weekly-activities");
+  } catch (e) {
+    // 背景 Anthropic 封鎖時 (ALLOW_PWA_LLM_CRONS!=="1") は fusion をスキップし fallback synthesis を返す
+    if (e instanceof BackgroundAnthropicDisabledError) return result;
+    throw e;
+  }
   const model = process.env.MEMBER_WEEKLY_ACTIVITY_MODEL || "claude-sonnet-4-6";
   const groupsForPrompt = groups.slice(0, Number(process.env.MEMBER_WEEKLY_ACTIVITY_MAX_GROUPS || 40));
   const payload = groupsForPrompt.map((group) => ({

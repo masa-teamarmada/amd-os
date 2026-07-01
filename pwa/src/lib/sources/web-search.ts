@@ -9,6 +9,7 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
+import { getBackgroundAnthropic } from "@/lib/anthropic-client";
 
 const SYSTEM = `あなたは Web リサーチアシスタント。
 渡されたスタートアップ名 (PJ) について、ネット上の以下情報をリサーチして要約してください:
@@ -29,7 +30,7 @@ export async function fetchWebSearchContext(companyName: string, ventureKeywords
     console.warn("[web-search] ANTHROPIC_API_KEY not set — skipping");
     return "";
   }
-  const anthropic = new Anthropic({ apiKey });
+  const anthropic = getBackgroundAnthropic("lib/web-search");
   const userText = `# PJ 名\n${companyName}\n\n# 関連キーワード\n${ventureKeywords.join(", ")}\n\nこの PJ について Web リサーチして時系列にまとめてください。`;
   try {
     const r = await anthropic.messages.create({
