@@ -27,6 +27,14 @@ export interface ProjectRow {
   report_emails: string | null;
   governance_watch_shareholder_meetings: boolean;
   governance_watch_board_meetings: boolean;
+  /** L2M-1 月次報告書 routine の対象範囲。none = 対象外 / internal_only = 内部保存版のみ / internal_and_external = 内部 + 対外提出版 */
+  monthly_report_scope: "none" | "internal_only" | "internal_and_external";
+  /** ローカル output ディレクトリ命名に使う短縮名 (例: KUTE / SX / AMD)。NULL の場合は project_id を fallback */
+  report_local_alias: string | null;
+  /** 対外版 jargon check の禁止語 allow_list。PJ 固有で許可したい用語 */
+  report_extra_allow_terms: string[];
+  /** 業務内容の配列。各要素は {name, description?}。対外版の第N領域章に展開される */
+  work_content: Array<{ name: string; description?: string }>;
   start_ym: string | null;
   end_ym: string | null;
   fee_type: string | null;
