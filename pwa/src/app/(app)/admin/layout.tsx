@@ -8,7 +8,10 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   const supabase = await createClient();
-  const { data: { user }, error } = await supabase.auth.getUser();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
 
   if (error || !user?.email) {
     redirect("/auth/login");
@@ -25,9 +28,9 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="flex h-[calc(100vh-3rem)]">
+    <div className="flex h-screen overflow-hidden">
       <AdminSidebar />
-      <div className="flex-1 overflow-y-auto p-6">{children}</div>
+      <div className="min-w-0 flex-1 overflow-y-auto p-6">{children}</div>
     </div>
   );
 }

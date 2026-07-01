@@ -8,6 +8,7 @@ const ADMIN_TABS = [
   { label: "Projects", href: "/admin/projects" },
   { label: "Members", href: "/admin/members" },
   { label: "Company", href: "/admin/company" },
+  { label: "Management", href: "/management-score" },
   { label: "契約", href: "/admin/contracts" },
   { label: "🏛 株主・ガバナンス", href: "/admin/governance" },
   { label: "🛰 Coverage Scanner", href: "/admin/coverage-gaps" },
@@ -31,7 +32,7 @@ export function AdminSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-48 border-r border-border shrink-0 p-2 space-y-0.5">
+    <aside className="h-screen w-48 shrink-0 space-y-0.5 overflow-y-auto border-r border-border p-2">
       <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2">
         Admin
       </h2>
@@ -43,7 +44,7 @@ export function AdminSidebar() {
             "block text-sm px-3 py-1.5 rounded-md transition-colors",
             pathname === tab.href
               ? "bg-accent text-accent-foreground font-medium"
-              : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+              : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
           )}
         >
           {tab.label}

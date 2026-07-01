@@ -17,13 +17,18 @@ UI ヒント ([`ui_hint_tooltip.md`](ui_hint_tooltip.md)) は「個別 UI 要素
 
 ## 配置 (= まさ確定)
 
-トップナビ:
+左サイドナビ:
 
 ```
-ダッシュボード | AMD Protocol | Atlas | Scholar | Venture Map | Management | Seeds | VC | マイページ | Admin | 立替 | [📖 マニュアル] | まさ
+AMD OSロゴ(ダッシュボード)
+動かす: ボード | AMD Protocol | Atlas | Knowledge
+探索: Scholar | Venture Map | 研究機関 | Seeds | VC
+自分: マイページ | 通知 | 立替
+Admin: Admin | Management | 設計書
+資料: 教科書 | マニュアル | 日本文化
 ```
 
-`立替` の右隣に `📖 マニュアル` (or `❓ Help` / `📚 Docs`) を追加。
+`ダッシュボードに戻る` の独立リンクは置かず、AMD OSロゴをダッシュボード入口にする。`Management` はトップ階層から外し、Admin セクションから `/management-score` へ入る。横幅が狭い時はラベルを畳み、アイコン rail として表示する。
 
 ## 現行の章立て (= 2026-05-27 refactor で確定)
 

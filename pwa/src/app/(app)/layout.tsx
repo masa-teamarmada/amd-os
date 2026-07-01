@@ -19,12 +19,17 @@ function pathToTitle(pathname: string): string | null {
   if (pathname.startsWith("/atlas/decisions")) return "Atlas Decisions";
   if (pathname.startsWith("/atlas/admin")) return "Atlas Admin";
   if (pathname === "/scholar") return "Scholar";
-  if (pathname.startsWith("/venture-map/amd-score/retrofit")) return "AMD Score Retrofit";
+  if (pathname.startsWith("/venture-map/amd-score/retrofit"))
+    return "AMD Score Retrofit";
   if (pathname.startsWith("/venture-map/amd-score")) return "AMD Score";
-  if (pathname.startsWith("/venture-map/timeline-3d")) return "Venture Timeline 3D";
-  if (pathname.startsWith("/venture-map/cyberspace")) return "Venture Cyberspace";
-  if (pathname.startsWith("/venture-map/oscillator")) return "Venture Oscillator";
-  if (pathname.startsWith("/venture-map/state-space")) return "Venture State Space";
+  if (pathname.startsWith("/venture-map/timeline-3d"))
+    return "Venture Timeline 3D";
+  if (pathname.startsWith("/venture-map/cyberspace"))
+    return "Venture Cyberspace";
+  if (pathname.startsWith("/venture-map/oscillator"))
+    return "Venture Oscillator";
+  if (pathname.startsWith("/venture-map/state-space"))
+    return "Venture State Space";
   if (pathname.startsWith("/venture-map/su/")) return "SU Detail";
   if (pathname === "/venture-map") return "Venture Map";
   if (pathname.startsWith("/knowledge-map")) return "Knowledge Map";
@@ -75,10 +80,15 @@ export default async function AppLayout({
   const h = await headers();
   const pathname = h.get("x-pathname") ?? "";
   const supabase = await createClient();
-  const { data: { user }, error } = await supabase.auth.getUser();
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
 
   if (error || !user) {
-    redirect(`/auth/login?next=${encodeURIComponent(pathname || "/dashboard")}`);
+    redirect(
+      `/auth/login?next=${encodeURIComponent(pathname || "/dashboard")}`,
+    );
   }
 
   let userCodeName = "Guest";
@@ -94,7 +104,9 @@ export default async function AppLayout({
     if (member?.is_admin) isAdmin = true;
     if (member?.member_id) memberId = member.member_id;
     if (member && member.google_calendar_status !== "connected") {
-      redirect(`/auth/login?next=${encodeURIComponent(pathname || "/dashboard")}&error=calendar_required`);
+      redirect(
+        `/auth/login?next=${encodeURIComponent(pathname || "/dashboard")}&error=calendar_required`,
+      );
     }
   }
   const useHudShellOnly = pathname.startsWith("/hud");
@@ -102,8 +114,18 @@ export default async function AppLayout({
   return (
     <>
       <PageTitleSetter />
-      {!useHudShellOnly && <GlobalNav userCodeName={userCodeName} isAdmin={isAdmin} memberId={memberId} />}
-      <main className="flex-1">{children}</main>
+      {useHudShellOnly ? (
+        <main className="flex-1">{children}</main>
+      ) : (
+        <div className="flex min-h-screen bg-background text-foreground">
+          <GlobalNav
+            userCodeName={userCodeName}
+            isAdmin={isAdmin}
+            memberId={memberId}
+          />
+          <main className="min-w-0 flex-1">{children}</main>
+        </div>
+      )}
       {isAdmin && <CriticalRealtimeNotify />}
       <TsukuyomiChatBridge />
     </>
