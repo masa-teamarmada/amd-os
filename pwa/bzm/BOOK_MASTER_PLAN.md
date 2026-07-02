@@ -8,8 +8,9 @@
 
 ## 1. ボトムライン
 
-- **総ページ**: 940p (本文 = Book 0 70p + I 110p + II 272p + III 200p + IV 110p + V 90p + VI 60p + 付録 A 70p + B 55p + C 35p)
+- **総ページ**: 980p (本文 = Book 0 70p + I 110p + II 300p + III 200p + IV 110p + V 90p + VI 72p + 付録 A 70p + B 55p + C 35p)
   - 当初 870p から +70p。Book II Ch 10 が 30p → 72p (進化経済 6 軽微修正課題 + 統合節 + 試験前倒し配置) に拡張、Ch 11.5 を新設 (28p)
+  - 2026-07-02 (D-056) で +40p: Ch 9.5 (RT 結合機構、28p) と Ch 37.5 (自己批判とオープンプロブレム、12p) を新設、940p → 980p
 - **総期間**: 18ヶ月
 - **ターゲット tier**: Tier 3 学術モノグラフ
 - **publishing path**: Cambridge UP Schumpeter モノグラフ + Research Policy 特集号巻頭論文 (デュアル) + ICC 第三伴走 (D-035, P-009 で確定後)
@@ -50,6 +51,11 @@
 4. **Klepper 入れ子 (Ch 10.5)** — 統合ハザード `h(t,n;θ) = 𝟙{t<τ_B}·h_pre + 𝟙{t≥τ_B}·h_post` + 命題 4 (F_char→1 極限で Klepper に縮退) + 命題 5 (τ_B での Δlog h 符号条件)
 5. **Malerba SSI 全射埋め込み (Ch 10.6)** — 全射 `φ: {1..8} → 2^{K,A,I,D,T}` + レーン重み w(L) + 事前コミット符号制約 (w_2(Bio) > others / w_8(Material) > others / w_6(Deep-tech) > others)
 6. **Murmann 双方向 ERS-PRS coupling (Ch 10.7)** — 命題 10.6.3 (η_jt VAR(1) + Ψ·N_jt フィードバック) + 定理 10.6.5 (τ_B での B 卒業数ファジー RD による Ψ identification)
+
+### 仮説的第三柱 — RT 結合機構 (D-056、中核命題 1-6 とは Tier を分離)
+- 本書は「観測二層 (PRS/ERS) + 結合機構 (RT)」の三項構造を Ch 0.1 で宣言する。貢献の主柱は検証済みの二層観測、**RT は「仮説的機構 + 検証プログラム付きの第三の柱」として明示** (検証済みと主張しない)
+- RT の主張の二分: (a) 定義・命題 (成立3条件の形式化 = 証明可能な純理論、Ch 9.5) / (b) 実証仮説 (Ψ_j = Ψ̄ + β·ICT_j 等 → Ch 26b に「ICT 測定開始の事前登録」として登録、β 推定は追補)
+- ERS 側接続 (ICT レンズ + 最小サブ軸 + 二重計上ガード) の正本 = `BZSF/rt_roundtable_theory.md` §13.4-13.6 (v0.2)
 
 ### 前向き予測登録簿 (Ch 26b)
 学術領域の実証研究プログラムとして事前登録される deliverable。本書の射程内では「校正」のみ、validation 主張は本書 deliverable 外として後続論文へ譲る。
@@ -101,6 +107,7 @@
 | h パラメータ族 | `B_h(t) = K((t-t*_mid)/h)` (Gaussian-CDF or logistic)、シャープ (h↓0) と Ch 11.5 滑らかな極限 (h↑∞) を境界事例として包摂 | Ch 10.8 | Ch 10.8 |
 | Andrews-Quandt sup-Wald W_n* | 観測された π_i で評価 (探索しない) + 事前コミット効果量 β̂_3 ∈ [0.4, 1.2] per IQR-σ_SU log-hazard | Ch 10.9 | Ch 10.9 |
 | 前向き予測登録簿 | 事前登録予測 + スコアリング規則 (24ヶ月 outcome class log-loss) + 反証条件 (Brier > 0.25 等) | Ch 26b | Ch 26b |
+| RT / CRL / ICT | RT = keystone 型多者共同体 (定義 + 成立3条件の命題化)。CRL L0-L5 (案件レンズ)、ICT (機関レンズ、ERS 加重和に足さない)。Ψ_j = Ψ̄ + β·ICT_j 分解仮説。**仮説的第三柱 (Tier 分離、D-056)** | Ch 9.5 | `BZSF/rt_roundtable_theory.md` v0.2 + Ch 9.5 |
 
 **重要**: F-CES のパラメータ値 (a, ρ) は Book 0 / Book I / Book III の章アンカーに数値で書かない (DSGE persona critical 指摘 + D-006 への対応)。Ch 7 + Ch 10.3 が正準オーナー。ρ は事後分布 (posterior) として推定 (D-032)、点推定でなく信用区間と Cobb-Douglas / Leontief / 加法的への horse-race を提示。
 
@@ -128,7 +135,7 @@
 | 3 | ERS — 苗床という第二の対象 (含: unknown vs not_started 区別の正準オーナー = Ch 3.5) | 30 |
 | 4 | 失敗パターンの抽象 — Book II 数学装置への索引 (前方参照ティーザー) | 20 |
 
-### Book II — 機構 — 数学装置層 (272p, 9 章 + Ch 10 11 節構成) [load-bearing core]
+### Book II — 機構 — 数学装置層 (300p, 10 章 + Ch 10 11 節構成) [load-bearing core]
 
 | Ch | タイトル | p |
 |---|---|---:|
@@ -138,6 +145,7 @@
 | 7 | S の内部構造 — F-CES と委譲不可能コア (形式定義 + 校正手続き) | 38 |
 | 8 | 戦略余力動学 — 2D jump-diffusion と τ_x/τ_y、y 5 成分集約 | 32 |
 | 9 | ERS 加重和の導出 (二層非可換性定理の代数的バックボーン) | 34 |
+| 9.5 | ラウンドテーブル — 二層を結合する組成機構 (仮説的第三柱、D-056。定義・命題 = 純理論 / 実証仮説 = Ch 26b 送り) | 28 |
 | 10 | 進化経済学への形式接続 — Klepper / Malerba / Murmann の入れ子化 (11 節 OPENER) | 72 |
 | 11 | h パラメータ族の h↑∞ 境界事例 — 強い事前分布下の事後分布要約と honest 不確実性 | 14 |
 | 11.5 | §10.9 事前登録試験の運用実装 — レジストリ更新メカニズム、N=32 → 64 段階ゲート | 14 |
@@ -200,12 +208,13 @@
 | 34 | 地域 産学官 双対動態 — σ_SU を県境で読む | 22 |
 | 35 | BZ 段階への政策含意 — σ_SU と ERS を政策レバーに翻訳 | 16 |
 
-### Book VI — 新領域宣言と次の研究プログラム (60p, 3 章)
+### Book VI — 新領域宣言と次の研究プログラム (72p, 4 章)
 
 | Ch | タイトル | p |
 |---|---|---:|
 | 36 | 機関 KPI と ERS — Goodhart 回避の評価指標化 (funder 向け) | 18 |
 | 37 | 真正面の比較 — BZM vs Triple Helix vs Effectuation vs Nelson-Winter (Tier B) | 20 |
+| 37.5 | 自己批判とオープンプロブレム — 第二版への課題 (RT 含む全理論の弱点・未検証点・想定されるツッコミを著者自ら列挙、D-056) | 12 |
 | 38 | 新領域宣言 — 何が獲得され、何が次の 10 年に持ち越されたか | 22 |
 
 ### 付録
@@ -220,7 +229,7 @@
 
 ## 6. 書き順 (改訂版、Ch 10 load-bearing 昇格を反映)
 
-**Book II 中核**: `Ch 5 → Ch 5.5 → Ch 10.4 (Theorem 3) → Ch 9 (ERS 加重和導出) → Ch 7 (F-CES 形式) → Ch 10.3 (ρ Kmenta 識別) → Ch 8 → Ch 10.5 (Klepper) → Ch 10.6 (Malerba) → Ch 10.7 (Murmann) → Ch 10.8 (ファジー境界) → Ch 10.9 (試験前倒し) → Ch 10.10 (統合) → Ch 11 → Ch 11.5 → Ch 6`
+**Book II 中核**: `Ch 5 → Ch 5.5 → Ch 10.4 (Theorem 3) → Ch 9 (ERS 加重和導出) → Ch 7 (F-CES 形式) → Ch 10.3 (ρ Kmenta 識別) → Ch 8 → Ch 10.5 (Klepper) → Ch 10.6 (Malerba) → Ch 10.7 (Murmann) → Ch 9.5 (RT 結合機構、D-056: Ch 8 の y/λ・Ch 9 の ERS・Ch 10.7 の Ψ が全て確定した後) → Ch 10.8 (ファジー境界) → Ch 10.9 (試験前倒し) → Ch 10.10 (統合) → Ch 11 → Ch 11.5 → Ch 6`
 
 **全体**: Book II 中核 → Book III 案件章 (Ch 12-19) → Book III 機関章 (Ch 20-24) → Book III 結合章 (Ch 25-26b) → Book 0 → Book I → Book IV → Book V → Book VI → 付録 A/B/C
 
@@ -302,7 +311,8 @@
 各章は (i) 章頭ストーリー (匿名化、合成事例 OK) → (ii) 解説 (数式・図) → (iii) 匿名化実例 (PJ / 機関 / 桑折 MTG 論点 / やらかし図鑑) → (iv) 章末の問い、の 4 要素で構成する。
 
 ### 例外
-- Book II load-bearing 章 (Ch 5/5.5/7/8/9/10.4/10.5/10.6/10.7): 章頭 → 数学導出 → 後付け校正例 → 章末前方参照
+- Book II load-bearing 章 (Ch 5/5.5/7/8/9/9.5/10.4/10.5/10.6/10.7): 章頭 → 数学導出 → 後付け校正例 → 章末前方参照 (Ch 9.5 は「後付け校正例」の代わりに SX/EWIR・KENQ の Tier A 観測記述 + Ch 26b への実証 flush)
+- Ch 37.5 (自己批判章): 章頭 → 弱点の自己列挙 (理論別) → オープンプロブレム定義 → 第二版課題宣言
 - Ch 10 OPENER (11 節 72p) 構成: プロローグ (10.0) → 設定 (10.1) → 三貢献 (10.2-10.4) → 三系譜橋渡し (10.5-10.7) → シャープ → ファジー統合 (10.8) → 試験 (10.9) → 統合 (10.10)
 - Book III ケース章 (Ch 12-19): 章頭 → 後付け校正 → load-bearing 章 pointer → 章末問い
 - Book III 機関章 (Ch 20-24): 章頭 → 8 軸プロファイル → type 横断対比 → 章末
@@ -330,6 +340,7 @@
 | 7 | 2, 5, 6 | F-CES (S 内部) |
 | 8 | 5, 7 | 2D jump-diffusion + y 5 成分集約 |
 | **9** | 3, 5, 7, 8 | ERS 加重和導出 (二層非可換性代数バックボーン) |
+| **9.5** | 8, 9, 3, 10.7 (Ψ 分解の前提); 前方参照 {26b} | RT 結合機構 (D-056): 定義・成立3条件の命題化・CRL/ICT・y/λ 主経路割当・Ψ_j 分解仮説。実証主張は Ch 26b へ flush |
 | **10.0-10.1** | 全 Book II 先行節 | プロローグ + 設定 |
 | **10.2** | 5, 8 | C1 レジーム切換え B の formal definition |
 | **10.3** | 7 | C2 F-CES ρ Kmenta 識別 (Ch 7 形式定義の後継、ρ 校正の正準オーナー) |
@@ -359,6 +370,7 @@
 | 35 | 5.5, 32 | 政策含意 |
 | 36 | 3, 9, 32 | 機関 KPI (funder/政策向け、Goodhart 回避) |
 | 37 | 全 load-bearing 章 + 全ケース章 + **26a, 26b** | 真正面比較 (Tier B 共通スコアリング規則 = 24ヶ月 outcome class log-loss) |
+| 37.5 | 全章 (特に 9.5, 26b, 11, 25) | 自己批判とオープンプロブレム — 弱点の自己列挙と第二版課題の宣言 (D-056) |
 | 38 | 全章 | 新領域宣言 |
 
 ---
@@ -425,6 +437,7 @@ pwa repo に code / spec 含む commit を作る際は必ず BUILD_VERSION を p
 - Andrews-Quandt sup-Wald + N≈32 試験前倒し = Ch 10.9
 - 前向き予測登録簿プロトコル = Ch 26b
 - 真正面比較 (Tier B 共通スコアリング規則) = Ch 37
+- RT 結合機構 (定義・命題・CRL/ICT) = Ch 9.5 (仮説的第三柱、D-056。ERS 側接続の理論正本は `BZSF/rt_roundtable_theory.md` v0.2 §13.4-13.6。実証仮説は Ch 26b、弱点自認は Ch 37.5)
 
 ### Tier A vs Tier B の用語規律
 - Ch 11, Ch 12-24, Ch 25, Ch 26a = **Tier A** (「校正」のみ、validation 主張なし、識別主張なし)
