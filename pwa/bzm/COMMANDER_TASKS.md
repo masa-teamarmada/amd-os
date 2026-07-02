@@ -1,8 +1,8 @@
 # BZM Commander Tasks
 
-Last updated: 2026-06-28
+Last updated: 2026-07-02
 Owner: BZM司令塔
-Scope: Before Zero Model / BZM theory / Textbook theory gate / D-7 Textbook Insights Textbook Insights theory review / 新 BZM 本書執筆 (Cambridge UP Schumpeter モノグラフ 940p)
+Scope: Before Zero Model / BZM theory / Textbook theory gate / D-7 Textbook Insights Textbook Insights theory review / 新 BZM 本書執筆 (Cambridge UP Schumpeter モノグラフ **980p**、2026-07-02 D-056 で 940→980p) / **Book A 教科書「理論の集大成テキスト」** (数式全部入り、共著=石原先生筆頭、2029年4月学期照準、BOOKS_PORTFOLIO.md PF-001〜011) / **Book B 解説書** (URA案4部16章、実戦書17章の統合改修、2027年末-2028年初刊行) / **RT 組成論の一級市民化** (Ch 9.5 + Ch 37.5、D-056/057、RT理論正本 v0.2 §13.4-13.6)
 
 このファイルは、BZM司令塔が抱えているタスクの台帳。
 まさがここを開けば、コードやworker報告を読まなくても「何を頼んだか / なぜ頼んだか / 今どうなっているか / 何が残っているか」が分かる状態にする。
@@ -32,7 +32,7 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / D-7 Textbook Insi
 
 ## 未完タスク（優先順位順）
 
-1. 新 BZM 本書 940p 本文起草 (= Cambridge UP Schumpeter モノグラフ、まさ確定書き順 2026-06-28 = 1-1 から順)
+1. 新 BZM 本書 **980p** 本文起草 (= Cambridge UP Schumpeter モノグラフ、まさ確定書き順 2026-06-28 = 1-1 から順、2026-07-02 で **総ページ 940p→980p** に拡張。Ch 9.5 + Ch 37.5 追加 = D-056)
    - お願いした内容: 既存 17 章ドラフト (preface, field-*, model-overview, p-potential 等) は **実戦書** (= 後から出版予定の実践書、まさ確定 2026-06-28) として残し、新 Book 0-VI 構造 (940p / 18ヶ月、Tier 3 学術モノグラフ) を **Book I Ch 1 (1-1) から順に** 起草する。
    - 背景: 2026-06-27 セッションで Book II 19 章 skeleton 完成 + Ch 5 §5.0 本文 draft 試作品 v1 を起草、まさからトーン feedback。2026-06-28 セッションで Ch 5 §5.0.1 v3 (narrative tone) → v4 (引用 + 式) と反復し「めっちゃいい」評価。その後まさが「やっぱり 1-1 から順に見たい」と判断、Book II 中核先行の D-007 書き順を一旦保留して Book I Ch 1 から進める運用に切り替え。
    - 現状: Active。本文起草中 (= Ch 5 §5.0.1 v4 完成 + Ch 1 §1.0 節本文 v1 完成 + Ch 1 §1.0.1 v1 完成、まさレビュー待ち)。
@@ -53,7 +53,20 @@ Scope: Before Zero Model / BZM theory / Textbook theory gate / D-7 Textbook Insi
      - `BzmMarkdown` blockquote を四方枠 + 薄背景 + shadow の囲み box に
      - `[slug]page` の未着手 stub fallback
      - 目次順序: 新 BZM 940p 上 / 実戦書下、目次番号「1-1」削除
-   - 関連ファイル: `HANDOFF_BZM_BOOK_2026-06-28.md`、`pwa/design_log/sessions_2026-06.md` の 2026-06-28 entry、`pwa/bzm/BOOK_MASTER_PLAN.md` (L1)、`pwa/bzm/BOOK_DECISIONS.md` (L2)、`pwa/bzm/CHAPTER_5_PARAGRAPH_OUTLINE.md` (Ch 5 outline は 4 sub-section へ書き換え済)、`pwa/bzm/new-book2-ch-5-section-0-1.md` (§5.0.1 v4)、`pwa/bzm/new-book1-ch-1-section-0.md` / `new-book1-ch-1-section-0-1.md` (Ch 1 §1.0 + §1.0.1 v1)。
+   - 2026-07-02 追加事項:
+     - **RT を仮説的第三柱として本書に組み込み** (D-056)。Ch 9.5「ラウンドテーブル — 二層を結合する組成機構」(28p、Book II) + Ch 37.5「自己批判とオープンプロブレム — 第二版への課題」(12p、Book VI、まさ発案) 新設。Book 0 Ch 0.1 で三項構造 (観測二層 PRS/ERS + 結合機構 RT) 宣言 + Ch 0.4 貢献に第三の柱として追加。Ch 26b に H_RT (ICT 測定開始) 事前登録。RT本文着手は書き順ルール上 **Ch 10.7 の後** (D-007/D-056)。
+     - **Ch 9.5 skeleton ステージ1完了** (workflow wf_4432f1b0-6ea、3 persona × synth、8節28.0p、命題 9.5.1-9.5.4 + 仮説 9.5.H = Ψ_j 分解仮説 = Murmann coupling の**法人化前カーネル**)。**ステージ2 (Kingpin K1-K8) 全件確定** (D-057、n₀=3ヶ月仮置き・Ch 26b 事前登録で凍結・Tier A 記述は金額非表記で開始)。skeleton = `CHAPTER_9_5_SKELETON.json`、進捗 = `CHAPTER_9_5_PROGRESS.md`。
+     - **Book A/B ポートフォリオ確定**: `BOOKS_PORTFOLIO.md` (L1 上位層) PF-001〜011。Book A = 数式全部入り集大成テキスト (共著=石原先生筆頭)、Book B = URA案 (大学側主語・4部16章)、素材リユースは実戦書17章のみ、看板主張=出口ポートフォリオ論。
+     - **terminology_glossary.md 新設** (3冊共通正本): 節参照記法 (K7) / RT 記号ブロック ℛ, m(e), ERS₋ᵢ, n₀=3 (K5) / 乗法/加重和/補完性の3層対応表。
+     - **RT×ERS 理論正本反映**: `BZSF/rt_roundtable_theory.md` v0.2 §13.4 (ICT レンズ + 最小サブ軸 4-d/2-e/8-b + 新軸9見送り) / §13.5 (二重計上ガード: 排他的主経路割当・take-or-pay 3分割・leave-one-out ERS₋ᵢ・帰属タグ・UI合成禁止) / §13.6 (三項構造・Ψ 分解仮説) / §13.2 (CRL 運用パラメータ)。
+     - **BUILD_VERSION v0.37.4** = bzm-chapters.ts に Ch 9.5 / Ch 37.5 追加、Book II ラベル「300p, 10章」、Book VI「72p, 4章」。Vercel 自動デプロイ完了 (commit `edb36a65`)。
+   - 関連ファイル: **`HANDOFF_BZM_BOOK_2026-07-02.md`** (最新)、`pwa/design_log/sessions_2026-07.md` の 2026-07-02 (BZM) entry、`pwa/bzm/BOOKS_PORTFOLIO.md` (3冊+コーパス L1 上位層、新設)、`pwa/bzm/BOOK_MASTER_PLAN.md` (L1、980p反映済み)、`pwa/bzm/BOOK_DECISIONS.md` (L2、D-056/D-057 追記済み)、`pwa/bzm/CHAPTER_9_5_SKELETON.json` / `CHAPTER_9_5_PROGRESS.md`、`pwa/bzm/terminology_glossary.md`、`/Users/masa/projects/AMD/BZSF/rt_roundtable_theory.md` v0.2、以下は継続: `pwa/design_log/sessions_2026-06.md` の 2026-06-28 entry、`pwa/bzm/CHAPTER_5_PARAGRAPH_OUTLINE.md`、`pwa/bzm/new-book2-ch-5-section-0-1.md` (§5.0.1 v4)、`pwa/bzm/new-book1-ch-1-section-0.md` / `new-book1-ch-1-section-0-1.md` (Ch 1 §1.0 + §1.0.1 v1)。
+
+1b. RT 独禁法務確認の発注パッケージ作成 (別セッション、まさ承認済み)
+   - お願いした内容: RT §7.3 (field-of-use 分割の垂直ライセンス構成) の独禁法適合性を弁護士に確認するための発注パッケージ (背景説明・6論点・10-15問・匿名化取引構造図・添付候補) を作成。
+   - 背景: Book B 第III部 (RT) の印刷ゲート、KENQ プロジェクトの生命線、ERS rubric 2-e 文言確定の3つを塞ぐクリティカルパス。
+   - 現状: **Active** (別セッション task_2985c953 で進行中、2026-07-02 まさ承認で spawn)。
+   - 残課題: 成果物 = `/Users/masa/projects/AMD/BZSF/RT_ANTITRUST_LEGAL_REVIEW_REQUEST_202607.md`。完成通知が来たらまさが法律事務所へ送付。
 
 2. Vercel deploy approval gate
    - お願いした内容: Vercel deploy上限は緩和されたが、当面はVercel production / preview deploy、またはVercel自動deployを起こす可能性があるpushの直前に、必ずまさ許可を取る運用へ切り替える。
