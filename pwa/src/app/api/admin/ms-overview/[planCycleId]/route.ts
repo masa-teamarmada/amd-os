@@ -1,8 +1,9 @@
 /**
- * PUT /api/admin/ms-overview/[planCycleId]
+ * POST / PUT /api/admin/ms-overview/[planCycleId]
  *
  * Admin / MS Overview の編集保存 API。
  * cockpit 側の MS 設計編集を閉じるため、MS 本体・期間・担当 share をここで一括保存する。
+ * POST は保存前の支払検算だけを返し、PUT は同じ検算を通った場合だけ保存する。
  *
  * total_points は MS 配分合計ではなく、正本ルールに戻す:
  *   本契約 regular = シーズン期間の月数 × 10pt
@@ -15,6 +16,8 @@ import {
   calculateRewardSummaryForCycle,
   isRewardCycleProtected,
   syncRewardSummariesForProject,
+  type RewardLiabilityOffsetsByYm,
+  type RewardScenarioOverride,
   type RewardSummary,
 } from "@/lib/reward-summary";
 import { isCapExtraTag } from "@/lib/admin/ms-overview-calc";
@@ -87,6 +90,79 @@ type RewardRevisionSummary = {
   voidedPreviousOffsetCount: number;
   sourceYms: string[];
   applyYms: string[];
+};
+
+type SavedMilestoneRow = {
+  milestone_id: string;
+  plan_cycle_id: string;
+  title: string;
+  points: number;
+  tag: string;
+  goal_level: string;
+  is_active: boolean;
+  success_criteria: string | null;
+  sort_order: number;
+  period_start_ym: string | null;
+  target_ym: string | null;
+};
+
+type ResponsibilitySaveRow = {
+  milestone_id: string;
+  member_id: string;
+  share: number;
+  role: string;
+  task_description: string | null;
+};
+
+type RewardRevisionOffsetDraft = {
+  project_id: string;
+  plan_cycle_id: string;
+  source_ym: string;
+  apply_ym: string | null;
+  member_id: string;
+  pool: "regular" | "cap_extra";
+  offset_yen: number;
+  before_base_yen: number;
+  after_base_yen: number;
+  status: "pending";
+  origin_type: "ms_overview_edit";
+  reason: string;
+  revision_id: string;
+  created_by_email: string;
+  metadata_json: Record<string, unknown>;
+};
+
+type RewardRevisionImpactMember = {
+  memberId: string;
+  memberName: string;
+  totalOffsetYen: number;
+  positiveOffsetYen: number;
+  negativeOffsetYen: number;
+  regularOffsetYen: number;
+  extraOffsetYen: number;
+};
+
+type RewardRevisionPreview = RewardRevisionSummary & {
+  status: "safe" | "warning" | "blocked";
+  blockers: string[];
+  warnings: string[];
+  memberImpacts: RewardRevisionImpactMember[];
+  checkedAt: string;
+};
+
+type RewardRevisionImpact = RewardRevisionPreview & {
+  offsetRows: RewardRevisionOffsetDraft[];
+};
+
+type PreparedMsEdit = {
+  plan: PlanRow;
+  cycles: ProtectedBillingCycleRow[];
+  protectedCycles: ProtectedBillingCycleRow[];
+  deletedIds: string[];
+  savedRows: SavedMilestoneRow[];
+  responsibilityRows: ResponsibilitySaveRow[];
+  newTotal: number;
+  scenario: RewardScenarioOverride;
 };
 
 function safeNumber(n: unknown): number {
@@ -169,52 +245,117 @@ function findNextUnprotectedYm(sourceYm: string, cycles: ProtectedBillingCycleRo
     .sort((a, b) => a.ym.localeCompare(b.ym))[0]?.ym ?? null;
 }
 
-async function reconcileRewardLiabilityOffsets({
+function emptyRewardRevisionImpact(protectedCycleCount: number, sourceYms: string[] = []): RewardRevisionImpact {
+  return {
+    protectedCycleCount,
+    offsetCount: 0,
+    totalOffsetYen: 0,
+    positiveOffsetYen: 0,
+    negativeOffsetYen: 0,
+    missingApplyYmCount: 0,
+    skippedMissingBeforeSummaryCount: 0,
+    voidedPreviousOffsetCount: 0,
+    sourceYms,
+    applyYms: [],
+    status: "safe",
+    blockers: [],
+    warnings: [],
+    memberImpacts: [],
+    checkedAt: new Date().toISOString(),
+    offsetRows: [],
+  };
+}
+
+function addMemberImpact(
+  impacts: Map<string, RewardRevisionImpactMember>,
+  memberId: string,
+  memberName: string,
+  pool: "regular" | "cap_extra",
+  offsetYen: number,
+) {
+  const current = impacts.get(memberId) ?? {
+    memberId,
+    memberName,
+    totalOffsetYen: 0,
+    positiveOffsetYen: 0,
+    negativeOffsetYen: 0,
+    regularOffsetYen: 0,
+    extraOffsetYen: 0,
+  };
+  current.memberName = memberName || current.memberName || memberId;
+  current.totalOffsetYen += offsetYen;
+  if (offsetYen > 0) current.positiveOffsetYen += offsetYen;
+  if (offsetYen < 0) current.negativeOffsetYen += offsetYen;
+  if (pool === "cap_extra") current.extraOffsetYen += offsetYen;
+  else current.regularOffsetYen += offsetYen;
+  impacts.set(memberId, current);
+}
+
+function toLiabilityOffsetsByYm(offsetRows: RewardRevisionOffsetDraft[]): RewardLiabilityOffsetsByYm {
+  const byYm: RewardLiabilityOffsetsByYm = new Map();
+  for (const row of offsetRows) {
+    if (!row.apply_ym || row.offset_yen === 0) continue;
+    const rows = byYm.get(row.apply_ym) ?? [];
+    rows.push({
+      project_id: row.project_id,
+      source_ym: row.source_ym,
+      apply_ym: row.apply_ym,
+      member_id: row.member_id,
+      offset_yen: row.offset_yen,
+      pool: row.pool,
+      status: row.status,
+    });
+    byYm.set(row.apply_ym, rows);
+  }
+  return byYm;
+}
+
+function publicRewardRevision(impact: RewardRevisionImpact): RewardRevisionPreview {
+  const preview = { ...impact } as Partial<RewardRevisionImpact>;
+  delete preview.offsetRows;
+  return preview as RewardRevisionPreview;
+}
+
+async function buildRewardRevisionImpact({
   db,
   plan,
   cycles,
   protectedCycles,
   actorEmail,
+  scenario,
 }: {
   db: ReturnType<typeof createAdminClient>;
   plan: PlanRow;
   cycles: ProtectedBillingCycleRow[];
   protectedCycles: ProtectedBillingCycleRow[];
   actorEmail: string;
-}): Promise<RewardRevisionSummary> {
-  if (protectedCycles.length === 0) {
-    return {
-      protectedCycleCount: 0,
-      offsetCount: 0,
-      totalOffsetYen: 0,
-      positiveOffsetYen: 0,
-      negativeOffsetYen: 0,
-      missingApplyYmCount: 0,
-      skippedMissingBeforeSummaryCount: 0,
-      voidedPreviousOffsetCount: 0,
-      sourceYms: [],
-      applyYms: [],
-    };
-  }
+  scenario: RewardScenarioOverride;
+}): Promise<RewardRevisionImpact> {
+  const sourceYms = protectedCycles.map((cycle) => cycle.ym);
+  const impact = emptyRewardRevisionImpact(protectedCycles.length, sourceYms);
+  if (protectedCycles.length === 0) return impact;
 
   const now = new Date().toISOString();
   const revisionId = crypto.randomUUID();
-  const sourceYms = protectedCycles.map((cycle) => cycle.ym);
-  let skippedMissingBeforeSummaryCount = 0;
-  const offsetRows: Array<Record<string, unknown>> = [];
+  const offsetRows: RewardRevisionOffsetDraft[] = [];
+  const memberImpacts = new Map<string, RewardRevisionImpactMember>();
 
   for (const cycle of protectedCycles) {
     const beforeSummary = asRewardSummary(cycle.reward_summary_json);
     if (!beforeSummary) {
-      skippedMissingBeforeSummaryCount += 1;
+      impact.skippedMissingBeforeSummaryCount += 1;
       continue;
     }
 
     const afterResult = await calculateRewardSummaryForCycle(db, plan.project_id, cycle.ym, {
       includeLiabilityOffsets: false,
+      scenario,
     });
     const afterSummary = afterResult.rewardSummary;
-    if (!afterSummary) continue;
+    if (!afterSummary) {
+      impact.blockers.push(`${cycle.ym} の変更後報酬を計算できないため、差額を確定できない`);
+      continue;
+    }
 
     const beforeByMember = rewardBaseByMember(beforeSummary);
     const afterByMember = rewardBaseByMember(afterSummary);
@@ -227,13 +368,13 @@ async function reconcileRewardLiabilityOffsets({
       const memberName = after.memberName || before.memberName || memberId;
       const poolDeltas = [
         {
-          pool: "regular",
+          pool: "regular" as const,
           beforeBaseYen: before.regularBaseYen,
           afterBaseYen: after.regularBaseYen,
           offsetYen: after.regularBaseYen - before.regularBaseYen,
         },
         {
-          pool: "cap_extra",
+          pool: "cap_extra" as const,
           beforeBaseYen: before.extraBaseYen,
           afterBaseYen: after.extraBaseYen,
           offsetYen: after.extraBaseYen - before.extraBaseYen,
@@ -242,6 +383,7 @@ async function reconcileRewardLiabilityOffsets({
 
       for (const delta of poolDeltas) {
         if (delta.offsetYen === 0) continue;
+        addMemberImpact(memberImpacts, memberId, memberName, delta.pool, delta.offsetYen);
         offsetRows.push({
           project_id: plan.project_id,
           plan_cycle_id: plan.plan_cycle_id,
@@ -273,6 +415,97 @@ async function reconcileRewardLiabilityOffsets({
     }
   }
 
+  if (impact.skippedMissingBeforeSummaryCount > 0) {
+    impact.blockers.push(
+      `保護済み月 ${impact.skippedMissingBeforeSummaryCount}件で旧rewardが見つからず、払いすぎ/払い足りなさを確定できない`,
+    );
+  }
+
+  const missingApplyYmCount = offsetRows.filter((row) => !cleanOptionalText(row.apply_ym)).length;
+  if (missingApplyYmCount > 0) {
+    impact.blockers.push(
+      `差額 ${missingApplyYmCount}件に次回精算先の未保護月がないため、保存すると精算漏れになる`,
+    );
+  }
+
+  const negativeRowsWithApplyYm = offsetRows.filter((row) => row.offset_yen < 0 && cleanOptionalText(row.apply_ym));
+  if (negativeRowsWithApplyYm.length > 0) {
+    const simulationEndYm = [...cycles.map((cycle) => cycle.ym)].sort().at(-1);
+    if (!simulationEndYm) {
+      impact.blockers.push("将来月の報酬計算が作れず、過払い回収の完了を確認できない");
+    } else {
+      const simulated = await calculateRewardSummaryForCycle(db, plan.project_id, simulationEndYm, {
+        includeLiabilityOffsets: false,
+        scenario,
+        liabilityOffsetsOverride: toLiabilityOffsetsByYm(offsetRows),
+      });
+      const finalSummary = simulated.rewardSummary;
+      if (!finalSummary) {
+        impact.blockers.push("将来月の報酬計算が作れず、過払い回収の完了を確認できない");
+      } else {
+        for (const member of finalSummary.members ?? []) {
+          const regularLeft = Math.round(safeNumber(member.regularLiabilityRecoupCarryYen));
+          const extraLeft = Math.round(safeNumber(member.extraLiabilityRecoupCarryYen));
+          const memberName = member.memberName || member.memberId;
+          if (regularLeft < 0) {
+            impact.blockers.push(
+              `${memberName} の本契約回収がシーズン末でも ${Math.abs(regularLeft).toLocaleString("ja-JP")}円残る可能性がある`,
+            );
+          }
+          if (extraLeft < 0) {
+            impact.blockers.push(
+              `${memberName} の別財布回収がシーズン末でも ${Math.abs(extraLeft).toLocaleString("ja-JP")}円残る可能性がある`,
+            );
+          }
+        }
+      }
+    }
+  }
+
+  const totalOffsetYen = offsetRows.reduce((sum, row) => sum + row.offset_yen, 0);
+  const positiveOffsetYen = offsetRows
+    .filter((row) => row.offset_yen > 0)
+    .reduce((sum, row) => sum + row.offset_yen, 0);
+  const negativeOffsetYen = offsetRows
+    .filter((row) => row.offset_yen < 0)
+    .reduce((sum, row) => sum + row.offset_yen, 0);
+  const applyYms = [...new Set(offsetRows.map((row) => cleanOptionalText(row.apply_ym)).filter(Boolean) as string[])].sort();
+
+  impact.offsetRows = offsetRows;
+  impact.offsetCount = offsetRows.length;
+  impact.totalOffsetYen = totalOffsetYen;
+  impact.positiveOffsetYen = positiveOffsetYen;
+  impact.negativeOffsetYen = negativeOffsetYen;
+  impact.missingApplyYmCount = missingApplyYmCount;
+  impact.applyYms = applyYms;
+  impact.memberImpacts = [...memberImpacts.values()]
+    .map((member) => ({
+      ...member,
+      totalOffsetYen: Math.round(member.totalOffsetYen),
+      positiveOffsetYen: Math.round(member.positiveOffsetYen),
+      negativeOffsetYen: Math.round(member.negativeOffsetYen),
+      regularOffsetYen: Math.round(member.regularOffsetYen),
+      extraOffsetYen: Math.round(member.extraOffsetYen),
+    }))
+    .sort((a, b) => Math.abs(b.totalOffsetYen) - Math.abs(a.totalOffsetYen));
+  if (offsetRows.length > 0) {
+    impact.warnings.push("保存すると保護済み月の差額を、本人別に次回以降の未保護月で精算する");
+  }
+  impact.status = impact.blockers.length > 0 ? "blocked" : impact.warnings.length > 0 ? "warning" : "safe";
+  return impact;
+}
+
+async function persistRewardRevisionOffsets({
+  db,
+  plan,
+  impact,
+}: {
+  db: ReturnType<typeof createAdminClient>;
+  plan: PlanRow;
+  impact: RewardRevisionImpact;
+}): Promise<RewardRevisionImpact> {
+  if (impact.protectedCycleCount === 0 || impact.sourceYms.length === 0) return impact;
+  const now = new Date().toISOString();
   const voidRes = await db
     .from("reward_member_liability_offsets")
     .update({ status: "voided", voided_at: now })
@@ -280,35 +513,18 @@ async function reconcileRewardLiabilityOffsets({
     .eq("plan_cycle_id", plan.plan_cycle_id)
     .eq("origin_type", "ms_overview_edit")
     .eq("status", "pending")
-    .in("source_ym", sourceYms)
+    .in("source_ym", impact.sourceYms)
     .select("id");
   if (voidRes.error) throw voidRes.error;
 
-  if (offsetRows.length > 0) {
-    const insertRes = await db.from("reward_member_liability_offsets").insert(offsetRows);
+  if (impact.offsetRows.length > 0) {
+    const insertRes = await db.from("reward_member_liability_offsets").insert(impact.offsetRows);
     if (insertRes.error) throw insertRes.error;
   }
 
-  const totalOffsetYen = offsetRows.reduce((sum, row) => sum + Math.round(safeNumber(row.offset_yen)), 0);
-  const positiveOffsetYen = offsetRows
-    .filter((row) => safeNumber(row.offset_yen) > 0)
-    .reduce((sum, row) => sum + Math.round(safeNumber(row.offset_yen)), 0);
-  const negativeOffsetYen = offsetRows
-    .filter((row) => safeNumber(row.offset_yen) < 0)
-    .reduce((sum, row) => sum + Math.round(safeNumber(row.offset_yen)), 0);
-  const applyYms = [...new Set(offsetRows.map((row) => cleanOptionalText(row.apply_ym)).filter(Boolean) as string[])].sort();
-
   return {
-    protectedCycleCount: protectedCycles.length,
-    offsetCount: offsetRows.length,
-    totalOffsetYen,
-    positiveOffsetYen,
-    negativeOffsetYen,
-    missingApplyYmCount: offsetRows.filter((row) => !cleanOptionalText(row.apply_ym)).length,
-    skippedMissingBeforeSummaryCount,
+    ...impact,
     voidedPreviousOffsetCount: voidRes.data?.length ?? 0,
-    sourceYms,
-    applyYms,
   };
 }
 
@@ -346,6 +562,210 @@ function validatePayload(body: Body): string | null {
   return null;
 }
 
+async function prepareMsEditPayload(
+  db: ReturnType<typeof createAdminClient>,
+  planCycleId: string,
+  body: Body,
+): Promise<{ ok: true; value: PreparedMsEdit } | { ok: false; response: NextResponse }> {
+  const planRes = await db
+    .from("value_plan_cycles")
+    .select("plan_cycle_id, project_id, period_start_ym, period_end_ym, status")
+    .eq("plan_cycle_id", planCycleId)
+    .maybeSingle();
+  if (planRes.error) throw planRes.error;
+  const plan = planRes.data as PlanRow | null;
+  if (!plan) {
+    return { ok: false, response: NextResponse.json({ ok: false, error: "plan cycle not found" }, { status: 404 }) };
+  }
+
+  const [cyclesRes, existingRes] = await Promise.all([
+    db
+      .from("billing_cycles")
+      .select("project_id, ym, reward_summary_json, reward_paid_at, payout_notice_uploaded_at, payment_confirmed_at")
+      .eq("project_id", plan.project_id)
+      .gte("ym", plan.period_start_ym)
+      .lte("ym", plan.period_end_ym)
+      .order("ym", { ascending: true }),
+    db
+      .from("value_milestones")
+      .select("milestone_id, plan_cycle_id, is_active")
+      .eq("plan_cycle_id", planCycleId),
+  ]);
+  if (cyclesRes.error) throw cyclesRes.error;
+  if (existingRes.error) throw existingRes.error;
+
+  const cycles = (cyclesRes.data ?? []) as ProtectedBillingCycleRow[];
+  const protectedCycles = cycles.filter(isRewardCycleProtected);
+  const existing = (existingRes.data ?? []) as ExistingMilestoneRow[];
+  const existingIds = new Set(existing.map((row) => row.milestone_id));
+
+  const deletedIds = [...new Set((body.deletedMilestoneIds ?? []).filter(Boolean))];
+  for (const deletedId of deletedIds) {
+    if (!existingIds.has(deletedId)) {
+      return { ok: false, response: NextResponse.json({ ok: false, error: `milestone not found: ${deletedId}` }, { status: 404 }) };
+    }
+  }
+
+  const savedRows: SavedMilestoneRow[] = [];
+  for (const [index, ms] of body.milestones.entries()) {
+    const suppliedMilestoneId = cleanOptionalText(ms.milestoneId);
+    const milestoneId = suppliedMilestoneId || newMilestoneId(planCycleId, index);
+    if (suppliedMilestoneId && !existingIds.has(milestoneId)) {
+      return {
+        ok: false,
+        response: NextResponse.json(
+          { ok: false, error: `milestone ${milestoneId} does not belong to plan cycle ${planCycleId}` },
+          { status: 404 },
+        ),
+      };
+    }
+    const periodStartYm = cleanYm(ms.periodStartYm);
+    const targetYm = cleanYm(ms.targetYm);
+    savedRows.push({
+      milestone_id: milestoneId,
+      plan_cycle_id: planCycleId,
+      title: cleanText(ms.title),
+      points: normalizedMilestonePoints(ms, periodStartYm, targetYm),
+      tag: cleanText(ms.tag, "normal"),
+      goal_level: cleanText(ms.goalLevel, "season"),
+      is_active: true,
+      success_criteria: cleanOptionalText(ms.successCriteria),
+      sort_order: Math.round(safeNumber(ms.sortOrder ?? index + 1)),
+      period_start_ym: periodStartYm,
+      target_ym: targetYm,
+    });
+  }
+
+  const responsibilityRows: ResponsibilitySaveRow[] = body.milestones.flatMap((ms, index) => {
+    const milestoneId = savedRows[index].milestone_id;
+    return (ms.responsibilities ?? [])
+      .map((resp) => ({
+        milestone_id: milestoneId,
+        member_id: cleanText(resp.memberId),
+        share: normalizeShare(resp.share),
+        role: cleanText(resp.role, "担当"),
+        task_description: cleanOptionalText(resp.taskDescription),
+      }))
+      .filter((resp) => resp.share > 0);
+  });
+
+  const extraPoints = Math.round(
+    savedRows
+      .filter((row) => String(row.goal_level || "").toLowerCase() !== "monthly")
+      .filter((row) => isCapExtraTag(row.tag))
+      .reduce((sum, row) => {
+        const periodPoints = pointBasisForPeriod(row.period_start_ym, row.target_ym);
+        return sum + (periodPoints > 0 ? periodPoints : safeNumber(row.points));
+      }, 0) * 100,
+  ) / 100;
+  const newTotal = totalPointBasisForCycle(plan, extraPoints);
+  const scenario: RewardScenarioOverride = {
+    planCycleId,
+    totalPoints: newTotal,
+    milestones: savedRows.map((row) => ({
+      milestone_id: row.milestone_id,
+      title: row.title,
+      points: row.points,
+      tag: row.tag,
+      goal_level: row.goal_level,
+      sort_order: row.sort_order,
+      period_start_ym: row.period_start_ym,
+      target_ym: row.target_ym,
+    })),
+    responsibilities: responsibilityRows.map((row) => ({
+      milestone_id: row.milestone_id,
+      member_id: row.member_id,
+      share: row.share,
+    })),
+  };
+
+  return {
+    ok: true,
+    value: {
+      plan,
+      cycles,
+      protectedCycles,
+      deletedIds,
+      savedRows,
+      responsibilityRows,
+      newTotal,
+      scenario,
+    },
+  };
+}
+
+async function ensureOffsetTableWhenNeeded(
+  db: ReturnType<typeof createAdminClient>,
+  protectedCycles: ProtectedBillingCycleRow[],
+): Promise<NextResponse | null> {
+  if (protectedCycles.length === 0) return null;
+  const offsetTableProbe = await db.from("reward_member_liability_offsets").select("id").limit(1);
+  if (!offsetTableProbe.error) return null;
+  if (isMissingOffsetTableError(offsetTableProbe.error)) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "reward_member_liability_offsets migration is required before editing MS with protected billing cycles",
+      },
+      { status: 409 },
+    );
+  }
+  throw offsetTableProbe.error;
+}
+
+export async function POST(
+  req: NextRequest,
+  ctx: { params: Promise<{ planCycleId: string }> },
+) {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.errorResponse;
+
+  const { planCycleId } = await ctx.params;
+  if (!planCycleId) {
+    return NextResponse.json({ ok: false, error: "planCycleId is required" }, { status: 400 });
+  }
+
+  let body: Body;
+  try {
+    body = (await req.json()) as Body;
+  } catch {
+    return NextResponse.json({ ok: false, error: "invalid JSON" }, { status: 400 });
+  }
+  const payloadError = validatePayload(body);
+  if (payloadError) return NextResponse.json({ ok: false, error: payloadError }, { status: 400 });
+
+  try {
+    const db = createAdminClient();
+    const prepared = await prepareMsEditPayload(db, planCycleId, body);
+    if (!prepared.ok) return prepared.response;
+    const { plan, cycles, protectedCycles, scenario } = prepared.value;
+    const offsetTableResponse = await ensureOffsetTableWhenNeeded(db, protectedCycles);
+    if (offsetTableResponse) return offsetTableResponse;
+
+    const rewardPreview = await buildRewardRevisionImpact({
+      db,
+      plan,
+      cycles,
+      protectedCycles,
+      actorEmail: auth.user.email,
+      scenario,
+    });
+
+    return NextResponse.json({
+      ok: true,
+      planCycleId,
+      projectId: plan.project_id,
+      rewardPreview: publicRewardRevision(rewardPreview),
+    });
+  } catch (err) {
+    console.error("[admin ms-overview POST]", err);
+    return NextResponse.json(
+      { ok: false, error: err instanceof Error ? err.message : "Unknown error" },
+      { status: 500 },
+    );
+  }
+}
+
 export async function PUT(
   req: NextRequest,
   ctx: { params: Promise<{ planCycleId: string }> },
@@ -369,80 +789,40 @@ export async function PUT(
 
   try {
     const db = createAdminClient();
+    const prepared = await prepareMsEditPayload(db, planCycleId, body);
+    if (!prepared.ok) return prepared.response;
+    const {
+      plan,
+      cycles,
+      protectedCycles,
+      deletedIds,
+      savedRows,
+      responsibilityRows,
+      newTotal,
+      scenario,
+    } = prepared.value;
 
-    const planRes = await db
-      .from("value_plan_cycles")
-      .select("plan_cycle_id, project_id, period_start_ym, period_end_ym, status")
-      .eq("plan_cycle_id", planCycleId)
-      .maybeSingle();
-    if (planRes.error) throw planRes.error;
-    const plan = planRes.data as PlanRow | null;
-    if (!plan) {
-      return NextResponse.json({ ok: false, error: "plan cycle not found" }, { status: 404 });
-    }
+    const offsetTableResponse = await ensureOffsetTableWhenNeeded(db, protectedCycles);
+    if (offsetTableResponse) return offsetTableResponse;
 
-    const cyclesRes = await db
-      .from("billing_cycles")
-      .select("project_id, ym, reward_summary_json, reward_paid_at, payout_notice_uploaded_at, payment_confirmed_at")
-      .eq("project_id", plan.project_id)
-      .gte("ym", plan.period_start_ym)
-      .lte("ym", plan.period_end_ym)
-      .order("ym", { ascending: true });
-    if (cyclesRes.error) throw cyclesRes.error;
-    const cycles = (cyclesRes.data ?? []) as ProtectedBillingCycleRow[];
-    const protectedCycles = cycles.filter(isRewardCycleProtected);
-    if (protectedCycles.length > 0) {
-      const offsetTableProbe = await db.from("reward_member_liability_offsets").select("id").limit(1);
-      if (offsetTableProbe.error) {
-        if (isMissingOffsetTableError(offsetTableProbe.error)) {
-          return NextResponse.json(
-            {
-              ok: false,
-              error: "reward_member_liability_offsets migration is required before editing MS with protected billing cycles",
-            },
-            { status: 409 },
-          );
-        }
-        throw offsetTableProbe.error;
-      }
-    }
-
-    const existingRes = await db
-      .from("value_milestones")
-      .select("milestone_id, plan_cycle_id, is_active")
-      .eq("plan_cycle_id", planCycleId);
-    if (existingRes.error) throw existingRes.error;
-    const existing = (existingRes.data ?? []) as ExistingMilestoneRow[];
-    const existingIds = new Set(existing.map((row) => row.milestone_id));
-
-    const deletedIds = [...new Set((body.deletedMilestoneIds ?? []).filter(Boolean))];
-    for (const deletedId of deletedIds) {
-      if (!existingIds.has(deletedId)) {
-        return NextResponse.json({ ok: false, error: `milestone not found: ${deletedId}` }, { status: 404 });
-      }
-    }
-
-    const savedRows = body.milestones.map((ms, index) => {
-      const milestoneId = cleanOptionalText(ms.milestoneId) || newMilestoneId(planCycleId, index);
-      if (ms.milestoneId && !existingIds.has(milestoneId)) {
-        throw new Error(`milestone ${milestoneId} does not belong to plan cycle ${planCycleId}`);
-      }
-      const periodStartYm = cleanYm(ms.periodStartYm);
-      const targetYm = cleanYm(ms.targetYm);
-      return {
-        milestone_id: milestoneId,
-        plan_cycle_id: planCycleId,
-        title: cleanText(ms.title),
-        points: normalizedMilestonePoints(ms, periodStartYm, targetYm),
-        tag: cleanText(ms.tag, "normal"),
-        goal_level: cleanText(ms.goalLevel, "season"),
-        is_active: true,
-        success_criteria: cleanOptionalText(ms.successCriteria),
-        sort_order: Math.round(safeNumber(ms.sortOrder ?? index + 1)),
-        period_start_ym: periodStartYm,
-        target_ym: targetYm,
-      };
+    let rewardRevisionImpact = await buildRewardRevisionImpact({
+      db,
+      plan,
+      cycles,
+      protectedCycles,
+      actorEmail: auth.user.email,
+      scenario,
     });
+    if (rewardRevisionImpact.status === "blocked") {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: rewardRevisionImpact.blockers[0] || "支払い安全検算で保存不可",
+          rewardPreview: publicRewardRevision(rewardRevisionImpact),
+        },
+        { status: 409 },
+      );
+    }
 
     if (deletedIds.length > 0) {
       const respDel = await db.from("milestone_responsibility").delete().in("milestone_id", deletedIds);
@@ -463,46 +843,11 @@ export async function PUT(
       const respDel = await db.from("milestone_responsibility").delete().in("milestone_id", savedIds);
       if (respDel.error) throw respDel.error;
 
-      const responsibilityRows = body.milestones.flatMap((ms, index) => {
-        const milestoneId = savedRows[index].milestone_id;
-        return (ms.responsibilities ?? [])
-          .map((resp) => ({
-            milestone_id: milestoneId,
-            member_id: cleanText(resp.memberId),
-            share: normalizeShare(resp.share),
-            role: cleanText(resp.role, "担当"),
-            task_description: cleanOptionalText(resp.taskDescription),
-          }))
-          .filter((resp) => resp.share > 0);
-      });
       if (responsibilityRows.length > 0) {
         const respIns = await db.from("milestone_responsibility").insert(responsibilityRows);
         if (respIns.error) throw respIns.error;
       }
     }
-
-    const totalRes = await db
-      .from("value_milestones")
-      .select("points, tag, goal_level, period_start_ym, target_ym")
-      .eq("plan_cycle_id", planCycleId)
-      .eq("is_active", true);
-    if (totalRes.error) throw totalRes.error;
-    const extraPoints = Math.round(
-      ((totalRes.data ?? []) as Array<{
-        points: number | string | null;
-        tag: string | null;
-        goal_level: string | null;
-        period_start_ym: string | null;
-        target_ym: string | null;
-      }>)
-        .filter((row) => String(row.goal_level || "").toLowerCase() !== "monthly")
-        .filter((row) => isCapExtraTag(row.tag))
-        .reduce((sum, row) => {
-          const periodPoints = pointBasisForPeriod(row.period_start_ym, row.target_ym);
-          return sum + (periodPoints > 0 ? periodPoints : safeNumber(row.points));
-        }, 0) * 100,
-    ) / 100;
-    const newTotal = totalPointBasisForCycle(plan, extraPoints);
 
     const planUpd = await db
       .from("value_plan_cycles")
@@ -510,12 +855,10 @@ export async function PUT(
       .eq("plan_cycle_id", planCycleId);
     if (planUpd.error) throw planUpd.error;
 
-    const rewardRevision = await reconcileRewardLiabilityOffsets({
+    rewardRevisionImpact = await persistRewardRevisionOffsets({
       db,
       plan,
-      cycles,
-      protectedCycles,
-      actorEmail: auth.user.email,
+      impact: rewardRevisionImpact,
     });
 
     let syncedYms: string[] = [];
@@ -534,7 +877,7 @@ export async function PUT(
       archivedMilestoneCount: deletedIds.length,
       newTotalPoints: newTotal,
       rewardSummariesSyncedYms: syncedYms,
-      rewardRevision,
+      rewardRevision: publicRewardRevision(rewardRevisionImpact),
     });
   } catch (err) {
     console.error("[admin ms-overview PUT]", err);

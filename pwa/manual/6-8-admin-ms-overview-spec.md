@@ -188,15 +188,30 @@ memberDesignYen[m] = Σ over MS of (effectivePoints × share[m] × designUnitYen
 編集モード ON の直後、MS 一覧の上部に **保存バー** を表示する。長い MS 一覧でも保存場所が迷子にならないよう、同じ操作をフッターにも重複配置する。
 
 - **未保存あり / 変更なし / 保存中** — 編集状態を表示。
+- **保存前支払検算** — 編集中 payload を `POST /api/admin/ms-overview/{planCycleId}` に送り、まだ DB へ保存していない MS 案で protected 月の reward 差額をサーバー側で仮計算する。結果は `safe` / `warning` / `blocked` で返り、`blocked` の間は保存ボタンを無効にする。
 - **保存先 DB / protected月は差額精算** — 保存時に `value_milestones` / `milestone_responsibility` と reward cache まで反映されること、protected 月は過去 cache を書き換えず差額台帳で精算することを表示。
 - **↻ DB値に戻す** — 編集前の DB 値に戻す。`isDirty` のときだけ有効。
 - **保存して DB へ反映** — 編集内容を確定。`isDirty` のときだけ有効。押下時の動作:
-  1. `PUT /api/admin/ms-overview/{planCycleId}` を呼ぶ (body: `{ milestones: [...], deletedMilestoneIds: [...] }`)
-  2. サーバ側は (a) 当該 plan_cycle 内の `value_milestones` を upsert / 無効化、(b) `milestone_responsibility` を保存値で置換、(c) `value_plan_cycles.total_points = 期間月数×10 + Σcap_extra points` に再計算、(d) protected 月 (`reward_paid_at` / `payout_notice_uploaded_at` / `payment_confirmed_at`) の旧 reward cache と新計算値の member×pool 差額を `reward_member_liability_offsets` に記録、(e) `syncRewardSummariesForProject` で未保護月だけ `billing_cycles.reward_summary_json` を再計算する
-  3. 成功すると編集モード OFF へ戻り、`/api/admin/ms-overview` を再 fetch して最新値で再描画する
+  1. 画面側で `POST /api/admin/ms-overview/{planCycleId}` の保存前支払検算が `blocked` でないことを確認する
+  2. `PUT /api/admin/ms-overview/{planCycleId}` を呼ぶ (body: `{ milestones: [...], deletedMilestoneIds: [...] }`)
+  3. サーバ側でも同じ保存前支払検算を再実行し、`blocked` なら 409 で保存を止める
+  4. サーバ側は (a) 当該 plan_cycle 内の `value_milestones` を upsert / 無効化、(b) `milestone_responsibility` を保存値で置換、(c) `value_plan_cycles.total_points = 期間月数×10 + Σcap_extra points` に再計算、(d) protected 月 (`reward_paid_at` / `payout_notice_uploaded_at` / `payment_confirmed_at`) の旧 reward cache と新計算値の member×pool 差額を `reward_member_liability_offsets` に記録、(e) `syncRewardSummariesForProject` で未保護月だけ `billing_cycles.reward_summary_json` を再計算する
+  5. 成功すると編集モード OFF へ戻り、`/api/admin/ms-overview` を再 fetch して最新値で再描画する
 - **保存中の表示**: ボタンが「保存中…」、完了で `✓ 保存完了 → reward 再計算済` (緑) / 失敗で `保存失敗: {error}` (赤)
 
 月次 override (`actual_share`) はここでは扱わない (= MS 設計画面なので plannedShare のみ)。
+
+### 保存前支払検算の見え方
+
+編集モード中は **保存前支払検算** パネルを MS 編集テーブルの直上に出す。ここは設計額ではなく、保存した場合の支払事故防止だけを扱う。
+
+- `protectedCycleCount` — 変更の影響を比べる保護済み月数
+- `offsetCount` / `positiveOffsetYen` / `negativeOffsetYen` — 本人別に次回以降へ精算される差額
+- `applyYms` — 差額を反映する未保護月
+- `memberImpacts` — メンバー別の追加支払 / 過払い回収 / 本契約・別財布内訳
+- `blockers` — 保存不可理由。旧 reward cache が無い、次回精算先が無い、過払い回収がシーズン内で吸収できない可能性がある、など。
+
+このパネルの目的は「差分を見せる」ことではなく、MS を期中変更しても **払いすぎ・払い足りなさを作らない状態で保存できるか** を判定すること。`warning` は保存可能だが精算が発生する状態、`blocked` は保存不可。
 
 ### 安全機構
 
@@ -205,6 +220,7 @@ memberDesignYen[m] = Σ over MS of (effectivePoints × share[m] × designUnitYen
 - 期間は `YYYYMM` 形式、かつ `period_start_ym <= target_ym` でないと 400 で弾く。
 - `syncRewardSummariesForProject` 内部で `reward_paid_at` / `payout_notice_uploaded_at` / `payment_confirmed_at` のある月は再計算対象から外れる (= 既に支払い済みの過去月を勝手に書き換えない)。
 - protected 月に MS 修正差額が出た場合、過去月の `reward_summary_json` は保存し直さず、同じ member の次の未保護月へ `reward_member_liability_offsets.offset_yen` として精算する。正の差額は追加支払、負の差額は将来支払から本人単位で回収する。同じ source_ym の既存 pending offset は保存のたびに `voided` にして入れ直すので、複数回編集しても二重精算しない。
+- 保存前支払検算で `blocked` の場合、UI の保存ボタンを無効化するだけでなく、PUT route も 409 を返して保存前に止める。
 
 ## なぜ「実消化」を読まないか
 

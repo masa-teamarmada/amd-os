@@ -496,6 +496,7 @@ function MemberPointRow({
 // ---- 1 PJ ブロック ---------------------------------------------------------
 
 type SaveStatus = "idle" | "saving" | "error" | "success";
+type RewardPreviewStatus = "idle" | "loading" | "ready" | "error";
 type PointSummary = {
   allocatedRegularPoints: number;
   regularPoints: number;
@@ -515,21 +516,63 @@ type RewardRevisionSummary = {
   applyYms: string[];
 };
 
+type RewardRevisionImpactMember = {
+  memberId: string;
+  memberName: string;
+  totalOffsetYen: number;
+  positiveOffsetYen: number;
+  negativeOffsetYen: number;
+  regularOffsetYen: number;
+  extraOffsetYen: number;
+};
+
+type RewardRevisionPreview = RewardRevisionSummary & {
+  status: "safe" | "warning" | "blocked";
+  blockers: string[];
+  warnings: string[];
+  memberImpacts: RewardRevisionImpactMember[];
+  checkedAt: string;
+};
+
+type MsOverviewSavePayload = {
+  milestones: Array<{
+    milestoneId: string | null;
+    title: string;
+    points: number;
+    tag: string;
+    goalLevel: string;
+    successCriteria: string;
+    periodStartYm: string | null;
+    targetYm: string | null;
+    sortOrder: number;
+    responsibilities: Array<{
+      memberId: string;
+      share: number;
+      role: string;
+      taskDescription: string | null;
+    }>;
+  }>;
+  deletedMilestoneIds: string[];
+};
+
 function EditSaveButtons({
   isDirty,
   saveStatus,
+  blockedReason,
   onReset,
   onSave,
   compact = false,
 }: {
   isDirty: boolean;
   saveStatus: SaveStatus;
+  blockedReason?: string | null;
   onReset: () => void;
   onSave: () => void;
   compact?: boolean;
 }) {
   const buttonHeight = compact ? "h-7" : "h-8";
   const buttonPadding = compact ? "px-2.5" : "px-3";
+  const saveDisabled = !isDirty || saveStatus === "saving" || Boolean(blockedReason);
   return (
     <div className="flex flex-shrink-0 items-center gap-2">
       <button
@@ -544,10 +587,17 @@ function EditSaveButtons({
       <button
         type="button"
         onClick={onSave}
-        disabled={!isDirty || saveStatus === "saving"}
+        disabled={saveDisabled}
         className={`${buttonHeight} rounded bg-emerald-600 ${buttonPadding} text-xs font-medium text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40`}
+        title={blockedReason || "保存して DB へ反映"}
       >
-        {saveStatus === "saving" ? "保存中…" : compact ? "保存" : "保存して DB へ反映"}
+        {saveStatus === "saving"
+          ? "保存中…"
+          : blockedReason === "保存前検算中"
+            ? "検算中…"
+            : compact
+              ? "保存"
+              : "保存して DB へ反映"}
       </button>
     </div>
   );
@@ -559,6 +609,9 @@ function EditActionBar({
   saveError,
   pointSummary,
   rewardRevision,
+  previewStatus,
+  previewError,
+  blockedReason,
   onReset,
   onSave,
   className = "",
@@ -567,7 +620,10 @@ function EditActionBar({
   saveStatus: SaveStatus;
   saveError: string | null;
   pointSummary?: PointSummary;
-  rewardRevision?: RewardRevisionSummary | null;
+  rewardRevision?: RewardRevisionPreview | null;
+  previewStatus?: RewardPreviewStatus;
+  previewError?: string | null;
+  blockedReason?: string | null;
   onReset: () => void;
   onSave: () => void;
   className?: string;
@@ -606,6 +662,32 @@ function EditActionBar({
       {saveStatus === "success" && (
         <span className="text-[11px] text-emerald-500">✓ 保存完了 → reward 再計算済</span>
       )}
+      {isDirty && (
+        <span
+          className={
+            "rounded px-2 py-0.5 text-[11px] " +
+            (previewStatus === "loading" || previewStatus === "idle"
+              ? "bg-sky-500/10 text-sky-600 dark:text-sky-300"
+              : previewStatus === "error" || rewardRevision?.status === "blocked"
+                ? "bg-red-500/10 text-red-500"
+                : rewardRevision?.status === "warning"
+                  ? "bg-amber-500/10 text-amber-600 dark:text-amber-300"
+                  : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300")
+          }
+          title={blockedReason || previewError || rewardRevision?.warnings?.[0] || "保存前支払検算"}
+        >
+          保存前支払検算{" "}
+          {previewStatus === "loading" || previewStatus === "idle"
+            ? "中"
+            : previewStatus === "error"
+              ? "失敗"
+              : rewardRevision?.status === "blocked"
+                ? "保存不可"
+                : rewardRevision?.status === "warning"
+                  ? "要精算"
+                  : "OK"}
+        </span>
+      )}
       {rewardRevision && rewardRevision.protectedCycleCount > 0 && (
         <span
           className={
@@ -633,6 +715,7 @@ function EditActionBar({
         <EditSaveButtons
           isDirty={isDirty}
           saveStatus={saveStatus}
+          blockedReason={blockedReason}
           onReset={onReset}
           onSave={onSave}
         />
@@ -644,44 +727,124 @@ function EditActionBar({
 function RewardRevisionSafetyPanel({
   isDirty,
   saveStatus,
+  previewStatus,
+  previewError,
   rewardRevision,
+  blockedReason,
   onReset,
   onSave,
 }: {
   isDirty: boolean;
   saveStatus: SaveStatus;
-  rewardRevision: RewardRevisionSummary | null;
+  previewStatus: RewardPreviewStatus;
+  previewError: string | null;
+  rewardRevision: RewardRevisionPreview | null;
+  blockedReason: string | null;
   onReset: () => void;
   onSave: () => void;
 }) {
+  const statusTone =
+    previewStatus === "error" || rewardRevision?.status === "blocked"
+      ? "border-red-500/30 bg-red-500/5"
+      : previewStatus === "loading" || previewStatus === "idle"
+        ? "border-sky-500/25 bg-sky-500/5"
+        : rewardRevision?.status === "warning"
+          ? "border-amber-500/30 bg-amber-500/5"
+          : "border-emerald-500/25 bg-emerald-500/5";
+  const badgeTone =
+    previewStatus === "error" || rewardRevision?.status === "blocked"
+      ? "bg-red-500/15 text-red-600 dark:text-red-300"
+      : previewStatus === "loading" || previewStatus === "idle"
+        ? "bg-sky-500/15 text-sky-700 dark:text-sky-300"
+        : rewardRevision?.status === "warning"
+          ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+          : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300";
+  const statusLabel =
+    previewStatus === "idle" || previewStatus === "loading"
+      ? "保存前検算中"
+      : previewStatus === "error"
+        ? "検算失敗"
+        : rewardRevision?.status === "blocked"
+          ? "保存不可"
+          : rewardRevision?.status === "warning"
+            ? "検算OK・精算あり"
+            : "検算OK";
+  const memberImpacts = rewardRevision?.memberImpacts ?? [];
   return (
     <div
-      className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-sky-500/25 bg-sky-500/5 px-3 py-2"
+      className={`mb-3 rounded-md border px-3 py-2 ${statusTone}`}
       data-testid="admin-ms-overview-reward-revision-guard"
     >
-      <span className="rounded bg-sky-500/15 px-2 py-0.5 text-[11px] font-medium text-sky-700 dark:text-sky-300">
-        支払保護 ON
-      </span>
-      <span className="rounded bg-background/70 px-2 py-0.5 text-[11px] text-muted-foreground">
-        protected月: 過去明細保持
-      </span>
-      <span className="rounded bg-background/70 px-2 py-0.5 text-[11px] text-muted-foreground">
-        差額: 本人別に次回精算
-      </span>
-      {rewardRevision && rewardRevision.protectedCycleCount > 0 && (
-        <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-[11px] tabular-nums text-emerald-700 dark:text-emerald-300">
-          前回保存: 差額 {rewardRevision.offsetCount}件
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={`rounded px-2 py-0.5 text-[11px] font-medium ${badgeTone}`}>
+          保存前支払検算: {statusLabel}
         </span>
-      )}
-      <div className="ml-auto">
-        <EditSaveButtons
-          isDirty={isDirty}
-          saveStatus={saveStatus}
-          onReset={onReset}
-          onSave={onSave}
-          compact
-        />
+        <span className="rounded bg-background/70 px-2 py-0.5 text-[11px] text-muted-foreground">
+          protected月: 過去明細保持
+        </span>
+        <span className="rounded bg-background/70 px-2 py-0.5 text-[11px] text-muted-foreground">
+          差額: 本人別に次回精算
+        </span>
+        {rewardRevision && (
+          <span className="rounded bg-background/70 px-2 py-0.5 text-[11px] tabular-nums text-muted-foreground">
+            protected {rewardRevision.protectedCycleCount}月 / 差額 {rewardRevision.offsetCount}件
+            {rewardRevision.applyYms.length > 0 ? ` / 精算 ${rewardRevision.applyYms.join(", ")}` : ""}
+          </span>
+        )}
+        <div className="ml-auto">
+          <EditSaveButtons
+            isDirty={isDirty}
+            saveStatus={saveStatus}
+            blockedReason={blockedReason}
+            onReset={onReset}
+            onSave={onSave}
+            compact
+          />
+        </div>
       </div>
+      {rewardRevision && rewardRevision.offsetCount > 0 && (
+        <div className="mt-2 grid gap-2 md:grid-cols-[220px_minmax(0,1fr)]">
+          <div className="rounded bg-background/70 px-2 py-1 text-[11px] tabular-nums">
+            <div className="text-muted-foreground">支払影響</div>
+            <div className="font-medium">
+              追加 {fmtRevisionYen(rewardRevision.positiveOffsetYen)}
+              {rewardRevision.negativeOffsetYen < 0 ? ` / 回収 ${fmtRevisionYen(Math.abs(rewardRevision.negativeOffsetYen))}` : ""}
+            </div>
+          </div>
+          <div className="flex min-w-0 flex-wrap gap-1.5">
+            {memberImpacts.slice(0, 5).map((member) => (
+              <span
+                key={member.memberId}
+                className="rounded bg-background/70 px-2 py-1 text-[11px] tabular-nums text-muted-foreground"
+                title={`本契約 ${fmtRevisionYen(member.regularOffsetYen)} / 別財布 ${fmtRevisionYen(member.extraOffsetYen)}`}
+              >
+                {member.memberName}: {member.totalOffsetYen >= 0 ? "+" : "-"}
+                {fmtRevisionYen(Math.abs(member.totalOffsetYen))}
+              </span>
+            ))}
+            {memberImpacts.length > 5 && (
+              <span className="rounded bg-background/70 px-2 py-1 text-[11px] text-muted-foreground">
+                +{memberImpacts.length - 5}人
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+      {blockedReason && (
+        <div className="mt-2 rounded bg-red-500/10 px-2 py-1 text-[11px] text-red-600 dark:text-red-300">
+          保存不可: {blockedReason}
+        </div>
+      )}
+      {previewError && (
+        <div className="mt-2 rounded bg-red-500/10 px-2 py-1 text-[11px] text-red-600 dark:text-red-300">
+          検算失敗: {previewError}
+        </div>
+      )}
+      {rewardRevision?.warnings?.slice(0, 2).map((warning) => (
+        <div key={warning} className="mt-2 rounded bg-amber-500/10 px-2 py-1 text-[11px] text-amber-700 dark:text-amber-300">
+          {warning}
+        </div>
+      ))}
     </div>
   );
 }
@@ -906,7 +1069,10 @@ function PlanCycleBlock({
   const [deletedIds, setDeletedIds] = useState<string[]>([]);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [lastRewardRevision, setLastRewardRevision] = useState<RewardRevisionSummary | null>(null);
+  const [previewStatus, setPreviewStatus] = useState<RewardPreviewStatus>("idle");
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [rewardPreview, setRewardPreview] = useState<RewardRevisionPreview | null>(null);
+  const [lastRewardRevision, setLastRewardRevision] = useState<RewardRevisionPreview | null>(null);
   // 過去分 (target_ym/period_start_ym が今月より過去) を折りたたむか
   const [showHistory, setShowHistory] = useState<boolean>(false);
 
@@ -929,6 +1095,9 @@ function PlanCycleBlock({
     setDeletedIds([]);
     setSaveStatus("idle");
     setSaveError(null);
+    setPreviewStatus("idle");
+    setPreviewError(null);
+    setRewardPreview(null);
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [cycle]);
 
@@ -994,6 +1163,81 @@ function PlanCycleBlock({
     };
   }, [activeEditing, recomputed.regularPoints]);
 
+  const buildSavePayload = useCallback((): MsOverviewSavePayload => ({
+    milestones: activeEditing.map((row, index) => ({
+      milestoneId: isDraftMilestoneId(row.milestoneId) ? null : row.milestoneId,
+      title: row.title,
+      points: Math.round(effectiveEditableMilestonePoints(row) * 100) / 100,
+      tag: row.tag,
+      goalLevel: row.goalLevel,
+      successCriteria: row.successCriteria,
+      periodStartYm: row.periodStartYm,
+      targetYm: row.targetYm,
+      sortOrder: row.sortOrder || index + 1,
+      responsibilities: row.responsibilities
+        .filter((resp) => resp.share > 0)
+        .map((resp) => ({
+          memberId: resp.memberId,
+          share: Math.round(resp.share * 10000) / 10000,
+          role: resp.role,
+          taskDescription: resp.taskDescription,
+        })),
+    })),
+    deletedMilestoneIds: deletedIds,
+  }), [activeEditing, deletedIds]);
+
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- 編集中の保存前検算をサーバー結果に同期するため。 */
+    if (!editMode || !isDirty) {
+      setPreviewStatus("idle");
+      setPreviewError(null);
+      setRewardPreview(null);
+      return;
+    }
+    setPreviewStatus("loading");
+    setPreviewError(null);
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/admin/ms-overview/${encodeURIComponent(cycle.planCycleId)}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(buildSavePayload()),
+          signal: controller.signal,
+        });
+        const body = await res.json().catch(() => ({}));
+        if (controller.signal.aborted) return;
+        if (!res.ok || !body?.ok) {
+          setPreviewStatus("error");
+          setPreviewError(body?.error || `HTTP ${res.status}`);
+          setRewardPreview((body?.rewardPreview ?? null) as RewardRevisionPreview | null);
+          return;
+        }
+        setRewardPreview((body.rewardPreview ?? null) as RewardRevisionPreview | null);
+        setPreviewStatus("ready");
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        setPreviewStatus("error");
+        setPreviewError(err instanceof Error ? err.message : String(err));
+        setRewardPreview(null);
+      }
+    }, 450);
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [buildSavePayload, cycle.planCycleId, editMode, isDirty]);
+
+  const visibleRewardRevision = isDirty ? rewardPreview : lastRewardRevision;
+  const saveBlockedReason = useMemo(() => {
+    if (!editMode || !isDirty) return null;
+    if (previewStatus === "idle" || previewStatus === "loading") return "保存前検算中";
+    if (previewStatus === "error") return previewError || "保存前検算に失敗";
+    if (rewardPreview?.status === "blocked") return rewardPreview.blockers[0] || "支払い安全検算で保存不可";
+    return null;
+  }, [editMode, isDirty, previewError, previewStatus, rewardPreview]);
+
   const handleMilestoneChange = useCallback((milestoneId: string, patch: Partial<EditableMilestoneInput>) => {
     setEditing((prev) =>
       prev.map((row) => (row.milestoneId === milestoneId ? normalizeCapExtraPoint({ ...row, ...patch }) : row)),
@@ -1004,6 +1248,9 @@ function PlanCycleBlock({
     setEditing(toEditableMilestones(cycle));
     setDeletedIds([]);
     setLastRewardRevision(null);
+    setPreviewStatus("idle");
+    setPreviewError(null);
+    setRewardPreview(null);
   }, [cycle]);
 
   const handleAddMilestone = useCallback(() => {
@@ -1035,32 +1282,15 @@ function PlanCycleBlock({
   }, []);
 
   const handleSave = useCallback(async () => {
+    if (saveBlockedReason) {
+      setSaveStatus("error");
+      setSaveError(saveBlockedReason);
+      return;
+    }
     setSaveStatus("saving");
     setSaveError(null);
     setLastRewardRevision(null);
     try {
-      const payload = {
-        milestones: activeEditing.map((row, index) => ({
-          milestoneId: isDraftMilestoneId(row.milestoneId) ? null : row.milestoneId,
-          title: row.title,
-          points: Math.round(effectiveEditableMilestonePoints(row) * 100) / 100,
-          tag: row.tag,
-          goalLevel: row.goalLevel,
-          successCriteria: row.successCriteria,
-          periodStartYm: row.periodStartYm,
-          targetYm: row.targetYm,
-          sortOrder: row.sortOrder || index + 1,
-          responsibilities: row.responsibilities
-            .filter((resp) => resp.share > 0)
-            .map((resp) => ({
-              memberId: resp.memberId,
-              share: Math.round(resp.share * 10000) / 10000,
-              role: resp.role,
-              taskDescription: resp.taskDescription,
-            })),
-        })),
-        deletedMilestoneIds: deletedIds,
-      };
       if (!isDirty) {
         setSaveStatus("idle");
         setEditMode(false);
@@ -1069,15 +1299,16 @@ function PlanCycleBlock({
       const res = await fetch(`/api/admin/ms-overview/${encodeURIComponent(cycle.planCycleId)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(buildSavePayload()),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok || !body?.ok) {
         setSaveStatus("error");
         setSaveError(body?.error || `HTTP ${res.status}`);
+        if (body?.rewardPreview) setRewardPreview(body.rewardPreview as RewardRevisionPreview);
         return;
       }
-      setLastRewardRevision((body.rewardRevision ?? null) as RewardRevisionSummary | null);
+      setLastRewardRevision((body.rewardRevision ?? null) as RewardRevisionPreview | null);
       setSaveStatus("success");
       setEditMode(false);
       onSaved();
@@ -1085,7 +1316,7 @@ function PlanCycleBlock({
       setSaveStatus("error");
       setSaveError(err instanceof Error ? err.message : String(err));
     }
-  }, [activeEditing, cycle.planCycleId, deletedIds, isDirty, onSaved]);
+  }, [buildSavePayload, cycle.planCycleId, isDirty, onSaved, saveBlockedReason]);
 
   return (
     <section className="rounded-lg border border-border bg-card overflow-hidden">
@@ -1144,7 +1375,10 @@ function PlanCycleBlock({
               saveStatus={saveStatus}
               saveError={saveError}
               pointSummary={pointSummary}
-              rewardRevision={lastRewardRevision}
+              rewardRevision={visibleRewardRevision}
+              previewStatus={previewStatus}
+              previewError={previewError}
+              blockedReason={saveBlockedReason}
               onReset={handleResetToDb}
               onSave={handleSave}
               className="sticky top-2 z-10"
@@ -1219,6 +1453,7 @@ function PlanCycleBlock({
                   <EditSaveButtons
                     isDirty={isDirty}
                     saveStatus={saveStatus}
+                    blockedReason={saveBlockedReason}
                     onReset={handleResetToDb}
                     onSave={handleSave}
                     compact
@@ -1242,7 +1477,10 @@ function PlanCycleBlock({
                     <RewardRevisionSafetyPanel
                       isDirty={isDirty}
                       saveStatus={saveStatus}
-                      rewardRevision={lastRewardRevision}
+                      previewStatus={previewStatus}
+                      previewError={previewError}
+                      rewardRevision={visibleRewardRevision}
+                      blockedReason={saveBlockedReason}
                       onReset={handleResetToDb}
                       onSave={handleSave}
                     />
@@ -1330,7 +1568,10 @@ function PlanCycleBlock({
                 saveStatus={saveStatus}
                 saveError={saveError}
                 pointSummary={pointSummary}
-                rewardRevision={lastRewardRevision}
+                rewardRevision={visibleRewardRevision}
+                previewStatus={previewStatus}
+                previewError={previewError}
+                blockedReason={saveBlockedReason}
                 onReset={handleResetToDb}
                 onSave={handleSave}
               />

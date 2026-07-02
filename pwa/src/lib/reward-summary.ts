@@ -178,6 +178,13 @@ type ResponsibilityRow = {
   share?: number | string | null;
 };
 
+export type RewardScenarioOverride = {
+  planCycleId: string;
+  milestones: MilestoneRow[];
+  responsibilities: ResponsibilityRow[];
+  totalPoints?: number;
+};
+
 type EffectiveContributionShare = {
   milestone_id: string;
   ym: string;
@@ -218,7 +225,7 @@ export type RewardCycleProtectionRow = {
   payment_confirmed_at?: string | null;
 };
 
-type RewardLiabilityOffsetRow = {
+export type RewardLiabilityOffsetRow = {
   id?: string | null;
   project_id?: string | null;
   source_ym?: string | null;
@@ -231,7 +238,7 @@ type RewardLiabilityOffsetRow = {
   status?: string | null;
 };
 
-type RewardLiabilityOffsetsByYm = Map<string, RewardLiabilityOffsetRow[]>;
+export type RewardLiabilityOffsetsByYm = Map<string, RewardLiabilityOffsetRow[]>;
 
 export function isRewardCycleProtected(cycle: RewardCycleProtectionRow): boolean {
   return Boolean(cycle.reward_paid_at || cycle.payout_notice_uploaded_at || cycle.payment_confirmed_at);
@@ -1454,7 +1461,11 @@ async function computeRewardSummaryForCycle(
   db: SupabaseLike,
   projectId: string,
   ym: string,
-  options: { includeLiabilityOffsets?: boolean } = {}
+  options: {
+    includeLiabilityOffsets?: boolean;
+    scenario?: RewardScenarioOverride;
+    liabilityOffsetsOverride?: RewardLiabilityOffsetsByYm;
+  } = {}
 ): Promise<RewardComputeResult> {
   const [billingRes, projectRes, planCyclesRes, membersRes] = await Promise.all([
     db
@@ -1487,38 +1498,41 @@ async function computeRewardSummaryForCycle(
     return { ok: false, projectId, ym, rewardSummary: null, skippedReason: "billing_cycle_not_found", billing: null, project: null };
   }
   const project = (projectRes.data ?? null) as ProjectRow | null;
-  const planCycle = choosePlanCycle((planCyclesRes.data ?? []) as PlanCycleRow[], ym);
+  const planCycleBase = choosePlanCycle((planCyclesRes.data ?? []) as PlanCycleRow[], ym);
+  const planCycle = planCycleBase && options.scenario?.planCycleId === planCycleBase.plan_cycle_id
+    ? { ...planCycleBase, total_points: options.scenario.totalPoints ?? planCycleBase.total_points }
+    : planCycleBase;
   if (!planCycle) {
     const emptySummary = emptyRewardSummaryForCycle(projectId, ym);
     return { ok: true, projectId, ym, rewardSummary: emptySummary, skippedReason: "plan_cycle_not_found", billing, project };
   }
 
-  const milestonesRes = await db
-    .from("value_milestones")
-    .select("milestone_id, title, points, tag, goal_level, sort_order, period_start_ym, target_ym")
-    .eq("plan_cycle_id", planCycle.plan_cycle_id)
-    .eq("is_active", true)
-    .order("sort_order");
-  if (milestonesRes.error) throw milestonesRes.error;
-
-  const milestones = ((milestonesRes.data ?? []) as MilestoneRow[]).filter((ms) => String(ms.goal_level || "").toLowerCase() !== "monthly");
+  let milestones: MilestoneRow[];
+  if (options.scenario?.planCycleId === planCycle.plan_cycle_id) {
+    milestones = options.scenario.milestones.filter((ms) => String(ms.goal_level || "").toLowerCase() !== "monthly");
+  } else {
+    const milestonesRes = await db
+      .from("value_milestones")
+      .select("milestone_id, title, points, tag, goal_level, sort_order, period_start_ym, target_ym")
+      .eq("plan_cycle_id", planCycle.plan_cycle_id)
+      .eq("is_active", true)
+      .order("sort_order");
+    if (milestonesRes.error) throw milestonesRes.error;
+    milestones = ((milestonesRes.data ?? []) as MilestoneRow[]).filter((ms) => String(ms.goal_level || "").toLowerCase() !== "monthly");
+  }
   if (milestones.length === 0) {
     const emptySummary = emptyRewardSummaryForCycle(projectId, ym, planCycle.plan_cycle_id);
     return { ok: true, projectId, ym, rewardSummary: emptySummary, skippedReason: "milestones_not_found", billing, project };
   }
 
   const milestoneIds = milestones.map((ms) => ms.milestone_id);
-  const [progressRes, responsibilitiesRes, billingRangeRes, projectMembersRes] = await Promise.all([
+  const [progressRes, billingRangeRes, projectMembersRes] = await Promise.all([
     db
       .from("milestone_monthly_progress")
       .select("milestone_key, ym, progress_pct, consumed_pt, source")
       .in("milestone_key", milestoneIds)
       .lte("ym", ym)
       .order("ym", { ascending: true }),
-    db
-      .from("milestone_responsibility")
-      .select("milestone_id, member_id, share")
-      .in("milestone_id", milestoneIds),
     db
       .from("billing_cycles")
       .select("project_id, ym, status, budget_yen, budget_reported_amount, budget_buffer_amount, extra_budget_yen, reward_summary_json")
@@ -1532,9 +1546,21 @@ async function computeRewardSummaryForCycle(
       .eq("project_id", projectId),
   ]);
   if (progressRes.error) throw progressRes.error;
-  if (responsibilitiesRes.error) throw responsibilitiesRes.error;
   if (billingRangeRes.error) throw billingRangeRes.error;
   if (projectMembersRes.error) throw projectMembersRes.error;
+
+  let responsibilities: ResponsibilityRow[];
+  if (options.scenario?.planCycleId === planCycle.plan_cycle_id) {
+    const activeMilestoneIds = new Set(milestoneIds);
+    responsibilities = options.scenario.responsibilities.filter((row) => activeMilestoneIds.has(row.milestone_id));
+  } else {
+    const responsibilitiesRes = await db
+      .from("milestone_responsibility")
+      .select("milestone_id, member_id, share")
+      .in("milestone_id", milestoneIds);
+    if (responsibilitiesRes.error) throw responsibilitiesRes.error;
+    responsibilities = (responsibilitiesRes.data ?? []) as ResponsibilityRow[];
+  }
 
   const activeMemberIds = new Set(
     ((projectMembersRes.data ?? []) as Array<{ member_id: string; is_active: boolean | null }>)
@@ -1555,16 +1581,18 @@ async function computeRewardSummaryForCycle(
     ym,
     milestones,
     progress: (progressRes.data ?? []) as ProgressRow[],
-    responsibilities: (responsibilitiesRes.data ?? []) as ResponsibilityRow[],
+    responsibilities,
     activeMemberIds,
     companyReserveMemberIds,
     payoutExcludedMemberIds,
     memberMap,
     billing,
     billingsByYm: new Map(((billingRangeRes.data ?? []) as BillingRow[]).map((row) => [row.ym, row])),
-    liabilityOffsetsByYm: options.includeLiabilityOffsets === false
-      ? undefined
-      : await loadRewardLiabilityOffsetsByYm(db, projectId, planCycle.period_start_ym, ym),
+    liabilityOffsetsByYm: options.liabilityOffsetsOverride ?? (
+      options.includeLiabilityOffsets === false
+        ? undefined
+        : await loadRewardLiabilityOffsetsByYm(db, projectId, planCycle.period_start_ym, ym)
+    ),
     planCycle,
     project,
   });
@@ -1591,7 +1619,11 @@ export async function calculateRewardSummaryForCycle(
   db: SupabaseLike,
   projectId: string,
   ym: string,
-  options: { includeLiabilityOffsets?: boolean } = {}
+  options: {
+    includeLiabilityOffsets?: boolean;
+    scenario?: RewardScenarioOverride;
+    liabilityOffsetsOverride?: RewardLiabilityOffsetsByYm;
+  } = {}
 ): Promise<RewardSyncResult> {
   return toPublicRewardSyncResult(await computeRewardSummaryForCycle(db, projectId, ym, options));
 }

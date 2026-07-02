@@ -754,6 +754,15 @@ expectIncludes("src/app/api/admin/ms-overview/route.ts", [
   "extraDesignUnitYen",
   "designAmountYen",
 ]);
+expectIncludes("src/app/api/admin/ms-overview/[planCycleId]/route.ts", [
+  "POST",
+  "PUT",
+  "buildRewardRevisionImpact",
+  "rewardPreview",
+  "memberImpacts",
+  "reward_member_liability_offsets",
+  "保存不可",
+]);
 expectNotIncludes("src/app/api/admin/ms-overview/route.ts", [
   "computeSeasonPl",
   "ptValueYen",
@@ -779,6 +788,9 @@ expectIncludes("src/components/admin/AdminMsOverviewClient.tsx", [
   "pt配分スライダー",
   "残り割り振り可能pt",
   "保存先 DB",
+  "保存前支払検算",
+  "保存不可",
+  "memberImpacts",
   "DB値に戻す",
   "保存して DB へ反映",
   "recomputeMsOverview",
