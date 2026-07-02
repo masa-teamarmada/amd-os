@@ -467,6 +467,44 @@ type RewardRevisionSummary = {
   applyYms: string[];
 };
 
+function EditSaveButtons({
+  isDirty,
+  saveStatus,
+  onReset,
+  onSave,
+  compact = false,
+}: {
+  isDirty: boolean;
+  saveStatus: SaveStatus;
+  onReset: () => void;
+  onSave: () => void;
+  compact?: boolean;
+}) {
+  const buttonHeight = compact ? "h-7" : "h-8";
+  const buttonPadding = compact ? "px-2.5" : "px-3";
+  return (
+    <div className="flex flex-shrink-0 items-center gap-2">
+      <button
+        type="button"
+        onClick={onReset}
+        disabled={!isDirty || saveStatus === "saving"}
+        className={`${buttonHeight} rounded border border-border ${buttonPadding} text-xs text-muted-foreground hover:bg-accent/30 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40`}
+        title="現状DB値に戻す"
+      >
+        ↻ DB値に戻す
+      </button>
+      <button
+        type="button"
+        onClick={onSave}
+        disabled={!isDirty || saveStatus === "saving"}
+        className={`${buttonHeight} rounded bg-emerald-600 ${buttonPadding} text-xs font-medium text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40`}
+      >
+        {saveStatus === "saving" ? "保存中…" : compact ? "保存" : "保存して DB へ反映"}
+      </button>
+    </div>
+  );
+}
+
 function EditActionBar({
   isDirty,
   saveStatus,
@@ -543,24 +581,58 @@ function EditActionBar({
       {saveStatus === "error" && (
         <span className="min-w-0 text-[11px] text-red-500">保存失敗: {saveError}</span>
       )}
-      <div className="ml-auto flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onReset}
-          disabled={!isDirty || saveStatus === "saving"}
-          className="h-8 rounded border border-border px-3 text-xs text-muted-foreground hover:bg-accent/30 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-          title="現状DB値に戻す"
-        >
-          ↻ DB値に戻す
-        </button>
-        <button
-          type="button"
-          onClick={onSave}
-          disabled={!isDirty || saveStatus === "saving"}
-          className="h-8 rounded bg-emerald-600 px-3 text-xs font-medium text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {saveStatus === "saving" ? "保存中…" : "保存して DB へ反映"}
-        </button>
+      <div className="ml-auto">
+        <EditSaveButtons
+          isDirty={isDirty}
+          saveStatus={saveStatus}
+          onReset={onReset}
+          onSave={onSave}
+        />
+      </div>
+    </div>
+  );
+}
+
+function RewardRevisionSafetyPanel({
+  isDirty,
+  saveStatus,
+  rewardRevision,
+  onReset,
+  onSave,
+}: {
+  isDirty: boolean;
+  saveStatus: SaveStatus;
+  rewardRevision: RewardRevisionSummary | null;
+  onReset: () => void;
+  onSave: () => void;
+}) {
+  return (
+    <div
+      className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-sky-500/25 bg-sky-500/5 px-3 py-2"
+      data-testid="admin-ms-overview-reward-revision-guard"
+    >
+      <span className="rounded bg-sky-500/15 px-2 py-0.5 text-[11px] font-medium text-sky-700 dark:text-sky-300">
+        支払保護 ON
+      </span>
+      <span className="rounded bg-background/70 px-2 py-0.5 text-[11px] text-muted-foreground">
+        protected月: 過去明細保持
+      </span>
+      <span className="rounded bg-background/70 px-2 py-0.5 text-[11px] text-muted-foreground">
+        差額: 本人別に次回精算
+      </span>
+      {rewardRevision && rewardRevision.protectedCycleCount > 0 && (
+        <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-[11px] tabular-nums text-emerald-700 dark:text-emerald-300">
+          前回保存: 差額 {rewardRevision.offsetCount}件
+        </span>
+      )}
+      <div className="ml-auto">
+        <EditSaveButtons
+          isDirty={isDirty}
+          saveStatus={saveStatus}
+          onReset={onReset}
+          onSave={onSave}
+          compact
+        />
       </div>
     </div>
   );
@@ -994,13 +1066,22 @@ function PlanCycleBlock({
                 </span>
               )}
               {editMode && (
-                <button
-                  type="button"
-                  onClick={handleAddMilestone}
-                  className="ml-auto rounded border border-border px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent/30 hover:text-foreground"
-                >
-                  ＋ MS追加
-                </button>
+                <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+                  <EditSaveButtons
+                    isDirty={isDirty}
+                    saveStatus={saveStatus}
+                    onReset={handleResetToDb}
+                    onSave={handleSave}
+                    compact
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddMilestone}
+                    className="h-7 rounded border border-border px-2.5 text-[11px] text-muted-foreground hover:bg-accent/30 hover:text-foreground"
+                  >
+                    ＋ MS追加
+                  </button>
+                </div>
               )}
             </div>
             {editMode ? (
@@ -1009,6 +1090,13 @@ function PlanCycleBlock({
                   <p className="text-xs text-muted-foreground">MS が登録されていない。</p>
                 ) : (
                   <div className="space-y-3">
+                    <RewardRevisionSafetyPanel
+                      isDirty={isDirty}
+                      saveStatus={saveStatus}
+                      rewardRevision={lastRewardRevision}
+                      onReset={handleResetToDb}
+                      onSave={handleSave}
+                    />
                     <AllMsPointSliders
                       rows={activeEditing}
                       pointSummary={pointSummary}
