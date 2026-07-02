@@ -167,7 +167,15 @@
 ### 既払い (過去に旧ロジックで払ってしまった月) がある場合
 - 別財布対応前に「cap無し=需要全額即払い」で既に払われた月があると、その月の snapshot は旧 pt単価で固定されており新原資配分と食い違う。
 - **対処**: その月が PAID保護 (reward_paid_at/payout_notice_uploaded_at/payment_confirmed_at) で sync からskipされるなら、**保護フラグを一時 NULL → `syncRewardSummariesForProject` で全期間再計算 → フラグ復元**する。これで既払い月も新ロジックで計算し直され、完了月capは**満額** (差し引かない) で正しく閉じる。
-- **前提確認**: `monthly_reward_payout` にその月の実支払行が無い (= 現金未払い・通知書だけ) ことを確認してから保護解除する。実支払い済みなら覆さず別途調整。
+- **前提確認**: `monthly_reward_payout` にその月の実支払行が無い (= 現金未払い・通知書だけ) ことを確認してから保護解除する。
+- **実支払い済みなら覆さない**: すでに送付済み/支払済みの金額は変更しない。現行ロジックより多く払っていた差額を調整する場合は `reward_member_liability_offsets` に同一メンバー本人の相殺額を記録し、以後の `buildRewardSummary` で本人の未払stockからだけ差し引く。会社留保・他メンバー未払・PJ全体バッファには押しつけない。小額差分を経営判断で許容する場合は台帳に入れない。
+
+### 実支払い済み差分の本人別相殺台帳 (2026-07-02)
+- テーブル: `reward_member_liability_offsets`
+- 単位: `project_id × plan_cycle_id × member_id × pool × applies_from_ym`
+- 意味: 送付済み/支払済みの金額が現行報酬正本より多い場合、その差額を同じ本人の未払stockから相殺する監査台帳。
+- 計算: capped 計算後、対象月以降の本人 `regularStockYen` / `extraStockYen` から消化する。`pool='any'` は regular → cap_extra の順で、本人の未払残が足りなければ残額を翌月以降へ持ち越す。
+- ZMP 2026シーズン: しん・こうの小額過払いは許容。あび・うめの過払いだけ本人の未払残から相殺する。
 
 ### 適用後の検証 (必ず)
 1. `reward-summary` 再計算後、最終月で **対象メンバーの extraStock=0** (= 別財布完済) を確認。
@@ -192,3 +200,4 @@
 | 2026-06-19 | 初版。SX一連の議論から予実表を設計正本化。データソース・バッファ内訳列・画面配置・実装ステップを確定 | えいみ |
 | 2026-06-19 | §5 実装完了 (v0.29.0)。migration 148 + `season-pl.ts` + `/admin/season-pl` + API + FEATURE_REGISTRY + critical-ui anchor。未割当pt 検算を `total_points − Σ(MS points)` に修正。SX 1pt 穴 / ZMP cap-原資不整合 / KUTE 非閉じ を実検出 (別タスク監査へ) | えいみ |
 | 2026-06-20 | §5.1 別財布 cap_extra エンジン実装 (migration 149 + `reward-summary.ts` extra cap/extra pt単価独立化)。ZMP DB是正を実証完了 (total_points 177 / OkuDoor share 0.6923系 / extra_budget_yen 202610=130万)。完了月cap=満額130万 (A案: 202605保護一時解除→全期間再計算→復元で既払い打ち消し)。うめ/あび各20万・OkuDoor総消化130万にぴったり収束。§5.2 別財布処理プレイブック (汎用3ステップ) を正本化。`computeSeasonPl` を別財布対応 (regular/extra pt単価分離) に改修 | えいみ |
+| 2026-07-02 | 実支払い済み差分の本人別相殺台帳を追加。支払済み通知書は変更せず、会社留保や他メンバー未払ではなく同一メンバー本人の未払stockからだけ差し引く方針を正本化 | えいみ |

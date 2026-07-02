@@ -66,6 +66,12 @@ flowchart TD
 
 通常 GET は **読むだけ**。 admin の保存系処理または手動ボタンだけが再計算を走らせる (= まさ #過去 教訓)。`refreshRewards=1` の場合は再計算後の `reward_summary_json` を使って同じ集計を返す。
 
+### 送付済み/支払済み通知書と相殺
+
+支払通知書を送付済み、または実際に支払い済みの月は、金額をあとから現行ロジックへ書き換えない。再発行しても、送付済み・支払済みの事実は保護する。
+
+現行ロジックとの差で過払いが見つかった場合は、`reward_member_liability_offsets` に本人別の相殺額を記録し、以後の報酬キャッシュ再計算で同一メンバー本人の未払残からだけ差し引く。他メンバーの未払残・会社留保・PJ全体バッファからは差し引かない。相殺しないと決めた小額差分は、台帳に入れず許容差として扱う。
+
 `/admin/payouts` の初回表示は、page 側が `loadTargetData(currentYm, { includeAgreementGate: false })` を SSR で実行し、`AdminPayoutsClient initialData` として渡す。クライアントは初回 client GET をスキップし、月変更・手動再計算・保存/発行後の再取得だけ `/api/admin/payouts` を使う。これにより、キャッシュ済みデータを表示するだけなのに hydration 後の API 待ちで空表示が続く事故を避ける。
 
 初期表示の `GET /api/admin/payouts` は、支払データ本体を先に返すため月初合意gateの重い snapshot 照合を含めない。画面は `gateOnly=1` の別GETを裏で走らせ、後から「月初合意支払ゲート」パネルだけ更新する。保存・発行・送付などの write action は従来どおりサーバー側で `buildPayoutAgreementGateSummary()` を必ず実行し、gate blocker があれば止める。

@@ -68,6 +68,12 @@ export interface RewardMember {
   extraCompanyReserveYen?: number;
   officerReserveYen?: number;
   companyReserveUnfundedYen?: number;
+  liabilityOffsetAppliedYen?: number;
+  regularLiabilityOffsetAppliedYen?: number;
+  extraLiabilityOffsetAppliedYen?: number;
+  grossDueBeforeLiabilityOffsetYen?: number;
+  regularGrossDueBeforeLiabilityOffsetYen?: number;
+  extraGrossDueBeforeLiabilityOffsetYen?: number;
   payoutExcluded?: boolean;
   excludedCarryInYen?: number;
   breakdown: RewardBreakdown[];
@@ -105,6 +111,10 @@ export interface RewardSummary {
   extraCompanyReserveYen?: number;
   officerReserveYen?: number;
   companyReserveUnfundedYen?: number;
+  liabilityOffsetAppliedYen?: number;
+  regularLiabilityOffsetAppliedYen?: number;
+  extraLiabilityOffsetAppliedYen?: number;
+  liabilityOffsetRemainingYen?: number;
   externalPayoutCapYen?: number;
   externalRegularPayoutCapYen?: number;
   externalExtraPayoutCapYen?: number;
@@ -159,6 +169,33 @@ type MonthlyRewardCaps = {
   regularCapYen: number;
   extraCapYen: number | null;
   totalCapYen: number;
+};
+
+type LiabilityOffsetPool = "regular" | "cap_extra" | "any";
+
+export type RewardLiabilityOffsetInput = {
+  project_id?: string | null;
+  projectId?: string | null;
+  plan_cycle_id?: string | null;
+  planCycleId?: string | null;
+  member_id?: string | null;
+  memberId?: string | null;
+  pool?: string | null;
+  amount_yen?: number | string | null;
+  amountYen?: number | string | null;
+  applies_from_ym?: string | null;
+  appliesFromYm?: string | null;
+  status?: string | null;
+  reason?: string | null;
+};
+
+type LiabilityOffsetState = {
+  memberId: string;
+  pool: LiabilityOffsetPool;
+  appliesFromYm: string;
+  amountYen: number;
+  remainingYen: number;
+  reason: string | null;
 };
 
 type MilestoneRow = {
@@ -765,6 +802,190 @@ function emptyAllocation(): CapAllocation {
   return { basePay: 0, carryInYen: 0, grossDueYen: 0, paidYen: 0, stockYen: 0 };
 }
 
+function normalizeLiabilityOffsetPool(value: unknown): LiabilityOffsetPool {
+  const text = String(value ?? "any").trim().toLowerCase();
+  return text === "regular" || text === "cap_extra" ? text : "any";
+}
+
+function normalizeLiabilityOffsets(
+  offsets: RewardLiabilityOffsetInput[] | undefined,
+  planCycle: PlanCycleRow | null,
+): LiabilityOffsetState[] {
+  if (!offsets?.length || !planCycle?.plan_cycle_id) return [];
+  return offsets
+    .map((offset): LiabilityOffsetState | null => {
+      const planCycleId = String(offset.plan_cycle_id ?? offset.planCycleId ?? "");
+      if (planCycleId && planCycleId !== planCycle.plan_cycle_id) return null;
+      const status = String(offset.status ?? "active").toLowerCase();
+      if (status !== "active") return null;
+      const memberId = String(offset.member_id ?? offset.memberId ?? "");
+      const amountYen = Math.max(0, Math.round(numberValue(offset.amount_yen ?? offset.amountYen)));
+      const appliesFromYm = String(offset.applies_from_ym ?? offset.appliesFromYm ?? "");
+      if (!memberId || amountYen <= 0 || !/^[0-9]{6}$/.test(appliesFromYm)) return null;
+      return {
+        memberId,
+        pool: normalizeLiabilityOffsetPool(offset.pool),
+        appliesFromYm,
+        amountYen,
+        remainingYen: amountYen,
+        reason: offset.reason ?? null,
+      };
+    })
+    .filter((offset): offset is LiabilityOffsetState => offset !== null)
+    .sort((a, b) => a.appliesFromYm.localeCompare(b.appliesFromYm) || a.memberId.localeCompare(b.memberId));
+}
+
+function totalLiabilityOffsetRemaining(states: LiabilityOffsetState[]): number {
+  return states.reduce((sum, state) => sum + Math.max(0, Math.round(state.remainingYen)), 0);
+}
+
+function recomputeRewardSummaryTotals(
+  reward: RewardSummary,
+  companyReserveMemberIds: Set<string>,
+  liabilityOffsetRemainingYen = 0,
+): RewardSummary {
+  const totalGrossDue = reward.members.reduce((sum, member) => sum + Math.max(0, Math.round(member.grossDueYen || 0)), 0);
+  const totalPay = reward.members.reduce((sum, member) => sum + Math.max(0, Math.round(member.totalPay || 0)), 0);
+  const carryInTotal = reward.members.reduce((sum, member) => sum + Math.max(0, Math.round(member.carryInYen || 0)), 0);
+  const carryOverYen = reward.members.reduce((sum, member) => sum + Math.max(0, Math.round(member.stockYen || 0)), 0);
+  const regularTotalGrossDueYen = reward.members.reduce((sum, member) => sum + Math.max(0, Math.round(member.regularGrossDueYen || 0)), 0);
+  const extraTotalGrossDueYen = reward.members.reduce((sum, member) => sum + Math.max(0, Math.round(member.extraGrossDueYen || 0)), 0);
+  const regularCarryOverYen = reward.members.reduce((sum, member) => sum + Math.max(0, Math.round(member.regularStockYen || 0)), 0);
+  const extraCarryOverYen = reward.members.reduce((sum, member) => sum + Math.max(0, Math.round(member.extraStockYen || 0)), 0);
+  const companyReserveYen = reward.members.reduce((sum, member) => sum + Math.max(0, Math.round(member.companyReserveYen || 0)), 0);
+  const regularCompanyReserveYen = reward.members.reduce((sum, member) => sum + Math.max(0, Math.round(member.regularCompanyReserveYen || 0)), 0);
+  const extraCompanyReserveYen = reward.members.reduce((sum, member) => sum + Math.max(0, Math.round(member.extraCompanyReserveYen || 0)), 0);
+  const officerReserveYen = reward.members.reduce((sum, member) => sum + Math.max(0, Math.round(member.officerReserveYen || 0)), 0);
+  const companyReserveUnfundedYen = reward.members.reduce((sum, member) => sum + Math.max(0, Math.round(member.companyReserveUnfundedYen || 0)), 0);
+  const liabilityOffsetAppliedYen = reward.members.reduce((sum, member) => sum + Math.max(0, Math.round(member.liabilityOffsetAppliedYen || 0)), 0);
+  const regularLiabilityOffsetAppliedYen = reward.members.reduce((sum, member) => sum + Math.max(0, Math.round(member.regularLiabilityOffsetAppliedYen || 0)), 0);
+  const extraLiabilityOffsetAppliedYen = reward.members.reduce((sum, member) => sum + Math.max(0, Math.round(member.extraLiabilityOffsetAppliedYen || 0)), 0);
+  const externalRegularPayoutCapYen = reward.members.reduce(
+    (sum, member) => sum + (companyReserveMemberIds.has(member.memberId) ? 0 : Math.max(0, Math.round(member.regularPaidYen || 0))),
+    0,
+  );
+  const externalExtraPayoutCapYen = reward.members.reduce(
+    (sum, member) => sum + (companyReserveMemberIds.has(member.memberId) ? 0 : Math.max(0, Math.round(member.extraPaidYen || 0))),
+    0,
+  );
+
+  return {
+    ...reward,
+    totalPaySum: totalPay,
+    totalGrossDueYen: totalGrossDue,
+    carryInYen: carryInTotal,
+    carryOverYen,
+    capped: carryOverYen > 0 || companyReserveUnfundedYen > 0,
+    regularTotalGrossDueYen,
+    extraTotalGrossDueYen,
+    regularCarryOverYen,
+    extraCarryOverYen,
+    companyReserveYen,
+    regularCompanyReserveYen,
+    extraCompanyReserveYen,
+    officerReserveYen,
+    companyReserveUnfundedYen,
+    externalPayoutCapYen: externalRegularPayoutCapYen + externalExtraPayoutCapYen,
+    externalRegularPayoutCapYen,
+    externalExtraPayoutCapYen,
+    liabilityOffsetAppliedYen,
+    regularLiabilityOffsetAppliedYen,
+    extraLiabilityOffsetAppliedYen,
+    liabilityOffsetRemainingYen,
+  };
+}
+
+function applyLiabilityOffsetsForMonth(
+  reward: RewardSummary,
+  states: LiabilityOffsetState[],
+  ym: string,
+  companyReserveMemberIds: Set<string>,
+): RewardSummary {
+  if (!states.length) return reward;
+  let changed = false;
+  const members = reward.members.map((member) => {
+    if (companyReserveMemberIds.has(member.memberId)) return member;
+    const memberStates = states.filter(
+      (state) => state.memberId === member.memberId && state.appliesFromYm <= ym && state.remainingYen > 0,
+    );
+    if (!memberStates.length) return member;
+
+    let regularStockYen = Math.max(0, Math.round(member.regularStockYen || 0));
+    let extraStockYen = Math.max(0, Math.round(member.extraStockYen || 0));
+    let regularApplied = 0;
+    let extraApplied = 0;
+
+    const consumeRegular = (amount: number): number => {
+      const applied = Math.min(regularStockYen, amount);
+      regularStockYen -= applied;
+      regularApplied += applied;
+      return amount - applied;
+    };
+    const consumeExtra = (amount: number): number => {
+      const applied = Math.min(extraStockYen, amount);
+      extraStockYen -= applied;
+      extraApplied += applied;
+      return amount - applied;
+    };
+
+    for (const state of memberStates) {
+      let remaining = Math.max(0, Math.round(state.remainingYen));
+      if (state.pool === "regular") {
+        remaining = consumeRegular(remaining);
+      } else if (state.pool === "cap_extra") {
+        remaining = consumeExtra(remaining);
+      } else {
+        remaining = consumeExtra(consumeRegular(remaining));
+      }
+      state.remainingYen = remaining;
+    }
+
+    const applied = regularApplied + extraApplied;
+    if (applied <= 0) return member;
+    changed = true;
+
+    const regularGrossDueYen = Math.max(0, Math.round(member.regularGrossDueYen || 0) - regularApplied);
+    const extraGrossDueYen = Math.max(0, Math.round(member.extraGrossDueYen || 0) - extraApplied);
+    const grossDueYen = regularGrossDueYen + extraGrossDueYen;
+    const stockYen = regularStockYen + extraStockYen;
+    const totalPay = Math.max(0, Math.round(member.totalPay || 0));
+    const previousApplied = Math.max(0, Math.round(member.liabilityOffsetAppliedYen || 0));
+    const previousRegularApplied = Math.max(0, Math.round(member.regularLiabilityOffsetAppliedYen || 0));
+    const previousExtraApplied = Math.max(0, Math.round(member.extraLiabilityOffsetAppliedYen || 0));
+
+    return {
+      ...member,
+      grossDueBeforeLiabilityOffsetYen: member.grossDueBeforeLiabilityOffsetYen ?? member.grossDueYen,
+      regularGrossDueBeforeLiabilityOffsetYen: member.regularGrossDueBeforeLiabilityOffsetYen ?? member.regularGrossDueYen,
+      extraGrossDueBeforeLiabilityOffsetYen: member.extraGrossDueBeforeLiabilityOffsetYen ?? member.extraGrossDueYen,
+      grossDueYen,
+      regularGrossDueYen,
+      extraGrossDueYen,
+      stockYen,
+      deferredYen: stockYen,
+      regularStockYen,
+      extraStockYen,
+      cappedFrom: grossDueYen > totalPay ? grossDueYen : undefined,
+      liabilityOffsetAppliedYen: previousApplied + applied,
+      regularLiabilityOffsetAppliedYen: previousRegularApplied + regularApplied,
+      extraLiabilityOffsetAppliedYen: previousExtraApplied + extraApplied,
+    };
+  });
+
+  if (!changed) {
+    return {
+      ...reward,
+      liabilityOffsetRemainingYen: totalLiabilityOffsetRemaining(states),
+    };
+  }
+
+  return recomputeRewardSummaryTotals(
+    { ...reward, members },
+    companyReserveMemberIds,
+    totalLiabilityOffsetRemaining(states),
+  );
+}
+
 export function applyRewardCapsForMonth(
   reward: RewardSummary,
   caps: MonthlyRewardCaps,
@@ -1135,6 +1356,7 @@ export function buildRewardSummary({
   billingsByYm,
   planCycle,
   project,
+  liabilityOffsets,
 }: {
   ym: string;
   milestones: MilestoneRow[];
@@ -1148,9 +1370,11 @@ export function buildRewardSummary({
   billingsByYm?: Map<string, BillingRow>;
   planCycle: PlanCycleRow | null;
   project: ProjectRow | null;
+  liabilityOffsets?: RewardLiabilityOffsetInput[];
 }): RewardSummary | null {
   const regularCarryStock = new Map<string, number>();
   const extraCarryStock = new Map<string, number>();
+  const liabilityOffsetStates = normalizeLiabilityOffsets(liabilityOffsets, planCycle);
   let regularCapCarryYen = 0;
   let extraCapCarryYen = 0;
   let result: RewardSummary | null = null;
@@ -1250,6 +1474,12 @@ export function buildRewardSummary({
       extraFinalCapTopUpYen,
       finalCapTopUpYen: regularFinalCapTopUpYen + extraFinalCapTopUpYen,
     };
+    capped = applyLiabilityOffsetsForMonth(
+      capped,
+      liabilityOffsetStates,
+      month,
+      companyReserveMemberIds ?? new Set<string>(),
+    );
 
     regularCarryStock.clear();
     extraCarryStock.clear();
@@ -1347,6 +1577,10 @@ function emptyRewardSummaryForCycle(
     extraCompanyReserveYen: 0,
     officerReserveYen: 0,
     companyReserveUnfundedYen: 0,
+    liabilityOffsetAppliedYen: 0,
+    regularLiabilityOffsetAppliedYen: 0,
+    extraLiabilityOffsetAppliedYen: 0,
+    liabilityOffsetRemainingYen: 0,
     externalPayoutCapYen: 0,
     externalRegularPayoutCapYen: 0,
     externalExtraPayoutCapYen: 0,
@@ -1418,7 +1652,7 @@ export async function syncRewardSummaryForCycle(
   }
 
   const milestoneIds = milestones.map((ms) => ms.milestone_id);
-  const [progressRes, responsibilitiesRes, billingRangeRes, projectMembersRes] = await Promise.all([
+  const [progressRes, responsibilitiesRes, billingRangeRes, projectMembersRes, liabilityOffsetsRes] = await Promise.all([
     db
       .from("milestone_monthly_progress")
       .select("milestone_key, ym, progress_pct, consumed_pt, source")
@@ -1440,11 +1674,18 @@ export async function syncRewardSummaryForCycle(
       .from("project_members")
       .select("member_id, is_active")
       .eq("project_id", projectId),
+    db
+      .from("reward_member_liability_offsets")
+      .select("project_id, plan_cycle_id, member_id, pool, amount_yen, applies_from_ym, status, reason")
+      .eq("project_id", projectId)
+      .eq("plan_cycle_id", planCycle.plan_cycle_id)
+      .eq("status", "active"),
   ]);
   if (progressRes.error) throw progressRes.error;
   if (responsibilitiesRes.error) throw responsibilitiesRes.error;
   if (billingRangeRes.error) throw billingRangeRes.error;
   if (projectMembersRes.error) throw projectMembersRes.error;
+  if (liabilityOffsetsRes.error) throw liabilityOffsetsRes.error;
 
   const activeMemberIds = new Set(
     ((projectMembersRes.data ?? []) as Array<{ member_id: string; is_active: boolean | null }>)
@@ -1474,6 +1715,7 @@ export async function syncRewardSummaryForCycle(
     billingsByYm: new Map(((billingRangeRes.data ?? []) as BillingRow[]).map((row) => [row.ym, row])),
     planCycle,
     project,
+    liabilityOffsets: (liabilityOffsetsRes.data ?? []) as RewardLiabilityOffsetInput[],
   });
 
   if (!rewardSummary || rewardSummary.members.length === 0) {
@@ -1791,6 +2033,14 @@ export async function computeForwardCappedMemberCosts(
   // 支払対象外メンバーは cap 配分から落とす。役員は同じ cap 配分に入れたうえで会社留保に振る。
   const excludedMemberIds = new Set<string>();
   const companyReserveMemberIds = new Set<string>();
+  const liabilityOffsetsRes = await db
+    .from("reward_member_liability_offsets")
+    .select("project_id, plan_cycle_id, member_id, pool, amount_yen, applies_from_ym, status, reason")
+    .eq("project_id", projectId)
+    .eq("plan_cycle_id", planCycle.plan_cycle_id)
+    .eq("status", "active");
+  if (liabilityOffsetsRes.error) throw liabilityOffsetsRes.error;
+
   for (const member of (membersRes.data ?? []) as MemberRow[]) {
     memberMap[member.member_id] = member.code_name || member.member_name || member.member_id;
     if (member.is_officer) companyReserveMemberIds.add(member.member_id);
@@ -1821,6 +2071,7 @@ export async function computeForwardCappedMemberCosts(
       billingsByYm: billingByYm,
       planCycle,
       project,
+      liabilityOffsets: (liabilityOffsetsRes.data ?? []) as RewardLiabilityOffsetInput[],
     });
     const members = summary?.members ?? [];
     const payableMembers = members.filter((m) => !excludedMemberIds.has(m.memberId) && !m.payoutExcluded);
