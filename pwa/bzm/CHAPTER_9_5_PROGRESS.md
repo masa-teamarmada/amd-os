@@ -1,0 +1,46 @@
+# CHAPTER_9_5_PROGRESS.md — Ch 9.5 ラウンドテーブル — 二層を結合する組成機構 (L3)
+
+新設根拠: D-056 (2026-07-02)。28p、Book II load-bearing 形式章 (書き順: Ch 10.7 の後)。RT = 仮説的第三柱 (定義・命題 = 純理論 / 実証仮説 = Ch 26b flush)。
+
+## 6ステージ進捗
+
+| ステージ | 状態 | 日付 | 備考 |
+|---|---|---|---|
+| 1. 節 skeleton workflow | ✅ 完了 | 2026-07-02 | 3 persona (メカニズムデザイン/進化経済システム/計量測定) × 3 lens × synth。winner = メカニズムデザイン案、進化経済案から系譜接続・計量案から観測装置形式化を graft。成果物 = `CHAPTER_9_5_SKELETON.json` |
+| 2. まさ確定 (節レベル) | ⏳ **Kingpin 8件 提示済み・まさ回答待ち** | — | 下記 Kingpin 一覧。確定後 BOOK_DECISIONS.md に判例 append |
+| 3. 段落 outline workflow | 未着手 | — | 書き順上は Ch 10.7 の後 (D-007/D-056)。skeleton 確定だけ先行 |
+| 4. 段落 draft workflow | 未着手 | — | |
+| 5. adversarial verify (5 経済学者 persona) | 未着手 | — | D-056 で適用確定 |
+| 6. まさ段落確定 + BUILD_VERSION bump + commit | 未着手 | — | |
+
+## 節構成 (skeleton v1、まさ確定待ち)
+
+| 節 | タイトル | p |
+|---|---|---:|
+| 9.5.0 | 章頭フック — どの計器も振れなかった四半期 (三項構造の宣言 + 主張の三分割 Tier 宣言) | 2 |
+| 9.5.1 | RT の形式定義 — 組 ℛ・7ノード・二層経済の IR/IC 定式化、非RT境界、ecosystem genesis 系譜 | 4.5 |
+| 9.5.2 | 成立条件 I: 多者性 — 命題 9.5.1 (実需1者は dominator 均衡へ退化) + 系「数でなく量」 | 3 |
+| 9.5.3 | 成立条件 II: 連鎖性 — 命題 9.5.2 (不可逆な先頭コミットの公知化が情報カスケードを点火) | 3.5 |
+| 9.5.4 | 成立条件 III: 相互牽制 — 命題 9.5.3 (退出オプションによる keystone 規律) + 仮定 L (独禁未確認) | 3.5 |
+| 9.5.5 | 観測レンズ — CRL L0-L5 / ICT: 許容事象集合・自動降格・機械抽出・三値区別 (ERS 非合算の公理的正当化) | 4.5 |
+| 9.5.6 | S 動学への接続 — 命題 9.5.4 (排他的主経路割当 + leave-one-out ERS₋ᵢ) + バイアス符号の系 | 3.5 |
+| 9.5.7 | Ψ 分解仮説 (9.5.H) と Tier A 観測記述 — Murmann 法人化前カーネル、弱点自己開示、前方参照 | 3.5 |
+
+計 28.0p。詳細 (anchor claims / 依存 / references) は `CHAPTER_9_5_SKELETON.json`。
+
+## ステージ2 Kingpin (まさ確定待ち、2026-07-02 提示)
+
+| # | 論点 | synth 推奨 |
+|---|---|---|
+| K1 | 命題番号体系 — Ψ 分解を「仮説 9.5.H」として定理番号系から隔離するか | (a) 定義/補題/命題/系 + 仮説 9.5.H。Theorem を名乗らない = Tier 謙抑 |
+| K2 | 連鎖性の主形式装置 | (a) 逐次参入 + observational learning (BHW/Banerjee) 主装置、Granovetter/global games は脚注+付録 |
+| K3 | 独禁の提示形式 | (a) 仮定 L (formal 格納) + 本文 box (非断定文面) 併用 + Ch 37.5 番号割当 |
+| K4 | CRL 運用パラメータ — (i) L2 規模条件 (y換算 ≥ n₀ヶ月、候補 n₀=3、類型別) (ii) 自動降格 Δ (L2=365日/L4-L5=180日仮置き) (iii) L4 の機械抽出 proxy | (a)(a)(a)。数値は本文に書かず Ch 26b 事前登録で凍結。**n₀ 水準と類型間非対称はまさのドメイン判断**|
+| K5 | 記号ブロックの D-051 整合 | (a) ℛ = (d*, 𝒩, 𝒦, 𝒳, Γ)、主経路タグ m(e)、ERS₋ᵢ。付録A冒頭表に一括追記 |
+| K6 | Tier A 観測記述の開示粒度 (SX/EWIR・KENQ) | (a) CRL 到達レベル + 事象種別のみ (金額なし or 幅表記)、composite 宣言、案件全体像は Ch 15 に分担。**金額幅表記の要否はまさ判断** |
+| K7 | 節番号の視覚的衝突 (Ch 9 §9.5 と本章 §9.5.x) | (a) 他章の節参照は常に章名付き (「Ch 9 §9.5」) の記法規律を glossary + L1 追記 |
+| K8 | 純理論/実証仮説の分離線 — 各命題直後に追加仮定を明示列挙 (仮定を隠して定理を強く見せない) | (a) 追認。adversarial verify (DSGE/進化経済) が最初に刺す点の先回り |
+
+## 関連
+- 設計判例: `BOOK_DECISIONS.md` D-056 / 理論正本: `/Users/masa/projects/AMD/BZSF/rt_roundtable_theory.md` v0.2 §13.4-13.6 / ポートフォリオ: `BOOKS_PORTFOLIO.md` PF-008
+- skeleton 生成 workflow: run wf_4432f1b0-6ea (3 drafts + synth、2026-07-02)
