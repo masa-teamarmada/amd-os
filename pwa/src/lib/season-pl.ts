@@ -20,7 +20,6 @@
 
 import {
   buildRewardSummary,
-  type RewardLiabilityOffsetInput,
   type RewardSummary,
 } from "@/lib/reward-summary";
 import { contractBackedClientAmount } from "@/lib/contract-money";
@@ -124,8 +123,6 @@ export type MemberInput = {
   is_officer?: boolean | null;
   exclude_from_payout_notice?: boolean | null;
 };
-
-export type RewardLiabilityOffset = RewardLiabilityOffsetInput;
 
 export type BufferItem = { label: string; amount: number };
 
@@ -340,7 +337,6 @@ function buildMonthlySummaries({
   payoutExcludedMemberIds,
   memberMap,
   billingsByYm,
-  liabilityOffsets,
 }: {
   planCycle: PlanCycleInput;
   project: ProjectInput | null;
@@ -352,7 +348,6 @@ function buildMonthlySummaries({
   payoutExcludedMemberIds: Set<string>;
   memberMap: Record<string, string>;
   billingsByYm: Map<string, BillingInput>;
-  liabilityOffsets?: RewardLiabilityOffsetInput[];
 }): Map<string, RewardSummary> {
   const byYm = new Map<string, RewardSummary>();
   // buildRewardSummary は reward-summary.ts の Row 型を期待する。形は互換 (列名一致) なので
@@ -374,7 +369,6 @@ function buildMonthlySummaries({
       billingsByYm: rsBillingsByYm,
       planCycle: planCycle as Parameters<typeof buildRewardSummary>[0]["planCycle"],
       project: project as Parameters<typeof buildRewardSummary>[0]["project"],
-      liabilityOffsets,
     });
     if (summary) byYm.set(ym, summary);
   }
@@ -393,7 +387,6 @@ export function computeSeasonPl({
   responsibilities,
   members,
   activeMemberIds,
-  liabilityOffsets,
 }: {
   planCycle: PlanCycleInput;
   project: ProjectInput | null;
@@ -404,8 +397,6 @@ export function computeSeasonPl({
   members: MemberInput[];
   /** project_members.is_active=true のメンバー集合。未指定なら全員 active 扱い */
   activeMemberIds?: Set<string>;
-  /** 支払済み/通知済みの過払いを同一メンバー本人の未払残から相殺する台帳 */
-  liabilityOffsets?: RewardLiabilityOffsetInput[];
 }): SeasonPl {
   const billingsByYm = new Map<string, BillingInput>(billings.map((row) => [row.ym, row]));
   const cycleMonths = cycleMonthsRange(planCycle);
@@ -484,7 +475,6 @@ export function computeSeasonPl({
     payoutExcludedMemberIds,
     memberMap,
     billingsByYm,
-    liabilityOffsets,
   });
 
   // buildRewardSummary(ym) の member.earnedPt / totalPay / companyReserveYen は「その単月分」。

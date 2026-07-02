@@ -33,8 +33,8 @@
 | `plannedShare` | MS 設計時点の予定担当比率 (= `milestone_responsibility.share`) |
 | `actualShare` | 当月の活動ログから算出・確認した実績配分 (= `milestone_monthly_contribution_allocations.actual_share`) |
 | `share` | 報酬計算に使う比率。`actualShare` が `auto_applied` / `confirmed` / `pm_override` なら実績配分、なければ `plannedShare` |
-| `earnedPt` | メンバーの当月獲得 pt 表示値 = `Σ_ms round(consumedPt × share, 2桁)`。円額計算の正本は丸め前の `earnedPtRaw` |
-| `basePay` | MSごとの `round(currCumEarnedPtRaw × ptUnit) - round(prevCumEarnedPtRaw × ptUnit)` の合算 (= ベース報酬) |
+| `earnedPt` | メンバーの当月獲得 pt = `Σ_ms (consumedPt × share)` |
+| `basePay` | `round(earnedPt × ptUnit)` (= ベース報酬) |
 | `bonusPt` | bonus ポイント (= **現状 0 固定**、 後述) |
 | `totalPay` | cap 前は `basePay + bonusPt`、 cap 後は実支払額 |
 | `grossDue` | `totalPay + carryIn` (= cap 前にメンバーが「本来もらえる額」) |
@@ -64,7 +64,7 @@ monthlyConsumedPt = Σ_ms consumedPt[ms]
 
 # 個人配分
 earnedPt[member]  = Σ_ms (consumedPt[ms] × share[member, ms]) # share は実績配分優先
-basePay[member]   = Σ_ms (round(cumEarnedPt[ms,member] × ptUnit) − round(prevCumEarnedPt[ms,member] × ptUnit))
+basePay[member]   = round(earnedPt[member] × ptUnit)
 totalPay[member]  = basePay[member] + bonusPt[member]        # bonusPt は現状 0
 
 # キャップ制御 (= 月次支払上限)
@@ -90,8 +90,6 @@ companyReserveUnfundedYen[officer] = grossDueForCap[officer] − allocated[offic
 stockYen[officer] = companyReserveUnfundedYen[officer]      # 翌月 carryIn[officer] へ
 paid[officer] = 0
 ```
-
-`basePay` は月ごとの `earnedPt` を2桁丸めしてから円換算しない。MSごと・メンバーごとに `round(累計earnedPt×ptUnit) - round(前月までの累計earnedPt×ptUnit)` を当月額にする。これにより、期間按分で月をまたいでもシーズン合計は必ず `round(MS総pt×share×ptUnit)` に収束する。
 
 > **2026-06-19 まさ確定 — 役員 stock 繰越**: 旧実装は役員 (`is_officer`) の `carryIn` を 0 にし、cap 不足月に留保しきれなかった分 (`companyReserveUnfundedYen`) を翌月へ繰り越さず捨てていた。SX のように cap が慢性的に逼迫する PJ では、これにより**役員 (= AMD 会社留保) が年間で pt 比どおりに受け取れず構造的に取りこぼす**事故になっていた (SX 現行サイクルだけで役員計 約189万、3 active PJ で約192万)。役員も非役員と同じく stock を繰り越す方式に変更し、`年間原資 = Σ(pt × pt単価)`、`Σ月cap = 年間原資` の下で**月次の前後はあっても年間で全員 pt 比に収束**することをシミュレーション+本番再計算で検証済み。実装は `pwa/src/lib/reward-summary.ts` の `applyRewardCapsForMonth` (cap 按分母数に officer の carryIn を含める / 役員返却ブロックで `stockYen` を繰り越す) の 2 箇所。
 
@@ -292,7 +290,7 @@ extra_budget_yen: 202605〜202609 = 0 (全額繰越) / 202610 = 1,300,000 (完�
 
 `budget_buffer_amount` がある月は、請求額の 65% からその額を先に AMD 回収分として差し引く。契約自動確定では `budget_yen = round(invoiceYen × 0.65) - budget_buffer_amount` として保存するため、報酬計算側が見る `capBudgetYen` はすでにバッファ消化後の値になる。
 
-シーズン内で使い切らなかった cap は、同じプール内の翌月以降へ繰り越す。これはメンバーへの未払 `stockYen` とは別の「未使用支払枠」で、`billing_cycles.budget_yen` / `extra_budget_yen` 自体は月次の基本 cap として維持する。契約最終月は、繰越 cap を使った後に `ptUnit = round(cycleBudget / totalPt)` などの円丸めで 10,000 円以下の少額 stock が残る場合だけ、最終月の有効 cap に差分を足して `stockYen = 0` に閉じる。通常月 cap は契約月額 × 65% を維持し、シーズン全体では全 PJ が未払ゼロ着地になる。10,000 円を超える不足は丸め誤差ではなく設計・契約・billing の不整合として扱い、自動で隠さない。
+契約最終月に `ptUnit = round(cycleBudget / totalPt)` の円丸めで少額の stock が残る場合は、最終月の `billing_cycles.budget_yen` に丸め差分を加算して stock を 0 円にする。通常月 cap は契約月額 × 65% を維持し、丸め調整は最終月だけに限定する。
 
 ### 会社留保の扱い
 
@@ -336,23 +334,22 @@ for each member in members:                      # earnedPt 降順
 
 前月 `billing_cycles.reward_summary_json.members[*].stockYen` を読んで `carryIn[memberId]` として加算。
 
-同時に、前月までに使い切らなかった支払 cap もプール別に繰り越す。regular の未使用 cap は regular の支払い・会社留保だけに、cap_extra の未使用 cap は cap_extra の支払い・会社留保だけに使う。これにより、前半で MS 消化が薄い月の cap を捨てず、後半で MS 消化が厚くなった月に自然に充当できる。
-
 特例: **当月の members 配列に居なくても、 前月 stockYen が残ってるメンバーは「carry-only 行」として members に追加** される (= `earnedPt = 0, basePay = 0, grossDue = carryIn`)。 これで「過去に働いて未払いだったメンバー」が忘れ去られない。
 
 `stockYen` はその月に新しく発生した未払い額ではなく、`carryIn + 当月発生 - totalPay` 後の**月末未払い残高**。UIでは `stockYen` だけを単独表示せず、`/admin/payouts` の報酬債務台帳で `carryInYen` / 当月発生 / `totalPay` / `stockYen` を同じ行に並べる。
 
 契約開始前に実働がある PJ では、契約前の稼働月は `budget_yen = 0` のまま `grossDue` と `stockYen` を発生させる。契約開始後の月では、前月までの `stockYen` が `carryInYen` になり、当月発生分と同じ cap の中で支払・繰越される。このため `stockYen` が大きいこと自体は異常ではなく、「どの月から来た残高か」を台帳で確認する。
 
+### MS修正差額 (= liability offsets)
+
+MS をシーズン途中で修正し、すでに protected な月 (`reward_paid_at` / `payout_notice_uploaded_at` / `payment_confirmed_at`) の本来報酬が変わる場合、その月の `billing_cycles.reward_summary_json` は書き換えない。`/admin/ms-overview` 保存時に旧 cache と新計算値の member×pool 差額を `reward_member_liability_offsets` に記録し、次の未保護月の報酬計算へ入れる。
+
+- `offset_yen > 0`: 本人への追加支払。`apply_ym` の basePay に加算され、通常の cap / stock 繰越に乗る。
+- `offset_yen < 0`: 本人への過払い回収。`apply_ym` 以降の本人の `basePay + carryInYen` から控除し、回収しきれない分は `liabilityRecoupCarryYen` として次月へ残る。
+- `apply_ym IS NULL`: シーズン内に未保護の未来月が無い pending 差額。自動では他メンバーや会社バッファへ振らない。
+- 同じ MS 編集由来の pending 行は、保存し直すたびに `voided` へ置き換える。差額は常に「protected 月の保存済み cache」と「現在の MS 設計で再計算した本来値」の差として再作成する。
+
 先12か月の見通しでは、会社留保を `出` に混ぜない。`キャッシュ支払` は外部支払だけ、`会社留保` は `cap/売上枠 - 外部支払`、`報酬債務` は月末未払い残、`cap超過チェック` は報酬需要と cap/売上枠の差だけを見る。各表のセルは、その表で確認したい主数字を優先し、別目的の補助数字を混ぜない。`stockYen` は残高なので、12か月分の単純合計を「未払い総額」として読まない。報酬債務表の合計列はピークではなく、最終月に未払い残がゼロ着地するかを最優先で表示する。
-
-### 支払済み/通知済みの過払いを本人の未払残から相殺する
-
-支払通知書を送付済み、または実際に支払済みの月は、あとから現行ロジックの金額へ書き換えない。現行ロジックより多く払っていたことが分かった場合は、会社留保や他メンバーの未払残で吸収せず、同一PJ・同一シーズン・同一メンバー本人の `stockYen` からだけ差し引く。
-
-この相殺は `reward_member_liability_offsets` に監査台帳として残し、`buildRewardSummary` の capped 計算後、対象メンバーの未払残 (`regularStockYen` / `extraStockYen`) が発生した月以降で消化する。`pool='any'` の場合は regular → cap_extra の順で本人の未払残だけを減らす。未払残が足りない分は残額として翌月以降へ持ち越す。
-
-ZMP 2026シーズンの運用判断では、しん・こうの小額過払いは許容し、あび・うめの過払いだけを本人の未払残から相殺する。これは支払通知書の再発行ではなく、シーズン全体で「クライアント支払額 − バッファ」に 65% を掛けた原資以内へ収束させるための支払スケジュール調整。
 
 ---
 
@@ -362,12 +359,8 @@ ZMP 2026シーズンの運用判断では、しん・こうの小額過払いは
 
 ```text
 # キャップ・キャリーストックを通さず、その月消化分だけで確定
-earnedPtRaw[ms, member] = consumedPt[ms] × share[member, ms]
-earnedPt[member]        = Σ_ms round(earnedPtRaw[ms, member], 2桁)  # pt 表示用
-payYen[member]          = Σ_ms (
-  round(currCumEarnedPtRaw[ms, member] × ptUnit)
-  - round(prevCumEarnedPtRaw[ms, member] × ptUnit)
-)
+earnedPt[member] = Σ_ms (consumedPt[ms] × share[member, ms])
+payYen[member]   = round(earnedPt[member] × ptUnit)      # = そのまま支払額扱い
 ```
 
 `buildRewardSummary` (= capped) との違いは **月次キャップ・carryIn・stockYen を一切通さない**こと。 「その月に得た pt だけでその月の報酬が決まる」という素の定義そのもの。 capped 版は、 この uncapped の値に対して支払い上限と繰越平準化 (キャリーストック) をかけた**支払いスケジュール**にすぎない。
@@ -410,14 +403,10 @@ payYen[member]          = Σ_ms (
   "totalPaySum": 195000,
   "totalGrossDueYen": 251000,
   "capBudgetYen": 195000,
-  "effectiveCapBudgetYen": 227000,
   "capped": true,
   "carryInYen": 32000,
   "carryOverYen": 56000,
   "monthlyBudget65": 195000,
-  "regularCapCarryInYen": 32000,
-  "regularUnusedCapCarryOutYen": 0,
-  "finalCapTopUpYen": 0,
   "planCycleId": "pc_xxx",
   "annualBudget": 3000000,
   "grossBudget": 2340000,

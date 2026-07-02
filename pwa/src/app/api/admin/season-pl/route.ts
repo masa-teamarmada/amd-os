@@ -14,7 +14,6 @@ import {
   type ProgressInput,
   type ResponsibilityInput,
   type MemberInput,
-  type RewardLiabilityOffset,
 } from "@/lib/season-pl";
 
 export const runtime = "nodejs";
@@ -29,7 +28,6 @@ const PROJECT_SELECT =
 const BILLING_SELECT =
   "project_id, ym, status, budget_yen, budget_reported_amount, budget_buffer_amount, extra_budget_yen, reward_summary_json, payment_confirmed_at";
 const MEMBER_SELECT = "member_id, code_name, member_name, is_officer, exclude_from_payout_notice";
-const LIABILITY_OFFSET_SELECT = "project_id, plan_cycle_id, member_id, pool, amount_yen, applies_from_ym, status, reason";
 
 type PlanCycleRow = PlanCycleInput;
 type ProjectRow = ProjectInput;
@@ -38,7 +36,6 @@ type MilestoneRow = MilestoneInput;
 type ProgressRow = ProgressInput;
 type ResponsibilityRow = ResponsibilityInput;
 type MemberRow = MemberInput;
-type LiabilityOffsetRow = RewardLiabilityOffset;
 
 /** active plan cycle を全件、または 1 件だけ読む。 */
 async function loadPlanCycles(
@@ -59,7 +56,7 @@ async function loadPlanCycles(
 async function computeForPlanCycle(db: SupabaseClient, planCycle: PlanCycleRow): Promise<SeasonPl | null> {
   const projectId = planCycle.project_id;
 
-  const [projectRes, billingRes, milestoneRes, membersRes, projectMembersRes, liabilityOffsetsRes] = await Promise.all([
+  const [projectRes, billingRes, milestoneRes, membersRes, projectMembersRes] = await Promise.all([
     db.from("projects").select(PROJECT_SELECT).eq("project_id", projectId).maybeSingle(),
     db
       .from("billing_cycles")
@@ -76,19 +73,12 @@ async function computeForPlanCycle(db: SupabaseClient, planCycle: PlanCycleRow):
       .order("sort_order"),
     db.from("members").select(MEMBER_SELECT),
     db.from("project_members").select("member_id, is_active").eq("project_id", projectId),
-    db
-      .from("reward_member_liability_offsets")
-      .select(LIABILITY_OFFSET_SELECT)
-      .eq("project_id", projectId)
-      .eq("plan_cycle_id", planCycle.plan_cycle_id)
-      .eq("status", "active"),
   ]);
   if (projectRes.error) throw projectRes.error;
   if (billingRes.error) throw billingRes.error;
   if (milestoneRes.error) throw milestoneRes.error;
   if (membersRes.error) throw membersRes.error;
   if (projectMembersRes.error) throw projectMembersRes.error;
-  if (liabilityOffsetsRes.error) throw liabilityOffsetsRes.error;
 
   const project = (projectRes.data ?? null) as ProjectRow | null;
   const billings = (billingRes.data ?? []) as BillingRow[];
@@ -132,7 +122,6 @@ async function computeForPlanCycle(db: SupabaseClient, planCycle: PlanCycleRow):
     responsibilities: (responsibilitiesRes.data ?? []) as ResponsibilityRow[],
     members,
     activeMemberIds,
-    liabilityOffsets: (liabilityOffsetsRes.data ?? []) as LiabilityOffsetRow[],
   });
 }
 
