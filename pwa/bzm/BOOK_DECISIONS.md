@@ -455,6 +455,14 @@
 - **status**: active
 - *注: ERS 側接続 (ICT + 最小サブ軸 4-d/2-e/8-b + 二重計上ガード: 排他的主経路割当・take-or-pay 3分割・leave-one-out ERS₋ᵢ・帰属タグ) の正本は `BZSF/rt_roundtable_theory.md` §13.4-13.6 (v0.2)。出版ポートフォリオ側の判例は `BOOKS_PORTFOLIO.md` PF-008。*
 
+### D-057: Ch 9.5 節 skeleton 確定 (ステージ2) — Kingpin K1-K8 の裁定
+- **judgment**: Ch 9.5 skeleton v1 (`CHAPTER_9_5_SKELETON.json`、8節 28.0p) を確定。Kingpin 8件はすべて synth 推奨案を採用: K1 = 番号体系「定義/補題/命題/系 + **仮説 9.5.H**」(Theorem を名乗らない Tier 謙抑) / K2 = 連鎖性の主装置は逐次参入 + observational learning (BHW 1992 / Banerjee 1992)、Granovetter・global games は脚注+付録格下げ / K3 = 独禁は仮定 L (formal 格納) + 本文 box (非断定文面) 併用 + Ch 37.5 番号割当 / K4 = CRL L2 に案件相対規模条件を課す。**n₀ = 3ヶ月 (y 換算) で仮置き** (まさ確定「とりあえず3か月においてみよう」。一律で開始、類型別非対称は Ch 26b 事前登録時に再検討)。自動降格 Δ はレベル別仮置き (L2=365日 / L4-L5=180日)、L4 は proxy 定義 (keystone 側接触ログ突合 + 参画者側申出記録)。数値はすべて本文に書かず Ch 26b 事前登録で凍結 / K5 = RT 記号ブロック ℛ = (d*, 𝒩, 𝒦, 𝒳, Γ)・m(e)・ERS₋ᵢ・q・Ψ̄/β・n₀ を付録 A 冒頭 symbol convention に追加 (terminology_glossary.md §3 に正本化、D-051 拡張) / K6 = Tier A 観測記述は CRL 到達レベル + 事象種別のみ。**金額は非表記で開始** (幅表記は必要が生じたら再判断)。案件全体像は Ch 15 に分担 / K7 = 節参照は常に章名付き (「Ch 9 §9.5」) の記法規律を terminology_glossary §2 に正本化 / K8 = 各命題直後に追加仮定を明示列挙 (仮定を隠して定理を強く見せない) を追認。
+- **rationale**: まさ確定 2026-07-02「とりあえず3か月においてみよう。その形で進めておけ」。K4 の n₀ はドメイン判断としてまさが仮置き値を指定、事前登録凍結の設計 (数値を本文に焼き込まない) はそのまま。K6 は保守側 (非表記) で開始 — 後から幅表記を足すのは可能だが逆は刷了後に不可能。
+- **applies_to_chapters**: Ch 9.5, Ch 15, Ch 26b, Ch 37.5, 付録 A, terminology_glossary.md
+- **date**: 2026-07-02
+- **status**: active
+- *注: ステージ3 (段落 outline) は書き順 (D-007/D-056: Ch 10.7 の後) に従い待機。CRL 運用パラメータの理論正本は `BZSF/rt_roundtable_theory.md` §13.2 に反映済み。*
+
 ---
 
 ## 4. Pending decisions (まさ判断待ち)

@@ -7,8 +7,8 @@
 | ステージ | 状態 | 日付 | 備考 |
 |---|---|---|---|
 | 1. 節 skeleton workflow | ✅ 完了 | 2026-07-02 | 3 persona (メカニズムデザイン/進化経済システム/計量測定) × 3 lens × synth。winner = メカニズムデザイン案、進化経済案から系譜接続・計量案から観測装置形式化を graft。成果物 = `CHAPTER_9_5_SKELETON.json` |
-| 2. まさ確定 (節レベル) | ⏳ **Kingpin 8件 提示済み・まさ回答待ち** | — | 下記 Kingpin 一覧。確定後 BOOK_DECISIONS.md に判例 append |
-| 3. 段落 outline workflow | 未着手 | — | 書き順上は Ch 10.7 の後 (D-007/D-056)。skeleton 確定だけ先行 |
+| 2. まさ確定 (節レベル) | ✅ **完了** | 2026-07-02 | K1-K8 全て推奨採用で確定 (D-057)。K4 = n₀ **3ヶ月仮置き** (まさ「とりあえず3か月においてみよう」)、K6 = 金額非表記で開始。判例 = `BOOK_DECISIONS.md` D-057 |
+| 3. 段落 outline workflow | ⏸ 書き順待機 | — | 書き順上は Ch 10.7 の後 (D-007/D-056)。現行の起草優先は Book I Ch 1 から順 (まさ確定 2026-06-28) |
 | 4. 段落 draft workflow | 未着手 | — | |
 | 5. adversarial verify (5 経済学者 persona) | 未着手 | — | D-056 で適用確定 |
 | 6. まさ段落確定 + BUILD_VERSION bump + commit | 未着手 | — | |
@@ -28,7 +28,7 @@
 
 計 28.0p。詳細 (anchor claims / 依存 / references) は `CHAPTER_9_5_SKELETON.json`。
 
-## ステージ2 Kingpin (まさ確定待ち、2026-07-02 提示)
+## ステージ2 Kingpin (✅ 2026-07-02 確定 — 全件 synth 推奨採用、確定値は D-057。以下は提示時の記録)
 
 | # | 論点 | synth 推奨 |
 |---|---|---|
