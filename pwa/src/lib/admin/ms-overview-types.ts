@@ -20,6 +20,8 @@ export type MsOverviewMilestone = {
   milestoneId: string;
   title: string;
   points: number;
+  /** 設計レビュー用の目安額。支払確定額ではない。 */
+  designAmountYen: number;
   /** "cap_extra" | "normal" | "routine" など。バー色判別に使う */
   tag: string;
   goalLevel: string;
@@ -39,6 +41,9 @@ export type MsOverviewMemberPointTotal = {
   regularPt: number;
   extraPt: number;
   totalPt: number;
+  regularDesignYen: number;
+  extraDesignYen: number;
+  totalDesignYen: number;
 };
 
 /**
@@ -58,6 +63,12 @@ export type MsOverviewPlanCycle = {
   periodStartYm: string;
   periodEndYm: string;
   budgetYen: number;
+  /** cap_extra など別財布の設計原資。billing_cycles.extra_budget_yen の合計。 */
+  extraDesignBudgetYen: number;
+  /** 本契約 1pt あたりの設計単価。支払確定単価ではない。 */
+  regularDesignUnitYen: number;
+  /** 別財布 1pt あたりの設計単価。未設定なら 0。 */
+  extraDesignUnitYen: number;
   totalPoints: number;
   regularPoints: number;
   extraPoints: number;

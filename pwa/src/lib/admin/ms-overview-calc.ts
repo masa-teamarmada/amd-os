@@ -4,8 +4,9 @@
  * 編集モードでスライダーを動かすたびに JS 側で再計算するため、route と client の
  * 両方から呼べる純関数として抽出した。
  *
- * この画面は MS 設計レビュー専用なので、支払額に見える円換算は出さない。
- * 円の支払額は reward-summary / season-pl / payouts 側を正本にする。
+ * この画面は MS 設計レビュー専用なので、支払確定額は出さない。
+ * 編集判断用の「設計額」だけを pt × plannedShare から出す。
+ * 確定支払額は reward-summary / season-pl / payouts 側を正本にする。
  *
  * 正本式:
  *   regularPts   = シーズン期間の月数 × 10pt
@@ -58,6 +59,10 @@ export type EditableMilestoneInput = {
 export type RecomputeInput = {
   /** 本契約 pt 分母 = シーズン期間の月数 × 10pt */
   regularPointBasis: number;
+  /** 本契約 1pt あたりの設計単価。支払確定単価ではない。 */
+  regularDesignUnitYen?: number;
+  /** 別財布 1pt あたりの設計単価。支払確定単価ではない。 */
+  extraDesignUnitYen?: number;
   /** 編集対象の MS 一覧 (= スライダーで動かした最新値) */
   milestones: EditableMilestoneInput[];
 };
@@ -95,24 +100,44 @@ export function effectiveEditableMilestonePoints(ms: EffectiveMilestonePointsInp
  */
 export function recomputeMsOverview(input: RecomputeInput): RecomputeResult {
   const regularPoints = roundPt(Math.max(0, safeNumber(input.regularPointBasis)));
+  const regularDesignUnitYen = Math.max(0, Math.round(safeNumber(input.regularDesignUnitYen)));
+  const extraDesignUnitYen = Math.max(0, Math.round(safeNumber(input.extraDesignUnitYen)));
   const extraPoints = roundPt(
     input.milestones.filter((ms) => ms.isCapExtra).reduce((sum, ms) => sum + effectiveEditableMilestonePoints(ms), 0),
   );
   const totalPoints = roundPt(regularPoints + extraPoints);
 
-  type Acc = { regularPt: number; extraPt: number; codeName: string };
+  type Acc = {
+    regularPt: number;
+    extraPt: number;
+    regularDesignYen: number;
+    extraDesignYen: number;
+    codeName: string;
+  };
   const acc = new Map<string, Acc>();
 
   for (const ms of input.milestones) {
     const points = effectiveEditableMilestonePoints(ms);
+    const designUnitYen = ms.isCapExtra ? extraDesignUnitYen : regularDesignUnitYen;
     for (const r of ms.responsibilities) {
       const share = safeNumber(r.share);
       if (share <= 0) continue;
       const earnedPt = points * share;
       if (earnedPt <= 0) continue;
-      const a = acc.get(r.memberId) ?? { regularPt: 0, extraPt: 0, codeName: r.codeName };
-      if (ms.isCapExtra) a.extraPt += earnedPt;
-      else a.regularPt += earnedPt;
+      const a = acc.get(r.memberId) ?? {
+        regularPt: 0,
+        extraPt: 0,
+        regularDesignYen: 0,
+        extraDesignYen: 0,
+        codeName: r.codeName,
+      };
+      if (ms.isCapExtra) {
+        a.extraPt += earnedPt;
+        a.extraDesignYen += earnedPt * designUnitYen;
+      } else {
+        a.regularPt += earnedPt;
+        a.regularDesignYen += earnedPt * designUnitYen;
+      }
       // codeName は最後に与えられたものを残す (= route のレスポンスと一致させる)
       a.codeName = r.codeName;
       acc.set(r.memberId, a);
@@ -123,12 +148,17 @@ export function recomputeMsOverview(input: RecomputeInput): RecomputeResult {
     .map(([memberId, a]) => {
       const regularPt = roundPt(a.regularPt);
       const extraPt = roundPt(a.extraPt);
+      const regularDesignYen = Math.round(a.regularDesignYen);
+      const extraDesignYen = Math.round(a.extraDesignYen);
       return {
         memberId,
         codeName: a.codeName,
         regularPt,
         extraPt,
         totalPt: roundPt(regularPt + extraPt),
+        regularDesignYen,
+        extraDesignYen,
+        totalDesignYen: regularDesignYen + extraDesignYen,
       };
     })
     .filter((row) => row.totalPt > 0)

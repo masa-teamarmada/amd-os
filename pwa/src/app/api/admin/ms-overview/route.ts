@@ -4,9 +4,10 @@
  * 仕様正本: pwa/manual/6-8-admin-ms-overview-spec.md
  *
  * 全 active plan_cycle を横断して、各シーズンの MS 一覧 (pt順) と
- * メンバー別 pt 配分 (plannedShare ベース) を返す。
+ * メンバー別 pt 配分 (plannedShare ベース) と設計額の目安を返す。
  *
- * この画面は MS 設計レビュー専用。支払額に見える円換算は返さない。
+ * この画面は MS 設計レビュー専用。支払確定額は返さず、
+ * pt と plannedShare から見た「設計額」だけを返す。
  * 実際の支払額は reward-summary / season-pl / payouts 側を正本にする。
  */
 import { NextResponse } from "next/server";
@@ -41,6 +42,7 @@ const MEMBER_SELECT =
   "member_id, code_name, member_name, is_officer, exclude_from_payout_notice";
 const MILESTONE_SELECT =
   "milestone_id, title, points, tag, goal_level, success_criteria, sort_order, period_start_ym, target_ym";
+const BILLING_SELECT = "ym, extra_budget_yen";
 
 function numberValue(value: unknown): number {
   const n = typeof value === "number" ? value : Number(value ?? 0);
@@ -94,6 +96,11 @@ type ProjectRow = {
   project_id: string;
   project_name: string | null;
   client_name: string | null;
+};
+
+type BillingCycleMoneyRow = {
+  ym: string;
+  extra_budget_yen?: number | string | null;
 };
 
 /**
@@ -151,7 +158,7 @@ async function buildOverviewForPlanCycle(
 ): Promise<MsOverviewPlanCycle | null> {
   const projectId = planCycle.project_id;
 
-  const [projectRes, milestoneRes, membersRes, projectMembersRes] =
+  const [projectRes, milestoneRes, membersRes, projectMembersRes, billingRes] =
     await Promise.all([
       db.from("projects").select(PROJECT_SELECT).eq("project_id", projectId).maybeSingle(),
       db
@@ -162,11 +169,18 @@ async function buildOverviewForPlanCycle(
         .order("sort_order"),
       db.from("members").select(MEMBER_SELECT),
       db.from("project_members").select("member_id, is_active").eq("project_id", projectId),
+      db
+        .from("billing_cycles")
+        .select(BILLING_SELECT)
+        .eq("project_id", projectId)
+        .gte("ym", planCycle.period_start_ym)
+        .lte("ym", planCycle.period_end_ym),
     ]);
   if (projectRes.error) throw projectRes.error;
   if (milestoneRes.error) throw milestoneRes.error;
   if (membersRes.error) throw membersRes.error;
   if (projectMembersRes.error) throw projectMembersRes.error;
+  if (billingRes.error) throw billingRes.error;
 
   const project = (projectRes.data ?? null) as ProjectRow | null;
   // season-pl と同じ: monthly goal_level は報酬対象外なので除外する
@@ -179,6 +193,24 @@ async function buildOverviewForPlanCycle(
       .filter((row) => row.is_active !== false)
       .map((row) => row.member_id),
   );
+  const regularPoints = regularPointBasisForCycle(planCycle);
+  const extraPoints = roundPt(
+    milestones.filter((ms) => isCapExtraTag(ms.tag)).reduce((sum, ms) => sum + effectiveMilestonePoints(ms), 0),
+  );
+  const extraDesignBudgetYen = extraPoints > 0
+    ? ((billingRes.data ?? []) as BillingCycleMoneyRow[]).reduce((sum, billing) => {
+        const raw = billing.extra_budget_yen;
+        if (raw === null || raw === undefined || raw === "") return sum;
+        return sum + Math.max(0, Math.round(numberValue(raw)));
+      }, 0)
+    : 0;
+  const memberDesignBudgetYen = Math.round(numberValue(planCycle.budget_yen));
+  const regularDesignUnitYen = regularPoints > 0
+    ? Math.round(Math.max(0, memberDesignBudgetYen) / regularPoints)
+    : 0;
+  const extraDesignUnitYen = extraPoints > 0 && extraDesignBudgetYen > 0
+    ? Math.round(extraDesignBudgetYen / extraPoints)
+    : 0;
 
   const milestoneIds = milestones.map((ms) => ms.milestone_id);
   const responsibilitiesRes = milestoneIds.length > 0
@@ -215,6 +247,7 @@ async function buildOverviewForPlanCycle(
     .map((ms): MsOverviewMilestone => {
       const points = effectiveMilestonePoints(ms);
       const isCapExtra = isCapExtraTag(ms.tag);
+      const designUnitYen = isCapExtra ? extraDesignUnitYen : regularDesignUnitYen;
       // active メンバー (project_members.is_active=true) のみ責任者として残す。
       // milestone_responsibility に過去メンバーの share が残っていると、編集モードでは
       // recomputeMsOverview がその share を拾ってメンバー配分に inactive メンバーが
@@ -235,6 +268,7 @@ async function buildOverviewForPlanCycle(
         milestoneId: ms.milestone_id,
         title: ms.title || ms.milestone_id,
         points,
+        designAmountYen: Math.round(points * designUnitYen),
         tag: String(ms.tag ?? "normal"),
         goalLevel: String(ms.goal_level ?? "season"),
         successCriteria: String(ms.success_criteria ?? ""),
@@ -250,21 +284,27 @@ async function buildOverviewForPlanCycle(
   // ③ メンバー別 pt 配分 (plannedShare ベース)
   //    各 MS について points × share を、tag が cap_extra か否かで regular/extra pt に振り分け、
   //    active メンバー (project_members.is_active=true) のみ表示する。
-  type Acc = { regularPt: number; extraPt: number };
+  type Acc = { regularPt: number; extraPt: number; regularDesignYen: number; extraDesignYen: number };
   const acc = new Map<string, Acc>();
   for (const ms of milestones) {
     const points = effectiveMilestonePoints(ms);
     if (points <= 0) continue;
     const isExtra = isCapExtraTag(ms.tag);
+    const designUnitYen = isExtra ? extraDesignUnitYen : regularDesignUnitYen;
     const resps = respByMs.get(ms.milestone_id) ?? [];
     for (const r of resps) {
       if (!activeMemberIds.has(r.member_id)) continue;
       const share = numberValue(r.share);
       if (share <= 0) continue;
       const earnedPt = points * share;
-      const a = acc.get(r.member_id) ?? { regularPt: 0, extraPt: 0 };
-      if (isExtra) a.extraPt += earnedPt;
-      else a.regularPt += earnedPt;
+      const a = acc.get(r.member_id) ?? { regularPt: 0, extraPt: 0, regularDesignYen: 0, extraDesignYen: 0 };
+      if (isExtra) {
+        a.extraPt += earnedPt;
+        a.extraDesignYen += earnedPt * designUnitYen;
+      } else {
+        a.regularPt += earnedPt;
+        a.regularDesignYen += earnedPt * designUnitYen;
+      }
       acc.set(r.member_id, a);
     }
   }
@@ -272,21 +312,21 @@ async function buildOverviewForPlanCycle(
     .map(([memberId, a]): MsOverviewMemberPointTotal => {
       const regularPt = roundPt(a.regularPt);
       const extraPt = roundPt(a.extraPt);
+      const regularDesignYen = Math.round(a.regularDesignYen);
+      const extraDesignYen = Math.round(a.extraDesignYen);
       return {
         memberId,
         codeName: codeNameByMember.get(memberId) || memberId,
         regularPt,
         extraPt,
         totalPt: roundPt(regularPt + extraPt),
+        regularDesignYen,
+        extraDesignYen,
+        totalDesignYen: regularDesignYen + extraDesignYen,
       };
     })
     .filter((row) => row.totalPt > 0)
     .sort((a, b) => b.totalPt - a.totalPt);
-
-  const regularPoints = regularPointBasisForCycle(planCycle);
-  const extraPoints = roundPt(
-    milestones.filter((ms) => isCapExtraTag(ms.tag)).reduce((sum, ms) => sum + effectiveMilestonePoints(ms), 0),
-  );
 
   return {
     planCycleId: planCycle.plan_cycle_id,
@@ -296,7 +336,10 @@ async function buildOverviewForPlanCycle(
     status: planCycle.status || "active",
     periodStartYm: planCycle.period_start_ym,
     periodEndYm: planCycle.period_end_ym,
-    budgetYen: Math.round(numberValue(planCycle.budget_yen)),
+    budgetYen: memberDesignBudgetYen,
+    extraDesignBudgetYen,
+    regularDesignUnitYen,
+    extraDesignUnitYen,
     totalPoints: roundPt(regularPoints + extraPoints),
     regularPoints,
     extraPoints,

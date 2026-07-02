@@ -38,6 +38,12 @@ function fmtRevisionYen(n: number | null | undefined): string {
   return `${Math.round(v).toLocaleString("ja-JP")}円`;
 }
 
+function fmtDesignYen(n: number | null | undefined): string {
+  const v = Number(n ?? 0);
+  if (!Number.isFinite(v) || v <= 0) return "0円";
+  return `${Math.round(v).toLocaleString("ja-JP")}円`;
+}
+
 function fmtShare(n: number): string {
   return `${(Math.round(n * 1000) / 10).toLocaleString("ja-JP")}%`;
 }
@@ -135,6 +141,14 @@ function normalizeCapExtraPoint(row: EditableMilestoneInput): EditableMilestoneI
   return row.isCapExtra && points > 0 ? { ...row, points } : row;
 }
 
+function designUnitForEditableRow(
+  row: Pick<EditableMilestoneInput, "isCapExtra">,
+  regularDesignUnitYen: number,
+  extraDesignUnitYen: number,
+): number {
+  return row.isCapExtra ? extraDesignUnitYen : regularDesignUnitYen;
+}
+
 // ---- メトリクスカード -----------------------------------------------------
 
 function MetricCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -156,7 +170,7 @@ function MsRow({ ms, maxPoints }: { ms: MsOverviewMilestone; maxPoints: number }
     ? `${fmtYm(ms.periodStartYm)}${ms.targetYm ? `–${fmtYm(ms.targetYm)}` : ""}`
     : "";
   return (
-    <div className="grid grid-cols-[1fr_72px_1fr_180px] gap-3 items-center py-1.5 border-t border-border/60">
+    <div className="grid grid-cols-[minmax(180px,1fr)_72px_96px_minmax(140px,1fr)_190px] gap-3 items-center py-1.5 border-t border-border/60">
       <div className="min-w-0">
         <div className="text-sm truncate" title={ms.title}>{ms.title}</div>
         <div className="text-[10px] text-muted-foreground">
@@ -166,6 +180,9 @@ function MsRow({ ms, maxPoints }: { ms: MsOverviewMilestone; maxPoints: number }
         </div>
       </div>
       <div className="text-right text-sm tabular-nums">{fmtPt(ms.points)}pt</div>
+      <div className="text-right text-sm tabular-nums" title="設計額の目安。支払確定額ではない。">
+        {fmtDesignYen(ms.designAmountYen)}
+      </div>
       <div>
         <div
           className="h-3 rounded-sm"
@@ -188,12 +205,16 @@ function MsEditorRow({
   current,
   projectMembers,
   pointRange,
+  regularDesignUnitYen,
+  extraDesignUnitYen,
   onChange,
   onRemove,
 }: {
   current: EditableMilestoneInput;
   projectMembers: MsOverviewPlanCycle["projectMembers"];
   pointRange: ReturnType<typeof sliderRange>;
+  regularDesignUnitYen: number;
+  extraDesignUnitYen: number;
   onChange: (patch: Partial<EditableMilestoneInput>) => void;
   onRemove: () => void;
 }) {
@@ -204,6 +225,8 @@ function MsEditorRow({
   const usesPeriodPoints = current.isCapExtra && derivedPoints > 0;
   const displayPoints = usesPeriodPoints ? derivedPoints : current.points;
   const rowPointRange = usesPeriodPoints ? sliderRange(displayPoints) : pointRange;
+  const designUnitYen = designUnitForEditableRow(current, regularDesignUnitYen, extraDesignUnitYen);
+  const designAmountYen = Math.round(displayPoints * designUnitYen);
   const updatePoints = (points: number) => {
     if (!usesPeriodPoints) onChange({ points });
   };
@@ -317,8 +340,16 @@ function MsEditorRow({
             />
           </div>
 
-          <div className="rounded bg-muted/30 px-2 py-1 text-right text-[12px] text-muted-foreground tabular-nums">
-            {fmtPt(displayPoints)}pt
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded bg-muted/30 px-2 py-1 text-right text-[12px] text-muted-foreground tabular-nums">
+              {fmtPt(displayPoints)}pt
+            </div>
+            <div
+              className="rounded bg-muted/30 px-2 py-1 text-right text-[12px] text-muted-foreground tabular-nums"
+              title={`${fmtPt(displayPoints)}pt × 設計単価 ${fmtDesignYen(designUnitYen)}`}
+            >
+              設計額 {fmtDesignYen(designAmountYen)}
+            </div>
           </div>
 
           <textarea
@@ -339,22 +370,24 @@ function MsEditorRow({
             </span>
           </div>
           <div className="overflow-x-auto">
-            <div className="min-w-[650px]">
-              <div className="grid grid-cols-[88px_64px_76px_92px_minmax(180px,360px)] items-center gap-1.5 px-1 pb-1 text-[10px] text-muted-foreground">
+            <div className="min-w-[760px]">
+              <div className="grid grid-cols-[88px_64px_76px_92px_112px_minmax(180px,360px)] items-center gap-1.5 px-1 pb-1 text-[10px] text-muted-foreground">
                 <span>メンバー</span>
                 <span className="text-right">share</span>
                 <span>役割</span>
                 <span className="text-right">担当pt</span>
+                <span className="text-right">担当設計額</span>
                 <span>担当タスク</span>
               </div>
               {projectMembers.map((member) => {
                 const resp = responsibilityByMember.get(member.memberId);
                 const sharePct = Math.round((resp?.share ?? 0) * 1000) / 10;
                 const memberPt = Math.round(displayPoints * (resp?.share ?? 0) * 100) / 100;
+                const memberDesignYen = Math.round(memberPt * designUnitYen);
                 return (
                   <div
                     key={member.memberId}
-                    className="grid grid-cols-[88px_64px_76px_92px_minmax(180px,360px)] items-center gap-1.5 border-t border-border/50 px-1 py-1.5"
+                    className="grid grid-cols-[88px_64px_76px_92px_112px_minmax(180px,360px)] items-center gap-1.5 border-t border-border/50 px-1 py-1.5"
                   >
                     <span className="truncate text-[12px]" title={member.codeName}>{member.codeName}</span>
                     <input
@@ -387,6 +420,16 @@ function MsEditorRow({
                     >
                       {fmtPt(memberPt)}pt
                     </span>
+                    <span
+                      className={
+                        "rounded bg-muted/35 px-2 py-1 text-right text-[12px] tabular-nums " +
+                        (memberDesignYen > 0 ? "text-foreground" : "text-muted-foreground")
+                      }
+                      title={`${member.codeName}: ${fmtPt(memberPt)}pt × 設計単価 ${fmtDesignYen(designUnitYen)}`}
+                      aria-label={`${member.codeName} 担当設計額`}
+                    >
+                      {fmtDesignYen(memberDesignYen)}
+                    </span>
                     <input
                       value={resp?.taskDescription ?? ""}
                       onChange={(event) => updateResponsibility(member, { taskDescription: event.target.value || null })}
@@ -417,7 +460,7 @@ function MemberPointRow({
   const regWidth = maxTotal > 0 ? (member.regularPt / maxTotal) * 100 : 0;
   const extWidth = maxTotal > 0 ? (member.extraPt / maxTotal) * 100 : 0;
   return (
-    <div className="grid grid-cols-[80px_1fr_140px] gap-3 items-center py-1">
+    <div className="grid grid-cols-[80px_1fr_180px] gap-3 items-center py-1">
       <div className="text-sm truncate">{member.codeName}</div>
       <div className="flex h-3 rounded-sm overflow-hidden bg-muted/30">
         {regWidth > 0 && (
@@ -434,12 +477,17 @@ function MemberPointRow({
         )}
       </div>
       <div className="text-right text-sm tabular-nums">
-        {fmtPt(member.totalPt)}pt
-        {member.extraPt > 0 && (
-          <span className="text-[10px] text-muted-foreground ml-1">
-            (本{fmtPt(member.regularPt)}pt 別{fmtPt(member.extraPt)}pt)
-          </span>
-        )}
+        <div>
+          {fmtPt(member.totalPt)}pt
+          {member.extraPt > 0 && (
+            <span className="text-[10px] text-muted-foreground ml-1">
+              (本{fmtPt(member.regularPt)}pt 別{fmtPt(member.extraPt)}pt)
+            </span>
+          )}
+        </div>
+        <div className="text-[11px] text-muted-foreground">
+          設計額 {fmtDesignYen(member.totalDesignYen)}
+        </div>
       </div>
     </div>
   );
@@ -642,12 +690,18 @@ function AllMsPointSliders({
   rows,
   pointSummary,
   pointRange,
-  onChange,
+  regularDesignUnitYen,
+  extraDesignUnitYen,
+  onPatch,
+  onRemove,
 }: {
   rows: EditableMilestoneInput[];
   pointSummary: PointSummary;
   pointRange: ReturnType<typeof sliderRange>;
-  onChange: (milestoneId: string, points: number) => void;
+  regularDesignUnitYen: number;
+  extraDesignUnitYen: number;
+  onPatch: (milestoneId: string, patch: Partial<EditableMilestoneInput>) => void;
+  onRemove: (milestoneId: string) => void;
 }) {
   const sortedRows = useMemo(
     () => [...rows].sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title, "ja")),
@@ -655,9 +709,12 @@ function AllMsPointSliders({
   );
 
   return (
-    <div className="rounded-md border border-border/70 bg-background/55 p-3" aria-label="全MS pt配分スライダー一覧">
+    <div className="rounded-md border border-border/70 bg-background/55 p-3" aria-label="全MS 編集テーブル">
       <div className="mb-2 flex flex-wrap items-center gap-2">
-        <span className="text-[12px] font-semibold">全MS pt配分スライダー</span>
+        <span className="text-[12px] font-semibold">全MS 編集テーブル</span>
+        <span className="rounded bg-muted/50 px-2 py-0.5 text-[10px] text-muted-foreground">
+          全MS pt配分スライダー内蔵
+        </span>
         <span
           className={
             "rounded px-2 py-0.5 text-[11px] tabular-nums " +
@@ -671,12 +728,16 @@ function AllMsPointSliders({
         </span>
       </div>
       <div className="overflow-x-auto">
-        <div className="min-w-[500px] space-y-1">
-          <div className="grid grid-cols-[minmax(130px,1fr)_58px_minmax(150px,2fr)_72px] items-center gap-2 px-2 pb-0.5 text-[10px] text-muted-foreground">
-            <span>MS</span>
+        <div className="min-w-[1120px] space-y-1">
+          <div className="grid grid-cols-[minmax(220px,1.25fr)_86px_86px_64px_minmax(150px,1fr)_112px_minmax(260px,1.25fr)_34px] items-center gap-2 px-2 pb-0.5 text-[10px] text-muted-foreground">
+            <span>MS名 / tag</span>
+            <span>開始</span>
+            <span>終了</span>
             <span className="text-right">pt</span>
-            <span>配分</span>
-            <span className="text-right">現在pt</span>
+            <span>pt配分</span>
+            <span className="text-right">設計額</span>
+            <span>メンバーのエフォート</span>
+            <span />
           </div>
           {sortedRows.map((row) => {
             const color = barColorForTag(row.tag, row.isCapExtra);
@@ -684,10 +745,16 @@ function AllMsPointSliders({
             const usesPeriodPoints = row.isCapExtra && derivedPoints > 0;
             const displayPoints = usesPeriodPoints ? derivedPoints : row.points;
             const rowPointRange = usesPeriodPoints ? sliderRange(displayPoints) : pointRange;
+            const designUnitYen = designUnitForEditableRow(row, regularDesignUnitYen, extraDesignUnitYen);
+            const designAmountYen = Math.round(displayPoints * designUnitYen);
+            const shareSum = row.responsibilities.reduce((sum, resp) => sum + resp.share, 0);
+            const effortRows = row.responsibilities
+              .filter((resp) => resp.share > 0)
+              .sort((a, b) => b.share - a.share || a.codeName.localeCompare(b.codeName, "ja"));
             return (
               <div
                 key={row.milestoneId}
-                className="grid grid-cols-[minmax(130px,1fr)_58px_minmax(150px,2fr)_72px] items-center gap-2 rounded border border-border/45 bg-card/45 px-2 py-1.5"
+                className="grid grid-cols-[minmax(220px,1.25fr)_86px_86px_64px_minmax(150px,1fr)_112px_minmax(260px,1.25fr)_34px] items-center gap-2 rounded border border-border/45 bg-card/45 px-2 py-1.5"
               >
                 <div className="min-w-0">
                   <div className="flex min-w-0 items-center gap-1.5">
@@ -696,20 +763,55 @@ function AllMsPointSliders({
                       style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: color }}
                       aria-hidden
                     />
-                    <span className="truncate text-[12px] font-medium" title={row.title}>
-                      {row.title || "無題MS"}
+                    <input
+                      value={row.title}
+                      onChange={(event) => onPatch(row.milestoneId, { title: event.target.value })}
+                      className="min-w-0 flex-1 rounded border border-border bg-background px-2 py-1 text-[12px] font-medium"
+                      aria-label={`${row.title || "無題MS"} MS名`}
+                    />
+                  </div>
+                  <div className="mt-1 flex min-w-0 items-center gap-1 pl-[14px]">
+                    <select
+                      value={row.tag}
+                      onChange={(event) => {
+                        const tag = event.target.value;
+                        onPatch(row.milestoneId, { tag, isCapExtra: isCapExtraTag(tag) });
+                      }}
+                      className="h-6 min-w-0 rounded border border-border bg-background px-1.5 text-[11px]"
+                      aria-label={`${row.title || "無題MS"} tag`}
+                    >
+                      <option value="normal">normal</option>
+                      <option value="routine">routine</option>
+                      <option value="buffer">buffer</option>
+                      <option value="cap_extra">cap_extra</option>
+                    </select>
+                    <span className="truncate text-[10px] text-muted-foreground">
+                      {row.isCapExtra ? "期間×10pt固定" : "本契約"}
                     </span>
                   </div>
-                  <div className="truncate pl-[14px] text-[10px] text-muted-foreground" title={row.tag}>
-                    {row.isCapExtra ? "cap_extra / 期間×10pt固定" : row.tag || "normal"}
-                  </div>
                 </div>
+                <input
+                  value={row.periodStartYm ?? ""}
+                  onChange={(event) => onPatch(row.milestoneId, { periodStartYm: event.target.value || null })}
+                  placeholder="YYYYMM"
+                  inputMode="numeric"
+                  className="rounded border border-border bg-background px-2 py-1 text-[12px] tabular-nums"
+                  aria-label={`${row.title || "無題MS"} 開始`}
+                />
+                <input
+                  value={row.targetYm ?? ""}
+                  onChange={(event) => onPatch(row.milestoneId, { targetYm: event.target.value || null })}
+                  placeholder="YYYYMM"
+                  inputMode="numeric"
+                  className="rounded border border-border bg-background px-2 py-1 text-[12px] tabular-nums"
+                  aria-label={`${row.title || "無題MS"} 終了`}
+                />
                 <input
                   type="number"
                   min={0}
                   step={1}
                   value={displayPoints}
-                  onChange={(event) => onChange(row.milestoneId, Number(event.target.value))}
+                  onChange={(event) => onPatch(row.milestoneId, { points: Number(event.target.value) })}
                   disabled={usesPeriodPoints}
                   className="w-full rounded border border-border bg-background px-2 py-1 text-right text-[12px] tabular-nums disabled:cursor-not-allowed disabled:bg-muted/40 disabled:text-muted-foreground"
                   aria-label={`${row.title || "無題MS"} pt`}
@@ -721,7 +823,7 @@ function AllMsPointSliders({
                   max={rowPointRange.max}
                   step={1}
                   value={Math.min(rowPointRange.max, Math.max(rowPointRange.min, displayPoints))}
-                  onChange={(event) => onChange(row.milestoneId, Number(event.target.value))}
+                  onChange={(event) => onPatch(row.milestoneId, { points: Number(event.target.value) })}
                   disabled={usesPeriodPoints}
                   className="block h-3 w-full accent-emerald-600 disabled:cursor-not-allowed disabled:opacity-35"
                   aria-label={`${row.title || "無題MS"} pt配分スライダー`}
@@ -729,11 +831,57 @@ function AllMsPointSliders({
                 />
                 <div
                   className="text-right tabular-nums"
-                  title={`${fmtPt(displayPoints)}pt`}
-                  aria-label={`${row.title || "無題MS"} 現在pt`}
+                  title={`${fmtPt(displayPoints)}pt × 設計単価 ${fmtDesignYen(designUnitYen)}`}
+                  aria-label={`${row.title || "無題MS"} 設計額`}
                 >
-                  <div className="text-[12px] text-muted-foreground">{fmtPt(displayPoints)}pt</div>
+                  <div className="text-[12px] font-medium">{fmtDesignYen(designAmountYen)}</div>
+                  <div className="text-[10px] text-muted-foreground">単価 {fmtDesignYen(designUnitYen)}</div>
                 </div>
+                <div className="min-w-0">
+                  {effortRows.length === 0 ? (
+                    <div className="rounded bg-red-500/10 px-2 py-1 text-[11px] text-red-500">担当未設定</div>
+                  ) : (
+                    <div className="flex flex-wrap gap-1">
+                      {effortRows.slice(0, 3).map((resp) => {
+                        const memberPt = Math.round(displayPoints * resp.share * 100) / 100;
+                        const memberDesignYen = Math.round(memberPt * designUnitYen);
+                        return (
+                          <span
+                            key={resp.memberId}
+                            className="rounded bg-muted/45 px-1.5 py-0.5 text-[10px] tabular-nums"
+                            title={`${resp.codeName}: ${fmtShare(resp.share)} / ${fmtPt(memberPt)}pt / ${fmtDesignYen(memberDesignYen)}`}
+                          >
+                            {resp.codeName} {fmtShare(resp.share)} · {fmtPt(memberPt)}pt · {fmtDesignYen(memberDesignYen)}
+                          </span>
+                        );
+                      })}
+                      {effortRows.length > 3 && (
+                        <span className="rounded bg-muted/45 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                          +{effortRows.length - 3}
+                        </span>
+                      )}
+                      <span
+                        className={
+                          "rounded px-1.5 py-0.5 text-[10px] tabular-nums " +
+                          (Math.abs(shareSum - 1) <= 0.001
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
+                            : "bg-amber-500/10 text-amber-600 dark:text-amber-300")
+                        }
+                      >
+                        合計 {fmtShare(shareSum)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onRemove(row.milestoneId)}
+                  className="h-7 w-7 rounded border border-border text-[13px] text-muted-foreground hover:bg-red-500/10 hover:text-red-500"
+                  title="MSを無効化"
+                  aria-label={`${row.title || "無題MS"} を無効化`}
+                >
+                  ×
+                </button>
               </div>
             );
           })}
@@ -803,15 +951,18 @@ function PlanCycleBlock({
   const recomputed = useMemo(() => {
     return recomputeMsOverview({
       regularPointBasis: cycle.regularPoints,
+      regularDesignUnitYen: cycle.regularDesignUnitYen,
+      extraDesignUnitYen: cycle.extraDesignUnitYen,
       milestones: activeEditing,
     });
-  }, [cycle.regularPoints, activeEditing]);
+  }, [cycle.extraDesignUnitYen, cycle.regularDesignUnitYen, cycle.regularPoints, activeEditing]);
 
   // 表示用 (= 編集モードなら recomputed、閲覧モードなら cycle の値) -----
   const displayTotalPoints = editMode ? recomputed.totalPoints : cycle.totalPoints;
   const displayRegularPoints = editMode ? recomputed.regularPoints : cycle.regularPoints;
   const displayExtraPoints = editMode ? recomputed.extraPoints : cycle.extraPoints;
   const displayMemberTotals = editMode ? recomputed.memberPointTotals : cycle.memberPointTotals;
+  const displayAssignedDesignYen = displayMemberTotals.reduce((sum, member) => sum + member.totalDesignYen, 0);
 
   const topMember = displayMemberTotals[0];
   const secondMember = displayMemberTotals[1];
@@ -848,10 +999,6 @@ function PlanCycleBlock({
       prev.map((row) => (row.milestoneId === milestoneId ? normalizeCapExtraPoint({ ...row, ...patch }) : row)),
     );
   }, []);
-
-  const handleMilestonePointsChange = useCallback((milestoneId: string, points: number) => {
-    handleMilestoneChange(milestoneId, { points });
-  }, [handleMilestoneChange]);
 
   const handleResetToDb = useCallback(() => {
     setEditing(toEditableMilestones(cycle));
@@ -986,7 +1133,7 @@ function PlanCycleBlock({
             </button>
             {editMode && (
               <span className="text-[10px] text-muted-foreground">
-                MS名・期間・pt・担当shareを編集できる。保存ボタン押下まで DB は書き換わらない。
+                MS名・期間・pt・担当shareを編集できる。設計額は目安表示。保存ボタン押下まで DB は書き換わらない。
               </span>
             )}
           </div>
@@ -1009,17 +1156,17 @@ function PlanCycleBlock({
             <MetricCard
               label="合計pt"
               value={`${fmtPt(displayTotalPoints)}pt`}
-              sub={`本契約 ${fmtPt(displayRegularPoints)} / 別財布 ${fmtPt(displayExtraPoints)}`}
+              sub={`割当済み設計額 ${fmtDesignYen(displayAssignedDesignYen)}`}
             />
             <MetricCard
               label="本契約pt"
               value={`${fmtPt(displayRegularPoints)}pt`}
-              sub={`割当 ${fmtPt(pointSummary.allocatedRegularPoints)} / 残 ${fmtPt(pointSummary.remainingRegularPoints)}`}
+              sub={`割当 ${fmtPt(pointSummary.allocatedRegularPoints)} / 単価 ${fmtDesignYen(cycle.regularDesignUnitYen)}`}
             />
             <MetricCard
               label="別財布pt"
               value={displayExtraPoints > 0 ? `${fmtPt(displayExtraPoints)}pt` : "—"}
-              sub={displayExtraPoints > 0 ? "cap_extra MS" : "別財布 MS なし"}
+              sub={displayExtraPoints > 0 ? `原資 ${fmtDesignYen(cycle.extraDesignBudgetYen)} / 単価 ${fmtDesignYen(cycle.extraDesignUnitYen)}` : "別財布 MS なし"}
             />
             <MetricCard
               label={
@@ -1036,8 +1183,10 @@ function PlanCycleBlock({
               }
               sub={
                 topMember && secondMember && secondMember.totalPt > 0
-                  ? `比 ${(topMember.totalPt / secondMember.totalPt).toFixed(2)}x`
-                  : undefined
+                  ? `${fmtDesignYen(topMember.totalDesignYen)} : ${fmtDesignYen(secondMember.totalDesignYen)}`
+                  : topMember
+                    ? `設計額 ${fmtDesignYen(topMember.totalDesignYen)}`
+                    : undefined
               }
             />
           </div>
@@ -1101,7 +1250,10 @@ function PlanCycleBlock({
                       rows={activeEditing}
                       pointSummary={pointSummary}
                       pointRange={pointSliderRange}
-                      onChange={handleMilestonePointsChange}
+                      regularDesignUnitYen={cycle.regularDesignUnitYen}
+                      extraDesignUnitYen={cycle.extraDesignUnitYen}
+                      onPatch={handleMilestoneChange}
+                      onRemove={handleRemoveMilestone}
                     />
                     <div>
                       {[...activeEditing]
@@ -1112,6 +1264,8 @@ function PlanCycleBlock({
                             current={row}
                             projectMembers={cycle.projectMembers}
                             pointRange={pointSliderRange}
+                            regularDesignUnitYen={cycle.regularDesignUnitYen}
+                            extraDesignUnitYen={cycle.extraDesignUnitYen}
                             onChange={(patch) => handleMilestoneChange(row.milestoneId, patch)}
                             onRemove={() => handleRemoveMilestone(row.milestoneId)}
                           />
@@ -1122,9 +1276,10 @@ function PlanCycleBlock({
               </div>
             ) : (
               <div>
-                <div className="grid grid-cols-[1fr_72px_1fr_180px] gap-3 text-[10px] text-muted-foreground uppercase tracking-wider pb-1">
+                <div className="grid grid-cols-[minmax(180px,1fr)_72px_96px_minmax(140px,1fr)_190px] gap-3 text-[10px] text-muted-foreground uppercase tracking-wider pb-1">
                   <div>MS名 / 期間 / tag</div>
                   <div className="text-right">pt</div>
+                  <div className="text-right">設計額</div>
                   <div>pt比</div>
                   <div>担当share</div>
                 </div>
@@ -1155,7 +1310,7 @@ function PlanCycleBlock({
 
           {/* ③ メンバー別 pt配分 */}
           <div>
-            <h3 className="text-sm font-semibold mb-1">メンバー別 pt配分 (plannedShare)</h3>
+            <h3 className="text-sm font-semibold mb-1">メンバー別 pt配分 / 設計額 (plannedShare)</h3>
             {displayMemberTotals.length === 0 ? (
               <p className="text-xs text-muted-foreground">担当が割り当てられていない。</p>
             ) : (

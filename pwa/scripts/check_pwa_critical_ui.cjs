@@ -750,6 +750,9 @@ expectIncludes("src/app/api/admin/ms-overview/route.ts", [
   "project_freeze_periods",
   "deriveHealthState",
   "healthState",
+  "regularDesignUnitYen",
+  "extraDesignUnitYen",
+  "designAmountYen",
 ]);
 expectNotIncludes("src/app/api/admin/ms-overview/route.ts", [
   "computeSeasonPl",
@@ -764,6 +767,9 @@ expectIncludes("src/components/admin/AdminMsOverviewClient.tsx", [
   "/api/admin/ms-overview",
   "全MS",
   "メンバー別 pt配分",
+  "設計額",
+  "担当設計額",
+  "fmtDesignYen",
   "cap_extra",
   "編集モード",
   "MS追加",
@@ -800,6 +806,7 @@ expectIncludes("src/components/admin/AdminSidebar.tsx", [
 expectIncludes("design/FEATURE_REGISTRY.md", [
   "/admin/ms-overview",
   "支払額に見える円換算",
+  "設計額",
   "memberPointTotals",
 ]);
 
