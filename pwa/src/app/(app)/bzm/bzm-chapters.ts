@@ -89,7 +89,7 @@ export const BZM_PARTS: BzmPartConfig[] = [
   },
   {
     key: "new-bzm-book2",
-    label: "Book II — 機構 (272p, 9 章 + Ch 10 11 節, load-bearing core)",
+    label: "Book II — 機構 (300p, 10 章 + Ch 10 11 節, load-bearing core)",
     description: "数学装置層。Triple Helix SSM / GO ゲート / PRS 期待値分解 / F-CES / 戦略余力動学 / ERS 加重和 / Ch 10 進化経済形式接続 / h パラメータ族 / 試験運用実装。",
     slugs: [
       // Ch 5 (= 章 level 1) → §5.0〜§5.7 (= 節 level 2) → §5.0.1〜 (= サブセクション level 3) の三層
@@ -112,6 +112,7 @@ export const BZM_PARTS: BzmPartConfig[] = [
       "new-book2-ch-7",
       "new-book2-ch-8",
       "new-book2-ch-9",
+      "new-book2-ch-9-5",
       "new-book2-ch-10-0",
       "new-book2-ch-10-1",
       "new-book2-ch-10-2",
@@ -157,10 +158,10 @@ export const BZM_PARTS: BzmPartConfig[] = [
   },
   {
     key: "new-bzm-book6",
-    label: "Book VI — 新領域宣言 (60p, 3 章)",
-    description: "新領域宣言と次の研究プログラム。機関 KPI / 真正面の比較 / 新領域宣言。",
+    label: "Book VI — 新領域宣言 (72p, 4 章)",
+    description: "新領域宣言と次の研究プログラム。機関 KPI / 真正面の比較 / 自己批判とオープンプロブレム / 新領域宣言。",
     slugs: [
-      "new-book6-ch-36", "new-book6-ch-37", "new-book6-ch-38",
+      "new-book6-ch-36", "new-book6-ch-37", "new-book6-ch-37-5", "new-book6-ch-38",
     ],
   },
   {
@@ -399,6 +400,7 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
   { slug: "new-book2-ch-7", title: "Ch 7 — S の内部構造 — F-CES と委譲不可能コア", summary: "F = CES(F_char, F_cap; a, ρ)。形式定義 + 校正手続き。38p。", status: "not-started" },
   { slug: "new-book2-ch-8", title: "Ch 8 — 戦略余力動学", summary: "2D jump-diffusion と τ_x/τ_y、y 5 成分集約 (cash/moat/trust/options/focus)。32p。", status: "not-started" },
   { slug: "new-book2-ch-9", title: "Ch 9 — ERS 加重和の導出", summary: "ERS = 100 · Σ w_k A_k / Σ w_k。二層非可換性定理の代数的バックボーン。34p。", status: "not-started" },
+  { slug: "new-book2-ch-9-5", title: "Ch 9.5 — ラウンドテーブル — 二層を結合する組成機構", summary: "RT を仮説的第三柱として組み込む新章 (D-056)。組 ℛ の形式定義 / 成立3条件の命題化 (多者性・連鎖性・相互牽制) / 観測レンズ CRL・ICT / 排他的主経路割当と leave-one-out / 仮説 9.5.H (Ψ 分解 = Murmann coupling の法人化前カーネル)。28p。skeleton ステージ2確定済 (D-057)。", status: "not-started" },
   { slug: "new-book2-ch-10-0", title: "Ch 10.0 — プロローグ", summary: "物語的橋渡し。", status: "not-started" },
   { slug: "new-book2-ch-10-1", title: "Ch 10.1 — 設定 — 6 軽微修正課題 C1-C6 と本章の射程", summary: "進化経済 persona 軽微修正 6 件。", status: "not-started" },
   { slug: "new-book2-ch-10-2", title: "Ch 10.2 — C1 レジーム切換え B (法人化境界) の formal definition", summary: "Jovanovic (1982) noisy selection の二レジーム拡張。", status: "not-started" },
@@ -447,6 +449,7 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
   // Book VI — 新領域宣言 (60p, 3 章)
   { slug: "new-book6-ch-36", title: "Ch 36 — 機関 KPI と ERS — Goodhart 回避の評価指標化", summary: "funder / 政策向け。18p。", status: "not-started" },
   { slug: "new-book6-ch-37", title: "Ch 37 — 真正面の比較 — BZM vs Triple Helix vs Effectuation vs Nelson-Winter (Tier B)", summary: "共通スコアリング規則 = 24ヶ月 outcome class log-loss。20p。", status: "not-started" },
+  { slug: "new-book6-ch-37-5", title: "Ch 37.5 — 自己批判とオープンプロブレム — 第二版への課題", summary: "RT を含む全理論の弱点・未検証点・想定されるツッコミを著者自ら列挙し、第二版で解くべき課題として宣言する (D-056、まさ発案)。12p。", status: "not-started" },
   { slug: "new-book6-ch-38", title: "Ch 38 — 新領域宣言 — 何が獲得され、何が次の 10 年に持ち越されたか", summary: "Before Zero Studies (新サブ領域、進化経済 × イノベーション・システム × 学術アントレ研究 の交差点) の宣言。22p。", status: "not-started" },
 
   // 付録 (160p, A/B/C)
