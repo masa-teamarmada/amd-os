@@ -101,6 +101,8 @@ expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
   "報酬債務台帳",
   "未払い残",
   "stockYen",
+  "finalCapTopUpYen",
+  "最終精算",
   "openMonthlyModal",
   "報酬キャッシュ再計算",
   "本契約発生",
@@ -134,6 +136,14 @@ expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
   "保存済みPDFとメール本文を確認中",
   "正式PDF確認済み",
   "添付PDFは保存済み正式PDFです",
+]);
+
+expectIncludes("src/lib/reward-summary.ts", [
+  "isFinalCycleMonth",
+  "regularFinalCapTopUpYen",
+  "extraFinalCapTopUpYen",
+  "finalCapTopUpYen",
+  "regularCapBeforeFinalTopUpYen",
 ]);
 
 expectNotIncludes("src/components/admin/AdminPayoutsClient.tsx", [

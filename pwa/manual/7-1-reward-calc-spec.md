@@ -95,6 +95,8 @@ paid[officer] = 0
 
 > **2026-07-03 まさ確定 — 未使用 cap 繰越**: `stockYen` だけを翌月へ繰り越し、当月に使い切らなかった `budget_yen` (= 月次支払 cap) を捨てる旧挙動は禁止。前半の MS 消化が薄く後半に厚い PJ では、年間原資 `Σ月cap` が足りていても終盤だけ cap 不足になり、シーズン末に未払い残が残るため。`buildRewardSummary` は plan cycle 先頭から時系列に `regularUnusedCapCarryOutYen = max(0, effectiveRegularCapBudgetYen - regularGrossDueForCap)` を計算し、次月の `regularCapCarryInYen` として足す。つまり、当月の配分に使う上限は `effectiveRegularCapBudgetYen = regularCapBudgetYen + regularCapCarryInYen`。別財布 (`cap_extra`) は `extra_budget_yen` が明示された月だけ同じく `extraUnusedCapCarryOutYen` を繰り越し、`NULL` (= cap 未設定・需要全額即払い) の月では未使用別財布 cap を発生させない。
 
+> **2026-07-03 まさ確定 — シーズン終了時 stock ゼロ必須**: すべての plan cycle は `period_end_ym` の計算後に `carryOverYen = 0` で閉じることを絶対条件にする。最終月の通常 cap + 未使用 cap 繰越だけで `grossDue` を払い切れない場合、`regularFinalCapTopUpYen` / `extraFinalCapTopUpYen` を自動で追加し、その月の `effectiveRegularCapBudgetYen` / `effectiveExtraCapBudgetYen` を `grossDue` 以上に引き上げる。これにより非役員の現金支払も役員会社留保も最終月で未払残を残さない。最終精算上乗せは通常の月次 cap と区別して表示し、資金繰り上の追加必要額として `/admin/payouts` の cap 超過チェックに出す。未払残を残したまま「ゼロ着地」と表示することは禁止。
+
 > **pt単価の原資定義 (まさ正本)**: `PJ予算 = (請求額 − バッファ) × 65%`、`本契約pt単価 = PJ予算 ÷ (シーズン期間の月数 × 10pt)`。バッファ (= 営業費用・旅費等、AMD が請求額から先取りする PJ コスト枠) は **pt単価の計算に必ず反映**する。現行実装の `deriveRewardBudgetForPt` は `value_plan_cycles.budget_yen` をそのまま原資に使うため、**`value_plan_cycles.budget_yen` にバッファ反映後の額 `(請求額 − バッファ) × 65%` を入れる**ことで正しい pt単価になる (SX は 2026-06-19 に 6,812,000 → 5,642,000 へ是正済み)。通常 MS の配分 pt 合計が増減しても、本契約 pt単価は変動させない。バッファを第一級入力にしてロジック側で自動控除する恒久実装は別タスク。
 
 ---

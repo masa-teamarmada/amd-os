@@ -146,6 +146,9 @@ type ForecastCappedRow = {
   regularGrossDueYen: number;
   extraGrossDueYen: number;
   carryOverYen: number;
+  finalCapTopUpYen: number;
+  regularFinalCapTopUpYen: number;
+  extraFinalCapTopUpYen: number;
 };
 
 type PayoutEntry = {
@@ -480,6 +483,15 @@ function cachedForecastCappedRows(
       carryOverYen: hasExplicitNumber(summary.carryOverYen)
         ? yenValue(summary.carryOverYen)
         : fallbackCarryOverYen,
+      finalCapTopUpYen: hasExplicitNumber(summary.finalCapTopUpYen)
+        ? yenValue(summary.finalCapTopUpYen)
+        : 0,
+      regularFinalCapTopUpYen: hasExplicitNumber(summary.regularFinalCapTopUpYen)
+        ? yenValue(summary.regularFinalCapTopUpYen)
+        : 0,
+      extraFinalCapTopUpYen: hasExplicitNumber(summary.extraFinalCapTopUpYen)
+        ? yenValue(summary.extraFinalCapTopUpYen)
+        : 0,
     }];
   });
 }

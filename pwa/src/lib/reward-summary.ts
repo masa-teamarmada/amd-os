@@ -673,6 +673,7 @@ type MonthlyRewardCaps = {
   totalCapYen: number;
   regularCapCarryInYen?: number;
   extraCapCarryInYen?: number;
+  isFinalCycleMonth?: boolean;
 };
 
 function deriveMonthlyRewardCaps({
@@ -964,7 +965,7 @@ export function applyRewardCapsForMonth(
 
   const regularBaseCapYen = Math.max(0, Math.round(caps.regularCapYen));
   const regularCapCarryInYen = Math.max(0, Math.round(caps.regularCapCarryInYen ?? 0));
-  const effectiveRegularCapYen = regularBaseCapYen + regularCapCarryInYen;
+  const regularCapBeforeFinalTopUpYen = regularBaseCapYen + regularCapCarryInYen;
   const extraBaseCapYen = caps.extraCapYen == null ? null : Math.max(0, Math.round(caps.extraCapYen));
   const extraCapCarryInYen = extraBaseCapYen == null ? 0 : Math.max(0, Math.round(caps.extraCapCarryInYen ?? 0));
   const regularGrossBeforeCap = regularInputs.reduce(
@@ -977,7 +978,16 @@ export function applyRewardCapsForMonth(
   );
   // caps.extraCapYen が null = cap 未設定 → 従来どおり需要全額 (= 別財布即払い)。
   // 明示値 (0 含む) → その額を別財布支払 cap にする。0 = 全額 stock 繰越 (= 完了月一括の積立)。
-  const effectiveExtraCapYen = extraBaseCapYen == null ? extraGrossBeforeCap : extraBaseCapYen + extraCapCarryInYen;
+  const extraCapBeforeFinalTopUpYen = extraBaseCapYen == null ? extraGrossBeforeCap : extraBaseCapYen + extraCapCarryInYen;
+  const isFinalCycleMonth = caps.isFinalCycleMonth === true;
+  const regularFinalCapTopUpYen = isFinalCycleMonth
+    ? Math.max(0, Math.round(regularGrossBeforeCap - regularCapBeforeFinalTopUpYen))
+    : 0;
+  const extraFinalCapTopUpYen = isFinalCycleMonth && extraBaseCapYen != null
+    ? Math.max(0, Math.round(extraGrossBeforeCap - extraCapBeforeFinalTopUpYen))
+    : 0;
+  const effectiveRegularCapYen = regularCapBeforeFinalTopUpYen + regularFinalCapTopUpYen;
+  const effectiveExtraCapYen = extraCapBeforeFinalTopUpYen + extraFinalCapTopUpYen;
   const effectiveTotalCapYen = effectiveRegularCapYen + effectiveExtraCapYen;
   const baseTotalCapYen = regularBaseCapYen + (extraBaseCapYen ?? effectiveExtraCapYen);
 
@@ -1177,6 +1187,9 @@ export function applyRewardCapsForMonth(
     extraCapCarryInYen,
     regularUnusedCapCarryOutYen,
     extraUnusedCapCarryOutYen,
+    regularFinalCapTopUpYen,
+    extraFinalCapTopUpYen,
+    finalCapTopUpYen: regularFinalCapTopUpYen + extraFinalCapTopUpYen,
     externalPayoutCapYen: externalRegularPayoutCapYen + externalExtraPayoutCapYen,
     externalRegularPayoutCapYen,
     externalExtraPayoutCapYen,
@@ -1357,6 +1370,7 @@ export function buildRewardSummary({
       ...baseCaps,
       regularCapCarryInYen: regularUnusedCapCarryYen,
       extraCapCarryInYen: baseCaps.extraCapYen == null ? 0 : extraUnusedCapCarryYen,
+      isFinalCycleMonth: Boolean(planCycle?.period_end_ym && month === planCycle.period_end_ym),
     };
     const regularLiabilityOffsets = new Map<string, number>();
     const extraLiabilityOffsets = new Map<string, number>();
@@ -1913,6 +1927,10 @@ export interface ForwardCappedMonth {
   extraGrossDueYen: number;
   /** 非役員メンバーへの月末未払い残。 */
   carryOverYen: number;
+  /** シーズン最終月に未払残をゼロへ閉じるため追加した精算枠。 */
+  finalCapTopUpYen: number;
+  regularFinalCapTopUpYen: number;
+  extraFinalCapTopUpYen: number;
   /** anchorYm より後の未来月か (= 実績ではなく按分予測) */
   isFuture: boolean;
   members: Array<{ memberId: string; memberName?: string; earnedPt: number; payYen: number; regularPayYen: number; extraPayYen: number }>;
@@ -2076,6 +2094,9 @@ export async function computeForwardCappedMemberCosts(
       regularGrossDueYen: summary?.regularTotalGrossDueYen || 0,
       extraGrossDueYen: summary?.extraTotalGrossDueYen || 0,
       carryOverYen: summary?.carryOverYen || 0,
+      finalCapTopUpYen: summary?.finalCapTopUpYen || 0,
+      regularFinalCapTopUpYen: summary?.regularFinalCapTopUpYen || 0,
+      extraFinalCapTopUpYen: summary?.extraFinalCapTopUpYen || 0,
       isFuture: ym > anchorYm,
       members: payableMembers.map((m) => ({
         memberId: m.memberId,

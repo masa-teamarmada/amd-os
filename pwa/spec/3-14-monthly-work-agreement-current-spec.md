@@ -61,7 +61,7 @@ gate は `/admin/payouts` の server action で実行する。UI の警告だけ
 
 admin override は `agreementOverrideReason` が 8 文字以上かつ actor email がある場合だけ有効。override は `member_monthly_work_agreement_payout_overrides` に append-only で保存し、対象 action、理由、actor、支払月、稼働月、member、project、blocker status、snapshot hash / current hash、request id を残す。override は報酬計算や合意 row を変更しない。
 
-`/admin/payouts` は gate と同じ画面で、報酬債務台帳を表示する。`stockYen` を単独の支払予定として見せず、`member × PJ × 稼働月` ごとに `carryInYen + (grossDueYen - carryInYen) - totalPay = stockYen` を表示し、原因を `契約前発生` / `繰越+今月発生` / `繰越のみ` / `cap不足` に分類する。先12か月表は `キャッシュ支払` / `会社留保` / `報酬債務` / `cap超過チェック` の4表に分け、会社留保を支出扱いしない。報酬債務は月末残高なので、12か月合計ではなく各月残・ピーク・最終月残で読む。
+`/admin/payouts` は gate と同じ画面で、報酬債務台帳を表示する。`stockYen` を単独の支払予定として見せず、`member × PJ × 稼働月` ごとに `carryInYen + (grossDueYen - carryInYen) - totalPay = stockYen` を表示し、原因を `契約前発生` / `繰越+今月発生` / `繰越のみ` / `cap不足` に分類する。先12か月表は `キャッシュ支払` / `会社留保` / `報酬債務` / `cap超過チェック` の4表に分け、会社留保を支出扱いしない。報酬債務は月末残高なので、12か月合計ではなく各月残・ピーク・最終月残で読む。すべての plan cycle は終了月に `stockYen = 0` へ閉じることが必須で、最終月に `finalCapTopUpYen` が発生した場合は「ゼロ着地」だけで隠さず、精算枠と cap 不足を同時に表示する。
 
 ### 契約レイヤー
 
