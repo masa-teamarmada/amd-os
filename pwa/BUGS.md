@@ -3580,3 +3580,18 @@
 - **原因**: `pwa/design/db_schema.md` と migration の constraint を最初に全部確認せず、過去記憶/類推で列名・許容値を組んだ。PRSも `pwa/src/lib/amd-score.ts` の `calculatePrsScore` / `computeFrlCES` ではなく、簡易式で旧/新スコアを出してしまった。
 - **対応内容**: write script を修正し、実列名 `web_view_link` / `file_name`、generated column除外、`polarity in (breakthrough, forward, pivot, risk)`、`axis in (trl, brl, grl, srl, hrl)` に合わせた。PRS概算関数を実装式に合わせ、`amd_score_inputs.notes` と `amd_score_revisions` を `1389 -> 5294` に上書き修正。反映後に `jc_db_read.mjs` で documents/signals/events/PL/XRL/evidence/score/revision を読み直して確認した。
 - **再発防止策**: 手動backfillでも、書き込み前に `pwa/design/db_schema.md` と該当 migration / UI実装の実コードを grep する。PostgREST generated column と check constraint は特に先に見る。スコア系の履歴を書き込むときは、必ず表示面と同じ実装関数または同等ロジックで計算し、独自の近似式を使わない。途中で誤ったrevision値を書いた場合は、最終報告前に同じ行を正しい値で上書きし、読み直しで確認する。
+
+
+## 2026-07-03: HTMLプレビューの数式・図が閲覧パネルで崩壊 (MathJax=実行時JS依存)
+
+- **症状**: P1 論文プレビュー HTML で、数式が Unicode 化けした崩れ表示 (∛ が √β 等)、インライン SVG 図が非表示。まさが崩れたスクショを共有して発覚。
+- **原因**: pandoc `--mathjax` は実行時 JavaScript (CDN) で数式を描画する方式。閲覧パネルはスクリプトを実行しないため、pandoc の Unicode fallback が表示され、インライン `<svg>` もサニタイズされた。
+- **対応内容**: pandoc `--mathml` (ビルド時に MathML へ変換、ブラウザネイティブ描画・JS不要) + SVG を base64 data-URI の `<img>` に変換して再生成。script タグ0本を確認して再送。
+- **再発防止策**: 閲覧パネル・メール添付など「スクリプトが実行されない環境」に出す HTML は、実行時 JS (MathJax/KaTeX CDN/外部チャート) に依存させない。数式は `--mathml`、図は data-URI 画像かインライン不要の静的形式。生成後に `grep -c '<script'` = 0 を確認する。
+
+## 2026-07-03: 判例ID衝突 — PF-012 を並行セッションと二重採番
+
+- **症状**: BOOKS_PORTFOLIO.md に論文ポートフォリオを PF-012 として判例化し push しようとしたら non-fast-forward。origin には別セッション (Book A 先行起草) が同日に **同じ PF-012** を既に採番・push 済みだった。
+- **原因**: 判例IDを採番する前に origin/main を fetch して最新の L1/L2 を確認しなかった。ローカル repo が発散しているため、ローカルの台帳は古かった。
+- **対応内容**: origin 版を確認して自分の判例を PF-013 に付け直し、origin/main ベースの一時 worktree から push。以降このセッションの全 push を worktree 方式に統一 (11回、事故ゼロ)。
+- **再発防止策**: PF-xxx / D-xxx / P-xxx の採番前に必ず `git fetch origin main && git show origin/main:<台帳ファイル>` で最新IDを確認。発散した repo では「ローカル checkout の台帳を信用しない」。push 拒否時は rebase して自分の1コミットだけ乗せ直す。

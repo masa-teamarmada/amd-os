@@ -104,3 +104,24 @@
 ### 教訓
 - PostgREST write 前に `pwa/design/db_schema.md` で列名、generated column、check constraint を見る。`project_documents.web_view_link/file_name`、`project_strategy_signals.scope_key`、`polarity`、`project_xrl_evidence.axis` で実際に引っかかった。
 - PRS revision は独自の単純積で概算しない。`pwa/src/lib/amd-score.ts` の `calculatePrsScore` と `computeFrlCES` に合わせる。
+
+
+---
+
+## 2026-07-03 — P1 (Research Policy 論文) S1〜S5前半を1日で完遂 (before-zero セッション)
+
+### やったこと
+- PF-013 (論文ポートフォリオ三段構え・計5本+国内1本) を BOOKS_PORTFOLIO に判例化。P2 投稿先 = 研究技術計画で確定 (Publication-first: 論文は2026年内にできるだけ多く、大会発表は2027/4以降)
+- D-059 (出版経路3本立て = Cambridge UP + RP + ICC)、D-060 (P1 = 9.5k words + Supplementary Material)、D-061 (石原先生共著方針 + BZM主役framing) を判例化
+- P1 本文8節 7,251語を英語起草 (PAPER_P1_DRAFT.md)。SM-A〜C の証明3本は数理経済学者エージェント3並列で起草→えいみ検収→統合 (PAPER_P1_SM.md)。Fig1-3 SVG、References 36件 (全件web照合、幻覚引用ゼロ)
+- 6並列模擬査読 (RPエディター/社会選択理論家/実オプション/実証/TTO実務家/引用照合): desk-reject 1 / major 4。統合改稿計画 S5_REVISION_PLAN.md (R1-R10) に仕分け
+- 検収段階で本文の実質改善4件: E2×軸7ゲート矛盾の解消 / Theorem 3 の排除条件を sign-consistency に格上げ / C3 の2読み明示 / §3.4 の8軸を institution_readiness.md 正本に準拠修正
+- 論文体裁 HTML プレビュー (PAPER_P1_PREVIEW.html): pandoc --mathml + data-URI 図で JS 実行なし環境でも描画
+
+### 主要 commit (すべて origin/main、worktree 方式)
+aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outline) / 170b234c (S3 全節) / 62fb6dd0 (S4前半 Table/refs) / f330a9c8 (S4 SM統合) / 6b4ff066 (プレビューMathML化) / 485fd2b3 (S5前半+改稿計画)
+
+### 決めたこと・次
+- 次セッション = S5後半 (改稿 R1-R10)。入口 = pwa/bzm/HANDOFF_P1_2026-07-03.md
+- R10 (OSF 事前登録 = 結果が出る前の予測を日付証明つきで外部登録。CX 2026-08 / SX 2027-04 の設立判断前が期限) はまさ判断待ち
+- モノグラフ Ch 10.4/9/5.5 skeleton の欠陥5点が査読で発見された → S5_REVISION_PLAN.md §5、次モノグラフセッションで L2 判例化要
