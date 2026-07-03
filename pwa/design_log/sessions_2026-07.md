@@ -105,7 +105,6 @@
 - PostgREST write 前に `pwa/design/db_schema.md` で列名、generated column、check constraint を見る。`project_documents.web_view_link/file_name`、`project_strategy_signals.scope_key`、`polarity`、`project_xrl_evidence.axis` で実際に引っかかった。
 - PRS revision は独自の単純積で概算しない。`pwa/src/lib/amd-score.ts` の `calculatePrsScore` と `computeFrlCES` に合わせる。
 
-
 ---
 
 ## 2026-07-03 — P1 (Research Policy 論文) S1〜S5前半を1日で完遂 (before-zero セッション)
@@ -177,3 +176,40 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 ### 教訓
 - 「モーダル」は案内表示にも必須確認にも使えるため、月初合意のような gate では「どう閉じられるか」まで仕様とテストに書く。
 - 月初合意は報酬計算を変える画面ではなく、本人確認と支払gateの前提を残す画面。6月以前の移行月スキップと、7月以降の通常合意判定を混ぜない。
+
+---
+
+## 2026-07-03 — ZMP reward liability offset closeout + handoff
+
+### コンテキスト
+- まさから、5月稼働分は支払通知書発行・実支払済みなので変更できない前提で、シーズン全体の報酬支払が「クライアント支払額 − バッファ」の65%以内に収束するか確認・調整する依頼。
+- 途中で「会社留保を減らせば吸収できる」という説明をしてしまったが、これは誤り。会社が負担して赤字を被る方針ではなく、本人の未払残からだけ相殺するのが current truth。
+- しん・こうの小額過払いはまさ判断で許容。あび・うめの過払いだけ、本人自身の未払 stock から相殺する。
+
+### 実装 / DB反映
+- `reward_member_liability_offsets` を追加し、送付済み/支払済み月の過払いを同一PJ・同一シーズン・同一メンバー本人の未払残からだけ相殺する監査台帳にした。
+- `buildRewardSummary`、先12か月 capped 投影、`/admin/season-pl` が同じ相殺台帳を読むようにした。
+- ZMP 2026 active offset:
+  - うめ `ID008`: 1,560円、`applies_from_ym=202605`
+  - あび `ID009`: 1,658円、`applies_from_ym=202605`
+  - こう `ID004` / しん `ID026`: 台帳なし。小額差分として許容。
+- migration 162 の `metadata_json.tolerated_members` が `ID004/ID010` になっていたため、2026-07-03 に member DB で `ID010=らん`, `ID026=しん` を確認し、migration 163 で本番DBの監査メタを `ID004/ID026` に修正。計算額・active offset 金額は変更なし。
+
+### 仕様同期
+- `pwa/design/season_budget_actual.md`: 実支払い済み差分の本人別相殺台帳を追加。
+- `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`: 支払済み通知書を変更せず、本人未払残からだけ差し引く運用を追加。
+- `pwa/manual/7-1-reward-calc-spec.md`: 相殺台帳の計算タイミング、`pool='any'` の消化順、ZMP 2026判断を追加。
+- `pwa/manual/9-3-appendix-changelog.md`: 2026-07-02 の仕様変更として記録済み。
+- `pwa/BUGS.md`: 会社留保/他メンバーで吸収しない教訓と、migration 162 metadata typo を記録。
+
+### Verification
+- production `/api/build-info`: `v0.37.3`, git `45cb4e551d4a1aa24dbb8e3d9dd428ac1f5fc580`, `dirty=false` を確認。
+- production reward cache refresh: `/api/cron/payout-reward-cache-refresh?ym=202601&lookahead=11` を実行し、`cycleCount=130`, `refreshedCount=130`。
+- ZMP 202605 `reward_summary_json`: `liabilityOffsetAppliedYen=3,218`, `liabilityOffsetRemainingYen=0`。ID009 は 1,658円、ID008 は 1,560円を本人stockから相殺。
+- ZMP 2026 season target members: ID004こう / ID008うめ / ID009あび / ID026しん は最終月 stock=0 を確認。ID008/ID009は offset 後に閉じる。
+- `npx tsc --noEmit` passed。`npm run test:critical-ui` passed。
+- ローカル `npm run build` は temp clone の `node_modules` symlink/Turbopack panic と既存 cssnano 系で失敗。本番 Vercel build は成功。
+
+### 注意
+- `/Users/masa/projects/AMD/amd-os` の canonical local checkout は、この時点で `origin/main` から 58 behind / 7 ahead、かつ多数の未整理変更あり。今回の報酬実装と handoff は `/tmp/amd-os-ms-overview-v03643` の clean origin/main で行った。canonical local を current truth として読まない。
+- 本番DBの `reward_member_liability_offsets` には、別作業由来と思われる `status='pending'` / `amount_yen=null` の行が p19 に残っている。現行 v0.37.3 の計算は `status='active'` だけを読むため支払計算には入らない。所有者不明なので、次回も勝手に削除しない。

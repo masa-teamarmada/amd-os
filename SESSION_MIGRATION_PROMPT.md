@@ -1,42 +1,34 @@
-# SESSION MIGRATION PROMPT - AMD OS Monthly Agreement Modal Gate
+# SESSION MIGRATION PROMPT - AMD OS ZMP Reward Liability Offset Closeout
 
 ```text
 cd /Users/masa/projects/AMD/amd-os
 
-まず `HANDOFF.md` を読んで。次に仕様正本として `pwa/spec/3-14-monthly-work-agreement-current-spec.md` を読んで。そのあと `pwa/BUGS.md`、`pwa/manual/2-2-member-workflows-quick-start.md`、`pwa/manual/6-6-member-billing-prompts-spec.md`、`pwa/manual/6-5-admin-payouts-reward-notice-spec.md`、`pwa/manual/7-1-reward-calc-spec.md`、`CLAUDE.md`、`AGENTS.md`、`pwa/CLAUDE.md` を読んで。
+まず `HANDOFF.md` を読んで。次に仕様正本として `pwa/manual/7-1-reward-calc-spec.md`、`pwa/manual/6-5-admin-payouts-reward-notice-spec.md`、`pwa/design/season_budget_actual.md` を読んで。そのあと `pwa/BUGS.md`、`pwa/design/db_schema.md`、`CLAUDE.md`、`AGENTS.md`、`pwa/CLAUDE.md` を読んで。
+
+最重要:
+- `/Users/masa/projects/AMD/amd-os` のローカル checkout は、前回 handoff 時点で `origin/main` から 58 behind / 7 ahead、かつ大量の未整理変更があった。current truth としてそのまま信じない。
+- 作業前に `git fetch origin main --prune`、`git status -sb --untracked-files=all`、`git rev-list --left-right --count origin/main...HEAD`、`curl -s https://amd-os-pwa.vercel.app/api/build-info` を確認する。
+- 報酬 offset 実装は `v0.37.3` / commit `45cb4e551d4a1aa24dbb8e3d9dd428ac1f5fc580` で入った。その後 main は月初合意/MS安全系で進んでいるので、最新 sha は `origin/main` と build-info で確認する。
 
 今回の current truth:
-- 月初合意が未完了または条件更新ありのメンバーがOS内の他画面を開くと、開いた画面を背景に残して月初合意モーダルを前面に出す。
-- このモーダルは必須確認。背景クリック、Esc、閉じるボタンで先送りできるUIにしない。
-- 合意保存が成功した時だけモーダルを閉じ、通常画面へ戻す。
-- adminメンバーもテスト確認のため月初合意対象に含める。
-- 2026年6月以前の稼働月は、契約改定前かつシステム未完成期間のため、支払gateでは移行月として合意済み扱いにする。合意rowを偽造しない。
-- 今回の closeout ではDB write、実合意保存、本番データ変更はしていない。
-- `/Users/masa/projects/AMD/amd-os` のroot checkoutは unrelated dirty state が多い。今回の月初合意modal修正と混ぜない。
-
-作業開始前に必ず:
-1. `git fetch origin main --prune`
-2. `git status -sb --untracked-files=all`
-3. `git log --left-right --oneline main...origin/main`
-4. `rg -n "MonthlyAgreementGateOverlay|月初合意|背景クリック|dismissedGateKey|onBackdropClick" pwa/src pwa/spec pwa/manual pwa/BUGS.md`
+- ZMP 2026 の送付済み/支払済み過払いは、会社留保・他メンバー未払・PJ全体バッファでは吸収しない。
+- 支払済み/送付済みの過去額は変更しない。
+- 過払い調整は `reward_member_liability_offsets` に記録し、同一PJ・同一シーズン・同一メンバー本人の未払 stock からだけ相殺する。
+- active offset は ID008 うめ 1,560円、ID009 あび 1,658円だけ。ID004 こう / ID026 しんの小額過払いはまさ判断で許容。
+- migration 162 の監査メタに `ID010` typo があり、`ID010=らん` だった。migration 163 で本番DBの active 2行は `tolerated_members=["ID004","ID026"]` に修正済み。計算額は変えていない。
+- production DB には p19 の `status='pending'` / `amount_yen=null` の liability offset 行が別作業由来で存在する。現行 reward code は `status='active'` だけ読むので計算には入らない。所有者不明なので勝手に削除しない。
+- 月初合意入口モーダル closeout は `pwa/design_log/sessions_2026-07.md` と `pwa/BUGS.md` に残っている。そちらを触るなら `pwa/spec/3-14-monthly-work-agreement-current-spec.md` も読む。
 
 最初の一手:
-1. 月初合意入口を触るなら、`pwa/src/components/monthly-agreement/MonthlyAgreementGateOverlay.tsx` を見て、背景クリックで閉じる処理が戻っていないことを確認する。
-2. 画面内容を変えるなら、`pwa/src/components/monthly-agreement/MonthlyAgreementExperience.tsx` と `pwa/spec/3-14-monthly-work-agreement-current-spec.md` を同時に更新する。
-3. 仕様変更なら `pwa/manual/2-2-member-workflows-quick-start.md`、`pwa/manual/6-6-member-billing-prompts-spec.md`、appendix changelog、必要なら `pwa/BUGS.md` に同期する。
-4. 認証済みadmin画面で確認できるなら、未合意/条件更新ありの状態で `/dashboard` などを開き、モーダルが前面表示され、背景クリックで閉じないことを確認する。
-
-検証:
-```bash
-cd /Users/masa/projects/AMD/amd-os/pwa
-npm run test:critical-ui
-npm run build
-```
+1. `HANDOFF.md` の Repo State と Important Warnings を読む。
+2. `origin/main` と production `/api/build-info` の sha を合わせる。
+3. finance/reward を触るなら、本番DBで `reward_member_liability_offsets` を `status` ごとに確認し、active と pending を混ぜない。
+4. `/admin/payouts` や `/admin/season-pl` の数字を見る時は、先に報酬キャッシュが最新か確認する。必要なら `payout-reward-cache-refresh?ym=202601&lookahead=11` を current production build で実行してから見る。
 
 守ること:
-- 開発が分からない人への報告では、内部ファイル名や英語の技術語を先に出さず、「何ができているか」「何が危ないか」「次に何をするか」を日本語で説明する。
-- 月初合意は報酬計算を変更しない。本人が見る当月の遂行内容・予定額への確認レイヤーとして扱う。
-- 6月以前の支払を未合意で止めない。
-- `git add .` は使わない。選んだbundleのファイルだけ個別stageする。
-- PWA本番反映が必要なら `.vercel/project.json` が `amd-os-pwa / prj_raZW3HSKIszzPUwNTHfy7xDGzLHm` であることを確認し、`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` を使う。
+- 「会社留保を減らせば吸収できる」と説明しない。これは前回の誤判断。
+- 他メンバーの未払残から差し引かない。
+- 既に発行・送付・支払済みの通知書額を勝手に変えない。
+- `git add .` は使わない。対象 bundle だけ個別 stage。
+- PWA deploy が必要なら `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` を使う。
 ```

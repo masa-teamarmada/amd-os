@@ -22,7 +22,7 @@ SELECT
   1658,
   '202605',
   'ZMP 2026 paid/sent amount exceeded current reward basis; offset only from Abi same-member unpaid stock.',
-  '{"policy":"same_member_stock_only","decision_date":"2026-07-02","tolerated_members":["ID004","ID010"],"source":"zmp_locked_actuals_audit"}'::jsonb,
+  '{"policy":"same_member_stock_only","decision_date":"2026-07-02","tolerated_members":["ID004","ID026"],"source":"zmp_locked_actuals_audit"}'::jsonb,
   'codex:2026-07-02'
 WHERE NOT EXISTS (
   SELECT 1
@@ -54,7 +54,7 @@ SELECT
   1560,
   '202605',
   'ZMP 2026 paid/sent amount exceeded current reward basis; offset only from Ume same-member unpaid stock.',
-  '{"policy":"same_member_stock_only","decision_date":"2026-07-02","tolerated_members":["ID004","ID010"],"source":"zmp_locked_actuals_audit"}'::jsonb,
+  '{"policy":"same_member_stock_only","decision_date":"2026-07-02","tolerated_members":["ID004","ID026"],"source":"zmp_locked_actuals_audit"}'::jsonb,
   'codex:2026-07-02'
 WHERE NOT EXISTS (
   SELECT 1
