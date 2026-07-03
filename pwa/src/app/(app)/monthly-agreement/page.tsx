@@ -455,9 +455,9 @@ function PayoutScheduleTable({ rows }: { rows: MonthlyWorkAgreementProject["payo
         <span className="text-[10px] text-[#86868b]">新規発生 + 繰越 → 支払予定 → 支払後残</span>
       </div>
       <PayoutFlowBars rows={rows} />
-      <div className="max-h-[260px] overflow-auto">
+      <div className="overflow-x-auto">
         <table className="min-w-[720px] w-full text-[11px]">
-          <thead className="sticky top-0 bg-white text-[#6e6e73]">
+          <thead className="bg-white text-[#6e6e73]">
             <tr className="border-b border-[#e5e5e7]">
               <th className="px-3 py-2 text-left font-semibold">稼働月</th>
               <th className="px-3 py-2 text-right font-semibold">新規発生</th>
@@ -513,7 +513,7 @@ function PayoutFlowBars({ rows }: { rows: MonthlyWorkAgreementProject["payoutSch
         <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-emerald-400" />支払予定</span>
         <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-amber-300" />支払後残</span>
       </div>
-      <div className="max-h-[260px] overflow-auto pr-1">
+      <div className="overflow-x-auto">
         <div className="min-w-[680px] space-y-2">
           {visibleRows.map((row) => (
             <PayoutFlowBarRow key={`${row.sourceYm}:${row.paymentYm}`} row={row} maxGrossDueYen={maxGrossDueYen} />

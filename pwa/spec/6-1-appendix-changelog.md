@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-07-03 | 3-14 月初合意 | 修正 | `/monthly-agreement` の `未払いストックの流れ` で、グラフと明細表を縦方向の内部スクロールにせず全行表示する仕様へ更新。狭い画面では横方向だけスクロールを許容。build v0.37.9 | 未払いの繰越・支払予定・支払後残の流れを、枠内スクロールなしで一目で確認できるようにするため | えいみ |
 | 2026-07-01 | 3-14 月初合意 | 修正 | `exclude_from_payout_notice=true` かつ `is_admin=true` のメンバーは合意保存不要のまま、確認用に `/monthly-agreement` でPJ/MS/貢献率/予定報酬を表示する仕様へ更新。画面上の `share` 表記は `貢献率` に変更。build v0.36.41 | まさのアカウントは合意対象外で本人画面を確認しづらかったため。adminは支払い条件に含めず、表示確認だけできるようにする | えいみ |
 | 2026-07-01 | 3-14 月初合意 / FEATURE_REGISTRY / BUGS | 修正 | 月初合意を支払い条件として通常判定する開始月を 2026年7月稼働分へ変更し、2026年6月以前の稼働分 (`source_ym <= 202606`) は導入前/移行月として合意済み扱いで通す仕様へ更新。build v0.36.39 | 6月は契約改定前かつシステム未完成期間で、まさ判断として合意ステップをスキップする月だったため。契約前/未完成期間をあとから支払い停止に使わないようにする | えいみ |
 | 2026-07-01 | 3-2 Monthly Reports (v2) | 変更 | L2M-1 の primary writer を Codex `amd-os-l2` (daily 05:30 JST, gpt-5.5) から Claude routine `amd-os-l2m1-monthly-report` (月末最終日 03:00 JST, opus-4-8+ultracode 想定) へ移行。旧 Codex は PAUSED (復活禁止)。`projects.monthly_report_scope` 3値enum (`none`/`internal_only`/`internal_and_external`) を新設し、対象判定を bool → enum へ変更。内部保存版 (`monthly_reports.final_content`) + 対外提出版 (`monthly_reports_external.body_md` + PDF) の 2 段生成。プロンプト本文は `llm_prompts` table の `l2m1.monthly_report.internal.v2` / `l2m1.monthly_report.external.v2` を正本にし、admin UI で編集可能。migration 159 + 160、build v0.36.37 | 旧 gpt-5.5 daily の品質不足を opus-4-8 + ultracode で解消し、対外納品用 PDF (KUTE 実納品形式準拠) を月次で自動生成する運用に切り替えるため。プロンプトのハードコードを AGENTS.common.md L510-514 の DB管理原則に整合させるため。まさ 2026-07-01 確定 | えいみ |
