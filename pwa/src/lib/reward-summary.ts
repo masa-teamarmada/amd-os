@@ -15,7 +15,7 @@ import { pointBasisForMilestonePeriod, regularPointBasisForCycle, roundPt } from
 type SupabaseLike = SupabaseClient;
 
 const ACTIVE_PLAN_STATUSES = ["active", "confirmed", "fixed", "draft"];
-const REWARD_SUMMARY_VERSION = "server_v3_planned_share";
+const REWARD_SUMMARY_VERSION = "server_v4_planned_share_cap_carry";
 const CAP_EXTRA_MILESTONE_TAGS = new Set(["cap_extra", "extra_contract", "contract_extra", "cap_outside", "uncapped"]);
 
 type RewardPool = "regular" | "cap_extra";
@@ -83,6 +83,7 @@ export interface RewardSummary {
   totalPaySum?: number;
   totalGrossDueYen?: number;
   capBudgetYen?: number;
+  effectiveCapBudgetYen?: number;
   capped?: boolean;
   carryInYen?: number;
   carryOverYen?: number;
@@ -91,6 +92,15 @@ export interface RewardSummary {
   extraPtUnit?: number;
   regularCapBudgetYen?: number;
   extraCapBudgetYen?: number;
+  effectiveRegularCapBudgetYen?: number;
+  effectiveExtraCapBudgetYen?: number;
+  regularCapCarryInYen?: number;
+  extraCapCarryInYen?: number;
+  regularUnusedCapCarryOutYen?: number;
+  extraUnusedCapCarryOutYen?: number;
+  regularFinalCapTopUpYen?: number;
+  extraFinalCapTopUpYen?: number;
+  finalCapTopUpYen?: number;
   regularTotalGrossDueYen?: number;
   extraTotalGrossDueYen?: number;
   regularCarryOverYen?: number;
@@ -657,6 +667,14 @@ function deriveExtraCapYen(billing: BillingRow): number | null {
   return Math.max(0, Math.round(numberValue(billing.extra_budget_yen)));
 }
 
+type MonthlyRewardCaps = {
+  regularCapYen: number;
+  extraCapYen: number | null;
+  totalCapYen: number;
+  regularCapCarryInYen?: number;
+  extraCapCarryInYen?: number;
+};
+
 function deriveMonthlyRewardCaps({
   billing,
   planCycle,
@@ -667,7 +685,7 @@ function deriveMonthlyRewardCaps({
   planCycle: PlanCycleRow | null;
   project: ProjectRow | null;
   hasCapExtra: boolean;
-}): { regularCapYen: number; extraCapYen: number | null; totalCapYen: number } {
+}): MonthlyRewardCaps {
   const fullBudget = deriveMonthlyRewardBudget({ billing, planCycle, project });
   if (!hasCapExtra) {
     return {
@@ -867,7 +885,7 @@ function applySignedLiabilityOffset(
 
 export function applyRewardCapsForMonth(
   reward: RewardSummary,
-  caps: { regularCapYen: number; extraCapYen: number | null; totalCapYen: number },
+  caps: MonthlyRewardCaps,
   regularCarryStock: Map<string, number>,
   extraCarryStock: Map<string, number>,
   memberMap: Record<string, string> = {},
@@ -944,16 +962,26 @@ export function applyRewardCapsForMonth(
     });
   }
 
+  const regularBaseCapYen = Math.max(0, Math.round(caps.regularCapYen));
+  const regularCapCarryInYen = Math.max(0, Math.round(caps.regularCapCarryInYen ?? 0));
+  const effectiveRegularCapYen = regularBaseCapYen + regularCapCarryInYen;
+  const extraBaseCapYen = caps.extraCapYen == null ? null : Math.max(0, Math.round(caps.extraCapYen));
+  const extraCapCarryInYen = extraBaseCapYen == null ? 0 : Math.max(0, Math.round(caps.extraCapCarryInYen ?? 0));
+  const regularGrossBeforeCap = regularInputs.reduce(
+    (sum, item) => sum + Math.max(0, Math.round(item.basePay)) + Math.max(0, Math.round(item.carryInYen)),
+    0
+  );
   const extraGrossBeforeCap = extraInputs.reduce(
     (sum, item) => sum + Math.max(0, Math.round(item.basePay)) + Math.max(0, Math.round(item.carryInYen)),
     0
   );
   // caps.extraCapYen が null = cap 未設定 → 従来どおり需要全額 (= 別財布即払い)。
   // 明示値 (0 含む) → その額を別財布支払 cap にする。0 = 全額 stock 繰越 (= 完了月一括の積立)。
-  const effectiveExtraCapYen = caps.extraCapYen == null ? extraGrossBeforeCap : caps.extraCapYen;
-  const effectiveTotalCapYen = caps.regularCapYen + effectiveExtraCapYen;
+  const effectiveExtraCapYen = extraBaseCapYen == null ? extraGrossBeforeCap : extraBaseCapYen + extraCapCarryInYen;
+  const effectiveTotalCapYen = effectiveRegularCapYen + effectiveExtraCapYen;
+  const baseTotalCapYen = regularBaseCapYen + (extraBaseCapYen ?? effectiveExtraCapYen);
 
-  const regularAllocations = allocateCap(regularInputs, caps.regularCapYen, { payAllWhenCapMissing: false });
+  const regularAllocations = allocateCap(regularInputs, effectiveRegularCapYen, { payAllWhenCapMissing: false });
   const extraAllocations = allocateCap(extraInputs, effectiveExtraCapYen, { payAllWhenCapMissing: false });
 
   const paidMembers = Array.from(memberIds)
@@ -1125,19 +1153,30 @@ export function applyRewardCapsForMonth(
     (sum, member) => sum + (companyReserveMemberIds.has(member.memberId) ? 0 : (member.extraPaidYen || 0)),
     0
   );
+  const regularUnusedCapCarryOutYen = Math.max(0, Math.round(effectiveRegularCapYen - regularGrossBeforeCap));
+  const extraUnusedCapCarryOutYen = extraBaseCapYen == null
+    ? 0
+    : Math.max(0, Math.round(effectiveExtraCapYen - extraGrossBeforeCap));
 
   return {
     ...reward,
     members: paidMembers,
     totalPaySum: totalPay,
     totalGrossDueYen: totalGrossDue,
-    capBudgetYen: effectiveTotalCapYen,
+    capBudgetYen: baseTotalCapYen,
+    effectiveCapBudgetYen: effectiveTotalCapYen,
     capped: carryOverYen > 0 || companyReserveUnfundedYen > 0,
     carryInYen: carryInTotal,
     carryOverYen,
-    monthlyBudget65: effectiveTotalCapYen,
-    regularCapBudgetYen: caps.regularCapYen,
-    extraCapBudgetYen: effectiveExtraCapYen,
+    monthlyBudget65: baseTotalCapYen,
+    regularCapBudgetYen: regularBaseCapYen,
+    extraCapBudgetYen: extraBaseCapYen ?? effectiveExtraCapYen,
+    effectiveRegularCapBudgetYen: effectiveRegularCapYen,
+    effectiveExtraCapBudgetYen: effectiveExtraCapYen,
+    regularCapCarryInYen,
+    extraCapCarryInYen,
+    regularUnusedCapCarryOutYen,
+    extraUnusedCapCarryOutYen,
     externalPayoutCapYen: externalRegularPayoutCapYen + externalExtraPayoutCapYen,
     externalRegularPayoutCapYen,
     externalExtraPayoutCapYen,
@@ -1303,6 +1342,8 @@ export function buildRewardSummary({
   const extraCarryStock = new Map<string, number>();
   const regularRecoupCarry = new Map<string, number>();
   const extraRecoupCarry = new Map<string, number>();
+  let regularUnusedCapCarryYen = 0;
+  let extraUnusedCapCarryYen = 0;
   let result: RewardSummary | null = null;
 
   // 別財布 (cap_extra) プールの総原資 = Σ billing.extra_budget_yen。extra pt単価の独立導出に使う。
@@ -1311,6 +1352,12 @@ export function buildRewardSummary({
   for (const month of monthRangeUntil(planCycle, ym)) {
     const billingForMonth = billingsByYm?.get(month) ?? billing;
     const unitsForMonth = deriveRewardUnits({ milestones, billing: billingForMonth, planCycle, project, extraPoolBudgetYen });
+    const baseCaps = deriveMonthlyRewardCaps({ billing: billingForMonth, planCycle, project, hasCapExtra: unitsForMonth.hasCapExtra });
+    const caps: MonthlyRewardCaps = {
+      ...baseCaps,
+      regularCapCarryInYen: regularUnusedCapCarryYen,
+      extraCapCarryInYen: baseCaps.extraCapYen == null ? 0 : extraUnusedCapCarryYen,
+    };
     const regularLiabilityOffsets = new Map<string, number>();
     const extraLiabilityOffsets = new Map<string, number>();
     for (const offset of liabilityOffsetsByYm?.get(month) ?? []) {
@@ -1343,14 +1390,23 @@ export function buildRewardSummary({
       buildCarryOnlyReward(memberMap, regularCarryStock, extraCarryStock, unitsForMonth.regularPtUnit, unitsForMonth.extraPtUnit) ||
       buildLiabilityOnlyReward(memberMap, liabilityOnlyMemberIds, unitsForMonth.regularPtUnit, unitsForMonth.extraPtUnit);
 
-    if (!uncapped) continue;
-    const caps = deriveMonthlyRewardCaps({ billing: billingForMonth, planCycle, project, hasCapExtra: unitsForMonth.hasCapExtra });
+    if (!uncapped) {
+      regularUnusedCapCarryYen = Math.max(0, Math.round(baseCaps.regularCapYen + regularUnusedCapCarryYen));
+      extraUnusedCapCarryYen = baseCaps.extraCapYen == null
+        ? 0
+        : Math.max(0, Math.round(baseCaps.extraCapYen + extraUnusedCapCarryYen));
+      continue;
+    }
     const capped = applyRewardCapsForMonth(uncapped, caps, regularCarryStock, extraCarryStock, memberMap, {
       companyReserveMemberIds,
       payoutExcludedMemberIds,
       regularLiabilityOffsetsByMember: regularLiabilityOffsets,
       extraLiabilityOffsetsByMember: extraLiabilityOffsets,
     });
+    regularUnusedCapCarryYen = Math.max(0, Math.round(capped.regularUnusedCapCarryOutYen ?? 0));
+    extraUnusedCapCarryYen = baseCaps.extraCapYen == null
+      ? 0
+      : Math.max(0, Math.round(capped.extraUnusedCapCarryOutYen ?? 0));
     regularCarryStock.clear();
     extraCarryStock.clear();
     regularRecoupCarry.clear();
@@ -1428,12 +1484,22 @@ function emptyRewardSummaryForCycle(
     totalPaySum: 0,
     totalGrossDueYen: 0,
     capBudgetYen: 0,
+    effectiveCapBudgetYen: 0,
     capped: false,
     carryInYen: 0,
     carryOverYen: 0,
     monthlyBudget65: 0,
     regularCapBudgetYen: 0,
     extraCapBudgetYen: 0,
+    effectiveRegularCapBudgetYen: 0,
+    effectiveExtraCapBudgetYen: 0,
+    regularCapCarryInYen: 0,
+    extraCapCarryInYen: 0,
+    regularUnusedCapCarryOutYen: 0,
+    extraUnusedCapCarryOutYen: 0,
+    regularFinalCapTopUpYen: 0,
+    extraFinalCapTopUpYen: 0,
+    finalCapTopUpYen: 0,
     regularTotalGrossDueYen: 0,
     extraTotalGrossDueYen: 0,
     regularCarryOverYen: 0,

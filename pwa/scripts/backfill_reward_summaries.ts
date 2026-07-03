@@ -38,7 +38,7 @@ const db = createClient(url, key, {
 
 let query = db
   .from("billing_cycles")
-  .select("project_id, ym")
+  .select("project_id, ym, reward_paid_at, payout_notice_uploaded_at, payment_confirmed_at")
   .order("project_id", { ascending: true })
   .order("ym", { ascending: true });
 
@@ -48,7 +48,13 @@ if (ymFilter) query = query.eq("ym", ymFilter);
 const { data, error } = await query;
 if (error) throw error;
 
-const cycles = (data ?? []) as Array<{ project_id: string; ym: string }>;
+const cycles = (data ?? []) as Array<{
+  project_id: string;
+  ym: string;
+  reward_paid_at?: string | null;
+  payout_notice_uploaded_at?: string | null;
+  payment_confirmed_at?: string | null;
+}>;
 const synced = await syncRewardSummariesForBillingCycles(db, cycles);
 
 console.log(JSON.stringify({

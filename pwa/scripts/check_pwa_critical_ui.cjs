@@ -282,7 +282,7 @@ expectIncludes("src/app/api/cron/payout-reward-cache-refresh/route.ts", [
 ]);
 
 expectIncludes("src/lib/reward-summary.ts", [
-  "server_v3_planned_share",
+  "server_v4_planned_share_cap_carry",
   "plannedShare",
   "shareSource",
   "CAP_EXTRA_MILESTONE_TAGS",
