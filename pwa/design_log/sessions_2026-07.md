@@ -125,3 +125,23 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 - 次セッション = S5後半 (改稿 R1-R10)。入口 = pwa/bzm/HANDOFF_P1_2026-07-03.md
 - R10 (OSF 事前登録 = 結果が出る前の予測を日付証明つきで外部登録。CX 2026-08 / SX 2027-04 の設立判断前が期限) はまさ判断待ち
 - モノグラフ Ch 10.4/9/5.5 skeleton の欠陥5点が査読で発見された → S5_REVISION_PLAN.md §5、次モノグラフセッションで L2 判例化要
+
+---
+
+## 2026-07-03 — P1 S5後半 セッション1: R8+R6 軽微 / R1 理論再手術 / R2 certification 対峙 (before-zero セッション)
+
+### やったこと
+- **R8+R6 軽微修正** (`09f9f2cd`): 書誌4件修正 (Arrow=Wiley / Nardo=Hoffmann・OECD Publishing / Debreu・Lakatos 頁) + Atkinson 削除 + Cobb-Douglas を σ_SU 段落に引用 + SM 引用済み4件 (Bertola/Caballero/Fishburn/Gorman) を参照リストへ。幽霊参照 (「bottom panel」「survival panel」) 削除。Table 2 の gate 起因行 T・K を WAIT に統一 (empirical MC2。Y の NO_GO は P→0 起因で別物として維持)。SM-A 誤参照3箇所 (§2→§3)
+- **R1 理論再手術 完了** (`7ecd24c3`): Theorem 3 を動学的価値関数基盤で再定式化 (socialchoice 査読の構成的修理パスどおり)。f = 養育環境の価値関数 (閉形式 f = PS·exp(−r(1−R)−∫λ) の決定論的ベンチマーク部分クラスで全証明を初等化)。C1′=min(P,S) 消滅・C3′=チャネルのクラス定義化 (型エラーと §5/SM-D との自己矛盾を同時解消)・境界退化は Lemma に格下げ・**新 Theorem 3 = SH (段階依存の作用) / ED (残り道のりへの複利作用) の下で弱単調合成を排除** — 乗法・CES・min を含み、静的公理系では殺せなかった min(PRS,κ(A)) 反例を殺す。Cor 3.2 (portfolio/universal domain) 新設。SM-B GAP 5→2。SM-B はエージェント起草→えいみ検収 (検収修正3点: ε<1/80 明示・tightness 主張軟化・Hausman χ² df を制約数 q に修正)
+- **R2 完了** (このセッション最終 commit): §4 に certification effects (Stuart-Hoang-Hybels 1999 / Hsu 2004 / Howell 2017、3件 web 照合済み) との正面対決段落 — certification は資本アクセス = trajectory 経由 = C3′ チャネル内 (A_4/A_5/A_8 → F/hazard/σ-exposure)、排除されるのは trajectory 固定の halo 残差のみ = Hansen-J (R1 で channel completeness 4キャリア moment に再設計済み) の標的。graceful degradation (J 棄却でも Theorem 3 は SH という観測可能な reversal のみに依存) を明示
+- PROGRESS に「S5後半 改稿実行ログ」表を新設、HANDOFF_P1 を R3 起点に更新
+
+### 学び・注意
+- 並行セッションが活発で push 拒否が2回 → handoff の fetch→rebase→push 手順で事故ゼロ。worktree 方式継続が正解
+- 検収で直した3点はいずれも「エージェントが正しく書いたものの主張強度・定数条件の詰め」— 起草→検収の分業は数理でも機能する
+- SH/ED は「公理」ではなく観測可能な経験的条件として設計 — 登録プログラム (§7) の検証対象に載せることで査読防御と実証プログラムが一体化した
+
+### 決めたこと・次
+- 次 = R3 (Thm1/2/Prop1、SM-A + §3、M6/M7/M8) → R4 (Thm4 + Fig.3 計算版) → R5 (Simpson selection DGP)。相互独立なので並列可。入口 = HANDOFF_P1 (更新済み)
+- PREVIEW.html は R1 で stale — 全 R 完了後に再生成 (手順は本ログ同日の前エントリ)
+- R10 (OSF) は引き続きまさ判断待ち。モノグラフ5点の L2 判例化も未着手のまま
