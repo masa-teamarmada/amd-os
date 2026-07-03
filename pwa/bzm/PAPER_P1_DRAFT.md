@@ -96,6 +96,14 @@ The proof architecture can be stated in a paragraph (the full argument is in SM-
 
 Three corollaries dispose of the three composites found in practice (Table 1). *Pure multiplication* $\mathrm{PRS} \cdot \mathrm{ERS}$ satisfies C1 but violates C3 — the institution enters once through $R, S$ and again as a multiplier: double counting, now with a theorem attached (and already excluded at the ledger level by Theorem 2). *Pure addition* $\alpha \mathrm{PRS} + \beta \mathrm{ERS}$ satisfies C3's spirit but violates C1 — a dead venture at a strong institution outranks a live venture at a weak one; the ranking rewards the nursery for the corpse. *General monotone composites* — geometric means, CES blends, lexicographic hybrids, and every "sophisticated" weighting scheme a committee might tune — fail the Thomsen condition constructively. Every institution-adjusted score we have encountered in evaluation practice is one of these three; each fails a *different* axiom, which is why practitioners patching one failure reliably create another.
 
+**Table 1 — Three families of single scores and where each fails**
+
+| Family | Practice example | C1 (venture annihilation) | C2 (monotonicity) | C3 (causal channel) | C4 / Thomsen | Verdict |
+|---|---|---|---|---|---|---|
+| Pure multiplication $\mathrm{PRS} \cdot \mathrm{ERS}$ | "project score × institution coefficient" | satisfied | satisfied | **violated** (double counting; cf. Theorem 2) | satisfied | inadmissible |
+| Pure addition $\alpha \mathrm{PRS} + \beta \mathrm{ERS}$ | weighted scorecard total | **violated** (dead ventures ranked by their host) | satisfied | satisfied in spirit | satisfied | inadmissible as measurement; usable as explicit decision aid with a liveness guard (§7) |
+| General monotone $\Phi(g, h)$ | geometric blends, CES mixes, lexicographic hybrids | — | — | — | **fails double-cancellation** (Theorem 3) | inadmissible |
+
 **Corollary 3.1** (falsifiable signatures). *Suppose a field nonetheless ranks by some single score $f = \Phi(g, h)$ while the true data-generating process respects C1–C4. Then observable data will exhibit at least one of: (i) Simpson reversal — the sign of the institution coefficient in a pooled regression of outcomes on $\mathrm{ERS}$ differs from its sign within $\mathrm{PRS}$-quartiles (Simpson, 1951); (ii) quartile instability — institution coefficients differ significantly across venture-quality quartiles; (iii) Hausman rejection — pooled and venture-conditional estimators diverge beyond sampling error (Hausman, 1978).* The theorem thus predicts the statistical scars of its own violation. This converts an impossibility — usually the end of a conversation — into an empirical research program: the signatures are pre-registered as testable claims in Section 7, with multiplicity-corrected thresholds, rather than left as rhetoric.
 
 What survives the impossibility is precisely what committees should build instead. First, *additive shortlisting* $\alpha \mathrm{PRS} + \beta \mathrm{ERS}$ remains available — not as a measurement, which C1 forbids it to be, but as an explicit decision aid whose trade-off weights $(\alpha, \beta)$ are public political choices rather than smuggled calibration; its failure mode (ranking corpses) is known and guardable by a liveness precondition. Second, *conditional gating* — rank ventures by $\mathrm{PRS}$ only within the population whose institutions clear stated thresholds ($A_7 \geq L$, say) — respects both ledgers without merging them. Third, and most simply, *governance separation*: let the venture ledger allocate project funding and the institutional ledger allocate capacity-building funding, and let no committee demand a number that Theorem 3 shows cannot exist. Impossibility, correctly read, is design guidance.
@@ -128,9 +136,24 @@ A scope note maintains the paper's measurement discipline. Everything in this se
 
 ## 6. Retrospective calibration: eight projects
 
-We now put numbers — deliberately coarse ones — behind the framework. The data are the operating records of a single deep-tech venture studio working with Japanese universities and national laboratories between 2007 and 2026: eight projects that reached a founding decision (taken or declined), each observed from seed identification through at least twenty-four months past its decision point. Three disclosures govern everything that follows. The cases are *composites*: identifying details are altered and institutions appear as anonymized types, with fidelity maintained on the variables the model reads. The exercise is *retrospective calibration, not validation*: outcomes were known when the rubrics were scored, so agreement demonstrates that the model can organize known history, not that it predicts unknown futures — the registered, prospective test is Section 7's business. And the sample is *selected*: eight projects from one studio's pipeline carry survivorship and idiosyncrasy we do not pretend to correct with $N = 8$; the section's role is illustration under honest labels (hence the Tier-A vocabulary maintained throughout).
+We now put numbers — deliberately coarse ones — behind the framework. The data are the operating records of a single deep-tech venture studio working with Japanese universities and national laboratories between 2007 and 2026: eight projects whose founding decisions span that period — five with decisions taken and twenty-four-month outcomes complete, one recently founded (outcome right-censored), and two approaching scheduled decision points (readings reported, outcomes pending). Three disclosures govern everything that follows. The cases are *composites*: identifying details are altered and institutions appear as anonymized types, with fidelity maintained on the variables the model reads. The exercise is *retrospective calibration, not validation*: outcomes were known when the rubrics were scored, so agreement demonstrates that the model can organize known history, not that it predicts unknown futures — the registered, prospective test is Section 7's business. And the sample is *selected*: eight projects from one studio's pipeline carry survivorship and idiosyncrasy we do not pretend to correct with $N = 8$; the section's role is illustration under honest labels (hence the Tier-A vocabulary maintained throughout).
 
-Table 2 reports, per project: the $\sigma_{SU}$ regime at the decision point; the technology gate $g_{TRL}$; the slack state $F$; the model's reading ($\mathrm{GO}$ / $\mathrm{WAIT}$ / $\mathrm{NO\_GO}$); the decision actually taken; and a twenty-four-month outcome class (progressing / stagnant / terminated). Scores are reported at rubric level; the calibration constants mapping rubrics to model ranges are described as procedure (Section 3) and withheld as values, consistent with the proprietary-data declaration. Two agreements and one instructive tension organize the reading, and two projects deserve the space of a vignette.
+Table 2 reports, per project: the $\sigma_{SU}$ regime at the decision point; the technology gate $g_{TRL}$; the slack state $F$; the model's reading ($\mathrm{GO}$ / $\mathrm{WAIT}$ / $\mathrm{NO\_GO}$); the decision actually taken; and a twenty-four-month outcome class (progressing / stagnant / terminated; right-censored where the decision is recent or pending). Scores are reported at rubric level; the calibration constants mapping rubrics to model ranges are described as procedure (Section 3) and withheld as values, consistent with the proprietary-data declaration. Two agreements and one instructive tension organize the reading, and two projects deserve the space of a vignette.
+
+**Table 2 — Eight projects, retrospectively calibrated (composite cases; institutions type-named)**
+
+| Project | Domain | Host type | Decision pt. | $\sigma_{SU}$ regime | $g_{TRL}$ | $F$ (slack) | Model reading | Actual | 24-mo outcome |
+|---|---|---|---|---|---|---|---|---|---|
+| T | advanced materials | NU-A | 2012 | $S_2$ (aligned) | 0 | low | NO_GO (gate) | founded | stagnant (zombie) |
+| Y | marine energy | RU-B | 2025 | $S_1$ | 1 | low | NO_GO ($P \to 0$) | founded† | terminated (unit economics) |
+| K | circular economy | RU-C | 2023 | $S_1$ | 0 | low | NO_GO (gate) | founded† | stagnant (deep pivot) |
+| Q | wind energy | — | 2012 | $S_1$ | n/a | low | (decision-point rubric insufficient) | founded† | stagnant (distress) |
+| R | drug discovery | NU-C | mid-2010s | $S_1$ | 1 (domain scale, provisional) | low → grant | GO (marginal) | founded | progressing (public grant) |
+| L | blue energy | NL-A | 2025 | $S_2$ ($\mu_G$: national program) | 1 | high (program) | GO | founded | progressing (censored, 15 mo) |
+| M | advanced materials | NU-B | 2026 (sched.) | $S_1 \to S_2$ | 1 at decision | mid-high | GO | founding scheduled | censored |
+| N | environmental biotech | RU-D | 2027 (sched.) | $S_1 \to S_2$ | gate set at elevated threshold | high (program) | GO conditional on milestone | pending | censored |
+
+*Notes.* Cases are composites; letters carry no information. † = founding decision taken outside (or prior to) the studio's involvement; the reading reported is the model's retrospective assessment at the decision point. Regime labels are retrospective assignments under the calibration procedure of Section 3; calibration constants withheld. Project Q is retained for the survival panel only. Domain-specific readiness scales (drug discovery) are provisional mappings flagged for the registered program.
 
 The first vignette is the *zombie type*. Project T (materials; national-university host of type NU-A) sat in a domain whose macro alignment was, by any reading of the momenta, exceptional — construction-sector decarbonization policy, industrial pull, and academic output all warming toward the aligned regime. The technology, however, had never left its originating laboratory: realization readiness at founding was near the rubric floor ($g_{TRL} = 0$ under any defensible gate). The model reads $\mathrm{NO\_GO}$ — more precisely, $\mathrm{WAIT}$ on the technology axis regardless of macro warmth, because the gate multiplies rather than averages. The historical decision was to found early on the strength of the tailwind; the outcome was a decade of stagnation kept alive by the very tailwind that motivated the founding — a zombie, in the field's own argot. The counterfactual is the section's point: *any* monotone composite of a venture score and its glowing macro-institutional environment would have let the environment compensate the missing technology — the Simpson error of Corollary 3.1 committed in a single decision. The two-ledger reading, by refusing the compensation, prices the case correctly ex post.
 
@@ -162,7 +185,44 @@ Before day zero, value is real but unmeasured. The Before Zero Model makes it me
 
 ## References
 
-<!-- S4 で確定 (実在照合済みのもののみ)。マスタは PAPER_P1_OUTLINE.md 末尾 -->
+*Draft list — all in-text citations covered。✓ = 2026-07-03 web照合済み。巻号・頁は S5 で全件再照合。*
+
+- Alkire, S., Foster, J., 2011. Counting and multidimensional poverty measurement. Journal of Public Economics 95 (7–8), 476–487.
+- Arrow, K.J., 1963. Social Choice and Individual Values, 2nd ed. Yale University Press.
+- Atkinson, A.B., 1970. On the measurement of inequality. Journal of Economic Theory 2 (3), 244–263.
+- Bozeman, B., 2000. Technology transfer and public policy: a review of research and theory. Research Policy 29 (4–5), 627–655.
+- Cobb, C.W., Douglas, P.H., 1928. A theory of production. American Economic Review 18 (1, Suppl.), 139–165.
+- Crandall, M.G., Ishii, H., Lions, P.-L., 1992. User's guide to viscosity solutions of second order partial differential equations. Bulletin of the American Mathematical Society 27 (1), 1–67.
+- Debreu, G., 1960. Topological methods in cardinal utility theory. In: Arrow, K.J., Karlin, S., Suppes, P. (Eds.), Mathematical Methods in the Social Sciences. Stanford University Press.
+- Dixit, A.K., Pindyck, R.S., 1994. Investment under Uncertainty. Princeton University Press.
+- Etzkowitz, H., Leydesdorff, L., 2000. The dynamics of innovation: from National Systems and "Mode 2" to a Triple Helix of university–industry–government relations. Research Policy 29 (2), 109–123.
+- Greco, S., Ishizaka, A., Tasiou, M., Torrisi, G., 2019. On the methodological framework of composite indices: a review of the issues of weighting, aggregation, and robustness. Social Indicators Research 141 (1), 61–94. ✓
+- Grimaldi, R., Kenney, M., Siegel, D.S., Wright, M., 2011. 30 years after Bayh–Dole: reassessing academic entrepreneurship. Research Policy 40 (8), 1045–1057.
+- Hansen, L.P., 1982. Large sample properties of generalized method of moments estimators. Econometrica 50 (4), 1029–1054.
+- Hausman, J.A., 1978. Specification tests in econometrics. Econometrica 46 (6), 1251–1271.
+- Hayter, C.S., Nelson, A.J., Zayed, S., O'Connor, A.C., 2018. Conceptualizing academic entrepreneurship ecosystems: a review, analysis and extension of the literature. The Journal of Technology Transfer 43 (4), 1039–1082. ✓
+- Holmström, B., Milgrom, P., 1991. Multitask principal–agent analyses: incentive contracts, asset ownership, and job design. Journal of Law, Economics, & Organization 7 (Special Issue), 24–52.
+- Krantz, D.H., Luce, R.D., Suppes, P., Tversky, A., 1971. Foundations of Measurement, Vol. I: Additive and Polynomial Representations. Academic Press.
+- Kremer, M., 1993. The O-ring theory of economic development. Quarterly Journal of Economics 108 (3), 551–575.
+- Lakatos, I., 1970. Falsification and the methodology of scientific research programmes. In: Lakatos, I., Musgrave, A. (Eds.), Criticism and the Growth of Knowledge. Cambridge University Press.
+- Leydesdorff, L., 2003. The mutual information of university–industry–government relations: an indicator of the Triple Helix dynamics. Scientometrics 58 (2), 445–467.
+- Little, R.J.A., Rubin, D.B., 2019. Statistical Analysis with Missing Data, 3rd ed. Wiley.
+- Luce, R.D., Tukey, J.W., 1964. Simultaneous conjoint measurement: a new type of fundamental measurement. Journal of Mathematical Psychology 1 (1), 1–27.
+- Mankins, J.C., 1995. Technology Readiness Levels: A White Paper. NASA Office of Space Access and Technology.
+- McDonald, R., Siegel, D., 1986. The value of waiting to invest. Quarterly Journal of Economics 101 (4), 707–727.
+- McGrath, R.G., 1997. A real options logic for initiating technology positioning investments. Academy of Management Review 22 (4), 974–996.
+- Munari, F., Rasmussen, E., Toschi, L., Villani, E., 2016. Determinants of the university technology transfer policy-mix: a cross-national analysis of gap-funding instruments. The Journal of Technology Transfer 41 (6), 1377–1405. ✓
+- Nardo, M., Saisana, M., Saltelli, A., Tarantola, S., Hoffman, A., Giovannini, E., 2008. Handbook on Constructing Composite Indicators: Methodology and User Guide. OECD / JRC, Paris.
+- Nelson, R.R., Winter, S.G., 1982. An Evolutionary Theory of Economic Change. Belknap Press.
+- Olechowski, A.L., Eppinger, S.D., Joglekar, N., Tomaschek, K., 2020. Technology readiness levels: shortcomings and improvement opportunities. Systems Engineering 23 (4), 395–408. ✓
+- Perkmann, M., Tartari, V., McKelvey, M., et al., 2013. Academic engagement and commercialisation: a review of the literature on university–industry relations. Research Policy 42 (2), 423–442.
+- Popper, K.R., 1959. The Logic of Scientific Discovery. Hutchinson.
+- Rubin, D.B., 1976. Inference and missing data. Biometrika 63 (3), 581–592.
+- Sen, A., 1977. On weights and measures: informational constraints in social welfare analysis. Econometrica 45 (7), 1539–1572.
+- Shane, S., 2004. Academic Entrepreneurship: University Spinoffs and Wealth Creation. Edward Elgar.
+- Simpson, E.H., 1951. The interpretation of interaction in contingency tables. Journal of the Royal Statistical Society, Series B 13 (2), 238–241.
+- Stevens, S.S., 1946. On the theory of scales of measurement. Science 103 (2684), 677–680.
+- Wakker, P.P., 1989. Additive Representations of Preferences: A New Foundation of Decision Analysis. Kluwer.
 
 ## Changelog
 

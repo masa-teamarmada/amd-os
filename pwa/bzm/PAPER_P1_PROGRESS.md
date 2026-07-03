@@ -9,7 +9,7 @@
 | S1 節 skeleton | ✅ 確定 | 2026-07-03 | L1 §4。まさ回答3点反映 (D-060/D-061、タイトル (b)) |
 | S2 段落 outline | ✅ 完了 | 2026-07-03 | `PAPER_P1_OUTLINE.md` 58 paras。E/C 公理リネーム・定理番号マップ確定 |
 | S3 節 draft (英語) | ✅ 全節完了 | 2026-07-03 | `PAPER_P1_DRAFT.md` 本文 7,251w (+refs/表で ~9,000w 圏内) |
-| S4 組み上げ + 刈り込み | ⏳ 次 | — | Table 1-2 / Fig 1-3 作成、SM-A〜E 分離 (証明の完全版執筆)、References 実在照合・確定 |
+| S4 組み上げ + 刈り込み | 🔄 実行中 | 2026-07-03 | ✅ Table 1 (崩壊表)・Table 2 (8PJ、censoring 明記)・References 36件実体化 (高リスク4件 web照合✓)。⏳ 残り: Fig 1-3 作図、SM-A〜E (証明完全版) |
 | S5 persona 査読 (5人) | — | — | RP editor / social choice / real options / empirical / TTO 実務家。引用全件再照合もここ |
 | S6 まさ最終確定 + 投稿パッケージ | — | — | cover letter / highlights / CRediT / declarations |
 
@@ -32,7 +32,9 @@
 
 - 石原先生共著打診 (D-061、打診と S3 は並行可) — 打診パッケージは BOOKS_PORTFOLIO §7-6
 - Table 2 (8PJ) の素材確定: `BZSF/before_zero_theory.md` + `retrofit/su_timelines.ts` から S3-§6 で抽出
-- 図3点 (Fig.1 概念図 / Fig.2 Simpson 反例幾何 / Fig.3 θ* 比較静学) は S4 で作図
+- 図3点 (Fig.1 概念図 / Fig.2 Simpson 反例幾何 / Fig.3 θ* 比較静学) は S4 残タスク
+- SM-A〜E の証明完全版: モノグラフ Ch 9 / 10.4 / 5.5 skeleton の proof 詳細を読み込んでから書く (フレッシュコンテキスト推奨)
+- §6.1 は censoring 明記に修正済み (5件完了 + 1件右打ち切り + 2件決定前) — Table 2 の T/Y/K/Q/R/L/M/N ↔ 実PJ対応は非公開 (composite)
 
 ## Changelog
 
