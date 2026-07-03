@@ -162,7 +162,10 @@ function MonthlyAgreementContent() {
 
   const totalStockYen = bundle.snapshot.totals.stockYen ?? 0;
   const paidActualYen = bundle.snapshot.totals.paidActualYen ?? 0;
+  const unverifiedPaidYen = bundle.snapshot.totals.unverifiedPaidYen ?? 0;
   const futurePayoutYen = bundle.snapshot.totals.futurePayoutYen ?? 0;
+  const metricCount = 4 + (unverifiedPaidYen > 0 ? 1 : 0) + (totalStockYen > 0 ? 1 : 0);
+  const metricCols = metricCount >= 6 ? "lg:grid-cols-6" : metricCount === 5 ? "lg:grid-cols-5" : "lg:grid-cols-4";
 
   return (
     <div className="min-h-screen bg-[#f5f5f7] pb-12">
@@ -215,11 +218,12 @@ function MonthlyAgreementContent() {
           )}
         </section>
 
-        <section className={`grid gap-3 sm:grid-cols-2 ${totalStockYen > 0 ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
+        <section className={`grid gap-3 sm:grid-cols-2 ${metricCols}`}>
           <MetricCard label="参加PJ" value={`${bundle.snapshot.totals.projectCount}`} />
           <MetricCard label="予定報酬合計" value={formatYen(bundle.snapshot.totals.expectedRewardYen)} />
-          <MetricCard label="支払済み実績" value={formatYen(paidActualYen)} />
-          <MetricCard label="これから支払予定" value={formatYen(futurePayoutYen)} />
+          <MetricCard label="支払済み実績(税込)" value={formatYen(paidActualYen)} />
+          {unverifiedPaidYen > 0 && <MetricCard label="実績未照合(税込)" value={formatYen(unverifiedPaidYen)} emphasis />}
+          <MetricCard label="これから支払予定(税込)" value={formatYen(futurePayoutYen)} />
           {totalStockYen > 0 && <MetricCard label="未払いストック残" value={formatYen(totalStockYen)} emphasis />}
         </section>
 
@@ -485,7 +489,8 @@ function PayoutScheduleTable({ rows }: { rows: MonthlyWorkAgreementProject["payo
                   {row.carryInYen > 0 && <div className="text-[10px] text-[#86868b]">繰越 {formatYen(row.carryInYen)}</div>}
                 </td>
                 <td className="px-3 py-2 text-right align-top tabular-nums">
-                  <div className="font-semibold text-[#1d1d1f]">{formatYen(row.totalPayYen)}</div>
+                  <div className="font-semibold text-[#1d1d1f]">税抜 {formatYen(row.totalPayYen)}</div>
+                  <div className="text-[10px] text-[#86868b]">税込 {formatYen(row.totalPayTaxIncludedYen)}</div>
                   <div className="text-[10px] text-[#86868b]">{formatYm(row.paymentYm)}</div>
                   <PayoutSourceBadge row={row} />
                 </td>
@@ -505,6 +510,7 @@ function PayoutScheduleTable({ rows }: { rows: MonthlyWorkAgreementProject["payo
 
 function payoutSourceLabel(row: MonthlyWorkAgreementProject["payoutSchedule"][number]) {
   if (row.amountSource === "actual_paid") return "支払実績";
+  if (row.amountSource === "unverified_paid") return "要照合";
   if (row.amountSource === "payout_snapshot") return "保存済み";
   if (row.amountSource === "protected_reward_cache") return "保護済み";
   return "予定";
@@ -514,6 +520,8 @@ function PayoutSourceBadge({ row }: { row: MonthlyWorkAgreementProject["payoutSc
   const label = payoutSourceLabel(row);
   const cls = row.isActualPaid
     ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+    : row.amountSource === "unverified_paid"
+      ? "border-amber-200 bg-amber-50 text-amber-800"
     : "border-[#d1d1d6] bg-white text-[#6e6e73]";
   return (
     <div className="mt-1">

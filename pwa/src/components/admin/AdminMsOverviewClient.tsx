@@ -533,12 +533,14 @@ type RewardRevisionBudgetImpact = {
   fixedPaidYen: number;
   fixedPaidSnapshotYen: number;
   fixedPaidRewardCacheYen: number;
+  unverifiedPaidYen: number;
   futureProjectedPayYen: number;
   finalStockYen: number;
   projectedObligationYen: number;
   remainingBudgetYen: number;
   isOverBudget: boolean;
   protectedActualYms: string[];
+  unverifiedPaidYms: string[];
   futureProjectedYms: string[];
   missingFutureSummaryYms: string[];
 };
@@ -865,7 +867,7 @@ function RewardRevisionSafetyPanel({
       {budgetImpact && (
         <div
           className={
-            "mt-2 grid gap-2 rounded border px-2 py-2 text-[11px] tabular-nums md:grid-cols-5 " +
+            "mt-2 grid gap-2 rounded border px-2 py-2 text-[11px] tabular-nums md:grid-cols-6 " +
             (budgetImpact.isOverBudget
               ? "border-red-500/25 bg-red-500/5"
               : "border-emerald-500/20 bg-background/60")
@@ -876,7 +878,13 @@ function RewardRevisionSafetyPanel({
           <BudgetImpactCell
             label="支払済み固定"
             value={budgetImpact.fixedPaidYen}
-            title={`支払明細 ${fmtRevisionYen(budgetImpact.fixedPaidSnapshotYen)} / 保護cache ${fmtRevisionYen(budgetImpact.fixedPaidRewardCacheYen)}`}
+            title={`freee出金照合済み ${fmtRevisionYen(budgetImpact.fixedPaidSnapshotYen)} / 保護cache ${fmtRevisionYen(budgetImpact.fixedPaidRewardCacheYen)}`}
+          />
+          <BudgetImpactCell
+            label="実績未照合"
+            value={budgetImpact.unverifiedPaidYen}
+            tone={budgetImpact.unverifiedPaidYen > 0 ? "amber" : "muted"}
+            title={budgetImpact.unverifiedPaidYms.length > 0 ? `未照合: ${budgetImpact.unverifiedPaidYms.join(", ")}` : undefined}
           />
           <BudgetImpactCell label="これから支払予定" value={budgetImpact.futureProjectedPayYen} />
           <BudgetImpactCell label="期末未払い残" value={budgetImpact.finalStockYen} tone={budgetImpact.finalStockYen > 0 ? "amber" : "muted"} />

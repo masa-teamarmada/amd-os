@@ -139,6 +139,11 @@ function rewardCycleProtected(cycle: JsonRecord | undefined): boolean {
   return Boolean(cycle?.reward_paid_at || cycle?.payout_notice_uploaded_at || cycle?.payment_confirmed_at);
 }
 
+function rewardCycleHasVerifiedPaidEvidence(cycle: JsonRecord | undefined): boolean {
+  const by = typeof cycle?.reward_paid_by === "string" ? cycle.reward_paid_by.trim() : "";
+  return by.startsWith("freee_wallet_txn_verified:");
+}
+
 function yenFromRecord(row: JsonRecord | null, keys: string[]): number | null {
   if (!row) return null;
   for (const key of keys) {
@@ -146,6 +151,10 @@ function yenFromRecord(row: JsonRecord | null, keys: string[]): number | null {
     if (value != null) return Math.max(0, Math.round(value));
   }
   return null;
+}
+
+function taxIncludedYen(taxExcludedYen: number): number {
+  return Math.max(0, Math.round(taxExcludedYen * 1.1));
 }
 
 function splitBasePayFromRecord(row: JsonRecord | null): number | null {
@@ -254,20 +263,23 @@ function payoutScheduleEntryFromCycle(
   const cachedStockYen = yenFromRecord(rewardMember, ["stockYen", "stock_yen", "deferredYen", "deferred_yen"]) ?? 0;
   const snapshotTotalPayYen = yenFromRecord(payoutSnapshot, ["total_pay"]);
   const isProtected = rewardCycleProtected(cycle);
+  const isActualPaid = Boolean(snapshotTotalPayYen != null && rewardCycleHasVerifiedPaidEvidence(cycle));
+  const isUnverifiedPaid = Boolean(cycle.reward_paid_at && !isActualPaid);
   const totalPayYen = snapshotTotalPayYen ?? cachedTotalPayYen;
+  const totalPayTaxIncludedYen = taxIncludedYen(totalPayYen);
   const stockYen = snapshotTotalPayYen == null ? cachedStockYen : Math.max(0, grossDueYen - totalPayYen);
   if (basePayYen <= 0 && carryInYen <= 0 && grossDueYen <= 0 && totalPayYen <= 0 && stockYen <= 0) return null;
   const sourceYm = cleanYm(cycle.ym) ?? currentYm;
   const amountSource: MonthlyWorkAgreementPayoutScheduleEntry["amountSource"] =
-    snapshotTotalPayYen != null
-      ? cycle.reward_paid_at
-        ? "actual_paid"
-        : "payout_snapshot"
-      : cycle.reward_paid_at
-        ? "actual_paid"
-      : isProtected
-        ? "protected_reward_cache"
-        : "reward_cache";
+    isActualPaid
+      ? "actual_paid"
+      : isUnverifiedPaid
+        ? "unverified_paid"
+        : snapshotTotalPayYen != null
+          ? "payout_snapshot"
+          : isProtected
+            ? "protected_reward_cache"
+            : "reward_cache";
   return {
     sourceYm,
     paymentYm: effectivePaymentYmForCycle(paymentRuleCycle(cycle, sourceYm), paymentRuleProject(project)),
@@ -276,10 +288,11 @@ function payoutScheduleEntryFromCycle(
     carryInYen,
     grossDueYen,
     totalPayYen,
+    totalPayTaxIncludedYen,
     stockYen,
     isCurrentYm: sourceYm === currentYm,
     isProtected,
-    isActualPaid: amountSource === "actual_paid",
+    isActualPaid,
     amountSource,
   };
 }
@@ -461,6 +474,7 @@ export async function buildMonthlyWorkAgreementBundle(
         expectedRewardYen: 0,
         stockYen: 0,
         paidActualYen: 0,
+        unverifiedPaidYen: 0,
         futurePayoutYen: 0,
         projectCount: 0,
         reviewRequiredCount: 0,
@@ -490,6 +504,7 @@ export async function buildMonthlyWorkAgreementBundle(
         expectedRewardYen: 0,
         stockYen: 0,
         paidActualYen: 0,
+        unverifiedPaidYen: 0,
         futurePayoutYen: 0,
         projectCount: 0,
         reviewRequiredCount: 0,
@@ -873,14 +888,21 @@ export async function buildMonthlyWorkAgreementBundle(
         (sum, project) =>
           sum + project.payoutSchedule
             .filter((entry) => entry.isActualPaid)
-            .reduce((projectSum, entry) => projectSum + entry.totalPayYen, 0),
+            .reduce((projectSum, entry) => projectSum + entry.totalPayTaxIncludedYen, 0),
+        0,
+      ),
+      unverifiedPaidYen: snapshotProjects.reduce(
+        (sum, project) =>
+          sum + project.payoutSchedule
+            .filter((entry) => entry.amountSource === "unverified_paid")
+            .reduce((projectSum, entry) => projectSum + entry.totalPayTaxIncludedYen, 0),
         0,
       ),
       futurePayoutYen: snapshotProjects.reduce(
         (sum, project) =>
           sum + project.payoutSchedule
-            .filter((entry) => !entry.isActualPaid)
-            .reduce((projectSum, entry) => projectSum + entry.totalPayYen, 0),
+            .filter((entry) => !entry.isActualPaid && entry.amountSource !== "unverified_paid")
+            .reduce((projectSum, entry) => projectSum + entry.totalPayTaxIncludedYen, 0),
         0,
       ),
       projectCount: snapshotProjects.length,

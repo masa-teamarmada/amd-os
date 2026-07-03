@@ -81,7 +81,7 @@ msPlannedRewardYen  = round(monthlyBudgetYen × memberEarnedPt / projectEarnedPt
 projectPlannedRewardYen = Σ msPlannedRewardYen
 ```
 
-これは月初合意用の「今月そのMSにコミットする対価」。`reward_summary_json` の capped 支払予定、carryIn、stockYen、現時点の支払確定状態は予定報酬計算には使わない。ただし SX のように `totalPay=0` でも `stockYen` が発生するケースを本人が見落とさないよう、表示専用に `totalPay` / `stockYen` / `grossDueYen` を読む。支払済み/保存済みの過去分は `monthly_reward_payout(project_id, ym, member_id).total_pay` を優先し、MS編集後に過去月の支払額表示が再計算値へ揺れないようにする。保存済み明細が無い protected 月は `billing_cycles.reward_summary_json` の保護済み cache を fallback として読む。
+これは月初合意用の「今月そのMSにコミットする対価」。`reward_summary_json` の capped 支払予定、carryIn、stockYen、現時点の支払確定状態は予定報酬計算には使わない。ただし SX のように `totalPay=0` でも `stockYen` が発生するケースを本人が見落とさないよう、表示専用に `totalPay` / `stockYen` / `grossDueYen` を読む。支払済み/保存済みの過去分は `monthly_reward_payout(project_id, ym, member_id).total_pay` を優先し、MS編集後に過去月の支払額表示が再計算値へ揺れないようにする。保存済み明細が無い protected 月は `billing_cycles.reward_summary_json` の保護済み cache を fallback として読む。`支払済み実績` として集計するのは、保存済み明細に加えて `billing_cycles.reward_paid_by` が `freee_wallet_txn_verified:` の証跡を持つ行だけ。`reward_paid_at` だけがある行は `要照合` として別枠にし、実績にも未来予定にも混ぜない。
 
 ## Snapshot Contract
 
@@ -96,7 +96,7 @@ projectPlannedRewardYen = Σ msPlannedRewardYen
 | `projects[].milestones[]` | 担当MS、share、task description、progress、conditions |
 | `projects[].expectedRewardYen` | 月初合意用の予定報酬 (= 当月月次予算 × 当月予定MS消化pt × share) |
 | `projects[].payoutYen` / `stockYen` / `grossDueYen` / `carryInYen` | 表示専用の今月支払額 / 今月末未払い残 / 支払対象額 / 前月繰越。支払額は `monthly_reward_payout` の保存済み明細を優先し、無ければ `reward_summary_json.members[]` を読む。予定報酬計算や合意 gate 判定には使わない |
-| `projects[].payoutSchedule[]` | 稼働月ごとの `新規発生` / `支払対象` / `支払額` / `支払後残`。各行は `amountSource` (`actual_paid` / `payout_snapshot` / `protected_reward_cache` / `reward_cache`) を持ち、支払済み実績・保存済み・保護済み・予定を区別する |
+| `projects[].payoutSchedule[]` | 稼働月ごとの `新規発生` / `支払対象` / `支払額` / `支払後残`。各行は税抜の `totalPayYen` と、freee銀行出金と照合する税込 `totalPayTaxIncludedYen` を持つ。`amountSource` (`actual_paid` / `unverified_paid` / `payout_snapshot` / `protected_reward_cache` / `reward_cache`) で、支払済み実績・実績未照合・保存済み・保護済み・予定を区別する |
 | `projects[].reviewReasons[]` | 月次予算未設定、value plan未設定、MS/share未設定など admin 向け確認事項 |
 | `totals` | PJ数、予定報酬合計、支払済み実績合計、これから支払予定合計、今月末未払い残合計、admin向け確認事項数 |
 
@@ -163,9 +163,9 @@ API route は logged-in user を `members.email` で解決する。本人以外�
 - 上部に対象月、member、snapshot hash、合意状態を表示する。
 - 合意状態は `未合意` / `合意済み` / `条件更新あり` / `対象外`。
 - `exclude_from_payout_notice=true` でも `is_admin=true` のメンバーは、テスト確認のため通常メンバーと同じく合意保存・修正要望保存を有効にする。本人以外の代理合意は禁止のまま。
-- 合計: 参加PJ数、予定報酬合計、支払済み実績、これから支払予定、今月末未払い残合計 (`stockYen > 0` のときのみ)。支払済み実績は `reward_paid_at` のある cycle だけを集計し、金額は `monthly_reward_payout` の保存済み明細を優先する。保存済み明細があっても未支払の行は「これから支払予定」側に残し、MS編集後の再計算値では上書きしない。
+- 合計: 参加PJ数、予定報酬合計、支払済み実績(税込)、実績未照合(税込)、これから支払予定(税込)、今月末未払い残合計 (`stockYen > 0` のときのみ)。支払済み実績は `reward_paid_at` ではなく、`monthly_reward_payout` の保存済み明細と `freee_wallet_txn_verified:` 証跡がそろった行だけを、税込額 (`round(total_pay × 1.1)`) で集計する。`reward_paid_at` はあるが実支払証跡とPJ別明細額が一致していない行は `実績未照合` へ分け、実績にも「これから支払予定」にも混ぜない。
 - PJごとに、今月支払額、今月末未払い残、前月繰越・今月発生・今月支払の内訳、合意用予定報酬、PM/PL role、担当MS/貢献率/到達目標/予定報酬を表示する。`stockYen` は「今月は支払われない」別枠で強調し、支払額や合意用予定報酬と同じ見え方にしない。
-- `未払いストックの流れ` は、グラフと明細表のどちらも縦方向の内部スクロールを使わず全行を表示する。狭い画面では横方向だけスクロールを許容する。明細表の支払額には `支払実績` / `保存済み` / `保護済み` / `予定` の source badge を出し、過去実績と未来予定を混ぜない。
+- `未払いストックの流れ` は、グラフと明細表のどちらも縦方向の内部スクロールを使わず全行を表示する。狭い画面では横方向だけスクロールを許容する。明細表の支払額には税抜と税込を併記し、`支払実績` / `要照合` / `保存済み` / `保護済み` / `予定` の source badge を出し、過去実績・未照合・未来予定を混ぜない。
 - MS別予定報酬は、当月月次予算を当月予定MS消化ptと active member 正規化 share で配分する。`reward_summary_json.members[].breakdown[].payYen` は使わない。
 - 担当MS、到達目標、予定報酬が違う場合は、合意とは別に修正要望を送信できる。
 - 保存テーブル未適用時は保存ボタンを無効化し、migration未適用として表示する。

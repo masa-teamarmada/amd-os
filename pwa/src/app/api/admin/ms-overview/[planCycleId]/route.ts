@@ -71,6 +71,7 @@ type ProtectedBillingCycleRow = {
   reward_summary_json: unknown;
   extra_budget_yen?: number | string | null;
   reward_paid_at?: string | null;
+  reward_paid_by?: string | null;
   payout_notice_uploaded_at?: string | null;
   payment_confirmed_at?: string | null;
 };
@@ -151,12 +152,14 @@ type RewardRevisionBudgetImpact = {
   fixedPaidYen: number;
   fixedPaidSnapshotYen: number;
   fixedPaidRewardCacheYen: number;
+  unverifiedPaidYen: number;
   futureProjectedPayYen: number;
   finalStockYen: number;
   projectedObligationYen: number;
   remainingBudgetYen: number;
   isOverBudget: boolean;
   protectedActualYms: string[];
+  unverifiedPaidYms: string[];
   futureProjectedYms: string[];
   missingFutureSummaryYms: string[];
 };
@@ -253,6 +256,10 @@ function rewardSummaryFinalStock(summary: RewardSummary | null): number {
   return (summary?.members ?? []).reduce((sum, member) => sum + Math.max(0, Math.round(safeNumber(member.stockYen))), 0);
 }
 
+function rewardCycleHasVerifiedPaidEvidence(cycle: ProtectedBillingCycleRow): boolean {
+  return String(cycle.reward_paid_by ?? "").trim().startsWith("freee_wallet_txn_verified:");
+}
+
 function rewardBaseByMember(summary: RewardSummary | null): Map<string, RewardBaseByPool> {
   const map = new Map<string, RewardBaseByPool>();
   const members = Array.isArray(summary?.members) ? summary.members : [];
@@ -340,18 +347,22 @@ async function buildRewardRevisionBudgetImpact({
   const payoutSnapshotTotals = await loadPayoutSnapshotTotalsByYm(db, plan.project_id, protectedYms);
   let fixedPaidSnapshotYen = 0;
   let fixedPaidRewardCacheYen = 0;
+  let unverifiedPaidYen = 0;
   const protectedActualYms: string[] = [];
+  const unverifiedPaidYms: string[] = [];
 
   for (const cycle of protectedCycles) {
     const snapshotTotal = payoutSnapshotTotals.get(cycle.ym);
-    if (snapshotTotal != null) {
+    const cachedTotal = rewardSummaryTotalPay(asRewardSummary(cycle.reward_summary_json));
+    if (cycle.reward_paid_at && rewardCycleHasVerifiedPaidEvidence(cycle) && snapshotTotal != null) {
       fixedPaidSnapshotYen += snapshotTotal;
       protectedActualYms.push(cycle.ym);
       continue;
     }
-    const cachedTotal = rewardSummaryTotalPay(asRewardSummary(cycle.reward_summary_json));
-    fixedPaidRewardCacheYen += cachedTotal;
-    if (cachedTotal > 0) protectedActualYms.push(cycle.ym);
+    if (cycle.reward_paid_at) {
+      unverifiedPaidYen += snapshotTotal ?? cachedTotal;
+      unverifiedPaidYms.push(cycle.ym);
+    }
   }
 
   const liabilityOffsetsOverride = toLiabilityOffsetsByYm(offsetRows);
@@ -396,12 +407,14 @@ async function buildRewardRevisionBudgetImpact({
     fixedPaidYen,
     fixedPaidSnapshotYen,
     fixedPaidRewardCacheYen,
+    unverifiedPaidYen,
     futureProjectedPayYen,
     finalStockYen,
     projectedObligationYen,
     remainingBudgetYen,
     isOverBudget: seasonBudgetYen > 0 && remainingBudgetYen < 0,
     protectedActualYms: [...new Set(protectedActualYms)].sort(),
+    unverifiedPaidYms: [...new Set(unverifiedPaidYms)].sort(),
     futureProjectedYms,
     missingFutureSummaryYms,
   };
@@ -656,6 +669,11 @@ async function buildRewardRevisionImpact({
     scenario,
     offsetRows,
   });
+  if (impact.budgetImpact.unverifiedPaidYms.length > 0) {
+    impact.blockers.push(
+      `支払済み印はあるが実支払証跡と明細額が未照合の月があります: ${impact.budgetImpact.unverifiedPaidYms.join(", ")}`,
+    );
+  }
   if (impact.budgetImpact.missingFutureSummaryYms.length > 0) {
     impact.warnings.push(
       `未来月 ${impact.budgetImpact.missingFutureSummaryYms.join(", ")} の支払見込みを計算できない`,
@@ -756,7 +774,7 @@ async function prepareMsEditPayload(
   const [cyclesRes, existingRes] = await Promise.all([
     db
       .from("billing_cycles")
-      .select("project_id, ym, reward_summary_json, extra_budget_yen, reward_paid_at, payout_notice_uploaded_at, payment_confirmed_at")
+      .select("project_id, ym, reward_summary_json, extra_budget_yen, reward_paid_at, reward_paid_by, payout_notice_uploaded_at, payment_confirmed_at")
       .eq("project_id", plan.project_id)
       .gte("ym", plan.period_start_ym)
       .lte("ym", plan.period_end_ym)

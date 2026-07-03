@@ -31,11 +31,12 @@ export interface MonthlyWorkAgreementPayoutScheduleEntry {
   carryInYen: number;
   grossDueYen: number;
   totalPayYen: number;
+  totalPayTaxIncludedYen: number;
   stockYen: number;
   isCurrentYm: boolean;
   isProtected: boolean;
   isActualPaid: boolean;
-  amountSource: "actual_paid" | "payout_snapshot" | "protected_reward_cache" | "reward_cache";
+  amountSource: "actual_paid" | "unverified_paid" | "payout_snapshot" | "protected_reward_cache" | "reward_cache";
 }
 
 export interface MonthlyWorkAgreementRevisionRequest {
@@ -85,6 +86,7 @@ export interface MonthlyWorkAgreementSnapshot {
     expectedRewardYen: number;
     stockYen: number;
     paidActualYen?: number;
+    unverifiedPaidYen?: number;
     futurePayoutYen?: number;
     projectCount: number;
     reviewRequiredCount: number;

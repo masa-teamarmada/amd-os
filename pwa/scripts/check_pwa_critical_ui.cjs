@@ -796,6 +796,7 @@ expectIncludes("src/components/admin/AdminMsOverviewClient.tsx", [
   "budgetImpact",
   "PJ予算残",
   "支払済み固定",
+  "実績未照合",
   "これから支払予定",
   "期末未払い残",
   "DB値に戻す",
@@ -827,20 +828,25 @@ expectIncludes("src/app/(app)/monthly-agreement/page.tsx", [
   "これから支払予定",
   "PayoutSourceBadge",
   "支払実績",
+  "要照合",
   "保存済み",
   "保護済み",
+  "税込",
 ]);
 expectIncludes("src/lib/monthly-work-agreement.ts", [
   "monthly_reward_payout",
   "payoutSnapshotForCycle",
   "amountSource",
   "paidActualYen",
+  "unverifiedPaidYen",
+  "totalPayTaxIncludedYen",
   "futurePayoutYen",
 ]);
 expectIncludes("spec/3-14-monthly-work-agreement-current-spec.md", [
   "monthly_reward_payout",
   "amountSource",
   "支払済み実績",
+  "実績未照合",
   "これから支払予定",
 ]);
 
