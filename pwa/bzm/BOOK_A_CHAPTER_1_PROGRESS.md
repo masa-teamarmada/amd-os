@@ -7,11 +7,11 @@
 | ステージ | 状態 | 日付 | 備考 |
 |---|---|---|---|
 | 1. 節 skeleton workflow | ✅ 完了 | 2026-07-03 | 3 persona (編集者/MBA·MOT教員/BZM理論家) × synth。8節構成確定 (run wf_23c6e3cc-75b Phase 1) |
-| 2. まさ確定 (節レベル) | ⏳ **待ち** | — | 15章 TOC v1 + Kingpin K1-K8 (`BOOK_A_MASTER_PLAN.md` §6) と併せて確認待ち |
+| 2. まさ確定 (節レベル) | ✅ 完了 | 2026-07-03 | まさ「おけ。そのまま続けて」= TOC v1 + K1-K8 + 第1章と一括承認 (PF-014) |
 | 3. 段落 outline workflow | ✅ 完了 | 2026-07-03 | 同 run Phase 2 |
 | 4. 段落 draft workflow | ✅ 完了 | 2026-07-03 | 8節並列 draft (同 run Phase 3) |
 | 5. adversarial verify | ✅ 完了 | 2026-07-03 | 5 persona (MBA/MOT教員・社会人院生・教科書編集者・BZM理論家・Tier規律監査人)。**must_fix 28件 → 全件反映**。機械検査 (validation 語彙・校正数値・実名・判例番号の混入) = 0件 |
-| 6. まさ段落確定 + BUILD_VERSION bump + commit | ⏳ **まさレビュー待ち** | — | v1 draft を OS `/bzm/book-a-ch-1` に公開済み (status: in-progress) |
+| 6. まさ段落確定 + BUILD_VERSION bump + commit | ⏳ **まさ詳細レビュー待ち** | — | v1 draft を OS `/bzm/book-a-ch-1` に公開済み (status: in-progress)。PF-014 の一括承認で続行中、段落レベルの確定は詳細レビュー時 |
 
 ## 節構成 (v1)
 
