@@ -108,13 +108,10 @@ Research Article / 単一 PDF + SM。Highlights (3-5 bullets)、abstract ≤ 150
 ## 10. まさ判断点 — 2026-07-03 回答反映済み
 
 1. ✅ **著者構成 = 石原先生 (愛媛大) 共著方針で確定** (D-061)。実質貢献ベース・打診は Book A と合流1パッケージ・執筆は打診と並行
-2. 🔁 **タイトル**: まさ指定を反映 — 「**Before Zero Model**」をタイトルに明示 / go/no-go を主役にしない / 初版3案の「no single score」の字面は誤読リスク (BZM 自体が単一スコアと誤解されうる) で主タイトルから撤回。**新3案** (方向は確定、字面は S2-S4 で磨く):
-   - (a) *The Before Zero Model: a two-layer measurement theory of deep-tech venture readiness before incorporation* — 測定理論を主語 (ストレート)
-   - (b) *The Before Zero Model: measuring deep-tech ventures and their institutional nurseries before day zero* — 「まだ存在しないものを測る」寄り
-   - (c) *The Before Zero Model: why venture readiness and institutional readiness cannot share a single score* — 不可能性定理を平易な副題に
+2. ✅ **タイトル = (b) で確定** (まさ 2026-07-03「bがいい!」): *The Before Zero Model: measuring deep-tech ventures and their institutional nurseries before day zero*。字面の微調整は S4-S5 でのみ (方向・構造は不変)
 3. ✅ **9.5k + SM = D-060 判例化済み** (2026-07-03)
 
-*S1 skeleton = **実質確定** (タイトルは方向確定・字面は S2 以降)。→ **S2 (段落 outline) 着手可**。*
+*S1 skeleton = ✅ 確定 / S2 = ✅ 完了 (`PAPER_P1_OUTLINE.md`、58 paras) / → **S3 (節 draft、§4 から) 実行中**。進捗は `PAPER_P1_PROGRESS.md`。*
 
 ## Changelog
 
@@ -122,3 +119,4 @@ Research Article / 単一 PDF + SM。Highlights (3-5 bullets)、abstract ≤ 150
 |---|---|---|
 | 2026-07-03 | 初版。PF-013 P1 の抽出設計 (9.5k+SM、節構成、章資産マッピング、6ステージ、まさ判断3点) | えいみ |
 | 2026-07-03 | まさ回答反映: D-060 (9.5k+SM 確定) / D-061 (石原先生共著方針 + framing 修正 = 測定理論が主役・BZM タイトル明示)。§2 主役書き換え、§4-5 位置づけ修正、§10 新タイトル3案。S1 実質確定 → S2 着手可 | えいみ |
+| 2026-07-03 | タイトル (b) 確定。S2 完了 (`PAPER_P1_OUTLINE.md` 58 paras) + L3 `PAPER_P1_PROGRESS.md` 新設。S3 (§4 から) へ | えいみ |
