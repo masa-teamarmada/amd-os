@@ -10,7 +10,7 @@
 | S2 段落 outline | ✅ 完了 | 2026-07-03 | `PAPER_P1_OUTLINE.md` 58 paras。E/C 公理リネーム・定理番号マップ確定 |
 | S3 節 draft (英語) | ✅ 全節完了 | 2026-07-03 | `PAPER_P1_DRAFT.md` 本文 7,251w (+refs/表で ~9,000w 圏内) |
 | S4 組み上げ + 刈り込み | ✅ 完了 | 2026-07-03 | Table 1/2・References 36件・Fig 1 (二層概念図 SVG)・Fig 2 (Simpson模式図 SVG)・**SM-A〜E 統合済み** (`PAPER_P1_SM.md`、証明3本はエージェント起草→検収)。Fig 3 は SM-C.5 の数値スキームで S6 前に作図 |
-| S5 persona 査読 (5人) | 🔄 前半完了 | 2026-07-03 | ✅ 6並列査読完了 (5 persona + 引用照合36件=幻覚ゼロ)。判定: editor=desk-reject / 他4=major。**統合改稿計画 = `S5_REVISION_PLAN.md` (R1-R10)**、個別report = `paper_p1_reviews/`。⏳ 後半 = 改稿実行 (R1 理論再手術が最重量) |
+| S5 persona 査読 (5人) | 🔄 改稿中 | 2026-07-03 | ✅ 6並列査読完了 (5 persona + 引用照合36件=幻覚ゼロ)。判定: editor=desk-reject / 他4=major。**統合改稿計画 = `S5_REVISION_PLAN.md` (R1-R10)**、個別report = `paper_p1_reviews/`。⏳ 後半 = 改稿実行 (R1 理論再手術が最重量)。改稿ログは下の「S5後半 改稿実行ログ」 |
 | S6 まさ最終確定 + 投稿パッケージ | — | — | cover letter / highlights / CRediT / declarations |
 
 ## 節別 draft 状態 (S3 → 2026-07-03 全節 draft 済み)
@@ -45,8 +45,17 @@
 5. **比較静学 B の適用領域の向き**: skeleton 準拠 (待機コスト効果が参入後コスト効果に支配される領域) — 本文は無記載でセーフ、SM-C が正記載
 6. **[GAP] 21件**: SM 内に明示保持 (A:4 / B:5 / C:12)。多くはモノグラフ付録 A.5.5 / Ch 11 への deferral。S5 で「SM 内で閉じるべきもの」と「モノグラフ参照でよいもの」を仕分け
 
+## S5後半 改稿実行ログ (R1-R10)
+
+| R# | 状態 | 日付 | 中身 |
+|---|---|---|---|
+| R8 (軽微) | ✅ 完了 | 2026-07-03 | 書誌4件修正 (Arrow=Wiley / Nardo=Hoffmann・OECD Publishing / Debreu・Lakatos 頁) + Atkinson 削除 + Cobb-Douglas を σ_SU 段落に引用追加 + SM 引用済み4件 (Bertola/Caballero/Fishburn/Gorman) を参照リストへ追加 (S6 で再照合) + SM-A 誤参照3箇所 (§2→§3)。※ R8 の残り (トーンダウン・§2 文献追加・abstract 確定) は未了 |
+| R6 (機械的分) | ✅ 完了 | 2026-07-03 | 幽霊参照削除 (「bottom panel」→ Table 2 / 「survival panel」→ outcome-class completeness)・Table 2 の gate 起因行 T・K を WAIT に統一 (empirical MC2。Y の NO_GO は P→0 起因で別物として維持)。※ R6 の残り (P/R/S 操作化・rubric 値表示・GO三分法の定義・hindsight 明記) は未了 |
+| R1 (理論再手術) | 🔄 着手 | 2026-07-03 | Theorem 3 を動学的価値関数ベースに再定式化 (socialchoice「構成的修理パス」)。新規証明はエージェント起草→えいみ検収 |
+
 ## Changelog
 
 | Date | What | By |
 |---|---|---|
 | 2026-07-03 | 新設。S1-S2 完了を記録、S3 起草順を固定 | えいみ |
+| 2026-07-03 | S5後半開始。改稿実行ログ新設、R8+R6 の軽微修正分を記録 | えいみ |

@@ -8,7 +8,7 @@
 
 ## SM-A. Proofs for Section 3 (Theorems 1, 2 and Proposition 1)
 
-This supplement gives complete proofs of the three formal results of Section 3: the weighted-sum representation of the institutional readiness score ERS (Theorem 1), the precondition-gate structure of the bylaws axis (Proposition 1), and the prohibition of multiplicative cross-layer combination with the project readiness score PRS (Theorem 2). Axis numbering follows Section 2; axis 7 is the bylaws (institutional-design) axis.
+This supplement gives complete proofs of the three formal results of Section 3: the weighted-sum representation of the institutional readiness score ERS (Theorem 1), the precondition-gate structure of the bylaws axis (Proposition 1), and the prohibition of multiplicative cross-layer combination with the project readiness score PRS (Theorem 2). Axis numbering follows Section 3; axis 7 is the bylaws (institutional-design) axis.
 
 ### SM-A.1 Setup, notation and axioms
 
@@ -19,7 +19,7 @@ This supplement gives complete proofs of the three formal results of Section 3: 
 **Axioms.** The paper imposes on each $\succsim_K$, and on any score $F_K$ representing it:
 
 - **E1 (separability).** Ordinal form: independence, clause (ii) above. Cardinal form, meaningful once the score scale is fixed (see Step 5 below): $\partial^2 F_K/\partial A_k\,\partial A_{k'}=0$ for $k\neq k'$ — the contribution of one axis is assessable without knowing the others (Debreu, 1960; Gorman, 1968).
-- **E2 (compensability).** Any two observed axes trade at finite positive rates; no observed axis is individually fatal to the institution. Its *strong form* E2-s encodes the equal-interval design of the Section 2 rubric: a rubric increment $\delta$ on axis $k$ is exactly compensated by a rubric decrement on axis $k'$ at a rate $w_k/w_{k'}$ that does not depend on the base levels.
+- **E2 (compensability).** Any two observed axes trade at finite positive rates; no observed axis is individually fatal to the institution. Its *strong form* E2-s encodes the equal-interval design of the Section 3 rubric: a rubric increment $\delta$ on axis $k$ is exactly compensated by a rubric decrement on axis $k'$ at a rate $w_k/w_{k'}$ that does not depend on the base levels.
 - **E3 (missing-visibility).** The aggregate is the *family* $\{F_K\}$: the symbol $\bot$ is never mapped into $[0,4]$, the score depends only on observed coordinates, $K_{\mathrm{obs}}$ is disclosed alongside the score, and $A_k=\bot$ ("unknown") is treated differently from $A_k=0$ ("not started").
 - **E4 (monotonicity).** Improving any observed axis never lowers readiness: $F_K$ is nondecreasing in each $A_k$, strictly increasing in essential axes.
 - **(C) Continuity.** Each $\succsim_K$ has closed upper and lower contour sets on $X_K$.
@@ -42,7 +42,7 @@ $$A\succsim_K B\iff \sum_{k\in K}\varphi_k(A_k)\;\ge\;\sum_{k\in K}\varphi_k(B_k
 
 *Step 2 (linearization by E2-s).* E2 makes the substitution rate $\varphi_k'(A_k)/\varphi_{k'}'(A_{k'})$ (where derivatives exist) finite and positive: no axis is lexicographically prior, none individually fatal. E2-s says more: for every increment $\delta>0$, the representation gain $\varphi_k(t+\delta)-\varphi_k(t)$ is independent of $t$, because a fixed rubric step trades against other axes at a level-independent rate $w_k/w_{k'}$. A monotone solution of this increment equation on an interval is affine:
 $$\varphi_k(t)=w_k t+c_k,\qquad w_k>0,$$
-with $w_k>0$ by strict monotonicity. E2-s is a property of the numerals the rubric assigns — the equal-interval design of Section 2 — and it collapses each $\varphi_k$ to a linear function of them.
+with $w_k>0$ by strict monotonicity. E2-s is a property of the numerals the rubric assigns — the equal-interval design of Section 3 — and it collapses each $\varphi_k$ to a linear function of them.
 
 *Step 3 (calibration to the normal form).* $\sum_k(w_kA_k+c_k)$ and $\sum_k w_kA_k$ differ by a constant, hence represent the same ordering; the constants $c_k$ may be dropped. Adopt the paper's calibration convention $F_K(\mathbf{0}_K)=0$ and $F_K(\mathbf{4}_K)=100$: an institution with nothing started on any observed axis reads $0$, one fully institutionalized on every observed axis reads $100$. The unique positive affine transformation of $\sum_{k\in K}w_kA_k$ meeting both conditions is
 $$F_K(A)=100\cdot\frac{\sum_{k\in K}w_kA_k}{4\sum_{k\in K}w_k},$$
@@ -376,3 +376,4 @@ The three momenta are constructed from observable series per domain: $\mu_A$ fro
 |---|---|---|
 | 2026-07-03 | 骨格新設 + SM-D (rubric 8軸 正本準拠・panel・momenta) + SM-E (記号表) | えいみ |
 | 2026-07-03 | SM-A/B/C を証明エージェント起草→えいみ検収で統合。[GAP] 計21件 (A:4 / C:12 / B:5) は S5・モノグラフ付録での解消対象として保持 | えいみ |
+| 2026-07-03 | S5後半 R8: SM-A の誤参照3箇所 (Section 2 → Section 3) 修正 (socialchoice minor #4) | えいみ |
