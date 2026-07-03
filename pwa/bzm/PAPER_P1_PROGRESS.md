@@ -9,7 +9,7 @@
 | S1 節 skeleton | ✅ 確定 | 2026-07-03 | L1 §4。まさ回答3点反映 (D-060/D-061、タイトル (b)) |
 | S2 段落 outline | ✅ 完了 | 2026-07-03 | `PAPER_P1_OUTLINE.md` 58 paras。E/C 公理リネーム・定理番号マップ確定 |
 | S3 節 draft (英語) | ✅ 全節完了 | 2026-07-03 | `PAPER_P1_DRAFT.md` 本文 7,251w (+refs/表で ~9,000w 圏内) |
-| S4 組み上げ + 刈り込み | 🔄 実行中 | 2026-07-03 | ✅ Table 1 (崩壊表)・Table 2 (8PJ、censoring 明記)・References 36件実体化 (高リスク4件 web照合✓)。⏳ 残り: Fig 1-3 作図、SM-A〜E (証明完全版) |
+| S4 組み上げ + 刈り込み | ✅ 完了 | 2026-07-03 | Table 1/2・References 36件・Fig 1 (二層概念図 SVG)・Fig 2 (Simpson模式図 SVG)・**SM-A〜E 統合済み** (`PAPER_P1_SM.md`、証明3本はエージェント起草→検収)。Fig 3 は SM-C.5 の数値スキームで S6 前に作図 |
 | S5 persona 査読 (5人) | — | — | RP editor / social choice / real options / empirical / TTO 実務家。引用全件再照合もここ |
 | S6 まさ最終確定 + 投稿パッケージ | — | — | cover letter / highlights / CRediT / declarations |
 
@@ -35,6 +35,15 @@
 - 図3点 (Fig.1 概念図 / Fig.2 Simpson 反例幾何 / Fig.3 θ* 比較静学) は S4 残タスク
 - SM-A〜E の証明完全版: モノグラフ Ch 9 / 10.4 / 5.5 skeleton の proof 詳細を読み込んでから書く (フレッシュコンテキスト推奨)
 - §6.1 は censoring 明記に修正済み (5件完了 + 1件右打ち切り + 2件決定前) — Table 2 の T/Y/K/Q/R/L/M/N ↔ 実PJ対応は非公開 (composite)
+
+## S4 検収での本文修正 (2026-07-03、エージェント指摘由来)
+
+1. **E2×ゲート矛盾の解消**: E2 に軸7除外条項を明記、Prop 1 段落に「E1-E4 は非ゲート7軸を統治、軸7はゲート前提のみで入る」を追加 (SM-A 指摘)
+2. **証明経路の格上げ**: Theorem 3 の排除条件を Thomsen → **sign-consistency (単一因子独立性)** に修正 (§4.7/§4.8/Table 1/§1.5/§2.6)。Thomsen は加法族の特徴付けで、全単調合成の排除には sign-consistency が正しい必要条件 (SM-B 指摘 — 定理はより強い足場に乗った)
+3. **C3 の2読み明示**: 「(P,R,S) 固定で無価値」→「状態とその誘導 (R,S) 応答に条件付けて無価値」(frozen-state 読みだと C2 と矛盾し公理族が空になる、SM-B 指摘)
+4. **§3.4 の8軸を正本準拠に修正** (institution_readiness.md の軸1-8)
+5. **比較静学 B の適用領域の向き**: skeleton 準拠 (待機コスト効果が参入後コスト効果に支配される領域) — 本文は無記載でセーフ、SM-C が正記載
+6. **[GAP] 21件**: SM 内に明示保持 (A:4 / B:5 / C:12)。多くはモノグラフ付録 A.5.5 / Ch 11 への deferral。S5 で「SM 内で閉じるべきもの」と「モノグラフ参照でよいもの」を仕分け
 
 ## Changelog
 

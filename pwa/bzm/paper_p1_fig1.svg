@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 560" font-family="Helvetica, Arial, sans-serif">
+  <!-- Fig. 1: The Before Zero Model — two ledgers, one macro state, one operator (grayscale, print-safe) -->
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#333"/>
+    </marker>
+    <marker id="arrX" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#888"/>
+    </marker>
+  </defs>
+
+  <!-- Macro state band (top) -->
+  <rect x="40" y="30" width="840" height="86" rx="8" fill="#f2f2f2" stroke="#555" stroke-width="1.4"/>
+  <text x="60" y="58" font-size="17" font-weight="bold" fill="#222">Macro state  σ_SU = ∛((μ_A+1)(μ_I+1)(μ_G+1)) − 1</text>
+  <text x="60" y="82" font-size="13" fill="#444">academic μ_A · industrial μ_I · governmental μ_G   —   regimes S₀ (dormant) → S₁ (warming) → S₂ (aligned), transitions Π</text>
+  <text x="60" y="103" font-size="12" fill="#666" font-style="italic">Triple Helix in conception; a venture-facing state variable in function (Sec. 3)</text>
+
+  <!-- Venture ledger (left) -->
+  <rect x="40" y="170" width="380" height="180" rx="8" fill="#ffffff" stroke="#222" stroke-width="1.8"/>
+  <text x="60" y="200" font-size="16" font-weight="bold" fill="#111">Venture ledger (project i)</text>
+  <text x="60" y="228" font-size="15" fill="#111">PRS = P × R × S   (multiplicative)</text>
+  <text x="60" y="252" font-size="12.5" fill="#444">P potential scale · R realization readiness · S survival</text>
+  <text x="60" y="276" font-size="12.5" fill="#444">weakest-link economics: any zero is fatal (Sec. 3)</text>
+  <text x="60" y="300" font-size="12.5" fill="#444">reads: “what kills this deal?”</text>
+  <text x="60" y="330" font-size="12" fill="#666" font-style="italic">conjunction of necessary conditions</text>
+
+  <!-- Institutional ledger (right) -->
+  <rect x="500" y="170" width="380" height="180" rx="8" fill="#ffffff" stroke="#222" stroke-width="1.8"/>
+  <text x="520" y="200" font-size="16" font-weight="bold" fill="#111">Institutional ledger (nursery j)</text>
+  <text x="520" y="228" font-size="15" fill="#111">ERS = 100 · Σ w_k A_k / (4 Σ w_k)   (additive)</text>
+  <text x="520" y="252" font-size="12.5" fill="#444">eight axes A₁…A₈ · unique by Theorem 1</text>
+  <text x="520" y="276" font-size="12.5" fill="#444">bylaws gate g(A₇) — Proposition 1</text>
+  <text x="520" y="300" font-size="12.5" fill="#444">reads: “what should we build next?”</text>
+  <text x="520" y="330" font-size="12" fill="#666" font-style="italic">portfolio of substitutable capabilities</text>
+
+  <!-- macro -> venture arrow -->
+  <line x1="230" y1="116" x2="230" y2="166" stroke="#333" stroke-width="1.6" marker-end="url(#arr)"/>
+  <text x="242" y="145" font-size="12" fill="#333">drives R, S dynamics; GO conditions on σ_SU</text>
+
+  <!-- institution -> venture channel (C3) -->
+  <path d="M 500 260 C 470 260, 450 260, 424 260" stroke="#333" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
+  <text x="428" y="243" font-size="12" fill="#333" text-anchor="middle">C3 channel only:</text>
+  <text x="428" y="279" font-size="12" fill="#333" text-anchor="middle">∂R/∂A_k, ∂S/∂A_k</text>
+
+  <!-- institution exposure to macro -->
+  <line x1="690" y1="166" x2="690" y2="116" stroke="#888" stroke-width="1.3" marker-end="url(#arrX)" stroke-dasharray="5 4"/>
+  <text x="700" y="145" font-size="11.5" fill="#666">A₄, A₈ convert μ_I, μ_G into project exposure</text>
+
+  <!-- Forbidden merger -->
+  <rect x="285" y="392" width="350" height="58" rx="8" fill="#fafafa" stroke="#999" stroke-width="1.4" stroke-dasharray="7 5"/>
+  <text x="460" y="416" font-size="14" font-weight="bold" fill="#555" text-anchor="middle">single score  f = Φ(g(P,R,S), h(A))</text>
+  <text x="460" y="437" font-size="12.5" fill="#555" text-anchor="middle">does not exist — Theorem 3 (axioms C1–C4)</text>
+  <line x1="415" y1="350" x2="440" y2="392" stroke="#999" stroke-width="1.3" stroke-dasharray="5 4"/>
+  <line x1="505" y1="350" x2="480" y2="392" stroke="#999" stroke-width="1.3" stroke-dasharray="5 4"/>
+  <!-- big X over merger box -->
+  <line x1="300" y1="398" x2="620" y2="444" stroke="#777" stroke-width="2.4"/>
+  <line x1="620" y1="398" x2="300" y2="444" stroke="#777" stroke-width="2.4"/>
+
+  <!-- GO operator (bottom) -->
+  <rect x="240" y="482" width="440" height="58" rx="8" fill="#e9e9e9" stroke="#222" stroke-width="1.8"/>
+  <text x="460" y="506" font-size="15" font-weight="bold" fill="#111" text-anchor="middle">GO(t, i) = 𝟙[ σ_SU(t) ≥ θ*_σ(P, F, B, Π) ] · g_TRL(t)</text>
+  <text x="460" y="527" font-size="12.5" fill="#444" text-anchor="middle">optimal stopping on the two ledgers — Theorem 4 (reads both; merges neither)</text>
+
+  <!-- ledgers -> GO arrows (legitimate meeting point) -->
+  <path d="M 230 350 C 230 430, 280 470, 330 480" stroke="#333" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
+  <path d="M 690 350 C 690 430, 640 470, 590 480" stroke="#333" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
+  <text x="205" y="452" font-size="12" fill="#333" text-anchor="end">venture state → threshold arguments</text>
+  <text x="716" y="452" font-size="12" fill="#333">ERS shifts dynamics (drift, hazard, exposure)</text>
+</svg>
