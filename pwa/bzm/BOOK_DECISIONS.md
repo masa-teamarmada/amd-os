@@ -480,6 +480,22 @@
 - **status**: active
 - **supersedes**: D-001 (2 chevron → 3 chevron 拡張。Cambridge UP + RP の中身は D-001 のまま)
 
+### D-060: P1 分量を「9,500 words 目標 / 10,000 上限 + Supplementary Material」に確定
+- **judgment**: P1 (Research Policy 論文) の分量を、本文+脚注+文献+表内テキスト込みで **9,500 words 目標 / 10,000 上限**とし、証明・技術詳細・数値例・retrofit 表は Supplementary Material Online に分離する。D-001 の「約 12k word」を実務修正。
+- **rationale**: RP Guide for Authors の規定 = Research Article 8-10,000 words (including footnotes, references and text in tables)、超過時は referee/editor から刈り込み要求。まさ追認 2026-07-03「おけ」。
+- **applies_to_chapters**: P1 全体 (`PAPER_P1_MASTER_PLAN.md` §1/§4)
+- **date**: 2026-07-03
+- **status**: active
+- **supersedes**: D-001 の分量記述のみ
+
+### D-061: P1 著者体制 = 石原先生 (愛媛大) 共著方針 + framing 修正 (測定理論が主役・BZM をタイトルに明示)
+- **judgment**: (i) **P1 は石原先生 (愛媛大) との共著方針で確定**。時間がかかっても共著で入ってもらう (まさ 2026-07-03「最初の一報だから、石原先生と愛媛大の名前を借りたほうが審査通りそう」)。ただし gift authorship にしない — CRediT で役割を明記できる実質貢献 (先行研究の位置づけ・機関側視点・査読対応) をお願いする設計。打診は Book A 共著打診 (PF-007 / §7-6) と合流した1パッケージで行う。執筆 (S2-S3) は打診と並行して進める (共著確定を待たない)。(ii) **P1 の framing 修正**: 論文の主役は「Before Zero Model = 設立前領域の二層測定理論・観測系の提案」。GO/no-go 演算子は「観測系の上の運用帰結」として従属配置する (まさ 2026-07-03「go/no-go にこのモデルを使えるっちゃ使えるんだけど、本質からはズレてる」)。(iii) **タイトルに「Before Zero Model」を明示する** (まさ指定)。
+- **rationale**: RP は著者情報が査読者に見える運用であり、大学所属研究者との共著は editor の第一印象 (デスクリジェクト回避) と §2 related work の実質品質の両方に効く。framing は「単一スコア不可能性 → だから二層」という定理の役割を保ちつつ、モデル提案を主語にする。
+- **applies_to_chapters**: P1 全体、`PAPER_P1_MASTER_PLAN.md` §1/§2/§10、BOOKS_PORTFOLIO §7-6 (打診パッケージの中身拡張)
+- **date**: 2026-07-03
+- **status**: active
+- **supersedes**: なし
+
 ---
 
 ## 4. Pending decisions (まさ判断待ち)

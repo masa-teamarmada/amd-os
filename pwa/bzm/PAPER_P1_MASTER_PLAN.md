@@ -10,14 +10,14 @@
 
 - **ジョブ**: Before Zero Studies の**領域宣言マニフェスト**を兼ねた旗艦理論論文。モノグラフより先に published prior art を確立し、モノグラフの正統性を補強する (D-001)
 - **投稿先**: Research Policy、**通常投稿** (SI 待ちにしない、PF-013)
-- **分量**: **本文+脚注+文献+表内テキスト込みで 9,500 words 目標 / 10,000 上限**。RP 投稿規定は「Research Article = 8-10,000 words (including footnotes, references and text in tables)。技術詳細は Supplementary Material Online へ」。⚠️ D-001 の「約 12k word」は RP 規定に対し過大 — **9.5k + SM 構成に実務修正** (まさ追認後、D-060 として判例化)
+- **分量**: **本文+脚注+文献+表内テキスト込みで 9,500 words 目標 / 10,000 上限** + Supplementary Material Online。✅ **D-060 で確定** (2026-07-03、D-001 の「約12k」を RP 規定 8-10k に実務修正)
 - **言語**: 英語 (起草はえいみ/Fable、PF-009 Q10 の LLM 英訳前提と同型)
 - **時期**: **2026年内投稿** (PF-013 年内投稿マップ)
-- **著者**: まさ判断待ち (§10-1)。単著 or 石原先生共著
+- **著者**: ✅ **石原先生 (愛媛大) 共著方針で確定** (D-061)。実質貢献ベース (CRediT 明記: 先行研究の位置づけ・機関側視点・査読対応)、gift authorship にしない。打診は Book A 共著打診と合流した1パッケージ。**執筆 (S2-S3) は打診と並行** — 共著確定を待たない
 
 ## 2. 論文のジョブ・新規性・ポジショニング
 
-**中核メッセージ**: 法人設立前 (Before Zero) のディープテック案件と、それを育てる研究機関は、**構造の異なる2つの台帳 (two ledgers)** で観測しなければならない。案件は乗法 (PRS = P×R×S、1軸ゼロで全体ゼロ)、機関は加重和 (ERS、欠損が見える充足率)。両者を単一スコアに合成することは**公理的に不可能** (Theorem 3)。そして案件側の GO/WAIT/NO_GO は、恣意的なチェックリストではなく**実オプション最適停止の一次条件**として導出される (θ_σ* 内生化)。
+**主役 (D-061 framing)**: 本論文の主役は **Before Zero Model (BZM) の提案** — 法人設立前 (Before Zero) という未計測領域のための**二層測定理論・観測系**。案件は乗法 (PRS = P×R×S、1軸ゼロで全体ゼロ)、機関は加重和 (ERS、欠損が見える充足率) という**構造の異なる2つの台帳 (two ledgers)** で観測する。二層に分かれているのは設計趣味ではなく**数学的必然** — 両者を単一スコアに合成することは公理的に不可能 (Theorem 3) だから。GO 演算子 (実オプション最適停止による θ_σ* 内生化) は、この観測系の上に載る**運用帰結**として従属配置する (go/no-go 判定ツールが本質ではない、まさ 2026-07-03)。
 
 **3つの定理貢献** (すべて学術初出 = P1 が正式初出、モノグラフは P1 を引用する):
 
@@ -50,7 +50,7 @@
 | 2 | Two evaluation problems, one field | 1,050 | 先行研究: TRL/readiness・composite indicators 批判、Triple Helix、大学発SU評価、実オプション。gap = pre-founding 二層の測定理論不在 |
 | 3 | The two-layer observation system | 1,500 | PRS = P×R×S 定義 (乗法の経済的根拠 = Liebig/O-ring)、σ_SU 定義 (CD 幾何平均、Leydesdorff T(AIG) との概念的区別を1段落)、ERS 4公理 → **Theorem 1 (=9.1/9.2 統合 statement)** 加重和一意性、**Proposition 1 (=9.3)** precondition gate、**Theorem 2 (=9.4)** 二重計上禁止。証明→SM |
 | 4 | The impossibility theorem | 1,700 | 公理 A1-A4 (各公理の経済的意味づけ厚め) → **Theorem 3** + 三方向崩壊 + **Corollary 3.1** 反証可能シグネチャ。証明骨格は本文2段落 (Arrow 崩壊テンプレ × Thomsen 不成立)、完全証明→SM |
-| 5 | GO as an optimal stopping rule | 1,400 | 最適停止定式化 → value-matching/smooth-pasting → **Theorem 4 (=命題5.5.2)** θ_σ* 陰関数一意性 + **Proposition 2 (=5.5.3)** 比較静学 (政策レバー解釈: 補助金→P、GAP fund→F、バーン圧→B) + g_TRL 直交分解 statement。HJB 粘性解の技術→SM |
+| 5 | Operating on the two ledgers: the GO operator | 1,400 | **観測系の運用帰結として位置づけ (D-061、go/no-go を主役にしない)**。最適停止定式化 → value-matching/smooth-pasting → **Theorem 4 (=命題5.5.2)** θ_σ* 陰関数一意性 + **Proposition 2 (=5.5.3)** 比較静学 (政策レバー解釈: 補助金→P、GAP fund→F、バーン圧→B) + g_TRL 直交分解 statement。HJB 粘性解の技術→SM |
 | 6 | Retrospective calibration: eight projects | 1,000 | **Tier A 語彙のみ** (retrospective calibration / illustrative、validation 禁止)。8PJ 一覧表 (type 名・composite 宣言) + TIEM (σ_SU 高 ∧ TRL=0 → NO_GO 再現) / YD (P 律速) の2 vignette |
 | 7 | Policy implications and a research program | 700 | 単一スコア実務への warning、二台帳ガバナンス (機関整備と案件判定の分離)、前向き登録簿宣言 (falsification 条件付き research program = 領域宣言の作法) |
 | 8 | Conclusion | 300 | — |
@@ -105,19 +105,20 @@
 
 Research Article / 単一 PDF + SM。Highlights (3-5 bullets)、abstract ≤ 150 words 推奨帯、CRediT authorship statement、Funding statement (該当なし or AMD 自己資金)、Declaration of Competing Interest (AMD 当事者性)、Data availability statement。参考: [RP Guide for Authors](https://www.sciencedirect.com/journal/research-policy/publish/guide-for-authors)
 
-## 10. まさ判断点 (S3 起草開始までに)
+## 10. まさ判断点 — 2026-07-03 回答反映済み
 
-1. **著者構成**: 単著 (最速) or 石原先生共著 (Book A 体制と整合、P-001 追い風、ただし査読往復の調整コスト)。→ W アクション (共著打診パッケージ) と合流可
-2. **タイトル方向** (3案、S2 で磨く):
-   - (a) *Before zero: why no single score can rank deep-tech ventures and their institutional nurseries*
-   - (b) *Two ledgers before the founding: an impossibility theorem for evaluating university deep-tech spin-outs*
-   - (c) *Ready, or not: a two-layer theory of go/no-go timing for deep-tech ventures before incorporation*
-3. **9.5k 修正の追認**: D-001 の「約12k」→「9.5k + SM」。追認で D-060 判例化
+1. ✅ **著者構成 = 石原先生 (愛媛大) 共著方針で確定** (D-061)。実質貢献ベース・打診は Book A と合流1パッケージ・執筆は打診と並行
+2. 🔁 **タイトル**: まさ指定を反映 — 「**Before Zero Model**」をタイトルに明示 / go/no-go を主役にしない / 初版3案の「no single score」の字面は誤読リスク (BZM 自体が単一スコアと誤解されうる) で主タイトルから撤回。**新3案** (方向は確定、字面は S2-S4 で磨く):
+   - (a) *The Before Zero Model: a two-layer measurement theory of deep-tech venture readiness before incorporation* — 測定理論を主語 (ストレート)
+   - (b) *The Before Zero Model: measuring deep-tech ventures and their institutional nurseries before day zero* — 「まだ存在しないものを測る」寄り
+   - (c) *The Before Zero Model: why venture readiness and institutional readiness cannot share a single score* — 不可能性定理を平易な副題に
+3. ✅ **9.5k + SM = D-060 判例化済み** (2026-07-03)
 
-*S2 (段落 outline) は skeleton 確定後に自動着手。S1 の確定はこの3点への回答で成立。*
+*S1 skeleton = **実質確定** (タイトルは方向確定・字面は S2 以降)。→ **S2 (段落 outline) 着手可**。*
 
 ## Changelog
 
 | Date | What | By |
 |---|---|---|
 | 2026-07-03 | 初版。PF-013 P1 の抽出設計 (9.5k+SM、節構成、章資産マッピング、6ステージ、まさ判断3点) | えいみ |
+| 2026-07-03 | まさ回答反映: D-060 (9.5k+SM 確定) / D-061 (石原先生共著方針 + framing 修正 = 測定理論が主役・BZM タイトル明示)。§2 主役書き換え、§4-5 位置づけ修正、§10 新タイトル3案。S1 実質確定 → S2 着手可 | えいみ |
