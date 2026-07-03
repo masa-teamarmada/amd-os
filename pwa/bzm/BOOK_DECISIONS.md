@@ -472,6 +472,14 @@
 - **supersedes**: なし (PF-008 / PF-011 の一部を撤回する形。BOOKS_PORTFOLIO.md 側で反映済み)
 - *注: RT 理論正本 §7.3 の「要弁護士確認・適法と断定しない」文言は書籍のための Tier 規律として維持。ERS rubric 2-e (`institution_readiness.md` は影響なし、Lv5 文言は「垂直ライセンス構成」を保守的に維持したまま実務適法性は AMD 実績で担保) 。*
 
+### D-059: publishing path を3本立てに確定 — ICC 第三伴走を正式追加 (P-009 resolved)
+- **judgment**: 出版経路を **Cambridge UP Schumpeter モノグラフ + Research Policy 論文 (P1) + ICC 第三伴走 (P4)** の3本立てで確定する。ICC 論文 = §10.6-10.7 (Malerba 全射 + Murmann 双方向 coupling) を N=64 試験データ到着後に抽出。あわせて論文ポートフォリオ全体は BOOKS_PORTFOLIO.md PF-013 (三段構え・計5本+国内1本) を上位正本とする。
+- **rationale**: まさ確定 2026-07-03「ICC込みの3本立ておけ!」。ICC は Malerba/Murmann の本拠地で、進化経済接続部分の出し先としてこれ以上ない適合。今確定する実務的価値 = Ch 10.5-10.7 を「後で論文として抜き出す」前提で記法・節の自己完結性を最初から整えて書ける。
+- **applies_to_chapters**: Ch 10.5-10.7 (抽出元)、Ch 26b (N=64 データゲート)、L1 §2 publishing path
+- **date**: 2026-07-03
+- **status**: active
+- **supersedes**: D-001 (2 chevron → 3 chevron 拡張。Cambridge UP + RP の中身は D-001 のまま)
+
 ---
 
 ## 4. Pending decisions (まさ判断待ち)
@@ -560,11 +568,11 @@
 - **date**: 2026-06-27
 - **status**: pending
 
-### P-009: ICC (Industrial and Corporate Change) 第三伴走を publishing path に追加するか
+### ~~P-009: ICC (Industrial and Corporate Change) 第三伴走を publishing path に追加するか~~ → ✅ D-059 で確定 (2026-07-03)
 - **question**: モノグラフ編集者 publication_recommendation で §10.6-10.7 を N=64 試験データ到着後に ICC へ抽出する三段ポートフォリオ案。D-001 の 2 chevron を 3 chevron に拡張するか、ICC を別 avenue として保留するか
 - **applies_to_chapters**: D-001 (publishing path)
 - **date**: 2026-06-27
-- **status**: pending
+- **status**: resolved → D-059 (3 chevron 採用、まさ 2026-07-03「ICC込みの3本立ておけ」)
 
 ### P-010: Ch 9 と Ch 10.4 の正典オーナー分担最終確定
 - **question**: 二層非可換性定理の代数バックボーン (Ch 9) と Arrow スタイル不可能性 + 系 3.1 (Ch 10.4) のどちらを load-bearing 中核として読者に示すか。書き順 (D-007) と D-004 中核命題記述に影響

@@ -13,7 +13,7 @@
   - 2026-07-02 (D-056) で +40p: Ch 9.5 (RT 結合機構、28p) と Ch 37.5 (自己批判とオープンプロブレム、12p) を新設、940p → 980p
 - **総期間**: 18ヶ月
 - **ターゲット tier**: Tier 3 学術モノグラフ
-- **publishing path**: Cambridge UP Schumpeter モノグラフ + Research Policy 特集号巻頭論文 (デュアル) + ICC 第三伴走 (D-035, P-009 で確定後)
+- **publishing path**: Cambridge UP Schumpeter モノグラフ + Research Policy 論文 + ICC 第三伴走の**3本立て (D-059 で確定、2026-07-03)**。論文ポートフォリオ全体の上位正本は `BOOKS_PORTFOLIO.md` PF-013
 - **学術領域宣言**: Before Zero Studies (新サブ領域、進化経済 × イノベーション・システム × 学術アントレ研究 の交差点)
 - **査読合意状態 (2026-06-25)**: 5 経済学者 persona のうち 4 (DSGE / IS / 経験的計量 / AE) が条件付き受理、1 (進化経済) が当初 NO → 軽微修正 6 件 (C1-C6) で軽微修正に到達
 - **scope (Ch 0.0 で明文化)**: (a) deep-tech, (b) 日本の大学・国研文脈, (c) 法人化以前 (Before Zero) を含む BZ 段階。普遍的アントレプレナーシップ一般理論として主張しない
@@ -33,7 +33,7 @@
 
 ### ICC (Industrial and Corporate Change) 第三伴走
 - §10.6-10.7 (Malerba 全射 + Murmann 双方向 coupling) を N=64 試験データ到着後に ICC へ抽出
-- P-009 で最終確定
+- ✅ D-059 で確定 (2026-07-03、P-009 resolved)。Ch 10.5-10.7 は「後で論文として抜き出す」前提で記法・節の自己完結性を整えて書く
 
 ---
 
