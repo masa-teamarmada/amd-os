@@ -21,7 +21,7 @@ See `pwa/design_log/sessions_2026-07.md` section "2026-07-03 — ZMP reward liab
 ## Repo State
 
 - Clean current-truth worktree used for this handoff: `/tmp/amd-os-ms-overview-v03643`.
-- Rebase base before this handoff commit: `origin/main` `54d080e8` (`fix(pwa): enforce monthly agreement modal gate`).
+- This handoff was rebased over the current `v0.38.11` main line after monthly-agreement safety commits, including `54d080e8` and `fe582460`. Use `origin/main` and production `/api/build-info` as the exact current sha truth.
 - Canonical local checkout `/Users/masa/projects/AMD/amd-os` is not clean/current: observed `main...origin/main [ahead 7, behind 58]` earlier in this closeout with many tracked/untracked changes. Do not overwrite or blindly merge it.
 - If the next session starts in `/Users/masa/projects/AMD/amd-os`, run `git fetch origin main --prune` and inspect status before trusting local files. For current production truth, compare with `origin/main` or use a fresh clean clone.
 
@@ -42,7 +42,7 @@ Observed:
 - active offset rows after metadata fix:
   - ID008 any 1,560円, `applies_from_ym=202605`, `tolerated_members=["ID004","ID026"]`
   - ID009 any 1,658円, `applies_from_ym=202605`, `tolerated_members=["ID004","ID026"]`
-- `npm run test:critical-ui` passed before rebase. Run it again after conflict resolution before deploy.
+- `npm run test:critical-ui` passed after the final rebase and also inside the deploy guard.
 
 ## Important Warnings
 
