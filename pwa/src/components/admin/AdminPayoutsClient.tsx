@@ -3486,7 +3486,7 @@ function ProjectMonthlyFinanceTable({
     <MetricLines
       main={fmtFlowYen(cell.stockYen)}
       mainClassName={cell.stockYen > 0 ? "text-amber-700" : "text-emerald-700"}
-      lines={cell.finalCapTopUpYen > 0 ? [amountLine("最終精算", fmtFlowYen(cell.finalCapTopUpYen), "text-red-700")] : []}
+      lines={[]}
     />
   );
   const capCell = (cell: ProjectMonthlyFinanceCellLike) => {
@@ -3495,7 +3495,7 @@ function ProjectMonthlyFinanceTable({
       <MetricLines
         main={gap < 0 ? `不足 ${fmtFlowYen(Math.abs(gap))}` : `余力 ${fmtFlowYen(gap)}`}
         mainClassName={gap < 0 ? "text-red-700" : "text-emerald-700"}
-        lines={cell.finalCapTopUpYen > 0 ? [amountLine("最終精算", fmtFlowYen(cell.finalCapTopUpYen), "text-red-700")] : []}
+        lines={[]}
       />
     );
   };
@@ -3508,7 +3508,6 @@ function ProjectMonthlyFinanceTable({
         <span className={`rounded px-2 py-1 ${latestDebtYen > 0 ? "bg-amber-50 text-amber-900" : "bg-emerald-50 text-emerald-800"}`}>
           報酬債務 着地 {fmtFlowYen(latestDebtYen)}
         </span>
-        {grand.finalCapTopUpYen > 0 && <span className="rounded bg-red-50 px-2 py-1 font-semibold text-red-800">最終精算枠 {fmtFlowYen(grand.finalCapTopUpYen)}</span>}
         {riskMonths > 0 && <span className="rounded bg-red-100 px-2 py-1 font-semibold text-red-800">cap不足 {riskMonths}か月 / 最大 {fmtFlowYen(maxShortageYen)}</span>}
       </div>
 
@@ -3555,7 +3554,6 @@ function ProjectMonthlyFinanceTable({
             mainClassName={latestDebtYen > 0 ? "text-amber-700" : "text-emerald-700"}
             lines={[
               amountLine("残あり月", `${monthTotals.filter((item) => item.stockYen > 0).length}か月`),
-              ...(grand.finalCapTopUpYen > 0 ? [amountLine("最終精算", fmtFlowYen(grand.finalCapTopUpYen), "text-red-700")] : []),
             ]}
           />
         )}
@@ -3568,7 +3566,6 @@ function ProjectMonthlyFinanceTable({
               mainClassName={latest > 0 ? "text-amber-700" : "text-emerald-700"}
               lines={[
                 amountLine("残あり月", `${row.cells.filter((cell) => cell.stockYen > 0).length}か月`),
-                ...(row.totals.finalCapTopUpYen > 0 ? [amountLine("最終精算", fmtFlowYen(row.totals.finalCapTopUpYen), "text-red-700")] : []),
               ]}
             />
           );

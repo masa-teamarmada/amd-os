@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/supabase/api-auth";
+import { contractBackedClientAmount } from "@/lib/contract-money";
 import {
   calculateRewardSummaryForCycle,
   isRewardCycleProtected,
@@ -59,6 +60,15 @@ type PlanRow = {
   budget_yen?: number | string | null;
 };
 
+type ProjectMoneyRow = {
+  project_id: string;
+  fee_type?: string | null;
+  fee_amount?: number | string | null;
+  start_ym?: string | null;
+  end_ym?: string | null;
+  contract_terms_json?: unknown;
+};
+
 type ExistingMilestoneRow = {
   milestone_id: string;
   plan_cycle_id: string;
@@ -68,6 +78,10 @@ type ExistingMilestoneRow = {
 type ProtectedBillingCycleRow = {
   project_id: string;
   ym: string;
+  status?: string | null;
+  budget_yen?: number | string | null;
+  budget_reported_amount?: number | string | null;
+  budget_buffer_amount?: number | string | null;
   reward_summary_json: unknown;
   extra_budget_yen?: number | string | null;
   reward_paid_at?: string | null;
@@ -146,9 +160,17 @@ type RewardRevisionImpactMember = {
 };
 
 type RewardRevisionBudgetImpact = {
+  clientPaymentYen: number;
+  bufferYen: number;
+  pjBudgetYen: number;
   seasonBudgetYen: number;
   regularBudgetYen: number;
   extraBudgetYen: number;
+  memberPayoutYen: number;
+  companyReserveYen: number;
+  memberObligationYen: number;
+  seasonEndShortageYen: number;
+  budgetShortageYen: number;
   fixedPaidYen: number;
   fixedPaidSnapshotYen: number;
   fixedPaidRewardCacheYen: number;
@@ -179,6 +201,7 @@ type RewardRevisionImpact = RewardRevisionPreview & {
 
 type PreparedMsEdit = {
   plan: PlanRow;
+  project: ProjectMoneyRow | null;
   cycles: ProtectedBillingCycleRow[];
   protectedCycles: ProtectedBillingCycleRow[];
   deletedIds: string[];
@@ -248,6 +271,15 @@ function rewardSummaryTotalPay(summary: RewardSummary | null): number {
   const explicit = Math.round(safeNumber(summary?.totalPaySum));
   if (explicit > 0) return explicit;
   return (summary?.members ?? []).reduce((sum, member) => sum + Math.max(0, Math.round(safeNumber(member.totalPay))), 0);
+}
+
+function rewardSummaryCompanyReserve(summary: RewardSummary | null): number {
+  const explicit = Math.round(safeNumber(summary?.companyReserveYen));
+  if (explicit > 0) return explicit;
+  return (summary?.members ?? []).reduce((sum, member) => {
+    const reserve = safeNumber(member.companyReserveYen ?? member.officerReserveYen);
+    return sum + Math.max(0, Math.round(reserve));
+  }, 0);
 }
 
 function rewardSummaryFinalStock(summary: RewardSummary | null): number {
@@ -331,6 +363,7 @@ async function loadPayoutSnapshotTotalsByYm(
 async function buildRewardRevisionBudgetImpact({
   db,
   plan,
+  project,
   cycles,
   protectedCycles,
   scenario,
@@ -338,6 +371,7 @@ async function buildRewardRevisionBudgetImpact({
 }: {
   db: ReturnType<typeof createAdminClient>;
   plan: PlanRow;
+  project: ProjectMoneyRow | null;
   cycles: ProtectedBillingCycleRow[];
   protectedCycles: ProtectedBillingCycleRow[];
   scenario: RewardScenarioOverride;
@@ -346,14 +380,17 @@ async function buildRewardRevisionBudgetImpact({
   const protectedYms = protectedCycles.map((cycle) => cycle.ym);
   const payoutSnapshotTotals = await loadPayoutSnapshotTotalsByYm(db, plan.project_id, protectedYms);
   let fixedPaidSnapshotYen = 0;
-  let fixedPaidRewardCacheYen = 0;
+  const fixedPaidRewardCacheYen = 0;
   let unverifiedPaidYen = 0;
+  let protectedCompanyReserveYen = 0;
   const protectedActualYms: string[] = [];
   const unverifiedPaidYms: string[] = [];
 
   for (const cycle of protectedCycles) {
     const snapshotTotal = payoutSnapshotTotals.get(cycle.ym);
-    const cachedTotal = rewardSummaryTotalPay(asRewardSummary(cycle.reward_summary_json));
+    const cachedSummary = asRewardSummary(cycle.reward_summary_json);
+    const cachedTotal = rewardSummaryTotalPay(cachedSummary);
+    protectedCompanyReserveYen += rewardSummaryCompanyReserve(cachedSummary);
     if (cycle.reward_paid_at && rewardCycleHasVerifiedPaidEvidence(cycle) && snapshotTotal != null) {
       fixedPaidSnapshotYen += snapshotTotal;
       protectedActualYms.push(cycle.ym);
@@ -368,6 +405,7 @@ async function buildRewardRevisionBudgetImpact({
   const liabilityOffsetsOverride = toLiabilityOffsetsByYm(offsetRows);
   const futureCycles = cycles.filter((cycle) => !isRewardCycleProtected(cycle));
   let futureProjectedPayYen = 0;
+  let futureCompanyReserveYen = 0;
   let finalStockYen = 0;
   const futureProjectedYms: string[] = [];
   const missingFutureSummaryYms: string[] = [];
@@ -384,6 +422,7 @@ async function buildRewardRevisionBudgetImpact({
       continue;
     }
     futureProjectedPayYen += rewardSummaryTotalPay(summary);
+    futureCompanyReserveYen += rewardSummaryCompanyReserve(summary);
     finalStockYen = rewardSummaryFinalStock(summary);
     futureProjectedYms.push(cycle.ym);
   }
@@ -396,14 +435,35 @@ async function buildRewardRevisionBudgetImpact({
   const regularBudgetYen = Math.max(0, Math.round(safeNumber(plan.budget_yen)));
   const extraBudgetYen = cycles.reduce((sum, cycle) => sum + Math.max(0, Math.round(safeNumber(cycle.extra_budget_yen))), 0);
   const seasonBudgetYen = regularBudgetYen + extraBudgetYen;
+  const clientPaymentYen = cycles.reduce((sum, cycle) => {
+    return sum + contractBackedClientAmount({
+      ym: cycle.ym,
+      project,
+      reportedAmount: cycle.budget_reported_amount,
+      cycleStatus: cycle.status,
+    });
+  }, 0);
+  const bufferYen = cycles.reduce((sum, cycle) => sum + Math.max(0, Math.round(safeNumber(cycle.budget_buffer_amount))), 0);
   const fixedPaidYen = fixedPaidSnapshotYen + fixedPaidRewardCacheYen;
-  const projectedObligationYen = fixedPaidYen + futureProjectedPayYen + finalStockYen;
+  const memberPayoutYen = fixedPaidYen + futureProjectedPayYen;
+  const companyReserveYen = protectedCompanyReserveYen + futureCompanyReserveYen;
+  const projectedObligationYen = memberPayoutYen + companyReserveYen + finalStockYen;
   const remainingBudgetYen = seasonBudgetYen - projectedObligationYen;
+  const budgetShortageYen = Math.max(0, -remainingBudgetYen);
+  const seasonEndShortageYen = Math.max(0, finalStockYen);
 
   return {
+    clientPaymentYen,
+    bufferYen,
+    pjBudgetYen: seasonBudgetYen,
     seasonBudgetYen,
     regularBudgetYen,
     extraBudgetYen,
+    memberPayoutYen,
+    companyReserveYen,
+    memberObligationYen: projectedObligationYen,
+    seasonEndShortageYen,
+    budgetShortageYen,
     fixedPaidYen,
     fixedPaidSnapshotYen,
     fixedPaidRewardCacheYen,
@@ -412,7 +472,7 @@ async function buildRewardRevisionBudgetImpact({
     finalStockYen,
     projectedObligationYen,
     remainingBudgetYen,
-    isOverBudget: seasonBudgetYen > 0 && remainingBudgetYen < 0,
+    isOverBudget: budgetShortageYen > 0,
     protectedActualYms: [...new Set(protectedActualYms)].sort(),
     unverifiedPaidYms: [...new Set(unverifiedPaidYms)].sort(),
     futureProjectedYms,
@@ -473,6 +533,7 @@ function publicRewardRevision(impact: RewardRevisionImpact): RewardRevisionPrevi
 async function buildRewardRevisionImpact({
   db,
   plan,
+  project,
   cycles,
   protectedCycles,
   actorEmail,
@@ -480,6 +541,7 @@ async function buildRewardRevisionImpact({
 }: {
   db: ReturnType<typeof createAdminClient>;
   plan: PlanRow;
+  project: ProjectMoneyRow | null;
   cycles: ProtectedBillingCycleRow[];
   protectedCycles: ProtectedBillingCycleRow[];
   actorEmail: string;
@@ -491,17 +553,23 @@ async function buildRewardRevisionImpact({
     impact.budgetImpact = await buildRewardRevisionBudgetImpact({
       db,
       plan,
+      project,
       cycles,
       protectedCycles,
       scenario,
       offsetRows: [],
     });
-    if (impact.budgetImpact.isOverBudget) {
-      impact.warnings.push(
-        `支払見込みがPJ予算を ${Math.abs(impact.budgetImpact.remainingBudgetYen).toLocaleString("ja-JP")}円超過する可能性がある`,
+    if (impact.budgetImpact.seasonEndShortageYen > 0) {
+      impact.blockers.push(
+        `シーズン終了月に未払残が ${impact.budgetImpact.seasonEndShortageYen.toLocaleString("ja-JP")}円残るため保存できません`,
       );
     }
-    impact.status = impact.warnings.length > 0 ? "warning" : "safe";
+    if (impact.budgetImpact.isOverBudget) {
+      impact.blockers.push(
+        `メンバー支払義務がPJ予算を ${impact.budgetImpact.budgetShortageYen.toLocaleString("ja-JP")}円超過するため保存できません`,
+      );
+    }
+    impact.status = impact.blockers.length > 0 ? "blocked" : impact.warnings.length > 0 ? "warning" : "safe";
     return impact;
   }
 
@@ -664,6 +732,7 @@ async function buildRewardRevisionImpact({
   impact.budgetImpact = await buildRewardRevisionBudgetImpact({
     db,
     plan,
+    project,
     cycles,
     protectedCycles,
     scenario,
@@ -679,9 +748,14 @@ async function buildRewardRevisionImpact({
       `未来月 ${impact.budgetImpact.missingFutureSummaryYms.join(", ")} の支払見込みを計算できない`,
     );
   }
+  if (impact.budgetImpact.seasonEndShortageYen > 0) {
+    impact.blockers.push(
+      `シーズン終了月に未払残が ${impact.budgetImpact.seasonEndShortageYen.toLocaleString("ja-JP")}円残るため保存できません`,
+    );
+  }
   if (impact.budgetImpact.isOverBudget) {
-    impact.warnings.push(
-      `支払済み実績を固定するとPJ予算を ${Math.abs(impact.budgetImpact.remainingBudgetYen).toLocaleString("ja-JP")}円超過する可能性がある`,
+    impact.blockers.push(
+      `支払済み実績を固定するとメンバー支払義務がPJ予算を ${impact.budgetImpact.budgetShortageYen.toLocaleString("ja-JP")}円超過するため保存できません`,
     );
   }
   impact.status = impact.blockers.length > 0 ? "blocked" : impact.warnings.length > 0 ? "warning" : "safe";
@@ -771,10 +845,15 @@ async function prepareMsEditPayload(
     return { ok: false, response: NextResponse.json({ ok: false, error: "plan cycle not found" }, { status: 404 }) };
   }
 
-  const [cyclesRes, existingRes] = await Promise.all([
+  const [projectRes, cyclesRes, existingRes] = await Promise.all([
+    db
+      .from("projects")
+      .select("project_id, fee_type, fee_amount, start_ym, end_ym, contract_terms_json")
+      .eq("project_id", plan.project_id)
+      .maybeSingle(),
     db
       .from("billing_cycles")
-      .select("project_id, ym, reward_summary_json, extra_budget_yen, reward_paid_at, reward_paid_by, payout_notice_uploaded_at, payment_confirmed_at")
+      .select("project_id, ym, status, budget_yen, budget_reported_amount, budget_buffer_amount, reward_summary_json, extra_budget_yen, reward_paid_at, reward_paid_by, payout_notice_uploaded_at, payment_confirmed_at")
       .eq("project_id", plan.project_id)
       .gte("ym", plan.period_start_ym)
       .lte("ym", plan.period_end_ym)
@@ -784,9 +863,11 @@ async function prepareMsEditPayload(
       .select("milestone_id, plan_cycle_id, is_active")
       .eq("plan_cycle_id", planCycleId),
   ]);
+  if (projectRes.error) throw projectRes.error;
   if (cyclesRes.error) throw cyclesRes.error;
   if (existingRes.error) throw existingRes.error;
 
+  const project = (projectRes.data ?? null) as ProjectMoneyRow | null;
   const cycles = (cyclesRes.data ?? []) as ProtectedBillingCycleRow[];
   const protectedCycles = cycles.filter(isRewardCycleProtected);
   const existing = (existingRes.data ?? []) as ExistingMilestoneRow[];
@@ -876,6 +957,7 @@ async function prepareMsEditPayload(
     ok: true,
     value: {
       plan,
+      project,
       cycles,
       protectedCycles,
       deletedIds,
@@ -931,13 +1013,14 @@ export async function POST(
     const db = createAdminClient();
     const prepared = await prepareMsEditPayload(db, planCycleId, body);
     if (!prepared.ok) return prepared.response;
-    const { plan, cycles, protectedCycles, scenario } = prepared.value;
+    const { plan, project, cycles, protectedCycles, scenario } = prepared.value;
     const offsetTableResponse = await ensureOffsetTableWhenNeeded(db, protectedCycles);
     if (offsetTableResponse) return offsetTableResponse;
 
     const rewardPreview = await buildRewardRevisionImpact({
       db,
       plan,
+      project,
       cycles,
       protectedCycles,
       actorEmail: auth.user.email,
@@ -986,6 +1069,7 @@ export async function PUT(
     if (!prepared.ok) return prepared.response;
     const {
       plan,
+      project,
       cycles,
       protectedCycles,
       deletedIds,
@@ -1001,6 +1085,7 @@ export async function PUT(
     let rewardRevisionImpact = await buildRewardRevisionImpact({
       db,
       plan,
+      project,
       cycles,
       protectedCycles,
       actorEmail: auth.user.email,

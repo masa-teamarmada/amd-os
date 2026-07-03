@@ -7,6 +7,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
+import { contractBackedClientAmount, yenNumber } from "@/lib/contract-money";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
@@ -146,6 +147,7 @@ export interface CockpitData {
   msActivities: MemberMsActivity[];
   memberActivities: MemberActivity[];
   strategySignals: ProjectStrategySignal[];
+  seasonFinance: CockpitSeasonFinance | null;
 }
 
 export interface RewardSummaryBreakdown {
@@ -181,6 +183,11 @@ export interface RewardSummaryMember {
   extraGrossDueYen?: number;
   regularStockYen?: number;
   extraStockYen?: number;
+  companyReserveYen?: number;
+  regularCompanyReserveYen?: number;
+  extraCompanyReserveYen?: number;
+  officerReserveYen?: number;
+  companyReserveUnfundedYen?: number;
   breakdown: RewardSummaryBreakdown[];
 }
 
@@ -212,6 +219,37 @@ export interface RewardSummary {
   extraTotalGrossDueYen?: number;
   regularCarryOverYen?: number;
   extraCarryOverYen?: number;
+  companyReserveYen?: number;
+  regularCompanyReserveYen?: number;
+  extraCompanyReserveYen?: number;
+  officerReserveYen?: number;
+  companyReserveUnfundedYen?: number;
+  externalPayoutCapYen?: number;
+}
+
+export interface CockpitSeasonFinanceMonth {
+  ym: string;
+  clientPaymentYen: number;
+  bufferYen: number;
+  pjBudgetYen: number;
+  memberPayoutYen: number;
+  companyReserveYen: number;
+  unpaidStockYen: number;
+  rewardObligationYen: number;
+  remainingAfterObligationYen: number;
+  cycleStatus: string;
+}
+
+export interface CockpitSeasonFinance {
+  planCycleId: string;
+  periodStartYm: string;
+  periodEndYm: string;
+  status: "balanced" | "shortage" | "over_budget";
+  totals: Omit<CockpitSeasonFinanceMonth, "ym" | "cycleStatus"> & {
+    finalUnpaidStockYen: number;
+    finalRemainingYen: number;
+  };
+  months: CockpitSeasonFinanceMonth[];
 }
 
 export interface BillingCycleDetail {
@@ -1708,6 +1746,129 @@ function nextYmString(ym: string): string {
   return m === 12 ? `${y + 1}01` : `${y}${String(m + 1).padStart(2, "0")}`;
 }
 
+function ymRangeInclusive(startYm: string, endYm: string): string[] {
+  if (!/^\d{6}$/.test(startYm) || !/^\d{6}$/.test(endYm) || startYm > endYm) return [];
+  const out: string[] = [];
+  let cursor = startYm;
+  for (let guard = 0; guard < 240 && cursor <= endYm; guard += 1) {
+    out.push(cursor);
+    cursor = nextYmString(cursor);
+  }
+  return out;
+}
+
+function rewardNumber(value: unknown): number {
+  return Math.max(0, yenNumber(value));
+}
+
+function sumRewardMemberField(summary: RewardSummary | null | undefined, fields: Array<keyof RewardSummaryMember>): number {
+  return (summary?.members || []).reduce((sum, member) => {
+    const value = fields.map((field) => member[field]).find((candidate) => candidate != null);
+    return sum + rewardNumber(value);
+  }, 0);
+}
+
+function rewardSummaryNumber(
+  summary: RewardSummary | null | undefined,
+  field: keyof RewardSummary,
+  fallbackFields: Array<keyof RewardSummaryMember> = []
+): number {
+  const value = summary?.[field];
+  if (value != null) return rewardNumber(value);
+  return sumRewardMemberField(summary, fallbackFields);
+}
+
+function buildCockpitSeasonFinance({
+  planCycle,
+  projectRow,
+  billingRows,
+}: {
+  planCycle: PlanCycle | null;
+  projectRow: Record<string, unknown>;
+  billingRows: Array<Record<string, unknown>>;
+}): CockpitSeasonFinance | null {
+  if (!planCycle) return null;
+  const months = ymRangeInclusive(planCycle.periodStartYm, planCycle.periodEndYm);
+  if (months.length === 0) return null;
+
+  const projectForContract = {
+    fee_type: typeof projectRow.fee_type === "string" ? projectRow.fee_type : null,
+    fee_amount: typeof projectRow.fee_amount === "number" || typeof projectRow.fee_amount === "string" ? projectRow.fee_amount : null,
+    start_ym: typeof projectRow.start_ym === "string" ? projectRow.start_ym : null,
+    end_ym: typeof projectRow.end_ym === "string" ? projectRow.end_ym : null,
+    contract_terms_json: projectRow.contract_terms_json,
+  };
+  const rowByYm = new Map(billingRows.map((row) => [String(row.ym || ""), row]));
+  const financeMonths: CockpitSeasonFinanceMonth[] = months.map((ym) => {
+    const row = rowByYm.get(ym);
+    const summary = (row?.reward_summary_json && typeof row.reward_summary_json === "object"
+      ? row.reward_summary_json
+      : null) as RewardSummary | null;
+    const cycleStatus = String(row?.status || "");
+    const clientPaymentYen = contractBackedClientAmount({
+      ym,
+      project: projectForContract,
+      reportedAmount: row?.budget_reported_amount as number | string | null | undefined,
+      cycleStatus,
+      hasInvoiceEvidence: Boolean(row?.invoice_sent_at || row?.invoice_issued_at || row?.payment_confirmed_at),
+    });
+    const bufferYen = rewardNumber(row?.budget_buffer_amount);
+    const regularBudgetYen = rewardNumber(row?.budget_yen);
+    const extraBudgetYen = row?.extra_budget_yen == null ? 0 : rewardNumber(row.extra_budget_yen);
+    const pjBudgetYen = regularBudgetYen + extraBudgetYen;
+    const memberPayoutYen = rewardSummaryNumber(summary, "totalPaySum", ["totalPay"]);
+    const companyReserveYen = rewardSummaryNumber(summary, "companyReserveYen", ["companyReserveYen", "officerReserveYen"]);
+    const unpaidStockYen = rewardSummaryNumber(summary, "carryOverYen", ["stockYen"]);
+    const rewardObligationYen = memberPayoutYen + companyReserveYen + unpaidStockYen;
+    const remainingAfterObligationYen = pjBudgetYen - rewardObligationYen;
+    return {
+      ym,
+      clientPaymentYen,
+      bufferYen,
+      pjBudgetYen,
+      memberPayoutYen,
+      companyReserveYen,
+      unpaidStockYen,
+      rewardObligationYen,
+      remainingAfterObligationYen,
+      cycleStatus,
+    };
+  });
+
+  const totalsBase = financeMonths.reduce(
+    (acc, month) => ({
+      clientPaymentYen: acc.clientPaymentYen + month.clientPaymentYen,
+      bufferYen: acc.bufferYen + month.bufferYen,
+      pjBudgetYen: acc.pjBudgetYen + month.pjBudgetYen,
+      memberPayoutYen: acc.memberPayoutYen + month.memberPayoutYen,
+      companyReserveYen: acc.companyReserveYen + month.companyReserveYen,
+    }),
+    { clientPaymentYen: 0, bufferYen: 0, pjBudgetYen: 0, memberPayoutYen: 0, companyReserveYen: 0 }
+  );
+  const finalMonth = financeMonths[financeMonths.length - 1] ?? null;
+  const finalUnpaidStockYen = finalMonth?.unpaidStockYen ?? 0;
+  const rewardObligationYen = totalsBase.memberPayoutYen + totalsBase.companyReserveYen + finalUnpaidStockYen;
+  const finalRemainingYen = totalsBase.pjBudgetYen - rewardObligationYen;
+  const status: CockpitSeasonFinance["status"] =
+    finalUnpaidStockYen > 0 ? "shortage" : finalRemainingYen < 0 ? "over_budget" : "balanced";
+
+  return {
+    planCycleId: planCycle.planCycleId,
+    periodStartYm: planCycle.periodStartYm,
+    periodEndYm: planCycle.periodEndYm,
+    status,
+    totals: {
+      ...totalsBase,
+      unpaidStockYen: finalUnpaidStockYen,
+      rewardObligationYen,
+      remainingAfterObligationYen: finalRemainingYen,
+      finalUnpaidStockYen,
+      finalRemainingYen,
+    },
+    months: financeMonths,
+  };
+}
+
 function normalizeDashboardProjectName(projectId: string, displayName: string) {
   if (projectId === "p24" || displayName.includes("チャレナジー")) return "Challenergy";
   return displayName;
@@ -2107,6 +2268,11 @@ export async function fetchCockpitFromSupabase(
     createdAt: row.created_at,
     confirmedAt: row.confirmed_at || null,
   }));
+  const seasonFinance = buildCockpitSeasonFinance({
+    planCycle,
+    projectRow: pj as Record<string, unknown>,
+    billingRows: (bcRes.data || []) as Array<Record<string, unknown>>,
+  });
 
   // Nudges
   const nudgeRes = await supabase
@@ -2176,5 +2342,6 @@ export async function fetchCockpitFromSupabase(
     msActivities,
     memberActivities,
     strategySignals,
+    seasonFinance,
   };
 }

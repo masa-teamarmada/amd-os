@@ -101,8 +101,8 @@ expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
   "報酬債務台帳",
   "未払い残",
   "stockYen",
-  "finalCapTopUpYen",
-  "最終精算",
+  "ゼロ着地",
+  "残あり月",
   "openMonthlyModal",
   "報酬キャッシュ再計算",
   "本契約発生",
@@ -139,11 +139,27 @@ expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
 ]);
 
 expectIncludes("src/lib/reward-summary.ts", [
-  "isFinalCycleMonth",
-  "regularFinalCapTopUpYen",
-  "extraFinalCapTopUpYen",
-  "finalCapTopUpYen",
-  "regularCapBeforeFinalTopUpYen",
+  "server_v5_planned_share_cap_carry_no_final_topup",
+  "regularUnusedCapCarryOutYen",
+  "extraUnusedCapCarryOutYen",
+  "effectiveRegularCapBudgetYen",
+]);
+
+expectIncludes("src/app/api/admin/ms-overview/[planCycleId]/route.ts", [
+  "seasonEndShortageYen",
+  "メンバー支払義務がPJ予算を",
+  "シーズン終了月に未払残が",
+  "contractBackedClientAmount",
+]);
+
+expectIncludes("src/components/admin/AdminMsOverviewClient.tsx", [
+  "クライアント支払",
+  "バッファ",
+  "PJ予算",
+  "メンバー支払",
+  "会社留保",
+  "期末未払",
+  "不足額",
 ]);
 
 expectNotIncludes("src/components/admin/AdminPayoutsClient.tsx", [
@@ -292,7 +308,7 @@ expectIncludes("src/app/api/cron/payout-reward-cache-refresh/route.ts", [
 ]);
 
 expectIncludes("src/lib/reward-summary.ts", [
-  "server_v4_planned_share_cap_carry",
+  "server_v5_planned_share_cap_carry_no_final_topup",
   "plannedShare",
   "shareSource",
   "CAP_EXTRA_MILESTONE_TAGS",
@@ -355,11 +371,26 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
   "ecosystem",
   "CockpitStrategySignals",
   "strategySignals",
+  "CockpitSeasonFinance",
+  "seasonFinance",
   // 案C レイアウト (2026-05-23 まさ確定) — 旧 max-w-[1060px] 2カラムには戻さない
   "max-w-[1600px]",
   "lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_300px]",
   "lg:sticky lg:top-12",
   "renderMsSetupBanner",
+]);
+
+expectIncludes("src/components/cockpit/CockpitSeasonFinance.tsx", [
+  "今シーズン収支",
+  "クライアント支払",
+  "バッファ",
+  "PJ予算",
+  "メンバー支払",
+  "会社留保",
+  "期末未払",
+  "未払残",
+  "ゼロ着地",
+  "不足",
 ]);
 
 expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
@@ -591,6 +622,10 @@ expectIncludes("design/FEATURE_REGISTRY.md", [
   "/project/[projectId]/cockpit",
   "経営ハイライト",
   "project_strategy_signals",
+  "CockpitSeasonFinance",
+  "今シーズン収支",
+  "クライアント支払",
+  "期末未払",
 ]);
 
 expectIncludes("src/lib/amd-score-l2-extract.ts", [
@@ -808,7 +843,8 @@ expectIncludes("src/components/admin/AdminMsOverviewClient.tsx", [
   "支払済み固定",
   "実績未照合",
   "これから支払予定",
-  "期末未払い残",
+  "会社留保",
+  "期末未払",
   "DB値に戻す",
   "保存して DB へ反映",
   "recomputeMsOverview",

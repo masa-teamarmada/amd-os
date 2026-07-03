@@ -527,9 +527,17 @@ type RewardRevisionImpactMember = {
 };
 
 type RewardRevisionBudgetImpact = {
+  clientPaymentYen: number;
+  bufferYen: number;
+  pjBudgetYen: number;
   seasonBudgetYen: number;
   regularBudgetYen: number;
   extraBudgetYen: number;
+  memberPayoutYen: number;
+  companyReserveYen: number;
+  memberObligationYen: number;
+  seasonEndShortageYen: number;
+  budgetShortageYen: number;
   fixedPaidYen: number;
   fixedPaidSnapshotYen: number;
   fixedPaidRewardCacheYen: number;
@@ -727,13 +735,17 @@ function EditActionBar({
         <span
           className={
             "rounded px-2 py-0.5 text-[11px] tabular-nums " +
-            (rewardRevision.budgetImpact.isOverBudget
+            (rewardRevision.budgetImpact.seasonEndShortageYen > 0 || rewardRevision.budgetImpact.isOverBudget
               ? "bg-red-500/10 text-red-500"
               : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300")
           }
-          title={`支払済み固定 ${fmtRevisionYen(rewardRevision.budgetImpact.fixedPaidYen)} / 未来支払 ${fmtRevisionYen(rewardRevision.budgetImpact.futureProjectedPayYen)} / 期末未払い残 ${fmtRevisionYen(rewardRevision.budgetImpact.finalStockYen)}`}
+          title={`クライアント支払 ${fmtRevisionYen(rewardRevision.budgetImpact.clientPaymentYen)} / バッファ ${fmtRevisionYen(rewardRevision.budgetImpact.bufferYen)} / PJ予算 ${fmtRevisionYen(rewardRevision.budgetImpact.pjBudgetYen)} / メンバー支払 ${fmtRevisionYen(rewardRevision.budgetImpact.memberPayoutYen)} / 会社留保 ${fmtRevisionYen(rewardRevision.budgetImpact.companyReserveYen)} / 期末未払 ${fmtRevisionYen(rewardRevision.budgetImpact.seasonEndShortageYen)}`}
         >
-          PJ予算残 {fmtRevisionYen(rewardRevision.budgetImpact.remainingBudgetYen)}
+          {rewardRevision.budgetImpact.seasonEndShortageYen > 0
+            ? `不足額 ${fmtRevisionYen(rewardRevision.budgetImpact.seasonEndShortageYen)}`
+            : rewardRevision.budgetImpact.isOverBudget
+              ? `予算不足 ${fmtRevisionYen(rewardRevision.budgetImpact.budgetShortageYen)}`
+              : `PJ予算残 ${fmtRevisionYen(rewardRevision.budgetImpact.remainingBudgetYen)}`}
         </span>
       )}
       {rewardRevision && rewardRevision.skippedMissingBeforeSummaryCount > 0 && (
@@ -867,31 +879,62 @@ function RewardRevisionSafetyPanel({
       {budgetImpact && (
         <div
           className={
-            "mt-2 grid gap-2 rounded border px-2 py-2 text-[11px] tabular-nums md:grid-cols-6 " +
-            (budgetImpact.isOverBudget
+            "mt-2 grid gap-2 rounded border px-2 py-2 text-[11px] tabular-nums sm:grid-cols-2 lg:grid-cols-10 " +
+            (budgetImpact.seasonEndShortageYen > 0 || budgetImpact.isOverBudget
               ? "border-red-500/25 bg-red-500/5"
               : "border-emerald-500/20 bg-background/60")
           }
           data-testid="admin-ms-overview-budget-impact"
         >
-          <BudgetImpactCell label="PJ予算" value={budgetImpact.seasonBudgetYen} />
+          <BudgetImpactCell label="クライアント支払" value={budgetImpact.clientPaymentYen} />
+          <BudgetImpactCell
+            label="バッファ"
+            value={budgetImpact.bufferYen}
+            tone={budgetImpact.bufferYen > 0 ? "green" : "muted"}
+            title="AMD運営費として先に確保する金額"
+          />
+          <BudgetImpactCell
+            label="PJ予算"
+            value={budgetImpact.pjBudgetYen}
+            title={`本契約 ${fmtRevisionYen(budgetImpact.regularBudgetYen)} / 別財布 ${fmtRevisionYen(budgetImpact.extraBudgetYen)}`}
+          />
+          <BudgetImpactCell
+            label="メンバー支払"
+            value={budgetImpact.memberPayoutYen}
+            title={`支払済み固定 ${fmtRevisionYen(budgetImpact.fixedPaidYen)} / これから支払予定 ${fmtRevisionYen(budgetImpact.futureProjectedPayYen)}`}
+          />
+          <BudgetImpactCell
+            label="会社留保"
+            value={budgetImpact.companyReserveYen}
+            tone={budgetImpact.companyReserveYen > 0 ? "green" : "muted"}
+            title="役員など支払通知書対象外の当月割当をAMD側に留保する額"
+          />
           <BudgetImpactCell
             label="支払済み固定"
             value={budgetImpact.fixedPaidYen}
-            title={`freee出金照合済み ${fmtRevisionYen(budgetImpact.fixedPaidSnapshotYen)} / 保護cache ${fmtRevisionYen(budgetImpact.fixedPaidRewardCacheYen)}`}
+            title="freee実支払証跡と明細額が一致しているため固定する額"
           />
           <BudgetImpactCell
             label="実績未照合"
             value={budgetImpact.unverifiedPaidYen}
-            tone={budgetImpact.unverifiedPaidYen > 0 ? "amber" : "muted"}
-            title={budgetImpact.unverifiedPaidYms.length > 0 ? `未照合: ${budgetImpact.unverifiedPaidYms.join(", ")}` : undefined}
+            tone={budgetImpact.unverifiedPaidYen > 0 ? "red" : "muted"}
+            title="支払済み印はあるが、実支払証跡と明細額が一致確認できていない額"
           />
-          <BudgetImpactCell label="これから支払予定" value={budgetImpact.futureProjectedPayYen} />
-          <BudgetImpactCell label="期末未払い残" value={budgetImpact.finalStockYen} tone={budgetImpact.finalStockYen > 0 ? "amber" : "muted"} />
           <BudgetImpactCell
-            label={budgetImpact.isOverBudget ? "赤字見込み" : "保存後残予算"}
+            label="これから支払予定"
+            value={budgetImpact.futureProjectedPayYen}
+          />
+          <BudgetImpactCell
+            label="期末未払"
+            value={budgetImpact.seasonEndShortageYen}
+            tone={budgetImpact.seasonEndShortageYen > 0 ? "red" : "green"}
+            title="この値が1円でも残るMS編集は保存できない"
+          />
+          <BudgetImpactCell
+            label={budgetImpact.isOverBudget ? "予算不足" : "保存後残予算"}
             value={budgetImpact.remainingBudgetYen}
             tone={budgetImpact.isOverBudget ? "red" : "green"}
+            title={`支払義務 ${fmtRevisionYen(budgetImpact.memberObligationYen)}`}
           />
         </div>
       )}
@@ -1282,7 +1325,7 @@ function PlanCycleBlock({
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- 編集中の保存前検算をサーバー結果に同期するため。 */
-    if (!editMode || !isDirty) {
+    if (!editMode) {
       setPreviewStatus("idle");
       setPreviewError(null);
       setRewardPreview(null);
@@ -1321,7 +1364,7 @@ function PlanCycleBlock({
       window.clearTimeout(timer);
     };
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [buildSavePayload, cycle.planCycleId, editMode, isDirty]);
+  }, [buildSavePayload, cycle.planCycleId, editMode]);
 
   const visibleRewardRevision = isDirty ? rewardPreview : lastRewardRevision;
   const saveBlockedReason = useMemo(() => {

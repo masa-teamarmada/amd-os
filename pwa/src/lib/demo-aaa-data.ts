@@ -162,6 +162,7 @@ export const aaaCockpitData: CockpitData = {
       extractedAt: "2026-05-16T10:00:00+09:00",
     },
   ],
+  seasonFinance: null,
   strategySignals: [
     {
       signalId: "aaa-signal-1",

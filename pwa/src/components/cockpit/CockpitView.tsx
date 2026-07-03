@@ -10,6 +10,7 @@ import { CockpitGovernance } from "./CockpitGovernance";
 import { CockpitGrants } from "./CockpitGrants";
 import { CockpitProjectDocuments } from "./CockpitProjectDocuments";
 import { CockpitKuteAnnualRoadmap } from "./CockpitKuteAnnualRoadmap";
+import { CockpitSeasonFinance } from "./CockpitSeasonFinance";
 import { CockpitMonthlyList } from "./CockpitMonthlyList";
 import { CockpitMonthlyModal } from "./CockpitMonthlyModal";
 import { CockpitNudge } from "./CockpitNudge";
@@ -17,6 +18,7 @@ import { CockpitMeetingSummary } from "./CockpitMeetingSummary";
 import { CockpitFreezeBackfill } from "./CockpitFreezeBackfill";
 import { CockpitAmdScoreDetailTab } from "./CockpitAmdScoreDetailTab";
 import { ProactiveQueuePanel } from "@/components/proactive/ProactiveQueuePanel";
+import type { CockpitSeasonFinance as CockpitSeasonFinanceData } from "@/lib/supabase-data";
 
 interface PlanCycleShape {
   planCycleId: string; status: string; budgetYen: number; totalPoints: number;
@@ -170,6 +172,7 @@ interface CockpitViewProps {
       milestoneId?: string | null; title?: string | null; contentPreview?: string | null;
       itemDate?: string | null; extractedAt: string;
     }>;
+    seasonFinance?: CockpitSeasonFinanceData | null;
     strategySignals?: Array<{
       signalId: string;
       projectId: string;
@@ -278,7 +281,7 @@ export function CockpitView({ cockpit, nudges, initialModalYm }: CockpitViewProp
     setModalInitialTab(undefined);
   }
 
-  const { project, currentYm, billingCycles, planCycle, milestones, progress, reports, members, subItems, responsibilities, memberMap, pastPlanCycles, msActivities, memberActivities, strategySignals } = cockpit;
+  const { project, currentYm, billingCycles, planCycle, milestones, progress, reports, members, subItems, responsibilities, memberMap, pastPlanCycles, msActivities, memberActivities, seasonFinance, strategySignals } = cockpit;
   const usesMsProgress = usesMsProgressCategory(project.projectCategory);
 
   const currentProgress = mergeProgress(progress, progressPatches);
@@ -449,6 +452,7 @@ export function CockpitView({ cockpit, nudges, initialModalYm }: CockpitViewProp
             />
           )}
           {renderMsSetupBanner()}
+          <CockpitSeasonFinance finance={seasonFinance} />
           {usesMsProgress && pastPlanCycles && pastPlanCycles.length > 0 && (
             <section className="bg-white rounded-xl border border-[#e5e5e7]">
               <button

@@ -15,7 +15,7 @@ import { pointBasisForMilestonePeriod, regularPointBasisForCycle, roundPt } from
 type SupabaseLike = SupabaseClient;
 
 const ACTIVE_PLAN_STATUSES = ["active", "confirmed", "fixed", "draft"];
-const REWARD_SUMMARY_VERSION = "server_v4_planned_share_cap_carry";
+const REWARD_SUMMARY_VERSION = "server_v5_planned_share_cap_carry_no_final_topup";
 const CAP_EXTRA_MILESTONE_TAGS = new Set(["cap_extra", "extra_contract", "contract_extra", "cap_outside", "uncapped"]);
 
 type RewardPool = "regular" | "cap_extra";
@@ -673,7 +673,6 @@ type MonthlyRewardCaps = {
   totalCapYen: number;
   regularCapCarryInYen?: number;
   extraCapCarryInYen?: number;
-  isFinalCycleMonth?: boolean;
 };
 
 function deriveMonthlyRewardCaps({
@@ -965,7 +964,7 @@ export function applyRewardCapsForMonth(
 
   const regularBaseCapYen = Math.max(0, Math.round(caps.regularCapYen));
   const regularCapCarryInYen = Math.max(0, Math.round(caps.regularCapCarryInYen ?? 0));
-  const regularCapBeforeFinalTopUpYen = regularBaseCapYen + regularCapCarryInYen;
+  const effectiveRegularCapYen = regularBaseCapYen + regularCapCarryInYen;
   const extraBaseCapYen = caps.extraCapYen == null ? null : Math.max(0, Math.round(caps.extraCapYen));
   const extraCapCarryInYen = extraBaseCapYen == null ? 0 : Math.max(0, Math.round(caps.extraCapCarryInYen ?? 0));
   const regularGrossBeforeCap = regularInputs.reduce(
@@ -978,18 +977,11 @@ export function applyRewardCapsForMonth(
   );
   // caps.extraCapYen が null = cap 未設定 → 従来どおり需要全額 (= 別財布即払い)。
   // 明示値 (0 含む) → その額を別財布支払 cap にする。0 = 全額 stock 繰越 (= 完了月一括の積立)。
-  const extraCapBeforeFinalTopUpYen = extraBaseCapYen == null ? extraGrossBeforeCap : extraBaseCapYen + extraCapCarryInYen;
-  const isFinalCycleMonth = caps.isFinalCycleMonth === true;
-  const regularFinalCapTopUpYen = isFinalCycleMonth
-    ? Math.max(0, Math.round(regularGrossBeforeCap - regularCapBeforeFinalTopUpYen))
-    : 0;
-  const extraFinalCapTopUpYen = isFinalCycleMonth && extraBaseCapYen != null
-    ? Math.max(0, Math.round(extraGrossBeforeCap - extraCapBeforeFinalTopUpYen))
-    : 0;
-  const effectiveRegularCapYen = regularCapBeforeFinalTopUpYen + regularFinalCapTopUpYen;
-  const effectiveExtraCapYen = extraCapBeforeFinalTopUpYen + extraFinalCapTopUpYen;
+  const effectiveExtraCapYen = extraBaseCapYen == null ? extraGrossBeforeCap : extraBaseCapYen + extraCapCarryInYen;
   const effectiveTotalCapYen = effectiveRegularCapYen + effectiveExtraCapYen;
   const baseTotalCapYen = regularBaseCapYen + (extraBaseCapYen ?? effectiveExtraCapYen);
+  const regularFinalCapTopUpYen = 0;
+  const extraFinalCapTopUpYen = 0;
 
   const regularAllocations = allocateCap(regularInputs, effectiveRegularCapYen, { payAllWhenCapMissing: false });
   const extraAllocations = allocateCap(extraInputs, effectiveExtraCapYen, { payAllWhenCapMissing: false });
@@ -1370,7 +1362,6 @@ export function buildRewardSummary({
       ...baseCaps,
       regularCapCarryInYen: regularUnusedCapCarryYen,
       extraCapCarryInYen: baseCaps.extraCapYen == null ? 0 : extraUnusedCapCarryYen,
-      isFinalCycleMonth: Boolean(planCycle?.period_end_ym && month === planCycle.period_end_ym),
     };
     const regularLiabilityOffsets = new Map<string, number>();
     const extraLiabilityOffsets = new Map<string, number>();
