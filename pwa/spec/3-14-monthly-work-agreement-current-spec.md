@@ -24,7 +24,7 @@
 - `value_plan_cycles` / `value_milestones` / `milestone_responsibility` / `milestone_monthly_progress` から、当月の遂行対象、予定到達点、担当shareを読む。
 - 進捗は `milestone_monthly_progress` の非確定行を正本にせず、D-2と同じアンカー方式の月割りデフォルトをコード計算する。PM locked 行があればそれをアンカーにする。
 - `project_members` と `projects` から当月 active member / active project member を解く。`projects.status='frozen'` / `project_freeze_periods.status='active'` / `projects.freeze_from_ym <= ym` は報酬が発生しないため対象外。例: CTB p06 は `status='active'` だが 202605 から freeze overlay のため 202606 月初合意に出さない。
-- `members.exclude_from_payout_notice=true` のメンバーは月初合意対象外。例: りり / ID006 (NIMS 無償出向) と あき / ID029 (無報酬稼働) は報酬を受け取れないため `not_required` とし、admin一覧・合意保存・修正要望保存から外す。
+- `members.exclude_from_payout_notice=true` かつ `is_admin=false` のメンバーは月初合意対象外。例: りり / ID006 (NIMS 無償出向) と あき / ID029 (無報酬稼働) は報酬を受け取れないため `not_required` とし、admin一覧・合意保存・修正要望保存から外す。`is_admin=true` のメンバーは、テスト確認のため支払通知対象外でも月初合意対象に含める。
 - 合意時点で本人へ表示した内容を `snapshot_json` と `snapshot_hash` で保存する。
 - snapshot hash が変わったら本人/adminに「条件更新あり」と表示し、再合意対象にする。
 - 報酬キャッシュを再計算しない。通常 GET は読むだけ。
@@ -41,7 +41,7 @@
 
 | status | meaning | payout behavior |
 |---|---|---|
-| `not_required` | 支払額 0、役員/通知対象外、`frozen` / `lost` / `freeze_from_ym` 到達後 / active期間外PJなど | gate 対象外 |
+| `not_required` | 支払額 0、非adminの通知対象外、`frozen` / `lost` / `freeze_from_ym` 到達後 / active期間外PJなど | gate 対象外 |
 | `pending` | 支払対象だが本人の active `agreed` row が無い、または支払対象PJが snapshot に無い | block |
 | `agreed` | latest active `agreed.snapshot_hash === currentHash` | allow |
 | `agreed` (移行月扱い) | `source_ym <= 202606` | allow。導入前/移行月なので合意済み扱い |
@@ -161,7 +161,7 @@ API route は logged-in user を `members.email` で解決する。本人以外�
 
 - 上部に対象月、member、snapshot hash、合意状態を表示する。
 - 合意状態は `未合意` / `合意済み` / `条件更新あり` / `対象外`。
-- `exclude_from_payout_notice=true` かつ `is_admin=true` のメンバーは、支払い通知対象外のため合意保存・修正要望保存は不要のまま、確認用にPJ/MS/貢献率/予定報酬のsnapshotを表示する。支払 gate では引き続き対象外として扱い、本人合意 row は作らない。
+- `exclude_from_payout_notice=true` でも `is_admin=true` のメンバーは、テスト確認のため通常メンバーと同じく合意保存・修正要望保存を有効にする。本人以外の代理合意は禁止のまま。
 - 合計: 参加PJ数、予定報酬合計、今月末未払い残合計 (`stockYen > 0` のときのみ)。
 - PJごとに、今月支払額、今月末未払い残、前月繰越・今月発生・今月支払の内訳、合意用予定報酬、PM/PL role、担当MS/貢献率/到達目標/予定報酬を表示する。`stockYen` は「今月は支払われない」別枠で強調し、支払額や合意用予定報酬と同じ見え方にしない。
 - `未払いストックの流れ` は、グラフと明細表のどちらも縦方向の内部スクロールを使わず全行を表示する。狭い画面では横方向だけスクロールを許容する。
@@ -173,6 +173,7 @@ API route は logged-in user を `members.email` で解決する。本人以外�
 
 - 当月報酬合計カードの直下に、当月の月初合意カードを表示する。
 - `未合意` / `条件更新あり` のとき、`/monthly-agreement` へ誘導する。
+- 当月の本人合意が `未合意` / `条件更新あり` かつ表示対象PJがある場合、OS内の他画面を開いても先に `/monthly-agreement` へ遷移させる。`/monthly-agreement` 自体は遷移対象から除外し、合意完了後は通常どおり他画面へ入れる。
 - `/mypage` 本体の報酬表示や週次活動取得が失敗しないよう、合意カードのAPIエラーは主表示をブロックしない。
 
 ### `/admin/monthly-work-agreements`

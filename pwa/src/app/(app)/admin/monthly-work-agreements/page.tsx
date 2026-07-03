@@ -22,12 +22,14 @@ function formatYen(value: number | null | undefined) {
 function statusLabel(status: MonthlyAgreementStatus) {
   if (status === "agreed") return "合意済み";
   if (status === "needs_reagreement") return "条件更新あり";
+  if (status === "not_required") return "対象外";
   return "未合意";
 }
 
 function statusClass(status: MonthlyAgreementStatus) {
   if (status === "agreed") return "bg-emerald-50 text-emerald-700 border-emerald-200";
   if (status === "needs_reagreement") return "bg-amber-50 text-amber-800 border-amber-200";
+  if (status === "not_required") return "bg-zinc-50 text-zinc-600 border-zinc-200";
   return "bg-sky-50 text-sky-800 border-sky-200";
 }
 

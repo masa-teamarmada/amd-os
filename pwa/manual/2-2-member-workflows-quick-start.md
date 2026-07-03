@@ -12,7 +12,7 @@ AMD メンバー (= 社内常勤 / 副業) が AMD OS で日常的に触る画�
 | PJ コックピット | `/project/{projectId}/cockpit` | 担当 PJ の状況・MS 進捗・月次カードを開く |
 | 通知レビュー | `/notifications` | 自分宛の修正依頼カード・経営ハイライト確認を捌く |
 
-月初はまず `/monthly-agreement` で今月の遂行対象・想定報酬・条件を確認して合意する。その後は「マイページ / PJ コックピット / 通知レビュー / 立替」を毎日 1 回ずつ見て、未対応カードを片付けるのが日常の最小単位。
+月初はまず `/monthly-agreement` で今月の遂行対象・想定報酬・条件を確認して合意する。未合意または条件更新ありの間は、OS内の他画面を開いても先に月初合意画面が表示される。その後は「マイページ / PJ コックピット / 通知レビュー / 立替」を毎日 1 回ずつ見て、未対応カードを片付けるのが日常の最小単位。
 
 ## マイページ (`/mypage`)
 
@@ -42,7 +42,7 @@ AMD メンバー (= 社内常勤 / 副業) が AMD OS で日常的に触る画�
 
 ### 月初合意
 
-`/monthly-agreement` では、当月参加中の PJ、担当 MS / share、当月の到達目標、月初合意用の想定報酬を確認する。cap / carry-over / 条件/前提 / 未確定・要確認などの内部確認情報は本人画面に出さない。`status='frozen'` / `freeze_from_ym <= ym` / active `project_freeze_periods` の PJ、当月報酬も担当MSもないPJは表示対象外。`members.exclude_from_payout_notice=true` のメンバー (= りり / ID006 NIMS 無償出向、あき / ID029 無報酬稼働) は月初合意も対象外。報酬キャッシュがあるPJで担当MSの報酬行がない場合は、未確定ではなく `0円` と表示する。`reward_summary_json.members[].stockYen > 0` の場合だけ、支払予定とは分けて翌月以降へ繰り越される残額として `今月末未払い残（今月は支払われない）` を read-only 表示し、前月繰越・今月発生・今月支払の内訳を添える。合意ボタンを押すと `member_monthly_work_agreements` に表示内容の `snapshot_json` と `snapshot_hash` が保存される。
+`/monthly-agreement` では、当月参加中の PJ、担当 MS / share、当月の到達目標、月初合意用の想定報酬を確認する。cap / carry-over / 条件/前提 / 未確定・要確認などの内部確認情報は本人画面に出さない。`status='frozen'` / `freeze_from_ym <= ym` / active `project_freeze_periods` の PJ、当月報酬も担当MSもないPJは表示対象外。`members.exclude_from_payout_notice=true` かつ `is_admin=false` のメンバー (= りり / ID006 NIMS 無償出向、あき / ID029 無報酬稼働) は月初合意も対象外。`is_admin=true` のメンバーは、テスト確認のため支払通知対象外でも月初合意対象に含める。報酬キャッシュがあるPJで担当MSの報酬行がない場合は、未確定ではなく `0円` と表示する。`reward_summary_json.members[].stockYen > 0` の場合だけ、支払予定とは分けて翌月以降へ繰り越される残額として `今月末未払い残（今月は支払われない）` を read-only 表示し、前月繰越・今月発生・今月支払の内訳を添える。合意ボタンを押すと `member_monthly_work_agreements` に表示内容の `snapshot_json` と `snapshot_hash` が保存される。
 
 月中に MS / share / 報酬キャッシュなどが変わって現在の snapshot hash が前回合意時とズレた場合、本人画面と admin 画面に「条件更新あり」と出る。これは報酬計算を変えるものではなく、再確認が必要なサイン。
 

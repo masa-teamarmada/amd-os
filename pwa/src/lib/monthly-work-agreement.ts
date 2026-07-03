@@ -409,11 +409,6 @@ export async function buildMonthlyWorkAgreementBundle(
     };
   }
 
-  const adminPreviewExclusionReason =
-    member.exclude_from_payout_notice === true && member.is_admin === true
-      ? "admin/支払通知対象外メンバーのため、合意保存は不要です。確認用に内容だけ表示しています。"
-      : null;
-
   if (member.exclude_from_payout_notice === true && member.is_admin !== true) {
     const snapshot: MonthlyWorkAgreementSnapshot = {
       schemaVersion: SNAPSHOT_VERSION,
@@ -825,7 +820,7 @@ export async function buildMonthlyWorkAgreementBundle(
       : latestAgreement?.status === "agreed"
         ? "needs_reagreement"
         : "pending";
-  const status: MonthlyAgreementStatus = adminPreviewExclusionReason ? "not_required" : agreementStatus;
+  const status: MonthlyAgreementStatus = agreementStatus;
 
   return {
     ym,
@@ -836,8 +831,8 @@ export async function buildMonthlyWorkAgreementBundle(
     latestAgreement,
     revisionRequests,
     tableReady,
-    canAgree: !adminPreviewExclusionReason && tableReady && (!params.viewerMemberId || params.viewerMemberId === params.memberId),
-    exclusionReason: adminPreviewExclusionReason,
+    canAgree: tableReady && (!params.viewerMemberId || params.viewerMemberId === params.memberId),
+    exclusionReason: null,
   };
 }
 
@@ -849,7 +844,7 @@ export async function listActiveAgreementMemberIds(supabase: SupabaseClient, ym:
     { data: freezePeriods, error: freezePeriodsError },
   ] =
     await Promise.all([
-      supabase.from("members").select("member_id, status, exclude_from_payout_notice").eq("status", "active"),
+      supabase.from("members").select("member_id, status, is_admin, exclude_from_payout_notice").eq("status", "active"),
       supabase.from("project_members").select("project_id, member_id, is_active, join_ym, leave_ym").eq("is_active", true),
       supabase
         .from("projects")
@@ -868,7 +863,7 @@ export async function listActiveAgreementMemberIds(supabase: SupabaseClient, ym:
 
   const activeMembers = new Set(
     ((members ?? []) as Array<JsonRecord>)
-      .filter((row) => row.exclude_from_payout_notice !== true)
+      .filter((row) => row.exclude_from_payout_notice !== true || row.is_admin === true)
       .map((row) => row.member_id as string),
   );
   const freezePeriodsByProject = new Map<string, JsonRecord[]>();

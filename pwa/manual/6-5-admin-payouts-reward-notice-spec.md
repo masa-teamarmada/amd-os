@@ -23,7 +23,7 @@ GAS 066 `A066_PayoutPaidRepo.js` の `admin_listPayoutYmCandidates` が、 admin
 4. 合計額 > 0 のメンバーを表示
 ```
 
-`exclude_from_payout_notice=true` のメンバー (= 例: りり / ID006 NIMS 無償出向、あき / ID029 無報酬稼働) は通知書発行を skip。月初合意も `not_required` とし、admin の合意一覧・合意保存・修正要望保存の対象から外す。ただし `is_admin=true` の確認用アカウントは、合意保存は不要のまま `/monthly-agreement` にPJ/MS/貢献率/予定報酬のsnapshotを表示して、管理者が本人画面の見え方を確認できるようにする。
+`exclude_from_payout_notice=true` かつ `is_admin=false` のメンバー (= 例: りり / ID006 NIMS 無償出向、あき / ID029 無報酬稼働) は通知書発行を skip。月初合意も `not_required` とし、admin の合意一覧・合意保存・修正要望保存の対象から外す。`is_admin=true` のメンバーは、テスト確認のため支払通知対象外でも月初合意対象に含め、本人が `/monthly-agreement` で合意保存できるようにする。
 
 ## 月次サイクル
 
@@ -112,7 +112,7 @@ admin一覧では合意用の予定報酬とは別に、`reward_summary_json.mem
 | 移行月合意済扱い | `agreed` | `source_ym <= 202606` は導入前/移行月として allow |
 | 条件更新あり | `stale` | latest agreed snapshot hash と current hash が違うため stop |
 | 修正要望中 | `revision_requested` | open request が member全体または当該PJにあるため stop |
-| 対象外 | `not_required` | frozen/lost/active期間外PJ、支払額0、役員/通知対象外は gate 外 |
+| 対象外 | `not_required` | frozen/lost/active期間外PJ、支払額0、非adminの通知対象外は gate 外 |
 | admin override | `admin_override` | 理由つきで例外実行し、監査ログを保存 |
 
 admin override は 8 文字以上の理由が必要。server は `member_monthly_work_agreement_payout_overrides` に、action、理由、actor email、支払月、稼働月、member、PJ、blocker status、snapshot hash/current hash、request id を append-only で残す。

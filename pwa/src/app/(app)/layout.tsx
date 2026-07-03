@@ -5,6 +5,11 @@ import { GlobalNav } from "@/components/nav/GlobalNav";
 import { PageTitleSetter } from "@/components/nav/PageTitleSetter";
 import { CriticalRealtimeNotify } from "@/components/notifications/CriticalRealtimeNotify";
 import { TsukuyomiChatBridge } from "@/components/tsukuyomi/TsukuyomiChatBridge";
+import {
+  buildMonthlyWorkAgreementBundle,
+  currentYmJst,
+} from "@/lib/monthly-work-agreement";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 // pathname → タブタイトル変換 (= PageTitleSetter と同じマッピングを SSR でも使う)
@@ -61,6 +66,37 @@ function pathToTitle(pathname: string): string | null {
   return null;
 }
 
+function shouldSkipMonthlyAgreementGate(pathname: string) {
+  return pathname.startsWith("/monthly-agreement");
+}
+
+async function getMonthlyAgreementGateRedirectPath({
+  memberId,
+  pathname,
+}: {
+  memberId: string;
+  pathname: string;
+}) {
+  if (shouldSkipMonthlyAgreementGate(pathname)) return null;
+  try {
+    const admin = createAdminClient();
+    const bundle = await buildMonthlyWorkAgreementBundle(admin, {
+      ym: currentYmJst(),
+      memberId,
+      viewerMemberId: memberId,
+    });
+    const requiresAgreement =
+      bundle.tableReady &&
+      bundle.snapshot.totals.projectCount > 0 &&
+      (bundle.status === "pending" || bundle.status === "needs_reagreement");
+    if (!requiresAgreement) return null;
+    return `/monthly-agreement?ym=${encodeURIComponent(bundle.ym)}&memberId=${encodeURIComponent(memberId)}`;
+  } catch (err) {
+    console.warn("[monthly-agreement] failed to evaluate entry gate:", err);
+    return null;
+  }
+}
+
 // SSR 時点で <title> を確定させる (= タブタイトル「変わらない」事故防止)。
 // middleware が x-pathname header をセットしてくれている前提。
 export async function generateMetadata(): Promise<Metadata> {
@@ -108,6 +144,13 @@ export default async function AppLayout({
         `/auth/login?next=${encodeURIComponent(pathname || "/dashboard")}&error=calendar_required`,
       );
     }
+  }
+  if (memberId) {
+    const agreementGatePath = await getMonthlyAgreementGateRedirectPath({
+      memberId,
+      pathname,
+    });
+    if (agreementGatePath) redirect(agreementGatePath);
   }
   const useHudShellOnly = pathname.startsWith("/hud");
 
