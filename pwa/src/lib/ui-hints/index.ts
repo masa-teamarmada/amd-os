@@ -143,6 +143,64 @@ export const UI_HINTS: Record<string, UiHint> = {
     title: "📅 再開予定",
     body: "restart_expected_ym 以降に PJ 再開予定。それまでは凍結扱い。",
   },
+
+  // ──────────────────────────────────────
+  // 月初合意 (= monthly agreement)
+  // ──────────────────────────────────────
+  "monthly-agreement.flow": {
+    id: "monthly-agreement.flow",
+    title: "月初合意から支払まで",
+    body: "月初合意は「今月どのMSへコミットするか」の約束。MS ptと担当割合から予定報酬を作り、合意後に支払通知へ進める。支払実績や未払い残は別レイヤーで確認する。",
+    docHref: "/manual/2-2-member-workflows-quick-start#月初合意",
+  },
+  "monthly-agreement.project-count": {
+    id: "monthly-agreement.project-count",
+    title: "参加PJ",
+    body: "この月に本人が月初合意の対象として持つPJ数。担当MSも予定報酬も無いPJ、報酬対象外メンバーのPJは本人画面から外れる。",
+    docHref: "/manual/2-2-member-workflows-quick-start#月初合意",
+  },
+  "monthly-agreement.expected-reward": {
+    id: "monthly-agreement.expected-reward",
+    title: "予定報酬",
+    body: "月初合意用の予定額。今月の月次予算、今月消化予定のMS pt、担当割合から算出する。実際の支払額、繰越、cap、freee支払実績とは分けて見る。",
+    docHref: "/spec/3-14-monthly-work-agreement-current-spec#calculation-contract",
+  },
+  "monthly-agreement.payout": {
+    id: "monthly-agreement.payout",
+    title: "支払状態",
+    body: "支払済み実績は、保存済みPJ別明細とfreee照合証跡がそろったものだけ。未照合やこれから支払予定の額は、予定報酬と混ぜずに別枠で表示する。",
+    docHref: "/spec/3-14-monthly-work-agreement-current-spec#ui-contract",
+  },
+  "monthly-agreement.stock": {
+    id: "monthly-agreement.stock",
+    title: "未払いストック残",
+    body: "この月の支払後に残る未払い残高。今月支払われる額ではなく、翌月以降に持ち越される額として見る。",
+    docHref: "/spec/3-14-monthly-work-agreement-current-spec#ui-contract",
+  },
+  "monthly-agreement.stock-flow": {
+    id: "monthly-agreement.stock-flow",
+    title: "未払いストックの流れ",
+    body: "前月からの繰越、この稼働月の新規発生、支払額、支払後残を月ごとに並べたもの。過去実績、未照合、未来予定を混ぜないための確認欄。",
+    docHref: "/spec/3-14-monthly-work-agreement-current-spec#ui-contract",
+  },
+  "monthly-agreement.ms-pt": {
+    id: "monthly-agreement.ms-pt",
+    title: "MS ptベースの報酬",
+    body: "各MSのpt、今月進めるpt、本人の担当割合から、この月の予定報酬を配分する。MSの粒度やptが違う場合は修正要望で戻す。",
+    docHref: "/spec/3-14-monthly-work-agreement-current-spec#calculation-contract",
+  },
+  "monthly-agreement.ms-link": {
+    id: "monthly-agreement.ms-link",
+    title: "今シーズンのMSリスト",
+    body: "月初合意で見ているMSの背景確認用リンク。該当PJのcockpitで今シーズンのMS一覧、到達目標、進捗を確認できる。",
+    docHref: "/manual/2-2-member-workflows-quick-start#月初合意",
+  },
+  "monthly-agreement.revision-request": {
+    id: "monthly-agreement.revision-request",
+    title: "修正要望",
+    body: "担当MS、到達目標、担当割合、予定報酬が違う時に送る。合意ボタンとは別で、admin/PMが確認して条件を直すための入口。",
+    docHref: "/spec/3-14-monthly-work-agreement-current-spec#ui-contract",
+  },
 };
 
 /**
