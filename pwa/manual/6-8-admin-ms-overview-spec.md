@@ -209,9 +209,10 @@ memberDesignYen[m] = Σ over MS of (effectivePoints × share[m] × designUnitYen
 - `offsetCount` / `positiveOffsetYen` / `negativeOffsetYen` — 本人別に次回以降へ精算される差額
 - `applyYms` — 差額を反映する未保護月
 - `memberImpacts` — メンバー別の追加支払 / 過払い回収 / 本契約・別財布内訳
+- `budgetImpact` — 支払済み・保存済みの実績額を固定したうえで、これから支払う見込みと期末未払い残を足した PJ 予算影響。表示項目は `PJ予算` / `支払済み固定` / `これから支払予定` / `期末未払い残` / `保存後残予算`。`remainingBudgetYen < 0` の場合は赤字見込みとして warning 表示する。
 - `blockers` — 保存不可理由。旧 reward cache が無い、次回精算先が無い、過払い回収がシーズン内で吸収できない可能性がある、など。
 
-このパネルの目的は「差分を見せる」ことではなく、MS を期中変更しても **払いすぎ・払い足りなさを作らない状態で保存できるか** を判定すること。`warning` は保存可能だが精算が発生する状態、`blocked` は保存不可。
+このパネルの目的は「差分を見せる」ことではなく、MS を期中変更しても **払いすぎ・払い足りなさを作らず、かつ支払済み実績を固定した結果として PJ 予算が赤字にならないか** を編集中に判定すること。`warning` は保存可能だが精算または赤字見込みが発生する状態、`blocked` は保存不可。
 
 ### 安全機構
 

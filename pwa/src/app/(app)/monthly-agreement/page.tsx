@@ -161,6 +161,8 @@ function MonthlyAgreementContent() {
   }
 
   const totalStockYen = bundle.snapshot.totals.stockYen ?? 0;
+  const paidActualYen = bundle.snapshot.totals.paidActualYen ?? 0;
+  const futurePayoutYen = bundle.snapshot.totals.futurePayoutYen ?? 0;
 
   return (
     <div className="min-h-screen bg-[#f5f5f7] pb-12">
@@ -213,9 +215,11 @@ function MonthlyAgreementContent() {
           )}
         </section>
 
-        <section className={`grid gap-3 ${totalStockYen > 0 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+        <section className={`grid gap-3 sm:grid-cols-2 ${totalStockYen > 0 ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
           <MetricCard label="参加PJ" value={`${bundle.snapshot.totals.projectCount}`} />
           <MetricCard label="予定報酬合計" value={formatYen(bundle.snapshot.totals.expectedRewardYen)} />
+          <MetricCard label="支払済み実績" value={formatYen(paidActualYen)} />
+          <MetricCard label="これから支払予定" value={formatYen(futurePayoutYen)} />
           {totalStockYen > 0 && <MetricCard label="未払いストック残" value={formatYen(totalStockYen)} emphasis />}
         </section>
 
@@ -452,7 +456,7 @@ function PayoutScheduleTable({ rows }: { rows: MonthlyWorkAgreementProject["payo
     <div className="mt-4 overflow-hidden rounded-md border border-[#e5e5e7]">
       <div className="flex flex-wrap items-center justify-between gap-2 bg-[#f5f5f7] px-3 py-2">
         <h3 className="text-[12px] font-semibold text-[#3c3c43]">未払いストックの流れ</h3>
-        <span className="text-[10px] text-[#86868b]">新規発生 + 繰越 → 支払予定 → 支払後残</span>
+        <span className="text-[10px] text-[#86868b]">新規発生 + 繰越 → 支払額 → 支払後残</span>
       </div>
       <PayoutFlowBars rows={rows} />
       <div className="overflow-x-auto">
@@ -462,7 +466,7 @@ function PayoutScheduleTable({ rows }: { rows: MonthlyWorkAgreementProject["payo
               <th className="px-3 py-2 text-left font-semibold">稼働月</th>
               <th className="px-3 py-2 text-right font-semibold">新規発生</th>
               <th className="px-3 py-2 text-right font-semibold">支払対象</th>
-              <th className="px-3 py-2 text-right font-semibold">支払予定</th>
+              <th className="px-3 py-2 text-right font-semibold">支払額</th>
               <th className="px-3 py-2 text-right font-semibold">支払後残</th>
             </tr>
           </thead>
@@ -483,6 +487,7 @@ function PayoutScheduleTable({ rows }: { rows: MonthlyWorkAgreementProject["payo
                 <td className="px-3 py-2 text-right align-top tabular-nums">
                   <div className="font-semibold text-[#1d1d1f]">{formatYen(row.totalPayYen)}</div>
                   <div className="text-[10px] text-[#86868b]">{formatYm(row.paymentYm)}</div>
+                  <PayoutSourceBadge row={row} />
                 </td>
                 <td className="px-3 py-2 text-right align-top tabular-nums">
                   <div className={row.stockYen > 0 ? "font-semibold text-amber-800" : "text-[#86868b]"}>
@@ -494,6 +499,25 @@ function PayoutScheduleTable({ rows }: { rows: MonthlyWorkAgreementProject["payo
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function payoutSourceLabel(row: MonthlyWorkAgreementProject["payoutSchedule"][number]) {
+  if (row.amountSource === "actual_paid") return "支払実績";
+  if (row.amountSource === "payout_snapshot") return "保存済み";
+  if (row.amountSource === "protected_reward_cache") return "保護済み";
+  return "予定";
+}
+
+function PayoutSourceBadge({ row }: { row: MonthlyWorkAgreementProject["payoutSchedule"][number] }) {
+  const label = payoutSourceLabel(row);
+  const cls = row.isActualPaid
+    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+    : "border-[#d1d1d6] bg-white text-[#6e6e73]";
+  return (
+    <div className="mt-1">
+      <span className={`rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${cls}`}>{label}</span>
     </div>
   );
 }
@@ -510,7 +534,7 @@ function PayoutFlowBars({ rows }: { rows: MonthlyWorkAgreementProject["payoutSch
       <div className="mb-2 flex flex-wrap gap-2 text-[10px] text-[#6e6e73]">
         <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-[#d1d1d6]" />繰越</span>
         <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-sky-300" />新規発生</span>
-        <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-emerald-400" />支払予定</span>
+        <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-emerald-400" />支払額</span>
         <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-amber-300" />支払後残</span>
       </div>
       <div className="overflow-x-auto">
@@ -558,7 +582,7 @@ function PayoutFlowBarRow({
         </div>
       </div>
       <div className="text-right text-[10px] leading-tight text-[#6e6e73] tabular-nums">
-        <div>新規 {formatYen(row.basePayYen)} / 支払 {formatYen(row.totalPayYen)}</div>
+        <div>新規 {formatYen(row.basePayYen)} / 支払 {formatYen(row.totalPayYen)} ({payoutSourceLabel(row)})</div>
         <div>対象 {formatYen(row.grossDueYen)} / 残 {formatYen(row.stockYen)}</div>
       </div>
     </div>

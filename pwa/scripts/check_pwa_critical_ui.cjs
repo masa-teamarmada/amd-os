@@ -758,8 +758,10 @@ expectIncludes("src/app/api/admin/ms-overview/[planCycleId]/route.ts", [
   "POST",
   "PUT",
   "buildRewardRevisionImpact",
+  "buildRewardRevisionBudgetImpact",
   "rewardPreview",
   "memberImpacts",
+  "budgetImpact",
   "reward_member_liability_offsets",
   "保存不可",
 ]);
@@ -791,6 +793,11 @@ expectIncludes("src/components/admin/AdminMsOverviewClient.tsx", [
   "保存前支払検算",
   "保存不可",
   "memberImpacts",
+  "budgetImpact",
+  "PJ予算残",
+  "支払済み固定",
+  "これから支払予定",
+  "期末未払い残",
   "DB値に戻す",
   "保存して DB へ反映",
   "recomputeMsOverview",
@@ -815,11 +822,34 @@ expectIncludes("src/components/admin/AdminSidebar.tsx", [
   "/admin/ms-overview",
 ]);
 
+expectIncludes("src/app/(app)/monthly-agreement/page.tsx", [
+  "支払済み実績",
+  "これから支払予定",
+  "PayoutSourceBadge",
+  "支払実績",
+  "保存済み",
+  "保護済み",
+]);
+expectIncludes("src/lib/monthly-work-agreement.ts", [
+  "monthly_reward_payout",
+  "payoutSnapshotForCycle",
+  "amountSource",
+  "paidActualYen",
+  "futurePayoutYen",
+]);
+expectIncludes("spec/3-14-monthly-work-agreement-current-spec.md", [
+  "monthly_reward_payout",
+  "amountSource",
+  "支払済み実績",
+  "これから支払予定",
+]);
+
 expectIncludes("design/FEATURE_REGISTRY.md", [
   "/admin/ms-overview",
   "支払額に見える円換算",
   "設計額",
   "memberPointTotals",
+  "budgetImpact",
 ]);
 
 require("./check_payout_notice_pdf_golden.cjs");

@@ -24,6 +24,17 @@ import type {
 
 type JsonRecord = Record<string, unknown>;
 
+type MonthlyRewardPayoutSnapshotRow = JsonRecord & {
+  project_id?: string | null;
+  ym?: string | null;
+  member_id?: string | null;
+  earned_pt?: unknown;
+  base_pay?: unknown;
+  bonus_pt?: unknown;
+  total_pay?: unknown;
+  created_at?: string | null;
+};
+
 const SNAPSHOT_VERSION = "monthly_work_agreement.v2" as const;
 export const MONTHLY_WORK_AGREEMENT_PAYOUT_GATE_START_YM = "202607";
 
@@ -124,6 +135,10 @@ function rewardSummaryReady(cycle: JsonRecord | undefined): boolean {
   return Boolean(asRecord(cycle?.reward_summary_json));
 }
 
+function rewardCycleProtected(cycle: JsonRecord | undefined): boolean {
+  return Boolean(cycle?.reward_paid_at || cycle?.payout_notice_uploaded_at || cycle?.payment_confirmed_at);
+}
+
 function yenFromRecord(row: JsonRecord | null, keys: string[]): number | null {
   if (!row) return null;
   for (const key of keys) {
@@ -183,7 +198,38 @@ function paymentRuleCycle(cycle: JsonRecord, fallbackYm: string) {
   };
 }
 
-function memberPayoutYenFromCycle(cycle: JsonRecord | undefined, memberId: string): number {
+function payoutSnapshotKey(projectId: string, ym: string): string {
+  return `${projectId}:${ym}`;
+}
+
+function payoutSnapshotByProjectYm(rows: MonthlyRewardPayoutSnapshotRow[]): Map<string, MonthlyRewardPayoutSnapshotRow> {
+  const map = new Map<string, MonthlyRewardPayoutSnapshotRow>();
+  for (const row of rows) {
+    const projectId = typeof row.project_id === "string" ? row.project_id : "";
+    const ym = cleanYm(row.ym);
+    if (!projectId || !ym) continue;
+    map.set(payoutSnapshotKey(projectId, ym), row);
+  }
+  return map;
+}
+
+function payoutSnapshotForCycle(
+  cycle: JsonRecord | undefined,
+  snapshots: Map<string, MonthlyRewardPayoutSnapshotRow>,
+): MonthlyRewardPayoutSnapshotRow | null {
+  const projectId = typeof cycle?.project_id === "string" ? cycle.project_id : "";
+  const ym = cleanYm(cycle?.ym);
+  if (!projectId || !ym) return null;
+  return snapshots.get(payoutSnapshotKey(projectId, ym)) ?? null;
+}
+
+function memberPayoutYenFromCycle(
+  cycle: JsonRecord | undefined,
+  memberId: string,
+  payoutSnapshots: Map<string, MonthlyRewardPayoutSnapshotRow>,
+): number {
+  const snapshotTotal = yenFromRecord(payoutSnapshotForCycle(cycle, payoutSnapshots), ["total_pay"]);
+  if (snapshotTotal != null) return snapshotTotal;
   return yenFromRecord(rewardSummaryMember(cycle, memberId), ["totalPay", "total_pay"]) ?? 0;
 }
 
@@ -192,16 +238,36 @@ function payoutScheduleEntryFromCycle(
   project: JsonRecord,
   memberId: string,
   currentYm: string,
+  payoutSnapshots: Map<string, MonthlyRewardPayoutSnapshotRow>,
 ): MonthlyWorkAgreementPayoutScheduleEntry | null {
   const rewardMember = rewardSummaryMember(cycle, memberId);
-  if (!rewardMember) return null;
-  const basePayYen = yenFromRecord(rewardMember, ["basePay", "base_pay"]) ?? splitBasePayFromRecord(rewardMember) ?? 0;
+  const payoutSnapshot = payoutSnapshotForCycle(cycle, payoutSnapshots);
+  if (!rewardMember && !payoutSnapshot) return null;
+  const basePayYen =
+    yenFromRecord(rewardMember, ["basePay", "base_pay"]) ??
+    splitBasePayFromRecord(rewardMember) ??
+    yenFromRecord(payoutSnapshot, ["base_pay"]) ??
+    0;
   const carryInYen = yenFromRecord(rewardMember, ["carryInYen", "carry_in_yen"]) ?? 0;
   const grossDueYen = yenFromRecord(rewardMember, ["grossDueYen", "gross_due_yen"]) ?? basePayYen + carryInYen;
-  const totalPayYen = yenFromRecord(rewardMember, ["totalPay", "total_pay"]) ?? 0;
-  const stockYen = yenFromRecord(rewardMember, ["stockYen", "stock_yen", "deferredYen", "deferred_yen"]) ?? 0;
+  const cachedTotalPayYen = yenFromRecord(rewardMember, ["totalPay", "total_pay"]) ?? 0;
+  const cachedStockYen = yenFromRecord(rewardMember, ["stockYen", "stock_yen", "deferredYen", "deferred_yen"]) ?? 0;
+  const snapshotTotalPayYen = yenFromRecord(payoutSnapshot, ["total_pay"]);
+  const isProtected = rewardCycleProtected(cycle);
+  const totalPayYen = snapshotTotalPayYen ?? cachedTotalPayYen;
+  const stockYen = snapshotTotalPayYen == null ? cachedStockYen : Math.max(0, grossDueYen - totalPayYen);
   if (basePayYen <= 0 && carryInYen <= 0 && grossDueYen <= 0 && totalPayYen <= 0 && stockYen <= 0) return null;
   const sourceYm = cleanYm(cycle.ym) ?? currentYm;
+  const amountSource: MonthlyWorkAgreementPayoutScheduleEntry["amountSource"] =
+    snapshotTotalPayYen != null
+      ? cycle.reward_paid_at
+        ? "actual_paid"
+        : "payout_snapshot"
+      : cycle.reward_paid_at
+        ? "actual_paid"
+      : isProtected
+        ? "protected_reward_cache"
+        : "reward_cache";
   return {
     sourceYm,
     paymentYm: effectivePaymentYmForCycle(paymentRuleCycle(cycle, sourceYm), paymentRuleProject(project)),
@@ -212,6 +278,9 @@ function payoutScheduleEntryFromCycle(
     totalPayYen,
     stockYen,
     isCurrentYm: sourceYm === currentYm,
+    isProtected,
+    isActualPaid: amountSource === "actual_paid",
+    amountSource,
   };
 }
 
@@ -391,6 +460,8 @@ export async function buildMonthlyWorkAgreementBundle(
       totals: {
         expectedRewardYen: 0,
         stockYen: 0,
+        paidActualYen: 0,
+        futurePayoutYen: 0,
         projectCount: 0,
         reviewRequiredCount: 0,
       },
@@ -418,6 +489,8 @@ export async function buildMonthlyWorkAgreementBundle(
       totals: {
         expectedRewardYen: 0,
         stockYen: 0,
+        paidActualYen: 0,
+        futurePayoutYen: 0,
         projectCount: 0,
         reviewRequiredCount: 0,
       },
@@ -449,6 +522,7 @@ export async function buildMonthlyWorkAgreementBundle(
   const projectIds = Array.from(new Set(activeMemberships.map((row) => row.project_id as string)));
   const scheduleStartYm = addMonths(ym, -6);
   const scheduleEndYm = addMonths(ym, 12);
+  const paymentCandidateSourceYms = candidateSourceYmsForPaymentYm(ym);
 
   const [
     projectsRes,
@@ -457,6 +531,7 @@ export async function buildMonthlyWorkAgreementBundle(
     explicitPayoutCyclesRes,
     unsetPayoutCyclesRes,
     scheduleCyclesRes,
+    payoutSnapshotsRes,
     plansRes,
   ] = await Promise.all([
     projectIds.length
@@ -483,7 +558,7 @@ export async function buildMonthlyWorkAgreementBundle(
           .from("billing_cycles")
           .select("*")
           .in("project_id", projectIds)
-          .in("ym", candidateSourceYmsForPaymentYm(ym))
+          .in("ym", paymentCandidateSourceYms)
           .is("invoice_ym", null)
       : Promise.resolve({ data: [], error: null }),
     projectIds.length
@@ -494,6 +569,15 @@ export async function buildMonthlyWorkAgreementBundle(
           .gte("ym", scheduleStartYm)
           .lte("ym", scheduleEndYm)
           .order("ym", { ascending: true })
+      : Promise.resolve({ data: [], error: null }),
+    projectIds.length
+      ? supabase
+          .from("monthly_reward_payout")
+          .select("project_id, ym, member_id, earned_pt, base_pay, bonus_pt, total_pay, created_at")
+          .eq("member_id", params.memberId)
+          .in("project_id", projectIds)
+          .gte("ym", scheduleStartYm)
+          .lte("ym", scheduleEndYm)
       : Promise.resolve({ data: [], error: null }),
     projectIds.length
       ? supabase
@@ -509,6 +593,7 @@ export async function buildMonthlyWorkAgreementBundle(
   if (explicitPayoutCyclesRes.error) throw explicitPayoutCyclesRes.error;
   if (unsetPayoutCyclesRes.error) throw unsetPayoutCyclesRes.error;
   if (scheduleCyclesRes.error) throw scheduleCyclesRes.error;
+  if (payoutSnapshotsRes.error) throw payoutSnapshotsRes.error;
   if (plansRes.error) throw plansRes.error;
 
   const freezePeriodsByProject = new Map<string, JsonRecord[]>();
@@ -525,12 +610,13 @@ export async function buildMonthlyWorkAgreementBundle(
     .filter((row) => inYmRange(ym, { start_ym: row.start_ym as string | null, end_ym: row.end_ym as string | null }));
   const projectMap = new Map(projects.map((row) => [row.project_id as string, row]));
   const cyclesByProject = new Map(((cyclesRes.data ?? []) as Array<JsonRecord>).map((row) => [row.project_id as string, row]));
+  const payoutSnapshots = payoutSnapshotByProjectYm((payoutSnapshotsRes.data ?? []) as MonthlyRewardPayoutSnapshotRow[]);
   const payoutScheduleByProject = new Map<string, MonthlyWorkAgreementPayoutScheduleEntry[]>();
   for (const row of (scheduleCyclesRes.data ?? []) as Array<JsonRecord>) {
     const projectId = row.project_id as string;
     const project = projectMap.get(projectId);
     if (!project) continue;
-    const entry = payoutScheduleEntryFromCycle(row, project, params.memberId, ym);
+    const entry = payoutScheduleEntryFromCycle(row, project, params.memberId, ym, payoutSnapshots);
     if (!entry) continue;
     const list = payoutScheduleByProject.get(projectId) ?? [];
     list.push(entry);
@@ -546,7 +632,10 @@ export async function buildMonthlyWorkAgreementBundle(
   for (const row of (explicitPayoutCyclesRes.data ?? []) as Array<JsonRecord>) {
     const projectId = row.project_id as string;
     if (!projectMap.has(projectId) || cleanYm(row.invoice_ym) !== ym) continue;
-    payoutYenByProject.set(projectId, (payoutYenByProject.get(projectId) ?? 0) + memberPayoutYenFromCycle(row, params.memberId));
+    payoutYenByProject.set(
+      projectId,
+      (payoutYenByProject.get(projectId) ?? 0) + memberPayoutYenFromCycle(row, params.memberId, payoutSnapshots),
+    );
   }
   for (const row of (unsetPayoutCyclesRes.data ?? []) as Array<JsonRecord>) {
     const projectId = row.project_id as string;
@@ -554,7 +643,10 @@ export async function buildMonthlyWorkAgreementBundle(
     if (!project) continue;
     const paymentYm = effectivePaymentYmForCycle(paymentRuleCycle(row, ym), paymentRuleProject(project));
     if (paymentYm !== ym) continue;
-    payoutYenByProject.set(projectId, (payoutYenByProject.get(projectId) ?? 0) + memberPayoutYenFromCycle(row, params.memberId));
+    payoutYenByProject.set(
+      projectId,
+      (payoutYenByProject.get(projectId) ?? 0) + memberPayoutYenFromCycle(row, params.memberId, payoutSnapshots),
+    );
   }
 
   const plans = (plansRes.data ?? []) as Array<JsonRecord>;
@@ -640,13 +732,16 @@ export async function buildMonthlyWorkAgreementBundle(
       const project = projectMap.get(projectId)!;
       const cycle = cyclesByProject.get(projectId);
       const rewardMember = rewardSummaryMember(cycle, params.memberId);
+      const payoutSnapshot = payoutSnapshotForCycle(cycle, payoutSnapshots);
       const hasRewardSummary = rewardSummaryReady(cycle);
       const rewardBreakdown = rewardBreakdownByMilestone(rewardMember);
       const expectedProjectRewardYen =
         yenFromRecord(rewardMember, ["basePay", "base_pay"]) ??
         splitBasePayFromRecord(rewardMember) ??
+        yenFromRecord(payoutSnapshot, ["base_pay"]) ??
         (hasRewardSummary ? 0 : null);
       const currentCyclePayoutYen =
+        yenFromRecord(payoutSnapshot, ["total_pay"]) ??
         yenFromRecord(rewardMember, ["totalPay", "total_pay"]) ??
         (hasRewardSummary ? 0 : null);
       const paymentYm = cycle
@@ -774,6 +869,20 @@ export async function buildMonthlyWorkAgreementBundle(
     totals: {
       expectedRewardYen: snapshotProjects.reduce((sum, project) => sum + (project.expectedRewardYen ?? 0), 0),
       stockYen: snapshotProjects.reduce((sum, project) => sum + (project.stockYen ?? 0), 0),
+      paidActualYen: snapshotProjects.reduce(
+        (sum, project) =>
+          sum + project.payoutSchedule
+            .filter((entry) => entry.isActualPaid)
+            .reduce((projectSum, entry) => projectSum + entry.totalPayYen, 0),
+        0,
+      ),
+      futurePayoutYen: snapshotProjects.reduce(
+        (sum, project) =>
+          sum + project.payoutSchedule
+            .filter((entry) => !entry.isActualPaid)
+            .reduce((projectSum, entry) => projectSum + entry.totalPayYen, 0),
+        0,
+      ),
       projectCount: snapshotProjects.length,
       reviewRequiredCount: snapshotProjects.filter((project) => project.conditionState === "review_required").length,
     },

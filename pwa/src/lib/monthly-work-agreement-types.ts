@@ -33,6 +33,9 @@ export interface MonthlyWorkAgreementPayoutScheduleEntry {
   totalPayYen: number;
   stockYen: number;
   isCurrentYm: boolean;
+  isProtected: boolean;
+  isActualPaid: boolean;
+  amountSource: "actual_paid" | "payout_snapshot" | "protected_reward_cache" | "reward_cache";
 }
 
 export interface MonthlyWorkAgreementRevisionRequest {
@@ -81,6 +84,8 @@ export interface MonthlyWorkAgreementSnapshot {
   totals: {
     expectedRewardYen: number;
     stockYen: number;
+    paidActualYen?: number;
+    futurePayoutYen?: number;
     projectCount: number;
     reviewRequiredCount: number;
   };

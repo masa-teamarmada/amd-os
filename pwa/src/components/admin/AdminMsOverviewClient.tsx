@@ -526,11 +526,29 @@ type RewardRevisionImpactMember = {
   extraOffsetYen: number;
 };
 
+type RewardRevisionBudgetImpact = {
+  seasonBudgetYen: number;
+  regularBudgetYen: number;
+  extraBudgetYen: number;
+  fixedPaidYen: number;
+  fixedPaidSnapshotYen: number;
+  fixedPaidRewardCacheYen: number;
+  futureProjectedPayYen: number;
+  finalStockYen: number;
+  projectedObligationYen: number;
+  remainingBudgetYen: number;
+  isOverBudget: boolean;
+  protectedActualYms: string[];
+  futureProjectedYms: string[];
+  missingFutureSummaryYms: string[];
+};
+
 type RewardRevisionPreview = RewardRevisionSummary & {
   status: "safe" | "warning" | "blocked";
   blockers: string[];
   warnings: string[];
   memberImpacts: RewardRevisionImpactMember[];
+  budgetImpact: RewardRevisionBudgetImpact | null;
   checkedAt: string;
 };
 
@@ -703,6 +721,19 @@ function EditActionBar({
           {rewardRevision.missingApplyYmCount > 0 ? ` / 反映先未定 ${rewardRevision.missingApplyYmCount}件` : ""}
         </span>
       )}
+      {rewardRevision?.budgetImpact && (
+        <span
+          className={
+            "rounded px-2 py-0.5 text-[11px] tabular-nums " +
+            (rewardRevision.budgetImpact.isOverBudget
+              ? "bg-red-500/10 text-red-500"
+              : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300")
+          }
+          title={`支払済み固定 ${fmtRevisionYen(rewardRevision.budgetImpact.fixedPaidYen)} / 未来支払 ${fmtRevisionYen(rewardRevision.budgetImpact.futureProjectedPayYen)} / 期末未払い残 ${fmtRevisionYen(rewardRevision.budgetImpact.finalStockYen)}`}
+        >
+          PJ予算残 {fmtRevisionYen(rewardRevision.budgetImpact.remainingBudgetYen)}
+        </span>
+      )}
       {rewardRevision && rewardRevision.skippedMissingBeforeSummaryCount > 0 && (
         <span className="text-[11px] text-amber-500">
           旧rewardなし {rewardRevision.skippedMissingBeforeSummaryCount}月は差額未作成
@@ -770,6 +801,7 @@ function RewardRevisionSafetyPanel({
             ? "検算OK・精算あり"
             : "検算OK";
   const memberImpacts = rewardRevision?.memberImpacts ?? [];
+  const budgetImpact = rewardRevision?.budgetImpact ?? null;
   return (
     <div
       className={`mb-3 rounded-md border px-3 py-2 ${statusTone}`}
@@ -830,6 +862,31 @@ function RewardRevisionSafetyPanel({
           </div>
         </div>
       )}
+      {budgetImpact && (
+        <div
+          className={
+            "mt-2 grid gap-2 rounded border px-2 py-2 text-[11px] tabular-nums md:grid-cols-5 " +
+            (budgetImpact.isOverBudget
+              ? "border-red-500/25 bg-red-500/5"
+              : "border-emerald-500/20 bg-background/60")
+          }
+          data-testid="admin-ms-overview-budget-impact"
+        >
+          <BudgetImpactCell label="PJ予算" value={budgetImpact.seasonBudgetYen} />
+          <BudgetImpactCell
+            label="支払済み固定"
+            value={budgetImpact.fixedPaidYen}
+            title={`支払明細 ${fmtRevisionYen(budgetImpact.fixedPaidSnapshotYen)} / 保護cache ${fmtRevisionYen(budgetImpact.fixedPaidRewardCacheYen)}`}
+          />
+          <BudgetImpactCell label="これから支払予定" value={budgetImpact.futureProjectedPayYen} />
+          <BudgetImpactCell label="期末未払い残" value={budgetImpact.finalStockYen} tone={budgetImpact.finalStockYen > 0 ? "amber" : "muted"} />
+          <BudgetImpactCell
+            label={budgetImpact.isOverBudget ? "赤字見込み" : "保存後残予算"}
+            value={budgetImpact.remainingBudgetYen}
+            tone={budgetImpact.isOverBudget ? "red" : "green"}
+          />
+        </div>
+      )}
       {blockedReason && (
         <div className="mt-2 rounded bg-red-500/10 px-2 py-1 text-[11px] text-red-600 dark:text-red-300">
           保存不可: {blockedReason}
@@ -845,6 +902,35 @@ function RewardRevisionSafetyPanel({
           {warning}
         </div>
       ))}
+    </div>
+  );
+}
+
+function BudgetImpactCell({
+  label,
+  value,
+  tone = "default",
+  title,
+}: {
+  label: string;
+  value: number;
+  tone?: "default" | "green" | "red" | "amber" | "muted";
+  title?: string;
+}) {
+  const toneClass =
+    tone === "red"
+      ? "text-red-500"
+      : tone === "green"
+        ? "text-emerald-600 dark:text-emerald-300"
+        : tone === "amber"
+          ? "text-amber-700 dark:text-amber-300"
+          : tone === "muted"
+            ? "text-muted-foreground"
+            : "text-foreground";
+  return (
+    <div className="min-w-0 rounded bg-background/75 px-2 py-1" title={title}>
+      <div className="truncate text-[10px] text-muted-foreground">{label}</div>
+      <div className={`mt-0.5 truncate text-right font-medium ${toneClass}`}>{fmtRevisionYen(value)}</div>
     </div>
   );
 }

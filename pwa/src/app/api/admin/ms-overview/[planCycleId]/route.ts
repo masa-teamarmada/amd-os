@@ -56,6 +56,7 @@ type PlanRow = {
   period_start_ym: string;
   period_end_ym: string;
   status: string | null;
+  budget_yen?: number | string | null;
 };
 
 type ExistingMilestoneRow = {
@@ -68,6 +69,7 @@ type ProtectedBillingCycleRow = {
   project_id: string;
   ym: string;
   reward_summary_json: unknown;
+  extra_budget_yen?: number | string | null;
   reward_paid_at?: string | null;
   payout_notice_uploaded_at?: string | null;
   payment_confirmed_at?: string | null;
@@ -142,11 +144,29 @@ type RewardRevisionImpactMember = {
   extraOffsetYen: number;
 };
 
+type RewardRevisionBudgetImpact = {
+  seasonBudgetYen: number;
+  regularBudgetYen: number;
+  extraBudgetYen: number;
+  fixedPaidYen: number;
+  fixedPaidSnapshotYen: number;
+  fixedPaidRewardCacheYen: number;
+  futureProjectedPayYen: number;
+  finalStockYen: number;
+  projectedObligationYen: number;
+  remainingBudgetYen: number;
+  isOverBudget: boolean;
+  protectedActualYms: string[];
+  futureProjectedYms: string[];
+  missingFutureSummaryYms: string[];
+};
+
 type RewardRevisionPreview = RewardRevisionSummary & {
   status: "safe" | "warning" | "blocked";
   blockers: string[];
   warnings: string[];
   memberImpacts: RewardRevisionImpactMember[];
+  budgetImpact: RewardRevisionBudgetImpact | null;
   checkedAt: string;
 };
 
@@ -221,6 +241,18 @@ function asRewardSummary(value: unknown): RewardSummary | null {
   return value as RewardSummary;
 }
 
+function rewardSummaryTotalPay(summary: RewardSummary | null): number {
+  const explicit = Math.round(safeNumber(summary?.totalPaySum));
+  if (explicit > 0) return explicit;
+  return (summary?.members ?? []).reduce((sum, member) => sum + Math.max(0, Math.round(safeNumber(member.totalPay))), 0);
+}
+
+function rewardSummaryFinalStock(summary: RewardSummary | null): number {
+  const explicit = Math.round(safeNumber(summary?.carryOverYen));
+  if (explicit > 0) return explicit;
+  return (summary?.members ?? []).reduce((sum, member) => sum + Math.max(0, Math.round(safeNumber(member.stockYen))), 0);
+}
+
 function rewardBaseByMember(summary: RewardSummary | null): Map<string, RewardBaseByPool> {
   const map = new Map<string, RewardBaseByPool>();
   const members = Array.isArray(summary?.members) ? summary.members : [];
@@ -261,8 +293,117 @@ function emptyRewardRevisionImpact(protectedCycleCount: number, sourceYms: strin
     blockers: [],
     warnings: [],
     memberImpacts: [],
+    budgetImpact: null,
     checkedAt: new Date().toISOString(),
     offsetRows: [],
+  };
+}
+
+async function loadPayoutSnapshotTotalsByYm(
+  db: ReturnType<typeof createAdminClient>,
+  projectId: string,
+  yms: string[],
+): Promise<Map<string, number>> {
+  const uniqueYms = [...new Set(yms.filter(Boolean))];
+  if (uniqueYms.length === 0) return new Map();
+  const res = await db
+    .from("monthly_reward_payout")
+    .select("ym, total_pay")
+    .eq("project_id", projectId)
+    .in("ym", uniqueYms);
+  if (res.error) throw res.error;
+  const map = new Map<string, number>();
+  for (const row of (res.data ?? []) as Array<{ ym?: string | null; total_pay?: unknown }>) {
+    const ym = cleanOptionalText(row.ym);
+    if (!ym) continue;
+    map.set(ym, (map.get(ym) ?? 0) + Math.max(0, Math.round(safeNumber(row.total_pay))));
+  }
+  return map;
+}
+
+async function buildRewardRevisionBudgetImpact({
+  db,
+  plan,
+  cycles,
+  protectedCycles,
+  scenario,
+  offsetRows,
+}: {
+  db: ReturnType<typeof createAdminClient>;
+  plan: PlanRow;
+  cycles: ProtectedBillingCycleRow[];
+  protectedCycles: ProtectedBillingCycleRow[];
+  scenario: RewardScenarioOverride;
+  offsetRows: RewardRevisionOffsetDraft[];
+}): Promise<RewardRevisionBudgetImpact> {
+  const protectedYms = protectedCycles.map((cycle) => cycle.ym);
+  const payoutSnapshotTotals = await loadPayoutSnapshotTotalsByYm(db, plan.project_id, protectedYms);
+  let fixedPaidSnapshotYen = 0;
+  let fixedPaidRewardCacheYen = 0;
+  const protectedActualYms: string[] = [];
+
+  for (const cycle of protectedCycles) {
+    const snapshotTotal = payoutSnapshotTotals.get(cycle.ym);
+    if (snapshotTotal != null) {
+      fixedPaidSnapshotYen += snapshotTotal;
+      protectedActualYms.push(cycle.ym);
+      continue;
+    }
+    const cachedTotal = rewardSummaryTotalPay(asRewardSummary(cycle.reward_summary_json));
+    fixedPaidRewardCacheYen += cachedTotal;
+    if (cachedTotal > 0) protectedActualYms.push(cycle.ym);
+  }
+
+  const liabilityOffsetsOverride = toLiabilityOffsetsByYm(offsetRows);
+  const futureCycles = cycles.filter((cycle) => !isRewardCycleProtected(cycle));
+  let futureProjectedPayYen = 0;
+  let finalStockYen = 0;
+  const futureProjectedYms: string[] = [];
+  const missingFutureSummaryYms: string[] = [];
+
+  for (const cycle of futureCycles) {
+    const simulated = await calculateRewardSummaryForCycle(db, plan.project_id, cycle.ym, {
+      includeLiabilityOffsets: false,
+      scenario,
+      liabilityOffsetsOverride,
+    });
+    const summary = simulated.rewardSummary;
+    if (!summary) {
+      missingFutureSummaryYms.push(cycle.ym);
+      continue;
+    }
+    futureProjectedPayYen += rewardSummaryTotalPay(summary);
+    finalStockYen = rewardSummaryFinalStock(summary);
+    futureProjectedYms.push(cycle.ym);
+  }
+
+  if (futureCycles.length === 0) {
+    const lastProtected = [...protectedCycles].sort((a, b) => a.ym.localeCompare(b.ym)).at(-1);
+    finalStockYen = rewardSummaryFinalStock(asRewardSummary(lastProtected?.reward_summary_json));
+  }
+
+  const regularBudgetYen = Math.max(0, Math.round(safeNumber(plan.budget_yen)));
+  const extraBudgetYen = cycles.reduce((sum, cycle) => sum + Math.max(0, Math.round(safeNumber(cycle.extra_budget_yen))), 0);
+  const seasonBudgetYen = regularBudgetYen + extraBudgetYen;
+  const fixedPaidYen = fixedPaidSnapshotYen + fixedPaidRewardCacheYen;
+  const projectedObligationYen = fixedPaidYen + futureProjectedPayYen + finalStockYen;
+  const remainingBudgetYen = seasonBudgetYen - projectedObligationYen;
+
+  return {
+    seasonBudgetYen,
+    regularBudgetYen,
+    extraBudgetYen,
+    fixedPaidYen,
+    fixedPaidSnapshotYen,
+    fixedPaidRewardCacheYen,
+    futureProjectedPayYen,
+    finalStockYen,
+    projectedObligationYen,
+    remainingBudgetYen,
+    isOverBudget: seasonBudgetYen > 0 && remainingBudgetYen < 0,
+    protectedActualYms: [...new Set(protectedActualYms)].sort(),
+    futureProjectedYms,
+    missingFutureSummaryYms,
   };
 }
 
@@ -333,7 +474,23 @@ async function buildRewardRevisionImpact({
 }): Promise<RewardRevisionImpact> {
   const sourceYms = protectedCycles.map((cycle) => cycle.ym);
   const impact = emptyRewardRevisionImpact(protectedCycles.length, sourceYms);
-  if (protectedCycles.length === 0) return impact;
+  if (protectedCycles.length === 0) {
+    impact.budgetImpact = await buildRewardRevisionBudgetImpact({
+      db,
+      plan,
+      cycles,
+      protectedCycles,
+      scenario,
+      offsetRows: [],
+    });
+    if (impact.budgetImpact.isOverBudget) {
+      impact.warnings.push(
+        `支払見込みがPJ予算を ${Math.abs(impact.budgetImpact.remainingBudgetYen).toLocaleString("ja-JP")}円超過する可能性がある`,
+      );
+    }
+    impact.status = impact.warnings.length > 0 ? "warning" : "safe";
+    return impact;
+  }
 
   const now = new Date().toISOString();
   const revisionId = crypto.randomUUID();
@@ -491,6 +648,24 @@ async function buildRewardRevisionImpact({
   if (offsetRows.length > 0) {
     impact.warnings.push("保存すると保護済み月の差額を、本人別に次回以降の未保護月で精算する");
   }
+  impact.budgetImpact = await buildRewardRevisionBudgetImpact({
+    db,
+    plan,
+    cycles,
+    protectedCycles,
+    scenario,
+    offsetRows,
+  });
+  if (impact.budgetImpact.missingFutureSummaryYms.length > 0) {
+    impact.warnings.push(
+      `未来月 ${impact.budgetImpact.missingFutureSummaryYms.join(", ")} の支払見込みを計算できない`,
+    );
+  }
+  if (impact.budgetImpact.isOverBudget) {
+    impact.warnings.push(
+      `支払済み実績を固定するとPJ予算を ${Math.abs(impact.budgetImpact.remainingBudgetYen).toLocaleString("ja-JP")}円超過する可能性がある`,
+    );
+  }
   impact.status = impact.blockers.length > 0 ? "blocked" : impact.warnings.length > 0 ? "warning" : "safe";
   return impact;
 }
@@ -569,7 +744,7 @@ async function prepareMsEditPayload(
 ): Promise<{ ok: true; value: PreparedMsEdit } | { ok: false; response: NextResponse }> {
   const planRes = await db
     .from("value_plan_cycles")
-    .select("plan_cycle_id, project_id, period_start_ym, period_end_ym, status")
+    .select("plan_cycle_id, project_id, period_start_ym, period_end_ym, status, budget_yen")
     .eq("plan_cycle_id", planCycleId)
     .maybeSingle();
   if (planRes.error) throw planRes.error;
@@ -581,7 +756,7 @@ async function prepareMsEditPayload(
   const [cyclesRes, existingRes] = await Promise.all([
     db
       .from("billing_cycles")
-      .select("project_id, ym, reward_summary_json, reward_paid_at, payout_notice_uploaded_at, payment_confirmed_at")
+      .select("project_id, ym, reward_summary_json, extra_budget_yen, reward_paid_at, payout_notice_uploaded_at, payment_confirmed_at")
       .eq("project_id", plan.project_id)
       .gte("ym", plan.period_start_ym)
       .lte("ym", plan.period_end_ym)
