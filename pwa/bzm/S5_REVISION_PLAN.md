@@ -42,7 +42,7 @@
 | R7 | **§7 増強 (3倍)** | ~515語 → ~1,800語。閾値付き加算 (Horizon Europe 標準) = 「実務は既に半分正しい」と接続。HEInnovate (同じ8次元!)・KEF (composite 拒否を実装済み) との対応表。**設立期限付き補助金 = 負のタイミング装置**の1段落定式化 (practitioner 提案の目玉)。レバー写像の §5/§7 統一。π_kk は「belief であって dial ではない」(単年度予算主義) | prac/editor |
 | R8 | **修辞・体裁** | 領域宣言トーンダウン (登録プログラムは維持)。「calibrating a nonexistent instrument」を証明範囲に整合。valley of death・Vohora-Wright-Lockett・scoreboard 批判を §2 に追加。書誌修正4件 + Atkinson 削除 + Cobb-Douglas 引用追加。abstract 確定 | editor/refs |
 | R9 | **GAP 解消** | 投稿ブロッカー 13件を SM 内で閉じる (R1/R3/R4 の新規証明作業と一体)。残りは明示的仮定 or 外部引用 (Scott 1964, Ishii-Koike, Peskir-Shiryaev 等) に変換。モノグラフは「companion monograph (in preparation)」の引用形式に統一 | SC/RO |
-| R10 | **論文外アクション (即時・まさ判断)** | **OSF に登録簿を今すぐ deposit し、M (=CX、2026-08 設立判断) と N (=SX、2027-04) の予測をタイムスタンプ** — 決定点前に打てば真の前向き予測2件が Tier B で成立。P6 (検証論文) の初弾データにもなる | emp |
+| R10 | **論文外アクション (まさ判断待ち・急がない)** | **OSF に登録簿を deposit し、M (=CX) と N (=SX) の予測をタイムスタンプ** — 設立はともに **2027-03頃** 予定 (まさ確認 2026-07-03。旧記載 CX 2026-08 / SX 2027-04 は古い)。設立判断前に打てば真の前向き予測2件が Tier B で成立。P6 (検証論文) の初弾データにもなる。期限は 2027-03 の設立判断前 = 余裕あり | emp |
 
 ## 4. 突っぱねる (rebut) もの
 
