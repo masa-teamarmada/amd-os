@@ -150,6 +150,8 @@ expectIncludes("src/app/api/admin/ms-overview/[planCycleId]/route.ts", [
   "メンバー支払義務がPJ予算を",
   "シーズン終了月に未払残が",
   "contractBackedClientAmount",
+  "buildExtraRevenueByYm",
+  "parseSeasonBufferTotal",
 ]);
 
 expectIncludes("src/components/admin/AdminMsOverviewClient.tsx", [
@@ -160,6 +162,7 @@ expectIncludes("src/components/admin/AdminMsOverviewClient.tsx", [
   "会社留保",
   "期末未払",
   "不足額",
+  "MS編集停止中",
 ]);
 
 expectNotIncludes("src/components/admin/AdminPayoutsClient.tsx", [
@@ -391,6 +394,7 @@ expectIncludes("src/components/cockpit/CockpitSeasonFinance.tsx", [
   "未払残",
   "ゼロ着地",
   "不足",
+  "シーズン収支が閉じていない",
 ]);
 
 expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
@@ -837,6 +841,7 @@ expectIncludes("src/components/admin/AdminMsOverviewClient.tsx", [
   "保存先 DB",
   "保存前支払検算",
   "保存不可",
+  "MS編集停止中",
   "memberImpacts",
   "budgetImpact",
   "PJ予算残",

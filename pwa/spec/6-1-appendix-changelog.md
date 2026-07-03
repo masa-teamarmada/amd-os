@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-07-03 | 3-8 PJ Cockpit / 3-14 月初合意 / 6-8 Admin MS Overview / 7-1 報酬計算 | 修正 | PJ cockpit と MS編集検算の `クライアント支払` に別財布売上を加算し、`バッファ` は `value_plan_cycles.buffer_breakdown_json` を優先する仕様へ更新。MS Overview は閲覧モードで cycle を開いた時点でも現行案を検算し、既存不足があれば `MS編集停止中` の赤表示を出す。契約自動確定/予算承認は、シーズン原資にバッファ内訳がある PJ で `billing_cycles.budget_buffer_amount` による二重控除をしない。build v0.38.10 | ZMP の別財布売上がクライアント支払に入らず PJ予算が売上超過に見え、SX ではシーズン原資に織り込み済みのバッファを月次請求側でも二重控除して期末未払を発生させていたため | えいみ |
 | 2026-07-03 | 3-8 PJ Cockpit / 3-14 月初合意 / 6-8 Admin MS Overview / FEATURE_REGISTRY | 訂正・変更 | 自動最終精算で `carryOverYen` をゼロに見せる方針を撤回。`reward-summary` は通常cap + 未使用cap繰越だけで期末未払を出し、MS編集保存前検算が `seasonEndShortageYen` / `budgetShortageYen` を blocker にする。`CockpitSeasonFinance` を追加し、PJ cockpit でシーズン合計と月次別のクライアント支払・バッファ・PJ予算・メンバー支払・会社留保・期末未払・残を表示する。build v0.38.7 | AMD運営側が認識しないままバッファ/運営費を削って支払へ回す設計を禁止し、シーズン開始またはMS修正時点でゼロ着地不能を必ず止めるため | えいみ |
 | 2026-07-03 | 3-14 月初合意 | 変更 | 未合意 / 条件更新ありの app entry gate をページ遷移から必須モーダルへ変更。OS内の他画面は通常描画し、背景に残した上で月初合意モーダルを前面表示する。`/monthly-agreement` はモーダル対象から除外。build v0.38.4 | ダッシュボード等を開いた本人が別ページへ飛ばされたように感じないよう、開いた画面の文脈を残したまま先に必要な確認だけを前面化するため | えいみ |
 | 2026-07-03 | 3-14 月初合意 / 6-8 Admin MS Overview | 修正 | `/monthly-agreement` の支払済み実績を `reward_paid_at` だけでなく `freee_wallet_txn_verified:` 証跡 + `monthly_reward_payout` 明細がそろう行だけに限定し、実績/未照合/保存済みを分離。支払済み実績とこれから支払予定は税込額で表示し、明細行は税抜/税込を併記。MS編集の `budgetImpact` は未照合の支払済み月を `blocked` にする。build v0.38.3 | 実支払額と一致する根拠が無い計算キャッシュを支払実績扱いにすると、MS編集後の赤字判定や月初合意の支払額を信用できなくなるため | えいみ |

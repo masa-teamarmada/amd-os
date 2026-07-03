@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/supabase/api-auth";
 import { contractBackedClientAmount } from "@/lib/contract-money";
+import { buildExtraRevenueByYm, parseSeasonBufferTotal } from "@/lib/finance/season-finance";
 import {
   calculateRewardSummaryForCycle,
   isRewardCycleProtected,
@@ -58,6 +59,7 @@ type PlanRow = {
   period_end_ym: string;
   status: string | null;
   budget_yen?: number | string | null;
+  buffer_breakdown_json?: unknown;
 };
 
 type ProjectMoneyRow = {
@@ -88,6 +90,12 @@ type ProtectedBillingCycleRow = {
   reward_paid_by?: string | null;
   payout_notice_uploaded_at?: string | null;
   payment_confirmed_at?: string | null;
+};
+
+type ExtraRevenueSourceRow = {
+  project_id: string;
+  ym: string;
+  extra_revenue_json?: unknown[] | null;
 };
 
 type RewardBaseByPool = {
@@ -204,6 +212,7 @@ type PreparedMsEdit = {
   project: ProjectMoneyRow | null;
   cycles: ProtectedBillingCycleRow[];
   protectedCycles: ProtectedBillingCycleRow[];
+  extraRevenueRows: ExtraRevenueSourceRow[];
   deletedIds: string[];
   savedRows: SavedMilestoneRow[];
   responsibilityRows: ResponsibilitySaveRow[];
@@ -368,6 +377,7 @@ async function buildRewardRevisionBudgetImpact({
   protectedCycles,
   scenario,
   offsetRows,
+  extraRevenueRows,
 }: {
   db: ReturnType<typeof createAdminClient>;
   plan: PlanRow;
@@ -376,6 +386,7 @@ async function buildRewardRevisionBudgetImpact({
   protectedCycles: ProtectedBillingCycleRow[];
   scenario: RewardScenarioOverride;
   offsetRows: RewardRevisionOffsetDraft[];
+  extraRevenueRows: ExtraRevenueSourceRow[];
 }): Promise<RewardRevisionBudgetImpact> {
   const protectedYms = protectedCycles.map((cycle) => cycle.ym);
   const payoutSnapshotTotals = await loadPayoutSnapshotTotalsByYm(db, plan.project_id, protectedYms);
@@ -435,15 +446,21 @@ async function buildRewardRevisionBudgetImpact({
   const regularBudgetYen = Math.max(0, Math.round(safeNumber(plan.budget_yen)));
   const extraBudgetYen = cycles.reduce((sum, cycle) => sum + Math.max(0, Math.round(safeNumber(cycle.extra_budget_yen))), 0);
   const seasonBudgetYen = regularBudgetYen + extraBudgetYen;
+  const extraRevenueByYm = buildExtraRevenueByYm(extraRevenueRows, {
+    projectId: plan.project_id,
+    minYm: plan.period_start_ym,
+    maxYm: plan.period_end_ym,
+  });
   const clientPaymentYen = cycles.reduce((sum, cycle) => {
     return sum + contractBackedClientAmount({
       ym: cycle.ym,
       project,
       reportedAmount: cycle.budget_reported_amount,
       cycleStatus: cycle.status,
-    });
+    }) + (extraRevenueByYm.get(cycle.ym) ?? 0);
   }, 0);
-  const bufferYen = cycles.reduce((sum, cycle) => sum + Math.max(0, Math.round(safeNumber(cycle.budget_buffer_amount))), 0);
+  const bufferYen = parseSeasonBufferTotal(plan.buffer_breakdown_json)
+    ?? cycles.reduce((sum, cycle) => sum + Math.max(0, Math.round(safeNumber(cycle.budget_buffer_amount))), 0);
   const fixedPaidYen = fixedPaidSnapshotYen + fixedPaidRewardCacheYen;
   const memberPayoutYen = fixedPaidYen + futureProjectedPayYen;
   const companyReserveYen = protectedCompanyReserveYen + futureCompanyReserveYen;
@@ -536,6 +553,7 @@ async function buildRewardRevisionImpact({
   project,
   cycles,
   protectedCycles,
+  extraRevenueRows,
   actorEmail,
   scenario,
 }: {
@@ -544,6 +562,7 @@ async function buildRewardRevisionImpact({
   project: ProjectMoneyRow | null;
   cycles: ProtectedBillingCycleRow[];
   protectedCycles: ProtectedBillingCycleRow[];
+  extraRevenueRows: ExtraRevenueSourceRow[];
   actorEmail: string;
   scenario: RewardScenarioOverride;
 }): Promise<RewardRevisionImpact> {
@@ -558,6 +577,7 @@ async function buildRewardRevisionImpact({
       protectedCycles,
       scenario,
       offsetRows: [],
+      extraRevenueRows,
     });
     if (impact.budgetImpact.seasonEndShortageYen > 0) {
       impact.blockers.push(
@@ -737,6 +757,7 @@ async function buildRewardRevisionImpact({
     protectedCycles,
     scenario,
     offsetRows,
+    extraRevenueRows,
   });
   if (impact.budgetImpact.unverifiedPaidYms.length > 0) {
     impact.blockers.push(
@@ -836,7 +857,7 @@ async function prepareMsEditPayload(
 ): Promise<{ ok: true; value: PreparedMsEdit } | { ok: false; response: NextResponse }> {
   const planRes = await db
     .from("value_plan_cycles")
-    .select("plan_cycle_id, project_id, period_start_ym, period_end_ym, status, budget_yen")
+    .select("plan_cycle_id, project_id, period_start_ym, period_end_ym, status, budget_yen, buffer_breakdown_json")
     .eq("plan_cycle_id", planCycleId)
     .maybeSingle();
   if (planRes.error) throw planRes.error;
@@ -845,7 +866,7 @@ async function prepareMsEditPayload(
     return { ok: false, response: NextResponse.json({ ok: false, error: "plan cycle not found" }, { status: 404 }) };
   }
 
-  const [projectRes, cyclesRes, existingRes] = await Promise.all([
+  const [projectRes, cyclesRes, extraRevenueRes, existingRes] = await Promise.all([
     db
       .from("projects")
       .select("project_id, fee_type, fee_amount, start_ym, end_ym, contract_terms_json")
@@ -859,16 +880,23 @@ async function prepareMsEditPayload(
       .lte("ym", plan.period_end_ym)
       .order("ym", { ascending: true }),
     db
+      .from("billing_cycles")
+      .select("project_id, ym, extra_revenue_json")
+      .eq("project_id", plan.project_id)
+      .not("extra_revenue_json", "is", null),
+    db
       .from("value_milestones")
       .select("milestone_id, plan_cycle_id, is_active")
       .eq("plan_cycle_id", planCycleId),
   ]);
   if (projectRes.error) throw projectRes.error;
   if (cyclesRes.error) throw cyclesRes.error;
+  if (extraRevenueRes.error) throw extraRevenueRes.error;
   if (existingRes.error) throw existingRes.error;
 
   const project = (projectRes.data ?? null) as ProjectMoneyRow | null;
   const cycles = (cyclesRes.data ?? []) as ProtectedBillingCycleRow[];
+  const extraRevenueRows = (extraRevenueRes.data ?? []) as ExtraRevenueSourceRow[];
   const protectedCycles = cycles.filter(isRewardCycleProtected);
   const existing = (existingRes.data ?? []) as ExistingMilestoneRow[];
   const existingIds = new Set(existing.map((row) => row.milestone_id));
@@ -960,6 +988,7 @@ async function prepareMsEditPayload(
       project,
       cycles,
       protectedCycles,
+      extraRevenueRows,
       deletedIds,
       savedRows,
       responsibilityRows,
@@ -1013,7 +1042,7 @@ export async function POST(
     const db = createAdminClient();
     const prepared = await prepareMsEditPayload(db, planCycleId, body);
     if (!prepared.ok) return prepared.response;
-    const { plan, project, cycles, protectedCycles, scenario } = prepared.value;
+    const { plan, project, cycles, protectedCycles, extraRevenueRows, scenario } = prepared.value;
     const offsetTableResponse = await ensureOffsetTableWhenNeeded(db, protectedCycles);
     if (offsetTableResponse) return offsetTableResponse;
 
@@ -1023,6 +1052,7 @@ export async function POST(
       project,
       cycles,
       protectedCycles,
+      extraRevenueRows,
       actorEmail: auth.user.email,
       scenario,
     });
@@ -1072,6 +1102,7 @@ export async function PUT(
       project,
       cycles,
       protectedCycles,
+      extraRevenueRows,
       deletedIds,
       savedRows,
       responsibilityRows,
@@ -1088,6 +1119,7 @@ export async function PUT(
       project,
       cycles,
       protectedCycles,
+      extraRevenueRows,
       actorEmail: auth.user.email,
       scenario,
     });

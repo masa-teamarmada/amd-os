@@ -120,7 +120,7 @@ PJ cockpit の進捗管理タブでは、今期 MS リストの直下・月次�
 - シーズン合計: `クライアント支払` / `バッファ` / `PJ予算` / `メンバー支払` / `会社留保` / `期末未払`
 - 月次行: 各月の `クライアント支払` / `バッファ` / `PJ予算` / `メンバー支払` / `会社留保` / `未払残` / `残`
 
-クライアント支払は契約ベースの `contractBackedClientAmount`、バッファは `billing_cycles.budget_buffer_amount`、PJ予算は `billing_cycles.budget_yen + extra_budget_yen`、メンバー支払・会社留保・未払残は `billing_cycles.reward_summary_json` を読む。期末未払が 1 円でも残る場合は不足表示にし、報酬計算側で最終月に自動上乗せしてゼロに見せない。MS 設計の保存は `/admin/ms-overview` で、同じ数字を使った保存前検算が不足状態を `blocked` にする。
+クライアント支払は契約ベースの `contractBackedClientAmount` に別財布売上 (`billing_cycles.extra_revenue_json`) を按分加算する。バッファは `value_plan_cycles.buffer_breakdown_json` にシーズン全体の内訳がある場合はそれを優先し、未設定の PJ だけ `billing_cycles.budget_buffer_amount` を読む。PJ予算は `billing_cycles.budget_yen + extra_budget_yen`、メンバー支払・会社留保・未払残は `billing_cycles.reward_summary_json` を読む。期末未払が 1 円でも残る場合は、赤い停止帯と不足表示を出し、報酬計算側で最終月に自動上乗せしてゼロに見せない。MS 設計の保存は `/admin/ms-overview` で、同じ数字を使った保存前検算が不足状態を `blocked` にする。
 
 ---
 

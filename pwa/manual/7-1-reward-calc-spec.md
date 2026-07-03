@@ -294,13 +294,15 @@ extra_budget_yen: 202605〜202609 = 0 (全額繰越) / 202610 = 1,300,000 (完�
 
 `budget_buffer_amount` がある月は、請求額の 65% からその額を先に AMD 回収分として差し引く。契約自動確定では `budget_yen = round(invoiceYen × 0.65) - budget_buffer_amount` として保存するため、報酬計算側が見る `capBudgetYen` はすでにバッファ消化後の値になる。
 
+ただし `value_plan_cycles.buffer_breakdown_json` にシーズン全体のバッファ内訳があり、`value_plan_cycles.budget_yen` が `(請求額 − バッファ) × 65%` として既に確定している PJ では、契約自動確定・予算承認はそのシーズン原資を請求月へ按分した `budget_yen` を使い、`billing_cycles.budget_buffer_amount` で同じバッファを二重控除しない。表示上のバッファも `buffer_breakdown_json` を優先する。SX のように営業費用・旅費などをシーズン原資に織り込んだ PJ で、請求サイクル側にさらに月次バッファを入れると、PJ予算が過小になり期末未払を発生させるため禁止。
+
 契約最終月に `ptUnit = round(cycleBudget / totalPt)` の円丸めで少額の stock が残る場合も、報酬計算側が自動で cap を増やしてはいけない。MS保存前検算で不足額として表示し、必要なら admin が契約・PJ予算・MS設計を明示的に直してから保存する。通常月 cap は契約月額 × 65% と未使用 cap 繰越だけで計算し、暗黙の精算枠は作らない。
 
 ### 会社留保の扱い
 
 cap は次の順番で扱う。これは全 PJ 共通で、特定 PJ だけの例外ルールにはしない。
 
-1. `billing_cycles.budget_buffer_amount`: 契約台帳にある会社回収バッファを最優先で消化する。`projects.contract_terms_json.companyReserveBufferYen` などに総額があれば、契約自動確定が月ごとに未消化分を `budget_buffer_amount` へ入れる。`companyReserveBufferMonthlyYen` などの月次上限がある場合は、その金額を超えて一気に回収しない。
+1. `value_plan_cycles.buffer_breakdown_json` / `billing_cycles.budget_buffer_amount`: シーズン原資にバッファ内訳がある場合は、それが最優先の正本であり、月次請求サイクル側では二重控除しない。シーズン内訳が無い PJ だけ、契約台帳にある会社回収バッファを `billing_cycles.budget_buffer_amount` として月ごとに消化する。`projects.contract_terms_json.companyReserveBufferYen` などに総額があれば、契約自動確定が月ごとに未消化分を `budget_buffer_amount` へ入れる。`companyReserveBufferMonthlyYen` などの月次上限がある場合は、その金額を超えて一気に回収しない。
 2. `members.is_officer=true` の当月 `basePay`: 役員も非役員・支払対象メンバーと同じ cap 按分に入れる。割り当たった額だけを `reward_summary_json.members[].companyReserveYen` / `officerReserveYen` に残し、`totalPay=0` のまま支払通知書からは除外する。
 3. 非役員・支払対象メンバーの `grossDue`: 当月稼働分 + 前月 stock の返済を、役員 basePay と同じ cap 按分に入れる。
 

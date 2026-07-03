@@ -957,6 +957,64 @@ function RewardRevisionSafetyPanel({
   );
 }
 
+function SeasonFinanceGuardBanner({
+  previewStatus,
+  previewError,
+  rewardRevision,
+}: {
+  previewStatus: RewardPreviewStatus;
+  previewError: string | null;
+  rewardRevision: RewardRevisionPreview | null;
+}) {
+  const impact = rewardRevision?.budgetImpact ?? null;
+  const isDanger =
+    rewardRevision?.status === "blocked" ||
+    (impact?.seasonEndShortageYen ?? 0) > 0 ||
+    (impact?.isOverBudget ?? false);
+  if (previewStatus === "loading" || previewStatus === "idle") {
+    return (
+      <div className="rounded-md border border-sky-500/20 bg-sky-500/5 px-3 py-2 text-[11px] text-sky-700 dark:text-sky-300">
+        支払検算中
+      </div>
+    );
+  }
+  if (previewStatus === "error") {
+    return (
+      <div className="rounded-md border border-red-500/25 bg-red-500/5 px-3 py-2 text-[11px] text-red-600 dark:text-red-300">
+        支払検算に失敗: {previewError || "再読み込みが必要"}
+      </div>
+    );
+  }
+  if (!isDanger || !impact) return null;
+  return (
+    <div
+      className="rounded-md border border-red-500/30 bg-red-500/5 px-3 py-2"
+      data-testid="admin-ms-overview-season-finance-guard"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded bg-red-500/15 px-2 py-0.5 text-[11px] font-medium text-red-600 dark:text-red-300">
+          MS編集停止中
+        </span>
+        <span className="text-[11px] text-red-600 dark:text-red-300">
+          {rewardRevision?.blockers[0] || "シーズン収支に不足があります"}
+        </span>
+      </div>
+      <div className="mt-2 grid gap-2 text-[11px] tabular-nums sm:grid-cols-2 lg:grid-cols-6">
+        <BudgetImpactCell label="クライアント支払" value={impact.clientPaymentYen} />
+        <BudgetImpactCell label="バッファ" value={impact.bufferYen} tone={impact.bufferYen > 0 ? "green" : "muted"} />
+        <BudgetImpactCell label="PJ予算" value={impact.pjBudgetYen} />
+        <BudgetImpactCell label="メンバー支払" value={impact.memberPayoutYen} />
+        <BudgetImpactCell label="会社留保" value={impact.companyReserveYen} tone={impact.companyReserveYen > 0 ? "green" : "muted"} />
+        <BudgetImpactCell
+          label={impact.seasonEndShortageYen > 0 ? "期末未払" : "予算不足"}
+          value={impact.seasonEndShortageYen > 0 ? impact.seasonEndShortageYen : impact.budgetShortageYen}
+          tone="red"
+        />
+      </div>
+    </div>
+  );
+}
+
 function BudgetImpactCell({
   label,
   value,
@@ -1235,6 +1293,7 @@ function PlanCycleBlock({
     setPreviewStatus("idle");
     setPreviewError(null);
     setRewardPreview(null);
+    setLastRewardRevision(null);
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [cycle]);
 
@@ -1324,13 +1383,14 @@ function PlanCycleBlock({
   }), [activeEditing, deletedIds]);
 
   useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect -- 編集中の保存前検算をサーバー結果に同期するため。 */
-    if (!editMode) {
+    /* eslint-disable react-hooks/set-state-in-effect -- 保存前検算をサーバー結果に同期するため。 */
+    if (!open) {
       setPreviewStatus("idle");
       setPreviewError(null);
       setRewardPreview(null);
       return;
     }
+    if (!editMode && lastRewardRevision) return;
     setPreviewStatus("loading");
     setPreviewError(null);
     const controller = new AbortController();
@@ -1350,7 +1410,13 @@ function PlanCycleBlock({
           setRewardPreview((body?.rewardPreview ?? null) as RewardRevisionPreview | null);
           return;
         }
-        setRewardPreview((body.rewardPreview ?? null) as RewardRevisionPreview | null);
+        const nextPreview = (body.rewardPreview ?? null) as RewardRevisionPreview | null;
+        if (editMode) {
+          setRewardPreview(nextPreview);
+        } else {
+          setRewardPreview(null);
+          setLastRewardRevision(nextPreview);
+        }
         setPreviewStatus("ready");
       } catch (err) {
         if (controller.signal.aborted) return;
@@ -1364,16 +1430,20 @@ function PlanCycleBlock({
       window.clearTimeout(timer);
     };
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [buildSavePayload, cycle.planCycleId, editMode]);
+  }, [buildSavePayload, cycle.planCycleId, editMode, lastRewardRevision, open]);
 
-  const visibleRewardRevision = isDirty ? rewardPreview : lastRewardRevision;
+  const visibleRewardRevision = editMode
+    ? (rewardPreview ?? lastRewardRevision)
+    : (lastRewardRevision ?? rewardPreview);
   const saveBlockedReason = useMemo(() => {
-    if (!editMode || !isDirty) return null;
+    if (!editMode) return null;
     if (previewStatus === "idle" || previewStatus === "loading") return "保存前検算中";
     if (previewStatus === "error") return previewError || "保存前検算に失敗";
-    if (rewardPreview?.status === "blocked") return rewardPreview.blockers[0] || "支払い安全検算で保存不可";
+    const activeRevision = rewardPreview ?? lastRewardRevision;
+    if (activeRevision?.status === "blocked") return activeRevision.blockers[0] || "支払い安全検算で保存不可";
+    if (!isDirty) return null;
     return null;
-  }, [editMode, isDirty, previewError, previewStatus, rewardPreview]);
+  }, [editMode, isDirty, lastRewardRevision, previewError, previewStatus, rewardPreview]);
 
   const handleMilestoneChange = useCallback((milestoneId: string, patch: Partial<EditableMilestoneInput>) => {
     setEditing((prev) =>
@@ -1505,6 +1575,14 @@ function PlanCycleBlock({
               </span>
             )}
           </div>
+
+          {!editMode && (
+            <SeasonFinanceGuardBanner
+              previewStatus={previewStatus}
+              previewError={previewError}
+              rewardRevision={visibleRewardRevision}
+            />
+          )}
 
           {editMode && (
             <EditActionBar

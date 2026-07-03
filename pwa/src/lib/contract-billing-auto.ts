@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { REWARD_RATE } from "@/lib/contracts-apply";
 import { basePayoutCapYen, resolveContractReserveBufferYen } from "@/lib/contract-money";
+import { planBufferedMonthlyBudgetYen } from "@/lib/finance/plan-buffer-budget";
 
 /**
  * 契約由来の「当月の請求額 (税抜)」を決定する。
@@ -46,6 +47,14 @@ type CycleRow = {
   contract_source_term_id: string | null;
 };
 
+type PlanCycleRow = {
+  project_id: string;
+  budget_yen: number | string | null;
+  period_start_ym: string | null;
+  period_end_ym: string | null;
+  buffer_breakdown_json?: unknown;
+};
+
 function num(value: unknown): number {
   const n = typeof value === "number" ? value : Number(value ?? 0);
   return Number.isFinite(n) ? Math.round(n) : 0;
@@ -70,35 +79,43 @@ export function isWithinContractPeriod(project: ProjectRow, ym: string): boolean
 function withContractBuffer(
   project: ProjectRow,
   cycles: CycleRow[],
+  planCycle: PlanCycleRow | null,
   ym: string,
   invoiceYen: number,
   source: ContractBillingResolution["source"],
 ): ContractBillingResolution {
-  const bufferYen = resolveContractReserveBufferYen({ project, cycles, ym, invoiceYen });
+  const planBudgetYen = planBufferedMonthlyBudgetYen({ plan: planCycle, project, ym });
+  const bufferYen = planBudgetYen == null ? resolveContractReserveBufferYen({ project, cycles, ym, invoiceYen }) : 0;
   return {
     projectId: project.project_id,
     ym,
     invoiceYen,
     bufferYen,
-    budgetYen: basePayoutCapYen(invoiceYen, bufferYen),
+    budgetYen: planBudgetYen ?? basePayoutCapYen(invoiceYen, bufferYen),
     source,
     feeType: source === "monthly_fixed" ? "monthly_fixed" : project.fee_type || "variable",
   };
 }
 
-export function resolveContractBilling(project: ProjectRow, cycle: CycleRow | null, ym: string, cycles: CycleRow[] = []): ContractBillingResolution | null {
+export function resolveContractBilling(
+  project: ProjectRow,
+  cycle: CycleRow | null,
+  ym: string,
+  cycles: CycleRow[] = [],
+  planCycle: PlanCycleRow | null = null,
+): ContractBillingResolution | null {
   if (!isWithinContractPeriod(project, ym)) return null;
 
   // schedule_based: 契約 apply が刻んだ月別 budget_yen を請求額へ逆算
   if (cycle?.contract_source_term_id && (num(cycle.budget_yen) > 0 || num(cycle.budget_reported_amount) > 0)) {
     const reportedInvoice = num(cycle.budget_reported_amount);
     const invoiceYen = reportedInvoice > 0 ? reportedInvoice : Math.round(num(cycle.budget_yen) / REWARD_RATE);
-    return withContractBuffer(project, cycles, ym, invoiceYen, "schedule_based");
+    return withContractBuffer(project, cycles, planCycle, ym, invoiceYen, "schedule_based");
   }
 
   // monthly_fixed: projects.fee_amount
   if ((project.fee_type || "").toLowerCase() === "monthly_fixed" && num(project.fee_amount) > 0) {
-    return withContractBuffer(project, cycles, ym, num(project.fee_amount), "monthly_fixed");
+    return withContractBuffer(project, cycles, planCycle, ym, num(project.fee_amount), "monthly_fixed");
   }
 
   return null;
@@ -143,19 +160,41 @@ export async function collectAutoConfirmCandidates(db: SupabaseClient, ym: strin
     .in("project_id", projectIds);
   if (cErr) throw cErr;
 
+  const { data: planCycles, error: pcErr } = await db
+    .from("value_plan_cycles")
+    .select("project_id, budget_yen, period_start_ym, period_end_ym, buffer_breakdown_json")
+    .in("project_id", projectIds)
+    .in("status", ["active", "confirmed", "fixed", "draft"])
+    .lte("period_start_ym", ym)
+    .gte("period_end_ym", ym);
+  if (pcErr) throw pcErr;
+
   const cycleByPj = new Map<string, CycleRow>();
   const cyclesByPj = new Map<string, CycleRow[]>();
+  const planByPj = new Map<string, PlanCycleRow>();
   for (const c of (cycles ?? []) as CycleRow[]) {
     const list = cyclesByPj.get(c.project_id) ?? [];
     list.push(c);
     cyclesByPj.set(c.project_id, list);
     if (c.ym === ym) cycleByPj.set(c.project_id, c);
   }
+  for (const pc of (planCycles ?? []) as PlanCycleRow[]) {
+    const current = planByPj.get(pc.project_id);
+    if (!current || String(pc.period_start_ym ?? "") > String(current.period_start_ym ?? "")) {
+      planByPj.set(pc.project_id, pc);
+    }
+  }
 
   const out: AutoConfirmCandidate[] = [];
   for (const project of (projects ?? []) as ProjectRow[]) {
     const cycle = cycleByPj.get(project.project_id) ?? null;
-    const resolution = resolveContractBilling(project, cycle, ym, cyclesByPj.get(project.project_id) ?? []);
+    const resolution = resolveContractBilling(
+      project,
+      cycle,
+      ym,
+      cyclesByPj.get(project.project_id) ?? [],
+      planByPj.get(project.project_id) ?? null,
+    );
     if (!resolution) continue;
     const alreadyProgressed = PROGRESSED_STATUSES.has(cycle?.status || "");
     out.push({ resolution, project, cycle, alreadyProgressed });

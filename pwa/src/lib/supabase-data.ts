@@ -8,6 +8,11 @@
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
 import { contractBackedClientAmount, yenNumber } from "@/lib/contract-money";
+import {
+  allocateSeasonBufferByYm,
+  buildExtraRevenueByYm,
+  parseSeasonBufferTotal,
+} from "@/lib/finance/season-finance";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
@@ -283,6 +288,7 @@ export interface PlanCycle {
   totalPoints: number;
   periodStartYm: string;
   periodEndYm: string;
+  bufferBreakdownJson?: unknown | null;
 }
 
 export interface Milestone {
@@ -1799,20 +1805,43 @@ function buildCockpitSeasonFinance({
     contract_terms_json: projectRow.contract_terms_json,
   };
   const rowByYm = new Map(billingRows.map((row) => [String(row.ym || ""), row]));
+  const projectId = planCycle.projectId || String(projectRow.project_id || "");
+  const extraRevenueByYm = buildExtraRevenueByYm(
+    billingRows.map((row) => ({
+      project_id: String(row.project_id || projectId),
+      ym: row.ym as string | number | null | undefined,
+      extra_revenue_json: Array.isArray(row.extra_revenue_json) ? row.extra_revenue_json : null,
+    })),
+    { projectId, minYm: planCycle.periodStartYm, maxYm: planCycle.periodEndYm },
+  );
+  const regularClientAmountByYm = new Map<string, number>();
+  for (const ym of months) {
+    const row = rowByYm.get(ym);
+    regularClientAmountByYm.set(
+      ym,
+      contractBackedClientAmount({
+        ym,
+        project: projectForContract,
+        reportedAmount: row?.budget_reported_amount as number | string | null | undefined,
+        cycleStatus: String(row?.status || ""),
+        hasInvoiceEvidence: Boolean(row?.invoice_sent_at || row?.invoice_issued_at || row?.payment_confirmed_at),
+      }),
+    );
+  }
+  const seasonBufferByYm = allocateSeasonBufferByYm({
+    months,
+    totalBufferYen: parseSeasonBufferTotal(planCycle.bufferBreakdownJson),
+    regularClientAmountByYm,
+  });
   const financeMonths: CockpitSeasonFinanceMonth[] = months.map((ym) => {
     const row = rowByYm.get(ym);
     const summary = (row?.reward_summary_json && typeof row.reward_summary_json === "object"
       ? row.reward_summary_json
       : null) as RewardSummary | null;
     const cycleStatus = String(row?.status || "");
-    const clientPaymentYen = contractBackedClientAmount({
-      ym,
-      project: projectForContract,
-      reportedAmount: row?.budget_reported_amount as number | string | null | undefined,
-      cycleStatus,
-      hasInvoiceEvidence: Boolean(row?.invoice_sent_at || row?.invoice_issued_at || row?.payment_confirmed_at),
-    });
-    const bufferYen = rewardNumber(row?.budget_buffer_amount);
+    const regularClientPaymentYen = regularClientAmountByYm.get(ym) ?? 0;
+    const clientPaymentYen = regularClientPaymentYen + (extraRevenueByYm.get(ym) ?? 0);
+    const bufferYen = seasonBufferByYm.get(ym) ?? rewardNumber(row?.budget_buffer_amount);
     const regularBudgetYen = rewardNumber(row?.budget_yen);
     const extraBudgetYen = row?.extra_budget_yen == null ? 0 : rewardNumber(row.extra_budget_yen);
     const pjBudgetYen = regularBudgetYen + extraBudgetYen;
@@ -2079,6 +2108,7 @@ export async function fetchCockpitFromSupabase(
     totalPoints: pc.total_points,
     periodStartYm: pc.period_start_ym,
     periodEndYm: pc.period_end_ym,
+    bufferBreakdownJson: pc.buffer_breakdown_json ?? null,
   }));
 
   // 現在の期間: currentYmが start〜end に含まれるもの。

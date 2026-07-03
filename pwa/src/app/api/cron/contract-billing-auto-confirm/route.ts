@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { WebClient } from "@slack/web-api";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/supabase/api-auth";
-import { decideBudgetApproval } from "@/lib/budget-approval";
 import { collectAutoConfirmCandidates } from "@/lib/contract-billing-auto";
 
 export const runtime = "nodejs";
@@ -108,9 +107,11 @@ async function runAutoConfirm(ym: string, dryRun: boolean) {
     const results: Array<Record<string, unknown>> = [];
 
     for (const c of actionable) {
-      const { projectId, invoiceYen, bufferYen } = c.resolution;
+      const { projectId, invoiceYen, bufferYen, budgetYen } = c.resolution;
       try {
-        // 1) 請求額を契約由来額でセット (status='reported' へ)
+        // 請求額とPJ予算を契約由来額で確定する。
+        // plan cycle 側にシーズンバッファが織り込まれているPJでは、resolution.budgetYen は
+        // その月次配分額になる。ここで汎用 approve 計算へ戻すと二重控除になるため直接保存する。
         const now = new Date().toISOString();
         const { error: upErr } = await db
           .from("billing_cycles")
@@ -118,40 +119,35 @@ async function runAutoConfirm(ym: string, dryRun: boolean) {
             {
               project_id: projectId,
               ym,
-              status: "reported",
+              status: "budget_confirmed",
               budget_reported_amount: invoiceYen,
               budget_buffer_amount: bufferYen,
+              budget_yen: budgetYen,
               budget_reported_at: now,
               budget_reported_by: TSUKUYOMI_ACTOR,
+              budget_confirmed_at: now,
+              budget_confirmed_by: TSUKUYOMI_ACTOR,
+              member_allocations_json: null,
               updated_at: now,
             },
             { onConflict: "project_id,ym" },
           );
         if (upErr) throw upErr;
 
-        // 2) そのまま承認まで進める (budget_confirmed)。budget_yen = 請求額×0.65 - 契約バッファ消化額
-        const decided = await decideBudgetApproval(db, {
-          projectId,
-          ym,
-          decision: "approve",
-          actor: TSUKUYOMI_ACTOR,
-          note: `契約由来額で自動確定 (source=${c.resolution.source}, buffer=${fmtYen(bufferYen)})`,
-        });
-
-        // 3) PM へ事後通知 DM (確認するだけ)
+        // PM へ事後通知 DM (確認するだけ)
         let notified = 0;
         if (slack) {
-          notified = await notifyPm(db, slack, projectId, c.project.project_name || projectId, ym, decided.invoiceYen, decided.budgetYen);
+          notified = await notifyPm(db, slack, projectId, c.project.project_name || projectId, ym, invoiceYen, budgetYen);
         }
 
         results.push({
           projectId,
           projectName: c.project.project_name,
-          invoiceYen: decided.invoiceYen,
-          bufferYen: decided.bufferYen,
-          budgetYen: decided.budgetYen,
+          invoiceYen,
+          bufferYen,
+          budgetYen,
           source: c.resolution.source,
-          status: decided.status,
+          status: "budget_confirmed",
           pmNotified: notified,
           ok: true,
         });

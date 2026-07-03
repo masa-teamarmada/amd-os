@@ -161,7 +161,7 @@ PM向けの cockpit 右カラム routine step UI は廃止済み。`CockpitRouti
 
 Important rules:
 
-- `CockpitSeasonFinance` は、PJ cockpit 上で今シーズンの収支を先に見せる安全網。クライアント支払は `contractBackedClientAmount`、バッファは `billing_cycles.budget_buffer_amount`、PJ予算は `budget_yen + extra_budget_yen`、メンバー支払/会社留保/未払残は `billing_cycles.reward_summary_json` を読む。期末未払残が 1 円でもある場合は不足表示にし、報酬計算側で最終月に自動上乗せしてゼロに見せない。
+- `CockpitSeasonFinance` は、PJ cockpit 上で今シーズンの収支を先に見せる安全網。クライアント支払は `contractBackedClientAmount` に `billing_cycles.extra_revenue_json` の別財布売上を按分加算する。バッファは `value_plan_cycles.buffer_breakdown_json` のシーズンバッファを優先し、未設定の PJ だけ `billing_cycles.budget_buffer_amount` を読む。PJ予算は `budget_yen + extra_budget_yen`、メンバー支払/会社留保/未払残は `billing_cycles.reward_summary_json` を読む。期末未払残が 1 円でもある場合は不足表示にし、報酬計算側で最終月に自動上乗せしてゼロに見せない。
 - If a month has a `monthly_reports` row but no `billing_cycles` row, only report tab is shown.
 - Reward budget derives from `billing_cycles.budget_yen`; if absent and project is `monthly_fixed`, `projects.fee_amount * 0.65` is used.
 - `billing_cycles.reward_summary_json` is cached and refreshed through `/api/rewards/sync` or daily `cron/payout-reward-cache-refresh`.

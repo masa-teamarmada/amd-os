@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { contractBackedClientAmount, monthlyFixedClientAmount } from "@/lib/contract-money";
+import { planBufferedMonthlyBudgetYen } from "@/lib/finance/plan-buffer-budget";
 
 export type BudgetApprovalPayload = {
   projectId: string;
@@ -91,6 +92,17 @@ export async function decideBudgetApproval(
     .maybeSingle();
   if (projectError) throw projectError;
 
+  const { data: planRows, error: planError } = await db
+    .from("value_plan_cycles")
+    .select("budget_yen, period_start_ym, period_end_ym, buffer_breakdown_json")
+    .eq("project_id", input.projectId)
+    .in("status", ["active", "confirmed", "fixed", "draft"])
+    .lte("period_start_ym", input.ym)
+    .gte("period_end_ym", input.ym)
+    .order("period_start_ym", { ascending: false })
+    .limit(1);
+  if (planError) throw planError;
+
   const invoiceYen = numberValue(cycle.budget_reported_amount);
   const bufferYen = numberValue(cycle.budget_buffer_amount);
   if (invoiceYen <= 0) throw new Error("budget request has no invoice amount");
@@ -107,7 +119,12 @@ export async function decideBudgetApproval(
     }
   }
 
-  const budgetYen = calcPjBudget(invoiceYen, bufferYen);
+  const plannedBudgetYen = planBufferedMonthlyBudgetYen({
+    plan: (planRows ?? [])[0] ?? null,
+    project,
+    ym: input.ym,
+  });
+  const budgetYen = plannedBudgetYen ?? calcPjBudget(invoiceYen, bufferYen);
   const now = new Date().toISOString();
   const nextStatus = input.decision === "approve" ? "budget_confirmed" : "budget_rejected";
   const update =

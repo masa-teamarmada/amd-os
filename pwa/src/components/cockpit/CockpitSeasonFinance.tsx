@@ -41,6 +41,8 @@ export function CockpitSeasonFinance({ finance }: Props) {
   if (!finance) return null;
   const status = summaryTone(finance);
   const months = finance.months;
+  const dangerAmount = Math.max(finance.totals.finalUnpaidStockYen, -finance.totals.finalRemainingYen);
+  const isDanger = dangerAmount > 0;
   const totalRows = [
     { label: "クライアント支払", value: finance.totals.clientPaymentYen },
     { label: "バッファ", value: finance.totals.bufferYen },
@@ -63,6 +65,15 @@ export function CockpitSeasonFinance({ finance }: Props) {
           {status.label}
         </span>
       </div>
+
+      {isDanger && (
+        <div className="border-b border-red-100 bg-red-50 px-4 py-3 text-[12px] text-red-800">
+          <div className="font-semibold">シーズン収支が閉じていない</div>
+          <div className="mt-0.5">
+            期末未払または予算不足が {formatYen(dangerAmount)} 残っているため、MS編集側で保存を止める対象。
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-px bg-[#f0f0f2] sm:grid-cols-3">
         {totalRows.map((row) => (
