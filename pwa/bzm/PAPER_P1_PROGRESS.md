@@ -10,7 +10,7 @@
 | S2 段落 outline | ✅ 完了 | 2026-07-03 | `PAPER_P1_OUTLINE.md` 58 paras。E/C 公理リネーム・定理番号マップ確定 |
 | S3 節 draft (英語) | ✅ 全節完了 | 2026-07-03 | `PAPER_P1_DRAFT.md` 本文 7,251w (+refs/表で ~9,000w 圏内) |
 | S4 組み上げ + 刈り込み | ✅ 完了 | 2026-07-03 | Table 1/2・References 36件・Fig 1 (二層概念図 SVG)・Fig 2 (Simpson模式図 SVG)・**SM-A〜E 統合済み** (`PAPER_P1_SM.md`、証明3本はエージェント起草→検収)。Fig 3 は SM-C.5 の数値スキームで S6 前に作図 |
-| S5 persona 査読 (5人) | — | — | RP editor / social choice / real options / empirical / TTO 実務家。引用全件再照合もここ |
+| S5 persona 査読 (5人) | 🔄 前半完了 | 2026-07-03 | ✅ 6並列査読完了 (5 persona + 引用照合36件=幻覚ゼロ)。判定: editor=desk-reject / 他4=major。**統合改稿計画 = `S5_REVISION_PLAN.md` (R1-R10)**、個別report = `paper_p1_reviews/`。⏳ 後半 = 改稿実行 (R1 理論再手術が最重量) |
 | S6 まさ最終確定 + 投稿パッケージ | — | — | cover letter / highlights / CRediT / declarations |
 
 ## 節別 draft 状態 (S3 → 2026-07-03 全節 draft 済み)
