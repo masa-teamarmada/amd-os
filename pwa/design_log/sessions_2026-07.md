@@ -149,3 +149,31 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 ### 追記 (同セッション続き、R3 + 日付訂正)
 - **R3 完了**: SM-A 全面改修 (エージェント起草→えいみ検収、修正2点)。E4 全観測軸 strict 化 (essentiality 循環解消)・E5 (cross-context trade-off invariance) 新設で単一重みベクトルを導出 (cross-K GAP 解消)・continuum 化を Assumption A-1 に昇格 (Scott 1964)・Prop 1 の G1/G2 矛盾を (G0)/(G2′) で解消 + モデル存在例・Theorem 2 を reporting-scale 結果に再ステート (ordinal 非違反を正直に認める + gate 非有罪 remark)・SM-A.5 新設 (audited ⊥、証拠提出拒否は floor コーディング、K_obs 剥がし禁止 — practitioner MC6)。SM-A GAP 4→0 (SM 全体 20→16)。本文 §1/§3 も E 公理5本化・Thm 1/2 再ステートで整合。References +2 (Foster-Shorrocks 1991 / Scott 1964、追加時照合)
 - **CX/SX 設立予定の日付訂正 (まさ確認)**: ともに **2027-03頃** (旧記載 CX 2026-08 / SX 2027-04 は古い)。P1 側 (Table 2 M 行・S5計画 R10・HANDOFF) と knowledge/ 側 (cx.md / sx.md / su.md / partner_institutions.md、changelog 付き) を同日修正。**R10 (OSF 事前登録) は急がない** — 期限は 2027-03 の設立判断前。まさの判断3点 (やるか / 公開範囲 / 名義) は HANDOFF_P1 の R10 項に記載済み
+
+---
+
+## 2026-07-03 — 月初合意入口モーダル closeout
+
+### コンテキスト
+- まさから、月初合意が完了するまではOSを開いた最初に月初合意を出し、かつページ遷移ではなくモーダルで出したいという指示。
+- 最新 main ではモーダル化は入っていたが、背景クリックで一時的に閉じられる状態が残っており、「合意完了まで先に確認する」運用とズレていた。
+
+### 実装 / 仕様同期
+- `MonthlyAgreementGateOverlay` から背景クリックで閉じる処理を削除。
+- 合意保存が成功した時だけ overlay を解決済みにし、画面を再読み込みして最新状態へ戻すようにした。
+- `BUILD_VERSION` を `v0.38.11` へ更新。
+- `test:critical-ui` の守りを更新し、背景クリック dismissal が戻ったら失敗する内容にした。
+- `pwa/spec/3-14-monthly-work-agreement-current-spec.md`、`pwa/manual/2-2-member-workflows-quick-start.md`、`pwa/manual/6-6-member-billing-prompts-spec.md`、appendix changelog、`pwa/BUGS.md` に同期。
+
+### Verification
+- `npm run test:critical-ui` passed。
+- `npm run build` passed。
+- 実ログイン状態のモーダル操作確認は未実行。画面が認証・合意状態に依存するため、この closeout ではコード path、重要画面チェック、本番ビルドで代替した。
+
+### 残課題
+- まさアカウントまたはテストadminで未合意/条件更新ありの状態を作り、production で `/dashboard` などを開いたときにモーダルが前面表示され、背景クリックで閉じないことを実機確認すると安心。
+- `/Users/masa/projects/AMD/amd-os` の root checkout には unrelated dirty state が残っている。今回の clean clone bundle と混ぜず、別 cleanup/reconciliation で扱う。
+
+### 教訓
+- 「モーダル」は案内表示にも必須確認にも使えるため、月初合意のような gate では「どう閉じられるか」まで仕様とテストに書く。
+- 月初合意は報酬計算を変える画面ではなく、本人確認と支払gateの前提を残す画面。6月以前の移行月スキップと、7月以降の通常合意判定を混ぜない。

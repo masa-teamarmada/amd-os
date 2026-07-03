@@ -13,7 +13,7 @@
 | agree API | `POST /api/monthly-work-agreement/agree` |
 | revision request API | `POST /api/monthly-work-agreement/request-revision` |
 | admin API | `GET /api/admin/monthly-work-agreements?ym=YYYYMM` |
-| app entry gate | 未合意 / 条件更新ありで表示対象PJがある場合、開いた画面を背景に残したまま月初合意の必須モーダルを前面表示 |
+| app entry gate | 未合意 / 条件更新ありで表示対象PJがある場合、開いた画面を背景に残したまま月初合意の必須モーダルを前面表示。背景クリックや閉じる操作では先送りできず、合意完了後だけ閉じる |
 | DB | `member_monthly_work_agreements`, `member_monthly_work_agreement_requests`, `member_monthly_work_agreement_payout_overrides` |
 | migration | `pwa/scripts/migrations/139_member_monthly_work_agreements.sql`, `140_member_monthly_work_agreement_requests.sql`, `145_member_monthly_work_agreement_payout_overrides.sql` |
 
@@ -179,7 +179,7 @@ API route は logged-in user を `members.email` で解決する。本人以外�
 
 - 当月報酬合計カードの直下に、当月の月初合意カードを表示する。
 - `未合意` / `条件更新あり` のとき、`/monthly-agreement` へ誘導する。
-- 当月の本人合意が `未合意` / `条件更新あり` かつ表示対象PJがある場合、OS内の他画面を開いても遷移先ページの上に月初合意モーダルを強制表示する。モーダル内には `/monthly-agreement` ページと同じコンテンツ全体を出し、別ページへのCTAだけを出して背景でページが開く状態は禁止。`/monthly-agreement` 自体は強制モーダル対象から除外する。合意完了後はモーダルを閉じて通常どおり他画面へ入れる。
+- 当月の本人合意が `未合意` / `条件更新あり` かつ表示対象PJがある場合、OS内の他画面を開いても遷移先ページの上に月初合意モーダルを強制表示する。モーダル内には `/monthly-agreement` ページと同じコンテンツ全体を出し、別ページへのCTAだけを出して背景でページが開く状態は禁止。背景クリック、Esc、閉じるボタンで先送りできる UI にはしない。`/monthly-agreement` 自体は強制モーダル対象から除外する。合意完了後はモーダルを閉じて通常どおり他画面へ入れる。
 - `/mypage` 本体の報酬表示や週次活動取得が失敗しないよう、合意カードのAPIエラーは主表示をブロックしない。
 
 ### `/admin/monthly-work-agreements`
