@@ -51,7 +51,7 @@
 |---|---|---|---|
 | R8 (軽微) | ✅ 完了 | 2026-07-03 | 書誌4件修正 (Arrow=Wiley / Nardo=Hoffmann・OECD Publishing / Debreu・Lakatos 頁) + Atkinson 削除 + Cobb-Douglas を σ_SU 段落に引用追加 + SM 引用済み4件 (Bertola/Caballero/Fishburn/Gorman) を参照リストへ追加 (S6 で再照合) + SM-A 誤参照3箇所 (§2→§3)。※ R8 の残り (トーンダウン・§2 文献追加・abstract 確定) は未了 |
 | R6 (機械的分) | ✅ 完了 | 2026-07-03 | 幽霊参照削除 (「bottom panel」→ Table 2 / 「survival panel」→ outcome-class completeness)・Table 2 の gate 起因行 T・K を WAIT に統一 (empirical MC2。Y の NO_GO は P→0 起因で別物として維持)。※ R6 の残り (P/R/S 操作化・rubric 値表示・GO三分法の定義・hindsight 明記) は未了 |
-| R1 (理論再手術) | 🔄 着手 | 2026-07-03 | Theorem 3 を動学的価値関数ベースに再定式化 (socialchoice「構成的修理パス」)。新規証明はエージェント起草→えいみ検収 |
+| R1 (理論再手術) | ✅ 完了 | 2026-07-03 | Theorem 3 を動学的価値関数ベースに再定式化 (socialchoice 構成的修理パスどおり)。f = nurturing environment の価値関数 (SM-B 全面差し替え、エージェント起草→えいみ検収、検収修正3点)。**M1-M5/M9/M10a/M10c/M11 を解消**: C1′=min(P,S) 消滅 (M5)・C3′ をチャネルのクラス定義化 (M3 型エラー + M9 自己違反を同時解消、B.7 は channel completeness 検定に = R2 の Hansen-J 再設計も完了)・境界退化を Lemma に格下げ (M1 自明性を正直化)・新 Theorem 3 = SH/ED 豊富性条件下で**弱単調合成を排除** (M2 の min(PRS,κ) 反例を殺し「どんな単調合成でも」が真に)・Cor 3.2 (portfolio/universal domain)・非空性はクラス構築で解消 (M4)・Cor 3.1 を registered diagnostics 化 ((i) は selection 要 = M10a、χ² df 修正 = M10c)・lineage 軟化 (M11)。SM-B GAP 5→2。本文 abstract/§1/§2/§4/§5/§6/§7/§8/Table 1/SM-E 整合済み。語数: 本文 8,596w (§4 2,098w)・SM-B 3,836w — R7 増強後に S5 末で再検量 (計画どおり) |
 
 ## Changelog
 
@@ -59,3 +59,4 @@
 |---|---|---|
 | 2026-07-03 | 新設。S1-S2 完了を記録、S3 起草順を固定 | えいみ |
 | 2026-07-03 | S5後半開始。改稿実行ログ新設、R8+R6 の軽微修正分を記録 | えいみ |
+| 2026-07-03 | R1 完了を記録。次の重量級 = R2 残り (certification effects 文献対峙・private price vs social value・graceful degradation) → R3/R4/R5 (新構造確定済みなので依存解消)。PREVIEW.html は R1 で本文が大きく変わったため stale (全改稿完了後に再生成) | えいみ |
