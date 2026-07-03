@@ -529,6 +529,8 @@ type RewardRevisionImpactMember = {
 type RewardRevisionBudgetImpact = {
   clientPaymentYen: number;
   bufferYen: number;
+  sourceBudgetYen: number;
+  sourceBudgetOverrunYen: number;
   pjBudgetYen: number;
   seasonBudgetYen: number;
   regularBudgetYen: number;
@@ -547,6 +549,7 @@ type RewardRevisionBudgetImpact = {
   projectedObligationYen: number;
   remainingBudgetYen: number;
   isOverBudget: boolean;
+  isSourceOverBudget: boolean;
   protectedActualYms: string[];
   unverifiedPaidYms: string[];
   futureProjectedYms: string[];
@@ -735,16 +738,20 @@ function EditActionBar({
         <span
           className={
             "rounded px-2 py-0.5 text-[11px] tabular-nums " +
-            (rewardRevision.budgetImpact.seasonEndShortageYen > 0 || rewardRevision.budgetImpact.isOverBudget
+            (rewardRevision.budgetImpact.seasonEndShortageYen > 0 ||
+            rewardRevision.budgetImpact.isOverBudget ||
+            rewardRevision.budgetImpact.isSourceOverBudget
               ? "bg-red-500/10 text-red-500"
               : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300")
           }
-          title={`クライアント支払 ${fmtRevisionYen(rewardRevision.budgetImpact.clientPaymentYen)} / バッファ ${fmtRevisionYen(rewardRevision.budgetImpact.bufferYen)} / PJ予算 ${fmtRevisionYen(rewardRevision.budgetImpact.pjBudgetYen)} / メンバー支払 ${fmtRevisionYen(rewardRevision.budgetImpact.memberPayoutYen)} / 会社留保 ${fmtRevisionYen(rewardRevision.budgetImpact.companyReserveYen)} / 期末未払 ${fmtRevisionYen(rewardRevision.budgetImpact.seasonEndShortageYen)}`}
+          title={`クライアント支払 ${fmtRevisionYen(rewardRevision.budgetImpact.clientPaymentYen)} / バッファ ${fmtRevisionYen(rewardRevision.budgetImpact.bufferYen)} / 原資上限 ${fmtRevisionYen(rewardRevision.budgetImpact.sourceBudgetYen)} / PJ予算 ${fmtRevisionYen(rewardRevision.budgetImpact.pjBudgetYen)} / メンバー支払 ${fmtRevisionYen(rewardRevision.budgetImpact.memberPayoutYen)} / 会社留保 ${fmtRevisionYen(rewardRevision.budgetImpact.companyReserveYen)} / 期末未払 ${fmtRevisionYen(rewardRevision.budgetImpact.seasonEndShortageYen)}`}
         >
           {rewardRevision.budgetImpact.seasonEndShortageYen > 0
             ? `不足額 ${fmtRevisionYen(rewardRevision.budgetImpact.seasonEndShortageYen)}`
             : rewardRevision.budgetImpact.isOverBudget
               ? `予算不足 ${fmtRevisionYen(rewardRevision.budgetImpact.budgetShortageYen)}`
+              : rewardRevision.budgetImpact.isSourceOverBudget
+                ? `原資超過 ${fmtRevisionYen(rewardRevision.budgetImpact.sourceBudgetOverrunYen)}`
               : `PJ予算残 ${fmtRevisionYen(rewardRevision.budgetImpact.remainingBudgetYen)}`}
         </span>
       )}
@@ -879,8 +886,8 @@ function RewardRevisionSafetyPanel({
       {budgetImpact && (
         <div
           className={
-            "mt-2 grid gap-2 rounded border px-2 py-2 text-[11px] tabular-nums sm:grid-cols-2 lg:grid-cols-10 " +
-            (budgetImpact.seasonEndShortageYen > 0 || budgetImpact.isOverBudget
+            "mt-2 grid gap-2 rounded border px-2 py-2 text-[11px] tabular-nums sm:grid-cols-2 lg:grid-cols-11 " +
+            (budgetImpact.seasonEndShortageYen > 0 || budgetImpact.isOverBudget || budgetImpact.isSourceOverBudget
               ? "border-red-500/25 bg-red-500/5"
               : "border-emerald-500/20 bg-background/60")
           }
@@ -892,6 +899,12 @@ function RewardRevisionSafetyPanel({
             value={budgetImpact.bufferYen}
             tone={budgetImpact.bufferYen > 0 ? "green" : "muted"}
             title="AMD運営費として先に確保する金額"
+          />
+          <BudgetImpactCell
+            label="原資上限"
+            value={budgetImpact.sourceBudgetYen}
+            tone={budgetImpact.isSourceOverBudget ? "red" : "muted"}
+            title="(クライアント支払 - バッファ) × 65%。PJ予算がこれを超えるMS編集は保存できない"
           />
           <BudgetImpactCell
             label="PJ予算"
@@ -970,7 +983,8 @@ function SeasonFinanceGuardBanner({
   const isDanger =
     rewardRevision?.status === "blocked" ||
     (impact?.seasonEndShortageYen ?? 0) > 0 ||
-    (impact?.isOverBudget ?? false);
+    (impact?.isOverBudget ?? false) ||
+    (impact?.isSourceOverBudget ?? false);
   if (previewStatus === "loading" || previewStatus === "idle") {
     return (
       <div className="rounded-md border border-sky-500/20 bg-sky-500/5 px-3 py-2 text-[11px] text-sky-700 dark:text-sky-300">
@@ -999,15 +1013,16 @@ function SeasonFinanceGuardBanner({
           {rewardRevision?.blockers[0] || "シーズン収支に不足があります"}
         </span>
       </div>
-      <div className="mt-2 grid gap-2 text-[11px] tabular-nums sm:grid-cols-2 lg:grid-cols-6">
+      <div className="mt-2 grid gap-2 text-[11px] tabular-nums sm:grid-cols-2 lg:grid-cols-7">
         <BudgetImpactCell label="クライアント支払" value={impact.clientPaymentYen} />
         <BudgetImpactCell label="バッファ" value={impact.bufferYen} tone={impact.bufferYen > 0 ? "green" : "muted"} />
+        <BudgetImpactCell label="原資上限" value={impact.sourceBudgetYen} tone={impact.isSourceOverBudget ? "red" : "muted"} />
         <BudgetImpactCell label="PJ予算" value={impact.pjBudgetYen} />
         <BudgetImpactCell label="メンバー支払" value={impact.memberPayoutYen} />
         <BudgetImpactCell label="会社留保" value={impact.companyReserveYen} tone={impact.companyReserveYen > 0 ? "green" : "muted"} />
         <BudgetImpactCell
-          label={impact.seasonEndShortageYen > 0 ? "期末未払" : "予算不足"}
-          value={impact.seasonEndShortageYen > 0 ? impact.seasonEndShortageYen : impact.budgetShortageYen}
+          label={impact.seasonEndShortageYen > 0 ? "期末未払" : impact.isSourceOverBudget ? "原資超過" : "予算不足"}
+          value={impact.seasonEndShortageYen > 0 ? impact.seasonEndShortageYen : impact.isSourceOverBudget ? impact.sourceBudgetOverrunYen : impact.budgetShortageYen}
           tone="red"
         />
       </div>

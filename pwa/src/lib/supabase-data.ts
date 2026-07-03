@@ -249,10 +249,12 @@ export interface CockpitSeasonFinance {
   planCycleId: string;
   periodStartYm: string;
   periodEndYm: string;
-  status: "balanced" | "shortage" | "over_budget";
+  status: "balanced" | "shortage" | "over_budget" | "source_overrun";
   totals: Omit<CockpitSeasonFinanceMonth, "ym" | "cycleStatus"> & {
     finalUnpaidStockYen: number;
     finalRemainingYen: number;
+    sourceBudgetYen: number;
+    sourceBudgetOverrunYen: number;
   };
   months: CockpitSeasonFinanceMonth[];
 }
@@ -1878,8 +1880,16 @@ function buildCockpitSeasonFinance({
   const finalUnpaidStockYen = finalMonth?.unpaidStockYen ?? 0;
   const rewardObligationYen = totalsBase.memberPayoutYen + totalsBase.companyReserveYen + finalUnpaidStockYen;
   const finalRemainingYen = totalsBase.pjBudgetYen - rewardObligationYen;
+  const sourceBudgetYen = Math.max(0, Math.round((totalsBase.clientPaymentYen - totalsBase.bufferYen) * 0.65));
+  const sourceBudgetOverrunYen = Math.max(0, totalsBase.pjBudgetYen - sourceBudgetYen);
   const status: CockpitSeasonFinance["status"] =
-    finalUnpaidStockYen > 0 ? "shortage" : finalRemainingYen < 0 ? "over_budget" : "balanced";
+    finalUnpaidStockYen > 0
+      ? "shortage"
+      : finalRemainingYen < 0
+        ? "over_budget"
+        : sourceBudgetOverrunYen > 0
+          ? "source_overrun"
+          : "balanced";
 
   return {
     planCycleId: planCycle.planCycleId,
@@ -1893,6 +1903,8 @@ function buildCockpitSeasonFinance({
       remainingAfterObligationYen: finalRemainingYen,
       finalUnpaidStockYen,
       finalRemainingYen,
+      sourceBudgetYen,
+      sourceBudgetOverrunYen,
     },
     months: financeMonths,
   };

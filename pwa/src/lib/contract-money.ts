@@ -52,6 +52,29 @@ export function monthlyFixedClientAmount(project: ContractFeeLike | null | undef
   return Math.max(0, yenNumber(project?.fee_amount));
 }
 
+export function scheduledContractClientAmount(project: ContractFeeLike | null | undefined, ym: string): number {
+  if (!isWithinContractPeriod(project, ym)) return 0;
+  const terms = contractTerms(project);
+  const schedule = Array.isArray(terms.monthlySchedule)
+    ? terms.monthlySchedule
+    : Array.isArray(terms.monthly_schedule)
+      ? terms.monthly_schedule
+      : [];
+  for (const raw of schedule) {
+    const item = asRecord(raw);
+    if (!item || item.ym !== ym) continue;
+    return Math.max(0, yenNumber(
+      item.amountTaxExcl ??
+      item.amount_tax_excl ??
+      item.clientAmountYen ??
+      item.client_amount_yen ??
+      item.invoiceYen ??
+      item.invoice_yen
+    ));
+  }
+  return 0;
+}
+
 export function contractBackedClientAmount({
   ym,
   project,
@@ -71,6 +94,8 @@ export function contractBackedClientAmount({
     return realized && reported > 0 ? reported : 0;
   }
   if (reported > 0) return reported;
+  const scheduled = scheduledContractClientAmount(project, ym);
+  if (scheduled > 0) return scheduled;
   return monthlyFixedClientAmount(project, ym);
 }
 

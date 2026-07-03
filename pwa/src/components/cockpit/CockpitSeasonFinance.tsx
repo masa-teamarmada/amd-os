@@ -25,6 +25,12 @@ function amountTone(value: number, dangerWhenPositive = false) {
 }
 
 function summaryTone(finance: CockpitSeasonFinanceData) {
+  if (finance.totals.sourceBudgetOverrunYen > 0) {
+    return {
+      label: `原資超過 ${formatYen(finance.totals.sourceBudgetOverrunYen)}`,
+      className: "border-red-200 bg-red-50 text-red-800",
+    };
+  }
   if (finance.totals.finalUnpaidStockYen > 0 || finance.totals.finalRemainingYen < 0) {
     return {
       label: `不足 ${formatYen(Math.max(finance.totals.finalUnpaidStockYen, -finance.totals.finalRemainingYen))}`,
@@ -41,11 +47,16 @@ export function CockpitSeasonFinance({ finance }: Props) {
   if (!finance) return null;
   const status = summaryTone(finance);
   const months = finance.months;
-  const dangerAmount = Math.max(finance.totals.finalUnpaidStockYen, -finance.totals.finalRemainingYen);
+  const dangerAmount = Math.max(
+    finance.totals.sourceBudgetOverrunYen,
+    finance.totals.finalUnpaidStockYen,
+    -finance.totals.finalRemainingYen,
+  );
   const isDanger = dangerAmount > 0;
   const totalRows = [
     { label: "クライアント支払", value: finance.totals.clientPaymentYen },
     { label: "バッファ", value: finance.totals.bufferYen },
+    { label: "原資上限", value: finance.totals.sourceBudgetYen },
     { label: "PJ予算", value: finance.totals.pjBudgetYen },
     { label: "メンバー支払", value: finance.totals.memberPayoutYen },
     { label: "会社留保", value: finance.totals.companyReserveYen },
@@ -70,7 +81,7 @@ export function CockpitSeasonFinance({ finance }: Props) {
         <div className="border-b border-red-100 bg-red-50 px-4 py-3 text-[12px] text-red-800">
           <div className="font-semibold">シーズン収支が閉じていない</div>
           <div className="mt-0.5">
-            期末未払または予算不足が {formatYen(dangerAmount)} 残っているため、MS編集側で保存を止める対象。
+            期末未払・予算不足・原資超過のいずれかが {formatYen(dangerAmount)} 残っているため、MS編集側で保存を止める対象。
           </div>
         </div>
       )}
@@ -87,12 +98,13 @@ export function CockpitSeasonFinance({ finance }: Props) {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="min-w-[820px] w-full text-left text-[12px]">
+        <table className="min-w-[920px] w-full text-left text-[12px]">
           <thead className="bg-[#f5f5f7] text-[11px] text-[#6e6e73]">
             <tr>
               <th className="px-4 py-2 font-semibold">月</th>
               <th className="px-3 py-2 text-right font-semibold">クライアント支払</th>
               <th className="px-3 py-2 text-right font-semibold">バッファ</th>
+              <th className="px-3 py-2 text-right font-semibold">原資上限</th>
               <th className="px-3 py-2 text-right font-semibold">PJ予算</th>
               <th className="px-3 py-2 text-right font-semibold">メンバー支払</th>
               <th className="px-3 py-2 text-right font-semibold">会社留保</th>
@@ -106,6 +118,7 @@ export function CockpitSeasonFinance({ finance }: Props) {
                 <td className="px-4 py-2 font-semibold text-[#1d1d1f]">{formatYm(month.ym)}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{formatYen(month.clientPaymentYen)}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{formatYen(month.bufferYen)}</td>
+                <td className="px-3 py-2 text-right text-[#8e8e93]">-</td>
                 <td className="px-3 py-2 text-right tabular-nums">{formatYen(month.pjBudgetYen)}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{formatYen(month.memberPayoutYen)}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{formatYen(month.companyReserveYen)}</td>
@@ -123,6 +136,7 @@ export function CockpitSeasonFinance({ finance }: Props) {
               <th className="px-4 py-2 font-semibold">合計</th>
               <td className="px-3 py-2 text-right tabular-nums">{formatYen(finance.totals.clientPaymentYen)}</td>
               <td className="px-3 py-2 text-right tabular-nums">{formatYen(finance.totals.bufferYen)}</td>
+              <td className="px-3 py-2 text-right tabular-nums">{formatYen(finance.totals.sourceBudgetYen)}</td>
               <td className="px-3 py-2 text-right tabular-nums">{formatYen(finance.totals.pjBudgetYen)}</td>
               <td className="px-3 py-2 text-right tabular-nums">{formatYen(finance.totals.memberPayoutYen)}</td>
               <td className="px-3 py-2 text-right tabular-nums">{formatYen(finance.totals.companyReserveYen)}</td>

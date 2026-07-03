@@ -148,6 +148,7 @@ expectIncludes("src/lib/reward-summary.ts", [
 expectIncludes("src/app/api/admin/ms-overview/[planCycleId]/route.ts", [
   "seasonEndShortageYen",
   "メンバー支払義務がPJ予算を",
+  "PJ予算がクライアント支払からバッファを引いた原資上限を",
   "シーズン終了月に未払残が",
   "contractBackedClientAmount",
   "buildExtraRevenueByYm",
@@ -157,6 +158,7 @@ expectIncludes("src/app/api/admin/ms-overview/[planCycleId]/route.ts", [
 expectIncludes("src/components/admin/AdminMsOverviewClient.tsx", [
   "クライアント支払",
   "バッファ",
+  "原資上限",
   "PJ予算",
   "メンバー支払",
   "会社留保",

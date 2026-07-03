@@ -170,6 +170,8 @@ type RewardRevisionImpactMember = {
 type RewardRevisionBudgetImpact = {
   clientPaymentYen: number;
   bufferYen: number;
+  sourceBudgetYen: number;
+  sourceBudgetOverrunYen: number;
   pjBudgetYen: number;
   seasonBudgetYen: number;
   regularBudgetYen: number;
@@ -188,6 +190,7 @@ type RewardRevisionBudgetImpact = {
   projectedObligationYen: number;
   remainingBudgetYen: number;
   isOverBudget: boolean;
+  isSourceOverBudget: boolean;
   protectedActualYms: string[];
   unverifiedPaidYms: string[];
   futureProjectedYms: string[];
@@ -461,6 +464,8 @@ async function buildRewardRevisionBudgetImpact({
   }, 0);
   const bufferYen = parseSeasonBufferTotal(plan.buffer_breakdown_json)
     ?? cycles.reduce((sum, cycle) => sum + Math.max(0, Math.round(safeNumber(cycle.budget_buffer_amount))), 0);
+  const sourceBudgetYen = Math.max(0, Math.round((clientPaymentYen - bufferYen) * 0.65));
+  const sourceBudgetOverrunYen = Math.max(0, seasonBudgetYen - sourceBudgetYen);
   const fixedPaidYen = fixedPaidSnapshotYen + fixedPaidRewardCacheYen;
   const memberPayoutYen = fixedPaidYen + futureProjectedPayYen;
   const companyReserveYen = protectedCompanyReserveYen + futureCompanyReserveYen;
@@ -472,6 +477,8 @@ async function buildRewardRevisionBudgetImpact({
   return {
     clientPaymentYen,
     bufferYen,
+    sourceBudgetYen,
+    sourceBudgetOverrunYen,
     pjBudgetYen: seasonBudgetYen,
     seasonBudgetYen,
     regularBudgetYen,
@@ -490,6 +497,7 @@ async function buildRewardRevisionBudgetImpact({
     projectedObligationYen,
     remainingBudgetYen,
     isOverBudget: budgetShortageYen > 0,
+    isSourceOverBudget: sourceBudgetOverrunYen > 0,
     protectedActualYms: [...new Set(protectedActualYms)].sort(),
     unverifiedPaidYms: [...new Set(unverifiedPaidYms)].sort(),
     futureProjectedYms,
@@ -587,6 +595,11 @@ async function buildRewardRevisionImpact({
     if (impact.budgetImpact.isOverBudget) {
       impact.blockers.push(
         `メンバー支払義務がPJ予算を ${impact.budgetImpact.budgetShortageYen.toLocaleString("ja-JP")}円超過するため保存できません`,
+      );
+    }
+    if (impact.budgetImpact.isSourceOverBudget) {
+      impact.blockers.push(
+        `PJ予算がクライアント支払からバッファを引いた原資上限を ${impact.budgetImpact.sourceBudgetOverrunYen.toLocaleString("ja-JP")}円超過するため保存できません`,
       );
     }
     impact.status = impact.blockers.length > 0 ? "blocked" : impact.warnings.length > 0 ? "warning" : "safe";
@@ -777,6 +790,11 @@ async function buildRewardRevisionImpact({
   if (impact.budgetImpact.isOverBudget) {
     impact.blockers.push(
       `支払済み実績を固定するとメンバー支払義務がPJ予算を ${impact.budgetImpact.budgetShortageYen.toLocaleString("ja-JP")}円超過するため保存できません`,
+    );
+  }
+  if (impact.budgetImpact.isSourceOverBudget) {
+    impact.blockers.push(
+      `PJ予算がクライアント支払からバッファを引いた原資上限を ${impact.budgetImpact.sourceBudgetOverrunYen.toLocaleString("ja-JP")}円超過するため保存できません`,
     );
   }
   impact.status = impact.blockers.length > 0 ? "blocked" : impact.warnings.length > 0 ? "warning" : "safe";
