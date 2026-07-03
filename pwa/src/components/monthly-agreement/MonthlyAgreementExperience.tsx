@@ -16,20 +16,20 @@ function formatYm(ym: string) {
 }
 
 function formatYen(value: number | null | undefined) {
-  if (value == null) return "算定待ち";
+  if (value == null) return "まだ計算なし";
   return `¥${Math.round(value).toLocaleString()}`;
 }
 
 function formatPt(value: number | null | undefined) {
-  if (typeof value !== "number" || !Number.isFinite(value)) return "算定待ち";
-  return `${(Math.round(value * 10) / 10).toLocaleString()}pt`;
+  if (typeof value !== "number" || !Number.isFinite(value)) return "まだ計算なし";
+  return `${(Math.round(value * 10) / 10).toLocaleString()}点`;
 }
 
 function statusLabel(status: MonthlyWorkAgreementBundle["status"]) {
   if (status === "agreed") return "合意済み";
-  if (status === "needs_reagreement") return "条件更新あり";
-  if (status === "not_required") return "対象外";
-  return "未合意";
+  if (status === "needs_reagreement") return "内容が更新されています";
+  if (status === "not_required") return "確認不要";
+  return "未確認";
 }
 
 function statusClass(status: MonthlyWorkAgreementBundle["status"]) {
@@ -37,6 +37,24 @@ function statusClass(status: MonthlyWorkAgreementBundle["status"]) {
   if (status === "needs_reagreement") return "border-amber-200 bg-amber-50 text-amber-900";
   if (status === "not_required") return "border-[#d1d1d6] bg-white text-[#3c3c43]";
   return "border-sky-200 bg-sky-50 text-sky-950";
+}
+
+function formatBillingStatus(status: string | null | undefined) {
+  if (!status) return "未作成";
+  const labels: Record<string, string> = {
+    not_started: "未開始",
+    budget_reported: "予算入力済み",
+    budget_confirmed: "予算確認済み",
+    report_fixed: "報告書確定",
+    invoice_issued: "請求書作成済み",
+    invoice_sent: "請求書送付済み",
+    payment_confirmed: "入金確認済み",
+    reward_paid: "報酬支払い済み",
+    confirmed: "確認済み",
+    reported: "入力済み",
+    not_set: "未設定",
+  };
+  return labels[status] || "確認中";
 }
 
 type MonthlyAgreementMode = "page" | "modal";
@@ -158,7 +176,7 @@ export function MonthlyAgreementExperience({
       setRequestBody("");
       setRequestProjectId("");
       setRequestType("scope_or_goal");
-      setRequestMessage("修正要望を送信しました。admin/PM側の確認待ちです。");
+      setRequestMessage("送信しました。管理側で確認します。");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -186,22 +204,22 @@ export function MonthlyAgreementExperience({
   const unverifiedPaidYen = bundle.snapshot.totals.unverifiedPaidYen ?? 0;
   const futurePayoutYen = bundle.snapshot.totals.futurePayoutYen ?? 0;
   const metricCount = 4 + (unverifiedPaidYen > 0 ? 1 : 0) + (totalStockYen > 0 ? 1 : 0);
-  const metricCols = metricCount >= 6 ? "lg:grid-cols-6" : metricCount === 5 ? "lg:grid-cols-5" : "lg:grid-cols-4";
+  const metricCols = metricCount >= 5 ? "lg:grid-cols-3" : "lg:grid-cols-4";
 
   return (
     <div className={`${isModal ? "h-full min-h-0 overflow-y-auto" : "min-h-screen pb-12"} bg-[#f5f5f7]`}>
       <div className={`${isModal ? "sticky top-0 z-10" : ""} border-b border-[#e5e5e7] bg-white px-4 py-5`}>
         <div className="mx-auto flex max-w-5xl flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#86868b]">Monthly Agreement</p>
-            <h1 className="mt-1 text-[22px] font-semibold text-[#1d1d1f]">{formatYm(bundle.ym)}の遂行内容と予定報酬</h1>
+            <p className="text-[11px] font-semibold tracking-[0.16em] text-[#86868b]">月初合意</p>
+            <h1 className="mt-1 text-[22px] font-semibold text-[#1d1d1f]">{formatYm(bundle.ym)}にやることと予定額</h1>
             <p className="mt-1 text-[13px] text-[#6e6e73]">
-              {bundle.member.codeName} / snapshot {bundle.currentHash.slice(0, 10)}
+              {bundle.member.codeName} / 記録ID {bundle.currentHash.slice(0, 10)}
             </p>
           </div>
           {isModal ? (
             <p className="max-w-sm text-[12px] leading-relaxed text-[#6e6e73]">
-              合意が完了すると、このロックは自動で外れます。
+              確認して合意すると、この画面は自動で閉じます。
             </p>
           ) : (
             <Link href="/mypage" className="text-sm font-semibold text-[#007aff]">マイページへ</Link>
@@ -218,12 +236,12 @@ export function MonthlyAgreementExperience({
                 <p className="text-sm font-semibold">{statusLabel(bundle.status)}</p>
                 <p className="mt-1 text-xs leading-relaxed">
                   {bundle.status === "agreed"
-                    ? `合意時刻: ${bundle.latestAgreement?.agreedAt ? new Date(bundle.latestAgreement.agreedAt).toLocaleString("ja-JP") : "記録済み"}`
+                    ? `確認した日時: ${bundle.latestAgreement?.agreedAt ? new Date(bundle.latestAgreement.agreedAt).toLocaleString("ja-JP") : "記録済み"}`
                     : bundle.status === "needs_reagreement"
-                      ? "前回合意後に今月の遂行内容または予定報酬が変わっています。内容を確認して再合意してください。"
+                      ? "前に確認したあとで、今月やることか予定額が変わりました。もう一度見て、問題なければ合意してください。"
                       : bundle.status === "not_required"
                         ? bundle.exclusionReason || "この月の月初合意は不要です。"
-                        : "業務開始前に、今月の遂行対象・到達目標・予定報酬を確認して合意してください。"}
+                        : "今月やる仕事、目標、もらえる予定額を確認して、問題なければ合意してください。"}
                 </p>
               </div>
             </div>
@@ -232,15 +250,15 @@ export function MonthlyAgreementExperience({
               onClick={handleAgree}
               disabled={saving || bundle.status === "agreed" || !bundle.tableReady || !bundle.canAgree}
               className="inline-flex items-center justify-center gap-2 rounded-md bg-[#1d1d1f] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-              title={!bundle.canAgree ? bundle.exclusionReason || "本人だけが合意を保存できます" : "今月の遂行内容と予定報酬を確認して合意"}
+              title={!bundle.canAgree ? bundle.exclusionReason || "本人だけが合意できます" : "今月やることと予定額を確認して合意"}
             >
               {saving ? <Loader2 className="size-4 animate-spin" /> : <FileCheck2 className="size-4" />}
-              {bundle.status === "agreed" ? "合意済み" : bundle.status === "not_required" ? "合意不要" : "確認して合意"}
+              {bundle.status === "agreed" ? "合意済み" : bundle.status === "not_required" ? "確認不要" : "確認して合意"}
             </button>
           </div>
           {!bundle.tableReady && (
             <p className="mt-3 rounded-md border border-red-200 bg-white/70 px-3 py-2 text-xs text-red-700">
-              合意保存テーブルが未適用です。migration適用後に保存できます。
+              保存に必要な準備がまだ終わっていません。準備が終わると合意できます。
             </p>
           )}
         </section>
@@ -248,38 +266,38 @@ export function MonthlyAgreementExperience({
         <AgreementFlowRail />
 
         <section className={`grid gap-3 sm:grid-cols-2 ${metricCols}`}>
-          <MetricCard label="参加PJ" value={`${bundle.snapshot.totals.projectCount}`} hintId="monthly-agreement.project-count" />
+          <MetricCard label="対象プロジェクト" value={`${bundle.snapshot.totals.projectCount}`} hintId="monthly-agreement.project-count" />
           <MetricCard
-            label="予定報酬合計"
+            label="もらえる予定額"
             value={formatYen(bundle.snapshot.totals.expectedRewardYen)}
             hintId="monthly-agreement.expected-reward"
-            description="月初に合意する、今月のMSコミットに対する予定額"
+            description="今月やる仕事に対して、今の計画で見込んでいる金額"
           />
           <MetricCard
-            label="支払済み実績(税込)"
+            label="支払い済み"
             value={formatYen(paidActualYen)}
             hintId="monthly-agreement.payout"
           />
           {unverifiedPaidYen > 0 && (
             <MetricCard
-              label="実績未照合(税込)"
+              label="支払い確認中"
               value={formatYen(unverifiedPaidYen)}
               emphasis
               hintId="monthly-agreement.payout"
             />
           )}
           <MetricCard
-            label="これから支払予定(税込)"
+            label="これから支払う予定"
             value={formatYen(futurePayoutYen)}
             hintId="monthly-agreement.payout"
           />
           {totalStockYen > 0 && (
             <MetricCard
-              label="未払いストック残"
+              label="まだ支払われていない残り"
               value={formatYen(totalStockYen)}
               emphasis
               hintId="monthly-agreement.stock"
-              description="今月は支払われず、翌月以降へ残る残高"
+              description="今月は支払われず、次の月以降に残る金額"
             />
           )}
         </section>
@@ -287,9 +305,9 @@ export function MonthlyAgreementExperience({
         <section className="rounded-lg border border-[#e5e5e7] bg-white p-4">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h2 className="text-[15px] font-semibold text-[#1d1d1f]">修正要望</h2>
+              <h2 className="text-[15px] font-semibold text-[#1d1d1f]">直してほしいこと</h2>
               <p className="mt-1 text-[12px] leading-relaxed text-[#6e6e73]">
-                担当MS、到達目標、予定報酬が違う場合はここから送ってください。<Hint id="monthly-agreement.revision-request" />
+                担当するMS、目標、予定額が違うと思ったら、ここから知らせてください。<Hint id="monthly-agreement.revision-request" />
               </p>
             </div>
             {bundle.revisionRequests.filter((request) => request.status === "open").length > 0 && (
@@ -305,8 +323,8 @@ export function MonthlyAgreementExperience({
               disabled={!bundle.canAgree}
               className="rounded-md border border-[#d1d1d6] bg-white px-2 py-2 text-sm"
             >
-              <option value="scope_or_goal">遂行対象/到達目標</option>
-              <option value="reward">予定報酬</option>
+              <option value="scope_or_goal">やること/目標</option>
+              <option value="reward">予定額</option>
               <option value="other">その他</option>
             </select>
             <select
@@ -326,12 +344,12 @@ export function MonthlyAgreementExperience({
               disabled={!bundle.canAgree}
               rows={3}
               className="min-h-[84px] rounded-md border border-[#d1d1d6] bg-white px-3 py-2 text-sm outline-none focus:border-[#007aff]"
-              placeholder="例: CXの今月到達目標はこのMSではなく、登記準備を優先したい / 予定報酬の配分が違う"
+              placeholder="例: CXはこのMSより登記準備を優先したい / 予定額の分け方が違うと思う"
             />
           </div>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-[11px] text-[#86868b]">
-              送信時点のsnapshot hashと一緒に保存されます。合意そのものは必要に応じて別途押してください。
+              送った時点の記録IDも一緒に残ります。内容に問題ない時だけ、合意ボタンを押してください。
             </p>
             <button
               type="button"
@@ -340,7 +358,7 @@ export function MonthlyAgreementExperience({
               className="inline-flex items-center justify-center gap-2 rounded-md border border-[#1d1d1f] bg-white px-3 py-2 text-xs font-semibold text-[#1d1d1f] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {requestSaving ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
-              修正要望を送信
+              直してほしい内容を送る
             </button>
           </div>
           {requestMessage && <p className="mt-2 text-[12px] text-emerald-700">{requestMessage}</p>}
@@ -362,7 +380,7 @@ export function MonthlyAgreementExperience({
         <section className="flex flex-col gap-4">
           {bundle.snapshot.projects.length === 0 ? (
             <div className="rounded-lg border border-[#e5e5e7] bg-white p-5 text-sm text-[#6e6e73]">
-              {bundle.exclusionReason || `${formatYm(bundle.ym)}に参加中のPJはありません。`}
+              {bundle.exclusionReason || `${formatYm(bundle.ym)}に参加中のプロジェクトはありません。`}
             </div>
           ) : (
             bundle.snapshot.projects.map((project) => (
@@ -398,19 +416,19 @@ function AgreementFlowRail() {
       key: "agreement",
       icon: <FileCheck2 className="size-4" />,
       label: "月初合意",
-      body: "今月の遂行対象、到達目標、予定報酬をsnapshotで残す",
+      body: "今月やること、目標、もらえる予定額を記録する",
     },
     {
       key: "ms",
       icon: <ListChecks className="size-4" />,
-      label: "MS pt",
-      body: "シーズンMSのpt、今月予定進捗、担当割合で予定額を作る",
+      label: "MSの点数",
+      body: "MSの点数、今月進める分、担当割合から予定額を出す",
     },
     {
       key: "payout",
       icon: <CircleDollarSign className="size-4" />,
-      label: "支払ゲート",
-      body: "未合意・条件更新・修正要望中は支払通知へ進ませない",
+      label: "支払い前チェック",
+      body: "未確認や修正中のものは、支払い通知に進めない",
     },
   ];
   return (
@@ -418,9 +436,11 @@ function AgreementFlowRail() {
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-[14px] font-semibold text-[#1d1d1f]">
-            合意から支払までの流れ <Hint id="monthly-agreement.flow" />
+            合意から支払いまでの流れ <Hint id="monthly-agreement.flow" />
           </h2>
-          <p className="mt-1 text-[12px] text-[#6e6e73]">予定報酬と実際の支払は、同じ線上にあるけど別の確認レイヤー。</p>
+          <p className="mt-1 text-[12px] text-[#6e6e73]">
+            ここでは「今月やること」と「もらえる予定額」を確認します。実際に支払う金額は、あとで支払い画面で別に決めます。
+          </p>
         </div>
       </div>
       <div className="grid gap-2 md:grid-cols-3">
@@ -503,14 +523,14 @@ function ProjectAgreementCard({
             {project.isPm && <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-800">PM</span>}
             {project.isPl && <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-semibold text-indigo-800">PL</span>}
           </div>
-          <p className="mt-1 text-xs text-[#86868b]">{project.projectId} / billing {project.billingStatus || "未作成"}</p>
+          <p className="mt-1 text-xs text-[#86868b]">{project.projectId} / 請求状態 {formatBillingStatus(project.billingStatus)}</p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <Link
               href={cockpitHref}
               {...linkTargetProps}
               className="inline-flex items-center gap-1 rounded-md border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-[11px] font-semibold text-sky-800 hover:bg-sky-100"
             >
-              今シーズンのMSリストへ
+              今シーズンのMSを見る
               <ArrowRight className="size-3" />
             </Link>
             {viewerIsAdmin && (
@@ -519,7 +539,7 @@ function ProjectAgreementCard({
                 {...linkTargetProps}
                 className="inline-flex items-center gap-1 rounded-md border border-[#d1d1d6] bg-white px-2.5 py-1.5 text-[11px] font-semibold text-[#3c3c43] hover:bg-[#f5f5f7]"
               >
-                MS設計レビューへ
+                MSの設計を確認
                 <ArrowRight className="size-3" />
               </Link>
             )}
@@ -529,50 +549,50 @@ function ProjectAgreementCard({
         <div className={`rounded-md border px-3 py-2 text-right ${hasStock ? "border-amber-200 bg-amber-50" : "border-transparent bg-[#f5f5f7]"}`}>
           <div className="flex items-center justify-end gap-1 text-[11px] font-semibold text-[#86868b]">
             <CircleDollarSign className="size-3.5" />
-            予定報酬 <Hint id="monthly-agreement.expected-reward" />
+            もらえる予定額 <Hint id="monthly-agreement.expected-reward" />
           </div>
           <p className="mt-1 text-[20px] font-semibold tabular-nums text-[#1d1d1f]">
             {formatYen(headlineValue)}
           </p>
           {hasScheduledPayout && project.paymentYm ? (
             <p className="mt-1 text-[10px] tabular-nums text-[#86868b]">
-              この稼働月ぶんの支払予定 {formatYm(project.paymentYm)} {formatYen(scheduledPayoutYen)}
+              この月の仕事の支払い予定 {formatYm(project.paymentYm)} {formatYen(scheduledPayoutYen)}
             </p>
           ) : null}
           {hasPayout && !currentCyclePaysThisMonth ? (
             <p className="mt-1 text-[10px] tabular-nums text-[#86868b]">
-              今月支払（別稼働月分） {formatYen(currentMonthPayoutYen)}
+              今月支払う分（別の月の仕事） {formatYen(currentMonthPayoutYen)}
             </p>
           ) : null}
           {hasStock && (
             <div className="mt-2 border-t border-amber-200 pt-2 text-left">
               <p className="text-[10px] font-semibold text-amber-800">
-                支払予定後の未払い残 <Hint id="monthly-agreement.stock" />
+                支払ったあとに残る未払い <Hint id="monthly-agreement.stock" />
               </p>
               <p className="mt-0.5 text-right text-[16px] font-semibold tabular-nums text-amber-800">{formatYen(stockYen)}</p>
               {showStockBreakdown && (
                 <dl className="mt-1.5 space-y-0.5 text-[10px] text-[#86868b]">
                   {carryInYen > 0 && (
                     <div className="flex items-center justify-between gap-3">
-                      <dt>前回からの繰越</dt>
+                      <dt>前から残っている分</dt>
                       <dd className="tabular-nums">{formatYen(carryInYen)}</dd>
                     </div>
                   )}
                   {currentDueYen != null && (
                     <div className="flex items-center justify-between gap-3">
-                      <dt>この稼働月の発生</dt>
+                      <dt>この月に増える分</dt>
                       <dd className="tabular-nums">{formatYen(currentDueYen)}</dd>
                     </div>
                   )}
                   {hasPayout && (
                     <div className="flex items-center justify-between gap-3">
-                      <dt>今月支払</dt>
+                      <dt>今月支払う分</dt>
                       <dd className="tabular-nums">-{formatYen(currentMonthPayoutYen)}</dd>
                     </div>
                   )}
                   {!currentCyclePaysThisMonth && hasScheduledPayout && project.paymentYm && (
                     <div className="flex items-center justify-between gap-3">
-                      <dt>{formatYm(project.paymentYm)}支払予定</dt>
+                      <dt>{formatYm(project.paymentYm)}に支払う予定</dt>
                       <dd className="tabular-nums">{formatYen(scheduledPayoutYen)}</dd>
                     </div>
                   )}
@@ -581,26 +601,26 @@ function ProjectAgreementCard({
             </div>
           )}
           {hasStock && project.grossDueYen != null && (
-            <p className="mt-1 text-[10px] tabular-nums text-[#86868b]">支払対象額（繰越含む） {formatYen(project.grossDueYen)}</p>
+            <p className="mt-1 text-[10px] tabular-nums text-[#86868b]">支払いの対象額（前から残っている分を含む） {formatYen(project.grossDueYen)}</p>
           )}
         </div>
       </div>
 
       <div className="mt-4 grid gap-2 md:grid-cols-3">
         <ConceptPill
-          label="月初の約束"
+          label="今月の約束"
           value={formatYen(headlineValue)}
           hintId="monthly-agreement.expected-reward"
           tone="sky"
         />
         <ConceptPill
-          label="支払状態"
-          value={hasScheduledPayout ? `${project.paymentYm ? formatYm(project.paymentYm) : ""} ${formatYen(scheduledPayoutYen)}` : hasPayout ? `今月支払 ${formatYen(currentMonthPayoutYen)}` : "支払予定なし"}
+          label="支払いの予定"
+          value={hasScheduledPayout ? `${project.paymentYm ? formatYm(project.paymentYm) : ""} ${formatYen(scheduledPayoutYen)}` : hasPayout ? `今月支払う分 ${formatYen(currentMonthPayoutYen)}` : "支払い予定なし"}
           hintId="monthly-agreement.payout"
           tone="emerald"
         />
         <ConceptPill
-          label="支払後残"
+          label="支払ったあとに残る分"
           value={formatYen(stockYen)}
           hintId="monthly-agreement.stock"
           tone={hasStock ? "amber" : "plain"}
@@ -610,7 +630,7 @@ function ProjectAgreementCard({
       {(project.reviewReasons.length > 0 || project.conditions.length > 0) && (
         <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
           {project.reviewReasons.length > 0 && (
-            <p className="font-semibold">要確認: {project.reviewReasons.join(" / ")}</p>
+            <p className="font-semibold">確認が必要: {project.reviewReasons.join(" / ")}</p>
           )}
           {project.conditions.length > 0 && (
             <p className={project.reviewReasons.length > 0 ? "mt-1" : undefined}>条件: {project.conditions.join(" / ")}</p>
@@ -626,21 +646,21 @@ function ProjectAgreementCard({
         <div className="mt-4 overflow-hidden rounded-md border border-[#e5e5e7]">
           <div className="flex flex-wrap items-center justify-between gap-2 bg-[#f5f5f7] px-3 py-2">
             <h3 className="text-[12px] font-semibold text-[#3c3c43]">
-              担当MSとpt内訳 <Hint id="monthly-agreement.ms-pt" />
+              担当するMSと点数 <Hint id="monthly-agreement.ms-pt" />
             </h3>
             <Link href={cockpitHref} {...linkTargetProps} className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#007aff]">
-              PJ cockpitでMSを見る
+              プロジェクト画面でMSを見る
               <ArrowRight className="size-3" />
             </Link>
           </div>
           <div className="overflow-x-auto">
             <div className="min-w-[760px]">
               <div className="grid grid-cols-[minmax(220px,1.4fr)_86px_110px_94px_112px] bg-white px-3 py-2 text-[11px] font-semibold text-[#6e6e73]">
-                <span>遂行対象</span>
+                <span>やること</span>
                 <span className="text-right">担当割合</span>
-                <span className="text-right">累積/今月</span>
-                <span className="text-right">今月pt</span>
-                <span className="text-right">予定報酬</span>
+                <span className="text-right">進み具合/今月</span>
+                <span className="text-right">今月の点数</span>
+                <span className="text-right">予定額</span>
               </div>
               <div className="divide-y divide-[#e5e5e7]">
                 {project.milestones.map((ms) => {
@@ -655,9 +675,9 @@ function ProjectAgreementCard({
                       </div>
                       <span className="text-right tabular-nums text-[#3c3c43]">{shareLabel}</span>
                       <span className="text-right tabular-nums text-[#3c3c43]">
-                        {ms.progressPct == null ? "未生成" : `${ms.progressPct.toFixed(1)}%`}
+                        {ms.progressPct == null ? "まだ計算なし" : `${ms.progressPct.toFixed(1)}%`}
                         {ms.monthlyProgressPct != null && ms.monthlyProgressPct > 0 && (
-                          <span className="block text-[10px] text-[#86868b]">+{ms.monthlyProgressPct.toFixed(1)}pt</span>
+                          <span className="block text-[10px] text-[#86868b]">+{ms.monthlyProgressPct.toFixed(1)}点</span>
                         )}
                       </span>
                       <span className="text-right tabular-nums text-[#3c3c43]">{formatPt(ms.earnedPt)}</span>
@@ -708,20 +728,20 @@ function PayoutScheduleTable({ rows }: { rows: MonthlyWorkAgreementProject["payo
     <div className="mt-4 overflow-hidden rounded-md border border-[#e5e5e7]">
       <div className="flex flex-wrap items-center justify-between gap-2 bg-[#f5f5f7] px-3 py-2">
         <h3 className="text-[12px] font-semibold text-[#3c3c43]">
-          未払いストックの流れ <Hint id="monthly-agreement.stock-flow" />
+          未払いがどう残るか <Hint id="monthly-agreement.stock-flow" />
         </h3>
-        <span className="text-[10px] text-[#86868b]">新規発生 + 繰越 → 支払額 → 支払後残</span>
+        <span className="text-[10px] text-[#86868b]">この月に増える分 + 前から残る分 → 支払う分 → 残る分</span>
       </div>
       <PayoutFlowBars rows={rows} />
       <div className="overflow-x-auto">
         <table className="min-w-[720px] w-full text-[11px]">
           <thead className="bg-white text-[#6e6e73]">
             <tr className="border-b border-[#e5e5e7]">
-              <th className="px-3 py-2 text-left font-semibold">稼働月</th>
-              <th className="px-3 py-2 text-right font-semibold">新規発生</th>
-              <th className="px-3 py-2 text-right font-semibold">支払対象</th>
-              <th className="px-3 py-2 text-right font-semibold">支払額</th>
-              <th className="px-3 py-2 text-right font-semibold">支払後残</th>
+              <th className="px-3 py-2 text-left font-semibold">働いた月</th>
+              <th className="px-3 py-2 text-right font-semibold">この月に増える分</th>
+              <th className="px-3 py-2 text-right font-semibold">支払う対象</th>
+              <th className="px-3 py-2 text-right font-semibold">支払う分</th>
+              <th className="px-3 py-2 text-right font-semibold">支払い後の残り</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#e5e5e7]">
@@ -729,14 +749,14 @@ function PayoutScheduleTable({ rows }: { rows: MonthlyWorkAgreementProject["payo
               <tr key={`${row.sourceYm}:${row.paymentYm}`} className={row.isCurrentYm ? "bg-amber-50/70" : undefined}>
                 <td className="px-3 py-2 align-top">
                   <div className="font-semibold text-[#1d1d1f]">{formatYm(row.sourceYm)}</div>
-                  {row.isCurrentYm && <div className="text-[10px] font-semibold text-amber-800">今回の合意対象</div>}
+                  {row.isCurrentYm && <div className="text-[10px] font-semibold text-amber-800">今回確認する月</div>}
                 </td>
                 <td className="px-3 py-2 text-right align-top tabular-nums">
                   <div className="font-semibold text-[#3c3c43]">{formatYen(row.basePayYen)}</div>
                 </td>
                 <td className="px-3 py-2 text-right align-top tabular-nums">
                   <div className="font-semibold text-[#3c3c43]">{formatYen(row.grossDueYen)}</div>
-                  {row.carryInYen > 0 && <div className="text-[10px] text-[#86868b]">繰越 {formatYen(row.carryInYen)}</div>}
+                  {row.carryInYen > 0 && <div className="text-[10px] text-[#86868b]">前から残る分 {formatYen(row.carryInYen)}</div>}
                 </td>
                 <td className="px-3 py-2 text-right align-top tabular-nums">
                   <div className="font-semibold text-[#1d1d1f]">税抜 {formatYen(row.totalPayYen)}</div>
@@ -759,10 +779,10 @@ function PayoutScheduleTable({ rows }: { rows: MonthlyWorkAgreementProject["payo
 }
 
 function payoutSourceLabel(row: MonthlyWorkAgreementProject["payoutSchedule"][number]) {
-  if (row.amountSource === "actual_paid") return "支払実績";
-  if (row.amountSource === "unverified_paid") return "要照合";
+  if (row.amountSource === "actual_paid") return "支払い済み";
+  if (row.amountSource === "unverified_paid") return "確認中";
   if (row.amountSource === "payout_snapshot") return "保存済み";
-  if (row.amountSource === "protected_reward_cache") return "保護済み";
+  if (row.amountSource === "protected_reward_cache") return "過去の保存額";
   return "予定";
 }
 
@@ -790,10 +810,10 @@ function PayoutFlowBars({ rows }: { rows: MonthlyWorkAgreementProject["payoutSch
   return (
     <div className="border-b border-[#e5e5e7] bg-white p-3">
       <div className="mb-2 flex flex-wrap gap-2 text-[10px] text-[#6e6e73]">
-        <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-[#d1d1d6]" />繰越</span>
-        <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-sky-300" />新規発生</span>
-        <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-emerald-400" />支払額</span>
-        <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-amber-300" />支払後残</span>
+        <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-[#d1d1d6]" />前から残る分</span>
+        <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-sky-300" />この月に増える分</span>
+        <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-emerald-400" />支払う分</span>
+        <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-amber-300" />残る分</span>
       </div>
       <div className="overflow-x-auto">
         <div className="min-w-[680px] space-y-2">
@@ -823,7 +843,7 @@ function PayoutFlowBarRow({
     <div className={`grid grid-cols-[92px_minmax(0,1fr)_190px] items-center gap-3 rounded px-2 py-2 ${row.isCurrentYm ? "bg-amber-50" : "bg-white"}`}>
       <div className="min-w-0">
         <div className="text-[11px] font-semibold text-[#1d1d1f]">{formatYm(row.sourceYm)}</div>
-        <div className="text-[10px] text-[#86868b]">{formatYm(row.paymentYm)}支払</div>
+        <div className="text-[10px] text-[#86868b]">{formatYm(row.paymentYm)}に支払う予定</div>
       </div>
       <div className="space-y-1">
         <div className="h-3 rounded-r-full bg-[#f5f5f7]" style={{ width: `${barWidthPct}%` }}>
@@ -840,8 +860,8 @@ function PayoutFlowBarRow({
         </div>
       </div>
       <div className="text-right text-[10px] leading-tight text-[#6e6e73] tabular-nums">
-        <div>新規 {formatYen(row.basePayYen)} / 支払 {formatYen(row.totalPayYen)} ({payoutSourceLabel(row)})</div>
-        <div>対象 {formatYen(row.grossDueYen)} / 残 {formatYen(row.stockYen)}</div>
+        <div>増える分 {formatYen(row.basePayYen)} / 支払う分 {formatYen(row.totalPayYen)} ({payoutSourceLabel(row)})</div>
+        <div>対象額 {formatYen(row.grossDueYen)} / 残り {formatYen(row.stockYen)}</div>
       </div>
     </div>
   );

@@ -824,13 +824,13 @@ expectIncludes("src/components/admin/AdminSidebar.tsx", [
 ]);
 
 expectIncludes("src/components/monthly-agreement/MonthlyAgreementExperience.tsx", [
-  "支払済み実績",
-  "これから支払予定",
+  "支払い済み",
+  "これから支払う予定",
   "PayoutSourceBadge",
-  "支払実績",
-  "要照合",
+  "支払い済み",
+  "確認中",
   "保存済み",
-  "保護済み",
+  "過去の保存額",
   "税込",
 ]);
 expectIncludes("src/lib/monthly-work-agreement.ts", [
