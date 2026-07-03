@@ -14,6 +14,7 @@
 
 | 日付 | 対象章 | 種別 | 内容 | 理由 | 誰が |
 |---|---|---|---|---|---|
+| 2026-07-03 | 2-2 Member Workflows / 6-6 Member Billing Prompts / 3-14 月初合意 | 変更 | 未合意または条件更新ありでOS内の他画面を開いた場合、`/monthly-agreement` へ即遷移させず、開いた画面を背景に残したまま月初合意の必須モーダルを前面表示する仕様へ変更。build v0.38.4 | ダッシュボード等を開いた本人が突然別ページへ飛ばされたように感じず、「いま開いた画面」と「先に必要な確認」を同時に理解できるようにするため | えいみ |
 | 2026-07-03 | 6-8 Admin MS Overview / 3-14 月初合意 | 修正 | 支払済み実績を `freee_wallet_txn_verified:` 証跡 + `monthly_reward_payout` 明細が一致した行だけに限定し、`reward_paid_at` だけの月は `実績未照合` として別枠化。月初合意の支払実績/支払予定は税込額で表示し、明細は税抜/税込併記。MS編集の保存前支払検算は未照合の支払済み月がある場合 `blocked` にする。build v0.38.3 | 実際の振込額と同一だと確認できない計算キャッシュを支払実績扱いにすると、MS変更時の赤字判定と過去支払表示を信用できなくなるため | えいみ |
 | 2026-07-03 | 2-2 Member Workflows / 6-5 Admin Payouts / 6-6 Member Billing Prompts | 変更 | `is_admin=true` のメンバーは `exclude_from_payout_notice=true` でも月初合意対象に含め、本人合意が未完了/条件更新ありならOS内の他画面より先に `/monthly-agreement` を表示する運用へ更新。build v0.37.10 | admin本人で合意フローをテストできるようにし、合意完了前に他画面へ進めない体験を確認するため | えいみ |
 | 2026-07-03 | 7-1 報酬計算 / 月初合意 | 修正 | `buildRewardSummary` の cap 連鎖を、未払い stock だけでなく未使用の月次capも翌月へ繰り越す方式に変更。基本月次capは `regularCapBudgetYen` / `extraCapBudgetYen` に残し、繰越込みの配分上限を `effectiveRegularCapBudgetYen` / `effectiveExtraCapBudgetYen`、次月へ渡る使い残しを `regularUnusedCapCarryOutYen` / `extraUnusedCapCarryOutYen` として reward summary に保存する。backfill は protected 月をスキップするため、支払済み月は書き換えない | ZMP(p19) しんちゃん(ID026) の月初合意で、年間原資は足りているのに前半の未使用capが捨てられ、後半のMS消化増で未払いがシーズン末に残っていたため。まさ指示「未使用キャップは持ち越せるようにしないと設計上問題があるよね？そしたら持ち越せるようにしよう。」 | えいみ |

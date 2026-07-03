@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import {
+  MonthlyAgreementEntryModal,
+  type MonthlyAgreementEntryGate,
+} from "@/components/monthly-agreement/MonthlyAgreementEntryModal";
 import { GlobalNav } from "@/components/nav/GlobalNav";
 import { PageTitleSetter } from "@/components/nav/PageTitleSetter";
 import { CriticalRealtimeNotify } from "@/components/notifications/CriticalRealtimeNotify";
@@ -70,13 +74,13 @@ function shouldSkipMonthlyAgreementGate(pathname: string) {
   return pathname.startsWith("/monthly-agreement");
 }
 
-async function getMonthlyAgreementGateRedirectPath({
+async function getMonthlyAgreementEntryGate({
   memberId,
   pathname,
 }: {
   memberId: string;
   pathname: string;
-}) {
+}): Promise<MonthlyAgreementEntryGate | null> {
   if (shouldSkipMonthlyAgreementGate(pathname)) return null;
   try {
     const admin = createAdminClient();
@@ -85,12 +89,18 @@ async function getMonthlyAgreementGateRedirectPath({
       memberId,
       viewerMemberId: memberId,
     });
-    const requiresAgreement =
-      bundle.tableReady &&
-      bundle.snapshot.totals.projectCount > 0 &&
-      (bundle.status === "pending" || bundle.status === "needs_reagreement");
-    if (!requiresAgreement) return null;
-    return `/monthly-agreement?ym=${encodeURIComponent(bundle.ym)}&memberId=${encodeURIComponent(memberId)}`;
+    const status = bundle.status;
+    if (status !== "pending" && status !== "needs_reagreement") return null;
+    if (!bundle.tableReady || bundle.snapshot.totals.projectCount <= 0) return null;
+    return {
+      ym: bundle.ym,
+      memberId,
+      status,
+      projectCount: bundle.snapshot.totals.projectCount,
+      expectedRewardYen: bundle.snapshot.totals.expectedRewardYen,
+      stockYen: bundle.snapshot.totals.stockYen,
+      href: `/monthly-agreement?ym=${encodeURIComponent(bundle.ym)}&memberId=${encodeURIComponent(memberId)}`,
+    };
   } catch (err) {
     console.warn("[monthly-agreement] failed to evaluate entry gate:", err);
     return null;
@@ -145,12 +155,12 @@ export default async function AppLayout({
       );
     }
   }
+  let monthlyAgreementGate: MonthlyAgreementEntryGate | null = null;
   if (memberId) {
-    const agreementGatePath = await getMonthlyAgreementGateRedirectPath({
+    monthlyAgreementGate = await getMonthlyAgreementEntryGate({
       memberId,
       pathname,
     });
-    if (agreementGatePath) redirect(agreementGatePath);
   }
   const useHudShellOnly = pathname.startsWith("/hud");
 
@@ -171,6 +181,7 @@ export default async function AppLayout({
       )}
       {isAdmin && <CriticalRealtimeNotify />}
       <TsukuyomiChatBridge />
+      <MonthlyAgreementEntryModal gate={monthlyAgreementGate} />
     </>
   );
 }
