@@ -185,14 +185,14 @@ export const UI_HINTS: Record<string, UiHint> = {
   },
   "monthly-agreement.ms-pt": {
     id: "monthly-agreement.ms-pt",
-    title: "MSの点数で予定額を出す",
-    body: "MSごとの点数、今月進める分、本人の担当割合から予定額を出す。MSの内容や点数が違うと思ったら、直してほしいこととして送る。",
+    title: "今シーズンのMS",
+    body: "ここに出ているMSが、今月の予定額の元になる。点数、今月進める分、担当割合を見て、違うと思ったら「直してほしいこと」から送る。",
     docHref: "/spec/3-14-monthly-work-agreement-current-spec#calculation-contract",
   },
   "monthly-agreement.ms-link": {
     id: "monthly-agreement.ms-link",
-    title: "今シーズンのMSリスト",
-    body: "月初合意に出ているMSの元データを見るリンク。プロジェクト画面で、今シーズンのMS一覧、目標、進み具合を確認できる。",
+    title: "MSをこの画面で確認",
+    body: "月初合意中は外の画面へ移動せず、このモーダル内のMS一覧を見る。合意後はプロジェクト画面でも同じMSを確認できる。",
     docHref: "/manual/2-2-member-workflows-quick-start#月初合意",
   },
   "monthly-agreement.revision-request": {

@@ -57,6 +57,10 @@ function formatBillingStatus(status: string | null | undefined) {
   return labels[status] || "確認中";
 }
 
+function domSafeId(value: string) {
+  return encodeURIComponent(value).replace(/%/g, "").replace(/[^A-Za-z0-9_-]/g, "-");
+}
+
 type MonthlyAgreementMode = "page" | "modal";
 
 type MonthlyAgreementExperienceProps = {
@@ -511,6 +515,13 @@ function ProjectAgreementCard({
   const cockpitHref = `/project/${project.projectId}/cockpit?ym=${encodeURIComponent(ym)}`;
   const msOverviewHref = `/admin/ms-overview?projectId=${encodeURIComponent(project.projectId)}`;
   const linkTargetProps = linksInNewTab ? { target: "_blank", rel: "noreferrer" } : {};
+  const hasMilestones = project.milestones.length > 0;
+  const msSectionId = `monthly-agreement-ms-${domSafeId(project.projectId)}`;
+  const handleShowMsInModal = () => {
+    const section = document.getElementById(msSectionId);
+    section?.scrollIntoView({ behavior: "smooth", block: "start" });
+    section?.focus({ preventScroll: true });
+  };
   return (
     <article className="rounded-lg border border-[#e5e5e7] bg-white p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -522,15 +533,28 @@ function ProjectAgreementCard({
           </div>
           <p className="mt-1 text-xs text-[#86868b]">{project.projectId} / 請求状態 {formatBillingStatus(project.billingStatus)}</p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Link
-              href={cockpitHref}
-              {...linkTargetProps}
-              className="inline-flex items-center gap-1 rounded-md border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-[11px] font-semibold text-sky-800 hover:bg-sky-100"
-            >
-              今シーズンのMSを見る
-              <ArrowRight className="size-3" />
-            </Link>
-            {viewerIsAdmin && (
+            {linksInNewTab ? (
+              <button
+                type="button"
+                onClick={handleShowMsInModal}
+                disabled={!hasMilestones}
+                aria-controls={hasMilestones ? msSectionId : undefined}
+                className="inline-flex items-center gap-1 rounded-md border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-[11px] font-semibold text-sky-800 hover:bg-sky-100 disabled:cursor-not-allowed disabled:border-[#d1d1d6] disabled:bg-[#f5f5f7] disabled:text-[#86868b]"
+              >
+                {hasMilestones ? "この画面でMSを見る" : "MSはまだ未設定"}
+                <ArrowRight className="size-3" />
+              </button>
+            ) : (
+              <Link
+                href={cockpitHref}
+                {...linkTargetProps}
+                className="inline-flex items-center gap-1 rounded-md border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-[11px] font-semibold text-sky-800 hover:bg-sky-100"
+              >
+                今シーズンのMSを見る
+                <ArrowRight className="size-3" />
+              </Link>
+            )}
+            {viewerIsAdmin && !linksInNewTab && (
               <Link
                 href={msOverviewHref}
                 {...linkTargetProps}
@@ -635,22 +659,66 @@ function ProjectAgreementCard({
         </div>
       )}
 
-      {payoutSchedule.length > 0 && (
-        <PayoutScheduleTable rows={payoutSchedule} />
-      )}
-
-      {project.milestones.length > 0 && (
-        <div className="mt-4 overflow-hidden rounded-md border border-[#e5e5e7]">
-          <div className="flex flex-wrap items-center justify-between gap-2 bg-[#f5f5f7] px-3 py-2">
-            <h3 className="text-[12px] font-semibold text-[#3c3c43]">
-              担当するMSと点数 <Hint id="monthly-agreement.ms-pt" />
-            </h3>
-            <Link href={cockpitHref} {...linkTargetProps} className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#007aff]">
-              プロジェクト画面でMSを見る
-              <ArrowRight className="size-3" />
-            </Link>
+      {hasMilestones && (
+        <div
+          id={msSectionId}
+          tabIndex={-1}
+          className="mt-4 scroll-mt-48 overflow-hidden rounded-md border border-[#e5e5e7] outline-none focus:ring-2 focus:ring-sky-200 md:scroll-mt-6"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-2 bg-[#f5f5f7] px-3 py-2">
+            <div className="min-w-0">
+              <h3 className="text-[12px] font-semibold text-[#3c3c43]">
+                今シーズンのMS <Hint id="monthly-agreement.ms-pt" />
+              </h3>
+              <p className="mt-1 text-[11px] leading-relaxed text-[#6e6e73]">
+                予定額は、ここに出ているMSの点数・今月進める分・担当割合から出しています。
+              </p>
+            </div>
+            {!linksInNewTab && (
+              <Link href={cockpitHref} {...linkTargetProps} className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#007aff]">
+                プロジェクト画面でMSを見る
+                <ArrowRight className="size-3" />
+              </Link>
+            )}
           </div>
-          <div className="overflow-x-auto">
+          <div className="divide-y divide-[#e5e5e7] bg-white md:hidden">
+            {project.milestones.map((ms) => {
+              const shareLabel = ms.plannedShare == null ? "未設定" : `${Math.round(ms.plannedShare * 100)}%`;
+              const progressLabel = ms.progressPct == null ? "まだ計算なし" : `${ms.progressPct.toFixed(1)}%`;
+              return (
+                <div key={ms.milestoneId} className="px-3 py-3 text-[12px]">
+                  <p className="font-semibold leading-relaxed text-[#1d1d1f]">{ms.title}</p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-[#86868b]">
+                    {ms.taskDescription || `${formatPt(ms.points)}のMS`}
+                  </p>
+                  <dl className="mt-3 grid grid-cols-2 gap-2">
+                    <div className="rounded-md bg-[#f5f5f7] px-2 py-1.5">
+                      <dt className="text-[10px] font-semibold text-[#86868b]">担当割合</dt>
+                      <dd className="mt-0.5 font-semibold tabular-nums text-[#3c3c43]">{shareLabel}</dd>
+                    </div>
+                    <div className="rounded-md bg-[#f5f5f7] px-2 py-1.5">
+                      <dt className="text-[10px] font-semibold text-[#86868b]">進み具合</dt>
+                      <dd className="mt-0.5 font-semibold tabular-nums text-[#3c3c43]">
+                        {progressLabel}
+                        {ms.monthlyProgressPct != null && ms.monthlyProgressPct > 0 && (
+                          <span className="block text-[10px] font-normal text-[#86868b]">今月 +{ms.monthlyProgressPct.toFixed(1)}点</span>
+                        )}
+                      </dd>
+                    </div>
+                    <div className="rounded-md bg-[#f5f5f7] px-2 py-1.5">
+                      <dt className="text-[10px] font-semibold text-[#86868b]">今月の点数</dt>
+                      <dd className="mt-0.5 font-semibold tabular-nums text-[#3c3c43]">{formatPt(ms.earnedPt)}</dd>
+                    </div>
+                    <div className="rounded-md bg-sky-50 px-2 py-1.5">
+                      <dt className="text-[10px] font-semibold text-sky-800">予定額</dt>
+                      <dd className="mt-0.5 font-semibold tabular-nums text-sky-950">{formatYen(ms.expectedRewardYen)}</dd>
+                    </div>
+                  </dl>
+                </div>
+              );
+            })}
+          </div>
+          <div className="hidden overflow-x-auto md:block">
             <div className="min-w-[760px]">
               <div className="grid grid-cols-[minmax(220px,1.4fr)_86px_110px_94px_112px] bg-white px-3 py-2 text-[11px] font-semibold text-[#6e6e73]">
                 <span>やること</span>
@@ -686,6 +754,10 @@ function ProjectAgreementCard({
             </div>
           </div>
         </div>
+      )}
+
+      {payoutSchedule.length > 0 && (
+        <PayoutScheduleTable rows={payoutSchedule} />
       )}
     </article>
   );
