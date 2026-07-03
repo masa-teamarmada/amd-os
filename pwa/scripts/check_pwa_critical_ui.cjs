@@ -834,6 +834,10 @@ expectIncludes("src/components/admin/AdminSidebar.tsx", [
 ]);
 
 expectIncludes("src/components/monthly-agreement/MonthlyAgreementExperience.tsx", [
+  "この画面で確認すること",
+  "今月の約束",
+  "予定額の出どころ",
+  "支払いとの関係",
   "支払い済み",
   "これから支払う予定",
   "PayoutSourceBadge",
@@ -842,6 +846,10 @@ expectIncludes("src/components/monthly-agreement/MonthlyAgreementExperience.tsx"
   "保存済み",
   "過去の保存額",
   "税込",
+]);
+expectNotIncludes("src/components/monthly-agreement/MonthlyAgreementExperience.tsx", [
+  "合意から支払いまでの流れ",
+  "あとで支払い画面で別に決めます",
 ]);
 expectIncludes("src/lib/monthly-work-agreement.ts", [
   "monthly_reward_payout",

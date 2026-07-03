@@ -149,8 +149,8 @@ export const UI_HINTS: Record<string, UiHint> = {
   // ──────────────────────────────────────
   "monthly-agreement.flow": {
     id: "monthly-agreement.flow",
-    title: "月初合意から支払いまで",
-    body: "ここでは「今月やる仕事」と「もらえる予定額」を先に確認する。実際に支払う金額は、支払う月に別の画面で確認して決める。",
+    title: "この画面で合意すること",
+    body: "合意するのは、今月やる仕事、目標、もらえる予定額。MSの点数などは、予定額を出すために使った材料。支払い欄は、合意した予定額がいつ払われるか、残りがあるかを見る場所。",
     docHref: "/manual/2-2-member-workflows-quick-start#月初合意",
   },
   "monthly-agreement.project-count": {

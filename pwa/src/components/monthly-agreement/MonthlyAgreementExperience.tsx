@@ -415,20 +415,20 @@ function AgreementFlowRail() {
     {
       key: "agreement",
       icon: <FileCheck2 className="size-4" />,
-      label: "月初合意",
-      body: "今月やること、目標、もらえる予定額を記録する",
+      label: "今月の約束",
+      body: "今月やる仕事、目標、もらえる予定額を確認して合意する",
     },
     {
       key: "ms",
       icon: <ListChecks className="size-4" />,
-      label: "MSの点数",
-      body: "MSの点数、今月進める分、担当割合から予定額を出す",
+      label: "予定額の出どころ",
+      body: "MSの点数、今月進める分、担当割合は、予定額を出すための材料",
     },
     {
       key: "payout",
       icon: <CircleDollarSign className="size-4" />,
-      label: "支払い前チェック",
-      body: "未確認や修正中のものは、支払い通知に進めない",
+      label: "支払いとの関係",
+      body: "合意した予定額が支払いの元になる。支払い欄では、いつ払うか・残りがあるかを見る",
     },
   ];
   return (
@@ -436,15 +436,15 @@ function AgreementFlowRail() {
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-[14px] font-semibold text-[#1d1d1f]">
-            合意から支払いまでの流れ <Hint id="monthly-agreement.flow" />
+            この画面で確認すること <Hint id="monthly-agreement.flow" />
           </h2>
           <p className="mt-1 text-[12px] text-[#6e6e73]">
-            ここでは「今月やること」と「もらえる予定額」を確認します。実際に支払う金額は、あとで支払い画面で別に決めます。
+            ここで合意するのは、今月やることと、もらえる予定額です。支払い欄は、その予定額がいつ払われるか、まだ残る金額があるかを見る場所です。
           </p>
         </div>
       </div>
       <div className="grid gap-2 md:grid-cols-3">
-        {steps.map((step, index) => (
+        {steps.map((step) => (
           <div key={step.key} className="relative rounded-md border border-[#e5e5e7] bg-[#fbfbfd] p-3">
             <div className="flex items-center gap-2 text-[12px] font-semibold text-[#1d1d1f]">
               <span className="inline-flex size-7 items-center justify-center rounded-full bg-white text-[#007aff] ring-1 ring-[#d1d1d6]">
@@ -453,9 +453,6 @@ function AgreementFlowRail() {
               {step.label}
             </div>
             <p className="mt-2 text-[11px] leading-relaxed text-[#6e6e73]">{step.body}</p>
-            {index < steps.length - 1 && (
-              <ArrowRight className="absolute right-3 top-3 hidden size-4 text-[#c7c7cc] md:block" />
-            )}
           </div>
         ))}
       </div>
