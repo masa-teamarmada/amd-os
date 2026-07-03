@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 540" font-family="Helvetica, Arial, sans-serif">
+  <!-- Fig. 3: Endogenous founding threshold θ*_σ — comparative statics by regime (SCHEMATIC; quantitative version via SM-C.5 scheme) -->
+  <defs>
+    <marker id="ax3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#333"/>
+    </marker>
+    <marker id="arr3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#555"/>
+    </marker>
+  </defs>
+
+  <!-- axes -->
+  <line x1="100" y1="440" x2="850" y2="440" stroke="#333" stroke-width="1.6" marker-end="url(#ax3)"/>
+  <line x1="100" y1="440" x2="100" y2="60" stroke="#333" stroke-width="1.6" marker-end="url(#ax3)"/>
+  <text x="475" y="480" font-size="15" fill="#222" text-anchor="middle">financial slack F (gap funds, fellowships, patient revenue)</text>
+  <text x="48" y="250" font-size="15" fill="#222" text-anchor="middle" transform="rotate(-90 48 250)">founding threshold θ*_σ (macro tailwind required)</text>
+
+  <!-- Threshold curves: downward in F; ordered by regime θ*(S0) > θ*(S1) > θ*(S2) -->
+  <!-- S0 dormant (top) -->
+  <path d="M 130 110 C 300 130, 520 165, 820 205" stroke="#222" stroke-width="2.6" fill="none"/>
+  <text x="826" y="205" font-size="13.5" font-weight="bold" fill="#222">θ*(S₀) dormant</text>
+
+  <!-- S1 warming (middle) -->
+  <path d="M 130 205 C 300 228, 520 262, 820 300" stroke="#555" stroke-width="2.6" fill="none"/>
+  <text x="826" y="300" font-size="13.5" font-weight="bold" fill="#555">θ*(S₁) warming</text>
+
+  <!-- S2 aligned (bottom) -->
+  <path d="M 130 300 C 300 322, 520 355, 820 392" stroke="#888" stroke-width="2.6" fill="none"/>
+  <text x="826" y="392" font-size="13.5" font-weight="bold" fill="#888">θ*(S₂) aligned</text>
+
+  <!-- comparative statics annotations -->
+  <line x1="330" y1="150" x2="330" y2="105" stroke="#555" stroke-width="1.5" marker-end="url(#arr3)"/>
+  <text x="340" y="118" font-size="12.5" fill="#555">∂θ*/∂B &gt; 0 : burn pressure raises the bar</text>
+
+  <line x1="560" y1="270" x2="560" y2="315" stroke="#555" stroke-width="1.5" marker-end="url(#arr3)"/>
+  <text x="570" y="308" font-size="12.5" fill="#555">∂θ*/∂P &lt; 0 : larger opportunity lowers it</text>
+  <text x="570" y="325" font-size="12.5" fill="#555">∂θ*/∂π_kk &lt; 0 : credible regimes lower it</text>
+
+  <!-- downward slope note -->
+  <text x="200" y="415" font-size="12.5" fill="#555">∂θ*/∂F &lt; 0 : runway substitutes for tailwind along every curve</text>
+
+  <!-- WAIT/GO regions illustration on S1 curve -->
+  <circle cx="430" cy="243" r="5.5" fill="#fff" stroke="#333" stroke-width="2"/>
+  <text x="430" y="228" font-size="12" fill="#333" text-anchor="middle">σ_SU &lt; θ*: WAIT (option value)</text>
+  <circle cx="700" cy="286" r="5.5" fill="#333"/>
+  <text x="700" y="271" font-size="12" fill="#333" text-anchor="middle">σ_SU ≥ θ*: GO (if g_TRL = 1)</text>
+
+  <!-- schematic note -->
+  <text x="475" y="516" font-size="12" fill="#666" text-anchor="middle" font-style="italic">Schematic illustration of Theorem 4 and Proposition 2 (no computed values; curve shapes qualitative). Regime ordering θ*(S₀) &gt; θ*(S₁) &gt; θ*(S₂):</text>
+  <text x="475" y="532" font-size="12" fill="#666" text-anchor="middle" font-style="italic">the same venture rationally demands more visible tailwind when the regime is less credible. Quantitative rendering follows the SM-C.5 scheme.</text>
+</svg>
