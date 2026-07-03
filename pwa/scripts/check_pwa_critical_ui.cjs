@@ -823,7 +823,7 @@ expectIncludes("src/components/admin/AdminSidebar.tsx", [
   "/admin/ms-overview",
 ]);
 
-expectIncludes("src/app/(app)/monthly-agreement/page.tsx", [
+expectIncludes("src/components/monthly-agreement/MonthlyAgreementExperience.tsx", [
   "支払済み実績",
   "これから支払予定",
   "PayoutSourceBadge",
