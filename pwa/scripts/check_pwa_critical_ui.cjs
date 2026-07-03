@@ -874,9 +874,9 @@ expectIncludes("src/components/monthly-agreement/MonthlyAgreementExperience.tsx"
   "今月の約束",
   "予定額の出どころ",
   "支払いとの関係",
-  "この画面でMSを見る",
   "今シーズンのMS",
-  "予定額は、ここに出ているMS",
+  "予定額は、ここに出ているMSのpt",
+  "今月のpt",
   "支払い済み",
   "これから支払う予定",
   "PayoutSourceBadge",
@@ -889,6 +889,15 @@ expectIncludes("src/components/monthly-agreement/MonthlyAgreementExperience.tsx"
 expectNotIncludes("src/components/monthly-agreement/MonthlyAgreementExperience.tsx", [
   "合意から支払いまでの流れ",
   "あとで支払い画面で別に決めます",
+  "この画面でMSを見る",
+  "今月の点数",
+  "MSの点数",
+]);
+expectIncludes("src/components/monthly-agreement/MonthlyAgreementGateOverlay.tsx", [
+  "onBackdropClick",
+  "event.target !== event.currentTarget",
+  "dismissedGateKey",
+  "bundle.currentHash",
 ]);
 expectIncludes("src/lib/monthly-work-agreement.ts", [
   "monthly_reward_payout",

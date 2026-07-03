@@ -150,7 +150,7 @@ export const UI_HINTS: Record<string, UiHint> = {
   "monthly-agreement.flow": {
     id: "monthly-agreement.flow",
     title: "この画面で合意すること",
-    body: "合意するのは、今月やる仕事、目標、もらえる予定額。MSの点数などは、予定額を出すために使った材料。支払い欄は、合意した予定額がいつ払われるか、残りがあるかを見る場所。",
+    body: "合意するのは、今月やる仕事、目標、もらえる予定額。MSのptなどは、予定額を出すために使った材料。支払い欄は、合意した予定額がいつ払われるか、残りがあるかを見る場所。",
     docHref: "/manual/2-2-member-workflows-quick-start#月初合意",
   },
   "monthly-agreement.project-count": {
@@ -186,7 +186,7 @@ export const UI_HINTS: Record<string, UiHint> = {
   "monthly-agreement.ms-pt": {
     id: "monthly-agreement.ms-pt",
     title: "今シーズンのMS",
-    body: "ここに出ているMSが、今月の予定額の元になる。点数、今月進める分、担当割合を見て、違うと思ったら「直してほしいこと」から送る。",
+    body: "ここに出ているMSが、今月の予定額の元になる。pt、今月進める分、担当割合を見て、違うと思ったら「直してほしいこと」から送る。",
     docHref: "/spec/3-14-monthly-work-agreement-current-spec#calculation-contract",
   },
   "monthly-agreement.ms-link": {
