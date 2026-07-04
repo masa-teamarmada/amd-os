@@ -14,6 +14,7 @@
 
 | 日付 | 対象章 | 種別 | 内容 | 理由 | 誰が |
 |---|---|---|---|---|---|
+| 2026-07-04 | 6-7 契約管理 / 7-1 報酬計算 | 修正 | monthly_fixed 契約の Contract Apply が、バッファなしの場合に未確定の `billing_cycles.budget_yen` と現行 `value_plan_cycles.budget_yen` を契約 cap (= 月額税抜×65%) へ整合するルールを追記。KUTE p25 の「2026-05-08 一括生成値を旧 Contract Apply が温存し、2026-07-01 当月自動確定だけが65%へ直した」原因メモも追加。build v0.39.1 | 月によってPJ予算の計上が違って見えた原因は手入力ではなく、古い一括生成経路と当月自動確定経路の混在だったため。契約反映済みなのに未来月だけクライアント支払額がPJ予算に残る状態を再発させないため | えいみ |
 | 2026-07-04 | 2-6 adminオペ | 追加 | `/admin/management-knowledge` 経営ノウハウ台帳を追加し、`management_knowledge_entries`、admin-only境界、maturity、source hygiene、Proto-RT 初期カードを追記。build v0.39.0 | 日々生まれる経営ノウハウを会話やローカルメモで消さず、OS内の再利用カードとして蓄積するため | えいみ |
 | 2026-07-03 | 2-3 PJ コックピット / 6-8 Admin MS Overview / 7-1 報酬計算 / 3-14 月初合意 | 修正 | CryoX のような schedule_based 契約では `contract_terms_json.monthlySchedule.amountTaxExcl` を予定クライアント支払として収支に入れる。PJ cockpit と MS編集検算に `原資上限 = (クライアント支払 - バッファ) × 65%` を追加し、PJ予算が原資上限を 1 円でも超える場合も赤停止・保存不可にする。build v0.38.12 | KUTE のように期末未払が 0 でも PJ予算自体が原資上限を超えていれば、AMD運営費が見えないところで削られるため | えいみ |
 | 2026-07-03 | 2-2 Member Workflows / 6-6 Member Billing Prompts / 3-14 月初合意 | 修正 | 月初合意の必須モーダルを、背景クリックなどで先送りできない確認画面として明記し、実装も合意完了後だけ閉じる形へ戻した。build v0.38.11 | 未合意または条件更新ありのままOS操作へ進めると、「合意完了までは最初に月初合意を確認する」という月初運用が崩れるため | えいみ |

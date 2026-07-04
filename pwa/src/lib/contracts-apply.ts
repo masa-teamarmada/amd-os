@@ -1,11 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { parseSeasonBufferTotal } from "@/lib/finance/season-finance";
 
 /**
  * Contract Apply — contract_terms (status='applied') を OS の 3 層に書き戻す。
  *
  *   ① projects.contract_terms_json         … 契約メタ正本 (月額 / 期間 / pool / cap / 出典)
  *   ② projects.fee_type / fee_amount / start_ym / end_ym … 月次収支シミュレータの固定収益入力
- *   ③ billing_cycles.budget_yen (+ contract 由来であることの印)        … 月別売上 (変動契約)
+ *   ③ billing_cycles.budget_yen (+ contract 由来であることの印)        … 月別PJ予算 / 変動契約の月別売上根拠
  *
  * 正本 spec: pwa/spec/5-6-contracts-management-current-spec.md「契約抽出 → projects / billing_cycles 反映 (Contract Apply)」。
  *
@@ -14,6 +15,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  *   Contract Apply は applied term の値を機械的に 3 層へ流すだけ。恣意的な数学操作はしない。
  * - end_ym は必ず設定する (CX 無期限計上事故の再発防止)。monthly_fixed で end_ym=null を残さない。
  * - schedule_based / 月別金額が違う契約は ② の一律額にせず ③ の月別 budget_yen に展開する。
+ * - monthly_fixed でも、既存の一括生成行に売上額が残らないよう、未確定の月別PJ予算と現行 plan cycle 原資を契約 cap へ整合する。
  * - 月別 budget_yen は contract_terms の reward_cap_yen をそのまま使う (= 請求額 税抜 × 0.65 相当)。
  *   billing_distribution_json に reward_cap_yen が無い場合だけ round(amount_tax_excl * 0.65) で補う。
  */
@@ -40,8 +42,10 @@ export type ContractApplyPlan = {
   endYm: string;
   /** ① contract_terms_json に畳む値 */
   contractTermsJson: Record<string, unknown>;
-  /** ③ 月別 billing_cycles 反映行 (variable のみ。monthly_fixed は空) */
+  /** ③ 月別 billing_cycles 反映行 (schedule_based は売上根拠も兼ねる) */
   monthly: ContractMonthlyPlan[];
+  /** monthly_fixed の未確定 billing_cycles / plan cycle を契約 cap へ整合する行 */
+  monthlyFixedBudgetRows: ContractMonthlyPlan[];
   warnings: string[];
 };
 
@@ -87,6 +91,26 @@ function booleanOrNull(value: unknown): boolean | null {
 
 function ymToInt(ym: string): number {
   return /^\d{6}$/.test(ym) ? Number(ym) : 0;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function hasContractReserveBuffer(contractTermsJson: unknown): boolean {
+  const terms = asRecord(contractTermsJson);
+  return num(
+    terms.companyReserveBufferYen ??
+      terms.company_reserve_buffer_yen ??
+      terms.reserveBufferYen ??
+      terms.reserve_buffer_yen,
+  ) > 0;
+}
+
+function isMutableBillingStatus(status: string | null | undefined): boolean {
+  return !status || status === "not_started";
 }
 
 /** start..end (inclusive) の ym 列を返す */
@@ -216,6 +240,7 @@ export function deriveContractApplyPlan(term: AppliedTermRow): ContractApplyPlan
         notes: (bdj.basis ? `billing: ${String(bdj.basis)}. ` : "") + "Contract Apply (schedule_based) 自動反映",
       },
       monthly,
+      monthlyFixedBudgetRows: [],
       warnings,
     };
   }
@@ -239,6 +264,11 @@ export function deriveContractApplyPlan(term: AppliedTermRow): ContractApplyPlan
   }
   const monthlyCap = num(bdj.monthly_payout_cap_65) || Math.round(monthlyFee * REWARD_RATE);
   const rewardPool = monthlyCap * months.length;
+  const monthlyFixedBudgetRows = months.map((ym) => ({
+    ym,
+    amountTaxExcl: monthlyFee,
+    budgetYen: monthlyCap,
+  }));
 
   return {
     projectId,
@@ -259,6 +289,7 @@ export function deriveContractApplyPlan(term: AppliedTermRow): ContractApplyPlan
       notes: "Contract Apply (monthly_fixed) 自動反映",
     },
     monthly: [],
+    monthlyFixedBudgetRows,
     warnings,
   };
 }
@@ -271,6 +302,8 @@ export type ContractApplyResult = {
   startYm: string;
   endYm: string;
   monthlyApplied: number;
+  monthlyFixedBudgetApplied: number;
+  planCyclesReconciled: number;
   warnings: string[];
 };
 
@@ -298,10 +331,21 @@ export async function applyContractTerms(
   if ("error" in plan) throw new Error(plan.error);
 
   const now = new Date().toISOString();
+  const { data: existingProject, error: existingProjectErr } = await db
+    .from("projects")
+    .select("contract_terms_json")
+    .eq("project_id", plan.projectId)
+    .maybeSingle();
+  if (existingProjectErr) throw existingProjectErr;
+  const currentContractTerms = asRecord((existingProject as { contract_terms_json?: unknown } | null)?.contract_terms_json);
+  const mergedContractTermsJson = {
+    ...currentContractTerms,
+    ...plan.contractTermsJson,
+  };
 
   // ① + ② projects 更新
   const projectsPatch: Record<string, unknown> = {
-    contract_terms_json: plan.contractTermsJson,
+    contract_terms_json: mergedContractTermsJson,
     fee_type: plan.feeType,
     fee_amount: plan.feeType === "monthly_fixed" ? plan.feeAmount : null,
     start_ym: plan.startYm,
@@ -346,6 +390,87 @@ export async function applyContractTerms(
     }
   }
 
+  let monthlyFixedBudgetApplied = 0;
+  let planCyclesReconciled = 0;
+  const shouldReconcileMonthlyFixed = plan.mode === "monthly_fixed"
+    && plan.monthlyFixedBudgetRows.length > 0
+    && !hasContractReserveBuffer(mergedContractTermsJson);
+
+  if (shouldReconcileMonthlyFixed) {
+    const budgetByYm = new Map(plan.monthlyFixedBudgetRows.map((m) => [m.ym, m.budgetYen]));
+    const { data: existingCycles, error: fixedCycleErr } = await db
+      .from("billing_cycles")
+      .select("ym, status, budget_yen")
+      .eq("project_id", plan.projectId)
+      .in("ym", plan.monthlyFixedBudgetRows.map((m) => m.ym));
+    if (fixedCycleErr) throw fixedCycleErr;
+
+    const lockedMismatches = ((existingCycles ?? []) as Array<{ ym: string; status: string | null; budget_yen: unknown }>)
+      .filter((cycle) => !isMutableBillingStatus(cycle.status))
+      .filter((cycle) => num(cycle.budget_yen) !== (budgetByYm.get(cycle.ym) ?? 0));
+    if (lockedMismatches.length > 0) {
+      const detail = lockedMismatches
+        .map((cycle) => `${cycle.ym}: ${num(cycle.budget_yen)} != ${budgetByYm.get(cycle.ym) ?? 0}`)
+        .join(", ");
+      throw new Error(`monthly_fixed 契約 cap と確定済み billing_cycles が不一致のため反映不可: ${detail}`);
+    }
+
+    const mutableYms = new Set(
+      ((existingCycles ?? []) as Array<{ ym: string; status: string | null }>)
+        .filter((cycle) => isMutableBillingStatus(cycle.status))
+        .map((cycle) => cycle.ym),
+    );
+    const existingYms = new Set(((existingCycles ?? []) as Array<{ ym: string }>).map((cycle) => cycle.ym));
+    const fixedRows = plan.monthlyFixedBudgetRows
+      .filter((m) => mutableYms.has(m.ym) || !existingYms.has(m.ym))
+      .map((m) => ({
+        project_id: plan.projectId,
+        ym: m.ym,
+        status: "not_started",
+        budget_yen: m.budgetYen,
+        budget_buffer_amount: 0,
+        contract_source_term_id: null,
+        updated_at: now,
+      }));
+    if (fixedRows.length > 0) {
+      const { error: fixedUpsertErr } = await db
+        .from("billing_cycles")
+        .upsert(fixedRows, { onConflict: "project_id,ym" });
+      if (fixedUpsertErr) throw fixedUpsertErr;
+      monthlyFixedBudgetApplied = fixedRows.length;
+    }
+
+    const { data: planCycles, error: planCycleErr } = await db
+      .from("value_plan_cycles")
+      .select("plan_cycle_id, period_start_ym, period_end_ym, status, budget_yen, buffer_breakdown_json")
+      .eq("project_id", plan.projectId)
+      .in("status", ["active", "confirmed", "draft"]);
+    if (planCycleErr) throw planCycleErr;
+
+    for (const cycle of (planCycles ?? []) as Array<{
+      plan_cycle_id: string;
+      period_start_ym: string | null;
+      period_end_ym: string | null;
+      budget_yen: unknown;
+      buffer_breakdown_json: unknown;
+    }>) {
+      const start = cycle.period_start_ym || "";
+      const end = cycle.period_end_ym || "";
+      if (!/^\d{6}$/.test(start) || !/^\d{6}$/.test(end)) continue;
+      if (parseSeasonBufferTotal(cycle.buffer_breakdown_json)) continue;
+      const reconciledBudget = plan.monthlyFixedBudgetRows
+        .filter((m) => m.ym >= start && m.ym <= end)
+        .reduce((sum, m) => sum + m.budgetYen, 0);
+      if (reconciledBudget <= 0 || num(cycle.budget_yen) === reconciledBudget) continue;
+      const { error: pcUpdateErr } = await db
+        .from("value_plan_cycles")
+        .update({ budget_yen: reconciledBudget })
+        .eq("plan_cycle_id", cycle.plan_cycle_id);
+      if (pcUpdateErr) throw pcUpdateErr;
+      planCyclesReconciled += 1;
+    }
+  }
+
   // 監査ログ
   await db.from("billing_log").insert({
     project_id: plan.projectId,
@@ -360,6 +485,11 @@ export async function applyContractTerms(
       start_ym: plan.startYm,
       end_ym: plan.endYm,
       monthly_applied: monthlyApplied,
+      monthly_fixed_budget_applied: monthlyFixedBudgetApplied,
+      plan_cycles_reconciled: planCyclesReconciled,
+      skipped_monthly_fixed_reconcile_reason: plan.mode === "monthly_fixed" && !shouldReconcileMonthlyFixed
+        ? "contract_or_season_buffer_present"
+        : null,
       warnings: plan.warnings,
       applied_at: now,
     },
@@ -373,6 +503,8 @@ export async function applyContractTerms(
     startYm: plan.startYm,
     endYm: plan.endYm,
     monthlyApplied,
+    monthlyFixedBudgetApplied,
+    planCyclesReconciled,
     warnings: plan.warnings,
   };
 }

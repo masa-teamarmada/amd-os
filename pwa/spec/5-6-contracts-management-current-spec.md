@@ -199,7 +199,11 @@ MVPでは `CONTRACTS_DRIVE_FOLDER_ID` が設定されているかを画面に出
 
 ### Contract Apply との関係
 
-cron が機能するには、対象 PJ の契約が Contract Apply 済みであること (schedule_based なら ③ に `contract_source_term_id`、monthly_fixed なら ② に `fee_type/fee_amount/end_ym`) が前提。古い手編集で `contract_source_term_id` や `end_ym` が欠けている PJ は、新 writer で再 apply してから cron 対象になる (2026-06-18 に CX p20 / SX p21 を再 apply 済み)。
+cron が機能するには、対象 PJ の契約が Contract Apply 済みであることが前提。schedule_based は ③ に `contract_source_term_id` 付きの月別 `budget_yen`、monthly_fixed は ② に `fee_type/fee_amount/end_ym` を入れる。さらに **2026-07-04 以降、monthly_fixed でも未確定の月別 `billing_cycles.budget_yen` と現行 `value_plan_cycles.budget_yen` を契約 cap (= 月額税抜 ×65%) へ整合する**。ただし SX のように契約/シーズンバッファがある PJ は単純な月額×65%で上書きせず、`buffer_breakdown_json` / 契約バッファの原資設計を優先する。確定済みの月別 budget が契約 cap と不一致なら、Contract Apply は隠して進まず失敗させる。
+
+古い手編集で `contract_source_term_id` や `end_ym` が欠けている PJ は、新 writer で再 apply してから cron 対象になる (2026-06-18 に CX p20 / SX p21 を再 apply 済み)。
+
+> **KUTE 原因メモ (2026-07-04)**: p25 KUTE は 2026-05-08 に plan cycle と全月 `billing_cycles` が一括作成され、その時点で `budget_yen` にクライアント月額相当が入っていた。2026-06-18 の Contract Apply は当時の仕様どおり monthly_fixed で `monthly_applied:0` (= 月別行を触らない) だったため古い値を温存し、2026-07-01 の自動確定だけが当月 202607 を正しい 65% cap へ直した。つまり「月ごとの手入力差」ではなく、古い一括生成値と当月自動確定の二つの自動経路が混ざった事故。以後、monthly_fixed apply は未確定月と現行 plan cycle 原資を同時に整合し、この混在を残さない。
 
 #### Contract Apply 適用済み PJ (2026-06-18 時点)
 
@@ -213,7 +217,7 @@ cron が機能するには、対象 PJ の契約が Contract Apply 済みであ�
 >
 > SX p21 は、契約開始前の役員事前稼働分 800,000 円を AMD 回収バッファとして `projects.contract_terms_json.companyReserveBufferYen=800000` / `companyReserveBufferStartYm=202606` / `companyReserveBufferMonthlyYen=200000` に保存済み。契約自動確定は 202606〜202609 の4か月に 200,000 円ずつ `billing_cycles.budget_buffer_amount` として消化し、残った cap だけを役員会社留保・非役員支払/stock返済へ回す。
 >
-> KUTE p25 は **役員のみ PJ** (manual/7-1-reward-calc-spec.md L292)。Contract Apply は SX と同型の monthly_average → monthly_fixed 反映。② に税抜月額 654,545 を立て (報酬 cap は ×0.65 = 425,454 を fallback 導出)、③ billing_cycles は触らない。役員は payout から落ちる (再分配しない) ので capped 支払予定 = ¥0 が正しい結果。契約書 = Drive `00_契約_KUTE` の `260501_業務委託契約書(260501_270331)_工学院大学_AMD.PDF` (税込 7,920,000 / 税抜 7,200,000、第7条 毎月均等)。
+> KUTE p25 は **役員のみ PJ** (manual/7-1-reward-calc-spec.md L292)。Contract Apply は SX と同型の monthly_average → monthly_fixed 反映。② に税抜月額 654,545 を立て、報酬 cap は ×0.65 = 425,454。2026-07-04 以降の Contract Apply は、バッファなし monthly_fixed では未確定の ③ `billing_cycles.budget_yen` と現行 plan cycle 原資も 425,454/月・総額 4,679,994 に整合する。役員は payout から落ちる (再分配しない) ので capped 支払予定 = ¥0 が正しい結果。契約書 = Drive `00_契約_KUTE` の `260501_業務委託契約書(260501_270331)_工学院大学_AMD.PDF` (税込 7,920,000 / 税抜 7,200,000、第7条 毎月均等)。
 
 #### active PJ 全件 Contract Apply カバレッジ監査 (2026-06-18)
 

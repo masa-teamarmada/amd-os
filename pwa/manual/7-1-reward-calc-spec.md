@@ -296,6 +296,8 @@ extra_budget_yen: 202605〜202609 = 0 (全額繰越) / 202610 = 1,300,000 (完�
 
 ただし `value_plan_cycles.buffer_breakdown_json` にシーズン全体のバッファ内訳があり、`value_plan_cycles.budget_yen` が `(請求額 − バッファ) × 65%` として既に確定している PJ では、契約自動確定・予算承認はそのシーズン原資を請求月へ按分した `budget_yen` を使い、`billing_cycles.budget_buffer_amount` で同じバッファを二重控除しない。表示上のバッファも `buffer_breakdown_json` を優先する。SX のように営業費用・旅費などをシーズン原資に織り込んだ PJ で、請求サイクル側にさらに月次バッファを入れると、PJ予算が過小になり期末未払を発生させるため禁止。
 
+monthly_fixed 契約の Contract Apply は、バッファなしの場合、未確定の `billing_cycles.budget_yen` と現行 `value_plan_cycles.budget_yen` を契約 cap (= 月額税抜×65% の月次合計) に整合する。KUTE p25 では 2026-05-08 の一括生成時にクライアント月額相当が月別 `budget_yen` に入り、2026-06-18 の旧 Contract Apply が monthly_fixed 月別行を触らず、2026-07-01 の当月自動確定だけが正しい65%へ直したため、月ごとに新旧ロジックが混在した。以後、契約反映済みなのに未来月だけ古い一括生成値が残る状態を禁止する。
+
 契約最終月に `ptUnit = round(cycleBudget / totalPt)` の円丸めで少額の stock が残る場合も、報酬計算側が自動で cap を増やしてはいけない。MS保存前検算で不足額として表示し、必要なら admin が契約・PJ予算・MS設計を明示的に直してから保存する。通常月 cap は契約月額 × 65% と未使用 cap 繰越だけで計算し、暗黙の精算枠は作らない。
 
 ### 会社留保の扱い

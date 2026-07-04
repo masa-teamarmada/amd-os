@@ -46,7 +46,9 @@ OSにはDrive file id、link、version label、押印版かどうかだけを保
 
 MTGタイトルや議事録本文に「契約」「締結」があるだけでは契約台帳行にしない。契約種別、契約文書、署名/押印/修正/法務確認などの具体的な文書アクションが揃わないものは evidence のまま残す。
 
-契約No・見積No・期間・金額・提出物・月次報告書提出ルール・立替精算可否が読める場合は、契約条件候補として表示する。候補の段階では売上・予実・報酬capを変えない。adminが内容を確認して `applied` にした後、Contract Apply 経由で `projects.contract_terms_json` / billing_cycles に反映される。
+契約No・見積No・期間・金額・提出物・月次報告書提出ルール・立替精算可否が読める場合は、契約条件候補として表示する。候補の段階では売上・予実・報酬capを変えない。adminが内容を確認して `applied` にした後、Contract Apply 経由で `projects.contract_terms_json` / `value_plan_cycles` / `billing_cycles` に反映される。
+
+monthly_fixed 契約でも、未確定の月別 `billing_cycles.budget_yen` と現行 `value_plan_cycles.budget_yen` は契約 cap (= 月額税抜×65%、バッファなしの場合) へ整合する。古い一括生成データにクライアント支払額そのものが入っていると、当月自動確定だけが正しい65%へ直り、未来月だけ古い値が残る。KUTE で起きた事故はこの混在が原因なので、Contract Apply はこの状態を温存しない。契約/シーズンバッファがある PJ は単純上書きせず、バッファ込みのシーズン原資を優先する。
 
 ## Nudge
 
