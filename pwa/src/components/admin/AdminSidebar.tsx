@@ -15,6 +15,7 @@ const ADMIN_TABS = [
   { label: "週次活動", href: "/admin/weekly" },
   { label: "Protocols", href: "/admin/protocols" },
   { label: "LLM Context", href: "/admin/contexts" },
+  { label: "経営ノウハウ", href: "/admin/management-knowledge" },
   { label: "裏wiki", href: "/admin/private-wiki" },
   { label: "つくよみ", href: "/admin/tsukuyomi" },
   { label: "📝 LLM プロンプト", href: "/admin/prompts" },

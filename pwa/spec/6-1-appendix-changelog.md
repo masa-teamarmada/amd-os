@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-07-04 | 2-1 PWA Runtime / FEATURE_REGISTRY / db_schema | 追加 | `/admin/management-knowledge`、`/api/admin/management-knowledge`、`management_knowledge_entries` の admin-only contract を追加。Proto-RT 型の初期カードを seed し、`maturity` で raw/hypothesis/field_tested/playbook を分離。build v0.39.0 | 経営ノウハウをローカルmdや会話ログではなく、OS内で検索・更新できる横断台帳へ移すため | えいみ |
 | 2026-07-03 | 3-8 PJ Cockpit / 3-14 月初合意 / 6-8 Admin MS Overview / 7-1 報酬計算 | 修正 | schedule_based 契約の `contract_terms_json.monthlySchedule.amountTaxExcl` を予定クライアント支払として扱う。season finance と MS保存前検算に `原資上限 = (クライアント支払 - バッファ) × 65%` を追加し、PJ予算が原資上限を超える場合も `blocked` にする。build v0.38.12 | 期末未払が 0 でも PJ予算が原資上限を超えると、AMD運営費が画面上では見えないまま削られるため | えいみ |
 | 2026-07-03 | 3-14 月初合意 | 修正 | app entry gate の月初合意モーダルを、背景クリックや閉じる操作で先送りできない必須確認に戻した。合意が保存された時だけモーダルを閉じ、通常画面へ戻る。重要画面チェックも、背景クリック dismissal が戻ったら失敗する内容へ更新。build v0.38.11 | 「合意完了までは OS を開いたら最初に月初合意画面が出る」という運用に対して、背景クリックで一時的に閉じられる実装が残ると未合意のままOS操作へ進めてしまうため | えいみ |
 | 2026-07-03 | 3-8 PJ Cockpit / 3-14 月初合意 / 6-8 Admin MS Overview / 7-1 報酬計算 | 修正 | PJ cockpit と MS編集検算の `クライアント支払` に別財布売上を加算し、`バッファ` は `value_plan_cycles.buffer_breakdown_json` を優先する仕様へ更新。MS Overview は閲覧モードで cycle を開いた時点でも現行案を検算し、既存不足があれば `MS編集停止中` の赤表示を出す。契約自動確定/予算承認は、シーズン原資にバッファ内訳がある PJ で `billing_cycles.budget_buffer_amount` による二重控除をしない。build v0.38.10 | ZMP の別財布売上がクライアント支払に入らず PJ予算が売上超過に見え、SX ではシーズン原資に織り込み済みのバッファを月次請求側でも二重控除して期末未払を発生させていたため | えいみ |

@@ -171,7 +171,7 @@ export const MANUAL_CHAPTERS: ManualChapterConfig[] = [
   { slug: "2-3-pj-cockpit", title: "PJ コックピットの見方", summary: "PJ Status、MS 進捗、経営ハイライト、月次カードの読み方。", topics: ["cockpit", "decision", "monthly"], screens: ["/project/{projectId}/cockpit"] },
   { slug: "2-4-amd-cockpit", title: "AMD 全体コックピットの見方", summary: "p00、Management Score、提案前の論点整理の使い方。", topics: ["start", "decision"], screens: ["/project/p00/cockpit"] },
   { slug: "2-5-research-assets-quick-start", title: "探索系アセットの使い方", summary: "Atlas、Seeds、VC、Scholar をまず触るための入口。", topics: ["discovery", "start"], screens: ["/atlas", "/seeds", "/vcs", "/scholar"] },
-  { slug: "2-6-admin-ops", title: "admin月次オペ早見表", summary: "支払、請求、立替、報告書確認、入金確認の締切と流れ。", topics: ["monthly", "admin"], screens: ["/admin/billing", "/admin/payouts"] },
+  { slug: "2-6-admin-ops", title: "admin月次オペ早見表", summary: "支払、請求、立替、報告書確認、入金確認、経営ノウハウ台帳の入口。", topics: ["monthly", "admin"], screens: ["/admin/billing", "/admin/payouts", "/admin/management-knowledge"] },
   { slug: "2-7-task-management", title: "タスク管理（廃止済み）", summary: "/tasks 画面と agent helper は廃止済み。tasks table / API は H-1 と cockpit 互換のため残す。", topics: ["system"], tables: ["tasks"] },
 
   { slug: "3-1-system-architecture", title: "全体設計", summary: "画面、データ、書き込み経路、設計 md 索引まで含む OS の地図。", topics: ["system-dev", "developer"], screens: ["/manual"], tables: ["projects", "members", "billing_cycles"] },

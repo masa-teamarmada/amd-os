@@ -156,6 +156,28 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - `private_wiki_entries.visibility` は `admin_private` 固定。別画面へ再利用するときは `FEATURE_REGISTRY.md` と `/spec/2-1` を先に更新し、admin-only を崩さない。
 - seed は入れない。必要なテストデータはダミーだけにする。
 
+## /admin/management-knowledge
+
+目的: admin だけが、PJ横断で再利用できる経営ノウハウを判断カードとして保存・検索・更新できる。
+
+必須機能:
+
+- admin-only route: `/admin` layout の admin gate 内に置き、通常 PJ cockpit、公開ページ、研究機関外部 workspace から参照しない。
+- PJ任意紐付け: `management_knowledge_entries.project_id` は nullable。null は AMD 全体で再利用する知見として扱う。
+- 手作業編集: 追加 / 編集 / archive が UI からできる。直接削除を主導線にしない。
+- フィルタ: 検索、PJ、category、maturity、tag、status で絞り込める。
+- 知見の骨格: `title` / `category` / `route_type` / `maturity` / `summary` / `body_md` / `reusable_when` / `next_check` / `tags` を持つ。
+- evidence 表示: `source_kind` / `source_ref` / `source_excerpt` / `confidence` / `updated_by` を一覧上で確認できる。
+- source hygiene: `source_excerpt` は短い抜粋だけ。メール全文・議事録全文・資料全文を保存する場所にしない。
+- API 境界: browser 直接DB writeではなく `/api/admin/management-knowledge` の `requireAdmin()` + service_role 経由で list/create/update/archive する。
+- 初期カード: `/Users/masa/projects/AMD/kagawa/2026-07-03_roundtable_commercialization_type_memo.md` から Proto-RT / Roundtable 型の知見を seed する。
+
+回帰防止:
+
+- AdminSidebar の `経営ノウハウ` 導線、`/admin/management-knowledge` route、`/api/admin/management-knowledge`、`management_knowledge_entries` を消す変更は、`FEATURE_REGISTRY.md` と `/spec/2-1` を同時に更新する。
+- `maturity` は `raw_note` / `hypothesis` / `field_tested` / `playbook` に分け、思いつきと再利用可能な型を同じ状態として扱わない。
+- 人物の趣味・関係性メモは `/admin/private-wiki` に置き、この台帳へ混ぜない。
+
 ## /dashboard
 
 目的: まさと司令塔が全PJの現状と、今日先に打つべき一手を最初に見る入口。

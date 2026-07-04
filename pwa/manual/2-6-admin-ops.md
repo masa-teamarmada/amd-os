@@ -140,6 +140,28 @@ AMDメンバー、取引先、クライアント、研究者、外部協力者�
 
 ---
 
+## admin/management-knowledge (= 経営ノウハウ)
+
+URL: `/admin/management-knowledge`
+
+### 何をする画面か
+事業化ルート、座組、価格、資金、法務論点など、PJをまたいで再利用できる経営ノウハウを保存する admin-only 台帳。
+
+- タイトル / 分類 / route_type / maturity
+- 要約 / 本文 / 再利用条件 / 次に確認する論点
+- tag / confidence / status
+- source_kind / source_ref / source_excerpt
+
+### 重要な仕様
+- 保存先は `management_knowledge_entries`。RLS は admin authenticated と service_role だけ。
+- `project_id` は任意。null は AMD 全体で再利用する知見として扱う。
+- source_excerpt は短い根拠抜粋だけ。メール全文・議事録全文・資料全文は保存しない。
+- maturity は `raw_note` / `hypothesis` / `field_tested` / `playbook` で分ける。思いつきと再利用可能な型を混ぜない。
+- 人物の趣味・関係性メモは `admin/private-wiki` に置き、経営ノウハウには混ぜない。
+- 初期カードとして、香川の藻場回復メモから Proto-RT 型の事業化知見を保存する。
+
+---
+
 ## admin/billing
 
 URL: `/admin/billing`
