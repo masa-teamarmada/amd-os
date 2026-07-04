@@ -84,6 +84,7 @@ interface SensorState {
 
 interface RadarSuggestion {
   kind: "visible" | "latent";
+  actionable: boolean;
   title: string;
   reason: string;
   dueAt?: string | null;
@@ -144,7 +145,7 @@ const SENSOR_TONE_CLASS: Record<SensorTone, string> = {
   quiet: "border-[var(--desk-line)] bg-[rgba(247,245,238,0.58)] text-[var(--desk-muted)]",
 };
 
-const ACTIVE_RADAR_STATUSES = new Set(["active", "sales", "draft", "frozen"]);
+const RADAR_CURRENT_STATUSES = new Set(["active", "sales", "draft"]);
 const HIGH_IMPACTS = new Set(["high", "critical"]);
 
 export function ProactiveRadarBoard({ projects, billingStatus }: ProactiveRadarBoardProps) {
@@ -422,8 +423,9 @@ function buildRadarRows(
       return { project, level, sensors, suggestion, riskCount, watchCount };
     })
     .filter((row) => {
-      if (ACTIVE_RADAR_STATUSES.has(row.project.status)) return true;
-      return row.riskCount > 0 || row.watchCount > 0 || row.suggestion.kind === "visible";
+      const isCurrentProject = RADAR_CURRENT_STATUSES.has(row.project.status);
+      if (!isCurrentProject && row.suggestion.kind !== "visible") return false;
+      return row.suggestion.actionable || row.riskCount > 0 || row.watchCount > 0;
     })
     .sort((a, b) => {
       const levelDelta = levelRank(b.level) - levelRank(a.level);
@@ -519,7 +521,7 @@ function buildGapSensor(gaps: CoverageGapRow[], now: Date): SensorState {
 }
 
 function buildMonthlySensor(billing: DashBillingStatus | undefined, now: Date, projectStatus: string): SensorState {
-  if (!billing || !ACTIVE_RADAR_STATUSES.has(projectStatus)) {
+  if (!billing || !RADAR_CURRENT_STATUSES.has(projectStatus)) {
     return { tone: "quiet", label: "—", detail: "月次監視対象外、または当月cycleなし。" };
   }
   const missing = [
@@ -551,6 +553,7 @@ function buildSuggestion(args: {
   if (urgentTodo) {
     return {
       kind: "visible",
+      actionable: true,
       title: urgentTodo.title,
       reason: urgentTodo.detail || `${formatTriggerKind(urgentTodo.trigger_kind)} 由来の先手。`,
       dueAt: urgentTodo.due_at,
@@ -564,6 +567,7 @@ function buildSuggestion(args: {
   if (next && sensors.meeting.tone !== "ok") {
     return {
       kind: "latent",
+      actionable: true,
       title: "次回MTG前に、論点表と着地仮説を先に置く",
       reason: `次回「${next.title}」が近いのに準備状態が弱い。相手が議論をリードする前に、AMD側の進行案を出す。`,
       dueAt: next.meeting_start_at || next.meeting_date,
@@ -576,6 +580,7 @@ function buildSuggestion(args: {
   if (highSignal) {
     return {
       kind: "latent",
+      actionable: true,
       title: "経営ハイライトを、次の提案か実行一手へ変換する",
       reason: `「${highSignal.title}」がある。観測で止めず、誰に何を出すかまで先に形にする。`,
       dueAt: highSignal.signal_date,
@@ -589,6 +594,7 @@ function buildSuggestion(args: {
   if (hotGap) {
     return {
       kind: "latent",
+      actionable: true,
       title: "不在検知を放置せず、OS化先を先に決める",
       reason: `${hotGap.title || "未分類の重要候補"} が未ルート。取りこぼしになる前に、実行・経営ハイライト・統治のどこへ入れるか決める。`,
       dueAt: hotGap.due_at || hotGap.detected_at,
@@ -599,6 +605,7 @@ function buildSuggestion(args: {
   if (billing && sensors.monthly.tone !== "ok" && sensors.monthly.tone !== "quiet") {
     return {
       kind: "latent",
+      actionable: true,
       title: "月次・請求・入金の詰まりを先に潰す",
       reason: sensors.monthly.detail,
       dueAt: null,
@@ -609,6 +616,7 @@ function buildSuggestion(args: {
   if (sensors.meeting.tone === "watch" && (project.status === "active" || project.status === "sales" || project.status === "draft")) {
     return {
       kind: "latent",
+      actionable: true,
       title: project.status === "active" ? "こちらから進捗整理か次回接点を作る" : "提案仮説を置いて、次の接点を作る",
       reason: sensors.meeting.detail,
       dueAt: null,
@@ -618,6 +626,7 @@ function buildSuggestion(args: {
 
   return {
     kind: "latent",
+    actionable: false,
     title: "現時点は平常監視。次のMTG・シグナル・gapで再浮上",
     reason: "見えている未処理は薄い。先手材料が出たらこの行が上がる。",
     dueAt: null,
