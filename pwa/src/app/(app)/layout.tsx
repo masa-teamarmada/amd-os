@@ -170,7 +170,10 @@ export default async function AppLayout({
         </div>
       )}
       {agreementGateBundle && (
-        <MonthlyAgreementGateOverlay bundle={agreementGateBundle} />
+        <MonthlyAgreementGateOverlay
+          key={`${pathname}:${agreementGateBundle.ym}:${agreementGateBundle.currentHash}`}
+          bundle={agreementGateBundle}
+        />
       )}
       {isAdmin && <CriticalRealtimeNotify />}
       <TsukuyomiChatBridge />

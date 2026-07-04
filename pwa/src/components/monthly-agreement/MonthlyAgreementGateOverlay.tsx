@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { MonthlyAgreementExperience } from "@/components/monthly-agreement/MonthlyAgreementExperience";
 import type { MonthlyWorkAgreementBundle } from "@/lib/monthly-work-agreement-types";
@@ -13,8 +13,8 @@ export function MonthlyAgreementGateOverlay({ bundle }: MonthlyAgreementGateOver
   const router = useRouter();
   const pathname = usePathname();
   const gateKey = `${pathname}:${bundle.ym}:${bundle.currentHash}`;
-  const [resolvedGateKey, setResolvedGateKey] = useState<string | null>(null);
-  const open = resolvedGateKey !== gateKey;
+  const [closedGateKey, setClosedGateKey] = useState<string | null>(null);
+  const open = closedGateKey !== gateKey;
 
   useEffect(() => {
     if (!open) return;
@@ -25,6 +25,11 @@ export function MonthlyAgreementGateOverlay({ bundle }: MonthlyAgreementGateOver
     };
   }, [open]);
 
+  const onBackdropClick = (event: MouseEvent<HTMLDivElement>) => {
+    if (event.target !== event.currentTarget) return;
+    setClosedGateKey(gateKey);
+  };
+
   if (!open) return null;
 
   return (
@@ -33,13 +38,14 @@ export function MonthlyAgreementGateOverlay({ bundle }: MonthlyAgreementGateOver
       role="dialog"
       aria-modal="true"
       aria-label="月初合意"
+      onClick={onBackdropClick}
     >
       <div className="mx-auto flex h-full max-w-6xl flex-col overflow-hidden rounded-lg border border-[#d1d1d6] bg-[#f5f5f7] shadow-2xl">
         <MonthlyAgreementExperience
           mode="modal"
           initialBundle={bundle}
           onResolved={() => {
-            setResolvedGateKey(gateKey);
+            setClosedGateKey(gateKey);
             router.refresh();
           }}
         />

@@ -901,14 +901,15 @@ expectNotIncludes("src/components/monthly-agreement/MonthlyAgreementExperience.t
   "MSの点数",
 ]);
 expectIncludes("src/components/monthly-agreement/MonthlyAgreementGateOverlay.tsx", [
-  "resolvedGateKey",
+  "onBackdropClick",
+  "event.target !== event.currentTarget",
+  "closedGateKey",
   "bundle.currentHash",
   "router.refresh()",
 ]);
-expectNotIncludes("src/components/monthly-agreement/MonthlyAgreementGateOverlay.tsx", [
-  "onBackdropClick",
-  "event.target !== event.currentTarget",
-  "dismissedGateKey",
+expectIncludes("src/app/(app)/layout.tsx", [
+  "key={`${pathname}:${agreementGateBundle.ym}:${agreementGateBundle.currentHash}`}",
+  "MonthlyAgreementGateOverlay",
 ]);
 expectIncludes("src/lib/monthly-work-agreement.ts", [
   "monthly_reward_payout",
