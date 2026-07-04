@@ -55,33 +55,6 @@ expectNotIncludes("spec/3-0-l2-data-list-current-spec.md", [
   "\u246f",
 ]);
 
-expectIncludes("src/app/(app)/dashboard/page.tsx", [
-  "ProactiveRadarBoard",
-  "projects={dashboardProjects}",
-  "billingStatus={billingStatus}",
-]);
-
-expectIncludes("src/components/dashboard/ProactiveRadarBoard.tsx", [
-  "PJ先手レーダー",
-  "空白提案",
-  "RADAR_CURRENT_STATUSES",
-  "actionable",
-  "buildMeetingSensor",
-  "buildSignalSensor",
-  "buildGapSensor",
-  "buildMonthlySensor",
-]);
-
-expectNotIncludes("src/components/dashboard/ProactiveRadarBoard.tsx", [
-  '"frozen"',
-]);
-
-expectIncludes("design/FEATURE_REGISTRY.md", [
-  "PJ先手レーダー",
-  "ProactiveRadarBoard",
-  "空白提案",
-]);
-
 expectIncludes("src/components/cockpit/CockpitNextPeriodSetup.tsx", [
   "MS開始",
   "MS終了",

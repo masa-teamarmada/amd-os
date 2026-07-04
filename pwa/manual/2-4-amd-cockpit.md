@@ -23,21 +23,9 @@ URL: `/project/p00/cockpit`。**会社全体 (= AMD 株式会社) を 1 つの P
 - `/management-score` で 5 軸ごとの evidence・推移・PJ ごとの寄与を確認
 - evidence の追加は LLM 抽出 (= Codex automation) + 手動入力
 
-## Dashboard の先手レーダー
+## Dashboard の先手TODO
 
-`/dashboard` の上部に、PJ横断の `ProactiveTodoBadge` と `PJ先手レーダー` を表示する。先手TODOバッジは `proactive_todos.status='open'` の件数、期限超過、red件数を1行で出し、詳細は `/proactive` へ送る。
-
-PJ先手レーダーは、未対応TODOだけでなく、まだTODO化されていない「空白提案」もPJごとに出す。5センサーは以下。
-
-- MTG準備: 次回MTGの近さ、`prep_readiness_score`、`prep_worker_status`
-- 先手TODO: `proactive_todos` の open / blocked / red / 期限超過
-- 経営ハイライト: high / critical の未確認 `project_strategy_signals`、または `next_move` / proposed signal
-- 不在検知: 未処理の `l2_coverage_gaps`
-- 月次・契約: 当月の報告 / 請求 / 入金などの詰まり
-
-行ごとに `先行中` / `見張り` / `要押し` / `危険` を出し、`空白提案` では「次回MTG前に論点表を置く」「経営ハイライトを次の提案へ変換する」「不在検知のOS化先を決める」など、今やると効く一手を1行で示す。レーダー上では状態更新せず、詳細は `/proactive` / `/notifications` / 各 PJ cockpit で確認する。
-
-自動レーダー対象は current PJ (`active` / `sales` / `draft`) に限る。`frozen` / `ended` / 旧PJは、明示的な未対応先手TODOがある場合だけ表示に戻す。材料ゼロの平常監視行は dashboard には出さない。
+`/dashboard` の上部に、PJ横断の `ProactiveTodoBadge` を表示する。先手TODOバッジは `proactive_todos.status='open'` の件数、期限超過、red件数を1行で出し、詳細は `/proactive` へ送る。dashboard 側では状態更新せず、実行・完了・保留は `/proactive` で確認する。
 
 ## Dashboard の累計実績
 

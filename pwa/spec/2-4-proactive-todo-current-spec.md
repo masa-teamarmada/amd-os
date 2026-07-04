@@ -164,23 +164,6 @@ admin (= `members.is_admin = true`) と `service_role` のみ ALL。anon SELECT 
 - 表示: 件数 (open / overdue / red) + `/proactive` へのリンク 1 つ
 - 状態色: overdue/red あり = 赤、open あり = amber、なし = 平常
 
-### dashboard PJ先手レーダー
-
-- 本体: `pwa/src/components/dashboard/ProactiveRadarBoard.tsx`
-- 埋め込み先: `pwa/src/app/(app)/dashboard/page.tsx` の `ProactiveTodoBadge` 直下
-- admin のみ表示。非 admin は `null` 返却。
-- 目的: `proactive_todos` の未対応だけでなく、まだTODO化されていない先回り候補をPJ横断で見つける。
-- 5センサー: `MTG準備` / `先手TODO` / `経営ハイライト` / `不在検知` / `月次・契約`。
-- 自動レーダー対象は current PJ (`status in ('active','sales','draft')`) に限る。`frozen` / `ended` / 旧PJは、明示的な未対応 `proactive_todos` がある場合だけ表示対象に戻す。
-- 材料ゼロの「平常監視」行は dashboard に出さない。
-- 空白提案: 以下のような「見えているデータから推論できるが、まだ明示TODOではない一手」を dashboard 上で計算する。
-  - 次回MTGが近いのに `prep_readiness_score` が低い、または `prep_worker_status` が ready ではない。
-  - high / critical の `project_strategy_signals.status='candidate'`、または `decision_state='proposed'` / `signal_type='next_move'` があるのに未対応TODOがない。
-  - `l2_coverage_gaps.review_status='candidate'` があり、OS化先が未確定。
-  - active / sales / draft PJで直近MTGや次回予定が薄い。
-  - 当月 `billing_cycles` の報告 / 請求 / 入金などが月後半まで未完了。
-- 行の詳細リンクは、既存正本画面である `/proactive` / `/notifications` / `/project/[projectId]/cockpit` へ送る。PJ先手レーダー自体では状態更新しない。
-
 ### 完了 API
 
 正本: `pwa/src/app/api/proactive-todos/[id]/resolve/route.ts`
