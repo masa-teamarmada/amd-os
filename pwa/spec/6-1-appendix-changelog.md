@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-07-04 | 2-4 Proactive TODO / FEATURE_REGISTRY | 追加 | dashboard `ProactiveTodoBadge` 直下に `ProactiveRadarBoard` を追加。5センサーと空白提案の条件、read-only導線、build v0.39.3 を追記 | 全PJ横断で、明示TODOになる前の先手候補をdashboard入口で見つけるため | えいみ |
 | 2026-07-04 | 3-14 月初合意 | 修正 | app entry gate の月初合意モーダルに背景クリックによる一時 dismissal を復帰。dismissal は保存せず、`pathname + ym + currentHash` key で route entry ごとに再表示可能にする。重要画面チェックも dismissal が消えたら失敗する内容へ更新。build v0.39.2 | 背面画面を一時確認できるUXは必要だが、未合意状態を解決済みにしてはいけないため。表示dismissalと合意完了を分けるため | えいみ |
 | 2026-07-04 | 5-6 契約管理 / 7-1 報酬計算 | 修正 | monthly_fixed の Contract Apply で、バッファなし契約の未確定 `billing_cycles.budget_yen` と現行 `value_plan_cycles.budget_yen` を契約 cap へ整合する contract を追加。KUTE p25 の一括生成値温存事故の原因メモを追記。build v0.39.1 | 古い一括生成値と当月自動確定が混在し、未来月だけクライアント支払額がPJ予算に残る事故を構造的に防ぐため | えいみ |
 | 2026-07-04 | 2-1 PWA Runtime / FEATURE_REGISTRY / db_schema | 追加 | `/admin/management-knowledge`、`/api/admin/management-knowledge`、`management_knowledge_entries` の admin-only contract を追加。Proto-RT 型の初期カードを seed し、`maturity` で raw/hypothesis/field_tested/playbook を分離。build v0.39.0 | 経営ノウハウをローカルmdや会話ログではなく、OS内で検索・更新できる横断台帳へ移すため | えいみ |
