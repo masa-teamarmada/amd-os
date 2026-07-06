@@ -62,7 +62,8 @@
 - **rationale**: 5 経済学者 persona 査読 3 ラウンドで進化経済 NO → 軽微修正に到達、他 4 条件付き受理。Cambridge UP が新領域宣言の home、Research Policy が経験的計量査読を通すルート
 - **applies_to_chapters**: 全 Book + 付録
 - **date**: 2026-06-25
-- **status**: active
+- **status**: superseded
+- **superseded_by**: D-059 (3本立てへ拡張。Cambridge UP + RP の中身は D-059 に引き継がれ active。分量記述は D-060 が別途 supersede。「P1 を先に出して published prior art にする」順序思想は BOOKS_PORTFOLIO §8 が上位正本として継承)
 - *注: ICC (Industrial and Corporate Change) 第三伴走の追加は P-009 で確定後 D-001 を supersede する*
 
 ### D-002: 総ページ 940p / 18ヶ月 / Tier 3 学術モノグラフ
@@ -613,10 +614,11 @@
 - D-011 (2026-06-25, superseded by D-034): 機関匿名化方針の暫定運用を独立判決化
 - D-014 (2026-06-25, superseded by D-014 2026-06-27 版): 6 ステージ pipeline + Tier B 追加ステージ
 - D-021 (2026-06-25, superseded by D-021 2026-06-27 版): Ch 11 BVAR Tier A 化 + TOC 表記変更
+- D-001 (2026-06-25, superseded by D-059): publishing path デュアル経路 (Cambridge UP + RP) → 3本立て (ICC 第三伴走追加)。分量記述は D-060 が別途 supersede
 
 *entry 本体は §3 / §4 の位置に status=superseded のまま残す。*
 
 ---
 
-*L2 終端。次の entry は D-045 から、または P-012 から append すること。append-only、既存 entry の改変は status / supersedes / superseded_by の書き換えのみ許可。*
+*L2 終端。次の entry は D-062 から、または P-012 から append すること。append-only、既存 entry の改変は status / supersedes / superseded_by の書き換えのみ許可。*
 
