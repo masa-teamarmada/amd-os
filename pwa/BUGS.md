@@ -5,6 +5,21 @@
 
 ---
 
+### [finance/contracts] monthly_fixed の古い一括生成PJ予算が65%ルールをすり抜けた (2026-07-06)
+
+- **状態**: クローズ (2026-07-04 — `v0.39.1` / `b6be0529` で Contract Apply に monthly_fixed budget reconciliation を追加。2026-07-06 closeout時点の production は `v0.39.5` まで進んでいるが、当該 commit は main に含まれる)。
+- **症状**: KUTE (`p25`) で、同じ monthly_fixed 契約なのに月によって `billing_cycles.budget_yen` の意味が違っていた。202607 は正しい65% capに直っていた一方、未来月には古いクライアント月額相当が残り、PJ予算が65%原資を超える表示になっていた。まさから「月が多くて、ということは月ごとに計上のされ方が違うのでは」と指摘。
+- **原因**: 手入力差ではなく、二つの自動経路が混在した。2026-05-08 の plan cycle / monthly billing 一括生成で gross client monthly amount が `billing_cycles.budget_yen` に入った。その後、2026-06-18 の旧 Contract Apply は monthly_fixed で `projects.fee_type/fee_amount/end_ym` だけを入れ、月別行は `monthly_applied:0` として触らなかった。さらに 2026-07-01 の contract auto-confirm が当月だけ正しい `月額税抜×65%` へ直したため、「当月だけ新ロジック、未来月は旧一括生成値」という状態になった。
+- **対応内容**:
+  1. `pwa/src/lib/contracts-apply.ts` に `monthlyFixedBudgetRows` を追加し、monthly_fixed の期待cap行を契約から導出するようにした。
+  2. バッファなし monthly_fixed 契約では、未確定 `billing_cycles.budget_yen` と現行 `value_plan_cycles.budget_yen` を契約cap (= 月額税抜×65%) へ整合する。
+  3. 確定済み/進行済み月の `budget_yen` が契約capと不一致なら、隠して進まず Contract Apply を失敗させる。
+  4. SX のように explicit buffer / season reserve があるPJは単純上書きせず、`buffer_breakdown_json` と契約バッファ設計を優先する。
+  5. `pwa/spec/5-6-contracts-management-current-spec.md`、`pwa/manual/6-7-contracts-management-spec.md`、`pwa/manual/7-1-reward-calc-spec.md`、appendix changelog に原因と防止策を同期した。
+- **再発防止策**: `billing_cycles.budget_yen` が明示値であることと、「その値が契約capの正本であること」は別問題として扱う。Contract Apply 済みの monthly_fixed では、古い一括生成値を信頼して放置しない。AMD運営側が認識しないところで会社留保・運営費を削ってゼロ着地に見せる設計は禁止し、client payment / buffer / PJ budget / member payment / company reserve / ending unpaid balance を見える状態で検算する。
+
+---
+
 ### [monthly-agreement] 月初合意モーダルが背景クリックで閉じなくなった (2026-07-04)
 
 - **状態**: クローズ (2026-07-04 — `v0.39.2` で背景クリックによる一時 dismissal を復帰。合意状態は保存せず、route を開き直すと再表示される)。

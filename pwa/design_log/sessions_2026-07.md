@@ -213,3 +213,46 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 ### 注意
 - `/Users/masa/projects/AMD/amd-os` の canonical local checkout は、この時点で `origin/main` から 58 behind / 7 ahead、かつ多数の未整理変更あり。今回の報酬実装と handoff は `/tmp/amd-os-ms-overview-v03643` の clean origin/main で行った。canonical local を current truth として読まない。
 - 本番DBの `reward_member_liability_offsets` には、別作業由来と思われる `status='pending'` / `amount_yen=null` の行が p19 に残っている。現行 v0.37.3 の計算は `status='active'` だけを読むため支払計算には入らない。所有者不明なので、次回も勝手に削除しない。
+
+---
+
+## 2026-07-06 — monthly_fixed 契約cap混在事故 closeout (KUTE)
+
+### コンテキスト
+- まさから、KUTE (`p25`) で「クライアント支払よりPJ予算が多い」「月によって計上のされ方に差があるように見える」と指摘。
+- あわせて、SX のように不足が出ているのに admin/MS編集側では危険に見えないこと、`/admin/payouts` やシーズン収支でゼロ着地/不足表示の意味が曖昧なことが問題化した。
+- 最重要方針として、AMD運営側が認識していないところで運営費・会社留保が勝手に削られ、「ゼロ着地」に見える設計は禁止と整理した。
+
+### 原因
+- KUTE の月別差は手入力ではなく、自動経路の混在だった。
+- 2026-05-08 に plan cycle と全月 `billing_cycles` が一括生成され、その時点で `budget_yen` に gross client monthly amount が入った。
+- 2026-06-18 の旧 Contract Apply は monthly_fixed で `projects.fee_type/fee_amount/end_ym` だけを反映し、月別行は `monthly_applied:0` として触らなかった。
+- 2026-07-01 の contract auto-confirm だけが当月を `月額税抜×65%` へ直したため、当月は正しい65% cap、未来月は古い一括生成値という状態になった。
+
+### 実装 / 仕様同期
+- `pwa/src/lib/contracts-apply.ts` に `monthlyFixedBudgetRows` を追加。
+- バッファなし monthly_fixed 契約では、未確定 `billing_cycles.budget_yen` と現行 `value_plan_cycles.budget_yen` を契約cap (= 月額税抜×65%) へ整合する。
+- 確定済み/進行済み月の `budget_yen` が契約capと不一致なら、隠して進まず Contract Apply を失敗させる。
+- SX のように explicit buffer / season reserve があるPJは単純上書きせず、`buffer_breakdown_json` と契約バッファ設計を優先する。
+- `pwa/spec/5-6-contracts-management-current-spec.md`、`pwa/manual/6-7-contracts-management-spec.md`、`pwa/manual/7-1-reward-calc-spec.md`、appendix changelog、`pwa/BUGS.md` に同期。
+- `HANDOFF.md` と `SESSION_MIGRATION_PROMPT.md` を ZMP過払いcloseout から今回の monthly_fixed cap closeout へ更新。
+
+### Verification / Deploy
+- 実装 commit: `b6be05295f91d73d8afef5d821880e1e893a3e4f` (`fix(finance): reconcile fixed contract budgets`)。
+- 初回本番確認: `v0.39.1 / b6be0529`, `dirty=false`。
+- 実行済み:
+  - `npx tsc --noEmit`
+  - `npm run test:critical-ui`
+  - `npm run test:deploy-version-guard`
+  - `npm run lint -- src/lib/contracts-apply.ts`
+  - `npm run build`
+- 2026-07-06 closeout 開始時点では、他セッションの main 進行により production は `v0.39.5 / bd209e00`。当該修正 commit は main 履歴に含まれる。
+
+### 残課題 / 注意
+- canonical checkout `/Users/masa/projects/AMD/amd-os` は stale/dirty。clean worktree または `origin/main` / production build-info を current truth として使う。
+- SX はバッファありPJなので、KUTE型の bufferless monthly_fixed 整合をそのまま当てない。`buffer_breakdown_json` と契約termsを先に読む。
+- MS編集/Contract Apply の出口では、client payment / buffer / PJ budget / member payment / company reserve / ending unpaid balance を同時に見せ、不足があるまま正常に見せない。
+
+### 教訓
+- `billing_cycles.budget_yen` が明示値であることと、それが契約capの正しい値であることは別。Contract Apply 済みの monthly_fixed では、古い一括生成値を正本扱いして放置しない。
+- 「不足を赤表示するだけ」は、ゼロ着地を必須にする設計の代替にならない。運営費を黙って削る補正は禁止で、ゼロ着地に必要な資金構造を編集時点で見える化・検算する。

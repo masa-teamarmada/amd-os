@@ -1,34 +1,33 @@
-# SESSION MIGRATION PROMPT - AMD OS ZMP Reward Liability Offset Closeout
+# SESSION MIGRATION PROMPT - AMD OS monthly_fixed contract cap reconciliation
 
 ```text
 cd /Users/masa/projects/AMD/amd-os
 
-まず `HANDOFF.md` を読んで。次に仕様正本として `pwa/manual/7-1-reward-calc-spec.md`、`pwa/manual/6-5-admin-payouts-reward-notice-spec.md`、`pwa/design/season_budget_actual.md` を読んで。そのあと `pwa/BUGS.md`、`pwa/design/db_schema.md`、`CLAUDE.md`、`AGENTS.md`、`pwa/CLAUDE.md` を読んで。
+まず `HANDOFF.md` を読んで。次に `pwa/spec/5-6-contracts-management-current-spec.md`、`pwa/manual/6-7-contracts-management-spec.md`、`pwa/manual/7-1-reward-calc-spec.md`、`pwa/BUGS.md`、`pwa/design_log/sessions_2026-07.md` を読んで。そのあと `AGENTS.md`、`CLAUDE.md`、`pwa/CLAUDE.md` を読む。
 
 最重要:
-- `/Users/masa/projects/AMD/amd-os` のローカル checkout は、前回 handoff 時点で `origin/main` から 58 behind / 7 ahead、かつ大量の未整理変更があった。current truth としてそのまま信じない。
+- `/Users/masa/projects/AMD/amd-os` のローカル checkout は、前回 closeout 時点で stale/dirty だった。current truth としてそのまま信じない。
 - 作業前に `git fetch origin main --prune`、`git status -sb --untracked-files=all`、`git rev-list --left-right --count origin/main...HEAD`、`curl -s https://amd-os-pwa.vercel.app/api/build-info` を確認する。
-- 報酬 offset 実装は `v0.37.3` / commit `45cb4e551d4a1aa24dbb8e3d9dd428ac1f5fc580` で入った。その後 main は月初合意/MS安全系で進んでいるので、最新 sha は `origin/main` と build-info で確認する。
+- 今回の finance 修正は `b6be05295f91d73d8afef5d821880e1e893a3e4f` (`fix(finance): reconcile fixed contract budgets`) で本番投入済み。初回確認は `v0.39.1 / b6be0529`。その後 main は BZM/他作業で `v0.39.5 / bd209e00` まで進んでおり、この修正は main 履歴に含まれる。
 
 今回の current truth:
-- ZMP 2026 の送付済み/支払済み過払いは、会社留保・他メンバー未払・PJ全体バッファでは吸収しない。
-- 支払済み/送付済みの過去額は変更しない。
-- 過払い調整は `reward_member_liability_offsets` に記録し、同一PJ・同一シーズン・同一メンバー本人の未払 stock からだけ相殺する。
-- active offset は ID008 うめ 1,560円、ID009 あび 1,658円だけ。ID004 こう / ID026 しんの小額過払いはまさ判断で許容。
-- migration 162 の監査メタに `ID010` typo があり、`ID010=らん` だった。migration 163 で本番DBの active 2行は `tolerated_members=["ID004","ID026"]` に修正済み。計算額は変えていない。
-- production DB には p19 の `status='pending'` / `amount_yen=null` の liability offset 行が別作業由来で存在する。現行 reward code は `status='active'` だけ読むので計算には入らない。所有者不明なので勝手に削除しない。
-- 月初合意入口モーダル closeout は `pwa/design_log/sessions_2026-07.md` と `pwa/BUGS.md` に残っている。そちらを触るなら `pwa/spec/3-14-monthly-work-agreement-current-spec.md` も読む。
+- KUTE p25 の「月によってPJ予算の計上が違う」原因は手入力ではない。
+- 2026-05-08 の一括生成で gross client monthly amount が `billing_cycles.budget_yen` に入り、2026-06-18 の旧 Contract Apply が `monthly_fixed` 月別行を触らず、2026-07-01 の自動確定だけが当月を65% capへ直した。つまり自動経路が混ざった事故。
+- `monthly_fixed` Contract Apply は、バッファなし契約では未確定 `billing_cycles.budget_yen` と現行 `value_plan_cycles.budget_yen` を契約cap (= 月額税抜×65%) へ整合する。
+- 確定済み/進行済み月の budget が契約capと不一致なら、隠して進まず apply を止める。
+- SX のように explicit buffer / season reserve がある PJ は単純な `月額×65%` 上書き禁止。`buffer_breakdown_json` と契約バッファ設計を先に読む。
+- AMD運営側が認識しないところで運営費・会社留保を勝手に削って「ゼロ着地」に見せる設計は禁止。
 
 最初の一手:
-1. `HANDOFF.md` の Repo State と Important Warnings を読む。
+1. `HANDOFF.md` の Summary / Repo State / Open Risks を読む。
 2. `origin/main` と production `/api/build-info` の sha を合わせる。
-3. finance/reward を触るなら、本番DBで `reward_member_liability_offsets` を `status` ごとに確認し、active と pending を混ぜない。
-4. `/admin/payouts` や `/admin/season-pl` の数字を見る時は、先に報酬キャッシュが最新か確認する。必要なら `payout-reward-cache-refresh?ym=202601&lookahead=11` を current production build で実行してから見る。
+3. finance を触るなら、client payment / buffer / PJ budget / member payment / company reserve / ending unpaid balance を同じ画面・同じ説明で分ける。
+4. monthly_fixed の Contract Apply を変更する場合は、KUTE型の bufferless path と SX型の buffer path を混ぜない。
 
 守ること:
-- 「会社留保を減らせば吸収できる」と説明しない。これは前回の誤判断。
-- 他メンバーの未払残から差し引かない。
-- 既に発行・送付・支払済みの通知書額を勝手に変えない。
+- 「会社留保を削ればゼロ着地できる」と説明しない。
+- `/admin/payouts` や season PL で不足があるのに、平気な表示・緑表示にしない。
+- MS編集/Contract Apply の終端では、シーズン末 unpaid が不可視に残らないことを検算する。
 - `git add .` は使わない。対象 bundle だけ個別 stage。
-- PWA deploy が必要なら `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` を使う。
+- PWA deploy が必要なら `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` のルールを確認して使う。
 ```
