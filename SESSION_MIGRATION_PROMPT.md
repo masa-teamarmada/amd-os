@@ -1,33 +1,34 @@
-# SESSION MIGRATION PROMPT - AMD OS monthly_fixed contract cap reconciliation
+# SESSION MIGRATION PROMPT - AMD OS MS/payment actuals
 
 ```text
 cd /Users/masa/projects/AMD/amd-os
 
-まず `HANDOFF.md` を読んで。次に `pwa/spec/5-6-contracts-management-current-spec.md`、`pwa/manual/6-7-contracts-management-spec.md`、`pwa/manual/7-1-reward-calc-spec.md`、`pwa/BUGS.md`、`pwa/design_log/sessions_2026-07.md` を読んで。そのあと `AGENTS.md`、`CLAUDE.md`、`pwa/CLAUDE.md` を読む。
+まず `HANDOFF.md` を読んで。次に仕様正本として `pwa/spec/3-14-monthly-work-agreement-current-spec.md`、`pwa/manual/6-8-admin-ms-overview-spec.md`、`pwa/manual/7-1-reward-calc-spec.md` を読んで。そのあと `pwa/BUGS.md`、`pwa/design/FEATURE_REGISTRY.md`、`CLAUDE.md`、`AGENTS.md`、`pwa/CLAUDE.md` を読んで。
 
 最重要:
-- `/Users/masa/projects/AMD/amd-os` のローカル checkout は、前回 closeout 時点で stale/dirty だった。current truth としてそのまま信じない。
+- `/Users/masa/projects/AMD/amd-os` のローカル checkout は、2026-07-06 closeout 時点で `origin/main` から ahead/behind し、大量の unrelated dirty state があった。current truth としてそのまま信じない。
 - 作業前に `git fetch origin main --prune`、`git status -sb --untracked-files=all`、`git rev-list --left-right --count origin/main...HEAD`、`curl -s https://amd-os-pwa.vercel.app/api/build-info` を確認する。
-- 今回の finance 修正は `b6be05295f91d73d8afef5d821880e1e893a3e4f` (`fix(finance): reconcile fixed contract budgets`) で本番投入済み。初回確認は `v0.39.1 / b6be0529`。その後 main は BZM/他作業で `v0.39.5 / bd209e00` まで進んでおり、この修正は main 履歴に含まれる。
+- 支払実績照合修正自体は `v0.38.3 / 7a7b0ddc70439cc977c80fc6593f467eba0e89d9` で入っており、その後の main に含まれている。最新本番 sha は必ず `/api/build-info` で確認する。
+- 直前の `origin/main` には monthly_fixed contract cap closeout (`34973b68`) も入っている。KUTE/SX/契約capを触るなら `pwa/spec/5-6-contracts-management-current-spec.md`、`pwa/manual/6-7-contracts-management-spec.md`、`pwa/design_log/sessions_2026-07.md` の該当節も読む。
 
 今回の current truth:
-- KUTE p25 の「月によってPJ予算の計上が違う」原因は手入力ではない。
-- 2026-05-08 の一括生成で gross client monthly amount が `billing_cycles.budget_yen` に入り、2026-06-18 の旧 Contract Apply が `monthly_fixed` 月別行を触らず、2026-07-01 の自動確定だけが当月を65% capへ直した。つまり自動経路が混ざった事故。
-- `monthly_fixed` Contract Apply は、バッファなし契約では未確定 `billing_cycles.budget_yen` と現行 `value_plan_cycles.budget_yen` を契約cap (= 月額税抜×65%) へ整合する。
-- 確定済み/進行済み月の budget が契約capと不一致なら、隠して進まず apply を止める。
-- SX のように explicit buffer / season reserve がある PJ は単純な `月額×65%` 上書き禁止。`buffer_breakdown_json` と契約バッファ設計を先に読む。
-- AMD運営側が認識しないところで運営費・会社留保を勝手に削って「ゼロ着地」に見せる設計は禁止。
+- `monthly_reward_payout.total_pay` は税抜の保存済み明細で、実際の振込額そのものではない。
+- `支払実績` として扱えるのは、`round(monthly_reward_payout.total_pay * 1.1)` が freee `wallet_txns.amount` と一致し、かつ `billing_cycles.reward_paid_by` が `freee_wallet_txn_verified:<wallet_txn_ids>` を持つ月だけ。
+- `reward_paid_at` だけある月、または銀行出金は見えるがPJ別明細と一致しない月は `要照合` / `実績未照合`。実績にも未来予定にも混ぜない。
+- `/monthly-agreement` は `支払済み実績(税込)` / `実績未照合(税込)` / `これから支払予定(税込)` を分離し、明細は税抜/税込を併記する。
+- `/admin/ms-overview` の保存前支払検算は、照合済み実績だけを固定支払にし、未照合月がある場合は保存 `blocked`。
+- ZMP p19 / ID026 は 202604 と 202605 だけ照合済み実績。202601〜202603 は `要照合`、202606 は証跡未確認で `保存済み`。
 
 最初の一手:
-1. `HANDOFF.md` の Summary / Repo State / Open Risks を読む。
+1. `HANDOFF.md` の Repo State / Open Risks を読む。
 2. `origin/main` と production `/api/build-info` の sha を合わせる。
-3. finance を触るなら、client payment / buffer / PJ budget / member payment / company reserve / ending unpaid balance を同じ画面・同じ説明で分ける。
-4. monthly_fixed の Contract Apply を変更する場合は、KUTE型の bufferless path と SX型の buffer path を混ぜない。
+3. MS編集や月初合意を触るなら、`pwa/spec/3-14-monthly-work-agreement-current-spec.md` と `pwa/manual/6-8-admin-ms-overview-spec.md` の「freee照合済み実績 / 実績未照合」の境界を先に確認する。
+4. ZMP p19 202601〜202603 の `要照合` を解くなら、freee `wallet_txns` と保存済み `monthly_reward_payout` の税込一致を証拠として確認する。計算キャッシュの再補完だけで actual にしない。
 
 守ること:
-- 「会社留保を削ればゼロ着地できる」と説明しない。
-- `/admin/payouts` や season PL で不足があるのに、平気な表示・緑表示にしない。
-- MS編集/Contract Apply の終端では、シーズン末 unpaid が不可視に残らないことを検算する。
+- 支払済み印 (`reward_paid_at`) だけで支払実績にしない。
+- 計算キャッシュや再計算値を実振込額として扱わない。
+- 既に発行・送付・支払済みの通知書額を勝手に変えない。
 - `git add .` は使わない。対象 bundle だけ個別 stage。
-- PWA deploy が必要なら `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` のルールを確認して使う。
+- PWA deploy が必要なら `.vercel/project.json` が `amd-os-pwa / prj_raZW3HSKIszzPUwNTHfy7xDGzLHm` であることを確認し、`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` を使う。
 ```

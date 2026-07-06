@@ -256,3 +256,38 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 ### 教訓
 - `billing_cycles.budget_yen` が明示値であることと、それが契約capの正しい値であることは別。Contract Apply 済みの monthly_fixed では、古い一括生成値を正本扱いして放置しない。
 - 「不足を赤表示するだけ」は、ゼロ着地を必須にする設計の代替にならない。運営費を黙って削る補正は禁止で、ゼロ着地に必要な資金構造を編集時点で見える化・検算する。
+
+---
+
+## 2026-07-03 — 月初合意 / MS編集 支払実績の freee 照合化
+
+### コンテキスト
+- まさから、MSを期中編集しても過去に支払った金額は変えず、編集によるPJ予算赤字を編集中に分かるようにしたいという依頼。
+- 初期対応では `monthly_reward_payout` の再計算/補完値を支払実績扱いしていたが、まさから「実際の支払額と同一かわからない」と指摘。実績判定の根拠を freee 出金まで戻して確認し直した。
+
+### 実装 / DB反映
+- `支払実績` は、保存済みの `monthly_reward_payout.total_pay` 税抜額に消費税を掛けた税込額が freee `wallet_txns.amount` と一致し、かつ `billing_cycles.reward_paid_by` が `freee_wallet_txn_verified:<wallet_txn_ids>` を持つ月だけに限定した。
+- `reward_paid_at` だけある月、または銀行出金は見えるがPJ別明細額と一致しない月は `要照合` / `実績未照合` として分離し、実績にも未来予定にも混ぜない。
+- 以前に計算補完した `monthly_reward_payout` rows は削除。ZMP p19 202604/202605 は freee 出金と1円単位で一致したため実績確定。p19 202601〜202603 は支払い自体はあるがPJ別明細額と一致しないため `要照合`。p19 202606 は7月支払い証跡が未確認のため `保存済み` に戻した。
+- `/monthly-agreement` は `支払済み実績(税込)` / `実績未照合(税込)` / `これから支払予定(税込)` を分け、支払明細は税抜/税込を併記する。
+- `/admin/ms-overview` の保存前支払検算は、実績確定分だけを固定支払として扱い、未照合月があれば `blocked` にする。
+
+### 仕様同期
+- `pwa/spec/3-14-monthly-work-agreement-current-spec.md`: freee 照合済み実績、未照合、税込表示を追記。
+- `pwa/manual/6-8-admin-ms-overview-spec.md`: MS編集の予算影響で支払済み固定/実績未照合/保存後残予算を分け、未照合を保存不可にする仕様を追記。
+- `pwa/manual/7-1-reward-calc-spec.md`: 支払実績と報酬計算キャッシュの境界を同期。
+- `pwa/manual/9-3-appendix-changelog.md` / `pwa/spec/6-1-appendix-changelog.md`: 2026-07-03 の変更履歴に記録。
+- `pwa/BUGS.md`: 計算キャッシュを実績扱いした事故と再発防止を記録。
+
+### Verification
+- `npx tsc --noEmit --pretty false` passed。
+- `npm run test:critical-ui` passed。
+- `git diff --check` passed。
+- `npm run build` passed。
+- `npm run lint` は既存の unrelated lint error で失敗。今回変更箇所由来ではない。
+- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` で本番反映。観測時点では `v0.38.3 / 7a7b0ddc70439cc977c80fc6593f467eba0e89d9`。
+- 本番 `/monthly-agreement?ym=202607&memberId=ID026` で、`支払済み実績(税込) ¥68,855`、`実績未照合(税込) ¥96,525`、`これから支払予定(税込) ¥223,726`、行別の `支払実績` / `要照合` / `保存済み` 表示を確認。
+
+### 注意 / 次
+- 最新 production はこの後 `v0.39.5` まで進んでいる。次セッションは必ず `/api/build-info` と `origin/main` を見て、最新線で作業する。
+- p19 202601〜202603 の `要照合` を消すには、PJ別明細と銀行出金が一致する根拠を追加で探す必要がある。推測で `freee_wallet_txn_verified:` を付けない。
