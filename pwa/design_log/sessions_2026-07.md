@@ -291,3 +291,44 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 ### 注意 / 次
 - 最新 production はこの後 `v0.39.5` まで進んでいる。次セッションは必ず `/api/build-info` と `origin/main` を見て、最新線で作業する。
 - p19 202601〜202603 の `要照合` を消すには、PJ別明細と銀行出金が一致する根拠を追加で探す必要がある。推測で `freee_wallet_txn_verified:` を付けない。
+
+---
+
+## 2026-07-08 — MTGカード 予定/準備/日程未確定 亡霊解消
+
+### コンテキスト
+- まさから、複数PJの MTGカード周りに `MTG準備` や `日程調整中MTG` が亡霊のように残ると指摘。
+- 初回修正後、KUTE cockpit のスクショで `日程調整中MTG` 別欄に 2026-06-23 / 2026-06-22 の古い行が残っていることが判明。
+- まさの追加判断: 「日程調整中」欄は不要。予定MTG欄に `日程未確定` と表示すれば足りる。
+
+### 原因
+- 予定MTG欄が `meeting_date >= today` ベースだったため、開始時刻を過ぎた当日MTGも予定として残った。
+- 開催済み議事録詳細が同じ `calendar_event_id` の `upcoming:` 行を無条件に `MTG準備情報` として拾い、薄い calendar sync テンプレートまで会議後に残した。
+- `next_meeting_prep` TODO に MTG開始後の自動終了出口がなく、期限超過しても残り続けた。
+- `meeting_id` が `upcoming:` で始まるだけで準備カード扱いしていたため、`source_kinds='notion+gmail+pre_mtg_prep'` のように中身は開催済み議事録へ変わった row まで `日程調整中MTG` に落ちた。
+- `upcoming_tentative` を別欄 `日程調整中MTG` として出していたため、日程未確定メモが予定欄とは別の古いレーンに見えた。
+
+### 実装 / 仕様同期
+- `v0.39.6` (`bec41598`) で、予定MTG表示を `meeting_start_at > now` に変更し、画面を開いたままでも1分ごとに現在時刻更新するようにした。
+- 開催済み議事録に紐づける準備メモは、手動準備または prep worker 成果 (`prep_draft_md` / readiness / session) がある row だけに限定。`calendar-future-sync` だけの薄い予定テンプレートは出さない。
+- `proactive-todo-extract` に Stage 5 を追加し、開始時刻を過ぎたMTGに紐づく open/blocked `next_meeting_prep` を `done` へ自動終了するようにした。
+- `v0.39.7` (`80cd1fe5`) で、`日程調整中MTG` 別欄を廃止。`upcoming_tentative` は同じ `予定MTG / 準備中` 欄に入れ、日付欄を `日程未確定` と表示する。
+- `meeting_id` prefix だけで準備カード扱いしないようにし、`source_kinds` が開催済みソースへ変わった row は準備カードから除外した。
+- `pwa/spec/3-3-meeting-flow-current-spec.md`、`pwa/spec/2-4-proactive-todo-current-spec.md`、`pwa/manual/2-3-pj-cockpit.md`、`pwa/BUGS.md`、appendix changelog に同期済み。
+
+### Verification / Deploy
+- `npx tsc --noEmit` passed。
+- `npm run test:critical-ui` passed。
+- predicate 小テスト passed (future upcoming / started upcoming / pending tentative / old tentative / held-source upcoming-id)。
+- `git diff --check` passed。
+- `npm run build` passed。
+- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` で `v0.39.6` と `v0.39.7` を本番反映。
+- production `/api/build-info`: `v0.39.7 / 80cd1fe557282e8bced855c60426735aab62de90 / dirty=false`。
+- production cleanup: `proactive-todo-extract` one-shot で `closed_expired_prep: 13`。開始済みMTGに紐づく open/blocked `next_meeting_prep` は 0。
+- KUTE p25 を新判定で確認し、予定欄に出るのは未来3件のみ。スクショの 2026-06-23 / 2026-06-22 rows は予定欄に入らない。
+- ブラウザ自動確認は認証壁まで。desktop/mobile login 画面は overflow / console error なし。authenticated cockpit はまさが `調整中なくなった` と確認。
+
+### 注意 / 次
+- もし今後も古いMTGカードが見える場合、まず画面左上 version / `/api/build-info` が `v0.39.7` 以上か確認する。
+- `v0.39.7` でも残る場合は、推測でDBを消さず、`project_meeting_summaries.source_kinds`、`meeting_id` prefix、`meeting_start_at`、`calendar_event_id`、`prep_status`、`generated_by_model` を見て、どのpredicateへ入ったかを切り分ける。
+- canonical checkout `/Users/masa/projects/AMD/amd-os` は stale/dirty。今回の修正は clean disposable clone `/tmp/amd-os-mtg-ghost-fix-1783401569` から origin/main / production に反映済み。

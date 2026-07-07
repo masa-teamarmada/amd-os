@@ -1,80 +1,85 @@
 # AMD OS Handoff
 
-Last updated: 2026-07-06 JST
+Last updated: 2026-07-08 JST
 Target: `/Users/masa/projects/AMD/amd-os`
-Topic: 月初合意 / MS編集の支払実績を freee 出金照合ベースへ修正
+Topic: MTGカードの「準備/日程調整中」亡霊を解消
 
 ## Summary
 
-See `pwa/design_log/sessions_2026-07.md` section "2026-07-03 — 月初合意 / MS編集 支払実績の freee 照合化" for details.
+See `pwa/design_log/sessions_2026-07.md` section "2026-07-08 — MTGカード 予定/準備/日程未確定 亡霊解消" for details.
 
-- まさの指摘どおり、計算キャッシュだけでは実際の振込額と同一と断定できないため、過去支払実績の判定を freee `wallet_txns` 照合ベースに変更した。
-- `monthly_reward_payout.total_pay` は税抜の保存済み明細。`round(total_pay * 1.1)` が freee `wallet_txns.amount` と一致し、`reward_paid_by='freee_wallet_txn_verified:<ids>'` がある月だけ `支払実績`。
-- `reward_paid_at` だけある月、または銀行出金はあるがPJ別明細額と一致しない月は `要照合` / `実績未照合`。実績にも未来予定にも混ぜない。
-- ZMP p19 / ID026 では 202604 と 202605 だけが照合済み実績。202601〜202603 は `要照合`、202606 は証跡未確認のため `保存済み`。
-- `/monthly-agreement` は `支払済み実績(税込)` / `実績未照合(税込)` / `これから支払予定(税込)` を分離し、明細は税抜/税込を併記。
-- `/admin/ms-overview` の保存前支払検算は、照合済み実績だけを固定支払にし、未照合月がある場合は保存 `blocked`。
+- 複数PJのMTGカードに、開催済みなのに `予定MTG / 準備中`、`MTG準備情報`、`agenda / 進行案` TODO、別欄 `日程調整中MTG` が残る問題を修正した。
+- `v0.39.6` (`bec41598`) で、予定MTG表示を開始時刻ベースへ変更し、薄い calendar sync 準備テンプレートを開催済み議事録へ表示しないようにし、開始済みMTGの `next_meeting_prep` TODO を自動終了するようにした。
+- `v0.39.7` (`80cd1fe5`) で、`日程調整中MTG` 別欄を廃止。日程未確定は同じ `予定MTG / 準備中` 欄の行として、日付欄に `日程未確定` と表示する。
+- `meeting_id` が `upcoming:` で始まっても、`source_kinds` が開催済みソースへ変わっている row は準備カード扱いしない。
+- まさ確認: 2026-07-08 に「調整中なくなった」と受領済み。
 
-## Repo State / Closeout Warning
+## Current Truth
 
-- Clean handoff worktree used here: `/Users/masa/.codex/worktrees/amd-os-ms-liability-deploy`
-- Current clean base before this handoff commit was rebased: `origin/main` at `34973b68` (`docs(handoff): record contract cap closeout`).
-- Handoff/doc files changed in this closeout: `HANDOFF.md`, `SESSION_MIGRATION_PROMPT.md`, `pwa/design_log/sessions_2026-07.md`, `pwa/BUGS.md`.
-- Canonical local checkout `/Users/masa/projects/AMD/amd-os` is not clean/current: observed `main...origin/main [ahead 7, behind 79]` with many unrelated modified/untracked files. Do not merge, reset, or trust it as current truth without separate cleanup.
-- Immediately before this handoff, `origin/main` also recorded the monthly_fixed contract cap closeout. Its durable detail remains in `pwa/design_log/sessions_2026-07.md`, `pwa/BUGS.md`, and the related spec/manual files.
+- Production behavior baseline: `https://amd-os-pwa.vercel.app/api/build-info`
+  - Implementation build observed before handoff docs: `v0.39.7` / `80cd1fe557282e8bced855c60426735aab62de90` / `dirty=false`
+  - After this handoff docs commit is pushed, `build_version` should stay `v0.39.7` but `git_sha` may be the docs-only closeout commit on top. Re-check `/api/build-info` for the exact current SHA.
+- Accepted implementation commits:
+  - `bec4159810c59f76f4fe115ce7c14e65dfb66f32` — `fix(pwa): clear stale meeting prep ghosts`
+  - `80cd1fe557282e8bced855c60426735aab62de90` — `fix(pwa): fold undated meetings into schedule list`
+- Work was done from clean disposable clone `/tmp/amd-os-mtg-ghost-fix-1783401569`, not from the dirty canonical checkout.
 
-Use `origin/main`, production `/api/build-info`, or a clean worktree for finance work.
-
-## Verification Already Run For The Implementation
+## Verification Already Run
 
 ```bash
-npx tsc --noEmit --pretty false
+npx tsc --noEmit
 npm run test:critical-ui
+node predicate checks for upcoming / tentative / held-source-upcoming rows
 git diff --check
 npm run build
 AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh
+curl -sS https://amd-os-pwa.vercel.app/api/build-info
 ```
 
-Observed during implementation closeout:
-- Production deployment completed at `v0.38.3 / 7a7b0ddc70439cc977c80fc6593f467eba0e89d9`.
-- Later sessions advanced production to `v0.39.5`; this handoff is rebased on latest `origin/main` and does not change product behavior.
-- `npm run lint` was attempted and failed on pre-existing unrelated lint errors.
-- Production UI for `/monthly-agreement?ym=202607&memberId=ID026` showed:
-  - `支払済み実績(税込) ¥68,855`
-  - `実績未照合(税込) ¥96,525`
-  - `これから支払予定(税込) ¥223,726`
-  - row badges `支払実績` / `要照合` / `保存済み`.
+Observed production cleanup / data checks:
+- `proactive-todo-extract` one-shot after `v0.39.6`: `closed_expired_prep: 13`
+- After cleanup: open/blocked `next_meeting_prep` linked to already-started meetings = `0`
+- KUTE p25 under the new `v0.39.7` predicate: scheduled block contains future 3 rows; the screenshot rows from 2026-06-23 / 2026-06-22 do not enter the scheduled block.
+- Browser automation could reach the auth wall only; desktop/mobile login screen had no overflow or console errors. Authenticated cockpit visual check is user-confirmed byまさ.
 
 ## Design Records
 
-- Monthly agreement spec: `pwa/spec/3-14-monthly-work-agreement-current-spec.md`
-- Admin MS Overview manual/spec: `pwa/manual/6-8-admin-ms-overview-spec.md`
-- Reward calc manual: `pwa/manual/7-1-reward-calc-spec.md`
-- Change history: `pwa/spec/6-1-appendix-changelog.md`, `pwa/manual/9-3-appendix-changelog.md`
-- Bug/lesson: `pwa/BUGS.md`
+- User/dev manual: `pwa/manual/2-3-pj-cockpit.md`
+- Current spec: `pwa/spec/3-3-meeting-flow-current-spec.md`
+- Proactive TODO spec: `pwa/spec/2-4-proactive-todo-current-spec.md`
+- Changelogs: `pwa/spec/6-1-appendix-changelog.md`, `pwa/manual/9-3-appendix-changelog.md`
+- Bug/lesson: `pwa/BUGS.md` entry `[pwa/meeting-prep] 開催済みMTGに準備カード/TODOが亡霊のように残った`
 - Session log: `pwa/design_log/sessions_2026-07.md`
+
+## Repo State / Closeout
+
+- Clean clone `/tmp/amd-os-mtg-ghost-fix-1783401569`: `main...origin/main`, clean at `80cd1fe5` before this handoff update.
+- Canonical checkout `/Users/masa/projects/AMD/amd-os`: read-only inventory on 2026-07-08 showed `main...origin/main [ahead 7, behind 84]` with many unrelated modified/untracked files. Treat it as preexisting branch/dirty debt; do not mix it into this MTG-card fix.
+- Preexisting local branches in canonical checkout: `book-a-pf012` (`main aligned`) and `codex/monthly-agreement-reward-boundary` (`patch-equivalent-main`). These were not created by this session and were not deleted here.
+- This session created no branch and no registered git worktree.
 
 ## Open Risks / Next Checks
 
-1. Product behavior for verified actuals is done and deployed.
-2. ZMP p19 202601〜202603 remain `要照合`. Do not mark them actual unless freee出金とPJ別明細の税込額が1円単位で一致する根拠が見つかる.
-3. Canonical local checkout `/Users/masa/projects/AMD/amd-os` has unrelated dirty/diverged state. Treat cleanup as a separate owner task; do not fold it into this handoff.
-4. Existing unrelated lint errors remain outside this bundle.
+1. MTG ghost fix is done and deployed.
+2. If a future screenshot still shows old MTG-card state, first check the visible build version / `/api/build-info`. If it is older than `v0.39.7`, it is cache or stale deployment; if it is `v0.39.7`, inspect `project_meeting_summaries.source_kinds`, `meeting_id`, `meeting_start_at`, and the UI predicates before changing data.
+3. Canonical checkout dirty/branch debt remains separate cleanup work. Do not reset/delete/merge it without a dedicated cleanup pass.
 
 ## First Next Action
+
+If continuing AMD OS work:
 
 ```bash
 cd /Users/masa/projects/AMD/amd-os
 git fetch origin main --prune
 git status -sb --untracked-files=all
-git rev-list --left-right --count origin/main...HEAD
-curl -s https://amd-os-pwa.vercel.app/api/build-info
+git rev-list --left-right --count HEAD...origin/main
+curl -sS https://amd-os-pwa.vercel.app/api/build-info
 ```
 
-Then read this `HANDOFF.md`, `pwa/spec/3-14-monthly-work-agreement-current-spec.md`, `pwa/manual/6-8-admin-ms-overview-spec.md`, `pwa/manual/7-1-reward-calc-spec.md`, `pwa/BUGS.md`, `AGENTS.md`, `CLAUDE.md`, and `pwa/CLAUDE.md`.
-
-If continuing the `要照合` cleanup, start from freee `wallet_txns` and saved `monthly_reward_payout`, not from recalculated reward cache alone.
+Then read `/Users/masa/projects/AGENTS.common.md`, AMD level memory, this `HANDOFF.md`, `pwa/spec/3-3-meeting-flow-current-spec.md`, `pwa/manual/2-3-pj-cockpit.md`, and `pwa/BUGS.md`.
 
 ## Archive Decision
 
-Handoff for the MS/payment-actuals correction is archive-ready after the handoff commit is pushed. The canonical root checkout remains `do not archive` until its unrelated dirty/diverged state is separately reconciled.
+MTG-card fix worker: `archive ok` after this handoff commit is pushed.
+
+Canonical checkout `/Users/masa/projects/AMD/amd-os`: `do not archive` as a repo cleanup target until its preexisting dirty/ahead/behind state and old local branches are reconciled separately.

@@ -1,34 +1,59 @@
-# SESSION MIGRATION PROMPT - AMD OS MS/payment actuals
+# SESSION MIGRATION PROMPT - AMD OS MTG card ghost fix
 
 ```text
 cd /Users/masa/projects/AMD/amd-os
 
-まず `HANDOFF.md` を読んで。次に仕様正本として `pwa/spec/3-14-monthly-work-agreement-current-spec.md`、`pwa/manual/6-8-admin-ms-overview-spec.md`、`pwa/manual/7-1-reward-calc-spec.md` を読んで。そのあと `pwa/BUGS.md`、`pwa/design/FEATURE_REGISTRY.md`、`CLAUDE.md`、`AGENTS.md`、`pwa/CLAUDE.md` を読んで。
+読む順:
+1. /Users/masa/projects/AGENTS.common.md
+2. /Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md
+3. HANDOFF.md
+4. pwa/spec/3-3-meeting-flow-current-spec.md
+5. pwa/spec/2-4-proactive-todo-current-spec.md
+6. pwa/manual/2-3-pj-cockpit.md
+7. pwa/BUGS.md
+8. pwa/design_log/sessions_2026-07.md の "2026-07-08 — MTGカード 予定/準備/日程未確定 亡霊解消"
+9. CLAUDE.md / pwa/CLAUDE.md
 
-最重要:
-- `/Users/masa/projects/AMD/amd-os` のローカル checkout は、2026-07-06 closeout 時点で `origin/main` から ahead/behind し、大量の unrelated dirty state があった。current truth としてそのまま信じない。
-- 作業前に `git fetch origin main --prune`、`git status -sb --untracked-files=all`、`git rev-list --left-right --count origin/main...HEAD`、`curl -s https://amd-os-pwa.vercel.app/api/build-info` を確認する。
-- 支払実績照合修正自体は `v0.38.3 / 7a7b0ddc70439cc977c80fc6593f467eba0e89d9` で入っており、その後の main に含まれている。最新本番 sha は必ず `/api/build-info` で確認する。
-- 直前の `origin/main` には monthly_fixed contract cap closeout (`34973b68`) も入っている。KUTE/SX/契約capを触るなら `pwa/spec/5-6-contracts-management-current-spec.md`、`pwa/manual/6-7-contracts-management-spec.md`、`pwa/design_log/sessions_2026-07.md` の該当節も読む。
+状態スナップショット:
+- MTGカードの「準備/日程調整中」亡霊修正は完了済み。
+- production: https://amd-os-pwa.vercel.app
+- implementation build-info before handoff docs push: v0.39.7 / 80cd1fe557282e8bced855c60426735aab62de90 / dirty=false
+- after handoff closeout, /api/build-info may show a later docs-only commit on top of v0.39.7. Re-check the endpoint for exact current SHA.
+- accepted commits:
+  - bec4159810c59f76f4fe115ce7c14e65dfb66f32: fix(pwa): clear stale meeting prep ghosts
+  - 80cd1fe557282e8bced855c60426735aab62de90: fix(pwa): fold undated meetings into schedule list
+- まさ確認済み: 2026-07-08「調整中なくなった」。
+- 作業は /tmp/amd-os-mtg-ghost-fix-1783401569 の clean disposable clone で実施。canonical checkout /Users/masa/projects/AMD/amd-os は preexisting dirty / ahead / behind が多いので current truth としてそのまま信用しない。
 
-今回の current truth:
-- `monthly_reward_payout.total_pay` は税抜の保存済み明細で、実際の振込額そのものではない。
-- `支払実績` として扱えるのは、`round(monthly_reward_payout.total_pay * 1.1)` が freee `wallet_txns.amount` と一致し、かつ `billing_cycles.reward_paid_by` が `freee_wallet_txn_verified:<wallet_txn_ids>` を持つ月だけ。
-- `reward_paid_at` だけある月、または銀行出金は見えるがPJ別明細と一致しない月は `要照合` / `実績未照合`。実績にも未来予定にも混ぜない。
-- `/monthly-agreement` は `支払済み実績(税込)` / `実績未照合(税込)` / `これから支払予定(税込)` を分離し、明細は税抜/税込を併記する。
-- `/admin/ms-overview` の保存前支払検算は、照合済み実績だけを固定支払にし、未照合月がある場合は保存 `blocked`。
-- ZMP p19 / ID026 は 202604 と 202605 だけ照合済み実績。202601〜202603 は `要照合`、202606 は証跡未確認で `保存済み`。
+今回の仕様:
+- 予定MTG欄に出す日時確定 row は、source_kinds に upcoming token を持ち、upcoming_tentative token を持たず、meeting_start_at が現在時刻より後のものだけ。
+- 日程未確定 row (source_kinds=upcoming_tentative) は別の「日程調整中MTG」欄を作らず、同じ「予定MTG / 準備中」欄に入れる。日付欄は「日程未確定」。
+- meeting_id が upcoming: で始まるだけでは準備カード扱いしない。source_kinds が notion/gmail/drive/slack/calendar など開催済みソースへ変わっている row は開催済み側として扱う。
+- 開催済み議事録に表示する MTG準備情報は、手動準備または prep worker 成果があるものだけ。calendar-future-sync の薄いテンプレートは出さない。
+- next_meeting_prep TODO は、紐づく予定MTGの開始時刻を過ぎたら自動で done にする。
 
-最初の一手:
-1. `HANDOFF.md` の Repo State / Open Risks を読む。
-2. `origin/main` と production `/api/build-info` の sha を合わせる。
-3. MS編集や月初合意を触るなら、`pwa/spec/3-14-monthly-work-agreement-current-spec.md` と `pwa/manual/6-8-admin-ms-overview-spec.md` の「freee照合済み実績 / 実績未照合」の境界を先に確認する。
-4. ZMP p19 202601〜202603 の `要照合` を解くなら、freee `wallet_txns` と保存済み `monthly_reward_payout` の税込一致を証拠として確認する。計算キャッシュの再補完だけで actual にしない。
+検証済み:
+- npx tsc --noEmit
+- npm run test:critical-ui
+- predicate 小テスト (future upcoming / started upcoming / pending tentative / old tentative / held-source upcoming-id)
+- git diff --check
+- npm run build
+- AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh
+- production /api/build-info 確認
+- production cron cleanup: closed_expired_prep=13
+- cleanup 後、開始済みMTGに紐づく open/blocked next_meeting_prep は 0
+- KUTE p25 の新判定では予定欄は未来3件のみ。スクショにあった 2026-06-23 / 2026-06-22 row は予定欄に入らない。
 
-守ること:
-- 支払済み印 (`reward_paid_at`) だけで支払実績にしない。
-- 計算キャッシュや再計算値を実振込額として扱わない。
-- 既に発行・送付・支払済みの通知書額を勝手に変えない。
-- `git add .` は使わない。対象 bundle だけ個別 stage。
-- PWA deploy が必要なら `.vercel/project.json` が `amd-os-pwa / prj_raZW3HSKIszzPUwNTHfy7xDGzLHm` であることを確認し、`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` を使う。
+次タスク:
+- 基本的にはなし。MTG-card ghost fix は完了。
+- もしまた「残ってる」と言われたら、まず画面左上 version と /api/build-info が v0.39.7 以上か確認する。
+- そのうえで該当 row の project_meeting_summaries を読む。確認順は source_kinds / meeting_id prefix / meeting_start_at / calendar_event_id / prep_status / generated_by_model。
+- 推測でDB rowを削除・上書きしない。まず表示predicateのどこに入ったかを分類する。
+
+運用ルール:
+- /Users/masa/projects/AGENTS.common.md を最初に読む。
+- AMD OSでは main push が本番deploy。PWA変更時は build version を bump し、AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh で push/build監視まで進める。
+- branch は作らない。dirty は branch/worktree 作成理由にしない。必要なら clean disposable clone で対象差分だけ扱う。
+- git add . は使わない。対象ファイルだけ stage。
+- canonical checkout /Users/masa/projects/AMD/amd-os の preexisting dirty/branch debt はこの修正と混ぜない。cleanupするなら専用closeoutで証跡保存・分類してから。
 ```
