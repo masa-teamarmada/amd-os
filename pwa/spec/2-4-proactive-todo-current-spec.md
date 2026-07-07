@@ -116,7 +116,7 @@ admin (= `members.is_admin = true`) と `service_role` のみ ALL。anon SELECT 
 
 ### Stage 2: 次回MTG準備 TODO
 
-対象: `source_kinds = 'upcoming'` かつ `meeting_date >= today` の `project_meeting_summaries`。
+対象: `source_kinds = 'upcoming'` かつ `meeting_date >= today` の `project_meeting_summaries` のうち、`meeting_start_at` が現在時刻より後のもの。開始時刻を過ぎた予定MTGから新しい準備TODOを作らない。
 
 7 日以内 (土日除外) に開催される MTG のみ TODO 化。`meetingTitle` が `isGarbledText` なら skip (= 「??? の準備をする」通知を出さない)。
 
@@ -132,6 +132,12 @@ admin (= `members.is_admin = true`) と `service_role` のみ ALL。anon SELECT 
 ### Stage 4: blocked の自動復帰
 
 `status='blocked' AND updated_at < now() - 3 日` を `status='open'` に戻す。期限超過してれば同時に `red` 化。
+
+### Stage 5: MTG開始後の準備TODO自動終了
+
+`trigger_kind='next_meeting_prep'` の `open` / `blocked` TODO は、紐づく予定MTGの `meeting_start_at` が現在時刻を過ぎたら `done` へ自動更新する。これは「会議前にagenda/進行案を出す」という準備TODOが、会議開始後も赤い未対応として残り続けることを防ぐための出口。
+
+自動終了時は `resolved_by='system'`、`resolved_note='MTG開始時刻を過ぎたため自動終了'` を保存する。会議後の本当の次アクションは Stage 1 の開催済みMTG `next_actions[]` から別TODOとして抽出する。
 
 ### 課金 LLM 不使用
 

@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-07-07 | 2-4 Proactive TODO / 3-3 Meeting Flow | 修正 | 予定MTG表示を `meeting_start_at > now` にし、開催済み議事録へ薄い calendar sync 準備テンプレートを表示しない。`proactive-todo-extract` に MTG開始後の `next_meeting_prep` 自動終了を追加。build v0.39.6 | 開催済みMTGに `MTG準備情報` や期限切れ準備TODOが残り、PJ横断で亡霊のように見えていたため | えいみ |
 | 2026-07-04 | 2-4 Proactive TODO / FEATURE_REGISTRY | 削除 | `ProactiveRadarBoard`、dashboard 差し込み、レーダー専用 critical UI guard、spec/manual/FEATURE_REGISTRY のレーダー契約を削除。build v0.39.5 | 既存 `ProactiveTodoBadge` / `/proactive` と重複し、AMD OS dashboard 側では十分な意味が出ないため | えいみ |
 | 2026-07-04 | 2-4 Proactive TODO / FEATURE_REGISTRY | 修正 | `ProactiveRadarBoard` の自動対象を current PJ (`active` / `sales` / `draft`) に限定し、非current PJは明示的な未対応TODOがある場合だけ表示する。材料ゼロの平常監視行を非表示化。build v0.39.4 | 停止済み・旧PJが空白提案として混ざると、先手レーダーが実務判断からズレるため | えいみ |
 | 2026-07-04 | 2-4 Proactive TODO / FEATURE_REGISTRY | 追加 | dashboard `ProactiveTodoBadge` 直下に `ProactiveRadarBoard` を追加。5センサーと空白提案の条件、read-only導線、build v0.39.3 を追記 | 全PJ横断で、明示TODOになる前の先手候補をdashboard入口で見つけるため | えいみ |

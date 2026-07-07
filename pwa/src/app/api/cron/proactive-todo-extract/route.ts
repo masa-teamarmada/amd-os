@@ -152,6 +152,22 @@ function isPastIso(iso: string): boolean {
   return new Date(iso).getTime() < Date.now();
 }
 
+function todayJstIsoDate(): string {
+  const now = new Date();
+  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  return jst.toISOString().slice(0, 10);
+}
+
+function meetingStartIso(row: { meeting_start_at?: unknown; meeting_date?: unknown }): string {
+  const start = typeof row.meeting_start_at === "string" && row.meeting_start_at
+    ? row.meeting_start_at
+    : null;
+  const date = typeof row.meeting_date === "string" && row.meeting_date
+    ? row.meeting_date
+    : "";
+  return start || ymdToIsoDayEnd(date);
+}
+
 // --- next_action テキストから 1 行 title を作る ---
 
 function titleFromNextAction(raw: string, projectId: string, meetingTitle: string): string {
@@ -172,7 +188,9 @@ export async function GET(req: NextRequest) {
   }
 
   const db = createAdminClient();
-  const today = new Date().toISOString().slice(0, 10);
+  const nowIso = new Date().toISOString();
+  const nowMs = new Date(nowIso).getTime();
+  const today = todayJstIsoDate();
   const lookbackFrom = new Date(Date.now() - LOOKBACK_DAYS * 86400_000).toISOString().slice(0, 10);
 
   // AMD メンバー実名 (本名 + コードネーム) を fetch して ball_owner 判定に使う
@@ -286,6 +304,7 @@ export async function GET(req: NextRequest) {
   let prepInserted = 0;
   let prepSkippedFar = 0;
   let prepSkippedGarbled = 0;
+  let prepSkippedStarted = 0;
 
   for (const m of upcomingMeetings ?? []) {
     const projectId = String(m.project_id);
@@ -300,9 +319,14 @@ export async function GET(req: NextRequest) {
     }
 
     // NEXT_MEETING_PREP_WINDOW_DAYS 日後より先の MTG は skip
-    const horizonIso = new Date(Date.now() + NEXT_MEETING_PREP_WINDOW_DAYS * 86400_000).toISOString();
-    const meetingStart = m.meeting_start_at ? String(m.meeting_start_at) : ymdToIsoDayEnd(meetingDate);
-    if (new Date(meetingStart).getTime() > new Date(horizonIso).getTime()) {
+    const horizonIso = new Date(nowMs + NEXT_MEETING_PREP_WINDOW_DAYS * 86400_000).toISOString();
+    const meetingStart = meetingStartIso(m);
+    const meetingStartMs = new Date(meetingStart).getTime();
+    if (!Number.isFinite(meetingStartMs) || meetingStartMs <= nowMs) {
+      prepSkippedStarted++;
+      continue;
+    }
+    if (meetingStartMs > new Date(horizonIso).getTime()) {
       prepSkippedFar++;
       continue;
     }
@@ -370,6 +394,49 @@ export async function GET(req: NextRequest) {
     if (!error) resurfaced++;
   }
 
+  // ============================================
+  // Stage 5: MTG開始後の prep TODO を自動終了
+  // ============================================
+  const { data: openPrepTodos } = await db
+    .from("proactive_todos")
+    .select("id, source_event_id, status")
+    .eq("trigger_kind", "next_meeting_prep")
+    .in("status", ["open", "blocked"]);
+
+  const prepEventIds = Array.from(new Set(
+    (openPrepTodos ?? [])
+      .map((todo) => String(todo.source_event_id ?? "").trim())
+      .filter(Boolean),
+  ));
+  const { data: linkedPrepMeetings } = prepEventIds.length
+    ? await db
+      .from("project_meeting_summaries")
+      .select("meeting_id, meeting_date, meeting_start_at")
+      .in("meeting_id", prepEventIds)
+    : { data: [] as Array<{ meeting_id: string; meeting_date: string; meeting_start_at: string | null }> };
+
+  const meetingById = new Map(
+    (linkedPrepMeetings ?? []).map((meeting) => [String(meeting.meeting_id), meeting]),
+  );
+  let closedExpiredPrep = 0;
+  for (const todo of openPrepTodos ?? []) {
+    const sourceEventId = String(todo.source_event_id ?? "").trim();
+    const meeting = meetingById.get(sourceEventId);
+    if (!meeting) continue;
+    const startMs = new Date(meetingStartIso(meeting)).getTime();
+    if (!Number.isFinite(startMs) || startMs > nowMs) continue;
+    const { error } = await db
+      .from("proactive_todos")
+      .update({
+        status: "done",
+        resolved_at: nowIso,
+        resolved_by: "system",
+        resolved_note: "MTG開始時刻を過ぎたため自動終了",
+      })
+      .eq("id", todo.id);
+    if (!error) closedExpiredPrep++;
+  }
+
   return NextResponse.json({
     ok: true,
     scanned: {
@@ -386,8 +453,10 @@ export async function GET(req: NextRequest) {
       next_action_garbled: nextActionSkippedGarbled,
       prep_far_future: prepSkippedFar,
       prep_garbled: prepSkippedGarbled,
+      prep_started: prepSkippedStarted,
     },
     escalated_to_red: escalated,
     resurfaced_from_blocked: resurfaced,
+    closed_expired_prep: closedExpiredPrep,
   });
 }

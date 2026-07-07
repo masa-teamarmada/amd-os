@@ -57,6 +57,23 @@ function todayJstIsoDate(): string {
   return jst.toISOString().slice(0, 10);
 }
 
+function isFutureUpcomingMeeting(item: ProjectMeetingSummary, nowIso: string, today: string): boolean {
+  if (!isUpcomingMeeting(item)) return false;
+  if (!item.meetingStartAt) return item.meetingDate >= today;
+  const startMs = new Date(item.meetingStartAt).getTime();
+  const nowMs = new Date(nowIso).getTime();
+  return Number.isFinite(startMs) && Number.isFinite(nowMs) && startMs > nowMs;
+}
+
+function hasMeaningfulPrepArchive(item: ProjectMeetingSummary): boolean {
+  if (item.prepDraftMd?.trim()) return true;
+  if (item.prepReadinessScore != null) return true;
+  if (item.prepWorkerStatus === "ready") return true;
+  if (item.prepWorkerSessionId) return true;
+  const model = item.generatedByModel || "";
+  return !!model && model !== "calendar-future-sync";
+}
+
 interface MeetingGroup {
   ym: string;
   items: ProjectMeetingSummary[];
@@ -93,6 +110,12 @@ export function CockpitMeetingSummary({ projectId }: Props) {
   const deepLinkMeetingId = searchParams.get("meeting");
   // 一度 auto-open した meeting_id を記憶しておき、閉じた後の再 auto-open を防ぐ (#10 まさ 2026-05-24)
   const autoOpenedRef = useRef<string | null>(null);
+  const [nowIso, setNowIso] = useState(() => new Date().toISOString());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNowIso(new Date().toISOString()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -203,9 +226,9 @@ export function CockpitMeetingSummary({ projectId }: Props) {
   );
   const upcomingSeries = useMemo(
     () => groupUpcomingMeetingsBySeries(
-      recentItems.filter((item) => isUpcomingMeeting(item) && item.meetingDate >= today)
+      recentItems.filter((item) => isFutureUpcomingMeeting(item, nowIso, today))
     ),
-    [recentItems, today]
+    [recentItems, nowIso, today]
   );
   const tentativeItems = useMemo(
     () => recentItems
@@ -244,7 +267,10 @@ export function CockpitMeetingSummary({ projectId }: Props) {
     if (!selectedMeeting || isUpcomingMeeting(selectedMeeting)) return null;
     const eventId = selectedMeeting.calendarEventId || selectedMeeting.meetingId;
     if (!eventId) return null;
-    return prepRows.find((item) => item.calendarEventId === eventId || item.meetingId === `upcoming:${eventId}`) ?? null;
+    return prepRows.find((item) =>
+      hasMeaningfulPrepArchive(item) &&
+      (item.calendarEventId === eventId || item.meetingId === `upcoming:${eventId}`)
+    ) ?? null;
   }, [prepRows, selectedMeeting]);
 
   return (
