@@ -58,7 +58,7 @@ SKILL 正本: [`pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md`](.
 | **D-7** | D-7 | Textbook Insights | Claude routine `amd-os-l2-consolidated-evidence` | 差分なし: Claude UIでACTIVE / next run確認済み。approved後のBZM local applierは別段階 |
 | **D-8** | D-8 | Atlas Signals | Claude routine `amd-os-l2-consolidated-evidence` | 差分なし: Claude UIでACTIVE / next run確認済み |
 | **D-9** | D-9 | Macrotrend Evidence / Index | Claude routine `amd-os-l2-consolidated-evidence` + PWA non-LLM cron `macro-aggregate-indicators` | 差分なし: Claude UIでACTIVE / next run確認済み。index集計cronはPWA non-LLMとして別枠 |
-| **D-10** | D-10 | Member Activity Evidence | Claude routine `amd-os-l2-consolidated-evidence` | 差分なし: Claude UIでACTIVE / next run確認済み |
+| **D-10** | D-10 | Member Activity Evidence | Codex automation `AMD OS D-10 メンバー活動根拠抽出 (Mac)` (`amd-os-l2-2`) + PWA evidence/POST route | 2026-07-08 current: route 内 Anthropic 合成ではなく、Codex automation が evidence groups を合成して POST 保存 |
 | **D-11** | D-11 | Media Mentions | Claude routine `amd-os-l2-consolidated-evidence` | 差分なし: Claude UIでACTIVE / next run確認済み |
 | **D-12** | finance/freee | Finance Ops Evidence / freee Transaction Actuals | PWA non-LLM cron `/api/cron/management-score-raw-data?includeFreee=1` + admin review | 差分なし: `pwa/vercel.json` で daily cron 定義済み。Claude routine / Codex automation には載せない |
 | **M-1** | M-1 | monthly_reports | Claude routine `amd-os-l2-monthend-evidence` | 差分なし: Claude UIでACTIVE / next run確認済み。MMO暫定automationはPAUSED |
@@ -270,7 +270,7 @@ Codex cron sandbox は外向きネットワークが落ちることがあるた�
 |---|---|---|---|---|
 | **D-8** | D-8 **Atlas Signals** | 外部政策・産業・市場シグナルの観測 | `atlas_signals`、派生 `atlas_stories` / `atlas_reports` | Claude routine `amd-os-l2-consolidated-evidence` 対象 (daily)。`POST /api/atlas/signals-ingest` 経由。派生 stories/reports は別系統 |
 | **D-9** | D-9 **Macrotrend Evidence / Index** | macro observation / index / lane weight の根拠 | `observation_log`, `macro_index_log`, 派生 `macro_lane_weights`, `triple_helix_state_log` | routine は外部 observation 収集 (daily)。`macro_index_log` の集計は LLM非依存 → PWA non-LLM cron `macro-aggregate-indicators` |
-| **D-10** | D-10 **Member Activity Evidence** | Dashboard / MyPage「今週やったこと」の根拠 | `member_activities` | Claude routine `amd-os-l2-consolidated-evidence` 対象。**daily 化** (= weekly廃止) |
+| **D-10** | D-10 **Member Activity Evidence** | Dashboard / MyPage「今週やったこと」の根拠 | `member_activities` | Codex automation `amd-os-l2-2` が primary。PWA route は `GET ?mode=evidence` と `POST activities[]` の evidence/write 境界 |
 | **D-11** | D-11 **Media Mentions** | メディア掲載・公開露出 | `project_media_mentions` / `news_mention` notifications | Claude routine `amd-os-l2-consolidated-evidence` 対象 |
 | **W-1** | W-1 **VC News / Funding Signals** | VC・資金調達・投資家動向 | `vc_news` / funding signal tables | Claude routine `amd-os-l2-weekly-vc-funding-signals` 対象 |
 | **M-3** | M-3 **Management Monthly Signal Evaluation** | Management予実表から月末に作る経営シグナル評価 | `company_management_signal_reviews` | Claude routine `amd-os-l2-monthend-evidence` 対象 (= M 群、月末最終日 17:00 完了) |
@@ -338,7 +338,7 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 | **07:00** | `cron/atlas-collect-policy` | 政府方針シグナル | PWA |
 | **08:00** | `cron/atlas-collect` | **停止済み**。旧マクロニュース収集 | PWA |
 | **08:10** | Codex automation `AMD Atlas外部シグナルレビュー` | subscription 枠で外部マクロシグナル収集 → outbox → ローカル非LLM applier → `/api/atlas/signals-ingest` に投入 | Codex automation + PWA |
-| ~~18:00 daily~~ ⛔ | ~~`cron/member-weekly-activities`~~ | Anthropic 経路を持つため 2026-05-29 に Vercel active cron から退避。定期化する場合はClaude routine実登録または別の定額枠へ移す | 旧 PWA |
+| ~~18:00 daily~~ ⛔ | ~~`cron/member-weekly-activities` legacy GET synthesis~~ | Anthropic 経路を持つため 2026-05-29 に Vercel active cron から退避。2026-07-08 以降の定期D-10は `mode=evidence` → Codex合成 → POST保存で動かす | 旧 PWA |
 | **土 09:00** | `cron/vc-discover` | **停止中**。VC ニュース + 新規 VC 発見 (旧 weekly) | PWA |
 | ~~mon 03:00~~ ⛔ | `cron/amd-score-l2-refresh` | AMD Score / XRL根拠リフレッシュ (M-2)。Sonnet 利用のため schedule 停止中、route は手動検証用に残す | PWA |
 | ~~月初 03:00 (1日 18:00 UTC)~~ ⛔ | `cron/frl-grit-resilience-extract` | ecosystemを除くactive PJ × 過去 3 ヶ月 monthly_reports + meeting_summaries 集約 → Sonnet 4.6 で frl_grit (Duckworth 2007) / frl_resilience (Markman 2005) を 0-9 推定 → 既存amd_score_inputsをupdate。prompt = `llm_prompts.frl.grit_resilience.extract` (v2、外部創業者優先 / null 厳格化)。Sonnet 利用のため schedule 停止中、手動 route は残す | PWA |
@@ -434,6 +434,7 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 
 | 日付 | 変更 |
 |---|---|
+| 2026-07-08 | **D-10 Member Activity Evidence を Codex合成へ移行**。`member-weekly-activities` route に `GET ?mode=evidence` と `POST activities[]` を追加し、定期 writer は Codex automation が evidence groups を合成して `member_activities(source='member_weekly')` へ保存する形に変更。legacy `interactive=1` GET 一発実行は保存に使わず、`ALLOW_PWA_LLM_CRONS=1` での復活を禁止。 |
 | 2026-06-27 | **coverage_gap 承認後の手作業ルートを廃止**。`coverage_gap` の「はい」が gap confirmed で止まり、D-6化が人間作業になっていたため、`proposed_target_l2='strategy_signal'` を `project_strategy_signals.status='confirmed'` へ自動upsertするようにした。`routed_to` に行き先を残し、未実装 target は設計 gap として残す。 |
 | 2026-06-26 | **H-1 source auth fallback + connector_auth再認証アクションを正本化**。Notion connector の `oauth_token_invalid_grant` / `TRIGGER_REAUTHENTICATION` は terminal blocker ではなく、H-1 extractor / reviewer は `npm run h1:local-notion-fallback` による Notion Desktop local cache 自動探索と Gmail/Drive/Slack/Calendar/AMD OS artifact へ即時分岐する。同時に `app_notifications(kind='connector_auth')` を作り、connector/app ID と再認証リンクを残す。24時間内の既存未読通知は最新payloadへ更新する。PWA は Realtime + 10秒pollで即カード/Browser Notificationを出し、Swift は `native_notified_at` でローカル通知配信済みを管理して通知タップから `reauth_url` を直接開く。`source_kinds='none'` / `議事録なし` marker は直近24時間だけ再探索し、通常window外でも source が取れたら同じ meeting_id を更新する。`blocked_notion_auth` / `reviewer_blocked_notion_auth` / `waiting_for_reauth` は禁止し、不足時は `held_source_missing_after_reauth_bypass` / `review_required_raw_source_insufficient` で扱う。設計 `design/h1_source_auth_fallback.md`。 |
 | 2026-06-18 | **H-1 Meeting Reviewer 追加**。H-1 `project_meeting_summaries` 保存直後に別automation `amd-os-l6-meeting-reviewer` が raw Notion/Gmail/Drive/Slack/Calendar と保存済み要約を突き合わせ、CEO/代表/VC/フルコミット/地元勢/PoC/PRなど重大な経営判断が薄く丸まった疑いを `l2_coverage_gaps` + `l2_notifications(l2_kind='coverage_gap')` へ送る。正本上書きはせず `proposed_target_l2='strategy_signal'`, `gap_class='extractor_miss'` のレビュー候補にする。起点は 2026-06-10 SX 愛媛大訪問のCEO/資金調達方針転換が初回抽出で薄まった事故。 |

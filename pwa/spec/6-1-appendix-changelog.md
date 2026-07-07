@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-07-08 | 3-0 / 3-1 / 5-3 / 5-8 / 8-3 / D-10 route | 変更 | D-10 `member-weekly-activities` を Codex automation 合成へ移行。route は `GET ?mode=evidence` で evidence groups を返し、Codex が作った `activities[]` を `POST /api/cron/member-weekly-activities` で保存する。`raw_metadata.synthesis_method='codex'` を保存し、legacy `interactive=1` GET 一発実行は保存に使わない。fallback title はHTML/メール本文冒頭をそのままタイトルにしないよう sanitization を強化 | `/mypage` の「今週やったこと」にメール挨拶文、HTMLタグ、runner marker が出た原因が、2026-07-01 以降の背景Anthropic封鎖で route fallback だけが保存されていたことだったため。定額外トークン例外をやめ、D-10の合成本体をCodex automation側へ移す | えいみ |
 | 2026-07-07 | 3-3 Meeting Flow | 修正 | 「日程調整中MTG」別欄を廃止し、`upcoming_tentative` は同じ「予定MTG / 準備中」欄で日付欄を `日程未確定` として表示する。`meeting_id` が `upcoming:` でも `source_kinds` が開催済みソースなら準備カード扱いしない。build v0.39.7 | 日程未確定は予定欄内の状態で足り、別レーンにすると古い仮置きや開催済み内容が亡霊のように残って見えるため | えいみ |
 | 2026-07-07 | 2-4 Proactive TODO / 3-3 Meeting Flow | 修正 | 予定MTG表示を `meeting_start_at > now` にし、開催済み議事録へ薄い calendar sync 準備テンプレートを表示しない。`proactive-todo-extract` に MTG開始後の `next_meeting_prep` 自動終了を追加。build v0.39.6 | 開催済みMTGに `MTG準備情報` や期限切れ準備TODOが残り、PJ横断で亡霊のように見えていたため | えいみ |
 | 2026-07-04 | 2-4 Proactive TODO / FEATURE_REGISTRY | 削除 | `ProactiveRadarBoard`、dashboard 差し込み、レーダー専用 critical UI guard、spec/manual/FEATURE_REGISTRY のレーダー契約を削除。build v0.39.5 | 既存 `ProactiveTodoBadge` / `/proactive` と重複し、AMD OS dashboard 側では十分な意味が出ないため | えいみ |

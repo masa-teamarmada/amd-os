@@ -36,7 +36,7 @@ AMD OS では、当面 **Claude routines / `claude -p` / Claude Agent SDK / Clau
 | D-7 Textbook Insights | SKILL / outbox / local BZM applier あり。visible writer は未確定 | 既存L2 / OSデータ | `outbox.textbookInsights` → `textbook_insight_candidates` → approved 後 local applier | daily target / manual | 旧 target が Claude | **manual Codex worker 先行**で十分。定期化は後段 | 要 | outbox then local file apply | health D-7 row / approved drain | P2 |
 | D-8 Atlas Signals | Codex automation `amd-atlas-2` が **ACTIVE**。applier あり | public web / reliable external sources | `amd-atlas(-2)/outbox` → applier / `POST /api/atlas/signals-ingest` | daily 08:10 JST | なしで運用可能 | **Codex primary として継続運転** | 不要 (再始動済み) | outbox only | health D-8 row / outbox drain | P0 |
 | D-9 Macrotrend Evidence / Index | observation writer は未確定、index 集計は PWA non-LLM cron | external observation + `atlas_signals` | `observation_log` / `macro_index_log` | observation daily, index monthly | 旧 target が Claude (observation only) | **observation を Atlas 系 Codex workerへ寄せる**。index cron は現状維持 | observation側のみ要 | PWA route / DB via existing path | health D-9 row | P1 |
-| D-10 Member Activity Evidence | Mac Codex automation `amd-os-l2-2` (`AMD OS D-10 メンバー活動根拠抽出 (Mac)`) と MMO launcher。**どちらも Codex 側 writer だが、内部では Anthropic API を呼ぶ PWA route を叩く** | member OAuth Gmail / Calendar / `source_cache` / `meeting_summaries` | `member_activities(source='member_weekly')` | daily 18:30 JST (Mac) / 19:30 JST (MMO) | **あり**。`/api/cron/member-weekly-activities` が `@anthropic-ai/sdk` を直接呼ぶ | **例外許容**。当面は Codex 側 writer として継続しつつ、将来は route 内 LLM を Codex 本体へ寄せる | MMO 側変更時のみ要 | 現状は PWA route write | health D-10 row / token errors | P0 |
+| D-10 Member Activity Evidence | Mac Codex automation `amd-os-l2-2` (`AMD OS D-10 メンバー活動根拠抽出 (Mac)`)。PWA route は evidence 収集と POST 保存を担い、活動文合成は Codex automation 側で行う | member OAuth Gmail / Calendar / `source_cache` / `meeting_summaries` | `member_activities(source='member_weekly')` | daily 18:30 JST | なし。legacy route synthesis は `ALLOW_PWA_LLM_CRONS=1` なしでは保存に使わない | **Codex移植済み**。`GET ?mode=evidence` → Codex合成 → `POST activities[]` が current path | MMO 側を同方式へ戻す時のみ要 | PWA route POST write (`synthesis_method='codex'`) | health D-10 row / token errors / missingGroupIds | P0 |
 | D-11 Media Mentions | spec / phase 定義のみ。visible writer 不在 | public media / existing mention rows | `project_media_mentions` / notifications | daily target | 旧 target が Claude | **要設計**。runner と dedupe contract を先に固める | 要 | candidate rows only | health D-11 row | P2 |
 | D-12 Finance/freee | PWA non-LLM cron current | freee / finance tables / billing | `company_actual_monthly` / raw signals / billing updates | daily | 依存なし | **移植不要**。current を維持 | 不要 | direct route write (non-LLM) | health D-12 row は freshness確認のみ | P0 |
 | D-13 Contract Signals | PWA route はあるが source sweep runner 不在 | 5生データ / source_cache / MTG context | `contract_signals` / `contracts` / `contract_documents` / notifications | daily target | 旧 target が Claude | **route 前段の Codex collector を新設**する | 要 | route POST only | health D-13 row / contract review | P1 |
@@ -50,7 +50,7 @@ AMD OS では、当面 **Claude routines / `claude -p` / Claude Agent SDK / Clau
 ### すぐ Codex へ移せるもの
 
 - H-1 Meeting Flow: すでに Codex active。current truth をそのまま維持する。
-- D-10 Member Activity Evidence: Codex 側 writer はすでにある。Anthropic route 依存は残るが、例外許容で継続する。
+- D-10 Member Activity Evidence: Codex automation が evidence groups を合成し、PWA route POST で保存する。Anthropic route 依存の例外扱いは終了。
 - D-12 Finance/freee: 非LLM cron なので移植対象外。
 - M-1 Monthly Reports: `amd-os-l2` はすでに ACTIVE。Codex 側の主系として継続できる。
 - D-6 Strategy Signals: `amd-os` はすでに ACTIVE。Codex 側の主系として継続できる。
@@ -73,7 +73,7 @@ AMD OS では、当面 **Claude routines / `claude -p` / Claude Agent SDK / Clau
 
 ## first execution unit
 
-1. **運転継続**: `amd-os-l6-meeting-flow`、`amd-os-l2-2`、`amd-os-l2-extraction-health-check` を current のまま維持する。D-10 は例外許容の paid route 依存ありとして扱う。
+1. **運転継続**: `amd-os-l6-meeting-flow`、`amd-os-l2-2`、`amd-os-l2-extraction-health-check` を current のまま維持する。D-10 は evidence→Codex合成→POST の定額内 path として扱う。
 2. **first wave keep-running**: `amd-os-l2` → `amd-os` → `amd-atlas-2` → `amd-os-l2-vc-news-funding-signals` はすでに ACTIVE。各 run evidence / outbox / applied / DB row を継続監視する。
 3. **second wave runner build**: D-5 / M-2 / D-7 を `amd-os-ms` 系 outbox contract に揃えて visible Codex automation 化する。
 4. **third wave design+runner**: D-13 / D-14 / L3 / M-3 は既存 POST route を活かす collector runner を新設する。

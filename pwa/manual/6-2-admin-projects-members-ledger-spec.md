@@ -151,7 +151,7 @@ Calendar 共有は **Google Workspace ログイン時に `calendar.readonly` を
 
 ### 週次活動抽出との関係
 
-`/api/cron/member-weekly-activities` (= 日次 18:00 JST) は:
+Codex automation `AMD OS D-10 メンバー活動根拠抽出 (Mac)` (= 日次 18:30 JST) は、PWA route `/api/cron/member-weekly-activities?mode=evidence` で証拠を集め、Codex合成後に `POST /api/cron/member-weekly-activities` で保存する:
 
 - **読むカレンダー**: `google_calendar_status='connected'` のメンバーに限る
 - **保存対象**: active な human メンバー全員 (= `info`/`つくよみ` のシステムアカウントは除外)

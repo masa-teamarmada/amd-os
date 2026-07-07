@@ -15,7 +15,7 @@ L2 は、メール・議事録・Slack・外部ニュース・freee・予実表�
 - `D / M / W / H` は「いつ走るか」の分類。
 - `今の writer` は「実際にそのデータを作る担当」。
 - `定額内` は「Codex / Claude の定額枠 or non-LLM で完結するか」。
-- `例外` は、今回まさが明示的に許容したものだけ書く。現状だと **D-10 だけ** が例外。
+- `例外` は、まさが明示的に許容したものだけ書く。2026-07-08 以降、D-10 の定期 writer は Codex automation 側で合成するため、内部 Anthropic route 例外では扱わない。
 
 原則は、L1-L3 抽出を **定額枠の Codex / Claude writer か non-LLM cron** に寄せること。  
 ただし current truth はまだ混在しているので、`Claude routine target` とだけ書かれた古い説明より、**下の一覧の `今の writer` を優先** する。
@@ -45,7 +45,7 @@ Claude routine と呼べるのは、Claude Routines UI上で存在し、`ACTIVE`
 
 | データ | tier | writer | 根拠 |
 |---|---|---|---|
-| D-1/D-3/D-4/D-5/D-6/D-7/D-8/D-10/D-11/D-13/D-14, M-1/M-2/M-3, W-1 | **L2** | LLM | 主に Codex automation と MMO 側 Codex が抽出する。D-13/D-14 など一部は既存PWA APIを入口に使う。**D-10だけ内部で Anthropic API を使う例外あり** |
+| D-1/D-3/D-4/D-5/D-6/D-7/D-8/D-10/D-11/D-13/D-14, M-1/M-2/M-3, W-1 | **L2** | LLM | 主に Codex automation と MMO 側 Codex が抽出する。D-10 は PWA route が evidence を集め、Codex automation が合成して POST 保存する。D-13/D-14 など一部は既存PWA APIを入口に使う。 |
 | **D-2 MS Progress** | L2 + 非LLM派生 | 混在 | 乖離 revision 提案=LLM(L2)、デフォルト進捗%按分=`ms-schedule-progress` **非LLM**(派生) |
 | **D-9 Macrotrend** | L2 + 非LLM派生 | 混在 | observation 収集=LLM/web_search 一部(L2)、`macro_index_log` 集計=`macro-aggregate-indicators` **非LLM**(派生) |
 | **D-12 Finance/freee** | **L1相当** | **非LLM** | `freee-payment-sync` / `management-score-raw-data` は LLM を一切呼ばず、取引履歴をそのまま実績へ同期 (吟味なし) |
@@ -70,7 +70,7 @@ Claude routine と呼べるのは、Claude Routines UI上で存在し、`ACTIVE`
 | **D-7** | 教科書に残す実務知見 | local worker / `amd-os-l10-textbook-insight-extract` / 承認後 applier | はい | 手動寄り | 後段で定期化 |
 | **D-8** | Atlas外部シグナル | Codex automation **`AMD OS D-8 Atlas外部シグナル抽出`** (`amd-atlas-2`) + outbox/applier | はい | `ACTIVE` | そのまま運転 |
 | **D-9** | Macrotrend の観測と index | observation は未整理、index は PWA non-LLM cron | 混在 | 一部のみ稼働 | observation 側を整理 |
-| **D-10** | メンバー活動根拠 | Codex automation **`AMD OS D-10 メンバー活動根拠抽出 (Mac)`** (`amd-os-l2-2`) + MMO launcher。内部では PWA route が Anthropic API を呼ぶ | **いいえ（例外許容）** | `ACTIVE` | いまはこのまま Codex 側 writer として使う |
+| **D-10** | メンバー活動根拠 | Codex automation **`AMD OS D-10 メンバー活動根拠抽出 (Mac)`** (`amd-os-l2-2`)。PWA route は `mode=evidence` で証拠を返し、Codex が合成した `activities[]` を POST 保存する | はい | `ACTIVE` | そのまま運転。旧MMO launcherの route 一発実行は保存しない |
 | **D-11** | メディア掲載根拠 | まだ writer なし | はい | 未実装 | runner 設計が必要 |
 | **D-12** | freee実績の同期 | PWA non-LLM cron | はい | 稼働中 | 現状維持 |
 | **D-13** | 契約予兆 | PWA route はあるが collector runner がない | はい | 未実装 | Codex collector を作る |
@@ -95,7 +95,7 @@ Claude routine と呼べるのは、Claude Routines UI上で存在し、`ACTIVE`
 | **D-7** | L2 | Textbook Insights | Before Zero / BZM教科書へ追記すべき実務知見 | 教科書・論文化・知財化 | local worker / review / 承認後 applier | `amd-os-l10-textbook-insight-extract` |
 | **D-8** | L2 | Atlas Signals | 外部ニュース・政策・市場・技術シグナル | Atlas、戦略判断、macro解釈 | Codex automation + outbox/applier | `AMD OS D-8 Atlas外部シグナル抽出` / `amd-atlas-2` |
 | **D-9** | L2 (+非LLM派生) | Macrotrend Evidence / Index | 研究費、公募、VC投資、政策言及、外部signal countの集計 | AMD Score、Venture Map、ASPI判断 | observation は再整理中、index は PWA non-LLM cron | `macro-aggregate-indicators` |
-| **D-10** | L2 | Member Activity Evidence | メンバーごとの活動根拠 | mypage、reward、MS貢献レビュー、member knowledge入力 | Codex automation / MMO launcher。**ただし内部 route は Anthropic API 使用** | `AMD OS D-10 メンバー活動根拠抽出 (Mac)` / `amd-os-l2-2` / `amd-os-l2-member-weekly-activities` |
+| **D-10** | L2 | Member Activity Evidence | メンバーごとの活動根拠 | mypage、reward、MS貢献レビュー、member knowledge入力 | Mac Codex automation。PWA route は evidence 収集と POST 保存を担当し、合成本文は Codex 側で作る | `AMD OS D-10 メンバー活動根拠抽出 (Mac)` / `amd-os-l2-2` |
 | **D-11** | L2 | Media Mentions | メディア掲載・公開露出の根拠 | 広報、外部シグナル、通知候補 | まだ writer なし | `amd-os-l2-consolidated-evidence` (旧target名) |
 | **D-12** | **L1相当** | Finance Ops Evidence / freee Transaction Actuals | サブスク、継続費、自動振替、領収書イベント、freee取引履歴から月次試算表へ入れる実績値 | 月次PL、Management Score finance軸 | PWA non-LLM cron + admin review | `/api/cron/management-score-raw-data?includeFreee=1` / `cron/freee-payment-sync` |
 | **D-13** | L2 | Contract Signals | 5生データから検知した契約締結予兆、契約予定枠、契約書version/signed版metadata | 契約管理、押印版未保存nudge候補、PJ別契約進行確認 | PWA route はある。collector はこれから Codex 化 | `POST /api/contracts/extract-l2` |

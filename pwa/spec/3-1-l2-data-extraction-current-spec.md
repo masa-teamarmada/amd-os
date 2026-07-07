@@ -8,11 +8,11 @@
 
 | runtime | 現在の役割 | 主な対象 |
 |---|---|---|
-| Codex local automation | Mac側の primary writer。outbox を作り、non-LLM applier が反映する | M-1, D-6, D-8, W-1, D-10(Mac) |
-| MMO側 Codex Desktop / launcher | MMO側の primary writer。meeting flow と日次知識抽出を担う | D-1, D-2, D-3, D-4, H-1, D-10(MMO) |
+| Codex local automation | Mac側の primary writer。outbox を作るか、既存 route の evidence/apply 境界を使って反映する | M-1, D-6, D-8, W-1, D-10(Mac) |
+| MMO側 Codex Desktop / launcher | MMO側の primary writer。meeting flow と日次知識抽出を担う | D-1, D-2, D-3, D-4, H-1 |
 | PWA non-LLM cron | freee 同期や index 集計など、LLM 不要の定期処理 | D-12, D-9(index) |
 | PWA route + Codex collector planned / partial | route はあるが前段 collector が未実装または段階実装中 | D-13, D-14, L3-1, M-3 |
-| 例外 | Codex 側 writer だが、内部 route が Anthropic API を使う | D-10 |
+| legacy route | 旧 D-10 の GET 一発実行。Anthropic route synthesis は `ALLOW_PWA_LLM_CRONS=1` がない限り保存に使わない | D-10 legacy fallback |
 
 ## Historical Note: 2026-06-04 registration gate
 
@@ -67,7 +67,7 @@ cadence は **D / M / W / H** で残すが、writer は now mixed。下の表で
 | **D-7** | Textbook Insights | `textbook_insight_candidates` | local worker / review / approved後 local BZM applier | candidate + notification → approved → local BZM applier |
 | **D-8** | Atlas Signals | `atlas_signals` / derived `atlas_stories` / `atlas_reports` | Codex automation `AMD OS D-8 Atlas外部シグナル抽出` (`amd-atlas-2`) | outbox / apply / `atlas_signals` upsert |
 | **D-9** | Macrotrend Evidence / Index | `observation_log` / `macro_index_log` / derived `macro_lane_weights` / `triple_helix_state_log` | observation collector は未整理。index は PWA non-LLM cron `macro-aggregate-indicators` | observation_log + index 集計 |
-| **D-10** | Member Activity Evidence | `member_activities` | Codex automation `AMD OS D-10 メンバー活動根拠抽出 (Mac)` (`amd-os-l2-2`) + MMO launcher。内部 route は Anthropic API を使う例外 | Dashboard / MyPage / admin |
+| **D-10** | Member Activity Evidence | `member_activities` | Codex automation `AMD OS D-10 メンバー活動根拠抽出 (Mac)` (`amd-os-l2-2`)。PWA route は evidence 収集 (`GET ?mode=evidence`) と保存 (`POST activities[]`) を担い、活動文合成は Codex 側で行う | Dashboard / MyPage / admin |
 | **D-11** | Media Mentions | `project_media_mentions` / `news_mention` notifications | まだ専用writerなし | media mention candidate + notification |
 | **D-12** | Finance Ops Evidence / freee Transaction Actuals | freee `trial_pl` / `company_actual_monthly` / `amd_management_score_raw_signals` / finance ops tables | PWA non-LLM cron `/api/cron/management-score-raw-data?includeFreee=1` + admin review | freee取引履歴 → 月次試算表の実績値 |
 | **D-13** | Contract Signals | `contract_signals` / `contracts` / `contract_documents` | PWA route `POST /api/contracts/extract-l2` + Codex collector planned | 契約管理 `/admin/contracts`、l2_notifications(l2_kind='contract_signals') |
@@ -96,7 +96,7 @@ Executable guard: `cd pwa && npm run test:l6-held-source-guard`。fixture は飯
 
 - D/M/W の current writer は Codex automation / MMO側 Codex Desktop automation / PWA non-LLM cron。Claude routine 記述は履歴参照としてのみ扱う。
 - H-1 だけ MMOマシン Codex実行系が primary writer。Mac側 `AMD OS H-1 MTGフロー` は fallback / verification を含む。
-- D-10 は唯一の例外で、writer 起点は Codex 側だが、内部 route が Anthropic API を使う。
+- D-10 は 2026-07-08 以降、定期 writer では内部 Anthropic route synthesis を使わない。Codex automation が evidence groups を合成し、PWA route は POST 保存だけを担う。
 - 旧 GAS 153 / 155、AMD-Report GAS R313、PWA LLM cron は定期 writer として復活させない。
 - PWA `/api/cron/hourly-estimate` は `ALLOW_PWA_LLM_CRONS=1` がない限り disabled response のみ。
 - D-7 は `/notifications` の「はい」で DB 候補を `approved` にするだけ。git 管理の `pwa/bzm/*.md` 追記は local applier / worker が行い、Vercel runtime から直接 commit しない。

@@ -208,8 +208,8 @@ export const l2Datasets: L2Dataset[] = [
     label: "D-10 メンバー活動根拠",
     tier: "L2",
     table: "member_activities",
-    source: "Codex automation `AMD OS D-10 メンバー活動根拠抽出 (Mac)` (`amd-os-l2-2`) / MMO launcher。内部 route は Anthropic API 使用",
-    cadence: "daily 18:30 JST (Mac) / 19:30 JST (MMO) / 例外許容",
+    source: "Codex automation `AMD OS D-10 メンバー活動根拠抽出 (Mac)` (`amd-os-l2-2`)。PWA route は evidence 収集と POST 保存",
+    cadence: "daily 18:30 JST / synthesis_method=codex",
     purpose: "メンバーごとの活動根拠。reward、mypage、D-4 の入力になる。",
   },
   {
@@ -507,7 +507,7 @@ export const cronOperations: CronOperation[] = [
     layer: "PWA",
     cadence: "日次 18:00 JST",
     trigger: "/api/cron/member-weekly-activities",
-    input: "Gmail + shared member calendars + source_cache",
+    input: "legacy GET synthesis は停止。定期D-10は mode=evidence -> Codex synthesis -> POST save",
     output: "member_activities(source=member_weekly)",
   }),
   disabledCron({

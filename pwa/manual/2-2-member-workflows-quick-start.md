@@ -58,7 +58,7 @@ admin 全体の確認 (= 全 SU 横断の請求マトリクス等) は `/admin/b
 
 ### 週次活動 (= member_activities source=member_weekly)
 
-`/api/cron/member-weekly-activities` が毎日 18:00 JST に発火 (= GAS 154 経由)、 前日 18:00〜当日 18:00 の 24h を抽出する。 抽出源:
+Codex automation `AMD OS D-10 メンバー活動根拠抽出 (Mac)` が毎日 18:30 JST に走り、前日 18:00〜当日 18:00 の 24h を抽出する。PWA route `/api/cron/member-weekly-activities?mode=evidence` は証拠を集め、Codex automation が活動文を合成して `POST /api/cron/member-weekly-activities` で保存する。抽出源:
 
 - Gmail (= `SENT` / `DRAFT`、 または社内メンバーが送信者の `source_cache` 行)
 - 共有メンバー Calendar (= `calendar.readonly` scope で許可済のメンバーカレンダー)

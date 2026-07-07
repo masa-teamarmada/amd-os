@@ -4,6 +4,9 @@
  * Gmail / Calendar / source_cache の短い根拠から、メンバー別の「今週やったこと」を
  * member_activities(source='member_weekly') に保存する。
  *
+ * 定期 D-10 は GET ?mode=evidence で証拠だけ返し、Codex automation が合成した
+ * activities[] を POST で保存する。GET の route 内 LLM synthesis は legacy fallback。
+ *
  * ここに入った行は /mypage の週次表示に使い、既存の member_knowledge など
  * member_activities を入力にする L2 からも参照できるようにする。
  */
@@ -63,7 +66,7 @@ type SynthesizedActivity = {
   title: string;
   contentPreview: string;
   confidence: number | null;
-  method: "llm" | "fallback";
+  method: "llm" | "fallback" | "codex";
 };
 
 type ReadableCalendar = {
@@ -180,9 +183,21 @@ function dateTimeKeyJST(date: Date) {
 
 function activityWindowBoundsJST(input?: string | null) {
   let endUtcMs: number;
-  if (input && /^\d{4}-\d{2}-\d{2}$/.test(input)) {
-    const [y, m, d] = input.split("-").map(Number);
+  const windowKeyEnd = input?.match(/^\d{4}-\d{2}-\d{2}-18_to_(\d{4}-\d{2}-\d{2})-18$/)?.[1] || null;
+  const normalizedInput = windowKeyEnd || input;
+  if (normalizedInput && /^\d{4}-\d{2}-\d{2}$/.test(normalizedInput)) {
+    const [y, m, d] = normalizedInput.split("-").map(Number);
     endUtcMs = Date.UTC(y, m - 1, d, 18, 0, 0) - 9 * 60 * 60 * 1000;
+  } else if (normalizedInput) {
+    const parsed = new Date(normalizedInput);
+    if (!Number.isNaN(parsed.getTime())) {
+      endUtcMs = parsed.getTime();
+    } else {
+      const now = new Date();
+      const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+      endUtcMs = Date.UTC(jst.getUTCFullYear(), jst.getUTCMonth(), jst.getUTCDate(), 18, 0, 0) - 9 * 60 * 60 * 1000;
+      if (now.getTime() < endUtcMs) endUtcMs -= 86400000;
+    }
   } else {
     const now = new Date();
     const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
@@ -209,10 +224,32 @@ function ymFromIsoJST(iso: string) {
 }
 
 function cleanText(value: unknown, max = 700) {
-  return String(value ?? "")
+  const decoded = decodeBasicHtmlEntities(String(value ?? ""));
+  return decoded
+    .replace(/<\s*br\s*\/?>/gi, " ")
+    .replace(/<\/\s*p\s*>/gi, " ")
+    .replace(/<[^>]*>/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, max);
+}
+
+function decodeBasicHtmlEntities(value: string) {
+  return value
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, "\"")
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) => {
+      const codePoint = Number.parseInt(hex, 16);
+      return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : "";
+    })
+    .replace(/&#(\d+);/g, (_, digits: string) => {
+      const codePoint = Number.parseInt(digits, 10);
+      return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : "";
+    })
+    .replace(/&amp;/gi, "&");
 }
 
 function extractEmails(...values: unknown[]) {
@@ -425,14 +462,18 @@ function evidenceForPrompt(item: Evidence) {
 function fallbackSynthesis(group: ActivityGroup): SynthesizedActivity {
   const best = group.evidence.find((item) => item.sourceKind === "meeting_summary") || group.evidence[0];
   const sourceText = cleanText(best.snippet, 220);
-  const preview = sourceText || actionPreview(best);
-  const title = sourceText
-    ? sourceText.replace(/^(要約|進捗|決定|次アクション):\s*/, "").slice(0, 120)
-    : actionPreview(best).slice(0, 120);
+  const action = actionPreview(best);
+  const preview = best.sourceKind === "meeting_summary" && sourceText
+    ? sourceText
+    : [action, sourceText].filter(Boolean).join(" / ");
+  const titleSource = best.sourceKind === "meeting_summary" && sourceText
+    ? sourceText.replace(/^(要約|進捗|決定|次アクション):\s*/, "")
+    : action;
+  const title = cleanActivityTitle(titleSource, action);
   return {
     groupId: group.groupId,
-    title: title || actionPreview(best).slice(0, 120),
-    contentPreview: preview,
+    title,
+    contentPreview: cleanText(preview || title, 220),
     confidence: null,
     method: "fallback",
   };
@@ -946,12 +987,274 @@ function removeCalendarRowsCoveredByMeetings(calendar: Evidence[], meetings: Evi
   });
 }
 
-async function buildActivityRows(evidence: Evidence[], windowKey: string, memberIdFilter?: string | null, projectIdFilter?: string | null) {
+type ActivityCollection = {
+  bounds: ReturnType<typeof activityWindowBoundsJST>;
+  memberId: string | null;
+  projectId: string | null;
+  sourceCache: Evidence[];
+  gmail: Evidence[];
+  calendar: Evidence[];
+  meetingSummaries: Evidence[];
+  evidence: Evidence[];
+  fusionGroups: ActivityGroup[];
+  calendarAccess: CalendarAccess;
+  targetMembers: MemberRow[];
+  calendarSourceMembers: MemberRow[];
+  memberAuths: MemberAuth[];
+  tokenMissingMemberIds: string[];
+  tokenErrors: TokenError[];
+  pendingCalendarLogin: Array<{
+    memberId: string;
+    codeName: string | null;
+    email: string | null;
+    calendarStatus: string;
+  }>;
+};
+
+function optionalString(value: unknown) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function requireCronAuth(req: NextRequest) {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) return null;
+  const authHeader = req.headers.get("authorization");
+  if (authHeader === `Bearer ${cronSecret}`) return null;
+  return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+}
+
+function activityCollectionSummary(collection: ActivityCollection) {
+  return {
+    windowKey: collection.bounds.windowKey,
+    windowStart: collection.bounds.startKey,
+    windowEnd: collection.bounds.endKey,
+    sourceCacheEvidence: collection.sourceCache.length,
+    gmailEvidence: collection.gmail.length,
+    calendarEvidence: collection.calendar.length,
+    meetingSummaryEvidence: collection.meetingSummaries.length,
+    calendarReadableMembers: collection.calendarAccess.readableMemberEmails.length,
+    calendarMissingMembers: collection.calendarAccess.missingMemberEmails.length,
+    targetMembers: collection.targetMembers.length,
+    calendarSourceMembers: collection.calendarSourceMembers.length,
+    memberTokenAuths: collection.memberAuths.map((m) => ({ memberId: m.memberId, codeName: m.codeName, via: m.via })),
+    tokenMissingMemberIds: collection.tokenMissingMemberIds,
+    tokenErrors: collection.tokenErrors,
+    pendingCalendarLogin: collection.pendingCalendarLogin,
+    note: collection.pendingCalendarLogin.length > 0 ? "calendar login consent required for pending members" : null,
+    evidenceCount: collection.evidence.length,
+    fusionGroups: collection.fusionGroups.length,
+  };
+}
+
+function groupsForCodexPrompt(groups: ActivityGroup[]) {
+  return groups.map((group) => ({
+    groupId: group.groupId,
+    memberId: group.memberId,
+    projectId: group.projectId,
+    itemDate: group.itemDate,
+    sourceKinds: [...new Set(group.evidence.map((item) => item.sourceKind))],
+    fallback: fallbackSynthesis(group),
+    evidence: group.evidence.map(evidenceForPrompt),
+  }));
+}
+
+function codexSynthesisMap(groups: ActivityGroup[], rawActivities: unknown[]) {
+  const result = new Map<string, SynthesizedActivity>();
+  const fallbackByGroup = new Map(groups.map((group) => [group.groupId, fallbackSynthesis(group)]));
+  const extraGroupIds: string[] = [];
+
+  for (const rawActivity of rawActivities) {
+    if (!rawActivity || typeof rawActivity !== "object") continue;
+    const activity = rawActivity as Record<string, unknown>;
+    const groupId = cleanText(activity.groupId, 300);
+    const fallback = fallbackByGroup.get(groupId);
+    if (!groupId || !fallback) {
+      if (groupId) extraGroupIds.push(groupId);
+      continue;
+    }
+    const title = cleanActivityTitle(String(activity.title || ""), fallback.title);
+    const contentPreview = cleanText(activity.contentPreview || fallback.contentPreview || title, 220);
+    result.set(groupId, {
+      groupId,
+      title,
+      contentPreview: contentPreview || title,
+      confidence: clampConfidence(activity.confidence),
+      method: "codex",
+    });
+  }
+
+  const missingGroupIds = groups
+    .filter((group) => !result.has(group.groupId))
+    .map((group) => group.groupId);
+  return { result, missingGroupIds, extraGroupIds };
+}
+
+async function collectActivityEvidence(
+  supabase: SupabaseClient,
+  bounds: ReturnType<typeof activityWindowBoundsJST>,
+  options: { memberId?: string | null; projectId?: string | null; maxMessages?: number }
+): Promise<ActivityCollection> {
+  const memberId = options.memberId || null;
+  const projectId = options.projectId || null;
+  const maxMessages = Number.isFinite(options.maxMessages) ? Number(options.maxMessages) : 120;
+
+  const [membersRes, memberEmailsRes, projectsRes, aliasesRes] = await Promise.all([
+    supabase
+      .from("members")
+      .select("member_id, code_name, email, status, google_calendar_status")
+      .eq("status", "active"),
+    supabase
+      .from("members")
+      .select("email")
+      .not("email", "is", null),
+    supabase
+      .from("projects")
+      .select("project_id, project_name, client_name, report_emails, status, project_category")
+      .or("status.eq.active,project_category.eq.advisor"),
+    supabase
+      .from("project_knowledge")
+      .select("project_id, entity_name, fact_text")
+      .eq("category", "alias")
+      .eq("status", "active"),
+  ]);
+  if (membersRes.error) throw membersRes.error;
+  if (memberEmailsRes.error) throw memberEmailsRes.error;
+  if (projectsRes.error) throw projectsRes.error;
+  if (aliasesRes.error) throw aliasesRes.error;
+
+  const members = (membersRes.data ?? []) as MemberRow[];
+  const aliasesByProject = new Map<string, string[]>();
+  for (const alias of aliasesRes.data ?? []) {
+    const aliasProjectId = String(alias.project_id || "");
+    const values = [alias.entity_name, alias.fact_text].map((v) => cleanText(v, 80)).filter(Boolean);
+    if (!aliasProjectId || values.length === 0) continue;
+    aliasesByProject.set(aliasProjectId, [...(aliasesByProject.get(aliasProjectId) || []), ...values]);
+  }
+  const projects = ((projectsRes.data ?? []) as ProjectRow[]).map((project) => ({
+    ...project,
+    aliases: aliasesByProject.get(project.project_id) || [],
+  }));
+  const pendingCalendarLogin = members
+    .filter((member) => requiresCalendarLogin(member) && member.google_calendar_status !== "connected")
+    .map((member) => ({
+      memberId: member.member_id,
+      codeName: member.code_name,
+      email: member.email,
+      calendarStatus: member.google_calendar_status || "missing",
+    }));
+  const targetMembers = members
+    .filter((member) => isWeeklyActivityTarget(member))
+    .filter((member) => !memberId || member.member_id === memberId);
+  const calendarSourceMembers = members
+    .filter((member) => requiresCalendarLogin(member))
+    .filter((member) => member.google_calendar_status === "connected");
+  const internalEmails = new Set(
+    (memberEmailsRes.data ?? [])
+      .map((row) => String(row.email || "").trim().toLowerCase())
+      .filter((email): email is string => !!email)
+  );
+  const matchProject = buildProjectMatcher(projects, internalEmails);
+  const matchMembers = buildMemberMatcher(targetMembers);
+
+  // メンバー本人の refresh_token (PWA ログインで保存) で per-member Gmail/Calendar を読む。
+  // token が無い connected メンバーだけ、従来のまさ代理 calendarList fallback。
+  const { memberAuths, tokenMissingMemberIds } = await resolveMemberAuths(supabase, targetMembers);
+  const tokenErrors: TokenError[] = [];
+  const memberAuthIds = new Set(memberAuths.map((m) => m.memberId));
+  const fallbackCalendarMembers = calendarSourceMembers
+    .filter((member) => !memberId || member.member_id === memberId)
+    .filter((member) => !memberAuthIds.has(member.member_id));
+  const requiredCalendarEmails = new Set(
+    fallbackCalendarMembers
+      .map((member) => member.email?.trim().toLowerCase())
+      .filter((email): email is string => !!email)
+  );
+  const fallbackMemberIdAllowList = new Set(fallbackCalendarMembers.map((m) => m.member_id));
+  const calendarAccess = await resolveReadableMemberCalendars(requiredCalendarEmails);
+
+  const shortError = (error: unknown) =>
+    String(error instanceof Error ? error.message : error).slice(0, 200);
+  const gmailTasks = memberAuths.map((member) =>
+    fetchGmailEvidenceForMember(member, bounds, matchProject, maxMessages).catch((error) => {
+      console.warn("[member-weekly-activities] gmail skipped:", member.memberId, error);
+      tokenErrors.push({ memberId: member.memberId, email: member.email, step: "gmail", error: shortError(error) });
+      return [] as Evidence[];
+    })
+  );
+  const memberCalendarTasks = memberAuths.map((member) => {
+    const cal = google.calendar({ version: "v3", auth: member.auth });
+    return fetchCalendarEvidence(
+      bounds, matchProject, matchMembers, cal,
+      [{ calendarId: "primary", ownerEmail: member.email }],
+      member.memberId
+    ).catch((error) => {
+      console.warn("[member-weekly-activities] member calendar skipped:", member.memberId, error);
+      tokenErrors.push({ memberId: member.memberId, email: member.email, step: "calendar", error: shortError(error) });
+      return [] as Evidence[];
+    });
+  });
+
+  const [sourceCache, gmailLists, memberCalendarLists, fallbackCalendar] = await Promise.all([
+    fetchSourceCacheEvidence(supabase, bounds, matchProject, matchMembers, internalEmails),
+    Promise.all(gmailTasks),
+    Promise.all(memberCalendarTasks),
+    fetchCalendarEvidence(
+      bounds, matchProject, matchMembers, calendarAccess.cal, calendarAccess.calendars,
+      null, fallbackMemberIdAllowList
+    ).catch((error) => {
+      console.warn("[member-weekly-activities] fallback calendar skipped:", error);
+      return [] as Evidence[];
+    }),
+  ]);
+  const gmail = gmailLists.flat();
+  const calendar = [...memberCalendarLists.flat(), ...fallbackCalendar];
+
+  const meetingSummaries = await fetchMeetingSummaryEvidence(supabase, bounds, matchProject, calendar);
+  const evidence = dedupeEvidence([
+    ...sourceCache,
+    ...gmail,
+    ...meetingSummaries,
+    ...removeCalendarRowsCoveredByMeetings(calendar, meetingSummaries),
+  ]);
+  const fusionGroups = groupEvidence(evidence, memberId, projectId);
+
+  return {
+    bounds,
+    memberId,
+    projectId,
+    sourceCache,
+    gmail,
+    calendar,
+    meetingSummaries,
+    evidence,
+    fusionGroups,
+    calendarAccess,
+    targetMembers,
+    calendarSourceMembers,
+    memberAuths,
+    tokenMissingMemberIds,
+    tokenErrors,
+    pendingCalendarLogin,
+  };
+}
+
+async function buildActivityRows(
+  evidence: Evidence[],
+  windowKey: string,
+  memberIdFilter?: string | null,
+  projectIdFilter?: string | null,
+  providedSyntheses?: Map<string, SynthesizedActivity>
+) {
   const groups = groupEvidence(evidence, memberIdFilter, projectIdFilter);
-  const synthesized = await synthesizeActivityGroups(groups);
+  const synthesized = providedSyntheses ?? await synthesizeActivityGroups(groups);
   const rows = [];
   for (const group of groups) {
-    const activity = synthesized.get(group.groupId) || fallbackSynthesis(group);
+    const fallback = fallbackSynthesis(group);
+    const activity = synthesized.get(group.groupId) || fallback;
+    const title = cleanActivityTitle(activity.title, fallback.title);
+    const contentPreview = cleanText(activity.contentPreview || title, 220);
     const sourceItemId = `${windowKey}:${createHash("sha1")
       .update(group.groupId)
       .digest("hex")
@@ -964,8 +1267,8 @@ async function buildActivityRows(evidence: Evidence[], windowKey: string, member
       ym: ymFromIsoJST(group.itemDate),
       source: SOURCE,
       source_item_id: sourceItemId,
-      title: activity.title.slice(0, 120),
-      content_preview: activity.contentPreview || activity.title,
+      title,
+      content_preview: contentPreview || title,
       item_date: group.itemDate,
       initiative_origin: "unknown",
       impact: null,
@@ -1011,151 +1314,45 @@ async function deleteExistingWeeklyRows(
 }
 
 export async function GET(req: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    const authHeader = req.headers.get("authorization");
-    if (authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-    }
-  }
+  const unauthorized = requireCronAuth(req);
+  if (unauthorized) return unauthorized;
 
-  const interactiveManualRun = req.nextUrl.searchParams.get("interactive") === "1";
-  if (process.env.ALLOW_PWA_LLM_CRONS !== "1" && !interactiveManualRun) {
+  const evidenceOnly =
+    req.nextUrl.searchParams.get("mode") === "evidence" ||
+    req.nextUrl.searchParams.get("evidence") === "1";
+  if (process.env.ALLOW_PWA_LLM_CRONS !== "1" && !evidenceOnly) {
     return NextResponse.json({
       ok: true,
       disabled: true,
-      reason: "LLM-backed PWA background cron is disabled; member activity extraction should run via subscription automation.",
+      reason: "LLM-backed PWA member activity synthesis is disabled; use mode=evidence and POST Codex-synthesized activities.",
       saved: 0,
     });
   }
 
   try {
     const supabase = getServiceClient();
-    const bounds = activityWindowBoundsJST(req.nextUrl.searchParams.get("windowEnd") || req.nextUrl.searchParams.get("weekStart"));
+    const bounds = activityWindowBoundsJST(
+      req.nextUrl.searchParams.get("windowEnd") ||
+      req.nextUrl.searchParams.get("weekStart") ||
+      req.nextUrl.searchParams.get("windowKey")
+    );
     const save = req.nextUrl.searchParams.get("save") !== "0";
     const memberId = req.nextUrl.searchParams.get("memberId");
     const projectId = req.nextUrl.searchParams.get("projectId");
     const maxMessages = Number(req.nextUrl.searchParams.get("maxMessages") || 120);
+    const collection = await collectActivityEvidence(supabase, bounds, { memberId, projectId, maxMessages });
 
-    const [membersRes, memberEmailsRes, projectsRes, aliasesRes] = await Promise.all([
-      supabase
-        .from("members")
-        .select("member_id, code_name, email, status, google_calendar_status")
-        .eq("status", "active"),
-      supabase
-        .from("members")
-        .select("email")
-        .not("email", "is", null),
-      supabase
-        .from("projects")
-        .select("project_id, project_name, client_name, report_emails, status, project_category")
-        .or("status.eq.active,project_category.eq.advisor"),
-      supabase
-        .from("project_knowledge")
-        .select("project_id, entity_name, fact_text")
-        .eq("category", "alias")
-        .eq("status", "active"),
-    ]);
-    if (membersRes.error) throw membersRes.error;
-    if (memberEmailsRes.error) throw memberEmailsRes.error;
-    if (projectsRes.error) throw projectsRes.error;
-    if (aliasesRes.error) throw aliasesRes.error;
-
-    const members = (membersRes.data ?? []) as MemberRow[];
-    const aliasesByProject = new Map<string, string[]>();
-    for (const alias of aliasesRes.data ?? []) {
-      const projectId = String(alias.project_id || "");
-      const values = [alias.entity_name, alias.fact_text].map((v) => cleanText(v, 80)).filter(Boolean);
-      if (!projectId || values.length === 0) continue;
-      aliasesByProject.set(projectId, [...(aliasesByProject.get(projectId) || []), ...values]);
-    }
-    const projects = ((projectsRes.data ?? []) as ProjectRow[]).map((project) => ({
-      ...project,
-      aliases: aliasesByProject.get(project.project_id) || [],
-    }));
-    const pendingCalendarLogin = members
-      .filter((member) => requiresCalendarLogin(member) && member.google_calendar_status !== "connected")
-      .map((member) => ({
-        memberId: member.member_id,
-        codeName: member.code_name,
-        email: member.email,
-        calendarStatus: member.google_calendar_status || "missing",
-      }));
-    const targetMembers = members
-      .filter((member) => isWeeklyActivityTarget(member))
-      .filter((member) => !memberId || member.member_id === memberId);
-    const calendarSourceMembers = members
-      .filter((member) => requiresCalendarLogin(member))
-      .filter((member) => member.google_calendar_status === "connected");
-    const internalEmails = new Set(
-      (memberEmailsRes.data ?? [])
-        .map((row) => String(row.email || "").trim().toLowerCase())
-        .filter((email): email is string => !!email)
-    );
-    const matchProject = buildProjectMatcher(projects, internalEmails);
-    const matchMembers = buildMemberMatcher(targetMembers);
-
-    // メンバー本人の refresh_token (PWA ログインで保存) で per-member Gmail/Calendar を読む。
-    // token が無い connected メンバーだけ、従来のまさ代理 calendarList fallback。
-    const { memberAuths, tokenMissingMemberIds } = await resolveMemberAuths(supabase, targetMembers);
-    const tokenErrors: TokenError[] = [];
-    const memberAuthIds = new Set(memberAuths.map((m) => m.memberId));
-    const fallbackCalendarMembers = calendarSourceMembers
-      .filter((member) => !memberId || member.member_id === memberId)
-      .filter((member) => !memberAuthIds.has(member.member_id));
-    const requiredCalendarEmails = new Set(
-      fallbackCalendarMembers
-        .map((member) => member.email?.trim().toLowerCase())
-        .filter((email): email is string => !!email)
-    );
-    const fallbackMemberIdAllowList = new Set(fallbackCalendarMembers.map((m) => m.member_id));
-    const calendarAccess = await resolveReadableMemberCalendars(requiredCalendarEmails);
-
-    const shortError = (error: unknown) =>
-      String(error instanceof Error ? error.message : error).slice(0, 200);
-    const gmailTasks = memberAuths.map((member) =>
-      fetchGmailEvidenceForMember(member, bounds, matchProject, maxMessages).catch((error) => {
-        console.warn("[member-weekly-activities] gmail skipped:", member.memberId, error);
-        tokenErrors.push({ memberId: member.memberId, email: member.email, step: "gmail", error: shortError(error) });
-        return [] as Evidence[];
-      })
-    );
-    const memberCalendarTasks = memberAuths.map((member) => {
-      const cal = google.calendar({ version: "v3", auth: member.auth });
-      return fetchCalendarEvidence(
-        bounds, matchProject, matchMembers, cal,
-        [{ calendarId: "primary", ownerEmail: member.email }],
-        member.memberId
-      ).catch((error) => {
-        console.warn("[member-weekly-activities] member calendar skipped:", member.memberId, error);
-        tokenErrors.push({ memberId: member.memberId, email: member.email, step: "calendar", error: shortError(error) });
-        return [] as Evidence[];
+    if (evidenceOnly) {
+      return NextResponse.json({
+        ok: true,
+        mode: "evidence",
+        ...activityCollectionSummary(collection),
+        saved: 0,
+        groups: groupsForCodexPrompt(collection.fusionGroups),
       });
-    });
+    }
 
-    const [sourceCache, gmailLists, memberCalendarLists, fallbackCalendar] = await Promise.all([
-      fetchSourceCacheEvidence(supabase, bounds, matchProject, matchMembers, internalEmails),
-      Promise.all(gmailTasks),
-      Promise.all(memberCalendarTasks),
-      fetchCalendarEvidence(
-        bounds, matchProject, matchMembers, calendarAccess.cal, calendarAccess.calendars,
-        null, fallbackMemberIdAllowList
-      ).catch((error) => {
-        console.warn("[member-weekly-activities] fallback calendar skipped:", error);
-        return [] as Evidence[];
-      }),
-    ]);
-    const gmail = gmailLists.flat();
-    const calendar = [...memberCalendarLists.flat(), ...fallbackCalendar];
-
-    const meetingSummaries = await fetchMeetingSummaryEvidence(supabase, bounds, matchProject, calendar);
-    const evidence = dedupeEvidence([
-      ...sourceCache,
-      ...gmail,
-      ...meetingSummaries,
-      ...removeCalendarRowsCoveredByMeetings(calendar, meetingSummaries),
-    ]);
-    const { rows, groups: fusionGroups } = await buildActivityRows(evidence, bounds.windowKey, memberId, projectId);
+    const { rows } = await buildActivityRows(collection.evidence, bounds.windowKey, memberId, projectId);
 
     if (save) {
       await deleteExistingWeeklyRows(supabase, bounds, memberId, projectId);
@@ -1170,30 +1367,98 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      windowKey: bounds.windowKey,
-      windowStart: bounds.startKey,
-      windowEnd: bounds.endKey,
-      sourceCacheEvidence: sourceCache.length,
-      gmailEvidence: gmail.length,
-      calendarEvidence: calendar.length,
-      meetingSummaryEvidence: meetingSummaries.length,
-      calendarReadableMembers: calendarAccess.readableMemberEmails.length,
-      calendarMissingMembers: calendarAccess.missingMemberEmails.length,
-      targetMembers: targetMembers.length,
-      calendarSourceMembers: calendarSourceMembers.length,
-      memberTokenAuths: memberAuths.map((m) => ({ memberId: m.memberId, codeName: m.codeName, via: m.via })),
-      tokenMissingMemberIds,
-      tokenErrors,
-      pendingCalendarLogin,
-      note: pendingCalendarLogin.length > 0 ? "calendar login consent required for pending members" : null,
-      evidenceCount: evidence.length,
-      fusionGroups: fusionGroups.length,
+      mode: "legacy-route-synthesis",
+      ...activityCollectionSummary(collection),
       saved: save ? rows.length : 0,
       preview: rows.slice(0, 20),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error("[cron/member-weekly-activities]", message, error);
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  const unauthorized = requireCronAuth(req);
+  if (unauthorized) return unauthorized;
+
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  try {
+    const supabase = getServiceClient();
+    const windowInput =
+      req.nextUrl.searchParams.get("windowEnd") ||
+      req.nextUrl.searchParams.get("weekStart") ||
+      req.nextUrl.searchParams.get("windowKey") ||
+      optionalString(body.windowEnd) ||
+      optionalString(body.weekStart) ||
+      optionalString(body.windowKey);
+    const bounds = activityWindowBoundsJST(windowInput);
+    const memberId = req.nextUrl.searchParams.get("memberId") || optionalString(body.memberId);
+    const projectId = req.nextUrl.searchParams.get("projectId") || optionalString(body.projectId);
+    const maxMessages = Number(req.nextUrl.searchParams.get("maxMessages") || body.maxMessages || 120);
+    const rawActivities = Array.isArray(body.activities) ? body.activities : [];
+    const collection = await collectActivityEvidence(supabase, bounds, { memberId, projectId, maxMessages });
+
+    if (collection.fusionGroups.length > 0 && rawActivities.length === 0) {
+      return NextResponse.json({
+        ok: false,
+        error: "activities array is required for Codex synthesis save",
+        ...activityCollectionSummary(collection),
+        groups: groupsForCodexPrompt(collection.fusionGroups),
+      }, { status: 400 });
+    }
+
+    const { result: codexSyntheses, missingGroupIds, extraGroupIds } =
+      codexSynthesisMap(collection.fusionGroups, rawActivities);
+    const allowFallback = body.allowFallback === true || req.nextUrl.searchParams.get("allowFallback") === "1";
+    if (missingGroupIds.length > 0 && !allowFallback) {
+      return NextResponse.json({
+        ok: false,
+        error: "Codex synthesis is missing evidence groups; refusing to delete-and-upsert partial output",
+        ...activityCollectionSummary(collection),
+        acceptedActivities: codexSyntheses.size,
+        missingGroupIds,
+        extraGroupIds,
+        groups: groupsForCodexPrompt(collection.fusionGroups),
+      }, { status: 422 });
+    }
+
+    const { rows } = await buildActivityRows(
+      collection.evidence,
+      bounds.windowKey,
+      memberId,
+      projectId,
+      codexSyntheses
+    );
+
+    await deleteExistingWeeklyRows(supabase, bounds, memberId, projectId);
+    if (rows.length > 0) {
+      const { error: insertError } = await supabase
+        .from("member_activities")
+        .upsert(rows, { onConflict: "member_id,project_id,source,source_item_id" });
+      if (insertError) throw insertError;
+    }
+
+    return NextResponse.json({
+      ok: true,
+      mode: "codex-synthesis-save",
+      ...activityCollectionSummary(collection),
+      acceptedActivities: codexSyntheses.size,
+      missingGroupIds,
+      extraGroupIds,
+      saved: rows.length,
+      preview: rows.slice(0, 20),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[cron/member-weekly-activities POST]", message, error);
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 }

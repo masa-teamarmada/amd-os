@@ -6,7 +6,7 @@
 
 ## 基本方針
 
-2026-05-22 以降、PWA / GAS / Vercel から Anthropic・Gemini・OpenAI の従量課金 LLM API を定期実行しない。LLM が必要な L2 抽出は、**Codex automation / MMOマシン Codex Desktop automation / approved exception** へ寄せる。
+2026-05-22 以降、PWA / GAS / Vercel から Anthropic・Gemini・OpenAI の従量課金 LLM API を定期実行しない。LLM が必要な L2 抽出は、**Codex automation / MMOマシン Codex Desktop automation** へ寄せる。
 
 これは「cron 禁止」ではない。DB同期、外部API fetch、通知、キャッシュ更新、入金・請求系など、LLM 非依存の cron は許可される。
 
@@ -65,7 +65,7 @@ L2 を cadence で分類し、**新ナンバリング (D = daily / M = month-end
 | **D-7** | Textbook Insights | `textbook_insight_candidates` | local worker `amd-os-l10-textbook-insight-extract` | manual / daily candidate | `outbox.textbookInsights` → candidate + notification。approved 後 local BZM applier |
 | **D-8** | Atlas Signals | `atlas_signals` | Codex automation `amd-atlas-2` + `AMD OS D-8 Atlas外部シグナル抽出` | daily 08:10 JST | outbox / apply → `atlas_signals` upsert |
 | **D-9** | Macrotrend Evidence / Index | `observation_log` / `macro_index_log` | observation collector planned + PWA non-LLM cron `macro-aggregate-indicators` | daily target + 月初集計 | observation_log upsert。index 集計は LLM 非依存 cron |
-| **D-10** | Member Activity Evidence | `member_activities(source='member_weekly')` | Mac Codex automation `amd-os-l2-2` + MMO Task Scheduler launcher `amd-os-l2-member-weekly-activities`。内部 route は Anthropic API を使う例外 | daily 18:30 / 19:30 JST | Dashboard / MyPage read evidence。窓単位 delete-then-upsert + UNIQUE で重複防止 |
+| **D-10** | Member Activity Evidence | `member_activities(source='member_weekly')` | Mac Codex automation `amd-os-l2-2`。PWA route は evidence 収集 (`GET ?mode=evidence`) と Codex合成結果の保存 (`POST activities[]`) を担当 | daily 18:30 JST | Dashboard / MyPage read evidence。窓単位 delete-then-upsert + UNIQUE で重複防止 |
 | **D-11** | Media Mentions | `project_media_mentions` / `news_mention` notifications | 専用writer未実装 | daily target | media mention candidate + notification |
 | **D-12** | Finance Ops Evidence / freee Transaction Actuals | freee `trial_pl` / `company_actual_monthly` / `amd_management_score_raw_signals` / finance ops tables | PWA non-LLM cron `/api/cron/management-score-raw-data?includeFreee=1` + admin review | daily | freee取引履歴 → 月次試算表の実績値 |
 | **D-13** | Contract Signals | `contract_signals` / `contracts` / `contract_documents` | PWA route `POST /api/contracts/extract-l2` + Codex collector planned | daily target | 契約管理 `/admin/contracts`、l2_notifications(l2_kind='contract_signals') |
@@ -134,20 +134,20 @@ recurring automation としてこの後段を既存 health check に組み込む
 | `sync-pj-facts` | PJ メタ同期 | no |
 | `macro-aggregate-indicators` | マクロ指標集計 | no |
 
-`member-weekly-activities` は Anthropic 経路があるため active cron から外す。
+`member-weekly-activities` の legacy GET synthesis は Anthropic 経路があるため active cron / Run Now から外す。D-10 定期 writer は `mode=evidence` → Codex合成 → POST 保存を使う。
 
 ## D-10 の current writer
 
-D-10 は抽出漏れ実害が出たため、唯一「複数 writer の冗長並走」を正とする。**current truth** では Mac / MMO の Codex writer が route を叩く。抽出ロジックは PWA route `/api/cron/member-weekly-activities` 側にあり (per-member OAuth Gmail/Calendar read)、writer は route を叩くトリガ。
+D-10 は抽出漏れ実害が出たため冗長化していたが、**2026-07-08 current truth** では Mac Codex automation が primary。PWA route `/api/cron/member-weekly-activities` は per-member OAuth Gmail/Calendar/source_cache/meeting_summary の evidence を集めるだけに寄せ、活動文の合成は Codex automation 側で行う。
 
 | # | writer | 実行場所 | schedule (JST) | 仕組み |
 |---|---|---|---|---|
-| 1 | Codex automation `amd-os-l2-2` (`AMD OS D-10 メンバー活動根拠抽出 (Mac)`) | Mac (このマシン) | daily 18:30 | Codex Desktop が toml rrule で発火 → route curl。当日18時締め窓を即日抽出 |
-| 2 | Windows Task Scheduler `amd-os-l2-member-weekly-activities` | MMO マシン | daily 19:30 | launcher `run-d10.ps1` (`Invoke-RestMethod`) → route 実行。logs/ に JSON + latest-status.txt。**MMO の Codex Desktop scheduler は toml rrule を尊重しない既知問題があるため launcher 方式** |
+| 1 | Codex automation `amd-os-l2-2` (`AMD OS D-10 メンバー活動根拠抽出 (Mac)`) | Mac (このマシン) | daily 18:30 | `GET ?mode=evidence&interactive=1` で証拠を取得 → Codex が全 group を合成 → `POST /api/cron/member-weekly-activities` で `synthesis_method='codex'` 保存 |
+| 2 | Windows Task Scheduler `amd-os-l2-member-weekly-activities` | MMO マシン | daily 19:30 | legacy launcher。`interactive=1` の GET 一発実行は保存に使わない。復活させるなら Mac と同じ evidence→Codex合成→POST 方式へ更新する |
 
 **重複排除は route が構造的に保証**: 窓 (前日18:00〜当日18:00) 単位の delete-then-upsert + UNIQUE(member_id, project_id, source, source_item_id)。複数 writer が同じ窓を処理しても、後着 writer が窓を再構築するだけで重複行はできない。
 
-**例外**: この route 内部では Anthropic API を使う。D-10 だけは、まさ判断で定額外トークンを許容する。
+**禁止**: `ALLOW_PWA_LLM_CRONS=1` で legacy route synthesis を復活させない。`interactive=1` は evidence 取得の互換用途に限り、保存は Codex合成POSTで行う。
 
 ## Outbox applier
 

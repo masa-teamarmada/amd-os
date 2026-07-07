@@ -169,7 +169,7 @@ D-1D-3D-4H-1の復旧/移管状況は [8-3 章](8-3-l2-extraction-routines-spec.
 | D-6 | `project_strategy_signals` | **経営ハイライト** | 5 ソース + OS snapshot | Codex automation `amd-os` (= daily 03:20) + SKILL `amd-os-l9-strategy-signal-extract` + dialogue API (= 提案前の論点整理セッション) | ✅ subscription automation 枠で稼働。修正依頼ループは対話型と接続予定 |
 | D-7 | `textbook_insight_candidates` | **Textbook Insights** | Supabase 内の既存 L2 / OS データ primary。必要なら 5 ソースは gap check | Codex automation / local worker `amd-os-l10-textbook-insight-extract` → `outbox.textbookInsights` → 通知 yes で approved → local BZM applier が `pwa/bzm/*.md` へ追記 | 🟡 partial。DB/API/outbox/local applier の最小導線を追加。実 schedule は未確定 |
 
-**📊 別 L2** (= `member_activities`、メンバー活動ログ): `cron/member-weekly-activities` は Anthropic 経路を持つため 2026-05-29 に Vercel active cron から退避。定期生成する場合は subscription 内 automation 側で実行する。
+**📊 別 L2** (= `member_activities`、メンバー活動ログ): `cron/member-weekly-activities` の legacy GET synthesis は Anthropic 経路を持つため 2026-05-29 に Vercel active cron から退避。2026-07-08 以降の D-10 定期生成は、Codex automation が `GET ?mode=evidence` で証拠を読み、活動文を合成して `POST activities[]` で保存する。
 
 ### H-1 予定MTGカード同期
 

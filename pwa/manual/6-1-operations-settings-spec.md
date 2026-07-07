@@ -107,7 +107,7 @@ GAS function の場合:
 
 `dryRun` があるものは、まず `dryRun=1` で挙動確認してから本実行する。
 
-`pwa-hourly-estimate` と `pwa-member-weekly-activities` は旧 PWA LLM cron。2026-05-29 に停止済みで、`ALLOW_PWA_LLM_CRONS=1` なしでは LLM を呼ばない。MS進捗の定期抽出は **MMOマシン automation `amd-os-l3-ms-progress-extract`** 側で行う。
+`pwa-hourly-estimate` と `pwa-member-weekly-activities` の legacy synthesis は旧 PWA LLM cron。2026-05-29 に停止済みで、`ALLOW_PWA_LLM_CRONS=1` なしでは LLM を呼ばない。D-10 の定期抽出は PWA route の `mode=evidence` と Codex automation の POST 保存で行う。MS進捗の定期抽出は **MMOマシン automation `amd-os-l3-ms-progress-extract`** 側で行う。
 
 `pwa-payment-confirm-nudges` は Slack DM を実送信する処理。対象 group、予定税込額、admin 送信先だけ確認したい時は `{"query":{"ym":"YYYYMM","dryRun":1}}` を使う。signed token と `/payment-confirm` の仕様は [6-4 章](6-4-finance-payment-confirm-spec.md)。
 
@@ -118,7 +118,7 @@ GAS function の場合:
 | GAS R313 monthly report trigger | M-1の定期 writer は Codex automation `AMD OS M-1 月次報告抽出`。R313 は従量課金 Claude API を呼びうる旧経路なので trigger 復活しない |
 | GAS meeting hourly | 旧 LLM / Gemini 系。Windows MMO Codex Desktop automation `amd-os-l6-meeting-flow` へ移管済 |
 | PWA hourly-estimate | 旧 MS進捗 writer。定期抽出は MMOマシン automation `amd-os-l3-ms-progress-extract` へ移管済 |
-| PWA member-weekly-activities | UI からは停止のまま。現在の定期 writer は Codex 側 (`AMD OS D-10 メンバー活動根拠抽出 (Mac)` / MMO launcher) だが、内部 route は Anthropic 経路を使う。D-10 だけは例外許容 |
+| PWA member-weekly-activities | UI からは停止のまま。現在の定期 writer は Codex 側 (`AMD OS D-10 メンバー活動根拠抽出 (Mac)`) で、route は evidence 収集と Codex合成結果の POST 保存だけを担う。legacy GET synthesis は復活させない |
 | GAS L2 knowledge | 旧 LLM / Gemini 系。D-1D-3D-4は MMOマシン Codex Desktop automation `amd-os-l2/l4/l5-*-extract` へ移管済 |
 | Claude routine `amd-os-l<N>-<data>-extract` | 2026-05-25〜26 の移行検討/一部登録の履歴。現行判断では、復旧・運用確認は 3-2 / 8-3 の **実行場所 + automation** 表を見る。PWA から直接叩く対象ではない |
 | Atlas collect / policy collect | LLM web search 系。Codex automation / review batch へ移管 |

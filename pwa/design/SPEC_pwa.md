@@ -182,7 +182,7 @@ pwa/
 | `cron/atlas-monthly` | disabled | 07:00 month-1 | atlas 月次。内部で `atlas-report.ts` がAnthropicを使うため停止済み |
 | `cron/atlas-divergence` | disabled | 06:00 sun | テーマ単位 divergence 再生成。Sonnet利用のため停止済み |
 | `cron/member-activities` | disabled | 04:00 daily | 月次レポート + MTGサマリ + source_cache refs → Sonnet 推論 → member_activities。LLM課金回避で停止済み |
-| `cron/member-weekly-activities` | disabled | — | Anthropic 経路を持つため 2026-05-29 に active cron から退避。`ALLOW_PWA_LLM_CRONS=1` なしでは LLM を呼ばない |
+| `cron/member-weekly-activities` | disabled legacy synthesis / evidence route only | — | Anthropic 経路を持つ legacy GET synthesis は active cron から退避。D-10定期は Codex automation が `GET ?mode=evidence` → `POST activities[]` で保存する |
 | `cron/payout-reward-cache-refresh` | `5 18 * * *` | 03:05 daily | `/admin/payouts` の高速表示用に、前月・当月・翌月の支払月で対象cycleを集約し、`syncRewardSummariesForBillingCycles()` で `billing_cycles.reward_summary_json` を再生成する。LLM/GAS非使用。手動実行は `?ym=YYYYMM` 指定可 |
 | `cron/payout-notice-prebuild` | `0 17 * * *` | 02:00 daily | 当月+翌月の支払 ym 全部について、まず `monthly_reward_payout` / `payout_notices.total_yen` を最新計算額へ同期し、その後に各メンバーの支払通知書PDFを「金額が変わったもの・まだ無いもの・メンバー台帳更新後で古いもの」だけ事前生成して `payout_notices.pdf_url` / `last_generated_at` に埋める (= 差分検出スキップあり、concurrency=3 並列)。朝 `/admin/payouts` を開いた時点で即PDF表示可能にするのが目的。手動実行は `?ym=YYYYMM&force=1` 指定可。仕様: `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`「先回り生成」セクション |
 | `cron/relearn-lane-weights` | disabled | 03:30 daily | macro lane weights 再学習。Sonnet利用のため停止済み |

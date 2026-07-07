@@ -14,6 +14,7 @@
 
 | 日付 | 対象章 | 種別 | 内容 | 理由 | 誰が |
 |---|---|---|---|---|---|
+| 2026-07-08 | 6-1 / 8-3 / OSデータ一覧 / D-10 route | 変更 | D-10 `member-weekly-activities` の定期経路を `GET ?mode=evidence` → Codex automation合成 → `POST activities[]` 保存へ変更。route 内 Anthropic 合成の例外扱いをやめ、legacy `interactive=1` GET 一発実行は保存に使わない current truth へ更新 | `/mypage` の週次活動に fallback 由来のメール本文・HTML・runner marker が表示されたため。D-10合成を定額内のCodex automationへ移し、古いroute triggerが後から上書きしないようにするため | えいみ |
 | 2026-07-07 | 2-3 PJ コックピット | 修正 | 「日程調整中MTG」別欄を廃止し、日程未確定の予定は「予定MTG / 準備中」欄にまとめ、日付欄を `日程未確定` と表示する。`meeting_id` が `upcoming:` でも開催済みソースを持つ row は準備カード扱いしない。build v0.39.7 | 日程未確定は予定欄内の状態で足り、別レーンがあると古い仮置き・開催済み内容が亡霊のように残って見えるため | えいみ |
 | 2026-07-07 | 2-3 PJ コックピット / 先手 TODO | 修正 | 予定MTG欄を開始時刻ベースにし、会議開始後の予定カードを「準備中」に残さない。開催済み議事録へ表示する会議前準備メモは、手動準備または prep worker 成果があるものだけに限定。`next_meeting_prep` TODO は紐づくMTG開始後に自動終了する。build v0.39.6 | 開催済みMTGに薄い `MTG準備情報` や期限切れの `agenda / 進行案` TODO が亡霊のように残っていたため | えいみ |
 | 2026-07-04 | 2-4 AMD Cockpit / Dashboard | 削除 | `/dashboard` の `PJ先手レーダー` を廃止し、`ProactiveRadarBoard` と dashboard 差し込み、レーダー用回帰ガード、仕様契約を削除。build v0.39.5 | 現状の内容は `先手TODO` と重複し、実情に合う先手判断はえいみOS側で実装した方が機能しそうなため | えいみ |
