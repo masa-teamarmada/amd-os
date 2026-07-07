@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-07-07 | 3-3 Meeting Flow | 修正 | 「日程調整中MTG」別欄を廃止し、`upcoming_tentative` は同じ「予定MTG / 準備中」欄で日付欄を `日程未確定` として表示する。`meeting_id` が `upcoming:` でも `source_kinds` が開催済みソースなら準備カード扱いしない。build v0.39.7 | 日程未確定は予定欄内の状態で足り、別レーンにすると古い仮置きや開催済み内容が亡霊のように残って見えるため | えいみ |
 | 2026-07-07 | 2-4 Proactive TODO / 3-3 Meeting Flow | 修正 | 予定MTG表示を `meeting_start_at > now` にし、開催済み議事録へ薄い calendar sync 準備テンプレートを表示しない。`proactive-todo-extract` に MTG開始後の `next_meeting_prep` 自動終了を追加。build v0.39.6 | 開催済みMTGに `MTG準備情報` や期限切れ準備TODOが残り、PJ横断で亡霊のように見えていたため | えいみ |
 | 2026-07-04 | 2-4 Proactive TODO / FEATURE_REGISTRY | 削除 | `ProactiveRadarBoard`、dashboard 差し込み、レーダー専用 critical UI guard、spec/manual/FEATURE_REGISTRY のレーダー契約を削除。build v0.39.5 | 既存 `ProactiveTodoBadge` / `/proactive` と重複し、AMD OS dashboard 側では十分な意味が出ないため | えいみ |
 | 2026-07-04 | 2-4 Proactive TODO / FEATURE_REGISTRY | 修正 | `ProactiveRadarBoard` の自動対象を current PJ (`active` / `sales` / `draft`) に限定し、非current PJは明示的な未対応TODOがある場合だけ表示する。材料ゼロの平常監視行を非表示化。build v0.39.4 | 停止済み・旧PJが空白提案として混ざると、先手レーダーが実務判断からズレるため | えいみ |

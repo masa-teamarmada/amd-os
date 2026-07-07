@@ -21,7 +21,9 @@ export function isUpcomingMeeting(item: ProjectMeetingSummary): boolean {
 
 export function isPrepMeeting(item: ProjectMeetingSummary): boolean {
   const sourceKinds = sourceKindTokens(item.sourceKinds);
-  return item.meetingId.startsWith("upcoming:") || sourceKinds.has("upcoming") || sourceKinds.has("upcoming_tentative");
+  return sourceKinds.has("upcoming") ||
+    sourceKinds.has("upcoming_tentative") ||
+    (item.meetingId.startsWith("upcoming:") && sourceKinds.size === 0);
 }
 
 export function isTentativePrepMeeting(item: ProjectMeetingSummary): boolean {

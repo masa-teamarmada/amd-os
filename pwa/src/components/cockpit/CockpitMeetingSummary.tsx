@@ -65,6 +65,14 @@ function isFutureUpcomingMeeting(item: ProjectMeetingSummary, nowIso: string, to
   return Number.isFinite(startMs) && Number.isFinite(nowMs) && startMs > nowMs;
 }
 
+function isPendingTentativeMeeting(item: ProjectMeetingSummary, nowIso: string, today: string): boolean {
+  if (!isTentativePrepMeeting(item)) return false;
+  if (!item.meetingStartAt) return item.meetingDate >= today;
+  const startMs = new Date(item.meetingStartAt).getTime();
+  const nowMs = new Date(nowIso).getTime();
+  return Number.isFinite(startMs) && Number.isFinite(nowMs) && startMs > nowMs;
+}
+
 function hasMeaningfulPrepArchive(item: ProjectMeetingSummary): boolean {
   if (item.prepDraftMd?.trim()) return true;
   if (item.prepReadinessScore != null) return true;
@@ -232,15 +240,16 @@ export function CockpitMeetingSummary({ projectId }: Props) {
   );
   const tentativeItems = useMemo(
     () => recentItems
-      .filter(isTentativePrepMeeting)
+      .filter((item) => isPendingTentativeMeeting(item, nowIso, today))
       .sort((a, b) => {
         const ag = a.generatedAt || "";
         const bg = b.generatedAt || "";
         if (ag !== bg) return bg.localeCompare(ag);
         return b.meetingDate.localeCompare(a.meetingDate);
       }),
-    [recentItems]
+    [recentItems, nowIso, today]
   );
+  const plannedMeetingCount = upcomingSeries.length + tentativeItems.length;
   const pastRecentItems = useMemo(
     () => recentItems.filter((item) => !isPrepMeeting(item) && item.meetingDate <= today),
     [recentItems, today]
@@ -278,19 +287,10 @@ export function CockpitMeetingSummary({ projectId }: Props) {
       <div className="mb-2.5 flex items-baseline justify-between gap-2">
         <h3 className="text-[13px] font-medium">MTGサマリ</h3>
         <div className="flex items-center gap-1.5">
-          {(upcomingSeries.length > 0 || tentativeItems.length > 0) && (
-            <>
-            {upcomingSeries.length > 0 && (
-              <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800">
-                予定 {upcomingSeries.length}
-              </span>
-            )}
-            {tentativeItems.length > 0 && (
-              <span className="rounded-full border border-stone-200 bg-stone-50 px-2 py-0.5 text-[10px] font-medium text-stone-700">
-                調整中 {tentativeItems.length}
-              </span>
-            )}
-            </>
+          {plannedMeetingCount > 0 && (
+            <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800">
+              予定 {plannedMeetingCount}
+            </span>
           )}
           <button
             type="button"
@@ -305,7 +305,7 @@ export function CockpitMeetingSummary({ projectId }: Props) {
 
       {loading ? (
         <p className="text-[12px] text-[#86868b]">読み込み中...</p>
-      ) : upcomingSeries.length === 0 && tentativeItems.length === 0 && pastRecentItems.length === 0 && !showOlder ? (
+      ) : plannedMeetingCount === 0 && pastRecentItems.length === 0 && !showOlder ? (
         <div className="space-y-2">
           <p className="text-[12px] text-[#86868b]">直近1年の議事録・予定MTGデータなし</p>
           <button
@@ -317,22 +317,13 @@ export function CockpitMeetingSummary({ projectId }: Props) {
         </div>
       ) : (
         <div className="flex flex-col gap-3 max-h-[480px] overflow-y-auto">
-          {upcomingSeries.length > 0 && (
+          {plannedMeetingCount > 0 && (
             <UpcomingMeetingBlock
               title="予定MTG / 準備中"
-              helper="決めること・準備物"
+              helper="日時確定・日程未確定"
               series={upcomingSeries}
-              onSelect={openSelectedMeeting}
-            />
-          )}
-
-          {tentativeItems.length > 0 && (
-            <UpcomingMeetingBlock
-              title="日程調整中MTG"
-              helper="日程未定・仮置き"
               items={tentativeItems}
               onSelect={openSelectedMeeting}
-              tone="tentative"
             />
           )}
 
@@ -429,7 +420,7 @@ function UpcomingMeetingBlock({
             onClick={() => onSelect(group.next)}
           />
         ))}
-        {!series && items.map((item) => (
+        {items.map((item) => (
           <MeetingRow
             key={item.meetingId}
             item={item}
@@ -476,7 +467,7 @@ function MeetingRow({ item, onClick, series }: RowProps) {
   const isUpcoming = isUpcomingMeeting(item);
   const isPrep = isPrepMeeting(item);
   const isTentativePrep = isTentativePrepMeeting(item);
-  const dateLabel = isTentativePrep ? "未定" : formatDateLabel(item.meetingDate);
+  const dateLabel = isTentativePrep ? "日程未確定" : formatDateLabel(item.meetingDate);
   const timeLabel = isTentativePrep ? "" : formatTimeLabel(item.meetingStartAt);
   const sourceLink = item.sourceUrl || item.notionUrl;
   const sourceLabel = isUpcoming
@@ -518,7 +509,7 @@ function MeetingRow({ item, onClick, series }: RowProps) {
             )}
             {!isUpcoming && isPrep && (
               <span className="text-[9px] px-1 py-px rounded bg-stone-100 border border-stone-200 text-stone-700 shrink-0">
-                日程調整中
+                日程未確定
               </span>
             )}
             {isDialogue && (

@@ -7,18 +7,21 @@
 
 ### [pwa/meeting-prep] 開催済みMTGに準備カード/TODOが亡霊のように残った (2026-07-07)
 
-- **状態**: クローズ (2026-07-07 — `v0.39.6` で表示判定と TODO 自動終了を修正)。
+- **状態**: クローズ (2026-07-07 — `v0.39.7` で表示判定と TODO 自動終了、日程未確定表示を修正)。
 - **症状**: 複数PJの MTG カード周りに、開催済みなのに「予定MTG / 準備中」や `MTG準備情報`、`agenda / 進行案を先に提示する` 系の準備TODOが残り続けた。2026-07-07 調査時点で、`source_kinds='upcoming'` の過去予定カードが 51 件、同じカレンダーIDの開催済み議事録があるものが 32 件、open の `next_meeting_prep` TODO が 26 件、そのうち期限切れが 20 件あった。
 - **原因**:
   1. PJ cockpit の予定MTG欄が `meeting_date >= today` だけで表示判定しており、同日内で開始時刻を過ぎたMTGも予定として残った。
   2. 開催済み議事録の詳細が、同じ `calendar_event_id` の `upcoming:` 行を無条件で `MTG準備情報` として拾っていた。これにより、`calendar-future-sync` が作った薄い予定テンプレートまで会議後に残って見えた。
   3. `proactive-todo-extract` は次回MTG準備TODOを作るだけで、MTG開始後に自動終了する出口を持っていなかった。期限超過すると赤くなるだけで、未対応リストに残り続けた。
+  4. `meeting_id` が `upcoming:` で始まるだけで準備カード扱いしていたため、`source_kinds='notion+gmail+pre_mtg_prep'` のように中身は開催済み議事録へ変わった row まで「日程調整中MTG」へ落ちた。また `upcoming_tentative` を別枠「日程調整中MTG」として出していたため、日程未確定メモが予定欄とは別の亡霊レーンに見えた。
 - **対応内容**:
   1. 予定MTG欄の表示を `meeting_start_at > now` に変更し、画面を開いたままでも 1 分ごとに現在時刻を更新するようにした。
   2. 開催済み議事録に紐づける準備メモは、手動準備または prep worker 成果 (`prep_draft_md` / readiness / session) があるものだけに限定した。カレンダー同期だけの薄い準備テンプレートは表示しない。
   3. `proactive-todo-extract` で、開始時刻を過ぎた upcoming から新しい prep TODO を作らないようにし、既存 open/blocked の `next_meeting_prep` は紐づくMTG開始後に `done` へ自動終了する Stage 5 を追加した。
-  4. `pwa/spec/2-4-proactive-todo-current-spec.md`、`pwa/spec/3-3-meeting-flow-current-spec.md`、`pwa/manual/2-3-pj-cockpit.md`、appendix changelog に同期した。
-- **再発防止策**: 予定カードや会議前TODOは、日付ではなく開始時刻で寿命を判定する。会議前の準備メモは、会議後に自動で主表示へ残すのではなく、実際に作った準備成果だけを補助情報として扱う。準備TODOには必ず「会議開始後に閉じる」出口を持たせる。
+  4. 準備カード判定は `source_kinds` を正本にし、`meeting_id` が `upcoming:` で始まっても `source_kinds` が開催済みソースなら準備カード扱いしないようにした。
+  5. 「日程調整中MTG」別枠を廃止し、`upcoming_tentative` は予定MTG欄の行として日付欄に `日程未確定` と表示する。過去日付の仮置きは予定欄へ出さない。
+  6. `pwa/spec/2-4-proactive-todo-current-spec.md`、`pwa/spec/3-3-meeting-flow-current-spec.md`、`pwa/manual/2-3-pj-cockpit.md`、appendix changelog に同期した。
+- **再発防止策**: 予定カードや会議前TODOは、日付ではなく開始時刻で寿命を判定する。会議前の準備メモは、会議後に自動で主表示へ残すのではなく、実際に作った準備成果だけを補助情報として扱う。準備TODOには必ず「会議開始後に閉じる」出口を持たせる。`meeting_id` prefix だけで種別を決めず、`source_kinds` と開催済みソースの有無を優先する。日程未確定は別レーンではなく予定欄内の状態ラベルに留める。
 
 ---
 

@@ -38,7 +38,7 @@ Calendar event の PJ 判定は、色→PJ判定を第一軸にする。
 ## 予定MTGカード同期
 
 - `POST /api/meeting-prep/calendar-sync` が `source_kinds='upcoming'` の予定MTGカードを upsert する。
-- PJ cockpit UI は `source_kinds='upcoming'` だけでなく、`upcoming+calendar+manual-prep` のような `+` 区切り拡張値も `upcoming` token を含めば日時確定済み予定MTGとして扱う。`upcoming_tentative` token がある場合だけ日程調整中扱いにする。
+- PJ cockpit UI は `source_kinds='upcoming'` だけでなく、`upcoming+calendar+manual-prep` のような `+` 区切り拡張値も `upcoming` token を含めば日時確定済み予定MTGとして扱う。`upcoming_tentative` token は別欄にせず、同じ「予定MTG / 準備中」欄で日付欄を `日程未確定` として表示する。`meeting_id` が `upcoming:` で始まっても、`source_kinds` が開催済みソースへ変わっている row は準備カード扱いしない。
 - 予定MTG欄に出すのは `meeting_start_at` が現在時刻より後の行だけ。`meeting_date` が今日でも、開始時刻を過ぎた予定MTGは「予定MTG / 準備中」に残さない。
 - 開催済み議事録の詳細に紐づける会議前準備メモは、手動準備または prep worker の成果がある行だけに限る。`calendar-future-sync` が作った薄い予定テンプレートだけの行は、開催後の詳細へ `MTG準備情報` として出さない。
 - weekly recurring MTG は series ごとに次回1件だけ表示する。
