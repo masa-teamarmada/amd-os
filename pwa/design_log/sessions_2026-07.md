@@ -332,3 +332,30 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 - もし今後も古いMTGカードが見える場合、まず画面左上 version / `/api/build-info` が `v0.39.7` 以上か確認する。
 - `v0.39.7` でも残る場合は、推測でDBを消さず、`project_meeting_summaries.source_kinds`、`meeting_id` prefix、`meeting_start_at`、`calendar_event_id`、`prep_status`、`generated_by_model` を見て、どのpredicateへ入ったかを切り分ける。
 - canonical checkout `/Users/masa/projects/AMD/amd-os` は stale/dirty。今回の修正は clean disposable clone `/tmp/amd-os-mtg-ghost-fix-1783401569` から origin/main / production に反映済み。
+
+---
+
+## 2026-07-08 — repo closeout / handoff refresh
+
+### コンテキスト
+- handoff / closeout スキル実行。
+- 直前の `HANDOFF.md` には、MTGカード亡霊修正の実装時点の注意として「canonical checkout が stale/dirty」という前提が残っていた。
+- closeout 実行時点では、docs closeout commit まで main に入り、canonical checkout は origin/main と一致して clean になっていた。
+
+### 実施内容
+- `HANDOFF.md` を最新の closeout 状態へ更新。
+- `SESSION_MIGRATION_PROMPT.md` を、common 先頭・AMD level memory 併記・現在の main/production 状態込みの濃い再開プロンプトへ更新。
+- この design_log に closeout refresh の事実を追記。
+
+### Closeout snapshot
+- repo: `/Users/masa/projects/AMD/amd-os`
+- branch: `main`
+- HEAD / origin/main: `04a3a55d0cf62c48b588c8ba8f0c140cc41a022d`
+- production `/api/build-info`: `v0.39.7` / `04a3a55d0cf62c48b588c8ba8f0c140cc41a022d` / `dirty=false`
+- `git status -sb --untracked-files=all`: clean
+- registered worktree: `/Users/masa/projects/AMD/amd-os [main]` only
+- local branches: `main` only
+- local main vs origin/main: ahead `0`, behind `0`
+
+### 注意
+- `/tmp/amd-os-*` の disposable clone / artifact は複数残っているが、git worktree registry には載っていない。削除は `rm -rf` 系の破壊的操作になるため、この closeout では削除していない。掃除するなら別途、 exact path を出して承認を取ってから行う。
