@@ -89,6 +89,14 @@ git status -s
 - 既存の `codex/*` 等の残存ブランチに **新しい commit を積まない**。価値ある未マージ作業は main に畳んでから捨てる。
 - PWA の本番反映は `main push = Vercel 自動 deploy`（`pwa/CLAUDE.md` 参照）。**main に無いものは本番に存在できない** — これがこのルールの機械的な裏付け。
 
+### dirty はブランチ作成理由にならない (2026-07-07 まさ再確定)
+
+- このリポでは dirty が残っていること自体は通常状態。**dirty があるから branch / worktree を切る、は全面禁止**。
+- dirty を見つけたら、新しい枝を増やす前に `codex/*` / worker worktree / main 未反映 commit を棚卸しし、owner/action/deadline を付ける。
+- 実装が必要で root checkout を巻き込みたくない場合でも、`git worktree add -B codex/... origin/main` は使わない。対象差分だけを main に載せるか、どうしても隔離が必要なら main を checkout した disposable clean clone で作業し、closeout で clone 削除候補まで明記する。
+- 同じ差分が別 SHA で main に入った一時 branch は `patch-equivalent-main` として扱い、証跡保存後の削除候補にする。「同じ内容だけど浮いている branch」を放置しない。
+- closeout では「このセッションで作った branch/worktree: none」または「作ったが削除済み / main に畳み済み」を必ず書く。これが書けない状態は完了ではない。
+
 ### 過去事故 (2026-05-30)
 
 AI が自動で `feat/bzm-textbook` を切り、以降の複数セッションがその上に BZM 以外の作業（cockpit / payment / design_log / ERS）まで無関係に積んだ。結果 main と乖離し、畳む時に 15 ファイルのコンフリクト予測 +「今どのブランチ?」混乱が発生。**ブランチのメリット（main 隔離）はこのリポの運用では薄く、デメリット（乖離・混乱・巨大コンフリクト）だけが膨らむ**。main 一本なら全セッションが同じ場所を見る。
