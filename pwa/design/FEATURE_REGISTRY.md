@@ -133,6 +133,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 回帰防止:
 
 - `pwa/scripts/check_pwa_critical_ui.cjs` が `/admin/ms-overview` の route / page / client / sidebar anchor (`MS一覧` / `全MS` / `メンバー別 pt配分` / `設計額` / `担当設計額` / `cap_extra` / `編集モード` / `MS追加` / `担当share` / `担当pt` / `全MS pt配分スライダー` / `pt配分スライダー` / `残り割り振り可能pt` / `保存先 DB` / `保存前支払検算` / `保存不可` / `MS編集停止中` / `memberImpacts` / `budgetImpact` / `PJ予算残` / `支払済み固定` / `実績未照合` / `これから支払予定` / `期末未払い残` / `DB値に戻す` / `保存して DB へ反映` / `recomputeMsOverview` / `memberPointTotals`) を検査する。
+- 上段メトリクスは 4 枚固定。3枚化、または 4 枚目を `主要メンバー` / `上位メンバー比較` のようなメンバー比較カードへ戻す変更は禁止。4 枚目は `budgetImpact` 由来の `PJ予算残` / `不足額` / `予算不足` / `原資超過` を表示する。
 - AdminSidebar の `MS一覧` 導線、`/admin/ms-overview` route、`/api/admin/ms-overview` (GET / PUT)、`src/lib/admin/ms-overview-calc.ts` を消す変更は、`FEATURE_REGISTRY.md` と `pwa/manual/6-8-admin-ms-overview-spec.md` を同時に更新する。
 - 支払額に見える円換算を `/admin/ms-overview` に戻さないこと。`/admin/ms-overview` の円表示は設計額の目安に限り、実支払額は reward cache / season-pl / payouts 側だけで見る。
 - 別財布判定 (cap_extra 系 tag) は `src/lib/admin/ms-overview-calc.ts` の `isCapExtraTag` を共有し、`season-pl.ts` の `CAP_EXTRA_MILESTONE_TAGS` と一字一句揃える (= 増やすときは両方更新)。
