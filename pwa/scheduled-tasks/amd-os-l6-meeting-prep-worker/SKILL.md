@@ -189,16 +189,24 @@ Phase 6: Drive 資料 draft 生成
 ═══════════════════════════════════════════════════
 
 1. `projects.drive_folder_id` 直下に `YYMMDD_<MTG名サニタイズ>_prep/` folder を作成 (= 既存があれば再利用)
-2. 着地点に応じて Drive 資料 draft を生成:
-   - 簡易提案書 / 試算表 / アジェンダ slide / 確認事項チェックリスト
-   - 過去同シリーズの資料スタイルを踏襲 (= 過去の Drive 資料 metadata から判定)
-3. 生成可能な形式 (= text/Markdown/Google Docs/Slides/Sheets) のみ自動生成。それ以外 (= 画像/PDF/動画) は draft 生成せず `prep_draft_md` の「⚠️ 留意点」に「{形式} 資料は手動作成が必要」と書く
-4. 生成した Drive file ID を `prep_drive_asset_id` に保存
+2. 着地点に応じて Drive 資料 draft を生成する。ただし、共有フォルダに置く prep 資料の主成果物は **必ず HTML** に統一する:
+   - 簡易提案書 / 試算表 / アジェンダ / 確認事項チェックリスト / 1枚サマリは、すべて `.html` として作る
+   - Google Docs / Markdown / Slides / Sheets を主成果物として作らない。表や計算も HTML 内の table / section / callout で表現する
+   - ファイル名は `YYMMDD_<MTG名サニタイズ>_<用途>.html` にする
+   - 複数資料が必要な場合も、用途ごとに HTML を分けるか、1つの HTML 内に section としてまとめる
+3. HTML は AMD OS のデザインコードに従う:
+   - まず `/Users/masa/projects/AMD/amd-os/pwa/src/lib/exec_summary/template.css` と `/Users/masa/projects/AMD/amd-os/pwa/src/lib/exec_summary/template_section.html` を参照する
+   - 視覚言語は `/Users/masa/projects/AMD/amd-os/pwa/design/cyber_hud_design_code.md` と `/Users/masa/projects/AMD/amd-os/pwa/design/hud_visual_language.md` の原則に寄せる
+   - 原則として単体で開ける self-contained HTML にし、必要な CSS は `<style>` に埋め込む。外部URL、secret、raw本文は入れない
+   - 既存の共有資料スタイルがある場合も、形式は HTML に統一し、色・余白・情報密度だけ参考にする
+4. 生成できない形式 (= 画像/PDF/動画など HTML 以外が本質になるもの) は無理に別形式で作らず、HTML 内に「手動作成が必要」と明記し、`prep_draft_md` の「⚠️ 留意点」にも残す
+5. 生成した HTML file ID を `prep_drive_asset_id` に保存する。複数HTMLを作った場合は主資料の file ID を入れ、他の HTML は `prep_readiness_reasons.drive_assets` に metadata として残す
 
 **禁止**:
 - 本資料 (= MTG 本資料 folder) には書き込まない。必ず `_prep/` folder に置く
 - 既存ファイルを上書きしない。新規ファイルとして残す
 - 前提データが足りない (= 過去 narrative も Gmail も Drive も薄い) のに「それっぽい」draft を作らない
+- Google Docs / Markdown / Slides / Sheets を prep 資料の主成果物として作らない
 
 ═══════════════════════════════════════════════════
 Phase 7: Notion 議事録ページ draft 作成

@@ -1,5 +1,41 @@
 # 2026-07 Sessions
 
+## 2026-07-09 — W-Prep Launch 漏れ補完 + automation設計修正
+
+### コンテキスト
+- まさから、明日の `int) PoCサービス（依頼側）` prep thread が立ち上がっていない、他にもMTG漏れがありそう、と指摘。
+- さらに、立ち上げ済み prep thread の待機メッセージが「会議冒頭で読むセリフ案」になっており、まさが期待する開始点と違うと指摘。
+- 共有フォルダに作る prep 資料が Google Docs / Markdown などに分散しており、今後は AMD OS デザインコードに従った HTML 資料へ統一したい、既存スレッドには言わず automation 設計だけ変えたい、と依頼。
+
+### 実施内容
+- `w-prep-launch` automation を、毎週水曜15:00 JSTのまま、Calendar + DB の7日窓照合を必須に更新。DB upcoming 行だけを見て完了扱いにしないルールへ変更。
+- CalendarにはあるがDB未同期だった active/sales PJ のMTGを補完し、visible prep thread を作成・改題・pin・DB session保存した。
+- 既存16 prep thread へ、待機メッセージを「これまでのMTGの流れ / 今回の位置づけと推定着地点 / まさがやるべきこと」の3点完了報告へ差し替える補正指示を送信。
+- `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md` を更新し、Phase 5 / Phase 10 の第一声契約を3点完了報告に修正。
+- 同 SKILL の Phase 6 を、共有フォルダ prep 資料の主成果物は HTML に統一する仕様へ変更。Google Docs / Markdown / Slides / Sheets を主成果物にしない。参照デザインコードは `pwa/src/lib/exec_summary/template.css`、`template_section.html`、`pwa/design/cyber_hud_design_code.md`、`pwa/design/hud_visual_language.md`。
+- active automation prompt と `/Users/masa/.codex/automations/w-prep-launch/memory.md` も同じルールに更新。
+- repo 正本として、`pwa/spec/3-3-meeting-flow-current-spec.md`、`pwa/manual/2-3-pj-cockpit.md`、`pwa/manual/3-2-data-and-extraction.md`、`pwa/manual/8-3-l2-extraction-routines-spec.md`、`pwa/design/L2_DATA.md`、`pwa/scheduled-tasks/README.md`、appendix changelog、`pwa/BUGS.md` に同期。
+
+### 補完して立ち上げた主な thread
+- `int) PoCサービス（依頼側） prep` / `019f40ca-6d34-7990-bf05-c2240afa680b`
+- `GTIE定例会 prep` / `019f40c9-ea43-72d2-a9d6-82e787016080`
+- `ビザスク）鈴木様 prep` / `019f40ca-f6c2-7b91-aece-e2f31e5386a0`
+- `[NIMS現地] NIMSベンチャー審査委員会 事前レク prep` / `019f40cd-d109-7f30-96e6-043269bd0927`
+- `【ZeMA】定例MTG prep` / `019f40ce-5e50-7fb0-8fa0-4e53017f05d4`
+- `[KUTE/Internal] 定例会前AMD打合せ prep` / `019f40ce-d627-7eb2-b6be-b8af129a7812`
+- `【web】LiSTie経営会議 prep` / `019f40cf-62b6-74f0-bbec-5698d5ea85fb`
+- `【隔週定例】CryoX プロジェクト（ハイブリッド） prep` / `019f40cf-ddd9-7f92-95f1-f495b74a66e8`
+
+### Verification
+- `w-prep-launch` active automation prompt に Calendar照合、pin必須、日本語prompt、3点完了報告、HTML資料統一が入っていることを確認。
+- `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md` に同ルールが入っていることを `rg` で確認。
+- closeout inventory: branch `main`, HEAD `1120ff2d`, origin/main `1120ff2d`, worktree 1つのみ、local ahead/behind 0。未commit dirty はこのセッションの docs/SKILL 変更 + 既存の他worker差分。
+
+### 教訓
+- 予定MTG prep の安全性は DB-only では足りない。Calendar confirmed event とDB upcoming rowの差分確認を起動前の必須ゲートにする。
+- 「第一声」という曖昧語は、会議冒頭セリフ案へ寄る。まさが開く前に完了すべき成果を3点で指定する。
+- 共有フォルダ資料は主成果物形式を固定しないと、GDocs / md / slides へ分散する。prep 資料はHTML主成果物に統一する。
+
 ## 2026-07-02 — BZM 教科書2冊 × RT組み込み設計 (Book A/B ポートフォリオ + Ch 9.5/37.5 新設 + skeleton ステージ2確定)
 
 ### コンテキスト

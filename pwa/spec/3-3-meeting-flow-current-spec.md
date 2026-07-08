@@ -222,6 +222,32 @@ Worker 出力 (= `project_meeting_summaries` の対象 row に upsert):
 
 `needs_insert` のまま `prep_worker_status='ready'` にしてはいけない。worker は Notion MCP で append-only insert → page 再fetch → gate 再実行を行い、`injected` / `already_present` または完了扱いの失敗状態へ遷移させる。
 
+### W-Prep Launch (= 週次 visible prep thread 起動レーン、2026-07-09 現行)
+
+H-1 の毎時処理とは別に、まさが水曜15:00 JSTに自分で確認できる前提の **visible prep thread 起動レーン**として Codex automation `w-prep-launch` を置く。W-Prep は DB にある upcoming 行だけを見て完了扱いにしない。必ず Google Calendar の同じ7日窓を直接確認し、DBに無い確定MTGがあれば active/sales PJ へ `source_kinds='upcoming'` のカードを作ってから prep thread 対象に入れる。
+
+W-Prep の事故防止ルール:
+
+- `list_projects` は呼ばない。`projects` table と Calendar title / PJ alias / 既知PJディレクトリだけで対象を解く。
+- `create_thread` の target は対象PJディレクトリを優先する。例: SX = `/Users/masa/projects/AMD/SX`、KUTE = `/Users/masa/projects/AMD/kute`、ZMP = `/Users/masa/projects/AMD/ZMP`、CX = `/Users/masa/projects/AMD/CX`。PJディレクトリを確定できない場合だけ `/Users/masa/projects/AMD` を fallback にする。`/Users/masa/projects/AMD/amd-os` は OS DB / spec 参照用であり、prep thread の作業場にしない。
+- `create_thread` 前に、会議ごとに DB claim を1件ずつ取る。claim → thread作成 → thread title変更 → pin → DBへ `prep_worker_session_id` / `prep_worker_status='preparing'` 保存まで終えてから次の会議へ進む。
+- すでに `prep_worker_session_id` がある行、`prep_worker_status IN ('claiming','preparing','ready')` の行、同じ `calendar_event_id` で別canonical rowが ready/preparing の行は起動しない。
+- 立ち上げた thread は必ず `{meeting_title} prep` へ改題し、`set_thread_pinned` でピン留めする。pin できなかった場合は保留として報告し、同じ会議に追加threadを作らない。
+- `create_thread` prompt は日本語で書く。英語の見出し・英語指示文にしない。
+- root `AGENTS.md` の `@~/knowledge/...` は、この環境では `/Users/masa/projects/knowledge/` へ読み替える。
+
+W-Prep / worker の待機開始点:
+
+- まさが prep thread を開くまでに、worker は (1) これまでのMTGの流れ、(2) 今回のMTGの位置づけと推定着地点、(3) その着地点に到達するためにまさがやるべきこと、の3点を完了しておく。
+- 待機時の第一声は、会議冒頭で読み上げるセリフ案ではなく、この3点の完了報告にする。
+- 第一声の末尾は必ず「これであってる？どうする？」で止め、まさの判断を待つ。
+
+W-Prep / worker の共有フォルダ資料:
+
+- `projects.drive_folder_id` 直下の `YYMMDD_<MTG名>_prep/` に置く prep 資料の主成果物は、すべて AMD OS のデザインコードに従った HTML に統一する。
+- Google Docs / Markdown / Slides / Sheets を主成果物として作らない。表、チェックリスト、提案書、アジェンダ、試算も HTML 内の section / table / callout で表現する。
+- HTML は `pwa/src/lib/exec_summary/template.css`、`pwa/src/lib/exec_summary/template_section.html`、`pwa/design/cyber_hud_design_code.md`、`pwa/design/hud_visual_language.md` を参照し、原則 self-contained にする。外部URL、secret、raw本文は入れない。
+
 ### Readiness Score 計算
 
 | シグナル | 重み | 取り方 |

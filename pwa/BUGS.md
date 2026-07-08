@@ -5,6 +5,26 @@
 
 ---
 
+### [automation/w-prep] Calendar未同期MTGのprep漏れ・第一声/資料形式の仕様ズレ (2026-07-09)
+
+- **状態**: クローズ (2026-07-09 — `w-prep-launch` automation prompt、automation memory、prep worker SKILL、spec/manual/L2正本に再発防止を同期)。
+- **症状**:
+  1. `int) PoCサービス（依頼側）` など、Google Calendarにはあるが `project_meeting_summaries` に未同期のMTGが W-Prep 対象から漏れた。
+  2. 立ち上げ済み prep thread の待機メッセージが、会議冒頭で読むセリフ案だけになり、まさが期待する「流れ / 位置づけと着地点 / まさがやること」の完了報告になっていなかった。
+  3. 共有フォルダに作る prep 資料の形式が Google Docs / Markdown などに分散し、AMD OS のデザインコードに従ったHTML資料へ統一されていなかった。
+- **原因**:
+  1. W-Prep の候補抽出が DB upcoming 行に寄っており、Calendar の7日窓を直接照合して DB未同期の確定MTGを補う設計が明記されていなかった。
+  2. prompt / SKILL の表現が「会議設計の第一声」「着地点を第一声で提示」に留まり、調査完了後の報告フォーマットを指定していなかった。
+  3. worker SKILL Phase 6 が `text/Markdown/Google Docs/Slides/Sheets` も生成可能形式として許可しており、prep 資料の主成果物形式が固定されていなかった。
+- **対応内容**:
+  1. `w-prep-launch` の prompt を、Calendar + DB の同じ7日窓照合、DB未同期MTGの upcomingカード作成、1件ずつ claim → create_thread → title変更 → pin → DB session保存へ変更した。
+  2. 既存16 prep thread へ補正指示を送り、第一声を「これまでのMTGの流れ / 今回の位置づけと推定着地点 / まさがやるべきこと」の3点完了報告に差し替えた。
+  3. prep worker SKILL と automation prompt に、共有フォルダ資料はHTML主成果物へ統一し、Google Docs / Markdown / Slides / Sheets を主成果物にしないルールを追加した。
+  4. `pwa/spec/3-3-meeting-flow-current-spec.md`、`pwa/manual/2-3-pj-cockpit.md`、`pwa/manual/3-2-data-and-extraction.md`、`pwa/manual/8-3-l2-extraction-routines-spec.md`、`pwa/design/L2_DATA.md`、`pwa/scheduled-tasks/README.md`、appendix changelog に同期した。
+- **再発防止策**: W-Prep は DB-only で完了扱いにしない。visible thread を作る前に Calendar とDBの差分を必ず見て、未同期の確定MTGはカード化してから処理する。prep thread の待機開始点は会議冒頭セリフ案ではなく3点完了報告に固定する。共有フォルダ資料はHTML主成果物に統一し、形式が必要ならHTML内の表・セクション・calloutへ落とす。
+
+---
+
 ### [admin/ms-overview] 個人名カードが上段メトリクスへ戻った (2026-07-08)
 
 - **状態**: クローズ (2026-07-08 — `v0.39.13` / `cb584019` で 4枚構成と `budgetImpact` カードを固定し、旧カード文言を current tree から削除済み)。

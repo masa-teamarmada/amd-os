@@ -171,6 +171,8 @@ D-1D-3D-4H-1の復旧/移管状況は [8-3 章](8-3-l2-extraction-routines-spec.
 
 **📊 別 L2** (= `member_activities`、メンバー活動ログ): `cron/member-weekly-activities` の legacy GET synthesis は Anthropic 経路を持つため 2026-05-29 に Vercel active cron から退避。2026-07-08 以降の D-10 定期生成は、Codex automation が `GET ?mode=evidence` で証拠を読み、活動文を合成して `POST activities[]` で保存する。
 
+**W-Prep Launch** (= visible prep thread 起動レーン): H-1 議事録抽出とは別に、毎週水曜15:00 JSTに Codex automation `w-prep-launch` が今後7日以内の確定 upcoming MTG を確認し、必要な prep thread を作る。DBの `project_meeting_summaries` だけを見て完了扱いにせず、必ず同じ7日窓の Calendar を直接確認する。CalendarにあるがDBに無い active/sales PJ の確定MTGは、まず `source_kinds='upcoming'` のカードを作ってから claim → thread作成 → title変更 → pin → DB session保存へ進む。作成した thread は必ずピン留めする。worker が共有フォルダに作る prep 資料は HTML 主成果物に統一し、Google Docs / Markdown / Slides / Sheets を主成果物にしない。
+
 ### H-1 予定MTGカード同期
 
 H-1は、終了済みMTGの議事録抽出とは別に、今日0:00 JSTから60日先までの確定Calendar予定を `POST /api/meeting-prep/calendar-sync` へ渡す。`calendar-sync` は `source_kinds='upcoming'` の予定MTGカードを `project_meeting_summaries` に upsert し、同日中なら開始済み予定もDrive資料・URL補強の対象にする。ただし recurring MTG は series ごとに次回1件だけ同期・表示し、それ以降の future occurrence はノイズとして扱う。Google Calendar の `recurring_event_id` が無い場合でも、title に `定例` / `月次` / `毎月` / `weekly` / `monthly` 等が含まれる予定は曜日を外して series 推定する。それ以外は weekly cadence が推定できる series だけ同じ扱いにする。
