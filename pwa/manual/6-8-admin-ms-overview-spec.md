@@ -23,14 +23,13 @@ MS 設計値の書き換え口はこの画面に集約する。cockpit は MS �
 
 PJ ブロックを開くと以下の 4 ブロックが縦に並ぶ:
 
-### ① メトリクスカード 4 枚
+### ① メトリクスカード 3 枚
 
 | カード | 値 | 補助情報 |
 |---|---|---|
 | 合計pt | `total_points` | 割当済み設計額 |
 | 本契約pt | `regularPoints` | 通常 MS の割当pt / 本契約の設計単価 |
 | 別財布pt | `extraPoints` (無ければ `—`) | 別財布原資 / 別財布の設計単価 |
-| 主要メンバー比較 | pt配分上位 2 名の totalPt | 各メンバーの設計額 |
 
 ### ② 全MS (pt順)
 
@@ -179,7 +178,7 @@ memberDesignYen[m] = Σ over MS of (effectivePoints × share[m] × designUnitYen
 
 通常 MS の pt を動かすと、編集画面上部と全MS見出しに **残り割り振り可能pt** をリアルタイム表示する。算定式は `regularPointBasis - Σ(non-cap_extra MS effectivePoints)`。配分超過時は負数として赤系で表示する。`cap_extra` は MS期間×10pt固定の別財布なので、この残り枠には混ぜない。
 
-再計算結果は ① メトリクスカード 4 枚 (合計pt / 本契約pt / 別財布pt / 主要メンバー比較) ② 各 MS の pt 比と設計額 ③ 担当 share 行の **担当pt** (`effectivePoints × share`) と **担当設計額** ④ メンバー別 pt 配分バーと設計額 ⑤ ヘッダの pt 表示 にリアルタイムで反映する。
+再計算結果は ① メトリクスカード 3 枚 (合計pt / 本契約pt / 別財布pt) ② 各 MS の pt 比と設計額 ③ 担当 share 行の **担当pt** (`effectivePoints × share`) と **担当設計額** ④ メンバー別 pt 配分バーと設計額 ⑤ ヘッダの pt 表示 にリアルタイムで反映する。
 
 月次 override (`milestone_monthly_contribution_allocations.actual_share`) は読まない (= MS 設計を見る画面なので plannedShare × MS.points だけで計算)。
 

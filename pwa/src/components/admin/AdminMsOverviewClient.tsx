@@ -1344,9 +1344,6 @@ function PlanCycleBlock({
   const displayMemberTotals = editMode ? recomputed.memberPointTotals : cycle.memberPointTotals;
   const displayAssignedDesignYen = displayMemberTotals.reduce((sum, member) => sum + member.totalDesignYen, 0);
 
-  const topMember = displayMemberTotals[0];
-  const secondMember = displayMemberTotals[1];
-
   const maxMilestonePoints = useMemo(
     () => cycle.milestones.reduce((max, ms) => Math.max(max, ms.points), 0),
     [cycle.milestones],
@@ -1615,8 +1612,8 @@ function PlanCycleBlock({
             />
           )}
 
-          {/* ① メトリクスカード 4 枚 */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          {/* ① メトリクスカード 3 枚 */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <MetricCard
               label="合計pt"
               value={`${fmtPt(displayTotalPoints)}pt`}
@@ -1631,27 +1628,6 @@ function PlanCycleBlock({
               label="別財布pt"
               value={displayExtraPoints > 0 ? `${fmtPt(displayExtraPoints)}pt` : "—"}
               sub={displayExtraPoints > 0 ? `原資 ${fmtDesignYen(cycle.extraDesignBudgetYen)} / 単価 ${fmtDesignYen(cycle.extraDesignUnitYen)}` : "別財布 MS なし"}
-            />
-            <MetricCard
-              label={
-                topMember && secondMember
-                  ? `主要メンバー: ${topMember.codeName} vs ${secondMember.codeName}`
-                  : "主要メンバー"
-              }
-              value={
-                topMember && secondMember
-                  ? `${fmtPt(topMember.totalPt)}pt : ${fmtPt(secondMember.totalPt)}pt`
-                  : topMember
-                    ? `${topMember.codeName} ${fmtPt(topMember.totalPt)}pt`
-                    : "—"
-              }
-              sub={
-                topMember && secondMember && secondMember.totalPt > 0
-                  ? `${fmtDesignYen(topMember.totalDesignYen)} : ${fmtDesignYen(secondMember.totalDesignYen)}`
-                  : topMember
-                    ? `設計額 ${fmtDesignYen(topMember.totalDesignYen)}`
-                    : undefined
-              }
             />
           </div>
 

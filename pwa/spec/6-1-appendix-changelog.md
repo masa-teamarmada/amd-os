@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-07-08 | 6-8 Admin MS Overview / FEATURE_REGISTRY | 削除 | `/admin/ms-overview` のメトリクスカードから `主要メンバー` 比較カードを削除し、PJブロック構造をメトリクス3枚 + 全MS + メンバー別pt配分 + tag凡例に更新。build v0.39.10 | まさ指示「MS編集画面のこの『主要メンバー』の欄は削除してってお願いしてあったはず」を反映し、上段でメンバー同士を比較しないため | えいみ |
 | 2026-07-08 | 3-8 PJ Cockpit / FEATURE_REGISTRY | 修正 | `CockpitSeasonFinance` の表示列から `会社留保` を削除し、役員向け報酬相当額は `seasonFinance` 内部の検算データとして保持するが PJ cockpit では表示しない contract へ更新。build v0.39.9 | まさ指示「内部留保っていうか役員がもらうはずの報酬額なので、メンバーにわざわざ見せなくてもいい」を反映するため | えいみ |
 | 2026-07-08 | 3-8 PJ Cockpit / FEATURE_REGISTRY | 修正 | 通常PJ cockpit の `CockpitMeetingSummary` 一覧から `max-height` と `overflow-y-auto` を外し、MTGサマリは枠内スクロールではなくコックピット全体のページスクロールで読む仕様へ更新。build v0.39.8 | MTGサマリの内側スクロールが読みにくく、カード一覧を自然に縦読みできないため | えいみ |
 | 2026-07-08 | 3-0 / 3-1 / 5-3 / 5-8 / 8-3 / D-10 route | 変更 | D-10 `member-weekly-activities` を Codex automation 合成へ移行。route は `GET ?mode=evidence` で evidence groups を返し、Codex が作った `activities[]` を `POST /api/cron/member-weekly-activities` で保存する。`raw_metadata.synthesis_method='codex'` を保存し、legacy `interactive=1` GET 一発実行は保存に使わない。fallback title はHTML/メール本文冒頭をそのままタイトルにしないよう sanitization を強化 | `/mypage` の「今週やったこと」にメール挨拶文、HTMLタグ、runner marker が出た原因が、2026-07-01 以降の背景Anthropic封鎖で route fallback だけが保存されていたことだったため。定額外トークン例外をやめ、D-10の合成本体をCodex automation側へ移す | えいみ |
