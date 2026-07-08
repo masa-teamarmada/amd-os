@@ -18,7 +18,7 @@ See `pwa/design_log/sessions_2026-07.md` sections:
 - Hidden safety checks still keep `companyReserveYen`, `finalUnpaidYen`, and `finalRemainingYen`; only the member-facing display changed.
 - Admin MS Overview current truth remains fixed at 4 top metrics: 合計pt / 本契約pt / 別財布pt / `budgetImpact` safety card. Do not restore personal-name comparison cards.
 - Parallel cockpit work landed as `e5d3771a fix: remove tsukuyomi memo from cockpit`: normal PJ / institution cockpit no longer renders `CockpitNudge` / `tsukuyomi_nudge_queue` cards. BUILD_VERSION is now `v0.39.14`.
-- Final checkout state before this docs-only closeout refresh was clean.
+- Nudge-removal WIP is closed, but the original five unrelated dirty files remain and must be preserved.
 
 ## Current Truth
 
@@ -85,7 +85,7 @@ curl -fsS https://amd-os-pwa.vercel.app/api/build-info
 ```
 
 Final target state:
-- `git status -sb --untracked-files=all`: clean
+- `git status -sb --untracked-files=all`: dirty 5 files listed below
 - `HEAD` / `origin/main`: same
 - ahead `0`, behind `0`
 - worktree registry: one main worktree
@@ -103,9 +103,17 @@ Final target state:
 
 ## Dirty State To Preserve
 
-None at final closeout.
+These five files remain dirty at final closeout. They are not part of the finance cockpit / MS guard / nudge-removal accepted bundle. Do not revert or stage them casually.
 
-During the handoff work, parallel WIP briefly appeared as 19 dirty files. That bundle was committed separately as `e5d3771a fix: remove tsukuyomi memo from cockpit` before the final closeout docs refresh. Do not resurrect the stale dirty inventory from older chat/tool output.
+| path | class | owner guess | next action | risk |
+|---|---|---|---|---|
+| `pwa/src/app/api/admin/ms-overview/route.ts` | other-worker / MS finance WIP | MS design amount worker | Decide whether exact design amount should use `budget × pt比`; if yes, sync spec/manual, test, bump version, commit, push. | Medium: accidental staging can ship unverified finance math. |
+| `pwa/src/components/admin/AdminMsOverviewClient.tsx` | other-worker / MS finance WIP | MS design amount worker | Same bundle as above. | Medium |
+| `pwa/src/lib/admin/ms-overview-calc.ts` | other-worker / MS finance WIP | MS design amount worker | Same bundle as above. | Medium |
+| `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md` | other-worker / L6 prep WIP | L6 prep worker | Decide whether prep Drive outputs should be HTML-only; if yes, sync related specs/manual and commit. | Low/Medium |
+| `pwa/scripts/atlas_signal_review_tool.mjs` | preexisting / Atlas WIP | Atlas signal worker | Validate retryable disabled-ingest handling, then commit or revert in Atlas lane. | Low/Medium |
+
+During handoff, parallel nudge-removal WIP briefly appeared as 19 dirty files. That bundle was committed separately as `e5d3771a fix: remove tsukuyomi memo from cockpit`; the current dirty inventory is only the five files above.
 
 ## First Next Action
 
@@ -124,4 +132,4 @@ Then continue from the user's next actual request. If finance display work resum
 
 ## Closeout Decision
 
-Archive is OK for this thread after final docs deploy confirmation: the repo is on `main`, local and origin are aligned, no extra worktree/branch remains, and there is no dirty state to preserve.
+`do not archive` for the whole checkout while the five unrelated dirty files remain. This thread's accepted work is complete and pushed, but the shared checkout still has WIP to preserve.

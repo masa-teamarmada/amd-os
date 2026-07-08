@@ -500,7 +500,7 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 ### 実施内容
 - root `HANDOFF.md` を、finance cockpit と MS guard の両方が再開できる current truth に更新。
 - root `SESSION_MIGRATION_PROMPT.md` を、common 先頭・AMD level memory 併記・PJ cockpit / MS Overview 読み順込みの再開プロンプトへ更新。
-- 一時的に見えていた dirty 19ファイルは、別 commit `e5d3771a fix: remove tsukuyomi memo from cockpit` として整理されたため、最終 closeout では dirty なしに更新。
+- 一時的に見えていた nudge-removal dirty 19ファイルは、別 commit `e5d3771a fix: remove tsukuyomi memo from cockpit` として整理された。最終 closeout では、元からあった別 lane の5ファイルだけが dirty として残る。
 
 ### Closeout snapshot
 - repo: `/Users/masa/projects/AMD/amd-os`
@@ -510,22 +510,27 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 - local main vs origin/main before final docs-only refresh: ahead `0`, behind `0`
 - registered worktree: `/Users/masa/projects/AMD/amd-os [main]` only
 - local branches: `main` only
-- remaining dirty: none at final closeout
+- remaining dirty:
+  - `pwa/src/app/api/admin/ms-overview/route.ts`
+  - `pwa/src/components/admin/AdminMsOverviewClient.tsx`
+  - `pwa/src/lib/admin/ms-overview-calc.ts`
+  - `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md`
+  - `pwa/scripts/atlas_signal_review_tool.mjs`
 
 ### Closeout decision
 - この lane は完了済み。
-- checkout 全体も clean。final docs deploy 確認後は archive OK。
+- checkout 全体は dirty 5ファイルが残るため `do not archive`。
 
 ---
 
-## 2026-07-09 — Final clean closeout after cockpit memo removal
+## 2026-07-09 — Final closeout after cockpit memo removal
 
 ### コンテキスト
 - handoff/closeout 作業中に並行して進んでいた cockpit つくよみメモ削除が `e5d3771a` として main / origin/main に入った。
-- これにより、途中で棚卸ししていた dirty 19ファイルは current truth ではなくなった。
+- これにより、途中で棚卸ししていた nudge-removal dirty 19ファイルは current truth ではなくなった。ただし元からあった MS finance / L6 prep / Atlas の5ファイルは dirty のまま残る。
 
 ### 実施内容
-- `HANDOFF.md` と `SESSION_MIGRATION_PROMPT.md` を clean closeout 状態へ再更新。
+- `HANDOFF.md` と `SESSION_MIGRATION_PROMPT.md` を、nudge-removal 完了 + dirty 5 preservation の状態へ再更新。
 - `e5d3771a` を latest product commit として扱い、通常PJ / institution cockpit に旧 `CockpitNudge` を戻さないことを再開プロンプトへ追加。
 
 ### Closeout snapshot
@@ -535,7 +540,7 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 - expected production after final docs deploy: `v0.39.14` or newer / current `origin/main` / `dirty=false`
 - registered worktree: `/Users/masa/projects/AMD/amd-os [main]` only
 - local branches: `main` only
-- dirty state: none
+- dirty state: 5 files remain
 
 ### 注意
 - `e5d3771a` の詳細な test proof は、この handoff session では再実行していない。必要なら該当 commit / worker のログを見る。

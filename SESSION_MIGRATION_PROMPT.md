@@ -31,7 +31,7 @@ cd /Users/masa/projects/AMD/amd-os
 - expected local state after closeout:
   - HEAD / origin/main: same
   - ahead 0 / behind 0
-  - git status: clean
+  - git status: dirty 5 files listed below
   - registered worktree: /Users/masa/projects/AMD/amd-os [main] only
   - local branches: main only
 - production: https://amd-os-pwa.vercel.app
@@ -90,15 +90,24 @@ cd /Users/masa/projects/AMD/amd-os
   - git status / HEAD / origin/main / ahead-behind / worktree list / production build-info checked
 
 未解決 / dirty:
-- none at final closeout.
-- During handoff, parallel WIP briefly appeared as 19 dirty files. That bundle was committed separately as e5d3771a before final closeout docs refresh. Do not treat the older dirty inventory as current truth.
+- 以下5ファイルは final closeout 時点でも dirty。今回の accepted bundle では触らない。
+  - pwa/src/app/api/admin/ms-overview/route.ts
+  - pwa/src/components/admin/AdminMsOverviewClient.tsx
+  - pwa/src/lib/admin/ms-overview-calc.ts
+  - pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md
+  - pwa/scripts/atlas_signal_review_tool.mjs
+- MS系3ファイルは「設計額を丸め済み1pt単価ではなく budget × pt比で出す」方向のWIPに見える。採用するなら spec/manual/BUGS/changelog 同期、BUILD_VERSION bump、test、deploy が必要。
+- L6 prep SKILL は prep資料をHTML主成果物へ寄せるWIPに見える。採用するなら関連仕様の同期が必要。
+- Atlas script は ingest disabled を retryable として outbox に残すWIPに見える。Atlas lane で検証して commit/revert 判断する。
+- During handoff, parallel nudge-removal WIP briefly appeared as 19 dirty files. That bundle was committed separately as e5d3771a; current dirty inventory is only the five files above.
 
 次タスク:
 1. まず git status と production build-info を再確認する。
-2. PJ cockpit の表示を続けるなら、認証後の cockpit 画面で `今シーズン収支` と月次の `収支` を目視確認する。
-3. MS finance math を進めるなら、新しい bundle として扱い、仕様同期とテストなしで出さない。
-4. 同じMSカードが見えると言われたら、まず画面左上 version / /api/build-info が v0.39.13 以上か確認する。
-5. cockpit につくよみメモが残って見えると言われたら、画面左上 version / /api/build-info が v0.39.14 以上か確認する。
+2. dirty 5ファイルを lane 別に処理する。git add . は使わない。
+3. PJ cockpit の表示を続けるなら、認証後の cockpit 画面で `今シーズン収支` と月次の `収支` を目視確認する。
+4. MS finance math を進めるなら、新しい bundle として扱い、仕様同期とテストなしで出さない。
+5. 同じMSカードが見えると言われたら、まず画面左上 version / /api/build-info が v0.39.13 以上か確認する。
+6. cockpit につくよみメモが残って見えると言われたら、画面左上 version / /api/build-info が v0.39.14 以上か確認する。
 
 運用ルール:
 - /Users/masa/projects/AGENTS.common.md を最初に読む。
