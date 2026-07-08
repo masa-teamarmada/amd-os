@@ -2,118 +2,94 @@
 
 Last updated: 2026-07-08 JST
 Target: `/Users/masa/projects/AMD/amd-os`
-Topic: MTGカード亡霊修正の本体 closeout / handoff refresh
+Topic: D-10 Member Activity Evidence / MyPage「今週やったこと」修正 closeout
 
 ## Summary
 
-See `pwa/design_log/sessions_2026-07.md` sections:
-- `2026-07-08 — MTGカード 予定/準備/日程未確定 亡霊解消`
-- `2026-07-08 — repo closeout / handoff refresh`
+See `pwa/design_log/sessions_2026-07.md` section:
+- `2026-07-08 — D-10 Member Activity Evidence を Codex automation 合成へ移管`
 
-- MTGカードの `予定MTG / 準備中`、`MTG準備情報`、`next_meeting_prep` TODO、別欄 `日程調整中MTG` の亡霊修正は完了済み。
-- まさ確認: 2026-07-08 に「調整中なくなった」と受領済み。
-- その後の docs closeout commit まで `main` に入り、本体 checkout は `origin/main` と一致して clean。
-- 今回の closeout で、古い handoff に残っていた「canonical checkout stale/dirty」という前提を更新した。
+- `/mypage` の「今週やったこと」に、メール本文冒頭、HTMLタグ、`meeting_id=upcoming... runner_surface=...` のような runner marker が表示されていた原因を特定した。
+- 原因は、PWA 側の背景 Anthropic を封鎖した後、D-10 route の fallback synthesis が `snippet` をそのまま title にして保存していたこと。
+- D-10 は `GET ?mode=evidence` で根拠を返し、Codex automation `amd-os-l2-2` が活動文を合成し、`POST /api/cron/member-weekly-activities` で `raw_metadata.synthesis_method='codex'` として保存する方式へ変更済み。
+- legacy `interactive=1` GET 一発実行は、今後は保存しない。古い launcher やボタンが後から fallback row で上書きしないための安全策。
+- 本番の今週分データは手動で再合成・保存済み。`member_activities(source='member_weekly')` の現行週 22 row はすべて `synthesis_method=codex`、既知の悪い文字列パターンは 0 件。
 
 ## Current Truth
 
 - Canonical repo: `/Users/masa/projects/AMD/amd-os`
 - Branch: `main`
-- HEAD / origin/main: `04a3a55d0cf62c48b588c8ba8f0c140cc41a022d`
+- Accepted D-10 implementation commit: `0910a201b895792e5195553cf2e7234119fd2c29` (`Move D-10 synthesis to Codex automation`)
+- Closeout start HEAD / origin/main: `3e3494c3fb96c372d848906c09359af6b0094b1f` (`Fix RLS on Eimi Slack usage log`)
 - Production build-info observed during closeout:
   - `build_version`: `v0.39.7`
-  - `git_sha`: `04a3a55d0cf62c48b588c8ba8f0c140cc41a022d`
+  - `git_sha`: `3e3494c3fb96c372d848906c09359af6b0094b1f`
   - `git_branch`: `main`
   - `dirty`: `false`
 - Worktree registry: one registered worktree only, `/Users/masa/projects/AMD/amd-os [main]`.
 - Local branch inventory: `main` only.
-- Local main vs origin/main: ahead `0`, behind `0`.
-
-## Accepted Implementation Commits
-
-- `bec4159810c59f76f4fe115ce7c14e65dfb66f32` — `fix(pwa): clear stale meeting prep ghosts`
-- `80cd1fe557282e8bced855c60426735aab62de90` — `fix(pwa): fold undated meetings into schedule list`
-- `04a3a55d0cf62c48b588c8ba8f0c140cc41a022d` — `docs(handoff): record meeting card ghost closeout`
+- Local main vs origin/main at closeout start: ahead `0`, behind `0`.
 
 ## Verification Already Run
 
-Implementation verification from the MTG-card fix:
+D-10 implementation verification:
 
 ```bash
-npx tsc --noEmit
-npm run test:critical-ui
-node predicate checks for upcoming / tentative / held-source-upcoming rows
-git diff --check
+npm run lint -- src/app/api/cron/member-weekly-activities/route.ts src/lib/operations-catalog.ts
+npx tsc --noEmit --pretty false
 npm run build
+git diff --check
 AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh
-curl -sS https://amd-os-pwa.vercel.app/api/build-info
+curl -fsS https://amd-os-pwa.vercel.app/api/build-info
 ```
 
-Closeout verification run on 2026-07-08:
+Production smoke:
 
 ```bash
-bash /Users/masa/.codex/skills/closeout/scripts/closeout_inventory.sh /Users/masa/projects/AMD/amd-os
-git status -sb --untracked-files=all
-git worktree list
-git branch -vv
-git rev-list --left-right --count HEAD...origin/main
-curl -sS https://amd-os-pwa.vercel.app/api/build-info
+GET /api/cron/member-weekly-activities?interactive=1&memberId=ID001&maxMessages=1&save=0
+GET /api/cron/member-weekly-activities?mode=evidence&interactive=1&memberId=ID001&maxMessages=1
 ```
 
-Observed cleanup / data checks from the implementation session:
-- `proactive-todo-extract` one-shot after `v0.39.6`: `closed_expired_prep: 13`
-- After cleanup: open/blocked `next_meeting_prep` linked to already-started meetings = `0`
-- KUTE p25 under the `v0.39.7` predicate: scheduled block contains future 3 rows; the screenshot rows from 2026-06-23 / 2026-06-22 do not enter the scheduled block.
-- Browser automation could reach the auth wall only; desktop/mobile login screen had no overflow or console errors. Authenticated cockpit visual check was user-confirmed byまさ.
+Observed:
+- legacy direct GET returned `disabled:true`, `saved:0`.
+- evidence mode returned evidence groups without Anthropic synthesis.
+- Current week DB cleanup: total `22`, `synthesis_method=codex` `22`, bad-pattern count `0`.
 
 ## Design Records
 
-- User/dev manual: `pwa/manual/2-3-pj-cockpit.md`
-- Current spec: `pwa/spec/3-3-meeting-flow-current-spec.md`
-- Proactive TODO spec: `pwa/spec/2-4-proactive-todo-current-spec.md`
+- Current spec: `pwa/spec/3-1-l2-data-extraction-current-spec.md`
+- Automation responsibility: `pwa/spec/5-3-automation-responsibility-current-spec.md`
+- Codex migration truth: `pwa/spec/5-8-l1-l3-codex-migration-current-spec.md`
+- User/dev manual: `pwa/manual/3-2-data-and-extraction.md`, `pwa/manual/6-1-operations-settings-spec.md`, `pwa/manual/8-3-l2-extraction-routines-spec.md`
+- MyPage design: `pwa/design/mypage.md`
+- Operations catalog: `pwa/src/lib/operations-catalog.ts`
 - Changelogs: `pwa/spec/6-1-appendix-changelog.md`, `pwa/manual/9-3-appendix-changelog.md`
-- Bug/lesson: `pwa/BUGS.md` entry `[pwa/meeting-prep] 開催済みMTGに準備カード/TODOが亡霊のように残った`
+- Bug/lesson: `pwa/BUGS.md` entry `[pwa/D-10] MyPage「今週やったこと」にメール本文・HTML・runner marker が表示された`
 - Session log: `pwa/design_log/sessions_2026-07.md`
-
-## Repo State / Closeout
-
-- `git status -sb --untracked-files=all`: clean.
-- Conflicts: none.
-- Untracked files: none.
-- Staged files: none.
-- Registered worktrees: one, main only.
-- Local branches: main only.
-- Local unpushed commits: none.
-- Main/default alignment: `main aligned`.
-- Production alignment: `main aligned` (`/api/build-info` reports the current main SHA).
-- This closeout session created no branch and no registered git worktree.
-- Ignored local tooling artifacts present and expected: `.vercel/project.json`, `ios/supabase/.temp/linked-project.json`, `pwa/.next`, `pwa/node_modules`.
-- Tracked local link marker: `ios/supabase/.temp/project-ref` is tracked in git; do not delete as temp trash.
-
-## Outside-Repo Temp Note
-
-There are multiple `/tmp/amd-os-*` disposable clones/artifacts from older sessions. They are not registered git worktrees and no current repo state depends on them. Because deleting them requires destructive filesystem cleanup, they were not removed in this closeout. Ifまさ wants a separate temp cleanup pass, remove only after listing exact paths and preserving any needed evidence.
 
 ## Open Risks / Next Checks
 
-1. MTG ghost fix is done and deployed.
-2. If a future screenshot still shows old MTG-card state, first check the visible build version / `/api/build-info`. If it is older than `v0.39.7`, it is cache or stale deployment; if it is `v0.39.7+`, inspect `project_meeting_summaries.source_kinds`, `meeting_id`, `meeting_start_at`, and the UI predicates before changing data.
-3. No current repo closeout blocker remains.
+1. `/mypage` の「いますぐ抽出」ボタンは、現時点では古い refresh route から legacy GET を呼ぶため、D-10を直す導線としては機能しない。次に直すなら、ボタンを Codex automation / request queue に接続する。`ALLOW_PWA_LLM_CRONS=1` で route synthesis を復活させない。
+2. Windows MMO の旧 Task Scheduler launcher を復活させる場合も、`interactive=1` GET 一発実行ではなく Mac と同じ `mode=evidence` -> Codex合成 -> POST 保存へ更新する。
+3. `/Users/masa/projects/AMD/amd-os` には今回の D-10 とは別の unstaged 変更 `pwa/scripts/atlas_signal_review_tool.mjs` がある。内容は Atlas ingest disabled 時に outbox へ残す retryable exit を追加する差分。D-10 handoff では触らない。
 
 ## First Next Action
 
-If continuing AMD OS work:
+If continuing D-10 / MyPage work:
 
 ```bash
 cd /Users/masa/projects/AMD/amd-os
 git fetch origin main --prune
 git status -sb --untracked-files=all
 git rev-list --left-right --count HEAD...origin/main
-curl -sS https://amd-os-pwa.vercel.app/api/build-info
+curl -fsS https://amd-os-pwa.vercel.app/api/build-info
+rg -n "member-weekly-activities|weekly-activities/refresh|mode=evidence|synthesis_method" pwa/src pwa/spec pwa/manual pwa/design
 ```
 
-Then read `/Users/masa/projects/AGENTS.common.md`, AMD level memory, this `HANDOFF.md`, `pwa/AGENTS.md`, `pwa/CLAUDE.md`, and the spec/manual files relevant to the next task.
+Then update `/mypage` manual refresh so it requests the D-10 Codex automation path instead of invoking legacy GET synthesis.
 
-## Archive Decision
+## Closeout Decision
 
-`archive ok` for the AMD OS repo session: main/default aligned, production aligned, clean status, no conflicts, no untracked files, main branch only, one registered worktree only, and no local ahead.
+`do not archive` for the whole repo checkout until the unrelated Atlas dirty file is either committed by its owner or intentionally reverted/removed by an approved cleanup pass.
+
+D-10 itself is complete: implementation is on `main`, production includes it, current-week bad data is repaired, and D-10 spec/manual/design/BUGS/design_log are synchronized.

@@ -359,3 +359,52 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 
 ### 注意
 - `/tmp/amd-os-*` の disposable clone / artifact は複数残っているが、git worktree registry には載っていない。削除は `rm -rf` 系の破壊的操作になるため、この closeout では削除していない。掃除するなら別途、 exact path を出して承認を取ってから行う。
+
+---
+
+## 2026-07-08 — D-10 Member Activity Evidence を Codex automation 合成へ移管
+
+### コンテキスト
+- まさから、MyPage「今週やったこと」の中身がひどいと指摘。スクショでは `source_fusion` の行に、メール本文冒頭、HTMLタグ、`meeting_id=upcoming... runner_surface=...` が title として出ていた。
+- 途中で、D-10 が Codex automation 内に既に存在し active なのに、なぜ定額外トークン例外扱いになっていたのかも確認した。
+- まさの整理: `ALLOW_PWA_LLM_CRONS=1` で D-10 を復活させるのではなく、D-10 の合成処理を Codex automation 側へ移す。
+
+### 原因
+- `/mypage` は `member_activities(source='member_weekly')` を読む。
+- D-10 route は背景 Anthropic 封鎖後、LLM synthesis の代わりに fallback synthesis で保存していた。
+- fallback synthesis は `best.snippet` を title に使っており、Gmail本文・Calendar description・runner marker が活動タイトルとして保存されうる状態だった。
+- Codex automation `amd-os-l2-2` は active だったが、中身は PWA route を `interactive=1` で叩く trigger であり、活動文の合成本体はまだ PWA route 側に残っていた。つまり「Codex automation内にD-10がある」だけでは定額内化になっていなかった。
+
+### 実装 / 仕様同期
+- `pwa/src/app/api/cron/member-weekly-activities/route.ts`
+  - `GET ?mode=evidence` / `?evidence=1` を追加。Gmail / Calendar / source_cache / meeting summary の evidence groups だけ返し、保存も Anthropic 呼び出しもしない。
+  - `POST /api/cron/member-weekly-activities` を追加。Codex automation が作った `activities[]` を検証し、全 group がそろっている時だけ窓単位 delete-then-upsert する。保存時は `raw_metadata.synthesis_method='codex'`。
+  - legacy `interactive=1` GET は `ALLOW_PWA_LLM_CRONS=1` が無い限り `disabled:true / saved:0` とし、fallback row で上書きしないようにした。
+  - fallback title と `cleanText()` も HTML tag / basic entity / raw snippet title を避けるように強化。
+- `/Users/masa/.codex/automations/amd-os-l2-2/automation.toml` を更新し、`mode=evidence` 取得 -> Codex 合成 -> POST 保存 -> `synthesis_method=codex` 検証の流れへ変更。
+- `pwa/spec/3-0-l2-data-list-current-spec.md`、`pwa/spec/3-1-l2-data-extraction-current-spec.md`、`pwa/spec/5-3-automation-responsibility-current-spec.md`、`pwa/spec/5-8-l1-l3-codex-migration-current-spec.md`、`pwa/manual/3-2-data-and-extraction.md`、`pwa/manual/6-1-operations-settings-spec.md`、`pwa/manual/8-3-l2-extraction-routines-spec.md`、`pwa/design/mypage.md`、`pwa/design/L2_DATA.md`、`pwa/design/SPEC_pwa.md`、`pwa/src/lib/operations-catalog.ts`、appendix changelog に同期。
+- `pwa/BUGS.md` に事故と再発防止を追記。
+
+### Verification / Deploy
+- `npm run lint -- src/app/api/cron/member-weekly-activities/route.ts src/lib/operations-catalog.ts` passed。
+- `npx tsc --noEmit --pretty false` passed。
+- `npm run build` passed。
+- `git diff --check` passed。
+- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` で本番反映。
+- production smoke:
+  - legacy GET `interactive=1` は `disabled:true / saved:0`。
+  - evidence mode は evidence groups を返し、Anthropic synthesis なし。
+- 本番データ補正:
+  - 現行週 `member_activities(source='member_weekly')` は 22 row。
+  - `raw_metadata.synthesis_method='codex'` が 22 row。
+  - `<p>`、`runner_surface`、`meeting_id=upcoming`、メール挨拶文など既知 bad pattern は 0 件。
+
+### 注意 / 次
+- `/mypage` の「いますぐ抽出」ボタンは、まだ古い refresh route 経由で legacy GET を呼ぶ。今は legacy GET が保存しないため、D-10修復ボタンとしては機能しない。次に直すなら、ボタンを Codex automation / request queue に接続する。
+- Windows MMO Task Scheduler launcher を復活させる場合も、legacy GET ではなく Mac と同じ evidence -> Codex合成 -> POST 保存方式へ更新する。
+- closeout 時点の canonical checkout には、D-10とは別の dirty `pwa/scripts/atlas_signal_review_tool.mjs` がある。内容は Atlas ingest disabled 時に outbox へ残す retryable exit の追加。D-10 session では触らない。
+
+### 教訓
+- 背景LLMを封鎖した route で fallback synthesis を保存に使うと、LLM品質低下ではなく表示汚染として表に出る。
+- 「Codex automation が active」でも、実際に何を実行しているかを見る。route trigger だけなら合成本体は移管できていない。
+- MyPage の週次活動 title は、snippet ではなく活動単位の要約である必要がある。HTML / runner marker / メール挨拶文は表示前に落とすだけでなく、保存時に入れない。

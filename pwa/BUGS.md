@@ -5,6 +5,27 @@
 
 ---
 
+### [pwa/D-10] MyPage「今週やったこと」にメール本文・HTML・runner marker が表示された (2026-07-08)
+
+- **状態**: クローズ (2026-07-08 — `0910a201` で D-10 合成を Codex automation 側へ移管し、本番データも今週分を codex row に再保存済み)。
+- **症状**: `/mypage` の「今週やったこと」に、`source_fusion` ラベル付きでメールの挨拶文や本文冒頭が title として並んだ。さらに `<p>meeting_id=upcoming:... runner_surface=codex_desktop_h1</p>` のような HTML / runner marker がそのまま表示された。
+- **原因**:
+  1. `/mypage` は `member_activities(source='member_weekly')` を表示している。
+  2. D-10 route `member-weekly-activities` は、背景 Anthropic が封鎖された後も fallback synthesis で保存を続けていた。
+  3. fallback synthesis が `best.snippet` を title に使い、`cleanText()` も HTML tag / entity / runner marker を十分に落としていなかった。
+  4. Codex automation `amd-os-l2-2` は動いていたが、中身は route を `interactive=1` で叩く trigger であり、活動文の合成本体は PWA route 側に残っていた。そのため「Codex automation内にD-10がある」状態でも、定額外 Anthropic 例外または fallback 保存を避けられていなかった。
+- **対応内容**:
+  1. `GET /api/cron/member-weekly-activities?mode=evidence` を追加し、Gmail / Calendar / source_cache / meeting summary の evidence groups だけを返すようにした。
+  2. `POST /api/cron/member-weekly-activities` を追加し、Codex automation が作った `activities[]` を `raw_metadata.synthesis_method='codex'` として delete-then-upsert 保存するようにした。
+  3. legacy `interactive=1` GET は、`ALLOW_PWA_LLM_CRONS=1` が無い限り保存せず `disabled:true / saved:0` を返すようにした。古い button / launcher が fallback row で上書きしないため。
+  4. fallback title と `cleanText()` も、HTML tag / basic entity / raw snippet title を避けるように強化した。
+  5. Codex automation `amd-os-l2-2` の prompt を `mode=evidence` -> Codex 合成 -> `POST activities[]` 方式へ更新した。
+  6. 今週分の本番 `member_activities(source='member_weekly')` を再合成し、22 row すべて `synthesis_method='codex'`、既知 bad pattern 0 件へ補正した。
+  7. `pwa/spec/3-1-l2-data-extraction-current-spec.md`、`pwa/spec/5-3-automation-responsibility-current-spec.md`、`pwa/spec/5-8-l1-l3-codex-migration-current-spec.md`、`pwa/manual/3-2-data-and-extraction.md`、`pwa/manual/6-1-operations-settings-spec.md`、`pwa/manual/8-3-l2-extraction-routines-spec.md`、`pwa/design/mypage.md`、appendix changelog に同期した。
+- **再発防止策**: 背景抽出で LLM 合成が必要な処理は、PWA route 内の fallback synthesis に逃がさず、evidence collection と Codex synthesis / POST apply の境界を分ける。`interactive=1` の一発 route trigger は「手動実行できる」ように見えても、内部が有料LLMまたは薄いfallbackなら fixed-price goal を満たさない。MyPage に出す title は source snippet をそのまま使わず、HTML / runner marker / メール挨拶文を表示面に出さない guard を置く。
+
+---
+
 ### [pwa/meeting-prep] 開催済みMTGに準備カード/TODOが亡霊のように残った (2026-07-07)
 
 - **状態**: クローズ (2026-07-07 — `v0.39.7` で表示判定と TODO 自動終了、日程未確定表示を修正)。

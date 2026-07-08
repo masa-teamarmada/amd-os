@@ -1,4 +1,4 @@
-# SESSION MIGRATION PROMPT - AMD OS closeout-ready current state
+# SESSION MIGRATION PROMPT - AMD OS D-10 closeout state
 
 ```text
 cd /Users/masa/projects/AMD/amd-os
@@ -14,79 +14,66 @@ cd /Users/masa/projects/AMD/amd-os
 8. pwa/spec/1-1-overview.md
 9. pwa/spec/1-2-document-layer-migration-map.md
 10. pwa/spec/1-3-reconstruction-coverage-audit.md
-11. pwa/design/README.md
-12. 次タスクに関係する pwa/spec / pwa/manual / pwa/design の正本
-13. pwa/BUGS.md
-14. pwa/design_log/sessions_2026-07.md
+11. pwa/spec/3-1-l2-data-extraction-current-spec.md
+12. pwa/spec/5-3-automation-responsibility-current-spec.md
+13. pwa/spec/5-8-l1-l3-codex-migration-current-spec.md
+14. pwa/design/L2_DATA.md
+15. pwa/design/mypage.md
+16. pwa/BUGS.md
+17. pwa/design_log/sessions_2026-07.md
 
 状態スナップショット:
 - canonical repo: /Users/masa/projects/AMD/amd-os
 - branch: main
-- HEAD / origin/main: 04a3a55d0cf62c48b588c8ba8f0c140cc41a022d
+- D-10 accepted implementation commit: 0910a201b895792e5195553cf2e7234119fd2c29 (Move D-10 synthesis to Codex automation)
+- closeout start HEAD / origin/main: 3e3494c3fb96c372d848906c09359af6b0094b1f
 - production: https://amd-os-pwa.vercel.app
 - production /api/build-info observed during closeout:
   - build_version: v0.39.7
-  - git_sha: 04a3a55d0cf62c48b588c8ba8f0c140cc41a022d
+  - git_sha: 3e3494c3fb96c372d848906c09359af6b0094b1f
   - git_branch: main
   - dirty: false
-- git status: clean
-- local main vs origin/main: ahead 0 / behind 0
 - registered worktree: /Users/masa/projects/AMD/amd-os [main] only
 - local branches: main only
-- closeout status: archive ok for the repo session
+- local main vs origin/main at closeout start: ahead 0 / behind 0
+- unrelated dirty file exists: pwa/scripts/atlas_signal_review_tool.mjs. It adds retryable handling when Atlas ingest returns disabled. It is not D-10 work; do not stage/revert it from a D-10 session.
 
 直近で完了した成果:
-- MTGカードの「予定/準備/日程未確定」亡霊修正は完了済み。
-- まさ確認済み: 2026-07-08「調整中なくなった」。
-- accepted commits:
-  - bec4159810c59f76f4fe115ce7c14e65dfb66f32: fix(pwa): clear stale meeting prep ghosts
-  - 80cd1fe557282e8bced855c60426735aab62de90: fix(pwa): fold undated meetings into schedule list
-  - 04a3a55d0cf62c48b588c8ba8f0c140cc41a022d: docs(handoff): record meeting card ghost closeout
-- 設計同期済み:
-  - pwa/spec/3-3-meeting-flow-current-spec.md
-  - pwa/spec/2-4-proactive-todo-current-spec.md
-  - pwa/manual/2-3-pj-cockpit.md
-  - pwa/manual/9-3-appendix-changelog.md
-  - pwa/spec/6-1-appendix-changelog.md
-  - pwa/BUGS.md
-  - pwa/design_log/sessions_2026-07.md
-
-MTGカード修正の現行仕様:
-- 予定MTG欄に出す日時確定 row は、source_kinds に upcoming token を持ち、upcoming_tentative token を持たず、meeting_start_at が現在時刻より後のものだけ。
-- 日程未確定 row (source_kinds=upcoming_tentative) は別の「日程調整中MTG」欄を作らず、同じ「予定MTG / 準備中」欄に入れる。日付欄は「日程未確定」。
-- meeting_id が upcoming: で始まるだけでは準備カード扱いしない。source_kinds が notion/gmail/drive/slack/calendar など開催済みソースへ変わっている row は開催済み側として扱う。
-- 開催済み議事録に表示する MTG準備情報は、手動準備または prep worker 成果があるものだけ。calendar-future-sync の薄いテンプレートは出さない。
-- next_meeting_prep TODO は、紐づく予定MTGの開始時刻を過ぎたら自動で done にする。
+- MyPage「今週やったこと」の変な行を修正済み。
+- 原因: 2026-07-01以降、背景Anthropicが封鎖されたことで D-10 route fallback が保存され、fallback title が Gmail本文冒頭 / HTML / runner marker をそのまま使っていた。
+- 修正: D-10は PWA route 内の Anthropic合成を使わず、Codex automation `amd-os-l2-2` が合成する。
+- current path:
+  1. GET /api/cron/member-weekly-activities?mode=evidence&interactive=1
+  2. Codex automation が全 evidence group を活動文へ合成
+  3. POST /api/cron/member-weekly-activities { windowKey, activities[] }
+  4. member_activities(source='member_weekly') に raw_metadata.synthesis_method='codex' で保存
+- legacy GET `/api/cron/member-weekly-activities?interactive=1` は保存に使わない。ALLOW_PWA_LLM_CRONS=1 で復活させない。
+- Current week production data is already repaired manually: 22 rows, all codex, known bad-pattern count 0.
 
 検証済み:
-- npx tsc --noEmit
-- npm run test:critical-ui
-- predicate 小テスト (future upcoming / started upcoming / pending tentative / old tentative / held-source upcoming-id)
-- git diff --check
+- npm run lint -- src/app/api/cron/member-weekly-activities/route.ts src/lib/operations-catalog.ts
+- npx tsc --noEmit --pretty false
 - npm run build
+- git diff --check
 - AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh
 - production /api/build-info 確認
-- production cron cleanup: closed_expired_prep=13
-- cleanup 後、開始済みMTGに紐づく open/blocked next_meeting_prep は 0
-- KUTE p25 の新判定では予定欄は未来3件のみ。スクショにあった 2026-06-23 / 2026-06-22 row は予定欄に入らない。
+- legacy GET smoke: disabled true / saved 0
+- evidence mode smoke: evidence groups returned without Anthropic synthesis
+- DB readback: current week total 22 / synthesis_method=codex 22 / bad-pattern count 0
 
 次タスク:
-- MTG-card ghost fix に関しては基本なし。
-- もしまさから「まだ残ってる」と言われたら、まず画面左上 version と /api/build-info が v0.39.7 以上か確認する。
-- そのうえで該当 row の project_meeting_summaries を読む。確認順は source_kinds / meeting_id prefix / meeting_start_at / calendar_event_id / prep_status / generated_by_model。
-- 推測でDB rowを削除・上書きしない。まず表示predicateのどこに入ったかを分類する。
-- 新しい AMD OS 作業を始める場合は、HANDOFF の first next action のコマンドで current truth を再確認してから、該当 spec/manual/design 正本を読む。
+- D-10本体は完了。
+- まだ残る実務タスクは `/mypage` の「いますぐ抽出」ボタン。現状の refresh route は古い legacy GET を呼ぶので、今はD-10修復ボタンとして機能しない。次はボタンを Codex automation / request queue に接続する。
+- Windows MMO Task Scheduler launcher を復活させるなら、Macと同じ evidence -> Codex synthesis -> POST 方式へ更新する。legacy interactive GET 一発実行には戻さない。
+- unrelated dirty `pwa/scripts/atlas_signal_review_tool.mjs` は Atlas lane のWIPとして扱う。D-10のcloseoutで触らない。
 
 運用ルール:
 - /Users/masa/projects/AGENTS.common.md を最初に読む。
 - AMD配下PJでは AMD level memory (/Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md) も冒頭で読む。
 - AMD OSでは branch を作らない。main で直接 commit & push。
-- dirty は branch/worktree 作成理由にしない。必要なら main を checkout した disposable clean clone で対象差分だけ扱い、closeout で状態を明記する。
-- git add . は使わない。対象ファイルだけ stage。
+- dirty は branch/worktree 作成理由にしない。git add . は使わず、対象ファイルだけ stage。
 - PWAコード変更時は src/lib/build-info.ts の BUILD_VERSION を bump する。
-- PWA本番反映は main push = Vercel自動deploy。使うコマンドは AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh。
-- CLI直接 deploy (npx vercel deploy / --prod) は禁止。
-- handoff時は、新仕様があれば pwa/manual / pwa/spec / pwa/design / BUGS / design_log へ分けて記録し、HANDOFFだけに恒久仕様を残さない。
-- 現在の repo は closeout-ready: clean、main==origin/main、productionも同じ SHA。次セッションはこの状態を崩さず、作業後も同じ closeout 条件へ戻す。
-- /tmp/amd-os-* には過去セッションの disposable clone / artifact が残っている。git worktree registry には載っていない。掃除する場合は exact path を列挙してから、削除承認を取って実行する。
+- PWA本番反映は main push = Vercel自動deploy。通常は AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh を使う。CLI直接 deployは禁止。
+- handoff時は、新仕様を pwa/manual / pwa/spec / pwa/design / BUGS / design_log へ分けて記録し、HANDOFFだけに恒久仕様を残さない。
+- D-10のような背景LLM処理は定額内Codex automationへ移す。PWA/Vercel routeで有料LLM synthesisを復活させない。
 ```
