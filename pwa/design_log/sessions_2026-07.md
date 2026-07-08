@@ -408,3 +408,49 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 - 背景LLMを封鎖した route で fallback synthesis を保存に使うと、LLM品質低下ではなく表示汚染として表に出る。
 - 「Codex automation が active」でも、実際に何を実行しているかを見る。route trigger だけなら合成本体は移管できていない。
 - MyPage の週次活動 title は、snippet ではなく活動単位の要約である必要がある。HTML / runner marker / メール挨拶文は表示前に落とすだけでなく、保存時に入れない。
+
+---
+
+## 2026-07-08 — Admin MS Overview 個人名カード回帰防止 / v0.39.13 closeout
+
+### コンテキスト
+- まさから、`/admin/ms-overview` の上段メトリクスに個人名同士を比べるカードが戻っていると指摘。
+- まさの補足: 本来は上段4枚構成で、そのカードをなくして別のカードを入れていたはず。
+- さらに、設計書に旧カードを連想させる文言が残ると再発するため、該当文言もすべて削除したいという指示。
+
+### 原因
+- 初期実装で個人名カードが入り、後続修正では円額だけが消えてカード自体は残った。
+- 設計書・重要UI登録簿・変更履歴に旧カードを連想させる文言が残っており、後続作業がそれを current truth と読んで温存しやすかった。
+- 最初の対応で3枚化してしまい、まさが覚えていた「本来4枚」という構造とズレた。
+
+### 実装 / 仕様同期
+- `c7578d30 fix(admin): restore MS overview finance metric card`
+  - 上段を4枚構成へ戻し、4枚目を `budgetImpact` 由来の `PJ予算残` / `不足額` / `予算不足` / `原資超過` カードにした。
+  - `BUILD_VERSION` を `v0.39.11` へ更新。
+- `b84f73ab docs(admin): lock MS overview metric guard`
+  - `pwa/manual/6-8-admin-ms-overview-spec.md` と `pwa/design/FEATURE_REGISTRY.md` に、4枚固定・3枚化禁止・個人名カード復帰禁止・4枚目 `budgetImpact` 固定を追記。
+- `a89683e0 docs(admin): remove old MS metric wording`
+  - current tree から旧カードを連想させる文言を削除。
+- `cb584019 chore(pwa): bump build version for MS guard`
+  - まさ指摘「上げないとだめ」を受け、`BUILD_VERSION` を `v0.39.13` へ更新。
+  - manual/spec appendix に、再発防止が本番版として判別できるようにした理由を追記。
+- `pwa/BUGS.md` に本件の症状・原因・対応・再発防止策を追加。
+- root `HANDOFF.md` / `SESSION_MIGRATION_PROMPT.md` を本件の restart state へ更新。
+
+### Verification / Deploy
+- `npm run test:critical-ui` passed。
+- `npm run test:deploy-version-guard` passed。
+- `npx tsc --noEmit` passed。
+- deploy rollback guard passed。
+- `git push origin main` 後、Vercel production が Ready になり、`https://amd-os-pwa.vercel.app/api/build-info` が `v0.39.13` / `cb584019ca8710b684322688069c42bf1012d652` / `dirty:false` を返すことを確認。
+- 禁止語 `rg` はゼロ件。
+
+### 注意 / 次
+- accepted release 後も、別件の dirty が5ファイル残っている。今回の closeout では触らない。
+- MS系3ファイルは「設計額を丸め済み1pt単価ではなく、原資×pt比で出す」方向のWIPに見える。採用するなら spec/manual 同期・テスト・build version bump・deploy が必要。
+- L6 prep SKILL と Atlas script の dirty も別 lane として扱う。
+
+### 教訓
+- 消したいUIの旧名や旧説明を正本mdに残すと、それが後続作業の復活根拠になる。
+- 「戻さない」だけでなく「何を代わりに固定するか」まで書く。今回なら「4枚固定、4枚目は `budgetImpact`」が再発防止の核。
+- 画面上でまさが確認する変更は、docs guard だけでも build version で判別できるようにする。
