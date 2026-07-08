@@ -25,7 +25,7 @@
 | `progress` | `milestone_monthly_progress` |
 | `reports` | `monthly_reports` excerpts and status |
 | `members` / `memberMap` | PJ member display |
-| `seasonFinance` | current plan cycle のシーズン収支。月次とシーズン合計で、クライアント支払、バッファ、PJ予算、メンバー現金支払、会社留保、未払残、残予算を返す |
+| `seasonFinance` | current plan cycle のシーズン収支。月次とシーズン合計で、クライアント支払、バッファ、PJ予算、メンバー現金支払、未払残、残予算を返す。役員向け報酬相当額は検算用データとして保持するが、PJ cockpit では表示しない |
 | `strategySignals` | L2D-6 `project_strategy_signals` |
 | `tasks` | kanban tasks |
 | `nudges` | cockpit nudges |
@@ -70,7 +70,7 @@ This route is read-only during load. It does not create a duplicate project or w
 | tabs | `CockpitView` | `進捗管理` / `スコア詳細` display state。SU 系 PJ では横幅いっぱいを2等分し、各タブのクリック領域も 1/2 にする |
 | score detail tab | `CockpitAmdScoreDetailTab`, `AmdScoreView embedded` | `/api/project/[projectId]/amd-score-detail`。PRS Primary / PRS history を主表示し、legacy AMD / M-X-F は comparison と evidence 用に残す。cockpit mount 時に hidden panel として先読みし、client memory cache 5 分TTL + private HTTP cache で再表示待ちを減らす。TTL 超過後にタブが active になったら、表示済み内容を保ったまま背景再取得する |
 | goals compact | `CockpitGoalsCompact` | value plan / MS |
-| season finance | `CockpitSeasonFinance` | `fetchCockpitFromSupabase` が `billing_cycles`, `projects`, `reward_summary_json` から組み立てた `seasonFinance`。MS リスト直下、月次カードより上に表示し、シーズン全体と月次別に `クライアント支払` / `バッファ` / `原資上限` / `PJ予算` / `メンバー支払` / `会社留保` / `期末未払` / `残` を出す |
+| season finance | `CockpitSeasonFinance` | `fetchCockpitFromSupabase` が `billing_cycles`, `projects`, `reward_summary_json` から組み立てた `seasonFinance`。MS リスト直下、月次カードより上に表示し、シーズン全体と月次別に `クライアント支払` / `バッファ` / `原資上限` / `PJ予算` / `メンバー支払` / `期末未払` / `残` を出す |
 | TODO | `ProactiveQueuePanel` | `proactive_outbox` read-only。Dashboard は `queued`, `sent_to_commander`, `blocked` を最大3件、PJ cockpit は `queued`, `sent_to_commander`, `drafted`, `blocked` をPJ単位で表示。DBから多めに読み、期限超過 / blocked / queued / sent_to_commander / priority / due_at でUI側sort後、`outbox_id` 重複を排除する。行クリックは発生経緯・`proactive_loop_events` 履歴・資料リンク・外部送付可否・次アクションのモーダル |
 | project documents | `CockpitProjectDocuments` | TODO と経営ハイライトの間に置く資料スペース。drag & drop / file picker で `/api/project-documents` へ multipart upload し、Drive の PJ folder 配下 `AMD OS 資料` folder に新規ファイルとして保存する。同名ファイルは上書きしない。リンク一覧は `project_documents` から取得し、Drive link を新規タブで開く |
 | strategy signals | `CockpitStrategySignals` | `project_strategy_signals` |
@@ -163,7 +163,7 @@ PM向けの cockpit 右カラム routine step UI は廃止済み。`CockpitRouti
 
 Important rules:
 
-- `CockpitSeasonFinance` は、PJ cockpit 上で今シーズンの収支を先に見せる安全網。クライアント支払は `contractBackedClientAmount` に `billing_cycles.extra_revenue_json` の別財布売上を按分加算する。schedule_based 契約では `contract_terms_json.monthlySchedule.amountTaxExcl` も予定売上として読む。バッファは `value_plan_cycles.buffer_breakdown_json` のシーズンバッファを優先し、未設定の PJ だけ `billing_cycles.budget_buffer_amount` を読む。原資上限は `(クライアント支払 - バッファ) × 65%`。PJ予算は `budget_yen + extra_budget_yen`、メンバー支払/会社留保/未払残は `billing_cycles.reward_summary_json` を読む。期末未払残または PJ予算の原資上限超過が 1 円でもある場合は不足表示にし、報酬計算側で最終月に自動上乗せしてゼロに見せない。
+- `CockpitSeasonFinance` は、PJ cockpit 上で今シーズンの収支を先に見せる安全網。クライアント支払は `contractBackedClientAmount` に `billing_cycles.extra_revenue_json` の別財布売上を按分加算する。schedule_based 契約では `contract_terms_json.monthlySchedule.amountTaxExcl` も予定売上として読む。バッファは `value_plan_cycles.buffer_breakdown_json` のシーズンバッファを優先し、未設定の PJ だけ `billing_cycles.budget_buffer_amount` を読む。原資上限は `(クライアント支払 - バッファ) × 65%`。PJ予算は `budget_yen + extra_budget_yen`、メンバー支払/未払残は `billing_cycles.reward_summary_json` を読む。役員向け報酬相当額は検算には含めるが、PJ cockpit では表示しない。期末未払残または PJ予算の原資上限超過が 1 円でもある場合は不足表示にし、報酬計算側で最終月に自動上乗せしてゼロに見せない。
 - If a month has a `monthly_reports` row but no `billing_cycles` row, only report tab is shown.
 - Reward budget derives from `billing_cycles.budget_yen`; if absent and project is `monthly_fixed`, `projects.fee_amount * 0.65` is used.
 - `billing_cycles.reward_summary_json` is cached and refreshed through `/api/rewards/sync` or daily `cron/payout-reward-cache-refresh`.

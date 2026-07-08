@@ -391,12 +391,15 @@ expectIncludes("src/components/cockpit/CockpitSeasonFinance.tsx", [
   "バッファ",
   "PJ予算",
   "メンバー支払",
-  "会社留保",
   "期末未払",
   "未払残",
   "ゼロ着地",
   "不足",
   "シーズン収支が閉じていない",
+]);
+
+expectNotIncludes("src/components/cockpit/CockpitSeasonFinance.tsx", [
+  "会社留保",
 ]);
 
 expectNotIncludes("src/components/cockpit/CockpitView.tsx", [

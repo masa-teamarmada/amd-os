@@ -40,7 +40,7 @@
 | `grossDue` | `totalPay + carryIn` (= cap 前にメンバーが「本来もらえる額」) |
 | `capBudgetYen` | 月次の支払上限 |
 | `budget_buffer_amount` | 契約上 AMD が先に回収する会社バッファの当月消化額。当月の `invoice × 65%` から先に差し引き、外部支払 cap には回さない |
-| `companyReserveYen` / `officerReserveYen` | 役員メンバーに通常の cap 按分で割り当たった額を AMD 内部留保として認識した額。支払通知書には出さない |
+| `companyReserveYen` / `officerReserveYen` | 役員メンバーに通常の cap 按分で割り当たった役員向け報酬相当額。OS内部では会社留保として検算に使うが、支払通知書やメンバー向け PJ cockpit には出さない |
 | `externalPayoutCapYen` | 通常の cap 按分後、非役員メンバーの支払/stock返済に実際に使われた額 |
 | `carryIn` | 前月から繰越された未払い分 |
 | `stockYen` / `deferredYen` | cap 超過で翌月へ繰り越す分 (= 同義) |
@@ -83,7 +83,7 @@ else:
 
 paid[nonOfficer] = allocated[nonOfficer]
 stockYen[nonOfficer] = grossDue[nonOfficer] − paid[nonOfficer] # 翌月へ繰越
-companyReserveYen[officer] = allocated[officer]            # AMD 内部留保として認識 (現金支払 0)
+companyReserveYen[officer] = allocated[officer]            # 役員向け報酬相当額として会社留保に計上 (現金支払 0)
 # 役員も cap 不足で留保しきれなかった分は stock として翌月へ繰り越す (= 非役員と同じ)。
 # これで「年間原資 × pt 比」が役員 (= AMD 会社留保) でも成立し、年間で pt 比に収束する。
 companyReserveUnfundedYen[officer] = grossDueForCap[officer] − allocated[officer]

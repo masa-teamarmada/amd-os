@@ -352,7 +352,7 @@ GAS 064 が読む:
 
 ## 会社留保 / 契約バッファの扱い
 
-`/admin/payouts` の支払通知書対象は、非役員かつ `exclude_from_payout_notice=false` のメンバーだけ。`members.is_officer=true` のメンバーは支払通知書から外すが、月次 cap 按分で役員に割り当たった分は `reward_summary_json.members[].companyReserveYen` / `officerReserveYen` として AMD の内部留保に残す。
+`/admin/payouts` の支払通知書対象は、非役員かつ `exclude_from_payout_notice=false` のメンバーだけ。`members.is_officer=true` のメンバーは支払通知書から外すが、月次 cap 按分で役員に割り当たった分は `reward_summary_json.members[].companyReserveYen` / `officerReserveYen` として、役員向け報酬相当額を会社留保に計上する。
 
 先12か月では、会社留保を支出として表示しない。`キャッシュ支払` 表は非役員・支払通知対象メンバーへの外部支払だけを見る。`会社留保` 表は `cap/売上枠 - 外部支払` を留保増加額として表示し、役員の `regularCompanyReserveYen` / `extraCompanyReserveYen` はその内訳として読む。`cap超過チェック` 表だけは、役員会社留保も含めた報酬需要が cap/売上枠を超えていないかを見る。
 

@@ -1908,9 +1908,9 @@ export interface ForwardCappedMonth {
   cappedRegularExternalYen: number;
   /** 別財布から外部メンバーへ実際に支払う額。会社留保は含めない。 */
   cappedExtraExternalYen: number;
-  /** 本契約capで役員稼働分として内部留保される額。 */
+  /** 本契約capで役員向け報酬相当額として会社留保に計上する額。 */
   regularCompanyReserveYen: number;
-  /** 別財布で役員稼働分として内部留保される額。 */
+  /** 別財布で役員向け報酬相当額として会社留保に計上する額。 */
   extraCompanyReserveYen: number;
   /** 本契約capに対する当月の報酬需要。carry-in を含む。 */
   regularGrossDueYen: number;
