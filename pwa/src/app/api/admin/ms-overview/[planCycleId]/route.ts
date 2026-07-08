@@ -23,7 +23,7 @@ import {
   type RewardSummary,
 } from "@/lib/reward-summary";
 import { isCapExtraTag } from "@/lib/admin/ms-overview-calc";
-import { pointBasisForPeriod, totalPointBasisForCycle } from "@/lib/season-point-basis";
+import { capExtraPointBasisForMilestone, totalPointBasisForCycle } from "@/lib/season-point-basis";
 
 export const runtime = "nodejs";
 
@@ -102,6 +102,7 @@ type RewardBaseByPool = {
   memberName?: string;
   regularBaseYen: number;
   extraBaseYen: number;
+  extraPaidYen: number;
 };
 
 type RewardRevisionSummary = {
@@ -313,11 +314,12 @@ function rewardBaseByMember(summary: RewardSummary | null): Map<string, RewardBa
     const memberName = cleanOptionalText(member.memberName ?? member.member_name) ?? undefined;
     const baseYen = Math.round(safeNumber(member.basePay ?? member.base_pay));
     const extraBaseYen = Math.round(safeNumber(member.extraBasePay ?? member.extra_base_pay));
+    const extraPaidYen = Math.round(safeNumber(member.extraPaidYen ?? member.extra_paid_yen));
     const explicitRegularBaseYen = member.regularBasePay ?? member.regular_base_pay;
     const regularBaseYen = explicitRegularBaseYen == null
       ? Math.max(0, baseYen - extraBaseYen)
       : Math.round(safeNumber(explicitRegularBaseYen));
-    map.set(memberId, { memberName, regularBaseYen, extraBaseYen });
+    map.set(memberId, { memberName, regularBaseYen, extraBaseYen, extraPaidYen });
   }
   return map;
 }
@@ -634,8 +636,8 @@ async function buildRewardRevisionImpact({
     const applyYm = findNextUnprotectedYm(cycle.ym, cycles);
 
     for (const memberId of memberIds) {
-      const before = beforeByMember.get(memberId) ?? { regularBaseYen: 0, extraBaseYen: 0 };
-      const after = afterByMember.get(memberId) ?? { regularBaseYen: 0, extraBaseYen: 0 };
+      const before = beforeByMember.get(memberId) ?? { regularBaseYen: 0, extraBaseYen: 0, extraPaidYen: 0 };
+      const after = afterByMember.get(memberId) ?? { regularBaseYen: 0, extraBaseYen: 0, extraPaidYen: 0 };
       const memberName = after.memberName || before.memberName || memberId;
       const poolDeltas = [
         {
@@ -643,16 +645,19 @@ async function buildRewardRevisionImpact({
           beforeBaseYen: before.regularBaseYen,
           afterBaseYen: after.regularBaseYen,
           offsetYen: after.regularBaseYen - before.regularBaseYen,
+          shouldOffset: true,
         },
         {
           pool: "cap_extra" as const,
           beforeBaseYen: before.extraBaseYen,
           afterBaseYen: after.extraBaseYen,
           offsetYen: after.extraBaseYen - before.extraBaseYen,
+          shouldOffset: before.extraPaidYen > 0 || after.extraPaidYen > 0,
         },
       ];
 
       for (const delta of poolDeltas) {
+        if (!delta.shouldOffset) continue;
         if (delta.offsetYen === 0) continue;
         addMemberImpact(memberImpacts, memberId, memberName, delta.pool, delta.offsetYen);
         offsetRows.push({
@@ -840,8 +845,8 @@ function normalizedMilestonePoints(
   targetYm: string | null,
 ): number {
   if (isCapExtraTag(ms.tag)) {
-    const periodPoints = pointBasisForPeriod(periodStartYm, targetYm);
-    if (periodPoints > 0) return periodPoints;
+    const extraPoints = capExtraPointBasisForMilestone({ points: ms.points, periodStartYm, targetYm });
+    if (extraPoints > 0) return extraPoints;
   }
   return Math.round(Math.max(0, safeNumber(ms.points)) * 100) / 100;
 }
@@ -973,10 +978,7 @@ async function prepareMsEditPayload(
     savedRows
       .filter((row) => String(row.goal_level || "").toLowerCase() !== "monthly")
       .filter((row) => isCapExtraTag(row.tag))
-      .reduce((sum, row) => {
-        const periodPoints = pointBasisForPeriod(row.period_start_ym, row.target_ym);
-        return sum + (periodPoints > 0 ? periodPoints : safeNumber(row.points));
-      }, 0) * 100,
+      .reduce((sum, row) => sum + capExtraPointBasisForMilestone(row), 0) * 100,
   ) / 100;
   const newTotal = totalPointBasisForCycle(plan, extraPoints);
   const scenario: RewardScenarioOverride = {

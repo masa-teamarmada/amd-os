@@ -24,7 +24,7 @@ import type {
   ProjectHealthState,
 } from "@/lib/admin/ms-overview-types";
 import { isCapExtraTag as isCapExtraTagShared } from "@/lib/admin/ms-overview-calc";
-import { pointBasisForMilestonePeriod, regularPointBasisForCycle, roundPt } from "@/lib/season-point-basis";
+import { capExtraPointBasisForMilestone, regularPointBasisForCycle, roundPt } from "@/lib/season-point-basis";
 
 export const runtime = "nodejs";
 
@@ -51,10 +51,20 @@ function numberValue(value: unknown): number {
 
 function effectiveMilestonePoints(ms: MilestoneInput): number {
   if (isCapExtraTag(ms.tag)) {
-    const periodPoints = pointBasisForMilestonePeriod(ms);
-    if (periodPoints > 0) return periodPoints;
+    const extraPoints = capExtraPointBasisForMilestone(ms);
+    if (extraPoints > 0) return extraPoints;
   }
   return roundPt(Math.max(0, numberValue(ms.points)));
+}
+
+function designAmountForPoints(
+  points: number,
+  pointBasis: number,
+  budgetYen: number,
+  roundedUnitYen: number,
+): number {
+  if (pointBasis > 0 && budgetYen > 0) return Math.round((Math.max(0, points) * budgetYen) / pointBasis);
+  return Math.round(Math.max(0, points) * Math.max(0, roundedUnitYen));
 }
 
 export type {
@@ -248,6 +258,12 @@ async function buildOverviewForPlanCycle(
       const points = effectiveMilestonePoints(ms);
       const isCapExtra = isCapExtraTag(ms.tag);
       const designUnitYen = isCapExtra ? extraDesignUnitYen : regularDesignUnitYen;
+      const designAmountYen = designAmountForPoints(
+        points,
+        isCapExtra ? extraPoints : regularPoints,
+        isCapExtra ? extraDesignBudgetYen : memberDesignBudgetYen,
+        designUnitYen,
+      );
       // active メンバー (project_members.is_active=true) のみ責任者として残す。
       // milestone_responsibility に過去メンバーの share が残っていると、編集モードでは
       // recomputeMsOverview がその share を拾ってメンバー配分に inactive メンバーが
@@ -268,7 +284,7 @@ async function buildOverviewForPlanCycle(
         milestoneId: ms.milestone_id,
         title: ms.title || ms.milestone_id,
         points,
-        designAmountYen: Math.round(points * designUnitYen),
+        designAmountYen,
         tag: String(ms.tag ?? "normal"),
         goalLevel: String(ms.goal_level ?? "season"),
         successCriteria: String(ms.success_criteria ?? ""),
@@ -300,10 +316,10 @@ async function buildOverviewForPlanCycle(
       const a = acc.get(r.member_id) ?? { regularPt: 0, extraPt: 0, regularDesignYen: 0, extraDesignYen: 0 };
       if (isExtra) {
         a.extraPt += earnedPt;
-        a.extraDesignYen += earnedPt * designUnitYen;
+        a.extraDesignYen += designAmountForPoints(earnedPt, extraPoints, extraDesignBudgetYen, designUnitYen);
       } else {
         a.regularPt += earnedPt;
-        a.regularDesignYen += earnedPt * designUnitYen;
+        a.regularDesignYen += designAmountForPoints(earnedPt, regularPoints, memberDesignBudgetYen, designUnitYen);
       }
       acc.set(r.member_id, a);
     }

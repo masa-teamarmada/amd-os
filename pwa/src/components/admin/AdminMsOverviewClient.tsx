@@ -136,9 +136,12 @@ function normalizeEditableRows(rows: EditableMilestoneInput[]): string {
   );
 }
 
-function normalizeCapExtraPoint(row: EditableMilestoneInput): EditableMilestoneInput {
-  const points = effectiveEditableMilestonePoints(row);
-  return row.isCapExtra && points > 0 ? { ...row, points } : row;
+function normalizeMilestoneEdit(row: EditableMilestoneInput): EditableMilestoneInput {
+  return { ...row, isCapExtra: isCapExtraTag(row.tag) };
+}
+
+function usesPeriodFallbackPoints(row: Pick<EditableMilestoneInput, "isCapExtra" | "points">, derivedPoints: number): boolean {
+  return row.isCapExtra && Number(row.points ?? 0) <= 0 && derivedPoints > 0;
 }
 
 function designUnitForEditableRow(
@@ -147,6 +150,23 @@ function designUnitForEditableRow(
   extraDesignUnitYen: number,
 ): number {
   return row.isCapExtra ? extraDesignUnitYen : regularDesignUnitYen;
+}
+
+function designAmountForEditableRow(
+  row: Pick<EditableMilestoneInput, "isCapExtra">,
+  points: number,
+  regularPointBasis: number,
+  extraPointBasis: number,
+  regularDesignBudgetYen: number,
+  extraDesignBudgetYen: number,
+  regularDesignUnitYen: number,
+  extraDesignUnitYen: number,
+): number {
+  const designUnitYen = designUnitForEditableRow(row, regularDesignUnitYen, extraDesignUnitYen);
+  const pointBasis = row.isCapExtra ? extraPointBasis : regularPointBasis;
+  const budgetYen = row.isCapExtra ? extraDesignBudgetYen : regularDesignBudgetYen;
+  if (pointBasis > 0 && budgetYen > 0) return Math.round((Math.max(0, points) * budgetYen) / pointBasis);
+  return Math.round(Math.max(0, points) * designUnitYen);
 }
 
 // ---- メトリクスカード -----------------------------------------------------
@@ -205,6 +225,10 @@ function MsEditorRow({
   current,
   projectMembers,
   pointRange,
+  regularPointBasis,
+  extraPointBasis,
+  regularDesignBudgetYen,
+  extraDesignBudgetYen,
   regularDesignUnitYen,
   extraDesignUnitYen,
   onChange,
@@ -213,6 +237,10 @@ function MsEditorRow({
   current: EditableMilestoneInput;
   projectMembers: MsOverviewPlanCycle["projectMembers"];
   pointRange: ReturnType<typeof sliderRange>;
+  regularPointBasis: number;
+  extraPointBasis: number;
+  regularDesignBudgetYen: number;
+  extraDesignBudgetYen: number;
   regularDesignUnitYen: number;
   extraDesignUnitYen: number;
   onChange: (patch: Partial<EditableMilestoneInput>) => void;
@@ -222,11 +250,20 @@ function MsEditorRow({
   const shareSum = current.responsibilities.reduce((sum, resp) => sum + resp.share, 0);
   const responsibilityByMember = new Map(current.responsibilities.map((resp) => [resp.memberId, resp]));
   const derivedPoints = effectiveEditableMilestonePoints(current);
-  const usesPeriodPoints = current.isCapExtra && derivedPoints > 0;
+  const usesPeriodPoints = usesPeriodFallbackPoints(current, derivedPoints);
   const displayPoints = usesPeriodPoints ? derivedPoints : current.points;
   const rowPointRange = usesPeriodPoints ? sliderRange(displayPoints) : pointRange;
   const designUnitYen = designUnitForEditableRow(current, regularDesignUnitYen, extraDesignUnitYen);
-  const designAmountYen = Math.round(displayPoints * designUnitYen);
+  const designAmountYen = designAmountForEditableRow(
+    current,
+    displayPoints,
+    regularPointBasis,
+    extraPointBasis,
+    regularDesignBudgetYen,
+    extraDesignBudgetYen,
+    regularDesignUnitYen,
+    extraDesignUnitYen,
+  );
   const updatePoints = (points: number) => {
     if (!usesPeriodPoints) onChange({ points });
   };
@@ -293,7 +330,7 @@ function MsEditorRow({
                 disabled={usesPeriodPoints}
                 className="w-full rounded border border-border bg-background px-2 py-1 text-right text-[12px] tabular-nums disabled:cursor-not-allowed disabled:bg-muted/40 disabled:text-muted-foreground"
                 aria-label="pt"
-                title={usesPeriodPoints ? "cap_extra pt = MS期間の月数×10pt" : "pt"}
+                title={usesPeriodPoints ? "cap_extra pt = 未設定時だけMS期間の月数×10pt" : "pt"}
               />
               <input
                 type="range"
@@ -305,7 +342,7 @@ function MsEditorRow({
                 disabled={usesPeriodPoints}
                 className="block h-3 w-full accent-emerald-600 disabled:cursor-not-allowed disabled:opacity-35"
                 aria-label="pt配分スライダー"
-                title={usesPeriodPoints ? "cap_extra pt = MS期間の月数×10pt" : "pt配分スライダー"}
+                title={usesPeriodPoints ? "cap_extra pt = 未設定時だけMS期間の月数×10pt" : "pt配分スライダー"}
               />
             </div>
             <select
@@ -383,7 +420,16 @@ function MsEditorRow({
                 const resp = responsibilityByMember.get(member.memberId);
                 const sharePct = Math.round((resp?.share ?? 0) * 1000) / 10;
                 const memberPt = Math.round(displayPoints * (resp?.share ?? 0) * 100) / 100;
-                const memberDesignYen = Math.round(memberPt * designUnitYen);
+                const memberDesignYen = designAmountForEditableRow(
+                  current,
+                  memberPt,
+                  regularPointBasis,
+                  extraPointBasis,
+                  regularDesignBudgetYen,
+                  extraDesignBudgetYen,
+                  regularDesignUnitYen,
+                  extraDesignUnitYen,
+                );
                 return (
                   <div
                     key={member.memberId}
@@ -1063,6 +1109,10 @@ function AllMsPointSliders({
   rows,
   pointSummary,
   pointRange,
+  regularPointBasis,
+  extraPointBasis,
+  regularDesignBudgetYen,
+  extraDesignBudgetYen,
   regularDesignUnitYen,
   extraDesignUnitYen,
   onPatch,
@@ -1071,6 +1121,10 @@ function AllMsPointSliders({
   rows: EditableMilestoneInput[];
   pointSummary: PointSummary;
   pointRange: ReturnType<typeof sliderRange>;
+  regularPointBasis: number;
+  extraPointBasis: number;
+  regularDesignBudgetYen: number;
+  extraDesignBudgetYen: number;
   regularDesignUnitYen: number;
   extraDesignUnitYen: number;
   onPatch: (milestoneId: string, patch: Partial<EditableMilestoneInput>) => void;
@@ -1115,11 +1169,20 @@ function AllMsPointSliders({
           {sortedRows.map((row) => {
             const color = barColorForTag(row.tag, row.isCapExtra);
             const derivedPoints = effectiveEditableMilestonePoints(row);
-            const usesPeriodPoints = row.isCapExtra && derivedPoints > 0;
+            const usesPeriodPoints = usesPeriodFallbackPoints(row, derivedPoints);
             const displayPoints = usesPeriodPoints ? derivedPoints : row.points;
             const rowPointRange = usesPeriodPoints ? sliderRange(displayPoints) : pointRange;
             const designUnitYen = designUnitForEditableRow(row, regularDesignUnitYen, extraDesignUnitYen);
-            const designAmountYen = Math.round(displayPoints * designUnitYen);
+            const designAmountYen = designAmountForEditableRow(
+              row,
+              displayPoints,
+              regularPointBasis,
+              extraPointBasis,
+              regularDesignBudgetYen,
+              extraDesignBudgetYen,
+              regularDesignUnitYen,
+              extraDesignUnitYen,
+            );
             const shareSum = row.responsibilities.reduce((sum, resp) => sum + resp.share, 0);
             const effortRows = row.responsibilities
               .filter((resp) => resp.share > 0)
@@ -1159,7 +1222,7 @@ function AllMsPointSliders({
                       <option value="cap_extra">cap_extra</option>
                     </select>
                     <span className="truncate text-[10px] text-muted-foreground">
-                      {row.isCapExtra ? "期間×10pt固定" : "本契約"}
+                      {row.isCapExtra ? "別財布pt" : "本契約"}
                     </span>
                   </div>
                 </div>
@@ -1188,7 +1251,7 @@ function AllMsPointSliders({
                   disabled={usesPeriodPoints}
                   className="w-full rounded border border-border bg-background px-2 py-1 text-right text-[12px] tabular-nums disabled:cursor-not-allowed disabled:bg-muted/40 disabled:text-muted-foreground"
                   aria-label={`${row.title || "無題MS"} pt`}
-                  title={usesPeriodPoints ? "cap_extra pt = MS期間の月数×10pt" : "pt"}
+                  title={usesPeriodPoints ? "cap_extra pt = 未設定時だけMS期間の月数×10pt" : "pt"}
                 />
                 <input
                   type="range"
@@ -1200,7 +1263,7 @@ function AllMsPointSliders({
                   disabled={usesPeriodPoints}
                   className="block h-3 w-full accent-emerald-600 disabled:cursor-not-allowed disabled:opacity-35"
                   aria-label={`${row.title || "無題MS"} pt配分スライダー`}
-                  title={usesPeriodPoints ? "cap_extra pt = MS期間の月数×10pt" : "pt配分スライダー"}
+                  title={usesPeriodPoints ? "cap_extra pt = 未設定時だけMS期間の月数×10pt" : "pt配分スライダー"}
                 />
                 <div
                   className="text-right tabular-nums"
@@ -1217,7 +1280,16 @@ function AllMsPointSliders({
                     <div className="flex flex-wrap gap-1">
                       {effortRows.slice(0, 3).map((resp) => {
                         const memberPt = Math.round(displayPoints * resp.share * 100) / 100;
-                        const memberDesignYen = Math.round(memberPt * designUnitYen);
+                        const memberDesignYen = designAmountForEditableRow(
+                          row,
+                          memberPt,
+                          regularPointBasis,
+                          extraPointBasis,
+                          regularDesignBudgetYen,
+                          extraDesignBudgetYen,
+                          regularDesignUnitYen,
+                          extraDesignUnitYen,
+                        );
                         return (
                           <span
                             key={resp.memberId}
@@ -1331,11 +1403,20 @@ function PlanCycleBlock({
   const recomputed = useMemo(() => {
     return recomputeMsOverview({
       regularPointBasis: cycle.regularPoints,
+      regularDesignBudgetYen: cycle.budgetYen,
       regularDesignUnitYen: cycle.regularDesignUnitYen,
+      extraDesignBudgetYen: cycle.extraDesignBudgetYen,
       extraDesignUnitYen: cycle.extraDesignUnitYen,
       milestones: activeEditing,
     });
-  }, [cycle.extraDesignUnitYen, cycle.regularDesignUnitYen, cycle.regularPoints, activeEditing]);
+  }, [
+    activeEditing,
+    cycle.budgetYen,
+    cycle.extraDesignBudgetYen,
+    cycle.extraDesignUnitYen,
+    cycle.regularDesignUnitYen,
+    cycle.regularPoints,
+  ]);
 
   // 表示用 (= 編集モードなら recomputed、閲覧モードなら cycle の値) -----
   const displayTotalPoints = editMode ? recomputed.totalPoints : cycle.totalPoints;
@@ -1489,7 +1570,7 @@ function PlanCycleBlock({
 
   const handleMilestoneChange = useCallback((milestoneId: string, patch: Partial<EditableMilestoneInput>) => {
     setEditing((prev) =>
-      prev.map((row) => (row.milestoneId === milestoneId ? normalizeCapExtraPoint({ ...row, ...patch }) : row)),
+      prev.map((row) => (row.milestoneId === milestoneId ? normalizeMilestoneEdit({ ...row, ...patch }) : row)),
     );
   }, []);
 
@@ -1729,6 +1810,10 @@ function PlanCycleBlock({
                       rows={activeEditing}
                       pointSummary={pointSummary}
                       pointRange={pointSliderRange}
+                      regularPointBasis={displayRegularPoints}
+                      extraPointBasis={displayExtraPoints}
+                      regularDesignBudgetYen={cycle.budgetYen}
+                      extraDesignBudgetYen={cycle.extraDesignBudgetYen}
                       regularDesignUnitYen={cycle.regularDesignUnitYen}
                       extraDesignUnitYen={cycle.extraDesignUnitYen}
                       onPatch={handleMilestoneChange}
@@ -1743,6 +1828,10 @@ function PlanCycleBlock({
                             current={row}
                             projectMembers={cycle.projectMembers}
                             pointRange={pointSliderRange}
+                            regularPointBasis={displayRegularPoints}
+                            extraPointBasis={displayExtraPoints}
+                            regularDesignBudgetYen={cycle.budgetYen}
+                            extraDesignBudgetYen={cycle.extraDesignBudgetYen}
                             regularDesignUnitYen={cycle.regularDesignUnitYen}
                             extraDesignUnitYen={cycle.extraDesignUnitYen}
                             onChange={(patch) => handleMilestoneChange(row.milestoneId, patch)}

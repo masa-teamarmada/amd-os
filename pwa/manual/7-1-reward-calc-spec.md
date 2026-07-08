@@ -247,9 +247,9 @@ PJ が月次定額の本契約とは**別に**まとまった受託 (例: ZMP �
 
 ### 2 つのプール
 - **regular プール** (本契約): 原資 = `value_plan_cycles.budget_yen`、pt単価 = `原資 ÷ regular pt`。regular pt は **シーズン期間の月数 × 10pt** で固定し、通常 MS の配分 pt 合計からは導出しない。
-- **cap_extra プール** (別財布): `value_milestones.tag='cap_extra'` の MS。pt は MS 期間 (`period_start_ym`〜`target_ym`) の月数×10ptで決まり、原資 = `Σ billing_cycles.extra_budget_yen`、**extra pt単価 = `Σextra_budget_yen ÷ Σcap_extra pt` で独立**に決まる (regular 単価を借用しない)。
+- **cap_extra プール** (別財布): `value_milestones.tag='cap_extra'` の MS。pt は原則 MS 期間 (`period_start_ym`〜`target_ym`) の月数×10pt。**ただし別財布原資やメンバー支払額が先に決まっている金額ベースの予算では、`value_milestones.points` に明示ptを入れ、その明示ptを優先する**。原資 = `Σ billing_cycles.extra_budget_yen`、**extra pt単価 = `Σextra_budget_yen ÷ Σcap_extra pt` で独立**に決まる (regular 単価を借用しない)。
 
-`value_plan_cycles.total_points` には **regular pt + 別財布pt の合計** を入れる。regular pt も cap_extra pt も期間月数×10ptで決まる。エンジン (`rewardPointBasis`) は regular 分母にシーズン期間月数×10pt、cap_extra 分母に MS 期間月数×10ptを使うので、admin で通常 MS の配分 pt を増減しても regular pt単価は薄まらない。
+`value_plan_cycles.total_points` には **regular pt + 別財布pt の合計** を入れる。regular pt は期間月数×10pt、cap_extra pt は `points > 0` なら明示pt、未設定なら期間月数×10ptで決まる。エンジン (`rewardPointBasis`) は regular 分母にシーズン期間月数×10pt、cap_extra 分母に別財布の effective pt を使うので、admin で通常 MS の配分 pt を増減しても regular pt単価は薄まらない。
 
 ### `billing_cycles.extra_budget_yen` (別プールの月次cap)
 本契約 `budget_yen` と同じ規約:
@@ -259,22 +259,24 @@ PJ が月次定額の本契約とは**別に**まとまった受託 (例: ZMP �
 
 **完了時一括支払 (典型)**: 開発期間中の月を全部 `0`、**完了月に満額 (= 別財布売上原資)** を置く。開発期間は extraStock 積立 → 完了月に一括消化・extraStock=0。
 
-### 数値例 (ZMP OkuDoor, 2026-06-23 正本)
+### 数値例 (ZMP OkuDoor, 2026-07-09 正本)
 ```text
 別財布原資     = 1,300,000 (OkuDoor システム開発の売上原資)
-cap_extra pt   = 202605〜202610 の6か月 × 10pt = 60
-extra pt単価   = round(1,300,000 / 60) = 21,667 円/pt
+cap_extra pt   = 金額ベース特例の明示pt = 130
+extra pt単価   = 1,300,000 / 130 = 10,000 円/pt
 extra_budget_yen: 202605〜202609 = 0 (全額繰越) / 202610 = 1,300,000 (完了月満額)
 → 202605〜202609 は extraStock 積立、202610 に一括支払・extraStock=0。
-  うめ/あび 各 ≈ 200,000 (share 0.1538 × 60pt × 21,667円)、まさ(役員) は会社留保。
+  うめ/あび 各 200,000 (share 0.153846 × 130pt × 10,000円)、まさ(役員) は会社留保。
   regular pt単価 = 2,340,000 / 120 = 19,500 (202601〜202612 の12か月×10pt)。
 ```
 
 ### 別財布の支払額が先に決まっている場合
-別財布は「先に支払額が確定 → share を後付け調整」が普通。原資と pt (= MS期間×10pt) は固定したまま `milestone_responsibility.share` を微調整して目標額に合わせる (OkuDoor: 原資130万・60pt固定で share まさ0.6924 / あび・うめ各0.1538 にして各20万近傍へ合わせる)。
+別財布は「先に支払額が確定 → pt と share を後付け調整」が普通。原則は期間×10ptだが、原資や支払額が金額ベースで確定している場合だけ、割り切れる明示ptを `value_milestones.points` に入れる。OkuDoor は原資130万・130pt・extra単価10,000円/ptにして、share を まさ0.692308 / あび・うめ各0.153846 に合わせ、あび・うめ各20万円へ閉じる。
 
 ### 旧ロジックで既払いの月がある場合 (再計算手順)
 別財布対応前に「即払い」で払った月の snapshot は旧 pt単価で固定されており新配分と食い違う。その月が PAID保護で sync skip されるなら、**保護フラグ (reward_paid_at / payout_notice_uploaded_at) を一時 NULL → `syncRewardSummariesForProject` で全期間再計算 → フラグ復元** する。完了月capは満額のままで正しく閉じる。`monthly_reward_payout` に実支払行が無い (現金未払い) ことを確認してから実施。
+
+実支払行や freee 照合済みの支払証跡がある月は、保護フラグを解除して上書きしない。別財布がその保護月で現金支払 0 円なら、未払い在庫の端数差だけを `reward_member_liability_offsets` に積まない。未来の未保護月を現行ptで再計算して吸収する。別財布の現金支払が既に出ている場合だけ、本人別の差額台帳で未来月に精算する。
 
 > 汎用の運用プレイブック (3ステップ) は [`../design/season_budget_actual.md`](../design/season_budget_actual.md) §5.2。実装: migration 149 / `reward-summary.ts` (`deriveExtraCapYen` / extra pt単価独立化) / `season-pl.ts` (予実表の別財布分離) / 教訓 [`../BUGS.md`](../BUGS.md) 2026-06-20。
 

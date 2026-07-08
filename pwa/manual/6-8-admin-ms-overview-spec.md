@@ -105,7 +105,7 @@ route の流れ:
 1. `value_plan_cycles` を active ステータス絞りで全件 load
 2. 各 plan cycle について、シーズン期間から `regularPoints = 月数 × 10pt` を出す
 3. `value_milestones.is_active=true` かつ `goal_level ≠ monthly` を pt 順に並べる
-4. `cap_extra` 系 MS は MS 期間月数×10ptを effective points とし、`extraPoints` に積む
+4. `cap_extra` 系 MS は `points > 0` ならその明示pt、未設定/0なら MS 期間月数×10ptを effective points とし、`extraPoints` に積む
 5. 本契約の設計単価は `value_plan_cycles.budget_yen ÷ regularPoints`、別財布の設計単価は `Σbilling_cycles.extra_budget_yen ÷ extraPoints` で出す。別財布原資が未設定なら別財布設計単価は 0。
 6. メンバー別配分は `Σ (effectivePoints × share)` を tag で regular / extra pt に振り分け、同時に `Σ (effectivePoints × share × designUnitYen)` を設計額として出す
 
@@ -157,7 +157,7 @@ route の流れ:
 ### 編集できる項目
 
 - MS 名 (`title`)
-- pt (`points`; 数値入力 + pt配分スライダーで調整。`cap_extra` は MS 期間の月数×10ptで自動算出し、数値入力/スライダーとも無効)
+- pt (`points`; 数値入力 + pt配分スライダーで調整。`cap_extra` は通常MSと同じく編集可。未設定/0のときだけ MS 期間の月数×10ptを自動算出する)
 - tag (`normal` / `routine` / `buffer` / `cap_extra`)
 - 期間 (`period_start_ym` / `target_ym`)
 - 完了条件 (`success_criteria`)
@@ -170,18 +170,18 @@ pt / tag / share を動かすたびに、API を叩かず **JS 側で即座に�
 
 ```text
 regularPts   = シーズン期間の月数 × 10pt
-extraPts     = Σ(cap_extra MS の期間月数 × 10pt)
+extraPts     = Σ(cap_extra MS の effective points)
 memberPt[m]  = Σ over MS of (effectivePoints × share[m])
 memberDesignYen[m] = Σ over MS of (effectivePoints × share[m] × designUnitYen)
 ```
 
-`total_points` の保存値は `regularPts + extraPts`。`cap_extra` の pt は保存時にも API 側で MS 期間×10ptへ正規化する。
+`total_points` の保存値は `regularPts + extraPts`。`cap_extra` の pt は保存時にも API 側で、明示ptがあれば明示pt、未設定/0なら MS 期間×10ptへ正規化する。
 
-編集モードでは、MS 一覧の先頭に **全MS 編集テーブル** を置く。これは MS 名 / tag / 期間 / pt数値入力 / pt配分スライダー / 設計額 / メンバーのエフォートを並べた編集パネルで、全 MS の重み・期間・担当量・金額感を比較しながら調整するための入口。各編集カード内にも pt 数値入力 + pt配分スライダーを残し、どちらを動かしても同じ編集中 state を更新する。通常 MS のスライダー範囲は編集開始時点の最大 pt × 1.5 を右端に固定し、ドラッグ中に max を変えない (= 1px あたりの pt 幅を一定に保つ)。`cap_extra` は MS 期間の月数×10pt固定なので、まとめパネル・個別カードの両方で disabled 表示にする。
+編集モードでは、MS 一覧の先頭に **全MS 編集テーブル** を置く。これは MS 名 / tag / 期間 / pt数値入力 / pt配分スライダー / 設計額 / メンバーのエフォートを並べた編集パネルで、全 MS の重み・期間・担当量・金額感を比較しながら調整するための入口。各編集カード内にも pt 数値入力 + pt配分スライダーを残し、どちらを動かしても同じ編集中 state を更新する。通常 MS のスライダー範囲は編集開始時点の最大 pt × 1.5 を右端に固定し、ドラッグ中に max を変えない (= 1px あたりの pt 幅を一定に保つ)。`cap_extra` は「別財布pt」として編集でき、金額ベース予算では割り切れる明示ptを入れる。未設定/0にした場合だけ MS 期間の月数×10ptで補完する。
 
 編集カードは左に MS 基本情報 (MS名 / pt数値入力 / pt配分スライダー / tag / 期間 / 完了条件 / 設計額)、右に担当 share 表を置く。担当 share 表は **メンバー1人=1行** で、横方向に `メンバー / share / 役割 / 担当pt / 担当設計額 / 担当タスク` を並べる。2カラムに分割しない。
 
-通常 MS の pt を動かすと、編集画面上部と全MS見出しに **残り割り振り可能pt** をリアルタイム表示する。算定式は `regularPointBasis - Σ(non-cap_extra MS effectivePoints)`。配分超過時は負数として赤系で表示する。`cap_extra` は MS期間×10pt固定の別財布なので、この残り枠には混ぜない。
+通常 MS の pt を動かすと、編集画面上部と全MS見出しに **残り割り振り可能pt** をリアルタイム表示する。算定式は `regularPointBasis - Σ(non-cap_extra MS effectivePoints)`。配分超過時は負数として赤系で表示する。`cap_extra` は別財布ptなので、この残り枠には混ぜない。
 
 再計算結果は ① メトリクスカード 4 枚 (合計pt / 本契約pt / 別財布pt / PJ予算残または不足額) ② 各 MS の pt 比と設計額 ③ 担当 share 行の **担当pt** (`effectivePoints × share`) と **担当設計額** ④ メンバー別 pt 配分バーと設計額 ⑤ ヘッダの pt 表示 にリアルタイムで反映する。
 

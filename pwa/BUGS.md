@@ -5,6 +5,16 @@
 
 ---
 
+### [finance/admin-ms] 金額ベースの別財布を期間×10pt固定にして、設計額が1,300,020円へ丸めズレした (2026-07-09)
+
+- **状態**: クローズ (2026-07-09 — cap_extra の明示pt特例、OkuDoor 130pt、別財布未払い在庫差額の台帳化抑止を反映)。
+- **症状**: `/admin/ms-overview` の ZMP OkuDoorシステム開発で、別財布原資は1,300,000円なのに設計額が1,300,020円と表示された。60pt固定に対して `1,300,000 ÷ 60 = 21,666.666...` を円単位に丸め、`21,667 × 60` として見せていたため。
+- **原因**: 2026-06-23時点では「cap_extra は必ず MS期間×10pt」と正本化していたが、金額ベースで先に予算・支払額が決まる別財布では、期間×10ptだと割り切れないケースがある。OkuDoorは 130pt にすれば extra単価10,000円/ptで閉じるのに、UI/計算/保存が明示ptを無視していた。
+- **対応内容**: `capExtraPointBasisForMilestone` を追加し、cap_extra は `points > 0` なら明示pt、未設定/0なら期間×10ptにした。MS Overview / season-pl / reward-summary / 保存APIを同じ基準へ揃え、OkuDoorは 130pt、plan total は 250ptへ是正。2026/05の支払済み通常財布は保護し、別財布は `extraPaidYen=0` の未払い在庫差額だけだったため、古い cap_extra 差額台帳を無効化して未来月再計算で閉じた。
+- **再発防止**: 別財布は原則期間×10pt。ただし「原資や支払額が金額ベースで先に決まる」場合だけ、割り切れる明示ptを使う。protected 月の別財布差額は、実際に `extraPaidYen` がある場合だけ本人別台帳へ積み、未払い在庫だけの端数差では台帳化しない。
+
+---
+
 ### [automation/w-prep] Calendar未同期MTGのprep漏れ・第一声/資料形式の仕様ズレ (2026-07-09)
 
 - **状態**: クローズ (2026-07-09 — `w-prep-launch` automation prompt、automation memory、prep worker SKILL、spec/manual/L2正本に再発防止を同期)。
@@ -262,6 +272,7 @@
 - **原因**: MS設計の write boundary が cockpit と admin の2箇所に割れていた。admin PUT route は pt だけ更新し、保存後に active MS の points 合計を `total_points` へ書き戻していたため、通常 MS の配分変更がシーズン分母そのものを変えていた。
 - **対応内容**: `/admin/ms-overview` の編集モードで MS名 / pt / tag / 期間 / 完了条件 / 担当share / 役割 / タスク / 追加 / 無効化を保存できるようにした。PUT route は `value_milestones` と `milestone_responsibility` を一括保存し、`cap_extra` の points を MS期間月数×10ptへ正規化したうえで、`total_points` を `season-point-basis.ts` の `シーズン期間月数×10 + Σcap_extra MS期間月数×10` で再計算する。`reward-summary.ts` / `season-pl.ts` / admin preview の regular/extra 分母も期間月数×10ptへ統一した。
 - **再発防止**: MS設計の保存口を増やさない。通常 MS の配分 pt 合計を pt単価分母に使わない。別財布は `tag=cap_extra` と `extra_budget_yen` で独立単価にし、本契約 regular はシーズン期間月数×10pt、別財布 cap_extra は MS期間月数×10ptで固定する。
+- **2026-07-09追補**: 上記の「別財布=期間月数×10pt固定」は原則。金額ベースで先に原資/支払額が決まる別財布だけ、`points > 0` の明示ptを優先する例外を追加した。
 
 ---
 
@@ -270,7 +281,7 @@
 - **状態**: クローズ (2026-06-23 — 通常MS slider max を編集開始時点の最大pt×1.5へ固定し、全MSまとめスライダーと個別MSスライダーの両方へ適用)。
 - **症状**: `/admin/ms-overview` 編集モードで MS の pt スライダーを右へ動かすと、途中から急に pt 増加速度が速くなり、一定間隔で配分している感覚が壊れていた。まさから「最大ptの1.5倍くらいを右端に設定しておけばいいんじゃないかな」と指摘。
 - **原因**: スライダーの最大値が現在編集中の pt 値に応じて再計算され、ドラッグ中に track の 1px あたり pt 幅が変わっていた。aggregate slider と個別 card slider が同じ state を動かすようになったことで、この動的 max の違和感がより目立った。
-- **対応内容**: 編集開始時に通常MSの最大ptから `pointSliderMax = max(10, ceil(maxInitialPoints * 1.5))` を作り、編集中 state とは独立して保持するよう変更。`cap_extra` は期間月数×10pt固定なので disabled のまま。`manual/6-8`、`FEATURE_REGISTRY`、critical-ui anchor、spec/manual changelog へ反映。
+- **対応内容**: 編集開始時に通常MSの最大ptから `pointSliderMax = max(10, ceil(maxInitialPoints * 1.5))` を作り、編集中 state とは独立して保持するよう変更。当時の `cap_extra` は期間月数×10pt固定だったため disabled にしたが、2026-07-09以降は金額ベース別財布の明示ptを扱うため編集可。`manual/6-8`、`FEATURE_REGISTRY`、critical-ui anchor、spec/manual changelog へ反映。
 - **再発防止**: スライダーの range はユーザー操作中に値へ追従させない。配分ツールでは、現在値ではなく編集セッション開始時の固定上限を使う。aggregate / individual の 2 導線を持つ場合も、両方が同じ固定 range を共有する。
 
 ---
@@ -3589,7 +3600,7 @@
 - **症状**: ZMP(p19) で予実表が「原資≠Σ月cap」(Σcap 366万 > 原資 234万) と「役員stock非収束」を検出。別財布 OkuDoor 開発の原価が本契約の pt単価・cap を汚染していた。
 - **原因**: (1) `value_plan_cycles.total_points=187` が本契約110pt + 別財布67pt を合算 (正=177、10pt phantom もあり)。`rewardPointBasis` は cap_extra pt を引くが phantom 分で regular pt単価分母が 110 でなく 120 に薄まる。(2) **cap_extra プールに月次 cap が存在しなかった** — `deriveMonthlyRewardCaps` が `extraCapYen=0` を返し、`applyRewardCapsForMonth` の `caps.extraCapYen > 0 ? ... : extraGrossBeforeCap` が **0 を「cap無し=需要全額即払い」と解釈**していた。結果 OkuDoor が開発期間中に毎月即払いされ Σcap を押し上げ。(3) extra pt単価が `extraPtUnit=regularPtUnit` で regular を借用しており、別財布原資から独立していなかった。
 - **対応内容**: 別財布を「同一 plan cycle 内の別プール (cap_extra)」として正しく扱う方針 (まさ確定)。`billing_cycles.extra_budget_yen`(migration 149) を別プールの月次cap にし、NULL=未設定(従来) / 0=全額繰越 / N=上限N円 の規約 (= 本契約 budget_yen と同じ)。`applyRewardCapsForMonth` を `extraCapYen: number | null` にし、null のときだけ従来フォールバック。extra pt単価を `Σ extra_budget_yen ÷ Σ cap_extra pt` で独立化。完了月だけ満額を置くと「完了時一括支払」になる。(コード実装・tsc通過、DB是正と deploy は次セッション)
-- **教訓**: (1) **別cycle物理分離は安易に選ばない** — `choosePlanCycle` が「1月に period 内の1cycleだけ返す」前提なので、本契約と別財布で period が重なると本契約MSが報酬計算から消える事故になる。同一cycle内の別プール(cap_extra)で扱う方が改修が小さく安全。(2) **「0」と「未設定(null)」を同一視するな** — cap=0(全額繰越)とcap無し(需要全額即払い)は正反対。本契約 budget_yen は既に NULL/0 を区別していたのに extra 側は 0 を「無し」扱いして全額払っていた。(3) **別財布も全PJ共通の算定ルール(65%/pt単価/cap/繰越)で処理する** — 案件ごとに特殊計算を作ると保守不能。支払額が先に決まる場合は、pt は期間×10ptで固定し share を後付け調整して共通ルールに乗せる。(4) この種の歪みは `/admin/season-pl` 予実表が検知役になる。
+- **教訓**: (1) **別cycle物理分離は安易に選ばない** — `choosePlanCycle` が「1月に period 内の1cycleだけ返す」前提なので、本契約と別財布で period が重なると本契約MSが報酬計算から消える事故になる。同一cycle内の別プール(cap_extra)で扱う方が改修が小さく安全。(2) **「0」と「未設定(null)」を同一視するな** — cap=0(全額繰越)とcap無し(需要全額即払い)は正反対。本契約 budget_yen は既に NULL/0 を区別していたのに extra 側は 0 を「無し」扱いして全額払っていた。(3) **別財布も全PJ共通の算定ルール(65%/pt単価/cap/繰越)で処理する** — 案件ごとに特殊計算を作ると保守不能。支払額が先に決まる場合は、原則は期間×10pt + share調整。2026-07-09以降は、金額ベースで割り切れない場合だけ明示ptを使う。(4) この種の歪みは `/admin/season-pl` 予実表が検知役になる。
 
 ## [reward/display] 別財布 (cap_extra) の発生額を本契約capと突合して「cap不足」と誤表示 (2026-06-20)
 

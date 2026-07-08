@@ -24,7 +24,7 @@ import {
 } from "@/lib/reward-summary";
 import { contractBackedClientAmount } from "@/lib/contract-money";
 import {
-  pointBasisForMilestonePeriod,
+  capExtraPointBasisForMilestone,
   regularPointBasisForCycle,
   roundPt,
   totalPointBasisForCycle,
@@ -42,8 +42,8 @@ function isCapExtraTag(tag: unknown): boolean {
 
 function effectiveMilestonePoints(ms: Pick<MilestoneInput, "points" | "tag" | "period_start_ym" | "target_ym">): number {
   if (isCapExtraTag(ms.tag)) {
-    const periodPoints = pointBasisForMilestonePeriod(ms);
-    if (periodPoints > 0) return periodPoints;
+    const extraPoints = capExtraPointBasisForMilestone(ms);
+    if (extraPoints > 0) return extraPoints;
   }
   return roundPt(Math.max(0, numberValue(ms.points)));
 }

@@ -100,7 +100,7 @@
 
 ## 5.1 ZMP (p19) 別財布不一致の解析と是正方針 (2026-06-20)
 
-> **2026-06-23 正本更新**: 本契約 regular の pt 分母は `total_points − Σcap_extra pt` ではなく **シーズン期間の月数×10pt** で固定する。別財布 cap_extra も例外にせず、MS期間の月数×10ptで固定する。ZMP 202601〜202612 は regular 120pt、OkuDoorシステム開発 202605〜202610 は cap_extra 60pt、`value_plan_cycles.total_points` は 180pt を保存する。以下の 2026-06-20 時点の 110pt / 177pt 記述は履歴として残すが、新規修正では使わない。
+> **2026-07-09 正本更新**: 本契約 regular の pt 分母は **シーズン期間の月数×10pt** で固定する。別財布 cap_extra は原則 MS期間の月数×10ptだが、別財布原資や支払額が先に決まる金額ベース予算だけ `value_milestones.points > 0` の明示ptを優先する。ZMP 202601〜202612 は regular 120pt、OkuDoorシステム開発 202605〜202610 は金額ベース特例で cap_extra 130pt、`value_plan_cycles.total_points` は 250pt を保存する。以下の 2026-06-20 時点の 110pt / 177pt 記述は履歴として残すが、新規修正では使わない。
 
 予実表が検出した ZMP の不一致を実コードで解析した結果、原因は2つに分離できた。
 
@@ -145,7 +145,7 @@
 ### 大原則 (まさ確定)
 - **計算ルール (65%・pt単価・cap・繰越) は全PJ共通のまま不変**。別財布も特殊計算しない。
 - 別財布は「**同一 plan cycle 内の別プール (cap_extra)**」として扱う。**物理的に別 plan cycle に分けない** (`choosePlanCycle` が「1月に period 内の1cycleだけ返す」前提なので、本契約と period が重なると本契約MSが報酬計算から消える事故になる。BUGS.md 2026-06-20 教訓1)。
-- 別財布のメンバー支払いは「**先に支払額が確定** → それに合わせて share を後付け調整」。原資と pt (= MS期間月数×10pt) は固定したまま share を微調整して目標額に合わせる (OkuDoor: 原資130万・60pt固定で share まさ0.6924 / あび・うめ各0.1538 にして各20万近傍へ合わせた)。
+- 別財布のメンバー支払いは「**先に支払額が確定** → それに合わせて pt と share を後付け調整」。原則は MS期間月数×10ptだが、原資や支払額が金額ベースで確定している場合だけ、割り切れる明示ptを使う (OkuDoor: 原資130万・130pt・extra単価10,000円/pt、share まさ0.692308 / あび・うめ各0.153846 で各20万円に閉じる)。
 
 ### 3ステップ
 **① 別財布の売上を `billing_cycles.extra_revenue_json` に計上** (= PL/キャッシュの売上側)
@@ -155,8 +155,8 @@
 
 **② 別財布の MS を `tag=cap_extra` で作り、期間と share を決める** (= 原価/配分側)
 - 別財布の作業を表す MS を `value_milestones` に `tag='cap_extra'` で作る (`period_start_ym`〜`target_ym` = 開発期間)。`goal_level` は `monthly` 以外 (annual 等)。
-- **pt は MS期間の月数×10ptで固定する**。例: OkuDoor 別財布は 202605〜202610 の6か月なので 60pt、extra pt単価は 130万÷60=21,667円/pt。`value_plan_cycles.total_points` には **シーズン期間月数×10pt + cap_extra MS期間月数×10pt** を入れる (ZMP 12か月 + OkuDoor6か月なら 120+60=180)。通常 MS の配分 pt 合計で本契約単価を動かさない。
-- `milestone_responsibility.share` は「**先に決まった支払額 ÷ (extra pt単価)**」から逆算。extra pt単価 = `Σextra_budget_yen ÷ Σcap_extra pt` (③で確定)。役員は会社留保になるので share の残りを役員に寄せる。
+- **pt は原則 MS期間の月数×10pt**。ただし金額ベースで原資や支払額が先に決まっている別財布だけ、`value_milestones.points` に明示ptを入れて優先する。例: OkuDoor 別財布は 202605〜202610 の6か月だが、130万円を割り切るため 130pt、extra pt単価は 130万÷130=10,000円/pt。`value_plan_cycles.total_points` には **シーズン期間月数×10pt + cap_extra effective pt** を入れる (ZMP 12か月 + OkuDoor130ptなら 120+130=250)。通常 MS の配分 pt 合計で本契約単価を動かさない。
+- `milestone_responsibility.share` は「**先に決まった支払額 ÷ (cap_extra effective pt × extra pt単価)**」から逆算。extra pt単価 = `Σextra_budget_yen ÷ Σcap_extra effective pt` (③で確定)。役員は会社留保になるので share の残りを役員に寄せる。
 
 **③ 別財布原資の「支払タイミング」を `billing_cycles.extra_budget_yen` で表現** (= 別プールの月次cap)
 - 規約 (本契約 `budget_yen` と同じ): **NULL=cap未設定(従来=需要全額即払い・非推奨) / 0=その月は全額stock繰越 / N=その月の上限N円**。
@@ -168,7 +168,7 @@
 - 別財布対応前に「cap無し=需要全額即払い」で既に払われた月があると、その月の snapshot は旧 pt単価で固定されており新原資配分と食い違う。
 - **対処**: その月が PAID保護 (reward_paid_at/payout_notice_uploaded_at/payment_confirmed_at) で sync からskipされるなら、**保護フラグを一時 NULL → `syncRewardSummariesForProject` で全期間再計算 → フラグ復元**する。これで既払い月も新ロジックで計算し直され、完了月capは**満額** (差し引かない) で正しく閉じる。
 - **前提確認**: `monthly_reward_payout` にその月の実支払行が無い (= 現金未払い・通知書だけ) ことを確認してから保護解除する。
-- **実支払い済みなら覆さない**: すでに送付済み/支払済みの金額は変更しない。現行ロジックより多く払っていた差額を調整する場合は `reward_member_liability_offsets` に同一メンバー本人の相殺額を記録し、以後の `buildRewardSummary` で本人の未払stockからだけ差し引く。会社留保・他メンバー未払・PJ全体バッファには押しつけない。小額差分を経営判断で許容する場合は台帳に入れない。
+- **実支払い済みなら覆さない**: すでに送付済み/支払済みの金額は変更しない。現行ロジックより多く払っていた差額を調整する場合は `reward_member_liability_offsets` に同一メンバー本人の相殺額を記録し、以後の `buildRewardSummary` で本人の未払stockからだけ差し引く。会社留保・他メンバー未払・PJ全体バッファには押しつけない。小額差分を経営判断で許容する場合は台帳に入れない。別財布の保護月で `extraPaidYen=0` なら、未払い在庫の端数差だけを台帳化せず、未来の未保護月を現行ptで再計算して閉じる。
 
 ### 実支払い済み差分の本人別相殺台帳 (2026-07-02)
 - テーブル: `reward_member_liability_offsets`
@@ -201,3 +201,4 @@
 | 2026-06-19 | §5 実装完了 (v0.29.0)。migration 148 + `season-pl.ts` + `/admin/season-pl` + API + FEATURE_REGISTRY + critical-ui anchor。未割当pt 検算を `total_points − Σ(MS points)` に修正。SX 1pt 穴 / ZMP cap-原資不整合 / KUTE 非閉じ を実検出 (別タスク監査へ) | えいみ |
 | 2026-06-20 | §5.1 別財布 cap_extra エンジン実装 (migration 149 + `reward-summary.ts` extra cap/extra pt単価独立化)。ZMP DB是正を実証完了 (total_points 177 / OkuDoor share 0.6923系 / extra_budget_yen 202610=130万)。完了月cap=満額130万 (A案: 202605保護一時解除→全期間再計算→復元で既払い打ち消し)。うめ/あび各20万・OkuDoor総消化130万にぴったり収束。§5.2 別財布処理プレイブック (汎用3ステップ) を正本化。`computeSeasonPl` を別財布対応 (regular/extra pt単価分離) に改修 | えいみ |
 | 2026-07-02 | 実支払い済み差分の本人別相殺台帳を追加。支払済み通知書は変更せず、会社留保や他メンバー未払ではなく同一メンバー本人の未払stockからだけ差し引く方針を正本化 | えいみ |
+| 2026-07-09 | 金額ベースで先に決まる別財布だけ、cap_extra の明示ptを期間×10ptより優先する特例を追加。ZMP OkuDoor は 130pt / extra単価10,000円 / total_points 250へ是正し、別財布未払い在庫だけの保護月差額は台帳化しない方針を追記 | えいみ |

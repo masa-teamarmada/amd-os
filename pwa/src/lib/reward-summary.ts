@@ -10,7 +10,7 @@ import {
   contractBackedClientAmount,
   monthlyFixedClientAmount,
 } from "@/lib/contract-money";
-import { pointBasisForMilestonePeriod, regularPointBasisForCycle, roundPt } from "@/lib/season-point-basis";
+import { capExtraPointBasisForMilestone, regularPointBasisForCycle, roundPt } from "@/lib/season-point-basis";
 
 type SupabaseLike = SupabaseClient;
 
@@ -384,8 +384,8 @@ function isCapExtraMilestone(ms: Pick<MilestoneRow, "tag">): boolean {
 
 function effectiveMilestonePoints(ms: MilestoneRow): number {
   if (isCapExtraMilestone(ms)) {
-    const periodPoints = pointBasisForMilestonePeriod(ms);
-    if (periodPoints > 0) return periodPoints;
+    const extraPoints = capExtraPointBasisForMilestone(ms);
+    if (extraPoints > 0) return extraPoints;
   }
   return roundPt(Math.max(0, numberValue(ms.points)));
 }

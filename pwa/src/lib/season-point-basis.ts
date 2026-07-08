@@ -6,6 +6,7 @@ type PlanCyclePeriod = {
 };
 
 type MilestonePeriod = {
+  points?: number | string | null;
   period_start_ym?: string | null;
   periodStartYm?: string | null;
   target_ym?: string | null;
@@ -47,6 +48,12 @@ export function pointBasisForMilestonePeriod(milestone: MilestonePeriod | null |
     milestone.period_start_ym ?? milestone.periodStartYm,
     milestone.target_ym ?? milestone.targetYm,
   );
+}
+
+export function capExtraPointBasisForMilestone(milestone: MilestonePeriod | null | undefined): number {
+  const explicit = typeof milestone?.points === "number" ? milestone.points : Number(milestone?.points ?? 0);
+  if (Number.isFinite(explicit) && explicit > 0) return roundPt(explicit);
+  return pointBasisForMilestonePeriod(milestone);
 }
 
 export function totalPointBasisForCycle(planCycle: PlanCyclePeriod | null | undefined, extraPoints: number): number {

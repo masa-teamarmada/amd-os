@@ -12,13 +12,14 @@
  *   regularPts   = シーズン期間の月数 × 10pt
  *   extraPts     = Σ(cap_extra MS の points)
  *   memberPt[m]  = Σ over MS of (MS.points × share[m])
+ *   designYen    = 原資 × pt比。表示用に丸めた 1pt 単価から逆算しない。
  *
  * 月按分は無視 (= MS 設計レビュー画面なので plannedShare × points だけで十分)。
  * `milestone_monthly_contribution_allocations.actual_share` は読まない (= 実消化を見ない)。
  */
 
 import type { MsOverviewMemberPointTotal, MsOverviewMilestone, MsOverviewPlanCycle } from "./ms-overview-types";
-import { pointBasisForPeriod, roundPt } from "@/lib/season-point-basis";
+import { capExtraPointBasisForMilestone, roundPt } from "@/lib/season-point-basis";
 
 // season-pl.ts の CAP_EXTRA_MILESTONE_TAGS と完全一致させる。
 export const CAP_EXTRA_MILESTONE_TAGS = new Set([
@@ -59,8 +60,12 @@ export type EditableMilestoneInput = {
 export type RecomputeInput = {
   /** 本契約 pt 分母 = シーズン期間の月数 × 10pt */
   regularPointBasis: number;
+  /** 本契約の設計原資。 */
+  regularDesignBudgetYen?: number;
   /** 本契約 1pt あたりの設計単価。支払確定単価ではない。 */
   regularDesignUnitYen?: number;
+  /** 別財布の設計原資。 */
+  extraDesignBudgetYen?: number;
   /** 別財布 1pt あたりの設計単価。支払確定単価ではない。 */
   extraDesignUnitYen?: number;
   /** 編集対象の MS 一覧 (= スライダーで動かした最新値) */
@@ -83,12 +88,22 @@ function safeNumber(n: unknown): number {
   return Number.isFinite(v) ? v : 0;
 }
 
+function designAmountForPoints(
+  points: number,
+  pointBasis: number,
+  budgetYen: number,
+  roundedUnitYen: number,
+): number {
+  if (pointBasis > 0 && budgetYen > 0) return (Math.max(0, points) * budgetYen) / pointBasis;
+  return Math.max(0, points) * Math.max(0, roundedUnitYen);
+}
+
 type EffectiveMilestonePointsInput = Pick<EditableMilestoneInput, "points" | "isCapExtra" | "periodStartYm" | "targetYm">;
 
 export function effectiveEditableMilestonePoints(ms: EffectiveMilestonePointsInput): number {
   if (ms.isCapExtra) {
-    const periodPoints = pointBasisForPeriod(ms.periodStartYm, ms.targetYm);
-    if (periodPoints > 0) return periodPoints;
+    const extraPoints = capExtraPointBasisForMilestone(ms);
+    if (extraPoints > 0) return extraPoints;
   }
   return roundPt(Math.max(0, safeNumber(ms.points)));
 }
@@ -100,7 +115,9 @@ export function effectiveEditableMilestonePoints(ms: EffectiveMilestonePointsInp
  */
 export function recomputeMsOverview(input: RecomputeInput): RecomputeResult {
   const regularPoints = roundPt(Math.max(0, safeNumber(input.regularPointBasis)));
+  const regularDesignBudgetYen = Math.max(0, Math.round(safeNumber(input.regularDesignBudgetYen)));
   const regularDesignUnitYen = Math.max(0, Math.round(safeNumber(input.regularDesignUnitYen)));
+  const extraDesignBudgetYen = Math.max(0, Math.round(safeNumber(input.extraDesignBudgetYen)));
   const extraDesignUnitYen = Math.max(0, Math.round(safeNumber(input.extraDesignUnitYen)));
   const extraPoints = roundPt(
     input.milestones.filter((ms) => ms.isCapExtra).reduce((sum, ms) => sum + effectiveEditableMilestonePoints(ms), 0),
@@ -133,10 +150,10 @@ export function recomputeMsOverview(input: RecomputeInput): RecomputeResult {
       };
       if (ms.isCapExtra) {
         a.extraPt += earnedPt;
-        a.extraDesignYen += earnedPt * designUnitYen;
+        a.extraDesignYen += designAmountForPoints(earnedPt, extraPoints, extraDesignBudgetYen, designUnitYen);
       } else {
         a.regularPt += earnedPt;
-        a.regularDesignYen += earnedPt * designUnitYen;
+        a.regularDesignYen += designAmountForPoints(earnedPt, regularPoints, regularDesignBudgetYen, designUnitYen);
       }
       // codeName は最後に与えられたものを残す (= route のレスポンスと一致させる)
       a.codeName = r.codeName;
