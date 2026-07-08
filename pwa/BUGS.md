@@ -391,6 +391,24 @@
 
 ---
 
+### [security/rls] `eimi_slack_usage_log` が RLS 無効のまま anon に全権 (SELECT/INSERT/UPDATE/DELETE) が開いていた (2026-07-08)
+
+- **状態**: ✅ クローズ (= migration 165 で RLS 有効化 + policy 追加。本番適用 + 検証済み)
+- **症状**: Supabase security advisor が `rls_disabled_in_public` を再通知。実DB監査で RLS 無効テーブルは `eimi_slack_usage_log` 1件だけ、かつ anon key で `SELECT/INSERT/UPDATE/DELETE` が許可されている状態だった。行数は 0 で、既存ログ流出・改竄の実害は確認されなかった。
+- **原因**: GAS Slack/Fugu usage log 用テーブル作成時に `ENABLE ROW LEVEL SECURITY` が抜けた。ログは GAS が `SUPABASE_SERVICE_KEY` で読み書きする設計なので、ブラウザ公開鍵から直接触れる必要はない。
+- **対応内容** (`pwa/scripts/migrations/165_enable_rls_eimi_slack_usage_log.sql`):
+  - `ENABLE ROW LEVEL SECURITY`
+  - `anon` / `authenticated` の直接権限を取り消し、admin authenticated は将来診断用に `SELECT` のみ `is_admin()` policy で許可。
+  - `service_role ALL` policy を追加し、GAS の `S071_FuguUsage.js` 経由の集計・記録は維持。
+- **検証** (本番適用後):
+  - public table 168件中、RLS無効は 0 件。
+  - `eimi_slack_usage_log` は `rls_on=true`、policy 2件。
+  - anon REST で `SELECT` / `INSERT` が拒否されること、service_role REST で `SELECT` と一時行の `INSERT` / `DELETE` が成功することを確認。
+  - Supabase Security Advisor と同じ `rls_disabled_in_public` 条件に当たる public table は DB 上 0 件。なお、この環境から Advisor 管理APIの直接取得口は見つからなかった。
+- **教訓**: usage log 系は「中身が軽い」ように見えても、チャンネルID・ユーザーID・エラー文が載る可能性がある。新テーブルは用途に関わらず RLS を先に有効化し、公開鍵からの直接アクセスが不要なら `anon` を読ませない。
+
+---
+
 ### [git/deploy] L2 リネーム正本が「巻き戻った」— 本番ライン 64 commit が未 push の codex ブランチに幽閉 (2026-06-12)
 
 - **状態**: ✅ クローズ (= main へ fast-forward + push で復旧。恒久対策 A案を同日実装)
