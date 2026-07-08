@@ -529,6 +529,10 @@ expectIncludes("src/components/cockpit/CockpitMeetingSummary.tsx", [
   "router.replace(meetingUrl(meeting.meetingId), { scroll: false })",
   "groupUpcomingMeetingsBySeries",
 ]);
+expectNotIncludes("src/components/cockpit/CockpitMeetingSummary.tsx", [
+  "max-h-[480px]",
+  "overflow-y-auto",
+]);
 // dialogue narrative の本文ラベルは半角SPなし「2人」で書く (#2-2nd まさ 2026-05-24)
 expectNotIncludes("src/components/cockpit/CockpitMeetingDetailModal.tsx", [
   "2 人で出した",

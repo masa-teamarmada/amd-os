@@ -316,7 +316,7 @@ export function CockpitMeetingSummary({ projectId }: Props) {
           </button>
         </div>
       ) : (
-        <div className="flex flex-col gap-3 max-h-[480px] overflow-y-auto">
+        <div className="flex flex-col gap-3">
           {plannedMeetingCount > 0 && (
             <UpcomingMeetingBlock
               title="予定MTG / 準備中"
