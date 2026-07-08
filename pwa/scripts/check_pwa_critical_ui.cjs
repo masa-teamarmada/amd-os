@@ -393,6 +393,7 @@ expectIncludes("src/components/cockpit/CockpitSeasonFinance.tsx", [
   "メンバー支払",
   "期末未払",
   "未払残",
+  "収支",
   "ゼロ着地",
   "不足",
   "シーズン収支が閉じていない",
@@ -639,6 +640,7 @@ expectIncludes("design/FEATURE_REGISTRY.md", [
   "今シーズン収支",
   "クライアント支払",
   "期末未払",
+  "収支",
 ]);
 
 expectIncludes("src/lib/amd-score-l2-extract.ts", [

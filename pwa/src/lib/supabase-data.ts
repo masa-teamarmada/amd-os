@@ -240,6 +240,7 @@ export interface CockpitSeasonFinanceMonth {
   memberPayoutYen: number;
   companyReserveYen: number;
   unpaidStockYen: number;
+  cashBalanceYen: number;
   rewardObligationYen: number;
   remainingAfterObligationYen: number;
   cycleStatus: string;
@@ -1850,6 +1851,7 @@ function buildCockpitSeasonFinance({
     const memberPayoutYen = rewardSummaryNumber(summary, "totalPaySum", ["totalPay"]);
     const companyReserveYen = rewardSummaryNumber(summary, "companyReserveYen", ["companyReserveYen", "officerReserveYen"]);
     const unpaidStockYen = rewardSummaryNumber(summary, "carryOverYen", ["stockYen"]);
+    const cashBalanceYen = clientPaymentYen - bufferYen - memberPayoutYen;
     const rewardObligationYen = memberPayoutYen + companyReserveYen + unpaidStockYen;
     const remainingAfterObligationYen = pjBudgetYen - rewardObligationYen;
     return {
@@ -1860,6 +1862,7 @@ function buildCockpitSeasonFinance({
       memberPayoutYen,
       companyReserveYen,
       unpaidStockYen,
+      cashBalanceYen,
       rewardObligationYen,
       remainingAfterObligationYen,
       cycleStatus,
@@ -1873,8 +1876,9 @@ function buildCockpitSeasonFinance({
       pjBudgetYen: acc.pjBudgetYen + month.pjBudgetYen,
       memberPayoutYen: acc.memberPayoutYen + month.memberPayoutYen,
       companyReserveYen: acc.companyReserveYen + month.companyReserveYen,
+      cashBalanceYen: acc.cashBalanceYen + month.cashBalanceYen,
     }),
-    { clientPaymentYen: 0, bufferYen: 0, pjBudgetYen: 0, memberPayoutYen: 0, companyReserveYen: 0 }
+    { clientPaymentYen: 0, bufferYen: 0, pjBudgetYen: 0, memberPayoutYen: 0, companyReserveYen: 0, cashBalanceYen: 0 }
   );
   const finalMonth = financeMonths[financeMonths.length - 1] ?? null;
   const finalUnpaidStockYen = finalMonth?.unpaidStockYen ?? 0;

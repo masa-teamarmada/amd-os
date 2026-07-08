@@ -118,9 +118,9 @@ PJ cockpit の進捗管理タブでは、今期 MS リストの直下・月次�
 
 表示するもの:
 - シーズン合計: `クライアント支払` / `バッファ` / `原資上限` / `PJ予算` / `メンバー支払` / `期末未払`
-- 月次行: 各月の `クライアント支払` / `バッファ` / `PJ予算` / `メンバー支払` / `未払残` / `残`
+- 月次行: 各月の `クライアント支払` / `バッファ` / `PJ予算` / `メンバー支払` / `未払残` / `収支`
 
-クライアント支払は契約ベースの `contractBackedClientAmount` に別財布売上 (`billing_cycles.extra_revenue_json`) を按分加算する。契約が schedule_based の場合は `contract_terms_json.monthlySchedule.amountTaxExcl` も予定売上として読む。バッファは `value_plan_cycles.buffer_breakdown_json` にシーズン全体の内訳がある場合はそれを優先し、未設定の PJ だけ `billing_cycles.budget_buffer_amount` を読む。原資上限は `(クライアント支払 - バッファ) × 65%`。PJ予算は `billing_cycles.budget_yen + extra_budget_yen`、メンバー支払・未払残は `billing_cycles.reward_summary_json` を読む。役員向け報酬相当額は検算には含めるが、メンバー向けの PJ cockpit では表示しない。期末未払が 1 円でも残る場合、または PJ予算が原資上限を 1 円でも超える場合は、赤い停止帯と不足表示を出し、報酬計算側で最終月に自動上乗せしてゼロに見せない。MS 設計の保存は `/admin/ms-overview` で、同じ数字を使った保存前検算が不足状態を `blocked` にする。
+クライアント支払は契約ベースの `contractBackedClientAmount` に別財布売上 (`billing_cycles.extra_revenue_json`) を按分加算する。契約が schedule_based の場合は `contract_terms_json.monthlySchedule.amountTaxExcl` も予定売上として読む。バッファは `value_plan_cycles.buffer_breakdown_json` にシーズン全体の内訳がある場合はそれを優先し、未設定の PJ だけ `billing_cycles.budget_buffer_amount` を読む。原資上限は `(クライアント支払 - バッファ) × 65%`。PJ予算は `billing_cycles.budget_yen + extra_budget_yen`、メンバー支払・未払残は `billing_cycles.reward_summary_json` を読む。`収支` は現金主義の月次表示として `クライアント支払 - バッファ - メンバー支払` で出し、役員向け報酬相当額や未払残はその月の現金流出ではないため含めない。役員向け報酬相当額は検算には含めるが、メンバー向けの PJ cockpit では表示しない。期末未払が 1 円でも残る場合、または PJ予算が原資上限を 1 円でも超える場合は、赤い停止帯と不足表示を出し、報酬計算側で最終月に自動上乗せしてゼロに見せない。MS 設計の保存は `/admin/ms-overview` で、同じ数字を使った保存前検算が不足状態を `blocked` にする。
 
 ---
 

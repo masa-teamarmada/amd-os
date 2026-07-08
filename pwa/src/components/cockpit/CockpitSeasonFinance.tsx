@@ -38,8 +38,10 @@ function summaryTone(finance: CockpitSeasonFinanceData) {
     };
   }
   return {
-    label: `ゼロ着地 / 残 ${formatYen(finance.totals.finalRemainingYen)}`,
-    className: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    label: `ゼロ着地 / 収支 ${formatYen(finance.totals.cashBalanceYen)}`,
+    className: finance.totals.cashBalanceYen < 0
+      ? "border-red-200 bg-red-50 text-red-800"
+      : "border-emerald-200 bg-emerald-50 text-emerald-800",
   };
 }
 
@@ -60,6 +62,7 @@ export function CockpitSeasonFinance({ finance }: Props) {
     { label: "PJ予算", value: finance.totals.pjBudgetYen },
     { label: "メンバー支払", value: finance.totals.memberPayoutYen },
     { label: "期末未払", value: finance.totals.finalUnpaidStockYen, dangerWhenPositive: true },
+    { label: "収支", value: finance.totals.cashBalanceYen },
   ];
 
   return (
@@ -107,7 +110,7 @@ export function CockpitSeasonFinance({ finance }: Props) {
               <th className="px-3 py-2 text-right font-semibold">PJ予算</th>
               <th className="px-3 py-2 text-right font-semibold">メンバー支払</th>
               <th className="px-3 py-2 text-right font-semibold">未払残</th>
-              <th className="px-4 py-2 text-right font-semibold">残</th>
+              <th className="px-4 py-2 text-right font-semibold">収支</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#f0f0f2]">
@@ -122,8 +125,8 @@ export function CockpitSeasonFinance({ finance }: Props) {
                 <td className={`px-3 py-2 text-right tabular-nums ${amountTone(month.unpaidStockYen, true)}`}>
                   {formatYen(month.unpaidStockYen)}
                 </td>
-                <td className={`px-4 py-2 text-right font-semibold tabular-nums ${amountTone(month.remainingAfterObligationYen)}`}>
-                  {formatYen(month.remainingAfterObligationYen)}
+                <td className={`px-4 py-2 text-right font-semibold tabular-nums ${amountTone(month.cashBalanceYen)}`}>
+                  {formatYen(month.cashBalanceYen)}
                 </td>
               </tr>
             ))}
@@ -139,8 +142,8 @@ export function CockpitSeasonFinance({ finance }: Props) {
               <td className={`px-3 py-2 text-right font-semibold tabular-nums ${amountTone(finance.totals.finalUnpaidStockYen, true)}`}>
                 {formatYen(finance.totals.finalUnpaidStockYen)}
               </td>
-              <td className={`px-4 py-2 text-right font-semibold tabular-nums ${amountTone(finance.totals.finalRemainingYen)}`}>
-                {formatYen(finance.totals.finalRemainingYen)}
+              <td className={`px-4 py-2 text-right font-semibold tabular-nums ${amountTone(finance.totals.cashBalanceYen)}`}>
+                {formatYen(finance.totals.cashBalanceYen)}
               </td>
             </tr>
           </tfoot>
