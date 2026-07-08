@@ -1447,6 +1447,36 @@ function PlanCycleBlock({
   const visibleRewardRevision = editMode
     ? (rewardPreview ?? lastRewardRevision)
     : (lastRewardRevision ?? rewardPreview);
+  const financeMetricImpact = visibleRewardRevision?.budgetImpact ?? null;
+  const financeMetricLabel =
+    (financeMetricImpact?.seasonEndShortageYen ?? 0) > 0
+      ? "不足額"
+      : financeMetricImpact?.isOverBudget
+        ? "予算不足"
+        : financeMetricImpact?.isSourceOverBudget
+          ? "原資超過"
+          : "PJ予算残";
+  const financeMetricValue =
+    previewStatus === "idle" || previewStatus === "loading"
+      ? "検算中"
+      : previewStatus === "error"
+        ? "検算失敗"
+        : financeMetricImpact
+          ? fmtRevisionYen(
+              financeMetricImpact.seasonEndShortageYen > 0
+                ? financeMetricImpact.seasonEndShortageYen
+                : financeMetricImpact.isOverBudget
+                  ? financeMetricImpact.budgetShortageYen
+                  : financeMetricImpact.isSourceOverBudget
+                    ? financeMetricImpact.sourceBudgetOverrunYen
+                    : financeMetricImpact.remainingBudgetYen,
+            )
+          : "—";
+  const financeMetricSub = financeMetricImpact
+    ? `PJ予算 ${fmtRevisionYen(financeMetricImpact.pjBudgetYen)} / 期末未払 ${fmtRevisionYen(financeMetricImpact.seasonEndShortageYen)}`
+    : previewStatus === "error"
+      ? previewError || "保存前支払検算に失敗"
+      : "保存前支払検算";
   const saveBlockedReason = useMemo(() => {
     if (!editMode) return null;
     if (previewStatus === "idle" || previewStatus === "loading") return "保存前検算中";
@@ -1612,8 +1642,8 @@ function PlanCycleBlock({
             />
           )}
 
-          {/* ① メトリクスカード 3 枚 */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {/* ① メトリクスカード 4 枚 */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             <MetricCard
               label="合計pt"
               value={`${fmtPt(displayTotalPoints)}pt`}
@@ -1628,6 +1658,11 @@ function PlanCycleBlock({
               label="別財布pt"
               value={displayExtraPoints > 0 ? `${fmtPt(displayExtraPoints)}pt` : "—"}
               sub={displayExtraPoints > 0 ? `原資 ${fmtDesignYen(cycle.extraDesignBudgetYen)} / 単価 ${fmtDesignYen(cycle.extraDesignUnitYen)}` : "別財布 MS なし"}
+            />
+            <MetricCard
+              label={financeMetricLabel}
+              value={financeMetricValue}
+              sub={financeMetricSub}
             />
           </div>
 
