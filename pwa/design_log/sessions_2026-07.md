@@ -454,3 +454,83 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 - 消したいUIの旧名や旧説明を正本mdに残すと、それが後続作業の復活根拠になる。
 - 「戻さない」だけでなく「何を代わりに固定するか」まで書く。今回なら「4枚固定、4枚目は `budgetImpact`」が再発防止の核。
 - 画面上でまさが確認する変更は、docs guard だけでも build version で判別できるようにする。
+
+---
+
+## 2026-07-08 — PJ cockpit 今シーズン収支 cash-basis 収支 / v0.39.12
+
+### コンテキスト
+- まさから、PJ cockpit の season 全体の月次予算内訳にある `内部留保` / `会社留保` は、実質的に役員報酬相当額なのでメンバー向けには見せなくてよいという指示。
+- 続いて、`未払残` と `予算残` が同額に見えたことで、予算超過なのかという不安が出た。
+- 調査すると、表示されていた `残` は cash movement ではなく、hidden budget safety calc の義務残だった。まさの意図は現金主義でその月の収支を見ることだった。
+
+### 実装 / 仕様同期
+- `0eee5780 Show cockpit season finance cash balance`
+  - `pwa/src/lib/supabase-data.ts` に cash-basis `cashBalanceYen` を追加。
+  - `pwa/src/components/cockpit/CockpitSeasonFinance.tsx` の月次表を `残` から `収支` に変更。
+  - `収支 = クライアント支払 - バッファ - メンバー支払` に固定。
+  - `会社留保` / 役員報酬相当額は member-facing table から削除。
+  - hidden safety calc として `companyReserveYen` / `finalUnpaidYen` / `finalRemainingYen` は保持。
+- `pwa/scripts/check_pwa_critical_ui.cjs` を新しい `収支` 表示に合わせて更新。
+- `pwa/manual/2-3-pj-cockpit.md`、`pwa/spec/3-8-cockpit-current-spec.md`、`pwa/design/FEATURE_REGISTRY.md`、manual/spec appendix changelog に同期。
+- この件は表示定義の修正で、障害ログ化するほどの incident ではないため `pwa/BUGS.md` は対象外。
+
+### Verification / Deploy
+- `npx tsc --noEmit` passed。
+- `npm run test:critical-ui` passed。
+- `npm run build` passed。
+- local browser route check は認証前 `/auth/login` まで確認。認証後の cockpit 目視は未実施。
+- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` で main push / Vercel production 反映。
+- production `/api/build-info` は finance cockpit 変更時点で `v0.39.12` / `0eee5780...` / `dirty:false` を確認。
+- 後続の MS Overview guard commit により、closeout 時点の production は `v0.39.13` / `2d64a3fa...` / `dirty:false`。
+
+### 教訓
+- `残` という語は、財務表では cash residual と obligation residual のどちらにも読める。メンバー向け画面では目的に合わせて `収支` など意味が閉じる名前にする。
+- 役員報酬相当額のような内部向け配分は、内部計算には残しても、メンバーのPJ画面に露出させない。
+
+---
+
+## 2026-07-09 — Finance cockpit + MS guard handoff closeout refresh
+
+### コンテキスト
+- まさから `handoff` / `closeout` の実行依頼。
+- 直近の accepted work は、PJ cockpit の cash-basis `収支` 化と Admin MS Overview の個人名カード回帰防止。
+- closeout 時点で main / origin/main / production は一致していたが、別 lane の dirty が残っていた。作業中に並行WIPが増えたため、最終 handoff では19ファイルとして棚卸しした。
+
+### 実施内容
+- root `HANDOFF.md` を、finance cockpit と MS guard の両方が再開できる current truth に更新。
+- root `SESSION_MIGRATION_PROMPT.md` を、common 先頭・AMD level memory 併記・PJ cockpit / MS Overview 読み順込みの再開プロンプトへ更新。
+- dirty 19ファイルはこの handoff bundle へ含めず、owner guess / next action / risk 付きで棚卸しした。
+
+### Closeout snapshot
+- repo: `/Users/masa/projects/AMD/amd-os`
+- branch: `main`
+- HEAD / origin/main before handoff docs refresh: `2d64a3faa8571d1e7cb26d928712bf700eaefdba`
+- production `/api/build-info` before handoff docs refresh: `v0.39.13` / `2d64a3faa8571d1e7cb26d928712bf700eaefdba` / `main` / `dirty=false`
+- local main vs origin/main before handoff docs refresh: ahead `0`, behind `0`
+- registered worktree: `/Users/masa/projects/AMD/amd-os [main]` only
+- local branches: `main` only
+- remaining dirty:
+  - `pwa/src/app/api/admin/ms-overview/route.ts`
+  - `pwa/src/components/admin/AdminMsOverviewClient.tsx`
+  - `pwa/src/lib/admin/ms-overview-calc.ts`
+  - `pwa/src/app/(app)/project/[projectId]/cockpit/page.tsx`
+  - `pwa/src/app/(app)/institutions/[institutionId]/cockpit/page.tsx`
+  - `pwa/src/components/cockpit/CockpitNudge.tsx`
+  - `pwa/src/components/cockpit/CockpitView.tsx`
+  - `pwa/src/components/dashboard/CyberHudWallDashboard.tsx`
+  - `pwa/src/lib/build-info.ts`
+  - `pwa/scripts/check_pwa_critical_ui.cjs`
+  - `pwa/manual/2-3-pj-cockpit.md`
+  - `pwa/spec/3-8-cockpit-current-spec.md`
+  - `pwa/design/FEATURE_REGISTRY.md`
+  - `pwa/design/cockpit.md`
+  - `pwa/design/proactive_operating_loop.md`
+  - `pwa/manual/9-3-appendix-changelog.md`
+  - `pwa/spec/6-1-appendix-changelog.md`
+  - `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md`
+  - `pwa/scripts/atlas_signal_review_tool.mjs`
+
+### Closeout decision
+- この lane は完了済み。
+- checkout 全体は dirty 19ファイルが残るため `do not archive`。
