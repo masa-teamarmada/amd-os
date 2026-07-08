@@ -384,6 +384,18 @@ async function applyOutbox(args) {
     process.exitCode = 1;
     return;
   }
+  if (result.json?.disabled === true) {
+    console.log(JSON.stringify({
+      ok: false,
+      retryable: true,
+      errorKind: "ingest_disabled",
+      file,
+      result,
+      action: "left in outbox until Atlas ingest is enabled",
+    }, null, 2));
+    process.exitCode = TEMPFAIL_EXIT_CODE;
+    return;
+  }
   const dest = await moveFile(file, DEFAULT_APPLIED_DIR, "applied");
   console.log(JSON.stringify({ ok: true, file, movedTo: dest, result }, null, 2));
 }
