@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-09 JST
 Target: `/Users/masa/projects/AMD/amd-os`
-Topic: PJ cockpit season finance cash-basis `収支` + Admin MS Overview guard closeout
+Topic: PJ cockpit cash-basis `収支` / Admin MS Overview guard / cockpit Tsukuyomi memo removal closeout
 
 ## Summary
 
@@ -10,29 +10,30 @@ See `pwa/design_log/sessions_2026-07.md` sections:
 - `2026-07-08 — PJ cockpit 今シーズン収支 cash-basis 収支 / v0.39.12`
 - `2026-07-08 — Admin MS Overview 個人名カード回帰防止 / v0.39.13 closeout`
 - `2026-07-09 — Finance cockpit + MS guard handoff closeout refresh`
+- `2026-07-09 — Final clean closeout after cockpit memo removal`
 
 - PJ cockpit season finance table no longer shows the member-facing `会社留保` / officer-reserve-equivalent column.
 - The visible last column changed from obligation residual `残` to cash-basis `収支`.
 - Cash-basis formula: `収支 = クライアント支払 - バッファ - メンバー支払`.
 - Hidden safety checks still keep `companyReserveYen`, `finalUnpaidYen`, and `finalRemainingYen`; only the member-facing display changed.
 - Admin MS Overview current truth remains fixed at 4 top metrics: 合計pt / 本契約pt / 別財布pt / `budgetImpact` safety card. Do not restore personal-name comparison cards.
+- Parallel cockpit work landed as `e5d3771a fix: remove tsukuyomi memo from cockpit`: normal PJ / institution cockpit no longer renders `CockpitNudge` / `tsukuyomi_nudge_queue` cards. BUILD_VERSION is now `v0.39.14`.
+- Final checkout state before this docs-only closeout refresh was clean.
 
 ## Current Truth
 
 - Canonical repo: `/Users/masa/projects/AMD/amd-os`
 - Branch: `main`
-- Confirmed before this handoff docs refresh:
-  - HEAD / `origin/main`: `2d64a3faa8571d1e7cb26d928712bf700eaefdba`
-  - local main vs origin/main: ahead `0`, behind `0`
-  - production `/api/build-info`: `v0.39.13` / `2d64a3faa8571d1e7cb26d928712bf700eaefdba` / `main` / `dirty:false`
-- Latest product commits included in production:
-  - `0eee5780 Show cockpit season finance cash balance`
-  - `cb584019 chore(pwa): bump build version for MS guard`
-  - `2d64a3fa docs(closeout): clarify handoff production state`
-- Production URL: `https://amd-os-pwa.vercel.app`
+- Latest product commit before this docs-only refresh: `e5d3771a8154359a48e2a37325b9543b9e880d4c` (`fix: remove tsukuyomi memo from cockpit`)
+- Handoff docs commit: current `origin/main` HEAD after this file is pushed. Re-check with `git log -3 --oneline` because this file is part of the final docs commit itself.
+- Local main vs origin/main before this docs-only refresh: ahead `0`, behind `0`
 - Worktree registry: one registered worktree only, `/Users/masa/projects/AMD/amd-os [main]`.
 - Local branch inventory: `main` only.
-- Re-check `git status`, `git log -1 --oneline`, and production `/api/build-info` at restart, because this file may itself be committed after the snapshot above and parallel WIP changed during closeout.
+- Production URL: `https://amd-os-pwa.vercel.app`
+- Production state to re-check on restart:
+  - expected build version: `v0.39.14` or newer
+  - expected git sha: current `origin/main` HEAD after docs deploy
+  - expected dirty: `false`
 
 ## Verification Already Run
 
@@ -48,8 +49,8 @@ curl -fsS https://amd-os-pwa.vercel.app/api/build-info
 
 Observed:
 - TypeScript, critical UI anchors, and production build passed.
-- Local browser check reached `/auth/login`; authenticated cockpit screen was not visually rechecked in this closeout.
-- Production for the finance cockpit change was observed as `v0.39.12` / `0eee5780...` / `dirty:false` before later MS guard commits.
+- Local browser route check reached `/auth/login`; authenticated cockpit screen was not visually rechecked in this closeout.
+- Production for the finance cockpit change was observed as `v0.39.12` / `0eee5780...` / `dirty:false` before later commits.
 
 MS Overview guard:
 
@@ -68,6 +69,10 @@ Observed:
 - Production switched to `v0.39.13`.
 - Forbidden old MS card wording search returned zero matches.
 
+Cockpit Tsukuyomi memo removal:
+- Commit `e5d3771a` removed `CockpitNudge` from normal project / institution cockpit and updated manual/spec/registry/changelog/critical UI check.
+- This handoff session did not re-run that bundle's tests; verify from the `e5d3771a` worker if detailed proof is needed.
+
 Closeout inventory:
 
 ```bash
@@ -78,6 +83,13 @@ git rev-list --left-right --count origin/main...HEAD
 git worktree list --porcelain
 curl -fsS https://amd-os-pwa.vercel.app/api/build-info
 ```
+
+Final target state:
+- `git status -sb --untracked-files=all`: clean
+- `HEAD` / `origin/main`: same
+- ahead `0`, behind `0`
+- worktree registry: one main worktree
+- production build-info: current `origin/main` / `dirty:false` after final docs deploy
 
 ## Design Records
 
@@ -91,29 +103,9 @@ curl -fsS https://amd-os-pwa.vercel.app/api/build-info
 
 ## Dirty State To Preserve
 
-These files are dirty after the accepted `v0.39.13` release and are not part of this handoff bundle. Do not revert or stage them casually.
+None at final closeout.
 
-| path | class | owner guess | next action | risk |
-|---|---|---|---|---|
-| `pwa/src/app/api/admin/ms-overview/route.ts` | other-worker / MS finance WIP | MS design amount worker | Decide whether exact design amount should use `budget × pt比`; if yes, sync spec/manual, test, bump version, commit, push. | Medium: accidental staging can ship unverified finance math. |
-| `pwa/src/components/admin/AdminMsOverviewClient.tsx` | other-worker / MS finance WIP | MS design amount worker | Same bundle as above. | Medium |
-| `pwa/src/lib/admin/ms-overview-calc.ts` | other-worker / MS finance WIP | MS design amount worker | Same bundle as above. | Medium |
-| `pwa/src/app/(app)/project/[projectId]/cockpit/page.tsx` | other-worker / cockpit nudge removal WIP | cockpit UI worker | Decide whether removing Tsukuyomi nudge from project cockpit is intentional; if yes, sync manual/spec/registry/changelog and verify cockpit layout. | High: deletes a visible cockpit surface. |
-| `pwa/src/app/(app)/institutions/[institutionId]/cockpit/page.tsx` | other-worker / cockpit nudge removal WIP | cockpit UI worker | Same bundle as above. | High |
-| `pwa/src/components/cockpit/CockpitNudge.tsx` | other-worker / cockpit nudge removal WIP | cockpit UI worker | Same bundle as above; deletion should not ship without design record. | High |
-| `pwa/src/components/cockpit/CockpitView.tsx` | other-worker / cockpit nudge removal WIP | cockpit UI worker | Same bundle as above. | High |
-| `pwa/src/components/dashboard/CyberHudWallDashboard.tsx` | other-worker / cockpit nudge removal WIP | cockpit UI worker | Same bundle as above; dashboard embedded cockpit copy changed too. | Medium/High |
-| `pwa/src/lib/build-info.ts` | other-worker / cockpit nudge removal WIP | cockpit UI worker | `v0.39.14` bump appears tied to this WIP; keep with that bundle, not with docs-only handoff. | Medium/High |
-| `pwa/scripts/check_pwa_critical_ui.cjs` | other-worker / cockpit nudge removal WIP | cockpit UI worker | Same bundle as above; critical UI anchors changed and need test proof. | Medium/High |
-| `pwa/manual/2-3-pj-cockpit.md` | other-worker / cockpit nudge removal WIP | cockpit UI worker | Same bundle as above; manual already being adjusted for no nudge card. | Medium |
-| `pwa/spec/3-8-cockpit-current-spec.md` | other-worker / cockpit nudge removal WIP | cockpit UI worker | Same bundle as above; spec already being adjusted for no `CockpitNudge` in normal cockpit. | Medium |
-| `pwa/design/FEATURE_REGISTRY.md` | other-worker / cockpit nudge removal WIP | cockpit UI worker | Same bundle as above; this is the important UI registry, so verify the removal is intended. | Medium/High |
-| `pwa/design/cockpit.md` | other-worker / cockpit nudge removal WIP | cockpit UI worker | Same bundle as above. | Medium |
-| `pwa/design/proactive_operating_loop.md` | other-worker / cockpit nudge removal WIP | cockpit UI worker | Same bundle as above. | Medium |
-| `pwa/manual/9-3-appendix-changelog.md` | other-worker / cockpit nudge removal WIP | cockpit UI worker | Same bundle as above. | Low/Medium |
-| `pwa/spec/6-1-appendix-changelog.md` | other-worker / cockpit nudge removal WIP | cockpit UI worker | Same bundle as above. | Low/Medium |
-| `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md` | other-worker / L6 prep WIP | L6 prep worker | Decide whether prep Drive outputs should be HTML-only; if yes, sync related specs/manual and commit. | Low/Medium |
-| `pwa/scripts/atlas_signal_review_tool.mjs` | preexisting / Atlas WIP | Atlas signal worker | Validate retryable disabled-ingest handling, then commit or revert in Atlas lane. | Low/Medium |
+During the handoff work, parallel WIP briefly appeared as 19 dirty files. That bundle was committed separately as `e5d3771a fix: remove tsukuyomi memo from cockpit` before the final closeout docs refresh. Do not resurrect the stale dirty inventory from older chat/tool output.
 
 ## First Next Action
 
@@ -128,10 +120,8 @@ git rev-list --left-right --count origin/main...HEAD
 curl -fsS https://amd-os-pwa.vercel.app/api/build-info
 ```
 
-Then resolve the dirty bundles one lane at a time. If continuing finance display work, authenticated cockpit visual verification is the next useful check. If continuing MS design amount WIP, do not ship it without spec/manual sync and tests. If continuing cockpit nudge removal, treat it as a feature removal and update design records before deploy.
+Then continue from the user's next actual request. If finance display work resumes, authenticated cockpit visual verification is the next useful check. If MS finance math work resumes, treat it as a new bundle and do not ship without spec/manual sync and tests.
 
 ## Closeout Decision
 
-`do not archive` for the whole checkout while the nineteen unrelated dirty files remain.
-
-This finance cockpit + MS guard lane is otherwise complete: accepted work is on `main`, production had `v0.39.13` / `dirty:false` at closeout check, current docs state the cash-basis `収支` definition, and MS Overview docs forbid the old personal-name card shape.
+Archive is OK for this thread after final docs deploy confirmation: the repo is on `main`, local and origin are aligned, no extra worktree/branch remains, and there is no dirty state to preserve.

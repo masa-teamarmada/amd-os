@@ -495,42 +495,47 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 ### コンテキスト
 - まさから `handoff` / `closeout` の実行依頼。
 - 直近の accepted work は、PJ cockpit の cash-basis `収支` 化と Admin MS Overview の個人名カード回帰防止。
-- closeout 時点で main / origin/main / production は一致していたが、別 lane の dirty が残っていた。作業中に並行WIPが増えたため、最終 handoff では19ファイルとして棚卸しした。
+- closeout 作業中に、別 lane の cockpit つくよみメモ削除 WIP が一時的に dirty として見えた。
 
 ### 実施内容
 - root `HANDOFF.md` を、finance cockpit と MS guard の両方が再開できる current truth に更新。
 - root `SESSION_MIGRATION_PROMPT.md` を、common 先頭・AMD level memory 併記・PJ cockpit / MS Overview 読み順込みの再開プロンプトへ更新。
-- dirty 19ファイルはこの handoff bundle へ含めず、owner guess / next action / risk 付きで棚卸しした。
+- 一時的に見えていた dirty 19ファイルは、別 commit `e5d3771a fix: remove tsukuyomi memo from cockpit` として整理されたため、最終 closeout では dirty なしに更新。
 
 ### Closeout snapshot
 - repo: `/Users/masa/projects/AMD/amd-os`
 - branch: `main`
-- HEAD / origin/main before handoff docs refresh: `2d64a3faa8571d1e7cb26d928712bf700eaefdba`
-- production `/api/build-info` before handoff docs refresh: `v0.39.13` / `2d64a3faa8571d1e7cb26d928712bf700eaefdba` / `main` / `dirty=false`
-- local main vs origin/main before handoff docs refresh: ahead `0`, behind `0`
+- latest product commit before final docs-only refresh: `e5d3771a8154359a48e2a37325b9543b9e880d4c` (`fix: remove tsukuyomi memo from cockpit`)
+- production `/api/build-info` should be rechecked after final docs deploy; expected `v0.39.14` or newer / current `origin/main` / `dirty=false`
+- local main vs origin/main before final docs-only refresh: ahead `0`, behind `0`
 - registered worktree: `/Users/masa/projects/AMD/amd-os [main]` only
 - local branches: `main` only
-- remaining dirty:
-  - `pwa/src/app/api/admin/ms-overview/route.ts`
-  - `pwa/src/components/admin/AdminMsOverviewClient.tsx`
-  - `pwa/src/lib/admin/ms-overview-calc.ts`
-  - `pwa/src/app/(app)/project/[projectId]/cockpit/page.tsx`
-  - `pwa/src/app/(app)/institutions/[institutionId]/cockpit/page.tsx`
-  - `pwa/src/components/cockpit/CockpitNudge.tsx`
-  - `pwa/src/components/cockpit/CockpitView.tsx`
-  - `pwa/src/components/dashboard/CyberHudWallDashboard.tsx`
-  - `pwa/src/lib/build-info.ts`
-  - `pwa/scripts/check_pwa_critical_ui.cjs`
-  - `pwa/manual/2-3-pj-cockpit.md`
-  - `pwa/spec/3-8-cockpit-current-spec.md`
-  - `pwa/design/FEATURE_REGISTRY.md`
-  - `pwa/design/cockpit.md`
-  - `pwa/design/proactive_operating_loop.md`
-  - `pwa/manual/9-3-appendix-changelog.md`
-  - `pwa/spec/6-1-appendix-changelog.md`
-  - `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md`
-  - `pwa/scripts/atlas_signal_review_tool.mjs`
+- remaining dirty: none at final closeout
 
 ### Closeout decision
 - この lane は完了済み。
-- checkout 全体は dirty 19ファイルが残るため `do not archive`。
+- checkout 全体も clean。final docs deploy 確認後は archive OK。
+
+---
+
+## 2026-07-09 — Final clean closeout after cockpit memo removal
+
+### コンテキスト
+- handoff/closeout 作業中に並行して進んでいた cockpit つくよみメモ削除が `e5d3771a` として main / origin/main に入った。
+- これにより、途中で棚卸ししていた dirty 19ファイルは current truth ではなくなった。
+
+### 実施内容
+- `HANDOFF.md` と `SESSION_MIGRATION_PROMPT.md` を clean closeout 状態へ再更新。
+- `e5d3771a` を latest product commit として扱い、通常PJ / institution cockpit に旧 `CockpitNudge` を戻さないことを再開プロンプトへ追加。
+
+### Closeout snapshot
+- repo: `/Users/masa/projects/AMD/amd-os`
+- branch: `main`
+- latest product commit before final docs-only refresh: `e5d3771a8154359a48e2a37325b9543b9e880d4c`
+- expected production after final docs deploy: `v0.39.14` or newer / current `origin/main` / `dirty=false`
+- registered worktree: `/Users/masa/projects/AMD/amd-os [main]` only
+- local branches: `main` only
+- dirty state: none
+
+### 注意
+- `e5d3771a` の詳細な test proof は、この handoff session では再実行していない。必要なら該当 commit / worker のログを見る。

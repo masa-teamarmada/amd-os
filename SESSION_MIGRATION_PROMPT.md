@@ -1,4 +1,4 @@
-# SESSION MIGRATION PROMPT - AMD OS finance cockpit + MS guard closeout
+# SESSION MIGRATION PROMPT - AMD OS clean closeout
 
 ```text
 cd /Users/masa/projects/AMD/amd-os
@@ -26,18 +26,21 @@ cd /Users/masa/projects/AMD/amd-os
 状態スナップショット:
 - canonical repo: /Users/masa/projects/AMD/amd-os
 - branch: main
-- snapshot before this handoff docs refresh:
-  - HEAD / origin/main: 2d64a3faa8571d1e7cb26d928712bf700eaefdba
-  - local main vs origin/main: ahead 0 / behind 0
-  - production /api/build-info: v0.39.13 / 2d64a3faa8571d1e7cb26d928712bf700eaefdba / main / dirty:false
-- latest product commits already included in production:
-  - 0eee5780 Show cockpit season finance cash balance
-  - cb584019 chore(pwa): bump build version for MS guard
-  - 2d64a3fa docs(closeout): clarify handoff production state
+- latest product commit before final docs-only closeout: e5d3771a8154359a48e2a37325b9543b9e880d4c (fix: remove tsukuyomi memo from cockpit)
+- this prompt may itself be inside a later docs-only closeout commit; re-check `git log -3 --oneline`.
+- expected local state after closeout:
+  - HEAD / origin/main: same
+  - ahead 0 / behind 0
+  - git status: clean
+  - registered worktree: /Users/masa/projects/AMD/amd-os [main] only
+  - local branches: main only
 - production: https://amd-os-pwa.vercel.app
-- registered worktree: /Users/masa/projects/AMD/amd-os [main] only
-- local branches: main only
-- always re-run git status/log/build-info before work, because this prompt may itself be committed after the snapshot above and parallel WIP changed during closeout.
+- expected production /api/build-info after final docs deploy:
+  - build_version: v0.39.14 or newer
+  - git_sha: current origin/main HEAD
+  - git_branch: main
+  - dirty: false
+- always re-run git status/log/build-info before work.
 
 直近で完了した成果:
 - PJ cockpit の月次 season finance table から、メンバー向け表示の 会社留保 / 役員報酬相当額 column を削除した。
@@ -52,6 +55,7 @@ cd /Users/masa/projects/AMD/amd-os
   3. 別財布pt
   4. 保存前支払検算 budgetImpact 由来の PJ予算残 / 不足額 / 予算不足 / 原資超過
 - 4枚目を個人名カードへ戻す変更は禁止。3枚化も禁止。
+- `e5d3771a fix: remove tsukuyomi memo from cockpit` で、通常PJ / institution cockpit から `CockpitNudge` / `tsukuyomi_nudge_queue` 由来カードが削除された。BUILD_VERSION は v0.39.14。
 
 仕様同期済み:
 - pwa/manual/2-3-pj-cockpit.md
@@ -71,7 +75,7 @@ cd /Users/masa/projects/AMD/amd-os
   - npm run test:critical-ui
   - npm run build
   - AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh
-  - production build-info observed as v0.39.12 / 0eee5780... / dirty:false before later MS commits
+  - production build-info observed as v0.39.12 / 0eee5780... / dirty:false before later commits
 - MS Overview guard:
   - npm run test:critical-ui
   - npm run test:deploy-version-guard
@@ -79,42 +83,22 @@ cd /Users/masa/projects/AMD/amd-os
   - deploy rollback guard
   - production build-info observed as v0.39.13 / dirty:false
   - old personal-name card wording rg zero matches
+- Cockpit Tsukuyomi memo removal:
+  - committed as e5d3771a
+  - this handoff session did not re-run that bundle's tests; verify from that worker if detailed proof is needed
 - closeout:
   - git status / HEAD / origin/main / ahead-behind / worktree list / production build-info checked
 
 未解決 / dirty:
-- 以下19ファイルは、この accepted release 後も dirty。今回の handoff では触らない。
-  - pwa/src/app/api/admin/ms-overview/route.ts
-  - pwa/src/components/admin/AdminMsOverviewClient.tsx
-  - pwa/src/lib/admin/ms-overview-calc.ts
-  - pwa/src/app/(app)/project/[projectId]/cockpit/page.tsx
-  - pwa/src/app/(app)/institutions/[institutionId]/cockpit/page.tsx
-  - pwa/src/components/cockpit/CockpitNudge.tsx
-  - pwa/src/components/cockpit/CockpitView.tsx
-  - pwa/src/components/dashboard/CyberHudWallDashboard.tsx
-  - pwa/src/lib/build-info.ts
-  - pwa/scripts/check_pwa_critical_ui.cjs
-  - pwa/manual/2-3-pj-cockpit.md
-  - pwa/spec/3-8-cockpit-current-spec.md
-  - pwa/design/FEATURE_REGISTRY.md
-  - pwa/design/cockpit.md
-  - pwa/design/proactive_operating_loop.md
-  - pwa/manual/9-3-appendix-changelog.md
-  - pwa/spec/6-1-appendix-changelog.md
-  - pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md
-  - pwa/scripts/atlas_signal_review_tool.mjs
-- MS系3ファイルは「設計額を丸め済み1pt単価ではなく budget × pt比で出す」方向のWIPに見える。採用するなら spec/manual/BUGS/changelog 同期、BUILD_VERSION bump、test、deploy が必要。
-- Cockpit系14ファイルは `CockpitNudge` / つくよみメモを消すWIPに見える。manual/spec/FEATURE_REGISTRY/changelog/critical-ui も動いている。採用するなら feature removal として認証後 cockpit 目視、test、deploy が必要。`pwa/src/lib/build-info.ts` の v0.39.14 bump もこの bundle として扱う。
-- L6 prep SKILL は prep資料をHTML主成果物へ寄せるWIPに見える。採用するなら関連仕様の同期が必要。
-- Atlas script は ingest disabled を retryable として outbox に残すWIPに見える。Atlas lane で検証して commit/revert 判断する。
+- none at final closeout.
+- During handoff, parallel WIP briefly appeared as 19 dirty files. That bundle was committed separately as e5d3771a before final closeout docs refresh. Do not treat the older dirty inventory as current truth.
 
 次タスク:
 1. まず git status と production build-info を再確認する。
-2. dirty 19ファイルを lane 別に処理する。git add . は使わない。
-3. PJ cockpit の表示を続けるなら、認証後の cockpit 画面で `今シーズン収支` と月次の `収支` を目視確認する。
-4. MS系3ファイルを進めるなら、finance math なので仕様同期とテストなしで出さない。
-5. Cockpit nudge removal を進めるなら、消してよい業務導線かを FEATURE_REGISTRY / manual で確認してから出す。
-6. 同じMSカードが見えると言われたら、まず画面左上 version / /api/build-info が v0.39.13 以上か確認する。
+2. PJ cockpit の表示を続けるなら、認証後の cockpit 画面で `今シーズン収支` と月次の `収支` を目視確認する。
+3. MS finance math を進めるなら、新しい bundle として扱い、仕様同期とテストなしで出さない。
+4. 同じMSカードが見えると言われたら、まず画面左上 version / /api/build-info が v0.39.13 以上か確認する。
+5. cockpit につくよみメモが残って見えると言われたら、画面左上 version / /api/build-info が v0.39.14 以上か確認する。
 
 運用ルール:
 - /Users/masa/projects/AGENTS.common.md を最初に読む。
@@ -126,4 +110,5 @@ cd /Users/masa/projects/AMD/amd-os
 - handoff時は、新仕様を pwa/manual / pwa/spec / pwa/design / BUGS / design_log へ分けて記録し、HANDOFFだけに恒久仕様を残さない。
 - PJ cockpit の member-facing finance table は cash-basis 収支表示。会社留保 / 役員報酬相当額は出さない。
 - /admin/ms-overview の上段メトリクスは 4枚固定。4枚目は budgetImpact の安全状態カード。個人名カードへ戻さない。
+- 通常PJ / institution cockpit には旧 `CockpitNudge` / つくよみメモカードを戻さない。
 ```
