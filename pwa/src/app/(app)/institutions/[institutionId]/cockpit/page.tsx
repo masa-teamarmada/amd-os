@@ -138,7 +138,6 @@ export default function InstitutionCockpitPage() {
 
           <CockpitView
             cockpit={cockpit}
-            nudges={cockpit.nudges || []}
             tasks={cockpit.tasks || []}
           />
 

@@ -33,6 +33,13 @@ function expectNotIncludes(rel, needles) {
   }
 }
 
+function expectFileMissing(rel) {
+  const target = path.join(root, rel);
+  if (fs.existsSync(target)) {
+    throw new Error(`${rel} should not exist; retired UI component was restored`);
+  }
+}
+
 expectIncludes("spec/3-0-l2-data-list-current-spec.md", [
   "# L2データリスト",
   "M / W / D / H",
@@ -385,6 +392,21 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
   "renderMsSetupBanner",
 ]);
 
+expectFileMissing("src/components/cockpit/CockpitNudge.tsx");
+expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
+  "CockpitNudge",
+  "つくよみメモ",
+]);
+expectNotIncludes("src/app/(app)/project/[projectId]/cockpit/page.tsx", [
+  "nudges={cockpit.nudges",
+]);
+expectNotIncludes("src/app/(app)/institutions/[institutionId]/cockpit/page.tsx", [
+  "nudges={cockpit.nudges",
+]);
+expectNotIncludes("src/components/dashboard/CyberHudWallDashboard.tsx", [
+  "nudges={cockpit.nudges",
+]);
+
 expectIncludes("src/components/cockpit/CockpitSeasonFinance.tsx", [
   "今シーズン収支",
   "クライアント支払",
@@ -641,6 +663,10 @@ expectIncludes("design/FEATURE_REGISTRY.md", [
   "クライアント支払",
   "期末未払",
   "収支",
+]);
+expectNotIncludes("design/FEATURE_REGISTRY.md", [
+  "TODO/nudge",
+  "ステータス・nudge",
 ]);
 
 expectIncludes("src/lib/amd-score-l2-extract.ts", [

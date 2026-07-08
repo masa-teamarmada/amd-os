@@ -58,7 +58,7 @@ CockpitHeader は `/admin/projects` の正本から、PJメンバー、契約条
                                                 スコア詳細は cockpit mount 時に非表示で先読みし、同一セッションでは 5 分TTLで再利用。
                                                 タブ再表示時に TTL 超過なら表示済み内容を保ったまま背景再取得する。
 
-メインボード: grid lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_300px] gap-3
+メインボード: 通常は grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3。凍結/再開ステータスがある時だけ lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_300px] gap-3
 ├── col1: 今期MS + 設定 + 過去
 │   ├── [B]   CockpitGoalsCompact     今期 MS Gantt + 担当・割合
 │   ├── [B2]  CockpitNextPeriodSetup  次期 MS 設定バナー / 直接編集
@@ -67,9 +67,8 @@ CockpitHeader は `/admin/projects` の正本から、PJメンバー、契約条
 ├── col2: 経営ハイライト (D-6)
 │   └── [B1]  CockpitStrategySignals  candidate / confirmed をMS直下の上位ボードとして見せる
 │
-└── col3: 先手力 / 補助パネル (lg 以上で sticky top-12)
-    ├── ステータスバッジ (凍結中 / 再開予定 など)
-    └── [N]   CockpitNudge            つくよみ nudge キュー
+└── col3: ステータス補助パネル (凍結中 / 再開予定などがある時だけ、lg 以上で sticky top-12)
+    └── ステータスバッジ
 
 下段: grid lg:grid-cols-2 gap-3
 ├── [G]  CockpitMonthlyList                       月次カード一覧
@@ -84,6 +83,7 @@ CockpitHeader は `/admin/projects` の正本から、PJメンバー、契約条
 - **凍結/再開履歴**: `project_freeze_periods` が正本。`projects.freeze_from_ym` / `restart_expected_ym` は現在状態の表示用キャッシュ。CTB のように「202412で一度終了 → 再開 → 202605で再凍結」のような複数期間は `project_freeze_periods` に複数行で保存する。
 - **CockpitFreezeBackfill**: `freeze_period_backfills` テーブルから `(project_id, freeze_from_ym, restart_ym)` を fetch、再開月以降に「📦 休止期間サマリ」パネルを MTGサマリの直上に表示。データソースは `cron/freeze-period-backfill` が休止期間中の monthly_reports + project_meeting_summaries を Sonnet で 400-700 字に統合
 - **PM月次ルーティン廃止**: `canEditRoutine` / `CockpitRoutineGas` は current cockpit から外す。月次確認は `CockpitMonthlyList` / `CockpitMonthlyModal`、請求運用は admin billing / payouts 側で扱う。
+- **旧 nudge カード廃止**: 通常PJ cockpit から `CockpitNudge` は削除済み。`tsukuyomi_nudge_queue` 由来のカードは、この画面には表示しない。
 - **タブタイトル動的化**: `/project/[projectId]/layout.tsx` の generateMetadata が `projects.project_name` → `project_ventures.display_name` 順で fallback して `<PJ名> - AMD OS` を返す
 - **MTG添付資料トレイ**: `CockpitMeetingDetailModal` 内の `MeetingAssetsPanel` で、選択 / drag & drop / clipboard paste / browser screen capture の4経路から一般ファイルを `meeting_assets` に保存する。新規アップロード実体は Drive の `PJフォルダ / YYMMDD_会議名` に置き、カード上に保存先を表示する。`本文へ` は添付一覧を `narrative_md` の Markdown block に挿入し、Meet/Gmail 自動議事録に落ちない画面共有情報を後から補完できるようにする。
 
@@ -465,7 +465,7 @@ XRL も同パターン (`xrl_feedbacks` → `/api/.../xrl-revise` → 手動 `/v
 ├── [B3]  過去の期間
 ├── [C]   TODO (`ProactiveQueuePanel`)
 ├── [G/E] CockpitMonthlyList + CockpitMeetingSummary
-└── [Right] CockpitNudge
+└── [Right] Status badges (必要な時だけ)
 ```
 
 > ⚠️ `[A2] CockpitVentureStatus`（PJ Status セクション）は **p00 では非表示**。AMD 全社は `project_ventures` 行を持たないため。代わりに CockpitP00MVVSection が同じ位置に表示される。

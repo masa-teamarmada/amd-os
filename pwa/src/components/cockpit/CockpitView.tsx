@@ -13,7 +13,6 @@ import { CockpitKuteAnnualRoadmap } from "./CockpitKuteAnnualRoadmap";
 import { CockpitSeasonFinance } from "./CockpitSeasonFinance";
 import { CockpitMonthlyList } from "./CockpitMonthlyList";
 import { CockpitMonthlyModal } from "./CockpitMonthlyModal";
-import { CockpitNudge } from "./CockpitNudge";
 import { CockpitMeetingSummary } from "./CockpitMeetingSummary";
 import { CockpitFreezeBackfill } from "./CockpitFreezeBackfill";
 import { CockpitAmdScoreDetailTab } from "./CockpitAmdScoreDetailTab";
@@ -194,9 +193,6 @@ interface CockpitViewProps {
       confirmedAt: string | null;
     }>;
   };
-  nudges: Array<{
-    message: string; status: string; level: string; postedAt: string | null;
-  }>;
   tasks: Array<{
     taskId: string; title: string; status: string;
     assignee?: string; priority?: string; description?: string;
@@ -264,7 +260,7 @@ function usesMsProgressCategory(category: string | null | undefined) {
 
 type CockpitTab = "progress" | "score-detail";
 
-export function CockpitView({ cockpit, nudges, initialModalYm }: CockpitViewProps) {
+export function CockpitView({ cockpit, initialModalYm }: CockpitViewProps) {
   const [activeTab, setActiveTab] = useState<CockpitTab>("progress");
   const [modalYm, setModalYm] = useState<string | null>(initialModalYm || null);
   const [modalInitialTab, setModalInitialTab] = useState<MonthlyModalTab | undefined>(undefined);
@@ -375,14 +371,17 @@ export function CockpitView({ cockpit, nudges, initialModalYm }: CockpitViewProp
   if (project.restartExpectedYm && currentYm < project.restartExpectedYm) {
     statusBadges.push({ key: "restart", cls: "bg-blue-50 text-blue-800 border-blue-300", text: `📅 ${formatYm(project.restartExpectedYm)} から再開予定` });
   }
+  const mainGridClass = statusBadges.length > 0
+    ? "grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_300px] gap-3 items-start"
+    : "grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3 items-start";
 
   return (
     // 案D レイアウト (2026-05-24 #28 まさ確定):
     //  上: Header + Hero (AMD Score chart + XRL chart 横並び)
-    //  メインボード 3 カラム:
+    //  メインボード:
     //    col1 = 今期MS + 次期MS設定 + 過去の期間 + 月次カード + 休止期間 backfill
     //    col2 = TODO + 経営ハイライト (D-6) + MTGサマリ
-    //    col3 = ステータスバッジ + nudge (sticky)
+    //    col3 = ステータスバッジ (必要な時だけ sticky)
     <div className="max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3">
       {/* [A] Project Header (full width) */}
       <CockpitHeader project={project} members={members} />
@@ -430,10 +429,8 @@ export function CockpitView({ cockpit, nudges, initialModalYm }: CockpitViewProp
 
       {(!hasScoreDetailTab || activeTab === "progress") && (
         <>
-      {/* メインボード: 3 カラム grid (lg breakpoint 以上)
-          1.2fr 1.2fr 300px = MS / 経営シグナル / ステータス
-          col3 は sticky (mobile / md は通常配置) */}
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_300px] gap-3 items-start">
+      {/* メインボード: 通常は 2 カラム。凍結/再開バッジがある時だけ 3 カラム目を出す。 */}
+      <div className={mainGridClass}>
 
         {/* col1: 今期MS + 次期MS設定 + 過去の期間 */}
         <div className="flex flex-col gap-3 min-w-0">
@@ -522,9 +519,8 @@ export function CockpitView({ cockpit, nudges, initialModalYm }: CockpitViewProp
           <CockpitMeetingSummary projectId={project.projectId} />
         </div>
 
-        {/* col3: ステータスバッジ + nudge (lg 以上で sticky) */}
-        <div className="flex flex-col gap-3 min-w-0 lg:sticky lg:top-12 lg:max-h-[calc(100vh-60px)] lg:overflow-y-auto">
-          {statusBadges.length > 0 && (
+        {statusBadges.length > 0 && (
+          <div className="flex flex-col gap-3 min-w-0 lg:sticky lg:top-12">
             <div className="flex flex-col gap-1">
               {statusBadges.map((b) => (
                 <span key={b.key} className={`text-[11px] px-2 py-1 rounded-md border ${b.cls}`}>
@@ -532,9 +528,8 @@ export function CockpitView({ cockpit, nudges, initialModalYm }: CockpitViewProp
                 </span>
               ))}
             </div>
-          )}
-          <CockpitNudge nudges={nudges} />
-        </div>
+          </div>
+        )}
       </div>
 
         </>

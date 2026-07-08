@@ -60,7 +60,6 @@ export default function CockpitPage() {
   return (
     <CockpitView
       cockpit={cockpit}
-      nudges={cockpit.nudges || []}
       tasks={cockpit.tasks || []}
       initialModalYm={meetingParam ? null : ymParam}
     />

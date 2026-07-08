@@ -449,7 +449,7 @@ Dashboard 上部または Management Score 近くに「TODO」を出す。Dashbo
 - 関連 MTG / source refs
 - draft artifact refs
 
-既存の Cockpit major sections を消さず、`CockpitMeetingSummary` と `CockpitStrategySignals` の間、または右カラムの `CockpitNudge` 近くに小さく始める。
+既存の Cockpit major sections を消さず、`CockpitMeetingSummary` と `CockpitStrategySignals` の間に小さく始める。通常PJ cockpit の旧 nudge カードは廃止済みなので、右カラム前提で置かない。
 
 ### Admin / commander view
 

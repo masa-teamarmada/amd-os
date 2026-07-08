@@ -28,11 +28,12 @@
 | `seasonFinance` | current plan cycle のシーズン収支。月次とシーズン合計で、クライアント支払、バッファ、PJ予算、メンバー現金支払、未払残、現金収支を返す。役員向け報酬相当額と予算残は検算用データとして保持するが、PJ cockpit では表示しない |
 | `strategySignals` | L2D-6 `project_strategy_signals` |
 | `tasks` | kanban tasks |
-| `nudges` | cockpit nudges |
 
 `proactive_outbox` は `CockpitData` bundle には混ぜず、`ProactiveQueuePanel` が authenticated browser Supabase client で read-only fetch する。RLS は admin authenticated read 前提で、権限がない場合は UI 内で非表示相当のメッセージにする。
 
 `project_documents` も `CockpitData` bundle には混ぜず、`CockpitProjectDocuments` が `/api/project-documents?project_id=...` を fetch する。API は authenticated user の `members.email` を `project_members` に解決し、当該PJの active member または admin なら資料一覧を返す。ファイル本体は DB / Supabase Storage に置かず、Google Drive の `projects.drive_folder_id` 配下に作成する資料専用 folder (`AMD OS 資料`) へ保存し、DB には Drive file ID / folder ID / `webViewLink` / name / MIME / size / uploaded_by / timestamps だけを残す。
+
+`tsukuyomi_nudge_queue` は通常PJ / institution cockpit の `CockpitView` へ渡さず、`CockpitNudge` カードも表示しない。既存の `fetchCockpitFromSupabase` が互換用に `nudges` を返す場合でも、この画面では読まない。HUD / dashboard 実験面で同じ queue を使う場合は、それぞれの専用コンポーネントの契約として扱う。
 
 ## Permission / Mutation Boundary
 

@@ -19,13 +19,13 @@ AMD OS の **中心画面**。各 PJ ごとに 1 つあり、URL は `/project/{
 │  タブ: 進捗管理 / スコア詳細                         │
 ├──────────────────┬──────────────────┬──────────────┤
 │  年間 MS リスト   │  TODO              │  月次確認       │
-│  月次サマリ       │  資料              │  つくよみメモ   │
+│  月次サマリ       │  資料              │  ステータス     │
 │                   │  経営ハイライト    │               │
 │                   │  MTG サマリ        │               │
 └──────────────────┴──────────────────┴──────────────┘
 ```
 
-(= 3 カラム x 2 段、まさ #28 確定 2026-05-24)
+(= 通常は 2 カラム。凍結中 / 再開予定などのステータスがある場合だけ右カラムを出す)
 
 PJ ヘッダー最上部には、PJリスト (`/admin/projects`) の正本から、PJメンバー、契約条件、業務委託料、支払い条件、提出物の有無、月次報告書の状態と詳細、立替精算可否を表示する。提出物/月次報告/立替精算は `projects.contract_terms_json` の `deliverablesRequired` / `deliverablesNote` / `monthlyReportSubmissionRule` / `monthlyReportSubmissionTiming` / `monthlyReportSubmissionDeadline` / `monthlyReportSubmissionFormat` / `monthlyReportSubmissionRequiredItems` / `monthlyReportSubmissionNote` / `expenseReimbursementAllowed` / `expenseReimbursementNote` を見る。月次報告の値は `要提出` / `不要` / `指定なし` / `要確認` / `不明` を短く出し、時期・提出期限・フォーマット・記載事項・根拠を補足に畳む。値は契約書/見積書から `contract_terms.extracted_terms_json` へ抽出され、Contract Apply 後に PJ 正本へ畳まれる。契約条項に無くても PJ 運用として提出が必要な場合は、同じJSONに根拠を残して表示する。
 
@@ -295,13 +295,9 @@ CX (`p20`) / SX (`p21`) / KUTE (`p25`) は月次提出が必要なため、月�
 
 ---
 
-## つくよみメモ
+## 通常コックピットに出さないもの
 
-`tsukuyomi_nudge_queue` テーブルに溜まる「LLM が見つけた要注意事項」を右下に表示。例:
-- 「DG ダイワ から VC 6/12 同時突入予定の進行確認」
-- 「担当メンバーの活動量が直近 7 日で減少」
-
-各 nudge は「対応済」or「無視」で消える。
+`tsukuyomi_nudge_queue` の古い要注意カードは、通常の PJ コックピット右カラムには表示しない。コックピットは MS、月次、資料、経営ハイライト、MTG サマリ、先手 TODO を読む面に絞る。軽い確認連絡や担当者への通知は Slack 側、または用途が明確な専用画面側で扱う。
 
 ---
 
