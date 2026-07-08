@@ -25,16 +25,17 @@ cd /Users/masa/projects/AMD/amd-os
 - canonical repo: /Users/masa/projects/AMD/amd-os
 - branch: main
 - accepted product release: cb584019ca8710b684322688069c42bf1012d652 (chore(pwa): bump build version for MS guard)
+- latest handoff docs commit: current origin/main HEAD. Re-check with `git log -1 --oneline` because this prompt is part of that docs commit itself.
 - production: https://amd-os-pwa.vercel.app
-- production /api/build-info observed:
+- production /api/build-info observed after handoff docs deploy:
   - build_version: v0.39.13
-  - git_sha: cb584019ca8710b684322688069c42bf1012d652
+  - git_sha: current origin/main HEAD
   - git_branch: main
   - dirty: false
 - registered worktree: /Users/masa/projects/AMD/amd-os [main] only
 - local branches: main only
 - local main vs origin/main before handoff refresh: ahead 0 / behind 0
-- this handoff may add one docs-only commit on top; always re-run git status/log/build-info before work.
+- always re-run git status/log/build-info before work.
 
 直近で完了した成果:
 - /admin/ms-overview の上段メトリクスから、個人名同士を比べるカードを削除した。

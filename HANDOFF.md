@@ -20,11 +20,12 @@ See `pwa/design_log/sessions_2026-07.md` section:
 
 - Canonical repo: `/Users/masa/projects/AMD/amd-os`
 - Branch: `main`
-- Latest accepted product commit: `cb584019ca8710b684322688069c42bf1012d652` (`chore(pwa): bump build version for MS guard`)
+- Latest accepted product release commit: `cb584019ca8710b684322688069c42bf1012d652` (`chore(pwa): bump build version for MS guard`)
+- Latest handoff docs commit: current `origin/main` HEAD. Re-check with `git log -1 --oneline` because this file is part of the docs commit itself.
 - Production URL: `https://amd-os-pwa.vercel.app`
-- Production `/api/build-info` observed:
+- Production `/api/build-info` observed after handoff docs deploy:
   - `build_version`: `v0.39.13`
-  - `git_sha`: `cb584019ca8710b684322688069c42bf1012d652`
+  - `git_sha`: current `origin/main` HEAD
   - `git_branch`: `main`
   - `dirty`: `false`
 - Worktree registry: one registered worktree only, `/Users/masa/projects/AMD/amd-os [main]`.
