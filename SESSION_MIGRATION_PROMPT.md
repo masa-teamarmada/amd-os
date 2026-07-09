@@ -1,4 +1,4 @@
-# SESSION MIGRATION PROMPT - AMD OS Finance Payment Confirm closeout
+# SESSION MIGRATION PROMPT - AMD OS monthly agreement modal density
 
 ```text
 cd /Users/masa/projects/AMD/amd-os
@@ -11,89 +11,63 @@ cd /Users/masa/projects/AMD/amd-os
 5. /Users/masa/projects/AMD/amd-os/AGENTS.md
 6. /Users/masa/projects/AMD/amd-os/pwa/AGENTS.md
 7. /Users/masa/projects/AMD/amd-os/pwa/CLAUDE.md
-8. /Users/masa/projects/AMD/amd-os/pwa/manual/1-1-intro.md
-9. /Users/masa/projects/AMD/amd-os/pwa/spec/1-1-overview.md
-10. /Users/masa/projects/AMD/amd-os/pwa/spec/1-2-document-layer-migration-map.md
-11. /Users/masa/projects/AMD/amd-os/pwa/design/README.md
-12. /Users/masa/projects/AMD/amd-os/pwa/manual/6-4-finance-payment-confirm-spec.md
-13. /Users/masa/projects/AMD/amd-os/pwa/design/notifications.md
-14. /Users/masa/projects/AMD/amd-os/pwa/design/SPEC_pwa.md
-15. /Users/masa/projects/AMD/amd-os/pwa/BUGS.md
-16. /Users/masa/projects/AMD/amd-os/pwa/design_log/sessions_2026-07.md
+8. /Users/masa/projects/AMD/amd-os/pwa/spec/1-1-overview.md
+9. /Users/masa/projects/AMD/amd-os/pwa/spec/1-2-document-layer-migration-map.md
+10. /Users/masa/projects/AMD/amd-os/pwa/design/README.md
+11. /Users/masa/projects/AMD/amd-os/pwa/design/FEATURE_REGISTRY.md
+12. /Users/masa/projects/AMD/amd-os/pwa/spec/3-14-monthly-work-agreement-current-spec.md
+13. /Users/masa/projects/AMD/amd-os/pwa/manual/2-2-member-workflows-quick-start.md
+14. /Users/masa/projects/AMD/amd-os/pwa/manual/6-6-member-billing-prompts-spec.md
+15. /Users/masa/projects/AMD/amd-os/pwa/manual/7-1-reward-calc-spec.md
+16. /Users/masa/projects/AMD/amd-os/pwa/BUGS.md
+17. /Users/masa/projects/AMD/amd-os/pwa/design_log/sessions_2026-07.md
 
 状態スナップショット:
 - repo: /Users/masa/projects/AMD/amd-os
-- canonical branch: main
-- accepted payment-confirm fix commit: df434cbf fix(pwa): send payment confirm nudges on due date
-- current product line before this handoff docs refresh: d8934395 fix(pwa): widen monthly agreement unpaid flow
-- df434cbf は d8934395 の ancestor。つまり current origin/main / production line に入金確認fixは含まれている。
-- closeout inventory時点: local main vs origin/main は ahead 0 / behind 0、worktree registry は /Users/masa/projects/AMD/amd-os [main] のみ、local branch は main のみ。
-- production: https://amd-os-pwa.vercel.app は post-fix line。再開時は必ず /api/build-info と git rev-parse origin/main を照合する。
-- payment-confirm fix deploy直後の production proof: v0.39.33 / df434cbf0e42d22cb49ab5fa19e5d2a291498e0c。後続の月初合意UI commitで production は v0.39.34 系へ進んでいる。
+- branch: main only。新規branch/worktreeは禁止。
+- accepted product state: 月初合意モーダルの情報密度改善は、まさが「これならいい」と確認済み。
+- accepted product commits: f13de200 fix(pwa): tighten monthly agreement modal density / d8934395 fix(pwa): widen monthly agreement unpaid flow
+- accepted production proof before docs refresh: https://amd-os-pwa.vercel.app/api/build-info = v0.39.34 / d89343957fd51ce637fb08aa83aad369d1013a1c / main / dirty=false
+- current main before this docs refresh also includes later docs closeout commits 6aef2bc5 and 6f61764c.
+- canonical root checkoutには別worker由来のinvoice/freee/admin queue系dirtyとPOC matching系dirtyがある。月初合意laneでは触らない。対象workerが対象ファイルだけstage/commit/deployする。
 
-今回完了した内容:
-- まさの指摘: ZMP の入金確認Slack DMが、期日 2026-07-31 なのに 2026-07-09 に届いた。入金日前に来ても確認できない。さらに文面の `支払月` は `入金月` が自然。
-- 原因: /api/cron/payment-confirm-nudges が入金月 ym の未入金候補を全部送り、候補ごとの dueDate が今日かを見ていなかった。
-- `入金確認できなかった` 画面は、freee/銀行で入金が見つからないという意味ではなく、signed token の即時反映APIが例外を返した時の汎用エラー画面。DB read-back では ZMP p19 / 202606 の payment_confirmed_at は空のまま。
-- 修正: payment-confirm-nudges は today(JST) と group.dueDate が一致する候補だけ送る。期日前・期日後・ゼロ金額候補は送信対象外。
-- dry-run / 手動検証用に GET ?date=YYYY-MM-DD / POST { date } を追加。
-- Slack文面、確認完了画面、金額入力画面、freee同期失敗DMの `支払月` を `入金月` に統一。
-- manual/spec/design/BUGS/design_log/HANDOFF を同期済み。
+完了内容:
+- 月初合意モーダル上部の警告・合意ボタン・指標カードを圧縮し、右側に残っていた広い空白を減らした。
+- 「今月の約束」は契約書と一致しないため使わず、「今月の発注条件」「発注条件と予定額」へ寄せた。
+- `この画面で確認すること` は3カードの説明レールにし、契約/SOW、予定額の出どころ、支払いとの関係を短く表示する。
+- `直してほしいこと` はdetails化し、モーダルでは入力欄を1行寄りにして右側の無駄な空白を減らした。
+- PJカード上段は `予定額 / 支払 / 未払残` の3列サマリーにして、PJ名周辺の余白を減らした。
+- MS一覧は、行数が多いコンパクト表示では2列へ分割し、MS名と担当割合の間の無駄な空きを減らした。
+- `未払いがどう残るか` は長い棒グラフや縦積みカードではなく、左に項目・右に稼働月を並べる横長マトリクスへ変更。行は `前月残 / 当月発生 / 支払対象 / 支払 / 月末残`。
+- `増える分` や `働いた月` のようなOS内の他表現とズレる言葉は使わず、稼働月・当月発生・支払・未払残の表現へ寄せた。
 
 検証済み:
-- npx tsc --noEmit passed
-- targeted eslint passed
-- npm run build passed
-- local dry-run:
-  - date=2026-07-09: groupCount=0, skippedBeforeDue=6, skippedAfterDue=1
-  - date=2026-07-31: groupCount=0, skippedZeroAmount=5
-- AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh で v0.39.33 を main push / Vercel production反映
-- production dry-run date=2026-07-09: groupCount=0
+- product laneで git diff --check、npx tsc --noEmit、targeted eslint、npm run build を実行済み。
+- temporary visual-check routeで wide / desktop / narrow / mobile screenshotを確認し、routeはcommit前に削除済み。
+- 正規deploy scriptでmain push / Vercel production反映済み。
+- production /api/build-info は v0.39.34 / d89343957fd51ce637fb08aa83aad369d1013a1c / dirty=false。
+- まさが最終UIを確認し「これならいい」と受け入れ済み。
 
 現在残っている別件dirty:
-- payment-confirm fix とは別の active WIP が残っている。巻き込まない。
+- 月初合意fixとは別のactive WIP。巻き込まない。
 - bundle A: /admin/invoices の freee取引先選択 / 請求書発行条件 WIP。
-  - 方向性は「請求書発行の blocker を freee取引先 / 請求額に絞り、報告書FIX・立替精算を blocker から外す。freee取引先は候補検索UIで選ぶ」。
-  - files:
-  - M pwa/src/app/(app)/admin/invoices/page.tsx
-  - ?? pwa/src/app/api/admin/freee-partners/route.ts
-  - M pwa/src/app/api/invoice/create/route.ts
-  - M pwa/src/components/admin/AdminInvoiceIssueDialog.tsx
-  - M pwa/src/components/admin/AdminInvoiceIssueQueue.tsx
-  - M pwa/src/components/admin/AdminProjectsTable.tsx
-  - ?? pwa/src/components/admin/FreeePartnerPicker.tsx
-  - M pwa/design/FEATURE_REGISTRY.md
-  - M pwa/design/SPEC_pwa.md
-  - M pwa/manual/6-2-admin-projects-members-ledger-spec.md
-  - M pwa/manual/6-3-invoice-and-billing-routine-spec.md
-  - M pwa/manual/9-3-appendix-changelog.md
-  - M pwa/spec/6-1-appendix-changelog.md
-  - M pwa/scripts/check_pwa_critical_ui.cjs
-- owner guess: invoice queue / freee取引先選択 worker
+  - 主なfiles: pwa/src/app/(app)/admin/invoices/page.tsx, pwa/src/app/api/admin/freee-partners/route.ts, pwa/src/app/api/invoice/create/route.ts, pwa/src/components/admin/AdminInvoiceIssueDialog.tsx, pwa/src/components/admin/AdminInvoiceIssueQueue.tsx, pwa/src/components/admin/AdminProjectsTable.tsx, pwa/src/components/admin/FreeePartnerPicker.tsx, pwa/design/FEATURE_REGISTRY.md, pwa/design/SPEC_pwa.md, pwa/manual/6-2-admin-projects-members-ledger-spec.md, pwa/manual/6-3-invoice-and-billing-routine-spec.md, pwa/manual/9-3-appendix-changelog.md, pwa/spec/6-1-appendix-changelog.md, pwa/scripts/check_pwa_critical_ui.cjs.
 - bundle B: /poc matching UI/docs WIP。
-  - files:
-  - M pwa/src/app/(app)/poc/page.tsx
-  - M pwa/design/poc_matching.md
-  - M pwa/manual/2-5-research-assets-quick-start.md
-  - M pwa/manual/5-1-research-assets-vc-seeds-scholar-spec.md
-  - M pwa/design/FEATURE_REGISTRY.md
-  - M pwa/design/SPEC_pwa.md
-  - M pwa/manual/9-3-appendix-changelog.md
-  - M pwa/spec/6-1-appendix-changelog.md
-- shared active WIP marker:
-  - M pwa/src/lib/build-info.ts (v0.39.35)
+  - 主なfiles: pwa/src/app/(app)/poc/page.tsx, pwa/design/poc_matching.md, pwa/manual/2-5-research-assets-quick-start.md, pwa/manual/5-1-research-assets-vc-seeds-scholar-spec.md, pwa/design/FEATURE_REGISTRY.md, pwa/design/SPEC_pwa.md, pwa/manual/9-3-appendix-changelog.md, pwa/spec/6-1-appendix-changelog.md.
+- shared active WIP marker: pwa/src/lib/build-info.ts (v0.39.35).
 - 次セッションでWIPを扱うなら、bundleを混ぜずに差分全体を確認し、必要なspec/manual/changelogを同期してから、対象ファイルだけ stage / commit / push / deployする。
 
 次タスク:
-- payment-confirm nudge は既知残タスクなし。
-- もし `予定通り入金済み` の旧失敗を追加調査するなら、古いSlack tokenの再現ではなく、次回発生時に赤見出し下のエラーテキストを取得し、token payload / target billing_cycles / update exception を切り分ける。
-- 現実的な次アクションは、別件dirtyの invoice queue freee取引先選択WIP、または /poc matching WIP のどちらかをbundle単位で完成させること。
+- 月初合意モーダルの既知残タスクはない。
+- 追加修正を頼まれたら、最初にproduction build-infoとorigin/mainを合わせ、実データのモーダルをスクショで見る。
+- まさの前回指摘のニュアンスは「無駄なスペースが全然減っていない。右側空白、1行で済む情報の改行、MS表の列間、未払いグラフ/表の横長さを、ひとつひとつ言わないとだめなのか」。次回は個別指摘待ちではなく、画面全体の情報密度を自分で点検する。
+- 現実的な別lane次アクションは、invoice queue freee取引先選択WIP、または /poc matching WIP のどちらかをbundle単位で完成させること。
 
 運用ルール:
-- まず /Users/masa/projects/AGENTS.common.md を読む。AMD配下なので AMD level memory も冒頭で読む。
-- PWA本番反映は main push = Vercel自動deploy。PWA product change は原則 deploy script: AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh。
-- 直接 npx vercel deploy は使わない。
-- ブランチ作成禁止。main で対象ファイルだけ編集・stage・commit・pushする。git add .は禁止。
-- dirtyを理由に作業やpush/deployを止めない。既存dirtyは戻さず、自分の対象差分と他worker差分を分類して進める。
-- closeout時は worktree/branch/ahead/dirty を必ず inventory し、dirtyには owner/action/risk を付ける。今回の archive status は、別件invoice dirtyがあるため do not archive。
+- PWA本番反映は main push = Vercel自動deploy。直接 npx vercel deploy は使わない。必要な時は AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh。
+- dirtyを理由にstage/commit/push/deployを止めない。既存dirtyは戻さず、今回の対象ファイルだけ明示してstageする。git add .は禁止。
+- UI密度改善では、CSS差分や「カードを小さくした」だけで完了扱いしない。実データ・本番相当の横幅・スクショで、上から順に余白、改行、表の列幅、棒/表の長さを確認する。
+- 契約・月初合意まわりの文言は、OS内と契約書の言葉に合わせる。新しい言い方を足すと別パラメータに見えるため、言葉を発明しない。
+- closeout時は worktree/branch/ahead/dirty を必ず inventory し、dirtyには owner/action/risk を付ける。
+- handoff/closeout時は、HANDOFFを薄くしすぎず、状態スナップショット・成果物・検証・次アクション・運用ルールをこのプロンプトだけで再開できる粒度にする。
 ```

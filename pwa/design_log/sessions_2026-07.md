@@ -910,3 +910,33 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 ### 教訓
 - 入金確認nudgeは「入金月」ではなく「入金期日」で送信可否を決める。入金日前は運用者が確認できないので送らない。
 - Slackボタン押下後の `入金確認できなかった` は、freee/銀行未検出ではなくAPI例外の汎用表示。再発時は token / 対象cycle / update例外を切り分ける。
+
+---
+
+## 2026-07-09 — 月初合意モーダル情報密度改善 / v0.39.30-v0.39.34
+
+### コンテキスト
+- まさから、月初合意モーダルの各欄が大きすぎて、一画面で見られる情報密度が低いと指摘。
+- 途中で、右側の空白、`直してほしいこと` のフォーム、PJ名周辺、MS名と担当割合の間、未払い棒グラフ/表の横長さなどを、まさがスクショ付きで個別に指摘する状態になった。
+- 最終的に、追加修正後の本番UIをまさが確認し「これならいい」と受け入れ済み。
+
+### 実装 / 仕様同期
+- `MonthlyAgreementExperience` のモーダル表示を、`max-w-7xl` 内で横方向に情報を詰める構成へ変更。
+- 上部は、状態警告・合意ボタン・対象PJ/予定額/支払済/支払予定/未払残の指標を小型化し、右側に余るスペースを減らした。
+- `この画面で確認すること` は `今月の発注条件` / `予定額の出どころ` / `支払いとの関係` の3ステップにし、`今月の約束` という契約書とズレる表現は使わない。
+- `直してほしいこと` は details 化し、モーダルでは textarea を1行寄りにして、送信ボタンも同じ帯に収めた。
+- PJカード上段は `予定額 / 支払 / 未払残` の3列サマリーへ圧縮。PJ ID と請求状態は見出し横に寄せた。
+- 未払い推移は縦積みカード/長い棒グラフをやめ、左に項目・右に稼働月列を置くマトリクスへ変更。行は `前月残 / 当月発生 / 支払対象 / 支払 / 月末残`。
+- MS一覧はコンパクト表示で行数が多い場合に2列へ分割し、MS名と担当割合の間の余白を減らした。
+- `pwa/spec/3-14-monthly-work-agreement-current-spec.md` と manual/spec changelog は `d8934395` で同期済み。
+
+### Verification / Deploy
+- product lane checks: `git diff --check`, `npx tsc --noEmit`, targeted eslint, `npm run build` passed。
+- temporary visual-check routeで wide / desktop / narrow / mobile のスクショ確認を実施。route は commit 前に削除。
+- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` で本番反映。
+- closeout開始時点の production `/api/build-info`: `v0.39.34` / `d89343957fd51ce637fb08aa83aad369d1013a1c` / `main` / `dirty:false`。
+- accepted commits: `f13de200 fix(pwa): tighten monthly agreement modal density`, `d8934395 fix(pwa): widen monthly agreement unpaid flow`。
+
+### 教訓
+- UI密度改善は、CSS差分やカード寸法の変更だけでは完了判定できない。実データ・本番相当の横幅・スクショで、上から順に「余白」「不要な改行」「1行で済む情報が2行になっていないか」「表の列間」「長すぎる棒/表」を点検する。
+- まさに個別の空白を指摘させる状態は品質ゲートとして失敗。次回は、画面全体の情報密度をえいみ側で自分でレビューしてから完了と言う。

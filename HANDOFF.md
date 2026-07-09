@@ -1,32 +1,34 @@
 # AMD OS Handoff
 
-Last updated: 2026-07-09 JST
+Last updated: 2026-07-09 22:37 JST
 Target: `/Users/masa/projects/AMD/amd-os`
-Topic: Finance / Payment Confirm nudge 入金日当日化 + closeout
+Topic: 月初合意モーダルの情報密度改善 / closeout
 
 ## Summary
 
-- まさが共有した ZMP 入金確認Slack DMは、期日 `2026-07-31` なのに `2026-07-09` に届いていた。入金日前は確認不能なので、送信タイミングが誤り。
-- 原因は `/api/cron/payment-confirm-nudges` が入金月 (`ym`) の未入金候補を全件送り、候補ごとの `dueDate` が今日かを見ていなかったこと。
-- `入金確認できなかった` 画面は、freee/銀行で入金が無いという意味ではなく、signed token の即時反映APIが例外を返した時の汎用エラー画面。DB read-back では ZMP p19 / 202606 の `payment_confirmed_at` は未更新。
-- fix commit `df434cbf` で、入金確認nudgeは今日 (JST) の `dueDate` と一致する候補だけ送るように変更。`支払月` 表示は `入金月` に統一。
-- 後続 commit `d8934395` (`v0.39.34`) が `origin/main` / production に入り、`df434cbf` は ancestor として含まれる。
-- 詳細ログ: `pwa/design_log/sessions_2026-07.md` の `2026-07-09 — Finance / Payment Confirm nudge 入金日当日化 / v0.39.33`。
+- 月初合意モーダルの情報密度改善は、まさ確認で「これならいい」と受け入れ済み。
+- Product commits: `f13de200 fix(pwa): tighten monthly agreement modal density` と `d8934395 fix(pwa): widen monthly agreement unpaid flow`。
+- 現行の受け入れ済みUIは `v0.39.34` / `d89343957fd51ce637fb08aa83aad369d1013a1c` に含まれる。
+- 主なUI変更: 更新警告と合意ボタンを横並び化、上部指標を小型カード化、説明レールと修正要望を同じ帯に配置、PJカード上段を `予定額 / 支払 / 未払残` の3列へ圧縮。
+- `今月の約束` は契約書とズレるため使わず、`今月の発注条件` / `発注条件と予定額` に寄せた。
+- 未払い推移は長い棒グラフや縦積みカードではなく、左に項目・右に稼働月を置く横長マトリクスへ変更。行は `前月残 / 当月発生 / 支払対象 / 支払 / 月末残`。
+- MS一覧は、行数が多いコンパクト表示では2列へ分割し、MS名と担当割合の間の無駄な空きを減らした。
+- 詳細ログ: `pwa/design_log/sessions_2026-07.md` の `2026-07-09 — 月初合意モーダル情報密度改善 / v0.39.30-v0.39.34`。
 
 ## Repo State
 
 - Canonical repo: `/Users/masa/projects/AMD/amd-os`
-- Branch: `main`
-- Product fix commit: `df434cbf fix(pwa): send payment confirm nudges on due date`
-- Current product HEAD before this handoff docs refresh: `d8934395 fix(pwa): widen monthly agreement unpaid flow`
-- Local main vs `origin/main` at closeout inventory: ahead `0`, behind `0`
-- Worktree registry: `/Users/masa/projects/AMD/amd-os [main]` only
-- Local branches: `main` only
-- Production: `https://amd-os-pwa.vercel.app` is on the post-fix line. Re-check `/api/build-info` when resuming.
+- Branch policy: `main` only。今回も新規 branch / git worktree は作っていない。
+- Current main base before this docs refresh: `6f61764c docs: refresh handoff dirty inventory`。
+- Product UI state: `d8934395` and later main descendants。
+- Disposable deploy clone: `/tmp/amd-os-deploy-monthly-compact` で closeout docs を作成。push後に clean / `origin/main` aligned へ戻す。
+- Canonical root checkout `/Users/masa/projects/AMD/amd-os` には別worker由来の invoice/freee/admin queue と POC matching 系 dirty があるため、この月初合意 lane では触らない。
 
 ## Dirty State
 
-Uncommitted changes are separate active WIP from other sessions, not part of the payment-confirm fix. Final closeout inventory observed two bundles: `/admin/invoices` freee取引先選択 / 請求書発行条件 and `/poc` matching UI/docs.
+Monthly agreement lane: none known.
+
+Uncommitted changes in canonical root checkout are separate active WIP from other sessions. Final closeout inventory observed two bundles: `/admin/invoices` freee取引先選択 / 請求書発行条件 and `/poc` matching UI/docs.
 
 | path | status | class | owner guess | resolution action | risk |
 |---|---:|---|---|---|---|
@@ -42,46 +44,45 @@ Uncommitted changes are separate active WIP from other sessions, not part of the
 | `pwa/src/lib/build-info.ts` | M | other-worker | active WIP workers | WIP完成時に `v0.39.35` として検証/deploy | 中 |
 | `pwa/design/FEATURE_REGISTRY.md`, `pwa/design/SPEC_pwa.md`, `pwa/manual/6-2-admin-projects-members-ledger-spec.md`, `pwa/manual/6-3-invoice-and-billing-routine-spec.md`, `pwa/manual/9-3-appendix-changelog.md`, `pwa/spec/6-1-appendix-changelog.md`, `pwa/scripts/check_pwa_critical_ui.cjs` | M | other-worker | invoice queue / POC workers | WIP仕様・回帰ガードと実装を、該当bundleごとに混ぜずに commit | 中 |
 
-Resolution owner: next invoice queue / POC sessions. Payment-confirm closeoutでは巻き込まない。Handoff docs更新で触った `HANDOFF.md` / `SESSION_MIGRATION_PROMPT.md` / `pwa/BUGS.md` / `pwa/HANDOFF_pwa_rebuild.md` / `pwa/design_log/sessions_2026-07.md` だけはこの closeout の own-necessary。
+Resolution owner: next invoice queue / POC sessions. Monthly-agreement closeoutでは巻き込まない。
 
 ## Verification / Deploy
 
-Payment-confirm fixで実行済み:
+Product laneで実行済み:
 
+- `git diff --check`
 - `npx tsc --noEmit`
-- targeted `eslint`
+- targeted eslint
 - `npm run build`
-- local dry-run:
-  - `date=2026-07-09`: `groupCount=0`, `skippedBeforeDue=6`, `skippedAfterDue=1`
-  - `date=2026-07-31`: `groupCount=0`, `skippedZeroAmount=5`
+- temporary visual-check routeで wide / desktop / narrow / mobile screenshot確認。routeはcommit前に削除。
 - `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`
-- production `/api/build-info` after deploy: `v0.39.33` / `df434cbf0e42d22cb49ab5fa19e5d2a291498e0c`
-- production dry-run `date=2026-07-09`: `groupCount=0`
+- production `/api/build-info` read-back
+
+Final accepted production snapshot before docs refresh:
+
+- `v0.39.34`
+- `d89343957fd51ce637fb08aa83aad369d1013a1c`
+- `git_branch=main`
+- `dirty=false`
 
 ## Unresolved Tasks
 
-- Payment-confirm nudge: none known.
-- Exact old button exception: not reproduced from the expired/old Slack token. If it recurs, capture the error text under the red heading and inspect token payload / target `billing_cycles` / update exception.
-- Closeout archive status: `do not archive` because the unrelated invoice queue freee取引先 WIP remains dirty.
+- 月初合意モーダル密度改善: none known after まさ acceptance.
+- 次に触る場合の注意: CSS差分だけで「コンパクト化できた」と判断しない。実データ・本番相当の横幅で、上部警告、指標、修正要望、PJヘッダ、MS表、未払い表を1つずつ見て余白を潰す。
+- Canonical root dirty cleanup: invoice queue / POC workers担当。月初合意 lane の残タスクではない。
 
 ## First Next Action
 
-If continuing the current repo immediately, first decide which active WIP bundle to finish: invoice queue freee取引先 or POC matching.
+月初合意を再開するなら、まず production `/api/build-info` と `origin/main` を合わせたうえで、`/monthly-agreement?ym=202607&memberId=ID...` または強制モーダルで実データを開き、スクショ基準で「右側の空白」「不要な改行」「1行で済む情報が2行になっていないか」を確認する。
 
-1. Inspect the dirty files listed above and split by bundle.
-2. For invoice queue: confirm the route/auth/data source for freee取引先 search.
-3. For POC: confirm the intended UI/spec scope before touching shared docs.
-4. Run targeted checks.
-5. Stage only those files plus required spec/manual updates.
-6. Commit/push/deploy through the normal AMD OS PWA path.
-
-If touching payment-confirm again, first read `pwa/manual/6-4-finance-payment-confirm-spec.md` and dry-run `/api/cron/payment-confirm-nudges` with explicit `date`.
+If continuing the current repo for active WIP instead, first decide which bundle to finish: invoice queue freee取引先 or POC matching. Split dirty by bundle, run targeted checks, and stage only that bundle plus required spec/manual updates.
 
 ## Pointers
 
-- Payment confirm manual: `pwa/manual/6-4-finance-payment-confirm-spec.md`
-- Notification design: `pwa/design/notifications.md`
-- PWA route/spec: `pwa/design/SPEC_pwa.md`
-- Code: `pwa/src/app/api/cron/payment-confirm-nudges/route.ts`, `pwa/src/app/api/admin/payment-confirm/route.ts`, `pwa/src/app/payment-confirm/PaymentConfirmClient.tsx`
-- Bug lesson: `pwa/BUGS.md`
+- UI: `pwa/src/components/monthly-agreement/MonthlyAgreementExperience.tsx`
+- Gate overlay: `pwa/src/components/monthly-agreement/MonthlyAgreementGateOverlay.tsx`
+- Spec: `pwa/spec/3-14-monthly-work-agreement-current-spec.md`
+- Manual: `pwa/manual/2-2-member-workflows-quick-start.md`, `pwa/manual/6-6-member-billing-prompts-spec.md`, `pwa/manual/7-1-reward-calc-spec.md`
+- Changelog: `pwa/manual/9-3-appendix-changelog.md`, `pwa/spec/6-1-appendix-changelog.md`
+- Process lesson: `pwa/BUGS.md`
 - Session log: `pwa/design_log/sessions_2026-07.md`
