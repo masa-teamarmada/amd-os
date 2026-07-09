@@ -206,7 +206,7 @@ export function MonthlyAgreementExperience({
   const metricCount = 4 + (unverifiedPaidYen > 0 ? 1 : 0) + (totalStockYen > 0 ? 1 : 0);
   const metricCols = isModal ? "grid-cols-2 md:grid-cols-3 xl:grid-cols-6" : metricCount >= 5 ? "lg:grid-cols-3" : "lg:grid-cols-4";
   const openRevisionCount = bundle.revisionRequests.filter((request) => request.status === "open").length;
-  const contentWidth = isModal ? "max-w-6xl" : "max-w-5xl";
+  const contentWidth = isModal ? "max-w-7xl" : "max-w-5xl";
 
   return (
     <div className={`${isModal ? "h-full min-h-0 overflow-y-auto" : "min-h-screen pb-12"} bg-[#f5f5f7]`}>
@@ -214,7 +214,7 @@ export function MonthlyAgreementExperience({
         <div className={`mx-auto flex ${contentWidth} flex-col gap-3 sm:flex-row sm:items-end sm:justify-between`}>
           <div>
             <p className={`${isModal ? "text-[10px]" : "text-[11px]"} font-semibold tracking-[0.16em] text-[#86868b]`}>月初合意</p>
-            <h1 className={`${isModal ? "text-[18px]" : "text-[22px]"} mt-1 font-semibold text-[#1d1d1f]`}>{formatYm(bundle.ym)}にやることと予定額</h1>
+            <h1 className={`${isModal ? "text-[18px]" : "text-[22px]"} mt-1 font-semibold text-[#1d1d1f]`}>{formatYm(bundle.ym)}の発注条件と予定額</h1>
             <p className={`${isModal ? "text-[12px]" : "text-[13px]"} mt-1 text-[#6e6e73]`}>
               {bundle.member.codeName} / 記録ID {bundle.currentHash.slice(0, 10)}
             </p>
@@ -243,7 +243,7 @@ export function MonthlyAgreementExperience({
                       ? "前に確認したあとで、今月やることか予定額が変わりました。もう一度見て、問題なければ合意してください。"
                       : bundle.status === "not_required"
                         ? bundle.exclusionReason || "この月の月初合意は不要です。"
-                        : "今月やる仕事、目標、もらえる予定額を確認して、問題なければ合意してください。"}
+                        : "今月の遂行内容、到達目標、予定報酬条件を確認して、問題なければ合意してください。"}
                 </p>
               </div>
             </div>
@@ -252,7 +252,7 @@ export function MonthlyAgreementExperience({
               onClick={handleAgree}
               disabled={saving || bundle.status === "agreed" || !bundle.tableReady || !bundle.canAgree}
               className="inline-flex items-center justify-center gap-2 rounded-md bg-[#1d1d1f] px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-              title={!bundle.canAgree ? bundle.exclusionReason || "本人だけが合意できます" : "今月やることと予定額を確認して合意"}
+              title={!bundle.canAgree ? bundle.exclusionReason || "本人だけが合意できます" : "今月の発注条件と予定額を確認して合意"}
             >
               {saving ? <Loader2 className="size-4 animate-spin" /> : <FileCheck2 className="size-4" />}
               {bundle.status === "agreed" ? "合意済み" : bundle.status === "not_required" ? "確認不要" : "確認して合意"}
@@ -313,8 +313,8 @@ export function MonthlyAgreementExperience({
           className="rounded-lg border border-[#e5e5e7] bg-white"
           open={!isModal || openRevisionCount > 0 || Boolean(requestMessage)}
         >
-          <summary className={`flex cursor-pointer list-none flex-col gap-1 sm:flex-row sm:items-center sm:justify-between ${isModal ? "px-3 py-2.5" : "px-4 py-3"}`}>
-            <div>
+          <summary className={`grid cursor-pointer list-none gap-1 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center ${isModal ? "px-2.5 py-2" : "px-4 py-3"}`}>
+            <div className="min-w-0">
               <h2 className={`${isModal ? "text-[13px]" : "text-[15px]"} font-semibold text-[#1d1d1f]`}>直してほしいこと</h2>
               <p className={`${isModal ? "mt-0.5 text-[11px]" : "mt-1 text-[12px]"} leading-relaxed text-[#6e6e73]`}>
                 担当するMS、目標、予定額が違うと思ったら、ここから知らせてください。<Hint id="monthly-agreement.revision-request" />
@@ -326,13 +326,13 @@ export function MonthlyAgreementExperience({
               </span>
             )}
           </summary>
-          <div className={`${isModal ? "border-t border-[#e5e5e7] px-3 pb-3 pt-2" : "px-4 pb-4 pt-1"}`}>
-          <div className={`grid gap-2 ${isModal ? "lg:grid-cols-[140px_160px_minmax(0,1fr)]" : "sm:grid-cols-[160px_180px_minmax(0,1fr)]"}`}>
+          <div className={`${isModal ? "border-t border-[#e5e5e7] px-2.5 pb-2.5 pt-2" : "px-4 pb-4 pt-1"}`}>
+          <div className={`grid gap-2 ${isModal ? "lg:grid-cols-[120px_150px_minmax(220px,1fr)_auto]" : "sm:grid-cols-[160px_180px_minmax(0,1fr)]"}`}>
             <select
               value={requestType}
               onChange={(event) => setRequestType(event.target.value)}
               disabled={!bundle.canAgree}
-              className={`${isModal ? "py-1.5 text-xs" : "py-2 text-sm"} rounded-md border border-[#d1d1d6] bg-white px-2`}
+              className={`${isModal ? "h-9 py-1.5 text-xs" : "py-2 text-sm"} rounded-md border border-[#d1d1d6] bg-white px-2`}
             >
               <option value="scope_or_goal">やること/目標</option>
               <option value="reward">予定額</option>
@@ -342,7 +342,7 @@ export function MonthlyAgreementExperience({
               value={requestProjectId}
               onChange={(event) => setRequestProjectId(event.target.value)}
               disabled={!bundle.canAgree}
-              className={`${isModal ? "py-1.5 text-xs" : "py-2 text-sm"} rounded-md border border-[#d1d1d6] bg-white px-2`}
+              className={`${isModal ? "h-9 py-1.5 text-xs" : "py-2 text-sm"} rounded-md border border-[#d1d1d6] bg-white px-2`}
             >
               <option value="">全体</option>
               {bundle.snapshot.projects.map((project) => (
@@ -353,24 +353,37 @@ export function MonthlyAgreementExperience({
               value={requestBody}
               onChange={(event) => setRequestBody(event.target.value)}
               disabled={!bundle.canAgree}
-              rows={isModal ? 2 : 3}
-              className={`${isModal ? "min-h-[54px] text-xs" : "min-h-[84px] text-sm"} rounded-md border border-[#d1d1d6] bg-white px-3 py-2 outline-none focus:border-[#007aff]`}
+              rows={isModal ? 1 : 3}
+              className={`${isModal ? "min-h-9 text-xs" : "min-h-[84px] text-sm"} rounded-md border border-[#d1d1d6] bg-white px-3 py-2 outline-none focus:border-[#007aff]`}
               placeholder="例: CXはこのMSより登記準備を優先したい / 予定額の分け方が違うと思う"
             />
+            {isModal && (
+              <button
+                type="button"
+                onClick={handleRevisionRequest}
+                disabled={requestSaving || !bundle.canAgree || requestBody.trim().length < 4}
+                className="inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-[#1d1d1f] bg-white px-3 text-xs font-semibold text-[#1d1d1f] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {requestSaving ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
+                送る
+              </button>
+            )}
           </div>
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-[11px] text-[#86868b]">
+          <div className={`${isModal ? "mt-1.5" : "mt-3"} flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between`}>
+            <p className={`${isModal ? "text-[10px]" : "text-[11px]"} text-[#86868b]`}>
               送った時点の記録IDも一緒に残ります。内容に問題ない時だけ、合意ボタンを押してください。
             </p>
-            <button
-              type="button"
-              onClick={handleRevisionRequest}
-              disabled={requestSaving || !bundle.canAgree || requestBody.trim().length < 4}
-              className="inline-flex items-center justify-center gap-2 rounded-md border border-[#1d1d1f] bg-white px-3 py-2 text-xs font-semibold text-[#1d1d1f] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {requestSaving ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
-              直してほしい内容を送る
-            </button>
+            {!isModal && (
+              <button
+                type="button"
+                onClick={handleRevisionRequest}
+                disabled={requestSaving || !bundle.canAgree || requestBody.trim().length < 4}
+                className="inline-flex items-center justify-center gap-2 rounded-md border border-[#1d1d1f] bg-white px-3 py-2 text-xs font-semibold text-[#1d1d1f] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {requestSaving ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
+                直してほしい内容を送る
+              </button>
+            )}
           </div>
           {requestMessage && <p className="mt-2 text-[12px] text-emerald-700">{requestMessage}</p>}
           {bundle.revisionRequests.length > 0 && (
@@ -428,8 +441,8 @@ function AgreementFlowRail({ compact = false }: { compact?: boolean }) {
     {
       key: "agreement",
       icon: <FileCheck2 className="size-4" />,
-      label: "今月の約束",
-      body: "今月やる仕事、目標、もらえる予定額を確認して合意する",
+      label: "今月の発注条件",
+      body: "個別発注/SOWとして、遂行内容・到達目標・予定報酬を確認する",
     },
     {
       key: "ms",
@@ -529,16 +542,22 @@ function ProjectAgreementCard({
   const msOverviewHref = `/admin/ms-overview?projectId=${encodeURIComponent(project.projectId)}`;
   const linkTargetProps = linksInNewTab ? { target: "_blank", rel: "noreferrer" } : {};
   const hasMilestones = project.milestones.length > 0;
+  const msGridCols = compact
+    ? "grid-cols-[minmax(220px,280px)_64px_84px_68px_96px]"
+    : "grid-cols-[minmax(220px,1.4fr)_86px_110px_94px_112px]";
+  const msTableWidth = compact ? "w-max min-w-[532px] max-w-full" : "min-w-[760px]";
   return (
-    <article className={`rounded-lg border border-[#e5e5e7] bg-white ${compact ? "p-3" : "p-4"}`}>
-      <div className={`grid gap-3 ${compact ? "lg:grid-cols-[minmax(0,1fr)_minmax(250px,320px)]" : "sm:grid-cols-[minmax(0,1fr)_auto]"} sm:items-start`}>
+    <article className={`rounded-lg border border-[#e5e5e7] bg-white ${compact ? "p-2.5" : "p-4"}`}>
+      <div className={`grid gap-2 ${compact ? "lg:grid-cols-[minmax(0,1fr)_minmax(230px,280px)]" : "sm:grid-cols-[minmax(0,1fr)_auto]"} sm:items-start`}>
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <h2 className={`${compact ? "text-[14px]" : "text-[16px]"} font-semibold text-[#1d1d1f]`}>{project.projectName}</h2>
             {project.isPm && <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-800">PM</span>}
             {project.isPl && <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-semibold text-indigo-800">PL</span>}
+            {compact && <span className="text-[11px] text-[#86868b]">{project.projectId}</span>}
+            {compact && <span className="text-[11px] text-[#86868b]">請求 {formatBillingStatus(project.billingStatus)}</span>}
           </div>
-          <p className="mt-1 text-xs text-[#86868b]">{project.projectId} / 請求状態 {formatBillingStatus(project.billingStatus)}</p>
+          {!compact && <p className="mt-1 text-xs text-[#86868b]">{project.projectId} / 請求状態 {formatBillingStatus(project.billingStatus)}</p>}
           {!linksInNewTab && (
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <Link
@@ -563,17 +582,17 @@ function ProjectAgreementCard({
             </div>
           )}
         </div>
-        <div className={`rounded-md border ${compact ? "px-2.5 py-2" : "px-3 py-2"} text-right ${hasStock ? "border-amber-200 bg-amber-50" : "border-transparent bg-[#f5f5f7]"}`}>
+        <div className={`rounded-md border ${compact ? "px-2 py-1.5" : "px-3 py-2"} text-right ${hasStock ? "border-amber-200 bg-amber-50" : "border-transparent bg-[#f5f5f7]"}`}>
           <div className="flex items-center justify-end gap-1 text-[11px] font-semibold text-[#86868b]">
             <CircleDollarSign className="size-3.5" />
             もらえる予定額 <Hint id="monthly-agreement.expected-reward" />
           </div>
-          <p className={`${compact ? "text-[18px]" : "text-[20px]"} mt-1 font-semibold tabular-nums text-[#1d1d1f]`}>
+          <p className={`${compact ? "text-[16px]" : "text-[20px]"} mt-0.5 font-semibold tabular-nums text-[#1d1d1f]`}>
             {formatYen(headlineValue)}
           </p>
           {hasScheduledPayout && project.paymentYm ? (
-            <p className="mt-1 text-[10px] tabular-nums text-[#86868b]">
-              この月の仕事の支払い予定 {formatYm(project.paymentYm)} {formatYen(scheduledPayoutYen)}
+            <p className={`${compact ? "mt-0.5" : "mt-1"} text-[10px] tabular-nums text-[#86868b]`}>
+              {compact ? `${formatYm(project.paymentYm)}支払 ${formatYen(scheduledPayoutYen)}` : `この月の仕事の支払い予定 ${formatYm(project.paymentYm)} ${formatYen(scheduledPayoutYen)}`}
             </p>
           ) : null}
           {hasPayout && !currentCyclePaysThisMonth ? (
@@ -582,11 +601,11 @@ function ProjectAgreementCard({
             </p>
           ) : null}
           {hasStock && (
-            <div className="mt-2 border-t border-amber-200 pt-2 text-left">
+            <div className={`${compact ? "mt-1.5 pt-1.5" : "mt-2 pt-2"} border-t border-amber-200 text-left`}>
               <p className="text-[10px] font-semibold text-amber-800">
                 支払ったあとに残る未払い <Hint id="monthly-agreement.stock" />
               </p>
-              <p className="mt-0.5 text-right text-[16px] font-semibold tabular-nums text-amber-800">{formatYen(stockYen)}</p>
+              <p className={`${compact ? "text-[14px]" : "text-[16px]"} mt-0.5 text-right font-semibold tabular-nums text-amber-800`}>{formatYen(stockYen)}</p>
               {showStockBreakdown && (
                 <dl className="mt-1.5 space-y-0.5 text-[10px] text-[#86868b]">
                   {carryInYen > 0 && (
@@ -626,7 +645,7 @@ function ProjectAgreementCard({
       {!compact && (
       <div className="mt-4 grid gap-2 md:grid-cols-3">
         <ConceptPill
-          label="今月の約束"
+          label="今月の発注条件"
           value={formatYen(headlineValue)}
           hintId="monthly-agreement.expected-reward"
           tone="sky"
@@ -658,8 +677,8 @@ function ProjectAgreementCard({
       )}
 
       {hasMilestones && (
-        <div className={`${compact ? "mt-3" : "mt-4"} overflow-hidden rounded-md border border-[#e5e5e7]`}>
-          <div className={`flex flex-wrap items-start justify-between gap-2 bg-[#f5f5f7] ${compact ? "px-2.5 py-1.5" : "px-3 py-2"}`}>
+        <div className={`${compact ? "mt-2.5" : "mt-4"} overflow-hidden rounded-md border border-[#e5e5e7]`}>
+          <div className={`flex flex-wrap items-center justify-between gap-2 bg-[#f5f5f7] ${compact ? "px-2 py-1.5" : "px-3 py-2"}`}>
             <div className="min-w-0">
               <h3 className="text-[12px] font-semibold text-[#3c3c43]">
                 今シーズンのMS <Hint id="monthly-agreement.ms-pt" />
@@ -713,8 +732,8 @@ function ProjectAgreementCard({
             })}
           </div>
           <div className="hidden overflow-x-auto md:block">
-            <div className={compact ? "min-w-[680px]" : "min-w-[760px]"}>
-              <div className={`${compact ? "grid-cols-[minmax(200px,1.4fr)_78px_100px_82px_104px] px-2.5 py-1.5" : "grid-cols-[minmax(220px,1.4fr)_86px_110px_94px_112px] px-3 py-2"} grid bg-white text-[11px] font-semibold text-[#6e6e73]`}>
+            <div className={msTableWidth}>
+              <div className={`${msGridCols} ${compact ? "gap-1.5 px-2 py-1" : "px-3 py-2"} grid bg-white text-[11px] font-semibold text-[#6e6e73]`}>
                 <span>やること</span>
                 <span className="text-right">担当割合</span>
                 <span className="text-right">進み具合/今月</span>
@@ -725,9 +744,9 @@ function ProjectAgreementCard({
                 {project.milestones.map((ms) => {
                   const shareLabel = ms.plannedShare == null ? "未設定" : `${Math.round(ms.plannedShare * 100)}%`;
                   return (
-                    <div key={ms.milestoneId} className={`${compact ? "grid-cols-[minmax(200px,1.4fr)_78px_100px_82px_104px] px-2.5 py-1.5" : "grid-cols-[minmax(220px,1.4fr)_86px_110px_94px_112px] px-3 py-2"} grid gap-2 text-[12px]`}>
+                    <div key={ms.milestoneId} className={`${msGridCols} ${compact ? "gap-1.5 px-2 py-1.5" : "gap-2 px-3 py-2"} grid text-[12px]`}>
                       <div className="min-w-0">
-                        <p className="font-semibold text-[#1d1d1f]">{ms.title}</p>
+                        <p className={`${compact ? "truncate" : ""} font-semibold text-[#1d1d1f]`}>{ms.title}</p>
                         <p className="mt-0.5 truncate text-[11px] text-[#86868b]">
                           {ms.taskDescription || `${formatPt(ms.points)}のMS`}
                         </p>
@@ -794,8 +813,8 @@ function PayoutScheduleTable({
   compact?: boolean;
 }) {
   return (
-    <div className={`${compact ? "mt-3" : "mt-4"} overflow-hidden rounded-md border border-[#e5e5e7]`}>
-      <div className={`flex flex-wrap items-center justify-between gap-2 bg-[#f5f5f7] ${compact ? "px-2.5 py-1.5" : "px-3 py-2"}`}>
+    <div className={`${compact ? "mt-2.5" : "mt-4"} overflow-hidden rounded-md border border-[#e5e5e7]`}>
+      <div className={`flex flex-wrap items-center justify-between gap-2 bg-[#f5f5f7] ${compact ? "px-2 py-1.5" : "px-3 py-2"}`}>
         <h3 className="text-[12px] font-semibold text-[#3c3c43]">
           未払いがどう残るか <Hint id="monthly-agreement.stock-flow" />
         </h3>
@@ -803,37 +822,37 @@ function PayoutScheduleTable({
       </div>
       <PayoutFlowBars rows={rows} compact={compact} />
       <div className="overflow-x-auto">
-        <table className={`${compact ? "min-w-[660px]" : "min-w-[720px]"} w-full text-[11px]`}>
+        <table className={`${compact ? "w-max min-w-[560px] max-w-full" : "min-w-[720px] w-full"} text-[11px]`}>
           <thead className="bg-white text-[#6e6e73]">
             <tr className="border-b border-[#e5e5e7]">
-              <th className={`${compact ? "px-2.5 py-1.5" : "px-3 py-2"} text-left font-semibold`}>働いた月</th>
-              <th className={`${compact ? "px-2.5 py-1.5" : "px-3 py-2"} text-right font-semibold`}>この月に増える分</th>
-              <th className={`${compact ? "px-2.5 py-1.5" : "px-3 py-2"} text-right font-semibold`}>支払う対象</th>
-              <th className={`${compact ? "px-2.5 py-1.5" : "px-3 py-2"} text-right font-semibold`}>支払う分</th>
-              <th className={`${compact ? "px-2.5 py-1.5" : "px-3 py-2"} text-right font-semibold`}>支払い後の残り</th>
+              <th className={`${compact ? "px-2 py-1" : "px-3 py-2"} text-left font-semibold`}>働いた月</th>
+              <th className={`${compact ? "px-2 py-1" : "px-3 py-2"} text-right font-semibold`}>{compact ? "増える分" : "この月に増える分"}</th>
+              <th className={`${compact ? "px-2 py-1" : "px-3 py-2"} text-right font-semibold`}>{compact ? "対象額" : "支払う対象"}</th>
+              <th className={`${compact ? "px-2 py-1" : "px-3 py-2"} text-right font-semibold`}>{compact ? "支払額" : "支払う分"}</th>
+              <th className={`${compact ? "px-2 py-1" : "px-3 py-2"} text-right font-semibold`}>{compact ? "残り" : "支払い後の残り"}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#e5e5e7]">
             {rows.map((row) => (
               <tr key={`${row.sourceYm}:${row.paymentYm}`} className={row.isCurrentYm ? "bg-amber-50/70" : undefined}>
-                <td className={`${compact ? "px-2.5 py-1.5" : "px-3 py-2"} align-top`}>
+                <td className={`${compact ? "px-2 py-1" : "px-3 py-2"} align-top`}>
                   <div className="font-semibold text-[#1d1d1f]">{formatYm(row.sourceYm)}</div>
                   {row.isCurrentYm && <div className="text-[10px] font-semibold text-amber-800">今回確認する月</div>}
                 </td>
-                <td className={`${compact ? "px-2.5 py-1.5" : "px-3 py-2"} text-right align-top tabular-nums`}>
+                <td className={`${compact ? "px-2 py-1" : "px-3 py-2"} text-right align-top tabular-nums`}>
                   <div className="font-semibold text-[#3c3c43]">{formatYen(row.basePayYen)}</div>
                 </td>
-                <td className={`${compact ? "px-2.5 py-1.5" : "px-3 py-2"} text-right align-top tabular-nums`}>
+                <td className={`${compact ? "px-2 py-1" : "px-3 py-2"} text-right align-top tabular-nums`}>
                   <div className="font-semibold text-[#3c3c43]">{formatYen(row.grossDueYen)}</div>
                   {row.carryInYen > 0 && <div className="text-[10px] text-[#86868b]">前から残る分 {formatYen(row.carryInYen)}</div>}
                 </td>
-                <td className={`${compact ? "px-2.5 py-1.5" : "px-3 py-2"} text-right align-top tabular-nums`}>
+                <td className={`${compact ? "px-2 py-1" : "px-3 py-2"} text-right align-top tabular-nums`}>
                   <div className="font-semibold text-[#1d1d1f]">税抜 {formatYen(row.totalPayYen)}</div>
                   <div className="text-[10px] text-[#86868b]">税込 {formatYen(row.totalPayTaxIncludedYen)}</div>
                   <div className="text-[10px] text-[#86868b]">{formatYm(row.paymentYm)}</div>
                   <PayoutSourceBadge row={row} />
                 </td>
-                <td className={`${compact ? "px-2.5 py-1.5" : "px-3 py-2"} text-right align-top tabular-nums`}>
+                <td className={`${compact ? "px-2 py-1" : "px-3 py-2"} text-right align-top tabular-nums`}>
                   <div className={row.stockYen > 0 ? "font-semibold text-amber-800" : "text-[#86868b]"}>
                     {formatYen(row.stockYen)}
                   </div>
@@ -884,14 +903,14 @@ function PayoutFlowBars({
   const visibleRows = chartRows.length > 0 ? chartRows : rows;
   return (
     <div className={`border-b border-[#e5e5e7] bg-white ${compact ? "p-2" : "p-3"}`}>
-      <div className={`${compact ? "mb-1.5" : "mb-2"} flex flex-wrap gap-2 text-[10px] text-[#6e6e73]`}>
+      <div className={`${compact ? "mb-1.5 gap-x-2 gap-y-1" : "mb-2 gap-2"} flex flex-wrap text-[10px] text-[#6e6e73]`}>
         <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-[#d1d1d6]" />前から残る分</span>
         <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-sky-300" />この月に増える分</span>
         <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-emerald-400" />支払う分</span>
         <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-amber-300" />残る分</span>
       </div>
       <div className="overflow-x-auto">
-        <div className={`${compact ? "min-w-[620px] space-y-1.5" : "min-w-[680px] space-y-2"}`}>
+        <div className={`${compact ? "w-[520px] max-w-full space-y-1" : "min-w-[680px] space-y-2"}`}>
           {visibleRows.map((row) => (
             <PayoutFlowBarRow key={`${row.sourceYm}:${row.paymentYm}`} row={row} maxGrossDueYen={maxGrossDueYen} compact={compact} />
           ))}
@@ -917,7 +936,7 @@ function PayoutFlowBarRow({
   const paidPct = Math.min(100, (row.totalPayYen / grossDueYen) * 100);
   const stockPct = Math.min(100, (row.stockYen / grossDueYen) * 100);
   return (
-    <div className={`${compact ? "grid-cols-[82px_minmax(0,1fr)_170px] gap-2 px-2 py-1.5" : "grid-cols-[92px_minmax(0,1fr)_190px] gap-3 px-2 py-2"} grid items-center rounded ${row.isCurrentYm ? "bg-amber-50" : "bg-white"}`}>
+    <div className={`${compact ? "grid-cols-[68px_220px_132px] gap-2 px-1.5 py-1" : "grid-cols-[92px_minmax(0,1fr)_190px] gap-3 px-2 py-2"} grid items-center rounded ${row.isCurrentYm ? "bg-amber-50" : "bg-white"}`}>
       <div className="min-w-0">
         <div className="text-[11px] font-semibold text-[#1d1d1f]">{formatYm(row.sourceYm)}</div>
         <div className="text-[10px] text-[#86868b]">{compact ? formatYm(row.paymentYm) : `${formatYm(row.paymentYm)}に支払う予定`}</div>
@@ -937,7 +956,7 @@ function PayoutFlowBarRow({
         </div>
       </div>
       <div className="text-right text-[10px] leading-tight text-[#6e6e73] tabular-nums">
-        <div>増える分 {formatYen(row.basePayYen)} / 支払う分 {formatYen(row.totalPayYen)} ({payoutSourceLabel(row)})</div>
+        <div>{compact ? `${formatYen(row.basePayYen)} / ${formatYen(row.totalPayYen)}` : `増える分 ${formatYen(row.basePayYen)} / 支払う分 ${formatYen(row.totalPayYen)} (${payoutSourceLabel(row)})`}</div>
         <div>対象額 {formatYen(row.grossDueYen)} / 残り {formatYen(row.stockYen)}</div>
       </div>
     </div>

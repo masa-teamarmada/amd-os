@@ -968,7 +968,7 @@ expectIncludes("src/components/admin/AdminSidebar.tsx", [
 
 expectIncludes("src/components/monthly-agreement/MonthlyAgreementExperience.tsx", [
   "この画面で確認すること",
-  "今月の約束",
+  "今月の発注条件",
   "予定額の出どころ",
   "支払いとの関係",
   "今シーズンのMS",
