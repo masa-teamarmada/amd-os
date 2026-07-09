@@ -15,6 +15,7 @@ import { createClient } from "@/lib/supabase/client";
 export interface InvoiceProjectRow {
   project_id: string;
   project_name: string;
+  client_name: string | null;
   status: string;
   project_type: string | null;
   start_ym: string | null;
@@ -31,6 +32,7 @@ export interface BillingCycleRow {
   id: string;
   project_id: string;
   project_name: string;
+  client_name: string | null;
   project_type: string | null;
   fee_type: string | null;
   fee_amount: number | null;
@@ -63,8 +65,8 @@ export interface ReimbursementRow {
   status: string | null;
 }
 
-type QueueFilter = "ready" | "needs_check" | "setup_missing" | "backlog" | "issued" | "sent" | "paid" | "all";
-type StateKey = Exclude<QueueFilter, "all">;
+type StateKey = "ready" | "needs_check" | "setup_missing" | "backlog" | "issued" | "sent" | "paid";
+type QueueFilter = "open" | StateKey | "all";
 
 interface Props {
   cycles: BillingCycleRow[];
@@ -247,6 +249,10 @@ function invoiceSort(a: BillingCycleRow, b: BillingCycleRow, reimburseMap: Map<s
   return a.project_id.localeCompare(b.project_id);
 }
 
+function invoiceRecipientName(row: Pick<BillingCycleRow, "client_name">) {
+  return row.client_name?.trim() || "取引先未設定";
+}
+
 function StatusPill({ state }: { state: InvoiceState }) {
   const Icon = state.Icon;
   return (
@@ -259,17 +265,21 @@ function StatusPill({ state }: { state: InvoiceState }) {
 
 export function AdminInvoiceIssueQueue({ cycles, reimbursements, targetYm }: Props) {
   const [rows, setRows] = useState(cycles);
-  const [filter, setFilter] = useState<QueueFilter>("ready");
+  const [filter, setFilter] = useState<QueueFilter>("open");
   const [selected, setSelected] = useState<BillingCycleRow | null>(null);
   const [issuingTarget, setIssuingTarget] = useState<BillingCycleRow | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [reimburseMap] = useState(() => reimbursementCompletionMap(reimbursements, cycles));
 
   const counts = useMemo(() => {
-    const initial: Record<QueueFilter, number> = { ready: 0, needs_check: 0, setup_missing: 0, backlog: 0, issued: 0, sent: 0, paid: 0, all: rows.length };
+    const initial: Record<QueueFilter, number> = { open: 0, ready: 0, needs_check: 0, setup_missing: 0, backlog: 0, issued: 0, sent: 0, paid: 0, all: rows.length };
     for (const row of rows) {
       const reimbursementDone = reimburseMap.get(`${row.project_id}_${row.ym}`) ?? true;
-      initial[invoiceState(row, reimbursementDone, targetYm).key] += 1;
+      const state = invoiceState(row, reimbursementDone, targetYm).key;
+      initial[state] += 1;
+      if (state === "ready" || state === "needs_check" || state === "setup_missing" || state === "backlog") {
+        initial.open += 1;
+      }
     }
     return initial;
   }, [reimburseMap, rows, targetYm]);
@@ -278,7 +288,10 @@ export function AdminInvoiceIssueQueue({ cycles, reimbursements, targetYm }: Pro
     return rows
       .filter((row) => {
         const reimbursementDone = reimburseMap.get(`${row.project_id}_${row.ym}`) ?? true;
-        return filter === "all" || invoiceState(row, reimbursementDone, targetYm).key === filter;
+        const state = invoiceState(row, reimbursementDone, targetYm).key;
+        if (filter === "all") return true;
+        if (filter === "open") return state === "ready" || state === "needs_check" || state === "setup_missing" || state === "backlog";
+        return state === filter;
       })
       .sort((a, b) => invoiceSort(a, b, reimburseMap, targetYm));
   }, [filter, reimburseMap, rows, targetYm]);
@@ -301,6 +314,7 @@ export function AdminInvoiceIssueQueue({ cycles, reimbursements, targetYm }: Pro
   }
 
   const filterItems: Array<{ key: QueueFilter; label: string }> = [
+    { key: "open", label: "未完了" },
     { key: "ready", label: "発行待ち" },
     { key: "needs_check", label: "要確認" },
     { key: "setup_missing", label: "設定不足" },
@@ -311,26 +325,22 @@ export function AdminInvoiceIssueQueue({ cycles, reimbursements, targetYm }: Pro
     { key: "all", label: "すべて" },
   ];
 
-  const summaryItems = [
-    { label: "発行待ち", value: counts.ready, className: "border-amber-200 bg-amber-50 text-amber-900" },
-    { label: "要確認", value: counts.needs_check, className: "border-slate-200 bg-slate-50 text-slate-800" },
-    { label: "設定不足", value: counts.setup_missing, className: "border-red-200 bg-red-50 text-red-800" },
-    { label: "過去滞留", value: counts.backlog, className: "border-red-200 bg-red-50 text-red-800" },
+  const summaryItems: Array<{ label: string; value: number; className: string; filter: QueueFilter }> = [
+    { label: "未完了", value: counts.open, className: "border-slate-200 bg-slate-50 text-slate-900", filter: "open" },
+    { label: "発行待ち", value: counts.ready, className: "border-amber-200 bg-amber-50 text-amber-900", filter: "ready" },
+    { label: "要確認", value: counts.needs_check, className: "border-slate-200 bg-slate-50 text-slate-800", filter: "needs_check" },
+    { label: "設定不足", value: counts.setup_missing, className: "border-red-200 bg-red-50 text-red-800", filter: "setup_missing" },
+    { label: "過去滞留", value: counts.backlog, className: "border-red-200 bg-red-50 text-red-800", filter: "backlog" },
   ];
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-2 sm:grid-cols-4">
+      <div className="grid gap-2 sm:grid-cols-5">
         {summaryItems.map((item) => (
           <button
             key={item.label}
             type="button"
-            onClick={() => {
-              if (item.label === "発行待ち") setFilter("ready");
-              if (item.label === "要確認") setFilter("needs_check");
-              if (item.label === "設定不足") setFilter("setup_missing");
-              if (item.label === "過去滞留") setFilter("backlog");
-            }}
+            onClick={() => setFilter(item.filter)}
             className={`rounded-lg border px-3 py-2 text-left transition-colors hover:brightness-[0.98] ${item.className}`}
           >
             <p className="text-[11px] font-semibold">{item.label}</p>
@@ -361,7 +371,7 @@ export function AdminInvoiceIssueQueue({ cycles, reimbursements, targetYm }: Pro
       <section aria-label="請求書発行キュー" className="overflow-x-auto rounded-lg border border-border bg-background">
         <div className="min-w-[980px]">
           <div className="grid grid-cols-[minmax(180px,1.5fr)_96px_96px_120px_150px_minmax(180px,1fr)_132px] gap-3 border-b border-border bg-muted/40 px-3 py-2 text-[11px] font-semibold text-muted-foreground">
-            <span>PJ</span>
+            <span>請求先</span>
             <span>稼働月</span>
             <span>請求月</span>
             <span className="text-right">請求額</span>
@@ -385,8 +395,7 @@ export function AdminInvoiceIssueQueue({ cycles, reimbursements, targetYm }: Pro
                     className="grid grid-cols-[minmax(180px,1.5fr)_96px_96px_120px_150px_minmax(180px,1fr)_132px] items-center gap-3 px-3 py-3 text-[13px] hover:bg-muted/20"
                   >
                     <button type="button" onClick={() => setSelected(row)} className="min-w-0 text-left">
-                      <p className="truncate font-medium">{row.project_name}</p>
-                      <p className="font-mono text-[10px] text-muted-foreground">{row.project_id}</p>
+                      <p className="truncate font-medium">{invoiceRecipientName(row)}</p>
                     </button>
                     <span className="font-mono text-[12px] text-muted-foreground">{shortYm(row.ym)}</span>
                     <input
@@ -491,7 +500,7 @@ function InvoiceDetailDialog({
     <Dialog open={!!row} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{row.project_name} {ymDisplay(row.ym)}</DialogTitle>
+          <DialogTitle>{invoiceRecipientName(row)} {ymDisplay(row.ym)}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <section className="rounded-lg border border-border p-3">

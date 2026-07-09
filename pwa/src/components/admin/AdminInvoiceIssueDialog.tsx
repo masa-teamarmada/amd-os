@@ -40,7 +40,7 @@ type ReimbItem = {
 };
 
 type Preview = {
-  projectName: string;
+  recipientName: string;
   clientName: string;
   feeType: string | null;
   feeAmount: number | null;
@@ -206,6 +206,23 @@ function reimbLabel(item: ReimbItem) {
   return desc || "立替";
 }
 
+function defaultInvoiceSubject(clientName: string, ym: string) {
+  const recipient = clientName.trim();
+  return recipient ? `${recipient} ${ymLabel(ym)} 業務委託費` : `${ymLabel(ym)} 業務委託費`;
+}
+
+function sanitizeInvoiceSubject(subject: string | null, internalProjectName: string, clientName: string, ym: string) {
+  const fallback = defaultInvoiceSubject(clientName, ym);
+  const trimmed = (subject ?? "").trim();
+  if (!trimmed) return fallback;
+  const internal = internalProjectName.trim();
+  if (!internal || !trimmed.includes(internal)) return trimmed;
+  const replaced = clientName.trim()
+    ? trimmed.split(internal).join(clientName.trim())
+    : trimmed.split(internal).join("").replace(/\s+/g, " ").trim();
+  return replaced || fallback;
+}
+
 async function loadPreview(projectId: string, ym: string): Promise<Preview> {
   const [projectRes, cycleRes, reimbRes] = await Promise.all([
     supabase
@@ -233,7 +250,8 @@ async function loadPreview(projectId: string, ym: string): Promise<Preview> {
 
   const project = projectRes.data;
   const cycle = cycleRes.data;
-  const projectName = project?.project_name ?? projectId;
+  const internalProjectName = project?.project_name ?? projectId;
+  const clientName = (project?.client_name ?? "").trim();
   const contractProject = {
     fee_type: project?.fee_type ?? null,
     fee_amount: project?.fee_amount ?? null,
@@ -277,12 +295,12 @@ async function loadPreview(projectId: string, ym: string): Promise<Preview> {
   const reimbYen = reimbItems.reduce((sum, item) => sum + Number(item.amount ?? 0), 0);
 
   return {
-    projectName,
-    clientName: project?.client_name ?? "",
+    recipientName: clientName || "取引先未設定",
+    clientName,
     feeType: project?.fee_type ?? null,
     feeAmount: typeof project?.fee_amount === "number" ? project.fee_amount : Number(project?.fee_amount ?? 0) || null,
     freeePartnerId: project?.freee_partner_id ?? null,
-    subject: cycle?.invoice_subject || `${projectName} ${ymLabel(ym)} 業務委託費`,
+    subject: sanitizeInvoiceSubject(cycle?.invoice_subject ?? null, internalProjectName, clientName, ym),
     baseLines,
     adjustmentLines,
     reimbItems,
@@ -466,8 +484,8 @@ export function AdminInvoiceIssueDialog({ projectId, ym, open, onClose, onIssued
             <section className="rounded-lg border border-border p-3 text-sm">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="font-semibold">{preview.projectName}</p>
-                  <p className="text-xs text-muted-foreground">{ymLabel(ym)} / {preview.clientName || "送付先未設定"}</p>
+                  <p className="font-semibold">{preview.recipientName}</p>
+                  <p className="text-xs text-muted-foreground">{ymLabel(ym)} / 請求先</p>
                 </div>
                 <div className="text-right text-xs text-muted-foreground">
                   <p>{preview.freeePartnerId ? `freee ID ${preview.freeePartnerId}` : "freee取引先 未設定"}</p>
@@ -484,7 +502,7 @@ export function AdminInvoiceIssueDialog({ projectId, ym, open, onClose, onIssued
             {!preview.freeePartnerId && (
               <section className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
                 <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-                <span>freee取引先が未設定。PJ設定で取引先を設定してから発行してね。</span>
+                <span>freee取引先が未設定。案件設定で取引先を設定してから発行してね。</span>
               </section>
             )}
 

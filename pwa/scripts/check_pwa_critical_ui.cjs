@@ -167,6 +167,8 @@ expectIncludes("src/components/admin/AdminSidebar.tsx", [
 
 expectIncludes("src/components/admin/AdminInvoiceIssueQueue.tsx", [
   "AdminInvoiceIssueDialog",
+  "未完了",
+  "open",
   "発行待ち",
   "要確認",
   "設定不足",
@@ -181,6 +183,8 @@ expectIncludes("src/components/admin/AdminInvoiceIssueDialog.tsx", [
   "callEdgeFunctionPOST",
   "invoice_base_lines_json",
   "freeePartnerId",
+  "sanitizeInvoiceSubject",
+  "recipientName",
   "基本明細行",
   "立替精算",
   "調整行",

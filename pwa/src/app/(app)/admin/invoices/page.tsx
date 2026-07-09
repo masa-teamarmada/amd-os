@@ -82,7 +82,7 @@ export default async function AdminInvoicesPage() {
 
   const { data: projects, error: projectErr } = await supabase
     .from("projects")
-    .select("project_id, project_name, status, project_type, start_ym, end_ym, freeze_from_ym, fee_type, fee_amount, freee_partner_id, monthly_report_required, monthly_report_scope")
+    .select("project_id, project_name, client_name, status, project_type, start_ym, end_ym, freeze_from_ym, fee_type, fee_amount, freee_partner_id, monthly_report_required, monthly_report_scope")
     .in("status", ["active", "ended", "frozen"]);
 
   const { data: reimbursements, error: reimburseErr } = await supabase
@@ -96,6 +96,7 @@ export default async function AdminInvoicesPage() {
     projectMap.set(p.project_id, {
       project_id: p.project_id,
       project_name: p.project_name,
+      client_name: p.client_name ?? null,
       status: p.status,
       project_type: p.project_type ?? null,
       start_ym: p.start_ym ?? null,
@@ -127,6 +128,7 @@ export default async function AdminInvoicesPage() {
       id: c.id ?? `${c.project_id}_${c.ym}`,
       project_id: c.project_id,
       project_name: projectMap.get(c.project_id)?.project_name ?? c.project_id,
+      client_name: projectMap.get(c.project_id)?.client_name ?? null,
       project_type: projectMap.get(c.project_id)?.project_type ?? null,
       fee_type: projectMap.get(c.project_id)?.fee_type ?? null,
       fee_amount: projectMap.get(c.project_id)?.fee_amount ?? null,

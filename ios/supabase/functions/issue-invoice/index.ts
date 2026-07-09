@@ -165,16 +165,15 @@ Deno.serve(async (req) => {
     // 1) プロジェクト情報取得
     const { data: projects } = await db
       .from("projects")
-      .select("project_name, client_name, freee_partner_id")
+      .select("client_name, freee_partner_id")
       .eq("project_id", projectId)
       .limit(1);
     const project = projects?.[0];
     const partnerId = project?.freee_partner_id;
     if (!partnerId) {
-      return json({ ok: false, message: `freeePartnerId が未設定（projectId=${projectId}）` }, 400);
+      return json({ ok: false, message: "freeePartnerId が未設定" }, 400);
     }
     const templateId: string | null = null; // freee_invoice_template_id は未移行のため省略
-    const projectName = project?.project_name ?? projectId;
     const clientName = project?.client_name ?? "";
 
     // 2) allLines をパース
@@ -209,7 +208,7 @@ Deno.serve(async (req) => {
     const accessToken = await getFreeeAccessToken(db);
 
     // 5) freee 帳票リクエストボディ構築
-    const subject = invoiceSubject?.trim() || `${clientName || projectName} 業務委託費`;
+    const subject = invoiceSubject?.trim() || (clientName ? `${clientName} 業務委託費` : "業務委託費");
 
     const lines: unknown[] = allLines.map((x) => {
       if ((x.type ?? "item") === "text") {
