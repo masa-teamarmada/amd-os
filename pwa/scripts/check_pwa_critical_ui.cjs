@@ -75,11 +75,13 @@ expectIncludes("src/components/cockpit/MilestoneGanttChart.tsx", [
   "periodStartYm",
   "targetYm",
   "設計額",
+  "担当設計額",
   "designAmountForPoints",
+  "memberDesignAmountForResponsibility",
   "extraDesignBudgetYen",
 ]);
 expectPattern("src/components/cockpit/MilestoneGanttChart.tsx", [
-  /ms\.points \* resp\.share/,
+  /\(budgetInfo\?\.effectivePoints \?\? ms\.points\) \* resp\.share/,
   /gridColumn/,
 ]);
 

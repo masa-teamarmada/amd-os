@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-07-09 | 3-8 PJ Cockpit / FEATURE_REGISTRY | 変更 | `MilestoneGanttChart` のバー上メンバーchipに `担当設計額` を追加。MSの有効pt×担当shareを、本契約/別財布それぞれの設計原資とpt分母で按分して表示する。build v0.39.20 | まさ指示「あとここに各メンバーの金額も表示されるようにして！」を route contract に固定するため | えいみ |
 | 2026-07-09 | 3-8 PJ Cockpit / FEATURE_REGISTRY | 変更 | `MilestoneGanttChart` の各MS行に `設計額` を追加。`fetchCockpitFromSupabase` は plan cycle 期間内の `billing_cycles.extra_budget_yen` 合計を `extraDesignBudgetYen` として渡し、通常MSと `cap_extra` を分けて設計額を算出する。build v0.39.19 | まさ指示「コックピットのMSリストのところに、各MSに割り当てられている予算がいくらなのかを明示してほしい」を route contract に固定するため | えいみ |
 | 2026-07-09 | 2-1 / 2-2 PWA Surface / FEATURE_REGISTRY / SPEC_pwa | 変更 | 日本文化マップを `/admin/japanese-culture-map` の admin-only route へ移動し、旧 `/japanese-culture-map` は redirect に変更。GlobalNav は admin group、AdminSidebar は admin menu に導線を置く。build v0.39.18 | まさ指示「『日本文化』のページだけど、adminに移動させてほしい」を route contract に固定するため | えいみ |
 | 2026-07-09 | 6-8 Admin MS Overview / 7-1 Reward Calc / FEATURE_REGISTRY / BUGS | 修正 | 金額ベースで先に決まる別財布だけ、cap_extra の明示ptを期間×10ptより優先する特例を追加。ZMP OkuDoor は 130pt / extra単価10,000円 / total_points 250へ是正し、別財布未払い在庫だけの保護月差額は台帳化しない。build v0.39.15 | 1,300,000円の別財布原資を60ptで割ると円単位の丸めで設計額が1,300,020円に見え、金額固定の予算なのに端数が出るため | えいみ |

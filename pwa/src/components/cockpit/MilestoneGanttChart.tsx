@@ -95,9 +95,27 @@ function formatYen(amount: number) {
   return `${toYenNumber(amount).toLocaleString("ja-JP")}円`;
 }
 
+function formatCompactYen(amount: number) {
+  const yen = toYenNumber(amount);
+  if (yen >= 10000) {
+    const man = yen / 10000;
+    const rounded = man >= 100 ? Math.round(man) : Math.round(man * 10) / 10;
+    return `${rounded.toLocaleString("ja-JP")}万円`;
+  }
+  return formatYen(yen);
+}
+
+function memberDesignAmountForResponsibility(resp: Responsibility, budgetInfo?: MsBudgetInfo) {
+  if (!budgetInfo) return 0;
+  const memberPoints = roundPt(budgetInfo.effectivePoints * Math.max(0, resp.share));
+  return designAmountForPoints(memberPoints, budgetInfo.pointBasis, budgetInfo.designBudgetYen, budgetInfo.designUnitYen);
+}
+
 type MsBudgetInfo = {
   designAmountYen: number;
+  designBudgetYen: number;
   designUnitYen: number;
+  pointBasis: number;
   effectivePoints: number;
   isCapExtra: boolean;
 };
@@ -384,7 +402,9 @@ export function MilestoneGanttChart({
       const budgetYen = isExtra ? extraDesignBudgetYen : regularDesignBudgetYen;
       map.set(ms.milestoneId, {
         designAmountYen: designAmountForPoints(effectivePoints, pointBasis, budgetYen, designUnitYen),
+        designBudgetYen: budgetYen,
         designUnitYen,
+        pointBasis,
         effectivePoints,
         isCapExtra: isExtra,
       });
@@ -576,11 +596,19 @@ function GanttRow({
             {resps.length === 0 ? (
               <span className={`rounded px-1.5 py-0.5 text-[10px] ${c.chip}`}>未割当</span>
             ) : (
-              resps.map((resp) => (
-                <span key={`${resp.memberId}-${resp.role || ""}`} className={`rounded px-1.5 py-0.5 text-[10px] ${c.chip}`}>
-                  {memberMap[resp.memberId] || "PM"} {Math.round(resp.share * 100)}% / {Math.round(ms.points * resp.share * 10) / 10}pt
-                </span>
-              ))
+              resps.map((resp) => {
+                const memberPoints = roundPt((budgetInfo?.effectivePoints ?? ms.points) * resp.share);
+                const memberDesignAmountYen = memberDesignAmountForResponsibility(resp, budgetInfo);
+                const title = budgetInfo
+                  ? `担当設計額 ${formatYen(memberDesignAmountYen)} / ${memberPoints}pt / share ${Math.round(resp.share * 100)}%`
+                  : undefined;
+                return (
+                  <span key={`${resp.memberId}-${resp.role || ""}`} className={`rounded px-1.5 py-0.5 text-[10px] ${c.chip}`} title={title}>
+                    {memberMap[resp.memberId] || "PM"} {Math.round(resp.share * 100)}% / {memberPoints}pt
+                    {budgetInfo ? ` / ${formatCompactYen(memberDesignAmountYen)}` : ""}
+                  </span>
+                );
+              })
             )}
           </span>
         </button>
@@ -599,12 +627,17 @@ function GanttRow({
               </div>
               {resps.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1">
-                  {resps.map((resp) => (
-                    <span key={`${resp.memberId}-${resp.role || ""}`} className={`rounded px-2 py-1 text-[10px] ${c.chip}`}>
-                      {memberMap[resp.memberId] || resp.memberId} {Math.round(resp.share * 100)}%
-                      {resp.role ? ` / ${resp.role}` : ""}
-                    </span>
-                  ))}
+                  {resps.map((resp) => {
+                    const memberDesignAmountYen = memberDesignAmountForResponsibility(resp, budgetInfo);
+                    const title = budgetInfo ? `担当設計額 ${formatYen(memberDesignAmountYen)}` : undefined;
+                    return (
+                      <span key={`${resp.memberId}-${resp.role || ""}`} className={`rounded px-2 py-1 text-[10px] ${c.chip}`} title={title}>
+                        {memberMap[resp.memberId] || resp.memberId} {Math.round(resp.share * 100)}%
+                        {budgetInfo ? ` / 担当設計額 ${formatCompactYen(memberDesignAmountYen)}` : ""}
+                        {resp.role ? ` / ${resp.role}` : ""}
+                      </span>
+                    );
+                  })}
                 </div>
               )}
               {budgetInfo && (

@@ -101,7 +101,7 @@ CockpitHeader は `/admin/projects` の正本から、PJメンバー、契約条
 `CockpitGoalsCompact` の各MS行は、クリックで展開し、MSを長期テーマのホーム画面として扱う。
 
 - **ゴール**: `value_milestones.success_criteria`、MS個別期間 (`period_start_ym` / `target_ym`)、pt、担当shareを表示する。
-- **設計額**: 各MS行のメタ情報に MS 単位の設計額を常時表示する。展開前の一覧で金額感を見られるようにし、展開欄では単価と本契約/別財布の区分も確認できる。
+- **設計額**: 各MS行のメタ情報に MS 単位の設計額を常時表示する。バー上のメンバー chip には担当者ごとの担当設計額も併記し、展開前の一覧でMS全体とメンバー別の金額感を見られるようにする。展開欄では単価と本契約/別財布の区分も確認できる。
 - **TODO**: `milestone_sub_items` のopen/done状態と、`milestone_responsibility.task_description` を並べる。サブアイテムは展開欄からdone/openを切り替えられる。
 - **現状**: `milestone_monthly_progress` の最新 `progress_pct` / `note`、`member_ms_activities` の narrative、`member_activities` の直近材料を表示する。
 
@@ -363,6 +363,7 @@ XRL も同パターン (`xrl_feedbacks` → `/api/.../xrl-revise` → 手動 `/v
 - each bar: MS別 `periodStartYm` 〜 `targetYm`
 - bar chips: member codeName, share %, allocated pt (`ms.points * share`)
 - row meta: pt / tag / sub item count / progress に加えて、MS単位の `設計額`
+- member chips: codeName / share / 担当pt / 担当設計額
 - expanded row: responsibility detail + sub items
 
 ## Reward Cap / Stock
