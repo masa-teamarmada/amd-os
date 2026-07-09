@@ -43,6 +43,7 @@
 | `/spec` | 設計書。確定実装仕様。admin 限定 |
 | `/bzm` | BZM テキストブック。理論・数式・rubric 導出 |
 | `/knowledge-map` | AMD Knowledge Map。L2 / manual / spec / BZM 候補を横断する読み取り専用ノウハウ地図 |
+| `/poc` | PoC案件化。Seeds と企業候補を組み合わせ、ヒアリング論点、PoC条件、謝礼、契約、資金、収益分配を追う |
 | `/venture-map/amd-score` | AMD Score 一覧 |
 | `/venture-map/amd-score/[projectId]` | AMD Score 詳細 |
 | `/atlas` / `/atlas/*` | Atlas signal / story / divergence / map |

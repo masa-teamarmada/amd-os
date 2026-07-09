@@ -28,6 +28,7 @@ function pathToTitle(pathname: string): string | null {
   if (pathname === "/venture-map") return "Venture Map";
   if (pathname.startsWith("/knowledge-map")) return "Knowledge Map";
   if (pathname === "/seeds") return "Seeds";
+  if (pathname === "/poc") return "PoC案件化";
   if (pathname === "/vcs") return "VC";
   if (pathname === "/mypage") return "マイページ";
   if (pathname === "/monthly-agreement") return "月初合意";

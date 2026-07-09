@@ -14,6 +14,7 @@ import {
   Database,
   FileText,
   GraduationCap,
+  Handshake,
   Landmark,
   LayoutDashboard,
   Map,
@@ -189,6 +190,11 @@ export function GlobalNav({
             href: "/seeds",
             icon: Sprout,
             badge: seedInboxCount,
+          },
+          {
+            label: "PoC",
+            href: "/poc",
+            icon: Handshake,
           },
           {
             label: "VC",

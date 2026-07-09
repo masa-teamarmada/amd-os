@@ -189,6 +189,28 @@ expectIncludes("src/components/admin/AdminInvoiceIssueDialog.tsx", [
   "請求書を発行",
 ]);
 
+expectIncludes("src/components/nav/GlobalNav.tsx", [
+  "/poc",
+  "Handshake",
+  "PoC",
+]);
+
+expectIncludes("src/app/(app)/poc/page.tsx", [
+  "PoC案件化",
+  "マッチ案件を追加",
+  "企業候補を追加",
+  "シーズ × 企業マトリックス",
+  "謝礼・PoC費用",
+  "資金・補助金",
+  "収益分配メモ",
+]);
+
+expectIncludes("src/lib/poc-data.ts", [
+  "poc_companies",
+  "poc_matches",
+  "POC_MATCH_STATUS_ORDER",
+]);
+
 expectIncludes("src/lib/reward-summary.ts", [
   "server_v5_planned_share_cap_carry_no_final_topup",
   "regularUnusedCapCarryOutYen",

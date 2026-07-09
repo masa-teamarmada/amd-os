@@ -14,6 +14,7 @@
 
 | 日付 | 対象章 | 種別 | 内容 | 理由 | 誰が |
 |---|---|---|---|---|---|
+| 2026-07-09 | 2-5 探索・知識アセット / 5-1 Research Assets | 追加 | `/poc` PoC案件化を追加。Seedsの下流で、企業候補、相性仮説、ヒアリング論点、謝礼・PoC費用、契約、資金、収益分配、次アクションを扱う画面として記載。build v0.39.28 | PoCサービスMTGの内容を、議事録全文ではなく次に使える案件化台帳としてOSに残すため | えいみ |
 | 2026-07-09 | 2-6 adminオペ / 6-3 請求書発行 / 6-6 Member Ops / SPEC_pwa / FEATURE_REGISTRY | 修正 | `/admin/invoices` の請求額判定から `budget_yen / 0.65` fallback を削除し、明細合計 → 確定請求額 → 月額固定契約額 (`projects.fee_amount`) の順に変更。対象月より古い未発行行は `発行待ち` から外して `過去滞留` に分離。`AdminInvoiceIssueDialog` は iOS/GAS 由来の前仕様へ戻し、基本明細行、承認済み立替、調整行、備考、発行済み情報、発行取消を復元。build v0.39.27 | BWE 2026年2月が AMD 側予算 `budget_yen` から請求額扱いされ、SE 2026年4月のような古い未発行行が今月の発行待ちに混ざっていたため。あわせて請求書発行モーダルが前の実務仕様から薄い明細編集UIへ変わっていたため | えいみ |
 | 2026-07-09 | 2-3 PJ コックピット / 6-8 Admin MS Overview | 追加 | `milestone_change_events` の既存MS履歴を backfill。active / fixed の11 plan cycle、110 MSを、`value_milestones.created_at` ごとの作成バッチとして19 eventに分けて追加した。ログ導入前の pt/share 更新時刻は復元せず、担当shareは backfill 実行時点の現行値として扱う | `MS変更履歴` を導入した後、これまでのMS変更・作成履歴もメンバー向け cockpit で確認できるようにするため | えいみ |
 | 2026-07-09 | 2-6 adminオペ / 3-1 architecture / 6-3 請求書発行 / 6-6 Member Ops / design routine / FEATURE_REGISTRY | 修正 | `/admin/invoices` をきよの発行フローに合わせ、締め済み稼働月・請求額ありの行だけを表示する仕様へ変更。未来月、請求なしPJ、稼働期間外、freeze後の空cycleを発行対象から除外し、`発行待ち / 要確認 / 設定不足` を分離。`金額 / 報告 / 立替` のきよ確認と、freee取引先未設定の設定不足を明示する。build v0.39.25 | まさ指摘「8月の稼働分まで表示」「請求が発生しないPJも出てる」「きよの立場でUIUX設計」を反映し、実務で押せる請求書だけを発行待ちに出すため | えいみ |

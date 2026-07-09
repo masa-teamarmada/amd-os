@@ -151,6 +151,7 @@ pwa/
 | `/seeds` | 研究シーズリスト (大学・国研・高専のシーズ × AMD 視点の事業化適性)。検索/ファセット/ソート/モーダル詳細編集。詳細は [`seeds.md`](seeds.md) |
 | `/seeds/[id]` | シーズ詳細 (URL 直接アクセス用フォールバック)。リスト画面でのモーダルが正規 |
 | `/seeds/inbox` | Seeds 受信箱 (cron 自動収集分の未確認シーズ)。verify/dismiss で消化。GlobalNav に sky 色バッジ |
+| `/poc` | PoC案件化。`seeds` と `poc_companies` を組み合わせ、相性仮説、ヒアリング論点、謝礼・PoC費用、契約、資金、収益分配、次アクションを `poc_matches` に保存する。議事録本文やURLは保存せず短い参照名だけを持つ。詳細は [`poc_matching.md`](poc_matching.md) |
 
 ### API routes (`/api/`)
 
@@ -312,6 +313,8 @@ pwa/
 | `seed_funding` | 補助金履歴 (NEDO/AMED/JST GAP 等の採択) |
 | `seed_news` | 関連ニュース・論文・プレス (Atlas とは独立系統) |
 | `seed_contact_log` | AMD メンバー × シーズ の接触履歴 |
+| `poc_companies` | PoCを受けてくれそうな企業候補。業界タグ、地域、規模感、PoC相性、過去PoC/紹介経路、謝礼メモ、担当、次アクションを保持 |
+| `poc_matches` | シーズ x 企業候補のマッチ台帳。相性仮説、ヒアリング論点、PoC目標、謝礼、契約、資金、収益分配、状態、優先度を保持 |
 
 旧 `seeds` (006_venture_map.sql の予兆 4 件用) は 024 で破棄。Venture Map のグラフ予兆プロットも同時に削除。詳細は [`seeds.md`](seeds.md)。
 

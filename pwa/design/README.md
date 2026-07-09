@@ -44,6 +44,7 @@
 | XRL根拠 (TRL/BRL/GRL/SRL/HRL 算定根拠) ⭐ | [xrl_evidence.md](xrl_evidence.md) |
 | Venture Map | [venture_map_model.md](venture_map_model.md) / [venture_map_demo.md](venture_map_demo.md) / [venture_map_v01_critique.md](venture_map_v01_critique.md) |
 | Seeds (研究シーズリスト) ⭐ | [seeds.md](seeds.md) |
+| PoC Matching ⭐ | [poc_matching.md](poc_matching.md) — シーズ x 企業候補のヒアリング / PoC設計 / 契約 / 収益分配台帳 |
 | BZM 論文化 (教科書×IMRaD対応・論文骨子・図版方針) | [bzm_paper.md](bzm_paper.md) — JASVE 向け論文設計。教科書正本は `pwa/bzm/*.md`、引き継ぎは `pwa/HANDOFF_bzm_textbook.md` |
 | VC List | [vc_list.md](vc_list.md) |
 | AMD Management Score (会社全体の経営スコア) ⭐ | [management_score.md](management_score.md) |

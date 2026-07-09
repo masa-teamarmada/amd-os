@@ -43,6 +43,25 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - `/knowledge-map` route、GlobalNav 導線、`KnowledgeMapView`、`fetchKnowledgeMapData` を消す変更は、`FEATURE_REGISTRY.md`、`/spec/2-1`、`/spec/2-2`、manual 2-5 を同時に更新する。
 - NotebookLM export を追加するときも、OS 側が正本で、NotebookLM はコピー先という境界を崩さない。
 
+## /poc
+
+目的: Seeds の研究シーズとPoC候補企業を組み合わせ、ヒアリング論点、PoC条件、謝礼、契約、資金、収益分配まで案件化する。
+
+必須機能:
+
+- GlobalNav: 探索グループに `PoC` と `/poc` を置く。Seedsの下流にある案件化棚なので、Admin配下へ移さない。
+- data sources: `poc_companies` / `poc_matches` / `seeds` / `projects` / `members` を読む。`seeds` は研究シーズ正本として再利用し、PoC固有の企業・条件・質問は `poc_*` に置く。
+- source hygiene: Notion議事録、Gmail、Slack、Drive、Web本文やURLを保存・表示しない。`source_ref` / `source_note` は短い参照名だけにする。
+- add match: シーズ、企業候補、関連PJ、状態、優先度、相性仮説、ヒアリング論点、謝礼・PoC費用、契約、資金、PoC目標、収益分配、次アクションを保存できる。
+- add company: 企業名、規模感、地域、業界タグ、PoC相性、過去PoC/紹介経路、謝礼、担当、状態、次アクションを保存できる。
+- matrix: `シーズ × 企業マトリックス` を置き、既存マッチをセル表示、空白セルで未検討の組み合わせを見つけられる。
+- inline status: マッチ案件と企業候補の状態は一覧上で更新できる。
+
+回帰防止:
+
+- `pwa/scripts/check_pwa_critical_ui.cjs` が `/poc` route、GlobalNav導線、`poc_companies` / `poc_matches` data access、マッチ追加、企業追加、マトリックスを検査する。
+- `/poc` を消す/薄くする変更は、`poc_matching.md`、`SPEC_pwa.md`、manual 2-5 / 5-1、`/spec/2-1` を同時に更新する。
+
 ## /admin/japanese-culture-map
 
 目的: 日本文化コンテンツを admin 側の知識ビューとして読み、`jp_culture_items` をマインドマップと日本地図で俯瞰する。

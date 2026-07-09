@@ -170,7 +170,7 @@ export const MANUAL_CHAPTERS: ManualChapterConfig[] = [
   { slug: "2-2-member-workflows-quick-start", title: "メンバーの日常ワークフロー", summary: "マイページ、立替、週次活動、月初合意の日常導線。", topics: ["start", "monthly"], screens: ["/mypage", "/reimburse"] },
   { slug: "2-3-pj-cockpit", title: "PJ コックピットの見方", summary: "PJ Status、MS 進捗、経営ハイライト、月次カードの読み方。", topics: ["cockpit", "decision", "monthly"], screens: ["/project/{projectId}/cockpit"] },
   { slug: "2-4-amd-cockpit", title: "AMD 全体コックピットの見方", summary: "p00、Management Score、提案前の論点整理の使い方。", topics: ["start", "decision"], screens: ["/project/p00/cockpit"] },
-  { slug: "2-5-research-assets-quick-start", title: "探索系アセットの使い方", summary: "Atlas、Seeds、VC、Scholar をまず触るための入口。", topics: ["discovery", "start"], screens: ["/atlas", "/seeds", "/vcs", "/scholar"] },
+  { slug: "2-5-research-assets-quick-start", title: "探索系アセットの使い方", summary: "Atlas、Seeds、PoC、VC、Scholar をまず触るための入口。", topics: ["discovery", "start"], screens: ["/atlas", "/seeds", "/poc", "/vcs", "/scholar"] },
   { slug: "2-6-admin-ops", title: "admin月次オペ早見表", summary: "支払、請求書発行、立替、報告書確認、入金確認、経営ノウハウ台帳の入口。", topics: ["monthly", "admin"], screens: ["/admin/invoices", "/admin/payouts", "/admin/management-knowledge"] },
   { slug: "2-7-task-management", title: "タスク管理（廃止済み）", summary: "/tasks 画面と agent helper は廃止済み。tasks table / API は H-1 と cockpit 互換のため残す。", topics: ["system"], tables: ["tasks"] },
 
@@ -188,7 +188,7 @@ export const MANUAL_CHAPTERS: ManualChapterConfig[] = [
   { slug: "4-8-ms-progress-monthly-report-revision-spec", title: "MS Progress / Monthly Report / Revision Loop", summary: "MS 進捗、月次報告書、月次ノート、つくよみ修正依頼 loop。", topics: ["cockpit", "monthly", "system-dev"], screens: ["/project/{projectId}/cockpit"], tables: ["milestone_monthly_progress", "ms_progress_revisions"] },
   { slug: "4-9-institution-ers-spec", title: "研究機関 ERS (機関エコシステム整備度)", summary: "苗床レイヤー指標。8 軸 × サブ軸 Lv1-5 の加重和 (充足率)。AMD Score PRS primary (個体) とは別ロジックで σ_SU 経由で概念連動。二重計上しない。", topics: ["decision", "discovery", "system-dev"], screens: ["/institutions", "/institutions/{institutionId}", "/dashboard"], tables: ["institutions", "institution_assessments"] },
 
-  { slug: "5-1-research-assets-vc-seeds-scholar-spec", title: "Seeds / VC / Scholar 詳細仕様", summary: "研究シーズ、VC、Scholar の DB、inbox、cron route。", topics: ["discovery", "admin-dev"], screens: ["/seeds", "/vcs", "/scholar"], tables: ["seeds", "vcs", "papers_log"] },
+  { slug: "5-1-research-assets-vc-seeds-scholar-spec", title: "Seeds / PoC / VC / Scholar 詳細仕様", summary: "研究シーズ、PoC案件化、VC、Scholar の DB、inbox、cron route。", topics: ["discovery", "admin-dev"], screens: ["/seeds", "/poc", "/vcs", "/scholar"], tables: ["seeds", "poc_companies", "poc_matches", "vcs", "papers_log"] },
   { slug: "5-2-hud-and-venture-map-spec", title: "HUD / Venture Map 仕様", summary: "HUD mirror、Venture Map、実験ビュー、ルート一覧。", topics: ["discovery", "system-dev"], screens: ["/hud", "/venture-map"] },
 
   { slug: "6-1-operations-settings-spec", title: "Operations Settings", summary: "Raw Data、L2 Data、Cron Control、運用設定画面。", topics: ["admin-dev", "system-dev"], screens: ["/admin/settings"] },

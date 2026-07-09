@@ -1,6 +1,6 @@
-# Seeds / VC / Scholar 詳細仕様
+# Seeds / PoC / VC / Scholar 詳細仕様
 
-`/seeds` / `/vcs` / `/scholar` の 3 つの外部探索アセット画面の開発者向け正本。 メンバー向け使い方は [2-5 章](2-5-research-assets-quick-start.md) を見る。
+`/seeds` / `/poc` / `/vcs` / `/scholar` の外部探索・案件化アセット画面の開発者向け正本。 メンバー向け使い方は [2-5 章](2-5-research-assets-quick-start.md) を見る。
 
 ## 全体マップ
 
@@ -8,6 +8,7 @@
 |---|---|---|---|
 | `/seeds` | 研究シーズ (= 機関 × PI × シーズ) のマスタ | `seeds` / `seed_funding` / `seed_news` / `seed_contact_log` | `/api/cron/seeds-ingest` (停止中) |
 | `/seeds/inbox` | 自動収集された未確認シーズの受信箱 | `seeds (discovery_status='discovered')` | 同上 |
+| `/poc` | シーズ x 企業候補のPoC案件化台帳 | `poc_companies` / `poc_matches` / `seeds` | なし |
 | `/vcs` | 国内ディープテック VC マスタ | `vcs` / `vc_funds` / `vc_investments` / `vc_contacts` / `project_vc_relations` / `vc_news` | `/api/cron/vc-discover` (停止中) |
 | `/vcs/inbox` | VC ニュース受信箱 | `vc_news (verified=false)` | 同上 |
 | `/scholar` | 論文 / OpenAlex 由来の lane 別件数 | `papers_log` | `/api/cron/papers-quarterly-ingest` |
@@ -76,6 +77,44 @@ candidate (候補)
 旧 schedule: 毎週 月曜 09:00 JST。 Claude Sonnet + `web_search_20250305` で 7 ソース (= GAP / NEP / AMED / D-Global / CREST / 創発 / 先導研究) 巡回 → `discovery_status='discovered'` で投入。
 
 2026-05-22 以降 LLM / web_search 課金回避で自動 schedule 停止。 route は残してるので手動 review batch から起動可能 ([6-1 章](6-1-operations-settings-spec.md))。
+
+## PoC 案件化設計
+
+PoC は Seeds の下流で、研究シーズと企業候補を組み合わせ、ヒアリング・有償PoC・契約へ進めるための台帳。2026-07-09 のPoCサービスMTGを起点に追加。
+
+### スキーマ
+
+| table | 役割 |
+|---|---|
+| `poc_companies` | PoCを受けてくれそうな企業候補。企業名、規模感、業界タグ、地域、PoC相性、過去PoC/紹介経路、謝礼メモ、担当、次アクション |
+| `poc_matches` | シーズ x 企業候補のマッチ。`seed_id`、`company_id`、任意の `project_id`、相性仮説、ヒアリング論点、PoC目標、謝礼、契約、資金、収益分配、状態、優先度 |
+
+### 状態
+
+企業候補:
+
+```text
+candidate -> listed -> contacted -> hearing -> poc_ready -> archived
+```
+
+マッチ案件:
+
+```text
+candidate -> hearing_design -> introduced -> hearing_done
+  -> poc_design -> poc_running -> deal / archived
+```
+
+### UI
+
+| パス | 役割 |
+|---|---|
+| `/poc` | PoC案件化 hub。上段メトリクス、検索、状態フィルタ、マッチ追加、企業候補追加、シーズ x 企業マトリックス、マッチ一覧、企業候補一覧 |
+
+### Source Hygiene
+
+- Notion議事録、Gmail、Slack、Drive、Webの本文やURLを `poc_*` に保存しない
+- `source_ref` / `source_note` は短い参照名だけにする
+- 議事録由来の内容は、相性仮説、ヒアリング論点、契約/資金/収益分配メモ、次アクションへ変換して保存する
 
 ## VC 設計
 
@@ -176,7 +215,7 @@ Claude + web_search に「国内ディープテック VC 25-40 社」を JSON �
 
 ## RLS
 
-3 アセット全テーブルで共通パターン (= `016_vc_list.sql` / `017_vc_rls_writes.sql`):
+4 アセット全テーブルで共通パターン (= `016_vc_list.sql` / `017_vc_rls_writes.sql` / `167_poc_matching.sql`):
 
 - `anon_read` = SELECT 全開
 - `authenticated_all` = `auth.uid() IS NOT NULL` なら ALL
@@ -198,6 +237,7 @@ Claude + web_search に「国内ディープテック VC 25-40 社」を JSON �
 | 症状 | 確認場所 |
 |---|---|
 | `/seeds/inbox` が空 | `discovery_status='discovered'` の有無、 `/api/cron/seeds-ingest` 実行履歴 |
+| `/poc` のマトリックスが空 | `poc_companies` と、`seed_id` / `company_id` の両方を持つ `poc_matches` があるか |
 | 新 VC が `/vcs` に出ない | `vcs.slug` 重複、 `vc_news` 紐付け、 inbox での verify 漏れ |
 | `/scholar` の paper_count が古い | 直近の `papers_log.observed_at`、 quarterly cron 実行履歴 |
 | つくよみ chat で VC 自動更新が走らない | `/api/tsukuyomi/chat` の tool registration、 system prompt に context 注入 |
@@ -207,6 +247,7 @@ Claude + web_search に「国内ディープテック VC 25-40 社」を JSON �
 
 - 2-5 章 [探索系アセットの使い方](2-5-research-assets-quick-start.md) (= ユーザー視点)
 - 設計: [`pwa/design/seeds.md`](../design/seeds.md)
+- 設計: [`pwa/design/poc_matching.md`](../design/poc_matching.md)
 - 設計: [`pwa/design/vc_list.md`](../design/vc_list.md)
 - 設計: [`pwa/design/macrotrend_atlas_seeds_architecture.md`](../design/macrotrend_atlas_seeds_architecture.md) (= Atlas との分離経緯)
 - 4-2 章 [Atlas / Macrotrend 詳細仕様](4-2-atlas-macrotrend-signal-spec.md)
