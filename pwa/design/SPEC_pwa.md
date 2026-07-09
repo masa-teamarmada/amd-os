@@ -109,7 +109,7 @@ pwa/
 | `/dashboard-cyber-glass-cube` | 廃案比較用の旧 Cyber Dashboard 第2案。ガラスキューブPJ群は情報構造がカオス化したため、今後の正本候補にはしない。公開モックは `/mock/dashboard-cyber-glass-cube` |
 | `/dashboard-cyber-hud-wall` | Cyber Dashboard 第2案の作り直し。固定視点の `three.js` 空間に、参考HUD画像のようなKPI/PJ/Proof/Alert HUDモジュールを固定配置し、PJ選択時は同一空間内にPJ Cockpit Spatial Viewを展開する。公開モックは `/mock/dashboard-cyber-hud-wall` |
 | `/mypage` | 自分の参加 PJ × 今月の活動 + 今週やったこと + 月次報酬予定。PM向け月次TODO/nudgeは出さない。りり (`ID006`) は NIMS からの無償出向のため、報酬額は金額ではなく `ー` 表示 |
-| `/project/[projectId]/cockpit` | PJ コックピット (上 Header + Hero (AMD Score + XRL 横並び) + MS / 資料 + 経営ハイライト + ガバナンス + 助成金 + 下段 月次 + MTGサマリ)。Header はPJリスト正本からPJメンバー、契約条件、業務委託料、支払い条件、提出物、立替精算可否を表示する。資料は Drive の当該PJ folder配下 `AMD OS 資料` folder に保存し、OSには `project_documents` のmetadata/linkだけを残す。旧 `proactive_outbox` 由来のTODO欄は表示しない。`max-w-[1600px]` で画面幅を広く使う。詳細は [`cockpit.md`](cockpit.md) / [`project_strategy_signals.md`](project_strategy_signals.md) |
+| `/project/[projectId]/cockpit` | PJ コックピット (上 Header + Hero (AMD Score + XRL 横並び) + MS / 資料 + 経営ハイライト + ガバナンス + 助成金 + 下段 月次 + MTGサマリ)。Header はPJリスト正本からPJメンバー、契約条件、業務委託料、支払い条件、提出物、立替精算の発生額/不可を表示する。資料は Drive の当該PJ folder配下 `AMD OS 資料` folder に保存し、OSには `project_documents` のmetadata/linkだけを残す。旧 `proactive_outbox` 由来のTODO欄は表示しない。`max-w-[1600px]` で画面幅を広く使う。詳細は [`cockpit.md`](cockpit.md) / [`project_strategy_signals.md`](project_strategy_signals.md) |
 | `/institutions/[institutionId]/cockpit` | 研究機関カードから開く機関コックピット。KUTE (`inst_kute`) は既存KUTE PJ (`p25`)、NIMS (`inst_nims`) は正式NIMS OS導入PJ (`p28`) の `CockpitView` を同画面へマウントし、MS進捗・月次・MTG履歴を操作/確認する。CX (`p20`) はNIMS導入の初期ユースケースであり、NIMS PJそのものとは分けて扱う。既存PJコックピットの内容も研究機関ERS側の評価内容も削除しない。上部にERS概要と readiness snapshot を置き、進捗管理とスコア詳細をタブで分ける |
 | `/project/[projectId]/config` | 旧PJ設定。コックピットからは導線を外し、PJごとの契約・請求・支払条件は `/admin/projects` を正本にする |
 | `/manual` `/manual/[slug]` | AMD OS マニュアル。`pwa/manual/*.md` を正本として表示し、左カラムで章タイトル / summary / 見出し / 本文 / 画面パス / テーブル名を全文検索できる。`/manual` と各章だけに Gemini 実験版の `ManualTsukuyomiFloat` を出し、`POST /api/manual/tsukuyomi/ask` が該当章のマニュアル本文を根拠に回答する。DB 書き込みや既存つくよみ修正 tool は持たない |
@@ -134,7 +134,7 @@ pwa/
 | `/venture-map/state-space` | (実験) Triple Helix 状態空間 |
 | `/scholar` | 学術トレンド (μ_A 観測量 N) — lane × quarter の論文数 line chart + 前年同期比。OpenAlex 由来。詳細は [`amd_score.md`](amd_score.md) Triple Helix 観測モデル参照 |
 | `/reimburse` | 立替精算。PWAから申請/編集/削除、領収書添付、PM承認、admin承認まで実行。申請/編集は `/api/reimbursements` 経由で server-side 保存。status flow: `submitted` → `pmApproved` → `approved` |
-| `/admin/billing` | admin 立替/請求マトリクス (チップ操作で billing_cycles 直更新) |
+| `/admin/invoices` | admin 請求書発行。SU × 月の請求書発行・送付・立替・入金状態を一覧し、行詳細から OS → freee の請求書発行を実行する。旧 `/admin/billing` はこの route への互換 redirect のみ |
 | `/admin/payouts` | 報酬支払。支払月を選び、`billing_cycles.invoice_ym` があればそれを優先、空なら `/admin/projects` の支払条件 (`projects.payment_due_rule`) から支払月を自動判定して報酬確定済みcycleを集約する。通常表示は `billing_cycles.reward_summary_json` の報酬キャッシュを読むだけにし、明示的な「報酬キャッシュ再計算」・発行/送付などのwrite処理・日次 `payout-reward-cache-refresh` cron だけが再計算する。画面を開いただけでは保存しない。画面の支払額とPDF生成元は最新計算額を正にし、`monthly_reward_payout.total_pay` / `payout_notices.total_yen` は税抜スナップショットとして、夜間の `payout-notice-prebuild` または正式PDF発行時に同期する。PWA集約済み明細からの改善版支払通知書PDF発行 (`notice_no` / `pdf_url` / `sent_at`)、契約由来の本契約cap確認、OkuDoor追加開発などの別財布支払分離、縦型PJ収支表、本契約cap超過チェック、後追い予算未確定 / 予算不足 / 失注ステータス警告、入金確認nudge、明細クリックから月次モーダルを開く導線を持つ。報酬額の手入力フォームは置かず、MS / PlanCycle / responsibility から計算できるものだけを支払対象にする。`tag='cap_extra'` のMSは `extraBasePay` として通常枠から分離し、画面では `本契約発生` / `別財布発生` を別表示する。`メンバー別支払` は主作業表としてサマリ直下・報酬債務台帳より上に置き、PDF URL手入力欄は置かず、各行に `支払通知書発行` / `PDF確認` / `送付` を置く。メンバー別支払の `支払額` は画面上で税抜 / 税込を併記し、DB同期値 (`monthly_reward_payout.total_pay` / `payout_notices.total_yen`) は税抜。PDF宛先は `members.contractor_name` (= 未設定時は `member_name` / `code_name`) と `members.member_address`、メンバー側インボイス登録番号は `members.invoice_registration_number` を使い、PDF上のラベルは宛先側・発行者側とも `登録番号`、発行者側の値は AMD のインボイス登録番号 `T7021001064067` を表示する。PDFには振込先欄を出さない。行の `PDF確認` は保存済み正式PDFを開くだけで、PDF生成は行わない。確認用PDFを作る場合は別操作の `確認用PDF生成` を使い、`payout_notices` には保存しない。`payout-notice-prebuild` は支払データ同期後に正式PDFを事前生成する。正式な通知書発行・全員分PDF一括発行・強制再発行は、サーバー側で最新計算額を同期してから実行する。金額変更分、現行テンプレート更新時刻より古い未送付PDF、または `members.updated_at` より古い未送付PDFは再生成対象へ戻す。最新支払計算に対応する明細が無い未送付 `payout_notices` は孤立レコードとして削除し、古いPDFリンクを active な通知書として残さない。送付済み通知書は履歴保護し、`force=true` でも上書きしない。通常の差分は発行時に自動同期するため状態バッジを出さず、開きっぱなしの画面は 60 秒ごとに read-only 再取得して同期状態だけ追随する。月初合意gate・本契約cap blocker がある場合だけ `同期できない` と表示し、admin override または blocker 解消を待つ。一括PDF生成で失敗または強制再発行なのに未送付PDFが未再生成になった場合は `ok: false` として画面に失敗を出す。`送付` は確認モーダル (件名: 支払通知書のご案内 固定 / 本文編集可 / 添付PDF / Bcc: masa+kyoko 固定) を開く前にPDF生成せず、保存済み正式PDFが最新DBと一致し、確認用PDFではなく、未送付であることだけを照合する。そこで「はい・送信」を押すと保存済み正式PDFを添付して `keiri@team-armada.jp` から実メール送信し、成功時に `payout_notices.sent_at` を set する。支払通知書PDFは admin/payouts の支払額を税抜として扱い、GAS PDF生成時に消費税10%を上乗せして税込合計を出す。支払通知書PDFの見た目契約は [`FEATURE_REGISTRY.md`](FEATURE_REGISTRY.md) の `/admin/payouts` に固定し、`test:critical-ui` でGAS側の改善版フォーマット anchor も検査する |
 | `/admin/payouts` 支払通知書再生成 contract | 正式な通知書発行・全員分PDF一括発行・強制再発行は、サーバー側で最新計算額を同期した後に DB を再読込し、最新の `members.contractor_name` / `members.member_address` / `members.invoice_registration_number` を GAS PDF 生成へ渡す。金額差分が無くても、admin が再生成を押したらメンバー台帳の住所・宛名・登録番号修正を反映する。未送付PDFの `last_generated_at` より `members.updated_at` が新しければ差分検出でも再生成対象にする。差分検出で GAS 呼び出しを抑制できるのは cron の先回り生成と非 force の一括発行だけ |
 | `/admin/kiyo` | きよ向け月次経理チェック。active PJ だけを対象に、`/admin/payouts` と同じ支払月集計から今月のメンバー支払額、`reimbursements` から立替精算状態、`billing_cycles` から請求書送付状態を read-only で表示する。請求書は `invoice_sent_at` を送付済み判定に使い、`invoice_sent_by` または `billing_log` に `keiri@team-armada.jp` の証跡がある場合だけ `keiri確認` とする。送付済みでも keiri 証跡が無ければ `要確認` と表示し、送付元を断定しない。支払保存・PDF生成・メール送信・立替承認・請求送付などの write action は置かない |
@@ -142,7 +142,7 @@ pwa/
 | `/admin/japanese-culture-map` | 日本文化マップ。`jp_culture_items` の active 行を admin-only の読み取り画面として表示し、マインドマップと日本地図で文化知識を俯瞰する。旧 `/japanese-culture-map` はこの route へ redirect する。 |
 | `/admin/management-knowledge` | 経営ノウハウ。`management_knowledge_entries` を admin-only で読み書きし、事業化ルート、座組、価格、資金、法務論点などの再利用カードを保存する。追加/編集/archive、検索、PJ/category/maturity/tag/status filter、`source_kind` / `source_ref` / `source_excerpt` / `confidence` 表示を持つ。書き込みは `/api/admin/management-knowledge` の `requireAdmin()` + service_role 経由。初期カードとして香川藻場回復メモ由来の Proto-RT 型を保存する |
 | `/admin/private-wiki` | 裏wiki。`private_wiki_entries` を admin-only で読み書きし、AMDメンバー・取引先・クライアント・研究者・外部協力者などの人物単位メモをPJ別に保存する。通常PJ cockpit、公開ページ、研究機関外部workspaceには出さない。追加/編集/archive、検索、PJ/person_kind/tag/status filter、`source_kind` / `source_ref` / `source_excerpt` / `confidence` 表示を持つ。書き込みは `/api/admin/private-wiki` の `requireAdmin()` + service_role 経由 |
-| `/admin/projects` `/admin/members` `/admin/contexts` `/admin/protocols` `/admin/tsukuyomi` `/admin/settings` | 各 admin。`/admin/projects` はPJごとの契約・請求・支払条件の正本で、支払条件は稼働月基準の `当月末 / 当月25日 / 翌月末 / 翌月25日 / 翌々月末 / 翌々月25日` を `projects.payment_due_rule` に保存する。提出物の有無、月次報告書の状態・時期・提出期限・フォーマット・記載事項、立替精算可否は `projects.contract_terms_json` に保存し、契約書/見積書から抽出した `contract_terms.extracted_terms_json` を Contract Apply で畳む。例: 5月稼働分を6月に請求して6月末支払なら `翌月末`。`/admin/members` はGoogle Calendar共有状態 (`members.google_calendar_status`) とOS最終ログイン (`members.last_login_at`) を表示し、最終ログインが新しい順に並べる。支払通知書向けに `members.contractor_name` (= 既定は個人の `member_name`、法人契約時だけ手入力)、`members.member_address`、`members.invoice_registration_number` も編集する。登録番号は保存時とPDF生成時に全角T・T風文字・空白/ハイフンを正規化する |
+| `/admin/projects` `/admin/members` `/admin/contexts` `/admin/protocols` `/admin/tsukuyomi` `/admin/settings` | 各 admin。`/admin/projects` はPJごとの契約・請求・支払条件の正本で、支払条件は稼働月基準の `当月末 / 当月25日 / 翌月末 / 翌月25日 / 翌々月末 / 翌々月25日` を `projects.payment_due_rule` に保存する。提出物の有無、月次報告書の状態・時期・提出期限・フォーマット・記載事項、立替精算の発生額/不可は `projects.contract_terms_json` に保存し、契約書/見積書から抽出した `contract_terms.extracted_terms_json` と実務運用を Contract Apply / 手入力で畳む。例: 5月稼働分を6月に請求して6月末支払なら `翌月末`。`/admin/members` はGoogle Calendar共有状態 (`members.google_calendar_status`) とOS最終ログイン (`members.last_login_at`) を表示し、最終ログインが新しい順に並べる。支払通知書向けに `members.contractor_name` (= 既定は個人の `member_name`、法人契約時だけ手入力)、`members.member_address`、`members.invoice_registration_number` も編集する。登録番号は保存時とPDF生成時に全角T・T風文字・空白/ハイフンを正規化する |
 | `/admin/prompts` | LLM プロンプト管理 (= AGENTS ルール「プロンプトをコードに書かない」執行 UI)。`llm_prompts` 3 件 (tsukuyomi.system / protocol.extract / monthly_report.r313_extract) + スプシ由来 `tsukuyomi_context` 20+ 件を併記。body 全文閲覧 + 編集 + is_active トグル可能。詳細は [`amd_protocol.md`](amd_protocol.md) と [`L2_DATA.md`](L2_DATA.md) |
 | `/vcs` | VC リスト (国内ディープテック VC マスタ。ソート/ファセット/検索) |
 | `/vcs/[id]` | VC 詳細 (4 ペイン: 特性 / ファンド + DPE残 / PJ 接点 / 出資先 + ニュース) |
@@ -466,7 +466,7 @@ npx tsc --noEmit     # 型チェック
 - `/api/progress/ms-schedule`、Cockpit、HUD、月次モーダルの期間表示と期待進捗アンカーは、GAS推定より `value_milestones` のMS別期間を優先する。対象月の期待累積%は `period_start_ym`〜`target_ym` の経過月数で計算する。
 - 回帰防止: 年間MS設定UIを触ったら `npm run test:next-period-ui` を通す。`MS開始` / `MS終了`、DB列、schedule override のいずれかが消えたら失敗させる。
 
-### `立替確認` 自動判定 (admin.billing)
+### `立替確認` 自動判定 (`/admin/invoices`)
 - 対象稼働月の翌月 4 日を締切 (土日なら前営業日に補正)
 - 締切日前: 必ず未完
 - 締切日以降、`reimbursements.status` が `submitted` / `pmapproved` の未処理がなければ完了
@@ -481,16 +481,16 @@ npx tsc --noEmit     # 型チェック
 ### 月次ルーティン廃止
 - PM向けの OS 月次ルーティン / 月次TODO / cockpit step UI は廃止。
 - 報告書確認の軽い連絡は Slack 側で扱い、OS には TODO / nudge カードを出さない。
-- admin.billing は `予算確定 / 報告書 / 立替確認 / 請求発行 / 請求送付 / 支払通知 / 入金確認 / 報酬支払` の admin 業務表として残す。
+- `/admin/invoices` は `予算確定 / 報告書 / 立替確認 / 請求書発行 / 請求送付 / 支払通知 / 入金確認 / 報酬支払` の admin 業務表として残す。旧 `/admin/billing` は互換 redirect のみ。
 - `?step=<stepId>&ym=YYYYMM` は legacy query。現行 cockpit は `step` を解釈せず、月次カードから `CockpitMonthlyModal` を開く。
 - `CockpitRoutine*` component / modal と `/api/notify/pl-review` は削除済み。詳細は [`routine.md`](routine.md)。
 - GAS legacy の monthly reminder / meeting schedule / invoice workflow / report fix cron は no-op。PWA cockpit は `tsukuyomi_nudge_queue` に残った legacy monthly message を表示しない。
 
 MTG サマリ詳細は `/project/[projectId]/cockpit?meeting=<meeting_id>` で直接開く。MTGカードをクリックすると `meeting` query が URL に入り、共有された URL では該当 detail modal を auto-open する。`meeting` と `ym` / `step` が同時にある場合は MTG詳細を優先する。
 
-### admin.billing のステップ定義
-- 標準: `予算確定 / 報告書 / 立替確認 / 請求発行 / 請求送付 / 支払通知 / 入金確認 / 報酬支払`
-- CTB: `予算確定 / 請求発行 / 請求送付 / 報告書 / 立替確認 / 支払通知 / 入金確認 / 報酬支払`
+### `/admin/invoices` のステップ定義
+- 標準: `予算確定 / 報告書 / 立替確認 / 請求書発行 / 請求送付 / 支払通知 / 入金確認 / 報酬支払`
+- CTB: `予算確定 / 請求書発行 / 請求送付 / 報告書 / 立替確認 / 支払通知 / 入金確認 / 報酬支払`
 
 ### shadcn / Tailwind v4 での落とし穴
 - `Dialog` 幅: `sm:max-w-sm` が base に仕込まれていて `max-w-[1400px]` で上書き不可。`!important` 必須 → `!max-w-[1400px] sm:!max-w-[1400px]`

@@ -20,7 +20,7 @@ const ADMIN_TABS = [
   { label: "裏wiki", href: "/admin/private-wiki" },
   { label: "つくよみ", href: "/admin/tsukuyomi" },
   { label: "📝 LLM プロンプト", href: "/admin/prompts" },
-  { label: "Billing", href: "/admin/billing" },
+  { label: "請求書発行", href: "/admin/invoices" },
   { label: "Payouts", href: "/admin/payouts" },
   { label: "月初合意", href: "/admin/monthly-work-agreements" },
   { label: "シーズン予実", href: "/admin/season-pl" },

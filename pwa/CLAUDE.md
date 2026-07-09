@@ -114,6 +114,8 @@ Next.js 16 + React 19 + Tailwind CSS v4
 - てにをは、微細UI、軽微CSS、md、コメント、ログ文言などを1件ずつ push する運用は禁止。複数成果を束ねて1回で push する。
 - workerは local build / lint / static check / スクショ / ローカル確認 + local commit で止めない。PWA本番反映対象なら、そのまま `deploy.sh` 経由で push・Vercel build監視・本番確認まで進める。
 - 「deploy / push / stage はしていない」は、まさが明示的に停止を指示した場合、真に破壊的な操作、またはdeploy scriptのhard-stopを除き未完扱い。
+- 既存 dirty がある場合も同じ。**「別件の未コミット差分があるので push/deploy していない」は禁止**。今回の対象ファイルだけを明示して stage / commit し、既存 dirty は戻さず `除外した差分` として事後報告する。`git add .`は禁止。
+- ローカルサーバー起動やブラウザ目視を、dirty 切り分けや push/deploy の代替にしない。まさが「ローカルでテストするのをやめて」と言った場合は即停止し、以後そのセッションでは追加のローカル確認を増やさない。
 
 ## ⚠️ Vercel デプロイコマンド（正本）
 

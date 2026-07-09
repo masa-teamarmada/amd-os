@@ -171,7 +171,7 @@ export const MANUAL_CHAPTERS: ManualChapterConfig[] = [
   { slug: "2-3-pj-cockpit", title: "PJ コックピットの見方", summary: "PJ Status、MS 進捗、経営ハイライト、月次カードの読み方。", topics: ["cockpit", "decision", "monthly"], screens: ["/project/{projectId}/cockpit"] },
   { slug: "2-4-amd-cockpit", title: "AMD 全体コックピットの見方", summary: "p00、Management Score、提案前の論点整理の使い方。", topics: ["start", "decision"], screens: ["/project/p00/cockpit"] },
   { slug: "2-5-research-assets-quick-start", title: "探索系アセットの使い方", summary: "Atlas、Seeds、VC、Scholar をまず触るための入口。", topics: ["discovery", "start"], screens: ["/atlas", "/seeds", "/vcs", "/scholar"] },
-  { slug: "2-6-admin-ops", title: "admin月次オペ早見表", summary: "支払、請求、立替、報告書確認、入金確認、経営ノウハウ台帳の入口。", topics: ["monthly", "admin"], screens: ["/admin/billing", "/admin/payouts", "/admin/management-knowledge"] },
+  { slug: "2-6-admin-ops", title: "admin月次オペ早見表", summary: "支払、請求書発行、立替、報告書確認、入金確認、経営ノウハウ台帳の入口。", topics: ["monthly", "admin"], screens: ["/admin/invoices", "/admin/payouts", "/admin/management-knowledge"] },
   { slug: "2-7-task-management", title: "タスク管理（廃止済み）", summary: "/tasks 画面と agent helper は廃止済み。tasks table / API は H-1 と cockpit 互換のため残す。", topics: ["system"], tables: ["tasks"] },
 
   { slug: "3-1-system-architecture", title: "全体設計", summary: "画面、データ、書き込み経路、設計 md 索引まで含む OS の地図。", topics: ["system-dev", "developer"], screens: ["/manual"], tables: ["projects", "members", "billing_cycles"] },
@@ -193,10 +193,10 @@ export const MANUAL_CHAPTERS: ManualChapterConfig[] = [
 
   { slug: "6-1-operations-settings-spec", title: "Operations Settings", summary: "Raw Data、L2 Data、Cron Control、運用設定画面。", topics: ["admin-dev", "system-dev"], screens: ["/admin/settings"] },
   { slug: "6-2-admin-projects-members-ledger-spec", title: "Admin Projects / Members 台帳", summary: "PJ 台帳、AMD メンバー台帳、契約・請求・支払条件。", topics: ["admin-dev", "monthly"], screens: ["/admin/projects", "/admin/members"], tables: ["projects", "members", "project_members"] },
-  { slug: "6-3-invoice-and-billing-routine-spec", title: "Invoice / Billing Routine", summary: "請求書、freee 発行、admin billing、月次カード仕様。", topics: ["monthly", "admin-dev"], screens: ["/admin/billing"], tables: ["billing_cycles", "billing_log"] },
+  { slug: "6-3-invoice-and-billing-routine-spec", title: "請求書発行 / 月次サイクル", summary: "請求書、freee 発行、admin 請求書発行、月次カード仕様。", topics: ["monthly", "admin-dev"], screens: ["/admin/invoices"], tables: ["billing_cycles", "billing_log"] },
   { slug: "6-4-finance-payment-confirm-spec", title: "Finance / Payment Confirm", summary: "admin finance、入金確認 nudge、signed token、freee 同期。", topics: ["monthly", "admin-dev"], screens: ["/admin/finance", "/payment-confirm"], tables: ["company_finance_*", "billing_cycles"] },
   { slug: "6-5-admin-payouts-reward-notice-spec", title: "Admin Payouts / 支払通知書", summary: "報酬キャッシュ、本契約/別財布の確認、支払通知書 PDF、支払月判定。シーズン予実表 (/admin/season-pl) で請求額内訳と pt単価/未割当pt/cap-原資/役員stock 検算。", topics: ["monthly", "admin-dev"], screens: ["/admin/payouts", "/admin/season-pl"], tables: ["payout_notices", "billing_cycles", "value_plan_cycles"] },
-  { slug: "6-6-member-billing-prompts-spec", title: "Member Ops / Billing / Prompt", summary: "mypage、reimburse、admin billing、prompt 管理の仕様。", topics: ["monthly", "admin-dev"], screens: ["/mypage", "/reimburse", "/admin/prompts"] },
+  { slug: "6-6-member-billing-prompts-spec", title: "Member Ops / 請求書発行 / Prompt", summary: "mypage、reimburse、admin 請求書発行、prompt 管理の仕様。", topics: ["monthly", "admin-dev"], screens: ["/mypage", "/reimburse", "/admin/prompts"] },
   { slug: "6-7-contracts-management-spec", title: "契約管理", summary: "契約予定枠、version history、押印版metadata、予兆dry-run、Slack nudge dry-run。", topics: ["admin-dev", "monthly"], screens: ["/admin/contracts"], tables: ["contracts", "contract_documents", "contract_signals", "contract_nudges"] },
   { slug: "6-8-admin-ms-overview-spec", title: "Admin / MS Overview", summary: "全PJ MS設計を 1 画面で並べて pt 配分・メンバー別 年計を見る設計レビュー。円額は MS ごとの pt 丸め順を報酬計算と揃える。", topics: ["admin-dev"], screens: ["/admin/ms-overview"], tables: ["value_plan_cycles", "value_milestones", "milestone_responsibility"] },
 

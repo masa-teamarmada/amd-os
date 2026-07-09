@@ -163,6 +163,7 @@ export const aaaCockpitData: CockpitData = {
     },
   ],
   seasonFinance: null,
+  msChangeHistory: [],
   strategySignals: [
     {
       signalId: "aaa-signal-1",

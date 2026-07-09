@@ -1,6 +1,6 @@
-# Invoice / Billing Routine 仕様
+# 請求書発行 / 月次サイクル仕様
 
-請求書 / 見積書発行と freee 連携、 月次カード・admin billing との接続をまとめる。 入金確認は [6-4 章](6-4-finance-payment-confirm-spec.md)、 支払通知書 (= 反対側) は [6-5 章](6-5-admin-payouts-reward-notice-spec.md) を見る。
+請求書 / 見積書発行と freee 連携、 月次カード・admin 請求書発行ページとの接続をまとめる。 入金確認は [6-4 章](6-4-finance-payment-confirm-spec.md)、 支払通知書 (= 反対側) は [6-5 章](6-5-admin-payouts-reward-notice-spec.md) を見る。
 
 ## `billing_cycles` (= 月次サイクルの正本)
 
@@ -66,7 +66,7 @@ reward_paid
 - **金額**: schedule_based はその月の `budget_yen ÷ 0.65` を請求額に逆算 (= 月により額が違う契約を月別に正しく確定。CX: 6月¥78,000 / 7-9月¥274,000)。monthly_fixed は `fee_amount` をそのまま請求額に。PJ 予算は `請求額 × 65%`。
 - **触らない月**: その月の `billing_cycles.status` が既に `reported` 以降 (人が触っている) なら一切上書きしない。今月だけ違う額にしたい時は、PM が通知 DM のボタンからコックピットを開いて直す。
 - **cron**: `/api/cron/contract-billing-auto-confirm` (毎月1日 JST 07:00)。実装・安全弁の詳細は [spec 5-6 章 §月次請求額の自動確定](../spec/5-6-contracts-management-current-spec.md)。
-- **PM/PL nudge との関係**: OS 上の PM/PL 月次確認 nudge は廃止。報告書確認の軽い連絡は Slack 側で完結させ、`/mypage` / dashboard / cockpit には TODO / nudge として出さない。`請求額確定` は契約台帳/報酬キャッシュのデータ整備、`請求書発行/送付` はadmin業務、`立替確認` はPM月次タスク外として扱う。旧 PL レビュー DM route は削除済みで、例外復旧は admin billing / payouts と budget approval 境界で扱う。
+- **PM/PL nudge との関係**: OS 上の PM/PL 月次確認 nudge は廃止。報告書確認の軽い連絡は Slack 側で完結させ、`/mypage` / dashboard / cockpit には TODO / nudge として出さない。`請求額確定` は契約台帳/報酬キャッシュのデータ整備、`請求書発行/送付` はadmin業務、`立替確認` はPM月次タスク外として扱う。旧 PL レビュー DM route は削除済みで、例外復旧は `/admin/invoices` / `/admin/payouts` と budget approval 境界で扱う。
 
 ## 月次カード (= cockpit の確認面)
 
@@ -77,7 +77,7 @@ reward_paid
 ### ステップ並び
 
 - PM/cockpit: 専用 step UI なし。OS 上の月次 TODO も出さない。必要な確認は月次カードから `CockpitMonthlyModal` を開く
-- admin/billing: `予算確定 / 報告書 / 立替確認 / 請求発行 / 請求送付 / 支払通知 / 入金確認 / 報酬支払`
+- admin 請求書発行 (`/admin/invoices`): `予算確定 / 報告書 / 立替確認 / 請求書発行 / 請求送付 / 支払通知 / 入金確認 / 報酬支払`
 - CTB見積: CTB停止中のため一旦廃止
 - **古い月が上**
 
@@ -88,7 +88,7 @@ PWA cockpit は `?step=<stepId>&ym=YYYYMM` を現行導線として使わない�
 | legacy stepId | 現行扱い |
 |---|---|
 | `reportFix` | PM 月次 step としては表示しない。必要なら月次カードから `CockpitMonthlyModal` の report tab を見る |
-| `budget` | PM 月次 step としては表示しない。請求額確定は admin billing / 自動確定側で扱う |
+| `budget` | PM 月次 step としては表示しない。請求額確定は `/admin/invoices` / 自動確定側で扱う |
 
 **月カードクリック** (= `YYYY.MM稼働分`) → `CockpitMonthlyModal` (= 月次集約モーダル)。旧 `meeting` / `reimburseConfirm` / `invoiceIssue` / `invoiceSend` / `estimateSend` は PM 月次タスクとしては開かない。
 
@@ -130,7 +130,7 @@ GAS `gas-main/007_FreeeInvoiceFlow.js` が freee API への発行を担当。
 
 ### PL レビュー API (廃止済み)
 
-旧 PL レビュー DM route は PM 月次ルーティン廃止に合わせて削除済み。請求額の通常確定は `contract-billing-auto-confirm` と admin billing / payouts 側で扱う。Slack 承認フローを再導入する場合は、budget approval 境界を使う新しい current spec を先に追加する。
+旧 PL レビュー DM route は PM 月次ルーティン廃止に合わせて削除済み。請求額の通常確定は `contract-billing-auto-confirm` と `/admin/invoices` / `/admin/payouts` 側で扱う。Slack 承認フローを再導入する場合は、budget approval 境界を使う新しい current spec を先に追加する。
 
 ### 入金予定額の算出
 
@@ -172,15 +172,15 @@ GAS `gas-main/007_FreeeInvoiceFlow.js` が freee API への発行を担当。
 
 ### スキップ表示の挙動
 
-`invoice_ym` の繰延は `/admin/billing` / `/admin/payouts` / finance 系で扱う。PMの月次カードでは deferred step 表示を使わない。
+`invoice_ym` の繰延は `/admin/invoices` / `/admin/payouts` / finance 系で扱う。PMの月次カードでは deferred step 表示を使わない。
 
 ## CTB (= Closed To Buyer) PJ
 
-CTB PJ は現在停止中。見積書送付 (`estimateSend`) は一旦廃止し、OS 上の月次 TODO・admin billing matrix のどちらにも表示しない。
+CTB PJ は現在停止中。見積書送付 (`estimateSend`) は一旦廃止し、OS 上の月次 TODO・`/admin/invoices` のどちらにも表示しない。
 
 ## 立替精算確認
 
-立替確認は PM 月次タスクから外す。admin billing matrix では `立替確認` の状態表示を残すが、PMの `/mypage` 通知には使わない。
+立替確認は PM 月次タスクから外す。`/admin/invoices` では `立替確認` の状態表示を残すが、PMの `/mypage` 通知には使わない。
 
 ## URL 修正の教訓 (= 2026-04-09)
 
@@ -193,7 +193,7 @@ GAS で請求系の Slack 投稿に貼る URL は `WEBAPP_BASE_URL` (= ScriptPro
 | 月次カードが出ない | `billing_cycles` 該当 ym 行の有無、report-only month の場合は `monthly_reports` 行の有無 |
 | 旧 stepId がPMタスクとして開く | `CockpitView` / `HudCockpitView` に routine step resolver が再導入されていないか確認 |
 | 請求書 PDF URL が貼れない | `freee_invoice_number` set されてるか、 `invoice_pdf_url` の有効性 |
-| 「請求月延期」が反映されない | `billing_cycles.invoice_ym` set、 `/admin/billing` / `/admin/payouts` の表示と集計 |
+| 「請求月延期」が反映されない | `billing_cycles.invoice_ym` set、 `/admin/invoices` / `/admin/payouts` の表示と集計 |
 | freee 発行が失敗 | Edge Function `issue-invoice` のログ、 `freee_oauth_tokens.updated_at` 鮮度 |
 
 ## 関連

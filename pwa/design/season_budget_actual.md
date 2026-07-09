@@ -73,7 +73,7 @@
 
 ## 4. 画面配置
 - **新規 admin ページ `/admin/season-pl`** (= 全PJ一覧 + PJ選択でシーズン予実表)。
-- 入口: `/admin/payouts` と `/admin/billing` の近くにリンク (6-5/6-3章の admin 導線)。FEATURE_REGISTRY に登録。
+- 入口: `/admin/payouts` と `/admin/invoices` の近くにリンク (6-5/6-3章の admin 導線)。FEATURE_REGISTRY に登録。
 - 一覧トップ: 全 active plan cycle を1行ずつ (PJ / 請求額 / バッファ / 原資 / pt単価 / 閉じ検算✓✗ / 未割当pt / 原資≠Σcap 警告)。
 - 行クリック → そのシーズンの①②③フル予実表。
 - 既存UIパターンは `/admin/payouts` (`AdminPayoutsClient.tsx` 等) を踏襲。

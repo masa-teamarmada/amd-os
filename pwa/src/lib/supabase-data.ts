@@ -152,6 +152,7 @@ export interface CockpitData {
   msActivities: MemberMsActivity[];
   memberActivities: MemberActivity[];
   strategySignals: ProjectStrategySignal[];
+  msChangeHistory: MilestoneChangeHistory[];
   seasonFinance: CockpitSeasonFinance | null;
 }
 
@@ -193,6 +194,7 @@ export interface RewardSummaryMember {
   extraCompanyReserveYen?: number;
   officerReserveYen?: number;
   companyReserveUnfundedYen?: number;
+  payoutExcluded?: boolean;
   breakdown: RewardSummaryBreakdown[];
 }
 
@@ -378,6 +380,49 @@ export interface MilestoneResponsibility {
   /** role: 担当 / レビュー / サポート / 統括 */
   role?: string;
   taskDescription?: string;
+}
+
+export interface MilestoneChangeField {
+  field: string;
+  label: string;
+  beforeValue: string | number | boolean | null;
+  afterValue: string | number | boolean | null;
+}
+
+export interface MilestoneResponsibilityChange {
+  memberId: string;
+  role: string;
+  beforeShare: number | null;
+  afterShare: number | null;
+  beforeTaskDescription: string | null;
+  afterTaskDescription: string | null;
+}
+
+export interface MilestoneChangeItem {
+  kind: "added" | "removed" | "updated";
+  milestoneId: string;
+  title: string;
+  fields: MilestoneChangeField[];
+  responsibilities: MilestoneResponsibilityChange[];
+}
+
+export interface MilestoneChangeHistory {
+  id: string;
+  projectId: string;
+  planCycleId: string;
+  revisionId: string;
+  changedAt: string;
+  changedByEmail: string | null;
+  rewardPreviewStatus: "safe" | "warning" | "blocked" | "not_checked";
+  changedMilestoneCount: number;
+  addedMilestoneCount: number;
+  removedMilestoneCount: number;
+  updatedMilestoneCount: number;
+  protectedCycleCount: number;
+  offsetCount: number;
+  positiveOffsetYen: number;
+  negativeOffsetYen: number;
+  changeItems: MilestoneChangeItem[];
 }
 
 /** member_activities の1件 */
@@ -1788,6 +1833,30 @@ function rewardSummaryNumber(
   return sumRewardMemberField(summary, fallbackFields);
 }
 
+function rewardMemberStockYen(member: RewardSummaryMember): number {
+  return rewardNumber(member.stockYen ?? member.deferredYen);
+}
+
+function rewardMemberIsCompanyReserve(member: RewardSummaryMember): boolean {
+  return member.payoutExcluded === true || rewardNumber(member.companyReserveYen ?? member.officerReserveYen) > 0;
+}
+
+function rewardSummaryExternalUnpaidStock(summary: RewardSummary | null | undefined): number {
+  return (summary?.members || []).reduce((sum, member) => {
+    if (rewardMemberIsCompanyReserve(member)) return sum;
+    return sum + rewardMemberStockYen(member);
+  }, 0);
+}
+
+function rewardSummaryCompanyReserveWithPending(summary: RewardSummary | null | undefined): number {
+  const funded = rewardSummaryNumber(summary, "companyReserveYen", ["companyReserveYen", "officerReserveYen"]);
+  const pending = (summary?.members || []).reduce((sum, member) => {
+    if (!rewardMemberIsCompanyReserve(member)) return sum;
+    return sum + rewardMemberStockYen(member);
+  }, 0);
+  return funded + pending;
+}
+
 function buildCockpitSeasonFinance({
   planCycle,
   projectRow,
@@ -1850,8 +1919,8 @@ function buildCockpitSeasonFinance({
     const extraBudgetYen = row?.extra_budget_yen == null ? 0 : rewardNumber(row.extra_budget_yen);
     const pjBudgetYen = regularBudgetYen + extraBudgetYen;
     const memberPayoutYen = rewardSummaryNumber(summary, "totalPaySum", ["totalPay"]);
-    const companyReserveYen = rewardSummaryNumber(summary, "companyReserveYen", ["companyReserveYen", "officerReserveYen"]);
-    const unpaidStockYen = rewardSummaryNumber(summary, "carryOverYen", ["stockYen"]);
+    const companyReserveYen = rewardSummaryCompanyReserveWithPending(summary);
+    const unpaidStockYen = rewardSummaryExternalUnpaidStock(summary);
     const cashBalanceYen = clientPaymentYen - bufferYen - memberPayoutYen;
     const rewardObligationYen = memberPayoutYen + companyReserveYen + unpaidStockYen;
     const remainingAfterObligationYen = pjBudgetYen - rewardObligationYen;
@@ -2040,6 +2109,15 @@ export async function fetchBillingStatusFromSupabase(
 /**
  * Cockpit: 1プロジェクトの全データ
  */
+function asMilestoneChangeItems(value: unknown): MilestoneChangeItem[] {
+  return Array.isArray(value) ? (value as MilestoneChangeItem[]) : [];
+}
+
+function asRewardPreviewStatus(value: unknown): MilestoneChangeHistory["rewardPreviewStatus"] {
+  if (value === "safe" || value === "warning" || value === "blocked" || value === "not_checked") return value;
+  return "not_checked";
+}
+
 export async function fetchCockpitFromSupabase(
   projectId: string
 ): Promise<CockpitData> {
@@ -2053,6 +2131,7 @@ export async function fetchCockpitFromSupabase(
     pmRes,
     membersRes,
     strategySignalsRes,
+    msChangeHistoryRes,
   ] = await Promise.all([
     supabase.from("projects").select("*").eq("project_id", projectId).single(),
     supabase.from("billing_cycles").select("*").eq("project_id", projectId).order("ym", { ascending: false }),
@@ -2067,6 +2146,12 @@ export async function fetchCockpitFromSupabase(
       .order("signal_date", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
       .limit(8),
+    supabase
+      .from("milestone_change_events")
+      .select("*")
+      .eq("project_id", projectId)
+      .order("changed_at", { ascending: false })
+      .limit(12),
   ]);
 
   if (projRes.error) throw new Error(`project: ${projRes.error.message}`);
@@ -2327,6 +2412,27 @@ export async function fetchCockpitFromSupabase(
     createdAt: row.created_at,
     confirmedAt: row.confirmed_at || null,
   }));
+  if (msChangeHistoryRes.error) {
+    console.warn("fetchCockpitFromSupabase milestone_change_events:", msChangeHistoryRes.error.message);
+  }
+  const msChangeHistory: MilestoneChangeHistory[] = (msChangeHistoryRes.data || []).map((row) => ({
+    id: row.id,
+    projectId: row.project_id,
+    planCycleId: row.plan_cycle_id,
+    revisionId: row.revision_id,
+    changedAt: row.changed_at,
+    changedByEmail: row.changed_by_email || null,
+    rewardPreviewStatus: asRewardPreviewStatus(row.reward_preview_status),
+    changedMilestoneCount: Number(row.changed_milestone_count) || 0,
+    addedMilestoneCount: Number(row.added_milestone_count) || 0,
+    removedMilestoneCount: Number(row.removed_milestone_count) || 0,
+    updatedMilestoneCount: Number(row.updated_milestone_count) || 0,
+    protectedCycleCount: Number(row.protected_cycle_count) || 0,
+    offsetCount: Number(row.offset_count) || 0,
+    positiveOffsetYen: Number(row.positive_offset_yen) || 0,
+    negativeOffsetYen: Number(row.negative_offset_yen) || 0,
+    changeItems: asMilestoneChangeItems(row.change_items_json),
+  }));
   const seasonFinance = buildCockpitSeasonFinance({
     planCycle,
     projectRow: pj as Record<string, unknown>,
@@ -2401,6 +2507,7 @@ export async function fetchCockpitFromSupabase(
     msActivities,
     memberActivities,
     strategySignals,
+    msChangeHistory,
     seasonFinance,
   };
 }

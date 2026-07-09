@@ -3,7 +3,7 @@
  * freee APIで請求書を作成し、Supabaseに記録する。
  * body: { projectId, ym, issueDate, dueDate, subject, lines, remark }
  *
- * legacy route。現行正本は admin billing + Edge Function issue-invoice。
+ * legacy route。現行正本は /admin/invoices + Edge Function issue-invoice。
  * 残す間も「発行」と「送付」を混ぜず、billing_cycles.invoice_issued_* 側だけ更新する。
  */
 

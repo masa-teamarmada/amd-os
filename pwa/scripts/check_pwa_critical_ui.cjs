@@ -150,6 +150,35 @@ expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
   "添付PDFは保存済み正式PDFです",
 ]);
 
+expectIncludes("src/app/(app)/admin/invoices/page.tsx", [
+  "請求書発行",
+  "AdminInvoiceIssueMatrix",
+  "freee 請求書",
+]);
+
+expectIncludes("src/app/(app)/admin/billing/page.tsx", [
+  "redirect(\"/admin/invoices\")",
+]);
+
+expectIncludes("src/components/admin/AdminSidebar.tsx", [
+  "請求書発行",
+  "/admin/invoices",
+]);
+
+expectIncludes("src/components/admin/AdminInvoiceIssueMatrix.tsx", [
+  "AdminInvoiceIssueDialog",
+  "請求書発行",
+  "請求書を発行",
+]);
+
+expectIncludes("src/components/admin/AdminInvoiceIssueDialog.tsx", [
+  "issue-invoice",
+  "callEdgeFunctionPOST",
+  "invoice_base_lines_json",
+  "freeePartnerId",
+  "請求書を発行",
+]);
+
 expectIncludes("src/lib/reward-summary.ts", [
   "server_v5_planned_share_cap_carry_no_final_topup",
   "regularUnusedCapCarryOutYen",
@@ -165,6 +194,8 @@ expectIncludes("src/app/api/admin/ms-overview/[planCycleId]/route.ts", [
   "contractBackedClientAmount",
   "buildExtraRevenueByYm",
   "parseSeasonBufferTotal",
+  "milestone_change_events",
+  "persistMilestoneChangeEvent",
 ]);
 
 expectIncludes("src/components/admin/AdminMsOverviewClient.tsx", [
@@ -390,11 +421,19 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
   "strategySignals",
   "CockpitSeasonFinance",
   "seasonFinance",
+  "CockpitMsChangeHistory",
+  "msChangeHistory",
   // 案C レイアウト (2026-05-23 まさ確定) — 旧 max-w-[1060px] 2カラムには戻さない
   "max-w-[1600px]",
   "lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_300px]",
   "lg:sticky lg:top-12",
   "renderMsSetupBanner",
+]);
+
+expectIncludes("src/lib/supabase-data.ts", [
+  "milestone_change_events",
+  "msChangeHistory",
+  "MilestoneChangeHistory",
 ]);
 
 expectFileMissing("src/components/cockpit/CockpitNudge.tsx");
@@ -424,6 +463,15 @@ expectIncludes("src/components/cockpit/CockpitSeasonFinance.tsx", [
   "ゼロ着地",
   "不足",
   "シーズン収支が閉じていない",
+]);
+
+expectIncludes("src/components/cockpit/CockpitMsChangeHistory.tsx", [
+  "MS変更履歴",
+  "changedMilestoneCount",
+  "positiveOffsetYen",
+  "negativeOffsetYen",
+  "MilestoneResponsibilityChange",
+  "aria-expanded",
 ]);
 
 expectNotIncludes("src/components/cockpit/CockpitSeasonFinance.tsx", [
@@ -854,6 +902,8 @@ expectIncludes("src/app/api/admin/ms-overview/[planCycleId]/route.ts", [
   "memberImpacts",
   "budgetImpact",
   "reward_member_liability_offsets",
+  "milestone_change_events",
+  "change_items_json",
   "保存不可",
 ]);
 expectNotIncludes("src/app/api/admin/ms-overview/route.ts", [

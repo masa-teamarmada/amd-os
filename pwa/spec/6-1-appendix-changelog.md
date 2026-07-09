@@ -14,6 +14,9 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-07-09 | 2-1/2-2 Surface / 3-8 Cockpit / SPEC_pwa / FEATURE_REGISTRY | 変更・削除 | 旧 `/admin/billing` を互換 redirect にし、請求書発行の主routeを `/admin/invoices` へ変更。AdminSidebar、title mapping、critical-ui guard、`AdminInvoiceIssueMatrix` / `AdminInvoiceIssueDialog` の route contract を追加。build v0.39.22 | まさ指示「billingページは廃止して請求書発行ページを作って。billingってもう使わなくない？」を current route contract に固定するため | えいみ |
+| 2026-07-09 | 3-8 PJ Cockpit / 6-8 Admin MS Overview / FEATURE_REGISTRY | 修正 | `期末未払` / `未払残` を支払通知対象の外部メンバーへ将来払う残高に限定し、役員の未充当繰越は会社留保側の内部検算へ寄せる仕様に固定。build v0.39.22 | ZMP OkuDoor の未払残に役員留保分が混ざり、外部開発支払の最大額 (あび・うめ各20万円) より大きく見えていたため | えいみ |
+| 2026-07-09 | 3-8 PJ Cockpit / 6-8 Admin MS Overview / FEATURE_REGISTRY | 追加 | `milestone_change_events` を追加し、`PUT /api/admin/ms-overview/{planCycleId}` の保存成功時にMS差分・担当share差分・保存前支払検算サマリを記録する。`CockpitMsChangeHistory` は `msChangeHistory` を今期MS直下に初期折りたたみで表示する。build v0.39.22 | まさ指示「MSの変更履歴をコックピットに表示」「勝手に変更されて報酬額が変わったらメンバーから不満」「新しい業務委託契約書では記録しておくことがAMD側の責任」を route contract に固定するため | えいみ |
 | 2026-07-09 | 3-8 PJ Cockpit / FEATURE_REGISTRY | 変更 | `MilestoneGanttChart` のバー上メンバーchipに `担当設計額` を追加。MSの有効pt×担当shareを、本契約/別財布それぞれの設計原資とpt分母で按分して表示する。build v0.39.20 | まさ指示「あとここに各メンバーの金額も表示されるようにして！」を route contract に固定するため | えいみ |
 | 2026-07-09 | 3-8 PJ Cockpit / FEATURE_REGISTRY | 変更 | `MilestoneGanttChart` の各MS行に `設計額` を追加。`fetchCockpitFromSupabase` は plan cycle 期間内の `billing_cycles.extra_budget_yen` 合計を `extraDesignBudgetYen` として渡し、通常MSと `cap_extra` を分けて設計額を算出する。build v0.39.19 | まさ指示「コックピットのMSリストのところに、各MSに割り当てられている予算がいくらなのかを明示してほしい」を route contract に固定するため | えいみ |
 | 2026-07-09 | 2-1 / 2-2 PWA Surface / FEATURE_REGISTRY / SPEC_pwa | 変更 | 日本文化マップを `/admin/japanese-culture-map` の admin-only route へ移動し、旧 `/japanese-culture-map` は redirect に変更。GlobalNav は admin group、AdminSidebar は admin menu に導線を置く。build v0.39.18 | まさ指示「『日本文化』のページだけど、adminに移動させてほしい」を route contract に固定するため | えいみ |

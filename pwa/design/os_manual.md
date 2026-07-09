@@ -85,10 +85,10 @@ Admin: Admin | Management | 設計書 | 日本文化
 ```text
 6-1 Operations Settings
 6-2 Admin Projects / Members 台帳
-6-3 Invoice / Billing Routine
+6-3 請求書発行 / 月次サイクル
 6-4 Finance / Payment Confirm
 6-5 Admin Payouts / 支払通知書
-6-6 Member Ops / Billing / Prompt
+6-6 Member Ops / 請求書発行 / Prompt
 6-7 契約管理
 6-8 Admin / MS Overview (= 全PJ MS 設計一望、2026-06-21 新設)
 ```
@@ -144,7 +144,7 @@ Admin: Admin | Management | 設計書 | 日本文化
    4.1 admin/payouts (報酬支払)
    4.2 admin/projects (PJ 台帳)
    4.3 admin/members (メンバー台帳)
-   4.4 admin/billing (請求マトリクス)
+   4.4 admin/invoices (請求書発行)
 5. つくよみ (LLM 抽出)
    5.1 M/W/D/H L2の抽出フロー
    5.2 通知と修正依頼
@@ -160,7 +160,7 @@ Admin: Admin | Management | 設計書 | 日本文化
 
 ```
 A. 月次カードで確認すること / admin が請求でやること
-B. admin が月次でやること (= 請求発行 / 支払通知 / 入金確認)
+B. admin が月次でやること (= 請求書発行 / 支払通知 / 入金確認)
 C. CEO/CTO が経営判断するときの流れ (= まさえいMTG + D-6 candidate)
 D. メンバーが進捗報告するときの流れ (= マイページ + 月次モーダル + ノート)
 E. SU の評価をどう設計しているか (= AMD Score / XRL / FRL / Triple Helix)

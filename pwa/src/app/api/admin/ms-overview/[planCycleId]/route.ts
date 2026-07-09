@@ -140,6 +140,58 @@ type ResponsibilitySaveRow = {
   task_description: string | null;
 };
 
+type MilestoneChangeResponsibility = {
+  memberId: string;
+  share: number;
+  role: string;
+  taskDescription: string | null;
+};
+
+type MilestoneChangeSnapshot = {
+  milestoneId: string;
+  title: string;
+  points: number;
+  tag: string;
+  goalLevel: string;
+  isActive: boolean;
+  successCriteria: string | null;
+  sortOrder: number;
+  periodStartYm: string | null;
+  targetYm: string | null;
+  responsibilities: MilestoneChangeResponsibility[];
+};
+
+type MilestoneChangeField = {
+  field: string;
+  label: string;
+  beforeValue: string | number | boolean | null;
+  afterValue: string | number | boolean | null;
+};
+
+type MilestoneResponsibilityChange = {
+  memberId: string;
+  role: string;
+  beforeShare: number | null;
+  afterShare: number | null;
+  beforeTaskDescription: string | null;
+  afterTaskDescription: string | null;
+};
+
+type MilestoneChangeItem = {
+  kind: "added" | "removed" | "updated";
+  milestoneId: string;
+  title: string;
+  fields: MilestoneChangeField[];
+  responsibilities: MilestoneResponsibilityChange[];
+};
+
+type MilestoneChangeDiff = {
+  items: MilestoneChangeItem[];
+  addedCount: number;
+  removedCount: number;
+  updatedCount: number;
+};
+
 type RewardRevisionOffsetDraft = {
   project_id: string;
   plan_cycle_id: string;
@@ -286,19 +338,34 @@ function rewardSummaryTotalPay(summary: RewardSummary | null): number {
   return (summary?.members ?? []).reduce((sum, member) => sum + Math.max(0, Math.round(safeNumber(member.totalPay))), 0);
 }
 
+type RewardSummaryMember = RewardSummary["members"][number];
+
+function rewardMemberStockYen(member: RewardSummaryMember): number {
+  return Math.max(0, Math.round(safeNumber(member.stockYen ?? member.deferredYen)));
+}
+
+function rewardMemberIsCompanyReserve(member: RewardSummaryMember): boolean {
+  return member.payoutExcluded === true || safeNumber(member.companyReserveYen ?? member.officerReserveYen) > 0;
+}
+
 function rewardSummaryCompanyReserve(summary: RewardSummary | null): number {
   const explicit = Math.round(safeNumber(summary?.companyReserveYen));
-  if (explicit > 0) return explicit;
-  return (summary?.members ?? []).reduce((sum, member) => {
+  const funded = explicit > 0 ? explicit : (summary?.members ?? []).reduce((sum, member) => {
     const reserve = safeNumber(member.companyReserveYen ?? member.officerReserveYen);
     return sum + Math.max(0, Math.round(reserve));
   }, 0);
+  const pending = (summary?.members ?? []).reduce((sum, member) => {
+    if (!rewardMemberIsCompanyReserve(member)) return sum;
+    return sum + rewardMemberStockYen(member);
+  }, 0);
+  return funded + pending;
 }
 
 function rewardSummaryFinalStock(summary: RewardSummary | null): number {
-  const explicit = Math.round(safeNumber(summary?.carryOverYen));
-  if (explicit > 0) return explicit;
-  return (summary?.members ?? []).reduce((sum, member) => sum + Math.max(0, Math.round(safeNumber(member.stockYen))), 0);
+  return (summary?.members ?? []).reduce((sum, member) => {
+    if (rewardMemberIsCompanyReserve(member)) return sum;
+    return sum + rewardMemberStockYen(member);
+  }, 0);
 }
 
 function rewardCycleHasVerifiedPaidEvidence(cycle: ProtectedBillingCycleRow): boolean {
@@ -839,6 +906,273 @@ async function persistRewardRevisionOffsets({
   };
 }
 
+async function loadMilestoneChangeSnapshot(
+  db: ReturnType<typeof createAdminClient>,
+  planCycleId: string,
+): Promise<MilestoneChangeSnapshot[]> {
+  const msRes = await db
+    .from("value_milestones")
+    .select("milestone_id, title, points, tag, goal_level, is_active, success_criteria, sort_order, period_start_ym, target_ym")
+    .eq("plan_cycle_id", planCycleId)
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true });
+  if (msRes.error) throw msRes.error;
+
+  const milestones = (msRes.data ?? []) as Array<Record<string, unknown>>;
+  const milestoneIds = milestones
+    .map((row) => cleanOptionalText(row.milestone_id))
+    .filter((id): id is string => Boolean(id));
+  const responsibilitiesByMs = new Map<string, MilestoneChangeResponsibility[]>();
+
+  if (milestoneIds.length > 0) {
+    const respRes = await db
+      .from("milestone_responsibility")
+      .select("milestone_id, member_id, share, role, task_description")
+      .in("milestone_id", milestoneIds)
+      .order("member_id", { ascending: true })
+      .order("role", { ascending: true });
+    if (respRes.error) throw respRes.error;
+    for (const row of (respRes.data ?? []) as Array<Record<string, unknown>>) {
+      const milestoneId = cleanOptionalText(row.milestone_id);
+      const memberId = cleanOptionalText(row.member_id);
+      if (!milestoneId || !memberId) continue;
+      const list = responsibilitiesByMs.get(milestoneId) ?? [];
+      list.push({
+        memberId,
+        share: normalizeShare(row.share),
+        role: cleanText(row.role, "担当"),
+        taskDescription: cleanOptionalText(row.task_description),
+      });
+      responsibilitiesByMs.set(milestoneId, list);
+    }
+  }
+
+  return milestones.map((row) => {
+    const milestoneId = cleanText(row.milestone_id);
+    const responsibilities = responsibilitiesByMs.get(milestoneId) ?? [];
+    return {
+      milestoneId,
+      title: cleanText(row.title),
+      points: Math.round(safeNumber(row.points) * 100) / 100,
+      tag: cleanText(row.tag, "normal"),
+      goalLevel: cleanText(row.goal_level, "season"),
+      isActive: row.is_active !== false,
+      successCriteria: cleanOptionalText(row.success_criteria),
+      sortOrder: Math.round(safeNumber(row.sort_order)),
+      periodStartYm: cleanOptionalText(row.period_start_ym),
+      targetYm: cleanOptionalText(row.target_ym),
+      responsibilities: responsibilities.sort((a, b) => {
+        const memberOrder = a.memberId.localeCompare(b.memberId);
+        return memberOrder !== 0 ? memberOrder : a.role.localeCompare(b.role);
+      }),
+    };
+  });
+}
+
+function pushChangedField(
+  fields: MilestoneChangeField[],
+  field: string,
+  label: string,
+  beforeValue: string | number | boolean | null,
+  afterValue: string | number | boolean | null,
+) {
+  if (beforeValue === afterValue) return;
+  fields.push({ field, label, beforeValue, afterValue });
+}
+
+function responsibilityChangeKey(resp: MilestoneChangeResponsibility): string {
+  return `${resp.memberId}::${resp.role}`;
+}
+
+function diffMilestoneResponsibilities(
+  beforeResponsibilities: MilestoneChangeResponsibility[],
+  afterResponsibilities: MilestoneChangeResponsibility[],
+): MilestoneResponsibilityChange[] {
+  const beforeByKey = new Map(beforeResponsibilities.map((resp) => [responsibilityChangeKey(resp), resp]));
+  const afterByKey = new Map(afterResponsibilities.map((resp) => [responsibilityChangeKey(resp), resp]));
+  const keys = [...new Set([...beforeByKey.keys(), ...afterByKey.keys()])].sort();
+  const changes: MilestoneResponsibilityChange[] = [];
+
+  for (const key of keys) {
+    const before = beforeByKey.get(key) ?? null;
+    const after = afterByKey.get(key) ?? null;
+    if (
+      before?.share === after?.share
+      && (before?.taskDescription ?? null) === (after?.taskDescription ?? null)
+    ) {
+      continue;
+    }
+    changes.push({
+      memberId: after?.memberId ?? before?.memberId ?? key.split("::")[0],
+      role: after?.role ?? before?.role ?? "担当",
+      beforeShare: before ? before.share : null,
+      afterShare: after ? after.share : null,
+      beforeTaskDescription: before?.taskDescription ?? null,
+      afterTaskDescription: after?.taskDescription ?? null,
+    });
+  }
+  return changes;
+}
+
+function diffMilestoneSnapshots(
+  beforeSnapshot: MilestoneChangeSnapshot[],
+  afterSnapshot: MilestoneChangeSnapshot[],
+): MilestoneChangeDiff {
+  const beforeById = new Map(beforeSnapshot.map((ms) => [ms.milestoneId, ms]));
+  const afterById = new Map(afterSnapshot.map((ms) => [ms.milestoneId, ms]));
+  const milestoneIds = [...new Set([...beforeById.keys(), ...afterById.keys()])].sort((a, b) => {
+    const beforeA = beforeById.get(a)?.sortOrder ?? afterById.get(a)?.sortOrder ?? 0;
+    const beforeB = beforeById.get(b)?.sortOrder ?? afterById.get(b)?.sortOrder ?? 0;
+    return beforeA - beforeB || a.localeCompare(b);
+  });
+  const items: MilestoneChangeItem[] = [];
+
+  for (const milestoneId of milestoneIds) {
+    const before = beforeById.get(milestoneId) ?? null;
+    const after = afterById.get(milestoneId) ?? null;
+    if (!before && after) {
+      items.push({
+        kind: "added",
+        milestoneId,
+        title: after.title,
+        fields: [
+          { field: "points", label: "pt", beforeValue: null, afterValue: after.points },
+          { field: "period", label: "期間", beforeValue: null, afterValue: [after.periodStartYm, after.targetYm].filter(Boolean).join(" - ") || null },
+        ],
+        responsibilities: after.responsibilities.map((resp) => ({
+          memberId: resp.memberId,
+          role: resp.role,
+          beforeShare: null,
+          afterShare: resp.share,
+          beforeTaskDescription: null,
+          afterTaskDescription: resp.taskDescription,
+        })),
+      });
+      continue;
+    }
+    if (before && !after) {
+      items.push({
+        kind: "removed",
+        milestoneId,
+        title: before.title,
+        fields: [
+          { field: "isActive", label: "状態", beforeValue: true, afterValue: false },
+        ],
+        responsibilities: before.responsibilities.map((resp) => ({
+          memberId: resp.memberId,
+          role: resp.role,
+          beforeShare: resp.share,
+          afterShare: null,
+          beforeTaskDescription: resp.taskDescription,
+          afterTaskDescription: null,
+        })),
+      });
+      continue;
+    }
+    if (!before || !after) continue;
+
+    const fields: MilestoneChangeField[] = [];
+    pushChangedField(fields, "title", "MS名", before.title, after.title);
+    pushChangedField(fields, "points", "pt", before.points, after.points);
+    pushChangedField(fields, "tag", "tag", before.tag, after.tag);
+    pushChangedField(fields, "goalLevel", "区分", before.goalLevel, after.goalLevel);
+    pushChangedField(fields, "successCriteria", "完了条件", before.successCriteria, after.successCriteria);
+    pushChangedField(fields, "periodStartYm", "開始月", before.periodStartYm, after.periodStartYm);
+    pushChangedField(fields, "targetYm", "目標月", before.targetYm, after.targetYm);
+    pushChangedField(fields, "sortOrder", "表示順", before.sortOrder, after.sortOrder);
+
+    const responsibilities = diffMilestoneResponsibilities(before.responsibilities, after.responsibilities);
+    if (fields.length > 0 || responsibilities.length > 0) {
+      items.push({
+        kind: "updated",
+        milestoneId,
+        title: after.title || before.title,
+        fields,
+        responsibilities,
+      });
+    }
+  }
+
+  return {
+    items,
+    addedCount: items.filter((item) => item.kind === "added").length,
+    removedCount: items.filter((item) => item.kind === "removed").length,
+    updatedCount: items.filter((item) => item.kind === "updated").length,
+  };
+}
+
+async function ensureMilestoneChangeEventTable(db: ReturnType<typeof createAdminClient>): Promise<NextResponse | null> {
+  const probe = await db.from("milestone_change_events").select("id").limit(1);
+  if (!probe.error) return null;
+  const record = asRecord(probe.error);
+  const code = String(record?.code ?? "");
+  const message = String(record?.message ?? "");
+  if (code === "42P01" || code === "PGRST205" || message.includes("milestone_change_events")) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "milestone_change_events migration is required before saving MS changes",
+      },
+      { status: 409 },
+    );
+  }
+  throw probe.error;
+}
+
+async function persistMilestoneChangeEvent({
+  db,
+  plan,
+  beforeSnapshot,
+  afterSnapshot,
+  impact,
+  actorEmail,
+}: {
+  db: ReturnType<typeof createAdminClient>;
+  plan: PlanRow;
+  beforeSnapshot: MilestoneChangeSnapshot[];
+  afterSnapshot: MilestoneChangeSnapshot[];
+  impact: RewardRevisionImpact;
+  actorEmail: string;
+}): Promise<string | null> {
+  const diff = diffMilestoneSnapshots(beforeSnapshot, afterSnapshot);
+  if (diff.items.length === 0) return null;
+  const revisionId = impact.offsetRows[0]?.revision_id ?? crypto.randomUUID();
+  const rewardPreview = publicRewardRevision(impact);
+  const insertRes = await db
+    .from("milestone_change_events")
+    .insert({
+      project_id: plan.project_id,
+      plan_cycle_id: plan.plan_cycle_id,
+      revision_id: revisionId,
+      source: "admin_ms_overview",
+      changed_by_email: actorEmail,
+      reward_preview_status: impact.status,
+      changed_milestone_count: diff.items.length,
+      added_milestone_count: diff.addedCount,
+      removed_milestone_count: diff.removedCount,
+      updated_milestone_count: diff.updatedCount,
+      protected_cycle_count: impact.protectedCycleCount,
+      offset_count: impact.offsetCount,
+      positive_offset_yen: Math.round(impact.positiveOffsetYen),
+      negative_offset_yen: Math.round(impact.negativeOffsetYen),
+      before_milestones_json: beforeSnapshot,
+      after_milestones_json: afterSnapshot,
+      change_items_json: diff.items,
+      reward_preview_json: rewardPreview,
+      metadata_json: {
+        rewardCheckedAt: impact.checkedAt,
+        sourceYms: impact.sourceYms,
+        applyYms: impact.applyYms,
+        totalOffsetYen: Math.round(impact.totalOffsetYen),
+        voidedPreviousOffsetCount: impact.voidedPreviousOffsetCount,
+      },
+    })
+    .select("id")
+    .single();
+  if (insertRes.error) throw insertRes.error;
+  return cleanOptionalText(insertRes.data?.id);
+}
+
 function normalizedMilestonePoints(
   ms: Pick<MilestonePayload, "points" | "tag">,
   periodStartYm: string | null,
@@ -1132,6 +1466,9 @@ export async function PUT(
 
     const offsetTableResponse = await ensureOffsetTableWhenNeeded(db, protectedCycles);
     if (offsetTableResponse) return offsetTableResponse;
+    const changeEventTableResponse = await ensureMilestoneChangeEventTable(db);
+    if (changeEventTableResponse) return changeEventTableResponse;
+    const beforeMsSnapshot = await loadMilestoneChangeSnapshot(db, planCycleId);
 
     let rewardRevisionImpact = await buildRewardRevisionImpact({
       db,
@@ -1191,6 +1528,16 @@ export async function PUT(
       impact: rewardRevisionImpact,
     });
 
+    const afterMsSnapshot = await loadMilestoneChangeSnapshot(db, planCycleId);
+    const milestoneChangeEventId = await persistMilestoneChangeEvent({
+      db,
+      plan,
+      beforeSnapshot: beforeMsSnapshot,
+      afterSnapshot: afterMsSnapshot,
+      impact: rewardRevisionImpact,
+      actorEmail: auth.user.email,
+    });
+
     let syncedYms: string[] = [];
     try {
       const synced = await syncRewardSummariesForProject(db, plan.project_id);
@@ -1208,6 +1555,7 @@ export async function PUT(
       newTotalPoints: newTotal,
       rewardSummariesSyncedYms: syncedYms,
       rewardRevision: publicRewardRevision(rewardRevisionImpact),
+      milestoneChangeEventId,
     });
   } catch (err) {
     console.error("[admin ms-overview PUT]", err);

@@ -1,6 +1,6 @@
-# Member Ops / Billing / Prompt 仕様
+# Member Ops / 請求書発行 / Prompt 仕様
 
-メンバーが直接触る `/mypage` / `/reimburse` と、 admin が運用する `/admin/billing` / `/admin/prompts` の開発者向け仕様。 メンバー視点の使い方早見表は [2-2 章](2-2-member-workflows-quick-start.md) を見る。
+メンバーが直接触る `/mypage` / `/reimburse` と、 admin が運用する `/admin/invoices` / `/admin/prompts` の開発者向け仕様。 メンバー視点の使い方早見表は [2-2 章](2-2-member-workflows-quick-start.md) を見る。
 
 ## /mypage
 
@@ -132,15 +132,15 @@ flowchart LR
 
 PM 承認は `project_members.is_pm=true AND project_id=reimbursement.project_id` のメンバーのみ。 admin 承認は `members.is_admin=true` のみ。
 
-## /admin/billing
+## /admin/invoices
 
-admin が全 SU × 月の請求マトリクスを見る画面 (= `pwa/src/app/(app)/admin/billing/page.tsx`)。
+admin が全 SU × 月の請求書発行状態を見る画面 (= `pwa/src/app/(app)/admin/invoices/page.tsx`)。旧 `/admin/billing` は廃止済みで、この画面へ自動遷移する。
 
 ### 表示構造
 
 - 縦軸: PJ (= `projects.status IN ('active','ended','frozen')`)
 - 横軸: 直近 13 ヶ月 (= 現月 -11 〜 +1)
-- セル: `billing_cycles.status` をアイコン表示 + `payment_confirmed_at` でハイライト
+- セル: `billing_cycles` の各ステップをチップ表示し、行詳細から freee 請求書を発行
 
 ### セル状態
 
@@ -232,7 +232,7 @@ prompt_key 一覧の正本は DB の `llm_prompts` 自身。 コード側 fallba
 |---|---|
 | `/mypage` の報酬額が出ない | `billing_cycles.member_allocations_json` の該当 ym 行、 `payout-reward-cache-refresh` 実行履歴 |
 | 立替が `/mypage` に出るが支払に乗らない | `reimbursements.status` / `billed_ym` |
-| `/admin/billing` で PJ 行が出ない | `projects.status IN ('active','ended','frozen')` の絞り条件、 `ended` の `end_ym` |
+| `/admin/invoices` で PJ 行が出ない | `projects.status IN ('active','ended','frozen')` の絞り条件、 `ended` の `end_ym` |
 | 修正した prompt が反映されない | `llm_prompts.is_active=true` か、 呼び出し側のキャッシュ層 (= 該当 cron 再実行) |
 | つくよみが「古い prompt 使ってる」と感じる | `tsukuyomi_context.status='active'` の row、 `priority` 順を確認 |
 
@@ -241,7 +241,7 @@ prompt_key 一覧の正本は DB の `llm_prompts` 自身。 コード側 fallba
 - 2-2 章 [メンバーの日常ワークフロー](2-2-member-workflows-quick-start.md) (= 使い方早見表)
 - 6-5 章 [Admin Payouts / 支払通知書](6-5-admin-payouts-reward-notice-spec.md) (= 報酬 → 支払通知書)
 - 7-1 章 [報酬計算ロジック 詳細仕様](7-1-reward-calc-spec.md) (= 計算式・進捗ソース・キャップ正本)
-- 6-3 章 [Invoice / Billing Routine](6-3-invoice-and-billing-routine-spec.md) (= billing_cycles 全体)
+- 6-3 章 [請求書発行 / 月次サイクル](6-3-invoice-and-billing-routine-spec.md) (= billing_cycles 全体)
 - 8-1 章 [Knowledge Admin / Tsukuyomi](8-1-knowledge-admin-tsukuyomi-spec.md) (= つくよみ context 詳細)
 - 6-1 章 [Operations Settings](6-1-operations-settings-spec.md) (= cron 実行)
 - 設計: [`pwa/design/mypage.md`](../design/mypage.md)

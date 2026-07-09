@@ -7,9 +7,9 @@
 - 報告書確認の軽い連絡は Slack 側で扱う。OS には report 確認 TODO / nudge カードを出さない。
 - 報告会日程調整は廃止。2 か月に 1 回の対面ナレッジ会は OS の月次タスク外で運用する。
 - 立替精算は `/reimburse` と admin 承認で扱い、PM 月次タスクにはしない。
-- 請求書発行・送付は admin 業務。主入口は `/admin/billing`。
+- 請求書発行・送付は admin 業務。主入口は `/admin/invoices`。
 - CTB 見積は CTB 停止中のため廃止。
-- 請求額は契約 apply 済みデータから `contract-billing-auto-confirm` と admin billing / payouts 側で扱う。PM/PL の通常 TODO には戻さない。
+- 請求額は契約 apply 済みデータから `contract-billing-auto-confirm` と `/admin/invoices` / `/admin/payouts` 側で扱う。PM/PL の通常 TODO には戻さない。
 
 ## PWA 実装境界
 
@@ -31,7 +31,7 @@
 ## 残すもの
 
 - 月次カードと `CockpitMonthlyModal`: 月次の進捗・報酬・レポートを確認する read/write surface として残す。
-- `/admin/billing`: 報告書・立替・請求発行・請求送付・入金・支払通知の admin 管理表として残す。
+- `/admin/invoices`: 報告書・立替・請求書発行・請求送付・入金・支払通知の admin 管理表として残す。旧 `/admin/billing` は互換 redirect のみ。
 - `/admin/payouts`: 支払通知書・報酬支払の正本。
 - `/reimburse`: 立替申請・PM/admin承認の正本。
 

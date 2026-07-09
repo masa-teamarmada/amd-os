@@ -352,7 +352,7 @@ GAS 064 が読む:
 
 ## 会社留保 / 契約バッファの扱い
 
-`/admin/payouts` の支払通知書対象は、非役員かつ `exclude_from_payout_notice=false` のメンバーだけ。`members.is_officer=true` のメンバーは支払通知書から外すが、月次 cap 按分で役員に割り当たった分は `reward_summary_json.members[].companyReserveYen` / `officerReserveYen` として、役員向け報酬相当額を会社留保に計上する。
+`/admin/payouts` の支払通知書対象は、非役員かつ `exclude_from_payout_notice=false` のメンバーだけ。`members.is_officer=true` のメンバーは支払通知書から外すが、月次 cap 按分で役員に割り当たった分は `reward_summary_json.members[].companyReserveYen` / `officerReserveYen` として、役員向け報酬相当額を会社留保に計上する。役員の未充当繰越 (`companyReserveUnfundedYen` / `stockYen`) は外部への未払い残ではなく、会社留保側の内部検算として扱う。
 
 先12か月では、会社留保を支出として表示しない。`キャッシュ支払` 表は非役員・支払通知対象メンバーへの外部支払だけを見る。`会社留保` 表は `cap/売上枠 - 外部支払` を留保増加額として表示し、役員の `regularCompanyReserveYen` / `extraCompanyReserveYen` はその内訳として読む。`cap超過チェック` 表だけは、役員会社留保も含めた報酬需要が cap/売上枠を超えていないかを見る。
 
@@ -366,7 +366,7 @@ GAS 064 が読む:
 前月残(carryInYen) + 今月発生(grossDueYen - carryInYen) - 今月支払(totalPay) = 月末未払い残(stockYen)
 ```
 
-`stockYen` は「今月支払われる額」ではなく、まだ払っていない月末残高。SX のように契約開始前の 202604/202605 に実働があり、202606 から契約・支払が始まる PJ では、契約前発生分が `carryInYen` として後月に流れ、当月支払と月末未払い残が同時に出る。
+`stockYen` は「今月支払われる額」ではなく、まだ払っていない月末残高。ただし報酬債務台帳・先12か月の `未払い残` として表示するのは、支払通知対象の外部メンバー分だけ。役員分の `stockYen` は会社留保の未充当分であり、外部への未払い残には混ぜない。SX のように契約開始前の 202604/202605 に実働があり、202606 から契約・支払が始まる PJ では、契約前発生分が `carryInYen` として後月に流れ、当月支払と月末未払い残が同時に出る。
 
 台帳の原因ラベルは以下を使う。
 
@@ -377,7 +377,7 @@ GAS 064 が読む:
 | 繰越のみ | `carryInYen > 0` かつ当月発生 0 | 過去未払い分だけを返済対象にしている |
 | cap不足 | 当月発生が cap で払い切れない | 当月cap不足により月末未払い残が発生 |
 
-先12か月表は `キャッシュ支払` / `会社留保` / `報酬債務` / `cap超過チェック` の4表に分ける。加えて、支払通知書を誰にいくら出すかを横断確認するため、非役員・支払対象メンバーだけを行にした `メンバー別支払予定` 表を置く。`stockYen` は月末残高なので、12か月分を合計しない。報酬債務表では各月残、ピーク、最終月残を見る。plan cycle の最終月が表に含まれる場合、最終月残が 0 円なら「ゼロ着地」、1 円でも残るなら `残 ¥...` と表示する。報酬計算側で最終月に自動の精算枠を足してゼロに見せることは禁止で、期末未払残は `/admin/ms-overview` の保存前検算で解消すべき不足額として扱う。PL/cash の収支表、支払通知書の capped 支払予定、会社留保、未払い残を1つの表に混ぜない。
+先12か月表は `キャッシュ支払` / `会社留保` / `報酬債務` / `cap超過チェック` の4表に分ける。加えて、支払通知書を誰にいくら出すかを横断確認するため、非役員・支払対象メンバーだけを行にした `メンバー別支払予定` 表を置く。`stockYen` は月末残高なので、12か月分を合計しない。報酬債務表では外部メンバーへの各月残、ピーク、最終月残を見る。plan cycle の最終月が表に含まれる場合、外部メンバー分の最終月残が 0 円なら「ゼロ着地」、1 円でも残るなら `残 ¥...` と表示する。役員の繰越は会社留保表・内部検算へ寄せ、報酬債務表の未払い残には混ぜない。報酬計算側で最終月に自動の精算枠を足してゼロに見せることは禁止で、期末未払残は `/admin/ms-overview` の保存前検算で解消すべき不足額として扱う。PL/cash の収支表、支払通知書の capped 支払予定、会社留保、未払い残を1つの表に混ぜない。
 
 月初合意 gate の PJ 対象判定は、`projects.status='frozen'` だけでなく `projects.freeze_from_ym <= source_ym` も not_required にする。CTB p06 のように `status='active'` のまま freeze overlay で止まっている PJ を支払 gate に戻さないため。
 
@@ -438,8 +438,8 @@ ZMP の通常固定費は 300,000 円 × 65% = 195,000 円が通常cap。OkuDoor
 ## 関連
 
 - 2-6 章 [admin オペ](2-6-admin-ops.md) (= 月次カード / admin請求早見表)
-- 6-3 章 [Invoice / Billing Routine](6-3-invoice-and-billing-routine-spec.md) (= 反対側、 SU から AMD への請求書)
-- 6-6 章 [Member Ops / Billing / Prompt](6-6-member-billing-prompts-spec.md) (= 報酬計算正本)
+- 6-3 章 [請求書発行 / 月次サイクル](6-3-invoice-and-billing-routine-spec.md) (= 反対側、 SU から AMD への請求書)
+- 6-6 章 [Member Ops / 請求書発行 / Prompt](6-6-member-billing-prompts-spec.md) (= 報酬計算正本)
 - 6-2 章 [Admin Projects / Members 台帳](6-2-admin-projects-members-ledger-spec.md) (= PJ / メンバー台帳)
 - 設計: [`pwa/design/FEATURE_REGISTRY.md`](../design/FEATURE_REGISTRY.md) (= 消してはいけない業務導線)
 - 設計: [`pwa/design/invoice_url_payout_auth.md`](../design/invoice_url_payout_auth.md) (= signed URL + Payout OAuth)

@@ -172,6 +172,46 @@ function contractFlagClass(value: unknown) {
   return "border-amber-200 bg-amber-50 text-amber-800";
 }
 
+function isExpenseReimbursementUnavailable(text: string) {
+  const normalized = text.replace(/\s/g, "").toLowerCase();
+  return normalized === "不可" || normalized === "なし" || normalized === "無し" || normalized === "対象外" || normalized.startsWith("不可");
+}
+
+function expenseReimbursementInputValue(terms: ContractTerms | null | undefined) {
+  const allowed = parseContractFlag(terms?.expenseReimbursementAllowed);
+  const note = textValue(terms?.expenseReimbursementNote);
+  if (allowed === false) return "不可";
+  if (note) return note;
+  return "";
+}
+
+function parseExpenseReimbursementValue(value: unknown): Pick<ContractTerms, "expenseReimbursementAllowed" | "expenseReimbursementNote"> {
+  const text = textValue(value);
+  if (!text) {
+    return { expenseReimbursementAllowed: true, expenseReimbursementNote: null };
+  }
+  if (isExpenseReimbursementUnavailable(text)) {
+    return { expenseReimbursementAllowed: false, expenseReimbursementNote: text };
+  }
+  return { expenseReimbursementAllowed: true, expenseReimbursementNote: text };
+}
+
+function expenseReimbursementDisplayValue(terms: ContractTerms | null | undefined) {
+  const allowed = parseContractFlag(terms?.expenseReimbursementAllowed);
+  const note = textValue(terms?.expenseReimbursementNote);
+  if (allowed === false) return "不可";
+  if (note) return note;
+  return "0円";
+}
+
+function expenseReimbursementDisplayClass(terms: ContractTerms | null | undefined) {
+  const allowed = parseContractFlag(terms?.expenseReimbursementAllowed);
+  const note = textValue(terms?.expenseReimbursementNote);
+  if (allowed === false) return "border-slate-200 bg-slate-50 text-slate-600";
+  if (note) return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  return "border-zinc-200 bg-zinc-50 text-zinc-700";
+}
+
 function monthlyReportStatusLabel(value: unknown) {
   const text = textValue(value);
   if (!text) return "不明";
@@ -284,8 +324,7 @@ type EditVals = {
   contract_monthly_report_submission_format: string;
   contract_monthly_report_submission_required_items: string;
   contract_monthly_report_submission_note: string;
-  contract_expense_reimbursement_allowed: string;
-  contract_expense_reimbursement_note: string;
+  contract_expense_reimbursement_value: string;
   contract_source_title: string;
   contract_source_ref: string;
   contract_notes: string;
@@ -369,8 +408,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
       contract_monthly_report_submission_format: contractTermValue(p.contract_terms_json, "monthlyReportSubmissionFormat"),
       contract_monthly_report_submission_required_items: contractTermValue(p.contract_terms_json, "monthlyReportSubmissionRequiredItems"),
       contract_monthly_report_submission_note: contractTermValue(p.contract_terms_json, "monthlyReportSubmissionNote"),
-      contract_expense_reimbursement_allowed: contractFlagInputValue(p.contract_terms_json?.expenseReimbursementAllowed),
-      contract_expense_reimbursement_note: contractTermValue(p.contract_terms_json, "expenseReimbursementNote"),
+      contract_expense_reimbursement_value: expenseReimbursementInputValue(p.contract_terms_json),
       contract_source_title: contractTermValue(p.contract_terms_json, "sourceTitle"),
       contract_source_ref: contractTermValue(p.contract_terms_json, "sourceRef"),
       contract_notes: contractTermValue(p.contract_terms_json, "notes"),
@@ -525,8 +563,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
           monthlyReportSubmissionFormat: textValue(editVals.contract_monthly_report_submission_format) || null,
           monthlyReportSubmissionRequiredItems: textValue(editVals.contract_monthly_report_submission_required_items) || null,
           monthlyReportSubmissionNote: textValue(editVals.contract_monthly_report_submission_note) || null,
-          expenseReimbursementAllowed: parseContractFlag(editVals.contract_expense_reimbursement_allowed),
-          expenseReimbursementNote: textValue(editVals.contract_expense_reimbursement_note) || null,
+          ...parseExpenseReimbursementValue(editVals.contract_expense_reimbursement_value),
           sourceTitle: textValue(editVals.contract_source_title) || null,
           sourceRef: textValue(editVals.contract_source_ref) || null,
           notes: textValue(editVals.contract_notes) || null,
@@ -553,10 +590,10 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
         break;
       }
       case "contract_expense_reimbursement": {
-        patch.contract_terms_json = mergeContractTerms(p.contract_terms_json, {
-          expenseReimbursementAllowed: parseContractFlag(editVals.contract_expense_reimbursement_allowed),
-          expenseReimbursementNote: textValue(editVals.contract_expense_reimbursement_note) || null,
-        });
+        patch.contract_terms_json = mergeContractTerms(
+          p.contract_terms_json,
+          parseExpenseReimbursementValue(editVals.contract_expense_reimbursement_value)
+        );
         break;
       }
       case "invoice_send":
@@ -1300,31 +1337,25 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                   <td className={`${cellCls("contract_expense_reimbursement")} align-top`} onClick={enterCell("contract_expense_reimbursement")}>
                     {isEditingField(p, "contract_expense_reimbursement") ? (
                       <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
-                        <select
-                          value={editVals.contract_expense_reimbursement_allowed || ""}
-                          autoFocus
-                          onChange={(e) => setEditVals((v) => ({ ...v, contract_expense_reimbursement_allowed: e.target.value }))}
-                          className="w-full rounded border border-border bg-background px-1.5 py-0.5 text-[11px]"
-                        >
-                          <option value="">不明</option>
-                          <option value="true">可</option>
-                          <option value="false">不可</option>
-                        </select>
                         <textarea
-                          value={editVals.contract_expense_reimbursement_note as string}
-                          onChange={(e) => setEditVals((v) => ({ ...v, contract_expense_reimbursement_note: e.target.value }))}
+                          value={editVals.contract_expense_reimbursement_value as string}
+                          autoFocus
+                          onChange={(e) => setEditVals((v) => ({ ...v, contract_expense_reimbursement_value: e.target.value }))}
                           rows={2}
-                          placeholder="根拠/補足"
+                          placeholder="例: 18,420円 / 不可"
                           className="w-full rounded border border-border bg-background px-1.5 py-0.5 text-[11px]"
                         />
                         {cellActions("contract_expense_reimbursement")}
                       </div>
                     ) : (
                       <div className="space-y-1 text-[11px]">
-                        <span className={`inline-flex rounded border px-1.5 py-0.5 text-[10px] font-medium ${contractFlagClass(p.contract_terms_json?.expenseReimbursementAllowed)}`}>
-                          {contractFlagLabel(p.contract_terms_json?.expenseReimbursementAllowed, "可", "不可")}
+                        <span
+                          className={`inline-flex max-w-full rounded border px-1.5 py-0.5 text-[10px] font-medium ${expenseReimbursementDisplayClass(p.contract_terms_json)}`}
+                          title={expenseReimbursementDisplayValue(p.contract_terms_json)}
+                        >
+                          <span className="truncate">{expenseReimbursementDisplayValue(p.contract_terms_json)}</span>
                         </span>
-                        {p.contract_terms_json?.expenseReimbursementNote ? (
+                        {parseContractFlag(p.contract_terms_json?.expenseReimbursementAllowed) === false && p.contract_terms_json?.expenseReimbursementNote && p.contract_terms_json.expenseReimbursementNote !== "不可" ? (
                           <div className="line-clamp-2 text-[10px] text-muted-foreground" title={p.contract_terms_json.expenseReimbursementNote}>
                             {p.contract_terms_json.expenseReimbursementNote}
                           </div>

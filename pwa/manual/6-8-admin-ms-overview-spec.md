@@ -193,15 +193,16 @@ memberDesignYen[m] = Σ over MS of (effectivePoints × share[m] × designUnitYen
 
 - **未保存あり / 変更なし / 保存中** — 編集状態を表示。
 - **保存前支払検算** — 編集中 payload を `POST /api/admin/ms-overview/{planCycleId}` に送り、まだ DB へ保存していない MS 案で protected 月の reward 差額とシーズン末ゼロ着地をサーバー側で仮計算する。結果は `safe` / `warning` / `blocked` で返り、`blocked` の間は保存ボタンを無効にする。編集モードに入った時点で現行案も検算し、変更前から不足がある場合も見えるようにする。
-- **閲覧時の支払検算** — cycle を開いた時点でも現行案を `POST /api/admin/ms-overview/{planCycleId}` で検算し、期末未払または PJ 予算不足がある場合は MS 一覧の上に `MS編集停止中` の赤い帯を出す。編集モードへ入らなくても、既存状態が危険なら「正常な MS 一覧」に見えないようにする。
+- **閲覧時の支払検算** — cycle を開いた時点でも現行案を `POST /api/admin/ms-overview/{planCycleId}` で検算し、外部メンバー向け期末未払または PJ 予算不足がある場合は MS 一覧の上に `MS編集停止中` の赤い帯を出す。編集モードへ入らなくても、既存状態が危険なら「正常な MS 一覧」に見えないようにする。
 - **保存先 DB / protected月は差額精算** — 保存時に `value_milestones` / `milestone_responsibility` と reward cache まで反映されること、protected 月は過去 cache を書き換えず差額台帳で精算することを表示。
 - **↻ DB値に戻す** — 編集前の DB 値に戻す。`isDirty` のときだけ有効。
 - **保存して DB へ反映** — 編集内容を確定。`isDirty` のときだけ有効。押下時の動作:
   1. 画面側で `POST /api/admin/ms-overview/{planCycleId}` の保存前支払検算が `blocked` でないことを確認する
   2. `PUT /api/admin/ms-overview/{planCycleId}` を呼ぶ (body: `{ milestones: [...], deletedMilestoneIds: [...] }`)
   3. サーバ側でも同じ保存前支払検算を再実行し、`blocked` なら 409 で保存を止める
-  4. サーバ側は (a) 当該 plan_cycle 内の `value_milestones` を upsert / 無効化、(b) `milestone_responsibility` を保存値で置換、(c) `value_plan_cycles.total_points = 期間月数×10 + Σcap_extra points` に再計算、(d) protected 月 (`reward_paid_at` / `payout_notice_uploaded_at` / `payment_confirmed_at`) の旧 reward cache と新計算値の member×pool 差額を `reward_member_liability_offsets` に記録、(e) `syncRewardSummariesForProject` で未保護月だけ `billing_cycles.reward_summary_json` を再計算する
-  5. 成功すると編集モード OFF へ戻り、`/api/admin/ms-overview` を再 fetch して最新値で再描画する
+  4. サーバ側は (a) 当該 plan_cycle 内の `value_milestones` を upsert / 無効化、(b) `milestone_responsibility` を保存値で置換、(c) `value_plan_cycles.total_points = 期間月数×10 + Σcap_extra points` に再計算、(d) protected 月 (`reward_paid_at` / `payout_notice_uploaded_at` / `payment_confirmed_at`) の旧 reward cache と新計算値の member×pool 差額を `reward_member_liability_offsets` に記録、(e) 変更前後のMS・担当share差分と保存前支払検算サマリを `milestone_change_events` に記録、(f) `syncRewardSummariesForProject` で未保護月だけ `billing_cycles.reward_summary_json` を再計算する
+  5. `milestone_change_events.revision_id` は、protected 月差額が出る場合 `reward_member_liability_offsets.revision_id` と同じ値にし、cockpit の `MS変更履歴` から報酬差額台帳へ対応づけられるようにする
+  6. 成功すると編集モード OFF へ戻り、`/api/admin/ms-overview` を再 fetch して最新値で再描画する
 - **保存中の表示**: ボタンが「保存中…」、完了で `✓ 保存完了 → reward 再計算済` (緑) / 失敗で `保存失敗: {error}` (赤)
 
 月次 override (`actual_share`) はここでは扱わない (= MS 設計画面なので plannedShare のみ)。
@@ -214,10 +215,10 @@ memberDesignYen[m] = Σ over MS of (effectivePoints × share[m] × designUnitYen
 - `offsetCount` / `positiveOffsetYen` / `negativeOffsetYen` — 本人別に次回以降へ精算される差額
 - `applyYms` — 差額を反映する未保護月
 - `memberImpacts` — メンバー別の追加支払 / 過払い回収 / 本契約・別財布内訳
-- `budgetImpact` — freee銀行出金と `monthly_reward_payout` 明細が一致した支払済み実績だけを固定し、これから支払う見込み・会社留保・期末未払い残を足した PJ 予算影響。表示項目は `クライアント支払` / `バッファ` / `原資上限` / `PJ予算` / `メンバー支払` / `会社留保` / `支払済み固定` / `実績未照合` / `これから支払予定` / `期末未払` / `保存後残予算または予算不足`。`クライアント支払` は本契約に別財布売上を加算し、schedule_based 契約では `contract_terms_json.monthlySchedule.amountTaxExcl` も予定売上として読む。`バッファ` は `value_plan_cycles.buffer_breakdown_json` を優先する。`原資上限 = (クライアント支払 - バッファ) × 65%`。`PJ予算 = 本契約原資 + 別財布原資`、`メンバー支払 = 支払済み固定 + これから支払予定`。会社留保は支払通知書対象外だが、PJ予算を消費するため支払義務側に含める。期末未払と原資超過は不足額そのものとして赤表示する。
-- `blockers` — 保存不可理由。旧 reward cache が無い、次回精算先が無い、過払い回収がシーズン内で吸収できない可能性がある、支払済み印はあるが実支払証跡と明細額が未照合の月がある、期末未払残が 1 円以上ある、メンバー支払義務が PJ 予算を 1 円以上超える、など。
+- `budgetImpact` — freee銀行出金と `monthly_reward_payout` 明細が一致した支払済み実績だけを固定し、これから支払う見込み・会社留保・外部メンバーの期末未払い残を足した PJ 予算影響。表示項目は `クライアント支払` / `バッファ` / `原資上限` / `PJ予算` / `メンバー支払` / `会社留保` / `支払済み固定` / `実績未照合` / `これから支払予定` / `期末未払` / `保存後残予算または予算不足`。`クライアント支払` は本契約に別財布売上を加算し、schedule_based 契約では `contract_terms_json.monthlySchedule.amountTaxExcl` も予定売上として読む。`バッファ` は `value_plan_cycles.buffer_breakdown_json` を優先する。`原資上限 = (クライアント支払 - バッファ) × 65%`。`PJ予算 = 本契約原資 + 別財布原資`、`メンバー支払 = 支払済み固定 + これから支払予定`。会社留保は支払通知書対象外だが、役員の未充当繰越も含めて PJ予算を消費するため支払義務側に含める。期末未払は支払通知対象の外部メンバー分だけを不足額として赤表示し、役員繰越は会社留保側の内部検算へ寄せる。原資超過も不足額そのものとして赤表示する。
+- `blockers` — 保存不可理由。旧 reward cache が無い、次回精算先が無い、過払い回収がシーズン内で吸収できない可能性がある、支払済み印はあるが実支払証跡と明細額が未照合の月がある、支払通知対象メンバーへの期末未払残が 1 円以上ある、メンバー支払義務が PJ 予算を 1 円以上超える、など。
 
-このパネルの目的は「差分を見せる」ことではなく、MS を期中変更しても **払いすぎ・払い足りなさを作らず、証跡つき支払済み実績を固定し、シーズン終了時の未払残を必ず 0 円にすること** を編集中に判定すること。実支払額と同一だと確認できない月は `実績未照合` に分け、保存は `blocked` にする。期末未払残、メンバー支払義務の PJ 予算超過、または PJ 予算の原資上限超過が 1 円でもある状態では MS 編集を終えられない。AMD運営側が認識していないところでバッファ/運営費が勝手に削られてメンバー支払に回る設計は禁止する。`warning` は保存可能だが本人別精算などの注意が残る状態、`blocked` は保存不可。
+このパネルの目的は「差分を見せる」ことではなく、MS を期中変更しても **払いすぎ・払い足りなさを作らず、証跡つき支払済み実績を固定し、シーズン終了時の外部メンバー向け未払残を必ず 0 円にすること** を編集中に判定すること。実支払額と同一だと確認できない月は `実績未照合` に分け、保存は `blocked` にする。支払通知対象メンバーへの期末未払残、メンバー支払義務の PJ 予算超過、または PJ 予算の原資上限超過が 1 円でもある状態では MS 編集を終えられない。役員繰越は外部未払ではなく会社留保の内部検算に入れる。AMD運営側が認識していないところでバッファ/運営費が勝手に削られてメンバー支払に回る設計は禁止する。`warning` は保存可能だが本人別精算などの注意が残る状態、`blocked` は保存不可。
 
 ### 安全機構
 
@@ -226,6 +227,7 @@ memberDesignYen[m] = Σ over MS of (effectivePoints × share[m] × designUnitYen
 - 期間は `YYYYMM` 形式、かつ `period_start_ym <= target_ym` でないと 400 で弾く。
 - `syncRewardSummariesForProject` 内部で `reward_paid_at` / `payout_notice_uploaded_at` / `payment_confirmed_at` のある月は再計算対象から外れる (= 既に支払い済みの過去月を勝手に書き換えない)。
 - protected 月に MS 修正差額が出た場合、過去月の `reward_summary_json` は保存し直さず、同じ member の次の未保護月へ `reward_member_liability_offsets.offset_yen` として精算する。正の差額は追加支払、負の差額は将来支払から本人単位で回収する。同じ source_ym の既存 pending offset は保存のたびに `voided` にして入れ直すので、複数回編集しても二重精算しない。
+- MS設計の保存が成功した場合、`milestone_change_events` に追加/無効化/更新されたMS、pt・期間・完了条件・担当share差分、保存前支払検算の状態、追加支払/過払い回収の合計を残す。これはメンバー向け cockpit の折りたたみ `MS変更履歴` の正本で、契約本文・メール全文・議事録全文・raw source は含めない。
 - 保存前支払検算で `blocked` の場合、UI の保存ボタンを無効化するだけでなく、PUT route も 409 を返して保存前に止める。
 
 ## なぜ「実消化」を読まないか

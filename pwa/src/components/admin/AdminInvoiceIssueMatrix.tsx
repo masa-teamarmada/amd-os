@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Bell, Check, ChevronRight, Loader2, Minus, RotateCcw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AdminInvoiceIssueDialog } from "@/components/admin/AdminInvoiceIssueDialog";
 import {
   Dialog,
   DialogContent,
@@ -17,7 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { createClient } from "@/lib/supabase/client";
 
-export interface BillingProjectRow {
+export interface InvoiceProjectRow {
   project_id: string;
   project_name: string;
   status: string;
@@ -70,7 +71,7 @@ const standardStepDefs: MatrixStepDef[] = [
   { key: "budget", label: "予算確定", canSkip: false },
   { key: "reportFix", label: "報告書", canSkip: false },
   { key: "reimburseConfirm", label: "立替確認", canSkip: false },
-  { key: "invoice", label: "請求発行", canSkip: false },
+  { key: "invoice", label: "請求書発行", canSkip: false },
   { key: "invoiceSent", label: "請求送付", canSkip: false },
   { key: "paymentNotice", label: "支払通知", canSkip: false },
   { key: "payment", label: "入金確認", canSkip: false },
@@ -79,7 +80,7 @@ const standardStepDefs: MatrixStepDef[] = [
 
 const ctbStepDefs: MatrixStepDef[] = [
   { key: "budget", label: "予算確定", canSkip: false },
-  { key: "invoice", label: "請求発行", canSkip: false },
+  { key: "invoice", label: "請求書発行", canSkip: false },
   { key: "invoiceSent", label: "請求送付", canSkip: false },
   { key: "reportFix", label: "報告書", canSkip: false },
   { key: "reimburseConfirm", label: "立替確認", canSkip: false },
@@ -191,7 +192,7 @@ function reimbursementCompletionMap(rows: ReimbursementRow[], cycles: BillingCyc
   return map;
 }
 
-function makeBillingUpdate(
+function makeCycleUpdate(
   row: BillingCycleRow,
   taskKey: string,
   newStatus: "done" | "undone" | "skip",
@@ -248,7 +249,7 @@ function makeBillingUpdate(
   return { body, localPatch };
 }
 
-export function AdminBillingMatrix({ cycles, reimbursements }: Props) {
+export function AdminInvoiceIssueMatrix({ cycles, reimbursements }: Props) {
   const [rows, setRows] = useState(cycles);
   const [selected, setSelected] = useState<BillingCycleRow | null>(null);
   const [inlineUpdating, setInlineUpdating] = useState<string | null>(null);
@@ -296,7 +297,7 @@ export function AdminBillingMatrix({ cycles, reimbursements }: Props) {
     try {
       const { data: userData } = await supabase.auth.getUser();
       const byEmail = userData.user?.email || "";
-      const { body, localPatch } = makeBillingUpdate(row, taskKey, newStatus, byEmail);
+      const { body, localPatch } = makeCycleUpdate(row, taskKey, newStatus, byEmail);
       const { error } = await supabase
         .from("billing_cycles")
         .update(body)
@@ -339,7 +340,7 @@ export function AdminBillingMatrix({ cycles, reimbursements }: Props) {
         ))}
       </div>
 
-      <BillingCycleDetailDialog
+      <InvoiceCycleDetailDialog
         row={selected}
         reimbursementDone={selected ? reimburseMap.get(`${selected.project_id}_${selected.ym}`) ?? true : true}
         onClose={() => setSelected(null)}
@@ -442,7 +443,7 @@ function StepChip({
   );
 }
 
-function BillingCycleDetailDialog({
+function InvoiceCycleDetailDialog({
   row,
   reimbursementDone,
   onClose,
@@ -456,6 +457,7 @@ function BillingCycleDetailDialog({
   const [updating, setUpdating] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [invoiceIssueOpen, setInvoiceIssueOpen] = useState(false);
 
   if (!row) return null;
 
@@ -600,6 +602,24 @@ function BillingCycleDetailDialog({
         </section>
 
         <section className="rounded-xl border border-border overflow-hidden">
+          <div className="bg-muted/50 px-3 py-2 text-[12px] font-semibold">請求書発行</div>
+          <div className="space-y-2 px-3 py-3">
+            <div className="flex items-center justify-between gap-3 text-[13px]">
+              <div>
+                <p className="font-medium">{row.invoice_issued_at ? "freee請求書 発行済み" : "freee請求書 未発行"}</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">明細を確認して、OSからfreeeへ請求書を発行する</p>
+              </div>
+              <Button type="button" size="sm" onClick={() => setInvoiceIssueOpen(true)}>
+                請求書を発行
+              </Button>
+            </div>
+            {row.invoice_issued_at && (
+              <p className="text-[11px] text-muted-foreground">発行日: {row.invoice_issued_at.slice(0, 10)}</p>
+            )}
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-border overflow-hidden">
           <div className="bg-muted/50 px-3 py-2 text-[12px] font-semibold">ステップ管理</div>
           <div className="divide-y divide-border">
             {steps.map((step) => {
@@ -644,6 +664,20 @@ function BillingCycleDetailDialog({
 
         {message && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-[12px] text-emerald-700">{message}</p>}
         {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-[12px] text-red-700">{error}</p>}
+
+        <AdminInvoiceIssueDialog
+          projectId={activeRow.project_id}
+          ym={activeRow.ym}
+          open={invoiceIssueOpen}
+          onClose={() => setInvoiceIssueOpen(false)}
+          onIssued={(patch) => {
+            onPatch(activeRow.project_id, activeRow.ym, {
+              invoice_issued_at: patch.invoice_issued_at,
+              invoice_subject: patch.invoice_subject ?? activeRow.invoice_subject,
+            });
+            setMessage("請求書を発行したよ");
+          }}
+        />
       </DialogContent>
     </Dialog>
   );

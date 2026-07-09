@@ -54,7 +54,7 @@ AMD メンバー (= 社内常勤 / 副業) が AMD OS で日常的に触る画�
 
 「請求額確定」は契約 apply 済みデータから自動確定する。契約書由来の金額や対象月の報酬額が見えない場合は、PM/PL の通常nudgeではなく契約台帳/報酬キャッシュの整備対象として扱う。請求書発行/送付はadmin業務。
 
-admin 全体の確認 (= 全 SU 横断の請求マトリクス等) は `/admin/billing` 等で扱い、 `/mypage` には混ぜない。
+admin 全体の確認 (= 全 SU 横断の請求書発行・送付・入金状態等) は `/admin/invoices` 等で扱い、 `/mypage` には混ぜない。
 
 ### 週次活動 (= member_activities source=member_weekly)
 
@@ -161,6 +161,6 @@ PJ 判定は、 PJ 専用 email / PJ 名 / client 名 / `project_knowledge(categ
 - マイページ設計: [`pwa/design/mypage.md`](../design/mypage.md)
 - 月次ルーティン廃止: [`pwa/design/routine.md`](../design/routine.md)
 - 報酬計算正本: `gas-main/059_RewardV2_Ops.js`
-- 6-6 章 [Member Ops / Billing / Prompt](6-6-member-billing-prompts-spec.md) (= mypage / reimburse / admin billing / prompt 管理の開発者向け仕様)
+- 6-6 章 [Member Ops / 請求書発行 / Prompt](6-6-member-billing-prompts-spec.md) (= mypage / reimburse / admin 請求書発行 / prompt 管理の開発者向け仕様)
 - 2-6 章 [admin オペ](2-6-admin-ops.md) (= admin請求・支払早見表)
 - 3-3 章 [通知・修正依頼・正本反映ゲート](3-3-notifications-and-tsukuyomi.md)

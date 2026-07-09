@@ -25,7 +25,8 @@
 | `progress` | `milestone_monthly_progress` |
 | `reports` | `monthly_reports` excerpts and status |
 | `members` / `memberMap` | PJ member display |
-| `seasonFinance` | current plan cycle のシーズン収支。月次とシーズン合計で、クライアント支払、バッファ、PJ予算、メンバー現金支払、未払残、現金収支を返す。役員向け報酬相当額と予算残は検算用データとして保持するが、PJ cockpit では表示しない |
+| `seasonFinance` | current plan cycle のシーズン収支。月次とシーズン合計で、クライアント支払、バッファ、PJ予算、メンバー現金支払、外部メンバー向け未払残、現金収支を返す。役員向け報酬相当額・役員繰越・予算残は検算用データとして保持するが、PJ cockpit では表示しない |
+| `msChangeHistory` | `/admin/ms-overview` 保存時に `milestone_change_events` へ残るMS変更履歴。cockpit では折りたたみ確認専用で、変更日時、記録者、MS差分、担当share差分、保存前支払検算サマリを表示する |
 | `strategySignals` | L2D-6 `project_strategy_signals` |
 | `tasks` | legacy kanban / H-1互換 task。通常PJ cockpit の主要表示には使わない |
 
@@ -64,14 +65,15 @@ This route is read-only during load. It does not create a duplicate project or w
 
 | section | component | source |
 |---|---|---|
-| header | `CockpitHeader` | project metadata + PJリスト由来のサマリー。PJメンバー、契約条件、業務委託料、支払い条件、提出物の有無、月次報告書の状態・時期・提出期限・フォーマット・記載事項・根拠、立替精算可否を `projects` / `project_members` / `projects.contract_terms_json` から表示する |
+| header | `CockpitHeader` | project metadata + PJリスト由来のサマリー。PJメンバー、契約条件、業務委託料、支払い条件、提出物の有無、月次報告書の状態・時期・提出期限・フォーマット・記載事項・根拠、立替精算の発生額/不可を `projects` / `project_members` / `projects.contract_terms_json` から表示する |
 | KUTE annual roadmap | `CockpitKuteAnnualRoadmap` | KUTE (`p25`) only。`CockpitHeader` 直下で、2026-06〜2027-03 の年度内ロードマップを表示する。規程整備レーンは 2027-01 整備完了目途、シーズ発掘 / after GTIE レーンは 2027-03 型化目途。現時点の source は 6/11 キックオフ資料 / `PROJECT_BRIEF` 由来の静的 contract |
 | venture status | `CockpitVentureStatus` | `project_ventures`, `project_xrl_log`, related data |
 | AMD / Management score hero | `CockpitManagementScoreHero` | AMD Score / Management Score derived data |
 | tabs | `CockpitView` | `進捗管理` / `スコア詳細` display state。SU 系 PJ では横幅いっぱいを2等分し、各タブのクリック領域も 1/2 にする |
 | score detail tab | `CockpitAmdScoreDetailTab`, `AmdScoreView embedded` | `/api/project/[projectId]/amd-score-detail`。PRS Primary / PRS history を主表示し、legacy AMD / M-X-F は comparison と evidence 用に残す。cockpit mount 時に hidden panel として先読みし、client memory cache 5 分TTL + private HTTP cache で再表示待ちを減らす。TTL 超過後にタブが active になったら、表示済み内容を保ったまま背景再取得する |
 | goals compact | `CockpitGoalsCompact` | value plan / MS。`MilestoneGanttChart` の各MS行に pt / tag / 担当 / 進捗とあわせて `設計額` を表示し、バー上の担当者 chip には担当設計額も併記する。通常MSは plan cycle 予算、`cap_extra` は同期間の別財布予算から按分し、支払確定額としては扱わない |
-| season finance | `CockpitSeasonFinance` | `fetchCockpitFromSupabase` が `billing_cycles`, `projects`, `reward_summary_json` から組み立てた `seasonFinance`。MS リスト直下、月次カードより上に表示し、シーズン全体と月次別に `クライアント支払` / `バッファ` / `原資上限` / `PJ予算` / `メンバー支払` / `期末未払` / `収支` を出す |
+| MS change history | `CockpitMsChangeHistory` | `milestone_change_events`。今期MSの直下、`CockpitSeasonFinance` の手前に初期折りたたみで表示する。`/admin/ms-overview` の保存イベントだけを読み、cockpit からは編集しない。契約本文・メール全文・議事録全文・raw source は扱わない |
+| season finance | `CockpitSeasonFinance` | `fetchCockpitFromSupabase` が `billing_cycles`, `projects`, `reward_summary_json` から組み立てた `seasonFinance`。MS リスト直下、月次カードより上に表示し、シーズン全体と月次別に `クライアント支払` / `バッファ` / `原資上限` / `PJ予算` / `メンバー支払` / `期末未払` / `収支` を出す。`期末未払` / `未払残` は支払通知対象の外部メンバーへ将来払う残高だけで、役員分の繰越は会社留保側の内部検算へ寄せる |
 | project documents | `CockpitProjectDocuments` | 右カラム先頭の資料スペース。drag & drop / file picker で `/api/project-documents` へ multipart upload し、Drive の PJ folder 配下 `AMD OS 資料` folder に新規ファイルとして保存する。同名ファイルは上書きしない。リンク一覧は `project_documents` から取得し、Drive link を新規タブで開く |
 | strategy signals | `CockpitStrategySignals` | `project_strategy_signals` |
 | governance | `CockpitGovernance` | ガバナンス要対応 |
@@ -143,7 +145,7 @@ If `projects.drive_folder_id` is empty, the panel shows a folder-setting warning
 
 PM向けの cockpit 右カラム routine step UI は廃止済み。`CockpitRoutine.tsx` / `CockpitRoutineGas.tsx` / `HudCockpitRoutineGas.tsx` / `CockpitRoutine*Modal.tsx` は current implementation から削除し、`?step=` 起動も使わない。
 
-現行の月次導線は `CockpitMonthlyList` / `HudCockpitMonthlyList` から月を選び、`CockpitMonthlyModal` / `HudCockpitMonthlyModal` を開く形に一本化する。月次報告書の軽い確認 nudge は Slack 側に寄せ、OS 上の月次 routine step は発生させない。契約 apply 済みPJでは、請求額は `contract-billing-auto-confirm` と admin billing / payouts 側で扱う。
+現行の月次導線は `CockpitMonthlyList` / `HudCockpitMonthlyList` から月を選び、`CockpitMonthlyModal` / `HudCockpitMonthlyModal` を開く形に一本化する。月次報告書の軽い確認 nudge は Slack 側に寄せ、OS 上の月次 routine step は発生させない。契約 apply 済みPJでは、請求額は `contract-billing-auto-confirm` と `/admin/invoices` / `/admin/payouts` 側で扱う。
 
 `CockpitMonthlyModal` の月次報告書導線は、全PJ共通の `社内保存用を編集` と、提出が必要なPJだけに出す `提出用` リンクを分ける。社内保存用は `monthly_reports` 本文の生成・修正・FIXを扱い、提出用リンクは `/project/[projectId]/report/[ym]/print?template=...` を新規タブで開く。CX (`p20`) は `template=nims-cx`、SX (`p21`) は `template=ehime-sx`、KUTE (`p25`) は `template=kogakuin-kute` を使い、それ以外のPJは AMD 標準の `PDF` リンクだけを表示する。
 
@@ -165,7 +167,7 @@ PM向けの cockpit 右カラム routine step UI は廃止済み。`CockpitRouti
 
 Important rules:
 
-- `CockpitSeasonFinance` は、PJ cockpit 上で今シーズンの収支を先に見せる安全網。クライアント支払は `contractBackedClientAmount` に `billing_cycles.extra_revenue_json` の別財布売上を按分加算する。schedule_based 契約では `contract_terms_json.monthlySchedule.amountTaxExcl` も予定売上として読む。バッファは `value_plan_cycles.buffer_breakdown_json` のシーズンバッファを優先し、未設定の PJ だけ `billing_cycles.budget_buffer_amount` を読む。原資上限は `(クライアント支払 - バッファ) × 65%`。PJ予算は `budget_yen + extra_budget_yen`、メンバー支払/未払残は `billing_cycles.reward_summary_json` を読む。表示する `収支` は現金主義で `クライアント支払 - バッファ - メンバー支払` とし、役員向け報酬相当額や未払残はその月の現金流出ではないため含めない。役員向け報酬相当額は検算には含めるが、PJ cockpit では表示しない。期末未払残または PJ予算の原資上限超過が 1 円でもある場合は不足表示にし、報酬計算側で最終月に自動上乗せしてゼロに見せない。
+- `CockpitSeasonFinance` は、PJ cockpit 上で今シーズンの収支を先に見せる安全網。クライアント支払は `contractBackedClientAmount` に `billing_cycles.extra_revenue_json` の別財布売上を按分加算する。schedule_based 契約では `contract_terms_json.monthlySchedule.amountTaxExcl` も予定売上として読む。バッファは `value_plan_cycles.buffer_breakdown_json` のシーズンバッファを優先し、未設定の PJ だけ `billing_cycles.budget_buffer_amount` を読む。原資上限は `(クライアント支払 - バッファ) × 65%`。PJ予算は `budget_yen + extra_budget_yen`、メンバー支払/未払残は `billing_cycles.reward_summary_json` を読む。`未払残` は支払通知対象の外部メンバーに対する `stockYen` だけを合計し、役員の繰越分は未払残に混ぜず会社留保側の内部検算へ含める。表示する `収支` は現金主義で `クライアント支払 - バッファ - メンバー支払` とし、役員向け報酬相当額や未払残はその月の現金流出ではないため含めない。役員向け報酬相当額は検算には含めるが、PJ cockpit では表示しない。期末未払残または PJ予算の原資上限超過が 1 円でもある場合は不足表示にし、報酬計算側で最終月に自動上乗せしてゼロに見せない。
 - If a month has a `monthly_reports` row but no `billing_cycles` row, only report tab is shown.
 - Reward budget derives from `billing_cycles.budget_yen`; if absent and project is `monthly_fixed`, `projects.fee_amount * 0.65` is used.
 - `billing_cycles.reward_summary_json` is cached and refreshed through `/api/rewards/sync` or daily `cron/payout-reward-cache-refresh`.
@@ -174,12 +176,12 @@ Important rules:
 
 ## GAS / Edge Bridge Contract
 
-PWA cockpit no longer owns dedicated routine modals. Supabase Edge Functions remain shared infrastructure for admin billing / legacy flows and are called through `pwa/src/lib/supabase/edge-functions.ts` when a current caller exists.
+PWA cockpit no longer owns dedicated routine modals. Supabase Edge Functions remain shared infrastructure for `/admin/invoices` / legacy flows and are called through `pwa/src/lib/supabase/edge-functions.ts` when a current caller exists.
 
 | function | caller | purpose |
 |---|---|---|
-| `issue-invoice` | admin billing / legacy invoice API | creates freee invoice or quotation and updates billing row |
-| `cancel-invoice` | admin billing / legacy invoice API | cancels issued invoice/quotation state |
+| `issue-invoice` | `/admin/invoices` / legacy invoice API | creates freee invoice or quotation and updates billing row |
+| `cancel-invoice` | `/admin/invoices` / legacy invoice API | cancels issued invoice/quotation state |
 | `meeting-slots` / `schedule-meeting` / `send-budget-approval-nudge` | legacy infrastructure | no active cockpit routine modal caller after routine UI deletion |
 
 GAS remains relevant for legacy freee/Slack/background automation. New cockpit modal actions should not reintroduce the deleted PM routine step layer without a separate current spec update.

@@ -180,12 +180,14 @@ URL: `/admin/management-knowledge`
 
 ---
 
-## admin/billing
+## admin/invoices (= 請求書発行)
 
-URL: `/admin/billing`
+URL: `/admin/invoices`
 
 ### 何をする画面か
-月次請求マトリクス。各 SU × 各月の請求状態 (= 発行済 / 送付済 / 入金済 / 未対応) を一覧。
+月次の請求書発行ページ。各 SU × 各月の請求状態 (= 未発行 / 発行済 / 送付済 / 入金済) を一覧し、行詳細の「請求書を発行」から OS 上で明細確認 → freee 請求書発行まで進める。
+
+旧 `/admin/billing` は廃止し、互換のため `/admin/invoices` へ自動遷移する。
 
 ---
 
@@ -208,7 +210,7 @@ OS 上の PM 月次ルーティンは廃止済み。報告書確認の軽い連�
 ```text
 admin
   /admin/projects  -> PJ 台帳・支払条件・月次予算
-  /admin/billing   -> SU x 月の請求発行・送付・立替・入金状態マトリクス
+  /admin/invoices  -> SU x 月の請求書発行・送付・立替・入金状態
   /admin/payouts   -> AMD から SU への支払通知書
 ```
 

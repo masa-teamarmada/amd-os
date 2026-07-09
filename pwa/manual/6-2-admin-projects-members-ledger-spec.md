@@ -25,7 +25,7 @@ URL: `/admin/projects`。 全 PJ 台帳を編集する admin 専用画面。
 | 契約条件 | `projects.contract_terms_json` (= 契約書/見積書から抽出した期間・月額・請求開始・実働開始・報酬原資) |
 | 提出物 | `projects.contract_terms_json.deliverablesRequired` / `deliverablesNote` (= 契約書/見積書から抽出。`true`=あり、`false`=なし、null=不明) |
 | 月次報告 | `projects.contract_terms_json.monthlyReportSubmissionRule` / `monthlyReportSubmissionTiming` / `monthlyReportSubmissionDeadline` / `monthlyReportSubmissionFormat` / `monthlyReportSubmissionRequiredItems` / `monthlyReportSubmissionNote` (= 月次報告書の状態・時期・提出期限・フォーマット・必要記載事項・根拠。状態は `要提出` / `不要` / `指定なし` / `要確認` / `不明` を短く表示し、契約上または運用上の詳細を下段に表示する。指定が無い場合は空欄にせず `指定なし` と書く) |
-| 立替精算 | `projects.contract_terms_json.expenseReimbursementAllowed` / `expenseReimbursementNote` (= 契約書/見積書から抽出。`true`=可、`false`=不可、null=不明) |
+| 立替精算 | `projects.contract_terms_json.expenseReimbursementAllowed` / `expenseReimbursementNote` (= `false`=不可。実務上OKのPJは `true` + `expenseReimbursementNote` に発生額/実務メモを記載し、セル主値として表示する。空なら `0円` 扱い) |
 | 請求条件 | `invoice_send_deadline_rule` / `payment_due_rule` / `payment_due_day` |
 | 請求先メール | `invoice_to_emails` / `invoice_cc_emails` / `invoice_bcc_emails` |
 | freee | `projects.freee_partner_id` |
@@ -81,7 +81,7 @@ URL: `/admin/projects`。 全 PJ 台帳を編集する admin 専用画面。
 | `project_id` | `p00` (= AMD全体) / `p07` 等 |
 | `fee_type` | `fixed` (= 月額固定 cap) / `point` (= ポイント従量) 等 |
 | `fee_amount` | 月額 (= 通常 cap、 numeric) |
-| `contract_terms_json` | 契約書/見積書から抽出した横断比較用 JSON。主キーは `monthlyFeeYen`, `contractStartYm`, `contractEndYm`, `actualWorkStartYm`, `billingStartYm`, `rewardPoolYen`, `monthlyRewardCapYen`, `deliverablesRequired`, `deliverablesNote`, `monthlyReportSubmissionRule`, `monthlyReportSubmissionTiming`, `monthlyReportSubmissionDeadline`, `monthlyReportSubmissionFormat`, `monthlyReportSubmissionRequiredItems`, `monthlyReportSubmissionNote`, `expenseReimbursementAllowed`, `expenseReimbursementNote`, `sourceTitle`, `sourceRef`, `notes`。契約条項に無いがPJ運用として提出が必要な場合も、`monthlyReportSubmissionNote` に「契約上の義務はないが要提出」等の根拠を残して同じJSONで管理する |
+| `contract_terms_json` | 契約書/見積書から抽出した横断比較用 JSON。主キーは `monthlyFeeYen`, `contractStartYm`, `contractEndYm`, `actualWorkStartYm`, `billingStartYm`, `rewardPoolYen`, `monthlyRewardCapYen`, `deliverablesRequired`, `deliverablesNote`, `monthlyReportSubmissionRule`, `monthlyReportSubmissionTiming`, `monthlyReportSubmissionDeadline`, `monthlyReportSubmissionFormat`, `monthlyReportSubmissionRequiredItems`, `monthlyReportSubmissionNote`, `expenseReimbursementAllowed`, `expenseReimbursementNote`, `sourceTitle`, `sourceRef`, `notes`。契約条項に無いがPJ運用として提出が必要な場合も、`monthlyReportSubmissionNote` に「契約上の義務はないが要提出」等の根拠を残して同じJSONで管理する。立替精算は契約可否だけでなく実務運用を反映し、OKのPJは `expenseReimbursementNote` に発生額、不可PJは `不可` と書く |
 | `invoice_send_deadline_rule` | 送付期限ルール (= `"末締め翌月10日"` 等の文字列) |
 | `payment_due_rule` | 支払サイト (= `"末締め翌月末払い"` 等) |
 | `payment_due_day` | 支払日 (= 月末を 0 とする日付 integer) |
@@ -200,7 +200,7 @@ PJ 台帳 / メンバー台帳の更新は admin 経由のみ:
 | 症状 | 確認場所 |
 |---|---|
 | 新メンバー追加したのに `/mypage` に出ない | `members.status='active'`、 `members.email` が Google ログイン email と一致、 `project_members.is_active=true` |
-| `/admin/billing` で PJ が出ない | `projects.status IN ('active','ended','frozen')`、 `ended` は `end_ym` 以前のみ表示 |
+| `/admin/invoices` で PJ が出ない | `projects.status IN ('active','ended','frozen')`、 `ended` は `end_ym` 以前のみ表示 |
 | 支払通知書に住所 / 登録番号 / 振込先が出ない | `members.member_address` / `invoice_registration_number` / `bank_info` の入力、 `exclude_from_payout_notice=false`。編集後は `/admin/members` の保存が `PATCH /api/admin/members` で成功していることを確認し、支払通知書を再発行する |
 | 週次活動が出ない | `google_calendar_status='connected'`、 `last_login_at` が最近、 calendar.readonly scope |
 | sticky thead が動かない | スクロールコンテナの overflow 設定、 `top-0 z-30` の値 |
@@ -208,7 +208,7 @@ PJ 台帳 / メンバー台帳の更新は admin 経由のみ:
 ## 関連
 
 - 6-1 章 [Operations Settings](6-1-operations-settings-spec.md) (= cron / Run Now)
-- 6-3 章 [Invoice / Billing Routine](6-3-invoice-and-billing-routine-spec.md) (= 請求書発行)
+- 6-3 章 [請求書発行 / 月次サイクル](6-3-invoice-and-billing-routine-spec.md) (= 請求書発行)
 - 6-4 章 [Finance / Payment Confirm](6-4-finance-payment-confirm-spec.md) (= 入金確認)
 - 6-5 章 [Admin Payouts / 支払通知書](6-5-admin-payouts-reward-notice-spec.md) (= 支払通知書発行)
 - 2-6 章 [admin オペ](2-6-admin-ops.md) (= 月次確認/admin請求早見表)

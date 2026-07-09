@@ -301,6 +301,6 @@ PM routine step 行や `?step=` query からこのモーダルを開いてはい
 - 設計: [`pwa/design/meeting_summaries.md`](../design/meeting_summaries.md) (= MTG サマリ正本)
 - 8-3 章 [L2 Extraction Routines §D-2](8-3-l2-extraction-routines-spec.md) (= D-2 抽出 routine)
 - 2-3 章 [PJ コックピットの見方](2-3-pj-cockpit.md) (= 月次モーダル UI)
-- 6-6 章 [Member Ops / Billing / Prompt](6-6-member-billing-prompts-spec.md) (= mypage 月次進捗表示)
+- 6-6 章 [Member Ops / 請求書発行 / Prompt](6-6-member-billing-prompts-spec.md) (= mypage 月次進捗表示)
 - 8-1 章 [Knowledge Admin / Tsukuyomi](8-1-knowledge-admin-tsukuyomi-spec.md) (= dialog 対話型ループ全体)
 - 6-1 章 [Operations Settings](6-1-operations-settings-spec.md) (= cron Run Now)

@@ -48,7 +48,7 @@ container: max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3
 [A2]  CockpitVentureStatus (full width hero)    PJ Status — 内部で AMD Score chart と XRL chart を xl: 横並び
                                                 ecosystem PJ は AMD Score 対象外で非表示
 
-CockpitHeader は `/admin/projects` の正本から、PJメンバー、契約条件、業務委託料、支払い条件、提出物の有無、月次報告書の状態と詳細、立替精算可否を細いサマリー帯で表示する。提出物/月次報告/立替精算は `projects.contract_terms_json.deliverablesRequired` / `deliverablesNote` / `monthlyReportSubmissionRule` / `monthlyReportSubmissionTiming` / `monthlyReportSubmissionDeadline` / `monthlyReportSubmissionFormat` / `monthlyReportSubmissionRequiredItems` / `monthlyReportSubmissionNote` / `expenseReimbursementAllowed` / `expenseReimbursementNote` を読む。月次報告は `要提出` などの短い状態を主値にし、時期・提出期限・フォーマット・記載事項・根拠を補足表示する。値は契約書/見積書から `contract_terms.extracted_terms_json` に抽出され、Contract Apply 後に `projects.contract_terms_json` へ畳まれる。契約上の義務ではない運用提出も同じJSONで扱い、曖昧な場合は「不明」または「要確認」のまま表示する。
+CockpitHeader は `/admin/projects` の正本から、PJメンバー、契約条件、業務委託料、支払い条件、提出物の有無、月次報告書の状態と詳細、立替精算の発生額/不可を細いサマリー帯で表示する。提出物/月次報告/立替精算は `projects.contract_terms_json.deliverablesRequired` / `deliverablesNote` / `monthlyReportSubmissionRule` / `monthlyReportSubmissionTiming` / `monthlyReportSubmissionDeadline` / `monthlyReportSubmissionFormat` / `monthlyReportSubmissionRequiredItems` / `monthlyReportSubmissionNote` / `expenseReimbursementAllowed` / `expenseReimbursementNote` を読む。月次報告は `要提出` などの短い状態を主値にし、時期・提出期限・フォーマット・記載事項・根拠を補足表示する。立替精算は `expenseReimbursementAllowed=false` なら `不可`、それ以外で `expenseReimbursementNote` があればその文字列 (= 発生額/実務メモ) を主値にする。値は契約書/見積書から `contract_terms.extracted_terms_json` に抽出され、Contract Apply 後に `projects.contract_terms_json` へ畳まれる。契約条項に無いが実務上OKの運用も同じJSONで扱い、金額が空の場合は `0円` と表示する。
 
 [A3]  Cockpit tabs                              SU 系 PJ では Hero 下に「進捗管理 / スコア詳細」タブ。
                                                 Hero はタブ外なので AMD Score + XRL は常時表示。
@@ -62,6 +62,7 @@ CockpitHeader は `/admin/projects` の正本から、PJメンバー、契約条
 ├── col1: 今期MS + 設定 + 過去
 │   ├── [B]   CockpitGoalsCompact     今期 MS Gantt + 担当・割合
 │   ├── [B2]  CockpitNextPeriodSetup  次期 MS 設定バナー / 直接編集
+│   ├── [B2a] CockpitMsChangeHistory  MS変更履歴 (初期は折りたたみ)
 │   └── [B3]  過去の期間 (折りたたみ)
 │
 ├── col2: 経営ハイライト (D-6)
@@ -82,7 +83,7 @@ CockpitHeader は `/admin/projects` の正本から、PJメンバー、契約条
 ★ 2026-05-11 追加:
 - **凍結/再開履歴**: `project_freeze_periods` が正本。`projects.freeze_from_ym` / `restart_expected_ym` は現在状態の表示用キャッシュ。CTB のように「202412で一度終了 → 再開 → 202605で再凍結」のような複数期間は `project_freeze_periods` に複数行で保存する。
 - **CockpitFreezeBackfill**: `freeze_period_backfills` テーブルから `(project_id, freeze_from_ym, restart_ym)` を fetch、再開月以降に「📦 休止期間サマリ」パネルを MTGサマリの直上に表示。データソースは `cron/freeze-period-backfill` が休止期間中の monthly_reports + project_meeting_summaries を Sonnet で 400-700 字に統合
-- **PM月次ルーティン廃止**: `canEditRoutine` / `CockpitRoutineGas` は current cockpit から外す。月次確認は `CockpitMonthlyList` / `CockpitMonthlyModal`、請求運用は admin billing / payouts 側で扱う。
+- **PM月次ルーティン廃止**: `canEditRoutine` / `CockpitRoutineGas` は current cockpit から外す。月次確認は `CockpitMonthlyList` / `CockpitMonthlyModal`、請求運用は `/admin/invoices` / `/admin/payouts` 側で扱う。
 - **旧 nudge カード廃止**: 通常PJ cockpit から `CockpitNudge` は削除済み。`tsukuyomi_nudge_queue` 由来のカードは、この画面には表示しない。
 - **タブタイトル動的化**: `/project/[projectId]/layout.tsx` の generateMetadata が `projects.project_name` → `project_ventures.display_name` 順で fallback して `<PJ名> - AMD OS` を返す
 - **MTG添付資料トレイ**: `CockpitMeetingDetailModal` 内の `MeetingAssetsPanel` で、選択 / drag & drop / clipboard paste / browser screen capture の4経路から一般ファイルを `meeting_assets` に保存する。新規アップロード実体は Drive の `PJフォルダ / YYMMDD_会議名` に置き、カード上に保存先を表示する。`本文へ` は添付一覧を `narrative_md` の Markdown block に挿入し、Meet/Gmail 自動議事録に落ちない画面共有情報を後から補完できるようにする。
@@ -135,6 +136,7 @@ MSは報酬配分の最小単位でもある。`milestone_responsibility.share` 
 - OkuDoor追加開発など通常固定費と別枠の受託分は、MS `tag='cap_extra'` で別財布に分ける。
 - 年間MS設定では、各MSに `period_start_ym` / `target_ym` を持たせる。UI上は `MS開始` / `MS終了` として表示し、月次モーダル・HUDの期間表示もこのDB値を優先する。
 - コックピットのMS行に出す `設計額` は `/admin/ms-overview` と同じ read-only の設計額目安。通常MSは `value_plan_cycles.budget_yen` をシーズン月数×10ptで按分し、`cap_extra` は同期間の `billing_cycles.extra_budget_yen` 合計を cap_extra の有効pt合計で按分する。実支払額は reward cache / season-pl / payouts 側だけが正本。
+- **MS変更履歴**: `CockpitMsChangeHistory` を今期MSの直下、`今シーズン収支` の手前に折りたたみ表示する。正本は `/admin/ms-overview` の保存時に追加される `milestone_change_events`。表示は確認専用で、変更日時、記録者、追加/無効化/更新されたMS、担当share変更、保存前支払検算の状態、本人別差額サマリを出す。契約本文、メール全文、議事録全文、raw source は保存・表示しない。cockpit 側にはMS設計の保存口を置かない。
 - このUIは過去に消えた回帰が複数回あるため、PWAで年間MS設定を触るときは `npm run test:next-period-ui` を必ず通す。
 
 ---

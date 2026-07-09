@@ -72,7 +72,7 @@ PM 向けの月次 step / TODO は出さない。月次の状況は PJ cockpit �
 | PM | 担当 PJ cockpit | Slack の報告書確認連絡 / `/notifications` |
 | PL | `/mypage` | 必要な承認通知 |
 | まさ | `p00 cockpit` / `/notifications` | 各 PJ cockpit / `まさえいMTG` |
-| admin | `/admin/projects` / `/admin/billing` | `/admin/payouts` / `/admin/members` |
+| admin | `/admin/projects` / `/admin/invoices` | `/admin/payouts` / `/admin/members` |
 
 ## 探索系の画面
 

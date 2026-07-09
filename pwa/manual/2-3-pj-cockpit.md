@@ -27,7 +27,7 @@ AMD OS の **中心画面**。各 PJ ごとに 1 つあり、URL は `/project/{
 
 (= 通常は 2 カラム。凍結中 / 再開予定などのステータスがある場合だけ右カラムを出す)
 
-PJ ヘッダー最上部には、PJリスト (`/admin/projects`) の正本から、PJメンバー、契約条件、業務委託料、支払い条件、提出物の有無、月次報告書の状態と詳細、立替精算可否を表示する。提出物/月次報告/立替精算は `projects.contract_terms_json` の `deliverablesRequired` / `deliverablesNote` / `monthlyReportSubmissionRule` / `monthlyReportSubmissionTiming` / `monthlyReportSubmissionDeadline` / `monthlyReportSubmissionFormat` / `monthlyReportSubmissionRequiredItems` / `monthlyReportSubmissionNote` / `expenseReimbursementAllowed` / `expenseReimbursementNote` を見る。月次報告の値は `要提出` / `不要` / `指定なし` / `要確認` / `不明` を短く出し、時期・提出期限・フォーマット・記載事項・根拠を補足に畳む。値は契約書/見積書から `contract_terms.extracted_terms_json` へ抽出され、Contract Apply 後に PJ 正本へ畳まれる。契約条項に無くても PJ 運用として提出が必要な場合は、同じJSONに根拠を残して表示する。
+PJ ヘッダー最上部には、PJリスト (`/admin/projects`) の正本から、PJメンバー、契約条件、業務委託料、支払い条件、提出物の有無、月次報告書の状態と詳細、立替精算の発生額/不可を表示する。提出物/月次報告/立替精算は `projects.contract_terms_json` の `deliverablesRequired` / `deliverablesNote` / `monthlyReportSubmissionRule` / `monthlyReportSubmissionTiming` / `monthlyReportSubmissionDeadline` / `monthlyReportSubmissionFormat` / `monthlyReportSubmissionRequiredItems` / `monthlyReportSubmissionNote` / `expenseReimbursementAllowed` / `expenseReimbursementNote` を見る。月次報告の値は `要提出` / `不要` / `指定なし` / `要確認` / `不明` を短く出し、時期・提出期限・フォーマット・記載事項・根拠を補足に畳む。立替精算は `expenseReimbursementAllowed=false` なら `不可`、それ以外で `expenseReimbursementNote` があればその文字列 (= 発生額/実務メモ) を主値にする。値は契約書/見積書から `contract_terms.extracted_terms_json` へ抽出され、Contract Apply 後に PJ 正本へ畳まれる。契約条項に無くても PJ 運用として提出/立替精算が必要な場合は、同じJSONに根拠や実務値を残して表示する。
 
 SU 系 PJ では、PRS primary / legacy M-X-F / XRL グラフは常時表示し、その下で **進捗管理** と **スコア詳細** をタブ切り替えする。2つのタブは横幅いっぱいを左右半分ずつ使う。進捗管理タブは従来のコックピット本文、スコア詳細タブは `/venture-map/amd-score/{projectId}` 相当の PRS Primary / PRS history / legacy M-X-F 詳細 / FRL / XRL チェックリストを cockpit 内に埋め込む。スコア詳細は画面表示直後に裏で読み込み、同じコックピットを見ている間は数分単位で再利用するため、2回目以降のタブ切り替えでは読み込み待ちが出にくい。
 
@@ -97,6 +97,15 @@ MTG詳細モーダル内の「添付資料」は会議単位の `meeting_assets`
 - 各 MS をクリック → 行が展開し、そのMS単位のゴール / TODO / 現状 / 直近材料を確認
 - MS 本体・期間・pt・tag・担当 share の編集は `/admin/ms-overview` に集約する。PJ cockpit / HUD cockpit では MS 設計を保存しない。
 
+### MS変更履歴
+
+今期 MS リストの直下に **MS変更履歴** を折りたたみ表示する。初期表示では閉じておき、必要なときだけ展開して確認する。
+
+- 正本は `/admin/ms-overview` 保存時に追加される `milestone_change_events`
+- 表示するもの: 変更日時、記録者、追加/無効化/更新されたMS、pt・期間・完了条件・担当shareの差分、保存前支払検算の状態、追加支払/過払い回収の合計
+- 表示しないもの: 契約本文、メール全文、議事録全文、raw source
+- cockpit では履歴確認だけを行い、MS設計の保存口は置かない
+
 ### MS の進捗
 - `milestone_monthly_progress.note` + `progress_pct` で月次更新
 - Codex automation `amd-os-ms` が 6h ごとに 5 生データから差分推定
@@ -117,7 +126,7 @@ PJ cockpit の進捗管理タブでは、今期 MS リストの直下・月次�
 - シーズン合計: `クライアント支払` / `バッファ` / `原資上限` / `PJ予算` / `メンバー支払` / `期末未払`
 - 月次行: 各月の `クライアント支払` / `バッファ` / `PJ予算` / `メンバー支払` / `未払残` / `収支`
 
-クライアント支払は契約ベースの `contractBackedClientAmount` に別財布売上 (`billing_cycles.extra_revenue_json`) を按分加算する。契約が schedule_based の場合は `contract_terms_json.monthlySchedule.amountTaxExcl` も予定売上として読む。バッファは `value_plan_cycles.buffer_breakdown_json` にシーズン全体の内訳がある場合はそれを優先し、未設定の PJ だけ `billing_cycles.budget_buffer_amount` を読む。原資上限は `(クライアント支払 - バッファ) × 65%`。PJ予算は `billing_cycles.budget_yen + extra_budget_yen`、メンバー支払・未払残は `billing_cycles.reward_summary_json` を読む。`収支` は現金主義の月次表示として `クライアント支払 - バッファ - メンバー支払` で出し、役員向け報酬相当額や未払残はその月の現金流出ではないため含めない。役員向け報酬相当額は検算には含めるが、メンバー向けの PJ cockpit では表示しない。期末未払が 1 円でも残る場合、または PJ予算が原資上限を 1 円でも超える場合は、赤い停止帯と不足表示を出し、報酬計算側で最終月に自動上乗せしてゼロに見せない。MS 設計の保存は `/admin/ms-overview` で、同じ数字を使った保存前検算が不足状態を `blocked` にする。
+クライアント支払は契約ベースの `contractBackedClientAmount` に別財布売上 (`billing_cycles.extra_revenue_json`) を按分加算する。契約が schedule_based の場合は `contract_terms_json.monthlySchedule.amountTaxExcl` も予定売上として読む。バッファは `value_plan_cycles.buffer_breakdown_json` にシーズン全体の内訳がある場合はそれを優先し、未設定の PJ だけ `billing_cycles.budget_buffer_amount` を読む。原資上限は `(クライアント支払 - バッファ) × 65%`。PJ予算は `billing_cycles.budget_yen + extra_budget_yen`、メンバー支払・未払残は `billing_cycles.reward_summary_json` を読む。未払残は支払通知対象の外部メンバーへ将来払う残高だけで、役員の繰越分は未払残に混ぜず会社留保側の内部検算に含める。`収支` は現金主義の月次表示として `クライアント支払 - バッファ - メンバー支払` で出し、役員向け報酬相当額や未払残はその月の現金流出ではないため含めない。役員向け報酬相当額は検算には含めるが、メンバー向けの PJ cockpit では表示しない。期末未払が 1 円でも残る場合、または PJ予算が原資上限を 1 円でも超える場合は、赤い停止帯と不足表示を出し、報酬計算側で最終月に自動上乗せしてゼロに見せない。MS 設計の保存は `/admin/ms-overview` で、同じ数字を使った保存前検算が不足状態を `blocked` にする。
 
 ---
 
@@ -275,12 +284,12 @@ PM 向けの cockpit 右カラム step UI は廃止済み。コックピット�
 
 `報告会日程調整` は完全廃止。代わりに 2 か月に 1 回、対面のナレッジ会を月次ルーティン外で行う。
 `請求額確定` は cockpit の PM step としては持たない。契約 apply 済みPJでは `contract-billing-auto-confirm` が自動確定するため、PM/PL の `/mypage` 月次nudgeにも出さない。契約書由来の金額や対象月の報酬額が見えない場合は、通常のPMタスクではなく契約台帳/報酬キャッシュの整備対象として扱う。
-`立替確認` はPM月次タスクから外す。`請求書発行/送付` はadminの役割として `/admin/billing` で扱う。CTB見積はCTB停止中のため一旦廃止。
+`立替確認` はPM月次タスクから外す。`請求書発行/送付` はadminの役割として `/admin/invoices` で扱う。CTB見積はCTB停止中のため一旦廃止。
 
 | 項目 | やること | クリック先 |
 |---|---|---|
 | 月次カード | `monthly_reports` / MS進捗 / 報酬状態を確認し、必要なら月次モーダルで修正・FIXする | 月次モーダル |
-| 請求書発行/送付 | 請求書番号・PDF・freee連携、送付済み管理 | `/admin/billing` |
+| 請求書発行/送付 | 請求書番号・PDF・freee連携、送付済み管理 | `/admin/invoices` |
 
 月カード (`2026.05稼働分`) をクリックすると月次の集約モーダルを開く。`?step=<stepId>&ym=YYYYMM` は legacy query で、現行 cockpit は step modal を開かない。
 
@@ -298,7 +307,7 @@ CX (`p20`) / SX (`p21`) / KUTE (`p25`) は月次提出が必要なため、月�
 
 上記以外の PJ は AMD 標準の `PDF` リンクだけを表示する。PDFファイル自動生成は行わず、印刷ビューを開いて Cmd+P → PDF保存で出力する。
 
-`billing_cycles.invoice_ym` が稼働月と違う場合 (= 複数月を後からまとめて請求) でも、PM cockpit に請求 step は出さない。請求月の繰延は `/admin/billing` / `/admin/payouts` / finance 系で扱う。
+`billing_cycles.invoice_ym` が稼働月と違う場合 (= 複数月を後からまとめて請求) でも、PM cockpit に請求 step は出さない。請求月の繰延は `/admin/invoices` / `/admin/payouts` / finance 系で扱う。
 
 → 詳細は **[2-6 章 admin オペ](2-6-admin-ops.md)** へ。
 

@@ -720,3 +720,51 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 ### 教訓
 - コックピットで円額を出すときは、支払確定額ではなく「設計額の目安」と明示し、reward cache / season-pl / payouts の支払正本と混ぜない。
 - `cap_extra` は本契約pt単価に混ぜず、別財布原資と cap_extra 有効ptで別計算する。
+
+---
+
+## 2026-07-09 — ZMP OkuDoor 金額ベース別財布 pt 特例 / v0.39.15+
+
+### コンテキスト
+- まさから「ZMPのOkuDoor開発の別財布200万、なぜかPJ予算が130万じゃなくて1,300,020になってる」と相談。
+- さらに「割り切れるpt数にした方がいい。130ptでもいい」「金額ベースで決まる予算は今後もありそうなので、その場合だけ特例にしよう」と方針確定。
+- `/Users/masa/projects/AGENTS.common.md`、root / pwa の `AGENTS.md` / `CLAUDE.md`、MS Overview / reward / season PL 関連の正本mdを読んでから着手。
+
+### 原因
+- OkuDoor は別財布原資 `1,300,000円` だが、`cap_extra` を期間由来の `60pt` 固定で扱っていた。
+- `1,300,000 ÷ 60 = 21,666.666...` を円単位に丸めた `21,667円/pt` を `60pt` に掛けて、UI上の設計額が `1,300,020円` になっていた。
+- 金額ベースで先に予算・支払額が決まる別財布では、期間×10pt固定だと割り切れないケースがある。
+
+### 実装 / 仕様同期
+- `capExtraPointBasisForMilestone` を追加し、`cap_extra` は `points > 0` なら明示pt、未設定/0なら期間月数×10ptに統一。
+- MS Overview / season PL / reward summary / admin保存API / 編集UIの cap_extra pt 基準を同じ helper へ揃えた。
+- `cap_extra` の設計額は、丸め済みpt単価×ptではなく、別財布原資をpt比で配分する形にして、原資合計が端数で増えないようにした。
+- protected 月の別財布差額は、実際に `extraPaidYen > 0` がある場合だけ本人別 offset を作るようにし、未払い在庫だけの端数差額は台帳化しない。
+- DBは OkuDoor `130pt`、ZMP cycle `total_points=250`、share `まさ 0.692308 / うめ 0.153846 / あび 0.153846` に是正。
+- 古い pending cap_extra offset は void し、p19 reward summaries を再同期。
+- `pwa/BUGS.md`、`pwa/design/FEATURE_REGISTRY.md`、`pwa/design/season_budget_actual.md`、`pwa/manual/6-8-admin-ms-overview-spec.md`、`pwa/manual/7-1-reward-calc-spec.md`、manual/spec changelog に同期。
+
+### Verification / Deploy
+- `npx tsc --noEmit` passed。
+- targeted `eslint` passed。
+- `npm run test:critical-ui` passed。
+- `npm run build` passed。
+- `1de0d6b2 fix(admin-ms): support amount-based cap extra points` を main に push。
+- production deploy Ready を確認。当時の `/api/build-info`: `v0.39.15` / `1de0d6b209babf64c20baee525198a0fc322e502` / `dirty:false`。
+- closeout時点の production は後続 product commit により `v0.39.21` / `79d843756ee685798306d6c8d3e3a441f1f47694` / `dirty:false`。`1de0d6b2` は current origin/main の ancestor。
+- DB read-back: 202610 `extraPtUnit=10000`、`extraTotalGrossDueYen=1300000`、`effectiveExtraCapBudgetYen=1300000`、`extraCarryOverYen=0`、うめ/あび各 `extraPaidYen=200000`、まさ役員分は会社留保。
+
+### Closeout snapshot
+- repo: `/Users/masa/projects/AMD/amd-os`
+- branch: `main`
+- product commit: `1de0d6b2`
+- closeout inventory時点の `HEAD` / `origin/main`: `a11a9981`
+- local main vs origin/main: ahead `0`, behind `0`
+- registered worktree: `/Users/masa/projects/AMD/amd-os [main]` only
+- local branches: `main` only
+- checkout は別件dirtyが残るため `do not archive`。
+
+### 教訓
+- 別財布は原則 `期間月数×10pt` でよいが、原資や支払額が金額ベースで先に決まっている場合だけ、割り切れる明示ptを `value_milestones.points` に入れる。
+- 円額をpt単価で丸めてから合計すると、固定金額の予算が増えて見える。金額固定の画面では原資をpt比で配分し、合計原資を正にする。
+- protected 月の差額台帳は「実際に現金で払った額」を保護するためのもの。未払い在庫だけの再計算差額まで台帳化すると、未来月の自然な再計算を邪魔する。

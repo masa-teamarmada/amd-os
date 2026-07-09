@@ -1554,12 +1554,12 @@ function getFocusDockContent(project: ProjectModule, dock: FocusDock) {
     },
     ops: {
       label: "OPS",
-      title: "admin billing / cash state",
+      title: "invoice ops / cash state",
       subtitle: `${monthly.ym} report ${monthly.report} / invoice ${monthly.invoice}`,
       color: "#ffad57",
       blocks: [
         { title: "REPORT", value: monthly.report, sub: "report state" },
-        { title: "INVOICE", value: monthly.invoice, sub: "admin billing" },
+        { title: "INVOICE", value: monthly.invoice, sub: "invoice ops" },
         { title: "PAYMENT", value: monthly.payment, sub: "cash status" },
         { title: "BUDGET", value: monthly.budget, sub: "exception status" },
       ],

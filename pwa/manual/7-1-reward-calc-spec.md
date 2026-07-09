@@ -43,7 +43,7 @@
 | `companyReserveYen` / `officerReserveYen` | 役員メンバーに通常の cap 按分で割り当たった役員向け報酬相当額。OS内部では会社留保として検算に使うが、支払通知書やメンバー向け PJ cockpit には出さない |
 | `externalPayoutCapYen` | 通常の cap 按分後、非役員メンバーの支払/stock返済に実際に使われた額 |
 | `carryIn` | 前月から繰越された未払い分 |
-| `stockYen` / `deferredYen` | cap 超過で翌月へ繰り越す分 (= 同義) |
+| `stockYen` / `deferredYen` | cap 超過で翌月へ繰り越す分 (= 同義)。非役員・支払対象メンバー分は外部への未払残、役員分は会社留保の未充当繰越として読む |
 
 ---
 
@@ -95,7 +95,7 @@ paid[officer] = 0
 
 > **2026-07-03 まさ確定 — 未使用 cap 繰越**: `stockYen` だけを翌月へ繰り越し、当月に使い切らなかった `budget_yen` (= 月次支払 cap) を捨てる旧挙動は禁止。前半の MS 消化が薄く後半に厚い PJ では、年間原資 `Σ月cap` が足りていても終盤だけ cap 不足になり、シーズン末に未払い残が残るため。`buildRewardSummary` は plan cycle 先頭から時系列に `regularUnusedCapCarryOutYen = max(0, effectiveRegularCapBudgetYen - regularGrossDueForCap)` を計算し、次月の `regularCapCarryInYen` として足す。つまり、当月の配分に使う上限は `effectiveRegularCapBudgetYen = regularCapBudgetYen + regularCapCarryInYen`。別財布 (`cap_extra`) は `extra_budget_yen` が明示された月だけ同じく `extraUnusedCapCarryOutYen` を繰り越し、`NULL` (= cap 未設定・需要全額即払い) の月では未使用別財布 cap を発生させない。
 
-> **2026-07-03 まさ確定 — シーズン終了時 stock ゼロ必須 / 自動上乗せ禁止**: すべての plan cycle は `period_end_ym` の計算後に `carryOverYen = 0` で閉じることを絶対条件にする。ただし、報酬計算側が最終月に自動で cap を足してゼロに見せることは禁止。`buildRewardSummary` は月次 cap と未使用 cap 繰越だけで計算し、それでも最終月に `carryOverYen > 0` が残る場合は不足額としてそのまま出す。`/admin/ms-overview` の編集モードは保存前検算でクライアント支払額、バッファ、原資上限、PJ予算、メンバー支払額、期末未払残を表示し、期末未払残、PJ予算不足、または PJ予算の原資上限超過が 1 円でもある場合は `blocked` として保存を止める。AMD運営側が認識していないところでバッファ/運営費が勝手に削られてゼロ着地に見える設計は禁止。
+> **2026-07-03 まさ確定 — シーズン終了時 stock ゼロ必須 / 自動上乗せ禁止**: すべての plan cycle は `period_end_ym` の計算後に、支払通知対象メンバーへの未払残を 0 円で閉じることを絶対条件にする。ただし、報酬計算側が最終月に自動で cap を足してゼロに見せることは禁止。`buildRewardSummary` は月次 cap と未使用 cap 繰越だけで計算し、それでも最終月に外部メンバー分の `stockYen` が残る場合は不足額としてそのまま出す。raw の `carryOverYen` には役員の会社留保未充当分も含まれうるため、`/admin/ms-overview` / PJ cockpit の `期末未払残` は外部メンバー分だけを合計し、役員繰越は会社留保側の内部検算として扱う。`/admin/ms-overview` の編集モードは保存前検算でクライアント支払額、バッファ、原資上限、PJ予算、メンバー支払額、期末未払残を表示し、外部向け期末未払残、PJ予算不足、または PJ予算の原資上限超過が 1 円でもある場合は `blocked` として保存を止める。AMD運営側が認識していないところでバッファ/運営費が勝手に削られてゼロ着地に見える設計は禁止。
 
 > **pt単価の原資定義 (まさ正本)**: `PJ予算 = (請求額 − バッファ) × 65%`、`本契約pt単価 = PJ予算 ÷ (シーズン期間の月数 × 10pt)`。バッファ (= 営業費用・旅費等、AMD が請求額から先取りする PJ コスト枠) は **pt単価の計算に必ず反映**する。現行実装の `deriveRewardBudgetForPt` は `value_plan_cycles.budget_yen` をそのまま原資に使うため、**`value_plan_cycles.budget_yen` にバッファ反映後の額 `(請求額 − バッファ) × 65%` を入れる**ことで正しい pt単価になる (SX は 2026-06-19 に 6,812,000 → 5,642,000 へ是正済み)。通常 MS の配分 pt 合計が増減しても、本契約 pt単価は変動させない。バッファを第一級入力にしてロジック側で自動控除する恒久実装は別タスク。
 
@@ -310,7 +310,7 @@ cap は次の順番で扱う。これは全 PJ 共通で、特定 PJ だけの�
 2. `members.is_officer=true` の当月 `basePay`: 役員も非役員・支払対象メンバーと同じ cap 按分に入れる。割り当たった額だけを `reward_summary_json.members[].companyReserveYen` / `officerReserveYen` に残し、`totalPay=0` のまま支払通知書からは除外する。
 3. 非役員・支払対象メンバーの `grossDue`: 当月稼働分 + 前月 stock の返済を、役員 basePay と同じ cap 按分に入れる。
 
-役員の過去 `stockYen` は支払予定へ繰り越さない。役員分は「未払い債務」ではなく会社留保の計画値なので、当月 cap で留保できなかった分は `companyReserveUnfundedYen` として監査用に残すだけにする。非役員メンバーの stock は従来どおり carryIn として翌月以降へ繰り越す。
+役員の過去 `stockYen` は外部支払予定へは繰り越さない。役員分は「外部への未払い債務」ではなく会社留保の未充当分なので、次月以降の cap 按分には非役員と同じく carryIn として入れ、`companyReserveYen` / `officerReserveYen` へ収束させる。非役員メンバーの stock は従来どおり外部未払残として翌月以降へ繰り越す。
 
 ### キャップ超過時の按分
 
@@ -346,7 +346,7 @@ for each member in members:                      # earnedPt 降順
 
 特例: **当月の members 配列に居なくても、 前月 stockYen が残ってるメンバーは「carry-only 行」として members に追加** される (= `earnedPt = 0, basePay = 0, grossDue = carryIn`)。 これで「過去に働いて未払いだったメンバー」が忘れ去られない。
 
-`stockYen` はその月に新しく発生した未払い額ではなく、`carryIn + 当月発生 - totalPay` 後の**月末未払い残高**。UIでは `stockYen` だけを単独表示せず、`/admin/payouts` の報酬債務台帳で `carryInYen` / 当月発生 / `totalPay` / `stockYen` を同じ行に並べる。
+`stockYen` はその月に新しく発生した未払い額ではなく、`carryIn + 当月発生 - totalPay` 後の**月末未払い残高**。UIでは `stockYen` だけを単独表示せず、`/admin/payouts` の報酬債務台帳で支払通知対象メンバー分の `carryInYen` / 当月発生 / `totalPay` / `stockYen` を同じ行に並べる。役員分の `stockYen` は会社留保の未充当繰越として扱い、報酬債務台帳の未払い残には混ぜない。
 
 契約開始前に実働がある PJ では、契約前の稼働月は `budget_yen = 0` のまま `grossDue` と `stockYen` を発生させる。契約開始後の月では、前月までの `stockYen` が `carryInYen` になり、当月発生分と同じ cap の中で支払・繰越される。このため `stockYen` が大きいこと自体は異常ではなく、「どの月から来た残高か」を台帳で確認する。
 
@@ -359,7 +359,7 @@ MS をシーズン途中で修正し、すでに protected な月 (`reward_paid_
 - `apply_ym IS NULL`: シーズン内に未保護の未来月が無い pending 差額。自動では他メンバーや会社バッファへ振らない。
 - 同じ MS 編集由来の pending 行は、保存し直すたびに `voided` へ置き換える。差額は常に「protected 月の保存済み cache」と「現在の MS 設計で再計算した本来値」の差として再作成する。
 
-先12か月の見通しでは、会社留保を `出` に混ぜない。`キャッシュ支払` は外部支払だけ、`会社留保` は `cap/売上枠 - 外部支払`、`報酬債務` は月末未払い残、`cap超過チェック` は報酬需要と cap/売上枠の差だけを見る。各表のセルは、その表で確認したい主数字を優先し、別目的の補助数字を混ぜない。`stockYen` は残高なので、12か月分の単純合計を「未払い総額」として読まない。報酬債務表の合計列はピークではなく、最終月に未払い残がゼロ着地するかを最優先で表示する。
+先12か月の見通しでは、会社留保を `出` に混ぜない。`キャッシュ支払` は外部支払だけ、`会社留保` は `cap/売上枠 - 外部支払`、`報酬債務` は外部メンバーへの月末未払い残、`cap超過チェック` は報酬需要と cap/売上枠の差だけを見る。各表のセルは、その表で確認したい主数字を優先し、別目的の補助数字を混ぜない。`stockYen` は残高なので、12か月分の単純合計を「未払い総額」として読まない。報酬債務表の合計列はピークではなく、最終月に外部メンバーへの未払い残がゼロ着地するかを最優先で表示する。役員分の繰越は会社留保側の内部検算で追う。
 
 ---
 
@@ -527,7 +527,7 @@ snapshot hash が変わったときは「条件更新あり」として再合意
 - 控除計算: `gas-main/043_PjDeductions_Repo.js` (= `pjDed_calcCycleDeductionTotal_`)
 - 試算 (= UI 上のシミュレーション): `gas-main/060_RewardV2_Estimator.js`
 - メンバー側表示: [2-2 章 メンバーの日常ワークフロー](2-2-member-workflows-quick-start.md)
-- /mypage 仕様: [6-6 章 Member Ops / Billing / Prompt](6-6-member-billing-prompts-spec.md#mypage)
+- /mypage 仕様: [6-6 章 Member Ops / 請求書発行 / Prompt](6-6-member-billing-prompts-spec.md#mypage)
 - /admin/payouts 仕様: [6-5 章 Admin Payouts / 支払通知書](6-5-admin-payouts-reward-notice-spec.md)
 - DB schema: [`pwa/design/db_schema.md`](../design/db_schema.md) (= `billing_cycles`, `value_milestones`, `value_plan_cycles`, `milestone_monthly_progress`, `milestone_responsibility`, `milestone_sub_items`)
 - 設計: [`pwa/design/ms_progress.md`](../design/ms_progress.md) (= MS 進捗の source 設計)

@@ -1368,7 +1368,7 @@ function compactReceiptItems(items: ExpectedReceiptSummary["items"], limit = 3):
   if (items.length === 0) return "なし";
   const sourceLabels: Record<ExpectedReceiptSummary["items"][number]["source"], string> = {
     invoice_sent: "請求送付済",
-    invoice_issued: "請求発行済",
+    invoice_issued: "請求書発行済",
     budget_confirmed: "予算確定",
     unconfirmed: "未確認",
   };

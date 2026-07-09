@@ -56,7 +56,7 @@ function pathToTitle(pathname: string): string | null {
   if (pathname === "/admin/japanese-culture-map") return "日本文化マップ";
   if (pathname === "/admin/prompts") return "LLM プロンプト";
   if (pathname === "/admin/members") return "Admin メンバー";
-  if (pathname === "/admin/billing") return "Admin 請求";
+  if (pathname === "/admin/invoices" || pathname === "/admin/billing") return "請求書発行";
   if (pathname === "/admin/payouts") return "Admin 報酬";
   if (pathname === "/admin/monthly-work-agreements") return "Admin 月初合意";
   if (pathname === "/admin/finance") return "Admin Finance";

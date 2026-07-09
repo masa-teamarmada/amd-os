@@ -135,6 +135,7 @@ type ForecastPlanCycle = {
 // route が billing_cycles.reward_summary_json を読み、通常GETでは再計算せず返す。
 // cappedRegularYen は本契約capの使用額で、外部支払だけでなく役員会社留保も含む。
 // cappedExtraYen は別財布(cap_extra)の使用額。
+// carryOverYen は外部メンバーへの未払い残だけを入れる。役員分は会社留保側で扱う。
 type ForecastCappedRow = {
   projectId: string;
   ym: string;

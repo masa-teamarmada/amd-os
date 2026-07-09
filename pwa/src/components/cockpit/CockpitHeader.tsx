@@ -140,9 +140,23 @@ function buildFee(project: Props["project"]) {
   return `${feeTypeLabel(project.feeType)} / ${formatYen(amount)}`;
 }
 
+function buildExpenseReimbursementSummary(terms: ProjectContractTerms | null) {
+  const allowed = flagValue(terms?.expenseReimbursementAllowed);
+  const text = textValue(terms?.expenseReimbursementNote);
+  if (allowed === false) {
+    return {
+      value: "不可",
+      note: text && text !== "不可" ? text : null,
+    };
+  }
+  if (text) return { value: text, note: null };
+  return { value: "0円", note: null };
+}
+
 export function CockpitHeader({ project, members }: Props) {
   const terms = project.contractTerms ?? null;
   const memberLabel = members.length > 0 ? members.join(" / ") : "未設定";
+  const expenseReimbursement = buildExpenseReimbursementSummary(terms);
   const summaryItems = [
     { label: "PJメンバー", value: memberLabel },
     { label: "契約条件", value: buildContractCondition(project), note: terms?.sourceTitle || null },
@@ -160,8 +174,8 @@ export function CockpitHeader({ project, members }: Props) {
     },
     {
       label: "立替精算",
-      value: flagLabel(terms?.expenseReimbursementAllowed, "可", "不可"),
-      note: terms?.expenseReimbursementNote || null,
+      value: expenseReimbursement.value,
+      note: expenseReimbursement.note,
     },
   ];
 

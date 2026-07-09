@@ -93,6 +93,8 @@ git status -s
 
 - このリポでは dirty が残っていること自体は通常状態。**dirty があるから branch / worktree を切る、は全面禁止**。
 - dirty を見つけたら、新しい枝を増やす前に `codex/*` / worker worktree / main 未反映 commit を棚卸しし、owner/action/deadline を付ける。
+- **dirty を理由に stage / commit / push / deploy を止めない**。既存 dirty は戻さず、今回触った対象ファイルだけを明示して stage する。`git add .`は禁止。
+- 最終報告で「別件の未コミット差分があるので push/deploy していない」と書くのは禁止。まさが明示的に止めた場合、真に破壊的な操作、または正規 deploy script の hard-stop 以外で止めたら未完了。
 - 実装が必要で root checkout を巻き込みたくない場合でも、`git worktree add -B codex/... origin/main` は使わない。対象差分だけを main に載せるか、どうしても隔離が必要なら main を checkout した disposable clean clone で作業し、closeout で clone 削除候補まで明記する。
 - 同じ差分が別 SHA で main に入った一時 branch は `patch-equivalent-main` として扱い、証跡保存後の削除候補にする。「同じ内容だけど浮いている branch」を放置しない。
 - closeout では「このセッションで作った branch/worktree: none」または「作ったが削除済み / main に畳み済み」を必ず書く。これが書けない状態は完了ではない。

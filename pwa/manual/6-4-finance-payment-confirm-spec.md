@@ -2,7 +2,7 @@
 
 AMD の請求 → 入金確認 → 会計反映までの finance 系オペレーション仕様。 admin 専用画面 `/admin/finance`、 SU 側担当が叩く公開 confirm 画面 `/payment-confirm`、 自動 nudge / 同期 cron を含む。
 
-> 関連: 入金確認 nudge 経由で更新される `billing_cycles.payment_confirmed_at` は admin finance / admin billing 側の入金確認状態。 freee API + Slack DM + admin 画面の 3 経路から更新される。
+> 関連: 入金確認 nudge 経由で更新される `billing_cycles.payment_confirmed_at` は admin finance / `/admin/invoices` 側の入金確認状態。 freee API + Slack DM + admin 画面の 3 経路から更新される。
 
 ## 画面と API
 
@@ -155,7 +155,7 @@ cadence: 日次 09:10 JST。 input: freee 会計 income deals + `projects.freee_
 4. 一致したら `confirmPaymentGroup(payload, { source: 'freee_deal' })` を呼ぶ
 5. 不一致 / multi-month 不明は `billing_log.action='freee_payment_unmatched'` で残す
 
-`expectedNetAmountYen` は、freee 発行済み請求書の明細合計があればそれを最優先する。未発行または明細が無い場合は、admin billing / 契約自動確定で承認済みの請求額 (`billing_cycles.budget_reported_amount`) を使う。`budget_yen` は AMD 側の支払可能額なので、クライアントへの請求額として直接使わない。
+`expectedNetAmountYen` は、freee 発行済み請求書の明細合計があればそれを最優先する。未発行または明細が無い場合は、`/admin/invoices` / 契約自動確定で承認済みの請求額 (`billing_cycles.budget_reported_amount`) を使う。`budget_yen` は AMD 側の支払可能額なので、クライアントへの請求額として直接使わない。
 
 `dryRun=1` を query に付けると実 update を skip して候補のみ JSON 返す (= 月初の手動確認用)。
 
@@ -247,8 +247,8 @@ WHERE invoice_sent_at IS NOT NULL
 ## 関連
 
 - 設計: [`pwa/design/invoice_url_payout_auth.md`](../design/invoice_url_payout_auth.md) (= signed URL の経緯)
-- 6-3 章 [Invoice / Billing Routine](6-3-invoice-and-billing-routine-spec.md) (= 請求書発行とサイクル全体)
+- 6-3 章 [請求書発行 / 月次サイクル](6-3-invoice-and-billing-routine-spec.md) (= 請求書発行とサイクル全体)
 - 6-5 章 [Admin Payouts / 支払通知書](6-5-admin-payouts-reward-notice-spec.md) (= 反対側、 AMD から SU への支払)
 - 6-1 章 [Operations Settings](6-1-operations-settings-spec.md) (= cron の Run Now と dryRun)
-- 2-6 章 [admin オペ](2-6-admin-ops.md) (= admin billing / finance 早見表)
+- 2-6 章 [admin オペ](2-6-admin-ops.md) (= 請求書発行 / finance 早見表)
 - 4-5 章 [Management Score](4-5-management-score-and-finance-simulation-spec.md) (= finance 軸の入力に `billing_cycles` 入金状況を利用)

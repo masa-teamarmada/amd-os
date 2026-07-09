@@ -401,7 +401,7 @@ function cachedForecastCappedRows(
     let fallbackExtraCompanyReserveYen = 0;
     let fallbackRegularGrossDueYen = 0;
     let fallbackExtraGrossDueYen = 0;
-    let fallbackCarryOverYen = 0;
+    let fallbackExternalCarryOverYen = 0;
 
     for (const member of summary.members ?? []) {
       const memberId = textValue(member.memberId) || textValue(member.member_id);
@@ -443,10 +443,10 @@ function cachedForecastCappedRows(
       } else {
         fallbackRegularExternalYen += regularPaidYen;
         fallbackExtraExternalYen += extraPaidYen;
+        fallbackExternalCarryOverYen += stockYen;
       }
       fallbackRegularGrossDueYen += regularGrossDueYen;
       fallbackExtraGrossDueYen += extraGrossDueYen;
-      fallbackCarryOverYen += stockYen;
     }
 
     const regularCompanyReserveYen = hasExplicitNumber(summary.regularCompanyReserveYen)
@@ -480,9 +480,7 @@ function cachedForecastCappedRows(
       extraGrossDueYen: hasExplicitNumber(summary.extraTotalGrossDueYen)
         ? yenValue(summary.extraTotalGrossDueYen)
         : fallbackExtraGrossDueYen,
-      carryOverYen: hasExplicitNumber(summary.carryOverYen)
-        ? yenValue(summary.carryOverYen)
-        : fallbackCarryOverYen,
+      carryOverYen: fallbackExternalCarryOverYen,
       finalCapTopUpYen: hasExplicitNumber(summary.finalCapTopUpYen)
         ? yenValue(summary.finalCapTopUpYen)
         : 0,
