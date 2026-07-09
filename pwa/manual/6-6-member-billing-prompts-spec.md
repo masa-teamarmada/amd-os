@@ -141,6 +141,7 @@ admin/きよが締め済み稼働月の請求書発行を処理する画面 (= `
 - 対象: 直近 13 ヶ月の締め済み稼働月 (= 現月は含めず前月まで) の `billing_cycles`
 - 行: `projects.status IN ('active','ended','frozen')` の PJ × 稼働月。ただし `start_ym` より前、`end_ym` より後、`freeze_from_ym` 以降、請求額ゼロ、請求しないPJの空cycleは表示しない
 - filter: 初期表示は `未完了` (= `発行待ち / 要確認 / 設定不足 / 過去滞留`)。filter は `未完了 / 発行待ち / 要確認 / 設定不足 / 過去滞留 / 発行済み / 送付済み / 入金済み / すべて`
+- 状態詳細: `要確認 / 設定不足 / 過去滞留` の状態バッジまたは行操作から詳細モーダルを開く。モーダルには `freee取引先 / 請求額 / 報告書 / 立替` の発行前チェックと解消方法を出し、設定不足では freee取引先IDをその場で保存できる
 - 主操作: `発行待ち` 行の `発行` / `請求書を発行` から `AdminInvoiceIssueDialog` を開き、明細確認 → freee 発行
 - 発行モーダル: iOS `InvoiceStepView` と同じく、件名、基本明細行、契約月額との差分確認、前月明細引き継ぎ、承認済み立替の読み取り専用明細、調整行、請求日、支払期日、備考、発行済み情報、発行取消を扱う。件名・ヘッダー・freee fallback には `client_name` を使い、AMD内部の `project_name` / `project_id` を出さない。単純な件名/日付/全行だけのモーダルにはしない
 - きよ確認: `金額 / 報告 / 立替` の状態だけを小さく表示。`報告` は `monthly_report_scope='internal_and_external'` のとき発行前 blocker とする。旧 billing matrix のように全ステップを横並び表示しない
@@ -153,7 +154,7 @@ admin/きよが締め済み稼働月の請求書発行を処理する画面 (= `
 | 発行待ち | `invoice_issued_at` が空、freee取引先あり、請求額あり、必要な報告FIX済み、立替締め済み |
 | 要確認 | 発行前の金額 / 対外報告 / 立替のどれかが未完 |
 | 設定不足 | freee取引先未設定など、OS設定が足りず発行できない |
-| 過去滞留 | 対象月より古い未発行行。今月発行分とは分けて確認する |
+| 過去滞留 | 請求月 (`invoice_ym || ym`) が対象月より古い未発行行。今月発行分とは分けて確認する |
 | 発行済み | `invoice_issued_at` あり、`invoice_sent_at` なし |
 | 送付済み | `invoice_sent_at` あり、`payment_confirmed_at` なし |
 | 入金済み | `payment_confirmed_at` あり |
