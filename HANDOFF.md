@@ -20,8 +20,8 @@ Topic: MS変更履歴 cockpit 表示 / 既存MS履歴 backfill / closeout
 - Local main vs `origin/main`: closeout inventory時点で ahead `0`, behind `0`
 - Worktree: `/Users/masa/projects/AMD/amd-os [main]` のみ
 - Local branch: `main` のみ
-- Production: `https://amd-os-pwa.vercel.app/api/build-info` は `build_version=v0.39.25`, `git_sha=97870d24a6d5a028093beb59d30cc428e92d2cea`, `dirty=false`
-- `origin/main` は docs-only commit `12e08411` まで進んでいる。`97870d24` は `origin/main` の ancestor。MS履歴実装はどちらにも含まれる。
+- Production: `https://amd-os-pwa.vercel.app/api/build-info` は closeout deploy 後に `git_branch=main`, `dirty=false`, pushed `origin/main` と一致することを確認済み。再開時はこの endpoint と `git rev-parse origin/main` をもう一度合わせる。
+- `origin/main` は MS変更履歴実装、backfill記録、closeout/handoff更新を含む。
 
 ## Dirty State
 
@@ -31,6 +31,7 @@ MS履歴 bundle では触らない別件 invoice queue refinement が残って�
 - `pwa/src/components/admin/AdminInvoiceIssueQueue.tsx`
 - `pwa/src/lib/build-info.ts`
 - `pwa/design/SPEC_pwa.md`
+- `pwa/design/routine.md`
 - `pwa/design/FEATURE_REGISTRY.md` の invoice queue hunk
 - `pwa/manual/2-6-admin-ops.md`
 - `pwa/manual/6-3-invoice-and-billing-routine-spec.md`
@@ -50,6 +51,7 @@ Resolution action: invoice queue workerが対象差分だけ stage / commit / pu
 - `npx tsc --noEmit`
 - `npm run build`
 - production `/api/build-info` 確認
+- closeout/handoff docs deploy 後の production `/api/build-info` 確認
 - DB read-back: `milestone_change_events` total 19 / backfill 19
 
 まさ指示「ローカルでテストするのやめて」以降は、追加のローカルテストやローカルサーバー起動なし。

@@ -25,8 +25,8 @@ cd /Users/masa/projects/AMD/amd-os
 - branch: main
 - worktree: /Users/masa/projects/AMD/amd-os [main] only
 - local main vs origin/main: closeout inventory時点で ahead 0 / behind 0
-- production: https://amd-os-pwa.vercel.app/api/build-info は v0.39.25 / git_sha 97870d24a6d5a028093beb59d30cc428e92d2cea / dirty=false
-- origin/main: closeout時点では 12e08411 まで進んでいる。97870d24 は origin/main の ancestor。MS変更履歴実装は両方に含まれる。
+- production: https://amd-os-pwa.vercel.app/api/build-info は closeout deploy 後に git_branch=main / dirty=false / pushed origin/main と一致することを確認済み。再開時はこの endpoint と git rev-parse origin/main をもう一度合わせる。
+- origin/main: MS変更履歴実装、backfill記録、closeout/handoff更新を含む。
 - DB: milestone_change_events は 19件。すべて 2026-07-09 の既存MS backfill。backfillKey は 2026-07-09-ms-change-history-created-at-batches-v1。
 
 完了内容:
@@ -39,7 +39,7 @@ cd /Users/masa/projects/AMD/amd-os
 
 現在残っている別件dirty:
 - invoice queue refinement 由来。MS履歴bundleでは触らない。
-- 主なファイル: pwa/src/app/(app)/admin/invoices/page.tsx、pwa/src/components/admin/AdminInvoiceIssueQueue.tsx、pwa/src/lib/build-info.ts、pwa/design/SPEC_pwa.md、pwa/design/FEATURE_REGISTRY.md、pwa/manual/2-6-admin-ops.md、pwa/manual/6-3-invoice-and-billing-routine-spec.md、pwa/manual/6-6-member-billing-prompts-spec.md、pwa/manual/9-3-appendix-changelog.md、pwa/scripts/check_pwa_critical_ui.cjs。
+- 主なファイル: pwa/src/app/(app)/admin/invoices/page.tsx、pwa/src/components/admin/AdminInvoiceIssueQueue.tsx、pwa/src/lib/build-info.ts、pwa/design/SPEC_pwa.md、pwa/design/routine.md、pwa/design/FEATURE_REGISTRY.md、pwa/manual/2-6-admin-ops.md、pwa/manual/6-3-invoice-and-billing-routine-spec.md、pwa/manual/6-6-member-billing-prompts-spec.md、pwa/manual/9-3-appendix-changelog.md、pwa/scripts/check_pwa_critical_ui.cjs。
 - 次セッションが invoice queue を扱うなら、このdirty groupだけを対象差分として stage / commit / push / deploy。MS履歴closeout差分と混ぜない。
 
 検証済み:
