@@ -580,3 +580,59 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 
 ### 注意
 - `e5d3771a` の詳細な test proof は、この handoff session では再実行していない。必要なら該当 commit / worker のログを見る。
+
+---
+
+## 2026-07-09 — ZMP MS 支払済み実績 alignment / reserve 承認 UI gap
+
+### コンテキスト
+- まさから、ZMP の `/admin/ms-overview` が `MS編集停止中` になり編集できないという相談。
+- 画面上の blocker は `支払済み印はあるが実支払証跡と明細額が未照合の月があります: 202601, 202602, 202603`。
+- まさの判断は「過去分は一致するわけがない。支払済み額に OS 上の情報を合わせる」。加えて「実績へ無理やり合わせた結果 65% を超えるなら、内部留保分を切り崩すことを許可するかのダイアログが必要」。
+
+### 実施内容
+- 本番 Supabase の ZMP `p19` について、202601-202603 の `monthly_reward_payout` を freee 銀行出金の実支払額へ合わせた。
+- `billing_cycles.reward_paid_at` / `reward_paid_by` を `freee_wallet_txn_verified:*` に更新し、`billing_log` に `reward_paid_actual_alignment` を追記した。
+- read-back で 202601-202605 がすべて verified、`unverifiedPaidYms=[]` を確認した。
+- Production Chrome では `/admin/ms-overview` の page text search で `MS編集停止中` / `支払済み印` / `実支払証跡` / `予算不足` / `原資上限` が出ないことを確認した。アコーディオン展開の完全な目視確認は monthly agreement overlay の影響で未完。
+
+### 実績値
+- 202601: 税抜 255,000 / 税込 280,500 / paid 2026-02-27 / 4 members
+- 202602: 税抜 169,000 / 税込 185,900 / paid 2026-03-31 / 4 members
+- 202603: 税抜 170,254.545 / 税込 187,280 / paid 2026-04-30 / 4 members
+- 202604: 税抜 102,180 / 税込 112,398 / paid 2026-05-29 / 4 members
+- 202605: 税抜 85,410 / 税込 93,951 / paid 2026-06-30 / 4 members
+
+### 未実装 / 次
+- `/admin/ms-overview` に、過去支払済み月を実支払額へ合わせる admin UI がまだ無い。
+- 実支払 alignment によって `(クライアント支払 - バッファ) × 65%` を超える場合、内部留保/会社留保を切り崩す承認ダイアログを出す必要がある。
+- 承認 UI 実装時は `pwa/manual/6-8-admin-ms-overview-spec.md`、`pwa/spec/3-14-monthly-work-agreement-current-spec.md`、`pwa/design/FEATURE_REGISTRY.md`、manual/spec changelog を同期する。
+
+### 教訓
+- 支払済み過去月は「現在の MS 設計から再計算した額」ではなく、「実際に払った額」が正本。
+- blocker は正しいが、解消手段が SQL 直書きしかない状態は運用事故を生む。admin UI で証跡・差額・reserve 承認をまとめて扱う。
+
+---
+
+## 2026-07-09 — PJ cockpit 旧 ProactiveQueuePanel 削除 / v0.39.15
+
+### コンテキスト
+- PJ cockpit 右カラムに、廃止済みの `proactive_outbox` 由来TODO枠が残っていた。
+- 旧司令塔前提の `drafted` / `資料作成済み` 行が、PJ状況を見る面では完了・外部送付待ち・内部メモのどれか分かりにくいノイズになっていた。
+- 先手TODOの現行導線は `proactive_todos` + `/proactive` + dashboard 上段バッジ。
+
+### 実装 / 仕様同期
+- `pwa/src/components/cockpit/CockpitView.tsx` から `ProactiveQueuePanel` import / render / project label memo を削除。
+- `pwa/src/components/proactive/ProactiveQueuePanel.tsx` を削除。
+- HUD内 cockpit 説明文を、先手TODOではなく資料・経営ハイライト・MTGサマリを確認する表現へ更新。
+- `pwa/spec/3-8-cockpit-current-spec.md`、`pwa/spec/2-4-proactive-todo-current-spec.md`、`pwa/spec/5-3-automation-responsibility-current-spec.md`、`pwa/design/FEATURE_REGISTRY.md`、`pwa/design/SPEC_pwa.md`、`pwa/design/cockpit.md`、`pwa/manual/2-3-pj-cockpit.md`、`pwa/manual/8-3-l2-extraction-routines-spec.md`、manual/spec changelog に同期。
+
+### Verification / Deploy
+- `npm run test:critical-ui` passed。
+- `npx tsc --noEmit --pretty false` passed。
+- `npm run build` passed。
+- `npm run test:deploy-version-guard` passed。
+- `git diff --check` passed。
+- local browser: cockpit route は login redirect。desktop 1280px / mobile 390px の login 画面と HUD mock は横はみ出しなし。
+- `49c55af0 fix: remove retired proactive queue from cockpit` を main に push。
+- production `/api/build-info`: `v0.39.15` / `49c55af0fac1f2e2a7e9955bd5ae519d45b5d843` / `dirty:false`。

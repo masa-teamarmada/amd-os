@@ -3772,3 +3772,13 @@
 - **原因**: 判例IDを採番する前に origin/main を fetch して最新の L1/L2 を確認しなかった。ローカル repo が発散しているため、ローカルの台帳は古かった。
 - **対応内容**: origin 版を確認して自分の判例を PF-013 に付け直し、origin/main ベースの一時 worktree から push。以降このセッションの全 push を worktree 方式に統一 (11回、事故ゼロ)。
 - **再発防止策**: PF-xxx / D-xxx / P-xxx の採番前に必ず `git fetch origin main && git show origin/main:<台帳ファイル>` で最新IDを確認。発散した repo では「ローカル checkout の台帳を信用しない」。push 拒否時は rebase して自分の1コミットだけ乗せ直す。
+
+## [PWA/admin-ms-overview] ZMP 過去月を実支払へ合わせる UI がなく MS 編集が停止 (2026-07-09)
+
+- **症状**: `/admin/ms-overview` の ZMP 2026/01-2026/12 cycle で `MS編集停止中` が出た。理由は `支払済み印はあるが実支払証跡と明細額が未照合の月があります: 202601, 202602, 202603`。過去分は既に支払済みなので、OS 上の明細は計算し直した設計額ではなく、実際に支払った額へ合わせる必要があった。
+- **原因**: 既存仕様は「支払済み実績 = `monthly_reward_payout` 明細 + `billing_cycles.reward_paid_by = freee_wallet_txn_verified:*`」を要求しているが、過去実績へ合わせる admin UI が無い。さらに、実支払へ合わせると原資 65% を超える可能性がある場合に、内部留保/会社留保を切り崩す承認 UI も無い。そのため、計算値と実支払が一致しない過去月が blocker として残った。
+- **対応内容**: 本番 Supabase の ZMP `p19` について、202601-202603 の `monthly_reward_payout` を freee 銀行出金の実支払額に合わせ、`billing_cycles.reward_paid_at` / `reward_paid_by` を `freee_wallet_txn_verified:*` で更新した。`billing_log` には `reward_paid_actual_alignment` を追記し、reserve approval UI が未実装であることを metadata に残した。検算では 202601-202605 の paid month がすべて verified になり、`unverifiedPaidYms=[]` を確認した。
+  - 202601: 税抜 255,000 / 税込 280,500 / 4 members / paid 2026-02-27
+  - 202602: 税抜 169,000 / 税込 185,900 / 4 members / paid 2026-03-31
+  - 202603: 税抜 170,254.545 / 税込 187,280 / 4 members / paid 2026-04-30
+- **再発防止策**: `/admin/ms-overview` に「実支払へ合わせる」導線を追加する。候補 freee 出金、member 別の計算値/実支払額、差額、原資 65% 超過額を表示し、65% を超える場合は「内部留保/会社留保を切り崩すことを許可するか」を明示確認する。承認なしに reserve を消費する自動補正は禁止。承認後だけ `monthly_reward_payout` / `billing_cycles.reward_paid_by` / `billing_log` をまとめて更新する。

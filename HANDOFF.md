@@ -2,81 +2,66 @@
 
 Last updated: 2026-07-09 JST
 Target: `/Users/masa/projects/AMD/amd-os`
-Topic: W-Prep Launch automation hardening and closeout
+Topic: Cockpit old proactive queue removal + ZMP paid-actual alignment closeout
 
 ## Summary
 
-See `pwa/design_log/sessions_2026-07.md` section:
-- `2026-07-09 — W-Prep Launch 漏れ補完 + automation設計修正`
+This closeout covered two active July 9 lanes:
 
-This session fixed the weekly visible prep-thread lane after missing meetings and misleading worker first messages were found.
+- PJ / institution cockpit no longer shows the retired `ProactiveQueuePanel` / `proactive_outbox` TODO panel. The cockpit right column is now documents, strategy highlights, governance, grants, and meeting summaries. Product commit: `49c55af0`.
+- Production build-info now returns `v0.39.15` / `49c55af0fac1f2e2a7e9955bd5ae519d45b5d843` / `dirty=false`.
+- ZMP (`p19`) paid months 202601-202605 were rechecked in production Supabase. All have 4 member payout rows, `reward_paid_at`, and `reward_paid_by` beginning with `freee_wallet_txn_verified:`. `unverified=[]`.
+- Existing ZMP handoff/BUGS/design_log notes were preserved and folded into this closeout instead of being reverted.
+- A stale detached temp worktree at `fa121987` was clean, archived under `/Users/masa/.codex/cleanup_archives/amd-os-worktree-fa121987-20260709-134537`, then removed from the git worktree registry.
 
-- W-Prep must inspect both Google Calendar and the AMD OS DB for the next 7 days. DB-only extraction is explicitly forbidden because it misses calendar-backed meetings that have not yet synced into `project_meeting_summaries`.
-- Thread creation remains exact-once: claim the target DB row first, read it back, then create one visible prep thread, immediately save `prep_worker_session_id`, rename to `{meeting_title} prep`, and pin it.
-- Thread targets must use the matched PJ directory under `/Users/masa/projects/AMD` when available; `/Users/masa/projects/AMD/amd-os` is not a prep thread working directory.
-- Prep prompts are now Japanese and include the AMD OS repo path only as the DB/reference repo.
-- Prep worker first visible message now reports three completed analyses and ends with `これであってる？どうする？`.
-- Shared-folder prep deliverables must now be HTML primary artifacts following AMD OS design code. Google Docs, Markdown, Slides, and Sheets are not allowed as the primary prep deliverable.
-- The active automation prompt and automation memory were updated outside the repo.
-
-## Current Truth
+## Repo State
 
 - Canonical repo: `/Users/masa/projects/AMD/amd-os`
 - Branch: `main`
-- Automation ID: `w-prep-launch`
-- Active automation file: `/Users/masa/.codex/automations/w-prep-launch/automation.toml`
-- Automation memory: `/Users/masa/.codex/automations/w-prep-launch/memory.md`
-- Current schedule: every Wednesday 15:00 JST, written as visible local time.
-- W-Prep thread target rule: use `/Users/masa/projects/AMD/<PJ>` when the PJ directory can be determined; fallback only to `/Users/masa/projects/AMD`.
-- Knowledge path rule for workers: `~/knowledge/...` references resolve under `/Users/masa/projects/knowledge/...`.
-- Repo commit for this closeout: re-check with `git log -1 --oneline` after the final push because this file is part of that closeout commit.
+- Local / origin alignment before this docs-only handoff commit: ahead 0, behind 0 after `49c55af0` push.
+- Local branches: `main` only.
+- Registered worktrees: `/Users/masa/projects/AMD/amd-os [main]` only.
+- Ignored local artifacts remain as normal local tooling: `.vercel/project.json`, `ios/supabase/.temp/*`, `pwa/.next`, `pwa/node_modules`.
 
-## Verification Already Run
-
-- Updated the active automation through Codex automation tooling.
-- Verified the active automation content contains the new pinning, Japanese prompt, Calendar+DB scan, knowledge path, first-message contract, and HTML artifact rules.
-- Verified the repo docs/spec/manual surfaces mention the W-Prep rules using targeted text searches.
-- This closeout is docs/SKILL/automation-prompt only. No app build or runtime test was run for this bundle.
-
-## Design Records
-
-- W-Prep canonical spec: `pwa/spec/3-3-meeting-flow-current-spec.md`
-- Prep worker skill: `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md`
-- Scheduled task index: `pwa/scheduled-tasks/README.md`
-- L2/current data surface: `pwa/design/L2_DATA.md`
-- Manual sections:
-  - `pwa/manual/2-3-pj-cockpit.md`
-  - `pwa/manual/3-2-data-and-extraction.md`
-  - `pwa/manual/8-3-l2-extraction-routines-spec.md`
-- Changelog: `pwa/manual/9-3-appendix-changelog.md`
-- Bug/lesson: `pwa/BUGS.md` entry `[automation/w-prep] Calendar未同期MTGのprep漏れ・第一声/資料形式の仕様ズレ (2026-07-09)`
-- Session log: `pwa/design_log/sessions_2026-07.md`
-
-## Dirty State To Preserve
-
-These files were already dirty or belong to other lanes. Do not revert or stage them as part of W-Prep closeout.
-
-| path | class | owner guess | next action | risk |
-|---|---|---|---|---|
-| `pwa/scripts/atlas_signal_review_tool.mjs` | other-worker / Atlas WIP | Atlas signal worker | Validate disabled-ingest retryable handling, then commit or revert in the Atlas lane. | Low/Medium: accidental staging can ship unreviewed queue behavior. |
-| `pwa/src/app/api/admin/ms-overview/route.ts` | other-worker / MS finance WIP | MS design amount worker | Decide whether design amount should use `budget × pt ratio`; if yes, sync spec/manual, test, bump version, commit, push. | Medium: accidental staging can ship unverified finance math. |
-| `pwa/src/components/admin/AdminMsOverviewClient.tsx` | other-worker / MS finance WIP | MS design amount worker | Same bundle as above. | Medium |
-| `pwa/src/lib/admin/ms-overview-calc.ts` | other-worker / MS finance WIP | MS design amount worker | Same bundle as above. | Medium |
-
-## First Next Action
-
-If W-Prep is touched again:
+Re-check the final docs-only closeout commit with:
 
 ```bash
 cd /Users/masa/projects/AMD/amd-os
-git status -sb --untracked-files=all
 git log -3 --oneline
-sed -n '1,220p' /Users/masa/.codex/automations/w-prep-launch/automation.toml
-tail -80 /Users/masa/.codex/automations/w-prep-launch/memory.md
+git status -sb --untracked-files=all
+curl -fsS https://amd-os-pwa.vercel.app/api/build-info
 ```
 
-Then verify any reported missing prep by scanning Calendar and DB together for the next 7 days. Do not create a duplicate thread when `prep_worker_session_id` already exists or an equivalent canonical row is `claiming` / `preparing` / `ready`.
+## Verification Run
+
+- `npm run test:critical-ui`
+- `npx tsc --noEmit --pretty false`
+- `npm run build`
+- `npm run test:deploy-version-guard`
+- `git diff --check`
+- Browser check via local `http://localhost:3100`:
+  - `/project/p25/cockpit` redirected to login; desktop 1280px and mobile 390px login screens had no horizontal overflow.
+  - `/mock/dashboard-cyber-hud-wall` rendered without horizontal overflow.
+- Production build-info confirmed `49c55af0` and `dirty=false`.
+- Production Supabase ZMP read-back confirmed 202601-202605 payout totals and `unverified=[]`.
+
+## Design Records
+
+| Change | Spec/design | Manual |
+|---|---|---|
+| Remove old cockpit `ProactiveQueuePanel` / `proactive_outbox` display | `pwa/spec/3-8-cockpit-current-spec.md`, `pwa/spec/2-4-proactive-todo-current-spec.md`, `pwa/spec/5-3-automation-responsibility-current-spec.md`, `pwa/design/FEATURE_REGISTRY.md`, `pwa/design/SPEC_pwa.md`, `pwa/design/cockpit.md` | `pwa/manual/2-3-pj-cockpit.md`, `pwa/manual/8-3-l2-extraction-routines-spec.md`, changelogs |
+| ZMP paid actual alignment and missing reserve approval UI | `pwa/BUGS.md`, `pwa/design_log/sessions_2026-07.md` | Existing rule remains in `pwa/manual/6-8-admin-ms-overview-spec.md`; next UI implementation must update it |
+
+## Open Next Task
+
+Implement the `/admin/ms-overview` paid-actual alignment UI:
+
+1. Detect protected paid months where saved actual details or `freee_wallet_txn_verified:*` evidence are missing/mismatched.
+2. Show `実支払へ合わせる` with member rows, computed amount, actual freee transfer amount, delta, transaction IDs, and budget impact.
+3. If actual alignment exceeds `(client payment - buffer) * 65%`, ask whether to allow internal/company reserve drawdown.
+4. On approval only, update `monthly_reward_payout`, `billing_cycles.reward_paid_at`, `billing_cycles.reward_paid_by`, and append `billing_log`.
+5. Sync `pwa/manual/6-8-admin-ms-overview-spec.md`, `pwa/spec/3-14-monthly-work-agreement-current-spec.md`, `pwa/design/FEATURE_REGISTRY.md`, changelogs, and tests.
 
 ## Closeout Decision
 
-`do not archive` for the whole shared checkout while the unrelated Atlas/MS dirty files remain. This W-Prep bundle itself is ready to commit and push.
+After the final docs-only handoff commit/push, this session should be `archive ok` if `git status -sb --untracked-files=all` is clean and production build-info still points at the latest `origin/main`.

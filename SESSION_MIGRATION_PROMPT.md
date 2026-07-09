@@ -1,4 +1,4 @@
-# SESSION MIGRATION PROMPT - AMD OS W-Prep Launch
+# SESSION MIGRATION PROMPT - AMD OS closeout after cockpit proactive queue removal
 
 ```text
 cd /Users/masa/projects/AMD/amd-os
@@ -11,108 +11,59 @@ cd /Users/masa/projects/AMD/amd-os
 5. /Users/masa/projects/AMD/amd-os/AGENTS.md
 6. /Users/masa/projects/AMD/amd-os/pwa/AGENTS.md
 7. /Users/masa/projects/AMD/amd-os/pwa/CLAUDE.md
-8. /Users/masa/projects/AMD/amd-os/pwa/spec/3-3-meeting-flow-current-spec.md
-9. /Users/masa/projects/AMD/amd-os/pwa/scheduled-tasks/README.md
-10. /Users/masa/projects/AMD/amd-os/pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md
-11. /Users/masa/projects/AMD/amd-os/pwa/design/L2_DATA.md
-12. /Users/masa/projects/AMD/amd-os/pwa/manual/2-3-pj-cockpit.md
-13. /Users/masa/projects/AMD/amd-os/pwa/manual/3-2-data-and-extraction.md
-14. /Users/masa/projects/AMD/amd-os/pwa/manual/8-3-l2-extraction-routines-spec.md
-15. /Users/masa/projects/AMD/amd-os/pwa/BUGS.md
-16. /Users/masa/projects/AMD/amd-os/pwa/design_log/sessions_2026-07.md
-17. /Users/masa/.codex/automations/w-prep-launch/automation.toml
-18. /Users/masa/.codex/automations/w-prep-launch/memory.md
+8. /Users/masa/projects/AMD/amd-os/pwa/spec/3-8-cockpit-current-spec.md
+9. /Users/masa/projects/AMD/amd-os/pwa/spec/2-4-proactive-todo-current-spec.md
+10. /Users/masa/projects/AMD/amd-os/pwa/manual/2-3-pj-cockpit.md
+11. /Users/masa/projects/AMD/amd-os/pwa/manual/6-8-admin-ms-overview-spec.md
+12. /Users/masa/projects/AMD/amd-os/pwa/spec/3-14-monthly-work-agreement-current-spec.md
+13. /Users/masa/projects/AMD/amd-os/pwa/BUGS.md
+14. /Users/masa/projects/AMD/amd-os/pwa/design_log/sessions_2026-07.md
 
 状態スナップショット:
 - canonical repo: /Users/masa/projects/AMD/amd-os
 - branch: main
-- automation id: w-prep-launch
-- active automation file: /Users/masa/.codex/automations/w-prep-launch/automation.toml
-- automation memory: /Users/masa/.codex/automations/w-prep-launch/memory.md
-- schedule: 毎週水曜 15:00 JST。見た目どおり、まさのローカル時間の15:00として扱う。
-- expected post-closeout git state:
-  - HEAD / origin/main: same after final push
-  - ahead 0 / behind 0
-  - worktree registry: /Users/masa/projects/AMD/amd-os [main] only
-  - local branch: main only
-  - dirty files may remain only in unrelated Atlas/MS lanes listed below
-- production deploy is not meaningful for this W-Prep closeout because this bundle is docs/SKILL/automation prompt. If app code changes later, re-check /api/build-info and follow AMD OS PWA deploy rules.
+- branch rule: 新規branch禁止。mainへ直接commit/push。
+- product commit: 49c55af0 fix: remove retired proactive queue from cockpit
+- production build-info after product push: v0.39.15 / 49c55af0fac1f2e2a7e9955bd5ae519d45b5d843 / main / dirty=false
+- worktree registry after cleanup: /Users/masa/projects/AMD/amd-os [main] only
+- stale detached worktree evidence archive: /Users/masa/.codex/cleanup_archives/amd-os-worktree-fa121987-20260709-134537
+- final docs-only handoff commit may be newer than 49c55af0. Start by running:
+  - git status -sb --untracked-files=all
+  - git log -3 --oneline
+  - curl -fsS https://amd-os-pwa.vercel.app/api/build-info
 
-このセッションで直したこと:
-- W-Prep Launch は週1回の visible prep thread 起動レーン。
-- 候補抽出は Calendar + DB の両方を見る。DB-only scan は禁止。CalendarにあるがDB未同期のMTGも落としてはいけない。
-- 7日以内の確定 upcoming MTGをすべて確認する。件数上限や主観で間引かない。
-- active/sales PJのみ対象。tentative、TBD弱重複、calendar-backed canonical row がある重複は除外する。
-- `list_projects` は呼ばない。
-- `create_thread` 前に必ず会議ごとのclaimをDBで取る。
-- `prep_worker_session_id` がある行、`prep_worker_status in ('claiming','preparing','ready')` の行、同じ calendar_event_id で別canonical rowが ready/preparing のものは起動しない。
-- thread作成後はすぐ `prep_worker_session_id`, `prep_worker_status='preparing'`, `prep_worker_spawned_at=now()` を保存する。
-- thread title は `{meeting_title} prep` にする。
-- thread作成後は必ず `set_thread_pinned` でピン留めする。ピン留めツールが本当に無い場合だけタイトルとIDを報告する。
-- create_thread target は対象PJディレクトリ。例: SX -> /Users/masa/projects/AMD/SX, KUTE -> /Users/masa/projects/AMD/kute, ZMP -> /Users/masa/projects/AMD/ZMP, CX -> /Users/masa/projects/AMD/CX, SE -> /Users/masa/projects/AMD/SE。
-- PJディレクトリを確定できない場合だけ fallback target は /Users/masa/projects/AMD。/Users/masa/projects/AMD/amd-os をprep thread作業場にしない。
-- worker prompt は日本語。英語にしない。
-- `~/knowledge/...` 参照は /Users/masa/projects/knowledge/... に解決する。
-- worker prompt には AMD OS repo path /Users/masa/projects/AMD/amd-os をDB更新・参照パスとして明記する。ただし作業ディレクトリにはしない。
-- worker は `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md` と `pwa/scripts/l6_prep_notion_context_gate.cjs` を読む。
-- Notion AI Meeting Notes context gate が `needs_insert` のままなら `ready` にしない。
-- Phase 1-10完遂後、該当行へ prep artifact / readiness / `prep_worker_status='ready'` を保存する。
-- raw本文、URL、secretを報告に出さない。
+このセッションで完了したこと:
+- 通常PJ / institution cockpit から旧 ProactiveQueuePanel を削除した。
+- 削除対象は旧 proactive_outbox 由来のTODO枠。現行の先手TODO棚卸しは proactive_todos + /proactive + dashboard 上段バッジで扱う。
+- CockpitView の右カラムは資料、経営ハイライト、ガバナンス、助成金、MTGサマリに絞った。
+- HUD内 cockpit 説明文も「先手TODO」から「資料、経営ハイライト」へ更新した。
+- 関連する spec/design/manual/changelog は更新済み。
+- `npm run test:critical-ui`, `npx tsc --noEmit --pretty false`, `npm run build`, `npm run test:deploy-version-guard`, `git diff --check` は通過。
+- ローカルブラウザでは cockpit 本体はログインで止まったが、login desktop/mobile と HUD mock は横はみ出しなし。
 
-prep worker の最初の見え方:
-- まさが入ってきた時点で、単なる「会議冒頭のセリフ」を出さない。
-- 事前に完了しておくこと:
-  1. これまでのMTGの流れを把握する
-  2. 今回のMTGの位置づけと着地点を推定する
-  3. その着地点に到達するためにまさがやるべきことを推定する
-- 最初の可視メッセージはその3点の報告から入り、最後に `これであってる？どうする？` と聞く。
-
-prep資料ルール:
-- 共有フォルダに作るMTG資料は、AMD OS design code に従ったHTML資料を主成果物にする。
-- Google Docs / Markdown / Slides / Sheets を主成果物にしない。必要なら補助出力だけ。
-- HTMLは自己完結してレビュー可能にする。
-- 参照するデザイン正本:
-  - /Users/masa/projects/AMD/amd-os/pwa/src/lib/exec_summary/template.css
-  - /Users/masa/projects/AMD/amd-os/pwa/src/lib/exec_summary/template_section.html
-  - /Users/masa/projects/AMD/amd-os/pwa/design/cyber_hud_design_code.md
-  - /Users/masa/projects/AMD/amd-os/pwa/design/hud_visual_language.md
-
-仕様同期済み:
-- /Users/masa/projects/AMD/amd-os/pwa/spec/3-3-meeting-flow-current-spec.md
-- /Users/masa/projects/AMD/amd-os/pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md
-- /Users/masa/projects/AMD/amd-os/pwa/scheduled-tasks/README.md
-- /Users/masa/projects/AMD/amd-os/pwa/design/L2_DATA.md
-- /Users/masa/projects/AMD/amd-os/pwa/manual/2-3-pj-cockpit.md
-- /Users/masa/projects/AMD/amd-os/pwa/manual/3-2-data-and-extraction.md
-- /Users/masa/projects/AMD/amd-os/pwa/manual/8-3-l2-extraction-routines-spec.md
-- /Users/masa/projects/AMD/amd-os/pwa/manual/9-3-appendix-changelog.md
-- /Users/masa/projects/AMD/amd-os/pwa/BUGS.md
-- /Users/masa/projects/AMD/amd-os/pwa/design_log/sessions_2026-07.md
-- /Users/masa/projects/AMD/amd-os/HANDOFF.md
-- /Users/masa/projects/AMD/amd-os/SESSION_MIGRATION_PROMPT.md
-
-未解決 / dirty:
-- 以下はW-Prep closeout対象外。勝手にrevert/stageしない。
-  - /Users/masa/projects/AMD/amd-os/pwa/scripts/atlas_signal_review_tool.mjs
-  - /Users/masa/projects/AMD/amd-os/pwa/src/app/api/admin/ms-overview/route.ts
-  - /Users/masa/projects/AMD/amd-os/pwa/src/components/admin/AdminMsOverviewClient.tsx
-  - /Users/masa/projects/AMD/amd-os/pwa/src/lib/admin/ms-overview-calc.ts
-- Atlas file は disabled-ingest retryable tempfail handling のWIPに見える。Atlas laneで検証してcommit/revert判断。
-- MS 3 files は design amount を `budget × pt ratio` に寄せるWIPに見える。採用するなら spec/manual/test/version/deploy まで新bundleとして扱う。
+ZMP 実績合わせの current truth:
+- ZMP project_id は p19。
+- production Supabase read-back で 202601-202605 は全て verified。
+- 202601: members=4, total_pay=255000, paid_at=2026-02-27T00:00:00+09:00, verified=true
+- 202602: members=4, total_pay=169000, paid_at=2026-03-31T00:00:00+09:00, verified=true
+- 202603: members=4, total_pay=170254.545455, paid_at=2026-04-30T00:00:00+09:00, verified=true
+- 202604: members=4, total_pay=102180, paid_at=2026-05-29T00:00:00+09:00, verified=true
+- 202605: members=4, total_pay=85410, paid_at=2026-06-30T00:00:00+09:00, verified=true
+- unverified=[]
 
 次タスク:
-1. まず `git status -sb --untracked-files=all`, `git log -3 --oneline`, `git rev-list --left-right --count origin/main...HEAD` を確認する。
-2. W-Prepを触るなら、automation.toml と memory.md を絶対パスで読み、今回のルールが残っていることを確認する。
-3. まさから「prepが漏れている」と言われたら、Calendar + DB の7日窓で再確認する。DBだけで判断しない。
-4. 既存 `prep_worker_session_id` または preparing/ready がある会議に追加threadを立てない。
-5. 新しくthreadを立てたら、必ず title rename と pinning までやる。
+1. /admin/ms-overview に「実支払へ合わせる」admin UI を実装する。
+2. 支払済み月で実支払証跡や明細が欠ける場合、member別の計算値、実支払額、差額、freee wallet transaction ids、予算影響を表示する。
+3. 実支払合わせで (client payment - buffer) * 65% を超える場合、内部留保/会社留保を切り崩すことを許可するか確認ダイアログを出す。承認なしに reserve を消費しない。
+4. 承認された場合だけ monthly_reward_payout / billing_cycles.reward_paid_at / billing_cycles.reward_paid_by / billing_log を同じ admin flow で更新する。
+5. テストを追加し、pwa/manual/6-8-admin-ms-overview-spec.md、pwa/spec/3-14-monthly-work-agreement-current-spec.md、pwa/design/FEATURE_REGISTRY.md、manual/spec changelog、design_log を同期する。
 
 運用ルール:
 - /Users/masa/projects/AGENTS.common.md を最初に読む。
-- AMD配下では /Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md も冒頭で読む。
-- AMD OSでは branch を作らない。main で直接 commit & push。
-- dirty は branch/worktree 作成理由にしない。git add . は使わず、対象ファイルだけstage。
-- PWAコード変更時は /Users/masa/projects/AMD/amd-os/pwa/src/lib/build-info.ts の BUILD_VERSION をbumpする。
-- PWA本番反映は main push = Vercel自動deploy。通常は `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` を使う。CLI直接deployは禁止。
-- handoff時は、新仕様を pwa/manual / pwa/spec / pwa/design / BUGS / design_log へ分けて記録し、HANDOFFだけに恒久仕様を残さない。
+- AMD配下では AMD level memory /Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md も冒頭で読む。
+- dirty は branch/worktree 作成理由にしない。
+- git add . は使わず対象ファイルだけstageする。
+- PWAコード変更時は build version を確認し、必要なら bump する。
+- PWA本番反映は main push = Vercel自動deploy。通常は deploy.sh を使うが、既存dirtyがある場合は理由を明記し、push後に /api/build-info で current sha / dirty=false を確認する。
+- handoff時は恒久仕様を pwa/manual / pwa/spec / pwa/design / BUGS / design_log に分け、HANDOFFだけに残さない。
 ```
