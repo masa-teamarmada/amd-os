@@ -96,6 +96,19 @@ const EMPTY_SEED_FORM: SeedForm = {
 
 const SEED_DOMAIN_ORDER: SeedDomainLane[] = ["gx_energy", "gx_circular", "life", "materials", "robo", "ict", "other"];
 const SEED_STATUS_ORDER: SeedStatus[] = ["candidate", "investigating", "contacted", "discussing", "spun_off", "declined"];
+const MAX_PAIRING_CANDIDATES_PER_SEED = 5;
+
+type PairingCandidate = {
+  company: PocCompanyListItem;
+  overlap: string[];
+  score: number;
+};
+
+type PairingRow = {
+  seed: PocSeedRef;
+  matches: PocMatchListItem[];
+  candidates: PairingCandidate[];
+};
 
 export default function PocHubPage() {
   const [data, setData] = useState<PocHubData | null>(null);
@@ -103,6 +116,7 @@ export default function PocHubPage() {
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [search, setSearch] = useState("");
+  const [selectedCompanyTags, setSelectedCompanyTags] = useState<string[]>([]);
   const [matchStatus, setMatchStatus] = useState<PocMatchStatus | "active" | "all">("active");
   const [companyStatus, setCompanyStatus] = useState<PocCompanyStatus | "active" | "all">("active");
   const [companyForm, setCompanyForm] = useState<CompanyForm>(EMPTY_COMPANY_FORM);
@@ -176,18 +190,33 @@ export default function PocHubPage() {
     });
   }, [companyStatus, data?.companies, search]);
 
-  const matrix = useMemo(() => buildMatrix(data?.matches ?? [], data), [data]);
+  const companyTagCounts = useMemo(() => buildCompanyTagCounts(filteredCompanies), [filteredCompanies]);
+  const tagFilteredCompanies = useMemo(
+    () => filteredCompanies.filter((company) => hasSelectedTags(company, selectedCompanyTags)),
+    [filteredCompanies, selectedCompanyTags],
+  );
+  const pairingRows = useMemo(
+    () => buildPairingRows(data, search, selectedCompanyTags, companyStatus, matchStatus),
+    [companyStatus, data, matchStatus, search, selectedCompanyTags],
+  );
   const activeSeedCount = (data?.seeds ?? []).filter((seed) => seed.status !== "declined").length;
   const activeDestinationCount = (data?.companies ?? []).filter((company) => company.status !== "archived").length;
+  const activeMatchCount = (data?.matches ?? []).filter((match) => match.status !== "deal" && match.status !== "archived").length;
   const hearingReadyCount = (data?.matches ?? []).filter((m) =>
     ["hearing_design", "introduced", "hearing_done"].includes(m.status),
   ).length;
   const pocPipelineCount = (data?.matches ?? []).filter((m) =>
     ["poc_design", "poc_running", "deal"].includes(m.status),
   ).length;
-  const pairCount = Math.max(0, activeSeedCount * activeDestinationCount - (data?.matches.length ?? 0));
+  const pairingCandidateCount = pairingRows.reduce((sum, row) => sum + row.candidates.length, 0);
 
   const reload = () => setReloadKey((key) => key + 1);
+
+  const toggleCompanyTag = (tag: string) => {
+    setSelectedCompanyTags((current) =>
+      current.includes(tag) ? current.filter((item) => item !== tag) : [...current, tag],
+    );
+  };
 
   const saveCompany = async (event: FormEvent) => {
     event.preventDefault();
@@ -319,7 +348,7 @@ export default function PocHubPage() {
       <section className="mb-5 grid gap-3 md:grid-cols-4">
         <Metric label="シーズ" value={activeSeedCount} tone="seed" />
         <Metric label="PoC先" value={activeDestinationCount} tone="company" />
-        <Metric label="未案件化ペア" value={pairCount} tone="match" />
+        <Metric label="案件候補" value={activeMatchCount} tone="match" sub={`${pairingCandidateCount}件を候補表示`} />
         <Metric label="PoC設計以降" value={pocPipelineCount} tone="poc" sub={`${hearingReadyCount}件はヒアリング段階`} />
       </section>
 
@@ -590,65 +619,75 @@ export default function PocHubPage() {
       </section>
 
       <section className="mb-5 rounded-lg border border-border bg-card p-4">
-        <FormTitle icon={Handshake} title="シーズ × PoC先マトリックス" />
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <FormTitle icon={Building2} title="PoC先候補リスト" compact />
+          <span className="text-xs text-muted-foreground">{tagFilteredCompanies.length} / {filteredCompanies.length}件</span>
+        </div>
+        <div className="mb-3 flex flex-wrap items-center gap-1.5">
+          {companyTagCounts.slice(0, 22).map(({ tag, count }) => (
+            <button
+              key={tag}
+              type="button"
+              onClick={() => toggleCompanyTag(tag)}
+              className={`rounded-full border px-2 py-1 text-[11px] font-medium transition-colors ${
+                selectedCompanyTags.includes(tag)
+                  ? "border-cyan-500/45 bg-cyan-500/12 text-cyan-700 dark:text-cyan-200"
+                  : "border-border bg-background text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              {tag}
+              <span className="ml-1 font-mono text-[10px] opacity-70">{count}</span>
+            </button>
+          ))}
+          {selectedCompanyTags.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setSelectedCompanyTags([])}
+              className="rounded-full border border-border bg-muted/35 px-2 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted"
+            >
+              タグ解除
+            </button>
+          )}
+        </div>
         {loading ? (
           <EmptyState text="読み込み中" />
-        ) : matrix.seeds.length === 0 || matrix.companies.length === 0 ? (
-          <EmptyState text="シーズかPoC先を追加すると、ここにマトリックスが出る" />
+        ) : tagFilteredCompanies.length === 0 ? (
+          <EmptyState text="タグ条件に合うPoC先がない" />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-[860px] table-fixed text-xs">
-              <thead>
-                <tr>
-                  <th className="w-56 px-2 py-2 text-left text-muted-foreground">PoC先 / シーズ</th>
-                  {matrix.seeds.map((seed) => (
-                    <th key={seed.id} className="w-44 px-2 py-2 text-left align-bottom">
-                      <div className="line-clamp-2 font-medium">{seed.title}</div>
-                      <div className="mt-0.5 text-[10px] text-muted-foreground">{seed.org_name}</div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {matrix.companies.map((company) => (
-                  <tr key={company.id} className="border-t border-border/55">
-                    <th className="px-2 py-2 text-left align-top">
-                      <div className="font-medium">{company.company_name}</div>
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {company.industry_tags.slice(0, 3).map((tag) => (
-                          <span key={tag} className="rounded border border-border bg-muted/35 px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    </th>
-                    {matrix.seeds.map((seed) => {
-                      const match = matrix.lookup.get(`${seed.id}:${company.id}`);
-                      return (
-                        <td key={seed.id} className="px-2 py-2 align-top">
-                          {match ? (
-                            <div className="rounded-md border border-border bg-background p-2">
-                              <StatusChip label={POC_MATCH_STATUS_LABEL[match.status]} className={POC_MATCH_STATUS_COLOR[match.status]} />
-                              <div className="mt-1 line-clamp-2 font-medium">{match.match_title}</div>
-                              {match.next_action && <div className="mt-1 line-clamp-2 text-[10px] text-muted-foreground">{match.next_action}</div>}
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              disabled={saving}
-                              onClick={() => createMatchFromPair(seed, company)}
-                              className="flex h-12 w-full items-center justify-center rounded-md border border-dashed border-border/70 bg-muted/15 text-[10px] font-medium text-muted-foreground transition-colors hover:border-emerald-500/45 hover:bg-emerald-500/10 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-emerald-200"
-                            >
-                              案件化
-                            </button>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            {tagFilteredCompanies.slice(0, 16).map((company) => (
+              <CompanyCandidateCard
+                key={company.id}
+                company={company}
+                selectedTags={selectedCompanyTags}
+                onToggleTag={toggleCompanyTag}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="mb-5 rounded-lg border border-border bg-card p-4">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <FormTitle icon={Handshake} title="案件化キュー" compact />
+          <span className="text-xs text-muted-foreground">{pairingRows.length}シーズ / 候補{pairingCandidateCount}件</span>
+        </div>
+        {loading ? (
+          <EmptyState text="読み込み中" />
+        ) : activeSeedCount === 0 || activeDestinationCount === 0 ? (
+          <EmptyState text="シーズかPoC先を追加すると、案件化候補が出る" />
+        ) : pairingRows.length === 0 ? (
+          <EmptyState text="タグや検索条件に合う候補がない" />
+        ) : (
+          <div className="grid gap-3">
+            {pairingRows.map((row) => (
+              <PairingRowCard
+                key={row.seed.id}
+                row={row}
+                saving={saving}
+                onCreateMatch={createMatchFromPair}
+              />
+            ))}
           </div>
         )}
       </section>
@@ -661,7 +700,7 @@ export default function PocHubPage() {
         {loading ? (
           <EmptyState text="読み込み中" />
         ) : filteredMatches.length === 0 ? (
-          <EmptyState text="案件候補なし。マトリックスの空セルから作れるよ" />
+          <EmptyState text="案件候補なし。案件化キューから作れるよ" />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-[1160px] w-full text-xs">
@@ -882,6 +921,157 @@ function StackedNote({ label, text }: { label: string; text: string | null }) {
   );
 }
 
+function CompanyCandidateCard({
+  company,
+  selectedTags,
+  onToggleTag,
+}: {
+  company: PocCompanyListItem;
+  selectedTags: string[];
+  onToggleTag: (tag: string) => void;
+}) {
+  const tags = companySelectionTags(company).slice(0, 9);
+  return (
+    <article className="rounded-lg border border-border bg-background p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="line-clamp-2 text-sm font-semibold">{company.company_name}</h3>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            {[company.company_size, company.region, POC_COMPANY_STATUS_LABEL[company.status]].filter(Boolean).join(" / ") || "属性未設定"}
+          </p>
+        </div>
+        <span className="shrink-0 rounded border border-border bg-muted/35 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+          {company.active_match_count}/{company.match_count}
+        </span>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-1">
+        {tags.map((tag) => {
+          const selected = selectedTags.includes(tag);
+          return (
+            <button
+              key={tag}
+              type="button"
+              onClick={() => onToggleTag(tag)}
+              className={`rounded border px-1.5 py-0.5 text-[10px] transition-colors ${
+                selected
+                  ? "border-cyan-500/45 bg-cyan-500/12 text-cyan-700 dark:text-cyan-200"
+                  : "border-border bg-muted/35 text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              {tag}
+            </button>
+          );
+        })}
+      </div>
+      {company.poc_profile && <p className="mt-2 line-clamp-2 text-[11px] leading-relaxed text-muted-foreground">{company.poc_profile}</p>}
+      {company.next_action && <p className="mt-2 line-clamp-2 text-[10px] leading-relaxed text-muted-foreground">次: {company.next_action}</p>}
+    </article>
+  );
+}
+
+function PairingRowCard({
+  row,
+  saving,
+  onCreateMatch,
+}: {
+  row: PairingRow;
+  saving: boolean;
+  onCreateMatch: (seed: PocSeedRef, company: PocCompanyListItem) => void;
+}) {
+  const seedTags = [...(row.seed.industry_target ?? []), ...(row.seed.keywords ?? [])].slice(0, 6);
+  return (
+    <article className="rounded-lg border border-border bg-background p-3">
+      <div className="grid gap-3 xl:grid-cols-[minmax(240px,360px)_minmax(0,1fr)]">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {row.seed.domain_lane && (
+              <span className="rounded border border-emerald-500/25 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-200">
+                {SEED_DOMAIN_LANE_LABEL[row.seed.domain_lane as SeedDomainLane] ?? row.seed.domain_lane}
+              </span>
+            )}
+            <span className="text-[10px] text-muted-foreground">{SEED_STATUS_LABEL[row.seed.status as SeedStatus] ?? row.seed.status}</span>
+          </div>
+          <h3 className="mt-1 line-clamp-2 text-sm font-semibold">{row.seed.title}</h3>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            {[row.seed.org_name, row.seed.researcher_name, row.seed.org_region].filter(Boolean).join(" / ")}
+          </p>
+          {row.seed.summary && <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-muted-foreground">{row.seed.summary}</p>}
+          {seedTags.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {seedTags.map((tag) => (
+                <Tag key={tag} label={tag} />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="min-w-0 space-y-3">
+          {row.matches.length > 0 && (
+            <div>
+              <div className="mb-1.5 text-[11px] font-semibold text-muted-foreground">既存案件</div>
+              <div className="grid gap-2 md:grid-cols-2 2xl:grid-cols-3">
+                {row.matches.slice(0, 6).map((match) => (
+                  <div key={match.id} className="rounded-md border border-border bg-card p-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <StatusChip label={POC_MATCH_STATUS_LABEL[match.status]} className={POC_MATCH_STATUS_COLOR[match.status]} />
+                      <span className="text-[10px] text-muted-foreground">{match.company?.company_name ?? "PoC先未設定"}</span>
+                    </div>
+                    <div className="mt-1 line-clamp-2 text-xs font-medium">{match.match_title}</div>
+                    {match.next_action && <div className="mt-1 line-clamp-2 text-[10px] text-muted-foreground">{match.next_action}</div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {row.candidates.length > 0 && (
+            <div>
+              <div className="mb-1.5 text-[11px] font-semibold text-muted-foreground">PoC先候補</div>
+              <div className="grid gap-2 md:grid-cols-2 2xl:grid-cols-3">
+                {row.candidates.map(({ company, overlap }) => (
+                  <button
+                    key={company.id}
+                    type="button"
+                    disabled={saving}
+                    onClick={() => onCreateMatch(row.seed, company)}
+                    className="rounded-md border border-dashed border-border bg-muted/10 p-2 text-left transition-colors hover:border-emerald-500/45 hover:bg-emerald-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="line-clamp-2 text-xs font-semibold">{company.company_name}</div>
+                        <div className="mt-0.5 text-[10px] text-muted-foreground">
+                          {[company.company_size, company.region, POC_COMPANY_STATUS_LABEL[company.status]].filter(Boolean).join(" / ")}
+                        </div>
+                      </div>
+                      <span className="shrink-0 rounded border border-emerald-500/25 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-200">
+                        案件化
+                      </span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {(overlap.length > 0 ? overlap : company.industry_tags).slice(0, 4).map((tag) => (
+                        <Tag key={tag} label={tag} />
+                      ))}
+                    </div>
+                    {company.poc_profile && <div className="mt-2 line-clamp-2 text-[10px] leading-relaxed text-muted-foreground">{company.poc_profile}</div>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function Tag({ label }: { label: string }) {
+  return (
+    <span className="rounded border border-border bg-muted/35 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+      {label}
+    </span>
+  );
+}
+
 function buildGeneratedMatch(seed: PocSeedRef, company: PocCompanyListItem) {
   const seedTargets = seed.industry_target ?? [];
   const companyTags = company.industry_tags ?? [];
@@ -912,7 +1102,7 @@ function buildGeneratedMatch(seed: PocSeedRef, company: PocCompanyListItem) {
     status: "candidate" as PocMatchStatus,
     priority: "medium" as PocPriority,
     next_action: "仮説を見て、初回ヒアリングで聞く順番を決める。",
-    source_note: "シーズ×PoC先マトリックス",
+    source_note: "シーズ×PoC先案件化キュー",
   };
 }
 
@@ -925,28 +1115,158 @@ function normalizeText(value: string) {
   return value.toLowerCase().replace(/\s+/g, "");
 }
 
-function buildMatrix(matches: PocMatchListItem[], data: PocHubData | null) {
-  const lookup = new Map<string, PocMatchListItem>();
-  const matchedSeedIds = new Set<string>();
-  const matchedCompanyIds = new Set<string>();
-  for (const match of matches) {
-    if (!match.seed_id || !match.company_id) continue;
-    const key = `${match.seed_id}:${match.company_id}`;
-    if (!lookup.has(key)) lookup.set(key, match);
-    matchedSeedIds.add(match.seed_id);
-    matchedCompanyIds.add(match.company_id);
+function buildPairingRows(
+  data: PocHubData | null,
+  search: string,
+  selectedCompanyTags: string[],
+  companyStatus: PocCompanyStatus | "active" | "all",
+  matchStatus: PocMatchStatus | "active" | "all",
+): PairingRow[] {
+  if (!data) return [];
+  const q = normalizeText(search);
+  const activeSeeds = data.seeds.filter((seed) => seed.status !== "declined");
+  const activeCompanies = data.companies.filter((company) => {
+    if (companyStatus === "active" && company.status === "archived") return false;
+    if (companyStatus !== "active" && companyStatus !== "all" && company.status !== companyStatus) return false;
+    return hasSelectedTags(company, selectedCompanyTags);
+  });
+  const matchesBySeed = new Map<string, PocMatchListItem[]>();
+  const matchedPairKeys = new Set<string>();
+
+  for (const match of data.matches) {
+    if (!match.seed_id) continue;
+    const rows = matchesBySeed.get(match.seed_id) ?? [];
+    rows.push(match);
+    matchesBySeed.set(match.seed_id, rows);
+    if (match.company_id) matchedPairKeys.add(`${match.seed_id}:${match.company_id}`);
   }
 
-  const allSeeds = data?.seeds ?? [];
-  const allCompanies = data?.companies ?? [];
-  const seeds = [
-    ...allSeeds.filter((seed) => matchedSeedIds.has(seed.id)),
-    ...allSeeds.filter((seed) => !matchedSeedIds.has(seed.id) && seed.status !== "declined"),
-  ].slice(0, 7);
-  const companies = [
-    ...allCompanies.filter((company) => matchedCompanyIds.has(company.id)),
-    ...allCompanies.filter((company) => !matchedCompanyIds.has(company.id) && company.status !== "archived"),
-  ].slice(0, 7);
+  return activeSeeds
+    .map((seed) => {
+      const matches = (matchesBySeed.get(seed.id) ?? []).filter((match) => {
+        if (matchStatus === "active" && (match.status === "archived" || match.status === "deal")) return false;
+        if (matchStatus !== "active" && matchStatus !== "all" && match.status !== matchStatus) return false;
+        if (!q) return true;
+        return normalizeText(
+          [
+            match.match_title,
+            match.fit_hypothesis,
+            match.next_action,
+            match.company?.company_name,
+            match.company?.industry_tags.join(" "),
+          ]
+            .filter(Boolean)
+            .join(" "),
+        ).includes(q);
+      });
+      const candidates = activeCompanies
+        .filter((company) => !matchedPairKeys.has(`${seed.id}:${company.id}`))
+        .map((company) => scoreCompanyForSeed(seed, company, q, selectedCompanyTags))
+        .filter((candidate) => candidate.score > 0)
+        .sort(
+          (a, b) =>
+            b.score - a.score ||
+            b.company.active_match_count - a.company.active_match_count ||
+            a.company.company_name.localeCompare(b.company.company_name, "ja"),
+        )
+        .slice(0, MAX_PAIRING_CANDIDATES_PER_SEED);
+      const seedMatchesQuery = !q || normalizeText(seedText(seed)).includes(q);
+      return { seed, matches, candidates, seedMatchesQuery };
+    })
+    .filter((row) => row.seedMatchesQuery || row.matches.length > 0 || row.candidates.length > 0)
+    .sort(
+      (a, b) =>
+        b.matches.length - a.matches.length ||
+        b.candidates.length - a.candidates.length ||
+        (b.seed.amd_rating ?? 0) - (a.seed.amd_rating ?? 0) ||
+        a.seed.title.localeCompare(b.seed.title, "ja"),
+    )
+    .map(({ seed, matches, candidates }) => ({ seed, matches, candidates }));
+}
 
-  return { seeds, companies, lookup };
+function scoreCompanyForSeed(seed: PocSeedRef, company: PocCompanyListItem, q: string, selectedCompanyTags: string[]): PairingCandidate {
+  const seedTerms = seedTermList(seed);
+  const companyTerms = companyTermList(company);
+  const companyText = normalizeText(companyTerms.join(" "));
+  const seedTextValue = normalizeText(seedTerms.join(" "));
+  const overlap = seedTerms
+    .filter((term) => {
+      const normalized = normalizeText(term);
+      return normalized.length > 1 && companyText.includes(normalized);
+    })
+    .slice(0, 6);
+  const reverseOverlap = company.industry_tags
+    .filter((tag) => {
+      const normalized = normalizeText(tag);
+      return normalized.length > 1 && seedTextValue.includes(normalized);
+    })
+    .slice(0, 6);
+  const uniqueOverlap = Array.from(new Set([...overlap, ...reverseOverlap]));
+  const qHit = q && (companyText.includes(q) || seedTextValue.includes(q)) ? 6 : 0;
+  const selectedTagBoost = selectedCompanyTags.length > 0 ? selectedCompanyTags.length * 3 : 0;
+  const statusBoost =
+    company.status === "poc_ready" ? 3 : company.status === "hearing" || company.status === "contacted" ? 2 : company.status === "listed" ? 1 : 0;
+  const score = uniqueOverlap.length * 4 + qHit + selectedTagBoost + statusBoost + Math.min(2, company.active_match_count);
+  return { company, overlap: uniqueOverlap, score };
+}
+
+function buildCompanyTagCounts(companies: PocCompanyListItem[]) {
+  const counts = new Map<string, number>();
+  for (const company of companies) {
+    for (const tag of companySelectionTags(company)) {
+      counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    }
+  }
+  return Array.from(counts.entries())
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag, "ja"));
+}
+
+function hasSelectedTags(company: PocCompanyListItem, selectedTags: string[]) {
+  if (selectedTags.length === 0) return true;
+  const tags = new Set(companySelectionTags(company).map(normalizeText));
+  return selectedTags.every((tag) => tags.has(normalizeText(tag)));
+}
+
+function companySelectionTags(company: PocCompanyListItem) {
+  return Array.from(
+    new Set(
+      [
+        ...company.industry_tags,
+        company.region,
+        company.company_size,
+        POC_COMPANY_STATUS_LABEL[company.status],
+      ].filter(Boolean) as string[],
+    ),
+  );
+}
+
+function seedText(seed: PocSeedRef) {
+  return seedTermList(seed).join(" ");
+}
+
+function seedTermList(seed: PocSeedRef) {
+  return [
+    seed.title,
+    seed.summary,
+    seed.org_name,
+    seed.org_region,
+    seed.researcher_name,
+    seed.domain_lane,
+    ...(seed.industry_target ?? []),
+    ...(seed.keywords ?? []),
+  ].filter(Boolean) as string[];
+}
+
+function companyTermList(company: PocCompanyListItem) {
+  return [
+    company.company_name,
+    company.company_size,
+    company.region,
+    company.poc_profile,
+    company.poc_history_note,
+    company.incentive_note,
+    company.next_action,
+    ...company.industry_tags,
+  ].filter(Boolean) as string[];
 }

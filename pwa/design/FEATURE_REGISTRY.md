@@ -54,12 +54,13 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - source hygiene: Notion議事録、Gmail、Slack、Drive、Web本文やURLを保存・表示しない。`source_ref` / `source_note` は短い参照名だけにする。
 - add seed: シーズ名、機関、地域、PI/研究者、領域、用途・業界タグ、キーワード、概要、担当、状態、次アクションを `seeds` に保存できる。
 - add PoC destination: PoC先名、規模感、地域、業界タグ、PoC相性、過去PoC/紹介経路、謝礼、担当、状態、次アクションを `poc_companies` に保存できる。
-- matrix: `シーズ × PoC先マトリックス` を置き、既存案件候補をセル表示、空白セルの `案件化` で相性仮説・ヒアリング論点・PoC条件の初期案を `poc_matches` に生成できる。
+- PoC destination list: PoC先をカード表示し、業界タグ、地域、規模感、状態などのタグで候補先を絞り込める。
+- pairing queue: シーズごとに既存案件と上位PoC先候補を並べ、候補の `案件化` で相性仮説・ヒアリング論点・PoC条件の初期案を `poc_matches` に生成できる。
 - inline status: 案件候補とPoC先の状態は一覧上で更新できる。
 
 回帰防止:
 
-- `pwa/scripts/check_pwa_critical_ui.cjs` が `/poc` route、GlobalNav導線、`seeds` / `poc_companies` / `poc_matches` data access、シーズ追加、PoC先追加、マトリックス案件化を検査する。
+- `pwa/scripts/check_pwa_critical_ui.cjs` が `/poc` route、GlobalNav導線、`seeds` / `poc_companies` / `poc_matches` data access、シーズ追加、PoC先追加、PoC先候補リスト、案件化キューを検査する。
 - `/poc` を消す/薄くする変更は、`poc_matching.md`、`SPEC_pwa.md`、manual 2-5 / 5-1、`/spec/2-1` を同時に更新する。
 
 ## /admin/japanese-culture-map

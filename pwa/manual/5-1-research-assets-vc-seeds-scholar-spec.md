@@ -109,7 +109,7 @@ candidate -> hearing_design -> introduced -> hearing_done
 
 | パス | 役割 |
 |---|---|
-| `/poc` | PoC案件化 hub。上段メトリクス、検索、状態フィルタ、シーズ追加、PoC先追加、シーズ x PoC先マトリックス、案件候補一覧、PoC先一覧 |
+| `/poc` | PoC案件化 hub。上段メトリクス、検索、状態フィルタ、シーズ追加、PoC先追加、PoC先候補リスト、案件化キュー、案件候補一覧、PoC先一覧 |
 
 ### Source Hygiene
 
@@ -238,7 +238,7 @@ Claude + web_search に「国内ディープテック VC 25-40 社」を JSON �
 | 症状 | 確認場所 |
 |---|---|
 | `/seeds/inbox` が空 | `discovery_status='discovered'` の有無、 `/api/cron/seeds-ingest` 実行履歴 |
-| `/poc` のマトリックスが空 | `poc_companies` と、`seed_id` / `company_id` の両方を持つ `poc_matches` があるか |
+| `/poc` の案件化キューが空 | `seeds` と `poc_companies` の有効データがあるか、PoC先タグ・検索・状態フィルタで絞りすぎていないか |
 | 新 VC が `/vcs` に出ない | `vcs.slug` 重複、 `vc_news` 紐付け、 inbox での verify 漏れ |
 | `/scholar` の paper_count が古い | 直近の `papers_log.observed_at`、 quarterly cron 実行履歴 |
 | つくよみ chat で VC 自動更新が走らない | `/api/tsukuyomi/chat` の tool registration、 system prompt に context 注入 |
