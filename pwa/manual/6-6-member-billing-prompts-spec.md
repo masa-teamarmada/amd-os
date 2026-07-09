@@ -138,30 +138,25 @@ admin が全 SU × 月の請求書発行状態を見る画面 (= `pwa/src/app/(a
 
 ### 表示構造
 
-- 縦軸: PJ (= `projects.status IN ('active','ended','frozen')`)
-- 横軸: 直近 13 ヶ月 (= 現月 -11 〜 +1)
-- セル: `billing_cycles` の各ステップをチップ表示し、行詳細から freee 請求書を発行
+- 対象: 直近 13 ヶ月 (= 現月 -11 〜 +1) の `billing_cycles`
+- 行: `projects.status IN ('active','ended','frozen')` の PJ × 稼働月。`ended` PJ は `end_ym` 以前のみ表示
+- filter: `未発行 / 発行済み / 送付済み / 入金済み / すべて`
+- 主操作: 未発行行の `発行` / `請求書を発行` から `AdminInvoiceIssueDialog` を開き、明細確認 → freee 発行
+- 発行前確認: `予算 / 報告書 / 立替` の状態だけを小さく表示。旧 billing matrix のように全ステップを横並び表示しない
+- 請求額: `invoice_base_lines_json` の明細合計を最優先し、なければ `budget_reported_amount`、最後に `budget_yen / 0.65` へ fallback する
 
-### セル状態
+### 状態分類
 
-`billing_cycles.status` の遷移:
+| 分類 | 判定 |
+|---|---|
+| 未発行 | `invoice_issued_at` が空 |
+| 発行済み | `invoice_issued_at` あり、`invoice_sent_at` なし |
+| 送付済み | `invoice_sent_at` あり、`payment_confirmed_at` なし |
+| 入金済み | `payment_confirmed_at` あり |
 
-| status | 意味 | アイコン |
-|---|---|---|
-| `not_started` | 当月作業未開始 | ⚪️ |
-| `budget_reported` | PJ 予算が PM/PL から報告された | 🟡 |
-| `budget_confirmed` | admin が予算確定 | 🟢 |
-| `report_fixed` | 月次報告書 FIX | 📄 |
-| `invoice_issued` | 請求書発行済 | 📝 |
-| `invoice_sent` | 請求書送付済 | 📤 |
-| `payment_confirmed` | 入金確認済 | ✅ |
-| `reward_paid` | 支払通知書発行 + 報酬支払済 | 💰 |
+### 立替確認
 
-`ended` PJ は `end_ym` 以前のセルのみ表示 (= 終了 PJ の未来月は出さない)。 `frozen` PJ は freeze_from_ym 以降のセルに薄色表示。
-
-### 立替セル
-
-`reimbursements.date` から該当月 × 該当 PJ のセル右下に立替件数 badge を出す。 admin は何件たまってるかをここから把握できる。
+`reimbursements.date` から該当月 × 該当 PJ の未処理立替を見て、発行前確認の `立替` チップへ反映する。未処理があれば `未完了`、締切後に未処理がなければ `完了` とする。旧 billing matrix のセル右下 badge は現行 UI へ戻さない。
 
 ## /admin/prompts
 

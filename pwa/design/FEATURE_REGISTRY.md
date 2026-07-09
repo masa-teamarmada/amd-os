@@ -66,15 +66,17 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 必須機能:
 
 - 左メニュー導線: AdminSidebar には `請求書発行` と `/admin/invoices` を置く。`Billing` 表記へ戻さない。
-- 月次一覧: 直近13か月の `billing_cycles` と `projects.status IN ('active','ended','frozen')` を読み、終了PJは `end_ym` 以前だけ表示する。
-- ステップ表示: `予算確定 / 報告書 / 立替確認 / 請求書発行 / 請求送付 / 支払通知 / 入金確認 / 報酬支払` を chip で出す。CTBは `請求書発行 / 請求送付` を前倒し順にする。
-- 請求書発行: 行詳細に `請求書発行` セクションと `請求書を発行` ボタンを置き、`AdminInvoiceIssueDialog` から `issue-invoice` Edge Function を呼ぶ。単なる `invoice_issued_at` 手動更新で発行済みに見せない。
+- 発行キュー: 直近13か月の `billing_cycles` と `projects.status IN ('active','ended','frozen')` を読み、終了PJは `end_ym` 以前だけ表示する。画面本体は旧 billing matrix ではなく、`未発行 / 発行済み / 送付済み / 入金済み / すべて` filter 付きの請求書リストにする。
+- 発行前確認: 各行には `予算 / 報告書 / 立替` の完了状態だけを小さく表示する。`支払通知 / 報酬支払` など、請求書発行と直接関係しない全ステップ横並び chip を主画面に戻さない。
+- 請求書発行: 未発行行の主操作に `発行` / `請求書を発行` ボタンを置き、`AdminInvoiceIssueDialog` から `issue-invoice` Edge Function を呼ぶ。単なる `invoice_issued_at` 手動更新で発行済みに見せない。
+- 請求額表示: 明細合計 (`invoice_base_lines_json`) を最優先し、なければ確定請求額 (`budget_reported_amount`)、最後に PJ 予算 (`budget_yen / 0.65`) へ fallback する。
+- 幅: admin 業務表として列幅を保ち、狭い画面では表本体を横スクロールさせる。列を圧縮して文字やボタンを重ねない。
 - 明細保存: 発行前に `invoice_base_lines_json` / `invoice_subject` を保存できる。発行後は `invoice_issued_at` / `freee_invoice_number` / `invoice_pdf_url` が `billing_cycles` に反映される。
 - 互換: `/admin/billing` は画面を持たず `/admin/invoices` に redirect する。
 
 回帰防止:
 
-- `pwa/scripts/check_pwa_critical_ui.cjs` が `/admin/invoices` route、`/admin/billing` redirect、AdminSidebar 導線、`AdminInvoiceIssueMatrix`、`AdminInvoiceIssueDialog`、`issue-invoice` anchor を検査する。
+- `pwa/scripts/check_pwa_critical_ui.cjs` が `/admin/invoices` route、`/admin/billing` redirect、AdminSidebar 導線、`AdminInvoiceIssueQueue`、`AdminInvoiceIssueDialog`、`issue-invoice` anchor を検査する。
 - 旧 PM 月次 routine へ請求書発行を戻さない。請求書発行・送付は admin 業務のままにする。
 
 ## /admin/payouts

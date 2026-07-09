@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { AdminInvoiceIssueMatrix, type BillingCycleRow, type InvoiceProjectRow, type ReimbursementRow } from "@/components/admin/AdminInvoiceIssueMatrix";
+import { AdminInvoiceIssueQueue, type BillingCycleRow, type InvoiceProjectRow, type ReimbursementRow } from "@/components/admin/AdminInvoiceIssueQueue";
 
 function currentYm() {
   const now = new Date();
@@ -71,8 +71,11 @@ export default async function AdminInvoicesPage() {
       invoice_ym: c.invoice_ym ?? null,
       invoice_base_lines_json: c.invoice_base_lines_json ?? null,
       invoice_subject: c.invoice_subject ?? null,
+      freee_invoice_number: c.freee_invoice_number ?? null,
+      invoice_pdf_url: c.invoice_pdf_url ?? null,
       status: c.status ?? "not_started",
       budget_yen: c.budget_yen ?? null,
+      budget_reported_amount: c.budget_reported_amount ?? null,
       budget_confirmed_at: c.budget_confirmed_at ?? null,
       meeting_event_id: c.meeting_event_id ?? null,
       meeting_start_at: c.meeting_start_at ?? null,
@@ -106,7 +109,7 @@ export default async function AdminInvoicesPage() {
         <span className="text-sm text-muted-foreground">直近13か月 — {rows.length} 件</span>
       </div>
       <p className="text-xs text-muted-foreground mb-3">
-        SU x 月ごとの請求書発行、送付、入金確認をここで扱う。発行ボタンから freee 請求書を作成する。
+        未発行の請求書を上から確認し、明細確認から freee 発行まで進める。
       </p>
       <div className="mb-4 grid gap-2 sm:grid-cols-4">
         {[
@@ -121,7 +124,7 @@ export default async function AdminInvoicesPage() {
           </div>
         ))}
       </div>
-      <AdminInvoiceIssueMatrix cycles={rows} reimbursements={reimbursementRows} />
+      <AdminInvoiceIssueQueue cycles={rows} reimbursements={reimbursementRows} />
     </div>
   );
 }

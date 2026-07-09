@@ -152,8 +152,8 @@ expectIncludes("src/components/admin/AdminPayoutsClient.tsx", [
 
 expectIncludes("src/app/(app)/admin/invoices/page.tsx", [
   "請求書発行",
-  "AdminInvoiceIssueMatrix",
-  "freee 請求書",
+  "AdminInvoiceIssueQueue",
+  "freee 発行",
 ]);
 
 expectIncludes("src/app/(app)/admin/billing/page.tsx", [
@@ -165,10 +165,13 @@ expectIncludes("src/components/admin/AdminSidebar.tsx", [
   "/admin/invoices",
 ]);
 
-expectIncludes("src/components/admin/AdminInvoiceIssueMatrix.tsx", [
+expectIncludes("src/components/admin/AdminInvoiceIssueQueue.tsx", [
   "AdminInvoiceIssueDialog",
+  "発行待ち",
+  "未発行",
   "請求書発行",
   "請求書を発行",
+  "発行前確認",
 ]);
 
 expectIncludes("src/components/admin/AdminInvoiceIssueDialog.tsx", [

@@ -768,3 +768,70 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 - 別財布は原則 `期間月数×10pt` でよいが、原資や支払額が金額ベースで先に決まっている場合だけ、割り切れる明示ptを `value_milestones.points` に入れる。
 - 円額をpt単価で丸めてから合計すると、固定金額の予算が増えて見える。金額固定の画面では原資をpt比で配分し、合計原資を正にする。
 - protected 月の差額台帳は「実際に現金で払った額」を保護するためのもの。未払い在庫だけの再計算差額まで台帳化すると、未来月の自然な再計算を邪魔する。
+
+---
+
+## 2026-07-09 — ZMP 立替精算表示 / 契約確認 / v0.39.22
+
+### コンテキスト
+- まさから、ZMP cockpit header の `立替精算` が `不明` になっている理由を確認する依頼。
+- 最初にDBフィールド未設定として説明してしまったが、まさの期待は「契約書を見て、実際に立替精算できるかまで確認する」ことだった。
+- その後、KR-AMD_250828 の docx/pdf/Docusign版、ZeMA-AMD_250714、OkuDoor 20260501 別契約を確認した。
+
+### 結論
+- ZMP 主契約 `KR-AMD_250828` には、AMD の交通費・旅費・実費を別途精算できる明示条項は無い。
+- 契約書の `経費負担` は、本件事業利益算定のために売上・費用データを提供し、費用帰属を協議する条項であり、AMDの立替精算条項ではない。
+- ただし、まさ確認で ZMP は実務上毎月立替精算を支払ってもらっているため、OS上は `立替精算OK` が正本。
+- この会話で、ZMP契約は実務運用と本文が乖離しているため、利益上乗せ条件や立替精算条項を含めて巻き直し候補と整理された。
+
+### 実装 / 仕様同期
+- `CockpitHeader` の `立替精算` 表示を `可/不可/不明` ではなく `発生額/不可` に変更。
+- `/admin/projects` の立替精算セルを、`可/不可` select + 根拠textarea から、金額または `不可` を直接入れる単一入力へ変更。
+- 空欄は `0円`、金額ありはその文字列、不可PJは `不可` と表示する。
+- ZMP は `expenseReimbursementAllowed=true` / `expenseReimbursementNote=null` とし、cockpit では `0円` 表示。
+- `pwa/design/cockpit.md`、`pwa/design/FEATURE_REGISTRY.md`、`pwa/design/SPEC_pwa.md`、`pwa/spec/3-8-cockpit-current-spec.md`、`pwa/manual/2-3-pj-cockpit.md`、`pwa/manual/6-2-admin-projects-members-ledger-spec.md`、appendix changelog、`pwa/BUGS.md` に同期。
+
+### Verification / Deploy
+- 対象lint: `npm run lint -- src/components/cockpit/CockpitHeader.tsx src/components/admin/AdminProjectsTable.tsx` passed。
+- 本番 `/api/build-info`: `v0.39.22` / `7212d150` / `dirty:false` を確認。
+- まさが本番画面で ZMP `立替精算=0円` を目視確認。
+
+### 教訓
+- 契約・請求・支払条件の質問では、DBフィールド名を理由の主語にしない。契約書・請求実績・実務運用のどれが正本かを先に確認する。
+- 本番反映の説明は、ローカル状態ではなく `origin/main` と production `/api/build-info` の version / SHA / dirty で行う。
+
+---
+
+## 2026-07-09 — admin 請求書発行キュー / v0.39.24
+
+### コンテキスト
+- `/admin/invoices` は左メニューとページ名が `請求書発行` になった一方、画面本体が旧 billing matrix のままで、請求書発行業務として見るには余計な全ステップが前面に出ていた。
+
+### 変更
+- main client を `AdminInvoiceIssueMatrix` から `AdminInvoiceIssueQueue` へ差し替え。
+- `未発行 / 発行済み / 送付済み / 入金済み / すべて` filter で SU × 月の請求状態を絞り込む。
+- 未発行行の主操作を `発行` にし、行詳細からも `請求書を発行` を開ける。
+- 発行前確認は `予算 / 報告書 / 立替` の小さな状態表示だけにし、`支払通知 / 報酬支払` など請求書発行と直接関係しない全ステップ横並び chip を撤去。
+- `FEATURE_REGISTRY`、`SPEC_pwa`、surface inventory、manual 2-6 / 6-3 / 6-6、appendix changelog、critical-ui guard を同期。
+
+### Verification / Deploy
+- closeoutで `git diff --check`、`test:critical-ui`、`test:deploy-version-guard`、`npm --prefix pwa run build`、canonical deploy、production `/api/build-info` を確認する。
+
+---
+
+## 2026-07-09 — `/admin/invoices` 請求書発行キュー / v0.39.24
+
+### コンテキスト
+- まさ指摘「ページ名は請求書発行になってるけど、中身はbilling matrixのままだよ」を受け、旧 billing matrix を請求書発行業務に寄せ直した。
+- 既に `/admin/billing` は互換 redirect へ移動済みだったが、画面本体が全ステップ横並びのままだったため、ページ名と主作業がズレていた。
+
+### 実装 / 仕様同期
+- `AdminInvoiceIssueMatrix` を削除し、`AdminInvoiceIssueQueue` へ差し替え。
+- 主画面を `未発行 / 発行済み / 送付済み / 入金済み / すべて` filter 付きの発行キューに変更。
+- 各行の発行前確認は `予算 / 報告書 / 立替` のみに絞り、未発行行の主操作を `発行` にした。
+- 請求額表示は `invoice_base_lines_json` の明細合計を最優先し、なければ `budget_reported_amount`、最後に `budget_yen / 0.65` を使う。
+- 狭い幅ではキュー本体を横スクロールさせ、列を潰して読めない状態にしない。
+- `pwa/design/FEATURE_REGISTRY.md`、`pwa/design/SPEC_pwa.md`、`pwa/manual/6-3-invoice-and-billing-routine-spec.md`、`pwa/manual/6-6-member-billing-prompts-spec.md`、manual/spec changelog、critical-ui guard を同期。
+
+### Verification / Deploy
+- closeout bundle で検証・deploy 予定。
