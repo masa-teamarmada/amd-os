@@ -45,21 +45,21 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 ## /poc
 
-目的: Seeds の研究シーズとPoC候補企業を組み合わせ、ヒアリング論点、PoC条件、謝礼、契約、資金、収益分配まで案件化する。
+目的: Seeds の研究シーズとPoC先を一次入力として持ち、その掛け合わせからヒアリング論点、PoC条件、謝礼、契約、資金、収益分配まで案件化する。
 
 必須機能:
 
 - GlobalNav: 探索グループに `PoC` と `/poc` を置く。Seedsの下流にある案件化棚なので、Admin配下へ移さない。
-- data sources: `poc_companies` / `poc_matches` / `seeds` / `projects` / `members` を読む。`seeds` は研究シーズ正本として再利用し、PoC固有の企業・条件・質問は `poc_*` に置く。
+- data sources: `seeds` / `poc_companies` / `poc_matches` / `projects` / `members` を読む。`seeds` は研究シーズ正本として再利用し、PoC固有のPoC先・条件・質問は `poc_*` に置く。
 - source hygiene: Notion議事録、Gmail、Slack、Drive、Web本文やURLを保存・表示しない。`source_ref` / `source_note` は短い参照名だけにする。
-- add match: シーズ、企業候補、関連PJ、状態、優先度、相性仮説、ヒアリング論点、謝礼・PoC費用、契約、資金、PoC目標、収益分配、次アクションを保存できる。
-- add company: 企業名、規模感、地域、業界タグ、PoC相性、過去PoC/紹介経路、謝礼、担当、状態、次アクションを保存できる。
-- matrix: `シーズ × 企業マトリックス` を置き、既存マッチをセル表示、空白セルで未検討の組み合わせを見つけられる。
-- inline status: マッチ案件と企業候補の状態は一覧上で更新できる。
+- add seed: シーズ名、機関、地域、PI/研究者、領域、用途・業界タグ、キーワード、概要、担当、状態、次アクションを `seeds` に保存できる。
+- add PoC destination: PoC先名、規模感、地域、業界タグ、PoC相性、過去PoC/紹介経路、謝礼、担当、状態、次アクションを `poc_companies` に保存できる。
+- matrix: `シーズ × PoC先マトリックス` を置き、既存案件候補をセル表示、空白セルの `案件化` で相性仮説・ヒアリング論点・PoC条件の初期案を `poc_matches` に生成できる。
+- inline status: 案件候補とPoC先の状態は一覧上で更新できる。
 
 回帰防止:
 
-- `pwa/scripts/check_pwa_critical_ui.cjs` が `/poc` route、GlobalNav導線、`poc_companies` / `poc_matches` data access、マッチ追加、企業追加、マトリックスを検査する。
+- `pwa/scripts/check_pwa_critical_ui.cjs` が `/poc` route、GlobalNav導線、`seeds` / `poc_companies` / `poc_matches` data access、シーズ追加、PoC先追加、マトリックス案件化を検査する。
 - `/poc` を消す/薄くする変更は、`poc_matching.md`、`SPEC_pwa.md`、manual 2-5 / 5-1、`/spec/2-1` を同時に更新する。
 
 ## /admin/japanese-culture-map

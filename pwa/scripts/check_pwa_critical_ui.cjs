@@ -205,12 +205,12 @@ expectIncludes("src/components/nav/GlobalNav.tsx", [
 
 expectIncludes("src/app/(app)/poc/page.tsx", [
   "PoC案件化",
-  "マッチ案件を追加",
-  "企業候補を追加",
-  "シーズ × 企業マトリックス",
-  "謝礼・PoC費用",
-  "資金・補助金",
-  "収益分配メモ",
+  "シーズを追加",
+  "PoC先を追加",
+  "シーズ × PoC先マトリックス",
+  "案件化",
+  "案件候補",
+  "PoC先リスト",
 ]);
 
 expectIncludes("src/lib/poc-data.ts", [

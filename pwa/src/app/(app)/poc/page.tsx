@@ -24,18 +24,21 @@ import {
   POC_MATCH_STATUS_ORDER,
   POC_PRIORITY_COLOR,
   POC_PRIORITY_LABEL,
-  POC_PRIORITY_ORDER,
   splitInputList,
   updatePocCompany,
   updatePocMatch,
 } from "@/lib/poc-data";
+import { insertSeed, SEED_DOMAIN_LANE_LABEL, SEED_STATUS_LABEL } from "@/lib/seeds-data";
 import type {
+  PocCompanyListItem,
   PocCompanyStatus,
   PocHubData,
   PocMatchListItem,
   PocMatchStatus,
   PocPriority,
+  PocSeedRef,
 } from "@/types/poc";
+import type { SeedDomainLane, SeedStatus } from "@/types/seeds";
 
 type CompanyForm = {
   company_name: string;
@@ -50,21 +53,17 @@ type CompanyForm = {
   next_action: string;
 };
 
-type MatchForm = {
-  seed_id: string;
-  company_id: string;
-  project_id: string;
-  match_title: string;
-  fit_hypothesis: string;
-  hearing_questions: string;
-  poc_goal: string;
-  reward_plan: string;
-  contract_plan: string;
-  funding_plan: string;
-  revenue_share_note: string;
+type SeedForm = {
+  title: string;
+  org_name: string;
+  org_region: string;
+  researcher_name: string;
+  domain_lane: SeedDomainLane | "";
+  industry_target: string;
+  keywords: string;
+  summary: string;
   owner_member_id: string;
-  status: PocMatchStatus;
-  priority: PocPriority;
+  status: SeedStatus;
   next_action: string;
 };
 
@@ -81,23 +80,22 @@ const EMPTY_COMPANY_FORM: CompanyForm = {
   next_action: "",
 };
 
-const EMPTY_MATCH_FORM: MatchForm = {
-  seed_id: "",
-  company_id: "",
-  project_id: "",
-  match_title: "",
-  fit_hypothesis: "",
-  hearing_questions: "",
-  poc_goal: "",
-  reward_plan: "",
-  contract_plan: "",
-  funding_plan: "",
-  revenue_share_note: "",
+const EMPTY_SEED_FORM: SeedForm = {
+  title: "",
+  org_name: "",
+  org_region: "",
+  researcher_name: "",
+  domain_lane: "",
+  industry_target: "",
+  keywords: "",
+  summary: "",
   owner_member_id: "",
   status: "candidate",
-  priority: "medium",
   next_action: "",
 };
+
+const SEED_DOMAIN_ORDER: SeedDomainLane[] = ["gx_energy", "gx_circular", "life", "materials", "robo", "ict", "other"];
+const SEED_STATUS_ORDER: SeedStatus[] = ["candidate", "investigating", "contacted", "discussing", "spun_off", "declined"];
 
 export default function PocHubPage() {
   const [data, setData] = useState<PocHubData | null>(null);
@@ -108,17 +106,29 @@ export default function PocHubPage() {
   const [matchStatus, setMatchStatus] = useState<PocMatchStatus | "active" | "all">("active");
   const [companyStatus, setCompanyStatus] = useState<PocCompanyStatus | "active" | "all">("active");
   const [companyForm, setCompanyForm] = useState<CompanyForm>(EMPTY_COMPANY_FORM);
-  const [matchForm, setMatchForm] = useState<MatchForm>(EMPTY_MATCH_FORM);
+  const [seedForm, setSeedForm] = useState<SeedForm>(EMPTY_SEED_FORM);
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    setLoading(true);
-    setError(null);
-    fetchPocHub()
-      .then(setData)
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
-      .finally(() => setLoading(false));
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const nextData = await fetchPocHub();
+        if (!cancelled) setData(nextData);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [reloadKey]);
 
   const filteredMatches = useMemo(() => {
@@ -167,13 +177,15 @@ export default function PocHubPage() {
   }, [companyStatus, data?.companies, search]);
 
   const matrix = useMemo(() => buildMatrix(data?.matches ?? [], data), [data]);
-  const activeMatchCount = (data?.matches ?? []).filter((m) => m.status !== "archived" && m.status !== "deal").length;
+  const activeSeedCount = (data?.seeds ?? []).filter((seed) => seed.status !== "declined").length;
+  const activeDestinationCount = (data?.companies ?? []).filter((company) => company.status !== "archived").length;
   const hearingReadyCount = (data?.matches ?? []).filter((m) =>
     ["hearing_design", "introduced", "hearing_done"].includes(m.status),
   ).length;
   const pocPipelineCount = (data?.matches ?? []).filter((m) =>
     ["poc_design", "poc_running", "deal"].includes(m.status),
   ).length;
+  const pairCount = Math.max(0, activeSeedCount * activeDestinationCount - (data?.matches.length ?? 0));
 
   const reload = () => setReloadKey((key) => key + 1);
 
@@ -198,44 +210,58 @@ export default function PocHubPage() {
     });
     setSaving(false);
     if (!result.ok) {
-      setStatusMessage(result.error ?? "企業候補の保存に失敗");
+      setStatusMessage(result.error ?? "PoC先の保存に失敗");
       return;
     }
     setCompanyForm(EMPTY_COMPANY_FORM);
-    setStatusMessage("企業候補を保存したよ");
+    setStatusMessage("PoC先を保存したよ");
     reload();
   };
 
-  const saveMatch = async (event: FormEvent) => {
+  const saveSeed = async (event: FormEvent) => {
     event.preventDefault();
-    if (!matchForm.match_title.trim()) return;
+    if (!seedForm.title.trim() || !seedForm.org_name.trim()) return;
     setSaving(true);
     setStatusMessage(null);
-    const result = await insertPocMatch({
-      seed_id: nullable(matchForm.seed_id),
-      company_id: nullable(matchForm.company_id),
-      project_id: nullable(matchForm.project_id),
-      match_title: matchForm.match_title.trim(),
-      fit_hypothesis: nullable(matchForm.fit_hypothesis),
-      hearing_questions: splitInputList(matchForm.hearing_questions),
-      poc_goal: nullable(matchForm.poc_goal),
-      reward_plan: nullable(matchForm.reward_plan),
-      contract_plan: nullable(matchForm.contract_plan),
-      funding_plan: nullable(matchForm.funding_plan),
-      revenue_share_note: nullable(matchForm.revenue_share_note),
-      owner_member_id: nullable(matchForm.owner_member_id),
-      status: matchForm.status,
-      priority: matchForm.priority,
-      next_action: nullable(matchForm.next_action),
-      source_note: "2026-07-09 PoCサービスMTG",
+    const result = await insertSeed({
+      title: seedForm.title.trim(),
+      org_name: seedForm.org_name.trim(),
+      org_region: nullable(seedForm.org_region),
+      researcher_name: nullable(seedForm.researcher_name),
+      domain_lane: nullable(seedForm.domain_lane) as SeedDomainLane | null,
+      industry_target: splitInputList(seedForm.industry_target),
+      keywords: splitInputList(seedForm.keywords),
+      summary: nullable(seedForm.summary),
+      status: seedForm.status,
+      amd_owner_member_id: nullable(seedForm.owner_member_id),
+      next_action: nullable(seedForm.next_action),
+      source: "other",
+      source_detail: "PoC案件化入力",
+      discovery_status: "reviewed",
+      is_public: false,
     });
     setSaving(false);
     if (!result.ok) {
-      setStatusMessage(result.error ?? "マッチ案件の保存に失敗");
+      setStatusMessage(result.error ?? "シーズの保存に失敗");
       return;
     }
-    setMatchForm(EMPTY_MATCH_FORM);
-    setStatusMessage("マッチ案件を保存したよ");
+    setSeedForm(EMPTY_SEED_FORM);
+    setStatusMessage("シーズを保存したよ");
+    reload();
+  };
+
+  const createMatchFromPair = async (seed: PocSeedRef, company: PocCompanyListItem) => {
+    const existing = (data?.matches ?? []).find((match) => match.seed_id === seed.id && match.company_id === company.id);
+    if (existing) return;
+    setSaving(true);
+    setStatusMessage(null);
+    const result = await insertPocMatch(buildGeneratedMatch(seed, company));
+    setSaving(false);
+    if (!result.ok) {
+      setStatusMessage(result.error ?? "案件候補の生成に失敗");
+      return;
+    }
+    setStatusMessage("シーズとPoC先から案件候補を作ったよ");
     reload();
   };
 
@@ -253,7 +279,7 @@ export default function PocHubPage() {
     setStatusMessage(null);
     const result = await updatePocCompany(companyId, { status });
     if (!result.ok) {
-      setStatusMessage(result.error ?? "企業状態の更新に失敗");
+      setStatusMessage(result.error ?? "PoC先状態の更新に失敗");
       return;
     }
     reload();
@@ -264,11 +290,11 @@ export default function PocHubPage() {
       <header className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-            Seeds x Companies x PoC
+            シーズ x PoC先
           </p>
           <h1 className="mt-1 text-2xl font-semibold tracking-normal">PoC案件化</h1>
           <p className="mt-1 max-w-4xl text-sm leading-relaxed text-muted-foreground">
-            研究シーズとPoC候補企業をつなぎ、ヒアリング論点、謝礼、契約、助成金、収益分配まで追う。
+            シーズとPoC先を入力し、その掛け合わせからヒアリング論点、謝礼、契約、助成金、収益分配を作る。
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
@@ -291,9 +317,9 @@ export default function PocHubPage() {
       </header>
 
       <section className="mb-5 grid gap-3 md:grid-cols-4">
-        <Metric label="企業候補" value={data?.companies.length ?? 0} tone="company" />
-        <Metric label="マッチ案件" value={data?.matches.length ?? 0} tone="match" />
-        <Metric label="進行中" value={activeMatchCount} tone="active" />
+        <Metric label="シーズ" value={activeSeedCount} tone="seed" />
+        <Metric label="PoC先" value={activeDestinationCount} tone="company" />
+        <Metric label="未案件化ペア" value={pairCount} tone="match" />
         <Metric label="PoC設計以降" value={pocPipelineCount} tone="poc" sub={`${hearingReadyCount}件はヒアリング段階`} />
       </section>
 
@@ -304,7 +330,7 @@ export default function PocHubPage() {
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="シーズ / 企業 / 論点 / 次アクションで検索"
+              placeholder="シーズ / PoC先 / 論点 / 次アクションで検索"
               className="h-9 w-full rounded-md border border-border bg-background pl-9 pr-3 text-sm outline-none transition-colors focus:border-cyan-500"
             />
           </div>
@@ -313,8 +339,8 @@ export default function PocHubPage() {
             onChange={(event) => setMatchStatus(event.target.value as PocMatchStatus | "active" | "all")}
             className="h-9 rounded-md border border-border bg-background px-2 text-xs"
           >
-            <option value="active">進行中マッチ</option>
-            <option value="all">全マッチ</option>
+            <option value="active">進行中案件</option>
+            <option value="all">全案件</option>
             {POC_MATCH_STATUS_ORDER.map((status) => (
               <option key={status} value={status}>
                 {POC_MATCH_STATUS_LABEL[status]}
@@ -326,8 +352,8 @@ export default function PocHubPage() {
             onChange={(event) => setCompanyStatus(event.target.value as PocCompanyStatus | "active" | "all")}
             className="h-9 rounded-md border border-border bg-background px-2 text-xs"
           >
-            <option value="active">有効企業</option>
-            <option value="all">全企業</option>
+            <option value="active">有効PoC先</option>
+            <option value="all">全PoC先</option>
             {POC_COMPANY_STATUS_ORDER.map((status) => (
               <option key={status} value={status}>
                 {POC_COMPANY_STATUS_LABEL[status]}
@@ -339,22 +365,94 @@ export default function PocHubPage() {
         {error && <p className="mt-2 text-xs text-red-600 dark:text-red-300">{error}</p>}
       </section>
 
-      <section className="mb-5 grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.75fr)]">
-        <form onSubmit={saveMatch} className="rounded-lg border border-border bg-card p-4">
-          <FormTitle icon={Network} title="マッチ案件を追加" />
+      <section className="mb-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <form onSubmit={saveSeed} className="rounded-lg border border-border bg-card p-4">
+          <FormTitle icon={Sprout} title="シーズを追加" />
           <div className="grid gap-3 md:grid-cols-2">
-            <Field label="案件名">
+            <Field label="シーズ名" wide>
               <input
-                value={matchForm.match_title}
-                onChange={(event) => setMatchForm({ ...matchForm, match_title: event.target.value })}
+                value={seedForm.title}
+                onChange={(event) => setSeedForm({ ...seedForm, title: event.target.value })}
                 className="form-input"
-                placeholder="例: SX排水処理 x 食品工場ヒアリング"
+                placeholder="例: CO2と太陽光を資源とする排水処理"
+              />
+            </Field>
+            <Field label="機関">
+              <input
+                value={seedForm.org_name}
+                onChange={(event) => setSeedForm({ ...seedForm, org_name: event.target.value })}
+                className="form-input"
+                placeholder="大学・研究機関・研究室など"
+              />
+            </Field>
+            <Field label="地域">
+              <input
+                value={seedForm.org_region}
+                onChange={(event) => setSeedForm({ ...seedForm, org_region: event.target.value })}
+                className="form-input"
+              />
+            </Field>
+            <Field label="PI / 研究者">
+              <input
+                value={seedForm.researcher_name}
+                onChange={(event) => setSeedForm({ ...seedForm, researcher_name: event.target.value })}
+                className="form-input"
+              />
+            </Field>
+            <Field label="領域">
+              <select
+                value={seedForm.domain_lane}
+                onChange={(event) => setSeedForm({ ...seedForm, domain_lane: event.target.value as SeedDomainLane | "" })}
+                className="form-input"
+              >
+                <option value="">未設定</option>
+                {SEED_DOMAIN_ORDER.map((domain) => (
+                  <option key={domain} value={domain}>
+                    {SEED_DOMAIN_LANE_LABEL[domain]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="状態">
+              <select
+                value={seedForm.status}
+                onChange={(event) => setSeedForm({ ...seedForm, status: event.target.value as SeedStatus })}
+                className="form-input"
+              >
+                {SEED_STATUS_ORDER.map((status) => (
+                  <option key={status} value={status}>
+                    {SEED_STATUS_LABEL[status]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="用途・業界タグ">
+              <input
+                value={seedForm.industry_target}
+                onChange={(event) => setSeedForm({ ...seedForm, industry_target: event.target.value })}
+                className="form-input"
+                placeholder="排水処理, 医療AI, センサ"
+              />
+            </Field>
+            <Field label="キーワード">
+              <input
+                value={seedForm.keywords}
+                onChange={(event) => setSeedForm({ ...seedForm, keywords: event.target.value })}
+                className="form-input"
+                placeholder="1行またはカンマ区切り"
+              />
+            </Field>
+            <Field label="概要" wide>
+              <textarea
+                value={seedForm.summary}
+                onChange={(event) => setSeedForm({ ...seedForm, summary: event.target.value })}
+                className="form-textarea min-h-[74px]"
               />
             </Field>
             <Field label="担当">
               <select
-                value={matchForm.owner_member_id}
-                onChange={(event) => setMatchForm({ ...matchForm, owner_member_id: event.target.value })}
+                value={seedForm.owner_member_id}
+                onChange={(event) => setSeedForm({ ...seedForm, owner_member_id: event.target.value })}
                 className="form-input"
               >
                 <option value="">未設定</option>
@@ -365,130 +463,10 @@ export default function PocHubPage() {
                 ))}
               </select>
             </Field>
-            <Field label="シーズ">
-              <select
-                value={matchForm.seed_id}
-                onChange={(event) => setMatchForm({ ...matchForm, seed_id: event.target.value })}
-                className="form-input"
-              >
-                <option value="">未設定</option>
-                {(data?.seeds ?? []).map((seed) => (
-                  <option key={seed.id} value={seed.id}>
-                    {seed.title} / {seed.org_name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="企業候補">
-              <select
-                value={matchForm.company_id}
-                onChange={(event) => setMatchForm({ ...matchForm, company_id: event.target.value })}
-                className="form-input"
-              >
-                <option value="">未設定</option>
-                {(data?.companies ?? []).map((company) => (
-                  <option key={company.id} value={company.id}>
-                    {company.company_name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="関連PJ">
-              <select
-                value={matchForm.project_id}
-                onChange={(event) => setMatchForm({ ...matchForm, project_id: event.target.value })}
-                className="form-input"
-              >
-                <option value="">未設定</option>
-                {(data?.projects ?? []).map((project) => (
-                  <option key={project.project_id} value={project.project_id}>
-                    {project.project_id} / {project.project_name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="状態">
-                <select
-                  value={matchForm.status}
-                  onChange={(event) => setMatchForm({ ...matchForm, status: event.target.value as PocMatchStatus })}
-                  className="form-input"
-                >
-                  {POC_MATCH_STATUS_ORDER.map((status) => (
-                    <option key={status} value={status}>
-                      {POC_MATCH_STATUS_LABEL[status]}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="優先">
-                <select
-                  value={matchForm.priority}
-                  onChange={(event) => setMatchForm({ ...matchForm, priority: event.target.value as PocPriority })}
-                  className="form-input"
-                >
-                  {POC_PRIORITY_ORDER.map((priority) => (
-                    <option key={priority} value={priority}>
-                      {POC_PRIORITY_LABEL[priority]}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            </div>
-            <Field label="相性仮説" wide>
-              <textarea
-                value={matchForm.fit_hypothesis}
-                onChange={(event) => setMatchForm({ ...matchForm, fit_hypothesis: event.target.value })}
-                className="form-textarea min-h-[68px]"
-              />
-            </Field>
-            <Field label="ヒアリング論点" wide>
-              <textarea
-                value={matchForm.hearing_questions}
-                onChange={(event) => setMatchForm({ ...matchForm, hearing_questions: event.target.value })}
-                className="form-textarea min-h-[76px]"
-                placeholder="1行ずつ入力"
-              />
-            </Field>
-            <Field label="謝礼・PoC費用">
-              <textarea
-                value={matchForm.reward_plan}
-                onChange={(event) => setMatchForm({ ...matchForm, reward_plan: event.target.value })}
-                className="form-textarea"
-              />
-            </Field>
-            <Field label="契約・助成金">
-              <textarea
-                value={matchForm.contract_plan}
-                onChange={(event) => setMatchForm({ ...matchForm, contract_plan: event.target.value })}
-                className="form-textarea"
-              />
-            </Field>
-            <Field label="資金・補助金">
-              <textarea
-                value={matchForm.funding_plan}
-                onChange={(event) => setMatchForm({ ...matchForm, funding_plan: event.target.value })}
-                className="form-textarea"
-              />
-            </Field>
-            <Field label="PoCで確認すること">
-              <textarea
-                value={matchForm.poc_goal}
-                onChange={(event) => setMatchForm({ ...matchForm, poc_goal: event.target.value })}
-                className="form-textarea"
-              />
-            </Field>
-            <Field label="収益分配メモ">
-              <textarea
-                value={matchForm.revenue_share_note}
-                onChange={(event) => setMatchForm({ ...matchForm, revenue_share_note: event.target.value })}
-                className="form-textarea"
-              />
-            </Field>
-            <Field label="次アクション" wide>
+            <Field label="次アクション">
               <input
-                value={matchForm.next_action}
-                onChange={(event) => setMatchForm({ ...matchForm, next_action: event.target.value })}
+                value={seedForm.next_action}
+                onChange={(event) => setSeedForm({ ...seedForm, next_action: event.target.value })}
                 className="form-input"
               />
             </Field>
@@ -496,19 +474,19 @@ export default function PocHubPage() {
           <div className="mt-3 flex justify-end">
             <button
               type="submit"
-              disabled={saving || !matchForm.match_title.trim()}
+              disabled={saving || !seedForm.title.trim() || !seedForm.org_name.trim()}
               className="inline-flex h-9 items-center gap-2 rounded-md border border-emerald-500/35 bg-emerald-500/12 px-3 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-500/18 disabled:cursor-not-allowed disabled:opacity-50 dark:text-emerald-200"
             >
               <Save className="h-4 w-4" />
-              保存
+              シーズ保存
             </button>
           </div>
         </form>
 
         <form onSubmit={saveCompany} className="rounded-lg border border-border bg-card p-4">
-          <FormTitle icon={Building2} title="企業候補を追加" />
+          <FormTitle icon={Building2} title="PoC先を追加" />
           <div className="grid gap-3">
-            <Field label="企業名">
+            <Field label="PoC先名">
               <input
                 value={companyForm.company_name}
                 onChange={(event) => setCompanyForm({ ...companyForm, company_name: event.target.value })}
@@ -612,17 +590,17 @@ export default function PocHubPage() {
       </section>
 
       <section className="mb-5 rounded-lg border border-border bg-card p-4">
-        <FormTitle icon={Handshake} title="シーズ × 企業マトリックス" />
+        <FormTitle icon={Handshake} title="シーズ × PoC先マトリックス" />
         {loading ? (
           <EmptyState text="読み込み中" />
         ) : matrix.seeds.length === 0 || matrix.companies.length === 0 ? (
-          <EmptyState text="シーズか企業候補を追加すると、ここにマトリックスが出る" />
+          <EmptyState text="シーズかPoC先を追加すると、ここにマトリックスが出る" />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-[860px] table-fixed text-xs">
               <thead>
                 <tr>
-                  <th className="w-56 px-2 py-2 text-left text-muted-foreground">企業 / シーズ</th>
+                  <th className="w-56 px-2 py-2 text-left text-muted-foreground">PoC先 / シーズ</th>
                   {matrix.seeds.map((seed) => (
                     <th key={seed.id} className="w-44 px-2 py-2 text-left align-bottom">
                       <div className="line-clamp-2 font-medium">{seed.title}</div>
@@ -655,7 +633,14 @@ export default function PocHubPage() {
                               {match.next_action && <div className="mt-1 line-clamp-2 text-[10px] text-muted-foreground">{match.next_action}</div>}
                             </div>
                           ) : (
-                            <div className="h-12 rounded-md border border-dashed border-border/70 bg-muted/15" />
+                            <button
+                              type="button"
+                              disabled={saving}
+                              onClick={() => createMatchFromPair(seed, company)}
+                              className="flex h-12 w-full items-center justify-center rounded-md border border-dashed border-border/70 bg-muted/15 text-[10px] font-medium text-muted-foreground transition-colors hover:border-emerald-500/45 hover:bg-emerald-500/10 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-emerald-200"
+                            >
+                              案件化
+                            </button>
                           )}
                         </td>
                       );
@@ -670,13 +655,13 @@ export default function PocHubPage() {
 
       <section className="mb-5 rounded-lg border border-border bg-card">
         <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
-          <FormTitle icon={Network} title="マッチ案件" compact />
+          <FormTitle icon={Network} title="案件候補" compact />
           <span className="text-xs text-muted-foreground">{filteredMatches.length}件</span>
         </div>
         {loading ? (
           <EmptyState text="読み込み中" />
         ) : filteredMatches.length === 0 ? (
-          <EmptyState text="マッチ案件なし" />
+          <EmptyState text="案件候補なし。マトリックスの空セルから作れるよ" />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-[1160px] w-full text-xs">
@@ -684,7 +669,7 @@ export default function PocHubPage() {
                 <tr>
                   <th className="px-3 py-2">案件</th>
                   <th className="px-3 py-2">シーズ</th>
-                  <th className="px-3 py-2">企業</th>
+                  <th className="px-3 py-2">PoC先</th>
                   <th className="px-3 py-2">状態</th>
                   <th className="px-3 py-2">論点</th>
                   <th className="px-3 py-2">条件</th>
@@ -768,19 +753,19 @@ export default function PocHubPage() {
 
       <section className="rounded-lg border border-border bg-card">
         <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
-          <FormTitle icon={Building2} title="企業候補リスト" compact />
+          <FormTitle icon={Building2} title="PoC先リスト" compact />
           <span className="text-xs text-muted-foreground">{filteredCompanies.length}件</span>
         </div>
         {loading ? (
           <EmptyState text="読み込み中" />
         ) : filteredCompanies.length === 0 ? (
-          <EmptyState text="企業候補なし" />
+          <EmptyState text="PoC先なし" />
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-[980px] w-full text-xs">
               <thead className="bg-muted/35 text-left text-[11px] text-muted-foreground">
                 <tr>
-                  <th className="px-3 py-2">企業</th>
+                  <th className="px-3 py-2">PoC先</th>
                   <th className="px-3 py-2">状態</th>
                   <th className="px-3 py-2">PoC相性</th>
                   <th className="px-3 py-2">謝礼・履歴</th>
@@ -843,12 +828,12 @@ export default function PocHubPage() {
   );
 }
 
-function Metric({ label, value, tone, sub }: { label: string; value: number; tone: "company" | "match" | "active" | "poc"; sub?: string }) {
+function Metric({ label, value, tone, sub }: { label: string; value: number; tone: "seed" | "company" | "match" | "poc"; sub?: string }) {
   const toneClass = {
+    seed: "border-emerald-400/35 bg-emerald-400/10",
     company: "border-cyan-400/35 bg-cyan-400/10",
     match: "border-violet-400/35 bg-violet-400/10",
-    active: "border-amber-400/35 bg-amber-400/10",
-    poc: "border-emerald-400/35 bg-emerald-400/10",
+    poc: "border-amber-400/35 bg-amber-400/10",
   }[tone];
   return (
     <div className={`rounded-lg border ${toneClass} p-4`}>
@@ -897,9 +882,47 @@ function StackedNote({ label, text }: { label: string; text: string | null }) {
   );
 }
 
+function buildGeneratedMatch(seed: PocSeedRef, company: PocCompanyListItem) {
+  const seedTargets = seed.industry_target ?? [];
+  const companyTags = company.industry_tags ?? [];
+  const overlap = seedTargets.filter((target) =>
+    companyTags.some((tag) => normalizeText(tag).includes(normalizeText(target)) || normalizeText(target).includes(normalizeText(tag))),
+  );
+  const targetText = seedTargets.slice(0, 3).join(" / ") || seed.domain_lane || "用途";
+  const companyText = companyTags.slice(0, 3).join(" / ") || company.poc_profile || "現場課題";
+  const fit = overlap.length > 0
+    ? `${overlap.join(" / ")} が重なるため、${seed.title} を ${company.company_name} のPoC課題へ当てられるか確認する。`
+    : `${seed.title} の用途仮説 (${targetText}) と、${company.company_name} 側のPoC文脈 (${companyText}) をヒアリングで照合する。`;
+
+  return {
+    seed_id: seed.id,
+    company_id: company.id,
+    match_title: `${seed.title} × ${company.company_name}`,
+    fit_hypothesis: fit,
+    hearing_questions: [
+      "現場で一番重い未解決課題と、既存の代替手段は何か",
+      "小さなPoCで測るべき効果・測定値・合格ラインは何か",
+      "謝礼、有償PoC、契約、データ利用に進む条件は何か",
+    ],
+    poc_goal: "実環境または実データに近い条件で、効果・コスト・導入条件を確認する。",
+    reward_plan: "ヒアリング謝礼または有償PoC費用を前提に、相手先の工数を無償扱いにしない。",
+    contract_plan: "PoC検証の範囲、成果物、秘密保持、データ利用、責任範囲を事前に明記する。",
+    funding_plan: "相手先の実証予算、自治体・補助金、AMD/SU側の開発費負担を確認する。",
+    revenue_share_note: "紹介・案件設計・DB利用・PoC伴走のどこで収益分配するかは個別設計にする。",
+    status: "candidate" as PocMatchStatus,
+    priority: "medium" as PocPriority,
+    next_action: "仮説を見て、初回ヒアリングで聞く順番を決める。",
+    source_note: "シーズ×PoC先マトリックス",
+  };
+}
+
 function nullable(value: string) {
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
+}
+
+function normalizeText(value: string) {
+  return value.toLowerCase().replace(/\s+/g, "");
 }
 
 function buildMatrix(matches: PocMatchListItem[], data: PocHubData | null) {

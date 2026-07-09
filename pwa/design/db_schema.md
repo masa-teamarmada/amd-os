@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-07-09 21:00 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-07-09 21:52 JST
 
 
 ## ⛔ 列名は想像で書かない

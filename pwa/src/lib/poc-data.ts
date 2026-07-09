@@ -32,7 +32,7 @@ export async function fetchPocHub(): Promise<PocHubData> {
     supabase.from("poc_matches").select("*").order("updated_at", { ascending: false }),
     supabase
       .from("seeds")
-      .select("id,title,org_name,domain_lane,industry_target,status,amd_rating,updated_at")
+      .select("id,title,summary,org_name,org_region,researcher_name,domain_lane,industry_target,keywords,status,amd_rating,next_action,updated_at")
       .order("updated_at", { ascending: false })
       .limit(400),
     supabase

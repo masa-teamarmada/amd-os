@@ -65,11 +65,16 @@ export interface PocMatch {
 export interface PocSeedRef {
   id: string;
   title: string;
+  summary: string | null;
   org_name: string;
+  org_region: string | null;
+  researcher_name: string | null;
   domain_lane: string | null;
   industry_target: string[] | null;
+  keywords: string[] | null;
   status: string;
   amd_rating: number | null;
+  next_action: string | null;
   updated_at: string;
 }
 

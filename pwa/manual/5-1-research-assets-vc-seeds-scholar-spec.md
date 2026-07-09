@@ -8,7 +8,7 @@
 |---|---|---|---|
 | `/seeds` | 研究シーズ (= 機関 × PI × シーズ) のマスタ | `seeds` / `seed_funding` / `seed_news` / `seed_contact_log` | `/api/cron/seeds-ingest` (停止中) |
 | `/seeds/inbox` | 自動収集された未確認シーズの受信箱 | `seeds (discovery_status='discovered')` | 同上 |
-| `/poc` | シーズ x 企業候補のPoC案件化台帳 | `poc_companies` / `poc_matches` / `seeds` | なし |
+| `/poc` | シーズ x PoC先のPoC案件化台帳 | `seeds` / `poc_companies` / `poc_matches` | なし |
 | `/vcs` | 国内ディープテック VC マスタ | `vcs` / `vc_funds` / `vc_investments` / `vc_contacts` / `project_vc_relations` / `vc_news` | `/api/cron/vc-discover` (停止中) |
 | `/vcs/inbox` | VC ニュース受信箱 | `vc_news (verified=false)` | 同上 |
 | `/scholar` | 論文 / OpenAlex 由来の lane 別件数 | `papers_log` | `/api/cron/papers-quarterly-ingest` |
@@ -80,24 +80,25 @@ candidate (候補)
 
 ## PoC 案件化設計
 
-PoC は Seeds の下流で、研究シーズと企業候補を組み合わせ、ヒアリング・有償PoC・契約へ進めるための台帳。2026-07-09 のPoCサービスMTGを起点に追加。
+PoC は Seeds の下流で、研究シーズとPoC先を一次入力として持ち、その掛け合わせからヒアリング・有償PoC・契約へ進めるための台帳。2026-07-09 のPoCサービスMTGを起点に追加し、同日に一次入力を `シーズ` / `PoC先` へ整理した。
 
 ### スキーマ
 
 | table | 役割 |
 |---|---|
-| `poc_companies` | PoCを受けてくれそうな企業候補。企業名、規模感、業界タグ、地域、PoC相性、過去PoC/紹介経路、謝礼メモ、担当、次アクション |
-| `poc_matches` | シーズ x 企業候補のマッチ。`seed_id`、`company_id`、任意の `project_id`、相性仮説、ヒアリング論点、PoC目標、謝礼、契約、資金、収益分配、状態、優先度 |
+| `seeds` | 研究シーズ正本。PoC画面からも追加でき、シーズ名、機関、研究者、領域、用途、キーワード、次アクションを持つ |
+| `poc_companies` | PoC先マスタ。企業、事業所、組合、自治体、施設カテゴリなど、PoCを受ける側の名称、規模感、業界タグ、地域、PoC相性、過去PoC/紹介経路、謝礼メモ、担当、次アクション |
+| `poc_matches` | シーズ x PoC先の案件候補。`seed_id`、`company_id`、任意の `project_id`、相性仮説、ヒアリング論点、PoC目標、謝礼、契約、資金、収益分配、状態、優先度 |
 
 ### 状態
 
-企業候補:
+PoC先:
 
 ```text
 candidate -> listed -> contacted -> hearing -> poc_ready -> archived
 ```
 
-マッチ案件:
+案件候補:
 
 ```text
 candidate -> hearing_design -> introduced -> hearing_done
@@ -108,7 +109,7 @@ candidate -> hearing_design -> introduced -> hearing_done
 
 | パス | 役割 |
 |---|---|
-| `/poc` | PoC案件化 hub。上段メトリクス、検索、状態フィルタ、マッチ追加、企業候補追加、シーズ x 企業マトリックス、マッチ一覧、企業候補一覧 |
+| `/poc` | PoC案件化 hub。上段メトリクス、検索、状態フィルタ、シーズ追加、PoC先追加、シーズ x PoC先マトリックス、案件候補一覧、PoC先一覧 |
 
 ### Source Hygiene
 
