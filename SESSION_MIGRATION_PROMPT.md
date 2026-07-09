@@ -52,7 +52,7 @@ cd /Users/masa/projects/AMD/amd-os
 - 月初合意fixとは別のactive WIP。巻き込まない。
 - /admin/invoices の freee取引先選択 / 請求書発行条件 WIP は 49cd543d でmainに入った。
 - 残っているのは /poc matching UI/docs WIP。
-  - 主なfiles: pwa/src/app/(app)/poc/page.tsx, pwa/design/poc_matching.md, pwa/manual/2-5-research-assets-quick-start.md, pwa/manual/5-1-research-assets-vc-seeds-scholar-spec.md, pwa/design/FEATURE_REGISTRY.md, pwa/scripts/check_pwa_critical_ui.cjs.
+  - 主なfiles: pwa/src/app/(app)/poc/page.tsx, pwa/design/poc_matching.md, pwa/manual/2-5-research-assets-quick-start.md, pwa/manual/5-1-research-assets-vc-seeds-scholar-spec.md, pwa/manual/9-3-appendix-changelog.md, pwa/design/FEATURE_REGISTRY.md, pwa/scripts/check_pwa_critical_ui.cjs, pwa/src/lib/build-info.ts (v0.39.36).
 - 次セッションでWIPを扱うなら、POC bundleの差分全体を確認し、必要なspec/manual/changelogを同期してから、対象ファイルだけ stage / commit / push / deployする。
 
 次タスク:

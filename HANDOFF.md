@@ -33,8 +33,9 @@ Uncommitted changes in canonical root checkout are separate active WIP from anot
 | path | status | class | owner guess | resolution action | risk |
 |---|---:|---|---|---|---|
 | `pwa/src/app/(app)/poc/page.tsx` | M | other-worker | POC matching worker | POC UI/docs bundleとして完成・検証・commit | 中: POC画面のWIPが宙に浮く |
-| `pwa/design/poc_matching.md`, `pwa/manual/2-5-research-assets-quick-start.md`, `pwa/manual/5-1-research-assets-vc-seeds-scholar-spec.md` | M | other-worker | POC matching worker | POC仕様変更とUIを同一commitにまとめる | 中 |
+| `pwa/design/poc_matching.md`, `pwa/manual/2-5-research-assets-quick-start.md`, `pwa/manual/5-1-research-assets-vc-seeds-scholar-spec.md`, `pwa/manual/9-3-appendix-changelog.md` | M | other-worker | POC matching worker | POC仕様変更とUIを同一commitにまとめる | 中 |
 | `pwa/design/FEATURE_REGISTRY.md`, `pwa/scripts/check_pwa_critical_ui.cjs` | M | other-worker | POC matching worker | POC UI/specと回帰ガードを同一bundleで確認して commit | 中 |
+| `pwa/src/lib/build-info.ts` | M | other-worker | POC matching worker | POC bundle完成時に `v0.39.36` として検証/deploy | 中 |
 
 Resolution owner: next POC matching session. Monthly-agreement closeoutでは巻き込まない。
 
