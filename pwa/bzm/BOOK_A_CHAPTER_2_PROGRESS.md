@@ -8,10 +8,35 @@
 |---|---|---|---|
 | 1. 節 skeleton workflow | ✅ 完了 | 2026-07-09 | 3 persona (教科書編集者 / MBA·MOT 教員 / BZM 理論家) 並列 (run wf_9112e84f-9ca、素材 = field-gates / field-clocks / field-who-carries / Ch 1 本文 / glossary / モノグラフ Ch 10.2 skeleton)。synth はえいみ本体が実施 (workflow の synth agent がクレジット制限で停止したため手動統合)。9節・計15,250字設計 |
 | 2. まさ確定 (節レベル) | ✅ **完了** | 2026-07-09 | 9節構成を承認。論点2 ✅ (glossary §5 反映) / 論点4 = 解消 (450字は節でなく 2.5 節内の配分、PF-016 帯域で ~700字に増枠) / 論点5 = **PF-016 判例化** (章 15,000-18,000字帯域) → 節別字数を計 16,300字に再配分 / 論点1・3 = draft を読んでから判断に繰延 (ステージ5-6 で再提示) |
-| 3. 段落 outline workflow | 🔄 実行中 | 2026-07-09 | 9節並列、model = Sonnet 5 (PF-016 ミックス)。strategic-slack.md との Lv1-4 突合を必須工程に含める |
-| 4. 段落 draft workflow | 🔄 実行中 (同 run) | 2026-07-09 | 9節並列、Sonnet 5。新字数配分 (計 16,300字) で発注 |
-| 5. adversarial verify | 🔄 実行中 (同 run) | 2026-07-09 | Ch 1 と同じ 5 persona (model = Opus 4.8) + τ_B 語彙水位チェックを追加。must_fix 裁定はえいみ本体 (Fable) |
-| 6. まさ段落確定 + BUILD_VERSION bump + commit | — | | |
+| 3. 段落 outline workflow | ✅ 完了 | 2026-07-09 | 9/9節 (Sonnet 5、run wf_ea405cb2-201 Phase 1) |
+| 4. 段落 draft workflow | ✅ 完了 | 2026-07-09 | 9/9節・計 約17,800字 (Sonnet 5、同 run Phase 2)。**本文 v1 = `BOOK_A_CH2_DRAFT_v1.md` に退避** (WIP・非正本、次セッションで完成後 `book-a-ch-2.md` に昇格) |
+| 5. adversarial verify | 🔄 **一部完了・要 resume** | 2026-07-09 | 3/5 persona 取得 (instructor/editor/theorist、Opus 4.8)。**student/auditor が JSON 出力失敗** (retry cap 超過)。→ script の該当 persona に「findings 最大10件・引用50字以内」の出力制約を追記済み。**次セッション冒頭で resume すれば student/auditor が live 実行され、must_fix 再集計 → fix が全節に live 再反映される** (下記「resume 手順」) |
+| 6. まさ段落確定 + BUILD_VERSION bump + commit | ⏳ resume 完了後 | | verify 完成 → book-a-ch-2.md 昇格 → bzm-chapters.ts 登録 (UI 表示) → BUILD_VERSION bump → まさ詳細レビュー (論点1・3 をここで再提示) |
+
+### resume 手順 (次セッション最初の実行)
+
+```
+Workflow({scriptPath: "~/.claude/projects/-Users-masa-projects-AMD-before-zero--claude-worktrees-relaxed-curie-c02686/f4da7fee-5c87-4b5c-90e9-96fca1900d60/workflows/scripts/book-a-ch2-draft-wf_ea405cb2-201.js", resumeFromRunId: "wf_ea405cb2-201"})
+```
+
+- outline/draft/verify(instructor/editor/theorist) = cached 即返し / verify(student/auditor) = live 新規 / fix = 全 must_fix 再集計で live 再実行
+- ⚠️ **別セッションから同 run の cache/script に到達できない場合**: `BOOK_A_CH2_DRAFT_v1.md` の本文 v1 を起点に、下記「取得済み must_fix / should_fix」を手で反映して仕上げる (script も別パスに残っているので中身は再利用可)
+
+### 取得済み must_fix (3 persona、§2.8 のみ反映済み・他は要反映)
+
+- **§2.8 (instructor/editor)**: 演習2-1 の時計表が相対月表記と絶対月表記の混在で基準月 (現在) が本文にない → 「現在を4月とし」の一文を追加済み (fix 反映で解消)
+- **§2.8 (instructor/editor)**: 演習2-1 の学生が「修士2年」だが第1章シーズカード No.1 は「博士課程学生」→ 「博士課程の大学院生」に統一済み (fix 反映で解消)
+- **§2.8 (editor)**: 冒頭「四つの演習は三つの道具に一対一で対応」が論理破綻 (4≠3) → 「鬼門と開示レベルは演習2-2と2-3の二本で確かめます」に修正済み (fix 反映で解消)
+- ※上記3件は既に §2.8 の fixed 版 draft に反映済み。他8節は verify で should_fix 止まり (must_fix なし)
+
+### 取得済み should_fix 12件 (次セッションで取り込み判断)
+
+instructor/editor/theorist から計12件。要旨は次セッションで resume 後の全 findings に統合されるため、ここでは代表のみ記録 (全文は前 run の task output に保存、resume で再生成):
+- 表と本文の記述重複の整理 (2.3 の時計各論が表2-2 と重複気味)
+- τ_B 段落の比喩が2つ以上ないか (理論家: 1つまでの規律)
+- 各節冒頭の「前節を受ける」定型文がやや機械的 (編集者)
+- 演習の所要時間表記の統一
+- resume 後は student (読者体験・知財足場かけ) と auditor (匿名化・Tier規律・場面クレーム) の観点が加わる — この2つが第2章の品質の最終ゲート
 
 ## 節 skeleton (v1 — ステージ2 確定待ち)
 
@@ -98,3 +123,4 @@ Before Zero の仕事の大半は選び直せる試行錯誤でありその自�
 |---|---|---|
 | 2026-07-09 | 初版。ステージ1 (節 skeleton) 完了 — 9節・15,250字設計、申し送り5論点、outline 工程への引き継ぎ規律を収録。ステージ2 (まさ確定) 待ち | えいみ |
 | 2026-07-09 | ステージ2 ✅ 完了 (まさ確定): 9節構成承認・論点2 glossary 反映・論点4 解消・論点5 = PF-016 判例化 (字数を計 16,300 に再配分、-5% 目標撤回)・論点1/3 は draft 後判断に繰延。ステージ3-5 を1 run で起動 (outline/draft = Sonnet 5, verify = Opus 4.8, 裁定 = Fable 本体) | えいみ |
+| 2026-07-09 | ステージ3-4 ✅ 完了 (run wf_ea405cb2-201): 9節 outline + draft (計 約17,800字)。ステージ5 は 3/5 persona 止まり (student/auditor が JSON 出力失敗、script に出力制約追記済み)。本文 v1 を `BOOK_A_CH2_DRAFT_v1.md` に退避。次セッションで resume して完成させる (resume 手順・取得済み findings を上に記録)。handoff で保全 | えいみ |
