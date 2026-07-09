@@ -28,8 +28,8 @@ cd /Users/masa/projects/AMD/amd-os
 - accepted product state: 月初合意モーダルの情報密度改善は、まさが「これならいい」と確認済み。
 - accepted product commits: f13de200 fix(pwa): tighten monthly agreement modal density / d8934395 fix(pwa): widen monthly agreement unpaid flow
 - accepted production proof before docs refresh: https://amd-os-pwa.vercel.app/api/build-info = v0.39.34 / d89343957fd51ce637fb08aa83aad369d1013a1c / main / dirty=false
-- current main also includes later docs closeout commits 6aef2bc5 / 6f61764c, invoice prerequisite fix 49cd543d, closeout-doc line daccb19f, and dirty-inventory correction f29fc560.
-- canonical root checkoutは f29fc560 へfast-forward済み。残dirtyは別worker由来のPOC matching系だけ。月初合意laneでは触らない。対象workerが対象ファイルだけstage/commit/deployする。
+- current main also includes later docs closeout commits 6aef2bc5 / 6f61764c, invoice prerequisite fix 49cd543d, closeout-doc lines daccb19f / f29fc560 / a38f6b12, and POC matching bundle 0306c5e5.
+- canonical root checkoutは origin/main とaligned。POC matching bundleは0306c5e5でmainに取り込み済み。月初合意laneの未コミット残はない。
 
 完了内容:
 - 月初合意モーダル上部の警告・合意ボタン・指標カードを圧縮し、右側に残っていた広い空白を減らした。
@@ -49,17 +49,16 @@ cd /Users/masa/projects/AMD/amd-os
 - まさが最終UIを確認し「これならいい」と受け入れ済み。
 
 現在残っている別件dirty:
-- 月初合意fixとは別のactive WIP。巻き込まない。
+- なし。closeout時点で root checkout は origin/main と aligned。
 - /admin/invoices の freee取引先選択 / 請求書発行条件 WIP は 49cd543d でmainに入った。
-- 残っているのは /poc matching UI/docs WIP。
-  - 主なfiles: pwa/src/app/(app)/poc/page.tsx, pwa/design/poc_matching.md, pwa/manual/2-5-research-assets-quick-start.md, pwa/manual/5-1-research-assets-vc-seeds-scholar-spec.md, pwa/manual/9-3-appendix-changelog.md, pwa/design/FEATURE_REGISTRY.md, pwa/scripts/check_pwa_critical_ui.cjs, pwa/src/lib/build-info.ts (v0.39.36).
-- 次セッションでWIPを扱うなら、POC bundleの差分全体を確認し、必要なspec/manual/changelogを同期してから、対象ファイルだけ stage / commit / push / deployする。
+- /poc matching UI/docs WIP は 0306c5e5 でmainに入った。
+- 次セッションで新しいWIPを扱うなら、対象bundleの差分全体を確認し、必要なspec/manual/changelogを同期してから、対象ファイルだけ stage / commit / push / deployする。
 
 次タスク:
 - 月初合意モーダルの既知残タスクはない。
 - 追加修正を頼まれたら、最初にproduction build-infoとorigin/mainを合わせ、実データのモーダルをスクショで見る。
 - まさの前回指摘のニュアンスは「無駄なスペースが全然減っていない。右側空白、1行で済む情報の改行、MS表の列間、未払いグラフ/表の横長さを、ひとつひとつ言わないとだめなのか」。次回は個別指摘待ちではなく、画面全体の情報密度を自分で点検する。
-- 現実的な別lane次アクションは、/poc matching WIP をbundle単位で完成させること。
+- 現実的な別lane次アクションは、POC matching の次改善を main の `0306c5e5` / `v0.39.36` から始めること。
 
 運用ルール:
 - PWA本番反映は main push = Vercel自動deploy。直接 npx vercel deploy は使わない。必要な時は AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh。
