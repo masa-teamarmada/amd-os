@@ -838,4 +838,4 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 - `npm run test:critical-ui` passed。
 - `./node_modules/typescript/bin/tsc --noEmit --pretty false` passed。
 - `npm run build` passed。既存の Next.js middleware deprecation warning のみ。
-- deploy は closeout bundle で正規 script から実行する。
+- closeout deploy は正規 script で実行済み。production `/api/build-info` は `v0.39.24` / `dirty:false` を返す。
