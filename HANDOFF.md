@@ -83,6 +83,6 @@ curl -fsS https://amd-os-pwa.vercel.app/api/build-info
 ## Closeout Decision
 
 - Accepted MS design-amount work: complete, committed, pushed, deployed.
-- Final handoff docs commit: `78909002 Refresh cockpit MS budget handoff`; production build-info reached this commit with `v0.39.20` / `dirty=false`.
+- Final handoff docs were committed and pushed after the accepted product work. Check `git log -1` and production `/api/build-info` for the exact latest docs-only commit; product build version remains `v0.39.20` / `dirty=false`.
 - Current checkout: `do not archive` because unrelated dirty tracked/untracked files remain.
 - Branch/worktree cleanup: no local non-main branch and no extra worktree to remove.

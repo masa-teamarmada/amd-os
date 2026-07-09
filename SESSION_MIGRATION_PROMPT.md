@@ -37,7 +37,8 @@ cd /Users/masa/projects/AMD/amd-os
   - git_sha: aaa19ac354f323dc38c2d22cece1e765fcbbd203
   - branch: main
   - dirty: false
-- HEAD and origin/main were aligned at handoff inventory: ahead 0 / behind 0.
+- final handoff docs were committed and pushed after accepted product work. At resume, run `git log -1 --oneline` and `/api/build-info`; expected product version remains v0.39.20 / dirty=false.
+- HEAD and origin/main were aligned at closeout inventory: ahead 0 / behind 0.
 - registered worktree: /Users/masa/projects/AMD/amd-os [main] only.
 - local branch: main only.
 
