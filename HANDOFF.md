@@ -2,69 +2,86 @@
 
 Last updated: 2026-07-09 JST
 Target: `/Users/masa/projects/AMD/amd-os`
-Topic: Japanese culture map moved into admin + closeout
+Topic: PJ cockpit MS design amounts + member design amounts
 
 ## Summary
 
-- `日本文化マップ` の実画面を `/admin/japanese-culture-map` へ移動した。
-- 旧 `/japanese-culture-map` は互換 redirect として残した。未ログイン時は `(app)` auth gate が先に走るため、`/auth/login?next=%2Fjapanese-culture-map` へ入る。
-- グローバル nav の一般 `資料` から外し、admin nav / admin sidebar / page title mapping へ追加した。
-- spec / manual / design / feature registry / changelog を admin 配下の正本へ同期した。
-- Accepted product deploy: `v0.39.18` / `1327db6b4c2709bf261910868eead7168667a68e` / `dirty=false`.
+- PJ cockpit / HUD cockpit の今期MSリストに、各MSの `設計額` を追加した。
+- バー上のメンバー chip に、担当者ごとの `担当設計額` も追加した。表示は短く `まさ 65% / 4.6pt / 12.3万円` の形、正確な円額は hover title に残す。
+- 通常MSは plan cycle の本契約予算、`cap_extra` は同期間の別財布予算から按分する。これは支払確定額ではなく `/admin/ms-overview` と同じ設計額の目安。
+- manual / spec / design / FEATURE_REGISTRY / changelog / critical UI guard を同期済み。詳細ログは `pwa/design_log/sessions_2026-07.md` の `2026-07-09 — PJ cockpit MS design amounts` を見る。
+- Production accepted state: `v0.39.20` / `aaa19ac354f323dc38c2d22cece1e765fcbbd203` / `dirty=false`.
 
 ## Repo State
 
 - Canonical repo: `/Users/masa/projects/AMD/amd-os`
 - Branch rule: this repo works on `main`; do not create a branch for normal AMD OS work.
-- Product change commit: `1327db6b Move Japanese culture map into admin`.
-- `main` and `origin/main` were aligned before this handoff refresh.
-- Local branches: `main` only.
+- HEAD / origin/main at handoff inventory: `aaa19ac3 Show member design amounts in cockpit MS chips`
+- `HEAD...origin/main`: `0 0` ahead/behind.
+- Production `/api/build-info`: `v0.39.20` / `aaa19ac354f323dc38c2d22cece1e765fcbbd203` / `dirty=false`.
 - Registered worktrees: `/Users/masa/projects/AMD/amd-os [main]` only.
-- Final docs-only handoff commit may be newer than `1327db6b`; recheck `git log -1` and production `/api/build-info` after closeout deploy.
-- Local tooling artifacts are normal: `.vercel/project.json`, `ios/supabase/.temp/*`, `pwa/.next`, `pwa/node_modules`. `ios/supabase/.temp/project-ref` is tracked.
+- Local branches: `main` only.
 
-Re-check with:
+## Verification Run
+
+For `d9d38833 Show MS design budgets in cockpit`:
+- `npx tsc --noEmit`
+- `npm run test:critical-ui`
+- `npm run test:next-period-ui`
+- `npm run build`
+- targeted `eslint`
+- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`
+- Production build-info confirmed `v0.39.19`.
+
+For `aaa19ac3 Show member design amounts in cockpit MS chips`:
+- `npx tsc --noEmit`
+- `npm run test:critical-ui`
+- `npm run test:next-period-ui`
+- targeted `eslint`
+- `npm run build`
+- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`
+- Production build-info confirmed `v0.39.20`.
+
+Browser note:
+- Auth-gated cockpit route could not be visually inspected after login from this session. The local route redirected to `/auth/login`; substitute verification was build + type + critical UI guard + source-level layout review.
+
+## Current Dirty State
+
+This checkout is **not archive ok** right now. After the accepted MS design-amount deploy, another in-progress dirty bundle appeared in the canonical checkout. It is not part of `aaa19ac3` and is not deployed.
+
+| path group | class | owner guess | action | risk |
+|---|---|---|---|---|
+| `pwa/scripts/migrations/166_milestone_change_events.sql`, `pwa/src/components/cockpit/CockpitMsChangeHistory.tsx`, `pwa/src/app/api/admin/ms-overview/[planCycleId]/route.ts`, `pwa/src/lib/supabase-data.ts`, `pwa/src/components/cockpit/CockpitView.tsx`, related `pwa/design/cockpit.md` / manual / spec / critical UI changes | other-worker / unknown | active MS変更履歴 worker or next session | Finish, validate, commit, and deploy as its own bundle, or archive/revert with explicit approval. Do not mix into this handoff closeout. | `deploy.sh` hard-stops while tracked dirty remains; local `BUILD_VERSION` is `v0.39.21` but production is `v0.39.20`. |
+| `pwa/src/components/monthly-agreement/MonthlyAgreementExperience.tsx`, `pwa/src/components/monthly-agreement/MonthlyAgreementGateOverlay.tsx`, `pwa/src/app/api/admin/payouts/route.ts`, `pwa/src/components/admin/AdminPayoutsClient.tsx` | other-worker / unknown | monthly-agreement / payout UI worker | Classify with the owner before committing or reverting. | Could accidentally couple monthly agreement UI changes with MS history changes. |
+
+First check in the next session:
 
 ```bash
 cd /Users/masa/projects/AMD/amd-os
 git status -sb --untracked-files=all
-git log -3 --oneline
-git worktree list
+git diff --stat
+git log --oneline --decorate -5
 curl -fsS https://amd-os-pwa.vercel.app/api/build-info
 ```
 
-## Verification Run
-
-- `npm run test:critical-ui`
-- `npx tsc --noEmit`
-- `npm run build`
-- Local dev server route smoke:
-  - `/admin/japanese-culture-map` redirected to `/auth/login?next=%2Fadmin%2Fjapanese-culture-map`.
-  - `/japanese-culture-map` redirected to `/auth/login?next=%2Fjapanese-culture-map` before child redirect because auth gate runs first.
-- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`
-- Production build-info confirmed `v0.39.18` / `1327db6b4c2709bf261910868eead7168667a68e` / `dirty=false`.
-- Production route headers confirmed `/admin/japanese-culture-map` is auth-gated.
-
-## Design Records
-
-| Change | Spec/design | Manual |
-|---|---|---|
-| `日本文化マップ` の実 route を `/admin/japanese-culture-map` に移動 | `pwa/spec/2-1-pwa-runtime-routes.md`, `pwa/spec/2-2-pwa-surface-inventory-current-spec.md`, `pwa/design/FEATURE_REGISTRY.md`, `pwa/design/SPEC_pwa.md` | `pwa/manual/2-6-admin-ops.md` |
-| 旧 `/japanese-culture-map` を互換 redirect として維持 | `pwa/spec/2-1-pwa-runtime-routes.md` | changelogs |
-| nav / sidebar / title を admin 扱いへ同期 | `pwa/design/os_manual.md`, `pwa/design/FEATURE_REGISTRY.md` | `pwa/manual/2-6-admin-ops.md` |
-| Build version `v0.39.18` と changelog | `pwa/spec/6-1-appendix-changelog.md` | `pwa/manual/9-3-appendix-changelog.md` |
-
 ## Open Next Task
 
-- Japanese culture map lane: no known open implementation task.
-- Optional smoke if needed: login-capable browserで `/admin/japanese-culture-map` を開き、admin sidebar / map rendering / old-route authenticated redirect を目視する。
-- Carry-forward unrelated lane: `/admin/ms-overview` の `実支払へ合わせる` admin UI は前回から未実装。実支払証跡・member別差額・freee transaction IDs・reserve 承認を同じ flow で扱う必要がある。
+1. Decide the fate of the current dirty bundle:
+   - If it is the intended next feature, finish `MS変更履歴` end-to-end: migration application, schema dump if needed, API/types/UI, docs/changelog, `test:critical-ui`, `tsc`, `build`, deploy.
+   - If it is stale or accidental, archive the diff first and then clean/revert only with explicit approval.
+2. Optional visual follow-up for this completed lane: login-capable browserで `/project/<projectId>/cockpit` を開き、MS bar chip の `担当設計額` が横幅内で読めるかを目視する。
+
+## Pointers
+
+- MS cockpit spec: `pwa/spec/3-8-cockpit-current-spec.md`
+- MS cockpit manual: `pwa/manual/2-3-pj-cockpit.md`
+- Cockpit design: `pwa/design/cockpit.md`
+- Feature registry: `pwa/design/FEATURE_REGISTRY.md`
+- Session log: `pwa/design_log/sessions_2026-07.md`
+- Bug/process lessons: `pwa/BUGS.md`
 
 ## Closeout Decision
 
-This lane is `archive ok` after the final handoff docs commit/push if:
-
-- `git status -sb --untracked-files=all` is clean,
-- `main` and `origin/main` are aligned,
-- production `/api/build-info` points to latest `origin/main`,
-- worktree registry and local branch list still contain only the canonical `main`.
+- Accepted MS design-amount work: complete, committed, pushed, deployed.
+- Current checkout: `do not archive` because unrelated dirty tracked/untracked files remain.
+- Branch/worktree cleanup: no local non-main branch and no extra worktree to remove.

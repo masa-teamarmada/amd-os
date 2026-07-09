@@ -679,3 +679,42 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 ### 教訓
 - admin扱いに変える route は、実 route だけでなく GlobalNav / AdminSidebar / title mapping / runtime route spec / surface inventory / manual のすべてを同時に動かす。
 - `(app)` 配下の旧route redirectは、未ログイン時には child page より auth gate が先に効く。unauth smoke では `next` の違いまで見ておく。
+
+---
+
+## 2026-07-09 — PJ cockpit MS design amounts / member design amounts / v0.39.20
+
+### コンテキスト
+- まさから「コックピットのMSリストに各MSに割り当てられている予算を明示してほしい」と依頼。
+- 続けて、MSバー上のメンバーchipにも「各メンバーの金額」を表示するよう依頼。
+- `/Users/masa/projects/AGENTS.common.md`、root / pwa の `AGENTS.md` / `CLAUDE.md`、cockpit / MS overview 関連の manual / spec / design md を先に読んだ。
+
+### 実装 / 仕様同期
+- `MilestoneGanttChart` に MS単位の `設計額` を追加。
+- 通常MSは plan cycle の `budget_yen` をシーズン月数×10ptで按分し、`cap_extra` は同期間の `billing_cycles.extra_budget_yen` 合計を cap_extra 有効ptで按分する。
+- バー上のメンバーchipに担当者ごとの `担当設計額` を追加。短い表示は `12.3万円` 形式、正確な円額は hover title に残す。
+- `fetchCockpitFromSupabase` から `extraDesignBudgetYen` を渡すようにした。
+- `pwa/manual/2-3-pj-cockpit.md`、`pwa/spec/3-8-cockpit-current-spec.md`、`pwa/design/cockpit.md`、`pwa/design/FEATURE_REGISTRY.md`、manual/spec changelog、`pwa/scripts/check_pwa_critical_ui.cjs` を同期。
+- `BUILD_VERSION` は MS設計額で `v0.39.19`、担当設計額で `v0.39.20`。
+
+### Verification / Deploy
+- `npx tsc --noEmit` passed。
+- `npm run test:critical-ui` passed。
+- `npm run test:next-period-ui` passed。
+- targeted `eslint` passed。
+- `npm run build` passed。
+- local browser は auth gate で `/auth/login` まで。ログイン後 cockpit の目視は未実施。
+- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` で main push / Vercel production 反映。
+- production `/api/build-info`: `v0.39.20` / `aaa19ac354f323dc38c2d22cece1e765fcbbd203` / `dirty:false`。
+
+### Closeout snapshot
+- accepted commits:
+  - `d9d38833 Show MS design budgets in cockpit`
+  - `aaa19ac3 Show member design amounts in cockpit MS chips`
+- accepted lane は完了・本番反映済み。
+- ただし handoff/closeout 時点の checkout には別件dirtyが残っている。代表: `milestone_change_events` migration / `CockpitMsChangeHistory` / monthly-agreement modal / admin payouts / local `BUILD_VERSION v0.39.21`。
+- dirty bundle はこの lane の commit/deploy には含めていない。次セッションで owner/action を確定する。
+
+### 教訓
+- コックピットで円額を出すときは、支払確定額ではなく「設計額の目安」と明示し、reward cache / season-pl / payouts の支払正本と混ぜない。
+- `cap_extra` は本契約pt単価に混ぜず、別財布原資と cap_extra 有効ptで別計算する。
