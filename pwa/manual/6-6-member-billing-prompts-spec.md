@@ -55,7 +55,7 @@ PWA 側で `member_allocations_json` を再計算しない。 正本ロジック
 
 合意は「当月の遂行内容と報酬条件を確認した」監査 snapshot。`reward_summary_json`、`member_allocations_json`、MS進捗、担当shareを読むだけで、報酬計算を再実行したり値を書き換えたりしない。
 
-月初合意画面は cap、carry-over、条件/前提、未確定・要確認などの精算/確認内部情報を出さない。本人には「どのPJのどのMSにコミットするか」「当月どこまで到達すべきか」「その対価としての想定報酬」を示す。MS別予定報酬は月初合意用の月次予算配分で算出し、PJ別想定報酬と合計が合うよう丸め差分を吸収する。`status='frozen'` / `freeze_from_ym <= ym` / active `project_freeze_periods` の PJ と、当月報酬も担当MSもないPJは対象外。`members.exclude_from_payout_notice=true` かつ `is_admin=false` のメンバー (= りり / ID006 NIMS 無償出向、あき / ID029 無報酬稼働) は月初合意も対象外。`is_admin=true` のメンバーは、テスト確認のため支払通知対象外でも月初合意対象に含める。報酬キャッシュがあるPJで担当MSにbreakdown行がない場合は、未確定ではなく `0円` と表示する。`reward_summary_json.members[].stockYen > 0` の場合だけ、支払予定とは分けて翌月以降へ繰り越される残額として `今月末未払い残（今月は支払われない）` を read-only 表示する。
+月初合意画面は cap、carry-over、条件/前提、未確定・要確認などの精算/確認内部情報を出さない。本人には「どのPJのどのMSにコミットするか」「当月どこまで到達すべきか」「その対価としての想定報酬」を示す。MS別予定報酬は月初合意用の月次予算配分で算出し、PJ別想定報酬と合計が合うよう丸め差分を吸収する。`status='frozen'` / `freeze_from_ym <= ym` / active `project_freeze_periods` の PJ と、当月報酬も担当MSもないPJは対象外。`members.exclude_from_payout_notice=true` かつ `is_admin=false` のメンバー (= りり / ID006 NIMS 無償出向、あき / ID029 無報酬稼働) は月初合意も対象外。`is_admin=true` のメンバーは、テスト確認のため支払通知対象外でも月初合意対象に含める。報酬キャッシュがあるPJで担当MSにbreakdown行がない場合は、未確定ではなく `0円` と表示する。`reward_summary_json.members[].stockYen > 0` の場合だけ、支払予定とは分けて翌月以降へ繰り越される残額として `今月末未払い残（今月は支払われない）` を read-only 表示する。`未払いがどう残るか` は、1か月を縦に複数行カードとして積まず、左に項目、右に稼働月列を広げる横長マトリクスで表示する。
 
 当月の本人合意が未完了または条件更新ありで、表示対象PJがある場合、OS内の他画面を開くと、開いた画面を背景に残したまま月初合意モーダルを前面に表示する。モーダル内に `/monthly-agreement` と同じ確認内容を出す。背景クリックで表示だけ一時的に閉じられるが、合意状態は保存されないため、未合意のままダッシュボードなどを開き直すと再表示される。合意完了後は、次回からこの確認モーダルを出さずにマイページ、PJコックピット、admin画面などへ入れる。
 

@@ -169,7 +169,7 @@ API route は logged-in user を `members.email` で解決する。本人以外�
 - 合計: 参加PJ数、予定報酬合計、支払済み実績(税込)、実績未照合(税込)、これから支払予定(税込)、今月末未払い残合計 (`stockYen > 0` のときのみ)。支払済み実績は `reward_paid_at` ではなく、`monthly_reward_payout` の保存済み明細と `freee_wallet_txn_verified:` 証跡がそろった行だけを、税込額 (`round(total_pay × 1.1)`) で集計する。`reward_paid_at` はあるが実支払証跡とPJ別明細額が一致していない行は `実績未照合` へ分け、実績にも「これから支払予定」にも混ぜない。
 - PJごとに、今月支払額、今月末未払い残、前月繰越・今月発生・今月支払の内訳、合意用予定報酬、PM/PL role、担当MS/担当割合/累積進捗/今月pt/予定報酬を表示する。`stockYen` は「今月は支払われない」別枠で強調し、支払額や合意用予定報酬と同じ見え方にしない。
 - PJカードには `/project/:projectId/cockpit?ym=YYYYMM` への「今シーズンのMSリストへ」リンクを置く。admin閲覧時は `/admin/ms-overview?projectId=...` への設計レビュー導線も出す。
-- `未払いストックの流れ` は、グラフと明細表のどちらも縦方向の内部スクロールを使わず全行を表示する。狭い画面では横方向だけスクロールを許容する。明細表の支払額には税抜と税込を併記し、`支払実績` / `要照合` / `保存済み` / `保護済み` / `予定` の source badge を出し、過去実績・未照合・未来予定を混ぜない。
+- `未払いストックの流れ` は、月ごとに縦積みカードを増やさず、左に `前月残 / 当月発生 / 支払対象 / 支払 / 月末残`、右に稼働月列を並べる横長マトリクスで表示する。右側に余白を残さず、1つの月を複数行カードとして繰り返さない。狭い画面では横方向だけスクロールを許容する。支払額には税抜と税込を併記し、`支払実績` / `要照合` / `保存済み` / `保護済み` / `予定` の source badge を出し、過去実績・未照合・未来予定を混ぜない。
 - MS別予定報酬は、当月月次予算を当月予定MS消化ptと active member 正規化 share で配分する。`reward_summary_json.members[].breakdown[].payYen` は使わない。
 - 担当MS、到達目標、予定報酬が違う場合は、合意とは別に修正要望を送信できる。
 - 主要な概念には `Hint` を付ける。対象IDは `monthly-agreement.flow` / `monthly-agreement.project-count` / `monthly-agreement.expected-reward` / `monthly-agreement.payout` / `monthly-agreement.stock` / `monthly-agreement.stock-flow` / `monthly-agreement.ms-pt` / `monthly-agreement.ms-link` / `monthly-agreement.revision-request`。

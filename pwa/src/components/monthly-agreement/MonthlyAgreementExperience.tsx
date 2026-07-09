@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRight, CheckCircle2, CircleDollarSign, FileCheck2, ListChecks, Loader2, RefreshCw, Send } from "lucide-react";
 import { Hint } from "@/components/ui/Hint";
@@ -883,50 +884,7 @@ function PayoutScheduleTable({
         </h3>
         <span className={`${compact ? "hidden lg:inline" : ""} text-[10px] text-[#86868b]`}>前月残 + 当月発生 - 支払 = 未払残</span>
       </div>
-      <PayoutFlowBars rows={rows} compact={compact} />
-      {!compact && (
-      <div className="overflow-x-auto">
-        <table className={`${compact ? "w-[380px] max-w-full" : "min-w-[720px] w-full"} text-[11px]`}>
-          <thead className="bg-white text-[#6e6e73]">
-            <tr className="border-b border-[#e5e5e7]">
-              <th className={`${compact ? "px-2 py-1" : "px-3 py-2"} text-left font-semibold`}>稼働月</th>
-              <th className={`${compact ? "px-2 py-1" : "px-3 py-2"} text-right font-semibold`}>当月発生</th>
-              <th className={`${compact ? "px-2 py-1" : "px-3 py-2"} text-right font-semibold`}>支払対象</th>
-              <th className={`${compact ? "px-2 py-1" : "px-3 py-2"} text-right font-semibold`}>支払</th>
-              <th className={`${compact ? "px-2 py-1" : "px-3 py-2"} text-right font-semibold`}>未払残</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[#e5e5e7]">
-            {rows.map((row) => (
-              <tr key={`${row.sourceYm}:${row.paymentYm}`} className={row.isCurrentYm ? "bg-amber-50/70" : undefined}>
-                <td className={`${compact ? "px-2 py-1" : "px-3 py-2"} align-top`}>
-                  <div className="font-semibold text-[#1d1d1f]">{formatYm(row.sourceYm)}</div>
-                  {row.isCurrentYm && <div className="text-[10px] font-semibold text-amber-800">今回確認する月</div>}
-                </td>
-                <td className={`${compact ? "px-2 py-1" : "px-3 py-2"} text-right align-top tabular-nums`}>
-                  <div className="font-semibold text-[#3c3c43]">{formatYen(row.basePayYen)}</div>
-                </td>
-                <td className={`${compact ? "px-2 py-1" : "px-3 py-2"} text-right align-top tabular-nums`}>
-                  <div className="font-semibold text-[#3c3c43]">{formatYen(row.grossDueYen)}</div>
-                  {row.carryInYen > 0 && <div className="text-[10px] text-[#86868b]">前から残る分 {formatYen(row.carryInYen)}</div>}
-                </td>
-                <td className={`${compact ? "px-2 py-1" : "px-3 py-2"} text-right align-top tabular-nums`}>
-                  <div className="font-semibold text-[#1d1d1f]">税抜 {formatYen(row.totalPayYen)}</div>
-                  <div className="text-[10px] text-[#86868b]">税込 {formatYen(row.totalPayTaxIncludedYen)}</div>
-                  <div className="text-[10px] text-[#86868b]">{formatYm(row.paymentYm)}支払</div>
-                  <PayoutSourceBadge row={row} />
-                </td>
-                <td className={`${compact ? "px-2 py-1" : "px-3 py-2"} text-right align-top tabular-nums`}>
-                  <div className={row.stockYen > 0 ? "font-semibold text-amber-800" : "text-[#86868b]"}>
-                    {formatYen(row.stockYen)}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      )}
+      <PayoutScheduleMatrix rows={rows} compact={compact} />
     </div>
   );
 }
@@ -961,92 +919,157 @@ function PayoutSourceBadge({
   );
 }
 
-function PayoutFlowBars({
+type PayoutScheduleEntry = MonthlyWorkAgreementProject["payoutSchedule"][number];
+
+function PayoutScheduleMatrix({
   rows,
   compact = false,
 }: {
   rows: MonthlyWorkAgreementProject["payoutSchedule"];
   compact?: boolean;
 }) {
-  const maxGrossDueYen = Math.max(1, ...rows.map((row) => row.grossDueYen));
-  const currentSourceYm = rows.find((item) => item.isCurrentYm)?.sourceYm ?? null;
-  const chartRows = currentSourceYm
-    ? rows.filter((row) => row.isCurrentYm || row.sourceYm >= currentSourceYm)
-    : rows;
-  const visibleRows = compact ? rows : chartRows.length > 0 ? chartRows : rows;
+  const labelColumnWidth = compact ? 92 : 124;
+  const monthColumnWidth = compact ? 124 : 156;
+  const minTableWidth = labelColumnWidth + rows.length * monthColumnWidth;
+  const labelCellClass = `${compact ? "px-2 py-2" : "px-3 py-2.5"} sticky left-0 z-10 border-b border-r border-[#e5e5e7] bg-[#fbfbfd] text-left`;
+  const valueCellClass = `${compact ? "px-2 py-2" : "px-3 py-2.5"} border-b border-r border-[#e5e5e7] text-right align-top tabular-nums`;
+
   return (
-    <div className={`border-b border-[#e5e5e7] bg-white ${compact ? "p-2" : "p-3"}`}>
-      <div className={`${compact ? "mb-1.5 gap-x-2 gap-y-1" : "mb-2 gap-2"} flex flex-wrap text-[10px] text-[#6e6e73]`}>
-        <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-[#d1d1d6]" />前月残</span>
-        <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-sky-300" />当月発生</span>
-        <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-emerald-400" />支払</span>
-        <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded-sm bg-amber-300" />未払残</span>
-      </div>
-      <div className="overflow-x-auto">
-        <div className={`${compact ? "w-[640px] max-w-full space-y-1" : "min-w-[680px] space-y-2"}`}>
-          {visibleRows.map((row) => (
-            <PayoutFlowBarRow key={`${row.sourceYm}:${row.paymentYm}`} row={row} maxGrossDueYen={maxGrossDueYen} compact={compact} />
+    <div className="overflow-x-auto bg-white">
+      <table className="w-full border-collapse text-[11px]" style={{ minWidth: `${minTableWidth}px` }}>
+        <colgroup>
+          <col style={{ width: labelColumnWidth }} />
+          {rows.map((row) => (
+            <col key={`${row.sourceYm}:${row.paymentYm}`} style={{ width: monthColumnWidth }} />
           ))}
-        </div>
-      </div>
+        </colgroup>
+        <thead>
+          <tr>
+            <th className={`${labelCellClass} top-0 bg-[#f5f5f7] font-semibold text-[#6e6e73]`}>項目</th>
+            {rows.map((row) => (
+              <th
+                key={`${row.sourceYm}:${row.paymentYm}`}
+                className={`${compact ? "px-2 py-2" : "px-3 py-2.5"} border-b border-r border-[#e5e5e7] text-right align-top ${row.isCurrentYm ? "bg-amber-50" : "bg-[#f5f5f7]"}`}
+              >
+                <div className="flex items-start justify-between gap-2 text-left">
+                  {row.isCurrentYm ? <span className="rounded-full bg-amber-200 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900">今回</span> : <span />}
+                  <div className="min-w-0 text-right">
+                    <div className="font-semibold text-[#1d1d1f]">{formatYm(row.sourceYm)}</div>
+                    <div className="mt-0.5 text-[10px] font-normal text-[#86868b]">{formatYm(row.paymentYm)}支払</div>
+                  </div>
+                </div>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          <PayoutMatrixRow
+            label="前月残"
+            description="前から残る分"
+            rows={rows}
+            valueCellClass={valueCellClass}
+            labelCellClass={labelCellClass}
+            render={(row) => <PayoutMatrixAmount value={row.carryInYen} tone={row.carryInYen > 0 ? "plain" : "muted"} />}
+          />
+          <PayoutMatrixRow
+            label="当月発生"
+            description="今月の仕事分"
+            rows={rows}
+            valueCellClass={valueCellClass}
+            labelCellClass={labelCellClass}
+            render={(row) => <PayoutMatrixAmount value={row.basePayYen} tone="sky" />}
+          />
+          <PayoutMatrixRow
+            label="支払対象"
+            description="残 + 発生"
+            rows={rows}
+            valueCellClass={valueCellClass}
+            labelCellClass={labelCellClass}
+            render={(row) => <PayoutMatrixAmount value={row.grossDueYen} tone="plain" />}
+          />
+          <PayoutMatrixRow
+            label="支払"
+            description="税抜 / 税込"
+            rows={rows}
+            valueCellClass={valueCellClass}
+            labelCellClass={labelCellClass}
+            render={(row) => (
+              <div className="space-y-1">
+                <PayoutMatrixAmount value={row.totalPayYen} tone={row.totalPayYen > 0 ? "emerald" : "muted"} prefix="税抜 " />
+                <div className="text-[10px] leading-tight text-[#86868b]">税込 {formatYen(row.totalPayTaxIncludedYen)}</div>
+                <PayoutSourceBadge row={row} inline />
+              </div>
+            )}
+          />
+          <PayoutMatrixRow
+            label="月末残"
+            description="支払後に残る分"
+            rows={rows}
+            valueCellClass={valueCellClass}
+            labelCellClass={labelCellClass}
+            render={(row) => <PayoutMatrixAmount value={row.stockYen} tone={row.stockYen > 0 ? "amber" : "muted"} />}
+          />
+        </tbody>
+      </table>
     </div>
   );
 }
 
-function PayoutFlowBarRow({
-  row,
-  maxGrossDueYen,
-  compact = false,
+function PayoutMatrixRow({
+  label,
+  description,
+  rows,
+  valueCellClass,
+  labelCellClass,
+  render,
 }: {
-  row: MonthlyWorkAgreementProject["payoutSchedule"][number];
-  maxGrossDueYen: number;
-  compact?: boolean;
+  label: string;
+  description: string;
+  rows: PayoutScheduleEntry[];
+  valueCellClass: string;
+  labelCellClass: string;
+  render: (row: PayoutScheduleEntry) => ReactNode;
 }) {
-  const grossDueYen = Math.max(1, row.grossDueYen);
-  const barWidthPct = Math.max(4, Math.min(100, (grossDueYen / maxGrossDueYen) * 100));
-  const carryPct = Math.min(100, (row.carryInYen / grossDueYen) * 100);
-  const basePct = Math.min(100, (row.basePayYen / grossDueYen) * 100);
-  const paidPct = Math.min(100, (row.totalPayYen / grossDueYen) * 100);
-  const stockPct = Math.min(100, (row.stockYen / grossDueYen) * 100);
   return (
-    <div className={`${compact ? "grid-cols-[74px_180px_360px] gap-2 px-1.5 py-1" : "grid-cols-[92px_minmax(0,1fr)_190px] gap-3 px-2 py-2"} grid items-center rounded ${row.isCurrentYm ? "bg-amber-50" : "bg-white"}`}>
-      <div className="min-w-0">
-        <div className="text-[10px] text-[#86868b]">稼働月</div>
-        <div className="whitespace-nowrap text-[11px] font-semibold text-[#1d1d1f]">{formatYm(row.sourceYm)}</div>
-        <div className="whitespace-nowrap text-[10px] text-[#86868b]">{compact ? `${formatYm(row.paymentYm)}支払` : `${formatYm(row.paymentYm)}に支払う予定`}</div>
-      </div>
-      <div className="space-y-1">
-        <div className={`${compact ? "h-2.5" : "h-3"} rounded-r-full bg-[#f5f5f7]`} style={{ width: `${barWidthPct}%` }}>
-          <div className="flex h-full overflow-hidden rounded-r-full">
-            <div className="bg-[#d1d1d6]" style={{ width: `${carryPct}%` }} />
-            <div className="bg-sky-300" style={{ width: `${basePct}%` }} />
-          </div>
-        </div>
-        <div className={`${compact ? "h-2.5" : "h-3"} rounded-r-full bg-[#f5f5f7]`} style={{ width: `${barWidthPct}%` }}>
-          <div className="flex h-full overflow-hidden rounded-r-full">
-            <div className="bg-emerald-400" style={{ width: `${paidPct}%` }} />
-            <div className="bg-amber-300" style={{ width: `${stockPct}%` }} />
-          </div>
-        </div>
-      </div>
-      <div className={`${compact ? "text-left" : "text-right"} text-[10px] leading-tight text-[#6e6e73] tabular-nums`}>
-        {compact ? (
-          <>
-            <div className="font-semibold text-[#3c3c43]">当月発生 {formatYen(row.basePayYen)} / 対象 {formatYen(row.grossDueYen)}</div>
-            <div className="mt-0.5 flex flex-wrap justify-start gap-x-1.5 gap-y-0.5">
-              <span>支払 税抜 {formatYen(row.totalPayYen)}</span>
-              <span>税込 {formatYen(row.totalPayTaxIncludedYen)}</span>
-              <PayoutSourceBadge row={row} inline />
-            </div>
-            <div className={row.stockYen > 0 ? "mt-0.5 font-semibold text-amber-800" : "mt-0.5 text-[#86868b]"}>未払残 {formatYen(row.stockYen)}</div>
-          </>
-        ) : (
-          <>
-            <div>当月発生 {formatYen(row.basePayYen)} / 支払 {formatYen(row.totalPayYen)} ({payoutSourceLabel(row)})</div>
-            <div>支払対象 {formatYen(row.grossDueYen)} / 未払残 {formatYen(row.stockYen)}</div>
-          </>
-        )}
-      </div>
+    <tr>
+      <th className={labelCellClass}>
+        <div className="font-semibold text-[#3c3c43]">{label}</div>
+        <div className="mt-0.5 text-[10px] font-normal text-[#86868b]">{description}</div>
+      </th>
+      {rows.map((row) => (
+        <td
+          key={`${label}:${row.sourceYm}:${row.paymentYm}`}
+          className={`${valueCellClass} ${row.isCurrentYm ? "bg-amber-50/55" : "bg-white"}`}
+        >
+          {render(row)}
+        </td>
+      ))}
+    </tr>
+  );
+}
+
+function PayoutMatrixAmount({
+  value,
+  tone,
+  prefix = "",
+}: {
+  value: number;
+  tone: "plain" | "muted" | "sky" | "emerald" | "amber";
+  prefix?: string;
+}) {
+  const toneClass =
+    tone === "sky"
+      ? "text-sky-800"
+      : tone === "emerald"
+        ? "text-emerald-700"
+        : tone === "amber"
+          ? "text-amber-800"
+          : tone === "muted"
+            ? "text-[#86868b]"
+            : "text-[#1d1d1f]";
+  return (
+    <div className={`whitespace-nowrap font-semibold ${toneClass}`}>
+      {prefix}{formatYen(value)}
     </div>
   );
 }
