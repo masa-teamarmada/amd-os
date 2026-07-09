@@ -61,14 +61,15 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 ## /admin/invoices
 
-目的: admin が SU × 月の請求書発行・送付・立替確認・入金確認を一画面で運用する。旧 `/admin/billing` は廃止済みで、互換のため `/admin/invoices` へ redirect する。
+目的: admin/きよが、締め済み稼働月の請求書発行を上から処理する。旧 `/admin/billing` は廃止済みで、互換のため `/admin/invoices` へ redirect する。
 
 必須機能:
 
 - 左メニュー導線: AdminSidebar には `請求書発行` と `/admin/invoices` を置く。`Billing` 表記へ戻さない。
-- 発行キュー: 直近13か月の `billing_cycles` と `projects.status IN ('active','ended','frozen')` を読み、終了PJは `end_ym` 以前だけ表示する。画面本体は旧 billing matrix ではなく、`未発行 / 発行済み / 送付済み / 入金済み / すべて` filter 付きの請求書リストにする。
-- 発行前確認: 各行には `予算 / 報告書 / 立替` の完了状態だけを小さく表示する。`支払通知 / 報酬支払` など、請求書発行と直接関係しない全ステップ横並び chip を主画面に戻さない。
-- 請求書発行: 未発行行の主操作に `発行` / `請求書を発行` ボタンを置き、`AdminInvoiceIssueDialog` から `issue-invoice` Edge Function を呼ぶ。単なる `invoice_issued_at` 手動更新で発行済みに見せない。
+- 発行キュー: 直近13か月の締め済み稼働月 (= 現月は含めず前月まで) の `billing_cycles` と `projects.status IN ('active','ended','frozen')` を読む。発行対象は `start_ym` 以降、`end_ym` 以前、`freeze_from_ym` より前、かつ請求額がある行だけ。未来月、請求額ゼロ、請求しないPJ、期間外の空cycleは出さない。
+- filter: きよの作業順に `発行待ち / 要確認 / 設定不足 / 発行済み / 送付済み / 入金済み / すべて` を置く。`発行待ち` はそのまま押せるもの、`要確認` は金額・対外報告・立替が未完、`設定不足` は freee取引先未設定など OS 設定で止まるもの。
+- きよ確認: 各行には `金額 / 報告 / 立替` の完了状態だけを小さく表示する。`報告` は `monthly_report_scope='internal_and_external'` のとき発行前 blocker とする。`支払通知 / 報酬支払` など、請求書発行と直接関係しない全ステップ横並び chip を主画面に戻さない。
+- 請求書発行: `発行待ち` 行の主操作にだけ `発行` / `請求書を発行` ボタンを置き、`AdminInvoiceIssueDialog` から `issue-invoice` Edge Function を呼ぶ。単なる `invoice_issued_at` 手動更新で発行済みに見せない。
 - 請求額表示: 明細合計 (`invoice_base_lines_json`) を最優先し、なければ確定請求額 (`budget_reported_amount`)、最後に PJ 予算 (`budget_yen / 0.65`) へ fallback する。
 - 幅: admin 業務表として列幅を保ち、狭い画面では表本体を横スクロールさせる。列を圧縮して文字やボタンを重ねない。
 - 明細保存: 発行前に `invoice_base_lines_json` / `invoice_subject` を保存できる。発行後は `invoice_issued_at` / `freee_invoice_number` / `invoice_pdf_url` が `billing_cycles` に反映される。

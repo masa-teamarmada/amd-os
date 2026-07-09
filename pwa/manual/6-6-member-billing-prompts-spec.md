@@ -134,29 +134,31 @@ PM 承認は `project_members.is_pm=true AND project_id=reimbursement.project_id
 
 ## /admin/invoices
 
-admin が全 SU × 月の請求書発行状態を見る画面 (= `pwa/src/app/(app)/admin/invoices/page.tsx`)。旧 `/admin/billing` は廃止済みで、この画面へ自動遷移する。
+admin/きよが締め済み稼働月の請求書発行を処理する画面 (= `pwa/src/app/(app)/admin/invoices/page.tsx`)。旧 `/admin/billing` は廃止済みで、この画面へ自動遷移する。
 
 ### 表示構造
 
-- 対象: 直近 13 ヶ月 (= 現月 -11 〜 +1) の `billing_cycles`
-- 行: `projects.status IN ('active','ended','frozen')` の PJ × 稼働月。`ended` PJ は `end_ym` 以前のみ表示
-- filter: `未発行 / 発行済み / 送付済み / 入金済み / すべて`
-- 主操作: 未発行行の `発行` / `請求書を発行` から `AdminInvoiceIssueDialog` を開き、明細確認 → freee 発行
-- 発行前確認: `予算 / 報告書 / 立替` の状態だけを小さく表示。旧 billing matrix のように全ステップを横並び表示しない
+- 対象: 直近 13 ヶ月の締め済み稼働月 (= 現月は含めず前月まで) の `billing_cycles`
+- 行: `projects.status IN ('active','ended','frozen')` の PJ × 稼働月。ただし `start_ym` より前、`end_ym` より後、`freeze_from_ym` 以降、請求額ゼロ、請求しないPJの空cycleは表示しない
+- filter: `発行待ち / 要確認 / 設定不足 / 発行済み / 送付済み / 入金済み / すべて`
+- 主操作: `発行待ち` 行の `発行` / `請求書を発行` から `AdminInvoiceIssueDialog` を開き、明細確認 → freee 発行
+- きよ確認: `金額 / 報告 / 立替` の状態だけを小さく表示。`報告` は `monthly_report_scope='internal_and_external'` のとき発行前 blocker とする。旧 billing matrix のように全ステップを横並び表示しない
 - 請求額: `invoice_base_lines_json` の明細合計を最優先し、なければ `budget_reported_amount`、最後に `budget_yen / 0.65` へ fallback する
 
 ### 状態分類
 
 | 分類 | 判定 |
 |---|---|
-| 未発行 | `invoice_issued_at` が空 |
+| 発行待ち | `invoice_issued_at` が空、freee取引先あり、請求額あり、必要な報告FIX済み、立替締め済み |
+| 要確認 | 発行前の金額 / 対外報告 / 立替のどれかが未完 |
+| 設定不足 | freee取引先未設定など、OS設定が足りず発行できない |
 | 発行済み | `invoice_issued_at` あり、`invoice_sent_at` なし |
 | 送付済み | `invoice_sent_at` あり、`payment_confirmed_at` なし |
 | 入金済み | `payment_confirmed_at` あり |
 
 ### 立替確認
 
-`reimbursements.date` から該当月 × 該当 PJ の未処理立替を見て、発行前確認の `立替` チップへ反映する。未処理があれば `未完了`、締切後に未処理がなければ `完了` とする。旧 billing matrix のセル右下 badge は現行 UI へ戻さない。
+`reimbursements.date` から該当月 × 該当 PJ の未処理立替を見て、きよ確認の `立替` チップへ反映する。未処理があれば `未完了`、締切後に未処理がなければ `完了` とする。旧 billing matrix のセル右下 badge は現行 UI へ戻さない。
 
 ## /admin/prompts
 

@@ -18,10 +18,58 @@ function firstDay(ym: string) {
   return `${ym.slice(0, 4)}-${ym.slice(4, 6)}-01`;
 }
 
+function ymLabel(ym: string) {
+  return `${ym.slice(0, 4)}年${Number(ym.slice(4, 6))}月`;
+}
+
+function parseInvoiceLines(value: string | null) {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value) as Array<{
+      type?: string;
+      quantity?: string | number;
+      qty?: string | number;
+      unit_price?: string | number;
+      unitPrice?: string | number;
+      amount?: string | number;
+    }>;
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function invoiceNetAmount(c: {
+  invoice_base_lines_json?: string | null;
+  budget_reported_amount?: number | string | null;
+  budget_yen?: number | string | null;
+}) {
+  const totalFromLines = parseInvoiceLines(c.invoice_base_lines_json ?? null).reduce((sum, line) => {
+    if (line.type === "text") return sum;
+    const quantity = Number(line.quantity ?? line.qty ?? 1) || 1;
+    const unitPrice = Number(line.unit_price ?? line.unitPrice ?? line.amount ?? 0) || 0;
+    return sum + quantity * unitPrice;
+  }, 0);
+  if (totalFromLines > 0) return Math.round(totalFromLines);
+  const reported = Number(c.budget_reported_amount ?? 0);
+  if (reported > 0) return Math.round(reported);
+  const budget = Number(c.budget_yen ?? 0);
+  if (budget > 0) return Math.round(budget / 0.65);
+  return 0;
+}
+
+function isWithinWorkWindow(c: { ym: string }, project: InvoiceProjectRow) {
+  if (project.start_ym && c.ym < project.start_ym) return false;
+  if (project.end_ym && c.ym > project.end_ym) return false;
+  if (project.freeze_from_ym && c.ym >= project.freeze_from_ym) return false;
+  return true;
+}
+
 export default async function AdminInvoicesPage() {
   const supabase = await createClient();
   const baseYm = currentYm();
-  const yms = Array.from({ length: 13 }, (_, index) => addMonths(baseYm, index - 11));
+  const lastClosedYm = addMonths(baseYm, -1);
+  const yms = Array.from({ length: 13 }, (_, index) => addMonths(lastClosedYm, index - 12));
   const firstYm = yms[0];
   const lastYm = yms[yms.length - 1];
 
@@ -33,7 +81,7 @@ export default async function AdminInvoicesPage() {
 
   const { data: projects, error: projectErr } = await supabase
     .from("projects")
-    .select("project_id, project_name, status, project_type, end_ym")
+    .select("project_id, project_name, status, project_type, start_ym, end_ym, freeze_from_ym, freee_partner_id, monthly_report_required, monthly_report_scope")
     .in("status", ["active", "ended", "frozen"]);
 
   const { data: reimbursements, error: reimburseErr } = await supabase
@@ -49,7 +97,12 @@ export default async function AdminInvoicesPage() {
       project_name: p.project_name,
       status: p.status,
       project_type: p.project_type ?? null,
+      start_ym: p.start_ym ?? null,
       end_ym: p.end_ym ?? null,
+      freeze_from_ym: p.freeze_from_ym ?? null,
+      freee_partner_id: p.freee_partner_id ?? null,
+      monthly_report_required: Boolean(p.monthly_report_required),
+      monthly_report_scope: p.monthly_report_scope ?? "none",
     });
   }
 
@@ -57,16 +110,20 @@ export default async function AdminInvoicesPage() {
     .filter((c) => {
       const project = projectMap.get(c.project_id);
       if (!project) return false;
-      const status = (project.status || "").toLowerCase();
-      if (status === "active" || status === "frozen") return true;
-      if (status === "ended" && project.end_ym) return c.ym <= project.end_ym;
-      return false;
+      const amount = invoiceNetAmount(c);
+      if (c.ym > lastClosedYm) return false;
+      if (!isWithinWorkWindow(c, project)) return false;
+      if (amount <= 0) return false;
+      return true;
     })
     .map((c) => ({
       id: c.id ?? `${c.project_id}_${c.ym}`,
       project_id: c.project_id,
       project_name: projectMap.get(c.project_id)?.project_name ?? c.project_id,
       project_type: projectMap.get(c.project_id)?.project_type ?? null,
+      freee_partner_id: projectMap.get(c.project_id)?.freee_partner_id ?? null,
+      monthly_report_required: projectMap.get(c.project_id)?.monthly_report_required ?? false,
+      monthly_report_scope: projectMap.get(c.project_id)?.monthly_report_scope ?? "none",
       ym: c.ym,
       invoice_ym: c.invoice_ym ?? null,
       invoice_base_lines_json: c.invoice_base_lines_json ?? null,
@@ -97,33 +154,15 @@ export default async function AdminInvoicesPage() {
   if (projectErr) console.error("AdminInvoicesPage projects:", projectErr.message);
   if (reimburseErr) console.error("AdminInvoicesPage reimbursements:", reimburseErr.message);
 
-  const pendingIssueCount = rows.filter((row) => !row.invoice_issued_at).length;
-  const issuedCount = rows.filter((row) => row.invoice_issued_at).length;
-  const sentCount = rows.filter((row) => row.invoice_sent_at).length;
-  const paidCount = rows.filter((row) => row.payment_confirmed_at).length;
-
   return (
     <div>
       <div className="flex items-baseline gap-3 mb-4">
         <h1 className="text-lg font-semibold">請求書発行</h1>
-        <span className="text-sm text-muted-foreground">直近13か月 — {rows.length} 件</span>
+        <span className="text-sm text-muted-foreground">{ymLabel(firstYm)}〜{ymLabel(lastYm)} 稼働分 — {rows.length} 件</span>
       </div>
       <p className="text-xs text-muted-foreground mb-3">
-        未発行の請求書を上から確認し、明細確認から freee 発行まで進める。
+        締め済みで請求額がある稼働分だけを表示し、発行待ちから freee 発行まで進める。設定不足やきよ確認が残るものは、発行待ちとは分けて扱う。
       </p>
-      <div className="mb-4 grid gap-2 sm:grid-cols-4">
-        {[
-          ["未発行", pendingIssueCount],
-          ["発行済み", issuedCount],
-          ["送付済み", sentCount],
-          ["入金確認済み", paidCount],
-        ].map(([label, value]) => (
-          <div key={label} className="rounded-lg border border-border bg-background px-3 py-2">
-            <p className="text-[11px] text-muted-foreground">{label}</p>
-            <p className="mt-1 text-lg font-semibold leading-none">{value}</p>
-          </div>
-        ))}
-      </div>
       <AdminInvoiceIssueQueue cycles={rows} reimbursements={reimbursementRows} />
     </div>
   );

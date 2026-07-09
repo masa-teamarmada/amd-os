@@ -75,7 +75,7 @@ Supabase
 |---|---|
 | `/admin/projects` | PJ 台帳、契約・請求・支払条件 |
 | `/admin/members` | AMD メンバー台帳、Google Calendar 状態、最終ログイン |
-| `/admin/invoices` | SU × 月の請求書発行・送付・入金状態 |
+| `/admin/invoices` | 締め済み稼働月の請求書発行キュー |
 | `/admin/payouts` | AMD から SU への支払通知書 |
 | `/admin/finance` | 経理オペ台帳、固定費、領収書、freee |
 | `/admin/protocols` | AMD Protocol 候補確認 |

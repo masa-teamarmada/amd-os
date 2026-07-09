@@ -168,10 +168,11 @@ expectIncludes("src/components/admin/AdminSidebar.tsx", [
 expectIncludes("src/components/admin/AdminInvoiceIssueQueue.tsx", [
   "AdminInvoiceIssueDialog",
   "発行待ち",
-  "未発行",
+  "要確認",
+  "設定不足",
   "請求書発行",
   "請求書を発行",
-  "発行前確認",
+  "きよ確認",
 ]);
 
 expectIncludes("src/components/admin/AdminInvoiceIssueDialog.tsx", [
