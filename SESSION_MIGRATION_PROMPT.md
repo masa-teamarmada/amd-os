@@ -28,8 +28,8 @@ cd /Users/masa/projects/AMD/amd-os
 - accepted product state: 月初合意モーダルの情報密度改善は、まさが「これならいい」と確認済み。
 - accepted product commits: f13de200 fix(pwa): tighten monthly agreement modal density / d8934395 fix(pwa): widen monthly agreement unpaid flow
 - accepted production proof before docs refresh: https://amd-os-pwa.vercel.app/api/build-info = v0.39.34 / d89343957fd51ce637fb08aa83aad369d1013a1c / main / dirty=false
-- current main also includes later docs closeout commits 6aef2bc5 / 6f61764c, invoice prerequisite fix 49cd543d, and this closeout-doc line daccb19f before the final dirty-inventory correction.
-- canonical root checkoutは daccb19f へfast-forward済み。残dirtyは別worker由来のPOC matching系だけ。月初合意laneでは触らない。対象workerが対象ファイルだけstage/commit/deployする。
+- current main also includes later docs closeout commits 6aef2bc5 / 6f61764c, invoice prerequisite fix 49cd543d, closeout-doc line daccb19f, and dirty-inventory correction f29fc560.
+- canonical root checkoutは f29fc560 へfast-forward済み。残dirtyは別worker由来のPOC matching系だけ。月初合意laneでは触らない。対象workerが対象ファイルだけstage/commit/deployする。
 
 完了内容:
 - 月初合意モーダル上部の警告・合意ボタン・指標カードを圧縮し、右側に残っていた広い空白を減らした。

@@ -1,6 +1,6 @@
 # AMD OS Handoff
 
-Last updated: 2026-07-09 22:51 JST
+Last updated: 2026-07-09 23:00 JST
 Target: `/Users/masa/projects/AMD/amd-os`
 Topic: 月初合意モーダルの情報密度改善 / closeout
 
@@ -19,10 +19,10 @@ Topic: 月初合意モーダルの情報密度改善 / closeout
 
 - Canonical repo: `/Users/masa/projects/AMD/amd-os`
 - Branch policy: `main` only。今回も新規 branch / git worktree は作っていない。
-- Current main line includes `49cd543d fix(pwa): align invoice issuance prerequisites` and `daccb19f docs: close out monthly agreement density polish` before this dirty-inventory correction.
+- Current main line includes `49cd543d fix(pwa): align invoice issuance prerequisites`, `daccb19f docs: close out monthly agreement density polish`, and `f29fc560 docs: include poc dirty build marker in handoff`.
 - Product UI state: `d8934395` and later main descendants。
 - Disposable deploy clone: `/tmp/amd-os-deploy-monthly-compact` で closeout docs を作成。push後に clean / `origin/main` aligned へ戻す。
-- Canonical root checkout `/Users/masa/projects/AMD/amd-os` は `daccb19f` へ fast-forward 済み。残dirtyは別worker由来の POC matching 系だけなので、この月初合意 lane では触らない。
+- Canonical root checkout `/Users/masa/projects/AMD/amd-os` は `f29fc560` へ fast-forward 済み。残dirtyは別worker由来の POC matching 系だけなので、この月初合意 lane では触らない。
 
 ## Dirty State
 
