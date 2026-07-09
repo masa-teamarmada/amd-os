@@ -834,4 +834,8 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 - `pwa/design/FEATURE_REGISTRY.md`、`pwa/design/SPEC_pwa.md`、`pwa/manual/6-3-invoice-and-billing-routine-spec.md`、`pwa/manual/6-6-member-billing-prompts-spec.md`、manual/spec changelog、critical-ui guard を同期。
 
 ### Verification / Deploy
-- closeout bundle で検証・deploy 予定。
+- `git diff --check` passed。
+- `npm run test:critical-ui` passed。
+- `./node_modules/typescript/bin/tsc --noEmit --pretty false` passed。
+- `npm run build` passed。既存の Next.js middleware deprecation warning のみ。
+- deploy は closeout bundle で正規 script から実行する。

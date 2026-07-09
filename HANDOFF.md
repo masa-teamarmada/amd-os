@@ -28,8 +28,9 @@ Topic: `/admin/invoices` 請求書発行キュー / ZMP 立替精算 closeout / 
 - `git diff --check`
 - `npm run test:critical-ui`
 - `./node_modules/typescript/bin/tsc --noEmit --pretty false`
+- `npm run build`
 
-Run `npm run build` after any further PWA change before deploy.
+Build passed with the existing Next.js middleware deprecation warning only.
 
 ## Unresolved Tasks
 

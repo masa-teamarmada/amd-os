@@ -39,6 +39,7 @@ cd /Users/masa/projects/AMD/amd-os
 - git diff --check
 - npm run test:critical-ui
 - ./node_modules/typescript/bin/tsc --noEmit --pretty false
+- npm run build
 
 次タスク:
 - /admin/invoices は、まさが本番で未発行キューを見て使い勝手を確認する。
