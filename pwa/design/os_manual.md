@@ -24,8 +24,8 @@ AMD OSロゴ(ダッシュボード)
 動かす: ボード | AMD Protocol | Atlas | Knowledge
 探索: Scholar | Venture Map | 研究機関 | Seeds | VC
 自分: マイページ | 通知 | 立替
-Admin: Admin | Management | 設計書
-資料: 教科書 | マニュアル | 日本文化
+Admin: Admin | Management | 設計書 | 日本文化
+資料: 教科書 | マニュアル
 ```
 
 `ダッシュボードに戻る` の独立リンクは置かず、AMD OSロゴをダッシュボード入口にする。`Management` はトップ階層から外し、Admin セクションから `/management-score` へ入る。横幅が狭い時はラベルを畳み、アイコン rail として表示する。

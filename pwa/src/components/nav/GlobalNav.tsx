@@ -228,6 +228,11 @@ export function GlobalNav({
             icon: ChartNoAxesCombined,
           },
           { label: "設計書", href: "/spec", icon: FileText },
+          {
+            label: "日本文化",
+            href: "/admin/japanese-culture-map",
+            icon: Landmark,
+          },
         ],
       },
       {
@@ -235,7 +240,6 @@ export function GlobalNav({
         items: [
           { label: "教科書", href: "/bzm", icon: BookMarked },
           { label: "マニュアル", href: "/manual", icon: BookOpen },
-          { label: "日本文化", href: "/japanese-culture-map", icon: Landmark },
         ],
       },
     ],

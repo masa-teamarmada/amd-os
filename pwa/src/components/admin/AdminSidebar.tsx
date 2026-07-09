@@ -9,6 +9,7 @@ const ADMIN_TABS = [
   { label: "Members", href: "/admin/members" },
   { label: "Company", href: "/admin/company" },
   { label: "Management", href: "/management-score" },
+  { label: "日本文化", href: "/admin/japanese-culture-map" },
   { label: "契約", href: "/admin/contracts" },
   { label: "🏛 株主・ガバナンス", href: "/admin/governance" },
   { label: "🛰 Coverage Scanner", href: "/admin/coverage-gaps" },

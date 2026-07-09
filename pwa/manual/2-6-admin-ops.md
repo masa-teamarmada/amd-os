@@ -119,6 +119,24 @@ AMD 内部メンバー台帳の編集。
 
 ---
 
+## admin/japanese-culture-map (= 日本文化マップ)
+
+URL: `/admin/japanese-culture-map`
+
+### 何をする画面か
+日本文化コンテンツを、admin 側でマインドマップと日本地図の 2 つの見方で確認する読み取り専用ビュー。
+
+- `jp_culture_items` の active 行を表示する
+- マインドマップでは大分類 / 中分類 / アイテムのつながりを見る
+- 日本地図では都道府県 / 市区町村ごとの文化コンテンツを見る
+- 旧 `/japanese-culture-map` は、この admin route へ移動済み
+
+### 重要な仕様
+- 通常の「資料」ナビには置かず、admin 導線だけに置く。
+- この画面から DB 書き込み、LLM 呼び出し、外部同期は行わない。
+
+---
+
 ## admin/private-wiki (= 裏wiki)
 
 URL: `/admin/private-wiki`

@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-07-09 | 2-1 / 2-2 PWA Surface / FEATURE_REGISTRY / SPEC_pwa | 変更 | 日本文化マップを `/admin/japanese-culture-map` の admin-only route へ移動し、旧 `/japanese-culture-map` は redirect に変更。GlobalNav は admin group、AdminSidebar は admin menu に導線を置く。build v0.39.18 | まさ指示「『日本文化』のページだけど、adminに移動させてほしい」を route contract に固定するため | えいみ |
 | 2026-07-09 | 6-8 Admin MS Overview / 7-1 Reward Calc / FEATURE_REGISTRY / BUGS | 修正 | 金額ベースで先に決まる別財布だけ、cap_extra の明示ptを期間×10ptより優先する特例を追加。ZMP OkuDoor は 130pt / extra単価10,000円 / total_points 250へ是正し、別財布未払い在庫だけの保護月差額は台帳化しない。build v0.39.15 | 1,300,000円の別財布原資を60ptで割ると円単位の丸めで設計額が1,300,020円に見え、金額固定の予算なのに端数が出るため | えいみ |
 | 2026-07-09 | 2-4 Proactive TODO / 3-8 PJ Cockpit / FEATURE_REGISTRY | 削除・変更 | 通常PJ / institution cockpit から旧 `ProactiveQueuePanel` / `proactive_outbox` 表示を削除し、`proactive_outbox` は廃止済み旧キュー、現行の先手TODO棚卸しは `proactive_todos` + `/proactive` + dashboard バッジと明記。build v0.39.15 | 旧司令塔前提の `drafted` / `資料作成済み` 行が残り、PJコックピットで意味不明なTODOとして表示されていたため。PJ状況面と抽出器棚卸し面を分けるため | えいみ |
 | 2026-07-09 | 3-8 PJ Cockpit / FEATURE_REGISTRY | 削除 | 通常PJ / institution cockpit の `CockpitView` から `CockpitNudge` と `nudges` prop を削除。`tsukuyomi_nudge_queue` 由来カードは通常コックピットには出さず、ステータスバッジがある時だけ右カラムを表示する。build v0.39.14 | まさ指示「コックピットにある『つくよみメモ』を削除して。」を反映し、旧 nudge カードの復活を防ぐため | えいみ |

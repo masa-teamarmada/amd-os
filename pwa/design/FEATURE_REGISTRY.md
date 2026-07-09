@@ -43,6 +43,22 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - `/knowledge-map` route、GlobalNav 導線、`KnowledgeMapView`、`fetchKnowledgeMapData` を消す変更は、`FEATURE_REGISTRY.md`、`/spec/2-1`、`/spec/2-2`、manual 2-5 を同時に更新する。
 - NotebookLM export を追加するときも、OS 側が正本で、NotebookLM はコピー先という境界を崩さない。
 
+## /admin/japanese-culture-map
+
+目的: 日本文化コンテンツを admin 側の知識ビューとして読み、`jp_culture_items` をマインドマップと日本地図で俯瞰する。
+
+必須機能:
+
+- admin-only route: 実画面は `/admin/japanese-culture-map` に置き、`/admin` layout の admin gate を通す。通常の資料ナビからは外す。
+- read-only view: 画面は `jp_culture_items.status='active'` を読み、DB write、LLM 呼び出し、外部同期を行わない。
+- 2 view: 大分類→中分類→アイテムのマインドマップと、都道府県→市区町村の日本地図を切り替えられる。
+- legacy redirect: 旧 `/japanese-culture-map` はブックマーク互換だけ残し、`/admin/japanese-culture-map` へ redirect する。
+
+回帰防止:
+
+- GlobalNav の一般「資料」グループへ戻さない。導線は admin group と AdminSidebar に置く。
+- route を消す変更は、`FEATURE_REGISTRY.md`、`/spec/2-1`、`/spec/2-2`、manual 2-6、`design/os_manual.md` を同時に更新する。
+
 ## /admin/payouts
 
 目的: 支払月単位で、対象cycleの報酬確認、PJ別収支確認、支払データ同期状態、支払通知書発行、入金確認nudgeを一画面で運用する。

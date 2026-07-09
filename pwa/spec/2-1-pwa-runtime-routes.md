@@ -47,6 +47,7 @@
 | `/venture-map/amd-score/[projectId]` | AMD Score 詳細 |
 | `/atlas` / `/atlas/*` | Atlas signal / story / divergence / map |
 | `/admin/*` | 管理者向け台帳・設定・請求・支払・prompt |
+| `/admin/japanese-culture-map` | 日本文化マップ。`jp_culture_items` の active 行を、admin layout gate 内でマインドマップ / 日本地図として読む。旧 `/japanese-culture-map` はこの route へ redirect |
 | `/admin/management-knowledge` | 経営ノウハウ。事業化ルート、座組、価格、資金、法務論点などの再利用カードを保存する admin-only 台帳 |
 | `/admin/private-wiki` | 裏wiki。人物単位の趣味・関係性メモを PJ 別に保存する admin-only 台帳 |
 | `/notifications` | L2 candidate / feedback の採否 |
