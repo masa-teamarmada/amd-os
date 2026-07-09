@@ -1,6 +1,6 @@
 # AMD OS Handoff
 
-Last updated: 2026-07-09 22:37 JST
+Last updated: 2026-07-09 22:51 JST
 Target: `/Users/masa/projects/AMD/amd-os`
 Topic: 月初合意モーダルの情報密度改善 / closeout
 
@@ -19,32 +19,24 @@ Topic: 月初合意モーダルの情報密度改善 / closeout
 
 - Canonical repo: `/Users/masa/projects/AMD/amd-os`
 - Branch policy: `main` only。今回も新規 branch / git worktree は作っていない。
-- Current main base before this docs refresh: `6f61764c docs: refresh handoff dirty inventory`。
+- Current main line includes `49cd543d fix(pwa): align invoice issuance prerequisites` and `daccb19f docs: close out monthly agreement density polish` before this dirty-inventory correction.
 - Product UI state: `d8934395` and later main descendants。
 - Disposable deploy clone: `/tmp/amd-os-deploy-monthly-compact` で closeout docs を作成。push後に clean / `origin/main` aligned へ戻す。
-- Canonical root checkout `/Users/masa/projects/AMD/amd-os` には別worker由来の invoice/freee/admin queue と POC matching 系 dirty があるため、この月初合意 lane では触らない。
+- Canonical root checkout `/Users/masa/projects/AMD/amd-os` は `daccb19f` へ fast-forward 済み。残dirtyは別worker由来の POC matching 系だけなので、この月初合意 lane では触らない。
 
 ## Dirty State
 
 Monthly agreement lane: none known.
 
-Uncommitted changes in canonical root checkout are separate active WIP from other sessions. Final closeout inventory observed two bundles: `/admin/invoices` freee取引先選択 / 請求書発行条件 and `/poc` matching UI/docs.
+Uncommitted changes in canonical root checkout are separate active WIP from another session. Final closeout inventory after fast-forward observed only the `/poc` matching UI/docs bundle. The previous `/admin/invoices` freee取引先 bundle was integrated by `49cd543d`.
 
 | path | status | class | owner guess | resolution action | risk |
 |---|---:|---|---|---|---|
-| `pwa/src/app/(app)/admin/invoices/page.tsx` | M | other-worker | invoice queue / freee取引先選択 worker | WIP全体を完成させ、対象ファイルだけ stage / commit / push / deploy | 中: 未完のまま archive すると請求書発行UIのWIPが宙に浮く |
-| `pwa/src/app/api/admin/freee-partners/route.ts` | ?? | other-worker | invoice queue / freee取引先選択 worker | freee取引先候補取得のauth/data境界を確認して commit | 中 |
-| `pwa/src/app/api/invoice/create/route.ts` | M | other-worker | invoice queue / freee取引先選択 worker | 発行API側の取引先/発行条件変更とUIをセットで検証 | 中 |
-| `pwa/src/components/admin/AdminInvoiceIssueDialog.tsx` | M | other-worker | invoice queue / freee取引先選択 worker | 発行モーダルの請求先表示変更とセットで検証 | 中 |
-| `pwa/src/components/admin/AdminInvoiceIssueQueue.tsx` | M | other-worker | invoice queue / freee取引先選択 worker | 報告書/立替 blocker 除外、freee選択UIを完成させる | 中 |
-| `pwa/src/components/admin/AdminProjectsTable.tsx` | M | other-worker | invoice queue / freee取引先選択 worker | PJ台帳freee欄の選択UIと合わせて検証 | 中 |
-| `pwa/src/components/admin/FreeePartnerPicker.tsx` | ?? | other-worker | invoice queue / freee取引先選択 worker | 検索UI状態とAPIのエラー表示を確認 | 中 |
 | `pwa/src/app/(app)/poc/page.tsx` | M | other-worker | POC matching worker | POC UI/docs bundleとして完成・検証・commit | 中: POC画面のWIPが宙に浮く |
 | `pwa/design/poc_matching.md`, `pwa/manual/2-5-research-assets-quick-start.md`, `pwa/manual/5-1-research-assets-vc-seeds-scholar-spec.md` | M | other-worker | POC matching worker | POC仕様変更とUIを同一commitにまとめる | 中 |
-| `pwa/src/lib/build-info.ts` | M | other-worker | active WIP workers | WIP完成時に `v0.39.35` として検証/deploy | 中 |
-| `pwa/design/FEATURE_REGISTRY.md`, `pwa/design/SPEC_pwa.md`, `pwa/manual/6-2-admin-projects-members-ledger-spec.md`, `pwa/manual/6-3-invoice-and-billing-routine-spec.md`, `pwa/manual/9-3-appendix-changelog.md`, `pwa/spec/6-1-appendix-changelog.md`, `pwa/scripts/check_pwa_critical_ui.cjs` | M | other-worker | invoice queue / POC workers | WIP仕様・回帰ガードと実装を、該当bundleごとに混ぜずに commit | 中 |
+| `pwa/design/FEATURE_REGISTRY.md`, `pwa/scripts/check_pwa_critical_ui.cjs` | M | other-worker | POC matching worker | POC UI/specと回帰ガードを同一bundleで確認して commit | 中 |
 
-Resolution owner: next invoice queue / POC sessions. Monthly-agreement closeoutでは巻き込まない。
+Resolution owner: next POC matching session. Monthly-agreement closeoutでは巻き込まない。
 
 ## Verification / Deploy
 
@@ -69,13 +61,13 @@ Final accepted production snapshot before docs refresh:
 
 - 月初合意モーダル密度改善: none known after まさ acceptance.
 - 次に触る場合の注意: CSS差分だけで「コンパクト化できた」と判断しない。実データ・本番相当の横幅で、上部警告、指標、修正要望、PJヘッダ、MS表、未払い表を1つずつ見て余白を潰す。
-- Canonical root dirty cleanup: invoice queue / POC workers担当。月初合意 lane の残タスクではない。
+- Canonical root dirty cleanup: POC matching worker担当。月初合意 lane の残タスクではない。
 
 ## First Next Action
 
 月初合意を再開するなら、まず production `/api/build-info` と `origin/main` を合わせたうえで、`/monthly-agreement?ym=202607&memberId=ID...` または強制モーダルで実データを開き、スクショ基準で「右側の空白」「不要な改行」「1行で済む情報が2行になっていないか」を確認する。
 
-If continuing the current repo for active WIP instead, first decide which bundle to finish: invoice queue freee取引先 or POC matching. Split dirty by bundle, run targeted checks, and stage only that bundle plus required spec/manual updates.
+If continuing the current repo for active WIP instead, finish the POC matching bundle. Run targeted checks, and stage only that bundle plus required spec/manual updates.
 
 ## Pointers
 

@@ -28,8 +28,8 @@ cd /Users/masa/projects/AMD/amd-os
 - accepted product state: 月初合意モーダルの情報密度改善は、まさが「これならいい」と確認済み。
 - accepted product commits: f13de200 fix(pwa): tighten monthly agreement modal density / d8934395 fix(pwa): widen monthly agreement unpaid flow
 - accepted production proof before docs refresh: https://amd-os-pwa.vercel.app/api/build-info = v0.39.34 / d89343957fd51ce637fb08aa83aad369d1013a1c / main / dirty=false
-- current main before this docs refresh also includes later docs closeout commits 6aef2bc5 and 6f61764c.
-- canonical root checkoutには別worker由来のinvoice/freee/admin queue系dirtyとPOC matching系dirtyがある。月初合意laneでは触らない。対象workerが対象ファイルだけstage/commit/deployする。
+- current main also includes later docs closeout commits 6aef2bc5 / 6f61764c, invoice prerequisite fix 49cd543d, and this closeout-doc line daccb19f before the final dirty-inventory correction.
+- canonical root checkoutは daccb19f へfast-forward済み。残dirtyは別worker由来のPOC matching系だけ。月初合意laneでは触らない。対象workerが対象ファイルだけstage/commit/deployする。
 
 完了内容:
 - 月初合意モーダル上部の警告・合意ボタン・指標カードを圧縮し、右側に残っていた広い空白を減らした。
@@ -50,18 +50,16 @@ cd /Users/masa/projects/AMD/amd-os
 
 現在残っている別件dirty:
 - 月初合意fixとは別のactive WIP。巻き込まない。
-- bundle A: /admin/invoices の freee取引先選択 / 請求書発行条件 WIP。
-  - 主なfiles: pwa/src/app/(app)/admin/invoices/page.tsx, pwa/src/app/api/admin/freee-partners/route.ts, pwa/src/app/api/invoice/create/route.ts, pwa/src/components/admin/AdminInvoiceIssueDialog.tsx, pwa/src/components/admin/AdminInvoiceIssueQueue.tsx, pwa/src/components/admin/AdminProjectsTable.tsx, pwa/src/components/admin/FreeePartnerPicker.tsx, pwa/design/FEATURE_REGISTRY.md, pwa/design/SPEC_pwa.md, pwa/manual/6-2-admin-projects-members-ledger-spec.md, pwa/manual/6-3-invoice-and-billing-routine-spec.md, pwa/manual/9-3-appendix-changelog.md, pwa/spec/6-1-appendix-changelog.md, pwa/scripts/check_pwa_critical_ui.cjs.
-- bundle B: /poc matching UI/docs WIP。
-  - 主なfiles: pwa/src/app/(app)/poc/page.tsx, pwa/design/poc_matching.md, pwa/manual/2-5-research-assets-quick-start.md, pwa/manual/5-1-research-assets-vc-seeds-scholar-spec.md, pwa/design/FEATURE_REGISTRY.md, pwa/design/SPEC_pwa.md, pwa/manual/9-3-appendix-changelog.md, pwa/spec/6-1-appendix-changelog.md.
-- shared active WIP marker: pwa/src/lib/build-info.ts (v0.39.35).
-- 次セッションでWIPを扱うなら、bundleを混ぜずに差分全体を確認し、必要なspec/manual/changelogを同期してから、対象ファイルだけ stage / commit / push / deployする。
+- /admin/invoices の freee取引先選択 / 請求書発行条件 WIP は 49cd543d でmainに入った。
+- 残っているのは /poc matching UI/docs WIP。
+  - 主なfiles: pwa/src/app/(app)/poc/page.tsx, pwa/design/poc_matching.md, pwa/manual/2-5-research-assets-quick-start.md, pwa/manual/5-1-research-assets-vc-seeds-scholar-spec.md, pwa/design/FEATURE_REGISTRY.md, pwa/scripts/check_pwa_critical_ui.cjs.
+- 次セッションでWIPを扱うなら、POC bundleの差分全体を確認し、必要なspec/manual/changelogを同期してから、対象ファイルだけ stage / commit / push / deployする。
 
 次タスク:
 - 月初合意モーダルの既知残タスクはない。
 - 追加修正を頼まれたら、最初にproduction build-infoとorigin/mainを合わせ、実データのモーダルをスクショで見る。
 - まさの前回指摘のニュアンスは「無駄なスペースが全然減っていない。右側空白、1行で済む情報の改行、MS表の列間、未払いグラフ/表の横長さを、ひとつひとつ言わないとだめなのか」。次回は個別指摘待ちではなく、画面全体の情報密度を自分で点検する。
-- 現実的な別lane次アクションは、invoice queue freee取引先選択WIP、または /poc matching WIP のどちらかをbundle単位で完成させること。
+- 現実的な別lane次アクションは、/poc matching WIP をbundle単位で完成させること。
 
 運用ルール:
 - PWA本番反映は main push = Vercel自動deploy。直接 npx vercel deploy は使わない。必要な時は AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh。
