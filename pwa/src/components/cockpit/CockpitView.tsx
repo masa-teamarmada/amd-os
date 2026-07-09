@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { CockpitHeader } from "./CockpitHeader";
 import { CockpitVentureStatus } from "./CockpitVentureStatus";
 import { CockpitManagementScoreHero } from "./CockpitManagementScoreHero";
@@ -16,7 +16,6 @@ import { CockpitMonthlyModal } from "./CockpitMonthlyModal";
 import { CockpitMeetingSummary } from "./CockpitMeetingSummary";
 import { CockpitFreezeBackfill } from "./CockpitFreezeBackfill";
 import { CockpitAmdScoreDetailTab } from "./CockpitAmdScoreDetailTab";
-import { ProactiveQueuePanel } from "@/components/proactive/ProactiveQueuePanel";
 import type { CockpitSeasonFinance as CockpitSeasonFinanceData } from "@/lib/supabase-data";
 
 interface PlanCycleShape {
@@ -317,10 +316,6 @@ export function CockpitView({ cockpit, initialModalYm }: CockpitViewProps) {
   const showLiveOperations = isLiveOperationalProject(project, currentYm);
   const showAmdScore = (project.projectCategory || "dtsu") !== "ecosystem";
   const hasScoreDetailTab = project.projectId !== "p00" && showAmdScore;
-  const proactiveProjectLabels = useMemo(
-    () => ({ [project.projectId]: project.projectName || project.projectId }),
-    [project.projectId, project.projectName]
-  );
 
   // [B2] MS設定バナー / 直接編集 ロジックを案Cの col1 内で使うため関数化。
   const renderMsSetupBanner = () => {
@@ -380,7 +375,7 @@ export function CockpitView({ cockpit, initialModalYm }: CockpitViewProps) {
     //  上: Header + Hero (AMD Score chart + XRL chart 横並び)
     //  メインボード:
     //    col1 = 今期MS + 次期MS設定 + 過去の期間 + 月次カード + 休止期間 backfill
-    //    col2 = TODO + 経営ハイライト (D-6) + MTGサマリ
+    //    col2 = 資料 + 経営ハイライト (D-6) + MTGサマリ
     //    col3 = ステータスバッジ (必要な時だけ sticky)
     <div className="max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3">
       {/* [A] Project Header (full width) */}
@@ -503,15 +498,9 @@ export function CockpitView({ cockpit, initialModalYm }: CockpitViewProps) {
           />
         </div>
 
-        {/* col2: 経営ハイライト (D-6) + MTGサマリ (まさ #28 2026-05-24)。
-            右カラムを「経営シグナル + MTGサマリ」に統合。 */}
+        {/* col2: 資料 + 経営ハイライト (D-6) + MTGサマリ。
+            旧 proactive_outbox TODO は 2026-06-27 に廃止済みのため表示しない。 */}
         <div className="flex flex-col gap-3 min-w-0">
-          <ProactiveQueuePanel
-            projectId={project.projectId}
-            projectLabels={proactiveProjectLabels}
-            variant="cockpit"
-            limit={6}
-          />
           <CockpitProjectDocuments projectId={project.projectId} />
           <CockpitStrategySignals signals={strategySignals || []} projectId={project.projectId} />
           <CockpitGovernance projectId={project.projectId} />

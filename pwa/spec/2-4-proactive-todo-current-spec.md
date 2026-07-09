@@ -184,7 +184,7 @@ admin (= `members.is_admin = true`) と `service_role` のみ ALL。anon SELECT 
 MVP では以下は持たない:
 
 - **`sent` 状態 (相手にボールを渡した)**: 必要性が見えたら追加 (まさ判断 2026-06-27)
-- **cockpit 側の PJ 単位 TODO panel**: 既存 `CockpitView.tsx` が `ProactiveQueuePanel` を使ってるが、これは旧 `proactive_outbox` 由来。本 spec の置き換えでは触らず、dashboard 側だけ刷新した。cockpit 側の置き換えは別 Phase
+- **cockpit 側の PJ 単位 TODO panel**: 2026-07-09 に旧 `ProactiveQueuePanel` / `proactive_outbox` 表示を通常PJ / institution cockpit から削除済み。`proactive_todos` をそのままPJ cockpitへ移植しない。PJ別表示を再設計する場合は、古いMTG由来の赤TODOをそのまま出さず、「今このPJで見るべき先手確認」だけに絞る別仕様を作る。
 - **Gmail / Slack の催促文言検知**: MTG 起点で 80% カバーできる仮説に賭けて MVP では作らない
 - **完了 → 学習段への流し込み**: `resolved_note` を AMD Protocol / textbook insight 候補へ流す Step 3 は未着手
 - **判断 → 実行 → 学習 のループ閉鎖**: 旧 spec 2-4 で書いた「ループ成立の 4 遷移」は廃止。「先手 TODO リスト」単機能として割り切り、学習接続は出来たら別 Phase で

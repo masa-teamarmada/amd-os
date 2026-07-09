@@ -479,7 +479,7 @@ function CockpitSpatialWorkspace({
         {cockpit ? (
           <>
             <div className="hud-spatial-workspace__hint">
-              ACTIVE DOCK / {focusDockLabels[activeDock]}。この前景workspaceは元PJコックピットを同一画面内にマウントしているので、MS、月次、先手TODO、MTGサマリをそのまま確認できる。
+              ACTIVE DOCK / {focusDockLabels[activeDock]}。この前景workspaceは元PJコックピットを同一画面内にマウントしているので、MS、月次、資料、経営ハイライト、MTGサマリをそのまま確認できる。
             </div>
             <div className="hud-spatial-workspace__cockpit">
               <CockpitView

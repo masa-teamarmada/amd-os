@@ -220,18 +220,18 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 ## /project/[projectId]/cockpit
 
-目的: PJの現在地、MS進捗、経営ハイライト、月次カード、先手TODO、MTGサマリを一画面で見る。
+目的: PJの現在地、MS進捗、資料、経営ハイライト、月次カード、MTGサマリを一画面で見る。
 
 必須機能:
 
-- レイアウト: `max-w-[1600px]` の幅広 container、上 Header → hero (PJ Status) → 進捗管理本文へ進む案C系構成。通常時は MS / 月次側と、先手TODO / 資料 / 経営ハイライト / MTGサマリ側の 2 カラム。凍結中 / 再開予定などのステータスバッジがある時だけ右カラムを出す。`max-w-[1060px]` + 左 720 / 右 220 の旧 2 カラムには戻さない。最下段の旧 TODO かんばんは主要導線から外す。
+- レイアウト: `max-w-[1600px]` の幅広 container、上 Header → hero (PJ Status) → 進捗管理本文へ進む案C系構成。通常時は MS / 月次側と、資料 / 経営ハイライト / ガバナンス / 助成金 / MTGサマリ側の 2 カラム。凍結中 / 再開予定などのステータスバッジがある時だけ右カラムを出す。`max-w-[1060px]` + 左 720 / 右 220 の旧 2 カラムには戻さない。最下段の旧 TODO かんばんと旧 `ProactiveQueuePanel` は主要導線から外す。
 - Header契約サマリー: `CockpitHeader` はPJ名/status/分類に加え、PJリスト正本からPJメンバー、契約条件、業務委託料、支払い条件、提出物の有無、月次報告書の提出ルール、立替精算可否を表示する。提出物/月次報告/立替精算は `projects.contract_terms_json.deliverablesRequired` / `deliverablesNote` / `monthlyReportSubmissionRule` / `monthlyReportSubmissionNote` / `expenseReimbursementAllowed` / `expenseReimbursementNote` を読む。コックピットから `/admin/projects` や旧configへ飛ばす導線は置かない。
 - KUTE年度内ロードマップ: `projectId === 'p25'` では Header 直下に `CockpitKuteAnnualRoadmap` を表示する。6/11キックオフ資料 / `PROJECT_BRIEF` の年度内スケジュールを根拠に、規程整備 (`2027-01` 完了目途) とシーズ発掘 / after GTIE (`2027-03` 型化目途) を同じ横軸で見せる。研究機関コックピット `/institutions/inst_kute/cockpit` でも同じ `CockpitView` 経由で表示する。
 - 上 hero: PJ ごとに出し分け。p00 (= AMD 会社全体) は `CockpitManagementScoreHero` で AMD Management Score の時系列折れ線 + 最新値カード。SU 系 PJ は `CockpitVentureStatus` 内で AMD Score 折れ線と XRL 折れ線を `xl:flex-row` で横並びにする。`xl` 未満では縦並びへ自動 fallback する。
 - Hero 下タブ: SU 系 PJ は `進捗管理` / `スコア詳細` を切り替える。AMD Score / XRL hero はタブ外に置いて常時表示し、`進捗管理` に従来の cockpit 本文、`スコア詳細` に `AmdScoreView` の embedded 表示を出す。
 - 今期MSリスト: `CockpitGoalsCompact` / `MilestoneGanttChart` でMS期間、pt、担当、sub itemを表示する。MS 設計編集は `/admin/ms-overview` に集約し、cockpit / HUD cockpit からは編集しない。
 - 今シーズン収支: `CockpitSeasonFinance` を今期MSの直下、月次カードの手前に表示する。シーズン合計と月次行で `クライアント支払` / `バッファ` / `原資上限` / `PJ予算` / `メンバー支払` / `期末未払` / `収支` を出す。クライアント支払は `contractBackedClientAmount` + 別財布売上、schedule_based 契約では `contract_terms_json.monthlySchedule.amountTaxExcl`、バッファは `value_plan_cycles.buffer_breakdown_json` 優先、原資上限は `(クライアント支払 - バッファ) × 65%`、PJ予算は `budget_yen + extra_budget_yen`、メンバー支払・未払残は `reward_summary_json` を正本にする。`収支` は現金主義で `クライアント支払 - バッファ - メンバー支払` とし、役員向け報酬相当額や未払残は含めない。役員向け報酬相当額は検算には含めるが、PJ cockpit では表示しない。期末未払または原資超過が 1 円でも残る場合は `不足` 表示と赤い停止帯を出し、報酬計算側の自動上乗せでゼロに見せない。
-- TODO: `ProactiveQueuePanel` でそのPJの `proactive_outbox` を read-only 表示する。状態、誰のボールか、期限、優先度、資料の種類、トリガー理由、担当司令塔、推奨 first move、遅れた場合のリスクを出す。Cockpit UI から状態更新・外部送付はしない。行クリックはモーダルで詳細を開く。
+- 先手TODO: 旧 `proactive_outbox` 由来の `ProactiveQueuePanel` は通常PJ / institution cockpit に表示しない。`資料作成済み` など旧司令塔状態の手動seedがPJ状況面に残ると読解ノイズになるため。先手TODOの棚卸しは `proactive_todos` + `/proactive` + dashboard 上段バッジで扱う。
 - 経営ハイライト: MSリスト横の col2 として `CockpitStrategySignals` を表示し、`project_strategy_signals` の candidate/confirmed を日付・type・impact・summary・source refs付きで表示する。
 - 月次モーダル: 月次カードから `CockpitMonthlyModal` を開き、report / reward / invoice を確認できる。routine step 起動は廃止済み。p00 (= AMD 会社全体) でも他 PJ と同じく月次カード + 月次モーダルが出る (`billing_cycles` を 12 行 backfill 済)。
 - PM月次ルーティン: 廃止済み。cockpit の col3 に月次 step/TODO は出さず、月次状態は月次カード + `CockpitMonthlyModal` で確認する。
@@ -263,7 +263,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 設計: `pwa/design/governance_action_items.md`。DB: migration `137_governance_and_action_items.sql` (`action_items` / `project_shareholders` / `project_valuation_rounds` / `project_shareholder_meetings`)。
 
 - **PJ cockpit「🏛 株主・ガバナンス」欄** (`CockpitGovernance`、col2 の `CockpitStrategySignals` 直下): AMD/まさ保有株式 + 概算保有価値、総会・取締役会履歴一覧 + 決議 + AMD対応、資金調達ラウンド/バリュエーション、株主構成、このPJの要対応を表示。総会/取締役会の添付資料は `attachments_json.url` / `webViewLink` をクリック可能リンクとして出す。**終了PJでも表示する** (L2_DATA「ended でも清算・株主総会等は残す」)。データは admin 限定 API `/api/governance` から client fetch (非admin には出さない)。削除禁止理由: 終了後も残る AMD 持分・ガバナンス可視化 (まさ確定 2026-06-15)。
-- **要対応（期日順）面** (`ActionItemsPanel`): `/dashboard` (ProactiveQueuePanel 直下、limit 5) と `/notifications` 先頭。全PJ横断 + personal/company scope の `action_items` を期日順 + 「あと何日/期限超過」chip で表示、「対応済にする」で `status=responded`。データは admin 限定 API `/api/action-items`。削除禁止理由: 期日付き inbound 義務を埋もれさせない導線 (まさ確定 2026-06-15)。
+- **要対応（期日順）面** (`ActionItemsPanel`): `/dashboard` の上段 action queue と `/notifications` 先頭。全PJ横断 + personal/company scope の `action_items` を期日順 + 「あと何日/期限超過」chip で表示、「対応済にする」で `status=responded`。データは admin 限定 API `/api/action-items`。削除禁止理由: 期日付き inbound 義務を埋もれさせない導線 (まさ確定 2026-06-15)。
 - **`/admin/governance`**: 株主/ラウンド/総会/要対応の手動記録 CRUD。AdminSidebar に「🏛 株主・ガバナンス」。
 - **`/api/governance/extract`**: Gmail/Drive/Calendar 等から抽出された総会・取締役会・書面決議候補の受け口。既定は `l2_coverage_gaps` review candidate、`apply=true` のときだけ `project_shareholder_meetings` に canonical insert。`attachments` に `content_base64` / `data_url` があれば、確認済み反映時に `projects.drive_folder_id` 直下の `YYMMDD_会議名` folder へ保存し、Drive link を `attachments_json` に残す。削除禁止理由: LST の取締役書面決議のようなメール由来ガバナンス履歴を資料リンク込みで OS 化するための入口 (まさ依頼 2026-06-16)。
 - **`/admin/projects` の「総会」「役会」checkbox + `/api/cron/governance-email-sweep`**: `projects.governance_watch_shareholder_meetings` / `governance_watch_board_meetings` がONのPJだけ、`report_emails` とのGmailやりとりを総会/役会keywordで狭く検索し、`/api/governance/extract` に candidate / apply を渡す。削除禁止理由: D-14G の検索範囲をPJ台帳から明示的に制御し、全メール横断の誤検知・取りこぼしを減らすため (まさ依頼 2026-06-16)。

@@ -37,8 +37,8 @@
 
 | route | 役割 |
 |---|---|
-| `/dashboard` | PJ 一覧と主要機能への入口。上部に `proactive_outbox` の TODO read-only panel を最大3件出し、左/mainカラム内は PJ 一覧 → 研究機関ERSリスト、下段全幅は Company Content shelf の順に表示する。AMD 全体PJ (`p00`) は上部バイタルサイン枠から `/project/p00/cockpit` へ入るため、通常PJ一覧には表示しない。研究機関エコシステム構築PJは通常PJ一覧ではなく研究機関ERSリスト側へ寄せる |
-| `/project/[projectId]/cockpit` | PJ cockpit。Status / AMD Score / XRL / MS / TODO / 経営ハイライト / 月次 / MTGサマリ |
+| `/dashboard` | PJ 一覧と主要機能への入口。上部に `proactive_todos` 由来の先手TODOバッジを出し、詳細は `/proactive` に送る。左/mainカラム内は PJ 一覧 → 研究機関ERSリスト、下段全幅は Company Content shelf の順に表示する。AMD 全体PJ (`p00`) は上部バイタルサイン枠から `/project/p00/cockpit` へ入るため、通常PJ一覧には表示しない。研究機関エコシステム構築PJは通常PJ一覧ではなく研究機関ERSリスト側へ寄せる |
+| `/project/[projectId]/cockpit` | PJ cockpit。Status / AMD Score / XRL / MS / 資料 / 経営ハイライト / ガバナンス / 助成金 / 月次 / MTGサマリ。旧 `proactive_outbox` TODO は表示しない |
 | `/manual` | AMD OS マニュアル。使い方・運用者向け |
 | `/spec` | 設計書。確定実装仕様。admin 限定 |
 | `/bzm` | BZM テキストブック。理論・数式・rubric 導出 |

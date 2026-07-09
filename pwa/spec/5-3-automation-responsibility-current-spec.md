@@ -79,18 +79,18 @@ Media Mentions は D-11 として runner 未実装。Finance Ops Evidence / free
 
 SKILL 正本は `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 群) / `amd-os-l2-monthend-evidence/SKILL.md` (M 群) / `amd-os-l2-weekly-vc-funding-signals/SKILL.md` (W 群) と、各 L2 の個別 `amd-os-l<N>-*/SKILL.md` (= 束ね SKILL が参照する詳細手順)。L2 の品質改善は、PWA route / GAS function ではなく SKILL と outbox/applier contract を更新する。
 
-## Control layer: proactive heartbeat
+## Control layer: proactive TODO
 
-先手力維持ループは L2 ではなく、L2 と司令塔 / worker をつなぐ control layer。`proactive_outbox` に積まれた `queued` / `blocked` かつ due soon の行を、10:15-20:15 JST の毎時15分 heartbeat が拾い、`project_commander_threads.commander_thread_id` へ `send_message_to_thread` 相当で通知する。
+旧先手力 heartbeat (`proactive_outbox` + 司令塔通知) は 2026-06-27 に廃止済み。現在の先手TODOは `proactive_todos` を正本にし、`/api/cron/proactive-todo-extract` が MTG 起点で候補を作り、admin は `/proactive` と dashboard 上段バッジで棚卸しする。PJ cockpit / institution cockpit には旧 `proactive_outbox` 由来のTODOを表示しない。
 
 | 項目 | 契約 |
 |---|---|
-| SKILL 正本 | `pwa/scheduled-tasks/amd-os-proactive-heartbeat/SKILL.md` |
-| helper | `node pwa/scripts/proactive_loop_tool.mjs heartbeat --status queued,blocked --due-hours 72 --limit 20 --json` |
-| 通知先 | `project_commander_threads.commander_thread_id` または `proactive_outbox.commander_thread_id` |
-| 成功後 | `mark-sent <outbox_id>` で `status='sent_to_commander'`, `sent_at=now()`, `proactive_loop_events.event_type='sent_to_commander'` を記録 |
-| 禁止 | heartbeat 内で外部送信や重い draft 生成をしない。司令塔 worker に渡す |
-| 例外 | routing missing / duplicate risk / network failure は mark-sent せず、AMD OS司令塔へ報告 |
+| 正本 spec | `pwa/spec/2-4-proactive-todo-current-spec.md` |
+| DB | `proactive_todos` |
+| 抽出 | `/api/cron/proactive-todo-extract` |
+| UI | `/proactive` + dashboard 上段 `ProactiveTodoBadge` |
+| 完了 | `/api/proactive-todos/:id/resolve` |
+| 禁止 | 旧 `proactive_outbox` / `ProactiveQueuePanel` を cockpit に戻さない。TODOをそのまま外部送付しない |
 
 ## Control layer: L2 health action ledger
 

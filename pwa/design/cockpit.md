@@ -76,7 +76,7 @@ CockpitHeader は `/admin/projects` の正本から、PJメンバー、契約条
     ├── [G0]  CockpitFreezeBackfill ⭐          休止期間サマリ (再開予定月以降のみ表示)
     └── [E]   CockpitMeetingSummary             MTG サマリ
 
-※ 旧最下段の `CockpitKanbanGas` は主要導線から外す。MS内の細かな作業はMS詳細、先手力の次アクションはTODOに集約する。
+※ 旧最下段の `CockpitKanbanGas` と、旧 `proactive_outbox` 由来の `ProactiveQueuePanel` は主要導線から外す。MS内の細かな作業はMS詳細、先手TODOの棚卸しは `/proactive` で扱い、通常PJコックピットには混ぜない。
 ```
 
 ★ 2026-05-11 追加:
@@ -463,7 +463,8 @@ XRL も同パターン (`xrl_feedbacks` → `/api/.../xrl-revise` → 手動 `/v
 ├── [B1]  CockpitStrategySignals      経営ハイライト
 ├── [B2]  CockpitNextPeriodSetup
 ├── [B3]  過去の期間
-├── [C]   TODO (`ProactiveQueuePanel`)
+├── [C]   資料 (`CockpitProjectDocuments`)
+├── [C1]  経営ハイライト / ガバナンス / 助成金
 ├── [G/E] CockpitMonthlyList + CockpitMeetingSummary
 └── [Right] Status badges (必要な時だけ)
 ```

@@ -27,9 +27,9 @@
 | `members` / `memberMap` | PJ member display |
 | `seasonFinance` | current plan cycle のシーズン収支。月次とシーズン合計で、クライアント支払、バッファ、PJ予算、メンバー現金支払、未払残、現金収支を返す。役員向け報酬相当額と予算残は検算用データとして保持するが、PJ cockpit では表示しない |
 | `strategySignals` | L2D-6 `project_strategy_signals` |
-| `tasks` | kanban tasks |
+| `tasks` | legacy kanban / H-1互換 task。通常PJ cockpit の主要表示には使わない |
 
-`proactive_outbox` は `CockpitData` bundle には混ぜず、`ProactiveQueuePanel` が authenticated browser Supabase client で read-only fetch する。RLS は admin authenticated read 前提で、権限がない場合は UI 内で非表示相当のメッセージにする。
+`proactive_outbox` / `proactive_loops` / `proactive_loop_events` は 2026-06-27 に廃止済みの旧先手力ループであり、通常PJ / institution cockpit には表示しない。先手TODOの棚卸しは `proactive_todos` を使う `/proactive` と dashboard 上段バッジで扱う。旧 `ProactiveQueuePanel` を cockpit に戻さない。
 
 `project_documents` も `CockpitData` bundle には混ぜず、`CockpitProjectDocuments` が `/api/project-documents?project_id=...` を fetch する。API は authenticated user の `members.email` を `project_members` に解決し、当該PJの active member または admin なら資料一覧を返す。ファイル本体は DB / Supabase Storage に置かず、Google Drive の `projects.drive_folder_id` 配下に作成する資料専用 folder (`AMD OS 資料`) へ保存し、DB には Drive file ID / folder ID / `webViewLink` / name / MIME / size / uploaded_by / timestamps だけを残す。
 
@@ -72,12 +72,13 @@ This route is read-only during load. It does not create a duplicate project or w
 | score detail tab | `CockpitAmdScoreDetailTab`, `AmdScoreView embedded` | `/api/project/[projectId]/amd-score-detail`。PRS Primary / PRS history を主表示し、legacy AMD / M-X-F は comparison と evidence 用に残す。cockpit mount 時に hidden panel として先読みし、client memory cache 5 分TTL + private HTTP cache で再表示待ちを減らす。TTL 超過後にタブが active になったら、表示済み内容を保ったまま背景再取得する |
 | goals compact | `CockpitGoalsCompact` | value plan / MS |
 | season finance | `CockpitSeasonFinance` | `fetchCockpitFromSupabase` が `billing_cycles`, `projects`, `reward_summary_json` から組み立てた `seasonFinance`。MS リスト直下、月次カードより上に表示し、シーズン全体と月次別に `クライアント支払` / `バッファ` / `原資上限` / `PJ予算` / `メンバー支払` / `期末未払` / `収支` を出す |
-| TODO | `ProactiveQueuePanel` | `proactive_outbox` read-only。Dashboard は `queued`, `sent_to_commander`, `blocked` を最大3件、PJ cockpit は `queued`, `sent_to_commander`, `drafted`, `blocked` をPJ単位で表示。DBから多めに読み、期限超過 / blocked / queued / sent_to_commander / priority / due_at でUI側sort後、`outbox_id` 重複を排除する。行クリックは発生経緯・`proactive_loop_events` 履歴・資料リンク・外部送付可否・次アクションのモーダル |
-| project documents | `CockpitProjectDocuments` | TODO と経営ハイライトの間に置く資料スペース。drag & drop / file picker で `/api/project-documents` へ multipart upload し、Drive の PJ folder 配下 `AMD OS 資料` folder に新規ファイルとして保存する。同名ファイルは上書きしない。リンク一覧は `project_documents` から取得し、Drive link を新規タブで開く |
+| project documents | `CockpitProjectDocuments` | 右カラム先頭の資料スペース。drag & drop / file picker で `/api/project-documents` へ multipart upload し、Drive の PJ folder 配下 `AMD OS 資料` folder に新規ファイルとして保存する。同名ファイルは上書きしない。リンク一覧は `project_documents` から取得し、Drive link を新規タブで開く |
 | strategy signals | `CockpitStrategySignals` | `project_strategy_signals` |
+| governance | `CockpitGovernance` | ガバナンス要対応 |
+| grants | `CockpitGrants` | 助成金 / funding 関連 |
 | monthly list/modal | `CockpitMonthlyList`, `CockpitMonthlyModal` | `billing_cycles`, reports / reward / progress |
 | meeting summaries | `CockpitMeetingSummary` | `project_meeting_summaries` |
-| legacy kanban | `CockpitKanbanGas` / `HudCockpitKanbanGas` | `tasks`。PJ cockpit / HUD cockpit の主要導線からは外し、TODO は proactive queue へ寄せる |
+| legacy kanban | `CockpitKanbanGas` / `HudCockpitKanbanGas` | `tasks`。PJ cockpit / HUD cockpit の主要導線からは外す |
 | freeze / MS status | `CockpitFreezeBackfill` | freeze backfill and read-only MS period status。MS 設計編集は `/admin/ms-overview` に集約する |
 
 `CockpitMeetingSummary` の通常PJ cockpit表示は、一覧本体に `max-height` と `overflow-y-auto` を置かない。議事録カードや予定MTGカードが増えた場合もカード一覧を縦に伸ばし、コックピット全体のページスクロールで読む。HUD cockpit や detail modal の内部スクロールはこの制約の対象外。
@@ -191,7 +192,7 @@ GAS remains relevant for legacy freee/Slack/background automation. New cockpit m
 | fetch error | error message + reload button |
 | score detail API returns 404 | tab shows a compact error; progress tab remains usable |
 | report-only month | monthly modal opens report tab only |
-| proactive_outbox RLS denies read | proactive queue shows admin-only fallback text and does not block the rest of cockpit |
+| old proactive_outbox row exists | 通常PJ / institution cockpit には表示しない。旧手動seedや `drafted` 行が残っても、PJ 状況面のノイズにしない |
 | project_documents table missing | documents panel shows API error; cockpit remains usable |
 | projects.drive_folder_id missing | documents panel shows folder-setting warning and upload is blocked |
 | Google Drive write permission missing | upload returns permission error; no DB row is inserted |
