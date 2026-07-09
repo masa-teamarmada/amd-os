@@ -67,17 +67,18 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 - 左メニュー導線: AdminSidebar には `請求書発行` と `/admin/invoices` を置く。`Billing` 表記へ戻さない。
 - 発行キュー: 直近13か月の締め済み稼働月 (= 現月は含めず前月まで) の `billing_cycles` と `projects.status IN ('active','ended','frozen')` を読む。発行対象は `start_ym` 以降、`end_ym` 以前、`freeze_from_ym` より前、かつ請求額がある行だけ。未来月、請求額ゼロ、請求しないPJ、期間外の空cycleは出さない。
-- filter: きよの作業順に `発行待ち / 要確認 / 設定不足 / 発行済み / 送付済み / 入金済み / すべて` を置く。`発行待ち` はそのまま押せるもの、`要確認` は金額・対外報告・立替が未完、`設定不足` は freee取引先未設定など OS 設定で止まるもの。
+- filter: きよの作業順に `発行待ち / 要確認 / 設定不足 / 過去滞留 / 発行済み / 送付済み / 入金済み / すべて` を置く。`発行待ち` は対象月でそのまま押せるもの、`要確認` は対象月の金額・対外報告・立替が未完、`設定不足` は対象月の freee取引先未設定など OS 設定で止まるもの、`過去滞留` は対象月より古い未発行行。
 - きよ確認: 各行には `金額 / 報告 / 立替` の完了状態だけを小さく表示する。`報告` は `monthly_report_scope='internal_and_external'` のとき発行前 blocker とする。`支払通知 / 報酬支払` など、請求書発行と直接関係しない全ステップ横並び chip を主画面に戻さない。
 - 請求書発行: `発行待ち` 行の主操作にだけ `発行` / `請求書を発行` ボタンを置き、`AdminInvoiceIssueDialog` から `issue-invoice` Edge Function を呼ぶ。単なる `invoice_issued_at` 手動更新で発行済みに見せない。
-- 請求額表示: 明細合計 (`invoice_base_lines_json`) を最優先し、なければ確定請求額 (`budget_reported_amount`)、最後に PJ 予算 (`budget_yen / 0.65`) へ fallback する。
+- 発行モーダル: iOS `InvoiceStepView` / 旧 GAS `cpOpenInvoiceModal` と同じ発行仕様を維持する。件名、基本明細行、契約月額との差分確認、前月明細引き継ぎ、承認済み立替の読み取り専用明細、調整行、請求日、支払期日、備考、発行済み情報、発行取消を出す。単なる件名/日付/全行だけの薄いモーダルへ戻さない。
+- 請求額表示: 明細合計 (`invoice_base_lines_json`) を最優先し、なければ確定請求額 (`budget_reported_amount`)、月額固定契約だけ `projects.fee_amount` へ fallback する。PJ 予算 (`budget_yen`) は AMD 側の原資/報酬予算なので、請求発生判定や請求額 fallback に使わない。
 - 幅: admin 業務表として列幅を保ち、狭い画面では表本体を横スクロールさせる。列を圧縮して文字やボタンを重ねない。
 - 明細保存: 発行前に `invoice_base_lines_json` / `invoice_subject` を保存できる。発行後は `invoice_issued_at` / `freee_invoice_number` / `invoice_pdf_url` が `billing_cycles` に反映される。
 - 互換: `/admin/billing` は画面を持たず `/admin/invoices` に redirect する。
 
 回帰防止:
 
-- `pwa/scripts/check_pwa_critical_ui.cjs` が `/admin/invoices` route、`/admin/billing` redirect、AdminSidebar 導線、`AdminInvoiceIssueQueue`、`AdminInvoiceIssueDialog`、`issue-invoice` anchor を検査する。
+- `pwa/scripts/check_pwa_critical_ui.cjs` が `/admin/invoices` route、`/admin/billing` redirect、AdminSidebar 導線、`AdminInvoiceIssueQueue`、`AdminInvoiceIssueDialog` の `基本明細行 / 立替精算 / 調整行 / 備考 / 発行を取り消す`、`issue-invoice` anchor を検査する。
 - 旧 PM 月次 routine へ請求書発行を戻さない。請求書発行・送付は admin 業務のままにする。
 
 ## /admin/payouts

@@ -42,7 +42,8 @@ function parseInvoiceLines(value: string | null) {
 function invoiceNetAmount(c: {
   invoice_base_lines_json?: string | null;
   budget_reported_amount?: number | string | null;
-  budget_yen?: number | string | null;
+  fee_type?: string | null;
+  fee_amount?: number | string | null;
 }) {
   const totalFromLines = parseInvoiceLines(c.invoice_base_lines_json ?? null).reduce((sum, line) => {
     if (line.type === "text") return sum;
@@ -53,8 +54,8 @@ function invoiceNetAmount(c: {
   if (totalFromLines > 0) return Math.round(totalFromLines);
   const reported = Number(c.budget_reported_amount ?? 0);
   if (reported > 0) return Math.round(reported);
-  const budget = Number(c.budget_yen ?? 0);
-  if (budget > 0) return Math.round(budget / 0.65);
+  const fixedFee = Number(c.fee_amount ?? 0);
+  if (c.fee_type === "monthly_fixed" && fixedFee > 0) return Math.round(fixedFee);
   return 0;
 }
 
@@ -81,7 +82,7 @@ export default async function AdminInvoicesPage() {
 
   const { data: projects, error: projectErr } = await supabase
     .from("projects")
-    .select("project_id, project_name, status, project_type, start_ym, end_ym, freeze_from_ym, freee_partner_id, monthly_report_required, monthly_report_scope")
+    .select("project_id, project_name, status, project_type, start_ym, end_ym, freeze_from_ym, fee_type, fee_amount, freee_partner_id, monthly_report_required, monthly_report_scope")
     .in("status", ["active", "ended", "frozen"]);
 
   const { data: reimbursements, error: reimburseErr } = await supabase
@@ -100,6 +101,8 @@ export default async function AdminInvoicesPage() {
       start_ym: p.start_ym ?? null,
       end_ym: p.end_ym ?? null,
       freeze_from_ym: p.freeze_from_ym ?? null,
+      fee_type: p.fee_type ?? null,
+      fee_amount: p.fee_amount ?? null,
       freee_partner_id: p.freee_partner_id ?? null,
       monthly_report_required: Boolean(p.monthly_report_required),
       monthly_report_scope: p.monthly_report_scope ?? "none",
@@ -110,7 +113,11 @@ export default async function AdminInvoicesPage() {
     .filter((c) => {
       const project = projectMap.get(c.project_id);
       if (!project) return false;
-      const amount = invoiceNetAmount(c);
+      const amount = invoiceNetAmount({
+        ...c,
+        fee_type: project.fee_type,
+        fee_amount: project.fee_amount,
+      });
       if (c.ym > lastClosedYm) return false;
       if (!isWithinWorkWindow(c, project)) return false;
       if (amount <= 0) return false;
@@ -121,6 +128,8 @@ export default async function AdminInvoicesPage() {
       project_id: c.project_id,
       project_name: projectMap.get(c.project_id)?.project_name ?? c.project_id,
       project_type: projectMap.get(c.project_id)?.project_type ?? null,
+      fee_type: projectMap.get(c.project_id)?.fee_type ?? null,
+      fee_amount: projectMap.get(c.project_id)?.fee_amount ?? null,
       freee_partner_id: projectMap.get(c.project_id)?.freee_partner_id ?? null,
       monthly_report_required: projectMap.get(c.project_id)?.monthly_report_required ?? false,
       monthly_report_scope: projectMap.get(c.project_id)?.monthly_report_scope ?? "none",
@@ -163,7 +172,7 @@ export default async function AdminInvoicesPage() {
       <p className="text-xs text-muted-foreground mb-3">
         締め済みで請求額がある稼働分だけを表示し、発行待ちから freee 発行まで進める。設定不足やきよ確認が残るものは、発行待ちとは分けて扱う。
       </p>
-      <AdminInvoiceIssueQueue cycles={rows} reimbursements={reimbursementRows} />
+      <AdminInvoiceIssueQueue cycles={rows} reimbursements={reimbursementRows} targetYm={lastClosedYm} />
     </div>
   );
 }

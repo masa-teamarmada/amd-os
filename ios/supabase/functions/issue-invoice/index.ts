@@ -143,7 +143,7 @@ Deno.serve(async (req) => {
     const auth = await requireAdmin(req, supabaseUrl, serviceKey);
     if (!auth.ok) return auth.response;
 
-    const { projectId, ym, issueDate, dueDate, allLinesJson, invoiceSubject, documentType } =
+    const { projectId, ym, issueDate, dueDate, allLinesJson, invoiceSubject, invoiceRemark, documentType } =
       await req.json() as {
         projectId: string;
         ym: string;
@@ -151,6 +151,7 @@ Deno.serve(async (req) => {
         dueDate: string;
         allLinesJson: string;
         invoiceSubject?: string;
+        invoiceRemark?: string;
         documentType?: "invoice" | "quotation";
       };
 
@@ -252,6 +253,8 @@ Deno.serve(async (req) => {
       withholding_tax_entry_method: "out",
       lines,
     };
+    const remark = invoiceRemark?.trim();
+    if (remark) documentBody.invoice_note = remark;
     if (templateId) documentBody.template_id = Number(templateId);
 
     // 6) freee 帳票発行

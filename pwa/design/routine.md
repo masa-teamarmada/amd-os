@@ -31,7 +31,7 @@
 ## 残すもの
 
 - 月次カードと `CockpitMonthlyModal`: 月次の進捗・報酬・レポートを確認する read/write surface として残す。
-- `/admin/invoices`: きよが締め済み稼働月の請求書発行を処理する発行キュー。請求額がある行だけを出し、`発行待ち / 要確認 / 設定不足` を分ける。旧 `/admin/billing` は互換 redirect のみ。
+- `/admin/invoices`: きよが締め済み稼働月の請求書発行を処理する発行キュー。請求額がある行だけを出し、`発行待ち / 要確認 / 設定不足 / 過去滞留` を分ける。旧 `/admin/billing` は互換 redirect のみ。
 - `/admin/payouts`: 支払通知書・報酬支払の正本。
 - `/reimburse`: 立替申請・PM/admin承認の正本。
 

@@ -170,6 +170,7 @@ expectIncludes("src/components/admin/AdminInvoiceIssueQueue.tsx", [
   "発行待ち",
   "要確認",
   "設定不足",
+  "過去滞留",
   "請求書発行",
   "請求書を発行",
   "きよ確認",
@@ -180,6 +181,11 @@ expectIncludes("src/components/admin/AdminInvoiceIssueDialog.tsx", [
   "callEdgeFunctionPOST",
   "invoice_base_lines_json",
   "freeePartnerId",
+  "基本明細行",
+  "立替精算",
+  "調整行",
+  "備考",
+  "発行を取り消す",
   "請求書を発行",
 ]);
 

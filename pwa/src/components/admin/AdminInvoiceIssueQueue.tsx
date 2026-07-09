@@ -20,6 +20,8 @@ export interface InvoiceProjectRow {
   start_ym: string | null;
   end_ym: string | null;
   freeze_from_ym: string | null;
+  fee_type: string | null;
+  fee_amount: number | null;
   freee_partner_id: string | null;
   monthly_report_required: boolean;
   monthly_report_scope: string | null;
@@ -30,6 +32,8 @@ export interface BillingCycleRow {
   project_id: string;
   project_name: string;
   project_type: string | null;
+  fee_type: string | null;
+  fee_amount: number | null;
   freee_partner_id: string | null;
   monthly_report_required: boolean;
   monthly_report_scope: string | null;
@@ -59,12 +63,13 @@ export interface ReimbursementRow {
   status: string | null;
 }
 
-type QueueFilter = "ready" | "needs_check" | "setup_missing" | "issued" | "sent" | "paid" | "all";
+type QueueFilter = "ready" | "needs_check" | "setup_missing" | "backlog" | "issued" | "sent" | "paid" | "all";
 type StateKey = Exclude<QueueFilter, "all">;
 
 interface Props {
   cycles: BillingCycleRow[];
   reimbursements: ReimbursementRow[];
+  targetYm: string;
 }
 
 type InvoiceState = {
@@ -157,7 +162,7 @@ function invoiceNetAmount(row: BillingCycleRow) {
   }, 0);
   if (totalFromLines > 0) return Math.round(totalFromLines);
   if (typeof row.budget_reported_amount === "number" && row.budget_reported_amount > 0) return Math.round(row.budget_reported_amount);
-  if (typeof row.budget_yen === "number" && row.budget_yen > 0) return Math.round(row.budget_yen / 0.65);
+  if (row.fee_type === "monthly_fixed" && typeof row.fee_amount === "number" && row.fee_amount > 0) return Math.round(row.fee_amount);
   return null;
 }
 
@@ -193,7 +198,7 @@ function blockerLabels(row: BillingCycleRow, reimbursementDone: boolean) {
   return blockers;
 }
 
-function invoiceState(row: BillingCycleRow, reimbursementDone: boolean): InvoiceState {
+function invoiceState(row: BillingCycleRow, reimbursementDone: boolean, targetYm: string): InvoiceState {
   if (row.payment_confirmed_at) {
     return { key: "paid", label: "入金確認済み", tone: "slate", Icon: CircleDollarSign };
   }
@@ -202,6 +207,9 @@ function invoiceState(row: BillingCycleRow, reimbursementDone: boolean): Invoice
   }
   if (row.invoice_issued_at) {
     return { key: "issued", label: "発行済み", tone: "emerald", Icon: Check };
+  }
+  if (row.ym < targetYm) {
+    return { key: "backlog", label: "過去滞留", tone: "red", Icon: AlertTriangle };
   }
   const blockers = blockerLabels(row, reimbursementDone);
   if (blockers.includes("freee取引先未設定")) {
@@ -228,11 +236,11 @@ function stateClass(tone: InvoiceState["tone"]) {
   }
 }
 
-function invoiceSort(a: BillingCycleRow, b: BillingCycleRow, reimburseMap: Map<string, boolean>) {
-  const stateOrder: Record<StateKey, number> = { ready: 0, needs_check: 1, setup_missing: 2, issued: 3, sent: 4, paid: 5 };
+function invoiceSort(a: BillingCycleRow, b: BillingCycleRow, reimburseMap: Map<string, boolean>, targetYm: string) {
+  const stateOrder: Record<StateKey, number> = { ready: 0, needs_check: 1, setup_missing: 2, backlog: 3, issued: 4, sent: 5, paid: 6 };
   const aDone = reimburseMap.get(`${a.project_id}_${a.ym}`) ?? true;
   const bDone = reimburseMap.get(`${b.project_id}_${b.ym}`) ?? true;
-  const stateDiff = stateOrder[invoiceState(a, aDone).key] - stateOrder[invoiceState(b, bDone).key];
+  const stateDiff = stateOrder[invoiceState(a, aDone, targetYm).key] - stateOrder[invoiceState(b, bDone, targetYm).key];
   if (stateDiff !== 0) return stateDiff;
   const invoiceYmDiff = (a.invoice_ym || a.ym).localeCompare(b.invoice_ym || b.ym);
   if (invoiceYmDiff !== 0) return invoiceYmDiff;
@@ -249,7 +257,7 @@ function StatusPill({ state }: { state: InvoiceState }) {
   );
 }
 
-export function AdminInvoiceIssueQueue({ cycles, reimbursements }: Props) {
+export function AdminInvoiceIssueQueue({ cycles, reimbursements, targetYm }: Props) {
   const [rows, setRows] = useState(cycles);
   const [filter, setFilter] = useState<QueueFilter>("ready");
   const [selected, setSelected] = useState<BillingCycleRow | null>(null);
@@ -258,22 +266,22 @@ export function AdminInvoiceIssueQueue({ cycles, reimbursements }: Props) {
   const [reimburseMap] = useState(() => reimbursementCompletionMap(reimbursements, cycles));
 
   const counts = useMemo(() => {
-    const initial: Record<QueueFilter, number> = { ready: 0, needs_check: 0, setup_missing: 0, issued: 0, sent: 0, paid: 0, all: rows.length };
+    const initial: Record<QueueFilter, number> = { ready: 0, needs_check: 0, setup_missing: 0, backlog: 0, issued: 0, sent: 0, paid: 0, all: rows.length };
     for (const row of rows) {
       const reimbursementDone = reimburseMap.get(`${row.project_id}_${row.ym}`) ?? true;
-      initial[invoiceState(row, reimbursementDone).key] += 1;
+      initial[invoiceState(row, reimbursementDone, targetYm).key] += 1;
     }
     return initial;
-  }, [reimburseMap, rows]);
+  }, [reimburseMap, rows, targetYm]);
 
   const visibleRows = useMemo(() => {
     return rows
       .filter((row) => {
         const reimbursementDone = reimburseMap.get(`${row.project_id}_${row.ym}`) ?? true;
-        return filter === "all" || invoiceState(row, reimbursementDone).key === filter;
+        return filter === "all" || invoiceState(row, reimbursementDone, targetYm).key === filter;
       })
-      .sort((a, b) => invoiceSort(a, b, reimburseMap));
-  }, [filter, reimburseMap, rows]);
+      .sort((a, b) => invoiceSort(a, b, reimburseMap, targetYm));
+  }, [filter, reimburseMap, rows, targetYm]);
 
   function applyLocalPatch(projectId: string, ym: string, patch: Partial<BillingCycleRow>) {
     setRows((prev) => prev.map((row) => row.project_id === projectId && row.ym === ym ? { ...row, ...patch } : row));
@@ -296,6 +304,7 @@ export function AdminInvoiceIssueQueue({ cycles, reimbursements }: Props) {
     { key: "ready", label: "発行待ち" },
     { key: "needs_check", label: "要確認" },
     { key: "setup_missing", label: "設定不足" },
+    { key: "backlog", label: "過去滞留" },
     { key: "issued", label: "発行済み" },
     { key: "sent", label: "送付済み" },
     { key: "paid", label: "入金済み" },
@@ -306,7 +315,7 @@ export function AdminInvoiceIssueQueue({ cycles, reimbursements }: Props) {
     { label: "発行待ち", value: counts.ready, className: "border-amber-200 bg-amber-50 text-amber-900" },
     { label: "要確認", value: counts.needs_check, className: "border-slate-200 bg-slate-50 text-slate-800" },
     { label: "設定不足", value: counts.setup_missing, className: "border-red-200 bg-red-50 text-red-800" },
-    { label: "発行済み", value: counts.issued, className: "border-emerald-200 bg-emerald-50 text-emerald-800" },
+    { label: "過去滞留", value: counts.backlog, className: "border-red-200 bg-red-50 text-red-800" },
   ];
 
   return (
@@ -320,7 +329,7 @@ export function AdminInvoiceIssueQueue({ cycles, reimbursements }: Props) {
               if (item.label === "発行待ち") setFilter("ready");
               if (item.label === "要確認") setFilter("needs_check");
               if (item.label === "設定不足") setFilter("setup_missing");
-              if (item.label === "発行済み") setFilter("issued");
+              if (item.label === "過去滞留") setFilter("backlog");
             }}
             className={`rounded-lg border px-3 py-2 text-left transition-colors hover:brightness-[0.98] ${item.className}`}
           >
@@ -368,7 +377,7 @@ export function AdminInvoiceIssueQueue({ cycles, reimbursements }: Props) {
             <div className="divide-y divide-border">
               {visibleRows.map((row) => {
                 const reimbursementDone = reimburseMap.get(`${row.project_id}_${row.ym}`) ?? true;
-                const state = invoiceState(row, reimbursementDone);
+                const state = invoiceState(row, reimbursementDone, targetYm);
                 const prerequisites = prerequisiteItems(row, reimbursementDone);
                 return (
                   <div
@@ -411,7 +420,7 @@ export function AdminInvoiceIssueQueue({ cycles, reimbursements }: Props) {
                           <FilePlus />
                           発行
                         </Button>
-                      ) : (state.key === "needs_check" || state.key === "setup_missing") && (
+                      ) : (state.key === "needs_check" || state.key === "setup_missing" || state.key === "backlog") && (
                         <Button type="button" variant="outline" size="sm" onClick={() => setSelected(row)}>
                           {state.key === "setup_missing" ? "設定" : "確認"}
                         </Button>
@@ -431,6 +440,7 @@ export function AdminInvoiceIssueQueue({ cycles, reimbursements }: Props) {
       <InvoiceDetailDialog
         row={selected}
         reimbursementDone={selected ? reimburseMap.get(`${selected.project_id}_${selected.ym}`) ?? true : true}
+        targetYm={targetYm}
         onClose={() => setSelected(null)}
         onIssue={(row) => {
           setSelected(null);
@@ -462,16 +472,18 @@ export function AdminInvoiceIssueQueue({ cycles, reimbursements }: Props) {
 function InvoiceDetailDialog({
   row,
   reimbursementDone,
+  targetYm,
   onClose,
   onIssue,
 }: {
   row: BillingCycleRow | null;
   reimbursementDone: boolean;
+  targetYm: string;
   onClose: () => void;
   onIssue: (row: BillingCycleRow) => void;
 }) {
   if (!row) return null;
-  const state = invoiceState(row, reimbursementDone);
+  const state = invoiceState(row, reimbursementDone, targetYm);
   const prerequisites = prerequisiteItems(row, reimbursementDone);
   const blockers = blockerLabels(row, reimbursementDone);
   const canIssue = state.key === "ready";

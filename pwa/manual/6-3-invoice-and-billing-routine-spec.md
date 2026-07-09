@@ -77,7 +77,7 @@ reward_paid
 ### ステップ並び
 
 - PM/cockpit: 専用 step UI なし。OS 上の月次 TODO も出さない。必要な確認は月次カードから `CockpitMonthlyModal` を開く
-- admin 請求書発行 (`/admin/invoices`): 直近13か月の締め済み稼働月だけを対象に、請求額がある行を `発行待ち / 要確認 / 設定不足 / 発行済み / 送付済み / 入金済み / すべて` で絞り込む発行キュー。各行には `金額 / 報告 / 立替` のきよ確認だけを出し、freee取引先・金額・対外提出が必要な報告・立替がそろった `発行待ち` 行だけ `発行` から明細確認 → freee 発行へ進む。
+- admin 請求書発行 (`/admin/invoices`): 直近13か月の締め済み稼働月だけを対象に、請求額がある行を `発行待ち / 要確認 / 設定不足 / 過去滞留 / 発行済み / 送付済み / 入金済み / すべて` で絞り込む発行キュー。各行には `金額 / 報告 / 立替` のきよ確認だけを出し、freee取引先・金額・対外提出が必要な報告・立替がそろった対象月の `発行待ち` 行だけ `発行` から明細確認 → freee 発行へ進む。対象月より古い未発行行は `過去滞留` として今月発行分から分ける。発行モーダルは件名、基本明細行、承認済み立替、調整行、請求日、支払期日、備考を扱う。
 - CTB見積: CTB停止中のため一旦廃止
 - **古い月が上**
 
@@ -118,15 +118,24 @@ GAS `gas-main/007_FreeeInvoiceFlow.js` が freee API への発行を担当。
 ```json
 [
   {
-    "name": "業務委託費",
-    "qty": 1,
-    "unit_price": 300000,
-    "tax_code": "10",
-    "remarks": "..."
+    "section": "base",
+    "type": "item",
+    "description": "2026年6月分 業務委託費",
+    "quantity": 1,
+    "unit_price": 300000
+  },
+  {
+    "section": "adjustment",
+    "type": "item",
+    "description": "調整",
+    "quantity": 1,
+    "unit_price": -10000
   },
   ...
 ]
 ```
+
+`section='base'` は基本明細行、`section='adjustment'` は値引き等の調整行。`type='text'` の行は金額なしのメモ行として freee へ渡す。承認済み立替は `invoice_base_lines_json` へ保存せず、発行時に `issue-invoice` が `reimbursements` から自動で明細追加する。備考は `invoiceRemark` として発行時に freee `invoice_note` へ渡す。
 
 ### PL レビュー API (廃止済み)
 
@@ -138,7 +147,7 @@ GAS `gas-main/007_FreeeInvoiceFlow.js` が freee API への発行を担当。
 
 1. freee 請求書が発行済み (`invoice_issued_at` または `freee_invoice_number` がある) で、`invoice_base_lines_json` に明細がある場合は、その明細合計を正本にする。
 2. 未発行または明細が無い場合は、確定請求額 (`budget_reported_amount`) を使う。
-3. 互換 fallback として、明細合計、最後に `budget_yen / 0.65` を使う。
+3. 月額固定契約で確定請求額がまだ無い場合だけ、`projects.fee_amount` を fallback に使う。`budget_yen` は AMD 側の原資/報酬予算なので、入金予定額や請求額の fallback には使わない。
 
 税込の入金予定額はこの税抜請求額に消費税 10% を掛けたもの。freee 側に発行済み請求書がある場合、過去に入力した請求額案が残っていても発行済み明細を優先する。
 
