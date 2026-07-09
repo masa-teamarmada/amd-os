@@ -3550,6 +3550,13 @@
 - **対応内容**: PWA側に `PAYMENT_CONFIRM_SLACK_INTERACTIVE` safety flagを追加し、未設定時は既存URL confirm buttonを維持するように戻した。最終PWA productionは `dpl_9jcgL4SRYk97zq7PpsvwhTVSTBVB` へ再deployし、`vercel env ls --scope armada0130` で同envが未設定であることを確認。Slack action実装は draft PR #2 (`dc7027a`) に隔離済み。
 - **再発防止策**: Slack interactivityを含む変更は、GAS deploy成功を確認してからPWA env flagをONにする。順序は `clasp login` -> `clasp push --force` -> `clasp deploy --deploymentId <本番WebApp>` -> PWA `PAYMENT_CONFIRM_SLACK_INTERACTIVE=1` -> PWA redeploy -> Slack実押下test。`clasp invalid_rapt` はコード問題ではなく再認証blockerなので、retry連打ではなくhandoff/BUGSに残して認証を更新する。
 
+## [PWA/finance] 入金日前に入金確認nudgeが届き、押下すると汎用エラー画面に飛んだ (2026-07-09)
+
+- **症状**: 2026-07-09 に、ZMP の入金確認Slack DMが届いた。表示上の期日は 2026-07-31 なので、まだ入金確認できないタイミングだった。さらに「予定通り入金済み」を押すと `入金確認できなかった` 画面に遷移し、ZMP 202606 の `billing_cycles.payment_confirmed_at` は更新されなかった。Slack文面には AMD が受け取る側なのに `支払月` と表示されていた。
+- **原因**: `/api/cron/payment-confirm-nudges` が入金月 (`ym`) 単位の未入金候補を全件読み、その候補の `dueDate` が今日かどうかを見ずに送信していた。結果、同じ 2026年7月入金月の中で、2026-07-31 期日の候補まで 2026-07-09 に送られた。`入金確認できなかった` 画面は、銀行/freee照合で未検出という意味ではなく、signed token の即時反映APIが例外を返した時の汎用エラー画面だった。
+- **対応内容**: `payment-confirm-nudges` は今日 (JST) の `dueDate` と一致する候補だけ送るように変更した。期日前・期日後・ゼロ金額候補は送信対象から外し、dry-run は `GET ?date=YYYY-MM-DD` / `POST { date }` で日付指定できるようにした。Slack文面、確認完了画面、金額入力画面、freee同期失敗DM、manual/spec/design の表示を `支払月` から `入金月` に統一した。build `v0.39.33` / commit `df434cbf` で本番反映済み。
+- **再発防止策**: 入金確認nudgeは、入金月ではなく入金期日で送信可否を判定する。期日前は運用者が確認できないので送らない。Slackボタンの失敗画面を見た時は「入金が無かった」と即断せず、token/API/対象 `billing_cycles` の存在・更新例外を確認する。cronの挙動変更時は本番相当 dry-run で「今日」「期日当日」の両方を確認してから完了扱いにする。
+
 ## [PWA/finance] CTB 202604 の入金予定額が freee 請求書より大きく出た (2026-05-30)
 
 - **状態**: DB補正済み / code・docs修正済み / PWA production deploy は未実施

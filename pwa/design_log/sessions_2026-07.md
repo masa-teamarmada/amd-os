@@ -866,3 +866,47 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 - closeout inventory: registered worktree は `/Users/masa/projects/AMD/amd-os [main]` のみ、local branch は `main` のみ、local main vs origin/main は `0 / 0`。
 - 別件 dirty: `pwa/src/app/(app)/admin/invoices/page.tsx` は invoice queue refinement 由来。MS履歴 bundle では触らない。
 - archive status は、別件dirtyが残るため `do not archive`。MS履歴・backfill 自体は本番DBと production-visible UI に反映済み。
+
+---
+
+## 2026-07-09 — Finance / Payment Confirm nudge 入金日当日化 / v0.39.33
+
+### コンテキスト
+- まさから、ZMP のSlack入金確認DMで `予定通り入金済み` を押したら `入金確認できなかった` 画面へ飛んだと共有があった。
+- DM本文は `支払月: 2026年7月 / 対象: 2026年6月 / 支払条件: 翌月末 / 期日: 2026-07-31` で、2026-07-09 時点ではまだ入金日より前だった。
+- 追加で、入金日前に毎日nudgeされても確認できないので入金日に来るようにすること、`支払月` ではなく `入金月` が自然だと指摘された。
+- `/Users/masa/projects/AGENTS.common.md`、root / pwa の `AGENTS.md` / `CLAUDE.md`、finance payment confirm manual、notifications design、PWA route/spec を読んでから着手した。
+
+### 原因
+- `/api/cron/payment-confirm-nudges` は入金月 (`ym`) の未入金候補をまとめて読み、各候補の `dueDate` が今日 (JST) かどうかを判定していなかった。
+- そのため、同じ 2026年7月入金月に含まれる 2026-07-31 期日のZMP候補まで、2026-07-09 に送信された。
+- `入金確認できなかった` 画面は、freee/銀行で入金が見つからなかったという意味ではなく、signed token の即時反映APIが例外を返した時の汎用エラー画面。DB read-back では ZMP p19 / 202606 の `payment_confirmed_at` は未更新だった。
+
+### 実装 / 仕様同期
+- `payment-confirm-nudges` に `dueDate` フィルタを追加し、`group.dueDate === todayJst` の候補だけを送るようにした。
+- `GET ?date=YYYY-MM-DD` / `POST { date }` を dry-run / 手動検証用に追加した。
+- 期日前、期日後、期日一致でもゼロ金額の候補を結果に分類して返すようにした。
+- Slack文面、確認完了画面、金額入力画面、freee同期失敗DMの `支払月` を `入金月` に統一した。
+- `pwa/manual/6-4-finance-payment-confirm-spec.md`、`pwa/design/notifications.md`、`pwa/design/SPEC_pwa.md`、`pwa/manual/6-1-operations-settings-spec.md`、manual/spec changelog、`pwa/BUGS.md` を同期した。
+- `BUILD_VERSION` は `v0.39.33`。
+
+### Verification / Deploy
+- `npx tsc --noEmit` passed。
+- targeted `eslint` passed。
+- `npm run build` passed。既存の Next.js middleware deprecation warning のみ。
+- local dry-run:
+  - `date=2026-07-09`: `groupCount=0`, `skippedBeforeDue=6`, `skippedAfterDue=1`。
+  - `date=2026-07-31`: `groupCount=0`, `skippedZeroAmount=5`。
+- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` で main push / Vercel production 反映。
+- production `/api/build-info`: deploy直後 `v0.39.33` / `df434cbf0e42d22cb49ab5fa19e5d2a291498e0c`。
+- production dry-run `date=2026-07-09`: `groupCount=0`, `skippedBeforeDue=6`, `skippedAfterDue=1`。
+- 後続の月初合意UI commit `d8934395` により現在の production は `v0.39.34` 系だが、`df434cbf` は ancestor として含まれる。
+
+### Closeout notes
+- 入金確認fix自体の既知残タスクはなし。
+- ただし closeout 時点の checkout には別件の `/admin/invoices` freee取引先選択WIPが残っている。主な差分は `AdminInvoiceIssueQueue.tsx`、`api/admin/freee-partners/route.ts`、`FreeePartnerPicker.tsx`。この入金確認fix bundleには混ぜない。
+- archive status は別件dirtyが残るため `do not archive`。
+
+### 教訓
+- 入金確認nudgeは「入金月」ではなく「入金期日」で送信可否を決める。入金日前は運用者が確認できないので送らない。
+- Slackボタン押下後の `入金確認できなかった` は、freee/銀行未検出ではなくAPI例外の汎用表示。再発時は token / 対象cycle / update例外を切り分ける。

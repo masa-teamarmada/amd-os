@@ -2,76 +2,83 @@
 
 Last updated: 2026-07-09 JST
 Target: `/Users/masa/projects/AMD/amd-os`
-Topic: MS変更履歴 cockpit 表示 / 既存MS履歴 backfill / closeout
+Topic: Finance / Payment Confirm nudge 入金日当日化 + closeout
 
 ## Summary
 
-- PJ cockpit の今期MS直下に、折りたたみ式 `MS変更履歴` を追加済み。メンバーが必要な時だけ、変更日時・記録者・MS差分・担当share差分・保存前支払検算を確認できる。
-- `/admin/ms-overview` 保存成功時に `milestone_change_events` へ変更前後snapshot・差分・検算サマリを保存する。
-- 既存MS分も backfill 済み。active / fixed の 11 plan cycle、110 MS を、`value_milestones.created_at` ごとの作成バッチとして 19 event に分けて追加した。
-- backfill は `source='migration'` / `metadata_json.backfillKey='2026-07-09-ms-change-history-created-at-batches-v1'`。ログ導入前の pt/share 更新時刻は復元せず、担当shareは backfill 実行時点の現行値。
-- dirty を理由に deploy を止めた運用ミスは、`AGENTS.common.md`、root `CLAUDE.md`、`pwa/CLAUDE.md`、`pwa/BUGS.md` に再発防止を記録済み。
-- 詳細ログ: `pwa/design_log/sessions_2026-07.md` の `2026-07-09 — MS変更履歴 cockpit 表示 / 既存履歴 backfill / closeout`。
+- まさが共有した ZMP 入金確認Slack DMは、期日 `2026-07-31` なのに `2026-07-09` に届いていた。入金日前は確認不能なので、送信タイミングが誤り。
+- 原因は `/api/cron/payment-confirm-nudges` が入金月 (`ym`) の未入金候補を全件送り、候補ごとの `dueDate` が今日かを見ていなかったこと。
+- `入金確認できなかった` 画面は、freee/銀行で入金が無いという意味ではなく、signed token の即時反映APIが例外を返した時の汎用エラー画面。DB read-back では ZMP p19 / 202606 の `payment_confirmed_at` は未更新。
+- fix commit `df434cbf` で、入金確認nudgeは今日 (JST) の `dueDate` と一致する候補だけ送るように変更。`支払月` 表示は `入金月` に統一。
+- 後続 commit `d8934395` (`v0.39.34`) が `origin/main` / production に入り、`df434cbf` は ancestor として含まれる。
+- 詳細ログ: `pwa/design_log/sessions_2026-07.md` の `2026-07-09 — Finance / Payment Confirm nudge 入金日当日化 / v0.39.33`。
 
 ## Repo State
 
 - Canonical repo: `/Users/masa/projects/AMD/amd-os`
 - Branch: `main`
-- Local main vs `origin/main`: closeout inventory時点で ahead `0`, behind `0`
-- Worktree: `/Users/masa/projects/AMD/amd-os [main]` のみ
-- Local branch: `main` のみ
-- Production: `https://amd-os-pwa.vercel.app/api/build-info` は closeout deploy 後に `git_branch=main`, `dirty=false`, pushed `origin/main` と一致することを確認済み。再開時はこの endpoint と `git rev-parse origin/main` をもう一度合わせる。
-- `origin/main` は MS変更履歴実装、backfill記録、closeout/handoff更新を含む。
+- Product fix commit: `df434cbf fix(pwa): send payment confirm nudges on due date`
+- Current product HEAD before this handoff docs refresh: `d8934395 fix(pwa): widen monthly agreement unpaid flow`
+- Local main vs `origin/main` at closeout inventory: ahead `0`, behind `0`
+- Worktree registry: `/Users/masa/projects/AMD/amd-os [main]` only
+- Local branches: `main` only
+- Production: `https://amd-os-pwa.vercel.app` is on the post-fix line. Re-check `/api/build-info` when resuming.
 
 ## Dirty State
 
-MS履歴 bundle では触らない別件 invoice queue refinement が残っている。owner guess は別セッションの請求書発行キュー worker。
+Uncommitted changes are a separate `/admin/invoices` freee取引先選択 / 請求書発行条件 WIP, not part of the payment-confirm fix.
 
-- `pwa/src/app/(app)/admin/invoices/page.tsx`
-- `pwa/src/components/admin/AdminInvoiceIssueQueue.tsx`
-- `pwa/src/lib/build-info.ts`
-- `pwa/design/SPEC_pwa.md`
-- `pwa/design/routine.md`
-- `pwa/design/FEATURE_REGISTRY.md` の invoice queue hunk
-- `pwa/manual/2-6-admin-ops.md`
-- `pwa/manual/6-3-invoice-and-billing-routine-spec.md`
-- `pwa/manual/6-6-member-billing-prompts-spec.md`
-- `pwa/manual/9-3-appendix-changelog.md` の invoice queue hunk
-- `pwa/scripts/check_pwa_critical_ui.cjs`
+| path | status | class | owner guess | resolution action | risk |
+|---|---:|---|---|---|---|
+| `pwa/src/app/(app)/admin/invoices/page.tsx` | M | other-worker | invoice queue / freee取引先選択 worker | WIP全体を完成させ、対象ファイルだけ stage / commit / push / deploy | 中: 未完のまま archive すると請求書発行UIのWIPが宙に浮く |
+| `pwa/src/app/api/admin/freee-partners/route.ts` | ?? | other-worker | invoice queue / freee取引先選択 worker | freee取引先候補取得のauth/data境界を確認して commit | 中 |
+| `pwa/src/app/api/invoice/create/route.ts` | M | other-worker | invoice queue / freee取引先選択 worker | 発行API側の取引先/発行条件変更とUIをセットで検証 | 中 |
+| `pwa/src/components/admin/AdminInvoiceIssueDialog.tsx` | M | other-worker | invoice queue / freee取引先選択 worker | 発行モーダルの請求先表示変更とセットで検証 | 中 |
+| `pwa/src/components/admin/AdminInvoiceIssueQueue.tsx` | M | other-worker | invoice queue / freee取引先選択 worker | 報告書/立替 blocker 除外、freee選択UIを完成させる | 中 |
+| `pwa/src/components/admin/AdminProjectsTable.tsx` | M | other-worker | invoice queue / freee取引先選択 worker | PJ台帳freee欄の選択UIと合わせて検証 | 中 |
+| `pwa/src/components/admin/FreeePartnerPicker.tsx` | ?? | other-worker | invoice queue / freee取引先選択 worker | 検索UI状態とAPIのエラー表示を確認 | 中 |
+| `pwa/src/lib/build-info.ts` | M | other-worker | invoice queue / freee取引先選択 worker | WIP完成時に `v0.39.35` として検証/deploy | 中 |
+| `pwa/design/FEATURE_REGISTRY.md`, `pwa/design/SPEC_pwa.md`, `pwa/manual/6-2-admin-projects-members-ledger-spec.md`, `pwa/manual/6-3-invoice-and-billing-routine-spec.md`, `pwa/manual/9-3-appendix-changelog.md`, `pwa/spec/6-1-appendix-changelog.md`, `pwa/scripts/check_pwa_critical_ui.cjs` | M | other-worker | invoice queue / freee取引先選択 worker | WIP仕様・回帰ガードと実装を同一commitにまとめる | 中 |
 
-Resolution action: invoice queue workerが対象差分だけ stage / commit / push / deploy。MS履歴 closeout 側では巻き込まない。
+Resolution owner: next invoice queue session / worker. Payment-confirm closeoutでは巻き込まない。Handoff docs更新で触った `HANDOFF.md` / `SESSION_MIGRATION_PROMPT.md` / `pwa/BUGS.md` / `pwa/HANDOFF_pwa_rebuild.md` / `pwa/design_log/sessions_2026-07.md` だけはこの closeout の own-necessary。
 
 ## Verification / Deploy
 
-実装時に実行済み:
+Payment-confirm fixで実行済み:
 
-- `python3 -X utf8 scripts/apply_ddl.py scripts/migrations/166_milestone_change_events.sql`
-- `npm run test:critical-ui`
-- `npm run test:next-period-ui`
 - `npx tsc --noEmit`
+- targeted `eslint`
 - `npm run build`
-- production `/api/build-info` 確認
-- closeout/handoff docs deploy 後の production `/api/build-info` 確認
-- DB read-back: `milestone_change_events` total 19 / backfill 19
-
-まさ指示「ローカルでテストするのやめて」以降は、追加のローカルテストやローカルサーバー起動なし。
+- local dry-run:
+  - `date=2026-07-09`: `groupCount=0`, `skippedBeforeDue=6`, `skippedAfterDue=1`
+  - `date=2026-07-31`: `groupCount=0`, `skippedZeroAmount=5`
+- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`
+- production `/api/build-info` after deploy: `v0.39.33` / `df434cbf0e42d22cb49ab5fa19e5d2a291498e0c`
+- production dry-run `date=2026-07-09`: `groupCount=0`
 
 ## Unresolved Tasks
 
-- MS変更履歴 / backfill: none known.
-- Closeout archive status: `do not archive`。理由は invoice queue refinement の別件dirtyが残っているため。
-- Invoice queue refinement: 別workerが継続。上記 dirty group を巻き込まずに完了させる。
+- Payment-confirm nudge: none known.
+- Exact old button exception: not reproduced from the expired/old Slack token. If it recurs, capture the error text under the red heading and inspect token payload / target `billing_cycles` / update exception.
+- Closeout archive status: `do not archive` because the unrelated invoice queue freee取引先 WIP remains dirty.
 
 ## First Next Action
 
-MS履歴について次に触るなら、本番 cockpit で任意PJの `MS変更履歴` を展開し、`source='migration'` の既存MS基準線と、今後 `/admin/ms-overview` 保存時に追加される実変更ログが同じUIに並ぶことを確認する。
+If continuing the current repo immediately, finish or route the invoice queue freee取引先 WIP:
+
+1. Inspect the three dirty files listed above.
+2. Confirm the route/auth/data source for freee取引先 search.
+3. Run targeted checks.
+4. Stage only those files plus required spec/manual updates.
+5. Commit/push/deploy through the normal AMD OS PWA path.
+
+If touching payment-confirm again, first read `pwa/manual/6-4-finance-payment-confirm-spec.md` and dry-run `/api/cron/payment-confirm-nudges` with explicit `date`.
 
 ## Pointers
 
-- Cockpit UI: `pwa/src/components/cockpit/CockpitMsChangeHistory.tsx`
-- Cockpit data: `pwa/src/lib/supabase-data.ts`
-- Admin save route: `pwa/src/app/api/admin/ms-overview/[planCycleId]/route.ts`
-- Migration: `pwa/scripts/migrations/166_milestone_change_events.sql`
-- Manual: `pwa/manual/2-3-pj-cockpit.md`, `pwa/manual/6-8-admin-ms-overview-spec.md`
-- Spec/design: `pwa/spec/3-8-cockpit-current-spec.md`, `pwa/design/FEATURE_REGISTRY.md`, `pwa/design/db_schema.md`
-- Process lesson: `pwa/BUGS.md`
+- Payment confirm manual: `pwa/manual/6-4-finance-payment-confirm-spec.md`
+- Notification design: `pwa/design/notifications.md`
+- PWA route/spec: `pwa/design/SPEC_pwa.md`
+- Code: `pwa/src/app/api/cron/payment-confirm-nudges/route.ts`, `pwa/src/app/api/admin/payment-confirm/route.ts`, `pwa/src/app/payment-confirm/PaymentConfirmClient.tsx`
+- Bug lesson: `pwa/BUGS.md`
+- Session log: `pwa/design_log/sessions_2026-07.md`

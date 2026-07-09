@@ -1,5 +1,7 @@
 # HANDOFF - AMD OS PWA
 
+> Current handoff note (2026-07-09): this file still contains older PWA rebuild history. For the current repo/session state, read `/Users/masa/projects/AMD/amd-os/HANDOFF.md` first, then return here only for historical `/proactive` context. The current active carry-forward at closeout is the `/admin/invoices` freee取引先選択 WIP listed in root `HANDOFF.md`.
+
 - Last updated: 2026-06-27 (後始末セッション: 前セッション残骸の design_log merge 分を commit、untracked 8件は別 worker 帰属を明記して保留)
 - Canonical root: `/Users/masa/projects/AMD/amd-os`
 - PWA root: `/Users/masa/projects/AMD/amd-os/pwa`
