@@ -27,6 +27,19 @@ function ymLabel(ym: string): string {
   return `${ym.slice(0, 4)}年${Number(ym.slice(4, 6))}月`;
 }
 
+function currentDateJst(): string {
+  const now = new Date();
+  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  return `${jst.getUTCFullYear()}-${String(jst.getUTCMonth() + 1).padStart(2, "0")}-${String(jst.getUTCDate()).padStart(2, "0")}`;
+}
+
+function cleanIsoDate(value: string | null | undefined): string | null {
+  const raw = (value ?? "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+  const date = new Date(`${raw}T00:00:00.000Z`);
+  return Number.isNaN(date.getTime()) ? null : raw;
+}
+
 async function adminSlackTargets(db: ReturnType<typeof createAdminClient>) {
   const { data, error } = await db
     .from("members")
@@ -44,36 +57,43 @@ export async function GET(req: NextRequest) {
   }
 
   const paymentYm = cleanYm(req.nextUrl.searchParams.get("ym")) || currentYmJst();
+  const dueDate = cleanIsoDate(req.nextUrl.searchParams.get("date")) || currentDateJst();
   const dryRun = req.nextUrl.searchParams.get("dryRun") === "1";
-  return sendPaymentConfirmNudges(paymentYm, dryRun);
+  return sendPaymentConfirmNudges(paymentYm, dueDate, dryRun);
 }
 
 export async function POST(req: NextRequest) {
   const auth = await requireAdmin();
   if (!auth.ok) return auth.errorResponse;
 
-  let body: { ym?: string; dryRun?: boolean } = {};
+  let body: { ym?: string; date?: string; dueDate?: string; dryRun?: boolean } = {};
   try {
     body = await req.json();
   } catch {
     body = {};
   }
   const paymentYm = cleanYm(body.ym) || currentYmJst();
-  return sendPaymentConfirmNudges(paymentYm, Boolean(body.dryRun));
+  const dueDate = cleanIsoDate(body.date ?? body.dueDate) || currentDateJst();
+  return sendPaymentConfirmNudges(paymentYm, dueDate, Boolean(body.dryRun));
 }
 
-async function sendPaymentConfirmNudges(paymentYm: string, dryRun: boolean) {
+async function sendPaymentConfirmNudges(paymentYm: string, dueDate: string, dryRun: boolean) {
   const token = process.env.SLACK_BOT_TOKEN;
   const db = createAdminClient();
 
   try {
-    const groups = await loadPaymentConfirmationGroups(db, paymentYm);
+    const allGroups = await loadPaymentConfirmationGroups(db, paymentYm);
+    const dueGroups = allGroups.filter((group) => group.dueDate === dueDate);
+    const groups = dueGroups.filter((group) => group.expectedGrossAmountYen > 0);
+    const skippedBeforeDue = allGroups.filter((group) => group.dueDate > dueDate).length;
+    const skippedAfterDue = allGroups.filter((group) => group.dueDate < dueDate).length;
+    const skippedZeroAmount = dueGroups.length - groups.length;
     const targets = await adminSlackTargets(db);
     if (!token) {
-      return NextResponse.json({ ok: true, ym: paymentYm, dryRun, sent: 0, groups, skipped: "no SLACK_BOT_TOKEN" });
+      return NextResponse.json({ ok: true, ym: paymentYm, dueDate, dryRun, sent: 0, groups, skippedBeforeDue, skippedAfterDue, skippedZeroAmount, skipped: "no SLACK_BOT_TOKEN" });
     }
     if (dryRun) {
-      return NextResponse.json({ ok: true, ym: paymentYm, dryRun: true, targets, groups });
+      return NextResponse.json({ ok: true, ym: paymentYm, dueDate, dryRun: true, targets, groups, skippedBeforeDue, skippedAfterDue, skippedZeroAmount });
     }
 
     const client = new WebClient(token);
@@ -122,7 +142,7 @@ async function sendPaymentConfirmNudges(paymentYm: string, dryRun: boolean) {
               type: "mrkdwn",
               text: [
                 `*${group.projectName}* の入金確認`,
-                `支払月: *${ymLabel(group.invoiceYm)}* / 対象: ${group.sourceYms.map(ymLabel).join(", ")}`,
+                `入金月: *${ymLabel(group.invoiceYm)}* / 対象: ${group.sourceYms.map(ymLabel).join(", ")}`,
                 `入金予定額: *${fmtYen(group.expectedGrossAmountYen)}*（請求額 税抜 ${fmtYen(group.expectedNetAmountYen)}）`,
                 `支払条件: ${group.dueRuleLabel} / 期日: ${group.dueDate}`,
               ].join("\n"),
@@ -156,7 +176,12 @@ async function sendPaymentConfirmNudges(paymentYm: string, dryRun: boolean) {
     return NextResponse.json({
       ok: results.every((result) => result.ok),
       ym: paymentYm,
+      dueDate,
       groupCount: groups.length,
+      candidateGroupCount: allGroups.length,
+      skippedBeforeDue,
+      skippedAfterDue,
+      skippedZeroAmount,
       targetCount: targets.length,
       sent: results.filter((result) => result.ok).length,
       results,

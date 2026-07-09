@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
       });
       return html(
         "入金確認完了 - AMD OS",
-        `<h1 class="ok">入金確認をOSに反映したよ</h1><p class="meta">PJ: <strong>${esc(projectName)}</strong><br>支払月: ${payload.invoiceYm}<br>対象月: ${payload.sourceYms.join(", ")}<br>入金額: ${yen(payload.expectedAmountYen)}<br>更新: ${result.updated} cycle</p>`
+        `<h1 class="ok">入金確認をOSに反映したよ</h1><p class="meta">PJ: <strong>${esc(projectName)}</strong><br>入金月: ${payload.invoiceYm}<br>対象月: ${payload.sourceYms.join(", ")}<br>入金額: ${yen(payload.expectedAmountYen)}<br>更新: ${result.updated} cycle</p>`
       );
     }
 

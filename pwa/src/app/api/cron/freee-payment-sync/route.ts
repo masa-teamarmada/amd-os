@@ -161,7 +161,7 @@ async function notifyFreeeSyncFailure(db: ReturnType<typeof createAdminClient>, 
           type: "mrkdwn",
           text: [
             `*freee入金同期が失敗してる*`,
-            `支払月: *${paymentYm}*`,
+            `入金月: *${paymentYm}*`,
             `原因: \`${message.slice(0, 180)}\``,
             "freee側で自動確認できないので、この後の入金確認nudgeで手動確認して。",
           ].join("\n"),

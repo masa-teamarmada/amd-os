@@ -13,7 +13,7 @@ PWA 画面 + iOS で確認し、誤抽出に対して **「つくよみ (LLM 抽
 修正依頼は `l2_feedbacks` テーブル (migration 032) に蓄積され、上流 cron が次回抽出時に
 LLM プロンプトに含めて再抽出する → 「過去の指摘が反映された L2 データ」が育つ。
 
-補助的な運用通知として、入金確認nudgeもPWA側に置く。これはL2通知ではなく admin オペレーション通知で、`/api/cron/payment-confirm-nudges` が active admin のSlack DMへ送る。LLM非使用の支払運用cronなので、Vercelでは `freee-payment-sync` (09:10 JST) と `payment-confirm-nudges` (09:30 JST) だけ稼働させ、LLM系cron停止とは別枠で扱う。手動再送は `/admin/payouts` の「入金確認nudge」ボタンから行う。
+補助的な運用通知として、入金確認nudgeもPWA側に置く。これはL2通知ではなく admin オペレーション通知で、`/api/cron/payment-confirm-nudges` が入金日当日の active admin のSlack DMへ送る。LLM非使用の入金確認cronなので、Vercelでは `freee-payment-sync` (09:10 JST) と `payment-confirm-nudges` (09:30 JST) だけ稼働させ、LLM系cron停止とは別枠で扱う。手動再送は `/admin/payouts` の「入金確認nudge」ボタンから行う。
 
 connector 再認証は `app_notifications(kind='connector_auth')` に置く。H-1 は Notion connector の `oauth_token_invalid_grant` / `TRIGGER_REAUTHENTICATION` を検知したら、抽出を止めずに `pwa/scripts/notify_connector_auth.mjs` で未読の再認証アクションを作る。同じ connector の未読通知が24時間内にあれば新規作成せず、既存通知を最新の再認証アクション付きpayloadへ更新する。通知には `meta.connector` / `meta.connector_id` / `meta.link_id` / `meta.reason` / `meta.reauth_url` / `meta.reauth_app_url` / `meta.reauth_install_url` / `meta.fallback_continues=true` を入れる。
 
@@ -59,8 +59,8 @@ printf '%s\n' '本文' | /Users/masa/projects/AMD/amd-os/scripts/send-eimi-slack
 
 Slackの履歴確認やチャンネル確認はSlack connectorを使ってよい。最終投稿はこの固定スクリプトで行う。
 
-- 対象: 支払月単位で `billing_cycles.payment_confirmed_at` が空のPJ。
-- 支払月: `billing_cycles.invoice_ym` があれば優先、空なら `/admin/projects` の支払条件 (`projects.payment_due_rule`) から計算。
+- 対象: 入金月単位で `billing_cycles.payment_confirmed_at` が空で、計算された入金期日が今日 (JST) と一致するPJ。入金日前は確認できないため送らない。
+- 入金月: `billing_cycles.invoice_ym` があれば優先、空なら `/admin/projects` の支払条件 (`projects.payment_due_rule`) から計算。
 - Slackボタン:
   - `予定通り入金済み`: signed token 付き `/api/admin/payment-confirm?mode=expected` で即時反映。
   - `金額を入力`: signed token 付き `/payment-confirm` で実際の入金額を入力。

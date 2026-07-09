@@ -109,7 +109,7 @@ GAS function の場合:
 
 `pwa-hourly-estimate` と `pwa-member-weekly-activities` の legacy synthesis は旧 PWA LLM cron。2026-05-29 に停止済みで、`ALLOW_PWA_LLM_CRONS=1` なしでは LLM を呼ばない。D-10 の定期抽出は PWA route の `mode=evidence` と Codex automation の POST 保存で行う。MS進捗の定期抽出は **MMOマシン automation `amd-os-l3-ms-progress-extract`** 側で行う。
 
-`pwa-payment-confirm-nudges` は Slack DM を実送信する処理。対象 group、予定税込額、admin 送信先だけ確認したい時は `{"query":{"ym":"YYYYMM","dryRun":1}}` を使う。signed token と `/payment-confirm` の仕様は [6-4 章](6-4-finance-payment-confirm-spec.md)。
+`pwa-payment-confirm-nudges` は Slack DM を実送信する処理。対象 group、予定税込額、admin 送信先だけ確認したい時は `{"query":{"ym":"YYYYMM","dryRun":1}}` を使う。入金日当日の候補だけが送信対象なので、過去/未来日の判定を検証する時は `{"query":{"ym":"YYYYMM","date":"YYYY-MM-DD","dryRun":1}}` を使う。signed token と `/payment-confirm` の仕様は [6-4 章](6-4-finance-payment-confirm-spec.md)。
 
 ## 停止中として残す代表例
 

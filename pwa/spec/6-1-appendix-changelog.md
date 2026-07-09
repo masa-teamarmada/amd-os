@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-07-09 | 2-1 PWA Runtime / 3-7 Notifications / 6-4 Finance Payment Confirm | 修正 | `payment-confirm-nudges` を入金日当日の候補だけ送信する仕様へ変更し、Slack/確認画面/freee同期失敗DMの表示を `入金月` に統一。build v0.39.33 | 入金日前は実際の確認ができず、毎日通知すると運用者が誤って確認導線へ進むため | えいみ |
 | 2026-07-09 | 2-1 PWA Runtime / 5-1 Research Assets / SPEC_pwa / FEATURE_REGISTRY / db_schema | 修正 | `/poc` の一次入力を `シーズ` / `PoC先` に整理し、マトリックス空セルの `案件化` で `poc_matches` を生成する仕様へ更新。KUTE系シーズ6件、SX/既存PJ/KUTE用途別のPoC先26件を冪等投入する `168_poc_primary_inputs_and_seed_backfill.sql` を追加し、PoC先名と seed/company pair の重複防止 index を追加。build v0.39.32 | まさ指摘「『マッチ案件』『企業候補』ではなく『シーズ』『PoC先』の2つにすべき」「OS内の情報から入力できるものは入力して」を反映するため | えいみ |
 | 2026-07-09 | 2-2 Surface / SPEC_pwa / FEATURE_REGISTRY | 修正 | `/admin/invoices` の `要確認 / 設定不足 / 過去滞留` から発行前チェック詳細を開けるようにし、`freee取引先 / 請求額 / 報告書 / 立替` の解消方法を表示。設定不足では freee取引先IDを保存可能にした。過去滞留判定は稼働月ではなく請求月 (`invoice_ym || ym`) 基準に変更。build v0.39.31 | 設定不足や要確認が状態名だけで、きよがどこを直せば請求書発行できるか分からなかったため。請求月が対象月の繰延行まで過去滞留扱いされていたため | えいみ |
 | 2026-07-09 | 2-2 Surface / SPEC_pwa / FEATURE_REGISTRY | 修正 | `/admin/invoices` の default filter を `open` (`未完了`) に変更し、`ready / needs_check / setup_missing / backlog` を初期表示に含める。`AdminInvoiceIssueDialog` は `client_name` を主表示・件名に使い、保存済み件名に内部 `project_name` が残っている場合も請求先名へ置換する。`issue-invoice` Edge Function の件名fallbackも `project_name` を使わない。build v0.39.29 | きよの初期画面が `発行待ち` 1件だけになり、請求書発行モーダルにZMPなどAMD内部呼称が出ていたため | えいみ |

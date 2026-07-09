@@ -12,7 +12,7 @@ AMD の請求 → 入金確認 → 会計反映までの finance 系オペレー
 | `/payment-confirm?token=XXX` | SU 側担当が「予定通り入金しました」を 1 クリックで申告する公開ページ | signed token で認可 |
 | `POST /api/admin/payment-confirm` | confirm 申告を受けて `billing_cycles.payment_confirmed_at` を更新。`mode=expected` は入金予定額のまま Slack action から確定、通常 POST は実額入力フォームから確定 | signed token verify |
 | `GET /api/cron/freee-payment-sync` | freee 会計の income deals を読み、 該当する `billing_cycles` を payment_confirmed に上げる | `CRON_SECRET` |
-| `GET /api/cron/payment-confirm-nudges` | 当日が支払日付近の cycle を抽出、 SU 担当に Slack DM を送る | `CRON_SECRET` |
+| `GET /api/cron/payment-confirm-nudges` | 入金日当日の cycle だけを抽出し、admin に Slack DM を送る | `CRON_SECRET` |
 
 ## signed token (= `payment-confirmation` token)
 
@@ -174,17 +174,18 @@ cadence: 日次 09:30 JST。 input: `billing_cycles` + `projects.payment_due_rul
 SELECT billing_cycles
 WHERE invoice_sent_at IS NOT NULL
   AND payment_confirmed_at IS NULL
-  AND today >= (invoice_sent_at + projects.payment_due_rule の解釈 - 3 日)
+  AND due_date = today
 ```
 
-`projects.payment_due_rule` は文字列 (= `"末締め翌月末払い"` 等)。 解釈は `pwa/src/lib/finance/payment-due.ts` (= 章 26 と共有) で行い、 due_date を date に変換する。 due_date の 3 日前から当日までを「nudge 対象」とする。
+`projects.payment_due_rule` は文字列 (= `"末締め翌月末払い"` 等)。 解釈は `pwa/src/lib/payment-rules.ts` で行い、 `dueDate` を日付に変換する。入金日より前は実際の入金確認ができないため、同じ入金月に属する未入金 cycle でも、`dueDate` が今日 (JST) と一致しないものは Slack DM 送信対象から外す。`GET ?date=YYYY-MM-DD` / `POST { date }` は手動検証用で、未指定時は今日 (JST) を使う。
 
 ### Slack DM 内容
 
-各対象 cycle ごとに、 PJ 担当 SU 側 contact (= `projects.payment_contact_*` or 既定値) と admin (= `members.is_admin=true`) 両方の `slack_id` に DM を送る。
+各対象 cycle ごとに、 admin (= `members.is_admin=true`) の `slack_id` に DM を送る。
 
 ```text
-{projectName} の {invoiceYm} 月分入金が予定日に近づいてます。
+{projectName} の {invoiceYm} 入金確認。
+入金月: {invoiceYm}
 入金予定額: ¥{expectedAmountYen}
 請求額（税抜）: ¥{expectedNetAmountYen}
 予定日: {paymentDueDate}
@@ -213,6 +214,7 @@ WHERE invoice_sent_at IS NOT NULL
     {
       "projectId": "p07",
       "invoiceYm": "202605",
+      "dueDate": "2026-05-31",
       "expectedAmountYen": 350000,
       "recipientSlackIds": ["U01...", "U01..."],
       "url": "https://amd-os-pwa.vercel.app/payment-confirm?token=..."

@@ -88,7 +88,7 @@ export function PaymentConfirmClient({ token }: { token: string }) {
           <p className="text-xs font-semibold text-emerald-700">AMD OS 入金確認</p>
           <h1 className="text-xl font-semibold">{meta.projectName}</h1>
           <p className="text-sm text-[#6e6e73]">
-            支払月 {ymLabel(meta.invoiceYm)} / 対象 {meta.sourceYms.map(ymLabel).join(", ")}
+            入金月 {ymLabel(meta.invoiceYm)} / 対象 {meta.sourceYms.map(ymLabel).join(", ")}
           </p>
         </div>
 
