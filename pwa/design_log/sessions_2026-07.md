@@ -636,3 +636,46 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 - local browser: cockpit route は login redirect。desktop 1280px / mobile 390px の login 画面と HUD mock は横はみ出しなし。
 - `49c55af0 fix: remove retired proactive queue from cockpit` を main に push。
 - production `/api/build-info`: `v0.39.15` / `49c55af0fac1f2e2a7e9955bd5ae519d45b5d843` / `dirty:false`。
+
+---
+
+## 2026-07-09 — 日本文化マップ admin移動 / v0.39.18
+
+### コンテキスト
+- まさから「日本文化」のページを admin に移動する指示。
+- 開始時に `/Users/masa/projects/AGENTS.common.md`、root / pwa の `AGENTS.md` / `CLAUDE.md`、関連する route/spec/manual/design md を先に読んで、既存の route 正本を確認した。
+- 既存の実画面は `/japanese-culture-map` 配下にあり、nav では一般の `資料` group に出ていた。
+
+### 実装 / 仕様同期
+- 実ページを `/admin/japanese-culture-map` へ移動し、`JapanMap.tsx` も admin route 配下へ移した。
+- 旧 `/japanese-culture-map` は互換 redirect として残した。未ログイン時は `(app)` auth gate が先に走るため、旧routeは login `next` に入る。
+- `GlobalNav` の一般 `資料` から日本文化を外し、admin group へ追加した。
+- `AdminSidebar` と app layout の title mapping に日本文化を追加した。
+- `pwa/design/os_manual.md`、`pwa/design/SPEC_pwa.md`、`pwa/design/FEATURE_REGISTRY.md`、`pwa/spec/2-1-pwa-runtime-routes.md`、`pwa/spec/2-2-pwa-surface-inventory-current-spec.md`、`pwa/manual/2-6-admin-ops.md`、manual/spec changelog を同期した。
+- `BUILD_VERSION` を `v0.39.18` へ更新した。
+- 表示面の route 移動であり、障害ログ化する incident ではないため `pwa/BUGS.md` は対象外。
+
+### Verification / Deploy
+- `npm run test:critical-ui` passed。
+- `npx tsc --noEmit` passed。
+- `npm run build` passed。
+- local dev route smoke:
+  - `/admin/japanese-culture-map` は `/auth/login?next=%2Fadmin%2Fjapanese-culture-map` へ redirect。
+  - `/japanese-culture-map` は auth gate により `/auth/login?next=%2Fjapanese-culture-map` へ redirect。
+- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` で main push / Vercel production 反映。
+- production `/api/build-info`: `v0.39.18` / `1327db6b4c2709bf261910868eead7168667a68e` / `dirty:false`。
+- production route header で `/admin/japanese-culture-map` が auth-gated route として 307 login redirect になることを確認した。
+
+### Closeout snapshot
+- repo: `/Users/masa/projects/AMD/amd-os`
+- branch: `main`
+- product commit: `1327db6b Move Japanese culture map into admin`
+- local main vs origin/main before handoff docs refresh: ahead `0`, behind `0`
+- registered worktree: `/Users/masa/projects/AMD/amd-os [main]` only
+- local branches: `main` only
+- known open task in this lane: none
+- unrelated carry-forward: `/admin/ms-overview` の `実支払へ合わせる` admin UI は別レーンとして未実装。
+
+### 教訓
+- admin扱いに変える route は、実 route だけでなく GlobalNav / AdminSidebar / title mapping / runtime route spec / surface inventory / manual のすべてを同時に動かす。
+- `(app)` 配下の旧route redirectは、未ログイン時には child page より auth gate が先に効く。unauth smoke では `next` の違いまで見ておく。
