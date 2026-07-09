@@ -51,8 +51,10 @@ cd /Users/masa/projects/AMD/amd-os
 - production dry-run date=2026-07-09: groupCount=0
 
 現在残っている別件dirty:
-- /admin/invoices の freee取引先選択 / 請求書発行条件 WIP。payment-confirm fix とは別。巻き込まない。
-- files:
+- payment-confirm fix とは別の active WIP が残っている。巻き込まない。
+- bundle A: /admin/invoices の freee取引先選択 / 請求書発行条件 WIP。
+  - 方向性は「請求書発行の blocker を freee取引先 / 請求額に絞り、報告書FIX・立替精算を blocker から外す。freee取引先は候補検索UIで選ぶ」。
+  - files:
   - M pwa/src/app/(app)/admin/invoices/page.tsx
   - ?? pwa/src/app/api/admin/freee-partners/route.ts
   - M pwa/src/app/api/invoice/create/route.ts
@@ -60,7 +62,6 @@ cd /Users/masa/projects/AMD/amd-os
   - M pwa/src/components/admin/AdminInvoiceIssueQueue.tsx
   - M pwa/src/components/admin/AdminProjectsTable.tsx
   - ?? pwa/src/components/admin/FreeePartnerPicker.tsx
-  - M pwa/src/lib/build-info.ts
   - M pwa/design/FEATURE_REGISTRY.md
   - M pwa/design/SPEC_pwa.md
   - M pwa/manual/6-2-admin-projects-members-ledger-spec.md
@@ -69,12 +70,24 @@ cd /Users/masa/projects/AMD/amd-os
   - M pwa/spec/6-1-appendix-changelog.md
   - M pwa/scripts/check_pwa_critical_ui.cjs
 - owner guess: invoice queue / freee取引先選択 worker
-- 方向性は「請求書発行の blocker を freee取引先 / 請求額に絞り、報告書FIX・立替精算を blocker から外す。freee取引先は候補検索UIで選ぶ」。未コミットなので、次セッションで差分全体を確認し、必要なspec/manual/changelogを同期してから、対象ファイルだけ stage / commit / push / deployする。
+- bundle B: /poc matching UI/docs WIP。
+  - files:
+  - M pwa/src/app/(app)/poc/page.tsx
+  - M pwa/design/poc_matching.md
+  - M pwa/manual/2-5-research-assets-quick-start.md
+  - M pwa/manual/5-1-research-assets-vc-seeds-scholar-spec.md
+  - M pwa/design/FEATURE_REGISTRY.md
+  - M pwa/design/SPEC_pwa.md
+  - M pwa/manual/9-3-appendix-changelog.md
+  - M pwa/spec/6-1-appendix-changelog.md
+- shared active WIP marker:
+  - M pwa/src/lib/build-info.ts (v0.39.35)
+- 次セッションでWIPを扱うなら、bundleを混ぜずに差分全体を確認し、必要なspec/manual/changelogを同期してから、対象ファイルだけ stage / commit / push / deployする。
 
 次タスク:
 - payment-confirm nudge は既知残タスクなし。
 - もし `予定通り入金済み` の旧失敗を追加調査するなら、古いSlack tokenの再現ではなく、次回発生時に赤見出し下のエラーテキストを取得し、token payload / target billing_cycles / update exception を切り分ける。
-- 現実的な次アクションは、別件dirtyの invoice queue freee取引先選択WIPを完成させること。
+- 現実的な次アクションは、別件dirtyの invoice queue freee取引先選択WIP、または /poc matching WIP のどちらかをbundle単位で完成させること。
 
 運用ルール:
 - まず /Users/masa/projects/AGENTS.common.md を読む。AMD配下なので AMD level memory も冒頭で読む。

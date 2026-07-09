@@ -26,7 +26,7 @@ Topic: Finance / Payment Confirm nudge 入金日当日化 + closeout
 
 ## Dirty State
 
-Uncommitted changes are a separate `/admin/invoices` freee取引先選択 / 請求書発行条件 WIP, not part of the payment-confirm fix.
+Uncommitted changes are separate active WIP from other sessions, not part of the payment-confirm fix. Final closeout inventory observed two bundles: `/admin/invoices` freee取引先選択 / 請求書発行条件 and `/poc` matching UI/docs.
 
 | path | status | class | owner guess | resolution action | risk |
 |---|---:|---|---|---|---|
@@ -37,10 +37,12 @@ Uncommitted changes are a separate `/admin/invoices` freee取引先選択 / 請�
 | `pwa/src/components/admin/AdminInvoiceIssueQueue.tsx` | M | other-worker | invoice queue / freee取引先選択 worker | 報告書/立替 blocker 除外、freee選択UIを完成させる | 中 |
 | `pwa/src/components/admin/AdminProjectsTable.tsx` | M | other-worker | invoice queue / freee取引先選択 worker | PJ台帳freee欄の選択UIと合わせて検証 | 中 |
 | `pwa/src/components/admin/FreeePartnerPicker.tsx` | ?? | other-worker | invoice queue / freee取引先選択 worker | 検索UI状態とAPIのエラー表示を確認 | 中 |
-| `pwa/src/lib/build-info.ts` | M | other-worker | invoice queue / freee取引先選択 worker | WIP完成時に `v0.39.35` として検証/deploy | 中 |
-| `pwa/design/FEATURE_REGISTRY.md`, `pwa/design/SPEC_pwa.md`, `pwa/manual/6-2-admin-projects-members-ledger-spec.md`, `pwa/manual/6-3-invoice-and-billing-routine-spec.md`, `pwa/manual/9-3-appendix-changelog.md`, `pwa/spec/6-1-appendix-changelog.md`, `pwa/scripts/check_pwa_critical_ui.cjs` | M | other-worker | invoice queue / freee取引先選択 worker | WIP仕様・回帰ガードと実装を同一commitにまとめる | 中 |
+| `pwa/src/app/(app)/poc/page.tsx` | M | other-worker | POC matching worker | POC UI/docs bundleとして完成・検証・commit | 中: POC画面のWIPが宙に浮く |
+| `pwa/design/poc_matching.md`, `pwa/manual/2-5-research-assets-quick-start.md`, `pwa/manual/5-1-research-assets-vc-seeds-scholar-spec.md` | M | other-worker | POC matching worker | POC仕様変更とUIを同一commitにまとめる | 中 |
+| `pwa/src/lib/build-info.ts` | M | other-worker | active WIP workers | WIP完成時に `v0.39.35` として検証/deploy | 中 |
+| `pwa/design/FEATURE_REGISTRY.md`, `pwa/design/SPEC_pwa.md`, `pwa/manual/6-2-admin-projects-members-ledger-spec.md`, `pwa/manual/6-3-invoice-and-billing-routine-spec.md`, `pwa/manual/9-3-appendix-changelog.md`, `pwa/spec/6-1-appendix-changelog.md`, `pwa/scripts/check_pwa_critical_ui.cjs` | M | other-worker | invoice queue / POC workers | WIP仕様・回帰ガードと実装を、該当bundleごとに混ぜずに commit | 中 |
 
-Resolution owner: next invoice queue session / worker. Payment-confirm closeoutでは巻き込まない。Handoff docs更新で触った `HANDOFF.md` / `SESSION_MIGRATION_PROMPT.md` / `pwa/BUGS.md` / `pwa/HANDOFF_pwa_rebuild.md` / `pwa/design_log/sessions_2026-07.md` だけはこの closeout の own-necessary。
+Resolution owner: next invoice queue / POC sessions. Payment-confirm closeoutでは巻き込まない。Handoff docs更新で触った `HANDOFF.md` / `SESSION_MIGRATION_PROMPT.md` / `pwa/BUGS.md` / `pwa/HANDOFF_pwa_rebuild.md` / `pwa/design_log/sessions_2026-07.md` だけはこの closeout の own-necessary。
 
 ## Verification / Deploy
 
@@ -64,13 +66,14 @@ Payment-confirm fixで実行済み:
 
 ## First Next Action
 
-If continuing the current repo immediately, finish or route the invoice queue freee取引先 WIP:
+If continuing the current repo immediately, first decide which active WIP bundle to finish: invoice queue freee取引先 or POC matching.
 
-1. Inspect the three dirty files listed above.
-2. Confirm the route/auth/data source for freee取引先 search.
-3. Run targeted checks.
-4. Stage only those files plus required spec/manual updates.
-5. Commit/push/deploy through the normal AMD OS PWA path.
+1. Inspect the dirty files listed above and split by bundle.
+2. For invoice queue: confirm the route/auth/data source for freee取引先 search.
+3. For POC: confirm the intended UI/spec scope before touching shared docs.
+4. Run targeted checks.
+5. Stage only those files plus required spec/manual updates.
+6. Commit/push/deploy through the normal AMD OS PWA path.
 
 If touching payment-confirm again, first read `pwa/manual/6-4-finance-payment-confirm-spec.md` and dry-run `/api/cron/payment-confirm-nudges` with explicit `date`.
 
