@@ -16,9 +16,9 @@ Topic: PJ cockpit MS design amounts + member design amounts
 
 - Canonical repo: `/Users/masa/projects/AMD/amd-os`
 - Branch rule: this repo works on `main`; do not create a branch for normal AMD OS work.
-- HEAD / origin/main at handoff inventory: `aaa19ac3 Show member design amounts in cockpit MS chips`
-- `HEAD...origin/main`: `0 0` ahead/behind.
-- Production `/api/build-info`: `v0.39.20` / `aaa19ac354f323dc38c2d22cece1e765fcbbd203` / `dirty=false`.
+- HEAD / origin/main at final inventory includes the accepted MS lane plus later docs/monthly-agreement commits. Recheck with `git log -3 --oneline`.
+- `HEAD...origin/main`: `0 0` ahead/behind at final inventory.
+- Production `/api/build-info`: recheck at resume. Product version is expected to be `v0.39.21` or newer after the later monthly-agreement commit; the accepted MS lane itself was verified on `v0.39.20`.
 - Registered worktrees: `/Users/masa/projects/AMD/amd-os [main]` only.
 - Local branches: `main` only.
 
@@ -51,8 +51,8 @@ This checkout is **not archive ok** right now. After the accepted MS design-amou
 
 | path group | class | owner guess | action | risk |
 |---|---|---|---|---|
-| `pwa/scripts/migrations/166_milestone_change_events.sql`, `pwa/src/components/cockpit/CockpitMsChangeHistory.tsx`, `pwa/src/app/api/admin/ms-overview/[planCycleId]/route.ts`, `pwa/src/lib/supabase-data.ts`, `pwa/src/components/cockpit/CockpitView.tsx`, related `pwa/design/cockpit.md` / manual / spec / critical UI changes | other-worker / unknown | active MS変更履歴 worker or next session | Finish, validate, commit, and deploy as its own bundle, or archive/revert with explicit approval. Do not mix into this handoff closeout. | `deploy.sh` hard-stops while tracked dirty remains; local `BUILD_VERSION` is `v0.39.21` but production is `v0.39.20`. |
-| `pwa/src/components/monthly-agreement/MonthlyAgreementExperience.tsx`, `pwa/src/components/monthly-agreement/MonthlyAgreementGateOverlay.tsx`, `pwa/src/app/api/admin/payouts/route.ts`, `pwa/src/components/admin/AdminPayoutsClient.tsx`, `pwa/src/components/admin/AdminBillingMatrix.tsx`, `pwa/src/components/admin/AdminInvoiceIssueDialog.tsx`, `pwa/manual/7-1-reward-calc-spec.md` | other-worker / unknown | monthly-agreement / payout / billing UI worker | Classify with the owner before committing or reverting. | Could accidentally couple monthly agreement, invoice issue, and MS history changes. |
+| `pwa/scripts/migrations/166_milestone_change_events.sql`, `pwa/src/components/cockpit/CockpitMsChangeHistory.tsx`, `pwa/src/app/api/admin/ms-overview/[planCycleId]/route.ts`, `pwa/src/lib/supabase-data.ts`, `pwa/src/components/cockpit/CockpitView.tsx`, `pwa/src/components/cockpit/CockpitHeader.tsx`, related `pwa/design/cockpit.md` / manual / spec / critical UI changes | other-worker / unknown | active MS変更履歴 worker or next session | Finish, validate, commit, and deploy as its own bundle, or archive/revert with explicit approval. Do not mix into this handoff closeout. | `deploy.sh` hard-stops while tracked dirty remains. |
+| `pwa/src/app/(app)/admin/billing/page.tsx`, `pwa/src/app/(app)/admin/invoices/page.tsx`, `pwa/src/components/admin/AdminBillingMatrix.tsx`, `pwa/src/components/admin/AdminInvoiceIssueDialog.tsx`, `pwa/src/components/admin/AdminInvoiceIssueMatrix.tsx`, `pwa/src/components/admin/AdminProjectsTable.tsx`, payout/admin manual/spec/design changes | other-worker / unknown | payout / billing / invoice issue UI worker | Classify with the owner before committing or reverting. | Could accidentally couple invoice issue, admin projects, payout, and MS history changes. |
 
 First check in the next session:
 

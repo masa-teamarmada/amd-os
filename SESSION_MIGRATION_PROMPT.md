@@ -32,12 +32,13 @@ cd /Users/masa/projects/AMD/amd-os
 - accepted deployed commits:
   - d9d38833 Show MS design budgets in cockpit
   - aaa19ac3 Show member design amounts in cockpit MS chips
+- later origin/main also includes `79d84375 fix(pwa): compact monthly agreement modal` from a separate lane. It was fast-forwarded because the local copies of those files matched origin.
 - production build-info after accepted work:
   - build_version: v0.39.20
   - git_sha: aaa19ac354f323dc38c2d22cece1e765fcbbd203
   - branch: main
   - dirty: false
-- final handoff docs were committed and pushed after accepted product work. At resume, run `git log -1 --oneline` and `/api/build-info`; expected product version remains v0.39.20 / dirty=false.
+- final handoff docs were committed and pushed after accepted product work. At resume, run `git log -1 --oneline` and `/api/build-info`; expected product version is v0.39.21 or newer / dirty=false after the later monthly-agreement lane.
 - HEAD and origin/main were aligned at closeout inventory: ahead 0 / behind 0.
 - registered worktree: /Users/masa/projects/AMD/amd-os [main] only.
 - local branch: main only.
@@ -60,14 +61,16 @@ cd /Users/masa/projects/AMD/amd-os
   - pwa/src/app/api/admin/ms-overview/[planCycleId]/route.ts
   - pwa/src/lib/supabase-data.ts
   - pwa/src/components/cockpit/CockpitView.tsx
-  - pwa/src/components/monthly-agreement/MonthlyAgreementExperience.tsx
-  - pwa/src/components/monthly-agreement/MonthlyAgreementGateOverlay.tsx
+  - pwa/src/components/cockpit/CockpitHeader.tsx
   - pwa/src/app/api/admin/payouts/route.ts
   - pwa/src/components/admin/AdminPayoutsClient.tsx
+  - pwa/src/app/(app)/admin/billing/page.tsx
+  - pwa/src/app/(app)/admin/invoices/page.tsx
   - pwa/src/components/admin/AdminBillingMatrix.tsx
   - pwa/src/components/admin/AdminInvoiceIssueDialog.tsx
+  - pwa/src/components/admin/AdminInvoiceIssueMatrix.tsx
+  - pwa/src/components/admin/AdminProjectsTable.tsx
   - pwa/manual/7-1-reward-calc-spec.md
-  - pwa/src/lib/build-info.ts (local v0.39.21)
 - この dirty bundle は accepted product commits や final handoff docs commit には含まれず、本番にも未反映。deploy.sh は tracked dirty があるため hard-stop する。
 - 次セッションは最初に以下を実行して、dirty bundle の owner/action を確定する:
   - git status -sb --untracked-files=all
