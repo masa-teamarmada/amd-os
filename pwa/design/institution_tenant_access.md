@@ -10,12 +10,12 @@ NIMS Pilot は、現行 AMD OS をそのまま社外公開する話ではない�
 
 本設計の方針は以下。
 
-1. `institution_id` は外部機関スコープの基準。`project_id` は業務・PJ単位の基準。NIMS tenant は CX `p20` と同一ではない。
+1. `institution_id` は外部機関スコープの基準。`project_id` は業務・PJ単位の基準。NIMS OS導入の正式PJは `p28` であり、CX `p20` は初期ユースケースとして分ける。
 2. 初期実装は「single Supabase project + row / API scoped multi-tenant」で始める。tenant ごとに DB を分ける設計は Phase 2 以降。
 3. 外部ユーザーは Supabase の raw table を直接広く読まない。PWA API / scoped view / RLS で列と行を絞る。
 4. NIMS データを他機関営業、ERS 比較、Before Zero 教科書、cross-institution benchmark に使う場合は、匿名化、明示許諾、契約条項、audit trail が必須。
 5. LLM / automation / service_role は外部機関権限を bypass できるが、bypass した処理は audit log に残し、外部公開用 artifact へ直接流さない。
-6. NIMS Pilot の minimum safe configuration は、外部ユーザー 1-3 名、`institution_id='nims'`、scoped project は CX `p20` + NIMS pilot seeds だけ、外部編集は candidate / comment / evidence proposal に限定する。
+6. NIMS Pilot の minimum safe configuration は、外部ユーザー 1-3 名、`institution_id='inst_nims'`、workspace project は NIMS OS導入 `p28`、scoped use case は CX `p20` + NIMS pilot seeds だけ、外部編集は candidate / comment / evidence proposal に限定する。
 
 ## Why tenant/access design is required before NIMS Pilot
 
@@ -33,7 +33,7 @@ NIMS Pilot は、現行 AMD OS をそのまま社外公開する話ではない�
 |---|---|
 | AMD internal leak | 報酬、請求、他PJ、他機関、Slack/Gmail snippet、内部Protocolが NIMS 側に見える |
 | NIMS data misuse | NIMS由来のシーズ、会議、ERSギャップを許諾なしに他機関営業・教科書・比較に使う |
-| CX confusion | CX `p20` のPJ運用と NIMS institution tenant を同一視し、法人設立準備データと機関導入データが混ざる |
+| CX confusion | NIMS OS導入 `p28`、CX `p20`、NIMS institution tenant を同一視し、法人設立準備データと機関導入データが混ざる |
 | audit gap | 誰が見た、編集した、export した、service_role が触った、を後から説明できない |
 | automation spillover | proactive outbox / L2 outbox が外部機関 data を AMD 内部司令塔や別PJ thread へ誤送信する |
 
@@ -165,13 +165,13 @@ project_institution_scopes
   notes
 ```
 
-`project_institution_scopes` を置く理由は、CX `p20` のように「NIMS起点PJだが、NIMS tenant そのものではない」関係を明示するため。将来、1 PJ が複数 institution と関係する可能性も残す。
+`project_institution_scopes` を置く理由は、NIMS OS導入 `p28` を機関導入の器として扱いながら、CX `p20` のように「NIMS起点PJだが、NIMS tenant そのものではない」関係を明示するため。将来、1 PJ が複数 institution と関係する可能性も残す。
 
 ## Institution scope model
 
 ### `institution_id`
 
-`institution_id` は外部機関スコープの基準。既存 `institutions.institution_id` があるので、NIMS はまず `nims` など安定 ID を割り当てる。
+`institution_id` は外部機関スコープの基準。既存 `institutions.institution_id='inst_nims'` をNIMSの安定IDとして使う。
 
 使い道:
 
@@ -182,7 +182,7 @@ project_institution_scopes
 
 ### `project_id`
 
-`project_id` は AMD OS の既存PJ単位。CX は `p20`。ただし `project_id='p20'` は CX の法人設立準備・事業化 PJ であり、NIMS institution tenant と同一ではない。
+`project_id` は AMD OS の既存PJ単位。NIMS OS導入は `p28`、CX は `p20`。ただし `project_id='p20'` は CX の法人設立準備・事業化 PJ であり、NIMS institution tenant と同一ではない。
 
 設計ルール:
 
@@ -418,8 +418,9 @@ For NIMS Pilot, `proactive_outbox` is AMD internal only. The external institutio
 | item | value |
 |---|---|
 | institution | NIMS |
-| `institution_id` | `nims` recommended |
+| `institution_id` | `inst_nims` |
 | workspace label | `NIMS Pilot Workspace` |
+| workspace project | NIMS OS導入 `p28` |
 | initial scoped project | CX `p20` only |
 | initial scoped seeds | NIMS追加シーズ 3-5件。CXとは別に `seeds` で管理 |
 | initial users | `institution_owner` 1名, `institution_member` 1-2名, readonly optional |
@@ -458,7 +459,7 @@ NIMS Pilot GO の最低条件。
 
 ## Open questions
 
-1. NIMS の正式 `institution_id` を `nims` で固定するか。
+1. NIMS の正式 `institution_id` は既存DBに合わせて `inst_nims` を使う。
 2. 外部ユーザーの identity は Google Workspace login に寄せるか、Supabase Auth email/password / magic link にするか。
 3. `projects` に `institution_id` を直接持たせるか、初期から `project_institution_scopes` を作るか。推奨は mapping table。
 4. NIMS 側が編集できる範囲を「candidate only」に固定するか、一部 field は direct update を許すか。推奨は Pilot 期間 candidate only。
@@ -467,7 +468,7 @@ NIMS Pilot GO の最低条件。
 7. proactive outbox の institution-level loop は `project_id` 必須をどう扱うか。`p00` / synthetic project / nullable project_id のどれにするか。
 8. 外部機関向け export の保存先を Supabase Storage にするか、Drive にするか。
 9. Offboarding 時に AMD-created derivative をどこまで削除対象にするか。
-10. NIMS Pilot を CX `p20` のみで開始するか、最初から NIMS seeds 3-5件を入れるか。
+10. NIMS Pilot を `p28` workspace + CX `p20` のみで開始するか、最初から NIMS seeds 3-5件を入れるか。
 
 ## Next implementation workers
 

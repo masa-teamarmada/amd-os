@@ -19,16 +19,16 @@ const INSTITUTION_PROJECT_LINKS: Record<string, InstitutionProjectLink> = {
   },
   inst_nims: {
     institutionId: "inst_nims",
-    projectId: "p20",
-    projectLabel: "CX / CryoX",
-    relationLabel: "NIMS起点PJ",
-    cockpitTitle: "NIMS PJコックピット",
+    projectId: "p28",
+    projectLabel: "NIMS",
+    relationLabel: "NIMS OS導入PJ",
+    cockpitTitle: "NIMS 研究機関コックピット",
     cockpitSummary:
-      "NIMSの箱は研究機関ERSとして残し、進捗・月次・MTG履歴は既存のCXコックピットを関連PJとして扱う。",
+      "NIMSの箱は研究機関ERSとして残し、進捗・月次・MTG履歴は正式なNIMS OS導入PJコックピットを関連PJとして扱う。CXは初期ユースケースとして分けて見る。",
   },
 };
 
-const INSTITUTION_DASHBOARD_PROJECT_IDS = new Set(["p25"]);
+const INSTITUTION_DASHBOARD_PROJECT_IDS = new Set(["p25", "p28"]);
 
 export function getInstitutionProjectLink(institutionId: string): InstitutionProjectLink | null {
   return INSTITUTION_PROJECT_LINKS[institutionId] ?? null;
@@ -46,5 +46,5 @@ export function isInstitutionDashboardProject(project: {
   const id = String(project.projectId || "");
   if (INSTITUTION_DASHBOARD_PROJECT_IDS.has(id)) return true;
   const label = `${project.projectName || ""} ${project.displayName || ""} ${project.shortLabel || ""}`.toLowerCase();
-  return label.includes("kute");
+  return label.includes("kute") || label.includes("nims");
 }

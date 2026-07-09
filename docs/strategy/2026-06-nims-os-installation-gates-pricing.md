@@ -25,14 +25,14 @@ NIMS向けAMD OS導入は、現行正本ではFY27試験導入予定であり、
 ### ロードマップ上の位置づけ
 
 - `/Users/masa/projects/knowledge/amd_os_vision.md` では、2026年は内部運用 + URA向け教科書STEP1着手、2027年はNIMS試験導入、2027-28年は愛媛大・東京科学大・工学院大等への連携機関展開とされている。
-- `/Users/masa/projects/knowledge/partner_institutions.md` では、NIMSは「Y準備中」、AMD OS導入はFY27予定、関連PJはCX `p20` である。
+- `/Users/masa/projects/knowledge/partner_institutions.md` では、NIMSは「Y準備中」、AMD OS導入はFY27予定、関連PJはNIMS OS導入 `p28` と初期ユースケースのCX `p20` である。
 - `/Users/masa/projects/knowledge/midterm_plan.md` では、FY27にOS導入機関1件、FY28に3件、FY30に10件、FY35に60+件という計画になっている。
 - `/Users/masa/projects/knowledge/company_profile.md` では、AMD OS / AMDプロトコル / AMDスコアを研究機関・URA・EIRへ普及させる仕組みレイヤーが中核戦略で、現時点の収益経路は「業務委託 x OSバンドル」が最も現実に近い。
 
 ### NIMS / CX / 松本さん / りり / AMD OS の関係
 
 - NIMSはCXの起点機関であり、現行の機関単位契約はコンサル W2025014019 と包括連携系の文脈にある。
-- CXは `p20`、NIMS神谷グループの磁気冷凍技術を核にしたスタジオモデルPJで、2026-08法人設立予定として整理されている。
+- CXは `p20`、NIMS神谷グループの磁気冷凍技術を核にしたスタジオモデルPJで、NIMS Pilotの初期ユースケースとして扱う。
 - りりはNIMSスタートアップ支援室側の事業化支援メンバーで、AMDにも参画している。NIMS側の実務・現場感とAMD側のOS設計をつなぐ橋渡し役になり得る。
 - 松本さんはNIMS側の発注者・準備主体として扱う。具体的な個人情報や未公開事情はこの設計メモには入れず、「NIMS側準備責任者」として必要タスクだけを定義する。
 - AMD OSは、NIMSの全業務を一気に置き換えるものではなく、まずCXとNIMS内シーズ探索を通じて、URA/EIRがAMDプロトコル・AMDスコア・ERSを使う導線を作るものとして導入する。
@@ -309,14 +309,14 @@ FY28の強気ケースは、OS利用料だけでなく、ERS診断・シーズ�
 ### AMD OS
 
 1. `pwa/design` または `pwa/spec` に、外部機関導入時のtenant / institution scope / role設計を作る。
-2. NIMS Pilot用の最小画面リストを決める: ERS、シーズ台帳、CX cockpit、月次レビュー、Protocol候補。
+2. NIMS Pilot用の最小画面リストを決める: p28 workspace、ERS、シーズ台帳、CX p20の共有ユースケース、月次レビュー、Protocol候補。
 3. NIMS側ユーザー権限で見せてはいけないデータ一覧を作る。
 4. 月次レビューのテンプレを作る。
 5. URA/EIRオンボーディング資料 v0.7 を準備する。
 
 ### CX
 
-1. CX `p20` の2026-08設立準備マイルストーンと、NIMS Pilotで見せる進捗項目を対応させる。
+1. CX `p20` の設立準備マイルストーンと、NIMS Pilotで見せる進捗項目を対応させる。
 2. 神谷さん・NIMS側に見せる情報と、AMD内部だけに残す情報を分ける。
 3. CX以外のNIMSシーズ候補を3-5件選ぶための候補リストを作る。
 
