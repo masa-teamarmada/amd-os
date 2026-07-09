@@ -63,8 +63,11 @@ cd /Users/masa/projects/AMD/amd-os
   - pwa/src/components/monthly-agreement/MonthlyAgreementGateOverlay.tsx
   - pwa/src/app/api/admin/payouts/route.ts
   - pwa/src/components/admin/AdminPayoutsClient.tsx
+  - pwa/src/components/admin/AdminBillingMatrix.tsx
+  - pwa/src/components/admin/AdminInvoiceIssueDialog.tsx
+  - pwa/manual/7-1-reward-calc-spec.md
   - pwa/src/lib/build-info.ts (local v0.39.21)
-- この dirty bundle は aaa19ac3 には含まれず、本番にも未反映。deploy.sh は tracked dirty があるため hard-stop する。
+- この dirty bundle は accepted product commits や final handoff docs commit には含まれず、本番にも未反映。deploy.sh は tracked dirty があるため hard-stop する。
 - 次セッションは最初に以下を実行して、dirty bundle の owner/action を確定する:
   - git status -sb --untracked-files=all
   - git diff --stat
@@ -75,7 +78,7 @@ cd /Users/masa/projects/AMD/amd-os
 1. まず dirty bundle を分類する。
    - MS変更履歴を進めるなら、migration適用、schema更新要否、API/types/UI、manual/spec/design/changelog、critical-ui、tsc、build、deployまで1 bundleで閉じる。
    - stale/誤生成なら、archiveを取ってから、まさ承認のうえで対象だけrevert/removeする。
-   - 月初合意/支払通知系の変更はMS変更履歴と混ぜない。
+   - 月初合意/支払通知/請求issue系の変更はMS変更履歴と混ぜない。
 2. 必要なら login-capable browser で /project/<projectId>/cockpit を開き、MS bar chip の担当設計額が横幅内で読めるかを目視する。
 
 運用ルール:

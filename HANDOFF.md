@@ -47,12 +47,12 @@ Browser note:
 
 ## Current Dirty State
 
-This checkout is **not archive ok** right now. After the accepted MS design-amount deploy, another in-progress dirty bundle appeared in the canonical checkout. It is not part of `aaa19ac3` and is not deployed.
+This checkout is **not archive ok** right now. After the accepted MS design-amount deploy, another in-progress dirty bundle appeared in the canonical checkout. It is not part of the accepted product commits or the final handoff docs commit, and is not deployed.
 
 | path group | class | owner guess | action | risk |
 |---|---|---|---|---|
 | `pwa/scripts/migrations/166_milestone_change_events.sql`, `pwa/src/components/cockpit/CockpitMsChangeHistory.tsx`, `pwa/src/app/api/admin/ms-overview/[planCycleId]/route.ts`, `pwa/src/lib/supabase-data.ts`, `pwa/src/components/cockpit/CockpitView.tsx`, related `pwa/design/cockpit.md` / manual / spec / critical UI changes | other-worker / unknown | active MS変更履歴 worker or next session | Finish, validate, commit, and deploy as its own bundle, or archive/revert with explicit approval. Do not mix into this handoff closeout. | `deploy.sh` hard-stops while tracked dirty remains; local `BUILD_VERSION` is `v0.39.21` but production is `v0.39.20`. |
-| `pwa/src/components/monthly-agreement/MonthlyAgreementExperience.tsx`, `pwa/src/components/monthly-agreement/MonthlyAgreementGateOverlay.tsx`, `pwa/src/app/api/admin/payouts/route.ts`, `pwa/src/components/admin/AdminPayoutsClient.tsx` | other-worker / unknown | monthly-agreement / payout UI worker | Classify with the owner before committing or reverting. | Could accidentally couple monthly agreement UI changes with MS history changes. |
+| `pwa/src/components/monthly-agreement/MonthlyAgreementExperience.tsx`, `pwa/src/components/monthly-agreement/MonthlyAgreementGateOverlay.tsx`, `pwa/src/app/api/admin/payouts/route.ts`, `pwa/src/components/admin/AdminPayoutsClient.tsx`, `pwa/src/components/admin/AdminBillingMatrix.tsx`, `pwa/src/components/admin/AdminInvoiceIssueDialog.tsx`, `pwa/manual/7-1-reward-calc-spec.md` | other-worker / unknown | monthly-agreement / payout / billing UI worker | Classify with the owner before committing or reverting. | Could accidentally couple monthly agreement, invoice issue, and MS history changes. |
 
 First check in the next session:
 
@@ -83,5 +83,6 @@ curl -fsS https://amd-os-pwa.vercel.app/api/build-info
 ## Closeout Decision
 
 - Accepted MS design-amount work: complete, committed, pushed, deployed.
+- Final handoff docs commit: `78909002 Refresh cockpit MS budget handoff`; production build-info reached this commit with `v0.39.20` / `dirty=false`.
 - Current checkout: `do not archive` because unrelated dirty tracked/untracked files remain.
 - Branch/worktree cleanup: no local non-main branch and no extra worktree to remove.

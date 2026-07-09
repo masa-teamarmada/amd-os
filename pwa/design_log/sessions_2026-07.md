@@ -711,8 +711,10 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 - accepted commits:
   - `d9d38833 Show MS design budgets in cockpit`
   - `aaa19ac3 Show member design amounts in cockpit MS chips`
+- final handoff docs commit: `78909002 Refresh cockpit MS budget handoff`。
+- final production `/api/build-info`: `v0.39.20` / `7890900291382db607d0244def3691632dbe97f4` / `dirty:false`。
 - accepted lane は完了・本番反映済み。
-- ただし handoff/closeout 時点の checkout には別件dirtyが残っている。代表: `milestone_change_events` migration / `CockpitMsChangeHistory` / monthly-agreement modal / admin payouts / local `BUILD_VERSION v0.39.21`。
+- ただし handoff/closeout 時点の checkout には別件dirtyが残っている。代表: `milestone_change_events` migration / `CockpitMsChangeHistory` / monthly-agreement modal / admin payouts / invoice issue / billing matrix / reward calc spec / local `BUILD_VERSION v0.39.21`。
 - dirty bundle はこの lane の commit/deploy には含めていない。次セッションで owner/action を確定する。
 
 ### 教訓
