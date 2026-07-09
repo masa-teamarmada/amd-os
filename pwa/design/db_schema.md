@@ -1960,6 +1960,10 @@ PRIMARY KEY: `id`
 | 20 | `reward_preview_json` | `jsonb` | NOT NULL | `'{}'::jsonb` |
 | 21 | `metadata_json` | `jsonb` | NOT NULL | `'{}'::jsonb` |
 
+運用メモ:
+- `source='admin_ms_overview'` は `/admin/ms-overview` 保存時の実変更ログ。
+- `source='migration'` は既存MS履歴の backfill。2026-07-09 実行分は `metadata_json.backfillKey='2026-07-09-ms-change-history-created-at-batches-v1'` で、`value_milestones.created_at` ごとの作成バッチを履歴基準線として残す。ログ導入前の pt/share 更新時刻は復元せず、担当shareは backfill 実行時点の現行値。
+
 ## milestone_monthly_contribution_allocations
 
 行数 (概算): 98

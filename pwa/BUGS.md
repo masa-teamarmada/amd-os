@@ -5,6 +5,16 @@
 
 ---
 
+### [process/deploy] 別件dirtyを理由にpush/deployを止め、まさの「ローカルテストやめて」に反した (2026-07-09)
+
+- **状態**: クローズ (2026-07-09 — `AGENTS.common.md` / root `CLAUDE.md` / `pwa/CLAUDE.md` に再発防止ルールを追加)。
+- **症状**: MS変更履歴の実装後、別件の未コミット差分があることを理由に「勝手にまとめてpush/deployしてない」と報告してしまった。さらに、まさが「ローカルでテストするのやめて」と言った後も、ローカル確認を増やす流れになりかけた。
+- **原因**: dirty state を「bundle を切り分けて対象だけ stage / commit / push する問題」ではなく、「deploy を止める理由」と誤って扱った。PWA の `main push = production deploy` ルールと、まさの明示停止指示を同時に守る判断が遅れた。
+- **対応内容**: 共通ルールに「dirty を理由に stage / commit / push / deploy を止めない」「別件dirtyがあるのでpush/deployしていない、という最終報告は禁止」「対象ファイルだけ明示 stage、`git add .` 禁止」「ローカルサーバー/ブラウザ確認を push/deploy しない理由の代替にしない」「まさがローカルテスト停止を指示したら即停止」を追記。amd-os root と PWA 固有ルールにも同じ趣旨を同期した。
+- **再発防止**: mixed dirty は停止理由ではなく、切り分け対象。対象差分だけ stage し、既存dirtyは戻さず `除外した差分` として分類する。deploy script が hard-stop した場合だけ、その hard-stop 条件を明記し、代替として clean deploy lane / target-only push / 次 owner を決める。まさの「ローカルテストやめて」は、そのセッション内では追加ローカル検証禁止として扱う。
+
+---
+
 ### [process/contracts] 立替精算欄を契約可否として扱い、契約書確認と本番反映説明が混線した (2026-07-09)
 
 - **状態**: クローズ (2026-07-09 — ZMP契約書確認、`立替精算=発生額/不可` 仕様、0円表示、本番build-info確認、handoffへ反映)。

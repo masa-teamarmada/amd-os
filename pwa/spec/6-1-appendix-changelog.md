@@ -14,6 +14,8 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-07-09 | 2-2 Surface / SPEC_pwa / FEATURE_REGISTRY | 修正 | `/admin/invoices` の請求額判定から `budget_yen / 0.65` fallback を削除し、明細合計 → 確定請求額 → 月額固定契約額 (`projects.fee_amount`) の順に変更。対象月より古い未発行行は `発行待ち` から外して `過去滞留` に分離。build v0.39.26 | BWE 2026年2月が AMD 側予算 `budget_yen` から請求額扱いされ、SE 2026年4月のような古い未発行行が今月の発行待ちに混ざっていたため | えいみ |
+| 2026-07-09 | 3-8 PJ Cockpit / 6-8 Admin MS Overview / db_schema | 追加 | `milestone_change_events` の既存MS履歴 backfill を current spec に追加。`source='migration'`、`metadata_json.backfillKey='2026-07-09-ms-change-history-created-at-batches-v1'` のイベントは、`value_milestones.created_at` ごとの作成バッチを復元した履歴基準線として扱い、ログ導入前の pt/share 更新時刻は復元しない | `MS変更履歴` 導入後も、導入前に存在していたMS構成を cockpit で説明可能にするため | えいみ |
 | 2026-07-09 | 2-2 Surface / SPEC_pwa / FEATURE_REGISTRY | 修正 | `/admin/invoices` の route contract を、締め済み稼働月・請求額ありの行だけを扱うきよ向け発行キューへ更新。未来月、請求なしPJ、期間外、freeze後の空cycleを除外し、`発行待ち / 要確認 / 設定不足` を分離。freee取引先未設定、対外報告未FIX、立替未確定は発行ボタンから外す。build v0.39.25 | まさ指摘「8月の稼働分まで表示」「請求が発生しないPJも出てる」「きよの立場でUIUX設計」を route contract に固定するため | えいみ |
 | 2026-07-09 | 2-2 Surface / SPEC_pwa / FEATURE_REGISTRY | 修正 | `/admin/invoices` の main client を `AdminInvoiceIssueQueue` へ差し替え、旧 billing matrix の全ステップ横並びを撤去。未発行 / 発行済み / 送付済み / 入金済み filter、行主操作 `発行` / `請求書を発行`、請求額の明細合計→確定請求額→PJ予算逆算 fallback を route contract に固定。build v0.39.24 | まさ指摘「ページ名は請求書発行になってるけど、中身はbilling matrixのままだよ」を反映し、ページ名だけでなく画面構造も請求書発行業務へ寄せるため | えいみ |
 | 2026-07-09 | 3-8 PJ Cockpit / 5-6 Contracts / FEATURE_REGISTRY | 変更 | `立替精算` 欄を契約可否表示ではなく、発生額/不可表示に変更。`expenseReimbursementAllowed=false` だけ `不可`、それ以外で `expenseReimbursementNote` があれば発生額/実務メモ、空欄は `0円` と表示する。build v0.39.23 | まさ確認で「この欄に書くべきはOKかどうかではなく発生額。立替不可PJの場合は不可」と確定したため | えいみ |

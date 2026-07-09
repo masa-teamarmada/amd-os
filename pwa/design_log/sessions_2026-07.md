@@ -839,3 +839,30 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 - `./node_modules/typescript/bin/tsc --noEmit --pretty false` passed。
 - `npm run build` passed。既存の Next.js middleware deprecation warning のみ。
 - closeout deploy は正規 script で実行済み。production `/api/build-info` は `v0.39.24` / `dirty:false` を返す。
+
+---
+
+## 2026-07-09 — MS変更履歴 cockpit 表示 / 既存履歴 backfill / closeout
+
+### コンテキスト
+- まさから「MSの変更履歴をコックピットに表示してほしい。トグルで畳んでおく形で」と依頼。
+- 理由は、MSが勝手に変更されて報酬額が変わった時にメンバーから不満が出ること、そして新しい業務委託契約書ではMS変更記録をAMD側の責任として残す必要があること。
+- 途中で、えいみが別件dirtyを理由にpush/deploy停止のような報告をしてしまい、まさから「明確なルール違反」「ローカルでテストするのやめて」と指摘。共通ルールと repo ルールへ再発防止を追記した。
+
+### 実装 / 仕様同期
+- `milestone_change_events` を追加し、`/admin/ms-overview` 保存成功時に、変更前後のMS snapshot、追加/無効化/更新されたMS、担当share差分、保存前支払検算サマリを記録するようにした。
+- cockpit の今期MS直下に `CockpitMsChangeHistory` を追加。初期折りたたみで、変更日時、記録者、変更件数、MS差分、担当share差分、追加支払/過払い回収サマリを表示する。
+- 既存MS分も backfill。active / fixed の 11 plan cycle、110 MS を、`value_milestones.created_at` ごとの作成バッチとして 19 event に分けて `milestone_change_events` へ追加した。
+- backfill event は `source='migration'`、`changed_by_email='amd-os-backfill@teamarmada.local'`、`metadata_json.backfillKey='2026-07-09-ms-change-history-created-at-batches-v1'`。ログ導入前の pt/share 更新時刻は復元せず、担当shareは backfill 実行時点の現行値。
+- `pwa/manual/2-3-pj-cockpit.md`、`pwa/manual/6-8-admin-ms-overview-spec.md`、`pwa/spec/3-8-cockpit-current-spec.md`、`pwa/design/FEATURE_REGISTRY.md`、`pwa/design/db_schema.md`、manual/spec changelog、`pwa/BUGS.md` に同期。
+
+### Verification / Deploy
+- DDL `166_milestone_change_events.sql` は本番DBに適用済み。
+- 実装時の検証: `npm run test:critical-ui`、`npm run test:next-period-ui`、`npx tsc --noEmit`、`npm run build` passed。
+- まさの「ローカルでテストするのやめて」以降は追加のローカルテスト/ローカルサーバー起動なし。
+- production `/api/build-info` で `v0.39.25` / `dirty:false` を確認。ただし closeout時点の production SHA は `97870d24`、`origin/main` は docs-only commit `12e08411` まで進んでおり、MS履歴実装はどちらにも含まれる。
+
+### Closeout notes
+- closeout inventory: registered worktree は `/Users/masa/projects/AMD/amd-os [main]` のみ、local branch は `main` のみ、local main vs origin/main は `0 / 0`。
+- 別件 dirty: `pwa/src/app/(app)/admin/invoices/page.tsx` は invoice queue refinement 由来。MS履歴 bundle では触らない。
+- archive status は、別件dirtyが残るため `do not archive`。MS履歴・backfill 自体は本番DBと production-visible UI に反映済み。
