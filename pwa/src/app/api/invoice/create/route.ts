@@ -58,7 +58,7 @@ export async function POST(req: Request) {
     }
 
     if (!project.freee_partner_id) {
-      return NextResponse.json({ error: "freee取引先IDが未設定です" }, { status: 400 });
+      return NextResponse.json({ error: "freee取引先が未設定です" }, { status: 400 });
     }
 
     const companyId = parseInt(process.env.FREEE_COMPANY_ID || "0");

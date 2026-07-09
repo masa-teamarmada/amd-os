@@ -28,7 +28,7 @@ URL: `/admin/projects`。 全 PJ 台帳を編集する admin 専用画面。
 | 立替精算 | `projects.contract_terms_json.expenseReimbursementAllowed` / `expenseReimbursementNote` (= `false`=不可。実務上OKのPJは `true` + `expenseReimbursementNote` に発生額/実務メモを記載し、セル主値として表示する。空なら `0円` 扱い) |
 | 請求条件 | `invoice_send_deadline_rule` / `payment_due_rule` / `payment_due_day` |
 | 請求先メール | `invoice_to_emails` / `invoice_cc_emails` / `invoice_bcc_emails` |
-| freee | `projects.freee_partner_id` |
+| freee | `projects.freee_partner_id`。画面では freee 取引先名を検索してプルダウン選択し、保存値として partner ID を保持する |
 | メンバー | `project_members` 紐付け |
 | report_emails | 月次報告書送付先 (= chip 表示で個別削除 + 一括保存可) |
 | 総会 / 役会 | D-14G の Gmail governance sweep 対象フラグ。`projects.governance_watch_shareholder_meetings` / `projects.governance_watch_board_meetings`。`report_emails` が空ならONでも検索対象なし |
@@ -87,7 +87,7 @@ URL: `/admin/projects`。 全 PJ 台帳を編集する admin 専用画面。
 | `payment_due_day` | 支払日 (= 月末を 0 とする日付 integer) |
 | `invoice_send_manual` | true なら自動送付しない (= まさ手動チェック必要) |
 | `invoice_to_emails` / `cc_emails` / `bcc_emails` | 請求書送付先 |
-| `freee_partner_id` | freee 連携用 partner ID |
+| `freee_partner_id` | freee 連携用 partner ID。admin 画面では手入力せず、freee 取引先候補から選択して保存する |
 | `report_emails` | 月次報告書送付先 (= 複数 csv) |
 | `governance_watch_shareholder_meetings` | true なら D-14G が `report_emails` とのGmailやりとりから株主総会・招集通知・議決権・委任状などを検索する |
 | `governance_watch_board_meetings` | true なら D-14G が `report_emails` とのGmailやりとりから取締役会・役会・書面決議などを検索する |

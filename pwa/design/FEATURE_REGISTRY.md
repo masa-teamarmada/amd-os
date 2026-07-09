@@ -86,9 +86,9 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 - 左メニュー導線: AdminSidebar には `請求書発行` と `/admin/invoices` を置く。`Billing` 表記へ戻さない。
 - 発行キュー: 直近13か月の締め済み稼働月 (= 現月は含めず前月まで) の `billing_cycles` と `projects.status IN ('active','ended','frozen')` を読む。発行対象は `start_ym` 以降、`end_ym` 以前、`freeze_from_ym` より前、かつ請求額がある行だけ。未来月、請求額ゼロ、請求しないPJ、期間外の空cycleは出さない。
-- filter: 初期表示は `未完了` (= `発行待ち / 要確認 / 設定不足 / 過去滞留`)。きよの作業順に `未完了 / 発行待ち / 要確認 / 設定不足 / 過去滞留 / 発行済み / 送付済み / 入金済み / すべて` を置く。`発行待ち` は対象月でそのまま押せるもの、`要確認` は対象月の金額・対外報告・立替が未完、`設定不足` は対象月の freee取引先未設定など OS 設定で止まるもの、`過去滞留` は請求月 (`invoice_ym || ym`) が対象月より古い未発行行。稼働月が古くても請求月が対象月なら滞留扱いにしない。
-- きよ確認: 各行には `金額 / 報告 / 立替` の完了状態だけを小さく表示する。`報告` は `monthly_report_scope='internal_and_external'` のとき発行前 blocker とする。`支払通知 / 報酬支払` など、請求書発行と直接関係しない全ステップ横並び chip を主画面に戻さない。
-- 状態クリック: `要確認 / 設定不足 / 過去滞留` の状態バッジまたは行操作を押すと詳細モーダルを開き、`freee取引先 / 請求額 / 報告書 / 立替` の発行前チェックを、何を直せば解消するかの説明つきで出す。`設定不足` では freee取引先IDをその場で保存でき、保存後は同じ請求先の未発行行を再判定する。
+- filter: 初期表示は `未完了` (= `発行待ち / 要確認 / 設定不足 / 過去滞留`)。きよの作業順に `未完了 / 発行待ち / 要確認 / 設定不足 / 過去滞留 / 発行済み / 送付済み / 入金済み / すべて` を置く。`発行待ち` は対象月でそのまま押せるもの、`要確認` は対象月の請求額が読めないもの、`設定不足` は対象月の freee取引先未設定など OS 設定で止まるもの、`過去滞留` は請求月 (`invoice_ym || ym`) が対象月より古い未発行行。稼働月が古くても請求月が対象月なら滞留扱いにしない。
+- 発行条件: 各行には `取引先 / 金額` の完了状態だけを小さく表示する。報告書FIXと立替精算は請求書発行の blocker にしない。`支払通知 / 報酬支払` など、請求書発行と直接関係しない全ステップ横並び chip を主画面に戻さない。
+- 状態クリック: `要確認 / 設定不足 / 過去滞留` の状態バッジまたは行操作を押すと詳細モーダルを開き、`freee取引先 / 請求額` の発行前チェックを、何を直せば解消するかの説明つきで出す。`設定不足` では freee取引先をプルダウンで選択して保存でき、保存後は同じ請求先の未発行行を再判定する。
 - 請求書発行: `発行待ち` 行の主操作にだけ `発行` / `請求書を発行` ボタンを置き、`AdminInvoiceIssueDialog` から `issue-invoice` Edge Function を呼ぶ。単なる `invoice_issued_at` 手動更新で発行済みに見せない。
 - 発行モーダル: iOS `InvoiceStepView` / 旧 GAS `cpOpenInvoiceModal` と同じ発行仕様を維持する。件名、基本明細行、契約月額との差分確認、前月明細引き継ぎ、承認済み立替の読み取り専用明細、調整行、請求日、支払期日、備考、発行済み情報、発行取消を出す。件名とヘッダーは `client_name` を使い、`project_name` / `project_id` など AMD 内部呼称を請求書発行モーダルや freee 件名に出さない。単なる件名/日付/全行だけの薄いモーダルへ戻さない。
 - 請求額表示: 明細合計 (`invoice_base_lines_json`) を最優先し、なければ確定請求額 (`budget_reported_amount`)、月額固定契約だけ `projects.fee_amount` へ fallback する。PJ 予算 (`budget_yen`) は AMD 側の原資/報酬予算なので、請求発生判定や請求額 fallback に使わない。
@@ -98,7 +98,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 回帰防止:
 
-- `pwa/scripts/check_pwa_critical_ui.cjs` が `/admin/invoices` route、`/admin/billing` redirect、AdminSidebar 導線、`AdminInvoiceIssueQueue`、`AdminInvoiceIssueDialog` の `基本明細行 / 立替精算 / 調整行 / 備考 / 発行を取り消す`、`issue-invoice` anchor を検査する。
+- `pwa/scripts/check_pwa_critical_ui.cjs` が `/admin/invoices` route、`/admin/billing` redirect、AdminSidebar 導線、`AdminInvoiceIssueQueue`、`FreeePartnerPicker`、`AdminInvoiceIssueDialog` の `基本明細行 / 立替精算 / 調整行 / 備考 / 発行を取り消す`、`issue-invoice` anchor を検査する。
 - 旧 PM 月次 routine へ請求書発行を戻さない。請求書発行・送付は admin 業務のままにする。
 
 ## /admin/payouts

@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { AdminProjectMembersModal } from "./AdminProjectMembersModal";
 import { EmailsEditModal } from "./EmailsEditModal";
+import { FreeePartnerPicker } from "./FreeePartnerPicker";
 import { LaneBadges, LaneEditor } from "@/components/lanes/LaneBadges";
 import type { LaneWeight } from "@/lib/aspi-lanes";
 import { DEFAULT_PAYMENT_DUE_RULE, PAYMENT_DUE_RULE_OPTIONS, paymentDueRuleLabel } from "@/lib/payment-rules";
@@ -729,7 +730,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
               <th className="text-left px-3 py-2 font-medium w-20">終了ym</th>
               <th className="text-left px-3 py-2 font-medium w-32">停止 / 再開予定</th>
               <th className="text-left px-3 py-2 font-medium w-52">ニュースサーチクエリ</th>
-              <th className="text-left px-3 py-2 font-medium w-24">freee ID</th>
+              <th className="text-left px-3 py-2 font-medium w-36">freee取引先</th>
               <th className="text-left px-3 py-2 font-medium w-32">Slack CH</th>
               <th className="text-left px-3 py-2 font-medium w-40">Drive Folder</th>
             </tr>
@@ -1471,11 +1472,16 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                   {/* freee_partner_id */}
                   <td className={cellCls("freee_partner_id")} onClick={enterCell("freee_partner_id")}>
                     {isEditingField(p, "freee_partner_id") ? (
-                      <div onClick={(e) => e.stopPropagation()}>
-                        <input type="text" value={editVals.freee_partner_id as string} autoFocus
-                          onChange={(e) => setEditVals((v) => ({ ...v, freee_partner_id: e.target.value }))}
-                          onKeyDown={(e) => { if (e.key === "Enter") saveCell(p, "freee_partner_id"); if (e.key === "Escape") cancelEdit(); }}
-                          className="border border-border rounded px-1.5 py-0.5 text-[12px] w-20 bg-background font-mono" />
+                      <div className="w-64" onClick={(e) => e.stopPropagation()}>
+                        <FreeePartnerPicker
+                          value={(editVals.freee_partner_id as string) || null}
+                          initialQuery={p.client_name || p.project_name}
+                          placeholder="freee取引先を選択"
+                          compact
+                          autoFocus
+                          onSelect={(partner) => setEditVals((v) => ({ ...v, freee_partner_id: partner.id }))}
+                          onClear={() => setEditVals((v) => ({ ...v, freee_partner_id: "" }))}
+                        />
                         {cellActions("freee_partner_id")}
                       </div>
                     ) : <span className="font-mono text-muted-foreground">{p.freee_partner_id || "—"}</span>}

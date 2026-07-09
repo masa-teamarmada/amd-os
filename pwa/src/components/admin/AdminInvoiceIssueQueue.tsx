@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Check, ChevronRight, CircleDollarSign, Clock, FilePlus, Save, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { AdminInvoiceIssueDialog } from "@/components/admin/AdminInvoiceIssueDialog";
+import { FreeePartnerPicker, type FreeePartnerOption } from "@/components/admin/FreeePartnerPicker";
 import {
   Dialog,
   DialogContent,
@@ -60,18 +60,11 @@ export interface BillingCycleRow {
   reward_paid_at: string | null;
 }
 
-export interface ReimbursementRow {
-  project_id: string;
-  date: string;
-  status: string | null;
-}
-
 type StateKey = "ready" | "needs_check" | "setup_missing" | "backlog" | "issued" | "sent" | "paid";
 type QueueFilter = "open" | StateKey | "all";
 
 interface Props {
   cycles: BillingCycleRow[];
-  reimbursements: ReimbursementRow[];
   targetYm: string;
 }
 
@@ -83,7 +76,7 @@ type InvoiceState = {
 };
 
 type ResolutionItem = {
-  key: "freee_partner" | "amount" | "report" | "reimbursement";
+  key: "freee_partner" | "amount";
   label: string;
   done: boolean;
   status: string;
@@ -101,51 +94,6 @@ function ymDisplay(ym: string) {
 function shortYm(ym: string | null) {
   if (!ym || ym.length < 6) return "-";
   return `${ym.slice(2, 4)}.${ym.slice(4, 6)}`;
-}
-
-function todayJstKey() {
-  const now = new Date();
-  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-  return `${jst.getUTCFullYear()}-${String(jst.getUTCMonth() + 1).padStart(2, "0")}-${String(jst.getUTCDate()).padStart(2, "0")}`;
-}
-
-function nextYm(ym: string) {
-  const y = Number(ym.slice(0, 4));
-  const m = Number(ym.slice(4, 6));
-  return m === 12 ? `${y + 1}01` : `${y}${String(m + 1).padStart(2, "0")}`;
-}
-
-function ymd(ym: string, day: number) {
-  return `${ym.slice(0, 4)}-${ym.slice(4, 6)}-${String(day).padStart(2, "0")}`;
-}
-
-function adjustBusinessDay(iso: string) {
-  const date = new Date(`${iso}T00:00:00Z`);
-  while (date.getUTCDay() === 0 || date.getUTCDay() === 6) {
-    date.setUTCDate(date.getUTCDate() - 1);
-  }
-  return date.toISOString().slice(0, 10);
-}
-
-function reimbursementDeadline(ym: string) {
-  return adjustBusinessDay(ymd(nextYm(ym), 4));
-}
-
-function reimbursementCompletionMap(rows: ReimbursementRow[], cycles: BillingCycleRow[]) {
-  const map = new Map<string, boolean>();
-  const today = todayJstKey();
-  for (const cycle of cycles) {
-    map.set(`${cycle.project_id}_${cycle.ym}`, today >= reimbursementDeadline(cycle.ym));
-  }
-  for (const row of rows) {
-    if (!row.date || row.date.length < 7) continue;
-    const ym = `${row.date.slice(0, 4)}${row.date.slice(5, 7)}`;
-    const key = `${row.project_id}_${ym}`;
-    if (!map.has(key)) map.set(key, today >= reimbursementDeadline(ym));
-    const status = (row.status || "").toLowerCase();
-    if (status === "submitted" || status === "pmapproved") map.set(key, false);
-  }
-  return map;
 }
 
 function parseInvoiceLines(value: string | null) {
@@ -187,26 +135,16 @@ function yen(value: number | null) {
   return `¥${value.toLocaleString()}`;
 }
 
-function reportBlocksInvoice(row: BillingCycleRow) {
-  const scope = row.monthly_report_scope ?? "none";
-  if (scope === "internal_and_external") return true;
-  if (scope === "internal_only") return false;
-  return row.monthly_report_required;
-}
-
-function prerequisiteItems(row: BillingCycleRow, reimbursementDone: boolean) {
+function prerequisiteItems(row: BillingCycleRow) {
   const amount = invoiceNetAmount(row);
-  const reportRequired = reportBlocksInvoice(row);
   return [
+    { label: "取引先", done: Boolean(row.freee_partner_id), note: row.freee_partner_id ? "設定済み" : "未設定" },
     { label: "金額", done: amount !== null && amount > 0, note: amount !== null && amount > 0 ? yen(amount) : "未入力" },
-    { label: "報告", done: !reportRequired || Boolean(row.report_fixed_at), note: reportRequired ? "対外版" : "対象外" },
-    { label: "立替", done: reimbursementDone, note: reimbursementDone ? "締め済み" : "確認中" },
   ];
 }
 
-function resolutionItems(row: BillingCycleRow, reimbursementDone: boolean): ResolutionItem[] {
+function resolutionItems(row: BillingCycleRow): ResolutionItem[] {
   const amount = invoiceNetAmount(row);
-  const reportRequired = reportBlocksInvoice(row);
   return [
     {
       key: "freee_partner",
@@ -214,8 +152,8 @@ function resolutionItems(row: BillingCycleRow, reimbursementDone: boolean): Reso
       done: Boolean(row.freee_partner_id),
       status: row.freee_partner_id ? "設定済み" : "未設定",
       detail: row.freee_partner_id
-        ? "この請求先のfreee取引先IDは保存済み。"
-        : "freeeの取引先IDを保存すると、この設定不足は解消される。",
+        ? "この請求先のfreee取引先は保存済み。"
+        : "freee取引先を選んで保存すると、この設定不足は解消される。",
       blockerLabel: "freee取引先未設定",
     },
     {
@@ -228,40 +166,18 @@ function resolutionItems(row: BillingCycleRow, reimbursementDone: boolean): Reso
         : "請求明細、確定請求額、契約月額のどれも入っていない。案件の契約条件か請求明細を確認する。",
       blockerLabel: "請求額なし",
     },
-    {
-      key: "report",
-      label: "報告書",
-      done: !reportRequired || Boolean(row.report_fixed_at),
-      status: !reportRequired ? "対象外" : row.report_fixed_at ? "FIX済み" : "FIX待ち",
-      detail: !reportRequired
-        ? "この案件は請求前の対外報告書FIXを求めない設定。"
-        : row.report_fixed_at
-          ? "対外提出対象の報告書FIXが入っている。"
-          : "対外提出対象の月次報告書がまだFIXされていない。報告書をFIXすると解消される。",
-      blockerLabel: "報告書未FIX",
-    },
-    {
-      key: "reimbursement",
-      label: "立替",
-      done: reimbursementDone,
-      status: reimbursementDone ? "締め済み" : "確認中",
-      detail: reimbursementDone
-        ? "立替締切を過ぎていて、未承認の立替が残っていない。"
-        : "立替締切前、または未承認の立替が残っている。立替の承認状況を確認する。",
-      blockerLabel: "立替未確定",
-    },
   ];
 }
 
-function blockerItems(row: BillingCycleRow, reimbursementDone: boolean) {
-  return resolutionItems(row, reimbursementDone).filter((item) => !item.done);
+function blockerItems(row: BillingCycleRow) {
+  return resolutionItems(row).filter((item) => !item.done);
 }
 
-function blockerLabels(row: BillingCycleRow, reimbursementDone: boolean) {
-  return blockerItems(row, reimbursementDone).map((item) => item.blockerLabel);
+function blockerLabels(row: BillingCycleRow) {
+  return blockerItems(row).map((item) => item.blockerLabel);
 }
 
-function invoiceState(row: BillingCycleRow, reimbursementDone: boolean, targetYm: string): InvoiceState {
+function invoiceState(row: BillingCycleRow, targetYm: string): InvoiceState {
   if (row.payment_confirmed_at) {
     return { key: "paid", label: "入金確認済み", tone: "slate", Icon: CircleDollarSign };
   }
@@ -274,7 +190,7 @@ function invoiceState(row: BillingCycleRow, reimbursementDone: boolean, targetYm
   if (effectiveInvoiceYm(row) < targetYm) {
     return { key: "backlog", label: "過去滞留", tone: "red", Icon: AlertTriangle };
   }
-  const blockers = blockerItems(row, reimbursementDone);
+  const blockers = blockerItems(row);
   if (blockers.some((item) => item.key === "freee_partner")) {
     return { key: "setup_missing", label: "設定不足", tone: "red", Icon: AlertTriangle };
   }
@@ -299,11 +215,9 @@ function stateClass(tone: InvoiceState["tone"]) {
   }
 }
 
-function invoiceSort(a: BillingCycleRow, b: BillingCycleRow, reimburseMap: Map<string, boolean>, targetYm: string) {
+function invoiceSort(a: BillingCycleRow, b: BillingCycleRow, targetYm: string) {
   const stateOrder: Record<StateKey, number> = { ready: 0, needs_check: 1, setup_missing: 2, backlog: 3, issued: 4, sent: 5, paid: 6 };
-  const aDone = reimburseMap.get(`${a.project_id}_${a.ym}`) ?? true;
-  const bDone = reimburseMap.get(`${b.project_id}_${b.ym}`) ?? true;
-  const stateDiff = stateOrder[invoiceState(a, aDone, targetYm).key] - stateOrder[invoiceState(b, bDone, targetYm).key];
+  const stateDiff = stateOrder[invoiceState(a, targetYm).key] - stateOrder[invoiceState(b, targetYm).key];
   if (stateDiff !== 0) return stateDiff;
   const invoiceYmDiff = (a.invoice_ym || a.ym).localeCompare(b.invoice_ym || b.ym);
   if (invoiceYmDiff !== 0) return invoiceYmDiff;
@@ -324,38 +238,35 @@ function StatusPill({ state }: { state: InvoiceState }) {
   );
 }
 
-export function AdminInvoiceIssueQueue({ cycles, reimbursements, targetYm }: Props) {
+export function AdminInvoiceIssueQueue({ cycles, targetYm }: Props) {
   const [rows, setRows] = useState(cycles);
   const [filter, setFilter] = useState<QueueFilter>("open");
   const [selected, setSelected] = useState<BillingCycleRow | null>(null);
   const [issuingTarget, setIssuingTarget] = useState<BillingCycleRow | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [reimburseMap] = useState(() => reimbursementCompletionMap(reimbursements, cycles));
 
   const counts = useMemo(() => {
     const initial: Record<QueueFilter, number> = { open: 0, ready: 0, needs_check: 0, setup_missing: 0, backlog: 0, issued: 0, sent: 0, paid: 0, all: rows.length };
     for (const row of rows) {
-      const reimbursementDone = reimburseMap.get(`${row.project_id}_${row.ym}`) ?? true;
-      const state = invoiceState(row, reimbursementDone, targetYm).key;
+      const state = invoiceState(row, targetYm).key;
       initial[state] += 1;
       if (state === "ready" || state === "needs_check" || state === "setup_missing" || state === "backlog") {
         initial.open += 1;
       }
     }
     return initial;
-  }, [reimburseMap, rows, targetYm]);
+  }, [rows, targetYm]);
 
   const visibleRows = useMemo(() => {
     return rows
       .filter((row) => {
-        const reimbursementDone = reimburseMap.get(`${row.project_id}_${row.ym}`) ?? true;
-        const state = invoiceState(row, reimbursementDone, targetYm).key;
+        const state = invoiceState(row, targetYm).key;
         if (filter === "all") return true;
         if (filter === "open") return state === "ready" || state === "needs_check" || state === "setup_missing" || state === "backlog";
         return state === filter;
       })
-      .sort((a, b) => invoiceSort(a, b, reimburseMap, targetYm));
-  }, [filter, reimburseMap, rows, targetYm]);
+      .sort((a, b) => invoiceSort(a, b, targetYm));
+  }, [filter, rows, targetYm]);
 
   function applyLocalPatch(projectId: string, ym: string, patch: Partial<BillingCycleRow>) {
     setRows((prev) => prev.map((row) => row.project_id === projectId && row.ym === ym ? { ...row, ...patch } : row));
@@ -437,13 +348,13 @@ export function AdminInvoiceIssueQueue({ cycles, reimbursements, targetYm }: Pro
 
       <section aria-label="請求書発行キュー" className="overflow-x-auto rounded-lg border border-border bg-background">
         <div className="min-w-[980px]">
-          <div className="grid grid-cols-[minmax(180px,1.5fr)_96px_96px_120px_150px_minmax(180px,1fr)_132px] gap-3 border-b border-border bg-muted/40 px-3 py-2 text-[11px] font-semibold text-muted-foreground">
+          <div className="grid grid-cols-[minmax(180px,1.5fr)_96px_96px_120px_150px_minmax(160px,0.8fr)_132px] gap-3 border-b border-border bg-muted/40 px-3 py-2 text-[11px] font-semibold text-muted-foreground">
             <span>請求先</span>
             <span>稼働月</span>
             <span>請求月</span>
             <span className="text-right">請求額</span>
             <span>状態</span>
-            <span>きよ確認</span>
+            <span>発行条件</span>
             <span />
           </div>
           {visibleRows.length === 0 ? (
@@ -453,13 +364,12 @@ export function AdminInvoiceIssueQueue({ cycles, reimbursements, targetYm }: Pro
           ) : (
             <div className="divide-y divide-border">
               {visibleRows.map((row) => {
-                const reimbursementDone = reimburseMap.get(`${row.project_id}_${row.ym}`) ?? true;
-                const state = invoiceState(row, reimbursementDone, targetYm);
-                const prerequisites = prerequisiteItems(row, reimbursementDone);
+                const state = invoiceState(row, targetYm);
+                const prerequisites = prerequisiteItems(row);
                 return (
                   <div
                     key={row.id}
-                    className="grid grid-cols-[minmax(180px,1.5fr)_96px_96px_120px_150px_minmax(180px,1fr)_132px] items-center gap-3 px-3 py-3 text-[13px] hover:bg-muted/20"
+                    className="grid grid-cols-[minmax(180px,1.5fr)_96px_96px_120px_150px_minmax(160px,0.8fr)_132px] items-center gap-3 px-3 py-3 text-[13px] hover:bg-muted/20"
                   >
                     <button type="button" onClick={() => setSelected(row)} className="min-w-0 text-left">
                       <p className="truncate font-medium">{invoiceRecipientName(row)}</p>
@@ -517,7 +427,6 @@ export function AdminInvoiceIssueQueue({ cycles, reimbursements, targetYm }: Pro
 
       <InvoiceDetailDialog
         row={selected}
-        reimbursementDone={selected ? reimburseMap.get(`${selected.project_id}_${selected.ym}`) ?? true : true}
         targetYm={targetYm}
         onClose={() => setSelected(null)}
         onIssue={(row) => {
@@ -550,33 +459,33 @@ export function AdminInvoiceIssueQueue({ cycles, reimbursements, targetYm }: Pro
 
 function InvoiceDetailDialog({
   row,
-  reimbursementDone,
   targetYm,
   onClose,
   onIssue,
   onProjectPatch,
 }: {
   row: BillingCycleRow | null;
-  reimbursementDone: boolean;
   targetYm: string;
   onClose: () => void;
   onIssue: (row: BillingCycleRow) => void;
   onProjectPatch: (projectId: string, patch: Partial<BillingCycleRow>) => void;
 }) {
   const [freeePartnerDraft, setFreeePartnerDraft] = useState("");
+  const [selectedFreeePartner, setSelectedFreeePartner] = useState<FreeePartnerOption | null>(null);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsMessage, setSettingsMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setFreeePartnerDraft(row?.freee_partner_id ?? "");
+    setSelectedFreeePartner(null);
     setSettingsMessage(null);
   }, [row?.project_id, row?.freee_partner_id]);
 
   if (!row) return null;
   const activeRow = row;
-  const state = invoiceState(row, reimbursementDone, targetYm);
-  const blockers = blockerLabels(row, reimbursementDone);
-  const resolution = resolutionItems(row, reimbursementDone);
+  const state = invoiceState(row, targetYm);
+  const blockers = blockerLabels(row);
+  const resolution = resolutionItems(row);
   const missingFreeePartner = resolution.some((item) => item.key === "freee_partner" && !item.done);
   const isBacklog = state.key === "backlog";
   const canIssue = state.key === "ready";
@@ -584,7 +493,7 @@ function InvoiceDetailDialog({
   async function saveFreeePartner() {
     const nextValue = freeePartnerDraft.trim();
     if (!nextValue) {
-      setSettingsMessage("freee取引先IDを入れてね");
+      setSettingsMessage("freee取引先を選んでね");
       return;
     }
     setSettingsSaving(true);
@@ -599,7 +508,7 @@ function InvoiceDetailDialog({
       return;
     }
     onProjectPatch(activeRow.project_id, { freee_partner_id: nextValue });
-    setSettingsMessage("freee取引先IDを保存したよ。この請求先の未発行行を再判定したよ。");
+    setSettingsMessage(`${selectedFreeePartner?.name || "freee取引先"}を保存したよ。この請求先の未発行行を再判定したよ。`);
   }
 
   return (
@@ -670,14 +579,18 @@ function InvoiceDetailDialog({
             <section className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm">
               <p className="font-semibold text-red-900">設定不足を解消</p>
               <p className="mt-1 text-xs leading-5 text-red-800">
-                この請求先のfreee取引先IDを保存すると、同じ請求先の未発行行もまとめて再判定される。
+                取引先名でfreee取引先を選ぶと、同じ請求先の未発行行もまとめて再判定される。
               </p>
               <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                <Input
-                  value={freeePartnerDraft}
-                  onChange={(event) => setFreeePartnerDraft(event.target.value)}
-                  placeholder="freee取引先ID"
-                  className="bg-background"
+                <FreeePartnerPicker
+                  value={freeePartnerDraft || null}
+                  initialQuery={row.client_name ?? ""}
+                  placeholder="freee取引先を選択"
+                  className="flex-1"
+                  onSelect={(partner) => {
+                    setFreeePartnerDraft(partner.id);
+                    setSelectedFreeePartner(partner);
+                  }}
                 />
                 <Button type="button" onClick={saveFreeePartner} disabled={settingsSaving} className="shrink-0">
                   <Save />
@@ -691,7 +604,7 @@ function InvoiceDetailDialog({
           <section className="rounded-lg border border-border p-3 text-sm">
             <p className="text-xs font-semibold text-muted-foreground">freee</p>
             <div className="mt-2 space-y-1">
-              <p>freee取引先: {row.freee_partner_id ? "設定済み" : "未設定"}</p>
+              <p>freee取引先: {row.freee_partner_id ? (selectedFreeePartner?.name || "設定済み") : "未設定"}</p>
               <p>請求書番号: {row.freee_invoice_number || "-"}</p>
               <p className="break-all">PDF: {row.invoice_pdf_url || "-"}</p>
               <p>件名: {row.invoice_subject || "-"}</p>

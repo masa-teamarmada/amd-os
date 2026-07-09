@@ -172,14 +172,27 @@ expectIncludes("src/components/admin/AdminInvoiceIssueQueue.tsx", [
   "effectiveInvoiceYm",
   "発行前チェック",
   "設定不足を解消",
-  "freee取引先ID",
+  "freee取引先を選択",
+  "FreeePartnerPicker",
   "発行待ち",
   "要確認",
   "設定不足",
   "過去滞留",
   "請求書発行",
   "請求書を発行",
-  "きよ確認",
+  "発行条件",
+]);
+
+expectIncludes("src/components/admin/FreeePartnerPicker.tsx", [
+  "freee取引先を検索",
+  "api/admin/freee-partners",
+  "選択中",
+]);
+
+expectIncludes("src/app/api/admin/freee-partners/route.ts", [
+  "requireAdmin",
+  "freeeApi",
+  "/api/1/partners",
 ]);
 
 expectIncludes("src/components/admin/AdminInvoiceIssueDialog.tsx", [

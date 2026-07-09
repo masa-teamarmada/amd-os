@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { AdminInvoiceIssueQueue, type BillingCycleRow, type InvoiceProjectRow, type ReimbursementRow } from "@/components/admin/AdminInvoiceIssueQueue";
+import { AdminInvoiceIssueQueue, type BillingCycleRow, type InvoiceProjectRow } from "@/components/admin/AdminInvoiceIssueQueue";
 
 function currentYm() {
   const now = new Date();
@@ -12,10 +12,6 @@ function addMonths(ym: string, delta: number) {
   const m = Number(ym.slice(4, 6));
   const date = new Date(Date.UTC(y, m - 1 + delta, 1));
   return `${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
-}
-
-function firstDay(ym: string) {
-  return `${ym.slice(0, 4)}-${ym.slice(4, 6)}-01`;
 }
 
 function ymLabel(ym: string) {
@@ -71,8 +67,8 @@ export default async function AdminInvoicesPage() {
   const baseYm = currentYm();
   const lastClosedYm = addMonths(baseYm, -1);
   const yms = Array.from({ length: 13 }, (_, index) => addMonths(lastClosedYm, index - 12));
-  const firstYm = yms[0];
-  const lastYm = yms[yms.length - 1];
+  const firstYm = yms[0] ?? lastClosedYm;
+  const lastYm = yms[yms.length - 1] ?? lastClosedYm;
 
   const { data: cycles, error: bcErr } = await supabase
     .from("billing_cycles")
@@ -84,12 +80,6 @@ export default async function AdminInvoicesPage() {
     .from("projects")
     .select("project_id, project_name, client_name, status, project_type, start_ym, end_ym, freeze_from_ym, fee_type, fee_amount, freee_partner_id, monthly_report_required, monthly_report_scope")
     .in("status", ["active", "ended", "frozen"]);
-
-  const { data: reimbursements, error: reimburseErr } = await supabase
-    .from("reimbursements")
-    .select("project_id, date, status")
-    .gte("date", firstDay(firstYm))
-    .lt("date", firstDay(addMonths(lastYm, 1)));
 
   const projectMap = new Map<string, InvoiceProjectRow>();
   for (const p of projects ?? []) {
@@ -155,15 +145,8 @@ export default async function AdminInvoicesPage() {
       reward_paid_at: c.reward_paid_at ?? null,
     }));
 
-  const reimbursementRows: ReimbursementRow[] = (reimbursements ?? []).map((r) => ({
-    project_id: r.project_id,
-    date: r.date,
-    status: r.status ?? null,
-  }));
-
   if (bcErr) console.error("AdminInvoicesPage:", bcErr.message);
   if (projectErr) console.error("AdminInvoicesPage projects:", projectErr.message);
-  if (reimburseErr) console.error("AdminInvoicesPage reimbursements:", reimburseErr.message);
 
   return (
     <div>
@@ -172,9 +155,9 @@ export default async function AdminInvoicesPage() {
         <span className="text-sm text-muted-foreground">{ymLabel(firstYm)}〜{ymLabel(lastYm)} 稼働分 — {rows.length} 件</span>
       </div>
       <p className="text-xs text-muted-foreground mb-3">
-        締め済みで請求額がある稼働分だけを表示し、発行待ちから freee 発行まで進める。設定不足やきよ確認が残るものは、発行待ちとは分けて扱う。
+        締め済みで請求額がある稼働分だけを表示し、freee取引先と請求額がそろったものを発行待ちとして freee 発行まで進める。
       </p>
-      <AdminInvoiceIssueQueue cycles={rows} reimbursements={reimbursementRows} targetYm={lastClosedYm} />
+      <AdminInvoiceIssueQueue cycles={rows} targetYm={lastClosedYm} />
     </div>
   );
 }
