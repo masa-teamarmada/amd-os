@@ -92,6 +92,7 @@ MTG詳細モーダル内の「添付資料」は会議単位の `meeting_assets`
 
 - 4 月期-3 月期で 年間 10-15 個の MS を持つ
 - 各 MS は `pt` (= ポイント)、`effort` (= 年間 / 期 / 単発)、責任者 (= AMD メンバーごとの share %)
+- 各 MS 行には `設計額` を表示する。本契約MSは `value_plan_cycles.budget_yen` をシーズン月数×10ptで按分し、`cap_extra` MSは同期間の `billing_cycles.extra_budget_yen` 合計を別財布ptへ按分する。これは `/admin/ms-overview` と同じ MS 設計額の目安であり、支払確定額ではない。
 - Gantt 表示 (= 月 4/26-3/27)
 - 各 MS をクリック → 行が展開し、そのMS単位のゴール / TODO / 現状 / 直近材料を確認
 - MS 本体・期間・pt・tag・担当 share の編集は `/admin/ms-overview` に集約する。PJ cockpit / HUD cockpit では MS 設計を保存しない。

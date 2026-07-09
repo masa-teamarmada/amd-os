@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
+import { capExtraPointBasisForMilestone, pointBasisForPeriod, roundPt } from "@/lib/season-point-basis";
 import { toggleSubItemStatus } from "@/lib/supabase-data";
 
 /**
@@ -54,6 +55,53 @@ function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
 
+const CAP_EXTRA_TAGS = new Set([
+  "cap_extra",
+  "extra_contract",
+  "contract_extra",
+  "cap_outside",
+  "uncapped",
+]);
+
+function isCapExtraTag(tag: string) {
+  return CAP_EXTRA_TAGS.has(String(tag || "").trim().toLowerCase());
+}
+
+function effectiveMilestonePoints(ms: Milestone) {
+  if (isCapExtraTag(ms.tag)) {
+    const capExtraPoints = capExtraPointBasisForMilestone({
+      points: ms.points,
+      periodStartYm: ms.periodStartYm,
+      targetYm: ms.targetYm,
+    });
+    if (capExtraPoints > 0) return capExtraPoints;
+  }
+  return roundPt(Math.max(0, ms.points));
+}
+
+function designAmountForPoints(points: number, pointBasis: number, budgetYen: number, roundedUnitYen: number) {
+  const safeBudgetYen = toYenNumber(budgetYen);
+  const safeUnitYen = toYenNumber(roundedUnitYen);
+  if (pointBasis > 0 && safeBudgetYen > 0) return Math.round((Math.max(0, points) * safeBudgetYen) / pointBasis);
+  return Math.round(Math.max(0, points) * safeUnitYen);
+}
+
+function toYenNumber(value: unknown) {
+  const numeric = typeof value === "number" ? value : Number(value ?? 0);
+  return Number.isFinite(numeric) ? Math.max(0, Math.round(numeric)) : 0;
+}
+
+function formatYen(amount: number) {
+  return `${toYenNumber(amount).toLocaleString("ja-JP")}円`;
+}
+
+type MsBudgetInfo = {
+  designAmountYen: number;
+  designUnitYen: number;
+  effectivePoints: number;
+  isCapExtra: boolean;
+};
+
 type Variant = "light" | "hud";
 
 interface Milestone {
@@ -84,6 +132,8 @@ interface Responsibility {
 }
 
 interface PlanCycle {
+  budgetYen?: number;
+  extraDesignBudgetYen?: number;
   totalPoints: number;
   periodStartYm: string;
   periodEndYm: string;
@@ -316,8 +366,33 @@ export function MilestoneGanttChart({
       )
     : 0;
   const totalPts = orderedMs.reduce((sum, ms) => sum + ms.points, 0);
-  const gridTemplateColumns = `260px repeat(${months.length}, minmax(62px, 1fr))`;
-  const minWidth = 260 + months.length * 72;
+  const budgetInfoByMilestone = useMemo(() => {
+    const regularPointBasis = pointBasisForPeriod(planCycle.periodStartYm, planCycle.periodEndYm);
+    const regularDesignBudgetYen = toYenNumber(planCycle.budgetYen);
+    const extraPoints = roundPt(
+      milestones.filter((ms) => isCapExtraTag(ms.tag)).reduce((sum, ms) => sum + effectiveMilestonePoints(ms), 0)
+    );
+    const extraDesignBudgetYen = toYenNumber(planCycle.extraDesignBudgetYen);
+    const regularDesignUnitYen = regularPointBasis > 0 ? Math.round(regularDesignBudgetYen / regularPointBasis) : 0;
+    const extraDesignUnitYen = extraPoints > 0 && extraDesignBudgetYen > 0 ? Math.round(extraDesignBudgetYen / extraPoints) : 0;
+    const map = new Map<string, MsBudgetInfo>();
+    for (const ms of milestones) {
+      const isExtra = isCapExtraTag(ms.tag);
+      const effectivePoints = effectiveMilestonePoints(ms);
+      const pointBasis = isExtra ? extraPoints : regularPointBasis;
+      const designUnitYen = isExtra ? extraDesignUnitYen : regularDesignUnitYen;
+      const budgetYen = isExtra ? extraDesignBudgetYen : regularDesignBudgetYen;
+      map.set(ms.milestoneId, {
+        designAmountYen: designAmountForPoints(effectivePoints, pointBasis, budgetYen, designUnitYen),
+        designUnitYen,
+        effectivePoints,
+        isCapExtra: isExtra,
+      });
+    }
+    return map;
+  }, [milestones, planCycle.budgetYen, planCycle.extraDesignBudgetYen, planCycle.periodEndYm, planCycle.periodStartYm]);
+  const gridTemplateColumns = `300px repeat(${months.length}, minmax(62px, 1fr))`;
+  const minWidth = 300 + months.length * 72;
 
   return (
     <section className={c.section}>
@@ -351,7 +426,7 @@ export function MilestoneGanttChart({
       <div className={c.gridBg}>
         <div style={{ minWidth }}>
           <div className={`grid ${c.header}`} style={{ gridTemplateColumns }}>
-            <div className={`sticky left-0 z-10 px-3 py-2 text-[11px] font-medium ${c.left}`}>MS / effort</div>
+            <div className={`sticky left-0 z-10 px-3 py-2 text-[11px] font-medium ${c.left}`}>MS / effort / 設計額</div>
             {months.map((month) => (
               <div key={month} className={`px-2 py-2 text-center text-[10px] font-medium ${c.month}`}>
                 {formatYm(month)}
@@ -371,6 +446,7 @@ export function MilestoneGanttChart({
               progress={latestProgressByMilestone.get(ms.milestoneId)}
               msActivities={msActivityMap.get(ms.milestoneId) || []}
               memberActivities={memberActivityMap.get(ms.milestoneId) || []}
+              budgetInfo={budgetInfoByMilestone.get(ms.milestoneId)}
               memberMap={memberMap}
               gridTemplateColumns={gridTemplateColumns}
               variant={variant}
@@ -394,6 +470,7 @@ function GanttRow({
   progress,
   msActivities,
   memberActivities,
+  budgetInfo,
   memberMap,
   gridTemplateColumns,
   variant,
@@ -409,6 +486,7 @@ function GanttRow({
   progress?: Progress;
   msActivities: MemberMsActivity[];
   memberActivities: MemberActivity[];
+  budgetInfo?: MsBudgetInfo;
   memberMap: Record<string, string>;
   gridTemplateColumns: string;
   variant: Variant;
@@ -443,6 +521,10 @@ function GanttRow({
   const activityTextClass = variant === "hud" ? "text-[10px] leading-snug text-cyan-50/64" : "text-[10px] leading-snug text-slate-600";
   const activityStrongClass = variant === "hud" ? "font-medium text-cyan-50/82" : "font-medium text-slate-700";
   const activityMetaClass = variant === "hud" ? "text-cyan-100/42" : "text-slate-400";
+  const budgetTextClass = variant === "hud" ? "font-semibold text-cyan-50/88" : "font-semibold text-[#1d1d1f]";
+  const budgetTitle = budgetInfo
+    ? `設計額 ${formatYen(budgetInfo.designAmountYen)} / ${budgetInfo.isCapExtra ? "別財布" : "本契約"} / 有効pt ${budgetInfo.effectivePoints} / 単価 ${formatYen(budgetInfo.designUnitYen)}`
+    : "";
 
   return (
     <div className={c.row}>
@@ -461,6 +543,11 @@ function GanttRow({
               <span>{ms.points}pt</span>
               <span className={`rounded border px-1 py-0.5 ${tagClass(ms.tag, variant)}`}>{tagLabel(ms.tag)}</span>
               {subItems.length > 0 && <span>{doneCount}/{subItems.length}</span>}
+              {budgetInfo && (
+                <span className={budgetTextClass} title={budgetTitle}>
+                  設計額 {formatYen(budgetInfo.designAmountYen)}
+                </span>
+              )}
               {progress && <span>{Math.round(progress.progressPct)}%</span>}
             </span>
           </span>
@@ -480,7 +567,7 @@ function GanttRow({
           aria-label={`${ms.title} の進捗詳細を${expanded ? "閉じる" : "開く"}`}
           className={`z-[1] my-2 flex min-w-0 flex-col items-start gap-0.5 px-2 py-1 text-left ${c.bar}`}
           style={{ gridColumn, gridRow: 1, overflow: "visible" }}
-          title={`${ms.title}: ${formatYm(startYm)} - ${formatYm(endYm)}`}
+          title={`${ms.title}: ${formatYm(startYm)} - ${formatYm(endYm)}${budgetInfo ? ` / ${budgetTitle}` : ""}`}
         >
           <span className="shrink-0 text-[10px] font-semibold whitespace-nowrap">
             {compactPeriodLabel(startYm, endYm)}
@@ -518,6 +605,13 @@ function GanttRow({
                       {resp.role ? ` / ${resp.role}` : ""}
                     </span>
                   ))}
+                </div>
+              )}
+              {budgetInfo && (
+                <div className={`mt-2 flex flex-wrap gap-1.5 text-[10px] ${c.muted}`} title={budgetTitle}>
+                  <span>設計額 {formatYen(budgetInfo.designAmountYen)}</span>
+                  <span>単価 {formatYen(budgetInfo.designUnitYen)}</span>
+                  <span>{budgetInfo.isCapExtra ? "別財布" : "本契約"}</span>
                 </div>
               )}
             </DetailPanel>

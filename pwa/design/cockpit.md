@@ -101,6 +101,7 @@ CockpitHeader は `/admin/projects` の正本から、PJメンバー、契約条
 `CockpitGoalsCompact` の各MS行は、クリックで展開し、MSを長期テーマのホーム画面として扱う。
 
 - **ゴール**: `value_milestones.success_criteria`、MS個別期間 (`period_start_ym` / `target_ym`)、pt、担当shareを表示する。
+- **設計額**: 各MS行のメタ情報に MS 単位の設計額を常時表示する。展開前の一覧で金額感を見られるようにし、展開欄では単価と本契約/別財布の区分も確認できる。
 - **TODO**: `milestone_sub_items` のopen/done状態と、`milestone_responsibility.task_description` を並べる。サブアイテムは展開欄からdone/openを切り替えられる。
 - **現状**: `milestone_monthly_progress` の最新 `progress_pct` / `note`、`member_ms_activities` の narrative、`member_activities` の直近材料を表示する。
 
@@ -133,6 +134,7 @@ MSは報酬配分の最小単位でもある。`milestone_responsibility.share` 
 - SX旧MS#1はこのルールにより、`事業計画策定`、`資本政策策定`、`知財戦略策定` のように成果物単位へ分割済み。担当割合は各 `milestone_responsibility` に保存し、個人名を仕様例として固定しない。
 - OkuDoor追加開発など通常固定費と別枠の受託分は、MS `tag='cap_extra'` で別財布に分ける。
 - 年間MS設定では、各MSに `period_start_ym` / `target_ym` を持たせる。UI上は `MS開始` / `MS終了` として表示し、月次モーダル・HUDの期間表示もこのDB値を優先する。
+- コックピットのMS行に出す `設計額` は `/admin/ms-overview` と同じ read-only の設計額目安。通常MSは `value_plan_cycles.budget_yen` をシーズン月数×10ptで按分し、`cap_extra` は同期間の `billing_cycles.extra_budget_yen` 合計を cap_extra の有効pt合計で按分する。実支払額は reward cache / season-pl / payouts 側だけが正本。
 - このUIは過去に消えた回帰が複数回あるため、PWAで年間MS設定を触るときは `npm run test:next-period-ui` を必ず通す。
 
 ---
@@ -360,6 +362,7 @@ XRL も同パターン (`xrl_feedbacks` → `/api/.../xrl-revise` → 手動 `/v
 - month columns: plan cycleの `periodStartYm` 〜 `periodEndYm`
 - each bar: MS別 `periodStartYm` 〜 `targetYm`
 - bar chips: member codeName, share %, allocated pt (`ms.points * share`)
+- row meta: pt / tag / sub item count / progress に加えて、MS単位の `設計額`
 - expanded row: responsibility detail + sub items
 
 ## Reward Cap / Stock

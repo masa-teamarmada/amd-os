@@ -15,7 +15,7 @@ import { buildAaaScoreInputsFromSx, computeAmdScoreSeries } from "@/lib/amd-scor
 import type { AlphaWeights } from "@/lib/amd-score";
 
 interface PlanCycleShape {
-  planCycleId: string; status: string; budgetYen: number; totalPoints: number;
+  planCycleId: string; status: string; budgetYen: number; extraDesignBudgetYen?: number; totalPoints: number;
   periodStartYm: string; periodEndYm: string;
 }
 

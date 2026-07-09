@@ -288,6 +288,7 @@ export interface PlanCycle {
   projectId: string;
   status: string;
   budgetYen: number;
+  extraDesignBudgetYen?: number;
   totalPoints: number;
   periodStartYm: string;
   periodEndYm: string;
@@ -2116,16 +2117,28 @@ export async function fetchCockpitFromSupabase(
   }));
 
   // PlanCycles — currentYmが含まれる期間を「現在」、それより前を「過去」
-  const allPlanCycles: PlanCycle[] = (pcRes.data || []).map((pc) => ({
-    planCycleId: pc.plan_cycle_id,
-    projectId,
-    status: pc.status,
-    budgetYen: pc.budget_yen,
-    totalPoints: pc.total_points,
-    periodStartYm: pc.period_start_ym,
-    periodEndYm: pc.period_end_ym,
-    bufferBreakdownJson: pc.buffer_breakdown_json ?? null,
-  }));
+  const billingRows = bcRes.data || [];
+  const allPlanCycles: PlanCycle[] = (pcRes.data || []).map((pc) => {
+    const extraDesignBudgetYen = billingRows
+      .filter((bc) => bc.ym >= pc.period_start_ym && bc.ym <= pc.period_end_ym)
+      .reduce((sum, bc) => {
+        const raw = bc.extra_budget_yen;
+        if (raw === null || raw === undefined || raw === "") return sum;
+        const value = typeof raw === "number" ? raw : Number(raw);
+        return sum + (Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0);
+      }, 0);
+    return {
+      planCycleId: pc.plan_cycle_id,
+      projectId,
+      status: pc.status,
+      budgetYen: pc.budget_yen,
+      extraDesignBudgetYen,
+      totalPoints: pc.total_points,
+      periodStartYm: pc.period_start_ym,
+      periodEndYm: pc.period_end_ym,
+      bufferBreakdownJson: pc.buffer_breakdown_json ?? null,
+    };
+  });
 
   // 現在の期間: currentYmが start〜end に含まれるもの。
   // 該当がない場合は、次に始まるcycleをトップ表示に使う。

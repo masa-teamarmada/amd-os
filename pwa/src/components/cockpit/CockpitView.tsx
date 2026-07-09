@@ -19,7 +19,7 @@ import { CockpitAmdScoreDetailTab } from "./CockpitAmdScoreDetailTab";
 import type { CockpitSeasonFinance as CockpitSeasonFinanceData } from "@/lib/supabase-data";
 
 interface PlanCycleShape {
-  planCycleId: string; status: string; budgetYen: number; totalPoints: number;
+  planCycleId: string; status: string; budgetYen: number; extraDesignBudgetYen?: number; totalPoints: number;
   periodStartYm: string; periodEndYm: string;
 }
 

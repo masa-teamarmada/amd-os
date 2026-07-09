@@ -74,6 +74,9 @@ expectIncludes("src/components/cockpit/MilestoneGanttChart.tsx", [
   "monthRange",
   "periodStartYm",
   "targetYm",
+  "設計額",
+  "designAmountForPoints",
+  "extraDesignBudgetYen",
 ]);
 expectPattern("src/components/cockpit/MilestoneGanttChart.tsx", [
   /ms\.points \* resp\.share/,

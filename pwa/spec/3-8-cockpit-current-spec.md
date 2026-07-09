@@ -21,7 +21,7 @@
 | `project` | `project_id`, name, status, category, fee/freeze info, payment terms, `contract_terms_json` summary |
 | `currentYm` | current display month |
 | `billingCycles` | monthly / finance state |
-| `planCycle` / `milestones` / `subItems` / `responsibilities` | value plan and MS |
+| `planCycle` / `milestones` / `subItems` / `responsibilities` | value plan and MS。`planCycle.budgetYen` と、同期間の `billing_cycles.extra_budget_yen` 合計で作る `planCycle.extraDesignBudgetYen` を使い、MSリストに本契約/別財布それぞれの設計額を表示する |
 | `progress` | `milestone_monthly_progress` |
 | `reports` | `monthly_reports` excerpts and status |
 | `members` / `memberMap` | PJ member display |
@@ -70,7 +70,7 @@ This route is read-only during load. It does not create a duplicate project or w
 | AMD / Management score hero | `CockpitManagementScoreHero` | AMD Score / Management Score derived data |
 | tabs | `CockpitView` | `進捗管理` / `スコア詳細` display state。SU 系 PJ では横幅いっぱいを2等分し、各タブのクリック領域も 1/2 にする |
 | score detail tab | `CockpitAmdScoreDetailTab`, `AmdScoreView embedded` | `/api/project/[projectId]/amd-score-detail`。PRS Primary / PRS history を主表示し、legacy AMD / M-X-F は comparison と evidence 用に残す。cockpit mount 時に hidden panel として先読みし、client memory cache 5 分TTL + private HTTP cache で再表示待ちを減らす。TTL 超過後にタブが active になったら、表示済み内容を保ったまま背景再取得する |
-| goals compact | `CockpitGoalsCompact` | value plan / MS |
+| goals compact | `CockpitGoalsCompact` | value plan / MS。`MilestoneGanttChart` の各MS行に pt / tag / 担当 / 進捗とあわせて `設計額` を表示する。通常MSは plan cycle 予算、`cap_extra` は同期間の別財布予算から按分し、支払確定額としては扱わない |
 | season finance | `CockpitSeasonFinance` | `fetchCockpitFromSupabase` が `billing_cycles`, `projects`, `reward_summary_json` から組み立てた `seasonFinance`。MS リスト直下、月次カードより上に表示し、シーズン全体と月次別に `クライアント支払` / `バッファ` / `原資上限` / `PJ予算` / `メンバー支払` / `期末未払` / `収支` を出す |
 | project documents | `CockpitProjectDocuments` | 右カラム先頭の資料スペース。drag & drop / file picker で `/api/project-documents` へ multipart upload し、Drive の PJ folder 配下 `AMD OS 資料` folder に新規ファイルとして保存する。同名ファイルは上書きしない。リンク一覧は `project_documents` から取得し、Drive link を新規タブで開く |
 | strategy signals | `CockpitStrategySignals` | `project_strategy_signals` |

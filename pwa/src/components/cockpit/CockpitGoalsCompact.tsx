@@ -31,6 +31,8 @@ interface Responsibility {
 }
 
 interface PlanCycle {
+  budgetYen?: number;
+  extraDesignBudgetYen?: number;
   totalPoints: number;
   periodStartYm: string;
   periodEndYm: string;
