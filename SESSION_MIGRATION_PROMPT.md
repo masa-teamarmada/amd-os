@@ -1,4 +1,4 @@
-# SESSION MIGRATION PROMPT - AMD OS monthly agreement modal density
+# SESSION MIGRATION PROMPT - AMD OS monthly agreement payout month
 
 ```text
 cd /Users/masa/projects/AMD/amd-os
@@ -11,60 +11,51 @@ cd /Users/masa/projects/AMD/amd-os
 5. /Users/masa/projects/AMD/amd-os/AGENTS.md
 6. /Users/masa/projects/AMD/amd-os/pwa/AGENTS.md
 7. /Users/masa/projects/AMD/amd-os/pwa/CLAUDE.md
-8. /Users/masa/projects/AMD/amd-os/pwa/spec/1-1-overview.md
-9. /Users/masa/projects/AMD/amd-os/pwa/spec/1-2-document-layer-migration-map.md
-10. /Users/masa/projects/AMD/amd-os/pwa/design/README.md
-11. /Users/masa/projects/AMD/amd-os/pwa/design/FEATURE_REGISTRY.md
-12. /Users/masa/projects/AMD/amd-os/pwa/spec/3-14-monthly-work-agreement-current-spec.md
-13. /Users/masa/projects/AMD/amd-os/pwa/manual/2-2-member-workflows-quick-start.md
-14. /Users/masa/projects/AMD/amd-os/pwa/manual/6-6-member-billing-prompts-spec.md
-15. /Users/masa/projects/AMD/amd-os/pwa/manual/7-1-reward-calc-spec.md
-16. /Users/masa/projects/AMD/amd-os/pwa/BUGS.md
-17. /Users/masa/projects/AMD/amd-os/pwa/design_log/sessions_2026-07.md
+8. /Users/masa/projects/AMD/amd-os/pwa/design/L2_DATA.md
+9. /Users/masa/projects/AMD/amd-os/pwa/spec/3-14-monthly-work-agreement-current-spec.md
+10. /Users/masa/projects/AMD/amd-os/pwa/manual/2-2-member-workflows-quick-start.md
+11. /Users/masa/projects/AMD/amd-os/pwa/manual/6-6-member-billing-prompts-spec.md
+12. /Users/masa/projects/AMD/amd-os/pwa/manual/7-1-reward-calc-spec.md
+13. /Users/masa/projects/AMD/amd-os/pwa/BUGS.md
+14. /Users/masa/projects/AMD/amd-os/pwa/design_log/sessions_2026-07.md
 
 状態スナップショット:
 - repo: /Users/masa/projects/AMD/amd-os
-- branch: main only。新規branch/worktreeは禁止。
-- accepted product state: 月初合意モーダルの情報密度改善は、まさが「これならいい」と確認済み。
-- accepted product commits: f13de200 fix(pwa): tighten monthly agreement modal density / d8934395 fix(pwa): widen monthly agreement unpaid flow
-- accepted production proof before docs refresh: https://amd-os-pwa.vercel.app/api/build-info = v0.39.34 / d89343957fd51ce637fb08aa83aad369d1013a1c / main / dirty=false
-- current main also includes later docs closeout commits 6aef2bc5 / 6f61764c, invoice prerequisite fix 49cd543d, closeout-doc lines daccb19f / f29fc560 / a38f6b12, and POC matching bundle 0306c5e5.
-- canonical root checkoutは origin/main とaligned。POC matching bundleは0306c5e5でmainに取り込み済み。月初合意laneの未コミット残はない。
+- canonical branch: main。新規 branch / worker worktree は禁止。
+- current origin/main at handoff: 63737267d692230eda2fea9b45e7cd69184f4ebf
+- current production: https://amd-os-pwa.vercel.app/api/build-info = v0.39.41 / 63737267d692230eda2fea9b45e7cd69184f4ebf / main / dirty=false
+- 月初合意の `今月支払` 0円表示 bug は `7ef6f44c fix(pwa): use reward payment month for monthly agreements` で修正済み。後続の `b552c607` / `1cf3dd4a` / `63737267` にも含まれる。
+- 修正の本質: `billing_cycles.invoice_ym` はクライアント請求書発行月であり、メンバー支払月ではない。月初合意の `projects[].payoutYen` / `/admin/monthly-work-agreements` の `今月支払` は、PJ/member 支払条件から計算する。
+- read-only 再計算結果: 202607 の今月支払は合計 87,457円。内訳は しん 29,055円、あび 26,227円、こう 25,740円、うめ 6,435円。ZMP 202606 分。
+- SX 202606 分は現行データ上 `invoice_received_60_days` 系の支払条件で 202607 には乗らない。これはコード不具合ではなく、支払条件/契約設定を見直す別判断。
+- canonical root checkout は closeout inventory 時点で main==origin/main。ただし別件 dirty あり: pwa/design/FEATURE_REGISTRY.md、pwa/scripts/check_pwa_critical_ui.cjs、pwa/src/components/nav/GlobalNav.tsx、pwa/src/lib/build-info.ts。GlobalNav/board nav flyout refinement のWIPっぽいので、月初合意 lane には混ぜない。
+- この handoff/closeout 文書更新は clean clone /tmp/amd-os-monthly-payout-fix-clone から作成。root の別件 dirty は触らない。
 
 完了内容:
-- 月初合意モーダル上部の警告・合意ボタン・指標カードを圧縮し、右側に残っていた広い空白を減らした。
-- 「今月の約束」は契約書と一致しないため使わず、「今月の発注条件」「発注条件と予定額」へ寄せた。
-- `この画面で確認すること` は3カードの説明レールにし、契約/SOW、予定額の出どころ、支払いとの関係を短く表示する。
-- `直してほしいこと` はdetails化し、モーダルでは入力欄を1行寄りにして右側の無駄な空白を減らした。
-- PJカード上段は `予定額 / 支払 / 未払残` の3列サマリーにして、PJ名周辺の余白を減らした。
-- MS一覧は、行数が多いコンパクト表示では2列へ分割し、MS名と担当割合の間の無駄な空きを減らした。
-- `未払いがどう残るか` は長い棒グラフや縦積みカードではなく、左に項目・右に稼働月を並べる横長マトリクスへ変更。行は `前月残 / 当月発生 / 支払対象 / 支払 / 月末残`。
-- `増える分` や `働いた月` のようなOS内の他表現とズレる言葉は使わず、稼働月・当月発生・支払・未払残の表現へ寄せた。
+- `/admin/monthly-work-agreements` と月初合意 snapshot の支払月判定を修正。
+- `payoutScheduleEntryFromCycle` と `buildMonthlyWorkAgreementBundle` が、報酬支払説明では `invoice_ym` を無視し、PJ/member 支払条件で支払月を決めるようになった。
+- 明細は `monthly_reward_payout` を優先し、なければ `reward_summary_json.members[]` を読む既存方針は維持。
+- `pwa/spec/3-14-monthly-work-agreement-current-spec.md`、`pwa/manual/6-6-member-billing-prompts-spec.md`、manual/spec changelog に、`invoice_ym` は請求書発行月で支払月ではないと明記済み。
+- 後続 UI commit で、月初合意の必須確認は `発注条件` と `予定額` の2点へ整理され、支払い状況/未払残/pt は参考情報へ分離済み。
 
 検証済み:
-- product laneで git diff --check、npx tsc --noEmit、targeted eslint、npm run build を実行済み。
-- temporary visual-check routeで wide / desktop / narrow / mobile screenshotを確認し、routeはcommit前に削除済み。
-- 正規deploy scriptでmain push / Vercel production反映済み。
-- production /api/build-info は v0.39.34 / d89343957fd51ce637fb08aa83aad369d1013a1c / dirty=false。
-- まさが最終UIを確認し「これならいい」と受け入れ済み。
-
-現在残っている別件dirty:
-- なし。closeout時点で root checkout は origin/main と aligned。
-- /admin/invoices の freee取引先選択 / 請求書発行条件 WIP は 49cd543d でmainに入った。
-- /poc matching UI/docs WIP は 0306c5e5 でmainに入った。
-- 次セッションで新しいWIPを扱うなら、対象bundleの差分全体を確認し、必要なspec/manual/changelogを同期してから、対象ファイルだけ stage / commit / push / deployする。
+- `npx tsc --noEmit --pretty false` passed。
+- `npm run build` passed。
+- deploy script 内の `npm run test:critical-ui` passed。
+- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` で `7ef6f44c` を main push / Vercel production 反映し、当時 `v0.39.40` / dirty=false を確認。
+- その後 current production は `63737267` / `v0.39.41`。修正 commit は ancestor。
+- `npm run lint` は実行したが、既存の repo-wide lint error で失敗。今回触った月初合意支払月ロジック由来ではない。
 
 次タスク:
-- 月初合意モーダルの既知残タスクはない。
-- 追加修正を頼まれたら、最初にproduction build-infoとorigin/mainを合わせ、実データのモーダルをスクショで見る。
-- まさの前回指摘のニュアンスは「無駄なスペースが全然減っていない。右側空白、1行で済む情報の改行、MS表の列間、未払いグラフ/表の横長さを、ひとつひとつ言わないとだめなのか」。次回は個別指摘待ちではなく、画面全体の情報密度を自分で点検する。
-- 現実的な別lane次アクションは、POC matching の次改善を main の `0306c5e5` / `v0.39.36` から始めること。
+- 月初合意 `今月支払` bug は既知残なし。
+- まさが「SXも7月に払うべき」と見るなら、SX/PJ台帳の支払条件を確認し、契約/実運用に合わせる別タスクとして扱う。コード側で勝手にZMPと同じ扱いにしない。
+- `/admin/monthly-work-agreements?ym=202607` を再確認するときは、まず production build-info が current origin/main と一致するかを見る。その後、ZMP 202606 の4名支払が表示されるかを確認する。
+- root checkout の GlobalNav dirty を扱うなら、月初合意とは別 lane として `git diff` を読み、対象4ファイルだけで commit/deploy する。build-info の local dirty は `v0.39.42` だが production は `v0.39.41` なので、混ぜる前に意図を確認する。
 
 運用ルール:
-- PWA本番反映は main push = Vercel自動deploy。直接 npx vercel deploy は使わない。必要な時は AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh。
-- dirtyを理由にstage/commit/push/deployを止めない。既存dirtyは戻さず、今回の対象ファイルだけ明示してstageする。git add .は禁止。
-- UI密度改善では、CSS差分や「カードを小さくした」だけで完了扱いしない。実データ・本番相当の横幅・スクショで、上から順に余白、改行、表の列幅、棒/表の長さを確認する。
-- 契約・月初合意まわりの文言は、OS内と契約書の言葉に合わせる。新しい言い方を足すと別パラメータに見えるため、言葉を発明しない。
-- closeout時は worktree/branch/ahead/dirty を必ず inventory し、dirtyには owner/action/risk を付ける。
-- handoff/closeout時は、HANDOFFを薄くしすぎず、状態スナップショット・成果物・検証・次アクション・運用ルールをこのプロンプトだけで再開できる粒度にする。
+- まず /Users/masa/projects/AGENTS.common.md から読む。AMD OS では root/pwa AGENTS/CLAUDE と該当 spec/manual も先読みする。
+- PWA本番反映は main push = Vercel自動deploy。直接 `npx vercel deploy` は使わない。必要な時は `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh`。
+- dirtyを理由にbranch/worktreeを作らない。既存dirtyは戻さず、今回の対象ファイルだけ明示 stage する。`git add .`は禁止。
+- finance / payment / agreement では、DBフィールド名を実務の意味と混同しない。請求書発行月、入金月、メンバー支払月、稼働月はそれぞれ別物として、契約・実データ・manual/specを見てから判断する。
+- closeout時は `bash /Users/masa/.codex/skills/closeout/scripts/closeout_inventory.sh /Users/masa/projects/AMD/amd-os`、production `/api/build-info`、worktree/branch、dirty classification を必ず取り直す。
 ```

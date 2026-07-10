@@ -1,76 +1,78 @@
 # AMD OS Handoff
 
-Last updated: 2026-07-09 23:06 JST
+Last updated: 2026-07-10 15:35 JST
 Target: `/Users/masa/projects/AMD/amd-os`
-Topic: 月初合意モーダルの情報密度改善 / closeout
+Topic: 月初合意 `今月支払` 0円表示の修正 / closeout
 
 ## Summary
 
-- 月初合意モーダルの情報密度改善は、まさ確認で「これならいい」と受け入れ済み。
-- Product commits: `f13de200 fix(pwa): tighten monthly agreement modal density` と `d8934395 fix(pwa): widen monthly agreement unpaid flow`。
-- 現行の受け入れ済みUIは `v0.39.34` / `d89343957fd51ce637fb08aa83aad369d1013a1c` に含まれる。
-- 主なUI変更: 更新警告と合意ボタンを横並び化、上部指標を小型カード化、説明レールと修正要望を同じ帯に配置、PJカード上段を `予定額 / 支払 / 未払残` の3列へ圧縮。
-- `今月の約束` は契約書とズレるため使わず、`今月の発注条件` / `発注条件と予定額` に寄せた。
-- 未払い推移は長い棒グラフや縦積みカードではなく、左に項目・右に稼働月を置く横長マトリクスへ変更。行は `前月残 / 当月発生 / 支払対象 / 支払 / 月末残`。
-- MS一覧は、行数が多いコンパクト表示では2列へ分割し、MS名と担当割合の間の無駄な空きを減らした。
-- 詳細ログ: `pwa/design_log/sessions_2026-07.md` の `2026-07-09 — 月初合意モーダル情報密度改善 / v0.39.30-v0.39.34`。
+- `/admin/monthly-work-agreements?ym=202607` の一覧で `今月支払` が全員 0 円に見えていた件は、本番修正済み。
+- 原因は、月初合意の支払説明で `billing_cycles.invoice_ym` (= クライアント請求書発行月) をメンバー支払月として優先していたこと。ZMP 202606 の6月稼働分が 202607 支払一覧から落ちていた。
+- 修正 commit: `7ef6f44c fix(pwa): use reward payment month for monthly agreements`。支払月は PJ/member 支払条件から計算し、`invoice_ym` では上書きしない。
+- 後続 commit `b552c607` / `1cf3dd4a` で、月初合意モーダルの必須確認を `発注条件` と `予定額` の2点へ寄せ、支払い状況は参考情報へ分離済み。
+- 本番 current truth: `https://amd-os-pwa.vercel.app/api/build-info` は `v0.39.41` / `63737267d692230eda2fea9b45e7cd69184f4ebf` / `main` / `dirty=false`。
+- read-only 再計算では 202607 の `今月支払` は合計 `87,457円`。内訳: しん `29,055`、あび `26,227`、こう `25,740`、うめ `6,435`。すべて ZMP 202606 分。
+- SX 202606 分は現行データ上 `invoice_received_60_days` 系の支払条件で 202607 には乗らない。もし「SXも7月に払うべき」なら、コード不具合ではなく支払条件/契約設定の見直しタスク。
+- 詳細ログ: `pwa/design_log/sessions_2026-07.md` の `2026-07-10 — 月初合意 今月支払0円表示の修正 / v0.39.40-v0.39.41`。
 
 ## Repo State
 
 - Canonical repo: `/Users/masa/projects/AMD/amd-os`
-- Branch policy: `main` only。今回も新規 branch / git worktree は作っていない。
-- Current main line includes `49cd543d fix(pwa): align invoice issuance prerequisites`, `daccb19f docs: close out monthly agreement density polish`, `f29fc560 docs: include poc dirty build marker in handoff`, `0306c5e5 Replace PoC matrix with tagged candidate queue`, and `a38f6b12 docs: update monthly closeout handoff state`.
-- Product UI state: `d8934395` and later main descendants。
-- Disposable deploy clone: `/tmp/amd-os-deploy-monthly-compact` で closeout docs を作成。push後に clean / `origin/main` aligned へ戻す。
-- Canonical root checkout `/Users/masa/projects/AMD/amd-os` は `origin/main` と aligned。POC matching bundle は `0306c5e5` で取り込み済み。月初合意 lane の未コミット残はない。
+- Branch policy: `main` only。今回も新規 branch は作っていない。
+- Current main: `63737267 feat(pwa): add active project flyout to board nav`
+- Local main vs origin/main: closeout inventory 時点で `ahead 0 / behind 0`。
+- Worktrees: registered worktree は `/Users/masa/projects/AMD/amd-os [main]` のみ。
+- This handoff/closeout doc update is prepared from clean clone `/tmp/amd-os-monthly-payout-fix-clone` to avoid mixing root checkout WIP.
 
 ## Dirty State
 
-Monthly agreement lane: none known.
+Monthly agreement payout fix: none. Accepted code/docs are in `origin/main`.
 
-Canonical root checkout has no tracked dirty files at this closeout. The previous `/admin/invoices` freee取引先 bundle was integrated by `49cd543d`; the previous `/poc` matching UI/docs bundle was integrated by `0306c5e5`.
+Canonical root checkout has unrelated local WIP, likely GlobalNav flyout refinement after `63737267`. Do not stage or revert it from this lane.
 
 | path | status | class | owner guess | resolution action | risk |
 |---|---:|---|---|---|---|
-| none | clean | n/a | n/a | n/a | none |
+| `pwa/design/FEATURE_REGISTRY.md` | M | other-worker | GlobalNav / board nav refinement | send back to that lane; do not mix into monthly agreement closeout | medium |
+| `pwa/scripts/check_pwa_critical_ui.cjs` | M | other-worker | GlobalNav / UI guard refinement | send back to that lane; do not mix into monthly agreement closeout | medium |
+| `pwa/src/components/nav/GlobalNav.tsx` | M | other-worker | GlobalNav / board nav refinement | send back to that lane; do not mix into monthly agreement closeout | medium |
+| `pwa/src/lib/build-info.ts` | M | other-worker | GlobalNav WIP build bump (`v0.39.42`) | keep for owner lane; production is currently `v0.39.41` | medium |
 
 ## Verification / Deploy
 
-Product laneで実行済み:
+Monthly agreement payout fix:
 
-- `git diff --check`
-- `npx tsc --noEmit`
-- targeted eslint
-- `npm run build`
-- temporary visual-check routeで wide / desktop / narrow / mobile screenshot確認。routeはcommit前に削除。
-- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`
-- production `/api/build-info` read-back
-
-Final accepted production snapshot before docs refresh:
-
-- `v0.39.34`
-- `d89343957fd51ce637fb08aa83aad369d1013a1c`
-- `git_branch=main`
-- `dirty=false`
+- Read relevant docs first: `/Users/masa/projects/AGENTS.common.md`, root/pwa `AGENTS.md` / `CLAUDE.md`, `pwa/design/L2_DATA.md`, `pwa/spec/3-14-monthly-work-agreement-current-spec.md`, `pwa/manual/6-6-member-billing-prompts-spec.md`, `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`, `pwa/manual/7-1-reward-calc-spec.md`。
+- Confirmed production before fix had the same bug: ZMP 202606 rewards existed but were omitted from 202607 monthly agreement list.
+- `npx tsc --noEmit --pretty false` passed.
+- `npm run build` passed.
+- `npm run test:critical-ui` passed during deploy script.
+- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` pushed `7ef6f44c` and confirmed production `v0.39.40` / dirty=false.
+- Later main/prod moved to `63737267` / `v0.39.41`; `7ef6f44c` is an ancestor and the fix remains included.
+- `npm run lint` was attempted in the original checkout and failed on pre-existing repo-wide lint issues unrelated to this fix.
 
 ## Unresolved Tasks
 
-- 月初合意モーダル密度改善: none known after まさ acceptance.
-- 次に触る場合の注意: CSS差分だけで「コンパクト化できた」と判断しない。実データ・本番相当の横幅で、上部警告、指標、修正要望、PJヘッダ、MS表、未払い表を1つずつ見て余白を潰す。
-- Canonical root dirty cleanup: none observed at closeout.
+- 月初合意 `今月支払` 0円表示 bug: none known.
+- Potential policy task: SX 202606 報酬を 202607 に払うべきか確認する。現行データは7月支払ではない扱い。
+- Dirty root checkout: GlobalNav flyout WIP belongs to another lane. Its owner should either finish and deploy `v0.39.42` or revert/park it explicitly.
 
 ## First Next Action
 
-月初合意を再開するなら、まず production `/api/build-info` と `origin/main` を合わせたうえで、`/monthly-agreement?ym=202607&memberId=ID...` または強制モーダルで実データを開き、スクショ基準で「右側の空白」「不要な改行」「1行で済む情報が2行になっていないか」を確認する。
+If continuing monthly agreement/payment work, first re-check:
 
-If continuing POC matching, start from committed main state `0306c5e5` / `v0.39.36`. Run targeted checks, and stage only the next bundle plus required spec/manual updates.
+1. production `/api/build-info` equals current `origin/main`;
+2. `/admin/monthly-work-agreements?ym=202607` rows show ZMP 202606 payouts for しん/あび/こう/うめ;
+3. SX payment timing is a product/contract decision, not silently folded into this bug fix.
+
+If continuing the dirty GlobalNav lane, start with `git diff -- pwa/src/components/nav/GlobalNav.tsx pwa/design/FEATURE_REGISTRY.md pwa/scripts/check_pwa_critical_ui.cjs pwa/src/lib/build-info.ts`, then finish that bundle separately.
 
 ## Pointers
 
+- Logic: `pwa/src/lib/monthly-work-agreement.ts`
+- Admin list API: `pwa/src/app/api/admin/monthly-work-agreements/route.ts`
 - UI: `pwa/src/components/monthly-agreement/MonthlyAgreementExperience.tsx`
-- Gate overlay: `pwa/src/components/monthly-agreement/MonthlyAgreementGateOverlay.tsx`
 - Spec: `pwa/spec/3-14-monthly-work-agreement-current-spec.md`
 - Manual: `pwa/manual/2-2-member-workflows-quick-start.md`, `pwa/manual/6-6-member-billing-prompts-spec.md`, `pwa/manual/7-1-reward-calc-spec.md`
 - Changelog: `pwa/manual/9-3-appendix-changelog.md`, `pwa/spec/6-1-appendix-changelog.md`
-- Process lesson: `pwa/BUGS.md`
+- Process lessons: `pwa/BUGS.md`
 - Session log: `pwa/design_log/sessions_2026-07.md`

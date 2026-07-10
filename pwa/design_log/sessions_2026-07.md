@@ -967,3 +967,35 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 
 ### Verification
 - 確認用データで、標準幅と 390px 幅の画面を確認。必須2点、合意しない場合の支払い停止、参考情報の折りたたみが崩れずに見えることを確認。
+
+---
+
+## 2026-07-10 — 月初合意 `今月支払` 0円表示の修正 / v0.39.40-v0.39.41
+
+### コンテキスト
+- `/admin/monthly-work-agreements?ym=202607` の一覧で、全員の `今月支払` が `0円` と表示されていた。
+- まさから「7月に1円も支払われないっておかしくない？6月みんな動いてくれたのに」と指摘があり、予定報酬ではなく支払月判定の問題として再調査した。
+
+### 原因
+- `billing_cycles.invoice_ym` を明示支払月のように扱っていた。
+- `invoice_ym` はクライアント請求書発行月であり、メンバー報酬の現金支払月ではない。
+- そのため、ZMP 202606 の保存済み報酬明細が 202607 の `今月支払` 集計から落ちていた。
+
+### 実装 / 仕様同期
+- `monthly-work-agreement.ts` に、報酬支払説明用の支払月判定 helper を追加。`invoice_ym` を null 扱いにし、PJ/member 支払条件から支払月を計算する。
+- `/admin/monthly-work-agreements` と月初合意 snapshot の `projects[].payoutYen` / `payoutSchedule` を同じ判定へ統一。
+- `pwa/spec/3-14-monthly-work-agreement-current-spec.md` と `pwa/manual/6-6-member-billing-prompts-spec.md` に、`invoice_ym` は支払月ではなく請求書発行月であることを追記。
+- manual/spec changelog と `pwa/BUGS.md` を同期。
+
+### Verification / Deploy
+- `npx tsc --noEmit --pretty false` passed。
+- `npm run build` passed。
+- deploy script 内の `npm run test:critical-ui` passed。
+- read-only 再計算で、202607 の `今月支払` が ZMP 202606 分として合計 87,457円になることを確認。内訳: しん 29,055円、あび 26,227円、こう 25,740円、うめ 6,435円。
+- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` で `7ef6f44c` / `v0.39.40` を本番反映。
+- closeout時点の production は後続 commit を含む `63737267` / `v0.39.41` / dirty=false。`7ef6f44c` は ancestor として含まれる。
+
+### Closeout notes
+- 月初合意 `今月支払` 0円 bug の既知残タスクはなし。
+- SX 202606 分は現行データ上 202607 支払ではない。もし7月支払にすべきなら、コード不具合ではなく支払条件/契約設定の見直しとして扱う。
+- closeout inventory 時点の root checkout には GlobalNav / board nav flyout 由来の別件 dirty が残っている。この monthly agreement lane には混ぜない。
