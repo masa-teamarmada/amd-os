@@ -422,6 +422,7 @@ function BoardNavLink({
     top: number;
     left: number;
     width: number;
+    maxHeight: number;
   } | null>(null);
   const anchorRef = useRef<HTMLDivElement | null>(null);
   const flyoutRef = useRef<HTMLDivElement | null>(null);
@@ -447,8 +448,9 @@ function BoardNavLink({
       Math.max(gutter, window.innerWidth - width - gutter),
     );
     const top = Math.max(gutter, Math.min(rect.top, window.innerHeight - 48));
+    const maxHeight = Math.max(120, window.innerHeight - top - gutter);
 
-    setFlyoutPosition({ top, left, width });
+    setFlyoutPosition({ top, left, width, maxHeight });
   }, []);
 
   const openFlyout = useCallback(() => {
@@ -488,11 +490,12 @@ function BoardNavLink({
           <div
             ref={flyoutRef}
             data-testid="board-nav-flyout"
-            className="fixed z-[60] rounded-lg border border-border/80 bg-popover p-2 text-popover-foreground shadow-lg"
+            className="fixed z-[60] flex flex-col overflow-hidden rounded-lg border border-border/80 bg-popover p-2 text-popover-foreground shadow-lg"
             style={{
               left: flyoutPosition.left,
               top: flyoutPosition.top,
               width: flyoutPosition.width,
+              maxHeight: flyoutPosition.maxHeight,
             }}
             onMouseEnter={openFlyout}
             onMouseLeave={scheduleClose}
@@ -536,7 +539,7 @@ function BoardNavLink({
                 </p>
               )}
             {activeProjectsStatus === "ready" && activeProjects.length > 0 && (
-              <div className="max-h-[calc(100vh-40px)] space-y-0.5 overflow-y-auto pr-0.5">
+              <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto pr-0.5">
                 {activeProjects.map((project) => (
                   <Link
                     key={project.projectId}
