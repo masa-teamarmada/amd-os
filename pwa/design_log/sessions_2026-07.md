@@ -1151,3 +1151,37 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 - まさから、要対応の「対応済にする」を1件押すたびに全行が一瞬消えてから再表示されるUXを修正してほしいと依頼。
 - `ActionItemsPanel` は対象行をその場で外し、保存成功後の全件 `load()` を廃止。通信失敗時だけ、外した行を元の順番へ戻すようにした。
 - `FEATURE_REGISTRY.md`、`manual/2-3-pj-cockpit.md`、manual/spec changelog、`BUGS.md` を同期。build `v3.39.59`、`npx tsc --noEmit`、`npm run test:critical-ui`、`npm run build` を通し、本番 `v3.39.59 / 7da9c71a` を確認済み。
+
+---
+
+## 2026-07-10 — 先手TODO `meeting_next_action` の明示期限優先化 / v3.39.61-v3.39.62
+
+### コンテキスト
+- まさから、KUTE の先手TODOが「2026-08-04次回MTGまでに提示資料を作成」なのに、期限が `07/01 09:00` になっていると指摘。
+- これは「MTGまでに提示するTODO」なので、期限は次回MTG日の `2026-08-04` が正しい。作成元MTG日から7日後を置く設計だと、本文中に明示された締切を壊す。
+
+### 原因
+- `meeting_next_action` の `due_at` が `meeting_date + 7日` の固定fallbackで決まっていた。
+- action本文に `2026-08-04次回MTGまで` のような明示期限があっても、extract route 側で解析・優先する層がなかった。
+
+### 実装 / 仕様同期
+- `pwa/src/lib/proactive/meeting-action-due.ts` を追加し、`YYYY-MM-DD`, `YYYY/MM/DD`, `M/D`, `次回MTGまで`, `までに` のような期限表現を `meeting_next_action` 専用に解釈するようにした。
+- `pwa/src/app/api/cron/proactive-todo-extract/route.ts` は helper 経由で `due_at` を決めるよう変更。明示期限が取れない場合だけ、従来の `meeting_date + 7日` fallback を使う。
+- 回帰テスト `pwa/scripts/check_proactive_meeting_action_due.mts` と `npm run test:proactive-meeting-due` を追加。
+- `pwa/spec/2-4-proactive-todo-current-spec.md`、`pwa/manual/2-6-admin-ops.md`、`pwa/scheduled-tasks/README.md`、`pwa/BUGS.md`、`/proactive` の検知説明、manual/spec changelog を同期。
+
+### Data correction
+- open な KUTE 先手TODO 2件を `due_at=2026-08-04T00:00:00+00:00` に補正。
+- スクショ該当行: `a7e4f03a-de82-48ff-8748-9656cbd23771`。
+
+### Verification / Deploy
+- `npm run test:proactive-meeting-due` passed。
+- `npx tsc --noEmit` passed。
+- `npm run build` passed。
+- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` で `c3c92229` / `v3.39.61` を本番反映し、production `/api/build-info` で `dirty=false` を確認。
+- closeout時点では別セッションの BZM commit も進み、本番は `v3.39.62 / 84e6b2f4`。`c3c92229` は ancestor として含まれる。
+
+### Closeout notes
+- 先手TODO期限bugの既知残タスクはなし。
+- root checkout には別件 `pwa/src/components/admin/AdminProjectsTable.tsx` の未コミット差分が残っている。これは admin projects Slack設定レーンであり、この先手TODO closeoutには混ぜない。
+- 一時clone `/tmp/amd-os-deploy-c3c92229` は登録worktreeではない。削除は明示的なcleanup承認後に行う。

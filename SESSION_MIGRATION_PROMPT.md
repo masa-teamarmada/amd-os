@@ -1,4 +1,4 @@
-# SESSION MIGRATION PROMPT — AMD OS notifications / action queue closeout
+# SESSION MIGRATION PROMPT — AMD OS proactive TODO deadline closeout
 
 ```text
 cd /Users/masa/projects/AMD/amd-os
@@ -12,58 +12,52 @@ cd /Users/masa/projects/AMD/amd-os
 6. /Users/masa/projects/AMD/amd-os/pwa/AGENTS.md
 7. /Users/masa/projects/AMD/amd-os/pwa/CLAUDE.md
 8. /Users/masa/projects/AMD/amd-os/pwa/design/L2_DATA.md
-9. /Users/masa/projects/AMD/amd-os/pwa/design/notifications.md
-10. /Users/masa/projects/AMD/amd-os/pwa/design/governance_action_items.md
-11. /Users/masa/projects/AMD/amd-os/pwa/spec/3-7-notifications-current-spec.md
-12. /Users/masa/projects/AMD/amd-os/pwa/spec/3-10-l2-ms-progress-current-spec.md
-13. /Users/masa/projects/AMD/amd-os/pwa/manual/2-3-pj-cockpit.md
-14. /Users/masa/projects/AMD/amd-os/pwa/manual/3-3-notifications-and-tsukuyomi.md
-15. /Users/masa/projects/AMD/amd-os/pwa/manual/4-8-ms-progress-monthly-report-revision-spec.md
-16. /Users/masa/projects/AMD/amd-os/pwa/BUGS.md
-17. /Users/masa/projects/AMD/amd-os/pwa/design_log/sessions_2026-07.md
+9. /Users/masa/projects/AMD/amd-os/pwa/spec/2-4-proactive-todo-current-spec.md
+10. /Users/masa/projects/AMD/amd-os/pwa/manual/2-6-admin-ops.md
+11. /Users/masa/projects/AMD/amd-os/pwa/scheduled-tasks/README.md
+12. /Users/masa/projects/AMD/amd-os/pwa/BUGS.md
+13. /Users/masa/projects/AMD/amd-os/pwa/design_log/sessions_2026-07.md
 
 現在の本番:
 - https://amd-os-pwa.vercel.app/api/build-info
-- closeout開始時点では v3.39.59 / git_sha=7da9c71a9ae54fd417a897681ac9158a699844ae / main / dirty=false を確認済み。
-- この docs closeout bundle の最終 commit / production proof は、閉じたチャットの最終報告を current truth として見る。
+- closeout中に v3.39.62 / git_sha=84e6b2f4541e2bfbdbf32ce87ed500d7f2d895f0 / main / dirty=false を確認済み。
+- 先手TODO修正 commit c3c92229 はこの baseline の ancestor。
+- この handoff docs-only bundle が後でpushされている場合、最終チャットの production proof と fresh /api/build-info を exact latest SHA として扱う。
 
 直近で完了したこと:
-1. D-11 メディア掲載通知
-   - 症状: 記事は既に project_media_mentions に保存済みなのに「抽出された行が見つかりませんでした」と出た。
-   - 原因: notification detail が候補行前提で、保存済み正本や通知本文 fallback を十分に見ていなかった。
-   - 修正: news_mention detail で project_media_mentions を確認し、候補行なしでも通知本文 fallback を表示。保存済み通知は「はい・確認済み」扱い。
-   - deploy: v0.39.48。後続 production baseline v3.39.59 に ancestor として含まれる。
-2. D-2 MS計画遅延
-   - 症状: target_ym=202606 の100%済みMSが 202607 通知で「現在0%」の遅延として出た。
-   - 原因: 通知実行月の current row / initial_zero を優先し、期限月までの累積進捗を見ていなかった。
-   - 修正: progress-estimator を ym <= target_ym の累積参照へ変更。current row が無い場合は直近過去進捗、initial_zero は過去実績を下げない。
-   - deploy: v0.39.49 / v0.39.50。production cron manual run で delayNotified:0、DB read-back で 202607:delay の残通知0件。
-3. D-14 action_item feedback
-   - 症状: BWE同意書提出 action_item 通知で「はい・確認済み」を押すと unknown l2_kind: action_item。
-   - 原因: action_items/extract は l2_kind=action_item を作るが、notifications feedback route が未対応だった。
-   - 修正: action_item を allowed kind に追加し、はい=action_items.review_status confirmed、いいえ=rejected へ配線。
-   - deploy: v0.39.52。BWE対象通知は confirmed + feedback + tsukuyomi learning まで復旧済み。
-4. 要対応キューUX
-   - 症状: `/dashboard` と `/notifications` の「対応済にする」で、対象外の要対応まで一度消えて再表示された。
-   - 原因: 保存成功後に一覧全体を再読込し、ローディング中にリスト全体を非表示にしていた。
-   - 修正: 押した行だけを楽観的に外し、保存失敗時だけ元の位置へ戻す。ほかの要対応は表示し続ける。
-   - deploy: v3.39.59 / 7da9c71a。
-
-docs / handoff 同期:
-- HANDOFF.md
-- SESSION_MIGRATION_PROMPT.md
-- pwa/BUGS.md
-- pwa/design_log/sessions_2026-07.md
-- pwa/manual/2-3-pj-cockpit.md
+1. 問題
+   - KUTE の proactive TODO が「2026-08-04次回MTGまでに提示資料を作成」なのに、期限が 2026-07-01 になっていた。
+   - 原因は `meeting_next_action` の期限を `meeting_date + 7日` 固定fallbackで決め、action本文中の明示日付を優先していなかったこと。
+2. 実装修正
+   - `pwa/src/lib/proactive/meeting-action-due.ts` を追加。
+   - `pwa/src/app/api/cron/proactive-todo-extract/route.ts` の `meeting_next_action` due_at を helper 経由へ変更。
+   - 明示日付例: `2026-08-04次回MTGまで`, `8/4まで`, `次回MTGまでに`。
+   - 明示期限が取れない場合だけ従来の `meeting_date + 7日` fallback を使う。
+3. 回帰テスト
+   - `pwa/scripts/check_proactive_meeting_action_due.mts`
+   - `npm run test:proactive-meeting-due`
+4. docs / manual 同期
+   - `pwa/spec/2-4-proactive-todo-current-spec.md`
+   - `pwa/manual/2-6-admin-ops.md`
+   - `pwa/scheduled-tasks/README.md`
+   - `pwa/BUGS.md`
+   - `/proactive` 画面の検知説明
+   - `pwa/design_log/sessions_2026-07.md`
+   - `HANDOFF.md` / `SESSION_MIGRATION_PROMPT.md`
+5. production / DB
+   - `c3c92229 fix(pwa): respect explicit proactive todo due dates` を `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` で本番反映。
+   - 本番 `v3.39.61 / c3c92229... / dirty=false` を確認。
+   - その後、本番は別セッションの `v3.39.62 / 84e6b2f4...` へ進んだが、先手TODO修正は含まれている。
+   - open な KUTE TODO 2件は `due_at=2026-08-04T00:00:00+00:00` に補正済み。スクショ該当行は `a7e4f03a-de82-48ff-8748-9656cbd23771`。
 
 repo / cleanup 状態:
 - canonical branch は main。新規 branch / worktree は作らない。
-- root には `pwa/src/components/admin/AdminProjectsTable.tsx` の未コミット差分がある可能性がある。これは admin projects Slack設定レーンなので、明示的にその作業を引き継ぐ場合以外は戻さず、stageにも混ぜない。
-- `/private/tmp/claude-501/-Users-masa-projects-AMD-before-zero--claude-worktrees-reverent-mclean-d84b4d/f4e3ceee-9903-479d-bcf8-02123ac87b34/scratchpad/wt-ch7` は detached `f370b136` の古い登録worktree。削除は destructive なので、まさが明示承認した時だけ `git worktree remove --force <path>` と `git worktree prune` を行う。
-- 退避 stash がある場合は中身を確認してから扱う。`stash pop/drop` は勝手にしない。
+- closeout authoring時点では `HEAD...origin/main = 0 / 0`、`git worktree list` は main checkout 1つだけ。
+- root には `pwa/src/components/admin/AdminProjectsTable.tsx` の未コミット差分がある。これは admin projects Slack設定レーンなので、明示的にその作業を引き継ぐ場合以外は戻さず、stageにも混ぜない。
+- `/tmp/amd-os-deploy-c3c92229` はこの先手TODO deployで使った一時clone。登録worktreeではない。削除はまさの明示承認後。
 
 次に作業を始める前:
-1. `git status --short`、`git worktree list --porcelain`、`git log -1 --oneline` を取り直す。
+1. `git status -sb`、`git worktree list`、`git log -1 --oneline` を取り直す。
 2. `curl -fsS https://amd-os-pwa.vercel.app/api/build-info` で production の sha / dirty を見る。
 3. PWAコード変更では `pwa/src/lib/build-info.ts` をpatch bumpする。
 4. 対象ファイルだけstageして commit。PWA本番反映は `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` のみを使う。
@@ -72,5 +66,5 @@ repo / cleanup 状態:
 運用ルール:
 - dirtyを理由にbranch/worktreeを作らない。既存dirtyは戻さず、今回の対象ファイルだけ明示stageする。`git add .`は禁止。
 - raw本文、URL、secret、個人情報は handoff / BUGS / design_log に残さない。
-- 通知の新しい `l2_kind` を作るときは、表示・詳細 fallback・feedback yes/no・正本テーブル反映の4点を同時に spec/manual へ並べる。
+- `meeting_next_action` は、action本文中の明示期限をdue dateの正本として扱う。fallbackは明示期限が無い場合だけ。
 ```
