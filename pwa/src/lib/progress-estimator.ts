@@ -1105,22 +1105,22 @@ export async function applyScheduleDefaultsForProject(projectId: string, ym: str
     .lte("ym", ym)
     .order("ym", { ascending: true });
   const currMap: CurrentProgressMap = {};
-  const latestPctByMs = new Map<string, number>();
+  const latestPriorPctByMs = new Map<string, number>();
   for (const p of progressRows || []) {
     const milestoneKey = String(p.milestone_key);
-    latestPctByMs.set(milestoneKey, Number(p.progress_pct || 0));
     if (p.ym === ym) {
       currMap[milestoneKey] = { pct: Number(p.progress_pct || 0), source: p.source || "" };
+    } else if (p.ym < ym) {
+      latestPriorPctByMs.set(milestoneKey, Number(p.progress_pct || 0));
     }
   }
 
   const scheduleAuto = await applyScheduleAutoProgress(supabase, milestones, pc, ym);
   for (const row of scheduleAuto.savedRows) {
-    if (row.ym <= ym) {
-      latestPctByMs.set(row.milestoneKey, row.progressPct);
-    }
     if (row.ym === ym) {
       currMap[row.milestoneKey] = { pct: row.progressPct, source: row.source };
+    } else if (row.ym < ym) {
+      latestPriorPctByMs.set(row.milestoneKey, row.progressPct);
     }
   }
   const revisionLocks = await applyConfirmedRevisionLocks(supabase, projectId, ym, milestones, currMap);
@@ -1139,7 +1139,13 @@ export async function applyScheduleDefaultsForProject(projectId: string, ym: str
       const { endYm } = milestonePeriod(ms, pc);
       const endIndex = endYm ? ymToIndex(endYm) : null;
       if (endIndex == null || endIndex >= asOfIndex) continue;
-      const currentPct = Number(currMap[ms.milestone_id]?.pct ?? latestPctByMs.get(ms.milestone_id) ?? 0);
+      const current = currMap[ms.milestone_id];
+      const latestPriorPct = latestPriorPctByMs.get(ms.milestone_id);
+      const currentPct = Number(
+        current?.source === "initial_zero"
+          ? Math.max(current.pct, latestPriorPct ?? 0)
+          : current?.pct ?? latestPriorPct ?? 0
+      );
       if (currentPct >= 100) continue;
       delayed.push({
         milestoneId: ms.milestone_id,
