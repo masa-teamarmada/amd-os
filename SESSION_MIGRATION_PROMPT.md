@@ -1,4 +1,4 @@
-# SESSION MIGRATION PROMPT — AMD OS proactive TODO deadline closeout
+# SESSION MIGRATION PROMPT — 月初合意モーダル closeout
 
 ```text
 cd /Users/masa/projects/AMD/amd-os
@@ -11,60 +11,38 @@ cd /Users/masa/projects/AMD/amd-os
 5. /Users/masa/projects/AMD/amd-os/AGENTS.md
 6. /Users/masa/projects/AMD/amd-os/pwa/AGENTS.md
 7. /Users/masa/projects/AMD/amd-os/pwa/CLAUDE.md
-8. /Users/masa/projects/AMD/amd-os/pwa/design/L2_DATA.md
-9. /Users/masa/projects/AMD/amd-os/pwa/spec/2-4-proactive-todo-current-spec.md
-10. /Users/masa/projects/AMD/amd-os/pwa/manual/2-6-admin-ops.md
-11. /Users/masa/projects/AMD/amd-os/pwa/scheduled-tasks/README.md
+8. /Users/masa/projects/AMD/amd-os/pwa/spec/3-14-monthly-work-agreement-current-spec.md
+9. /Users/masa/projects/AMD/amd-os/pwa/manual/2-2-member-workflows-quick-start.md
+10. /Users/masa/projects/AMD/amd-os/pwa/manual/6-6-member-billing-prompts-spec.md
+11. /Users/masa/projects/AMD/amd-os/pwa/manual/7-1-reward-calc-spec.md
 12. /Users/masa/projects/AMD/amd-os/pwa/BUGS.md
 13. /Users/masa/projects/AMD/amd-os/pwa/design_log/sessions_2026-07.md
 
-現在の本番:
-- https://amd-os-pwa.vercel.app/api/build-info
-- closeout中に v3.39.62 / git_sha=84e6b2f4541e2bfbdbf32ce87ed500d7f2d895f0 / main / dirty=false を確認済み。
-- 先手TODO修正 commit c3c92229 はこの baseline の ancestor。
-- この handoff docs-only bundle が後でpushされている場合、最終チャットの production proof と fresh /api/build-info を exact latest SHA として扱う。
+現在の正本:
+- `main` / `origin/main` は handoff時点で `932e7e6fd9c371afad4e76a4a9b3a8a1136ade79`、ahead / behind は 0 / 0。
+- production は `v3.39.62 / 932e7e6fd9c371afad4e76a4a9b3a8a1136ade79 / main / dirty=false`。作業開始時に必ず `/api/build-info` を取り直す。
+- rootには `pwa/src/components/admin/AdminProjectsTable.tsx` の未コミット差分がある。admin PJ のSlack設定レーンなので、月初合意作業へ混ぜず、戻さず、stageしない。
+- 登録worktreeは main checkout 1つだけ。今回の一時cloneは証跡を残して削除済み。
 
-直近で完了したこと:
-1. 問題
-   - KUTE の proactive TODO が「2026-08-04次回MTGまでに提示資料を作成」なのに、期限が 2026-07-01 になっていた。
-   - 原因は `meeting_next_action` の期限を `meeting_date + 7日` 固定fallbackで決め、action本文中の明示日付を優先していなかったこと。
-2. 実装修正
-   - `pwa/src/lib/proactive/meeting-action-due.ts` を追加。
-   - `pwa/src/app/api/cron/proactive-todo-extract/route.ts` の `meeting_next_action` due_at を helper 経由へ変更。
-   - 明示日付例: `2026-08-04次回MTGまで`, `8/4まで`, `次回MTGまでに`。
-   - 明示期限が取れない場合だけ従来の `meeting_date + 7日` fallback を使う。
-3. 回帰テスト
-   - `pwa/scripts/check_proactive_meeting_action_due.mts`
-   - `npm run test:proactive-meeting-due`
-4. docs / manual 同期
-   - `pwa/spec/2-4-proactive-todo-current-spec.md`
-   - `pwa/manual/2-6-admin-ops.md`
-   - `pwa/scheduled-tasks/README.md`
-   - `pwa/BUGS.md`
-   - `/proactive` 画面の検知説明
-   - `pwa/design_log/sessions_2026-07.md`
-   - `HANDOFF.md` / `SESSION_MIGRATION_PROMPT.md`
-5. production / DB
-   - `c3c92229 fix(pwa): respect explicit proactive todo due dates` を `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` で本番反映。
-   - 本番 `v3.39.61 / c3c92229... / dirty=false` を確認。
-   - その後、本番は別セッションの `v3.39.62 / 84e6b2f4...` へ進んだが、先手TODO修正は含まれている。
-   - open な KUTE TODO 2件は `due_at=2026-08-04T00:00:00+00:00` に補正済み。スクショ該当行は `a7e4f03a-de82-48ff-8748-9656cbd23771`。
+月初合意で確定した仕様:
+1. 合意前に必ず確認するのは「PJごとの担当内容」と「その対価としての予定額」の2点だけ。
+2. 未合意または条件更新ありのままでは、その稼働月の支払いに進めない。警告文と `確認して合意` の直下で明示する。
+3. 月次の到達目標は現在のsnapshotに無い。`milestones[].title` はMS名なので、目標として表示しない。
+4. PJごとに `担当内容` を一度だけ置き、右に `milestones[].taskDescription` を複数並べる。taskDescriptionが無い時だけMS名をfallbackにする。
+5. 予定額合計と全PJの予定額は必須枠に集約。数値表は内容幅に合わせ、カラムの間を不必要に広げない。
+6. `確認して合意` を主ボタンにし、`修正要望` はその右に小さく置く。修正要望の常設カードは置かない。
+7. 必須枠より下は独立カードではなく `参考情報` の短い区切り。`支払い状況と対象PJ` は初期閉じで、開いた時だけ合計とPJ別内訳を出す。下段へ同じPJ情報を重複表示しない。
 
-repo / cleanup 状態:
-- canonical branch は main。新規 branch / worktree は作らない。
-- closeout authoring時点では `HEAD...origin/main = 0 / 0`、`git worktree list` は main checkout 1つだけ。
-- root には `pwa/src/components/admin/AdminProjectsTable.tsx` の未コミット差分がある。これは admin projects Slack設定レーンなので、明示的にその作業を引き継ぐ場合以外は戻さず、stageにも混ぜない。
-- `/tmp/amd-os-deploy-c3c92229` はこの先手TODO deployで使った一時clone。登録worktreeではない。削除はまさの明示承認後。
+実装と検証:
+- UI: `pwa/src/components/monthly-agreement/MonthlyAgreementExperience.tsx`
+- 実装commit: `66572734 fix(pwa): simplify monthly agreement scope`。current main のancestor。
+- `npx tsc --noEmit`、対象ESLint、Prettier、`npm run test:critical-ui`、`npm run build`、デスクトップ/390pxブラウザ確認を通過済み。
+- 仕様/マニュアル/BUGS/design log/changelogは同期済み。変更する時は必ず同じ層を更新する。
 
-次に作業を始める前:
-1. `git status -sb`、`git worktree list`、`git log -1 --oneline` を取り直す。
-2. `curl -fsS https://amd-os-pwa.vercel.app/api/build-info` で production の sha / dirty を見る。
-3. PWAコード変更では `pwa/src/lib/build-info.ts` をpatch bumpする。
-4. 対象ファイルだけstageして commit。PWA本番反映は `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` のみを使う。
-5. handoff時は manual/spec/design/changelog/BUGS/design_log を同期し、`HANDOFF.md` とこのファイルを更新する。
-
-運用ルール:
-- dirtyを理由にbranch/worktreeを作らない。既存dirtyは戻さず、今回の対象ファイルだけ明示stageする。`git add .`は禁止。
-- raw本文、URL、secret、個人情報は handoff / BUGS / design_log に残さない。
-- `meeting_next_action` は、action本文中の明示期限をdue dateの正本として扱う。fallbackは明示期限が無い場合だけ。
+次に作業を始める時:
+1. `git status -sb`、`git worktree list`、`git log -1 --oneline` と production build-info を取り直す。
+2. 新しいUI feedbackが来た時だけ、まずsnapshotにその概念のデータがあるかを確認してからラベルを増やす。データに無い「到達目標」「発注条件」は表示しない。
+3. UI変更なら、広い空白・重複カード・主従が逆のボタン配置を先に疑う。必要なら一時mockでブラウザ確認し、routeとmiddlewareの一時変更は同じセッションで必ず消す。
+4. 対象ファイルだけstageしてcommit。既存dirtyは残す。`git add .` は禁止。
+5. PWA本番反映があるコード変更は、`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` でpush・production確認まで行う。直接 `npx vercel` は使わない。
 ```
