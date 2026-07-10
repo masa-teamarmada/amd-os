@@ -61,7 +61,7 @@ function agreementStatusMessage(bundle: MonthlyWorkAgreementBundle) {
     return `確認した日時: ${bundle.latestAgreement?.agreedAt ? new Date(bundle.latestAgreement.agreedAt).toLocaleString("ja-JP") : "記録済み"}`;
   }
   if (bundle.status === "needs_reagreement") {
-    return "前に確認したあとで、担当内容・到達目標か予定額が変わりました。下の必須2点を見直して、問題なければ合意してください。";
+    return "前に確認したあとで、担当内容か予定額が変わりました。下の必須2点を見直して、問題なければ合意してください。";
   }
   if (bundle.status === "not_required") {
     return bundle.exclusionReason || "この月の月初合意は不要です。";
@@ -293,7 +293,7 @@ export function MonthlyAgreementExperience({
             <h1
               className={`${isModal ? "text-[18px]" : "text-[22px]"} mt-1 font-semibold text-[#1d1d1f]`}
             >
-              {formatYm(bundle.ym)}の発注条件と予定額
+              {formatYm(bundle.ym)}の担当内容と予定額
             </h1>
             <p
               className={`${isModal ? "text-[12px]" : "text-[13px]"} mt-1 text-[#6e6e73]`}
@@ -368,7 +368,7 @@ export function MonthlyAgreementExperience({
                   title={
                     !bundle.canAgree
                       ? bundle.exclusionReason || "本人だけが合意できます"
-                      : "担当内容・到達目標と予定額を確認して合意"
+                      : "担当内容と予定額を確認して合意"
                   }
                 >
                   {saving ? (
@@ -393,7 +393,7 @@ export function MonthlyAgreementExperience({
                   title={
                     !bundle.canAgree
                       ? bundle.exclusionReason || "本人だけが修正要望を送れます"
-                      : "担当内容・到達目標、または予定額の修正要望を送る"
+                      : "担当内容、または予定額の修正要望を送る"
                   }
                 >
                   <Send className="size-3" />
@@ -431,7 +431,7 @@ export function MonthlyAgreementExperience({
                     <p
                       className={`${isModal ? "mt-0.5 text-[10px]" : "mt-1 text-xs"} leading-relaxed opacity-80`}
                     >
-                      担当内容・到達目標、予定額に違いがあるときだけ送ってください。
+                      担当内容、予定額に違いがあるときだけ送ってください。
                       <Hint id="monthly-agreement.revision-request" />
                     </p>
                   </div>
@@ -452,7 +452,7 @@ export function MonthlyAgreementExperience({
                     disabled={!bundle.canAgree}
                     className={`${isModal ? "h-8 py-1 text-xs" : "py-2 text-sm"} min-w-0 rounded-md border border-current/25 bg-white/80 px-2 text-[#1d1d1f]`}
                   >
-                    <option value="scope_or_goal">担当内容・目標</option>
+                    <option value="scope_or_goal">担当内容</option>
                     <option value="reward">予定額</option>
                     <option value="other">その他</option>
                   </select>
@@ -601,7 +601,7 @@ export function MonthlyAgreementExperience({
               >
                 参考情報
                 <span className="ml-2 font-normal">
-                  担当内容・到達目標の詳細、予定額の根拠、支払い状況
+                  予定額の根拠、支払い状況
                 </span>
               </h2>
             </section>
@@ -631,7 +631,7 @@ export function MonthlyAgreementExperience({
             </summary>
             <div className="border-t border-[#e5e5e7] p-2.5">
               <p className="mb-2 text-[11px] leading-relaxed text-[#6e6e73]">
-                支払い済み・支払予定・未払残は、合意する担当内容・到達目標や予定額そのものではなく、支払いの見通しを知るための情報です。
+                支払い済み・支払予定・未払残は、合意する担当内容や予定額そのものではなく、支払いの見通しを知るための情報です。
               </p>
               <dl className="grid gap-x-5 gap-y-1.5 text-[11px] sm:grid-cols-2">
                 <div className="flex items-baseline justify-between gap-3 border-b border-[#f0f0f2] pb-1">
@@ -788,14 +788,14 @@ function AgreementFlowRail({
           <p
             className={`${compact ? "mt-0.5 text-[11px]" : "mt-1 text-[12px]"} text-[#6e6e73]`}
           >
-            各PJの担当内容・今月の到達目標と、予定額に問題がなければ合意してください。pt・担当割合・支払い予定は参考情報です。
+            各PJの担当内容と、予定額に問題がなければ合意してください。pt・担当割合・支払い予定は参考情報です。
           </p>
         </div>
       </div>
       <div
         className={
           compact
-            ? "grid max-w-full items-start gap-2 sm:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]"
+            ? "grid max-w-full items-start gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]"
             : "grid gap-2 md:grid-cols-2"
         }
       >
@@ -808,7 +808,7 @@ function AgreementFlowRail({
             >
               <FileCheck2 className="size-4" />
             </span>
-            <span className="min-w-0 truncate">担当内容・到達目標</span>
+            <span className="min-w-0 truncate">担当内容</span>
             <span className="ml-auto rounded-full bg-sky-100 px-1.5 py-0.5 text-[9px] font-semibold text-sky-800">
               必須
             </span>
@@ -830,30 +830,27 @@ function AgreementFlowRail({
                   </p>
                   {project.milestones.length === 0 ? (
                     <p className="mt-0.5 text-[10px] text-amber-700">
-                      担当内容・到達目標が未登録です
+                      担当内容が未登録です
                     </p>
                   ) : (
-                    <div className="mt-1 space-y-1.5">
-                      {project.milestones.map((milestone) => (
-                        <dl
-                          key={milestone.milestoneId}
-                          className="grid grid-cols-[58px_minmax(0,1fr)] gap-x-2 gap-y-0.5 text-[10px] leading-relaxed"
-                        >
-                          <dt className="font-semibold text-[#6e6e73]">
-                            担当内容
-                          </dt>
-                          <dd className="break-words text-[#3c3c43]">
-                            {milestone.taskDescription || milestone.title}
-                          </dd>
-                          <dt className="font-semibold text-[#6e6e73]">
-                            到達目標
-                          </dt>
-                          <dd className="break-words font-semibold text-[#1d1d1f]">
-                            {milestone.title}
-                          </dd>
-                        </dl>
-                      ))}
-                    </div>
+                    <dl className="mt-1 grid grid-cols-[58px_minmax(0,1fr)] gap-x-2 text-[10px] leading-relaxed">
+                      <dt className="font-semibold text-[#6e6e73]">担当内容</dt>
+                      <dd className="flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-[#3c3c43]">
+                        {project.milestones.map((milestone) => (
+                          <span
+                            key={milestone.milestoneId}
+                            className="inline-flex min-w-0 items-start gap-1"
+                          >
+                            <span aria-hidden="true" className="text-[#86868b]">
+                              ・
+                            </span>
+                            <span className="break-words">
+                              {milestone.taskDescription || milestone.title}
+                            </span>
+                          </span>
+                        ))}
+                      </dd>
+                    </dl>
                   )}
                 </div>
               ))}
@@ -876,7 +873,7 @@ function AgreementFlowRail({
             </span>
           </div>
           <dl className={`${compact ? "mt-1.5" : "mt-2"} space-y-1`}>
-            <div className="flex items-baseline justify-between gap-3 rounded-md bg-white px-2 py-1">
+            <div className="inline-flex max-w-full items-baseline gap-3 rounded-md bg-white px-2 py-1">
               <dt className="text-[10px] font-semibold text-[#6e6e73]">
                 予定額合計
               </dt>
@@ -884,7 +881,7 @@ function AgreementFlowRail({
                 {formatYen(totalExpectedRewardYen)}
               </dd>
             </div>
-            <div className="overflow-hidden rounded-md border border-[#dbeafe] bg-white">
+            <div className="w-fit min-w-[260px] max-w-full overflow-hidden rounded-md border border-[#dbeafe] bg-white">
               <p className="border-b border-[#dbeafe] px-2 py-1 text-[10px] font-semibold text-sky-800">
                 PJごとの予定額
               </p>
@@ -897,7 +894,7 @@ function AgreementFlowRail({
                   {projects.map((project) => (
                     <div
                       key={project.projectId}
-                      className="flex items-center justify-between gap-3 px-2 py-1.5 text-[11px]"
+                      className="grid grid-cols-[minmax(88px,1fr)_max-content] items-center gap-x-3 px-2 py-1.5 text-[11px]"
                     >
                       <span className="min-w-0 truncate font-semibold text-[#3c3c43]">
                         {project.projectName}
@@ -1235,14 +1232,14 @@ function ProjectAgreementCard({
               >
                 <div className="min-w-0">
                   <h3 className="text-[12px] font-semibold text-[#3c3c43]">
-                    {compact ? "担当内容・到達目標の詳細" : "今シーズンのMS"}{" "}
+                    {compact ? "担当内容の詳細" : "今シーズンのMS"}{" "}
                     <Hint id="monthly-agreement.ms-pt" />
                   </h3>
                   <p
                     className={`${compact ? "mt-0.5" : "mt-1"} text-[11px] leading-relaxed text-[#6e6e73]`}
                   >
                     {compact
-                      ? "上の必須確認に対する、担当内容と今月の到達目標の詳しい一覧です。pt・担当割合は予定額の根拠です。"
+                      ? "上の必須確認に対する、担当内容の詳しい一覧です。pt・担当割合は予定額の根拠です。"
                       : "予定額は、ここに出ているMSのpt・今月進める分・担当割合から出しています。"}
                   </p>
                 </div>
