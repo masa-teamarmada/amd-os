@@ -51,6 +51,8 @@ AMD OS の通知は「お知らせ」だけではない。多くの通知は、L
 
 すでに正本へ保存済みの通知 (`saved_count >= total_count`) は、画面上では「はい・確認済み」として扱う。D-11メディア掲載のように collector が `project_media_mentions` と通知を同時に作る通知は、採否というより確認・学習フィードバック用になる。
 
+D-14 要対応 (`action_item`) は、通知作成時点で `action_items.review_status='candidate'` として保存済み。「はい・確認済み」で `confirmed` になり、dashboard / PJ cockpit の要対応面へ表示される。「いいえ・不採用」は `rejected` にする。
+
 通知を展開したとき、正本行の専用表示がまだ無い種類でも「抽出された行が見つからない」とは出さず、通知本文を詳細欄の fallback として表示する。D-11メディア掲載は `project_media_mentions` の保存済み行を表示する。
 
 ## 正本反映ゲート

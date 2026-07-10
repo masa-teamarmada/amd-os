@@ -82,6 +82,7 @@ POST body:
 | `project_strategy_signal` | `project_strategy_signals.status='confirmed'` | `status='rejected'` |
 | `textbook_insight` | `textbook_insight_candidates.status='approved'`。その後 local applier が `pwa/bzm/*.md` へ追記 | `status='rejected'` |
 | `coverage_gap` | `l2_coverage_gaps.review_status='confirmed'`。`proposed_target_l2='strategy_signal'` は同時に `project_strategy_signals.status='confirmed'` を upsert し、`l2_coverage_gaps.routed_to='project_strategy_signals:<signal_id>'` を保存 | `review_status='rejected'` |
+| `action_item` | `action_items.review_status='confirmed'`。保存済み候補を確認済みにして dashboard / cockpit の要対応面へ出す | `review_status='rejected'` |
 | `guardrail_match` | `guardrail_matches.status='acknowledged'` | `status='dismissed'` |
 
 すべての action は `l2_feedbacks` に保存し、`tsukuyomi_learnings` にも通知回答として残す。

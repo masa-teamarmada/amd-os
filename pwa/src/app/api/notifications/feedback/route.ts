@@ -147,6 +147,7 @@ export async function POST(req: NextRequest) {
       "founding_members",
       "meeting_summary",
       "news_mention",
+      "action_item",
       "coverage_gap",
       "guardrail_match",
     ]);
@@ -492,6 +493,16 @@ async function applyApprovedNotification(args: {
       ].filter(Boolean).join(" / "),
       row: { gap: data, routed: routeResult.row },
     };
+  }
+
+  if (args.l2Kind === "action_item") {
+    return updateActionItemReviewStatus({
+      supabase: args.supabase,
+      actionId: args.scopeKey,
+      reviewStatus: "confirmed",
+      feedbackText: args.feedbackText,
+      createdBy: args.createdBy,
+    });
   }
 
   if (args.l2Kind === "guardrail_match") {
@@ -872,6 +883,16 @@ async function rejectNotificationCandidates(args: {
     return { applied: false, message: `rejected coverage_gap: ${(data ?? []).length}`, row: data };
   }
 
+  if (args.l2Kind === "action_item") {
+    return updateActionItemReviewStatus({
+      supabase: args.supabase,
+      actionId: args.scopeKey,
+      reviewStatus: "rejected",
+      feedbackText: args.feedbackText,
+      createdBy: args.createdBy,
+    });
+  }
+
   if (args.l2Kind === "guardrail_match") {
     const now = new Date().toISOString();
     const { data, error } = await args.supabase
@@ -899,6 +920,35 @@ async function rejectNotificationCandidates(args: {
   }
 
   return { applied: false, message: "rejected" };
+}
+
+async function updateActionItemReviewStatus(args: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  actionId: string;
+  reviewStatus: "confirmed" | "rejected";
+  feedbackText: string;
+  createdBy: string | null;
+}): Promise<{ applied: boolean; message: string; row?: unknown }> {
+  const now = new Date().toISOString();
+  const { data, error } = await args.supabase
+    .from("action_items")
+    .update({
+      review_status: args.reviewStatus,
+      response_note: args.feedbackText || null,
+      responded_at: now,
+      updated_at: now,
+      updated_by: args.createdBy,
+    })
+    .eq("action_id", args.actionId)
+    .in("review_status", ["candidate", args.reviewStatus])
+    .select("action_id, project_id, title, status, review_status");
+  if (error) return { applied: false, message: error.message };
+  const rows = data ?? [];
+  return {
+    applied: args.reviewStatus === "confirmed" && rows.length > 0,
+    message: `${args.reviewStatus} action_item: ${rows.length}`,
+    row: rows,
+  };
 }
 
 async function applyRegistryDiff(args: {
