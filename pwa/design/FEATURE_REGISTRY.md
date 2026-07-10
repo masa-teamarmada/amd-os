@@ -246,6 +246,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 - 先手 TODO バッジ: dashboard 上段に `ProactiveTodoBadge` を出し、`proactive_todos.status='open'` の件数 / 期限超過件数 / red件数を 1 行で見せて `/proactive` フルページへ送る。バッジは admin (= `members.is_admin=true`) のみ表示で、非 admin は枠ごと消す。詳細仕様: [`pwa/spec/2-4-proactive-todo-current-spec.md`](../spec/2-4-proactive-todo-current-spec.md)。**旧 `ProactiveQueuePanel` 経由の `proactive_outbox` 表示 (= 5段ループ盤面の実行段) は 2026-06-27 廃止**。司令塔セッション運用の消滅と完了UI不在が理由 (詳細: spec 2-4 末尾)。dashboard 上段 (= 旧 `LoopKernelBoard` / 旧 `ProactiveQueuePanel`) からは両方とも除去済み。
 - 抽出状況: dashboard 上段に admin 限定の `ExtractionStatusCard` を出す。Gmail / Drive / Calendar / Slack / Notion ごとの「OSへ最後に保存された時刻」を並べ、月次対象PJのメール・Slack・Drive設定不足は「設定が必要」に集約して `/admin/projects` へ送る。これは接続の成否を推測する面ではなく、OSへ保存された証跡を見る運転盤。`project_config_gap` は採否通知に出さない。
+- PJ台帳の Slack CH 列: `projects.slack_channel_not_required=true` を「チャンネルなし」チェックで編集できる。これは未設定ではなく意図的にSlackチャンネルを使わないPJを示し、抽出状況の設定不足から外す。チェック時は古い `slack_channel_id` を空にする。PJ台帳の見出し行は縦横スクロール中も固定する。
 - AMD全体 累計実績カード: dashboard 上段の `FundingStatsCard` は、資金調達ラウンドと助成金・補助金を会社別/行別に表示する。累計値は `amd_contribution_status in ('full','partial')` の AMD貢献額だけで計算し、`none` / `unreviewed` はリストには残すが累計には入れない。投資家別内訳・持株比率・cap table snapshot は dashboard API に返さない。
 - PJ一覧: Active / Sales-Draft / Ended-Frozen の横長 stripe 一覧を維持する。KUTE (`p25`) など研究機関エコシステム構築PJは通常PJ一覧に二重表示せず、研究機関ERSリスト側へ寄せる。
 - 左メニューのボード: マウスオーバーまたはキーボードフォーカスで、右側に全アクティブPJの一覧を出す。各行は対応するPJコックピットへ遷移し、一覧は固定せず `projects.status='active'` を読む。ボード本体の `/dashboard` 導線は維持する。フライアウトはナビのスクロール領域にクリップされない上位レイヤーで表示し、画面下端では一覧部分だけをスクロールさせる。

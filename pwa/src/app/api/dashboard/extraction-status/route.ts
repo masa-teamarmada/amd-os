@@ -32,7 +32,7 @@ export async function GET() {
     db
       .from("projects")
       .select(
-        "project_id,project_name,status,monthly_report_scope,report_emails,slack_channel_id,drive_folder_id",
+        "project_id,project_name,status,monthly_report_scope,report_emails,slack_channel_id,slack_channel_not_required,drive_folder_id",
       )
       .eq("status", "active")
       .neq("project_id", "p00"),
@@ -71,7 +71,7 @@ export async function GET() {
     if (project.monthly_report_scope === "none") continue;
     const missing = [
       project.report_emails ? null : "Gmailの抽出先メール",
-      project.slack_channel_id ? null : "Slackチャンネル",
+      project.slack_channel_id || project.slack_channel_not_required ? null : "Slackチャンネル",
       project.drive_folder_id ? null : "Driveフォルダ",
     ].filter((value): value is string => Boolean(value));
     if (missing.length > 0)

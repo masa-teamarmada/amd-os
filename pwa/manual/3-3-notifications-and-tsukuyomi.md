@@ -68,6 +68,8 @@ AMD OS の通知は「お知らせ」だけではない。多くの通知は、L
 
 `project_config_gap`（抽出設定不足）は採否候補ではないため、通知一覧には出さない。dashboard の「抽出状況」で、5つの情報源の最終保存時刻と、PJごとのメール・Slack・Drive設定不足を確認してPJ台帳から直す。
 
+Slackを使わないPJは、PJ台帳の `Slack CH` 列で「チャンネルなし」をチェックする。これは空欄のまま放置するのとは違い、抽出状況で設定不足として扱わない明示設定。
+
 経営ハイライト (`project_strategy_signals`) は `candidate` / `confirmed` / `rejected` / `archived` を持つ。cockpit には candidate も表示するが、未確認であることを明示する。
 
 ## つくよみ修正依頼

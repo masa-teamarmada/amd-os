@@ -10,7 +10,7 @@
 | home | `/dashboard` | PJ一覧、抽出状況、Atlas / Venture Map / MyPage / Admin 入口 | `dashboard/page.tsx` |
 | cockpit | `/project/[projectId]/cockpit` | PJ status、AMD Score、MS、経営ハイライト、月次カード/モーダル、MTGサマリ、kanban | `project/[projectId]/cockpit/page.tsx`, `CockpitView.tsx` |
 | member | `/mypage`, `/reimburse` | メンバー活動、週次活動、立替精算 | `mypage/page.tsx`, `reimburse/page.tsx` |
-| admin | `/admin/*` | invoices / finance / projects / members / payouts / prompts / settings / protocols / tsukuyomi / weekly (週次活動×月次報酬マトリクス: `/api/admin/weekly` が member_activities(member_weekly) と表示月の `billing_cycles.reward_summary_json` の `members[].totalPay` を返し、右端列=メンバー別月合計・最下行=PJ別月合計・総合計を描画) / 日本文化マップ (`/admin/japanese-culture-map`) | `admin/*/page.tsx` |
+| admin | `/admin/*` | invoices / finance / projects（Slack CHの「チャンネルなし」明示を含む） / members / payouts / prompts / settings / protocols / tsukuyomi / weekly (週次活動×月次報酬マトリクス: `/api/admin/weekly` が member_activities(member_weekly) と表示月の `billing_cycles.reward_summary_json` の `members[].totalPay` を返し、右端列=メンバー別月合計・最下行=PJ別月合計・総合計を描画) / 日本文化マップ (`/admin/japanese-culture-map`) | `admin/*/page.tsx` |
 | admin knowledge | `/admin/japanese-culture-map` | `jp_culture_items` active 行をマインドマップ / 日本地図で読む admin-only 文化知識ビュー。旧 `/japanese-culture-map` は redirect | `admin/japanese-culture-map/page.tsx`, `jp-culture.ts` |
 | docs | `/manual`, `/spec`, `/bzm` | manual / design spec / textbook を OS 画面で表示 | `manual/*`, `spec/*`, `bzm/*` |
 | knowledge | `/knowledge-map` | AMD Knowledge Map。L2 counts と直近代表 node を source table 別に読み、NotebookLM Knowledge Pack の OS 側プレビューとして表示する。raw本文は保存/表示しない | `knowledge-map/page.tsx`, `KnowledgeMapView.tsx` |

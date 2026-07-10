@@ -79,6 +79,7 @@ export default async function AdminProjectsPage() {
 	      status: p.status,
 	      project_category: p.project_category ?? "dtsu",
 	      slack_channel_id: p.slack_channel_id ?? null,
+      slack_channel_not_required: !!p.slack_channel_not_required,
       drive_folder_id: p.drive_folder_id ?? null,
       freee_partner_id: p.freee_partner_id ?? null,
       report_emails: p.report_emails ?? null,

@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-07-10 18:29 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-07-10 19:40 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -1360,7 +1360,7 @@ PRIMARY KEY: `feedback_id`
 
 ## l2_notifications
 
-行数 (概算): 347
+行数 (概算): 342
 PRIMARY KEY: `notification_id`
 UNIQUE: `(l2_kind,target_id,scope_key)` (constraint: `l2n_unique`)
 
@@ -3174,6 +3174,7 @@ UNIQUE: `(project_id)` (constraint: `projects_project_id_key`)
 | 33 | `report_local_alias` | `text` | NULL | `` |
 | 34 | `report_extra_allow_terms` | `_text` | NOT NULL | `ARRAY[]::text[]` |
 | 35 | `monthly_report_scope` | `text` | NOT NULL | `'none'::text` |
+| 36 | `slack_channel_not_required` | `bool` | NOT NULL | `false` |
 
 ## protocol_examples
 

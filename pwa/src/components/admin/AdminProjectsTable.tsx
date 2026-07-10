@@ -23,6 +23,7 @@ export interface ProjectRow {
   status: string;
   project_category: ProjectCategory;
   slack_channel_id: string | null;
+  slack_channel_not_required: boolean;
   drive_folder_id: string | null;
   freee_partner_id: string | null;
   report_emails: string | null;
@@ -524,6 +525,20 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
     setSaving(null);
   };
 
+  const saveSlackChannelNotRequired = async (p: ProjectRow, checked: boolean) => {
+    setSaving(p.id);
+    const patch = { slack_channel_not_required: checked, slack_channel_id: checked ? null : p.slack_channel_id };
+    const r = await patchProject(p.id, { projectsPatch: patch });
+    if (!r.ok) {
+      setHint(`Slack設定 保存エラー: ${r.error}`);
+    } else {
+      setProjects((prev) => prev.map((x) => x.id === p.id ? { ...x, ...patch } : x));
+      setHint(`${p.project_name} を ${checked ? "Slackチャンネルなし" : "Slackチャンネル設定待ち"}にしました`);
+      setTimeout(() => setHint(""), 2500);
+    }
+    setSaving(null);
+  };
+
   const saveCell = async (p: ProjectRow, field: string) => {
     setSaving(p.id);
     // field ごとに patch を組む。null/empty 扱いを丁寧に。
@@ -701,7 +716,7 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
       )}
 
       {/* Table */}
-      <div className="overflow-x-auto border border-border rounded-lg">
+      <div className="max-h-[calc(100vh-9rem)] overflow-auto border border-border rounded-lg">
         <table className="text-[12px] border-collapse" style={{ minWidth: "2620px" }}>
           <thead className="sticky top-0 z-30">
             <tr className="bg-muted text-muted-foreground">
@@ -1497,7 +1512,16 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                           className="border border-border rounded px-1.5 py-0.5 text-[12px] w-full bg-background font-mono" />
                         {cellActions("slack_channel_id")}
                       </div>
-                    ) : <span className="font-mono text-muted-foreground text-[11px]">{p.slack_channel_id || "—"}</span>}
+                    ) : (
+                      <div className="space-y-1">
+                        <span className="font-mono text-muted-foreground text-[11px]">{p.slack_channel_id || "—"}</span>
+                        <label className="flex w-fit items-center gap-1 text-[10px] text-muted-foreground" onClick={(e) => e.stopPropagation()}>
+                          <input type="checkbox" checked={p.slack_channel_not_required} disabled={saving === p.id}
+                            onChange={(e) => saveSlackChannelNotRequired(p, e.target.checked)} className="h-3 w-3 rounded border-border" />
+                          チャンネルなし
+                        </label>
+                      </div>
+                    )}
                   </td>
 
                   {/* drive_folder_id */}
