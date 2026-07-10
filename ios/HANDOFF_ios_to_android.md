@@ -2,9 +2,30 @@
 
 > See also: [CLAUDE.md](CLAUDE.md) — 最重要ルール / [DESIGN.md](DESIGN.md) — **全画面の正本仕様（必読）** / [HANDOFF.md](HANDOFF.md) — 配布状況 / [BUGS.md](BUGS.md) — 既知バグ
 
-最終更新: 2026-06-02 (JST)
-対応 iOS commit: 6c3244b "feat(ios): tap PJ card → AMD Score detail (PWA WebView, auth cookie)"
-TestFlight build: 21（未 upload のまま）
+最終更新: 2026-07-10 (JST)
+対応 iOS commit: 今回のcommit "feat(ios): add textbook reader entry"
+TestFlight build: 未更新
+
+---
+
+## 2026-07-10 追記: 設定タブから教科書を読む
+
+### 18. TextbookReaderView — PWA `/bzm` の認証付き WebView 導線
+**動機**: PWA の教科書ページ (`/bzm`) を、iOS Swift 版からも読めるようにする。
+
+- `SettingsView.swift`
+  - 設定タブに「資料」セクションを追加。
+  - 「教科書」行をタップすると `TextbookReaderView` を開く。
+- `TextbookReaderView`
+  - `https://amd-os-pwa.vercel.app/bzm` を WKWebView で表示。
+  - 既存 `SupabaseService.hudWebAuthCookies()` を使い、iOS の Supabase session を `@supabase/ssr` 互換 cookie として注入する。
+  - PWA 側 `/bzm` は `/bzm/preface` へ redirect するため、iOS 側では入口 URL だけ固定する。
+  - 読み取り専用。教科書本文の正本は `pwa/bzm/*.md` と `pwa/src/app/(app)/bzm/bzm-chapters.ts`。
+
+### Android 反映メモ
+- 設定画面に同じ「資料 > 教科書」導線を追加する。
+- Android WebView で `https://amd-os-pwa.vercel.app/bzm` を開く。
+- 認証必須ページなので、iOS と同様に Supabase session を `sb-nbnhrhybjslbawdukvvk-auth-token` cookie として注入する。cookie 値は `base64-` + base64url(session JSON)、長い場合は `.0`, `.1` の chunk に分ける。
 
 ---
 

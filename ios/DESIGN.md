@@ -11,7 +11,7 @@
 > - えいみ（Win側 Android担当）が「これ知らない画面なんだけど…」となったら必ずここを参照する
 > - えいみがここを見て知らない画面があるならアラート → 即同期する
 >
-> 最終更新: 2026-06-26 (connector_auth 再認証通知を追加)
+> 最終更新: 2026-07-10 (iOS 設定タブに教科書 WebView 導線を追加)
 
 ---
 
@@ -332,8 +332,15 @@ admin がアクション必要なものを集約する。
 
 | 画面 | 役割 |
 |---|---|
-| `SettingsView` | バージョン情報、ログアウト、デバッグメニュー |
+| `SettingsView` | バージョン情報、ログアウト、HUD版コックピット、教科書導線 |
 | `PayoutInfoEditView` | 自分の住所・振込先を編集（支払通知書PDFに記載される） |
+| `TextbookReaderView` | PWA `/bzm` を認証付き WebView で表示し、iOS Swift 版から Before Zero / BZM 教科書を読む |
+
+**教科書導線（`TextbookReaderView`）**
+- 設定タブの「資料」セクション → 「教科書」から開く。
+- 表示先は PWA production `https://amd-os-pwa.vercel.app/bzm`。PWA 側の `/bzm` は `preface` へ redirect する。
+- iOS の Supabase session を `@supabase/ssr` 互換 cookie に変換して WKWebView へ注入するため、ログイン済みなら PWA の認証済み教科書ページをそのまま読める。
+- 読み取り専用。教科書本文の正本は `pwa/bzm/*.md` と `pwa/src/app/(app)/bzm/bzm-chapters.ts`。
 
 ---
 

@@ -1,4 +1,5 @@
 import SwiftUI
+import WebKit
 
 struct SettingsView: View {
     @EnvironmentObject var authService: AuthService
@@ -42,6 +43,27 @@ struct SettingsView: View {
                     Text("ディスプレイ")
                 }
 
+                Section("資料") {
+                    NavigationLink {
+                        TextbookReaderView()
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "book.pages")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundStyle(AMD.blue)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("教科書")
+                                    .font(.headline)
+                                    .foregroundStyle(AMD.text)
+                                Text("Before Zero / BZM を読む")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+
                 Section("アカウント") {
                     if let email = authService.userEmail {
                         LabeledContent("メール", value: email)
@@ -69,6 +91,78 @@ struct SettingsView: View {
             CockpitHUDView()
         }
     }
+}
+
+// MARK: - TextbookReaderView
+
+struct TextbookReaderView: View {
+    @State private var cookies: [HTTPCookie]?
+    @State private var errorMessage: String?
+
+    private let url = URL(string: "https://amd-os-pwa.vercel.app/bzm")!
+
+    var body: some View {
+        Group {
+            if let cookies {
+                TextbookWebView(url: url, cookies: cookies)
+            } else if let errorMessage {
+                ContentUnavailableView(
+                    "教科書を開けなかった",
+                    systemImage: "exclamationmark.triangle",
+                    description: Text(errorMessage)
+                )
+            } else {
+                VStack(spacing: 12) {
+                    ProgressView()
+                    Text("教科書を読み込み中...")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .navigationTitle("教科書")
+        .navigationBarTitleDisplayMode(.inline)
+        .task {
+            do {
+                cookies = try await SupabaseService.shared.hudWebAuthCookies()
+            } catch {
+                errorMessage = error.localizedDescription
+                cookies = []
+            }
+        }
+    }
+}
+
+private struct TextbookWebView: UIViewRepresentable {
+    let url: URL
+    let cookies: [HTTPCookie]
+
+    func makeUIView(context: Context) -> WKWebView {
+        let config = WKWebViewConfiguration()
+        let webView = WKWebView(frame: .zero, configuration: config)
+        webView.allowsBackForwardNavigationGestures = true
+        webView.backgroundColor = .systemBackground
+        webView.scrollView.backgroundColor = .systemBackground
+
+        let store = config.websiteDataStore.httpCookieStore
+        guard !cookies.isEmpty else {
+            webView.load(URLRequest(url: url))
+            return webView
+        }
+
+        let group = DispatchGroup()
+        for cookie in cookies {
+            group.enter()
+            store.setCookie(cookie) { group.leave() }
+        }
+        group.notify(queue: .main) {
+            webView.load(URLRequest(url: url))
+        }
+        return webView
+    }
+
+    func updateUIView(_ uiView: WKWebView, context: Context) {}
 }
 
 // MARK: - NotificationInboxView
