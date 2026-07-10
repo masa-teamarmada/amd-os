@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-07-10 | 3-10 D-2 MS Progress | 修正 | `applyScheduleDefaultsForProject` の計画遅延判定で、判定月の進捗行が無い場合にその月以前の最新 `milestone_monthly_progress` を current_pct として使うように変更。build v0.39.49 | target_ym月で100%済みのMSが、翌月行が無いだけで current_pct=0 の `ms_schedule_delay` 通知になっていたため | えいみ |
 | 2026-07-10 | 3-7 Notifications | 修正 | `/notifications` の詳細表示契約を更新。D-11 `news_mention` は `project_media_mentions` を表示し、個別詳細未実装/候補行不一致時は通知本文fallbackを出す。`saved_count >= total_count` の保存済み通知は「はい・確認済み」と表示する。build v0.39.48 | 保存済みD-11通知や未対応kindで「抽出された行が見つかりませんでした」と出て、DB未反映に見える誤解を防ぐため | えいみ |
 | 2026-07-10 | 2-2 Surface / 3-7 Notifications / FEATURE_REGISTRY | 変更 | dashboard に管理者向け「抽出状況」を追加。Gmail / Drive / Calendar / Slack / Notion の最終保存時刻と、月次対象PJのメール・Slack・Drive設定不足を表示し、`project_config_gap` の既存通知を削除して以後の投入も止めた | 抽出設定不足は採否しても直らず、通知の「はい・反映」が何をするか分からない状態を解消するため | えいみ |
 | 2026-07-10 | 3-14 月初合意 | 修正 | `milestones[].title` を月次の到達目標として表示する契約を撤回し、PJごとに一度だけ出す `担当内容` の横へ複数の `taskDescription`（無い場合はMS名）を並べる形に変更。予定額は最大360pxの補助列と内容幅の表へ圧縮。build v0.39.46 | MS名（CEO業務など）は目標値ではなく、月次目標データ自体も現在の snapshot に存在しないため。繰り返しラベルと広すぎる金額列も確認を妨げていたため | えいみ |

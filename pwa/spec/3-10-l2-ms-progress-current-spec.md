@@ -70,7 +70,7 @@
 4. `ms_progress_revisions.status='confirmed'` がある MS は `tsukuyomi_revision` として再適用 (修復)
 5. 開始前 MS の非確定値は 0% に補正 (`applyBeforeStartProgressGuard`)
 6. 進捗が変わった PJ は `syncRewardSummaryForCycle` で報酬キャッシュ再同期
-7. **計画遅延検知 (C案)**: `target_ym` が当月より前なのに有効進捗 (revision lock 適用後) が 100% 未満の MS を `delayed[]` として返す。cron は当月 (baseYm) 分のみ `l2_notifications` に upsert (l2_kind='ms_schedule_delay', scope_key=`${ym}:delay:${milestoneId}`, importance=2, metadata_json={milestone_id, ym, target_ym, current_pct})。100% 到達などで遅延が解消した MS の同 scope_key 通知は delete で自動解消
+7. **計画遅延検知 (C案)**: `target_ym` が当月より前なのに有効進捗 (revision lock 適用後) が 100% 未満の MS を `delayed[]` として返す。cron は当月 (baseYm) 分のみ `l2_notifications` に upsert (l2_kind='ms_schedule_delay', scope_key=`${ym}:delay:${milestoneId}`, importance=2, metadata_json={milestone_id, ym, target_ym, current_pct})。期限後の当月行が存在しない場合は、その月以前の最新 `milestone_monthly_progress` を current_pct として使い、target_ym 月で100%済みのMSを0%遅延扱いしない。100% 到達などで遅延が解消した MS の同 scope_key 通知は delete で自動解消
 
 ## LLM 乖離検知 Path (提案のみ)
 

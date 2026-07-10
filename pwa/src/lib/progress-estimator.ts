@@ -1098,18 +1098,27 @@ export async function applyScheduleDefaultsForProject(projectId: string, ym: str
 
   const scheduleByMs = new Map(milestones.map((m) => [m.milestone_id, milestoneSchedule(m, pc, ym)]));
   const msKeys = milestones.map((m) => m.milestone_id);
-  const { data: currRows } = await supabase
+  const { data: progressRows } = await supabase
     .from("milestone_monthly_progress")
-    .select("milestone_key, progress_pct, source")
+    .select("milestone_key, ym, progress_pct, source")
     .in("milestone_key", msKeys)
-    .eq("ym", ym);
+    .lte("ym", ym)
+    .order("ym", { ascending: true });
   const currMap: CurrentProgressMap = {};
-  for (const p of currRows || []) {
-    currMap[p.milestone_key] = { pct: Number(p.progress_pct || 0), source: p.source || "" };
+  const latestPctByMs = new Map<string, number>();
+  for (const p of progressRows || []) {
+    const milestoneKey = String(p.milestone_key);
+    latestPctByMs.set(milestoneKey, Number(p.progress_pct || 0));
+    if (p.ym === ym) {
+      currMap[milestoneKey] = { pct: Number(p.progress_pct || 0), source: p.source || "" };
+    }
   }
 
   const scheduleAuto = await applyScheduleAutoProgress(supabase, milestones, pc, ym);
   for (const row of scheduleAuto.savedRows) {
+    if (row.ym <= ym) {
+      latestPctByMs.set(row.milestoneKey, row.progressPct);
+    }
     if (row.ym === ym) {
       currMap[row.milestoneKey] = { pct: row.progressPct, source: row.source };
     }
@@ -1130,7 +1139,7 @@ export async function applyScheduleDefaultsForProject(projectId: string, ym: str
       const { endYm } = milestonePeriod(ms, pc);
       const endIndex = endYm ? ymToIndex(endYm) : null;
       if (endIndex == null || endIndex >= asOfIndex) continue;
-      const currentPct = Number(currMap[ms.milestone_id]?.pct ?? 0);
+      const currentPct = Number(currMap[ms.milestone_id]?.pct ?? latestPctByMs.get(ms.milestone_id) ?? 0);
       if (currentPct >= 100) continue;
       delayed.push({
         milestoneId: ms.milestone_id,
