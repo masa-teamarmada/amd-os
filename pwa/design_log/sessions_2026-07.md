@@ -1021,3 +1021,38 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 - 月初合意 `今月支払` 0円 bug の既知残タスクはなし。
 - SX 202606 分は現行データ上 202607 支払ではない。もし7月支払にすべきなら、コード不具合ではなく支払条件/契約設定の見直しとして扱う。
 - final closeout inventory 時点の root checkout は clean。途中で見えていた GlobalNav / board nav flyout 由来の別件 dirty は `0221beaa` で解消済み。
+
+---
+
+## 2026-07-10 — 左メニュー `ボード` 全アクティブPJフライアウト表示修正 / v0.39.41-v0.39.45
+
+### コンテキスト
+- まさから「左メニューの `ボード` にマウスオーバーしたら、全アクティブPJがその右にサブリストとして出てくるようにしてほしい」と依頼。
+- `v0.39.41` で実装・本番反映した後、まさから「マウスオーバーしてもホバー出ない」と指摘があった。
+- 本番の in-app ブラウザは認証ゲートで `/auth/login` までしか見られなかったため、コード構造と build/test で原因を切り分け、まさの実画面確認で最終受け入れを確認した。
+
+### 原因
+- `BoardNavLink` のフライアウトを、左ナビのスクロール領域内に `absolute left-full` で置いていた。
+- 親ナビの `overflow-x-hidden` / 縦スクロール枠により、右側へ出した一覧がクリップされ、開いていても見えない状態だった。
+
+### 実装 / 仕様同期
+- `fetchActiveProjectsForNav()` で `projects.status='active'` のPJだけを軽量取得し、`/project/{projectId}/cockpit` へ遷移する一覧として表示。
+- `BoardNavLink` のフライアウトを `createPortal` で `document.body` 直下の `fixed` レイヤーへ移動し、ナビの overflow に切られないようにした。
+- hover / focus で開き、ボード本体の `/dashboard` リンクは維持。マウス移動時に閉じにくいよう短い close delay を入れた。
+- viewport 下端基準の `maxHeight` を持たせ、PJ一覧部分だけをスクロールするようにした。
+- `pwa/design/FEATURE_REGISTRY.md`、`pwa/spec/2-1-pwa-runtime-routes.md`、manual/spec changelog、`pwa/BUGS.md`、critical-ui guard を同期。
+- `BUILD_VERSION` は `v0.39.43` まで上げた。後続の本番 baseline は `v0.39.45`。
+
+### Verification / Deploy
+- `npm run test:critical-ui` passed。
+- `npx tsc --noEmit` passed。
+- targeted `prettier --check` / `eslint` passed。
+- `npm run build` passed。
+- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` で `22e77d9a` / `v0.39.42` を本番反映し、その後 `0221beaa` / `v0.39.43` も本番反映。
+- 本番 `/api/build-info` は最終確認時点で `v0.39.45` / `8799b2d772568b5fe5b247f54b9834e762057234` / dirty=false。ボード修正 commit は ancestor として含まれる。
+- 実画面の hover は、まさが「今度はいけた！」と確認済み。
+
+### Closeout notes
+- ボード hover フライアウトの既知残タスクはなし。
+- 認証後の直接ブラウザ目視は、えいみ側の in-app browser がログイン画面で止まるため未実施。今回の最終受け入れはまさの実画面確認。
+- closeout時点で root checkout には別件 `pwa/src/components/monthly-agreement/MonthlyAgreementExperience.tsx` の未コミット差分が残っている。今回のボード修正には混ぜない。

@@ -1,4 +1,4 @@
-# SESSION MIGRATION PROMPT - AMD OS monthly agreement payout month
+# SESSION MIGRATION PROMPT - AMD OS board nav active PJ flyout
 
 ```text
 cd /Users/masa/projects/AMD/amd-os
@@ -11,51 +11,50 @@ cd /Users/masa/projects/AMD/amd-os
 5. /Users/masa/projects/AMD/amd-os/AGENTS.md
 6. /Users/masa/projects/AMD/amd-os/pwa/AGENTS.md
 7. /Users/masa/projects/AMD/amd-os/pwa/CLAUDE.md
-8. /Users/masa/projects/AMD/amd-os/pwa/design/L2_DATA.md
-9. /Users/masa/projects/AMD/amd-os/pwa/spec/3-14-monthly-work-agreement-current-spec.md
-10. /Users/masa/projects/AMD/amd-os/pwa/manual/2-2-member-workflows-quick-start.md
-11. /Users/masa/projects/AMD/amd-os/pwa/manual/6-6-member-billing-prompts-spec.md
-12. /Users/masa/projects/AMD/amd-os/pwa/manual/7-1-reward-calc-spec.md
-13. /Users/masa/projects/AMD/amd-os/pwa/BUGS.md
-14. /Users/masa/projects/AMD/amd-os/pwa/design_log/sessions_2026-07.md
+8. /Users/masa/projects/AMD/amd-os/pwa/manual/1-1-intro.md
+9. /Users/masa/projects/AMD/amd-os/pwa/spec/1-3-reconstruction-coverage-audit.md
+10. /Users/masa/projects/AMD/amd-os/pwa/spec/2-1-pwa-runtime-routes.md
+11. /Users/masa/projects/AMD/amd-os/pwa/design/FEATURE_REGISTRY.md
+12. /Users/masa/projects/AMD/amd-os/pwa/BUGS.md
+13. /Users/masa/projects/AMD/amd-os/pwa/design_log/sessions_2026-07.md
 
 状態スナップショット:
 - repo: /Users/masa/projects/AMD/amd-os
 - canonical branch: main。新規 branch / worker worktree は禁止。
-- current repo baseline before this docs refresh: `bc6beafa` includes BZM docs and PWA baseline `0221beaa` / `v0.39.43`。
-- current production before this docs refresh: https://amd-os-pwa.vercel.app/api/build-info = v0.39.43 / 0221beaadd3a31b24f4fe2a485332dba7bdbb382 / main / dirty=false。この prompt を受け取ったら最初に再読込して最新 docs commit SHA を確認する。
-- 月初合意の `今月支払` 0円表示 bug は `7ef6f44c fix(pwa): use reward payment month for monthly agreements` で修正済み。後続の `b552c607` / `1cf3dd4a` / `63737267` / `22e77d9a` / `0221beaa` にも含まれる。
-- 修正の本質: `billing_cycles.invoice_ym` はクライアント請求書発行月であり、メンバー支払月ではない。月初合意の `projects[].payoutYen` / `/admin/monthly-work-agreements` の `今月支払` は、PJ/member 支払条件から計算する。
-- read-only 再計算結果: 202607 の今月支払は合計 87,457円。内訳は しん 29,055円、あび 26,227円、こう 25,740円、うめ 6,435円。ZMP 202606 分。
-- SX 202606 分は現行データ上 `invoice_received_60_days` 系の支払条件で 202607 には乗らない。これはコード不具合ではなく、支払条件/契約設定を見直す別判断。
-- canonical root checkout は final closeout inventory 時点で main==origin/main、tracked dirty なし。登録済み worktree は `/Users/masa/projects/AMD/amd-os [main]` のみ。
-- この handoff/closeout 文書更新は docs-only。final chat の commit / production SHA を正とする。
+- PWA board-flyout baseline: `0221beaa fix(pwa): constrain board flyout viewport height` / `v0.39.43` 以降。
+- current production at handoff: https://amd-os-pwa.vercel.app/api/build-info = `v0.39.45` / `8799b2d772568b5fe5b247f54b9834e762057234` / `main` / `dirty=false`。ボード修正 commit は ancestor として含まれる。
+- root checkout had unrelated dirty at handoff: monthly-agreement UI/docs/guard files, iOS Settings/BZM resources, and an untracked monthly-agreement mock preview page。これは board/nav 作業には混ぜない。
+- worktree inventory showed one extra clean detached temp worktree under `/private/tmp/.../wt-ch7`, HEAD `cd195848`。`origin/main` に含まれるが、別BZM lane由来の可能性があるため勝手に削除していない。
+- direct browser visual verification from eimi's in-app browser was blocked by auth login. Masa verified the logged-in UI and said: 「今度はいけた！」。
 
 完了内容:
-- `/admin/monthly-work-agreements` と月初合意 snapshot の支払月判定を修正。
-- `payoutScheduleEntryFromCycle` と `buildMonthlyWorkAgreementBundle` が、報酬支払説明では `invoice_ym` を無視し、PJ/member 支払条件で支払月を決めるようになった。
-- 明細は `monthly_reward_payout` を優先し、なければ `reward_summary_json.members[]` を読む既存方針は維持。
-- `pwa/spec/3-14-monthly-work-agreement-current-spec.md`、`pwa/manual/6-6-member-billing-prompts-spec.md`、manual/spec changelog に、`invoice_ym` は請求書発行月で支払月ではないと明記済み。
-- 後続 UI commit で、月初合意の必須確認は `発注条件` と `予定額` の2点へ整理され、支払い状況/未払残/pt は参考情報へ分離済み。
+- 左メニュー `ボード` hover/focus で、全アクティブPJのサブリストを右側に出す導線を実装済み。
+- 初回 `v0.39.41` ではフライアウトが左ナビの scroll/overflow 領域内にあり、開いても右側がクリップされて見えなかった。
+- `22e77d9a` で `createPortal` を使い、`board-nav-flyout` を `document.body` 直下の fixed layer へ移した。
+- `0221beaa` で viewport 下端基準の `maxHeight` を持たせ、PJ一覧部分だけがスクロールするようにした。
+- `fetchActiveProjectsForNav()` は `projects.status='active'` の軽量一覧を読み、各行は `/project/{projectId}/cockpit` へリンクする。
+- ボード本体の `/dashboard` リンクは維持。hover / focus で開き、マウス移動時に閉じにくい短い close delay が入っている。
+- `pwa/design/FEATURE_REGISTRY.md`、`pwa/spec/2-1-pwa-runtime-routes.md`、`pwa/manual/2-1-member-quick-start.md`、manual/spec changelog、`pwa/BUGS.md`、`pwa/design_log/sessions_2026-07.md` に同期済み。
+- `pwa/scripts/check_pwa_critical_ui.cjs` は `アクティブPJ`、`fetchActiveProjectsForNav`、`board-nav-flyout`、`createPortal` を guard する。
 
 検証済み:
-- `npx tsc --noEmit --pretty false` passed。
-- `npm run build` passed。
-- deploy script 内の `npm run test:critical-ui` passed。
-- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` で `7ef6f44c` を main push / Vercel production 反映し、当時 `v0.39.40` / dirty=false を確認。
-- その後 PWA production baseline は `0221beaa` / `v0.39.43`。修正 commit は ancestor。
-- `npm run lint` は実行したが、既存の repo-wide lint error で失敗。今回触った月初合意支払月ロジック由来ではない。
+- Board-flyout implementation sequence: `npm run test:critical-ui`、`npx tsc --noEmit`、`npm run build` passed。
+- Closeout docs refresh: `npm run test:critical-ui` passed、`git diff --cached --check` passed。
+- `npx prettier --check` は mixed docs set で formatting 指摘あり。別laneの未stage hunkが同居していたため、この closeout では自動整形していない。
+- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` で `22e77d9a` / `v0.39.42` を本番反映確認。
+- `0221beaa` / `v0.39.43` も production `/api/build-info` で確認。
+- 後続 main build `v0.39.45` でも board flyout commits は ancestor として含まれる。
 
 次タスク:
-- 月初合意 `今月支払` bug は既知残なし。
-- まさが「SXも7月に払うべき」と見るなら、SX/PJ台帳の支払条件を確認し、契約/実運用に合わせる別タスクとして扱う。コード側で勝手にZMPと同じ扱いにしない。
-- `/admin/monthly-work-agreements?ym=202607` を再確認するときは、まず production build-info が current origin/main と一致するかを見る。その後、ZMP 202606 の4名支払が表示されるかを確認する。
-- GlobalNav / board nav flyout の local dirty は `0221beaa` で解消済み。続きがあるなら、最新 main から新しい差分として始める。
+- Board hover flyout の既知残はなし。
+- もし追加修正するなら、`pwa/src/components/nav/GlobalNav.tsx` の `BoardNavLink` を起点にし、親ナビの overflow に切られない上位レイヤー表示を維持する。
+- monthly-agreement / iOS / BZM dirty は別lane。触るなら `git status -sb --untracked-files=all` と対象pathの diff を読んで、その lane として target stage / commit / deploy する。
+- clean detached BZM temp worktree `/private/tmp/.../wt-ch7` を消す場合は、別lane owner確認またはまさ承認を取る。HEAD `cd195848` は main ancestor。
 
 運用ルール:
 - まず /Users/masa/projects/AGENTS.common.md から読む。AMD OS では root/pwa AGENTS/CLAUDE と該当 spec/manual も先読みする。
 - PWA本番反映は main push = Vercel自動deploy。直接 `npx vercel deploy` は使わない。必要な時は `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh`。
 - dirtyを理由にbranch/worktreeを作らない。既存dirtyは戻さず、今回の対象ファイルだけ明示 stage する。`git add .`は禁止。
-- finance / payment / agreement では、DBフィールド名を実務の意味と混同しない。請求書発行月、入金月、メンバー支払月、稼働月はそれぞれ別物として、契約・実データ・manual/specを見てから判断する。
+- hover/flyout/menu系UIは、親の `overflow`、scroll container、stacking context を必ず確認する。サイドバー外へ出すUIは親内 `absolute` ではなく上位レイヤーを基本にする。
 - closeout時は `bash /Users/masa/.codex/skills/closeout/scripts/closeout_inventory.sh /Users/masa/projects/AMD/amd-os`、production `/api/build-info`、worktree/branch、dirty classification を必ず取り直す。
 ```

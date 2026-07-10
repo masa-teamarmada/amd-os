@@ -1,75 +1,78 @@
 # AMD OS Handoff
 
-Last updated: 2026-07-10 16:02 JST
+Last updated: 2026-07-10 17:56 JST
 Target: `/Users/masa/projects/AMD/amd-os`
-Topic: 月初合意 `今月支払` 0円表示の修正 / closeout
+Topic: 左メニュー `ボード` の全アクティブPJフライアウト修正 / closeout
 
 ## Summary
 
-- `/admin/monthly-work-agreements?ym=202607` の一覧で `今月支払` が全員 0 円に見えていた件は、本番修正済み。
-- 原因は、月初合意の支払説明で `billing_cycles.invoice_ym` (= クライアント請求書発行月) をメンバー支払月として優先していたこと。ZMP 202606 の6月稼働分が 202607 支払一覧から落ちていた。
-- 修正 commit: `7ef6f44c fix(pwa): use reward payment month for monthly agreements`。支払月は PJ/member 支払条件から計算し、`invoice_ym` では上書きしない。
-- 後続 commit `b552c607` / `1cf3dd4a` で、月初合意モーダルの必須確認を `発注条件` と `予定額` の2点へ寄せ、支払い状況は参考情報へ分離済み。
-- PWA product baseline: `v0.39.43` / `0221beaadd3a31b24f4fe2a485332dba7bdbb382` / `main` / `dirty=false`。この handoff docs refresh 後は、最初に production `/api/build-info` を再読込する。
-- read-only 再計算では 202607 の `今月支払` は合計 `87,457円`。内訳: しん `29,055`、あび `26,227`、こう `25,740`、うめ `6,435`。すべて ZMP 202606 分。
-- SX 202606 分は現行データ上 `invoice_received_60_days` 系の支払条件で 202607 には乗らない。もし「SXも7月に払うべき」なら、コード不具合ではなく支払条件/契約設定の見直しタスク。
-- 詳細ログ: `pwa/design_log/sessions_2026-07.md` の `2026-07-10 — 月初合意 今月支払0円表示の修正 / v0.39.40-v0.39.43`。
+- 左メニュー `ボード` hover/focus で、全アクティブPJを右側サブリストとして表示する導線は本番反映済み。
+- 初回実装 `v0.39.41` では、フライアウトが左ナビのスクロール領域内にあり、親の overflow で右側がクリップされて見えなかった。
+- 修正 commit: `22e77d9a fix(pwa): unclip board nav flyout`。`createPortal` で `document.body` 直下の固定レイヤーへ移し、ナビ内 overflow に切られないようにした。
+- 仕上げ commit: `0221beaa fix(pwa): constrain board flyout viewport height`。画面下端ではPJ一覧部分だけがスクロールする高さ制御を追加。
+- 実画面の hover は、まさが「今度はいけた！」と確認済み。
+- 最終確認時点の production `/api/build-info`: `v0.39.45` / `8799b2d772568b5fe5b247f54b9834e762057234` / `main` / `dirty=false`。ボード修正 commit は ancestor として含まれる。
+- 詳細ログ: `pwa/design_log/sessions_2026-07.md` の `2026-07-10 — 左メニュー ボード 全アクティブPJフライアウト表示修正 / v0.39.41-v0.39.45`。
 
 ## Repo State
 
 - Canonical repo: `/Users/masa/projects/AMD/amd-os`
 - Branch policy: `main` only。今回も新規 branch は作っていない。
-- Current main includes `bc6beafa docs(bzm): Book A Ch4 L3 初版...` and PWA baseline `0221beaa fix(pwa): constrain board flyout viewport height` before this docs refresh.
-- Local main vs origin/main: closeout inventory 時点で `ahead 0 / behind 0`。
-- Worktrees: registered worktree は `/Users/masa/projects/AMD/amd-os [main]` のみ。
-- This handoff/closeout doc update is docs-only; final chat reports the exact pushed SHA after deploy.
+- Current local/main before this handoff docs commit: `0665b5e6 docs(bzm): Book A Ch7 ステージ3-4 完了 — draft v1 17,977字・機械検査0件、verify 起動`; `origin/main` aligned before staging this docs refresh.
+- PWA board-flyout baseline: `0221beaa` / `v0.39.43` 以降。
+- This handoff/closeout docs refresh is docs-only; final chat reports the exact pushed SHA after commit/push.
+- Worktree inventory showed one extra clean detached temp worktree for BZM Ch7 under `/private/tmp/.../wt-ch7`; its HEAD `cd195848` is already an ancestor of `origin/main`. It was not created by this session and was not removed without explicit cleanup approval.
 
 ## Dirty State
 
-Monthly agreement payout fix: none. Accepted code/docs are in `origin/main`.
+Board flyout fix: none. Accepted code/docs are in `origin/main`.
 
-Canonical root checkout is clean at final closeout. Earlier GlobalNav flyout dirty was resolved and pushed as `0221beaa`.
+Known unrelated dirty at handoff time:
 
 | path | status | class | owner guess | resolution action | risk |
 |---|---:|---|---|---|---|
-| none | clean | n/a | n/a | n/a | none |
+| `pwa/src/components/monthly-agreement/MonthlyAgreementExperience.tsx` | M | other-worker | monthly-agreement UI lane | do not stage in board-flyout handoff; owner should finish/commit or explicitly revert | medium |
+| `pwa/manual/*`, `pwa/spec/*`, `pwa/scripts/check_pwa_critical_ui.cjs`, `pwa/src/lib/*` | M | other-worker | monthly-agreement / guard / infra lane | leave untouched; inspect and stage only within that lane | medium |
+| `ios/AMDOS.xcodeproj/project.pbxproj`, `ios/AMDOS/Features/Settings/SettingsView.swift`, `ios/AMDOS/Resources/BZM/*` | M / untracked | other-worker | iOS / BZM resource lane | leave untouched; do not fold into board-flyout closeout | medium |
+| `pwa/src/app/mock/monthly-agreement-layout-preview/page.tsx` | untracked | other-worker | monthly-agreement UI preview lane | leave untouched | low |
 
 ## Verification / Deploy
 
-Monthly agreement payout fix:
-
-- Read relevant docs first: `/Users/masa/projects/AGENTS.common.md`, root/pwa `AGENTS.md` / `CLAUDE.md`, `pwa/design/L2_DATA.md`, `pwa/spec/3-14-monthly-work-agreement-current-spec.md`, `pwa/manual/6-6-member-billing-prompts-spec.md`, `pwa/manual/6-5-admin-payouts-reward-notice-spec.md`, `pwa/manual/7-1-reward-calc-spec.md`。
-- Confirmed production before fix had the same bug: ZMP 202606 rewards existed but were omitted from 202607 monthly agreement list.
-- `npx tsc --noEmit --pretty false` passed.
-- `npm run build` passed.
-- `npm run test:critical-ui` passed during deploy script.
-- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` pushed `7ef6f44c` and confirmed production `v0.39.40` / dirty=false.
-- Later main/prod moved to `0221beaa` / `v0.39.43`; `7ef6f44c` is an ancestor and the fix remains included.
-- `npm run lint` was attempted in the original checkout and failed on pre-existing repo-wide lint issues unrelated to this fix.
+- Board-flyout implementation verification included `npm run test:critical-ui`, `npx tsc --noEmit`, and `npm run build` during the fix/deploy sequence.
+- Closeout docs refresh verification: `npm run test:critical-ui` passed and `git diff --cached --check` passed.
+- `npx prettier --check` on the mixed docs set flagged formatting; it was not auto-fixed because the same files also contained unrelated unstaged hunks from other lanes.
+- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` ran for `22e77d9a` and confirmed production `v0.39.42`.
+- `0221beaa` / `v0.39.43` was also observed live via production `/api/build-info`.
+- Later production moved to `v0.39.45`; board flyout commits remain included.
+- Direct auth-gated browser verification was not possible from the in-app browser because it stopped at `/auth/login`. The final visual acceptance came fromまさ's logged-in browser report.
 
 ## Unresolved Tasks
 
-- 月初合意 `今月支払` 0円表示 bug: none known.
-- Potential policy task: SX 202606 報酬を 202607 に払うべきか確認する。現行データは7月支払ではない扱い。
-- Dirty root checkout: none at final closeout.
+- Board hover flyout: none known.
+- Optional cleanup: decide whether to remove the clean detached BZM temp worktree under `/private/tmp/.../wt-ch7`. It is main-aligned but likely belongs to a separate BZM lane, so it was not removed in this handoff.
+- Unrelated monthly-agreement dirty file remains owned by that lane.
 
 ## First Next Action
 
-If continuing monthly agreement/payment work, first re-check:
+If continuing board/nav work:
 
-1. production `/api/build-info` equals current `origin/main`;
-2. `/admin/monthly-work-agreements?ym=202607` rows show ZMP 202606 payouts for しん/あび/こう/うめ;
-3. SX payment timing is a product/contract decision, not silently folded into this bug fix.
+1. Read production `/api/build-info` and confirm it is at least `v0.39.45` or a later main build.
+2. Inspect `pwa/src/components/nav/GlobalNav.tsx`, especially `BoardNavLink`, `data-testid="board-nav-flyout"`, and `fetchActiveProjectsForNav`.
+3. If changing flyout geometry, keep it outside the nav scroll container and keep the dashboard link behavior intact.
 
-If continuing GlobalNav / board nav work, start from committed main after `0221beaa`; there is no local dirty carry-forward from this closeout.
+If doing general closeout:
+
+1. Run `bash /Users/masa/.codex/skills/closeout/scripts/closeout_inventory.sh /Users/masa/projects/AMD/amd-os`.
+2. Classify any unrelated dirty files separately; do not mix monthly-agreement UI changes into board/nav commits.
 
 ## Pointers
 
-- Logic: `pwa/src/lib/monthly-work-agreement.ts`
-- Admin list API: `pwa/src/app/api/admin/monthly-work-agreements/route.ts`
-- UI: `pwa/src/components/monthly-agreement/MonthlyAgreementExperience.tsx`
-- Spec: `pwa/spec/3-14-monthly-work-agreement-current-spec.md`
-- Manual: `pwa/manual/2-2-member-workflows-quick-start.md`, `pwa/manual/6-6-member-billing-prompts-spec.md`, `pwa/manual/7-1-reward-calc-spec.md`
+- UI: `pwa/src/components/nav/GlobalNav.tsx`
+- Data helper: `pwa/src/lib/supabase-data.ts`
+- Critical UI guard: `pwa/scripts/check_pwa_critical_ui.cjs`
+- Route/spec: `pwa/spec/2-1-pwa-runtime-routes.md`
+- Feature registry: `pwa/design/FEATURE_REGISTRY.md`
+- Manual: `pwa/manual/2-1-member-quick-start.md`
 - Changelog: `pwa/manual/9-3-appendix-changelog.md`, `pwa/spec/6-1-appendix-changelog.md`
 - Process lessons: `pwa/BUGS.md`
 - Session log: `pwa/design_log/sessions_2026-07.md`
