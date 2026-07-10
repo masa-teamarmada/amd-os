@@ -274,7 +274,7 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
   { slug: "book-a-ch-3", title: "第3章 — 評価問題の定式化 — Valuation の限界と期待値分解 P×R×S", summary: "DCF が Before Zero で壊れる四つの壁を示し、評価問題を E[V] = P×R×S へ定式化し直す。乗法/加重和/補完性の3層対応表を導入。26p。起草中 (v1 draft)。", status: "in-progress" },
   { slug: "book-a-ch-4", title: "第4章 — 潜在規模 P — 市場の天井と証拠の質", summary: "TAM は最も盛られやすい数字。天井は主張でなく証拠の質で刻む rubric (第三者データ/ユニットエコノミクス/経路)、P(t)=max U(t) による天井の書き換え、止まる天井と落とすべき天井。26p。起草中 (v1 draft)。", status: "in-progress" },
   { slug: "book-a-ch-5", title: "第5章 — 到達度 R — 多軸 readiness と律速の発見", summary: "XRL 5軸 (TRL/BRL/GRL/SRL/HRL) と応用×組織マトリクス TRL(a,o,t)、事業が依存するセルの min で読む律速診断。「研究室で作れる≠自社で作れる」の定量化。28p。起草中 (v1 draft)。", status: "in-progress" },
-  { slug: "book-a-ch-6", title: "第6章 — 生存の静学 — 生存条件式と創業者機能 F-CES", summary: "死因第一位「本命が整う前に資金と選択肢が尽きる」を生存条件式 B−R_net≤F で定式化。F 内部のみ CES 補完 (資質×実行力は両方必須) — 3層対応表の中核回。30p。", status: "not-started" },
+  { slug: "book-a-ch-6", title: "第6章 — 生存の静学 — 生存条件式と創業者機能 F-CES", summary: "死因第一位「本命が整う前に資金と選択肢が尽きる」を生存条件式 B−R_net≤F で定式化。F 内部のみ CES 補完 (資質×実行力は両方必須) — 3層対応表の中核回。30p。起草中 (v1 draft)。", status: "in-progress" },
   { slug: "book-a-ch-7", title: "第7章 — マクロ追い風の計測 — Triple Helix と投入シグナル σ_SU", summary: "「追い風」を雰囲気でなく観測量にする: σ_SU の Triple Helix Cobb-Douglas 構成と状態空間モデルの直感。ハイプと真の進展の識別。28p。", status: "not-started" },
   { slug: "book-a-ch-8", title: "第8章 — 生存の動学 — 戦略余力と first-passage 生存確率", summary: "(x, y) 平面と y = 主導権を保って走れる残り月数 (5成分・単位=月)。S = Pr(τ_x < τ_y) の first-passage 定式化と Excel モンテカルロ。軌跡4型 (鋸歯/ゾンビ/即落/自走)。32p。起草中 (v1 draft)。", status: "in-progress" },
   { slug: "book-a-ch-9", title: "第9章 — 統合スコアと律速診断 — 乗法モデルの設計と校正", summary: "9軸 Cobb-Douglas 乗法 (+1 シフト) 統合と律速診断 (次の一手の機械的抽出)。なぜ足し算でなく掛け算か。採点ワークシートで中間課題に接続。28p。", status: "not-started" },
