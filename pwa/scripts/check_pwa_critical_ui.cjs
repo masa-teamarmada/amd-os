@@ -1032,6 +1032,8 @@ expectIncludes("src/components/monthly-agreement/MonthlyAgreementExperience.tsx"
   "この月の支払いには進めません",
   "修正要望",
   "参考情報",
+  "PJごとの支払い状況",
+  "monthly-agreement-payment-details",
   "担当内容・到達目標の詳細",
   "予定額の根拠",
   "支払い予定・未払残",
@@ -1054,6 +1056,9 @@ expectNotIncludes("src/components/monthly-agreement/MonthlyAgreementExperience.t
   "今月の点数",
   "MSの点数",
   "直してほしいこと",
+]);
+expectPattern("src/components/monthly-agreement/MonthlyAgreementExperience.tsx", [
+  /onClick=\{handleAgree\}[\s\S]{0,1800}修正要望/,
 ]);
 expectIncludes("src/components/monthly-agreement/MonthlyAgreementGateOverlay.tsx", [
   "onBackdropClick",

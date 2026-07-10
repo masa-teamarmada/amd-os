@@ -331,7 +331,7 @@ export function MonthlyAgreementExperience({
             className={`rounded-lg border ${isModal ? "min-w-[360px] flex-[1_1_520px] p-2.5 md:max-w-[640px]" : "p-4"} ${statusClass(bundle.status)}`}
           >
             <div
-              className={`${isModal ? "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2" : "flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"}`}
+              className={`${isModal ? "flex flex-col gap-2 sm:grid sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center" : "flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"}`}
             >
               <div
                 className={`flex min-w-0 items-start ${isModal ? "gap-2" : "gap-2.5"}`}
@@ -354,24 +354,7 @@ export function MonthlyAgreementExperience({
                   </p>
                 </div>
               </div>
-              <div className="flex shrink-0 items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRequestMessage(null);
-                    setRevisionOpen(true);
-                  }}
-                  disabled={!bundle.canAgree}
-                  className={`${isModal ? "h-8 px-2.5 text-xs" : "px-3 py-2 text-sm"} inline-flex items-center justify-center gap-1.5 rounded-md border border-current/30 bg-white/65 font-semibold disabled:cursor-not-allowed disabled:opacity-50`}
-                  title={
-                    !bundle.canAgree
-                      ? bundle.exclusionReason || "本人だけが修正要望を送れます"
-                      : "担当内容・到達目標、または予定額の修正要望を送る"
-                  }
-                >
-                  <Send className="size-3.5" />
-                  修正要望
-                </button>
+              <div className="flex shrink-0 self-end items-center gap-1.5 sm:self-auto">
                 <button
                   type="button"
                   onClick={handleAgree}
@@ -398,6 +381,23 @@ export function MonthlyAgreementExperience({
                     : bundle.status === "not_required"
                       ? "確認不要"
                       : "確認して合意"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRequestMessage(null);
+                    setRevisionOpen(true);
+                  }}
+                  disabled={!bundle.canAgree}
+                  className={`${isModal ? "h-7 px-2 text-[11px]" : "h-8 px-2.5 text-xs"} inline-flex items-center justify-center gap-1 rounded-md border border-current/25 bg-transparent font-semibold opacity-75 transition-opacity hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-40`}
+                  title={
+                    !bundle.canAgree
+                      ? bundle.exclusionReason || "本人だけが修正要望を送れます"
+                      : "担当内容・到達目標、または予定額の修正要望を送る"
+                  }
+                >
+                  <Send className="size-3" />
+                  修正要望
                 </button>
               </div>
             </div>
@@ -609,7 +609,10 @@ export function MonthlyAgreementExperience({
         </div>
 
         {isModal && (
-          <details className="w-full rounded-lg border border-[#e5e5e7] bg-white">
+          <details
+            data-testid="monthly-agreement-payment-details"
+            className="group w-full overflow-hidden rounded-lg border border-[#e5e5e7] bg-white"
+          >
             <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 px-2.5 py-2">
               <div>
                 <span className="text-[10px] font-semibold text-[#86868b]">
@@ -619,77 +622,131 @@ export function MonthlyAgreementExperience({
                   支払い状況と対象PJ
                 </h2>
               </div>
-              <span className="text-[11px] font-semibold text-[#007aff]">
+              <span className="text-[11px] font-semibold text-[#007aff] group-open:hidden">
                 開く
+              </span>
+              <span className="hidden text-[11px] font-semibold text-[#007aff] group-open:inline">
+                閉じる
               </span>
             </summary>
             <div className="border-t border-[#e5e5e7] p-2.5">
               <p className="mb-2 text-[11px] leading-relaxed text-[#6e6e73]">
                 支払い済み・支払予定・未払残は、合意する担当内容・到達目標や予定額そのものではなく、支払いの見通しを知るための情報です。
               </p>
-              <div className="flex flex-wrap gap-2">
-                <MetricCard
-                  compact
-                  label="対象PJ"
-                  value={`${bundle.snapshot.totals.projectCount}`}
-                  hintId="monthly-agreement.project-count"
-                />
-                <MetricCard
-                  compact
-                  label="支払済"
-                  value={formatYen(paidActualYen)}
-                  hintId="monthly-agreement.payout"
-                />
+              <dl className="grid gap-x-5 gap-y-1.5 text-[11px] sm:grid-cols-2">
+                <div className="flex items-baseline justify-between gap-3 border-b border-[#f0f0f2] pb-1">
+                  <dt className="text-[#6e6e73]">
+                    対象PJ <Hint id="monthly-agreement.project-count" />
+                  </dt>
+                  <dd className="font-semibold tabular-nums text-[#1d1d1f]">
+                    {bundle.snapshot.totals.projectCount}件
+                  </dd>
+                </div>
+                <div className="flex items-baseline justify-between gap-3 border-b border-[#f0f0f2] pb-1">
+                  <dt className="text-[#6e6e73]">
+                    支払済 <Hint id="monthly-agreement.payout" />
+                  </dt>
+                  <dd className="font-semibold tabular-nums text-[#1d1d1f]">
+                    {formatYen(paidActualYen)}
+                  </dd>
+                </div>
                 {unverifiedPaidYen > 0 && (
-                  <MetricCard
-                    compact
-                    label="確認中"
-                    value={formatYen(unverifiedPaidYen)}
-                    emphasis
-                    hintId="monthly-agreement.payout"
-                  />
+                  <div className="flex items-baseline justify-between gap-3 border-b border-[#f0f0f2] pb-1">
+                    <dt className="text-[#6e6e73]">支払い確認中</dt>
+                    <dd className="font-semibold tabular-nums text-amber-700">
+                      {formatYen(unverifiedPaidYen)}
+                    </dd>
+                  </div>
                 )}
-                <MetricCard
-                  compact
-                  label="支払予定"
-                  value={formatYen(futurePayoutYen)}
-                  hintId="monthly-agreement.payout"
-                />
+                <div className="flex items-baseline justify-between gap-3 border-b border-[#f0f0f2] pb-1">
+                  <dt className="text-[#6e6e73]">これから支払う予定</dt>
+                  <dd className="font-semibold tabular-nums text-[#1d1d1f]">
+                    {formatYen(futurePayoutYen)}
+                  </dd>
+                </div>
                 {totalStockYen > 0 && (
-                  <MetricCard
-                    compact
-                    label="未払残"
-                    value={formatYen(totalStockYen)}
-                    emphasis
-                    hintId="monthly-agreement.stock"
-                  />
+                  <div className="flex items-baseline justify-between gap-3 border-b border-[#f0f0f2] pb-1">
+                    <dt className="text-[#6e6e73]">
+                      未払残 <Hint id="monthly-agreement.stock" />
+                    </dt>
+                    <dd className="font-semibold tabular-nums text-amber-700">
+                      {formatYen(totalStockYen)}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+              <div className="mt-3 border-t border-[#e5e5e7] pt-2">
+                <p className="text-[10px] font-semibold text-[#86868b]">
+                  PJごとの支払い状況
+                </p>
+                {bundle.snapshot.projects.length === 0 ? (
+                  <p className="mt-1.5 text-[11px] text-[#6e6e73]">
+                    対象PJはありません
+                  </p>
+                ) : (
+                  <div className="mt-1 divide-y divide-[#e5e5e7]">
+                    {bundle.snapshot.projects.map((project) => (
+                      <div
+                        key={project.projectId}
+                        className="grid gap-x-3 gap-y-1 py-2 sm:grid-cols-[minmax(120px,1fr)_auto_auto_auto] sm:items-baseline"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-[11px] font-semibold text-[#1d1d1f]">
+                            {project.projectName}
+                          </p>
+                          <p className="mt-0.5 text-[10px] text-[#86868b]">
+                            請求 {formatBillingStatus(project.billingStatus)}
+                          </p>
+                        </div>
+                        <p className="text-[10px] text-[#6e6e73]">
+                          今月支払{" "}
+                          <span className="font-semibold tabular-nums text-[#3c3c43]">
+                            {formatYen(project.payoutYen)}
+                          </span>
+                        </p>
+                        <p className="text-[10px] text-[#6e6e73]">
+                          {project.paymentYm
+                            ? `${formatYm(project.paymentYm)}支払予定`
+                            : "支払予定"}{" "}
+                          <span className="font-semibold tabular-nums text-[#3c3c43]">
+                            {formatYen(project.currentCyclePayoutYen)}
+                          </span>
+                        </p>
+                        <p className="text-[10px] text-[#6e6e73]">
+                          未払残{" "}
+                          <span className="font-semibold tabular-nums text-amber-700">
+                            {formatYen(project.stockYen)}
+                          </span>
+                        </p>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
           </details>
         )}
 
-        <section
-          className={`flex flex-col items-start ${isModal ? "gap-3" : "gap-4"}`}
-        >
-          {bundle.snapshot.projects.length === 0 ? (
-            <div className="rounded-lg border border-[#e5e5e7] bg-white p-5 text-sm text-[#6e6e73]">
-              {bundle.exclusionReason ||
-                `${formatYm(bundle.ym)}に参加中のプロジェクトはありません。`}
-            </div>
-          ) : (
-            bundle.snapshot.projects.map((project) => (
-              <ProjectAgreementCard
-                key={project.projectId}
-                project={project}
-                ym={bundle.ym}
-                viewerIsAdmin={Boolean(bundle.member.isAdmin)}
-                linksInNewTab={isModal}
-                compact={isModal}
-              />
-            ))
-          )}
-        </section>
+        {!isModal && (
+          <section className="flex flex-col items-start gap-4">
+            {bundle.snapshot.projects.length === 0 ? (
+              <div className="rounded-lg border border-[#e5e5e7] bg-white p-5 text-sm text-[#6e6e73]">
+                {bundle.exclusionReason ||
+                  `${formatYm(bundle.ym)}に参加中のプロジェクトはありません。`}
+              </div>
+            ) : (
+              bundle.snapshot.projects.map((project) => (
+                <ProjectAgreementCard
+                  key={project.projectId}
+                  project={project}
+                  ym={bundle.ym}
+                  viewerIsAdmin={Boolean(bundle.member.isAdmin)}
+                  linksInNewTab={false}
+                />
+              ))
+            )}
+          </section>
+        )}
 
         <div className="flex justify-end">
           <button
@@ -715,20 +772,6 @@ function AgreementFlowRail({
   projects: MonthlyWorkAgreementProject[];
   totalExpectedRewardYen: number | null | undefined;
 }) {
-  const steps = [
-    {
-      key: "agreement",
-      icon: <FileCheck2 className="size-4" />,
-      label: "担当内容・到達目標",
-      body: "下のPJごとの詳細で、担当する内容と今月の到達目標に違いがないか確認する",
-    },
-    {
-      key: "reward",
-      icon: <ListChecks className="size-4" />,
-      label: "予定額",
-      body: "この枠の合計とPJごとの金額だけを、合意前に確認する",
-    },
-  ];
   return (
     <section
       className={`${compact ? "w-full max-w-full p-2.5" : "p-4"} rounded-lg border border-[#e5e5e7] bg-white`}
@@ -745,7 +788,7 @@ function AgreementFlowRail({
           <p
             className={`${compact ? "mt-0.5 text-[11px]" : "mt-1 text-[12px]"} text-[#6e6e73]`}
           >
-            担当内容・到達目標と、下の予定額に問題がなければ合意してください。pt・担当割合・支払い予定は参考情報です。
+            各PJの担当内容・今月の到達目標と、予定額に問題がなければ合意してください。pt・担当割合・支払い予定は参考情報です。
           </p>
         </div>
       </div>
@@ -756,68 +799,119 @@ function AgreementFlowRail({
             : "grid gap-2 md:grid-cols-2"
         }
       >
-        {steps.map((step) => (
-          <div
-            key={step.key}
-            className={`relative rounded-md border border-[#e5e5e7] bg-[#fbfbfd] ${compact ? "min-w-0 p-2" : "p-3"}`}
-          >
-            <div className="flex items-center gap-2 text-[12px] font-semibold text-[#1d1d1f]">
-              <span
-                className={`inline-flex ${compact ? "size-6" : "size-7"} items-center justify-center rounded-full bg-white text-[#007aff] ring-1 ring-[#d1d1d6]`}
-              >
-                {step.icon}
-              </span>
-              <span className="min-w-0 truncate">{step.label}</span>
-              <span className="ml-auto rounded-full bg-sky-100 px-1.5 py-0.5 text-[9px] font-semibold text-sky-800">
-                必須
-              </span>
-            </div>
-            {step.key === "reward" ? (
-              <dl className={`${compact ? "mt-1.5" : "mt-2"} space-y-1`}>
-                <div className="flex items-baseline justify-between gap-3 rounded-md bg-white px-2 py-1">
-                  <dt className="text-[10px] font-semibold text-[#6e6e73]">
-                    予定額合計
-                  </dt>
-                  <dd className="text-[15px] font-semibold tabular-nums text-[#1d1d1f]">
-                    {formatYen(totalExpectedRewardYen)}
-                  </dd>
-                </div>
-                <div className="overflow-hidden rounded-md border border-[#dbeafe] bg-white">
-                  <p className="border-b border-[#dbeafe] px-2 py-1 text-[10px] font-semibold text-sky-800">
-                    PJごとの予定額
+        <section
+          className={`relative min-w-0 rounded-md border border-[#e5e5e7] bg-[#fbfbfd] ${compact ? "p-2" : "p-3"}`}
+        >
+          <div className="flex items-center gap-2 text-[12px] font-semibold text-[#1d1d1f]">
+            <span
+              className={`inline-flex ${compact ? "size-6" : "size-7"} items-center justify-center rounded-full bg-white text-[#007aff] ring-1 ring-[#d1d1d6]`}
+            >
+              <FileCheck2 className="size-4" />
+            </span>
+            <span className="min-w-0 truncate">担当内容・到達目標</span>
+            <span className="ml-auto rounded-full bg-sky-100 px-1.5 py-0.5 text-[9px] font-semibold text-sky-800">
+              必須
+            </span>
+          </div>
+          {projects.length === 0 ? (
+            <p
+              className={`${compact ? "mt-1.5" : "mt-2"} text-[11px] text-[#6e6e73]`}
+            >
+              対象PJはありません
+            </p>
+          ) : (
+            <div
+              className={`${compact ? "mt-1.5" : "mt-2"} divide-y divide-[#e5e5e7] border-t border-[#e5e5e7]`}
+            >
+              {projects.map((project) => (
+                <div key={project.projectId} className="py-1.5">
+                  <p className="text-[11px] font-semibold text-[#1d1d1f]">
+                    {project.projectName}
                   </p>
-                  {projects.length === 0 ? (
-                    <p className="px-2 py-1.5 text-[11px] text-[#6e6e73]">
-                      対象PJはありません
+                  {project.milestones.length === 0 ? (
+                    <p className="mt-0.5 text-[10px] text-amber-700">
+                      担当内容・到達目標が未登録です
                     </p>
                   ) : (
-                    <div className="divide-y divide-[#e5e5e7]">
-                      {projects.map((project) => (
-                        <div
-                          key={project.projectId}
-                          className="flex items-center justify-between gap-3 px-2 py-1.5 text-[11px]"
+                    <div className="mt-1 space-y-1.5">
+                      {project.milestones.map((milestone) => (
+                        <dl
+                          key={milestone.milestoneId}
+                          className="grid grid-cols-[58px_minmax(0,1fr)] gap-x-2 gap-y-0.5 text-[10px] leading-relaxed"
                         >
-                          <span className="min-w-0 truncate font-semibold text-[#3c3c43]">
-                            {project.projectName}
-                          </span>
-                          <span className="whitespace-nowrap font-semibold tabular-nums text-[#1d1d1f]">
-                            {formatYen(project.expectedRewardYen)}
-                          </span>
-                        </div>
+                          <dt className="font-semibold text-[#6e6e73]">
+                            担当内容
+                          </dt>
+                          <dd className="break-words text-[#3c3c43]">
+                            {milestone.taskDescription || milestone.title}
+                          </dd>
+                          <dt className="font-semibold text-[#6e6e73]">
+                            到達目標
+                          </dt>
+                          <dd className="break-words font-semibold text-[#1d1d1f]">
+                            {milestone.title}
+                          </dd>
+                        </dl>
                       ))}
                     </div>
                   )}
                 </div>
-              </dl>
-            ) : (
-              <p
-                className={`${compact ? "mt-1" : "mt-2"} text-[11px] leading-relaxed text-[#6e6e73]`}
-              >
-                {step.body}
-              </p>
-            )}
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section
+          className={`relative min-w-0 rounded-md border border-[#e5e5e7] bg-[#fbfbfd] ${compact ? "p-2" : "p-3"}`}
+        >
+          <div className="flex items-center gap-2 text-[12px] font-semibold text-[#1d1d1f]">
+            <span
+              className={`inline-flex ${compact ? "size-6" : "size-7"} items-center justify-center rounded-full bg-white text-[#007aff] ring-1 ring-[#d1d1d6]`}
+            >
+              <ListChecks className="size-4" />
+            </span>
+            <span className="min-w-0 truncate">予定額</span>
+            <span className="ml-auto rounded-full bg-sky-100 px-1.5 py-0.5 text-[9px] font-semibold text-sky-800">
+              必須
+            </span>
           </div>
-        ))}
+          <dl className={`${compact ? "mt-1.5" : "mt-2"} space-y-1`}>
+            <div className="flex items-baseline justify-between gap-3 rounded-md bg-white px-2 py-1">
+              <dt className="text-[10px] font-semibold text-[#6e6e73]">
+                予定額合計
+              </dt>
+              <dd className="text-[15px] font-semibold tabular-nums text-[#1d1d1f]">
+                {formatYen(totalExpectedRewardYen)}
+              </dd>
+            </div>
+            <div className="overflow-hidden rounded-md border border-[#dbeafe] bg-white">
+              <p className="border-b border-[#dbeafe] px-2 py-1 text-[10px] font-semibold text-sky-800">
+                PJごとの予定額
+              </p>
+              {projects.length === 0 ? (
+                <p className="px-2 py-1.5 text-[11px] text-[#6e6e73]">
+                  対象PJはありません
+                </p>
+              ) : (
+                <div className="divide-y divide-[#e5e5e7]">
+                  {projects.map((project) => (
+                    <div
+                      key={project.projectId}
+                      className="flex items-center justify-between gap-3 px-2 py-1.5 text-[11px]"
+                    >
+                      <span className="min-w-0 truncate font-semibold text-[#3c3c43]">
+                        {project.projectName}
+                      </span>
+                      <span className="whitespace-nowrap font-semibold tabular-nums text-[#1d1d1f]">
+                        {formatYen(project.expectedRewardYen)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </dl>
+        </section>
       </div>
     </section>
   );
