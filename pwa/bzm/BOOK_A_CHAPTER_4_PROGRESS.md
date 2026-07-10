@@ -8,9 +8,9 @@
 |---|---|---|---|
 | 1. 節 skeleton workflow | ✅ 完了 | 2026-07-10 | 3 persona (教科書編集者 / MBA·MOT 教員 / BZM 理論家) 並列 (run wf_c9b69b4b-a77、Opus。素材 = p-potential / book-a-ch-3 / glossary / 設計ブリーフ)。synth はえいみ本体。9節・計 16,550字設計 |
 | 2. まさ確定 (節レベル) | ✅ **完了 (仮確定方式)** | 2026-07-10 | まさ「いつも論点くれるけど、書いてもらわないとなんともいえない…そのまま一旦書いてほしい」= 論点1〜5 を**推奨案どおり仮確定**し、まさの判断は本文 v1 レビューへ後ろ倒し (事前の節レベル確定は求めない方式に変更)。ステージ3-5 起動 |
-| 3. 段落 outline workflow | 🔄 実行中 | 2026-07-10 | Sonnet 5 (run wf_7f17957d-64b Phase 1) |
-| 4. 段落 draft workflow | — | — | Sonnet 5 予定 (節ごと並列、本文 v1 は素材ファイル退避後に verify) |
-| 5. adversarial verify | — | — | 5 persona (Opus)、出力制約を全員に |
+| 3. 段落 outline workflow | ✅ 完了 | 2026-07-10 | 9/9節 (Sonnet 5、run wf_7f17957d-64b Phase 1。outline:4.1 が stall 1回 → 自動 retry で完走) |
+| 4. 段落 draft workflow | ✅ 完了 | 2026-07-10 | 9/9節・計 16,347字 (Sonnet 5、同 run Phase 2)。一部 draft 出力に英語メタ前置きが混入 → 組み立て時に `## 4.N` 見出し起点で機械除去。組み立て後の機械検査 (文字種/BANNED語/後章記号/図表連番/表示式2本のみ) 全クリア。v1 を素材ファイルに退避してから verify (クラッシュ安全策) |
+| 5. adversarial verify | 🔄 実行中 | 2026-07-10 | 5 persona (Opus、run wf_3dfbd7ed-5e3、出力制約 [findings≤10・引用≤50字・fix≤2文] を全員に) |
 | 6. 正本化 + UI 登録 + まさレビュー | — | — | book-a-ch-4.md / bzm-chapters / BUILD_VERSION / §5 台帳の p-potential 章頭行追加 |
 
 ## 節 skeleton (v1 — ステージ2 確定待ち)
@@ -103,3 +103,4 @@ therefore③・数式フル節 (直感→式→worked example)。学術的異論
 |---|---|---|
 | 2026-07-10 | 初版。ステージ1 (節 skeleton) 完了 — 3 persona 並列 (run wf_c9b69b4b-a77、Opus) × 本体 synth で9節・16,550字設計、申し送り5論点、引き継ぎ規律を収録。ステージ2 (まさ確定) 待ち | えいみ |
 | 2026-07-10 | ステージ2 ✅ 仮確定方式で完了: まさ「そのまま一旦書いてほしい」= 論点1〜5 を推奨どおり仮確定、判断は本文 v1 レビューへ。ステージ3-4 起動 (Sonnet 5、run wf_7f17957d-64b) | えいみ |
+| 2026-07-10 | ステージ3-4 ✅ 完了: outline/draft 9節 (Sonnet 5、wf_7f17957d-64b)、v1 = 16,347字。機械検査全クリア。ステージ5 verify 起動 (Opus、wf_3dfbd7ed-5e3) | えいみ |
