@@ -1142,3 +1142,12 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 - 3件とも既知残タスクはなし。
 - ただし D-11 Media Mentions は、保存済み行の表示 fallback を直しただけで、専用 writer / review UI の完成までは別フェーズ。
 - closeout時点で root checkout には別件 `pwa/src/components/admin/AdminProjectsTable.tsx` の未コミット差分が残っている。今回の通知修正 bundle には混ぜない。
+
+---
+
+## 2026-07-10 — 要対応キューを行単位で完了表示へ修正
+
+### コンテキスト / 対応
+- まさから、要対応の「対応済にする」を1件押すたびに全行が一瞬消えてから再表示されるUXを修正してほしいと依頼。
+- `ActionItemsPanel` は対象行をその場で外し、保存成功後の全件 `load()` を廃止。通信失敗時だけ、外した行を元の順番へ戻すようにした。
+- `FEATURE_REGISTRY.md`、`manual/2-3-pj-cockpit.md`、manual/spec changelog、`BUGS.md` を同期。build `v3.39.59`、`npx tsc --noEmit`、`npm run test:critical-ui`、`npm run build` を通し、本番 `v3.39.59 / 7da9c71a` を確認済み。
