@@ -276,7 +276,7 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
   { slug: "book-a-ch-5", title: "第5章 — 到達度 R — 多軸 readiness と律速の発見", summary: "XRL 5軸 (TRL/BRL/GRL/SRL/HRL) と応用×組織マトリクス TRL(a,o,t)、事業が依存するセルの min で読む律速診断。「研究室で作れる≠自社で作れる」の定量化。28p。", status: "not-started" },
   { slug: "book-a-ch-6", title: "第6章 — 生存の静学 — 生存条件式と創業者機能 F-CES", summary: "死因第一位「本命が整う前に資金と選択肢が尽きる」を生存条件式 B−R_net≤F で定式化。F 内部のみ CES 補完 (資質×実行力は両方必須) — 3層対応表の中核回。30p。", status: "not-started" },
   { slug: "book-a-ch-7", title: "第7章 — マクロ追い風の計測 — Triple Helix と投入シグナル σ_SU", summary: "「追い風」を雰囲気でなく観測量にする: σ_SU の Triple Helix Cobb-Douglas 構成と状態空間モデルの直感。ハイプと真の進展の識別。28p。", status: "not-started" },
-  { slug: "book-a-ch-8", title: "第8章 — 生存の動学 — 戦略余力と first-passage 生存確率", summary: "(x, y) 平面と y = 主導権を保って走れる残り月数 (5成分・単位=月)。S = Pr(τ_x < τ_y) の first-passage 定式化と Excel モンテカルロ。軌跡4型 (鋸歯/ゾンビ/即落/自走)。32p。", status: "not-started" },
+  { slug: "book-a-ch-8", title: "第8章 — 生存の動学 — 戦略余力と first-passage 生存確率", summary: "(x, y) 平面と y = 主導権を保って走れる残り月数 (5成分・単位=月)。S = Pr(τ_x < τ_y) の first-passage 定式化と Excel モンテカルロ。軌跡4型 (鋸歯/ゾンビ/即落/自走)。32p。起草中 (v1 draft)。", status: "in-progress" },
   { slug: "book-a-ch-9", title: "第9章 — 統合スコアと律速診断 — 乗法モデルの設計と校正", summary: "9軸 Cobb-Douglas 乗法 (+1 シフト) 統合と律速診断 (次の一手の機械的抽出)。なぜ足し算でなく掛け算か。採点ワークシートで中間課題に接続。28p。", status: "not-started" },
   { slug: "book-a-ch-10", title: "第10章 — GO/WAIT/NO_GO — 最適停止としての設立判断 (PRS≠GO)", summary: "設立判断を実物オプションの最適停止として導出: GO(t,i) = 𝟙[σ_SU ≥ θ_σ*]·g_TRL(t)。PRS≠GO の1ページ図解正本と必須演習「PRS 高だが WAIT」。「やめる/待つ」を教える本書の差別化の核。30p。", status: "not-started" },
   { slug: "book-a-ch-11", title: "第11章 — 苗床を測る — 機関整備度 ERS の8軸と加重和", summary: "案件を生み出す装置を測る第二の観測層。ERS 加重和 (充足率)・8軸 rubric・軸7のゲート性・unknown vs not_started。「張るのは案件、通うのは苗床」。28p。", status: "not-started" },
