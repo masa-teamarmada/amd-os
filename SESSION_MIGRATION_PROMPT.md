@@ -22,14 +22,14 @@ cd /Users/masa/projects/AMD/amd-os
 状態スナップショット:
 - repo: /Users/masa/projects/AMD/amd-os
 - canonical branch: main。新規 branch / worker worktree は禁止。
-- current origin/main at handoff: 63737267d692230eda2fea9b45e7cd69184f4ebf
-- current production: https://amd-os-pwa.vercel.app/api/build-info = v0.39.41 / 63737267d692230eda2fea9b45e7cd69184f4ebf / main / dirty=false
-- 月初合意の `今月支払` 0円表示 bug は `7ef6f44c fix(pwa): use reward payment month for monthly agreements` で修正済み。後続の `b552c607` / `1cf3dd4a` / `63737267` にも含まれる。
+- current repo baseline before this docs refresh: `bc6beafa` includes BZM docs and PWA baseline `0221beaa` / `v0.39.43`。
+- current production before this docs refresh: https://amd-os-pwa.vercel.app/api/build-info = v0.39.43 / 0221beaadd3a31b24f4fe2a485332dba7bdbb382 / main / dirty=false。この prompt を受け取ったら最初に再読込して最新 docs commit SHA を確認する。
+- 月初合意の `今月支払` 0円表示 bug は `7ef6f44c fix(pwa): use reward payment month for monthly agreements` で修正済み。後続の `b552c607` / `1cf3dd4a` / `63737267` / `22e77d9a` / `0221beaa` にも含まれる。
 - 修正の本質: `billing_cycles.invoice_ym` はクライアント請求書発行月であり、メンバー支払月ではない。月初合意の `projects[].payoutYen` / `/admin/monthly-work-agreements` の `今月支払` は、PJ/member 支払条件から計算する。
 - read-only 再計算結果: 202607 の今月支払は合計 87,457円。内訳は しん 29,055円、あび 26,227円、こう 25,740円、うめ 6,435円。ZMP 202606 分。
 - SX 202606 分は現行データ上 `invoice_received_60_days` 系の支払条件で 202607 には乗らない。これはコード不具合ではなく、支払条件/契約設定を見直す別判断。
-- canonical root checkout は closeout inventory 時点で main==origin/main。ただし別件 dirty あり: pwa/design/FEATURE_REGISTRY.md、pwa/scripts/check_pwa_critical_ui.cjs、pwa/src/components/nav/GlobalNav.tsx、pwa/src/lib/build-info.ts。GlobalNav/board nav flyout refinement のWIPっぽいので、月初合意 lane には混ぜない。
-- この handoff/closeout 文書更新は clean clone /tmp/amd-os-monthly-payout-fix-clone から作成。root の別件 dirty は触らない。
+- canonical root checkout は final closeout inventory 時点で main==origin/main、tracked dirty なし。登録済み worktree は `/Users/masa/projects/AMD/amd-os [main]` のみ。
+- この handoff/closeout 文書更新は docs-only。final chat の commit / production SHA を正とする。
 
 完了内容:
 - `/admin/monthly-work-agreements` と月初合意 snapshot の支払月判定を修正。
@@ -43,14 +43,14 @@ cd /Users/masa/projects/AMD/amd-os
 - `npm run build` passed。
 - deploy script 内の `npm run test:critical-ui` passed。
 - `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` で `7ef6f44c` を main push / Vercel production 反映し、当時 `v0.39.40` / dirty=false を確認。
-- その後 current production は `63737267` / `v0.39.41`。修正 commit は ancestor。
+- その後 PWA production baseline は `0221beaa` / `v0.39.43`。修正 commit は ancestor。
 - `npm run lint` は実行したが、既存の repo-wide lint error で失敗。今回触った月初合意支払月ロジック由来ではない。
 
 次タスク:
 - 月初合意 `今月支払` bug は既知残なし。
 - まさが「SXも7月に払うべき」と見るなら、SX/PJ台帳の支払条件を確認し、契約/実運用に合わせる別タスクとして扱う。コード側で勝手にZMPと同じ扱いにしない。
 - `/admin/monthly-work-agreements?ym=202607` を再確認するときは、まず production build-info が current origin/main と一致するかを見る。その後、ZMP 202606 の4名支払が表示されるかを確認する。
-- root checkout の GlobalNav dirty を扱うなら、月初合意とは別 lane として `git diff` を読み、対象4ファイルだけで commit/deploy する。build-info の local dirty は `v0.39.42` だが production は `v0.39.41` なので、混ぜる前に意図を確認する。
+- GlobalNav / board nav flyout の local dirty は `0221beaa` で解消済み。続きがあるなら、最新 main から新しい差分として始める。
 
 運用ルール:
 - まず /Users/masa/projects/AGENTS.common.md から読む。AMD OS では root/pwa AGENTS/CLAUDE と該当 spec/manual も先読みする。

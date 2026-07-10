@@ -981,7 +981,7 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 
 ---
 
-## 2026-07-10 — 月初合意 `今月支払` 0円表示の修正 / v0.39.40-v0.39.41
+## 2026-07-10 — 月初合意 `今月支払` 0円表示の修正 / v0.39.40-v0.39.43
 
 ### コンテキスト
 - `/admin/monthly-work-agreements?ym=202607` の一覧で、全員の `今月支払` が `0円` と表示されていた。
@@ -1004,9 +1004,9 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 - deploy script 内の `npm run test:critical-ui` passed。
 - read-only 再計算で、202607 の `今月支払` が ZMP 202606 分として合計 87,457円になることを確認。内訳: しん 29,055円、あび 26,227円、こう 25,740円、うめ 6,435円。
 - `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` で `7ef6f44c` / `v0.39.40` を本番反映。
-- closeout時点の production は後続 commit を含む `63737267` / `v0.39.41` / dirty=false。`7ef6f44c` は ancestor として含まれる。
+- closeout時点の PWA production baseline は後続 commit を含む `0221beaa` / `v0.39.43` / dirty=false。`7ef6f44c` は ancestor として含まれる。
 
 ### Closeout notes
 - 月初合意 `今月支払` 0円 bug の既知残タスクはなし。
 - SX 202606 分は現行データ上 202607 支払ではない。もし7月支払にすべきなら、コード不具合ではなく支払条件/契約設定の見直しとして扱う。
-- closeout inventory 時点の root checkout には GlobalNav / board nav flyout 由来の別件 dirty が残っている。この monthly agreement lane には混ぜない。
+- final closeout inventory 時点の root checkout は clean。途中で見えていた GlobalNav / board nav flyout 由来の別件 dirty は `0221beaa` で解消済み。
