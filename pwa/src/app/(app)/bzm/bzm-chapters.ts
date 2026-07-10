@@ -12,7 +12,7 @@
  *    未登録の md は左ナビに出ない (prev/next 末尾には出る)。
  *
  * 内容正本は `pwa/bzm/{slug}.md` (= git 管理)。理論正本は
- * `BZSF/before_zero_theory.md` / `BZSF/PRS_STRATEGIC_SLACK_OVERVIEW_20260612.html`。
+ * `BZSF/before_zero_theory.md` / `BZSF/SPS_STRATEGIC_SLACK_OVERVIEW_20260612.html`。
  */
 
 export type BzmChapterStatus = "completed" | "in-progress" | "not-started" | "legacy";
@@ -54,7 +54,7 @@ export const BZM_PARTS: BzmPartConfig[] = [
   {
     key: "book-a",
     label: "Book A 教科書 — ディープテック起業の経営学 (仮題、15章 ≈ 440p)",
-    description: "理論の集大成テキスト (数式全部入り)。主対象 = MBA/MOT 院1年 + 学部3-4年ゼミ + URA/EIR/VC 研修。三項構造 (観測二層 PRS/ERS + 行動一層 RT) + 出口ポートフォリオ論 (看板、第14章)。15章 = 半期15回に1:1対応。TOC v1 は BOOK_A_MASTER_PLAN.md 正本。",
+    description: "理論の集大成テキスト (数式全部入り)。主対象 = MBA/MOT 院1年 + 学部3-4年ゼミ + URA/EIR/VC 研修。三項構造 (観測二層 SPS/ECR + 行動一層 RT) + 出口ポートフォリオ論 (看板、第14章)。15章 = 半期15回に1:1対応。TOC v1 は BOOK_A_MASTER_PLAN.md 正本。",
     slugs: [
       "book-a-ch-1",
       "book-a-ch-2",
@@ -94,7 +94,7 @@ export const BZM_PARTS: BzmPartConfig[] = [
   {
     key: "new-bzm-book1",
     label: "Book I — 領土の定義 (110p, 4 章)",
-    description: "観測量と典型動学。状態空間 / PRS / ERS / 失敗パターンの抽象。",
+    description: "観測量と典型動学。状態空間 / SPS / ECR / 失敗パターンの抽象。",
     slugs: [
       // Ch 1 (= 章 level 1) → §1.0〜§1.7 (= 節 level 2) → §1.0.1〜 (= サブセクション level 3) の三層 (執筆中)
       "new-book1-ch-1",
@@ -119,7 +119,7 @@ export const BZM_PARTS: BzmPartConfig[] = [
   {
     key: "new-bzm-book2",
     label: "Book II — 機構 (300p, 10 章 + Ch 10 11 節, load-bearing core)",
-    description: "数学装置層。Triple Helix SSM / GO ゲート / PRS 期待値分解 / F-CES / 戦略余力動学 / ERS 加重和 / Ch 10 進化経済形式接続 / h パラメータ族 / 試験運用実装。",
+    description: "数学装置層。Triple Helix SSM / GO ゲート / SPS 期待値分解 / F-CES / 戦略余力動学 / ECR 加重和 / Ch 10 進化経済形式接続 / h パラメータ族 / 試験運用実装。",
     slugs: [
       // Ch 5 (= 章 level 1) → §5.0〜§5.7 (= 節 level 2) → §5.0.1〜 (= サブセクション level 3) の三層
       "new-book2-ch-5",
@@ -180,7 +180,7 @@ export const BZM_PARTS: BzmPartConfig[] = [
   {
     key: "new-bzm-book5",
     label: "Book V — 機関側設計 (90p, 4 章)",
-    description: "機関側プレイブック。ERS 8 軸別処方 / 三制度導線 / 地域 産学官 / 政策含意。",
+    description: "機関側プレイブック。ECR 8 軸別処方 / 三制度導線 / 地域 産学官 / 政策含意。",
     slugs: [
       "new-book5-ch-32", "new-book5-ch-33", "new-book5-ch-34", "new-book5-ch-35",
     ],
@@ -223,7 +223,7 @@ export const BZM_PARTS: BzmPartConfig[] = [
   {
     key: "practical-model",
     label: "[実戦書] 第 II 部 — Before Zero Model",
-    description: "実戦書の第 II 部 (モデル説明)。PRS = 天井 P × 到達 R × 生存 S と戦略余力を、現場で使える形で説明する。学術書では Book II (Ch 5-11.5) として理論的に再編・拡張。",
+    description: "実戦書の第 II 部 (モデル説明)。SPS = 天井 P × 到達 R × 生存 S と戦略余力を、現場で使える形で説明する。学術書では Book II (Ch 5-11.5) として理論的に再編・拡張。",
     slugs: [
       "why-valuation-fails",
       "model-overview",
@@ -239,7 +239,7 @@ export const BZM_PARTS: BzmPartConfig[] = [
   {
     key: "practical-nursery",
     label: "[実戦書] 第 III 部 — 苗床",
-    description: "実戦書の第 III 部 (ERS 機関整備度)。研究機関をベンチャーを生み育てる装置として読み、整備度の測り方と制度設計を扱う。学術書では Book III + Book V として再編される。",
+    description: "実戦書の第 III 部 (ECR エコシステム構築率)。研究機関をベンチャーを生み育てる装置として読み、整備度の測り方と制度設計を扱う。学術書では Book III + Book V として再編される。",
     slugs: ["nursery-ers"],
   },
   {
@@ -269,7 +269,7 @@ export const BZM_PARTS: BzmPartConfig[] = [
 
 export const BZM_CHAPTERS: BzmChapterConfig[] = [
   // --- Book A 教科書 15章 (PF-012、L1 = BOOK_A_MASTER_PLAN.md、L3 = BOOK_A_CHAPTER_*_PROGRESS.md) ---
-  { slug: "book-a-ch-1", title: "第1章 — ディープテック起業と Before Zero — なぜ設立前を経営学の対象にするのか", summary: "章頭ケース「設立三周年の花束」(逆年表)。標準アントレ理論が「ゼロの後」から始まる射程の限界を示し、Before Zero の領土宣言・状態空間 (ι, F, S0, I)・三項構造 (観測二層 PRS/ERS + 行動一層 RT) を本書15回の地図として提示。22p。v1 確定 (まさレビュー完了)。", status: "completed" },
+  { slug: "book-a-ch-1", title: "第1章 — ディープテック起業と Before Zero — なぜ設立前を経営学の対象にするのか", summary: "章頭ケース「設立三周年の花束」(逆年表)。標準アントレ理論が「ゼロの後」から始まる射程の限界を示し、Before Zero の領土宣言・状態空間 (ι, F, S0, I)・三項構造 (観測二層 SPS/ECR + 行動一層 RT) を本書15回の地図として提示。22p。v1 確定 (まさレビュー完了)。", status: "completed" },
   { slug: "book-a-ch-2", title: "第2章 — 関係者の時計と不可逆点 — 開示の順序・法人化境界・進める/待つ/止めるの語彙", summary: "関係者×関心×時計の地図、三つの鬼門 (開示順序・会社化タイミング・早すぎる CEO 要求)、GO/WAIT/NO_GO/HOLD と WAIT の3部品。意図的に数式ゼロの回 (数式強度曲線の起点)。24p。v1 確定 (まさレビュー完了)。", status: "completed" },
   { slug: "book-a-ch-3", title: "第3章 — 評価問題の定式化 — Valuation の限界と期待値分解 P×R×S", summary: "DCF が Before Zero で壊れる四つの壁を示し、評価問題を E[V] = P×R×S へ定式化し直す。乗法/加重和/補完性の3層対応表を導入。26p。起草中 (v1 draft)。", status: "in-progress" },
   { slug: "book-a-ch-4", title: "第4章 — 潜在規模 P — 市場の天井と証拠の質", summary: "TAM は最も盛られやすい数字。天井は主張でなく証拠の質で刻む rubric (第三者データ/ユニットエコノミクス/経路)、P(t)=max U(t) による天井の書き換え、止まる天井と落とすべき天井。26p。起草中 (v1 draft)。", status: "in-progress" },
@@ -278,9 +278,9 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
   { slug: "book-a-ch-7", title: "第7章 — マクロ追い風の計測 — Triple Helix と投入シグナル σ_SU", summary: "「追い風」を雰囲気でなく観測量にする: σ_SU の Triple Helix Cobb-Douglas 構成と状態空間モデルの直感。ハイプと真の進展の識別。28p。起草中 (v1 draft)。", status: "in-progress" },
   { slug: "book-a-ch-8", title: "第8章 — 生存の動学 — 戦略余力と first-passage 生存確率", summary: "(x, y) 平面と y = 主導権を保って走れる残り月数 (5成分・単位=月)。S = Pr(τ_x < τ_y) の first-passage 定式化と Excel モンテカルロ。軌跡4型 (鋸歯/ゾンビ/即落/自走)。32p。起草中 (v1 draft)。", status: "in-progress" },
   { slug: "book-a-ch-9", title: "第9章 — 統合スコアと律速診断 — 乗法モデルの設計と校正", summary: "9軸 Cobb-Douglas 乗法 (+1 シフト) 統合と律速診断 (次の一手の機械的抽出)。なぜ足し算でなく掛け算か。採点ワークシートで中間課題に接続。28p。", status: "not-started" },
-  { slug: "book-a-ch-10", title: "第10章 — GO/WAIT/NO_GO — 最適停止としての設立判断 (PRS≠GO)", summary: "設立判断を実物オプションの最適停止として導出: GO(t,i) = 𝟙[σ_SU ≥ θ_σ*]·g_TRL(t)。PRS≠GO の1ページ図解正本と必須演習「PRS 高だが WAIT」。「やめる/待つ」を教える本書の差別化の核。30p。", status: "not-started" },
-  { slug: "book-a-ch-11", title: "第11章 — 苗床を測る — 機関整備度 ERS の8軸と加重和", summary: "案件を生み出す装置を測る第二の観測層。ERS 加重和 (充足率)・8軸 rubric・軸7のゲート性・unknown vs not_started。「張るのは案件、通うのは苗床」。28p。", status: "not-started" },
-  { slug: "book-a-ch-12", title: "第12章 — 二層非可換性 — 案件と機関を混ぜてはいけない理由", summary: "PRS (乗法・案件) と ERS (加重和・機関) を単一スコアへ結合してはならないことを、公理 A1-A4 の不可能性定理ステートメント+証明スケッチと Simpson 反転 worked example で示す「読む数学」の回。26p。", status: "not-started" },
+  { slug: "book-a-ch-10", title: "第10章 — GO/WAIT/NO_GO — 最適停止としての設立判断 (SPS≠GO)", summary: "設立判断を実物オプションの最適停止として導出: GO(t,i) = 𝟙[σ_SU ≥ θ_σ*]·g_TRL(t)。SPS≠GO の1ページ図解正本と必須演習「SPS 高だが WAIT」。「やめる/待つ」を教える本書の差別化の核。30p。", status: "not-started" },
+  { slug: "book-a-ch-11", title: "第11章 — 苗床を測る — エコシステム構築率 ECR の8軸と加重和", summary: "案件を生み出す装置を測る第二の観測層。ECR 加重和 (充足率)・8軸 rubric・軸7のゲート性・unknown vs not_started。「張るのは案件、通うのは苗床」。28p。", status: "not-started" },
+  { slug: "book-a-ch-12", title: "第12章 — 二層非可換性 — 案件と機関を混ぜてはいけない理由", summary: "SPS (乗法・案件) と ECR (加重和・機関) を単一スコアへ結合してはならないことを、公理 A1-A4 の不可能性定理ステートメント+証明スケッチと Simpson 反転 worked example で示す「読む数学」の回。26p。", status: "not-started" },
   { slug: "book-a-ch-13", title: "第13章 — ラウンドテーブル — 二層を結合する組成機構 [仮説的第三柱]", summary: "RT = Before Zero の DTSU を keystone に据えた多者・連鎖・相互牽制の共同体 ℛ。成立3条件の命題化・CRL/ICT レンズ・Ψ 分解仮説 (検証プログラム付き仮説と明示)。独禁注意喚起 Box 必置。32p。", status: "not-started" },
   { slug: "book-a-ch-14", title: "第14章 — 出口ポートフォリオ — シーズごとに正しいサイズの成功を", summary: "本書の看板主張: ユニコーン単願ではなく出口ポートフォリオを設計する。絶対スケール+達成率の2読み方式の正準オーナー回。「サイズを選ぶ」という第三の判断。26p。", status: "not-started" },
   { slug: "book-a-ch-15", title: "第15章 — 検証と限界 — 総合演習: モデルを疑いながら使う", summary: "後付け校正と検証の峻別 (Tier 規律)、blind retrofit、反証条件リスト = BZM の可死性の明文化。総合演習 = 期末課題 (フル評価レポート)。「モデルは信じるものではなく検証するもの」で本を閉じる。28p。", status: "not-started" },
@@ -358,7 +358,7 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
   {
     slug: "nursery-ers",
     title: "苗床 — 研究機関は、ベンチャーを生み育てる装置になっているか",
-    summary: "同じシーズでも機関の土壌で事業化速度はまるで違う。機関整備度を8軸×Lv1〜5で測る ERS、案件評価 (掛け算) と異なる加重和を採る理由、弱い軸の外部連携と90日 pilot。",
+    summary: "同じシーズでも機関の土壌で事業化速度はまるで違う。エコシステム構築率を8軸×Lv1〜5で測る ECR、案件評価 (掛け算) と異なる加重和を採る理由、弱い軸の外部連携と90日 pilot。",
   },
   {
     slug: "field-toolkit",
@@ -406,23 +406,23 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
   { slug: "new-book0-ch-0-4", title: "Ch 0.4 — 本書の貢献の三つ", summary: "何を新規に主張するか。load-bearing 定理 (二層非可換性 / GO 最適停止 / F-CES) の front-load 予告。8p。", status: "not-started" },
 
   // Book I — 領土の定義 (110p, 4 章)
-  { slug: "new-book1-ch-1", title: "Ch 1 — 状態空間と観測量", summary: "Before Zero を測るとはどういうことか。状態空間 (= プロジェクトを 1 点として打つ多次元の空間)、観測量 (= 状態から漏れ出てくる代理指標)、二層観測 (= 案件層 PRS + 機関層 ERS) の足場を立てる章。30p。執筆中 (§1.0 章頭フックから着手)。", status: "in-progress", level: 1 },
+  { slug: "new-book1-ch-1", title: "Ch 1 — 状態空間と観測量", summary: "Before Zero を測るとはどういうことか。状態空間 (= プロジェクトを 1 点として打つ多次元の空間)、観測量 (= 状態から漏れ出てくる代理指標)、二層観測 (= 案件層 SPS + 機関層 ECR) の足場を立てる章。30p。執筆中 (§1.0 章頭フックから着手)。", status: "in-progress", level: 1 },
   // Ch 1 節レベル (level 2) — Workflow wlewsdw8l outline 由来
   { slug: "new-book1-ch-1-section-0", title: "§1.0 — 章頭フック: 三人の起業家、三つの「測れなさ」 (2.5p)", summary: "Ch 1 全体と §1.0 章頭フックの入口。Zero = 会社を設立する瞬間 / Before Zero = ゼロより前という本書の核心定義を確定し、ゼロイチ本との対比から本書独自の位置取りを示す。会社未満の時間にこそその後の十年を左右する判断 (誰と組むか / 応用領域 / 法人化タイミング / 知財帰属) が詰まること、製品 0・売上 0・会社未満で「測る」という奇妙な営みの中心問いを立てる。4 サブセクション §1.0.1〜§1.0.4 (場面 → ずれの正体 → 三つの実務的要請 → ロードマップ) を一望し、月曜の国立大学キャンパスの一室へと §1.0.1 へ橋渡しする節の冒頭文 (1,380 字 4 段落、完成)。", status: "completed", level: 2 },
   { slug: "new-book1-ch-1-section-1", title: "§1.1 — 「測る」とは何をすることか: 状態・観測・推定の三項 (4p)", summary: "対象物理学的な「測定」と社会経済的な「測定」の違いを整理し、状態 (見えない) と観測量 (見える) と推定 (橋渡し) という三項関係を Before Zero 文脈で定義する。", status: "not-started", level: 2 },
   { slug: "new-book1-ch-1-section-2", title: "§1.2 — 状態空間 (state space) という発想: プロジェクトを 1 点として打つ (5p)", summary: "プロジェクトを多次元空間の 1 点として捉える視点を導入し、本書が採用する三因子 (天井 P、到達度 R、生存確率 S) の状態ベクトルを比喩と図で説明する。", status: "not-started", level: 2 },
   { slug: "new-book1-ch-1-section-3", title: "§1.3 — 観測量 (observable) と代理指標: 見えないものを見える数で挟む (5p)", summary: "状態は直接観測できないため、論文数・特許・調達額・採用ペース等の代理指標を経由する必要があることを示し、観測量の選び方が推定の質を決めることを論じる。", status: "not-started", level: 2 },
   { slug: "new-book1-ch-1-section-4", title: "§1.4 — Before Zero がとりわけ難しい理由: 製品 0・売上 0・会社未満の観測問題 (5p)", summary: "売上・顧客・製品がまだ存在しない段階での観測の困難 (シグナル/ノイズ比の低さ、survivorship bias、観測コスト) を整理し、それでも測る必要性を関係者間の共通言語・判断の構造化・再現可能性の三点で示す。", status: "not-started", level: 2 },
-  { slug: "new-book1-ch-1-section-5", title: "§1.5 — 二層観測の予告: 案件層 (PRS) と機関層 (ERS) (4p)", summary: "個別案件 j を見る層 (PRS = Project Readiness Signals) と、機関 i の生態を見る層 (ERS = Ecosystem Readiness Signals) という二層構造を予告し、Ch 2 と Ch 3 への接続を示す。", status: "not-started", level: 2 },
+  { slug: "new-book1-ch-1-section-5", title: "§1.5 — 二層観測の予告: 案件層 (SPS) と機関層 (ECR) (4p)", summary: "個別案件 j を見る層 (SPS = Project Readiness Signals) と、機関 i の生態を見る層 (ECR = Ecosystem Readiness Signals) という二層構造を予告し、Ch 2 と Ch 3 への接続を示す。", status: "not-started", level: 2 },
   { slug: "new-book1-ch-1-section-6", title: "§1.6 — 失敗パターンと校正: 観測が壊れるとき (3p)", summary: "観測量と状態のリンクが切れる典型失敗 (Goodhart 化、観測の自己実現、欠測の系統性) を提示し、Ch 4 (失敗パターン) と Book III (validation) への送りを置く。", status: "not-started", level: 2 },
   { slug: "new-book1-ch-1-section-7", title: "§1.7 — 本章のまとめと Book II への橋渡し (1.5p)", summary: "本章で立てた状態空間と観測量の足場を、Book II 機構層 (天井動学・到達動学・生存動学の数学装置) がどう引き取るかを 1 ページで予告する。", status: "not-started", level: 2 },
   // Ch 1 §1.0 サブセクション (level 3)
   { slug: "new-book1-ch-1-section-0-1", title: "§1.0.1 — 同じ問いの前で立ち尽くす三人 (章頭場面)", summary: "2024 年初秋の一週間に開かれた三つの面談 (月曜 国立大学産学連携本部 A 氏 / 水曜 都内 VC B 氏 / 金曜 地方公設試 C 氏) を blockquote 並置。三者三様の領域・段階・相手だが、底に流れる同じ問い「いま、このプロジェクトは、どこにいるのか」。Before Zero / 状態 (state) / 観測量 (observable) を直後括弧定義、Kalman 1960 / Stokey-Lucas-Prescott 1989 / Simon 1962 引用、軽い式 $s_t = (P_t, R_t, S_t)$ + $y_t = g(s_t) + \\varepsilon_t$ を display で。完成 v1 (約 2,390 字 5 段落、まさレビュー待ち)。", status: "completed", level: 3 },
   { slug: "new-book1-ch-1-section-0-2", title: "§1.0.2 — ずれの肥大: 状態と観測量の差が Before Zero で開く理由", summary: "翌週月曜の A 氏 (= ペロブスカイト准教授) と URA の小部屋場面を冒頭 blockquote に、まさが提供した具体的セリフ (「引用してくれるのが、ほとんど同じ研究室の出身者か、同じ学会の旧知の先生方ばっかり」「サンプル提供のお問い合わせ件数、去年の同じ時期の三分の一」「指標は伸びてるのに、引き合いだけが落ちてる。理屈が合わないんですよ」) で前 v1 の「外に出せる気がしない」hallucination を完全除去。観測ギャップ (observation gap) 概念を、写像 g のつぶれ + ノイズ ε + 選抜歪み + 観測本数の少なさの四つの圧力に分解。display 式 $y_t = g(s_t) + \\varepsilon_t$ + $\\mathrm{Var}(y_t) = \\mathrm{Var}(g(s_t)) + \\mathrm{Var}(\\varepsilon_t)$ (独立性仮定下の標準分解、射程明示の留保つき)。曇りガラス越しに人影 + 窓のメタファ (g 写像 / ノイズ / 枚数) の比喩。Polanyi 1966 / Heckman 1979 / Goodhart 1975 / Cover-Thomas 2006 引用 (全 4 件新規系譜)。批判 panel + adversarial reviewer 9 must_fix 全反映。v2 完成 (約 3,050 字 6 段落、まさレビュー待ち)。", status: "completed", level: 3 },
   { slug: "new-book1-ch-1-section-0-3", title: "§1.0.3 — 測らない自由はない: 共通言語・判断の構造化・再現可能性", summary: "翌週月曜朝、地方合同庁舎三階の給湯室で、C 氏 (= 公設試の主任研究員、陸上養殖) と新キャラ D 氏 (= 同じ公設試の食品加工チームの先輩研究員) の対話を冒頭 blockquote に。セリフが完全に現場感: 「結局、担当官の方に『で、C さんとしてはどう思います』って逆に振られて、何も言えなかったんですよ」「先月の問い合わせ三件のうち二件は既存取引先だった、ってとこまでしか話せてなくて」「来年俺が異動になったら、養液の循環、なんで今のやり方に変えたか、たぶん誰も説明できなくなるんですよ」。観測の手続きが背負わされた三脚 (共通言語 / 判断の構造化 / 再現可能性) を立てる。display 式 $\\mathbb{E}[L(d,s)|y] = \\int L(d, s) p(s|y) ds$ で「観測しない = 事後分布を事前に縮退」を支える。Hayek 1945 (市場価格を典型例とする調整機構) / Simon 1955 (限定合理性) / Popper 1959 (intersubjective testability 経由で再現可能性に翻訳、原著 Logik der Forschung 1934) / Knight 1921 (主観確率で不確実性に対処) 引用、§1.0.1+§1.0.2 既出を完全回避。「自選バイアスは三脚を立てるだけでは取り除けません (= §1.2 以降)」留保 + 「測らない自由はない。だからこそ、どう測るかを決める手前で、何のために測るのかを先に決める必要があります」クロージング。批判 panel + adversarial reviewer 9 must_fix 全反映。v2 完成 (約 2,790 字 6 段落、まさレビュー待ち)。", status: "completed", level: 3 },
-  { slug: "new-book1-ch-1-section-0-4", title: "§1.0.4 — 本章の道筋: 二項関係を二層に開く", summary: "§1.0 全体を閉じるロードマップ章 (冒頭 blockquote 省略)。第 1 段落で §1.0.1 の三人 (= 月曜午前ペロブスカイト准教授 A 氏 / 水曜午後創薬ポスドク B 氏 / 金曜夕方陸上養殖公設試研究員 C 氏) を thin 再導入で呼び戻し、§1.0.1〜§1.0.3 の後方参照を行う。§1.1 = 三項関係 + 尺度水準 / §1.2 = 状態空間 P×R×S / §1.3 = 観測量 y = g(s) + ε / §1.4 = Before Zero 観測問題 / §1.5 = 二層観測 (案件層 PRS + 機関層 ERS) / §1.6 = 校正 / §1.7 = Book II 機構層への橋。display 式 $\\mathrm{PRS}_t = P_t \\times R_t \\times S_t$ + $\\mathrm{ERS} = 100 \\cdot \\frac{\\sum_k w_k A_k}{\\sum_k w_k}$ (PRS は [0,1] 正規化、ERS は 0-100 スケール、尺度の違い自体が PRS×ERS 一本化禁止の伏線)。乗法 vs 加重和の対比を C 氏の陸上養殖を例に解説。クロージングで三人を呼び戻し、まさのセリフ案 (「論文は通るけど、共同研究の声がかからない」/「データは出てるんだけど、製薬企業からの引き合いが続かない」/「指標は良くなってるんだけど、社会実装のスジが見えない」) を本文に組み込んで s-survival 末尾オマージュ「あの違和感に答える章が、ここから始まります」で §1.0 全体を閉じる。学術引用は本文に出さず「§1.1 / Ch 3 で示します」と先送り (ロードマップ章での引用密度最小化)。批判 panel + adversarial reviewer must_fix 全反映。v2 完成 (約 2,260 字 5 段落、まさレビュー待ち)。", status: "completed", level: 3 },
-  { slug: "new-book1-ch-2", title: "Ch 2 — PRS — 天井 × 到達 × 生存の概念体系", summary: "PRS = P × R × S。30p。", status: "not-started" },
-  { slug: "new-book1-ch-3", title: "Ch 3 — ERS — 苗床という第二の対象", summary: "含: unknown vs not_started 区別の正準オーナー = Ch 3.5。30p。", status: "not-started" },
+  { slug: "new-book1-ch-1-section-0-4", title: "§1.0.4 — 本章の道筋: 二項関係を二層に開く", summary: "§1.0 全体を閉じるロードマップ章 (冒頭 blockquote 省略)。第 1 段落で §1.0.1 の三人 (= 月曜午前ペロブスカイト准教授 A 氏 / 水曜午後創薬ポスドク B 氏 / 金曜夕方陸上養殖公設試研究員 C 氏) を thin 再導入で呼び戻し、§1.0.1〜§1.0.3 の後方参照を行う。§1.1 = 三項関係 + 尺度水準 / §1.2 = 状態空間 P×R×S / §1.3 = 観測量 y = g(s) + ε / §1.4 = Before Zero 観測問題 / §1.5 = 二層観測 (案件層 SPS + 機関層 ECR) / §1.6 = 校正 / §1.7 = Book II 機構層への橋。display 式 $\\mathrm{SPS}_t = P_t \\times R_t \\times S_t$ + $\\mathrm{ECR} = 100 \\cdot \\frac{\\sum_k w_k A_k}{\\sum_k w_k}$ (SPS は [0,1] 正規化、ECR は 0-100 スケール、尺度の違い自体が SPS×ECR 一本化禁止の伏線)。乗法 vs 加重和の対比を C 氏の陸上養殖を例に解説。クロージングで三人を呼び戻し、まさのセリフ案 (「論文は通るけど、共同研究の声がかからない」/「データは出てるんだけど、製薬企業からの引き合いが続かない」/「指標は良くなってるんだけど、社会実装のスジが見えない」) を本文に組み込んで s-survival 末尾オマージュ「あの違和感に答える章が、ここから始まります」で §1.0 全体を閉じる。学術引用は本文に出さず「§1.1 / Ch 3 で示します」と先送り (ロードマップ章での引用密度最小化)。批判 panel + adversarial reviewer must_fix 全反映。v2 完成 (約 2,260 字 5 段落、まさレビュー待ち)。", status: "completed", level: 3 },
+  { slug: "new-book1-ch-2", title: "Ch 2 — SPS — 天井 × 到達 × 生存の概念体系", summary: "SPS = P × R × S。30p。", status: "not-started" },
+  { slug: "new-book1-ch-3", title: "Ch 3 — ECR — 苗床という第二の対象", summary: "含: unknown vs not_started 区別の正準オーナー = Ch 3.5。30p。", status: "not-started" },
   { slug: "new-book1-ch-4", title: "Ch 4 — 失敗パターンの抽象", summary: "Book II 数学装置への索引 (前方参照ティーザー)。20p。", status: "not-started" },
 
   // Book II — 機構 (272p, 9 章 + Ch 10 11 節)
@@ -442,10 +442,10 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
   { slug: "new-book2-ch-5-section-0-3", title: "§5.0.3 — 対照事例 YD と σ_SU の必要条件性", summary: "YD 系領域 μ_G フラット、Cobb-Douglas 幾何平均構造による σ_SU 抑制、AMD OS UE 律速 NO_GO、σ_SU は GO の必要条件であって十分条件ではない (二層非可換性入口)、K=3 レジーム S₀/S₁/S₂ 物語的予告。1,500-2,000 字。", status: "not-started", level: 3 },
   { slug: "new-book2-ch-5-section-0-4", title: "§5.0.4 — 方法論的位置取りと本章境界宣言", summary: "Markov イベント記述妥当性、Nelson-Winter 選抜環境への意味論的橋渡し (D-048 圧縮、Book 0 Ch 0.3 へ逆流)、Ch 5 射程と他章への委託、load-bearing 命題 5.1/5.1b/5.3b/5.5/5.6 + cross-walk 三定理 + 系 5.1.4 の予告、§5.1 D-047 pre-commit への橋渡し。1,500-2,000 字。", status: "not-started", level: 3 },
   { slug: "new-book2-ch-5-5", title: "Ch 5.5 — GO ゲートの導出", summary: "実オプション最適停止からの一次条件。GO(t,i) = 𝟙[σ_SU ≥ θ_σ*] · g_TRL(t)、θ_σ* は (P, F, B, レジーム遷移) に対して内生的。18p。", status: "not-started" },
-  { slug: "new-book2-ch-6", title: "Ch 6 — PRS = P × R × S 期待値分解", summary: "honest 位置付け。22p。", status: "not-started" },
+  { slug: "new-book2-ch-6", title: "Ch 6 — SPS = P × R × S 期待値分解", summary: "honest 位置付け。22p。", status: "not-started" },
   { slug: "new-book2-ch-7", title: "Ch 7 — S の内部構造 — F-CES と委譲不可能コア", summary: "F = CES(F_char, F_cap; a, ρ)。形式定義 + 校正手続き。38p。", status: "not-started" },
   { slug: "new-book2-ch-8", title: "Ch 8 — 戦略余力動学", summary: "2D jump-diffusion と τ_x/τ_y、y 5 成分集約 (cash/moat/trust/options/focus)。32p。", status: "not-started" },
-  { slug: "new-book2-ch-9", title: "Ch 9 — ERS 加重和の導出", summary: "ERS = 100 · Σ w_k A_k / Σ w_k。二層非可換性定理の代数的バックボーン。34p。", status: "not-started" },
+  { slug: "new-book2-ch-9", title: "Ch 9 — ECR 加重和の導出", summary: "ECR = 100 · Σ w_k A_k / Σ w_k。二層非可換性定理の代数的バックボーン。34p。", status: "not-started" },
   { slug: "new-book2-ch-9-5", title: "Ch 9.5 — ラウンドテーブル — 二層を結合する組成機構", summary: "RT を仮説的第三柱として組み込む新章 (D-056)。組 ℛ の形式定義 / 成立3条件の命題化 (多者性・連鎖性・相互牽制) / 観測レンズ CRL・ICT / 排他的主経路割当と leave-one-out / 仮説 9.5.H (Ψ 分解 = Murmann coupling の法人化前カーネル)。28p。skeleton ステージ2確定済 (D-057)。", status: "not-started" },
   { slug: "new-book2-ch-10-0", title: "Ch 10.0 — プロローグ", summary: "物語的橋渡し。", status: "not-started" },
   { slug: "new-book2-ch-10-1", title: "Ch 10.1 — 設定 — 6 軽微修正課題 C1-C6 と本章の射程", summary: "進化経済 persona 軽微修正 6 件。", status: "not-started" },
@@ -454,7 +454,7 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
   { slug: "new-book2-ch-10-4", title: "Ch 10.4 — C3 Theorem 3 二層非可換性 Arrow スタイル不可能性", summary: "4 公理 A1-A4 + 系 3.1 (Simpson 反転 / 四分位不安定性 / Hausman 棄却)。", status: "not-started" },
   { slug: "new-book2-ch-10-5", title: "Ch 10.5 — Klepper 入れ子 (統合ハザード + 命題 4-5)", summary: "h(t,n;θ) = 𝟙{t<τ_B}·h_pre + 𝟙{t≥τ_B}·h_post。", status: "not-started" },
   { slug: "new-book2-ch-10-6", title: "Ch 10.6 — Malerba SSI 全射 φ + レーン重み w(L)", summary: "φ: {1..8} → 2^{K,A,I,D,T} + 命題 5.M / 5.L + 系 5.NW。", status: "not-started" },
-  { slug: "new-book2-ch-10-7", title: "Ch 10.7 — Murmann 双方向 ERS-PRS coupling", summary: "命題 10.6.3 + 定理 10.6.5 + 系 10.6.4。", status: "not-started" },
+  { slug: "new-book2-ch-10-7", title: "Ch 10.7 — Murmann 双方向 ECR-SPS coupling", summary: "命題 10.6.3 + 定理 10.6.5 + 系 10.6.4。", status: "not-started" },
   { slug: "new-book2-ch-10-8", title: "Ch 10.8 — シャープ → ファジー境界 h パラメータ族", summary: "B_h(t) = K((t-t*_mid)/h)。", status: "not-started" },
   { slug: "new-book2-ch-10-9", title: "Ch 10.9 — N≈32 試験プロトコル前倒し (Tier B)", summary: "Andrews-Quandt sup-Wald + OSF 事前登録。", status: "not-started" },
   { slug: "new-book2-ch-10-10", title: "Ch 10.10 — 統合 — BZM = Klepper と Murmann に境界づけられた Nelson-Winter の法人化前精緻化", summary: "統合節。", status: "not-started" },
@@ -482,18 +482,18 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
   // Book IV — 時系列現場接続 (110p, 5 章)
   { slug: "new-book4-ch-27", title: "Ch 27 — 技術シーズの掘り起こし", summary: "P(t) を待たずに U(t) を広げる。20p。", status: "not-started" },
   { slug: "new-book4-ch-28", title: "Ch 28 — 先生が第一歩を踏み出すとき", summary: "賭け金の全量と F の起点 (Ch 21 pointer: 出資金 / 退路 / 学生責任)。22p。", status: "not-started" },
-  { slug: "new-book4-ch-29", title: "Ch 29 — GAP ファンド期", summary: "機関 ERS が y を非希薄化的に厚くする時間窓 (CTB 主要事例)。22p。", status: "not-started" },
+  { slug: "new-book4-ch-29", title: "Ch 29 — GAP ファンド期", summary: "機関 ECR が y を非希薄化的に厚くする時間窓 (CTB 主要事例)。22p。", status: "not-started" },
   { slug: "new-book4-ch-30", title: "Ch 30 — 会社設立期", summary: "B の起動と F の充足を一致させる不可逆 GO (CLG 主要事例、Ch 21 pointer: 取締役個人責任)。22p。", status: "not-started" },
   { slug: "new-book4-ch-31", title: "Ch 31 — 資金調達期", summary: "F の現場運用、J カーブ批判、撤退四経路。24p。", status: "not-started" },
 
   // Book V — 機関側設計 (90p, 4 章)
-  { slug: "new-book5-ch-32", title: "Ch 32 — ERS 8 軸別処方 — 運用者向けプレイブック", summary: "Atlas 8 軸 × Lv1-5 × 凹みパターン処方 (Ch 21 pointer: COI)。30p。", status: "not-started" },
+  { slug: "new-book5-ch-32", title: "Ch 32 — ECR 8 軸別処方 — 運用者向けプレイブック", summary: "Atlas 8 軸 × Lv1-5 × 凹みパターン処方 (Ch 21 pointer: COI)。30p。", status: "not-started" },
   { slug: "new-book5-ch-33", title: "Ch 33 — GAP + URA + EIR — 三制度を一つの導線に", summary: "Ch 21 pointer: 論文-特許順序事故。22p。", status: "not-started" },
   { slug: "new-book5-ch-34", title: "Ch 34 — 地域 産学官 双対動態", summary: "σ_SU を県境で読む (Ch 10.7 Murmann coupling の政策・実務翻訳)。22p。", status: "not-started" },
-  { slug: "new-book5-ch-35", title: "Ch 35 — BZ 段階への政策含意", summary: "σ_SU と ERS を政策レバーに翻訳。16p。", status: "not-started" },
+  { slug: "new-book5-ch-35", title: "Ch 35 — BZ 段階への政策含意", summary: "σ_SU と ECR を政策レバーに翻訳。16p。", status: "not-started" },
 
   // Book VI — 新領域宣言 (60p, 3 章)
-  { slug: "new-book6-ch-36", title: "Ch 36 — 機関 KPI と ERS — Goodhart 回避の評価指標化", summary: "funder / 政策向け。18p。", status: "not-started" },
+  { slug: "new-book6-ch-36", title: "Ch 36 — 機関 KPI と ECR — Goodhart 回避の評価指標化", summary: "funder / 政策向け。18p。", status: "not-started" },
   { slug: "new-book6-ch-37", title: "Ch 37 — 真正面の比較 — BZM vs Triple Helix vs Effectuation vs Nelson-Winter (Tier B)", summary: "共通スコアリング規則 = 24ヶ月 outcome class log-loss。20p。", status: "not-started" },
   { slug: "new-book6-ch-37-5", title: "Ch 37.5 — 自己批判とオープンプロブレム — 第二版への課題", summary: "RT を含む全理論の弱点・未検証点・想定されるツッコミを著者自ら列挙し、第二版で解くべき課題として宣言する (D-056、まさ発案)。12p。", status: "not-started" },
   { slug: "new-book6-ch-38", title: "Ch 38 — 新領域宣言 — 何が獲得され、何が次の 10 年に持ち越されたか", summary: "Before Zero Studies (新サブ領域、進化経済 × イノベーション・システム × 学術アントレ研究 の交差点) の宣言。22p。", status: "not-started" },
