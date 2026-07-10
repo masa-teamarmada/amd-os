@@ -10,22 +10,22 @@ TestFlight build: 未更新
 
 ## 2026-07-10 追記: 設定タブから教科書を読む
 
-### 18. TextbookReaderView — PWA `/bzm` の認証付き WebView 導線
-**動機**: PWA の教科書ページ (`/bzm`) を、iOS Swift 版からも読めるようにする。
+### 18. TextbookReaderView — 同梱 Markdown のネイティブ教科書 reader
+**動機**: PWA の教科書ページ (`/bzm`) の本文を、iOS Swift 版からも白画面なしで読めるようにする。
 
 - `SettingsView.swift`
   - 設定タブに「資料」セクションを追加。
   - 「教科書」行をタップすると `TextbookReaderView` を開く。
 - `TextbookReaderView`
-  - `https://amd-os-pwa.vercel.app/bzm/preface` を WKWebView で表示。`/bzm` の redirect を挟まず、先頭章を直接開く。
-  - 既存 `SupabaseService.hudWebAuthCookies()` を使い、iOS の Supabase session を `@supabase/ssr` 互換 cookie として注入する。
-  - WebView 読み込み失敗時は白画面にせず、エラー内容と再読み込みボタンを表示する。
-  - 読み取り専用。教科書本文の正本は `pwa/bzm/*.md` と `pwa/src/app/(app)/bzm/bzm-chapters.ts`。
+  - `ios/AMDOS/Resources/BZM/*.md` に同梱した Markdown をネイティブ表示する。
+  - 初期表示は `preface.md`。右上の章メニューから同梱章を選ぶ。
+  - WebView / PWA 認証 cookie に依存しない。
+  - 読み取り専用。教科書本文の正本は `pwa/bzm/*.md` と `pwa/src/app/(app)/bzm/bzm-chapters.ts`。iOS 同梱分は正本から同期したコピー。
 
 ### Android 反映メモ
 - 設定画面に同じ「資料 > 教科書」導線を追加する。
-- Android WebView で `https://amd-os-pwa.vercel.app/bzm/preface` を開く。
-- 認証必須ページなので、iOS と同様に Supabase session を `sb-nbnhrhybjslbawdukvvk-auth-token` cookie として注入する。cookie 値は `base64-` + base64url(session JSON)、長い場合は `.0`, `.1` の chunk に分ける。
+- PWA WebView ではなく、`pwa/bzm/*.md` を Android assets へ同期してネイティブ reader で表示する。
+- 初期表示は `preface.md`、章選択メニューを付ける。
 
 ---
 

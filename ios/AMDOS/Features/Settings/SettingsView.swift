@@ -1,5 +1,4 @@
 import SwiftUI
-import WebKit
 
 struct SettingsView: View {
     @EnvironmentObject var authService: AuthService
@@ -94,168 +93,144 @@ struct SettingsView: View {
 // MARK: - TextbookReaderView
 
 struct TextbookReaderView: View {
-    @State private var cookies: [HTTPCookie]?
-    @State private var errorMessage: String?
-    @State private var reloadToken = UUID()
-
-    private let url = URL(string: "https://amd-os-pwa.vercel.app/bzm/preface")!
+    private let chapters = TextbookChapter.loadBundledChapters()
+    @State private var selectedSlug = "preface"
 
     var body: some View {
         Group {
-            if let cookies {
-                ZStack {
-                    TextbookWebView(url: url, cookies: cookies, reloadToken: reloadToken, errorMessage: $errorMessage)
-                    if let errorMessage {
-                        VStack(spacing: 14) {
-                            Image(systemName: "wifi.exclamationmark")
-                                .font(.system(size: 34, weight: .semibold))
-                                .foregroundStyle(.orange)
-                            Text("教科書を読み込めなかった")
-                                .font(.headline)
-                            Text(errorMessage)
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.center)
-                            Button {
-                                self.errorMessage = nil
-                                reloadToken = UUID()
-                            } label: {
-                                Label("再読み込み", systemImage: "arrow.clockwise")
-                            }
-                            .buttonStyle(.borderedProminent)
-                        }
-                        .padding()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(Color(.systemBackground))
-                    }
-                }
-            } else if let errorMessage {
+            if chapters.isEmpty {
                 ContentUnavailableView(
                     "教科書を開けなかった",
-                    systemImage: "exclamationmark.triangle",
-                    description: Text(errorMessage)
+                    systemImage: "doc.text.magnifyingglass",
+                    description: Text("同梱された教科書本文が見つからなかった")
                 )
-            } else {
-                VStack(spacing: 12) {
-                    ProgressView()
-                    Text("教科書を読み込み中...")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+            } else if let chapter = selectedChapter {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        Text(chapter.title)
+                            .font(.title2.weight(.semibold))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Divider()
+                        Text(chapter.renderedMarkdown)
+                            .font(.body)
+                            .lineSpacing(5)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 20)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .navigationTitle("教科書")
         .navigationBarTitleDisplayMode(.inline)
-        .task {
-            do {
-                cookies = try await SupabaseService.shared.hudWebAuthCookies()
-            } catch {
-                errorMessage = error.localizedDescription
-                cookies = []
+        .toolbar {
+            if !chapters.isEmpty {
+                Menu {
+                    ForEach(chapters) { chapter in
+                        Button {
+                            selectedSlug = chapter.slug
+                        } label: {
+                            if selectedSlug == chapter.slug {
+                                Label(chapter.menuTitle, systemImage: "checkmark")
+                            } else {
+                                Text(chapter.menuTitle)
+                            }
+                        }
+                    }
+                } label: {
+                    Label("章を選ぶ", systemImage: "list.bullet")
+                }
             }
         }
+        .onAppear {
+            if !chapters.contains(where: { $0.slug == selectedSlug }) {
+                selectedSlug = chapters.first?.slug ?? "preface"
+            }
+        }
+    }
+
+    private var selectedChapter: TextbookChapter? {
+        chapters.first { $0.slug == selectedSlug } ?? chapters.first
     }
 }
 
-private struct TextbookWebView: UIViewRepresentable {
-    let url: URL
-    let cookies: [HTTPCookie]
-    let reloadToken: UUID
-    @Binding var errorMessage: String?
+private struct TextbookChapter: Identifiable {
+    let slug: String
+    let title: String
+    let markdownText: String
+    let renderedMarkdown: AttributedString
 
-    func makeUIView(context: Context) -> WKWebView {
-        let config = WKWebViewConfiguration()
-        config.websiteDataStore = .default()
-        let webView = WKWebView(frame: .zero, configuration: config)
-        webView.navigationDelegate = context.coordinator
-        webView.uiDelegate = context.coordinator
-        webView.allowsBackForwardNavigationGestures = true
-        webView.backgroundColor = .systemBackground
-        webView.scrollView.backgroundColor = .systemBackground
+    var id: String { slug }
+    var menuTitle: String { title.isEmpty ? slug : title }
 
-        context.coordinator.lastReloadToken = reloadToken
-        load(webView)
-        return webView
-    }
-
-    func updateUIView(_ uiView: WKWebView, context: Context) {
-        if context.coordinator.lastReloadToken != reloadToken {
-            context.coordinator.lastReloadToken = reloadToken
-            load(uiView)
+    static func loadBundledChapters() -> [TextbookChapter] {
+        let nestedURLs = Bundle.main.urls(forResourcesWithExtension: "md", subdirectory: "BZM") ?? []
+        let rootURLs = Bundle.main.urls(forResourcesWithExtension: "md", subdirectory: nil) ?? []
+        let urls = nestedURLs.isEmpty ? rootURLs : nestedURLs
+        let chapters = urls.compactMap(loadChapter)
+        return chapters.sorted { lhs, rhs in
+            let lhsRank = orderRank(for: lhs.slug)
+            let rhsRank = orderRank(for: rhs.slug)
+            if lhsRank != rhsRank { return lhsRank < rhsRank }
+            return lhs.slug.localizedStandardCompare(rhs.slug) == .orderedAscending
         }
     }
 
-    func makeCoordinator() -> Coordinator {
-        Coordinator(errorMessage: $errorMessage)
+    private static func loadChapter(url: URL) -> TextbookChapter? {
+        guard let rawMarkdown = try? String(contentsOf: url, encoding: .utf8) else {
+            return nil
+        }
+        let markdown = removingHTMLComments(from: rawMarkdown)
+        let slug = url.deletingPathExtension().lastPathComponent
+        return TextbookChapter(
+            slug: slug,
+            title: title(from: markdown, fallback: slug),
+            markdownText: markdown,
+            renderedMarkdown: renderedMarkdown(from: markdown)
+        )
     }
 
-    private func load(_ webView: WKWebView) {
-        let store = webView.configuration.websiteDataStore.httpCookieStore
-        guard !cookies.isEmpty else {
-            webView.load(URLRequest(url: url))
-            return
-        }
+    private static func removingHTMLComments(from markdown: String) -> String {
+        var result = ""
+        var searchStart = markdown.startIndex
 
-        let group = DispatchGroup()
-        for cookie in cookies {
-            group.enter()
-            store.setCookie(cookie) { group.leave() }
-        }
-        group.notify(queue: .main) {
-            var request = URLRequest(url: url)
-            request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
-            webView.load(request)
-        }
-    }
-
-    final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
-        @Binding var errorMessage: String?
-        var lastReloadToken: UUID?
-
-        init(errorMessage: Binding<String?>) {
-            _errorMessage = errorMessage
-        }
-
-        func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-            errorMessage = nil
-        }
-
-        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-            guard !isCancelled(error) else { return }
-            errorMessage = readable(error)
-        }
-
-        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-            guard !isCancelled(error) else { return }
-            errorMessage = readable(error)
-        }
-
-        func webView(
-            _ webView: WKWebView,
-            decidePolicyFor navigationAction: WKNavigationAction,
-            decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
-        ) {
-            if navigationAction.targetFrame == nil, let url = navigationAction.request.url {
-                webView.load(URLRequest(url: url))
-                decisionHandler(.cancel)
-                return
+        while let openRange = markdown.range(of: "<!--", range: searchStart..<markdown.endIndex) {
+            result += markdown[searchStart..<openRange.lowerBound]
+            guard let closeRange = markdown.range(of: "-->", range: openRange.upperBound..<markdown.endIndex) else {
+                return result
             }
-            decisionHandler(.allow)
+            searchStart = closeRange.upperBound
         }
 
-        private func readable(_ error: Error) -> String {
-            let ns = error as NSError
-            if ns.domain == NSURLErrorDomain {
-                return "\(ns.localizedDescription) (\(ns.code))"
+        result += markdown[searchStart..<markdown.endIndex]
+        return result
+    }
+
+    private static func renderedMarkdown(from markdown: String) -> AttributedString {
+        let options = AttributedString.MarkdownParsingOptions(interpretedSyntax: .full)
+        return (try? AttributedString(markdown: markdown, options: options)) ?? AttributedString(markdown)
+    }
+
+    private static func title(from markdown: String, fallback: String) -> String {
+        for line in markdown.split(separator: "\n", omittingEmptySubsequences: false) {
+            let trimmed = String(line).trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("#") {
+                return trimmed.trimmingCharacters(in: CharacterSet(charactersIn: "# ")).trimmingCharacters(in: .whitespaces)
             }
-            return error.localizedDescription
         }
+        return fallback.replacingOccurrences(of: "-", with: " ")
+    }
 
-        private func isCancelled(_ error: Error) -> Bool {
-            let ns = error as NSError
-            return ns.domain == NSURLErrorDomain && ns.code == NSURLErrorCancelled
-        }
+    private static func orderRank(for slug: String) -> Int {
+        if slug == "preface" { return 0 }
+        if slug.hasPrefix("book-a-ch-") { return 100 + chapterNumber(from: slug) }
+        if slug.hasPrefix("new-book") { return 1_000 }
+        return 10_000
+    }
+
+    private static func chapterNumber(from slug: String) -> Int {
+        Int(slug.split(separator: "-").last.map(String.init) ?? "") ?? 999
     }
 }
 
