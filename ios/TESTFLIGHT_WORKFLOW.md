@@ -12,7 +12,7 @@
 ## 今回の初期セットアップ
 
 - `2026-04-25` 時点で、`amd-os-ios` 配下に専用 git repo を作成済み
-- 現在の安定版は `0.1.0 (19)`
+- 現在の安定版は `0.1.0`
 - `main` に TestFlight 用 commit が入っている
 - `develop` は `main` を fast-forward 済みなので、いまは `main` と `develop` が同じ commit を指している
 - つまり「いま `develop` にいる」のは問題なく、ここから新規開発を始めてよい
@@ -48,8 +48,8 @@
 
 1. `main` に切り替える
 2. `develop` で安定した変更だけを `main` に反映する
-3. `CURRENT_PROJECT_VERSION` を上げる
-   `project.yml` と `AMDOS.xcodeproj/project.pbxproj` の両方を更新する
+3. `MARKETING_VERSION` を上げる
+   `CURRENT_PROJECT_VERSION` は別番号にせず、同じ値へ揃える
 4. 実機で install / launch まで確認する
 5. Xcode で Archive して App Store Connect に upload する
 6. App Store Connect の TestFlight で内部テスターへ配布する
@@ -59,7 +59,7 @@
 1. 普段は `develop` で機能追加する
 2. 配りたい状態になったら `main` に切り替える
 3. `develop` の内容を `main` に反映する
-4. `CURRENT_PROJECT_VERSION` を 1 つ上げる
+4. `MARKETING_VERSION` と `CURRENT_PROJECT_VERSION` を同じ値で上げる
 5. Archive / Upload する
 6. TestFlight で配布する
 7. 配布が終わったら `develop` に戻る
@@ -67,16 +67,17 @@
 ## 緊急修正の流れ
 
 1. いま TestFlight に出ている不具合を最優先で直すときは `main` から直す
-2. build 番号を上げて TestFlight を更新する
+2. 表示バージョンを上げて TestFlight を更新する
 3. 修正済み `main` を `develop` に戻して差分を揃える
 
-## build番号ルール
+## バージョンルール
 
 - `CFBundleShortVersionString`
-  人間向けの見た目の版。必要なときだけ上げる
+  人間向けの見た目の版
 - `CURRENT_PROJECT_VERSION`
-  TestFlight に再アップするたび必ず増やす番号
-- `CURRENT_PROJECT_VERSION` を上げるときは、必ず `project.yml` と `AMDOS.xcodeproj/project.pbxproj` の両方を更新する
+  iOS の必須項目として残すが、別建ての build 番号運用はしない。`MARKETING_VERSION` と同じ値に揃える
+- アプリ内表示は `CFBundleShortVersionString` のみ。括弧付き build 番号は出さない
+- バージョンを上げるときは、必ず `project.yml` と `AMDOS.xcodeproj/project.pbxproj` の両方を更新する
 
 ## 注意
 

@@ -20,7 +20,7 @@
 - 月次ルーティンまわりは安定稼働
 - TestFlight 配布の土台を整備済み
 - 配布用ブランチは `main`、日々の開発は `develop`
-- TestFlight 配布済み: `0.1.0 (19)`（build 19）
+- TestFlight 配布済み: `0.1.0`
   - 既存の内部テストグループ `AMD` に割り当て済み
   - 内部テスターとして実機確認済み: `肥塚恭子` さん 1 名
   - `umemoto@team-armada.jp` は招待送信済み・承認待ち
@@ -77,7 +77,7 @@ xcodebuild \
 
 1. `umemoto@team-armada.jp` が App Store Connect 招待を承認したら `AMD` 内部テストグループへ追加
 2. 必要なら他の AMD メンバーも `ユーザとアクセス` から招待し、内部テスターへ追加
-3. 次に TestFlight へ出すときは `main` で `CURRENT_PROJECT_VERSION` を上げる（現在 21）
+3. 次に TestFlight へ出すときは `main` で `MARKETING_VERSION` を上げ、`CURRENT_PROJECT_VERSION` は同じ値に揃える
 
 ## 次セッションの最初の一手
 
@@ -90,7 +90,7 @@ xcodebuild \
 
 - iOS 修正は `xcodebuild` の `BUILD SUCCEEDED` だけで完了扱いにしない
 - 必ず `devicectl device install app` の `App installed` と `device process launch` の起動成功まで確認する
-- `CURRENT_PROJECT_VERSION` を上げるときは `project.yml` と `AMDOS.xcodeproj/project.pbxproj` の両方を更新する
+- 別建ての build 番号運用は廃止。`CURRENT_PROJECT_VERSION` は `MARKETING_VERSION` と同じ値に揃える
 - 内部テスター追加は 2 段階:
   - 先に `ユーザとアクセス` で App Store Connect ユーザーとして招待
   - 招待受諾後に TestFlight の内部テストグループへ追加

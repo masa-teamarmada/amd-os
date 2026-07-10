@@ -400,8 +400,8 @@ admin がアクション必要なものを集約する。
 
 - `project.yml` (XcodeGen) で `AMDOS.xcodeproj` を生成
 - 新ファイル追加後は `xcodegen` を実行して pbxproj 更新（必要であれば）
-- TestFlight build を上げるときは `CURRENT_PROJECT_VERSION` をインクリメント
-  - **ファイル復活コミットを TestFlight に乗せるには必ずビルド番号も上げる**
+- TestFlight 配布時も別建ての build 番号運用はしない。`MARKETING_VERSION` と `CURRENT_PROJECT_VERSION` を同じ値に揃える
+  - アプリ内表示は `CFBundleShortVersionString` のみ。括弧付き build 番号は出さない
 - 詳細: `TESTFLIGHT_WORKFLOW.md` 参照
 
 ---

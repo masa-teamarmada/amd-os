@@ -33,7 +33,7 @@
 - インストール後は `xcrun devicectl device process launch --device 22F6F889-985D-5CAF-AFF3-D50D5E80FFA0 jp.team-armada.amdos` で起動。
 - `App installed` と起動成功を確認してから完了報告する。
 - 新規iOSファイル追加時はpbxprojに手動追加する。
-- `CURRENT_PROJECT_VERSION` を更新する場合は `project.yml` と `xcodeproj` の両方を更新する。
+- 別建ての build 番号運用は廃止。バージョン更新時は `MARKETING_VERSION` と `CURRENT_PROJECT_VERSION` を同じ値にし、`project.yml` と `xcodeproj` の両方を更新する。
 - **画面・機能を追加・削除・名称変更したら必ず同じコミットで `DESIGN.md` を更新**。
 - **commit したら即 push** を徹底する（エラー閉じで作業消失を防ぐ）。
 - main を更新したら `HANDOFF_ios_to_android.md` を更新して GitHub に push するまでがワンセット。
@@ -41,9 +41,9 @@
 直近の状態:
 - Drive 上の amd-os-ios は廃止済み、すべての作業は ~/dev/amd-os-ios で行う。
 - 配布用ブランチは `main`、日々の開発は `develop`。
-- TestFlight build `0.1.0 (19)` は archive / upload 済み。
+- アプリ内表示は括弧付き build 番号なし。`CFBundleShortVersionString` のみ表示する。
 - masaiPhone には Mac 直接接続で最新の Debug ビルドが入っている（TestFlight 経由ではない）。
-- 内部テストグループ `AMD` には build 19 を割り当て済み。
+- 内部テストグループ `AMD` には配布済み。
 
 この続きから進めてください。作業前に必ず上記mdを読み、必要ならソースコードも確認してください。
 ```
