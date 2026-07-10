@@ -1,6 +1,6 @@
 # HANDOFF - AMD OS PWA
 
-> Current handoff note (2026-07-09): this file still contains older PWA rebuild history. For the current repo/session state, read `/Users/masa/projects/AMD/amd-os/HANDOFF.md` first, then return here only for historical `/proactive` context. The current active carry-forward at closeout is the `/admin/invoices` freee取引先選択 WIP listed in root `HANDOFF.md`.
+> Current handoff note (2026-07-10): this file still contains older PWA rebuild history. For the current repo/session state, read `/Users/masa/projects/AMD/amd-os/HANDOFF.md` first, then return here only for historical `/proactive` context. Gmail期限つき依頼は 2026-07-10 に `email_action_request` として実装済み。Slack催促検知だけが残 Phase。
 
 - Last updated: 2026-06-27 (後始末セッション: 前セッション残骸の design_log merge 分を commit、untracked 8件は別 worker 帰属を明記して保留)
 - Canonical root: `/Users/masa/projects/AMD/amd-os`
@@ -56,7 +56,7 @@
 2. **誤検知パターンの整理**: 初回 backfill で「CLG側」が AMD ボール判定で抽出された (実態は CLG ベンチャー側 = counterpart)。社外取締役 / advisor 系 PJ では PJ コード+側 を AMD ボール扱いしない調整候補
 3. **cockpit 側の旧 `ProactiveQueuePanel` 処遇**: 今回 dashboard 側だけ刷新、cockpit `CockpitView.tsx` の旧 panel は `proactive_outbox` を見続けてる。データが古いまま放置されると混乱の元。完全に消すか、`proactive_todos` ベースの新 cockpit panel に置き換えるかは別 Phase
 4. **完了 → 学習段 (Protocol / Textbook insight) への流し込み**: resolved_note を learning レイヤーへ流す Step 3 は未着手
-5. **Gmail / Slack の催促文言検知** (= 残り 20% カバー): Phase 2 以降
+5. **Slack の催促文言検知** (= 残りカバー): Gmail期限つき依頼は 2026-07-10 に `email_action_request` として実装済み。Slackは raw hygiene と通知ノイズ設計を決めてから別 Phase
 6. **`sent` 状態 (相手にボールを渡した) の追加**: まさ判断「最初はなしでもいい、必要だと感じたら追加」
 7. **前セッション残骸の処理**: 8 件の untracked が別 worker 由来で保留中 (= migration 153/155/156、meeting-assets/replace、project-labels.ts、L6 outbox artifact、gas-slack/.clasp.json、update_drive_file.mjs)。当該 worker / セッション側で commit or 削除判断を期待。Repo State セクションに帰属を明記済み
 

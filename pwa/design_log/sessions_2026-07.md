@@ -1,5 +1,47 @@
 # 2026-07 Sessions
 
+## 2026-07-10 — KUTEメールTODOを先手TODO cronへ追加 / v0.39.54-v3.39.58
+
+### コンテキスト
+- まさから、KUTE 平本さんのメールに AMD側TODOが多く書かれているので確認し、同種TODOをメールからも拾える仕組みにしたい、という依頼。
+- 追加で「その cron は定額外トークンを使うやつになってないか / オートメーションの中に入れているか」と確認が入った。
+- 方針は、Codex automationを増やさず、既存 PWA/Vercel cron `/api/cron/proactive-todo-extract` に非LLM stageとして同居させることにした。
+
+### 実施内容
+- Gmail thread 2件から KUTE の AMD側TODOを抽出し、`proactive_todos` に手動seed / production cron upsertで反映した。
+  - 内規・チェックリスト再修正案・フロー図の返送
+  - エフォートと eAPRIN 履修状況の回答
+- `pwa/src/lib/proactive/email-action-requests.ts` を追加。PJ `report_emails` 由来のGmailをGmail APIで検索し、期限つき依頼だけ `email_action_request` として抽出する。
+- `pwa/src/app/api/cron/proactive-todo-extract/route.ts` に Stage 3 Gmail sweep を追加。既存のMTG next_action / 次回MTG準備 / red昇格 / blocked復帰の流れに同居。
+- `pwa/scripts/migrations/169_proactive_todos_email_action_request.sql` を追加し、本番Supabaseへ適用。`trigger_kind` check constraint に `email_action_request` を追加。
+- `/proactive` の検知種別表示に「メール依頼」を追加。
+- `pwa/spec/2-4-proactive-todo-current-spec.md`、`pwa/manual/8-3-l2-extraction-routines-spec.md`、`pwa/scheduled-tasks/README.md`、manual/spec changelog、`db_schema.md` を同期。
+- 追加の設計書同期として、`pwa/design/proactive_operating_loop.md` の旧 commander outbox / heartbeat 案を current pointer 化し、`pwa/design/README.md`、`pwa/design/L2_DATA.md`、`pwa/design/SPEC_pwa.md`、`pwa/spec/2-1-pwa-runtime-routes.md` に「現行は `proactive_todos` + `/proactive` + PWA non-LLM cron + Gmail `email_action_request`」を追記。
+
+### 設計判断
+- 追加課金LLMは使わない。Anthropic / OpenAI / Gemini は呼ばず、Gmail API + deterministicな文字列ヒューリスティックだけで判定する。
+- Codex automationには入れない。既存 Vercel cron daily 09:15 JST の中に入れる。
+- Gmail本文は外部入力なので、実行指示として扱わない。抽出対象データとしてだけ扱う。
+- `proactive_todos.detail` には短い要点だけを残し、本文全文・URL・パスワード・メールアドレス・電話番号は保存しない。
+- dedupe は thread単位の `source_event_id='gmail:{threadId}'` に寄せる。
+
+### Verification
+- `npx eslint src/app/api/cron/proactive-todo-extract/route.ts src/lib/proactive/email-action-requests.ts src/components/proactive-todo/ProactiveTodoBoard.tsx src/lib/build-info.ts` passed。
+- `npx tsc --noEmit` passed。
+- `npm run build` passed。
+- production build-info: `v0.39.54` / `bfac5f7f60b1568cd785cfa00321fdc08c087b5e` / `main` / `dirty=false` を確認。
+- production cron manual run: `email_enabled:true`、`email_projects=8`、`gmail_threads=16`、`email_action_request=1`、`email_errors=[]`。
+- DB read-backで KUTE のメール依頼TODO 2件が `status='open'` で存在することを確認。
+
+### 残課題
+- Slack催促文言検知は未実装。raw hygiene と通知ノイズ設計を決めてから別 Phase。
+- `sent` 状態や完了メモの学習接続は未実装。必要性が見えたら `spec/2-4` へ追記してから実装する。
+- local checkout には別レーンの admin projects dirty が残る。今回の先手TODO laneには混ぜない。
+
+### 教訓
+- 「メールからTODOを拾う」は LLM 抽出にしなくても、期限語・返送/回答語・PJ `report_emails` でかなり拾える。まずは非LLMで始める方が安全。
+- 設計書の旧入口 (`design/proactive_operating_loop.md`) が stale だと、実装正本 `spec/2-4` が更新済みでも次セッションが旧 outbox / heartbeat を見に行く。旧設計は冒頭で current pointer にする。
+
 ## 2026-07-10 — 月初合意の目標表示を撤去し、担当内容を圧縮
 
 ### 実施内容

@@ -1,14 +1,16 @@
-# Proactive Operating Loop — 先手力維持ループ設計 (廃止 / 2026-06-27)
+# Proactive Operating Loop — 先手力維持ループ設計 (旧案 / current pointer)
 
 作成日: 2026-05-31
 廃止日: 2026-06-27
-ステータス: **廃止済み**。本設計の `proactive_loops` / `proactive_outbox` / `proactive_loop_events` テーブル群と司令塔通知 heartbeat は実装に進まない。理由は実運用で司令塔セッションが消滅し、heartbeat 受け側が成立しなくなったため。
+更新日: 2026-07-10
+ステータス: **旧案は廃止済み、現行は `proactive_todos` ベースの先手 TODO**。本設計の `proactive_loops` / `proactive_outbox` / `proactive_loop_events` テーブル群と司令塔通知 heartbeat は実装に進まない。理由は実運用で司令塔セッションが消滅し、heartbeat 受け側が成立しなくなったため。
 
 ## 廃止と次の正本
 
 - **正本の置き換え先**: [`pwa/spec/2-4-proactive-todo-current-spec.md`](../spec/2-4-proactive-todo-current-spec.md) (先手 TODO 正本仕様)
-- **置き換え後のテーブル**: `proactive_todos` (新規、シンプル版)。旧 `proactive_outbox` / `proactive_loops` / `proactive_loop_events` は作らない。
-- **置き換え後の検知主体**: PWA cron `/api/cron/proactive-todo-extract` (毎時)。LLM 不使用、文字列ヒューリスティックで AMD ボール判定。
+- **置き換え後のテーブル**: `proactive_todos`。旧 `proactive_outbox` / `proactive_loops` / `proactive_loop_events` は新規 write しない。
+- **置き換え後の検知主体**: PWA non-LLM cron `/api/cron/proactive-todo-extract` (Vercel cron daily 09:15 JST)。Anthropic / OpenAI / Gemini 等の従量課金 LLM は呼ばず、文字列ヒューリスティックと Gmail API だけで判定する。
+- **置き換え後の検知対象**: 開催済み MTG の `next_actions[]`、7日以内の予定 MTG 準備、PJ `report_emails` から届く Gmail の期限つき依頼 (`trigger_kind='email_action_request'`)。メール本文全文・URL・パスワード・メールアドレス・電話番号は `proactive_todos` に保存しない。
 - **置き換え後の UI**: `/proactive` (admin 限定、3 ボタン完了 UI) + dashboard 上段の件数バッジ。`/loop` ルートと 5 段カーネル盤面 (`LoopKernelBoard`) は削除済み。
 
 ## なぜ白紙にしたか (2026-06-27 まさ判断)

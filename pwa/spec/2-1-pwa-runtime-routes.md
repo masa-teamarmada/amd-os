@@ -52,6 +52,7 @@
 | `/admin/management-knowledge` | 経営ノウハウ。事業化ルート、座組、価格、資金、法務論点などの再利用カードを保存する admin-only 台帳 |
 | `/admin/private-wiki` | 裏wiki。人物単位の趣味・関係性メモを PJ 別に保存する admin-only 台帳 |
 | `/notifications` | L2 candidate / feedback の採否 |
+| `/proactive` | admin 限定の先手 TODO リスト。`proactive_todos` の open / blocked / done / dismissed を期限順に確認し、完了・ブロック・関係ないの3ボタンで処理する |
 | `/management-score` | AMD Management Score |
 | `/institutions` / `/institutions/*` | ERS / 研究機関評価 |
 
@@ -68,6 +69,7 @@
 - `/api/task-calendar/register-tasks` は H-1 が抽出した次アクションを `tasks` に自動登録し、担当者本人にだけ Slack DM nudge を送る。`CRON_SECRET` / `WORKFLOW_SECRET` または admin auth でのみ実行し、admin review queue は作らない。
 - `/api/cron/governance-email-sweep` は D-14G の source sweep route。`CRON_SECRET` または admin auth でのみ実行し、`/admin/projects` の総会/役会フラグON PJに限定して Gmail を検索する。LLM定期cronではなく、source refs と `/api/governance/extract` への候補/確認済みhandoffを担う。
 - `/api/guardrails/evaluate` は経営ガードレールのタグ照合 route。admin auth または `CRON_SECRET` でのみ実行し、`guardrail_cards.status='active'` と PJ / アクションタグを照合して `guardrail_matches` と `l2_notifications(l2_kind='guardrail_match')` を作る。LLMは使わず deterministic に評価する。
+- `/api/cron/proactive-todo-extract` は先手 TODO の PWA non-LLM cron。開催済みMTG `next_actions[]`、7日以内の予定MTG準備、PJ `report_emails` から届く Gmail 期限つき依頼 (`email_action_request`) を `proactive_todos` に upsert する。Gmail API は読むが、Anthropic / OpenAI / Gemini 等の従量課金LLMは呼ばない。メール本文全文・URL・パスワードは保存しない。
 
 ## Admin Private Wiki
 
