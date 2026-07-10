@@ -96,13 +96,39 @@ struct SettingsView: View {
 struct TextbookReaderView: View {
     @State private var cookies: [HTTPCookie]?
     @State private var errorMessage: String?
+    @State private var reloadToken = UUID()
 
-    private let url = URL(string: "https://amd-os-pwa.vercel.app/bzm")!
+    private let url = URL(string: "https://amd-os-pwa.vercel.app/bzm/preface")!
 
     var body: some View {
         Group {
             if let cookies {
-                TextbookWebView(url: url, cookies: cookies)
+                ZStack {
+                    TextbookWebView(url: url, cookies: cookies, reloadToken: reloadToken, errorMessage: $errorMessage)
+                    if let errorMessage {
+                        VStack(spacing: 14) {
+                            Image(systemName: "wifi.exclamationmark")
+                                .font(.system(size: 34, weight: .semibold))
+                                .foregroundStyle(.orange)
+                            Text("教科書を読み込めなかった")
+                                .font(.headline)
+                            Text(errorMessage)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                            Button {
+                                self.errorMessage = nil
+                                reloadToken = UUID()
+                            } label: {
+                                Label("再読み込み", systemImage: "arrow.clockwise")
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
+                        .padding()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color(.systemBackground))
+                    }
+                }
             } else if let errorMessage {
                 ContentUnavailableView(
                     "教科書を開けなかった",
@@ -135,18 +161,40 @@ struct TextbookReaderView: View {
 private struct TextbookWebView: UIViewRepresentable {
     let url: URL
     let cookies: [HTTPCookie]
+    let reloadToken: UUID
+    @Binding var errorMessage: String?
 
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
+        config.websiteDataStore = .default()
         let webView = WKWebView(frame: .zero, configuration: config)
+        webView.navigationDelegate = context.coordinator
+        webView.uiDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = true
         webView.backgroundColor = .systemBackground
         webView.scrollView.backgroundColor = .systemBackground
 
-        let store = config.websiteDataStore.httpCookieStore
+        context.coordinator.lastReloadToken = reloadToken
+        load(webView)
+        return webView
+    }
+
+    func updateUIView(_ uiView: WKWebView, context: Context) {
+        if context.coordinator.lastReloadToken != reloadToken {
+            context.coordinator.lastReloadToken = reloadToken
+            load(uiView)
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(errorMessage: $errorMessage)
+    }
+
+    private func load(_ webView: WKWebView) {
+        let store = webView.configuration.websiteDataStore.httpCookieStore
         guard !cookies.isEmpty else {
             webView.load(URLRequest(url: url))
-            return webView
+            return
         }
 
         let group = DispatchGroup()
@@ -155,12 +203,60 @@ private struct TextbookWebView: UIViewRepresentable {
             store.setCookie(cookie) { group.leave() }
         }
         group.notify(queue: .main) {
-            webView.load(URLRequest(url: url))
+            var request = URLRequest(url: url)
+            request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+            webView.load(request)
         }
-        return webView
     }
 
-    func updateUIView(_ uiView: WKWebView, context: Context) {}
+    final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
+        @Binding var errorMessage: String?
+        var lastReloadToken: UUID?
+
+        init(errorMessage: Binding<String?>) {
+            _errorMessage = errorMessage
+        }
+
+        func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+            errorMessage = nil
+        }
+
+        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            guard !isCancelled(error) else { return }
+            errorMessage = readable(error)
+        }
+
+        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            guard !isCancelled(error) else { return }
+            errorMessage = readable(error)
+        }
+
+        func webView(
+            _ webView: WKWebView,
+            decidePolicyFor navigationAction: WKNavigationAction,
+            decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+        ) {
+            if navigationAction.targetFrame == nil, let url = navigationAction.request.url {
+                webView.load(URLRequest(url: url))
+                decisionHandler(.cancel)
+                return
+            }
+            decisionHandler(.allow)
+        }
+
+        private func readable(_ error: Error) -> String {
+            let ns = error as NSError
+            if ns.domain == NSURLErrorDomain {
+                return "\(ns.localizedDescription) (\(ns.code))"
+            }
+            return error.localizedDescription
+        }
+
+        private func isCancelled(_ error: Error) -> Bool {
+            let ns = error as NSError
+            return ns.domain == NSURLErrorDomain && ns.code == NSURLErrorCancelled
+        }
+    }
 }
 
 // MARK: - NotificationInboxView

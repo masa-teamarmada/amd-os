@@ -338,8 +338,9 @@ admin がアクション必要なものを集約する。
 
 **教科書導線（`TextbookReaderView`）**
 - 設定タブの「資料」セクション → 「教科書」から開く。
-- 表示先は PWA production `https://amd-os-pwa.vercel.app/bzm`。PWA 側の `/bzm` は `preface` へ redirect する。
+- 表示先は PWA production `https://amd-os-pwa.vercel.app/bzm/preface`。iOS 側では `/bzm` の redirect を挟まず、教科書の先頭章を直接開く。
 - iOS の Supabase session を `@supabase/ssr` 互換 cookie に変換して WKWebView へ注入するため、ログイン済みなら PWA の認証済み教科書ページをそのまま読める。
+- WebView の読み込み失敗時は白画面にせず、エラー内容と再読み込みボタンを表示する。
 - 読み取り専用。教科書本文の正本は `pwa/bzm/*.md` と `pwa/src/app/(app)/bzm/bzm-chapters.ts`。
 
 ---

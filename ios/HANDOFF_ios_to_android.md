@@ -17,14 +17,14 @@ TestFlight build: 未更新
   - 設定タブに「資料」セクションを追加。
   - 「教科書」行をタップすると `TextbookReaderView` を開く。
 - `TextbookReaderView`
-  - `https://amd-os-pwa.vercel.app/bzm` を WKWebView で表示。
+  - `https://amd-os-pwa.vercel.app/bzm/preface` を WKWebView で表示。`/bzm` の redirect を挟まず、先頭章を直接開く。
   - 既存 `SupabaseService.hudWebAuthCookies()` を使い、iOS の Supabase session を `@supabase/ssr` 互換 cookie として注入する。
-  - PWA 側 `/bzm` は `/bzm/preface` へ redirect するため、iOS 側では入口 URL だけ固定する。
+  - WebView 読み込み失敗時は白画面にせず、エラー内容と再読み込みボタンを表示する。
   - 読み取り専用。教科書本文の正本は `pwa/bzm/*.md` と `pwa/src/app/(app)/bzm/bzm-chapters.ts`。
 
 ### Android 反映メモ
 - 設定画面に同じ「資料 > 教科書」導線を追加する。
-- Android WebView で `https://amd-os-pwa.vercel.app/bzm` を開く。
+- Android WebView で `https://amd-os-pwa.vercel.app/bzm/preface` を開く。
 - 認証必須ページなので、iOS と同様に Supabase session を `sb-nbnhrhybjslbawdukvvk-auth-token` cookie として注入する。cookie 値は `base64-` + base64url(session JSON)、長い場合は `.0`, `.1` の chunk に分ける。
 
 ---

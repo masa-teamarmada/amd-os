@@ -4427,8 +4427,8 @@ extension SupabaseService {
     /// cookie 名: sb-<ref>-auth-token、値: "base64-" + base64url(session JSON)、長い場合は .0/.1 で chunk 分割。
     func hudWebAuthCookies() async throws -> [HTTPCookie] {
         let session: Session
-        do { session = try await client.auth.session }
-        catch { session = try await client.auth.refreshSession() }
+        do { session = try await client.auth.refreshSession() }
+        catch { session = try await client.auth.session }
 
         let userData = try JSONEncoder().encode(session.user)
         let userObj = try JSONSerialization.jsonObject(with: userData)
@@ -4451,11 +4451,12 @@ extension SupabaseService {
 
         let name = "sb-nbnhrhybjslbawdukvvk-auth-token"
         let domain = "amd-os-pwa.vercel.app"
-        let maxChunk = 3600
+        let maxChunk = 3180
 
         func cookie(_ n: String, _ v: String) -> HTTPCookie? {
             HTTPCookie(properties: [
                 .domain: domain, .path: "/", .name: n, .value: v, .secure: "TRUE",
+                .expires: Date(timeIntervalSince1970: TimeInterval(session.expiresAt)),
             ])
         }
 
