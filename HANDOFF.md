@@ -12,7 +12,7 @@ Topic: 左メニュー `ボード` の全アクティブPJフライアウト修�
 - 仕上げ commit: `0221beaa fix(pwa): constrain board flyout viewport height`。画面下端ではPJ一覧部分だけがスクロールする高さ制御を追加。
 - 実画面の hover は、まさが「今度はいけた！」と確認済み。
 - まさの受入確認時点の production `/api/build-info`: `v0.39.45` / `8799b2d772568b5fe5b247f54b9834e762057234` / `main` / `dirty=false`。
-- closeout 最終確認時点の production `/api/build-info`: `v0.39.45` / `0665b5e6a2f04709f3378ffcd7900d7598f27d31` / `main` / `dirty=false`。今回の docs closeout は main へ push 済みだが、production はまだ docs closeout までは進んでいない。ボード修正 commit は ancestor として含まれる。
+- closeout 最終確認時点の production `/api/build-info`: `v0.39.45` / `1a37894441157b2b5d690ffa40203f702b930a9b` / `main` / `dirty=false`。最新 docs closeout は main へ push 済みだが、production はまだ最新 docs closeout までは進んでいない。ボード修正 commit は ancestor として含まれる。
 - 詳細ログ: `pwa/design_log/sessions_2026-07.md` の `2026-07-10 — 左メニュー ボード 全アクティブPJフライアウト表示修正 / v0.39.41-v0.39.45`。
 
 ## Repo State
