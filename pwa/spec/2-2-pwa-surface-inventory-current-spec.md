@@ -7,7 +7,7 @@
 | route group | route | 役割 | authority |
 |---|---|---|---|
 | auth | `/auth/login`, `/auth/callback` | Supabase Google OAuth login / callback | `pwa/src/app/auth/*` |
-| home | `/dashboard` | PJ一覧、Atlas / Venture Map / MyPage / Admin 入口 | `dashboard/page.tsx` |
+| home | `/dashboard` | PJ一覧、抽出状況、Atlas / Venture Map / MyPage / Admin 入口 | `dashboard/page.tsx` |
 | cockpit | `/project/[projectId]/cockpit` | PJ status、AMD Score、MS、経営ハイライト、月次カード/モーダル、MTGサマリ、kanban | `project/[projectId]/cockpit/page.tsx`, `CockpitView.tsx` |
 | member | `/mypage`, `/reimburse` | メンバー活動、週次活動、立替精算 | `mypage/page.tsx`, `reimburse/page.tsx` |
 | admin | `/admin/*` | invoices / finance / projects / members / payouts / prompts / settings / protocols / tsukuyomi / weekly (週次活動×月次報酬マトリクス: `/api/admin/weekly` が member_activities(member_weekly) と表示月の `billing_cycles.reward_summary_json` の `members[].totalPay` を返し、右端列=メンバー別月合計・最下行=PJ別月合計・総合計を描画) / 日本文化マップ (`/admin/japanese-culture-map`) | `admin/*/page.tsx` |

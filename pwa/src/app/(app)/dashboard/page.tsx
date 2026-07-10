@@ -39,6 +39,7 @@ import { fetchErsBundle, type ErsBundle } from "@/lib/ers-data";
 import { ActionItemsPanel } from "@/components/governance/ActionItemsPanel";
 import { FundingStatsCard } from "@/components/dashboard/FundingStatsCard";
 import { ProactiveTodoBadge } from "@/components/proactive-todo/ProactiveTodoBadge";
+import { ExtractionStatusCard } from "@/components/dashboard/ExtractionStatusCard";
 import { isInstitutionDashboardProject } from "@/lib/institution-projects";
 
 function getCurrentYm() {
@@ -173,6 +174,7 @@ export default function DashboardPage() {
           <main className="space-y-4 min-w-0">
             <FundingStatsCard />
             <ProactiveTodoBadge />
+            <ExtractionStatusCard />
             <ActionItemsPanel projectLabels={projectLabels} variant="dashboard" limit={5} />
             <DashboardScoreOverview
               managementScore={managementScore}

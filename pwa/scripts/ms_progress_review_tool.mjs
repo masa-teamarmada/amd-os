@@ -169,7 +169,6 @@ const PWA_FEEDBACK_L2_KINDS = new Set([
   "project_member_candidate",
   "project_contact_candidate",
   "raw_data_gap",
-  "project_config_gap",
   "project_registry_diff",
   "xrl_evidence",
   "project_strategy_signal",
@@ -983,13 +982,17 @@ async function notify(file) {
   assertNoMojibake(payload, file);
   const rawL2Kind = payload.l2_kind || "ms_progress";
   // PWA が知らない l2_kind は採否不能な死に通知になるので、PWA 対応済みの汎用検知種別
-  // project_config_gap (= 台帳/抽出経路の欠落) に矯正する。元の野良 kind は metadata に痕跡として残す。
+  // project_config_gap (= 台帳/抽出経路の欠落) に矯正する。設定不足は承認対象ではないため、
+  // ダッシュボードの抽出状況カードがPJ台帳から直接表示し、通知には流さない。
   let l2Kind = rawL2Kind;
   let metadataJson = payload.metadata_json || payload.metadata || {};
   if (!PWA_FEEDBACK_L2_KINDS.has(l2Kind)) {
     console.warn(`[notify] PWA 非対応の l2_kind "${rawL2Kind}" を project_config_gap に矯正 (target=${payload.target_id}, scope=${payload.scope_key})`);
     l2Kind = "project_config_gap";
     metadataJson = { ...metadataJson, original_l2_kind: rawL2Kind };
+  }
+  if (l2Kind === "project_config_gap") {
+    return { ok: true, skipped: true, reason: "project config gaps are shown on the dashboard extraction status card" };
   }
   if (SCORE_L2_NOTIFICATION_KINDS.has(l2Kind) && await isEcosystemProject(payload.target_id)) {
     return { ok: true, skipped: true, reason: "ecosystem project is excluded from AMD Score / XRL notifications" };

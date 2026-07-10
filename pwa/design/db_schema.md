@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-07-09 21:52 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-07-10 18:29 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -51,7 +51,7 @@ UNIQUE: `(source_hash)` (constraint: `action_items_source_hash_key`)
 
 ## amd_management_score_evidence
 
-行数 (概算): 207
+行数 (概算): 208
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -72,7 +72,7 @@ PRIMARY KEY: `id`
 
 ## amd_management_score_raw_signals
 
-行数 (概算): 4,674
+行数 (概算): 5,256
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -1360,7 +1360,7 @@ PRIMARY KEY: `feedback_id`
 
 ## l2_notifications
 
-行数 (概算): 392
+行数 (概算): 347
 PRIMARY KEY: `notification_id`
 UNIQUE: `(l2_kind,target_id,scope_key)` (constraint: `l2n_unique`)
 
@@ -2317,7 +2317,7 @@ PRIMARY KEY: `member_id, ym`
 
 ## poc_companies
 
-行数 (概算): -1
+行数 (概算): 26
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -2483,7 +2483,7 @@ PRIMARY KEY: `outbox_id`
 
 ## proactive_todos
 
-行数 (概算): 234
+行数 (概算): 250
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
