@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-07-10 | 2-2 Surface / FEATURE_REGISTRY | 修正 | `ActionItemsPanel` の「対応済にする」を楽観更新化。成功時は対象行だけを外し、全体ローディングを出さない。更新失敗時のみ元位置へ復元。build v3.39.59 | 1件の処理で他の要対応まで一瞬消えるUXをなくすため | えいみ |
 | 2026-07-10 | 2-2 Surface / 3-7 Notifications / FEATURE_REGISTRY | 修正 | 抽出状況から48時間の保存時刻判定を撤去。保存証跡とMTG抽出での利用時刻を分け、既読のconnector再認証通知は現在の障害にしない。build v3.39.57 | 古い証跡を接続障害と取り違えず、実際に使えた抽出経路を確認できるようにするため | えいみ |
 | 2026-07-10 | 2-4 Proactive TODO / 8-3 L2 routines | 追加 | `/api/cron/proactive-todo-extract` に Gmail 期限つき依頼を `email_action_request` として `proactive_todos` へ upsert する stage を追加。本文全文・URL・パスワードを保存しない raw hygiene、trigger_kind 制約 migration 169、`/proactive` 表示ラベルを追加。build v0.39.54 | KUTE 平本さんのメールのように、MTG後メール本文でAMD側TODOが追加発生するケースを先手TODOへ自動で拾うため | えいみ |
 | 2026-07-10 | 2-1 / 2-4 / design | 変更 | 先手TODOの設計入口を同期。`design/proactive_operating_loop.md` の旧 commander outbox / heartbeat 案を current pointer に更新し、`design/README.md`・`design/L2_DATA.md`・`design/SPEC_pwa.md`・runtime route 仕様に `proactive_todos` + `/proactive` + PWA non-LLM cron + Gmail `email_action_request` の現行境界を追記。build v3.39.58 | 仕様本体だけでなく設計書入口からも「これは定額外LLMではなく既存Vercel cron内の非LLM control layer」と分かるようにするため | えいみ |

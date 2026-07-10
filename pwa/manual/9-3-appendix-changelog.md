@@ -14,6 +14,7 @@
 
 | 日付 | 対象章 | 種別 | 内容 | 理由 | 誰が |
 |---|---|---|---|---|---|
+| 2026-07-10 | 2-1 はじめて使う人向け | 修正 | dashboard / 通知画面の「要対応」で「対応済にする」を押したとき、一覧全体を読み直さず押した行だけを即時に消すように変更。更新失敗時だけ元の位置へ戻す。build v3.39.59 | 他の要対応まで一瞬消えてから戻る表示をなくし、処理した対象を明確にするため | えいみ |
 | 2026-07-10 | 3-3 通知とつくよみ | 修正 | 抽出状況から根拠のない48時間の要確認判定を撤去。保存証跡とMTG抽出での利用時刻を分け、既読のNotion再認証通知を現在の障害として出さないようにした。build v3.39.57 | 保存時刻の古さを接続障害と誤認させず、実際の抽出結果を確認できるようにするため | えいみ |
 | 2026-07-10 | 8-3 L2 Extraction Routines / 先手TODO | 変更 | 先手TODOの PWA cron を、MTG起点に加えて Gmail の期限つき依頼 (`email_action_request`) も `proactive_todos` へ保存する運用へ更新。build v0.39.54 | KUTE 平本さんのメールのような「メールで新しく発生したAMD側TODO」を `/proactive` で拾えるようにするため | えいみ |
 | 2026-07-10 | 8-3 L2 Extraction Routines / 設計入口 | 変更 | 先手TODOの現行設計入口を更新し、旧 commander outbox / heartbeat 案ではなく `proactive_todos` + `/proactive` + 既存Vercel cron daily 09:15 JST + Gmail `email_action_request` が現行であることを design/spec 側にも同期。build v3.39.58 | handoff 前に、使い方・仕様・設計書の3層で「メールTODOは非LLM PWA cron内」と読める状態にするため | えいみ |
