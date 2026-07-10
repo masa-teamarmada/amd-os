@@ -10,8 +10,9 @@
 | S2 段落 outline | ✅ 完了 | 2026-07-03 | `PAPER_P1_OUTLINE.md` 58 paras。E/C 公理リネーム・定理番号マップ確定 |
 | S3 節 draft (英語) | ✅ 全節完了 | 2026-07-03 | `PAPER_P1_DRAFT.md` 本文 7,251w (+refs/表で ~9,000w 圏内) |
 | S4 組み上げ + 刈り込み | ✅ 完了 | 2026-07-03 | Table 1/2・References 36件・Fig 1 (二層概念図 SVG)・Fig 2 (Simpson模式図 SVG)・**SM-A〜E 統合済み** (`PAPER_P1_SM.md`、証明3本はエージェント起草→検収)。Fig 3 は SM-C.5 の数値スキームで S6 前に作図 |
-| S5 persona 査読 (5人) | 🔄 改稿中 | 2026-07-03 | ✅ 6並列査読完了 (5 persona + 引用照合36件=幻覚ゼロ)。判定: editor=desk-reject / 他4=major。**統合改稿計画 = `S5_REVISION_PLAN.md` (R1-R10)**、個別report = `paper_p1_reviews/`。⏳ 後半 = 改稿実行 (R1 理論再手術が最重量)。改稿ログは下の「S5後半 改稿実行ログ」 |
-| S6 まさ最終確定 + 投稿パッケージ | — | — | cover letter / highlights / CRediT / declarations |
+| S5 persona 査読 (5人) | ✅ 完了 | 2026-07-09 | ✅ 6並列査読完了 (5 persona + 引用照合36件=幻覚ゼロ)。判定: editor=desk-reject / 他4=major。**統合改稿計画 = `S5_REVISION_PLAN.md` (R1-R11)**、個別report = `paper_p1_reviews/`。改稿 R1–R11 完了 (まさの手2項目と R10 を除く)。**語数刈り込みも完了** (下の刈り込み行)。改稿ログは下の「S5後半 改稿実行ログ」 |
+| S5末 語数刈り込み | ✅ 完了 | 2026-07-09 | 本文 §1–§8 を ~15.1k → **9,933w (Word相当=数式除外) / 10,079w (数式1トークン) / 10,222w (全展開)** — D-060 上限10k は Word相当で適合、目標9.5k までの残り ~430w は §4 証明スケッチ等の芯を削らない限り出ない (非推奨、S6 でまさ判断)。§3/§4/§5 = エージェント3体起草→えいみ検収 (定理・命題・系ステートメントと全数式の byte 不変を機械検証)。§1/§2/§6/§7/§8 = えいみ直接圧縮3ラウンド。**SM 受け皿新設**: SM-A.1 practice reading / SM-B.1 C1′ microfoundation 1文 / SM-B.8 certification 全文 / SM-B.9 lineage / SM-C.6 filtered readings / SM-D.4 scoring disciplines+layer split / SM-D.5 outcome classes+24mo窓 / SM-D.6 instruments 対応表 (旧本文 Table 3、[verify] 4個ごと移設)。**References 分割**: SM 専用引用16件 (Berkson/Bertola/Blackorby/Bouyssou/Caballero/Fishburn×2/Foster-Shorrocks/Gorman/Hausman/Holmström/Little-Rubin/Mood/Peskir/Scott/Stevens) を SM 末尾の補足リストへ、本文リストは46件 (本文引用のみ)。[verify at S6] 16個維持 (本文12+SM4)。**Figure 2 参照を Cor 3.1 に追加** (旧本文からの欠落を修理)。fig1.svg 公理表記 C1′–C4′ 更新。**PREVIEW.html 再生成 (v0.6)** — 旧プレビューの Fig3 は撤回済み主張の模式図だったのを計算版 SVG+新キャプションに是正。HTML はパーサ+構造の機械検証済み (ブラウザペイン不調で目視未、まさ確認推奨)。commits: e3d88efd (本文+SM) / f43341fa (プレビュー+fig1) |
+| S6 まさ最終確定 + 投稿パッケージ | — | — | cover letter / highlights / CRediT / declarations。**S6 追加タスク**: 引用照合の対象が本文46+SM16 の2リスト構成に変わった点を反映 / RP 提出形式で SM 独立文献リストが許容されるか Guide for Authors 確認 (不可なら統合リストに戻す、+~350w) |
 
 ## 節別 draft 状態 (S3 → 2026-07-03 全節 draft 済み)
 
@@ -73,3 +74,4 @@
 | 2026-07-05 | R4/R5 完了を記録 (S5後半セッション2)。**R11 (非専門家リーダビリティ) 新設** (まさ指示: 産連・VC 読者に最強主張が刺さる構造へ)。live GAP 残 1 件のみ (SM-B.7 instrument list = registered-program 委譲、査読者判定 acceptable)。語数: 本文 ~11.3k (要刈り込み)・References 58 (S6 照合待ち 18)。残 = R6 残り/R7 → R11+R8 → 語数再検量+PREVIEW 再生成 → S6 | えいみ |
 | 2026-07-05 | R6 (rubric 値以外)/R7 完了 (同日セッション続行)。本文 ~14.6k words (計画的超過、S5 末に §3-§5→SM 逃がしで刈り込み)。**残 = ①まさ: rubric 校正セッション + AUTHOR-CONFIRM 9項目 ②R11+R8 ③刈り込み+PREVIEW ④S6**。R9 は R4/R5 で実質完了 (live GAP 1 = acceptable deferral) | えいみ |
 | 2026-07-05 | R11+R8 完了 (同日3本目)。**S5 改稿は R10 (まさ判断) と rubric 校正 (まさの手) を除き全完了**。残 = 語数刈り込み (~15.1k→9.5-10k、§3-§5→SM 逃がし) + PREVIEW 再生成 → S6 (照合 22件 + instrument 書誌 + [verify at S6] 16 tags) | えいみ |
+| 2026-07-09 | **語数刈り込み完了** (S5末)。本文 15.1k→9.9k (Word相当)。エージェント3体 (§3/§4/§5) 起草→検収 + えいみ直接圧縮 (§1/§2/§6/§7/§8 ×3ラウンド)。SM 受け皿8節新設・References 2リスト分割・Fig2 参照修理・fig1 表記更新・PREVIEW v0.6 再生成。**残 = ①まさ: rubric 校正 + AUTHOR-CONFIRM 9項目 ②R10 (OSF、2027-03 前) ③S6 投稿パッケージ** | えいみ |
