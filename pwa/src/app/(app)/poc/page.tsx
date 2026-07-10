@@ -17,6 +17,7 @@ import {
   fetchPocHub,
   insertPocCompany,
   insertPocMatch,
+  POC_COMPANY_STATUS_COLOR,
   POC_COMPANY_STATUS_LABEL,
   POC_COMPANY_STATUS_ORDER,
   POC_MATCH_STATUS_COLOR,
@@ -654,15 +655,31 @@ export default function PocHubPage() {
         ) : tagFilteredCompanies.length === 0 ? (
           <EmptyState text="タグ条件に合うPoC先がない" />
         ) : (
-          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-            {tagFilteredCompanies.slice(0, 16).map((company) => (
-              <CompanyCandidateCard
-                key={company.id}
-                company={company}
-                selectedTags={selectedCompanyTags}
-                onToggleTag={toggleCompanyTag}
-              />
-            ))}
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <table className="w-full min-w-[1320px] text-xs">
+              <thead className="bg-muted/35 text-left text-[11px] text-muted-foreground">
+                <tr>
+                  <th className="w-[220px] px-3 py-2">PoC先</th>
+                  <th className="w-[250px] px-3 py-2">タグ</th>
+                  <th className="w-[150px] px-3 py-2">規模 / 地域</th>
+                  <th className="w-[110px] px-3 py-2">状態</th>
+                  <th className="w-[260px] px-3 py-2">PoC相性</th>
+                  <th className="w-[260px] px-3 py-2">謝礼・履歴</th>
+                  <th className="w-[90px] px-3 py-2">案件</th>
+                  <th className="w-[210px] px-3 py-2">担当 / 次</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tagFilteredCompanies.map((company) => (
+                  <CompanyCandidateRow
+                    key={company.id}
+                    company={company}
+                    selectedTags={selectedCompanyTags}
+                    onToggleTag={toggleCompanyTag}
+                  />
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </section>
@@ -921,7 +938,7 @@ function StackedNote({ label, text }: { label: string; text: string | null }) {
   );
 }
 
-function CompanyCandidateCard({
+function CompanyCandidateRow({
   company,
   selectedTags,
   onToggleTag,
@@ -930,42 +947,59 @@ function CompanyCandidateCard({
   selectedTags: string[];
   onToggleTag: (tag: string) => void;
 }) {
-  const tags = companySelectionTags(company).slice(0, 9);
+  const tags = companySelectionTags(company).slice(0, 10);
   return (
-    <article className="rounded-lg border border-border bg-background p-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="line-clamp-2 text-sm font-semibold">{company.company_name}</h3>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            {[company.company_size, company.region, POC_COMPANY_STATUS_LABEL[company.status]].filter(Boolean).join(" / ") || "属性未設定"}
-          </p>
+    <tr className="border-t border-border/55 align-top hover:bg-muted/20">
+      <td className="px-3 py-3">
+        <div className="line-clamp-2 font-semibold">{company.company_name}</div>
+        {company.source_ref && <div className="mt-1 line-clamp-1 text-[10px] text-muted-foreground">{company.source_ref}</div>}
+      </td>
+      <td className="px-3 py-3">
+        <div className="flex flex-wrap gap-1">
+          {tags.map((tag) => {
+            const selected = selectedTags.includes(tag);
+            return (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => onToggleTag(tag)}
+                className={`rounded border px-1.5 py-0.5 text-[10px] transition-colors ${
+                  selected
+                    ? "border-cyan-500/45 bg-cyan-500/12 text-cyan-700 dark:text-cyan-200"
+                    : "border-border bg-background text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {tag}
+              </button>
+            );
+          })}
         </div>
-        <span className="shrink-0 rounded border border-border bg-muted/35 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+      </td>
+      <td className="px-3 py-3 text-muted-foreground">
+        <div>{company.company_size || "規模未設定"}</div>
+        <div className="mt-1">{company.region || "地域未設定"}</div>
+      </td>
+      <td className="px-3 py-3">
+        <StatusChip label={POC_COMPANY_STATUS_LABEL[company.status]} className={POC_COMPANY_STATUS_COLOR[company.status]} />
+      </td>
+      <td className="px-3 py-3">
+        {company.poc_profile ? <span className="line-clamp-4 leading-relaxed text-muted-foreground">{company.poc_profile}</span> : <span className="text-muted-foreground/50">未設定</span>}
+      </td>
+      <td className="px-3 py-3">
+        <StackedNote label="謝礼" text={company.incentive_note} />
+        <StackedNote label="履歴" text={company.poc_history_note} />
+        {!company.incentive_note && !company.poc_history_note && <span className="text-muted-foreground/50">未設定</span>}
+      </td>
+      <td className="px-3 py-3 font-mono text-[11px] text-muted-foreground">
+        <span className="rounded border border-border bg-muted/35 px-1.5 py-0.5">
           {company.active_match_count}/{company.match_count}
         </span>
-      </div>
-      <div className="mt-2 flex flex-wrap gap-1">
-        {tags.map((tag) => {
-          const selected = selectedTags.includes(tag);
-          return (
-            <button
-              key={tag}
-              type="button"
-              onClick={() => onToggleTag(tag)}
-              className={`rounded border px-1.5 py-0.5 text-[10px] transition-colors ${
-                selected
-                  ? "border-cyan-500/45 bg-cyan-500/12 text-cyan-700 dark:text-cyan-200"
-                  : "border-border bg-muted/35 text-muted-foreground hover:bg-muted"
-              }`}
-            >
-              {tag}
-            </button>
-          );
-        })}
-      </div>
-      {company.poc_profile && <p className="mt-2 line-clamp-2 text-[11px] leading-relaxed text-muted-foreground">{company.poc_profile}</p>}
-      {company.next_action && <p className="mt-2 line-clamp-2 text-[10px] leading-relaxed text-muted-foreground">次: {company.next_action}</p>}
-    </article>
+      </td>
+      <td className="px-3 py-3">
+        <div className="text-muted-foreground">{company.owner_code_name ?? "担当未設定"}</div>
+        {company.next_action ? <div className="mt-1 line-clamp-3 leading-relaxed">{company.next_action}</div> : <div className="mt-1 text-muted-foreground/50">次アクション未設定</div>}
+      </td>
+    </tr>
   );
 }
 

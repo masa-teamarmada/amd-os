@@ -54,7 +54,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - source hygiene: Notion議事録、Gmail、Slack、Drive、Web本文やURLを保存・表示しない。`source_ref` / `source_note` は短い参照名だけにする。
 - add seed: シーズ名、機関、地域、PI/研究者、領域、用途・業界タグ、キーワード、概要、担当、状態、次アクションを `seeds` に保存できる。
 - add PoC destination: PoC先名、規模感、地域、業界タグ、PoC相性、過去PoC/紹介経路、謝礼、担当、状態、次アクションを `poc_companies` に保存できる。
-- PoC destination list: PoC先をカード表示し、業界タグ、地域、規模感、状態などのタグで候補先を絞り込める。
+- PoC destination list: PoC先を比較表で表示し、業界タグ、地域、規模感、状態、PoC相性、謝礼・履歴、案件数、次アクションを横並びで比較できる。業界タグ、地域、規模感、状態などのタグで候補先を絞り込める。
 - pairing queue: シーズごとに既存案件と上位PoC先候補を並べ、候補の `案件化` で相性仮説・ヒアリング論点・PoC条件の初期案を `poc_matches` に生成できる。
 - inline status: 案件候補とPoC先の状態は一覧上で更新できる。
 
