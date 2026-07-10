@@ -271,7 +271,7 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
   // --- Book A 教科書 15章 (PF-012、L1 = BOOK_A_MASTER_PLAN.md、L3 = BOOK_A_CHAPTER_*_PROGRESS.md) ---
   { slug: "book-a-ch-1", title: "第1章 — ディープテック起業と Before Zero — なぜ設立前を経営学の対象にするのか", summary: "章頭ケース「設立三周年の花束」(逆年表)。標準アントレ理論が「ゼロの後」から始まる射程の限界を示し、Before Zero の領土宣言・状態空間 (ι, F, S0, I)・三項構造 (観測二層 PRS/ERS + 行動一層 RT) を本書15回の地図として提示。22p。起草中 (v1 draft)。", status: "in-progress" },
   { slug: "book-a-ch-2", title: "第2章 — 関係者の時計と不可逆点 — 開示の順序・法人化境界・進める/待つ/止めるの語彙", summary: "関係者×関心×時計の地図、三つの鬼門 (開示順序・会社化タイミング・早すぎる CEO 要求)、GO/WAIT/NO_GO/HOLD と WAIT の3部品。意図的に数式ゼロの回 (数式強度曲線の起点)。24p。起草中 (v1 draft)。", status: "in-progress" },
-  { slug: "book-a-ch-3", title: "第3章 — 評価問題の定式化 — Valuation の限界と期待値分解 P×R×S", summary: "DCF が Before Zero で壊れる四つの壁を示し、評価問題を E[V] = P×R×S へ定式化し直す。乗法/加重和/補完性の3層対応表を導入。26p。", status: "not-started" },
+  { slug: "book-a-ch-3", title: "第3章 — 評価問題の定式化 — Valuation の限界と期待値分解 P×R×S", summary: "DCF が Before Zero で壊れる四つの壁を示し、評価問題を E[V] = P×R×S へ定式化し直す。乗法/加重和/補完性の3層対応表を導入。26p。起草中 (v1 draft)。", status: "in-progress" },
   { slug: "book-a-ch-4", title: "第4章 — 潜在規模 P — 市場の天井と証拠の質", summary: "TAM は最も盛られやすい数字。天井は主張でなく証拠の質で刻む rubric、用途集合 U(t) の拡張による天井の書き換え。26p。", status: "not-started" },
   { slug: "book-a-ch-5", title: "第5章 — 到達度 R — 多軸 readiness と律速の発見", summary: "XRL 5軸 (TRL/BRL/GRL/SRL/HRL) と応用×組織マトリクス TRL(a,o,t)、事業が依存するセルの min で読む律速診断。「研究室で作れる≠自社で作れる」の定量化。28p。", status: "not-started" },
   { slug: "book-a-ch-6", title: "第6章 — 生存の静学 — 生存条件式と創業者機能 F-CES", summary: "死因第一位「本命が整う前に資金と選択肢が尽きる」を生存条件式 B−R_net≤F で定式化。F 内部のみ CES 補完 (資質×実行力は両方必須) — 3層対応表の中核回。30p。", status: "not-started" },
