@@ -36,7 +36,7 @@ export default async function ProactivePage() {
       <div className="mb-3">
         <h1 className="text-lg font-semibold">先手 TODO</h1>
         <p className="text-xs text-muted-foreground mt-1">
-          全 PJ 横断・期限順。過去14日のMTG議事録の next_actions と、3営業日以内に開催される予定MTGから自動抽出 (毎時)。AMDボール or 主語不明のものだけが表示される。
+          全 PJ 横断・期限順。過去14日のMTG議事録の next_actions と、7日以内に開催される予定MTGから毎朝自動抽出。AMDボール or 主語不明のものだけが表示される。
         </p>
       </div>
       <ProactiveTodoBoard />

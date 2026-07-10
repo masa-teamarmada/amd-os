@@ -79,7 +79,7 @@ AMD の提供価値は「Before 0 におけるビジョン注入力、技術戦�
 | `title` | text | 1行で見える要約 (`{project_id} {MTG title}: {next_action 先頭文}`) |
 | `detail` | text | 推奨first move + 遅延リスクの本文。`email_action_request` では本文全文・URL・パスワードを保存しない短い要点 |
 | `ball_owner` | text | `amd` / `counterpart` / `ambiguous`。`counterpart` は cron で skip して保存しない |
-| `due_at` | timestamptz | 期限。`meeting_next_action` は MTG 日 + 7 日、`next_meeting_prep` は MTG 開始 - 1 日、`email_action_request` はメール本文から抽出した期限 |
+| `due_at` | timestamptz | 期限。`meeting_next_action` は next_action 本文内の明示期限を優先し、読めない場合だけ MTG 日 + 7 日。`next_meeting_prep` は MTG 開始 - 1 日、`email_action_request` はメール本文から抽出した期限 |
 | `priority` | text | `red` / `normal`。期限超過 open は cron が `red` に昇格 |
 | `status` | text | `open` / `done` / `blocked` / `dismissed` |
 | `resolved_note` | text | 完了/ブロック時の任意 1 行メモ |
@@ -115,7 +115,11 @@ admin (= `members.is_admin = true`) と `service_role` のみ ALL。anon SELECT 
      - 「AMD側」「アルマダ」「SX側/CX側/CryoX側/ZeMA側 等の PJ コード/プロダクト名側」「えいみ/つくよみ/まさ」「こちら/当方/当社/当チーム」
    - **ambiguous**: 上記いずれにも該当しない (= AMD ボール扱いで TODO に積む。漏れない方針)
 3. `counterpart` 判定なら skip (= counterpart は本 cron では保存しない)。`amd` / `ambiguous` のみ upsert。
-4. `due_at = meeting_date + 7 日`。
+4. `due_at` は「明示期限優先 → fallback」の順で決める。
+   - next_action 本文に `2026-08-04次回MTGまで`、`8/4のMTGまで`、`7月17日まで` のような日付つき期限がある場合は、その日付を期限にする。
+   - `次回MTG` / `MTG` / `会議` / `打合せ` の文脈で日付だけがある場合、時刻不明なら当日 09:00 JST を期限にする。MTG当日に資料を提示するタスクを、前回MTG日 + 7日の仮期限で赤化しないため。
+   - 一般的な `まで` / `期限` / `締切` / `提出` / `回答` 文脈で日付だけがある場合、時刻不明なら当日 18:00 JST を期限にする。
+   - 明示期限が読めない場合だけ `meeting_date + 7 日` を仮期限にする。
 5. UNIQUE 制約で `(project_id, 'meeting_next_action', meeting_id, '', title)` で冪等。
 
 ### Stage 2: 次回MTG準備 TODO

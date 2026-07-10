@@ -5,6 +5,16 @@
 
 ---
 
+### [pwa/proactive] 「次回MTGまで」の TODO が前回MTG+7日で赤化した (2026-07-10)
+
+- **状態**: クローズ (2026-07-10 — 先手TODOの `meeting_next_action` 期限解釈を明示期限優先に変更)。
+- **症状**: KUTE の next_action「2026-08-04 次回MTGまでに提示資料を作成する」が、8/4 ではなく 7/1 期限として表示され、10日超過の赤TODOになった。
+- **原因**: `/api/cron/proactive-todo-extract` が開催済みMTGの next_action 期限を一律 `meeting_date + 7日` にしており、本文中の「次回MTGまで」という明示期限を読んでいなかった。
+- **対応内容**: next_action 本文から `YYYY-MM-DD` / `M/D` / `M月D日` の日付つき期限を deterministic に抽出し、`次回MTG` / `MTG` / `会議` 文脈ならその日の 09:00 JST、一般期限なら 18:00 JST を優先する。明示期限が読めない場合だけ従来の `meeting_date + 7日` に戻す。
+- **再発防止**: 先手TODOの期限は「作成後の仮SLA」と「提示・提出の実期限」を分ける。本文に実期限がある TODO を仮SLAで赤化しないよう、専用テスト `test:proactive-meeting-due` で KUTE 型の文を固定する。
+
+---
+
 ### [dashboard/action-items] 1件の対応完了で要対応一覧全体が一度消えた (2026-07-10)
 
 - **状態**: クローズ (2026-07-10 — `v3.39.59` で修正)。

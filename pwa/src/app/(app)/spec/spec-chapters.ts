@@ -113,7 +113,7 @@ export const SPEC_CHAPTERS: SpecChapterConfig[] = [
   { slug: "2-1-pwa-runtime-routes", title: "PWA ランタイム / ルート仕様", summary: "Next.js PWA の実行環境、主要 route、API / cron / auth の現行契約。" },
   { slug: "2-2-pwa-surface-inventory-current-spec", title: "PWA 画面 / API Surface 仕様", summary: "現行 PWA の画面 route、API route groups、auth/authority、failure mode、検証入口。" },
   { slug: "2-3-supabase-data-model-current-spec", title: "Supabase Data Model 仕様", summary: "Supabase schema の source of truth、domain別 table map、status convention、DDL/dump手順。" },
-  { slug: "2-4-proactive-todo-current-spec", title: "先手 TODO", summary: "MTG next_actions と次回MTG予定から自動抽出する全PJ横断の先手TODOリスト。/proactive で期限順表示、3ボタン完了UI、cron毎時で proactive_todos に upsert。旧『ループカーネル × 役割レンズ』の白紙やり直し版 (2026-06-27)。" },
+  { slug: "2-4-proactive-todo-current-spec", title: "先手 TODO", summary: "MTG next_actions と次回MTG予定から自動抽出する全PJ横断の先手TODOリスト。/proactive で期限順表示、3ボタン完了UI、毎朝 cron で proactive_todos に upsert。旧『ループカーネル × 役割レンズ』の白紙やり直し版 (2026-06-27)。" },
   { slug: "3-1-l2-data-extraction-current-spec", title: "L2 データ抽出 / Outbox 仕様", summary: "5 生データ、M/W/D/H L2、subscription automation、outbox / LaunchAgent 反映の確定仕様。" },
   { slug: "3-2-monthly-reports-current-spec", title: "M-1 Monthly Reports 仕様", summary: "monthly_reports の writer、上書き禁止、source refs、outbox 反映、旧 R313 / PWA route の扱い。" },
   { slug: "3-3-meeting-flow-current-spec", title: "H-1 Meeting Flow 仕様", summary: "MTGサマリ、予定MTGカード、Drive資料同期、TODO、Calendar作業枠、Gmail draft の現行仕様。" },

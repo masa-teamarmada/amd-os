@@ -21,7 +21,7 @@
  *      - 「AMD側/SX側/CX側/えいみ/まさ/AMDから/こちらで」っぽい主語 → amd
  *      - 「名前さん:」「名前先生:」など、AMDメンバーではない名指し担当者 → counterpart (= skip)
  *      - それ以外 → ambiguous (= AMD ボール扱い、TODO に積む)
- *    due_at は meeting_date + 7日。
+ *    due_at は next_action 本文内の明示期限を優先。読めない場合だけ meeting_date + 7日。
  *
  * 2. next_meeting_prep: source_kinds='upcoming' な未来MTGで、開催 3 営業日前以内のものは
  *    agenda 準備TODOを積む。due_at は MTG 開始 - 1日。
@@ -43,6 +43,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { sweepEmailActionRequests } from "@/lib/proactive/email-action-requests";
+import { resolveMeetingNextActionDueAt } from "@/lib/proactive/meeting-action-due";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -253,7 +254,8 @@ export async function GET(req: NextRequest) {
       }
 
       const title = titleFromNextAction(text, projectId, meetingTitle);
-      const dueAt = addDays(meetingDate, 7);
+      const dueResolution = resolveMeetingNextActionDueAt(text, meetingDate);
+      const dueAt = dueResolution.dueAt;
 
       // status='done'/'dismissed' は触らない、既存 open/blocked は新しいテキストで更新
       const { error: upsertErr } = await db.from("proactive_todos").upsert(
