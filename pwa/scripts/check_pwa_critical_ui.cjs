@@ -1021,10 +1021,14 @@ expectIncludes("src/components/admin/AdminSidebar.tsx", [
 ]);
 
 expectIncludes("src/components/monthly-agreement/MonthlyAgreementExperience.tsx", [
-  "この画面で確認すること",
+  "合意前に必ず確認すること",
   "今月の発注条件",
-  "予定額の出どころ",
-  "支払いとの関係",
+  "必ず確認：予定額",
+  "この月の支払いには進めません",
+  "参考情報",
+  "予定額の根拠",
+  "支払い予定・未払残",
+  "今月の発注条件（必ず確認）",
   "今シーズンのMS",
   "予定額は、ここに出ているMSのpt",
   "今月のpt",
