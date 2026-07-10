@@ -1026,12 +1026,13 @@ expectIncludes("src/components/admin/AdminSidebar.tsx", [
 
 expectIncludes("src/components/monthly-agreement/MonthlyAgreementExperience.tsx", [
   "合意前に必ず確認すること",
-  "今月の発注条件",
+  "担当内容・到達目標",
   "予定額合計",
   "PJごとの予定額",
   "この月の支払いには進めません",
-  "参考情報・修正依頼",
-  "発注条件の詳細",
+  "修正要望",
+  "参考情報",
+  "担当内容・到達目標の詳細",
   "予定額の根拠",
   "支払い予定・未払残",
   "今シーズンのMS",
@@ -1052,6 +1053,7 @@ expectNotIncludes("src/components/monthly-agreement/MonthlyAgreementExperience.t
   "この画面でMSを見る",
   "今月の点数",
   "MSの点数",
+  "直してほしいこと",
 ]);
 expectIncludes("src/components/monthly-agreement/MonthlyAgreementGateOverlay.tsx", [
   "onBackdropClick",

@@ -61,7 +61,7 @@ function agreementStatusMessage(bundle: MonthlyWorkAgreementBundle) {
     return `確認した日時: ${bundle.latestAgreement?.agreedAt ? new Date(bundle.latestAgreement.agreedAt).toLocaleString("ja-JP") : "記録済み"}`;
   }
   if (bundle.status === "needs_reagreement") {
-    return "前に確認したあとで、発注条件か予定額が変わりました。下の必須2点を見直して、問題なければ合意してください。";
+    return "前に確認したあとで、担当内容・到達目標か予定額が変わりました。下の必須2点を見直して、問題なければ合意してください。";
   }
   if (bundle.status === "not_required") {
     return bundle.exclusionReason || "この月の月初合意は不要です。";
@@ -132,6 +132,7 @@ export function MonthlyAgreementExperience({
   const [requestBody, setRequestBody] = useState("");
   const [requestProjectId, setRequestProjectId] = useState("");
   const [requestType, setRequestType] = useState("scope_or_goal");
+  const [revisionOpen, setRevisionOpen] = useState(false);
   const [requestMessage, setRequestMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const skipInitialLoadRef = useRef(Boolean(initialBundle));
@@ -235,6 +236,7 @@ export function MonthlyAgreementExperience({
       setRequestBody("");
       setRequestProjectId("");
       setRequestType("scope_or_goal");
+      setRevisionOpen(true);
       setRequestMessage("送信しました。管理側で確認します。");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -270,9 +272,6 @@ export function MonthlyAgreementExperience({
   const metricCount =
     4 + (unverifiedPaidYen > 0 ? 1 : 0) + (totalStockYen > 0 ? 1 : 0);
   const summaryCols = metricCount >= 5 ? "lg:grid-cols-3" : "lg:grid-cols-4";
-  const openRevisionCount = bundle.revisionRequests.filter(
-    (request) => request.status === "open",
-  ).length;
   const contentWidth = isModal ? "max-w-7xl" : "max-w-5xl";
 
   return (
@@ -355,33 +354,52 @@ export function MonthlyAgreementExperience({
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={handleAgree}
-                disabled={
-                  saving ||
-                  bundle.status === "agreed" ||
-                  !bundle.tableReady ||
-                  !bundle.canAgree
-                }
-                className={`${isModal ? "h-8 px-3 text-xs" : "px-3 py-2 text-sm"} inline-flex items-center justify-center gap-2 rounded-md bg-[#1d1d1f] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50`}
-                title={
-                  !bundle.canAgree
-                    ? bundle.exclusionReason || "本人だけが合意できます"
-                    : "今月の発注条件と予定額を確認して合意"
-                }
-              >
-                {saving ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <FileCheck2 className="size-4" />
-                )}
-                {bundle.status === "agreed"
-                  ? "合意済み"
-                  : bundle.status === "not_required"
-                    ? "確認不要"
-                    : "確認して合意"}
-              </button>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRequestMessage(null);
+                    setRevisionOpen(true);
+                  }}
+                  disabled={!bundle.canAgree}
+                  className={`${isModal ? "h-8 px-2.5 text-xs" : "px-3 py-2 text-sm"} inline-flex items-center justify-center gap-1.5 rounded-md border border-current/30 bg-white/65 font-semibold disabled:cursor-not-allowed disabled:opacity-50`}
+                  title={
+                    !bundle.canAgree
+                      ? bundle.exclusionReason || "本人だけが修正要望を送れます"
+                      : "担当内容・到達目標、または予定額の修正要望を送る"
+                  }
+                >
+                  <Send className="size-3.5" />
+                  修正要望
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAgree}
+                  disabled={
+                    saving ||
+                    bundle.status === "agreed" ||
+                    !bundle.tableReady ||
+                    !bundle.canAgree
+                  }
+                  className={`${isModal ? "h-8 px-3 text-xs" : "px-3 py-2 text-sm"} inline-flex items-center justify-center gap-2 rounded-md bg-[#1d1d1f] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50`}
+                  title={
+                    !bundle.canAgree
+                      ? bundle.exclusionReason || "本人だけが合意できます"
+                      : "担当内容・到達目標と予定額を確認して合意"
+                  }
+                >
+                  {saving ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <FileCheck2 className="size-4" />
+                  )}
+                  {bundle.status === "agreed"
+                    ? "合意済み"
+                    : bundle.status === "not_required"
+                      ? "確認不要"
+                      : "確認して合意"}
+                </button>
+              </div>
             </div>
             {bundle.status !== "agreed" && bundle.status !== "not_required" && (
               <p
@@ -396,6 +414,123 @@ export function MonthlyAgreementExperience({
               >
                 保存に必要な準備がまだ終わっていません。準備が終わると合意できます。
               </p>
+            )}
+            {revisionOpen && (
+              <section
+                aria-labelledby="monthly-agreement-revision-heading"
+                className={`${isModal ? "mt-2 pt-2" : "mt-4 pt-3"} border-t border-current/20`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2
+                      id="monthly-agreement-revision-heading"
+                      className={`${isModal ? "text-[12px]" : "text-sm"} font-semibold`}
+                    >
+                      修正要望
+                    </h2>
+                    <p
+                      className={`${isModal ? "mt-0.5 text-[10px]" : "mt-1 text-xs"} leading-relaxed opacity-80`}
+                    >
+                      担当内容・到達目標、予定額に違いがあるときだけ送ってください。
+                      <Hint id="monthly-agreement.revision-request" />
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setRevisionOpen(false)}
+                    className="text-[11px] font-semibold opacity-75 hover:opacity-100"
+                  >
+                    閉じる
+                  </button>
+                </div>
+                <div
+                  className={`${isModal ? "mt-2 grid gap-1.5 sm:grid-cols-2" : "mt-3 grid gap-2 sm:grid-cols-[160px_180px_minmax(0,1fr)]"}`}
+                >
+                  <select
+                    value={requestType}
+                    onChange={(event) => setRequestType(event.target.value)}
+                    disabled={!bundle.canAgree}
+                    className={`${isModal ? "h-8 py-1 text-xs" : "py-2 text-sm"} min-w-0 rounded-md border border-current/25 bg-white/80 px-2 text-[#1d1d1f]`}
+                  >
+                    <option value="scope_or_goal">担当内容・目標</option>
+                    <option value="reward">予定額</option>
+                    <option value="other">その他</option>
+                  </select>
+                  <select
+                    value={requestProjectId}
+                    onChange={(event) =>
+                      setRequestProjectId(event.target.value)
+                    }
+                    disabled={!bundle.canAgree}
+                    className={`${isModal ? "h-8 py-1 text-xs" : "py-2 text-sm"} min-w-0 rounded-md border border-current/25 bg-white/80 px-2 text-[#1d1d1f]`}
+                  >
+                    <option value="">全体</option>
+                    {bundle.snapshot.projects.map((project) => (
+                      <option key={project.projectId} value={project.projectId}>
+                        {project.projectName}
+                      </option>
+                    ))}
+                  </select>
+                  <textarea
+                    value={requestBody}
+                    onChange={(event) => setRequestBody(event.target.value)}
+                    disabled={!bundle.canAgree}
+                    rows={isModal ? 2 : 3}
+                    className={`${isModal ? "sm:col-span-2 text-xs" : "min-h-[84px] text-sm"} min-h-12 rounded-md border border-current/25 bg-white/80 px-3 py-2 text-[#1d1d1f] outline-none focus:border-[#007aff]`}
+                    placeholder="例: この目標ではなく、登記準備を優先したい"
+                  />
+                </div>
+                <div
+                  className={`${isModal ? "mt-2" : "mt-3"} flex flex-wrap items-center justify-between gap-2`}
+                >
+                  <p
+                    className={`${isModal ? "text-[10px]" : "text-[11px]"} opacity-75`}
+                  >
+                    送った時点の記録IDも一緒に残ります。
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleRevisionRequest}
+                    disabled={
+                      requestSaving ||
+                      !bundle.canAgree ||
+                      requestBody.trim().length < 4
+                    }
+                    className={`${isModal ? "h-8 px-3 text-xs" : "px-3 py-2 text-xs"} inline-flex items-center justify-center gap-1.5 rounded-md border border-current/40 bg-white/80 font-semibold text-[#1d1d1f] disabled:cursor-not-allowed disabled:opacity-50`}
+                  >
+                    {requestSaving ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Send className="size-3.5" />
+                    )}
+                    送る
+                  </button>
+                </div>
+                {requestMessage && (
+                  <p className="mt-2 text-[12px] font-semibold text-emerald-800">
+                    {requestMessage}
+                  </p>
+                )}
+                {bundle.revisionRequests.length > 0 && (
+                  <div className="mt-2 divide-y divide-current/15 border-t border-current/15 text-[11px]">
+                    {bundle.revisionRequests.slice(0, 3).map((request) => (
+                      <div key={request.id} className="py-1.5">
+                        <span className="font-semibold">
+                          {request.status === "open"
+                            ? "対応中"
+                            : request.status}
+                        </span>
+                        <span className="ml-2 opacity-75">
+                          {request.projectId || "全体"}
+                        </span>
+                        <p className="mt-0.5 line-clamp-2 opacity-85">
+                          {request.body}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
             )}
           </div>
           {!isModal && (
@@ -458,163 +593,19 @@ export function MonthlyAgreementExperience({
           {isModal && (
             <section
               aria-labelledby="monthly-agreement-reference-heading"
-              className="rounded-lg border border-[#e5e5e7] bg-[#fbfbfd] px-2.5 py-2"
+              className="border-t border-[#d1d1d6] pt-2"
             >
-              <p className="text-[10px] font-semibold tracking-[0.12em] text-[#86868b]">
-                参考情報・修正依頼
-              </p>
               <h2
                 id="monthly-agreement-reference-heading"
-                className="mt-0.5 text-[13px] font-semibold text-[#1d1d1f]"
+                className="text-[11px] font-semibold text-[#6e6e73]"
               >
-                発注条件の詳細、予定額の根拠、支払い状況
+                参考情報
+                <span className="ml-2 font-normal">
+                  担当内容・到達目標の詳細、予定額の根拠、支払い状況
+                </span>
               </h2>
-              <p className="mt-0.5 text-[11px] leading-relaxed text-[#6e6e73]">
-                上の必須確認に必要な金額はすべて表示済みです。ここから下は、内容を詳しく見たり、違いを知らせたりするための情報です。
-              </p>
             </section>
           )}
-
-          <details
-            className={`${isModal ? "w-full max-w-full" : ""} rounded-lg border border-[#e5e5e7] bg-white`}
-            open={!isModal || openRevisionCount > 0 || Boolean(requestMessage)}
-          >
-            <summary
-              className={`grid cursor-pointer list-none gap-1 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center ${isModal ? "px-2.5 py-2" : "px-4 py-3"}`}
-            >
-              <div className="min-w-0">
-                <h2
-                  className={`${isModal ? "text-[13px]" : "text-[15px]"} font-semibold text-[#1d1d1f]`}
-                >
-                  直してほしいこと
-                </h2>
-                <p
-                  className={`${isModal ? "mt-0.5 text-[11px]" : "mt-1 text-[12px]"} leading-relaxed text-[#6e6e73]`}
-                >
-                  担当するMS、目標、予定額が違うと思ったら、ここから知らせてください。
-                  <Hint id="monthly-agreement.revision-request" />
-                </p>
-              </div>
-              {openRevisionCount > 0 && (
-                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
-                  未解決 {openRevisionCount}
-                </span>
-              )}
-            </summary>
-            <div
-              className={`${isModal ? "border-t border-[#e5e5e7] px-2.5 pb-2.5 pt-2" : "px-4 pb-4 pt-1"}`}
-            >
-              <div
-                className={`grid gap-2 ${isModal ? "grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]" : "sm:grid-cols-[160px_180px_minmax(0,1fr)]"}`}
-              >
-                <select
-                  value={requestType}
-                  onChange={(event) => setRequestType(event.target.value)}
-                  disabled={!bundle.canAgree}
-                  className={`${isModal ? "h-9 min-w-0 py-1.5 text-xs" : "py-2 text-sm"} rounded-md border border-[#d1d1d6] bg-white px-2`}
-                >
-                  <option value="scope_or_goal">遂行内容/目標</option>
-                  <option value="reward">予定額</option>
-                  <option value="other">その他</option>
-                </select>
-                <select
-                  value={requestProjectId}
-                  onChange={(event) => setRequestProjectId(event.target.value)}
-                  disabled={!bundle.canAgree}
-                  className={`${isModal ? "h-9 min-w-0 py-1.5 text-xs" : "py-2 text-sm"} rounded-md border border-[#d1d1d6] bg-white px-2`}
-                >
-                  <option value="">全体</option>
-                  {bundle.snapshot.projects.map((project) => (
-                    <option key={project.projectId} value={project.projectId}>
-                      {project.projectName}
-                    </option>
-                  ))}
-                </select>
-                <textarea
-                  value={requestBody}
-                  onChange={(event) => setRequestBody(event.target.value)}
-                  disabled={!bundle.canAgree}
-                  rows={isModal ? 1 : 3}
-                  className={`${isModal ? "col-span-full min-h-9 text-xs" : "min-h-[84px] text-sm"} rounded-md border border-[#d1d1d6] bg-white px-3 py-2 outline-none focus:border-[#007aff]`}
-                  placeholder="例: CXはこのMSより登記準備を優先したい / 予定額の分け方が違うと思う"
-                />
-                {isModal && (
-                  <button
-                    type="button"
-                    onClick={handleRevisionRequest}
-                    disabled={
-                      requestSaving ||
-                      !bundle.canAgree ||
-                      requestBody.trim().length < 4
-                    }
-                    className="col-start-3 row-start-1 inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-[#1d1d1f] bg-white px-3 text-xs font-semibold text-[#1d1d1f] disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {requestSaving ? (
-                      <Loader2 className="size-3.5 animate-spin" />
-                    ) : (
-                      <Send className="size-3.5" />
-                    )}
-                    送る
-                  </button>
-                )}
-              </div>
-              <div
-                className={`${isModal ? "mt-1.5" : "mt-3"} flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between`}
-              >
-                <p
-                  className={`${isModal ? "text-[10px]" : "text-[11px]"} text-[#86868b]`}
-                >
-                  送った時点の記録IDも一緒に残ります。内容に問題ない時だけ、合意ボタンを押してください。
-                </p>
-                {!isModal && (
-                  <button
-                    type="button"
-                    onClick={handleRevisionRequest}
-                    disabled={
-                      requestSaving ||
-                      !bundle.canAgree ||
-                      requestBody.trim().length < 4
-                    }
-                    className="inline-flex items-center justify-center gap-2 rounded-md border border-[#1d1d1f] bg-white px-3 py-2 text-xs font-semibold text-[#1d1d1f] disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {requestSaving ? (
-                      <Loader2 className="size-3.5 animate-spin" />
-                    ) : (
-                      <Send className="size-3.5" />
-                    )}
-                    直してほしい内容を送る
-                  </button>
-                )}
-              </div>
-              {requestMessage && (
-                <p className="mt-2 text-[12px] text-emerald-700">
-                  {requestMessage}
-                </p>
-              )}
-              {bundle.revisionRequests.length > 0 && (
-                <div className="mt-3 divide-y divide-[#e5e5e7] rounded-md border border-[#e5e5e7]">
-                  {bundle.revisionRequests.slice(0, 3).map((request) => (
-                    <div key={request.id} className="px-3 py-2 text-[12px]">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-semibold text-[#1d1d1f]">
-                          {request.status === "open"
-                            ? "未解決"
-                            : request.status}
-                        </span>
-                        <span className="text-[#86868b]">
-                          {request.projectId || "全体"} /{" "}
-                          {new Date(request.createdAt).toLocaleString("ja-JP")}
-                        </span>
-                      </div>
-                      <p className="mt-1 line-clamp-2 text-[#3c3c43]">
-                        {request.body}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </details>
         </div>
 
         {isModal && (
@@ -634,7 +625,7 @@ export function MonthlyAgreementExperience({
             </summary>
             <div className="border-t border-[#e5e5e7] p-2.5">
               <p className="mb-2 text-[11px] leading-relaxed text-[#6e6e73]">
-                支払い済み・支払予定・未払残は、合意する発注条件そのものではなく、支払いの見通しを知るための情報です。
+                支払い済み・支払予定・未払残は、合意する担当内容・到達目標や予定額そのものではなく、支払いの見通しを知るための情報です。
               </p>
               <div className="flex flex-wrap gap-2">
                 <MetricCard
@@ -728,8 +719,8 @@ function AgreementFlowRail({
     {
       key: "agreement",
       icon: <FileCheck2 className="size-4" />,
-      label: "今月の発注条件",
-      body: "各PJで担当する内容と、今月の到達目標に違いがないか確認する",
+      label: "担当内容・到達目標",
+      body: "下のPJごとの詳細で、担当する内容と今月の到達目標に違いがないか確認する",
     },
     {
       key: "reward",
@@ -754,7 +745,7 @@ function AgreementFlowRail({
           <p
             className={`${compact ? "mt-0.5 text-[11px]" : "mt-1 text-[12px]"} text-[#6e6e73]`}
           >
-            発注条件に違いがなく、下の予定額に問題がなければ合意してください。pt・担当割合・支払い予定は参考情報です。
+            担当内容・到達目標と、下の予定額に問題がなければ合意してください。pt・担当割合・支払い予定は参考情報です。
           </p>
         </div>
       </div>
@@ -1070,7 +1061,7 @@ function ProjectAgreementCard({
       {!compact && (
         <div className="mt-4 grid gap-2 md:grid-cols-3">
           <ConceptPill
-            label="今月の発注条件"
+            label="予定額"
             value={formatYen(headlineValue)}
             hintId="monthly-agreement.expected-reward"
             tone="sky"
@@ -1150,7 +1141,7 @@ function ProjectAgreementCard({
               >
                 <div className="min-w-0">
                   <h3 className="text-[12px] font-semibold text-[#3c3c43]">
-                    {compact ? "発注条件の詳細" : "今シーズンのMS"}{" "}
+                    {compact ? "担当内容・到達目標の詳細" : "今シーズンのMS"}{" "}
                     <Hint id="monthly-agreement.ms-pt" />
                   </h3>
                   <p
