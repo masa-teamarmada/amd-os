@@ -206,8 +206,8 @@ private struct TextbookPagedReader: View {
 
                     Slider(
                         value: Binding(
-                            get: { Double(displayedPage) },
-                            set: { pageIndex = Int($0.rounded()) }
+                            get: { Double(max(pageCount - 1, 0) - displayedPage) },
+                            set: { pageIndex = max(pageCount - 1, 0) - Int($0.rounded()) }
                         ),
                         in: 0...Double(max(pageCount - 1, 0)),
                         step: 1
@@ -236,9 +236,9 @@ private struct TextbookPagedReader: View {
     private func pageTurnGesture(pageCount: Int) -> some Gesture {
         DragGesture(minimumDistance: 30)
             .onEnded { value in
-                if value.translation.width < 0 {
+                if value.translation.width > 0 {
                     pageIndex = min(pageCount - 1, pageIndex + 1)
-                } else if value.translation.width > 0 {
+                } else if value.translation.width < 0 {
                     pageIndex = max(0, pageIndex - 1)
                 }
             }
@@ -292,9 +292,10 @@ private struct TextbookPageLayout {
 
     init(size: CGSize, fontSize: CGFloat) {
         self.fontSize = fontSize
-        lineHeight = fontSize * 1.5
-        columnWidth = fontSize * 1.25
-        columnSpacing = fontSize * 0.4
+        // Kindle風の縦組み: 文字送りは詰め、段と段の間だけ余白を取る。
+        lineHeight = fontSize * 1.08
+        columnWidth = fontSize * 1.13
+        columnSpacing = fontSize * 0.42
         linesPerColumn = max(10, Int((size.height - 94) / lineHeight))
         columnsPerPage = max(2, Int((size.width - 40 + columnSpacing) / (columnWidth + columnSpacing)))
     }
