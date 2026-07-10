@@ -7,9 +7,9 @@
 | ステージ | 状態 | 日付 | 備考 |
 |---|---|---|---|
 | 1. 節 skeleton workflow | ✅ 完了 | 2026-07-10 | 3 persona (教科書編集者 / MBA·MOT 教員 / BZM 理論家) 並列 (run wf_b6db7bb5-c11、Opus)。synth は本体。9節・計 16,100字設計。理論家が理論正本との σ_SU 定義不一致を発見 (申し送り論点1) |
-| 2. まさ確定 (節レベル) | ⏳ 待ち | | 申し送り論点1〜7 (下記) |
-| 3. 段落 outline workflow | 未着手 | | Sonnet 5 予定 |
-| 4. 段落 draft workflow | 未着手 | | Sonnet 5 予定。本文 v1 は素材ファイル (`ch7-body-v1.md`) に退避してから verify (クラッシュ安全策) |
+| 2. まさ確定 (節レベル) | ✅ **完了** | 2026-07-10 | まさ「止めないで進めて」= 9節構成 + 論点1〜7 を推奨どおり一括承認 (①σ_SU は書籍 L1 の Cobb-Douglas 型厳守・理論md §7.5 の扱いは別途裁定 ②第6章接続はパラフレーズ橋 ③μ 割当 = 学/産/官・演習は無次元強度指数 ④SSM は独立節・簡略化方針 ⑤B面 = 検証計画として出す条件付き帰結 ⑥T(AIG) は 7.4 末 Box ⑦社会受容は平易語表記)。ステージ3-5 をノンストップ起動 |
+| 3. 段落 outline workflow | ✅ 完了 | 2026-07-10 | 9/9節 (Sonnet 5、run wf_a8a1ddf0-113 Phase 1) |
+| 4. 段落 draft workflow | 🔄 実行中 | 2026-07-10 | Sonnet 5、同 run Phase 2。本文 v1 は素材ファイル (`ch7-body-v1.md`) に退避してから verify (クラッシュ安全策) |
 | 5. adversarial verify | 未着手 | | 5 persona、Opus。出力制約 (findings≤10・引用≤50字・fix≤2文) を全員に必須 |
 | 6. 正本化 + UI 登録 + まさレビュー | 未着手 | | bzm-chapters status / BUILD_VERSION bump は直前 fetch で最新値確認後に +1 (5セッション並走中) |
 
@@ -114,3 +114,4 @@ B面回収 + worked example (第2章 2.7・第3章 3.7 と同型)。①**worked 
 | Date | What | By |
 |---|---|---|
 | 2026-07-10 | 初版。ステージ1 (節 skeleton) 完了 — 3 persona 並列 (run wf_b6db7bb5-c11、Opus) × 本体 synth で9節・16,100字設計、申し送り7論点 (理論正本との σ_SU 定義不一致フラグ含む)、引き継ぎ規律を収録。ステージ2 (まさ確定) 待ち | えいみ |
+| 2026-07-10 | ステージ2 ✅ 完了 (まさ「止めないで進めて」): 9節構成 + 論点1〜7 を推奨どおり一括承認、ノンストップ実行指示。ステージ3-5 起動 (outline/draft = Sonnet 5 [run wf_a8a1ddf0-113]、verify = Opus 4.8 予定、裁定 = 本体) | えいみ |
