@@ -19,8 +19,8 @@ cd /Users/masa/projects/AMD/amd-os
 13. /Users/masa/projects/AMD/amd-os/pwa/design_log/sessions_2026-07.md
 
 現在の正本:
-- `main` / `origin/main` は handoff時点で `932e7e6fd9c371afad4e76a4a9b3a8a1136ade79`、ahead / behind は 0 / 0。
-- production は `v3.39.62 / 932e7e6fd9c371afad4e76a4a9b3a8a1136ade79 / main / dirty=false`。作業開始時に必ず `/api/build-info` を取り直す。
+- PWA実行コード基準は `932e7e6fd9c371afad4e76a4a9b3a8a1136ade79`。handoff文書のcommitは別に積まれるため、作業開始時に `git fetch`、`git status -sb`、`git rev-list --left-right --count HEAD...origin/main` を取り直す。
+- production は `v3.39.62 / 932e7e6fd9c371afad4e76a4a9b3a8a1136ade79 / main / dirty=false`。今回のhandoffはPWAソースを変えない文書更新なので、本番実行コードのSHAはこの値のままでよい。作業開始時に必ず `/api/build-info` を取り直す。
 - rootには `pwa/src/components/admin/AdminProjectsTable.tsx` の未コミット差分がある。admin PJ のSlack設定レーンなので、月初合意作業へ混ぜず、戻さず、stageしない。
 - 登録worktreeは main checkout 1つだけ。今回の一時cloneは証跡を残して削除済み。
 

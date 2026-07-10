@@ -6,8 +6,8 @@ Topic: 月初合意モーダルの確認対象を「担当内容」と「予定�
 
 ## Current truth
 
-- Canonical checkout は `main`。handoff時点の `HEAD` / `origin/main` はともに `932e7e6fd9c371afad4e76a4a9b3a8a1136ade79`、ahead / behind は `0 / 0`。
-- Production proof: `https://amd-os-pwa.vercel.app/api/build-info` は `v3.39.62 / 932e7e6fd9c371afad4e76a4a9b3a8a1136ade79 / main / dirty=false`。
+- このhandoffを作成した時点の PWA実行コード基準は `932e7e6fd9c371afad4e76a4a9b3a8a1136ade79`。文書だけのcloseout commitは別に積まれるため、次セッションでは必ず `git fetch` と `git status -sb` で正確なHEADを取り直す。
+- Production proof: `https://amd-os-pwa.vercel.app/api/build-info` は `v3.39.62 / 932e7e6fd9c371afad4e76a4a9b3a8a1136ade79 / main / dirty=false`。今回のhandoffはPWAソースを変えない文書更新なので、本番実行コードのSHAはこの値のままでよい。
 - 月初合意UIの変更 commit `66572734 fix(pwa): simplify monthly agreement scope` は current `main` の ancestor。以後の main には別レーンのBZM docs変更も入っている。
 
 ## 月初合意 — 確定した見せ方
