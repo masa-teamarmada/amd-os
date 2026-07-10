@@ -19,6 +19,10 @@ server page は以下を取得して `NotificationsClient` に渡す。
 
 UI は `open` / `unread` / `answered` / `feedback` で絞り込み、展開時に `read_at` を楽観更新する。
 
+展開時の詳細欄は、kind ごとに正本テーブルを lazy fetch して表示する。個別 fetch が未実装、または候補行が通知作成後に移動/統合されて見つからない場合でも、「DB未反映」と断定せず、通知本文を fallback 詳細として表示する。D-11 `news_mention` は `project_media_mentions` を `metadata_json.source_url` / `occurred_on` / title fallback で引き、保存済みの掲載行を表示する。
+
+`l2_notifications.saved_count >= total_count` かつ `total_count > 0` の通知は、すでに正本保存済みとみなし、UI の肯定ボタンを「はい・確認済み」と表示する。保存済み通知の yes feedback は、追加反映ではなく確認・学習フィードバックとして扱う。
+
 ## 通知レーン
 
 `/notifications` は、既存の未対応 / 未読 / 回答済みタブを残したまま、表示中の通知を `critical` と `normal` に分ける。

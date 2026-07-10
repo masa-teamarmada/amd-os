@@ -196,7 +196,7 @@ export default function DashboardPage() {
               <MyPageContent embedded showMonthlyProjects={false} />
             </Suspense>
           </aside>
-          <div className="xl:col-span-2">
+          <div id="company-content" className="xl:col-span-2">
             <CompanyContentShelf
               members={companyContent.members}
               history={companyContent.history}

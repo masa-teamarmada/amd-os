@@ -674,6 +674,37 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
               ].filter(Boolean).join(" · ") || undefined,
             };
           });
+        } else if (n.l2_kind === "news_mention") {
+          const meta = objectValue(n.metadata_json);
+          const sourceUrl = textFromUnknown(meta.source_url);
+          const occurredOn = textFromUnknown(meta.occurred_on);
+          let query = supabase
+            .from("project_media_mentions")
+            .select("occurred_on, title, media_name, kind, source_url, summary, ingested_by, verified, dismissed, created_at")
+            .eq("project_id", n.target_id);
+          if (sourceUrl) {
+            query = query.eq("source_url", sourceUrl);
+          } else if (occurredOn) {
+            query = query.eq("occurred_on", occurredOn);
+          } else {
+            query = query.ilike("title", `%${stripNotificationPrefix(n.title)}%`);
+          }
+          const { data, error } = await query.order("created_at", { ascending: false }).limit(10);
+          if (error) throw error;
+          rows = (data ?? []).map((r) => ({
+            heading: `${r.title} [${r.kind}]`,
+            body: [
+              r.summary || n.summary || "(summaryなし)",
+              r.source_url ? `URL: ${r.source_url}` : "",
+            ].filter(Boolean).join("\n"),
+            sub: [
+              r.occurred_on ? `date=${r.occurred_on}` : "",
+              r.media_name ? `media=${r.media_name}` : "",
+              r.ingested_by ? `by=${r.ingested_by}` : "",
+              r.verified ? "verified" : "unverified",
+              r.dismissed ? "dismissed" : "",
+            ].filter(Boolean).join(" · ") || undefined,
+          }));
         } else if (n.l2_kind === "coverage_gap") {
           // 不在検知 gap の中身を l2_coverage_gaps から取得 (scope_key = gap_id)。
           const { data, error } = await supabase
@@ -729,6 +760,9 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
               ].filter(Boolean).join(" · ") || undefined,
             };
           });
+        }
+        if (rows.length === 0) {
+          rows = notificationFallbackRows(n);
         }
       } else {
         // meeting_summary: project_meeting_summaries から実内容取得
@@ -937,8 +971,8 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
     }
   };
 
-  const responseLabel = (action: FeedbackAction) => {
-    if (action === "yes") return "はい・反映";
+  const responseLabel = (action: FeedbackAction, alreadySaved = false) => {
+    if (action === "yes") return alreadySaved ? "はい・確認済み" : "はい・反映";
     if (action === "no") return "いいえ・不採用";
     return "コメント送信済み";
   };
@@ -984,6 +1018,9 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
           const itemFeedbacks = findFeedbacksFor(i);
           const responseAction = responseActionFor(key, itemFeedbacks);
           const priority = unifiedItemPriority(i);
+          const alreadySaved =
+            i.kind === "l2" && Number(i.data.total_count ?? 0) > 0 && Number(i.data.saved_count ?? 0) >= Number(i.data.total_count ?? 0);
+          const yesLabel = alreadySaved ? "はい・確認済み" : "はい・反映";
           return (
             <div
               id={`notification-card-${key}`}
@@ -1111,7 +1148,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                     {responseAction ? (
                       <div className="flex flex-wrap items-center justify-between gap-2 rounded border border-emerald-500/25 bg-emerald-500/8 px-3 py-2">
                         <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">
-                          回答済み: {responseLabel(responseAction)}
+                          回答済み: {responseLabel(responseAction, alreadySaved)}
                         </span>
                         {isSubmitting && <span className="text-[11px] text-muted-foreground">送信中...</span>}
                       </div>
@@ -1119,7 +1156,9 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                       <>
                         <label className="text-xs font-medium block mb-1">回答・コメント</label>
                         <p className="mb-2 text-[11px] text-muted-foreground">
-                          反映してよければ「はい・反映」、違っていれば「いいえ・不採用」。補足だけ残すならコメントだけ送信。
+                          {alreadySaved
+                            ? "これは既に正本へ保存済みの通知。内容が正しければ「はい・確認済み」、違っていれば「いいえ・不採用」。補足だけ残すならコメントだけ送信。"
+                            : "反映してよければ「はい・反映」、違っていれば「いいえ・不採用」。補足だけ残すならコメントだけ送信。"}
                         </p>
                         <textarea
                           className="w-full text-sm border rounded p-2 min-h-[60px] bg-background"
@@ -1134,7 +1173,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                             onClick={() => submitFeedback(i, "yes")}
                             disabled={isSubmitting}
                           >
-                            {isSubmitting ? "送信中..." : "はい・反映"}
+                            {isSubmitting ? "送信中..." : yesLabel}
                           </button>
                           <button
                             className="text-xs px-3 py-1.5 border border-red-400 text-red-700 rounded hover:bg-red-50 disabled:opacity-50"
@@ -1152,7 +1191,9 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                           </button>
                         </div>
                         <p className="text-[10px] text-muted-foreground mt-1">
-                          はい/いいえ/コメントは admin/tsukuyomi の学習リストに残る。安全に反映できる候補は「はい」でSupabaseへ反映する。
+                          {alreadySaved
+                            ? "はい/いいえ/コメントは admin/tsukuyomi の学習リストに残る。保存済み通知の「はい」は確認済みフィードバックとして扱う。"
+                            : "はい/いいえ/コメントは admin/tsukuyomi の学習リストに残る。安全に反映できる候補は「はい」でSupabaseへ反映する。"}
                         </p>
                       </>
                     )}
@@ -1262,7 +1303,7 @@ function DetailSection({ detail }: { detail: DetailRow | undefined }) {
   }
   const rows = detail.rows ?? [];
   if (rows.length === 0) {
-    return <div className="text-xs text-muted-foreground italic">抽出された行が見つかりませんでした (= まだ DB に反映されてない可能性あり)</div>;
+    return <div className="text-xs text-muted-foreground italic">この通知に紐づく詳細行は表示できませんでした。通知本文と確認先を見て判断してね。</div>;
   }
   return (
     <div className="space-y-2 bg-muted/30 rounded p-2">
@@ -1376,6 +1417,12 @@ function DeepLinkForL2({ n }: { n: Notification }) {
           /admin/contracts (契約予兆・予定枠を確認)
         </a>
       );
+    case "news_mention":
+      return (
+        <a className="text-blue-600 hover:underline" href={`/dashboard#company-content`}>
+          /dashboard (Company Content のメディア掲載で確認)
+        </a>
+      );
     case "coverage_gap":
       return (
         <a className="text-blue-600 hover:underline" href={`/admin/coverage-gaps`}>
@@ -1459,6 +1506,31 @@ function truncateOneLine(value: string, limit = 360): string {
   const s = value.replace(/\s+/g, " ").trim();
   if (!s) return "(snippetなし)";
   return s.length > limit ? `${s.slice(0, limit)}...` : s;
+}
+
+function stripNotificationPrefix(title: string): string {
+  return title
+    .replace(/^D-\d+\s*[^:：]*[:：]\s*/, "")
+    .trim();
+}
+
+function notificationFallbackRows(n: Notification): NonNullable<DetailRow["rows"]> {
+  const meta = objectValue(n.metadata_json);
+  const metaBits = [
+    textFromUnknown(meta.occurred_on) ? `date=${textFromUnknown(meta.occurred_on)}` : "",
+    textFromUnknown(meta.media_name) ? `media=${textFromUnknown(meta.media_name)}` : "",
+    textFromUnknown(meta.source_url) ? `url=${textFromUnknown(meta.source_url)}` : "",
+  ].filter(Boolean);
+  return [
+    {
+      heading: `${l2KindLabel(n.l2_kind)} [通知本文]`,
+      body: [
+        n.summary || "(summaryなし)",
+        "この通知種別は、対応する正本行の詳細表示がまだ個別実装されていないか、通知作成後に候補行が移動/統合されている可能性がある。通知本文と下の確認先を見て判断してね。",
+      ].join("\n"),
+      sub: [n.scope_key ? `scope=${n.scope_key}` : "", ...metaBits].filter(Boolean).join(" · ") || undefined,
+    },
+  ];
 }
 
 function rawDataGapEvidenceRows(n: Notification): NonNullable<DetailRow["rows"]> {
