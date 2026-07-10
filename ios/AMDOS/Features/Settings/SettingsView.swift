@@ -6,9 +6,7 @@ struct SettingsView: View {
     @State private var showHUDCockpit = false
     private var appVersionLabel: String {
         let info = Bundle.main.infoDictionary
-        let version = info?["CFBundleShortVersionString"] as? String ?? "-"
-        let build = info?["CFBundleVersion"] as? String ?? ""
-        return build.isEmpty ? version : "\(version) (\(build))"
+        return info?["CFBundleShortVersionString"] as? String ?? "-"
     }
 
     var body: some View {
