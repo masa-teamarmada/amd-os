@@ -37,7 +37,7 @@
 
 | route | 役割 |
 |---|---|
-| `/dashboard` | PJ 一覧と主要機能への入口。上部に `proactive_todos` 由来の先手TODOバッジを出し、詳細は `/proactive` に送る。左/mainカラム内は PJ 一覧 → 研究機関ERSリスト、下段全幅は Company Content shelf の順に表示する。AMD 全体PJ (`p00`) は上部バイタルサイン枠から `/project/p00/cockpit` へ入るため、通常PJ一覧には表示しない。研究機関エコシステム構築PJは通常PJ一覧ではなく研究機関ERSリスト側へ寄せる。左メニューのボードにマウスオーバーまたはフォーカスすると、全アクティブPJへのコックピットリンクを右側に出す |
+| `/dashboard` | PJ 一覧と主要機能への入口。上部に `proactive_todos` 由来の先手TODOバッジを出し、詳細は `/proactive` に送る。左/mainカラム内は PJ 一覧 → 研究機関ERSリスト、下段全幅は Company Content shelf の順に表示する。AMD 全体PJ (`p00`) は上部バイタルサイン枠から `/project/p00/cockpit` へ入るため、通常PJ一覧には表示しない。研究機関エコシステム構築PJは通常PJ一覧ではなく研究機関ERSリスト側へ寄せる。左メニューのボードにマウスオーバーまたはフォーカスすると、全アクティブPJへのコックピットリンクを右側に出す。フライアウトはナビのスクロール領域でクリップされない上位レイヤーに出す |
 | `/project/[projectId]/cockpit` | PJ cockpit。Status / AMD Score / XRL / MS / 資料 / 経営ハイライト / ガバナンス / 助成金 / 月次 / MTGサマリ。旧 `proactive_outbox` TODO は表示しない |
 | `/manual` | AMD OS マニュアル。使い方・運用者向け |
 | `/spec` | 設計書。確定実装仕様。admin 限定 |

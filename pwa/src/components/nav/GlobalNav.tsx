@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Bell,
   BookMarked,
@@ -417,22 +418,162 @@ function BoardNavLink({
   activeProjectsStatus: "loading" | "ready" | "error";
 }) {
   const [open, setOpen] = useState(false);
+  const [flyoutPosition, setFlyoutPosition] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
+  const anchorRef = useRef<HTMLDivElement | null>(null);
+  const flyoutRef = useRef<HTMLDivElement | null>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const Icon = item.icon;
   const tooltip = item.title ? `${item.label} - ${item.title}` : item.label;
 
+  const clearCloseTimer = useCallback(() => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  }, []);
+
+  const updateFlyoutPosition = useCallback(() => {
+    const rect = anchorRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const width = Math.min(288, Math.max(180, window.innerWidth - 96));
+    const gutter = 8;
+    const left = Math.min(
+      rect.right + gutter,
+      Math.max(gutter, window.innerWidth - width - gutter),
+    );
+    const top = Math.max(gutter, Math.min(rect.top, window.innerHeight - 48));
+
+    setFlyoutPosition({ top, left, width });
+  }, []);
+
+  const openFlyout = useCallback(() => {
+    clearCloseTimer();
+    updateFlyoutPosition();
+    setOpen(true);
+  }, [clearCloseTimer, updateFlyoutPosition]);
+
+  const scheduleClose = useCallback(() => {
+    clearCloseTimer();
+    closeTimerRef.current = setTimeout(() => {
+      setOpen(false);
+    }, 120);
+  }, [clearCloseTimer]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const handleViewportChange = () => updateFlyoutPosition();
+    window.addEventListener("resize", handleViewportChange);
+    window.addEventListener("scroll", handleViewportChange, true);
+    return () => {
+      window.removeEventListener("resize", handleViewportChange);
+      window.removeEventListener("scroll", handleViewportChange, true);
+    };
+  }, [open, updateFlyoutPosition]);
+
+  useEffect(() => {
+    return () => {
+      clearCloseTimer();
+    };
+  }, [clearCloseTimer]);
+
+  const flyout =
+    open && flyoutPosition
+      ? createPortal(
+          <div
+            ref={flyoutRef}
+            data-testid="board-nav-flyout"
+            className="fixed z-[60] rounded-lg border border-border/80 bg-popover p-2 text-popover-foreground shadow-lg"
+            style={{
+              left: flyoutPosition.left,
+              top: flyoutPosition.top,
+              width: flyoutPosition.width,
+            }}
+            onMouseEnter={openFlyout}
+            onMouseLeave={scheduleClose}
+            onFocus={openFlyout}
+            onBlur={(event) => {
+              const nextTarget = event.relatedTarget;
+              if (
+                !(nextTarget instanceof Node) ||
+                (!anchorRef.current?.contains(nextTarget) &&
+                  !flyoutRef.current?.contains(nextTarget))
+              ) {
+                scheduleClose();
+              }
+            }}
+          >
+            <div className="flex items-center justify-between gap-3 px-2 py-1.5">
+              <span className="text-xs font-semibold text-foreground">
+                アクティブPJ
+              </span>
+              {activeProjectsStatus === "ready" && (
+                <span className="text-[11px] text-muted-foreground">
+                  {activeProjects.length}件
+                </span>
+              )}
+            </div>
+
+            {activeProjectsStatus === "loading" && (
+              <p className="px-2 py-3 text-xs text-muted-foreground">
+                読み込み中…
+              </p>
+            )}
+            {activeProjectsStatus === "error" && (
+              <p className="px-2 py-3 text-xs text-muted-foreground">
+                PJ一覧を読み込めませんでした
+              </p>
+            )}
+            {activeProjectsStatus === "ready" &&
+              activeProjects.length === 0 && (
+                <p className="px-2 py-3 text-xs text-muted-foreground">
+                  アクティブなPJはありません
+                </p>
+              )}
+            {activeProjectsStatus === "ready" && activeProjects.length > 0 && (
+              <div className="max-h-[calc(100vh-40px)] space-y-0.5 overflow-y-auto pr-0.5">
+                {activeProjects.map((project) => (
+                  <Link
+                    key={project.projectId}
+                    href={`/project/${encodeURIComponent(project.projectId)}/cockpit`}
+                    prefetch={false}
+                    className="flex items-center gap-2 rounded-md px-2 py-2 text-sm text-foreground transition-colors hover:bg-muted focus:bg-muted focus:outline-none"
+                  >
+                    <span className="min-w-0 flex-1 truncate">
+                      {project.projectName}
+                    </span>
+                    <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+                      {project.projectId}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>,
+          document.body,
+        )
+      : null;
+
   return (
     <div
+      ref={anchorRef}
       className="relative"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-      onFocus={() => setOpen(true)}
+      onMouseEnter={openFlyout}
+      onMouseLeave={scheduleClose}
+      onFocus={openFlyout}
       onBlur={(event) => {
         const nextTarget = event.relatedTarget;
         if (
           !(nextTarget instanceof Node) ||
-          !event.currentTarget.contains(nextTarget)
+          (!event.currentTarget.contains(nextTarget) &&
+            !flyoutRef.current?.contains(nextTarget))
         ) {
-          setOpen(false);
+          scheduleClose();
         }
       }}
     >
@@ -453,60 +594,7 @@ function BoardNavLink({
           {item.label}
         </span>
       </Link>
-
-      <div
-        className={cn(
-          "absolute left-full top-0 z-[60] ml-2 w-[calc(100vw-96px)] max-w-72 rounded-lg border border-border/80 bg-popover p-2 text-popover-foreground shadow-lg transition-[opacity,transform,visibility] duration-150",
-          open
-            ? "visible translate-x-0 opacity-100"
-            : "pointer-events-none invisible -translate-x-1 opacity-0",
-        )}
-        aria-hidden={!open}
-      >
-        <div className="flex items-center justify-between gap-3 px-2 py-1.5">
-          <span className="text-xs font-semibold text-foreground">
-            アクティブPJ
-          </span>
-          {activeProjectsStatus === "ready" && (
-            <span className="text-[11px] text-muted-foreground">
-              {activeProjects.length}件
-            </span>
-          )}
-        </div>
-
-        {activeProjectsStatus === "loading" && (
-          <p className="px-2 py-3 text-xs text-muted-foreground">読み込み中…</p>
-        )}
-        {activeProjectsStatus === "error" && (
-          <p className="px-2 py-3 text-xs text-muted-foreground">
-            PJ一覧を読み込めませんでした
-          </p>
-        )}
-        {activeProjectsStatus === "ready" && activeProjects.length === 0 && (
-          <p className="px-2 py-3 text-xs text-muted-foreground">
-            アクティブなPJはありません
-          </p>
-        )}
-        {activeProjectsStatus === "ready" && activeProjects.length > 0 && (
-          <div className="max-h-[calc(100vh-40px)] space-y-0.5 overflow-y-auto pr-0.5">
-            {activeProjects.map((project) => (
-              <Link
-                key={project.projectId}
-                href={`/project/${encodeURIComponent(project.projectId)}/cockpit`}
-                prefetch={false}
-                className="flex items-center gap-2 rounded-md px-2 py-2 text-sm text-foreground transition-colors hover:bg-muted focus:bg-muted focus:outline-none"
-              >
-                <span className="min-w-0 flex-1 truncate">
-                  {project.projectName}
-                </span>
-                <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
-                  {project.projectId}
-                </span>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
+      {flyout}
     </div>
   );
 }

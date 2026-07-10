@@ -215,6 +215,8 @@ expectIncludes("src/components/nav/GlobalNav.tsx", [
   "Handshake",
   "PoC",
   "アクティブPJ",
+  "board-nav-flyout",
+  "createPortal",
   "fetchActiveProjectsForNav",
 ]);
 
