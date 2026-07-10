@@ -24,6 +24,7 @@ type SourceResolution = {
 type SourceState = {
   count: number;
   lastCollectedAt: string | null;
+  lastMeetingEvidenceAt: string | null;
   resolution: SourceResolution | null;
 };
 type ExtractionStatus = {
@@ -45,14 +46,10 @@ const SOURCE_META: Array<{ key: SourceKey; label: string; icon: typeof Mail }> =
     { key: "notion", label: "Notion", icon: NotebookTabs },
   ];
 
-function freshness(lastCollectedAt: string | null) {
+function evidenceState(lastCollectedAt: string | null) {
   if (!lastCollectedAt)
-    return { label: "記録なし", className: "text-slate-500 bg-slate-100" };
-  const ageHours =
-    (Date.now() - new Date(lastCollectedAt).getTime()) / 3_600_000;
-  if (ageHours <= 48)
-    return { label: "記録あり", className: "text-emerald-700 bg-emerald-50" };
-  return { label: "要確認", className: "text-amber-800 bg-amber-50" };
+    return { label: "保存証跡なし", className: "text-slate-600 bg-slate-100" };
+  return { label: "保存証跡あり", className: "text-slate-700 bg-slate-100" };
 }
 
 function ResolutionLink({ resolution }: { resolution: SourceResolution }) {
@@ -120,11 +117,7 @@ export function ExtractionStatusCard() {
 
   const attention =
     data.setupIssues.length > 0 ||
-    SOURCE_META.some(
-      ({ key }) =>
-        freshness(data.sources[key].lastCollectedAt).label !== "記録あり" ||
-        Boolean(data.sources[key].resolution),
-    );
+    SOURCE_META.some(({ key }) => Boolean(data.sources[key].resolution));
   return (
     <section className="rounded-lg border border-border bg-card overflow-hidden">
       <div className="flex items-center gap-2 border-b border-border/70 px-3 py-2.5">
@@ -140,7 +133,7 @@ export function ExtractionStatusCard() {
         <div className="min-w-0">
           <h2 className="text-sm font-semibold">抽出状況</h2>
           <p className="text-[11px] text-muted-foreground">
-            5つの情報源がOSへ最後に保存された時刻。未取得と設定不足をここで見る。
+            保存証跡と、MTG抽出で実際に使えた時刻。対応が必要な設定・認証だけを出す。
           </p>
         </div>
         <Link
@@ -153,7 +146,7 @@ export function ExtractionStatusCard() {
       <div className="grid grid-cols-1 sm:grid-cols-5 divide-y sm:divide-y-0 sm:divide-x divide-border/70">
         {SOURCE_META.map(({ key, label, icon: Icon }) => {
           const source = data.sources[key];
-          const state = freshness(source.lastCollectedAt);
+          const state = evidenceState(source.lastCollectedAt);
           return (
             <div key={key} className="px-3 py-2.5 min-w-0">
               <div className="flex items-center gap-1.5 text-xs font-medium">
@@ -167,7 +160,11 @@ export function ExtractionStatusCard() {
               </div>
               <div className="mt-1.5 flex items-center gap-1 text-[10px] text-muted-foreground">
                 <Clock3 className="h-3 w-3" />
-                {timeLabel(source.lastCollectedAt)}
+                保存: {timeLabel(source.lastCollectedAt)}
+              </div>
+              <div className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">
+                <CheckCircle2 className="h-3 w-3" />
+                MTG抽出で使用: {timeLabel(source.lastMeetingEvidenceAt)}
               </div>
               {source.resolution && (
                 <div className="mt-1.5 border-l-2 border-amber-300 pl-1.5 text-[10px] leading-snug text-amber-900">

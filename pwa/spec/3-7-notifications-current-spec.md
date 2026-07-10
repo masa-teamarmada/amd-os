@@ -23,7 +23,7 @@ UI は `open` / `unread` / `answered` / `feedback` で絞り込み、展開時�
 
 `l2_notifications.saved_count >= total_count` かつ `total_count > 0` の通知は、すでに正本保存済みとみなし、UI の肯定ボタンを「はい・確認済み」と表示する。保存済み通知の yes feedback は、追加反映ではなく確認・学習フィードバックとして扱う。
 
-`project_config_gap` は通知一覧に残さず、dashboard の抽出状況へ集約する。48時間以上OSへの保存がない情報源には、connector 再認証通知、PJ台帳の設定不足、ログイン中管理者の Calendar 接続状態を順に照合して理由を付ける。解決先は再認証URL、`/admin/projects`、`/admin/settings`、またはCalendar再接続へ限定し、根拠がない接続障害を断定しない。
+`project_config_gap` は通知一覧に残さず、dashboard の抽出状況へ集約する。`source_cache.collected_at` は根拠の保存証跡であり、connector監視の実行周期ではない。抽出状況は保存証跡と `project_meeting_summaries.source_kinds` から得るMTG抽出での利用時刻を分ける。対応事項は未読かつ未dismissの `connector_auth`、PJ台帳の設定不足、ログイン中管理者の Calendar 接続エラーだけに限定し、保存時刻の古さで接続障害を断定しない。
 
 ## 通知レーン
 

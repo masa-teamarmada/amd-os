@@ -16,6 +16,7 @@ type SourceResolution = {
 type SourceState = {
   count: number;
   lastCollectedAt: string | null;
+  lastMeetingEvidenceAt: string | null;
   resolution: SourceResolution | null;
 };
 
@@ -62,44 +63,58 @@ function actionHref(row: ConnectorNotification | undefined) {
     : "/notifications";
 }
 
-function needsAttention(lastCollectedAt: string | null) {
-  if (!lastCollectedAt) return true;
-  return Date.now() - new Date(lastCollectedAt).getTime() > 48 * 3_600_000;
+function sourceNamesInMeetingEvidence(value: unknown): SourceName[] {
+  const searchable = String(value ?? "").toLowerCase();
+  const found = SOURCES.filter((source) => searchable.includes(source));
+  if (searchable.includes("gmeet") && !found.includes("calendar"))
+    found.push("calendar");
+  return found;
 }
 
-/** Dashboardの抽出状況用。5生データの最終保存証跡と設定不足だけを返す。 */
+/** Dashboardの抽出状況用。保存証跡とMTG抽出での利用記録、現在の対応事項を返す。 */
 export async function GET() {
   const auth = await requireAdmin();
   if (!auth.ok) return auth.errorResponse;
 
   const db = createAdminClient();
-  const [sourcesRes, projectsRes, connectorAuthRes, currentMemberRes] =
-    await Promise.all([
-      db
-        .from("source_cache")
-        .select("source,collected_at")
-        .order("collected_at", { ascending: false })
-        .limit(10_000),
-      db
-        .from("projects")
-        .select(
-          "project_id,project_name,status,monthly_report_scope,report_emails,slack_channel_id,slack_channel_not_required,drive_folder_id",
-        )
-        .eq("status", "active")
-        .neq("project_id", "p00"),
-      db
-        .from("app_notifications")
-        .select("title,body,link,meta,source,updated_at")
-        .eq("kind", "connector_auth")
-        .is("dismissed_at", null)
-        .order("updated_at", { ascending: false })
-        .limit(30),
-      db
-        .from("members")
-        .select("google_calendar_status,google_calendar_error")
-        .eq("email", auth.user.email.toLowerCase())
-        .maybeSingle(),
-    ]);
+  const [
+    sourcesRes,
+    projectsRes,
+    connectorAuthRes,
+    currentMemberRes,
+    meetingEvidenceRes,
+  ] = await Promise.all([
+    db
+      .from("source_cache")
+      .select("source,collected_at")
+      .order("collected_at", { ascending: false })
+      .limit(10_000),
+    db
+      .from("projects")
+      .select(
+        "project_id,project_name,status,monthly_report_scope,report_emails,slack_channel_id,slack_channel_not_required,drive_folder_id",
+      )
+      .eq("status", "active")
+      .neq("project_id", "p00"),
+    db
+      .from("app_notifications")
+      .select("title,body,link,meta,source,updated_at")
+      .eq("kind", "connector_auth")
+      .is("read_at", null)
+      .is("dismissed_at", null)
+      .order("updated_at", { ascending: false })
+      .limit(30),
+    db
+      .from("members")
+      .select("google_calendar_status,google_calendar_error")
+      .eq("email", auth.user.email.toLowerCase())
+      .maybeSingle(),
+    db
+      .from("project_meeting_summaries")
+      .select("updated_at,source_kinds")
+      .order("updated_at", { ascending: false })
+      .limit(300),
+  ]);
   if (sourcesRes.error)
     return NextResponse.json(
       { ok: false, error: sourcesRes.error.message },
@@ -117,6 +132,7 @@ export async function GET() {
       {
         count: 0,
         lastCollectedAt: null as string | null,
+        lastMeetingEvidenceAt: null as string | null,
         resolution: null as SourceResolution | null,
       },
     ]),
@@ -127,6 +143,12 @@ export async function GET() {
     sources[source].count += 1;
     if (!sources[source].lastCollectedAt)
       sources[source].lastCollectedAt = row.collected_at ?? null;
+  }
+  for (const meeting of meetingEvidenceRes.data ?? []) {
+    for (const source of sourceNamesInMeetingEvidence(meeting.source_kinds)) {
+      if (!sources[source].lastMeetingEvidenceAt)
+        sources[source].lastMeetingEvidenceAt = meeting.updated_at ?? null;
+    }
   }
 
   const setupIssues: Array<{
@@ -170,7 +192,6 @@ export async function GET() {
   const calendarStatus =
     currentMemberRes.data?.google_calendar_status ?? "missing";
   for (const source of SOURCES) {
-    if (!needsAttention(sources[source].lastCollectedAt)) continue;
     const connectorNotice = latestConnectorNotice.get(source);
     const missingCount = missingBySource.get(source) ?? 0;
 
@@ -191,28 +212,17 @@ export async function GET() {
       continue;
     }
     if (source === "calendar") {
-      sources[source].resolution =
-        calendarStatus === "connected"
-          ? {
-              reason: "接続は確認済み。48時間以上OSへの保存がない",
-              actionLabel: "抽出運用を確認",
-              actionHref: "/admin/settings",
-            }
-          : {
-              reason:
-                calendarStatus === "error"
-                  ? "Google Calendarの接続でエラー"
-                  : "Google Calendarが未接続",
-              actionLabel: "再接続する",
-              actionHref: "/auth/login?next=%2Fdashboard",
-            };
+      if (calendarStatus === "connected") continue;
+      sources[source].resolution = {
+        reason:
+          calendarStatus === "error"
+            ? "Google Calendarの接続でエラー"
+            : "Google Calendarが未接続",
+        actionLabel: "再接続する",
+        actionHref: "/auth/login?next=%2Fdashboard",
+      };
       continue;
     }
-    sources[source].resolution = {
-      reason: "48時間以上OSへの保存がない。接続エラーの通知は未着",
-      actionLabel: "抽出運用を確認",
-      actionHref: "/admin/settings",
-    };
   }
 
   return NextResponse.json({
