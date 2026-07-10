@@ -214,6 +214,8 @@ expectIncludes("src/components/nav/GlobalNav.tsx", [
   "/poc",
   "Handshake",
   "PoC",
+  "アクティブPJ",
+  "fetchActiveProjectsForNav",
 ]);
 
 expectIncludes("src/app/(app)/poc/page.tsx", [

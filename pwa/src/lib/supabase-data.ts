@@ -71,6 +71,12 @@ export interface DashProject {
   endYm?: string;
 }
 
+/** 左ナビのボードから各PJコックピットへ入るための軽量な一覧。 */
+export type ActiveProjectNavItem = {
+  projectId: string;
+  projectName: string;
+};
+
 export interface DashBillingStatus {
   ym: string;
   status: string;
@@ -2059,6 +2065,27 @@ export async function fetchProjectsFromSupabase(): Promise<DashProject[]> {
 	    startYm: r.start_ym || "",
     endYm: r.end_ym || "",
   }));
+}
+
+/**
+ * 左ナビ「ボード」のフライアウト用。
+ * Dashboard本体の集計・担当者取得を伴わず、現在アクティブなPJだけを読む。
+ */
+export async function fetchActiveProjectsForNav(): Promise<ActiveProjectNavItem[]> {
+  const { data, error } = await supabase
+    .from("projects")
+    .select("project_id, project_name")
+    .eq("status", "active")
+    .order("project_name", { ascending: true });
+
+  if (error) throw new Error(`active projects for nav: ${error.message}`);
+
+  return (data ?? [])
+    .filter((project) => project.project_id && project.project_name)
+    .map((project) => ({
+      projectId: project.project_id,
+      projectName: project.project_name,
+    }));
 }
 
 /**

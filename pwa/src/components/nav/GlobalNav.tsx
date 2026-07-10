@@ -27,7 +27,11 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { fetchAtlasInboxCount } from "@/lib/supabase-data";
+import {
+  fetchActiveProjectsForNav,
+  fetchAtlasInboxCount,
+  type ActiveProjectNavItem,
+} from "@/lib/supabase-data";
 import { fetchVcInboxCount } from "@/lib/vc-data";
 import { fetchSeedInboxCount } from "@/lib/seeds-data";
 import { BUILD_VERSION } from "@/lib/build-info";
@@ -75,6 +79,31 @@ export function GlobalNav({
   const [vcInboxCount, setVcInboxCount] = useState(0);
   const [seedInboxCount, setSeedInboxCount] = useState(0);
   const [notificationCount, setNotificationCount] = useState(0);
+  const [activeProjects, setActiveProjects] = useState<ActiveProjectNavItem[]>(
+    [],
+  );
+  const [activeProjectsStatus, setActiveProjectsStatus] = useState<
+    "loading" | "ready" | "error"
+  >("loading");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchActiveProjectsForNav()
+      .then((projects) => {
+        if (cancelled) return;
+        setActiveProjects(projects);
+        setActiveProjectsStatus("ready");
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setActiveProjectsStatus("error");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     // Inboxバッジ: 60秒ポーリング + 背景タブでは停止 (= 2026-05-28 egress 削減)。
@@ -291,6 +320,8 @@ export function GlobalNav({
                 key={item.href}
                 item={item}
                 active={isActivePath(pathname, item)}
+                activeProjects={activeProjects}
+                activeProjectsStatus={activeProjectsStatus}
               />
             ))}
           </div>
@@ -319,7 +350,28 @@ export function GlobalNav({
   );
 }
 
-function NavLink({ item, active }: { item: NavItem; active: boolean }) {
+function NavLink({
+  item,
+  active,
+  activeProjects,
+  activeProjectsStatus,
+}: {
+  item: NavItem;
+  active: boolean;
+  activeProjects: ActiveProjectNavItem[];
+  activeProjectsStatus: "loading" | "ready" | "error";
+}) {
+  if (item.href === "/dashboard") {
+    return (
+      <BoardNavLink
+        item={item}
+        active={active}
+        activeProjects={activeProjects}
+        activeProjectsStatus={activeProjectsStatus}
+      />
+    );
+  }
+
   const Icon = item.icon;
   const count = badgeText(item.badge);
   const tooltip = item.title ? `${item.label} - ${item.title}` : item.label;
@@ -350,5 +402,111 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
         </span>
       )}
     </Link>
+  );
+}
+
+function BoardNavLink({
+  item,
+  active,
+  activeProjects,
+  activeProjectsStatus,
+}: {
+  item: NavItem;
+  active: boolean;
+  activeProjects: ActiveProjectNavItem[];
+  activeProjectsStatus: "loading" | "ready" | "error";
+}) {
+  const [open, setOpen] = useState(false);
+  const Icon = item.icon;
+  const tooltip = item.title ? `${item.label} - ${item.title}` : item.label;
+
+  return (
+    <div
+      className="relative"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onFocus={() => setOpen(true)}
+      onBlur={(event) => {
+        const nextTarget = event.relatedTarget;
+        if (
+          !(nextTarget instanceof Node) ||
+          !event.currentTarget.contains(nextTarget)
+        ) {
+          setOpen(false);
+        }
+      }}
+    >
+      <Link
+        href={item.href}
+        title={tooltip}
+        aria-haspopup="true"
+        aria-expanded={open}
+        className={cn(
+          "relative flex h-8 items-center justify-center gap-3 rounded-md px-2 text-sm font-medium transition-colors lg:justify-start lg:px-3",
+          active
+            ? "bg-blue-600 text-white shadow-sm"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground",
+        )}
+      >
+        <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+        <span className="hidden min-w-0 flex-1 truncate lg:inline">
+          {item.label}
+        </span>
+      </Link>
+
+      <div
+        className={cn(
+          "absolute left-full top-0 z-[60] ml-2 w-[calc(100vw-96px)] max-w-72 rounded-lg border border-border/80 bg-popover p-2 text-popover-foreground shadow-lg transition-[opacity,transform,visibility] duration-150",
+          open
+            ? "visible translate-x-0 opacity-100"
+            : "pointer-events-none invisible -translate-x-1 opacity-0",
+        )}
+        aria-hidden={!open}
+      >
+        <div className="flex items-center justify-between gap-3 px-2 py-1.5">
+          <span className="text-xs font-semibold text-foreground">
+            アクティブPJ
+          </span>
+          {activeProjectsStatus === "ready" && (
+            <span className="text-[11px] text-muted-foreground">
+              {activeProjects.length}件
+            </span>
+          )}
+        </div>
+
+        {activeProjectsStatus === "loading" && (
+          <p className="px-2 py-3 text-xs text-muted-foreground">読み込み中…</p>
+        )}
+        {activeProjectsStatus === "error" && (
+          <p className="px-2 py-3 text-xs text-muted-foreground">
+            PJ一覧を読み込めませんでした
+          </p>
+        )}
+        {activeProjectsStatus === "ready" && activeProjects.length === 0 && (
+          <p className="px-2 py-3 text-xs text-muted-foreground">
+            アクティブなPJはありません
+          </p>
+        )}
+        {activeProjectsStatus === "ready" && activeProjects.length > 0 && (
+          <div className="max-h-[calc(100vh-40px)] space-y-0.5 overflow-y-auto pr-0.5">
+            {activeProjects.map((project) => (
+              <Link
+                key={project.projectId}
+                href={`/project/${encodeURIComponent(project.projectId)}/cockpit`}
+                prefetch={false}
+                className="flex items-center gap-2 rounded-md px-2 py-2 text-sm text-foreground transition-colors hover:bg-muted focus:bg-muted focus:outline-none"
+              >
+                <span className="min-w-0 flex-1 truncate">
+                  {project.projectName}
+                </span>
+                <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+                  {project.projectId}
+                </span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
