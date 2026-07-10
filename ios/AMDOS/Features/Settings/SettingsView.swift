@@ -111,11 +111,15 @@ struct TextbookReaderView: View {
                             .font(.title2.weight(.semibold))
                             .frame(maxWidth: .infinity, alignment: .leading)
                         Divider()
-                        Text(chapter.renderedMarkdown)
-                            .font(.body)
-                            .lineSpacing(5)
-                            .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        VStack(alignment: .leading, spacing: 22) {
+                            ForEach(chapter.renderedBlocks) { block in
+                                Text(block.text)
+                                    .font(.body)
+                                    .lineSpacing(9)
+                                    .textSelection(.enabled)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
                     }
                     .padding(.horizontal, 18)
                     .padding(.vertical, 20)
@@ -159,7 +163,7 @@ private struct TextbookChapter: Identifiable {
     let slug: String
     let title: String
     let markdownText: String
-    let renderedMarkdown: AttributedString
+    let renderedBlocks: [TextbookMarkdownBlock]
 
     var id: String { slug }
     var menuTitle: String { title.isEmpty ? slug : title }
@@ -187,7 +191,7 @@ private struct TextbookChapter: Identifiable {
             slug: slug,
             title: title(from: markdown, fallback: slug),
             markdownText: markdown,
-            renderedMarkdown: renderedMarkdown(from: markdown)
+            renderedBlocks: renderedBlocks(from: markdown)
         )
     }
 
@@ -205,6 +209,36 @@ private struct TextbookChapter: Identifiable {
 
         result += markdown[searchStart..<markdown.endIndex]
         return result
+    }
+
+    private static func renderedBlocks(from markdown: String) -> [TextbookMarkdownBlock] {
+        markdownBlocks(from: markdown).enumerated().map { index, block in
+            TextbookMarkdownBlock(id: index, text: renderedMarkdown(from: block))
+        }
+    }
+
+    private static func markdownBlocks(from markdown: String) -> [String] {
+        let normalizedMarkdown = markdown.replacingOccurrences(of: "\r\n", with: "\n")
+        var blocks: [String] = []
+        var currentLines: [String] = []
+
+        for line in normalizedMarkdown.split(separator: "\n", omittingEmptySubsequences: false) {
+            let stringLine = String(line)
+            if stringLine.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                if !currentLines.isEmpty {
+                    blocks.append(currentLines.joined(separator: "\n"))
+                    currentLines.removeAll()
+                }
+            } else {
+                currentLines.append(stringLine)
+            }
+        }
+
+        if !currentLines.isEmpty {
+            blocks.append(currentLines.joined(separator: "\n"))
+        }
+
+        return blocks
     }
 
     private static func renderedMarkdown(from markdown: String) -> AttributedString {
@@ -232,6 +266,11 @@ private struct TextbookChapter: Identifiable {
     private static func chapterNumber(from slug: String) -> Int {
         Int(slug.split(separator: "-").last.map(String.init) ?? "") ?? 999
     }
+}
+
+private struct TextbookMarkdownBlock: Identifiable {
+    let id: Int
+    let text: AttributedString
 }
 
 // MARK: - NotificationInboxView
