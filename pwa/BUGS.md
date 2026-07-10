@@ -5,6 +5,36 @@
 
 ---
 
+### [notifications/detail] 保存済みD-11メディア掲載で「抽出された行が見つかりませんでした」と誤表示した (2026-07-10)
+
+- **状態**: クローズ (2026-07-10 — `v0.39.48` で D-11 `news_mention` の保存済み詳細 fallback を修正。本番後続 baseline `v3.39.59` に ancestor として含まれる)。
+- **症状**: `/notifications` の D-11 メディア掲載通知で、対象記事は既に `project_media_mentions` に保存済みなのに、通知詳細には「抽出された行が見つかりませんでした」と出た。まさから「もう入ってるなら通知に入れる必要ないのでは」「この文言は他の多くの通知でも起きてるので直さないといけない」と指摘。
+- **原因**: 通知詳細が `l2_notifications` の `scope_key` から候補行を引く前提に寄っており、保存済み行・統合済み行・未対応 kind では対応する候補を取れないと空扱いにしていた。つまり DB 保存の成否ではなく、詳細表示の fallback が薄かった。
+- **対応内容**: D-11 `news_mention` は `project_media_mentions` を確認するようにし、保存済み通知では「はい・確認済み」扱いにした。未対応 kind や候補が見つからない場合も、通知本文を fallback 表示して、採否判断に必要な文脈が消えないようにした。
+- **再発防止**: 通知詳細は「候補行が取れない = データなし」と断定しない。保存済み正本、候補テーブル、通知本文 fallback の順で表示し、未対応 kind でも誤解を招く空メッセージを出さない。
+
+---
+
+### [notifications/ms_schedule_delay] 100%済みMSが翌月0%の計画遅延通知になった (2026-07-10)
+
+- **状態**: クローズ (2026-07-10 — `v0.39.49` / `v0.39.50` で progress fallback を修正し、202607 の誤遅延通知は再計算で0件)。
+- **症状**: `/notifications` に `target_ym=202606` の MS 計画遅延が大量に出て、見出し上は「期限 2026年6月、現在 0%」になった。実際には該当MSが 202606 時点で100%済みのものもあった。
+- **原因**: 計画遅延判定が通知実行月 202607 の progress row を優先して見ており、対象期限月 202606 以前の確定進捗を累積として拾えていなかった。さらに current row が `initial_zero` の場合、前月までの100%を 0% で上書きする形になっていた。
+- **対応内容**: progress query を `ym <= target_ym` の累積参照にし、現在月 row が無い場合は直近の過去進捗を使うようにした。現在月 row が `initial_zero` の場合は、current と prior の最大値を使い、空の初期値で実績を落とさないようにした。
+- **再発防止**: MSの計画遅延は「通知月の current row」ではなく「期限月までの確定進捗」で判断する。`initial_zero` は実績ではなく初期化由来なので、過去の確定アンカーを下げる材料にしない。
+
+---
+
+### [notifications/action_item] 要対応通知の「はい」が unknown l2_kind で失敗した (2026-07-10)
+
+- **状態**: クローズ (2026-07-10 — `v0.39.52` で `action_item` feedback handler を追加。本番後続 baseline `v3.39.59` に ancestor として含まれる)。
+- **症状**: BWE の同意書提出 `action_item` 通知で「はい・確認済み」を押すと、ブラウザ alert で `送信失敗: unknown l2_kind: action_item` が出た。
+- **原因**: `/api/action-items/extract` は `l2_kind='action_item'` の通知を作るが、`/api/notifications/feedback` の許可 kind と yes/no handler に `action_item` が入っていなかった。通知作成側とフィードバック側の対応表がズレていた。
+- **対応内容**: `action_item` を feedback allowed kinds に追加し、「はい」は `action_items.review_status='confirmed'`、「いいえ」は `review_status='rejected'` へ反映する helper を追加。エラーになったBWE通知は復旧として confirmed + feedback + tsukuyomi learning まで反映済み。
+- **再発防止**: 新しい `l2_kind` を作るときは、通知表示・詳細 fallback・feedback yes/no・正本テーブル反映の4点を同じ spec/manual に並べる。通知だけ作れてボタンが未対応、という片肺実装を禁止する。
+
+---
+
 ### [monthly-agreement/semantics] MS名を月次の到達目標として見せた (2026-07-10)
 
 - **状態**: クローズ (2026-07-10 — `v0.39.46` で実在しない月次目標表示を撤去)。

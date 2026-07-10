@@ -1108,3 +1108,37 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 - ボード hover フライアウトの既知残タスクはなし。
 - 認証後の直接ブラウザ目視は、えいみ側の in-app browser がログイン画面で止まるため未実施。今回の最終受け入れはまさの実画面確認。
 - closeout時点で root checkout には別件 `pwa/src/components/monthly-agreement/MonthlyAgreementExperience.tsx` の未コミット差分が残っている。今回のボード修正には混ぜない。
+
+---
+
+## 2026-07-10 — /notifications D-11 / MS計画遅延 / action_item feedback 修正
+
+### コンテキスト
+- まさから `/notifications` の3件を連続で確認。
+  1. D-11 メディア掲載通知で、記事は既に保存済みなのに「抽出された行が見つかりませんでした」と表示された。
+  2. D-2 MS計画遅延通知が大量に出て、期限 2026年6月のMSを「現在0%」として扱っていた。
+  3. D-14 `action_item` 通知で「はい・確認済み」を押すと `unknown l2_kind: action_item` で失敗した。
+- まさの指摘どおり、どれも個別通知の違和感に見えるが、実体は通知詳細・進捗評価・feedback handler の仕様接続が切れていた問題。
+
+### 原因
+- D-11 は保存済み正本 `project_media_mentions` を見ず、候補行が取れないと詳細を空扱いする fallback になっていた。
+- MS計画遅延は、期限月までの累積進捗ではなく通知実行月側の row を見ていた。さらに `initial_zero` row が前月までの100%実績を0%のように見せていた。
+- `action_item` は作成 route が `l2_kind='action_item'` の通知を作る一方、feedback route の allowed kind / yes-no反映先に `action_item` が未登録だった。
+
+### 実装 / 仕様同期
+- `/notifications` の詳細表示で、D-11 `news_mention` は `project_media_mentions` を確認。保存済み通知は「はい・確認済み」扱いにした。
+- 対応する候補行がない通知でも、通知本文 fallback を表示するようにして、判断材料を消さないようにした。
+- `progress-estimator` の MS計画遅延判定を、`ym <= target_ym` の累積進捗へ変更。current row が無い場合は直近の過去進捗を使い、`initial_zero` は過去実績を下げる材料にしない。
+- `/api/notifications/feedback` に `action_item` handler を追加。「はい」は `action_items.review_status='confirmed'`、「いいえ」は `rejected` へ反映。
+- `pwa/spec/3-7-notifications-current-spec.md`、`pwa/spec/3-10-l2-ms-progress-current-spec.md`、`pwa/manual/3-3-notifications-and-tsukuyomi.md`、`pwa/manual/4-8-ms-progress-monthly-report-revision-spec.md`、`pwa/BUGS.md` を同期した。
+
+### Verification / Deploy
+- D-11 fallback: `v0.39.48` で本番反映。
+- MS遅延 fallback: `v0.39.49` / `v0.39.50` で本番反映。202607 の再計算で `delayNotified:0`、DB read-back で `ms_schedule_delay` の残通知0件を確認。
+- `action_item` feedback: `v0.39.52` で本番反映。BWE同意書提出通知はエラー復旧として confirmed + feedback + tsukuyomi learning まで反映済み。
+- closeout時点の本番 baseline は後続 commit を含む `v3.39.59` / `7da9c71a` / dirty=false。上記修正 commit はすべて ancestor として含まれる。
+
+### Closeout notes
+- 3件とも既知残タスクはなし。
+- ただし D-11 Media Mentions は、保存済み行の表示 fallback を直しただけで、専用 writer / review UI の完成までは別フェーズ。
+- closeout時点で root checkout には別件 `pwa/src/components/admin/AdminProjectsTable.tsx` の未コミット差分が残っている。今回の通知修正 bundle には混ぜない。
