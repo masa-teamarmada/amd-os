@@ -11,7 +11,8 @@ Topic: 左メニュー `ボード` の全アクティブPJフライアウト修�
 - 修正 commit: `22e77d9a fix(pwa): unclip board nav flyout`。`createPortal` で `document.body` 直下の固定レイヤーへ移し、ナビ内 overflow に切られないようにした。
 - 仕上げ commit: `0221beaa fix(pwa): constrain board flyout viewport height`。画面下端ではPJ一覧部分だけがスクロールする高さ制御を追加。
 - 実画面の hover は、まさが「今度はいけた！」と確認済み。
-- 最終確認時点の production `/api/build-info`: `v0.39.45` / `8799b2d772568b5fe5b247f54b9834e762057234` / `main` / `dirty=false`。ボード修正 commit は ancestor として含まれる。
+- まさの受入確認時点の production `/api/build-info`: `v0.39.45` / `8799b2d772568b5fe5b247f54b9834e762057234` / `main` / `dirty=false`。
+- closeout 最終確認時点の production `/api/build-info`: `v0.39.45` / `0665b5e6a2f04709f3378ffcd7900d7598f27d31` / `main` / `dirty=false`。今回の docs commit `1a378944` は main へ push 済みだが、production はまだ docs commit までは進んでいない。ボード修正 commit は ancestor として含まれる。
 - 詳細ログ: `pwa/design_log/sessions_2026-07.md` の `2026-07-10 — 左メニュー ボード 全アクティブPJフライアウト表示修正 / v0.39.41-v0.39.45`。
 
 ## Repo State
@@ -20,7 +21,7 @@ Topic: 左メニュー `ボード` の全アクティブPJフライアウト修�
 - Branch policy: `main` only。今回も新規 branch は作っていない。
 - Current local/main before this handoff docs commit: `0665b5e6 docs(bzm): Book A Ch7 ステージ3-4 完了 — draft v1 17,977字・機械検査0件、verify 起動`; `origin/main` aligned before staging this docs refresh.
 - PWA board-flyout baseline: `0221beaa` / `v0.39.43` 以降。
-- This handoff/closeout docs refresh is docs-only; final chat reports the exact pushed SHA after commit/push.
+- This handoff/closeout docs refresh is docs-only; final pushed SHA is reported in chat.
 - Worktree inventory showed one extra clean detached temp worktree for BZM Ch7 under `/private/tmp/.../wt-ch7`; its HEAD `cd195848` is already an ancestor of `origin/main`. It was not created by this session and was not removed without explicit cleanup approval.
 
 ## Dirty State
@@ -43,7 +44,7 @@ Known unrelated dirty at handoff time:
 - `npx prettier --check` on the mixed docs set flagged formatting; it was not auto-fixed because the same files also contained unrelated unstaged hunks from other lanes.
 - `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` ran for `22e77d9a` and confirmed production `v0.39.42`.
 - `0221beaa` / `v0.39.43` was also observed live via production `/api/build-info`.
-- Later production moved to `v0.39.45`; board flyout commits remain included.
+- Later production moved to `v0.39.45` / `0665b5e6`; board flyout commits remain included.
 - Direct auth-gated browser verification was not possible from the in-app browser because it stopped at `/auth/login`. The final visual acceptance came fromまさ's logged-in browser report.
 
 ## Unresolved Tasks
@@ -56,7 +57,7 @@ Known unrelated dirty at handoff time:
 
 If continuing board/nav work:
 
-1. Read production `/api/build-info` and confirm it is at least `v0.39.45` or a later main build.
+1. Read production `/api/build-info` and confirm it is at least `v0.39.45` / `0665b5e6` or a later main build.
 2. Inspect `pwa/src/components/nav/GlobalNav.tsx`, especially `BoardNavLink`, `data-testid="board-nav-flyout"`, and `fetchActiveProjectsForNav`.
 3. If changing flyout geometry, keep it outside the nav scroll container and keep the dashboard link behavior intact.
 

@@ -22,7 +22,7 @@ cd /Users/masa/projects/AMD/amd-os
 - repo: /Users/masa/projects/AMD/amd-os
 - canonical branch: main。新規 branch / worker worktree は禁止。
 - PWA board-flyout baseline: `0221beaa fix(pwa): constrain board flyout viewport height` / `v0.39.43` 以降。
-- current production at handoff: https://amd-os-pwa.vercel.app/api/build-info = `v0.39.45` / `8799b2d772568b5fe5b247f54b9834e762057234` / `main` / `dirty=false`。ボード修正 commit は ancestor として含まれる。
+- current production at handoff: https://amd-os-pwa.vercel.app/api/build-info = `v0.39.45` / `0665b5e6a2f04709f3378ffcd7900d7598f27d31` / `main` / `dirty=false`。ボード修正 commit は ancestor として含まれる。docs closeout commit `1a378944` は main push 済みだが、production はまだ docs commit までは進んでいない。
 - root checkout had unrelated dirty at handoff: monthly-agreement UI/docs/guard files, iOS Settings/BZM resources, and an untracked monthly-agreement mock preview page。これは board/nav 作業には混ぜない。
 - worktree inventory showed one extra clean detached temp worktree under `/private/tmp/.../wt-ch7`, HEAD `cd195848`。`origin/main` に含まれるが、別BZM lane由来の可能性があるため勝手に削除していない。
 - direct browser visual verification from eimi's in-app browser was blocked by auth login. Masa verified the logged-in UI and said: 「今度はいけた！」。
@@ -43,7 +43,7 @@ cd /Users/masa/projects/AMD/amd-os
 - `npx prettier --check` は mixed docs set で formatting 指摘あり。別laneの未stage hunkが同居していたため、この closeout では自動整形していない。
 - `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` で `22e77d9a` / `v0.39.42` を本番反映確認。
 - `0221beaa` / `v0.39.43` も production `/api/build-info` で確認。
-- 後続 main build `v0.39.45` でも board flyout commits は ancestor として含まれる。
+- 後続 main build `v0.39.45` / `0665b5e6` でも board flyout commits は ancestor として含まれる。
 
 次タスク:
 - Board hover flyout の既知残はなし。

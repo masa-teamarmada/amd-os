@@ -1049,7 +1049,7 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 - targeted `prettier --check` / `eslint` passed。
 - `npm run build` passed。
 - `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` で `22e77d9a` / `v0.39.42` を本番反映し、その後 `0221beaa` / `v0.39.43` も本番反映。
-- 本番 `/api/build-info` は最終確認時点で `v0.39.45` / `8799b2d772568b5fe5b247f54b9834e762057234` / dirty=false。ボード修正 commit は ancestor として含まれる。
+- 本番 `/api/build-info` はまさ受入確認時点で `v0.39.45` / `8799b2d772568b5fe5b247f54b9834e762057234` / dirty=false。closeout最終確認では `v0.39.45` / `0665b5e6a2f04709f3378ffcd7900d7598f27d31` / dirty=false。ボード修正 commit は ancestor として含まれる。
 - 実画面の hover は、まさが「今度はいけた！」と確認済み。
 
 ### Closeout notes
