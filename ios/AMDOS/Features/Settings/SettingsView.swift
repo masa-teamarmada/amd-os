@@ -95,6 +95,8 @@ struct SettingsView: View {
 struct TextbookReaderView: View {
     private let chapters = TextbookChapter.loadBundledChapters()
     @State private var selectedSlug = "preface"
+    @State private var pageIndex = 0
+    @AppStorage("textbookReaderFontSize") private var fontSize = 21.0
 
     var body: some View {
         Group {
@@ -105,25 +107,11 @@ struct TextbookReaderView: View {
                     description: Text("同梱された教科書本文が見つからなかった")
                 )
             } else if let chapter = selectedChapter {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 18) {
-                        Text(chapter.title)
-                            .font(.title2.weight(.semibold))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        Divider()
-                        VStack(alignment: .leading, spacing: 22) {
-                            ForEach(chapter.renderedBlocks) { block in
-                                Text(block.text)
-                                    .font(.body)
-                                    .lineSpacing(9)
-                                    .textSelection(.enabled)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 20)
-                }
+                TextbookPagedReader(
+                    chapter: chapter,
+                    pageIndex: $pageIndex,
+                    fontSize: fontSize
+                )
             }
         }
         .navigationTitle("教科書")
@@ -134,6 +122,7 @@ struct TextbookReaderView: View {
                     ForEach(chapters) { chapter in
                         Button {
                             selectedSlug = chapter.slug
+                            pageIndex = 0
                         } label: {
                             if selectedSlug == chapter.slug {
                                 Label(chapter.menuTitle, systemImage: "checkmark")
@@ -144,6 +133,21 @@ struct TextbookReaderView: View {
                     }
                 } label: {
                     Label("章を選ぶ", systemImage: "list.bullet")
+                }
+
+                Menu {
+                    Button {
+                        fontSize = max(17, fontSize - 1)
+                    } label: {
+                        Label("文字を小さく", systemImage: "textformat.size.smaller")
+                    }
+                    Button {
+                        fontSize = min(30, fontSize + 1)
+                    } label: {
+                        Label("文字を大きく", systemImage: "textformat.size.larger")
+                    }
+                } label: {
+                    Label("文字サイズ", systemImage: "textformat.size")
                 }
             }
         }
@@ -159,11 +163,151 @@ struct TextbookReaderView: View {
     }
 }
 
+private struct TextbookPagedReader: View {
+    let chapter: TextbookChapter
+    @Binding var pageIndex: Int
+    let fontSize: Double
+
+    var body: some View {
+        GeometryReader { proxy in
+            let layout = TextbookPageLayout(size: proxy.size, fontSize: CGFloat(fontSize))
+            let pageCount = chapter.pageCount(for: layout)
+            let displayedPage = min(max(pageIndex, 0), max(pageCount - 1, 0))
+
+            VStack(spacing: 0) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(chapter.title)
+                        .font(.footnote.weight(.semibold))
+                        .lineLimit(1)
+                    Spacer()
+                    Text("\(displayedPage + 1) / \(pageCount)")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+                .padding(.bottom, 8)
+
+                TextbookVerticalPage(
+                    characters: chapter.characters(for: displayedPage, layout: layout),
+                    layout: layout
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .contentShape(Rectangle())
+                .gesture(pageTurnGesture(pageCount: pageCount))
+
+                HStack(spacing: 16) {
+                    Button {
+                        pageIndex = max(0, displayedPage - 1)
+                    } label: {
+                        Image(systemName: "chevron.left")
+                    }
+                    .disabled(displayedPage == 0)
+
+                    Slider(
+                        value: Binding(
+                            get: { Double(displayedPage) },
+                            set: { pageIndex = Int($0.rounded()) }
+                        ),
+                        in: 0...Double(max(pageCount - 1, 0)),
+                        step: 1
+                    )
+                    .tint(AMD.blue)
+                    .disabled(pageCount <= 1)
+
+                    Button {
+                        pageIndex = min(pageCount - 1, displayedPage + 1)
+                    } label: {
+                        Image(systemName: "chevron.right")
+                    }
+                    .disabled(displayedPage >= pageCount - 1)
+                }
+                .buttonStyle(.borderless)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+            }
+            .background(Color(uiColor: .systemBackground))
+            .onChange(of: pageCount) { _, newPageCount in
+                pageIndex = min(pageIndex, max(newPageCount - 1, 0))
+            }
+        }
+    }
+
+    private func pageTurnGesture(pageCount: Int) -> some Gesture {
+        DragGesture(minimumDistance: 30)
+            .onEnded { value in
+                if value.translation.width < 0 {
+                    pageIndex = min(pageCount - 1, pageIndex + 1)
+                } else if value.translation.width > 0 {
+                    pageIndex = max(0, pageIndex - 1)
+                }
+            }
+    }
+}
+
+private struct TextbookVerticalPage: View {
+    let characters: [Character]
+    let layout: TextbookPageLayout
+
+    var body: some View {
+        let columns = stride(from: 0, to: characters.count, by: layout.linesPerColumn).map {
+            Array(characters[$0..<min($0 + layout.linesPerColumn, characters.count)])
+        }
+
+        HStack(alignment: .top, spacing: layout.columnSpacing) {
+            ForEach(Array(columns.reversed().enumerated()), id: \.offset) { _, column in
+                VStack(spacing: 0) {
+                    ForEach(Array(column.enumerated()), id: \.offset) { _, character in
+                        Text(verticalForm(of: character))
+                            .font(.system(size: layout.fontSize, design: .serif))
+                            .frame(width: layout.columnWidth, height: layout.lineHeight)
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 8)
+        .accessibilityLabel("縦書きの本文")
+    }
+
+    private func verticalForm(of character: Character) -> String {
+        let replacements: [Character: String] = [
+            "、": "︑", "。": "︒", "「": "﹁", "」": "﹂",
+            "『": "﹃", "』": "﹄", "（": "︵", "）": "︶",
+            "［": "﹇", "］": "﹈", "｛": "︷", "｝": "︸",
+            "ー": "｜", "…": "︙", "—": "｜", "－": "｜"
+        ]
+        return replacements[character] ?? String(character)
+    }
+}
+
+private struct TextbookPageLayout {
+    let fontSize: CGFloat
+    let lineHeight: CGFloat
+    let columnWidth: CGFloat
+    let columnSpacing: CGFloat
+    let linesPerColumn: Int
+    let columnsPerPage: Int
+
+    init(size: CGSize, fontSize: CGFloat) {
+        self.fontSize = fontSize
+        lineHeight = fontSize * 1.5
+        columnWidth = fontSize * 1.25
+        columnSpacing = fontSize * 0.4
+        linesPerColumn = max(10, Int((size.height - 94) / lineHeight))
+        columnsPerPage = max(2, Int((size.width - 40 + columnSpacing) / (columnWidth + columnSpacing)))
+    }
+
+    var charactersPerPage: Int {
+        linesPerColumn * columnsPerPage
+    }
+}
+
 private struct TextbookChapter: Identifiable {
     let slug: String
     let title: String
-    let markdownText: String
-    let renderedBlocks: [TextbookMarkdownBlock]
+    let readerCharacters: [Character]
 
     var id: String { slug }
     var menuTitle: String { title.isEmpty ? slug : title }
@@ -190,8 +334,7 @@ private struct TextbookChapter: Identifiable {
         return TextbookChapter(
             slug: slug,
             title: title(from: markdown, fallback: slug),
-            markdownText: markdown,
-            renderedBlocks: renderedBlocks(from: markdown)
+            readerCharacters: readerCharacters(from: markdown)
         )
     }
 
@@ -211,10 +354,33 @@ private struct TextbookChapter: Identifiable {
         return result
     }
 
-    private static func renderedBlocks(from markdown: String) -> [TextbookMarkdownBlock] {
-        markdownBlocks(from: markdown).enumerated().map { index, block in
-            TextbookMarkdownBlock(id: index, text: renderedMarkdown(from: block))
+    func pageCount(for layout: TextbookPageLayout) -> Int {
+        max(1, Int(ceil(Double(readerCharacters.count) / Double(layout.charactersPerPage))) )
+    }
+
+    func characters(for page: Int, layout: TextbookPageLayout) -> [Character] {
+        let start = min(page * layout.charactersPerPage, readerCharacters.count)
+        let end = min(start + layout.charactersPerPage, readerCharacters.count)
+        return Array(readerCharacters[start..<end])
+    }
+
+    private static func readerCharacters(from markdown: String) -> [Character] {
+        var skippedTitle = false
+        let paragraphs = markdownBlocks(from: markdown).compactMap { block -> String? in
+            let trimmed = block.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return nil }
+
+            if !skippedTitle, trimmed.hasPrefix("# ") {
+                skippedTitle = true
+                return nil
+            }
+
+            let plainText = String(renderedMarkdown(from: trimmed).characters)
+                .replacingOccurrences(of: "\n", with: "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return plainText.isEmpty ? nil : "　\(plainText)"
         }
+        return Array(paragraphs.joined(separator: "　　"))
     }
 
     private static func markdownBlocks(from markdown: String) -> [String] {
@@ -266,11 +432,6 @@ private struct TextbookChapter: Identifiable {
     private static func chapterNumber(from slug: String) -> Int {
         Int(slug.split(separator: "-").last.map(String.init) ?? "") ?? 999
     }
-}
-
-private struct TextbookMarkdownBlock: Identifiable {
-    let id: Int
-    let text: AttributedString
 }
 
 // MARK: - NotificationInboxView

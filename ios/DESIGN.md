@@ -11,7 +11,7 @@
 > - えいみ（Win側 Android担当）が「これ知らない画面なんだけど…」となったら必ずここを参照する
 > - えいみがここを見て知らない画面があるならアラート → 即同期する
 >
-> 最終更新: 2026-07-10 (iOS 設定タブに教科書 WebView 導線を追加)
+> 最終更新: 2026-07-10 (iOS 設定タブの教科書を縦書きページリーダー化)
 
 ---
 
@@ -334,12 +334,13 @@ admin がアクション必要なものを集約する。
 |---|---|
 | `SettingsView` | バージョン情報、ログアウト、HUD版コックピット、教科書導線 |
 | `PayoutInfoEditView` | 自分の住所・振込先を編集（支払通知書PDFに記載される） |
-| `TextbookReaderView` | 同梱した `pwa/bzm/*.md` をネイティブ表示し、iOS Swift 版から Before Zero / BZM 教科書を読む |
+| `TextbookReaderView` | 同梱した `pwa/bzm/*.md` を縦書きページリーダーで表示し、iOS Swift 版から Before Zero / BZM 教科書を読む |
 
 **教科書導線（`TextbookReaderView`）**
 - 設定タブの「資料」セクション → 「教科書」から開く。
-- `ios/AMDOS/Resources/BZM/*.md` に同梱した Markdown を SwiftUI の `ScrollView` + `Text` で読む。
-- 初期表示は `preface.md`。右上の章メニューから同梱章を選ぶ。
+- `ios/AMDOS/Resources/BZM/*.md` に同梱した Markdown を、縦書き・右から左への段組みでページ単位に読む。
+- 初期表示は `preface.md`。右上の章メニューから同梱章を選び、本文は左右スワイプまたは下部のページ操作で送る。
+- 右上の文字サイズメニューで 17〜30pt の間を調整できる。文字サイズ・画面幅に応じて 1 ページの段組みを再計算する。
 - WebView / PWA 認証 cookie に依存しないため、白画面や `this page couldn't load` には落ちない。
 - 読み取り専用。教科書本文の正本は `pwa/bzm/*.md` と `pwa/src/app/(app)/bzm/bzm-chapters.ts`。iOS 同梱分は正本から同期したコピー。
 

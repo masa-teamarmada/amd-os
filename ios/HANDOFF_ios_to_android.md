@@ -10,22 +10,23 @@ TestFlight build: 未更新
 
 ## 2026-07-10 追記: 設定タブから教科書を読む
 
-### 18. TextbookReaderView — 同梱 Markdown のネイティブ教科書 reader
+### 18. TextbookReaderView — 同梱 Markdown の縦書きネイティブ教科書 reader
 **動機**: PWA の教科書ページ (`/bzm`) の本文を、iOS Swift 版からも白画面なしで読めるようにする。
 
 - `SettingsView.swift`
   - 設定タブに「資料」セクションを追加。
   - 「教科書」行をタップすると `TextbookReaderView` を開く。
 - `TextbookReaderView`
-  - `ios/AMDOS/Resources/BZM/*.md` に同梱した Markdown をネイティブ表示する。
-  - 初期表示は `preface.md`。右上の章メニューから同梱章を選ぶ。
+  - `ios/AMDOS/Resources/BZM/*.md` に同梱した Markdown を、縦書き・右から左への段組みでページ単位に表示する。
+  - 初期表示は `preface.md`。右上の章メニューから同梱章を選び、左右スワイプまたは下部のページ操作で本文を送る。
+  - 文字サイズは右上メニューから 17〜30pt で調整でき、画面幅と文字サイズに応じて段組みを再計算する。
   - WebView / PWA 認証 cookie に依存しない。
   - 読み取り専用。教科書本文の正本は `pwa/bzm/*.md` と `pwa/src/app/(app)/bzm/bzm-chapters.ts`。iOS 同梱分は正本から同期したコピー。
 
 ### Android 反映メモ
 - 設定画面に同じ「資料 > 教科書」導線を追加する。
 - PWA WebView ではなく、`pwa/bzm/*.md` を Android assets へ同期してネイティブ reader で表示する。
-- 初期表示は `preface.md`、章選択メニューを付ける。
+- 初期表示は `preface.md`、章選択・文字サイズメニューを付ける。日本語版は縦書き・右から左への段組みとページ送りを採用する。
 
 ---
 
