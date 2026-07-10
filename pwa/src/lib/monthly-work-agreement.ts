@@ -223,6 +223,20 @@ function paymentRuleCycle(cycle: JsonRecord, fallbackYm: string) {
   };
 }
 
+function rewardPaymentRuleCycle(cycle: JsonRecord, fallbackYm: string) {
+  const base = paymentRuleCycle(cycle, fallbackYm);
+  return {
+    ...base,
+    // billing_cycles.invoice_ym is the client invoice month. Monthly agreement
+    // payout explanations must use the member payment timing instead.
+    invoice_ym: null,
+  };
+}
+
+function effectiveRewardPaymentYmForCycle(cycle: JsonRecord, project: JsonRecord, fallbackYm: string): string {
+  return effectivePaymentYmForCycle(rewardPaymentRuleCycle(cycle, fallbackYm), paymentRuleProject(project));
+}
+
 function payoutSnapshotKey(projectId: string, ym: string): string {
   return `${projectId}:${ym}`;
 }
@@ -303,7 +317,7 @@ function payoutScheduleEntryFromCycle(
             : "reward_cache";
   return {
     sourceYm,
-    paymentYm: effectivePaymentYmForCycle(paymentRuleCycle(cycle, sourceYm), paymentRuleProject(project)),
+    paymentYm: effectiveRewardPaymentYmForCycle(cycle, project, sourceYm),
     status: typeof cycle.status === "string" ? cycle.status : null,
     basePayYen,
     carryInYen,
@@ -564,8 +578,7 @@ export async function buildMonthlyWorkAgreementBundle(
     projectsRes,
     freezePeriodsRes,
     cyclesRes,
-    explicitPayoutCyclesRes,
-    unsetPayoutCyclesRes,
+    payoutCandidateCyclesRes,
     scheduleCyclesRes,
     payoutSnapshotsRes,
     plansRes,
@@ -587,15 +600,11 @@ export async function buildMonthlyWorkAgreementBundle(
       ? supabase.from("billing_cycles").select("*").in("project_id", projectIds).eq("ym", ym)
       : Promise.resolve({ data: [], error: null }),
     projectIds.length
-      ? supabase.from("billing_cycles").select("*").in("project_id", projectIds).eq("invoice_ym", ym)
-      : Promise.resolve({ data: [], error: null }),
-    projectIds.length
       ? supabase
           .from("billing_cycles")
           .select("*")
           .in("project_id", projectIds)
           .in("ym", paymentCandidateSourceYms)
-          .is("invoice_ym", null)
       : Promise.resolve({ data: [], error: null }),
     projectIds.length
       ? supabase
@@ -626,8 +635,7 @@ export async function buildMonthlyWorkAgreementBundle(
   if (projectsRes.error) throw projectsRes.error;
   if (freezePeriodsRes.error) throw freezePeriodsRes.error;
   if (cyclesRes.error) throw cyclesRes.error;
-  if (explicitPayoutCyclesRes.error) throw explicitPayoutCyclesRes.error;
-  if (unsetPayoutCyclesRes.error) throw unsetPayoutCyclesRes.error;
+  if (payoutCandidateCyclesRes.error) throw payoutCandidateCyclesRes.error;
   if (scheduleCyclesRes.error) throw scheduleCyclesRes.error;
   if (payoutSnapshotsRes.error) throw payoutSnapshotsRes.error;
   if (plansRes.error) throw plansRes.error;
@@ -665,19 +673,11 @@ export async function buildMonthlyWorkAgreementBundle(
     );
   }
   const payoutYenByProject = new Map<string, number>();
-  for (const row of (explicitPayoutCyclesRes.data ?? []) as Array<JsonRecord>) {
-    const projectId = row.project_id as string;
-    if (!projectMap.has(projectId) || cleanYm(row.invoice_ym) !== ym) continue;
-    payoutYenByProject.set(
-      projectId,
-      (payoutYenByProject.get(projectId) ?? 0) + memberPayoutYenFromCycle(row, params.memberId, payoutSnapshots),
-    );
-  }
-  for (const row of (unsetPayoutCyclesRes.data ?? []) as Array<JsonRecord>) {
+  for (const row of (payoutCandidateCyclesRes.data ?? []) as Array<JsonRecord>) {
     const projectId = row.project_id as string;
     const project = projectMap.get(projectId);
     if (!project) continue;
-    const paymentYm = effectivePaymentYmForCycle(paymentRuleCycle(row, ym), paymentRuleProject(project));
+    const paymentYm = effectiveRewardPaymentYmForCycle(row, project, cleanYm(row.ym) ?? ym);
     if (paymentYm !== ym) continue;
     payoutYenByProject.set(
       projectId,
@@ -775,7 +775,7 @@ export async function buildMonthlyWorkAgreementBundle(
         yenFromRecord(rewardMember, ["totalPay", "total_pay"]) ??
         (hasRewardSummary ? 0 : null);
       const paymentYm = cycle
-        ? effectivePaymentYmForCycle(paymentRuleCycle(cycle, ym), paymentRuleProject(project))
+        ? effectiveRewardPaymentYmForCycle(cycle, project, ym)
         : null;
       const payoutYen = payoutYenByProject.get(projectId) ?? 0;
       const stockYen =

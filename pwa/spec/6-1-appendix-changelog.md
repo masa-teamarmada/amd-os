@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-07-10 | 3-14 月初合意 | 修正 | `/admin/monthly-work-agreements` と月初合意の支払説明で、`billing_cycles.invoice_ym` をメンバー支払月として扱わず、PJ台帳の支払条件から現金支払月を計算するように変更。build v0.39.40 | `invoice_ym` は請求書発行月なのに支払月として優先していたため、ZMP 202606 の報酬が 202607 支払一覧から落ち、月初合意一覧の `今月支払` が 0 円に見えていたため | えいみ |
 | 2026-07-09 | 3-14 月初合意 | 修正 | `/monthly-agreement` の `未払いがどう残るか` を、縦積みのバー/明細から、左に項目・右に稼働月列を並べる横長マトリクスへ変更。build v0.39.34 | 右側の余白が大きいのに1か月あたり複数行を使っており、未払残の月次推移を横に追いにくかったため | えいみ |
 | 2026-07-09 | 2-1 PWA Runtime / 3-7 Notifications / 6-4 Finance Payment Confirm | 修正 | `payment-confirm-nudges` を入金日当日の候補だけ送信する仕様へ変更し、Slack/確認画面/freee同期失敗DMの表示を `入金月` に統一。build v0.39.33 | 入金日前は実際の確認ができず、毎日通知すると運用者が誤って確認導線へ進むため | えいみ |
 | 2026-07-09 | 2-1 PWA Runtime / 5-1 Research Assets / SPEC_pwa / FEATURE_REGISTRY / db_schema | 修正 | `/poc` の一次入力を `シーズ` / `PoC先` に整理し、マトリックス空セルの `案件化` で `poc_matches` を生成する仕様へ更新。KUTE系シーズ6件、SX/既存PJ/KUTE用途別のPoC先26件を冪等投入する `168_poc_primary_inputs_and_seed_backfill.sql` を追加し、PoC先名と seed/company pair の重複防止 index を追加。build v0.39.32 | まさ指摘「『マッチ案件』『企業候補』ではなく『シーズ』『PoC先』の2つにすべき」「OS内の情報から入力できるものは入力して」を反映するため | えいみ |
