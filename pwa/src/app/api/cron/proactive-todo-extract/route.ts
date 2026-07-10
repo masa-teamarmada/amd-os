@@ -9,8 +9,9 @@
  *   - 完了UIが無く、超過 666h の seed が残骸として叫び続けた
  *   - 「DB candidate のテーブルダンプ」になっており先手力維持と無関係だった
  *
- *   白紙やり直し: MTG (議事録 next_actions + 次回MTG予定) を起点に絞り、
- *   全PJ横断の 1 画面 TODO リストにする。完了UIをつけて信頼できるリストにする。
+ *   白紙やり直し: MTG (議事録 next_actions + 次回MTG予定) と PJ 連絡先からの
+ *   Gmail 依頼を起点に、全PJ横断の 1 画面 TODO リストにする。
+ *   完了UIをつけて信頼できるリストにする。
  *
  * 検知ロジック (LLM 不使用、文字列ヒューリスティック):
  *
@@ -25,6 +26,10 @@
  * 2. next_meeting_prep: source_kinds='upcoming' な未来MTGで、開催 3 営業日前以内のものは
  *    agenda 準備TODOを積む。due_at は MTG 開始 - 1日。
  *
+ * 3. email_action_request: projects.report_emails から来た Gmail を sweep。
+ *    「期限/ご返送/ご回答/ご都合/修正案」などの依頼文だけを拾い、
+ *    本文全文・URL・パスワードは proactive_todos に保存しない。
+ *
  * 共通:
  *   - UNIQUE 制約で重複 upsert は冪等 (project_id, trigger_kind, meeting_id/event_id, title)
  *   - status='done' / 'dismissed' は触らない (人間判断を上書きしない)
@@ -37,10 +42,11 @@
  */
 
 import { NextResponse, type NextRequest } from "next/server";
+import { sweepEmailActionRequests } from "@/lib/proactive/email-action-requests";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 const LOOKBACK_DAYS = 14;
 const NEXT_MEETING_PREP_WINDOW_DAYS = 7;
@@ -132,20 +138,6 @@ function addDays(iso: string, days: number): string {
 function ymdToIsoDayEnd(ymd: string): string {
   // JST 18:00 を期限の目安 (= 1営業日の終わり目安) として UTC へ
   return new Date(`${ymd}T18:00:00+09:00`).toISOString();
-}
-
-function ymdAddBusinessDays(ymd: string, days: number): string {
-  // 簡易: 土日除外で N営業日後の前日 18:00 JST を返す
-  const d = new Date(`${ymd}T00:00:00+09:00`);
-  let added = 0;
-  let cursor = d;
-  while (added < days) {
-    cursor = new Date(cursor.getTime() + 86400_000);
-    const day = cursor.getUTCDay();
-    if (day !== 0 && day !== 6) added++;
-  }
-  cursor.setUTCHours(9, 0, 0, 0); // JST 18:00 = UTC 09:00
-  return cursor.toISOString();
 }
 
 function isPastIso(iso: string): boolean {
@@ -358,7 +350,12 @@ export async function GET(req: NextRequest) {
   }
 
   // ============================================
-  // Stage 3: 期限超過 open todo を red に昇格
+  // Stage 3: Gmail から PJ メール依頼を抽出
+  // ============================================
+  const emailSweep = await sweepEmailActionRequests(db);
+
+  // ============================================
+  // Stage 4: 期限超過 open todo を red に昇格
   // ============================================
   const { data: openOverdue } = await db
     .from("proactive_todos")
@@ -376,7 +373,7 @@ export async function GET(req: NextRequest) {
   }
 
   // ============================================
-  // Stage 4: blocked で BLOCKED_RESURFACE_DAYS 日経過したら open に復帰
+  // Stage 5: blocked で BLOCKED_RESURFACE_DAYS 日経過したら open に復帰
   // ============================================
   const resurfaceThreshold = new Date(Date.now() - BLOCKED_RESURFACE_DAYS * 86400_000).toISOString();
   const { data: blockedToResurface } = await db
@@ -395,7 +392,7 @@ export async function GET(req: NextRequest) {
   }
 
   // ============================================
-  // Stage 5: MTG開始後の prep TODO を自動終了
+  // Stage 6: MTG開始後の prep TODO を自動終了
   // ============================================
   const { data: openPrepTodos } = await db
     .from("proactive_todos")
@@ -442,10 +439,13 @@ export async function GET(req: NextRequest) {
     scanned: {
       past_meetings: pastMeetings?.length ?? 0,
       upcoming_meetings: upcomingMeetings?.length ?? 0,
+      email_projects: emailSweep.scanned_projects,
+      gmail_threads: emailSweep.gmail_threads,
     },
     upserted: {
       meeting_next_action: nextActionInserted,
       next_meeting_prep: prepInserted,
+      email_action_request: emailSweep.upserted,
     },
     skipped: {
       next_action_counterpart: nextActionSkippedCounterpart,
@@ -454,7 +454,15 @@ export async function GET(req: NextRequest) {
       prep_far_future: prepSkippedFar,
       prep_garbled: prepSkippedGarbled,
       prep_started: prepSkippedStarted,
+      email_no_auth: emailSweep.skipped_no_auth,
+      email_no_report_emails: emailSweep.skipped_no_report_emails,
+      email_internal_sender: emailSweep.skipped_internal_sender,
+      email_attachment_notice: emailSweep.skipped_attachment_notice,
+      email_no_action: emailSweep.skipped_no_action,
+      email_no_due: emailSweep.skipped_no_due,
     },
+    email_enabled: emailSweep.enabled,
+    email_errors: emailSweep.errors.slice(0, 10),
     escalated_to_red: escalated,
     resurfaced_from_blocked: resurfaced,
     closed_expired_prep: closedExpiredPrep,

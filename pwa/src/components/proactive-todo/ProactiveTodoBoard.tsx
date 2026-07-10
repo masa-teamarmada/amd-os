@@ -72,6 +72,7 @@ function formatJst(iso: string): string {
 const TRIGGER_LABEL: Record<string, string> = {
   meeting_next_action: "MTG決定事項",
   next_meeting_prep: "次回MTG準備",
+  email_action_request: "メール依頼",
 };
 
 const BALL_LABEL: Record<BallOwner, string> = {

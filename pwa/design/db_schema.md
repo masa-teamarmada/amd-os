@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-07-10 19:40 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-07-10 19:52 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -2483,7 +2483,7 @@ PRIMARY KEY: `outbox_id`
 
 ## proactive_todos
 
-行数 (概算): 250
+行数 (概算): 254
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -3133,7 +3133,7 @@ PRIMARY KEY: `id`
 
 ## projects
 
-行数 (概算): 24
+行数 (概算): 25
 PRIMARY KEY: `id`
 UNIQUE: `(project_id)` (constraint: `projects_project_id_key`)
 

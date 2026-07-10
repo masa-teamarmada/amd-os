@@ -6,7 +6,7 @@
 
 ## この章は何か
 
-過去 14 日のMTG議事録の `next_actions` と、7 日以内に開催される予定MTGから、AMD ボール (= AMD/PJ チームが次に動くべきもの) の先手 TODO を自動抽出し、admin 画面 `/proactive` で 1 画面・期限順・3 ボタン完了UI で消化する仕組みの正本仕様。
+過去 14 日のMTG議事録の `next_actions`、7 日以内に開催される予定MTG、PJ連絡先から届くGmail依頼から、AMD ボール (= AMD/PJ チームが次に動くべきもの) の先手 TODO を自動抽出し、admin 画面 `/proactive` で 1 画面・期限順・3 ボタン完了UI で消化する仕組みの正本仕様。
 
 「先手力を維持する」のサイクルが OS データとして閉じるための最小実装 MVP。
 
@@ -20,12 +20,14 @@ AMD の提供価値は「Before 0 におけるビジョン注入力、技術戦�
 - 初回顔合わせやキックオフ後に、AMD から「こう進めましょう」という進行案が出ない
 - 次回 MTG 前に、本来こちらから agenda / roadmap / 提案書を出すべきなのに、準備が見えない
 - こたさんや大学側から「その後どうなっていますか」と聞かれて初めて動き出す
+- メール本文に「いつまでに返してほしい」が書かれているのに、MTG議事録にはまだ載っていない
 
-仮説: これらの 80% は **MTG 起点**で検知できる。
+仮説: これらの多くは **MTG 起点 + Gmail の期限つき依頼**で検知できる。
 - MTG が終わった → 議事録 `next_actions[]` に「AMD が次にやるべきこと」が含まれる
 - 次回 MTG が近い → agenda / 進行案を先に出す必要がある
+- 相手から期限つきメールが来た → 返信・返送・日程回答などが AMD ボールとして発生する
 
-検知の起点を MTG に絞り、TODO を漏れなく 1 画面に並べ、その場で 3 ボタンで完了できれば「先に動くべきタイミングを見落とさない」運用が成立する、というのがこの MVP の賭け。
+検知の起点を「MTGで生まれたTODO」と「メールで新たに発生したTODO」に絞り、TODO を漏れなく 1 画面に並べ、その場で 3 ボタンで完了できれば「先に動くべきタイミングを見落とさない」運用が成立する。
 
 ## アーキテクチャ全体
 
@@ -35,6 +37,7 @@ AMD の提供価値は「Before 0 におけるビジョン注入力、技術戦�
 │  - project_meeting_summaries (next_actions[] / source_kinds) │
 │    └ H-1 MTG flow が writer (Windows MMO Codex Desktop)      │
 │  - source_kinds='upcoming' な未来MTG                         │
+│  - projects.report_emails から届く Gmail 依頼                 │
 └─────────────────────────────────────────────────────────────┘
                           ↓ daily 09:15 JST
 ┌─────────────────────────────────────────────────────────────┐
@@ -42,6 +45,7 @@ AMD の提供価値は「Before 0 におけるビジョン注入力、技術戦�
 │  - 過去14日 開催済みMTGの next_actions sweep                 │
 │  - 文字列ヒューリスティックで ball_owner 判定                │
 │  - 7日以内の upcoming MTG に「agenda準備」TODO               │
+│  - Gmail の期限つき依頼を「メール依頼」TODO に変換            │
 │  - 期限超過 open を red に昇格                               │
 │  - 3日経過 blocked を open に復帰                            │
 └─────────────────────────────────────────────────────────────┘
@@ -69,13 +73,13 @@ AMD の提供価値は「Before 0 におけるビジョン注入力、技術戦�
 |---|---|---|
 | `id` | uuid | PK |
 | `project_id` | text | 対象 PJ |
-| `trigger_kind` | text | `meeting_next_action` (議事録由来) / `next_meeting_prep` (次回MTG準備) |
+| `trigger_kind` | text | `meeting_next_action` (議事録由来) / `next_meeting_prep` (次回MTG準備) / `email_action_request` (Gmail依頼) |
 | `source_meeting_id` | text | 元 MTG (`project_meeting_summaries.meeting_id`) |
-| `source_event_id` | text | 元予定 MTG (= upcoming `meeting_id`) |
+| `source_event_id` | text | 元予定 MTG (= upcoming `meeting_id`) または Gmail thread ref |
 | `title` | text | 1行で見える要約 (`{project_id} {MTG title}: {next_action 先頭文}`) |
-| `detail` | text | 推奨first move + 遅延リスクの本文 |
+| `detail` | text | 推奨first move + 遅延リスクの本文。`email_action_request` では本文全文・URL・パスワードを保存しない短い要点 |
 | `ball_owner` | text | `amd` / `counterpart` / `ambiguous`。`counterpart` は cron で skip して保存しない |
-| `due_at` | timestamptz | 期限。`meeting_next_action` は MTG 日 + 7 日、`next_meeting_prep` は MTG 開始 - 1 日 |
+| `due_at` | timestamptz | 期限。`meeting_next_action` は MTG 日 + 7 日、`next_meeting_prep` は MTG 開始 - 1 日、`email_action_request` はメール本文から抽出した期限 |
 | `priority` | text | `red` / `normal`。期限超過 open は cron が `red` に昇格 |
 | `status` | text | `open` / `done` / `blocked` / `dismissed` |
 | `resolved_note` | text | 完了/ブロック時の任意 1 行メモ |
@@ -125,15 +129,30 @@ admin (= `members.is_admin = true`) と `service_role` のみ ALL。anon SELECT 
 - `ball_owner = 'amd'` (= 進行案出しは必ず AMD)
 - `due_at = MTG 開始 - 1 日`
 
-### Stage 3: 期限超過の red 昇格
+### Stage 3: Gmail 依頼 sweep
+
+対象: `projects.status='active'` かつ `report_emails` が設定されている PJ。`GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` / `GOOGLE_OAUTH_REFRESH_TOKEN` または Gmail readonly scope を持つ `GOOGLE_SERVICE_ACCOUNT_JSON` が無い場合は skip し、cron 全体は落とさない。
+
+処理:
+
+1. `projects.report_emails` の送信元から来た直近メールを Gmail API で検索する。
+2. 内部送信元 (`team-armada.jp`) と添付分離/パスワード通知だけのメールは skip。
+3. `期限` / `締切` / `ご返送` / `ご回答` / `ご教示` / `ご都合` / `候補日` / `修正案` / `フロー図` / `チェックリスト` / `内規` / `エフォート` / `eAPRIN` などの依頼文だけを対象にする。
+4. `7/17（金）まで`、`7月17日まで`、`今週中`、`来週中`、`月末` などから `due_at` を抽出する。期限が読めない依頼は skip。
+5. `trigger_kind='email_action_request'`、`source_event_id='gmail:{threadId}'` で `proactive_todos` に upsert する。
+6. `detail` には件名、送信者表示名、受信日時、期限、短い要点のみを残す。本文全文・URL・パスワード・メールアドレス・電話番号は保存しない。
+
+この stage も LLM は使わない。メール本文は外部入力なので、抽出対象データとしてだけ扱い、実行指示としては扱わない。
+
+### Stage 4: 期限超過の red 昇格
 
 `status='open' AND priority='normal' AND due_at < now()` を `priority='red'` に UPDATE。
 
-### Stage 4: blocked の自動復帰
+### Stage 5: blocked の自動復帰
 
 `status='blocked' AND updated_at < now() - 3 日` を `status='open'` に戻す。期限超過してれば同時に `red` 化。
 
-### Stage 5: MTG開始後の準備TODO自動終了
+### Stage 6: MTG開始後の準備TODO自動終了
 
 `trigger_kind='next_meeting_prep'` の `open` / `blocked` TODO は、紐づく予定MTGの `meeting_start_at` が現在時刻を過ぎたら `done` へ自動更新する。これは「会議前にagenda/進行案を出す」という準備TODOが、会議開始後も赤い未対応として残り続けることを防ぐための出口。
 
@@ -185,7 +204,7 @@ MVP では以下は持たない:
 
 - **`sent` 状態 (相手にボールを渡した)**: 必要性が見えたら追加 (まさ判断 2026-06-27)
 - **cockpit 側の PJ 単位 TODO panel**: 2026-07-09 に旧 `ProactiveQueuePanel` / `proactive_outbox` 表示を通常PJ / institution cockpit から削除済み。`proactive_todos` をそのままPJ cockpitへ移植しない。PJ別表示を再設計する場合は、古いMTG由来の赤TODOをそのまま出さず、「今このPJで見るべき先手確認」だけに絞る別仕様を作る。
-- **Gmail / Slack の催促文言検知**: MTG 起点で 80% カバーできる仮説に賭けて MVP では作らない
+- **Slack の催促文言検知**: Gmail は 2026-07-10 に `email_action_request` として追加済み。Slack は raw hygiene と通知ノイズ設計を決めてから別 Phase で扱う。
 - **完了 → 学習段への流し込み**: `resolved_note` を AMD Protocol / textbook insight 候補へ流す Step 3 は未着手
 - **判断 → 実行 → 学習 のループ閉鎖**: 旧 spec 2-4 で書いた「ループ成立の 4 遷移」は廃止。「先手 TODO リスト」単機能として割り切り、学習接続は出来たら別 Phase で
 

@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-07-10 | 2-4 Proactive TODO / 8-3 L2 routines | 追加 | `/api/cron/proactive-todo-extract` に Gmail 期限つき依頼を `email_action_request` として `proactive_todos` へ upsert する stage を追加。本文全文・URL・パスワードを保存しない raw hygiene、trigger_kind 制約 migration 169、`/proactive` 表示ラベルを追加。build v0.39.54 | KUTE 平本さんのメールのように、MTG後メール本文でAMD側TODOが追加発生するケースを先手TODOへ自動で拾うため | えいみ |
 | 2026-07-10 | 2-2 Surface / 3-7 Notifications / FEATURE_REGISTRY | 変更 | dashboard の「抽出状況」で48時間以上保存がない情報源に、connector再認証通知・PJ設定不足・Calendar接続状態を根拠にした理由と、再認証 / PJ台帳 / 抽出運用の導線を追加。build v0.39.53 | 「要確認」だけで止まらず、原因から次の復旧操作まで進めるため | えいみ |
 | 2026-07-10 | 2-2 Surface / 3-7 Notifications / FEATURE_REGISTRY / db_schema | 変更 | `/admin/projects` の Slack CH 列に「チャンネルなし」チェックを追加。`projects.slack_channel_not_required` を正本にし、ON時はSlack IDを空にして抽出状況の設定不足から外す。PJ台帳の見出し行も縦横スクロール中に固定した。build v0.39.51 | Slackチャンネルを持たないPJを、設定漏れとして継続表示しないため。また、横長台帳で列見出しを見失わないため | えいみ |
 | 2026-07-10 | 3-10 D-2 MS Progress | 修正 | `applyScheduleDefaultsForProject` の計画遅延判定で、判定月の進捗行が無い場合にその月以前の最新 `milestone_monthly_progress` を current_pct として使うように変更。build v0.39.49 | target_ym月で100%済みのMSが、翌月行が無いだけで current_pct=0 の `ms_schedule_delay` 通知になっていたため | えいみ |
