@@ -405,17 +405,14 @@ export function MonthlyAgreementExperience({
               hintId="monthly-agreement.project-count"
             />
           )}
-          <MetricCard
-            compact={isModal}
-            label={isModal ? "予定額合計" : "もらえる予定額"}
-            value={formatYen(bundle.snapshot.totals.expectedRewardYen)}
-            hintId="monthly-agreement.expected-reward"
-            description={
-              isModal
-                ? undefined
-                : "今月やる仕事に対して、今の計画で見込んでいる金額"
-            }
-          />
+          {!isModal && (
+            <MetricCard
+              label="もらえる予定額"
+              value={formatYen(bundle.snapshot.totals.expectedRewardYen)}
+              hintId="monthly-agreement.expected-reward"
+              description="今月やる仕事に対して、今の計画で見込んでいる金額"
+            />
+          )}
           {!isModal && (
             <MetricCard
               label="支払い済み"
@@ -450,13 +447,33 @@ export function MonthlyAgreementExperience({
         </section>
 
         <div
-          className={
-            isModal
-              ? "grid max-w-full items-start gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(340px,420px)]"
-              : "contents"
-          }
+          className={isModal ? "flex max-w-full flex-col gap-2" : "contents"}
         >
-          <AgreementFlowRail compact={isModal} />
+          <AgreementFlowRail
+            compact={isModal}
+            projects={bundle.snapshot.projects}
+            totalExpectedRewardYen={bundle.snapshot.totals.expectedRewardYen}
+          />
+
+          {isModal && (
+            <section
+              aria-labelledby="monthly-agreement-reference-heading"
+              className="rounded-lg border border-[#e5e5e7] bg-[#fbfbfd] px-2.5 py-2"
+            >
+              <p className="text-[10px] font-semibold tracking-[0.12em] text-[#86868b]">
+                参考情報・修正依頼
+              </p>
+              <h2
+                id="monthly-agreement-reference-heading"
+                className="mt-0.5 text-[13px] font-semibold text-[#1d1d1f]"
+              >
+                発注条件の詳細、予定額の根拠、支払い状況
+              </h2>
+              <p className="mt-0.5 text-[11px] leading-relaxed text-[#6e6e73]">
+                上の必須確認に必要な金額はすべて表示済みです。ここから下は、内容を詳しく見たり、違いを知らせたりするための情報です。
+              </p>
+            </section>
+          )}
 
           <details
             className={`${isModal ? "w-full max-w-full" : ""} rounded-lg border border-[#e5e5e7] bg-white`}
@@ -601,7 +618,7 @@ export function MonthlyAgreementExperience({
         </div>
 
         {isModal && (
-          <details className="order-2 w-full rounded-lg border border-[#e5e5e7] bg-white">
+          <details className="w-full rounded-lg border border-[#e5e5e7] bg-white">
             <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 px-2.5 py-2">
               <div>
                 <span className="text-[10px] font-semibold text-[#86868b]">
@@ -662,7 +679,7 @@ export function MonthlyAgreementExperience({
         )}
 
         <section
-          className={`flex flex-col items-start ${isModal ? "order-1 gap-3" : "gap-4"}`}
+          className={`flex flex-col items-start ${isModal ? "gap-3" : "gap-4"}`}
         >
           {bundle.snapshot.projects.length === 0 ? (
             <div className="rounded-lg border border-[#e5e5e7] bg-white p-5 text-sm text-[#6e6e73]">
@@ -683,7 +700,7 @@ export function MonthlyAgreementExperience({
           )}
         </section>
 
-        <div className={`${isModal ? "order-3" : ""} flex justify-end`}>
+        <div className="flex justify-end">
           <button
             type="button"
             onClick={load}
@@ -698,19 +715,27 @@ export function MonthlyAgreementExperience({
   );
 }
 
-function AgreementFlowRail({ compact = false }: { compact?: boolean }) {
+function AgreementFlowRail({
+  compact = false,
+  projects,
+  totalExpectedRewardYen,
+}: {
+  compact?: boolean;
+  projects: MonthlyWorkAgreementProject[];
+  totalExpectedRewardYen: number | null | undefined;
+}) {
   const steps = [
     {
       key: "agreement",
       icon: <FileCheck2 className="size-4" />,
       label: "今月の発注条件",
-      body: "各PJで担当する内容と、今月の到達目標を確認する",
+      body: "各PJで担当する内容と、今月の到達目標に違いがないか確認する",
     },
     {
       key: "reward",
       icon: <ListChecks className="size-4" />,
       label: "予定額",
-      body: "今月の発注条件に対する対価。合計とPJごとの金額を確認する",
+      body: "この枠の合計とPJごとの金額だけを、合意前に確認する",
     },
   ];
   return (
@@ -727,16 +752,16 @@ function AgreementFlowRail({ compact = false }: { compact?: boolean }) {
             合意前に必ず確認すること <Hint id="monthly-agreement.flow" />
           </h2>
           <p
-            className={`${compact ? "hidden" : "mt-1 text-[12px]"} text-[#6e6e73]`}
+            className={`${compact ? "mt-0.5 text-[11px]" : "mt-1 text-[12px]"} text-[#6e6e73]`}
           >
-            この2つに問題がなければ合意してください。支払い予定・未払残・予定額の根拠は、判断を助ける参考情報です。
+            発注条件に違いがなく、下の予定額に問題がなければ合意してください。pt・担当割合・支払い予定は参考情報です。
           </p>
         </div>
       </div>
       <div
         className={
           compact
-            ? "grid max-w-full gap-2 sm:grid-cols-2"
+            ? "grid max-w-full items-start gap-2 sm:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]"
             : "grid gap-2 md:grid-cols-2"
         }
       >
@@ -756,11 +781,50 @@ function AgreementFlowRail({ compact = false }: { compact?: boolean }) {
                 必須
               </span>
             </div>
-            <p
-              className={`${compact ? "mt-1 line-clamp-1" : "mt-2"} text-[11px] leading-relaxed text-[#6e6e73]`}
-            >
-              {step.body}
-            </p>
+            {step.key === "reward" ? (
+              <dl className={`${compact ? "mt-1.5" : "mt-2"} space-y-1`}>
+                <div className="flex items-baseline justify-between gap-3 rounded-md bg-white px-2 py-1">
+                  <dt className="text-[10px] font-semibold text-[#6e6e73]">
+                    予定額合計
+                  </dt>
+                  <dd className="text-[15px] font-semibold tabular-nums text-[#1d1d1f]">
+                    {formatYen(totalExpectedRewardYen)}
+                  </dd>
+                </div>
+                <div className="overflow-hidden rounded-md border border-[#dbeafe] bg-white">
+                  <p className="border-b border-[#dbeafe] px-2 py-1 text-[10px] font-semibold text-sky-800">
+                    PJごとの予定額
+                  </p>
+                  {projects.length === 0 ? (
+                    <p className="px-2 py-1.5 text-[11px] text-[#6e6e73]">
+                      対象PJはありません
+                    </p>
+                  ) : (
+                    <div className="divide-y divide-[#e5e5e7]">
+                      {projects.map((project) => (
+                        <div
+                          key={project.projectId}
+                          className="flex items-center justify-between gap-3 px-2 py-1.5 text-[11px]"
+                        >
+                          <span className="min-w-0 truncate font-semibold text-[#3c3c43]">
+                            {project.projectName}
+                          </span>
+                          <span className="whitespace-nowrap font-semibold tabular-nums text-[#1d1d1f]">
+                            {formatYen(project.expectedRewardYen)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </dl>
+            ) : (
+              <p
+                className={`${compact ? "mt-1" : "mt-2"} text-[11px] leading-relaxed text-[#6e6e73]`}
+              >
+                {step.body}
+              </p>
+            )}
           </div>
         ))}
       </div>
@@ -848,7 +912,6 @@ function ProjectAgreementCard({
     ? { target: "_blank", rel: "noreferrer" }
     : {};
   const hasMilestones = project.milestones.length > 0;
-  const hasDetailBlocks = hasMilestones || hasPayoutSchedule;
   const compactMilestoneGroups =
     compact && project.milestones.length > 5
       ? [
@@ -856,11 +919,8 @@ function ProjectAgreementCard({
           project.milestones.slice(Math.ceil(project.milestones.length / 2)),
         ]
       : [project.milestones];
-  const compactHeaderGrid = hasDetailBlocks
-    ? "xl:grid-cols-[minmax(0,1fr)_minmax(420px,500px)]"
-    : "sm:grid-cols-[max-content_minmax(160px,220px)]";
   const msGridCols = compact
-    ? "grid-cols-[minmax(150px,1fr)_72px_78px]"
+    ? "grid-cols-[minmax(150px,1fr)_72px]"
     : "grid-cols-[minmax(220px,1.4fr)_86px_110px_94px_112px]";
   const msTableWidth = compact ? "w-full max-w-full" : "min-w-[760px]";
   return (
@@ -868,7 +928,7 @@ function ProjectAgreementCard({
       className={`w-full max-w-full rounded-lg border border-[#e5e5e7] bg-white ${compact ? "p-2.5" : "p-4"}`}
     >
       <div
-        className={`grid gap-2 ${compact ? compactHeaderGrid : "sm:grid-cols-[minmax(0,1fr)_auto]"} sm:items-start`}
+        className={`grid gap-2 ${compact ? "" : "sm:grid-cols-[minmax(0,1fr)_auto]"} sm:items-start`}
       >
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -928,19 +988,7 @@ function ProjectAgreementCard({
             </div>
           )}
         </div>
-        {compact ? (
-          <dl className="min-w-[132px] overflow-hidden rounded-md border border-sky-200 bg-sky-50 text-right">
-            <div className="min-w-0 px-2 py-1.5">
-              <dt className="flex items-center justify-end gap-1 text-[10px] font-semibold text-[#86868b]">
-                <CircleDollarSign className="size-3.5" />
-                必ず確認：予定額 <Hint id="monthly-agreement.expected-reward" />
-              </dt>
-              <dd className="mt-0.5 truncate text-[15px] font-semibold tabular-nums text-[#1d1d1f]">
-                {formatYen(headlineValue)}
-              </dd>
-            </div>
-          </dl>
-        ) : (
+        {!compact && (
           <div
             className={`rounded-md border px-3 py-2 text-right ${hasStock ? "border-amber-200 bg-amber-50" : "border-transparent bg-[#f5f5f7]"}`}
           >
@@ -1102,14 +1150,14 @@ function ProjectAgreementCard({
               >
                 <div className="min-w-0">
                   <h3 className="text-[12px] font-semibold text-[#3c3c43]">
-                    {compact ? "今月の発注条件（必ず確認）" : "今シーズンのMS"}{" "}
+                    {compact ? "発注条件の詳細" : "今シーズンのMS"}{" "}
                     <Hint id="monthly-agreement.ms-pt" />
                   </h3>
                   <p
                     className={`${compact ? "mt-0.5" : "mt-1"} text-[11px] leading-relaxed text-[#6e6e73]`}
                   >
                     {compact
-                      ? "担当する内容と今月の到達目標を確認してください。pt・担当割合は予定額の根拠です。"
+                      ? "上の必須確認に対する、担当内容と今月の到達目標の詳しい一覧です。pt・担当割合は予定額の根拠です。"
                       : "予定額は、ここに出ているMSのpt・今月進める分・担当割合から出しています。"}
                   </p>
                 </div>
@@ -1182,14 +1230,16 @@ function ProjectAgreementCard({
                             </dd>
                           </div>
                         )}
-                        <div className="rounded-md bg-sky-50 px-2 py-1.5">
-                          <dt className="text-[10px] font-semibold text-sky-800">
-                            予定額
-                          </dt>
-                          <dd className="mt-0.5 font-semibold tabular-nums text-sky-950">
-                            {formatYen(ms.expectedRewardYen)}
-                          </dd>
-                        </div>
+                        {!compact && (
+                          <div className="rounded-md bg-sky-50 px-2 py-1.5">
+                            <dt className="text-[10px] font-semibold text-sky-800">
+                              予定額
+                            </dt>
+                            <dd className="mt-0.5 font-semibold tabular-nums text-sky-950">
+                              {formatYen(ms.expectedRewardYen)}
+                            </dd>
+                          </div>
+                        )}
                       </dl>
                     </div>
                   );
@@ -1215,7 +1265,7 @@ function ProjectAgreementCard({
                         {!compact && (
                           <span className="text-right">今月のpt</span>
                         )}
-                        <span className="text-right">予定額</span>
+                        {!compact && <span className="text-right">予定額</span>}
                       </div>
                       <div className="divide-y divide-[#e5e5e7]">
                         {group.map((ms) => {
@@ -1260,9 +1310,11 @@ function ProjectAgreementCard({
                                   {formatPt(ms.earnedPt)}
                                 </span>
                               )}
-                              <span className="text-right tabular-nums font-semibold text-[#3c3c43]">
-                                {formatYen(ms.expectedRewardYen)}
-                              </span>
+                              {!compact && (
+                                <span className="text-right tabular-nums font-semibold text-[#3c3c43]">
+                                  {formatYen(ms.expectedRewardYen)}
+                                </span>
+                              )}
                             </div>
                           );
                         })}

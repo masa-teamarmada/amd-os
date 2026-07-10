@@ -481,7 +481,7 @@ payYen[member]   = round(earnedPt[member] × ptUnit)      # = そのまま支払
 
 `/monthly-agreement` は、この章の支払計算結果を確定額として表示する画面ではない。月初合意は、当月の月次予算を「当月の予定MS消化pt × active member 正規化 share」で配分した **月初合意用の予定報酬** と、担当MS/到達目標を本人へ表示し、`member_monthly_work_agreements.snapshot_json` と `snapshot_hash` に保存する確認レイヤー。合意 API は報酬キャッシュを再計算せず、`milestone_monthly_progress`、`milestone_responsibility`、`billing_cycles` も書き換えない。表示専用の過去支払額は `monthly_reward_payout` の保存済み明細を優先し、MS編集後の再計算値で過去月の支払額を動かさない。
 
-月初合意画面では `reward_summary_json.members[].breakdown[].payYen`、cap、carry-over などの支払・精算内部情報は表示しない。本人確認に必要なのは、必須2点である「担当MSと当月到達目標」と「その対価としての予定報酬」。モーダルではこの2点を先に示す。未合意 / 条件更新ありの間は、この確認を完了するまで当該稼働月の支払いに進めない。SX のように当月支払と未払い繰越が分かれる PJ は、`totalPay` / `stockYen` / `grossDueYen` / `carryInYen` を read-only の参考情報として表示し、「今月支払」「今月末未払い残（今月は支払われない）」を別枠で確認できるようにする。`stockYen` は前月繰越も含む今月末残なので、本人詳細では前月繰越・今月発生・今月支払の内訳を添える。これは予定報酬計算には使わず、cap 由来の配賦や繰越の検証は `/admin/payouts` と本章の責務に残す。
+月初合意画面では `reward_summary_json.members[].breakdown[].payYen`、cap、carry-over などの支払・精算内部情報は表示しない。本人確認に必要なのは、必須2点である「担当MSと当月到達目標」と「その対価としての予定報酬」。モーダルではこの2点を先に示し、予定報酬は合計と全PJの金額を `合意前に必ず確認すること` の枠内へ実数で集める。下段は `参考情報・修正依頼` として、発注条件の詳細、予定額の根拠、支払い状況を明確に分ける。未合意 / 条件更新ありの間は、この確認を完了するまで当該稼働月の支払いに進めない。SX のように当月支払と未払い繰越が分かれる PJ は、`totalPay` / `stockYen` / `grossDueYen` / `carryInYen` を read-only の参考情報として表示し、「今月支払」「今月末未払い残（今月は支払われない）」を別枠で確認できるようにする。`stockYen` は前月繰越も含む今月末残なので、本人詳細では前月繰越・今月発生・今月支払の内訳を添える。これは予定報酬計算には使わず、cap 由来の配賦や繰越の検証は `/admin/payouts` と本章の責務に残す。
 
 本人からの修正要望は `member_monthly_work_agreement_requests` に保存する。これは報酬計算への直接入力ではなく、admin/PM が MS/share/予定報酬の元データを見直すための確認キュー。
 
