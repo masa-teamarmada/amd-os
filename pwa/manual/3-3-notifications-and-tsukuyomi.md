@@ -70,6 +70,8 @@ D-14 要対応 (`action_item`) は、通知作成時点で `action_items.review_
 
 `project_config_gap`（抽出設定不足）は採否候補ではないため、通知一覧には出さない。dashboard の「抽出状況」で、5つの情報源の最終保存時刻と、PJごとのメール・Slack・Drive設定不足を確認してPJ台帳から直す。
 
+「要確認」の情報源には、理由と次に開く場所も出る。再認証通知がある場合はその再認証を開き、PJ設定不足ならPJ台帳を開く。接続・設定に問題が見つからないまま48時間以上OSへ保存されていない場合は、原因を推測せず「保存停止・エラー通知未着」と表示して、運用確認へ送る。
+
 Slackを使わないPJは、PJ台帳の `Slack CH` 列で「チャンネルなし」をチェックする。これは空欄のまま放置するのとは違い、抽出状況で設定不足として扱わない明示設定。
 
 経営ハイライト (`project_strategy_signals`) は `candidate` / `confirmed` / `rejected` / `archived` を持つ。cockpit には candidate も表示するが、未確認であることを明示する。

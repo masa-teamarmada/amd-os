@@ -16,7 +16,16 @@ import {
 } from "lucide-react";
 
 type SourceKey = "gmail" | "drive" | "calendar" | "slack" | "notion";
-type SourceState = { count: number; lastCollectedAt: string | null };
+type SourceResolution = {
+  reason: string;
+  actionLabel: string;
+  actionHref: string;
+};
+type SourceState = {
+  count: number;
+  lastCollectedAt: string | null;
+  resolution: SourceResolution | null;
+};
 type ExtractionStatus = {
   checkedAt: string;
   sources: Record<SourceKey, SourceState>;
@@ -44,6 +53,28 @@ function freshness(lastCollectedAt: string | null) {
   if (ageHours <= 48)
     return { label: "記録あり", className: "text-emerald-700 bg-emerald-50" };
   return { label: "要確認", className: "text-amber-800 bg-amber-50" };
+}
+
+function ResolutionLink({ resolution }: { resolution: SourceResolution }) {
+  const className =
+    "mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium text-amber-800 hover:text-amber-950 hover:underline";
+  if (resolution.actionHref.startsWith("/")) {
+    return (
+      <Link href={resolution.actionHref} className={className}>
+        {resolution.actionLabel} <ArrowRight className="h-3 w-3" />
+      </Link>
+    );
+  }
+  return (
+    <a
+      href={resolution.actionHref}
+      target="_blank"
+      rel="noreferrer"
+      className={className}
+    >
+      {resolution.actionLabel} <ArrowRight className="h-3 w-3" />
+    </a>
+  );
 }
 
 function timeLabel(value: string | null) {
@@ -91,7 +122,8 @@ export function ExtractionStatusCard() {
     data.setupIssues.length > 0 ||
     SOURCE_META.some(
       ({ key }) =>
-        freshness(data.sources[key].lastCollectedAt).label !== "記録あり",
+        freshness(data.sources[key].lastCollectedAt).label !== "記録あり" ||
+        Boolean(data.sources[key].resolution),
     );
   return (
     <section className="rounded-lg border border-border bg-card overflow-hidden">
@@ -137,6 +169,13 @@ export function ExtractionStatusCard() {
                 <Clock3 className="h-3 w-3" />
                 {timeLabel(source.lastCollectedAt)}
               </div>
+              {source.resolution && (
+                <div className="mt-1.5 border-l-2 border-amber-300 pl-1.5 text-[10px] leading-snug text-amber-900">
+                  <span className="font-medium">原因:</span>{" "}
+                  {source.resolution.reason}
+                  <ResolutionLink resolution={source.resolution} />
+                </div>
+              )}
             </div>
           );
         })}
