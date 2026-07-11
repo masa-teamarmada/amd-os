@@ -34,6 +34,7 @@ BZM Book A『ディープテック起業の経営学』(仮) の出版準備専�
 - **第10〜15章**: 起動チップ発行済み (task_4d36d44f / 02df1b53 / fbf58262 / bcd80e89 / 290baa49 / c1c43212)。まさがトークン残量を見て start/stop。第13章のみ着工ゲート (モノグラフ Ch9.5) の確認をプロンプトに内蔵済み
 - **BUILD_VERSION**: 本日は bump していない (Ch1/4/5 はコンテンツ変更のみ。ページ反映は Vercel 自動デプロイ想定・未確認)
 - **エピソード在庫**: EPISODE_BANK 41件。✅使用済み = EP-031/032/033/040。まさ判定待ち = EP-003 (家族の問い)・EP-016 (LST三年条項) の置き場所
+- **🔤 SPS/ECR 改称 (2026-07-11 完了、別セッション実施)**: 2レンズを **PRS→SPS (シーズ有望度 / Seed Prospect Score)・ERS→ECR (エコシステム構築率 / Ecosystem Construction Rate)** に改称 (まさ確定)。**式・計算は一切不変・ラベルのみ** (SPS=P×R×S 積 / ECR=8軸加重和)。派生 ERS₋ᵢ→ECR₋ᵢ。**正本 = `terminology_glossary.md §1.5`** (改称理由・張り替えマップ・E×R×S 原設計喪失の経緯)。張り替え済み = Book A 全章・L1 (MASTER_PLAN/PORTFOLIO)・モノグラフ全 skeleton・OS UI・BZSF理論正本・knowledge。論文 P1 は「paper 1-4」セッションに send_message 手配済み。据え置き = アーカイブ (legacy/textbook/public-manuscript)・DB内部識別子 (amd_score 系)。**⚠️ 理論の妥当性再監査は board `bzm-theory-reaudit` (えいみのボール、まさ GO 待ち)** — まさ「この理論はおれの知らない理論に育っている。各式が本当に妥当か一から検証したい」。第一号 = ECR (加重和) の妥当性パッケージから
 
 ## 次タスク詳細 (この順)
 
@@ -58,7 +59,7 @@ EP-003 (肩書はCEO・機能は中間管理職・家族の問い「本当に実
 
 ## このPJで確立済みの運用ルール (事故防止 — 全部有効)
 
-- **執筆規律**: 数式全部入り (PF-001)・直感→式→worked example→演習・架空パラメータ (PF-010)・素材は実戦書ドラフト17章のみ (PF-004)・章頭0%共有・露出台帳確認
+- **執筆規律**: 数式全部入り (PF-001)・直感→式→worked example→演習・架空パラメータ (PF-010)・素材は実戦書ドラフト17章のみ (PF-004)・章頭0%共有・露出台帳確認・**レンズ記号は SPS/ECR (旧 PRS/ERS は使わない。正本 glossary §1.5)**
 - **PF-017**: 実話シード合成事例が既定。EPISODE_BANK は非公開。**エピソードの用途はナラティブのみ** (理屈への埋め込みはまさ明示合意時のみ — 「目的がずれてる」事故の再発防止)
 - **PF-018**: 章頭 = 漫画の1話に耐えるストーリー (上記基準)。淡々とした例示は不合格
 - **本文禁止語**: persona / workflow / skeleton / must_fix / PF-xxx / D-xxx / EP-xxx / モノグラフ / Book B / BZM / 実名 / PJ略称 / validation 語彙。機械検査 BANNED リスト (第3章 L3) を fix 後に必ず回す
