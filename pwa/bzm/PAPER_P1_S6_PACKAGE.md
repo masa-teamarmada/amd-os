@@ -9,7 +9,7 @@
 | 項目 | RP 規定 | 現状 | 判定 |
 |---|---|---|---|
 | 本文語数 | 8,000–10,000 (脚注・文献・表内テキスト込み、D-060 で確認済み) | 9,933w (Word相当=数式除外) / 10,079w (数式1トークン) | ✅ Word相当で適合 |
-| Abstract | **≤250 words** | 264w | ⚠️ **超過 → §1 の 248w 修正案** |
+| Abstract | **≤250 words** | 264w | ⚠️ **超過 → §1 の 249w 修正案** |
 | Keywords | **1–7個** | 8個 | ⚠️ **1個超過 → §2 の削除推奨案** |
 | Highlights | 3–5 bullets、各 ≤85字 (スペース込み)、別ファイル提出 | 未作成 | → §3 素案 (5本、全て ≤83字) |
 | CRediT 著者貢献 | 必須 | 未作成 | → §4 素案 (単著/共著の2案) |
@@ -18,11 +18,11 @@
 
 ---
 
-## 1. Abstract 修正案 (264w → 248w、規定 ≤250 に適合)
+## 1. Abstract 修正案 (264w → 249w、規定 ≤250 に適合、SPS/ECR 正式名込み)
 
 *3段構造 (問題 → 最強主張 → 生き残る設計) と全主張を維持したまま 15w 刈り込み。変更は修飾句の圧縮のみで、新しい主張・削られた主張はゼロ。まさ確認後に本文へ反映。*
 
-> Deep-tech ventures born from universities accumulate — or fail to accumulate — most of their value before incorporation, yet this "Before Zero" stage has no measurement theory. Evaluation practice fills the vacuum with institution-adjusted single scores — a project's rating adjusted by its host's capabilities — and committees debate the correct weighting. We prove the debate has no answer. Under four requirements any committee member would separately endorse (a dead venture is worth zero anywhere; a better host never hurts; hosts act through what they do to the venture; value moves continuously) together with two facts of technology-transfer practice (institutional capabilities bind at different venture stages, and act over the venture's remaining journey), no monotone single score merging the two can represent venture value — not the current weighting, not any weighting: an Arrow-style impossibility. Fields that rank and fund by such scores anyway leave statistical scars, derived and pre-registered here — including a Simpson reversal manufactured by score-based selection itself. What survives is a complete design: a multiplicative venture ledger (PRS = potential × realization × survival), an additive institutional ledger (ERS, proven the unique admissible aggregate), a shared Triple-Helix macro state, and a founding-timing rule that reads both ledgers without merging them. Conditional gating — the design serious agencies already run — is thereby proven right rather than customary. A retrospective calibration on eight deep-tech projects (2007–2026) illustrates the system; a registered falsification program, Before Zero Studies, states in advance what evidence would prove it wrong.
+> Deep-tech ventures born from universities accumulate — or fail to accumulate — most of their value before incorporation, yet this "Before Zero" stage has no measurement theory. Evaluation practice fills the vacuum with institution-adjusted single scores — a project's rating adjusted by its host's capabilities — and committees debate the correct weighting. We prove the debate has no answer. Under four requirements any committee member would separately endorse (a dead venture is worth zero anywhere; a better host never hurts; hosts act through what they do to the venture; value moves continuously) together with two facts of technology-transfer practice (institutional capabilities bind at different venture stages, and act over the venture's remaining journey), no monotone single score merging the two can represent venture value — not the current weighting, not any weighting: an Arrow-style impossibility. Fields that rank and fund by such scores anyway leave statistical scars, derived and pre-registered here — including a Simpson reversal manufactured by score-based selection itself. What survives is a complete design: a multiplicative seed prospect score (SPS = potential × realization × survival), an additive ecosystem construction rate (ECR, the unique admissible aggregate), a shared Triple-Helix macro state, and a founding-timing rule that reads both ledgers without merging them. Conditional gating — the design serious agencies already run — is thereby proven right rather than customary. A retrospective calibration on eight deep-tech projects (2007–2026) illustrates the system; a registered falsification program, Before Zero Studies, states in advance what evidence would prove it wrong.
 
 差分メモ: "born from universities" 維持 / "its host institution's capabilities"→"its host's capabilities" / "hosts act on value through"→"hosts act through" / "merging venture and institution can represent venture value"→"merging the two can represent venture value" / "which we derive and pre-register"→"derived and pre-registered here" / "the field's most serious agencies already run"→"serious agencies already run" / "proven right rather than merely customary"→"proven right rather than customary" / 末文を接続圧縮 / "in the Arrow mold"→"Arrow-style" / "complete working design"→"complete design"。
 
@@ -39,7 +39,7 @@
 1. `Proves no single score can merge venture and institution readiness before founding` (82)
 2. `Mild axioms plus two technology-transfer facts yield an Arrow-style impossibility` (81)
 3. `Score-based selection itself manufactures a Simpson reversal in funded samples` (78)
-4. `Two ledgers survive: multiplicative venture PRS and additive institutional ERS` (78)
+4. `Two ledgers survive: a multiplicative seed score and an additive ecosystem rate` (81)
 5. `Founding timing becomes an optimal-stopping rule on an auditable macro state` (76)
 
 ## 4. CRediT 著者貢献 素案
@@ -74,7 +74,7 @@
 
 | 想定指摘 (模擬査読の収束点) | 対応 (改稿済み) | 本文の場所 |
 |---|---|---|
-| Theorem 3 が「強すぎる主張×弱すぎる証明」(静的公理系では min(PRS,κ) が生存) | R1: f を養育環境の価値関数として動学的に再定義、SH/ED 豊富性条件下で弱単調合成を排除する形に新規証明。静的域での反例の生存も本文で明示 (dynamics are not decoration) | §4、SM-B.1–B.4 |
+| Theorem 3 が「強すぎる主張×弱すぎる証明」(静的公理系では min(SPS,κ) が生存) | R1: f を養育環境の価値関数として動学的に再定義、SH/ED 豊富性条件下で弱単調合成を排除する形に新規証明。静的域での反例の生存も本文で明示 (dynamics are not decoration) | §4、SM-B.1–B.4 |
 | C3 (チャネル公理) の型エラー + 論文自身の自己違反 + certification effects 反証文献 | R1/R2: C3′ をクラス定義に変換 (型エラーと自己違反が同時解消)。certification 3文献と正面対決 — price/value 区別、残差ハローのみ排除 = Hansen-J の標的、graceful degradation | §4、SM-B.8 |
 | Simpson 反転 (Cor 3.1(i)) が現仮定から導出不能 | R5: score-selected sampling (collider) を明示した DGP から閉形式で再導出。conditional gating では依存恒等ゼロ = 推奨設計がオフスイッチである事実も定理化 | §4 Cor 3.1、SM-B.6 |
 | Theorem 4 の証明が別モデルを解いている / ∂θ*/∂F 符号が文献・自§7 と衝突 | R4: 2D free-boundary curve θ*(k;F) に再ステート、(E)/(J) 資金規約2本立てで符号問題を解剖 — **旧 uniform 主張 ∂θ*/∂F<0 は撤回し、dip 型 (計算版 Fig.3) に訂正**。Boyle–Guthrie と正面対峙 | §5、SM-C |
@@ -103,3 +103,4 @@
 | Date | What | By |
 |---|---|---|
 | 2026-07-09 | 初版 (S6 前倒し)。規定チェックリスト (abstract 264→250 超過と keywords 8→7 超過を発見)、abstract 247w 案、keywords 案、highlights 5本、CRediT 2案、cover letter 素案 (R4 反転 own 段落込み)、想定査読対応骨子 | えいみ |
+| 2026-07-11 | レンズ名改称 SPS/ECR を反映 (abstract 案は正式名込みに再調整、highlights #4 改稿) | えいみ |

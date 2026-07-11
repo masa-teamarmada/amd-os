@@ -9,11 +9,11 @@
   <!-- axes -->
   <line x1="90" y1="430" x2="850" y2="430" stroke="#333" stroke-width="1.6" marker-end="url(#ax)"/>
   <line x1="90" y1="430" x2="90" y2="60" stroke="#333" stroke-width="1.6" marker-end="url(#ax)"/>
-  <text x="470" y="470" font-size="15" fill="#222" text-anchor="middle">institutional readiness ERS_j</text>
+  <text x="470" y="470" font-size="15" fill="#222" text-anchor="middle">ecosystem construction rate ECR_j</text>
   <text x="40" y="245" font-size="15" fill="#222" text-anchor="middle" transform="rotate(-90 40 245)">venture outcome at 24 months</text>
 
-  <!-- Quartile clusters: within each PRS quartile, outcome rises with ERS (positive slope).
-       Across quartiles, high-ERS institutions host lower-PRS projects on average,
+  <!-- Quartile clusters: within each SPS quartile, outcome rises with ECR (positive slope).
+       Across quartiles, high-ECR institutions host lower-SPS projects on average,
        so the pooled slope is negative. SCHEMATIC positions. -->
 
   <!-- Q4 (top-left cluster) -->
@@ -22,7 +22,7 @@
     <circle cx="200" cy="155" r="5"/><circle cx="245" cy="118" r="5"/>
   </g>
   <line x1="130" y1="163" x2="265" y2="108" stroke="#222" stroke-width="2.2"/>
-  <text x="150" y="100" font-size="13" fill="#222">PRS quartile Q4 (strongest ventures)</text>
+  <text x="150" y="100" font-size="13" fill="#222">SPS quartile Q4 (strongest ventures)</text>
   <text x="150" y="118" font-size="12" fill="#444">γ_k^{Q4} &gt; 0</text>
 
   <!-- Q3 -->
@@ -57,5 +57,5 @@
   <!-- Reading note -->
   <rect x="120" y="480" width="700" height="1" fill="none"/>
   <text x="470" y="497" font-size="12" fill="#666" text-anchor="middle" font-style="italic">Schematic illustration (no data): within every venture-quality quartile the institution coefficient is positive; pooling across quartiles reverses its sign,</text>
-  <text x="470" y="513" font-size="12" fill="#666" text-anchor="middle" font-style="italic">because stronger nurseries systematically host earlier-stage (lower-PRS) projects. Ranking by any single score forces exactly this pooling.</text>
+  <text x="470" y="513" font-size="12" fill="#666" text-anchor="middle" font-style="italic">because stronger nurseries systematically host earlier-stage (lower-SPS) projects. Ranking by any single score forces exactly this pooling.</text>
 </svg>

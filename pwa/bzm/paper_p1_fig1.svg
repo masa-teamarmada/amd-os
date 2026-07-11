@@ -18,7 +18,7 @@
   <!-- Venture ledger (left) -->
   <rect x="40" y="170" width="380" height="180" rx="8" fill="#ffffff" stroke="#222" stroke-width="1.8"/>
   <text x="60" y="200" font-size="16" font-weight="bold" fill="#111">Venture ledger (project i)</text>
-  <text x="60" y="228" font-size="15" fill="#111">PRS = P × R × S   (multiplicative)</text>
+  <text x="60" y="228" font-size="15" fill="#111">SPS = P × R × S   (multiplicative)</text>
   <text x="60" y="252" font-size="12.5" fill="#444">P potential scale · R realization readiness · S survival</text>
   <text x="60" y="276" font-size="12.5" fill="#444">weakest-link economics: any zero is fatal (Sec. 3)</text>
   <text x="60" y="300" font-size="12.5" fill="#444">reads: “what kills this deal?”</text>
@@ -27,7 +27,7 @@
   <!-- Institutional ledger (right) -->
   <rect x="500" y="170" width="380" height="180" rx="8" fill="#ffffff" stroke="#222" stroke-width="1.8"/>
   <text x="520" y="200" font-size="16" font-weight="bold" fill="#111">Institutional ledger (nursery j)</text>
-  <text x="520" y="228" font-size="15" fill="#111">ERS = 100 · Σ w_k A_k / (4 Σ w_k)   (additive)</text>
+  <text x="520" y="228" font-size="15" fill="#111">ECR = 100 · Σ w_k A_k / (4 Σ w_k)   (additive)</text>
   <text x="520" y="252" font-size="12.5" fill="#444">eight axes A₁…A₈ · unique by Theorem 1</text>
   <text x="520" y="276" font-size="12.5" fill="#444">bylaws gate g(A₇) — Proposition 1</text>
   <text x="520" y="300" font-size="12.5" fill="#444">reads: “what should we build next?”</text>
@@ -65,5 +65,5 @@
   <path d="M 230 350 C 230 430, 280 470, 330 480" stroke="#333" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
   <path d="M 690 350 C 690 430, 640 470, 590 480" stroke="#333" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
   <text x="205" y="452" font-size="12" fill="#333" text-anchor="end">venture state → threshold arguments</text>
-  <text x="716" y="452" font-size="12" fill="#333">ERS shifts dynamics (drift, hazard, exposure)</text>
+  <text x="716" y="452" font-size="12" fill="#333">ECR shifts dynamics (drift, hazard, exposure)</text>
 </svg>
