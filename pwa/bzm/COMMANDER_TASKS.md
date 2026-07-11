@@ -1,137 +1,128 @@
-# BZM Commander Tasks
+# COMMANDER_TASKS.md — Book A 出版 マスター進捗盤
 
-Last updated: 2026-07-02
-Owner: BZM司令塔
-Scope: Before Zero Model / BZM theory / Textbook theory gate / D-7 Textbook Insights Textbook Insights theory review / 新 BZM 本書執筆 (Cambridge UP Schumpeter モノグラフ **980p**、2026-07-02 D-056 で 940→980p) / **Book A 教科書「理論の集大成テキスト」** (数式全部入り、共著=石原先生筆頭、2029年4月学期照準、BOOKS_PORTFOLIO.md PF-001〜011) / **Book B 解説書** (URA案4部16章、実戦書17章の統合改修、2027年末-2028年初刊行) / **RT 組成論の一級市民化** (Ch 9.5 + Ch 37.5、D-056/057、RT理論正本 v0.2 §13.4-13.6)
+*Last updated: 2026-07-11 (出版統括司令塔セッション、盤を全面刷新)*
+*Owner: Book A 出版統括司令塔 (プログラムマネージャ 兼 編集長)*
+*Scope: 『ディープテック起業の経営学』(仮) を**出版まで導く全ワークストリーム**。本文15章 + 巻頭巻末 + 図版 + 演習キット + タイトル + 著者/監修体制 + 自費出版実務。正本の背骨 = `BOOKS_PORTFOLIO.md` (PF-001〜018) / `BOOK_A_MASTER_PLAN.md` (§2 TOC・§3 数式配置・§9 各章仕様)。*
 
-このファイルは、BZM司令塔が抱えているタスクの台帳。
-まさがここを開けば、コードやworker報告を読まなくても「何を頼んだか / なぜ頼んだか / 今どうなっているか / 何が残っているか」が分かる状態にする。
+このファイルは Book A 出版の**唯一の master status board**。まさがここを開けば、コード・ワーカー報告・各章 L3 を読まなくても「全体で何が残り、今どこで、誰のボールで、次に何が動くか」が分かる状態にする。
 
-## 運用ルール
+> BZM モノグラフ / 論文 P1-P6 / RT 独禁 / FRL_cap 等の **BZM 理論・研究ワークストリームは本盤の対象外**。それらの台帳は `BOOK_MASTER_PLAN.md` / `BOOK_DECISIONS.md` / `PAPER_P1_MASTER_PLAN.md` / `HANDOFF_BZM_BOOK_2026-07-02.md` が正本。本盤は Book A 教科書の出版だけを追う。
 
-- タスク追加、方針変更、worker切り出し、完了報告、差し戻し、archive のたびに更新する。
-- worker報告をそのまま貼らず、BZM司令塔がまさ向けに要約し直す。
-- まず `未完タスク（優先順位順）`、その下に `完了済みタスク` を置く。
-- 未完タスクの `現状` には `Active` / `Watch` / `Blocked by Masa` のどれかを必ず入れる。
-- worker quiet modeを採用する。workerは原則として親司令塔チャットへ進捗・中間報告・自己判断の完了報告を送らない。
-- workerが親司令塔へ送るのは、worker thread内でまさが「完全に完了」「OK」「これでよし」等と明示した後の最終closeout 1回だけにする。
-- 例外は `UU` conflict、未分類dirty、権限/破壊的操作/外部判断、同じblocking conditionで進行不能など、司令塔側の介入が必要な場合のみ。その場合も短いblocker/handoffを1回だけ送る。
-- BZM司令塔は、worker報告で親チャットを流さず、必要ならheartbeat / read_thread / 定期確認で静かに状態を確認する。
-- `askuserquestion` / `request_user_input` はBZM worker promptで原則禁止する。例外は、Vercel production / preview deploy、またはVercel自動deployを起こす可能性がある `git push` の直前承認だけ。外部判断が本当に必要な場合は、workerが親へ短いblocker/handoffを1回だけ送り、司令塔が判断を束ねる。
-- `COMMANDER_TASKS.md` は細かく更新する。worker起動、状態分類変更、司令塔判断、main/deploy gate、blocking condition、完了確認、次アクション変更は都度反映する。
-- ただし `COMMANDER_TASKS.md` にworker詳細ログを長文転載しない。Active workerあり、worker id、状態、次回確認条件、まさ要判断、完了/差し戻し/次アクションを短く残す。
-- AMD配下のworktree、`.worktrees`、`/private/tmp` のclean worktreeでmd/run note/ledgerを編集する場合、追加のまさ承認待ちは不要。dirty main worktreeだけ避け、必要ならclean worktreeでそのまま進める。
-- Vercel deployは再開可。ただし少しの間、Vercel production / preview deploy、またはVercel自動deployを起こす可能性がある `git push` の直前には、必ず `askuserquestion` でまさの許可を取る。承認待ちは `approval pending` として台帳に残し、未分類blockerにしない。
-- てにをは、微細UI、軽微CSS、md、コメント、ログ文言などを1件ずつdeployする運用は禁止する。複数worker成果を束ねて1回でdeployする。
-- 許可質問には必ずdeploy bundleを含める。内容は、含める変更、除外する変更、local build/test/browser確認結果、deploy予定回数、push/deploy先、rollback/本番確認方法。
-- heartbeat時はこの台帳の未完タスクを確認し、進められるものがあればworkerを切る / 既存workerを再起動する / 差し戻す。
-- 進められる未完タスクがないのに未完が残る場合は、まさへ具体的な質問または判断依頼を出す。
-- 未完タスクがある状態で、全worker停止かつまさにも何も聞いていない状態を作らない。
-- BZM司令塔は、OS全体判断、横断current truth、真のblocker、まさ判断が必要な時だけOS司令塔へ短く共有する。BZM司令塔内で閉じる台帳文言更新、運用ルール更新、local commit作成は台帳に短く残し、OS司令塔へ能動送信しない。
-- `UU` conflict や未分類dirtyが残るworkerは archive しない。
+---
 
-## 未完タスク（優先順位順）
+## 運用ルール (この盤の書き方)
 
-1. 新 BZM 本書 **980p** 本文起草 (= Cambridge UP Schumpeter モノグラフ、まさ確定書き順 2026-06-28 = 1-1 から順、2026-07-02 で **総ページ 940p→980p** に拡張。Ch 9.5 + Ch 37.5 追加 = D-056)
-   - お願いした内容: 既存 17 章ドラフト (preface, field-*, model-overview, p-potential 等) は **実戦書** (= 後から出版予定の実践書、まさ確定 2026-06-28) として残し、新 Book 0-VI 構造 (940p / 18ヶ月、Tier 3 学術モノグラフ) を **Book I Ch 1 (1-1) から順に** 起草する。
-   - 背景: 2026-06-27 セッションで Book II 19 章 skeleton 完成 + Ch 5 §5.0 本文 draft 試作品 v1 を起草、まさからトーン feedback。2026-06-28 セッションで Ch 5 §5.0.1 v3 (narrative tone) → v4 (引用 + 式) と反復し「めっちゃいい」評価。その後まさが「やっぱり 1-1 から順に見たい」と判断、Book II 中核先行の D-007 書き順を一旦保留して Book I Ch 1 から進める運用に切り替え。
-   - 現状: Active。本文起草中 (= Ch 5 §5.0.1 v4 完成 + Ch 1 §1.0 節本文 v1 完成 + Ch 1 §1.0.1 v1 完成、まさレビュー待ち)。
-   - まさ確定: **Zero = 会社を設立する瞬間 / Before Zero = ゼロより前** (本書全体の中核フレーミング、2026-06-28 確定)
-   - まさ確定文体: 既存 narrative パート (preface / model-overview / s-survival) と統一、大学1年生でも読める、引用文献を読まずに完結、「すべて理解できなくても、すべて読破したくなる」照準、冒頭ナラティブパートは markdown blockquote (`>`) で囲い box 化
-   - 残課題:
-     a. まさ確認 OK 後、§1.0.2 / §1.0.3 / §1.0.4 を **並列で 3 Workflow** 起動。§1.0 (= Ch 1 章頭フック 2.5p) 完了後、§1.1 (測るとは, 4p) から順に。
-     b. Ch 5 §5.0.2 / §5.0.3 / §5.0.4 もまさ確認 OK 後に並列起草可 (Book II Ch 5 の §5.0 を埋める、書き順とは独立)。
-     c. 進化経済査読の軽微修正残 5 件: Pilot power calc at N≈32 / §10.8 kernel-id / F_char measurement validity / International-17 cohort selection / Theorem 3 A3 defense (= P-008a-e)。
-     d. まさ判断必要な開放論点 11 件: P-001..P-011 (`pwa/bzm/BOOK_DECISIONS.md` §4)。
-   - 完成済 (まさレビュー OK / 待ち):
-     - Ch 5 §5.0.1 v4 = 3,320 字 6 段落、引用 (菅 2020 / Etzkowitz & Leydesdorff 2000 / Leydesdorff 2003 / Hamilton 1989 / Kim & Nelson 1999 / Atlas signals) + ディスプレイ式 σ_SU = ((μ_A+1)(μ_I+1)(μ_G+1))^(1/3) − 1 + 軽い式 P_t − P_{t-1} (v3 で「めっちゃいい」評価、v4 で引用 + 式追加)
-     - Ch 1 §1.0 節本文 v1 = 1,380 字 4 段落、Zero / Before Zero 定義確定 + 4 サブセクション一望橋渡し (まさレビュー待ち)
-     - Ch 1 §1.0.1 v1 = 2,390 字 5 段落、三人の面談 (月曜国立大学 A 氏 / 水曜 VC B 氏 / 金曜公設試 C 氏) blockquote 並置 + Kalman 1960 / Stokey-Lucas-Prescott 1989 / Simon 1962 引用 + 軽い式 s_t = (P_t, R_t, S_t) + y_t = g(s_t) + ε_t (まさレビュー待ち)
-   - インフラ (2026-06-28 整備済):
-     - `bzm-chapters.ts` に全 60 章 entry + status (completed / in-progress / not-started / legacy) + level (章 / 節 / サブセクション 三層) field
-     - `BzmSideNav` に status indicator + level 別 indent + 「実戦書」凡例
-     - `BzmMarkdown` blockquote を四方枠 + 薄背景 + shadow の囲み box に
-     - `[slug]page` の未着手 stub fallback
-     - 目次順序: 新 BZM 940p 上 / 実戦書下、目次番号「1-1」削除
-   - 2026-07-02 追加事項:
-     - **RT を仮説的第三柱として本書に組み込み** (D-056)。Ch 9.5「ラウンドテーブル — 二層を結合する組成機構」(28p、Book II) + Ch 37.5「自己批判とオープンプロブレム — 第二版への課題」(12p、Book VI、まさ発案) 新設。Book 0 Ch 0.1 で三項構造 (観測二層 PRS/ERS + 結合機構 RT) 宣言 + Ch 0.4 貢献に第三の柱として追加。Ch 26b に H_RT (ICT 測定開始) 事前登録。RT本文着手は書き順ルール上 **Ch 10.7 の後** (D-007/D-056)。
-     - **Ch 9.5 skeleton ステージ1完了** (workflow wf_4432f1b0-6ea、3 persona × synth、8節28.0p、命題 9.5.1-9.5.4 + 仮説 9.5.H = Ψ_j 分解仮説 = Murmann coupling の**法人化前カーネル**)。**ステージ2 (Kingpin K1-K8) 全件確定** (D-057、n₀=3ヶ月仮置き・Ch 26b 事前登録で凍結・Tier A 記述は金額非表記で開始)。skeleton = `CHAPTER_9_5_SKELETON.json`、進捗 = `CHAPTER_9_5_PROGRESS.md`。
-     - **Book A/B ポートフォリオ確定**: `BOOKS_PORTFOLIO.md` (L1 上位層) PF-001〜011。Book A = 数式全部入り集大成テキスト (共著=石原先生筆頭)、Book B = URA案 (大学側主語・4部16章)、素材リユースは実戦書17章のみ、看板主張=出口ポートフォリオ論。
-     - **terminology_glossary.md 新設** (3冊共通正本): 節参照記法 (K7) / RT 記号ブロック ℛ, m(e), ERS₋ᵢ, n₀=3 (K5) / 乗法/加重和/補完性の3層対応表。
-     - **RT×ERS 理論正本反映**: `BZSF/rt_roundtable_theory.md` v0.2 §13.4 (ICT レンズ + 最小サブ軸 4-d/2-e/8-b + 新軸9見送り) / §13.5 (二重計上ガード: 排他的主経路割当・take-or-pay 3分割・leave-one-out ERS₋ᵢ・帰属タグ・UI合成禁止) / §13.6 (三項構造・Ψ 分解仮説) / §13.2 (CRL 運用パラメータ)。
-     - **BUILD_VERSION v0.37.4** = bzm-chapters.ts に Ch 9.5 / Ch 37.5 追加、Book II ラベル「300p, 10章」、Book VI「72p, 4章」。Vercel 自動デプロイ完了 (commit `edb36a65`)。
-   - 関連ファイル: **`HANDOFF_BZM_BOOK_2026-07-02.md`** (最新)、`pwa/design_log/sessions_2026-07.md` の 2026-07-02 (BZM) entry、`pwa/bzm/BOOKS_PORTFOLIO.md` (3冊+コーパス L1 上位層、新設)、`pwa/bzm/BOOK_MASTER_PLAN.md` (L1、980p反映済み)、`pwa/bzm/BOOK_DECISIONS.md` (L2、D-056/D-057 追記済み)、`pwa/bzm/CHAPTER_9_5_SKELETON.json` / `CHAPTER_9_5_PROGRESS.md`、`pwa/bzm/terminology_glossary.md`、`/Users/masa/projects/AMD/BZSF/rt_roundtable_theory.md` v0.2、以下は継続: `pwa/design_log/sessions_2026-06.md` の 2026-06-28 entry、`pwa/bzm/CHAPTER_5_PARAGRAPH_OUTLINE.md`、`pwa/bzm/new-book2-ch-5-section-0-1.md` (§5.0.1 v4)、`pwa/bzm/new-book1-ch-1-section-0.md` / `new-book1-ch-1-section-0-1.md` (Ch 1 §1.0 + §1.0.1 v1)。
+- ストリームの状態が変わるたび更新する (章の done / ウェーブ完了 / まさ判断 / ブロッカー発生・解消)。
+- **worker 詳細ログを貼らない**。1 行 = 「ストリーム / 状態 / 担当 / 次アクション / まさ要判断」だけ。詳細は各 L3 (`BOOK_A_CHAPTER_<n>_PROGRESS.md`) を見る。
+- 状態語彙: `not-started` / `drafting` (章ワーカー起草中) / `verify` (敵対検証・機械検査中) / **`まさ確定待ち`** (品質ゲート通過済み・まさ段落確定のみ残) / `done` (まさ確定済み) / `blocked` (まさ判断・外部依存で停止)。
+- **品質は「章ワーカーが出したら終わり」ではない**。司令塔の品質ゲート (下記) 通過で初めて `まさ確定待ち` に上げ、まさ確定で `done`。
+- bzm md / 台帳 / handoff 系の commit + push は承認不要で即実行。**この盤への記帳は自分の変更分だけ最小行** (並走コンフリクト回避)。
+- 並走章セッションが同じ main へ push する。読む前 fetch / push 前 fetch 必須、rejected なら `git pull --rebase --autostash` → push 単独実行して RC 判定 (パイプ禁止)。新規ブランチ禁止 (main 一本)。
 
-1b. RT 独禁法務確認の発注パッケージ作成 (別セッション、まさ承認済み)
-   - お願いした内容: RT §7.3 (field-of-use 分割の垂直ライセンス構成) の独禁法適合性を弁護士に確認するための発注パッケージ (背景説明・6論点・10-15問・匿名化取引構造図・添付候補) を作成。
-   - 背景: Book B 第III部 (RT) の印刷ゲート、KENQ プロジェクトの生命線、ERS rubric 2-e 文言確定の3つを塞ぐクリティカルパス。
-   - 現状: **Active** (別セッション task_2985c953 で進行中、2026-07-02 まさ承認で spawn)。
-   - 残課題: 成果物 = `/Users/masa/projects/AMD/BZSF/RT_ANTITRUST_LEGAL_REVIEW_REQUEST_202607.md`。完成通知が来たらまさが法律事務所へ送付。
+---
 
-2. Vercel deploy approval gate
-   - お願いした内容: Vercel deploy上限は緩和されたが、当面はVercel production / preview deploy、またはVercel自動deployを起こす可能性があるpushの直前に、必ずまさ許可を取る運用へ切り替える。
-   - 背景: deploy自体は再開OKになった一方、微細変更ごとのdeployやpreview乱発を戻すとquotaと確認負荷がすぐ再発するため。
-   - 現状: Active。BZM司令塔の運用ルールをhard gateからapproval gateへ更新中。deploy bundle候補: BZM台帳/運用ルール更新のみ。askuserquestion承認状況: approval pending。deploy実施回数: 0。push保留: あり（branch `codex/bzm-vercel-quota-gate` のlocal commit群は未push）。
-   - 残課題: push/deploy直前に、含める変更、除外する変更、local build/test/browser確認結果、deploy予定回数、push/deploy先、rollback/本番確認方法を含むdeploy bundleでまさへ許可質問を出す。承認まではpush/deployしない。
+## 🚦 全体サマリ (一望)
 
-2. PRSモデルOS実装worker監督
-   - お願いした内容: PRSモデル（P×R×S / 9軸候補）を、現行7軸AMD Scoreの置換ではなく比較/シミュレーション層としてAMD OSに実装するworkerを監督する。
-   - 背景: まさから「PRSモデルをOSに実装してほしい」と依頼があり、BZM理論側ではまだ正式置換ではなく理論更新候補として扱うのが安全なため。
-   - 現状: Watch（OS司令塔側進行）。worker thread `019e8252-577c-7d90-a4be-2789a1500d71` が branch `codex/prs-comparison-layer` / commit `c101e6c` をpush済み。BZM一次レビューでは、現行7軸を壊さず、P/R_netを保存しない仮入力に留め、missing時にscoreを出さないため採用圏内。OS司令塔へmain取り込み/本番確認アクションを依頼済み。
-   - 残課題: OS司令塔/まさ側でPRレビュー、認証済み環境での画面目視、正式採用する場合のP/R_net rubric・DB schema・9PJ retrofit表の別worker切り出し要否を判断する。
+| # | ワークストリーム | 状態 | 次に動くもの |
+|---|---|---|---|
+| A | 本文 第1〜2章 | ✅ **done** (まさ確定済み) | — |
+| B | 本文 第3〜8章 | 🟡 **まさ確定待ち** (品質ゲート通過・OS公開済み) | まさ段落確定 → done |
+| C | 本文 第9〜15章 | ⬜ **not-started / drafting** (章ワーカー起草中・本文未push) | 上がり次第 品質ゲート → まさ確定 |
+| D | 章頭ナラティブ (PF-018 漫画水準) | ✅ **全8章 done** (第1弾 Ch1/4/5・第2弾 Ch2/3/7/8) | 第9〜15章は起草時に適用 |
+| E | 巻頭 (記号一覧+読み下し表・序、約10p) | ⬜ not-started | 本文が固まる順に着手判断 |
+| F | 巻末 (読書案内・索引、約15p) | ⬜ not-started | 全章確定後 |
+| G | 図版 (SVG群、各章の図) | ⬜ not-started | 別タスク化候補 |
+| H | 演習パッケージ (PF-006 別掲キット) | ⬜ not-started | ワーカー/別タスク化候補 |
+| I | タイトル・副題確定 (K7) | 🟡 **まさ判断待ち** (商標一次OK) | 著者体制確定後にまさ決定で確定可 (PF-015) |
+| J | 著者体制・監修打診 (PF-015) | 🟡 **まさ指示待ち** | 石原先生打診パッケージ (共著/監修の別を先に確定) |
+| K | 自費出版実務 (ISBN/組版/POD/KDP/直販) | ⬜ not-started | まさと設計を固めて判例化してから |
+| L | 章間整合パス (全章の最終監査) | ⬜ not-started | 全15章 done 後 (都度の部分チェックは実施) |
+| M | モノグラフ Book II 整合 (K8) | ⬜ 保留 | 2027-06 フリーズ判定時に TOC 整合レビュー1回 |
 
-3. worker稼働監視 / heartbeat運用
-   - お願いした内容: 未完タスクが残っている間は、worker全員が停止・完了・待機で次アクションもない状態を作らず、heartbeatで台帳とworker状態を確認する。
-   - 背景: 未完タスクがあるのに司令塔側もworker側も動いていないと、BZM領域のcurrent truth管理とレビュー待ちが止まるため。
-   - 現状: Active。全司令塔共通ルールとしてworker quiet modeを採用。BZM司令塔の運用ルールへ反映済みで、次回worker promptから旧能動報告ゲートを削除/上書きする。`askuserquestion` / `request_user_input` は原則禁止だが、Vercel push/deploy直前承認だけ例外にする。BZM司令塔内で閉じる台帳文言更新、運用ルール更新、local commit作成は親へ送らず台帳に短く残す。
-   - 残課題: 次にBZM workerを切る時、親司令塔への進捗/中間/自己判断完了報告は禁止し、まさ承認後closeout 1回または司令塔介入が必要なblocker 1回だけ送る方針をpromptへ明記する。OS全体判断、横断current truth、真のblocker、まさ判断が必要な時だけOS司令塔へ共有する。
+---
 
-4. Textbookとの役割分担
-   - お願いした内容: Textbook司令塔とBZM司令塔の担当境界を明確にし、BZM司令塔は理論接続・過剰一般化防止・rubric/数式/用語変更ゲートを担当する。
-   - 背景: TextbookはBZM理論解説だけでなく、Before Zeroの現場事例・経営判断・失敗・迷い・仮説修正・横断傾向を扱う実践テキストへ広げる方針になったため。
-   - 現状: Watch（Textbook司令塔成果待ち）。OS司令塔判断で暫定採用済み。Textbook司令塔は実践テキストの章構成・ケース配置・読者体験を主導し、BZM司令塔は理論整合を担当する。
-   - 残課題: Textbook司令塔のPhase 1章構成worker成果を見て、BZM理論章に入れるべきものとTextbook実践章に置くべきものを分類する。
+## 未完ワークストリーム (詳細・優先順)
 
-5. Before Zero実践知をBZM理論へ入れる/入れない判断
-   - お願いした内容: D-7 Textbook InsightsやTextbook側workerが出す実践知について、BZM理論へ取り込むか、ケースに留めるか、Textbook司令塔へ渡すかを判定する。
-   - 背景: 実践知を全部BZM理論に入れると理論が肥大化し、逆に全部ケース扱いにするとBZMが現場から学習できないため。
-   - 現状: Watch（Textbook/D-7 Textbook Insights成果待ち）。判断軸として `practice_kind='theory_case'`、`metadata_json.theory_case_kind='edge_case' | 'update_candidate'`、`theory_change_scope`、`bzm_review_required` を使う方針が確定。
-   - 残課題: Textbook側のD-7 Textbook Insights metadata migration/spec worker成果を待ち、local applierがBZM review未承認候補をskipできる仕様になっているか確認する。
+### C. 本文 第9〜15章 — 章ワーカー並列起草の成果レビュー・裁定・整合 🔥最優先
 
-6. 理論変更候補のレビュー基準
-   - お願いした内容: `theory_case_kind='update_candidate'` を、数式・rubric・重み・変数定義の更新候補として扱うためのレビュー基準を準備する。
-   - 背景: 1つの事例だけでBZMの式やrubricを変えると、過去PJ retrofitや既存スコア解釈が壊れる可能性があるため。
-   - 現状: Active。採用レビュー基準は `Evidence quality / Reusability / Mechanism clarity / Boundary clarity / Non-overfit / Actionability / Theory safety`。
-   - 残課題: 複数PJ根拠、強い反例、観測可能性、既存理論で説明可能か、BZM附則更新要否をworkerレビュー時に必ず確認する。
+- **依頼**: 第9〜15章を1章1セッションで並列起草 (6ステージ pipeline)。各ワーカーに PF-017/018・SPS/ECR・Ch6 の11節化・モデルミックス・並走push作法を通達済み。
+- **現状**: **本文 md (book-a-ch-9〜15.md) はまだ1つも push されていない**。SKELETON.json (Ch9-15) は bzm 直下に存在するが、L3 (`BOOK_A_CHAPTER_9〜15_PROGRESS.md`) は未生成。bzm-chapters.ts の status は全て `not-started`。= 章ワーカーは各自 worktree で起草中で、司令塔からは push を待つのみ。
+- **フリート (spawn_task、まさがトークン残量で start/stop 管理)**: 第9=task_e4b548e3 / 第10=task_4d36d44f / 第11=task_02df1b53 / 第12=task_fbf58262 / 第13=task_bcd80e89 / 第14=task_290baa49 / 第15=task_c1c43212。**司令塔は起動し直さない (まさ管理)**。チップが潰れ再発行が要る時はまさ指示で、本セッションと同じ規律を必ず埋める。
+- **次アクション (司令塔)**: 章が push されたら → fetch した実ファイルで品質ゲート1-6 適用 → 指摘は単発 agent で修正 → まさ段落確定へ。**章セッションが正本を壊した場合に備えレビューは実ファイルで**。
+- **キャスト重複回避 (第9〜15章の起草時に効く)**: 使用済み = 柏木(Ch1)/野々村・宮原(Ch4)/藤野・青柳(Ch5)/湯浅・桐山(Ch2)/戸倉(Ch3)/真柴・笹本(Ch7)/柳井(Ch8)。禁止実名 = 杉浦/石原/中島/中西/河尻/星野/會澤/木場/山地。
+- **章頭場面の割当 (MASTER_PLAN §5)**: Ch9=九つの「進行中」/ Ch10=YD新規「次の公募に出すか、やめるか」/ Ch11=「二つの機関」再構成 (「二人の研究者」は Book B に温存)/ Ch12=「学長室のダッシュボード」/ Ch13=「二社目が来ない円卓」(KENQ/SX 匿名化判例が先行条件)/ Ch14=「ユニコーン仕立ての稟議」/ Ch15=「合同研究会の三批判」。
+- **まさ要判断**: なし (上がるまで待機)。第13章のみ着工前に KENQ/SX/EWIR 匿名化方針の判例が要る (ワーカープロンプトに内蔵済み)。
 
-7. 過剰一般化防止
-   - お願いした内容: 現場事例を「理論更新」として過剰に一般化しないため、edge case / update candidate / operational knowhow の境界を守る。
-   - 背景: Textbookが実践テキスト化すると強い事例ほど理論化したくなるが、BZMは再利用可能な判断原則だけを理論側に入れる必要があるため。
-   - 現状: Active。`theory_edge_case` / `theory_update_candidate` は独立practice_kindにせず、`practice_kind='theory_case'` のmetadataで表現する方針が確定。
-   - 残課題: `relationship_playbook` / `field_transition` / `decision_branch` で足りるものを `theory_case` にしていないか、worker成果物ごとに差し戻し判定する。
+### B. 本文 第3〜8章 — まさ段落確定待ち 🟡
 
-8. Textbook側から来る理論関連候補のレビュー待ち
-   - お願いした内容: Textbook司令塔配下workerから来る `theory_case` 関連候補をBZM司令塔でレビューする。
-   - 背景: Textbook司令塔には、Textbook Phase 1 chapter skeleton と D-7 Textbook Insights metadata migration/spec worker が切られているため。
-   - 現状: Watch（Textbook司令塔成果待ち）。BZM司令塔は直接編集せず、worker成果到着待ち。レビュー対象は `theory_case` / `theory_case_kind` / `theory_change_scope` / `bzm_review_required`。
-   - 残課題: 成果物が来たら、BZM review required の漏れ、local applier skip条件、BZM式・rubric・用語への影響を確認し、必要ならworkerへ差し戻す。
+- **現状**: 6章とも **正本化・5/5 persona verify 完走・must_fix 反映・機械検査クリア・OS `/bzm` 公開済み**。章頭も PF-018 水準に到達済み。= 司令塔の品質ゲート1-6 は実質通過。残るは**まさ段落確定** (ゲート外のまさ判断) のみ。
+- **章別**: Ch3 (戸倉 / v0.39.xx)・Ch4 (野々村・宮原 / 16,820字)・Ch5 (藤野・青柳 / 17,884字)・Ch6 (19,047字・**新節6.7で11節構成**)・Ch7 (真柴・笹本 / 17,790字 + Box7-2)・Ch8 (柳井 / 17,874字・🔄v1公開でverify裁定済み)。全て bzm-chapters status = `in-progress`。
+- **次アクション**: まさが段落レビューして確定したら bzm-chapters status を `completed` へ + L3 ステージ6 を ✅ + 該当章の Changelog 記帳。
+- **まさ要判断**: 🔥 **6章の段落確定** (まとめてでも1章ずつでも)。Ch6 は 19,047字 = 数理章上限内だが、まさレビュー時に減圧要否を裁定。
 
-9. FRL_cap_amd historical整理
-   - お願いした内容: 終了済みPJやAMD関与終了後のPJについて、current active rowではなく当時のtimeline-specific rowで `frl_cap_amd` を扱う方針を整理する。
-   - 背景: `frl_cap_amd` はAMD提供価値の定量化の本丸だが、ended PJを現在状態だけで見ると当時のAMD寄与を誤判定するため。
-   - 現状: Watch（OS/DB判断待ち）。p07 LST / p20 CX / p21 SX はfirst pass反映済み。p06 CTBはfrozenでAMD activeなし、寄与0に補正済み。p04 KT / p09 JC / p11 BWE はcurrent rowではなくtimeline-specific candidate rowに分離する方針。`FRL_cap_amd historical policy memo`、`frl_cap_amd timeline row source pack`、`frl_cap_amd timeline date source lookup`、`frl_cap_amd notes rubric guard`、`frl_cap_amd DB hygiene handoff` はBZMレビュー採用。DB hygiene handoffでは p18 YD / p11 BWE / p06 CTB / p09 JC の stale/conflicting DB fact をOS/DBへ渡せる issue_id 単位に整理済み。候補SQLはすべて未実行で、今回もscore採用には進めない。
-   - 残課題: OS/DB側で `project_ventures.founded_at` の意味を公式/legal company founded dateに固定するか、`amd_support_started_at` にinternal month anchorを入れてよいか、`project_knowledge` に `needs_review` / `source_conflict` を使うかを判断する。DB補正、正式FRL再計算、DB化、過去score再計算はまだしない。
+### E/F. 巻頭・巻末
 
-10. BZM 7軸モデルとP×R×S/9軸候補の整合
-   - お願いした内容: 現行BZM教科書の7軸AMD Scoreと、P・R_netを含むP×R×S/9軸候補の関係を整理する。
-   - 背景: 現行教科書は7軸中心だが、知識側にはP×R×S再構成と収益化指数の議論があり、Textbook実践知と結びつきやすい論点になっているため。
-   - 現状: Watch（OS/DB判断待ち）。整合メモ、9PJ差分レビュー、P/R_net evidence cards、R_net guard memo、P/R_net観測項目draft、未確認flag source map、L2 source inventory、finance/cash source pack、billing vs SU revenue join map、evidence cards v2 finance classification refresh、bridge/validation source pack、damage/reinvestment source pack、JOYCLE AMD support end current truth review、PRS BZM judgement brief、classification adoption patch、JOYCLE damage source split、evidence cards v3/v4/v5/v6/v7/v8/v9/v10/v11/v12 refresh、p11 GP30 raw source lookup、p11 system GP30 source join、p11 Sumitomo Riko transaction proof lookup、p11 Sumitomo Riko management meeting result lookup、YD low-P / UE guard source split、YD UE/LCOE source join、YD founded_at current truth review は作成済み。公式設立日 `2023-08-04` とDB `2019-01-01` の衝突は `official_company_founded_at_conflicts_with_db_current_value` としてBZMレビュー採用。DB `2019-01-01` は `unknown_db_origin`、`project_knowledge` は `pj_basic_facts_sync` 派生factで独立sourceではない。
-   - 残課題: OS/DB側で `project_ventures.founded_at` を公式sourceに合わせて `2023-08-04` へ補正するか判断する。補正する場合は `project_knowledge` basic fact同期確認と、`project_xrl_log` 2019 manual timelineを法人設立日補正から分離する。BZM側ではこのままPRS comparison layerのreview-only current truthとして保持し、0-9値表、DB化、過去score再計算はまだしない。
+- **巻頭 (約10p)**: 記号一覧 + 日本語読み下し表 (PF-001、第1章章頭で使い方に言及済み) + 序。**次アクション**: 本文の記号が出揃う第II部確定あたりで、全章から記号を機械収集して表を組む。序はまさの動機 (肩書に恥じない書籍 = PF-007) を軸に司令塔ドラフト可。
+- **巻末 (約15p)**: 読書案内 (各章末のモノグラフ読書案内を統合) + 索引。**次アクション**: 全15章 done 後。索引語は機械抽出 → まさ確認。
 
-## 完了済みタスク
+### G. 図版 (SVG群)
 
-1. 2026-05-31 BZM司令塔タスク台帳作成
-   - お願いした内容: BZM司令塔のタスクを `COMMANDER_TASKS.md` として台帳化する。
-   - 背景: AMD総司令塔から `司令塔タスク台帳ルール` が標準運用になり、BZM司令塔でもまさが状況を読める台帳が必要になったため。
-   - 現状: このファイルを作成し、Textbook役割分担、実践知の理論取り込み判断、理論変更候補レビュー、過剰一般化防止、Textbook側レビュー待ちを未完タスクに整理した。
-   - 残課題: 今後、worker切り出し・完了・差し戻し・archiveのたびに更新する。
+- **対象**: 各章の図 (図1-1〜 / SPS≠GO の1ページ図解 [Ch10 必須]/ 二層アーキテクチャ図 [Ch7]/ (x,y)軌跡4型 [Ch8]/ 三項構造マップ [Ch1] など)。現状ゼロ。
+- **次アクション**: 別タスク化候補。matplotlib 生成が向く図 (軌跡・分布・log軸) と概念ポンチ絵 (SVG手描き) を分ける。数式配置マップ (MASTER_PLAN §3) と各章 L3 の「必須図版」指定を突合して図リストを作るのが第一歩。**まさ要判断**: 図版ワーカーをいつ切るか。
+
+### H. 演習パッケージ (PF-006)
+
+- **対象**: シーズカード20枚 / RT役割カード7種 / ECR診断シート / SPS・ECR 採点ワークシート (Excel)。本文外の別掲キット。書籍に先行して研修・AMDイベントで使える (PF-006)。
+- **次アクション**: 各章演習欄 (MASTER_PLAN §9) がカードを参照しているので、本文が固まる順に現物化。ワーカー/別タスク化候補。**まさ要判断**: 着手タイミング (本文優先で後回しでよいか)。
+
+### I. タイトル・副題確定 (K7)
+
+- **現状**: 仮題『ディープテック起業の経営学』+ 副題作業仮説「— 会社設立前 (Before Zero) の評価と意思決定」。**商標一次スクリーニング済** (`BOOK_A_TRADEMARK_RESEARCH_2026-07-09.md`、Before Zero系0件・書名区分の抵触なし・最終は弁理士確認要)。
+- **次アクション**: PF-015 により単著+監修体制なら**まさの決定で確定可能**。著者体制 (J) 確定と同時に裁定。
+- **まさ要判断**: 🟡 タイトル最終確定 (副題含む)。「Before Zero」をシリーズ/研修ブランドとして商標出願するかは別判断 (最小=第41類 約4.5万円)。
+
+### J. 著者体制・監修打診 (PF-015 / D-061)
+
+- **現状**: 単著 (まさ) + 監修複数 (石原先生・NIMS 松本さんら) が作業仮説。石原先生打診パッケージ (Book A 監修 + P1 共著の1パッケージ = D-061) は**まさ指示待ち**。
+- **次アクション**: 打診前に「Book A 部分は共著か監修か」をまさと確定 (P1 の共著方針は不変)。確定後、司令塔が打診ドラフト (Book A 企画概要1枚 + P1 アブスト・役割分担案) を作成。
+- **まさ要判断**: 🟡 石原先生打診の GO/NO と、Book A 共著/監修の別。
+
+### K. 自費出版実務 (PF-015 §7-17)
+
+- **対象**: ISBN 取得 / 組版 / 印刷・POD / Kindle Direct Publishing / 直販導線。PF-015 で「自費出版を基本線」確定を受けた新領域。
+- **次アクション**: **まさと設計を固めて判例化してから着手** (PF-015 明記)。本文が刊行射程に入るまで着手しない。
+- **まさ要判断**: 設計会議のタイミング。
+
+### L. 章間整合パス (最終監査 = 品質ゲート8)
+
+- **対象**: 前方参照の回収 / 3層対応表の一貫性 / 露出台帳・キャスト・数式配置マップの欠落 / 節番号 (Ch6 は11節、参照は6.8〜6.10) の全章突合。
+- **次アクション**: 全15章 done 後に一括パス。ただし章が上がるたびに部分チェック (SPS/ECR 用語・Ch6 節番号参照・数式領土) は都度実施。
+
+### 保留中のまさ判断 (置き場決め)
+
+- **EP-003 (喪失 = 家族の問い「本当に実現したいことは何?」、まさ「絶対入れて」)**: 司令塔推奨 = **Book B 実戦書の章頭が本命** (Book A の章頭15枠は充足済み)。
+- **EP-016 (LST三年条項が投資家側から消えた)**: 司令塔推奨 = Book B 章頭、または Book A 内なら第10章の実例節 (WAIT の復帰条件の実物)。
+- **まさ要判断**: 🟡 両エピソードの置き場所。
+
+---
+
+## ✅ 完了済みワークストリーム
+
+### A. 本文 第1〜2章 (done)
+- Ch1 (柏木 / EP-031 章頭フル物語化)・Ch2 (湯浅・桐山 / EP-039・024)。両章とも 5 persona verify・まさレビュー承認・bzm-chapters status = `completed`。SVG 図版は G ストリームで別管理。
+
+### D. 章頭ナラティブ改稿 (全8章 done)
+- **第1弾 (2026-07-11)**: Ch1 柏木 / Ch4 野々村・宮原 / Ch5 藤野・青柳 (PF-018 判例化)。
+- **第2弾 (2026-07-11、まさ承認・監査済み、commit e94b4558)**: Ch2 湯浅・桐山 / Ch3 戸倉 (+EP-032 トーン補正) / Ch7 真柴・笹本 (+Box7-2「追い風は群れでやってくる」= V03-M 降圧) / Ch8 柳井。併せて Ch1 柏木の立場修正 (URAのまま例外性を自覚)。**全8章が PF-018 水準に到達**。第9〜15章は起草時から PF-018 適用。
+
+### 基盤・判例 (done)
+- PF-001〜018 判例化 (PORTFOLIO §2)。15章 TOC v1 確定 (PF-014)。数式配置マップ確定 (MASTER_PLAN §3)。SPS/ECR 改称完了 (glossary §1.5)。商標一次スクリーニング完了 (K7)。EPISODE_BANK 41件 (非公開)。制作モデルミックス確定 (PF-016)。
+
+---
+
+## Changelog
+
+| Date | What | By |
+|---|---|---|
+| 2026-05-31 | BZM司令塔タスク台帳として初版作成 (旧 scope = BZM理論・モノグラフ・論文) | えいみ |
+| 2026-07-11 | **Book A 出版統括の master status board へ全面刷新**。旧 BZM 理論・研究ワークストリーム (モノグラフ/P1-P6/RT独禁/FRL_cap) は本盤 scope 外とし各正本 (BOOK_MASTER_PLAN 等) へ委譲。Book A の全13ストリーム (本文15章 A-C / 章頭D / 巻頭巻末E-F / 図版G / 演習H / タイトルI / 著者J / 自費出版K / 整合L / モノグラフ整合M) を一望する構造に。現状突合: 第3〜8章 = まさ確定待ち / 第9〜15章 = 章ワーカー起草中・本文未push を確認 | えいみ |
