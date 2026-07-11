@@ -1,15 +1,15 @@
 {
   "ch_overview": {
-    "core_proposition": "機関 ERS は 8 軸スコア A_k の加重和 ERS = 100 · Σ_{k∈K_obs} w_k A_k / Σ_{k∈K_obs} w_k として定義されるべきであり、これは案件 PRS の乗法構造とは数式形状が必然的に異なる。本章は形状差を (a) 4 公理 (A1 可分性 / A2 外部性補償可能性 / A3 欠損可視性 / A4 単調性) による加重和の公理化、(b) Krantz-Luce-Suppes-Tversky additive conjoint measurement による表現定理、(c) 軸 7 (制度設計) を precondition gate とした残り 7 軸 CES の異質構造 (Alkire-Foster identification + aggregation 二段構造の機関版)、(d) ERS × PRS 結合スコアが A1 可分性を破る二重計上禁止 Theorem として、四層で導出する。Bergson-Samuelson SWF の cardinality 仮定下での代表性定理を ERS に移植し、Ch 10.4 Arrow 不可能性 (ordinal 公理) との緊張は §9.1 末尾注で明示する。層が変われば集約数式の形が変わるのは恣意ではなく、各層 (案件 / 機関) で要請される公理系が構造的に異なることの必然的帰結である。",
+    "core_proposition": "機関 ECR は 8 軸スコア A_k の加重和 ECR = 100 · Σ_{k∈K_obs} w_k A_k / Σ_{k∈K_obs} w_k として定義されるべきであり、これは案件 SPS の乗法構造とは数式形状が必然的に異なる。本章は形状差を (a) 4 公理 (A1 可分性 / A2 外部性補償可能性 / A3 欠損可視性 / A4 単調性) による加重和の公理化、(b) Krantz-Luce-Suppes-Tversky additive conjoint measurement による表現定理、(c) 軸 7 (制度設計) を precondition gate とした残り 7 軸 CES の異質構造 (Alkire-Foster identification + aggregation 二段構造の機関版)、(d) ECR × SPS 結合スコアが A1 可分性を破る二重計上禁止 Theorem として、四層で導出する。Bergson-Samuelson SWF の cardinality 仮定下での代表性定理を ECR に移植し、Ch 10.4 Arrow 不可能性 (ordinal 公理) との緊張は §9.1 末尾注で明示する。層が変われば集約数式の形が変わるのは恣意ではなく、各層 (案件 / 機関) で要請される公理系が構造的に異なることの必然的帰結である。",
     "load_bearing_claims": [
-      "Theorem 9.1 (加重和の公理化): 4 公理 A1-A4 + 連続性を満たす機関集約関数 F: ([0,4] ∪ {⊥})^8 → [0,100] は、加重和形 ERS = 100 · Σ_{k∈K_obs} w_k A_k / (4 · Σ_{k∈K_obs} w_k) にアフィン同値を除いて一意に決定される (Krantz-Luce-Suppes-Tversky 1971 Ch.6 additive conjoint representation theorem の機関 8 軸 × Likert [0,4] 領域への応用)",
+      "Theorem 9.1 (加重和の公理化): 4 公理 A1-A4 + 連続性を満たす機関集約関数 F: ([0,4] ∪ {⊥})^8 → [0,100] は、加重和形 ECR = 100 · Σ_{k∈K_obs} w_k A_k / (4 · Σ_{k∈K_obs} w_k) にアフィン同値を除いて一意に決定される (Krantz-Luce-Suppes-Tversky 1971 Ch.6 additive conjoint representation theorem の機関 8 軸 × Likert [0,4] 領域への応用)",
       "Theorem 9.2 (Thomsen + 二重キャンセル → additive representation): 8 軸 conjoint structure に Thomsen 条件・二重キャンセル axiom・Archimedean・solvability が成立するとき additive representation F(A) = Σ φ_k(A_k) が存在し、Ch 3 ルーブリックの間隔尺度設計下で φ_k(A_k) = w_k · A_k に線形化される",
-      "Proposition 9.3 (precondition × CES 異質構造): 軸 7 (制度設計) は precondition gate g: [0,4] → [0,1] (default 階段関数、Ch 36 で連続 sigmoid 化検討) を介して ERS = 100 · g(A_7) · F_remaining(A_{¬7}) と表現される。F_remaining は残り 7 軸の CES 集約 (Σ w_k A_k^ρ / Σ w_k)^(1/ρ) で、ρ → 1 (λ → ∞) で加重和、ρ → 0 で Cobb-Douglas、ρ → -∞ で Leontief min に退化する CES family の特殊ケースとして加重和が位置づけられる (Alkire-Foster 2011 identification + aggregation の機関版)",
-      "Theorem 9.4 (二重計上禁止): 結合スコア S = ERS^α · PRS^(1-α) (任意 α ∈ (0,1)) は機関 8 軸 × 案件 J 軸の双線形交差項展開で軸 k に対する A1 可分性を破る (偏微分 ∂²S/∂A_k∂PRS ≠ 0)。従って案件 PRS と機関 ERS の層間結合は加法結合 (α·PRS + β·ERS) または条件付き (PRS | A_7 ≥ Lv2) のみが公理整合的である",
-      "案件 PRS の乗法形は不可分一括の出力単位 (一軸 0 で案件失敗) という共起要請から来るのに対し、機関 ERS の加重和形は『一軸の欠損が他軸で補償可能』という公理 A2 の現実から来る — 層間で数式形状が変わるのは Krantz-Luce-Suppes-Tversky 表現定理の必然的帰結である",
-      "unknown と not_started は加重和分母の扱いが異なる: unknown は K_obs から離脱し分子・分母双方から落ちる (K_obs 縮約)、not_started は A_k = 0 として K_obs に残り分子に算入される (0 値挿入)。両者の差は ERS_obs = 100·Σ w_k A_k / Σ_{K_obs} w_k と ERS_zero = 100·Σ w_k A_k / Σ_{all} w_k の代数差として数値例で示される (D-022 で Ch 3.5 が正準オーナー、Ch 9 は加重和代数への翻訳に限定)"
+      "Proposition 9.3 (precondition × CES 異質構造): 軸 7 (制度設計) は precondition gate g: [0,4] → [0,1] (default 階段関数、Ch 36 で連続 sigmoid 化検討) を介して ECR = 100 · g(A_7) · F_remaining(A_{¬7}) と表現される。F_remaining は残り 7 軸の CES 集約 (Σ w_k A_k^ρ / Σ w_k)^(1/ρ) で、ρ → 1 (λ → ∞) で加重和、ρ → 0 で Cobb-Douglas、ρ → -∞ で Leontief min に退化する CES family の特殊ケースとして加重和が位置づけられる (Alkire-Foster 2011 identification + aggregation の機関版)",
+      "Theorem 9.4 (二重計上禁止): 結合スコア S = ECR^α · SPS^(1-α) (任意 α ∈ (0,1)) は機関 8 軸 × 案件 J 軸の双線形交差項展開で軸 k に対する A1 可分性を破る (偏微分 ∂²S/∂A_k∂SPS ≠ 0)。従って案件 SPS と機関 ECR の層間結合は加法結合 (α·SPS + β·ECR) または条件付き (SPS | A_7 ≥ Lv2) のみが公理整合的である",
+      "案件 SPS の乗法形は不可分一括の出力単位 (一軸 0 で案件失敗) という共起要請から来るのに対し、機関 ECR の加重和形は『一軸の欠損が他軸で補償可能』という公理 A2 の現実から来る — 層間で数式形状が変わるのは Krantz-Luce-Suppes-Tversky 表現定理の必然的帰結である",
+      "unknown と not_started は加重和分母の扱いが異なる: unknown は K_obs から離脱し分子・分母双方から落ちる (K_obs 縮約)、not_started は A_k = 0 として K_obs に残り分子に算入される (0 値挿入)。両者の差は ECR_obs = 100·Σ w_k A_k / Σ_{K_obs} w_k と ECR_zero = 100·Σ w_k A_k / Σ_{all} w_k の代数差として数値例で示される (D-022 で Ch 3.5 が正準オーナー、Ch 9 は加重和代数への翻訳に限定)"
     ],
-    "logical_arc": "§9.0 で URA・三案件会議の場面 (type A/B/C の機関 ERS = 78 / 62 / 0 と type C の案件 PRS = 0.34 中位値の層間非整合) を入口に『なぜ案件は掛け算、機関は足し算なのか』を問う → §9.1 で 4 公理 A1-A4 を Bergson-Samuelson SWF / Sen 集約 / Atkinson 不平等指標 / Alkire-Foster dimensional poverty の機関版として formal 化し、Bergson cardinality と Arrow ordinal の緊張を末尾注で明示 → §9.2 で Krantz-Luce-Suppes-Tversky 結合測定理論 (Thomsen + 二重キャンセル + Archimedean + solvability) による Theorem 9.1 / 9.2 表現定理で加重和を一意導出 → §9.3 で軸 7 precondition gate + 残り 7 軸 CES (軸固有弾力性 λ_k = ルーブリック設計者の局所制御変数) の Proposition 9.3 異質構造、退化定理で λ → ∞ / 1 / 0 = 加重和 / Cobb-Douglas / Leontief を CES family の特殊ケースとして統一 → §9.4 で四方式比較表 (formal 充足行列) + Theorem 9.4 二重計上禁止の双線形展開証明 + 層間結合の許容形 (加法 / 条件付き) を明示し Ch 10.4 Arrow 骨格に渡す → §9.5 で unknown vs not_started を K_obs 縮約 vs 0 値挿入の代数差として数値例 + 観測等価類 + 章末問い 3 件で Ch 25 / Ch 26b / Ch 32 / Ch 36 に橋渡し",
+    "logical_arc": "§9.0 で URA・三案件会議の場面 (type A/B/C の機関 ECR = 78 / 62 / 0 と type C の案件 SPS = 0.34 中位値の層間非整合) を入口に『なぜ案件は掛け算、機関は足し算なのか』を問う → §9.1 で 4 公理 A1-A4 を Bergson-Samuelson SWF / Sen 集約 / Atkinson 不平等指標 / Alkire-Foster dimensional poverty の機関版として formal 化し、Bergson cardinality と Arrow ordinal の緊張を末尾注で明示 → §9.2 で Krantz-Luce-Suppes-Tversky 結合測定理論 (Thomsen + 二重キャンセル + Archimedean + solvability) による Theorem 9.1 / 9.2 表現定理で加重和を一意導出 → §9.3 で軸 7 precondition gate + 残り 7 軸 CES (軸固有弾力性 λ_k = ルーブリック設計者の局所制御変数) の Proposition 9.3 異質構造、退化定理で λ → ∞ / 1 / 0 = 加重和 / Cobb-Douglas / Leontief を CES family の特殊ケースとして統一 → §9.4 で四方式比較表 (formal 充足行列) + Theorem 9.4 二重計上禁止の双線形展開証明 + 層間結合の許容形 (加法 / 条件付き) を明示し Ch 10.4 Arrow 骨格に渡す → §9.5 で unknown vs not_started を K_obs 縮約 vs 0 値挿入の代数差として数値例 + 観測等価類 + 章末問い 3 件で Ch 25 / Ch 26b / Ch 32 / Ch 36 に橋渡し",
     "synthesis_rationale": "Lens A (methodological rigor) Lens B (publishability) Lens C (URA/EIR 実務装置) の3審で B が overall winner だが、B の formal 体系 (Theorem 9.1 / Proposition 9.3 / Theorem 9.4 番号付き) と Alkire-Foster + Bozeman publicness の系譜論的位置づけを骨格として、A の『軸固有弾力性 λ_k = ルーブリック設計者の局所制御変数 + 実効 A_k = g_k(A_k; λ_k)』+ 『Bergson cardinality vs Arrow ordinal 緊張の明示』(open_issue で唯一指摘) を §9.3.4 と §9.1 末尾注に graft、C の §9.2 結合測定理論の depth (Thomsen + 二重キャンセル + Archimedean + solvability の formal 列挙) と §9.0 type A/B/C + 78/62/0 数値例 + §9.4.6 層間結合許容形 (加法 / 条件付き) の明示を §9.2 全体 + §9.0.1 + §9.4.6 に graft する。cross_cutting concerns の 7 件 (cardinal/ordinal 緊張、λ_k identifiability、章頭具体性、二重計上 formal 度合い、Ch 3.5 分担、結合測定 depth、層間形状差スローガン化) を全て本骨格に吸収。Tier A (記述的類型論) の規律下、経験的検証は Ch 25 + Ch 26b 事前登録に明示的に flush。"
   },
   "sections": [
@@ -17,39 +17,39 @@
       "section_id": "9.0",
       "title": "章頭フック — URA・三案件会議の加重和診断装置",
       "pages": 2.5,
-      "math_level": "narrative (最終形 ERS = 100·Σ w_k A_k / Σ w_k と type A/B/C 数値例のみ、formal 公理は §9.1 で導入)",
+      "math_level": "narrative (最終形 ECR = 100·Σ w_k A_k / Σ w_k と type A/B/C 数値例のみ、formal 公理は §9.1 で導入)",
       "anchor_claims": [
-        "案件 PRS は乗法、機関 ERS は加重和という形状差は恣意ではなく公理的必然である",
-        "URA 担当者が三案件 (type A 創薬 / type B 半導体 / type C 素材) を横並びで診断する場面で、type C 機関 ERS = 0 (軸 7 precondition 不成立) と PRS = 0.34 (中位) の層間非整合が観察される",
+        "案件 SPS は乗法、機関 ECR は加重和という形状差は恣意ではなく公理的必然である",
+        "URA 担当者が三案件 (type A 創薬 / type B 半導体 / type C 素材) を横並びで診断する場面で、type C 機関 ECR = 0 (軸 7 precondition 不成立) と SPS = 0.34 (中位) の層間非整合が観察される",
         "本章は『なぜ層が変わると数式形状が変わるのか』を 4 公理化 → 表現定理 → 異質構造 → 二重計上禁止の四層で答える"
       ],
       "paragraph_outline": [
-        "§9.0.1 桜が散ったあとの月曜日、URA 室で type 名のみ匿名化した三案件 (type A / B / C) の機関 ERS と案件 PRS が同じ会議に並ぶ場面の情景描写 (4-5 文)",
-        "§9.0.2 評価担当者が機関 ERS = 78 / 62 / 0 と案件 PRS = 0.71 / 0.48 / 0.34 を算出し、type C の機関スコアだけが 0 になる事実を提示",
-        "§9.0.3 type C の軸 7 (制度設計) = Lv1 で precondition 不成立、他軸は中位以上だが ERS が retract される機構を読者に体感させる",
+        "§9.0.1 桜が散ったあとの月曜日、URA 室で type 名のみ匿名化した三案件 (type A / B / C) の機関 ECR と案件 SPS が同じ会議に並ぶ場面の情景描写 (4-5 文)",
+        "§9.0.2 評価担当者が機関 ECR = 78 / 62 / 0 と案件 SPS = 0.71 / 0.48 / 0.34 を算出し、type C の機関スコアだけが 0 になる事実を提示",
+        "§9.0.3 type C の軸 7 (制度設計) = Lv1 で precondition 不成立、他軸は中位以上だが ECR が retract される機構を読者に体感させる",
         "§9.0.4 URA 担当者の独白『案件は掛け算で評価したのに、機関はなぜ足し算でよいのか』を読者の素朴な疑問として提示",
         "§9.0.5 『加重和診断装置』の比喩導入 — 各軸が独立の温度計を持ち、その加重平均が機関の体温として読まれる",
-        "§9.0.6 案件 PRS と機関 ERS が同じ会議に混在する現場で『PRS × ERS で総合スコアを』という素朴提案が出る場面を §9.4 二重計上禁止の入口として予告",
+        "§9.0.6 案件 SPS と機関 ECR が同じ会議に混在する現場で『SPS × ECR で総合スコアを』という素朴提案が出る場面を §9.4 二重計上禁止の入口として予告",
         "§9.0.7 章ロードマップの予告 — §9.1 4 公理 / §9.2 表現定理 / §9.3 precondition × CES / §9.4 比較 + 二重計上禁止 / §9.5 unknown vs not_started",
         "§9.0.8 Ch 9 と Ch 10.4 の分担明示 — Ch 9 = 代数バックボーン、Ch 10.4 Theorem 3 = Arrow 不可能性証明、書き順 D-007 を読者に開示",
         "§9.0.9 章末問いの予告 (3 件) — λ_k の軸間差 / σ→∞ 近似の破綻境界 / 二重計上の観測可能な兆候",
         "§9.0.10 加重和診断装置のメタファーで読者の入口を閉じ、§9.1 公理化への bridge"
       ],
-      "new_writing_required": "URA 三案件会議シーン (type A/B/C と ERS 78/62/0 + PRS 0.71/0.48/0.34 の具体数値) は新規執筆。type 名は匿名化、L1 §11 章型ストーリー準拠。加重和診断装置の比喩は本章固有の新規メタファー。約 2.5p。",
+      "new_writing_required": "URA 三案件会議シーン (type A/B/C と ECR 78/62/0 + SPS 0.71/0.48/0.34 の具体数値) は新規執筆。type 名は匿名化、L1 §11 章型ストーリー準拠。加重和診断装置の比喩は本章固有の新規メタファー。約 2.5p。",
       "existing_reuse": "pwa/bzm/nursery-ers.md L140-156 の『掛け算ではなく加重和』論の温度感を新規シーンに翻案。Tier 3 学術化文体に書き換え。",
       "upstream_dependencies": [
-        "Ch 3 ERS 概念体系 (8 軸定義と Lv0-4 ルーブリック)",
+        "Ch 3 ECR 概念体系 (8 軸定義と Lv0-4 ルーブリック)",
         "Ch 5 σ_SU MS-SSM (層分離の必然性、補助)",
         "Ch 5.5 測定論予備 (本章 §9.2 結合測定理論への地ならし)"
       ],
       "downstream_dependencies": [
         "§9.1 (4 公理の formal 定式化の動機付け)",
         "§9.3 (軸 7 precondition の体感)",
-        "§9.4 (PRS × ERS 二重計上禁止の問いの入口)"
+        "§9.4 (SPS × ECR 二重計上禁止の問いの入口)"
       ],
       "references": [
         "pwa/bzm/nursery-ers.md L140-156",
-        "Ch 3 ERS 8 軸ルーブリック",
+        "Ch 3 ECR 8 軸ルーブリック",
         "Ch 10.4 Theorem 3 prefigure",
         "L1 §11 章型ストーリー指針"
       ],
@@ -83,7 +83,7 @@
         "§9.1.8 A3 の運用解釈は §9.5 で代数化、Ch 3.5 (D-022 正準オーナー) との分担明示",
         "§9.1.9 A4 単調性 (Pareto monotonicity) の formal 定義 — ∂F/∂A_k ≥ 0 for k ∈ K_obs、strict monotonicity on K_obs",
         "§9.1.10 A4 と Arrow 公理 (Pareto / IIA) の対応 — Ch 10.4 Theorem 3 への接続点",
-        "§9.1.11 4 公理の総合解釈 — 機関 ERS は『観測可能軸の compensable な束として機関を扱う』規範的決定、案件 PRS の乗法構造 (共起要請) との根本的差異",
+        "§9.1.11 4 公理の総合解釈 — 機関 ECR は『観測可能軸の compensable な束として機関を扱う』規範的決定、案件 SPS の乗法構造 (共起要請) との根本的差異",
         "§9.1.12 4 公理が排除する集約関数の独立性反例表 — Cobb-Douglas (A1 違反: 他軸 0 で全体 0 で補償不可) / min Leontief (A2 違反) / 辞書式順序 (A2 + A4 違反) / 純加法 (A3 違反: 欠損非可視)",
         "§9.1.13 各公理を 1 つ落とすと何が許されるかの 4×4 表 (独立性証明)",
         "§9.1.14 末尾注 (重要): Bergson-Samuelson SWF は cardinal utility 仮定で Arrow を回避する。Ch 9 は cardinal interval scale 前提で加重和を導き、Ch 10.4 Theorem 3 は ordinal Arrow 公理で層間非可換性を示す。読者はこの二段構造を §9.4 と Ch 10.4 で再確認すべき。",
@@ -93,7 +93,7 @@
       "existing_reuse": "pwa/bzm/score-and-bottleneck.md の三方式比較表を §9.1.12-9.1.13 の formal 反例表として再利用、Tier 3 学術化",
       "upstream_dependencies": [
         "§9.0 章頭問い",
-        "Ch 3 ERS 8 軸の semantic foundation",
+        "Ch 3 ECR 8 軸の semantic foundation",
         "Ch 7 F-CES (CES 構造の地ならし、構造類比)",
         "Ch 3.5 unknown/not_started semantic 正準オーナー (D-022)"
       ],
@@ -149,13 +149,13 @@
         "§9.2.9 証明スケッチ Step 2: A2 (補償可能性の強形) → φ_k が線形 φ_k(A_k) = w_k · A_k + c_k に縮退 (Krantz et al. 1971 Theorem 6.2)。A2 弱形の場合は §9.3 CES へ拡張",
         "§9.2.10 証明スケッチ Step 3: A4 (Pareto monotonicity) + Likert [0,4] 領域 → Φ は単調増加アフィン変換に縮約、c_k = 0 と置ける",
         "§9.2.11 証明スケッチ Step 4: A3 (欠損可視性) → 分母を Σ_{k ∈ K_obs} w_k に縮約、unknown は分母から除外 (K_obs 縮約は §9.5 で代数化)",
-        "§9.2.12 スケール正規化: A_k ∈ [0,4] を [0,1] に写像し 100 倍して ERS ∈ [0,100]、最終形 ERS = 100·Σ_{k∈K_obs} w_k A_k / (4·Σ_{k∈K_obs} w_k)",
+        "§9.2.12 スケール正規化: A_k ∈ [0,4] を [0,1] に写像し 100 倍して ECR ∈ [0,100]、最終形 ECR = 100·Σ_{k∈K_obs} w_k A_k / (4·Σ_{k∈K_obs} w_k)",
         "§9.2.13 一意性命題 — 4 公理を満たす集約関数はアフィン同値を除いて加重和のみ",
         "§9.2.14 重み w_k の identification 議論 — w_k/w_{k'} 比のみ意味、絶対値は正規化吸収",
-        "§9.2.15 Default w_k = 1/8 (一様) の規範的根拠 — Sen-Anand-Sen 1997 HDI equal weighting 論争を機関 ERS に移植、機関タイプ別 prior は Book V 機関章で詳述",
+        "§9.2.15 Default w_k = 1/8 (一様) の規範的根拠 — Sen-Anand-Sen 1997 HDI equal weighting 論争を機関 ECR に移植、機関タイプ別 prior は Book V 機関章で詳述",
         "§9.2.16 Ch 3 ルーブリックの間隔尺度設計と φ_k 線形化の measurement-theoretic 正当化 (Stevens 1946 scales of measurement との接続)",
-        "§9.2.17 案件 PRS との対比予告 — log PRS = Σ log A_k による additive 化と A_k = 0 発散は §9.4 で formal 化",
-        "§9.2.18 Bozeman 1987 publicness grid との比較 — Bozeman は lexicographic 集約だが機関 ERS は連続補償を許す点で Sen/Atkinson 主流に位置づく",
+        "§9.2.17 案件 SPS との対比予告 — log SPS = Σ log A_k による additive 化と A_k = 0 発散は §9.4 で formal 化",
+        "§9.2.18 Bozeman 1987 publicness grid との比較 — Bozeman は lexicographic 集約だが機関 ECR は連続補償を許す点で Sen/Atkinson 主流に位置づく",
         "§9.2.19 §9.3 異質構造への bridge — A2 弱形 (CES σ < ∞) で線形化が崩れ、軸固有弾力性 λ_k が導入される"
       ],
       "new_writing_required": "Theorem 9.1 / 9.2 の statement と証明スケッチ 5p、結合測定理論 (Thomsen + 二重キャンセル + Archimedean + solvability) の formal 列挙 1.5p、重み identification 議論と HDI equal weighting 移植 0.5p。BZM 既存ドラフトには測定理論パートが無いため Tier 3 学術化の中核新規論点。",
@@ -167,7 +167,7 @@
       ],
       "downstream_dependencies": [
         "§9.3 (A2 弱形 → CES on remaining 7 axes、軸固有弾力性 λ_k)",
-        "§9.4 (PRS との対比の代数的精密化、Theorem 9.4)",
+        "§9.4 (SPS との対比の代数的精密化、Theorem 9.4)",
         "§9.5 (K_obs 縮約処理の運用解釈)",
         "Ch 10.4 Theorem 3 (A1-A4 + Theorem 9.1 を Arrow 骨格の前提として渡す)",
         "Ch 25 (additive representation の妥当性経験検証)",
@@ -196,7 +196,7 @@
       "pages": 6.5,
       "math_level": "heavy (precondition gate function g + CES 関数形 + 軸固有弾力性 λ_k の formal 化 + 退化定理)",
       "anchor_claims": [
-        "Proposition 9.3 (precondition × CES 異質構造): ERS = 100 · g(A_7) · F_remaining(A_{¬7})、ここで g: [0,4] → [0,1] は precondition gate (default 階段関数)、F_remaining は残り 7 軸の CES 集約",
+        "Proposition 9.3 (precondition × CES 異質構造): ECR = 100 · g(A_7) · F_remaining(A_{¬7})、ここで g: [0,4] → [0,1] は precondition gate (default 階段関数)、F_remaining は残り 7 軸の CES 集約",
         "F_remaining = (Σ_{k≠7} w_k A_k^ρ / Σ w_k)^(1/ρ)、ρ = (λ-1)/λ",
         "退化定理 (Proposition 9.3 corollary): λ → ∞ (ρ → 1) で加重和、λ → 1 (ρ → 0) で Cobb-Douglas、λ → 0 (ρ → -∞) で Leontief min に収束。加重和 / Cobb-Douglas / min は CES family の特殊ケースとして統一",
         "軸固有弾力性 λ_k は加重 w_k と分離可能なルーブリック設計者の局所制御変数であり、実効 A_k = g_k(A_k; λ_k) として軸固有の閾値・形状をローカル制御する自由度",
@@ -205,18 +205,18 @@
       ],
       "paragraph_outline": [
         "§9.3.1 軸 7 precondition の formal 定義 — gate function g: [0,4] → [0,1]、default 階段関数 g(0) = 0, g(1) = 0.25, g(2) = g(3) = g(4) = 1",
-        "§9.3.2 ERS 完全形 — ERS = 100 · g(A_7) · F_remaining(A_{¬7})、Alkire-Foster 2011 identification + aggregation の機関版",
+        "§9.3.2 ECR 完全形 — ECR = 100 · g(A_7) · F_remaining(A_{¬7})、Alkire-Foster 2011 identification + aggregation の機関版",
         "§9.3.3 なぜ軸 7 だけが precondition か — 制度設計 (利益相反 / IP 帰属 / 兼業規程) が崩れると他軸の readiness が ex ante に無意味化、Bozeman publicness の制度設計層の不可侵性",
         "§9.3.4 残り 7 軸の異質構造 — F_remaining = (Σ_{k≠7} w_k A_k^ρ / Σ w_k)^(1/ρ)、ρ = 1 - 1/λ",
         "§9.3.5 軸固有弾力性 λ_k の formal 導入 — Atkinson 1970 ε-不平等指標における ε の軸版、社会的損失回避度の機関集約版",
-        "§9.3.6 実効 A_k = g_k(A_k; λ_k) の formal 化 — 軸 k の閾値・形状をローカル制御する自由度として加重 w_k と独立に設計可能 (Ch 32 ERS 8 軸別処方への橋渡し)",
+        "§9.3.6 実効 A_k = g_k(A_k; λ_k) の formal 化 — 軸 k の閾値・形状をローカル制御する自由度として加重 w_k と独立に設計可能 (Ch 32 ECR 8 軸別処方への橋渡し)",
         "§9.3.7 退化定理 (Proposition 9.3 corollary) の statement と証明 — λ → ∞ (ρ → 1) で CES → 加重和 (L'Hôpital で線形和に収束)、λ → 1 (ρ → 0) で Cobb-Douglas、λ → 0 (ρ → -∞) で min Leontief",
         "§9.3.8 CES family の中で加重和 (ρ = 1) を default として選ぶ根拠 — A2 強形 (任意軸間 MRS 定数) と AMD 経験則 (機関タイプ非依存の汎用集約) の両面",
         "§9.3.9 軸別 λ_k vs 軸群共通 λ の選択と識別性 — 8 個の λ_k は 8 軸スコアから直接同定不能、外生的変動 (Ch 26b 事前登録) が必要",
         "§9.3.10 階段 gate g vs 連続 sigmoid 版 — Foster-Greer-Thorbecke 1984 FGT 指数 α パラメータとの対応、階段は α = 0、sigmoid は α > 0、Ch 36 KPI 評価で連続版を default 化検討",
         "§9.3.11 軸 7 precondition の規範的根拠の総括 — Bozeman 1987/2000 publicness + Alkire-Foster 2011 dimensional poverty identification の二重根拠",
         "§9.3.12 異質構造の含意 — 8 軸は同質ではなく、軸 7 だけ Leontief 的不可侵 / 残り 7 軸は CES (default 加重和) という二重構造、これが層間で数式形状が変わる根拠の一部",
-        "§9.3.13 dimensional poverty としての ERS の総合的位置づけ — Alkire-Foster k-cutoff identification の機関版",
+        "§9.3.13 dimensional poverty としての ECR の総合的位置づけ — Alkire-Foster k-cutoff identification の機関版",
         "§9.3.14 §9.4 三方式比較 + 二重計上禁止への bridge"
       ],
       "new_writing_required": "precondition gate g の formal 定式化 1p、CES on remaining 7 axes の formal 化 1.5p、退化定理の証明 1p、軸固有弾力性 λ_k = ルーブリック設計者の局所制御変数の明示 1p、Bozeman + Alkire-Foster 二重根拠 1p、識別性議論 0.5p、階段 vs sigmoid の FGT α 対応 0.5p",
@@ -256,24 +256,24 @@
       "pages": 5.5,
       "math_level": "heavy (四方式比較表 + Theorem 9.4 二重計上禁止の双線形展開証明 + 偏微分 A1 違反論証 + 層間結合許容形整理)",
       "anchor_claims": [
-        "加重和 / Cobb-Douglas / Leontief min は CES family の ρ = 1, 0, -∞ の特殊ケースで、機関 ERS が ρ = 1 側を選ぶ規範的根拠は A2 強形 (補償可能性) にある",
-        "案件 PRS が乗法構造 (Cobb-Douglas / min 系) を選ぶ根拠は『案件 = 不可分一括の出力単位、一軸 0 で案件失敗』という共起要請にあり、機関集約とは別公理系である",
-        "Theorem 9.4 (二重計上禁止): 結合スコア S = ERS^α · PRS^(1-α) は機関 8 軸 × 案件 J 軸の双線形展開で軸 k に対する A1 可分性を破る (∂²S/∂A_k∂PRS ≠ 0)",
-        "層間結合の許容形は (i) 加法結合 α·PRS + β·ERS、(ii) 条件付き PRS | A_7 ≥ Lv2 のみが公理整合的",
+        "加重和 / Cobb-Douglas / Leontief min は CES family の ρ = 1, 0, -∞ の特殊ケースで、機関 ECR が ρ = 1 側を選ぶ規範的根拠は A2 強形 (補償可能性) にある",
+        "案件 SPS が乗法構造 (Cobb-Douglas / min 系) を選ぶ根拠は『案件 = 不可分一括の出力単位、一軸 0 で案件失敗』という共起要請にあり、機関集約とは別公理系である",
+        "Theorem 9.4 (二重計上禁止): 結合スコア S = ECR^α · SPS^(1-α) は機関 8 軸 × 案件 J 軸の双線形展開で軸 k に対する A1 可分性を破る (∂²S/∂A_k∂SPS ≠ 0)",
+        "層間結合の許容形は (i) 加法結合 α·SPS + β·ECR、(ii) 条件付き SPS | A_7 ≥ Lv2 のみが公理整合的",
         "層が変われば数式形状が変わるのは恣意ではなく、各層の公理系 (案件 = 共起要請 / 機関 = 補償可能性) が構造的に異なることの必然的帰結であり、Krantz-Luce-Suppes-Tversky 表現定理から帰結する"
       ],
       "paragraph_outline": [
         "§9.4.1 四方式比較表 (formal version) — 加重和 (ρ=1) / Cobb-Douglas (ρ=0) / Leontief min (ρ=-∞) / 一般 CES の公理 A1-A4 充足を 4×4 行列で並べる (pwa/bzm/score-and-bottleneck.md の formal 化)",
-        "§9.4.2 案件 PRS の数式構造の概観 — PRS = Π_j PRS_j^β_j 型の乗法構造 / min 型が支配する根拠は Ch 8 を引用、機関集約とは別公理系であることを明示",
+        "§9.4.2 案件 SPS の数式構造の概観 — SPS = Π_j SPS_j^β_j 型の乗法構造 / min 型が支配する根拠は Ch 8 を引用、機関集約とは別公理系であることを明示",
         "§9.4.3 数式形状の必然的差異 — 機関 = 補償可能 (A2) なので加重和、案件 = 補償不能 (一軸 0 で案件失敗) なので乗法、という双対構造を『層が変われば数式形状が変わる』スローガンに代数的根拠付け",
-        "§9.4.4 log PRS = Σ log A_k による additive 化と A_k = 0 発散 — Cobb-Douglas は形式的に additive separable だが domain 端で発散、機関 ERS 加重和の有限性との対比",
-        "§9.4.5 Theorem 9.4 (二重計上禁止) の formal statement — S = ERS^α · PRS^(1-α) (任意 α ∈ (0,1)) は A1 可分性を破る",
-        "§9.4.6 Theorem 9.4 証明スケッチ Step 1 — ERS = 100·Σ w_k A_k / Σ w_k と PRS = Π_j A_j^β_j を結合し log S = α log ERS + (1-α) log PRS の偏微分展開",
-        "§9.4.7 Theorem 9.4 証明スケッチ Step 2 — ∂²S/∂A_k∂PRS ≠ 0 が機関軸 k の影響が案件 PRS の値に依存することを示し、A1 可分性 (∂²F/∂A_k∂A_{k'} の他軸独立) に違反",
+        "§9.4.4 log SPS = Σ log A_k による additive 化と A_k = 0 発散 — Cobb-Douglas は形式的に additive separable だが domain 端で発散、機関 ECR 加重和の有限性との対比",
+        "§9.4.5 Theorem 9.4 (二重計上禁止) の formal statement — S = ECR^α · SPS^(1-α) (任意 α ∈ (0,1)) は A1 可分性を破る",
+        "§9.4.6 Theorem 9.4 証明スケッチ Step 1 — ECR = 100·Σ w_k A_k / Σ w_k と SPS = Π_j A_j^β_j を結合し log S = α log ECR + (1-α) log SPS の偏微分展開",
+        "§9.4.7 Theorem 9.4 証明スケッチ Step 2 — ∂²S/∂A_k∂SPS ≠ 0 が機関軸 k の影響が案件 SPS の値に依存することを示し、A1 可分性 (∂²F/∂A_k∂A_{k'} の他軸独立) に違反",
         "§9.4.8 Theorem 9.4 証明スケッチ Step 3 — 8 機関軸 × J 案件軸の双線形交差項展開で観測等価類が崩壊することを明示",
-        "§9.4.9 層間結合の許容形 (corollary 9.4.1) — (i) 加法結合 α·PRS + β·ERS は A1 を保つ、(ii) 条件付き PRS | A_7 ≥ Lv2 は precondition の自然な拡張、(iii) 乗法結合 ERS · PRS は禁止",
+        "§9.4.9 層間結合の許容形 (corollary 9.4.1) — (i) 加法結合 α·SPS + β·ECR は A1 を保つ、(ii) 条件付き SPS | A_7 ≥ Lv2 は precondition の自然な拡張、(iii) 乗法結合 ECR · SPS は禁止",
         "§9.4.10 Sen 1970 Liberal Paradox との対応 — 『機関補償性と案件不可分性の両立不能』として位置づけ、Ch 10.4 Theorem 3 への自然な bridge",
-        "§9.4.11 実務系: ERS と PRS は層別独立報告 — 経営会議資料テンプレ (Book V 第 4 章) で『掛けない』を運用ルール化、Ch 36 KPI で二重計上検出指標を実装",
+        "§9.4.11 実務系: ECR と SPS は層別独立報告 — 経営会議資料テンプレ (Book V 第 4 章) で『掛けない』を運用ルール化、Ch 36 KPI で二重計上検出指標を実装",
         "§9.4.12 Bergson-Samuelson cardinality と Arrow ordinal の緊張 (再掲、§9.1.14 受け) — 層ごとに別の SWF を持つことは正当だが、層をまたいで単一スコアに合成してはならない",
         "§9.4.13 Ch 10.4 Theorem 3 (二層非可換性の Arrow 不可能性) への bridge — 本章の 4 公理 A1-A4 + Theorem 9.1 + Theorem 9.4 を Arrow 骨格の前提として明示的に渡す"
       ],
@@ -283,7 +283,7 @@
         "§9.1 A1 可分性公理",
         "§9.2 Theorem 9.1 / 9.2 (additive representation)",
         "§9.3 Proposition 9.3 (CES family 統一)",
-        "Ch 8 案件 PRS の乗法構造の根拠 (引用のみ、本章では再証明しない)"
+        "Ch 8 案件 SPS の乗法構造の根拠 (引用のみ、本章では再証明しない)"
       ],
       "downstream_dependencies": [
         "§9.5 (運用解釈)",
@@ -315,8 +315,8 @@
       "pages": 3.5,
       "math_level": "medium (K_obs 縮約と 0 値挿入の代数差 + 観測等価類の formal 定義 + 章末問いの formal リスト)",
       "anchor_claims": [
-        "unknown (⊥) は K_obs から離脱し分子・分母双方から落ちる: ERS_obs = 100·Σ_{k∈K_obs} w_k A_k / Σ_{k∈K_obs} w_k",
-        "not_started は A_k = 0 として K_obs に残り分子に算入される: ERS_zero = 100·Σ_{k∈K_obs} w_k A_k / Σ_{all k} w_k",
+        "unknown (⊥) は K_obs から離脱し分子・分母双方から落ちる: ECR_obs = 100·Σ_{k∈K_obs} w_k A_k / Σ_{k∈K_obs} w_k",
+        "not_started は A_k = 0 として K_obs に残り分子に算入される: ECR_zero = 100·Σ_{k∈K_obs} w_k A_k / Σ_{all k} w_k",
         "両者の差は分母 (K_obs 縮約 vs 全軸) の代数差として数値例で明示される",
         "観測等価類 (observational equivalence class): 同じ K_obs 集合を持つ機関は本章の集約関数下で識別不能類を構成、機関プロファイル比較は K_obs を揃えてから行う必要",
         "Ch 3.5 (D-022 正準オーナー) は unknown / not_started の semantic を定義し、Ch 9 はそれを加重和代数に翻訳する役割に限定 — 章間重複を回避",
@@ -324,9 +324,9 @@
       ],
       "paragraph_outline": [
         "§9.5.1 unknown と not_started の運用区別の冒頭整理 — Ch 3.5 (D-022 正準オーナー) を参照、本章は加重和代数への翻訳に限定する旨を明示",
-        "§9.5.2 unknown (⊥) の代数表現 — K_obs から離脱、ERS_obs = 100·Σ_{k∈K_obs} w_k A_k / Σ_{k∈K_obs} w_k、A3 欠損可視性の自然な帰結",
-        "§9.5.3 not_started (A_k = 0) の代数表現 — K_obs に残り分子に算入、ERS_zero = 100·Σ_{k∈K_obs} w_k A_k / Σ_{all k} w_k",
-        "§9.5.4 ERS_obs vs ERS_zero の代数差の数値例 — type X 機関で軸 5 が unknown / not_started それぞれの場合の ERS 値の違い (1 段落の表)",
+        "§9.5.2 unknown (⊥) の代数表現 — K_obs から離脱、ECR_obs = 100·Σ_{k∈K_obs} w_k A_k / Σ_{k∈K_obs} w_k、A3 欠損可視性の自然な帰結",
+        "§9.5.3 not_started (A_k = 0) の代数表現 — K_obs に残り分子に算入、ECR_zero = 100·Σ_{k∈K_obs} w_k A_k / Σ_{all k} w_k",
+        "§9.5.4 ECR_obs vs ECR_zero の代数差の数値例 — type X 機関で軸 5 が unknown / not_started それぞれの場合の ECR 値の違い (1 段落の表)",
         "§9.5.5 観測等価類 (observational equivalence class) の formal 定義 — 同一 K_obs 集合を持つ機関群は集約関数下で識別不能類を構成",
         "§9.5.6 機関比較の前提 — K_obs を揃えてから比較する規律 (Ch 25 検証の前提条件)",
         "§9.5.7 限界の明示 — 本章は Tier A (記述的類型論)、4 公理 A1-A4 の経験的検証は Ch 25、λ_k 機関タイプ別 prior の calibration は Ch 26b に flush",
@@ -377,13 +377,13 @@
     },
     {
       "issue": "軸 7 precondition gate function g の default を階段関数 (g(0)=0, g(1)=0.25, g(2-4)=1) にするか、連続 sigmoid 版にするか",
-      "why_masa_decides": "階段は §9.0 type C の ERS = 0 シーンと整合的だが、Ch 36 KPI 評価で連続化を default にすると本章宣言と齟齬。FGT 1984 α パラメータの哲学にも関わる選択でまさのドメイン判断が必要",
+      "why_masa_decides": "階段は §9.0 type C の ECR = 0 シーンと整合的だが、Ch 36 KPI 評価で連続化を default にすると本章宣言と齟齬。FGT 1984 α パラメータの哲学にも関わる選択でまさのドメイン判断が必要",
       "options": [
         "(a) 本章 default は階段、§9.3.10 で連続 sigmoid 版を Ch 36 KPI 検討事項として forward-reference",
         "(b) 本章 default を連続 sigmoid に統一、階段は §9.3.10 の特殊ケース (α=0) として位置づけ",
         "(c) 階段と sigmoid を formal に並列提示し、機関タイプ別に Ch 32 で選択"
       ],
-      "recommendation": "(a) 本章 default は階段。§9.0 三案件会議シーンの教育的明快さ (type C の ERS = 0 の直観) と整合し、Ch 36 で連続化を経験的に検討する flush 設計が自然。"
+      "recommendation": "(a) 本章 default は階段。§9.0 三案件会議シーンの教育的明快さ (type C の ECR = 0 の直観) と整合し、Ch 36 で連続化を経験的に検討する flush 設計が自然。"
     },
     {
       "issue": "軸固有弾力性 λ_k を本章で軸群共通 (single λ) として扱うか、軸別 (8 個の λ_k) として扱うか、識別性問題をどこで明示するか",
@@ -396,7 +396,7 @@
       "recommendation": "(a) 本章 default は軸群共通 λ → ∞ で加重和、軸別 λ_k への拡張は §9.3.9 で識別性の必要条件 (外生変動の存在) を 1 段落で formal に明示しつつ経験校正は Ch 26b に flush。Reviewer R&R での pushback を §9.3.9 1 段落で先回りできる。"
     },
     {
-      "issue": "§9.0 章頭フックを URA 三案件会議シーン (type A/B/C + ERS 78/62/0 数値) で固定するか、桜が散ったあとの月曜日の温度感 (A 案) を残すか",
+      "issue": "§9.0 章頭フックを URA 三案件会議シーン (type A/B/C + ECR 78/62/0 数値) で固定するか、桜が散ったあとの月曜日の温度感 (A 案) を残すか",
       "why_masa_decides": "L1 §11 章型ストーリーの密度設計と Lens C (URA/EIR 実務読者の捕まえ) の最適化はまさの執筆判断",
       "options": [
         "(a) URA 三案件会議シーン (C 案具体性) のみ採用、type A/B/C + 78/62/0 で読者を即捕まえる",
@@ -429,14 +429,14 @@
   "falsifiable_claims": [
     "Theorem 9.1 反証可能性: 4 公理 A1-A4 + 連続性を満たしかつ加重和に同型でない集約関数を構成できれば Theorem 9.1 一意性は反証される (4 公理の独立性反例表で 1 公理を落とした場合に Cobb-Douglas / Leontief / 一般 CES が許される対応関係を §9.1.13 で示す)",
     "Theorem 9.2 反証可能性 (Thomsen 条件): 8 軸 conjoint structure で URA 評価者の preference データを取得し、Thomsen 条件違反率が事前登録閾値 (例: 5%) を超えれば additive conjoint representation の妥当性が反証される (Ch 26b Tier B 事前登録)",
-    "Proposition 9.3 反証可能性 (軸 7 precondition): 軸 7 (制度設計) = Lv1 の機関で他 7 軸を Lv4 にしても ERS_floor (例 30) を超えない gate function 主張は、経験データで軸 7 Lv1 機関の ERS 分布が ERS_floor を超える観測が一定割合 (例 10%) 以上あれば反証 (Ch 25 経験検証)",
+    "Proposition 9.3 反証可能性 (軸 7 precondition): 軸 7 (制度設計) = Lv1 の機関で他 7 軸を Lv4 にしても ECR_floor (例 30) を超えない gate function 主張は、経験データで軸 7 Lv1 機関の ECR 分布が ECR_floor を超える観測が一定割合 (例 10%) 以上あれば反証 (Ch 25 経験検証)",
     "ρ = 1 default の反証可能性: ρ = 1 (加重和) は ρ ∈ {0, -1, -∞} (Cobb-Douglas, CES 中間, Leontief min) よりも out-of-sample 予測精度が高い、を Ch 26b 事前登録で AIC / BIC / out-of-sample log-likelihood で比較し ρ = 1 が劣後すれば加重和 default が反証",
-    "Theorem 9.4 反証可能性 (二重計上禁止): 結合スコア S = ERS^α · PRS^(1-α) が全機関軸 k で A1 可分性 (∂²S/∂A_k∂PRS = 0) を満たす特殊条件が一つでも構成できれば限定反証、また Ch 25 経験データで ERS × PRS 合成スコアが層間予測力を有意に改善すれば運用論的反証",
+    "Theorem 9.4 反証可能性 (二重計上禁止): 結合スコア S = ECR^α · SPS^(1-α) が全機関軸 k で A1 可分性 (∂²S/∂A_k∂SPS = 0) を満たす特殊条件が一つでも構成できれば限定反証、また Ch 25 経験データで ECR × SPS 合成スコアが層間予測力を有意に改善すれば運用論的反証",
     "観測等価類の反証可能性: 同一 K_obs 集合内で機関ランキングの順位相関係数 ρ_Spearman > 0.9 を保つはずだが、ρ_Spearman が閾値を下回れば集約関数選択の頑健性が反証 (Ch 25)",
-    "unknown vs not_started 区別の反証可能性: unknown を not_started に統合して両者を A_k = 0 として扱うと、観測軸数 |K_obs| が少ない機関ほど系統的に低 ERS bias が生じる予測 — |K_obs| と ERS の Pearson 相関が unknown 撤廃版で有意に負、区別版で無相関であれば A3 公理の運用解釈が支持される (Ch 25 / Ch 26b)",
+    "unknown vs not_started 区別の反証可能性: unknown を not_started に統合して両者を A_k = 0 として扱うと、観測軸数 |K_obs| が少ない機関ほど系統的に低 ECR bias が生じる予測 — |K_obs| と ECR の Pearson 相関が unknown 撤廃版で有意に負、区別版で無相関であれば A3 公理の運用解釈が支持される (Ch 25 / Ch 26b)",
     "軸固有弾力性 λ_k 異質性の反証可能性: λ_k が軸間で同一 (k = 1,...,8 で λ_k 同一) の帰無仮説を Wald 検定で棄却できれば異質構造の必要性が支持、棄却されなければ default 軸群共通 λ で十分という結論 (Ch 26b 外生変動を用いた識別)",
-    "σ → ∞ 近似破綻境界: ρ → 1 近似 (加重和への CES 退化) は実データの軸間相関構造が等方的でないケース (例: 軸 1 と軸 8 の強相関) で誤差が ERS スコアの ±5 ポイントを超える境界を持つ (Ch 25 経験検証)",
-    "Bozeman publicness 経験的検証: 軸 7 (制度設計) を precondition から外して加重和に含めると、A_7 = Lv1 の機関でも他軸が高ければ ERS > 50 になるケースが生じ Bozeman 制度的前提条件論と整合しない事例が観測される (Ch 25)"
+    "σ → ∞ 近似破綻境界: ρ → 1 近似 (加重和への CES 退化) は実データの軸間相関構造が等方的でないケース (例: 軸 1 と軸 8 の強相関) で誤差が ECR スコアの ±5 ポイントを超える境界を持つ (Ch 25 経験検証)",
+    "Bozeman publicness 経験的検証: 軸 7 (制度設計) を precondition から外して加重和に含めると、A_7 = Lv1 の機関でも他軸が高ければ ECR > 50 になるケースが生じ Bozeman 制度的前提条件論と整合しない事例が観測される (Ch 25)"
   ],
   "cross_chapter_supply": [
     {
@@ -445,18 +445,18 @@
     },
     {
       "target_chapter": "Ch 25 (層間結合経験検証)",
-      "what_supplies": "Tier A 経験検証の hypothesis 5 件 — (1) 軸 7 precondition の閾値 (Lv1/Lv2) の経験的妥当性、(2) σ → ∞ 近似の破綻境界 (ERS ±5 ポイント)、(3) ERS × PRS 結合スコアの層間予測力 (Theorem 9.4 経験検証)、(4) 観測等価類の順位相関ρ_Spearman > 0.9 頑健性、(5) Bozeman publicness 経験的検証 (軸 7 precondition の正当性)"
+      "what_supplies": "Tier A 経験検証の hypothesis 5 件 — (1) 軸 7 precondition の閾値 (Lv1/Lv2) の経験的妥当性、(2) σ → ∞ 近似の破綻境界 (ECR ±5 ポイント)、(3) ECR × SPS 結合スコアの層間予測力 (Theorem 9.4 経験検証)、(4) 観測等価類の順位相関ρ_Spearman > 0.9 頑健性、(5) Bozeman publicness 経験的検証 (軸 7 precondition の正当性)"
     },
     {
       "target_chapter": "Ch 26b (Tier B 事前登録)",
-      "what_supplies": "事前登録 hypothesis 4 件 — (1) Thomsen 条件違反率 < 5% (Theorem 9.2 妥当性)、(2) ρ = 1 vs ρ ∈ {0,-1,-∞} の out-of-sample 予測精度比較 (default 加重和の正当性)、(3) λ_k 軸間異質性の Wald 検定 (8 軸個別弾力性の必要性)、(4) unknown vs not_started 区別の |K_obs| と ERS の相関構造 (A3 公理の運用解釈)"
+      "what_supplies": "事前登録 hypothesis 4 件 — (1) Thomsen 条件違反率 < 5% (Theorem 9.2 妥当性)、(2) ρ = 1 vs ρ ∈ {0,-1,-∞} の out-of-sample 予測精度比較 (default 加重和の正当性)、(3) λ_k 軸間異質性の Wald 検定 (8 軸個別弾力性の必要性)、(4) unknown vs not_started 区別の |K_obs| と ECR の相関構造 (A3 公理の運用解釈)"
     },
     {
       "target_chapter": "Book V 機関章",
       "what_supplies": "(a) 機関タイプ別 w_k prior 設計の方法論的基盤 (Sen-Anand-Sen HDI equal weighting 移植)、(b) 機関タイプ別 λ_k 処方の局所制御変数としての位置づけ (A 案 graft の実効 A_k = g_k(A_k; λ_k))、(c) 経営会議資料テンプレで二重計上禁止 (Theorem 9.4) を運用ルール化する代数的根拠"
     },
     {
-      "target_chapter": "Ch 32 (ERS 8 軸別処方)",
+      "target_chapter": "Ch 32 (ECR 8 軸別処方)",
       "what_supplies": "(a) 軸固有弾力性 λ_k = ルーブリック設計者の局所制御変数としての設計自由度、(b) 実効 A_k = g_k(A_k; λ_k) による軸別閾値・形状の局所制御、(c) 軸 7 precondition gate と残り 7 軸 CES の異質構造に基づく軸別処方の差異化"
     },
     {
@@ -465,11 +465,11 @@
     },
     {
       "target_chapter": "Ch 3.5 (unknown/not_started 正準オーナー D-022)",
-      "what_supplies": "Ch 9 → Ch 3.5 への逆 supply: 本章 §9.5.2-9.5.4 で確立した K_obs 縮約 (ERS_obs) vs 0 値挿入 (ERS_zero) の代数差・観測等価類の formal 定義を Ch 3.5 の semantic 定義と整合的に cross-reference する責務"
+      "what_supplies": "Ch 9 → Ch 3.5 への逆 supply: 本章 §9.5.2-9.5.4 で確立した K_obs 縮約 (ECR_obs) vs 0 値挿入 (ECR_zero) の代数差・観測等価類の formal 定義を Ch 3.5 の semantic 定義と整合的に cross-reference する責務"
     }
   ],
   "masa_negotiation_handles": [
-    "§9.0 章頭フックのシーン選択: (a) URA 三案件会議 type A/B/C + ERS 78/62/0 数値具体性のみ / (b) 桜が散ったあと月曜日 + 三案件会議の hybrid (推奨) / (c) 桜が散ったあとのみ + 数値は §9.3 に flush — 推奨は (b)",
+    "§9.0 章頭フックのシーン選択: (a) URA 三案件会議 type A/B/C + ECR 78/62/0 数値具体性のみ / (b) 桜が散ったあと月曜日 + 三案件会議の hybrid (推奨) / (c) 桜が散ったあとのみ + 数値は §9.3 に flush — 推奨は (b)",
     "Theorem 9.4 (二重計上禁止) の full proof 配置: (a) §9.4.6-9.4.8 で full proof (推奨) / (b) statement + スケッチに留め Ch 10.4 系 3.1 で full proof / (c) 両章で独立証明",
     "軸 7 precondition gate default: (a) 階段関数 (推奨、§9.0 シーン整合) / (b) 連続 sigmoid 統一 / (c) 並列提示で Ch 32 機関タイプ別選択",
     "軸固有弾力性 λ_k の本章での扱い: (a) 軸群共通 λ → ∞ default + 識別性議論 §9.3.9 で 1 段落明示 (推奨) / (b) 軸別 λ_k formal 導入 + 識別性 necessary condition / (c) 単一 λ のみで軸別は Ch 32 へ",

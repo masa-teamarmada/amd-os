@@ -1,11 +1,11 @@
 {
   "ch_overview": {
-    "core_proposition": "Ch 10.5 Klepper 入れ子のシャープな統合ハザード τ_B (h↓0 極限) と Ch 11.5 登録簿運用の滑らかな wave 段階 (h↑∞ 極限) は対立する二極ではなく、核関数 K と境界鋭さ parameter h でパラメータ化される単一の h パラメータ族 B_h(t) = K((t − t*_mid)/h) の両端極限である。Zadeh (1965) fuzzy sets / Donoho-Johnstone (1994) soft thresholding / Black-Rangarajan (1996) graduated non-convexity の連続化思想を制度境界に移植し、Bai-Perron (1998) Econometrica 多重分断検定 (sup-F + Hannan-Quinn) で境界幅区間 [t*_start, t*_end] と h を一致推定する正準オーナー章として Ch 10.8 を D-040 に従って確立する。反証可能主張 F6 (corr(ĥ_{jt}, σ_{ΔPRS_{jt}}) > 0) は Tier B (Ch 26b OSF 事前登録) に commission し、Book III TIEM (h小) / CLG (h大) PJ への結合点を明示する。",
+    "core_proposition": "Ch 10.5 Klepper 入れ子のシャープな統合ハザード τ_B (h↓0 極限) と Ch 11.5 登録簿運用の滑らかな wave 段階 (h↑∞ 極限) は対立する二極ではなく、核関数 K と境界鋭さ parameter h でパラメータ化される単一の h パラメータ族 B_h(t) = K((t − t*_mid)/h) の両端極限である。Zadeh (1965) fuzzy sets / Donoho-Johnstone (1994) soft thresholding / Black-Rangarajan (1996) graduated non-convexity の連続化思想を制度境界に移植し、Bai-Perron (1998) Econometrica 多重分断検定 (sup-F + Hannan-Quinn) で境界幅区間 [t*_start, t*_end] と h を一致推定する正準オーナー章として Ch 10.8 を D-040 に従って確立する。反証可能主張 F6 (corr(ĥ_{jt}, σ_{ΔSPS_{jt}}) > 0) は Tier B (Ch 26b OSF 事前登録) に commission し、Book III TIEM (h小) / CLG (h大) PJ への結合点を明示する。",
     "load_bearing_claims": [
       "定義 6.1: B_h(t) = K((t − t*_mid)/h)、K は単調連続 CDF 型核関数 (Gaussian-CDF or logistic、P-008b で Ch 11 BVAR 実装時にデータ駆動 = Mallows Cp / cross-validation でまさ判断確定)、h > 0 は境界鋭さ parameter、t*_mid は境界中央、境界幅区間は [t*_start, t*_end] = [t*_mid − c·h, t*_mid + c·h] (c は K の significance level に対応)",
       "命題 6.1 (シャープ ↔ ファジー連続極限): (i) lim_{h↓0} B_h(t) = 𝟙{t ≥ t*_mid} が a.s. かつ Ch 10.5 シャープ τ_B 不連続境界 (D-035) を各点で再現、(ii) 適切な affine 正規化 B̃_h(t) = B_h(t*_mid + h·s) の下で lim_{h↑∞} B̃_h は [t*_start, t*_end] 上で線形補間に一様収束し Ch 11.5 滑らかな wave (D-037) と一致する",
       "命題 6.2 (Bai-Perron 一致推定): Bai-Perron (1998) Econometrica 多重分断検定 (sup-F_T(ℓ+1|ℓ)) と Hannan-Quinn 情報量規準による分断数選定の組み合わせにより、機関 j × 時間 t のサンプルから (ĥ_{jt}, t̂*_start, t̂*_end) は √T 一致推定量であり、信頼区間は Andrews (1993) sup-Wald 漸近理論と Hansen (2000) threshold bootstrap で構成可能",
-      "反証可能主張 F6: 機関 j × 四半期 t について Pearson 相関 corr(ĥ_{jt}, σ_{ΔPRS_{jt}}) > 0 — 境界がぼけている時期 (ĥ 大) ほど PRS 一階差分の rolling 標準偏差が大きい、すなわち境界鋭さは識別不能ではなく経験的に testable。Tier B (Ch 26b OSF 事前登録、D-031)",
+      "反証可能主張 F6: 機関 j × 四半期 t について Pearson 相関 corr(ĥ_{jt}, σ_{ΔSPS_{jt}}) > 0 — 境界がぼけている時期 (ĥ 大) ほど SPS 一階差分の rolling 標準偏差が大きい、すなわち境界鋭さは識別不能ではなく経験的に testable。Tier B (Ch 26b OSF 事前登録、D-031)",
       "Klepper (D-035, h↓0) / Murmann (D-037, h↑∞) / ファジー境界 (D-040, 0 < h < ∞) の三件は h-spectrum を形成する単一族の異なる実現値であり、Ch 10.8 が補間正準オーナー (D-040 確定) として Book II の整合性を保つ"
     ],
     "logical_arc": "節頭ストーリー §10.8.0 で TIEM 型のシャープな撤退と CLG 型の段階的フェードを匿名化対比し『観察者には別現象に見えるが同一族の両端極限である』という本章の中核主張を提示 → §10.8.1 で定義 6.1 と命題 6.1 を Zadeh fuzzy sets / Donoho-Johnstone soft thresholding / Black-Rangarajan GNC の連続化系譜に接続して核関数族の数学的正当性と両極限収束を証明スケッチ (完全証明は付録 A、D-047) → §10.8.2 で Bai-Perron 多重分断検定により h と境界幅区間が一致推定可能であることを命題 6.2 として確立し、観測者が ĥ の信頼区間から境界の crispness を定量判定できる (識別不能主張への反論) ことを現場可読な言葉で示す → §10.8.3 で反証可能主張 F6 を提示し Ch 11 BVAR (kernel 選択 + panel-Bai-Perron + ĥ_{jt} posterior + F6 準備) / Ch 26b (OSF Tier B 事前登録) / Book III TIEM (h小) vs CLG (h大) 各 PJ への commission を分離して渡し、章末で D-040 オーナーシップと D-035/D-037/D-040 連続 spectrum 主張を再宣言して Ch 10.9 への bridge を打つ",
@@ -23,7 +23,7 @@
         "D-035 Klepper / D-037 Murmann / D-040 ファジー境界の三件は連続 spectrum を形成し、本章はその補間理論の正準オーナー宣言を担う"
       ],
       "paragraph_outline": [
-        "節頭ストーリー第 1 場面: ある産業の TIEM 型 PJ (匿名化) で、PRS 撤退判定がある月を境にシャープに不連続に確定し、統合ハザード τ_B が階段状に立ち上がった観察を提示 (Ch 10.5 経由参照)。観察者からは『境界はシャープ』に見える",
+        "節頭ストーリー第 1 場面: ある産業の TIEM 型 PJ (匿名化) で、SPS 撤退判定がある月を境にシャープに不連続に確定し、統合ハザード τ_B が階段状に立ち上がった観察を提示 (Ch 10.5 経由参照)。観察者からは『境界はシャープ』に見える",
         "節頭ストーリー第 2 場面: 隣接 type の CLG 型 PJ (匿名化) で、同種の撤退判定が 8 四半期かけて段階的にフェードした観察を対置 (Ch 11.5 経由参照)。同じ観察者からは『境界はぼけている』に見える",
         "問題提起 par: Ch 10.5 (Klepper 入れ子) は τ_B 不連続を前提とし、Ch 11.5 (Murmann wave) は滑らかな段階を前提とする。両者を別理論として並置すると Book II 全体の整合性が破れる — D-035 / D-037 / D-040 連続 spectrum 主張が成立しない",
         "Ch 10.8 の宣言 par: 核関数 K と境界鋭さ parameter h を持つ族 B_h(t) = K((t − t*_mid)/h) を導入し、h↓0 が Ch 10.5、h↑∞ が Ch 11.5 に対応する補間理論として両章を統一する。BOOK_DECISIONS.md D-040 の確定『Ch 10.8 = ファジー境界 h パラメータ族 (C6) の正準オーナー』を本節冒頭で明示",
@@ -123,7 +123,7 @@
         "Hannan-Quinn 採用の正当化: BIC は分断数を過小評価、AIC は過大評価、Hannan-Quinn が中間で誤判定率制御に優れる (Bai-Perron 2003 JAE 推奨、Hannan-Quinn 1979 JRSS-B 原典)"
       ],
       "paragraph_outline": [
-        "設定段落: 観測 PRS 時系列 {ΔPRS_{jt}}_{t=1}^T を機関 j × 四半期 t のパネルで取り、構造変化点 m 個を持つ Bai-Perron モデル y_{jt} = μ_j + β_j · B_h(t; t*_mid_j) + ε_{jt} を当てはめる。各分断点の信頼区間が境界幅 [t*_start, t*_end] に対応",
+        "設定段落: 観測 SPS 時系列 {ΔSPS_{jt}}_{t=1}^T を機関 j × 四半期 t のパネルで取り、構造変化点 m 個を持つ Bai-Perron モデル y_{jt} = μ_j + β_j · B_h(t; t*_mid_j) + ε_{jt} を当てはめる。各分断点の信頼区間が境界幅 [t*_start, t*_end] に対応",
         "命題 6.2 statement par: T → ∞ で (i) ĥ_{jt} →ᵖ h_{jt} (一致推定)、(ii) (t̂*_start, t̂*_end) の信頼区間は Andrews (1993) sup-Wald 漸近棄却域で T^{1/2} order 精度で構成可能 (Bai-Perron 1998 Theorem 3 系)、(iii) Hansen (2000) JE threshold bootstrap で有限サンプル補正可能。完全証明は付録 A.6.3 に委譲 (D-047)、Assumption A1-A6 (Bai-Perron 1998) は条件名のみ本文・列挙は付録",
         "Bai-Perron 手続き 3 段階 par: (1) sup-F_T(ℓ+1|ℓ) 統計量で帰無『分断 ℓ 個』を逐次棄却、(2) 分断数 m を Hannan-Quinn 情報量規準で選定、(3) 各分断点近傍で核関数 K を局所 fit して h を最尤推定。Bai (1997) JBES の単一分断漸近を多重に拡張",
         "変換 mapping par: 推定された境界幅区間から ĥ_{jt} = (t̂*_end − t̂*_start)/(2c) で h を operational に取り出す (c は P-008b で確定する K に対応)。例: K = Gaussian-CDF で 95% 区間なら c = 1.96 (B 案 graft)",
@@ -167,15 +167,15 @@
       "pages": 1.5,
       "math_level": "mid (Fisher-z 検定統計量、Tier B 事前登録手続き概要、commission リスト)",
       "anchor_claims": [
-        "反証可能主張 F6: 機関 j × 四半期 t について Pearson 相関 corr(ĥ_{jt}, σ_{ΔPRS_{jt}}) > 0 (境界がぼけている時期 = ĥ 大ほど PRS 一階差分の rolling 標準偏差 σ が大)。検定統計量は Fisher-z 変換、有意水準と多重比較補正は Ch 26b 事前登録時に確定",
+        "反証可能主張 F6: 機関 j × 四半期 t について Pearson 相関 corr(ĥ_{jt}, σ_{ΔSPS_{jt}}) > 0 (境界がぼけている時期 = ĥ 大ほど SPS 一階差分の rolling 標準偏差 σ が大)。検定統計量は Fisher-z 変換、有意水準と多重比較補正は Ch 26b 事前登録時に確定",
         "F6 は Tier B (Ch 26b OSF 事前登録、D-031) に commission、本章 Ch 10.8 本体は Tier A (定義 6.1 + 命題 6.1 + 命題 6.2)",
         "Ch 11 commission 4 項目: (i) kernel K の Gaussian-CDF / logistic 確定 (P-008b)、(ii) bandwidth h の data-driven 選択 (Mallows Cp / cross-validation)、(iii) panel-Bai-Perron による ĥ_{jt} 時系列推定 + Bayesian prior 変換 + posterior、(iv) F6 検定の事前登録準備",
         "Book III 各 PJ で ĥ を spectrum 上位置付け指標として活用: TIEM 型は ĥ↓0 寄り (シャープ撤退) 事例、CLG 型は ĥ↑∞ 寄り (段階的フェード) 事例として h パラメータ族の両端を実証",
         "D-035 / D-037 / D-040 連続 spectrum 主張も反証可能: TIEM PJ と CLG PJ の ĥ_{jt} 信頼区間が完全重複 (統計的に区別不能) なら二極補間の意義喪失"
       ],
       "paragraph_outline": [
-        "反証可能主張 F6 formal statement par: H_0: corr(ĥ_{jt}, σ_{ΔPRS_{jt}}) ≤ 0 vs H_1: corr > 0。データは Ch 11 BVAR 推定の機関 × 四半期 panel、σ_{ΔPRS_{jt}} は Ch 5 PRS の四半期一階差分の rolling 標準偏差。検定統計量は Fisher-z 変換 (Spearman 順位相関で頑健性確認)、有意水準 (α=0.05 片側候補) と多重比較補正方針は Ch 26b 事前登録時に確定",
-        "F6 の non-trivial 反証可能性 par: (a) §10.8.2 命題 6.2 で ĥ_{jt} が一致推定可能、(b) σ_{ΔPRS_{jt}} は Ch 5 既出の観測量、(c) 両者の相関の符号は境界ぼけ → 制度 crispness 低下 → PRS 不安定化という理論的予測で正と予測される。F6 棄却なら『境界鋭さ h は識別不能』というより強い帰無に戻る危険 (B 案 graft) — Tier B 事前登録の意義が読者に伝わる",
+        "反証可能主張 F6 formal statement par: H_0: corr(ĥ_{jt}, σ_{ΔSPS_{jt}}) ≤ 0 vs H_1: corr > 0。データは Ch 11 BVAR 推定の機関 × 四半期 panel、σ_{ΔSPS_{jt}} は Ch 5 SPS の四半期一階差分の rolling 標準偏差。検定統計量は Fisher-z 変換 (Spearman 順位相関で頑健性確認)、有意水準 (α=0.05 片側候補) と多重比較補正方針は Ch 26b 事前登録時に確定",
+        "F6 の non-trivial 反証可能性 par: (a) §10.8.2 命題 6.2 で ĥ_{jt} が一致推定可能、(b) σ_{ΔSPS_{jt}} は Ch 5 既出の観測量、(c) 両者の相関の符号は境界ぼけ → 制度 crispness 低下 → SPS 不安定化という理論的予測で正と予測される。F6 棄却なら『境界鋭さ h は識別不能』というより強い帰無に戻る危険 (B 案 graft) — Tier B 事前登録の意義が読者に伝わる",
         "Tier 規律確認 par: D-031 に従い、本章本体は Tier A (定義 + 命題 + 一致推定)、F6 は Ch 26b Tier B OSF 事前登録に逃がす。本章は Fisher-z statement までで止め、F6 効果量 (最小実質的差) / 必要サンプル数 / 多重比較補正は Ch 26b に完全委譲することを明示",
         "Ch 11 commission 4 項目 par: (i) kernel K の Gaussian-CDF / logistic 確定 — P-008b でまさ判断、Ch 11 BVAR 実装時に Mallows Cp / cross-validation でデータ駆動選択、(ii) bandwidth h の data-driven 選択、(iii) panel-Bai-Perron による ĥ_{jt} 推定 + Bayesian prior 変換 + posterior + 信頼区間出力、(iv) F6 検定の事前登録準備 (検定統計量計算手順の標準化)。Ch 11.5 滑らかな登録簿との接続を明示 (B 案 graft)",
         "Ch 26b commission par: F6 を OSF preregistration protocol (Nosek et al. 2018) に登録、サンプル取得期間・除外基準・統計手続き・棄却閾値・多重比較補正・効果量の最小実質的差を確定する作業を Ch 26b に委譲。Tier B 規律 (D-031) 準拠",
@@ -184,12 +184,12 @@
         "章末まとめ par: D-040 (Ch 10.8 = ファジー境界 h パラメータ族の正準オーナー) を再宣言、D-035 (Klepper, h↓0) / D-037 (Murmann, h↑∞) / D-040 (ファジー境界, 0 < h < ∞) の三件が連続 spectrum を形成することを最終確認。§10.8.0 節頭での宣言と二度宣言する伏線回収構造で章を閉じ、Ch 10.9 (Ch 10 章末統合) への接続を予告"
       ],
       "new_writing_required": "F6 formal statement + Fisher-z + non-trivial 反証可能性 3 点正当化、Tier 規律確認、Ch 11 commission 4 項目、Ch 26b commission、Book III TIEM/CLG ブリッジ、spectrum 主張経験的反証、章末 D-040 二度宣言は全て新規。1.5p",
-      "existing_reuse": "Ch 5 PRS 定義と σ_{ΔPRS} の表記、Ch 26b OSF 事前登録手続きの既存テンプレ、D-031 Tier 規律の既存記述、§10.8.0 D-040 宣言の伏線回収、§10.8.1 定義 6.1、§10.8.2 ĥ_{jt} 推定手続き",
+      "existing_reuse": "Ch 5 SPS 定義と σ_{ΔSPS} の表記、Ch 26b OSF 事前登録手続きの既存テンプレ、D-031 Tier 規律の既存記述、§10.8.0 D-040 宣言の伏線回収、§10.8.1 定義 6.1、§10.8.2 ĥ_{jt} 推定手続き",
       "upstream_dependencies": [
         "§10.8.0 (D-040 宣言の伏線、二度宣言回収先)",
         "§10.8.1 (定義 6.1 h パラメータ族)",
         "§10.8.2 (ĥ_{jt} 一致推定可能性 — F6 testable の前提)",
-        "Ch 5 (PRS 定義と σ_{ΔPRS})",
+        "Ch 5 (SPS 定義と σ_{ΔSPS})",
         "D-031 Tier 規律 / D-040 オーナーシップ / D-047 証明委譲方針"
       ],
       "downstream_dependencies": [
@@ -204,7 +204,7 @@
         "Nosek et al. (2018) The preregistration revolution, PNAS 115: 2600-2606",
         "BOOK_DECISIONS.md D-031, D-035, D-037, D-040, D-047, D-051",
         "P-008b (kernel 選択まさ判断)",
-        "Ch 5 PRS 章自己参照",
+        "Ch 5 SPS 章自己参照",
         "Ch 26b Tier B 事前登録章自己参照",
         "Ch 11.5 / Ch 11.6 自己参照"
       ],
@@ -268,7 +268,7 @@
     }
   ],
   "falsifiable_claims": [
-    "F6 (本章で正式提示、Ch 26b で Tier B OSF 事前登録): 機関 j × 四半期 t について Pearson 相関 corr(ĥ_{jt}, σ_{ΔPRS_{jt}}) > 0。データは Ch 11 BVAR 推定の panel 出力、σ_{ΔPRS_{jt}} は Ch 5 PRS 一階差分の rolling 標準偏差、検定統計量は Fisher-z 変換 (Spearman 順位相関で頑健性確認)、棄却閾値・多重比較補正は Ch 26b 事前登録時に確定。棄却された場合は『境界鋭さ h は識別不能』というより強い帰無に戻る (Tier B 規律、D-031)",
+    "F6 (本章で正式提示、Ch 26b で Tier B OSF 事前登録): 機関 j × 四半期 t について Pearson 相関 corr(ĥ_{jt}, σ_{ΔSPS_{jt}}) > 0。データは Ch 11 BVAR 推定の panel 出力、σ_{ΔSPS_{jt}} は Ch 5 SPS 一階差分の rolling 標準偏差、検定統計量は Fisher-z 変換 (Spearman 順位相関で頑健性確認)、棄却閾値・多重比較補正は Ch 26b 事前登録時に確定。棄却された場合は『境界鋭さ h は識別不能』というより強い帰無に戻る (Tier B 規律、D-031)",
     "命題 6.1 (i) シャープ極限の経験的含意: Ch 10.5 シャープ τ_B モデルを当てはめた機関 j について、Bai-Perron 推定の ĥ_{jt} が 0 に有意に近い (信頼区間が 0 を含む) — 棄却されれば当該機関にシャープモデル自体が不適合 (B 案 graft)",
     "命題 6.1 (ii) 滑らか極限の経験的含意: Ch 11.5 滑らかな登録簿運用を行う機関 j について、Bai-Perron 推定の ĥ_{jt} が標本期間長の有意な fraction を超える (ĥ_{jt} ≫ 0) — 棄却されれば登録簿運用の『滑らかさ』記述が再考対象 (B 案 graft)",
     "命題 6.1 (i)(ii) の収束速度: 実データで ĥ↓0 領域における B_h(t) が Ch 10.5 シャープ τ_B 不連続関数と一致しない (sup_t |B_ĥ(t) − 𝟙{t≥t*_mid}| が予測される収束速度より遅い) 場合に命題 6.1 自体が反証される",
@@ -291,11 +291,11 @@
     },
     {
       "target_chapter": "Ch 26b (Tier B OSF 事前登録)",
-      "what_supplies": "Ch 26b へ渡す: 反証可能主張 F6 (corr(ĥ_{jt}, σ_{ΔPRS_{jt}}) > 0) の formal statement と Fisher-z 検定統計量。Ch 26b で詳細化する項目: 有意水準・多重比較補正・サンプル取得期間・除外基準・効果量の最小実質的差・OSF 登録手順 (Nosek 2018 protocol)"
+      "what_supplies": "Ch 26b へ渡す: 反証可能主張 F6 (corr(ĥ_{jt}, σ_{ΔSPS_{jt}}) > 0) の formal statement と Fisher-z 検定統計量。Ch 26b で詳細化する項目: 有意水準・多重比較補正・サンプル取得期間・除外基準・効果量の最小実質的差・OSF 登録手順 (Nosek 2018 protocol)"
     },
     {
-      "target_chapter": "Ch 5 (PRS 定義)",
-      "what_supplies": "Ch 5 から受け取る: PRS 観測量と σ_{ΔPRS_{jt}} (四半期一階差分の rolling 標準偏差) の表記。Ch 5 へは何も供給しない (一方向 supply)"
+      "target_chapter": "Ch 5 (SPS 定義)",
+      "what_supplies": "Ch 5 から受け取る: SPS 観測量と σ_{ΔSPS_{jt}} (四半期一階差分の rolling 標準偏差) の表記。Ch 5 へは何も供給しない (一方向 supply)"
     },
     {
       "target_chapter": "Ch 5.5 (GO ゲート θ_σ*)",

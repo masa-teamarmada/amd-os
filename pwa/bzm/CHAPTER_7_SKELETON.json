@@ -24,7 +24,7 @@
         "分離膜素材スタートアップの VC 審査会場面 (type 名匿名化、人物名記号化) で、創業者の Grit は明らかに高いが CFO 不在で資金計画が破綻している case を提示し、投資委員の「CFO は雇える」と「あの粘りは雇えない」の二択投資判断が F_cap (委譲可能) と F_char (委譲不可能) の境界画定問題そのものであることを示す。",
         "現場の評価言語 (Grit / リーダーシップ / 経営力 / 実行力) が混在し、何が委譲可能で何が委譲不可能かが切り分けられていない問題を s-survival.md「F の二層 — 替えのきかない核」直観の延長として提起する。",
         "Bernstein 2017 RCT (founder 評価が投資意思決定の支配的シグナル) を引用し、実務側が暗黙に F_char を支配的にみている事実を本章が公理化の対象とする旨を宣言する。",
-        "Ch 2 PRS = P × R × S の S を本章で F へと内側展開し、F = CES(F_char, F_cap; a, ρ) の二層集約を提案する。Ch 8 戦略余力動学 S = Pr(τ_x < τ_y) のための F を本章で供給し、Ch 10.3 で ρ Kmenta 識別、Ch 11 BVAR、Ch 13 BWE 健全型後付け校正、Ch 26b H_C2 commission へと渡す章間配置を予告する。"
+        "Ch 2 SPS = P × R × S の S を本章で F へと内側展開し、F = CES(F_char, F_cap; a, ρ) の二層集約を提案する。Ch 8 戦略余力動学 S = Pr(τ_x < τ_y) のための F を本章で供給し、Ch 10.3 で ρ Kmenta 識別、Ch 11 BVAR、Ch 13 BWE 健全型後付け校正、Ch 26b H_C2 commission へと渡す章間配置を予告する。"
       ],
       "paragraph_outline": [
         "パラグラフ 1: 分離膜素材スタートアップ審査会場面 (type 名のみ匿名化、人物名 A 氏 / B 投資委員等に記号化) — PoC 通過 / Series A 検討 / 三年後の事業停止までの時系列要約。",
@@ -32,18 +32,18 @@
         "パラグラフ 3: 別の投資委員の反論「いや、CFO 不在で資金計画が立てられないなら、粘りも空回りする。両方ないと意味がない」を引用し、F_char × F_cap の補完性 (ρ<0) の直観が現場でも語られていることを示す。",
         "パラグラフ 4: 現場の評価言語 (Grit / リーダーシップ / 経営力 / 実行力 / Authenticity) が混在し、何が委譲可能で何が委譲不可能かが切り分けられていない問題を提起する。",
         "パラグラフ 5: Bernstein, Korteweg & Laws 2017 JF RCT (founder シグナル支配) を引用し、実務側が無意識に F_char を支配的扱いしている事実を §7.2 境界画定と §7.3 事前分布 (a > 0.5 弱情報) の根拠として位置づける。",
-        "パラグラフ 6: Ch 2 PRS = P×R×S の S を本章で F へと内側展開する宣言。F = CES(F_char, F_cap; a, ρ) の二層集約形式を提案する。",
+        "パラグラフ 6: Ch 2 SPS = P×R×S の S を本章で F へと内側展開する宣言。F = CES(F_char, F_cap; a, ρ) の二層集約形式を提案する。",
         "パラグラフ 7: 本章の役割 — F-CES 形式 (§7.1) + 三層境界画定 (§7.2) + Bayesian posterior 校正 (§7.3) + 心理測定 defense (§7.4) + 後付け校正サンプル (§7.5) — を箇条で予告する。",
-        "パラグラフ 8: 章間 supply/receive を箇条で明示 — 受け取り (Ch 2 PRS / Ch 5 σ_SU / Ch 6 PRS 期待値分解)、引き渡し (Ch 8 戦略余力動学 / Ch 10.3 ρ Kmenta 識別 / Ch 11 BVAR / Ch 13 BWE / Ch 12 TIEM / Ch 16 CTB / Ch 26b H_C2 commission)。",
+        "パラグラフ 8: 章間 supply/receive を箇条で明示 — 受け取り (Ch 2 SPS / Ch 5 σ_SU / Ch 6 SPS 期待値分解)、引き渡し (Ch 8 戦略余力動学 / Ch 10.3 ρ Kmenta 識別 / Ch 11 BVAR / Ch 13 BWE / Ch 12 TIEM / Ch 16 CTB / Ch 26b H_C2 commission)。",
         "パラグラフ 9: D-006 規律の宣言 — 数値 (a=0.6, ρ=-2) は §7.5 illustrative 出力としてのみ登場し、Book 0 / I / III 章アンカーには持ち込まないこと、本章 Tier A の範囲 (D-031) と Tier B 部分 (H_C2 commission) の境界を明示する。",
         "パラグラフ 10: 章頭フックの締め — 「替えのきく能力」と「替えのきかない核」の切り分け語彙を本章が CES 集約 + 三層境界画定 + Bayesian posterior という三つの形式装置で提供することを宣言する。"
       ],
       "new_writing_required": "全面新規執筆 2.5p。s-survival.md の「F の二層」直観を Tier 3 学術化トーンに書き換えつつ、分離膜審査会の二択投資判断 (C 案の生々しさ) を新規描写する。",
       "existing_reuse": "pwa/bzm/s-survival.md §「S を支える三要素」+「F の二層 — F_char + F_cap」+「合成は両方ないと成立しない CES」の motivation 部分を 0.7p 圧縮再利用 (数値は §7.5 まで遅延)。",
       "upstream_dependencies": [
-        "Ch 2 PRS = P × R × S の S 定義",
+        "Ch 2 SPS = P × R × S の S 定義",
         "Ch 5 σ_SU 形式",
-        "Ch 6 PRS 期待値分解"
+        "Ch 6 SPS 期待値分解"
       ],
       "downstream_dependencies": [
         "§7.1 F-CES 形式定義への motivation 接続",
@@ -156,8 +156,8 @@
       "existing_reuse": "pwa/bzm/s-survival.md「替えのきかない核」の直観を delegation operator D 公理 + 三基準操作化の二層で形式化 (0.5p 再利用)。",
       "upstream_dependencies": [
         "§7.1 F-CES 形式定義 + 内側 CFA/Markov",
-        "Ch 2 PRS = P×R×S",
-        "Ch 6 PRS 期待値分解"
+        "Ch 2 SPS = P×R×S",
+        "Ch 6 SPS 期待値分解"
       ],
       "downstream_dependencies": [
         "§7.3 校正手続きでの ρ 推定 + 事前分布 a ~ Beta(2,2) の根拠供給",
@@ -189,7 +189,7 @@
       "math_level": "高 (Bayesian inference + 事前分布設計 + Stan/NUTS 実装基準 + horse-race 四系統評価 + Kmenta 概略)",
       "anchor_claims": [
         "F-CES (a, ρ) は Bayesian posterior として推定する (D-032)。事前分布 a ~ Beta(2,2) (中立 + Bernstein 2017 整合の弱情報的)、ρ ~ Normal(-1, 1.5) on (-∞, 1] (Inada コーナー側にやや弱い + Nelson-Winter 復権余地 P(ρ≥0)>0.05 を残す均衡設計)。",
-        "proxy 構築: F_char proxy = ALQ4 二階因子 + Grit + Resilience の標準化合成、F_cap proxy = 経験順序 (Markov 遷移指標) + 補完成功 (co-founder fit) の標準化合成、F proxy = 5 年生存 × ARR 成長率 (Ch 6 PRS 期待値分解との整合性は open_issue)。",
+        "proxy 構築: F_char proxy = ALQ4 二階因子 + Grit + Resilience の標準化合成、F_cap proxy = 経験順序 (Markov 遷移指標) + 補完成功 (co-founder fit) の標準化合成、F proxy = 5 年生存 × ARR 成長率 (Ch 6 SPS 期待値分解との整合性は open_issue)。",
         "Stan/NUTS 実装健全性基準: 4 chains / warmup 2000 / sample 2000 / R̂ < 1.01 / ESS > 400 を本章で規律化する。posterior 事後中央値 + 95% / 90% / 50% 信用区間の階層提示。",
         "horse-race を 4 モデル (M1 CES ρ free / M2 Cobb-Douglas ρ=0 / M3 Leontief ρ→-∞ 近似 / M4 加法的 ρ=1) で WAIC + LOO + Bayes factor + 事後モデル確率の四系統評価。BF(M1 vs M2) > 3 かつ BF(M1 vs M4) > 3 を CES 一般形支配の閾値とする。",
         "ρ Kmenta 1967 二次モーメント識別 (C2) の概略を §7.3 末で 1 段落フラッシュ、識別の正準オーナー = Ch 10.3 (D-038) への分担を明示する。本章は校正フレーム (事前 + 尤度 + 事後 + horse-race) のみ。",

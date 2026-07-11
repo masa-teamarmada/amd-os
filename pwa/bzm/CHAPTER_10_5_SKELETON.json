@@ -9,7 +9,7 @@
       "対称二相と Ch 10.4 Theorem 3 の直交性 (D-039 分担): Ch 10.4 Theorem 3 = 二層 (micro-meso, meso-macro) 非可換性 = 空間軸、Ch 10.5 命題 5 = pre-B/post-B 時間軸接続点不連続 = 時間軸。両者は直交し、対称二相は Theorem 3 の時間軸断面として読むことも可能",
       "Ch 11 / Ch 26b / Book III commission: h_pre / h_post 分離推定は Ch 11 BVAR + jump (τ_B 内生 jump) + gate (GO ゲート θ_σ*) で Andersen-Gill 計数過程 + 区分別 Cox 部分尤度として実装、命題 5 符号条件は Ch 26b で OSF 事前登録 (D-031 Tier B)、Book III 8 PJ 後付け校正は TIEM (Δ log h < 0) / CTB (Δ log h > 0) / CLG (Δ log h ≈ 0) の三類型として配置"
     ],
-    "logical_arc": "§10.5.0 節頭ストーリー (匿名 SU 二事例 = τ_B 前 F_char 蓄積失敗で撤退 vs τ_B 通過後 5 年生存、Klepper 単独読みの観測限界の直感、TIEM/CTB の後付け校正対象としての予告) → §10.5.1 統合ハザード formal 定義 (D-051 記号継承宣言、停止時刻 τ_B の F_t 適合性、h_pre Cox 比例ハザード型 λ_pre(t)·exp(β_pre^T·x_pre) の Ch 5 σ_SU MS-SSM からの再表現、h_post Klepper 密度依存型 h_0(t)·exp(α_0 + α_1·N(t) + α_2·x(t)) の Ch 9 ERS 拡張、区分連続性と well-definedness の Andersen-Gill + Doob-Meyer 分解による基礎付け、Ch 10.4 Theorem 3 との直交性明示、θ パラメータ整理表と frailty 拡張予告) → §10.5.2 命題 4 (F_char → 1 極限での h_pre degenerate と Klepper 縮退、strict 強拡張性、Jovanovic は α_1 = 0 special case として位置付け) と 命題 5 (Δ log h 符号判定式 sgn(...) = sgn(α_1·N − Var·ρ) の formal 導出、3 領域 (正/負/中立) のソフトランディング/ハードランディング/観察等価境界としての解釈、TIEM/CTB/CLG への符号レジーム三分対応、Tauchen-Hussey 離散化での一次条件評価、Pakes-Ericson / Nelson-Winter position マップ) → §10.5.3 系 (Klepper 下方バイアス ĥ_Klepper = h_post − g(t)·∫_0^{τ_B} h_pre ds の閉形、Klepper-Simons/Thompson 再校正 agenda)、Ch 11 BVAR + jump + gate 分離推定 commission、Ch 26b 命題 5 符号条件 OSF 事前登録 commission (Tier B)、Book III 8 PJ (TIEM/CTB/CLG) 後付け校正写像表、章末 bridge (Ch 10.6 Malerba SSI / Ch 10.7 Murmann 双方向 coupling へ、Nelson-Winter 選抜環境階段関数として τ_B 不連続を読む進化経済学正典への位置付け)。完全証明は付録 A (D-047)。",
+    "logical_arc": "§10.5.0 節頭ストーリー (匿名 SU 二事例 = τ_B 前 F_char 蓄積失敗で撤退 vs τ_B 通過後 5 年生存、Klepper 単独読みの観測限界の直感、TIEM/CTB の後付け校正対象としての予告) → §10.5.1 統合ハザード formal 定義 (D-051 記号継承宣言、停止時刻 τ_B の F_t 適合性、h_pre Cox 比例ハザード型 λ_pre(t)·exp(β_pre^T·x_pre) の Ch 5 σ_SU MS-SSM からの再表現、h_post Klepper 密度依存型 h_0(t)·exp(α_0 + α_1·N(t) + α_2·x(t)) の Ch 9 ECR 拡張、区分連続性と well-definedness の Andersen-Gill + Doob-Meyer 分解による基礎付け、Ch 10.4 Theorem 3 との直交性明示、θ パラメータ整理表と frailty 拡張予告) → §10.5.2 命題 4 (F_char → 1 極限での h_pre degenerate と Klepper 縮退、strict 強拡張性、Jovanovic は α_1 = 0 special case として位置付け) と 命題 5 (Δ log h 符号判定式 sgn(...) = sgn(α_1·N − Var·ρ) の formal 導出、3 領域 (正/負/中立) のソフトランディング/ハードランディング/観察等価境界としての解釈、TIEM/CTB/CLG への符号レジーム三分対応、Tauchen-Hussey 離散化での一次条件評価、Pakes-Ericson / Nelson-Winter position マップ) → §10.5.3 系 (Klepper 下方バイアス ĥ_Klepper = h_post − g(t)·∫_0^{τ_B} h_pre ds の閉形、Klepper-Simons/Thompson 再校正 agenda)、Ch 11 BVAR + jump + gate 分離推定 commission、Ch 26b 命題 5 符号条件 OSF 事前登録 commission (Tier B)、Book III 8 PJ (TIEM/CTB/CLG) 後付け校正写像表、章末 bridge (Ch 10.6 Malerba SSI / Ch 10.7 Murmann 双方向 coupling へ、Nelson-Winter 選抜環境階段関数として τ_B 不連続を読む進化経済学正典への位置付け)。完全証明は付録 A (D-047)。",
     "synthesis_rationale": "三審 (judge A B 推し、judge B C 推し、judge C C 推し) は overall_winner 投票が 2-1 で C 案、評点も C 8.4 > B 7.5-7.8 > A 7.5-7.8 と C 案優位。骨格は C 案 (Ch 10.4 Theorem 3 との直交性明示 / Ch 10.6-10.7 bridge / Klepper 系列再校正 agenda / TIEM-CTB-CLG 符号レジーム三分対応 / Tauchen-Hussey 離散化) を採用。A 案からは命題 5 closed-form 符号判定式 sgn(...) = sgn(...) の formal 記法、Jovanovic = α_1=0 special case position マップ、BZM vs Klepper-only OOS 対数尤度の反証条件、ソフトランディング/ハードランディング命名を graft。B 案からは Andersen-Gill Doob-Meyer 分解による well-definedness 論証、停止時刻 τ_B の F_t 適合性独立段落、h_pre Cox 比例ハザード型 λ_pre·exp(β^T·x) の明示記法、中立条件 Δ log h = 0 を BZM/Klepper 観察等価境界 = Ch 11 識別 1 次条件として読む sharp 解釈、frailty 拡張可能性予告、Lancaster (1990) / Aalen-Borgan-Gjessing (2008) survival analysis reference、選抜バイアス補正項 g(t) の明示を graft。これにより C 案の Lens C masa-fidelity (Ch 5/5.5/Book III 結合) と Lens B publishability (Cambridge UP + ICC reviewer 期待) を保ちつつ、A の formal 厳密性と B の数学装備を吸収した最強配置となる。§10.5.3 が C 案で 1p 詰め込みだった問題は、Book III 後付け校正写像表を表形式で簡潔化し本文負荷を下げる。配分は §10.5.0 = 1p / §10.5.1 = 2.5p / §10.5.2 = 2.5p / §10.5.3 = 1p の 7p heavy 章。"
   },
   "sections": [
@@ -68,16 +68,16 @@
       "anchor_claims": [
         "統合ハザード h(t,n;θ) = 𝟙{t<τ_B}·h_pre(t,n;θ_pre) + 𝟙{t≥τ_B}·h_post(t,n;θ_post) は (Ω, F_t, P) 上の区分連続ハザード過程として well-defined であり、累積ハザード H(t,n;θ) = ∫_0^t h(s,n;θ) ds は τ_B で連続だが対数導関数 d log h / dt は不連続",
         "τ_B は Ch 5.5 GO ゲート θ_σ* に従う F_t 適合確率的停止時刻 τ_B = inf{t : θ_σ(t) ≥ θ_σ*} であり、外生固定値ではない",
-        "h_pre は Ch 5 σ_SU MS-SSM の τ_B 到達失敗ハザードを Cox 比例ハザード型 h_pre(t,n;θ_pre) = λ_pre(t)·exp(β_pre^T·x_pre(n,t)) で再表現した BZM 固有相 (x_pre は F_char, F_cap, ERS 環境変数の関数)",
-        "h_post は Klepper (1996) 密度依存寡占淘汰ハザード h_post(t,n;θ_post) = h_0(t)·exp(α_0 + α_1·N(t) + α_2·x_post(n,t)) を Ch 9 ERS 環境変数で拡張した形 (α_1 < 0 が混雑効果係数、N(t) は産業内企業数、h_0(t) は産業ライフサイクル baseline)",
+        "h_pre は Ch 5 σ_SU MS-SSM の τ_B 到達失敗ハザードを Cox 比例ハザード型 h_pre(t,n;θ_pre) = λ_pre(t)·exp(β_pre^T·x_pre(n,t)) で再表現した BZM 固有相 (x_pre は F_char, F_cap, ECR 環境変数の関数)",
+        "h_post は Klepper (1996) 密度依存寡占淘汰ハザード h_post(t,n;θ_post) = h_0(t)·exp(α_0 + α_1·N(t) + α_2·x_post(n,t)) を Ch 9 ECR 環境変数で拡張した形 (α_1 < 0 が混雑効果係数、N(t) は産業内企業数、h_0(t) は産業ライフサイクル baseline)",
         "本定式化は Andersen-Gill 多イベント計数過程 + Doob-Meyer 分解として埋め込み可能で、compensator が ∫_0^t h(s,n;θ) ds と書ける (Ch 11 BVAR + jump + gate 推定への bridge)",
         "対称二相 = Ch 10.4 Theorem 3 (二層非可換性 = 空間軸) の時間軸断面、D-039 分担: Ch 10.4 = 空間軸 (micro-meso, meso-macro 非可換性)、Ch 10.5 = 時間軸 (pre-B / post-B 接続点不連続) として直交"
       ],
       "paragraph_outline": [
         "§10.5.1.1 記号継承宣言 (D-051 正本準拠) — h, h_pre, h_post, τ_B, n (個別企業状態), N (産業内企業数), θ = (θ_pre, θ_post, τ_B), α_0, α_1 (Klepper 混雑係数), α_2, ρ_F-CES (F-CES 弾力性), σ_SU, F_char, F_cap の意味を Ch 5/5.5/7/9/10.2 から再掲し本節での用法を確定。記号一覧表を 1 つ提示",
         "§10.5.1.2 停止時刻 τ_B の F_t 適合性 — Ch 5.5 GO ゲート θ_σ(t) がフィルトレーション F_t に適合することを確認し、τ_B = inf{t : θ_σ(t) ≥ θ_σ*} が F_t 停止時刻として well-defined であることを示す (証明スケッチ、完全証明は付録 A、D-047)",
-        "§10.5.1.3 h_pre の formal 定義 — Ch 5 σ_SU MS-SSM の τ_B 到達失敗ハザードを Cox 比例ハザード型 h_pre(t,n;θ_pre) = λ_pre(t)·exp(β_pre^T·x_pre(n,t)) で再表現。x_pre = (F_char(n,t), F_cap(n,t), x_ERS(t)) と分解。Ch 5 命題 5.5 Π^pre との対応を明示。Jovanovic (1982) 学習型退出ハザードとの分担を脚注で明示 (Jovanovic = h_pre の α_1 = 0 special case として位置付け、または σ_SU 状態切替型と独立扱い — open issue として §10.5.2 で確定)",
-        "§10.5.1.4 h_post の formal 定義 — Klepper (1996) 密度依存寡占淘汰ハザード h_post(t,n;θ_post) = h_0(t)·exp(α_0 + α_1·N(t) + α_2·x_post(n,t)) に Ch 9 ERS 環境変数 x_ERS(t) を加えた形。N(t) は post-B 時点の産業内企業数、α_1 < 0 が混雑効果係数、h_0(t) は産業ライフサイクル baseline (Klepper 1996 の inverted-U 形に整合)",
+        "§10.5.1.3 h_pre の formal 定義 — Ch 5 σ_SU MS-SSM の τ_B 到達失敗ハザードを Cox 比例ハザード型 h_pre(t,n;θ_pre) = λ_pre(t)·exp(β_pre^T·x_pre(n,t)) で再表現。x_pre = (F_char(n,t), F_cap(n,t), x_ECR(t)) と分解。Ch 5 命題 5.5 Π^pre との対応を明示。Jovanovic (1982) 学習型退出ハザードとの分担を脚注で明示 (Jovanovic = h_pre の α_1 = 0 special case として位置付け、または σ_SU 状態切替型と独立扱い — open issue として §10.5.2 で確定)",
+        "§10.5.1.4 h_post の formal 定義 — Klepper (1996) 密度依存寡占淘汰ハザード h_post(t,n;θ_post) = h_0(t)·exp(α_0 + α_1·N(t) + α_2·x_post(n,t)) に Ch 9 ECR 環境変数 x_ECR(t) を加えた形。N(t) は post-B 時点の産業内企業数、α_1 < 0 が混雑効果係数、h_0(t) は産業ライフサイクル baseline (Klepper 1996 の inverted-U 形に整合)",
         "§10.5.1.5 区分連結と統合ハザード — h(t,n;θ) = 𝟙{t<τ_B}·h_pre + 𝟙{t≥τ_B}·h_post と書き、θ = (θ_pre, θ_post, τ_B) のパラメータ分解と θ_pre = (β_pre, λ_pre, ρ_F-CES, σ_SU 遷移率, ...) / θ_post = (α_0, α_1, α_2, h_0(t) basis) のキーリスト (Ch 11 推定対象として渡す形)",
         "§10.5.1.6 well-definedness の確認 — 各 ω ∈ Ω に対し h(t,n;θ)(ω) は t について区分連続、可測、非負であることを示し、累積ハザード H(t,n;θ) = ∫_0^t h(s,n;θ) ds が τ_B で連続であることを確認。Δ log h(τ_B) ≡ log h_post(τ_B^+) − log h_pre(τ_B^−) を formal に定義し、Ch 5 命題 5.5 Π^pre/Π^post 利潤不連続との対応を明示",
         "§10.5.1.7 Andersen-Gill 計数過程 + Doob-Meyer 分解への埋め込み — N_i(t) を事業者 i の撤退/退出計数過程とすると、Doob-Meyer 分解により N_i(t) = M_i(t) + ∫_0^t h(s,n;θ) Y_i(s) ds (Y_i はリスク集合指示、M_i はマルチンゲール) と書け、Andersen-Gill 多イベント枠組みの特別ケースとして処理できる。Cox 部分尤度の二相分割が可能 (詳細 protocol は Ch 11 commission)",
@@ -86,12 +86,12 @@
         "§10.5.1.10 Ch 11 推定論への bridge 予告 — θ_pre / θ_post の分離推定は Ch 11 BVAR + jump (τ_B 内生 jump) + gate (GO ゲート θ_σ*) で Andersen-Gill compensator + 区分別 Cox 部分尤度として実装、frailty 拡張と確率的停止時刻下の filtration 細部は Ch 11 推定論で完備化"
       ],
       "new_writing_required": "統合ハザード formal 定義、停止時刻 τ_B の F_t 適合性証明スケッチ、h_pre Cox 比例ハザード型再表現、h_post Klepper 密度依存型拡張、Andersen-Gill 計数過程 + Doob-Meyer 分解埋め込みの導出、Δ log h(τ_B) formal 定義、θ パラメータ整理表、frailty 拡張予告、Ch 10.4 Theorem 3 との直交性明示を全面新規執筆。約 2.5p heavy。証明スケッチ本文 (D-047 に従い完全証明は付録 A)。",
-      "existing_reuse": "Ch 5 σ_SU MS-SSM 関数形 (命題 5.5 Π^pre/Π^post)、Ch 5.5 GO ゲート θ_σ* (τ_B 内生性)、Ch 7 F-CES (F_char, F_cap, ρ_F-CES) 定義、Ch 9 ERS 環境変数 x_ERS、Ch 10.2 Jovanovic 退出ハザード formulation (脚注分担)、Ch 10.4 Theorem 3 記号体系 (直交性明示用)、D-051 記号正本に厳格準拠。",
+      "existing_reuse": "Ch 5 σ_SU MS-SSM 関数形 (命題 5.5 Π^pre/Π^post)、Ch 5.5 GO ゲート θ_σ* (τ_B 内生性)、Ch 7 F-CES (F_char, F_cap, ρ_F-CES) 定義、Ch 9 ECR 環境変数 x_ECR、Ch 10.2 Jovanovic 退出ハザード formulation (脚注分担)、Ch 10.4 Theorem 3 記号体系 (直交性明示用)、D-051 記号正本に厳格準拠。",
       "upstream_dependencies": [
         "Ch 5 σ_SU MS-SSM 命題 5.5",
         "Ch 5.5 τ_B 内生決定 (GO ゲート θ_σ*)",
         "Ch 7 F-CES (F_char, F_cap, ρ_F-CES)",
-        "Ch 9 ERS 環境変数 (post-B の N(t) と x_post 影響)",
+        "Ch 9 ECR 環境変数 (post-B の N(t) と x_post 影響)",
         "Ch 10.2 Jovanovic 退出ハザード (脚注分担)",
         "Ch 10.4 Theorem 3 (直交性明示)",
         "D-051 記号表記正本"
@@ -155,7 +155,7 @@
         "Ch 5 σ_SU MS-SSM 命題 5.5",
         "Ch 5.5 τ_B 内生決定",
         "Ch 7 F-CES (ρ_F-CES 弾力性)",
-        "Ch 9 ERS (N(τ_B^+) 環境決定)",
+        "Ch 9 ECR (N(τ_B^+) 環境決定)",
         "Ch 10.2 Jovanovic 退出ハザード (α_1=0 special case 分担)",
         "Ch 10.4 Theorem 3 (直交性 + Tauchen-Hussey 手法継承)"
       ],
@@ -332,8 +332,8 @@
       "what_supplies": "Ch 10.5 から Ch 7 へは ρ_F-CES (F-CES 弾力性) の正準記号定義と σ_F-CES との非衝突確認を渡す (open issue 1 関連、D-051 記号正本照合)。Ch 7 命題 4 (F_char → 1 特性関数飽和) を命題 4 (Klepper 縮退) の前提として受領"
     },
     {
-      "target_chapter": "Ch 9 ERS 章",
-      "what_supplies": "Ch 10.5 から Ch 9 へは post-B 環境変数 x_post(t) と N(τ_B^+) (産業内企業数の τ_B 直後値) の同定要請を渡す。Ch 9 から Ch 10.5 へは ERS 環境変数が h_post の α_2 共変量として入る形を受領"
+      "target_chapter": "Ch 9 ECR 章",
+      "what_supplies": "Ch 10.5 から Ch 9 へは post-B 環境変数 x_post(t) と N(τ_B^+) (産業内企業数の τ_B 直後値) の同定要請を渡す。Ch 9 から Ch 10.5 へは ECR 環境変数が h_post の α_2 共変量として入る形を受領"
     },
     {
       "target_chapter": "Ch 10.2 Jovanovic 退出ハザード章",

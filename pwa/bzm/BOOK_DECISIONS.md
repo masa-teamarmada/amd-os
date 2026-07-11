@@ -82,14 +82,14 @@
 - **status**: active
 
 ### D-004: 中核命題 (load-bearing) の正準オーナー分担 + 前向き登録簿
-- **judgment**: 本書の中核を支える形式的対象は (1) 二層非可換性定理 [Ch 9 = ERS 加重和代数 / Ch 10.4 = Theorem 3 Arrow スタイル不可能性 + 系 3.1] / (2) GO 演算子最適停止導出 [Ch 5.5] / (3) F-CES 分解 [Ch 7 形式 + Ch 10.3 ρ Kmenta 識別] / (4) Klepper 入れ子 [Ch 10.5] / (5) Malerba SSI 全射 [Ch 10.6] / (6) Murmann 双方向 coupling [Ch 10.7]。加えて (7) 前向き予測登録簿 [Ch 26b]
+- **judgment**: 本書の中核を支える形式的対象は (1) 二層非可換性定理 [Ch 9 = ECR 加重和代数 / Ch 10.4 = Theorem 3 Arrow スタイル不可能性 + 系 3.1] / (2) GO 演算子最適停止導出 [Ch 5.5] / (3) F-CES 分解 [Ch 7 形式 + Ch 10.3 ρ Kmenta 識別] / (4) Klepper 入れ子 [Ch 10.5] / (5) Malerba SSI 全射 [Ch 10.6] / (6) Murmann 双方向 coupling [Ch 10.7]。加えて (7) 前向き予測登録簿 [Ch 26b]
 - **rationale**: 5 経済学者 persona 全員が「load-bearing 形式的対象なしには新領域宣言不可」。Major revision (2026-06-25) で Ch 10 OPENER が load-bearing 中核に昇格し、進化経済への形式接続 3 つ (Klepper / Malerba / Murmann) が並行理論から真の精緻化への移行根拠
 - **applies_to_chapters**: Ch 0.4 (front-load), Ch 5.5, Ch 7, Ch 9, Ch 10.3, Ch 10.4, Ch 10.5, Ch 10.6, Ch 10.7, Ch 26b, Ch 38
 - **date**: 2026-06-27 (supersedes D-004 旧版の中核命題 3 つ)
 - **status**: active
 
 ### D-005: 確定モデル正本所在 (メタ判断)
-- **judgment**: PRS = `pwa/design/amd_score.md`、ERS = `pwa/design/institution_readiness.md`、F-CES / σ_SU / GO / S / Theorem 3 / 統合ハザード / 全射 φ / 双方向 coupling / h パラメータ族 / Andrews-Quandt sup-Wald = `pwa/bzm/2026-06-25_book2_evol_econ_major_revision.md` + Book 0-VI 提案 + BZSF が正本。式そのものは正本 md に置き、L1 §4 表は正準オーナー紐付けのみを管理
+- **judgment**: SPS = `pwa/design/amd_score.md`、ECR = `pwa/design/institution_readiness.md`、F-CES / σ_SU / GO / S / Theorem 3 / 統合ハザード / 全射 φ / 双方向 coupling / h パラメータ族 / Andrews-Quandt sup-Wald = `pwa/bzm/2026-06-25_book2_evol_econ_major_revision.md` + Book 0-VI 提案 + BZSF が正本。式そのものは正本 md に置き、L1 §4 表は正準オーナー紐付けのみを管理
 - **rationale**: 式を L2 にも持つと正本更新時に二重保守。メタ判断 (正本所在) のみ L2 化
 - **applies_to_chapters**: 全 Book、特に Ch 2 / Ch 3 / Ch 5 / Ch 5.5 / Ch 6 / Ch 7 / Ch 8 / Ch 9 / Ch 10
 - **date**: 2026-06-27
@@ -103,8 +103,8 @@
 - **status**: active
 
 ### D-007: 書き順 — Book II Ch 5 → 5.5 → 10.4 → 9 → 7 → 10.3 → 8 → 10.5 → 10.6 → 10.7 → 10.8 → 10.9 → 10.10 → 11 → 11.5 → 6 → Book III → Book 0 → I → IV → V → VI
-- **judgment**: Book II 中核は `Ch 5 → 5.5 → 10.4 (Theorem 3) → 9 (ERS 加重和) → 7 (F-CES 形式) → 10.3 (ρ Kmenta) → 8 → 10.5 (Klepper) → 10.6 (Malerba) → 10.7 (Murmann) → 10.8 (ファジー境界) → 10.9 (試験) → 10.10 (統合) → 11 → 11.5 → 6`、全体は Book II 中核 → Book III → Book 0 → I → IV → V → VI → 付録
-- **rationale**: Ch 10 OPENER が load-bearing 中核に昇格、Ch 10.4 Theorem 3 を Ch 9 ERS 加重和より先行させて Arrow スタイル骨格を立てる。Ch 6 PRS 期待値分解は Ch 7/8/9 で S 内部を展開した後の方が整合的
+- **judgment**: Book II 中核は `Ch 5 → 5.5 → 10.4 (Theorem 3) → 9 (ECR 加重和) → 7 (F-CES 形式) → 10.3 (ρ Kmenta) → 8 → 10.5 (Klepper) → 10.6 (Malerba) → 10.7 (Murmann) → 10.8 (ファジー境界) → 10.9 (試験) → 10.10 (統合) → 11 → 11.5 → 6`、全体は Book II 中核 → Book III → Book 0 → I → IV → V → VI → 付録
+- **rationale**: Ch 10 OPENER が load-bearing 中核に昇格、Ch 10.4 Theorem 3 を Ch 9 ECR 加重和より先行させて Arrow スタイル骨格を立てる。Ch 6 SPS 期待値分解は Ch 7/8/9 で S 内部を展開した後の方が整合的
 - **applies_to_chapters**: 全 Book
 - **date**: 2026-06-27 (supersedes D-007 旧版)
 - **status**: active
@@ -181,7 +181,7 @@
 - **status**: active
 
 ### D-018: Ch 25 を識別から所見提示に縮小
-- **judgment**: Ch 25 を「∂(ΔR/Δt)/∂ERS_k を識別する」方法章から「強い事前分布下の記述的事後分布、illustrative であって識別されていない」所見提示章に縮小、14p (Tier A)
+- **judgment**: Ch 25 を「∂(ΔR/Δt)/∂ECR_k を識別する」方法章から「強い事前分布下の記述的事後分布、illustrative であって識別されていない」所見提示章に縮小、14p (Tier A)
 - **rationale**: DSGE persona critical: 56 セルで 40+ 構造パラメータ識別は構造的に不可能
 - **applies_to_chapters**: Ch 25 (Tier A 確定), Ch 11
 - **date**: 2026-06-25
@@ -223,7 +223,7 @@
 - **status**: active
 
 ### D-024: Ch 8 (x,y) 確率過程を 2D jump-diffusion で明示
-- **judgment**: (x, y) を「drift μ_x(R), μ_y(R_net - B), Brownian Σ, jump intensity λ_x(σ_SU, ERS) と λ_y(B-ショック, Y-001/004/005 級イベント) の 2D jump-diffusion」と明示。Pr(τ_x < τ_y) は Monte Carlo、賭博者破産は stylized スカラー極限
+- **judgment**: (x, y) を「drift μ_x(R), μ_y(R_net - B), Brownian Σ, jump intensity λ_x(σ_SU, ECR) と λ_y(B-ショック, Y-001/004/005 級イベント) の 2D jump-diffusion」と明示。Pr(τ_x < τ_y) は Monte Carlo、賭博者破産は stylized スカラー極限
 - **rationale**: DSGE persona high: Ch 8 は diffusion / Markov chain / heuristic を混在、どれが primitive か不明
 - **applies_to_chapters**: Ch 8, 付録 A
 - **date**: 2026-06-25
@@ -308,14 +308,14 @@
 - **status**: active
 
 ### D-036: Malerba SSI 全射埋め込みの形式接続
-- **judgment**: 全射 `φ: {1..8} → 2^{K,A,I,D,T}` (命題 5.M カバレッジ) + レーン添字付け重み w(L), L ∈ {Deep-tech, Bio, Material} + 事前コミット符号制約 w_2(Bio) > others / w_8(Material) > others / w_6(Deep-tech) > others (Klevorick-Levin-Nelson-Winter 1995 三つ組経由) + 系 5.NW (ERS = N-W 選抜の pre-firm 双対)。正準オーナー = Ch 10.6
+- **judgment**: 全射 `φ: {1..8} → 2^{K,A,I,D,T}` (命題 5.M カバレッジ) + レーン添字付け重み w(L), L ∈ {Deep-tech, Bio, Material} + 事前コミット符号制約 w_2(Bio) > others / w_8(Material) > others / w_6(Deep-tech) > others (Klevorick-Levin-Nelson-Winter 1995 三つ組経由) + 系 5.NW (ECR = N-W 選抜の pre-firm 双対)。正準オーナー = Ch 10.6
 - **rationale**: BZM がレーン横断で Wald 検定可能になる根拠
 - **applies_to_chapters**: Ch 3, Ch 10.6, Book III セクターレーン章, Ch 32
 - **date**: 2026-06-27
 - **status**: active
 
-### D-037: Murmann 双方向 ERS-PRS coupling の形式接続
-- **judgment**: 命題 10.6.3 (η_jt VAR(1) + Ψ·N_jt フィードバック) + 定理 10.6.5 (τ_B での B 卒業数ファジー RD による Ψ identification, Murmann 2003 言語的逆因果交絡を破る) + 系 10.6.4 (Granger リードラグ Cov(η^k_{j,t-1}, ΔPRS_{j,t})>0)。正準オーナー = Ch 10.7
+### D-037: Murmann 双方向 ECR-SPS coupling の形式接続
+- **judgment**: 命題 10.6.3 (η_jt VAR(1) + Ψ·N_jt フィードバック) + 定理 10.6.5 (τ_B での B 卒業数ファジー RD による Ψ identification, Murmann 2003 言語的逆因果交絡を破る) + 系 10.6.4 (Granger リードラグ Cov(η^k_{j,t-1}, ΔSPS_{j,t})>0)。正準オーナー = Ch 10.7
 - **rationale**: BZM が 並行理論 から 真の精緻化 へ移行した中核成果
 - **applies_to_chapters**: Ch 5, Ch 8, Ch 3, Ch 9, Ch 10.7, Ch 22 (地域双対), Ch 34, 付録 A
 - **date**: 2026-06-27
@@ -329,14 +329,14 @@
 - **status**: active
 
 ### D-039: Theorem 3 Arrow スタイル不可能性 (C3) 正準オーナー = Ch 10.4
-- **judgment**: 4 公理 (A1 PRS 消滅 / A2 ERS 単調性 / A3 因果チャネル制限 ∂f/∂A_k = (∂f/∂R)(∂R/∂A_k) + (∂f/∂S)(∂S/∂A_k) / A4 連続性) + 系 3.1 (Simpson 反転 / 四分位不安定性 / Hausman 棄却) + N-W スカラー適合度復権条項。Ch 9 (ERS 加重和代数) を受けて不可能性定理化、両章の役割分担は L1 §16 で明示
+- **judgment**: 4 公理 (A1 SPS 消滅 / A2 ECR 単調性 / A3 因果チャネル制限 ∂f/∂A_k = (∂f/∂R)(∂R/∂A_k) + (∂f/∂S)(∂S/∂A_k) / A4 連続性) + 系 3.1 (Simpson 反転 / 四分位不安定性 / Hausman 棄却) + N-W スカラー適合度復権条項。Ch 9 (ECR 加重和代数) を受けて不可能性定理化、両章の役割分担は L1 §16 で明示
 - **rationale**: D-004 で「中核命題 3 つ」と名前のみだったものを Arrow スタイル不可能性として独立判決化。Cambridge UP 級と進化経済 persona が評価
 - **applies_to_chapters**: Ch 9, Ch 10.4, Ch 25, Ch 26
 - **date**: 2026-06-27
 - **status**: active
 
 ### D-040: シャープ → ファジー境界 h パラメータ族 (C6)
-- **judgment**: 定義 6.1 (B_h(t) = K((t-t*_mid)/h), Gaussian-CDF or logistic) + 命題 6.1 (シャープな C1 = lim h↓0, Ch 11.5 滑らかな極限 = lim h↑∞) + 命題 6.2 (Bai-Perron 1998 多重分断検定で [t*_start, t*_end] を一致推定) + 反証可能主張 F6 (corr(ĥ_i, σ_{ΔPRS,i}) > 0)。正準オーナー = Ch 10.8
+- **judgment**: 定義 6.1 (B_h(t) = K((t-t*_mid)/h), Gaussian-CDF or logistic) + 命題 6.1 (シャープな C1 = lim h↓0, Ch 11.5 滑らかな極限 = lim h↑∞) + 命題 6.2 (Bai-Perron 1998 多重分断検定で [t*_start, t*_end] を一致推定) + 反証可能主張 F6 (corr(ĥ_i, σ_{ΔSPS,i}) > 0)。正準オーナー = Ch 10.8
 - **rationale**: Revision 1 で残った唯一の内的整合性苦情を解消した一手
 - **applies_to_chapters**: Ch 5, Ch 10.8, Ch 11, Ch 11.5
 - **date**: 2026-06-27
@@ -357,7 +357,7 @@
 - **status**: active
 
 ### D-043: Ch 6 を Book II 中核の最後に位置付け
-- **judgment**: 書き順 (D-007) で Ch 6 PRS 期待値分解を Book II 中核の最後 (Ch 11.5 → Ch 6) に位置付け。Ch 7/8/9/10 で S 内部 + 二層構造を展開した後の方が PRS 期待値分解が整合的
+- **judgment**: 書き順 (D-007) で Ch 6 SPS 期待値分解を Book II 中核の最後 (Ch 11.5 → Ch 6) に位置付け。Ch 7/8/9/10 で S 内部 + 二層構造を展開した後の方が SPS 期待値分解が整合的
 - **rationale**: 当初書き順では Ch 6 が Ch 5.5 直後だったが、D-004 で中核命題の正準オーナーが Ch 10 に分散したため、Ch 6 を後置することで前方参照を減らす
 - **applies_to_chapters**: Ch 6, Book II 書き順
 - **date**: 2026-06-27
@@ -386,7 +386,7 @@
 - **status**: active
 
 ### D-047: Book II load-bearing 章の証明深さ = スケッチ本文 + 完全証明付録 A
-- **judgment**: Ch 5 (§5.1 cross-walk 三定理 / §5.2 識別補題 / §5.3 MS-SSM 命題 / §5.4 命題 5.5) および Book II load-bearing 章 (Ch 5.5 GO 演算子 / Ch 7 F-CES / Ch 9 ERS 加重和 / Ch 10.3 ρ Kmenta / Ch 10.4 Theorem 3 / Ch 10.5-10.8 など) の証明は本文ではスケッチ (5-10 行)、完全証明は付録 A 数学補遺に逃がす。§5.1 冒頭で本方針を pre-commit
+- **judgment**: Ch 5 (§5.1 cross-walk 三定理 / §5.2 識別補題 / §5.3 MS-SSM 命題 / §5.4 命題 5.5) および Book II load-bearing 章 (Ch 5.5 GO 演算子 / Ch 7 F-CES / Ch 9 ECR 加重和 / Ch 10.3 ρ Kmenta / Ch 10.4 Theorem 3 / Ch 10.5-10.8 など) の証明は本文ではスケッチ (5-10 行)、完全証明は付録 A 数学補遺に逃がす。§5.1 冒頭で本方針を pre-commit
 - **rationale**: 28p heavy 数学の頁配分上、全証明本文は §5.6 装置適用 demonstration を圧迫し、Triple Helix 文献への貢献 3 点 (§5.7) も短縮を余儀なくされる。Cambridge UP モノグラフの慣例的方針 (証明スケッチ + 詳細付録) とも整合。Ch 5 Kingpin 3 として擦り合わせ確定
 - **applies_to_chapters**: Ch 5, Ch 5.5, Ch 7, Ch 9, Ch 10.3, Ch 10.4, Ch 10.5, Ch 10.6, Ch 10.7, Ch 10.8, 付録 A
 - **date**: 2026-06-27
@@ -414,7 +414,7 @@
 - **status**: active
 
 ### D-051: Book II load-bearing 章の記号表記正本 (C / Π / Σ / κ / θ) を付録 A 冒頭に置く
-- **judgment**: Ch 5 / 5.5 / 9 / 10.4 を含む Book II load-bearing 章の symbol convention 表を付録 A 冒頭に統一配置。C = loading matrix (7×3)、Π = transition matrix (regime switching)、Σ = covariance matrix、κ = mean reversion rate、θ = long-run mean、ω = CD weight (Σω=1)、η_jt = institutional state (8 軸 ERS)
+- **judgment**: Ch 5 / 5.5 / 9 / 10.4 を含む Book II load-bearing 章の symbol convention 表を付録 A 冒頭に統一配置。C = loading matrix (7×3)、Π = transition matrix (regime switching)、Σ = covariance matrix、κ = mean reversion rate、θ = long-run mean、ω = CD weight (Σω=1)、η_jt = institutional state (8 軸 ECR)
 - **rationale**: source draft で H (loading) や Φ (transition) など別表記の散逸を synth が C / Π に統一。Book II 全章で一貫させるため付録 A 冒頭に正本を置く
 - **applies_to_chapters**: Ch 5, Ch 5.5, Ch 9, Ch 10.4, Ch 7, Ch 10.3, Ch 10.5-10.10, Ch 11, Ch 11.5, 付録 A
 - **date**: 2026-06-27
@@ -435,7 +435,7 @@
 - **status**: active
 
 ### D-054: Foster-Lyapunov ergodicity の Book V 受け皿 = Ch 22 (institutional rigidity 動学)
-- **judgment**: Ch 5.4.5 で軽量に提示する Foster-Lyapunov ergodicity と institutional rigidity ρ(A_{s,r}) の本格展開は Book V Ch 22 (institutional rigidity 動学) で扱う。Ch 21 (機関 ERS 観測方程式) とは別
+- **judgment**: Ch 5.4.5 で軽量に提示する Foster-Lyapunov ergodicity と institutional rigidity ρ(A_{s,r}) の本格展開は Book V Ch 22 (institutional rigidity 動学) で扱う。Ch 21 (機関 ECR 観測方程式) とは別
 - **rationale**: synth integration で Book V 受け皿が未確定だったため、Ch 9 / Ch 5.5 supply chain と整合する Ch 22 を受け皿に指定
 - **applies_to_chapters**: Ch 5.4, Ch 22
 - **date**: 2026-06-27
@@ -449,15 +449,15 @@
 - **status**: active
 
 ### D-056: RT (ラウンドテーブル) 組成論を仮説的第三柱として本書に正式組み込み — Ch 9.5 新設 + Book 0 三項構造宣言 + Ch 37.5 自己批判章新設
-- **judgment**: RT 組成論 (BZM 領域8、正本 `BZSF/rt_roundtable_theory.md` v0.2) を本書に正式に組み込む。構成は5点: (1) **Book II に Ch 9.5「ラウンドテーブル — 二層を結合する組成機構」を新設** (28p、load-bearing 形式章の体裁)。内容 = RT 形式定義 (keystone・7ノード・二層経済) / 成立3条件の命題化 (多者性・連鎖性・相互牽制 — ゲーム理論の標準装置による検証不要の純理論部分) / CRL・ICT 観測レンズ / S 動学 (y ジャンプ・λ) への主経路割当接続 / Ψ_j = Ψ̄ + β·ICT_j 分解仮説 (Murmann coupling の法人化前カーネル)。(2) **Book 0 Ch 0.1 で三項構造 (観測二層 PRS/ERS + 結合機構 RT) を宣言**し、Ch 0.4 の貢献リストに RT を「仮説的機構 + 検証プログラム付きの第三の柱」として追加 (貢献の主柱は検証済みの二層観測、RT は仮説と明示)。(3) **Ch 26b に H_RT を「ICT 測定開始の事前登録」として登録** (β 推定の登録はデータが立ってからの追補 — 検定不能仮説を登録簿に置かない)。(4) **Book VI に Ch 37.5「自己批判とオープンプロブレム — 第二版への課題」を新設** (12p)。RT を含む本書全理論の弱点・未検証点・想定されるツッコミを著者自ら列挙し、第二版で解くべき課題として宣言する。(5) Ch 9.5 / Ch 37.5 にも章単位 6 ステージ pipeline (D-014) と 5 経済学者 persona adversarial verify を適用。総ページ 940p → **980p** (Book II 272→300、Book VI 60→72)。
-- **rationale**: まさ確定 2026-07-02: 「RT は BZM のなかでも大きな要素になり得る。PRS・ERS の2つに RT が有機的に絡みついているイメージがあり、しっかり理論として落とし込みたい。retrofit 不足は自認するが仮説としてちゃんと組み入れる」「未検証と正直に言うのは必須。巻末に批判のための章を設けてツッコミを入れるのが健全。そのツッコミをクリアするために第二版を出版する、という流れ = 自分自身に対する課題」。理論的根拠: RT は ERS→PRS 結合の観測可能な機構であり、Ch 10.7 Murmann coupling の機構的中身になる。Murmann 原典は法人設立後の共進化のみ観測しており「法人化前 coupling キャリア」は Before Zero Studies の新規性主張を強化する。RT の主張は (a) 定義・命題 (証明可能な純理論: 逐次参入・情報カスケード・Williamson hostages・参加制約設計) と (b) 実証仮説 (Ch 26b 事前登録) に分解でき、「仮説として一級市民で組み込む」と「検証済みと主張しない」が両立する。オープンプロブレム章は新領域宣言本の王道装置 (領域の研究課題を自ら定義する) であり Tier 規律とも整合。
+- **judgment**: RT 組成論 (BZM 領域8、正本 `BZSF/rt_roundtable_theory.md` v0.2) を本書に正式に組み込む。構成は5点: (1) **Book II に Ch 9.5「ラウンドテーブル — 二層を結合する組成機構」を新設** (28p、load-bearing 形式章の体裁)。内容 = RT 形式定義 (keystone・7ノード・二層経済) / 成立3条件の命題化 (多者性・連鎖性・相互牽制 — ゲーム理論の標準装置による検証不要の純理論部分) / CRL・ICT 観測レンズ / S 動学 (y ジャンプ・λ) への主経路割当接続 / Ψ_j = Ψ̄ + β·ICT_j 分解仮説 (Murmann coupling の法人化前カーネル)。(2) **Book 0 Ch 0.1 で三項構造 (観測二層 SPS/ECR + 結合機構 RT) を宣言**し、Ch 0.4 の貢献リストに RT を「仮説的機構 + 検証プログラム付きの第三の柱」として追加 (貢献の主柱は検証済みの二層観測、RT は仮説と明示)。(3) **Ch 26b に H_RT を「ICT 測定開始の事前登録」として登録** (β 推定の登録はデータが立ってからの追補 — 検定不能仮説を登録簿に置かない)。(4) **Book VI に Ch 37.5「自己批判とオープンプロブレム — 第二版への課題」を新設** (12p)。RT を含む本書全理論の弱点・未検証点・想定されるツッコミを著者自ら列挙し、第二版で解くべき課題として宣言する。(5) Ch 9.5 / Ch 37.5 にも章単位 6 ステージ pipeline (D-014) と 5 経済学者 persona adversarial verify を適用。総ページ 940p → **980p** (Book II 272→300、Book VI 60→72)。
+- **rationale**: まさ確定 2026-07-02: 「RT は BZM のなかでも大きな要素になり得る。SPS・ECR の2つに RT が有機的に絡みついているイメージがあり、しっかり理論として落とし込みたい。retrofit 不足は自認するが仮説としてちゃんと組み入れる」「未検証と正直に言うのは必須。巻末に批判のための章を設けてツッコミを入れるのが健全。そのツッコミをクリアするために第二版を出版する、という流れ = 自分自身に対する課題」。理論的根拠: RT は ECR→SPS 結合の観測可能な機構であり、Ch 10.7 Murmann coupling の機構的中身になる。Murmann 原典は法人設立後の共進化のみ観測しており「法人化前 coupling キャリア」は Before Zero Studies の新規性主張を強化する。RT の主張は (a) 定義・命題 (証明可能な純理論: 逐次参入・情報カスケード・Williamson hostages・参加制約設計) と (b) 実証仮説 (Ch 26b 事前登録) に分解でき、「仮説として一級市民で組み込む」と「検証済みと主張しない」が両立する。オープンプロブレム章は新領域宣言本の王道装置 (領域の研究課題を自ら定義する) であり Tier 規律とも整合。
 - **applies_to_chapters**: Ch 0.1, Ch 0.4, Ch 9.5 (新設), Ch 10.7, Ch 26b, Ch 30, Ch 32, Ch 34, Ch 37.5 (新設), Ch 38, 付録 A
 - **date**: 2026-07-02
 - **status**: active
-- *注: ERS 側接続 (ICT + 最小サブ軸 4-d/2-e/8-b + 二重計上ガード: 排他的主経路割当・take-or-pay 3分割・leave-one-out ERS₋ᵢ・帰属タグ) の正本は `BZSF/rt_roundtable_theory.md` §13.4-13.6 (v0.2)。出版ポートフォリオ側の判例は `BOOKS_PORTFOLIO.md` PF-008。*
+- *注: ECR 側接続 (ICT + 最小サブ軸 4-d/2-e/8-b + 二重計上ガード: 排他的主経路割当・take-or-pay 3分割・leave-one-out ECR₋ᵢ・帰属タグ) の正本は `BZSF/rt_roundtable_theory.md` §13.4-13.6 (v0.2)。出版ポートフォリオ側の判例は `BOOKS_PORTFOLIO.md` PF-008。*
 
 ### D-057: Ch 9.5 節 skeleton 確定 (ステージ2) — Kingpin K1-K8 の裁定
-- **judgment**: Ch 9.5 skeleton v1 (`CHAPTER_9_5_SKELETON.json`、8節 28.0p) を確定。Kingpin 8件はすべて synth 推奨案を採用: K1 = 番号体系「定義/補題/命題/系 + **仮説 9.5.H**」(Theorem を名乗らない Tier 謙抑) / K2 = 連鎖性の主装置は逐次参入 + observational learning (BHW 1992 / Banerjee 1992)、Granovetter・global games は脚注+付録格下げ / K3 = 独禁は仮定 L (formal 格納) + 本文 box (非断定文面) 併用 + Ch 37.5 番号割当 / K4 = CRL L2 に案件相対規模条件を課す。**n₀ = 3ヶ月 (y 換算) で仮置き** (まさ確定「とりあえず3か月においてみよう」。一律で開始、類型別非対称は Ch 26b 事前登録時に再検討)。自動降格 Δ はレベル別仮置き (L2=365日 / L4-L5=180日)、L4 は proxy 定義 (keystone 側接触ログ突合 + 参画者側申出記録)。数値はすべて本文に書かず Ch 26b 事前登録で凍結 / K5 = RT 記号ブロック ℛ = (d*, 𝒩, 𝒦, 𝒳, Γ)・m(e)・ERS₋ᵢ・q・Ψ̄/β・n₀ を付録 A 冒頭 symbol convention に追加 (terminology_glossary.md §3 に正本化、D-051 拡張) / K6 = Tier A 観測記述は CRL 到達レベル + 事象種別のみ。**金額は非表記で開始** (幅表記は必要が生じたら再判断)。案件全体像は Ch 15 に分担 / K7 = 節参照は常に章名付き (「Ch 9 §9.5」) の記法規律を terminology_glossary §2 に正本化 / K8 = 各命題直後に追加仮定を明示列挙 (仮定を隠して定理を強く見せない) を追認。
+- **judgment**: Ch 9.5 skeleton v1 (`CHAPTER_9_5_SKELETON.json`、8節 28.0p) を確定。Kingpin 8件はすべて synth 推奨案を採用: K1 = 番号体系「定義/補題/命題/系 + **仮説 9.5.H**」(Theorem を名乗らない Tier 謙抑) / K2 = 連鎖性の主装置は逐次参入 + observational learning (BHW 1992 / Banerjee 1992)、Granovetter・global games は脚注+付録格下げ / K3 = 独禁は仮定 L (formal 格納) + 本文 box (非断定文面) 併用 + Ch 37.5 番号割当 / K4 = CRL L2 に案件相対規模条件を課す。**n₀ = 3ヶ月 (y 換算) で仮置き** (まさ確定「とりあえず3か月においてみよう」。一律で開始、類型別非対称は Ch 26b 事前登録時に再検討)。自動降格 Δ はレベル別仮置き (L2=365日 / L4-L5=180日)、L4 は proxy 定義 (keystone 側接触ログ突合 + 参画者側申出記録)。数値はすべて本文に書かず Ch 26b 事前登録で凍結 / K5 = RT 記号ブロック ℛ = (d*, 𝒩, 𝒦, 𝒳, Γ)・m(e)・ECR₋ᵢ・q・Ψ̄/β・n₀ を付録 A 冒頭 symbol convention に追加 (terminology_glossary.md §3 に正本化、D-051 拡張) / K6 = Tier A 観測記述は CRL 到達レベル + 事象種別のみ。**金額は非表記で開始** (幅表記は必要が生じたら再判断)。案件全体像は Ch 15 に分担 / K7 = 節参照は常に章名付き (「Ch 9 §9.5」) の記法規律を terminology_glossary §2 に正本化 / K8 = 各命題直後に追加仮定を明示列挙 (仮定を隠して定理を強く見せない) を追認。
 - **rationale**: まさ確定 2026-07-02「とりあえず3か月においてみよう。その形で進めておけ」。K4 の n₀ はドメイン判断としてまさが仮置き値を指定、事前登録凍結の設計 (数値を本文に焼き込まない) はそのまま。K6 は保守側 (非表記) で開始 — 後から幅表記を足すのは可能だが逆は刷了後に不可能。
 - **applies_to_chapters**: Ch 9.5, Ch 15, Ch 26b, Ch 37.5, 付録 A, terminology_glossary.md
 - **date**: 2026-07-02
@@ -471,7 +471,7 @@
 - **date**: 2026-07-02
 - **status**: active
 - **supersedes**: なし (PF-008 / PF-011 の一部を撤回する形。BOOKS_PORTFOLIO.md 側で反映済み)
-- *注: RT 理論正本 §7.3 の「要弁護士確認・適法と断定しない」文言は書籍のための Tier 規律として維持。ERS rubric 2-e (`institution_readiness.md` は影響なし、Lv5 文言は「垂直ライセンス構成」を保守的に維持したまま実務適法性は AMD 実績で担保) 。*
+- *注: RT 理論正本 §7.3 の「要弁護士確認・適法と断定しない」文言は書籍のための Tier 規律として維持。ECR rubric 2-e (`institution_readiness.md` は影響なし、Lv5 文言は「垂直ライセンス構成」を保守的に維持したまま実務適法性は AMD 実績で担保) 。*
 
 ### D-059: publishing path を3本立てに確定 — ICC 第三伴走を正式追加 (P-009 resolved)
 - **judgment**: 出版経路を **Cambridge UP Schumpeter モノグラフ + Research Policy 論文 (P1) + ICC 第三伴走 (P4)** の3本立てで確定する。ICC 論文 = §10.6-10.7 (Malerba 全射 + Murmann 双方向 coupling) を N=64 試験データ到着後に抽出。あわせて論文ポートフォリオ全体は BOOKS_PORTFOLIO.md PF-013 (三段構え・計5本+国内1本) を上位正本とする。

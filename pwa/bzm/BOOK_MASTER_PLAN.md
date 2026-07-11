@@ -28,7 +28,7 @@
 - 18ヶ月 window 内に完了
 
 ### Research Policy 特集号巻頭論文
-- Book II Ch 5/5.5/9/10.4 の中核を支える定理 (二層非可換性 Arrow スタイル不可能性、GO 演算子最適停止導出、ERS 加重和導出) を約 12k word 論文として抽出
+- Book II Ch 5/5.5/9/10.4 の中核を支える定理 (二層非可換性 Arrow スタイル不可能性、GO 演算子最適停止導出、ECR 加重和導出) を約 12k word 論文として抽出
 - モノグラフより先に published prior art として確立 → モノグラフの正統性を補強
 
 ### ICC (Industrial and Corporate Change) 第三伴走
@@ -44,18 +44,18 @@
 ### 中核命題
 
 1. **二層非可換性定理 — 二段階完成 (Ch 9 + Ch 10.4)**
-   - Ch 9 = ERS 加重和導出の代数的バックボーン (正準オーナー: 加重和形式)
-   - Ch 10.4 = Theorem 3 Arrow スタイル不可能性 (4 公理 A1 PRS 消滅 / A2 ERS 単調性 / A3 因果チャネル制限 / A4 連続性) + 系 3.1 (Simpson 反転 / 四分位不安定性 / Hausman 棄却) (正準オーナー: 不可能性定理 + 反証可能系)
+   - Ch 9 = ECR 加重和導出の代数的バックボーン (正準オーナー: 加重和形式)
+   - Ch 10.4 = Theorem 3 Arrow スタイル不可能性 (4 公理 A1 SPS 消滅 / A2 ECR 単調性 / A3 因果チャネル制限 / A4 連続性) + 系 3.1 (Simpson 反転 / 四分位不安定性 / Hausman 棄却) (正準オーナー: 不可能性定理 + 反証可能系)
 2. **GO 演算子の最適停止導出 (Ch 5.5)** — `GO(t,i) = 𝟙[σ_SU ≥ θ_σ*] · g_TRL(t)` を実オプション最適停止の一次条件として導出。θ_σ* は (P, F, B, レジーム遷移) に対して内生的
 3. **F-CES 分解 (Ch 7) + ρ Kmenta 識別 (Ch 10.3)** — 委譲不可能 F_char × 委譲可能 F_cap を CES で結合。Ch 7 は形式定義 + 校正手続き、Ch 10.3 は ρ を公理から Kmenta-1967 二次モーメント識別へ格下げ。事前登録 H_C2: ρ<0 (P(ρ<0|data)≥0.95 → Inada コーナー / P(ρ≥0)>0.05 → Nelson-Winter 復権)
 4. **Klepper 入れ子 (Ch 10.5)** — 統合ハザード `h(t,n;θ) = 𝟙{t<τ_B}·h_pre + 𝟙{t≥τ_B}·h_post` + 命題 4 (F_char→1 極限で Klepper に縮退) + 命題 5 (τ_B での Δlog h 符号条件)
 5. **Malerba SSI 全射埋め込み (Ch 10.6)** — 全射 `φ: {1..8} → 2^{K,A,I,D,T}` + レーン重み w(L) + 事前コミット符号制約 (w_2(Bio) > others / w_8(Material) > others / w_6(Deep-tech) > others)
-6. **Murmann 双方向 ERS-PRS coupling (Ch 10.7)** — 命題 10.6.3 (η_jt VAR(1) + Ψ·N_jt フィードバック) + 定理 10.6.5 (τ_B での B 卒業数ファジー RD による Ψ identification)
+6. **Murmann 双方向 ECR-SPS coupling (Ch 10.7)** — 命題 10.6.3 (η_jt VAR(1) + Ψ·N_jt フィードバック) + 定理 10.6.5 (τ_B での B 卒業数ファジー RD による Ψ identification)
 
 ### 仮説的第三柱 — RT 結合機構 (D-056、中核命題 1-6 とは Tier を分離)
-- 本書は「観測二層 (PRS/ERS) + 結合機構 (RT)」の三項構造を Ch 0.1 で宣言する。貢献の主柱は検証済みの二層観測、**RT は「仮説的機構 + 検証プログラム付きの第三の柱」として明示** (検証済みと主張しない)
+- 本書は「観測二層 (SPS/ECR) + 結合機構 (RT)」の三項構造を Ch 0.1 で宣言する。貢献の主柱は検証済みの二層観測、**RT は「仮説的機構 + 検証プログラム付きの第三の柱」として明示** (検証済みと主張しない)
 - RT の主張の二分: (a) 定義・命題 (成立3条件の形式化 = 証明可能な純理論、Ch 9.5) / (b) 実証仮説 (Ψ_j = Ψ̄ + β·ICT_j 等 → Ch 26b に「ICT 測定開始の事前登録」として登録、β 推定は追補)
-- ERS 側接続 (ICT レンズ + 最小サブ軸 + 二重計上ガード) の正本 = `BZSF/rt_roundtable_theory.md` §13.4-13.6 (v0.2)
+- ECR 側接続 (ICT レンズ + 最小サブ軸 + 二重計上ガード) の正本 = `BZSF/rt_roundtable_theory.md` §13.4-13.6 (v0.2)
 - 独禁の扱い (D-058): Ch 9.5 の仮定 L Box + 「実務で契約設計する際は専門家と確認」の注意喚起で足りる。書籍のための Tier 規律の留保であり実務ブロックではない (実務適法性は AMD の20超SU実績で担保)。弁護士発注・印刷ゲート追加は不要。
 
 ### 前向き予測登録簿 (Ch 26b)
@@ -64,7 +64,7 @@
 ### 反証可能仮説 (反証されたら本書は死ぬ)
 - σ_SU ゲートが GO/WAIT/NO_GO を弁別できない (Brier > 0.25)
 - F-CES の単調性が違反される (F_char と F_cap の代替性が ρ ≥ 0 へ動く / H_C2 棄却)
-- ERS 加重和形が乗法結合形に予測精度で負ける
+- ECR 加重和形が乗法結合形に予測精度で負ける
 - 26b 前向き登録簿で BZM が 4 競合フレームワーク (Triple Helix CD 単独 / Effectuation / Nelson-Winter / Bozeman) に dominate しなかった場合の reporting policy は Ch 37 で公開
 
 ---
@@ -93,14 +93,14 @@
 
 | 対象 | 形式 | 主出現章 | 正準オーナー md / 章 |
 |---|---|---|---|
-| PRS | `PRS = P × R × S` (乗法、案件単位) | Ch 2, Ch 6 | `pwa/design/amd_score.md` |
-| ERS | `ERS = 100 · Σ w_k A_k / Σ w_k` (加重和、機関単位、軸 7 = precondition) | Ch 3, Ch 9 | `pwa/design/institution_readiness.md` |
+| SPS | `SPS = P × R × S` (乗法、案件単位) | Ch 2, Ch 6 | `pwa/design/amd_score.md` |
+| ECR | `ECR = 100 · Σ w_k A_k / Σ w_k` (加重和、機関単位、軸 7 = precondition) | Ch 3, Ch 9 | `pwa/design/institution_readiness.md` |
 | F | `F = CES(F_char, F_cap; a, ρ)` (a, ρ は Ch 7 校正 + Ch 10.3 で Kmenta 識別、Book 0/I/III で数値固定禁止)<br>注: shift +1 形式 `(F+1) = CES(F_char+1, F_cap+1; ...)` は付録 A で零底回避の数値手続きとして導入、本文では shift なし形式を採用 | Ch 7, Ch 10.3 | Ch 7 (形式定義) + Ch 10.3 (ρ 識別) |
 | σ_SU | `σ_SU = ∛((μ_A+1)(μ_I+1)(μ_G+1)) - 1`, Triple Helix Cobb-Douglas | Ch 5 | Ch 5 (Leydesdorff 2003/2008 mutual information T(AIG) との cross-walk は Ch 5.1) |
-| S | `S = Pr(τ_x < τ_y)`, 2D jump-diffusion 上の first passage probability。drift μ_x(R), μ_y(R_net - B), Brownian Σ, jump intensity λ_x(σ_SU, ERS), λ_y(B-ショック, Y-001/004/005 級イベント) | Ch 8 | `BZSF/before_zero_theory.md` + Ch 8 |
+| S | `S = Pr(τ_x < τ_y)`, 2D jump-diffusion 上の first passage probability。drift μ_x(R), μ_y(R_net - B), Brownian Σ, jump intensity λ_x(σ_SU, ECR), λ_y(B-ショック, Y-001/004/005 級イベント) | Ch 8 | `BZSF/before_zero_theory.md` + Ch 8 |
 | y 集約 | 5 成分 (cash / moat / trust / options / focus) → スカラー y、CES または fiat に加法的 (D-025) | Ch 8 | Ch 8 + 付録 A |
 | GO | `GO(t,i) = 𝟙[σ_SU ≥ θ_σ*] · g_TRL(t)` (Ch 5.5 最適停止導出、θ_σ* 内生的) | Ch 5.5 | Ch 5.5 |
-| 二層結合禁止 | PRS (乗法、案件) と ERS (加重和、機関) を単一スコアへ乗法結合してはならない | Ch 9 + Ch 10.4 | Ch 9 (代数) + Ch 10.4 (不可能性定理 + 系 3.1) |
+| 二層結合禁止 | SPS (乗法、案件) と ECR (加重和、機関) を単一スコアへ乗法結合してはならない | Ch 9 + Ch 10.4 | Ch 9 (代数) + Ch 10.4 (不可能性定理 + 系 3.1) |
 | Theorem 3 | Arrow スタイル不可能性、4 公理 A1-A4 + 系 3.1 (Simpson 反転 / 四分位不安定性 / Hausman 棄却) | Ch 10.4 | Ch 10.4 |
 | 統合ハザード | `h(t,n;θ) = 𝟙{t<τ_B}·h_pre + 𝟙{t≥τ_B}·h_post` (Klepper 1996/2002 入れ子) | Ch 10.5 | Ch 10.5 |
 | 全射 φ | `φ: {1..8} → 2^{K,A,I,D,T}` + レーン重み w(L), L ∈ {Deep-tech, Bio, Material} | Ch 10.6 | Ch 10.6 |
@@ -108,7 +108,7 @@
 | h パラメータ族 | `B_h(t) = K((t-t*_mid)/h)` (Gaussian-CDF or logistic)、シャープ (h↓0) と Ch 11.5 滑らかな極限 (h↑∞) を境界事例として包摂 | Ch 10.8 | Ch 10.8 |
 | Andrews-Quandt sup-Wald W_n* | 観測された π_i で評価 (探索しない) + 事前コミット効果量 β̂_3 ∈ [0.4, 1.2] per IQR-σ_SU log-hazard | Ch 10.9 | Ch 10.9 |
 | 前向き予測登録簿 | 事前登録予測 + スコアリング規則 (24ヶ月 outcome class log-loss) + 反証条件 (Brier > 0.25 等) | Ch 26b | Ch 26b |
-| RT / CRL / ICT | RT = keystone 型多者共同体 (定義 + 成立3条件の命題化)。CRL L0-L5 (案件レンズ)、ICT (機関レンズ、ERS 加重和に足さない)。Ψ_j = Ψ̄ + β·ICT_j 分解仮説。**仮説的第三柱 (Tier 分離、D-056)** | Ch 9.5 | `BZSF/rt_roundtable_theory.md` v0.2 + Ch 9.5 |
+| RT / CRL / ICT | RT = keystone 型多者共同体 (定義 + 成立3条件の命題化)。CRL L0-L5 (案件レンズ)、ICT (機関レンズ、ECR 加重和に足さない)。Ψ_j = Ψ̄ + β·ICT_j 分解仮説。**仮説的第三柱 (Tier 分離、D-056)** | Ch 9.5 | `BZSF/rt_roundtable_theory.md` v0.2 + Ch 9.5 |
 
 **重要**: F-CES のパラメータ値 (a, ρ) は Book 0 / Book I / Book III の章アンカーに数値で書かない (DSGE persona critical 指摘 + D-006 への対応)。Ch 7 + Ch 10.3 が正準オーナー。ρ は事後分布 (posterior) として推定 (D-032)、点推定でなく信用区間と Cobb-Douglas / Leontief / 加法的への horse-race を提示。
 
@@ -132,8 +132,8 @@
 | Ch | タイトル | p |
 |---|---|---:|
 | 1 | 状態空間と観測量 — Before Zero を測るとはどういうことか | 30 |
-| 2 | PRS — 天井 × 到達 × 生存の概念体系 | 30 |
-| 3 | ERS — 苗床という第二の対象 (含: unknown vs not_started 区別の正準オーナー = Ch 3.5) | 30 |
+| 2 | SPS — 天井 × 到達 × 生存の概念体系 | 30 |
+| 3 | ECR — 苗床という第二の対象 (含: unknown vs not_started 区別の正準オーナー = Ch 3.5) | 30 |
 | 4 | 失敗パターンの抽象 — Book II 数学装置への索引 (前方参照ティーザー) | 20 |
 
 ### Book II — 機構 — 数学装置層 (300p, 10 章 + Ch 10 11 節構成) [load-bearing core]
@@ -142,10 +142,10 @@
 |---|---|---:|
 | 5 | Triple Helix SSM と σ_SU の生成 (Ch 5.1 = Leydesdorff mutual information T(AIG) との cross-walk) | 28 |
 | 5.5 | GO ゲートの導出 — 実オプション最適停止からの一次条件 | 18 |
-| 6 | PRS = P × R × S — 期待値分解の honest 位置付け | 22 |
+| 6 | SPS = P × R × S — 期待値分解の honest 位置付け | 22 |
 | 7 | S の内部構造 — F-CES と委譲不可能コア (形式定義 + 校正手続き) | 38 |
 | 8 | 戦略余力動学 — 2D jump-diffusion と τ_x/τ_y、y 5 成分集約 | 32 |
-| 9 | ERS 加重和の導出 (二層非可換性定理の代数的バックボーン) | 34 |
+| 9 | ECR 加重和の導出 (二層非可換性定理の代数的バックボーン) | 34 |
 | 9.5 | ラウンドテーブル — 二層を結合する組成機構 (仮説的第三柱、D-056。定義・命題 = 純理論 / 実証仮説 = Ch 26b 送り) | 28 |
 | 10 | 進化経済学への形式接続 — Klepper / Malerba / Murmann の入れ子化 (11 節 OPENER) | 72 |
 | 11 | h パラメータ族の h↑∞ 境界事例 — 強い事前分布下の事後分布要約と honest 不確実性 | 14 |
@@ -162,7 +162,7 @@
 | 10.4 | C3 — Theorem 3 二層非可換性 Arrow スタイル不可能性 + 系 3.1 | I4 |
 | 10.5 | Klepper 入れ子 (統合ハザード + 命題 4-5) | I5 系譜橋渡し |
 | 10.6 | Malerba SSI 全射 φ + レーン重み w(L) (命題 5.M / 5.L + 系 5.NW) | I5 系譜橋渡し |
-| 10.7 | Murmann 双方向 ERS-PRS coupling (命題 10.6.3 + 定理 10.6.5 + 系 10.6.4) | I5 系譜橋渡し |
+| 10.7 | Murmann 双方向 ECR-SPS coupling (命題 10.6.3 + 定理 10.6.5 + 系 10.6.4) | I5 系譜橋渡し |
 | 10.8 | シャープ → ファジー境界 h パラメータ族 | I6 |
 | 10.9 | N≈32 試験プロトコル前倒し (Andrews-Quandt sup-Wald + OSF 事前登録) | I7 |
 | 10.10 | 統合 — BZM = Klepper と Murmann に境界づけられた Nelson-Winter の法人化前精緻化 | 統合 |
@@ -196,7 +196,7 @@
 |---|---|---:|
 | 27 | 技術シーズの掘り起こし — P(t) を待たずに U(t) を広げる | 20 |
 | 28 | 先生が第一歩を踏み出すとき — 賭け金の全量と F の起点 (Ch 21 pointer) | 22 |
-| 29 | GAP ファンド期 — 機関 ERS が y を非希薄化的に厚くする時間窓 (CTB 主) | 22 |
+| 29 | GAP ファンド期 — 機関 ECR が y を非希薄化的に厚くする時間窓 (CTB 主) | 22 |
 | 30 | 会社設立期 — B の起動と F の充足を一致させる不可逆 GO (CLG 主、Ch 21 pointer) | 22 |
 | 31 | 資金調達期 — F の現場運用、J カーブ批判、撤退四経路 | 24 |
 
@@ -204,16 +204,16 @@
 
 | Ch | タイトル | p |
 |---|---|---:|
-| 32 | ERS 8 軸別処方 — 運用者向けプレイブック | 30 |
+| 32 | ECR 8 軸別処方 — 運用者向けプレイブック | 30 |
 | 33 | GAP + URA + EIR — 三制度を一つの導線に (Ch 21 論文-特許順序事故 pointer) | 22 |
 | 34 | 地域 産学官 双対動態 — σ_SU を県境で読む | 22 |
-| 35 | BZ 段階への政策含意 — σ_SU と ERS を政策レバーに翻訳 | 16 |
+| 35 | BZ 段階への政策含意 — σ_SU と ECR を政策レバーに翻訳 | 16 |
 
 ### Book VI — 新領域宣言と次の研究プログラム (72p, 4 章)
 
 | Ch | タイトル | p |
 |---|---|---:|
-| 36 | 機関 KPI と ERS — Goodhart 回避の評価指標化 (funder 向け) | 18 |
+| 36 | 機関 KPI と ECR — Goodhart 回避の評価指標化 (funder 向け) | 18 |
 | 37 | 真正面の比較 — BZM vs Triple Helix vs Effectuation vs Nelson-Winter (Tier B) | 20 |
 | 37.5 | 自己批判とオープンプロブレム — 第二版への課題 (RT 含む全理論の弱点・未検証点・想定されるツッコミを著者自ら列挙、D-056) | 12 |
 | 38 | 新領域宣言 — 何が獲得され、何が次の 10 年に持ち越されたか | 22 |
@@ -230,14 +230,14 @@
 
 ## 6. 書き順 (改訂版、Ch 10 load-bearing 昇格を反映)
 
-**Book II 中核**: `Ch 5 → Ch 5.5 → Ch 10.4 (Theorem 3) → Ch 9 (ERS 加重和導出) → Ch 7 (F-CES 形式) → Ch 10.3 (ρ Kmenta 識別) → Ch 8 → Ch 10.5 (Klepper) → Ch 10.6 (Malerba) → Ch 10.7 (Murmann) → Ch 9.5 (RT 結合機構、D-056: Ch 8 の y/λ・Ch 9 の ERS・Ch 10.7 の Ψ が全て確定した後) → Ch 10.8 (ファジー境界) → Ch 10.9 (試験前倒し) → Ch 10.10 (統合) → Ch 11 → Ch 11.5 → Ch 6`
+**Book II 中核**: `Ch 5 → Ch 5.5 → Ch 10.4 (Theorem 3) → Ch 9 (ECR 加重和導出) → Ch 7 (F-CES 形式) → Ch 10.3 (ρ Kmenta 識別) → Ch 8 → Ch 10.5 (Klepper) → Ch 10.6 (Malerba) → Ch 10.7 (Murmann) → Ch 9.5 (RT 結合機構、D-056: Ch 8 の y/λ・Ch 9 の ECR・Ch 10.7 の Ψ が全て確定した後) → Ch 10.8 (ファジー境界) → Ch 10.9 (試験前倒し) → Ch 10.10 (統合) → Ch 11 → Ch 11.5 → Ch 6`
 
 **全体**: Book II 中核 → Book III 案件章 (Ch 12-19) → Book III 機関章 (Ch 20-24) → Book III 結合章 (Ch 25-26b) → Book 0 → Book I → Book IV → Book V → Book VI → 付録 A/B/C
 
 ### 根拠
 - Ch 10 が load-bearing 中核 (Theorem 3 + ρ Kmenta 識別 + Klepper/Malerba/Murmann 形式接続) に昇格したので Book II 内の順序を再構成
-- Theorem 3 (Ch 10.4) と ERS 加重和導出 (Ch 9) は二段階完成なので、Ch 10.4 → Ch 9 (代数バックボーンの後出し) または Ch 9 → Ch 10.4 (不可能性定理の後出し) のどちらか。本書は **Ch 10.4 → Ch 9** を採用 (Arrow スタイル骨格を先に立てる)。最終確定は P-010
-- Ch 6 (PRS 期待値分解) は Ch 7 / Ch 8 / Ch 9 で S 内部を展開した後に位置付ける方が整合的なため、Book II 中核の最後
+- Theorem 3 (Ch 10.4) と ECR 加重和導出 (Ch 9) は二段階完成なので、Ch 10.4 → Ch 9 (代数バックボーンの後出し) または Ch 9 → Ch 10.4 (不可能性定理の後出し) のどちらか。本書は **Ch 10.4 → Ch 9** を採用 (Arrow スタイル骨格を先に立てる)。最終確定は P-010
+- Ch 6 (SPS 期待値分解) は Ch 7 / Ch 8 / Ch 9 で S 内部を展開した後に位置付ける方が整合的なため、Book II 中核の最後
 
 ---
 
@@ -302,7 +302,7 @@
 
 ### 方針
 - 日本語化対象 = 経済学・統計学の学術用語で日本語訳が定着しているもの (識別不能、一次条件、内生的、後付け校正、レジーム切換え、事前/事後分布、最適停止、状態空間、単一スコア、因果 DAG、条件付き受理、中核を支える 等)
-- 英語維持 = 人名 / 数式変数 / 略号 (PRS, ERS, BZM, TRL, GAP, URA, EIR, TTO, DSGE, BVAR, SSM, IV, RD 等) / journal 名 (Research Policy, R&D Management, Industrial and Corporate Change) / ある程度定着した固有名詞 (Cobb-Douglas, Triple Helix, real options, Kalman filter, Markov, Bayes, Minnesota prior, jump-diffusion, CES, Leontief, Brier score, Goodhart's Law, J カーブ, Andrews-Quandt sup-Wald, OSF)
+- 英語維持 = 人名 / 数式変数 / 略号 (SPS, ECR, BZM, TRL, GAP, URA, EIR, TTO, DSGE, BVAR, SSM, IV, RD 等) / journal 名 (Research Policy, R&D Management, Industrial and Corporate Change) / ある程度定着した固有名詞 (Cobb-Douglas, Triple Helix, real options, Kalman filter, Markov, Bayes, Minnesota prior, jump-diffusion, CES, Leontief, Brier score, Goodhart's Law, J カーブ, Andrews-Quandt sup-Wald, OSF)
 - 文脈による訳語選択の揺れ (例: load-bearing → 「中核を支える」「骨格となる」「中核」) は許容、用語表で 1:1 固定しない
 
 ---
@@ -332,22 +332,22 @@
 | 0.3 | 5, 8, 9 | 二層 readiness 方法論の宣言形 |
 | 0.4 | 5, 5.5, 7, 9, 10.4 | 三貢献は load-bearing 定理を要約 |
 | 1 | — | 状態空間定義は first-mover |
-| 2 | 1 | PRS 概念体系 |
-| 3 | 1 | ERS 概念体系 (Ch 3.5 = unknown vs not_started 正準オーナー) |
+| 2 | 1 | SPS 概念体系 |
+| 3 | 1 | ECR 概念体系 (Ch 3.5 = unknown vs not_started 正準オーナー) |
 | 4 | 1, 2, 3 | 失敗パターン抽象は Book II 索引 |
 | **5** | — | Book II 起点 (書き順 1 番目) |
 | **5.5** | 5; 概念依存 {2, 7, 8} (前方参照: θ_σ* の内生性は Ch 5.5 内で仮宣言、Ch 7/Ch 8 で正式定義) | GO 最適停止 |
-| 6 | 2, 5.5, 7, 8, 9 | PRS 期待値分解、二層結合禁止の運用 |
+| 6 | 2, 5.5, 7, 8, 9 | SPS 期待値分解、二層結合禁止の運用 |
 | 7 | 2, 5, 6 | F-CES (S 内部) |
 | 8 | 5, 7 | 2D jump-diffusion + y 5 成分集約 |
-| **9** | 3, 5, 7, 8 | ERS 加重和導出 (二層非可換性代数バックボーン) |
+| **9** | 3, 5, 7, 8 | ECR 加重和導出 (二層非可換性代数バックボーン) |
 | **9.5** | 8, 9, 3, 10.7 (Ψ 分解の前提); 前方参照 {26b} | RT 結合機構 (D-056): 定義・成立3条件の命題化・CRL/ICT・y/λ 主経路割当・Ψ_j 分解仮説。実証主張は Ch 26b へ flush |
 | **10.0-10.1** | 全 Book II 先行節 | プロローグ + 設定 |
 | **10.2** | 5, 8 | C1 レジーム切換え B の formal definition |
 | **10.3** | 7 | C2 F-CES ρ Kmenta 識別 (Ch 7 形式定義の後継、ρ 校正の正準オーナー) |
 | **10.4** | 3, 9 | C3 Theorem 3 Arrow スタイル不可能性 (Ch 9 代数バックボーンを受けて不可能性定理化) |
 | **10.5** | 5, 7, 8 | Klepper 統合ハザード (命題 4 = F_char→1 極限 = Ch 7 / 命題 5 = Δlog h 符号条件 = Ch 5 σ_SU × Ch 7 F_char 分散) |
-| **10.6** | 3 | Malerba SSI 全射 φ + レーン重み w(L) (Ch 3 ERS 8 軸定義の埋め込み) |
+| **10.6** | 3 | Malerba SSI 全射 φ + レーン重み w(L) (Ch 3 ECR 8 軸定義の埋め込み) |
 | **10.7** | 5, 8, 3, 9, 10.2 | Murmann 双方向 coupling (ファジー RD Ψ identification at τ_B) |
 | **10.8** | 5, 11, 11.5 | ファジー境界 h パラメータ族 (シャープ h↓0 と Ch 11.5 滑らかな極限 h↑∞ を境界事例として包摂) |
 | **10.9** | 5, 7, 10.2, 26b | N≈32 試験前倒し (Ch 26b と並走、OSF 事前登録) |
@@ -356,7 +356,7 @@
 | 11.5 | 10.9, 26b | 事前登録試験運用実装、N=32 → 64 段階ゲート |
 | 12-19 | 5, 5.5, 6, 7, 8, 9, 10.5, 10.6 | 案件ケース後付け校正 |
 | 20-24 | 3, 9, 10.6, 10.7 | 機関ケース後付け校正 |
-| 24 | 20-23 + 10.6 | 国際比較は ERS 8 軸 + Malerba SSI レーン重み w(L) で jurisdiction 跨ぎ可搬性を校正 |
+| 24 | 20-23 + 10.6 | 国際比較は ECR 8 軸 + Malerba SSI レーン重み w(L) で jurisdiction 跨ぎ可搬性を校正 |
 | 25 | 12-24, 11 | 層間結合所見 (Tier A、識別主張なし) |
 | 26a | 11, 12-24 | 標本内整合性チェック (Tier A) |
 | 26b | 5.5, 7, 8, 9, 10.4, 10.9, 11, 25 | 前向き登録簿 (Tier B、Ch 25 用語規律継承) |
@@ -415,7 +415,7 @@ pwa repo に code / spec 含む commit を作る際は必ず BUILD_VERSION を p
 3. `pwa/bzm/BOOK_DECISIONS.md` (特に active と pending)
 4. 該当章の `pwa/bzm/CHAPTER_<n>_PROGRESS.md`
 5. 素材源 (`pwa/bzm/2026-06-25_mapping_existing_to_new.md` の Ch n entry → 既存 md)
-6. 確定モデル正本: `pwa/design/amd_score.md` (PRS) / `pwa/design/institution_readiness.md` (ERS) / `BZSF/before_zero_theory.md` (理論) / `pwa/bzm/2026-06-25_book2_evol_econ_major_revision.md` (Ch 10 OPENER)
+6. 確定モデル正本: `pwa/design/amd_score.md` (SPS) / `pwa/design/institution_readiness.md` (ECR) / `BZSF/before_zero_theory.md` (理論) / `pwa/bzm/2026-06-25_book2_evol_econ_major_revision.md` (Ch 10 OPENER)
 
 ### 禁止
 - 古い v3.2 (`before-zero/theory/`) を最新と誤認しない (R-1)
@@ -427,7 +427,7 @@ pwa repo に code / spec 含む commit を作る際は必ず BUILD_VERSION を p
 ## 16. Cross-references (本書全体の整合性チェック点)
 
 ### 中核命題の正準オーナー
-- 二層非可換性 ERS 加重和代数 = Ch 9 (Ch 10.4 への前提供給)
+- 二層非可換性 ECR 加重和代数 = Ch 9 (Ch 10.4 への前提供給)
 - Theorem 3 Arrow スタイル不可能性 + 系 3.1 = Ch 10.4 (Ch 9 を受けて不可能性定理化)
 - GO 最適停止導出 = Ch 5.5 (他章は式参照のみ、再導出禁止)
 - F-CES 形式定義 = Ch 7 / F-CES ρ Kmenta 識別 = Ch 10.3 (パラメータ数値は他章で書かない)
@@ -438,7 +438,7 @@ pwa repo に code / spec 含む commit を作る際は必ず BUILD_VERSION を p
 - Andrews-Quandt sup-Wald + N≈32 試験前倒し = Ch 10.9
 - 前向き予測登録簿プロトコル = Ch 26b
 - 真正面比較 (Tier B 共通スコアリング規則) = Ch 37
-- RT 結合機構 (定義・命題・CRL/ICT) = Ch 9.5 (仮説的第三柱、D-056。ERS 側接続の理論正本は `BZSF/rt_roundtable_theory.md` v0.2 §13.4-13.6。実証仮説は Ch 26b、弱点自認は Ch 37.5)
+- RT 結合機構 (定義・命題・CRL/ICT) = Ch 9.5 (仮説的第三柱、D-056。ECR 側接続の理論正本は `BZSF/rt_roundtable_theory.md` v0.2 §13.4-13.6。実証仮説は Ch 26b、弱点自認は Ch 37.5)
 
 ### Tier A vs Tier B の用語規律
 - Ch 11, Ch 12-24, Ch 25, Ch 26a = **Tier A** (「校正」のみ、validation 主張なし、識別主張なし)
@@ -455,7 +455,7 @@ pwa repo に code / spec 含む commit を作る際は必ず BUILD_VERSION を p
 - Book IV / V では TIEM を引かず、CTB / CLG / BWE を主要事例に
 
 ### unknown vs not_started 区別の正準オーナー
-- 現象 = Ch 3.5 (ERS 8 軸運用補注として、Ch 33 は制度間適用)
+- 現象 = Ch 3.5 (ECR 8 軸運用補注として、Ch 33 は制度間適用)
 - やらかし図鑑 Y-006 候補としての収録は P-007 で確定後に決定
 
 ### 後付け校正 vs validation の用語規律

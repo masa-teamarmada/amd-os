@@ -1,6 +1,6 @@
 <!--
-理論正本: BZSF/before_zero_theory.md / BZSF/PRS_STRATEGIC_SLACK_OVERVIEW_20260612.html (第8章 計算式と律速診断)
-素材: pwa/bzm/legacy/5-1-amd-score-integration.md (旧7軸の例題・練習問題形式を現行9軸 PRS へ組み替え)
+理論正本: BZSF/before_zero_theory.md / BZSF/SPS_STRATEGIC_SLACK_OVERVIEW_20260612.html (第8章 計算式と律速診断)
+素材: pwa/bzm/legacy/5-1-amd-score-integration.md (旧7軸の例題・練習問題形式を現行9軸 SPS へ組み替え)
 章型 (確定 2026-06-13): 冒頭ストーリー → 解説 (数式・図を章内で) → 匿名化実例 → 章末の問い (PUBLICATION_STRATEGY §0)
 位置: 第II部。P / R / S 各論の次、戦略余力モデルの手前。
 出典注の確定は references worker のタスク (本文中の出典注 TODO 参照)。

@@ -413,7 +413,7 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
   { slug: "new-book1-ch-1-section-2", title: "§1.2 — 状態空間 (state space) という発想: プロジェクトを 1 点として打つ (5p)", summary: "プロジェクトを多次元空間の 1 点として捉える視点を導入し、本書が採用する三因子 (天井 P、到達度 R、生存確率 S) の状態ベクトルを比喩と図で説明する。", status: "not-started", level: 2 },
   { slug: "new-book1-ch-1-section-3", title: "§1.3 — 観測量 (observable) と代理指標: 見えないものを見える数で挟む (5p)", summary: "状態は直接観測できないため、論文数・特許・調達額・採用ペース等の代理指標を経由する必要があることを示し、観測量の選び方が推定の質を決めることを論じる。", status: "not-started", level: 2 },
   { slug: "new-book1-ch-1-section-4", title: "§1.4 — Before Zero がとりわけ難しい理由: 製品 0・売上 0・会社未満の観測問題 (5p)", summary: "売上・顧客・製品がまだ存在しない段階での観測の困難 (シグナル/ノイズ比の低さ、survivorship bias、観測コスト) を整理し、それでも測る必要性を関係者間の共通言語・判断の構造化・再現可能性の三点で示す。", status: "not-started", level: 2 },
-  { slug: "new-book1-ch-1-section-5", title: "§1.5 — 二層観測の予告: 案件層 (SPS) と機関層 (ECR) (4p)", summary: "個別案件 j を見る層 (SPS = Project Readiness Signals) と、機関 i の生態を見る層 (ECR = Ecosystem Readiness Signals) という二層構造を予告し、Ch 2 と Ch 3 への接続を示す。", status: "not-started", level: 2 },
+  { slug: "new-book1-ch-1-section-5", title: "§1.5 — 二層観測の予告: 案件層 (SPS) と機関層 (ECR) (4p)", summary: "個別案件 j を見る層 (SPS = Seed Prospect Score) と、機関 i の生態を見る層 (ECR = Ecosystem Construction Rate) という二層構造を予告し、Ch 2 と Ch 3 への接続を示す。", status: "not-started", level: 2 },
   { slug: "new-book1-ch-1-section-6", title: "§1.6 — 失敗パターンと校正: 観測が壊れるとき (3p)", summary: "観測量と状態のリンクが切れる典型失敗 (Goodhart 化、観測の自己実現、欠測の系統性) を提示し、Ch 4 (失敗パターン) と Book III (validation) への送りを置く。", status: "not-started", level: 2 },
   { slug: "new-book1-ch-1-section-7", title: "§1.7 — 本章のまとめと Book II への橋渡し (1.5p)", summary: "本章で立てた状態空間と観測量の足場を、Book II 機構層 (天井動学・到達動学・生存動学の数学装置) がどう引き取るかを 1 ページで予告する。", status: "not-started", level: 2 },
   // Ch 1 §1.0 サブセクション (level 3)

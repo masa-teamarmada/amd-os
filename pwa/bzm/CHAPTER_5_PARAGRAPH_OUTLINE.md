@@ -222,11 +222,11 @@
 - **cross_chapter_refs**: Book V Ch 22
 - **estimated_words**: 140
 
-### 5.2.6 機関 ERS 8軸の sector lane 制約が観測方程式に impose する institutional constraint
-- **core_proposition**: 機関 j (Research-Org-Type / Private-Engineering-Univ-Type / Regional-National-Univ-Type 群 / Integrated-Large-Univ-Type / International-TTO-Type) ごとに sector lane が事前指定されているとき、機関 j に紐づく観測量の loading は j の lane 配分 (PRS/ERS) に追随する制約を formal に書く。これにより rank 3 条件が補強される。
-- **figures**: 式 5.2.2 機関 ERS 制約 c^{(j)}_{xp} = c_{xp} · π_j(p)
+### 5.2.6 機関 ECR 8軸の sector lane 制約が観測方程式に impose する institutional constraint
+- **core_proposition**: 機関 j (Research-Org-Type / Private-Engineering-Univ-Type / Regional-National-Univ-Type 群 / Integrated-Large-Univ-Type / International-TTO-Type) ごとに sector lane が事前指定されているとき、機関 j に紐づく観測量の loading は j の lane 配分 (SPS/ECR) に追随する制約を formal に書く。これにより rank 3 条件が補強される。
+- **figures**: 式 5.2.2 機関 ECR 制約 c^{(j)}_{xp} = c_{xp} · π_j(p)
 - **references**: なし
-- **math_objects**: 機関 ERS 制約式
+- **math_objects**: 機関 ECR 制約式
 - **cross_chapter_refs**: Book V Ch 21, Ch 10.7
 - **estimated_words**: 150
 
@@ -255,7 +255,7 @@
 - **estimated_words**: 180
 
 ### 5.2.10 命題 5.3b (逐次識別順序の一意性): μ_G → μ_A → μ_I
-- **core_proposition**: 命題 5.3b の statement: 機関 ERS lane 制約と loading 行列 C の符号構造 + rank 3 条件の下で、逐次識別順序 μ_G → μ_A → μ_I が一意に決まる。証明スケッチでは P/B が μ_G にほぼ純粋に load することで μ_G が最初に identify、N/I_R が μ_A を逐次識別、残差として μ_I が V/C で識別される構成的順序を示す。
+- **core_proposition**: 命題 5.3b の statement: 機関 ECR lane 制約と loading 行列 C の符号構造 + rank 3 条件の下で、逐次識別順序 μ_G → μ_A → μ_I が一意に決まる。証明スケッチでは P/B が μ_G にほぼ純粋に load することで μ_G が最初に identify、N/I_R が μ_A を逐次識別、残差として μ_I が V/C で識別される構成的順序を示す。
 - **figures**: 命題 5.3b 逐次識別順序の一意性命題と構成的証明スケッチ
 - **references**: なし
 - **math_objects**: 命題 5.3b
@@ -457,7 +457,7 @@
 - **estimated_words**: 170
 
 ### 5.3.17 regime 不可観測性と σ_SU 観測性の区別の念押し
-- **core_proposition**: 読者に向けて (a) regime r_t は latent (不可観測) であり posterior 確率としてのみ推測される、(b) μ_t は institutional ERS observation 経由で間接観測される、(c) σ_SU(t) = G[μ_t; ω] は derived score として posterior から導出される、という三層の観測可能性階層を明示し、D-031 Tier A に従い regime ラベリングは『観測等価類の中心』としてのみ解釈する旨を強調する。
+- **core_proposition**: 読者に向けて (a) regime r_t は latent (不可観測) であり posterior 確率としてのみ推測される、(b) μ_t は institutional ECR observation 経由で間接観測される、(c) σ_SU(t) = G[μ_t; ω] は derived score として posterior から導出される、という三層の観測可能性階層を明示し、D-031 Tier A に従い regime ラベリングは『観測等価類の中心』としてのみ解釈する旨を強調する。
 - **figures**: なし
 - **references**: なし
 - **math_objects**: なし
@@ -507,7 +507,7 @@
 - **estimated_words**: 190
 
 ### 5.4.5 両レジーム ergodicity: Foster-Lyapunov 条件と institutional rigidity
-- **core_proposition**: 二段 MS-SSM が両レジームで ergodic であるための十分条件として Foster-Lyapunov drift 条件 (Meyn & Tweedie 2009) を導入する。spectral radius ρ(A_{s,r}) < 1 が両 s で成立すれば全体系は positive recurrent となる。ρ が institutional rigidity (機関 ERS の硬さ) に依存して変動するという観察を 1 段落で軽く差し込み、本格分析は Book V 機関章へ送る。
+- **core_proposition**: 二段 MS-SSM が両レジームで ergodic であるための十分条件として Foster-Lyapunov drift 条件 (Meyn & Tweedie 2009) を導入する。spectral radius ρ(A_{s,r}) < 1 が両 s で成立すれば全体系は positive recurrent となる。ρ が institutional rigidity (機関 ECR の硬さ) に依存して変動するという観察を 1 段落で軽く差し込み、本格分析は Book V 機関章へ送る。
 - **figures**: なし
 - **references**: Meyn & Tweedie (2009) Markov Chains and Stochastic Stability
 - **math_objects**: 補題 5.5 (Foster-Lyapunov drift 条件), spectral radius ρ(A_{s,r})
@@ -555,7 +555,7 @@
 - **estimated_words**: 160
 
 ### 5.4.11 Murmann (2003) 共進化と η_jt の Π への入り方の予告
-- **core_proposition**: 制度状態 η_jt (機関 ERS の状態変数) が transition matrix Π にどう入るか — すなわち Π = Π(η_jt) として η_jt 依存性を持たせるか、それとも Π を固定して η_jt は別経路で σ_SU に入るか — の選択は §5.5 で softmax coupling として扱う。Murmann (2003) 双方向結合への supply は §5.5 → Ch 10.7 で完結する、と本節では予告のみ行う。
+- **core_proposition**: 制度状態 η_jt (機関 ECR の状態変数) が transition matrix Π にどう入るか — すなわち Π = Π(η_jt) として η_jt 依存性を持たせるか、それとも Π を固定して η_jt は別経路で σ_SU に入るか — の選択は §5.5 で softmax coupling として扱う。Murmann (2003) 双方向結合への supply は §5.5 → Ch 10.7 で完結する、と本節では予告のみ行う。
 - **figures**: なし
 - **references**: Murmann (2003)
 - **math_objects**: 命題 5.6 (η_jt softmax coupling) への予告
@@ -580,9 +580,9 @@
 
 ## §5.5 制度状態 η_jt と σ_SU の coupling — Murmann 共進化への pre-form (2.5p)
 
-### 5.5.1 Murmann 共進化研究の要約と 8 軸 ERS 制度状態 η_jt の導入
-- **core_proposition**: Murmann (2003) のドイツ合成染料産業共進化研究を要約し、企業群と科学/教育/規制制度が同時に形を変える歴史過程から抽出された 8 軸 ERS (Educational / Regulatory / Sectoral) を制度状態ベクトル η_jt ∈ R^8 として §5.5 全体の基本対象に据えることを宣言する。本節は §5.3 で導入した σ_SU の MS-SSM 過程に η_jt を結合する pre-form を与える。
-- **figures**: 表 5.5.1 Murmann 8 軸 ERS の列挙 (η_E, η_R, η_S 他) と operational proxy
+### 5.5.1 Murmann 共進化研究の要約と 8 軸 ECR 制度状態 η_jt の導入
+- **core_proposition**: Murmann (2003) のドイツ合成染料産業共進化研究を要約し、企業群と科学/教育/規制制度が同時に形を変える歴史過程から抽出された 8 軸 ECR (Educational / Regulatory / Sectoral) を制度状態ベクトル η_jt ∈ R^8 として §5.5 全体の基本対象に据えることを宣言する。本節は §5.3 で導入した σ_SU の MS-SSM 過程に η_jt を結合する pre-form を与える。
+- **figures**: 表 5.5.1 Murmann 8 軸 ECR の列挙 (η_E, η_R, η_S 他) と operational proxy
 - **references**: Murmann (2003) Knowledge and Competitive Advantage, Cambridge UP; Nelson (1993) National Innovation Systems
 - **math_objects**: η_jt ∈ R^8 (制度状態ベクトル)
 - **cross_chapter_refs**: §5.3, Ch 10.7, Book V 機関章
@@ -629,7 +629,7 @@
 - **estimated_words**: 170
 
 ### 5.5.7 8 PJ × 7 機関 panel での η_jt operational definition — Book V 機関章への参照
-- **core_proposition**: η_jt の各軸の operational definition (Research-Org-Type / Private-Engineering-Univ-Type / Regional-National-Univ-Type 群 / Integrated-Large-Univ-Type / International-TTO-Type の 5 type を proxy 化する具体的観測方程式の係数) は Book V 機関章で扱う制度 ERS 観測方程式を参照し、ここでは type 名のみで匿名化する (D-034)。実装は AMD OS 機関プロファイルを operational proxy として転用するが、本書では type 名のみ露出する。
+- **core_proposition**: η_jt の各軸の operational definition (Research-Org-Type / Private-Engineering-Univ-Type / Regional-National-Univ-Type 群 / Integrated-Large-Univ-Type / International-TTO-Type の 5 type を proxy 化する具体的観測方程式の係数) は Book V 機関章で扱う制度 ECR 観測方程式を参照し、ここでは type 名のみで匿名化する (D-034)。実装は AMD OS 機関プロファイルを operational proxy として転用するが、本書では type 名のみ露出する。
 - **figures**: なし
 - **references**: Murmann (2003)
 - **math_objects**: η_jt = h(institution_type_j, t)

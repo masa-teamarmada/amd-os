@@ -3,13 +3,13 @@
     "core_proposition": "CX (Carbon Capture/Utilization SU、2024-2026 進行中、rocket outcome) は σ_SU 観測値 7+ という本書中最高水準を示しながら、μ_I 単独高位の Triple Helix 不均衡 (産業 dominant) により R_net 負号観測 (本業既存素材販売の新規 carbon ラインへの内製化共食い) を発生させた典型事例である。Ch 14 はこの『高 σ_SU × Triple Helix 不均衡 × R_net 負号』三点同時観測を Book III 後付け校正の主要参照 (D-027) として Tier A illustrative に学術化し、σ_SU 単独高位は SU 健全性の十分条件ではないこと、Triple Helix balance と R_net 符号の同時監視が必要であることを示す。",
     "load_bearing_claims": [
       "CX 設立時 (2024) の σ_SU 観測値は本書中最高水準の 7+ を示すが、C 行列 loading 分解で μ_I 単独大寄与・μ_A μ_G 中位という Triple Helix 不均衡が同時観測される",
-      "2024-2026 軌跡で σ_SU は高位維持し Ch 8 Θ_healthy 経路 (rocket outcome) に乗りつつ、Ch 6 PRS 期待値分解の本業共食い項が R_net 負号として継続観測される二面性を呈する",
+      "2024-2026 軌跡で σ_SU は高位維持し Ch 8 Θ_healthy 経路 (rocket outcome) に乗りつつ、Ch 6 SPS 期待値分解の本業共食い項が R_net 負号として継続観測される二面性を呈する",
       "R_net 負号は本業既存素材販売が新規 carbon ラインを内製化し、つなぎ収益として期待した本業売上を侵食する cannibalization として運用的に定義される (Christensen 1997 disruption framework の方向逆転構造、self-cannibalization)",
       "Triple Helix 不均衡機構: 2020-23 CN 宣言 + GX 経済移行債 + SIP CE2023 の政策密度 P 上昇は μ_G を底上げするが、CX では産業内製化判断が μ_I を相対的に押し上げ μ_G が μ_I に吸収される (Geels-Schot regime 強化型 transition)、産業内製化速度 > 政策接続速度・学術吸収速度",
       "Ch 5 σ_SU MS-SSM の S₂ regime (三位一体追い風) は σ_SU 単独閾値で判定すると CX は S₂ に分類されるが、T_AIG balance 条件 (Leydesdorff 2008/2021) を加えると S₂ から外れる二重判定不一致を呈する",
       "Book II 6 装置 (Ch 5/5.5/6/8/9/10.6) 統合適用で σ_SU 単独高位は SU 健全性の十分条件ではないこと、Triple Helix balance + R_net 符号の同時監視が観測モデル運用上必要であることが illustrative に示される (Tier A、validation 主張なし)"
     ],
-    "logical_arc": "章頭 carbon ライン提案会議の本業共食い懸念ストーリー (§14.0) → 2024 設立時の後付け校正で σ_SU > 7 と Triple Helix 不均衡 (μ_I 単独高位) を同時取得 (§14.1) → 2024-2026 軌跡で σ_SU 高位維持と R_net 負号観測の同時進行、rocket outcome の二面性 (σ_SU 単独『成功』vs PRS 期待値分解『Θ_healthy 軌跡上の y 出血』) を提示 (§14.2) → Triple Helix 不均衡機構を Park-Leydesdorff 比率 + Leydesdorff T_AIG mutual information + Geels-Schot regime 強化型 transition で分解、μ_G → μ_I 吸収経路と速度差を明示 (§14.3) → 本業 vs 新規 carbon 共食いを Christensen 1997 + Bower-Christensen 1995 + Adner 2002/Adner-Levinthal 2001 の四文献構成で対比、self-cannibalization 方向逆転構造として位置づけ (§14.4) → Book II 6 装置統合読み直し + 章末問い 3 点で Ch 25/26a/26b/37 への引き渡し (§14.5)",
+    "logical_arc": "章頭 carbon ライン提案会議の本業共食い懸念ストーリー (§14.0) → 2024 設立時の後付け校正で σ_SU > 7 と Triple Helix 不均衡 (μ_I 単独高位) を同時取得 (§14.1) → 2024-2026 軌跡で σ_SU 高位維持と R_net 負号観測の同時進行、rocket outcome の二面性 (σ_SU 単独『成功』vs SPS 期待値分解『Θ_healthy 軌跡上の y 出血』) を提示 (§14.2) → Triple Helix 不均衡機構を Park-Leydesdorff 比率 + Leydesdorff T_AIG mutual information + Geels-Schot regime 強化型 transition で分解、μ_G → μ_I 吸収経路と速度差を明示 (§14.3) → 本業 vs 新規 carbon 共食いを Christensen 1997 + Bower-Christensen 1995 + Adner 2002/Adner-Levinthal 2001 の四文献構成で対比、self-cannibalization 方向逆転構造として位置づけ (§14.4) → Book II 6 装置統合読み直し + 章末問い 3 点で Ch 25/26a/26b/37 への引き渡し (§14.5)",
     "synthesis_rationale": "Judge 1 + Judge 3 が A を winner とし methodological rigor と masa-fidelity (amd_score.md 時点ラベル整備、現場 URA/EIR 読みやすさ、Tier 規律遵守) で評価。Judge 2 は C を publishability 観点で winner とし Cambridge UP + Research Policy + ICC 査読の四文献構成と rocket outcome 二面性概念化を高評価。統合方針: A の骨格 (6 節構成、Book II 6 装置統合表、open_issues 実務性、falsifiable_claims に反証手段併記、章頭物語の解像度) を採用し、C の §14.2 rocket outcome 二面性概念化 + §14.4 四文献構成 (Christensen 1997 + Bower-Christensen 1995 + Adner 2002 + Adner-Levinthal 2001) + §14.3 速度差 frame、B の §14.3 Leydesdorff T_AIG mutual information 再定式化 + S₂ regime 二重判定不一致 falsifiable claim を graft。cross-cutting concerns で全 judge が指摘した CTB/SX 横並び対比を §14.5 に追加。"
   },
   "sections": [
@@ -65,18 +65,18 @@
         "後付け校正手続きの宣言段落: Ch 5 σ_SU MS-SSM の S₂ regime (三位一体追い風) 適用、Tier A illustrative の規律 (D-031, D-033) 確認、『観測』『後付け校正』『illustrative』の言語区別を本節以降全節で統一する宣言",
         "σ_SU 観測値 7+ の取得手順と本書中最高水準である事実の提示、amd_score.md 8 評価点を Tier A 学術化、小数桁数は本書中最高水準が示せる最小桁数に抑える",
         "C 行列 loading 分解段落: μ_I → C → V → σ_SU 単独大寄与の経路を illustrative に解説、μ_I 単独寄与が σ_SU 数値を押し上げつつ R_net 期待値を押し下げる二重効果の予告 (詳細は §14.2)",
-        "産業既存ライン依存 (本業素材販売部門の保有設備・顧客基盤・規制対応資産) が μ_I 高位を生む構造的経路の明示、Research-Org-Type の ERS (Ch 9) 連携が周辺的に留まる構造特徴",
+        "産業既存ライン依存 (本業素材販売部門の保有設備・顧客基盤・規制対応資産) が μ_I 高位を生む構造的経路の明示、Research-Org-Type の ECR (Ch 9) 連携が周辺的に留まる構造特徴",
         "μ_A 中位の起源: 大学・公的研究機関連携が補完的・周辺的に留まり Etzkowitz Triple Helix 重畳モデルでいう第二 helix が薄い構造",
         "μ_G 中位の起源: 2020-23 CN 宣言 + GX 経済移行債 + SIP CE2023 の政策密度 P 上昇下でも産業内製化路線で μ_G が中位に留まる構造、政策接続速度の遅延",
         "Triple Helix 不均衡指標の提示: Park (2014) indicators 適用で μ_I/μ_A, μ_I/μ_G, μ_A/μ_G の三比率を Tier A illustrative に整え、他章 SU 横並び比較可能な形に整える",
         "§14.2 軌跡分析への接続: 設立時不均衡がその後の R_net 負号と共起する構造の予告、二重効果の伏線"
       ],
       "new_writing_required": "C 行列 loading 分解の表 1 枚、σ_SU 観測値と Triple Helix 三値 (μ_A/μ_I/μ_G) の Tier A illustrative 提示、Park indicators 三比率の表、産業既存ライン依存経路の概念図。全段落新規。",
-      "existing_reuse": "pwa/design/amd_score.md の CX retrofit 8 評価点 (2024 起点) を Tier 3 学術化、Ch 5 σ_SU MS-SSM の C 行列定義をそのまま適用、Ch 9 ERS Research-Org-Type 分類を参照。",
+      "existing_reuse": "pwa/design/amd_score.md の CX retrofit 8 評価点 (2024 起点) を Tier 3 学術化、Ch 5 σ_SU MS-SSM の C 行列定義をそのまま適用、Ch 9 ECR Research-Org-Type 分類を参照。",
       "upstream_dependencies": [
         "Ch 5 σ_SU MS-SSM (S₂ regime, C 行列 loading)",
         "Ch 5.5 GO ゲート (σ_SU 高位 + Triple Helix balance の GO 判定基準)",
-        "Ch 9 ERS (Research-Org-Type)",
+        "Ch 9 ECR (Research-Org-Type)",
         "D-031, D-033 (Tier A illustrative 規律)",
         "§14.0 章頭"
       ],
@@ -102,19 +102,19 @@
       "section_id": "14.2",
       "title": "軌跡 (2024-2026) — σ_SU > 7 維持と R_net 負号観測の同時、rocket outcome の二面性",
       "pages": 4,
-      "math_level": "中 (Ch 6 PRS 期待値分解、Ch 8 Θ_healthy 軌跡、Ch 5.5 GO ゲート)",
+      "math_level": "中 (Ch 6 SPS 期待値分解、Ch 8 Θ_healthy 軌跡、Ch 5.5 GO ゲート)",
       "anchor_claims": [
         "2024-2026 軌跡で σ_SU は設立時の 7+ 水準を高位維持し、Ch 8 Θ_healthy 経路に乗る rocket outcome を示す",
-        "同期間で Ch 6 PRS 期待値分解の本業共食い項が R_net 負号として継続観測される (R_net = 新規 carbon 売上 - 本業共食い項、本業共食い項が新規売上を上回り符号は安定して負)",
-        "rocket outcome の二面性: σ_SU 観測モデル単独では『成功』、PRS 期待値分解では『Θ_healthy 軌跡上の y 出血』と読み分けられ、σ_SU 単独監視の限界を illustrative に示す",
+        "同期間で Ch 6 SPS 期待値分解の本業共食い項が R_net 負号として継続観測される (R_net = 新規 carbon 売上 - 本業共食い項、本業共食い項が新規売上を上回り符号は安定して負)",
+        "rocket outcome の二面性: σ_SU 観測モデル単独では『成功』、SPS 期待値分解では『Θ_healthy 軌跡上の y 出血』と読み分けられ、σ_SU 単独監視の限界を illustrative に示す",
         "σ_SU 数値上昇 (μ_I 単独寄与による押し上げ) と R_net 負号観測 (本業共食いによる押し下げ) は同一の μ_I dominance 構造の表裏として説明される"
       ],
       "paragraph_outline": [
         "軌跡データの提示段落: 2024-2026 各時点 (8 評価点) の σ_SU 値推移、本書中最高水準の維持を Tier A illustrative に提示、時点ラベルを amd_score.md retrofit と対応付け",
-        "R_net 期待値分解段落: R_net = (新規 carbon 売上) - (本業共食い項) の構造、本業共食い項が新規売上を上回り R_net 負号となる時期の特定 (Ch 6 PRS 期待値分解の運用化)",
+        "R_net 期待値分解段落: R_net = (新規 carbon 売上) - (本業共食い項) の構造、本業共食い項が新規売上を上回り R_net 負号となる時期の特定 (Ch 6 SPS 期待値分解の運用化)",
         "R_net 負号の継続性: 2024-2026 を通じて符号が安定して負である事実、一時的揺らぎではない構造性質の指摘、時系列推移グラフ提示",
         "Ch 8 Θ_healthy 経路適用: rocket outcome の指標としての Θ_healthy 軌跡上の CX 位置 (y 出血を伴う健全経路)、健常軌跡判定と y 出血の並存パターン",
-        "rocket outcome の二面性段落: σ_SU 観測モデル単独評価 (『成功』) と PRS 期待値分解評価 (『Θ_healthy 軌跡上の y 出血』) の読み分け、σ_SU 単独監視の限界を Tier A illustrative に概念化",
+        "rocket outcome の二面性段落: σ_SU 観測モデル単独評価 (『成功』) と SPS 期待値分解評価 (『Θ_healthy 軌跡上の y 出血』) の読み分け、σ_SU 単独監視の限界を Tier A illustrative に概念化",
         "σ_SU 高位 × R_net 負号 × Θ_healthy 軌跡の三点同時観測を Ch 5 S₂ regime + Ch 8 健全経路 + Ch 6 期待値分解で並べ、矛盾ではなく Triple Helix 不均衡 (§14.3) で説明される構造であることの予告",
         "Ch 5.5 GO ゲート上での CX 位置確認: σ_SU 単独閾値で判定すると Go、Triple Helix balance 条件 (§14.3) を加えると判断保留となる二重判定不一致の予告",
         "本業既存素材販売の売上推移と新規 carbon ライン売上の同時時系列を Tier A illustrative に提示、cannibalization の数量的兆候 (§14.4 詳細分析の前段)",
@@ -126,7 +126,7 @@
       "upstream_dependencies": [
         "Ch 5 σ_SU MS-SSM (S₂ regime 持続)",
         "Ch 5.5 GO ゲート",
-        "Ch 6 PRS (R_net 期待値分解、本業共食い項)",
+        "Ch 6 SPS (R_net 期待値分解、本業共食い項)",
         "Ch 8 (Θ_healthy 軌跡、y 出血)",
         "Ch 10.6 Malerba SSI (Material lane w_8 符号制約)",
         "§14.1 設立時不均衡"
@@ -168,12 +168,12 @@
         "Köhler et al. (2019) transitions research agenda の『regime-niche 配置』との対応付け、CX は regime 側強化型 transition であって niche 純粋型ではない構造主張、§14.4 Christensen 対比への橋渡し"
       ],
       "new_writing_required": "Triple Helix 不均衡指標 (Park 三比率) の表 1 枚、μ_G → μ_I 吸収経路の概念図 1 枚、T_AIG mutual information 本書 notation 再定式化、速度差 frame の論述。全段落新規。",
-      "existing_reuse": "Ch 5 C 行列定義の再利用、Ch 9 ERS Research-Org-Type 分類の参照、amd_score.md の CX 構造記述。",
+      "existing_reuse": "Ch 5 C 行列定義の再利用、Ch 9 ECR Research-Org-Type 分類の参照、amd_score.md の CX 構造記述。",
       "upstream_dependencies": [
         "§14.1 設立時不均衡",
         "§14.2 軌跡",
         "Ch 5 C 行列",
-        "Ch 9 ERS (Research-Org-Type)",
+        "Ch 9 ECR (Research-Org-Type)",
         "Ch 10.6 Malerba SSI (Material lane 符号制約 w_8)"
       ],
       "downstream_dependencies": [
@@ -201,7 +201,7 @@
       "section_id": "14.4",
       "title": "本業 vs 新規 Carbon ライン共食い — Christensen-Bower + Adner 四文献対比、self-cannibalization 方向逆転",
       "pages": 3,
-      "math_level": "低-中 (Ch 6 PRS 期待値分解の本業共食い項、Ch 10.6 Malerba SSI Material lane 符号制約 w_8)",
+      "math_level": "低-中 (Ch 6 SPS 期待値分解の本業共食い項、Ch 10.6 Malerba SSI Material lane 符号制約 w_8)",
       "anchor_claims": [
         "R_net 負号観測の主要メカニズムは内製化共食い (cannibalization) であり、本業既存素材販売が新規 carbon ラインを内製化することで、つなぎ収益として期待した本業売上を侵食する構造として運用的に定義される",
         "CX 事例は Christensen (1997) Innovator's Dilemma の被破壊側ではなく自己破壊側、すなわち産業内既存プレイヤー自身が新規ラインを内製化する self-cannibalization 方向逆転構造を呈する (Bower-Christensen 1995 disruptive technologies との対比で、CX では破壊が外部新規参入者でなく内部既存部門から発生)",
@@ -217,11 +217,11 @@
         "self-cannibalization が σ_SU 高位 (μ_I dominance による) と同時並立する経済学的解釈、§14.5 Book II 装置統合への接続"
       ],
       "new_writing_required": "Christensen 古典 disruption vs CX self-cannibalization の比較表 1 枚 (古典 / Bower-Christensen / CX の三列構成)、本業共食い項の構造分解図 1 枚、Adner demand-side 解釈の論述。全段落新規。",
-      "existing_reuse": "Ch 6 PRS R_net 期待値分解定義、Ch 10.6 Malerba SSI Material lane 符号制約 w_8 の定義、pwa/bzm/r-readiness.md と s-survival.md の R_net 負号定義を Christensen 対比で精緻化。",
+      "existing_reuse": "Ch 6 SPS R_net 期待値分解定義、Ch 10.6 Malerba SSI Material lane 符号制約 w_8 の定義、pwa/bzm/r-readiness.md と s-survival.md の R_net 負号定義を Christensen 対比で精緻化。",
       "upstream_dependencies": [
         "§14.2 軌跡 (R_net 負号観測)",
         "§14.3 Triple Helix 不均衡 (μ_I dominant)",
-        "Ch 6 PRS",
+        "Ch 6 SPS",
         "Ch 10.6 Malerba SSI (w_8 Material)"
       ],
       "downstream_dependencies": [
@@ -250,12 +250,12 @@
       "pages": 3,
       "math_level": "中 (Ch 5/5.5/6/8/9/10.6 統合適用)",
       "anchor_claims": [
-        "Book II 6 装置 (Ch 5 σ_SU + Ch 5.5 GO ゲート + Ch 6 PRS + Ch 8 Θ_healthy + Ch 9 ERS + Ch 10.6 Malerba SSI) を CX に統合適用すると、σ_SU 単独高位は SU 健全性の十分条件ではないことが illustrative に示される (Tier A、validation 主張なし)",
+        "Book II 6 装置 (Ch 5 σ_SU + Ch 5.5 GO ゲート + Ch 6 SPS + Ch 8 Θ_healthy + Ch 9 ECR + Ch 10.6 Malerba SSI) を CX に統合適用すると、σ_SU 単独高位は SU 健全性の十分条件ではないことが illustrative に示される (Tier A、validation 主張なし)",
         "他章 SU との横並び対比 (CTB は σ_SU 低位 + 政策 dominant、SX は中位 + 学術 dominant、CX は最高 σ_SU + 産業 dominant) で、Triple Helix 配置が R_net 符号と σ_SU 数値の関係を規定する構造を illustrative に示す",
         "Triple Helix balance (μ_A/μ_I/μ_G 比) と R_net 符号の同時監視が観測モデル運用上必要であるという含意を導き、CX 後付け校正データは Ch 25 層間結合 + Ch 26a 整合性 + Ch 26b 予測登録簿 (post-2026 予測対象) + Ch 37 比較に供給される"
       ],
       "paragraph_outline": [
-        "Book II 装置統合読み直し段落: Ch 5 σ_SU、Ch 5.5 GO ゲート、Ch 6 PRS、Ch 8 Θ_healthy、Ch 9 ERS、Ch 10.6 Malerba SSI w_8 の 6 装置を CX 1 ケースに当てて読む手順を表で提示",
+        "Book II 装置統合読み直し段落: Ch 5 σ_SU、Ch 5.5 GO ゲート、Ch 6 SPS、Ch 8 Θ_healthy、Ch 9 ECR、Ch 10.6 Malerba SSI w_8 の 6 装置を CX 1 ケースに当てて読む手順を表で提示",
         "6 装置統合表: 各装置の出力と σ_SU / R_net / μ_I の同時パターンとしての整合性を一覧化、装置間相互作用 (例: Ch 8 Θ_healthy 上で Ch 6 R_net 負号がなぜ両立するか) の formal 化",
         "読み直しの帰結: σ_SU > 7 単独では Ch 5.5 GO 判定の安全余裕を保証しない、Triple Helix balance 指標 (Park 三比率 + T_AIG) と R_net 符号の同時監視が観測モデル運用上必要",
         "CTB/SX 横並び対比段落: CTB (σ_SU 低位 + 政策 dominant)、SX (中位 + 学術 dominant)、CX (最高 σ_SU + 産業 dominant) の三 SU 横並び表で Triple Helix 配置と R_net 符号の関係を illustrative に示す (Lens C cross-cutting concern 対応)",
@@ -353,8 +353,8 @@
   "falsifiable_claims": [
     "CX の設立時 (2024) σ_SU 観測値は本書中で扱う SU 群の中で最高水準 (7+) である (Tier A illustrative、本書内 σ_SU 観測値の横並び比較で反証可能、CTB/SX 等との対比)",
     "CX の C 行列 loading 分解で μ_I 寄与係数は μ_A 寄与係数および μ_G 寄与係数を illustrative 閾値以上で上回る (Park 2014 indicators 三比率適用 + Ch 5 C 行列 loading 再分析で反証可能)",
-    "CX の 2024-2026 軌跡で R_net 期待値分解の本業共食い項符号は安定して負である (Ch 6 PRS 期待値分解の時系列推移で反証可能、一時的揺らぎではない構造性質)",
-    "CX は 2024-2026 期間で Ch 8 Θ_healthy 経路上に位置し rocket outcome の指標条件を満たしながら、同期間で R_net 負号が継続する二面性同時観測が成立する (Ch 8 Θ_healthy 定義 + Ch 6 PRS の併用適用で反証可能)",
+    "CX の 2024-2026 軌跡で R_net 期待値分解の本業共食い項符号は安定して負である (Ch 6 SPS 期待値分解の時系列推移で反証可能、一時的揺らぎではない構造性質)",
+    "CX は 2024-2026 期間で Ch 8 Θ_healthy 経路上に位置し rocket outcome の指標条件を満たしながら、同期間で R_net 負号が継続する二面性同時観測が成立する (Ch 8 Θ_healthy 定義 + Ch 6 SPS の併用適用で反証可能)",
     "Ch 5 σ_SU MS-SSM の S₂ regime (三位一体追い風) を σ_SU 単独閾値で判定すると CX は S₂ に分類されるが、Leydesdorff (2008/2021) T_AIG balance 条件を加えると S₂ から外れる二重判定不一致が成立する (二重判定の独立適用で反証可能)",
     "CX 本業既存素材販売部門の売上推移と新規 carbon ライン売上推移は 2024-2026 期間で共起し、cannibalization 仮説の検証可能形 (相関係数が有意に正、本業共食い項 = 本業売上減少率 × 新規ライン売上増加率の符号関係) が成立する",
     "Ch 10.6 Malerba SSI Material lane 符号制約 w_8(Material) は CX の R_net 負号観測と符号方向で整合する (w_8 符号定義と R_net 観測符号の照合で反証可能)",
@@ -371,7 +371,7 @@
       "what_supplies": "σ_SU > 7 単独では GO 判定の安全余裕を保証しないこと、Triple Helix balance 条件を GO ゲート判定基準に追加する必要性の illustrative 提示"
     },
     {
-      "target_chapter": "Ch 6 (PRS 期待値分解)",
+      "target_chapter": "Ch 6 (SPS 期待値分解)",
       "what_supplies": "R_net = (新規 carbon 売上) - (本業共食い項) という self-cannibalization 型 R_net 負号の運用定義、本業共食い項の符号安定性を期待値分解の実装事例として供給"
     },
     {
@@ -379,8 +379,8 @@
       "what_supplies": "Θ_healthy 経路上で y 出血 (R_net 負号項) が並存する rocket outcome 二面性の illustrative 事例、健常軌跡判定単独の限界示唆"
     },
     {
-      "target_chapter": "Ch 9 (ERS Research-Org-Type)",
-      "what_supplies": "CX 産業 dominant 配置における Research-Org-Type ERS の周辺的位置づけ、μ_A 中位の構造的起源としての ERS 連携薄弱パターン"
+      "target_chapter": "Ch 9 (ECR Research-Org-Type)",
+      "what_supplies": "CX 産業 dominant 配置における Research-Org-Type ECR の周辺的位置づけ、μ_A 中位の構造的起源としての ECR 連携薄弱パターン"
     },
     {
       "target_chapter": "Ch 10.6 (Malerba SSI Material lane)",

@@ -4,7 +4,7 @@
     "load_bearing_claims": [
       "BZM Ch 10 は進化経済正典の四本柱 (Schumpeter 創造的破壊 / Nelson-Winter 選抜環境 / Dosi 技術軌道 / Pakes-Ericson 産業動学) を覆すのではなく、法人化前ノード (t < τ_B, 法人化時点 τ_B 前) という未開拓領域への minor extension として拡張することで、Cambridge UP Schumpeter モノグラフ系列の編集方針と整合する。",
       "進化経済 persona NO 判定の主因 7 系統 (Klepper / Malerba / Murmann / ρ Kmenta / Theorem 3 / ファジー境界 / N≈32 試験) は、軽微修正 6 件 (D-035..D-041) として §10.2-§10.9 に 1 対 1 対応で分配され、§10.10 で達成マトリクスとして総括される。",
-      "法人化前ノードの状態空間 S_{ijt} は PJ i ∈ I (|I|=N=32) × 機関 j ∈ J (|J|=7) × 時間 t ∈ T の三軸 indexing 上で 36+ 次元として完全定義され、5 軸 readiness × 8 軸 ERS × 5 成分 y × 3 latent × 8 軸 η_jt の dimensionality 構造が §10.2-§10.9 全節の formal 基盤を成す。",
+      "法人化前ノードの状態空間 S_{ijt} は PJ i ∈ I (|I|=N=32) × 機関 j ∈ J (|J|=7) × 時間 t ∈ T の三軸 indexing 上で 36+ 次元として完全定義され、5 軸 readiness × 8 軸 ECR × 5 成分 y × 3 latent × 8 軸 η_jt の dimensionality 構造が §10.2-§10.9 全節の formal 基盤を成す。",
       "暦時間 t と event-time τ_B(i, t) = t − t_B(i) の二重時間構造、内生法人化時点 t_B(i)、ファジー所属度 m_{ij}^F(t) の三点が BZM の analytical primitive を進化経済正典から差別化する中核装置である。",
       "Theorem 3 (§10.4) の identification 条件が Ch 11 BVAR prior の rank restriction に翻訳され、ρ_jt (§10.3) が MS-SSM の regime transition matrix に埋め込まれることで、Ch 10 OPENER は Ch 11 推定統合への formal bridge を成立させる。",
       "進化経済 + Triple Helix + Innovation Systems + Effectuation の四層分業 (進化経済学 = 選抜環境 η_jt, F / Triple Helix = 制度三軸 / Innovation Systems = sector 異質性 / Effectuation = 起業家認知 μ_A) が Ch 10 OPENER の position 戦略の中核を成し、Book 0 Ch 0.3 と Book VI への逆流の論拠を提供する。",
@@ -94,7 +94,7 @@
       "anchor_claims": [
         "BZM の法人化前ノード (pre-formation node) は、PJ i × 機関 j × 時間 t の 3 軸 indexing 上で定義される高次元状態空間 S_{ijt} = (x_{ijt}, y_{ijt}, σ_{SU,ijt}, F_{ijt}, k_{ijt}, μ_{ijt}, η_{jt}, N_{jt}) として一意に与えられ、進化経済学の population dynamics に対応する個体状態を 36+ 次元で完全記述する。",
         "時間軸は基準を年次 t ∈ {2000, ..., 2025} に取り、event-time τ_B = t − t_B(i) (法人化時点 t_B(i) を 0 とする相対時間) を併用する。τ_B < 0 が法人化前ノード、τ_B ≥ 0 が法人化後の存続/退出選択を表し、Klepper の shakeout 力学 (§10.5) と Jovanovic の noisy selection (§10.2) を τ_B 軸上で接続する。",
-        "5 軸 readiness ベクトル x_{ijt} = (TRL, BRL, GRL, SRL, HRL)_{ijt} ∈ [1,9]^5 と 8 軸 ERS (進化的準備状態) ベクトル z_{ijt} ∈ [0,1]^8 は、それぞれ技術成熟度と進化的選抜環境内 fitness を分離測定する。両者を 3 latent (μ_A: ability, μ_I: identity, μ_G: governance) で縮約し、低次元 manifold 上の trajectory として観測する。",
+        "5 軸 readiness ベクトル x_{ijt} = (TRL, BRL, GRL, SRL, HRL)_{ijt} ∈ [1,9]^5 と 8 軸 ECR (進化的準備状態) ベクトル z_{ijt} ∈ [0,1]^8 は、それぞれ技術成熟度と進化的選抜環境内 fitness を分離測定する。両者を 3 latent (μ_A: ability, μ_I: identity, μ_G: governance) で縮約し、低次元 manifold 上の trajectory として観測する。",
         "機関固有揺らぎ η_{jt} ∈ R^8 と機関規模 N_{jt} ∈ N は機関 j の選抜環境 (Nelson-Winter 1982) を構成し、PJ i は η_{jt} と自身の state x_{ijt} の双線形相互作用を通じて選抜圧力 π_{ijt} = ⟨η_{jt}, h(x_{ijt})⟩ を受ける。これにより BZM は進化経済学の selection environment 概念を、機関と PJ の相互作用テンソルとして operationalize する。",
         "D-051 記号表記正本 (BOOK_DECISIONS.md) は Ch 10 OPENER 全 11 節を通じて拘束される。本節 §10.1 は §10.2-§10.9 のすべての記号 (Jovanovic の信念分散 σ²_{SU,ijt}, ρ Kmenta 近似の代替弾力性, Theorem 3 の F-測度, Klepper の k_{ijt}, Malerba の μ_{ijt}, ファジー境界の所属度) の名称・定義域・添字順序を確定し、後続節は本節定義からの逸脱なしに記述される。"
       ],
@@ -105,7 +105,7 @@
         "時間軸の定式化：暦時間 t ∈ T ⊂ Z (年次基準, 必要に応じ quarter 補助) と event-time τ_B(i,t) = t − t_B(i) の二重時間構造を導入。法人化時点 t_B(i) は内生 (D-038, Theorem 3) で、{t_B(i) = ∞} は永続的 pre-formation を許す。τ_B < 0 領域での共変量 dynamics と τ_B ≥ 0 領域での hazard を接続する identification 上の役割を示す。",
         "PJ × 機関 × 時間 三軸 indexing：i ∈ I_{|I|=N}, j ∈ J_{|J|=7}, t ∈ T。割当写像 a: I × T → J ∪ {∅} が PJ の所属機関を与え、a(i,t) = ∅ は機関外 (independent) 状態を含む。Murmann (§10.7) の co-evolution は a の時間変化 (機関間移動) として、Malerba (§10.6) の sectoral system は j ↦ sector(j) の partition として表現される。indexing の濃度 |I × J × T| = N · 7 · |T| の identification への含意。",
         "5 軸 readiness ベクトル：x_{ijt} = (TRL_{ijt}, BRL_{ijt}, GRL_{ijt}, SRL_{ijt}, HRL_{ijt})^⊤ ∈ [1,9]^5。TRL は技術 (NASA 系譜)、BRL は business、GRL は governance、SRL は social、HRL は human capital readiness。順序尺度の連続埋め込み (item response theory の latent score 化) と、増分過程 Δx_{ijt} = x_{ij,t+1} − x_{ijt} の non-decreasing 制約 (技術成熟度の monotonicity) を formal に書き下す。",
-        "8 軸 ERS (Evolutionary Readiness State) ベクトル：z_{ijt} ∈ [0,1]^8。8 軸は (variation, selection, retention, niche fit, network density, absorptive capacity, routine maturity, search direction)、すなわち Nelson-Winter の進化 3 要素 + Innovation Systems 由来の 5 拡張軸。x_{ijt} (readiness) との直交化 (cov(x, z | μ) = 0 を仮定する条件付独立性) を仮定し、5 axis × 8 axis の双対構造が D-035 進化経済軽微修正の核であることを述べる。",
+        "8 軸 ECR (Evolutionary Readiness State) ベクトル：z_{ijt} ∈ [0,1]^8。8 軸は (variation, selection, retention, niche fit, network density, absorptive capacity, routine maturity, search direction)、すなわち Nelson-Winter の進化 3 要素 + Innovation Systems 由来の 5 拡張軸。x_{ijt} (readiness) との直交化 (cov(x, z | μ) = 0 を仮定する条件付独立性) を仮定し、5 axis × 8 axis の双対構造が D-035 進化経済軽微修正の核であることを述べる。",
         "成果ベクトル y_{ijt} の 5 成分分解：y_{ijt} = (y^P, y^G, y^N, y^F, y^L)_{ijt} ∈ R^5、それぞれ publication, grant, network tie, funding, license の 5 成分。各成分の測度 (count, log-scale, share) と zero-inflation 構造を明示。5 成分 y と 8 軸 z の relation y = Λ z + Γ x + ε を線形に書き下し、§10.4 (Theorem 3) の F-測度がこの factor structure の rank を保証する点を予告。",
         "3 latent ベクトル μ_{ijt}：μ_{ijt} = (μ_A, μ_I, μ_G)_{ijt} ∈ R^3。μ_A は ability latent (Jovanovic noisy selection の真の能力)、μ_I は identity latent (Effectuation 系譜の主体性)、μ_G は governance latent (機関統治適合度)。観測ベクトル (x, y, z) からの projection μ̂_{ijt} = Π(x, y, z; θ) を定義し、Jovanovic 学習過程 (§10.2) における σ²_{SU,ijt} = Var(μ_A | F_{ijt}) の役割を確認。",
         "機関固有揺らぎ η_{jt} と機関規模 N_{jt}：η_{jt} ∈ R^8 は機関 j の選抜環境 fluctuation (Nelson-Winter の selection environment の確率的揺らぎ)、N_{jt} ∈ N は機関規模 (Klepper の market structure 対応物)。pre-formation node 上での選抜圧 π_{ijt} = ⟨η_{jt}, h(x_{ijt})⟩ + λ log N_{jt} を formal に与え、Klepper shakeout (§10.5) の N_{jt} ↑ → π_{ijt} ↑ チャネルを明示。",
@@ -113,14 +113,14 @@
         "Klepper k_{ijt} と Malerba μ_{ijt} の構造的位置：k_{ijt} ∈ K ⊂ R は Klepper コホート効果 (参入年次の sticky 効果, §10.5)、μ_{ijt} (上記 3 latent と別の太字記号区別) は Malerba sectoral knowledge base intensity。両者は (x, z) の non-separable な交互作用項として state space に入り、§10.6-§10.7 の co-evolution dynamics の状態変数となる。",
         "ファジー境界の formal 表現：機関所属の所属度 m_{ij}^F(t) ∈ [0,1] (D-040 ファジー境界, §10.8) は割当写像 a の確率化版で、∑_{j ∈ J ∪ {∅}} m_{ij}^F(t) = 1 を満たす。pre-formation node が複数機関に同時所属する (大学スピンアウト × 民間アクセラレータ等) 場合の状態 S_{ijt} は重み付き平均 S_{i,·,t} = ∑_j m_{ij}^F(t) S_{ijt} として与えられる構造的拡張を述べる。",
         "D-051 記号表記正本の §10.2-§10.10 全節への規律：本節で定義した記号 (S, x, y, z, μ, η, F, k, σ²_{SU}, m^F, τ_B, t_B, a, N) は §10.2 以降のすべての等式で同一記号・同一定義域で再利用される。逸脱例外は §10.4 Theorem 3 の F-statistic のみで、これは subscript ⋆ 付き F⋆ で区別する。後続節執筆者への規律として記号表 (Table 10.1.1) を提示することを述べる。",
-        "節結語と次節への橋渡し：§10.1 で確立した state space S_{ijt} 上で、§10.2 は Jovanovic noisy selection を pre-formation 拡張し、§10.3 は ρ Kmenta CES 近似を 5 軸 readiness × 8 軸 ERS の代替弾力性に適用、§10.4 は Theorem 3 で識別条件を与える。Ch 10 OPENER 全節がこの 36+ 次元 state space 上の異なる射影として統合される構図を要約。"
+        "節結語と次節への橋渡し：§10.1 で確立した state space S_{ijt} 上で、§10.2 は Jovanovic noisy selection を pre-formation 拡張し、§10.3 は ρ Kmenta CES 近似を 5 軸 readiness × 8 軸 ECR の代替弾力性に適用、§10.4 は Theorem 3 で識別条件を与える。Ch 10 OPENER 全節がこの 36+ 次元 state space 上の異なる射影として統合される構図を要約。"
       ],
-      "new_writing_required": "本節は Ch 10 OPENER の formal 基盤を新規に整備する節であり、新規執筆量は約 5p の 90% を占める。具体的新規執筆項目: (1) pre-formation node の measure-theoretic 定義 (状態空間 S_{ijt} の σ-algebra と filtration F_{ijt} の正式化、約 0.7p)、(2) 5 軸 readiness × 8 軸 ERS × 5 成分 y × 3 latent × 8 軸 η の 36 次元 dimensionality 表 (Table 10.1.1 記号表、約 1.0p)、(3) 二重時間軸 (t, τ_B) と 内生法人化時点 t_B(i) の formal 定義 (約 0.5p)、(4) 機関選抜圧 π_{ijt} = ⟨η_{jt}, h(x_{ijt})⟩ + λ log N_{jt} の構築 (約 0.6p)、(5) ファジー所属度 m_{ij}^F(t) と状態空間の重み付き拡張 (約 0.5p)、(6) Jovanovic σ²_{SU,ijt} と Theorem 3 F⋆-statistic の記号衝突回避規則 (約 0.4p)、(7) Klepper k と Malerba μ の状態空間内位置づけ (約 0.5p)、(8) §10.2-§10.10 へ向けた記号規律宣言と節結語 (約 0.8p)。",
-      "existing_reuse": "既存再利用は限定的で約 10%。再利用箇所: (1) D-051 記号表記正本 (BOOK_DECISIONS.md) の記号定義 — 本節はこれを Ch 10 OPENER 文脈に展開する形で参照する、(2) Ch 5 (PRS 構造) で既出の 5 軸 readiness (TRL/BRL/GRL/SRL/HRL) と 8 軸 ERS の概念定義 — 本節は formal 状態空間に組み込む形で再記述、(3) Ch 9 (推定戦略概観) で予告された PJ × 機関 × 時間 三軸 indexing の motivation — 本節で formal に確定。これら再利用は記号表 (Table 10.1.1) への参照と footnote リンクで処理し、本文の重複記述は避ける。",
+      "new_writing_required": "本節は Ch 10 OPENER の formal 基盤を新規に整備する節であり、新規執筆量は約 5p の 90% を占める。具体的新規執筆項目: (1) pre-formation node の measure-theoretic 定義 (状態空間 S_{ijt} の σ-algebra と filtration F_{ijt} の正式化、約 0.7p)、(2) 5 軸 readiness × 8 軸 ECR × 5 成分 y × 3 latent × 8 軸 η の 36 次元 dimensionality 表 (Table 10.1.1 記号表、約 1.0p)、(3) 二重時間軸 (t, τ_B) と 内生法人化時点 t_B(i) の formal 定義 (約 0.5p)、(4) 機関選抜圧 π_{ijt} = ⟨η_{jt}, h(x_{ijt})⟩ + λ log N_{jt} の構築 (約 0.6p)、(5) ファジー所属度 m_{ij}^F(t) と状態空間の重み付き拡張 (約 0.5p)、(6) Jovanovic σ²_{SU,ijt} と Theorem 3 F⋆-statistic の記号衝突回避規則 (約 0.4p)、(7) Klepper k と Malerba μ の状態空間内位置づけ (約 0.5p)、(8) §10.2-§10.10 へ向けた記号規律宣言と節結語 (約 0.8p)。",
+      "existing_reuse": "既存再利用は限定的で約 10%。再利用箇所: (1) D-051 記号表記正本 (BOOK_DECISIONS.md) の記号定義 — 本節はこれを Ch 10 OPENER 文脈に展開する形で参照する、(2) Ch 5 (SPS 構造) で既出の 5 軸 readiness (TRL/BRL/GRL/SRL/HRL) と 8 軸 ECR の概念定義 — 本節は formal 状態空間に組み込む形で再記述、(3) Ch 9 (推定戦略概観) で予告された PJ × 機関 × 時間 三軸 indexing の motivation — 本節で formal に確定。これら再利用は記号表 (Table 10.1.1) への参照と footnote リンクで処理し、本文の重複記述は避ける。",
       "upstream_dependencies": [
         "§10.0 OPENER 序論 — Ch 10 全体 motivation と進化経済 6 軽微修正 (D-035..D-041) のロードマップを受け、§10.1 はこれら 6 軽微修正の formal 基盤としての state space を定義する責務を負う。",
-        "Ch 5 (PRS 5 軸 readiness) — TRL/BRL/GRL/SRL/HRL の概念定義と order-scale 性質。§10.1 は連続埋め込みと monotonicity 制約を新規に追加する。",
-        "Ch 5.5 (ERS 8 軸 evolutionary readiness state) — 8 軸の概念定義。§10.1 は readiness と ERS の直交化条件を新規に formalize する。",
+        "Ch 5 (SPS 5 軸 readiness) — TRL/BRL/GRL/SRL/HRL の概念定義と order-scale 性質。§10.1 は連続埋め込みと monotonicity 制約を新規に追加する。",
+        "Ch 5.5 (ECR 8 軸 evolutionary readiness state) — 8 軸の概念定義。§10.1 は readiness と ECR の直交化条件を新規に formalize する。",
         "Ch 9 (推定戦略概観) — PJ × 機関 × 時間 三軸 indexing と event-time の motivation。§10.1 は formal indexing を確定する。",
         "D-051 記号表記正本 (BOOK_DECISIONS.md) — Ch 10 OPENER 全節を拘束する記号規約。§10.1 はこれを実装する責務を負う。",
         "D-034 機関 7 type 分類 — |J|=7 の濃度確定。",
@@ -130,7 +130,7 @@
       ],
       "downstream_dependencies": [
         "§10.2 Jovanovic 拡張 — pre-formation node 上の noisy selection。σ²_{SU,ijt} と μ_A,ijt と F_{ijt} の §10.1 定義に完全依存。",
-        "§10.3 ρ Kmenta CES 近似 — 5 軸 readiness × 8 軸 ERS の代替弾力性。§10.1 の x_{ijt}, z_{ijt} 定義に依存。",
+        "§10.3 ρ Kmenta CES 近似 — 5 軸 readiness × 8 軸 ECR の代替弾力性。§10.1 の x_{ijt}, z_{ijt} 定義に依存。",
         "§10.4 Theorem 3 — 識別条件と F⋆-statistic。§10.1 の F_{ijt} (情報集合) と F⋆ (検定量) の記号区別規則に依存。",
         "§10.5 Klepper shakeout — コホート効果 k_{ijt} と機関規模 N_{jt}。§10.1 の状態空間内位置と選抜圧 π_{ijt} 定義に依存。",
         "§10.6 Malerba sectoral system — 機関 j ↦ sector(j) partition と μ_{ijt} (Malerba latent)。§10.1 の j indexing と 3 latent 区別に依存。",
@@ -226,7 +226,7 @@
   "open_issues": [
     "§10.0 ¶13 で予告する falsifiable claims の最終表が §10.10 で再掲される構造を取るが、Theorem 3 反証条件 (sector の存在) と ファジー境界崩壊条件 (法人化 discrete event sector) の cross-validation 戦略は P-009 として Ch 11 / Book V に持ち越される (未解決)。",
     "§10.1 の状態空間総次元 dim(S_{ijt}) ≥ 36 と N=32 (D-041) の自由度関係は §10.9 試験設計に直接影響する (P-001 Theorem 3 sample-size 下界)。§10.0/§10.1 では伏線のみ提示し、解決は §10.9 + Ch 11 に委譲される。",
-    "§10.1 で導入する 5 軸 readiness (x) と 8 軸 ERS (z) の条件付独立性 cov(x, z | μ) = 0 は仮定であり、empirical 検証は Book V に持ち越される (P-007 関連)。",
+    "§10.1 で導入する 5 軸 readiness (x) と 8 軸 ECR (z) の条件付独立性 cov(x, z | μ) = 0 は仮定であり、empirical 検証は Book V に持ち越される (P-007 関連)。",
     "§10.1 の Malerba latent μ_{ijt} (sectoral knowledge base intensity) と 3 latent μ_{ijt} = (μ_A, μ_I, μ_G) の記号衝突回避 (太字区別) は D-051 改訂を要する可能性があり、Ch 10 OPENER 執筆完了時点で BOOK_DECISIONS 改訂候補として記録する必要がある。",
     "§10.10 ¶4 Cambridge UP モノグラフ 4 章構造への mapping は提案段階であり、Book II 全体の構造化が確定する Ch 11.5 完了後に再評価が必要。",
     "§10.10 ¶5 ICC submission plan の 2026Q4-2027Q1 schedule は Phase 2 データ取得 (D-052) に依存し、データ遅延時の代替経路 (Theorem 3 単独投稿) は未定。",
@@ -237,7 +237,7 @@
   "falsifiable_claims": [
     "FC-10.0-1: 進化経済 persona の Round 1 NO 判定 7 系統 (Klepper / Malerba / Murmann / ρ Kmenta / Theorem 3 / ファジー境界 / N≈32) のうち少なくとも 1 系統が、§10.2-§10.9 の formal 達成では『軽微修正』に縮約できず『構造修正 (major revision)』を要する場合、Ch 10 OPENER の position 戦略 (正典 minor extension) は反証される。",
     "FC-10.1-1: 状態空間 S_{ijt} の総次元 dim(S_{ijt}) ≥ 36 が N=32 (D-041) を超えるため、§10.9 試験設計で BVAR/MS-SSM 推定が自由度不足で識別不能となる sector が観測された場合、§10.1 の 36+ 次元構成は反証される (Ch 11 推定段階で検証可能)。",
-    "FC-10.1-2: 5 軸 readiness x と 8 軸 ERS z の条件付独立性 cov(x_{ijt}, z_{ijt} | μ_{ijt}) = 0 が、Phase 2 データ 2026Q4 (D-052) 入手後の empirical 共分散行列推定で有意に棄却される場合、§10.1 の 5 軸 × 8 軸 双対構造は反証される。",
+    "FC-10.1-2: 5 軸 readiness x と 8 軸 ECR z の条件付独立性 cov(x_{ijt}, z_{ijt} | μ_{ijt}) = 0 が、Phase 2 データ 2026Q4 (D-052) 入手後の empirical 共分散行列推定で有意に棄却される場合、§10.1 の 5 軸 × 8 軸 双対構造は反証される。",
     "FC-10.1-3: 法人化時点 t_B(i) の内生決定 (D-038) において {t_B(i) = ∞} (永続的 pre-formation) の比率が AMD 8 PJ で予想 (Phase 1 仮定値) を超えて高い場合、§10.1 の event-time τ_B 軸での Jovanovic-Klepper 接続は反証される。",
     "FC-10.1-4: ファジー所属度 m_{ij}^F(t) の cross-section 分布が AMD 8 PJ + 国際 17 PJ + 機関後付け 7 PJ で約 0/1 二極集中 (discrete 化) する場合、§10.1 の重み付き状態 S_{i,·,t} 構成と §10.8 ファジー境界 (D-040) は反証される。",
     "FC-10.10-1: §10.4 Theorem 3 の identification 条件が Ch 11 BVAR prior の rank restriction に翻訳された結果、Phase 2 データで rank deficient と判定される sector が観測された場合、§10.4-§10.10 の identification 戦略は反証される。",
@@ -252,7 +252,7 @@
     },
     {
       "target_chapter": "§10.3 ρ Kmenta 線形化 (D-038)",
-      "what_supplies": "§10.0 ¶3/¶7 で予告した ρ 軽微修正の Ch 10 内位置付け、§10.1 で確立した 5 軸 readiness x_{ijt} × 8 軸 ERS z_{ijt} の代替弾力性適用対象、3 latent μ_{ijt} への縮約構造、§10.10 ¶6 で予告する Ch 11 MS-SSM regime transition matrix への埋め込み経路。"
+      "what_supplies": "§10.0 ¶3/¶7 で予告した ρ 軽微修正の Ch 10 内位置付け、§10.1 で確立した 5 軸 readiness x_{ijt} × 8 軸 ECR z_{ijt} の代替弾力性適用対象、3 latent μ_{ijt} への縮約構造、§10.10 ¶6 で予告する Ch 11 MS-SSM regime transition matrix への埋め込み経路。"
     },
     {
       "target_chapter": "§10.4 Theorem 3 (D-039)",

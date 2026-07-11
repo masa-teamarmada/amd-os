@@ -1,18 +1,18 @@
 {
   "ch_overview": {
-    "core_proposition": "案件単位の期待値分解 E[価値] ≈ P × Pr(到達) ≈ P × R × S は、金融評価 (Damodaran 2002 Ch.27 / Koller-Goedhart-Wessels 2010 Ch.32 / Brealey-Myers-Allen 2020 Ch.10) と real options (Dixit-Pindyck 1994 / Trigeorgis 1996 / Smith-Nau 1995) と subjective expected utility 公理系 (Savage 1954 / Anscombe-Aumann 1963) の三系譜の合流点であり、BZM の発明ではない standard decomposition の bottleneck-aware 翻訳である。その honest position は (i) R を 5 軸 readiness (TRL/BRL/GRL/SRL/HRL) の bundle-min を基本形・σ < 1 CES を一般化として集約 (min は CES の σ → 0 極限)、(ii) S = σ_SU × R_net × F の Cobb-Douglas 外殻 (Ch 5/7/8/9 から supply)、(iii) P を Alvarez-Barney 発見/創造論争に対し honest 中立な Bayesian 動的更新対象として扱い Sarasvathy effectuation の reduction risk に notice、(iv) (P, R, S) の独立性仮定下で命題 6.3 (相関補正) E[PRS] = E[P]E[R]E[S] + covariance terms + higher moments を Jensen 不等式と観測等価類/識別不能性とともに honest 明示、(v) 案件 PRS (乗法、bottleneck-aware) と機関 ERS (加重和、portfolio-aware) を融合してはならない二層構造を順序非可換性として motivate し Ch 10.4 Theorem 3 の事前準備に位置付ける、の 5 点に集約される。Ch 6 は Book II 中核の最後 (D-043) として Ch 5/5.5/7/8/9/10.4/10.5-10.7 をすべて受け、Ch 11 BVAR と Book III 8 PJ 後付け校正と Book IV 時系列現場接続に渡す。",
+    "core_proposition": "案件単位の期待値分解 E[価値] ≈ P × Pr(到達) ≈ P × R × S は、金融評価 (Damodaran 2002 Ch.27 / Koller-Goedhart-Wessels 2010 Ch.32 / Brealey-Myers-Allen 2020 Ch.10) と real options (Dixit-Pindyck 1994 / Trigeorgis 1996 / Smith-Nau 1995) と subjective expected utility 公理系 (Savage 1954 / Anscombe-Aumann 1963) の三系譜の合流点であり、BZM の発明ではない standard decomposition の bottleneck-aware 翻訳である。その honest position は (i) R を 5 軸 readiness (TRL/BRL/GRL/SRL/HRL) の bundle-min を基本形・σ < 1 CES を一般化として集約 (min は CES の σ → 0 極限)、(ii) S = σ_SU × R_net × F の Cobb-Douglas 外殻 (Ch 5/7/8/9 から supply)、(iii) P を Alvarez-Barney 発見/創造論争に対し honest 中立な Bayesian 動的更新対象として扱い Sarasvathy effectuation の reduction risk に notice、(iv) (P, R, S) の独立性仮定下で命題 6.3 (相関補正) E[SPS] = E[P]E[R]E[S] + covariance terms + higher moments を Jensen 不等式と観測等価類/識別不能性とともに honest 明示、(v) 案件 SPS (乗法、bottleneck-aware) と機関 ECR (加重和、portfolio-aware) を融合してはならない二層構造を順序非可換性として motivate し Ch 10.4 Theorem 3 の事前準備に位置付ける、の 5 点に集約される。Ch 6 は Book II 中核の最後 (D-043) として Ch 5/5.5/7/8/9/10.4/10.5-10.7 をすべて受け、Ch 11 BVAR と Book III 8 PJ 後付け校正と Book IV 時系列現場接続に渡す。",
     "load_bearing_claims": [
       "E[価値] ≈ P × Pr(到達) ≈ P × R × S は DCF batch (Damodaran/Koller/Brealey-Myers-Allen) + real options (Dixit-Pindyck/Trigeorgis/Smith-Nau) + subjective EU 公理系 (Savage/Anscombe-Aumann) の三系譜の合流点であり BZM の発明ではない (textbook standard decomposition の bottleneck-aware 統合)",
       "Pr(到達) ≈ R × S は readiness 達成と生存達成の条件付き独立性仮定下の近似であり、相関補正項は §6.4 で命題 6.3 として honest 明示する",
       "R = bundle-min (TRL, BRL, GRL, SRL, HRL の最小値) は Liebig 最小律および Leontief 生産関数 (σ → 0) と同型、CES R = (Σ w_i x_i^ρ)^(1/ρ) は σ < 1 で補完性、σ = 1 で Cobb-Douglas、σ → ∞ で加法、ρ → -∞ で min に収束する一貫した family",
       "S = σ_SU × R_net × F は Cobb-Douglas 外殻 (α + β + γ ≈ 1 の constant returns)、F 内側は Ch 7 F-CES (σ < 1) という二層非対称性",
       "P は静的パラメータではなく filtration F_t に依存する動的更新対象 P_t = E[V | F_t]、Alvarez-Barney 発見/創造論争には Bayesian update が両者を special case として包含する honest 中立を取る (ただし creation view の Bayesian reduction が Sarasvathy original framework を矮小化する risk を notice)",
-      "命題 6.3 (相関補正): Cov(P, R), Cov(R, S), Cov(P, S) ≠ 0 の場合 E[PRS] ≠ E[P]E[R]E[S]、Jensen 不等式と観測等価類/識別不能性を honest 明示、sign restriction で Ch 11 BVAR に引き渡す",
-      "案件 PRS (乗法、bottleneck-aware) と機関 ERS (加重和、portfolio-aware) の集約形差は構造的: 案件は単一プロジェクト Liebig 律、機関はポートフォリオ補償可能性、両者の融合 PRS × ERS は (i) 二重 counting (ii) 機関 portfolio 性質歪曲 (iii) 順序非可換性 (PRS first → ERS gate vs ERS first → PRS gate) の三重禁忌を生む",
-      "Ch 5.5 GO ゲートの imminence threshold は real options exercise boundary に対応し、PRS は最適停止下の continuation value の simplified form として再解釈できる",
+      "命題 6.3 (相関補正): Cov(P, R), Cov(R, S), Cov(P, S) ≠ 0 の場合 E[SPS] ≠ E[P]E[R]E[S]、Jensen 不等式と観測等価類/識別不能性を honest 明示、sign restriction で Ch 11 BVAR に引き渡す",
+      "案件 SPS (乗法、bottleneck-aware) と機関 ECR (加重和、portfolio-aware) の集約形差は構造的: 案件は単一プロジェクト Liebig 律、機関はポートフォリオ補償可能性、両者の融合 SPS × ECR は (i) 二重 counting (ii) 機関 portfolio 性質歪曲 (iii) 順序非可換性 (SPS first → ECR gate vs ECR first → SPS gate) の三重禁忌を生む",
+      "Ch 5.5 GO ゲートの imminence threshold は real options exercise boundary に対応し、SPS は最適停止下の continuation value の simplified form として再解釈できる",
       "本章は Tier A (D-031): 期待値分解の structural honest position 整理のみを行い、validation 主張・単一スコア順位付け・乗法/加法の優劣判定は行わない、Book III 8 PJ 後付け校正と Ch 11 BVAR に評価フレームを supply する"
     ],
-    "logical_arc": "§6.0 章頭ストーリー (URA/EIR の評価会議で「P × R × S か P + R + S か」を問う、type 名匿名化 3 案件 + 評価者 A 加重和 vs 評価者 B 乗法の対立シーン) → §6.1 期待値分解 honest 導出 (DCF batch + real options + subjective EU 公理系の三系譜合流点として PRS = P × R × S を honest 位置付け、Ch 5.5 GO ゲート ↔ exercise boundary 対応) → §6.2 R 集約形 (bundle-min を Liebig 法則から、CES σ < 1 を一般化として、ρ → -∞ で min に収束する family の 5 行比較表) → §6.3 S = σ_SU × R_net × F の Cobb-Douglas 外殻 (Ch 5/7/8/9 supply 統合、F 内側 CES との非対称性) → §6.4 P 動的更新 (filtration F_t Bayesian update、Alvarez-Barney honest 中立 + Sarasvathy reduction risk notice) と (P, R, S) 独立性仮定の honest treatment (命題 6.3 相関補正 + Jensen 不等式 + 観測等価類) → §6.5 案件 PRS vs 機関 ERS 二層構造前置 (集約形差の構造的根拠 + PRS × ERS 三重禁忌 + 順序非可換性 motivation + Ch 10.4 Theorem 3 への bridge) → §6.6 8 PJ 全件 (TIEM/BWE/CX/SX/CTB/YD/JC/CLG) を 3 観点 (boundary 軸 / P 動的更新の余地 / 機関 ERS 影響) で均質に振り分け + 章末問い 4 つ + Tier A 規律最終確認 + Ch 11/Book III/Book IV bridge",
+    "logical_arc": "§6.0 章頭ストーリー (URA/EIR の評価会議で「P × R × S か P + R + S か」を問う、type 名匿名化 3 案件 + 評価者 A 加重和 vs 評価者 B 乗法の対立シーン) → §6.1 期待値分解 honest 導出 (DCF batch + real options + subjective EU 公理系の三系譜合流点として SPS = P × R × S を honest 位置付け、Ch 5.5 GO ゲート ↔ exercise boundary 対応) → §6.2 R 集約形 (bundle-min を Liebig 法則から、CES σ < 1 を一般化として、ρ → -∞ で min に収束する family の 5 行比較表) → §6.3 S = σ_SU × R_net × F の Cobb-Douglas 外殻 (Ch 5/7/8/9 supply 統合、F 内側 CES との非対称性) → §6.4 P 動的更新 (filtration F_t Bayesian update、Alvarez-Barney honest 中立 + Sarasvathy reduction risk notice) と (P, R, S) 独立性仮定の honest treatment (命題 6.3 相関補正 + Jensen 不等式 + 観測等価類) → §6.5 案件 SPS vs 機関 ECR 二層構造前置 (集約形差の構造的根拠 + SPS × ECR 三重禁忌 + 順序非可換性 motivation + Ch 10.4 Theorem 3 への bridge) → §6.6 8 PJ 全件 (TIEM/BWE/CX/SX/CTB/YD/JC/CLG) を 3 観点 (boundary 軸 / P 動的更新の余地 / 機関 ECR 影響) で均質に振り分け + 章末問い 4 つ + Tier A 規律最終確認 + Ch 11/Book III/Book IV bridge",
     "synthesis_rationale": "三 judge の評価で A (methodological rigor) と C (publishability) が overall winner として並ぶため、A の骨格 (Savage 公理系 + 命題 6.3 + 8 PJ 3 観点均質配分 + Schmeidler/Gilboa-Schmeidler open_issues) を基盤とし、C の DCF batch 三大正典 anchoring (Damodaran/Koller/Brealey-Myers-Allen) と §6.5 二層融合失敗ケース具体化と falsifiable_claims 巻号ページ指定を §6.1/§6.5/falsifiable_claims に graft、B の real options 4 系譜表 (Cooper Stage-Gate/Sahlman HBR/NASA TRL/Dixit-Pindyck) と Ch 5.5 GO ゲート ↔ exercise boundary 対応と filtration F_t Bayesian update を §6.1/§6.4 に graft。cross_cutting_concerns で指摘された三本柱並列引用・ページ配分 22p 固定 (§6.6 を 2.5p → 3.0p に増やして 8 PJ × 3 観点 framework を A 方式で実装)・Sarasvathy reduction risk notice・Theorem 3 ステートメント §6.5 末引用・Tier A 規律各節末 reinforcement を統合的に吸収。"
   },
   "sections": [
@@ -24,24 +24,24 @@
       "anchor_claims": [
         "URA/EIR の評価会議で、type 名匿名化 3 案件 (創薬 type / マテリアル type / SaaS type) を 5 軸 readiness (TRL/BRL/GRL/SRL/HRL) で並べた場面に、評価者 A は加重和 0.4P + 0.3R + 0.3S を主張し、評価者 B は乗法 P × R × S を主張するという根本的対立を提示する",
         "「掛け算 vs 足し算」の素朴問いは、実は集約形の選択 = 補完性 (complementarity) を認めるかという期待値分解の数学的構造問題であることを宣言する",
-        "BZM の立ち位置: 案件は乗法 (PRS、bottleneck-aware Liebig 律)、機関は加重和 (ERS、portfolio-aware 補償可能性) の二層分離、両者を単一の集約形に押し込まない",
-        "Ch 6 は Book II 中核 6 章 (5/5.5/6/7/8/9) のなかで最後 (D-043) に位置付けられる: Ch 5 σ_SU + Ch 5.5 GO ゲート + Ch 7 F-CES + Ch 8 戦略余力 + Ch 9 ERS + Ch 10.4 Theorem 3 をすべて受けて PRS の honest position を整理する役割",
-        "本章は Tier A (D-031) であり、PRS = P × R × S を「妥当性検証された装置」と主張しない: 単一スコア順位付け禁止、bundle ボトルネック検出と補強意思決定の整理ツールとして位置付ける"
+        "BZM の立ち位置: 案件は乗法 (SPS、bottleneck-aware Liebig 律)、機関は加重和 (ECR、portfolio-aware 補償可能性) の二層分離、両者を単一の集約形に押し込まない",
+        "Ch 6 は Book II 中核 6 章 (5/5.5/6/7/8/9) のなかで最後 (D-043) に位置付けられる: Ch 5 σ_SU + Ch 5.5 GO ゲート + Ch 7 F-CES + Ch 8 戦略余力 + Ch 9 ECR + Ch 10.4 Theorem 3 をすべて受けて SPS の honest position を整理する役割",
+        "本章は Tier A (D-031) であり、SPS = P × R × S を「妥当性検証された装置」と主張しない: 単一スコア順位付け禁止、bundle ボトルネック検出と補強意思決定の整理ツールとして位置付ける"
       ],
       "paragraph_outline": [
         "導入シーン (0.6p): URA/EIR 評価会議室で創薬 type / マテリアル type / SaaS type の 3 案件を 5 軸 readiness (TRL/BRL/GRL/SRL/HRL) で並べたとき、ある案件は P 高 / R 低 / S 中、別の案件は P 中 / R 中 / S 中で、総合スコアをどう集約するかで意見が割れる場面を描写、type 名は匿名化",
         "対立提示 (0.4p): 評価者 A は加重和 0.4P + 0.3R + 0.3S を提案、評価者 B は乗法 P × R × S を提案、両者が同じ案件で逆順位を出す具体例 (数値は仮設) を 1 つ",
         "問いの再定式化 (0.3p): 「掛け算か足し算か」は集約形 = 補完性 (complementarity) を認めるか・ボトルネック支配を許容するかという本質問題と等価、min は Liebig 律の素朴版で第三の選択肢",
         "BZM の立ち位置宣言 (0.4p): 案件は乗法 (bottleneck-aware)、機関は加重和 (portfolio-aware)、両者を融合しない (Ch 10.4 Theorem 3 への布石)、これが本書 unique contribution",
-        "本章の位置付け (0.3p): Book II 中核 6 章の最後 (D-043)、Ch 5/5.5/7/8/9/10.4/10.5-10.7 をすべて受けた後でないと PRS の honest position は書けない理由を 1 段落で",
+        "本章の位置付け (0.3p): Book II 中核 6 章の最後 (D-043)、Ch 5/5.5/7/8/9/10.4/10.5-10.7 をすべて受けた後でないと SPS の honest position は書けない理由を 1 段落で",
         "射程予告 (0.3p): §6.1 期待値分解 honest 導出 → §6.2 R 集約 → §6.3 S 三要素 → §6.4 P 動学 + 独立性補正 → §6.5 二層構造前置 → §6.6 8 PJ 参照 の順を予告",
-        "Tier A 規律確認 (0.2p): PRS は単一スコア順位付け道具ではなく整理ツール、validation は Book III に委ねる (D-031)、本節と §6.1/§6.2/§6.4/§6.6 末で 5 回 reinforcement する宣言"
+        "Tier A 規律確認 (0.2p): SPS は単一スコア順位付け道具ではなく整理ツール、validation は Book III に委ねる (D-031)、本節と §6.1/§6.2/§6.4/§6.6 末で 5 回 reinforcement する宣言"
       ],
       "new_writing_required": "高 (URA/EIR 3 案件 + 評価者 A vs B 対立シーンは全文新規執筆、A 案の 3 案件並列と C 案の評価者 A vs B 対立を融合)",
-      "existing_reuse": "pwa/bzm/model-overview.md の「PRS 概念導入」「案件と機関の分離」の語彙を踏襲、ただし会議シーンは新規",
+      "existing_reuse": "pwa/bzm/model-overview.md の「SPS 概念導入」「案件と機関の分離」の語彙を踏襲、ただし会議シーンは新規",
       "upstream_dependencies": [
         "Book 0/I で導入された P/R/S 用語の最小限の前提",
-        "Book I Ch 2 PRS 概念導入",
+        "Book I Ch 2 SPS 概念導入",
         "D-043 (Ch 6 を Book II 中核の最後に位置付け)",
         "D-031 (Tier A 規律)",
         "L1 §11 章型 (章頭ストーリー → 中核 → 章末問い)"
@@ -68,9 +68,9 @@
       "math_level": "中〜高 (期待値分解 E[V] = E[V | reach] × Pr(reach) の確率論的厳密化 + 条件付き独立性下の Pr(reach) ≈ R × S 分解 + Jensen 不等式言及、Savage 公理系の chain は付録 A 6.A.1 に委譲)",
       "anchor_claims": [
         "E[V] = E[V | reach] × Pr(reach) + E[V | ¬reach] × Pr(¬reach) は確率論的に厳密、¬reach 時の残余価値 ≈ 0 と置く近似 (early-stage 撤退価値 ignore) を honest に明示",
-        "PRS = P × R × S は DCF batch (Damodaran 2002 Ch.27 real options / Koller-Goedhart-Wessels 2010 Ch.32 scenario / Brealey-Myers-Allen 2020 Ch.10 DCF) + real options (Dixit-Pindyck 1994 / Trigeorgis 1996 / Smith-Nau 1995) + subjective EU 公理系 (Savage 1954 / Anscombe-Aumann 1963) の三系譜の合流点であり、BZM の発明ではない standard decomposition の bottleneck-aware 統合である",
+        "SPS = P × R × S は DCF batch (Damodaran 2002 Ch.27 real options / Koller-Goedhart-Wessels 2010 Ch.32 scenario / Brealey-Myers-Allen 2020 Ch.10 DCF) + real options (Dixit-Pindyck 1994 / Trigeorgis 1996 / Smith-Nau 1995) + subjective EU 公理系 (Savage 1954 / Anscombe-Aumann 1963) の三系譜の合流点であり、BZM の発明ではない standard decomposition の bottleneck-aware 統合である",
         "Pr(reach) ≈ R × S は readiness 達成 (確率 R) と通過後生存 (確率 S) の二段階分解で、条件付き独立性 Pr(survive | readiness) = Pr(survive) の仮定下の近似 (相関補正は §6.4)",
-        "real options 視点で PRS = P × R × S は最適停止下の continuation value F(V) = max(V, E[F(V')]/(1+r)) の simplified form として再解釈でき、Ch 5.5 GO ゲートの imminence threshold は exercise boundary に対応する",
+        "real options 視点で SPS = P × R × S は最適停止下の continuation value F(V) = max(V, E[F(V')]/(1+r)) の simplified form として再解釈でき、Ch 5.5 GO ゲートの imminence threshold は exercise boundary に対応する",
         "本節は分解の存在主張のみ: 識別/推定/validation は Ch 11 BVAR と Book III 8 PJ 後付け校正に渡す (Tier A, D-031)、Schmeidler (1989) Choquet EU や Gilboa-Schmeidler (1989) maxmin EU への relax は付録 A 6.A.1 に委譲"
       ],
       "paragraph_outline": [
@@ -78,15 +78,15 @@
         "命題 6.1 (期待値分解) (0.4p): E[V_j] = E[V_j | reach] × Pr(reach) + E[V_j | ¬reach] × Pr(¬reach)、¬reach 残余 ≈ 0 仮定の honest 明示 (real options の早期撤退価値は §6.1 末で扱う)",
         "P の解釈 (0.3p): P := E[V_j | reach] = 「到達条件下の上限価値」、TAM/SAM/SOM 三層の到達可能セグメント (SOM 寄り) として位置付ける",
         "Pr(reach) ≈ R × S の二段階分解 (0.5p): reach = (readiness 達成) ∧ (survival 達成)、条件付き独立性 Pr(survive | readiness) = Pr(survive) の仮定下で乗法分解、独立性が破れる場合の補正は §6.4 に送る",
-        "命題 6.2 (PRS standard decomposition) (0.3p): 上記仮定下で E[V_j] ≈ P × R × S、乗法構造の Liebig 含意 (R = 0 or S = 0 で E = 0) と加法構造との対比 (加法は補償可能性で R = 0 を救えてしまう問題)",
+        "命題 6.2 (SPS standard decomposition) (0.3p): 上記仮定下で E[V_j] ≈ P × R × S、乗法構造の Liebig 含意 (R = 0 or S = 0 で E = 0) と加法構造との対比 (加法は補償可能性で R = 0 を救えてしまう問題)",
         "三系譜の合流点表 (0.6p): DCF batch (Damodaran Ch.27 / Koller Ch.32 / Brealey-Myers-Allen Ch.10) + real options (Dixit-Pindyck 1994 / Trigeorgis 1996 / Smith-Nau 1995) + subjective EU 公理系 (Savage 1954 / Anscombe-Aumann 1963) + Stage-Gate/NASA TRL (Cooper 1990 / Sahlman HBR 1997 / Mankins 1995) の起源/中心命題/BZM 流用箇所の対応表",
-        "real options 視点での再解釈 (0.4p): Dixit-Pindyck (1994) continuation value F(V) = max(V, E[F(V')]/(1+r)) と PRS の対応、Ch 5.5 GO ゲート imminence threshold ↔ exercise boundary の数学的対応を 1 段落で motivate",
+        "real options 視点での再解釈 (0.4p): Dixit-Pindyck (1994) continuation value F(V) = max(V, E[F(V')]/(1+r)) と SPS の対応、Ch 5.5 GO ゲート imminence threshold ↔ exercise boundary の数学的対応を 1 段落で motivate",
         "Jensen 不等式の前置 (0.2p): E[R · S] ≠ E[R] · E[S] (Cov 項あり) であり独立性仮定 honest 補正は §6.4 命題 6.3 に送ると宣言",
-        "honest position 宣言 (0.3p): BZM は PRS を「発明」せず三系譜の bottleneck-aware 統合、validation せず、PRS は単一スコア強制せず潜在状態の reduced form として運用、付録 A 6.A.1 への Savage 公理 P1-P7 chain と Schmeidler/Gilboa-Schmeidler relax の委譲 (D-047)",
+        "honest position 宣言 (0.3p): BZM は SPS を「発明」せず三系譜の bottleneck-aware 統合、validation せず、SPS は単一スコア強制せず潜在状態の reduced form として運用、付録 A 6.A.1 への Savage 公理 P1-P7 chain と Schmeidler/Gilboa-Schmeidler relax の委譲 (D-047)",
         "Tier A reinforcement (0.1p): 本節は standard decomposition の翻訳であり「妥当性検証された」とは主張しない (D-031)"
       ],
       "new_writing_required": "高 (三系譜合流点表は新規作成、命題 6.1/6.2 の確率論的厳密化は新規、real options 視点での Ch 5.5 GO ゲート再解釈は新規、Savage 公理系の付録委譲分担は新規)",
-      "existing_reuse": "pwa/bzm/model-overview.md の「PRS = P × R × S」一行命題と pwa/bzm/p-potential.md の TAM/SAM/SOM 三層を P = E[V | reach] の解釈に流用",
+      "existing_reuse": "pwa/bzm/model-overview.md の「SPS = P × R × S」一行命題と pwa/bzm/p-potential.md の TAM/SAM/SOM 三層を P = E[V | reach] の解釈に流用",
       "upstream_dependencies": [
         "§6.0 章頭ストーリー",
         "Ch 5.5 GO ゲート (imminence threshold ↔ exercise boundary 対応)",
@@ -132,18 +132,18 @@
         "基本形 bundle-min: R = min(TRL, BRL, GRL, SRL, HRL) は Liebig 最小律 (1840 農学起源) の経済学的類推、Leontief 生産関数 (σ → 0) と同型、ボトルネック特定が容易だが離散ジャンプを生む",
         "一般化 CES: R = (Σ w_i x_i^ρ)^(1/ρ) は弾力性 σ = 1/(1-ρ) で連続化、ρ → -∞ で min、σ = 1 で Cobb-Douglas、σ → ∞ で加法に縮約する一貫した family",
         "BZM の選択: 基本 bundle-min、σ < 1 CES 拡張のみ許容 (現場校正で robust)、Cobb-Douglas (σ = 1) と加法 (σ → ∞) は補償可能性問題で許容しない (TRL 9 で BRL 1 の案件が成立しないという臨床直感)",
-        "重み w_i は機関タイプ依存 (大学発 TRL 偏重、deep tech BRL 過少、規制産業 GRL boundary、人材構造 HRL boundary、社会受容 SRL boundary)、Ch 9 ERS との対応関係は前方参照、本章では一般形のみ示し校正は Ch 11 BVAR に委ねる (validation 主張禁止、D-031)"
+        "重み w_i は機関タイプ依存 (大学発 TRL 偏重、deep tech BRL 過少、規制産業 GRL boundary、人材構造 HRL boundary、社会受容 SRL boundary)、Ch 9 ECR との対応関係は前方参照、本章では一般形のみ示し校正は Ch 11 BVAR に委ねる (validation 主張禁止、D-031)"
       ],
       "paragraph_outline": [
         "5 軸 readiness 再確認 (0.3p): TRL/BRL/GRL/SRL/HRL の意味 (D-051 記号正本)、各 1-9 スケール、Mankins (1995) NASA TRL 起源と BZM 5 軸への拡張",
-        "問題提起 (0.3p): PRS の R を 5 軸 readiness の単一スカラーに集約する関数 g(TRL, BRL, GRL, SRL, HRL) の選択は仮定問題 (推定問題ではない)、Liebig 最小律の生物学起源から min が直感的だが現場校正で問題が出る予告",
+        "問題提起 (0.3p): SPS の R を 5 軸 readiness の単一スカラーに集約する関数 g(TRL, BRL, GRL, SRL, HRL) の選択は仮定問題 (推定問題ではない)、Liebig 最小律の生物学起源から min が直感的だが現場校正で問題が出る予告",
         "Liebig 最小律の motivation (0.5p): Liebig (1840) Die organische Chemie 土壌養分最小元素律の生物学起源、Leontief (1941) input-output 生産関数 (σ → 0) との同型性、readiness への翻訳",
         "bundle-min の honest position (0.5p): R = min(·) の長所 (ボトルネック特定容易、Liebig 含意明示) と短所 (微分不可能、離散ジャンプで案件比較が不安定、推定困難)",
         "CES 集約の導入 (0.6p): R = (Σ w_i x_i^ρ)^(1/ρ)、弾力性 σ = 1/(1-ρ)、Arrow-Chenery-Minhas-Solow (1961) RES 起源、σ < 1 で補完性 (一軸の遅れを他軸でカバーしにくい)、σ = 1 で Cobb-Douglas、σ → ∞ で加法、ρ → -∞ で min に収束",
         "ρ → -∞ で CES が min に縮約する証明スケッチ (0.4p): 本文スケッチのみ、完全証明は付録 A 6.A.2 に委譲 (D-047)",
         "BZM の選択論 (0.4p): 基本 bundle-min、σ < 1 CES 拡張のみ許容、Cobb-Douglas/加法 は TRL 9 で BRL 1 の案件が成立しないという臨床直感に反するため許容しない、「真の σ は知らない」を honest 宣言",
         "集約形比較表 (0.4p): min / Leontief / CES (σ < 1) / Cobb-Douglas / 加法 の 5 行を弾力性 σ / 補完性強度 / 離散性 / 補償可能性 / 推奨用途 で並べる (score-and-bottleneck.md の比較表を発展)",
-        "重み w_i の機関タイプ依存性 (0.3p): 大学発で TRL 偏重、deep tech で BRL 過少、規制産業で GRL boundary、人材構造で HRL boundary、社会受容で SRL boundary、Ch 9 ERS との対応関係 (機関タイプ別の重み構造) は前方参照",
+        "重み w_i の機関タイプ依存性 (0.3p): 大学発で TRL 偏重、deep tech で BRL 過少、規制産業で GRL boundary、人材構造で HRL boundary、社会受容で SRL boundary、Ch 9 ECR との対応関係 (機関タイプ別の重み構造) は前方参照",
         "honest 限界宣言 (0.2p): 本節は σ 値の校正 (validation) を主張せず、CES 関数形を選ぶ理論的 motivation のみ示す、point estimate は Ch 11 BVAR の prior 構造として渡し、Book III 8 PJ 後付け校正で σ の事後分布を評価フレームとして supply",
         "Tier A reinforcement (0.1p): D-031 規律確認"
       ],
@@ -156,9 +156,9 @@
       ],
       "downstream_dependencies": [
         "§6.4 R 集約形の P 動的更新との接続",
-        "§6.5 二層構造 (R bundle-min と ERS 加重和の差)",
+        "§6.5 二層構造 (R bundle-min と ECR 加重和の差)",
         "§6.6 8 PJ 参照での bundle ボトルネック検出",
-        "Ch 9 ERS 加重和",
+        "Ch 9 ECR 加重和",
         "Ch 11 BVAR (σ 推定 prior 構造)",
         "付録 A 6.A.2 (CES → min 縮約完全証明)"
       ],
@@ -186,18 +186,18 @@
       "anchor_claims": [
         "S は三要素 (σ_SU = SU 相性、R_net = relational network、F = founder capability/戦略余力) の Cobb-Douglas 集約 S = σ_SU^α × R_net^β × F^γ (α + β + γ ≈ 1 constant returns、本章は symmetric α = β = γ = 1/3 を基本、係数の同時推定は Ch 11 BVAR に委ねる)",
         "σ_SU は Ch 5 MS-SSM 5 状態 (Maladaptive/Transitional/Adaptive/Optimized/Locked-in) の連続化または期待値写像として supply、本章はブラックボックスとして受け取る",
-        "R_net は Ch 9 ERS の reduced form proxy として案件視点に変換、ERS そのものを乗法に入れないことを明示 (§6.5 二層構造前置の伏線)",
+        "R_net は Ch 9 ECR の reduced form proxy として案件視点に変換、ECR そのものを乗法に入れないことを明示 (§6.5 二層構造前置の伏線)",
         "F は Ch 7 F-CES (3 軸: 知識構造 / 学習速度 / 不確実性耐性、σ < 1 補完性) の外側スカラー、Ch 8 戦略余力動学で時間動学化、本章は外殻 Cobb-Douglas のみ扱う",
         "S 外側 Cobb-Douglas (σ ≈ 1) と F 内側 CES (σ < 1) の二層非対称性は honest position: 三要素間は限定的代替性 (σ_SU 0 でも R_net 高で残れる)、F 内側は補完性 (知識構造ゼロを学習速度で補えない) という意味的差を反映する"
       ],
       "paragraph_outline": [
         "S の三要素積導入 (0.3p): 閾値通過後の 8-12 年 survival 確率を σ_SU × R_net × F の Cobb-Douglas 積で reduced form 化、α + β + γ = 1 constant returns 仮定の宣言",
         "Ch 5 σ_SU supply 受領 (0.4p): MS-SSM 5 状態 (Maladaptive/Transitional/Adaptive/Optimized/Locked-in) の連続化または期待値写像として σ_SU ∈ [0,1] を本章に投入、内側は Ch 5 に完結",
-        "Ch 9 ERS supply 受領経由 R_net (0.5p): R_net は機関ネットワーク資源 (投資家 / メンター / 連携先 / customer access) の relational capital、ERS (機関加重和) の reduced form proxy で案件視点に変換、ERS そのものを乗法に入れないことを明示 (§6.5 前置)",
+        "Ch 9 ECR supply 受領経由 R_net (0.5p): R_net は機関ネットワーク資源 (投資家 / メンター / 連携先 / customer access) の relational capital、ECR (機関加重和) の reduced form proxy で案件視点に変換、ECR そのものを乗法に入れないことを明示 (§6.5 前置)",
         "Ch 7 F-CES supply 受領 (0.4p): F は内側 3 軸 CES (知識構造 / 学習速度 / 不確実性耐性、σ < 1)、Ch 8 戦略余力動学で時間動学、本章は外側スカラーとしてのみ受け取り、F-CES 弾力性論議は Ch 7 に委ねる",
         "Cobb-Douglas 外殻と F 内側 CES の二層非対称性 honest justification (0.4p): 三要素間は限定的代替性 (σ_SU 0 でも R_net 高で残れる)、F 内側は補完性 (知識構造ゼロを学習速度で補えない)、意味的補完性の強さの差として正当化、R の bundle-min と S の Cobb-Douglas の集約形差も同じ論理",
-        "constant returns 仮定の honest 限界 (0.2p): α + β + γ = 1 は本章 base、機関タイプ別に動かす余地は Ch 9 ERS との接続で扱う",
-        "本節の役割確認 (0.2p): Ch 5/7/8/9 supply の章内集約と PRS 全体への投入、新規導出最小限、Ch 11 BVAR α/β/γ 同時推定への前方参照、Tier A reinforcement (D-031)"
+        "constant returns 仮定の honest 限界 (0.2p): α + β + γ = 1 は本章 base、機関タイプ別に動かす余地は Ch 9 ECR との接続で扱う",
+        "本節の役割確認 (0.2p): Ch 5/7/8/9 supply の章内集約と SPS 全体への投入、新規導出最小限、Ch 11 BVAR α/β/γ 同時推定への前方参照、Tier A reinforcement (D-031)"
       ],
       "new_writing_required": "中 (Cobb-Douglas 外殻と F 内側 CES の二層非対称性 honest justification、R の bundle-min との集約形差の motivation は新規執筆、Ch 5/7/8/9 supply の統合は再記述による章内自立性確保が中心)",
       "existing_reuse": "pwa/bzm/s-survival.md の S = σ_SU × R_net × F 三要素分解と Cobb-Douglas 型代替性を base layer として大幅再利用",
@@ -206,12 +206,12 @@
         "Ch 5 σ_SU MS-SSM (S 内側の SU 状態軸)",
         "Ch 7 F-CES (S 内側の F、3 軸 CES σ < 1)",
         "Ch 8 戦略余力動学 (F の時間動学)",
-        "Ch 9 ERS 加重和 (R_net の reduced form 源)"
+        "Ch 9 ECR 加重和 (R_net の reduced form 源)"
       ],
       "downstream_dependencies": [
         "§6.4 (P, R, S) 独立性仮定の検討対象",
-        "§6.5 二層構造 (ERS そのものを乗法に入れない理由の前置)",
-        "Ch 10.4 Theorem 3 二層非可換性 (S 内 R_net と ERS の関係)",
+        "§6.5 二層構造 (ECR そのものを乗法に入れない理由の前置)",
+        "Ch 10.4 Theorem 3 二層非可換性 (S 内 R_net と ECR の関係)",
         "Ch 11 BVAR α/β/γ 同時推定"
       ],
       "references": [
@@ -231,14 +231,14 @@
       "section_id": "6.4",
       "title": "P の動的更新と (P, R, S) 独立性仮定の honest treatment",
       "pages": 3.5,
-      "math_level": "中〜高 (Bayesian update P_t = E[V | F_t]、filtration F_t、命題 6.3 相関補正 E[PRS] = E[P]E[R]E[S] + covariance terms + higher moments、Jensen 不等式、観測等価類/識別不能性)",
+      "math_level": "中〜高 (Bayesian update P_t = E[V | F_t]、filtration F_t、命題 6.3 相関補正 E[SPS] = E[P]E[R]E[S] + covariance terms + higher moments、Jensen 不等式、観測等価類/識別不能性)",
       "anchor_claims": [
         "P は静的パラメータ (TAM/SAM/SOM 三層) ではなく filtration F_t に依存する動的更新対象 P_t = E[V | F_t] の Bayesian update 構造、real options の prior-posterior update と整合的",
         "Alvarez-Barney (2007, 2013) 発見/創造論争への BZM honest 中立: discovery view (機会は exogenous 真値) と creation view (機会は endogenous 構成) を Bayesian update が両方を special case として包含する両義性 (発見 view は事後 estimate、創造 view は signal 種類差) を honest に明示、ただし creation view の Bayesian reduction が Sarasvathy original framework を矮小化する risk を notice",
         "Sarasvathy (2001, 2008) effectuation の means-driven 更新は filtration F_t の中身として吸収、causation (goal-driven) との対比は P_t 推定モード差として位置付ける、ただし effectuation を Bayesian framework に reduce することは operational choice であり Sarasvathy original の完全表現ではないと honest 留保",
         "命題 6.3 (相関補正): E[P · R · S] = E[P] · E[R] · E[S] + (Cov 項) + (higher moments)、Cov(P, R) > 0 (learning spillover/selection bias)、Cov(R, S) > 0 (高 readiness は高 survival を引きやすい)、Cov(P, S) ≈ 0 (一次的因果は弱い) の符号 hypothesis を Book III 後付け校正の評価フレームとして supply",
-        "Jensen 不等式により独立性仮定下の点推定は systematic に biased、観測等価類 (同じ E[PRS] を実現する (P, R, S) 組み合わせは無限) と識別不能性 (3 変数を別々に identify するには外生変動が必要) の限界を honest 宣言、sign restriction を Ch 11 BVAR に引き渡す",
-        "独立性仮定 採用の honest 結論: (i) 第一階近似として正当化、(ii) 相関大の case では補正項明示、(iii) PRS を単一スコアに潰すと観測等価類の情報が失われる、PRS は 3 次元のまま扱えという normative claim"
+        "Jensen 不等式により独立性仮定下の点推定は systematic に biased、観測等価類 (同じ E[SPS] を実現する (P, R, S) 組み合わせは無限) と識別不能性 (3 変数を別々に identify するには外生変動が必要) の限界を honest 宣言、sign restriction を Ch 11 BVAR に引き渡す",
+        "独立性仮定 採用の honest 結論: (i) 第一階近似として正当化、(ii) 相関大の case では補正項明示、(iii) SPS を単一スコアに潰すと観測等価類の情報が失われる、SPS は 3 次元のまま扱えという normative claim"
       ],
       "paragraph_outline": [
         "P の三層静的構造 (TAM/SAM/SOM) の Ch 0/I からの呼び出し (0.2p): 簡潔再確認、本節はこれを動的化する",
@@ -247,9 +247,9 @@
         "creation view の Bayesian reduction risk notice (0.3p): Alvarez-Barney (2013) AMR の批判系譜では creation view を Bayesian reduction することへの抵抗があるため、両 view を排他にせず Bayesian framework が両者を吸収するのは BZM の operational choice であり creation view を矮小化する risk を honest に notice",
         "Sarasvathy effectuation との対比 (0.4p): causation (P を所与で最適化) vs effectuation (means から P を構築) を、本モデルは P_t の F_t 内吸収として位置付け、Sarasvathy (2008) monograph では effectuation を probability-driven causation の対立軸として position しており、Bayesian reduction は operational choice であると honest 留保",
         "(P, R, S) 独立性仮定の問題提起 (0.4p): 実証的に Cov 正相関が一般的、独立性は便宜的仮定、命題 6.3 (相関補正) を提示",
-        "命題 6.3 (相関補正) の本文展開 (0.5p): E[PRS] = E[P]E[R]E[S] + Cov(P,R)·E[S] + Cov(R,S)·E[P] + Cov(P,S)·E[R] + (higher moments)、符号 hypothesis (Cov(P,R) > 0 learning spillover、Cov(R,S) > 0 robust effect、Cov(P,S) ≈ 0 一次因果弱)、Jensen 不等式と独立仮定下の点推定 systematic bias の方向 (正相関なら下方 biased)",
-        "観測等価類 / 識別不能性 (0.3p): 同じ E[PRS] 値を実現する (P, R, S) 組み合わせ無限、3 変数を別々に identify するには外生変動 (instrument) が必要、Ch 11 BVAR の sign restriction が解法、本節は識別不能性の限界のみ honest 宣言",
-        "honest 結論 (0.3p): 独立性仮定は (i) 第一階近似 (ii) 相関大なら補正項明示 (iii) PRS は 3 次元のまま扱う、normative claim として位置付け、補正項の定量化は Ch 11 BVAR と Book III 8 PJ 後付け校正に委ねる",
+        "命題 6.3 (相関補正) の本文展開 (0.5p): E[SPS] = E[P]E[R]E[S] + Cov(P,R)·E[S] + Cov(R,S)·E[P] + Cov(P,S)·E[R] + (higher moments)、符号 hypothesis (Cov(P,R) > 0 learning spillover、Cov(R,S) > 0 robust effect、Cov(P,S) ≈ 0 一次因果弱)、Jensen 不等式と独立仮定下の点推定 systematic bias の方向 (正相関なら下方 biased)",
+        "観測等価類 / 識別不能性 (0.3p): 同じ E[SPS] 値を実現する (P, R, S) 組み合わせ無限、3 変数を別々に identify するには外生変動 (instrument) が必要、Ch 11 BVAR の sign restriction が解法、本節は識別不能性の限界のみ honest 宣言",
+        "honest 結論 (0.3p): 独立性仮定は (i) 第一階近似 (ii) 相関大なら補正項明示 (iii) SPS は 3 次元のまま扱う、normative claim として位置付け、補正項の定量化は Ch 11 BVAR と Book III 8 PJ 後付け校正に委ねる",
         "Tier A reinforcement (0.1p): D-031 規律確認、validation 主張せず構造的整理のみ"
       ],
       "new_writing_required": "高 (Alvarez-Barney honest 中立 + creation view Bayesian reduction risk notice + Sarasvathy operational choice 留保 + 命題 6.3 相関補正の formal 提示 + 観測等価類/識別不能性は全て新規執筆)",
@@ -261,7 +261,7 @@
         "Ch 0/I の P 用語前置 (TAM/SAM/SOM)"
       ],
       "downstream_dependencies": [
-        "§6.5 二層構造 (案件 P 動的更新は機関 ERS と独立に動く)",
+        "§6.5 二層構造 (案件 P 動的更新は機関 ECR と独立に動く)",
         "Ch 11 BVAR sign restriction prior 構造 (ρ_PR, ρ_RS, ρ_PS の符号 hypothesis)",
         "Book III 8 PJ 後付け校正 (相関補正項の符号評価フレーム)",
         "Book IV 時系列現場接続 (P_t の filtration 構造)"
@@ -287,40 +287,40 @@
     },
     {
       "section_id": "6.5",
-      "title": "二層構造の前置 — 案件 PRS (乗法) vs 機関 ERS (加重和) と Ch 10.4 Theorem 3 への bridge",
+      "title": "二層構造の前置 — 案件 SPS (乗法) vs 機関 ECR (加重和) と Ch 10.4 Theorem 3 への bridge",
       "pages": 3.5,
-      "math_level": "中〜高 (集約形対比 PRS = P × R × S vs ERS = Σ w_k E_k、三重禁忌 (二重 counting / portfolio 性質歪曲 / 順序非可換性) の motivation、Ch 10.4 Theorem 3 ステートメントの引用、proof は委譲)",
+      "math_level": "中〜高 (集約形対比 SPS = P × R × S vs ECR = Σ w_k E_k、三重禁忌 (二重 counting / portfolio 性質歪曲 / 順序非可換性) の motivation、Ch 10.4 Theorem 3 ステートメントの引用、proof は委譲)",
       "anchor_claims": [
-        "案件層 PRS = P × R × S は乗法 (bottleneck-aware Liebig 律)、機関層 ERS = Σ w_k E_k は加重和 (portfolio-aware 補償可能性)、集約形差は構造的: 案件は単一プロジェクト・全要素揃わないと失敗、機関は複数案件 portfolio・強い要素が弱い要素を補える",
-        "PRS × ERS の融合は三重禁忌: (i) ERS の強い軸が PRS の弱い軸を補ったかのような誤読 = 二重 counting、(ii) 機関 portfolio 平均と単一案件評価の混同 = portfolio 性質歪曲、(iii) 「PRS first → ERS gate」と「ERS first → PRS gate」の順序非可換性の打ち消し",
+        "案件層 SPS = P × R × S は乗法 (bottleneck-aware Liebig 律)、機関層 ECR = Σ w_k E_k は加重和 (portfolio-aware 補償可能性)、集約形差は構造的: 案件は単一プロジェクト・全要素揃わないと失敗、機関は複数案件 portfolio・強い要素が弱い要素を補える",
+        "SPS × ECR の融合は三重禁忌: (i) ECR の強い軸が SPS の弱い軸を補ったかのような誤読 = 二重 counting、(ii) 機関 portfolio 平均と単一案件評価の混同 = portfolio 性質歪曲、(iii) 「SPS first → ECR gate」と「ECR first → SPS gate」の順序非可換性の打ち消し",
         "二層融合失敗ケースの具体的提示: 案件加重和なら R = 0 が補償可能になり Liebig 律が崩れる、機関乗法なら一機関の弱みで全体が 0 になり portfolio 性質が崩れる、両端の失敗で乗法/加重和の集約形差が必然であることを示す",
-        "Cohen-Levinthal (1990) ASQ absorptive capacity、Penrose (1959) firm growth、Klepper (2007) MS spinoff dynamics、Malerba (2002) RP sectoral systems、Murmann (2003) co-evolution の各 framework は機関側 ERS を加重和で扱うこととの整合性 (Ch 10.5/10.6/10.7 supply)",
-        "ERS は §6.3 R_net (案件視点の reduced form proxy) を通じて間接的に S 内側に入るが、ERS そのものを GO に乗法することは禁止、Ch 10.4 Theorem 3 (二層非可換性) のステートメントを §6.5 末で引用し proof は Ch 10.4 に委譲 (D-047)"
+        "Cohen-Levinthal (1990) ASQ absorptive capacity、Penrose (1959) firm growth、Klepper (2007) MS spinoff dynamics、Malerba (2002) RP sectoral systems、Murmann (2003) co-evolution の各 framework は機関側 ECR を加重和で扱うこととの整合性 (Ch 10.5/10.6/10.7 supply)",
+        "ECR は §6.3 R_net (案件視点の reduced form proxy) を通じて間接的に S 内側に入るが、ECR そのものを GO に乗法することは禁止、Ch 10.4 Theorem 3 (二層非可換性) のステートメントを §6.5 末で引用し proof は Ch 10.4 に委譲 (D-047)"
       ],
       "paragraph_outline": [
-        "問題提起 (0.3p): 案件 j を機関 k で実施するときの GO ゲートスコアの素朴な合成 GO = PRS × ERS が honest でない理由を §6.5 で展開",
+        "問題提起 (0.3p): 案件 j を機関 k で実施するときの GO ゲートスコアの素朴な合成 GO = SPS × ECR が honest でない理由を §6.5 で展開",
         "案件層と機関層の本質的差 (0.5p): 案件 = 単一プロジェクト reach × survival、機関 = 複数案件 portfolio capability average、案件は補完性 (一軸欠落で失敗)、機関は代替性 (強い軸が弱い軸を補える)、集約形がそれぞれ乗法と加重和になる構造的理由",
-        "ERS の概形 (Ch 9 前方参照) (0.4p): ERS = Σ w_k E_k、E_k ∈ {研究 capability / 技術移転 capability / 起業家輩出 capability / 資金 capability / 規制対応 capability}、重み w_k は機関タイプ (大学 / 研究所 / 企業 / VC / 行政) 依存、Ch 9 で詳述",
+        "ECR の概形 (Ch 9 前方参照) (0.4p): ECR = Σ w_k E_k、E_k ∈ {研究 capability / 技術移転 capability / 起業家輩出 capability / 資金 capability / 規制対応 capability}、重み w_k は機関タイプ (大学 / 研究所 / 企業 / VC / 行政) 依存、Ch 9 で詳述",
         "二層融合失敗ケースの対照提示 (0.5p): 案件加重和なら R = 0 が補償可能 (Liebig 律崩壊)、機関乗法なら一機関の弱みで全体崩壊 (portfolio 性質崩壊)、両端失敗で乗法/加重和の集約形差が必然",
-        "PRS × ERS 三重禁忌の honest 導出 (0.5p): (i) 二重 counting、(ii) portfolio 性質歪曲、(iii) 順序非可換性 (PRS first → ERS gate vs ERS first → PRS gate)、いずれも観測等価類の崩壊を生む",
-        "順序非可換性 motivation (0.4p): 案件 i を機関 k のポートフォリオに加える評価と、案件 i 所与で機関 ERS を update する評価が非可換 (Theorem 3 の臨床インテュイション、本書 Ch 10.4 で formal 化)",
-        "二層構造の正しい組み方 prelim (0.3p): 案件は PRS で評価し GO 閾値判定 → 通過案件を機関 capability ERS で portfolio 配分する逐次構造 (Ch 5.5 GO ゲート + Ch 9 ERS + Ch 10.4 Theorem 3 で完成)、本節は連結図のみ",
+        "SPS × ECR 三重禁忌の honest 導出 (0.5p): (i) 二重 counting、(ii) portfolio 性質歪曲、(iii) 順序非可換性 (SPS first → ECR gate vs ECR first → SPS gate)、いずれも観測等価類の崩壊を生む",
+        "順序非可換性 motivation (0.4p): 案件 i を機関 k のポートフォリオに加える評価と、案件 i 所与で機関 ECR を update する評価が非可換 (Theorem 3 の臨床インテュイション、本書 Ch 10.4 で formal 化)",
+        "二層構造の正しい組み方 prelim (0.3p): 案件は SPS で評価し GO 閾値判定 → 通過案件を機関 capability ECR で portfolio 配分する逐次構造 (Ch 5.5 GO ゲート + Ch 9 ECR + Ch 10.4 Theorem 3 で完成)、本節は連結図のみ",
         "Klepper/Malerba/Murmann/Cohen-Levinthal/Penrose の機関 framework との整合性 (0.3p): Ch 10.5/10.6/10.7 supply、機関を加重和で扱う伝統の確認",
-        "Ch 10.4 Theorem 3 ステートメントの引用 (0.2p): 「GO(PRS, ERS) ≠ GO(ERS, PRS) の二層非可換性」を §6.5 末で 1 段落引用、proof は Ch 10.4 委譲 (D-047)",
+        "Ch 10.4 Theorem 3 ステートメントの引用 (0.2p): 「GO(SPS, ECR) ≠ GO(ECR, SPS) の二層非可換性」を §6.5 末で 1 段落引用、proof は Ch 10.4 委譲 (D-047)",
         "Tier A reinforcement (0.1p): 二層分離は validation でなく整理ツールの構造的選択 (D-031)、本節は motivation のみ"
       ],
-      "new_writing_required": "高 (二層融合失敗ケース対照提示 + PRS × ERS 三重禁忌 honest 導出 + 順序非可換性 motivation + Theorem 3 ステートメント引用は本書 unique contribution、全文新規執筆)",
+      "new_writing_required": "高 (二層融合失敗ケース対照提示 + SPS × ECR 三重禁忌 honest 導出 + 順序非可換性 motivation + Theorem 3 ステートメント引用は本書 unique contribution、全文新規執筆)",
       "existing_reuse": "BOOK_DECISIONS.md D-039 (Theorem 3) の前置 motivation、pwa/bzm/model-overview.md の二層概念を踏襲",
       "upstream_dependencies": [
-        "§6.1-§6.4 PRS 乗法構造の honest 導出",
+        "§6.1-§6.4 SPS 乗法構造の honest 導出",
         "Ch 5.5 GO ゲート (案件判定の場)",
-        "Ch 9 ERS 加重和 (機関層の集約形 supply)",
+        "Ch 9 ECR 加重和 (機関層の集約形 supply)",
         "Ch 10.4 Theorem 3 (Ch 10.4 が D-047 で証明スケッチ本文 + 完全証明付録、本章ではステートメントのみ引用)",
         "Ch 10.5 Klepper / 10.6 Malerba / 10.7 Murmann (機関 framework supply)"
       ],
       "downstream_dependencies": [
         "§6.6 8 PJ 簡略参照での二層適用",
-        "Ch 9 ERS 正本提示",
+        "Ch 9 ECR 正本提示",
         "Ch 10.4 Theorem 3 proof 本体",
         "Ch 11 BVAR 同時推定 prior 構造 (二層同時推定)",
         "Book III 8 PJ 後付け校正 (案件評価と機関評価の二層適用)",
@@ -344,28 +344,28 @@
     },
     {
       "section_id": "6.6",
-      "title": "8 PJ ケース簡略参照と章末問い — PRS は整理ツール、validation は Book III に委ねる",
+      "title": "8 PJ ケース簡略参照と章末問い — SPS は整理ツール、validation は Book III に委ねる",
       "pages": 3,
       "math_level": "低 (8 PJ × 3 観点表は定性参照のみ、validation 主張なし)",
       "anchor_claims": [
-        "8 PJ (TIEM/BWE/CX/SX/CTB/YD/JC/CLG) を 3 観点 (boundary 軸 / P 動的更新の余地 / 機関 ERS 影響) で均質に振り分け、各 PJ 1 段落で D-010 章末短参照規律と Tier A 規律の境界を守る",
+        "8 PJ (TIEM/BWE/CX/SX/CTB/YD/JC/CLG) を 3 観点 (boundary 軸 / P 動的更新の余地 / 機関 ECR 影響) で均質に振り分け、各 PJ 1 段落で D-010 章末短参照規律と Tier A 規律の境界を守る",
         "本章は validation を行わず Book III 8 PJ 後付け校正に評価フレームを supply するに留まる (D-031 Tier A)",
-        "章末問い 4 つ: (i) PRS は単一スコア化を強制しない reduced form として運用できるか、(ii) R の集約は bundle-min か σ < 1 CES か (補完性弾力性の選択)、(iii) P の動的更新で Alvarez-Barney discovery と creation を honest 中立で統合できるか、(iv) 案件 PRS と機関 ERS の二層構造の融合を Theorem 3 で禁止することは持続可能か",
-        "本章は Book II 中核 6 章 (5/5.5/6/7/8/9) の最後 (D-043) として PRS の honest position を整理し、Ch 11 BVAR 同時推定 + Book III 8 PJ 後付け校正 + Book IV 時系列現場接続の 3 方面に deliverable を渡す",
+        "章末問い 4 つ: (i) SPS は単一スコア化を強制しない reduced form として運用できるか、(ii) R の集約は bundle-min か σ < 1 CES か (補完性弾力性の選択)、(iii) P の動的更新で Alvarez-Barney discovery と creation を honest 中立で統合できるか、(iv) 案件 SPS と機関 ECR の二層構造の融合を Theorem 3 で禁止することは持続可能か",
+        "本章は Book II 中核 6 章 (5/5.5/6/7/8/9) の最後 (D-043) として SPS の honest position を整理し、Ch 11 BVAR 同時推定 + Book III 8 PJ 後付け校正 + Book IV 時系列現場接続の 3 方面に deliverable を渡す",
         "Tier A 規律 (D-031) 最終確認: validation 主張禁止、本章執筆完了後に「実証された」「証明された」「妥当性が確認された」等の validation 示唆表現を Tier-line 走査で検出する自己検証手順を明示"
       ],
       "paragraph_outline": [
-        "8 PJ × 3 観点 framework 導入 (0.3p): D-010 PJ ケース割当て規律 + Tier A、各 PJ 1 段落 × 3 観点 (boundary 軸 / P 動的更新の余地 / 機関 ERS 影響) で均質配分",
-        "TIEM (大学発創薬 type) (0.25p): boundary = R 内 TRL × BRL (規制対応で P discount)、P 動的更新 = 規制更新 signal、機関 ERS 影響 = 大学発で TRL 偏重・BRL 過少評価",
-        "BWE (環境技術 type) (0.25p): boundary = R 内 SRL (社会受容) + S 内 σ_SU 過剰 (academic-style 偏重 risk)、P 動的更新 = 政策連動の外生変動、機関 ERS 影響 = 規制対応 capability 重視",
-        "CX (B2B SaaS type) (0.25p): boundary = R 内 BRL + S 内 R_net (customer access 依存)、P 動的更新 = effectuation 寄り (means から構成)、機関 ERS 影響 = 起業家輩出 capability",
-        "SX (社会的事業 type) (0.25p): boundary = R 内 HRL (人材構造)、P 動的更新 = creation view 寄り、機関 ERS 影響 = 資金 capability 弱い場合のミスマッチ (二層融合危険例)",
-        "CTB (deep tech type) (0.25p): boundary = R 内 TRL × BRL 両 boundary、P 動的更新 = TAM 高 SOM 低の両極で Cov(P, R) 大、機関 ERS 影響 = 研究 capability + 技術移転 capability",
-        "YD (人材主導 type) (0.25p): boundary = S 内 F-CES (Ch 7) 支配、P 動的更新 = σ_SU 動学 (Ch 5) 直結、機関 ERS 影響 = 起業家輩出 capability + メンター network",
-        "JC (連携型 type) (0.25p): boundary = S 内 R_net 重視、P 動的更新 = 連携先 signal、機関 ERS 影響 = 複数機関 portfolio の二層構造境界 case",
-        "CLG (規制業界 type) (0.25p): boundary = R 内 GRL、P 動的更新 = 規制改正で SOM 変動 (Book IV 時系列接続の典型)、機関 ERS 影響 = 規制対応 capability + 行政連携",
+        "8 PJ × 3 観点 framework 導入 (0.3p): D-010 PJ ケース割当て規律 + Tier A、各 PJ 1 段落 × 3 観点 (boundary 軸 / P 動的更新の余地 / 機関 ECR 影響) で均質配分",
+        "TIEM (大学発創薬 type) (0.25p): boundary = R 内 TRL × BRL (規制対応で P discount)、P 動的更新 = 規制更新 signal、機関 ECR 影響 = 大学発で TRL 偏重・BRL 過少評価",
+        "BWE (環境技術 type) (0.25p): boundary = R 内 SRL (社会受容) + S 内 σ_SU 過剰 (academic-style 偏重 risk)、P 動的更新 = 政策連動の外生変動、機関 ECR 影響 = 規制対応 capability 重視",
+        "CX (B2B SaaS type) (0.25p): boundary = R 内 BRL + S 内 R_net (customer access 依存)、P 動的更新 = effectuation 寄り (means から構成)、機関 ECR 影響 = 起業家輩出 capability",
+        "SX (社会的事業 type) (0.25p): boundary = R 内 HRL (人材構造)、P 動的更新 = creation view 寄り、機関 ECR 影響 = 資金 capability 弱い場合のミスマッチ (二層融合危険例)",
+        "CTB (deep tech type) (0.25p): boundary = R 内 TRL × BRL 両 boundary、P 動的更新 = TAM 高 SOM 低の両極で Cov(P, R) 大、機関 ECR 影響 = 研究 capability + 技術移転 capability",
+        "YD (人材主導 type) (0.25p): boundary = S 内 F-CES (Ch 7) 支配、P 動的更新 = σ_SU 動学 (Ch 5) 直結、機関 ECR 影響 = 起業家輩出 capability + メンター network",
+        "JC (連携型 type) (0.25p): boundary = S 内 R_net 重視、P 動的更新 = 連携先 signal、機関 ECR 影響 = 複数機関 portfolio の二層構造境界 case",
+        "CLG (規制業界 type) (0.25p): boundary = R 内 GRL、P 動的更新 = 規制改正で SOM 変動 (Book IV 時系列接続の典型)、機関 ECR 影響 = 規制対応 capability + 行政連携",
         "章末問い 4 つの提示 (0.3p): (i) 単一スコア化抗議 (ii) R 集約 bundle-min vs CES (iii) P 動的更新の honest 中立 (iv) 二層融合禁止の持続可能性",
-        "本章 honest position closing (0.2p): BZM は PRS を「発明」せず三系譜 (DCF batch + real options + subjective EU) の bottleneck-aware 統合、validation は Book III に委譲、二層構造 (PRS / ERS) 融合禁止",
+        "本章 honest position closing (0.2p): BZM は SPS を「発明」せず三系譜 (DCF batch + real options + subjective EU) の bottleneck-aware 統合、validation は Book III に委譲、二層構造 (SPS / ECR) 融合禁止",
         "Ch 11 / Book III / Book IV への deliverable 確認 (0.2p): Ch 11 BVAR prior 構造、Book III 8 PJ 後付け校正の評価フレーム、Book IV 時系列現場接続 (P_t の filtration 構造)、Book II 中核 6 章の closing 図 1 つ",
         "Tier A reinforcement 最終 (0.1p): D-031 validation 主張禁止、Tier-line 走査自己検証手順の明示"
       ],
@@ -378,7 +378,7 @@
         "D-043 Book II 中核最後位置付け"
       ],
       "downstream_dependencies": [
-        "Ch 11 BVAR 同時推定 (PJ 別 PRS 支配要素から prior 形成)",
+        "Ch 11 BVAR 同時推定 (PJ 別 SPS 支配要素から prior 形成)",
         "Book III 8 PJ 後付け校正 (本章 §6.6 の評価フレームを直接受け取る)",
         "Book IV 時系列現場接続 (P_t の filtration 構造)",
         "Book II 中核 closing (Ch 7-11 への deliverable 確認)"
@@ -406,7 +406,7 @@
       "recommendation": "option 2 (DCF batch + real options 本文、Savage 公理系付録委譲)。Lens C masa-fidelity と Lens B publishability の中間点で、URA/EIR の現場語彙 + Cambridge UP reviewer defense の両方を 3.0p で満たせる。Savage 公理系は付録 A 6.A.1 で D-047 規律に従って完全証明として置き、本文では 1 段落で「decision-theoretic foundation は付録 A 6.A.1 に委譲」と honest 宣言する"
     },
     {
-      "issue": "§6.4 命題 6.3 (相関補正 E[PRS] = E[P]E[R]E[S] + covariance terms + higher moments) を本文で formal に展開するか、本文では符号 hypothesis のみ示し formal 展開は付録 A 6.A.3 に委譲するか",
+      "issue": "§6.4 命題 6.3 (相関補正 E[SPS] = E[P]E[R]E[S] + covariance terms + higher moments) を本文で formal に展開するか、本文では符号 hypothesis のみ示し formal 展開は付録 A 6.A.3 に委譲するか",
       "why_masa_decides": "命題 6.3 は Lens A methodological rigor の中核で、Jensen 不等式と観測等価類/識別不能性を一体で扱う設計が独立性仮定 honest treatment の判定基準を最も満たす。一方で本文 0.5p で formal 展開すると数学的密度が高く、Ch 11 BVAR との重複 risk もある。masa が「本章は構造的整理、定量化は Ch 11 BVAR」の境界をどこに引くかで決まる",
       "options": [
         "命題 6.3 を本文 formal 展開 (0.5p、Lens A 最強)",
@@ -431,36 +431,36 @@
       "options": [
         "A 案方式: 8 PJ 全件 0.25p × 8 = 2.0p + 章末問い 1.0p で均質配分 (D-010 等価尊重、可読性 risk)",
         "C 案方式: TIEM/BWE/CX 各 0.3p + 残り 5 PJ まとめ 0.5p + 章末問い 1.2p (可読性確保、D-010 等価尊重弱)",
-        "中間案: 全 8 PJ を表形式 (8 行 × 3 列 boundary/動的更新/ERS 影響) で 1.0p + 重要 PJ (TIEM/CTB/CLG など Book III 重視の 3 件) のみ追加 narrative 0.5p + 章末問い 1.5p"
+        "中間案: 全 8 PJ を表形式 (8 行 × 3 列 boundary/動的更新/ECR 影響) で 1.0p + 重要 PJ (TIEM/CTB/CLG など Book III 重視の 3 件) のみ追加 narrative 0.5p + 章末問い 1.5p"
       ],
       "recommendation": "option 3 (表形式 + 重要 PJ 追加 narrative)。8 PJ 等価尊重 (D-010) を表で担保しつつ可読性も確保、Book III 8 PJ 後付け校正への evaluation framework deliverable として表が直接 supply される設計が masa-fidelity と publishability の両立点"
     },
     {
       "issue": "§6.4 Alvarez-Barney 創造/発見論争への BZM 立ち位置を「honest 中立 (Bayesian update が両方を special case として包含)」とするか、それとも creation view の Bayesian reduction risk を notice しつつもどちらか寄りに position するか",
-      "why_masa_decides": "三 judge とも cross_cutting_concerns で「Alvarez-Barney (2013) AMR の批判系譜では creation view を Bayesian reduction することへの抵抗がある」を指摘しており、honest 中立を主張しつつも実質 discovery 寄りになる risk がある。masa が Book II 全体 (特に Ch 5 σ_SU、Ch 9 ERS) の立ち位置と整合させる必要",
+      "why_masa_decides": "三 judge とも cross_cutting_concerns で「Alvarez-Barney (2013) AMR の批判系譜では creation view を Bayesian reduction することへの抵抗がある」を指摘しており、honest 中立を主張しつつも実質 discovery 寄りになる risk がある。masa が Book II 全体 (特に Ch 5 σ_SU、Ch 9 ECR) の立ち位置と整合させる必要",
       "options": [
         "honest 中立 (Bayesian update が両方を包含) + creation view Bayesian reduction risk notice の二段階 (本案、§6.4 paragraph_outline 通り)",
         "discovery 寄り honest 宣言 (Bayesian framework が自然、creation view は限界条件下の special case と honest 位置付け)",
         "creation 寄り honest 宣言 (effectuation/構成主義を主軸、discovery view は信号集合の特殊化と位置付け)"
       ],
-      "recommendation": "option 1 (honest 中立 + reduction risk notice の二段階)。Book II 全体で Ch 5 σ_SU (動学的状態遷移) と Ch 9 ERS (機関の構成的役割) が creation view 寄りの色を持つため、Ch 6 で honest 中立を貫きつつ reduction risk を明示することで AE Sarasvathy/Alvarez-Barney 査読への対応を確保する。実装は Book III 8 PJ ケース分布で再検討の余地を open_issues に残す"
+      "recommendation": "option 1 (honest 中立 + reduction risk notice の二段階)。Book II 全体で Ch 5 σ_SU (動学的状態遷移) と Ch 9 ECR (機関の構成的役割) が creation view 寄りの色を持つため、Ch 6 で honest 中立を貫きつつ reduction risk を明示することで AE Sarasvathy/Alvarez-Barney 査読への対応を確保する。実装は Book III 8 PJ ケース分布で再検討の余地を open_issues に残す"
     }
   ],
   "falsifiable_claims": [
     "E[V] = E[V|reach] × Pr(reach) は確率論の標準恒等式であり Brealey-Myers-Allen (2020) Principles of Corporate Finance Ch.10 / Damodaran (2002) Investment Valuation Ch.27 / Koller-Goedhart-Wessels (2010) Valuation Ch.32 のいずれにも明示的記述がある — 三文献の該当章で確認できなければ falsify",
-    "PRS = P × R × S は Savage (1954) Foundations of Statistics + Anscombe-Aumann (1963) Annals of Mathematical Statistics の subjective expected utility 公理系の case 適用として導出可能 — Savage 公理 P1-P7 chain で導出できなければ falsify",
-    "PRS は real options 視点で Dixit-Pindyck (1994) Investment under Uncertainty の continuation value F(V) = max(V, E[F(V')]/(1+r)) の simplified form として再解釈可能、Ch 5.5 GO ゲート imminence threshold は exercise boundary に対応する — Dixit-Pindyck の該当章で対応関係が確認できなければ falsify",
+    "SPS = P × R × S は Savage (1954) Foundations of Statistics + Anscombe-Aumann (1963) Annals of Mathematical Statistics の subjective expected utility 公理系の case 適用として導出可能 — Savage 公理 P1-P7 chain で導出できなければ falsify",
+    "SPS は real options 視点で Dixit-Pindyck (1994) Investment under Uncertainty の continuation value F(V) = max(V, E[F(V')]/(1+r)) の simplified form として再解釈可能、Ch 5.5 GO ゲート imminence threshold は exercise boundary に対応する — Dixit-Pindyck の該当章で対応関係が確認できなければ falsify",
     "R = bundle-min は Liebig (1840) Die organische Chemie の最小律および Leontief (1941) 生産関数 (σ → 0) と同型である — 標準ミクロ経済学教科書または該当文献で確認可能、不可能なら falsify",
     "CES 集約関数 R = (Σ w_i x_i^ρ)^(1/ρ) は弾力性 σ = 1/(1-ρ) → 0 (ρ → -∞) の極限で min(x_i) に収束する — Arrow-Chenery-Minhas-Solow (1961) Review of Economics and Statistics 43(3) または標準ミクロ経済学教科書で証明可能、不可能なら falsify",
     "Alvarez & Barney (2007) Strategic Entrepreneurship Journal 1(1-2) 11-26 において discovery view と creation view が明示的に対立軸として提示されている — 該当論文の該当ページで対立軸が確認できなければ falsify",
     "Sarasvathy (2001) Academy of Management Review 26(2) 243-263 において effectuation の means-driven logic が causation の goal-driven logic と対比されている — 該当論文の確認失敗で falsify",
-    "Jensen 不等式により E[P · R · S] ≠ E[P] · E[R] · E[S] が一般に成立し、Cov(P, R), Cov(R, S), Cov(P, S) が全て 0 のときのみ等号成立する (より正確には共分散展開 E[PRS] = E[P]E[R]E[S] + Cov(P,R)·E[S] + Cov(R,S)·E[P] + Cov(P,S)·E[R] + higher moments) — 確率論教科書 (Billingsley 等) で確認可能、不可能なら falsify",
+    "Jensen 不等式により E[P · R · S] ≠ E[P] · E[R] · E[S] が一般に成立し、Cov(P, R), Cov(R, S), Cov(P, S) が全て 0 のときのみ等号成立する (より正確には共分散展開 E[SPS] = E[P]E[R]E[S] + Cov(P,R)·E[S] + Cov(R,S)·E[P] + Cov(P,S)·E[R] + higher moments) — 確率論教科書 (Billingsley 等) で確認可能、不可能なら falsify",
     "Mankins (1995) NASA TRL 体系は 9 段階の readiness レベルとして文書化されている — NASA 公式文書で確認可能、不可能なら falsify",
     "Klepper (2007) Management Science 53(4) 616-631 / Malerba (2002) Research Policy 31(2) 247-264 / Murmann (2003) Knowledge and Competitive Advantage Cambridge UP / Cohen-Levinthal (1990) Administrative Science Quarterly 35(1) のいずれも機関 (sector/industry/system/firm) を加重和的に集約する framework を提示している — 各文献の該当箇所で集約形が加重和ないし非乗法と確認できなければ falsify",
     "Schmeidler (1989) Econometrica 57(3) Choquet expected utility および Gilboa-Schmeidler (1989) J. Mathematical Economics maxmin expected utility は Savage 公理系の independence axiom を relax する ambiguity aversion 系譜として位置付けられる — 該当論文で確認可能、不可能なら falsify",
-    "Ch 6 が本章末で 8 PJ (TIEM/BWE/CX/SX/CTB/YD/JC/CLG) 全てに 3 観点 (boundary 軸 / P 動的更新の余地 / 機関 ERS 影響) で短い参照を与えることは BOOK_DECISIONS.md D-010 PJ ケース割当て規律と整合する — D-010 該当条項で確認可能、規律違反なら falsify",
+    "Ch 6 が本章末で 8 PJ (TIEM/BWE/CX/SX/CTB/YD/JC/CLG) 全てに 3 観点 (boundary 軸 / P 動的更新の余地 / 機関 ECR 影響) で短い参照を与えることは BOOK_DECISIONS.md D-010 PJ ケース割当て規律と整合する — D-010 該当条項で確認可能、規律違反なら falsify",
     "本章が Tier A (validation 主張禁止) であることは BOOK_DECISIONS.md D-031 Tier 規律に従う — 本章執筆完了後の Tier-line 走査で「実証された」「証明された」「妥当性が確認された」等の validation 示唆表現が検出されないことで担保される、検出された場合は D-031 違反で falsify",
-    "Ch 10.4 Theorem 3 (二層非可換性 GO(PRS, ERS) ≠ GO(ERS, PRS)) は本書独自の定理として BOOK_DECISIONS.md D-039 で確定している — D-039 該当条項で確認可能、確認失敗なら falsify"
+    "Ch 10.4 Theorem 3 (二層非可換性 GO(SPS, ECR) ≠ GO(ECR, SPS)) は本書独自の定理として BOOK_DECISIONS.md D-039 で確定している — D-039 該当条項で確認可能、確認失敗なら falsify"
   ],
   "cross_chapter_supply": [
     {
@@ -469,7 +469,7 @@
     },
     {
       "target_chapter": "Ch 5.5 (GO ゲート)",
-      "what_supplies": "§6.1 で Ch 5.5 GO ゲートの imminence threshold が real options exercise boundary に対応することを motivate、PRS を最適停止下の continuation value の simplified form として再解釈する数学的接続を §6.1 末で確立。Ch 5.5 から §6.1 への deliverable は imminence threshold の数学的定義と exercise boundary 対応"
+      "what_supplies": "§6.1 で Ch 5.5 GO ゲートの imminence threshold が real options exercise boundary に対応することを motivate、SPS を最適停止下の continuation value の simplified form として再解釈する数学的接続を §6.1 末で確立。Ch 5.5 から §6.1 への deliverable は imminence threshold の数学的定義と exercise boundary 対応"
     },
     {
       "target_chapter": "Ch 7 (F-CES)",
@@ -480,16 +480,16 @@
       "what_supplies": "§6.3 で F の時間動学 (人/金/時/関係/組織余力の CES 集約の動学) を Ch 8 に委ね、本章は静的スナップショットとしての F を扱う。Ch 8 から §6.3 への deliverable は F_t の時間動学方程式と本章静的形との接続点"
     },
     {
-      "target_chapter": "Ch 9 (ERS 加重和)",
-      "what_supplies": "§6.3 で R_net を ERS の reduced form proxy として受け取り、§6.5 で ERS = Σ w_k E_k の加重和形を案件 PRS = P × R × S 乗法形と対比、二層構造前置の motivation を完成。Ch 9 から §6.3/§6.5 への deliverable は ERS の正式定義と機関タイプ別重み w_k 構造"
+      "target_chapter": "Ch 9 (ECR 加重和)",
+      "what_supplies": "§6.3 で R_net を ECR の reduced form proxy として受け取り、§6.5 で ECR = Σ w_k E_k の加重和形を案件 SPS = P × R × S 乗法形と対比、二層構造前置の motivation を完成。Ch 9 から §6.3/§6.5 への deliverable は ECR の正式定義と機関タイプ別重み w_k 構造"
     },
     {
       "target_chapter": "Ch 10.4 (Theorem 3 二層非可換性)",
-      "what_supplies": "§6.5 で Theorem 3 ステートメント (GO(PRS, ERS) ≠ GO(ERS, PRS)) を末尾 1 段落引用、proof は Ch 10.4 に委譲 (D-047 規律)。本章 §6.5 は Theorem 3 の motivation (PRS × ERS 三重禁忌: 二重 counting / portfolio 性質歪曲 / 順序非可換性) を supply し、Ch 10.4 が proof を受ける"
+      "what_supplies": "§6.5 で Theorem 3 ステートメント (GO(SPS, ECR) ≠ GO(ECR, SPS)) を末尾 1 段落引用、proof は Ch 10.4 に委譲 (D-047 規律)。本章 §6.5 は Theorem 3 の motivation (SPS × ECR 三重禁忌: 二重 counting / portfolio 性質歪曲 / 順序非可換性) を supply し、Ch 10.4 が proof を受ける"
     },
     {
       "target_chapter": "Ch 10.5/10.6/10.7 (Klepper/Malerba/Murmann)",
-      "what_supplies": "§6.5 で Klepper (2007) entrepreneurial spawning / Malerba (2002) sectoral systems / Murmann (2003) co-evolution の各 framework が機関側 ERS を加重和で扱うこととの整合性を確認、Ch 10.5/10.6/10.7 が産業組織背景を supply し、本章 §6.5 が二層構造前置に活用"
+      "what_supplies": "§6.5 で Klepper (2007) entrepreneurial spawning / Malerba (2002) sectoral systems / Murmann (2003) co-evolution の各 framework が機関側 ECR を加重和で扱うこととの整合性を確認、Ch 10.5/10.6/10.7 が産業組織背景を supply し、本章 §6.5 が二層構造前置に活用"
     },
     {
       "target_chapter": "Ch 11 (BVAR 同時推定)",
@@ -497,7 +497,7 @@
     },
     {
       "target_chapter": "Book III (8 PJ 後付け校正)",
-      "what_supplies": "§6.6 8 PJ × 3 観点 framework (boundary 軸 / P 動的更新の余地 / 機関 ERS 影響) を Book III 8 PJ ケース章 (TIEM/BWE/CX/SX/CTB/YD/JC/CLG) の評価フレームとして supply、本章は validation せず evaluation framework deliverable のみを Book III に渡す (D-031 Tier A)"
+      "what_supplies": "§6.6 8 PJ × 3 観点 framework (boundary 軸 / P 動的更新の余地 / 機関 ECR 影響) を Book III 8 PJ ケース章 (TIEM/BWE/CX/SX/CTB/YD/JC/CLG) の評価フレームとして supply、本章は validation せず evaluation framework deliverable のみを Book III に渡す (D-031 Tier A)"
     },
     {
       "target_chapter": "Book IV (時系列現場接続)",
@@ -506,12 +506,12 @@
   ],
   "masa_negotiation_handles": [
     "§6.1 三系譜合流点表 (DCF batch + real options + subjective EU) を本文/付録のどこに分担するか — option A (全本文 3.5p)、option B (DCF batch + real options 本文・Savage 公理系付録、3.0p、推奨)、option C (DCF batch のみ本文、2.5p) のいずれを採るかの最終判定 handle",
-    "§6.4 命題 6.3 (相関補正 E[PRS] = E[P]E[R]E[S] + covariance terms) の本文 formal 展開深度 — option A (full formal 0.5p)、option B (符号 hypothesis のみ 0.3p)、option C (formal + Book III supply 0.4p、推奨) のいずれを採るかの最終判定 handle",
+    "§6.4 命題 6.3 (相関補正 E[SPS] = E[P]E[R]E[S] + covariance terms) の本文 formal 展開深度 — option A (full formal 0.5p)、option B (符号 hypothesis のみ 0.3p)、option C (formal + Book III supply 0.4p、推奨) のいずれを採るかの最終判定 handle",
     "§6.5 Ch 10.4 Theorem 3 ステートメントの §6.5 末引用方針 — option A (ステートメント引用 + proof Ch 10.4 委譲、推奨)、option B (motivation のみ Theorem 3 ステートメント Ch 10.4 初出)、option C (ステートメント + proof スケッチ 1 段落 + 完全証明付録) のいずれを採るかの最終判定 handle",
     "§6.6 8 PJ × 3 観点 framework の実装方式 — option A (8 PJ 全件 0.25p × 8 均質配分)、option B (TIEM/BWE/CX 厚く + 残り 5 PJ まとめ)、option C (表形式 + 重要 PJ 追加 narrative、推奨) のいずれを採るかの最終判定 handle",
-    "§6.4 Alvarez-Barney 創造/発見論争への BZM 立ち位置 — option A (honest 中立 + creation view Bayesian reduction risk notice、推奨)、option B (discovery 寄り honest 宣言)、option C (creation 寄り honest 宣言) のいずれを採るかと Book II 全体 (Ch 5 σ_SU、Ch 9 ERS) との整合性確認の handle",
+    "§6.4 Alvarez-Barney 創造/発見論争への BZM 立ち位置 — option A (honest 中立 + creation view Bayesian reduction risk notice、推奨)、option B (discovery 寄り honest 宣言)、option C (creation 寄り honest 宣言) のいずれを採るかと Book II 全体 (Ch 5 σ_SU、Ch 9 ECR) との整合性確認の handle",
     "§6.2 で σ < 1 CES を「現場校正で robust」と書く強度の Tier A (D-031) 境界判定 — validation 主張に滑らない言い回し (例:「現場校正で robust と言える motivation がある」「Book III 8 PJ 後付け校正で σ の事後分布を評価する設計」) の最終確定 handle",
-    "§6.3 Cobb-Douglas 指数 α + β + γ = 1 constant returns 仮定の本章固定 vs 機関タイプ別変動許容 — Ch 9 ERS との接続と Ch 11 BVAR 同時推定の prior 設計に直結、masa が「本章 base 固定 + Ch 11 で free 推定」を採るか「本章で機関タイプ別の余地を明示」を採るかの最終判定 handle",
+    "§6.3 Cobb-Douglas 指数 α + β + γ = 1 constant returns 仮定の本章固定 vs 機関タイプ別変動許容 — Ch 9 ECR との接続と Ch 11 BVAR 同時推定の prior 設計に直結、masa が「本章 base 固定 + Ch 11 で free 推定」を採るか「本章で機関タイプ別の余地を明示」を採るかの最終判定 handle",
     "本章 22p heavy 配分の最終固定 — 提案 §6.0 2.5p + §6.1 3.5p + §6.2 3.5p + §6.3 2.5p + §6.4 3.5p + §6.5 3.5p + §6.6 3.0p = 22p、ただし §6.1 と §6.4 の formal 展開深度の判定次第で ±0.5p 動く余地、masa が許容範囲を確定する handle"
   ]
 }
