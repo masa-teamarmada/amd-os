@@ -72,6 +72,7 @@ git status -s
 - 機能完成まで push を待たない
 - 1機能 = 1 commit、commit のたびに `git push origin main`
 - 「1日の作業終わりに必ず push」を最低ライン
+- **push 直前に必ず `git fetch origin main` して origin/main の直近 commit を見る** — 複数 worktree・複数セッション (司令塔+worker) が並行稼働しているため、自分が知らない間に他セッションが同じファイル・同じストリームを更新している可能性が高い。確認せずに「未実施」「未反映」等の状態記述を push すると、他セッションが既に完了させた事実を古い記述のまま固めてしまう (2026-07-13 PF-021 セッションで発生、訂正 commit が追加で必要になった)
 
 これを守らないと、別PC・別セッションの Claude が作業を見逃して **巻き戻り事故** が起きる。
 過去事例: 9 commit が未 push のまま origin/main を起点にビルドし直して機能消失。
