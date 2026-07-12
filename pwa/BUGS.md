@@ -3929,3 +3929,10 @@
 - **原因**: 月初合意の支払月判定で、`billing_cycles.invoice_ym` を支払月として優先していた。`invoice_ym` はクライアント向けの請求書発行月であり、メンバーへの現金支払月ではない。ZMP 202606 の報酬明細は存在していたが、`invoice_ym=202606` を見たことで 202607 の支払一覧から落ちていた。
 - **対応内容**: 月初合意の報酬支払説明では `invoice_ym` を使わず、PJ/member 支払条件から支払月を計算する helper を追加した。`payoutSchedule` と `/admin/monthly-work-agreements` の `今月支払` 集計も同じ判定に統一した。read-only 再計算で 202607 の ZMP 202606 分が 4名合計 87,457円として出ることを確認し、`v0.39.40` で本番反映した。後続 main/prod にも ancestor として含まれる。
 - **再発防止策**: finance / agreement では `稼働月`、`請求書発行月`、`入金月`、`メンバー支払月` を同じ `ym` として扱わない。DB列名を根拠にせず、契約・manual/spec・実支払データの意味を先に確認する。画面で `0円` が出た場合は「予定額が0」なのか「支払月判定から落ちた」のかを、保存済み明細と支払条件で切り分けてから説明する。
+
+## [bzm-worker/deploy] ワーカー専用ブランチへの commit だけでは正本変更が本番に反映されなかった (2026-07-12)
+
+- **症状**: BZM Book A 第1章 (`pwa/bzm/book-a-ch-1.md`) の「である」調変換 (PF-020 フェーズA) を spawn_task 起票のワーカーセッション (`claude/brave-wozniak-b16328`) が実施し commit したが、まさが本番 PWA で確認すると `v3.39.63` のままで、冒頭は変換前の「ですます」調だった。
+- **原因**: AMD OS PWA の本番反映条件は `origin/main` への push (Vercel Git 自動 deploy)。ワーカーセッションは自分の worktree のブランチ (`claude/brave-wozniak-b16328`) に commit しただけで、`origin/main` には一切 push していなかった。当初の設計は「ワーカーは提案 md のみ作成し、正本は司令塔が検証後に反映する」だったが、まさの直接指示「正本に入れてくれないと確認できないじゃん」でワーカーが正本へ直接反映する運用に変わった際、反映先をワーカーブランチのままにしてしまい、本番へ届く経路が繋がっていなかった。
+- **対応内容**: 本体ディレクトリ (`/Users/masa/projects/AMD/amd-os`、main checkout) で `git fetch` → `git merge --ff-only origin/main`、対象ファイル (`book-a-ch-1.md` / 提案md) をワーカーブランチから `git checkout claude/brave-wozniak-b16328 -- <file>` で取り込み、`BUILD_VERSION` を bump した上で main へ直接 commit・push (`65493a9a`)。Vercel の production deployment が Ready になったこと、`/api/build-info` の `git_sha` が新 commit と一致することを確認してから、まさに反映済みと報告した。
+- **再発防止策**: spawn_task 起票のワーカーセッション (専用 worktree・専用ブランチを持つ) が正本ファイルを直接変更する指示を受けた場合、「commit した」を完了の合図にしない。`git branch --show-current` で自分がいるブランチが `main` でないことを常に意識し、`origin/main` に反映されるまでの経路 (本体 checkout 経由の取り込み、または最終的に `origin/main` への push) を明示して実行し、Vercel deploy 完了と `/api/build-info` 一致まで確認してから完了報告する。
