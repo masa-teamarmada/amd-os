@@ -47,14 +47,15 @@ export interface BzmNumberedChapter extends BzmChapterConfig {
 export const BZM_PARTS: BzmPartConfig[] = [
   // ============================================================
   // Book A 教科書『ディープテック起業の経営学』(仮題、PF-012 で 2026-07-03 起草開始)
-  // — 15章 = 半期15回 1:1、数式全部入り (PF-001)。L1 = pwa/bzm/BOOK_A_MASTER_PLAN.md。
+  // — 16章 = 半期16回 1:1、数式全部入り (PF-001)。L1 = pwa/bzm/BOOK_A_MASTER_PLAN.md。
   //   まさ指示 2026-07-03「Book A の最初の章から順に書いていく。OS の教科書ページから
   //   見れるようにして」により、起草中の主戦場として先頭配置 (モノグラフはその下)。
+  //   2026-07-12: 新章「CEOという難問」(仮) 挿入で 15章→16章化 (TOC v2、PF-014 改定)。
   // ============================================================
   {
     key: "book-a",
-    label: "Book A 教科書 — ディープテック起業の経営学 (仮題、15章 ≈ 440p)",
-    description: "理論の集大成テキスト (数式全部入り)。主対象 = MBA/MOT 院1年 + 学部3-4年ゼミ + URA/EIR/VC 研修。三項構造 (観測二層 SPS/ECR + 行動一層 RT) + 出口ポートフォリオ論 (看板、第14章)。15章 = 半期15回に1:1対応。TOC v1 は BOOK_A_MASTER_PLAN.md 正本。",
+    label: "Book A 教科書 — ディープテック起業の経営学 (仮題、16章 ≈ 440p)",
+    description: "理論の集大成テキスト (数式全部入り)。主対象 = MBA/MOT 院1年 + 学部3-4年ゼミ + URA/EIR/VC 研修。三項構造 (観測二層 SPS/ECR + 行動一層 RT) + 出口ポートフォリオ論 (看板、第15章)。16章 = 半期16回に1:1対応。TOC v2 は BOOK_A_MASTER_PLAN.md 正本。",
     slugs: [
       "book-a-ch-1",
       "book-a-ch-2",
@@ -69,6 +70,7 @@ export const BZM_PARTS: BzmPartConfig[] = [
       "book-a-ch-11",
       "book-a-ch-12",
       "book-a-ch-13",
+      "book-a-ch-13-5",
       "book-a-ch-14",
       "book-a-ch-15",
     ],
@@ -268,7 +270,7 @@ export const BZM_PARTS: BzmPartConfig[] = [
 ];
 
 export const BZM_CHAPTERS: BzmChapterConfig[] = [
-  // --- Book A 教科書 15章 (PF-012、L1 = BOOK_A_MASTER_PLAN.md、L3 = BOOK_A_CHAPTER_*_PROGRESS.md) ---
+  // --- Book A 教科書 16章 (PF-012、L1 = BOOK_A_MASTER_PLAN.md、L3 = BOOK_A_CHAPTER_*_PROGRESS.md) ---
   { slug: "book-a-ch-1", title: "第1章 — ディープテック起業と Before Zero — なぜ設立前を経営学の対象にするのか", summary: "章頭ケース「設立三周年の花束」(逆年表)。標準アントレ理論が「ゼロの後」から始まる射程の限界を示し、Before Zero の領土宣言・状態空間 (ι, F, S0, I)・三項構造 (観測二層 SPS/ECR + 行動一層 RT) を本書15回の地図として提示。22p。v1 確定 (まさレビュー完了)。", status: "completed" },
   { slug: "book-a-ch-2", title: "第2章 — 関係者の時計と不可逆点 — 開示の順序・法人化境界・進める/待つ/止めるの語彙", summary: "関係者×関心×時計の地図、三つの鬼門 (開示順序・会社化タイミング・早すぎる CEO 要求)、GO/WAIT/NO_GO/HOLD と WAIT の3部品。意図的に数式ゼロの回 (数式強度曲線の起点)。24p。v1 確定 (まさレビュー完了)。", status: "completed" },
   { slug: "book-a-ch-3", title: "第3章 — 評価問題の定式化 — Valuation の限界と期待値分解 P×R×S", summary: "DCF が Before Zero で壊れる四つの壁を示し、評価問題を E[V] = P×R×S へ定式化し直す。乗法/加重和/補完性の3層対応表を導入。26p。起草中 (v1 draft)。", status: "in-progress" },
@@ -282,8 +284,9 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
   { slug: "book-a-ch-11", title: "第11章 — 苗床を測る — エコシステム構築率 ECR の8軸と加重和", summary: "案件を生み出す装置を測る第二の観測層。ECR 加重和 (充足率)・8軸 rubric・軸7のゲート性・unknown vs not_started。「張るのは案件、通うのは苗床」。28p。", status: "not-started" },
   { slug: "book-a-ch-12", title: "第12章 — 二層非可換性 — 案件と機関を混ぜてはいけない理由", summary: "SPS (乗法・案件) と ECR (加重和・機関) を単一スコアへ結合してはならないことを、公理 A1-A4 の不可能性定理ステートメント+証明スケッチと Simpson 反転 worked example で示す「読む数学」の回。26p。", status: "not-started" },
   { slug: "book-a-ch-13", title: "第13章 — ラウンドテーブル — 二層を結合する組成機構 [仮説的第三柱]", summary: "RT = Before Zero の DTSU を keystone に据えた多者・連鎖・相互牽制の共同体 ℛ。成立3条件の命題化・CRL/ICT レンズ・Ψ 分解仮説 (検証プログラム付き仮説と明示)。独禁注意喚起 Box 必置。32p。", status: "not-started" },
-  { slug: "book-a-ch-14", title: "第14章 — 出口ポートフォリオ — シーズごとに正しいサイズの成功を", summary: "本書の看板主張: ユニコーン単願ではなく出口ポートフォリオを設計する。絶対スケール+達成率の2読み方式の正準オーナー回。「サイズを選ぶ」という第三の判断。26p。", status: "not-started" },
-  { slug: "book-a-ch-15", title: "第15章 — 検証と限界 — 総合演習: モデルを疑いながら使う", summary: "後付け校正と検証の峻別 (Tier 規律)、blind retrofit、反証条件リスト = BZM の可死性の明文化。総合演習 = 期末課題 (フル評価レポート)。「モデルは信じるものではなく検証するもの」で本を閉じる。28p。", status: "not-started" },
+  { slug: "book-a-ch-13-5", title: "第14章 — CEOという難問 — 機能は分割できても、愛情の総量だけは外注できない", summary: "章頭は「肩書のまま決める機能を失った男」(一枚の組織図)。CEO 像の通時変化・制度と市場の不整合・機能分割 (第6章 §6.7 の実務適用)・エバンジェリスト機能の非外注性・育成可能性・肩書だけの CEO という7つの問いを実話で辿り、Before Zero から法人化後までの一気通貫供給を解として示す「問い×実話」変奏章。AMD の実践は序章/あとがき/著者性 Box でのみ明かす (a案)。26p。", status: "not-started" },
+  { slug: "book-a-ch-14", title: "第15章 — 出口ポートフォリオ — シーズごとに正しいサイズの成功を", summary: "本書の看板主張: ユニコーン単願ではなく出口ポートフォリオを設計する。絶対スケール+達成率の2読み方式の正準オーナー回。「サイズを選ぶ」という第三の判断。26p。", status: "not-started" },
+  { slug: "book-a-ch-15", title: "第16章 — 検証と限界 — 総合演習: モデルを疑いながら使う", summary: "後付け校正と検証の峻別 (Tier 規律)、blind retrofit、反証条件リスト = BZM の可死性の明文化。総合演習 = 期末課題 (フル評価レポート)。「モデルは信じるものではなく検証するもの」で本を閉じる。28p。", status: "not-started" },
 
   {
     slug: "preface",
