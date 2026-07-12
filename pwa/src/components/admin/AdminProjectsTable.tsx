@@ -23,6 +23,7 @@ export interface ProjectRow {
   status: string;
   project_category: ProjectCategory;
   slack_channel_id: string | null;
+  /** trueならSlackを使わない意図的な未設定。 */
   slack_channel_not_required: boolean;
   drive_folder_id: string | null;
   freee_partner_id: string | null;
@@ -527,7 +528,11 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
 
   const saveSlackChannelNotRequired = async (p: ProjectRow, checked: boolean) => {
     setSaving(p.id);
-    const patch = { slack_channel_not_required: checked, slack_channel_id: checked ? null : p.slack_channel_id };
+    const patch = {
+      slack_channel_not_required: checked,
+      // 「チャンネルなし」を選んだ時に、古いIDが残って誤って抽出されないようにする。
+      slack_channel_id: checked ? null : p.slack_channel_id,
+    };
     const r = await patchProject(p.id, { projectsPatch: patch });
     if (!r.ok) {
       setHint(`Slack設定 保存エラー: ${r.error}`);
@@ -1516,8 +1521,13 @@ export function AdminProjectsTable({ projects: initialProjects }: Props) {
                       <div className="space-y-1">
                         <span className="font-mono text-muted-foreground text-[11px]">{p.slack_channel_id || "—"}</span>
                         <label className="flex w-fit items-center gap-1 text-[10px] text-muted-foreground" onClick={(e) => e.stopPropagation()}>
-                          <input type="checkbox" checked={p.slack_channel_not_required} disabled={saving === p.id}
-                            onChange={(e) => saveSlackChannelNotRequired(p, e.target.checked)} className="h-3 w-3 rounded border-border" />
+                          <input
+                            type="checkbox"
+                            checked={p.slack_channel_not_required}
+                            disabled={saving === p.id}
+                            onChange={(e) => saveSlackChannelNotRequired(p, e.target.checked)}
+                            className="h-3 w-3 rounded border-border"
+                          />
                           チャンネルなし
                         </label>
                       </div>
