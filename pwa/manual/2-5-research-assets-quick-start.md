@@ -61,10 +61,13 @@ candidate -> investigating -> contacted -> discussing
 | domain filter | `gx_energy`, `life`, `materials`, `robo` など lane で絞る |
 | 担当 filter | AMD 側 owner ごとに見る |
 | 行クリック | 詳細 modal で概要、機関・研究者、AMD 評価、補助金、接触履歴、ニュースを見る |
+| 深掘り資料 | 一覧の資料アイコン、または詳細 modal から、確認済みの事業化検討資料を開く |
 | `+ 新規シーズ` | 手入力で候補を追加する |
 | `/seeds/inbox` | cron / automation で見つかった未確認 seed を verify / dismiss する |
 
 `spun_off_project_id` が入った seed は PJ 化済みとして `projects` に紐づく。PJ 化済みでも情報資産として残す。
+
+深掘り資料には、AMD内で確認済みの要約・判断資料だけを紐づける。メール本文、議事録本文、一次ソース本文やその生URLを置く場所ではない。
 
 ## PoC 案件化を見る
 

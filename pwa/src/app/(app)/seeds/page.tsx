@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ExternalLink } from "lucide-react";
 import {
   fetchSeedList,
   fetchSeedInboxCount,
@@ -347,9 +348,11 @@ function Row({ s, onSelect }: { s: SeedListItem; onSelect: () => void }) {
             href={s.deep_dive_material_url}
             target="_blank"
             rel="noreferrer"
-            className="text-sky-700 dark:text-sky-300 underline underline-offset-2 hover:text-sky-500"
+            className="inline-flex h-7 w-7 items-center justify-center text-sky-700 hover:text-sky-500 dark:text-sky-300"
+            title="深掘り資料を開く"
+            aria-label={`${s.title}の深掘り資料を開く`}
           >
-            開く
+            <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
           </a>
         ) : (
           <span className="text-muted-foreground/40">—</span>

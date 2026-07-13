@@ -46,6 +46,7 @@ candidate (候補)
 | `is_public` | true なら将来 URA / EIR 向けに公開可 |
 | `spun_off_project_id` | PJ 化したら set |
 | `source` / `source_detail` | 情報源 (= manual / cron / chat 等) |
+| `deep_dive_material_url` | AMD確認済みの深掘り資料リンク。資料本文や一次ソースの生URLは置かない |
 | `discovery_status` | `reviewed` (= 人確認済) / `discovered` (= cron 新規発見) / `dismissed` (= ノイズ) |
 
 ### サブテーブル
@@ -60,7 +61,7 @@ candidate (候補)
 
 | パス | 役割 |
 |---|---|
-| `/seeds` | リスト画面。 検索 / フィルタ / ソート。 行クリックで `SeedDetailModal`。 新規発見は 🆕 マーク、 右上「受信箱」リンク + バッジ |
+| `/seeds` | リスト画面。検索 / フィルタ / ソート。深掘り資料は資料アイコンから開く。行クリックで `SeedDetailModal` を開き、リンクの確認・更新ができる。新規発見は 🆕 マーク、右上「受信箱」リンク + バッジ |
 | `/seeds/[id]` | 単独詳細ページ (= 直接 URL 用 fallback、 リストと同じ Modal の full-page 表示) |
 | `/seeds/inbox` | 受信箱 (= `discovery_status='discovered'`)、 verify=`reviewed` / dismiss=`dismissed` |
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ExternalLink } from "lucide-react";
 import {
   fetchSeedDetail,
   insertSeed,
@@ -399,13 +400,14 @@ function SeedReadView({ data }: { data: SeedDetail }) {
         <KV label="深掘り資料">
           {s.deep_dive_material_url ? (
             <a
-              className="underline hover:text-primary"
+              className="inline-flex items-center gap-1 underline hover:text-primary"
               href={s.deep_dive_material_url}
               target="_blank"
               rel="noreferrer"
               onClick={(e) => e.stopPropagation()}
             >
-              共有ドライブの資料を開く
+              深掘り資料を開く
+              <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
             </a>
           ) : "—"}
         </KV>

@@ -104,7 +104,6 @@ export interface Seed {
   is_public: boolean;
   // 関連
   spun_off_project_id: string | null;
-  deep_dive_url: string | null;
   source: SeedSource | null;
   source_detail: string | null;
   deep_dive_material_url: string | null;

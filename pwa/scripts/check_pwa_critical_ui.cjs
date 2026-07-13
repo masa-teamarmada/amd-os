@@ -1097,6 +1097,20 @@ expectIncludes("design/FEATURE_REGISTRY.md", [
   "budgetImpact",
 ]);
 
+expectIncludes("src/app/(app)/seeds/page.tsx", [
+  "深掘り資料",
+  "deep_dive_material_url",
+  "ExternalLink",
+]);
+expectIncludes("src/components/seeds/SeedDetailModal.tsx", [
+  "深掘り資料リンク",
+  "deep_dive_material_url",
+  "深掘り資料を開く",
+]);
+expectIncludes("manual/5-1-research-assets-vc-seeds-scholar-spec.md", [
+  "deep_dive_material_url",
+]);
+
 require("./check_payout_notice_pdf_golden.cjs");
 
 console.log("critical PWA UI anchors ok");

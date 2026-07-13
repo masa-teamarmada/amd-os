@@ -88,6 +88,7 @@ GlobalNav に **Seeds** を Venture Map と VC の間に追加 ([GlobalNav.tsx](
 - **フィルタ**: status (デフォルト: アクティブ = PJ化/見送り を除外) / 領域 / 担当 / フリーテキスト (シーズ・機関・PI・キーワード)
 - **ソート**: 列クリックで切替 (デフォルト: 更新日 desc)
 - **新規作成**: 右上「+ 新規シーズ」ボタン → `SeedDetailModal` を createMode で開く
+- **深掘り資料**: `deep_dive_material_url` には、AMDが確認済みの共有資料リンクだけを置く。資料本文、一次ソース本文、一次ソースの生URLは置かない。
 
 ### `SeedDetailModal` (詳細 + 編集 + 削除)
 
