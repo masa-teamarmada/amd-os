@@ -15,6 +15,7 @@ import {
 } from "@/lib/seeds-data";
 import type { SeedListItem } from "@/types/seeds";
 import { SeedDetailModal } from "@/components/seeds/SeedDetailModal";
+import { SeedMarkdownPreviewModal } from "@/components/seeds/SeedMarkdownPreviewModal";
 
 type SortKey =
   | "title"
@@ -67,6 +68,7 @@ export default function SeedsListPage() {
   const [filterOwner, setFilterOwner] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [selectedSeedId, setSelectedSeedId] = useState<string | null>(null);
+  const [previewSeed, setPreviewSeed] = useState<SeedListItem | null>(null);
   const [createMode, setCreateMode] = useState(false);
   const [inboxCount, setInboxCount] = useState(0);
 
@@ -246,7 +248,12 @@ export default function SeedsListPage() {
             </thead>
             <tbody>
               {filtered.map((s) => (
-                <Row key={s.id} s={s} onSelect={() => setSelectedSeedId(s.id)} />
+                <Row
+                  key={s.id}
+                  s={s}
+                  onSelect={() => setSelectedSeedId(s.id)}
+                  onOpenDeepDive={() => setPreviewSeed(s)}
+                />
               ))}
             </tbody>
           </table>
@@ -266,11 +273,29 @@ export default function SeedsListPage() {
           }}
         />
       )}
+
+      {previewSeed?.deep_dive_material_url && (
+        <SeedMarkdownPreviewModal
+          open
+          seedId={previewSeed.id}
+          seedTitle={previewSeed.title}
+          driveUrl={previewSeed.deep_dive_material_url}
+          onClose={() => setPreviewSeed(null)}
+        />
+      )}
     </div>
   );
 }
 
-function Row({ s, onSelect }: { s: SeedListItem; onSelect: () => void }) {
+function Row({
+  s,
+  onSelect,
+  onOpenDeepDive,
+}: {
+  s: SeedListItem;
+  onSelect: () => void;
+  onOpenDeepDive: () => void;
+}) {
   const r = s.amd_rating ?? 0;
   return (
     <tr
@@ -344,16 +369,15 @@ function Row({ s, onSelect }: { s: SeedListItem; onSelect: () => void }) {
       </td>
       <td className="px-2 py-2 text-center" onClick={(e) => e.stopPropagation()}>
         {s.deep_dive_material_url ? (
-          <a
-            href={s.deep_dive_material_url}
-            target="_blank"
-            rel="noreferrer"
+          <button
+            type="button"
+            onClick={onOpenDeepDive}
             className="inline-flex h-7 w-7 items-center justify-center text-sky-700 hover:text-sky-500 dark:text-sky-300"
             title="深掘り資料を開く"
             aria-label={`${s.title}の深掘り資料を開く`}
           >
             <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-          </a>
+          </button>
         ) : (
           <span className="text-muted-foreground/40">—</span>
         )}

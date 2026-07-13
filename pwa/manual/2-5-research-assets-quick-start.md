@@ -61,7 +61,7 @@ candidate -> investigating -> contacted -> discussing
 | domain filter | `gx_energy`, `life`, `materials`, `robo` など lane で絞る |
 | 担当 filter | AMD 側 owner ごとに見る |
 | 行クリック | 詳細 modal で概要、機関・研究者、AMD 評価、補助金、接触履歴、ニュースを見る |
-| 深掘り資料 | 一覧の資料アイコン、または詳細 modal から、確認済みの事業化検討資料を開く |
+| 深掘り資料 | 一覧の資料アイコン、または詳細 modal から、確認済みの事業化検討資料をOS内Markdownモーダルで開く。左メニューは表示しない |
 | `+ 新規シーズ` | 手入力で候補を追加する |
 | `/seeds/inbox` | cron / automation で見つかった未確認 seed を verify / dismiss する |
 

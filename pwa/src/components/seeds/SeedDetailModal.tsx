@@ -36,6 +36,7 @@ import type {
   SeedContactMethod,
 } from "@/types/seeds";
 import { createClient } from "@/lib/supabase/client";
+import { SeedMarkdownPreviewModal } from "@/components/seeds/SeedMarkdownPreviewModal";
 
 interface MemberLite {
   member_id: string;
@@ -68,6 +69,7 @@ export function SeedDetailModal({
 
   const [members, setMembers] = useState<MemberLite[]>([]);
   const [projects, setProjects] = useState<ProjectLite[]>([]);
+  const [deepDiveOpen, setDeepDiveOpen] = useState(false);
 
   // メンバー + PJ 一覧を読む (lookup 用)
   useEffect(() => {
@@ -294,7 +296,7 @@ export function SeedDetailModal({
             {editMode ? (
               <SeedEditForm draft={draft} setDraft={setDraft} members={members} projects={projects} />
             ) : (
-              data && <SeedReadView data={data} />
+              data && <SeedReadView data={data} onOpenDeepDive={() => setDeepDiveOpen(true)} />
             )}
 
             {/* サブセクション (作成モードでは未生成のため非表示) */}
@@ -313,6 +315,16 @@ export function SeedDetailModal({
           </div>
         )}
       </div>
+
+      {deepDiveOpen && data?.seed.deep_dive_material_url && (
+        <SeedMarkdownPreviewModal
+          open={deepDiveOpen}
+          seedId={data.seed.id}
+          seedTitle={data.seed.title}
+          driveUrl={data.seed.deep_dive_material_url}
+          onClose={() => setDeepDiveOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -331,7 +343,13 @@ function RatingDots({ r }: { r: number | null }) {
 // 詳細表示 (read-only)
 // =====================================================================
 
-function SeedReadView({ data }: { data: SeedDetail }) {
+function SeedReadView({
+  data,
+  onOpenDeepDive,
+}: {
+  data: SeedDetail;
+  onOpenDeepDive: () => void;
+}) {
   const s = data.seed;
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
@@ -399,16 +417,17 @@ function SeedReadView({ data }: { data: SeedDetail }) {
         {s.public_summary && <KV label="公開要約">{s.public_summary}</KV>}
         <KV label="深掘り資料">
           {s.deep_dive_material_url ? (
-            <a
+            <button
+              type="button"
               className="inline-flex items-center gap-1 underline hover:text-primary"
-              href={s.deep_dive_material_url}
-              target="_blank"
-              rel="noreferrer"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenDeepDive();
+              }}
             >
               深掘り資料を開く
               <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-            </a>
+            </button>
           ) : "—"}
         </KV>
         <KV label="登録日">{s.created_at?.slice(0, 10)}</KV>

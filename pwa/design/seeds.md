@@ -73,7 +73,7 @@ AMD 視点:       status, amd_rating (1-5), amd_owner_member_id, next_action,
 
 | パス | 役割 |
 |---|---|
-| `/seeds` | リスト画面 (検索 / フィルタ / ソート / 行クリックで `SeedDetailModal`)。新規発見シーズは行頭に 🆕 マーク、右上に「受信箱」リンク + バッジ |
+| `/seeds` | リスト画面 (検索 / フィルタ / ソート / 行クリックで `SeedDetailModal`)。深掘り資料のmdはOS内Markdownモーダル (左メニューなし) で開く。新規発見シーズは行頭に 🆕 マーク、右上に「受信箱」リンク + バッジ |
 | `/seeds/[id]` | 単独詳細ページ。直接 URL アクセス用フォールバック (リスト画面で開く Modal を full-page で表示) |
 | `/seeds/inbox` | 受信箱 (cron 自動収集分の未確認シーズ)。verify=採用 / dismiss=非表示 |
 | `/api/cron/seeds-ingest` | 旧: 毎週 月曜 09:00 JST に Claude Sonnet + web_search で 7 ソース (GAP/NEP/AMED/D-Global/CREST/創発/先導研究) を巡回 → discovery_status='discovered' で投入。2026-05-22 以降は LLM/web_search 課金回避で自動 schedule 停止 |
@@ -88,7 +88,7 @@ GlobalNav に **Seeds** を Venture Map と VC の間に追加 ([GlobalNav.tsx](
 - **フィルタ**: status (デフォルト: アクティブ = PJ化/見送り を除外) / 領域 / 担当 / フリーテキスト (シーズ・機関・PI・キーワード)
 - **ソート**: 列クリックで切替 (デフォルト: 更新日 desc)
 - **新規作成**: 右上「+ 新規シーズ」ボタン → `SeedDetailModal` を createMode で開く
-- **深掘り資料**: `deep_dive_material_url` には、AMDが確認済みの共有資料リンクだけを置く。資料本文、一次ソース本文、一次ソースの生URLは置かない。
+- **深掘り資料**: `deep_dive_material_url` には、AMDが確認済みの共有資料リンクだけを置く。資料本文、一次ソース本文、一次ソースの生URLは置かない。md はOS内Markdownモーダル (左メニューなし) で表示し、ヘッダーの補助リンクからDriveを開ける。
 
 ### `SeedDetailModal` (詳細 + 編集 + 削除)
 

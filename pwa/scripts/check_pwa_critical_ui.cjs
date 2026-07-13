@@ -1107,6 +1107,18 @@ expectIncludes("src/components/seeds/SeedDetailModal.tsx", [
   "deep_dive_material_url",
   "深掘り資料を開く",
 ]);
+expectIncludes("src/components/seeds/SeedMarkdownPreviewModal.tsx", [
+  "SeedMarkdownPreviewModal",
+  "MarkdownView",
+  "Driveで開く",
+  "showCloseButton={false}",
+]);
+expectIncludes("src/app/api/seeds/[seedId]/deep-dive/route.ts", [
+  "requireAuth",
+  "getGoogleAuthAsync",
+  "deep_dive_material_url",
+  "MAX_MARKDOWN_PREVIEW_BYTES",
+]);
 expectIncludes("manual/5-1-research-assets-vc-seeds-scholar-spec.md", [
   "deep_dive_material_url",
 ]);
