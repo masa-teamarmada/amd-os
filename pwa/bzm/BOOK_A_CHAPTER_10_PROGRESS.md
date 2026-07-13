@@ -8,10 +8,10 @@
 |---|---|---|---|
 | 1. 節 skeleton workflow | ✅ 完了 | 2026-07-13 | 3 persona (教科書編集者 / MBA·MOT 教員 / BZM 理論家) 並列 (run wf_016d1d4c-e4d、Opus)。synth は本体。skeleton 完了直後に origin/main が 59 commit 先行 (PF-019/020/021・TOC v2・第9章正本化・「不可逆点」確定) と判明 → 本体 synth で新条件を全量織り込み。10節・17,600字設計 |
 | 2. 論点確定 | ✅ 完了 | 2026-07-13 | まさ指示 (2026-07-11)「ノンストップで走り切る」= 推奨案で自動確定 (2026-07-10 確定運用)。論点1〜6 は下記申し送りに記録 |
-| 3. 段落 outline workflow | 🔄 実行中 | 2026-07-13 | Sonnet 10節並列 (run ID は完了時に記帳) |
-| 4. 段落 draft workflow | ⬜ | | Sonnet 10節並列 (前後節 outline 参照、各節 ±10%)。組み立て後に機械検査 |
-| 5. adversarial verify | ⬜ | | 5 persona (Opus、出力制約全員適用) → 本体裁定 → Sonnet fix → 機械検査再実行 |
-| 6. 正本化 + UI 登録 + まさレビュー | ⬜ | | book-a-ch-10.md 正本化・bzm-chapters status・BUILD_VERSION bump・push |
+| 3. 段落 outline workflow | ✅ 完了 | 2026-07-13 | Sonnet 10/10節並列 (run wf_31c46449-1db Phase 1) |
+| 4. 段落 draft workflow | ✅ 完了 | 2026-07-13 | Sonnet 8/10節 (同 run Phase 2、前後節 outline 参照)。**10.0 と 10.6 は Sonnet が 6 attempts 全て stall** → 単発 agent で再生成 (10.0 = Opus [章頭ナラティブは品質優先の前例に従う]、10.6 = Sonnet 単発も 10分無応答 → Opus で完走 53秒)。10.3 draft に日本語メタ前置き1行混入 → `^## 10.` 境界検出で機械除去 (第7章の教訓どおり)。v1 = 19,398字、機械検査 (BANNED/敬体/文字種/図表/結び) 全 PASS |
+| 5. adversarial verify | ✅ 完了 | 2026-07-13 | **5/5 persona 完走** (Opus、run wf_875b3fab-a0f、出力制約全員適用)。findings 27 = must 4クラスタ / should 12 / nice 9 + 本体追加 3。theorist: worked example 全数値の独立再計算一致・GO/g_TRL/SPS 式の前章突合 PASS。auditor: BANNED 0・A/B 特例規律遵守・TOC v2 章番号 PASS。本体裁定: **27件全採用・棄却 0** (指摘が全て低コストで妥当)。fix 反映 = Sonnet 7節並列 (run wf_b9bf5a72-f60、7/7 完走) → v2 = 20,004字、機械検査再実行 全 PASS |
+| 6. 正本化 + UI 登録 + まさレビュー | ✅ 正本化完了 / まさレビュー待ち | 2026-07-13 | book-a-ch-10.md 正本化 (20,004字、数理章許容 22,000 内)・bzm-chapters status=in-progress・BUILD_VERSION v3.39.65・push。まさ段落確定は別途 |
 
 ## 節 skeleton (v1 確定 — 2026-07-13 本体 synth)
 
