@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash '/Users/masa/projects/AMD/amd-os/.codex/hooks/git_dirty_guard.sh' session_start",
+            "timeout": 15,
+            "statusMessage": "未処理の git 状態を確認中..."
+          }
+        ]
+      }
+    ]
+  }
+}
