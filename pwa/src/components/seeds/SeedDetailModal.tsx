@@ -396,6 +396,19 @@ function SeedReadView({ data }: { data: SeedDetail }) {
         </KV>
         <KV label="公開可">{s.is_public ? "Yes" : "No"}</KV>
         {s.public_summary && <KV label="公開要約">{s.public_summary}</KV>}
+        <KV label="深掘り資料">
+          {s.deep_dive_material_url ? (
+            <a
+              className="underline hover:text-primary"
+              href={s.deep_dive_material_url}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+            >
+              共有ドライブの資料を開く
+            </a>
+          ) : "—"}
+        </KV>
         <KV label="登録日">{s.created_at?.slice(0, 10)}</KV>
         <KV label="更新日">{s.updated_at?.slice(0, 10)}</KV>
       </Section>
@@ -655,6 +668,14 @@ function SeedEditForm({
             value={draft.source_detail ?? ""}
             onChange={(e) => update("source_detail", e.target.value || null)}
             placeholder="例: 田中先生からの紹介"
+          />
+        </Field>
+        <Field label="深掘り資料リンク">
+          <input
+            className="w-full px-2 py-1.5 rounded border border-border bg-background text-xs"
+            value={draft.deep_dive_material_url ?? ""}
+            onChange={(e) => update("deep_dive_material_url", e.target.value || null)}
+            placeholder="共有ドライブ上の資料リンク"
           />
         </Field>
         <Field label="公開可">

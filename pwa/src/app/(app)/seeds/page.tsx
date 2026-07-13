@@ -26,6 +26,7 @@ type SortKey =
   | "amd_owner"
   | "last_contacted_on"
   | "funding_total_jpy"
+  | "deep_dive_material_url"
   | "updated_at";
 
 interface Column {
@@ -46,6 +47,7 @@ const COLUMNS: Column[] = [
   { id: "amd_rating", sortKey: "amd_rating", label: "★", align: "center", width: "w-24" },
   { id: "amd_owner", sortKey: "amd_owner", label: "担当", align: "left", width: "w-20" },
   { id: "funding", sortKey: "funding_total_jpy", label: "資金獲得実績", align: "left" },
+  { id: "deep_dive_material", sortKey: "deep_dive_material_url", label: "深掘り資料", align: "center", width: "w-24" },
   { id: "next_action", sortKey: "updated_at", label: "次の一手", align: "left" },
   { id: "last_contacted_on", sortKey: "last_contacted_on", label: "最終接触", align: "left", width: "w-24" },
 ];
@@ -339,6 +341,20 @@ function Row({ s, onSelect }: { s: SeedListItem; onSelect: () => void }) {
       <td className="px-2 py-2">
         <FundingChips programs={s.funding_programs} totalJpy={s.funding_total_jpy} />
       </td>
+      <td className="px-2 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+        {s.deep_dive_material_url ? (
+          <a
+            href={s.deep_dive_material_url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-sky-700 dark:text-sky-300 underline underline-offset-2 hover:text-sky-500"
+          >
+            開く
+          </a>
+        ) : (
+          <span className="text-muted-foreground/40">—</span>
+        )}
+      </td>
       <td className="px-2 py-2 text-muted-foreground">
         {s.next_action ? (
           <span className="line-clamp-1">{s.next_action}</span>
@@ -431,6 +447,8 @@ function compareBy(key: SortKey, a: SeedListItem, b: SeedListItem): number {
       return (a.last_contacted_on ?? "").localeCompare(b.last_contacted_on ?? "");
     case "funding_total_jpy":
       return a.funding_total_jpy - b.funding_total_jpy;
+    case "deep_dive_material_url":
+      return Number(Boolean(a.deep_dive_material_url)) - Number(Boolean(b.deep_dive_material_url));
     case "updated_at":
       return a.updated_at.localeCompare(b.updated_at);
   }

@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-07-10 19:52 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-07-13 16:34 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -72,7 +72,7 @@ PRIMARY KEY: `id`
 
 ## amd_management_score_raw_signals
 
-行数 (概算): 5,256
+行数 (概算): 4,695
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -1340,7 +1340,7 @@ PRIMARY KEY: `l2_kind, target_id, scope_key`
 
 ## l2_feedbacks
 
-行数 (概算): 32
+行数 (概算): 77
 PRIMARY KEY: `feedback_id`
 
 | # | column | type | nullable | default |
@@ -2483,7 +2483,7 @@ PRIMARY KEY: `outbox_id`
 
 ## proactive_todos
 
-行数 (概算): 254
+行数 (概算): 256
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -2695,7 +2695,7 @@ PRIMARY KEY: `id`
 
 ## project_knowledge
 
-行数 (概算): 2,733
+行数 (概算): 2,737
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -3402,6 +3402,7 @@ PRIMARY KEY: `id`
 | 31 | `created_by` | `text` | NULL | `` |
 | 32 | `updated_by` | `text` | NULL | `` |
 | 33 | `discovery_status` | `text` | NOT NULL | `'reviewed'::text` |
+| 34 | `deep_dive_material_url` | `text` | NULL | `` |
 
 ## settings
 

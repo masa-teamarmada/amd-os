@@ -53,7 +53,8 @@ migration: [024_seeds_overhaul.sql](../scripts/migrations/024_seeds_overhaul.sql
 成熟度:         trl, brl, hrl (0-9)
 AMD 視点:       status, amd_rating (1-5), amd_owner_member_id, next_action,
                 internal_notes (非公開), public_summary, is_public
-関連:           spun_off_project_id (FK projects), source, source_detail
+関連:           spun_off_project_id (FK projects), source, source_detail,
+                deep_dive_material_url (AMD内の深掘り資料)
 ```
 
 ### `discovery_status` 列 (033 migration)
@@ -83,7 +84,7 @@ GlobalNav に **Seeds** を Venture Map と VC の間に追加 ([GlobalNav.tsx](
 
 ### `/seeds` リスト
 
-- **テーブル列**: シーズ / 機関 / PI / 領域 / 成熟度 (TRL/BRL/HRL) / 状態 / ★ / 担当 / 次の一手 / 最終接触 / 助成計
+- **テーブル列**: シーズ / 機関 / PI / 領域 / 成熟度 (TRL/BRL/HRL) / 状態 / ★ / 担当 / 助成計 / 深掘り資料 / 次の一手 / 最終接触
 - **フィルタ**: status (デフォルト: アクティブ = PJ化/見送り を除外) / 領域 / 担当 / フリーテキスト (シーズ・機関・PI・キーワード)
 - **ソート**: 列クリックで切替 (デフォルト: 更新日 desc)
 - **新規作成**: 右上「+ 新規シーズ」ボタン → `SeedDetailModal` を createMode で開く
