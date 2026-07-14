@@ -5,6 +5,16 @@
 
 ---
 
+### [automation/w-prep] SolvioraX経営会議の recurring prep が起動漏れした (2026-07-14)
+
+- **状態**: クローズ (2026-07-14 — 手動復旧済み。W-Prep prompt / Calendar sync alias mirror / spec / manual / L2正本へ再発防止を同期)。
+- **症状**: 2026-07-14 11:00 JST の `SolvioraX経営会議` は Calendar の recurring 確定予定として存在し、`project_meeting_summaries` に `source_kinds='upcoming'` の行も作られていたが、visible prep thread が起動していなかった。
+- **原因**: `CFG_PJAlias` には `SolvioraX -> SX`、`CFG_ColorPJHistory` には `2025-06-01` 以降の `colorId=4 -> SX` が既に存在した。一方で W-Prep の Calendar 直読み候補抽出が、その正本を必ず使って SX/p21 に解く契約になっておらず、7/8 run 時に `SolvioraX` を unmapped skip できる余地が残っていた。
+- **対応内容**: 当該 row を claim し、`SolvioraX経営会議 prep` thread を `/Users/masa/projects/AMD/SX` target で作成・pin・DB session 保存した。DB readback で `prep_worker_status='ready'`、session id `019f5c0a-049a-73c0-a424-679689934c33`、prep draft 保存済みを確認した。再発防止として `w-prep-launch` prompt を `CFG_ColorPJHistory` first / `CFG_PJAlias` next に更新し、`calendar-sync` alias mirror に `p21: ["SolvioraX"]` を追加した。
+- **再発防止**: W-Prep は Calendar title だけで PJ を推測しない。Calendar direct-scan では色履歴を最優先し、`2025-06-01` 以降の `colorId=4` と `SolvioraX` alias は SX/p21 の high-confidence mapping として扱う。`SolvioraX経営会議` を unmapped skip しないことを critical-ui guard / spec / manual / L2_DATA / scheduled-tasks README に固定する。
+
+---
+
 ### [pwa/proactive] 「次回MTGまで」の TODO が前回MTG+7日で赤化した (2026-07-10)
 
 - **状態**: クローズ (2026-07-10 — 先手TODOの `meeting_next_action` 期限解釈を明示期限優先に変更)。

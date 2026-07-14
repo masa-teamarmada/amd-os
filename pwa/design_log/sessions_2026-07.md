@@ -1185,3 +1185,29 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 - 先手TODO期限bugの既知残タスクはなし。
 - root checkout には別件 `pwa/src/components/admin/AdminProjectsTable.tsx` の未コミット差分が残っている。これは admin projects Slack設定レーンであり、この先手TODO closeoutには混ぜない。
 - 一時clone `/tmp/amd-os-deploy-c3c92229` は登録worktreeではない。削除は明示的なcleanup承認後に行う。
+
+---
+
+## 2026-07-14 — SX `SolvioraX経営会議` W-Prep 起動漏れの復旧と再発防止
+
+### コンテキスト
+- まさから、2026-07-14 11:00 JST の `SolvioraX経営会議` prep thread が起動していないと報告があった。
+- Calendar event は recurring の確定予定として存在し、DB row も `source_kinds='upcoming'` で作成済みだったが、`prep_worker_status` / `prep_worker_session_id` が空だった。
+
+### 原因
+- CalendarRepo_AMD_OS の正本設定には、既に `CFG_PJAlias: SolvioraX -> SX` と `CFG_ColorPJHistory: 2025-06-01+ colorId=4 -> SX` が入っていた。
+- ただし W-Prep launch lane の候補抽出 prompt が、Calendar直読み時に色履歴・alias正本を必ず使う契約になっておらず、`SolvioraX経営会議` を unmapped として skip できる余地があった。
+
+### 対応
+- 当該 row を手動で claim し、`SolvioraX経営会議 prep` thread を `/Users/masa/projects/AMD/SX` target で作成・pin・DB session 保存した。
+- DB readback で `prep_worker_status='ready'`、session id `019f5c0a-049a-73c0-a424-679689934c33`、prep draft 保存済みを確認した。
+- `calendar-sync` の alias mirror に `p21: ["SolvioraX"]` を追加し、critical UI guard にも anchor を追加した。
+- active automation `/Users/masa/.codex/automations/w-prep-launch/automation.toml` を更新し、PJ推定は `CFG_ColorPJHistory` first、`CFG_PJAlias` next、`SolvioraX` / `colorId=4` は SX/p21 と明記した。
+- `pwa/spec/3-3-meeting-flow-current-spec.md`、`pwa/manual/8-3-l2-extraction-routines-spec.md`、`pwa/design/L2_DATA.md`、`pwa/scheduled-tasks/README.md`、appendix changelog、`pwa/BUGS.md` を同期した。
+
+### Verification
+- `git diff --check` passed。
+- `npm --prefix /Users/masa/projects/AMD/amd-os/pwa run test:critical-ui` passed。
+- `npx tsc --noEmit --pretty false` passed。
+- `npm run build` passed。
+- DB readback: `prep_worker_status='ready'`, `prep_draft_len=2415`。

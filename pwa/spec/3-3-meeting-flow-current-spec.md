@@ -35,6 +35,11 @@ Calendar event の PJ 判定は、色→PJ判定を第一軸にする。
 
 移植・リファクタで色判定を削除しない。
 
+現行の明示ルール:
+
+- SX (`project_id=p21`) は title alias `SolvioraX` で解決する。
+- `CFG_ColorPJHistory` で `2025-06-01` 以降の `colorId=4` は SX として解決する。`SolvioraX経営会議` の recurring instance を unmapped として skip しない。
+
 ## 予定MTGカード同期
 
 - `POST /api/meeting-prep/calendar-sync` が `source_kinds='upcoming'` の予定MTGカードを upsert する。
@@ -228,7 +233,8 @@ H-1 の毎時処理とは別に、まさが水曜15:00 JSTに自分で確認で�
 
 W-Prep の事故防止ルール:
 
-- `list_projects` は呼ばない。`projects` table と Calendar title / PJ alias / 既知PJディレクトリだけで対象を解く。
+- `list_projects` は呼ばない。`CFG_ColorPJHistory` / `CFG_PJAlias` / `projects` table / Calendar title / 既知PJディレクトリだけで対象を解く。
+- Calendar 直読みでは色判定を先に使う。`2025-06-01` 以降の `colorId=4` は SX (`project_id=p21`)、`SolvioraX` は SX の high-confidence alias として扱い、`SolvioraX経営会議` を unmapped skip しない。
 - `create_thread` の target は対象PJディレクトリを優先する。例: SX = `/Users/masa/projects/AMD/SX`、KUTE = `/Users/masa/projects/AMD/kute`、ZMP = `/Users/masa/projects/AMD/ZMP`、CX = `/Users/masa/projects/AMD/CX`。PJディレクトリを確定できない場合だけ `/Users/masa/projects/AMD` を fallback にする。`/Users/masa/projects/AMD/amd-os` は OS DB / spec 参照用であり、prep thread の作業場にしない。
 - `create_thread` 前に、会議ごとに DB claim を1件ずつ取る。claim → thread作成 → thread title変更 → pin → DBへ `prep_worker_session_id` / `prep_worker_status='preparing'` 保存まで終えてから次の会議へ進む。
 - すでに `prep_worker_session_id` がある行、`prep_worker_status IN ('claiming','preparing','ready')` の行、同じ `calendar_event_id` で別canonical rowが ready/preparing の行は起動しない。

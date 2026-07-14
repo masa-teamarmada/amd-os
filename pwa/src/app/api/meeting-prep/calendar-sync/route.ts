@@ -22,6 +22,7 @@ type ProjectRow = {
 
 const PROJECT_MATCH_ALIASES_BY_ID: Record<string, string[]> = {
   p19: ["ZeMA", "葛飾水素循環"],
+  p21: ["SolvioraX"],
 };
 
 type ExistingPrepRow = {

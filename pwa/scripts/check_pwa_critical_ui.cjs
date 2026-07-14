@@ -659,6 +659,7 @@ expectIncludes("src/app/api/meeting-prep/calendar-sync/route.ts", [
   "preserve_manual_body",
   "PROJECT_MATCH_ALIASES_BY_ID",
   "ZeMA",
+  "SolvioraX",
 ]);
 expectIncludes("src/components/cockpit/CockpitMeetingSummary.tsx", [
   "params.set(\"meeting\", meetingId)",

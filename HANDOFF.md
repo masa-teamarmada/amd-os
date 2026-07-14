@@ -1,54 +1,57 @@
 # AMD OS Handoff
 
-Last updated: 2026-07-11 JST
+Last updated: 2026-07-14 JST
 Target: `/Users/masa/projects/AMD/amd-os`
-Topic: 月初合意モーダルの確認対象を「担当内容」と「予定額」に固定したUI改善・closeout
+Topic: SX `SolvioraX経営会議` W-Prep 起動漏れの復旧と再発防止
 
-## Current truth
+## Current Truth
 
-- このhandoffを作成した時点の PWA実行コード基準は `932e7e6fd9c371afad4e76a4a9b3a8a1136ade79`。文書だけのcloseout commitは別に積まれるため、次セッションでは必ず `git fetch` と `git status -sb` で正確なHEADを取り直す。
-- Production proof: `https://amd-os-pwa.vercel.app/api/build-info` は `v3.39.62 / 932e7e6fd9c371afad4e76a4a9b3a8a1136ade79 / main / dirty=false`。今回のhandoffはPWAソースを変えない文書更新なので、本番実行コードのSHAはこの値のままでよい。
-- 月初合意UIの変更 commit `66572734 fix(pwa): simplify monthly agreement scope` は current `main` の ancestor。以後の main には別レーンのBZM docs変更も入っている。
+- 2026-07-14 11:00 JST の `SolvioraX経営会議` は recurring Calendar 予定として存在し、DB row も `source_kinds='upcoming'` で作成済みだったが、visible prep thread が未起動だった。
+- 手動復旧済み。thread `SolvioraX経営会議 prep` は `/Users/masa/projects/AMD/SX` target で作成・pin 済み。DB readback は `prep_worker_status='ready'`、session id `019f5c0a-049a-73c0-a424-679689934c33`、prep draft 保存済み。
+- 根本原因は「月曜夜にできた予定」ではない。Calendar recurring 予定も、スプシ正本の `CFG_PJAlias: SolvioraX -> SX` / `CFG_ColorPJHistory: 2025-06-01+ colorId=4 -> SX` も既に存在した。W-Prep がその正本を必ず使う契約になっていなかった。
+- active automation `/Users/masa/.codex/automations/w-prep-launch/automation.toml` は更新済み。Calendar direct-scan のPJ推定は `CFG_ColorPJHistory` first、`CFG_PJAlias` next、`SolvioraX` / `colorId=4` は SX/p21 と明記した。
+- AMD OS 側は `calendar-sync` alias mirror に `p21: ["SolvioraX"]` を追加し、critical UI guard、spec/manual、L2_DATA、scheduled-tasks README、BUGS、design_log、appendix changelog を同期済み。`BUILD_VERSION` は `v3.39.67`。
 
-## 月初合意 — 確定した見せ方
+## Repo State
 
-- 合意前に本人が確認するのは、各PJの**担当内容**と、その対価としての**予定額**だけ。未合意または条件更新ありのままでは、当該稼働月の支払いに進めないことを警告文と合意ボタン直下で明示する。
-- 月次の到達目標は snapshot に存在しない。MS名 (`milestones[].title`) を目標として表示しない。PJごとに `担当内容` を一度だけ置き、右に `taskDescription`（無い場合はMS名）を複数並べる。
-- 予定額は合計と全PJ分を必須枠へ集約。合計とPJ別の数値表は内容幅に合わせ、不要に広い列間余白を作らない。
-- `確認して合意` を主ボタンにし、`修正要望` はその右に小さく置く。下段の重複PJカードと「直してほしいこと」常設枠は廃止した。
-- 必須枠より下はカードではなく `参考情報` の短い区切り。`支払い状況と対象PJ` は初期状態で閉じ、開いた時だけPJ別の支払い内訳を出す。
+- Closeout bundle before commit started from `main` at `4a7e2720`, `origin/main` aligned, no local unpushed commits.
+- This handoff is part of the closeout bundle. Exact final commit / production build-info must be taken from `git log -1 --oneline` and `https://amd-os-pwa.vercel.app/api/build-info` after deploy.
+- Repo-local dirty expected before closeout commit: only the SX/W-Prep bundle and this handoff/migration prompt. External automation files under `/Users/masa/.codex/automations/w-prep-launch/` are repo-external and tracked by automation memory, not git.
+- Closeout inventory found stale `.claude/worktrees` / `claude/*` branches that are main-aligned safe deletion candidates. They were not created by this session; final closeout response should state whether they were removed or left pending by Masa decision.
 
-## Verification already completed for this change
+## Verification
 
-- `npx tsc --noEmit`、対象 ESLint、Prettier、`npm run test:critical-ui`、`npm run build` が通過。
-- デスクトップ / 幅390px のブラウザ確認で、到達目標ラベルが無いこと、担当内容の複数表示、予定額表の横あふれが無いことを確認済み。
-- UI仕様と運用文書は `pwa/spec/3-14-monthly-work-agreement-current-spec.md`、`pwa/manual/2-2-member-workflows-quick-start.md`、`pwa/manual/6-6-member-billing-prompts-spec.md`、`pwa/manual/7-1-reward-calc-spec.md`、`pwa/BUGS.md`、`pwa/design_log/sessions_2026-07.md`、両changelogへ同期済み。
+- `git diff --check` passed.
+- `npm --prefix /Users/masa/projects/AMD/amd-os/pwa run test:critical-ui` passed.
+- `npx tsc --noEmit --pretty false` passed.
+- `npm run build` passed in `/Users/masa/projects/AMD/amd-os/pwa`.
+- DB readback for `upcoming:7k11p8g6rs5lf9jhtfcvglnn1d_20260714T020000Z`: `ready`, `prep_draft_len=2415`.
 
-## Dirty / cleanup state
+## Unresolved Tasks
 
-| path | status | class | action |
-|---|---:|---|---|
-| `pwa/src/components/admin/AdminProjectsTable.tsx` | M | 他レーンの admin PJ Slack設定 | 触らない・stageしない。担当レーンで完了させる。 |
+- No known unresolved task for the 2026-07-14 `SolvioraX経営会議` prep itself.
+- Next W-Prep run should be watched once to confirm `SolvioraX` / `colorId=4` no longer lands in unmapped skip. If it does, inspect the live automation prompt and CalendarRepo read path first.
 
-- 登録worktreeは root main checkout の1つだけ。ローカル branch も `main` だけ。
-- このセッションで使った `/tmp/amd-os-monthly-agreement-scope.KvYcPh` は、状態証跡を `/Users/masa/.codex/cleanup_archives/amd-os-monthly-agreement-scope-20260711T090000JST.txt` に残して削除済み。
+## First Next Action
 
-## Next action
-
-- 追加のUIフィードバックが来るまでは、月初合意に未完了WIPはない。
-- 次に触る時は、月次目標や独立した発注条件をデータに無いまま復活させない。表示語は snapshot の実データと一致させる。
-- root の既存dirtyは理由に止まらず、対象bundleだけを明示stageする。`git add .` は禁止。
+1. Run `git fetch origin main`, `git status -sb`, `git log -1 --oneline`, and production `/api/build-info`.
+2. Confirm the latest main contains `v3.39.67` and `p21: ["SolvioraX"]`.
+3. If another SX recurring prep is missing, do not assume Calendar creation timing. Check `CFG_ColorPJHistory`, `CFG_PJAlias`, active W-Prep prompt, then the DB row’s `prep_worker_status`.
 
 ## Pointers
 
-- 月初合意仕様: `pwa/spec/3-14-monthly-work-agreement-current-spec.md`
-- メンバー運用: `pwa/manual/2-2-member-workflows-quick-start.md`
-- 請求・支払い導線: `pwa/manual/6-6-member-billing-prompts-spec.md`
-- 報酬計算: `pwa/manual/7-1-reward-calc-spec.md`
-- UI実装: `pwa/src/components/monthly-agreement/MonthlyAgreementExperience.tsx`
-- 回帰・教訓: `pwa/BUGS.md` / `pwa/design_log/sessions_2026-07.md`
+- Meeting flow spec: `pwa/spec/3-3-meeting-flow-current-spec.md`
+- L2 routine manual: `pwa/manual/8-3-l2-extraction-routines-spec.md`
+- L2_DATA writer table: `pwa/design/L2_DATA.md`
+- Scheduled task index: `pwa/scheduled-tasks/README.md`
+- Incident record: `pwa/BUGS.md`
+- Session log: `pwa/design_log/sessions_2026-07.md`
+- Active W-Prep config: `/Users/masa/.codex/automations/w-prep-launch/automation.toml`
+- W-Prep memory: `/Users/masa/.codex/automations/w-prep-launch/memory.md`
 
 ## Guardrails
 
-- PWA本番反映は `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh`。直接 `npx vercel` は使わない。
-- raw本文・private URL・secret・個人情報を handoff / BUGS / design log に残さない。
+- `w-prep-launch` must not treat DB upcoming rows alone as complete. It must Calendar-scan the same 7-day window.
+- Calendar PJ mapping order for W-Prep is color history first, alias second, fallback project names last.
+- `SolvioraX経営会議` must not be unmapped-skipped when either `SolvioraX` title alias or `colorId=4` after `2025-06-01` is present.
+- PWA production changes go through `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh`; do not use direct `npx vercel deploy`.

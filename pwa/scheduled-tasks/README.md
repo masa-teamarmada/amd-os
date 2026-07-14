@@ -22,7 +22,7 @@
 | M-1〜M-3 | Claude routine | `amd-os-l2-monthend-evidence` | 月末候補日 16:00 JST | M-1 Monthly Reports → M-2 XRL → M-3 Management Signal |
 | W-1 | Claude routine | `amd-os-l2-weekly-vc-funding-signals` | weekly Saturday 09:00 JST | VC News / Funding Signals |
 | H-1 | Windows MMO Codex Desktop automation | `amd-os-l6-meeting-flow` / SKILL `amd-os-l6-meeting-extract` | 毎日 09:00-21:00 毎時 + Phase A 早期 exit | `project_meeting_summaries` / 予定MTGカード / Drive関連資料 |
-| W-Prep | Codex automation | `w-prep-launch` | weekly Wednesday 15:00 JST | 今後7日以内の確定 upcoming MTG を Calendar + DB で照合し、必要な visible prep thread をPJ workspaceに作成・改題・pin・DB保存する。DBだけを見て完了扱いにしない |
+| W-Prep | Codex automation | `w-prep-launch` | weekly Wednesday 15:00 JST | 今後7日以内の確定 upcoming MTG を Calendar + DB で照合し、必要な visible prep thread をPJ workspaceに作成・改題・pin・DB保存する。DBだけを見て完了扱いにしない。Calendar直読みでは `CFG_ColorPJHistory` を先に見て、`2025-06-01` 以降の `colorId=4` と `SolvioraX` alias は SX/p21 として扱う |
 | W-Prep worker | visible Codex thread | `amd-os-l6-meeting-prep-worker` | thread 起動後に実行 | 1 MTG 専属。文脈ロード→着地点draft→HTML prep資料→Notion議事録draft→readiness 計算→prep_* 列 upsert→「これであってる？どうする？」で待機 |
 | D-13 | Claude routine + PWA route | `amd-os-l2-consolidated-evidence` Phase K-B / `POST /api/contracts/extract-l2` | daily 08:00 JST | Contract Signals |
 | M-2 XRL 根拠 | Codex automation + outbox applier | `amd-os-l8-xrl-evidence-extract` | 6h ごと (L7 +15 分) | `project_xrl_evidence` |
