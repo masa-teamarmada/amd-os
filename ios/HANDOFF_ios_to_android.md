@@ -3,8 +3,20 @@
 > See also: [CLAUDE.md](CLAUDE.md) — 最重要ルール / [DESIGN.md](DESIGN.md) — **全画面の正本仕様（必読）** / [HANDOFF.md](HANDOFF.md) — 配布状況 / [BUGS.md](BUGS.md) — 既知バグ
 
 最終更新: 2026-07-14 (JST)
-対応 iOS commit: 今回のcommit "feat: add business card OCR workflow"
+対応 iOS commit: 今回のcommit "fix: ignore transient business card webview cancellations"
 TestFlight build: 未更新
+
+---
+
+## 2026-07-14 追記: 名刺WebViewの一時キャンセル誤表示を修正
+
+- `/native/business-cards` と `/api/business-cards` が200で正常応答していても、redirect・再読込で旧navigationがキャンセルされると「名刺台帳を開けなかったよ」が残る問題を修正。
+- `NSURLErrorCancelled (-999)` と WebKit のpolicy change interruptionは通信失敗として扱わない。
+- 最終ページの読込完了時は、先行navigation由来のエラー表示を解除する。
+
+### Android 反映メモ
+
+- Android版をWebViewで実装する場合も、後続ページが正常に完了したredirect/cancelを致命的な読込失敗として残さない。
 
 ---
 

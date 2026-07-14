@@ -7,6 +7,23 @@
 
 ---
 
+## 2026-07-14: 名刺台帳の正常読込後もWebViewの一時キャンセルを失敗表示した
+
+### 症状
+- iOSの名刺タブで「名刺台帳を開けなかったよ」が表示された。
+- 同時刻の本番ログでは `/native/business-cards` と `/api/business-cards` はどちらも HTTP 200 で、台帳DB/API自体は正常だった。
+
+### 原因
+- `BusinessCardsView` の `WKNavigationDelegate` が、redirect・再読込で発生する `NSURLErrorCancelled (-999)` まで無条件に画面エラーへ変換していた。
+- 後続navigationが正常完了しても、先行navigationのエラー表示を解除していなかった。
+
+### 修正・再発防止
+- `NSURLErrorCancelled (-999)` と WebKit のpolicy change interruptionは無視する。
+- `webView(_:didFinish:)` でエラー表示を解除する。
+- WebView障害は、画面表示だけでDB/API障害と断定せず、同時刻のroute/API statusを先に確認する。
+
+---
+
 ## 2026-04-24: `xcodebuild install` 成功を実機反映済みと誤認した
 
 ### 症状

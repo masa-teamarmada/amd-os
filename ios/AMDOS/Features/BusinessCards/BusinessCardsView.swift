@@ -18,6 +18,7 @@ struct BusinessCardsView: View {
                 BusinessCardsWebContainer(
                     url: url,
                     cookies: cookies,
+                    onSuccess: { loadError = nil },
                     onFailure: { message in loadError = message }
                 )
             } else {
@@ -67,10 +68,11 @@ struct BusinessCardsView: View {
 private struct BusinessCardsWebContainer: UIViewRepresentable {
     let url: URL
     let cookies: [HTTPCookie]
+    let onSuccess: () -> Void
     let onFailure: (String) -> Void
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onFailure: onFailure)
+        Coordinator(onSuccess: onSuccess, onFailure: onFailure)
     }
 
     func makeUIView(context: Context) -> WKWebView {
@@ -106,10 +108,34 @@ private struct BusinessCardsWebContainer: UIViewRepresentable {
     func updateUIView(_ uiView: WKWebView, context: Context) {}
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
+        let onSuccess: () -> Void
         let onFailure: (String) -> Void
 
-        init(onFailure: @escaping (String) -> Void) {
+        init(
+            onSuccess: @escaping () -> Void,
+            onFailure: @escaping (String) -> Void
+        ) {
+            self.onSuccess = onSuccess
             self.onFailure = onFailure
+        }
+
+        private func reportFailure(_ error: Error) {
+            let nsError = error as NSError
+
+            // WKWebView は redirect や再読み込みで直前の navigation を -999 として
+            // cancel することがある。後続ページは正常に開くため、画面エラーにしない。
+            if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled {
+                return
+            }
+            if nsError.domain == "WebKitErrorDomain" && nsError.code == 102 {
+                return
+            }
+
+            onFailure(error.localizedDescription)
+        }
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            onSuccess()
         }
 
         func webView(
@@ -117,7 +143,7 @@ private struct BusinessCardsWebContainer: UIViewRepresentable {
             didFail navigation: WKNavigation!,
             withError error: Error
         ) {
-            onFailure(error.localizedDescription)
+            reportFailure(error)
         }
 
         func webView(
@@ -125,7 +151,7 @@ private struct BusinessCardsWebContainer: UIViewRepresentable {
             didFailProvisionalNavigation navigation: WKNavigation!,
             withError error: Error
         ) {
-            onFailure(error.localizedDescription)
+            reportFailure(error)
         }
     }
 }
