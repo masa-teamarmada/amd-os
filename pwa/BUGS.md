@@ -5,6 +5,16 @@
 
 ---
 
+### [PWA/MTG PDF] meeting_assets がカードにあっても共有PDFへ入らなかった (2026-07-14)
+
+- **状態**: クローズ (2026-07-14 — `pdf-lib` 連結を本番反映し、実PDFで確認)。
+- **症状**: MTGカードには投影資料PDFと参加者共有画像が添付されていたが、`PDF保存` で生成したPDFは議事録本文2ページだけだった。カード上の添付表示とDrive保存は正常でも、共有PDFには資料が入らなかった。
+- **原因**: `saveSharePartAsPdf()` は共有用DOMを `html2canvas + jsPDF` で本文PDFへ変換するだけで、`meeting_assets` の実ファイルを取得・連結する処理を持っていなかった。添付トレイの表示確認だけで、ユーザーが生成したPDFのページ数・末尾ページを検証していなかった。修正後も一度ローカル確認で止め、本番に旧実装を残したため、まさに再出力と待ち時間を発生させた。
+- **対応内容**: `pdf-lib` を追加し、本文PDFの後ろへ `meeting_assets` の PDF / PNG / JPEGを `sort_order` 順で実ページ連結するようにした。投影資料を先、参加者共有資料を後に並べる契約を `meeting_summaries.md`、`cockpit.md`、`FEATURE_REGISTRY.md`、OSマニュアル、critical UI testへ同期した。main `2ffac7dd` へpushし、Vercel productionも同commitを確認。議事録2ページ + 投影資料8ページ + 共有画像1ページの11ページPDFを目視確認した。
+- **再発防止**: MTGカード添付を含むPDF機能は、カード上の表示だけで完了にしない。実出力のページ数、資料順、先頭・末尾ページを確認する。プロダクト修正はローカル検証で止めず、`commit → push → Vercel status → production build-info` までを1つの完了条件にする。
+
+---
+
 ### [automation/w-prep] SolvioraX経営会議の recurring prep が起動漏れした (2026-07-14)
 
 - **状態**: クローズ (2026-07-14 — 手動復旧済み。W-Prep prompt / Calendar sync alias mirror / spec / manual / L2正本へ再発防止を同期)。

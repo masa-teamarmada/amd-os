@@ -1,5 +1,30 @@
 # 2026-07 Sessions
 
+## 2026-07-14 — MTG本文のセクション別形式 / 添付資料込みPDF出力
+
+### コンテキスト
+- 7/14 `SolvioraX経営会議` の会議後カードで、まさから `決まったこと / 次の一手 / 残課題` を箇条書きにすること、PDF出力に投影資料と参加者共有資料も含めることが確定した。
+- MTGカードへの資料添付自体は完了していたが、既存 `PDF保存` は本文だけを出力し、実際の共有PDFに添付資料が入っていなかった。
+
+### 実施内容
+- 通常MTG / dialogue narrate / H-1 meeting extract の生成契約を、`背景 / 経緯` は段落、`決まったこと / 次の一手 / 残課題` は1項目1論点の `- ` 箇条書きへ変更した。
+- `CockpitMeetingDetailModal` のPDF保存処理を拡張し、本文PDF作成後に `/api/meeting-assets` を読み、PDF / PNG / JPEGを `sort_order` 順で連結するようにした。
+- PDFページは `pdf-lib` の `copyPages`、画像は `embedPng / embedJpg` で実ページ化する。リンク一覧だけで済ませない。
+- 投影資料を先、参加者共有資料を後にする運用をdesign正本とOSマニュアルへ同期した。
+- `pwa/scripts/check_pwa_critical_ui.cjs` に本文形式とPDF添付契約のanchorを追加した。
+
+### 検証
+- `npx tsc --noEmit`
+- 対象TS / TSXのESLint
+- `npm run test:critical-ui`
+- `npm run build`
+- 実データ相当の結合PDFを生成し、議事録2ページ + 投影資料8ページ + 共有画像1ページの11ページ、資料順、先頭・投影資料先頭・最終ページを目視確認。
+- main `2ffac7dd` へpush。Vercel status success、production build-infoが同commitであることを確認。
+
+### 教訓
+- `meeting_assets` に登録済みであることと、共有PDFへ資料が含まれることは別の検証項目。
+- ローカル実装・ローカルbuildは中間工程。本番反映とproduction artifact確認まで終わって初めて完了。
+
 ## 2026-07-10 — KUTEメールTODOを先手TODO cronへ追加 / v0.39.54-v3.39.58
 
 ### コンテキスト
