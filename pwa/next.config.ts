@@ -94,6 +94,30 @@ const embedSecurityHeaders = [
   },
 ];
 
+const businessCardSecurityHeaders = [
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "X-XSS-Protection", value: "1; mode=block" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=()" },
+  {
+    key: "Strict-Transport-Security",
+    value: "max-age=63072000; includeSubDomains; preload",
+  },
+  {
+    key: "Content-Security-Policy",
+    value: [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob: https:",
+      "font-src 'self'",
+      "connect-src 'self' https://*.supabase.co https://script.google.com https://accounts.google.com",
+      "frame-ancestors 'none'",
+    ].join("; "),
+  },
+];
+
 const nextConfig: NextConfig = {
   env: buildStampEnv,
   // 2026-05-12 まさ要望「雛形そのまま」で /api/admin/pj-introduction-html が
@@ -116,8 +140,24 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: "/:path((?!hud/dashboard/embed).*)",
+        source: "/:path((?!hud/dashboard/embed|business-cards|native/business-cards).*)",
         headers: securityHeaders,
+      },
+      {
+        source: "/business-cards",
+        headers: businessCardSecurityHeaders,
+      },
+      {
+        source: "/business-cards/:path*",
+        headers: businessCardSecurityHeaders,
+      },
+      {
+        source: "/native/business-cards",
+        headers: businessCardSecurityHeaders,
+      },
+      {
+        source: "/native/business-cards/:path*",
+        headers: businessCardSecurityHeaders,
       },
       {
         source: "/hud/dashboard/embed",

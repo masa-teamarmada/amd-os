@@ -5,6 +5,16 @@
 
 ---
 
+### [PWA/business-cards] 名刺撮影shellを全体セキュリティヘッダで塞いだ (2026-07-14)
+
+- **状態**: クローズ (2026-07-14 — 名刺ルート限定で camera / blob 画像を許可)。
+- **症状**: iOS名刺タブで `/native/business-cards` と `/api/business-cards` は本番ログ上 HTTP 200 なのに、画面側で `This page couldn't load` が出た。
+- **原因**: PWA共通の `Permissions-Policy: camera=()` と `Content-Security-Policy: img-src 'self' data: https:` を名刺shellにも適用していた。名刺shellはスマホ撮影と `URL.createObjectURL()` による画像縮小を使うため、camera と `blob:` 画像読み込みを塞ぐとWebView内だけで失敗し、Vercelのserver errorには残らない。
+- **対応内容**: `/business-cards` と `/native/business-cards` だけ、`Permissions-Policy: camera=(self), microphone=(), geolocation=()` と `img-src 'self' data: blob: https:` を返す専用ヘッダに分離した。他画面は従来どおり camera deny のまま維持。
+- **再発防止**: WebView/ブラウザ内で撮影・ファイルプレビューを使う画面は、route/APIの200だけで完了判断しない。実レスポンスヘッダで camera permission と `blob:` CSP を確認する。
+
+---
+
 ### [PWA/MTG PDF] meeting_assets がカードにあっても共有PDFへ入らなかった (2026-07-14)
 
 - **状態**: クローズ (2026-07-14 — `pdf-lib` 連結を本番反映し、実PDFで確認)。

@@ -3,8 +3,19 @@
 > See also: [CLAUDE.md](CLAUDE.md) — 最重要ルール / [DESIGN.md](DESIGN.md) — **全画面の正本仕様（必読）** / [HANDOFF.md](HANDOFF.md) — 配布状況 / [BUGS.md](BUGS.md) — 既知バグ
 
 最終更新: 2026-07-14 (JST)
-対応 iOS commit: 今回のcommit "fix: ignore transient business card webview cancellations"
+対応 iOS/PWA commit: 今回のcommit "fix: allow camera policy for business card shell"
 TestFlight build: 未更新
+
+---
+
+## 2026-07-14 追記: 名刺shellのcamera / blob CSPをroute限定で許可
+
+- iOS名刺タブから `/native/business-cards` と `/api/business-cards` は200で通っていても、PWA共通ヘッダの `Permissions-Policy: camera=()` と `img-src` の `blob:` 未許可で、撮影・写真選択フローがWebView内で失敗する余地があった。
+- `/business-cards` と `/native/business-cards` だけ、`camera=(self)` と `img-src 'self' data: blob: https:` を返す専用ヘッダに分離した。
+
+### Android 反映メモ
+
+- Android WebViewでも、名刺shellは camera permission と blob URL preview をroute単位で許可する。全画面のcamera denyをそのまま名刺shellへ適用しない。
 
 ---
 
