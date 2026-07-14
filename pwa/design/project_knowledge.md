@@ -1,13 +1,13 @@
 # PJナレッジ (D-3 L2) — 設計の正本
 
-最終更新: 2026-05-25 (#68 current truth 反映)
+最終更新: 2026-07-14 (名刺確認 writer 反映)
 正本ステータス: 進化中。仕様変更したらここを同じ commit で更新する。
 
 ---
 
 ## このドキュメントが扱う範囲
 
-D-3 PJナレッジ (`project_knowledge`) の自動更新 cron。
+D-3 PJナレッジ (`project_knowledge`) の自動更新と、人が確認した名刺からの直接登録。
 
 - アクティブ PJ × 当月/前月 単位で「人物/技術/IP/組織/資金/市場/競合/戦略/用語」を Supabase に upsert
 - 毎時 polling + `l2_extract_state.source_hash` 差分検知
@@ -21,6 +21,7 @@ D-3 PJナレッジ (`project_knowledge`) の自動更新 cron。
 | ~ Phase 3 | ⚠️ 流入元不明だが既に 2024 行存在 (= 過去のスプシ手入力 or 別経路で蓄積) |
 | Phase 4 | 2026-05-09 に本体GAS の毎時 trigger (`gas/155_L2KnowledgeExtractor.js` `nav_project_knowledge_pollAll`) で稼働開始。**入力は二次集約** (monthly_reports + project_meeting_summaries)。**既存 2024 行は破壊しない設計** (entity_name 単位で SELECT → 既存有り UPDATE / 無し INSERT) |
 | **2026-05-29 以降** ⭐ (current truth) | LLM 課金抑制のため GAS 155 は kill switch 停止のまま。`project_knowledge` の現行 writer は MMOマシン Codex Desktop automation `amd-os-l4-project-knowledge-extract` (= daily 08:15 JST)。詳細は [../manual/8-3-l2-extraction-routines-spec.md](../manual/8-3-l2-extraction-routines-spec.md) |
+| **2026-07-14 以降** ⭐ | `/business-cards` でOCR結果を人が確認し、1件以上のPJを選んだ時だけ `PATCH /api/business-cards/[cardId]` が `category='people'`, `source='business_card'`, `status='active'` を同期する。連絡先・住所・画像・raw OCRはPJナレッジに複製しない |
 
 ---
 
@@ -64,6 +65,14 @@ D-3 PJナレッジ (`project_knowledge`) の自動更新 cron。
 
 各 item は `(category, entity_name, fact_text, confidence)` を出力。`entity_name` は固有名詞・組織名・技術名など。
 
+## 名刺からの人物ナレッジ
+
+- OCRは候補生成だけで、`needs_review` の間はD-3へ書かない。
+- 人が氏名と紐付けPJを確認して確定した時だけ、PJごとに人物行を upsert する。
+- `fact_text` は所属 / 部署 / 役職 / 会った日 / 短いメモに限定する。email / phone / address / 名刺画像 / OCR全文は名刺管理でだけ確認する。
+- PJ紐付けを外した場合、同じナレッジを参照する他の名刺リンクが無ければ `inactive` にする。
+- 定期抽出は `source='business_card'` の確認済み行を candidate で上書きしない。
+
 ---
 
 ## Supabase スキーマ
@@ -97,6 +106,8 @@ CREATE TABLE project_knowledge (
 |---|---|
 | [gas/155_L2KnowledgeExtractor.js](../../gas/155_L2KnowledgeExtractor.js) | **本ロジック正本**。`nav_project_knowledge_pollAll` / `nav_project_knowledge_extractOneForYm_` |
 | [pwa/scripts/migrations/030_l2_extract_state.sql](../scripts/migrations/030_l2_extract_state.sql) | state テーブル DDL |
+| [pwa/scripts/migrations/172_business_cards.sql](../scripts/migrations/172_business_cards.sql) | 名刺 / PJリンク / private Storage / OCR prompt |
+| [pwa/src/lib/business-card-server.ts](../src/lib/business-card-server.ts) | 確認済み名刺からD-3へ同期する境界 |
 
 ---
 
@@ -122,6 +133,7 @@ curl -sL --max-time 300 "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_project
 - **maxItems 4**: 1 cron あたり LLM call 4 件 (PJ × ym = 14 target を 4 で割ると複数 cron に分散)
 - **既存 2024 行は破壊しない**: UNIQUE 制約を追加せず、SELECT → 既存有り PATCH / 無し INSERT で重複回避
 - **`source='l2_hourly_extract'` で識別可能**: Phase 4 cron 由来かどうかは source 列で区別
+- **`source='business_card'` は人の確認済み**: 自動抽出候補で上書きせず、連絡先をD-3へコピーしない
 
 ---
 
@@ -133,6 +145,7 @@ curl -sL --max-time 300 "$URL?mode=pwaApi&key=$KEY&action=runFunc&fn=nav_project
 | 2026-05-09 | **alias map 統合**: `gas/079 nameAlias_buildBlock` でメンバー名の表記揺れマップを LLM プロンプトに渡す。`pv: "v3_with_aliases"` で全行再抽出 |
 | 2026-05-09 | **v4_meta_strict 防御強化** (BUGS.md 「PJナレッジ抽出で SE に CryoX/神谷 が紛れ込む」事故対応): userPrompt 冒頭に `=== project_meta ===` セクション (projectId / projectName / ym) 追加 + systemPrompt に「monthly_report が他 PJ 内容で汚染されているケース (例: projectName='SE' なのに CryoX/NIMS神谷 が書かれている) は items: [] を返せ」明示。`monthly_reports.status=neq.invalid` フィルタで汚染レポートは入力対象外に。汚染レポートは手動で `status='invalid'` にマーク運用 |
 | 2026-05-29 | 正本訂正。GAS 155 は 5/22 kill switch で停止中、現行 writer は MMOマシン Codex Desktop automation `amd-os-l4-project-knowledge-extract`。 |
+| 2026-07-14 | `/business-cards` の人確認済み writer を追加。名刺画像・連絡先と、PJで共有する人物ナレッジの保管境界を分離。 |
 
 ---
 

@@ -214,10 +214,77 @@ expectIncludes("src/components/nav/GlobalNav.tsx", [
   "/poc",
   "Handshake",
   "PoC",
+  "/business-cards",
+  "ContactRound",
+  "名刺",
   "アクティブPJ",
   "board-nav-flyout",
   "createPortal",
   "fetchActiveProjectsForNav",
+]);
+
+expectIncludes("src/components/business-cards/BusinessCardsClient.tsx", [
+  "スマホで名刺を撮る",
+  'capture="environment"',
+  "projectIds",
+  "確認してPJ knowledgeへ登録",
+  "会った人を撮って、確かめて、PJの関係資産へ",
+]);
+
+expectIncludes("src/app/api/business-cards/route.ts", [
+  "requireAuth",
+  "business_cards",
+  "business-cards",
+  "extractBusinessCard",
+  'status: "needs_review"',
+  'status: "ocr_failed"',
+]);
+
+expectIncludes("src/app/api/business-cards/[cardId]/route.ts", [
+  "requireAuth",
+  "syncBusinessCardKnowledge",
+  "projectIds",
+  'status: "confirmed"',
+]);
+
+expectIncludes("src/app/api/business-cards/[cardId]/image/route.ts", [
+  "requireAuth",
+  "business_cards",
+  "admin.storage",
+  'Cache-Control',
+]);
+
+expectIncludes("src/lib/business-card-server.ts", [
+  "business_card_project_links",
+  "project_knowledge",
+  'source: "business_card"',
+  'category: "people"',
+  "連絡先は名刺管理で確認できる",
+]);
+
+expectIncludes("scripts/migrations/172_business_cards.sql", [
+  "CREATE TABLE IF NOT EXISTS public.business_cards",
+  "CREATE TABLE IF NOT EXISTS public.business_card_project_links",
+  "business_card.ocr",
+  "public = false",
+]);
+
+expectIncludes("../ios/AMDOS/Features/Home/MainTabView.swift", [
+  "BusinessCardsView()",
+  'Label("PJ進捗"',
+  'Label("名刺"',
+  'Label("設定"',
+]);
+
+expectNotIncludes("../ios/AMDOS/Features/Home/MainTabView.swift", [
+  'Label("月次ルーティン"',
+]);
+
+expectIncludes("../ios/AMDOS/Features/BusinessCards/BusinessCardsView.swift", [
+  "/native/business-cards",
+  "hudWebAuthCookies",
+  "WKWebView",
+  "BusinessCardsWebContainer",
 ]);
 
 expectIncludes("src/app/(app)/poc/page.tsx", [

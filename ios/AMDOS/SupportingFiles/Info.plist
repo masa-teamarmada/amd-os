@@ -40,6 +40,10 @@
 	<string>1063456084878-1pui006kicgahn5r6eo6j18p4hiq5pnc.apps.googleusercontent.com</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>AMD OSへのログインにFace IDを使用します。</string>
+	<key>NSCameraUsageDescription</key>
+	<string>名刺を撮影してAMD OSの名刺台帳へ登録するためにカメラを使用します。</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>撮影済みの名刺画像をAMD OSの名刺台帳へ登録するために写真を選択します。</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UIRequiredDeviceCapabilities</key>

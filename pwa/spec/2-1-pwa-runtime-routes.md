@@ -43,6 +43,8 @@
 | `/spec` | 設計書。確定実装仕様。admin 限定 |
 | `/bzm` | BZM テキストブック。理論・数式・rubric 導出 |
 | `/knowledge-map` | AMD Knowledge Map。L2 / manual / spec / BZM 候補を横断する読み取り専用ノウハウ地図 |
+| `/business-cards` | 名刺管理。スマホ撮影 / 写真選択 → Gemini OCR → 人の確認 → 1件以上のPJ紐付け → `business_cards` と D-3 `project_knowledge(category='people')` へ保存する。OCR結果は自動確定しない |
+| `/native/business-cards` | iOS名刺タブ用のナビ無しnative shell。通常の月初合意overlayを重ねず、認証cookieつきWKWebViewから `/business-cards` と同じUI/APIを使う |
 | `/poc` | PoC案件化。Seeds とPoC先を入力し、その掛け合わせからヒアリング論点、PoC条件、謝礼、契約、資金、収益分配を追う |
 | `/venture-map/amd-score` | AMD Score 一覧 |
 | `/venture-map/amd-score/[projectId]` | AMD Score 詳細 |
@@ -70,6 +72,8 @@
 - `/api/cron/governance-email-sweep` は D-14G の source sweep route。`CRON_SECRET` または admin auth でのみ実行し、`/admin/projects` の総会/役会フラグON PJに限定して Gmail を検索する。LLM定期cronではなく、source refs と `/api/governance/extract` への候補/確認済みhandoffを担う。
 - `/api/guardrails/evaluate` は経営ガードレールのタグ照合 route。admin auth または `CRON_SECRET` でのみ実行し、`guardrail_cards.status='active'` と PJ / アクションタグを照合して `guardrail_matches` と `l2_notifications(l2_kind='guardrail_match')` を作る。LLMは使わず deterministic に評価する。
 - `/api/cron/proactive-todo-extract` は先手 TODO の PWA non-LLM cron。開催済みMTG `next_actions[]`、7日以内の予定MTG準備、PJ `report_emails` から届く Gmail 期限つき依頼 (`email_action_request`) を `proactive_todos` に upsert する。Gmail API は読むが、Anthropic / OpenAI / Gemini 等の従量課金LLMは呼ばない。メール本文全文・URL・パスワードは保存しない。
+- `/api/business-cards` は認証済み AMD メンバー向け。GET は名刺一覧とPJ候補、POST は画像を private Storage へ保存して DB prompt `business_card.ocr` で OCR し、必ず `needs_review` に止める。`PATCH /api/business-cards/[cardId]` だけが人の修正内容を `confirmed` にし、選択PJの `project_knowledge` へ安全な人物情報を同期する。
+- `/api/business-cards/[cardId]/image` は private bucket の画像を認証済み AMD メンバーだけへ返す。ブラウザから Storage 公開URLを生成しない。PJナレッジへ email / phone / address / raw OCR / 画像を複製しない。
 
 ## Admin Private Wiki
 

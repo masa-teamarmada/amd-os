@@ -263,6 +263,48 @@ body:has(.amd-desk-page-skin) {
   letter-spacing: 0;
 }
 
+/* Business-card capture: paper, ink, verification, and PJ-thread tokens. */
+.business-card-page {
+  --contact-canvas: #f7f5ee;
+  --contact-paper: #fffdf7;
+  --contact-paper-raised: #fffefa;
+  --contact-inset: #f0eee6;
+  --contact-ink: #24231f;
+  --contact-muted: #6d685e;
+  --contact-quiet: #938d81;
+  --contact-line: rgba(36, 35, 31, 0.12);
+  --contact-blue: #245d87;
+  --contact-blue-soft: #deebf2;
+  --contact-green: #256c55;
+  --contact-green-soft: #dfeee6;
+  --contact-amber: #9a6119;
+  --contact-amber-soft: #f6e8cd;
+  color: var(--contact-ink);
+  background-color: var(--contact-canvas);
+}
+
+.business-card-surface {
+  border: 1px solid var(--contact-line);
+  background: rgba(255, 253, 247, 0.94);
+  box-shadow: 0 10px 30px rgba(55, 47, 32, 0.065);
+}
+
+.business-card-control {
+  border: 1px solid var(--contact-line);
+  background: var(--contact-inset);
+  color: var(--contact-ink);
+}
+
+.business-card-control::placeholder {
+  color: var(--contact-quiet);
+}
+
+.business-card-control:focus {
+  border-color: rgba(36, 93, 135, 0.55);
+  outline: 3px solid rgba(36, 93, 135, 0.12);
+  outline-offset: 0;
+}
+
 /* HUD client skin for data-heavy AMD OS pages. */
 .amd-hud-page-skin {
   min-height: calc(100vh - 2.75rem);

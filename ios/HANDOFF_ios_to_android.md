@@ -2,9 +2,25 @@
 
 > See also: [CLAUDE.md](CLAUDE.md) — 最重要ルール / [DESIGN.md](DESIGN.md) — **全画面の正本仕様（必読）** / [HANDOFF.md](HANDOFF.md) — 配布状況 / [BUGS.md](BUGS.md) — 既知バグ
 
-最終更新: 2026-07-10 (JST)
-対応 iOS commit: 今回のcommit "feat(ios): add textbook reader entry"
+最終更新: 2026-07-14 (JST)
+対応 iOS commit: 今回のcommit "feat: add business card OCR workflow"
 TestFlight build: 未更新
+
+---
+
+## 2026-07-14 追記: 名刺タブ追加・月次ルーティンタブ廃止
+
+- `MainTabView` から「月次ルーティン」を削除し、旧ルーティンへ飛ぶマイページ「いまやること」も削除。
+- タブ順を `マイページ / 立替 / PJ進捗 / 名刺 / 設定` に変更。名刺はPJ進捗と設定の間。
+- `BusinessCardsView` を追加し、認証cookieつき `WKWebView` で `/native/business-cards` を開く。
+- カメラ撮影 / 写真選択 → OCR候補 → 人確認 → 複数PJ紐付け → `business_cards` とD-3 `project_knowledge` 同期をPWAと共有。
+- iOSにカメラ / 写真ライブラリの利用目的文を追加。
+
+### Android 反映メモ
+
+- Bottom navigationから月次ルーティンを外し、`PJ進捗 / 名刺 / 設定` の順を固定する。
+- 名刺画面はPWA mobile shellを認証つきWebViewで開くか、同じAPI contractのnative UIとして実装する。
+- 連絡先 / 画像 / raw OCRをPJ knowledgeへ複製しない境界を維持する。
 
 ---
 

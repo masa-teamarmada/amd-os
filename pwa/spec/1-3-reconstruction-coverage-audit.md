@@ -17,6 +17,7 @@
 |---|---|---|---|
 | ドキュメント統制 | `1-1`, `1-2`, `1-3`, `5-1`, `6-1` | `partial` | spec lint / 附則追記漏れを機械検知する test |
 | PWA route / API surface | `2-1`, `2-2` | `partial` | route ごとの props / component state / edge cases は未移行 |
+| 名刺管理 / PJ人物ナレッジ | `2-5`, `3-11` | `rebuildable` | Gemini / Supabase production env と private Storage bucket は環境設定が必要 |
 | Supabase data model | `2-3` | `partial` | 全 table の column-level contract は `db_schema.md` 依存 |
 | D-1 AMD Protocol | `3-9` | `rebuildable` | MMO PC 側 automation 登録状態は repo 外。登録確認は別途必要 |
 | D-2 MS Progress | `3-10` | `rebuildable` | MMO PC 側 automation 登録状態は repo 外。run log は別途必要 |

@@ -39,6 +39,7 @@ function pathToTitle(pathname: string): string | null {
   if (pathname.startsWith("/venture-map/su/")) return "SU Detail";
   if (pathname === "/venture-map") return "Venture Map";
   if (pathname.startsWith("/knowledge-map")) return "Knowledge Map";
+  if (pathname.startsWith("/business-cards") || pathname.startsWith("/native/business-cards")) return "名刺";
   if (pathname.startsWith("/institutions/")) return "研究機関 ERS 詳細";
   if (pathname === "/institutions") return "研究機関 ERS";
   if (pathname.startsWith("/management-score")) return "Management Score";
@@ -70,7 +71,7 @@ function pathToTitle(pathname: string): string | null {
 }
 
 function shouldSkipMonthlyAgreementGate(pathname: string) {
-  return pathname.startsWith("/monthly-agreement");
+  return pathname.startsWith("/monthly-agreement") || pathname.startsWith("/hud") || pathname.startsWith("/native");
 }
 
 async function getMonthlyAgreementGateBundle({
@@ -154,12 +155,12 @@ export default async function AppLayout({
       pathname,
     })
     : null;
-  const useHudShellOnly = pathname.startsWith("/hud");
+  const useEmbeddedShellOnly = pathname.startsWith("/hud") || pathname.startsWith("/native");
 
   return (
     <>
       <PageTitleSetter />
-      {useHudShellOnly ? (
+      {useEmbeddedShellOnly ? (
         <main className="flex-1">{children}</main>
       ) : (
         <div className="flex min-h-screen bg-background text-foreground">

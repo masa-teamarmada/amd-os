@@ -43,6 +43,26 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - `/knowledge-map` route、GlobalNav 導線、`KnowledgeMapView`、`fetchKnowledgeMapData` を消す変更は、`FEATURE_REGISTRY.md`、`/spec/2-1`、`/spec/2-2`、manual 2-5 を同時に更新する。
 - NotebookLM export を追加するときも、OS 側が正本で、NotebookLM はコピー先という境界を崩さない。
 
+## /business-cards
+
+目的: スマホで受け取った名刺を撮影し、OCR候補を人が確認してPJへ紐付け、連絡先台帳とPJナレッジを同時に育てる。
+
+必須機能:
+
+- GlobalNav: 動かすグループに `名刺` と `/business-cards` を置く。
+- iOS tab: `MainTabView` は旧 `月次ルーティン` tabを出さず、`PJ進捗 / 名刺 / 設定` の順で `BusinessCardsView` を置く。native shell は `/native/business-cards` を使う。
+- mobile capture: カメラ起動 (`capture="environment"`) と写真ライブラリ選択を持ち、送信前に長辺1800px目安へ縮小する。
+- review gate: OCR結果を自動確定しない。`processing` → `needs_review` または `ocr_failed` に止め、氏名と1件以上のPJを人が確認した PATCH だけ `confirmed` にする。
+- PJ link: 複数PJを選択でき、確定時に `business_card_project_links` と `project_knowledge(category='people', source='business_card', status='active')` を同期する。
+- private boundary: 画像は private Storage `business-cards` に置き、認証済みAMDメンバー向け image route だけで読む。email / phone / address / 画像 / raw OCR は `project_knowledge` に複製しない。
+- prompt management: OCR prompt は `llm_prompts.prompt_key='business_card.ocr'` を正本にし、コードへ本文を直書きしない。
+- recovery: OCR失敗でも画像と名刺行を残し、手入力して確定できる。
+
+回帰防止:
+
+- `pwa/scripts/check_pwa_critical_ui.cjs` が route、GlobalNav、iOS tab順 / 旧月次ルーティンtab不在、カメラ入力、確認ボタン、PJ複数選択、private image route、OCR prompt migration、D-3同期を検査する。
+- この導線を削除・薄くする変更は、`/spec/2-5`、manual 2-8、`/spec/2-1`、`/spec/2-2`、D-3 current spec を同時に更新する。
+
 ## /poc
 
 目的: Seeds の研究シーズとPoC先を一次入力として持ち、その掛け合わせからヒアリング論点、PoC条件、謝礼、契約、資金、収益分配まで案件化する。

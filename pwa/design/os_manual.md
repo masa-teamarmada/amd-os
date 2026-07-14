@@ -21,7 +21,7 @@ UI ヒント ([`ui_hint_tooltip.md`](ui_hint_tooltip.md)) は「個別 UI 要素
 
 ```
 AMD OSロゴ(ダッシュボード)
-動かす: ボード | AMD Protocol | Atlas | Knowledge
+動かす: ボード | AMD Protocol | Atlas | Knowledge | 名刺
 探索: Scholar | Venture Map | 研究機関 | Seeds | VC
 自分: マイページ | 通知 | 立替
 Admin: Admin | Management | 設計書 | 日本文化
@@ -49,6 +49,7 @@ Admin: Admin | Management | 設計書 | 日本文化
 2-4 AMD 全体コックピットの見方
 2-5 探索系アセットの使い方
 2-6 月次カード / admin請求早見表
+2-8 名刺をPJの関係資産にする
 ```
 
 ### section 3: OS の基本構造

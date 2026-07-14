@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-07-14 | 1-3 / 2-1 / 2-2 / 2-5 / 3-11 / design / iOS | 追加・変更 | `/business-cards`、private `business_cards` / `business_card_project_links`、DB管理Gemini OCR prompt、人確認gate、複数PJリンク、D-3 `people` 同期、連絡先非複製境界、critical-ui guardを追加。iOSは旧月次ルーティンタブを削除し、`PJ進捗 / 名刺 / 設定` 順のnative shellを追加。build v3.40.0 | スマホ撮影した名刺を安全な連絡先正本とPJ人物ナレッジへ分けて蓄積し、OCR誤読や個人情報の自動拡散を防ぐため | えいみ |
 | 2026-07-10 | 2-2 Surface / handoff | 修正 | 要対応キューの行単位完了UXをmanual/BUGS/design log/HANDOFF/SESSION_MIGRATION_PROMPTへ同期。build v3.39.60 | 後続セッションが全件再読込を復活させず、未保存の別レーンを混ぜずに作業再開できるようにするため | えいみ |
 | 2026-07-10 | 2-2 Surface / FEATURE_REGISTRY | 修正 | `ActionItemsPanel` の「対応済にする」を楽観更新化。成功時は対象行だけを外し、全体ローディングを出さない。更新失敗時のみ元位置へ復元。build v3.39.59 | 1件の処理で他の要対応まで一瞬消えるUXをなくすため | えいみ |
 | 2026-07-10 | 2-2 Surface / 3-7 Notifications / FEATURE_REGISTRY | 修正 | 抽出状況から48時間の保存時刻判定を撤去。保存証跡とMTG抽出での利用時刻を分け、既読のconnector再認証通知は現在の障害にしない。build v3.39.57 | 古い証跡を接続障害と取り違えず、実際に使えた抽出経路を確認できるようにするため | えいみ |

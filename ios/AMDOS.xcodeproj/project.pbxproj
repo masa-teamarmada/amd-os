@@ -79,6 +79,7 @@
 		D057F4EE7CEEDFF8C37E47F9 /* CockpitDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BC9AC9A893CB5D5FAFE2EF3 /* CockpitDetailView.swift */; };
 		D1009CDF7901B859AC5709C2 /* book-a-ch-1.md in Resources */ = {isa = PBXBuildFile; fileRef = 2CDA552F4E99866E95B9C815 /* book-a-ch-1.md */; };
 		D1025A035A3D8E47636516EB /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42C2A6ADC9E56C3FDAEA9CA0 /* LoginView.swift */; };
+		DABDF3945F8F711D961F8CFB /* BusinessCardsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7598240917E7ECD3C23C9CA1 /* BusinessCardsView.swift */; };
 		DAED1A26D193A9104003A37B /* MsProgressEditSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 755F97B38BFBE330C1C8D007 /* MsProgressEditSheet.swift */; };
 		DCBE3CF9439D6EF85A26E858 /* TasksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDE10C462184FC20E1D120F3 /* TasksView.swift */; };
 		E3700918AFFED08526F39D81 /* Project.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F74D57A0928261D83B0F763 /* Project.swift */; };
@@ -144,6 +145,7 @@
 		732E2F1382E5F1148C4CA968 /* ProjectListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectListView.swift; sourceTree = "<group>"; };
 		7355DC6E8A8FD82F97F129D1 /* InvoiceStepView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InvoiceStepView.swift; sourceTree = "<group>"; };
 		755F97B38BFBE330C1C8D007 /* MsProgressEditSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MsProgressEditSheet.swift; sourceTree = "<group>"; };
+		7598240917E7ECD3C23C9CA1 /* BusinessCardsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BusinessCardsView.swift; sourceTree = "<group>"; };
 		76212AA33F6EF1EC0479B55F /* 2026-06-25_proposal_book0_vi.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "2026-06-25_proposal_book0_vi.md"; sourceTree = "<group>"; };
 		7B25648977659A54841F2739 /* nursery-ers.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "nursery-ers.md"; sourceTree = "<group>"; };
 		7B85C803FA053B5AA314ABFB /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
@@ -201,6 +203,7 @@
 			children = (
 				A5EC9EBB293214DE3ACC0670 /* Admin */,
 				5217306150795A91993D2C07 /* Auth */,
+				299ED78154AE89C1863A1DFA /* BusinessCards */,
 				8AE9D1DF5BCC4DC1AD7D7588 /* Cockpit */,
 				5409C9546292B669C6A5D4AA /* Home */,
 				3CC4E48A7FC1EB61922A62A9 /* MyPage */,
@@ -244,6 +247,14 @@
 				711ED274D0F038A2F82A3DA7 /* Task.swift */,
 			);
 			path = Models;
+			sourceTree = "<group>";
+		};
+		299ED78154AE89C1863A1DFA /* BusinessCards */ = {
+			isa = PBXGroup;
+			children = (
+				7598240917E7ECD3C23C9CA1 /* BusinessCardsView.swift */,
+			);
+			path = BusinessCards;
 			sourceTree = "<group>";
 		};
 		3CC4E48A7FC1EB61922A62A9 /* MyPage */ = {
@@ -557,6 +568,7 @@
 				7B1F83F82662B04105017F25 /* BillingMatrixView.swift in Sources */,
 				5360EE8F0DD15105DFEBB52F /* BudgetApprovalView.swift in Sources */,
 				170C6D65B4FACB39A664B8DE /* BudgetStepView.swift in Sources */,
+				DABDF3945F8F711D961F8CFB /* BusinessCardsView.swift in Sources */,
 				1BBFBFDE6870D19D6D3BDFE2 /* CacheService.swift in Sources */,
 				D057F4EE7CEEDFF8C37E47F9 /* CockpitDetailView.swift in Sources */,
 				972F8655A3CCBFB5A0E592D6 /* CockpitHUDView.swift in Sources */,

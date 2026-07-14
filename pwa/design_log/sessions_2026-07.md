@@ -1236,3 +1236,23 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 - `npx tsc --noEmit --pretty false` passed。
 - `npm run build` passed。
 - DB readback: `prep_worker_status='ready'`, `prep_draft_len=2415`。
+
+---
+
+## 2026-07-14 — 名刺OCR / PJ Knowledge連携とiOSタブ整理
+
+### コンテキスト / 設計
+- スマホで名刺を撮影し、OCR候補を人が確認してから複数PJへ紐づけ、保護された名刺台帳とPJ人物ナレッジへ分けて保存する導線を追加した。
+- email / phone / address / 画像 / raw OCR は private 名刺台帳だけに置き、`project_knowledge` には氏名・所属・役職・接点日・短いメモだけを同期する。
+- D-3定期抽出は `source='business_card'` の人確認済み行を上書きせず、自動抽出候補を別行として扱う契約にした。
+
+### 実装
+- migration 172 で `business_cards`、`business_card_project_links`、private Storage bucket、DB管理OCR promptを追加した。
+- `/business-cards` と認証済みAPIを追加。OCRは `needs_review` / `ocr_failed` で止め、氏名と1件以上のPJを確認した時だけ `confirmed` とD-3人物行を同期する。
+- iOSは月次ルーティンタブとマイページ上の旧誘導を撤去し、`マイページ / 立替 / PJ進捗 / 名刺 / 設定` の順へ変更した。名刺タブはナビなし `/native/business-cards` を認証cookieつきWKWebViewで開く。
+
+### Verification
+- production migration適用とschema dumpを完了。
+- `npm exec tsc -- --noEmit`、対象eslint、`npm run test:critical-ui`、`npm run test:deploy-version-guard`、`npm run build` がpass。
+- ブラウザで通常画面と390px幅のnative shellを確認し、HUDテーマ干渉を専用native routeへの分離で解消。console error 0件。
+- iOS署名付きdevice buildがpassし、masaiPhoneへのinstall / launchを確認。

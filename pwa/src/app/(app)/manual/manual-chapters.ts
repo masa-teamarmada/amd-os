@@ -81,6 +81,7 @@ export const MANUAL_SECTIONS: ManualSectionConfig[] = [
       "2-4-amd-cockpit",
       "2-5-research-assets-quick-start",
       "2-6-admin-ops",
+      "2-8-business-cards",
     ],
   },
   {
@@ -173,6 +174,7 @@ export const MANUAL_CHAPTERS: ManualChapterConfig[] = [
   { slug: "2-5-research-assets-quick-start", title: "探索系アセットの使い方", summary: "Atlas、Seeds、PoC、VC、Scholar をまず触るための入口。", topics: ["discovery", "start"], screens: ["/atlas", "/seeds", "/poc", "/vcs", "/scholar"] },
   { slug: "2-6-admin-ops", title: "admin月次オペ早見表", summary: "支払、請求書発行、立替、報告書確認、入金確認、経営ノウハウ台帳の入口。", topics: ["monthly", "admin"], screens: ["/admin/invoices", "/admin/payouts", "/admin/management-knowledge"] },
   { slug: "2-7-task-management", title: "タスク管理（廃止済み）", summary: "/tasks 画面と agent helper は廃止済み。tasks table / API は H-1 と cockpit 互換のため残す。", topics: ["system"], tables: ["tasks"] },
+  { slug: "2-8-business-cards", title: "名刺をPJの関係資産にする", summary: "スマホ撮影、OCR確認、複数PJ紐づけ、人物knowledge反映の使い方。", topics: ["start", "knowledge"], screens: ["/business-cards"], tables: ["business_cards", "business_card_project_links", "project_knowledge"] },
 
   { slug: "3-1-system-architecture", title: "全体設計", summary: "画面、データ、書き込み経路、設計 md 索引まで含む OS の地図。", topics: ["system-dev", "developer"], screens: ["/manual"], tables: ["projects", "members", "billing_cycles"] },
   { slug: "3-2-data-and-extraction", title: "データと抽出", summary: "5 生データ、M/W/D/H L2、抽出 pipeline、復旧状況の開発者向け正本。", topics: ["system-dev", "knowledge-dev"], tables: ["source_cache", "project_meeting_summaries", "project_strategy_signals"] },
@@ -218,7 +220,7 @@ export const MANUAL_TOPIC_NODES: ManualTopicNodeConfig[] = [
     description: "初めて開く人が、OS の目的と日常画面を掴む入口。",
     icon: "book",
     color: "blue",
-    chapterSlugs: ["1-1-intro", "2-1-member-quick-start", "2-2-member-workflows-quick-start", "2-3-pj-cockpit", "2-4-amd-cockpit"],
+    chapterSlugs: ["1-1-intro", "2-1-member-quick-start", "2-2-member-workflows-quick-start", "2-3-pj-cockpit", "2-4-amd-cockpit", "2-8-business-cards"],
     relatedTopicKeys: ["cockpit", "monthly", "discovery"],
   },
   {

@@ -14,6 +14,8 @@
 | admin knowledge | `/admin/japanese-culture-map` | `jp_culture_items` active 行をマインドマップ / 日本地図で読む admin-only 文化知識ビュー。旧 `/japanese-culture-map` は redirect | `admin/japanese-culture-map/page.tsx`, `jp-culture.ts` |
 | docs | `/manual`, `/spec`, `/bzm` | manual / design spec / textbook を OS 画面で表示 | `manual/*`, `spec/*`, `bzm/*` |
 | knowledge | `/knowledge-map` | AMD Knowledge Map。L2 counts と直近代表 node を source table 別に読み、NotebookLM Knowledge Pack の OS 側プレビューとして表示する。raw本文は保存/表示しない | `knowledge-map/page.tsx`, `KnowledgeMapView.tsx` |
+| contacts | `/business-cards` | スマホ撮影 / 写真選択、OCR確認、複数PJ紐付け、名刺検索。確定時だけ D-3 PJナレッジへ人物情報を同期する | `business-cards/page.tsx`, `BusinessCardsClient.tsx` |
+| contacts native | `/native/business-cards` | iOSの名刺タブが認証cookieつきWKWebViewで開く、GlobalNavなしのnative shell | `native/business-cards/page.tsx`, `ios/.../BusinessCardsView.swift` |
 | notifications | `/notifications` | L2 / MTG / app notifications の確認と採否 | `notifications/page.tsx` |
 | decision | `/venture-map/amd-score`, `/management-score`, `/institutions`, `/institutions/assess` | AMD Score / Management Score / ERS | related page files |
 | discovery | `/atlas/*`, `/seeds/*`, `/vcs/*`, `/scholar` | 外部シグナル、研究シーズ、VC、学術トレンド | related page files |
@@ -34,6 +36,7 @@
 | Atlas | `/api/atlas/*` | atlas signals / stories / themes | TODO spec |
 | Seeds / VC | `/api/cron/seeds-ingest`, `/api/cron/vc-*`, admin seed/vc helpers | seeds / vcs / investments | TODO spec |
 | ERS | `/api/institutions/assess` | `institution_assessments` upsert | `/spec/4-3-ers-current-spec` |
+| business cards | `/api/business-cards`, `/api/business-cards/[cardId]`, `/api/business-cards/[cardId]/image` | private画像保存、Gemini OCR、確認済み名刺 / PJ紐付け / `project_knowledge` 同期 | `/spec/2-5-business-cards-current-spec` |
 | cron | `/api/cron/*` | Vercel cron or on-demand batch | `/spec/5-3-automation-responsibility-current-spec` |
 
 ## Auth / Authority
@@ -43,6 +46,7 @@
 - `/notifications` は `members.is_admin=true` だけ表示する。
 - `/admin/*` は admin layout gate。
 - ERS assessment API、notification feedback API は auth user の email から `members` を引き、admin でない場合 403。
+- 名刺APIは auth user が `members` に存在することを要求する。画像は private Storage に置き、認証済み AMD メンバー以外へ公開しない。
 
 ## Failure Mode
 
@@ -52,6 +56,8 @@
 | non-admin on admin/spec/notifications | 403 or `notFound()` |
 | Supabase read error | page/component error state or API 500 |
 | LLM-backed route accidentally scheduled | `vercel.disabled-crons.json` / guard env / `/spec/5-3` の復活禁止 contract を確認 |
+| OCR失敗 | 名刺行を `ocr_failed` で残し、画像を見ながら手入力して確定できる。OCR失敗だけで登録全体を失敗扱いにしない |
+| PJ未選択 / 氏名空欄 | `PATCH` を 400 で拒否し、`needs_review` のまま保存する |
 
 ## Validation
 

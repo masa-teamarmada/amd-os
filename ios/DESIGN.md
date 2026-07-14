@@ -11,7 +11,7 @@
 > - えいみ（Win側 Android担当）が「これ知らない画面なんだけど…」となったら必ずここを参照する
 > - えいみがここを見て知らない画面があるならアラート → 即同期する
 >
-> 最終更新: 2026-07-10 (iOS 設定タブの教科書を縦書きページリーダー化)
+> 最終更新: 2026-07-14 (名刺タブ追加・月次ルーティンタブ廃止)
 
 ---
 
@@ -36,11 +36,12 @@
 | 順 | タブ名 | ファイル | 表示条件 |
 |---|---|---|---|
 | 1 | マイページ | `MyPage/MyPageView.swift` | 全員 |
-| 2 | 月次ルーティン | `Routine/ProjectListView.swift` | 全員 |
-| 3 | 立替 | `Reimburse/ReimburseListView.swift` | 全員 |
-| 4 | PJ進捗 | `Cockpit/CockpitView.swift` | 全員 |
-| 5 | Admin | `Admin/AdminTabView.swift` | `members.is_admin = true` のみ |
-| 6 | 設定 | `Settings/SettingsView.swift` | 全員 |
+| 2 | 立替 | `Reimburse/ReimburseListView.swift` | 全員 |
+| 3 | PJ進捗 | `Cockpit/CockpitView.swift` | 全員 |
+| 4 | 名刺 | `BusinessCards/BusinessCardsView.swift` | 全員 |
+| 5 | 設定 | `Settings/SettingsView.swift` | 全員 |
+
+Admin はタブではなく、`members.is_admin=true` の時だけ右下フロートボタンから `AdminTabView` を開く。名刺タブは、まさ指定どおり **PJ進捗と設定の間** に置く。
 
 ---
 
@@ -101,7 +102,9 @@
 
 ---
 
-### 2.2 月次ルーティン（ProjectListView → RoutineFlowView）
+### 2.2 月次ルーティン（廃止済み・履歴）
+
+2026-07-14 にトップレベルタブとマイページの旧月次ルーティンTODO導線を廃止した。現行UIに「月次ルーティン」ボタンを出さない。請求・支払はAdmin、進捗・月次情報はPJ進捗 / 月次モーダルを正にする。以下は旧画面の保全履歴であり、再導入仕様ではない。
 
 **目的**: 各PJ・各月の Step 1〜8 タスクを順に進めるための画面。
 Step は AMD OS の月次経理フローそのもの。
@@ -213,11 +216,22 @@ Google Calendar に月次MTG枠を作成、参加者に招待を飛ばす。`sch
 
 ---
 
-### 2.5 Admin タブ（AdminTabView）
+### 2.5 名刺管理（BusinessCardsView）
+
+**目的**: スマホで名刺を撮影し、OCR候補を人が確認してPJへ紐付け、連絡先台帳とPJ人物ナレッジを同時に育てる。
+
+- タブ位置: `PJ進捗` と `設定` の間。
+- `BusinessCardsView` は現在のSupabase sessionを `@supabase/ssr`互換cookieへ変換し、PWAのナビ無し native shell `/native/business-cards` を `WKWebView` で開く。
+- 撮影 / 写真選択、Gemini OCR、修正、複数PJ選択、確定はPWAと同じ `/api/business-cards` contractを使う。
+- OCRは自動確定しない。氏名と1件以上のPJを人が確認した時だけ `business_cards.status='confirmed'` とD-3 `project_knowledge(source='business_card')` を同期する。
+- 名刺画像、email、phone、address、raw OCRはprivate名刺台帳だけに置き、PJナレッジへ複製しない。
+- `NSCameraUsageDescription` / `NSPhotoLibraryUsageDescription` を持つ。
+
+### 2.6 Admin（AdminTabView）
 
 **表示条件**: `members.is_admin = true` のメンバーのみ。
 
-#### 2.5.-1 メンバー（`MemberListView` / `MemberDetailView`）
+#### 2.6.-1 メンバー（`MemberListView` / `MemberDetailView`）
 
 AMD メンバーの全項目を一覧・編集する admin 専用画面。
 
@@ -236,7 +250,7 @@ AMD メンバーの全項目を一覧・編集する admin 専用画面。
 - 役員報酬を別建てにしているメンバー（masa等）や、無償出向（りり等）を支払通知書送付対象から除外
 - DB 既定値は `false`（送付対象）
 
-#### 2.5.0 「今月やること」カード（`AdminMonthlyTasksCard`）
+#### 2.6.0 「今月やること」カード（`AdminMonthlyTasksCard`）
 
 AdminTabView 上部に常時表示するサマリカード。月次ルーティンから除外した admin 専任タスクや、
 admin がアクション必要なものを集約する。
@@ -252,7 +266,7 @@ admin がアクション必要なものを集約する。
 
 `.task` と `.refreshable` でロード／再読み込み。0件の項目は行ごと非表示。
 
-#### 2.5.1 PJ Config（ProjectConfigDetailView）
+#### 2.6.1 PJ Config（ProjectConfigDetailView）
 **目的**: PJ単位の業務委託料・送付ルール・送付先メールを設定。
 - ステータス（active/frozen/ended）・開始月・終了月
 - PJタイプ（標準 / CTB）
@@ -262,7 +276,7 @@ admin がアクション必要なものを集約する。
 - 請求書送付先 To/CC/BCC（手動送付に切替も可能）
 - **キーボード処理**: 入力欄外タップ・スクロール・キーボードバーの「完了」でキーボードを閉じる
 
-#### 2.5.2 ナレッジ会（KnowledgeSessionListView）
+#### 2.6.2 ナレッジ会（KnowledgeSessionListView）
 **目的**: 月次ナレッジ会のオフライン開催設定 → all-pm への Slack 告知まで。
 - 月ごとに「オフライン開催にする/しない」を選択
 - オフラインなら開催日・場所（履歴から or 新規）・参加者・PMへのメッセージを設定
@@ -270,17 +284,17 @@ admin がアクション必要なものを集約する。
 - データ: `knowledge_sessions` テーブル
 - 編集シート: `KnowledgeSessionEditSheet`、告知シート: `KnowledgeAnnouncementSheet`
 
-#### 2.5.3 Billing Matrix（BillingMatrixView）
+#### 2.6.3 Billing Matrix（BillingMatrixView）
 **目的**: 全PJ × 全月の請求 / 支払 / 通知 ステップ完了状態をマトリクス表示。
 - 行=PJ、列=ym、セル=各ステップ進捗（done/undone/skip）
 - セルタップでそのPJ-ymの編集シートが開く
 
-#### 2.5.4 予算承認（BudgetApprovalView）
+#### 2.6.4 予算承認（BudgetApprovalView）
 **目的**: PMが申告した請求額 / バッファ / 配賦をadmin が承認する画面。
 - `billing_cycles.status = "reported"` の行を一覧
 - 各行で配賦額の最終調整 → 承認 → `status = "allocation_confirmed"`
 
-#### 2.5.5 支払通知書作成（PayoutNoticeAdminListView → PayoutNoticePerMemberView）
+#### 2.6.5 支払通知書作成（PayoutNoticeAdminListView → PayoutNoticePerMemberView）
 
 **🚨 重要：表示ロジック**
 
@@ -313,11 +327,11 @@ admin がアクション必要なものを集約する。
 - Edge Function `send-payout-notice` を `{memberId, ym, mode: "preview"|"send"}` で叩く
 - 送付完了 → `payout_notices` に記録、関連PJの `billing_cycles.payout_notice_uploaded_at` も更新
 
-#### 2.5.6 提案箱（ProposalInboxView）
+#### 2.6.6 提案箱（ProposalInboxView）
 **目的**: メンバーからの提案（`proposals` テーブル）をadminが読んで返信する。
 - 未読 / 既読 で分類、スレッド形式で対話
 
-#### 2.5.7 つくよみの学び（TsukuyomiLearningsView） ⭐
+#### 2.6.7 つくよみの学び（TsukuyomiLearningsView） ⭐
 **目的**: つくよみAIが学習した内容を一覧 / レビュー / 削除する管理画面。
 - 学習データ（`tsukuyomi_learnings` 等）を全件カード表示
 - 各カード: スコープ（global/PJ単位）・出典・本文・PJキー（あれば）
@@ -328,7 +342,7 @@ admin がアクション必要なものを集約する。
 
 ---
 
-### 2.6 設定（SettingsView）
+### 2.7 設定（SettingsView）
 
 | 画面 | 役割 |
 |---|---|
@@ -348,7 +362,7 @@ admin がアクション必要なものを集約する。
 
 ---
 
-### 2.7 つくよみ（TsukuyomiView）
+### 2.8 つくよみ（TsukuyomiView）
 
 **目的**: 各メンバーが直接つくよみと対話する画面（個人用AIアシスタント）。
 - データ: `tsukuyomi_sessions`
@@ -356,7 +370,7 @@ admin がアクション必要なものを集約する。
 
 ---
 
-### 2.8 タスク（TasksView）
+### 2.9 タスク（TasksView）
 
 (現状・将来の使い方は要再整理。`Tasks/TasksView.swift` 参照)
 

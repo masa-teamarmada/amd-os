@@ -8,9 +8,10 @@
 |---|---|
 | L2 | D-3 PJナレッジ |
 | table | `project_knowledge` |
-| primary writer | Windows MMO PC の Codex Desktop automation `amd-os-l4-project-knowledge-extract` |
+| primary automatic writer | Windows MMO PC の Codex Desktop automation `amd-os-l4-project-knowledge-extract` |
 | schedule | daily 08:15 JST |
 | repo skill | `pwa/scheduled-tasks/amd-os-l4-project-knowledge-extract/SKILL.md` |
+| direct confirmed writer | `PATCH /api/business-cards/[cardId]`。人がOCR結果を確認してPJを選んだ時だけ `source='business_card'`, `status='active'` で人物ナレッジを同期 |
 | old writer | `gas/155_L2KnowledgeExtractor.js` の `nav_project_knowledge_pollAll` |
 | old writer status | kill switch 停止。復活禁止 |
 | state table | `l2_extract_state(l2_kind='project_knowledge')` |
@@ -26,6 +27,7 @@
 | meeting summaries | `project_meeting_summaries` where `project_id`, `ym`, `source_kinds!='none'`, order `meeting_date desc`, limit 30 |
 | feedback | `l2_feedbacks` where `l2_kind='project_knowledge'`, `target_id=projectId`, `status='active'`, `scope_key=ym` |
 | metadata guard | prompt 先頭に `projectId`, `projectName`, `ym` を置く |
+| confirmed business card | `business_cards.status='confirmed'` + `business_card_project_links`。名刺画像 / raw OCR / email / phone / address は入力にも複製先にも含めない |
 
 `source_hash = sha256(JSON.stringify({ p: projectId, ym, pv: "v4_meta_strict", rb, sums }))`。一致時は LLM を呼ばず state touch。
 
@@ -58,11 +60,13 @@ LLM output は `items[] = { category, entity_name, fact_text, confidence }`。�
 | `entity_name` | 固有名詞 / 組織 / 技術名。重複判定 key の一部 |
 | `fact_text` | 事実説明。入力にある内容だけ |
 | `confidence` | `high / medium / low` |
-| `source` | automation 由来は `l2_hourly_extract` |
-| `status` | 新規/更新候補は `candidate`。採否後 `active` / `rejected` |
+| `source` | automation 由来は `l2_hourly_extract`。人が確認した名刺由来は `business_card` |
+| `status` | automation 新規/更新候補は `candidate`。採否後 `active` / `rejected`。名刺確定時は人の確認済みなので `active`、PJ紐付け解除時は他の名刺リンクが無ければ `inactive` |
 | `updated_at` | upsert 時刻 |
 
 `project_knowledge` には unique 制約が無い。重複回避は writer が `project_id + category + entity_name` で SELECT し、既存があれば PATCH、なければ INSERT する。
+
+名刺由来の `fact_text` は氏名、所属、部署、役職、会った日、短い関係メモだけで構成する。email / phone / address / 名刺画像 / OCR全文は `business_cards` の保護領域に残し、PJナレッジには「連絡先は名刺管理で確認」とだけ書く。自動抽出 writer は `source='business_card'` の確認済み人物行を候補データで上書きしない。
 
 ### State / Notification
 
@@ -93,6 +97,7 @@ LLM output は `items[] = { category, entity_name, fact_text, confidence }`。�
 | DB unique なし | 必ず SELECT -> PATCH/INSERT。blind insert しない |
 | feedback ignored risk | active feedback を prompt に入れる |
 | GAS path requested | 使わない。MMO automation を正とする |
+| business card OCR unconfirmed | `project_knowledge` へ書かない。`needs_review` / `ocr_failed` のまま人の確認を待つ |
 
 ## Validation
 
@@ -101,10 +106,11 @@ LLM output は `items[] = { category, entity_name, fact_text, confidence }`。�
 3. 汚染防御 test として、対象 `projectName` と無関係な固有名詞だけの入力で `items=[]` になること。
 4. 同一 `project_id + category + entity_name` の再実行で行数が増えず PATCH されること。
 5. `/notifications` で candidate を `active` / `rejected` にできること。
+6. 名刺確定で選択PJごとに `source='business_card'`, `status='active'` の `people` 行が作成または更新され、連絡先とraw OCRが `fact_text` に入らないこと。
 
 ## この章だけで再構築できること
 
-D-3の target selection、source_hash、9 category、pollution guard、DB upsert、通知、採否、旧 GAS 停止境界を再構築できる。
+D-3の target selection、source_hash、9 category、pollution guard、DB upsert、通知、採否、名刺確認からの直接同期、旧 GAS 停止境界を再構築できる。
 
 ## まだ再構築できないこと
 
@@ -119,7 +125,7 @@ MMO PC の automation 登録 UI / 実行ログは repo 外。5生データ直結
 
 ## 未確認 / inferred
 
-- `project_knowledge.status` の全運用値は DB CHECK ではなく convention。`candidate / active / rejected` を現行採否 loop として扱う。
+- `project_knowledge.status` の全運用値は DB CHECK ではなく convention。`candidate / active / rejected / inactive` を現行 lifecycle として扱う。
 
 ## 次に見る実装ファイル
 

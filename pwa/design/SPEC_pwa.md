@@ -114,6 +114,7 @@ pwa/
 | `/project/[projectId]/config` | 旧PJ設定。コックピットからは導線を外し、PJごとの契約・請求・支払条件は `/admin/projects` を正本にする |
 | `/manual` `/manual/[slug]` | AMD OS マニュアル。`pwa/manual/*.md` を正本として表示し、左カラムで章タイトル / summary / 見出し / 本文 / 画面パス / テーブル名を全文検索できる。`/manual` と各章だけに Gemini 実験版の `ManualTsukuyomiFloat` を出し、`POST /api/manual/tsukuyomi/ask` が該当章のマニュアル本文を根拠に回答する。DB 書き込みや既存つくよみ修正 tool は持たない |
 | `/knowledge-map` | AMD Knowledge Map。`protocols` / `project_knowledge` / `member_knowledge` / `project_meeting_summaries` / `project_strategy_signals` / `project_xrl_evidence` / `monthly_reports` / `textbook_insight_candidates` の件数と直近代表 node を force graph で表示する read-only route。NotebookLM へ渡す Knowledge Pack の OS 側プレビューであり、raw本文は持たず、L2 text / short refs / status だけを表示する |
+| `/business-cards` | 名刺管理。スマホ撮影 / 写真選択した画像を private Storage へ保存し、DB管理 prompt `business_card.ocr` でGemini OCRする。OCR結果は `needs_review` に止め、人が氏名・所属・連絡先・1件以上のPJを確認した時だけ `confirmed` にする。確定時に `project_knowledge(category='people', source='business_card', status='active')` へ氏名・所属・役職・会った日・短いメモだけ同期し、email / phone / address / 画像 / raw OCR は複製しない |
 | `/reimburse` | 立替精算 |
 | `/admin/settings` | Operations Settings。admin限定で Raw Data / L2 Data / Cron Control を一覧化する。停止中cronはここに旧頻度・入力・出力・停止理由を表示する。`/settings` は一般ユーザー誤操作防止のため削除 |
 | `/atlas` | シグナル & ストーリー一覧 |
@@ -157,6 +158,7 @@ pwa/
 
 **進捗:** `progress/estimate` `progress/confirm` `progress/unconfirmed` `progress/batch-save` `progress/events` (= member_activities + 新列 initiative_origin/impact/depth/responsibilities を ProgressEvent にマップ、2026-05-12 復元) `progress/revisions` `progress/reimbursement`
 **PJ 月次ノート:** `project/monthly-note` (= GET / POST。MS なし PJ でも月次モーダルで自由記述ノートを残せる。`project_monthly_notes` テーブル、PK `(project_id, ym)`、まさ 2026-05-12 タスク 3)
+**名刺:** `business-cards` (= GET 一覧+PJ候補 / POST private画像保存+Gemini OCR。AMDメンバー認証必須)、`business-cards/[cardId]` (= PATCH。人が修正・PJ選択して確定し、D-3人物ナレッジへ同期)、`business-cards/[cardId]/image` (= GET。private画像stream、AMDメンバー認証必須)
 **Atlas:** `atlas/auto-tag` `atlas/backfill` `atlas/seed` `atlas/match-stories` `atlas/merge-stories` `atlas/move-signal` `atlas/themes/{cluster,apply,list}`
 **請求/レポート:** `invoice/{create,preview}` `report/{generate,fix}`
 **Admin:** `admin/projects/[id]` (= PATCH、AdminProjectsTable から projects + project_ventures 1 セル単位 update を service_role 経由、admin必須)、`admin/members` (= PATCH、AdminMembersTable から members 1 セル単位 update を service_role 経由、保存済み row を返して UI state を置き換える。browser 直接 `members.update` は禁止)、`admin/management-knowledge` (= GET/POST/PATCH。`management_knowledge_entries` を list/create/update/archive。admin必須 + service_role)、`admin/private-wiki` (= GET/POST/PATCH。`private_wiki_entries` を list/create/update/archive。admin必須 + service_role)、`admin/payment-confirm` (= Slack入金確認ボタン / 金額入力フォームから signed token で `billing_cycles.payment_confirmed_at` を更新し、`POST mode=expected` はブラウザを開かず予定額で確定、実額・freee照合の証跡は `billing_log.detail` に保存)、`admin/project-members/bulk` (= POST、PJ メンバー一括 incremental update + 論理削除 (is_active=false)、`ProjectMembersEditor` から呼ばれる、admin/projects のメンバー列モーダルと project/[id]/config の両方で共有、admin必須)、`admin/pj-introduction-html` (= ダッシュボード「📑 全 PJ 紹介資料作成」ボタンから POST、選択 PJ のエグゼクティブサマリー HTML を雛形 fmt で生成。Sonnet 4.5 で 1 PJ ごと JSON 集約 + concurrency 3。雛形 = `src/lib/exec_summary/template_section.html` + `template.css`、prompt = `llm_prompts.exec_summary.extract`、admin必須)、`project-documents` (= GET/POST、PJ cockpit資料。`projects.drive_folder_id` 配下 `AMD OS 資料` folderへDrive uploadし、`project_documents`へmetadata/linkだけ保存。対象PJのactive memberまたはadmin必須)、`contracts` (= GET/POST/PATCH/documents/signal-dry-run/nudges-dry-run。契約書はadmin限定、Drive backoffice契約folder metadata、Slackはdry-runのみ)、`admin/lane-suggestions/[id]` (= LLM lane 提案の approve/reject、admin必須)、`admin/seed-vcs` 等
@@ -224,6 +226,8 @@ pwa/
 | `members` | メンバー (28 件) |
 | `projects` | PJ (22 件) |
 | `project_members` | 紐付け |
+| `business_cards` | private名刺台帳。画像storage path、OCR候補、確認済み連絡先、status、監査情報を保持 |
+| `business_card_project_links` | 名刺とPJの多対多リンク。確認時に同期した `project_knowledge_id` を保持 |
 | `billing_cycles` | 月次請求 (126 件) — `rewardSummaryJson` / `msProgressSummaryJson` キャッシュ列あり |
 | `value_plan_cycles` | PlanCycle |
 | `value_milestones` | MS (136 件) |

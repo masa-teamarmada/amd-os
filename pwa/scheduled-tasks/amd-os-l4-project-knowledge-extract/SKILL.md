@@ -10,7 +10,7 @@ description: AMD OS D-3 PJナレッジ抽出の repo 正本。現行 writer は 
 - 現行復旧先は MMO マシン側の Codex Desktop automation 履歴・ログ。Mac local routine / Claude Cloud routine は履歴扱い
 - **汚染防御 v4_meta_strict 継承** = project_meta セクションを prompt 冒頭、無関係内容は items: [] で抽出 0 件 (= 2026-05-09 SE PJ 汚染事故対応)
 - 入力 = active PJ × {当月, 前月} の `monthly_reports` (status≠invalid) + `project_meeting_summaries` (source_kinds≠none)
-- 出力 = `project_knowledge` (= 既存 row は entity_name+category で SELECT → INSERT/PATCH、status='candidate' で通知採否)
+- 出力 = `project_knowledge` (= 既存 row は entity_name+category で SELECT → INSERT/PATCH、status='candidate' で通知採否)。ただし `source='business_card'` は人が確認した正本なので自動 writer は更新しない
 - 9 category: `people` / `tech` / `ip` / `org` / `funding` / `market` / `competitor` / `strategy` / `term`
 
 ## 【絶対】 動く前に必ず Read
@@ -99,10 +99,12 @@ Phase D: Supabase upsert + 通知 + feedback applied
 ### D-1: project_knowledge INSERT or PATCH
 各 item について (= UNIQUE 制約なし、既存 SELECT → INSERT or PATCH):
 
-GET `project_knowledge?project_id=eq.<projectId>&category=eq.<cat>&entity_name=eq.<entity_name>&select=id,fact_text&limit=1`
+GET `project_knowledge?project_id=eq.<projectId>&category=eq.<cat>&entity_name=eq.<entity_name>&select=id,fact_text,source,status`
 
-- 既存あり: PATCH `project_knowledge?id=eq.<id>` body: `{ fact_text, confidence, source: "l2_hourly_extract", status: "candidate", updated_at: <ISO now> }`
-- 既存なし: POST `project_knowledge` body: `{ project_id, category, entity_name, fact_text, confidence, source, status: "candidate", updated_at }`
+- 取得結果のうち `source!='business_card'` の先頭行を更新対象にする。
+- 自動 writer 由来の既存行あり: PATCH `project_knowledge?id=eq.<id>` body: `{ fact_text, confidence, source: "l2_hourly_extract", status: "candidate", updated_at: <ISO now> }`
+- 既存が `source='business_card'` の行だけ、または既存なし: POST `project_knowledge` body: `{ project_id, category, entity_name, fact_text, confidence, source: "l2_hourly_extract", status: "candidate", updated_at }`
+- `source='business_card'` の行を PATCH / inactive 化 / candidate 化してはいけない。名刺画面で人が確認した active 行と、自動抽出の candidate 行は並存してよい
 
 ### D-2: l2_extract_state upsert (= l2_kind='project_knowledge')
 
@@ -136,3 +138,4 @@ Phase E: run summary
 - projectName と無関係な内容を抽出 (= 汚染防御、items: [] を返す)
 - 推測で fact_text を書く
 - l2_feedbacks 無視
+- `source='business_card'` の人確認済み行を自動抽出結果で上書きする

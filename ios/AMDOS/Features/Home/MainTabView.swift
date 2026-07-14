@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum AppTab {
-    case mypage, routine, reimburse, cockpit, admin, settings
+    case mypage, routine, reimburse, cockpit, businessCards, admin, settings
 }
 
 struct RoutineNavigationTarget: Identifiable, Hashable {
@@ -51,10 +51,6 @@ struct MainTabView: View {
                 .tabItem { Label("マイページ", systemImage: "person.circle") }
                 .tag(AppTab.mypage)
 
-            ProjectListView()
-                .tabItem { Label("月次ルーティン", systemImage: "arrow.trianglehead.clockwise") }
-                .tag(AppTab.routine)
-
             ReimburseListView()
                 .tabItem { Label("立替", systemImage: "yensign.circle") }
                 .tag(AppTab.reimburse)
@@ -62,6 +58,10 @@ struct MainTabView: View {
             CockpitView()
                 .tabItem { Label("PJ進捗", systemImage: "chart.bar.xaxis.ascending") }
                 .tag(AppTab.cockpit)
+
+            BusinessCardsView()
+                .tabItem { Label("名刺", systemImage: "person.crop.rectangle.stack") }
+                .tag(AppTab.businessCards)
 
             SettingsView()
                 .tabItem { Label("設定", systemImage: "gear") }
