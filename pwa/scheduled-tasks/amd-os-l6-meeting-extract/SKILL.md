@@ -16,9 +16,9 @@ GAS 153 `nav_meeting_pollRecentlyEndedEvents` + GAS 074 `nav_meeting_processOneE
 - **業務ロジックは GAS 元コード完全保存**: 「終了 60-180 分前 filter」「Stage 1-3 Notion fallback」「source_kinds 判定 (= 30 chars 閾値)」「source_hash 差分検知」「修正依頼織り込み」「議事録なし行のマーカー upsert」を踏襲
 - **5 ソース全部見る** (= まさ絶対ルール 2026-05-11): Notion + Gmail + Drive + Slack + Calendar event 本文。GAS 074 + 074b-e の集約をこの 1 routine で実現
 - **議事録品質の本丸**: Notion / Gemini / CircleBack 等が既に作った会議本文を潰さず、前後 MTG・PJ 全体の流れ・現行 MS を読んだうえで `narrative_md` に「その MTG に参加していなかったメンバーでも読めば流れが分かる議事録」を残す。
-- **議事録本文の固定順**: `narrative_md` は必ず `## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の順で書く。見出し文言・絵文字・順序を変えない。各見出しの本文は箇条書きではなく段落で書く。
-- **配列だけ保存禁止 / 箇条書き禁止**: `source_kinds != "none"` の開催済みMTGでは `narrative_md` が主成果物。`summary_short` / `decided` / `progress` / `next_actions` / `risks` は検索・通知用の補助であり、議事録本文の代替ではない。`narrative_md` が空・短すぎる・箇条書き中心なら、その event は保存せず run summary に `blocked_low_quality_narrative` として残す。
-- **既存 narrative 保護**: 既存 row に 300字以上の `narrative_md` がある場合、新しい抽出結果が空 / 箇条書き優勢 / 既存より明らかに薄いなら upsert しない。`project_meeting_summaries` には DB trigger でも保護があるが、routine 側でも必ず判定する。
+- **議事録本文の固定順**: `narrative_md` は必ず `## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の順で書く。見出し文言・絵文字・順序を変えない。背景と経緯は段落、決まったこと・次の一手・残課題は1項目1論点の Markdown 箇条書きで書く。
+- **配列だけ保存禁止 / 単純な箇条書きだけ禁止**: `source_kinds != "none"` の開催済みMTGでは `narrative_md` が主成果物。`summary_short` / `decided` / `progress` / `next_actions` / `risks` は検索・通知用の補助であり、議事録本文の代替ではない。`narrative_md` が空・短すぎる・背景と経緯の段落を欠く場合、その event は保存せず run summary に `blocked_low_quality_narrative` として残す。
+- **既存 narrative 保護**: 既存 row に 300字以上の `narrative_md` がある場合、新しい抽出結果が空 / 5見出しのセクション構造を満たさない / 既存より明らかに薄いなら upsert しない。`project_meeting_summaries` には DB trigger でも保護があるが、routine 側でも必ず判定する。
 - **H-1 reviewer hook**: 開催済みMTGを保存した後、別automation `amd-os-l6-meeting-reviewer` を走らせる。raw Notion/Gmail/Drive/Slack/Calendar と保存済みH-1要約を比べ、CEO/代表/VC/地元勢/PoC/PRなど重大な経営判断が薄く丸まった疑いがあれば `l2_coverage_gaps` + `l2_notifications(l2_kind='coverage_gap')` に出す。reviewer は H-1 row を自動上書きしない。
 - **直近予定カード**: H-1 は毎時動くため、毎回60日先まで見ない。終了済みMTGの議事録抽出と、現在時刻の前後24時間にある確定Calendar予定・Phase P準備だけを扱う。未来60日の予定MTGカード同期は M系の定期メンテに寄せる。
 - **prep Notion context gate**: prep worker は `prep_worker_status='ready'` にする前に `pwa/scripts/l6_prep_notion_context_gate.cjs` を実行する。Notion AI Meeting Notes page が見つかっているのに marker 未挿入の `needs_insert` が残っている場合、H-1 は ready と見なさない。
@@ -352,7 +352,7 @@ npm run h1:local-notion-fallback -- \
     - alias = Phase C-2 で構築 (= members 全件、members.member_name 列が無い場合は member_id + code_name + email local だけ)
     - feedback = Phase C-3 で構築 (= l2_feedbacks の active rows)
     - `fbHashInput` = feedback 各行の `feedback_id + "|" + feedback_text` を `\n` join (= 該当なしなら "")
-    - `hashInput` = `"rev=v7_fixed_heading_narrative\nfb=" + fbHashInput + "\n" + combinedText`
+    - `hashInput` = `"rev=v8_hybrid_section_lists\nfb=" + fbHashInput + "\n" + combinedText`
     - **os_context は source_hash に混ぜない**。MS進捗や予定MTGが変わるたびに議事録を再生成すると credit を浪費するため、OS文脈は新規抽出時の品質向上に使い、再生成は source / feedback / prompt revision の変化だけで起こす。
     - `newHash` = bash で計算:
       ```bash
@@ -556,13 +556,13 @@ filter:
 - manual_meeting_assets は画面共有・表・スライドなどの補助根拠。caption / extracted_text がある場合は narrative_md の「添付資料から見えること」に反映してよいが、画像を読めていないのに中身を断定しない
 - drive source は会議資料・招集通知・議案・予実表・報告資料として扱う。Drive だけを根拠に「会議で決定した」とは書かず、`資料上の論点` / `会議前に確認すべき資料` / `当日確認された資料` として narrative_md に位置づける。Notion/Gmail/Slack の発言根拠と一致する場合だけ decided に寄せる。
 - 雑談 / 個人事情は除外 (= MTG として意味のある合意・進捗・課題だけ)
-- narrative_md は必須。900-2200 字を目安に、**必ず次の Markdown 見出しをこの順で置く**。見出し文言・絵文字・順序を変えず、絵文字と語の間に空白を入れない。各セクション本文は、その場にいなかったメンバーが前提知識なしでも会議の流れを追える粒度の段落で書く。
+- narrative_md は必須。900-2200 字を目安に、**必ず次の Markdown 見出しをこの順で置く**。見出し文言・絵文字・順序を変えず、絵文字と語の間に空白を入れない。背景と経緯は、その場にいなかったメンバーが前提知識なしでも会議の流れを追える粒度の段落で書く。
   - `## 🎯背景`: なぜこのMTGが必要だったか、前提となるPJ状況・相手・直前までの文脈を書く。
   - `## 📊経緯`: 何が議題になり、議論や共有事項がどう動いたか、MSや事業判断への意味も含めて流れを書く。
-  - `## ✅決まったこと`: 実際に合意・確認・採択されたことを書く。未決事項やDrive資料だけの推定を決定済みにしない。
-  - `## ▶️次の一手`: 次に誰が何をするか、期限・担当・会議候補が分かる範囲で文章にする。
-  - `## ⚠️残課題`: 未決・リスク・確認待ち・根拠不足を文章で残す。
-- **narrative_md では箇条書き禁止**。`-` / `*` / `・` / `•` / `1.` で始まる羅列、チェックボックス、配列項目の貼り付けを本文に使わない。必要なら見出しと段落で整理する。Markdown table は、元データに表がある場合だけ許可。
+  - `## ✅決まったこと`: 実際に合意・確認・採択されたことを、1項目1論点の `- ` 箇条書きで書く。未決事項やDrive資料だけの推定を決定済みにしない。
+  - `## ▶️次の一手`: 次に誰が何をするかを、1項目1アクションの `- ` 箇条書きで書く。期限・担当・会議候補が分かる場合は同じ項目に含める。
+  - `## ⚠️残課題`: 未決・リスク・確認待ち・根拠不足を、1項目1論点の `- ` 箇条書きで残す。
+- **セクション別の表現を固定する**。`## 🎯背景` と `## 📊経緯` は段落で書き、箇条書きにしない。`## ✅決まったこと`、`## ▶️次の一手`、`## ⚠️残課題` は `- ` の Markdown 箇条書きで書く。番号付きリストとチェックボックスは禁止。Markdown table は、元データに表がある場合だけ許可。
 - 元のAI議事録やNotion/Gmail/Drive資料にまとまった本文がある場合は、要点だけに潰さず、読み手が会議の流れを復元できる粒度で narrative_md に残す。`decided` / `progress` / `next_actions` / `risks` は検索・通知用の補助フィールドであり、議事録本文の代替ではない。
 - **JSON 以外の文字一切出力禁止** (= markdown ブロックも禁)
 
@@ -574,7 +574,7 @@ filter:
   "progress": ["<進捗事項 1>", "..."],
   "next_actions": ["<次のアクション (担当者を含める)>", "..."],
   "risks": ["<リスク 1>", "..."],
-  "narrative_md": "<## 🎯背景 → ## 📊経緯 → ## ✅決まったこと → ## ▶️次の一手 → ## ⚠️残課題 の固定順で、欠席メンバーでも流れが分かる箇条書きではない議事録 narrative 900-2200 字 markdown>"
+  "narrative_md": "<## 🎯背景 → ## 📊経緯 → ## ✅決まったこと → ## ▶️次の一手 → ## ⚠️残課題 の固定順。背景・経緯は段落、後半3セクションは1項目1論点の箇条書きで、欠席メンバーでも流れが分かる900-2200字の議事録 markdown>"
 }
 ```
 
@@ -587,9 +587,9 @@ Phase D: Supabase upsert + 通知
 upsert 前に品質 gate を必ず通す。
 
 - `source_kinds != "none"` なのに `narrative_md` が空、または trim 後 500 字未満なら保存しない。
-- `narrative_md` に `-` / `*` / `・` / `•` / `1.` などの箇条書き行や `- [ ]` チェックボックス行が含まれる場合は保存しない。Markdown table の `|` 行と `##` 見出しは許可。
+- `## 🎯背景` / `## 📊経緯` に箇条書き行がある、または `## ✅決まったこと` / `## ▶️次の一手` / `## ⚠️残課題` に `- ` 以外の番号付きリスト・チェックボックスがある場合は保存しない。後半3セクションに事実がある場合は、各項目が `- ` で始まることを確認する。
 - `narrative_md` が `## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の固定順を満たさない場合は保存しない。表記ゆれ (`## 🎯 背景`、`## 📊経緯・進捗` など) も `blocked_wrong_narrative_headings` として扱う。
-- 既存 row の `narrative_md` が 300 字以上あり、新しい `narrative_md` が空・短い・箇条書きを含むなら保存せず、`skipped_preserve_existing_narrative` として run summary に書く。
+- 既存 row の `narrative_md` が 300 字以上あり、新しい `narrative_md` が空・短い・セクション別の段落/箇条書き構造を満たさないなら保存せず、`skipped_preserve_existing_narrative` として run summary に書く。
 - 手動 backfill でもこの gate は同じ。過去議事録を入れる時も `summary_short` と配列だけで `project_meeting_summaries` に直書きしない。
 
 ```bash

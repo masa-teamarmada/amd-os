@@ -124,7 +124,7 @@ export function CockpitMeetingDetailModal({ meeting, prepMeeting = null, open, o
     }
     setPdfBusy(true);
     try {
-      await saveSharePartAsPdf(primaryPdfPart, exportElement);
+      await saveSharePartAsPdf(primaryPdfPart, exportElement, currentMeeting.meetingId);
       setTemporaryShareNote("PDFを保存したよ");
     } catch (error) {
       console.error("[meeting-share-pdf]", error);
@@ -212,7 +212,7 @@ export function CockpitMeetingDetailModal({ meeting, prepMeeting = null, open, o
                 onClick={downloadPdf}
                 disabled={!primaryPdfPart || pdfBusy}
                 className="inline-flex items-center gap-1.5 rounded border border-[#d2d2d7] bg-white px-2.5 py-1 text-[11px] font-medium text-[#1d1d1f] hover:bg-[#f5f5f7]"
-                title="共有用の整形済みPDFを直接保存"
+                title="議事録本文とPDF・画像の添付資料をまとめて保存"
               >
                 <FileDown className="h-3.5 w-3.5" aria-hidden="true" />
                 <span>{pdfBusy ? "PDF作成中" : "PDF保存"}</span>
@@ -312,6 +312,20 @@ interface MeetingShareBundle {
   minutes: MeetingSharePart | null;
   prep: MeetingSharePart | null;
 }
+
+interface MeetingPdfAsset {
+  assetId: string;
+  fileName: string;
+  mediaType: string;
+  fileUrl: string;
+  sortOrder: number;
+}
+
+const PRINTABLE_MEETING_ASSET_TYPES = new Set([
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+]);
 
 function buildMeetingShareBundle(meeting: ProjectMeetingSummary, prepMeeting: ProjectMeetingSummary | null): MeetingShareBundle {
   const narrative = splitMeetingNarrative(meeting.narrativeMd);
@@ -448,7 +462,7 @@ function normalizeEmailWhitespace(text: string): string {
     .concat("\n");
 }
 
-async function saveSharePartAsPdf(part: MeetingSharePart, element: HTMLElement) {
+async function saveSharePartAsPdf(part: MeetingSharePart, element: HTMLElement, meetingId: string) {
   await document.fonts?.ready.catch(() => undefined);
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
     import("html2canvas"),
@@ -496,7 +510,78 @@ async function saveSharePartAsPdf(part: MeetingSharePart, element: HTMLElement) 
     pageIndex += 1;
   }
 
-  pdf.save(buildSharePdfFileName(part));
+  const assets = await loadPrintableMeetingAssets(meetingId);
+  const { PDFDocument } = await import("pdf-lib");
+  const outputPdf = await PDFDocument.load(pdf.output("arraybuffer"));
+
+  for (const asset of assets) {
+    const response = await fetch(asset.fileUrl, { credentials: "same-origin", cache: "no-store" });
+    if (!response.ok) throw new Error(`${asset.fileName}: 添付資料を読み込めなかった`);
+    const bytes = await response.arrayBuffer();
+
+    if (asset.mediaType === "application/pdf") {
+      const sourcePdf = await PDFDocument.load(bytes);
+      const pages = await outputPdf.copyPages(sourcePdf, sourcePdf.getPageIndices());
+      pages.forEach((page) => outputPdf.addPage(page));
+      continue;
+    }
+
+    const image = asset.mediaType === "image/png"
+      ? await outputPdf.embedPng(bytes)
+      : await outputPdf.embedJpg(bytes);
+    const landscape = image.width >= image.height;
+    const [assetPageWidth, assetPageHeight] = landscape ? [841.89, 595.28] : [595.28, 841.89];
+    const assetMargin = 28;
+    const maxWidth = assetPageWidth - assetMargin * 2;
+    const maxHeight = assetPageHeight - assetMargin * 2;
+    const scale = Math.min(maxWidth / image.width, maxHeight / image.height);
+    const drawWidth = image.width * scale;
+    const drawHeight = image.height * scale;
+    const assetPage = outputPdf.addPage([assetPageWidth, assetPageHeight]);
+    assetPage.drawImage(image, {
+      x: (assetPageWidth - drawWidth) / 2,
+      y: (assetPageHeight - drawHeight) / 2,
+      width: drawWidth,
+      height: drawHeight,
+    });
+  }
+
+  const bytes = await outputPdf.save();
+  const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+  const blobUrl = URL.createObjectURL(new Blob([buffer], { type: "application/pdf" }));
+  const link = document.createElement("a");
+  link.href = blobUrl;
+  link.download = buildSharePdfFileName(part);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+}
+
+async function loadPrintableMeetingAssets(meetingId: string): Promise<MeetingPdfAsset[]> {
+  const response = await fetch(`/api/meeting-assets?meeting_id=${encodeURIComponent(meetingId)}`, {
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  const json = await response.json().catch(() => ({})) as {
+    ok?: boolean;
+    error?: string;
+    assets?: unknown[];
+  };
+  if (!response.ok || json.ok === false) {
+    throw new Error(`添付資料の一覧を読み込めなかった: ${json.error || response.status}`);
+  }
+  return (Array.isArray(json.assets) ? json.assets : [])
+    .filter((asset: unknown): asset is MeetingPdfAsset => {
+      if (!asset || typeof asset !== "object") return false;
+      const candidate = asset as Partial<MeetingPdfAsset>;
+      return typeof candidate.assetId === "string" &&
+        typeof candidate.fileName === "string" &&
+        typeof candidate.mediaType === "string" &&
+        typeof candidate.fileUrl === "string" &&
+        PRINTABLE_MEETING_ASSET_TYPES.has(candidate.mediaType);
+    })
+    .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
 }
 
 function buildSharePdfFileName(part: MeetingSharePart): string {

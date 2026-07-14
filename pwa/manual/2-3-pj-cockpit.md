@@ -182,21 +182,21 @@ PJ cockpit の進捗管理タブでは、今期 MS リストの直下・月次�
 - 開催済み議事録を開いた時に出す会議前準備メモは、手動で作った準備メモまたは prep worker の成果がある場合だけ表示する。カレンダー同期だけで作られた薄い予定テンプレートは、会議後に `MTG準備情報` として残さない
 - H-1 routine は今後60日の確定Calendar予定を `POST /api/meeting-prep/calendar-sync` に渡し、前回議事録がまだ無いPJでも `source_kinds='upcoming'` の予定MTGカードを作る。recurring series はシリーズごとに次回1枚だけを表示し、同じ定例が複数カードとして並ばないようにする
 - 一覧カードの短い説明は `summary_short`。詳細モーダルは `narrative_md` があればそれを主表示する
-- 詳細モーダルで `narrative_md` (= H-1の MTG サマリ抽出 routine が、そのMTGに参加していなかったメンバーでも背景・議論の流れ・決定/未決・次の一手を理解できる文章 narrative に書き直したもの) を主表示
+- 詳細モーダルで `narrative_md` (= H-1の MTG サマリ抽出 routine が、そのMTGに参加していなかったメンバーでも背景・議論の流れ・決定/未決・次の一手を理解できる構成に書き直したもの) を主表示
 - 詳細モーダルの Markdown 本文に active AMDメンバーの `members.code_name` が standalone mention として出る場合、`/mypage?memberId=<members.member_id>` へ自動リンクする。これは admin が OS 内本文からメンバー詳細へ移動するための導線で、既存の Markdown link / code / pre は維持する。短い code_name が `しかるべき` や `こうして` のような長い語へ埋まっている場合はリンクしない
 - raw 配列 (= 元データ) は折りたたみ「元データ」へ
 - 今後の議事録本文は `## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の順で書く。絵文字・見出し文言・順序は固定で、絵文字と語の間に空白を入れない
-- 今後の議事録本文は箇条書き禁止。`decided / progress / next_actions / risks` の配列は検索・通知用の補助であり、本文は段落で流れを説明する
-- 手動修正する場合も、`narrative_md` はこの5見出し順を守る。`✅決まったこと` には会議で実際に合意・確認されたことだけを書き、資料だけからの推定や未決事項は `📊経緯` または `⚠️残課題` に残す
+- 今後の議事録本文は、`🎯背景` と `📊経緯` を段落、`✅決まったこと`・`▶️次の一手`・`⚠️残課題` を1項目1論点の `- ` 箇条書きにする。番号付きリストとチェックボックスは使わない
+- 手動修正する場合も、`narrative_md` はこの5見出し順と段落/箇条書きの役割を守る。`✅決まったこと` には会議で実際に合意・確認されたことだけを書き、資料だけからの推定や未決事項は `📊経緯` または `⚠️残課題` に残す
 - MTG詳細モーダルの「表示内容を編集」は、表示している section を同じ位置で textarea 化する。`narrative_md` が表示されている通常MTG / dialogue は `narrative_md` を編集し、`decided / progress / next_actions / risks` の raw section が表示されている場合だけ、その raw section を編集する。予定MTGでは `risks` 列を破壊せず、UI上は「必ず確認すること」として表示・編集する
 - 通常MTG / dialogue は `POST /api/meeting-summary/manual-update` で `title / summary_short / narrative_md / decided / progress / next_actions / risks` を更新できる。手動修正は `source_hash` を変えないため、同じ元ソースに対する自動抽出の再実行で上書きされにくい。MTG 詳細モーダルには「つくよみに修正依頼」を置かず、人間が直した本文を `manual-edit` として保存する
-- `narrative_md` は議事録本文の正本。`summary_short` と raw 配列だけの保存は品質劣化なので、開催済みMTGの backfill / routine は narrative なしで保存しない。既存の長い narrative は migration 098 と manual-update API で、空欄や箇条書き優勢の更新から保護される
+- `narrative_md` は議事録本文の正本。`summary_short` と raw 配列だけの保存は品質劣化なので、開催済みMTGの backfill / routine は narrative なしで保存しない。既存の長い narrative は migration 098 と manual-update API で、空欄や5見出し構造を欠く更新から保護される
 - `notion:<page_id>` 由来で narrative なしの弱い手動 duplicate が、同じ日・同じタイトルの強い row と並ぶ場合は、一覧では強い row を優先して表示する
 - 詳細モーダルの「添付資料」では、md / docx / xlsx / pptx / txt / csv / zip / 画像 / PDF など一般ファイルを MTG に紐づけて保存できる。ファイル選択、drag & drop、クリップボードのファイル/画像ペースト、browser の画面キャプチャを同じ `meeting_assets` に保存する。Markdown (`.md` / `.markdown`) はOS内モーダルで本文を読める
 - 新規添付の実ファイルは Google Drive の当該PJ folder (`projects.drive_folder_id`) 配下に `YYMMDD_会議名` folder を作成/再利用して保存する。カード上には `保存先: PJフォルダ / YYMMDD_会議名` を表示する。旧添付の private Storage `meeting-assets` は互換表示する
 - 「本文へ」を押すと、添付画像 / ファイルリンクが `narrative_md` の添付資料 block に Markdown で挿入される。本文には `/api/meeting-assets/file/{asset_id}` だけを残す
 - 各カードを開くと URL が `?meeting=<meeting_id>` に変わる。この URL を共有すると、同じ PJ コックピットを開いた時点で該当 MTG 詳細モーダルが開く
-- 詳細モーダル上部の共有操作では、`PDF保存` / `議事録コピー` / `準備メモコピー` / `共有URLコピー` が使える。`PDF保存` は印刷画面ではなく、共有用に整えた本文を直接PDFとして保存する。`議事録コピー` は `narrative_md` または fallback section から会議後サマリだけを、件名候補・日時・概要・本文つきのプレーンテキストへ整える。`narrative_md` 末尾に `参考: 会議前準備メモ` がある場合は議事録から除外し、`準備メモコピー` で別にコピーする。`共有URLコピー` は OS 内で同じ MTG 詳細を開くための `?meeting=` link をコピーする
+- 詳細モーダル上部の共有操作では、`PDF保存` / `議事録コピー` / `準備メモコピー` / `共有URLコピー` が使える。`PDF保存` は共有用に整えた本文を直接PDF化し、その後ろに `meeting_assets` の PDF / PNG / JPEG を並び順どおり連結する。投影資料を先、参加者からの共有資料を後に並べ、会議本文と同じPDFで渡せる状態にする。`議事録コピー` は `narrative_md` または fallback section から会議後サマリだけを、件名候補・日時・概要・本文つきのプレーンテキストへ整える。`narrative_md` 末尾に `参考: 会議前準備メモ` がある場合は議事録から除外し、`準備メモコピー` で別にコピーする。`共有URLコピー` は OS 内で同じ MTG 詳細を開くための `?meeting=` link をコピーする
 
 ### 「まさえいMTG」とは
 - まさとえいみ (= LLM) が、チームへ提案する前の論点・提案・残課題を整理する対話セッション

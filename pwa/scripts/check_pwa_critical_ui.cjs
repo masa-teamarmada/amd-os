@@ -577,6 +577,10 @@ expectIncludes("src/components/cockpit/CockpitMeetingDetailModal.tsx", [
   "buildMeetingEmailBody",
   "buildMeetingShareBundle",
   "saveSharePartAsPdf",
+  "loadPrintableMeetingAssets",
+  "PRINTABLE_MEETING_ASSET_TYPES",
+  "copyPages",
+  "pdf-lib",
   "/api/meeting-summary/manual-update",
   "narrativeMd",
   "TopicList",
@@ -618,9 +622,9 @@ expectIncludes("src/app/api/meeting-summary/manual-update/route.ts", [
   "manual-edit",
 ]);
 expectIncludes("scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md", [
-  "箇条書き禁止",
+  "セクション別の表現を固定する",
   "その MTG に参加していなかったメンバー",
-  "v7_fixed_heading_narrative",
+  "v8_hybrid_section_lists",
   "## 🎯背景",
   "## 📊経緯",
   "## ✅決まったこと",
@@ -629,8 +633,16 @@ expectIncludes("scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md", [
   "weekly recurring",
 ]);
 expectIncludes("src/app/api/dialogue-meeting/narrate/route.ts", [
-  "箇条書き禁止",
+  "セクション別の表現を固定する",
   "その MTG に参加していなかった",
+  "## 🎯背景",
+  "## 📊経緯",
+  "## ✅決まったこと",
+  "## ▶️次の一手",
+  "## ⚠️残課題",
+]);
+expectIncludes("src/app/api/meeting-summary/narrate/route.ts", [
+  "セクション別の表現を固定する",
   "## 🎯背景",
   "## 📊経緯",
   "## ✅決まったこと",
@@ -643,6 +655,8 @@ expectIncludes("design/meeting_summaries.md", [
   "## ✅決まったこと",
   "## ▶️次の一手",
   "## ⚠️残課題",
+  "投影資料を先",
+  "PDF / PNG / JPEG",
 ]);
 expectIncludes("manual/2-3-pj-cockpit.md", [
   "## 🎯背景",

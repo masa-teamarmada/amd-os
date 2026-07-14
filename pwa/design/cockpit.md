@@ -87,6 +87,8 @@ CockpitHeader は `/admin/projects` の正本から、PJメンバー、契約条
 - **旧 nudge カード廃止**: 通常PJ cockpit から `CockpitNudge` は削除済み。`tsukuyomi_nudge_queue` 由来のカードは、この画面には表示しない。
 - **タブタイトル動的化**: `/project/[projectId]/layout.tsx` の generateMetadata が `projects.project_name` → `project_ventures.display_name` 順で fallback して `<PJ名> - AMD OS` を返す
 - **MTG添付資料トレイ**: `CockpitMeetingDetailModal` 内の `MeetingAssetsPanel` で、選択 / drag & drop / clipboard paste / browser screen capture の4経路から一般ファイルを `meeting_assets` に保存する。新規アップロード実体は Drive の `PJフォルダ / YYMMDD_会議名` に置き、カード上に保存先を表示する。`本文へ` は添付一覧を `narrative_md` の Markdown block に挿入し、Meet/Gmail 自動議事録に落ちない画面共有情報を後から補完できるようにする。
+- **MTG本文の読み分け**: 開催済み `narrative_md` は背景・経緯を段落、決まったこと・次の一手・残課題を1項目1論点の箇条書きにする。前半で流れを復元し、後半は会議後の確認と実行に使える走査性を優先する。
+- **MTG PDFの添付連結**: `PDF保存` は議事録本文の後ろに `meeting_assets` の PDF / PNG / JPEG を `sort_order` 順で実ページとして連結する。会議で使った投影資料を先、参加者から共有された資料を後に並べる。
 
 ### 今期MSの表示対象
 

@@ -15,7 +15,7 @@ PJ コックピット (`/project/[projectId]/cockpit`) の **MTGサマリ枠** �
 - 表示: PWA の `CockpitMeetingSummary` が Supabase を直読み
 - MTG詳細モーダルの Markdown 表示: `narrative_md` / `summary_short` / raw 配列 / 予定MTGブリーフの本文中に active AMDメンバーの `members.code_name` が出る場合、`LinkedMemberText` で `/mypage?memberId=<members.member_id>` へ自動リンクする。既存の Markdown link / code / pre は壊さず、通常テキスト部分だけをリンク対象にする。
 - 添付資料: PWA の MTG 詳細モーダルから、一般ファイル / スクショ / PDF / 画面キャプチャを `meeting_assets` に保存する。新規実体はDriveの `PJフォルダ / YYMMDD_会議名`、旧実体はprivate Storage互換で扱い、必要なものだけ `narrative_md` の Markdown 画像/リンクとして挿入する。
-- 共有出力: MTG 詳細モーダルには `PDF保存` / `議事録コピー` / `準備メモコピー` / `共有URLコピー` を置く。`PDF保存` は印刷ダイアログではなく、共有用 DOM を `html2canvas` + `jsPDF` で直接PDF化し、ブラウザのURL/日時/header/footerを混ぜない。`議事録コピー` は `narrative_md` の議事録本文だけを見出し・段落中心のプレーンテキストへ整形する。`narrative_md` 末尾に `## 参考: 会議前準備メモ` が保持されている場合、その以降は議事録コピー/PDFから除外し、`準備メモコピー` の本文に回す。`project_id` / `source_kinds` などの内輪メタは本文へ出さない。`共有URLコピー` は既存 `?meeting=<meeting_id>` deep link をコピーする内部確認用導線。
+- 共有出力: MTG 詳細モーダルには `PDF保存` / `議事録コピー` / `準備メモコピー` / `共有URLコピー` を置く。`PDF保存` は印刷ダイアログではなく、共有用 DOM を `html2canvas` + `jsPDF` で直接PDF化し、ブラウザのURL/日時/header/footerを混ぜない。続けて `meeting_assets` のうち PDF / PNG / JPEG を `sort_order` 順で実ページとして連結し、会議で使った投影資料と参加者からの共有資料を議事録と同じPDFに含める。投影資料を先、共有資料を後に並べる。`議事録コピー` は `narrative_md` の議事録本文だけをプレーンテキストへ整形する。`narrative_md` 末尾に `## 参考: 会議前準備メモ` が保持されている場合、その以降は議事録コピー/PDFから除外し、`準備メモコピー` の本文に回す。`project_id` / `source_kinds` などの内輪メタは本文へ出さない。`共有URLコピー` は既存 `?meeting=<meeting_id>` deep link をコピーする内部確認用導線。
 - 予定MTG: 日時が確定しているものだけ `source_kinds='upcoming'` として同じ `project_meeting_summaries` に保存し、会議前の「決めること / 用意するもの」を MTG サマリ欄の先頭に出す。日程未確定の仮置きは `source_kinds='upcoming_tentative'` / `prep_status='tentative'` とし、確定予定 count には含めず「日程調整中MTG」として同じ上段エリアに残す。
 - future Calendar sync: H-1 automation が **今日0:00 JSTから今後60日** の確定Calendar予定を `POST /api/meeting-prep/calendar-sync` に渡す。前回議事録がまだ無いPJでも、Calendar上で確定しているMTGは `upcoming:<calendar_event_id>` としてカード化する。ただし recurring MTG は series ごとに次回1件だけを保存・表示対象にし、それ以降の回はノイズとして同期/一覧表示しない。Google Calendar の `recurring_event_id` が無い場合は weekly cadence を推定できる series だけ同じ扱いにする。今日すでに開始済みの予定も、当日中はDrive資料やURL補強のため同期対象にする。PJ Drive folder に会議日フォルダや関連資料がある場合は、`drive_files` として予定カードの `関連Drive資料` に出す。
 - 会議後 workflow: PWA `POST /api/meeting-workflow/finalize` が、routine 生成済み議事録の `decided` / `next_actions` / `narrative_md` から **日時まで明確な次MTG候補を複数抽出**し、次MTGカード・action item・Slack nudge 予約を作る。完了イベントは `POST /api/meeting-workflow/actions/:actionId/complete` で受ける。ここでは **LLM を呼ばない**。
@@ -46,12 +46,12 @@ PJ コックピット (`/project/[projectId]/cockpit`) の **MTGサマリ枠** �
 `project_meeting_summaries.narrative_md` は議事録本文の正本。`summary_short` / `decided` / `progress` / `next_actions` / `risks` は検索・通知・補助表示用であり、本文の代替ではない。
 
 - 開催済みMTGの `narrative_md` は、必ず `## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の5見出しをこの順で使う。絵文字・見出し文言・順序は固定で、`## 🎯 背景` のように絵文字と語の間に空白を入れない。
-- 各見出しの本文は段落で書く。箇条書き・チェックボックス・配列項目の貼り付けは議事録本文として扱わない。Markdown table は元データに表がある場合だけ許可する。
+- `## 🎯背景` と `## 📊経緯` は段落で書く。`## ✅決まったこと`、`## ▶️次の一手`、`## ⚠️残課題` は1項目1論点の `- ` 箇条書きで書く。番号付きリストとチェックボックスは使わない。Markdown table は元データに表がある場合だけ許可する。
 - `## ✅決まったこと` には、会議で実際に合意・確認・採択されたことだけを書く。Drive資料や準備資料だけから推定した論点は `## 📊経緯` または `## ⚠️残課題` に寄せる。
 - 開催済みMTG (`source_kinds != 'none'` かつ `upcoming*` ではない) を保存する extractor / backfill は、原則 `narrative_md` を必ず同時に保存する。
-- `narrative_md` が空、短すぎる、または箇条書き優勢の出力は「議事録を入れた」と見なさない。そういう場合は DB に直書きせず、run summary に `blocked_low_quality_narrative` として残す。
-- 既存 row に 300 字以上の `narrative_md` がある場合、空・短文・箇条書き優勢の更新でそれを消してはいけない。migration 098 の `pms_preserve_rich_narrative` trigger が DB 側でも保護する。
-- 手動修正 API (`POST /api/meeting-summary/manual-update`) も同じ保護を持ち、明示的な maintenance escape なしに rich narrative を空欄や箇条書きだけへ落とさない。
+- `narrative_md` が空、短すぎる、背景・経緯の段落を欠く、または後半3セクションが1項目1論点になっていない出力は「議事録を入れた」と見なさない。そういう場合は DB に直書きせず、run summary に `blocked_low_quality_narrative` として残す。
+- 既存 row に 300 字以上の `narrative_md` がある場合、空・短文・5見出し構造を欠く更新でそれを消してはいけない。migration 098 の `pms_preserve_rich_narrative` trigger が DB 側でも保護する。
+- 手動修正 API (`POST /api/meeting-summary/manual-update`) も同じ保護を持ち、明示的な maintenance escape なしに rich narrative を空欄や単純な配列貼り付けへ落とさない。
 - 過去議事録の手動 backfill でも、`generated_by_model='codex_manual_*'` などで `summary_short` と4配列だけを入れる運用は禁止。まず narrative を作ってから upsert する。
 - 表示側は `notion:<page_id>` 由来かつ `narrative_md` なしの弱い手動 duplicate が、同じ `project_id + meeting_date + normalized title` の強い row と並ぶ場合だけ非表示にする。DBからは消さず、正しい canonical row を読ませるための UI safety net。
 
@@ -282,7 +282,7 @@ recurring MTG は、Google Calendar の `recurring_event_id` が取れる場合�
 
 ## 議事録の手動修正 (2026-05-27 追加)
 
-MTGカードの一覧に出る短い文章は `project_meeting_summaries.summary_short`。詳細モーダルは `narrative_md` があればそれを主表示し、無い場合だけ `summary_short` と `decided / progress / next_actions / risks` を表示する。今後の `narrative_md` は、MTGに参加していなかったメンバーが読んでも背景・議論の流れ・決定/未決・次の一手が分かる文章 narrative を正とする。箇条書きの羅列は議事録本文として扱わない。
+MTGカードの一覧に出る短い文章は `project_meeting_summaries.summary_short`。詳細モーダルは `narrative_md` があればそれを主表示し、無い場合だけ `summary_short` と `decided / progress / next_actions / risks` を表示する。今後の `narrative_md` は、MTGに参加していなかったメンバーが読んでも背景・議論の流れ・決定/未決・次の一手が分かる構成を正とする。背景・経緯は文章、決まったこと・次の一手・残課題は1項目1論点の箇条書きにする。
 
 通常MTG / dialogue の詳細モーダルには「表示内容を編集」を置き、表示中の section と同じ source field を `POST /api/meeting-summary/manual-update` で直接上書きする。`narrative_md` が表示されている場合は `narrative_md` を、raw 配列が表示されている fallback 時だけ `decided / progress / next_actions / risks` を編集する。
 
@@ -532,11 +532,11 @@ if existing.source_hash === newHash: skip (LLM 呼ばない)
 - **行クリックで詳細モーダル展開** (= 旧アコーディオン折り畳みは廃止)
 - 行クリック時は URL を `/project/[projectId]/cockpit?meeting=<meeting_id>` に更新する。共有された同 URL で開くと該当 MTG 詳細モーダルを auto-open し、直近 1 年に無い row は older load で探す。閉じると `meeting` query だけを外す。`ym` / `step` と同時に来た場合は MTG 詳細を優先し、月次系モーダルとの二重起動は避ける。
 - `source_kinds='upcoming'` は月別議事録より上の「予定MTG / 準備中」に出し、詳細モーダルでは初見ブリーフとして表示する
-- 一覧カードの本文は `summary_short` を line-clamp 2 で表示する。詳細モーダルは `narrative_md` があれば本文として優先表示し、`narrative_md` が無い場合だけ `summary_short` + raw 配列を表示する。`narrative_md` は「そのMTGに参加していなかったメンバーでも会議の流れを理解できる文章」とし、`## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の固定順で書く。箇条書き・チェックボックス・配列項目の貼り付けを本文にしない。
+- 一覧カードの本文は `summary_short` を line-clamp 2 で表示する。詳細モーダルは `narrative_md` があれば本文として優先表示し、`narrative_md` が無い場合だけ `summary_short` + raw 配列を表示する。`narrative_md` は「そのMTGに参加していなかったメンバーでも会議の流れを理解できる構成」とし、`## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の固定順で書く。前半2セクションは段落、後半3セクションは1項目1論点の箇条書きにする。
 - モーダル内: ヘッダ (日時 + title + notion link + source_kinds chip) → サマリ / narrative → 決まったこと → 進んだこと → 次やること → リスク を縦並び。各 item は `MarkdownView` で markdown 描画 (= 表/見出し/リスト/コード/引用 OK)。編集 mode では表示している section が同じ位置で textarea になる
 - 議事録なしマーカー行は `summary_short` だけ "議事録なし" が出る (decided/progress/... は空なので非表示、`Notion で開く` リンクは notion_url があれば出る)
 - 通常MTG / dialogue は詳細モーダルの「表示内容を編集」から、表示中の `narrative_md` または raw section (`summary_short / decided / progress / next_actions / risks`) を更新できる。保存先は `POST /api/meeting-summary/manual-update`。MTG 詳細モーダルには「つくよみに修正依頼」を置かず、LLM 再解釈ではなく手動編集を正本にする。
-- 通常MTG / dialogue / 予定MTG は詳細モーダルの共有操作から、PDF直接保存・議事録コピー・準備メモコピー・`?meeting=` deep link コピーを実行できる。PDFは新しいDB行や添付ファイルを作らず、共有用 DOM を `html2canvas` + `jsPDF` でA4 PDFへ変換する。開催済みMTGの `narrative_md` に `## 参考: 会議前準備メモ` が含まれる場合、議事録本文と準備メモを分離し、議事録コピー/PDFには会議後サマリだけを入れる。準備メモは `準備メモコピー` で別途コピーできる。外部共有に不要な `project_id` / `source_kinds` は本文に入れない。
+- 通常MTG / dialogue / 予定MTG は詳細モーダルの共有操作から、PDF直接保存・議事録コピー・準備メモコピー・`?meeting=` deep link コピーを実行できる。PDFは共有用 DOM を `html2canvas` + `jsPDF` でA4 PDFへ変換し、その後 `meeting_assets` の PDF / PNG / JPEG を `sort_order` 順で連結する。会議の投影資料と参加者からの共有資料はカードへ添付し、投影資料を先、共有資料を後に並べる。開催済みMTGの `narrative_md` に `## 参考: 会議前準備メモ` が含まれる場合、議事録本文と準備メモを分離し、議事録コピー/PDFには会議後サマリだけを入れる。準備メモは `準備メモコピー` で別途コピーできる。外部共有に不要な `project_id` / `source_kinds` は本文に入れない。
 - jsonb 配列 (decided / progress / next_actions / risks) の各要素には **GFM table を含む長文 markdown を保存する運用** に変更 (= 提案前の論点整理セッションの議事録のように、L表/U表/L×U マトリクスを各要素に埋め込んで詳細解説する用途)。表は `<div className="overflow-x-auto">` で横スクロール対応
 
 ---
@@ -606,6 +606,7 @@ R313 を会議サマリ集約方式に書き換える TODO は廃止。必要な
 | **2026-05-29** | **議事録本文の5見出し固定順を正本化**: 開催済みMTGの `narrative_md` は `## 🎯背景` → `## 📊経緯` → `## ✅決まったこと` → `## ▶️次の一手` → `## ⚠️残課題` の順に固定。表記ゆれや順序違いは品質 gate で保存しない。 | 本セッション |
 | **2026-06-19** | **recurring 予定MTGをシリーズカード化**: `calendar-sync` は `recurring_event_id` が取れる series を cadence 問わず次回1件だけ保存し、2件目以降を `recurring_series_future_occurrence` で skip。`recurring_event_id` がDBへ残らない既存カードでも、title が `定例` / `月次` / `毎月` 等なら曜日を外して series 推定する。`CockpitMeetingSummary` / `HudCockpitMeetingSummary` は既存DB行も series ごとに次回1枚へ畳む。build v0.28.8 | 本セッション |
 | **2026-06-25** | **MTG詳細共有導線の分離とPDF直接保存**: `CockpitMeetingDetailModal` の共有導線を `PDF保存` / `議事録コピー` / `準備メモコピー` / `共有URLコピー` に更新。開催済み `narrative_md` 末尾の `## 参考: 会議前準備メモ` は議事録本文から切り出し、準備メモコピーに分離する。PDFはブラウザ印刷ではなく `html2canvas` + `jsPDF` の直接保存に変更し、固定DOMのページ重複・狭幅・ブラウザheader/footer混入を避ける。 | 本セッション |
+| **2026-07-14** | **MTG本文とPDF添付の構成を固定**: `narrative_md` は背景・経緯を段落、決まったこと・次の一手・残課題を1項目1論点の箇条書きにする。`PDF保存` は本文の後ろに `meeting_assets` の PDF / PNG / JPEG を並び順どおり連結し、投影資料と参加者共有資料を同じPDFに含める。 | まさ確定 |
 | **2026-05-29** | **weekly recurring 予定MTGを次回1件に制限**: `calendar-sync` は同じ weekly series の future occurrences を次回以外 skip し、`CockpitMeetingSummary` も既存DB行を series ごとに次回1件だけ表示する。複数 weekly series が同じPJにある場合はそれぞれ1件ずつ残す。 | 本セッション |
 | **2026-06-18** | **MTG詳細MarkdownのAMDメンバーリンク化**: `CockpitMeetingDetailModal` の Markdown 表示で `MarkdownView memberLinks` を有効化し、`narrative_md` 等の本文中に出る active AMDメンバー `members.code_name` を `/mypage?memberId=<members.member_id>` へリンクする。既存 Markdown link / code / pre は対象外。 | 895a1bda |
 | **2026-05-09** | **debug_meeting_inspectBlocks(pageId)** 新設 (gas/158): 任意ページの blocks 構造を JSON で返す常設 debug 関数 | fbeabb5 |
