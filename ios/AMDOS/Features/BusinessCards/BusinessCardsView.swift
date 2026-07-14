@@ -79,6 +79,7 @@ private struct BusinessCardsWebContainer: UIViewRepresentable {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .default()
         configuration.allowsInlineMediaPlayback = true
+        configuration.applicationNameForUserAgent = "AMDOS-iOS BusinessCards"
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
@@ -86,7 +87,6 @@ private struct BusinessCardsWebContainer: UIViewRepresentable {
         webView.isOpaque = false
         webView.backgroundColor = .systemGroupedBackground
         webView.scrollView.backgroundColor = .systemGroupedBackground
-        webView.customUserAgent = "AMDOS-iOS BusinessCards"
 
         let store = configuration.websiteDataStore.httpCookieStore
         guard !cookies.isEmpty else {

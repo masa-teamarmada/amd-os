@@ -223,7 +223,9 @@ Google Calendar に月次MTG枠を作成、参加者に招待を飛ばす。`sch
 - タブ位置: `PJ進捗` と `設定` の間。
 - `BusinessCardsView` は現在のSupabase sessionを `@supabase/ssr`互換cookieへ変換し、PWAのナビ無し native shell `/native/business-cards` を `WKWebView` で開く。
 - WebViewのredirect・再読込に伴う一時的なnavigation cancelは失敗表示にせず、最終ページの読込完了時にエラー表示を解除する。本当の通信失敗だけ「もう一度」導線を出す。
+- WebViewのUser-AgentはSafari/WKWebView標準値を維持し、`applicationNameForUserAgent` で `AMDOS-iOS BusinessCards` を追記する。標準UAを丸ごと上書きしない。
 - PWA側の名刺shellは撮影 / 写真選択のため、当該routeだけ `camera=(self)` と `img-src ... blob:` を許可する。その他のPWA画面は従来どおり camera deny。
+- PWA側の `/native/*` shell は `GlobalNav` だけでなく、通知・チャットなどの常駐クライアント部品も外し、埋め込み画面本体だけを描画する。
 - 撮影 / 写真選択、Gemini OCR、修正、複数PJ選択、確定はPWAと同じ `/api/business-cards` contractを使う。
 - OCRは自動確定しない。氏名と1件以上のPJを人が確認した時だけ `business_cards.status='confirmed'` とD-3 `project_knowledge(source='business_card')` を同期する。
 - 名刺画像、email、phone、address、raw OCRはprivate名刺台帳だけに置き、PJナレッジへ複製しない。

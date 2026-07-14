@@ -3,8 +3,20 @@
 > See also: [CLAUDE.md](CLAUDE.md) — 最重要ルール / [DESIGN.md](DESIGN.md) — **全画面の正本仕様（必読）** / [HANDOFF.md](HANDOFF.md) — 配布状況 / [BUGS.md](BUGS.md) — 既知バグ
 
 最終更新: 2026-07-14 (JST)
-対応 iOS/PWA commit: 今回のcommit "fix: allow camera policy for business card shell"
+対応 iOS/PWA commit: 今回のcommit "fix: harden native business card shell"
 TestFlight build: 未更新
+
+---
+
+## 2026-07-14 追記: native名刺shellを軽量化し、標準User-Agentを維持
+
+- `/native/business-cards` は `GlobalNav` だけでなく、緊急通知・つくよみチャットなど通常PWA向けの常駐クライアント部品も外し、名刺画面本体だけを描画する。
+- iOS `WKWebView` は `customUserAgent` で標準UAを丸ごと上書きせず、`applicationNameForUserAgent` で `AMDOS-iOS BusinessCards` を追記する。
+
+### Android 反映メモ
+
+- Android WebViewでも標準UAを丸ごと独自文字列に置換しない。アプリ名を足す場合は標準UAへ追記する。
+- native shellは通常PWAの常駐通知・チャット・ナビを含めない。
 
 ---
 

@@ -155,7 +155,12 @@ export default async function AppLayout({
       pathname,
     })
     : null;
-  const useEmbeddedShellOnly = pathname.startsWith("/hud") || pathname.startsWith("/native");
+  const isNativeShell = pathname.startsWith("/native");
+  const useEmbeddedShellOnly = pathname.startsWith("/hud") || isNativeShell;
+
+  if (isNativeShell) {
+    return <main className="flex-1">{children}</main>;
+  }
 
   return (
     <>

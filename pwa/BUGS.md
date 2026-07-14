@@ -15,6 +15,16 @@
 
 ---
 
+### [PWA/iOS business-cards] native shellに通常アプリ常駐部品と独自UAを載せた (2026-07-14)
+
+- **状態**: クローズ (2026-07-14 — native shellを軽量化し、iOS WebViewの標準UAを維持)。
+- **症状**: iOS名刺タブで `/native/business-cards` と `/api/business-cards` は本番ログ上 HTTP 200 なのに、画面は `This page couldn't load` のままだった。
+- **原因**: `/native/*` はナビ無しshellのつもりだったが、`PageTitleSetter`、緊急通知、つくよみチャットなど通常PWA向けの常駐クライアント部品を読み込んでいた。さらに iOS 側で `customUserAgent = "AMDOS-iOS BusinessCards"` としてSafari/WKWebView標準のUA文字列を丸ごと消しており、Next/WebView側の判定やチャンク読込の条件を不安定にしていた。
+- **対応内容**: `/native/*` は埋め込み画面本体だけを返す軽量shellにした。iOSは `customUserAgent` 上書きをやめ、`applicationNameForUserAgent` で標準UAへアプリ名を追記する方式へ変更。
+- **再発防止**: native shellは「ナビ無し」だけでなく「常駐クライアント部品無し」にする。WKWebViewでPWAを開く時は標準UAを維持し、独自UAへ丸ごと置換しない。
+
+---
+
 ### [PWA/MTG PDF] meeting_assets がカードにあっても共有PDFへ入らなかった (2026-07-14)
 
 - **状態**: クローズ (2026-07-14 — `pdf-lib` 連結を本番反映し、実PDFで確認)。
