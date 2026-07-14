@@ -14,10 +14,10 @@ Topic: SX `SolvioraX経営会議` W-Prep 起動漏れの復旧と再発防止
 
 ## Repo State
 
-- Closeout bundle before commit started from `main` at `4a7e2720`, `origin/main` aligned, no local unpushed commits.
-- This handoff is part of the closeout bundle. Exact final commit / production build-info must be taken from `git log -1 --oneline` and `https://amd-os-pwa.vercel.app/api/build-info` after deploy.
-- Repo-local dirty expected before closeout commit: only the SX/W-Prep bundle and this handoff/migration prompt. External automation files under `/Users/masa/.codex/automations/w-prep-launch/` are repo-external and tracked by automation memory, not git.
-- Closeout inventory found stale `.claude/worktrees` / `claude/*` branches that are main-aligned safe deletion candidates. They were not created by this session; final closeout response should state whether they were removed or left pending by Masa decision.
+- Functional PWA bundle commit: `29caad07 fix(pwa): harden SolvioraX prep mapping`, pushed to `origin/main` and deployed to production as `v3.39.67`.
+- Exact final HEAD should still be taken from `git log -1 --oneline`; this handoff may have a later docs-only closeout commit after the functional deploy.
+- External automation files under `/Users/masa/.codex/automations/w-prep-launch/` are repo-external and tracked by automation memory, not git.
+- Closeout cleanup removed 6 stale `.claude/worktrees` and 6 local `claude/*` branches. Final inventory after cleanup: one worktree (`/Users/masa/projects/AMD/amd-os`), local branch `main` only, local main aligned with `origin/main`.
 
 ## Verification
 

@@ -24,7 +24,8 @@ cd /Users/masa/projects/AMD/amd-os
 - 原因は Calendar recurring 予定やスプシ正本の欠落ではない。`CFG_PJAlias: SolvioraX -> SX` と `CFG_ColorPJHistory: 2025-06-01+ colorId=4 -> SX` は既にあった。W-Prep がそれを必ず使う契約になっていなかった。
 - active automation `/Users/masa/.codex/automations/w-prep-launch/automation.toml` は更新済み。Calendar直読みのPJ推定は `CFG_ColorPJHistory` first、`CFG_PJAlias` next、`SolvioraX` / `colorId=4` は SX/p21。
 - AMD OS repo側は `calendar-sync` alias mirror に `p21: ["SolvioraX"]` を追加し、critical-ui guard / spec / manual / L2_DATA / scheduled-tasks README / BUGS / design_log / changelog を同期。`BUILD_VERSION` は `v3.39.67`。
-- closeout bundle の正確な commit hash と production build-info は、作業開始時に `git log -1 --oneline` と `curl https://amd-os-pwa.vercel.app/api/build-info` で取り直す。
+- functional PWA bundle commit は `29caad07 fix(pwa): harden SolvioraX prep mapping`。production は `v3.39.67` / `29caad079ea01d48a17f97b5656276c91a50583b` / `main` / `dirty=false` を確認済み。docs-only closeout commit が後続している可能性があるので、作業開始時に `git log -1 --oneline` と `curl https://amd-os-pwa.vercel.app/api/build-info` で取り直す。
+- closeout cleanup 済み: stale `.claude/worktrees` 6個と local `claude/*` branch 6本は main-aligned 確認後に削除済み。final inventory は root worktree 1個、local branch `main` のみ。
 
 次タスク:
 1. まず `git fetch origin main`、`git status -sb`、`git log -1 --oneline`、`git rev-list --left-right --count HEAD...origin/main` を実行する。
