@@ -1,4 +1,4 @@
-# SESSION MIGRATION PROMPT — 日本文化マップ admin 導線 closeout
+# SESSION MIGRATION PROMPT — Book A 組版技術検証 closeout
 
 ```text
 cd /Users/masa/projects/AMD/amd-os
@@ -11,47 +11,76 @@ cd /Users/masa/projects/AMD/amd-os
 5. /Users/masa/projects/AMD/amd-os/AGENTS.md
 6. /Users/masa/projects/AMD/amd-os/pwa/AGENTS.md
 7. /Users/masa/projects/AMD/amd-os/pwa/CLAUDE.md
-8. /Users/masa/projects/AMD/amd-os/pwa/spec/2-1-pwa-runtime-routes.md
-9. /Users/masa/projects/AMD/amd-os/pwa/spec/2-2-pwa-surface-inventory-current-spec.md
-10. /Users/masa/projects/AMD/amd-os/pwa/design/FEATURE_REGISTRY.md
-11. /Users/masa/projects/AMD/amd-os/pwa/manual/2-6-admin-ops.md
-12. /Users/masa/projects/AMD/amd-os/pwa/BUGS.md
-13. /Users/masa/projects/AMD/amd-os/pwa/design_log/sessions_2026-07.md
+8. /Users/masa/projects/AMD/amd-os/pwa/manual/1-1-intro.md
+9. /Users/masa/projects/AMD/amd-os/pwa/spec/1-3-reconstruction-coverage-audit.md
+10. /Users/masa/projects/AMD/amd-os/pwa/bzm/HANDOFF_BOOK_A_2026-07-16.md
+11. /Users/masa/projects/AMD/amd-os/pwa/bzm/COMMANDER_TASKS.md
+12. /Users/masa/projects/AMD/amd-os/pwa/bzm/BOOK_A_PUBLISHING_PLAN.md
+13. /Users/masa/projects/AMD/amd-os/pwa/bzm/9-5-appendix-changelog.md
+14. /Users/masa/projects/AMD/amd-os/pwa/design_log/sessions_2026-07.md
+15. /Users/masa/projects/AMD/amd-os/pwa/BUGS.md
 
 状態スナップショット:
-- まさ指摘「日本文化ページはadminに移動させたはずなのに、またトップに戻ってる」は対応済み。
-- 原因は、2026-07-09 の admin 移動 commit が旧「資料」グループからは外した一方、共通左サイドナビ `GlobalNav` の Admin group に `日本文化 -> /admin/japanese-culture-map` を残したこと。後続で巻き戻ったのではなく、移動時点から共通ナビ入口が残存していた。
-- 機能修正 commit: `7758389a fix(pwa): keep japanese culture map admin-only`。
-- 本番 version: `v3.40.2`。
-- closeout / handoff docs の main commit が機能修正後に積まれている可能性がある。埋め込み SHA を current truth にせず、次回開始時に `git log -1 --oneline` と `https://amd-os-pwa.vercel.app/api/build-info` を照合する。
-- build-info は `git_branch=main`, `dirty=false`, `git_sha` が現在の `origin/main` と一致していれば正しい。
-- `GlobalNav` から「日本文化」を削除済み。`AdminSidebar` には `日本文化 -> /admin/japanese-culture-map` を残している。
-- 旧 `/japanese-culture-map` route は互換用 redirect として残す。ページ本体は `/admin/japanese-culture-map`。
-- `test:critical-ui` に、`GlobalNav.tsx` へ `日本文化` / `/admin/japanese-culture-map` / `/japanese-culture-map` が戻ったら落ちる guard を追加済み。
-- 仕様・マニュアル・事故記録は `FEATURE_REGISTRY.md`, `manual/2-6-admin-ops.md`, `manual/9-3-appendix-changelog.md`, `spec/6-1-appendix-changelog.md`, `design/os_manual.md`, `BUGS.md` に反映済み。
+- Book A 出版準備ストリームKで、Ch8 組版技術検証は完了済み。
+- 対象は /Users/masa/projects/AMD/amd-os/pwa/bzm/book-a-ch-8.md。本文は read-only で、章本文への編集はしていない。
+- 検証 commit: 1fdbf21b docs(bzm): Book A組版技術検証ログを記録。main に push 済み。
+- 検証結果は BOOK_A_PUBLISHING_PLAN.md §4、COMMANDER_TASKS.md Stream K、9-5-appendix-changelog.md に記帳済み。
+- 生成物は repo 外 /tmp/book-a-typesetting-verification-20260715/ にある。PDF/EPUB/TeX/render PNG は commit していない。
+- user-local TeX 環境として /Users/masa/Library/TinyTeX を入れ、日本語組版パッケージ collection-langjapanese / luatexja / jlreq を追加済み。
+- handoff作成時点の production readback は v3.41.4 / git_sha=71e63060 / git_branch=main / dirty=false。ただし handoff docs commit が後続で積まれるので、次回開始時に必ず current truth を取り直す。
 
-検証済み:
-- `npm run test:critical-ui`
-- `npx tsc --noEmit`
-- `npm run build`
-- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` (clean deploy clone から push/build監視)
+検証結果:
+- A5 PDF: pandoc + LuaLaTeX + ltjsbook + a5paper で生成成功、実測28ページ、A5サイズ。
+- PopplerでPDFをPNGレンダーし、表8-1、表8-3、主要数式、参照一覧を目視確認。大きな欠けや重なりは見えない。
+- PDF警告: 8.5節の長い underbrace 数式2本に overfull hbox (5.53pt / 20.26pt)。印刷版では aligned / 改行 / 小さめ指定で折り返す。
+- 図はまだ [図8-x] のプレースホルダ文字列。実画像ではない。
+- EPUB MathML: 生成成功。content.opf に properties="mathml" を確認。Kindle用の本命候補。
+- EPUB webtex: 生成自体は成功。ただし長い日本語入りの交換効率式1本が外部画像化に失敗し、式画像が欠落。最終採用にはローカル画像生成か式短縮が必要。
+- Java がないため epubcheck は未実施。Kindle Previewer も未検出で、実機系確認は未実施。
 
-現時点の dirty:
-- 次回開始時は `git status -sb --untracked-files=all` と closeout inventory を正本にする。
-- この closeout 時点では、日本文化 nav 修正とは別に Materials / research assets lane、`pwa/design/atlas_routine.md`、`pwa/bzm/2026-07-14_frontmatter_gairei_draft_v1.md` などの未整理差分が見えていた。
-- それらは日本文化 nav 修正には混ぜない。owner ごとに commit/deploy または revert 判断する。
+ページ・背幅:
+- Ch8実測: 28p。
+- 16章単純換算: 448p。
+- 巻頭巻末25pを足すと約473p。
+- 本番テンプレ、目次、奥付、図版実物、柱/ノンブル調整を考慮し、見積りケースは480 / 520 / 550pを維持。
+- 紙厚0.10〜0.11mm/枚なら背幅は480p=24.0〜26.4mm、520p=26.0〜28.6mm、550p=27.5〜30.3mm。最終値は印刷所確認。
 
 次タスク:
-1. まず `git fetch origin main`, `git status -sb --untracked-files=all`, `git log -1 --oneline`, `curl -fsS https://amd-os-pwa.vercel.app/api/build-info` を実行して current truth を確認する。
-2. もし日本文化がトップ/共通左ナビに再表示されたら、最初に `pwa/src/components/nav/GlobalNav.tsx` を見る。`npm run test:critical-ui` が落ちるはず。
-3. admin 画面内の導線を変える場合は、`pwa/design/FEATURE_REGISTRY.md` と `pwa/manual/2-6-admin-ops.md` を先に更新し、manual/spec changelog と BUGS も同期する。
-4. 残 dirty は別件として owner を分ける。`git add .` は使わず、対象ファイルだけ stage する。
+1. 高品質印刷所の見積り取得準備
+   - A5 / 480・520・550p / モノクロ本文 / PUR無線綴じ候補 / 表紙加工 / 50・100・200部 / 背幅24〜30mm級。
+2. ISBN/JAN申請情報整理
+   - 法人 Team Armada 発行、ISBN出版者記号自己取得、紙書籍はISBN+書籍JAN掲載。
+3. EPUB実機系確認
+   - Java + epubcheck、Kindle Previewer。MathML版を本命、webtexはローカル数式画像化か式短縮を検討。
+4. 印刷PDF本番パイプライン
+   - 長い数式の折り返し、図プレースホルダの実画像差し替え、柱・ノンブル・目次・奥付テンプレ。
+5. pwa/bzm/2026-07-14_frontmatter_gairei_draft_v1.md は別件の巻頭凡例下書き。勝手に削除/commitしない。Book A frontmatter laneで判断する。
 
-確立済みルール:
-- 日本文化マップの唯一のUI入口は `pwa/src/components/admin/AdminSidebar.tsx`。
-- `GlobalNav` の一般「資料」グループにも共通 Admin group にも戻さない。
-- 旧 `/japanese-culture-map` は削除せず、ブックマーク互換の redirect として `/admin/japanese-culture-map` へ送る。
-- PWAの本番反映は `main` push = Vercel production deploy。直接 `npx vercel deploy` は使わない。
-- dirty があっても branch は切らない。今回のように deploy script が tracked dirty で止まる場合は、clean deploy clone で対象 commit だけを反映し、root main は origin/main に揃える。
-- raw本文、secret、個人情報、Drive URL を handoff / BUGS / design_log に出さない。
+repo状態 / dirty:
+- 次回開始時は必ず以下を実行:
+  git fetch origin main
+  git status -sb --untracked-files=all
+  git log -1 --oneline
+  curl -fsS https://amd-os-pwa.vercel.app/api/build-info
+- handoff時点では main と origin/main は一致していたが、別件 dirty がある。
+- unrelated dirty:
+  - pwa/design/atlas_routine.md
+  - pwa/scripts/check_contracts_ledger_grouping.mts
+  - pwa/scripts/check_pwa_critical_ui.cjs
+  - pwa/src/app/api/contracts/[contractId]/route.ts
+  - pwa/src/app/api/contracts/route.ts
+  - pwa/src/components/contracts/ContractsClient.tsx
+  - pwa/src/lib/contracts-ledger.ts
+  - ios/supabase/migrations/20260716113000_contracts_operational_answers.sql
+  - pwa/bzm/2026-07-14_frontmatter_gairei_draft_v1.md
+- これらはBook A組版検証には混ぜない。ownerごとに commit/deploy または revert 判断する。
+
+確立済み運用ルール:
+- まず /Users/masa/projects/AGENTS.common.md と AMD level memory を読む。
+- branch/worktree作成は禁止。main直編集・main直push。
+- dirtyを理由にbranchを切らない。今回触るファイルだけ明示stageする。git add . 禁止。
+- BZM出版準備の生成物は repo に入れない。検証成果物は /tmp か明示された外部作業dirに置く。
+- chapter body は、出版パイプライン検証では read-only。中身の改稿は司令塔/章ワーカーの別レーン。
+- manual/spec/bzmの3層ルールを守る。今回は新UI/API/cronではないためOSマニュアル追記は対象外、BZM附則と出版計画が正本。
+- PWA実装を触る本番反映は deploy.sh 経由。今回のBook A docsはアプリ仕様変更なしだが、main push後はproduction build-infoで current truth を確認する。
 ```

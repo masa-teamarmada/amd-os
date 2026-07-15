@@ -1287,3 +1287,28 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 ### Closeout notes
 - 日本文化マップ nav regression の既知残タスクはなし。
 - root checkout には別件 `pwa/design/atlas_routine.md` と `pwa/bzm/2026-07-14_frontmatter_gairei_draft_v1.md` が残っている。今回の nav 修正には混ぜない。
+
+---
+
+## 2026-07-15 — Book A 組版技術検証
+
+### コンテキスト
+- Book A 出版準備ストリームKで、Ch8 を数式最重量級サンプルとして出版パイプライン検証した。
+- 対象は `pwa/bzm/book-a-ch-8.md`。本文は read-only、生成物は repo 外 `/tmp/book-a-typesetting-verification-20260715/` に限定した。
+
+### 対応
+- pandoc + LuaLaTeX + `ltjsbook` + A5 指定で PDF を生成。
+- pandoc `--mathml` と `--webtex` で EPUB を生成。
+- Poppler で PDF を PNG レンダーし、表・主要数式・参照一覧を目視確認。
+- 結果を `pwa/bzm/BOOK_A_PUBLISHING_PLAN.md` §4、`pwa/bzm/COMMANDER_TASKS.md` Stream K、`pwa/bzm/9-5-appendix-changelog.md` に記帳した。
+
+### 結果
+- A5 PDF は28ページで生成成功。大きな欠けや重なりは見えない。
+- MathML EPUB は生成成功。
+- webtex EPUB は生成自体は成功したが、長い日本語入りの交換効率式1本が外部画像化に失敗した。
+- 総ページ見積りは480 / 520 / 550pケースを維持し、背幅は紙厚0.10〜0.11mm/枚で24〜30mm級の暫定レンジとした。
+
+### Closeout notes
+- commit `1fdbf21b docs(bzm): Book A組版技術検証ログを記録` は `main` に push 済み。
+- `epubcheck` は Java 未導入のため未実施。Kindle Previewer も未検出。
+- 次は高品質印刷所の見積り取得準備、ISBN/JAN申請情報整理、Kindle/epubcheck確認、長い数式の折り返しと図版実画像差し替え。

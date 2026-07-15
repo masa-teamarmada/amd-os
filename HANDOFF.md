@@ -1,47 +1,48 @@
 # AMD OS Handoff
 
-Last updated: 2026-07-15 JST
-Target: `/Users/masa/projects/AMD/amd-os`
-Topic: 日本文化マップを admin 内導線へ再固定
+Last updated: 2026-07-16 JST
+Target: `/Users/masa/projects/AMD/amd-os/pwa/bzm`
+Topic: Book A 組版技術検証 closeout / 出版準備ストリームK
 
 ## Latest Session Summary
 
-- まさ指摘「日本文化ページは admin に移動したはずなのに、またトップに戻ってる」を調査。
-- 原因は巻き戻りではなく、2026-07-09 の移動 commit で旧「資料」グループからは外した一方、共通左サイドナビ `GlobalNav` の Admin group に `/admin/japanese-culture-map` 入口を残していたこと。
-- `GlobalNav` から「日本文化」を削除し、入口を admin 画面内 `AdminSidebar` のみに限定した。
-- 再発防止として `test:critical-ui` に「GlobalNav に `日本文化` / `/admin/japanese-culture-map` / `/japanese-culture-map` が戻ったら失敗する」ガードを追加。
-- 恒久仕様は `pwa/design/FEATURE_REGISTRY.md`、`pwa/manual/2-6-admin-ops.md`、manual/spec changelog、`pwa/design/os_manual.md`、`pwa/BUGS.md` に反映済み。
-- 詳細ログ: `pwa/design_log/sessions_2026-07.md` の「2026-07-15 — 日本文化マップを admin 内導線へ再固定」。
+- Book A 出版準備ストリームKで、`book-a-ch-8.md` を数式最重量級サンプルとして read-only 検証した。
+- A5 PDF は pandoc + LuaLaTeX + `ltjsbook` で生成成功、実測28ページ。MathML EPUB も生成成功。
+- webtex EPUB は生成自体は成功したが、長い日本語入りの交換効率式1本が外部画像化に失敗した。
+- 結果は `pwa/bzm/BOOK_A_PUBLISHING_PLAN.md` §4、`pwa/bzm/COMMANDER_TASKS.md` Stream K、`pwa/bzm/9-5-appendix-changelog.md` に反映済み。
+- 生成PDF/EPUBは repo 外 `/tmp/book-a-typesetting-verification-20260715/` に置き、commit していない。
+- 詳細 handoff: `pwa/bzm/HANDOFF_BOOK_A_2026-07-16.md`。
+- 詳細ログ: `pwa/design_log/sessions_2026-07.md` の「Book A 組版技術検証」。
 
 ## Repo State
 
-- Canonical branch: `main`.
-- Functional fix commit: `7758389a fix(pwa): keep japanese culture map admin-only`.
-- Production version for the nav fix: `v3.40.2`.
-- Handoff/closeout docs may add later main commits after the functional fix, so do not treat the embedded functional commit as the current live SHA.
-- Current truth check at next start: run `git log -1 --oneline` and `curl -fsS https://amd-os-pwa.vercel.app/api/build-info`; expect `git_branch=main`, `dirty=false`, and a `git_sha` matching current `origin/main`.
-- Local main was aligned to `origin/main` after the clean deploy clone push. No local unpushed commits remained before this handoff-doc update.
+- Canonical branch: `main`。
+- Book A 組版検証 commit: `1fdbf21b docs(bzm): Book A組版技術検証ログを記録`。push 済み。
+- Handoff 作成時点の local main / origin/main: aligned。最新の production readback は `v3.41.4` / `71e63060` / `git_branch=main` / `dirty=false`。
+- この handoff 自体の commit が後続で積まれるため、次回開始時は `git log -1 --oneline` と `https://amd-os-pwa.vercel.app/api/build-info` を再照合する。
+- このセッションで作った branch / worktree: none。
 
 ## Verification Run
 
-- `npm run test:critical-ui` passed.
-- `npx tsc --noEmit` passed.
-- `npm run build` passed.
-- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` completed in the clean deploy clone and production build-info matched the new commit.
-- `git log --branches --not --remotes --oneline` returned empty before handoff-doc edits.
+- `pdfinfo /tmp/book-a-typesetting-verification-20260715/ch8-a5-ltjsbook.pdf` -> 28 pages / A5。
+- `unzip -p ch8-mathml.epub EPUB/content.opf | grep mathml` -> `properties="mathml"` 確認。
+- `unzip -p ch8-webtex.epub EPUB/text/ch001.xhtml | grep 交換効率` -> 交換効率の本文は残るが式画像は欠落。
+- `git diff --check` passed for the three Book A docs before commit。
+- Full PWA build/test は未実施。対象は BZM 出版準備 md の記帳であり、アプリUI/API変更なし。
 
 ## Dirty State
 
 | path | status | class | owner guess | resolution action | next judgment condition | risk |
 |---|---:|---|---|---|---|---|
-| `pwa/design/FEATURE_REGISTRY.md`, `pwa/design/SPEC_pwa.md`, `pwa/manual/2-5-research-assets-quick-start.md`, `pwa/spec/*`, `pwa/src/components/nav/*`, `pwa/src/lib/build-info.ts` | M | later / other-worker | Materials / research assets lane | Do not mix into this nav closeout. Owner should review, run UI/build checks, then commit/deploy or revert as its own bundle. | Before any next PWA deploy from this checkout. | high: local `BUILD_VERSION` may differ from production and nav wording can diverge. |
-| `pwa/design/atlas_routine.md` | M | preexisting / other-worker | Atlas routine docs lane | Do not mix into this nav closeout. Next Atlas/routine owner should decide commit vs revert after reading diff. | Before next Atlas routine docs/deploy closeout. | medium: stale routine notes can be mistaken for current truth. |
-| `pwa/bzm/2026-07-14_frontmatter_gairei_draft_v1.md` | ?? | preexisting / other-worker | BZM/frontmatter draft lane | Do not remove here. BZM owner should decide whether to register, move, or delete the draft. | Before next BZM publication/frontmatter session closes. | low-medium: untracked draft can be missed or accidentally swept later. |
+| `pwa/design/atlas_routine.md` | M | other-worker | Atlas / routine lane | Do not mix into Book A closeout. Owner should commit/deploy or revert as its own bundle. | Before next Atlas/routine closeout. | medium |
+| `pwa/scripts/check_contracts_ledger_grouping.mts`, `pwa/scripts/check_pwa_critical_ui.cjs`, `pwa/src/app/api/contracts/**`, `pwa/src/components/contracts/ContractsClient.tsx`, `pwa/src/lib/contracts-ledger.ts`, `ios/supabase/migrations/20260716113000_contracts_operational_answers.sql` | M / ?? | other-worker | contracts operational answers lane | Do not stage here. Contracts owner should verify schema/API/UI/critical guard, then commit/deploy or revert as one bundle. | Before next contracts deploy/closeout. | high |
+| `pwa/bzm/2026-07-14_frontmatter_gairei_draft_v1.md` | ?? | preexisting / other-worker | Book A frontmatter lane | Keep. BZM/frontmatter owner should decide register/move/delete after Masa review. | Before next Book A frontmatter closeout. | low-medium |
 
 ## Unresolved Tasks
 
-- None for the 日本文化マップ nav regression.
-- Existing unrelated dirty above still needs its own owner closeout. This session did not create it and did not stage it.
+- Book A Stream K: 高品質印刷所への見積り取得準備、ISBN/JAN申請情報整理、Kindle Previewer / epubcheck 確認。
+- 組版 pipeline: 長い数式2本の折り返しルール、図プレースホルダの実画像差し替え、本番テンプレ (柱・ノンブル・目次・奥付)。
+- repo hygiene: 上記 unrelated dirty は各 owner lane で別 closeout。
 
 ## First Next Action
 
@@ -53,23 +54,22 @@ Topic: 日本文化マップを admin 内導線へ再固定
    git log -1 --oneline
    curl -fsS https://amd-os-pwa.vercel.app/api/build-info
    ```
-2. If the user reports 日本文化 appearing on the top/common left nav again, inspect `pwa/src/components/nav/GlobalNav.tsx` first. `npm run test:critical-ui` should fail if it was re-added there.
-3. Do not move the Japanese culture entry out of `AdminSidebar` unless the design contract in `FEATURE_REGISTRY.md` and manual/spec changelogs are intentionally changed.
+2. If continuing Book A publication work, read `pwa/bzm/COMMANDER_TASKS.md` Stream K and `pwa/bzm/BOOK_A_PUBLISHING_PLAN.md` §4 first.
+3. Start with quote-prep / ISBN-JAN prep / EPUB real-device checks. Do not edit chapter body while doing publication pipeline work.
 
 ## Pointers
 
-- Runtime route spec: `pwa/spec/2-1-pwa-runtime-routes.md`
-- Surface inventory: `pwa/spec/2-2-pwa-surface-inventory-current-spec.md`
-- Feature contract / regression guard: `pwa/design/FEATURE_REGISTRY.md`
-- Admin ops manual: `pwa/manual/2-6-admin-ops.md`
-- Bug record: `pwa/BUGS.md`
-- Session log: `pwa/design_log/sessions_2026-07.md`
-- Critical UI guard: `pwa/scripts/check_pwa_critical_ui.cjs`
+- BZM handoff: `pwa/bzm/HANDOFF_BOOK_A_2026-07-16.md`
+- Publication plan: `pwa/bzm/BOOK_A_PUBLISHING_PLAN.md`
+- Commander ledger: `pwa/bzm/COMMANDER_TASKS.md`
+- BZM appendix changelog: `pwa/bzm/9-5-appendix-changelog.md`
+- Session migration prompt: `SESSION_MIGRATION_PROMPT.md`
+- PWA / AMD OS rules: `CLAUDE.md`, `pwa/AGENTS.md`, `pwa/CLAUDE.md`
 
 ## Guardrails
 
-- `GlobalNav` must not contain `日本文化`, `/admin/japanese-culture-map`, or `/japanese-culture-map`.
-- The actual page remains `/admin/japanese-culture-map`; the legacy `/japanese-culture-map` route is redirect-only for old bookmarks.
-- `AdminSidebar` remains the only UI entry for this admin knowledge view.
-- PWA production changes go through `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh`; direct `npx vercel deploy` remains prohibited.
-- `git add .` remains prohibited; stage only the explicit target files.
+- BZM出版準備の生成物 (PDF/EPUB/TeX/render PNG) は repo に入れない。
+- Chapter body (`book-a-ch-*.md`) は出版パイプライン検証では read-only。
+- `git add .` 禁止。対象ファイルだけ stage。
+- Branch/worktree 作成は禁止。main 直 commit / push。
+- PWA本番反映対象の実装変更は deploy script 経由。今回の Book A docs はアプリ仕様変更なし。

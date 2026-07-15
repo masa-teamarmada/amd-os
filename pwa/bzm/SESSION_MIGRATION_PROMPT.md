@@ -1,81 +1,86 @@
-# Book A 出版準備セッション 引き継ぎプロンプト (2026-07-13 司令塔ハンドオフ → 次セッション)
+# SESSION MIGRATION PROMPT — Book A 組版技術検証 closeout
 
-Book A『ディープテック起業の経営学』(仮) の出版準備専用セッション。第5セッション (2026-07-11、章頭改稿ウェーブ第2弾 完了 + PF-019 [Book B = A の平易版] 確定) 以降の成果: **⑥第9章 v1公開・品質ゲート通過** (`book-a-ch-9.md`、まさ段落確定待ち) **⑦第10章 v1公開・品質ゲート通過** (`book-a-ch-10.md` 20,004字・10節・SPS≠GO図解正本10.6、まさ段落確定待ち、commit `fe731526`) **⑧Ch1〜9 理論/ナラティブ主旨一致診断 完了** (Ch2 に構造的ズレを検出) **⑨PF-021 ナラティブパート俯瞰再推敲**: Ch1 白紙構想 v5・Ch2 白紙構想 v4 とも本文正本反映・まさ承認完了、Ch3〜8 は未着手 **⑩A案まさ確定** (ナラティブ統一世界への格上げ・連続ドラマ形式、理論章順は不変、commit `c514466b`) — これを受け**統一世界設計セッション**・**登場人物命名セッション**を spawn_task で新設 (まさ起動待ち)。**次期司令塔セッション起動済み** (`task_55ef2455`、理由: コンテキスト長大化)。次セッションの主戦場は①統一世界設計/命名確定の進捗監督 ②第9・10章のまさ確定対応 ③Ch2 理論側改修パッケージ ④世界設定確定を前提とする第11〜16章の着手管理 — 詳細は「次タスク詳細」参照。
+```text
+cd /Users/masa/projects/AMD/amd-os
 
-## 最初に読む (この順)
+最初に読む順:
+1. /Users/masa/projects/AGENTS.common.md
+2. /Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md
+3. /Users/masa/projects/AMD/amd-os/HANDOFF.md
+4. /Users/masa/projects/AMD/amd-os/CLAUDE.md
+5. /Users/masa/projects/AMD/amd-os/AGENTS.md
+6. /Users/masa/projects/AMD/amd-os/pwa/AGENTS.md
+7. /Users/masa/projects/AMD/amd-os/pwa/CLAUDE.md
+8. /Users/masa/projects/AMD/amd-os/pwa/manual/1-1-intro.md
+9. /Users/masa/projects/AMD/amd-os/pwa/spec/1-3-reconstruction-coverage-audit.md
+10. /Users/masa/projects/AMD/amd-os/pwa/bzm/HANDOFF_BOOK_A_2026-07-16.md
+11. /Users/masa/projects/AMD/amd-os/pwa/bzm/COMMANDER_TASKS.md
+12. /Users/masa/projects/AMD/amd-os/pwa/bzm/BOOK_A_PUBLISHING_PLAN.md
+13. /Users/masa/projects/AMD/amd-os/pwa/bzm/9-5-appendix-changelog.md
+14. /Users/masa/projects/AMD/amd-os/pwa/design_log/sessions_2026-07.md
+15. /Users/masa/projects/AMD/amd-os/pwa/BUGS.md
 
-1. `/Users/masa/projects/AGENTS.common.md` — 大原則 (共通人格・作業姿勢・安全運用・記憶管理)。飛ばさない
-2. `/Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md` — AMD level memory (AMD 配下 cwd なら冒頭必読)
-3. `pwa/bzm/COMMANDER_TASKS.md` — **司令塔の正本ログ、最優先で読む**。全ワークストリームの現状・フリート・まさ要判断はここに集約されている
-4. `pwa/bzm/BOOK_A_NARRATIVE_DESIGN.md` — 特に **§2.5 (全体のストーリー・A案確定)** と **§6 (白紙構想の骨抜き防止4条項)** は必読
-5. `pwa/bzm/BOOK_A_MASTER_PLAN.md` — §2 TOC v2・§3 数式配置マップ・§9 各章仕様
-6. `/Users/masa/projects/knowledge/EPISODE_BANK.md` — **実話シード在庫 (非公開・本文へ転記禁止)**。使用済みマーク (✅) と「使い先」列を必ず確認
+状態スナップショット:
+- Book A 出版準備ストリームKで、Ch8 組版技術検証は完了済み。
+- 対象は /Users/masa/projects/AMD/amd-os/pwa/bzm/book-a-ch-8.md。本文は read-only で、章本文への編集はしていない。
+- 検証 commit: 1fdbf21b docs(bzm): Book A組版技術検証ログを記録。main に push 済み。
+- 検証結果は BOOK_A_PUBLISHING_PLAN.md §4、COMMANDER_TASKS.md Stream K、9-5-appendix-changelog.md に記帳済み。
+- 生成物は repo 外 /tmp/book-a-typesetting-verification-20260715/ にある。PDF/EPUB/TeX/render PNG は commit していない。
+- user-local TeX 環境として /Users/masa/Library/TinyTeX を入れ、日本語組版パッケージ collection-langjapanese / luatexja / jlreq を追加済み。
+- handoff作成時点の production readback は v3.41.4 / git_sha=71e63060 / git_branch=main / dirty=false。ただし handoff docs commit が後続で積まれるので、次回開始時に必ず current truth を取り直す。
 
-## 作業方式 (bzm ファイルの読み書き)
+検証結果:
+- A5 PDF: pandoc + LuaLaTeX + ltjsbook + a5paper で生成成功、実測28ページ、A5サイズ。
+- PopplerでPDFをPNGレンダーし、表8-1、表8-3、主要数式、参照一覧を目視確認。大きな欠けや重なりは見えない。
+- PDF警告: 8.5節の長い underbrace 数式2本に overfull hbox (5.53pt / 20.26pt)。印刷版では aligned / 改行 / 小さめ指定で折り返す。
+- 図はまだ [図8-x] のプレースホルダ文字列。実画像ではない。
+- EPUB MathML: 生成成功。content.opf に properties="mathml" を確認。Kindle用の本命候補。
+- EPUB webtex: 生成自体は成功。ただし長い日本語入りの交換効率式1本が外部画像化に失敗し、式画像が欠落。最終採用にはローカル画像生成か式短縮が必要。
+- Java がないため epubcheck は未実施。Kindle Previewer も未検出で、実機系確認は未実施。
 
-- **ローカル checkout (`/Users/masa/projects/AMD/amd-os`) に bzm は存在する** (2026-07-11 時点、main 直編集でよい)。旧記載「ローカルに無い→worktree 経由」は解消済みだが、checkout が古い場合はまず `git pull --ff-only`
-- **並走章セッション (第11〜16章、各自 worktree) が同じ main へ push し続ける**: 読む前に fetch / **push 前に必ず fetch、rejected なら `git pull --rebase --autostash` → push (単独実行して RC 判定、パイプ禁止)**
-- stage は対象ファイルのみ (`git add .` 禁止)。**commit 前に `git status` / `git diff --staged --stat` で staged set を必ず確認**。新規ブランチ禁止 (main 一本)
-- bzm の md / 台帳 / handoff 系 commit + push は**承認を取らず即実行** (まさ確定 feedback)
-- **共有台帳 (BOOKS_PORTFOLIO / MASTER_PLAN / glossary) への記帳は自分の変更分だけ最小行で** — 並走コンフリクトを避ける
+ページ・背幅:
+- Ch8実測: 28p。
+- 16章単純換算: 448p。
+- 巻頭巻末25pを足すと約473p。
+- 本番テンプレ、目次、奥付、図版実物、柱/ノンブル調整を考慮し、見積りケースは480 / 520 / 550pを維持。
+- 紙厚0.10〜0.11mm/枚なら背幅は480p=24.0〜26.4mm、520p=26.0〜28.6mm、550p=27.5〜30.3mm。最終値は印刷所確認。
 
-## 状態スナップショット (2026-07-13 時点)
+次タスク:
+1. 高品質印刷所の見積り取得準備
+   - A5 / 480・520・550p / モノクロ本文 / PUR無線綴じ候補 / 表紙加工 / 50・100・200部 / 背幅24〜30mm級。
+2. ISBN/JAN申請情報整理
+   - 法人 Team Armada 発行、ISBN出版者記号自己取得、紙書籍はISBN+書籍JAN掲載。
+3. EPUB実機系確認
+   - Java + epubcheck、Kindle Previewer。MathML版を本命、webtexはローカル数式画像化か式短縮を検討。
+4. 印刷PDF本番パイプライン
+   - 長い数式の折り返し、図プレースホルダの実画像差し替え、柱・ノンブル・目次・奥付テンプレ。
+5. pwa/bzm/2026-07-14_frontmatter_gairei_draft_v1.md は別件の巻頭凡例下書き。勝手に削除/commitしない。Book A frontmatter laneで判断する。
 
-**詳細・最新状態は `COMMANDER_TASKS.md` が正本** (ここは概略のみ。章別詳細をここに逐一複製すると drift の原因になるため、詳細はそちらを見る)。
+repo状態 / dirty:
+- 次回開始時は必ず以下を実行:
+  git fetch origin main
+  git status -sb --untracked-files=all
+  git log -1 --oneline
+  curl -fsS https://amd-os-pwa.vercel.app/api/build-info
+- handoff時点では main と origin/main は一致していたが、別件 dirty がある。
+- unrelated dirty:
+  - pwa/design/atlas_routine.md
+  - pwa/scripts/check_contracts_ledger_grouping.mts
+  - pwa/scripts/check_pwa_critical_ui.cjs
+  - pwa/src/app/api/contracts/[contractId]/route.ts
+  - pwa/src/app/api/contracts/route.ts
+  - pwa/src/components/contracts/ContractsClient.tsx
+  - pwa/src/lib/contracts-ledger.ts
+  - ios/supabase/migrations/20260716113000_contracts_operational_answers.sql
+  - pwa/bzm/2026-07-14_frontmatter_gairei_draft_v1.md
+- これらはBook A組版検証には混ぜない。ownerごとに commit/deploy または revert 判断する。
 
-- **第1・2章**: `done` (まさ確定済み)。Ch2 は PF-021 で 2.0節を白紙構想 v4 へ全面差し替え・まさ承認済み (2026-07-13)
-- **第3〜10章**: `in-progress` (v1 公開済み・まさ段落確定待ち)。第9章は章間整合レビュー7項目 + PF-021局所推敲3点まで反映済み。第10章は正本化・OS公開まで完走 (`book-a-ch-10.md` 20,004字・10節・SPS≠GO図解正本(10.6)・adversarial verify 5/5 persona 完走 must 27件全採用・棄却0、commit `fe731526`)
-- **第11〜16章** (新 Ch14「CEOという難問」含む): `not-started`。**世界設定確定 (下記 A案) が前提条件のため着手保留中** — フリートの起動チップ自体は発行済み (詳細・task_id は `COMMANDER_TASKS.md` フリート表)
-- **Ch1〜9 理論/ナラティブ主旨一致診断** (`2026-07-13_ch1-9_theme_alignment_diagnosis.md`) 完了: ○=Ch1/3/8/9、△=Ch4/5/6/7 (中心命題v2の反転・攻めの要素が未反映という共通構造)、×=Ch2 (裁定確定・v4で解消済み)。△4章の処置裁定はまさ待ち
-- **🔴 A案まさ確定 (2026-07-13、commit `c514466b`)**: ナラティブ統一世界への格上げ (連続ドラマ形式)。「各話の主役は別人だが読者の中で一人に積み上がる」精神的連続を、同一機関・固定キャスト・複数案件・視点交代の**物理的連続**へ格上げ。**理論の章順は不変、ナラティブ層のみ統一**。世界設定正本・登場人物命名+命名理由台帳は専用セッションが設計しまさ確定を取る。両セッション確定後、その成果が Ch3 以降の白紙構想と Ch11〜16 起草の共通前提になる (詳細 = `BOOK_A_NARRATIVE_DESIGN.md` §2.5 の 2026-07-13 追記)
-- **統一世界設計セッション・登場人物命名セッション**: spawn_task で新設済み、まさが実行タイミングを管理。**進捗 (2026-07-13時点、コア9人=生き残り確定枠が全員確定まで到達)**: 命名セッションは第一弾 (柏木・志野・戸倉)・第二弾 (瀬戸=維持/世良→**灘**/柳井→**楢原**)・第三弾 (真柴・笹本・甲斐=維持) を経てコア9人全員まさ確定済み — 正本 `BOOK_A_CHARACTER_NAMES.md`。改名2件 (柳井→楢原・世良→灘) は `book-a-ch-8.md`/`book-a-ch-10.md`/NARRATIVE_DESIGN §2.5 へ正本反映済み (旧名残存ゼロ検証済み、commit `5e69dc77`)。その後 (同日) 世界設定確定を受けて完走: 野々村/宮原/藤野/青柳 = **退場既定** (Ch4/5 白紙構想で視点 = 戸倉/瀬戸へ吸収、改名不要で「野」三連続・事件連想・「柳」重複が自然解消)、第四弾 = **湊** (触媒の准教授・案件B) + **磐井** (断熱素材の研究者・案件C) まさ確定。**名前持ち11人全確定、命名の残タスクは Ch14 の男のみ** (着工時、再開手順 = `SESSION_MIGRATION_PROMPT_NAMING.md`)。**印字ルール**: 湊・磐井は確定章 (Ch2/3) へ遡及印字しない — 初出は Ch13 / Ch4-5 新本文 (STORY_WORLD §2.5 に印字ルールあり)。世界設定側は `BOOK_A_STORY_WORLD.md` へ正本化済み (まさレビュー通過) で、確定11人の流し込みも完了済み (7e72b99c ほか)。**worktree対応 (2026-07-13、`git merge-base`/`list_sessions` で裏取り確認済み)**: 命名セッション = `.claude/worktrees/sweet-archimedes-b18479` — **完結・closeout 済み (2026-07-13)**、全 commit は main へ FF 反映済みのため保護不要 (worktree/branch は削除可)。世界設定セッション (`local_0a4b4dd6...`, title「Book A 統一世界設計」) は専用worktreeを持たず、root checkout (`/Users/masa/projects/AMD/amd-os`) 上で直接 main 編集する運用 — branch `claude/youthful-allen-097937` は成果を都度 main へ畳んでおりローカルには存在しない。**訂正注記**: 本ファイルの旧バージョンには「世界設定セッション = `jolly-stonebraker-531e35`」という誤記があったが、`jolly-stonebraker-531e35` は次期司令塔自身の worktree (title「Book A 司令塔 — 次期セッション引き継ぎ」、origin/main と比べ独自 commit ゼロ = 実作業は root checkout の main 直編集で行っている) であり世界設定セッションではない。次期司令塔が自分自身の worktree に「触れない」必要は無いので誤解しないこと
-- **次期司令塔セッション**: spawn_task で起動済み (`task_55ef2455`、理由: コンテキスト長大化によるセッション交代)
-
-## 次タスク詳細 (この順)
-
-### 1. 🔥 統一世界設計・登場人物命名セッションの進捗監督
-
-A案 (ナラティブ統一世界への格上げ) 確定を受けて起票した2セッションの進捗を監督する。世界設定正本 (同一機関・固定キャスト・複数案件・視点交代の設計) と登場人物命名+命名理由台帳が確定するまで、**Ch3 以降の白紙構想も第11〜16章のワーカー着手も前提待ち**。詳細 = `BOOK_A_NARRATIVE_DESIGN.md` §2.5 の 2026-07-13 追記。
-
-### 2. 第9・10章 まさ段落確定への対応
-
-第9章 (品質ゲート通過済み)・第10章 (正本化・OS公開済み、`fe731526`) とも、まさの段落確定を待つのみ。確定が出たら bzm-chapters status を `completed` へ、L3 ステージ6 を ✅ へ、`COMMANDER_TASKS.md` Changelog に記帳。**第10章は本セッションが記帳漏れ (盤が not-started のまま止まっていた) を修正したばかりなので、まさ確認後の反映を漏らさないこと**。
-
-### 3. Ch2 v4 理論側改修パッケージ (司令塔ゲート案件)
-
-まさ承認済みの Ch2 v4 本文 (`book-a-ch-2.md` 2.0節) は動かさず、理論パート側だけ調整する。`2026-07-13_narrative_rebuild_ch2_v4.md` §7 の改修リストを分解して順次実行:
-- ① 討議課題A の文言差し替え (「この十七分で本当は何を止めるべきだったか」系 → 新場面に沿った文言)
-- ② 2.7 節「十七分のその後」の全面書き換え (回収する場面が変わったため)
-- ③ 2.2 / 2.4 / 2.5 / 2.6 節の場面参照差し替え (旧場面小道具 [八枚目・シール・十七分・登記提案] への参照を新場面 [四つの助言・メモ帳・志野の答え・「いつ」の問い] へ置換)
-- ④ 演習2-3 の題材見直し
-- ⑤ 設計表 (`BOOK_A_MASTER_PLAN.md` 該当行・§9 Ch2 therefore文言) の点検
-
-詳細 = `COMMANDER_TASKS.md` ストリーム O 詳細セクション末尾。
-
-### 4. 第11〜16章ワーカーの着手管理 (世界設定確定が前提)
-
-新 Ch14「CEOという難問」を含む第11〜16章のワーカーは、統一世界設計・登場人物命名が確定するまで**着手させない**。フリートの起動チップは発行済みだが (詳細・task_id は `COMMANDER_TASKS.md` フリート表)、まさが実行タイミングを管理する対象に「世界設定確定待ち」の旨を明記して引き継ぐこと。
-
-## このPJで確立済みの運用ルール (事故防止 — 全部有効)
-
-- 🚨 **司令塔はタスクを直接引き受けない (2026-07-12 再違反→運用ルール本文へ格上げ・恒久ルール化、詳細は `COMMANDER_TASKS.md` 運用ルール冒頭)**: 執筆・検算・正本反映などの実行作業は司令塔の TaskList に乗せず、必ず Agent tool (または spawn_task) で worker に委譲する。**司令塔自身は Edit/Write ツールを使わない**。司令塔の TaskList に許されるのは①全体計画管理 (この盤・`COMMANDER_TASKS.md` の更新) ②品質監督 (worker 成果物を読んで通過/差し戻しを裁定) だけ。過去2回、この原則を Changelog に書いただけで運用ルール本文に格上げせず即再違反した教訓により、次回セッション起動時に必ず目に入るこの位置に固定する
-- **白紙再構築系の委譲指示には必ず4条項を明記する** (`BOOK_A_NARRATIVE_DESIGN.md` §6、Ch2 v3 骨抜き事故 [`800b3f23`] で条項④を追加・確定): ①**理論側の釘を不変条件に置く論法の禁止** — 回収文・演習・表・討議課題を固定したまま「白紙検討したが現行と同じ骨格に帰着した」とするのは禁止 ②**合格基準は Ch1 v5 水準** — 場面構成・人物・台詞のレベルで複数の新案を立て、現行骨格は降格済みの候補の一つとして並べる ③**理論側の釘は可動物** — ナラティブ確定後に理論側改修パッケージで動かしてよい (Ch1 v5 で理論側微修正4点を同時に動かした前例 = commit `5126e672`) ④**①の対象は理論側成果物だけでなく台詞・小道具・人数・時間構造等のナラティブ要素にも及ぶ** — 「この台詞は理論が直接引用しているから新場面でも一字不変で残せる」という論法は①の変種であり禁止。理論引用を口実にした部分移植も骨抜きの一種
-- **執筆規律**: 数式全部入り (PF-001)・直感→式→worked example→演習・架空パラメータ (PF-010)・素材は実戦書ドラフト17章のみ (PF-004)・**A/B 間は素材共有 (PF-019 — 旧「章頭0%共有」は撤回、モノグラフとの間だけ主戦場排他)**・露出台帳確認・**レンズ記号は SPS/ECR (旧 PRS/ERS は使わない。正本 glossary §1.5)**
-- **PF-017**: 実話シード合成事例が既定。`/Users/masa/projects/knowledge/EPISODE_BANK.md` は**非公開・本文への転記禁止**。**エピソードの用途はナラティブのみ** (理屈への埋め込みはまさ明示合意時のみ — 「目的がずれてる」事故の再発防止)
-- **PF-018**: 章頭 = 漫画の1話に耐えるストーリー (上記基準)。淡々とした例示は不合格
-- **本文禁止語**: persona / workflow / skeleton / must_fix / PF-xxx / D-xxx / EP-xxx / モノグラフ / Book B / BZM / 実名 / PJ略称 / validation 語彙 / **鬼門 (代替語「不可逆点」を使う、まさ確定 2026-07-13)**。機械検査 BANNED リスト (第3章 L3) を fix 後に必ず回す
-- **禁止実名リスト** (キャスト名と衝突させない): 杉浦 / 石原 / 中島 / 中西 / 河尻 / 星野 / 會澤 / 木場 / 山地
-- **ブランチ作成は全面禁止・main 一本**。commit したら承認不要で即 push。詳細はリポジトリルートの `CLAUDE.md`
-- **制作モデルミックス**: outline/draft/fix = Sonnet 5 / verify = Opus 4.8 / **ナラティブ起草のみ Opus 可 (PF-018(iii))** / 本体 = 統合・裁定・記帳・報告のみ。**承認済みテキストの正本転記も機械作業 = Sonnet に投げる** (本体は転記指示書 + diff 確認だけ。2026-07-11 まさ「この作業 fable なしでいけるのでは?」)。**セッション本体のモデルも回の性質で選ぶ** — 提案→判定→転記→記帳のルーチン回は Opus/Sonnet 本体で足り、重い設計論点・理論裁定の回だけ Fable
-- **verify 教訓**: 出力制約 (findings≤10・引用≤50字・fix≤2文) を全 persona に最初から / fix agent の出力破損は機械検査で検出、破損節は resume でなく単発 agent で再修正 / must_fix 裁定は前後章の実文言と突合してから
-- **ワーカーに正本 (book-a-ch-N.md) を直接編集させない** — 提案テキストを返させて本体が裁定・適用する (2026-07-11 Ch4 事故)
-- **git 状態が古い/rebase 直後は Edit 前に対象ファイルを Read し直す** (file-tracking が無効化されている)
-- 記帳の順序: 決定・成果は正本 md (L1/L3/PF) に記帳してから commit + push。コスト意識: まとめて処理しターン数最小化
-
-## このセッションで作った branch/worktree
-
-なし (ローカル main 直編集 + fetch/rebase push、リポジトリ全体でブランチ作成は全面禁止)。第11〜16章セッションは各自の worktree を持つ (クローズは各セッションの責務)。
-
----
-
-*最終更新日: 2026-07-13*
+確立済み運用ルール:
+- まず /Users/masa/projects/AGENTS.common.md と AMD level memory を読む。
+- branch/worktree作成は禁止。main直編集・main直push。
+- dirtyを理由にbranchを切らない。今回触るファイルだけ明示stageする。git add . 禁止。
+- BZM出版準備の生成物は repo に入れない。検証成果物は /tmp か明示された外部作業dirに置く。
+- chapter body は、出版パイプライン検証では read-only。中身の改稿は司令塔/章ワーカーの別レーン。
+- manual/spec/bzmの3層ルールを守る。今回は新UI/API/cronではないためOSマニュアル追記は対象外、BZM附則と出版計画が正本。
+- PWA実装を触る本番反映は deploy.sh 経由。今回のBook A docsはアプリ仕様変更なしだが、main push後はproduction build-infoで current truth を確認する。
+```
