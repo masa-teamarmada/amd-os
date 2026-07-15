@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-07-15 | 5-6 契約管理 / design | 変更 | `/admin/contracts` の台帳側を広げ、最低幅 1320px の業務表に変更。列順を PJ → 契約名から始め、この2列を左固定にして横スクロール中も表示する。critical UI guard と build v3.40.1 を追加 | まさ依頼「リストの横幅を広くして、一番左にPJカラムを追加し、PJと契約名の2カラムを固定表示」に合わせ、契約比較時の可読性と行文脈を保つため | えいみ |
 | 2026-07-14 | 1-3 / 2-1 / 2-2 / 2-5 / 3-11 / design / iOS | 追加・変更 | `/business-cards`、private `business_cards` / `business_card_project_links`、DB管理Gemini OCR prompt、人確認gate、複数PJリンク、D-3 `people` 同期、連絡先非複製境界、critical-ui guardを追加。iOSは旧月次ルーティンタブを削除し、`PJ進捗 / 名刺 / 設定` 順のnative shellを追加。build v3.40.0 | スマホ撮影した名刺を安全な連絡先正本とPJ人物ナレッジへ分けて蓄積し、OCR誤読や個人情報の自動拡散を防ぐため | えいみ |
 | 2026-07-10 | 2-2 Surface / handoff | 修正 | 要対応キューの行単位完了UXをmanual/BUGS/design log/HANDOFF/SESSION_MIGRATION_PROMPTへ同期。build v3.39.60 | 後続セッションが全件再読込を復活させず、未保存の別レーンを混ぜずに作業再開できるようにするため | えいみ |
 | 2026-07-10 | 2-2 Surface / FEATURE_REGISTRY | 修正 | `ActionItemsPanel` の「対応済にする」を楽観更新化。成功時は対象行だけを外し、全体ローディングを出さない。更新失敗時のみ元位置へ復元。build v3.39.59 | 1件の処理で他の要対応まで一瞬消えるUXをなくすため | えいみ |

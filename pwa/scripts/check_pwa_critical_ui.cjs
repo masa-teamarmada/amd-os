@@ -160,6 +160,17 @@ expectIncludes("src/app/(app)/admin/billing/page.tsx", [
   "redirect(\"/admin/invoices\")",
 ]);
 
+expectIncludes("src/components/contracts/ContractsClient.tsx", [
+  "max-w-[1920px]",
+  "min-w-[1320px]",
+  "sticky left-0",
+  "sticky left-[180px]",
+]);
+
+expectPattern("src/components/contracts/ContractsClient.tsx", [
+  /<th[\s\S]*?>\s*PJ\s*<\/th>[\s\S]*?<th[\s\S]*?>\s*契約名\s*<\/th>/,
+]);
+
 expectIncludes("src/components/admin/AdminSidebar.tsx", [
   "請求書発行",
   "/admin/invoices",

@@ -43,14 +43,16 @@ status:
 
 | column | meaning |
 |---|---|
+| 関連PJ | `project_id` / `projects.name` |
 | 契約名 | `canonical_title` を優先し、Drive path や MTG title そのものを契約名にしない |
 | 契約種別 | NDA / 業務委託 / 共同研究 / MOU / 覚書 / 発注書など |
 | 相手先 | `counterparty_name`。未設定なら metadata不足として扱う |
-| 関連PJ | `project_id` / `projects.name` |
 | 状態 | `status` と `registry_status` の両方で判断する |
 | 締結/発効 | `signed_at` / `effective_date` |
 | 終了/更新 | `expiration_date` / `renewal_notice_date` / `renewal_type` |
 | 文書 | `contract_documents` の件数、最新版、押印版の有無 |
+
+台帳は admin 業務表として横幅を十分に確保し、狭い表示では表本体だけを横スクロールさせる。列順は `PJ → 契約名 → 種別 → 相手先 → 状態 → 締結/発効 → 終了/更新 → 文書` とし、PJ と契約名は左端の固定列として常に表示する。横スクロール中も、どのPJの何の契約かという行の文脈を失わせない。
 
 `contracts.registry_status` は台帳に出すかどうかの品質境界。
 

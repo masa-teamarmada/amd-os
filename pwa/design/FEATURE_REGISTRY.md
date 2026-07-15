@@ -99,6 +99,22 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - GlobalNav の一般「資料」グループへ戻さない。導線は admin group と AdminSidebar に置く。
 - route を消す変更は、`FEATURE_REGISTRY.md`、`/spec/2-1`、`/spec/2-2`、manual 2-6、`design/os_manual.md` を同時に更新する。
 
+## /admin/contracts
+
+目的: admin が、契約予定枠から押印版保存までを「1行 = 1契約または契約ファミリー」の台帳で追う。
+
+必須機能:
+
+- 契約台帳: Drive folder、MTG、議事録、テンプレートを行として混ぜず、契約名、種別、相手先、状態、締結/発効、終了/更新、文書の有無を比較できる。
+- 幅: 台帳側を詳細側より広く取り、列の可読幅を保つ。狭い画面では表本体を横スクロールさせ、列を圧縮して文字を潰さない。
+- 固定列: 一番左を PJ、次を契約名とし、この2列は横スクロール中も左に固定する。
+- evidence boundary: 契約書ファイル、修正案、押印版、会議上の言及は `contract_documents` / `contract_signals` / `contract_terms` の証跡として扱い、台帳行を水増ししない。
+
+回帰防止:
+
+- `pwa/scripts/check_pwa_critical_ui.cjs` が台帳の最低幅、PJ → 契約名の列順、2列の固定表示を検査する。
+- 表示境界を変える時は、`/spec/5-6` と manual 6-7 を同時に更新する。
+
 ## /admin/invoices
 
 目的: admin/きよが、締め済み稼働月の請求書発行を上から処理する。旧 `/admin/billing` は廃止済みで、互換のため `/admin/invoices` へ redirect する。

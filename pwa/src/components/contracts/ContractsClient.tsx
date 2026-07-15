@@ -588,7 +588,7 @@ export function ContractsClient() {
 
   return (
     <main className="min-h-[calc(100vh-44px)] bg-slate-50">
-      <div className="mx-auto max-w-[1600px] space-y-4 p-4">
+      <div className="mx-auto max-w-[1920px] space-y-4 p-4">
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
           <div>
             <p className="text-[11px] font-semibold uppercase text-slate-500">Backoffice</p>
@@ -623,8 +623,8 @@ export function ContractsClient() {
           <Metric icon={<AlertTriangle className="h-4 w-4" />} label="missing metadata" value={metrics.missingMetadata} />
         </section>
 
-        <section className="grid gap-3 lg:grid-cols-[minmax(320px,0.85fr)_minmax(0,1.15fr)]">
-          <div className="space-y-3">
+        <section className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.42fr)]">
+          <div className="min-w-0 space-y-3">
             <div className="rounded-md border border-slate-200 bg-white p-3">
               <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_160px_160px]">
                 <label className="relative block">
@@ -736,18 +736,38 @@ export function ContractsClient() {
               <div className="border-b border-slate-200 px-3 py-2 text-xs font-medium text-slate-500">
                 {filteredContracts.length} contract ledger rows
               </div>
-              <div className="max-h-[680px] overflow-auto">
-                <table className="min-w-[980px] w-full border-collapse text-left text-xs">
+              <div className="max-h-[680px] overflow-auto overscroll-x-contain">
+                <table className="min-w-[1320px] w-full table-fixed border-collapse text-left text-xs">
+                  <colgroup>
+                    <col className="w-[180px]" />
+                    <col className="w-[320px]" />
+                    <col className="w-[120px]" />
+                    <col className="w-[200px]" />
+                    <col className="w-[120px]" />
+                    <col className="w-[140px]" />
+                    <col className="w-[140px]" />
+                    <col />
+                  </colgroup>
                   <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 text-[11px] uppercase text-slate-500">
                     <tr>
-                      <th className="w-[28%] px-3 py-2 font-semibold">契約名</th>
-                      <th className="w-[10%] px-3 py-2 font-semibold">種別</th>
-                      <th className="w-[15%] px-3 py-2 font-semibold">相手先</th>
-                      <th className="w-[12%] px-3 py-2 font-semibold">PJ</th>
-                      <th className="w-[10%] px-3 py-2 font-semibold">状態</th>
-                      <th className="w-[9%] px-3 py-2 font-semibold">締結/発効</th>
-                      <th className="w-[9%] px-3 py-2 font-semibold">終了/更新</th>
-                      <th className="w-[7%] px-3 py-2 font-semibold">文書</th>
+                      <th
+                        scope="col"
+                        className="sticky left-0 z-30 w-[180px] min-w-[180px] max-w-[180px] border-r border-slate-200 bg-slate-50 px-3 py-2 font-semibold"
+                      >
+                        PJ
+                      </th>
+                      <th
+                        scope="col"
+                        className="sticky left-[180px] z-30 w-[320px] min-w-[320px] max-w-[320px] border-r border-slate-200 bg-slate-50 px-3 py-2 font-semibold shadow-[4px_0_8px_-6px_rgba(15,23,42,0.28)]"
+                      >
+                        契約名
+                      </th>
+                      <th scope="col" className="px-3 py-2 font-semibold">種別</th>
+                      <th scope="col" className="px-3 py-2 font-semibold">相手先</th>
+                      <th scope="col" className="px-3 py-2 font-semibold">状態</th>
+                      <th scope="col" className="px-3 py-2 font-semibold">締結/発効</th>
+                      <th scope="col" className="px-3 py-2 font-semibold">終了/更新</th>
+                      <th scope="col" className="min-w-[100px] px-3 py-2 font-semibold">文書</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -761,9 +781,23 @@ export function ContractsClient() {
                         <tr
                           key={contract.contract_id}
                           onClick={() => setSelectedId(contract.contract_id)}
-                          className={`cursor-pointer hover:bg-slate-50 ${active ? "bg-slate-100" : "bg-white"}`}
+                          className={`group cursor-pointer hover:bg-slate-50 ${active ? "bg-slate-100" : "bg-white"}`}
                         >
-                          <td className="px-3 py-2 align-top">
+                          <td
+                            className={`sticky left-0 z-10 w-[180px] min-w-[180px] max-w-[180px] border-r border-slate-100 px-3 py-2 align-top transition-colors ${
+                              active ? "bg-slate-100" : "bg-white group-hover:bg-slate-50"
+                            }`}
+                          >
+                            <p className="truncate font-semibold text-slate-950">
+                              {project?.project_name || "PJ未設定"}
+                            </p>
+                            <p className="mt-0.5 truncate text-[11px] text-slate-500">{contract.project_id}</p>
+                          </td>
+                          <td
+                            className={`sticky left-[180px] z-10 w-[320px] min-w-[320px] max-w-[320px] border-r border-slate-100 px-3 py-2 align-top shadow-[4px_0_8px_-6px_rgba(15,23,42,0.28)] transition-colors ${
+                              active ? "bg-slate-100" : "bg-white group-hover:bg-slate-50"
+                            }`}
+                          >
                             <p className="line-clamp-2 font-semibold text-slate-950">{contractTitle(contract)}</p>
                             <div className="mt-1 flex flex-wrap gap-1">
                               {contract.registry_status === "candidate" && <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-800">review</Badge>}
@@ -772,7 +806,6 @@ export function ContractsClient() {
                           </td>
                           <td className="px-3 py-2 align-top text-slate-700">{contractTypeLabel(contract.contract_type)}</td>
                           <td className="px-3 py-2 align-top text-slate-700">{contract.counterparty_name || "未設定"}</td>
-                          <td className="px-3 py-2 align-top text-slate-600">{projectLabel(project, contract.project_id)}</td>
                           <td className="px-3 py-2 align-top">{statusBadge(contract.status)}</td>
                           <td className="px-3 py-2 align-top text-slate-600">
                             <div>{dateOnly(contract.signed_at || contract.effective_date)}</div>
@@ -798,7 +831,7 @@ export function ContractsClient() {
             </div>
           </div>
 
-          <div className="space-y-3">
+          <div className="min-w-0 space-y-3">
             <section className="rounded-md border border-slate-200 bg-white p-4">
               {selected ? (
                 <>
