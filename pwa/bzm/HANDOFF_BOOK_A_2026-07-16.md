@@ -74,9 +74,11 @@ BZM root: `/Users/masa/projects/AMD/amd-os/pwa/bzm`
 
 ## Dirty State To Avoid Mixing
 
+- Materials / research-assets docs and code are an unrelated active lane. This includes docs/spec/manual/build-info/materials view/data files when present in `git status`.
+- Contracts ledger files, critical UI guard changes, middleware/preview scratch files, and `ios/supabase/migrations/20260716113000_contracts_operational_answers.sql` are an unrelated contracts lane when present in `git status`.
 - `pwa/design/atlas_routine.md` is an unrelated Atlas/routine dirty file.
-- Contracts ledger files, `pwa/scripts/check_pwa_critical_ui.cjs`, `pwa/src/middleware.ts`, preview scratch files, and `ios/supabase/migrations/20260716113000_contracts_operational_answers.sql` are an unrelated contracts lane.
 - `pwa/bzm/2026-07-14_frontmatter_gairei_draft_v1.md` is a preexisting Book A frontmatter draft and should not be deleted or auto-committed without that lane's decision.
+- The exact dirty list is volatile because other work is active in the same checkout. Re-run `git status -sb --untracked-files=all`; do not rely only on this prose.
 
 ## First Next Action
 

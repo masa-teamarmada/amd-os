@@ -64,20 +64,12 @@ repo状態 / dirty:
   git status -sb --untracked-files=all
   git log -1 --oneline
   curl -fsS https://amd-os-pwa.vercel.app/api/build-info
-- handoff時点では main と origin/main は一致していたが、別件 dirty がある。
-- unrelated dirty:
-  - pwa/design/atlas_routine.md
-  - pwa/scripts/check_contracts_ledger_grouping.mts
-  - pwa/scripts/check_pwa_critical_ui.cjs
-  - pwa/scripts/tmp_contracts_preview_check.mjs
-  - pwa/src/app/api/contracts/[contractId]/route.ts
-  - pwa/src/app/api/contracts/route.ts
-  - pwa/src/app/contracts-ledger-preview/page.tsx
-  - pwa/src/components/contracts/ContractsClient.tsx
-  - pwa/src/lib/contracts-ledger.ts
-  - pwa/src/middleware.ts
-  - ios/supabase/migrations/20260716113000_contracts_operational_answers.sql
-  - pwa/bzm/2026-07-14_frontmatter_gairei_draft_v1.md
+- handoff時点では main と origin/main は一致していたが、別件 dirty がある。別作業が同じcheckoutで動いているため、正確な一覧は毎回 `git status -sb --untracked-files=all` を正とする。
+- 既知の unrelated dirty group:
+  - materials / research-assets lane: FEATURE_REGISTRY、SPEC_pwa、manual/spec appendix、MaterialsKnowledgeView、materials-data、build-info など
+  - contracts operational answers lane: contracts API/UI/lib、check_contracts_ledger_grouping、check_pwa_critical_ui、contracts migration など
+  - Atlas / routine lane: pwa/design/atlas_routine.md
+  - Book A frontmatter lane: pwa/bzm/2026-07-14_frontmatter_gairei_draft_v1.md
 - これらはBook A組版検証には混ぜない。ownerごとに commit/deploy または revert 判断する。
 
 確立済み運用ルール:

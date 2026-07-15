@@ -35,9 +35,12 @@ Topic: Book A 組版技術検証 closeout / 出版準備ストリームK
 
 | path | status | class | owner guess | resolution action | next judgment condition | risk |
 |---|---:|---|---|---|---|---|
+| materials / research-assets docs and code (`FEATURE_REGISTRY`, `SPEC_pwa`, `manual/spec` appendix, `MaterialsKnowledgeView`, `materials-data`, `build-info`) | M | other-worker / active lane | Materials intelligence lane | Do not mix into Book A closeout. Owner should verify UI/build/manual/spec, then commit/deploy or revert as one bundle. | Before next materials/research-assets closeout. | high |
+| contracts ledger code/guards/migration (`check_contracts_ledger_grouping`, `check_pwa_critical_ui`, contracts API/UI/lib, contracts migration) | M / ?? | other-worker / active lane | contracts operational answers lane | Do not stage here. Contracts owner should verify schema/API/UI/critical guard, then commit/deploy or revert as one bundle. | Before next contracts deploy/closeout. | high |
 | `pwa/design/atlas_routine.md` | M | other-worker | Atlas / routine lane | Do not mix into Book A closeout. Owner should commit/deploy or revert as its own bundle. | Before next Atlas/routine closeout. | medium |
-| `pwa/scripts/check_contracts_ledger_grouping.mts`, `pwa/scripts/check_pwa_critical_ui.cjs`, `pwa/scripts/tmp_contracts_preview_check.mjs`, `pwa/src/app/api/contracts/**`, `pwa/src/app/contracts-ledger-preview/page.tsx`, `pwa/src/components/contracts/ContractsClient.tsx`, `pwa/src/lib/contracts-ledger.ts`, `pwa/src/middleware.ts`, `ios/supabase/migrations/20260716113000_contracts_operational_answers.sql` | M / ?? | other-worker | contracts operational answers lane | Do not stage here. Contracts owner should verify schema/API/UI/critical guard/preview route, then commit/deploy or revert as one bundle. | Before next contracts deploy/closeout. | high |
 | `pwa/bzm/2026-07-14_frontmatter_gairei_draft_v1.md` | ?? | preexisting / other-worker | Book A frontmatter lane | Keep. BZM/frontmatter owner should decide register/move/delete after Masa review. | Before next Book A frontmatter closeout. | low-medium |
+
+The exact dirty file list is volatile because another lane is active in the same checkout. Next session must treat `git status -sb --untracked-files=all` as authoritative.
 
 ## Unresolved Tasks
 
