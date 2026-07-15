@@ -285,15 +285,20 @@ expectIncludes("src/app/(app)/knowledge-map/page.tsx", [
 ]);
 
 expectIncludes("src/components/knowledge-map/MaterialsKnowledgeView.tsx", [
-  "AMD / Materials Intelligence",
+  "AMD / 世界の材料データベース",
+  "需給の崩れランキング",
+  "供給過剰側",
+  "価格乱高下",
+  "評価時点・確からしさ",
   "4指標の合計ランキング",
   "4指標合計",
-  "原料と製造プロセス",
+  "原料と作り方",
   "compareMaterialTotalScore",
   "供給不安",
   "供給警報",
   "供給危機",
   "ElementInsightDialog",
+  "MaterialInsightDialog",
   "直近公表相場",
   "MarketTrendChart",
   "SupplyPie",
@@ -311,8 +316,8 @@ expectIncludes("src/lib/materials-data.ts", [
   "export const ELEMENTS",
   "export const MINERALS",
   "export const POLYMERS",
-  "USGS Mineral Commodity Summaries 2026",
-  "IEA Global Critical Minerals Outlook 2025",
+  "米国地質調査所（USGS）鉱物資源概要 2026",
+  "国際エネルギー機関（IEA）重要鉱物の世界見通し 2025",
   "elementGlance",
   "export const ELEMENT_MARKETS",
   "電池級炭酸リチウム",
@@ -321,8 +326,8 @@ expectIncludes("src/lib/materials-data.ts", [
   "通信・レーダー用の高周波半導体",
   "polymerManufacturing",
   "materialTotalScore",
-  "ミュラー・ロショー法",
-  "ラクチドの開環重合",
+  "金属ケイ素と塩化メチルを反応させて中間原料を作る",
+  "その輪を開きながら長くつないでポリ乳酸にする",
 ]);
 
 expectNotIncludes("src/components/nav/GlobalNav.tsx", [
