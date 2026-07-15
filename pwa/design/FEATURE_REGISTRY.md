@@ -35,7 +35,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 - read-only route: `/knowledge-map` は DB write、LLM 呼び出し、外部 NotebookLM 同期を行わない。
 - materials lenses: `全体` / `元素` / `鉱物・鉱石` / `樹脂・高分子` / `材料マップ` / `比較` を切り替えられる。画面内の質問フォームや生成AI回答欄は持たない。
-- periodic table: 118元素を周期表配置で表示し、`総合注目度` / `需要` / `供給不安` / `AMD相性` の heat 軸を切り替えられる。評価値は初期の定性評価として根拠を併記し、未評価を低評価やゼロと混同させない。
+- periodic table: 118元素を周期表配置で表示し、`総合注目度` / `需要` / `供給不安` / `AMD相性` の heat 軸を切り替えられる。総合注目度は淡黄→黄→橙→赤→深紅の熱色で表示し、評価済みcellには平易な日本語の主用途を置く。供給不安4は`警戒`、5は`危機`をcell上端と供給警報帯に常時重ね、選択中のheat軸にかかわらず見落とさせない。周期表cell内に`4/5`等の数値は表示せず、評価値は初期の定性評価として根拠を併記し、未評価を低評価やゼロと混同させない。
 - materials detail: 重要元素、代表的な鉱物・鉱石、代表的な樹脂・高分子は、特徴、用途、供給国、埋蔵・需給メモ、代替・循環性、材料チェーン、AMDとの接点、source link を detail panel で読める。
 - compare: familyを跨いで2〜4件を比較trayへ追加し、同じ評価軸と用途・供給・循環性・AMD相性を並べて見られる。
 - data sources: `protocols` / `project_knowledge` / `member_knowledge` / `project_meeting_summaries` / `project_strategy_signals` / `project_xrl_evidence` / `monthly_reports` / `textbook_insight_candidates` の件数と直近代表 row を読む。

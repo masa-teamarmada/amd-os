@@ -18,6 +18,7 @@ import {
   ShieldAlert,
   Sparkles,
   TrendingUp,
+  TriangleAlert,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -57,11 +58,11 @@ const FAMILY_ACCENT: Record<MaterialFamily, string> = {
 
 const HEAT_COLORS: Record<HeatAxis, Record<HeatLevel, { bg: string; border: string; text: string }>> = {
   heat: {
-    1: { bg: "#f8efe3", border: "#e6d4bd", text: "#6d5740" },
-    2: { bg: "#f4d9b6", border: "#dfb77d", text: "#70441d" },
-    3: { bg: "#e8aa67", border: "#cc8140", text: "#4f2a12" },
-    4: { bg: "#c96738", border: "#a94724", text: "#fffaf5" },
-    5: { bg: "#7d2f1b", border: "#5f2112", text: "#fffaf5" },
+    1: { bg: "#fff8cc", border: "#e4d36f", text: "#514a1b" },
+    2: { bg: "#ffe45e", border: "#e5bd19", text: "#503c00" },
+    3: { bg: "#ffad1f", border: "#df7f00", text: "#4b2500" },
+    4: { bg: "#ff5a1f", border: "#d83a0b", text: "#fffaf5" },
+    5: { bg: "#e0002b", border: "#9f001f", text: "#ffffff" },
   },
   demand: {
     1: { bg: "#edf3f4", border: "#cfdee0", text: "#405b60" },
@@ -71,11 +72,11 @@ const HEAT_COLORS: Record<HeatAxis, Record<HeatLevel, { bg: string; border: stri
     5: { bg: "#245f73", border: "#184656", text: "#f7ffff" },
   },
   supplyRisk: {
-    1: { bg: "#f6efe9", border: "#e5d5c8", text: "#675347" },
-    2: { bg: "#ecd4c4", border: "#d9b39b", text: "#6b3e2b" },
-    3: { bg: "#dc9a73", border: "#c87950", text: "#542a1a" },
-    4: { bg: "#b95332", border: "#96391e", text: "#fffaf7" },
-    5: { bg: "#73251b", border: "#551711", text: "#fffaf7" },
+    1: { bg: "#fff7d6", border: "#e7d7a0", text: "#55491f" },
+    2: { bg: "#ffe08a", border: "#d9b44b", text: "#533c00" },
+    3: { bg: "#ffad42", border: "#dd7920", text: "#4d2400" },
+    4: { bg: "#ff621f", border: "#d63d0b", text: "#ffffff" },
+    5: { bg: "#d90429", border: "#93001c", text: "#ffffff" },
   },
   amdFit: {
     1: { bg: "#edf4ef", border: "#d2e2d7", text: "#435c4c" },
@@ -84,6 +85,13 @@ const HEAT_COLORS: Record<HeatAxis, Record<HeatLevel, { bg: string; border: stri
     4: { bg: "#4f9675", border: "#33775b", text: "#f5fff9" },
     5: { bg: "#26664d", border: "#174b38", text: "#f5fff9" },
   },
+};
+
+const HEAT_LEVEL_LABELS: Record<HeatAxis, Record<HeatLevel, string>> = {
+  heat: { 1: "低め", 2: "観測", 3: "上昇", 4: "高い", 5: "最注目" },
+  demand: { 1: "限定", 2: "安定", 3: "拡大", 4: "強い", 5: "非常に強い" },
+  supplyRisk: { 1: "安定", 2: "注意", 3: "警戒", 4: "高リスク", 5: "供給危機" },
+  amdFit: { 1: "限定", 2: "周辺", 3: "関連", 4: "強い", 5: "中核" },
 };
 
 function heatStyle(axis: HeatAxis, level?: HeatLevel): CSSProperties {
@@ -97,6 +105,12 @@ function heatStyle(axis: HeatAxis, level?: HeatLevel): CSSProperties {
   }
   const color = HEAT_COLORS[axis][level];
   return { color: color.text, borderColor: color.border, backgroundColor: color.bg };
+}
+
+function supplyAlertBorder(level?: HeatLevel): CSSProperties {
+  if (level === 5) return { borderTopColor: "#171717", borderTopWidth: 5 };
+  if (level === 4) return { borderTopColor: "#ffbf00", borderTopWidth: 5 };
+  return {};
 }
 
 function axisIcon(axis: HeatAxis) {
@@ -341,14 +355,16 @@ function ReadRule({ number, title, text }: { number: string; title: string; text
 
 function ElementsView({ axis, onAxisChange, selectedId, onSelect, compareIds, onToggleCompare }: { axis: HeatAxis; onAxisChange: (axis: HeatAxis) => void; selectedId: string; onSelect: (id: string) => void; compareIds: string[]; onToggleCompare: (id: string) => void }) {
   const selectedElement = ELEMENTS.find((item) => item.detail?.id === selectedId) ?? ELEMENTS.find((item) => item.symbol === "Li")!;
+  const crisisElements = ELEMENTS.filter((item) => item.detail?.scores.supplyRisk === 5);
+  const warningElements = ELEMENTS.filter((item) => item.detail?.scores.supplyRisk === 4);
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+    <div className="space-y-4">
       <section className="min-w-0 border border-[#c9c1b4] bg-[#fbf8f2]">
         <div className="border-b border-[#d7d0c5] p-3 sm:p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold">元素周期表</h2>
-              <p className="mt-1 text-xs text-[#6c6d68]">cellを押すと詳細。横幅が狭い画面では表だけ横へ動かせる。</p>
+              <p className="mt-1 text-xs text-[#6c6d68]">色で勢い、セル内で主用途、上端の警報で供給危機を見る。押すと根拠まで掘れる。</p>
             </div>
             <div className="flex flex-wrap gap-1" aria-label="ヒートマップ評価軸">
               {(Object.keys(HEAT_AXIS_LABELS) as HeatAxis[]).map((item) => {
@@ -361,31 +377,66 @@ function ElementsView({ axis, onAxisChange, selectedId, onSelect, compareIds, on
               })}
             </div>
           </div>
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-[#676963]">
-            <span className="mr-1 font-semibold">{HEAT_AXIS_LABELS[axis]}</span>
-            {([1,2,3,4,5] as HeatLevel[]).map((level) => <span key={level} className="inline-flex items-center gap-1"><i className="h-3 w-5 border" style={heatStyle(axis, level)} />{level}</span>)}
-            <span className="inline-flex items-center gap-1"><i className="h-3 w-5 border" style={heatStyle(axis)} />未評価</span>
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-[10px] text-[#676963]">
+            <span className="font-semibold">{HEAT_AXIS_LABELS[axis]}</span>
+            {([1,2,3,4,5] as HeatLevel[]).map((level) => (
+              <span key={level} className="inline-flex items-center gap-1.5">
+                <i className="h-3.5 w-6 border" style={heatStyle(axis, level)} />
+                {HEAT_LEVEL_LABELS[axis][level]}
+              </span>
+            ))}
+            <span className="inline-flex items-center gap-1.5"><i className="h-3.5 w-6 border" style={heatStyle(axis)} />未評価</span>
+          </div>
+        </div>
+        <div className="grid border-b border-[#93001c] bg-[#fff4f2] lg:grid-cols-[190px_minmax(0,1fr)]">
+          <div className="flex items-center gap-2 bg-[#d90429] px-4 py-3 text-white">
+            <TriangleAlert className="h-4 w-4" />
+            <span className="text-sm font-bold">供給警報</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 text-xs">
+            <span className="font-bold text-[#a30020]">供給危機 {crisisElements.length}元素</span>
+            <span className="text-[#6d3038]">{crisisElements.map((item) => item.name).join("・")}</span>
+            <span className="border-l border-[#d6a8a9] pl-4 font-semibold text-[#9a5a00]">要警戒 {warningElements.length}元素</span>
           </div>
         </div>
         <div className="overflow-x-auto p-3 sm:p-4" tabIndex={0} aria-label="周期表 横スクロール領域">
-          <div className="grid min-w-[1120px] grid-cols-[repeat(18,minmax(54px,1fr))] grid-rows-[repeat(9,68px)] gap-1">
+          <div className="grid min-w-[1080px] grid-cols-[repeat(18,minmax(56px,1fr))] grid-rows-[repeat(9,86px)] gap-1">
             {ELEMENTS.map((element) => {
               const level = element.detail?.scores[axis];
+              const supplyRisk = element.detail?.scores.supplyRisk;
               const isSelected = element.detail?.id === selectedId;
+              const evaluationLabel = level ? HEAT_LEVEL_LABELS[axis][level] : "未評価";
+              const alertLabel = supplyRisk === 5 ? "危機" : supplyRisk === 4 ? "警戒" : undefined;
+              const accessibleSummary = [
+                `${element.atomicNumber} ${element.name}`,
+                `${HEAT_AXIS_LABELS[axis]} ${evaluationLabel}`,
+                element.glanceUse ? `主用途 ${element.glanceUse}` : undefined,
+                alertLabel && element.supplyAlert ? `供給${alertLabel} ${element.supplyAlert}` : undefined,
+              ].filter(Boolean).join("、");
               return (
                 <button
                   key={element.symbol}
                   type="button"
                   onClick={() => element.detail && onSelect(element.detail.id)}
                   disabled={!element.detail}
-                  aria-label={`${element.atomicNumber} ${element.name} ${level ? `${HEAT_AXIS_LABELS[axis]} ${level}` : "未評価"}`}
-                  className={cn("relative min-h-[64px] min-w-[54px] border p-1 text-left transition focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#172022]", element.detail ? "cursor-pointer hover:-translate-y-0.5 hover:shadow-[0_3px_0_rgba(31,41,39,.16)]" : "cursor-not-allowed", isSelected && "z-10 ring-2 ring-[#172022] ring-offset-1")}
-                  style={{ ...heatStyle(axis, level), gridColumn: element.displayColumn, gridRow: element.displayRow }}
+                  aria-label={accessibleSummary}
+                  title={accessibleSummary}
+                  className={cn("relative min-h-[82px] min-w-[56px] overflow-hidden border p-1 text-left transition focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#172022]", element.detail ? "cursor-pointer hover:-translate-y-0.5" : "cursor-not-allowed", isSelected && "z-10 ring-2 ring-[#172022] ring-offset-1")}
+                  style={{ ...heatStyle(axis, level), ...supplyAlertBorder(supplyRisk), gridColumn: element.displayColumn, gridRow: element.displayRow }}
                 >
-                  <span className="block font-mono text-[9px] opacity-75">{element.atomicNumber}</span>
-                  <span className="block font-mono text-lg font-bold leading-none">{element.symbol}</span>
-                  <span className="mt-1 block truncate text-[9px] font-medium">{element.name}</span>
-                  <span className="absolute bottom-1 right-1 font-mono text-[8px] font-semibold opacity-80">{level ? `${level}/5` : "未"}</span>
+                  <span className="block font-mono text-[8px] font-semibold opacity-75">{element.atomicNumber}</span>
+                  {alertLabel && (
+                    <span className={cn("absolute right-0 top-0 inline-flex h-4 items-center gap-0.5 px-1 text-[8px] font-bold", supplyRisk === 5 ? "bg-[#171717] text-[#ffe45e]" : "bg-[#ffbf00] text-[#4b2600]") }>
+                      <ShieldAlert className="h-2.5 w-2.5" />{alertLabel}
+                    </span>
+                  )}
+                  <span className="mt-0.5 block font-mono text-lg font-bold leading-none">{element.symbol}</span>
+                  <span className="mt-1 block truncate text-[9px] font-semibold">{element.name}</span>
+                  {element.glanceUse ? (
+                    <span className="mt-1 block border-t border-current/25 pt-1 text-[8px] font-bold leading-[1.2]">{element.glanceUse}</span>
+                  ) : (
+                    <span className="mt-1 block text-[8px] font-medium opacity-65">未評価</span>
+                  )}
                 </button>
               );
             })}
@@ -401,7 +452,7 @@ function ElementPanel({ element, compareIds, onToggleCompare }: { element: Eleme
   if (!element.detail) {
     return <aside className="border border-[#c9c1b4] bg-[#fbf8f2] p-5"><div className="font-mono text-3xl font-semibold">{element.symbol}</div><h2 className="mt-2 text-xl font-semibold">{element.name}</h2><p className="mt-4 text-sm leading-6 text-[#666761]">{CATEGORY_LABELS[element.category]}。基礎配置のみ収録済みで、需要・供給・AMD相性はまだ未評価。未評価は低需要を意味しない。</p></aside>;
   }
-  return <MaterialDetailPanel item={element.detail} isCompared={compareIds.includes(element.detail.id)} compareFull={compareIds.length >= 4} onToggleCompare={onToggleCompare} />;
+  return <MaterialDetailPanel item={element.detail} isCompared={compareIds.includes(element.detail.id)} compareFull={compareIds.length >= 4} onToggleCompare={onToggleCompare} wide />;
 }
 
 function MaterialCatalogue({ title, description, items, selectedId, onSelect, compareIds, onToggleCompare }: { title: string; description: string; items: MaterialDetail[]; selectedId: string; onSelect: (id: string) => void; compareIds: string[]; onToggleCompare: (id: string) => void }) {
@@ -435,9 +486,9 @@ function MaterialCatalogue({ title, description, items, selectedId, onSelect, co
   );
 }
 
-function MaterialDetailPanel({ item, isCompared, compareFull, onToggleCompare }: { item: MaterialDetail; isCompared: boolean; compareFull: boolean; onToggleCompare: (id: string) => void }) {
+function MaterialDetailPanel({ item, isCompared, compareFull, onToggleCompare, wide = false }: { item: MaterialDetail; isCompared: boolean; compareFull: boolean; onToggleCompare: (id: string) => void; wide?: boolean }) {
   return (
-    <aside className="min-w-0 border border-[#c9c1b4] bg-[#fbf8f2] xl:sticky xl:top-4 xl:max-h-[calc(100vh-5rem)] xl:overflow-y-auto">
+    <aside className={cn("min-w-0 border border-[#c9c1b4] bg-[#fbf8f2]", !wide && "xl:sticky xl:top-4 xl:max-h-[calc(100vh-5rem)] xl:overflow-y-auto")}>
       <div className="border-b border-[#d7d0c5] p-4 sm:p-5">
         <div className="flex items-start justify-between gap-4"><div><div className="font-mono text-2xl font-semibold" style={{ color: FAMILY_ACCENT[item.family] }}>{item.code}</div><div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#7b776f]">{FAMILY_LABELS[item.family]} / {item.category}</div></div><Score level={item.scores.heat} label="総合注目" /></div>
         <h2 className="mt-4 text-xl font-semibold tracking-[-0.02em]">{item.name}</h2>

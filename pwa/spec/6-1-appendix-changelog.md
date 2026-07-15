@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-07-15 | 2-1 / 2-2 / SPEC_pwa / FEATURE_REGISTRY / critical UI | 変更 | AMD Materialsの周期表を、淡黄→黄→橙→赤→深紅の熱色へ変更。評価済みcellへ平易な日本語の主用途を追加し、供給不安4を`警戒`、5を`危機`としてcell上端と供給警報帯へ軸横断表示。周期表cellの`x/5`数値を削除し、詳細panelは表の下へ移して118元素の俯瞰幅を優先。build v3.41.2 | まさ指摘「注目度5が茶色で目立たない」「RFやGaN power deviceでは用途が分からない」「供給がやばくなる危機感が見えない」「元素表だけで俯瞰情報を伝えて」を反映するため | えいみ |
 | 2026-07-15 | 2-1 / 2-2 / SPEC_pwa / FEATURE_REGISTRY | 追加・変更 | `/knowledge-map` を AMD Materials workspaceへ刷新。118元素の周期表、4 heat軸、代表鉱物・鉱石、代表樹脂・高分子、材料chain、2〜4件比較を追加し、従来の `KnowledgeMapView` / `fetchKnowledgeMapData` は材料マップtabとして維持。初期評価と未評価を区別し、sourceを表示するread-only contractを固定。build v3.41.0 | source tableの件数と直近nodeだけでは知りたい材料を掘れなかったため。元素・鉱物・樹脂を供給・用途・AMD相性まで横断し、問いはCodexへ分離するため | えいみ |
 | 2026-07-15 | 2-2 / 5-6 契約管理 / SPEC_pwa / FEATURE_REGISTRY / critical UI | 修正 | `/admin/contracts` の主リストを契約ファミリー単位へ集約。`canonical_title` 優先、未設定時は `DocuSign送付先確認` / `微修正` / `確認・...` などの作業アクション末尾を落とした family key で束ね、現在状態・文書数・nudgeを統合元全行から読む。build v3.41.1 | まさ指摘「ひとつの契約について複数行あるのは問題。ひとつの契約は一行にまとめて、そのステータスが今どうなってるかを書くカラムがあれば3行もいらない」を反映するため | えいみ |
 | 2026-07-15 | 2-2 PWA Surface / 5-6 契約管理 / FEATURE_REGISTRY | 修正 | `/admin/*` では共通 `GlobalNav` を `AdminSidebar` へ差し替え、admin layout 内の2枚目のサイドバーを削除。`/admin/contracts` は左右分割と最大幅制限を廃止し、台帳を本文全幅、契約詳細を台帳下へ配置。critical UI guard と build v3.40.3 を追加 | まさ指摘「右のカラムは廃止して全部下」「adminモードでは左メニューをadminメニューに切り替えて2つ並ばないように」に合わせ、契約台帳の実効幅を構造的に確保するため | えいみ |

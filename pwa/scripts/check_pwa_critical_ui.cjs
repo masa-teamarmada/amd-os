@@ -280,6 +280,10 @@ expectIncludes("src/components/knowledge-map/MaterialsKnowledgeView.tsx", [
   "AMD / Materials Intelligence",
   "総合注目度",
   "供給不安",
+  "供給警報",
+  "供給危機",
+  "HEAT_LEVEL_LABELS",
+  "glanceUse",
   "未評価",
   "鉱物・鉱石",
   "樹脂・高分子",
@@ -293,6 +297,9 @@ expectIncludes("src/lib/materials-data.ts", [
   "export const POLYMERS",
   "USGS Mineral Commodity Summaries 2026",
   "IEA Global Critical Minerals Outlook 2025",
+  "elementGlance",
+  "電力を高効率に変換する窒化ガリウム半導体",
+  "通信・レーダー用の高周波半導体",
 ]);
 
 expectNotIncludes("src/components/nav/GlobalNav.tsx", [
