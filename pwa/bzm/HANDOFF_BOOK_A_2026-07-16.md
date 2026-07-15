@@ -1,12 +1,17 @@
 # Book A Publication Handoff
 
 Last updated: 2026-07-16 JST
-Topic: Stream K / 組版技術検証 closeout
+Topic: Stream G / 図版インベントリ closeout + Stream K / 組版技術検証
 Working root: `/Users/masa/projects/AMD/amd-os`
 BZM root: `/Users/masa/projects/AMD/amd-os/pwa/bzm`
 
 ## Summary
 
+- `BOOK_A_FIGURE_INVENTORY.md` を新設し、Book A 全16章の図版制作単位を棚卸しした。
+- 総実制作見込みは41点。第1〜10章は本文プレースホルダ確認済み30点 (延べ31箇所)、第11〜16章はマスタープラン §9 由来の見込み11点。
+- 制作方式の目安は matplotlib向き16点 / SVG手描き向き25点。優先度高は14点。
+- `COMMANDER_TASKS.md` Stream G は「図リスト完成、次は実制作フェーズ」へ更新済み。
+- Commit `2b56d19d docs: Book A 図版インベントリ作成` は `main` に push 済み。
 - `book-a-ch-8.md` を数式最重量級サンプルとして、本文 read-only で組版技術検証した。
 - A5 PDF は pandoc + LuaLaTeX + `ltjsbook` で生成成功。実測28ページ。
 - EPUB MathML は生成成功。`content.opf` に `properties="mathml"` を確認。
@@ -25,6 +30,19 @@ BZM root: `/Users/masa/projects/AMD/amd-os/pwa/bzm`
   - `rendered/` PNG render set
 - These are verification artifacts only and are not committed.
 - Local TeX environment installed outside repo: `/Users/masa/Library/TinyTeX` with Japanese packages (`collection-langjapanese`, `luatexja`, `jlreq`).
+
+## Figure Inventory Facts
+
+- Source: `BOOK_A_FIGURE_INVENTORY.md`.
+- Confirmed figures: 30 production units from chapters 1-10.
+- Placeholder appearances: 31, because 図1-1 appears twice but counts as one production unit.
+- Estimated figures: 11 from chapters 11-16, based on `BOOK_A_MASTER_PLAN.md` §9 because those chapters are not fully drafted.
+- Production type split: 16 matplotlib-friendly / 25 hand-drawn SVG-friendly.
+- High-priority items: 14.
+- Known production checks:
+  - 図1-3 still says the journey is 15 times in the current placeholder context; production must reconcile this with the current 16-chapter structure.
+  - 図10-2 appears before 図10-1 in text; production must decide whether to preserve text order or adjust numbering/order.
+  - Existing public BZM figures may be useful as references, but Book A needs figure-numbered, caption-aligned, publication-ready versions.
 
 ## Verified Facts
 
@@ -69,7 +87,7 @@ BZM root: `/Users/masa/projects/AMD/amd-os/pwa/bzm`
 - Handoff creation snapshot: local main aligned with `origin/main`.
 - Production readback at handoff start: `v3.41.4`, git sha `71e63060`, `git_branch=main`, `dirty=false`.
 - Later handoff-doc commit may advance HEAD; next session must verify live state with `git log -1` and `/api/build-info`.
-- After this handoff doc was first written, `2b56d19d docs: Book A 図版インベントリ作成` added `BOOK_A_FIGURE_INVENTORY.md` to main. Read it before figure work.
+- Figure inventory commit `2b56d19d docs: Book A 図版インベントリ作成` added `BOOK_A_FIGURE_INVENTORY.md` to main. Read it before figure work.
 - This session created no branch/worktree.
 
 ## Dirty State To Avoid Mixing
@@ -82,7 +100,7 @@ BZM root: `/Users/masa/projects/AMD/amd-os/pwa/bzm`
 
 ## First Next Action
 
-Run current-truth checks, then continue Stream K from `COMMANDER_TASKS.md`:
+Run current-truth checks, then continue Stream G from `BOOK_A_FIGURE_INVENTORY.md` and `COMMANDER_TASKS.md`:
 
 ```bash
 cd /Users/masa/projects/AMD/amd-os
@@ -97,14 +115,16 @@ Then read:
 1. `/Users/masa/projects/AGENTS.common.md`
 2. `/Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md`
 3. `pwa/bzm/COMMANDER_TASKS.md`
-4. `pwa/bzm/BOOK_A_PUBLISHING_PLAN.md`
-5. `pwa/bzm/BOOK_A_FIGURE_INVENTORY.md`
+4. `pwa/bzm/BOOK_A_FIGURE_INVENTORY.md`
+5. `pwa/bzm/BOOK_A_PUBLISHING_PLAN.md`
 6. `pwa/bzm/HANDOFF_BOOK_A_2026-07-16.md`
 7. `pwa/bzm/SESSION_MIGRATION_PROMPT.md`
+
+If continuing Stream G, decide whether to launch figure-production workers. Keep this inventory read-only unless chapter text, figure numbering, or the chapter-11-to-16 plan changes.
 
 ## Closeout Classification
 
 - Main/default alignment: main aligned at handoff start.
 - Production alignment: production matched `origin/main` at handoff start (`71e63060`, `v3.41.4`).
-- Book A task state: committed success for the technical verification; handoff required for the next publication tasks.
+- Book A task state: committed success for the figure inventory and the technical verification; handoff required for figure production and publication operations.
 - Archive state: do not archive as zero-trace while unrelated dirty files remain in the checkout.

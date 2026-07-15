@@ -2,29 +2,38 @@
 
 Last updated: 2026-07-16 JST
 Target: `/Users/masa/projects/AMD/amd-os/pwa/bzm`
-Topic: Book A 組版技術検証 closeout / 出版準備ストリームK
+Topic: Book A 図版インベントリ closeout / 出版準備ストリームG
 
 ## Latest Session Summary
 
+- Book A 図版制作前の棚卸しとして、`pwa/bzm/BOOK_A_FIGURE_INVENTORY.md` を新設した。
+- 第1〜10章の本文プレースホルダ確認済み30点 (延べ31箇所) と、第11〜16章の見込み11点を統合し、総実制作見込みは41点。
+- 生成方法の目安は matplotlib向き16点 / SVG手描き向き25点。優先度高は14点。
+- `pwa/bzm/COMMANDER_TASKS.md` Stream G は「図リスト完成、次は実制作フェーズ」へ更新済み。
+- 図版インベントリ commit `2b56d19d docs: Book A 図版インベントリ作成` は `main` に push 済み。
 - Book A 出版準備ストリームKで、`book-a-ch-8.md` を数式最重量級サンプルとして read-only 検証した。
 - A5 PDF は pandoc + LuaLaTeX + `ltjsbook` で生成成功、実測28ページ。MathML EPUB も生成成功。
 - webtex EPUB は生成自体は成功したが、長い日本語入りの交換効率式1本が外部画像化に失敗した。
 - 結果は `pwa/bzm/BOOK_A_PUBLISHING_PLAN.md` §4、`pwa/bzm/COMMANDER_TASKS.md` Stream K、`pwa/bzm/9-5-appendix-changelog.md` に反映済み。
 - 生成PDF/EPUBは repo 外 `/tmp/book-a-typesetting-verification-20260715/` に置き、commit していない。
-- この handoff commit 後に、別セッションが `pwa/bzm/BOOK_A_FIGURE_INVENTORY.md` を `2b56d19d` で追加済み。図版レーンを触る次セッションは必ず読む。
 - 詳細 handoff: `pwa/bzm/HANDOFF_BOOK_A_2026-07-16.md`。
-- 詳細ログ: `pwa/design_log/sessions_2026-07.md` の「Book A 組版技術検証」。
+- 詳細ログ: `pwa/design_log/sessions_2026-07.md` の「Book A 図版インベントリ作成」と「Book A 組版技術検証」。
 
 ## Repo State
 
 - Canonical branch: `main`。
+- Book A 図版インベントリ commit: `2b56d19d docs: Book A 図版インベントリ作成`。push 済み。
 - Book A 組版検証 commit: `1fdbf21b docs(bzm): Book A組版技術検証ログを記録`。push 済み。
-- Handoff 作成時点の local main / origin/main: aligned。最新の production readback は `v3.41.4` / `71e63060` / `git_branch=main` / `dirty=false`。
+- Handoff 作成時点の local main / origin/main: aligned。production readback は別 lane の dirty / deploy 状況で変わり得るため、次回開始時に必ず取り直す。
 - この handoff 自体の commit が後続で積まれるため、次回開始時は `git log -1 --oneline` と `https://amd-os-pwa.vercel.app/api/build-info` を再照合する。
 - このセッションで作った branch / worktree: none。
 
 ## Verification Run
 
+- `rg -n "\\[図|図[0-9]+-" pwa/bzm/book-a-ch-{1..10}.md` 相当の本文確認で、第1〜10章の図プレースホルダを棚卸し。
+- `BOOK_A_MASTER_PLAN.md` §9 から、第11〜16章の見込み図版を推定。
+- `rg -n "BZM|Book B|PF-|鬼門|検証済み" pwa/bzm/BOOK_A_FIGURE_INVENTORY.md` -> 該当なし。
+- `git diff --check` passed for the figure inventory bundle before commit。
 - `pdfinfo /tmp/book-a-typesetting-verification-20260715/ch8-a5-ltjsbook.pdf` -> 28 pages / A5。
 - `unzip -p ch8-mathml.epub EPUB/content.opf | grep mathml` -> `properties="mathml"` 確認。
 - `unzip -p ch8-webtex.epub EPUB/text/ch001.xhtml | grep 交換効率` -> 交換効率の本文は残るが式画像は欠落。
@@ -44,6 +53,7 @@ The exact dirty file list is volatile because another lane is active in the same
 
 ## Unresolved Tasks
 
+- Book A Stream G: 図版ワーカーを切るタイミングのまさ判断。制作時は `BOOK_A_FIGURE_INVENTORY.md` を正本に、図1-3の「15回」表記と図10-2/10-1の登場順を確認する。
 - Book A Stream K: 高品質印刷所への見積り取得準備、ISBN/JAN申請情報整理、Kindle Previewer / epubcheck 確認。
 - 組版 pipeline: 長い数式2本の折り返しルール、図プレースホルダの実画像差し替え、本番テンプレ (柱・ノンブル・目次・奥付)。
 - repo hygiene: 上記 unrelated dirty は各 owner lane で別 closeout。
@@ -58,8 +68,9 @@ The exact dirty file list is volatile because another lane is active in the same
    git log -1 --oneline
    curl -fsS https://amd-os-pwa.vercel.app/api/build-info
    ```
-2. If continuing Book A publication work, read `pwa/bzm/COMMANDER_TASKS.md` Stream K and `pwa/bzm/BOOK_A_PUBLISHING_PLAN.md` §4 first.
-3. Start with quote-prep / ISBN-JAN prep / EPUB real-device checks. Do not edit chapter body while doing publication pipeline work.
+2. If continuing figure work, read `pwa/bzm/BOOK_A_FIGURE_INVENTORY.md` and `pwa/bzm/COMMANDER_TASKS.md` Stream G first.
+3. Decide whether to launch figure-production workers now. Keep the inventory read-only unless chapter text or figure numbering changes.
+4. If continuing publication operations instead, read Stream K and `pwa/bzm/BOOK_A_PUBLISHING_PLAN.md` §4, then proceed to quote-prep / ISBN-JAN prep / EPUB real-device checks.
 
 ## Pointers
 

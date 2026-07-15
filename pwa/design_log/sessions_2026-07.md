@@ -1312,3 +1312,20 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 - commit `1fdbf21b docs(bzm): Book A組版技術検証ログを記録` は `main` に push 済み。
 - `epubcheck` は Java 未導入のため未実施。Kindle Previewer も未検出。
 - 次は高品質印刷所の見積り取得準備、ISBN/JAN申請情報整理、Kindle/epubcheck確認、長い数式の折り返しと図版実画像差し替え。
+
+---
+
+## 2026-07-16 — Book A 図版インベントリ closeout
+
+### コンテキスト
+- Book A の図版制作を切る前に、第1〜10章の本文プレースホルダと第11〜16章のマスタープラン見込みを統合して、制作単位を棚卸しした。
+
+### 対応
+- `pwa/bzm/BOOK_A_FIGURE_INVENTORY.md` を新設し、総41点 (確定30点 / 見込み11点) を制作方式・優先度・状態つきで整理した。
+- `pwa/bzm/COMMANDER_TASKS.md` Stream G を「図リスト完成、次は実制作フェーズ」へ更新した。
+- Handoff / session migration prompt を、組版検証中心から図版インベントリ closeout 中心へ更新した。
+
+### Closeout notes
+- 図版インベントリ commit `2b56d19d docs: Book A 図版インベントリ作成` は `main` に push 済み。
+- 次は、まさ判断で図版制作ワーカーを切る。制作時は図1-3の16章整合と、図10-2/図10-1の登場順を確認する。
+- root checkout には unrelated dirty が残っているため、Book A closeout には混ぜない。
