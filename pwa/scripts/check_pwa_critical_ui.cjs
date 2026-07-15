@@ -161,31 +161,39 @@ expectIncludes("src/app/(app)/admin/billing/page.tsx", [
 ]);
 
 expectIncludes("src/components/contracts/ContractsClient.tsx", [
-  "w-full space-y-4 p-4",
-  "min-w-[1320px]",
+  "契約台帳",
+  "min-w-[1580px]",
   "sticky left-0",
-  "sticky left-[180px]",
-  "groupContractLedgerRows",
-  "filteredSourceRowCount",
-  "統合 {contract.ledger_row_count}行",
+  "sticky left-[160px]",
+  "consolidateContractRecords",
   "現在状態",
-  "aria-label=\"契約台帳と詳細\"",
-  "aria-label=\"選択中の契約詳細\"",
+  "契約はいつまで？",
+  "このPJは立替経費申請できる？",
+  "押印まで完了してる？",
+  "秘密保持は含まれる？",
+  "関連記録を契約単位に整理済み",
+  "上の回答には使っていない",
+  "h-[min(90vh,820px)] w-[96vw]",
 ]);
 
 expectIncludes("src/lib/contracts-ledger.ts", [
-  "contractFamilyTitle",
-  "groupContractLedgerRows",
-  "ledger_row_count",
-  "TRAILING_ACTION_PATTERNS",
+  "contractIdentityTitle",
+  "consolidateContractRecords",
+  "related_record_count",
+  "TRAILING_ACTIVITY_PATTERNS",
+  "resolveSignatureProof",
+  "resolveExpenseReimbursement",
+  "resolveConfidentiality",
 ]);
 
 expectPattern("src/components/contracts/ContractsClient.tsx", [
-  /<th[\s\S]*?>\s*PJ\s*<\/th>[\s\S]*?<th[\s\S]*?>\s*契約名\s*<\/th>/,
+  /<th[\s\S]*?>PJ<\/th>[\s\S]*?<th[\s\S]*?>契約<\/th>/,
 ]);
 
 expectNotIncludes("src/components/contracts/ContractsClient.tsx", [
   "xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.42fr)]",
+  "契約ファミリー",
+  "groupContractLedgerRows",
 ]);
 
 expectIncludes("src/app/(app)/layout.tsx", [

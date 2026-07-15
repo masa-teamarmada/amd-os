@@ -1036,6 +1036,10 @@ PRIMARY KEY: `contract_id`
 | 32 | `ledger_notes` | `text` | NULL | `` |
 | 33 | `tax_basis` | `text` | NULL | `` |
 | 34 | `recipient_emails` | `_text` | NOT NULL | `ARRAY[]::text[]` |
+| 35 | `canonical_contract_id` | `uuid` | NULL | `` |
+| 36 | `confidentiality_coverage` | `text` | NOT NULL | `'unknown'::text` |
+| 37 | `confidentiality_survival_note` | `text` | NULL | `` |
+| 38 | `confidentiality_note` | `text` | NULL | `` |
 
 ## eimi_slack_usage_log
 

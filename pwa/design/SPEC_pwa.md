@@ -130,7 +130,7 @@ pwa/
 | `/venture-map/amd-score/[projectId]` | AMD Score 個別 (PRS Primary / PRS history / legacy Triple Helix M-X-F / 軸クリックで Tsukuyomi) |
 | `/venture-map/amd-score/retrofit` | α 重み調整 + 全 PJ シミュレーション (タブバー非表示、詳細ページからリンク) |
 | `/management-score` | AMD Management Score (会社全体の経営状況スコア: 先手力 / 財務耐久 / 既存PJ継続 / 新規案件獲得 / 戦略接近度)。詳細は [`management_score.md`](management_score.md) |
-| `/admin/contracts` | 契約管理。admin左メニュー配下の契約台帳で、初期表示は `registry_status IN ('accepted','candidate')` かつ cancelled 以外の「1行=1契約/契約ファミリー」だけを出す。`canonical_title` または作業アクション末尾を落とした family key で、同じ契約の送付確認・微修正・DocuSign依頼行を1行へ集約し、現在状態・文書数・nudgeを統合元全行から読む。台帳はadmin本文の全幅を使い、契約詳細は右カラムではなく台帳の下へ置く。PJ → 契約名の2列を左固定にして横スクロール中も行の文脈を維持する。MTG、議事録、テンプレート、Drive folder は契約行ではなく evidence として扱う。契約予定枠、status、相手先、関連PJ、締結/発効日、終了/更新日、version history、押印版metadata、5生データ予兆dry-run、Slack nudge dry-runを扱う。実ファイル本体は `共有ドライブ/ARMADA/a3_backoffice/契約` に置き、DBにはDrive metadata/linkだけ保存する。詳細は [`/spec/5-6-contracts-management-current-spec`](/spec/5-6-contracts-management-current-spec) |
+| `/admin/contracts` | 契約管理。初期表示は `registry_status IN ('accepted','candidate')` かつ cancelled 以外を1契約1行で表示し、版違い・形式違い・送付確認・微修正・DocuSign依頼は文書または関連記録へ収める。`canonical_contract_id` を契約同一性の正本とし、移行前だけ契約名による暫定集約を使う。PCはadmin本文の全幅を使い、PJ → 契約名を左固定。狭い画面は契約ごとの要約表示へ切り替える。行から大きなモーダルを開き、最上段で契約期限、立替経費、押印証跡、秘密保持へ即答し、文書と版・関連記録を別タブで確認する。実ファイル本体は `共有ドライブ/ARMADA/a3_backoffice/契約` に置き、DBにはDrive metadata/linkだけ保存する。詳細は [`/spec/5-6-contracts-management-current-spec`](/spec/5-6-contracts-management-current-spec) |
 | `/venture-map/oscillator` | (実験) coupled oscillator 可視化 |
 | `/venture-map/state-space` | (実験) Triple Helix 状態空間 |
 | `/scholar` | 学術トレンド (μ_A 観測量 N) — lane × quarter の論文数 line chart + 前年同期比。OpenAlex 由来。詳細は [`amd_score.md`](amd_score.md) Triple Helix 観測モデル参照 |

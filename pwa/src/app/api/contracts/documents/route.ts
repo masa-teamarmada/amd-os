@@ -120,12 +120,17 @@ export async function POST(req: Request) {
     if (updateContractError) {
       return NextResponse.json({ ok: false, error: updateContractError.message }, { status: 500 });
     }
-  } else {
-    const nextStatus = contract.status === "planned" ? "drafting" : contract.status;
+  } else if (isLatest) {
+    const nextStatus = documentKind === "revision" || documentKind === "redline"
+      ? "under_review"
+      : documentKind === "draft" || contract.status === "planned"
+        ? "drafting"
+        : contract.status;
     await admin
       .from("contracts")
       .update({
         status: nextStatus,
+        ...(nextStatus !== "signed" ? { signed_at: null, signed_document_id: null } : {}),
         updated_by: auth.user.email,
         last_activity_at: new Date().toISOString(),
       })

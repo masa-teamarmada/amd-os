@@ -71,7 +71,7 @@ export async function GET() {
         .limit(CONTRACT_ACTIVITY_LIST_LIMIT),
       admin
         .from("projects")
-        .select("project_id,project_name,status,slack_channel_id")
+        .select("id,project_id,project_name,status,slack_channel_id,start_ym,end_ym,contract_terms_json")
         .order("project_name", { ascending: true }),
     ]);
 
@@ -167,4 +167,41 @@ export async function POST(req: Request) {
   }
 
   return NextResponse.json({ ok: true, contract: data });
+}
+
+export async function PATCH(req: Request) {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.errorResponse;
+
+  let body: Record<string, unknown>;
+  try {
+    body = (await req.json()) as Record<string, unknown>;
+  } catch {
+    return NextResponse.json({ ok: false, error: "invalid json" }, { status: 400 });
+  }
+
+  const contractIds = Array.isArray(body.contract_ids)
+    ? Array.from(new Set(body.contract_ids.map((value) => text(value, 80)).filter(Boolean))).slice(0, 100)
+    : [];
+  const canonicalContractId = text(body.canonical_contract_id, 80);
+  if (contractIds.length === 0 || !canonicalContractId || !contractIds.includes(canonicalContractId)) {
+    return NextResponse.json({ ok: false, error: "contract_ids and included canonical_contract_id are required" }, { status: 400 });
+  }
+
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("contracts")
+    .update({
+      canonical_contract_id: canonicalContractId,
+      updated_by: auth.user.email,
+      updated_at: new Date().toISOString(),
+    })
+    .in("contract_id", contractIds)
+    .select("contract_id");
+
+  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if ((data || []).length !== contractIds.length) {
+    return NextResponse.json({ ok: false, error: "some contract records were not linked" }, { status: 409 });
+  }
+  return NextResponse.json({ ok: true, linked: data?.length || 0, canonical_contract_id: canonicalContractId });
 }

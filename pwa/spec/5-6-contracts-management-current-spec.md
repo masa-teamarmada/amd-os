@@ -17,7 +17,7 @@
 
 | table | purpose |
 |---|---|
-| `contracts` | 契約予定枠、status、相手先、関連PJ、予兆confidence、nudge閾値、押印版有無 |
+| `contracts` | 1契約の正規ID、予定枠、現在status、相手先、関連PJ、契約期間、秘密保持の扱い、予兆confidence、nudge閾値 |
 | `contract_documents` | Drive file metadata による version history。本文/ファイル本体はDB保存しない |
 | `contract_signals` | 5生データから検知した契約予兆候補。raw本文ではなく短いsnippetとsource refだけ保存 |
 | `contract_terms` | 契約書・見積・発注書などから抽出した金額/期間/相手先候補。`candidate/pending` は review queue であり、`applied` まで projects/billing_cycles へ反映しない |
@@ -31,13 +31,13 @@ status:
 | `drafting` | 初稿/ドラフト作成中 |
 | `under_review` | 修正案、赤入れ、法務確認中 |
 | `awaiting_signature` | 押印/電子署名待ち |
-| `signed` | 押印版metadataが保存済み |
+| `signed` | 現在の契約記録が押印・署名済み。実際の完了判定には押印版metadataも必要 |
 | `stalled` | 押印版未保存のまま停滞 |
 | `cancelled` | 中止/失注 |
 
 ## 契約台帳としての表示境界
 
-`/admin/contracts` の主リストは、Drive folder や MTG、議事録、テンプレート一覧ではなく、**1 行 = 1 契約または契約ファミリー**の契約台帳として扱う。契約書ファイル、修正案、押印版、議事録上の言及は `contract_documents` / `contract_signals` / `contract_terms` の証跡であり、台帳行そのものではない。
+`/admin/contracts` の主リストは、Drive folder や MTG、議事録、テンプレート一覧ではなく、**1行 = 1契約**の契約台帳として扱う。ドラフト、修正版、PDF / Wordなどの形式違い、押印版、議事録上の言及は、同じ契約に属する版・文書・証跡であり、別の契約ではない。`contract_documents` / `contract_signals` / `contract_terms` は台帳行を増やさず、契約詳細モーダルの根拠として読む。
 
 台帳行に必須の観点:
 
@@ -45,22 +45,29 @@ status:
 |---|---|
 | 関連PJ | `project_id` / `projects.name` |
 | 契約名 | `canonical_title` を優先し、Drive path や MTG title そのものを契約名にしない |
-| 契約種別 | NDA / 業務委託 / 共同研究 / MOU / 覚書 / 発注書など |
+| 現在状態 | 最終活動が新しい契約記録の `status`。過去の押印済み記録が、現在の修正・再締結を隠さない |
+| 契約期間・更新 | `effective_date` / `expiration_date` / `renewal_notice_date` / `renewal_type`。契約側が未入力なら未確認とし、PJに反映済みの契約期間は回答へ使わず参考表示だけにする |
+| 立替経費 | `projects.contract_terms_json.expenseReimbursementAllowed` と根拠メモ。未設定は「未確認」と明示する |
+| 押印 | 現在statusと `contract_documents.document_kind='signed'` の両方から、完了・証跡なし・更新中・未完了を判定する |
+| 秘密保持 | `confidentiality_coverage`、存続期間、根拠メモ。契約内・別NDA・含まれない・未確認を区別する |
+| 最新版 | `contract_documents` の最新版、版数、押印版の有無 |
 | 相手先 | `counterparty_name`。未設定なら metadata不足として扱う |
-| 状態 | `status` と `registry_status` の両方で判断する |
-| 締結/発効 | `signed_at` / `effective_date` |
-| 終了/更新 | `expiration_date` / `renewal_notice_date` / `renewal_type` |
-| 文書 | `contract_documents` の件数、最新版、押印版の有無 |
 
-台帳は admin 本文の利用可能幅をすべて使い、契約詳細は右カラムではなく台帳の下へ配置する。狭い表示では表本体だけを横スクロールさせる。列順は `PJ → 契約名 → 種別 → 相手先 → 状態 → 締結/発効 → 終了/更新 → 文書` とし、PJ と契約名は左端の固定列として常に表示する。横スクロール中も、どのPJの何の契約かという行の文脈を失わせない。
+台帳は admin 本文の利用可能幅をすべて使う。PCでは列順を `PJ → 契約名 → 現在状態 → 契約期間・更新 → 立替経費 → 押印 → 秘密保持 → 最新版 → 相手先` とし、PJと契約名を左端の固定列として常に表示する。狭い画面では表を押し潰したり横スクロールさせたりせず、1契約ごとの要約行へ切り替える。
 
-表示時の粒度は契約ファミリー単位。`canonical_title` があればそれを正本の契約名として使い、無い場合は `contract_title` から `DocuSign送付先確認` / `送付依頼` / `微修正` / `確認・...` などの作業アクション末尾を落として family key を作る。同じ `project_id` / `contract_type` / `counterparty_name` / family key の候補行は、主リストでは 1 行へ集約する。現在状態は集約元の status から導出し、`signed` を最優先、未締結では `stalled`、`awaiting_signature`、`under_review`、`drafting`、`planned` の順で強い状態を表示する。統合元の `contracts` 行は消さず、台帳行に「統合 N 行」として示し、契約詳細・文書数・nudge は family 内の全 `contract_id` を集約して読む。
+行を開くと、画面下ではなく大きなモーダルを表示する。最初のタブの最上段で「契約はいつまで？」「立替経費申請できる？」「押印まで完了してる？」「秘密保持は含まれる？」へ即答し、その下で根拠と不足情報を編集する。文書・版・形式違いは「文書と版」、過去の作業記録や検知signalは「関連記録」で確認する。
+
+契約の正規IDは `contracts.canonical_contract_id`。同じ契約に属する既存記録を保存する時、基準となる `contract_id` を全記録へ一括設定し、以後は同じ契約として読む。移行前データだけは、`canonical_title` または契約名から送付確認・微修正・DocuSign依頼などの作業語を除いた同一性候補で暫定集約する。この文字列推定は互換処理であり、契約概念や表示名ではない。
+
+現在状態は最新活動の契約記録から導出する。古い `signed` を優先してはならない。押印完了の回答は、現在状態が `signed` で、現在の契約記録の `signed_document_id` と実在する押印版metadataの `document_id` が一致した時だけ「押印完了」とする。現在状態が `signed` でも一致する押印版が無ければ「証跡なし」、過去の押印版があって現在状態がレビュー中・押印待ちなら「更新中」とする。
+
+立替経費の回答に使えるのは `projects.contract_terms_json` に反映済みの条件だけ。`contract_terms` の候補は当該契約へ明示的に紐付くものだけ根拠候補として表示し、同じPJにあるだけの未紐付け候補を回答へ混ぜない。秘密保持は `in_contract / separate_nda / not_included / unknown` を正本とし、契約終了後の存続期間と根拠メモを併記できる。
 
 `contracts.registry_status` は台帳に出すかどうかの品質境界。
 
 | value | behavior |
 |---|---|
-| `accepted` | 契約台帳の通常行。契約または契約ファミリーとして成立している |
+| `accepted` | 契約台帳の通常行。1契約として成立している |
 | `candidate` | 高確度だが相手先・期間・文書種別などの確認が必要。台帳には出すが review badge を付ける |
 | `evidence_only` | 契約関連の証跡。MTG/議事録/フォルダ/テンプレート/契約語を含む周辺資料など。台帳の初期表示には出さない |
 | `rejected` | 契約ではないと判断済み。初期表示には出さない |
@@ -75,7 +82,8 @@ Drive backfill では、契約書そのものに見える PDF / Doc / xlsx / sig
 |---|---:|---:|---|
 | `/api/contracts` | GET | no | 契約、documents、signals、terms、nudges、projects、Drive保存先設定を返す |
 | `/api/contracts` | POST | yes | admin手動で契約予定枠を作る |
-| `/api/contracts/[contractId]` | PATCH | yes | status、相手先、予定日、nudge閾値などを更新 |
+| `/api/contracts` | PATCH | yes | 複数の既存記録へ同じ `canonical_contract_id` を一括設定する |
+| `/api/contracts/[contractId]` | PATCH | yes | 現在status、相手先、契約期間、更新、秘密保持、担当、メモなどを更新 |
 | `/api/contracts/documents` | POST | yes | 既存Drive link/file idをmetadata登録。`document_kind='signed'` なら契約を `signed` にする |
 | `/api/contracts/signal-dry-run` | GET | no | 5生データから契約予兆候補を生成。DB writeなし |
 | `/api/contracts/nudges/dry-run` | GET | no | 押印版未保存かつ閾値超過のSlack nudge候補を生成。Slack送信なし |
