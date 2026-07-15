@@ -8,6 +8,26 @@ export type MaterialSource = {
   asOf: string;
 };
 
+export type MarketPoint = {
+  period: string;
+  value: number;
+};
+
+export type SupplyShare = {
+  country: string;
+  share: number;
+};
+
+export type ElementMarketData = {
+  benchmark: string;
+  unit: string;
+  series: MarketPoint[];
+  note: string;
+  supplyBasis: string;
+  supplyShares: SupplyShare[];
+  source: MaterialSource;
+};
+
 export type MaterialScores = Record<HeatAxis, HeatLevel>;
 
 export type MaterialDetail = {
@@ -29,6 +49,7 @@ export type MaterialDetail = {
   scoreReasons: Record<HeatAxis, string>;
   sources: MaterialSource[];
   lastReviewed: string;
+  market?: ElementMarketData;
 };
 
 export type ElementCategory =
@@ -151,6 +172,89 @@ const elementDetails: Record<string, MaterialDetail> = {
   Hf: detail({ id: "element-hf", family: "element", name: "ハフニウム", code: "Hf", category: "遷移金属", summary: "zirconium精製の副産物。先端半導体のhigh-k膜、超合金、原子炉制御に使う小規模戦略材料。", properties: ["高中性子吸収", "高融点", "HfO2のhigh-k特性"], uses: ["半導体の絶縁膜", "超合金", "原子炉制御棒", "プラズマ電極"], supplyCountries: ["Zr精製に連動", "フランス", "中国", "ドイツ"], reserves: "定量的な世界埋蔵量は非公表。zircon / baddeleyite中にZrと共存（USGS 2026）。", balance: "Zr需要に供給が連動し、Hf価格だけで増産しにくい典型的な副産物risk。", circularity: "高価だが用途中濃度が低く、超合金scrapなど限定streamが中心。", chain: ["zircon", "Zr/Hf分離", "Hf metal / HfO2", "半導体・航空・原子力"], amdFitNote: "先端半導体・高温材料の『少量だが止まる』riskを可視化できる。", scores: { heat: 5, demand: 4, supplyRisk: 5, amdFit: 4 }, scoreReasons: { heat: "先端半導体と副産物制約", demand: "high-k・superalloy", supplyRisk: "Zr連動の小規模供給", amdFit: "半導体・高温seedに有効" } }),
 };
 
+const MARKET_PERIODS = ["2021", "2022", "2023", "2024", "2025"] as const;
+
+function usgsMarket(
+  slug: string,
+  benchmark: string,
+  unit: string,
+  values: number[],
+  note: string,
+  supplyBasis: string,
+  supplyShares: SupplyShare[]
+): ElementMarketData {
+  return {
+    benchmark,
+    unit,
+    series: MARKET_PERIODS.map((period, index) => ({ period, value: values[index] })),
+    note,
+    supplyBasis,
+    supplyShares,
+    source: {
+      label: "USGS Mineral Commodity Summaries 2026",
+      href: `https://pubs.usgs.gov/periodicals/mcs2026/mcs2026-${slug}.pdf`,
+      asOf: "2025年平均・推計（2026年2月公表）",
+    },
+  };
+}
+
+export const ELEMENT_MARKETS: Record<string, ElementMarketData> = {
+  Li: usgsMarket("lithium", "電池級炭酸リチウム", "米ドル / t", [11700, 63700, 39000, 11800, 9000], "固定契約を含む米国年間平均。スポット価格とは一致しない。", "2025年 世界鉱山生産（Li含有量）", [
+    { country: "豪州", share: 31.7 }, { country: "中国", share: 21.4 }, { country: "チリ", share: 19.3 }, { country: "ジンバブエ", share: 9.7 }, { country: "アルゼンチン", share: 7.9 }, { country: "その他", share: 10.0 },
+  ]),
+  C: usgsMarket("graphite", "天然黒鉛フレーク", "米ドル / t", [1330, 1200, 1080, 1050, 1000], "輸入単価の平均。電池用球状黒鉛や人造黒鉛とは別市場。", "2025年 世界天然黒鉛生産", [
+    { country: "中国", share: 77.8 }, { country: "マダガスカル", share: 4.4 }, { country: "タンザニア", share: 4.2 }, { country: "ブラジル", share: 3.6 }, { country: "モザンビーク", share: 3.3 }, { country: "その他", share: 6.7 },
+  ]),
+  Si: usgsMarket("silicon", "金属シリコン", "米セント / lb", [220.31, 361.86, 179.69, 170.34, 130], "米国輸入価格の月次平均を年平均化。半導体級・太陽電池級ポリシリコンとは別市場。", "2025年 世界金属シリコン生産", [
+    { country: "中国", share: 87.0 }, { country: "ブラジル", share: 3.9 }, { country: "ノルウェー", share: 2.8 }, { country: "フランス", share: 1.5 }, { country: "豪州", share: 1.0 }, { country: "その他", share: 3.8 },
+  ]),
+  P: usgsMarket("phosphate", "リン鉱石", "米ドル / t", [83, 99, 101, 96, 100], "米国鉱山渡しの全品位加重平均。精製リンや肥料価格とは異なる。", "2025年 世界リン鉱石生産", [
+    { country: "中国", share: 44.0 }, { country: "モロッコ", share: 14.4 }, { country: "米国", share: 8.0 }, { country: "ロシア", share: 5.6 }, { country: "ヨルダン", share: 4.8 }, { country: "その他", share: 23.2 },
+  ]),
+  Ti: usgsMarket("titanium", "チタンスポンジ", "米ドル / kg", [11.1, 11.1, 12.3, 13.3, 12], "米国輸入の関税込み単価。酸化チタン顔料とは別市場。", "2025年 世界チタンスポンジ生産", [
+    { country: "中国", share: 70.3 }, { country: "日本", share: 14.3 }, { country: "ロシア", share: 6.8 }, { country: "カザフスタン", share: 4.3 }, { country: "サウジアラビア", share: 3.2 }, { country: "その他", share: 1.1 },
+  ]),
+  Mn: usgsMarket("manganese", "マンガン鉱石（44%品位）", "米ドル / dmtu", [5.27, 5.97, 4.8, 5.53, 4.5], "中国着の金属含有量単価。電池級硫酸マンガンとは別市場。", "2025年 世界鉱山生産（Mn含有量）", [
+    { country: "南アフリカ", share: 38.0 }, { country: "ガボン", share: 25.0 }, { country: "ガーナ", share: 10.0 }, { country: "豪州", share: 8.0 }, { country: "ブラジル", share: 4.0 }, { country: "その他", share: 15.0 },
+  ]),
+  Co: usgsMarket("cobalt", "コバルト地金", "米ドル / lb", [24.21, 30.78, 17.2, 16.77, 21], "米国スポットのコバルトカソード価格。水酸化物や硫酸塩とは別市場。", "2025年 世界鉱山生産", [
+    { country: "コンゴ民主共和国", share: 73.0 }, { country: "インドネシア", share: 14.0 }, { country: "その他", share: 13.0 },
+  ]),
+  Ni: usgsMarket("nickel", "LME ニッケル現金価格", "米ドル / t", [18476, 25815, 21495, 16812, 15000], "一次ニッケルの年間平均。電池級中間品やフェロニッケルとは異なる。", "2025年 世界鉱山生産", [
+    { country: "インドネシア", share: 66.7 }, { country: "フィリピン", share: 6.9 }, { country: "ロシア", share: 5.1 }, { country: "カナダ", share: 3.6 }, { country: "ニューカレドニア", share: 3.6 }, { country: "その他", share: 14.1 },
+  ]),
+  Cu: usgsMarket("copper", "電気銅カソード", "米セント / lb", [432.3, 410.8, 395.3, 431.8, 490], "米国生産者価格（COMEX＋プレミアム）の年間平均。", "2025年 世界鉱山生産", [
+    { country: "チリ", share: 23.0 }, { country: "コンゴ民主共和国", share: 13.9 }, { country: "ペルー", share: 11.7 }, { country: "中国", share: 7.8 }, { country: "ロシア", share: 5.7 }, { country: "その他", share: 37.9 },
+  ]),
+  Ga: usgsMarket("gallium", "ガリウム地金", "米ドル / kg", [277, 432, 365, 439, 580], "米国輸入の平均通関単価。高純度品・化合物半導体ウエハーとは別市場。", "2025年 世界低純度一次生産", [
+    { country: "中国", share: 99.0 }, { country: "ロシア", share: 0.7 }, { country: "日本", share: 0.3 },
+  ]),
+  Ge: usgsMarket("germanium", "高純度ゲルマニウム地金", "米ドル / kg", [1187, 1294, 1392, 1991, 4100], "欧州の純度99.999%以上の年間平均。世界生産量が非公表のため供給元は米国輸入構成。", "2021–24年 米国輸入供給元（地金・二酸化物合計）", [
+    { country: "ベルギー", share: 41 }, { country: "中国", share: 23 }, { country: "カナダ", share: 17 }, { country: "ドイツ", share: 14 }, { country: "その他", share: 5 },
+  ]),
+  Zr: usgsMarket("zirconium-hafnium", "プレミアムジルコン", "米ドル / t", [1530, 2300, 2160, 2000, 1800], "中国着のジルコン価格。原子力級ジルコニウム金属とは別市場。", "2025年 世界ジルコン精鉱生産", [
+    { country: "豪州", share: 33.3 }, { country: "南アフリカ", share: 22.5 }, { country: "モザンビーク", share: 13.3 }, { country: "米国", share: 8.3 }, { country: "中国", share: 8.3 }, { country: "その他", share: 14.3 },
+  ]),
+  Nb: usgsMarket("niobium", "フェロニオブ", "米ドル / kg", [21, 25, 25, 26, 26], "米国貿易の加重平均単価。純ニオブ金属や超伝導線材とは別市場。", "2025年 世界鉱山生産", [
+    { country: "ブラジル", share: 92.9 }, { country: "カナダ", share: 5.4 }, { country: "コンゴ民主共和国", share: 0.9 }, { country: "その他", share: 0.8 },
+  ]),
+  Nd: usgsMarket("rare-earths", "酸化ネオジム", "米ドル / kg", [98, 134, 78, 56, 73], "純度99.5%以上の年間平均。産出国構成はネオジム単独ではなくレアアース鉱山生産の代替指標。", "2025年 世界レアアース鉱山生産（REO換算）", [
+    { country: "中国", share: 69.2 }, { country: "米国", share: 13.1 }, { country: "豪州", share: 7.4 }, { country: "ミャンマー", share: 5.6 }, { country: "その他", share: 4.7 },
+  ]),
+  Ta: usgsMarket("tantalum", "タンタライト鉱石", "米ドル / kg-Ta₂O₅", [158, 196, 170, 167, 180], "鉱石中の酸化タンタル含有量あたりの年間平均。地金・コンデンサー粉末とは別市場。", "2025年 世界鉱山生産", [
+    { country: "コンゴ民主共和国", share: 52.0 }, { country: "ルワンダ", share: 16.0 }, { country: "ナイジェリア", share: 15.6 }, { country: "ブラジル", share: 7.6 }, { country: "中国", share: 3.2 }, { country: "その他", share: 5.6 },
+  ]),
+  W: usgsMarket("tungsten", "タングステン精鉱", "米ドル / dmtu-WO₃", [225, 275, 258, 252, 380], "ロッテルダム倉庫渡し。1 dmtuは乾燥鉱石1t中のWO₃ 1%分。", "2025年 世界鉱山生産", [
+    { country: "中国", share: 78.8 }, { country: "ベトナム", share: 3.5 }, { country: "カザフスタン", share: 2.8 }, { country: "ロシア", share: 2.4 }, { country: "北朝鮮", share: 2.4 }, { country: "その他", share: 10.1 },
+  ]),
+  Pt: usgsMarket("platinum-group", "白金", "米ドル / トロイoz", [1094.31, 966.54, 973, 960.7, 1200], "年間平均の白金地金価格。触媒向け契約価格とは一致しない。", "2025年 世界鉱山生産", [
+    { country: "南アフリカ", share: 70.6 }, { country: "ロシア", share: 11.8 }, { country: "ジンバブエ", share: 10.6 }, { country: "カナダ", share: 2.9 }, { country: "米国", share: 1.1 }, { country: "その他", share: 3.0 },
+  ]),
+  Hf: usgsMarket("zirconium-hafnium", "ハフニウム地金", "米ドル / kg", [781, 1590, 6130, 4560, 3800], "未加工ハフニウムの年間平均。世界生産量が非公表のため供給元は米国輸入構成。", "2021–24年 米国輸入供給元（未加工品）", [
+    { country: "ドイツ", share: 54 }, { country: "中国", share: 21 }, { country: "フランス", share: 12 }, { country: "英国", share: 8 }, { country: "その他", share: 5 },
+  ]),
+};
+
 const elementGlance: Record<string, { use: string; supplyAlert: string }> = {
   Li: { use: "蓄電池", supplyAlert: "電池用の精製工程が集中" },
   C: { use: "電池負極・吸着", supplyAlert: "電池用の加工が中国に集中" },
@@ -198,7 +302,9 @@ export const ELEMENTS: ElementRecord[] = rawElements.map(([symbol, name, group, 
     category,
     glanceUse: elementGlance[symbol]?.use,
     supplyAlert: elementGlance[symbol]?.supplyAlert,
-    detail: elementDetails[symbol],
+    detail: elementDetails[symbol]
+      ? { ...elementDetails[symbol], market: ELEMENT_MARKETS[symbol] }
+      : undefined,
   };
 });
 

@@ -4,13 +4,18 @@ import { useMemo, useState, type CSSProperties } from "react";
 import {
   ArrowRight,
   Atom,
+  ChartNoAxesCombined,
   CircleDot,
+  Clock3,
   Columns3,
   ExternalLink,
   FlaskConical,
   Gem,
   LayoutDashboard,
+  Maximize2,
+  Minimize2,
   Network,
+  PieChart,
   Plus,
   Recycle,
   Scale,
@@ -21,10 +26,16 @@ import {
   TriangleAlert,
   X,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import type { KnowledgeMapData } from "@/lib/knowledge-map-data";
 import {
-  CATEGORY_LABELS,
   ELEMENTS,
   FAMILY_LABELS,
   HEAT_AXIS_LABELS,
@@ -125,8 +136,11 @@ export function MaterialsKnowledgeView({ knowledgeData }: { knowledgeData: Knowl
   const [axis, setAxis] = useState<HeatAxis>("heat");
   const [selectedId, setSelectedId] = useState("element-li");
   const [compareIds, setCompareIds] = useState<string[]>([]);
+  const [elementDialogOpen, setElementDialogOpen] = useState(false);
+  const [elementDialogExpanded, setElementDialogExpanded] = useState(false);
 
   const selected = MATERIALS.find((item) => item.id === selectedId) ?? MATERIALS[0];
+  const selectedElement = ELEMENTS.find((item) => item.detail?.id === selectedId);
   const compareItems = compareIds
     .map((id) => MATERIALS.find((item) => item.id === id))
     .filter((item): item is MaterialDetail => Boolean(item));
@@ -134,6 +148,16 @@ export function MaterialsKnowledgeView({ knowledgeData }: { knowledgeData: Knowl
   const selectMaterial = (item: MaterialDetail, nextTab?: WorkspaceTab) => {
     setSelectedId(item.id);
     if (nextTab) setTab(nextTab);
+    if (item.family === "element" && nextTab === "elements") {
+      setElementDialogExpanded(false);
+      setElementDialogOpen(true);
+    }
+  };
+
+  const selectElement = (id: string) => {
+    setSelectedId(id);
+    setElementDialogExpanded(false);
+    setElementDialogOpen(true);
   };
 
   const toggleCompare = (id: string) => {
@@ -225,9 +249,7 @@ export function MaterialsKnowledgeView({ knowledgeData }: { knowledgeData: Knowl
             axis={axis}
             onAxisChange={setAxis}
             selectedId={selectedId}
-            onSelect={setSelectedId}
-            compareIds={compareIds}
-            onToggleCompare={toggleCompare}
+            onSelect={selectElement}
           />
         )}
         {tab === "minerals" && (
@@ -257,6 +279,22 @@ export function MaterialsKnowledgeView({ knowledgeData }: { knowledgeData: Knowl
 
         {compareItems.length > 0 && tab !== "compare" && (
           <CompareTray items={compareItems} onRemove={toggleCompare} onOpen={() => setTab("compare")} />
+        )}
+
+        {selectedElement?.detail && (
+          <ElementInsightDialog
+            element={selectedElement}
+            open={elementDialogOpen}
+            expanded={elementDialogExpanded}
+            onOpenChange={(open) => {
+              setElementDialogOpen(open);
+              if (!open) setElementDialogExpanded(false);
+            }}
+            onExpandedChange={setElementDialogExpanded}
+            isCompared={compareIds.includes(selectedElement.detail.id)}
+            compareFull={compareIds.length >= 4}
+            onToggleCompare={toggleCompare}
+          />
         )}
       </div>
     </main>
@@ -353,8 +391,7 @@ function ReadRule({ number, title, text }: { number: string; title: string; text
   );
 }
 
-function ElementsView({ axis, onAxisChange, selectedId, onSelect, compareIds, onToggleCompare }: { axis: HeatAxis; onAxisChange: (axis: HeatAxis) => void; selectedId: string; onSelect: (id: string) => void; compareIds: string[]; onToggleCompare: (id: string) => void }) {
-  const selectedElement = ELEMENTS.find((item) => item.detail?.id === selectedId) ?? ELEMENTS.find((item) => item.symbol === "Li")!;
+function ElementsView({ axis, onAxisChange, selectedId, onSelect }: { axis: HeatAxis; onAxisChange: (axis: HeatAxis) => void; selectedId: string; onSelect: (id: string) => void }) {
   const crisisElements = ELEMENTS.filter((item) => item.detail?.scores.supplyRisk === 5);
   const warningElements = ELEMENTS.filter((item) => item.detail?.scores.supplyRisk === 4);
   return (
@@ -443,16 +480,197 @@ function ElementsView({ axis, onAxisChange, selectedId, onSelect, compareIds, on
           </div>
         </div>
       </section>
-      <ElementPanel element={selectedElement} compareIds={compareIds} onToggleCompare={onToggleCompare} />
     </div>
   );
 }
 
-function ElementPanel({ element, compareIds, onToggleCompare }: { element: ElementRecord; compareIds: string[]; onToggleCompare: (id: string) => void }) {
-  if (!element.detail) {
-    return <aside className="border border-[#c9c1b4] bg-[#fbf8f2] p-5"><div className="font-mono text-3xl font-semibold">{element.symbol}</div><h2 className="mt-2 text-xl font-semibold">{element.name}</h2><p className="mt-4 text-sm leading-6 text-[#666761]">{CATEGORY_LABELS[element.category]}。基礎配置のみ収録済みで、需要・供給・AMD相性はまだ未評価。未評価は低需要を意味しない。</p></aside>;
-  }
-  return <MaterialDetailPanel item={element.detail} isCompared={compareIds.includes(element.detail.id)} compareFull={compareIds.length >= 4} onToggleCompare={onToggleCompare} wide />;
+function ElementInsightDialog({
+  element,
+  open,
+  expanded,
+  onOpenChange,
+  onExpandedChange,
+  isCompared,
+  compareFull,
+  onToggleCompare,
+}: {
+  element: ElementRecord;
+  open: boolean;
+  expanded: boolean;
+  onOpenChange: (open: boolean) => void;
+  onExpandedChange: (expanded: boolean) => void;
+  isCompared: boolean;
+  compareFull: boolean;
+  onToggleCompare: (id: string) => void;
+}) {
+  const item = element.detail;
+  if (!item) return null;
+  const alertLabel = item.scores.supplyRisk === 5 ? "供給危機" : item.scores.supplyRisk === 4 ? "要警戒" : "供給監視";
+  const market = item.market;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        showCloseButton={false}
+        className={cn(
+          "!grid !max-h-[calc(100vh-1rem)] !w-[calc(100vw-1rem)] !max-w-[760px] !gap-0 !overflow-y-auto !rounded-none !bg-[#fbf8f2] !p-0 !text-[#1d2425] shadow-[0_24px_80px_rgba(24,28,29,.28)] transition-[max-width] duration-200",
+          expanded && "!max-w-[1180px]"
+        )}
+      >
+        <header className="sticky top-0 z-10 border-b border-[#c9c1b4] bg-[#fbf8f2]/95 px-4 py-4 backdrop-blur sm:px-6">
+          <div className="flex items-start gap-4">
+            <div className="grid h-16 w-16 shrink-0 place-items-center border border-[#245f73] bg-[#245f73] text-white">
+              <span className="font-mono text-3xl font-bold leading-none">{element.symbol}</span>
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-[#766f65]">元素 {element.atomicNumber}</span>
+                <span className={cn("px-2 py-1 text-[10px] font-bold", item.scores.supplyRisk === 5 ? "bg-[#171717] text-[#ffe45e]" : item.scores.supplyRisk === 4 ? "bg-[#ffbf00] text-[#4b2600]" : "bg-[#e5e1d8] text-[#555852]")}>{alertLabel}</span>
+              </div>
+              <DialogTitle className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-[#172022]">{item.name}</DialogTitle>
+              <DialogDescription className="mt-1 text-xs text-[#6b6d67]">{item.category} · {element.glanceUse}</DialogDescription>
+            </div>
+            <DialogClose render={<button type="button" className="grid h-11 w-11 shrink-0 place-items-center border border-[#bdb5a8] bg-white text-[#535956] transition hover:border-[#172022] hover:text-[#172022] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#245f73]" aria-label="閉じる" />}>
+              <X className="h-4 w-4" />
+            </DialogClose>
+          </div>
+        </header>
+
+        <div className="p-4 sm:p-6">
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1.25fr)_minmax(260px,.75fr)]">
+            <section className="order-1 border border-[#cfc7ba] bg-white p-4 sm:p-5">
+              <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[#8b6b45]">何に使う元素か</div>
+              <p className="mt-3 text-sm leading-6 text-[#4f5552]">{item.summary}</p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {item.uses.slice(0, 4).map((use) => <span key={use} className="border border-[#c9c1b4] bg-[#f2ede5] px-2.5 py-1.5 text-xs font-medium text-[#464d4a]">{use}</span>)}
+              </div>
+              <div className={cn("mt-5 border-l-4 px-3 py-3 text-xs leading-5", item.scores.supplyRisk === 5 ? "border-[#d90429] bg-[#fff0ef] text-[#6f202a]" : "border-[#e0a100] bg-[#fff8df] text-[#6d5217]") }>
+                <span className="font-bold">{alertLabel}</span>
+                <span className="ml-2">{element.supplyAlert}。{item.balance}</span>
+              </div>
+            </section>
+
+            <section className="order-3 border border-[#cfc7ba] bg-[#efe8dc] p-4 sm:order-3 sm:p-5 md:order-2">
+              <div className="flex items-center gap-2 text-[#704f2d]"><PieChart className="h-4 w-4" /><h3 className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">産出国構成</h3></div>
+              {market ? <SupplyPie market={market} /> : <p className="mt-4 text-xs text-[#686b66]">構成比を確認できる公表データを整備中。</p>}
+            </section>
+            {market && <MarketTape market={market} className="order-2 md:col-span-2 md:order-3" />}
+          </div>
+
+          {expanded && (
+            <div className="mt-4 border border-[#c9c1b4] bg-white">
+              <div className="grid grid-cols-4 border-b border-[#d7d0c5]"><MiniScore label="注目" value={item.scores.heat} reason={item.scoreReasons.heat} /><MiniScore label="需要" value={item.scores.demand} reason={item.scoreReasons.demand} /><MiniScore label="供給" value={item.scores.supplyRisk} reason={item.scoreReasons.supplyRisk} /><MiniScore label="AMD" value={item.scores.amdFit} reason={item.scoreReasons.amdFit} /></div>
+              <div className="grid divide-y divide-[#ddd6cb] lg:grid-cols-2 lg:divide-x lg:divide-y-0">
+                <div className="divide-y divide-[#ddd6cb]">
+                  <DetailSection title="特徴"><TagList items={item.properties} /></DetailSection>
+                  <DetailSection title="埋蔵・供給の見方"><p className="text-xs leading-5 text-[#5d625f]">{item.reserves}</p></DetailSection>
+                  <DetailSection title="需給バランス"><p className="text-xs leading-5 text-[#5d625f]">{item.balance}</p></DetailSection>
+                </div>
+                <div className="divide-y divide-[#ddd6cb]">
+                  <DetailSection title="循環・代替"><div className="flex gap-2"><Recycle className="mt-0.5 h-4 w-4 shrink-0 text-[#397559]" /><p className="text-xs leading-5 text-[#5d625f]">{item.circularity}</p></div></DetailSection>
+                  <DetailSection title="AMDとの接点"><p className="text-xs font-medium leading-5 text-[#314f4a]">{item.amdFitNote}</p></DetailSection>
+                  <DetailSection title="出典"><div className="space-y-2">{[...(market ? [market.source] : []), ...item.sources].filter((source, index, sources) => sources.findIndex((candidate) => candidate.href === source.href) === index).map((source) => <a key={source.href} href={source.href} target="_blank" rel="noreferrer" className="flex min-h-11 items-center justify-between gap-3 border border-[#d0c8bb] bg-[#faf8f3] px-3 py-2 text-xs font-semibold text-[#315b63] transition hover:border-[#245f73]"><span className="min-w-0">{source.label}<small className="mt-0.5 block font-normal text-[#7a7871]">{source.asOf}</small></span><ExternalLink className="h-3.5 w-3.5 shrink-0" /></a>)}</div></DetailSection>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <footer className="sticky bottom-0 z-10 flex flex-col gap-2 border-t border-[#c9c1b4] bg-[#f3eee6]/95 p-3 backdrop-blur sm:flex-row sm:items-center sm:justify-end sm:px-6">
+          <button type="button" onClick={() => onToggleCompare(item.id)} aria-pressed={isCompared} disabled={!isCompared && compareFull} className={cn("inline-flex h-11 items-center justify-center gap-2 border px-4 text-sm font-semibold transition", isCompared ? "border-[#245f73] bg-white text-[#245f73]" : "border-[#9f988c] bg-white text-[#293233] hover:border-[#245f73]", !isCompared && compareFull && "cursor-not-allowed opacity-45") }>
+            {isCompared ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}{isCompared ? "比較から外す" : compareFull ? "比較は4件まで" : "比較に追加"}
+          </button>
+          <button type="button" onClick={() => onExpandedChange(!expanded)} className="inline-flex h-11 items-center justify-center gap-2 bg-[#245f73] px-5 text-sm font-bold text-white transition hover:bg-[#194d5d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#245f73] focus-visible:ring-offset-2">
+            {expanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}{expanded ? "要点だけに戻す" : "詳細を開く"}
+          </button>
+        </footer>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const PIE_COLORS = ["#245f73", "#b76538", "#d9a64f", "#587e72", "#8b6b45", "#b9b1a5"];
+
+function SupplyPie({ market }: { market: NonNullable<MaterialDetail["market"]> }) {
+  const stops = market.supplyShares.map((slice, index, shares) => {
+    const start = shares.slice(0, index).reduce((total, item) => total + item.share, 0);
+    const end = start + slice.share;
+    return `${PIE_COLORS[index % PIE_COLORS.length]} ${start}% ${end}%`;
+  }).join(", ");
+  return (
+    <div className="mt-4 grid grid-cols-[104px_minmax(0,1fr)] items-center gap-4">
+      <div role="img" aria-label={`${market.supplyBasis}: ${market.supplyShares.map((slice) => `${slice.country} ${slice.share}%`).join("、")}`} className="aspect-square w-[104px] rounded-full border-4 border-white shadow-sm" style={{ backgroundImage: `conic-gradient(${stops})` }} />
+      <div className="min-w-0 space-y-1.5">
+        {market.supplyShares.map((slice, index) => (
+          <div key={slice.country} className="grid grid-cols-[10px_minmax(0,1fr)_auto] items-center gap-2 text-[11px]">
+            <i className="h-2.5 w-2.5" style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }} />
+            <span className="truncate text-[#555a56]">{slice.country}</span>
+            <span className="font-mono font-semibold tabular-nums text-[#303837]">{slice.share}%</span>
+          </div>
+        ))}
+      </div>
+      <p className="col-span-2 text-[10px] leading-4 text-[#79756d]">{market.supplyBasis}</p>
+    </div>
+  );
+}
+
+function MarketTape({ market, className }: { market: NonNullable<MaterialDetail["market"]>; className?: string }) {
+  const latest = market.series.at(-1)!;
+  const previous = market.series.at(-2)!;
+  const change = ((latest.value - previous.value) / previous.value) * 100;
+  return (
+    <section className={cn("border border-[#172022] bg-[#172022] text-white", className)}>
+      <div className="grid gap-0 lg:grid-cols-[250px_minmax(0,1fr)]">
+        <div className="border-b border-[#4b5657] p-4 lg:border-b-0 lg:border-r sm:p-5">
+          <div className="flex items-center gap-2 text-[#b9c9c7]"><ChartNoAxesCombined className="h-4 w-4" /><span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">直近公表相場</span></div>
+          <div className="mt-4 font-mono text-3xl font-semibold tabular-nums text-white">{formatMarketValue(latest.value)}</div>
+          <div className="mt-1 text-xs text-[#cbd5d2]">{market.unit}</div>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <span className={cn("px-2 py-1 font-mono text-xs font-bold", change > 0 ? "bg-[#ffdfd9] text-[#9f1e1e]" : change < 0 ? "bg-[#d8eee5] text-[#185b43]" : "bg-[#e8e5df] text-[#4e5350]")}>{change > 0 ? "+" : ""}{change.toFixed(1)}%</span>
+            <span className="text-[11px] text-[#b7c2bf]">前年比</span>
+          </div>
+          <div className="mt-4 flex items-center gap-1.5 text-[10px] text-[#9eaeaa]"><Clock3 className="h-3.5 w-3.5" />{market.source.asOf}</div>
+        </div>
+        <div className="min-w-0 p-4 sm:p-5">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div><h3 className="text-sm font-semibold">{market.benchmark}</h3><p className="mt-1 text-[10px] text-[#9eaeaa]">5年推移</p></div>
+            <a href={market.source.href} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center gap-1.5 border border-[#5b6869] px-2.5 text-[10px] font-semibold text-[#d6dfdc] transition hover:border-[#d7a45f] hover:text-white">出典を見る<ExternalLink className="h-3 w-3" /></a>
+          </div>
+          <MarketTrendChart market={market} />
+          <p className="mt-2 text-[10px] leading-4 text-[#aebbb8]">{market.note} ライブ配信値ではない。</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function MarketTrendChart({ market }: { market: NonNullable<MaterialDetail["market"]> }) {
+  const width = 480;
+  const height = 120;
+  const left = 12;
+  const right = 12;
+  const top = 12;
+  const bottom = 24;
+  const values = market.series.map((point) => point.value);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = Math.max(max - min, 1);
+  const points = market.series.map((point, index) => {
+    const x = left + (index / Math.max(market.series.length - 1, 1)) * (width - left - right);
+    const y = top + ((max - point.value) / range) * (height - top - bottom);
+    return { ...point, x, y };
+  });
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="mt-3 h-[120px] w-full" role="img" aria-label={`${market.benchmark}の5年推移: ${market.series.map((point) => `${point.period}年 ${formatMarketValue(point.value)}`).join("、")}`}>
+      {[0, 0.5, 1].map((ratio) => <line key={ratio} x1={left} x2={width - right} y1={top + ratio * (height - top - bottom)} y2={top + ratio * (height - top - bottom)} stroke="#465254" strokeWidth="1" />)}
+      <polyline points={points.map((point) => `${point.x},${point.y}`).join(" ")} fill="none" stroke="#f0bb69" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+      {points.map((point, index) => <g key={point.period}><circle cx={point.x} cy={point.y} r={index === points.length - 1 ? 5 : 3} fill={index === points.length - 1 ? "#e0002b" : "#f0bb69"} stroke="#172022" strokeWidth="2"><title>{point.period}年 {formatMarketValue(point.value)} {market.unit}</title></circle><text x={point.x} y={height - 5} textAnchor="middle" fill="#aebbb8" fontSize="10" fontFamily="monospace">{point.period}</text></g>)}
+    </svg>
+  );
+}
+
+function formatMarketValue(value: number) {
+  return new Intl.NumberFormat("ja-JP", { maximumFractionDigits: value < 10 ? 2 : value < 1000 ? 1 : 0 }).format(value);
 }
 
 function MaterialCatalogue({ title, description, items, selectedId, onSelect, compareIds, onToggleCompare }: { title: string; description: string; items: MaterialDetail[]; selectedId: string; onSelect: (id: string) => void; compareIds: string[]; onToggleCompare: (id: string) => void }) {
