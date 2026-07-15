@@ -29,18 +29,23 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 ## /knowledge-map
 
-目的: OS 内の L2 / manual / spec / BZM 候補を、NotebookLM へ渡す Knowledge Pack の OS 側プレビューとして読み、AMD ノウハウの位置関係をマインドマップ風に眺める。
+目的: 元素・鉱物・鉱石・樹脂・高分子を「材料 → 供給 → 用途 → AMDとの接点」で横断し、研究テーマ・事業機会・供給リスクを数分で比較できる AMD Materials workspace として使う。従来の L2 / manual / spec / BZM ノウハウ地図も `材料マップ` tab に残す。
 
 必須機能:
 
 - read-only route: `/knowledge-map` は DB write、LLM 呼び出し、外部 NotebookLM 同期を行わない。
+- materials lenses: `全体` / `元素` / `鉱物・鉱石` / `樹脂・高分子` / `材料マップ` / `比較` を切り替えられる。画面内の質問フォームや生成AI回答欄は持たない。
+- periodic table: 118元素を周期表配置で表示し、`総合注目度` / `需要` / `供給不安` / `AMD相性` の heat 軸を切り替えられる。評価値は初期の定性評価として根拠を併記し、未評価を低評価やゼロと混同させない。
+- materials detail: 重要元素、代表的な鉱物・鉱石、代表的な樹脂・高分子は、特徴、用途、供給国、埋蔵・需給メモ、代替・循環性、材料チェーン、AMDとの接点、source link を detail panel で読める。
+- compare: familyを跨いで2〜4件を比較trayへ追加し、同じ評価軸と用途・供給・循環性・AMD相性を並べて見られる。
 - data sources: `protocols` / `project_knowledge` / `member_knowledge` / `project_meeting_summaries` / `project_strategy_signals` / `project_xrl_evidence` / `monthly_reports` / `textbook_insight_candidates` の件数と直近代表 row を読む。
 - graph controls: 検索、domain filter、expand/collapse、zoom、node detail panel、source route link を持つ。
 - source hygiene: メール全文、Slack全文、議事録全文、資料全文を fetch / 保存 / 表示しない。短い L2 text、summary、source ref、status だけを使う。
+- source discipline: 市況・埋蔵量・生産国・需給は source と評価時点を示す。精密値を持たない初期版では、推測値を実測値のように表示しない。
 
 回帰防止:
 
-- `/knowledge-map` route、GlobalNav 導線、`KnowledgeMapView`、`fetchKnowledgeMapData` を消す変更は、`FEATURE_REGISTRY.md`、`/spec/2-1`、`/spec/2-2`、manual 2-5 を同時に更新する。
+- `/knowledge-map` route、GlobalNav 導線、materials workspace、118元素の周期表、比較tray、`KnowledgeMapView`、`fetchKnowledgeMapData` を消す変更は、`FEATURE_REGISTRY.md`、`/spec/2-1`、`/spec/2-2`、manual 2-5 を同時に更新する。
 - NotebookLM export を追加するときも、OS 側が正本で、NotebookLM はコピー先という境界を崩さない。
 
 ## /business-cards

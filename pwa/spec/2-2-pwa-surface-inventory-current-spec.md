@@ -13,7 +13,7 @@
 | admin | `/admin/*` | invoices / finance / projects（Slack CHの「チャンネルなし」明示を含む） / members / payouts / prompts / settings / protocols / tsukuyomi / weekly (週次活動×月次報酬マトリクス: `/api/admin/weekly` が member_activities(member_weekly) と表示月の `billing_cycles.reward_summary_json` の `members[].totalPay` を返し、右端列=メンバー別月合計・最下行=PJ別月合計・総合計を描画) / 日本文化マップ (`/admin/japanese-culture-map`)。共通 shell は `GlobalNav` を `AdminSidebar` に差し替え、admin layout は2枚目の左メニューを描画しない | `(app)/layout.tsx`, `admin/layout.tsx`, `AdminSidebar.tsx`, `admin/*/page.tsx` |
 | admin knowledge | `/admin/japanese-culture-map` | `jp_culture_items` active 行をマインドマップ / 日本地図で読む admin-only 文化知識ビュー。旧 `/japanese-culture-map` は redirect | `admin/japanese-culture-map/page.tsx`, `jp-culture.ts` |
 | docs | `/manual`, `/spec`, `/bzm` | manual / design spec / textbook を OS 画面で表示 | `manual/*`, `spec/*`, `bzm/*` |
-| knowledge | `/knowledge-map` | AMD Knowledge Map。L2 counts と直近代表 node を source table 別に読み、NotebookLM Knowledge Pack の OS 側プレビューとして表示する。raw本文は保存/表示しない | `knowledge-map/page.tsx`, `KnowledgeMapView.tsx` |
+| knowledge | `/knowledge-map` | AMD Materials。全118元素のheatmap周期表、代表鉱物・鉱石、代表樹脂・高分子、2〜4件比較、従来のL2 force graphを統合する。初期評価と未評価を分け、根拠sourceを示す。raw本文、画面内Q&A、DB write、LLM呼び出しは持たない | `knowledge-map/page.tsx`, `MaterialsKnowledgeView.tsx`, `KnowledgeMapView.tsx`, `materials-data.ts` |
 | contacts | `/business-cards` | スマホ撮影 / 写真選択、OCR確認、複数PJ紐付け、名刺検索。確定時だけ D-3 PJナレッジへ人物情報を同期する | `business-cards/page.tsx`, `BusinessCardsClient.tsx` |
 | contacts native | `/native/business-cards` | iOSの名刺タブが認証cookieつきWKWebViewで開く、GlobalNavなしのnative shell | `native/business-cards/page.tsx`, `ios/.../BusinessCardsView.swift` |
 | notifications | `/notifications` | L2 / MTG / app notifications の確認と採否 | `notifications/page.tsx` |

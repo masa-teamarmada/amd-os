@@ -132,25 +132,28 @@ Venture Map は、探索系アセットを使って「どの波にいつ PJ を�
 
 細かいモデルは [5-2 章 HUD / Venture Map 仕様](5-2-hud-and-venture-map-spec.md)、AMD Score の式は [4-3 章](4-3-amd-score-spec.md) を見る。
 
-## Knowledge Map を見る
+## AMD Materials を見る
 
-Knowledge Map は、NotebookLM に渡す Knowledge Pack の OS 側プレビュー。NotebookLM へコピーする前に、AMD OS 内で「どんなノウハウがどこにあるか」をマインドマップ風に確認する。
+`/knowledge-map` は、元素・鉱物・鉱石・樹脂・高分子を、特徴だけでなく供給・用途・AMDとの接点まで辿る材料インテリジェンス画面。従来の Obsidian 風 Knowledge Map も `材料マップ` tab に残している。
 
-| 見るもの | 内容 |
+| tab | 見るもの |
 |---|---|
-| 中央ノード | AMD Knowledge Pack。OS 内のノウハウを束ねる入口 |
-| domain node | Protocol、Project Knowledge、Member Knowledge、Meeting Memory、Strategy Signals、Readiness、Monthly、Textbook などの知識領域 |
-| source node | `protocols` / `project_knowledge` / `member_knowledge` / `project_meeting_summaries` などのテーブル単位 |
-| item node | 直近の代表 row。短い summary / source ref / status だけを表示 |
-| detail panel | 選んだ node の説明、件数、関連 route への link |
+| 全体 | いま注目すべき材料、供給不安が強い材料、AMDと相性がよい材料の入口 |
+| 元素 | 全118元素の周期表。総合注目度 / 需要 / 供給不安 / AMD相性の色を切り替える |
+| 鉱物・鉱石 | 元素がどの鉱物・鉱石から得られ、精製後にどの用途へ向かうか |
+| 樹脂・高分子 | 原料、物性、用途、循環性、規制・代替、AMDとの接点 |
+| 材料マップ | L2 / manual / spec / BZM 候補と正本への入口をマインドマップで見る |
+| 比較 | 比較trayへ入れた2〜4材料を共通軸で横に並べる |
 
 使い方:
-1. `/knowledge-map` を開く
-2. 左上の検索で PJ 名、メンバー名、source kind、知識カテゴリを探す
-3. domain filter で Protocol / Meeting / Strategy などに絞る
-4. 気になる node を選び、右 panel から cockpit / notifications / admin などの正本画面へ戻る
+1. `/knowledge-map` を開き、まず `全体` か heat 軸を切り替えた `元素` で気になる材料を探す
+2. cell / row を選び、特徴、用途、供給国、埋蔵・需給メモ、代替・循環性、材料チェーン、source を確認する
+3. 候補を `比較に追加` し、最大4件まで同じ軸で比べる
+4. AMD OS 内のノウハウやPJ事例を探すときだけ `材料マップ` を開き、検索・domain filter・node detailから正本画面へ戻る
 
-Knowledge Map は読み取り専用。DB write、LLM 呼び出し、外部 NotebookLM への自動同期はしない。NotebookLM へ渡す md / PDF / text pack は、OS 側の同じ情報境界から別途 export する。
+色は将来予測の確定値ではなく、評価時点の情報をまとめた初期の定性評価。`未評価` は低評価や需要ゼロを意味しない。精密な市況・埋蔵量・生産量を判断に使うときは、detailのsourceから最新の一次資料を確認する。
+
+AMD Materials は読み取り専用。DB write、LLM 呼び出し、画面内Q&A、外部 NotebookLM への自動同期はしない。質問や追加分析は Codex のえいみに依頼し、画面は探索・比較・根拠確認に集中させる。
 
 ## 注意
 
@@ -160,4 +163,5 @@ Knowledge Map は読み取り専用。DB write、LLM 呼び出し、外部 Noteb
 - VC の `amd_rating` は「世間的に良い VC」ではなく「AMD にとっての相性」
 - Scholar は論文本文の要約ではなく、学術活動量の観測
 - Macrotrend は単発ニュースではなく、構造課題と変化仮説を見るレイヤー
-- Knowledge Map は正本そのものではなく、OS 正本への入口。メール全文・Slack全文・議事録全文を保存/表示する場所にしない
+- AMD Materials の材料評価は一次資料への入口であり、投資・調達判断の確定値ではない。生産国・埋蔵量・需給は source の最新版を確認する
+- 材料マップは正本そのものではなく、OS 正本への入口。メール全文・Slack全文・議事録全文を保存/表示する場所にしない

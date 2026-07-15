@@ -202,10 +202,10 @@ export function GlobalNav({
             badge: atlasInboxCount,
           },
           {
-            label: "Knowledge",
+            label: "Materials",
             href: "/knowledge-map",
             icon: Network,
-            title: "AMD のノウハウ地図",
+            title: "元素・鉱物・樹脂を供給と用途まで辿る",
           },
           {
             label: "名刺",

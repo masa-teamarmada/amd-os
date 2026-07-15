@@ -1,13 +1,13 @@
-import { KnowledgeMapView } from "@/components/knowledge-map/KnowledgeMapView";
+import { MaterialsKnowledgeView } from "@/components/knowledge-map/MaterialsKnowledgeView";
 import { fetchKnowledgeMapData } from "@/lib/knowledge-map-data";
 
 export const metadata = {
-  title: "Knowledge Map | AMD OS",
+  title: "AMD Materials | AMD OS",
 };
 
 export const dynamic = "force-dynamic";
 
 export default async function KnowledgeMapPage() {
   const data = await fetchKnowledgeMapData();
-  return <KnowledgeMapView data={data} />;
+  return <MaterialsKnowledgeView knowledgeData={data} />;
 }

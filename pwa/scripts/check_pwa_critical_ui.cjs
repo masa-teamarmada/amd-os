@@ -255,6 +255,33 @@ expectIncludes("src/components/nav/GlobalNav.tsx", [
   "board-nav-flyout",
   "createPortal",
   "fetchActiveProjectsForNav",
+  "Materials",
+  "/knowledge-map",
+]);
+
+expectIncludes("src/app/(app)/knowledge-map/page.tsx", [
+  "MaterialsKnowledgeView",
+  "fetchKnowledgeMapData",
+  "AMD Materials",
+]);
+
+expectIncludes("src/components/knowledge-map/MaterialsKnowledgeView.tsx", [
+  "AMD / Materials Intelligence",
+  "総合注目度",
+  "供給不安",
+  "未評価",
+  "鉱物・鉱石",
+  "樹脂・高分子",
+  "比較に追加",
+  "KnowledgeMapView data={knowledgeData} embedded",
+]);
+
+expectIncludes("src/lib/materials-data.ts", [
+  "export const ELEMENTS",
+  "export const MINERALS",
+  "export const POLYMERS",
+  "USGS Mineral Commodity Summaries 2026",
+  "IEA Global Critical Minerals Outlook 2025",
 ]);
 
 expectNotIncludes("src/components/nav/GlobalNav.tsx", [

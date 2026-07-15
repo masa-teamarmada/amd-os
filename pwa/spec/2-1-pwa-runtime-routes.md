@@ -42,7 +42,7 @@
 | `/manual` | AMD OS マニュアル。使い方・運用者向け |
 | `/spec` | 設計書。確定実装仕様。admin 限定 |
 | `/bzm` | BZM テキストブック。理論・数式・rubric 導出 |
-| `/knowledge-map` | AMD Knowledge Map。L2 / manual / spec / BZM 候補を横断する読み取り専用ノウハウ地図 |
+| `/knowledge-map` | AMD Materials。118元素の周期表、鉱物・鉱石、樹脂・高分子、比較、従来のノウハウ地図を横断する読み取り専用の材料インテリジェンス workspace |
 | `/business-cards` | 名刺管理。スマホ撮影 / 写真選択 → Gemini OCR → 人の確認 → 1件以上のPJ紐付け → `business_cards` と D-3 `project_knowledge(category='people')` へ保存する。OCR結果は自動確定しない |
 | `/native/business-cards` | iOS名刺タブ用のナビ無しnative shell。通常の月初合意overlayを重ねず、認証cookieつきWKWebViewから `/business-cards` と同じUI/APIを使う |
 | `/poc` | PoC案件化。Seeds とPoC先を入力し、その掛け合わせからヒアリング論点、PoC条件、謝礼、契約、資金、収益分配を追う |

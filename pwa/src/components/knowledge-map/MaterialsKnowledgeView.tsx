@@ -1,0 +1,516 @@
+"use client";
+
+import { useMemo, useState, type CSSProperties } from "react";
+import {
+  ArrowRight,
+  Atom,
+  CircleDot,
+  Columns3,
+  ExternalLink,
+  FlaskConical,
+  Gem,
+  LayoutDashboard,
+  Network,
+  Plus,
+  Recycle,
+  Scale,
+  Search,
+  ShieldAlert,
+  Sparkles,
+  TrendingUp,
+  X,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import type { KnowledgeMapData } from "@/lib/knowledge-map-data";
+import {
+  CATEGORY_LABELS,
+  ELEMENTS,
+  FAMILY_LABELS,
+  HEAT_AXIS_LABELS,
+  MATERIALS,
+  MINERALS,
+  POLYMERS,
+  type ElementRecord,
+  type HeatAxis,
+  type HeatLevel,
+  type MaterialDetail,
+  type MaterialFamily,
+} from "@/lib/materials-data";
+import { KnowledgeMapView } from "./KnowledgeMapView";
+
+type WorkspaceTab = "overview" | "elements" | "minerals" | "polymers" | "map" | "compare";
+
+const TABS: Array<{ id: WorkspaceTab; label: string; icon: typeof Atom }> = [
+  { id: "overview", label: "全体", icon: LayoutDashboard },
+  { id: "elements", label: "元素", icon: Atom },
+  { id: "minerals", label: "鉱物・鉱石", icon: Gem },
+  { id: "polymers", label: "樹脂・高分子", icon: FlaskConical },
+  { id: "map", label: "材料マップ", icon: Network },
+  { id: "compare", label: "比較", icon: Columns3 },
+];
+
+const FAMILY_ACCENT: Record<MaterialFamily, string> = {
+  element: "#245f73",
+  mineral: "#a04d2a",
+  polymer: "#6f5a91",
+};
+
+const HEAT_COLORS: Record<HeatAxis, Record<HeatLevel, { bg: string; border: string; text: string }>> = {
+  heat: {
+    1: { bg: "#f8efe3", border: "#e6d4bd", text: "#6d5740" },
+    2: { bg: "#f4d9b6", border: "#dfb77d", text: "#70441d" },
+    3: { bg: "#e8aa67", border: "#cc8140", text: "#4f2a12" },
+    4: { bg: "#c96738", border: "#a94724", text: "#fffaf5" },
+    5: { bg: "#7d2f1b", border: "#5f2112", text: "#fffaf5" },
+  },
+  demand: {
+    1: { bg: "#edf3f4", border: "#cfdee0", text: "#405b60" },
+    2: { bg: "#d3e4e7", border: "#a8c8ce", text: "#244f57" },
+    3: { bg: "#98c4cd", border: "#69a5b0", text: "#163f47" },
+    4: { bg: "#4f93a2", border: "#327684", text: "#f7ffff" },
+    5: { bg: "#245f73", border: "#184656", text: "#f7ffff" },
+  },
+  supplyRisk: {
+    1: { bg: "#f6efe9", border: "#e5d5c8", text: "#675347" },
+    2: { bg: "#ecd4c4", border: "#d9b39b", text: "#6b3e2b" },
+    3: { bg: "#dc9a73", border: "#c87950", text: "#542a1a" },
+    4: { bg: "#b95332", border: "#96391e", text: "#fffaf7" },
+    5: { bg: "#73251b", border: "#551711", text: "#fffaf7" },
+  },
+  amdFit: {
+    1: { bg: "#edf4ef", border: "#d2e2d7", text: "#435c4c" },
+    2: { bg: "#d3e5da", border: "#aacbbb", text: "#285441" },
+    3: { bg: "#99c6ad", border: "#6ba486", text: "#173f2f" },
+    4: { bg: "#4f9675", border: "#33775b", text: "#f5fff9" },
+    5: { bg: "#26664d", border: "#174b38", text: "#f5fff9" },
+  },
+};
+
+function heatStyle(axis: HeatAxis, level?: HeatLevel): CSSProperties {
+  if (!level) {
+    return {
+      color: "#71717a",
+      borderColor: "#d6d3d1",
+      backgroundColor: "#f5f3ef",
+      backgroundImage: "repeating-linear-gradient(135deg, transparent 0 7px, rgba(120,113,108,.10) 7px 8px)",
+    };
+  }
+  const color = HEAT_COLORS[axis][level];
+  return { color: color.text, borderColor: color.border, backgroundColor: color.bg };
+}
+
+function axisIcon(axis: HeatAxis) {
+  if (axis === "demand") return TrendingUp;
+  if (axis === "supplyRisk") return ShieldAlert;
+  if (axis === "amdFit") return Sparkles;
+  return CircleDot;
+}
+
+export function MaterialsKnowledgeView({ knowledgeData }: { knowledgeData: KnowledgeMapData }) {
+  const [tab, setTab] = useState<WorkspaceTab>("overview");
+  const [axis, setAxis] = useState<HeatAxis>("heat");
+  const [selectedId, setSelectedId] = useState("element-li");
+  const [compareIds, setCompareIds] = useState<string[]>([]);
+
+  const selected = MATERIALS.find((item) => item.id === selectedId) ?? MATERIALS[0];
+  const compareItems = compareIds
+    .map((id) => MATERIALS.find((item) => item.id === id))
+    .filter((item): item is MaterialDetail => Boolean(item));
+
+  const selectMaterial = (item: MaterialDetail, nextTab?: WorkspaceTab) => {
+    setSelectedId(item.id);
+    if (nextTab) setTab(nextTab);
+  };
+
+  const toggleCompare = (id: string) => {
+    setCompareIds((current) => {
+      if (current.includes(id)) return current.filter((item) => item !== id);
+      if (current.length >= 4) return current;
+      return [...current, id];
+    });
+  };
+
+  return (
+    <main className="min-h-[calc(100vh-2.75rem)] bg-[#f3efe7] text-[#1d2425]">
+      <div className="mx-auto flex w-full max-w-[1760px] flex-col gap-4 px-3 py-4 sm:px-5 lg:px-6">
+        <header className="border-b border-[#cfc8bc] pb-5">
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
+            <div className="min-w-0">
+              <div className="mb-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#6b6f6b]">
+                <span className="border border-[#aaa397] bg-[#fbf8f2] px-2.5 py-1 font-mono text-[#374244]">
+                  AMD / Materials Intelligence
+                </span>
+                <span>初期評価 · 2026-07-15</span>
+                <span className="normal-case tracking-normal">read-only / 質問機能なし</span>
+              </div>
+              <h1 className="text-balance text-3xl font-semibold tracking-[-0.035em] text-[#172022] sm:text-4xl">
+                元素から用途まで、材料の勝ち筋を掘る。
+              </h1>
+              <p className="mt-3 max-w-4xl text-sm leading-7 text-[#5d625f] sm:text-[15px]">
+                周期表、鉱物・鉱石、樹脂・高分子を、需要・供給不安・代替・循環性・AMDとの接点で横断する。
+                色は初期の定性評価。未評価を低評価として扱わない。
+              </p>
+            </div>
+            <div className="grid grid-cols-3 border border-[#c9c1b4] bg-[#faf7f1]">
+              <HeaderMetric value="118" label="元素" />
+              <HeaderMetric value={String(MINERALS.length)} label="鉱物・原料" />
+              <HeaderMetric value={String(POLYMERS.length)} label="樹脂" />
+            </div>
+          </div>
+        </header>
+
+        <nav aria-label="材料ビュー" className="overflow-x-auto border-b border-[#cfc8bc]">
+          <div className="flex min-w-max items-end gap-1">
+            {TABS.map((item) => {
+              const Icon = item.icon;
+              const active = tab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setTab(item.id)}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "flex h-11 items-center gap-2 border-b-2 px-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#245f73] focus-visible:ring-offset-2",
+                    active
+                      ? "border-[#245f73] bg-[#fbf8f2] text-[#173f49]"
+                      : "border-transparent text-[#696b66] hover:border-[#aaa397] hover:text-[#1d2425]"
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                  {item.label}
+                  {item.id === "compare" && compareIds.length > 0 && (
+                    <span className="grid h-5 min-w-5 place-items-center bg-[#245f73] px-1 font-mono text-[10px] text-white">
+                      {compareIds.length}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+
+        {selected && tab !== "map" && (
+          <section className="border border-[#c9c1b4] bg-[#262f31] px-3 py-3 text-[#f7f3e9] sm:px-4" aria-label="選択中の材料チェーン">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-[#b9c9c7]">material chain</span>
+              <span className="font-mono text-xs font-semibold text-white">{selected.code}</span>
+              {selected.chain.map((step, index) => (
+                <span key={`${selected.id}-${step}`} className="inline-flex items-center gap-2 text-xs">
+                  {index > 0 && <ArrowRight className="h-3.5 w-3.5 text-[#d0a15f]" />}
+                  <span className={index === selected.chain.length - 1 ? "font-semibold text-[#f7d393]" : "text-[#dde4e1]"}>{step}</span>
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {tab === "overview" && <Overview onSelect={selectMaterial} />}
+        {tab === "elements" && (
+          <ElementsView
+            axis={axis}
+            onAxisChange={setAxis}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            compareIds={compareIds}
+            onToggleCompare={toggleCompare}
+          />
+        )}
+        {tab === "minerals" && (
+          <MaterialCatalogue
+            title="鉱物・鉱石・原料"
+            description="元素名だけでは見えない、採掘形態・副産物構造・精製工程を掘る。"
+            items={MINERALS}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            compareIds={compareIds}
+            onToggleCompare={toggleCompare}
+          />
+        )}
+        {tab === "polymers" && (
+          <MaterialCatalogue
+            title="樹脂・高分子"
+            description="原料、物性、用途、規制、循環性を一続きのchainとして見る。"
+            items={POLYMERS}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            compareIds={compareIds}
+            onToggleCompare={toggleCompare}
+          />
+        )}
+        {tab === "map" && <KnowledgeMapView data={knowledgeData} embedded />}
+        {tab === "compare" && <CompareView items={compareItems} onRemove={toggleCompare} />}
+
+        {compareItems.length > 0 && tab !== "compare" && (
+          <CompareTray items={compareItems} onRemove={toggleCompare} onOpen={() => setTab("compare")} />
+        )}
+      </div>
+    </main>
+  );
+}
+
+function HeaderMetric({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="min-w-[92px] border-r border-[#c9c1b4] px-3 py-3 last:border-r-0 sm:min-w-[112px]">
+      <div className="font-mono text-xl font-semibold leading-none text-[#172022]">{value}</div>
+      <div className="mt-1 text-[11px] font-medium text-[#6a6a64]">{label}</div>
+    </div>
+  );
+}
+
+function Overview({ onSelect }: { onSelect: (item: MaterialDetail, tab?: WorkspaceTab) => void }) {
+  const leaders = [...MATERIALS].sort((a, b) => b.scores.heat - a.scores.heat || b.scores.supplyRisk - a.scores.supplyRisk).slice(0, 8);
+  return (
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
+      <div className="space-y-4">
+        <section className="border border-[#c9c1b4] bg-[#fbf8f2]">
+          <div className="grid gap-0 lg:grid-cols-3">
+            <FamilyEntry icon={Atom} kicker="118 elements" title="元素周期表" text="4つのheat軸で全体を走査。18元素は用途・供給・埋蔵・需給まで初期評価済み。" onClick={() => onSelect(MATERIALS[0], "elements")} />
+            <FamilyEntry icon={Gem} kicker={`${MINERALS.length} feedstocks`} title="鉱物・鉱石" text="スポジュメン、かん水、黒鉛、rare earth鉱物、リン鉱石まで原料laneで追う。" onClick={() => onSelect(MINERALS[0], "minerals")} />
+            <FamilyEntry icon={FlaskConical} kicker={`${POLYMERS.length} polymers`} title="樹脂・高分子" text="汎用樹脂からPEEK・PIまで、原料と循環性を含めて比較する。" onClick={() => onSelect(POLYMERS[0], "polymers")} />
+          </div>
+        </section>
+
+        <section className="border border-[#c9c1b4] bg-[#fbf8f2]">
+          <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[#d7d0c5] px-4 py-4">
+            <div>
+              <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#8b6b45]">hot materials / initial assessment</div>
+              <h2 className="mt-1 text-xl font-semibold tracking-[-0.02em]">いま全体を見渡すなら、ここから。</h2>
+            </div>
+            <span className="text-xs text-[#77736c]">需要・供給不安・AMD相性の合成ではなく、編集評価 1–5</span>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4">
+            {leaders.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onSelect(item, item.family === "element" ? "elements" : item.family === "mineral" ? "minerals" : "polymers")}
+                className="min-h-[156px] border-b border-r border-[#d7d0c5] p-4 text-left transition hover:bg-[#f4eee4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#245f73]"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <span className="font-mono text-lg font-semibold" style={{ color: FAMILY_ACCENT[item.family] }}>{item.code}</span>
+                  <Score level={item.scores.heat} label="注目" compact />
+                </div>
+                <div className="mt-3 text-sm font-semibold text-[#20292a]">{item.name}</div>
+                <p className="mt-2 line-clamp-3 text-xs leading-5 text-[#666761]">{item.summary}</p>
+              </button>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      <aside className="border border-[#c9c1b4] bg-[#eee7db] p-4 sm:p-5">
+        <div className="flex items-center gap-2 text-[#684421]">
+          <Scale className="h-4 w-4" />
+          <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em]">How to read</span>
+        </div>
+        <h2 className="mt-3 text-xl font-semibold tracking-[-0.02em]">“元素がhot”だけで判断しない。</h2>
+        <div className="mt-5 space-y-5">
+          <ReadRule number="01" title="commodityを分ける" text="元素、鉱物、精製品、材料grade、最終製品は別の市場。Liとbattery-grade LiOHを同じにしない。" />
+          <ReadRule number="02" title="未評価を0にしない" text="斜線cellは低需要ではなく、AMD初期評価がまだない状態。周期表の空白を断定に使わない。" />
+          <ReadRule number="03" title="埋蔵量よりbottleneckを見る" text="鉱石が豊富でも、分離・精製・認証・副産物構造で供給が詰まる。chain全体で比較する。" />
+          <ReadRule number="04" title="一次資料へ戻る" text="精密な数量や調達判断はUSGS・IEA・EU RMIS・JOGMECの最新版で再確認する。" />
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function FamilyEntry({ icon: Icon, kicker, title, text, onClick }: { icon: typeof Atom; kicker: string; title: string; text: string; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className="group min-h-[188px] border-b border-r border-[#d7d0c5] p-5 text-left last:border-r-0 lg:border-b-0">
+      <div className="flex items-center justify-between">
+        <span className="grid h-10 w-10 place-items-center border border-[#a9a297] bg-[#f3eee6] text-[#245f73]"><Icon className="h-5 w-5" /></span>
+        <ArrowRight className="h-4 w-4 text-[#9d7248] transition group-hover:translate-x-1" />
+      </div>
+      <div className="mt-5 font-mono text-[10px] uppercase tracking-[0.15em] text-[#89725b]">{kicker}</div>
+      <h2 className="mt-1 text-lg font-semibold">{title}</h2>
+      <p className="mt-2 text-xs leading-5 text-[#666761]">{text}</p>
+    </button>
+  );
+}
+
+function ReadRule({ number, title, text }: { number: string; title: string; text: string }) {
+  return (
+    <div className="grid grid-cols-[32px_1fr] gap-3 border-t border-[#cbc1b2] pt-4 first:border-t-0 first:pt-0">
+      <span className="font-mono text-xs font-semibold text-[#9b623a]">{number}</span>
+      <div><h3 className="text-sm font-semibold">{title}</h3><p className="mt-1 text-xs leading-5 text-[#66635d]">{text}</p></div>
+    </div>
+  );
+}
+
+function ElementsView({ axis, onAxisChange, selectedId, onSelect, compareIds, onToggleCompare }: { axis: HeatAxis; onAxisChange: (axis: HeatAxis) => void; selectedId: string; onSelect: (id: string) => void; compareIds: string[]; onToggleCompare: (id: string) => void }) {
+  const selectedElement = ELEMENTS.find((item) => item.detail?.id === selectedId) ?? ELEMENTS.find((item) => item.symbol === "Li")!;
+  return (
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <section className="min-w-0 border border-[#c9c1b4] bg-[#fbf8f2]">
+        <div className="border-b border-[#d7d0c5] p-3 sm:p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold">元素周期表</h2>
+              <p className="mt-1 text-xs text-[#6c6d68]">cellを押すと詳細。横幅が狭い画面では表だけ横へ動かせる。</p>
+            </div>
+            <div className="flex flex-wrap gap-1" aria-label="ヒートマップ評価軸">
+              {(Object.keys(HEAT_AXIS_LABELS) as HeatAxis[]).map((item) => {
+                const Icon = axisIcon(item);
+                return (
+                  <button key={item} type="button" onClick={() => onAxisChange(item)} aria-pressed={axis === item} className={cn("flex h-10 items-center gap-1.5 border px-3 text-xs font-semibold transition", axis === item ? "border-[#245f73] bg-[#245f73] text-white" : "border-[#c9c1b4] bg-white text-[#5c625f] hover:border-[#7d827d]") }>
+                    <Icon className="h-3.5 w-3.5" />{HEAT_AXIS_LABELS[item]}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-[#676963]">
+            <span className="mr-1 font-semibold">{HEAT_AXIS_LABELS[axis]}</span>
+            {([1,2,3,4,5] as HeatLevel[]).map((level) => <span key={level} className="inline-flex items-center gap-1"><i className="h-3 w-5 border" style={heatStyle(axis, level)} />{level}</span>)}
+            <span className="inline-flex items-center gap-1"><i className="h-3 w-5 border" style={heatStyle(axis)} />未評価</span>
+          </div>
+        </div>
+        <div className="overflow-x-auto p-3 sm:p-4" tabIndex={0} aria-label="周期表 横スクロール領域">
+          <div className="grid min-w-[1120px] grid-cols-[repeat(18,minmax(54px,1fr))] grid-rows-[repeat(9,68px)] gap-1">
+            {ELEMENTS.map((element) => {
+              const level = element.detail?.scores[axis];
+              const isSelected = element.detail?.id === selectedId;
+              return (
+                <button
+                  key={element.symbol}
+                  type="button"
+                  onClick={() => element.detail && onSelect(element.detail.id)}
+                  disabled={!element.detail}
+                  aria-label={`${element.atomicNumber} ${element.name} ${level ? `${HEAT_AXIS_LABELS[axis]} ${level}` : "未評価"}`}
+                  className={cn("relative min-h-[64px] min-w-[54px] border p-1 text-left transition focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#172022]", element.detail ? "cursor-pointer hover:-translate-y-0.5 hover:shadow-[0_3px_0_rgba(31,41,39,.16)]" : "cursor-not-allowed", isSelected && "z-10 ring-2 ring-[#172022] ring-offset-1")}
+                  style={{ ...heatStyle(axis, level), gridColumn: element.displayColumn, gridRow: element.displayRow }}
+                >
+                  <span className="block font-mono text-[9px] opacity-75">{element.atomicNumber}</span>
+                  <span className="block font-mono text-lg font-bold leading-none">{element.symbol}</span>
+                  <span className="mt-1 block truncate text-[9px] font-medium">{element.name}</span>
+                  <span className="absolute bottom-1 right-1 font-mono text-[8px] font-semibold opacity-80">{level ? `${level}/5` : "未"}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+      <ElementPanel element={selectedElement} compareIds={compareIds} onToggleCompare={onToggleCompare} />
+    </div>
+  );
+}
+
+function ElementPanel({ element, compareIds, onToggleCompare }: { element: ElementRecord; compareIds: string[]; onToggleCompare: (id: string) => void }) {
+  if (!element.detail) {
+    return <aside className="border border-[#c9c1b4] bg-[#fbf8f2] p-5"><div className="font-mono text-3xl font-semibold">{element.symbol}</div><h2 className="mt-2 text-xl font-semibold">{element.name}</h2><p className="mt-4 text-sm leading-6 text-[#666761]">{CATEGORY_LABELS[element.category]}。基礎配置のみ収録済みで、需要・供給・AMD相性はまだ未評価。未評価は低需要を意味しない。</p></aside>;
+  }
+  return <MaterialDetailPanel item={element.detail} isCompared={compareIds.includes(element.detail.id)} compareFull={compareIds.length >= 4} onToggleCompare={onToggleCompare} />;
+}
+
+function MaterialCatalogue({ title, description, items, selectedId, onSelect, compareIds, onToggleCompare }: { title: string; description: string; items: MaterialDetail[]; selectedId: string; onSelect: (id: string) => void; compareIds: string[]; onToggleCompare: (id: string) => void }) {
+  const [query, setQuery] = useState("");
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return items;
+    return items.filter((item) => [item.name,item.code,item.category,item.summary,...item.uses,...item.chain].join(" ").toLowerCase().includes(needle));
+  }, [items, query]);
+  const selected = items.find((item) => item.id === selectedId) ?? filtered[0] ?? items[0];
+  return (
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_400px]">
+      <section className="min-w-0 border border-[#c9c1b4] bg-[#fbf8f2]">
+        <div className="grid gap-3 border-b border-[#d7d0c5] p-4 lg:grid-cols-[1fr_320px] lg:items-end">
+          <div><h2 className="text-xl font-semibold">{title}</h2><p className="mt-1 text-xs leading-5 text-[#6b6c67]">{description}</p></div>
+          <label className="relative block"><span className="sr-only">材料を検索</span><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#77766f]" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="名前・用途・chainで検索" className="h-11 w-full border border-[#bdb5a8] bg-white pl-10 pr-3 text-sm outline-none focus:border-[#245f73] focus:ring-1 focus:ring-[#245f73]" /></label>
+        </div>
+        <div className="divide-y divide-[#d7d0c5]">
+          {filtered.map((item) => (
+            <button key={item.id} type="button" onClick={() => onSelect(item.id)} className={cn("grid w-full gap-3 px-4 py-4 text-left transition hover:bg-[#f4eee4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#245f73] md:grid-cols-[160px_minmax(0,1fr)_220px] md:items-center", selected?.id === item.id && "bg-[#eee7db]") }>
+              <div className="min-w-0"><div className="font-mono text-sm font-semibold" style={{ color: FAMILY_ACCENT[item.family] }}>{item.code}</div><div className="mt-1 truncate text-sm font-semibold">{item.name}</div><div className="mt-1 text-[10px] text-[#797871]">{item.category}</div></div>
+              <p className="line-clamp-2 text-xs leading-5 text-[#646660]">{item.summary}</p>
+              <div className="grid grid-cols-4 gap-1"><MiniScore label="注目" value={item.scores.heat} /><MiniScore label="需要" value={item.scores.demand} /><MiniScore label="供給" value={item.scores.supplyRisk} /><MiniScore label="AMD" value={item.scores.amdFit} /></div>
+            </button>
+          ))}
+          {filtered.length === 0 && <div className="p-8 text-center text-sm text-[#73746f]">該当する材料がない。</div>}
+        </div>
+      </section>
+      {selected && <MaterialDetailPanel item={selected} isCompared={compareIds.includes(selected.id)} compareFull={compareIds.length >= 4} onToggleCompare={onToggleCompare} />}
+    </div>
+  );
+}
+
+function MaterialDetailPanel({ item, isCompared, compareFull, onToggleCompare }: { item: MaterialDetail; isCompared: boolean; compareFull: boolean; onToggleCompare: (id: string) => void }) {
+  return (
+    <aside className="min-w-0 border border-[#c9c1b4] bg-[#fbf8f2] xl:sticky xl:top-4 xl:max-h-[calc(100vh-5rem)] xl:overflow-y-auto">
+      <div className="border-b border-[#d7d0c5] p-4 sm:p-5">
+        <div className="flex items-start justify-between gap-4"><div><div className="font-mono text-2xl font-semibold" style={{ color: FAMILY_ACCENT[item.family] }}>{item.code}</div><div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#7b776f]">{FAMILY_LABELS[item.family]} / {item.category}</div></div><Score level={item.scores.heat} label="総合注目" /></div>
+        <h2 className="mt-4 text-xl font-semibold tracking-[-0.02em]">{item.name}</h2>
+        <p className="mt-3 text-sm leading-6 text-[#5f625e]">{item.summary}</p>
+        <button type="button" onClick={() => onToggleCompare(item.id)} aria-pressed={isCompared} disabled={!isCompared && compareFull} className={cn("mt-4 inline-flex h-11 w-full items-center justify-center gap-2 border text-sm font-semibold transition", isCompared ? "border-[#245f73] bg-[#245f73] text-white" : "border-[#9f988c] bg-white text-[#293233] hover:border-[#245f73]", !isCompared && compareFull && "cursor-not-allowed opacity-45") }>
+          {isCompared ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}{isCompared ? "比較から外す" : compareFull ? "比較は4件まで" : "比較に追加"}
+        </button>
+      </div>
+      <div className="grid grid-cols-4 border-b border-[#d7d0c5]"><MiniScore label="注目" value={item.scores.heat} reason={item.scoreReasons.heat} /><MiniScore label="需要" value={item.scores.demand} reason={item.scoreReasons.demand} /><MiniScore label="供給" value={item.scores.supplyRisk} reason={item.scoreReasons.supplyRisk} /><MiniScore label="AMD" value={item.scores.amdFit} reason={item.scoreReasons.amdFit} /></div>
+      <div className="divide-y divide-[#ddd6cb]">
+        <DetailSection title="特徴"><TagList items={item.properties} /></DetailSection>
+        <DetailSection title="主用途"><TagList items={item.uses} /></DetailSection>
+        <DetailSection title="主要供給国（概ね上位順）"><ol className="space-y-1 text-xs leading-5 text-[#5d625f]">{item.supplyCountries.map((country) => <li key={country}>{country}</li>)}</ol></DetailSection>
+        <DetailSection title="埋蔵・供給の見方"><p className="text-xs leading-5 text-[#5d625f]">{item.reserves}</p></DetailSection>
+        <DetailSection title="需給balance"><p className="text-xs leading-5 text-[#5d625f]">{item.balance}</p></DetailSection>
+        <DetailSection title="循環・代替"><div className="flex gap-2"><Recycle className="mt-0.5 h-4 w-4 shrink-0 text-[#397559]" /><p className="text-xs leading-5 text-[#5d625f]">{item.circularity}</p></div></DetailSection>
+        <DetailSection title="AMDとの接点"><p className="text-xs font-medium leading-5 text-[#314f4a]">{item.amdFitNote}</p></DetailSection>
+        <DetailSection title="source"><div className="space-y-2">{item.sources.map((source) => <a key={source.href} href={source.href} target="_blank" rel="noreferrer" className="flex min-h-11 items-center justify-between gap-3 border border-[#d0c8bb] bg-white px-3 py-2 text-xs font-semibold text-[#315b63] transition hover:border-[#245f73]"><span className="min-w-0">{source.label}<small className="mt-0.5 block font-normal text-[#7a7871]">{source.asOf}</small></span><ExternalLink className="h-3.5 w-3.5 shrink-0" /></a>)}</div></DetailSection>
+      </div>
+    </aside>
+  );
+}
+
+function DetailSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return <section className="p-4 sm:px-5"><h3 className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.13em] text-[#82796d]">{title}</h3>{children}</section>;
+}
+
+function TagList({ items }: { items: string[] }) {
+  return <div className="flex flex-wrap gap-1.5">{items.map((item) => <span key={item} className="border border-[#cfc7ba] bg-[#f2ede5] px-2 py-1 text-[11px] text-[#555b58]">{item}</span>)}</div>;
+}
+
+function Score({ level, label, compact = false }: { level: HeatLevel; label: string; compact?: boolean }) {
+  return <div className={cn("border border-[#a6a094] bg-[#f4eee5] text-right", compact ? "px-2 py-1" : "px-3 py-2")}><div className={cn("font-mono font-semibold leading-none text-[#7d2f1b]", compact ? "text-sm" : "text-xl")}>{level}<span className="text-[10px] text-[#8a7e70]">/5</span></div><div className="mt-1 text-[9px] font-semibold text-[#706c65]">{label}</div></div>;
+}
+
+function MiniScore({ label, value, reason }: { label: string; value: HeatLevel; reason?: string }) {
+  return <div className="min-w-0 border-r border-[#d7d0c5] p-2 text-center last:border-r-0" title={reason}><div className="font-mono text-sm font-semibold text-[#293a3c]">{value}</div><div className="mt-0.5 truncate text-[9px] text-[#77756e]">{label}</div></div>;
+}
+
+function CompareTray({ items, onRemove, onOpen }: { items: MaterialDetail[]; onRemove: (id: string) => void; onOpen: () => void }) {
+  return (
+    <div className="sticky bottom-3 z-30 ml-auto flex w-full max-w-3xl flex-wrap items-center gap-2 border border-[#172022] bg-[#172022] p-2 text-white shadow-[0_10px_30px_rgba(20,27,28,.25)]">
+      <span className="px-2 font-mono text-[10px] uppercase tracking-[0.13em] text-[#b9c6c3]">比較 {items.length}/4</span>
+      {items.map((item) => <button key={item.id} type="button" onClick={() => onRemove(item.id)} className="flex h-9 items-center gap-2 border border-[#526062] px-2 text-xs hover:border-[#d5b27c]"><span className="font-mono text-[#f0c987]">{item.code}</span><span className="max-w-[110px] truncate">{item.name}</span><X className="h-3 w-3" /></button>)}
+      <button type="button" onClick={onOpen} className="ml-auto inline-flex h-10 items-center gap-2 bg-[#d7a45f] px-4 text-sm font-semibold text-[#1d2425]"><Columns3 className="h-4 w-4" />比較を開く</button>
+    </div>
+  );
+}
+
+function CompareView({ items, onRemove }: { items: MaterialDetail[]; onRemove: (id: string) => void }) {
+  if (items.length < 2) {
+    return <section className="border border-dashed border-[#a9a195] bg-[#fbf8f2] px-5 py-16 text-center"><Scale className="mx-auto h-8 w-8 text-[#9a7048]" /><h2 className="mt-4 text-xl font-semibold">2件以上を比較に追加してね。</h2><p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#686b66]">元素、鉱物、樹脂を跨いで最大4件。各detailの「比較に追加」から選べる。</p></section>;
+  }
+  const rows: Array<{ label: string; render: (item: MaterialDetail) => React.ReactNode }> = [
+    { label:"総合注目度", render:(item)=><Score level={item.scores.heat} label="初期評価" compact /> },
+    { label:"需要 / 供給 / AMD", render:(item)=><div className="grid grid-cols-3 border border-[#d0c8bb]"><MiniScore label="需要" value={item.scores.demand} /><MiniScore label="供給" value={item.scores.supplyRisk} /><MiniScore label="AMD" value={item.scores.amdFit} /></div> },
+    { label:"主用途", render:(item)=><TagList items={item.uses} /> },
+    { label:"主要供給国", render:(item)=><p className="text-xs leading-5 text-[#5e625e]">{item.supplyCountries.join(" / ")}</p> },
+    { label:"埋蔵・供給", render:(item)=><p className="text-xs leading-5 text-[#5e625e]">{item.reserves}</p> },
+    { label:"需給balance", render:(item)=><p className="text-xs leading-5 text-[#5e625e]">{item.balance}</p> },
+    { label:"循環・代替", render:(item)=><p className="text-xs leading-5 text-[#5e625e]">{item.circularity}</p> },
+    { label:"AMDとの接点", render:(item)=><p className="text-xs font-medium leading-5 text-[#315b52]">{item.amdFitNote}</p> },
+  ];
+  return (
+    <section className="border border-[#c9c1b4] bg-[#fbf8f2]">
+      <div className="border-b border-[#d7d0c5] p-4"><h2 className="text-xl font-semibold">材料比較</h2><p className="mt-1 text-xs text-[#6c6d68]">異なるfamilyでも、同じ判断軸に揃えて見る。</p></div>
+      <div className="overflow-x-auto">
+        <div className="min-w-[900px]" style={{ display:"grid", gridTemplateColumns:`160px repeat(${items.length}, minmax(220px, 1fr))` }}>
+          <div className="border-b border-r border-[#d7d0c5] bg-[#eee7db] p-3 font-mono text-[10px] uppercase tracking-[0.13em] text-[#766f65]">material</div>
+          {items.map((item) => <div key={item.id} className="border-b border-r border-[#d7d0c5] p-4 last:border-r-0"><div className="flex items-start justify-between gap-3"><div><div className="font-mono text-lg font-semibold" style={{ color:FAMILY_ACCENT[item.family] }}>{item.code}</div><div className="mt-1 text-sm font-semibold">{item.name}</div><div className="mt-1 text-[10px] text-[#77756f]">{FAMILY_LABELS[item.family]}</div></div><button type="button" onClick={() => onRemove(item.id)} className="grid h-10 w-10 place-items-center border border-[#c9c1b4] text-[#686963] hover:border-[#7d2f1b] hover:text-[#7d2f1b]" aria-label={`${item.name}を比較から外す`}><X className="h-4 w-4" /></button></div></div>)}
+          {rows.map((row) => <div key={row.label} className="contents"><div className="border-b border-r border-[#d7d0c5] bg-[#eee7db] p-3 text-xs font-semibold text-[#5f5d57]">{row.label}</div>{items.map((item) => <div key={`${row.label}-${item.id}`} className="border-b border-r border-[#d7d0c5] p-3 last:border-r-0">{row.render(item)}</div>)}</div>)}
+        </div>
+      </div>
+    </section>
+  );
+}

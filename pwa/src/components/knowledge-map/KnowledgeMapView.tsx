@@ -147,7 +147,7 @@ function formatDate(value?: string | null) {
   }).format(date);
 }
 
-export function KnowledgeMapView({ data }: { data: KnowledgeMapData }) {
+export function KnowledgeMapView({ data, embedded = false }: { data: KnowledgeMapData; embedded?: boolean }) {
   const root = data.nodes.find((node) => node.id === "amd-knowledge") ?? data.nodes[0];
   const [selectedId, setSelectedId] = useState(root?.id ?? "");
   const [expanded, setExpanded] = useState<Set<string>>(
@@ -259,9 +259,9 @@ export function KnowledgeMapView({ data }: { data: KnowledgeMapData }) {
     setExpanded(new Set(["amd-knowledge", ...data.nodes.filter((node) => node.kind === "domain").map((node) => node.id)]));
 
   return (
-    <div className="min-h-[calc(100vh-2.75rem)] bg-[#f7f8f6] text-zinc-950">
-      <div className="mx-auto flex w-full max-w-[1680px] flex-col gap-4 px-4 py-4 sm:px-5 sm:py-5">
-        <header className="grid gap-4 border-b border-zinc-200 pb-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+    <div className={cn("text-zinc-950", embedded ? "bg-transparent" : "min-h-[calc(100vh-2.75rem)] bg-[#f7f8f6]")}>
+      <div className={cn("mx-auto flex w-full max-w-[1680px] flex-col gap-4", embedded ? "" : "px-4 py-4 sm:px-5 sm:py-5")}>
+        <header className={cn("grid gap-4 border-b border-zinc-200 pb-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end", embedded && "border border-[#c9c1b4] bg-[#fbf8f2] p-4")}>
           <div className="min-w-0">
             <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] font-medium text-zinc-500">
               <span className="rounded-full border border-zinc-300 bg-white px-2 py-1 font-mono text-zinc-700">
@@ -270,7 +270,7 @@ export function KnowledgeMapView({ data }: { data: KnowledgeMapData }) {
               <span>生成: {formatDate(data.generatedAt)}</span>
             </div>
             <h1 className="text-balance text-2xl font-semibold tracking-normal text-zinc-950 sm:text-3xl">
-              AMD Knowledge Map
+              {embedded ? "AMDのノウハウ地図" : "AMD Knowledge Map"}
             </h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">
               OS内のL2とmanual/specを、判断・PJ・人・会議・根拠・教科書化へ束ねた読み取り専用マップ。
