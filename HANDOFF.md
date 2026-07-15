@@ -34,13 +34,14 @@ Topic: 日本文化マップを admin 内導線へ再固定
 
 | path | status | class | owner guess | resolution action | next judgment condition | risk |
 |---|---:|---|---|---|---|---|
+| `pwa/design/FEATURE_REGISTRY.md`, `pwa/design/SPEC_pwa.md`, `pwa/manual/2-5-research-assets-quick-start.md`, `pwa/spec/*`, `pwa/src/components/nav/*`, `pwa/src/lib/build-info.ts` | M | later / other-worker | Materials / research assets lane | Do not mix into this nav closeout. Owner should review, run UI/build checks, then commit/deploy or revert as its own bundle. | Before any next PWA deploy from this checkout. | high: local `BUILD_VERSION` may differ from production and nav wording can diverge. |
 | `pwa/design/atlas_routine.md` | M | preexisting / other-worker | Atlas routine docs lane | Do not mix into this nav closeout. Next Atlas/routine owner should decide commit vs revert after reading diff. | Before next Atlas routine docs/deploy closeout. | medium: stale routine notes can be mistaken for current truth. |
 | `pwa/bzm/2026-07-14_frontmatter_gairei_draft_v1.md` | ?? | preexisting / other-worker | BZM/frontmatter draft lane | Do not remove here. BZM owner should decide whether to register, move, or delete the draft. | Before next BZM publication/frontmatter session closes. | low-medium: untracked draft can be missed or accidentally swept later. |
 
 ## Unresolved Tasks
 
 - None for the 日本文化マップ nav regression.
-- Existing unrelated dirty above still needs its own owner closeout. This session did not create it and did not modify it.
+- Existing unrelated dirty above still needs its own owner closeout. This session did not create it and did not stage it.
 
 ## First Next Action
 

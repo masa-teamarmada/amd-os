@@ -37,15 +37,15 @@ cd /Users/masa/projects/AMD/amd-os
 - `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` (clean deploy clone から push/build監視)
 
 現時点の dirty:
-- `pwa/design/atlas_routine.md` はこのセッション前からの別件変更。Atlas routine docs lane の owner が commit/revert 判断する。
-- `pwa/bzm/2026-07-14_frontmatter_gairei_draft_v1.md` はこのセッション前からの未追跡 draft。BZM/frontmatter lane の owner が登録/移動/削除判断する。
-- 日本文化 nav 修正には混ぜない。
+- 次回開始時は `git status -sb --untracked-files=all` と closeout inventory を正本にする。
+- この closeout 時点では、日本文化 nav 修正とは別に Materials / research assets lane、`pwa/design/atlas_routine.md`、`pwa/bzm/2026-07-14_frontmatter_gairei_draft_v1.md` などの未整理差分が見えていた。
+- それらは日本文化 nav 修正には混ぜない。owner ごとに commit/deploy または revert 判断する。
 
 次タスク:
 1. まず `git fetch origin main`, `git status -sb --untracked-files=all`, `git log -1 --oneline`, `curl -fsS https://amd-os-pwa.vercel.app/api/build-info` を実行して current truth を確認する。
 2. もし日本文化がトップ/共通左ナビに再表示されたら、最初に `pwa/src/components/nav/GlobalNav.tsx` を見る。`npm run test:critical-ui` が落ちるはず。
 3. admin 画面内の導線を変える場合は、`pwa/design/FEATURE_REGISTRY.md` と `pwa/manual/2-6-admin-ops.md` を先に更新し、manual/spec changelog と BUGS も同期する。
-4. 残 dirty 2件は別件として owner を分ける。`git add .` は使わず、対象ファイルだけ stage する。
+4. 残 dirty は別件として owner を分ける。`git add .` は使わず、対象ファイルだけ stage する。
 
 確立済みルール:
 - 日本文化マップの唯一のUI入口は `pwa/src/components/admin/AdminSidebar.tsx`。
