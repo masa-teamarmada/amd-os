@@ -113,7 +113,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 必須機能:
 
-- menu replacement: `(app)/layout.tsx` が pathname を見て、`/admin/*` では `GlobalNav` の代わりに `AdminSidebar` を同じ左端へ表示する。
+- menu replacement: `AppShell` がブラウザ側の現在 pathname を見て、`/admin/*` では `GlobalNav` の代わりに `AdminSidebar` を同じ左端へ表示する。ダッシュボードから画面内リンクで admin へ移動しても通常メニューを残さない。
 - single sidebar: `(app)/admin/layout.tsx` は admin 権限 gate と本文余白だけを持ち、`AdminSidebar` を追加描画しない。
 - exit: `AdminSidebar` の先頭から `/dashboard` へ戻れ、現在の build version も確認できる。
 - width: admin 本文は単一サイドバーの残り幅を使う。二重サイドバーや入れ子の横レイアウトで業務表を圧迫しない。
@@ -121,7 +121,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 回帰防止:
 
-- `pwa/scripts/check_pwa_critical_ui.cjs` が `(app)/layout.tsx` の menu replacement と、admin layout に `AdminSidebar` が無いことを検査する。
+- `pwa/scripts/check_pwa_critical_ui.cjs` が `AppShell` の menu replacement と、admin layout に `AdminSidebar` が無いことを検査する。
 
 ## /admin/contracts
 

@@ -209,12 +209,18 @@ expectNotIncludes("src/components/contracts/ContractsClient.tsx", [
 ]);
 
 expectIncludes("src/app/(app)/layout.tsx", [
+  "AppShell",
+  "agreementGateBundle={agreementGateBundle}",
+]);
+
+expectIncludes("src/components/nav/AppShell.tsx", [
+  "usePathname",
   "const isAdminRoute = pathname.startsWith(\"/admin\")",
   "<AdminSidebar />",
   "<GlobalNav",
 ]);
 
-expectPattern("src/app/(app)/layout.tsx", [
+expectPattern("src/components/nav/AppShell.tsx", [
   /isAdminRoute \? \([\s\S]*?<AdminSidebar \/>[\s\S]*?\) : \([\s\S]*?<GlobalNav/,
 ]);
 
@@ -1282,9 +1288,12 @@ expectIncludes("src/components/monthly-agreement/MonthlyAgreementGateOverlay.tsx
   "bundle.currentHash",
   "router.refresh()",
 ]);
-expectIncludes("src/app/(app)/layout.tsx", [
-  "key={`${pathname}:${agreementGateBundle.ym}:${agreementGateBundle.currentHash}`}",
+expectIncludes("src/components/nav/AppShell.tsx", [
+  "agreementGateBundle",
   "MonthlyAgreementGateOverlay",
+]);
+expectIncludes("src/components/monthly-agreement/MonthlyAgreementGateOverlay.tsx", [
+  "const gateKey = `${pathname}:${bundle.ym}:${bundle.currentHash}`",
 ]);
 expectIncludes("src/lib/monthly-work-agreement.ts", [
   "monthly_reward_payout",

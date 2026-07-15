@@ -1,12 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { AdminSidebar } from "@/components/admin/AdminSidebar";
-import { GlobalNav } from "@/components/nav/GlobalNav";
-import { PageTitleSetter } from "@/components/nav/PageTitleSetter";
-import { MonthlyAgreementGateOverlay } from "@/components/monthly-agreement/MonthlyAgreementGateOverlay";
-import { CriticalRealtimeNotify } from "@/components/notifications/CriticalRealtimeNotify";
-import { TsukuyomiChatBridge } from "@/components/tsukuyomi/TsukuyomiChatBridge";
+import { AppShell } from "@/components/nav/AppShell";
 import {
   buildMonthlyWorkAgreementBundle,
   currentYmJst,
@@ -156,41 +151,14 @@ export default async function AppLayout({
       pathname,
     })
     : null;
-  const isNativeShell = pathname.startsWith("/native");
-  const isAdminRoute = pathname.startsWith("/admin");
-  const useEmbeddedShellOnly = pathname.startsWith("/hud") || isNativeShell;
-
-  if (isNativeShell) {
-    return <main className="flex-1">{children}</main>;
-  }
-
   return (
-    <>
-      <PageTitleSetter />
-      {useEmbeddedShellOnly ? (
-        <main className="flex-1">{children}</main>
-      ) : (
-        <div className="flex min-h-screen bg-background text-foreground">
-          {isAdminRoute ? (
-            <AdminSidebar />
-          ) : (
-            <GlobalNav
-              userCodeName={userCodeName}
-              isAdmin={isAdmin}
-              memberId={memberId}
-            />
-          )}
-          <main className="min-w-0 flex-1">{children}</main>
-        </div>
-      )}
-      {agreementGateBundle && (
-        <MonthlyAgreementGateOverlay
-          key={`${pathname}:${agreementGateBundle.ym}:${agreementGateBundle.currentHash}`}
-          bundle={agreementGateBundle}
-        />
-      )}
-      {isAdmin && <CriticalRealtimeNotify />}
-      <TsukuyomiChatBridge />
-    </>
+    <AppShell
+      userCodeName={userCodeName}
+      isAdmin={isAdmin}
+      memberId={memberId}
+      agreementGateBundle={agreementGateBundle}
+    >
+      {children}
+    </AppShell>
   );
 }
