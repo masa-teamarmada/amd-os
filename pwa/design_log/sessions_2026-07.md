@@ -1256,3 +1256,34 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 - `npm exec tsc -- --noEmit`、対象eslint、`npm run test:critical-ui`、`npm run test:deploy-version-guard`、`npm run build` がpass。
 - ブラウザで通常画面と390px幅のnative shellを確認し、HUDテーマ干渉を専用native routeへの分離で解消。console error 0件。
 - iOS署名付きdevice buildがpassし、masaiPhoneへのinstall / launchを確認。
+
+---
+
+## 2026-07-15 — 日本文化マップを admin 内導線へ再固定
+
+### コンテキスト
+- まさから「日本文化ページは admin に移動させたはずなのに、またトップに戻ってる」と指摘。
+- 関連 md を読む指示があり、`/Users/masa/projects/AGENTS.common.md`、repo/PWA の `AGENTS.md` / `CLAUDE.md`、`pwa/manual/1-1-intro.md`、`pwa/spec/1-3-reconstruction-coverage-audit.md`、`pwa/spec/2-1-pwa-runtime-routes.md`、`pwa/design/README.md` 等を確認してから着手。
+
+### 原因
+- 2026-07-09 の `1327db6b Move Japanese culture map into admin` で、ページ本体は `/admin/japanese-culture-map` へ移り、旧 `/japanese-culture-map` は redirect になっていた。
+- ただし `GlobalNav` の一般「資料」グループから外しただけで、共通左サイドナビの Admin group に `日本文化 -> /admin/japanese-culture-map` が残っていた。
+- そのため後続で巻き戻ったのではなく、admin 移動時点からトップ側の共通ナビ入口が残存していた。
+
+### 対応
+- `pwa/src/components/nav/GlobalNav.tsx` から `日本文化` item と未使用 `Landmark` import を削除。
+- `pwa/src/components/admin/AdminSidebar.tsx` は admin 内入口として維持。
+- `pwa/scripts/check_pwa_critical_ui.cjs` に、`GlobalNav.tsx` へ `日本文化` / `/admin/japanese-culture-map` / `/japanese-culture-map` が戻ったら失敗する guard を追加。
+- `pwa/design/FEATURE_REGISTRY.md`、`pwa/manual/2-6-admin-ops.md`、`pwa/design/os_manual.md`、manual/spec changelog、`pwa/BUGS.md` を同期。
+- `BUILD_VERSION` は `v3.40.2`。
+
+### Verification / Deploy
+- `npm run test:critical-ui` passed。
+- `npx tsc --noEmit` passed。
+- `npm run build` passed。
+- clean deploy clone から `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` を実行し、`7758389a` / `v3.40.2` を本番反映。
+- Production `/api/build-info`: `v3.40.2`, `7758389ad8bcc4115e32651e2b45e47b5daab41b`, `main`, `dirty=false`。
+
+### Closeout notes
+- 日本文化マップ nav regression の既知残タスクはなし。
+- root checkout には別件 `pwa/design/atlas_routine.md` と `pwa/bzm/2026-07-14_frontmatter_gairei_draft_v1.md` が残っている。今回の nav 修正には混ぜない。

@@ -1,4 +1,4 @@
-# SESSION MIGRATION PROMPT — SX SolvioraX W-Prep closeout
+# SESSION MIGRATION PROMPT — 日本文化マップ admin 導線 closeout
 
 ```text
 cd /Users/masa/projects/AMD/amd-os
@@ -11,34 +11,45 @@ cd /Users/masa/projects/AMD/amd-os
 5. /Users/masa/projects/AMD/amd-os/AGENTS.md
 6. /Users/masa/projects/AMD/amd-os/pwa/AGENTS.md
 7. /Users/masa/projects/AMD/amd-os/pwa/CLAUDE.md
-8. /Users/masa/projects/AMD/amd-os/pwa/spec/3-3-meeting-flow-current-spec.md
-9. /Users/masa/projects/AMD/amd-os/pwa/manual/8-3-l2-extraction-routines-spec.md
-10. /Users/masa/projects/AMD/amd-os/pwa/design/L2_DATA.md
-11. /Users/masa/projects/AMD/amd-os/pwa/scheduled-tasks/README.md
+8. /Users/masa/projects/AMD/amd-os/pwa/spec/2-1-pwa-runtime-routes.md
+9. /Users/masa/projects/AMD/amd-os/pwa/spec/2-2-pwa-surface-inventory-current-spec.md
+10. /Users/masa/projects/AMD/amd-os/pwa/design/FEATURE_REGISTRY.md
+11. /Users/masa/projects/AMD/amd-os/pwa/manual/2-6-admin-ops.md
 12. /Users/masa/projects/AMD/amd-os/pwa/BUGS.md
 13. /Users/masa/projects/AMD/amd-os/pwa/design_log/sessions_2026-07.md
 
 状態スナップショット:
-- 2026-07-14 11:00 JST の SX `SolvioraX経営会議` prep が未起動だった件は手動復旧済み。
-- DB row `upcoming:7k11p8g6rs5lf9jhtfcvglnn1d_20260714T020000Z` は readback で `prep_worker_status='ready'`、session id `019f5c0a-049a-73c0-a424-679689934c33`、prep draft 保存済み。
-- 原因は Calendar recurring 予定やスプシ正本の欠落ではない。`CFG_PJAlias: SolvioraX -> SX` と `CFG_ColorPJHistory: 2025-06-01+ colorId=4 -> SX` は既にあった。W-Prep がそれを必ず使う契約になっていなかった。
-- active automation `/Users/masa/.codex/automations/w-prep-launch/automation.toml` は更新済み。Calendar直読みのPJ推定は `CFG_ColorPJHistory` first、`CFG_PJAlias` next、`SolvioraX` / `colorId=4` は SX/p21。
-- AMD OS repo側は `calendar-sync` alias mirror に `p21: ["SolvioraX"]` を追加し、critical-ui guard / spec / manual / L2_DATA / scheduled-tasks README / BUGS / design_log / changelog を同期。`BUILD_VERSION` は `v3.39.67`。
-- functional PWA bundle commit は `29caad07 fix(pwa): harden SolvioraX prep mapping`。その後に docs-only closeout commit が続くため、final HEAD / production build-info は作業開始時に `git log -1 --oneline` と `curl https://amd-os-pwa.vercel.app/api/build-info` で取り直す。
-- closeout cleanup 済み: stale `.claude/worktrees` 6個と local `claude/*` branch 6本は main-aligned 確認後に削除済み。final inventory は root worktree 1個、local branch `main` のみ。
+- まさ指摘「日本文化ページはadminに移動させたはずなのに、またトップに戻ってる」は対応済み。
+- 原因は、2026-07-09 の admin 移動 commit が旧「資料」グループからは外した一方、共通左サイドナビ `GlobalNav` の Admin group に `日本文化 -> /admin/japanese-culture-map` を残したこと。後続で巻き戻ったのではなく、移動時点から共通ナビ入口が残存していた。
+- 対応 commit: `7758389a fix(pwa): keep japanese culture map admin-only`。
+- 本番確認済み: `https://amd-os-pwa.vercel.app/api/build-info` は `build_version=v3.40.2`, `git_sha=7758389ad8bcc4115e32651e2b45e47b5daab41b`, `git_branch=main`, `dirty=false`。
+- `GlobalNav` から「日本文化」を削除済み。`AdminSidebar` には `日本文化 -> /admin/japanese-culture-map` を残している。
+- 旧 `/japanese-culture-map` route は互換用 redirect として残す。ページ本体は `/admin/japanese-culture-map`。
+- `test:critical-ui` に、`GlobalNav.tsx` へ `日本文化` / `/admin/japanese-culture-map` / `/japanese-culture-map` が戻ったら落ちる guard を追加済み。
+- 仕様・マニュアル・事故記録は `FEATURE_REGISTRY.md`, `manual/2-6-admin-ops.md`, `manual/9-3-appendix-changelog.md`, `spec/6-1-appendix-changelog.md`, `design/os_manual.md`, `BUGS.md` に反映済み。
+
+検証済み:
+- `npm run test:critical-ui`
+- `npx tsc --noEmit`
+- `npm run build`
+- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` (clean deploy clone から push/build監視)
+
+現時点の dirty:
+- `pwa/design/atlas_routine.md` はこのセッション前からの別件変更。Atlas routine docs lane の owner が commit/revert 判断する。
+- `pwa/bzm/2026-07-14_frontmatter_gairei_draft_v1.md` はこのセッション前からの未追跡 draft。BZM/frontmatter lane の owner が登録/移動/削除判断する。
+- 日本文化 nav 修正には混ぜない。
 
 次タスク:
-1. まず `git fetch origin main`、`git status -sb`、`git log -1 --oneline`、`git rev-list --left-right --count HEAD...origin/main` を実行する。
-2. production `/api/build-info` を確認し、`v3.39.67` 以降、`dirty=false`、branch `main` になっているか見る。
-3. 次の W-Prep run で SX recurring event がまた漏れた場合は、Calendar作成タイミングではなく、まず active W-Prep prompt と `CFG_ColorPJHistory` / `CFG_PJAlias` の読み取りを疑う。
-4. `SolvioraX経営会議` は、title alias `SolvioraX` または `2025-06-01` 以降の `colorId=4` がある限り SX/p21 として扱う。unmapped skip してはいけない。
+1. まず `git fetch origin main`, `git status -sb --untracked-files=all`, `git log -1 --oneline`, `curl -fsS https://amd-os-pwa.vercel.app/api/build-info` を実行して current truth を確認する。
+2. もし日本文化がトップ/共通左ナビに再表示されたら、最初に `pwa/src/components/nav/GlobalNav.tsx` を見る。`npm run test:critical-ui` が落ちるはず。
+3. admin 画面内の導線を変える場合は、`pwa/design/FEATURE_REGISTRY.md` と `pwa/manual/2-6-admin-ops.md` を先に更新し、manual/spec changelog と BUGS も同期する。
+4. 残 dirty 2件は別件として owner を分ける。`git add .` は使わず、対象ファイルだけ stage する。
 
 確立済みルール:
-- W-Prep は DB upcoming だけを見て完了扱いにしない。必ず Calendar の同じ7日窓を直接見る。
-- Calendar direct-scan のPJ推定順は `CFG_ColorPJHistory` → `CFG_PJAlias` / title alias → `projects.project_name/client_name` fallback。
-- `create_thread` target は PJ directory 優先。SX は `/Users/masa/projects/AMD/SX`。`/Users/masa/projects/AMD/amd-os` は prep thread 作業場にしない。
-- thread は `{meeting_title} prep` に改題し、pin して、DB に `prep_worker_session_id` / `prep_worker_status='preparing'` を保存してから次の会議へ進む。
-- PWA code change の本番反映は `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh`。直接 `npx vercel deploy` は使わない。
-- `git add .` 禁止。対象ファイルだけ stage する。
+- 日本文化マップの唯一のUI入口は `pwa/src/components/admin/AdminSidebar.tsx`。
+- `GlobalNav` の一般「資料」グループにも共通 Admin group にも戻さない。
+- 旧 `/japanese-culture-map` は削除せず、ブックマーク互換の redirect として `/admin/japanese-culture-map` へ送る。
+- PWAの本番反映は `main` push = Vercel production deploy。直接 `npx vercel deploy` は使わない。
+- dirty があっても branch は切らない。今回のように deploy script が tracked dirty で止まる場合は、clean deploy clone で対象 commit だけを反映し、root main は origin/main に揃える。
 - raw本文、secret、個人情報、Drive URL を handoff / BUGS / design_log に出さない。
 ```

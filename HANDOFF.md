@@ -1,57 +1,73 @@
 # AMD OS Handoff
 
-Last updated: 2026-07-14 JST
+Last updated: 2026-07-15 JST
 Target: `/Users/masa/projects/AMD/amd-os`
-Topic: SX `SolvioraX経営会議` W-Prep 起動漏れの復旧と再発防止
+Topic: 日本文化マップを admin 内導線へ再固定
 
-## Current Truth
+## Latest Session Summary
 
-- 2026-07-14 11:00 JST の `SolvioraX経営会議` は recurring Calendar 予定として存在し、DB row も `source_kinds='upcoming'` で作成済みだったが、visible prep thread が未起動だった。
-- 手動復旧済み。thread `SolvioraX経営会議 prep` は `/Users/masa/projects/AMD/SX` target で作成・pin 済み。DB readback は `prep_worker_status='ready'`、session id `019f5c0a-049a-73c0-a424-679689934c33`、prep draft 保存済み。
-- 根本原因は「月曜夜にできた予定」ではない。Calendar recurring 予定も、スプシ正本の `CFG_PJAlias: SolvioraX -> SX` / `CFG_ColorPJHistory: 2025-06-01+ colorId=4 -> SX` も既に存在した。W-Prep がその正本を必ず使う契約になっていなかった。
-- active automation `/Users/masa/.codex/automations/w-prep-launch/automation.toml` は更新済み。Calendar direct-scan のPJ推定は `CFG_ColorPJHistory` first、`CFG_PJAlias` next、`SolvioraX` / `colorId=4` は SX/p21 と明記した。
-- AMD OS 側は `calendar-sync` alias mirror に `p21: ["SolvioraX"]` を追加し、critical UI guard、spec/manual、L2_DATA、scheduled-tasks README、BUGS、design_log、appendix changelog を同期済み。`BUILD_VERSION` は `v3.39.67`。
+- まさ指摘「日本文化ページは admin に移動したはずなのに、またトップに戻ってる」を調査。
+- 原因は巻き戻りではなく、2026-07-09 の移動 commit で旧「資料」グループからは外した一方、共通左サイドナビ `GlobalNav` の Admin group に `/admin/japanese-culture-map` 入口を残していたこと。
+- `GlobalNav` から「日本文化」を削除し、入口を admin 画面内 `AdminSidebar` のみに限定した。
+- 再発防止として `test:critical-ui` に「GlobalNav に `日本文化` / `/admin/japanese-culture-map` / `/japanese-culture-map` が戻ったら失敗する」ガードを追加。
+- 恒久仕様は `pwa/design/FEATURE_REGISTRY.md`、`pwa/manual/2-6-admin-ops.md`、manual/spec changelog、`pwa/design/os_manual.md`、`pwa/BUGS.md` に反映済み。
+- 詳細ログ: `pwa/design_log/sessions_2026-07.md` の「2026-07-15 — 日本文化マップを admin 内導線へ再固定」。
 
 ## Repo State
 
-- Functional PWA bundle commit: `29caad07 fix(pwa): harden SolvioraX prep mapping`, pushed to `origin/main` and deployed to production as `v3.39.67`.
-- Exact final HEAD should still be taken from `git log -1 --oneline`; this handoff may have a later docs-only closeout commit after the functional deploy.
-- External automation files under `/Users/masa/.codex/automations/w-prep-launch/` are repo-external and tracked by automation memory, not git.
-- Closeout cleanup removed 6 stale `.claude/worktrees` and 6 local `claude/*` branches. Final inventory after cleanup: one worktree (`/Users/masa/projects/AMD/amd-os`), local branch `main` only, local main aligned with `origin/main`.
+- Canonical branch: `main`.
+- Accepted production commit: `7758389a fix(pwa): keep japanese culture map admin-only`.
+- Production: `https://amd-os-pwa.vercel.app/api/build-info` readback at closeout was `build_version=v3.40.2`, `git_sha=7758389ad8bcc4115e32651e2b45e47b5daab41b`, `git_branch=main`, `dirty=false`.
+- Local main was aligned to `origin/main` after the clean deploy clone push. No local unpushed commits remained before this handoff-doc commit.
+- This handoff may be followed by a docs-only handoff commit; run `git log -1 --oneline` and `/api/build-info` at next start.
 
-## Verification
+## Verification Run
 
-- `git diff --check` passed.
-- `npm --prefix /Users/masa/projects/AMD/amd-os/pwa run test:critical-ui` passed.
-- `npx tsc --noEmit --pretty false` passed.
-- `npm run build` passed in `/Users/masa/projects/AMD/amd-os/pwa`.
-- DB readback for `upcoming:7k11p8g6rs5lf9jhtfcvglnn1d_20260714T020000Z`: `ready`, `prep_draft_len=2415`.
+- `npm run test:critical-ui` passed.
+- `npx tsc --noEmit` passed.
+- `npm run build` passed.
+- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` completed in the clean deploy clone and production build-info matched the new commit.
+- `git log --branches --not --remotes --oneline` returned empty before handoff-doc edits.
+
+## Dirty State
+
+| path | status | class | owner guess | resolution action | next judgment condition | risk |
+|---|---:|---|---|---|---|---|
+| `pwa/design/atlas_routine.md` | M | preexisting / other-worker | Atlas routine docs lane | Do not mix into this nav closeout. Next Atlas/routine owner should decide commit vs revert after reading diff. | Before next Atlas routine docs/deploy closeout. | medium: stale routine notes can be mistaken for current truth. |
+| `pwa/bzm/2026-07-14_frontmatter_gairei_draft_v1.md` | ?? | preexisting / other-worker | BZM/frontmatter draft lane | Do not remove here. BZM owner should decide whether to register, move, or delete the draft. | Before next BZM publication/frontmatter session closes. | low-medium: untracked draft can be missed or accidentally swept later. |
 
 ## Unresolved Tasks
 
-- No known unresolved task for the 2026-07-14 `SolvioraX経営会議` prep itself.
-- Next W-Prep run should be watched once to confirm `SolvioraX` / `colorId=4` no longer lands in unmapped skip. If it does, inspect the live automation prompt and CalendarRepo read path first.
+- None for the 日本文化マップ nav regression.
+- Existing unrelated dirty above still needs its own owner closeout. This session did not create it and did not modify it.
 
 ## First Next Action
 
-1. Run `git fetch origin main`, `git status -sb`, `git log -1 --oneline`, and production `/api/build-info`.
-2. Confirm the latest main contains `v3.39.67` and `p21: ["SolvioraX"]`.
-3. If another SX recurring prep is missing, do not assume Calendar creation timing. Check `CFG_ColorPJHistory`, `CFG_PJAlias`, active W-Prep prompt, then the DB row’s `prep_worker_status`.
+1. Run:
+   ```bash
+   cd /Users/masa/projects/AMD/amd-os
+   git fetch origin main
+   git status -sb --untracked-files=all
+   git log -1 --oneline
+   curl -fsS https://amd-os-pwa.vercel.app/api/build-info
+   ```
+2. If the user reports 日本文化 appearing on the top/common left nav again, inspect `pwa/src/components/nav/GlobalNav.tsx` first. `npm run test:critical-ui` should fail if it was re-added there.
+3. Do not move the Japanese culture entry out of `AdminSidebar` unless the design contract in `FEATURE_REGISTRY.md` and manual/spec changelogs are intentionally changed.
 
 ## Pointers
 
-- Meeting flow spec: `pwa/spec/3-3-meeting-flow-current-spec.md`
-- L2 routine manual: `pwa/manual/8-3-l2-extraction-routines-spec.md`
-- L2_DATA writer table: `pwa/design/L2_DATA.md`
-- Scheduled task index: `pwa/scheduled-tasks/README.md`
-- Incident record: `pwa/BUGS.md`
+- Runtime route spec: `pwa/spec/2-1-pwa-runtime-routes.md`
+- Surface inventory: `pwa/spec/2-2-pwa-surface-inventory-current-spec.md`
+- Feature contract / regression guard: `pwa/design/FEATURE_REGISTRY.md`
+- Admin ops manual: `pwa/manual/2-6-admin-ops.md`
+- Bug record: `pwa/BUGS.md`
 - Session log: `pwa/design_log/sessions_2026-07.md`
-- Active W-Prep config: `/Users/masa/.codex/automations/w-prep-launch/automation.toml`
-- W-Prep memory: `/Users/masa/.codex/automations/w-prep-launch/memory.md`
+- Critical UI guard: `pwa/scripts/check_pwa_critical_ui.cjs`
 
 ## Guardrails
 
-- `w-prep-launch` must not treat DB upcoming rows alone as complete. It must Calendar-scan the same 7-day window.
-- Calendar PJ mapping order for W-Prep is color history first, alias second, fallback project names last.
-- `SolvioraX経営会議` must not be unmapped-skipped when either `SolvioraX` title alias or `colorId=4` after `2025-06-01` is present.
-- PWA production changes go through `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh`; do not use direct `npx vercel deploy`.
+- `GlobalNav` must not contain `日本文化`, `/admin/japanese-culture-map`, or `/japanese-culture-map`.
+- The actual page remains `/admin/japanese-culture-map`; the legacy `/japanese-culture-map` route is redirect-only for old bookmarks.
+- `AdminSidebar` remains the only UI entry for this admin knowledge view.
+- PWA production changes go through `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh`; direct `npx vercel deploy` remains prohibited.
+- `git add .` remains prohibited; stage only the explicit target files.
