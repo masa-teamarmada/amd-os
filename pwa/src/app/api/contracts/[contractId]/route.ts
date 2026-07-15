@@ -40,6 +40,7 @@ export async function PATCH(
   const patch: Record<string, unknown> = {
     updated_by: auth.user.email,
   };
+  let requestedRelationshipScope: string | null = null;
 
   const rawStatus = text(body.status, 80);
   if (rawStatus) {
@@ -60,6 +61,9 @@ export async function PATCH(
     ["canonical_contract_id", "canonicalContractId", 80],
     ["counterparty_name", "counterpartyName", 240],
     ["contract_type", "contractType", 80],
+    ["amd_entity_name", "amdEntityName", 160],
+    ["amd_party_role", "amdPartyRole", 120],
+    ["party_confirmation_note", "partyConfirmationNote", 500],
     ["expected_signing_date", "expectedSigningDate", 20],
     ["effective_date", "effectiveDate", 20],
     ["expiration_date", "expirationDate", 20],
@@ -81,6 +85,48 @@ export async function PATCH(
 
   if ("review_required" in body || "reviewRequired" in body) {
     patch.review_required = Boolean(body.review_required ?? body.reviewRequired);
+  }
+  if ("relationship_scope" in body || "relationshipScope" in body) {
+    const scope = text(body.relationship_scope ?? body.relationshipScope, 40) || "needs_review";
+    if (!["amd_contract", "needs_review", "third_party", "template"].includes(scope)) {
+      return NextResponse.json({ ok: false, error: "invalid relationship scope" }, { status: 400 });
+    }
+    requestedRelationshipScope = scope;
+    patch.relationship_scope = scope;
+    if (scope === "amd_contract") {
+      patch.party_confirmed_at = new Date().toISOString();
+      patch.party_confirmed_by = auth.user.email;
+    } else {
+      patch.party_confirmed_at = null;
+      patch.party_confirmed_by = null;
+      patch.is_current_for_project = false;
+    }
+  }
+  if ("is_current_for_project" in body || "isCurrentForProject" in body) {
+    const isCurrentForProject = Boolean(body.is_current_for_project ?? body.isCurrentForProject);
+    if (isCurrentForProject && requestedRelationshipScope !== "amd_contract") {
+      return NextResponse.json({ ok: false, error: "only an AMD contract can be current for a project" }, { status: 400 });
+    }
+    patch.is_current_for_project = isCurrentForProject;
+  }
+  if ("operational_terms_json" in body || "operationalTermsJson" in body) {
+    const terms = body.operational_terms_json ?? body.operationalTermsJson;
+    if (!terms || typeof terms !== "object" || Array.isArray(terms)) {
+      return NextResponse.json({ ok: false, error: "invalid operational terms" }, { status: 400 });
+    }
+    patch.operational_terms_json = {
+      ...(terms as Record<string, unknown>),
+      verifiedAt: new Date().toISOString(),
+      verifiedBy: auth.user.email,
+    };
+  }
+  if ("contract_value_yen" in body || "contractValueYen" in body) {
+    const raw = body.contract_value_yen ?? body.contractValueYen;
+    const value = raw === null || raw === "" ? null : Number(raw);
+    if (value !== null && (!Number.isFinite(value) || value < 0)) {
+      return NextResponse.json({ ok: false, error: "invalid contract value" }, { status: 400 });
+    }
+    patch.contract_value_yen = value;
   }
   if ("nudge_after_days" in body || "nudgeAfterDays" in body) {
     patch.nudge_after_days = Math.max(1, Math.min(120, Number(body.nudge_after_days ?? body.nudgeAfterDays) || 14));

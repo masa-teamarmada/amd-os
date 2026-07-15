@@ -17,7 +17,7 @@
 
 | table | purpose |
 |---|---|
-| `contracts` | 1契約の正規ID、予定枠、現在status、相手先、関連PJ、契約期間、秘密保持の扱い、予兆confidence、nudge閾値 |
+| `contracts` | 1契約の正規ID、AMD当事者確認、予定枠、現在status、相手先、関連PJ、契約期間、実務条件、PJ現行契約フラグ、予兆confidence、nudge閾値 |
 | `contract_documents` | Drive file metadata による version history。本文/ファイル本体はDB保存しない |
 | `contract_signals` | 5生データから検知した契約予兆候補。raw本文ではなく短いsnippetとsource refだけ保存 |
 | `contract_terms` | 契約書・見積・発注書などから抽出した金額/期間/相手先候補。`candidate/pending` は review queue であり、`applied` まで projects/billing_cycles へ反映しない |
@@ -39,29 +39,38 @@ status:
 
 `/admin/contracts` の主リストは、Drive folder や MTG、議事録、テンプレート一覧ではなく、**1行 = 1契約**の契約台帳として扱う。ドラフト、修正版、PDF / Wordなどの形式違い、押印版、議事録上の言及は、同じ契約に属する版・文書・証跡であり、別の契約ではない。`contract_documents` / `contract_signals` / `contract_terms` は台帳行を増やさず、契約詳細モーダルの根拠として読む。
 
-台帳行に必須の観点:
+主台帳の母集団は、`contracts.relationship_scope='amd_contract'` として**人がAMD当事者を確認した契約**、または Contract Apply 済みで当事者・条件をレビュー済みの契約に限定する。ファイル名や本文にAMDという文字があるだけでは採用しない。自動取込は `needs_review` までで、第三者間契約は `third_party`、雛形は `template` として主台帳から隔離する。
+
+一覧で比較する観点:
 
 | column | meaning |
 |---|---|
 | 関連PJ | `project_id` / `projects.name` |
 | 契約名 | `canonical_title` を優先し、Drive path や MTG title そのものを契約名にしない |
-| 現在状態 | 最終活動が新しい契約記録の `status`。過去の押印済み記録が、現在の修正・再締結を隠さない |
-| 契約期間・更新 | `effective_date` / `expiration_date` / `renewal_notice_date` / `renewal_type`。契約側が未入力なら未確認とし、PJに反映済みの契約期間は回答へ使わず参考表示だけにする |
-| 立替経費 | `projects.contract_terms_json.expenseReimbursementAllowed` と根拠メモ。未設定は「未確認」と明示する |
-| 押印 | 現在statusと `contract_documents.document_kind='signed'` の両方から、完了・証跡なし・更新中・未完了を判定する |
-| 秘密保持 | `confidentiality_coverage`、存続期間、根拠メモ。契約内・別NDA・含まれない・未確認を区別する |
-| 最新版 | `contract_documents` の最新版、版数、押印版の有無 |
-| 相手先 | `counterparty_name`。未設定なら metadata不足として扱う |
+| 状態・期間 | 現在status、押印証跡、開始/終了、更新方法と通知期限。PJ期間を契約期間として代用しない |
+| 金額・支払 | 契約額/月額、締日、請求、支払期限、税・源泉。PJ設定値しかない場合は契約未確認と明示する |
+| 業務・成果物 | 業務範囲、成果物、検収、報告義務の要約 |
+| 費用・報告 | 立替/旅費/外注等の費用負担と、月次報告などの実務義務 |
+| 権利・制限・リスク | 知財帰属、利用/公開、秘密保持、再委託/競業、解除、責任上限の要約と未確認カテゴリ数 |
 
-台帳は admin 本文の利用可能幅をすべて使う。PCでは列順を `PJ → 契約名 → 現在状態 → 契約期間・更新 → 立替経費 → 押印 → 秘密保持 → 最新版 → 相手先` とし、PJと契約名を左端の固定列として常に表示する。狭い画面では表を押し潰したり横スクロールさせたりせず、1契約ごとの要約行へ切り替える。
+台帳は admin 本文の利用可能幅をすべて使う。PCでは列順を `PJ → 契約 → 状態・期間 → 金額・支払 → 業務・成果物 → 費用・報告 → 権利・制限・リスク` とし、PJと契約を左端の固定列として常に表示する。詳細条項をすべて横に並べず、比較と不足検知に必要な要約だけを置く。狭い画面では1契約ごとの要約表示へ切り替える。
 
-行を開くと、画面下ではなく大きなモーダルを表示する。最初のタブの最上段で「契約はいつまで？」「立替経費申請できる？」「押印まで完了してる？」「秘密保持は含まれる？」へ即答し、その下で根拠と不足情報を編集する。文書・版・形式違いは「文書と版」、過去の作業記録や検知signalは「関連記録」で確認する。
+行を開くと、画面下ではなく大きなモーダルを表示する。最初の `実務条件` タブは、当事者/状態/現行指定に続いて、期間・更新、金額・支払、業務・成果物、費用負担、知財・利用、秘密保持・制限、解除・責任、文書・根拠を表示する。ユーザー例の4項目だけを固定回答にしない。文書・版・形式違いは「文書と版」、過去の作業記録や検知signalは「関連記録」で確認する。
 
 契約の正規IDは `contracts.canonical_contract_id`。同じ契約に属する既存記録を保存する時、基準となる `contract_id` を全記録へ一括設定し、以後は同じ契約として読む。移行前データだけは、`canonical_title` または契約名から送付確認・微修正・DocuSign依頼などの作業語を除いた同一性候補で暫定集約する。この文字列推定は互換処理であり、契約概念や表示名ではない。
 
 現在状態は最新活動の契約記録から導出する。古い `signed` を優先してはならない。押印完了の回答は、現在状態が `signed` で、現在の契約記録の `signed_document_id` と実在する押印版metadataの `document_id` が一致した時だけ「押印完了」とする。現在状態が `signed` でも一致する押印版が無ければ「証跡なし」、過去の押印版があって現在状態がレビュー中・押印待ちなら「更新中」とする。
 
-立替経費の回答に使えるのは `projects.contract_terms_json` に反映済みの条件だけ。`contract_terms` の候補は当該契約へ明示的に紐付くものだけ根拠候補として表示し、同じPJにあるだけの未紐付け候補を回答へ混ぜない。秘密保持は `in_contract / separate_nda / not_included / unknown` を正本とし、契約終了後の存続期間と根拠メモを併記できる。
+実務条件の正本は契約ごとの `contracts.operational_terms_json`。PJコックピットへ出す契約は `is_current_for_project=true` とし、`projects.contract_terms_json.currentContracts[]` へ契約ID単位で同期する。複数の現行契約をPJ直下の1組の条件へ混ぜない。未確認値を `0円`、`なし`、`申請可` へ変換しない。秘密保持は `in_contract / separate_nda / not_included / unknown` を正本とし、存続期間と短い根拠を併記できる。
+
+`relationship_scope`:
+
+| value | behavior |
+|---|---|
+| `amd_contract` | AMD当事者を人が確認済み。主台帳へ表示 |
+| `needs_review` | 当事者判定待ち。自動取込の上限で、主台帳へ表示しない |
+| `third_party` | AMD非当事者の第三者間契約。主台帳へ表示しない |
+| `template` | 雛形/サンプル。主台帳へ表示しない |
 
 `contracts.registry_status` は台帳に出すかどうかの品質境界。
 
@@ -72,7 +81,7 @@ status:
 | `evidence_only` | 契約関連の証跡。MTG/議事録/フォルダ/テンプレート/契約語を含む周辺資料など。台帳の初期表示には出さない |
 | `rejected` | 契約ではないと判断済み。初期表示には出さない |
 
-初期表示 filter は `ledger`。`registry_status IN ('accepted','candidate')` かつ `status!='cancelled'` の行だけを表示する。`needs_metadata` filter は、台帳行のうち相手先、締結/発効日、終了/更新日などの主要 metadata が欠けているものを表示する。
+初期表示 filter は `ledger`。`relationship_scope='amd_contract'`、`registry_status IN ('accepted','candidate')`、`status!='cancelled'` の行だけを表示する。`needs_review` / `third_party` / `template` は判定・除外確認用の表示でのみ開く。`needs_metadata` は相手先、期間、主要な実務条件が不足するAMD契約を表示する。
 
 Drive backfill では、契約書そのものに見える PDF / Doc / xlsx / signed document を `contract_documents` に登録し、親フォルダ名や MTG名だけで `contracts` 行を増やさない。フォルダは grouping hint、文書は evidence、契約台帳行は normalized registry という役割分担を守る。
 
@@ -83,7 +92,7 @@ Drive backfill では、契約書そのものに見える PDF / Doc / xlsx / sig
 | `/api/contracts` | GET | no | 契約、documents、signals、terms、nudges、projects、Drive保存先設定を返す |
 | `/api/contracts` | POST | yes | admin手動で契約予定枠を作る |
 | `/api/contracts` | PATCH | yes | 複数の既存記録へ同じ `canonical_contract_id` を一括設定する |
-| `/api/contracts/[contractId]` | PATCH | yes | 現在status、相手先、契約期間、更新、秘密保持、担当、メモなどを更新 |
+| `/api/contracts/[contractId]` | PATCH | yes | 現在status、AMD当事者確認、PJ現行指定、契約期間、更新、実務条件、担当、メモなどを更新 |
 | `/api/contracts/documents` | POST | yes | 既存Drive link/file idをmetadata登録。`document_kind='signed'` なら契約を `signed` にする |
 | `/api/contracts/signal-dry-run` | GET | no | 5生データから契約予兆候補を生成。DB writeなし |
 | `/api/contracts/nudges/dry-run` | GET | no | 押印版未保存かつ閾値超過のSlack nudge候補を生成。Slack送信なし |
@@ -98,9 +107,11 @@ Drive backfill では、契約書そのものに見える PDF / Doc / xlsx / sig
 | Drive | `source_cache.source like 'drive%'` + MTGカードのDrive metadata | 契約書ドラフト、赤入れ、PDF/Docx |
 | Calendar | `project_meeting_summaries` / Calendar由来MTGカード | 契約締結MTG、法務確認MTG、押印期限 |
 
-判定語は `契約書`、`NDA`、`業務委託`、`共同研究契約`、`MOU`、`押印`、`電子署名`、`DocuSign`、`クラウドサイン`、`修正案`、`法務確認`、`redline` など。単に `契約` / `締結` が議事録本文に出るだけでは自動予定枠にしない。
+判定語は `契約書`、`NDA`、`業務委託`、`共同研究契約`、`MOU`、`押印`、`電子署名`、`DocuSign`、`クラウドサイン`、`修正案`、`法務確認`、`redline` など。単に `契約` / `締結` が議事録本文に出るだけでは自動予定枠にしない。自動で作る予定枠も `relationship_scope='needs_review'` とし、AMD名の文字列一致だけで `amd_contract` へ昇格させない。
 
-D-13 は契約予兆 (`contract_signals`) に加えて、契約No・見積No・期間・金額・相手先・提出物の有無・月次報告書の状態/時期/提出期限/フォーマット/必要記載事項・立替精算可否を検出できた場合に `contract_terms` へ `status='candidate'` / `review_status='pending'` の候補を作る。提出物/月次報告/立替精算は `extracted_terms_json.deliverables_required` / `deliverables_note` / `monthly_report_submission_rule` / `monthly_report_submission_timing` / `monthly_report_submission_deadline` / `monthly_report_submission_format` / `monthly_report_submission_required_items` / `monthly_report_submission_note` / `expense_reimbursement_allowed` / `expense_reimbursement_note` に短い根拠メモつきで保存する。これは Contract Apply の前段であり、候補の時点では `projects.contract_terms_json`、`projects.fee_*`、`billing_cycles` は更新しない。
+D-13 は契約予兆 (`contract_signals`) に加えて、契約No・見積No・期間・金額・相手先だけでなく、支払/税、業務範囲、成果物/検収、報告、費用負担、更新、知財帰属、利用/公開、秘密保持/存続、再委託、独占/競業、解除、損害賠償/責任上限、準拠法/管轄、特記事項を検出できた場合に `contract_terms` へ `status='candidate'` / `review_status='pending'` の候補を作る。各値は `extracted_terms_json` に短い該当条文として保存し、契約書本文全体の代わりにはしない。金額のないNDAでも、Drive/Gmail由来の契約本文に実務条項があればレビュー候補へ出す。これは Contract Apply の前段であり、候補の時点では `projects.contract_terms_json`、`projects.fee_*`、`billing_cycles` は更新しない。
+
+`extracted_terms_json` の実務条項キーは `payment_terms` / `tax_treatment` / `scope_summary` / `deliverables_required` / `deliverables_note` / `acceptance_terms` / `monthly_report_submission_*` / `expense_reimbursement_*` / `renewal_type` / `ip_ownership` / `usage_rights` / `publicity_rights` / `confidentiality_summary` / `confidentiality_survival` / `subcontracting_terms` / `exclusivity_terms` / `termination_terms` / `liability_terms` / `governing_law_jurisdiction` / `special_terms`。Contract Apply はレビュー済み候補だけを同名のcamelCase項目へコピーする。
 
 ## 自動予定枠化の品質境界
 
@@ -133,12 +144,13 @@ MVPでは `CONTRACTS_DRIVE_FOLDER_ID` が設定されているかを画面に出
 
 > 2026-06-16 追記。契約は「抽出して `/admin/contracts` のレビュー queue に積む」だけでなく、**確定した契約条件を `projects` と `billing_cycles` に流し込んで初めて月次収支シミュレータ・予実表に効く**。この反映経路 (Contract Apply) を正本として定義する。手入力前提にしない (= つくよみが生データから自動構築する原則)。
 
-### 反映先 3 層
+### 反映先 4 層
 
-契約書 (Drive PDF / Gmail / Slack 等) → `D-13 Contract Signals` 抽出 → `contract_terms` (`status='applied'`) になったら、次の 3 層へ反映する。**`contract_terms` が applied でも、この 3 層に書き戻らない限り OS の数字 (売上・予実・原価) は古いまま**。
+契約書 (Drive PDF / Gmail / Slack 等) → `D-13 Contract Signals` 抽出 → `contract_terms` (`status='applied'`) になったら、次の 4 層へ反映する。**`contract_terms` が applied でも、契約正本とPJへ書き戻らない限り一覧・コックピット・数字は古いまま**。
 
 | 層 | 反映先 | 列 | 用途 |
 |---|---|---|---|
+| ⓪ 契約単位の実務正本 | `contracts` | `relationship_scope` / `is_current_for_project` / `operational_terms_json` / 当事者確認metadata | AMD当事者契約として主台帳へ出し、複数契約の条件を混ぜずに保存する |
 | ① 契約メタ正本 | `projects.contract_terms_json` (jsonb) | `monthlyFeeYen` / `contractStartYm` / `contractEndYm` / `actualWorkStartYm` / `billingStartYm` / `rewardPoolYen` / `monthlyRewardCapYen` / `deliverablesRequired` / `deliverablesNote` / `monthlyReportSubmissionRule` / `monthlyReportSubmissionTiming` / `monthlyReportSubmissionDeadline` / `monthlyReportSubmissionFormat` / `monthlyReportSubmissionRequiredItems` / `monthlyReportSubmissionNote` / `expenseReimbursementAllowed` / `expenseReimbursementNote` / `sourceTitle` / `sourceRef` / `notes` | `/admin/projects` の契約カラム群が表示・編集する正本。`contract_terms` 抽出結果はまずここへ畳む |
 | ② 売上計上パラメータ | `projects` | `fee_type` (`monthly_fixed` / `variable`) / `fee_amount` / `start_ym` / `end_ym` | 月次収支シミュレータ (`buildLiveMonthlyPlInputs`) が固定収益を立てる入力。**`end_ym` が null だと契約終了後も無期限で売上が立ち続ける** (CX 事故。契約は 2026-06〜09 なのに `end_ym=null` のまま 202702 以降も ¥290,000 を計上していた) |
 | ③ 月別売上 (変動) | `billing_cycles` | `ym` ごとの `budget_yen` / `budget_reported_amount` | `billing_distribution='schedule_based'` 等で月により金額が違う契約は、②の `monthly_fixed` 一律ではなく月別 cycle に展開する。シミュレータは変動収益をここから取る |
@@ -147,25 +159,26 @@ MVPでは `CONTRACTS_DRIVE_FOLDER_ID` が設定されているかを画面に出
 
 `AdminProjectsTable` は `projects.contract_terms_json` を展開した編集列を持つ (`contract_monthly_fee_yen` / `contract_start_ym` / `contract_end_ym` / `contract_actual_work_start_ym` / `contract_billing_start_ym` / `contract_reward_pool_yen` / `contract_monthly_reward_cap_yen` / `contract_deliverables_required` / `contract_deliverables_note` / `contract_monthly_report_submission_rule` / `contract_monthly_report_submission_timing` / `contract_monthly_report_submission_deadline` / `contract_monthly_report_submission_format` / `contract_monthly_report_submission_required_items` / `contract_monthly_report_submission_note` / `contract_expense_reimbursement_allowed` / `contract_expense_reimbursement_note` / `contract_source_title` / `contract_source_ref` / `contract_notes`)。月次報告列は `要提出` などの状態を短く表示し、時期・提出期限・フォーマット・記載事項・根拠を下段に出す。`contract_terms` フィールド群を保存すると `contract_terms_json` (①) に upsert される。`fee` / `start_ym` / `end_ym` (②) は別カラムとして個別に保存する。
 
-✅ **実装済み (2026-06-18)**: `contract_terms` (D-13 抽出結果、`status='applied'`) から ①②③ へ自動反映する Contract Apply writer を実装した。
+✅ **実装済み (2026-06-18、2026-07-16拡張)**: `contract_terms` (D-13 抽出結果、`status='applied'`) から ⓪①②③ へ自動反映する Contract Apply writer を実装した。
 
 | 部品 | 場所 | 役割 |
 |---|---|---|
-| `deriveContractApplyPlan(term)` | `src/lib/contracts-apply.ts` | applied term から 3 層反映プランを導出する純粋関数 (DB は触らない)。値の出所は applied term だけで、ここで金額を作り変えない |
-| `applyContractTerms(db, termId, actor)` | `src/lib/contracts-apply.ts` | plan を実際に ①②③ へ書き戻す。`billing_log` に `action='contract_applied'` を残す |
+| `deriveContractApplyPlan(term)` | `src/lib/contracts-apply.ts` | applied term から反映プランを導出する純粋関数 (DB は触らない)。値の出所は applied term だけで、ここで金額を作り変えない |
+| `applyContractTerms(db, termId, actor)` | `src/lib/contracts-apply.ts` | plan を実際に ⓪①②③ へ書き戻す。`billing_log` に `action='contract_applied'` を残す |
 | `GET /api/contracts/apply?termId=...&dryRun=1` | `src/app/api/contracts/apply/route.ts` | 反映プランのプレビュー (DB write なし)。admin 限定 |
-| `POST /api/contracts/apply { termId }` | 同上 | 3 層へ実反映。admin 限定 |
+| `POST /api/contracts/apply { termId }` | 同上 | 契約正本とPJ/請求へ実反映。admin 限定 |
 
 分岐ロジック:
 - `billing_distribution='schedule_based'` (または `monthly[]` があり `monthly_average` でない) → `fee_type='variable'` / `fee_amount=null` にし、`billing_distribution_json.monthly[]` を ③ `billing_cycles.budget_yen` に月別展開する。各月の `budget_yen` は `reward_cap_yen` をそのまま使う (無ければ `round(amount_tax_excl × 0.65)`)。`contract_source_term_id` を各 cycle に刻む (= 後段の自動確定 cron が「契約由来」と判定する印)。
 - `monthly_fixed` / `monthly_average` → `fee_type='monthly_fixed'` / `fee_amount = billing_distribution_json.monthly_tax_excl` (無ければ総額 ÷ 月数) を ② に立てる。③ は触らない (月次収支シミュレータが ② から固定収益を立てる)。
-- どちらの場合も ① `contract_terms_json` に契約メタ (期間 / pool / cap / 提出物 / 月次報告 / 立替精算 / 出典) を畳む。
+- 契約期間や金額がないNDA/覚書でも実務条項があれば `terms_only` とし、⓪の契約条件と①の `currentContracts[]` だけを更新する。②のfee/期間と③の請求cycleは変更しない。
+- すべての分岐で、レビュー済み実務条件を契約ID単位で保存し、PJコックピットへ同期する。
 
 冪等性: ③ upsert は `onConflict='project_id,ym'`。既に `budget_confirmed` / `allocation_confirmed` / `invoice_sent` / `payment_confirmed` の月は `budget_yen` を上書きしない (人が確定した請求額確定を契約 apply で巻き戻さない)。
 
 ### apply 時の必須ガード
 
-- `end_ym` を必ず設定する (契約終了月)。null のまま `monthly_fixed` を残さない (CX 無期限計上事故の再発防止)。
+- 売上契約は `end_ym` を必ず設定する (契約終了月)。null のまま `monthly_fixed` を残さない (CX 無期限計上事故の再発防止)。`terms_only` はPJ期間を変更しない。
 - 期間が複数 term に分かれる契約 (CX: 2025-11〜2026-03 コンサル + 2026-06〜2026-09 設立準備) は、term ごとに ②③ を分けて反映する。1 本の `monthly_fixed` に潰さない。
 - `schedule_based` (月により金額が違う) は ② の一律額にせず ③ の月別 `budget_yen` に展開する。
 - 本番データ (projects / billing_cycles) の書き換えを伴うため、自動 apply でもまさ確認を挟むか、`/admin/contracts` のレビューで人が承認した term だけを反映する。

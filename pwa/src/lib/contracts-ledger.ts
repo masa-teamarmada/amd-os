@@ -1,4 +1,5 @@
 import type { ContractStatus } from "./contracts";
+import type { ContractRelationshipScope, ProjectContractTerms } from "./project-contract-terms";
 
 export type ContractRegistryStatus = "candidate" | "accepted" | "evidence_only" | "rejected";
 
@@ -12,6 +13,14 @@ export type ContractLedgerSourceRow = {
   contract_type: string;
   status: ContractStatus;
   registry_status: ContractRegistryStatus;
+  relationship_scope?: ContractRelationshipScope | null;
+  is_current_for_project?: boolean | null;
+  amd_entity_name?: string | null;
+  amd_party_role?: string | null;
+  party_confirmation_note?: string | null;
+  party_confirmed_at?: string | null;
+  party_confirmed_by?: string | null;
+  operational_terms_json?: ProjectContractTerms | null;
   expected_signing_date: string | null;
   effective_date: string | null;
   expiration_date: string | null;
@@ -43,17 +52,7 @@ export type ContractLedgerRow<T extends ContractLedgerSourceRow = ContractLedger
   confidentiality_conflict: boolean;
 };
 
-export type ContractProjectTerms = {
-  contractStartYm?: string | null;
-  contractEndYm?: string | null;
-  monthlyFeeYen?: number | string | null;
-  expenseReimbursementAllowed?: boolean | string | null;
-  expenseReimbursementNote?: string | null;
-  deliverablesRequired?: boolean | string | null;
-  deliverablesNote?: string | null;
-  monthlyReportSubmissionRule?: string | null;
-  monthlyReportSubmissionNote?: string | null;
-};
+export type ContractProjectTerms = ProjectContractTerms;
 
 export type ContractDocumentEvidence = {
   document_id: string;
@@ -123,6 +122,10 @@ function earliestDate(values: Array<string | null | undefined>) {
 
 function firstText(values: Array<string | null | undefined>) {
   return values.find((value) => typeof value === "string" && value.trim()) || null;
+}
+
+function firstObject<T extends object>(values: Array<T | null | undefined>) {
+  return values.find((value) => value && Object.keys(value).length > 0) || null;
 }
 
 function maxNumber(values: Array<number | null | undefined>) {
@@ -213,6 +216,16 @@ function mergeContractRecords<T extends ContractLedgerSourceRow>(rows: T[]): Con
     counterparty_name: firstText(ordered.map((row) => row.counterparty_name)),
     status: deriveCurrentContractStatus(ordered),
     registry_status: deriveRegistryStatus(ordered),
+    relationship_scope: ordered.some((row) => row.relationship_scope === "amd_contract")
+      ? "amd_contract"
+      : primary.relationship_scope || "needs_review",
+    is_current_for_project: ordered.some((row) => row.is_current_for_project === true),
+    amd_entity_name: firstText(ordered.map((row) => row.amd_entity_name)) || "株式会社チームアルマダ",
+    amd_party_role: firstText(ordered.map((row) => row.amd_party_role)),
+    party_confirmation_note: firstText(ordered.map((row) => row.party_confirmation_note)),
+    party_confirmed_at: latestDate(ordered.map((row) => row.party_confirmed_at)),
+    party_confirmed_by: firstText(ordered.map((row) => row.party_confirmed_by)),
+    operational_terms_json: firstObject(ordered.map((row) => row.operational_terms_json)) || {},
     expected_signing_date: latestDate(ordered.map((row) => row.expected_signing_date)),
     effective_date: earliestDate(ordered.map((row) => row.effective_date)),
     expiration_date: latestDate(ordered.map((row) => row.expiration_date)),

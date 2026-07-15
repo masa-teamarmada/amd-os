@@ -439,6 +439,9 @@ export async function extractContractL2Data(
             contract_title: contractTitle(candidate),
             counterparty_name: null,
             contract_type: candidate.signalType,
+            relationship_scope: /(雛形|ひな形|テンプレ|template|sample|サンプル)/i.test(`${candidate.title} ${candidate.reason}`)
+              ? "template"
+              : "needs_review",
             status: "planned",
             detected_at: activityAt,
             planned_at: activityAt,

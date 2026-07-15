@@ -8,6 +8,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
 import { contractBackedClientAmount, yenNumber } from "@/lib/contract-money";
+import type { ProjectContractTerms } from "@/lib/project-contract-terms";
 import {
   allocateSeasonBufferByYm,
   buildExtraRevenueByYm,
@@ -99,29 +100,6 @@ export interface PlanCycleBundle {
   responsibilities: MilestoneResponsibility[];
   msActivities: MemberMsActivity[];
   memberActivities: MemberActivity[];
-}
-
-export interface ProjectContractTerms {
-  monthlyFeeYen?: number | string | null;
-  contractStartYm?: string | null;
-  contractEndYm?: string | null;
-  actualWorkStartYm?: string | null;
-  billingStartYm?: string | null;
-  rewardPoolYen?: number | string | null;
-  monthlyRewardCapYen?: number | string | null;
-  deliverablesRequired?: boolean | string | null;
-  deliverablesNote?: string | null;
-  monthlyReportSubmissionRule?: string | null;
-  monthlyReportSubmissionTiming?: string | null;
-  monthlyReportSubmissionDeadline?: string | null;
-  monthlyReportSubmissionFormat?: string | null;
-  monthlyReportSubmissionRequiredItems?: string | null;
-  monthlyReportSubmissionNote?: string | null;
-  expenseReimbursementAllowed?: boolean | string | null;
-  expenseReimbursementNote?: string | null;
-  sourceTitle?: string | null;
-  sourceRef?: string | null;
-  notes?: string | null;
 }
 
 export interface CockpitData {

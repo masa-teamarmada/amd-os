@@ -436,6 +436,27 @@ function extractExpenseReimbursement(text: string): BooleanTermExtraction {
   });
 }
 
+function extractOperationalClauses(text: string) {
+  return {
+    payment_terms: clauseAroundTerms(text, ["支払条件", "支払期日", "支払期限", "請求書", "月末締め"], 300),
+    tax_treatment: clauseAroundTerms(text, ["消費税", "源泉徴収", "税込", "税別"], 220),
+    scope_summary: clauseAroundTerms(text, ["業務内容", "委託業務", "業務範囲", "本検討", "本契約の目的"], 360),
+    acceptance_terms: clauseAroundTerms(text, ["検収", "受入検査", "検査合格", "納品確認"], 300),
+    renewal_type: clauseAroundTerms(text, ["自動更新", "契約更新", "期間満了", "さらに1年間延長"], 300),
+    ip_ownership: clauseAroundTerms(text, ["知的財産権", "著作権", "特許権", "権利帰属", "権利の不発生"], 360),
+    usage_rights: clauseAroundTerms(text, ["利用許諾", "使用許諾", "目的外使用", "使用権", "実施許諾"], 320),
+    publicity_rights: clauseAroundTerms(text, ["実績公開", "名称使用", "商号使用", "ロゴ", "公表"], 260),
+    confidentiality_summary: clauseAroundTerms(text, ["秘密保持", "秘密情報", "第三者開示"], 360),
+    confidentiality_survival: clauseAroundTerms(text, ["契約終了後", "終了後も", "終了後においても"], 260),
+    subcontracting_terms: clauseAroundTerms(text, ["再委託", "下請負", "業務委託契約等を締結"], 320),
+    exclusivity_terms: clauseAroundTerms(text, ["競業避止", "独占", "専属", "競合他社"], 260),
+    termination_terms: clauseAroundTerms(text, ["契約解除", "解除することができる", "中途解約", "解約"], 360),
+    liability_terms: clauseAroundTerms(text, ["損害賠償", "責任上限", "免責", "損害の賠償"], 360),
+    governing_law_jurisdiction: clauseAroundTerms(text, ["準拠法", "管轄裁判所", "合意管轄"], 320),
+    special_terms: clauseAroundTerms(text, ["反社会的勢力", "返却又は廃棄", "返却・廃棄"], 320),
+  };
+}
+
 function extractPeriod(text: string) {
   const normalized = text.normalize("NFKC");
   const periodMatch = normalized.match(/(?:履行期間|契約期間|期間|業務期間)[^\n0-9]{0,30}((?:20\d{2}年\s*\d{1,2}月\s*\d{1,2}日)|(?:20\d{6})|(?:20\d{2}[-/]\d{1,2}[-/]\d{1,2}))[^\n0-9]{0,18}((?:20\d{2}年\s*\d{1,2}月\s*\d{1,2}日)|(?:20\d{6})|(?:20\d{2}[-/]\d{1,2}[-/]\d{1,2}))/);
@@ -614,9 +635,10 @@ export function buildContractTermCandidate(evidence: ContractSourceEvidence): Co
   const deliverables = extractDeliverables(combined);
   const monthlyReportSubmission = extractMonthlyReportSubmission(combined);
   const expenseReimbursement = extractExpenseReimbursement(combined);
+  const operationalClauses = extractOperationalClauses(combined);
   const contractTitle = findLabeledText(combined, ["調達件名", "契約件名", "件名"], 180);
   const counterpartyName = inferCounterparty(combined);
-  const hasPrimaryTerm = Boolean(
+  const hasFinancialOrPeriodTerm = Boolean(
     contractNo
       || quoteNo
       || periodStart
@@ -624,7 +646,11 @@ export function buildContractTermCandidate(evidence: ContractSourceEvidence): Co
       || amounts.amountTaxExcl !== null
       || amounts.amountTaxIncl !== null,
   );
-  if (!hasPrimaryTerm) return null;
+  const operationalClauseCount = Object.values(operationalClauses).filter(Boolean).length;
+  const explicitContractDocument = evidence.sourceTable === "source_cache"
+    && Boolean(evidence.fullText)
+    && EXPLICIT_CONTRACT_TERMS.some((term) => hasTerm(evidence.title, term));
+  if (!hasFinancialOrPeriodTerm && !(explicitContractDocument && operationalClauseCount > 0)) return null;
 
   const feeTypeHint: ContractTermCandidate["feeTypeHint"] = amounts.monthlyFee !== null
     ? "monthly_fixed"
@@ -653,6 +679,7 @@ export function buildContractTermCandidate(evidence: ContractSourceEvidence): Co
       + (amounts.amountTaxExcl !== null || amounts.amountTaxIncl !== null ? 0.22 : 0)
       + (counterpartyName ? 0.09 : 0)
       + (contractTitle ? 0.06 : 0)
+      + Math.min(0.18, operationalClauseCount * 0.025)
       + (evidence.sourceKind === "drive" ? 0.05 : 0),
   );
   const extractedTerms = {
@@ -677,6 +704,7 @@ export function buildContractTermCandidate(evidence: ContractSourceEvidence): Co
     monthly_report_submission_note: monthlyReportSubmission.note,
     expense_reimbursement_allowed: expenseReimbursement.value,
     expense_reimbursement_note: expenseReimbursement.note,
+    ...operationalClauses,
   };
   const sourceTermHash = hashLike(JSON.stringify(extractedTerms));
 

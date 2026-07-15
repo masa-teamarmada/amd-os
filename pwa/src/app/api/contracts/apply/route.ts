@@ -27,7 +27,7 @@ export async function GET(req: Request) {
   const { data: term, error } = await db
     .from("contract_terms")
     .select(
-      "term_id, project_id, contract_title, counterparty_name, source_title, source_url, contract_no, quote_no, period_start_ym, period_end_ym, amount_tax_excl, amount_tax_incl, billing_distribution, fee_type_hint, billing_distribution_json, extracted_terms_json, status",
+      "term_id, contract_id, project_id, contract_title, counterparty_name, source_title, source_url, contract_no, quote_no, period_start_ym, period_end_ym, amount_tax_excl, amount_tax_incl, billing_distribution, fee_type_hint, billing_distribution_json, extracted_terms_json, status",
     )
     .eq("term_id", termId)
     .maybeSingle();

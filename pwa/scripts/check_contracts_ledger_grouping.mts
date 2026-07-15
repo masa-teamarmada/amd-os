@@ -9,6 +9,7 @@ import {
   resolveSignatureProof,
   type ContractLedgerSourceRow,
 } from "../src/lib/contracts-ledger.ts";
+import { buildContractTermCandidate } from "../src/lib/contracts.ts";
 
 function row(input: Partial<ContractLedgerSourceRow> & Pick<ContractLedgerSourceRow, "contract_id" | "contract_title">): ContractLedgerSourceRow {
   return {
@@ -19,6 +20,10 @@ function row(input: Partial<ContractLedgerSourceRow> & Pick<ContractLedgerSource
     contract_type: "nda",
     status: "planned",
     registry_status: "candidate",
+    relationship_scope: "needs_review",
+    is_current_for_project: false,
+    amd_entity_name: "株式会社チームアルマダ",
+    operational_terms_json: {},
     expected_signing_date: null,
     effective_date: null,
     expiration_date: null,
@@ -66,6 +71,9 @@ const consolidated = consolidateContractRecords([
     contract_id: "kenq-current",
     contract_title: "NDA: KENQ NDA確認・業務委託者含む微修正",
     status: "awaiting_signature",
+    relationship_scope: "amd_contract",
+    is_current_for_project: true,
+    operational_terms_json: { scopeSummary: "協業可能性の検討" },
     last_activity_at: "2026-07-15T11:00:00.000Z",
   }),
   row({
@@ -81,6 +89,9 @@ assert.ok(kenq);
 assert.deepEqual(kenq.related_contract_ids.sort(), ["kenq-current", "kenq-revision", "kenq-signed-old"].sort());
 assert.equal(kenq.related_record_count, 3);
 assert.equal(kenq.status, "awaiting_signature", "古い押印済み記録で最新の押印待ちを隠さない");
+assert.equal(kenq.relationship_scope, "amd_contract", "確認済みAMD契約を判定待ち行へ戻さない");
+assert.equal(kenq.is_current_for_project, true, "関連行の現行指定を契約単位へ集約する");
+assert.equal(kenq.operational_terms_json?.scopeSummary, "協業可能性の検討");
 
 assert.deepEqual(resolveSignatureProof(kenq, []), {
   state: "incomplete",
@@ -116,6 +127,31 @@ assert.deepEqual(resolveContractPeriod(kenq, {
   referenceEnd: "2027-03",
   referenceSource: "applied_project_terms",
 });
+
+const operationalCandidate = buildContractTermCandidate({
+  sourceKind: "drive",
+  sourceTable: "source_cache",
+  sourceId: "kenq-nda-final",
+  projectId: "p29",
+  title: "KENQ 秘密保持契約書 FINAL",
+  snippet: "AMDとKENQの相互NDA",
+  fullText: [
+    "秘密保持契約書",
+    "本検討の目的は協業可能性の検討とする。",
+    "目的外使用及び第三者開示を禁止する。",
+    "秘密情報の開示により知的財産権の譲渡又は実施許諾は生じない。",
+    "契約違反によって損害を被ったときは損害賠償を請求できる。",
+    "本契約の準拠法は日本法とし、管轄裁判所は被告所在地の地方裁判所とする。",
+    "期間満了1か月前までに終了通知がない場合はさらに1年間延長する。",
+  ].join("\n"),
+  sourceUrl: null,
+  itemDate: "2026-06-17T00:00:00.000Z",
+});
+assert.ok(operationalCandidate, "金額のないNDAでも実務条項をレビュー候補へ出す");
+assert.match(String(operationalCandidate.extractedTerms.ip_ownership), /知的財産権/);
+assert.match(String(operationalCandidate.extractedTerms.liability_terms), /損害賠償/);
+assert.match(String(operationalCandidate.extractedTerms.governing_law_jurisdiction), /準拠法/);
+assert.match(String(operationalCandidate.extractedTerms.renewal_type), /1年間延長/);
 
 console.log(JSON.stringify({
   ok: true,

@@ -44,11 +44,11 @@ p00 にも他 PJ と同じく月次カード + 月次モーダルが出る。`bi
 /project/[projectId]/cockpit (CockpitView)
 container: max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3
 
-[A]   CockpitHeader (full width)                PJ 名 / clientName / status chip / PJリスト由来の契約サマリー
+[A]   CockpitHeader (full width)                PJ 名 / status / 契約ID単位の現行契約条件
 [A2]  CockpitVentureStatus (full width hero)    PJ Status — 内部で AMD Score chart と XRL chart を xl: 横並び
                                                 ecosystem PJ は AMD Score 対象外で非表示
 
-CockpitHeader は `/admin/projects` の正本から、PJメンバー、契約条件、業務委託料、支払い条件、提出物の有無、月次報告書の状態と詳細、立替精算の発生額/不可を細いサマリー帯で表示する。提出物/月次報告/立替精算は `projects.contract_terms_json.deliverablesRequired` / `deliverablesNote` / `monthlyReportSubmissionRule` / `monthlyReportSubmissionTiming` / `monthlyReportSubmissionDeadline` / `monthlyReportSubmissionFormat` / `monthlyReportSubmissionRequiredItems` / `monthlyReportSubmissionNote` / `expenseReimbursementAllowed` / `expenseReimbursementNote` を読む。月次報告は `要提出` などの短い状態を主値にし、時期・提出期限・フォーマット・記載事項・根拠を補足表示する。立替精算は `expenseReimbursementAllowed=false` なら `不可`、それ以外で `expenseReimbursementNote` があればその文字列 (= 発生額/実務メモ) を主値にする。値は契約書/見積書から `contract_terms.extracted_terms_json` に抽出され、Contract Apply 後に `projects.contract_terms_json` へ畳まれる。契約条項に無いが実務上OKの運用も同じJSONで扱い、金額が空の場合は `0円` と表示する。
+CockpitHeader は `projects.contract_terms_json.currentContracts[]` を優先し、現行契約を契約ID単位で分けて表示する。各契約は、期間・更新、金額・支払、業務・成果物、費用負担、知財・利用、秘密保持・制限、解除・責任、特記事項を表示する。配列未移行のPJだけ既存の平坦な契約条件を互換表示する。PJの開始/終了やfee設定を契約条件の代わりに使わず、参照する場合は `PJ設定（契約未確認）` と明記する。値が空の立替・費用条件は `未確認` であり、`0円` や `申請可` へ変換しない。
 
 [A3]  Cockpit tabs                              SU 系 PJ では Hero 下に「進捗管理 / スコア詳細」タブ。
                                                 Hero はタブ外なので AMD Score + XRL は常時表示。
@@ -291,7 +291,7 @@ XRL も同パターン (`xrl_feedbacks` → `/api/.../xrl-revise` → 手動 `/v
 
 ## 既存 UI を消したケース (反省)
 
-- 2026-05-06 セッション後半で `CockpitHeader` に独断で `⚙️ config` リンク (→ /admin/projects) を追加。「PJ 台帳に飛ぶ」ためまさに却下された。2026-05-22時点でもコックピットから `/project/[projectId]/config` へ飛ぶ導線は置かない。CockpitHeader は **PJ 名 + clientName + status chip + PJリスト由来の契約サマリー**に限定し、PJごとの契約・請求・支払条件の編集正本は `/admin/projects` のまま。
+- 2026-05-06 セッション後半で `CockpitHeader` に独断で `⚙️ config` リンク (→ /admin/projects) を追加。「PJ 台帳に飛ぶ」ためまさに却下された。コックピットから設定画面へ飛ぶ導線は置かない。CockpitHeader は **PJ名 + status + 現行契約条件の確認**に限定し、編集は `/admin/contracts` と `/admin/projects` で行う。
 - **教訓**: 「過去にあったリンクの復活」を頼まれたとき、`git log -S` で履歴を確認せず推測で実装すると、まったく別のものを「復活」してしまう。今後は git history から確実に復元するか、まさに飛び先を確認してから追加する。
 
 ---

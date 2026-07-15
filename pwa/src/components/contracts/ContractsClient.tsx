@@ -4,8 +4,11 @@ import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "re
 import {
   AlertCircle,
   AlertTriangle,
+  Banknote,
+  BriefcaseBusiness,
   CalendarRange,
   ChevronRight,
+  Copyright,
   FileCheck2,
   FileSignature,
   FileText,
@@ -16,6 +19,7 @@ import {
   ReceiptText,
   RefreshCw,
   Save,
+  Scale,
   Search,
   Send,
   Shield,
@@ -37,11 +41,17 @@ import {
   consolidateContractRecords,
   resolveConfidentiality,
   resolveContractPeriod,
-  resolveExpenseReimbursement,
   resolveSignatureProof,
   type ContractLedgerRow,
-  type ContractProjectTerms,
 } from "@/lib/contracts-ledger";
+import {
+  boolTerm,
+  termsHaveOperationalDetail,
+  textTerm,
+  type ContractRelationshipScope,
+  type ProjectContractTerms,
+  type ProjectCurrentContract,
+} from "@/lib/project-contract-terms";
 
 type Project = {
   id: string;
@@ -51,7 +61,7 @@ type Project = {
   slack_channel_id: string | null;
   start_ym: string | null;
   end_ym: string | null;
-  contract_terms_json: ContractProjectTerms | null;
+  contract_terms_json: ProjectContractTerms | null;
 };
 
 type ContractRow = {
@@ -64,6 +74,14 @@ type ContractRow = {
   contract_type: string;
   status: ContractStatus;
   registry_status: "candidate" | "accepted" | "evidence_only" | "rejected";
+  relationship_scope: ContractRelationshipScope;
+  is_current_for_project: boolean;
+  amd_entity_name: string | null;
+  amd_party_role: string | null;
+  party_confirmation_note: string | null;
+  party_confirmed_at: string | null;
+  party_confirmed_by: string | null;
+  operational_terms_json: ProjectContractTerms | null;
   expected_signing_date: string | null;
   effective_date: string | null;
   expiration_date: string | null;
@@ -282,11 +300,34 @@ const BLANK_CONTRACT_EDIT = {
   renewalType: "",
   businessOwner: "",
   ledgerNotes: "",
+  relationshipScope: "needs_review" as ContractRelationshipScope,
+  currentForProject: false,
+  amdEntityName: "株式会社チームアルマダ",
+  amdPartyRole: "",
+  partyConfirmationNote: "",
+  contractValueYen: "",
+  paymentTerms: "",
+  taxTreatment: "",
+  scopeSummary: "",
+  deliverablesRequired: "unknown",
+  deliverablesNote: "",
+  acceptanceTerms: "",
+  monthlyReportSubmissionRule: "",
+  monthlyReportSubmissionNote: "",
   confidentialityCoverage: "unknown",
   confidentialitySurvivalNote: "",
   confidentialityNote: "",
   expenseReimbursementAllowed: "unknown",
   expenseReimbursementNote: "",
+  ipOwnership: "",
+  usageRights: "",
+  publicityRights: "",
+  subcontractingTerms: "",
+  exclusivityTerms: "",
+  terminationTerms: "",
+  liabilityTerms: "",
+  governingLawJurisdiction: "",
+  specialTerms: "",
 };
 
 function compactDate(value: string | null | undefined) {
@@ -356,19 +397,76 @@ function termFlag(value: unknown, trueLabel: string, falseLabel: string) {
   return "未確認";
 }
 
+function effectiveContractTerms(contract: LedgerContract, project?: Project) {
+  const projectTerms = project?.contract_terms_json;
+  const explicitContracts = Array.isArray(projectTerms?.currentContracts)
+    ? projectTerms.currentContracts
+    : null;
+  const matchingContract = explicitContracts?.find((item) => {
+    const contractId = textTerm(item.contractId);
+    return Boolean(contractId && contract.related_contract_ids.includes(contractId));
+  });
+  const legacyTerms = contract.is_current_for_project && explicitContracts === null
+    ? projectTerms || {}
+    : {};
+  return {
+    ...legacyTerms,
+    ...(matchingContract?.terms || {}),
+    ...(contract.operational_terms_json || {}),
+  } as ProjectContractTerms;
+}
+
+function joinedTerms(values: unknown[], fallback = "未確認") {
+  const normalized = values.map(textTerm).filter((value): value is string => Boolean(value));
+  return normalized.length > 0 ? normalized.join(" / ") : fallback;
+}
+
+function expenseSummary(terms: ProjectContractTerms) {
+  const allowed = boolTerm(terms.expenseReimbursementAllowed);
+  const note = textTerm(terms.expenseReimbursementNote);
+  if (allowed === false) return { label: "申請不可", note: note || "契約条件で不可" };
+  if (allowed === true) return { label: "申請可", note: note || "条件記録なし" };
+  return { label: "未確認", note: note || "費用負担の確認記録なし" };
+}
+
+function contractTermsCoverage(terms: ProjectContractTerms) {
+  const groups = [
+    Boolean(textTerm(terms.paymentTerms) || terms.monthlyFeeYen || terms.amountTaxExclTotal),
+    Boolean(textTerm(terms.scopeSummary) || textTerm(terms.deliverablesNote) || textTerm(terms.acceptanceTerms)),
+    boolTerm(terms.expenseReimbursementAllowed) !== null || Boolean(textTerm(terms.expenseReimbursementNote)),
+    Boolean(textTerm(terms.ipOwnership) || textTerm(terms.usageRights)),
+    Boolean(textTerm(terms.confidentialitySummary)),
+    Boolean(textTerm(terms.terminationTerms) || textTerm(terms.liabilityTerms)),
+  ];
+  return groups.filter(Boolean).length;
+}
+
+function paymentSummary(contract: LedgerContract, terms: ProjectContractTerms) {
+  const primary = contract.contract_value_yen
+    ? `契約額 ${yen(contract.contract_value_yen)}`
+    : terms.amountTaxExclTotal
+      ? `税抜総額 ${yen(terms.amountTaxExclTotal)}`
+      : terms.monthlyFeeYen
+        ? `月額 ${yen(terms.monthlyFeeYen)}`
+        : "金額未確認";
+  return {
+    primary,
+    secondary: joinedTerms([
+      (contract.contract_value_yen || terms.amountTaxExclTotal) && terms.monthlyFeeYen
+        ? `月額 ${yen(terms.monthlyFeeYen)}`
+        : null,
+      terms.paymentTerms,
+      terms.taxTreatment,
+    ]),
+  };
+}
+
 function statusBadge(status: ContractStatus) {
   return (
     <span className={`inline-flex h-6 items-center rounded-md border px-2 text-xs font-medium ${STATUS_TONE[status]}`}>
       {STATUS_LABEL[status]}
     </span>
   );
-}
-
-function answerTone(state: "good" | "warning" | "danger" | "unknown") {
-  if (state === "good") return "border-emerald-200 bg-emerald-50 text-emerald-950";
-  if (state === "warning") return "border-amber-200 bg-amber-50 text-amber-950";
-  if (state === "danger") return "border-rose-200 bg-rose-50 text-rose-950";
-  return "border-slate-200 bg-slate-50 text-slate-900";
 }
 
 function documentKindLabel(kind: ContractDocument["document_kind"]) {
@@ -395,10 +493,14 @@ function rowDocuments(contract: LedgerContract, docsByContract: Map<string, Cont
 
 function contractNeedsAttention(contract: LedgerContract, project: Project | undefined, documents: ContractDocument[]) {
   const period = resolveContractPeriod(contract, project);
-  const expense = resolveExpenseReimbursement(project?.contract_terms_json);
+  const terms = effectiveContractTerms(contract, project);
   const confidentiality = resolveConfidentiality(contract);
   const signature = resolveSignatureProof(contract, documents);
-  return !period.end || expense.state === "unknown" || confidentiality.state === "unknown" || signature.state === "needs_proof";
+  return !contract.counterparty_name
+    || !period.end
+    || !termsHaveOperationalDetail(terms)
+    || confidentiality.state === "unknown"
+    || signature.state === "needs_proof";
 }
 
 export function ContractsClient() {
@@ -464,14 +566,23 @@ export function ContractsClient() {
     const needle = query.trim().toLowerCase();
     return ledgerContracts.filter((contract) => {
       const registryStatus = contract.registry_status || "candidate";
+      const relationshipScope = contract.relationship_scope || "needs_review";
       const project = projectById.get(contract.project_id);
       const rowDocs = rowDocuments(contract, docsByContract);
+      const isScopeReview = statusFilter === "scope_review";
+      const isExcludedReview = statusFilter === "excluded";
+      if (isScopeReview && relationshipScope !== "needs_review") return false;
+      if (isExcludedReview && !["third_party", "template"].includes(relationshipScope)) return false;
+      if (!isScopeReview && !isExcludedReview && relationshipScope !== "amd_contract") return false;
       if (statusFilter === "ledger" && (["evidence_only", "rejected"].includes(registryStatus) || contract.status === "cancelled")) return false;
       if (projectFilter && contract.project_id !== projectFilter) return false;
-      if (statusFilter === "needs_metadata") {
+      if (statusFilter === "current") {
+        if (!contract.is_current_for_project || ["evidence_only", "rejected"].includes(registryStatus) || contract.status === "cancelled") return false;
+      } else if (statusFilter === "needs_metadata") {
         const period = resolveContractPeriod(contract, project);
         if (["evidence_only", "rejected"].includes(registryStatus) || contract.status === "cancelled") return false;
-        if (contract.counterparty_name && period.start && period.end) return false;
+        const effectiveTerms = effectiveContractTerms(contract, project);
+        if (contract.counterparty_name && period.start && period.end && contractTermsCoverage(effectiveTerms) >= 4) return false;
       } else if (statusFilter === "needs_attention") {
         if (["evidence_only", "rejected"].includes(registryStatus) || contract.status === "cancelled") return false;
         if (!contractNeedsAttention(contract, project, rowDocs)) return false;
@@ -480,7 +591,7 @@ export function ContractsClient() {
         const relevant = [daysUntil(period.end), daysUntil(contract.renewal_notice_date)]
           .some((days) => days !== null && days <= 90);
         if (["evidence_only", "rejected"].includes(registryStatus) || contract.status === "cancelled" || !relevant) return false;
-      } else if (statusFilter !== "ledger" && statusFilter !== "all" && contract.status !== statusFilter) {
+      } else if (!["ledger", "all", "scope_review", "excluded"].includes(statusFilter) && contract.status !== statusFilter) {
         return false;
       }
       if (!needle) return true;
@@ -490,6 +601,8 @@ export function ContractsClient() {
         contract.contract_type,
         contract.business_owner,
         contract.confidentiality_note,
+        contract.amd_entity_name,
+        JSON.stringify(contract.operational_terms_json || {}),
         project?.project_name,
         project?.project_id,
         project?.contract_terms_json?.expenseReimbursementNote,
@@ -500,7 +613,7 @@ export function ContractsClient() {
   }, [docsByContract, ledgerContracts, projectById, projectFilter, query, statusFilter]);
 
   const metrics = useMemo(() => {
-    const ledger = ledgerContracts.filter((contract) => !["evidence_only", "rejected"].includes(contract.registry_status) && contract.status !== "cancelled");
+    const ledger = ledgerContracts.filter((contract) => contract.relationship_scope === "amd_contract" && !["evidence_only", "rejected"].includes(contract.registry_status) && contract.status !== "cancelled");
     const entries = ledger.map((contract) => ({
       contract,
       project: projectById.get(contract.project_id),
@@ -508,11 +621,11 @@ export function ContractsClient() {
     }));
     return {
       ledger: ledger.length,
+      current: ledger.filter((contract) => contract.is_current_for_project).length,
       attention: entries.filter(({ contract, project, documents: rowDocs }) => contractNeedsAttention(contract, project, rowDocs)).length,
       expiryUnknown: entries.filter(({ contract, project }) => !resolveContractPeriod(contract, project).end).length,
-      signatureNeedsProof: entries.filter(({ contract, documents: rowDocs }) => resolveSignatureProof(contract, rowDocs).state === "needs_proof").length,
-      expenseUnknown: entries.filter(({ project }) => resolveExpenseReimbursement(project?.contract_terms_json).state === "unknown").length,
-      confidentialityUnknown: entries.filter(({ contract }) => resolveConfidentiality(contract).state === "unknown").length,
+      termsIncomplete: entries.filter(({ contract, project }) => contractTermsCoverage(effectiveContractTerms(contract, project)) < 4).length,
+      scopeReview: ledgerContracts.filter((contract) => contract.relationship_scope === "needs_review").length,
     };
   }, [docsByContract, ledgerContracts, projectById]);
 
@@ -543,7 +656,8 @@ export function ContractsClient() {
       setContractEdit(BLANK_CONTRACT_EDIT);
       return;
     }
-    const expense = resolveExpenseReimbursement(projectById.get(selected.project_id)?.contract_terms_json);
+    const terms = effectiveContractTerms(selected, projectById.get(selected.project_id));
+    const selectedExpense = expenseSummary(terms);
     setContractEdit({
       canonicalTitle: contractTitle(selected),
       counterpartyName: selected.counterparty_name || "",
@@ -554,11 +668,34 @@ export function ContractsClient() {
       renewalType: selected.renewal_type || "",
       businessOwner: selected.business_owner || "",
       ledgerNotes: selected.ledger_notes || "",
+      relationshipScope: selected.relationship_scope || "needs_review",
+      currentForProject: Boolean(selected.is_current_for_project),
+      amdEntityName: selected.amd_entity_name || "株式会社チームアルマダ",
+      amdPartyRole: selected.amd_party_role || "",
+      partyConfirmationNote: selected.party_confirmation_note || "",
+      contractValueYen: selected.contract_value_yen ? String(selected.contract_value_yen) : "",
+      paymentTerms: textTerm(terms.paymentTerms) || "",
+      taxTreatment: textTerm(terms.taxTreatment) || "",
+      scopeSummary: textTerm(terms.scopeSummary) || "",
+      deliverablesRequired: boolTerm(terms.deliverablesRequired) === true ? "required" : boolTerm(terms.deliverablesRequired) === false ? "not_required" : "unknown",
+      deliverablesNote: textTerm(terms.deliverablesNote) || "",
+      acceptanceTerms: textTerm(terms.acceptanceTerms) || "",
+      monthlyReportSubmissionRule: textTerm(terms.monthlyReportSubmissionRule) || "",
+      monthlyReportSubmissionNote: textTerm(terms.monthlyReportSubmissionNote) || "",
       confidentialityCoverage: selected.confidentiality_coverage || "unknown",
       confidentialitySurvivalNote: selected.confidentiality_survival_note || "",
-      confidentialityNote: selected.confidentiality_note || "",
-      expenseReimbursementAllowed: expense.state,
-      expenseReimbursementNote: expense.note || "",
+      confidentialityNote: selected.confidentiality_note || textTerm(terms.confidentialitySummary) || "",
+      expenseReimbursementAllowed: boolTerm(terms.expenseReimbursementAllowed) === true ? "allowed" : boolTerm(terms.expenseReimbursementAllowed) === false ? "not_allowed" : "unknown",
+      expenseReimbursementNote: textTerm(terms.expenseReimbursementNote) || selectedExpense.note || "",
+      ipOwnership: textTerm(terms.ipOwnership) || "",
+      usageRights: textTerm(terms.usageRights) || "",
+      publicityRights: textTerm(terms.publicityRights) || "",
+      subcontractingTerms: textTerm(terms.subcontractingTerms) || "",
+      exclusivityTerms: textTerm(terms.exclusivityTerms) || "",
+      terminationTerms: textTerm(terms.terminationTerms) || "",
+      liabilityTerms: textTerm(terms.liabilityTerms) || "",
+      governingLawJurisdiction: textTerm(terms.governingLawJurisdiction) || "",
+      specialTerms: textTerm(terms.specialTerms) || "",
     });
   }, [projectById, selected]);
 
@@ -653,6 +790,38 @@ export function ContractsClient() {
     setSaving(true);
     setError("");
     try {
+      const currentForProject = contractEdit.relationshipScope === "amd_contract" && contractEdit.currentForProject;
+      const operationalTerms: ProjectContractTerms = {
+        paymentTerms: textTerm(contractEdit.paymentTerms),
+        taxTreatment: textTerm(contractEdit.taxTreatment),
+        scopeSummary: textTerm(contractEdit.scopeSummary),
+        deliverablesRequired: contractEdit.deliverablesRequired === "required"
+          ? true
+          : contractEdit.deliverablesRequired === "not_required"
+            ? false
+            : null,
+        deliverablesNote: textTerm(contractEdit.deliverablesNote),
+        acceptanceTerms: textTerm(contractEdit.acceptanceTerms),
+        monthlyReportSubmissionRule: textTerm(contractEdit.monthlyReportSubmissionRule),
+        monthlyReportSubmissionNote: textTerm(contractEdit.monthlyReportSubmissionNote),
+        expenseReimbursementAllowed: contractEdit.expenseReimbursementAllowed === "allowed"
+          ? true
+          : contractEdit.expenseReimbursementAllowed === "not_allowed"
+            ? false
+            : null,
+        expenseReimbursementNote: textTerm(contractEdit.expenseReimbursementNote),
+        ipOwnership: textTerm(contractEdit.ipOwnership),
+        usageRights: textTerm(contractEdit.usageRights),
+        publicityRights: textTerm(contractEdit.publicityRights),
+        confidentialitySummary: textTerm(contractEdit.confidentialityNote),
+        confidentialitySurvival: textTerm(contractEdit.confidentialitySurvivalNote),
+        subcontractingTerms: textTerm(contractEdit.subcontractingTerms),
+        exclusivityTerms: textTerm(contractEdit.exclusivityTerms),
+        terminationTerms: textTerm(contractEdit.terminationTerms),
+        liabilityTerms: textTerm(contractEdit.liabilityTerms),
+        governingLawJurisdiction: textTerm(contractEdit.governingLawJurisdiction),
+        specialTerms: textTerm(contractEdit.specialTerms),
+      };
       const linkRes = await fetch("/api/contracts", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -680,6 +849,13 @@ export function ContractsClient() {
           renewal_type: contractEdit.renewalType || null,
           business_owner: contractEdit.businessOwner || null,
           ledger_notes: contractEdit.ledgerNotes || null,
+          relationship_scope: contractEdit.relationshipScope,
+          is_current_for_project: currentForProject,
+          amd_entity_name: contractEdit.amdEntityName,
+          amd_party_role: contractEdit.amdPartyRole || null,
+          party_confirmation_note: contractEdit.partyConfirmationNote || null,
+          contract_value_yen: contractEdit.contractValueYen || null,
+          operational_terms_json: operationalTerms,
           confidentiality_coverage: contractEdit.confidentialityCoverage,
           confidentiality_survival_note: contractEdit.confidentialitySurvivalNote || null,
           confidentiality_note: contractEdit.confidentialityNote || null,
@@ -691,21 +867,58 @@ export function ContractsClient() {
         return;
       }
       if (selectedProject?.id) {
-        const expenseAllowed = contractEdit.expenseReimbursementAllowed === "allowed"
-          ? true
-          : contractEdit.expenseReimbursementAllowed === "not_allowed"
-            ? false
-            : null;
+        const baseTerms = selectedProject.contract_terms_json || {};
+        const existingCurrentContracts = Array.isArray(baseTerms.currentContracts)
+          ? baseTerms.currentContracts
+          : [];
+        const withoutSelected = existingCurrentContracts.filter((item) => item.contractId !== selected.contract_id);
+        const currentContract: ProjectCurrentContract = {
+          contractId: selected.contract_id,
+          title: contractEdit.canonicalTitle,
+          contractType: contractEdit.contractType,
+          status: selected.status,
+          signatureStatus: selected.status === "signed" ? "押印済み記録" : STATUS_LABEL[selected.status],
+          counterpartyName: contractEdit.counterpartyName,
+          effectiveDate: contractEdit.effectiveDate || null,
+          expirationDate: contractEdit.expirationDate || null,
+          renewalType: contractEdit.renewalType || null,
+          renewalNoticeDate: contractEdit.renewalNoticeDate || null,
+          terms: {
+            ...operationalTerms,
+            amountTaxExclTotal: contractEdit.contractValueYen || null,
+          },
+        };
+        const currentContracts = currentForProject
+          ? [...withoutSelected, currentContract]
+          : withoutSelected;
+        const mirroredTerms: ProjectContractTerms = currentForProject
+          ? {
+              ...baseTerms,
+              currentContracts,
+              currentContractId: selected.contract_id,
+              currentContractTitle: contractEdit.canonicalTitle,
+              currentContractType: contractEdit.contractType,
+              currentContractStatus: selected.status,
+              signatureStatus: currentContract.signatureStatus,
+              counterpartyName: contractEdit.counterpartyName || baseTerms.counterpartyName || null,
+              contractStartYm: contractEdit.effectiveDate ? contractEdit.effectiveDate.slice(0, 7).replace("-", "") : baseTerms.contractStartYm,
+              contractEndYm: contractEdit.expirationDate ? contractEdit.expirationDate.slice(0, 7).replace("-", "") : baseTerms.contractEndYm,
+              renewalType: contractEdit.renewalType || null,
+              renewalNoticeDate: contractEdit.renewalNoticeDate || null,
+              sourceTitle: contractEdit.canonicalTitle || baseTerms.sourceTitle || null,
+              sourceRef: `contracts:${selected.contract_id}`,
+            }
+          : {
+              ...baseTerms,
+              currentContracts,
+              currentContractId: baseTerms.currentContractId === selected.contract_id ? null : baseTerms.currentContractId,
+            };
         const projectRes = await fetch(`/api/admin/projects/${encodeURIComponent(selectedProject.id)}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             projectsPatch: {
-              contract_terms_json: {
-                ...(selectedProject.contract_terms_json || {}),
-                expenseReimbursementAllowed: expenseAllowed,
-                expenseReimbursementNote: contractEdit.expenseReimbursementNote || null,
-              },
+              contract_terms_json: mirroredTerms,
             },
           }),
         });
@@ -806,12 +1019,12 @@ export function ContractsClient() {
         )}
 
         <section className="grid grid-cols-2 overflow-hidden rounded-md border border-slate-200 bg-white sm:grid-cols-3 xl:grid-cols-6" aria-label="契約台帳の要対応状況">
-          <SummaryButton label="契約" value={metrics.ledger} active={statusFilter === "ledger"} onClick={() => setStatusFilter("ledger")} />
+          <SummaryButton label="AMD当事者契約" value={metrics.ledger} active={statusFilter === "ledger"} onClick={() => setStatusFilter("ledger")} />
+          <SummaryButton label="PJ現行契約" value={metrics.current} active={statusFilter === "current"} onClick={() => setStatusFilter("current")} />
           <SummaryButton label="要対応" value={metrics.attention} tone="danger" active={statusFilter === "needs_attention"} onClick={() => setStatusFilter("needs_attention")} />
           <SummaryButton label="期限未確認" value={metrics.expiryUnknown} tone="warning" active={statusFilter === "needs_metadata"} onClick={() => setStatusFilter("needs_metadata")} />
-          <SummaryButton label="押印証跡なし" value={metrics.signatureNeedsProof} tone="danger" />
-          <SummaryButton label="立替未確認" value={metrics.expenseUnknown} tone="warning" />
-          <SummaryButton label="秘密保持未確認" value={metrics.confidentialityUnknown} tone="warning" />
+          <SummaryButton label="条件不足" value={metrics.termsIncomplete} tone="warning" active={statusFilter === "needs_metadata"} onClick={() => setStatusFilter("needs_metadata")} />
+          <SummaryButton label="当事者判定待ち" value={metrics.scopeReview} tone="warning" active={statusFilter === "scope_review"} onClick={() => setStatusFilter("scope_review")} />
         </section>
 
         <section className="overflow-hidden rounded-md border border-slate-200 bg-white" aria-label="契約一覧">
@@ -828,12 +1041,15 @@ export function ContractsClient() {
             </label>
             <label className="relative">
               <ListFilter className="pointer-events-none absolute left-2 top-2 h-4 w-4 text-slate-400" />
-              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="契約の表示条件" className="h-8 w-[150px] rounded-md border border-slate-200 bg-white pl-8 pr-2 text-sm">
-                <option value="ledger">契約台帳</option>
+              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="契約の表示条件" className="h-8 w-[180px] rounded-md border border-slate-200 bg-white pl-8 pr-2 text-sm">
+                <option value="ledger">AMD当事者契約</option>
+                <option value="current">PJ現行契約</option>
                 <option value="needs_attention">要対応</option>
                 <option value="expiring">期限90日以内</option>
-                <option value="needs_metadata">基本情報不足</option>
-                <option value="all">全記録</option>
+                <option value="needs_metadata">契約条件不足</option>
+                <option value="scope_review">当事者判定待ち</option>
+                <option value="excluded">第三者間・雛形</option>
+                <option value="all">AMD契約の全記録</option>
                 {CONTRACT_STATUSES.map((status) => <option key={status} value={status}>{STATUS_LABEL[status]}</option>)}
               </select>
             </label>
@@ -870,29 +1086,25 @@ export function ContractsClient() {
           </div>
 
           <div className="hidden max-h-[calc(100vh-270px)] overflow-auto overscroll-x-contain xl:block">
-            <table className="w-full min-w-[1580px] table-fixed border-collapse text-left text-xs">
+            <table className="w-full min-w-[1760px] table-fixed border-collapse text-left text-xs">
               <colgroup>
                 <col className="w-[160px]" />
-                <col className="w-[330px]" />
-                <col className="w-[125px]" />
-                <col className="w-[190px]" />
-                <col className="w-[150px]" />
-                <col className="w-[170px]" />
-                <col className="w-[150px]" />
-                <col className="w-[175px]" />
-                <col className="w-[180px]" />
+                <col className="w-[340px]" />
+                <col className="w-[250px]" />
+                <col className="w-[230px]" />
+                <col className="w-[270px]" />
+                <col className="w-[230px]" />
+                <col className="w-[280px]" />
               </colgroup>
               <thead className="sticky top-0 z-20 border-b border-slate-200 bg-slate-50 text-[11px] text-slate-500">
                 <tr>
                   <th className="sticky left-0 z-30 border-r border-slate-200 bg-slate-50 px-3 py-2 font-semibold">PJ</th>
                   <th className="sticky left-[160px] z-30 border-r border-slate-200 bg-slate-50 px-3 py-2 font-semibold shadow-[5px_0_8px_-7px_rgba(15,23,42,0.35)]">契約</th>
-                  <th className="px-3 py-2 font-semibold">現在状態</th>
-                  <th className="px-3 py-2 font-semibold">契約期間・更新</th>
-                  <th className="px-3 py-2 font-semibold">PJ立替経費</th>
-                  <th className="px-3 py-2 font-semibold">押印</th>
-                  <th className="px-3 py-2 font-semibold">秘密保持</th>
-                  <th className="px-3 py-2 font-semibold">最新版</th>
-                  <th className="px-3 py-2 font-semibold">相手先</th>
+                  <th className="px-3 py-2 font-semibold">状態・期間</th>
+                  <th className="px-3 py-2 font-semibold">金額・支払</th>
+                  <th className="px-3 py-2 font-semibold">業務・成果物</th>
+                  <th className="px-3 py-2 font-semibold">費用・報告</th>
+                  <th className="px-3 py-2 font-semibold">権利・制限・リスク</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -987,12 +1199,16 @@ function SummaryButton({ label, value, tone = "default", active = false, onClick
 
 function DesktopContractRow({ contract, project, documents, onOpen }: { contract: LedgerContract; project?: Project; documents: ContractDocument[]; onOpen: () => void }) {
   const period = resolveContractPeriod(contract, project);
-  const expense = resolveExpenseReimbursement(project?.contract_terms_json);
+  const terms = effectiveContractTerms(contract, project);
+  const expense = expenseSummary(terms);
   const signature = resolveSignatureProof(contract, documents);
   const confidentiality = resolveConfidentiality(contract);
   const latest = documents.find((doc) => doc.is_latest) || documents[0];
   const needsAttention = contractNeedsAttention(contract, project, documents);
   const expirationDays = daysUntil(period.end);
+  const payment = paymentSummary(contract, terms);
+  const deliverables = boolTerm(terms.deliverablesRequired);
+  const missingGroups = Math.max(0, 6 - contractTermsCoverage(terms));
   return (
     <tr className="group bg-white hover:bg-slate-50">
       <td className="sticky left-0 z-10 border-r border-slate-100 bg-white px-3 py-2.5 align-top group-hover:bg-slate-50">
@@ -1005,58 +1221,63 @@ function DesktopContractRow({ contract, project, documents, onOpen }: { contract
             <span className="line-clamp-2 font-semibold text-slate-950">{contractTitle(contract)}</span>
             <span className="mt-1 flex flex-wrap items-center gap-1 text-[11px] text-slate-500">
               {contractTypeLabel(contract.contract_type)}
+              {contract.is_current_for_project && <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-800">PJ現行</Badge>}
               {contract.registry_status === "candidate" && <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-800">要確認</Badge>}
               {needsAttention && <Badge variant="outline" className="border-rose-200 bg-rose-50 text-rose-700">要対応</Badge>}
             </span>
+            <span className="mt-1 block truncate text-[11px] text-slate-500">{contract.amd_entity_name || "株式会社チームアルマダ"} × {contract.counterparty_name || "相手先未設定"}</span>
           </span>
           <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
         </button>
       </td>
-      <td className="px-3 py-2.5 align-top">{statusBadge(contract.status)}</td>
-      <td className="px-3 py-2.5 align-top text-slate-700">
-        <p>{period.start || period.end ? `${dateOnly(period.start)} - ${dateOnly(period.end)}` : "未確認"}</p>
-        <p className={`mt-1 text-[11px] ${expirationDays !== null && expirationDays <= 90 ? "font-medium text-amber-700" : "text-slate-500"}`}>{period.end ? remainingLabel(period.end) : "契約終了日の登録なし"}</p>
+      <td className="px-3 py-2.5 align-top">
+        <div className="flex flex-wrap items-center gap-1.5">{statusBadge(contract.status)}<span className={`font-medium ${signature.state === "complete" ? "text-emerald-700" : signature.state === "needs_proof" ? "text-rose-700" : "text-amber-700"}`}>{signature.label}</span></div>
+        <p className="mt-1 font-medium text-slate-800">{period.start || period.end ? `${dateOnly(period.start)} - ${dateOnly(period.end)}` : "期間未確認"}</p>
+        <p className={`mt-0.5 text-[11px] ${expirationDays !== null && expirationDays <= 90 ? "font-medium text-amber-700" : "text-slate-500"}`}>{period.end ? remainingLabel(period.end) : "終了日未登録"}</p>
         {!period.end && period.referenceEnd && <p className="mt-0.5 text-[11px] text-slate-500">PJ条件 {dateOnly(period.referenceEnd)}（参考）</p>}
-        {contract.renewal_notice_date && <p className="mt-0.5 text-[11px] text-amber-700">更新通知 {dateOnly(contract.renewal_notice_date)}</p>}
+        <p className="mt-0.5 line-clamp-1 text-[11px] text-slate-500">{latest ? `${latest.version_label || documentKindLabel(latest.document_kind)} / ${documentFormat(latest)}` : textTerm(terms.sourceTitle) ? "条件根拠登録済み" : "文書未登録"}</p>
       </td>
-      <td className="px-3 py-2.5 align-top"><StateText label={expense.state === "allowed" ? "申請可" : expense.state === "not_allowed" ? "申請不可" : "未確認"} state={expense.state === "allowed" ? "good" : expense.state === "not_allowed" ? "danger" : "unknown"} note={expense.note || "PJ全体の契約条件"} /></td>
-      <td className="px-3 py-2.5 align-top"><StateText label={signature.label} state={signature.state === "complete" ? "good" : signature.state === "needs_proof" ? "danger" : "warning"} note={signature.note} /></td>
-      <td className="px-3 py-2.5 align-top"><StateText label={confidentiality.label} state={confidentiality.state === "unknown" ? "unknown" : confidentiality.state === "not_included" ? "warning" : "good"} note={confidentiality.note} /></td>
-      <td className="px-3 py-2.5 align-top text-slate-700">
-        {latest ? <><p className="truncate font-medium text-slate-900">{latest.version_label || documentKindLabel(latest.document_kind)}</p><p className="mt-1 text-[11px] text-slate-500">{documentFormat(latest)} / {documents.length}ファイル</p></> : <span className="text-slate-400">未登録</span>}
-      </td>
-      <td className="px-3 py-2.5 align-top text-slate-700">{contract.counterparty_name || <span className="text-slate-400">未設定</span>}</td>
+      <td className="px-3 py-2.5 align-top"><CellText primary={payment.primary} secondary={payment.secondary} /></td>
+      <td className="px-3 py-2.5 align-top"><CellText primary={textTerm(terms.scopeSummary) || "業務範囲未確認"} secondary={deliverables === true ? `成果物あり${terms.deliverablesNote ? `: ${terms.deliverablesNote}` : ""}` : deliverables === false ? "成果物なし" : textTerm(terms.deliverablesNote) || "成果物未確認"} tertiary={textTerm(terms.acceptanceTerms)} /></td>
+      <td className="px-3 py-2.5 align-top"><CellText primary={joinedTerms([expense.label, expense.note])} secondary={joinedTerms([terms.monthlyReportSubmissionRule, terms.monthlyReportSubmissionTiming, terms.monthlyReportSubmissionNote], "報告条件未確認")} tone={expense.label === "未確認" ? "warning" : expense.label === "申請不可" ? "danger" : "good"} /></td>
+      <td className="px-3 py-2.5 align-top"><CellText primary={joinedTerms([terms.ipOwnership, terms.usageRights, terms.confidentialitySummary || confidentiality.label])} secondary={joinedTerms([terms.subcontractingTerms, terms.exclusivityTerms, terms.terminationTerms, terms.liabilityTerms])} tertiary={missingGroups > 0 ? `未確認カテゴリ ${missingGroups}件` : textTerm(terms.governingLawJurisdiction) || "主要条件確認済み"} tone={missingGroups > 0 ? "warning" : "good"} /></td>
     </tr>
   );
 }
 
 function MobileContractRow({ contract, project, documents, onOpen }: { contract: LedgerContract; project?: Project; documents: ContractDocument[]; onOpen: () => void }) {
   const period = resolveContractPeriod(contract, project);
-  const expense = resolveExpenseReimbursement(project?.contract_terms_json);
+  const terms = effectiveContractTerms(contract, project);
+  const expense = expenseSummary(terms);
   const signature = resolveSignatureProof(contract, documents);
   const confidentiality = resolveConfidentiality(contract);
+  const payment = paymentSummary(contract, terms);
   return (
     <button type="button" onClick={onOpen} className="block w-full p-3 text-left outline-none hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-400">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-xs font-medium text-slate-500">{contract.project_id} {project?.project_name || "PJ未設定"}</p>
           <p className="mt-1 line-clamp-2 text-sm font-semibold text-slate-950">{contractTitle(contract)}</p>
-          <div className="mt-2 flex flex-wrap gap-1">{statusBadge(contract.status)}<Badge variant="outline">{contractTypeLabel(contract.contract_type)}</Badge></div>
+          <p className="mt-1 truncate text-xs text-slate-500">{contract.counterparty_name || "相手先未設定"}</p>
+          <div className="mt-2 flex flex-wrap gap-1">{statusBadge(contract.status)}<Badge variant="outline">{contractTypeLabel(contract.contract_type)}</Badge>{contract.is_current_for_project && <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-800">PJ現行</Badge>}</div>
         </div>
         <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-slate-400" />
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+      <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
         <MiniAnswer label="期限" value={period.end ? `${dateOnly(period.end)}・${remainingLabel(period.end)}` : "未確認"} />
-        <MiniAnswer label="PJ立替" value={expense.state === "allowed" ? "申請可" : expense.state === "not_allowed" ? "申請不可" : "未確認"} />
-        <MiniAnswer label="押印" value={signature.label} />
-        <MiniAnswer label="秘密保持" value={confidentiality.label} />
+        <MiniAnswer label="状態・押印" value={`${STATUS_LABEL[contract.status]} / ${signature.label}`} />
+        <MiniAnswer label="金額・支払" value={joinedTerms([payment.primary, payment.secondary])} />
+        <MiniAnswer label="業務・成果物" value={joinedTerms([terms.scopeSummary, terms.deliverablesNote])} />
+        <MiniAnswer label="費用負担" value={joinedTerms([expense.label, expense.note])} />
+        <MiniAnswer label="知財・秘密保持" value={joinedTerms([terms.ipOwnership, terms.confidentialitySummary || confidentiality.label])} />
       </div>
     </button>
   );
 }
 
-function StateText({ label, state, note }: { label: string; state: "good" | "warning" | "danger" | "unknown"; note?: string | null }) {
-  return <div><p className={`font-medium ${state === "good" ? "text-emerald-700" : state === "danger" ? "text-rose-700" : state === "warning" ? "text-amber-700" : "text-slate-600"}`}>{label}</p>{note && <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-500">{note}</p>}</div>;
+function CellText({ primary, secondary, tertiary, tone = "default" }: { primary: string; secondary?: string | null; tertiary?: string | null; tone?: "default" | "good" | "warning" | "danger" }) {
+  const primaryClass = tone === "good" ? "text-emerald-700" : tone === "warning" ? "text-amber-700" : tone === "danger" ? "text-rose-700" : "text-slate-900";
+  return <div className="min-w-0"><p className={`line-clamp-2 font-medium leading-4 ${primaryClass}`}>{primary}</p>{secondary && <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-500">{secondary}</p>}{tertiary && <p className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-slate-400">{tertiary}</p>}</div>;
 }
 
 function MiniAnswer({ label, value }: { label: string; value: string }) {
@@ -1108,12 +1329,11 @@ function ContractDetailDialog({ contract, project, documents, signals, linkedTer
 }) {
   if (!contract) return null;
   const period = resolveContractPeriod(contract, project);
-  const expense = resolveExpenseReimbursement(project?.contract_terms_json);
+  const terms = effectiveContractTerms(contract, project);
+  const expense = expenseSummary(terms);
   const signature = resolveSignatureProof(contract, documents);
   const confidentiality = resolveConfidentiality(contract);
-  const endDays = daysUntil(period.end);
   const latest = documents.find((doc) => doc.is_latest) || documents[0];
-  const terms = project?.contract_terms_json;
   return (
     <Dialog open onOpenChange={onOpenChange}>
       <DialogContent className="grid h-[min(90vh,820px)] w-[96vw] !max-w-[1500px] grid-rows-[auto_1fr] gap-0 overflow-hidden rounded-lg border border-slate-300 !bg-white p-0 shadow-2xl">
@@ -1139,57 +1359,104 @@ function ContractDetailDialog({ contract, project, documents, signals, linkedTer
 
         <Tabs defaultValue="answers" className="min-h-0 gap-0">
           <TabsList variant="line" className="w-full shrink-0 justify-start overflow-x-auto border-b border-slate-200 px-4 py-2 sm:px-5">
-            <TabsTrigger value="answers" className="flex-none px-3">すぐ確認</TabsTrigger>
+            <TabsTrigger value="answers" className="flex-none px-3">実務条件</TabsTrigger>
             <TabsTrigger value="documents" className="flex-none px-3">文書と版 <span className="text-xs text-slate-400">{documents.length}</span></TabsTrigger>
             <TabsTrigger value="records" className="flex-none px-3">関連記録 <span className="text-xs text-slate-400">{contract.related_record_count}</span></TabsTrigger>
           </TabsList>
 
           <TabsContent value="answers" className="min-h-0 overflow-y-auto p-4 sm:p-5">
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <AnswerPanel icon={<CalendarRange />} label="契約はいつまで？" value={period.end ? dateOnly(period.end) : "未確認"} note={period.end ? remainingLabel(period.end) : "契約の終了日を設定してね"} state={!period.end ? "unknown" : endDays !== null && endDays < 0 ? "danger" : endDays !== null && endDays <= 90 ? "warning" : "good"} detail={contract.renewal_notice_date ? `更新通知 ${dateOnly(contract.renewal_notice_date)}` : !period.end && period.referenceEnd ? `PJ条件 ${dateOnly(period.referenceEnd)}（参考・回答には未使用）` : contract.renewal_type || undefined} />
-              <AnswerPanel icon={<ReceiptText />} label="このPJは立替経費申請できる？" value={expense.state === "allowed" ? "申請できる" : expense.state === "not_allowed" ? "申請できない" : "未確認"} note={expense.note || "PJに反映済みの契約条件に記録なし"} state={expense.state === "allowed" ? "good" : expense.state === "not_allowed" ? "danger" : "unknown"} />
-              <AnswerPanel icon={<FileCheck2 />} label="押印まで完了してる？" value={signature.label} note={signature.note} state={signature.state === "complete" ? "good" : signature.state === "needs_proof" ? "danger" : "warning"} detail={contract.signed_at ? `記録日時 ${compactDate(contract.signed_at)}` : undefined} />
-              <AnswerPanel icon={<Shield />} label="秘密保持は含まれる？" value={confidentiality.label} note={confidentiality.note} state={confidentiality.state === "unknown" ? "unknown" : confidentiality.state === "not_included" ? "warning" : "good"} detail={contract.confidentiality_survival_note || undefined} />
+            <div className="grid gap-x-5 gap-y-3 border-y border-slate-200 bg-slate-50 px-3 py-3 text-sm md:grid-cols-3">
+              <FactRow label="契約当事者" value={`${contract.amd_entity_name || "株式会社チームアルマダ"} × ${contract.counterparty_name || "相手先未設定"}`} note={joinedTerms([contract.amd_party_role, contract.party_confirmation_note], "当事者確認の根拠未登録")} />
+              <FactRow label="現在状態・押印" value={`${STATUS_LABEL[contract.status]} / ${signature.label}`} note={signature.note} />
+              <FactRow label="PJコックピット" value={contract.is_current_for_project ? "現行契約として表示" : "現行契約に未指定"} note={contract.relationship_scope === "amd_contract" ? "AMD当事者契約" : "主台帳の対象外"} />
             </div>
 
-            <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(440px,0.9fr)]">
-              <section className="min-w-0">
-                <h3 className="text-sm font-semibold text-slate-950">確定している契約条件</h3>
-                <dl className="mt-2 grid border-y border-slate-200 text-sm sm:grid-cols-2">
-                  <FactRow label="契約期間" value={`${dateOnly(period.start)} - ${dateOnly(period.end)}`} />
-                  {(period.referenceStart || period.referenceEnd) && <FactRow label="PJ反映済み期間（参考）" value={`${dateOnly(period.referenceStart)} - ${dateOnly(period.referenceEnd)}`} note="この契約の期限回答には使わない" />}
-                  <FactRow label="更新" value={[contract.renewal_type, contract.renewal_notice_date ? `通知 ${dateOnly(contract.renewal_notice_date)}` : null].filter(Boolean).join(" / ") || "未確認"} />
-                  <FactRow label="契約金額" value={yen(contract.contract_value_yen || terms?.monthlyFeeYen)} />
-                  <FactRow label="業務責任者" value={contract.business_owner || "未設定"} />
-                  <FactRow label="提出物" value={termFlag(terms?.deliverablesRequired, "あり", "なし")} note={terms?.deliverablesNote} />
-                  <FactRow label="月次報告" value={terms?.monthlyReportSubmissionRule || "未確認"} note={terms?.monthlyReportSubmissionNote} />
-                  <FactRow label="最新版" value={latest ? `${latest.version_label || documentKindLabel(latest.document_kind)} / ${documentFormat(latest)}` : "未登録"} />
-                  <FactRow label="保存先" value={driveDestination?.path || "共有ドライブ/ARMADA/a3_backoffice/契約"} />
-                </dl>
-                {contract.ledger_notes && <div className="mt-4 border-l-2 border-slate-300 pl-3"><p className="text-xs font-medium text-slate-500">管理メモ</p><p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{contract.ledger_notes}</p></div>}
-              </section>
+            <div className="mt-5 grid gap-x-6 gap-y-5 md:grid-cols-2 xl:grid-cols-3">
+              <TermsGroup icon={<CalendarRange />} title="期間・更新" rows={[
+                ["契約期間", `${dateOnly(period.start)} - ${dateOnly(period.end)}`],
+                ["更新", joinedTerms([contract.renewal_type, contract.renewal_notice_date ? `通知 ${dateOnly(contract.renewal_notice_date)}` : null])],
+              ]} />
+              <TermsGroup icon={<Banknote />} title="金額・支払" rows={[
+                ["契約金額", contract.contract_value_yen ? yen(contract.contract_value_yen) : terms.amountTaxExclTotal ? `税抜 ${yen(terms.amountTaxExclTotal)}` : terms.monthlyFeeYen ? `月額 ${yen(terms.monthlyFeeYen)}` : "未確認"],
+                ["支払条件", joinedTerms([terms.paymentTerms, terms.taxTreatment])],
+              ]} />
+              <TermsGroup icon={<BriefcaseBusiness />} title="業務・成果物" rows={[
+                ["業務範囲", textTerm(terms.scopeSummary) || "未確認"],
+                ["成果物", joinedTerms([termFlag(terms.deliverablesRequired, "あり", "なし"), terms.deliverablesNote])],
+                ["検収", textTerm(terms.acceptanceTerms) || "未確認"],
+                ["報告", joinedTerms([terms.monthlyReportSubmissionRule, terms.monthlyReportSubmissionNote])],
+              ]} />
+              <TermsGroup icon={<ReceiptText />} title="費用負担" rows={[
+                ["立替・実費", expense.label],
+                ["条件", expense.note],
+              ]} />
+              <TermsGroup icon={<Copyright />} title="知財・利用" rows={[
+                ["知財帰属", textTerm(terms.ipOwnership) || "未確認"],
+                ["利用権", textTerm(terms.usageRights) || "未確認"],
+                ["名称・実績公開", textTerm(terms.publicityRights) || "未確認"],
+              ]} />
+              <TermsGroup icon={<Shield />} title="秘密保持・制限" rows={[
+                ["秘密保持", textTerm(terms.confidentialitySummary) || confidentiality.label],
+                ["存続", contract.confidentiality_survival_note || textTerm(terms.confidentialitySurvival) || "未確認"],
+                ["再委託", textTerm(terms.subcontractingTerms) || "未確認"],
+                ["独占・競業", textTerm(terms.exclusivityTerms) || "未確認"],
+              ]} />
+              <TermsGroup icon={<Scale />} title="解除・責任" rows={[
+                ["解除", textTerm(terms.terminationTerms) || "未確認"],
+                ["損害賠償・責任上限", textTerm(terms.liabilityTerms) || "未確認"],
+                ["準拠法・管轄", textTerm(terms.governingLawJurisdiction) || "未確認"],
+              ]} />
+              <TermsGroup icon={<FileCheck2 />} title="文書・根拠" rows={[
+                ["最新版", latest ? `${latest.version_label || documentKindLabel(latest.document_kind)} / ${documentFormat(latest)}` : "未登録"],
+                ["業務責任者", contract.business_owner || "未設定"],
+                ["条件確認", terms.verifiedAt ? `${compactDate(terms.verifiedAt)} / ${terms.verifiedBy || "確認者未記録"}` : "未確認"],
+                ["特記事項", textTerm(terms.specialTerms) || contract.ledger_notes || "なし"],
+              ]} />
+            </div>
 
-              <details className="self-start rounded-md border border-slate-200 bg-slate-50">
-                <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-slate-800">契約情報を編集</summary>
-                <form onSubmit={onSave} className="grid gap-3 border-t border-slate-200 bg-white p-4 sm:grid-cols-2">
+            <details className="mt-6 rounded-md border border-slate-200 bg-slate-50">
+                <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-slate-800">契約条件を編集</summary>
+                <form onSubmit={onSave} className="grid gap-3 border-t border-slate-200 bg-white p-4 md:grid-cols-2 xl:grid-cols-3">
                   <Field label="契約名" className="sm:col-span-2"><input value={edit.canonicalTitle} onChange={(event) => setEdit({ ...edit, canonicalTitle: event.target.value })} className={CONTROL_CLASS} /></Field>
                   <Field label="相手先"><input value={edit.counterpartyName} onChange={(event) => setEdit({ ...edit, counterpartyName: event.target.value })} className={CONTROL_CLASS} /></Field>
                   <Field label="種別"><select value={edit.contractType} onChange={(event) => setEdit({ ...edit, contractType: event.target.value })} className={CONTROL_CLASS}>{Object.entries(CONTRACT_TYPE_LABEL).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></Field>
+                  <Field label="台帳区分"><select value={edit.relationshipScope} onChange={(event) => { const relationshipScope = event.target.value as ContractRelationshipScope; setEdit({ ...edit, relationshipScope, currentForProject: relationshipScope === "amd_contract" && edit.currentForProject }); }} className={CONTROL_CLASS}><option value="amd_contract">AMD当事者契約</option><option value="needs_review">当事者判定待ち</option><option value="third_party">第三者間契約</option><option value="template">雛形</option></select></Field>
+                  <Field label="AMD側当事者"><input value={edit.amdEntityName} onChange={(event) => setEdit({ ...edit, amdEntityName: event.target.value })} className={CONTROL_CLASS} /></Field>
+                  <Field label="AMDの契約上の立場"><input value={edit.amdPartyRole} onChange={(event) => setEdit({ ...edit, amdPartyRole: event.target.value })} className={CONTROL_CLASS} placeholder="受託者 / 委託者 / 開示当事者" /></Field>
+                  <Field label="当事者確認の根拠"><input value={edit.partyConfirmationNote} onChange={(event) => setEdit({ ...edit, partyConfirmationNote: event.target.value })} className={CONTROL_CLASS} placeholder="契約当事者欄、押印版など" /></Field>
+                  <Field label="PJコックピット"><select value={edit.currentForProject ? "current" : "not_current"} onChange={(event) => setEdit({ ...edit, currentForProject: event.target.value === "current" })} disabled={edit.relationshipScope !== "amd_contract"} className={`${CONTROL_CLASS} disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400`}><option value="not_current">現行契約にしない</option><option value="current">現行契約として表示</option></select></Field>
                   <Field label="発効日"><input type="date" value={edit.effectiveDate} onChange={(event) => setEdit({ ...edit, effectiveDate: event.target.value })} className={CONTROL_CLASS} /></Field>
                   <Field label="終了日"><input type="date" value={edit.expirationDate} onChange={(event) => setEdit({ ...edit, expirationDate: event.target.value })} className={CONTROL_CLASS} /></Field>
                   <Field label="更新通知期限"><input type="date" value={edit.renewalNoticeDate} onChange={(event) => setEdit({ ...edit, renewalNoticeDate: event.target.value })} className={CONTROL_CLASS} /></Field>
                   <Field label="更新方法"><input value={edit.renewalType} onChange={(event) => setEdit({ ...edit, renewalType: event.target.value })} className={CONTROL_CLASS} placeholder="自動更新 / 都度更新" /></Field>
-                  <Field label="PJ立替経費"><select value={edit.expenseReimbursementAllowed} onChange={(event) => setEdit({ ...edit, expenseReimbursementAllowed: event.target.value })} className={CONTROL_CLASS}><option value="unknown">未確認</option><option value="allowed">申請可</option><option value="not_allowed">申請不可</option></select></Field>
-                  <Field label="PJ立替条件"><input value={edit.expenseReimbursementNote} onChange={(event) => setEdit({ ...edit, expenseReimbursementNote: event.target.value })} className={CONTROL_CLASS} placeholder="事前承認、上限など" /></Field>
+                  <Field label="契約金額（円）"><input inputMode="numeric" value={edit.contractValueYen} onChange={(event) => setEdit({ ...edit, contractValueYen: event.target.value })} className={CONTROL_CLASS} /></Field>
+                  <Field label="支払条件"><input value={edit.paymentTerms} onChange={(event) => setEdit({ ...edit, paymentTerms: event.target.value })} className={CONTROL_CLASS} placeholder="締日、請求、支払期限" /></Field>
+                  <Field label="税・源泉"><input value={edit.taxTreatment} onChange={(event) => setEdit({ ...edit, taxTreatment: event.target.value })} className={CONTROL_CLASS} /></Field>
+                  <Field label="業務範囲" className="md:col-span-2"><textarea value={edit.scopeSummary} onChange={(event) => setEdit({ ...edit, scopeSummary: event.target.value })} className={`${CONTROL_CLASS} h-20 py-2`} /></Field>
+                  <Field label="成果物"><select value={edit.deliverablesRequired} onChange={(event) => setEdit({ ...edit, deliverablesRequired: event.target.value })} className={CONTROL_CLASS}><option value="unknown">未確認</option><option value="required">あり</option><option value="not_required">なし</option></select></Field>
+                  <Field label="成果物の条件"><input value={edit.deliverablesNote} onChange={(event) => setEdit({ ...edit, deliverablesNote: event.target.value })} className={CONTROL_CLASS} /></Field>
+                  <Field label="検収条件"><input value={edit.acceptanceTerms} onChange={(event) => setEdit({ ...edit, acceptanceTerms: event.target.value })} className={CONTROL_CLASS} /></Field>
+                  <Field label="報告義務"><input value={edit.monthlyReportSubmissionRule} onChange={(event) => setEdit({ ...edit, monthlyReportSubmissionRule: event.target.value })} className={CONTROL_CLASS} /></Field>
+                  <Field label="報告条件"><input value={edit.monthlyReportSubmissionNote} onChange={(event) => setEdit({ ...edit, monthlyReportSubmissionNote: event.target.value })} className={CONTROL_CLASS} /></Field>
+                  <Field label="立替・実費"><select value={edit.expenseReimbursementAllowed} onChange={(event) => setEdit({ ...edit, expenseReimbursementAllowed: event.target.value })} className={CONTROL_CLASS}><option value="unknown">未確認</option><option value="allowed">申請可</option><option value="not_allowed">申請不可</option></select></Field>
+                  <Field label="費用負担の条件"><input value={edit.expenseReimbursementNote} onChange={(event) => setEdit({ ...edit, expenseReimbursementNote: event.target.value })} className={CONTROL_CLASS} placeholder="事前承認、上限、旅費など" /></Field>
+                  <Field label="知財帰属"><input value={edit.ipOwnership} onChange={(event) => setEdit({ ...edit, ipOwnership: event.target.value })} className={CONTROL_CLASS} /></Field>
+                  <Field label="利用権"><input value={edit.usageRights} onChange={(event) => setEdit({ ...edit, usageRights: event.target.value })} className={CONTROL_CLASS} /></Field>
+                  <Field label="名称・実績公開"><input value={edit.publicityRights} onChange={(event) => setEdit({ ...edit, publicityRights: event.target.value })} className={CONTROL_CLASS} /></Field>
                   <Field label="秘密保持"><select value={edit.confidentialityCoverage} onChange={(event) => setEdit({ ...edit, confidentialityCoverage: event.target.value })} className={CONTROL_CLASS}><option value="unknown">未確認</option><option value="in_contract">契約本文に含む</option><option value="separate_nda">別NDAで保護</option><option value="not_included">含まない</option></select></Field>
                   <Field label="秘密保持の存続期間"><input value={edit.confidentialitySurvivalNote} onChange={(event) => setEdit({ ...edit, confidentialitySurvivalNote: event.target.value })} className={CONTROL_CLASS} placeholder="終了後3年 / 無期限など" /></Field>
-                  <Field label="秘密保持の根拠" className="sm:col-span-2"><input value={edit.confidentialityNote} onChange={(event) => setEdit({ ...edit, confidentialityNote: event.target.value })} className={CONTROL_CLASS} placeholder="条項、別NDA名など" /></Field>
+                  <Field label="秘密保持の条件"><input value={edit.confidentialityNote} onChange={(event) => setEdit({ ...edit, confidentialityNote: event.target.value })} className={CONTROL_CLASS} placeholder="対象、例外、別NDAなど" /></Field>
+                  <Field label="再委託"><input value={edit.subcontractingTerms} onChange={(event) => setEdit({ ...edit, subcontractingTerms: event.target.value })} className={CONTROL_CLASS} /></Field>
+                  <Field label="独占・競業"><input value={edit.exclusivityTerms} onChange={(event) => setEdit({ ...edit, exclusivityTerms: event.target.value })} className={CONTROL_CLASS} /></Field>
+                  <Field label="解除条件"><input value={edit.terminationTerms} onChange={(event) => setEdit({ ...edit, terminationTerms: event.target.value })} className={CONTROL_CLASS} /></Field>
+                  <Field label="損害賠償・責任上限"><input value={edit.liabilityTerms} onChange={(event) => setEdit({ ...edit, liabilityTerms: event.target.value })} className={CONTROL_CLASS} /></Field>
+                  <Field label="準拠法・管轄"><input value={edit.governingLawJurisdiction} onChange={(event) => setEdit({ ...edit, governingLawJurisdiction: event.target.value })} className={CONTROL_CLASS} /></Field>
+                  <Field label="特記事項"><input value={edit.specialTerms} onChange={(event) => setEdit({ ...edit, specialTerms: event.target.value })} className={CONTROL_CLASS} /></Field>
                   <Field label="業務責任者"><input value={edit.businessOwner} onChange={(event) => setEdit({ ...edit, businessOwner: event.target.value })} className={CONTROL_CLASS} /></Field>
                   <Field label="管理メモ"><input value={edit.ledgerNotes} onChange={(event) => setEdit({ ...edit, ledgerNotes: event.target.value })} className={CONTROL_CLASS} /></Field>
-                  <div className="flex justify-end sm:col-span-2"><Button type="submit" disabled={saving}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}保存</Button></div>
+                  <div className="flex justify-end md:col-span-2 xl:col-span-3"><Button type="submit" disabled={saving}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}保存</Button></div>
                 </form>
               </details>
-            </div>
           </TabsContent>
 
           <TabsContent value="documents" className="min-h-0 overflow-y-auto p-4 sm:p-5">
@@ -1250,12 +1517,24 @@ function ContractDetailDialog({ contract, project, documents, signals, linkedTer
   );
 }
 
-function AnswerPanel({ icon, label, value, note, detail, state }: { icon: ReactNode; label: string; value: string; note: string; detail?: string; state: "good" | "warning" | "danger" | "unknown" }) {
-  return <div className={`min-h-36 rounded-md border p-4 ${answerTone(state)}`}><div className="flex items-center gap-2 text-xs font-medium opacity-75"><span className="[&_svg]:h-4 [&_svg]:w-4">{icon}</span>{label}</div><p className="mt-3 text-xl font-semibold leading-tight">{value}</p><p className="mt-2 text-xs leading-5 opacity-80">{note}</p>{detail && <p className="mt-1 text-xs font-medium opacity-80">{detail}</p>}</div>;
-}
-
 function FactRow({ label, value, note }: { label: string; value: string; note?: string | null }) {
   return <div className="border-b border-slate-100 py-3 sm:px-3 sm:odd:border-r"><dt className="text-[11px] font-medium text-slate-500">{label}</dt><dd className="mt-1 break-words font-medium text-slate-900">{value}</dd>{note && <dd className="mt-1 text-xs text-slate-500">{note}</dd>}</div>;
+}
+
+function TermsGroup({ icon, title, rows }: { icon: ReactNode; title: string; rows: Array<[string, string | null | undefined]> }) {
+  return (
+    <section className="min-w-0 border-t border-slate-200 pt-3">
+      <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-950"><span className="text-slate-500 [&_svg]:h-4 [&_svg]:w-4">{icon}</span>{title}</h3>
+      <dl className="mt-2 space-y-2">
+        {rows.map(([label, value]) => (
+          <div key={label} className="grid min-w-0 grid-cols-[88px_minmax(0,1fr)] gap-2 text-xs leading-5">
+            <dt className="text-slate-500">{label}</dt>
+            <dd className="min-w-0 break-words font-medium text-slate-800">{value || "未確認"}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
 }
 
 function Field({ label, className = "", children }: { label: string; className?: string; children: ReactNode }) {

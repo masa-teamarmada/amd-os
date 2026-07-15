@@ -18,6 +18,7 @@ import { CockpitMeetingSummary } from "./CockpitMeetingSummary";
 import { CockpitFreezeBackfill } from "./CockpitFreezeBackfill";
 import { CockpitAmdScoreDetailTab } from "./CockpitAmdScoreDetailTab";
 import type { CockpitSeasonFinance as CockpitSeasonFinanceData, MilestoneChangeHistory } from "@/lib/supabase-data";
+import type { ProjectContractTerms } from "@/lib/project-contract-terms";
 
 interface PlanCycleShape {
   planCycleId: string; status: string; budgetYen: number; extraDesignBudgetYen?: number; totalPoints: number;
@@ -57,29 +58,6 @@ interface PlanCycleBundle {
     milestoneId?: string | null; title?: string | null; contentPreview?: string | null;
     itemDate?: string | null; extractedAt: string;
   }>;
-}
-
-interface ProjectContractTerms {
-  monthlyFeeYen?: number | string | null;
-  contractStartYm?: string | null;
-  contractEndYm?: string | null;
-  actualWorkStartYm?: string | null;
-  billingStartYm?: string | null;
-  rewardPoolYen?: number | string | null;
-  monthlyRewardCapYen?: number | string | null;
-  deliverablesRequired?: boolean | string | null;
-  deliverablesNote?: string | null;
-  monthlyReportSubmissionRule?: string | null;
-  monthlyReportSubmissionTiming?: string | null;
-  monthlyReportSubmissionDeadline?: string | null;
-  monthlyReportSubmissionFormat?: string | null;
-  monthlyReportSubmissionRequiredItems?: string | null;
-  monthlyReportSubmissionNote?: string | null;
-  expenseReimbursementAllowed?: boolean | string | null;
-  expenseReimbursementNote?: string | null;
-  sourceTitle?: string | null;
-  sourceRef?: string | null;
-  notes?: string | null;
 }
 
 interface CockpitViewProps {

@@ -191,7 +191,7 @@ function expenseReimbursementInputValue(terms: ContractTerms | null | undefined)
 function parseExpenseReimbursementValue(value: unknown): Pick<ContractTerms, "expenseReimbursementAllowed" | "expenseReimbursementNote"> {
   const text = textValue(value);
   if (!text) {
-    return { expenseReimbursementAllowed: true, expenseReimbursementNote: null };
+    return { expenseReimbursementAllowed: null, expenseReimbursementNote: null };
   }
   if (isExpenseReimbursementUnavailable(text)) {
     return { expenseReimbursementAllowed: false, expenseReimbursementNote: text };
@@ -204,7 +204,7 @@ function expenseReimbursementDisplayValue(terms: ContractTerms | null | undefine
   const note = textValue(terms?.expenseReimbursementNote);
   if (allowed === false) return "不可";
   if (note) return note;
-  return "0円";
+  return "未確認";
 }
 
 function expenseReimbursementDisplayClass(terms: ContractTerms | null | undefined) {
@@ -212,7 +212,7 @@ function expenseReimbursementDisplayClass(terms: ContractTerms | null | undefine
   const note = textValue(terms?.expenseReimbursementNote);
   if (allowed === false) return "border-slate-200 bg-slate-50 text-slate-600";
   if (note) return "border-emerald-200 bg-emerald-50 text-emerald-800";
-  return "border-zinc-200 bg-zinc-50 text-zinc-700";
+  return "border-amber-200 bg-amber-50 text-amber-800";
 }
 
 function monthlyReportStatusLabel(value: unknown) {

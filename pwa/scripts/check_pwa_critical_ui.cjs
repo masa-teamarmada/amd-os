@@ -162,18 +162,30 @@ expectIncludes("src/app/(app)/admin/billing/page.tsx", [
 
 expectIncludes("src/components/contracts/ContractsClient.tsx", [
   "契約台帳",
-  "min-w-[1580px]",
+  "min-w-[1760px]",
   "sticky left-0",
   "sticky left-[160px]",
   "consolidateContractRecords",
-  "現在状態",
-  "契約はいつまで？",
-  "このPJは立替経費申請できる？",
-  "押印まで完了してる？",
-  "秘密保持は含まれる？",
+  "AMD当事者契約",
+  "金額・支払",
+  "業務・成果物",
+  "知財・利用",
+  "解除・責任",
+  "PJコックピット",
   "関連記録を契約単位に整理済み",
   "上の回答には使っていない",
   "h-[min(90vh,820px)] w-[96vw]",
+]);
+
+expectIncludes("src/components/cockpit/CockpitHeader.tsx", [
+  "現行・進行中の契約条件",
+  "currentContracts",
+  "期間・更新",
+  "金額・支払",
+  "業務・成果物",
+  "知財・利用",
+  "秘密保持・制限",
+  "解除・責任",
 ]);
 
 expectIncludes("src/lib/contracts-ledger.ts", [
@@ -216,6 +228,8 @@ expectIncludes("src/components/admin/AdminSidebar.tsx", [
   "/admin/invoices",
   "BUILD_VERSION",
   "href=\"/dashboard\"",
+  "Adminメニューを開く",
+  "md:sticky",
 ]);
 
 expectIncludes("src/components/admin/AdminInvoiceIssueQueue.tsx", [
