@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-07-16 01:06 JST | Book A 15章化パッケージ | 変更・追加 | Ch4+Ch5統合に伴い、BOOKS_PORTFOLIO / BOOK_A_MASTER_PLAN / BOOK_A_STORY_WORLD / BOOK_A_NARRATIVE_DESIGN / BOOK_A_CHARACTER_NAMES / COMMANDER_TASKS / bzm-chapters.ts / book-a-ch-1〜10 の章番号前方参照 / 白紙構想注記 / 実行レポートを同期。統合章 slug は `book-a-ch-4-5`、旧Ch6〜16は新Ch5〜15へ繰り上げ | 2026-07-16 まさ確定の司令塔裁定 (現行Ch4 P と Ch5 R を統合し、16→15章化する) を、本文執筆に踏み込まず機械整合として完了させるため | Codex |
 | 2026-07-16 00:42 JST | HANDOFF_BOOK_A_2026-07-16.md / SESSION_MIGRATION_PROMPT.md | 変更 | Book A handoff と session migration prompt を、組版検証中心から図版インベントリ closeout 中心へ更新。総41点・確定30点・見込み11点・matplotlib向き16点・SVG手描き向き25点・優先度高14点、制作時の図1-3/図10順序注意、unrelated dirty の分離を明記 | 次セッションが図版制作フェーズへ直接入れるよう、最新成果と初動を handoff 正本へ固定するため | えいみ |
 | 2026-07-16 00:24 JST | BOOK_A_FIGURE_INVENTORY.md / COMMANDER_TASKS.md | 追加・変更 | Book A 図版インベントリを新設。第1〜10章の本文プレースホルダ確認済み30点 (延べ31箇所) と、第11〜16章のマスタープラン §9 由来の見込み11点を、生成方法・優先度・状態つきで整理。COMMANDER_TASKS のストリームG次アクションを「図リスト完成、次は実制作フェーズ」へ更新 | 図版制作を切る前に、Book A 全体の図数・確定/見込み・matplotlib向き/SVG手描き向きを棚卸しするため | えいみ |
 | 2026-07-15 00:57 JST | BOOK_A_PUBLISHING_PLAN.md / COMMANDER_TASKS.md | 変更 | Book A 組版技術検証ログを追加。Ch8 を read-only サンプルとして pandoc + LuaLaTeX A5 PDF / EPUB MathML / EPUB webtex に通し、A5 PDF 28p、MathML EPUB 成功、webtex は長い日本語入り数式1本が外部画像化に失敗、総ページ480〜550p・背幅24〜30mm級の見積りレンジ維持を記録。COMMANDER_TASKS のストリームK次アクションも、検証着手前から見積り取得・ISBN/JAN申請情報整理・Kindle/epubcheck確認へ更新 | 出版準備ストリームKのR2入りに必要な、印刷PDF/EPUBパイプラインの一次技術検証結果を正本へ残すため | えいみ |
