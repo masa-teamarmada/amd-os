@@ -1,6 +1,6 @@
 ---
 name: amd-os-l6-meeting-extract
-description: AMD OS H-1 MTGサマリ + MTGフローの repo 正本。現行 writer は Windows MMO PC の Codex Desktop automation `amd-os-l6-meeting-flow` (= 毎日09:00-21:00毎時 + Phase A早期exit)。Calendar/Notion/Gmail/Drive/Slack を読み、subscription 内 Codex で narrative_md + summary arrays を抽出して `project_meeting_summaries` に保存する。PWA/GAS/Vercel に token課金LLM cron は作らず、GAS 153 + 074 + 074b-e の業務ロジックだけを移植する。
+description: AMD OS H-1 MTGサマリ + MTGフローの repo 正本。現行 writer は Windows MMO PC の Codex Desktop automation `amd-os-l6-meeting-flow` (= 毎日09:00-21:00毎時 + Phase A早期exit)。Calendar/Notion/Gmail/Drive/Slack を読み、subscription 内 Codex で narrative_md + summary arrays を抽出して `project_meeting_summaries` に保存し、該当 Notion 議事録ページの eventId / PJ relation / member relation も安全に補完する。PWA/GAS/Vercel に token課金LLM cron は作らず、GAS 153 + 074 + 074b-e の業務ロジックだけを移植する。
 ---
 
 # AMD OS H-1 MTG サマリ抽出 (GAS 153 + 074 移植版)
@@ -25,7 +25,8 @@ GAS 153 `nav_meeting_pollRecentlyEndedEvents` + GAS 074 `nav_meeting_processOneE
 - **MTGカード→Calendar一次防御**: MTGカード/議事録側に日時・場所・対面/オンライン・持参物・返信/宿題があるのに Calendar event が無い/薄いケースは、`POST /api/meeting-calendar/upsert-plan` の dry-run で upsert payload と duplicate match を作る。PWA route は Calendar を書かない。実writeに進む場合は別途 reviewed write bundle が必要。payload は `sendUpdates=none`、外部 attendees は空、metadata は `extendedProperties.private` に寄せる。
 - **TODO→tasks + owner nudge**: MTGから生まれた担当タスク / OS task / Gmail TODO / Slack TODO は、まず `POST /api/task-calendar/register-tasks` で `tasks` に自動登録し、担当者本人だけへ Slack DM nudge する。admin review queue は作らない。作業枠が必要な場合だけ `POST /api/task-calendar/schedule-plan` の dry-run で、担当メンバー + まさ の共通空き枠に `+<PJコード> <task>` 枠を作る候補にする。PWA route は Calendar を書かない。外部招待/メール送信はしない。
 - **次MTGカードの境界**: 議事録内に日時まで明確な次MTGがある場合だけ、PWA `POST /api/meeting-workflow/finalize` 経由で `source_kinds='upcoming'` を作る。`6月3週目以降` のような日程未確定候補は自動で確定予定にしない。必要なものは `upcoming_tentative` として「日程調整中MTG」に残す。
-- **Notion eventId は MMO 側で埋める**: Calendar event から Notion 議事録ページを見つけたら、MMO automation は可能な範囲で Notion page の `eventId` / 相当プロパティに Calendar event id を追記する。これは次回以降の冪等性と traceability のためで、PWA/GAS 側ではなく L6 writer 側の責務。
+- **Notion 議事録メタデータは MMO 側で埋める**: Calendar event から Notion 議事録ページを見つけたら、MMO automation は可能な範囲で Notion page の `eventId` / 相当プロパティに Calendar event id を追記し、空の `PJ` relation と member relation (`NOTION_MINUTES_MEMBER_PROP`。現行DBでは `メンバー` / `参加メンバー` 相当) も補完する。これは次回以降の冪等性、PJ別抽出、参加者文脈のためで、PWA/GAS 側ではなく L6 writer 側の責務。
+- **Notion relation 補完は空欄/追加だけ**: 既存の `PJ` relation を別PJへ上書きしない。参加メンバー relation は既存値を消さず、Calendar attendees / organizer と AMD members を高信頼に照合できた member だけ union 追加する。PJ不一致、候補複数、Notion member page 未解決、外部参加者だけの場合は patch せず `review_required` / `notion_relation_backfill_skipped_*` に残す。
 - **eventId 欠損で弾かない**: Notion page に `eventId` が無いのは欠落インシデントとして記録しつつ、必ず title + event date + attendees + Gemini/Drive/Gmail URL で fallback 検索する。`eventId` が無いことだけを理由に `source_kinds='none'` や `skip_no_notion_event_id` にしない。
 - **Notion 再認証待ち禁止**: Notion connector が `UNAUTHORIZED oauth_token_invalid_grant` / `TRIGGER_REAUTHENTICATION` を返しても、H-1 は止まらない。Chrome / local fallback と Gmail / Drive / Slack / Calendar / AMD OS artifact を同一ターンで読み、十分な会議本文があれば Notion なしで開催済み row を作る。詳細は `pwa/design/h1_source_auth_fallback.md`。
 - **Local Notion 自動 fallback**: Notion connector auth failure 時は、手動でDBを直さず、必ず `npm run h1:local-notion-fallback -- --title "<event title>" --date "<YYYY-MM-DD>" --event-id "<calendar_event_id>"` を実行する。hit したら `source_kind='notion-local'` の Notion source として扱い、`notion_page_id` / `notion_url` / `source_hash` を使って通常の H-1 narrative 抽出に進む。
@@ -37,6 +38,11 @@ GAS 153 `nav_meeting_pollRecentlyEndedEvents` + GAS 074 `nav_meeting_processOneE
 - 報告は、コーディングが一切分からない高校生でも理解できる日本語で書く。
 - 無駄なアルファベット、コード名、DB列名、英語の状態名をユーザー向け報告に出さない。必要な場合だけ、日本語の説明を先に書き、括弧内に短く補足する。例: `DB` ではなく「保存先」、`cron` ではなく「定期実行」、`source_hash` ではなく「取得元が同じかの確認」。
 - Notion / Calendar / Drive / Slack / Gmail は、必要なら「ノーション」「カレンダー」「ドライブ」「スラック」「メール」と書き、サービス名の羅列だけで説明を終えない。
+- 報告の最初に、H-1 が今回やるべき仕事を 1-3 行で説明してから結果を書く。固定の意味は「終わった会議の議事録化」「直近の議事録なし再確認」「前後24時間の予定カード同期」「ノーション議事録メタデータ補完」「必要なら準備セッション起動」の5つ。今回実行しなかった仕事があれば「今回は対象なし」と明記する。
+- 件数だけの報告は禁止。`6件確認`、`1件保存`、`0件要確認` のような数を出したら、その直後に必ず内訳リストを出す。H-1 の対象範囲は小さいため、原則すべて列挙する。
+- 内訳リストは、会議タイトル、日付/時刻、PJ名またはPJコード、今回の扱いを 1 行で書く。例: `- ZeMA 定例MTG（7/15 09:00、ZeMA）: 予定カードを確認、変更なし`。URL、会議ID、パスコード、添付ファイル名の機微情報、raw本文は出さない。
+- 開催済みMTGは「確認した開催済みMTG」、直近の議事録なし再確認は「再確認した議事録なしMTG」、予定カード同期は「同期した予定カード」、Notion 補完は「ノーションを補完したMTG」、要確認は「要確認になったMTG」の見出しで分ける。該当が無い見出しは `なし` と書いてよい。
+- `確認件数` / `保存件数` / `更新件数` / `維持件数` / `見送り件数` / `予定カード同期件数` / `ノーション補完件数` / `要確認件数` / `復旧対象件数` を出す場合、対応するリスト無しの報告は不合格として書き直す。
 - Notion が取れていない場合でも、対象MTGが無い / 対象MTGが抽出窓外 / 予定カード同期や Phase P だけの run なら、報告全体を「不完全」とは書かない。Notion 欠落が会議本文の抽出・保存・レビュー判断に影響した場合だけ、該当MTGの説明の先頭に「ノーションが取れていないので、この報告は不完全」と明記する。代替ソースだけで会議本文を判断した run を「問題なし」「かなり良い」「正常」と表現しない。
 - raw 本文や個人情報は出さない。ただし、何が取れて何が取れていないかは、日本語で具体的に書く。
 
@@ -210,17 +216,46 @@ npm run test:l6-held-source-guard
    - query = `<event.id>`
    - `data_source_url` は議事録 DB の collection URL (= 既知の Notion 議事録 DB を使う想定。後述 ScriptProperties `NOTION_DATABASE_ID` 相当を `.env.local` に追加するか、または毎回 search で十分)
    - ヒットがあれば該当ページ採用 → B-2 へ
-10. **Stage 1b** (= eventId hit 時): 採用した Notion page の `eventId` / 相当プロパティが空なら、MMO automation は可能な範囲で Calendar event id を追記する。書き込みに失敗しても抽出は続け、run summary に `notion_event_id_backfill_failed` と page id / reason を残す。
+10. **Stage 1b** (= eventId hit 時): 採用した Notion page は B-1b のメタデータ補完対象にする。書き込みに失敗しても抽出は続け、run summary に不足理由を残す。
 11. **Stage 2** (= Stage 1 失敗時、または Notion page に eventId が無い時の必須 fallback): title から ISO datetime / `<mention-date>` / `@今日` / ` HH:MM以降` を除去した **prefix** で再検索:
     - query = `<prefix> <YYYY-MM-DD>` (= event 日も併記)
     - ヒット最大 30 件 → 各ページの `created_time` slice(0,10) で event 日 ±1 日内のものに filter
     - `last_edited_time` desc で 1 件採用
-    - 採用後、Notion page の `eventId` / 相当プロパティが空なら Calendar event id を追記する。追記できない場合も抽出は続ける。
+    - 採用後、Notion page は B-1b のメタデータ補完対象にする。追記できない場合も抽出は続ける。
 12. **Stage 3** (= Stage 2 失敗時): event 日のみで search:
     - query = `<YYYY-MM-DD>` + 議事録 DB scope
     - 1 件採用
     - 複数ヒット時は title 類似度、attendees、Calendar/Drive/Gmail URL一致、created/edited time で rank し、曖昧なら Notion source なしとして他 source へ進む。
 13. すべて失敗なら **notion なし** として `notionText = ""` で続行 (= Gmail / Drive / Slack 拾えるかも)。`eventId` が無いから失敗扱いにしない。
+
+### B-1b: Notion 議事録メタデータ補完 (= eventId / PJ relation / member relation)
+
+Notion page を採用できた event は、本文取得とは別にページプロパティを best-effort で補完する。これは抽出の前提条件ではなく、次回以降の検索性・PJ別抽出・参加者文脈を整える self-healing task。
+
+**対象プロパティ**
+- `eventId`: rich_text/text 相当。空なら Calendar event id を入れる。
+- `PJ`: Notion PJ DB への relation。空なら H-1 で解決済みの `project_id` / `pjCode` から Notion PJ page を 1 件解決して入れる。
+- member relation: Notion member DB への relation。property 名は `NOTION_MINUTES_MEMBER_PROP` を正とし、未設定時は `メンバー` / `参加メンバー` を順に探す。通常の H-1 では Calendar organizer / attendees の email と AMD `members.email` を exact match し、対応する Notion member page が 1 件だけ解決できた member を追加する。過去分 backfill では参加者推定をせず、`NOTION_MINUTES_DEFAULT_MEMBER_PAGE_ID` が設定されている場合だけ既定 member を既存 relation に union 追加する。
+
+**Notion DB / property 解決**
+- `PJ` relation はまず exact property name `PJ` を使う。無い場合だけ relation property 名に `PJ` を含むものを探す。
+- member relation は `NOTION_MINUTES_MEMBER_PROP` を最優先に使う。無い場合は exact property name `メンバー`、次に `参加メンバー` を使う。見つからない場合は書かない。
+- Notion PJ page id は、既存 GAS の `NOTION_PJ_DATABASE_ID` 相当、または Notion search で PJ DB page title が `project_name` / `pjCode` と一致するものから解決する。複数候補なら書かない。
+- Notion member page id は、Notion member DB / workspace search で AMD `members.email` または `code_name` と 1 件一致する page から解決する。DBや property が不明なら書かずに `notion_member_relation_unresolved` とする。
+
+**書き込みルール**
+- 既存 `eventId` が空なら入れる。既存値が Calendar event id と異なる場合は上書きせず `notion_event_id_conflict` として要確認に残す。
+- 既存 `PJ` relation が空なら入れる。既存に別PJらしき relation がある場合は上書きせず `notion_pj_relation_conflict` として要確認に残す。
+- 既存 member relation は消さない。通常の H-1 は高信頼に解決できた AMD member page だけを既存 relation と union して追加する。過去分 backfill は既定 member だけを追加し、外部参加者や推定参加者は追加しない。
+- 外部参加者、メール不明、辞退者、optional で未参加と分かる人、候補が複数の人は自動追加しない。
+- Notion connector / API 書き込みが失敗しても H-1 を止めない。議事録本文の抽出は続け、run summary に `notion_metadata_backfill_failed` と不足理由を残す。
+- raw Calendar description、会議URL、Drive URL、参加URL、passcode、secret、Notion本文は patch payload / review artifact / user report に出さない。
+
+**run summary に残す項目**
+- `notion_metadata_backfill_checked`: Notion page を採用して補完判定した件数。
+- `notion_metadata_backfilled`: eventId / PJ / member relation のどれかを実際に補完した件数。
+- `notion_metadata_backfill_skipped_*`: 高信頼に解決できず書かなかった理由。
+- `notion_metadata_backfill_failed`: 書き込み失敗。成功扱いにしない。
 
 **Auth failure branch**: Notion connector が `UNAUTHORIZED oauth_token_invalid_grant` / `TRIGGER_REAUTHENTICATION` / reauth required を返した場合も、ユーザーの再認証を待たない。可能なら最小 Notion connector ping だけで host 側の再認証 UI を発火し、すぐ `npm run notify:connector-auth -- --connector notion --source h1_meeting_flow --reason <reason> --context "<title / date>" --dedupe-hours 24` を実行する。この helper は connector/app ID と再認証リンクを自動解決し、`app_notifications(kind='connector_auth')` に PWA/Swift 両方が拾える復旧アクションを残す。既存未読通知がある場合は最新payloadへ更新し、Swift再通知用に `native_notified_at` も NULL に戻す。
 
@@ -826,9 +861,35 @@ Phase E: run summary
 - Phase D: `saved` (= 新規 + 更新) / `saved_none` / `skipped_unchanged` / `errors`
 - feedback applied 件数
 
-**まさへの 1 行サマリ** (= notifyOnCompletion で表示される):
+**まさへの報告** (= notifyOnCompletion で表示される。件数だけで終わらせない):
+
+1. 最初に「H-1の仕事」を短く書く。
+   - 例: `H-1は、終わった会議の議事録を作る、直近の議事録なしを再確認する、前後24時間の予定カードを同期し、ノーション議事録のひも付けを補完する係。今回は準備セッション起動の対象はなし。`
+2. 件数を出すたびに、直後へ必ず内訳リストを書く。
+3. リストには、会議名 / 日時 / PJ / 今回の扱いだけを書く。raw本文、ノーション本文、個人情報、secret、Drive URL、Calendar URL、会議参加URLは書かない。
+
+テンプレ:
 ```
-🕐 議事録 routine HH:MM 完了: 過去 60-180 分の MTG を N 件チェック、M 件 saved (= notion+gmail=X, notion=Y, slack=Z), K 件は議事録なし、feedback W 件反映
+H-1の仕事: 終わった会議の議事録化、議事録なしの再確認、前後24時間の予定カード同期、ノーション議事録のひも付け補完。今回は <準備セッション起動: なし/あり>。
+
+確認件数: N件
+確認した開催済みMTG:
+- <会議名>（<日時>、<PJ>）: <新規保存/本文更新/既存維持/議事録なし/見送り>。<要確認があれば短い理由>
+
+再確認した議事録なしMTG: K件
+- <会議名>（<日時>、<PJ>）: <再探索したが本文なし/本文が見つかり保存/要確認>
+
+予定カード同期: U件
+同期した予定カード:
+- <会議名>（<日時>、<PJ>）: <新規作成/更新/変更なし/重複削除>
+
+ノーション補完: B件
+ノーションを補完したMTG:
+- <会議名>（<日時>、<PJ>）: <eventId補完/PJひも付け補完/参加メンバー補完/既存維持/要確認>
+
+要確認: R件
+要確認になったMTG:
+- <会議名>（<日時>、<PJ>）: <何が足りないかを短く>
 ```
 
 ═══════════════════════════════════════════════════

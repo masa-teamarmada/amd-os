@@ -95,6 +95,15 @@ Notion connector の `oauth_token_invalid_grant` / `TRIGGER_REAUTHENTICATION` �
 
 過去 run で `source_kinds='none'` / `summary_short='議事録なし'` になった開催済みMTGは、次回以降 24 時間は自動再探索する。通常の終了60-180分 window から外れていても、`meeting_start_at` / `calendar_event_id` / `title` から event payload を再構成し、Local Notion fallback、Gmail、Drive、Slack、Calendar を再評価する。本文が取れた場合は同じ `meeting_id` を source 付きに更新し、本文が取れない場合だけ `none` を維持する。
 
+## Notion minutes metadata backfill
+
+H-1 が該当 Notion 議事録ページを特定できた場合、本文取得とは別にページプロパティを補完する。対象は `eventId`、`PJ` relation、member relation (`NOTION_MINUTES_MEMBER_PROP`。現行DBでは `メンバー` / `参加メンバー` 相当)。
+
+- `eventId` は空欄のときだけ Calendar event id を入れる。既存値が違う場合は上書きせず要確認。
+- `PJ` relation は空欄のときだけ、H-1 が解決済みの PJ から Notion PJ page が 1 件に定まる場合に入れる。既存の別PJ relation は消さない。
+- member relation は、通常の H-1 では Calendar organizer / attendees の email と AMD members の email が exact match し、Notion member page が 1 件に定まる member だけ既存 relation に追加する。過去分 backfill では参加者推定をせず、`NOTION_MINUTES_DEFAULT_MEMBER_PAGE_ID` の既定 member だけを既存 relation に追加する。外部参加者や曖昧な候補は自動追加しない。
+- Notion connector の書き込み失敗、relation property 未発見、候補重複は H-1 の停止理由にしない。`review_required` と run summary に残し、議事録抽出は続ける。
+
 ## 出力
 
 | output | 用途 |

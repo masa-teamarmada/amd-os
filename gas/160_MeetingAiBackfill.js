@@ -301,3 +301,306 @@ function nav_meeting_backfillAiPages_(opts) {
     items: items
   };
 }
+
+/**
+ * 保存済み project_meeting_summaries の notion_page_id を正として、
+ * Notion 議事録ページの空メタデータだけを後付けする。
+ *
+ * - eventId は空のときだけ calendar_event_id / meeting_id を入れる
+ * - PJ relation は空のときだけ project_id -> project_name -> Notion PJ DB で解決して入れる
+ * - member relation は既存値を消さず、設定済みの既定 member page だけを union 追加する
+ * - 既存値が別値の場合は上書きせず conflict として返す
+ *
+ * 使い方:
+ *   nav_meeting_backfillMinutesMetadataFromSummaries_({ dryRun: true, sinceDays: 365, limit: 100 })
+ *   nav_meeting_backfillMinutesMetadataFromSummaries_({ dryRun: false, sinceDays: 365, limit: 50, offset: 0 })
+ */
+function nav_meeting_backfillMinutesMetadataFromSummaries_(opts) {
+  opts = opts || {};
+  const dryRun = opts.dryRun !== false;
+  const sinceDays = Number(opts.sinceDays || 365);
+  const limit = Math.max(1, Math.min(Number(opts.limit || opts.maxItems || 100), 200));
+  const offset = Math.max(0, Number(opts.offset || 0));
+  const projectIdFilter = String(opts.projectIdFilter || "").trim();
+
+  const props = PropertiesService.getScriptProperties();
+  const notionToken = String(props.getProperty("NOTION_TOKEN") || "").trim();
+  const pjDbRaw = String(props.getProperty("NOTION_PJ_DATABASE_ID") || "").trim();
+  const memberPropConfigured = String(props.getProperty("NOTION_MINUTES_MEMBER_PROP") || "").trim();
+  const defaultMemberPageId = String(props.getProperty("NOTION_MINUTES_DEFAULT_MEMBER_PAGE_ID") || "").trim();
+  if (!notionToken) return { ok: false, message: "NOTION_TOKEN missing" };
+  if (!pjDbRaw) return { ok: false, message: "NOTION_PJ_DATABASE_ID missing" };
+  if (typeof _notion_fetch_ !== "function") return { ok: false, message: "_notion_fetch_ unavailable" };
+  if (typeof _notion_buildPjCodeToPageIdMap_ !== "function") return { ok: false, message: "_notion_buildPjCodeToPageIdMap_ unavailable" };
+  if (typeof _meeting_resolveProjectName_ !== "function") return { ok: false, message: "_meeting_resolveProjectName_ unavailable" };
+  if (typeof _supa_props_ !== "function") return { ok: false, message: "_supa_props_ unavailable" };
+
+  let pjMap = {};
+  try {
+    pjMap = _notion_buildPjCodeToPageIdMap_(notionToken, pjDbRaw) || {};
+  } catch (e) {
+    return { ok: false, message: "PJ DB query error: " + String(e && e.message ? e.message : e) };
+  }
+
+  const sinceISO = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000).toISOString();
+  const nowISO = new Date().toISOString();
+  const rowsRes = _meeting_backfillFetchSummaryRows_({
+    sinceISO: sinceISO,
+    nowISO: nowISO,
+    projectIdFilter: projectIdFilter,
+    limit: limit,
+    offset: offset
+  });
+  if (!rowsRes.ok) return rowsRes;
+
+  const rows = rowsRes.rows || [];
+  const counts = {
+    scanned: 0,
+    eligible: 0,
+    wouldPatch: 0,
+    patched: 0,
+    eventIdFilled: 0,
+    dateFilled: 0,
+    pjFilled: 0,
+    memberFilled: 0,
+    conflicts: 0,
+    skipped: 0,
+    errors: 0
+  };
+  const items = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    counts.scanned++;
+    const row = rows[i] || {};
+    const meetingId = String(row.meeting_id || "").trim();
+    const pageId = String(row.notion_page_id || "").trim();
+    const projectId = String(row.project_id || "").trim();
+    const title = _meeting_backfillSafeTitle_(row.title || "");
+    const meetingDate = _meeting_backfillDatePart_(row.meeting_date || row.meeting_start_at || "");
+    const eventId = String(row.calendar_event_id || "").trim() || (/^upcoming:/.test(meetingId) ? "" : meetingId);
+
+    if (!pageId || !projectId || !meetingId || /^upcoming:/.test(meetingId)) {
+      counts.skipped++;
+      continue;
+    }
+    counts.eligible++;
+
+    let page;
+    try {
+      page = _notion_fetch_(notionToken, "https://api.notion.com/v1/pages/" + encodeURIComponent(pageId), "get", null);
+    } catch (e) {
+      counts.errors++;
+      items.push(_meeting_backfillItem_(row, "error_fetch_page", { message: _meeting_backfillShortError_(e) }));
+      continue;
+    }
+
+    const patchProps = {};
+    const patchKeys = [];
+    const conflictKeys = [];
+    const skipReasons = [];
+
+    const curEventId = _meeting_backfillExtractEventId_(page);
+    if (!curEventId && eventId) {
+      patchProps["eventId"] = { rich_text: [{ text: { content: eventId } }] };
+      patchKeys.push("eventId");
+    } else if (curEventId && eventId && curEventId !== eventId) {
+      conflictKeys.push("eventId");
+    }
+
+    const curDate = _meeting_backfillExtractDate_(page);
+    if (!curDate && meetingDate) {
+      patchProps["日付"] = { date: { start: meetingDate } };
+      patchKeys.push("date");
+    }
+
+    const curPjRelIds = _meeting_backfillRelationIds_(page, "PJ");
+    if (curPjRelIds.length === 0) {
+      const projectName = String(_meeting_resolveProjectName_(projectId) || "").trim();
+      const pjPageId = (projectName && pjMap[projectName]) ? pjMap[projectName] : (pjMap[projectId] || "");
+      if (pjPageId) {
+        patchProps["PJ"] = { relation: [{ id: pjPageId }] };
+        patchKeys.push("PJ");
+      } else {
+        skipReasons.push("pj_page_unresolved");
+      }
+    }
+
+    const memberProp = _meeting_backfillPickMemberProp_(page, memberPropConfigured);
+    if (memberProp && defaultMemberPageId) {
+      const curMemberIds = _meeting_backfillRelationIds_(page, memberProp);
+      if (curMemberIds.indexOf(defaultMemberPageId) < 0) {
+        const nextMemberIds = curMemberIds.concat([defaultMemberPageId]).map(function (id) { return { id: id }; });
+        patchProps[memberProp] = { relation: nextMemberIds };
+        patchKeys.push("member");
+      }
+    } else if (!memberProp) {
+      skipReasons.push("member_prop_unresolved");
+    } else if (!defaultMemberPageId) {
+      skipReasons.push("default_member_missing");
+    }
+
+    if (conflictKeys.length > 0) {
+      counts.conflicts++;
+      items.push(_meeting_backfillItem_(row, "conflict_no_patch", { conflictKeys: conflictKeys }));
+      continue;
+    }
+
+    if (patchKeys.length === 0) {
+      counts.skipped++;
+      items.push(_meeting_backfillItem_(row, "skipped_no_empty_fields", { skipReasons: skipReasons }));
+      continue;
+    }
+
+    if (patchKeys.indexOf("eventId") >= 0) counts.eventIdFilled++;
+    if (patchKeys.indexOf("date") >= 0) counts.dateFilled++;
+    if (patchKeys.indexOf("PJ") >= 0) counts.pjFilled++;
+    if (patchKeys.indexOf("member") >= 0) counts.memberFilled++;
+
+    if (dryRun) {
+      counts.wouldPatch++;
+      items.push(_meeting_backfillItem_(row, "dryrun_would_patch", { patchKeys: patchKeys, skipReasons: skipReasons }));
+      continue;
+    }
+
+    try {
+      _notion_fetch_(notionToken, "https://api.notion.com/v1/pages/" + encodeURIComponent(pageId), "patch", { properties: patchProps });
+      counts.patched++;
+      items.push(_meeting_backfillItem_(row, "patched", { patchKeys: patchKeys, skipReasons: skipReasons }));
+    } catch (e2) {
+      counts.errors++;
+      items.push(_meeting_backfillItem_(row, "error_patch", { patchKeys: patchKeys, message: _meeting_backfillShortError_(e2) }));
+    }
+  }
+
+  return {
+    ok: true,
+    dryRun: dryRun,
+    sinceDays: sinceDays,
+    limit: limit,
+    offset: offset,
+    projectIdFilter: projectIdFilter,
+    fetchedRows: rows.length,
+    scanned: counts.scanned,
+    eligible: counts.eligible,
+    wouldPatch: counts.wouldPatch,
+    patched: counts.patched,
+    eventIdFilled: counts.eventIdFilled,
+    dateFilled: counts.dateFilled,
+    pjFilled: counts.pjFilled,
+    memberFilled: counts.memberFilled,
+    conflicts: counts.conflicts,
+    skipped: counts.skipped,
+    errors: counts.errors,
+    items: items
+  };
+}
+
+/**
+ * 既存ドキュメントで名前が先行していた関数名。
+ * 今後は metadata backfill の thin wrapper として維持する。
+ */
+function nav_meeting_backfillMinutesDefaultMember_(opts) {
+  return nav_meeting_backfillMinutesMetadataFromSummaries_(opts || {});
+}
+
+function _meeting_backfillFetchSummaryRows_(opts) {
+  opts = opts || {};
+  const sp = _supa_props_();
+  const params = [];
+  params.push("select=" + encodeURIComponent("meeting_id,calendar_event_id,project_id,title,meeting_start_at,meeting_date,notion_page_id,source_kinds,updated_at"));
+  params.push("notion_page_id=not.is.null");
+  if (opts.sinceISO) params.push("meeting_start_at=gte." + encodeURIComponent(opts.sinceISO));
+  if (opts.nowISO) params.push("meeting_start_at=lte." + encodeURIComponent(opts.nowISO));
+  if (opts.projectIdFilter) params.push("project_id=eq." + encodeURIComponent(opts.projectIdFilter));
+  params.push("order=" + encodeURIComponent("meeting_start_at.desc"));
+  params.push("limit=" + Number(opts.limit || 100));
+  params.push("offset=" + Number(opts.offset || 0));
+  const endpoint = sp.url + "/rest/v1/project_meeting_summaries?" + params.join("&");
+  const res = UrlFetchApp.fetch(endpoint, {
+    method: "get",
+    headers: { "apikey": sp.key, "Authorization": "Bearer " + sp.key },
+    muteHttpExceptions: true
+  });
+  const status = res.getResponseCode();
+  const text = res.getContentText();
+  if (status < 200 || status >= 300) {
+    return { ok: false, status: status, message: "summary rows query failed", body: text };
+  }
+  let rows = [];
+  try { rows = JSON.parse(text); } catch (e) { rows = []; }
+  return { ok: true, status: status, rows: rows };
+}
+
+function _meeting_backfillExtractEventId_(page) {
+  if (typeof _meeting_extractEventIdFromPage_ === "function") return String(_meeting_extractEventIdFromPage_(page) || "").trim();
+  try {
+    const pr = page && page.properties ? page.properties["eventId"] : null;
+    if (pr && pr.type === "rich_text" && Array.isArray(pr.rich_text)) {
+      return pr.rich_text.map(function (x) { return String(x && x.plain_text ? x.plain_text : ""); }).join("").trim();
+    }
+  } catch (e) {}
+  return "";
+}
+
+function _meeting_backfillExtractDate_(page) {
+  if (typeof _meeting_extractDateStartFromPage_ === "function") return String(_meeting_extractDateStartFromPage_(page) || "").trim();
+  try {
+    const pr = page && page.properties ? page.properties["日付"] : null;
+    if (pr && pr.type === "date" && pr.date && pr.date.start) return String(pr.date.start || "").trim();
+  } catch (e) {}
+  return "";
+}
+
+function _meeting_backfillRelationIds_(page, propName) {
+  try {
+    const pr = page && page.properties ? page.properties[propName] : null;
+    if (pr && pr.type === "relation" && Array.isArray(pr.relation)) {
+      return pr.relation.map(function (r) { return String(r && r.id ? r.id : "").trim(); }).filter(function (id) { return !!id; });
+    }
+  } catch (e) {}
+  return [];
+}
+
+function _meeting_backfillPickMemberProp_(page, configured) {
+  const props = page && page.properties ? page.properties : {};
+  const candidates = [];
+  if (configured) candidates.push(configured);
+  candidates.push("メンバー");
+  candidates.push("参加メンバー");
+  for (let i = 0; i < candidates.length; i++) {
+    const name = candidates[i];
+    const pr = props ? props[name] : null;
+    if (pr && pr.type === "relation") return name;
+  }
+  return "";
+}
+
+function _meeting_backfillDatePart_(v) {
+  const s = String(v || "").trim();
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1] : "";
+}
+
+function _meeting_backfillSafeTitle_(v) {
+  let s = String(v || "").replace(/\s+/g, " ").trim();
+  if (s.length > 80) s = s.slice(0, 77) + "...";
+  return s;
+}
+
+function _meeting_backfillItem_(row, action, extra) {
+  extra = extra || {};
+  const out = {
+    action: action,
+    title: _meeting_backfillSafeTitle_(row && row.title ? row.title : ""),
+    meetingDate: _meeting_backfillDatePart_(row && (row.meeting_date || row.meeting_start_at) ? (row.meeting_date || row.meeting_start_at) : ""),
+    projectId: String(row && row.project_id ? row.project_id : "").trim()
+  };
+  const keys = Object.keys(extra);
+  for (let i = 0; i < keys.length; i++) out[keys[i]] = extra[keys[i]];
+  return out;
+}
+
+function _meeting_backfillShortError_(e) {
+  const s = String(e && e.message ? e.message : e || "").replace(/\s+/g, " ").trim();
+  return s.length > 180 ? s.slice(0, 177) + "..." : s;
+}
