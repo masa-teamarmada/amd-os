@@ -21,8 +21,10 @@ cd /Users/masa/projects/AMD/amd-os
 状態スナップショット:
 - まさ指摘「日本文化ページはadminに移動させたはずなのに、またトップに戻ってる」は対応済み。
 - 原因は、2026-07-09 の admin 移動 commit が旧「資料」グループからは外した一方、共通左サイドナビ `GlobalNav` の Admin group に `日本文化 -> /admin/japanese-culture-map` を残したこと。後続で巻き戻ったのではなく、移動時点から共通ナビ入口が残存していた。
-- 対応 commit: `7758389a fix(pwa): keep japanese culture map admin-only`。
-- 本番確認済み: `https://amd-os-pwa.vercel.app/api/build-info` は `build_version=v3.40.2`, `git_sha=7758389ad8bcc4115e32651e2b45e47b5daab41b`, `git_branch=main`, `dirty=false`。
+- 機能修正 commit: `7758389a fix(pwa): keep japanese culture map admin-only`。
+- 本番 version: `v3.40.2`。
+- closeout / handoff docs の main commit が機能修正後に積まれている可能性がある。埋め込み SHA を current truth にせず、次回開始時に `git log -1 --oneline` と `https://amd-os-pwa.vercel.app/api/build-info` を照合する。
+- build-info は `git_branch=main`, `dirty=false`, `git_sha` が現在の `origin/main` と一致していれば正しい。
 - `GlobalNav` から「日本文化」を削除済み。`AdminSidebar` には `日本文化 -> /admin/japanese-culture-map` を残している。
 - 旧 `/japanese-culture-map` route は互換用 redirect として残す。ページ本体は `/admin/japanese-culture-map`。
 - `test:critical-ui` に、`GlobalNav.tsx` へ `日本文化` / `/admin/japanese-culture-map` / `/japanese-culture-map` が戻ったら落ちる guard を追加済み。

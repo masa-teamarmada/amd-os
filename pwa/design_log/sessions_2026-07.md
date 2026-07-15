@@ -1281,8 +1281,8 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 - `npm run test:critical-ui` passed。
 - `npx tsc --noEmit` passed。
 - `npm run build` passed。
-- clean deploy clone から `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` を実行し、`7758389a` / `v3.40.2` を本番反映。
-- Production `/api/build-info`: `v3.40.2`, `7758389ad8bcc4115e32651e2b45e47b5daab41b`, `main`, `dirty=false`。
+- clean deploy clone から `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` を実行し、機能修正 commit `7758389a` / `v3.40.2` を本番反映。
+- その後 handoff / closeout docs の main commit が積まれるため、current production SHA は固定値ではなく `https://amd-os-pwa.vercel.app/api/build-info` と `origin/main` の照合で確認する。
 
 ### Closeout notes
 - 日本文化マップ nav regression の既知残タスクはなし。

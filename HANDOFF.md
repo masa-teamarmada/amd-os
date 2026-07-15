@@ -16,10 +16,11 @@ Topic: 日本文化マップを admin 内導線へ再固定
 ## Repo State
 
 - Canonical branch: `main`.
-- Accepted production commit: `7758389a fix(pwa): keep japanese culture map admin-only`.
-- Production: `https://amd-os-pwa.vercel.app/api/build-info` readback at closeout was `build_version=v3.40.2`, `git_sha=7758389ad8bcc4115e32651e2b45e47b5daab41b`, `git_branch=main`, `dirty=false`.
-- Local main was aligned to `origin/main` after the clean deploy clone push. No local unpushed commits remained before this handoff-doc commit.
-- This handoff may be followed by a docs-only handoff commit; run `git log -1 --oneline` and `/api/build-info` at next start.
+- Functional fix commit: `7758389a fix(pwa): keep japanese culture map admin-only`.
+- Production version for the nav fix: `v3.40.2`.
+- Handoff/closeout docs may add later main commits after the functional fix, so do not treat the embedded functional commit as the current live SHA.
+- Current truth check at next start: run `git log -1 --oneline` and `curl -fsS https://amd-os-pwa.vercel.app/api/build-info`; expect `git_branch=main`, `dirty=false`, and a `git_sha` matching current `origin/main`.
+- Local main was aligned to `origin/main` after the clean deploy clone push. No local unpushed commits remained before this handoff-doc update.
 
 ## Verification Run
 
