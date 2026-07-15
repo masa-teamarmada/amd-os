@@ -11,6 +11,7 @@ Topic: Book A 組版技術検証 closeout / 出版準備ストリームK
 - webtex EPUB は生成自体は成功したが、長い日本語入りの交換効率式1本が外部画像化に失敗した。
 - 結果は `pwa/bzm/BOOK_A_PUBLISHING_PLAN.md` §4、`pwa/bzm/COMMANDER_TASKS.md` Stream K、`pwa/bzm/9-5-appendix-changelog.md` に反映済み。
 - 生成PDF/EPUBは repo 外 `/tmp/book-a-typesetting-verification-20260715/` に置き、commit していない。
+- この handoff commit 後に、別セッションが `pwa/bzm/BOOK_A_FIGURE_INVENTORY.md` を `2b56d19d` で追加済み。図版レーンを触る次セッションは必ず読む。
 - 詳細 handoff: `pwa/bzm/HANDOFF_BOOK_A_2026-07-16.md`。
 - 詳細ログ: `pwa/design_log/sessions_2026-07.md` の「Book A 組版技術検証」。
 
@@ -35,7 +36,7 @@ Topic: Book A 組版技術検証 closeout / 出版準備ストリームK
 | path | status | class | owner guess | resolution action | next judgment condition | risk |
 |---|---:|---|---|---|---|---|
 | `pwa/design/atlas_routine.md` | M | other-worker | Atlas / routine lane | Do not mix into Book A closeout. Owner should commit/deploy or revert as its own bundle. | Before next Atlas/routine closeout. | medium |
-| `pwa/scripts/check_contracts_ledger_grouping.mts`, `pwa/scripts/check_pwa_critical_ui.cjs`, `pwa/src/app/api/contracts/**`, `pwa/src/components/contracts/ContractsClient.tsx`, `pwa/src/lib/contracts-ledger.ts`, `ios/supabase/migrations/20260716113000_contracts_operational_answers.sql` | M / ?? | other-worker | contracts operational answers lane | Do not stage here. Contracts owner should verify schema/API/UI/critical guard, then commit/deploy or revert as one bundle. | Before next contracts deploy/closeout. | high |
+| `pwa/scripts/check_contracts_ledger_grouping.mts`, `pwa/scripts/check_pwa_critical_ui.cjs`, `pwa/scripts/tmp_contracts_preview_check.mjs`, `pwa/src/app/api/contracts/**`, `pwa/src/app/contracts-ledger-preview/page.tsx`, `pwa/src/components/contracts/ContractsClient.tsx`, `pwa/src/lib/contracts-ledger.ts`, `pwa/src/middleware.ts`, `ios/supabase/migrations/20260716113000_contracts_operational_answers.sql` | M / ?? | other-worker | contracts operational answers lane | Do not stage here. Contracts owner should verify schema/API/UI/critical guard/preview route, then commit/deploy or revert as one bundle. | Before next contracts deploy/closeout. | high |
 | `pwa/bzm/2026-07-14_frontmatter_gairei_draft_v1.md` | ?? | preexisting / other-worker | Book A frontmatter lane | Keep. BZM/frontmatter owner should decide register/move/delete after Masa review. | Before next Book A frontmatter closeout. | low-medium |
 
 ## Unresolved Tasks
@@ -61,6 +62,7 @@ Topic: Book A 組版技術検証 closeout / 出版準備ストリームK
 
 - BZM handoff: `pwa/bzm/HANDOFF_BOOK_A_2026-07-16.md`
 - Publication plan: `pwa/bzm/BOOK_A_PUBLISHING_PLAN.md`
+- Figure inventory: `pwa/bzm/BOOK_A_FIGURE_INVENTORY.md`
 - Commander ledger: `pwa/bzm/COMMANDER_TASKS.md`
 - BZM appendix changelog: `pwa/bzm/9-5-appendix-changelog.md`
 - Session migration prompt: `SESSION_MIGRATION_PROMPT.md`

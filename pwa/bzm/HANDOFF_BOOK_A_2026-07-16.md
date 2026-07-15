@@ -69,12 +69,13 @@ BZM root: `/Users/masa/projects/AMD/amd-os/pwa/bzm`
 - Handoff creation snapshot: local main aligned with `origin/main`.
 - Production readback at handoff start: `v3.41.4`, git sha `71e63060`, `git_branch=main`, `dirty=false`.
 - Later handoff-doc commit may advance HEAD; next session must verify live state with `git log -1` and `/api/build-info`.
+- After this handoff doc was first written, `2b56d19d docs: Book A 図版インベントリ作成` added `BOOK_A_FIGURE_INVENTORY.md` to main. Read it before figure work.
 - This session created no branch/worktree.
 
 ## Dirty State To Avoid Mixing
 
 - `pwa/design/atlas_routine.md` is an unrelated Atlas/routine dirty file.
-- Contracts ledger files, `pwa/scripts/check_pwa_critical_ui.cjs`, and `ios/supabase/migrations/20260716113000_contracts_operational_answers.sql` are an unrelated contracts lane.
+- Contracts ledger files, `pwa/scripts/check_pwa_critical_ui.cjs`, `pwa/src/middleware.ts`, preview scratch files, and `ios/supabase/migrations/20260716113000_contracts_operational_answers.sql` are an unrelated contracts lane.
 - `pwa/bzm/2026-07-14_frontmatter_gairei_draft_v1.md` is a preexisting Book A frontmatter draft and should not be deleted or auto-committed without that lane's decision.
 
 ## First Next Action
@@ -95,8 +96,9 @@ Then read:
 2. `/Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md`
 3. `pwa/bzm/COMMANDER_TASKS.md`
 4. `pwa/bzm/BOOK_A_PUBLISHING_PLAN.md`
-5. `pwa/bzm/HANDOFF_BOOK_A_2026-07-16.md`
-6. `pwa/bzm/SESSION_MIGRATION_PROMPT.md`
+5. `pwa/bzm/BOOK_A_FIGURE_INVENTORY.md`
+6. `pwa/bzm/HANDOFF_BOOK_A_2026-07-16.md`
+7. `pwa/bzm/SESSION_MIGRATION_PROMPT.md`
 
 ## Closeout Classification
 

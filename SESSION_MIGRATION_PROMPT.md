@@ -16,9 +16,10 @@ cd /Users/masa/projects/AMD/amd-os
 10. /Users/masa/projects/AMD/amd-os/pwa/bzm/HANDOFF_BOOK_A_2026-07-16.md
 11. /Users/masa/projects/AMD/amd-os/pwa/bzm/COMMANDER_TASKS.md
 12. /Users/masa/projects/AMD/amd-os/pwa/bzm/BOOK_A_PUBLISHING_PLAN.md
-13. /Users/masa/projects/AMD/amd-os/pwa/bzm/9-5-appendix-changelog.md
-14. /Users/masa/projects/AMD/amd-os/pwa/design_log/sessions_2026-07.md
-15. /Users/masa/projects/AMD/amd-os/pwa/BUGS.md
+13. /Users/masa/projects/AMD/amd-os/pwa/bzm/BOOK_A_FIGURE_INVENTORY.md
+14. /Users/masa/projects/AMD/amd-os/pwa/bzm/9-5-appendix-changelog.md
+15. /Users/masa/projects/AMD/amd-os/pwa/design_log/sessions_2026-07.md
+16. /Users/masa/projects/AMD/amd-os/pwa/BUGS.md
 
 状態スナップショット:
 - Book A 出版準備ストリームKで、Ch8 組版技術検証は完了済み。
@@ -28,6 +29,7 @@ cd /Users/masa/projects/AMD/amd-os
 - 生成物は repo 外 /tmp/book-a-typesetting-verification-20260715/ にある。PDF/EPUB/TeX/render PNG は commit していない。
 - user-local TeX 環境として /Users/masa/Library/TinyTeX を入れ、日本語組版パッケージ collection-langjapanese / luatexja / jlreq を追加済み。
 - handoff作成時点の production readback は v3.41.4 / git_sha=71e63060 / git_branch=main / dirty=false。ただし handoff docs commit が後続で積まれるので、次回開始時に必ず current truth を取り直す。
+- その後 main には 2b56d19d docs: Book A 図版インベントリ作成 も入っている。図版作業に入る場合は BOOK_A_FIGURE_INVENTORY.md を読む。
 
 検証結果:
 - A5 PDF: pandoc + LuaLaTeX + ltjsbook + a5paper で生成成功、実測28ページ、A5サイズ。
@@ -67,10 +69,13 @@ repo状態 / dirty:
   - pwa/design/atlas_routine.md
   - pwa/scripts/check_contracts_ledger_grouping.mts
   - pwa/scripts/check_pwa_critical_ui.cjs
+  - pwa/scripts/tmp_contracts_preview_check.mjs
   - pwa/src/app/api/contracts/[contractId]/route.ts
   - pwa/src/app/api/contracts/route.ts
+  - pwa/src/app/contracts-ledger-preview/page.tsx
   - pwa/src/components/contracts/ContractsClient.tsx
   - pwa/src/lib/contracts-ledger.ts
+  - pwa/src/middleware.ts
   - ios/supabase/migrations/20260716113000_contracts_operational_answers.sql
   - pwa/bzm/2026-07-14_frontmatter_gairei_draft_v1.md
 - これらはBook A組版検証には混ぜない。ownerごとに commit/deploy または revert 判断する。
