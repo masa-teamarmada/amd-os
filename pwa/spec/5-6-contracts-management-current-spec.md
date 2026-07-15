@@ -54,6 +54,8 @@ status:
 
 台帳は admin 本文の利用可能幅をすべて使い、契約詳細は右カラムではなく台帳の下へ配置する。狭い表示では表本体だけを横スクロールさせる。列順は `PJ → 契約名 → 種別 → 相手先 → 状態 → 締結/発効 → 終了/更新 → 文書` とし、PJ と契約名は左端の固定列として常に表示する。横スクロール中も、どのPJの何の契約かという行の文脈を失わせない。
 
+表示時の粒度は契約ファミリー単位。`canonical_title` があればそれを正本の契約名として使い、無い場合は `contract_title` から `DocuSign送付先確認` / `送付依頼` / `微修正` / `確認・...` などの作業アクション末尾を落として family key を作る。同じ `project_id` / `contract_type` / `counterparty_name` / family key の候補行は、主リストでは 1 行へ集約する。現在状態は集約元の status から導出し、`signed` を最優先、未締結では `stalled`、`awaiting_signature`、`under_review`、`drafting`、`planned` の順で強い状態を表示する。統合元の `contracts` 行は消さず、台帳行に「統合 N 行」として示し、契約詳細・文書数・nudge は family 内の全 `contract_id` を集約して読む。
+
 `contracts.registry_status` は台帳に出すかどうかの品質境界。
 
 | value | behavior |

@@ -11,6 +11,7 @@
     "test:meeting-calendar-upsert-plan": "node --experimental-strip-types scripts/check_meeting_calendar_upsert_plan.mts --fixture scripts/__fixtures__/meeting_calendar_upsert_plan.json",
     "test:task-calendar-schedule-plan": "node --experimental-strip-types scripts/check_task_calendar_schedule_plan.mts --fixture scripts/__fixtures__/task_calendar_schedule_plan.json",
     "test:task-calendar-register": "node --experimental-strip-types scripts/check_task_calendar_register.mts",
+    "test:contracts-ledger": "node --experimental-strip-types scripts/check_contracts_ledger_grouping.mts",
     "test:proactive-meeting-due": "node --experimental-strip-types scripts/check_proactive_meeting_action_due.mts",
     "test:next-period-ui": "node scripts/check_next_period_ms_period_ui.cjs",
     "test:critical-ui": "node scripts/check_pwa_critical_ui.cjs",

@@ -165,8 +165,19 @@ expectIncludes("src/components/contracts/ContractsClient.tsx", [
   "min-w-[1320px]",
   "sticky left-0",
   "sticky left-[180px]",
+  "groupContractLedgerRows",
+  "filteredSourceRowCount",
+  "統合 {contract.ledger_row_count}行",
+  "現在状態",
   "aria-label=\"契約台帳と詳細\"",
   "aria-label=\"選択中の契約詳細\"",
+]);
+
+expectIncludes("src/lib/contracts-ledger.ts", [
+  "contractFamilyTitle",
+  "groupContractLedgerRows",
+  "ledger_row_count",
+  "TRAILING_ACTION_PATTERNS",
 ]);
 
 expectPattern("src/components/contracts/ContractsClient.tsx", [

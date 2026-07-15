@@ -21,6 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CONTRACT_STATUSES, type ContractStatus } from "@/lib/contracts";
+import { groupContractLedgerRows } from "@/lib/contracts-ledger";
 
 type Project = {
   project_id: string;
@@ -293,7 +294,7 @@ function projectLabel(project: Project | undefined, fallback: string) {
   return `${project.project_id} ${project.project_name}`;
 }
 
-function contractTitle(contract: ContractRow) {
+function contractTitle(contract: Pick<ContractRow, "canonical_title" | "contract_title">) {
   return contract.canonical_title || contract.contract_title;
 }
 
@@ -395,9 +396,11 @@ export function ContractsClient() {
     return map;
   }, [nudges]);
 
+  const ledgerContracts = useMemo(() => groupContractLedgerRows(contracts), [contracts]);
+
   const filteredContracts = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return contracts.filter((contract) => {
+    return ledgerContracts.filter((contract) => {
       const registryStatus = contract.registry_status || "candidate";
       if (statusFilter === "ledger" && (["evidence_only", "rejected"].includes(registryStatus) || contract.status === "cancelled")) return false;
       if (projectFilter && contract.project_id !== projectFilter) return false;
@@ -418,15 +421,20 @@ export function ContractsClient() {
       ].join(" ").toLowerCase();
       return haystack.includes(needle);
     });
-  }, [contracts, projectById, projectFilter, query, statusFilter]);
+  }, [ledgerContracts, projectById, projectFilter, query, statusFilter]);
+
+  const filteredSourceRowCount = useMemo(
+    () => filteredContracts.reduce((total, contract) => total + contract.ledger_row_count, 0),
+    [filteredContracts],
+  );
 
   const metrics = useMemo(() => {
-    const ledger = contracts.filter((contract) => !["evidence_only", "rejected"].includes(contract.registry_status || "candidate") && contract.status !== "cancelled");
+    const ledger = ledgerContracts.filter((contract) => !["evidence_only", "rejected"].includes(contract.registry_status || "candidate") && contract.status !== "cancelled");
     const review = ledger.filter((contract) => contract.review_required || contract.registry_status === "candidate").length;
     const signed = ledger.filter((contract) => contract.status === "signed" || Boolean(contract.signed_at)).length;
     const missingMetadata = ledger.filter((contract) => !contract.counterparty_name || !contract.effective_date || !contract.expiration_date).length;
     return { ledger: ledger.length, review, signed, missingMetadata };
-  }, [contracts]);
+  }, [ledgerContracts]);
 
   const selected = useMemo(
     () => filteredContracts.find((contract) => contract.contract_id === selectedId) || filteredContracts[0] || null,
@@ -500,15 +508,19 @@ export function ContractsClient() {
     setSaving(true);
     setError("");
     try {
-      const res = await fetch(`/api/contracts/${encodeURIComponent(contractId)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (!res.ok || !json.ok) {
-        setError(json.error || `HTTP ${res.status}`);
-        return;
+      const target = filteredContracts.find((contract) => contract.contract_id === contractId);
+      const targetIds = target?.ledger_contract_ids || [contractId];
+      for (const targetId of targetIds) {
+        const res = await fetch(`/api/contracts/${encodeURIComponent(targetId)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status }),
+        });
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (!res.ok || !json.ok) {
+          setError(json.error || `HTTP ${res.status}`);
+          return;
+        }
       }
       await loadContracts();
       setSelectedId(contractId);
@@ -577,12 +589,19 @@ export function ContractsClient() {
     }
   }
 
-  const selectedDocuments = selected ? docsByContract.get(selected.contract_id) || [] : [];
+  const selectedFamilyIds = selected?.ledger_contract_ids || [];
+  const selectedDocuments = selected
+    ? selectedFamilyIds.flatMap((contractId) => docsByContract.get(contractId) || [])
+      .sort((a, b) => String(b.received_at).localeCompare(String(a.received_at)))
+    : [];
   const selectedSignals = selected ? signalsByProject.get(selected.project_id) || [] : [];
   const selectedTerms = selected
-    ? (termsByProject.get(selected.project_id) || []).filter((term) => !term.contract_id || term.contract_id === selected.contract_id).slice(0, 8)
+    ? (termsByProject.get(selected.project_id) || []).filter((term) => !term.contract_id || selectedFamilyIds.includes(term.contract_id)).slice(0, 8)
     : [];
-  const selectedNudges = selected ? nudgesByContract.get(selected.contract_id) || [] : [];
+  const selectedNudges = selected
+    ? selectedFamilyIds.flatMap((contractId) => nudgesByContract.get(contractId) || [])
+      .sort((a, b) => String(b.candidate_at).localeCompare(String(a.candidate_at)))
+    : [];
   const selectedProject = selected ? projectById.get(selected.project_id) : undefined;
   const signedDoc = selectedDocuments.find((doc) => doc.document_kind === "signed");
 
@@ -617,7 +636,7 @@ export function ContractsClient() {
         )}
 
         <section className="grid gap-3 md:grid-cols-4">
-          <Metric icon={<FileClock className="h-4 w-4" />} label="ledger" value={metrics.ledger} />
+          <Metric icon={<FileClock className="h-4 w-4" />} label="contracts" value={metrics.ledger} />
           <Metric icon={<Clock3 className="h-4 w-4" />} label="needs review" value={metrics.review} />
           <Metric icon={<CheckCircle2 className="h-4 w-4" />} label="signed" value={metrics.signed} />
           <Metric icon={<AlertTriangle className="h-4 w-4" />} label="missing metadata" value={metrics.missingMetadata} />
@@ -734,7 +753,10 @@ export function ContractsClient() {
 
             <div className="overflow-hidden rounded-md border border-slate-200 bg-white">
               <div className="border-b border-slate-200 px-3 py-2 text-xs font-medium text-slate-500">
-                {filteredContracts.length} contract ledger rows
+                {filteredContracts.length} 契約
+                {filteredSourceRowCount !== filteredContracts.length && (
+                  <span className="ml-2 text-slate-400">/ 統合元 {filteredSourceRowCount} 行</span>
+                )}
               </div>
               <div className="max-h-[680px] overflow-auto overscroll-x-contain">
                 <table className="min-w-[1320px] w-full table-fixed border-collapse text-left text-xs">
@@ -764,7 +786,7 @@ export function ContractsClient() {
                       </th>
                       <th scope="col" className="px-3 py-2 font-semibold">種別</th>
                       <th scope="col" className="px-3 py-2 font-semibold">相手先</th>
-                      <th scope="col" className="px-3 py-2 font-semibold">状態</th>
+                      <th scope="col" className="px-3 py-2 font-semibold">現在状態</th>
                       <th scope="col" className="px-3 py-2 font-semibold">締結/発効</th>
                       <th scope="col" className="px-3 py-2 font-semibold">終了/更新</th>
                       <th scope="col" className="min-w-[100px] px-3 py-2 font-semibold">文書</th>
@@ -773,7 +795,7 @@ export function ContractsClient() {
                   <tbody className="divide-y divide-slate-100">
                     {filteredContracts.map((contract) => {
                       const project = projectById.get(contract.project_id);
-                      const rowDocs = docsByContract.get(contract.contract_id) || [];
+                      const rowDocs = contract.ledger_contract_ids.flatMap((contractId) => docsByContract.get(contractId) || []);
                       const signed = rowDocs.some((doc) => doc.document_kind === "signed") || Boolean(contract.signed_at);
                       const metadataMissing = !contract.counterparty_name || !contract.effective_date || !contract.expiration_date;
                       const active = selected?.contract_id === contract.contract_id;
@@ -800,13 +822,21 @@ export function ContractsClient() {
                           >
                             <p className="line-clamp-2 font-semibold text-slate-950">{contractTitle(contract)}</p>
                             <div className="mt-1 flex flex-wrap gap-1">
+                              {contract.ledger_row_count > 1 && <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-700">統合 {contract.ledger_row_count}行</Badge>}
                               {contract.registry_status === "candidate" && <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-800">review</Badge>}
                               {metadataMissing && <Badge variant="outline" className="border-slate-200 bg-white text-slate-600">metadata不足</Badge>}
                             </div>
                           </td>
                           <td className="px-3 py-2 align-top text-slate-700">{contractTypeLabel(contract.contract_type)}</td>
                           <td className="px-3 py-2 align-top text-slate-700">{contract.counterparty_name || "未設定"}</td>
-                          <td className="px-3 py-2 align-top">{statusBadge(contract.status)}</td>
+                          <td className="px-3 py-2 align-top">
+                            {statusBadge(contract.status)}
+                            {contract.ledger_row_count > 1 && (
+                              <div className="mt-1 text-[11px] text-slate-500">
+                                {contract.ledger_statuses.map((status) => STATUS_LABEL[status]).join(" / ")}
+                              </div>
+                            )}
+                          </td>
                           <td className="px-3 py-2 align-top text-slate-600">
                             <div>{dateOnly(contract.signed_at || contract.effective_date)}</div>
                             {contract.effective_date && contract.signed_at && <div className="mt-0.5 text-[11px] text-slate-400">発効 {dateOnly(contract.effective_date)}</div>}
@@ -839,6 +869,7 @@ export function ContractsClient() {
                     <div className="min-w-0">
                       <div className="mb-2 flex flex-wrap items-center gap-2">
                         {statusBadge(selected.status)}
+                        {selected.ledger_row_count > 1 && <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-700">統合 {selected.ledger_row_count}行</Badge>}
                         {selected.review_required && <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-800">review</Badge>}
                         {signedDoc && <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-800">signed stored</Badge>}
                       </div>
@@ -872,6 +903,7 @@ export function ContractsClient() {
                     <Fact label="owner" value={selected.business_owner || "-"} />
                     <Fact label="registry" value={selected.registry_status || "candidate"} />
                     <Fact label="signed" value={compactDate(selected.signed_at)} />
+                    <Fact label="source rows" value={`${selected.ledger_row_count}行`} />
                     <Fact label="pj signals" value={`${selectedSignals.length}件`} />
                     <Fact label="term candidates" value={`${selectedTerms.length}件`} />
                   </div>
