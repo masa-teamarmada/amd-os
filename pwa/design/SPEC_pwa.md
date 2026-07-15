@@ -130,7 +130,7 @@ pwa/
 | `/venture-map/amd-score/[projectId]` | AMD Score 個別 (PRS Primary / PRS history / legacy Triple Helix M-X-F / 軸クリックで Tsukuyomi) |
 | `/venture-map/amd-score/retrofit` | α 重み調整 + 全 PJ シミュレーション (タブバー非表示、詳細ページからリンク) |
 | `/management-score` | AMD Management Score (会社全体の経営状況スコア: 先手力 / 財務耐久 / 既存PJ継続 / 新規案件獲得 / 戦略接近度)。詳細は [`management_score.md`](management_score.md) |
-| `/admin/contracts` | 契約管理。admin左メニュー配下の契約台帳で、初期表示は `registry_status IN ('accepted','candidate')` かつ cancelled 以外の「1行=1契約/契約ファミリー」だけを出す。台帳側を広く取り、PJ → 契約名の2列を左固定にして横スクロール中も行の文脈を維持する。MTG、議事録、テンプレート、Drive folder は契約行ではなく evidence として扱う。契約予定枠、status、相手先、関連PJ、締結/発効日、終了/更新日、version history、押印版metadata、5生データ予兆dry-run、Slack nudge dry-runを扱う。実ファイル本体は `共有ドライブ/ARMADA/a3_backoffice/契約` に置き、DBにはDrive metadata/linkだけ保存する。詳細は [`/spec/5-6-contracts-management-current-spec`](/spec/5-6-contracts-management-current-spec) |
+| `/admin/contracts` | 契約管理。admin左メニュー配下の契約台帳で、初期表示は `registry_status IN ('accepted','candidate')` かつ cancelled 以外の「1行=1契約/契約ファミリー」だけを出す。台帳はadmin本文の全幅を使い、契約詳細は右カラムではなく台帳の下へ置く。PJ → 契約名の2列を左固定にして横スクロール中も行の文脈を維持する。MTG、議事録、テンプレート、Drive folder は契約行ではなく evidence として扱う。契約予定枠、status、相手先、関連PJ、締結/発効日、終了/更新日、version history、押印版metadata、5生データ予兆dry-run、Slack nudge dry-runを扱う。実ファイル本体は `共有ドライブ/ARMADA/a3_backoffice/契約` に置き、DBにはDrive metadata/linkだけ保存する。詳細は [`/spec/5-6-contracts-management-current-spec`](/spec/5-6-contracts-management-current-spec) |
 | `/venture-map/oscillator` | (実験) coupled oscillator 可視化 |
 | `/venture-map/state-space` | (実験) Triple Helix 状態空間 |
 | `/scholar` | 学術トレンド (μ_A 観測量 N) — lane × quarter の論文数 line chart + 前年同期比。OpenAlex 由来。詳細は [`amd_score.md`](amd_score.md) Triple Helix 観測モデル参照 |

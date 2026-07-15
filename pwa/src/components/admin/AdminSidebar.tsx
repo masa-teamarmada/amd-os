@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
+import { BUILD_VERSION } from "@/lib/build-info";
 import { cn } from "@/lib/utils";
 
 const ADMIN_TABS = [
@@ -34,7 +36,16 @@ export function AdminSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="h-screen w-48 shrink-0 space-y-0.5 overflow-y-auto border-r border-border p-2">
+    <aside className="sticky top-0 h-screen w-48 shrink-0 space-y-0.5 overflow-y-auto border-r border-border bg-background p-2">
+      <Link
+        href="/dashboard"
+        className="mb-1 flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+        title={`AMD OSへ戻る / build ${BUILD_VERSION}`}
+      >
+        <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden="true" />
+        <span className="min-w-0 flex-1 truncate">AMD OS</span>
+        <span className="font-mono text-[10px] font-normal text-muted-foreground">{BUILD_VERSION}</span>
+      </Link>
       <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2">
         Admin
       </h2>

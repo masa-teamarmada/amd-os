@@ -588,7 +588,7 @@ export function ContractsClient() {
 
   return (
     <main className="min-h-[calc(100vh-44px)] bg-slate-50">
-      <div className="mx-auto max-w-[1920px] space-y-4 p-4">
+      <div className="w-full space-y-4 p-4">
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
           <div>
             <p className="text-[11px] font-semibold uppercase text-slate-500">Backoffice</p>
@@ -623,7 +623,7 @@ export function ContractsClient() {
           <Metric icon={<AlertTriangle className="h-4 w-4" />} label="missing metadata" value={metrics.missingMetadata} />
         </section>
 
-        <section className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.42fr)]">
+        <section className="space-y-3" aria-label="契約台帳と詳細">
           <div className="min-w-0 space-y-3">
             <div className="rounded-md border border-slate-200 bg-white p-3">
               <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_160px_160px]">
@@ -832,7 +832,7 @@ export function ContractsClient() {
           </div>
 
           <div className="min-w-0 space-y-3">
-            <section className="rounded-md border border-slate-200 bg-white p-4">
+            <section className="rounded-md border border-slate-200 bg-white p-4" aria-label="選択中の契約詳細">
               {selected ? (
                 <>
                   <div className="flex flex-wrap items-start justify-between gap-3">

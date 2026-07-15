@@ -161,19 +161,42 @@ expectIncludes("src/app/(app)/admin/billing/page.tsx", [
 ]);
 
 expectIncludes("src/components/contracts/ContractsClient.tsx", [
-  "max-w-[1920px]",
+  "w-full space-y-4 p-4",
   "min-w-[1320px]",
   "sticky left-0",
   "sticky left-[180px]",
+  "aria-label=\"契約台帳と詳細\"",
+  "aria-label=\"選択中の契約詳細\"",
 ]);
 
 expectPattern("src/components/contracts/ContractsClient.tsx", [
   /<th[\s\S]*?>\s*PJ\s*<\/th>[\s\S]*?<th[\s\S]*?>\s*契約名\s*<\/th>/,
 ]);
 
+expectNotIncludes("src/components/contracts/ContractsClient.tsx", [
+  "xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.42fr)]",
+]);
+
+expectIncludes("src/app/(app)/layout.tsx", [
+  "const isAdminRoute = pathname.startsWith(\"/admin\")",
+  "<AdminSidebar />",
+  "<GlobalNav",
+]);
+
+expectPattern("src/app/(app)/layout.tsx", [
+  /isAdminRoute \? \([\s\S]*?<AdminSidebar \/>[\s\S]*?\) : \([\s\S]*?<GlobalNav/,
+]);
+
+expectNotIncludes("src/app/(app)/admin/layout.tsx", [
+  "AdminSidebar",
+  "flex h-screen",
+]);
+
 expectIncludes("src/components/admin/AdminSidebar.tsx", [
   "請求書発行",
   "/admin/invoices",
+  "BUILD_VERSION",
+  "href=\"/dashboard\"",
 ]);
 
 expectIncludes("src/components/admin/AdminInvoiceIssueQueue.tsx", [

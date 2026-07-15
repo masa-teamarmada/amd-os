@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { GlobalNav } from "@/components/nav/GlobalNav";
 import { PageTitleSetter } from "@/components/nav/PageTitleSetter";
 import { MonthlyAgreementGateOverlay } from "@/components/monthly-agreement/MonthlyAgreementGateOverlay";
@@ -156,6 +157,7 @@ export default async function AppLayout({
     })
     : null;
   const isNativeShell = pathname.startsWith("/native");
+  const isAdminRoute = pathname.startsWith("/admin");
   const useEmbeddedShellOnly = pathname.startsWith("/hud") || isNativeShell;
 
   if (isNativeShell) {
@@ -169,11 +171,15 @@ export default async function AppLayout({
         <main className="flex-1">{children}</main>
       ) : (
         <div className="flex min-h-screen bg-background text-foreground">
-          <GlobalNav
-            userCodeName={userCodeName}
-            isAdmin={isAdmin}
-            memberId={memberId}
-          />
+          {isAdminRoute ? (
+            <AdminSidebar />
+          ) : (
+            <GlobalNav
+              userCodeName={userCodeName}
+              isAdmin={isAdmin}
+              memberId={memberId}
+            />
+          )}
           <main className="min-w-0 flex-1">{children}</main>
         </div>
       )}

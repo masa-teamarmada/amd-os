@@ -100,6 +100,21 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - `pwa/scripts/check_pwa_critical_ui.cjs` は `GlobalNav.tsx` に `日本文化` / `/admin/japanese-culture-map` / `/japanese-culture-map` が戻ったら落とす。
 - route を消す変更は、`FEATURE_REGISTRY.md`、`/spec/2-1`、`/spec/2-2`、manual 2-6、`design/os_manual.md` を同時に更新する。
 
+## /admin/* shell
+
+目的: admin 業務画面では admin 専用メニューと本文だけを表示し、通常の共通メニューと admin メニューが横に二重表示される状態を作らない。
+
+必須機能:
+
+- menu replacement: `(app)/layout.tsx` が pathname を見て、`/admin/*` では `GlobalNav` の代わりに `AdminSidebar` を同じ左端へ表示する。
+- single sidebar: `(app)/admin/layout.tsx` は admin 権限 gate と本文余白だけを持ち、`AdminSidebar` を追加描画しない。
+- exit: `AdminSidebar` の先頭から `/dashboard` へ戻れ、現在の build version も確認できる。
+- width: admin 本文は単一サイドバーの残り幅を使う。二重サイドバーや入れ子の横レイアウトで業務表を圧迫しない。
+
+回帰防止:
+
+- `pwa/scripts/check_pwa_critical_ui.cjs` が `(app)/layout.tsx` の menu replacement と、admin layout に `AdminSidebar` が無いことを検査する。
+
 ## /admin/contracts
 
 目的: admin が、契約予定枠から押印版保存までを「1行 = 1契約または契約ファミリー」の台帳で追う。
@@ -107,7 +122,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 必須機能:
 
 - 契約台帳: Drive folder、MTG、議事録、テンプレートを行として混ぜず、契約名、種別、相手先、状態、締結/発効、終了/更新、文書の有無を比較できる。
-- 幅: 台帳側を詳細側より広く取り、列の可読幅を保つ。狭い画面では表本体を横スクロールさせ、列を圧縮して文字を潰さない。
+- 幅: 台帳は本文の利用可能幅をすべて使う。契約詳細を右カラムに置かず台帳の下へ続け、狭い画面だけ表本体を横スクロールさせる。列を圧縮して文字を潰さない。
 - 固定列: 一番左を PJ、次を契約名とし、この2列は横スクロール中も左に固定する。
 - evidence boundary: 契約書ファイル、修正案、押印版、会議上の言及は `contract_documents` / `contract_signals` / `contract_terms` の証跡として扱い、台帳行を水増ししない。
 

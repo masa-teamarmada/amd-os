@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-07-15 | 2-2 PWA Surface / 5-6 契約管理 / FEATURE_REGISTRY | 修正 | `/admin/*` では共通 `GlobalNav` を `AdminSidebar` へ差し替え、admin layout 内の2枚目のサイドバーを削除。`/admin/contracts` は左右分割と最大幅制限を廃止し、台帳を本文全幅、契約詳細を台帳下へ配置。critical UI guard と build v3.40.3 を追加 | まさ指摘「右のカラムは廃止して全部下」「adminモードでは左メニューをadminメニューに切り替えて2つ並ばないように」に合わせ、契約台帳の実効幅を構造的に確保するため | えいみ |
 | 2026-07-15 | 2-1 / 2-2 PWA Surface / FEATURE_REGISTRY / SPEC_pwa | 修正 | 日本文化マップの入口を admin 画面内 `AdminSidebar` に限定し、`GlobalNav` の Admin group から削除。旧 `/japanese-culture-map` は引き続き `/admin/japanese-culture-map` へ redirect。critical-ui guard で共通ナビ復活を禁止。build v3.40.2 | 2026-07-09 の移動時に共通ナビ側へ admin link が残り、トップ導線として見え続けたため。admin-only 画面は admin 内の導線に閉じる | えいみ |
 | 2026-07-15 | 5-6 契約管理 / design | 変更 | `/admin/contracts` の台帳側を広げ、最低幅 1320px の業務表に変更。列順を PJ → 契約名から始め、この2列を左固定にして横スクロール中も表示する。critical UI guard と build v3.40.1 を追加 | まさ依頼「リストの横幅を広くして、一番左にPJカラムを追加し、PJと契約名の2カラムを固定表示」に合わせ、契約比較時の可読性と行文脈を保つため | えいみ |
 | 2026-07-14 | 1-3 / 2-1 / 2-2 / 2-5 / 3-11 / design / iOS | 追加・変更 | `/business-cards`、private `business_cards` / `business_card_project_links`、DB管理Gemini OCR prompt、人確認gate、複数PJリンク、D-3 `people` 同期、連絡先非複製境界、critical-ui guardを追加。iOSは旧月次ルーティンタブを削除し、`PJ進捗 / 名刺 / 設定` 順のnative shellを追加。build v3.40.0 | スマホ撮影した名刺を安全な連絡先正本とPJ人物ナレッジへ分けて蓄積し、OCR誤読や個人情報の自動拡散を防ぐため | えいみ |
