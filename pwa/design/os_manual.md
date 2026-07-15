@@ -24,7 +24,7 @@ AMD OSロゴ(ダッシュボード)
 動かす: ボード | AMD Protocol | Atlas | Knowledge | 名刺
 探索: Scholar | Venture Map | 研究機関 | Seeds | VC
 自分: マイページ | 通知 | 立替
-Admin: Admin | Management | 設計書 | 日本文化
+Admin: Admin | Management | 設計書
 資料: 教科書 | マニュアル
 ```
 

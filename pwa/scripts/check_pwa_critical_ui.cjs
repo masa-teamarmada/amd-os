@@ -234,6 +234,17 @@ expectIncludes("src/components/nav/GlobalNav.tsx", [
   "fetchActiveProjectsForNav",
 ]);
 
+expectNotIncludes("src/components/nav/GlobalNav.tsx", [
+  "日本文化",
+  "/admin/japanese-culture-map",
+  "/japanese-culture-map",
+]);
+
+expectIncludes("src/components/admin/AdminSidebar.tsx", [
+  "日本文化",
+  "/admin/japanese-culture-map",
+]);
+
 expectIncludes("src/components/business-cards/BusinessCardsClient.tsx", [
   "スマホで名刺を撮る",
   'capture="environment"',

@@ -3976,3 +3976,10 @@
 - **原因**: AMD OS PWA の本番反映条件は `origin/main` への push (Vercel Git 自動 deploy)。ワーカーセッションは自分の worktree のブランチ (`claude/brave-wozniak-b16328`) に commit しただけで、`origin/main` には一切 push していなかった。当初の設計は「ワーカーは提案 md のみ作成し、正本は司令塔が検証後に反映する」だったが、まさの直接指示「正本に入れてくれないと確認できないじゃん」でワーカーが正本へ直接反映する運用に変わった際、反映先をワーカーブランチのままにしてしまい、本番へ届く経路が繋がっていなかった。
 - **対応内容**: 本体ディレクトリ (`/Users/masa/projects/AMD/amd-os`、main checkout) で `git fetch` → `git merge --ff-only origin/main`、対象ファイル (`book-a-ch-1.md` / 提案md) をワーカーブランチから `git checkout claude/brave-wozniak-b16328 -- <file>` で取り込み、`BUILD_VERSION` を bump した上で main へ直接 commit・push (`65493a9a`)。Vercel の production deployment が Ready になったこと、`/api/build-info` の `git_sha` が新 commit と一致することを確認してから、まさに反映済みと報告した。
 - **再発防止策**: spawn_task 起票のワーカーセッション (専用 worktree・専用ブランチを持つ) が正本ファイルを直接変更する指示を受けた場合、「commit した」を完了の合図にしない。`git branch --show-current` で自分がいるブランチが `main` でないことを常に意識し、`origin/main` に反映されるまでの経路 (本体 checkout 経由の取り込み、または最終的に `origin/main` への push) を明示して実行し、Vercel deploy 完了と `/api/build-info` 一致まで確認してから完了報告する。
+
+## [PWA/nav] 日本文化マップを admin へ移したのに共通ナビに残った (2026-07-15)
+
+- **症状**: 日本文化マップは `/admin/japanese-culture-map` へ移動済みなのに、共通左サイドナビの Admin group に「日本文化」が残り、トップ側へ戻ったように見えた。
+- **原因**: 2026-07-09 の移動時に、旧「資料」グループからは外したが、`GlobalNav` の Admin group に `/admin/japanese-culture-map` への入口を残した。さらに changelog / `design/os_manual.md` にも「GlobalNav admin group に置く」趣旨の記述が残り、admin 内導線に閉じる契約になっていなかった。
+- **対応内容**: `GlobalNav` から日本文化導線を削除し、入口を `AdminSidebar` だけに限定した。`FEATURE_REGISTRY` / admin ops manual / changelog / `design/os_manual.md` を同期し、`BUILD_VERSION` を `v3.40.2` に更新した。
+- **再発防止策**: `test:critical-ui` で `GlobalNav.tsx` に `日本文化`、`/admin/japanese-culture-map`、`/japanese-culture-map` が戻ったら落とす。admin-only の知識ビューを共通トップナビへ戻す変更は、仕様更新と guard 更新なしに行わない。

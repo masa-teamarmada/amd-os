@@ -17,7 +17,6 @@ import {
   FileText,
   GraduationCap,
   Handshake,
-  Landmark,
   LayoutDashboard,
   Map,
   Network,
@@ -271,11 +270,6 @@ export function GlobalNav({
             icon: ChartNoAxesCombined,
           },
           { label: "設計書", href: "/spec", icon: FileText },
-          {
-            label: "日本文化",
-            href: "/admin/japanese-culture-map",
-            icon: Landmark,
-          },
         ],
       },
       {

@@ -132,7 +132,7 @@ URL: `/admin/japanese-culture-map`
 - 旧 `/japanese-culture-map` は、この admin route へ移動済み
 
 ### 重要な仕様
-- 通常の「資料」ナビには置かず、admin 導線だけに置く。
+- 通常の「資料」ナビや共通左サイドナビには置かず、admin 画面内のサイドバーだけに置く。
 - この画面から DB 書き込み、LLM 呼び出し、外部同期は行わない。
 
 ---
