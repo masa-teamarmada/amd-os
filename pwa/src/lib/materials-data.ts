@@ -28,6 +28,11 @@ export type ElementMarketData = {
   source: MaterialSource;
 };
 
+export type PolymerManufacturing = {
+  feedstock: string;
+  process: string;
+};
+
 export type MaterialScores = Record<HeatAxis, HeatLevel>;
 
 export type MaterialDetail = {
@@ -50,6 +55,7 @@ export type MaterialDetail = {
   sources: MaterialSource[];
   lastReviewed: string;
   market?: ElementMarketData;
+  manufacturing?: PolymerManufacturing;
 };
 
 export type ElementCategory =
@@ -79,7 +85,7 @@ export type ElementRecord = {
 };
 
 export const HEAT_AXIS_LABELS: Record<HeatAxis, string> = {
-  heat: "総合注目度",
+  heat: "注目度",
   demand: "需要",
   supplyRisk: "供給不安",
   amdFit: "AMD相性",
@@ -138,6 +144,73 @@ const ECHA_POLYMERS: MaterialSource = {
 const criticalSources = [USGS, IEA, RMIS, JOGMEC];
 const mineralSources = [USGS, RMIS, JOGMEC];
 const polymerSources = [OECD_PLASTICS, ECHA_POLYMERS];
+
+const polymerManufacturing: Record<string, PolymerManufacturing> = {
+  "polymer-pe": {
+    feedstock: "ナフサの分解または天然ガス由来のエタンから得るエチレン",
+    process: "エチレンを付加重合する。高圧ラジカル重合でLDPE、触媒を使う低圧重合でHDPE・LLDPEを作る。",
+  },
+  "polymer-pp": {
+    feedstock: "ナフサ分解またはプロパン脱水素で得るプロピレン",
+    process: "チーグラー・ナッタ触媒やメタロセン触媒を使い、プロピレンを配位重合する。",
+  },
+  "polymer-pvc": {
+    feedstock: "エチレンと塩（電解で得る塩素）から作る塩化ビニルモノマー",
+    process: "エチレン二塩化物を経て塩化ビニルを作り、主に懸濁重合してPVC粉末にする。",
+  },
+  "polymer-pet": {
+    feedstock: "パラキシレン由来の高純度テレフタル酸（PTA）と、エチレン由来のエチレングリコール（MEG）",
+    process: "PTAとMEGをエステル化した後に重縮合する。ボトル用は固相重合で分子量をさらに上げる。",
+  },
+  "polymer-abs": {
+    feedstock: "アクリロニトリル、ブタジエン、スチレン",
+    process: "ゴム状のポリブタジエンへスチレンとアクリロニトリルをグラフト共重合し、必要に応じて混練する。",
+  },
+  "polymer-pa": {
+    feedstock: "PA6はカプロラクタム、PA66はヘキサメチレンジアミンとアジピン酸",
+    process: "PA6は開環重合、PA66はジアミンと二塩基酸の重縮合で作る。",
+  },
+  "polymer-pc": {
+    feedstock: "ビスフェノールAと炭酸原料（ジフェニルカーボネートまたはホスゲン）",
+    process: "溶融エステル交換法または界面重縮合法で、カーボネート結合を持つ長鎖にする。",
+  },
+  "polymer-pom": {
+    feedstock: "メタノール由来のホルムアルデヒド、またはそこから作るトリオキサン",
+    process: "ホルムアルデヒドの重合、またはトリオキサンの開環重合で作り、末端を安定化する。",
+  },
+  "polymer-pps": {
+    feedstock: "パラジクロロベンゼンと硫化ナトリウム系原料",
+    process: "極性溶媒中で高温の重縮合を行い、芳香環と硫黄が交互につながるPPSを作る。",
+  },
+  "polymer-peek": {
+    feedstock: "フッ素化芳香族ケトンと、ハイドロキノン系の芳香族ジオール",
+    process: "高温下の求核芳香族置換による重縮合で、エーテル結合とケトン結合を持つPEEKを作る。",
+  },
+  "polymer-ptfe": {
+    feedstock: "蛍石由来のフッ化水素などから作るテトラフルオロエチレン（TFE）",
+    process: "TFEをラジカル重合する。懸濁重合では粒状樹脂、乳化重合では微粉末や分散液を作る。",
+  },
+  "polymer-epoxy": {
+    feedstock: "代表例ではビスフェノールAとエピクロロヒドリン、使用時にはアミンなどの硬化剤",
+    process: "エポキシ基を持つプレポリマーを合成し、成形時に硬化剤で三次元の架橋構造へ硬化させる。",
+  },
+  "polymer-pu": {
+    feedstock: "MDI・TDIなどのポリイソシアネートとポリオール",
+    process: "両者を重付加反応させる。発泡剤や触媒、鎖延長剤を変えてフォーム・塗料・弾性体を作り分ける。",
+  },
+  "polymer-silicone": {
+    feedstock: "金属ケイ素と、メタノール由来の塩化メチル",
+    process: "ミュラー・ロショー法でメチルクロロシランを作り、加水分解・縮合や開環重合でシロキサン鎖にする。",
+  },
+  "polymer-pla": {
+    feedstock: "トウモロコシ・サトウキビなどの糖やデンプンから発酵で得る乳酸",
+    process: "乳酸をラクチドへ変換し、ラクチドの開環重合で高分子量のPLAにする。",
+  },
+  "polymer-pi": {
+    feedstock: "芳香族テトラカルボン酸二無水物と芳香族ジアミン",
+    process: "まず重縮合でポリアミック酸を作り、加熱または化学処理でイミド化してフィルムやワニスにする。",
+  },
+};
 
 function detail(
   value: Omit<MaterialDetail, "lastReviewed" | "sources"> & {
@@ -312,7 +385,12 @@ function material(
   family: "mineral" | "polymer",
   value: Omit<MaterialDetail, "family" | "lastReviewed" | "sources"> & { sources?: MaterialSource[] }
 ) {
-  return detail({ ...value, family, sources: value.sources ?? (family === "mineral" ? mineralSources : polymerSources) });
+  return detail({
+    ...value,
+    family,
+    manufacturing: family === "polymer" ? polymerManufacturing[value.id] : undefined,
+    sources: value.sources ?? (family === "mineral" ? mineralSources : polymerSources),
+  });
 }
 
 export const MINERALS: MaterialDetail[] = [
@@ -358,6 +436,16 @@ export const MATERIALS: MaterialDetail[] = [
   ...MINERALS,
   ...POLYMERS,
 ];
+
+export function materialTotalScore(item: Pick<MaterialDetail, "scores">) {
+  return item.scores.heat + item.scores.demand + item.scores.supplyRisk + item.scores.amdFit;
+}
+
+export function compareMaterialTotalScore(a: MaterialDetail, b: MaterialDetail) {
+  return materialTotalScore(b) - materialTotalScore(a)
+    || b.scores.supplyRisk - a.scores.supplyRisk
+    || a.name.localeCompare(b.name, "ja");
+}
 
 export function getMaterialById(id: string) {
   return MATERIALS.find((item) => item.id === id);

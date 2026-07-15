@@ -42,7 +42,7 @@
 | `/manual` | AMD OS マニュアル。使い方・運用者向け |
 | `/spec` | 設計書。確定実装仕様。admin 限定 |
 | `/bzm` | BZM テキストブック。理論・数式・rubric 導出 |
-| `/knowledge-map` | AMD Materials。118元素を熱色・日本語主用途・供給警報で俯瞰し、元素modalで直近公表相場・5年推移・産出国円グラフを確認する。詳細展開、鉱物・鉱石、樹脂・高分子、比較、従来のノウハウ地図まで横断する読み取り専用の材料インテリジェンス workspace |
+| `/knowledge-map` | AMD Materials。118元素を熱色・日本語主用途・供給警報で俯瞰し、元素modalで直近公表相場・5年推移・産出国円グラフを確認する。総合値は4指標合計（20点満点）で、周期表以外は合計の高い順。全体の入口はカード全面で操作でき、樹脂detailでは原料と製造プロセスも確認できる。詳細展開、鉱物・鉱石、樹脂・高分子、比較、従来のノウハウ地図まで横断する読み取り専用の材料インテリジェンス workspace |
 | `/business-cards` | 名刺管理。スマホ撮影 / 写真選択 → Gemini OCR → 人の確認 → 1件以上のPJ紐付け → `business_cards` と D-3 `project_knowledge(category='people')` へ保存する。OCR結果は自動確定しない |
 | `/native/business-cards` | iOS名刺タブ用のナビ無しnative shell。通常の月初合意overlayを重ねず、認証cookieつきWKWebViewから `/business-cards` と同じUI/APIを使う |
 | `/poc` | PoC案件化。Seeds とPoC先を入力し、その掛け合わせからヒアリング論点、PoC条件、謝礼、契約、資金、収益分配を追う |

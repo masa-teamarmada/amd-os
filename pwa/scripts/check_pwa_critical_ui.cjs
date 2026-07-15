@@ -278,7 +278,10 @@ expectIncludes("src/app/(app)/knowledge-map/page.tsx", [
 
 expectIncludes("src/components/knowledge-map/MaterialsKnowledgeView.tsx", [
   "AMD / Materials Intelligence",
-  "総合注目度",
+  "4指標の合計ランキング",
+  "4指標合計",
+  "原料と製造プロセス",
+  "compareMaterialTotalScore",
   "供給不安",
   "供給警報",
   "供給危機",
@@ -308,6 +311,10 @@ expectIncludes("src/lib/materials-data.ts", [
   "2025年 世界鉱山生産",
   "電力を高効率に変換する窒化ガリウム半導体",
   "通信・レーダー用の高周波半導体",
+  "polymerManufacturing",
+  "materialTotalScore",
+  "ミュラー・ロショー法",
+  "ラクチドの開環重合",
 ]);
 
 expectNotIncludes("src/components/nav/GlobalNav.tsx", [
