@@ -239,6 +239,13 @@ type NudgeDryRunResponse = {
 
 type ContractEditState = typeof BLANK_CONTRACT_EDIT;
 
+type ContractReviewItem = {
+  key: string;
+  label: string;
+  detail: string;
+  tone: "warning" | "danger";
+};
+
 const STATUS_LABEL: Record<ContractStatus, string> = {
   planned: "予定枠",
   drafting: "作成中",
@@ -501,6 +508,50 @@ function contractNeedsAttention(contract: LedgerContract, project: Project | und
     || !termsHaveOperationalDetail(terms)
     || confidentiality.state === "unknown"
     || signature.state === "needs_proof";
+}
+
+function contractReviewItems(contract: LedgerContract, project: Project | undefined, documents: ContractDocument[]): ContractReviewItem[] {
+  const period = resolveContractPeriod(contract, project);
+  const terms = effectiveContractTerms(contract, project);
+  const confidentiality = resolveConfidentiality(contract);
+  const signature = resolveSignatureProof(contract, documents);
+  const expense = expenseSummary(terms);
+  const items: ContractReviewItem[] = [];
+  const add = (key: string, label: string, detail: string, tone: ContractReviewItem["tone"] = "warning") => {
+    if (!items.some((item) => item.key === key)) items.push({ key, label, detail, tone });
+  };
+
+  if (contract.registry_status === "candidate" || contract.review_required || contract.review_status === "pending") {
+    add("registry", "台帳採用", "この行をAMDの契約として残すか、第三者間・雛形・証跡だけに落とすかを確認");
+  }
+  if ((contract.relationship_scope || "needs_review") !== "amd_contract") {
+    add("scope", "AMD当事者", "株式会社チームアルマダまたはAMD側が契約当事者かを確認", "danger");
+  }
+  if (!contract.counterparty_name) {
+    add("counterparty", "相手先", "契約相手の正式名称を確認して入力", "danger");
+  }
+  if (!period.end) {
+    add("period", "終了・更新", "契約満了日、無期限、更新通知期限のどれかを確定", "danger");
+  }
+  if (!termsHaveOperationalDetail(terms)) {
+    add("terms", "実務条件", "金額、支払、業務範囲、成果物、検収、報告条件のうち必要な項目を確認", "danger");
+  }
+  if (expense.label === "未確認") {
+    add("expense", "立替可否", "実費・立替経費を申請できるか、事前承認や上限の有無を確認");
+  }
+  if (confidentiality.state === "unknown") {
+    add("confidentiality", "秘密保持", "契約本文に秘密保持があるか、別NDAでカバーされているかを確認", "danger");
+  }
+  if (signature.state === "needs_proof") {
+    add("signature-proof", "押印証跡", signature.note, "danger");
+  } else if (signature.state === "incomplete" && contract.status !== "cancelled") {
+    add("signature-status", "押印状況", "押印済みか未押印かを確認し、押印版があれば文書として登録");
+  }
+  if (documents.length === 0) {
+    add("document", "契約書ファイル", "Driveの契約書、修正版、押印版のいずれかを文書として登録");
+  }
+
+  return items;
 }
 
 export function ContractsClient() {
@@ -1027,6 +1078,21 @@ export function ContractsClient() {
           <SummaryButton label="当事者判定待ち" value={metrics.scopeReview} tone="warning" active={statusFilter === "scope_review"} onClick={() => setStatusFilter("scope_review")} />
         </section>
 
+        <section className="grid gap-2 rounded-md border border-slate-200 bg-white p-3 text-xs text-slate-600 lg:grid-cols-3" aria-label="契約台帳の運用フロー">
+          <OperationStep
+            label="手入力"
+            value="契約の正本行、相手先、期限、立替可否、秘密保持、押印版を管理者が確定"
+          />
+          <OperationStep
+            label="自動候補"
+            value="Drive/Gmail/Slack由来の候補は要確認として入り、採用後に台帳へ残す"
+          />
+          <OperationStep
+            label="確認観点"
+            value="期限、押印証跡、契約書ファイル、秘密保持、立替可否、AMD当事者性を行ごとに表示"
+          />
+        </section>
+
         <section className="overflow-hidden rounded-md border border-slate-200 bg-white" aria-label="契約一覧">
           <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 p-3">
             <label className="relative min-w-[220px] flex-1">
@@ -1197,6 +1263,15 @@ function SummaryButton({ label, value, tone = "default", active = false, onClick
   return onClick ? <button type="button" onClick={onClick} className={`${className} hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-400`}>{content}</button> : <div className={className}>{content}</div>;
 }
 
+function OperationStep({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-md border border-slate-100 bg-slate-50 px-3 py-2">
+      <p className="text-[11px] font-semibold text-slate-500">{label}</p>
+      <p className="mt-1 leading-5 text-slate-700">{value}</p>
+    </div>
+  );
+}
+
 function DesktopContractRow({ contract, project, documents, onOpen }: { contract: LedgerContract; project?: Project; documents: ContractDocument[]; onOpen: () => void }) {
   const period = resolveContractPeriod(contract, project);
   const terms = effectiveContractTerms(contract, project);
@@ -1205,30 +1280,45 @@ function DesktopContractRow({ contract, project, documents, onOpen }: { contract
   const confidentiality = resolveConfidentiality(contract);
   const latest = documents.find((doc) => doc.is_latest) || documents[0];
   const needsAttention = contractNeedsAttention(contract, project, documents);
+  const reviewItems = contractReviewItems(contract, project, documents);
   const expirationDays = daysUntil(period.end);
   const payment = paymentSummary(contract, terms);
   const deliverables = boolTerm(terms.deliverablesRequired);
   const missingGroups = Math.max(0, 6 - contractTermsCoverage(terms));
+  const reviewSummary = reviewItems.slice(0, 3).map((item) => item.label).join(" / ");
   return (
-    <tr className="group bg-white hover:bg-slate-50">
+    <tr
+      role="button"
+      tabIndex={0}
+      aria-label={`${contract.project_id} ${contractTitle(contract)} の詳細を開く`}
+      onClick={onOpen}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen();
+        }
+      }}
+      className="group cursor-pointer bg-white outline-none hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-400"
+    >
       <td className="sticky left-0 z-10 border-r border-slate-100 bg-white px-3 py-2.5 align-top group-hover:bg-slate-50">
         <p className="truncate font-semibold text-slate-950">{project?.project_name || "PJ未設定"}</p>
         <p className="mt-0.5 text-[11px] text-slate-500">{contract.project_id}</p>
       </td>
       <td className="sticky left-[160px] z-10 border-r border-slate-100 bg-white px-3 py-2.5 align-top shadow-[5px_0_8px_-7px_rgba(15,23,42,0.35)] group-hover:bg-slate-50">
-        <button type="button" onClick={onOpen} className="flex w-full items-start gap-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-slate-400">
+        <div className="flex w-full items-start gap-2 text-left">
           <span className="min-w-0 flex-1">
             <span className="line-clamp-2 font-semibold text-slate-950">{contractTitle(contract)}</span>
             <span className="mt-1 flex flex-wrap items-center gap-1 text-[11px] text-slate-500">
               {contractTypeLabel(contract.contract_type)}
               {contract.is_current_for_project && <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-800">PJ現行</Badge>}
-              {contract.registry_status === "candidate" && <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-800">要確認</Badge>}
+              {reviewItems.length > 0 && <ReviewBadge items={reviewItems} />}
               {needsAttention && <Badge variant="outline" className="border-rose-200 bg-rose-50 text-rose-700">要対応</Badge>}
             </span>
+            {reviewSummary && <span className="mt-1 block truncate text-[11px] font-medium text-amber-700">確認: {reviewSummary}{reviewItems.length > 3 ? ` +${reviewItems.length - 3}` : ""}</span>}
             <span className="mt-1 block truncate text-[11px] text-slate-500">{contract.amd_entity_name || "株式会社チームアルマダ"} × {contract.counterparty_name || "相手先未設定"}</span>
           </span>
           <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-        </button>
+        </div>
       </td>
       <td className="px-3 py-2.5 align-top">
         <div className="flex flex-wrap items-center gap-1.5">{statusBadge(contract.status)}<span className={`font-medium ${signature.state === "complete" ? "text-emerald-700" : signature.state === "needs_proof" ? "text-rose-700" : "text-amber-700"}`}>{signature.label}</span></div>
@@ -1252,6 +1342,7 @@ function MobileContractRow({ contract, project, documents, onOpen }: { contract:
   const signature = resolveSignatureProof(contract, documents);
   const confidentiality = resolveConfidentiality(contract);
   const payment = paymentSummary(contract, terms);
+  const reviewItems = contractReviewItems(contract, project, documents);
   return (
     <button type="button" onClick={onOpen} className="block w-full p-3 text-left outline-none hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-400">
       <div className="flex items-start gap-3">
@@ -1259,7 +1350,8 @@ function MobileContractRow({ contract, project, documents, onOpen }: { contract:
           <p className="text-xs font-medium text-slate-500">{contract.project_id} {project?.project_name || "PJ未設定"}</p>
           <p className="mt-1 line-clamp-2 text-sm font-semibold text-slate-950">{contractTitle(contract)}</p>
           <p className="mt-1 truncate text-xs text-slate-500">{contract.counterparty_name || "相手先未設定"}</p>
-          <div className="mt-2 flex flex-wrap gap-1">{statusBadge(contract.status)}<Badge variant="outline">{contractTypeLabel(contract.contract_type)}</Badge>{contract.is_current_for_project && <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-800">PJ現行</Badge>}</div>
+          <div className="mt-2 flex flex-wrap gap-1">{statusBadge(contract.status)}<Badge variant="outline">{contractTypeLabel(contract.contract_type)}</Badge>{contract.is_current_for_project && <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-800">PJ現行</Badge>}{reviewItems.length > 0 && <ReviewBadge items={reviewItems} />}</div>
+          {reviewItems.length > 0 && <p className="mt-1 truncate text-xs font-medium text-amber-700">確認: {reviewItems.slice(0, 3).map((item) => item.label).join(" / ")}</p>}
         </div>
         <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-slate-400" />
       </div>
@@ -1272,6 +1364,19 @@ function MobileContractRow({ contract, project, documents, onOpen }: { contract:
         <MiniAnswer label="知財・秘密保持" value={joinedTerms([terms.ipOwnership, terms.confidentialitySummary || confidentiality.label])} />
       </div>
     </button>
+  );
+}
+
+function ReviewBadge({ items }: { items: ContractReviewItem[] }) {
+  const hasDanger = items.some((item) => item.tone === "danger");
+  return (
+    <Badge
+      variant="outline"
+      title={items.map((item) => `${item.label}: ${item.detail}`).join("\n")}
+      className={hasDanger ? "border-rose-200 bg-rose-50 text-rose-700" : "border-amber-200 bg-amber-50 text-amber-800"}
+    >
+      要確認 {items.length}
+    </Badge>
   );
 }
 
@@ -1334,6 +1439,7 @@ function ContractDetailDialog({ contract, project, documents, signals, linkedTer
   const signature = resolveSignatureProof(contract, documents);
   const confidentiality = resolveConfidentiality(contract);
   const latest = documents.find((doc) => doc.is_latest) || documents[0];
+  const reviewItems = contractReviewItems(contract, project, documents);
   return (
     <Dialog open onOpenChange={onOpenChange}>
       <DialogContent className="grid h-[min(90vh,820px)] w-[96vw] !max-w-[1500px] grid-rows-[auto_1fr] gap-0 overflow-hidden rounded-lg border border-slate-300 !bg-white p-0 shadow-2xl">
@@ -1343,6 +1449,7 @@ function ContractDetailDialog({ contract, project, documents, signals, linkedTer
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="outline">{contract.project_id} {project?.project_name || "PJ未設定"}</Badge>
                 <Badge variant="outline">{contractTypeLabel(contract.contract_type)}</Badge>
+                {reviewItems.length > 0 && <ReviewBadge items={reviewItems} />}
                 {signature.state === "needs_proof" && <Badge variant="outline" className="border-rose-200 bg-rose-50 text-rose-700"><AlertCircle className="h-3 w-3" />押印証跡を確認</Badge>}
               </div>
               <DialogTitle className="mt-2 line-clamp-2 text-xl font-semibold leading-tight text-slate-950 sm:text-2xl">{contractTitle(contract)}</DialogTitle>
@@ -1370,6 +1477,8 @@ function ContractDetailDialog({ contract, project, documents, signals, linkedTer
               <FactRow label="現在状態・押印" value={`${STATUS_LABEL[contract.status]} / ${signature.label}`} note={signature.note} />
               <FactRow label="PJコックピット" value={contract.is_current_for_project ? "現行契約として表示" : "現行契約に未指定"} note={contract.relationship_scope === "amd_contract" ? "AMD当事者契約" : "主台帳の対象外"} />
             </div>
+
+            {reviewItems.length > 0 && <ReviewChecklist items={reviewItems} />}
 
             <div className="mt-5 grid gap-x-6 gap-y-5 md:grid-cols-2 xl:grid-cols-3">
               <TermsGroup icon={<CalendarRange />} title="期間・更新" rows={[
@@ -1514,6 +1623,25 @@ function ContractDetailDialog({ contract, project, documents, signals, linkedTer
         </Tabs>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ReviewChecklist({ items }: { items: ContractReviewItem[] }) {
+  return (
+    <section className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3" aria-label="この契約で確認すること">
+      <div className="flex items-center gap-2 text-sm font-semibold text-amber-950">
+        <AlertTriangle className="h-4 w-4" />
+        確認すること
+      </div>
+      <div className="mt-3 grid gap-2 md:grid-cols-2">
+        {items.map((item) => (
+          <div key={item.key} className={`rounded-md border bg-white px-3 py-2 ${item.tone === "danger" ? "border-rose-200" : "border-amber-200"}`}>
+            <p className={`text-xs font-semibold ${item.tone === "danger" ? "text-rose-700" : "text-amber-700"}`}>{item.label}</p>
+            <p className="mt-1 text-xs leading-5 text-slate-700">{item.detail}</p>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
