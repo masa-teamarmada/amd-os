@@ -6,9 +6,23 @@
 >
 > **正本**: GitHub `masa-teamarmada/amd-os` (`main` ブランチ)
 
-最終更新: 2026-04-30
-対応 iOS commit: `5821c12` "Admin: member list, budget withdraw, fix nav bug"
+最終更新: 2026-07-16
+対応 iOS commit: `3dfd235c` "feat(ios): add notification judgment deck"
 対応 PWA 起点: 直近の `pwa/` の main HEAD
+
+---
+
+## 2026-07-16 追記: Swift通知判断キューとの境界
+
+PWAの通知データ・feedback contractをSwift版から再利用し、iOSではスマホ向けの1件ずつ判断カードとして実装した。PWA側の追加実装は今回なし。
+
+- iOS表示: `判断 / 未読 / 履歴`、1件カード、次カード予告、根拠展開、種別別の意味ラベル、修正コメント、セッション内`あとで`
+- 共通write: `l2_feedbacks` と既存の通知種別ごとのstatus更新
+- iOS固有境界: `project_registry_diff` はaccepted候補の記録まで。実DB（OS台帳）反映はPWA/helper側に残す
+- `meeting_summary` の確認は確認記録だけで再抽出しない
+- `connector_auth` は採否ではなく復旧アクション。リンクを開いた後も履歴から再試行可能
+
+PWA側で通知action contractを変更する場合は、`ios/DESIGN.md` §2.1.1と`NotificationInboxView`の表示文言・effect説明を同時に更新する。
 
 ---
 

@@ -1,7 +1,12 @@
 import SwiftUI
 
 enum AppTab {
-    case mypage, routine, reimburse, cockpit, businessCards, admin, settings
+    case mypage, cockpit, notifications, registration, settings
+}
+
+/// 「登録」タブ内 (`RegistrationHubView`) の NavigationStack が扱う型安全な遷移先。
+enum RegistrationRoute: Hashable {
+    case reimburse
 }
 
 struct RoutineNavigationTarget: Identifiable, Hashable {
@@ -16,21 +21,11 @@ struct RoutineNavigationTarget: Identifiable, Hashable {
 final class AppNavigationState: ObservableObject {
     @Published var selectedTab: AppTab = .mypage
     @Published var routineTarget: RoutineNavigationTarget?
-
-    func openRoutineTarget(
-        projectId: String,
-        projectName: String,
-        bizYm: String?,
-        stepId: String?
-    ) {
-        routineTarget = RoutineNavigationTarget(
-            projectId: projectId,
-            projectName: projectName,
-            bizYm: bizYm,
-            stepId: stepId
-        )
-        selectedTab = .routine
-    }
+    /// 「登録」タブへ切替と同時に立替申請一覧まで直接開くための push path。
+    @Published var registrationPath: [RegistrationRoute] = []
+    /// Admin fullScreenCover を直接開いてほしいというルーティンからの要求。
+    /// admin 判定は MainTabView 側の isAdmin で行い、既存の権限仕様は変えない。
+    @Published var requestAdminPresentation = false
 }
 
 struct MainTabView: View {
@@ -48,20 +43,22 @@ struct MainTabView: View {
             }
         )) {
             MyPageView()
-                .tabItem { Label("マイページ", systemImage: "person.circle") }
+                .tabItem { Label("今日", systemImage: "house.fill") }
                 .tag(AppTab.mypage)
 
-            ReimburseListView()
-                .tabItem { Label("立替", systemImage: "yensign.circle") }
-                .tag(AppTab.reimburse)
-
             CockpitView()
-                .tabItem { Label("PJ進捗", systemImage: "chart.bar.xaxis.ascending") }
+                .tabItem { Label("PJ", systemImage: "chart.bar.xaxis.ascending") }
                 .tag(AppTab.cockpit)
 
-            BusinessCardsView()
-                .tabItem { Label("名刺", systemImage: "person.crop.rectangle.stack") }
-                .tag(AppTab.businessCards)
+            NavigationStack {
+                NotificationInboxView()
+            }
+            .tabItem { Label("通知", systemImage: "bell.fill") }
+            .tag(AppTab.notifications)
+
+            RegistrationHubView(path: $navigation.registrationPath)
+                .tabItem { Label("登録", systemImage: "doc.badge.plus") }
+                .tag(AppTab.registration)
 
             SettingsView()
                 .tabItem { Label("設定", systemImage: "gear") }
@@ -90,6 +87,110 @@ struct MainTabView: View {
             guard let email = authService.userEmail else { return }
             isAdmin = (try? await SupabaseService.shared.fetchIsAdmin(email: email)) ?? false
         }
+        .onChange(of: navigation.requestAdminPresentation) { _, requested in
+            guard requested else { return }
+            navigation.requestAdminPresentation = false
+            if isAdmin {
+                showAdmin = true
+            }
+        }
+    }
+}
+
+struct RegistrationHubView: View {
+    @Binding var path: [RegistrationRoute]
+
+    var body: some View {
+        NavigationStack(path: $path) {
+            ScrollView {
+                VStack(spacing: 16) {
+                    NavigationLink(value: RegistrationRoute.reimburse) {
+                        RegistrationHubCardLabel(
+                            icon: "yensign.circle.fill",
+                            title: "立替申請",
+                            subtitle: "経費の立替を申請・確認する"
+                        )
+                    }
+                    .buttonStyle(.plain)
+
+                    RegistrationHubCard(
+                        icon: "person.crop.rectangle.stack.fill",
+                        title: "名刺登録",
+                        subtitle: "名刺をスキャンして登録・管理する"
+                    ) {
+                        BusinessCardsView()
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 24)
+            }
+            .background(Color(.systemGroupedBackground))
+            .navigationTitle("登録")
+            .navigationDestination(for: RegistrationRoute.self) { route in
+                switch route {
+                case .reimburse:
+                    ReimburseListView()
+                }
+            }
+        }
+    }
+}
+
+private struct RegistrationHubCard<Destination: View>: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    @ViewBuilder let destination: () -> Destination
+
+    var body: some View {
+        NavigationLink {
+            destination()
+        } label: {
+            RegistrationHubCardLabel(icon: icon, title: title, subtitle: subtitle)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct RegistrationHubCardLabel: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+
+    var body: some View {
+        HStack(spacing: 16) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(AMD.blueTint)
+                    .frame(width: 48, height: 48)
+                Image(systemName: icon)
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(AMD.blue)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.headline)
+                    .foregroundStyle(AMD.text)
+                Text(subtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(AMD.textSub)
+                    .multilineTextAlignment(.leading)
+            }
+
+            Spacer(minLength: 8)
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(AMD.textQuat)
+        }
+        .padding(16)
+        .frame(minHeight: 44)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AMD.card)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 2)
     }
 }
 

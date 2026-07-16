@@ -2,9 +2,26 @@
 
 > See also: [CLAUDE.md](CLAUDE.md) — 最重要ルール / [DESIGN.md](DESIGN.md) — **全画面の正本仕様（必読）** / [HANDOFF.md](HANDOFF.md) — 配布状況 / [BUGS.md](BUGS.md) — 既知バグ
 
-最終更新: 2026-07-14 (JST)
-対応 iOS/PWA commit: 今回のcommit "fix: harden native business card shell"
+最終更新: 2026-07-16 (JST)
+対応 iOS commit: `3dfd235c` "feat(ios): add notification judgment deck"
 TestFlight build: 未更新
+
+---
+
+## 2026-07-16 追記: 5タブ + 通知判断キュー
+
+- iOS下部タブを `今日 / PJ / 通知 / 登録 / 設定` に再編した。
+- `通知` は `判断 / 未読 / 履歴` の3セグメント。判断は1件ずつカード表示し、次カードの予告、根拠展開、種別別アクション、修正コメント、セッション内の`あとで`を持つ。
+- `登録` は立替申請と名刺登録のハブ。月次ルーティンの立替確認は立替一覧へ直接pushする。
+- 支払通知ルーティンは既存admin権限ゲートを維持したまま管理画面を開く。
+
+### Android 反映メモ
+
+- Bottom navigationをiOSと同じ5タブへ揃える。
+- 通知回答のwire contractは既存の`yes / no / comment`を維持してよいが、画面表示は汎用の「はい / いいえ」ではなく通知種別ごとの意味ラベルにする。
+- `project_registry_diff` の採用はaccepted候補の記録まで。AndroidからOS台帳を直接applyしない。
+- `connector_auth` は採否にせず、再認証の復旧アクションとして判断キューと履歴の両方から再試行できるようにする。
+- 立替確認など、旧タブへ直接selectionしていた導線は、実在するタブ + Navigation pathへ接続する。enumへ旧値だけ残す互換対応はしない。
 
 ---
 
