@@ -60,6 +60,7 @@ This route is read-only during load. It does not create a duplicate project or w
 | `?ym=YYYYMM` | monthly modal を開く |
 | `?meeting=<meeting_id>` | MTG詳細 modal を優先。月次 modal と二重起動しない |
 | `?tab=score-detail` | SU 系 PJ の `スコア詳細` を初期表示し、PRS / R_net / FRL / XRL evidence と XRL チェックリストを同じ cockpit 内で開く |
+| `?tab=company` | 常設「会社概要」タブを初期表示する |
 | `?step=<stepId>&ym=YYYYMM` | legacy query。現行 cockpit は step modal を持たず、`step` は解釈しない |
 
 ## Major Sections
@@ -70,14 +71,14 @@ This route is read-only during load. It does not create a duplicate project or w
 | KUTE annual roadmap | `CockpitKuteAnnualRoadmap` | KUTE (`p25`) only。`CockpitHeader` 直下で、2026-06〜2027-03 の年度内ロードマップを表示する。規程整備レーンは 2027-01 整備完了目途、シーズ発掘 / after GTIE レーンは 2027-03 型化目途。現時点の source は 6/11 キックオフ資料 / `PROJECT_BRIEF` 由来の静的 contract |
 | venture status | `CockpitVentureStatus` | `project_ventures`, `project_xrl_log`, related data |
 | AMD / Management score hero | `CockpitManagementScoreHero` | AMD Score / Management Score derived data |
-| tabs | `CockpitView` | `進捗管理` / `スコア詳細` display state。SU 系 PJ では横幅いっぱいを2等分し、各タブのクリック領域も 1/2 にする |
+| tabs | `CockpitView` | `進捗管理` / `スコア詳細` (該当PJのみ) / `会社概要` (常設・2026-07-16 追加) の display state。SU 系 PJ は 3タブ (進捗管理 / スコア詳細 / 会社概要)、非SU系 PJ は 2タブ (進捗管理 / 会社概要) で、各タブのクリック領域はタブ数で均等分割する |
 | score detail tab | `CockpitAmdScoreDetailTab`, `AmdScoreView embedded` | 正規URLは `/project/[projectId]/cockpit?tab=score-detail`。`/api/project/[projectId]/amd-score-detail` から PRS Primary / PRS history / R_net / FRL / XRL evidence と XRL チェックリストを表示し、legacy AMD / M-X-F は comparison と evidence 用に残す。cockpit mount 時に hidden panel として先読みし、client memory cache 5 分TTL + private HTTP cache で再表示待ちを減らす。TTL 超過後にタブが active になったら、表示済み内容を保ったまま背景再取得する。旧 `/venture-map/amd-score/[projectId]` はこのタブへ redirect する (`p99` デモを除く) |
 | goals compact | `CockpitGoalsCompact` | value plan / MS。`MilestoneGanttChart` の各MS行に pt / tag / 担当 / 進捗とあわせて `設計額` を表示し、バー上の担当者 chip には担当設計額も併記する。通常MSは plan cycle 予算、`cap_extra` は同期間の別財布予算から按分し、支払確定額としては扱わない |
 | MS change history | `CockpitMsChangeHistory` | `milestone_change_events`。今期MSの直下、`CockpitSeasonFinance` の手前に初期折りたたみで表示する。`/admin/ms-overview` の保存イベントと、2026-07-09 backfill の `source='migration'` 基準線を読み、cockpit からは編集しない。契約本文・メール全文・議事録全文・raw source は扱わない |
 | season finance | `CockpitSeasonFinance` | `fetchCockpitFromSupabase` が `billing_cycles`, `projects`, `reward_summary_json` から組み立てた `seasonFinance`。MS リスト直下、月次カードより上に表示し、シーズン全体と月次別に `クライアント支払` / `バッファ` / `原資上限` / `PJ予算` / `メンバー支払` / `期末未払` / `収支` を出す。`期末未払` / `未払残` は支払通知対象の外部メンバーへ将来払う残高だけで、役員分の繰越は会社留保側の内部検算へ寄せる |
 | project documents | `CockpitProjectDocuments` | 右カラム先頭の資料スペース。drag & drop / file picker で `/api/project-documents` へ multipart upload し、Drive の PJ folder 配下 `AMD OS 資料` folder に新規ファイルとして保存する。同名ファイルは上書きしない。リンク一覧は `project_documents` から取得し、Drive link を新規タブで開く |
 | strategy signals | `CockpitStrategySignals` | `project_strategy_signals` |
-| governance | `CockpitGovernance` | ガバナンス要対応 |
+| company overview tab | `CockpitCompanyOverview` | (2026-07-16 追加、旧 `CockpitGovernance` を統合廃止) 常設「会社概要」タブ本体。会社基本情報 / cap table (`buildCapTableSnapshots` で現在株・完全希薄化後株を算出) / 100%資本構成推移 / 資金調達ラウンド / 転換前証券 (J-KISS等、`convertibleScenario` の別枠試算のみで現在持株比率へは混ぜない) / 株主総会・取締役会 / 年次決算 / Excel・PDF出力。全PJ・終了PJでも常設表示。`project_company_profiles` / `project_equity_transactions` / `project_equity_entries` / `project_convertible_instruments` / `project_financial_periods` / `project_valuation_rounds` / `project_shareholder_meetings` (migration 174)。データは `/api/governance` (`requireMember` gate、members登録済みAMDメンバー全員が閲覧・編集可、admin限定ではない) |
 | grants | `CockpitGrants` | 助成金 / funding 関連 |
 | monthly list/modal | `CockpitMonthlyList`, `CockpitMonthlyModal` | `billing_cycles`, reports / reward / progress |
 | meeting summaries | `CockpitMeetingSummary` | `project_meeting_summaries` |

@@ -6,7 +6,6 @@ import { CockpitVentureStatus } from "./CockpitVentureStatus";
 import { CockpitManagementScoreHero } from "./CockpitManagementScoreHero";
 import { CockpitGoalsCompact } from "./CockpitGoalsCompact";
 import { CockpitStrategySignals } from "./CockpitStrategySignals";
-import { CockpitGovernance } from "./CockpitGovernance";
 import { CockpitGrants } from "./CockpitGrants";
 import { CockpitProjectDocuments } from "./CockpitProjectDocuments";
 import { CockpitKuteAnnualRoadmap } from "./CockpitKuteAnnualRoadmap";
@@ -17,6 +16,7 @@ import { CockpitMonthlyModal } from "./CockpitMonthlyModal";
 import { CockpitMeetingSummary } from "./CockpitMeetingSummary";
 import { CockpitFreezeBackfill } from "./CockpitFreezeBackfill";
 import { CockpitAmdScoreDetailTab } from "./CockpitAmdScoreDetailTab";
+import { CockpitCompanyOverview } from "./CockpitCompanyOverview";
 import type { CockpitSeasonFinance as CockpitSeasonFinanceData, MilestoneChangeHistory } from "@/lib/supabase-data";
 import type { ProjectContractTerms } from "@/lib/project-contract-terms";
 
@@ -239,7 +239,7 @@ function usesMsProgressCategory(category: string | null | undefined) {
   return ["dtsu", "ecosystem", "new_business"].includes(String(category || "dtsu").toLowerCase());
 }
 
-export type CockpitTab = "progress" | "score-detail";
+export type CockpitTab = "progress" | "score-detail" | "company";
 
 export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab, onTabChange }: CockpitViewProps) {
   const [localActiveTab, setLocalActiveTab] = useState<CockpitTab>("progress");
@@ -369,26 +369,31 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
       {/* [A] Project Header (full width) */}
       <CockpitHeader project={project} members={members} />
 
-      {project.projectId === "p25" && <CockpitKuteAnnualRoadmap currentYm={currentYm} />}
+      {activeTab === "progress" && project.projectId === "p25" && <CockpitKuteAnnualRoadmap currentYm={currentYm} />}
 
       {/* [A2] Hero (案C: Header 直下の全幅セクション)
             - p00 (= AMD 会社全体) は AMD Management Score の時系列折れ線 + 最新値カード
             - SU 系 PJ は CockpitVentureStatus (AMD Score + XRL chart 横並び)
             - ecosystem PJ は AMD Score 対象外なので Hero を出さない */}
-      {project.projectId === "p00" ? (
+      {activeTab !== "company" && (project.projectId === "p00" ? (
         <CockpitManagementScoreHero />
       ) : showAmdScore ? (
         <CockpitVentureStatus
           projectId={project.projectId}
           onOpenScoreDetail={() => selectTab("score-detail")}
         />
-      ) : null}
+      ) : null)}
 
-      {hasScoreDetailTab && (
-        <div className="grid grid-cols-2 overflow-hidden rounded-xl border border-[#d6d6da] bg-[#f5f5f7]" role="tablist" aria-label="コックピット表示切り替え">
+      <div
+        className="grid overflow-hidden rounded-xl border border-[#d6d6da] bg-[#f5f5f7]"
+        style={{ gridTemplateColumns: `repeat(${hasScoreDetailTab ? 3 : 2}, minmax(0, 1fr))` }}
+        role="tablist"
+        aria-label="コックピット表示切り替え"
+      >
           {[
             { key: "progress" as const, label: "進捗管理" },
-            { key: "score-detail" as const, label: "スコア詳細" },
+            ...(hasScoreDetailTab ? [{ key: "score-detail" as const, label: "スコア詳細" }] : []),
+            { key: "company" as const, label: "会社概要" },
           ].map((tab, index) => {
             const selected = activeTab === tab.key;
             return (
@@ -410,10 +415,9 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
               </button>
             );
           })}
-        </div>
-      )}
+      </div>
 
-      {(!hasScoreDetailTab || activeTab === "progress") && (
+      {activeTab === "progress" && (
         <>
       {/* メインボード: 通常は 2 カラム。凍結/再開バッジがある時だけ 3 カラム目を出す。 */}
       <div className={mainGridClass}>
@@ -497,7 +501,6 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
         <div className="flex flex-col gap-3 min-w-0">
           <CockpitProjectDocuments projectId={project.projectId} />
           <CockpitStrategySignals signals={strategySignals || []} projectId={project.projectId} />
-          <CockpitGovernance projectId={project.projectId} />
           <CockpitGrants projectId={project.projectId} />
           <CockpitMeetingSummary projectId={project.projectId} />
         </div>
@@ -528,6 +531,15 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
           <CockpitAmdScoreDetailTab projectId={project.projectId} active={activeTab === "score-detail"} />
         </section>
       )}
+
+      <section
+        role="tabpanel"
+        aria-label="会社概要"
+        hidden={activeTab !== "company"}
+        className={activeTab === "company" ? "min-w-0" : "hidden"}
+      >
+        <CockpitCompanyOverview projectId={project.projectId} projectName={project.projectName} />
+      </section>
 
       {/* ===== Monthly Modal ===== */}
       {modalYm && (

@@ -2,6 +2,8 @@
 
 **ステータス**: 実装中 (2026-06-15 起票・まさ承認)。DDL は migration `137_governance_and_action_items.sql` (136 は別セッションの tasks 拡張が先取りしたため 137 に採番)。
 
+**2026-07-16 追記**: PJ cockpit の「株主・ガバナンス」欄 (`CockpitGovernance.tsx`) は「会社概要」常設タブ (`CockpitCompanyOverview.tsx`) へ統合し削除した。cap table / valuation / 総会役会は migration `174_project_company_overview_and_equity_ledger.sql` で追加した `project_company_profiles` / `project_equity_transactions` / `project_equity_entries` / `project_convertible_instruments` / `project_financial_periods` とあわせて会社概要タブ配下に集約する。**まさ確定によりRLSも変更**: cap table / ラウンド / 総会役会は、以降「admin 限定」ではなく「members 登録済みの AMD メンバー全員が閲覧・編集可」に緩和した (`amd_os_is_member()` gate 関数、`/api/governance` は `requireMember`)。本章の以下の記述のうち「admin gate」「anon/authenticated への付与なし」等の RLS 方針は、この 2026-07-16 の変更で上書きされている。詳細は `pwa/spec/3-8-cockpit-current-spec.md` と `pwa/design/FEATURE_REGISTRY.md` の「株主・ガバナンス + 要対応」節を正とする。
+
 ### 既存 `tasks` 機能との境界 (重要)
 
 `tasks` テーブル拡張と `/tasks` (mindmap/gantt/kanban) は過去に実装されたが、`/tasks` 画面は 2026-06-21 に廃止済み。**`action_items` はこれと別物**として持つ:
@@ -142,9 +144,11 @@ cap table / valuation は最機密。標準 OS 形 (anon SELECT true) は**採�
 
 - `service_role` ALL (cron / API 書き込み経路)
 - `is_admin()` ALL (管理 UI からの read/write)
-- **anon / authenticated への付与なし** (= 一般メンバー・公開読み取り禁止)
+- **anon への付与なし** (= 公開読み取り禁止)
 
 cockpit のガバナンス欄・要対応面はサーバ側 admin クライアントで取得し、admin gate 配下でのみ表示する。
+
+**2026-07-16 更新**: 上記は 2026-06-15 時点の初期方針。migration `174_project_company_overview_and_equity_ledger.sql` でまさ確定により変更し、`public.amd_os_is_member()` (`members` テーブル所属チェックの SECURITY DEFINER 関数) を条件に **authenticated (members 登録済み AMD メンバー全員) にも SELECT/INSERT/UPDATE/DELETE を開放**した。対象は cap table 系 5 新設テーブル (`project_company_profiles` / `project_equity_transactions` / `project_equity_entries` / `project_convertible_instruments` / `project_financial_periods`) に加え、既存の `project_shareholders` / `project_valuation_rounds` / `project_shareholder_meetings` も同じ member-wide ポリシーへ更新した。anon への非公開は変わらないが、「admin 限定」の記述は本改訂で上書きされる。`/api/governance` の書き込みゲートも `requireAdmin` から `requireMember` に変更した。
 
 ---
 
@@ -184,7 +188,7 @@ cockpit のガバナンス欄・要対応面はサーバ側 admin クライア�
 
 | 出力先 | 内容 | 実装 |
 |---|---|---|
-| **PJ cockpit「株主・ガバナンス」欄** | 株主構成サマリ / **総会・取締役会履歴一覧** + 決議 / 最新バリュエーション / AMD保有株の現在価値。終了PJでも表示 | `CockpitGovernance.tsx` を Col2 (経営ハイライト下) に。admin gate |
+| **PJ cockpit「会社概要」欄** | 株主構成サマリ / **総会・取締役会履歴一覧** + 決議 / 最新バリュエーション / AMD保有株の現在価値。終了PJでも表示 | (2026-07-16 更新) `CockpitCompanyOverview.tsx` の常設タブに統合。旧 `CockpitGovernance.tsx` は削除。members 全員が閲覧・編集可 (member gate、旧 admin gate から緩和) |
 | **cockpit「要対応」** | そのPJに紐づく confirmed `action_items` open/in_progress を期日順。candidate や `meeting_summary` 由来は出さない | cockpit 内の小欄 or Col3 |
 | **/dashboard・/notifications「要対応(期日順)」面** | 全 confirmed `action_items` open/in_progress を期日順 + あと何日。`scope=personal/company` 含む。candidate はレビューキュー | `ActionItemsPanel` (dashboard) / 先頭 section (notifications) |
 | **D-6 strategy signal** | 「JC 2ndラウンド + Woven City採択」等の軌跡シグナル候補 | 既存 `project_strategy_signals` candidate |
@@ -228,7 +232,7 @@ cockpit のガバナンス欄・要対応面はサーバ側 admin クライア�
 
 | 出力先 | 内容 | 実装 |
 |---|---|---|
-| **PJ cockpit「株主・ガバナンス」欄** | ラウンドごとに 発行証券種別 chip + 投資家別内訳 (金額/トランシェ/Lead) + 状態。株主構成は is_current 断面。`as_of_ym` 断面が 2 つ以上なら **創業者シェア推移マトリクス** | `CockpitGovernance.tsx` (admin gate) |
+| **PJ cockpit「会社概要」欄** | ラウンドごとに 発行証券種別 chip + 投資家別内訳 (金額/トランシェ/Lead) + 状態。株主構成は is_current 断面。`as_of_ym` 断面が 2 つ以上なら **創業者シェア推移マトリクス** | (2026-07-16 更新) `CockpitCompanyOverview.tsx` (member gate、旧 admin gate から緩和) |
 | **PJ cockpit「助成金・補助金」欄** | 各PJの助成金一覧 (状態/名称/交付元/採択額/期間) + このPJの獲得累計。**メンバーにも表示** | `CockpitGrants.tsx` (`/api/grants` read=requireAuth) |
 | **/admin/governance** | ラウンド add-form に 発行証券/状態/投資家内訳(`名前:金額:トランシェ:lead` を `/` 区切り) と AMD貢献判定 (`full` / `partial` / `none` / `unreviewed`) を追加。助成金 CRUD セクションにも同じ AMD貢献判定を持たせる | `AdminGovernanceClient.tsx` |
 | **/dashboard 先頭カード** | AMD全体 **AMD貢献 累計資金調達額** + **AMD貢献 累計助成金額**。会社別・行別に全ラウンド/助成金を表示し、非貢献/未判定もリストには残す。投資家別cap table内訳は出さない | `FundingStatsCard.tsx` (`/api/funding-stats` service_role集計, read=requireAuth) |
@@ -250,6 +254,6 @@ Drive + Web + AMD OS DB を全PJ横断で調査(subagent並列)し、出典の�
 
 ## 8. 壊さないライン (追補分)
 
-- `project_valuation_rounds` / `project_shareholders` の既存列・既存 admin-RLS を変えない (列追加のみ)。
-- `CockpitGovernance` の admin gate を維持。`CockpitGrants` は read 開放だが write は admin。
+- `project_valuation_rounds` / `project_shareholders` の既存列は変えない (列追加のみ)。**RLS は 2026-07-16 migration 174 で admin-only から member-wide (`amd_os_is_member()`) へ変更済み**、これは上記追補時点からの意図的な変更であり退行ではない。
+- (2026-07-16 更新) 旧 `CockpitGovernance` の admin gate は廃止し `CockpitCompanyOverview` の member gate に統合済み。`CockpitGrants` は read 開放だが write は admin のまま変更なし。
 - 累計数字 API (`/api/funding-stats`) は会社別/行別の登録額とAMD貢献額を返すが、投資家別内訳・持株比率・cap table snapshot は member に晒さない。

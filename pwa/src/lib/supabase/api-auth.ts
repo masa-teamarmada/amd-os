@@ -28,6 +28,28 @@ export async function requireAuth(): Promise<AuthResult> {
   return { ok: true, user: { id: user.id, email: user.email }, supabase, errorResponse: null };
 }
 
+/** AMD members に登録されているログイン済みユーザーのみ許可 */
+export async function requireMember(): Promise<AuthResult> {
+  const auth = await requireAuth();
+  if (!auth.ok) return auth;
+
+  const { data: member } = await auth.supabase
+    .from("members")
+    .select("member_id")
+    .eq("email", auth.user.email.toLowerCase())
+    .maybeSingle();
+
+  if (!member) {
+    return {
+      ok: false,
+      user: null,
+      supabase: null,
+      errorResponse: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+    };
+  }
+  return auth;
+}
+
 /** Admin（members.is_admin = true）のみ許可 */
 export async function requireAdmin(): Promise<AuthResult> {
   const supabase = await createClient();

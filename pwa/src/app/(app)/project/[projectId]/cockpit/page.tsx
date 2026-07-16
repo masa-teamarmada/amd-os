@@ -77,13 +77,14 @@ export default function CockpitPage() {
 
   const ymParam = searchParams.get("ym");
   const meetingParam = searchParams.get("meeting");
-  const activeTab: CockpitTab = searchParams.get("tab") === "score-detail" ? "score-detail" : "progress";
+  const tabParam = searchParams.get("tab");
+  const activeTab: CockpitTab = tabParam === "score-detail" || tabParam === "company" ? tabParam : "progress";
   // ?meeting= がある場合は MTG詳細モーダルを優先し、月次モーダルとの二重起動を避ける。
 
   function handleTabChange(tab: CockpitTab) {
     const nextParams = new URLSearchParams(searchParams.toString());
-    if (tab === "score-detail") {
-      nextParams.set("tab", "score-detail");
+    if (tab === "score-detail" || tab === "company") {
+      nextParams.set("tab", tab);
     } else {
       nextParams.delete("tab");
     }

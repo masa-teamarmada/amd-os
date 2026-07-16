@@ -1438,4 +1438,59 @@ expectIncludes("manual/5-1-research-assets-vc-seeds-scholar-spec.md", [
 
 require("./check_payout_notice_pdf_golden.cjs");
 
+// 会社概要タブ (2026-07-16 まさ確定): 全PJ常設・全AMDメンバー閲覧編集。旧 CockpitGovernance を統合廃止。
+expectIncludes("src/components/cockpit/CockpitView.tsx", [
+  "CockpitCompanyOverview",
+  "\"company\" as const, label: \"会社概要\"",
+  "aria-label=\"会社概要\"",
+]);
+expectFileMissing("src/components/cockpit/CockpitGovernance.tsx");
+expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
+  "CockpitGovernance",
+]);
+
+expectIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
+  "data-testid=\"company-overview-tab\"",
+  "buildCapTableSnapshots",
+  "capTableTieOut",
+  "convertibleScenario",
+  "登記株式数と一致",
+  "登記との差",
+  "転換前証券は現在持株比率へ混ぜない",
+  "downloadCompanyOverviewXlsx",
+  "exportPdf",
+]);
+
+expectIncludes("src/lib/company-overview.ts", [
+  "export function buildCapTableSnapshots",
+  "export function capTableTieOut",
+  "export function convertibleScenario",
+]);
+expectIncludes("src/lib/company-overview-xlsx.ts", [
+  "downloadCompanyOverviewXlsx",
+]);
+
+expectIncludes("src/app/api/governance/route.ts", [
+  "requireMember",
+  "company_profile",
+  "equity_transaction",
+  "convertible",
+  "financial_period",
+]);
+expectNotIncludes("src/app/api/governance/route.ts", [
+  "requireAdmin",
+]);
+expectIncludes("src/lib/supabase/api-auth.ts", [
+  "export async function requireMember",
+]);
+
+expectIncludes("scripts/migrations/174_project_company_overview_and_equity_ledger.sql", [
+  "project_company_profiles",
+  "project_equity_transactions",
+  "project_equity_entries",
+  "project_convertible_instruments",
+  "project_financial_periods",
+  "amd_os_is_member",
+]);
+
 console.log("critical PWA UI anchors ok");
