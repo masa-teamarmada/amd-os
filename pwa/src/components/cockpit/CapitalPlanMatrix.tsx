@@ -285,6 +285,14 @@ function DashCell({ label }: { label: string }) {
  * driver cell, and cancelable (Escape / ✕) without committing. When the value is already an
  * override (editable.source === 'override'), the badge switches to "上書き" and a clear control
  * (onClearOverride) removes it, reverting to the calculated value.
+ *
+ * overrideNote is for the two OutputCell call sites (pricePerShare under valuation_and_investment/
+ * ownership_target, preMoneyValuation under price_and_shares) whose onOverride does not just
+ * overwrite the value in place — it flows into CapitalPlanWorkspace's updateEvent, which detects
+ * the edit and switches calculationBasis (switchToPriceAndSharesOnPriceEdit /
+ * switchToValuationAndInvestmentOnPreMoneyEdit). Passing overrideNote surfaces that side effect at
+ * the cell so it isn't discovered only after the fact; other OutputCell call sites are plain
+ * in-place overrides and must not pass it.
  */
 function OutputCell({
   value,
@@ -293,6 +301,7 @@ function OutputCell({
   editable,
   onOverride,
   onClearOverride,
+  overrideNote,
 }: {
   value: number | undefined;
   label: string;
@@ -300,10 +309,12 @@ function OutputCell({
   editable?: EditableValue;
   onOverride?: (n: number) => void;
   onClearOverride?: () => void;
+  overrideNote?: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const isOverridden = editable?.source === 'override';
+  const overrideAriaLabel = overrideNote ? `${label} を上書き（${overrideNote}）` : `${label} を上書き`;
 
   function commitOverride() {
     const n = parseNumber(draft);
@@ -370,12 +381,21 @@ function OutputCell({
           </span>
           <span className="truncate whitespace-nowrap">{value != null ? formatter(value) : '—'}</span>
         </div>
+        {onOverride && overrideNote && (
+          <span
+            className="block w-full max-w-full whitespace-normal break-words text-right text-[11px] leading-tight text-neutral-500 dark:text-neutral-400"
+            title={overrideNote}
+            aria-hidden="true"
+          >
+            {overrideNote}
+          </span>
+        )}
         {(onOverride || (isOverridden && onClearOverride)) && (
           <div className="flex items-center gap-1">
             {onOverride && (
               <button
                 type="button"
-                aria-label={`${label} を上書き`}
+                aria-label={overrideAriaLabel}
                 onClick={() => {
                   setDraft(value != null ? String(value) : '');
                   setEditing(true);
@@ -668,6 +688,7 @@ export function CapitalPlanMatrix({
                     editable={event.preMoneyValuation}
                     onOverride={(n) => onUpdateEvent(event.id, { preMoneyValuation: forceOverride(event.preMoneyValuation, n) })}
                     onClearOverride={() => onUpdateEvent(event.id, { preMoneyValuation: undefined })}
+                    overrideNote="評価額入力→評価額×投資額（投資額維持）"
                   />
                 );
               })}
@@ -746,6 +767,7 @@ export function CapitalPlanMatrix({
                     editable={event.pricePerShare}
                     onOverride={(n) => onUpdateEvent(event.id, { pricePerShare: forceOverride(event.pricePerShare, n) })}
                     onClearOverride={() => onUpdateEvent(event.id, { pricePerShare: undefined })}
+                    overrideNote="単価入力→単価×株数（株数維持）"
                   />
                 );
               })}

@@ -823,7 +823,8 @@ expectMatrixIncludes([
   assert.match(fnBody, /const isOverridden = editable\?\.source === 'override';/, "OutputCell must detect override mode from editable.source");
   assert.match(fnBody, /\{sourceBadgeText\(editable\)\}/, "OutputCell badge must render via the shared sourceBadgeText helper");
   assert.match(fnBody, /aria-label=\{`\$\{label\}（\$\{sourceAriaWord\(editable\)\}）`\}/, "OutputCell cell must expose a source-aware aria-label via sourceAriaWord");
-  assert.match(fnBody, /aria-label=\{`\$\{label\} を上書き`\}/, "OutputCell must expose an explicit '...を上書き' affordance");
+  assert.match(fnBody, /const overrideAriaLabel = overrideNote \? `\$\{label\} を上書き（\$\{overrideNote\}）` : `\$\{label\} を上書き`;/, "OutputCell must expose an explicit '...を上書き' affordance, appending overrideNote when a basis-switching override is passed");
+  assert.match(fnBody, /aria-label=\{overrideAriaLabel\}/, "OutputCell's override button must use the note-aware overrideAriaLabel");
   assert.match(fnBody, /aria-label=\{`\$\{label\} 上書きを保存`\}/, "OutputCell's editing mode must expose an explicit 保存 (save) control");
   assert.match(fnBody, />\s*保存\s*</, "OutputCell's editing mode must render a visible 保存 button");
   assert.match(fnBody, /aria-label=\{`\$\{label\} 上書きをキャンセル`\}/, "OutputCell's editing mode must expose an explicit 取消 (cancel) control");
@@ -1111,6 +1112,52 @@ expectNotIncludes(["protectHolder", "protectedHolder", "ProtectHolder", "守り�
     cellBody,
     /ariaLabel=\{`目標比率（%） /,
     "目標比率（%） cell aria-label must include （%） so screen reader users know the unit",
+  );
+}
+
+// 56. OutputCell's overrideNote (short visible text + aria-label explaining that this override
+// also switches calculationBasis, see check 48 / switchToPriceAndSharesOnPriceEdit /
+// switchToValuationAndInvestmentOnPreMoneyEdit) is wired on exactly the two matrix cells whose
+// onOverride triggers that switch: pricePerShare's OutputCell (rendered only under
+// valuation_and_investment/ownership_target, mirroring updateEvent's switch-to-price_and_shares
+// gate) and preMoneyValuation's OutputCell (rendered only under price_and_shares, mirroring
+// updateEvent's switch-to-valuation_and_investment gate). Every other OutputCell call site is a
+// plain in-place override and must not claim a basis change.
+{
+  assert.match(
+    matrixSrc,
+    /overrideNote\?: string;/,
+    "OutputCell props must declare an optional overrideNote",
+  );
+  assert.match(
+    matrixSrc,
+    /overrideAriaLabel = overrideNote \? `\$\{label\} を上書き（\$\{overrideNote\}）` : `\$\{label\} を上書き`;/,
+    "OutputCell must build overrideAriaLabel from overrideNote",
+  );
+
+  const preMoneyOutputIdx = matrixSrc.indexOf("value={event.preMoneyValuation?.value}");
+  assert.ok(preMoneyOutputIdx >= 0, "preMoneyValuation OutputCell not found");
+  const preMoneyOutputBlock = matrixSrc.slice(preMoneyOutputIdx, matrixSrc.indexOf("/>", preMoneyOutputIdx));
+  assert.match(
+    preMoneyOutputBlock,
+    /overrideNote="評価額入力→評価額×投資額（投資額維持）"/,
+    "preMoneyValuation OutputCell (shown only under price_and_shares) must carry the basis-switch overrideNote",
+  );
+
+  const priceOutputIdx = matrixSrc.indexOf("value={event.pricePerShare?.value}");
+  assert.ok(priceOutputIdx >= 0, "pricePerShare OutputCell not found");
+  const priceOutputBlock = matrixSrc.slice(priceOutputIdx, matrixSrc.indexOf("/>", priceOutputIdx));
+  assert.match(
+    priceOutputBlock,
+    /overrideNote="単価入力→単価×株数（株数維持）"/,
+    "pricePerShare OutputCell (shown only under valuation_and_investment/ownership_target) must carry the basis-switch overrideNote",
+  );
+
+  const overrideNoteOccurrences = matrixSrc.match(/overrideNote="/g) ?? [];
+  assert.equal(
+    overrideNoteOccurrences.length,
+    2,
+    "overrideNote must be wired on exactly the two basis-switching OutputCell call sites, not on any plain in-place override (postMoneyValuation/primaryRaise/newShares/holder aggregates)",
   );
 }
 
