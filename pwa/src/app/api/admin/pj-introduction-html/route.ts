@@ -23,6 +23,7 @@ import { join } from "node:path";
 import { requireAdmin } from "@/lib/supabase/api-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import Anthropic from "@anthropic-ai/sdk";
+import { getPrimaryProjectAlias } from "@/lib/project-labels";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -33,7 +34,8 @@ interface PostBody {
 
 interface VentureRow {
   project_id: string;
-  display_name: string | null;
+  project_name: string;
+  project_alias: string | null;
   lane: string | null;
   founded_at: string | null;
   outcome_pattern: string | null;
@@ -283,7 +285,8 @@ status: ${proj.status}
 client_name: ${proj.client_name || "—"}
 
 # venture (project_ventures)
-display_name: ${venture?.display_name || ""}
+project_name: ${venture?.project_name || proj.project_name}
+project_alias: ${venture?.project_alias || ""}
 lane: ${venture?.lane || ""}
 founded_at: ${venture?.founded_at || ""}
 outcome_pattern: ${venture?.outcome_pattern || ""}
@@ -328,13 +331,14 @@ JSON 以外は禁止。`;
 
 /** LLM が空 / 失敗時のフォールバックデータ (= Supabase 既存だけで埋める、雛形 fmt を守る) */
 function fallbackPjData(proj: ProjectRow, venture: VentureRow | null, basicFacts: KnowledgeRow[]): PjData {
-  const chip = (venture?.display_name || proj.project_name).toUpperCase();
+  const companyName = venture?.project_alias || venture?.project_name || proj.project_name;
+  const chip = proj.project_name.toUpperCase();
   const factMap = new Map<string, string>();
   for (const f of basicFacts) if (f.entity_name && f.fact_text) factMap.set(f.entity_name, f.fact_text);
   return {
     chip,
     rail_sub: `${venture?.founded_at?.slice(0, 4) || "?"}年設立 / ${venture?.lane || "deep tech"}`,
-    company_name_html: esc(venture?.display_name || proj.project_name),
+    company_name_html: esc(companyName),
     tagline_html: esc(venture?.short_description || "tagline 未設定"),
     summary_html: esc(venture?.long_description || venture?.narrative_text || "summary 未集約 (LLM フォールバック)"),
     category: (venture?.lane || "Deep Tech").replace(/_/g, " "),
@@ -353,7 +357,7 @@ function fallbackPjData(proj: ProjectRow, venture: VentureRow | null, basicFacts
     ],
     touchpoints: [],
     status_list: [
-      { k: "Company", v_html: `<b>${esc(venture?.display_name || proj.project_name)}</b>` },
+      { k: "Company", v_html: `<b>${esc(companyName)}</b>` },
       { k: "Status", v_html: esc(proj.status) },
       { k: "Now", v_html: esc(factMap.get("Now") || factMap.get("直近") || "—") },
     ],
@@ -398,7 +402,7 @@ export async function POST(req: NextRequest) {
     db
       .from("project_ventures")
       .select(
-        "project_id,display_name,lane,founded_at,outcome_pattern,origin_org,origin_pi,short_description,long_description,narrative_text,amd_support_started_at,amd_support_ended_at"
+        "project_id,lane,founded_at,outcome_pattern,origin_org,origin_pi,short_description,long_description,narrative_text,amd_support_started_at,amd_support_ended_at,projects(project_name,client_name,news_search_query)"
       )
       .in("project_id", ids),
     db
@@ -423,7 +427,23 @@ export async function POST(req: NextRequest) {
 
   const projects = (projRes.data || []) as ProjectRow[];
   const ventureMap = new Map<string, VentureRow>();
-  for (const v of (ventRes.data || []) as VentureRow[]) ventureMap.set(v.project_id, v);
+  for (const raw of (ventRes.data || []) as Array<VentureRow & {
+    projects:
+      | { project_name: string | null; client_name: string | null; news_search_query: string | null }
+      | { project_name: string | null; client_name: string | null; news_search_query: string | null }[]
+      | null;
+  }>) {
+    const project = Array.isArray(raw.projects) ? raw.projects[0] : raw.projects;
+    ventureMap.set(raw.project_id, {
+      ...raw,
+      project_name: project?.project_name?.trim() || raw.project_id,
+      project_alias: getPrimaryProjectAlias({
+        project_name: project?.project_name,
+        client_name: project?.client_name,
+        news_search_query: project?.news_search_query,
+      }),
+    });
+  }
   const knowMap = new Map<string, KnowledgeRow[]>();
   for (const k of (knowRes.data || []) as KnowledgeRow[]) {
     if (!knowMap.has(k.project_id)) knowMap.set(k.project_id, []);

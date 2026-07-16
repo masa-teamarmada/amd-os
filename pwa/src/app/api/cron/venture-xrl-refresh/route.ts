@@ -14,13 +14,15 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { getPrimaryProjectAlias } from "@/lib/project-labels";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
 interface VentureRow {
   project_id: string;
-  display_name: string;
+  project_name: string;
+  project_alias: string | null;
   lane: string;
   founded_at: string | null;
   outcome_pattern: string;
@@ -50,10 +52,11 @@ async function proposeForProject(
     supabase.from("project_venture_members").select("full_name, role, started_at, ended_at").eq("project_id", v.project_id),
   ]);
 
-  const prompt = `AMD のディープテック PJ「${v.display_name}」の現時点の XRL レベル (TRL / BRL / HRL) を判定してください。
+  const prompt = `AMD のディープテック PJ「${v.project_name}」の現時点の XRL レベル (TRL / BRL / HRL) を判定してください。
 内閣府 SIP 第 3 期の XRL 体系 (TRL=技術成熟度、BRL=事業化成熟度、HRL=人材・市場成熟度、各 1-9)。
 
 PJ メタ:
+- 外部別名: ${v.project_alias ?? "(なし)"}
 - レーン: ${v.lane}
 - 設立日: ${v.founded_at ?? "未設立"}
 - アウトカム: ${v.outcome_pattern}
@@ -113,15 +116,32 @@ export async function GET(req: Request) {
   if (!geminiKey) return NextResponse.json({ error: "GEMINI_API_KEY not set" }, { status: 500 });
 
   const supabase = createAdminClient();
-  const { data: ventures, error } = await supabase
+  const { data: rawVentures, error } = await supabase
     .from("project_ventures")
-    .select("project_id, display_name, lane, founded_at, outcome_pattern, short_description, long_description")
+    .select("project_id, lane, founded_at, outcome_pattern, short_description, long_description, projects(project_name, client_name, news_search_query)")
     .eq("is_public", true);
-  if (error || !ventures) {
+  if (error || !rawVentures) {
     return NextResponse.json({ error: "fetch ventures failed", detail: error }, { status: 500 });
   }
+  const ventures = (rawVentures as Array<VentureRow & {
+    projects:
+      | { project_name: string | null; client_name: string | null; news_search_query: string | null }
+      | { project_name: string | null; client_name: string | null; news_search_query: string | null }[]
+      | null;
+  }>).map((raw) => {
+    const project = Array.isArray(raw.projects) ? raw.projects[0] : raw.projects;
+    return {
+      ...raw,
+      project_name: project?.project_name?.trim() || raw.project_id,
+      project_alias: getPrimaryProjectAlias({
+        project_name: project?.project_name,
+        client_name: project?.client_name,
+        news_search_query: project?.news_search_query,
+      }),
+    };
+  });
 
-  const projectIds = [...new Set((ventures as VentureRow[]).map((v) => v.project_id))];
+  const projectIds = [...new Set(ventures.map((v) => v.project_id))];
   if (projectIds.length === 0) {
     return NextResponse.json({ total: 0, skippedEcosystem: 0, results: [] });
   }
@@ -138,8 +158,8 @@ export async function GET(req: Request) {
       row.project_category || "dtsu",
     ])
   );
-  const targetVentures = (ventures as VentureRow[]).filter((v) => categoryByProject.get(v.project_id) !== "ecosystem");
-  const skippedEcosystem = (ventures as VentureRow[]).filter((v) => categoryByProject.get(v.project_id) === "ecosystem");
+  const targetVentures = ventures.filter((v) => categoryByProject.get(v.project_id) !== "ecosystem");
+  const skippedEcosystem = ventures.filter((v) => categoryByProject.get(v.project_id) === "ecosystem");
 
   const today = new Date().toISOString().slice(0, 10);
   const results: { project_id: string; status: "skipped" | "proposed" | "error"; reason?: string }[] = skippedEcosystem.map((v) => ({

@@ -238,7 +238,7 @@ export function SuDetailModal({ venture, xrl, onClose }: Props) {
                     letterSpacing: "0.04em",
                   }}
                 >
-                  {venture.display_name}
+                  {venture.project_name}
                   <span
                     style={{
                       marginLeft: 10,

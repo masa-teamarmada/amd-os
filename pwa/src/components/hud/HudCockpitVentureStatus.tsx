@@ -132,7 +132,7 @@ function dateToYearDecimal(iso: string): number {
 // Component
 // ============================================================
 
-type MetaFocus = "outcome" | "founded_at" | "origin_pi" | "origin_org" | "lane" | "name" | "description";
+type MetaFocus = "outcome" | "founded_at" | "origin_pi" | "origin_org" | "lane" | "description";
 
 interface RoleMembers {
   pls: string[];
@@ -140,7 +140,7 @@ interface RoleMembers {
   closers: string[];
 }
 
-export function HudCockpitVentureStatus({ projectId }: { projectId: string }) {
+export function HudCockpitVentureStatus({ projectId, projectName }: { projectId: string; projectName: string }) {
   const router = useRouter();
   const [bundle, setBundle] = useState<VentureStatusBundle | null>(null);
   const [amdInputs, setAmdInputs] = useState<AmdScoreInputRow[]>([]);
@@ -354,11 +354,10 @@ export function HudCockpitVentureStatus({ projectId }: { projectId: string }) {
           {outcome?.emoji}
         </button>
         <button
-          onClick={() => setMetaEditing("name")}
-          className="text-[15px] font-black text-white hover:underline decoration-dotted"
-          title="PJ 名を編集"
+          type="button"
+          className="text-[15px] font-black text-white"
         >
-          {venture.display_name}
+          {projectName}
         </button>
         <button
           onClick={() => setMetaEditing("lane")}
@@ -882,6 +881,7 @@ export function HudCockpitVentureStatus({ projectId }: { projectId: string }) {
         <CockpitVentureMetaEditModal
           venture={venture}
           focus={metaEditing}
+          projectName={projectName}
           onClose={() => setMetaEditing(null)}
           onSaved={async () => {
             setMetaEditing(null);
@@ -893,7 +893,7 @@ export function HudCockpitVentureStatus({ projectId }: { projectId: string }) {
       {narrativeOpen && venture && (
         <CockpitNarrativeModal
           projectId={projectId}
-          displayName={venture.display_name}
+          displayName={projectName}
           onClose={() => setNarrativeOpen(false)}
         />
       )}
@@ -950,7 +950,10 @@ export function HudCockpitVentureStatus({ projectId }: { projectId: string }) {
 function buildAaaVentureStatusBundle(source: VentureStatusBundle): VentureStatusBundle {
   const venture: ProjectVentureRow = {
     project_id: AAA_PROJECT_ID,
-    display_name: aaaVenture.display_name,
+    project_name: "AAA",
+    project_alias: "AAA",
+    client_name: "Autonomous Adaptive Assembly",
+    news_search_query: "\"Autonomous Adaptive Assembly\"",
     short_label: aaaVenture.short_label,
     lane: aaaVenture.lane,
     founded_at: aaaVenture.founded_at,

@@ -19,6 +19,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { calculateAmdScore, calculatePrsScore, classifyPhase, normalizeAlpha, AXIS_LABEL_JP, PHASE_LABEL_JP, type AlphaWeights } from "@/lib/amd-score";
 import { getLevelInfo, type XrlAxisKey } from "@/lib/xrl-level-definitions";
+import { getPrimaryProjectAlias } from "@/lib/project-labels";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -83,7 +84,8 @@ interface ApplyAction {
 
 
 interface ProjectContext {
-  display_name: string;
+  project_name: string;
+  project_alias: string | null;
   lane: string;
   founded_at: string | null;
   outcome_pattern: string;
@@ -129,7 +131,7 @@ async function loadProjectContext(
   ] = await Promise.all([
     supabase
       .from("project_ventures")
-      .select("display_name, lane, founded_at, outcome_pattern, short_description, long_description, origin_org, origin_pi, amd_role, amd_support_started_at, amd_support_ended_at, narrative_text")
+      .select("lane, founded_at, outcome_pattern, short_description, long_description, origin_org, origin_pi, amd_role, amd_support_started_at, amd_support_ended_at, narrative_text, projects(project_name, client_name, news_search_query)")
       .eq("project_id", projectId)
       .maybeSingle(),
     supabase.from("project_events").select("occurred_on, kind, label, meta").eq("project_id", projectId).order("occurred_on", { ascending: true }),
@@ -143,6 +145,7 @@ async function loadProjectContext(
     supabase.from("amd_score_alpha").select("alpha").is("effective_to", null).order("effective_from", { ascending: false }).limit(1).maybeSingle(),
   ]);
   if (!v) return null;
+  const project = Array.isArray(v.projects) ? v.projects[0] : v.projects;
 
   // 最新 XRL 観測 → 各軸の次レベル進捗
   const latestXrl = (xrl ?? []).filter((r) => r.source !== "llm_proposal").pop() ?? (xrl ?? []).pop();
@@ -209,7 +212,12 @@ async function loadProjectContext(
   }
 
   return {
-    display_name: v.display_name as string,
+    project_name: project?.project_name?.trim() || projectId,
+    project_alias: getPrimaryProjectAlias({
+      project_name: project?.project_name,
+      client_name: project?.client_name,
+      news_search_query: project?.news_search_query,
+    }),
     lane: v.lane as string,
     founded_at: (v.founded_at as string | null) ?? null,
     outcome_pattern: v.outcome_pattern as string,

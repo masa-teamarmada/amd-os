@@ -28,7 +28,8 @@ export type OutcomePattern = "rocket" | "lifted" | "deep_pivot" | "burnout" | "u
 export interface VentureRow {
   /** projects.project_id (例: 'p03', 'p11')。旧 ventures.id ('tiem' 等) は廃止済み (008 migration) */
   project_id: string;
-  display_name: string;
+  /** projects.project_name が正本。旧 venture 表示名概念は廃止済み。 */
+  project_name: string;
   short_label: string | null;
   /** 旧 5 lane (cron 互換用に当面残置)。新 UI / 集計は lanes (ASPI 8 domain) を優先。 */
   lane: LaneId;
@@ -60,7 +61,6 @@ export interface LaneWeightRow {
 
 type RawVentureRow = {
   project_id: string;
-  display_name: string;
   short_label: string | null;
   lane: LaneId;
   lanes: LaneWeight[] | null;
@@ -73,14 +73,14 @@ type RawVentureRow = {
   is_public: boolean;
   amd_support_started_at: string | null;
   amd_support_ended_at: string | null;
-  projects: { status: string } | { status: string }[] | null;
+  projects: { status: string; project_name: string | null } | { status: string; project_name: string | null }[] | null;
 };
 
 function flattenVentureRow(r: RawVentureRow): VentureRow {
   const project = Array.isArray(r.projects) ? r.projects[0] : r.projects;
   return {
     project_id: r.project_id,
-    display_name: r.display_name,
+    project_name: project?.project_name?.trim() || r.project_id,
     short_label: r.short_label,
     lane: r.lane,
     lanes: r.lanes,
@@ -98,7 +98,7 @@ function flattenVentureRow(r: RawVentureRow): VentureRow {
 }
 
 const VENTURE_SELECT =
-  "project_id, display_name, short_label, lane, lanes, founded_at, outcome_pattern, origin_org, origin_pi, amd_role, short_description, is_public, amd_support_started_at, amd_support_ended_at, projects(status)";
+  "project_id, short_label, lane, lanes, founded_at, outcome_pattern, origin_org, origin_pi, amd_role, short_description, is_public, amd_support_started_at, amd_support_ended_at, projects(status, project_name)";
 
 /** 公開可な PJ (SU 系) を全件、設立日昇順で取得 */
 export async function fetchVenturesForMap(): Promise<VentureRow[]> {

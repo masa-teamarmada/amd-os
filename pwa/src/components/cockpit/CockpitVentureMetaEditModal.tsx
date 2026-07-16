@@ -39,14 +39,14 @@ const AMD_ROLE_OPTIONS = [
 
 interface Props {
   venture: ProjectVentureRow;
+  projectName: string;
   /** どのフィールドにフォーカスするか (UI ヒント) */
-  focus?: "outcome" | "founded_at" | "origin_pi" | "origin_org" | "lane" | "name" | "description";
+  focus?: "outcome" | "founded_at" | "origin_pi" | "origin_org" | "lane" | "description";
   onClose: () => void;
   onSaved: () => void;
 }
 
-export function CockpitVentureMetaEditModal({ venture, focus, onClose, onSaved }: Props) {
-  const [displayName, setDisplayName] = useState(venture.display_name);
+export function CockpitVentureMetaEditModal({ venture, projectName, focus, onClose, onSaved }: Props) {
   const [shortLabel, setShortLabel] = useState(venture.short_label ?? "");
   const [lane, setLane] = useState<LaneId>(venture.lane);
   const [foundedAt, setFoundedAt] = useState(venture.founded_at ?? "");
@@ -61,14 +61,9 @@ export function CockpitVentureMetaEditModal({ venture, focus, onClose, onSaved }
   const [error, setError] = useState<string | null>(null);
 
   const onSave = async () => {
-    if (!displayName.trim()) {
-      setError("PJ 名は必須");
-      return;
-    }
     setSaving(true);
     setError(null);
     const r = await updateProjectVenture(venture.project_id, {
-      display_name: displayName.trim(),
       short_label: shortLabel.trim() || null,
       lane,
       founded_at: foundedAt || null,
@@ -107,16 +102,13 @@ export function CockpitVentureMetaEditModal({ venture, focus, onClose, onSaved }
           </button>
         </div>
         <div className="px-4 py-3 grid grid-cols-2 gap-3">
-          <label className={`flex flex-col gap-1 text-[12px] col-span-2 ${focusRing("name")} rounded`}>
-            <span className="text-muted-foreground">PJ 名 (display_name)</span>
-            <input
-              type="text"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              autoFocus={focus === "name"}
-              className="border border-[#e5e5e7] rounded-md px-2 py-1.5 text-[13px]"
-            />
-          </label>
+          <div className="col-span-2 rounded border border-dashed border-[#d6d6da] bg-[#fafafa] px-3 py-2 text-[12px]">
+            <div className="text-muted-foreground">PJ 名</div>
+            <div className="mt-1 font-semibold text-slate-900">{projectName}</div>
+            <div className="mt-1 text-[11px] text-muted-foreground">
+              ユーザー向けの PJ 名は `projects.project_name` が正本。ここでは変更しない。
+            </div>
+          </div>
 
           <label className="flex flex-col gap-1 text-[12px]">
             <span className="text-muted-foreground">短縮名 (short_label)</span>

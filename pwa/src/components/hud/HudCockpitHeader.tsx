@@ -34,15 +34,6 @@ function formatYm(ym: string) {
   return `${ym.slice(0, 4)}.${ym.slice(4)}`;
 }
 
-function projectDisplayName(projectName: string, projectId: string) {
-  const map: Record<string, string> = {
-    p21: "SolvioraX",
-    p20: "CryoX",
-    p99: "Autonomous Adaptive Assembly",
-  };
-  return map[projectId] || projectName;
-}
-
 function categoryLabel(category: string | null | undefined) {
   if (category === "ecosystem") return "ECOSYSTEM";
   if (category === "advisor") return "ADVISOR";
@@ -57,7 +48,6 @@ export function HudCockpitHeader({ project, currentYm, memberCount, initiativeSc
     text: "text-cyan-50",
   };
   const glyph = projectGlyph(project.projectName, project.projectId);
-  const displayName = projectDisplayName(project.projectName, project.projectId);
 
   return (
     <header className="relative aspect-[1895/333] overflow-hidden text-cyan-50">
@@ -79,7 +69,7 @@ export function HudCockpitHeader({ project, currentYm, memberCount, initiativeSc
             <span>{project.projectId.toUpperCase()}</span>
           </div>
           <h1 className="truncate text-[34px] font-black leading-none tracking-[0.05em] text-cyan-100 [text-shadow:0_0_18px_rgba(103,232,249,0.72)]">
-            {displayName}
+            {project.projectName}
           </h1>
           {project.clientName && (
             <p className="mt-3 truncate text-[13px] font-bold tracking-[0.04em] text-cyan-50/76">

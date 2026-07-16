@@ -95,11 +95,12 @@ export async function refreshNarrativeForProject(
   const { data: v, error: vErr } = await supabase
     .from("project_ventures")
     .select(
-      "project_id, display_name, lane, founded_at, outcome_pattern, origin_org, origin_pi, amd_role, amd_support_started_at, amd_support_ended_at, short_description, long_description"
+      "project_id, lane, founded_at, outcome_pattern, origin_org, origin_pi, amd_role, amd_support_started_at, amd_support_ended_at, short_description, long_description, projects(project_name)"
     )
     .eq("project_id", projectId)
     .maybeSingle();
   if (vErr || !v) return { ok: false, count: 0, lessons: 0, error: "venture not found" };
+  const project = Array.isArray(v.projects) ? v.projects[0] : v.projects;
 
   const [
     { data: xrl },
@@ -152,7 +153,7 @@ export async function refreshNarrativeForProject(
   ].map((l) => l.lesson_text);
 
   const input: NarrativeInput = {
-    display_name: v.display_name as string,
+    project_name: project?.project_name?.trim() || projectId,
     lane: v.lane as string,
     founded_at: (v.founded_at as string | null) ?? null,
     outcome_pattern: v.outcome_pattern as string,

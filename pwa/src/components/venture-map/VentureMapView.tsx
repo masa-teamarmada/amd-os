@@ -401,7 +401,7 @@ export function VentureMapView({ ventures, laneWeights, macroLog, papersLog, sna
           {hoveredVenture ? (
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-base">{PATTERNS[hoveredVenture.outcome_pattern]?.emoji}</span>
-              <span className="font-semibold">{hoveredVenture.display_name}</span>
+              <span className="font-semibold">{hoveredVenture.project_name}</span>
               <span className="text-muted-foreground">／ {LANES.find(l => l.id === hoveredVenture.lane)?.label}</span>
               <span className="text-muted-foreground">／ {hoveredVenture.founded_at}</span>
               {hoveredVenture.origin_org && (

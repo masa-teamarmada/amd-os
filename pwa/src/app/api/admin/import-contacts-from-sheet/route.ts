@@ -182,7 +182,7 @@ const PJ_MAP: Record<string, string> = {
   "CTB": "p06",
   "CrestecBio": "p06",
   "LST": "p07",
-  "LisTie": "p07",
+  "LiSTie": "p07",
   "JC": "p09",
   "JOYCLE": "p09",
   "BWE": "p11",
@@ -222,7 +222,7 @@ ${sheetText.slice(0, 60000)}
 
 # PJ 略称マッピング (シート内表記 → AMD の PJ ID)
 tiem=p03 (ティエムファクトリ) / KT=p04 (輝翠TECH) / CTB=p06 (CrestecBio) /
-LST=p07 (LisTie) / JC=p09 (JOYCLE) / BWE=p11 / YD=p18 (Yellow Duck) /
+LST=p07 (LiSTie) / JC=p09 (JOYCLE) / BWE=p11 / YD=p18 (Yellow Duck) /
 CX=p20 (CryoX) / SX=p21 (SolvioraX) / r3kt や OPT や SE や MC や MS は他 PJ
 ※ r3kt / OPT / SE / MC / MS / NIMS は AMD PJ ID 不明なので skip してよい
 

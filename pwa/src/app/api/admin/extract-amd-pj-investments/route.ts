@@ -2,7 +2,7 @@
  * AMD PJ への過去出資を web 情報から抽出して vc_investments に追加する。
  *
  * 各 SU 系 PJ ごとに:
- *   - project_ventures (display_name + 沿革) を context に含める
+ *   - project_ventures + projects(news_search_query) を context に含める
  *   - Claude + web_search で「<PJ 名> が誰から出資受けたか」を JSON で取得
  *   - 既知の vcs (name 一致) と紐付けて vc_investments に upsert
  *   - 同時に project_events に funding イベントとして記録
@@ -17,6 +17,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getPrimaryProjectAlias } from "@/lib/project-labels";
 
 export const maxDuration = 300;
 export const runtime = "nodejs";
@@ -54,15 +55,33 @@ export async function POST(req: NextRequest) {
   // 全 SU 系 PJ
   const { data: pjs } = await db
     .from("project_ventures")
-    .select("project_id, display_name, short_label, narrative_text, founded_at, origin_org");
+    .select("project_id, short_label, narrative_text, founded_at, origin_org, projects(project_name, client_name, news_search_query)");
   const projects = (pjs ?? []) as {
     project_id: string;
-    display_name: string;
     short_label: string | null;
     narrative_text: string | null;
     founded_at: string | null;
     origin_org: string | null;
+    projects:
+      | { project_name: string | null; client_name: string | null; news_search_query: string | null }
+      | { project_name: string | null; client_name: string | null; news_search_query: string | null }[]
+      | null;
   }[];
+  const normalizedProjects = projects.map((pj) => {
+    const project = Array.isArray(pj.projects) ? pj.projects[0] : pj.projects;
+    const projectName = project?.project_name?.trim() || pj.project_id;
+    const projectAlias = getPrimaryProjectAlias({
+      project_name: project?.project_name,
+      client_name: project?.client_name,
+      news_search_query: project?.news_search_query,
+    });
+    return {
+      ...pj,
+      project_name: projectName,
+      project_alias: projectAlias,
+      target_company: projectAlias ?? projectName,
+    };
+  });
 
   const stats = {
     pjs_processed: 0,
@@ -73,9 +92,9 @@ export async function POST(req: NextRequest) {
     errors: [] as string[],
   };
 
-  for (const pj of projects) {
+  for (const pj of normalizedProjects) {
     stats.pjs_processed++;
-    const pjLabel = pj.display_name + (pj.short_label ? ` (${pj.short_label})` : "");
+    const pjLabel = `${pj.project_name}${pj.project_alias && pj.project_alias !== pj.project_name ? ` (${pj.project_alias})` : ""}`;
 
     try {
       // 沿革から既知の funding イベントを抜粋して LLM 重複防止に使う
@@ -98,7 +117,10 @@ export async function POST(req: NextRequest) {
         .slice(0, 30)
         .join(" / ");
 
-      const prompt = `「${pjLabel}」(設立: ${pj.founded_at ?? "?"}、出自: ${pj.origin_org ?? "?"}) の VC 出資履歴を web_search で調べ、JSON で返してください。
+      const prompt = `AMD のディープテック PJ「${pj.project_name}」${pj.project_alias && pj.project_alias !== pj.project_name ? `（外部別名: ${pj.project_alias}）` : ""} の VC 出資履歴を web_search で調べ、JSON で返してください。
+
+設立: ${pj.founded_at ?? "?"}
+出自: ${pj.origin_org ?? "?"}
 
 # 既知の沿革ヒント (重複しないように)
 ${knownFundingHints || "(なし)"}
@@ -182,7 +204,7 @@ ${knownVcs}
         const { error: invErr } = await db.from("vc_investments").insert({
           vc_id: vc.id,
           our_project_id: pj.project_id,
-          target_company: pj.display_name,
+          target_company: pj.target_company,
           amount_jpy: inv.amount_jpy ?? null,
           round: inv.round ?? null,
           invested_at: inv.invested_at ?? null,

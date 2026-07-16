@@ -327,7 +327,7 @@ export function HudCockpitView({ cockpit, nudges, initialModalYm }: HudCockpitVi
           <>
             <HudCockpitSignalStrip projectId={project.projectId} status={project.status} />
             <div className="hud-cockpit-panel hud-cockpit-panel--status">
-              <HudCockpitVentureStatus projectId={project.projectId} />
+              <HudCockpitVentureStatus projectId={project.projectId} projectName={project.projectName} />
             </div>
           </>
         )}

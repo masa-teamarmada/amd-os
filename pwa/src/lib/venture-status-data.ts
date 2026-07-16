@@ -1,7 +1,7 @@
 /**
  * Cockpit の PJ Status セクション用データアクセス層 (client-side)。
  *
- * - `project_ventures`: PJ の SU メタ (lane / founded_at / outcome_pattern / display_name 等)
+ * - `project_ventures`: PJ の SU メタ (lane / founded_at / outcome_pattern 等)
  * - `project_xrl_log`: TRL/BRL/HRL 時系列
  * - `project_events`: AMD スコア / 沿革を駆動する汎用イベント (採用 / 調達 / 契約 / etc)
  *
@@ -12,6 +12,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
 import type { LaneId, OutcomePattern } from "@/lib/venture-map-data";
+import { getPrimaryProjectAlias } from "@/lib/project-labels";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
@@ -39,7 +40,10 @@ function getAuthClient() {
 
 export interface ProjectVentureRow {
   project_id: string;
-  display_name: string;
+  project_name: string;
+  project_alias: string | null;
+  client_name: string | null;
+  news_search_query: string | null;
   short_label: string | null;
   lane: LaneId;
   founded_at: string | null;
@@ -178,12 +182,74 @@ export interface VentureStatusBundle {
   events: ProjectEventRow[];
 }
 
+type RawProjectVentureRow = {
+  project_id: string;
+  short_label: string | null;
+  lane: LaneId;
+  founded_at: string | null;
+  outcome_pattern: OutcomePattern | "tbd" | "planning" | "stalled";
+  origin_org: string | null;
+  origin_pi: string | null;
+  amd_role: string | null;
+  short_description: string | null;
+  long_description: string | null;
+  amd_support_started_at: string | null;
+  amd_support_ended_at: string | null;
+  is_public: boolean;
+  narrative_text: string | null;
+  narrative_generated_at: string | null;
+  narrative_invalidated_at: string | null;
+  projects:
+    | {
+        project_name: string | null;
+        client_name: string | null;
+        news_search_query: string | null;
+      }
+    | Array<{
+        project_name: string | null;
+        client_name: string | null;
+        news_search_query: string | null;
+      }>
+    | null;
+};
+
+function toProjectVentureRow(row: RawProjectVentureRow): ProjectVentureRow {
+  const project = Array.isArray(row.projects) ? row.projects[0] : row.projects;
+  const projectName = project?.project_name?.trim() || row.project_id;
+  return {
+    project_id: row.project_id,
+    project_name: projectName,
+    project_alias: getPrimaryProjectAlias({
+      project_name: project?.project_name,
+      client_name: project?.client_name,
+      news_search_query: project?.news_search_query,
+    }),
+    client_name: project?.client_name?.trim() || null,
+    news_search_query: project?.news_search_query?.trim() || null,
+    short_label: row.short_label,
+    lane: row.lane,
+    founded_at: row.founded_at,
+    outcome_pattern: row.outcome_pattern,
+    origin_org: row.origin_org,
+    origin_pi: row.origin_pi,
+    amd_role: row.amd_role,
+    short_description: row.short_description,
+    long_description: row.long_description,
+    amd_support_started_at: row.amd_support_started_at,
+    amd_support_ended_at: row.amd_support_ended_at,
+    is_public: row.is_public,
+    narrative_text: row.narrative_text,
+    narrative_generated_at: row.narrative_generated_at,
+    narrative_invalidated_at: row.narrative_invalidated_at,
+  };
+}
+
 // ============================================================
 // 取得
 // ============================================================
 
 const VENTURE_COLUMNS =
-  "project_id, display_name, short_label, lane, founded_at, outcome_pattern, origin_org, origin_pi, amd_role, short_description, long_description, amd_support_started_at, amd_support_ended_at, is_public, narrative_text, narrative_generated_at, narrative_invalidated_at";
+  "project_id, short_label, lane, founded_at, outcome_pattern, origin_org, origin_pi, amd_role, short_description, long_description, amd_support_started_at, amd_support_ended_at, is_public, narrative_text, narrative_generated_at, narrative_invalidated_at, projects(project_name, client_name, news_search_query)";
 
 export async function fetchVentureStatus(projectId: string): Promise<VentureStatusBundle> {
   const [ventureRes, xrlRes, eventRes] = await Promise.all([
@@ -205,7 +271,7 @@ export async function fetchVentureStatus(projectId: string): Promise<VentureStat
   if (eventRes.error) console.error("[fetchVentureStatus] events", eventRes.error);
 
   return {
-    venture: (ventureRes.data as ProjectVentureRow | null) ?? null,
+    venture: ventureRes.data ? toProjectVentureRow(ventureRes.data as RawProjectVentureRow) : null,
     xrlLog: (xrlRes.data as ProjectXrlRow[] | null) ?? [],
     events: (eventRes.data as ProjectEventRow[] | null) ?? [],
   };
@@ -584,7 +650,6 @@ export async function deleteProjectEvent(eventId: string): Promise<boolean> {
 // ============================================================
 
 export interface VentureMetaPatch {
-  display_name?: string;
   short_label?: string | null;
   lane?: LaneId;
   founded_at?: string | null;
@@ -607,11 +672,11 @@ export async function updateProjectVenture(
   for (const k of Object.keys(patch) as (keyof VentureMetaPatch)[]) {
     update[k] = patch[k] as unknown;
   }
-  const { data, error } = await auth
+  const { error } = await auth
     .from("project_ventures")
     .update(update)
     .eq("project_id", projectId)
-    .select()
+    .select("project_id")
     .single();
   if (error) {
     console.error("[updateProjectVenture]", error);
@@ -622,7 +687,8 @@ export async function updateProjectVenture(
     .from("project_ventures")
     .update({ narrative_invalidated_at: new Date().toISOString() })
     .eq("project_id", projectId);
-  return data as ProjectVentureRow;
+  const refreshed = await fetchVentureStatus(projectId);
+  return refreshed.venture;
 }
 
 // ============================================================

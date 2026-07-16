@@ -131,7 +131,7 @@ function formatRoundedNumber(value: number | null | undefined) {
 // Component
 // ============================================================
 
-type MetaFocus = "outcome" | "founded_at" | "origin_pi" | "origin_org" | "lane" | "name" | "description";
+type MetaFocus = "outcome" | "founded_at" | "origin_pi" | "origin_org" | "lane" | "description";
 
 interface RoleMembers {
   pls: string[];
@@ -141,9 +141,11 @@ interface RoleMembers {
 
 export function CockpitVentureStatus({
   projectId,
+  projectName,
   onOpenScoreDetail,
 }: {
   projectId: string;
+  projectName: string;
   onOpenScoreDetail: () => void;
 }) {
   const [bundle, setBundle] = useState<VentureStatusBundle | null>(null);
@@ -404,11 +406,10 @@ export function CockpitVentureStatus({
           {outcome?.emoji}
         </button>
         <button
-          onClick={() => setMetaEditing("name")}
-          className="text-[15px] font-bold hover:underline decoration-dotted"
-          title="PJ 名を編集"
+          type="button"
+          className="text-[15px] font-bold"
         >
-          {venture.display_name}
+          {projectName}
         </button>
         <button
           onClick={() => setMetaEditing("lane")}
@@ -964,6 +965,7 @@ export function CockpitVentureStatus({
         <CockpitVentureMetaEditModal
           venture={venture}
           focus={metaEditing}
+          projectName={projectName}
           onClose={() => setMetaEditing(null)}
           onSaved={async () => {
             setMetaEditing(null);
@@ -975,7 +977,7 @@ export function CockpitVentureStatus({
       {narrativeOpen && venture && (
         <CockpitNarrativeModal
           projectId={projectId}
-          displayName={venture.display_name}
+          displayName={projectName}
           onClose={() => setNarrativeOpen(false)}
         />
       )}

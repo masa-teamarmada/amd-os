@@ -1504,3 +1504,12 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 - 今回作ったdisposable clean cloneと完了済みSonnet workerはcloseoutで削除・終了した。
 - main-alignedの古いClaude worktree 1つとbranch 1本は証跡保存後に削除し、root worktree / main branchだけへ戻した。
 - root checkoutのBook A / Atlas / L6 / H-1 dirtyは別owner laneであり、月初合意bundleへ混ぜない。
+
+## 2026-07-17 — Book A 第13章 (CEOという難問) 理論パート起草 (Ch13 理論ワーカー、fable)
+
+- **成果**: `pwa/bzm/book-a-ch-13-5.md` 新規 — 理論パート 13.1〜13.8 + 読書案内 (約11,700字、である調)。13.0 章頭は別プロセス委譲のプレースホルダ。commit `f513f376` → push → Vercel 本番反映確認済み (v3.44.1、/api/build-info で観測)。
+- **中心命題 v2 まさ確定** (補正2点: 重心 = 機能分解による開放 [CxO 肩書で完全体を探さない、URA の期限付き一時預かりまで開く] / 「外注できない」= 市場から調達できない [発明者限定にしない、担い手はシーズの来歴の中]) → NARRATIVE_DESIGN §8 台帳へ反映。
+- **経過**: 起票 (章頭+理論の対話モード) → まさ中心命題確定 → 章頭3案骨格提示にまさプロセスFB「短い説明では比較しきれない。毎回適当に回答してる」→ えいみ確定+本文稿提示方式へ切替、章頭 v1「体制図の夜」起草 → 司令塔軌道修正 (理論パートのみ・章頭は別プロセス) → 司令塔追加指示 (kaku 点検必須 / 質問せず書き切り commit まで) → 理論パート起草・push。
+- **判断 (事後報告済み)**: 出力先を指示の book-a-ch-13.md から book-a-ch-13-5.md へ修正 (book-a-ch-13 slug は第12章 RT に割当済み — 台帳記帳と bzm-chapters.ts 現物に従う。Ch12 ワーカーとのファイル衝突回避)。13.6 は章頭 specifics 非依存で自立。EP-003 は章頭専用に温存し理論内で二重使用せず。
+- **git 経路**: 本体 checkout が他レーン dirty で ff 不能 → 自 worktree を origin/main へ detach → rebase (Ch14 ワーカー push とのレース解消) → `push origin HEAD:main`。branch 新規作成なし。本体の自変更は掃除済み。
+- **残**: まさの本文レビュー / 章頭 13.0 の白紙構想 (別プロセス、v1 参考稿 = `2026-07-16_narrative_rebuild_ch13_v1.md` §2)。詳細は 9-5 附則の 2026-07-17 Ch13 行。

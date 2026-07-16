@@ -200,7 +200,7 @@ create index on papers_log (lane, observed_at);
 -- 過去・現在SU実績（v1 から継承、軌跡概念は廃止）
 create table ventures (
   id text primary key,
-  display_name text not null,
+  project_name text not null,
   short_label text,
   lane text not null,
   founded_at date not null,
@@ -300,7 +300,7 @@ atlas_themes 54本を5レーンに振り分ける必要がある。実装時に 
 | BWE | Blue Water Energy | gx_energy | lifted | スタジオモデル第1号、長崎西部下水大型PoC |
 | JC | JOYCLE | gx_circular | deep_pivot | 群大野田先生流動層熱分解で後付けdeep化 |
 | CTB | CrestecBio | life | rocket | 虚血性脳卒中薬 CTB211 / AMED採択 |
-| LST | LisTie | gx_circular | rocket | リチウム回収 |
+| LST | LiSTie | gx_circular | rocket | リチウム回収 |
 | KT | 輝翠TECH | robo | lifted | 農業ロボ / オンサイトPoC完了 |
 | CX | CryoX | gx_energy | rocket | NIMS神谷 / 磁気冷凍DC冷却 |
 | SX | SolvioraX | gx_circular | rocket | 愛媛大杉浦 / シアノ排水処理 |

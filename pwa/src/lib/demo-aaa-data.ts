@@ -5,7 +5,7 @@ export const AAA_PROJECT_ID = "p99";
 
 export const aaaVenture: VentureRow = {
   project_id: AAA_PROJECT_ID,
-  display_name: "AAA",
+  project_name: "AAA",
   short_label: "AAA",
   lane: "gx_energy",
   lanes: [

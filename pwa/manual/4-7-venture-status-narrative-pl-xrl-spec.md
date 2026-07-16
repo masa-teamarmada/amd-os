@@ -16,8 +16,7 @@
 | `amd_role` | AMD の役割 text |
 | `short_description` | 1 行説明 |
 | `long_description` | 詳細説明 |
-| `display_name` | 表示名 (= `projects.project_name` と別の場合あり) |
-| `short_label` | 短縮ラベル |
+| `short_label` | 補助ラベル (= UI の短縮表示用。PJ名の正本は常に `projects.project_name`) |
 | `is_public` | 公開可否 |
 | `amd_support_started_at` / `amd_support_ended_at` | AMD 伴走期間 (= ended が set されたら卒業) |
 | `narrative_text` | 沿革 narrative (= LLM 生成 Markdown) |

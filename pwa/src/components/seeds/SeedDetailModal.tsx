@@ -44,8 +44,14 @@ interface MemberLite {
 }
 interface ProjectLite {
   project_id: string;
-  display_name: string;
+  project_name: string;
   short_label: string | null;
+}
+
+interface RawProjectLite {
+  project_id: string;
+  short_label: string | null;
+  projects: { project_name: string | null } | { project_name: string | null }[] | null;
 }
 
 export function SeedDetailModal({
@@ -76,10 +82,21 @@ export function SeedDetailModal({
     const sb = createClient();
     Promise.all([
       sb.from("members").select("member_id, code_name").order("code_name"),
-      sb.from("project_ventures").select("project_id, display_name, short_label").order("display_name"),
+      sb.from("project_ventures").select("project_id, short_label, projects(project_name)"),
     ]).then(([m, p]) => {
       setMembers((m.data ?? []) as MemberLite[]);
-      setProjects((p.data ?? []) as ProjectLite[]);
+      const rawProjects = (p.data ?? []) as unknown as RawProjectLite[];
+      const projectList = rawProjects
+        .map((row) => {
+          const project = Array.isArray(row.projects) ? row.projects[0] : row.projects;
+          return {
+            project_id: row.project_id,
+            project_name: project?.project_name?.trim() || row.project_id,
+            short_label: row.short_label,
+          };
+        })
+        .sort((a, b) => a.project_name.localeCompare(b.project_name));
+      setProjects(projectList);
     });
   }, []);
 
@@ -666,7 +683,7 @@ function SeedEditForm({
             <option value="">—</option>
             {projects.map((p) => (
               <option key={p.project_id} value={p.project_id}>
-                {p.short_label ?? p.display_name}
+                {p.short_label ?? p.project_name}
               </option>
             ))}
           </select>

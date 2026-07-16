@@ -19,6 +19,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import Anthropic from "@anthropic-ai/sdk";
 import { getBackgroundAnthropic, BackgroundAnthropicDisabledError } from "@/lib/anthropic-client";
+import { extractNewsSearchAliases } from "@/lib/project-labels";
 
 function getServiceClient() {
   return createClient(
@@ -84,8 +85,8 @@ function addAlias(set: Set<string>, value: unknown) {
 
 async function loadAliasProfiles(supabase: SupabaseClient): Promise<AliasProfile[]> {
   const [{ data: projects }, { data: ventures }] = await Promise.all([
-    supabase.from("projects").select("project_id, project_name, client_name"),
-    supabase.from("project_ventures").select("project_id, display_name, short_label, origin_org, origin_pi"),
+    supabase.from("projects").select("project_id, project_name, client_name, news_search_query"),
+    supabase.from("project_ventures").select("project_id, short_label, origin_org, origin_pi"),
   ]);
   const { data: knowledgeAliases } = await supabase
     .from("project_knowledge")
@@ -104,8 +105,8 @@ async function loadAliasProfiles(supabase: SupabaseClient): Promise<AliasProfile
     const aliases = new Set<string>();
     addAlias(aliases, project.project_name);
     addAlias(aliases, project.client_name);
+    for (const alias of extractNewsSearchAliases(String(project.news_search_query || ""))) addAlias(aliases, alias);
     for (const venture of ventureByProject.get(projectId) || []) {
-      addAlias(aliases, venture.display_name);
       addAlias(aliases, venture.short_label);
       addAlias(aliases, venture.origin_org);
       addAlias(aliases, venture.origin_pi);

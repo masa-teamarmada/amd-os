@@ -363,7 +363,7 @@ export function AmdScoreView({
               result={result}
               alpha={alpha}
               editable={editable}
-              ventureName={venture.display_name}
+              ventureName={venture.project_name}
               latestXrlLog={latestXrlLog}
               atlasMacroSignals={atlasMacroSignals}
               tripleHelix={tripleHelix}
@@ -371,7 +371,7 @@ export function AmdScoreView({
             <FrlAlqPanel
               editable={editable}
               effectiveFrl={effectiveFrl}
-              ventureName={venture.display_name}
+              ventureName={venture.project_name}
               compact
             />
           </section>
@@ -425,7 +425,7 @@ export function AmdScoreView({
           >
             ↩ コックピット
           </Link>
-          <h1 className="ml-2 text-2xl font-bold tracking-tight text-slate-900">{venture.display_name}</h1>
+          <h1 className="ml-2 text-2xl font-bold tracking-tight text-slate-900">{venture.project_name}</h1>
           <span className="text-xs font-semibold tracking-wide text-slate-500">SPS primary / legacy AMD</span>
           <Link
             href="/venture-map/amd-score/retrofit"
@@ -480,12 +480,12 @@ export function AmdScoreView({
           result={result}
           alpha={alpha}
           editable={editable}
-          ventureName={venture.display_name}
+          ventureName={venture.project_name}
           latestXrlLog={latestXrlLog}
           atlasMacroSignals={atlasMacroSignals}
           tripleHelix={tripleHelix}
         />
-        <FrlAlqPanel editable={editable} effectiveFrl={effectiveFrl} ventureName={venture.display_name} />
+        <FrlAlqPanel editable={editable} effectiveFrl={effectiveFrl} ventureName={venture.project_name} />
         <XrlChecklistPanel
           projectId={venture.project_id}
           latestInput={latest}

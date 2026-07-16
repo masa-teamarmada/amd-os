@@ -1988,13 +1988,13 @@ export async function fetchProjectsFromSupabase(): Promise<DashProject[]> {
   const { data: ventureRows } = projectIds.length
     ? await supabase
       .from("project_ventures")
-      .select("project_id, display_name, short_label")
+      .select("project_id, short_label")
       .in("project_id", projectIds)
     : { data: [] };
   const ventureMap = new Map(
     (ventureRows || []).map((r) => [
       r.project_id,
-      { displayName: r.display_name || "", shortLabel: r.short_label || "" },
+      { shortLabel: r.short_label || "" },
     ])
   );
   const { data: projectMemberRows } = projectIds.length
@@ -2030,7 +2030,7 @@ export async function fetchProjectsFromSupabase(): Promise<DashProject[]> {
   return (data || []).map((r) => ({
     projectId: r.project_id,
     projectName: r.project_name,
-    displayName: normalizeDashboardProjectName(r.project_id, ventureMap.get(r.project_id)?.displayName || r.project_name),
+    displayName: normalizeDashboardProjectName(r.project_id, r.project_name),
     shortLabel: ventureMap.get(r.project_id)?.shortLabel || r.project_name,
     roleLine: roleLineMap.get(r.project_id) || "PL -- / PM -- / Closer --",
     clientName: r.client_name || "",

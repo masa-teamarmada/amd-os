@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-07-17 01:12 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-07-17 01:43 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -3472,7 +3472,6 @@ PRIMARY KEY: `project_id`
 | 12 | `narrative_text` | `text` | NULL | `` |
 | 13 | `narrative_generated_at` | `timestamptz` | NULL | `` |
 | 14 | `narrative_invalidated_at` | `timestamptz` | NULL | `` |
-| 15 | `display_name` | `text` | NOT NULL | `` |
 | 16 | `short_label` | `text` | NULL | `` |
 | 17 | `amd_support_started_at` | `date` | NULL | `` |
 | 18 | `amd_support_ended_at` | `date` | NULL | `` |

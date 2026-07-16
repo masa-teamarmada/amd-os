@@ -380,6 +380,7 @@ export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab,
       ) : showAmdScore ? (
         <CockpitVentureStatus
           projectId={project.projectId}
+          projectName={project.projectName}
           onOpenScoreDetail={() => selectTab("score-detail")}
         />
       ) : null)}

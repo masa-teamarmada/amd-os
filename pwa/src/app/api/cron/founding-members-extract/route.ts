@@ -10,7 +10,7 @@
  *   - monthly_reports.draft_content (直近 6 ヶ月)
  *   - project_meeting_summaries (直近 3 ヶ月)
  *   - project_knowledge (直近 6 ヶ月)
- *   - project_ventures.origin_org / origin_pi / display_name
+ *   - project_ventures.origin_org / origin_pi + projects.project_name
  *   - 既存 project_founding_members (重複防止)
  *   - members.code_name (alias map)
  *
@@ -182,7 +182,7 @@ type DBClient = any;
 async function extractForProject(
   db: DBClient,
   anthropic: Anthropic,
-  project: { project_id: string; display_name: string; origin_org: string | null; origin_pi: string | null; master_md_text: string | null },
+  project: { project_id: string; project_name: string; origin_org: string | null; origin_pi: string | null; master_md_text: string | null },
   amdMembers: AmdMemberRow[]
 ): Promise<{ projectId: string; saved: number; skipped: number; total: number; error?: string }> {
   const projectId = project.project_id;
@@ -267,7 +267,7 @@ async function extractForProject(
     : "\n# SU 基本情報\n(まだ knowledge/<slug>.md が同期されていない。affiliation の表面情報だけで安易に分類しないこと。)\n";
 
   const prompt = `あなたは Deep-Tech ベンチャースタジオ AMD のアナリストです。
-PJ「${project.display_name}」(project_id=${projectId}) の **関連メンバー** を抽出してください。
+PJ「${project.project_name}」(project_id=${projectId}) の **関連メンバー** を抽出してください。
 ${masterBlock}
 # 関連メンバーの定義 (まさ判断 2026-05-22 v4)
 このリストは HRL (Human Resources Readiness Level) の評価ベース。
@@ -313,7 +313,7 @@ AMD code_name (${amdCodeNames}) と一致した person は **category="amd"** �
 ※ AMD bot (つくよみ / info) は alias map に含めていない。これらを抽出しない。
 
 # 既知の文脈
-- display_name (SU 名): ${project.display_name}
+- project_name (SU 名): ${project.project_name}
 - origin_org: ${project.origin_org ?? "(不明)"}
 - origin_pi: ${project.origin_pi ?? "(不明)"}
 - 既知メンバー (このリストに無い人物が見つかったら新規追加、ある人物は同じ person_name で返す): ${existingNames}
@@ -447,7 +447,7 @@ ${docsBlock.slice(0, 60000)}
         l2_kind: "founding_members",
         target_id: projectId,
         scope_key: today,
-        title: `📋 ${project.display_name} 関連メンバー更新 (${newOrChanged.length} 件)`,
+        title: `📋 ${project.project_name} 関連メンバー更新 (${newOrChanged.length} 件)`,
         summary,
         saved_count: newOrChanged.length,
         total_count: acceptedMembers.length,
@@ -497,29 +497,28 @@ export async function GET(req: NextRequest) {
   const targetPid = req.nextUrl.searchParams.get("project_id");
   const ventureQuery = db
     .from("project_ventures")
-    .select("project_id, display_name, origin_org, origin_pi, master_md_text")
+    .select("project_id, origin_org, origin_pi, master_md_text")
     .eq("is_public", true);
   if (targetPid) {
     ventureQuery.eq("project_id", targetPid);
   }
   const { data: ventures } = await ventureQuery.order("project_id", { ascending: true });
 
-  const projectsRaw = (ventures ?? []) as {
+  const venturesRaw = (ventures ?? []) as {
     project_id: string;
-    display_name: string;
     origin_org: string | null;
     origin_pi: string | null;
     master_md_text: string | null;
   }[];
 
-  if (projectsRaw.length === 0) {
+  if (venturesRaw.length === 0) {
     return NextResponse.json({ error: "no target projects" }, { status: 404 });
   }
 
-  const projectIds = [...new Set(projectsRaw.map((project) => project.project_id))];
+  const projectIds = [...new Set(venturesRaw.map((venture) => venture.project_id))];
   const { data: projectRows, error: projectError } = await db
     .from("projects")
-    .select("project_id, project_category")
+    .select("project_id, project_category, project_name")
     .in("project_id", projectIds);
   if (projectError) {
     return NextResponse.json({ error: "fetch project categories failed", detail: projectError.message }, { status: 500 });
@@ -530,6 +529,16 @@ export async function GET(req: NextRequest) {
       row.project_category || "dtsu",
     ])
   );
+  const nameByProject = new Map(
+    ((projectRows ?? []) as Array<{ project_id: string; project_name: string | null }>).map((row) => [
+      row.project_id,
+      row.project_name?.trim() || row.project_id,
+    ])
+  );
+  const projectsRaw = venturesRaw.map((venture) => ({
+    ...venture,
+    project_name: nameByProject.get(venture.project_id) || venture.project_id,
+  }));
   const skippedEcosystem = projectsRaw.filter((project) => categoryByProject.get(project.project_id) === "ecosystem");
   const projects = projectsRaw.filter((project) => categoryByProject.get(project.project_id) !== "ecosystem");
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAuth } from "@/lib/supabase/api-auth";
+import { getPrimaryProjectAlias } from "@/lib/project-labels";
 
 export const runtime = "nodejs";
 
@@ -14,8 +15,12 @@ const CONTRIBUTION_STATUSES = ["full", "partial", "none", "unreviewed"] as const
 
 type ContributionStatus = (typeof CONTRIBUTION_STATUSES)[number];
 type FundingKind = "funding" | "grant";
-type ProjectRow = { project_id: string; project_name: string | null };
-type VentureRow = { project_id: string; display_name: string | null; short_label: string | null };
+type ProjectRow = {
+  project_id: string;
+  project_name: string | null;
+  client_name: string | null;
+  news_search_query: string | null;
+};
 type FundingRoundRow = {
   id: string;
   project_id: string;
@@ -76,21 +81,20 @@ export async function GET() {
   if (!auth.ok) return auth.errorResponse;
 
   const db = createAdminClient();
-  const [roundsRes, grantsRes, projectsRes, venturesRes] = await Promise.all([
+  const [roundsRes, grantsRes, projectsRes] = await Promise.all([
     db
       .from("project_valuation_rounds")
       .select("id, project_id, round_name, round_date, round_ym, raised_yen, status, security_type, amd_contribution_status, amd_contributed_yen, amd_contribution_note"),
     db
       .from("project_grants")
       .select("id, project_id, grant_name, agency, grant_type, amount_yen, status, adopted_date, period_start_ym, period_end_ym, amd_contribution_status, amd_contributed_yen, amd_contribution_note"),
-    db.from("projects").select("project_id, project_name"),
-    db.from("project_ventures").select("project_id, display_name, short_label"),
+    db.from("projects").select("project_id, project_name, client_name, news_search_query"),
   ]);
 
-  if (roundsRes.error || grantsRes.error || projectsRes.error || venturesRes.error) {
+  if (roundsRes.error || grantsRes.error || projectsRes.error) {
     return NextResponse.json({
       ok: false,
-      error: roundsRes.error?.message || grantsRes.error?.message || projectsRes.error?.message || venturesRes.error?.message,
+      error: roundsRes.error?.message || grantsRes.error?.message || projectsRes.error?.message,
     }, { status: 500 });
   }
 
@@ -98,10 +102,11 @@ export async function GET() {
   const projectNameOf: Record<string, string> = {};
   ((projectsRes.data ?? []) as ProjectRow[]).forEach((p) => {
     projectNameOf[p.project_id] = p.project_name || p.project_id;
-    nameOf[p.project_id] = p.project_name || p.project_id;
-  });
-  ((venturesRes.data ?? []) as VentureRow[]).forEach((v) => {
-    nameOf[v.project_id] = v.display_name || v.short_label || nameOf[v.project_id] || v.project_id;
+    nameOf[p.project_id] = getPrimaryProjectAlias({
+      project_name: p.project_name,
+      client_name: p.client_name,
+      news_search_query: p.news_search_query,
+    }) ?? p.project_name ?? p.project_id;
   });
 
   const fundingItems = ((roundsRes.data ?? []) as FundingRoundRow[])

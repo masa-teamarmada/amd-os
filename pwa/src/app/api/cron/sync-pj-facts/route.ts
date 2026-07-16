@@ -42,12 +42,12 @@ export async function GET(req: NextRequest) {
 
   const { data: ventures, error: vErr } = await db
     .from("project_ventures")
-    .select("project_id, display_name, founded_at, outcome_pattern, amd_support_started_at, amd_support_ended_at, origin_org, origin_pi, lane");
+    .select("project_id, founded_at, outcome_pattern, amd_support_started_at, amd_support_ended_at, origin_org, origin_pi, lane, projects(project_name)");
   if (vErr) return NextResponse.json({ ok: false, error: vErr.message }, { status: 500 });
 
   type V = {
     project_id: string;
-    display_name: string | null;
+    projects: { project_name: string | null } | { project_name: string | null }[] | null;
     founded_at: string | null;
     outcome_pattern: string | null;
     amd_support_started_at: string | null;
@@ -60,6 +60,7 @@ export async function GET(req: NextRequest) {
   let totalSynced = 0;
 
   for (const v of list) {
+    const project = Array.isArray(v.projects) ? v.projects[0] : v.projects;
     // 既存の自動同期 row を削除 (= 毎回上書き)
     await db
       .from("project_knowledge")
@@ -80,7 +81,7 @@ export async function GET(req: NextRequest) {
         status: "active",
       });
     };
-    push("PJ 表示名", v.display_name);
+    push("PJ名", project?.project_name?.trim() || v.project_id);
     push("起源組織", v.origin_org);
     push("PI / 研究者", v.origin_pi);
     push("レーン", v.lane);

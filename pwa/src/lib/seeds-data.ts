@@ -62,10 +62,15 @@ export async function fetchSeedList(): Promise<SeedListItem[]> {
   if (pjIds.length > 0) {
     const { data: pjs } = await supabase
       .from("project_ventures")
-      .select("project_id, display_name, short_label")
+      .select("project_id, short_label, projects(project_name)")
       .in("project_id", pjIds);
-    for (const p of (pjs ?? []) as { project_id: string; display_name: string; short_label: string | null }[]) {
-      pjNameMap.set(p.project_id, p.short_label ?? p.display_name);
+    for (const p of (pjs ?? []) as {
+      project_id: string;
+      short_label: string | null;
+      projects: { project_name: string | null } | { project_name: string | null }[] | null;
+    }[]) {
+      const project = Array.isArray(p.projects) ? p.projects[0] : p.projects;
+      pjNameMap.set(p.project_id, p.short_label ?? project?.project_name ?? p.project_id);
     }
   }
 
@@ -158,12 +163,16 @@ export async function fetchSeedDetail(seedId: string): Promise<SeedDetail | null
   if (seed.spun_off_project_id) {
     const { data: pj } = await supabase
       .from("project_ventures")
-      .select("display_name, short_label")
+      .select("short_label, projects(project_name)")
       .eq("project_id", seed.spun_off_project_id)
       .maybeSingle();
     if (pj) {
-      const p = pj as { display_name: string; short_label: string | null };
-      spunOffProjectName = p.short_label ?? p.display_name;
+      const p = pj as {
+        short_label: string | null;
+        projects: { project_name: string | null } | { project_name: string | null }[] | null;
+      };
+      const project = Array.isArray(p.projects) ? p.projects[0] : p.projects;
+      spunOffProjectName = p.short_label ?? project?.project_name ?? seed.spun_off_project_id;
     }
   }
 

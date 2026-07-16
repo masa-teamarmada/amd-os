@@ -64,14 +64,16 @@ export async function POST(
   const supabase = createAdminClient();
   const { data: venture, error: vErr } = await supabase
     .from("project_ventures")
-    .select("display_name, short_description, long_description")
+    .select("short_description, long_description, projects(project_name)")
     .eq("project_id", projectId)
     .maybeSingle();
   if (vErr || !venture) {
     return NextResponse.json({ error: "venture not found" }, { status: 404 });
   }
+  const projectRel = Array.isArray(venture.projects) ? venture.projects[0] : venture.projects;
+  const projectName = projectRel?.project_name?.trim() || projectId;
 
-  const userPrompt = `PJ: ${venture.display_name}
+  const userPrompt = `PJ: ${projectName}
 
 既存 short_description (1 行):
 ${venture.short_description || "(未設定)"}

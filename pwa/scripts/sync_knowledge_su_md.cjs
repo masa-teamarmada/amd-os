@@ -36,7 +36,7 @@ async function main() {
 
   const { data: ventures, error } = await db
     .from("project_ventures")
-    .select("project_id, display_name, master_md_slug")
+    .select("project_id, master_md_slug, projects(project_name)")
     .not("master_md_slug", "is", null);
   if (error) {
     console.error("fetch project_ventures failed:", error.message);
@@ -50,10 +50,12 @@ async function main() {
   let synced = 0;
   let missing = 0;
   for (const v of ventures) {
+    const project = Array.isArray(v.projects) ? v.projects[0] : v.projects;
+    const projectName = project?.project_name || v.project_id;
     const slug = v.master_md_slug;
     const filePath = path.join(KNOWLEDGE_DIR, `${slug}.md`);
     if (!fs.existsSync(filePath)) {
-      console.warn(`[skip] ${v.project_id} (${v.display_name}): ${filePath} not found`);
+      console.warn(`[skip] ${v.project_id} (${projectName}): ${filePath} not found`);
       missing++;
       continue;
     }
@@ -69,7 +71,7 @@ async function main() {
       console.error(`[error] ${v.project_id}: ${updateError.message}`);
       continue;
     }
-    console.log(`[ok] ${v.project_id} (${v.display_name}) ← ${slug}.md (${text.length} chars)`);
+    console.log(`[ok] ${v.project_id} (${projectName}) ← ${slug}.md (${text.length} chars)`);
     synced++;
   }
   console.log(`\nDone. synced=${synced}, missing=${missing}`);

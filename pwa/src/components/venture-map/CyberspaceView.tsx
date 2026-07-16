@@ -127,8 +127,8 @@ function buildPoints(
 
     points.push({
       projectId: v.project_id,
-      displayName: v.display_name,
-      shortLabel: v.short_label || v.display_name.slice(0, 4),
+      displayName: v.project_name,
+      shortLabel: v.short_label || v.project_name.slice(0, 4),
       evaluatedAt: latest.evaluated_at,
       score: result.score,
       bottleneck: result.bottleneck,

@@ -16,7 +16,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 interface VentureRow {
-  display_name: string;
+  project_name: string;
   lane: string;
   founded_at: string | null;
   outcome_pattern: string;
@@ -61,7 +61,7 @@ export async function POST(
   const [{ data: venture }, { data: log }, { data: events }, { data: members }] = await Promise.all([
     supabase
       .from("project_ventures")
-      .select("display_name, lane, founded_at, outcome_pattern, short_description, long_description")
+      .select("lane, founded_at, outcome_pattern, short_description, long_description, projects(project_name)")
       .eq("project_id", projectId)
       .maybeSingle(),
     supabase
@@ -81,10 +81,15 @@ export async function POST(
   ]);
 
   if (!venture || !log) return NextResponse.json({ error: "not found" }, { status: 404 });
-  const v = venture as VentureRow;
+  const rawVenture = venture as unknown as Omit<VentureRow, "project_name"> & {
+    projects: { project_name: string | null } | { project_name: string | null }[] | null;
+  };
+  const { projects: projectRelRaw, ...ventureRest } = rawVenture;
+  const projectRel = Array.isArray(projectRelRaw) ? projectRelRaw[0] : projectRelRaw;
+  const v: VentureRow = { ...ventureRest, project_name: projectRel?.project_name?.trim() || projectId };
   const x = log as XrlLogRow;
 
-  const prompt = `AMD のディープテック PJ「${v.display_name}」の XRL 観測 (${x.observed_at}) について、
+  const prompt = `AMD のディープテック PJ「${v.project_name}」の XRL 観測 (${x.observed_at}) について、
 まさからのフィードバックを反映して再評価してください。
 ${targetAxis ? `フィードバックの主対象軸: ${targetAxis}` : ""}
 

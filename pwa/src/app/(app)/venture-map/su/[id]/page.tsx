@@ -30,7 +30,7 @@ export default async function SuDetailPage({ params }: Props) {
       <div className="mb-4 flex items-center gap-2 text-[12px] text-muted-foreground">
         <Link href="/venture-map" className="hover:underline">Venture Map</Link>
         <span>/</span>
-        <span>{venture.display_name}</span>
+        <span>{venture.project_name}</span>
       </div>
       <SuDetailView venture={venture} xrlLog={xrlLog} macroLog={laneMacro} />
     </div>
