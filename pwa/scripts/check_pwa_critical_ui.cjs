@@ -1564,6 +1564,15 @@ expectNotIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
   "onClick={() => onSelectBase(s.id)} className={`cursor-pointer",
 ]);
 
+// UX review repair v2 (2026-07-16, v3.43.4): 仮説列見出しの固定表示、発行済/完全希薄化行分割、
+// 行見出しの table semantics (`<th scope="row">`) を保証。既存の a11y/UX review 差分が
+// リグレッションで巻き戻らないこと。
+expectIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
+  "完全希薄化後",
+  "<th scope=\"row\"",
+  "text-[10px] font-semibold text-blue-700\">仮・FD</div>",
+]);
+
 // migration 175: LST (p07) の創業〜QST in-kind まで正史を復元 (source: xlsx:LST_captable_250415.xlsx)。
 expectIncludes("scripts/migrations/175_lst_cap_table_history.sql", [
   "xlsx:LST_captable_250415.xlsx#incorporation-202307",

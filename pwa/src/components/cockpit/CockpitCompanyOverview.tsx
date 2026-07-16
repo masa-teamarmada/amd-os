@@ -264,7 +264,7 @@ function EventOwnershipBar({ label, holders, emptyLabel = "—" }: { label: stri
 function MatrixMetaRow({ label, values, scenarioValue, snapshots, baseId }: { label: string; values: string[]; scenarioValue: string; snapshots: CapTableSnapshot[]; baseId: string }) {
   return (
     <tr>
-      <td className="sticky left-0 z-10 border-r border-slate-100 bg-slate-50 px-3 py-2 font-medium text-slate-500">{label}</td>
+      <th scope="row" className="sticky left-0 z-10 border-r border-slate-100 bg-slate-50 px-3 py-2 text-left font-medium text-slate-500">{label}</th>
       {snapshots.map((snapshot, index) => (
         <td key={snapshot.id} className={`px-1.5 py-2 text-right tabular-nums text-slate-600 ${snapshot.id === baseId ? "bg-slate-50" : ""}`}>{values[index]}</td>
       ))}
@@ -406,7 +406,8 @@ function CapitalPolicyWorkspace({
                   })}
                   <th className="border-b border-l border-dashed border-blue-300 bg-blue-50/60 px-1.5 py-2 align-bottom" title={`${baselineLabel} / 仮・FD / 次回ラウンド（試算）`} aria-label={`${baselineLabel} 仮・FD 次回ラウンド（試算）`}>
                     <div className="px-1 pb-1">
-                      <div className="truncate text-[10px] font-medium text-blue-600">{baselineLabel} 仮・FD</div>
+                      <div className="text-[10px] font-semibold text-blue-700">仮・FD</div>
+                      <div className="truncate text-[10px] font-medium text-blue-600" title={baselineLabel}>{snapshot.label} 基準</div>
                       <div className="truncate text-[11px] font-semibold text-blue-900">次回ラウンド（試算）</div>
                     </div>
                   </th>
@@ -414,7 +415,7 @@ function CapitalPolicyWorkspace({
               </thead>
               <tbody className="divide-y divide-slate-100">
                 <tr>
-                  <td className="sticky left-0 z-10 border-r border-slate-100 bg-white px-3 py-2 text-slate-400">構成</td>
+                  <th scope="row" className="sticky left-0 z-10 border-r border-slate-100 bg-white px-3 py-2 text-left font-normal text-slate-400">構成</th>
                   {snapshots.map((s) => (
                     <td key={s.id} className={`px-1.5 py-2 ${s.id === baseId ? "bg-slate-50" : ""}`}>
                       <EventOwnershipBar label={`${formatDate(s.effectiveOn)} ${s.label}`} holders={aggregateByHolderName(s).map((holder) => ({ holderName: holder.holderName, pct: holder.pct, color: colorOf(holder.holderName) }))} />
@@ -431,6 +432,9 @@ function CapitalPolicyWorkspace({
 
                 <MatrixMetaRow label="発行済株式" snapshots={snapshots} baseId={baseId}
                   values={snapshots.map((s) => `${formatNumber(s.outstandingShares, 2)}株`)}
+                  scenarioValue="—" />
+                <MatrixMetaRow label="完全希薄化後" snapshots={snapshots} baseId={baseId}
+                  values={snapshots.map((s) => `${formatNumber(s.dilutedShares, 2)}株`)}
                   scenarioValue={result?.valid ? `FD ${formatNumber(result.postFdShares, 2)}株` : "—"} />
                 <MatrixMetaRow label="新規発行株式" snapshots={snapshots} baseId={baseId}
                   values={snapshots.map((s) => (s.outstandingDelta ? `${s.outstandingDelta > 0 ? "+" : ""}${formatNumber(s.outstandingDelta, 2)}株` : "—"))}
@@ -456,9 +460,9 @@ function CapitalPolicyWorkspace({
                   const scenarioRow = result?.valid ? result.rows.find((row) => row.holderName === holderName) : null;
                   return (
                     <tr key={holderName}>
-                      <td className="sticky left-0 z-10 border-r border-slate-100 bg-white px-3 py-2 font-medium text-slate-900">
+                      <th scope="row" className="sticky left-0 z-10 border-r border-slate-100 bg-white px-3 py-2 text-left font-medium text-slate-900">
                         <span className="flex items-center gap-1.5 truncate"><span className="size-2 shrink-0 rounded-sm" style={{ backgroundColor: colorOf(holderName) }} /><span className="truncate">{holderName}</span></span>
-                      </td>
+                      </th>
                       {snapshots.map((s) => {
                         const holder = aggregateByHolderName(s).find((item) => item.holderName === holderName);
                         return (
