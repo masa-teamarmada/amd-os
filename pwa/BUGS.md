@@ -5,6 +5,36 @@
 
 ---
 
+### [L2M-1/Cockpit] MSカード「この月の仕事」欄に月次レポート markdown table が重複表示 (2026-07-01)
+
+- **状態**: クローズ (2026-07-01 — `v0.36.42` / commit `5f7f15bd` で `extractReportSnippets` を削除)。
+- **症状**: L2M-1 v2 (KUTE 準拠新プロンプト) で `monthly_reports.final_content` を上書きするたびに、月次モーダル右カラム「この月の仕事」欄に「月次レポート: | 項目 | 内容 |」等の markdown table 行が各 MS カードへ重複挿入されるように見えた。テストラン毎に肥大化して見え、まさから「設計間違ってない?」指摘。
+- **原因**: `CockpitMonthlyModal.tsx` の `extractReportSnippets` が **正本仕様外の追加実装**。design/cockpit.md L105 と manual/2-3-pj-cockpit.md L111 の「現状」欄正本は `milestone_monthly_progress.note` + `member_ms_activities` narrative + `member_activities` 直近材料の 3 ソースのみで、`monthly_reports.final_content` からのキーワード切り出しは含まれない。加えて新プロンプトが markdown table 主体で章立てするため、`\n{2,}` の paragraph 分割で table 全体が 1 chunk となり、各 MS の title キーワードにヒットして複数 MS カードに同じ表全体が繰り返し表示された。DB は追記されておらず、UI 側の重複表示のみだったが、まさが「テスト毎に増えてる」と認識するほど視覚的に破綻。
+- **対応内容**: `extractReportSnippets` 関数・prop・呼び出し 2 箇所・`hasWork` 判定内の分岐・レンダリングブロックを全削除。関数定義位置には正本仕様参照付きの説明コメントを残す。BUILD_VERSION `v0.36.41`→`v0.36.42`。
+- **再発防止**: MS カード「現状」欄に新しいソースを追加する場合、必ず `design/cockpit.md` と `manual/2-3-pj-cockpit.md` の 3 ソース記述を先に更新してから実装する。仕様外の実装を追加すると、後段の routine 出力仕様が変わるたびに UI 破綻の温床になる。
+
+---
+
+### [L2M-1] one-shot テストで DB write skip → 月次モーダル未反映 (2026-07-01)
+
+- **状態**: クローズ (2026-07-01 — 本番 SKILL.md に「1 PJ 完了条件 4 つ」節を追加、DB upsert + verify を完了条件に組み込み)。
+- **症状**: L2M-1 test task (`l2m1-test-p00-june-internal-only`) を実行して LLM 生成は成功、ローカルファイル (`output/l2m1_test/p00_202606_internal.md`) は出力されたが、`monthly_reports.final_content` は旧 gpt-5.5 版のまま残り、月次モーダルに新版が反映されなかった。
+- **原因**: test task の SKILL.md に「絶対条件 6: DB に一切書かない」と記述してあり、LLM が忠実に skip した。ファイル出力 front matter が `db_written: false` / `note: TEST RUN - not saved to monthly_reports` となっており、LLM は仕様通り動作。ただし本番 routine SKILL.md 側も同様に「LLM 生成 → ファイル書き出し → Slack 通知」で「1 PJ 完了扱い」の抜け穴があり、月末最終日発火時にも同じ事故が再現する可能性が判明。まさ「毎月えいみが手動で流し込むのは絶対イヤ」明言 (2026-07-01)。
+- **対応内容**: 本番 SKILL.md に「1 PJ ごとの完了条件」節を新設し、4 条件 (LLM生成 / `upsertMonthlyReports` 実行で `writtenCount>=1` 受領 / GET verify で length・status・generated_at 一致確認 / Slack 完了通知) を全部満たさない限り成功版 Slack 通知禁止と明記。テスト task の SKILL.md も DB 上書き + verify + Slack を必須にする形へ書き直し (fireAt 再武装済み)。
+- **再発防止**: routine を書くとき「LLM 生成成功 = task 完了」ではなく「DB reflect 確認 = task 完了」を完了条件に据える。Slack 通知テンプレは「成功」を絶対条件と紐付け、条件不成立時は失敗版のみ送るガードを入れる。ローカルファイル出力は verify 副本として位置付け、完了判定に使わない。
+
+---
+
+### [PWA/AMD Score] async読込後の因子表がmobile documentを横へ拡張した (2026-07-16)
+
+- **状態**: クローズ (2026-07-16 — `v3.41.16` でtableをcard内scrollへ収容し、production 390px viewportでdocument幅390pxを確認)。
+- **症状**: cockpit `スコア詳細` は初期表示ではmobile幅に収まるが、score evidenceのasync読込後にdocument `scrollWidth`が567px、途中修正後も550pxへ広がった。desktopでも600px固定SVGが右列を21px押し広げた。
+- **原因**: 600px最低幅のPRS/XRL SVG、360px列内のFRL横並び、CSS grid itemのintrinsic min-width、441pxのM/X/F因子tableが別々に外側へoverflowしていた。親gridへ`min-width:0`を付けるだけでは、async後に描画されるtable自体のoverflowは閉じ込められなかった。
+- **対応内容**: graph wrapperをresponsiveな内部scrollへ変更し、embedded FRLをcompact縦積み化、AmdScoreView root / grid / factor itemへ`min-width:0`を追加、最後にDetailFactorCardのtableを`overflow-x:auto` wrapperへ収容した。
+- **再発防止**: responsive確認は初期skeletonだけで完了しない。async detailが読み込まれた後にdesktop/mobile双方で`document.scrollWidth === viewport width`を計測し、固定幅chart・grid item・tableの三層を別々に検査する。critical UI guardでcontainment classを固定する。
+
+---
+
 ### [PWA/AMD Score] cockpit 埋め込み分岐だけ XRL チェックリストが欠けた (2026-07-16)
 
 - **状態**: クローズ (2026-07-16 — `v3.41.11` で embedded view に統合し、本番DOMで確認)。
