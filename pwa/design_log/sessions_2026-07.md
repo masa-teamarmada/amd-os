@@ -1329,3 +1329,39 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 - 図版インベントリ commit `2b56d19d docs: Book A 図版インベントリ作成` は `main` に push 済み。
 - 次は、まさ判断で図版制作ワーカーを切る。制作時は図1-3の16章整合と、図10-2/図10-1の登場順を確認する。
 - root checkout には unrelated dirty が残っているため、Book A closeout には混ぜない。
+
+---
+
+## 2026-07-16 (夜) — Book A 司令塔セッション: Codex 切り出しの量産 + Ch4+Ch5 統合裁定
+
+### コンテキスト
+- Book A 出版準備の司令塔セッションとして、fable トークン節約のため Codex CLI へ切り出せるタスクを量産した。
+- 並行して、Ch4+Ch5 統合の司令塔裁定を確定 (16→15章化)、Codex に機械実装を委譲した。
+
+### 対応 (時系列)
+- **Codex 完了報告の裏取り (`1fdbf21b` 組版検証)**: `BOOK_A_PUBLISHING_PLAN.md` §4・§8、`COMMANDER_TASKS.md`、`9-5-appendix-changelog.md` を Read し数値・記述の一致を機械的に検証。差分ゼロで確定。
+- **Codex 切り出し migration prompt 3件を並列作成 (Agent 委譲)**:
+  - `2026-07-15_codex_handoff_typesetting_verification_round2.md` (組版技術検証 round2、`a6aff30d`)
+  - `2026-07-15_codex_handoff_publishing_documents_draft.md` (印刷所見積り依頼・ISBN/JAN 情報整理、`8cd12e20`)
+  - `2026-07-15_codex_handoff_figure_inventory.md` (図版インベントリ生成、`4d464ea2` → Codex 実行完了で `2b56d19d`)
+- **Ch4+Ch5 統合の司令塔裁定確定**: まさが分量・授業運用の障害を両方棄却済みのため、追加確認なしに司令塔判断で統合確定。migration prompt を作成し Codex へ委譲 (`55cb0669` → Codex 実行で `93bb3d41`/`fcc396cf`/`e33afd97`)。実装内容の裏取り (MASTER_PLAN §2 v3 記載・§9 統合章行・STORY_WORLD §2.1 視点表・命名台帳磐井/湊繰り上げ・本文章番号前方参照置換) を全て機械検証。
+- **Codex 完了報告2件目の裏取り (図版インベントリ `2b56d19d`)**: `BOOK_A_FIGURE_INVENTORY.md` 全72行 Read、41点集計・matplotlib 16/SVG 25/優先度高14の集計一致・「制作時の注意」欄に自動記録された図1-3「15回」表記/図10-2順序問題を発見。
+- **Codex 切り出し migration prompt 追加5件を並列作成**:
+  - `2026-07-16_codex_handoff_ch4_ch5_merger_mechanical.md` (`55cb0669`)
+  - `2026-07-16_codex_handoff_figures_matplotlib_batch1.md` (`c9c241c3`)
+  - `2026-07-16_codex_handoff_figures_svg_pilot.md` (SVG 手描き試験投入、図1-2 三項構造マップ、`9110a44e`)
+  - `2026-07-16_codex_handoff_figures_matplotlib_batch2.md` (残り12点、`e8a9736f`)
+  - `2026-07-16_codex_handoff_ch_number_secondary_sweep.md` (統合の二次掃討、`7f4f98cd`)
+- **まさ実行判断報告**: 出版実務2件 (組版検証 round2・対外文書ドラフト) は「まだ早い」で保留。図版インベントリ (`4d464ea2`) は Codex に投げ完了。追加3件 (SVG pilot・matplotlib 第2弾・章番号二次掃討) はまさが Codex 起動済み。
+
+### 結果
+- Codex 切り出し migration prompt 総数 8件、うち完了3件 (組版検証・図版インベントリ・Ch4+Ch5 統合)、進行中3件 (SVG pilot・matplotlib 第2弾・章番号二次掃討)、保留2件 (組版検証 round2・対外文書ドラフト、まさ判断で "まだ早い")。
+- Book A は 16→15章化完了。統合章 slug `book-a-ch-4-5`、統合章タイトルは「【統合章タイトル未確定】」のプレースホルダ。
+- 図版制作は matplotlib 第1弾 (4点) が Codex 起動待ち、SVG 試験投入 (1点) が Codex 起動待ち、他は前提待ち。
+- 副産物として、Ch1 本文の「15回/15章」表記は 16→15章化により自動的に正しい表記に戻るため、追加の本文修正は不要と判定 (統合 migration prompt §7 に明記)。
+
+### Closeout notes
+- root checkout には unrelated dirty が残る (`pwa/design/atlas_routine.md` = D-8 Atlas レーン、`pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md` = 別レーン、`pwa/bzm/2026-07-14_frontmatter_gairei_draft_v1.md` = 自セッション前の巻頭凡例下書き WIP)。次セッションはこれらを絶対に touch しない。
+- 巻頭凡例下書き (`2026-07-14_frontmatter_gairei_draft_v1.md`) の残タスク=まさ確認2点 (「狂言回し」語の採否・柏木を全16話 [現在は全15話] の主人公と明言するか) は継続保留。
+- 統合章の正式タイトル確定・本文の物理マージ (v2 Ch4案「この数字を疑うのは、やめます」+ v1 Ch5移転実験案の再編集) は fable 領域として次セッションで扱う。
+- 「fable トークンがもうなくなりそう」というまさ制約は継続。opus 以下でできること・codex sol でできることを優先的に切り出す方針を継続。
