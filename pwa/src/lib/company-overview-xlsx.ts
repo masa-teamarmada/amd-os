@@ -3,9 +3,16 @@ import {
   HOLDER_LABELS,
   TRANSACTION_LABELS,
   buildCapTableSnapshots,
+  computeNextRoundScenario,
   convertibleScenario,
   latestCapTable,
+  minimumPreMoneyForTarget,
+  nextRoundSensitivity,
+  type CapTableRow,
+  type CapTableSnapshot,
   type CompanyOverviewData,
+  type NextRoundInputs,
+  type ValuationRound,
 } from "@/lib/company-overview";
 
 type CellValue = string | number | null | undefined;
@@ -142,20 +149,242 @@ function transactionSheet(projectName: string, data: CompanyOverviewData): Sheet
 
 function timelineSheet(projectName: string, data: CompanyOverviewData): Sheet {
   const snapshots = buildCapTableSnapshots(data);
-  const holderTypes = Array.from(new Set(snapshots.flatMap((snapshot) => snapshot.rows.map((row) => row.holderType))));
+  const holderNames: string[] = [];
+  const seenHolderNames = new Set<string>();
+  for (const snapshot of snapshots) {
+    for (const row of snapshot.rows) {
+      if (!seenHolderNames.has(row.holderName)) {
+        seenHolderNames.add(row.holderName);
+        holderNames.push(row.holderName);
+      }
+    }
+  }
   const rows: Cell[][] = [
-    titleRow(`${projectName}｜資本構成推移（グラフ元データ）`, 4 + holderTypes.length),
-    [c("効力日", 2), c("イベント", 2), c("発行済株式", 2), c("完全希薄化後株式", 2), ...holderTypes.map((type) => c(`${HOLDER_LABELS[type] || type} 比率`, 2))],
+    titleRow(`${projectName}｜資本構成推移（グラフ元データ・株主別）`, 4 + holderNames.length),
+    [c("効力日", 2), c("イベント", 2), c("発行済株式", 2), c("完全希薄化後株式", 2), ...holderNames.map((name) => c(`${name} 比率`, 2))],
   ];
   for (const snapshot of snapshots) {
-    const byType = new Map<string, number>();
-    for (const row of snapshot.rows) byType.set(row.holderType, (byType.get(row.holderType) || 0) + row.outstandingShares);
+    const byHolder = new Map<string, number>();
+    for (const row of snapshot.rows) byHolder.set(row.holderName, (byHolder.get(row.holderName) || 0) + row.outstandingShares);
     rows.push([
       c(snapshot.effectiveOn), c(snapshot.label), c(snapshot.outstandingShares, 3), c(snapshot.dilutedShares, 3),
-      ...holderTypes.map((type) => c(snapshot.outstandingShares ? (byType.get(type) || 0) / snapshot.outstandingShares : 0, 5)),
+      ...holderNames.map((name) => c(snapshot.outstandingShares ? (byHolder.get(name) || 0) / snapshot.outstandingShares : 0, 5)),
     ]);
   }
-  return { name: "資本構成推移", rows, widths: [13, 28, 17, 21, ...holderTypes.map(() => 18)], freezeRow: 2, autoFilter: `A2:${colName(3 + holderTypes.length)}${Math.max(2, rows.length)}` };
+  return { name: "資本構成推移", rows, widths: [13, 28, 17, 21, ...holderNames.map(() => 18)], freezeRow: 2, autoFilter: `A2:${colName(3 + holderNames.length)}${Math.max(2, rows.length)}` };
+}
+
+function formatShareText(shares: number) {
+  const rounded = Math.round((shares + Number.EPSILON) * 100) / 100;
+  const isInt = Number.isInteger(rounded);
+  return rounded.toLocaleString("ja-JP", { maximumFractionDigits: isInt ? 0 : 2, minimumFractionDigits: 0 });
+}
+
+function formatPercentText(pct: number) {
+  return `${pct.toFixed(2)}%`;
+}
+
+/**
+ * ラウンド別 cap table 履歴（横持ち）。confirmed スナップショットを列に、
+ * 項目・株主別内訳を行に並べる。roundId が data.rounds に紐づく場合は
+ * ラウンド名・pre/post-money もヘッダー行から参照できるようにする。
+ */
+function capTableHistorySheet(projectName: string, data: CompanyOverviewData): Sheet {
+  const snapshots = buildCapTableSnapshots(data);
+  const roundsById = new Map(data.rounds.map((round) => [round.id, round] as const));
+  const holderOrder: string[] = [];
+  const seenHolders = new Set<string>();
+  for (const snapshot of snapshots) {
+    for (const row of snapshot.rows) {
+      if (!seenHolders.has(row.holderName)) {
+        seenHolders.add(row.holderName);
+        holderOrder.push(row.holderName);
+      }
+    }
+  }
+
+  const columns = Math.max(1, snapshots.length);
+  const headerRow: Cell[] = [c("項目", 2), ...snapshots.map((snapshot) => {
+    const round = snapshot.roundId ? roundsById.get(snapshot.roundId) : null;
+    return c(round?.round_name || snapshot.label, 2);
+  })];
+  const dateRow: Cell[] = [c("効力日"), ...snapshots.map((snapshot) => c(snapshot.effectiveOn))];
+  const eventRow: Cell[] = [c("イベント"), ...snapshots.map((snapshot) => c(snapshot.label))];
+  const outstandingRow: Cell[] = [c("発行済株式数（累計）"), ...snapshots.map((snapshot) => c(snapshot.outstandingShares, 3))];
+  const newIssuedRow: Cell[] = [c("新規発行株式数"), ...snapshots.map((snapshot) => c(snapshot.outstandingDelta, 3))];
+  const paidInRow: Cell[] = [c("払込・調達額"), ...snapshots.map((snapshot) => c(snapshot.paidInYenDelta, 4))];
+  const issuePriceRow: Cell[] = [c("発行価格（概算）"), ...snapshots.map((snapshot) => {
+    if (snapshot.outstandingDelta <= 0.000001) return c(null, 4);
+    return c(Math.round((snapshot.paidInYenDelta / snapshot.outstandingDelta) * 100) / 100, 4);
+  })];
+  const preMoneyRow: Cell[] = [c("pre-money（連携ラウンド）"), ...snapshots.map((snapshot) => {
+    const round = snapshot.roundId ? roundsById.get(snapshot.roundId) : null;
+    return c(round?.pre_money_yen ?? null, 4);
+  })];
+  const postMoneyRow: Cell[] = [c("post-money（連携ラウンド）"), ...snapshots.map((snapshot) => {
+    const round = snapshot.roundId ? roundsById.get(snapshot.roundId) : null;
+    return c(round?.post_money_yen ?? null, 4);
+  })];
+  const holderSectionRow: Cell[] = [c("株主別 発行済株式・持株比率", 2), ...snapshots.map(() => c("", 2))];
+  const holderRows: Cell[][] = holderOrder.map((holderName) => {
+    const cells: Cell[] = [c(holderName)];
+    for (const snapshot of snapshots) {
+      let shares = 0;
+      let found = false;
+      for (const row of snapshot.rows) {
+        if (row.holderName === holderName) {
+          shares += row.outstandingShares;
+          found = true;
+        }
+      }
+      if (!found) {
+        cells.push(c("－"));
+        continue;
+      }
+      const pct = snapshot.outstandingShares > 0 ? (shares / snapshot.outstandingShares) * 100 : 0;
+      cells.push(c(`${formatShareText(shares)}株 / ${formatPercentText(pct)}`));
+    }
+    return cells;
+  });
+
+  const rows: Cell[][] = [
+    titleRow(`${projectName}｜ラウンド別 cap table 履歴`, columns + 1),
+    headerRow,
+    dateRow,
+    eventRow,
+    outstandingRow,
+    newIssuedRow,
+    paidInRow,
+    issuePriceRow,
+    preMoneyRow,
+    postMoneyRow,
+    holderSectionRow,
+    ...holderRows,
+  ];
+  return {
+    name: "ラウンド別cap table",
+    rows,
+    widths: [30, ...snapshots.map(() => 22)],
+    freezeRow: 2,
+  };
+}
+
+function pickNewestRoundValue(rounds: ValuationRound[], field: "pre_money_yen" | "raised_yen"): number | null {
+  const withValue = rounds.filter((round) => round[field] != null);
+  if (withValue.length === 0) return null;
+  const sorted = [...withValue].sort((a, b) => {
+    const aKey = a.round_date || a.round_ym || "";
+    const bKey = b.round_date || b.round_ym || "";
+    return bKey.localeCompare(aKey);
+  });
+  return sorted[0][field] as number;
+}
+
+function pickProtectedHolder(base: CapTableSnapshot): CapTableRow | null {
+  const founders = base.rows.filter((row) => row.holderType === "founder");
+  const pool = founders.length > 0 ? founders : base.rows;
+  if (pool.length === 0) return null;
+  return pool.reduce((max, row) => (row.dilutedShares > max.dilutedShares ? row : max), pool[0]);
+}
+
+/**
+ * 次回ラウンド試算シート。何も保存しない仮シミュレーションで、valuation ロジックは
+ * computeNextRoundScenario / minimumPreMoneyForTarget / nextRoundSensitivity をそのまま使い、
+ * このファイルでは計算式を重複実装しない。
+ */
+function nextRoundScenarioSheet(projectName: string, data: CompanyOverviewData): Sheet {
+  const columns = 7;
+  const widths = [34, 22, 20, 20, 20, 20, 14];
+  const rows: Cell[][] = [
+    titleRow(`${projectName}｜次回ラウンド試算（未保存の仮シミュレーション）`, columns),
+    [c("⚠️ このシートは未保存の仮シミュレーションです。法的な現行cap tableではありません。実際のラウンドが確定したら「株式イベント台帳」「ラウンド別cap table」に正式記録してください。", 2), ...Array.from({ length: columns - 1 }, () => c("", 2))],
+  ];
+
+  const base = latestCapTable(data);
+  if (!base || base.rows.length === 0) {
+    rows.push([c("試算対象の cap table がありません（confirmed な株式イベントが未登録）")]);
+    return { name: "次回ラウンド試算", rows, widths, freezeRow: 2 };
+  }
+
+  const protectedHolder = pickProtectedHolder(base);
+  const protectHolderName = protectedHolder?.holderName ?? null;
+  const defaultPreMoney = pickNewestRoundValue(data.rounds, "pre_money_yen") ?? Math.max(500_000_000, base.paidInYen * 10);
+  const defaultRaise = pickNewestRoundValue(data.rounds, "raised_yen") ?? 100_000_000;
+  const currentFdPct = protectedHolder?.dilutedPct ?? null;
+  const targetMinPct = currentFdPct == null ? null : Math.min(99, Math.max(1, currentFdPct - 5));
+
+  const input: NextRoundInputs = {
+    preMoneyYen: defaultPreMoney,
+    raiseYen: defaultRaise,
+    targetPoolRate: 0,
+    includeConvertibles: true,
+    protectHolderName,
+  };
+
+  const result = computeNextRoundScenario(base, data.convertibles, input);
+  const minResult = protectHolderName && targetMinPct != null
+    ? minimumPreMoneyForTarget(base, data.convertibles, input, targetMinPct)
+    : { valid: false as const, error: "保護対象株主が未設定のため計算できないよ" };
+  const sensitivity = nextRoundSensitivity(base, data.convertibles, input);
+
+  rows.push([c("前提条件", 2), ...Array.from({ length: columns - 1 }, () => c("", 2))]);
+  rows.push([c("起点スナップショット"), c(`${base.effectiveOn} / ${base.label}`)]);
+  rows.push([c("pre-money（前提）"), c(input.preMoneyYen, 4)]);
+  rows.push([c("調達額（前提）"), c(input.raiseYen, 4)]);
+  rows.push([c("追加SOプール目標比率"), c(input.targetPoolRate, 5)]);
+  rows.push([c("転換前証券を含める"), c(input.includeConvertibles ? "含める" : "含めない")]);
+  rows.push([c("保護対象株主"), c(protectHolderName || "（該当なし）")]);
+  rows.push([c("保護対象株主の目標維持比率（現在比 -5pt）"), c(targetMinPct == null ? null : targetMinPct / 100, 5)]);
+
+  rows.push([c("試算結果サマリー", 2), ...Array.from({ length: columns - 1 }, () => c("", 2))]);
+  rows.push([c("保護対象株主の現在の完全希薄化後比率"), c(currentFdPct == null ? null : currentFdPct / 100, 5)]);
+  if (result.valid) {
+    const afterPct = protectHolderName ? result.rows.find((row) => row.holderName === protectHolderName)?.afterPct ?? null : null;
+    rows.push([c("保護対象株主の試算後比率"), c(afterPct == null ? null : afterPct / 100, 5)]);
+  } else {
+    rows.push([c("試算結果"), c(result.error)]);
+  }
+  rows.push([c("目標維持に必要な最低pre-money"), c(minResult.valid ? minResult.preMoneyYen : null, 4), c(minResult.valid ? "" : minResult.error)]);
+
+  rows.push([c("発行条件", 2), ...Array.from({ length: columns - 1 }, () => c("", 2))]);
+  if (result.valid) {
+    rows.push([c("発行価格"), c(Math.round(result.issuePriceYen * 100) / 100, 4)]);
+    rows.push([c("新規投資家株式数"), c(result.newInvestorShares, 3)]);
+    rows.push([c("追加SOプール株式数"), c(result.additionalPoolShares, 3)]);
+    rows.push([c("調達後 完全希薄化後株式数"), c(result.postFdShares, 3)]);
+    rows.push([c("post-money"), c(result.postMoneyYen, 4)]);
+  } else {
+    rows.push([c("試算不可"), c(result.error)]);
+  }
+
+  rows.push([c("株主", 2), c("区分", 2), c("before株式", 2), c("before比率", 2), c("after株式", 2), c("after比率", 2), c("保護対象", 2)]);
+  if (result.valid) {
+    for (const row of result.rows) {
+      rows.push([
+        c(row.holderName), c(HOLDER_LABELS[row.holderType] || row.holderType),
+        c(row.beforeShares, 3), c(row.beforePct / 100, 5),
+        c(row.afterShares, 3), c(row.afterPct / 100, 5),
+        c(row.isProtected ? "★" : ""),
+      ]);
+    }
+  }
+
+  rows.push([c("pre-money 感度分析（0.5x〜1.5x）", 2), ...Array.from({ length: columns - 1 }, () => c("", 2))]);
+  rows.push([c("倍率", 2), c("pre-money", 2), c("発行価格", 2), c("保護対象後比率", 2), c("post-FD株式数", 2)]);
+  for (const point of sensitivity) {
+    if (point.result.valid) {
+      rows.push([
+        c(`${point.multiplier}x`), c(point.preMoneyYen, 4),
+        c(Math.round(point.result.issuePriceYen * 100) / 100, 4),
+        c(point.watchedPct == null ? null : point.watchedPct / 100, 5),
+        c(point.result.postFdShares, 3),
+      ]);
+    } else {
+      rows.push([c(`${point.multiplier}x`), c(point.preMoneyYen, 4), c(point.result.error)]);
+    }
+  }
+
+  return { name: "次回ラウンド試算", rows, widths, freezeRow: 2 };
 }
 
 function financingSheet(projectName: string, data: CompanyOverviewData): Sheet {
@@ -199,7 +428,16 @@ function stylesXml() {
 }
 
 export function createCompanyOverviewXlsx(projectName: string, data: CompanyOverviewData) {
-  const sheets = [overviewSheet(projectName, data), capTableSheet(projectName, data), transactionSheet(projectName, data), timelineSheet(projectName, data), financingSheet(projectName, data), financialSheet(projectName, data)];
+  const sheets = [
+    overviewSheet(projectName, data),
+    capTableSheet(projectName, data),
+    transactionSheet(projectName, data),
+    timelineSheet(projectName, data),
+    capTableHistorySheet(projectName, data),
+    financingSheet(projectName, data),
+    financialSheet(projectName, data),
+    nextRoundScenarioSheet(projectName, data),
+  ];
   const now = new Date().toISOString();
   const workbookSheets = sheets.map((sheet, index) => `<sheet name="${xml(sheet.name)}" sheetId="${index + 1}" r:id="rId${index + 1}"/>`).join("");
   const workbookRels = sheets.map((_, index) => `<Relationship Id="rId${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${index + 1}.xml"/>`).join("");
@@ -208,7 +446,7 @@ export function createCompanyOverviewXlsx(projectName: string, data: CompanyOver
     "[Content_Types].xml": strToU8(`${XML_HEADER}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>${contentSheets}</Types>`),
     "_rels/.rels": strToU8(`${XML_HEADER}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>`),
     "docProps/core.xml": strToU8(`${XML_HEADER}<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>${xml(projectName)} 会社概要</dc:title><dc:creator>AMD OS</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${now}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">${now}</dcterms:modified></cp:coreProperties>`),
-    "docProps/app.xml": strToU8(`${XML_HEADER}<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>AMD OS</Application><AppVersion>3.42</AppVersion></Properties>`),
+    "docProps/app.xml": strToU8(`${XML_HEADER}<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>AMD OS</Application><AppVersion>3.43</AppVersion></Properties>`),
     "xl/workbook.xml": strToU8(`${XML_HEADER}<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView/></bookViews><sheets>${workbookSheets}</sheets><calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>`),
     "xl/_rels/workbook.xml.rels": strToU8(`${XML_HEADER}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${workbookRels}<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`),
     "xl/styles.xml": strToU8(stylesXml()),
