@@ -175,6 +175,20 @@ if (mergedScenario.valid) {
   assert.equal(hoshinoRows[0].afterShares, 30_000 + 250);
 }
 
+// multiple outstanding instruments for the same non-shareholder must merge into a single standalone row.
+const duplicateStandaloneConvertibles: ConvertibleInstrument[] = [
+  { id: "c3a", holder_name: "コンバーチブル投資家", instrument_type: "J-KISS", issued_on: "2026-06-01", principal_yen: 10_000_000, valuation_cap_yen: 400_000_000, discount_rate: 0.2, conversion_trigger: null, maturity_on: null, estimated_conversion_price: 20_000, estimated_conversion_shares: 500, status: "outstanding", notes: null },
+  { id: "c3b", holder_name: "コンバーチブル投資家", instrument_type: "J-KISS", issued_on: "2026-07-01", principal_yen: 6_000_000, valuation_cap_yen: 400_000_000, discount_rate: 0.2, conversion_trigger: null, maturity_on: null, estimated_conversion_price: 20_000, estimated_conversion_shares: 300, status: "outstanding", notes: null },
+];
+const duplicateStandaloneScenario = computeNextRoundScenario(lstLatest, duplicateStandaloneConvertibles, { ...roundInputBase, includeConvertibles: true });
+assert.equal(duplicateStandaloneScenario.valid, true);
+if (duplicateStandaloneScenario.valid) {
+  const matchingRows = duplicateStandaloneScenario.rows.filter((row) => row.key === "holder:コンバーチブル投資家");
+  assert.equal(matchingRows.length, 1, "duplicate standalone convertible holders must produce exactly one row/key");
+  assert.equal(matchingRows[0].afterShares, 800, "duplicate standalone convertible shares must be summed");
+  assert.equal(duplicateStandaloneScenario.f0, lstLatest.dilutedShares + 800, "F0 must include the summed convertible shares");
+}
+
 // --- 7) invalid 入力 ---
 
 assert.equal(computeNextRoundScenario(lstLatest, [], { ...roundInputBase, raiseYen: -1 }).valid, false, "negative raise must be invalid");

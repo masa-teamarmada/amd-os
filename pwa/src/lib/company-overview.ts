@@ -473,13 +473,13 @@ export function computeNextRoundScenario(
   }
 
   const mergedConvertibleShares = new Map<string, number>();
-  const standaloneConvertibles: Array<{ holderName: string; shares: number }> = [];
+  const standaloneConvertibleShares = new Map<string, number>();
   for (const instrument of convertibleRows) {
     const shares = finiteNumber(instrument.estimated_conversion_shares);
     if (holderMap.has(instrument.holder_name)) {
       mergedConvertibleShares.set(instrument.holder_name, (mergedConvertibleShares.get(instrument.holder_name) || 0) + shares);
     } else {
-      standaloneConvertibles.push({ holderName: instrument.holder_name, shares });
+      standaloneConvertibleShares.set(instrument.holder_name, (standaloneConvertibleShares.get(instrument.holder_name) || 0) + shares);
     }
   }
 
@@ -497,15 +497,15 @@ export function computeNextRoundScenario(
       isProtected: input.protectHolderName != null && holderName === input.protectHolderName,
     };
   });
-  for (const instrument of standaloneConvertibles) {
+  for (const [holderName, shares] of standaloneConvertibleShares) {
     rows.push({
-      key: `holder:${instrument.holderName}`,
-      holderName: instrument.holderName,
+      key: `holder:${holderName}`,
+      holderName,
       holderType: "convertible",
       beforeShares: 0,
       beforePct: 0,
-      afterShares: instrument.shares,
-      afterPct: postFdShares > 0 ? (instrument.shares / postFdShares) * 100 : 0,
+      afterShares: shares,
+      afterPct: postFdShares > 0 ? (shares / postFdShares) * 100 : 0,
       isConvertible: true,
     });
   }

@@ -119,6 +119,27 @@ WHERE NOT EXISTS (
   WHERE project_id = 'p07' AND source_ref = 'xlsx:LST_captable_250415.xlsx#qst-202503'
 );
 
+-- 4b-fix. 部分適用 (transaction は既に作成済みだが round 未紐付け) を補修する。
+--         INSERT は既存 source_ref があると skip されるため、その場合でも round_id を正しく揃える。
+UPDATE public.project_equity_transactions tx
+SET round_id = r.id
+FROM public.project_valuation_rounds r
+WHERE tx.project_id = 'p07'
+  AND tx.source_ref = 'xlsx:LST_captable_250415.xlsx#seed-202312'
+  AND r.project_id = 'p07'
+  AND (r.round_date = '2023-12-01' OR r.round_name ILIKE '%Seed%')
+  AND tx.round_id IS DISTINCT FROM r.id;
+
+-- 4c-fix. 同様に QST 現物出資 transaction の round 紐付けを補修する。
+UPDATE public.project_equity_transactions tx
+SET round_id = r.id
+FROM public.project_valuation_rounds r
+WHERE tx.project_id = 'p07'
+  AND tx.source_ref = 'xlsx:LST_captable_250415.xlsx#qst-202503'
+  AND r.project_id = 'p07'
+  AND r.source_ref = 'xlsx:LST_captable_250415.xlsx#qst-202503'
+  AND tx.round_id IS DISTINCT FROM r.id;
+
 -- 4d. entries を、対応する transaction が存在し当該 holder/security_class の行がまだ無い場合だけ補完する。
 --     (部分適用: transaction は既に作成済みだが entry が欠けているケースにも対応)
 INSERT INTO public.project_equity_entries (
