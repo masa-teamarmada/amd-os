@@ -37,6 +37,15 @@
 - 設計正本 = `BOOK_A_NARRATIVE_DESIGN.md` §2.5 (二重らせん)・`BOOK_A_STORY_WORLD.md` §2.1 (柏木の現れ方列)・§2.2 (柏木アーク) / 判断ログ = `2026-07-14_kashiwagi_central_redesign_v1.md` / 編み込みパス文面案 = `2026-07-14_kashiwagi_weaving_pass_v1.md` (全6章本文反映完了)。
 - **司令塔・fable worker への引き継ぎ時、この前提を必ず migration prompt に明示する**。前提が読まれない引き継ぎは禁止 (2026-07-16 まさ指示)。
 
+### 🔒 執筆規範 — japanese-tech-writing + cognitive-rhythm-writing (2026-07-16 まさ確定・恒久)
+
+- Book A の全執筆・白紙構想・推敲・リライト系 worker は、着手前に必ず以下2スキルを Read する:
+  - `~/.claude/skills/japanese-tech-writing/SKILL.md` — 日本語技術文書の基礎規範 (整形・パラグラフライティング・論証の厳密さ・演出の抑制・**LLMっぽい空句禁止リスト**「重要なのは〜である」「多角的」「〜に他ならない」等・冗長排除)
+  - `~/.claude/skills/cognitive-rhythm-writing/SKILL.md` — 認知リズム規範 (未回収の緊張・観察→逡巡→断定→再観察の切替・駄文判定「その文が更新するのは状況か文書か」・機械的点検手順)
+- 出典 = 技術書出版社ラムダノート創業者・鹿野桂一郎さん (k16shikano、Unlicense=パブリックドメイン)、まさインストール済み。
+- 特に効く原則: 「理論は答えではなく命名として入れる。先に理論を出して例で確認する順は、読者の発見を奪う」 = Book A の数理モデル導入章と直接噛み合う。
+- fable/Sonnet worker の migration prompt に「執筆前にこの2スキルを読む」を標準で入れる。平坦な章の診断にも使える (スキル末尾「修正指示への使い方」= 症状→処方の対応表)。
+
 ### Book A の TOC 状態
 
 - **v3 = 15章構成 (Ch4+Ch5 統合、2026-07-16 まさ確定・司令塔裁定)**
