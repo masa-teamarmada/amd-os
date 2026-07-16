@@ -97,6 +97,8 @@ Drive backfill では、契約書そのものに見える PDF / Doc / xlsx / sig
 | `/api/contracts/signal-dry-run` | GET | no | 5生データから契約予兆候補を生成。DB writeなし |
 | `/api/contracts/nudges/dry-run` | GET | no | 押印版未保存かつ閾値超過のSlack nudge候補を生成。Slack送信なし |
 
+`/api/contracts/documents` は、すでにDriveへ保存済みのファイルリンクを台帳へ登録するAPI。DocuSign / クラウドサインの完了PDFを自動取得したり、Driveへアップロードしたり、Drive共有を変更したりしない。`document_kind='signed'` の登録時だけ、OS側で `contract_documents` に押印版metadataを保存し、対象契約の `status='signed'` / `signed_document_id` / `signed_at` を更新する。
+
 ## 5生データの分類
 
 | source | current input | signal例 |
@@ -134,11 +136,13 @@ D-13 は契約予兆 (`contract_signals`) に加えて、契約No・見積No・�
 
 MVPでは `CONTRACTS_DRIVE_FOLDER_ID` が設定されているかを画面に出す。PWAから新規共有や外部共有拡大はしない。契約書ファイルはDriveに置き、OSは `drive_file_id` / `web_view_link` / `mime_type` / `version_label` / `document_kind` だけを保持する。
 
+DocuSign / クラウドサインの押印リレー完了後は、管理者が完了PDFと必要な署名証明書をこのDrive配下の該当PJ/契約フォルダへ保存し、`/admin/contracts` の詳細モーダル `文書と版` で `document_kind='signed'` として登録する。現時点では、外部署名サービスからの自動ダウンロード、Drive自動保存、フォルダ自動作成は未実装。
+
 ## Nudge
 
 `contracts.signed_at IS NULL` かつ `status NOT IN ('signed','cancelled')` の契約で、`last_activity_at` または `planned_at` から `nudge_after_days` 以上経過したものを候補にする。`projects.slack_channel_id` が無い場合は blocker として返す。
 
-初期実装は `/api/contracts/nudges/dry-run` のみ。実送信に進む場合は、送信先PJ channel、文面、対象件数、送信タイミング、誤送信時の削除/rollback可否を確認した bundle が必要。
+初期実装は `/api/contracts/nudges/dry-run` のみ。押印版が未保存の契約を候補に出すだけで、Slackへ実送信しない。実送信に進む場合は、送信先PJ channel、文面、対象件数、送信タイミング、誤送信時の削除/rollback可否を確認した bundle が必要。
 
 ## 契約抽出 → projects / billing_cycles 反映 (Contract Apply)
 

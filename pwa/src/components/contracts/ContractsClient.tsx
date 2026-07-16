@@ -279,6 +279,7 @@ const CONTRACT_TYPE_LABEL: Record<string, string> = {
 };
 
 const CONTROL_CLASS = "h-8 w-full min-w-0 rounded-md border border-slate-200 bg-white px-2 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200";
+const CONTRACT_DRIVE_PATH = "共有ドライブ/ARMADA/a3_backoffice/契約";
 
 const BLANK_CONTRACT = {
   projectId: "",
@@ -492,6 +493,10 @@ function documentFormat(doc: ContractDocument) {
   if (doc.mime_type.includes("pdf")) return "PDF";
   if (doc.mime_type.includes("word")) return "WORD";
   return "FILE";
+}
+
+function contractDrivePath(driveDestination: ContractsResponse["driveDestination"] | null | undefined) {
+  return driveDestination?.path || CONTRACT_DRIVE_PATH;
 }
 
 function rowDocuments(contract: LedgerContract, docsByContract: Map<string, ContractDocument[]>) {
@@ -1078,20 +1083,7 @@ export function ContractsClient() {
           <SummaryButton label="当事者判定待ち" value={metrics.scopeReview} tone="warning" active={statusFilter === "scope_review"} onClick={() => setStatusFilter("scope_review")} />
         </section>
 
-        <section className="grid gap-2 rounded-md border border-slate-200 bg-white p-3 text-xs text-slate-600 lg:grid-cols-3" aria-label="契約台帳の運用フロー">
-          <OperationStep
-            label="手入力"
-            value="契約の正本行、相手先、期限、立替可否、秘密保持、押印版を管理者が確定"
-          />
-          <OperationStep
-            label="自動候補"
-            value="Drive/Gmail/Slack由来の候補は要確認として入り、採用後に台帳へ残す"
-          />
-          <OperationStep
-            label="確認観点"
-            value="期限、押印証跡、契約書ファイル、秘密保持、立替可否、AMD当事者性を行ごとに表示"
-          />
-        </section>
+        <SigningWorkflowPanel drivePath={contractDrivePath(driveDestination)} />
 
         <section className="overflow-hidden rounded-md border border-slate-200 bg-white" aria-label="契約一覧">
           <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 p-3">
@@ -1263,10 +1255,49 @@ function SummaryButton({ label, value, tone = "default", active = false, onClick
   return onClick ? <button type="button" onClick={onClick} className={`${className} hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-400`}>{content}</button> : <div className={className}>{content}</div>;
 }
 
-function OperationStep({ label, value }: { label: string; value: string }) {
+function SigningWorkflowPanel({ drivePath }: { drivePath: string }) {
+  return (
+    <section className="grid gap-2 rounded-md border border-slate-200 bg-white p-3 text-xs text-slate-600 lg:grid-cols-4" aria-label="押印完了後の運用フロー">
+      <OperationStep
+        icon={<FileSignature className="h-4 w-4" />}
+        label="押印完了後"
+        value="完了PDFをDriveへ保存し、必要なら証明書も同じフォルダへ置いて押印版として登録"
+        tone="action"
+      />
+      <OperationStep
+        icon={<ShieldCheck className="h-4 w-4" />}
+        label="OSがやること"
+        value="押印版登録時にDriveリンクを証跡にし、状態を押印済み記録へ更新"
+        tone="success"
+      />
+      <OperationStep
+        icon={<AlertCircle className="h-4 w-4" />}
+        label="まだ自動じゃない"
+        value="DocuSignからの取得、Drive保存、共有変更、Slack実送信はまだ人の作業"
+        tone="warning"
+      />
+      <OperationStep
+        icon={<Link2 className="h-4 w-4" />}
+        label="保存先"
+        value={`${drivePath} 配下の該当PJ/契約フォルダ`}
+      />
+    </section>
+  );
+}
+
+function OperationStep({ icon, label, value, tone = "default" }: { icon?: ReactNode; label: string; value: string; tone?: "default" | "action" | "success" | "warning" }) {
+  const toneClass = {
+    default: "border-slate-100 bg-slate-50 text-slate-500",
+    action: "border-sky-100 bg-sky-50 text-sky-600",
+    success: "border-emerald-100 bg-emerald-50 text-emerald-600",
+    warning: "border-amber-100 bg-amber-50 text-amber-700",
+  }[tone];
   return (
     <div className="min-w-0 rounded-md border border-slate-100 bg-slate-50 px-3 py-2">
-      <p className="text-[11px] font-semibold text-slate-500">{label}</p>
+      <div className="flex items-center gap-2">
+        {icon && <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md border ${toneClass}`}>{icon}</span>}
+        <p className="text-[11px] font-semibold text-slate-500">{label}</p>
+      </div>
       <p className="mt-1 leading-5 text-slate-700">{value}</p>
     </div>
   );
@@ -1440,6 +1471,7 @@ function ContractDetailDialog({ contract, project, documents, signals, linkedTer
   const confidentiality = resolveConfidentiality(contract);
   const latest = documents.find((doc) => doc.is_latest) || documents[0];
   const reviewItems = contractReviewItems(contract, project, documents);
+  const drivePath = contractDrivePath(driveDestination);
   return (
     <Dialog open onOpenChange={onOpenChange}>
       <DialogContent className="grid h-[min(90vh,820px)] w-[96vw] !max-w-[1500px] grid-rows-[auto_1fr] gap-0 overflow-hidden rounded-lg border border-slate-300 !bg-white p-0 shadow-2xl">
@@ -1586,7 +1618,15 @@ function ContractDetailDialog({ contract, project, documents, signals, linkedTer
 
               <form onSubmit={onAddDocument} className="h-fit rounded-md border border-slate-200 bg-slate-50 p-4">
                 <div className="flex items-center gap-2"><Link2 className="h-4 w-4 text-slate-500" /><h3 className="text-sm font-semibold text-slate-950">Drive文書を追加</h3></div>
-                <p className="mt-1 text-xs text-slate-500">{driveDestination?.path || "共有ドライブ/ARMADA/a3_backoffice/契約"}</p>
+                <p className="mt-1 break-words text-xs text-slate-500">{drivePath}</p>
+                <div className="mt-3 rounded-md border border-amber-200 bg-white p-3 text-xs leading-5 text-slate-700">
+                  <div className="flex items-center gap-2 font-semibold text-amber-900">
+                    <FileSignature className="h-4 w-4" />
+                    DocuSign / クラウドサイン完了後
+                  </div>
+                  <p className="mt-2">自動取得はまだしない。完了PDFをDriveへ置いて、ここで文書の種類を押印版にしてDriveリンクを登録。</p>
+                  <p className="mt-1">登録すると、この契約は押印済み記録になり、台帳の押印証跡で完了扱いになる。</p>
+                </div>
                 <div className="mt-3 grid gap-3">
                   <Field label="文書の種類"><select value={newDocument.documentKind} onChange={(event) => setNewDocument({ ...newDocument, documentKind: event.target.value })} className={CONTROL_CLASS}><option value="draft">ドラフト</option><option value="revision">修正版</option><option value="redline">赤入れ</option><option value="signed">押印版</option><option value="other">その他</option></select></Field>
                   <Field label="Driveリンク"><input value={newDocument.webViewLink} onChange={(event) => setNewDocument({ ...newDocument, webViewLink: event.target.value })} className={CONTROL_CLASS} required /></Field>
