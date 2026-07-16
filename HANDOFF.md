@@ -1,62 +1,59 @@
 # AMD OS Handoff
 
 Last updated: 2026-07-16 JST
-Target: `/Users/masa/projects/AMD/amd-os/pwa/bzm`
-Topic: Book A 図版インベントリ closeout / 出版準備ストリームG
+Target: `/Users/masa/projects/AMD/amd-os`
+Topic: `/admin/private-wiki` 人物文脈6項目化 closeout
 
 ## Latest Session Summary
 
-- Book A 図版制作前の棚卸しとして、`pwa/bzm/BOOK_A_FIGURE_INVENTORY.md` を新設した。
-- 第1〜10章の本文プレースホルダ確認済み30点 (延べ31箇所) と、第11〜16章の見込み11点を統合し、総実制作見込みは41点。
-- 生成方法の目安は matplotlib向き16点 / SVG手描き向き25点。優先度高は14点。
-- `pwa/bzm/COMMANDER_TASKS.md` Stream G は「図リスト完成、次は実制作フェーズ」へ更新済み。
-- 図版インベントリ commit `2b56d19d docs: Book A 図版インベントリ作成` は `main` に push 済み。
-- Book A 出版準備ストリームKで、`book-a-ch-8.md` を数式最重量級サンプルとして read-only 検証した。
-- A5 PDF は pandoc + LuaLaTeX + `ltjsbook` で生成成功、実測28ページ。MathML EPUB も生成成功。
-- webtex EPUB は生成自体は成功したが、長い日本語入りの交換効率式1本が外部画像化に失敗した。
-- 結果は `pwa/bzm/BOOK_A_PUBLISHING_PLAN.md` §4、`pwa/bzm/COMMANDER_TASKS.md` Stream K、`pwa/bzm/9-5-appendix-changelog.md` に反映済み。
-- 生成PDF/EPUBは repo 外 `/tmp/book-a-typesetting-verification-20260715/` に置き、commit していない。
-- 詳細 handoff: `pwa/bzm/HANDOFF_BOOK_A_2026-07-16.md`。
-- 詳細ログ: `pwa/design_log/sessions_2026-07.md` の「Book A 図版インベントリ作成」と「Book A 組版技術検証」。
+- まさ依頼で `/admin/private-wiki` から `tags` 入力・tag filter を外し、誕生日 / 出身地 / 居住地 / 接点 / 家族 / タブーを追加した。
+- DB migration `pwa/scripts/migrations/173_private_wiki_person_context_fields.sql` を追加し、production DBへ適用済み。
+- API `/api/admin/private-wiki` は新6項目を保存/更新し、`tag` query と `tags` payload normalize を撤去済み。
+- UI `AdminPrivateWikiClient` は新6項目を編集・一覧表示・検索対象にし、tag chip/filter/input は削除済み。
+- spec/manual/design/db_schema/FEATURE_REGISTRY/critical UI/changelog を同期済み。
+- 実装 commit `0d0cf4a0 Update admin private wiki person context fields` は `main` に入り、本番にも含まれている。
+- 後続の別件 score fix commit `692db89b fix(pwa): contain score factor tables` も `origin/main` / production に反映済み。private wiki 変更はその current line に含まれる。
+- 詳細ログ: `pwa/design_log/sessions_2026-07.md` の「Admin 裏wikiを人物文脈6項目へ更新」。
 
 ## Repo State
 
 - Canonical branch: `main`。
-- Book A 図版インベントリ commit: `2b56d19d docs: Book A 図版インベントリ作成`。push 済み。
-- Book A 組版検証 commit: `1fdbf21b docs(bzm): Book A組版技術検証ログを記録`。push 済み。
-- Handoff 作成時点の local main / origin/main: aligned。production readback は別 lane の dirty / deploy 状況で変わり得るため、次回開始時に必ず取り直す。
-- この handoff 自体の commit が後続で積まれるため、次回開始時は `git log -1 --oneline` と `https://amd-os-pwa.vercel.app/api/build-info` を再照合する。
-- このセッションで作った branch / worktree: none。
+- Implementation baseline before this handoff-docs commit: `692db89b fix(pwa): contain score factor tables`。
+- Production readback before this handoff-docs commit: `https://amd-os-pwa.vercel.app/api/build-info` -> `build_version=v3.41.16`, `git_sha=692db89b17fe8dec83466db184e17b697bc31ebe`, `dirty=false`。
+- This handoff update itself may create a newer docs-only commit and production SHA; next session must re-read `/api/build-info` instead of trusting this hash as final.
+- Private wiki accepted commit: `0d0cf4a0` (ancestor of current `main`)。
+- Branch/worktree cleanup: stale Claude worktrees `amazing-chebyshev-4b88bc` and `vibrant-chandrasekhar-1331a9` were main-aligned, evidence archived under `/Users/masa/.codex/cleanup_archives/20260716-142214-amd-os-stale-claude-worktrees`, then removed with their local branches.
+- Remaining worktree list after cleanup: root checkout only.
 
 ## Verification Run
 
-- `rg -n "\\[図|図[0-9]+-" pwa/bzm/book-a-ch-{1..10}.md` 相当の本文確認で、第1〜10章の図プレースホルダを棚卸し。
-- `BOOK_A_MASTER_PLAN.md` §9 から、第11〜16章の見込み図版を推定。
-- `rg -n "BZM|Book B|PF-|鬼門|検証済み" pwa/bzm/BOOK_A_FIGURE_INVENTORY.md` -> 該当なし。
-- `git diff --check` passed for the figure inventory bundle before commit。
-- `pdfinfo /tmp/book-a-typesetting-verification-20260715/ch8-a5-ltjsbook.pdf` -> 28 pages / A5。
-- `unzip -p ch8-mathml.epub EPUB/content.opf | grep mathml` -> `properties="mathml"` 確認。
-- `unzip -p ch8-webtex.epub EPUB/text/ch001.xhtml | grep 交換効率` -> 交換効率の本文は残るが式画像は欠落。
-- `git diff --check` passed for the three Book A docs before commit。
-- Full PWA build/test は未実施。対象は BZM 出版準備 md の記帳であり、アプリUI/API変更なし。
+- `python3 -X utf8 scripts/apply_ddl.py scripts/migrations/173_private_wiki_person_context_fields.sql` -> OK (201)。
+- `python3 -X utf8 scripts/dump_schema.py` -> `pwa/design/db_schema.md` regenerated; `private_wiki_entries` now has columns 20-25 for the six new fields.
+- `npm run test:critical-ui` -> pass。
+- `npx eslint 'src/app/(app)/admin/private-wiki/page.tsx' src/app/api/admin/private-wiki/route.ts src/components/admin/AdminPrivateWikiClient.tsx` -> pass。
+- `npm run build` -> pass。
+- Deploy: clean disposable cloneから `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` を実行し、`v3.41.15` / `0d0cf4a0` の本番反映を確認。その後、別件 `v3.41.16` が本番へ入り、private wiki commit は ancestor として含まれている。
+- Unauthenticated production API check: `/api/admin/private-wiki` -> `401 Unauthorized`。admin gate は維持。
+- 未実施: adminログイン済みブラウザでの手操作 smoke。auth-gated のため次回必要ならまさログイン状態で確認する。
 
 ## Dirty State
 
 | path | status | class | owner guess | resolution action | next judgment condition | risk |
 |---|---:|---|---|---|---|---|
-| materials / research-assets docs and code (`FEATURE_REGISTRY`, `SPEC_pwa`, `manual/spec` appendix, `MaterialsKnowledgeView`, `materials-data`, `build-info`) | M | other-worker / active lane | Materials intelligence lane | Do not mix into Book A closeout. Owner should verify UI/build/manual/spec, then commit/deploy or revert as one bundle. | Before next materials/research-assets closeout. | high |
-| contracts ledger code/guards/migration (`check_contracts_ledger_grouping`, `check_pwa_critical_ui`, contracts API/UI/lib, contracts migration) | M / ?? | other-worker / active lane | contracts operational answers lane | Do not stage here. Contracts owner should verify schema/API/UI/critical guard, then commit/deploy or revert as one bundle. | Before next contracts deploy/closeout. | high |
-| `pwa/design/atlas_routine.md` | M | other-worker | Atlas / routine lane | Do not mix into Book A closeout. Owner should commit/deploy or revert as its own bundle. | Before next Atlas/routine closeout. | medium |
+| `pwa/design/atlas_routine.md` | M | other-worker | Atlas / D-8 routine lane | Do not stage here. Atlas owner should commit/deploy or revert as its own bundle. | Before next Atlas/routine closeout. | medium |
+| `pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md` | M | other-worker | L6 meeting extract lane | Do not stage here. L6 owner should verify and commit/deploy or revert. | Before next L6 closeout. | medium |
+| `pwa/scheduled-tasks/amd-os-l6-meeting-reviewer/SKILL.md` | M | other-worker | H-1 meeting summary reviewer lane | Do not stage here. H-1 owner should verify and commit/deploy or revert. | Before next H-1 reviewer closeout. | medium |
+| `pwa/scripts/check_h1_meeting_summary_reviewer.mjs` | M | other-worker | H-1 meeting summary reviewer lane | Do not stage here. H-1 owner should verify test coverage and commit/deploy or revert. | Before next H-1 reviewer closeout. | medium |
+| `pwa/scripts/review_h1_meeting_summary.mjs` | M | other-worker | H-1 meeting summary reviewer lane | Do not stage here. H-1 owner should verify report wording and commit/deploy or revert. | Before next H-1 reviewer closeout. | medium |
 | `pwa/bzm/2026-07-14_frontmatter_gairei_draft_v1.md` | ?? | preexisting / other-worker | Book A frontmatter lane | Keep. BZM/frontmatter owner should decide register/move/delete after Masa review. | Before next Book A frontmatter closeout. | low-medium |
 
-The exact dirty file list is volatile because another lane is active in the same checkout. Next session must treat `git status -sb --untracked-files=all` as authoritative.
+The exact dirty file list can change because active lanes share this checkout. Next session must rerun `git status -sb --untracked-files=all`.
 
 ## Unresolved Tasks
 
-- Book A Stream G: 図版ワーカーを切るタイミングのまさ判断。制作時は `BOOK_A_FIGURE_INVENTORY.md` を正本に、図1-3の「15回」表記と図10-2/10-1の登場順を確認する。
-- Book A Stream K: 高品質印刷所への見積り取得準備、ISBN/JAN申請情報整理、Kindle Previewer / epubcheck 確認。
-- 組版 pipeline: 長い数式2本の折り返しルール、図プレースホルダの実画像差し替え、本番テンプレ (柱・ノンブル・目次・奥付)。
-- repo hygiene: 上記 unrelated dirty は各 owner lane で別 closeout。
+- None for `/admin/private-wiki` implementation/deploy.
+- Optional manual smoke: logged-in admin opens `/admin/private-wiki`, creates/edits a dummy entry with the six new fields, confirms tag UI is gone, then archives the dummy entry.
+- Repo hygiene: remaining unrelated dirty paths above belong to their owner lanes and must not be mixed into private wiki closeout.
 
 ## First Next Action
 
@@ -68,24 +65,25 @@ The exact dirty file list is volatile because another lane is active in the same
    git log -1 --oneline
    curl -fsS https://amd-os-pwa.vercel.app/api/build-info
    ```
-2. If continuing figure work, read `pwa/bzm/BOOK_A_FIGURE_INVENTORY.md` and `pwa/bzm/COMMANDER_TASKS.md` Stream G first.
-3. Decide whether to launch figure-production workers now. Keep the inventory read-only unless chapter text or figure numbering changes.
-4. If continuing publication operations instead, read Stream K and `pwa/bzm/BOOK_A_PUBLISHING_PLAN.md` §4, then proceed to quote-prep / ISBN-JAN prep / EPUB real-device checks.
+2. If continuing private wiki work, open the logged-in production admin page and do the optional manual smoke above.
+3. If closing repo hygiene, handle the three remaining dirty groups by owner lane; do not use `git add .`.
 
 ## Pointers
 
-- BZM handoff: `pwa/bzm/HANDOFF_BOOK_A_2026-07-16.md`
-- Publication plan: `pwa/bzm/BOOK_A_PUBLISHING_PLAN.md`
-- Figure inventory: `pwa/bzm/BOOK_A_FIGURE_INVENTORY.md`
-- Commander ledger: `pwa/bzm/COMMANDER_TASKS.md`
-- BZM appendix changelog: `pwa/bzm/9-5-appendix-changelog.md`
+- Runtime route spec: `pwa/spec/2-1-pwa-runtime-routes.md`
+- Admin manual: `pwa/manual/2-6-admin-ops.md`
+- PWA surface spec: `pwa/design/SPEC_pwa.md`
+- Feature registry: `pwa/design/FEATURE_REGISTRY.md`
+- DB schema: `pwa/design/db_schema.md`
+- Critical UI guard: `pwa/scripts/check_pwa_critical_ui.cjs`
+- Session log: `pwa/design_log/sessions_2026-07.md`
 - Session migration prompt: `SESSION_MIGRATION_PROMPT.md`
 - PWA / AMD OS rules: `CLAUDE.md`, `pwa/AGENTS.md`, `pwa/CLAUDE.md`
 
 ## Guardrails
 
-- BZM出版準備の生成物 (PDF/EPUB/TeX/render PNG) は repo に入れない。
-- Chapter body (`book-a-ch-*.md`) は出版パイプライン検証では read-only。
-- `git add .` 禁止。対象ファイルだけ stage。
-- Branch/worktree 作成は禁止。main 直 commit / push。
-- PWA本番反映対象の実装変更は deploy script 経由。今回の Book A docs はアプリ仕様変更なし。
+- `/admin/private-wiki` is admin-only. Do not surface these fields in normal cockpit, public pages, or institution external workspace.
+- `tags` remains in DB only for compatibility; do not restore it as UI/API input, filter, or required anchor.
+- Private fields must stay minimal and source-backed. Do not paste raw emails, full meeting notes, private URLs, secrets, or unnecessary personal details into durable artifacts.
+- PWA deploy is `main push = Vercel production`; use `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` from a clean checkout when shipping.
+- `git add .`は禁止。対象ファイルだけ明示stage。

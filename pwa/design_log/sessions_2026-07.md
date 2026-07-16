@@ -1365,3 +1365,31 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 - 巻頭凡例下書き (`2026-07-14_frontmatter_gairei_draft_v1.md`) の残タスク=まさ確認2点 (「狂言回し」語の採否・柏木を全16話 [現在は全15話] の主人公と明言するか) は継続保留。
 - 統合章の正式タイトル確定・本文の物理マージ (v2 Ch4案「この数字を疑うのは、やめます」+ v1 Ch5移転実験案の再編集) は fable 領域として次セッションで扱う。
 - 「fable トークンがもうなくなりそう」というまさ制約は継続。opus 以下でできること・codex sol でできることを優先的に切り出す方針を継続。
+
+---
+
+## 2026-07-16 — Admin 裏wikiを人物文脈6項目へ更新
+
+### コンテキスト
+- まさから `/admin/private-wiki` に「誕生日」「出身地」「居住地」「接点」「家族」「タブー」を追加し、代わりに `tags` を削除してよいと依頼。
+- 指示どおり `/Users/masa/projects/AGENTS.common.md` から読み、repo/PWA rules、manual/spec/design/db_schema/current route を確認してから着手した。
+
+### 対応
+- migration `173_private_wiki_person_context_fields.sql` を追加し、`private_wiki_entries` に `birthday_label` / `origin_label` / `residence_label` / `contact_context` / `family_note` / `taboo_note` を追加した。
+- `/api/admin/private-wiki` の payload / row mapping を新6項目へ更新し、`tags` normalize、`tag` query、`contains("tags")` filter を撤去した。
+- `AdminPrivateWikiClient` の編集フォーム、検索、一覧表示を新6項目へ更新し、tag filter / tag chip / tags input を削除した。
+- `manual/2-6-admin-ops.md`、`spec/2-1-pwa-runtime-routes.md`、`design/SPEC_pwa.md`、`design/FEATURE_REGISTRY.md`、`design/db_schema.md`、manual/spec changelog を同期した。
+- `check_pwa_critical_ui.cjs` に新6項目の存在と `tags` 導線復活禁止の guard を追加した。
+
+### Verification / Deploy
+- production DBへ migration 173 適用済み。
+- `dump_schema.py` で `db_schema.md` を再生成。
+- `npm run test:critical-ui`、対象eslint、`npm run build` がpass。
+- clean disposable cloneから `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` を実行し、`v3.41.15` / commit `0d0cf4a0` の本番反映を確認した。
+- その後、別件 score fix `v3.41.16` / `692db89b` が本番currentになったが、`0d0cf4a0` は ancestor として含まれる。
+- 未ログインで `/api/admin/private-wiki` が `401 Unauthorized` を返すことを確認。ログイン済みadminでの手操作smokeは未実施。
+
+### Closeout notes
+- private wiki の未解決実装タスクはなし。
+- optional next: まさログイン状態で本番 `/admin/private-wiki` を開き、dummy entryで新6項目の保存・再表示・archiveを確認する。
+- 旧 `tags` 列は互換のためDBに残すだけ。UI/APIの入力・検索フィルタ・必須アンカーとして戻さない。
