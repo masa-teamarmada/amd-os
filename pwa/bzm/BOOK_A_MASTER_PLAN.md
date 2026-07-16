@@ -39,16 +39,16 @@
 | 3 | I | MVP ではなく MVB — 最小実証可能事業 | 28 | MVPの浅さを越え、MVBで事業仮説を検証する |
 | 4 | II | 外の必要と内の到達 — M と R を観測で採点する | 54 | 事業は M と R の積で動き、どちらも他方の代わりになれない (2026-07-16 中心命題 v4) |
 | 5 | II | 生存スコア S — ランウェイではなく「自走できる力」を測る | 30 | S = 自走力 (R_net×F)、生存条件式 B−R_net≤F、F-CES |
-| 6 | II | C — 企業・資本の相性を測る | 30 | 技術と市場だけでなく、相手の構造適合性を測る |
-| 7 | II | N — 交渉力を数値化する | 30 | 独自性・代替困難性・時間圧で交渉力を測る |
-| 8 | II | F — 創業者市場適合と認知歪み | 30 | Founder-Market Fit と意思決定バイアスを測る |
-| 9 | II | DSF — 需要・供給・資金の噛み合い | 30 | 三者が揃う瞬間に事業が動く |
-| 10 | III | ECR — 研究者・大企業・投資家の相互作用 | 30 | 三者関係の摩擦係数を読む |
-| 11 | III | δ と λ — 時間遅れと学習率 | 30 | 事業化の時間構造を測る |
-| 12 | IV | RT — リアルタイム事業化システム | 28 | BZMSを運用システムに変える |
-| 13 | IV | CEOの器 — Who-Questionと全体性耐性 | 22 | 事業化を担える主体の条件を測る |
-| 14 | IV | 出口設計 — 売却・JV・IPO・スピンアウト | 20 | 出口を最初から設計する |
-| 15 | 終 | Beyond Zero — 境界・倫理・Future Work | 28 | モデルの限界と次の研究課題 |
+| 6 | II | マクロ追い風の計測 — Triple Helix と投入シグナル σ_SU | 28 | σ_SU = ∛((μ_A+1)(μ_I+1)(μ_G+1))−1 で追い風を観測量として測る |
+| 7 | II | 生存の動学 — 戦略余力と first-passage 生存確率 | 32 | (x,y)平面上の戦略余力を測り、S = Pr(τ_x<τ_y) の first-passage 確率として生存を定式化する |
+| 8 | II | 統合スコアと律速診断 — 乗法モデルの設計と校正 | 28 | SPS = K·Π(X_i+1)^{α_i} の9軸乗法統合で、弱い軸から律速診断を導く |
+| 9 | II | GO/WAIT/NO_GO — 最適停止としての設立判断 (SPS≠GO) | 30 | GO(t,i) = 𝟙[σ_SU≥θ_σ*]·g_TRL(t) の実物オプション最適停止として設立判断を定式化する |
+| 10 | III | 苗床を測る — エコシステム構築率 ECR の8軸と加重和 | 28 | ECR = 100·Σw_k A_k/Σw_k の加重和で、案件でなく案件を生む装置を測る |
+| 11 | III | 二層非可換性 — 案件と機関を混ぜてはいけない理由 | 26 | SPS (乗法・案件) と ECR (加重和・機関) を単一スコアへ合成してはいけないことを公理 A1-A4 で示す |
+| 12 | IV | ラウンドテーブル — 二層を結合する組成機構 [仮説的第三柱] | 32 | RT = ℛ(d*,𝒩,𝒦,𝒳,Γ) として、案件と機関の二層を結合する組成機構を成立3条件で定義する |
+| 13 | IV | CEOという難問 — 機能は分割できても、愛情の総量だけは外注できない | 26 | CEO を機能の束として分解し、エバンジェリスト機能 (愛情の総量) だけは分割・外注できないことを示す |
+| 14 | IV | 出口ポートフォリオ — シーズごとに正しいサイズの成功を | 26 | ユニコーン単願ではなく出口ポートフォリオを設計し、絶対スコアと達成率の2読み方式で機関の期待還流を組む (看板主張) |
+| 15 | 終 | 検証と限界 — 総合演習: モデルを疑いながら使う | 28 | 後付け校正と前向き検証を Tier 規律で峻別し、総合演習でモデルを疑いながら使う姿勢を持ち帰る |
 
 
 ---
@@ -62,16 +62,16 @@
 | 3 | MVB = min(proof business viability); Evidence Ladder |
 | 4 | R = min(TRL, IRL, CRL, LRL, ORL); XRL radar; readiness bottleneck; readiness evidence ladder (M のミクロ観測 rubric は本章、天井 P 関連は Ch3 へ全面移管 — 2026-07-16 案3確定) |
 | 5 | S = 自走力 (R_net × F); 生存条件式 B − R_net ≤ F; F-CES |
-| 6 | C = Strategic Fit × Absorptive Capacity × Timing |
-| 7 | N = Uniqueness × Switching Cost × Time Pressure |
-| 8 | F = Founder-Market Fit − Cognitive Distortion |
-| 9 | DSF = D × S × F alignment; Synchronization Window |
-| 10 | ECR = g(Enterprise, Capital, Research); friction coefficient |
-| 11 | δ delay; λ learning rate; compounding delay model |
-| 12 | Real-Time BZMS Dashboard; adaptive update loop |
-| 13 | CEO Readiness / Wholeness Tolerance / Who-Question rubric |
-| 14 | Exit Option Value; Strategic Optionality Matrix |
-| 15 | Model Boundary Conditions; Ethical Risk Surface |
+| 6 | σ_SU = ∛((μ_A+1)(μ_I+1)(μ_G+1)) − 1 (Triple Helix); 状態空間モデル (Kalman filter の直感); jump intensity λ_x(σ_SU, ECR) |
+| 7 | (x,y)平面 (事業化到達度×戦略余力); S = Pr(τ_x < τ_y) (first-passage); H = y/T_remaining; 2D jump-diffusion |
+| 8 | SPS = K·Π_{i=1}^{9}(X_i+1)^{α_i} (9軸 Cobb-Douglas 乗法統合); 律速診断 argmax_i α_i/(X_i+1) |
+| 9 | GO(t,i) = 𝟙[σ_SU ≥ θ_σ*]·g_TRL(t) (実物オプション最適停止); θ_σ* の内生性 (P, F, B, レジーム遷移); SPS≠GO |
+| 10 | ECR = 100·Σw_k A_k / Σw_k (8軸加重和・充足率); 軸7ゲート的前提; Malerba SSI 全射 φ |
+| 11 | 二層非可換性定理: 公理 A1-A4; 系3.1 Simpson反転・四分位不安定性; SPS×ECR 合成禁止則 |
+| 12 | ℛ = (d*, 𝒩, 𝒦, 𝒳, Γ) (RT組成定義); CRL L0-L5; ICT-1〜5; Ψ_j = Ψ̄ + β·ICT_j + ε (仮説) |
+| 13 | 数式アイテムなし (意図的) — 第5章 §6.7 表6-4 CEO/CTO七機能分解の前方参照のみ |
+| 14 | 2読み方式 (Score_abs / 達成率); E[Π] = Σ_i E[V_i|class(i)]·r_i; 出口クラス5種; 統合ハザード h(t,n;θ) (Klepper) |
+| 15 | Tier A (校正) / Tier B (検証) の峻別; blind retrofit; Brier score / log-loss; 事前登録と反証条件リスト |
 
 
 ---
