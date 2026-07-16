@@ -7,6 +7,32 @@
 
 ---
 
+## 2026-07-17: 並列 worker の同一 append-only md 追記で stage 干渉と rebase conflict (事故未遂・回避手順確立)
+
+### 症状
+- Book A の章執筆 fable worker 5本 (Ch11〜15) が並列で `pwa/bzm/9-5-appendix-changelog.md` へ同時期に1行ずつ追記した。
+- 後から push する worker (Ch15) が `git status` を見ると、同ファイルに **他レーンが staged した2行** と **他レーンが unstaged の1行** が混在。worktree は `.git` を共有するため、staged 状態が全セッションから見える。
+- そのまま `git add <file>` すると他レーンの行が自分の commit に混入する。さらに push 前 rebase で同ファイル末尾追記同士の conflict、autostash pop でも他レーン dirty (design/README・db_schema・manual/9-3・spec/6-1) の conflict が連鎖した。
+
+### 原因
+- append-only の共有 changelog へ複数セッションが同時に追記する運用そのもの。行の内容は独立でも、隣接行への追記は git 上は同一 hunk になり conflict する。
+- `git add <file>` はファイル単位でしか stage できず、他レーンの working tree 変更を巻き込む。
+
+### 対応内容
+- 自分の追記 hunk だけを `printf "n\ny\n" | git add -p <file>` で選択的に stage し、他レーンの行は working tree に残した。
+- rebase conflict は append-only ルールに従い**両側残し** (順序だけの問題、内容の衝突ではない) で resolve。
+- 他レーン dirty 由来の autostash conflict は、upstream (origin/main の最新) と stashed (旧 working tree) の新しい方を採用。
+- resolve で index に入った他レーンのファイル群は commit せず `git reset HEAD` で unstage し、他レーンの作業状態を復元した。
+- untracked と origin/main の tracked が同名衝突した md は、md5 一致を確認してから rm して rebase を通した。
+
+### 再発防止策
+- **並列 worker への起票指示に「appendix/changelog への追記は commit 直前に行い、`git fetch origin main` → 自分の hunk だけ `git add -p` で stage」を含める**。
+- 共有 changelog に他レーンの staged/unstaged 行を見つけても、削除・編集・commit 巻き込みをしない。自分の行だけ stage して commit する。
+- rebase conflict の resolve では append-only md は必ず両側残し。片側を消すと他レーンの記録が消える。
+- resolve のために index へ入れた他レーン分は、push 前に `git reset HEAD` で必ず返す。
+
+---
+
 ## 2026-07-16: タブ再編後にルーティンの立替・管理画面導線が行き先を失った
 
 ### 症状
