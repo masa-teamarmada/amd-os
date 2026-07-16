@@ -1,5 +1,41 @@
 # 2026-07 Sessions
 
+## 2026-07-16 — `project_ventures.display_name` 廃止と `LisTie` 根絶確認
+
+### コンテキスト
+- まさから、LST cockpit を開くと Chrome tab に `LisTie` と出る、PJ リストでは `LiSTie` なのにどこか別正本が残っているはず、という調査依頼。
+- その直後に「display name は廃止済み」「二度と復活させないで」「display_name と LisTie が DB から根絶されたことを確認して」と条件が明確化した。
+- root cause 調査の起点は `pwa/src/app/(app)/project/[projectId]/layout.tsx`。tab title が `projects.project_name` ではなく legacy `project_ventures.display_name` に落ちる余地を持っていた。
+
+### 実施内容
+- `pwa/src/lib/project-labels.ts` を新設し、canonical PJ 名と対外 alias / 検索語を分離した。
+  - canonical = `projects.project_name`
+  - alias/search = `news_search_query` 優先、次に `client_name`
+- cockpit / HUD / venture-map / seeds / Tsukuyomi / funding / intro HTML / knowledge sync / founding members など、`project_ventures.display_name` に依存していた select / write / prompt 文面を `project_name` 基準へ統一した。
+- `pwa/scripts/migrations/178_retire_project_venture_display_name.sql` を追加し、2026-07-16 JST に live DB へ適用した。
+  - public base table の text/varchar/char 全列で `LisTie` -> `LiSTie` を置換
+  - `project_knowledge.entity_name='PJ 表示名'` を `PJ名` へ寄せる
+  - `public.project_ventures.display_name` を drop
+- `pwa/design/db_schema.md` を dump 再生成し、`pwa/manual/9-3-appendix-changelog.md`、`pwa/manual/4-7-venture-status-narrative-pl-xrl-spec.md`、`pwa/design/aspi_lanes.md`、`pwa/design/venture_map_demo.md` へ current truth を同期した。
+
+### Verification
+- live DB 再確認:
+  - `project_ventures_display_name_column_exists=false`
+  - `project_knowledge_pj_display_name_rows=0`
+  - `exact_lisitie_hits=[]`
+  - `p07 = { project_name: "LST", client_name: "LiSTie株式会社", news_search_query: "\"LiSTie|リスティー\"" }`
+- source/docs grep で残る `display_name` は finance / member profile / historical migration だけで、PJ文脈 current source からは消えていることを確認。
+- shared root checkout の `./node_modules/.bin/tsc --noEmit --pretty false` は `.next/types/validator.ts` の stale route 参照で失敗。これは display_name bundle の型エラーではなく、checkout local blocker と切り分けた。
+- production `/api/build-info` は 2026-07-16 JST 観測時点で `v3.44.1 / 63c635ba241e5bbe8ca029fd691aeb32d9326d06 / main / dirty=false`。closeout 中に GitHub `main` はさらに先へ進んだため、次セッションで再読が必要。
+
+### Closeout note
+- shared root checkout は multi-writer で、closeout 中に `HEAD` / `origin/main` が外部更新で進んだ。root での target-only staging は信頼しづらくなったため、最終 handoff 整理は disposable clean clone を使う方針に切り替えた。
+- `pwa/BUGS.md` は reward-finance lane が同時に dirty にしていたため、この session では display_name lesson を混ぜていない。BUGS 追記が必要なら owner を見て別 bundle で行う。
+
+### 教訓
+- live DB から legacy column を落とすタスクは、UI 1 箇所だけでは終わらない。select / write / prompt / seed / sync script まで横断して current source から消えていることを grep と DB readback の両方で確認して初めて完了。
+- AMD OS の shared root checkout で `HEAD` が動いている時は、その場での index/staging を信用しない。`git fetch` で current truth を取り直し、必要なら clean clone へ切り替える。
+
 ## 2026-07-01 — L2M-1 v2 移植: Codex (gpt-5.5 daily) → Claude routine (opus-4-8 + ultracode / 月末最終日 03:00 JST) + 内部/対外 2 段生成 + プロンプト DB管理化 + admin/projects 4列追加
 
 ### コンテキスト

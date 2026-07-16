@@ -2,85 +2,82 @@
 
 Last updated: 2026-07-16 JST
 Target: `/Users/masa/projects/AMD/amd-os`
-Topic: 月初合意モーダルの確認事項を発見できるUIへ再設計
+Topic: `project_ventures.display_name` 廃止と `LisTie` 根絶確認
 
 ## Latest Session Summary
 
-- 月初合意の `未確認` は `合意状態：未合意 / 条件更新あり / 合意済み / 対象外` と理由を示す状態欄へ修正済み。
-- 合意事項を小さな2列表から、全幅の `01 担当する仕事` → `02 その対価としての予定額` へ再構成した。
-- `01` は全PJの担当内容、`02` は予定額合計と同じPJ順の内訳を表示する。
-- 主操作は02の後、参考情報は主操作の後ろで初期状態を閉じる。
-- まさが本番画面を確認し、分かりやすくなったと受入確認済み。
-- 詳細ログ: `pwa/design_log/sessions_2026-07.md` の「月初合意の合意事項を独立した01・02へ再設計」。
+- LST cockpit の Chrome tab が `LisTie` になる根因は `pwa/src/app/(app)/project/[projectId]/layout.tsx` の legacy fallback だった。tab title は `projects.project_name` 固定へ戻した。
+- PJ の canonical name は `projects.project_name`、対外 alias / 検索語だけ `pwa/src/lib/project-labels.ts` で `news_search_query` / `client_name` から導く形に整理した。
+- cockpit / HUD / venture-map / seeds / Tsukuyomi / funding / intro HTML / knowledge sync / founding members など、`project_ventures.display_name` を select / write していた経路を `project_name` 基準へ統一した。
+- live DB には migration 178 を 2026-07-16 JST に適用済み。`project_ventures.display_name` 列を削除し、旧 `PJ 表示名` knowledge を `PJ名` へ寄せた。
+- live DB 再確認で `project_ventures.display_name` 列なし、`entity_name='PJ 表示名'` 行 0、public text/varchar/char 全走査で `LisTie` 0件、`p07` は `LST / LiSTie株式会社 / "LiSTie|リスティー"` を確認した。
+- 詳細ログ: `pwa/design_log/sessions_2026-07.md` の「2026-07-16 — `project_ventures.display_name` 廃止と `LisTie` 根絶確認」。
 
 ## Current Truth
 
-- Accepted implementation: `8b014291 fix(pwa): make monthly agreement items unmistakable`。
-- 月初合意handoff commit: `c33d6f65 docs: hand off monthly agreement UX closeout`。
-- Closeout最終時点の `main` / `origin/main`: `ca544b3078ca50753b7e88a67751edd59bb7f8e1`。`c33d6f65` と `8b014291` はそのancestor。
-- Production readback: `build_version=v3.43.9`, `git_sha=ca544b3078ca50753b7e88a67751edd59bb7f8e1`, `git_branch=main`, `dirty=false`。
-- この最終handoff更新でdocs-only commitが積まれるため、次セッションは `/api/build-info` を再取得し、上記SHAを固定値として扱わない。
-- 仕様正本は `pwa/spec/3-14-monthly-work-agreement-current-spec.md`。利用者向け導線はmanual 2-2、開発者向け契約はmanual 6-6。
+- PJ表示名の正本は `projects.project_name` のみ。`project_ventures.display_name` は DB / code ともに legacy。
+- 対外 alias が必要なときだけ `getPrimaryProjectAlias()` / `getProjectSearchAliases()` を使う。`client_name` を canonical PJ 名の代用にしない。
+- source tree 上の `display_name` は finance / member profile など別ドメインに残る。PJ 文脈での `display_name` は廃止済み。
+- production readback を 2026-07-16 JST に確認した時点では `build_version=v3.44.1`, `git_sha=63c635ba241e5bbe8ca029fd691aeb32d9326d06`, `git_branch=main`, `dirty=false`。
+- closeout 中に GitHub `main` はさらに先へ進んだ。共有 root checkout の SHA は揺れる前提で、次セッションは必ず `git fetch origin main` と `/api/build-info` を取り直す。
 
 ## Verification Run
 
-- `node pwa/scripts/check_pwa_critical_ui.cjs` -> pass。
-- `npm --prefix pwa run build` -> pass。TypeScriptと481 route生成を完了。
-- Production browserで `320 / 375 / 768 / 1280px` を確認し、全幅でdocument横overflowなし。
-- 必須確認領域のcomputed font-size: 最小12px、番号14px、見出し18px mobile / 20px desktop、担当内容14px、PJ別予定額16px、合計26px mobile / 28px desktop。
-- mobile主操作は全幅48px。DOM順は `状態 → 01 → 02 → 主操作 → 参考情報`。
-- 旧 `確認して合意する2点` / `1. PJごとの担当内容` はproduction DOMに存在しない。
+- live DB verification query:
+  - `project_ventures_display_name_column_exists=false`
+  - `project_knowledge_pj_display_name_rows=0`
+  - `exact_lisitie_hits=[]`
+  - `p07 = { project_name: "LST", client_name: "LiSTie株式会社", news_search_query: "\"LiSTie|リスティー\"" }`
+- source/docs grep で残る `display_name` は finance / member profile / historical migrations のみ。PJ文脈の `project_ventures.display_name` 参照は current source から消えている。
+- shared root checkout での `./node_modules/.bin/tsc --noEmit --pretty false` は `.next/types/validator.ts` の stale route 参照で失敗した。display_name bundle の型エラーではなく、checkout local blocker と扱う。
 
 ## Dirty State
 
-今回の月初合意bundleはcommit/push済みで、対象10ファイルに未commit差分はない。root checkoutの残dirtyは別レーン。
+display_name 廃止 bundle 自体は current `main` に乗っている。shared root checkout の残dirtyは別レーン。
 
 | path group | status | class / owner | resolution action | next judgment condition | risk |
 |---|---:|---|---|---|---|
-| `pwa/bzm/BOOK_A_MASTER_PLAN.md`, `pwa/bzm/terminology_glossary.md`, `pwa/bzm/2026-07-16_narrative_rebuild_ch4_5_merged_v1.md` | M / ?? | other-worker / Book A再構成lane | Book A ownerが単独bundleで検証・commit/deployまたはrevert | 次回Book A closeout前 | medium |
-| `pwa/bzm/2026-07-14_frontmatter_gairei_draft_v1.md` | ?? | preexisting / Book A巻頭lane | まさ確認後にBook A ownerがregister/move/deleteを判断 | 次回Book A closeout前 | low-medium |
-| `pwa/design/atlas_routine.md` | M | other-worker / Atlas D-8 lane | Atlas ownerが単独bundleでcommit/deployまたはrevert | 次回Atlas closeout前 | medium |
-| `pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md` | M | other-worker / L6 extract lane | L6 ownerが検証して単独commit/deployまたはrevert | 次回L6 closeout前 | medium |
-| `pwa/scheduled-tasks/amd-os-l6-meeting-reviewer/SKILL.md`, `pwa/scripts/check_h1_meeting_summary_reviewer.mjs`, `pwa/scripts/review_h1_meeting_summary.mjs` | M | other-worker / H-1 reviewer lane | H-1 ownerがテスト後に単独commit/deployまたはrevert | 次回H-1 closeout前 | medium |
-
-`amd-payment-obligations` の後続bundleは `ca544b30` でcommit/push/deploy済み。専用worktreeもownerが撤収済み。現在のdirty一覧は変動しうるため、stage前に必ず取り直す。
+| `pwa/BUGS.md`, `pwa/scripts/migrations/165_void_zmp_legacy_agreement_offsets.sql`, `pwa/src/lib/finance/live-monthly-pl-inputs.ts`, `pwa/src/lib/finance/monthly-pl-simulation.ts`, `pwa/src/lib/reward-summary.ts` | M | other-worker / reward-finance lane | finance owner が単独 bundle で検証・commit・deploy | 次回 reward/finance closeout 前 | high |
+| `pwa/design/notifications.md`, `pwa/manual/3-3-notifications-and-tsukuyomi.md`, `pwa/manual/8-2-notification-review-and-strategy-signals-spec.md`, `pwa/spec/3-7-notifications-current-spec.md`, `pwa/spec/6-1-appendix-changelog.md`, `pwa/src/components/notifications/NotificationsClient.tsx` | M | other-worker / notifications lane | notifications owner が単独 bundle で検証・commit・deploy | 次回 notifications closeout 前 | medium |
+| `pwa/scheduled-tasks/amd-os-l6-meeting-reviewer/SKILL.md`, `pwa/scripts/check_h1_meeting_summary_reviewer.mjs`, `pwa/scripts/review_h1_meeting_summary.mjs` | M | other-worker / H-1 reviewer lane | H-1 owner が reviewer テスト後に単独 bundle 化 | 次回 H-1 closeout 前 | medium |
+| `pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md` | M | other-worker / L6 extract lane | L6 owner が単独 bundle で検証・commit・deploy | 次回 L6 closeout 前 | medium |
+| `pwa/design/atlas_routine.md` | M | other-worker / Atlas D-8 lane | Atlas owner が単独 bundle で commit/deploy または revert | 次回 Atlas closeout 前 | medium |
+| `pwa/bzm/2026-07-14_frontmatter_gairei_draft_v1.md` | ?? | preexisting / Book A巻頭 lane | Book A owner が register / move / delete を判断 | 次回 Book A closeout 前 | low-medium |
 
 ## Repo / Cleanup State
 
 - Canonical branch: `main`。
-- 月初合意セッションが作ったbranch/worktree: none。
-- 残っていたmain-alignedの古いClaude worktree 1つとbranch 1本は、証跡保存後に削除済み。
-- 今回用のclean cloneと完了済みSonnet workerは削除・終了済み。
-- Worktree: root checkout 1つ。Local branch: `main` 1本。Conflict: none。
-- 残dirtyが別owner laneにあるため、repo全体のarchive判定は `do not archive`。月初合意lane自体の未処理はない。
+- shared root checkout は multi-writer。closeout 中に root `HEAD` と `origin/main` が外部更新で進んだため、最終 handoff 整理は disposable clean clone で実施した。
+- `bash /Users/masa/.codex/skills/closeout/scripts/closeout_inventory.sh /Users/masa/projects/AMD/amd-os` では、main-aligned の `.claude/worktrees/*` / `claude/*` が複数残っていた。active owner 不明なので、この session では prune していない。
+- repo 全体の archive 判定は `do not archive`。理由は shared root の別レーン dirty と、owner 未確定の main-aligned worktree / branch 残存。
 
 ## Unresolved Tasks
 
-- 月初合意UI、仕様同期、deploy、responsive検証に必須残タスクなし。
-- 新しいフィードバックが来た場合だけ、production current truthを読み直して再開する。
+- display_name 廃止そのものの追加実装タスクはなし。
+- 最新 main が production `/api/build-info` に追いついた後、`/project/p07` と venture-map/HUD で `LisTie` が UI に残っていないことを再確認する。
+- `pwa/BUGS.md` への今回の lesson 追記は未実施。shared root の同ファイルが reward-finance lane で dirty のため、混ぜて closeout しない。
 
 ## First Next Action
 
-1. 次セッション冒頭で `git fetch origin main`、`git status -sb --untracked-files=all`、`git rev-list --left-right --count HEAD...origin/main`、production `/api/build-info` を取り直す。
-2. 月初合意を続ける場合は、ログイン済みproductionの `/monthly-agreement` と強制モーダルが同じ `MonthlyAgreementExperience` を使っていることを維持する。
-3. 別ownerのdirtyを月初合意bundleへ混ぜず、対象ファイルだけ明示stageする。
+1. `/Users/masa/projects/AMD/amd-os` で `git fetch origin main`、`git log -1 --oneline`、`git status -sb --untracked-files=all`、`git rev-list --left-right --count HEAD...origin/main` を取り直す。
+2. `curl -fsS https://amd-os-pwa.vercel.app/api/build-info` で production SHA を確認し、`/project/p07` を開いて tab title と HUD / venture-map 表記を再確認する。
+3. PJ alias が要る新規コードでは `pwa/src/lib/project-labels.ts` を使い、`project_ventures.display_name` / `PJ 表示名` を復活させない。
 
 ## Pointers
 
-- Current spec: `pwa/spec/3-14-monthly-work-agreement-current-spec.md`
-- Member manual: `pwa/manual/2-2-member-workflows-quick-start.md`
-- Developer manual: `pwa/manual/6-6-member-billing-prompts-spec.md`
-- Feature registry: `pwa/design/FEATURE_REGISTRY.md`
-- Bug / lesson: `pwa/BUGS.md`
-- Critical UI guard: `pwa/scripts/check_pwa_critical_ui.cjs`
+- Canonical helper: `pwa/src/lib/project-labels.ts`
+- Cockpit metadata path: `pwa/src/app/(app)/project/[projectId]/layout.tsx`
+- Venture status data: `pwa/src/lib/venture-status-data.ts`
+- Venture map data: `pwa/src/lib/venture-map-data.ts`
+- DB schema ref: `pwa/design/db_schema.md`
+- Design / manual: `pwa/design/cockpit.md`, `pwa/manual/2-3-pj-cockpit.md`, `pwa/manual/4-7-venture-status-narrative-pl-xrl-spec.md`
+- Changelog: `pwa/manual/9-3-appendix-changelog.md`
 - Session log: `pwa/design_log/sessions_2026-07.md`
 - Next-session prompt: `SESSION_MIGRATION_PROMPT.md`
 
 ## Guardrails
 
-- 合意事項を小さい列ラベルやPJ単位の2列表へ戻さない。
-- 必須領域で12px未満を使わず、01・02を補助情報より弱くしない。
-- 01と02のPJ順を一致させ、担当内容と予定額は折りたたまない。
-- 5秒理解、縮小表示、computed font-size、`320 / 375 / 768 / 1280px` の横overflowを完了条件にする。
-- UI設計・最終レビューはSol、コード実装とローカル検証はSonnet worker、司令塔は統合とproduction確認を担当する。
-- PWA deployはclean checkoutから `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`。`git add .`は禁止。
+- `project_ventures.display_name` を再追加しない。PJ名の正本は `projects.project_name`。
+- `client_name` を canonical PJ 名の代わりに使わない。対外 alias / 検索語だけ helper 経由で扱う。
+- `project_knowledge.entity_name='PJ 表示名'` を新規に書かない。PJ名は `PJ名` で揃える。
+- shared root checkout で SHA が動いていたら、その場 staging を信用しない。clean clone か target-only bundle に切り替える。
