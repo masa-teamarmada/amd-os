@@ -1513,3 +1513,29 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 - **判断 (事後報告済み)**: 出力先を指示の book-a-ch-13.md から book-a-ch-13-5.md へ修正 (book-a-ch-13 slug は第12章 RT に割当済み — 台帳記帳と bzm-chapters.ts 現物に従う。Ch12 ワーカーとのファイル衝突回避)。13.6 は章頭 specifics 非依存で自立。EP-003 は章頭専用に温存し理論内で二重使用せず。
 - **git 経路**: 本体 checkout が他レーン dirty で ff 不能 → 自 worktree を origin/main へ detach → rebase (Ch14 ワーカー push とのレース解消) → `push origin HEAD:main`。branch 新規作成なし。本体の自変更は掃除済み。
 - **残**: まさの本文レビュー / 章頭 13.0 の白紙構想 (別プロセス、v1 参考稿 = `2026-07-16_narrative_rebuild_ch13_v1.md` §2)。詳細は 9-5 附則の 2026-07-17 Ch13 行。
+
+
+---
+
+## 2026-07-17 — Book A 第12章 (ラウンドテーブル) 理論パート v1 起草 (Ch12 ワーカー)
+
+### コンテキスト / 判断
+- spawn_task 起票の Ch12 担当 fable セッション。当初スコープは白紙構想+本文起草の対話モードだったが、司令塔の軌道修正2回 (①章頭ナラティブは書かない・理論パートのみ ②書き終えるまでまさへ質問しない = ノンストップ) を受け、理論パート 12.1〜12.8 を書き切った。
+- 着手前の章頭白紙構想で、中心命題の A/B/C 3案からまさが C案を確定 —「RTとは、署名を集める協定ではなく、退路を断ったコミットが連鎖し続ける共同体である」(点火 = MASTER_PLAN §9 側と、連鎖し続ける = NARRATIVE_DESIGN §8 v2 側の統合)。「連鎖し続ける」は理論側 12.3 の自動降格条項に実装した (「円卓は、組成の瞬間の達成ではなく、保たれ続けている状態である」)。
+- push 直前 fetch で統合章 v4 (M×R 化・P の Ch3 移管、`b0875c08`) を検知し、P 証拠の質の参照を「統合章前半」→「第3章」へ3箇所追随してから push。push 直前 fetch ルールが機能した実例。
+- XRL 軸名は本文正本 (Ch8・統合章 = TRL/BRL/GRL/SRL/HRL) 準拠と判断。MASTER_PLAN §3/§9 Ch4 行の「TRL, IRL, CRL, LRL, ORL」は旧表記の残存で、RT の CRL (Coalition Readiness Level) と正面衝突するため司令塔ゲートへ申し送り。
+
+### 実装 / 仕様同期
+- `pwa/bzm/book-a-ch-12.md` 新規 (理論パート約17,500字、12.0 は別セッション委譲のプレースホルダ)。12.1 定義 ℛ=(d*,𝒩,𝒦,𝒳,Γ)・二層経済・keystone の啓発的利己 (was 5系譜) / 12.2 成立3条件の機構と❌線引き表12-1 / 12.3 CRL 六段階 / 12.4 ICT 五指標 (ECR 合算禁止・コールドスタート注記) / 12.5 q=Q_commit/Q* / 12.6 take-or-pay 三分割 (実現前コミットの R_net 計上禁止) / Box 12-A 二重計上ガード / 12.7 Ψ_j=Ψ̄+β·ICT_j+ε (検証プログラム付き仮説と明記 = D-056、三項構造完成、Ch1 1.4 の約束回収、道具の三身分) / Box 12-B 独禁 (D-058 必置) / 12.8 演習3本+90分運用例+到達目標+読書案内。
+- `pwa/bzm/2026-07-16_narrative_rebuild_ch12_v1.md` = 章頭白紙構想 v1 (場面3案+本命「空席の円卓」本文稿約2,900字、中心命題C案まさ確定の記録)。司令塔の軌道修正によりスコープ外参考保存。
+- 9-5 附則へ1行追記。kaku 点検 (話題テスト・漏出テスト・緊張台帳・拍・境界) 通過、鬼門/validation 語彙/LLM 空句/運用数値 (n₀・Δ) の grep ゼロ確認。
+
+### Verification / Deploy
+- commit `820d17c0` を main へ push (Ch13 の push と1分差で交差し rebase 1回、conflict なし)。push 後に origin 版と手元ファイルの同一性を diff で確認済み。
+- main checkout は他レーン dirty 3件 (pwa/design/README.md・pwa/manual/9-3・pwa/spec/6-1、いずれも origin と実差分あり = 進行中作業) が pull を塞いでいたため、disposable clean clone 経由で push (AGENTS.common 正規手段)。clone は削除済み。
+
+### Closeout notes
+- このセッションで作った branch/worktree: none (spawn 時の自動 worktree のみ、そこへの commit なし。編集は main checkout への絶対パスで実施)。
+- main checkout に ch12 の2ファイルが origin 同一の untracked として残置 (まさ確認用。pull 時に上書き衝突が出たら削除で無害 — 同一性検証済み)。ch14 提案 md の untracked 残骸 (origin 同一確認済み) は削除した。
+- 司令塔へ完了報告済み (自己判断8件 + 正本不整合の申し送り)。**残る司令塔ゲート案件**: ①MASTER_PLAN の XRL 旧表記4箇所 (§3 Ch4 行 + §9 Ch4 の therefore/数式アイテム/演習3 — RT の CRL と衝突、修復 commit `dc86fe73` のスコープ外で残存) ②MASTER_PLAN §5 場面台帳の章番号が旧16章制のまま (「Ch 13 二社目が来ない円卓」等) ③NARRATIVE_DESIGN §8 Ch12 行の中心命題を C案確定版へ差し替え。
+- 次: まさの理論パート本文確認 → 修正対応。章頭ナラティブ (12.0) は別セッションで執筆 (白紙構想 v1 が素材)。引き継ぎ = `pwa/bzm/2026-07-17_ch12_worker_handoff.md`。
