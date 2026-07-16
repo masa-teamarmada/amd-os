@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   editableValue,
   overrideValue,
@@ -17,6 +20,8 @@ import {
   deriveCapitalPlan,
   safeDeriveCapitalPlan,
   discloseShareRounding,
+  checkPublishEligibility,
+  validateSubmissionCompleteness,
   type CapitalPlan,
   type CapitalEvent,
   type EventAllocation,
@@ -1320,5 +1325,1020 @@ console.log("28) deriveCapitalPlan: ownership_target基準の不可能な組み�
   assertNoBlockingErrors(derived, "固定割当+目標比率割当の混在");
 }
 console.log("29) deriveCapitalPlan: ownership_target基準のprimaryRaiseが固定割当の金額を含めて合計される: ok");
+
+// ---------------------------------------------------------------------------
+// 30) newShares: イベント種別/株式クラスを考慮した検証（セカンダリのnet-zero取込・
+//     SO付与のoutstanding_delta=0取込が誤検知されない／セカンダリでnewShares!=0は誤り）
+// ---------------------------------------------------------------------------
+
+{
+  // 取込セカンダリ: net-zeroの株式移動、newShares=0（インポート時の合算値どおり）→ 誤検知なし
+  const importedSecondary: CapitalEvent = {
+    id: "e-imported-secondary",
+    type: "secondary",
+    label: "取込セカンダリ",
+    order: 2,
+    newShares: editableValue(0, "confirmed"),
+    allocations: [
+      alloc("founder", "common", -30_000, { amount: editableValue(12_000_000) }),
+      alloc("aVc", "common", 30_000, { amount: editableValue(12_000_000) }),
+    ],
+  };
+  const plan1: CapitalPlan = { id: "p-imported-secondary", name: "imported-secondary", holders, events: [makeIncorporation(), importedSecondary] };
+  const issues1 = validateCapitalPlan(plan1);
+  assert.ok(!issues1.some((i) => i.code === "new_shares_mismatch"), "net-zeroの取込セカンダリでnew_shares_mismatchが誤検知されました");
+
+  // セカンダリでnewShares!=0は誤り
+  const badSecondaryNewShares: CapitalEvent = { ...importedSecondary, id: "e-bad-secondary-new-shares", newShares: editableValue(30_000, "confirmed") };
+  const plan2: CapitalPlan = { id: "p-bad-secondary-new-shares", name: "bad-secondary-new-shares", holders, events: [makeIncorporation(), badSecondaryNewShares] };
+  const issues2 = validateCapitalPlan(plan2);
+  assert.ok(issues2.some((i) => i.code === "new_shares_mismatch" && /セカンダリ/.test(i.message)), "セカンダリのnewShares!=0が検出されていません");
+
+  // 取込SO付与: outstanding_delta=0（オプションはFDのみ）、newShares=0 → 誤検知なし
+  const importedOptionGrant: CapitalEvent = {
+    id: "e-imported-option-grant",
+    type: "option_pool",
+    label: "取込SO付与",
+    order: 2,
+    poolSize: editableValue(5_000, "confirmed"),
+    newShares: editableValue(0, "confirmed"),
+    allocations: [alloc("esop", "option", 5_000)],
+  };
+  const plan3: CapitalPlan = { id: "p-imported-option-grant", name: "imported-option-grant", holders, events: [makeIncorporation(), importedOptionGrant] };
+  const issues3 = validateCapitalPlan(plan3);
+  assert.ok(!issues3.some((i) => i.code === "new_shares_mismatch"), "outstanding_delta=0の取込SO付与でnew_shares_mismatchが誤検知されました");
+  assert.ok(!issues3.some((i) => i.code === "option_pool_size_mismatch"), "取込SO付与でoption_pool_size_mismatchが誤検知されました");
+
+  // equity_issue で非希薄化クラスの正の割当合計とnewSharesが一致しない場合は引き続き検出される
+  const badEquityNewShares: CapitalEvent = {
+    id: "e-bad-equity-new-shares",
+    type: "equity_issue",
+    label: "不整合newShares",
+    order: 2,
+    newShares: editableValue(999_999, "confirmed"),
+    allocations: [alloc("seedVc", "preferred", 100_000)],
+  };
+  const plan4: CapitalPlan = { id: "p-bad-equity-new-shares", name: "bad-equity-new-shares", holders, events: [makeIncorporation(), badEquityNewShares] };
+  const issues4 = validateCapitalPlan(plan4);
+  assert.ok(issues4.some((i) => i.code === "new_shares_mismatch"), "増資イベントのnewShares不一致が検出されていません");
+}
+console.log("30) newShares（イベント/株式クラス考慮、セカンダリ・SO取込の誤検知なし）: ok");
+
+// ---------------------------------------------------------------------------
+// 31) 負の割当（金額・株数）の拒否
+// ---------------------------------------------------------------------------
+
+{
+  // セカンダリ以外での負の金額
+  const negativeAmount: CapitalEvent = {
+    id: "e-negative-amount",
+    type: "equity_issue",
+    label: "負の金額",
+    order: 2,
+    allocations: [alloc("seedVc", "preferred", 100_000, { amount: editableValue(-1) })],
+  };
+  const plan1: CapitalPlan = { id: "p-negative-amount", name: "negative-amount", holders, events: [makeIncorporation(), negativeAmount] };
+  const issues1 = validateCapitalPlan(plan1);
+  const negAmountIssue = issues1.find((i) => i.code === "negative_allocation_amount");
+  assert.ok(negAmountIssue, "セカンダリ以外での負の金額が検出されていません");
+  assert.ok(/[぀-ヿ一-鿿]/.test(negAmountIssue!.message), "負の金額エラーメッセージが日本語になっていません");
+
+  // セカンダリ以外での負の株数（買い手・売り手の概念がないため常に不可）
+  const negativeShares: CapitalEvent = {
+    id: "e-negative-shares",
+    type: "equity_issue",
+    label: "負の株数",
+    order: 2,
+    allocations: [alloc("seedVc", "preferred", -100_000)],
+  };
+  const plan2: CapitalPlan = { id: "p-negative-shares", name: "negative-shares", holders, events: [makeIncorporation(), negativeShares] };
+  const issues2 = validateCapitalPlan(plan2);
+  const negSharesIssue = issues2.find((i) => i.code === "negative_shares_not_allowed");
+  assert.ok(negSharesIssue, "セカンダリ以外での負の株数が検出されていません");
+  assert.ok(/[぀-ヿ一-鿿]/.test(negSharesIssue!.message), "負の株数エラーメッセージが日本語になっていません");
+
+  // セカンダリの譲渡人側の負の株数は許容される（既存テスト8と整合）
+  const validSecondary: CapitalEvent = {
+    id: "e-valid-secondary",
+    type: "secondary",
+    label: "正当なセカンダリ",
+    order: 2,
+    allocations: [
+      alloc("founder", "common", -50_000, { amount: editableValue(20_000_000) }),
+      alloc("aVc", "common", 50_000, { amount: editableValue(20_000_000) }),
+    ],
+  };
+  const plan3: CapitalPlan = { id: "p-valid-secondary", name: "valid-secondary", holders, events: [makeIncorporation(), validSecondary] };
+  const issues3 = validateCapitalPlan(plan3);
+  assert.ok(!issues3.some((i) => i.code === "negative_shares_not_allowed"), "セカンダリの譲渡人側の負の株数が誤検知されました");
+  assert.ok(!issues3.some((i) => i.code === "negative_allocation_amount"), "セカンダリの正の受渡金額が誤検知されました");
+}
+console.log("31) 負の割当金額・株数の拒否（セカンダリ以外）: ok");
+
+// ---------------------------------------------------------------------------
+// 32) コンバーティブルのライフサイクル強化: 発行は正のconvertible単位のみ、
+//     転換には消込と非希薄化発行が必須、残高を超える消込は拒否、
+//     転換は新規現金として扱わない（primaryRaiseは0でなければならない）
+// ---------------------------------------------------------------------------
+
+{
+  // convertible_issue: shareClassがconvertible以外
+  const invalidClassIssue: CapitalEvent = {
+    id: "e-conv-issue-invalid-class",
+    type: "convertible_issue",
+    label: "不正クラスの発行",
+    order: 2,
+    allocations: [alloc("seedVc", "preferred", 100_000)],
+  };
+  const planA: CapitalPlan = { id: "p-conv-invalid-class", name: "conv-invalid-class", holders, events: [makeIncorporation(), invalidClassIssue] };
+  assert.ok(validateCapitalPlan(planA).some((i) => i.code === "convertible_issue_invalid_class"), "convertible_issueでの不正なshareClassが検出されていません");
+
+  // convertible_issue: 0以下の発行数
+  const nonPositiveIssue: CapitalEvent = {
+    id: "e-conv-issue-non-positive",
+    type: "convertible_issue",
+    label: "0以下の発行",
+    order: 2,
+    allocations: [alloc("seedVc", "convertible", 0)],
+  };
+  const planB: CapitalPlan = { id: "p-conv-non-positive", name: "conv-non-positive", holders, events: [makeIncorporation(), nonPositiveIssue] };
+  assert.ok(validateCapitalPlan(planB).some((i) => i.code === "convertible_issue_non_positive_units"), "convertible_issueでの0以下の発行数が検出されていません");
+
+  // convertible_conversion: 消込（負のconvertible）がない
+  const missingConsumption: CapitalEvent = {
+    id: "e-conv-missing-consumption",
+    type: "convertible_conversion",
+    label: "消込なし転換",
+    order: 3,
+    allocations: [alloc("seedVc", "preferred", 100_000)],
+  };
+  const planC: CapitalPlan = { id: "p-conv-missing-consumption", name: "conv-missing-consumption", holders, events: [makeIncorporation(), missingConsumption] };
+  assert.ok(validateCapitalPlan(planC).some((i) => i.code === "convertible_conversion_missing_consumption"), "消込のない転換イベントが検出されていません");
+
+  // convertible_conversion: 非希薄化発行（普通株式・優先株式等）がない
+  const missingIssuance: CapitalEvent = {
+    id: "e-conv-missing-issuance",
+    type: "convertible_conversion",
+    label: "発行なし転換",
+    order: 3,
+    allocations: [alloc("seedVc", "convertible", -100_000)],
+  };
+  const planD: CapitalPlan = { id: "p-conv-missing-issuance", name: "conv-missing-issuance", holders, events: [makeIncorporation(), missingIssuance] };
+  assert.ok(validateCapitalPlan(planD).some((i) => i.code === "convertible_conversion_missing_issuance"), "非希薄化発行のない転換イベントが検出されていません");
+
+  // 保有残高を超えるコンバーティブル消込は拒否される（イベント順に残高を追跡）
+  const convIssue: CapitalEvent = {
+    id: "e-conv-issue-balance",
+    type: "convertible_issue",
+    label: "J-KISS発行",
+    order: 2,
+    allocations: [alloc("seedVc", "convertible", 50_000, { amount: editableValue(10_000_000) })],
+  };
+  const overConsume: CapitalEvent = {
+    id: "e-conv-overconsume",
+    type: "convertible_conversion",
+    label: "残高超過の転換",
+    order: 3,
+    preMoneyValuation: editableValue(500_000_000),
+    postMoneyValuation: editableValue(500_000_000),
+    allocations: [
+      alloc("seedVc", "convertible", -60_000),
+      alloc("seedVc", "preferred", 60_000, { amount: editableValue(12_000_000) }),
+    ],
+  };
+  const planE: CapitalPlan = { id: "p-conv-overconsume", name: "conv-overconsume", holders, events: [makeIncorporation(), convIssue, overConsume] };
+  assert.ok(validateCapitalPlan(planE).some((i) => i.code === "convertible_consumption_exceeds_balance"), "保有残高を超えるコンバーティブル消込が検出されていません");
+
+  // 正当な消込（残高ちょうど）は誤検知されない（既存テスト7相当の残高チェック再確認）
+  const exactConsume: CapitalEvent = {
+    id: "e-conv-exact-consume",
+    type: "convertible_conversion",
+    label: "残高ちょうどの転換",
+    order: 3,
+    preMoneyValuation: editableValue(500_000_000),
+    postMoneyValuation: editableValue(500_000_000),
+    allocations: [
+      alloc("seedVc", "convertible", -50_000),
+      alloc("seedVc", "preferred", 50_000, { amount: editableValue(10_000_000) }),
+    ],
+  };
+  const planF: CapitalPlan = { id: "p-conv-exact-consume", name: "conv-exact-consume", holders, events: [makeIncorporation(), convIssue, exactConsume] };
+  assert.ok(!validateCapitalPlan(planF).some((i) => i.code === "convertible_consumption_exceeds_balance"), "残高ちょうどの消込が誤検知されました");
+
+  // 転換は新規現金として扱わない: primaryRaiseが非ゼロならエラー
+  const conversionWithCash: CapitalEvent = {
+    id: "e-conv-with-cash",
+    type: "convertible_conversion",
+    label: "現金調達扱いの転換（誤り）",
+    order: 3,
+    preMoneyValuation: editableValue(500_000_000),
+    postMoneyValuation: editableValue(999_000_000), // pre+raiseルールが適用されないことも併せて確認
+    primaryRaise: editableValue(20_000_000),
+    allocations: [
+      alloc("seedVc", "convertible", -50_000),
+      alloc("seedVc", "preferred", 50_000, { amount: editableValue(20_000_000) }),
+    ],
+  };
+  const planG: CapitalPlan = { id: "p-conv-with-cash", name: "conv-with-cash", holders, events: [makeIncorporation(), convIssue, conversionWithCash] };
+  const issuesG = validateCapitalPlan(planG);
+  assert.ok(issuesG.some((i) => i.code === "convertible_conversion_primary_raise_nonzero"), "転換イベントのprimaryRaise非ゼロが検出されていません");
+  assert.ok(!issuesG.some((i) => i.code === "post_money_mismatch"), "転換イベントはpre+raiseのpost-money整合性チェックから除外される必要があります");
+  assert.ok(!issuesG.some((i) => i.code === "primary_raise_mismatch"), "転換イベントは通常のprimaryRaise整合性チェック対象外である必要があります");
+}
+console.log("32) コンバーティブルのライフサイクル強化（発行/転換の妥当性・残高追跡・現金非計上）: ok");
+
+// ---------------------------------------------------------------------------
+// 33) 提出完全性検証（validateSubmissionCompleteness / checkPublishEligibility）:
+//     設立→…→IPOの一連が揃って初めて凍結可能。単発の未完成ドラフトは凍結不可だが
+//     safeDeriveCapitalPlanはクラッシュしない。
+// ---------------------------------------------------------------------------
+
+{
+  const completeHolders: Holder[] = [
+    { id: "founder-c", name: "創業者", kind: "founder" },
+    { id: "seedVc-c", name: "Seed投資家", kind: "investor" },
+    { id: "public-c", name: "公募投資家", kind: "investor" },
+  ];
+  const completeIncorporation: CapitalEvent = {
+    id: "e-complete-inc",
+    type: "incorporation",
+    label: "設立",
+    order: 1,
+    date: "2023-01-10",
+    allocations: [alloc("founder-c", "common", 1_000_000)],
+  };
+  const seedPrice = priceFromPreMoney(400_000_000, 1_000_000);
+  const seedShares = Math.round(sharesFromInvestment(100_000_000, seedPrice));
+  const seedRaise = seedShares * seedPrice;
+  const completeSeed: CapitalEvent = {
+    id: "e-complete-seed",
+    type: "equity_issue",
+    label: "Seed",
+    order: 2,
+    date: "2023-06-01",
+    preMoneyValuation: editableValue(400_000_000),
+    postMoneyValuation: editableValue(400_000_000 + seedRaise),
+    pricePerShare: editableValue(seedPrice),
+    primaryRaise: editableValue(seedRaise),
+    newShares: editableValue(seedShares),
+    calculationBasis: "manual",
+    allocations: [alloc("seedVc-c", "preferred", seedShares, { amount: editableValue(seedRaise), pricePerShare: editableValue(seedPrice) })],
+  };
+  const ipoPreRoundFd = 1_000_000 + seedShares;
+  const ipoPrice = priceFromPreMoney(2_000_000_000, ipoPreRoundFd);
+  const ipoShares = Math.round(sharesFromInvestment(500_000_000, ipoPrice));
+  const ipoRaise = ipoShares * ipoPrice;
+  const completeIpo: CapitalEvent = {
+    id: "e-complete-ipo",
+    type: "ipo",
+    label: "IPO",
+    order: 3,
+    date: "2024-01-15",
+    preMoneyValuation: editableValue(2_000_000_000),
+    postMoneyValuation: editableValue(2_000_000_000 + ipoRaise),
+    pricePerShare: editableValue(ipoPrice),
+    primaryRaise: editableValue(ipoRaise),
+    newShares: editableValue(ipoShares),
+    calculationBasis: "manual",
+    allocations: [alloc("public-c", "common", ipoShares, { amount: editableValue(ipoRaise), pricePerShare: editableValue(ipoPrice) })],
+  };
+  const completePlan: CapitalPlan = {
+    id: "p-complete-submission",
+    name: "complete-submission",
+    holders: completeHolders,
+    events: [completeIncorporation, completeSeed, completeIpo],
+  };
+
+  assert.deepEqual(validateSubmissionCompleteness(completePlan), [], "完全な設立→Seed→IPOプランに提出完全性エラーが検出されました");
+  const completeEligibility = checkPublishEligibility(completePlan);
+  assert.equal(completeEligibility.eligible, true, `完全なプランがeligible=falseになりました: ${JSON.stringify(completeEligibility.blockingIssues)}`);
+
+  // 末尾がIPOでない場合は凍結不可
+  const noIpoPlan: CapitalPlan = { ...completePlan, id: "p-no-ipo", events: [completeIncorporation, completeSeed] };
+  const noIpoEligibility = checkPublishEligibility(noIpoPlan);
+  assert.equal(noIpoEligibility.eligible, false, "末尾がIPOでないプランがeligible=trueになりました");
+  assert.ok(noIpoEligibility.blockingIssues.some((i) => i.code === "submission_last_event_not_ipo"), "末尾IPO必須の違反が検出されていません");
+
+  // 先頭が設立でない場合は凍結不可
+  const noIncorporationPlan: CapitalPlan = { ...completePlan, id: "p-no-inc", events: [{ ...completeSeed, order: 1 }, { ...completeIpo, order: 2 }] };
+  const noIncorporationIssues = validateSubmissionCompleteness(noIncorporationPlan);
+  assert.ok(noIncorporationIssues.some((i) => i.code === "submission_first_event_not_incorporation"), "先頭設立必須の違反が検出されていません");
+
+  // 設立イベントに創業株主への正の割当がない場合は凍結不可
+  const founderlessIncorporation: CapitalEvent = { ...completeIncorporation, allocations: [] };
+  const founderlessPlan: CapitalPlan = { ...completePlan, events: [founderlessIncorporation, completeSeed, completeIpo] };
+  assert.ok(
+    validateSubmissionCompleteness(founderlessPlan).some((i) => i.code === "submission_incorporation_missing_founder_allocation"),
+    "創業株主割当なしの設立イベントが検出されていません",
+  );
+
+  // ラベル・日付が欠けている場合は凍結不可
+  const missingDateSeed: CapitalEvent = { ...completeSeed, date: undefined };
+  const missingLabelPlan: CapitalPlan = { ...completePlan, events: [completeIncorporation, missingDateSeed, completeIpo] };
+  assert.ok(
+    validateSubmissionCompleteness(missingLabelPlan).some((i) => i.code === "submission_event_missing_date"),
+    "日付欠落イベントが検出されていません",
+  );
+
+  // 名前を持つ株主が1人もいない場合は凍結不可
+  const unnamedHoldersPlan: CapitalPlan = { ...completePlan, holders: completeHolders.map((h) => ({ ...h, name: "" })) };
+  assert.ok(
+    validateSubmissionCompleteness(unnamedHoldersPlan).some((i) => i.code === "submission_no_named_holder"),
+    "株主名なしプランが検出されていません",
+  );
+
+  // 一部の株主にだけ名前が設定されている（1名でも名前があれば良い、ではない）場合も凍結不可
+  const partiallyUnnamedHoldersPlan: CapitalPlan = {
+    ...completePlan,
+    holders: completeHolders.map((h, i) => (i === 0 ? h : { ...h, name: "" })),
+  };
+  const partiallyUnnamedIssues = validateSubmissionCompleteness(partiallyUnnamedHoldersPlan);
+  assert.ok(
+    partiallyUnnamedIssues.some((i) => i.code === "submission_no_named_holder"),
+    "1名だけ名前がある（他は無名）株主構成が提出完全性エラーとして検出されていません",
+  );
+
+  // 単発の未完成ドラフト（設立のみ）: 凍結不可だが safeDeriveCapitalPlan はクラッシュしない
+  const draftPlan: CapitalPlan = {
+    id: "p-draft",
+    name: "draft",
+    holders: completeHolders,
+    events: [completeIncorporation],
+  };
+  const draftEligibility = checkPublishEligibility(draftPlan);
+  assert.equal(draftEligibility.eligible, false, "単発ドラフトがeligible=trueになりました");
+  const draftDerive = safeDeriveCapitalPlan(draftPlan);
+  assert.equal(draftDerive.error, undefined, "単発ドラフトのderiveでエラーが発生しました");
+}
+console.log("33) 提出完全性検証（設立→IPO一連の完全性・凍結可否・WIPでの安全なderive）: ok");
+
+// ---------------------------------------------------------------------------
+// 34) 提出完全性検証: calculationBasisがmanual以外というだけでは「完全」とは
+//     判定されない（未derive・未入力のまま凍結を通してしまう回帰の防止）。
+// ---------------------------------------------------------------------------
+
+{
+  const holders34: Holder[] = [
+    { id: "founder-34", name: "創業者", kind: "founder" },
+    { id: "public-34", name: "公募投資家", kind: "investor" },
+  ];
+  const incorporation34: CapitalEvent = {
+    id: "e-34-inc",
+    type: "incorporation",
+    label: "設立",
+    order: 1,
+    date: "2023-01-10",
+    allocations: [alloc("founder-34", "common", 1_000_000)],
+  };
+  // calculationBasisはmanual以外（valuation_and_investment）に設定されているが、
+  // preMoneyValuation/postMoneyValuation/pricePerShare/primaryRaise/newSharesは
+  // いずれも未解決（deriveCapitalPlanを実行していない）まま。
+  const unresolvedIpo: CapitalEvent = {
+    id: "e-34-ipo",
+    type: "ipo",
+    label: "IPO（未derive）",
+    order: 2,
+    date: "2024-01-15",
+    calculationBasis: "valuation_and_investment",
+    allocations: [alloc("public-34", "common", 500_000)],
+  };
+  const unresolvedPlan: CapitalPlan = {
+    id: "p-34-unresolved",
+    name: "unresolved-basis-only",
+    holders: holders34,
+    events: [incorporation34, unresolvedIpo],
+  };
+
+  const completenessIssues = validateSubmissionCompleteness(unresolvedPlan);
+  assert.ok(
+    completenessIssues.some((i) => i.code === "submission_financing_incomplete" && i.eventId === "e-34-ipo"),
+    "calculationBasisがmanual以外というだけで未解決の財務項目が『完全』と誤判定されました",
+  );
+
+  const unresolvedEligibility = checkPublishEligibility(unresolvedPlan);
+  assert.equal(
+    unresolvedEligibility.eligible,
+    false,
+    "calculationBasisがmanual以外というだけの未derive・未入力プランがeligible=trueになりました",
+  );
+  assert.ok(
+    unresolvedEligibility.blockingIssues.some((i) => i.code === "submission_financing_incomplete"),
+    "未derive・未入力プランのブロッキングissueにsubmission_financing_incompleteが含まれていません",
+  );
+}
+console.log("34) 提出完全性検証: calculationBasis(manual以外)だけでは完全と判定されない: ok");
+
+// ---------------------------------------------------------------------------
+// 35) freeze APIのソースコード検査: /api/governance/capital-plans の
+//     freezeアクションが、保存済みの生document_jsonではなくサーバー側で
+//     derive済みのプランに対してeligibility判定を行い、derive失敗時は400を
+//     返し、derive済みdocument_jsonをRPCに渡していることをソース上で確認する。
+// ---------------------------------------------------------------------------
+
+{
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const routeFilePath = path.join(__dirname, "..", "src", "app", "api", "governance", "capital-plans", "route.ts");
+  const routeSrc = fs.readFileSync(routeFilePath, "utf8");
+
+  assert.ok(
+    /import\s*\{[^}]*\bderiveCapitalPlan\b[^}]*\}\s*from\s*["']@\/lib\/capital-plan["']/.test(routeSrc),
+    "route.tsがcapital-planからderiveCapitalPlanをimportしていません",
+  );
+
+  const freezeActionMatch = routeSrc.match(/if \(body\.action === "freeze"\) \{[\s\S]*?\n  \}\n/);
+  assert.ok(freezeActionMatch, "route.ts内にfreezeアクションのブロックが見つかりません");
+  const freezeBlock = freezeActionMatch![0];
+
+  assert.ok(
+    /let derivedPlan: CapitalPlan;\s*\n\s*try\s*\{\s*\n\s*derivedPlan = deriveCapitalPlan\(capitalPlan\);/.test(freezeBlock),
+    "freezeアクションがtoCapitalPlan()の結果をtry/catchでderiveCapitalPlanにかけていません",
+  );
+  assert.ok(
+    /catch \(e\) \{[\s\S]*?return badRequest\(`plan derivation failed:/.test(freezeBlock),
+    "freezeアクションがderive失敗時にbadRequest(400)を返していません",
+  );
+  assert.ok(
+    /checkPublishEligibility\(derivedPlan\)/.test(freezeBlock),
+    "freezeアクションが生のcapitalPlanではなくderive済みのderivedPlanに対してcheckPublishEligibilityを実行していません",
+  );
+  assert.ok(
+    !/checkPublishEligibility\(capitalPlan\)/.test(freezeBlock),
+    "freezeアクションが依然としてderive前の生capitalPlanに対してcheckPublishEligibilityを実行しています",
+  );
+  assert.ok(
+    /p_document_json:\s*\{\s*holders:\s*derivedPlan\.holders,\s*events:\s*derivedPlan\.events\s*\}/.test(freezeBlock),
+    "freezeアクションがderive済みのholders/eventsをp_document_jsonとしてRPCに渡していません",
+  );
+}
+console.log("35) freeze APIソース検査: derive→400フォールバック→derive済みプランでのeligibility判定→derive済みdocument_jsonのRPC引き渡し: ok");
+
+// ---------------------------------------------------------------------------
+// 36) 提出完全性検証: 日付はYYYY-MM-DD形式の有効な暦日であり、かつイベント順序と
+//     非減少（同日は可）でなければならない。
+// ---------------------------------------------------------------------------
+
+{
+  const holders36: Holder[] = [
+    { id: "founder-36", name: "創業者", kind: "founder" },
+    { id: "seedVc-36", name: "Seed投資家", kind: "investor" },
+    { id: "public-36", name: "公募投資家", kind: "investor" },
+  ];
+  const inc36: CapitalEvent = {
+    id: "e-36-inc",
+    type: "incorporation",
+    label: "設立",
+    order: 1,
+    date: "2023-01-10",
+    allocations: [alloc("founder-36", "common", 1_000_000)],
+  };
+  const seedBase: CapitalEvent = {
+    id: "e-36-seed",
+    type: "equity_issue",
+    label: "Seed",
+    order: 2,
+    date: "2023-06-01",
+    preMoneyValuation: editableValue(400_000_000),
+    postMoneyValuation: editableValue(500_000_000),
+    pricePerShare: editableValue(400),
+    primaryRaise: editableValue(100_000_000),
+    newShares: editableValue(250_000),
+    calculationBasis: "manual",
+    allocations: [alloc("seedVc-36", "preferred", 250_000, { amount: editableValue(100_000_000), pricePerShare: editableValue(400) })],
+  };
+  const ipoBase: CapitalEvent = {
+    id: "e-36-ipo",
+    type: "ipo",
+    label: "IPO",
+    order: 3,
+    date: "2024-01-15",
+    preMoneyValuation: editableValue(2_000_000_000),
+    postMoneyValuation: editableValue(2_500_000_000),
+    pricePerShare: editableValue(1600),
+    primaryRaise: editableValue(500_000_000),
+    newShares: editableValue(312_500),
+    calculationBasis: "manual",
+    allocations: [alloc("public-36", "common", 312_500, { amount: editableValue(500_000_000), pricePerShare: editableValue(1600) })],
+  };
+
+  // 不正な形式（スラッシュ区切り）
+  const slashDatePlan: CapitalPlan = {
+    id: "p-36-slash",
+    name: "slash-date",
+    holders: holders36,
+    events: [inc36, { ...seedBase, date: "2023/06/01" }, ipoBase],
+  };
+  assert.ok(
+    validateSubmissionCompleteness(slashDatePlan).some((i) => i.code === "submission_event_invalid_date"),
+    "YYYY-MM-DD形式ではない日付が検出されていません",
+  );
+
+  // 暦日として存在しない日付（2月30日）
+  const overflowDatePlan: CapitalPlan = {
+    id: "p-36-overflow",
+    name: "overflow-date",
+    holders: holders36,
+    events: [inc36, { ...seedBase, date: "2023-02-30" }, ipoBase],
+  };
+  assert.ok(
+    validateSubmissionCompleteness(overflowDatePlan).some((i) => i.code === "submission_event_invalid_date"),
+    "暦日として存在しない日付（2023-02-30）が検出されていません",
+  );
+
+  // 存在しない月（13月）
+  const invalidMonthPlan: CapitalPlan = {
+    id: "p-36-month",
+    name: "invalid-month",
+    holders: holders36,
+    events: [inc36, { ...seedBase, date: "2023-13-01" }, ipoBase],
+  };
+  assert.ok(
+    validateSubmissionCompleteness(invalidMonthPlan).some((i) => i.code === "submission_event_invalid_date"),
+    "存在しない月（13月）が検出されていません",
+  );
+
+  // 順序が後のイベントの日付が、先行イベントより前になっている
+  const outOfOrderPlan: CapitalPlan = {
+    id: "p-36-out-of-order",
+    name: "out-of-order-date",
+    holders: holders36,
+    events: [inc36, { ...seedBase, date: "2022-12-01" }, ipoBase],
+  };
+  const outOfOrderIssues = validateSubmissionCompleteness(outOfOrderPlan);
+  assert.ok(
+    outOfOrderIssues.some((i) => i.code === "submission_event_date_out_of_order" && i.eventId === "e-36-seed"),
+    "イベント順序より前の日付を持つイベントが検出されていません",
+  );
+
+  // 同日は許容される
+  const sameDayPlan: CapitalPlan = {
+    id: "p-36-same-day",
+    name: "same-day-date",
+    holders: holders36,
+    events: [inc36, { ...seedBase, date: "2023-01-10" }, ipoBase],
+  };
+  assert.ok(
+    !validateSubmissionCompleteness(sameDayPlan).some((i) => i.code === "submission_event_date_out_of_order"),
+    "同日のイベント日付が誤って順序違反として検出されました",
+  );
+
+  // 正しく整合した日付は問題なし
+  const validDatesPlan: CapitalPlan = {
+    id: "p-36-valid",
+    name: "valid-dates",
+    holders: holders36,
+    events: [inc36, seedBase, ipoBase],
+  };
+  assert.ok(
+    !validateSubmissionCompleteness(validDatesPlan).some(
+      (i) => i.code === "submission_event_invalid_date" || i.code === "submission_event_date_out_of_order",
+    ),
+    "整合した有効な日付のプランに日付関連エラーが誤検出されました",
+  );
+}
+console.log("36) 提出完全性検証: 日付形式（YYYY-MM-DD/実在暦日）とイベント順序との非減少整合性: ok");
+
+// ---------------------------------------------------------------------------
+// 37) コンバーティブル転換（convertible_conversion）はcalculationBasisが
+//     manual（または未設定）でなければならない: validateCapitalPlanでの検出と、
+//     deriveCapitalPlanが増資向けロジックを適用する前に明確な日本語エラーで
+//     停止すること（現金調達・newSharesへの消込混入を未然に防ぐ）。
+// ---------------------------------------------------------------------------
+
+{
+  const holders37: Holder[] = [
+    { id: "founder-37", name: "創業者", kind: "founder" },
+    { id: "seedVc-37", name: "Seed投資家", kind: "investor" },
+  ];
+  const inc37: CapitalEvent = {
+    id: "e-37-inc",
+    type: "incorporation",
+    label: "設立",
+    order: 1,
+    date: "2023-01-10",
+    allocations: [alloc("founder-37", "common", 1_000_000)],
+  };
+  const convIssue37: CapitalEvent = {
+    id: "e-37-conv-issue",
+    type: "convertible_issue",
+    label: "J-KISS発行",
+    order: 2,
+    date: "2023-03-01",
+    allocations: [alloc("seedVc-37", "convertible", 50_000, { amount: editableValue(10_000_000) })],
+  };
+
+  for (const basis of ["valuation_and_investment", "price_and_shares", "ownership_target"] as const) {
+    const badConversion: CapitalEvent = {
+      id: "e-37-conversion",
+      type: "convertible_conversion",
+      label: `非manualな転換（${basis}）`,
+      order: 3,
+      date: "2023-09-01",
+      preMoneyValuation: editableValue(500_000_000),
+      calculationBasis: basis,
+      allocations: [
+        alloc("seedVc-37", "convertible", -50_000),
+        alloc("seedVc-37", "preferred", 50_000, { amount: editableValue(10_000_000) }),
+      ],
+    };
+    const badPlan: CapitalPlan = { id: `p-37-${basis}`, name: `conv-non-manual-${basis}`, holders: holders37, events: [inc37, convIssue37, badConversion] };
+
+    const issues = validateCapitalPlan(badPlan);
+    assert.ok(
+      issues.some((i) => i.code === "convertible_conversion_non_manual_basis" && i.eventId === "e-37-conversion"),
+      `calculationBasis「${basis}」のコンバーティブル転換イベントがvalidateCapitalPlanで検出されていません`,
+    );
+
+    assert.throws(
+      () => deriveCapitalPlan(badPlan),
+      /コンバーティブル転換イベント.*calculationBasis.*manual/,
+      `deriveCapitalPlanがcalculationBasis「${basis}」の転換イベントで明確な日本語エラーを投げていません`,
+    );
+
+    const safeResult = safeDeriveCapitalPlan(badPlan);
+    assert.ok(safeResult.error, `safeDeriveCapitalPlanがcalculationBasis「${basis}」の転換イベントでエラーメッセージを返していません`);
+    assert.ok(/コンバーティブル/.test(safeResult.error ?? ""), "safeDeriveCapitalPlanのエラーメッセージにコンバーティブル転換への言及がありません");
+    assert.deepEqual(safeResult.plan, badPlan, "safeDeriveCapitalPlanがderive失敗時に元のプランをそのまま返していません");
+  }
+
+  // manual（明示）は許容される
+  const manualConversion: CapitalEvent = {
+    id: "e-37-manual-conversion",
+    type: "convertible_conversion",
+    label: "manualな転換",
+    order: 3,
+    date: "2023-09-01",
+    calculationBasis: "manual",
+    allocations: [
+      alloc("seedVc-37", "convertible", -50_000),
+      alloc("seedVc-37", "preferred", 50_000, { amount: editableValue(10_000_000) }),
+    ],
+  };
+  const manualPlan: CapitalPlan = { id: "p-37-manual", name: "conv-manual", holders: holders37, events: [inc37, convIssue37, manualConversion] };
+  assert.ok(
+    !validateCapitalPlan(manualPlan).some((i) => i.code === "convertible_conversion_non_manual_basis"),
+    "calculationBasisがmanualの転換イベントが誤ってnon_manual_basisとして検出されました",
+  );
+  assert.doesNotThrow(() => deriveCapitalPlan(manualPlan), "calculationBasisがmanualの転換イベントでderiveCapitalPlanが例外を投げました");
+
+  // calculationBasis未設定（undefined）も許容される
+  const undefinedBasisConversion: CapitalEvent = { ...manualConversion, id: "e-37-undefined-conversion", calculationBasis: undefined };
+  const undefinedBasisPlan: CapitalPlan = {
+    id: "p-37-undefined",
+    name: "conv-undefined-basis",
+    holders: holders37,
+    events: [inc37, convIssue37, undefinedBasisConversion],
+  };
+  assert.ok(
+    !validateCapitalPlan(undefinedBasisPlan).some((i) => i.code === "convertible_conversion_non_manual_basis"),
+    "calculationBasis未設定の転換イベントが誤ってnon_manual_basisとして検出されました",
+  );
+  assert.doesNotThrow(() => deriveCapitalPlan(undefinedBasisPlan), "calculationBasis未設定の転換イベントでderiveCapitalPlanが例外を投げました");
+}
+console.log("37) コンバーティブル転換のcalculationBasis制約: validateCapitalPlanでの検出とderiveCapitalPlanの事前停止（現金調達・newShares混入の防止）: ok");
+
+// ---------------------------------------------------------------------------
+// 38) deriveCapitalPlan: calculationBasisがmanual（または未設定）の増資イベントでも
+//     primaryRaise/newShares/postMoneyValuationは割当から再計算される（放置された
+//     無意味なサマリーではなく、割当編集が下流のサマリー・検証に反映されること）。
+// ---------------------------------------------------------------------------
+
+{
+  const holders38: Holder[] = [
+    { id: "founder-38", name: "創業者", kind: "founder" },
+    { id: "seedVc-38", name: "Seed投資家", kind: "investor" },
+  ];
+  const inc38: CapitalEvent = {
+    id: "e-38-inc",
+    type: "incorporation",
+    label: "設立",
+    order: 1,
+    allocations: [alloc("founder-38", "common", 1_000_000)],
+  };
+
+  function makeManualSeed38(shares: number, amount: number): CapitalEvent {
+    return {
+      id: "e-38-seed",
+      type: "equity_issue",
+      label: "Seed（manual）",
+      order: 2,
+      preMoneyValuation: editableValue(400_000_000),
+      // calculationBasis未設定(manual扱い)。primaryRaise/newShares/postMoneyValuationは
+      // 未入力のまま = derive時にcalculated値として算出されるべき。
+      allocations: [alloc("seedVc-38", "preferred", shares, { amount: editableValue(amount) })],
+    };
+  }
+
+  // 初回derive: 割当(shares/amount)からサマリーが算出される。
+  const plan38a: CapitalPlan = { id: "p-38a", name: "manual-seed-a", holders: holders38, events: [inc38, makeManualSeed38(250_000, 100_000_000)] };
+  const derived38a = deriveCapitalPlan(plan38a);
+  const seed38a = derived38a.events.find((e) => e.id === "e-38-seed")!;
+  assert.equal(seed38a.newShares?.source, "calculated", "manual増資イベントのnewSharesがcalculatedとして算出されていません");
+  assert.equal(resolvedValue(seed38a.newShares), 250_000, "manual増資イベントのnewSharesが割当株数合計と一致しません");
+  assert.equal(seed38a.primaryRaise?.source, "calculated", "manual増資イベントのprimaryRaiseがcalculatedとして算出されていません");
+  assert.equal(resolvedValue(seed38a.primaryRaise), 100_000_000, "manual増資イベントのprimaryRaiseが割当金額合計と一致しません");
+  assert.equal(seed38a.postMoneyValuation?.source, "calculated", "manual増資イベントのpostMoneyValuationがcalculatedとして算出されていません");
+  assert.equal(resolvedValue(seed38a.postMoneyValuation), 500_000_000, "manual増資イベントのpostMoneyValuationがpreMoney+primaryRaiseと一致しません");
+  assertNoBlockingErrors(derived38a, "38a: 初回derive後のmanual増資イベント");
+
+  // 割当(1株主あたりのamount/shares)を編集 → サマリー(newShares/primaryRaise/postMoney)が追随する。
+  const plan38b: CapitalPlan = { id: "p-38b", name: "manual-seed-b", holders: holders38, events: [inc38, makeManualSeed38(300_000, 120_000_000)] };
+  const derived38b = deriveCapitalPlan(plan38b);
+  const seed38b = derived38b.events.find((e) => e.id === "e-38-seed")!;
+  assert.equal(resolvedValue(seed38b.newShares), 300_000, "割当株数編集後にnewSharesが更新されていません");
+  assert.equal(resolvedValue(seed38b.primaryRaise), 120_000_000, "割当金額編集後にprimaryRaiseが更新されていません");
+  assert.equal(resolvedValue(seed38b.postMoneyValuation), 520_000_000, "割当金額編集後にpostMoneyValuationが更新されていません");
+  assertNoBlockingErrors(derived38b, "38b: 割当編集後のmanual増資イベント");
+
+  // newShares/primaryRaiseは真の派生出力（allocations由来）のため、手動入力(source:
+  // 'input')で割当と食い違う値が入っていても、deriveは常に割当から再算出したcalculated
+  // 値で上書きする（overrideだけが例外）。stale値がderive後も残ることはない。
+  const staleSeed38: CapitalEvent = {
+    ...makeManualSeed38(250_000, 100_000_000),
+    newShares: editableValue(999),
+    primaryRaise: editableValue(999),
+  };
+  const stalePlan38: CapitalPlan = { id: "p-38-stale", name: "manual-seed-stale", holders: holders38, events: [inc38, staleSeed38] };
+  const derivedStale38 = deriveCapitalPlan(stalePlan38);
+  const staleDerived = derivedStale38.events.find((e) => e.id === "e-38-seed")!;
+  assert.equal(resolvedValue(staleDerived.newShares), 250_000, "手動入力(source: input)のnewSharesがderiveで割当から再算出されていません");
+  assert.equal(staleDerived.newShares?.source, "calculated", "手動入力(source: input)のnewSharesがderive後にcalculatedへ更新されていません");
+  assert.equal(resolvedValue(staleDerived.primaryRaise), 100_000_000, "手動入力(source: input)のprimaryRaiseがderiveで割当から再算出されていません");
+  assert.equal(staleDerived.primaryRaise?.source, "calculated", "手動入力(source: input)のprimaryRaiseがderive後にcalculatedへ更新されていません");
+  assertNoBlockingErrors(derivedStale38, "38c: derive後は割当と一致するため不整合が解消される");
+}
+console.log("38) deriveCapitalPlan: manual基準の増資イベントで割当編集がサマリー(primaryRaise/newShares/postMoney)に反映される: ok");
+
+// ---------------------------------------------------------------------------
+// 39) deriveCapitalPlan: manual基準のコンバーティブル転換イベントはprimaryRaiseが
+//     常に0として算出され、newSharesは転換後の正の非希薄化割当から算出される。
+//     コンバーティブル残高を超える消込のチェックはderiveではなくvalidateCapitalPlan
+//     (ライフサイクル検証)が担う。
+// ---------------------------------------------------------------------------
+
+{
+  const holders39: Holder[] = [
+    { id: "founder-39", name: "創業者", kind: "founder" },
+    { id: "seedVc-39", name: "Seed投資家", kind: "investor" },
+  ];
+  const inc39: CapitalEvent = {
+    id: "e-39-inc",
+    type: "incorporation",
+    label: "設立",
+    order: 1,
+    allocations: [alloc("founder-39", "common", 1_000_000)],
+  };
+  const convIssue39: CapitalEvent = {
+    id: "e-39-conv-issue",
+    type: "convertible_issue",
+    label: "J-KISS発行",
+    order: 2,
+    allocations: [alloc("seedVc-39", "convertible", 50_000, { amount: editableValue(10_000_000) })],
+  };
+  const conversion39: CapitalEvent = {
+    id: "e-39-conversion",
+    type: "convertible_conversion",
+    label: "転換",
+    order: 3,
+    calculationBasis: "manual",
+    allocations: [
+      alloc("seedVc-39", "convertible", -50_000),
+      alloc("seedVc-39", "preferred", 60_000),
+    ],
+  };
+  const plan39: CapitalPlan = { id: "p-39", name: "conv-conversion-cashless", holders: holders39, events: [inc39, convIssue39, conversion39] };
+  const derived39 = deriveCapitalPlan(plan39);
+  const derivedConversion39 = derived39.events.find((e) => e.id === "e-39-conversion")!;
+  assert.equal(derivedConversion39.primaryRaise?.source, "calculated", "manual転換イベントのprimaryRaiseがcalculatedとして算出されていません");
+  assert.equal(resolvedValue(derivedConversion39.primaryRaise), 0, "manual転換イベントのprimaryRaiseが0として算出されていません（転換に現金授受はない）");
+  assert.equal(derivedConversion39.newShares?.source, "calculated", "manual転換イベントのnewSharesがcalculatedとして算出されていません");
+  assert.equal(resolvedValue(derivedConversion39.newShares), 60_000, "manual転換イベントのnewSharesが転換後の正の非希薄化割当と一致しません");
+  assertNoBlockingErrors(derived39, "39: 残高内消込のmanual転換イベント");
+
+  // コンバーティブル保有残高(50,000)を超える消込(-60,000)は、derive自体はエラーにせず
+  // primaryRaise/newSharesを算出する。超過消込の検出はvalidateCapitalPlan(ライフサイクル
+  // 検証)の責務であり、実際に検出されることを確認する。
+  const overConsumeConversion39: CapitalEvent = {
+    ...conversion39,
+    id: "e-39-over-conversion",
+    allocations: [
+      alloc("seedVc-39", "convertible", -60_000),
+      alloc("seedVc-39", "preferred", 70_000),
+    ],
+  };
+  const overConsumePlan39: CapitalPlan = { id: "p-39-over", name: "conv-conversion-overconsume", holders: holders39, events: [inc39, convIssue39, overConsumeConversion39] };
+  assert.doesNotThrow(() => deriveCapitalPlan(overConsumePlan39), "残高超過消込のmanual転換イベントでderiveCapitalPlanが例外を投げました（超過チェックはvalidateの責務）");
+  const overConsumeIssues = validateCapitalPlan(overConsumePlan39);
+  assert.ok(
+    overConsumeIssues.some((i) => i.code === "convertible_consumption_exceeds_balance" && i.eventId === "e-39-over-conversion"),
+    "コンバーティブル保有残高を超える消込がvalidateCapitalPlanで検出されていません",
+  );
+}
+console.log("39) deriveCapitalPlan: manual基準の転換イベントはprimaryRaise=0・newSharesを算出し、残高超過消込の検出はvalidateCapitalPlanが担う: ok");
+
+// ---------------------------------------------------------------------------
+// 40) deriveCapitalPlan: imported/confirmedな真の派生出力(割当shares/price、
+//     イベントprice/newShares/primaryRaise/postMoney)は、割当を編集して
+//     再deriveすると必ずcalculated・最新値に更新される（stale値が残らない）。
+//     一方、明示的なoverrideはoverrideのまま保持され、calculatedValueだけが
+//     最新の算出値に更新される。
+// ---------------------------------------------------------------------------
+
+{
+  const holders40: Holder[] = [
+    { id: "founder-40", name: "創業者", kind: "founder" },
+    { id: "seedVc-40", name: "Seed投資家", kind: "investor" },
+  ];
+  const inc40: CapitalEvent = {
+    id: "e-40-inc",
+    type: "incorporation",
+    label: "設立",
+    order: 1,
+    allocations: [alloc("founder-40", "common", 1_000_000)],
+  };
+  const preMoney40 = 400_000_000;
+  const expectedPrice40 = priceFromPreMoney(preMoney40, 1_000_000); // 400
+
+  function makeImportedConfirmedSeed40(amount: number): CapitalEvent {
+    return {
+      id: "e-40-seed",
+      type: "equity_issue",
+      label: "Seed（取込値のstaleなサマリー）",
+      order: 2,
+      calculationBasis: "valuation_and_investment",
+      preMoneyValuation: editableValue(preMoney40),
+      // イベントレベルのサマリー・株価は、他システムからの取込(imported)や
+      // 確認済み(confirmed)としてマークされた古い値。真の派生出力なので、
+      // deriveでは割当由来の最新値に必ず更新されるべき。
+      pricePerShare: editableValue(999, "confirmed"),
+      newShares: editableValue(999_999, "imported"),
+      primaryRaise: editableValue(999_999, "confirmed"),
+      postMoneyValuation: editableValue(999_999_999, "imported"),
+      allocations: [
+        alloc("seedVc-40", "preferred", 999_999, {
+          amount: editableValue(amount), // 投資額(amount)がbasisのドライバー
+          pricePerShare: editableValue(999, "confirmed"),
+        }),
+      ],
+    };
+  }
+  // shares自体もimportedのstale値で上書きしておく（alloc()はデフォルトinputなので明示的に差し替える）
+  function withImportedShares(event: CapitalEvent): CapitalEvent {
+    return { ...event, allocations: [{ ...event.allocations[0], shares: editableValue(999_999, "imported") }] };
+  }
+
+  // --- 初回derive: 取込/確認済みのstaleなサマリー値がすべて再算出される ---
+  const seed40a = withImportedShares(makeImportedConfirmedSeed40(80_000_000));
+  const plan40a: CapitalPlan = { id: "p-40a", name: "imported-confirmed-a", holders: holders40, events: [inc40, seed40a] };
+  const derived40a = deriveCapitalPlan(plan40a);
+  const derivedSeed40a = derived40a.events.find((e) => e.id === "e-40-seed")!;
+  const derivedAlloc40a = derivedSeed40a.allocations[0];
+
+  const expectedShares40a = Math.round(80_000_000 / expectedPrice40); // 200,000
+  assert.equal(derivedAlloc40a.shares.value, expectedShares40a, "imported割当sharesがderiveで最新値に再算出されていません");
+  assert.equal(derivedAlloc40a.shares.source, "calculated", "imported割当sharesのsourceがcalculatedに更新されていません");
+  assert.equal(derivedAlloc40a.pricePerShare!.value, expectedPrice40, "confirmed割当pricePerShareがderiveで最新値に再算出されていません");
+  assert.equal(derivedAlloc40a.pricePerShare!.source, "calculated", "confirmed割当pricePerShareのsourceがcalculatedに更新されていません");
+  assert.equal(derivedSeed40a.pricePerShare!.value, expectedPrice40, "confirmedイベントpricePerShareがderiveで最新値に再算出されていません");
+  assert.equal(derivedSeed40a.pricePerShare!.source, "calculated", "confirmedイベントpricePerShareのsourceがcalculatedに更新されていません");
+  assert.equal(derivedSeed40a.newShares!.value, expectedShares40a, "importedイベントnewSharesがderiveで最新値に再算出されていません");
+  assert.equal(derivedSeed40a.newShares!.source, "calculated", "importedイベントnewSharesのsourceがcalculatedに更新されていません");
+  assert.equal(derivedSeed40a.primaryRaise!.value, 80_000_000, "confirmedイベントprimaryRaiseがderiveで最新値に再算出されていません");
+  assert.equal(derivedSeed40a.primaryRaise!.source, "calculated", "confirmedイベントprimaryRaiseのsourceがcalculatedに更新されていません");
+  assert.equal(derivedSeed40a.postMoneyValuation!.value, preMoney40 + 80_000_000, "importedイベントpostMoneyValuationがderiveで最新値に再算出されていません");
+  assert.equal(derivedSeed40a.postMoneyValuation!.source, "calculated", "importedイベントpostMoneyValuationのsourceがcalculatedに更新されていません");
+  assertNoBlockingErrors(derived40a, "40a: 初回derive後のimported/confirmedサマリー");
+
+  // --- 割当(amount)を編集して再derive: サマリーが新しい値へ追随する（staleなまま残らない） ---
+  const seed40b = withImportedShares(makeImportedConfirmedSeed40(120_000_000));
+  const plan40b: CapitalPlan = { id: "p-40b", name: "imported-confirmed-b", holders: holders40, events: [inc40, seed40b] };
+  const derived40b = deriveCapitalPlan(plan40b);
+  const derivedSeed40b = derived40b.events.find((e) => e.id === "e-40-seed")!;
+  const derivedAlloc40b = derivedSeed40b.allocations[0];
+
+  const expectedShares40b = Math.round(120_000_000 / expectedPrice40); // 300,000
+  assert.equal(derivedAlloc40b.shares.value, expectedShares40b, "割当amount編集後にsharesが再算出されていません");
+  assert.equal(derivedSeed40b.newShares!.value, expectedShares40b, "割当amount編集後にnewSharesが再算出されていません");
+  assert.equal(derivedSeed40b.primaryRaise!.value, 120_000_000, "割当amount編集後にprimaryRaiseが再算出されていません");
+  assert.equal(derivedSeed40b.postMoneyValuation!.value, preMoney40 + 120_000_000, "割当amount編集後にpostMoneyValuationが再算出されていません");
+  assertNoBlockingErrors(derived40b, "40b: 割当編集後のimported/confirmedサマリー");
+
+  // --- 明示的なoverrideは保持され、calculatedValueだけが最新算出値に更新される ---
+  const overriddenShares40 = expectedShares40a + 1_000; // 監査済み契約に合わせた手動上書き
+  const seed40c: CapitalEvent = {
+    ...makeImportedConfirmedSeed40(80_000_000),
+    allocations: [
+      {
+        ...makeImportedConfirmedSeed40(80_000_000).allocations[0],
+        shares: overrideValue(expectedShares40a, overriddenShares40, "契約書の確定株数で上書き"),
+      },
+    ],
+  };
+  const plan40c: CapitalPlan = { id: "p-40c", name: "imported-confirmed-override", holders: holders40, events: [inc40, seed40c] };
+  const derived40c = deriveCapitalPlan(plan40c);
+  const derivedAlloc40c = derived40c.events.find((e) => e.id === "e-40-seed")!.allocations[0];
+  assert.equal(derivedAlloc40c.shares.value, overriddenShares40, "override後の割当sharesがderiveで変更されてしまっています");
+  assert.equal(derivedAlloc40c.shares.source, "override", "override後の割当sharesのsourceがoverride以外に変わってはいけません");
+  assert.equal(derivedAlloc40c.shares.calculatedValue, expectedShares40a, "override後もcalculatedValueが最新の自動算出値に更新されている必要があります");
+}
+console.log("40) deriveCapitalPlan: imported/confirmedな真の派生出力は編集・再deriveでstaleにならず常にcalculatedへ更新される（overrideは保持されcalculatedValueのみ更新）: ok");
+
+// ---------------------------------------------------------------------------
+// 41) 新規バリデーション: price_and_shares基準でイベント単価と割当単価が乖離した場合の
+//     price_basis_allocation_price_mismatch（VC提出時の単価矛盾ブロック）
+// ---------------------------------------------------------------------------
+
+{
+  const incorporation = makeIncorporation();
+
+  // イベント単価と割当単価が乖離 → ブロッキングエラー、eligibleがfalseになる
+  const mismatchRound: CapitalEvent = {
+    id: "e-price-mismatch",
+    type: "equity_issue",
+    label: "Seed（単価矛盾）",
+    order: 2,
+    calculationBasis: "price_and_shares",
+    pricePerShare: editableValue(400),
+    allocations: [alloc("seedVc", "preferred", 100_000, { pricePerShare: editableValue(300) })],
+  };
+  const mismatchPlan: CapitalPlan = {
+    id: "p-price-mismatch",
+    name: "price-mismatch",
+    holders,
+    events: [incorporation, mismatchRound],
+  };
+  const mismatchIssues = validateCapitalPlan(mismatchPlan);
+  const mismatchIssue = mismatchIssues.find(
+    (i) => i.code === "price_basis_allocation_price_mismatch" && i.eventId === "e-price-mismatch",
+  );
+  assert.ok(mismatchIssue, "price_and_shares基準でのイベント単価と割当単価の乖離が検出されていません");
+  assert.equal(mismatchIssue!.severity, "error", "単価矛盾はブロッキングエラーである必要があります");
+  assert.equal(mismatchIssue!.holderId, "seedVc", "単価矛盾issueのholderIdが対象株主と一致しません");
+
+  const mismatchEligibility = checkPublishEligibility(mismatchPlan);
+  assert.equal(
+    mismatchEligibility.eligible,
+    false,
+    "イベント単価と割当単価が矛盾したVC提出書類がeligible=trueのまま通過してしまっています",
+  );
+
+  // 許容誤差(YEN_TOLERANCE)以内の差は検出されない
+  const withinTolRound: CapitalEvent = {
+    id: "e-price-within-tol",
+    type: "equity_issue",
+    label: "Seed（誤差内）",
+    order: 2,
+    calculationBasis: "price_and_shares",
+    pricePerShare: editableValue(400),
+    allocations: [alloc("seedVc", "preferred", 100_000, { pricePerShare: editableValue(400) })],
+  };
+  const withinTolPlan: CapitalPlan = {
+    id: "p-price-within-tol",
+    name: "price-within-tol",
+    holders,
+    events: [incorporation, withinTolRound],
+  };
+  assert.ok(
+    !validateCapitalPlan(withinTolPlan).some((i) => i.code === "price_basis_allocation_price_mismatch"),
+    "誤差なしの一致した単価が誤って乖離検出されています",
+  );
+
+  // 割当に単価が設定されていない（=イベント単価のみで駆動する通常ケース）は誤検出されない
+  const noAllocPriceRound: CapitalEvent = {
+    id: "e-price-no-alloc-price",
+    type: "equity_issue",
+    label: "Seed（割当単価なし）",
+    order: 2,
+    calculationBasis: "price_and_shares",
+    pricePerShare: editableValue(400),
+    allocations: [alloc("seedVc", "preferred", 100_000)],
+  };
+  const noAllocPricePlan: CapitalPlan = {
+    id: "p-price-no-alloc-price",
+    name: "price-no-alloc-price",
+    holders,
+    events: [incorporation, noAllocPriceRound],
+  };
+  assert.ok(
+    !validateCapitalPlan(noAllocPricePlan).some((i) => i.code === "price_basis_allocation_price_mismatch"),
+    "割当単価が未設定なのに誤って乖離検出されています",
+  );
+
+  // manual基準は割当ごとの個別単価が正規の運用のため、このチェックの対象外
+  const manualRound: CapitalEvent = {
+    id: "e-price-manual",
+    type: "equity_issue",
+    label: "Seed（manual基準）",
+    order: 2,
+    calculationBasis: "manual",
+    pricePerShare: editableValue(400),
+    allocations: [alloc("seedVc", "preferred", 100_000, { pricePerShare: editableValue(300) })],
+  };
+  const manualPlan: CapitalPlan = { id: "p-price-manual", name: "price-manual", holders, events: [incorporation, manualRound] };
+  assert.ok(
+    !validateCapitalPlan(manualPlan).some((i) => i.code === "price_basis_allocation_price_mismatch"),
+    "manual基準の個別単価が誤ってprice_and_shares専用チェックで検出されています",
+  );
+}
+console.log("41) 新規バリデーション: price_and_shares基準でのイベント単価/割当単価の乖離検出（VC提出時の単価矛盾ブロック）: ok");
 
 console.log("capital plan: ok");

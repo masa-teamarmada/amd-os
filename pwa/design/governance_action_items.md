@@ -6,6 +6,8 @@
 
 **2026-07-16 追記 (cap table 履歴マトリクス + 次回ラウンド試算、v3.43.0)**: cap table は現在断面の一覧に留まらず、confirmed 株式イベントを積み上げた holderName ベースの100%推移タイムラインと、創業からのラウンド別水平マトリクス (`data-testid="cap-table-history-matrix"`) を持つ。正史が `incorporation` から始まらない場合は `capTableOriginWarning` が創業時シェアを遡って再現できない旨を警告し (`data-cap-table-origin-warning`)、創業時株式イベントの入力導線を提示する。加えて `data-testid="next-round-simulator"` (`computeNextRoundScenario` / `minimumPreMoneyForTarget` / `nextRoundSensitivity`) により、ベース断面・pre-money・調達額・SOプール目標・転換前証券を含めるかの明示トグル・保護株主の目標比率を入力に、次回ラウンドの発行価格・希薄化・保護株主維持に必要な最低pre-moneyを試算できる。未入力の転換前証券株数を推測することはなく、この試算は未保存・仮のもので法的な現在値のcap tableには反映されない。Excel出力も同じ計算エンジンで `ラウンド別cap table` / `次回ラウンド試算` シートを書き出す。LST (`p07`) は migration `175_lst_cap_table_history.sql` で `xlsx:LST_captable_250415.xlsx` 由来の正史 (創業30,000株 → Seed +15,000株 → QST現物出資 +2,500株、最終47,500株・63.1579% / 31.5789% / 5.2632%) に復元済み。これはLST固有のデータ復元であり、他PJに一般化するルールではない。
 
+**2026-07-17 追記 (`次回ラウンド試算`/保護株主の廃止と `CapitalPlanWorkspace` への置き換え)**: 直上の段落で述べた `data-testid="next-round-simulator"` の次回ラウンド試算列と保護株主・目標比率入力は、単発・未保存の試算という位置づけと「保護株主」概念そのものが複数ラウンドを保存して積み上げたい実運用に合わなかったため廃止した。代わりに、confirmed/planned を区別した名前付き資本政策プラン台帳 `CapitalPlanWorkspace` (migration `179_project_capital_plans.sql`、`src/lib/capital-plan.ts`) を新設し、設立からIPOまでの複数ラウンドを1本のイベント列で編集・自動保存・freeze できるようにした。保護株主に相当する仕組みは存在しない。Excel出力も `次回ラウンド試算` シートは廃止し、frozen version からのみ生成する `CapitalPlanWorkspace` 側の出力に一本化した。詳細は `pwa/spec/3-8-cockpit-current-spec.md` の `capital plan` 行と `pwa/design/FEATURE_REGISTRY.md` の該当エントリを正とする。
+
 ### 既存 `tasks` 機能との境界 (重要)
 
 `tasks` テーブル拡張と `/tasks` (mindmap/gantt/kanban) は過去に実装されたが、`/tasks` 画面は 2026-06-21 に廃止済み。**`action_items` はこれと別物**として持つ:

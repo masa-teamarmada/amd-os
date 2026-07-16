@@ -1530,7 +1530,7 @@ expectIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
   "convertibleScenario",
   "登記株式数と一致",
   "登記との差",
-  "転換前証券は現在持株比率へ混ぜない",
+  "現在の持株比率には入れず",
   "downloadCompanyOverviewXlsx",
   "exportPdf",
 ]);
@@ -1576,70 +1576,56 @@ expectIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
   "flex w-full flex-wrap gap-2 sm:w-auto sm:shrink-0",
 ]);
 
-// cap table 履歴マトリクス + 次回ラウンド試算 (2026-07-16, v3.43.0): confirmed済み株式イベントの
-// holderNameベース100%推移・創業からのラウンド別マトリクス、および未保存の仮シミュレーションを保護する。
+// 保存型複数ラウンド資本政策 (2026-07-17): 旧cap-table-history-matrix / next-round-simulator /
+// CapitalPolicyWorkspace (CockpitCompanyOverview.tsx埋め込み) は CapitalPlanWorkspace/CapitalPlanMatrix
+// への移行済み。CockpitCompanyOverview.tsxからの結線と、旧UIが復活しないことを保証する。
 expectIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
+  'import CapitalPlanWorkspace from "@/components/cockpit/CapitalPlanWorkspace";',
+  "<CapitalPlanWorkspace",
+]);
+expectNotIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
   'data-testid="cap-table-history-matrix"',
   'data-testid="next-round-simulator"',
-  "data-cap-table-origin-warning",
-  "capTableOriginWarning",
-  "computeNextRoundScenario",
-  "minimumPreMoneyForTarget",
-]);
-
-expectIncludes("src/lib/company-overview.ts", [
-  "export function capTableOriginWarning",
-  "export function computeNextRoundScenario",
-  "export function minimumPreMoneyForTarget",
-  "export function nextRoundSensitivity",
-]);
-
-expectIncludes("src/lib/company-overview-xlsx.ts", [
-  "ラウンド別cap table",
-  "次回ラウンド試算",
-  "computeNextRoundScenario",
-  "minimumPreMoneyForTarget",
-]);
-
-// 資本政策ワークスペース統合 (2026-07-16, v3.43.2): 縦積み100%構成グラフ + 履歴マトリクス +
-// 次回ラウンド試算列を1つの`資本政策`セクションへ統合。cap-table-history-matrix / next-round-simulator
-// が離れた場所に再分裂しないこと、selected-eventだけを再掲する冗長セクション (`cap table｜{label}`) が
-// 復活しないこと、仮・FD試算列が同じ表内に残ることを保証する。
-expectIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
   "function CapitalPolicyWorkspace(",
-  "仮・FD",
-  "次回ラウンド（試算）",
-]);
-expectNotIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
-  "cap table｜${selectedSnapshot",
-  "function CapitalTimeline(",
   "function CapTableHistoryMatrix(",
   "function NextRoundSimulator(",
-]);
-
-// UX review repair (2026-07-16, v3.43.3): 冗長な株主区分別ドーナツを撤去し、仮説列の基準時点を明示。
-// 感度は非インタラクティブな参考情報に変更し、株主セルのクリック誤解を排除。
-expectIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
-  "基準",
-  "仮・FD",
-  "FD ",
-  "新規投資家",
-  "参考",
-]);
-expectNotIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
   "function CapitalDonut",
-  "title=\"株主区分別\"",
-  "sensitivityIndex",
-  "onClick={() => onSelectBase(s.id)} className={`cursor-pointer",
+  "cap table｜${selectedSnapshot",
+  "守りたい株主",
 ]);
 
-// UX review repair v2 (2026-07-16, v3.43.4): 仮説列見出しの固定表示、発行済/完全希薄化行分割、
-// 行見出しの table semantics (`<th scope="row">`) を保証。既存の a11y/UX review 差分が
-// リグレッションで巻き戻らないこと。
-expectIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
-  "完全希薄化後",
-  "<th scope=\"row\"",
-  "text-[10px] font-semibold text-blue-700\">仮・FD</div>",
+// CapitalPlanMatrix (2026-07-17): sticky matrix / 縦棒(構成比グラフ) / FD行 / モバイル44pxタップ領域を保護する。
+expectIncludes("src/components/cockpit/CapitalPlanMatrix.tsx", [
+  'data-testid="capital-plan-matrix"',
+  "flex-col-reverse",
+  "sticky left-0",
+  "sticky top-0",
+  "FD比率（完全希薄化後）",
+  "完全希薄化後株式数合計",
+  "min-h-[44px] md:min-h-[36px]",
+]);
+
+// CapitalPlanWorkspace (2026-07-17): VC提出用の凍結(freeze)エクスポート導線とモバイル44pxを保護する。
+expectIncludes("src/components/cockpit/CapitalPlanWorkspace.tsx", [
+  "checkPublishEligibility",
+  "保存された資本政策表を社内承認とVC提出に使用します。",
+  "VC提出用Excel",
+  'action: "freeze"',
+  "createCapitalPlanXlsx",
+  "min-h-[44px]",
+]);
+
+expectIncludes("src/lib/capital-plan-xlsx.ts", [
+  "export function createCapitalPlanXlsx(version: FrozenCapitalPlanVersion): Uint8Array {",
+  'version.status !== "frozen"',
+]);
+
+// 資本政策API (2026-07-17): /api/governance/capital-plans は requireMember で保護される。
+expectIncludes("src/app/api/governance/capital-plans/route.ts", [
+  'import { requireMember } from "@/lib/supabase/api-auth";',
+  "await requireMember()",
+  "project_capital_plans",
+  "project_capital_plan_versions",
 ]);
 
 // migration 175: LST (p07) の創業〜QST in-kind まで正史を復元 (source: xlsx:LST_captable_250415.xlsx)。
@@ -1649,18 +1635,6 @@ expectIncludes("scripts/migrations/175_lst_cap_table_history.sql", [
   "xlsx:LST_captable_250415.xlsx#qst-202503",
   "星野毅",
   "in_kind_contribution",
-]);
-
-// mobile tap-target fix (2026-07-16, v3.43.25): 本番390px計測で next-round-simulator の
-// SelectTrigger 2箇所が32pxしか出ず、shared data-size heightがh-11に勝っていた。min-h-11/sm:min-h-9へ
-// 変更してモバイル44px・sm+36pxの実高さを保証する。h-11/sm:h-9への巻き戻りを防ぐ。
-expectIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
-  '<SelectTrigger className="min-h-11 w-full bg-white text-[11px] sm:min-h-9">',
-  '<SelectTrigger className="min-h-11 w-full bg-white text-[11px] sm:min-h-9"><SelectValue placeholder="株主を選んでね" /></SelectTrigger>',
-]);
-expectNotIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
-  '<SelectTrigger className="h-11 w-full bg-white text-[11px] sm:h-9">',
-  '<SelectTrigger className="h-11 w-full bg-white text-[11px] sm:h-9"><SelectValue placeholder="株主を選んでね" /></SelectTrigger>',
 ]);
 
 console.log("critical PWA UI anchors ok");

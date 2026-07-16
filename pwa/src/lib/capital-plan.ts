@@ -63,7 +63,9 @@ export interface EventAllocation {
 
 /**
  * Which inputs drive the calculated fields of a financing event when replayed
- * through deriveCapitalPlan. 'manual' means nothing is auto-derived.
+ * through deriveCapitalPlan. 'manual' leaves per-allocation shares/amount/price
+ * as authored, but event-level summary fields (primaryRaise, newShares,
+ * postMoneyValuation) are still recomputed from those allocations.
  */
 export type CalculationBasis =
   | 'valuation_and_investment'
@@ -97,7 +99,9 @@ export interface CapitalEvent {
   conversionDiscount?: EditableValue;
   /**
    * Which inputs drive this event's calculated fields when replayed through
-   * deriveCapitalPlan. Absent or 'manual' leaves all fields as authored.
+   * deriveCapitalPlan. Absent or 'manual' leaves allocation-level fields as
+   * authored, but event-level summary fields are still recomputed from them
+   * (see deriveEvent).
    */
   calculationBasis?: CalculationBasis;
   /** Editable event total: sum of new-money cash raised in this event (primary allocations). */
@@ -237,8 +241,10 @@ export function validateCapitalPlan(plan: CapitalPlan): ValidationIssue[] {
   const events = sortedEvents(plan);
 
   const YEN_TOLERANCE = 1;
+  const SHARE_TOLERANCE = 0; // 株式数は1株のズレも許容しない
   const PCT_TOLERANCE = 0.0001; // 0.01 percentage points, expressed as a 0..1 fraction
 
+  const convertibleBalance = new Map<string, number>();
   const orderSeen = new Map<number, string>();
   for (const event of events) {
     if (orderSeen.has(event.order)) {
@@ -282,6 +288,43 @@ export function validateCapitalPlan(plan: CapitalPlan): ValidationIssue[] {
           holderId: alloc.holderId,
         });
       }
+
+      const isAllowedNegativeShares =
+        event.type === 'secondary' || (event.type === 'convertible_conversion' && alloc.shareClass === 'convertible');
+      if (shares < 0 && !isAllowedNegativeShares) {
+        issues.push({
+          severity: 'error',
+          code: 'negative_shares_not_allowed',
+          message: `"${event.label}" の株主「${alloc.holderId}」への割当株数（${shares}）が負の数です。譲渡（セカンダリ）イベントの譲渡人、またはコンバーティブル転換イベントでの転換社債等の消込以外ではマイナスの株数は認められません。`,
+          eventId: event.id,
+          holderId: alloc.holderId,
+        });
+      }
+
+      if (alloc.amount != null && event.type !== 'secondary' && resolvedValue(alloc.amount) < 0) {
+        issues.push({
+          severity: 'error',
+          code: 'negative_allocation_amount',
+          message: `"${event.label}" の株主「${alloc.holderId}」の金額（${resolvedValue(alloc.amount)}円）が負の数です。譲渡（セカンダリ）イベント以外でマイナスの金額は認められません。`,
+          eventId: event.id,
+          holderId: alloc.holderId,
+        });
+      }
+
+      if (alloc.shareClass === 'convertible') {
+        const holderBalance = convertibleBalance.get(alloc.holderId) ?? 0;
+        if (shares < 0 && Math.abs(shares) - holderBalance > SHARE_TOLERANCE) {
+          issues.push({
+            severity: 'error',
+            code: 'convertible_consumption_exceeds_balance',
+            message: `"${event.label}" の株主「${alloc.holderId}」がこれまでの保有残高（${holderBalance}）を超えるコンバーティブル（${Math.abs(shares)}）を消込しようとしています。`,
+            eventId: event.id,
+            holderId: alloc.holderId,
+          });
+        }
+        convertibleBalance.set(alloc.holderId, holderBalance + shares);
+      }
+
       if (event.type === 'secondary') secondaryNet += shares;
     }
 
@@ -313,7 +356,7 @@ export function validateCapitalPlan(plan: CapitalPlan): ValidationIssue[] {
           eventId: event.id,
         });
       }
-      if (pre) {
+      if (pre && event.type !== 'convertible_conversion') {
         const raise = event.allocations
           .filter((a) => a.amount != null)
           .reduce((sum, a) => sum + resolvedValue(a.amount), 0);
@@ -338,7 +381,16 @@ export function validateCapitalPlan(plan: CapitalPlan): ValidationIssue[] {
       });
     }
 
-    if (event.primaryRaise) {
+    if (event.type === 'convertible_conversion') {
+      if (event.primaryRaise && Math.abs(resolvedValue(event.primaryRaise)) > YEN_TOLERANCE) {
+        issues.push({
+          severity: 'error',
+          code: 'convertible_conversion_primary_raise_nonzero',
+          message: `"${event.label}" はコンバーティブル転換イベントのため、primaryRaise（${resolvedValue(event.primaryRaise)}円）は新規の現金調達として計上できません。0にしてください。`,
+          eventId: event.id,
+        });
+      }
+    } else if (event.primaryRaise) {
       const cashSum = event.allocations.reduce((sum, a) => sum + (a.amount ? resolvedValue(a.amount) : 0), 0);
       if (Math.abs(resolvedValue(event.primaryRaise) - cashSum) > YEN_TOLERANCE) {
         issues.push({
@@ -351,15 +403,23 @@ export function validateCapitalPlan(plan: CapitalPlan): ValidationIssue[] {
     }
 
     if (event.newShares) {
-      const positiveIssued = event.allocations.reduce((sum, a) => {
-        const s = resolvedValue(a.shares);
-        return s > 0 ? sum + s : sum;
-      }, 0);
-      if (Math.abs(resolvedValue(event.newShares) - positiveIssued) > YEN_TOLERANCE) {
+      const expectedIssuedShares =
+        event.type === 'secondary'
+          ? 0
+          : event.allocations.reduce((sum, a) => {
+              if (isDilutiveClass(a.shareClass)) return sum;
+              const s = resolvedValue(a.shares);
+              return s > 0 ? sum + s : sum;
+            }, 0);
+      if (Math.abs(resolvedValue(event.newShares) - expectedIssuedShares) > SHARE_TOLERANCE) {
+        const message =
+          event.type === 'secondary'
+            ? `"${event.label}" のnewShares（${resolvedValue(event.newShares)}）は譲渡（セカンダリ）イベントのため0である必要があります。譲受人への株式移動は新規発行として計上しないでください。`
+            : `"${event.label}" のnewShares（${resolvedValue(event.newShares)}）が新規発行株式数合計（${expectedIssuedShares}）と一致しません（オプション・コンバーティブル・ワラント割当はFDのみのため新規発行株式数には含めません）。`;
         issues.push({
           severity: 'error',
           code: 'new_shares_mismatch',
-          message: `"${event.label}" のnewShares（${resolvedValue(event.newShares)}）が正の割当株式数合計（${positiveIssued}）と一致しません。`,
+          message,
           eventId: event.id,
         });
       }
@@ -387,15 +447,134 @@ export function validateCapitalPlan(plan: CapitalPlan): ValidationIssue[] {
       }
     }
 
+    // derive後にサーバー側で凍結する際、株価の上書きがderive時点の算出値と乖離したまま
+    // 残っていると、メイン画面（algo算出値ベース）と投資家詳細（override値ベース）で
+    // 表示される株価が食い違う（例: 一覧が40,000円、投資家詳細が30,000円）。
+    // valuation_and_investment / ownership_target は株価がevent/allocationの派生出力
+    // なので、override後に基準となるinputが変わってcalculatedValueが更新されたら検出する。
+    if (event.calculationBasis === 'valuation_and_investment' || event.calculationBasis === 'ownership_target') {
+      if (
+        event.pricePerShare &&
+        event.pricePerShare.source === 'override' &&
+        event.pricePerShare.calculatedValue != null &&
+        Math.abs(event.pricePerShare.value - event.pricePerShare.calculatedValue) > YEN_TOLERANCE
+      ) {
+        issues.push({
+          severity: 'error',
+          code: 'derived_event_price_override_mismatch',
+          message: `"${event.label}" の株価の上書き値（${event.pricePerShare.value}円）が、現在の入力から再算出した株価（${event.pricePerShare.calculatedValue}円）と一致しません（許容誤差 ${YEN_TOLERANCE}円）。このまま凍結すると、一覧表示と算出値が食い違ったまま固定されます。上書き値を再算出値に合わせるか、上書きを取り消してください。`,
+          eventId: event.id,
+        });
+      }
+
+      for (const alloc of event.allocations) {
+        if (
+          alloc.pricePerShare &&
+          alloc.pricePerShare.source === 'override' &&
+          alloc.pricePerShare.calculatedValue != null &&
+          Math.abs(alloc.pricePerShare.value - alloc.pricePerShare.calculatedValue) > YEN_TOLERANCE
+        ) {
+          issues.push({
+            severity: 'error',
+            code: 'derived_allocation_price_override_mismatch',
+            message: `"${event.label}" の株主「${alloc.holderId}」の株価の上書き値（${alloc.pricePerShare.value}円）が、現在の入力から再算出した株価（${alloc.pricePerShare.calculatedValue}円）と一致しません（許容誤差 ${YEN_TOLERANCE}円）。このまま凍結すると、投資家詳細と算出値が食い違ったまま固定されます。上書き値を再算出値に合わせるか、上書きを取り消してください。`,
+            eventId: event.id,
+            holderId: alloc.holderId,
+          });
+        }
+      }
+    }
+
+    // price_and_shares はイベント単価のみを唯一のdriverとし、割当ごとに別の単価を
+    // 持たせない一本化ルール（EventEditorの1株価格セルもevent.pricePerShareのみを
+    // 編集させる）。それでも生成AI/レガシーAPIドキュメントの取り込みやraw importで
+    // allocation.pricePerShareが個別に設定され、event.pricePerShareと乖離したまま
+    // 残るケースがある（VC提出時の矛盾: イベント単価と割当単価が食い違う）。
+    // deriveEvent はallocation側の単価が入っていればそちらを優先してしまうため、
+    // 検証で明示的にブロックしないと矛盾した書類がそのまま提出可能になる。
+    if (event.calculationBasis === 'price_and_shares' && event.pricePerShare) {
+      const eventPrice = resolvedValue(event.pricePerShare);
+      for (const alloc of event.allocations) {
+        if (
+          alloc.pricePerShare &&
+          Math.abs(resolvedValue(alloc.pricePerShare) - eventPrice) > YEN_TOLERANCE
+        ) {
+          issues.push({
+            severity: 'error',
+            code: 'price_basis_allocation_price_mismatch',
+            message: `"${event.label}" は単価×株数方式のため株価はイベント単価（${eventPrice}円）で統一する必要がありますが、株主「${alloc.holderId}」の割当単価（${resolvedValue(alloc.pricePerShare)}円）がそれと一致しません（許容誤差 ${YEN_TOLERANCE}円）。別の単価で発行する場合はイベントを分けてください。`,
+            eventId: event.id,
+            holderId: alloc.holderId,
+          });
+        }
+      }
+    }
+
     if (event.type === 'option_pool' && event.poolSize) {
       const optionSum = event.allocations
         .filter((a) => a.shareClass === 'option')
         .reduce((sum, a) => sum + resolvedValue(a.shares), 0);
-      if (Math.abs(resolvedValue(event.poolSize) - optionSum) > YEN_TOLERANCE) {
+      if (Math.abs(resolvedValue(event.poolSize) - optionSum) > SHARE_TOLERANCE) {
         issues.push({
           severity: 'error',
           code: 'option_pool_size_mismatch',
           message: `"${event.label}" のオプションプールサイズ（${resolvedValue(event.poolSize)}）がオプション割当合計（${optionSum}）と一致しません。`,
+          eventId: event.id,
+        });
+      }
+    }
+
+    if (event.type === 'convertible_issue') {
+      for (const alloc of event.allocations) {
+        const shares = resolvedValue(alloc.shares);
+        if (alloc.shareClass !== 'convertible') {
+          issues.push({
+            severity: 'error',
+            code: 'convertible_issue_invalid_class',
+            message: `"${event.label}" の株主「${alloc.holderId}」への割当のshareClassが「${alloc.shareClass}」です。コンバーティブル発行イベントの割当はshareClass「convertible」である必要があります。`,
+            eventId: event.id,
+            holderId: alloc.holderId,
+          });
+        } else if (shares <= 0) {
+          issues.push({
+            severity: 'error',
+            code: 'convertible_issue_non_positive_units',
+            message: `"${event.label}" の株主「${alloc.holderId}」へのコンバーティブル発行数（${shares}）は正の数である必要があります。`,
+            eventId: event.id,
+            holderId: alloc.holderId,
+          });
+        }
+      }
+    }
+
+    if (event.type === 'convertible_conversion') {
+      if (event.calculationBasis && event.calculationBasis !== 'manual') {
+        issues.push({
+          severity: 'error',
+          code: 'convertible_conversion_non_manual_basis',
+          message: `"${event.label}" はコンバーティブル転換イベントのため、calculationBasisはmanual（または未設定）である必要があります。現在の設定「${event.calculationBasis}」のままderiveを実行すると、増資イベント向けの評価額・株価算出ロジックが転換の消込・発行に誤って適用されます。株数・金額をすべて手動入力し、calculationBasisをmanualにしてください。`,
+          eventId: event.id,
+        });
+      }
+      const hasConvertibleConsumption = event.allocations.some(
+        (a) => a.shareClass === 'convertible' && resolvedValue(a.shares) < 0,
+      );
+      if (!hasConvertibleConsumption) {
+        issues.push({
+          severity: 'error',
+          code: 'convertible_conversion_missing_consumption',
+          message: `"${event.label}" にコンバーティブルを消込む（マイナスの）割当がありません。転換イベントは既存のコンバーティブル残高を消込む必要があります。`,
+          eventId: event.id,
+        });
+      }
+      const hasIssuedNonDilutive = event.allocations.some(
+        (a) => !isDilutiveClass(a.shareClass) && resolvedValue(a.shares) > 0,
+      );
+      if (!hasIssuedNonDilutive) {
+        issues.push({
+          severity: 'error',
+          code: 'convertible_conversion_missing_issuance',
+          message: `"${event.label}" に転換後の株式（普通株式・優先株式等）への正の割当がありません。`,
           eventId: event.id,
         });
       }
@@ -589,25 +768,89 @@ export function discloseShareRounding(rawShares: number): ShareRoundingDisclosur
 // ---------------------------------------------------------------------------
 
 /**
- * Overwrites a field with a freshly calculated value UNLESS its current source
- * is input/imported/confirmed (left untouched) or override (value kept, but its
- * calculatedValue is refreshed so drift from the current calculation is visible
- * via collectSourceOverrides).
+ * Materializes a TRUE DERIVED OUTPUT field: a value that is always fully
+ * determined by the event's other inputs under the active calculationBasis
+ * (e.g. allocation price/shares solved from amount, or an event summary
+ * total rolled up from allocations). Such a field can never legitimately
+ * stay stale just because it was once imported/confirmed/typed as input —
+ * only an explicit override should survive a derive. So: if the current
+ * source is 'override', the authored value is kept but its calculatedValue
+ * is refreshed (drift from the current calculation stays visible via
+ * collectSourceOverrides). For every other source — input, imported,
+ * confirmed, calculated, or absent — the field is replaced with the fresh
+ * calculated value and source 'calculated'.
  */
-function materializeField(current: EditableValue | undefined, calculatedValue: number): EditableValue {
+function materializeOutputField(current: EditableValue | undefined, calculatedValue: number): EditableValue {
   if (current && current.source === 'override') {
     return { ...current, calculatedValue };
   }
-  if (current && current.source !== 'calculated') {
-    return current;
-  }
   return editableValue(calculatedValue, 'calculated');
+}
+
+/** Sum of positive, non-dilutive (issued) allocation shares: the "new shares" total for a manual-basis event. */
+function manualNewShares(event: CapitalEvent): number {
+  return event.allocations.reduce((sum, a) => {
+    if (isDilutiveClass(a.shareClass)) return sum;
+    const shares = resolvedValue(a.shares);
+    return shares > 0 ? sum + shares : sum;
+  }, 0);
+}
+
+/** Sum of allocation cash amounts: the "primary raise" total for a manual-basis event. */
+function manualPrimaryRaise(event: CapitalEvent): number {
+  return event.allocations.reduce((sum, a) => sum + (a.amount ? resolvedValue(a.amount) : 0), 0);
 }
 
 function deriveEvent(event: CapitalEvent, preRoundFd: number, preRoundHoldings: Map<string, number>): CapitalEvent {
   const basis = event.calculationBasis;
   if (!basis || basis === 'manual') {
+    // Nothing drives allocation-level fields (shares/amount/pricePerShare are
+    // authored as-is), but the event-level summary fields are still
+    // recomputed from those allocations so editing a per-holder amount/share
+    // propagates to the summary and to validation instead of leaving a stale,
+    // manually-typed total behind.
+    if (event.type === 'equity_issue' || event.type === 'ipo') {
+      const newShares = manualNewShares(event);
+      const primaryRaise = manualPrimaryRaise(event);
+      const derived: CapitalEvent = {
+        ...event,
+        newShares: materializeOutputField(event.newShares, newShares),
+        primaryRaise: materializeOutputField(event.primaryRaise, primaryRaise),
+      };
+      if (event.preMoneyValuation) {
+        const postMoney = resolvedValue(event.preMoneyValuation) + primaryRaise;
+        derived.postMoneyValuation = materializeOutputField(event.postMoneyValuation, postMoney);
+      }
+      return derived;
+    }
+
+    if (event.type === 'convertible_conversion') {
+      return {
+        ...event,
+        newShares: materializeOutputField(event.newShares, manualNewShares(event)),
+        // Conversions never raise new cash; lifecycle validation (not derive)
+        // is responsible for checking that the consumed convertible balance
+        // matches the holder's outstanding balance.
+        primaryRaise: materializeOutputField(event.primaryRaise, 0),
+      };
+    }
+
+    if (event.type === 'incorporation') {
+      return {
+        ...event,
+        newShares: materializeOutputField(event.newShares, manualNewShares(event)),
+      };
+    }
+
+    // option_pool (driven by poolSize, not issued newShares), secondary,
+    // share_split, convertible_issue: left as authored.
     return event;
+  }
+
+  if (event.type === 'convertible_conversion') {
+    throw new Error(
+      `"${event.label}": コンバーティブル転換イベント（convertible_conversion）はcalculationBasisをmanual（または未設定）にする必要があります。現在の設定「${basis}」では、増資イベント向けの評価額・株価算出ロジックが転換の消込・発行に誤って適用され、現金調達額（primaryRaise）やnewSharesにコンバーティブルの消込（マイナスの株数）が誤って合算・混入するおそれがあります。`,
+    );
   }
 
   const allocations = event.allocations.map((a) => ({ ...a }));
@@ -623,8 +866,8 @@ function deriveEvent(event: CapitalEvent, preRoundFd: number, preRoundHoldings: 
     for (const alloc of allocations) {
       const amount = resolvedValue(alloc.amount);
       const roundedShares = discloseShareRounding(amount / price).roundedShares;
-      alloc.shares = materializeField(alloc.shares, roundedShares);
-      alloc.pricePerShare = materializeField(alloc.pricePerShare, price);
+      alloc.shares = materializeOutputField(alloc.shares, roundedShares);
+      alloc.pricePerShare = materializeOutputField(alloc.pricePerShare, price);
       totalNewShares += resolvedValue(alloc.shares);
       primaryRaise += amount;
     }
@@ -632,10 +875,10 @@ function deriveEvent(event: CapitalEvent, preRoundFd: number, preRoundHoldings: 
     return {
       ...event,
       allocations,
-      pricePerShare: materializeField(event.pricePerShare, price),
-      newShares: materializeField(event.newShares, totalNewShares),
-      primaryRaise: materializeField(event.primaryRaise, primaryRaise),
-      postMoneyValuation: materializeField(event.postMoneyValuation, postMoney),
+      pricePerShare: materializeOutputField(event.pricePerShare, price),
+      newShares: materializeOutputField(event.newShares, totalNewShares),
+      primaryRaise: materializeOutputField(event.primaryRaise, primaryRaise),
+      postMoneyValuation: materializeOutputField(event.postMoneyValuation, postMoney),
     };
   }
 
@@ -652,7 +895,7 @@ function deriveEvent(event: CapitalEvent, preRoundFd: number, preRoundHoldings: 
       firstAllocPrice ??= allocPrice;
       const shares = resolvedValue(alloc.shares);
       const amount = shares * allocPrice;
-      alloc.amount = materializeField(alloc.amount, amount);
+      alloc.amount = materializeOutputField(alloc.amount, amount);
       totalNewShares += shares;
       primaryRaise += amount;
     }
@@ -662,10 +905,10 @@ function deriveEvent(event: CapitalEvent, preRoundFd: number, preRoundHoldings: 
     return {
       ...event,
       allocations,
-      newShares: materializeField(event.newShares, totalNewShares),
-      primaryRaise: materializeField(event.primaryRaise, primaryRaise),
-      preMoneyValuation: materializeField(event.preMoneyValuation, preMoney),
-      postMoneyValuation: materializeField(event.postMoneyValuation, postMoney),
+      newShares: materializeOutputField(event.newShares, totalNewShares),
+      primaryRaise: materializeOutputField(event.primaryRaise, primaryRaise),
+      preMoneyValuation: materializeOutputField(event.preMoneyValuation, preMoney),
+      postMoneyValuation: materializeOutputField(event.postMoneyValuation, postMoney),
     };
   }
 
@@ -743,10 +986,10 @@ function deriveEvent(event: CapitalEvent, preRoundFd: number, preRoundHoldings: 
         );
       }
       const roundedShares = discloseShareRounding(rawShares).roundedShares;
-      alloc.shares = materializeField(alloc.shares, roundedShares);
+      alloc.shares = materializeOutputField(alloc.shares, roundedShares);
       const amount = roundedShares * price;
-      alloc.amount = materializeField(alloc.amount, amount);
-      alloc.pricePerShare = materializeField(alloc.pricePerShare, price);
+      alloc.amount = materializeOutputField(alloc.amount, amount);
+      alloc.pricePerShare = materializeOutputField(alloc.pricePerShare, price);
       totalNewShares += roundedShares;
       primaryRaise += amount;
     }
@@ -754,10 +997,10 @@ function deriveEvent(event: CapitalEvent, preRoundFd: number, preRoundHoldings: 
     return {
       ...event,
       allocations,
-      pricePerShare: materializeField(event.pricePerShare, price),
-      newShares: materializeField(event.newShares, totalNewShares),
-      primaryRaise: materializeField(event.primaryRaise, primaryRaise),
-      postMoneyValuation: materializeField(event.postMoneyValuation, postMoney),
+      pricePerShare: materializeOutputField(event.pricePerShare, price),
+      newShares: materializeOutputField(event.newShares, totalNewShares),
+      primaryRaise: materializeOutputField(event.primaryRaise, primaryRaise),
+      postMoneyValuation: materializeOutputField(event.postMoneyValuation, postMoney),
     };
   }
 
@@ -765,12 +1008,14 @@ function deriveEvent(event: CapitalEvent, preRoundFd: number, preRoundHoldings: 
 }
 
 /**
- * Replays a plan's events in order, materializing every event/allocation field
- * whose source is 'calculated' (or empty) according to the event's
- * calculationBasis, while leaving input/imported/confirmed/override fields
- * untouched. Downstream events see the derived (not authored) upstream share
- * totals, so editing one round's inputs propagates through all later rounds
- * without manually rebuilding them.
+ * Replays a plan's events in order, materializing every true derived output
+ * field (allocation/event fields fully determined by the event's other
+ * inputs under its calculationBasis) with a fresh calculated value,
+ * regardless of whether its prior source was input/imported/confirmed/
+ * calculated/absent — only an explicit override survives, with its
+ * calculatedValue refreshed. Downstream events see the derived (not
+ * authored) upstream share totals, so editing one round's inputs propagates
+ * through all later rounds without manually rebuilding them.
  */
 export function deriveCapitalPlan(plan: CapitalPlan): CapitalPlan {
   const events = sortedEvents(plan);
@@ -831,8 +1076,144 @@ export interface PublishEligibility {
   warnings: ValidationIssue[];
 }
 
+/**
+ * 設立からIPOまでの資本政策としての提出完全性を検証する。個々の数値整合性は
+ * validateCapitalPlan が担うが、この関数は「VC提出/凍結できる状態か」という
+ * ドキュメント全体の完全性（株主名・先頭が設立・末尾がIPO・日付/ラベル・
+ * 増資イベントの主要項目が解決済みか等）を検証する。将来ラウンド（planned）は
+ * 許容される。
+ */
+/** Strict YYYY-MM-DD check: rejects malformed strings and calendar overflow (e.g. 2024-02-30). */
+function isValidIsoDate(dateStr: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  if (m < 1 || m > 12 || d < 1 || d > 31) return false;
+  const date = new Date(Date.UTC(y, m - 1, d));
+  return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
+}
+
+export function validateSubmissionCompleteness(plan: CapitalPlan): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  const events = sortedEvents(plan);
+
+  const unnamedHolders = plan.holders.filter((h) => !h.name || h.name.trim().length === 0);
+  if (unnamedHolders.length > 0) {
+    issues.push({
+      severity: 'error',
+      code: 'submission_no_named_holder',
+      message: `氏名/名称が未入力の株主があります（株主ID: ${unnamedHolders.map((h) => h.id).join('、')}）。提出前にすべての株主の名前を入力してください。`,
+    });
+  }
+
+  if (events.length === 0) {
+    issues.push({
+      severity: 'error',
+      code: 'submission_no_events',
+      message: '資本イベントが1件も登録されていません。設立からIPOまでの資本イベントを入力してください。',
+    });
+    return issues;
+  }
+
+  const firstEvent = events[0];
+  if (firstEvent.type !== 'incorporation') {
+    issues.push({
+      severity: 'error',
+      code: 'submission_first_event_not_incorporation',
+      message: `最初のイベント（順序 ${firstEvent.order}）は"${firstEvent.label}"ですが、資本政策の起点として設立（incorporation）イベントである必要があります。`,
+      eventId: firstEvent.id,
+    });
+  } else {
+    const hasFounderAllocation = firstEvent.allocations.some(
+      (a) => !isDilutiveClass(a.shareClass) && resolvedValue(a.shares) > 0,
+    );
+    if (!hasFounderAllocation) {
+      issues.push({
+        severity: 'error',
+        code: 'submission_incorporation_missing_founder_allocation',
+        message: `設立イベント"${firstEvent.label}"に創業株主への正の株式割当がありません。`,
+        eventId: firstEvent.id,
+      });
+    }
+  }
+
+  const lastEvent = events[events.length - 1];
+  if (lastEvent.type !== 'ipo') {
+    issues.push({
+      severity: 'error',
+      code: 'submission_last_event_not_ipo',
+      message: `最後のイベント（順序 ${lastEvent.order}）は"${lastEvent.label}"ですが、資本政策の終点としてIPOイベントである必要があります。`,
+      eventId: lastEvent.id,
+    });
+  }
+
+  let lastDatedEvent: { date: string; label: string; order: number } | undefined;
+  for (const event of events) {
+    if (!event.label || event.label.trim().length === 0) {
+      issues.push({
+        severity: 'error',
+        code: 'submission_event_missing_label',
+        message: `順序 ${event.order} のイベントにラベルが設定されていません。`,
+        eventId: event.id,
+      });
+    }
+    if (!event.date || event.date.trim().length === 0) {
+      issues.push({
+        severity: 'error',
+        code: 'submission_event_missing_date',
+        message: `イベント"${event.label}"に日付が設定されていません。`,
+        eventId: event.id,
+      });
+    } else if (!isValidIsoDate(event.date)) {
+      issues.push({
+        severity: 'error',
+        code: 'submission_event_invalid_date',
+        message: `イベント"${event.label}"の日付（${event.date}）がYYYY-MM-DD形式の有効な暦日になっていません。`,
+        eventId: event.id,
+      });
+    } else {
+      if (lastDatedEvent && event.date < lastDatedEvent.date) {
+        issues.push({
+          severity: 'error',
+          code: 'submission_event_date_out_of_order',
+          message: `イベント"${event.label}"（順序 ${event.order}、日付 ${event.date}）が、先行するイベント"${lastDatedEvent.label}"（順序 ${lastDatedEvent.order}、日付 ${lastDatedEvent.date}）より日付が早くなっています。イベントの日付は順序どおり前後しないように設定してください（同日は許容されます）。`,
+          eventId: event.id,
+        });
+      } else {
+        lastDatedEvent = { date: event.date, label: event.label, order: event.order };
+      }
+    }
+
+    if (event.type === 'equity_issue' || event.type === 'ipo') {
+      if (event.allocations.length === 0) {
+        issues.push({
+          severity: 'error',
+          code: 'submission_financing_missing_allocations',
+          message: `増資イベント"${event.label}"に割当がありません。`,
+          eventId: event.id,
+        });
+      }
+      const allKeyFieldsResolved =
+        resolvedValue(event.preMoneyValuation) > 0 &&
+        resolvedValue(event.postMoneyValuation) > 0 &&
+        resolvedValue(event.pricePerShare) > 0 &&
+        resolvedValue(event.primaryRaise) > 0 &&
+        resolvedValue(event.newShares) > 0;
+      if (!allKeyFieldsResolved) {
+        issues.push({
+          severity: 'error',
+          code: 'submission_financing_incomplete',
+          message: `増資イベント"${event.label}"のプレマネー評価額・ポストマネー評価額・1株あたり価格・調達額・新規発行株式数のいずれかが未確定です。calculationBasisを設定してderiveを実行するか、これらの項目をすべて手動入力してから提出してください。`,
+          eventId: event.id,
+        });
+      }
+    }
+  }
+
+  return issues;
+}
+
 export function checkPublishEligibility(plan: CapitalPlan): PublishEligibility {
-  const issues = validateCapitalPlan(plan);
+  const issues = [...validateCapitalPlan(plan), ...validateSubmissionCompleteness(plan)];
   const blockingIssues = issues.filter((i) => i.severity === 'error');
   const warnings = issues.filter((i) => i.severity === 'warning');
   const hasEvents = plan.events.length > 0;

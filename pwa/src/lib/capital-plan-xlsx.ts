@@ -4,10 +4,12 @@
 
 import { strToU8, zipSync } from "fflate";
 import {
+  type CalculationBasis,
   type CapitalEvent,
   type CapitalPlan,
   type EventAllocation,
   type Holder,
+  type ShareClass,
   type ValidationIssue,
   type SourceOverrideEntry,
   collectSourceOverrides,
@@ -20,6 +22,7 @@ import {
 export interface FrozenCapitalPlanVersion {
   plan: CapitalPlan;
   plan_name: string;
+  project_name?: string;
   version: number;
   source_revision: string;
   published_at: string;
@@ -59,6 +62,13 @@ const EVENT_STATUS_LABELS: Record<string, string> = {
   planned: "計画",
 };
 
+const CALCULATION_BASIS_LABELS: Record<CalculationBasis, string> = {
+  valuation_and_investment: "評価額＋投資額",
+  price_and_shares: "単価＋株数",
+  ownership_target: "目標比率",
+  manual: "手動",
+};
+
 const HOLDER_KIND_LABELS: Record<Holder["kind"], string> = {
   founder: "創業者",
   employee: "従業員",
@@ -68,8 +78,63 @@ const HOLDER_KIND_LABELS: Record<Holder["kind"], string> = {
   other: "その他",
 };
 
-/** Number of fixed metric rows (title..section header) before per-holder rows in 資本政策. */
-const POLICY_FIXED_ROWS = 19;
+const SHARE_CLASS_LABELS: Record<ShareClass, string> = {
+  common: "普通株式",
+  preferred: "優先株式",
+  option: "ストックオプション",
+  convertible: "転換前証券",
+  warrant: "ワラント",
+};
+
+/** Blank rows reserved above the event-label header row so the native chart never overlays data (Excel rows 2-18, 1-indexed). */
+const CHART_RESERVED_ROWS = 17;
+/** Blank buffer row between the reserved chart rows and the event-label header row (Excel row 19). */
+const CHART_SPACER_ROWS = 1;
+/** 0-indexed xdr row where the chart drawing's top edge sits (Excel row 2). */
+const CHART_ANCHOR_FROM_ROW = 1;
+/** 0-indexed xdr row where the chart drawing's bottom edge sits (boundary before Excel row 19; chart spans Excel rows 2-18). */
+const CHART_ANCHOR_TO_ROW = CHART_ANCHOR_FROM_ROW + CHART_RESERVED_ROWS;
+/** Extra columns of margin added past the last event column when sizing the chart's right edge (room for the legend). */
+const CHART_RIGHT_COL_MARGIN = 3;
+/**
+ * EMU per pixel at the 96 DPI Excel/OOXML drawings assume (914400 EMU/inch ÷ 96 px/inch).
+ * xdr:colOff values are always expressed in EMU, so pixel measurements taken from a rendered
+ * artifact must be converted through this constant before being written to the drawing XML.
+ */
+const EMU_PER_PIXEL = 9525;
+/**
+ * Rendered-artifact correction. Reviewer evidence from an actual Excel/LibreOffice render of
+ * 資本政策.png (6 events) showed the native chart's bar centers sitting ~51px to the right of
+ * the B:lastEventColumn header cells they are meant to plot above, even though the category
+ * (event) spacing exactly matched the event-column width — i.e. the whole plot area was offset,
+ * not the spacing. Shifting the entire two-cell anchor (both edges, same width) left by this
+ * many pixels re-centers the bars over their event columns without touching category spacing.
+ */
+const CHART_HORIZONTAL_SHIFT_PX = 51;
+/** Column A width in pixels (width 34 ≈ 272px). */
+const COLUMN_A_WIDTH_PX = 272;
+/** Default column width in pixels, used by the chart's right-margin columns. */
+const DEFAULT_COLUMN_WIDTH_PX = 67;
+/**
+ * The anchor's left edge no longer starts at column B (col 1, offset 0). Column A is wide enough
+ * that the leftward shift still lands inside it: col 0 (column A) at offset column-A width minus
+ * the shift.
+ */
+const CHART_ANCHOR_FROM_COL = 0;
+const CHART_ANCHOR_FROM_COL_OFFSET_PX = COLUMN_A_WIDTH_PX - CHART_HORIZONTAL_SHIFT_PX;
+/**
+ * The anchor's right edge moves one column left, from rightCol (offset 0) to rightCol-1. Margin
+ * columns default to ~67px, so the same shift lands at offset default-column-width minus the
+ * shift into that prior column — independent of rightCol/event count, since the shift is a
+ * constant fraction of one column's width regardless of how many columns precede it.
+ */
+const CHART_ANCHOR_TO_COL_OFFSET_PX = DEFAULT_COLUMN_WIDTH_PX - CHART_HORIZONTAL_SHIFT_PX;
+/** 0-indexed row of the event-label header row (title row + reserved chart rows + spacer row). */
+const POLICY_HEADER_ROW_INDEX = 1 + CHART_RESERVED_ROWS + CHART_SPACER_ROWS;
+/** Number of fixed metric rows (date..holder-section header) that follow the event-label header row before per-holder rows begin. */
+const POLICY_METRIC_ROWS_AFTER_HEADER = 17;
+/** 0-indexed row where the first per-holder row begins in 資本政策. */
+const POLICY_FIXED_ROWS = POLICY_HEADER_ROW_INDEX + 1 + POLICY_METRIC_ROWS_AFTER_HEADER;
 /** Number of rows emitted per holder in 資本政策 (flow shares, paid amount, post issued, issued%, post FD, FD%). */
 const POLICY_ROWS_PER_HOLDER = 6;
 
@@ -176,28 +241,35 @@ function sourceStyle(source: string | undefined): number {
 function submissionInfoSheet(version: FrozenCapitalPlanVersion): Sheet {
   const errorCount = version.validation.filter((v) => v.severity === "error").length;
   const warningCount = version.validation.filter((v) => v.severity === "warning").length;
+  const companyName = version.project_name ?? version.plan_name;
   const rows: Cell[][] = [
-    titleRow(`${version.plan_name}｜資本政策 提出情報`, 3),
+    titleRow(`${companyName}｜資本政策 提出情報`, 3),
     [c("項目", 2), c("内容", 2), c("注記", 2)],
-    [c("プロジェクト / プラン名"), c(version.plan_name)],
+    [c("会社名"), c(companyName)],
+    [c("プラン名"), c(version.plan_name)],
     [c("プランID"), c(version.plan.id)],
     [c("凍結バージョン"), c(version.version, 3)],
     [c("ソースリビジョン"), c(version.source_revision)],
     [c("公開日時"), c(version.published_at)],
     [c("公開者"), c(version.published_by)],
-    [c("ステータス"), c(version.status === "frozen" ? "凍結済み（frozen）" : version.status)],
+    [c("ステータス"), c(version.status === "frozen" ? "凍結済み" : version.status)],
     [c("検証エラー件数"), c(errorCount, 3), c(errorCount > 0 ? "要確認" : "問題なし")],
     [c("検証警告件数"), c(warningCount, 3)],
     [c("", 2), ...Array.from({ length: 1 }, () => c("", 2))],
     [c("入力・確定・計算・上書き 凡例", 1), c("", 1), c("", 1)],
-    [c("入力（input）"), c("ユーザーが直接入力した値"), c("", 9)],
-    [c("確定（confirmed）"), c("確定済みとして扱う値"), c("", 10)],
-    [c("計算（calculated）"), c("エンジンが自動算出した値"), c("", 11)],
-    [c("上書き（override）"), c("自動算出値を手動で上書きした値（元の計算値を併記）"), c("", 12)],
+    [c("直接入力"), c("ユーザーが直接入力した値"), c("", 9)],
+    [c("確定値"), c("確定済みとして扱う値"), c("", 10)],
+    [c("自動計算"), c("エンジンが自動算出した値"), c("", 11)],
+    [c("手動上書き"), c("自動算出値を手動で上書きした値（元の計算値を併記）"), c("", 12)],
     [c("", 2)],
-    [c("丸め方針"), c("株式数は整数に丸めて表示。丸め誤差（rawShares - roundedShares）は検算シートで開示。")],
+    [
+      c("丸め方針"),
+      c(
+        "株式数は整数のみを扱う。目標比率・単価から逆算する割当は最も近い整数に丸めて確定し、丸め前の生値はこの出力に保持・表示されない。整数でない割当は「fractional_shares」等の検証エラーとして扱われる。",
+      ),
+    ],
     [c("金額単位"), c("円")],
-    [c("比率表示"), c("完全希薄化後（fully diluted）ベースのパーセント表示")],
+    [c("比率表示"), c("完全希薄化後ベースのパーセント表示")],
   ];
   return { name: "提出情報", rows, widths: [26, 46, 30], freezeRow: 2 };
 }
@@ -213,8 +285,8 @@ function isDilutiveClass(shareClass: string): boolean {
 function conversionTermsText(event: CapitalEvent): string | null {
   if (event.type !== "convertible_issue" && event.type !== "convertible_conversion") return null;
   const parts: string[] = [];
-  if (event.conversionCap) parts.push(`Cap: ${resolvedValue(event.conversionCap).toLocaleString("ja-JP")}円`);
-  if (event.conversionDiscount) parts.push(`Discount: ${(resolvedValue(event.conversionDiscount) * 100).toFixed(2)}%`);
+  if (event.conversionCap) parts.push(`上限評価額: ${resolvedValue(event.conversionCap).toLocaleString("ja-JP")}円`);
+  if (event.conversionDiscount) parts.push(`割引率: ${(resolvedValue(event.conversionDiscount) * 100).toFixed(2)}%`);
   return parts.length > 0 ? parts.join(" / ") : "（条件未設定）";
 }
 
@@ -236,7 +308,7 @@ function newFdSharesFallback(event: CapitalEvent): number | null {
   return null;
 }
 
-function capitalPolicySheet(plan: CapitalPlan, snapshots: RoundSnapshot[], holders: Holder[]) {
+function capitalPolicySheet(plan: CapitalPlan, snapshots: RoundSnapshot[], holders: Holder[], companyName: string) {
   const events = [...plan.events].sort((a, b) => a.order - b.order);
   const snapshotByEvent = new Map(snapshots.map((s) => [s.eventId, s] as const));
   const holderName = new Map(holders.map((h) => [h.id, h.name] as const));
@@ -248,11 +320,14 @@ function capitalPolicySheet(plan: CapitalPlan, snapshots: RoundSnapshot[], holde
     c("ステータス"),
     ...events.map((e) => c(EVENT_STATUS_LABELS[e.status ?? "confirmed"] ?? e.status ?? "確定")),
   ];
-  const basisRow: Cell[] = [c("基準（calculationBasis）"), ...events.map((e) => c(e.calculationBasis ?? "manual"))];
+  const basisRow: Cell[] = [
+    c("算出方法"),
+    ...events.map((e) => c(CALCULATION_BASIS_LABELS[e.calculationBasis ?? "manual"] ?? e.calculationBasis ?? "手動")),
+  ];
   const preRow: Cell[] = [c("プレマネー評価額（円）"), ...events.map((e) => c(e.preMoneyValuation ? resolvedValue(e.preMoneyValuation) : null, 4))];
   const postRow: Cell[] = [c("ポストマネー評価額（円）"), ...events.map((e) => c(e.postMoneyValuation ? resolvedValue(e.postMoneyValuation) : null, 4))];
   const priceRow: Cell[] = [c("1株価格（円）"), ...events.map((e) => c(e.pricePerShare ? resolvedValue(e.pricePerShare) : null, 4))];
-  const raiseRow: Cell[] = [c("調達額（primaryRaise, 円）"), ...events.map((e) => c(e.primaryRaise ? resolvedValue(e.primaryRaise) : null, 4))];
+  const raiseRow: Cell[] = [c("調達額（円）"), ...events.map((e) => c(e.primaryRaise ? resolvedValue(e.primaryRaise) : null, 4))];
 
   let cumulativeRaise = 0;
   const cumulativeRaiseRow: Cell[] = [c("累計調達額（円）")];
@@ -294,7 +369,7 @@ function capitalPolicySheet(plan: CapitalPlan, snapshots: RoundSnapshot[], holde
     c("株式分割比率"),
     ...events.map((e) => c(e.type === "share_split" && e.splitRatio ? resolvedValue(e.splitRatio) : null, 6)),
   ];
-  const conversionTermsRow: Cell[] = [c("転換条件（Cap / Discount）"), ...events.map((e) => c(conversionTermsText(e)))];
+  const conversionTermsRow: Cell[] = [c("転換条件（上限評価額／割引率）"), ...events.map((e) => c(conversionTermsText(e)))];
 
   const holderIds: string[] = [];
   const seen = new Set<string>();
@@ -338,8 +413,18 @@ function capitalPolicySheet(plan: CapitalPlan, snapshots: RoundSnapshot[], holde
     holderRows.push(flowSharesRow, paidAmountRow, postIssuedRow, issuedPctRow, postFdRow, fdPctRow);
   }
 
+  const columns = events.length + 1;
+  const reservedChartRows: Cell[][] = Array.from({ length: CHART_RESERVED_ROWS }, () =>
+    Array.from({ length: columns }, () => c("")),
+  );
+  const spacerRows: Cell[][] = Array.from({ length: CHART_SPACER_ROWS }, () =>
+    Array.from({ length: columns }, () => c("")),
+  );
+
   const rows: Cell[][] = [
-    titleRow("資本政策（イベント別サマリー）", events.length + 1),
+    titleRow(`${companyName}｜資本政策（イベント別サマリー）`, columns),
+    ...reservedChartRows,
+    ...spacerRows,
     headerRow,
     dateRow,
     typeRow,
@@ -365,11 +450,11 @@ function capitalPolicySheet(plan: CapitalPlan, snapshots: RoundSnapshot[], holde
     name: "資本政策",
     rows,
     widths: [34, ...events.map(() => 16)],
-    freezeRow: 2,
+    freezeRow: POLICY_HEADER_ROW_INDEX + 1,
     freezeCol: 1,
   };
 
-  return { sheet, events, holderIds, holderName, snapshotByEvent };
+  return { sheet, events, holderIds, holderName, snapshotByEvent, headerRowIndex: POLICY_HEADER_ROW_INDEX };
 }
 
 // ---------------------------------------------------------------------------
@@ -412,7 +497,7 @@ function investorSheet(plan: CapitalPlan, holders: Holder[]): Sheet {
         c(holder?.name ?? alloc.holderId),
         c(holder ? HOLDER_KIND_LABELS[holder.kind] ?? holder.kind : ""),
         c(allocationFlowType(event, alloc)),
-        c(alloc.shareClass),
+        c(SHARE_CLASS_LABELS[alloc.shareClass] ?? alloc.shareClass),
         c(alloc.amount ? resolvedValue(alloc.amount) : null, 4),
         c(resolvedValue(alloc.shares), 3),
         c(alloc.pricePerShare ? resolvedValue(alloc.pricePerShare) : null, 4),
@@ -501,7 +586,7 @@ function verificationSheet(plan: CapitalPlan, version: FrozenCapitalPlanVersion,
     rows.push([c("検証済み。指摘事項なし。")]);
   }
 
-  rows.push([c("上書き（source override）一覧", 1), ...Array.from({ length: 7 }, () => c("", 1))]);
+  rows.push([c("手動上書き一覧", 1), ...Array.from({ length: 7 }, () => c("", 1))]);
   rows.push([c("イベント", 2), c("イベント名", 2), c("割当ID", 2), c("株主ID", 2), c("フィールド", 2), c("上書き値", 2), c("計算値", 2), c("備考", 2)]);
   for (const entry of overrides) {
     rows.push([
@@ -541,25 +626,37 @@ function verificationSheet(plan: CapitalPlan, version: FrozenCapitalPlanVersion,
 // one series per holder, fed by fully diluted percentages.
 // ---------------------------------------------------------------------------
 
-function buildChartXml(sheetName: string, events: CapitalEvent[], holderIds: string[], holderRowIndex: Map<string, number>) {
+function buildChartXml(
+  sheetName: string,
+  events: CapitalEvent[],
+  holderIds: string[],
+  holderRowIndex: Map<string, number>,
+  headerRowIndex: number,
+  holderName: Map<string, string>,
+) {
   const numEvents = events.length;
-  const catRef = `'${sheetName}'!$B$2:$${colName(numEvents)}$2`;
+  const headerRowNum = headerRowIndex + 1;
+  const catRef = `'${sheetName}'!$B$${headerRowNum}:$${colName(numEvents)}$${headerRowNum}`;
   const series = holderIds
     .map((holderId, index) => {
       const rowIndex = holderRowIndex.get(holderId);
       if (rowIndex == null) return "";
       const rowNum = rowIndex + 1;
       const valRef = `'${sheetName}'!$B$${rowNum}:$${colName(numEvents)}$${rowNum}`;
-      const nameRef = `'${sheetName}'!$A$${rowNum}`;
-      return `<c:ser><c:idx val="${index}"/><c:order val="${index}"/><c:tx><c:strRef><c:f>${xml(nameRef)}</c:f></c:strRef></c:tx><c:cat><c:strRef><c:f>${xml(catRef)}</c:f></c:strRef></c:cat><c:val><c:numRef><c:f>${xml(valRef)}</c:f></c:numRef></c:val></c:ser>`;
+      const name = holderName.get(holderId) ?? holderId;
+      return `<c:ser><c:idx val="${index}"/><c:order val="${index}"/><c:tx><c:v>${xml(name)}</c:v></c:tx><c:cat><c:strRef><c:f>${xml(catRef)}</c:f></c:strRef></c:cat><c:val><c:numRef><c:f>${xml(valRef)}</c:f></c:numRef></c:val></c:ser>`;
     })
     .join("");
 
   return `${XML_HEADER}<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><c:chart><c:title><c:tx><c:rich><a:bodyPr/><a:p><a:r><a:t>資本構成推移（株主別 完全希薄化後比率）</a:t></a:r></a:p></c:rich></c:tx><c:overlay val="0"/></c:title><c:autoTitleDeleted val="0"/><c:plotArea><c:layout/><c:barChart><c:barDir val="col"/><c:grouping val="percentStacked"/><c:varyColors val="0"/>${series}<c:overlap val="100"/><c:axId val="111111111"/><c:axId val="222222222"/></c:barChart><c:catAx><c:axId val="111111111"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="b"/><c:crossAx val="222222222"/></c:catAx><c:valAx><c:axId val="222222222"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="l"/><c:numFmt formatCode="0%" sourceLinked="0"/><c:crossAx val="111111111"/></c:valAx></c:plotArea><c:legend><c:legendPos val="r"/></c:legend><c:plotVisOnly val="1"/></c:chart></c:chartSpace>`;
 }
 
-function buildDrawingXml() {
-  return `${XML_HEADER}<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><xdr:twoCellAnchor><xdr:from><xdr:col>1</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>1</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from><xdr:to><xdr:col>10</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>26</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to><xdr:graphicFrame macro=""><xdr:nvGraphicFramePr><xdr:cNvPr id="2" name="資本構成推移グラフ"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr><xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart"><c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:id="rId1"/></a:graphicData></a:graphic></xdr:graphicFrame><xdr:clientData/></xdr:twoCellAnchor></xdr:wsDr>`;
+function buildDrawingXml(numEvents: number) {
+  const rightCol = numEvents + 1 + CHART_RIGHT_COL_MARGIN;
+  const toCol = rightCol - 1;
+  const fromColOffEmu = CHART_ANCHOR_FROM_COL_OFFSET_PX * EMU_PER_PIXEL;
+  const toColOffEmu = CHART_ANCHOR_TO_COL_OFFSET_PX * EMU_PER_PIXEL;
+  return `${XML_HEADER}<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><xdr:twoCellAnchor><xdr:from><xdr:col>${CHART_ANCHOR_FROM_COL}</xdr:col><xdr:colOff>${fromColOffEmu}</xdr:colOff><xdr:row>${CHART_ANCHOR_FROM_ROW}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from><xdr:to><xdr:col>${toCol}</xdr:col><xdr:colOff>${toColOffEmu}</xdr:colOff><xdr:row>${CHART_ANCHOR_TO_ROW}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to><xdr:graphicFrame macro=""><xdr:nvGraphicFramePr><xdr:cNvPr id="2" name="資本構成推移グラフ"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr><xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart"><c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:id="rId1"/></a:graphicData></a:graphic></xdr:graphicFrame><xdr:clientData/></xdr:twoCellAnchor></xdr:wsDr>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -576,7 +673,7 @@ function stylesXml() {
 
 export function createCapitalPlanXlsx(version: FrozenCapitalPlanVersion): Uint8Array {
   if (!version || version.status !== "frozen") {
-    throw new Error("資本政策のExcel出力には凍結済み（frozen）バージョンが必要です。");
+    throw new Error("資本政策のExcel出力には凍結済みバージョンが必要です。");
   }
   if (version.version == null || !Number.isFinite(version.version)) {
     throw new Error("凍結バージョン番号（version）が不正です。");
@@ -599,7 +696,13 @@ export function createCapitalPlanXlsx(version: FrozenCapitalPlanVersion): Uint8A
 
   const plan = version.plan;
   const snapshots = recalculateCapTable(plan);
-  const { sheet: policySheet, events, holderIds } = capitalPolicySheet(plan, snapshots, plan.holders);
+  const companyName = version.project_name ?? version.plan_name;
+  const { sheet: policySheet, events, holderIds, holderName, headerRowIndex } = capitalPolicySheet(
+    plan,
+    snapshots,
+    plan.holders,
+    companyName,
+  );
 
   // Holder rows start right after the fixed metric rows + section header row
   // (see capitalPolicySheet layout: POLICY_FIXED_ROWS rows, 0-indexed, before holders begin).
@@ -627,8 +730,8 @@ export function createCapitalPlanXlsx(version: FrozenCapitalPlanVersion): Uint8A
   const workbookRels = sheets.map((_, index) => `<Relationship Id="rId${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${index + 1}.xml"/>`).join("");
   const contentSheets = sheets.map((_, index) => `<Override PartName="/xl/worksheets/sheet${index + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("");
 
-  const chartXml = buildChartXml(policySheet.name, events, holderIds, fdRowIndex);
-  const drawingXml = buildDrawingXml();
+  const chartXml = buildChartXml(policySheet.name, events, holderIds, fdRowIndex, headerRowIndex, holderName);
+  const drawingXml = buildDrawingXml(events.length);
   const policySheetIndex = 1; // 0-based index of 資本政策 sheet within `sheets`
   const policySheetFileIndex = policySheetIndex + 1; // 1-based file suffix
 

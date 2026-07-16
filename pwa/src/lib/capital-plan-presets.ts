@@ -25,23 +25,43 @@ interface RoundSpec {
   investorName: string;
   preMoneyValuation: number;
   investmentAmount: number;
+  daysAfterIncorporation: number;
 }
 
 const ROUNDS: RoundSpec[] = [
-  { order: 2, label: "Seed", investorId: "investor-seed", investorName: "Seed投資家", preMoneyValuation: 300_000_000, investmentAmount: 50_000_000 },
-  { order: 3, label: "Series A", investorId: "investor-series-a", investorName: "Series A投資家", preMoneyValuation: 1_500_000_000, investmentAmount: 300_000_000 },
-  { order: 4, label: "Series B", investorId: "investor-series-b", investorName: "Series B投資家", preMoneyValuation: 5_000_000_000, investmentAmount: 1_000_000_000 },
-  { order: 5, label: "Series C", investorId: "investor-series-c", investorName: "Series C投資家", preMoneyValuation: 15_000_000_000, investmentAmount: 3_000_000_000 },
+  { order: 2, label: "Seed", investorId: "investor-seed", investorName: "Seed投資家", preMoneyValuation: 300_000_000, investmentAmount: 50_000_000, daysAfterIncorporation: 180 },
+  { order: 3, label: "Series A", investorId: "investor-series-a", investorName: "Series A投資家", preMoneyValuation: 1_500_000_000, investmentAmount: 300_000_000, daysAfterIncorporation: 365 },
+  { order: 4, label: "Series B", investorId: "investor-series-b", investorName: "Series B投資家", preMoneyValuation: 5_000_000_000, investmentAmount: 1_000_000_000, daysAfterIncorporation: 545 },
+  { order: 5, label: "Series C", investorId: "investor-series-c", investorName: "Series C投資家", preMoneyValuation: 15_000_000_000, investmentAmount: 3_000_000_000, daysAfterIncorporation: 730 },
 ];
+
+const IPO_DAYS_AFTER_INCORPORATION = 1095;
+
+/** 日付のみ（タイムゾーン非依存・UTC基準）で "YYYY-MM-DD" を返す。 */
+function todayDateOnly(): string {
+  const now = new Date();
+  return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())).toISOString().slice(0, 10);
+}
+
+/** "YYYY-MM-DD" に日数を加算し、UTC基準で "YYYY-MM-DD" を返す（月末・年またぎも自動繰り上げ）。 */
+function addDaysDateOnly(dateOnly: string, days: number): string {
+  const [y, m, d] = dateOnly.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
 
 /**
  * 設立・Seed・Series A/B/C・IPO の各ラウンドを持つ、編集可能な標準プランニングポリシーを生成する。
  * すべてのイベントは status: 'planned'（未確定シナリオ）で、valuation_and_investment basis により
  * 上流の入力を変更すれば下流の株数・価格が deriveCapitalPlan で再計算される。
+ * incorporationDate（"YYYY-MM-DD"）を省略した場合は生成時点の日付を起点に、各ラウンドの target date を
+ * 時系列順（設立 → Seed → A → B → C → IPO）に自動採番する。テストではタイムゾーンのブレを避けるため
+ * 明示的に incorporationDate を渡すこと。
  */
-export function createStandardIpoCapitalPlanDocument(): StandardIpoCapitalPlanDocument {
+export function createStandardIpoCapitalPlanDocument(incorporationDate?: string): StandardIpoCapitalPlanDocument {
   const founder: Holder = { id: "founder", name: "創業者", kind: "founder" };
   const publicMarket: Holder = { id: "public-market", name: "公開市場", kind: "other" };
+
+  const baseDate = incorporationDate ?? todayDateOnly();
 
   const holders: Holder[] = [founder];
   const events: CapitalEvent[] = [];
@@ -51,6 +71,7 @@ export function createStandardIpoCapitalPlanDocument(): StandardIpoCapitalPlanDo
     type: "incorporation",
     label: "設立",
     order: 1,
+    date: baseDate,
     status: "planned",
     calculationBasis: "manual",
     allocations: [
@@ -71,6 +92,7 @@ export function createStandardIpoCapitalPlanDocument(): StandardIpoCapitalPlanDo
       type: "equity_issue",
       label: round.label,
       order: round.order,
+      date: addDaysDateOnly(baseDate, round.daysAfterIncorporation),
       status: "planned",
       calculationBasis: "valuation_and_investment",
       preMoneyValuation: editableValue(round.preMoneyValuation),
@@ -94,6 +116,7 @@ export function createStandardIpoCapitalPlanDocument(): StandardIpoCapitalPlanDo
     type: "ipo",
     label: "IPO",
     order: 6,
+    date: addDaysDateOnly(baseDate, IPO_DAYS_AFTER_INCORPORATION),
     status: "planned",
     calculationBasis: "valuation_and_investment",
     preMoneyValuation: editableValue(30_000_000_000),
@@ -215,6 +238,7 @@ export function createCapitalPlanDocumentFromCompanyOverview(
 
   let order = 0;
   const usedLabelsLowercase = new Set<string>();
+  let lastHistoryDate: string | undefined;
 
   if (confirmedTransactions.length > 0) {
     for (const transaction of confirmedTransactions) {
@@ -278,6 +302,7 @@ export function createCapitalPlanDocumentFromCompanyOverview(
 
       events.push(event);
     }
+    lastHistoryDate = confirmedTransactions[confirmedTransactions.length - 1].effective_on;
   } else {
     order += 1;
     const currentShareholders = data.shareholders.filter((row) => row.is_current !== false);
@@ -299,11 +324,19 @@ export function createCapitalPlanDocumentFromCompanyOverview(
 
     usedLabelsLowercase.add(CURRENT_SNAPSHOT_LABEL.trim().toLowerCase());
 
+    const maxAsOfYm = currentShareholders.reduce<string | undefined>(
+      (max, row) => (row.as_of_ym && (!max || row.as_of_ym > max) ? row.as_of_ym : max),
+      undefined,
+    );
+    const snapshotDate = maxAsOfYm ? `${maxAsOfYm}-01` : todayDateOnly();
+    lastHistoryDate = snapshotDate;
+
     events.push({
       id: "current-snapshot-incorporation",
       type: "incorporation",
       label: CURRENT_SNAPSHOT_LABEL,
       order,
+      date: snapshotDate,
       status: "confirmed",
       calculationBasis: "manual",
       newShares: editableValue(totalShares, "confirmed"),
@@ -313,7 +346,9 @@ export function createCapitalPlanDocumentFromCompanyOverview(
     });
   }
 
-  const standard = createStandardIpoCapitalPlanDocument();
+  const standard = createStandardIpoCapitalPlanDocument(
+    lastHistoryDate ? addDaysDateOnly(lastHistoryDate, 1) : undefined,
+  );
   const standardHolderById = new Map(standard.holders.map((h) => [h.id, h]));
   let appendOrder = order;
 

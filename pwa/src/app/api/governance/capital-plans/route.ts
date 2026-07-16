@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireMember } from "@/lib/supabase/api-auth";
-import { checkPublishEligibility, type CapitalPlan, type Holder, type CapitalEvent } from "@/lib/capital-plan";
+import { checkPublishEligibility, deriveCapitalPlan, type CapitalPlan, type Holder, type CapitalEvent } from "@/lib/capital-plan";
 
 export const runtime = "nodejs";
 
-// 資本政策シミュレーションは会社概要タブと同じ方針で、全 AMD メンバーが
-// 全 PJ の working scenario を閲覧・編集できる。service role はサーバー内でのみ使い、
-// API 冒頭の requireMember を必須にする。
+// 資本政策プラン（社内承認・VC提出に使う実運用の台帳）は会社概要タブと同じ方針で、
+// 全 AMD メンバーが全 PJ の working plan を閲覧・編集できる。service role はサーバー内
+// でのみ使い、API 冒頭の requireMember を必須にする。
 
 const MAX_DOCUMENT_JSON_BYTES = 500_000;
 const MAX_NAME_LENGTH = 200;
@@ -202,19 +202,29 @@ export async function POST(req: NextRequest) {
     if (!docCheck.ok) return badRequest(`stored document_json is malformed: ${docCheck.error}`);
 
     const capitalPlan = toCapitalPlan(plan);
-    const eligibility = checkPublishEligibility(capitalPlan);
+    let derivedPlan: CapitalPlan;
+    try {
+      derivedPlan = deriveCapitalPlan(capitalPlan);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      return badRequest(`plan derivation failed: ${message}`);
+    }
+
+    const eligibility = checkPublishEligibility(derivedPlan);
     if (!eligibility.eligible) {
       return badRequest(`plan is not eligible to freeze: ${eligibility.blockingIssues.map((i) => i.message).join("; ")}`);
     }
 
     // latest_frozen_version の更新と version insert を単一トランザクションで
-    // 行う SECURITY DEFINER RPC (migration 179) を使い、insert失敗時に
-    // ポインタだけ進む破損状態が起きないようにする。
+    // 行う SECURITY DEFINER RPC (migration 180) を使い、insert失敗時に
+    // ポインタだけ進む破損状態が起きないようにする。凍結対象は derive 済みの
+    // document_json であり、未derive のまま保存された生の document_json ではない。
     const { data: rpcRows, error: rpcError } = await db.rpc("freeze_capital_plan", {
       p_plan_id: plan.id,
       p_expected_revision: expectedRevision,
       p_validation_summary: eligibility,
       p_published_by_email: email,
+      p_document_json: { holders: derivedPlan.holders, events: derivedPlan.events },
     });
 
     if (rpcError) {

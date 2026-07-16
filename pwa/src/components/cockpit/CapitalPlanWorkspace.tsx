@@ -18,13 +18,11 @@ import {
   type ValidationIssue,
   type CapitalEventStatus,
   checkPublishEligibility,
-  deriveCapitalPlan,
   editableValue,
   overrideValue,
   recalculateCapTable,
   resolvedValue,
   safeDeriveCapitalPlan,
-  validateCapitalPlan,
 } from "@/lib/capital-plan";
 import { createCapitalPlanXlsx, type FrozenCapitalPlanVersion } from "@/lib/capital-plan-xlsx";
 import {
@@ -145,73 +143,16 @@ function fmtShares(n: number | undefined) {
   return Math.round(n).toLocaleString("ja-JP");
 }
 
-// ---------------------------------------------------------------------------
-// Small numeric input bound to an EditableValue field
-// ---------------------------------------------------------------------------
-
-function EditableNumberField({
-  label,
-  ev,
-  onChange,
-  suffix,
-  step,
-}: {
-  label: string;
-  ev: EditableValue | undefined;
-  onChange: (next: EditableValue | undefined) => void;
-  suffix?: string;
-  step?: number;
-}) {
-  const value = ev ? ev.value : "";
-  const isOverride = ev?.source === "override";
-  return (
-    <label className="flex flex-col gap-1">
-      <span className="text-xs font-medium text-zinc-500">
-        {label}
-        {isOverride && (
-          <span className="ml-1 rounded bg-amber-100 px-1 py-0.5 text-[10px] font-semibold text-amber-800">
-            上書き（計算値 {ev?.calculatedValue != null ? Math.round(ev.calculatedValue).toLocaleString("ja-JP") : "—"}）
-          </span>
-        )}
-      </span>
-      <div className="flex items-center gap-1">
-        <input
-          type="number"
-          inputMode="decimal"
-          step={step ?? "any"}
-          value={value}
-          onChange={(e) => {
-            const raw = e.target.value;
-            if (raw === "") {
-              onChange(undefined);
-              return;
-            }
-            const num = Number(raw);
-            if (!Number.isFinite(num)) return;
-            if (ev && ev.source === "override") {
-              onChange({ ...ev, value: num });
-            } else if (ev && (ev.source === "calculated" || ev.source === "imported" || ev.source === "confirmed")) {
-              onChange(overrideValue(ev.value, num));
-            } else {
-              onChange(editableValue(num, ev?.source ?? "input"));
-            }
-          }}
-          className="min-h-[44px] w-full min-w-0 rounded-md border border-zinc-300 px-2 py-2 text-sm tabular-nums focus:border-zinc-500 focus:outline-none"
-        />
-        {suffix && <span className="shrink-0 text-xs text-zinc-500">{suffix}</span>}
-      </div>
-    </label>
-  );
-}
-
 function TableNumberInput({
   ev,
   onChange,
   step,
+  ariaLabel,
 }: {
   ev: EditableValue | undefined;
   onChange: (next: EditableValue | undefined) => void;
   step?: number;
+  ariaLabel: string;
 }) {
   const value = ev ? ev.value : "";
   const isOverride = ev?.source === "override";
@@ -221,6 +162,7 @@ function TableNumberInput({
       inputMode="decimal"
       step={step ?? "any"}
       value={value}
+      aria-label={ariaLabel}
       title={
         isOverride && ev?.calculatedValue != null
           ? `上書き（計算値 ${Math.round(ev.calculatedValue).toLocaleString("ja-JP")}）`
@@ -247,6 +189,17 @@ function TableNumberInput({
       }`}
     />
   );
+}
+
+// Scales an EditableValue's value/calculatedValue by `factor`, preserving source/note.
+// Used to bridge stored ratios (0.2) to the percentage units (20) shown in TableNumberInput.
+function scaleEditableValue(ev: EditableValue | undefined, factor: number): EditableValue | undefined {
+  if (!ev) return undefined;
+  return {
+    ...ev,
+    value: ev.value * factor,
+    calculatedValue: ev.calculatedValue != null ? ev.calculatedValue * factor : ev.calculatedValue,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -364,10 +317,13 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
 
   const sortedEvents = useMemo(() => [...plan.events].sort((a, b) => a.order - b.order), [plan.events]);
   const snapshots = useMemo(() => recalculateCapTable(plan), [plan]);
-  const issues = useMemo(() => validateCapitalPlan(plan), [plan]);
-  const errorCount = useMemo(() => issues.filter((i) => i.severity === "error").length, [issues]);
-  const warningCount = useMemo(() => issues.filter((i) => i.severity !== "error").length, [issues]);
   const eligibility = useMemo(() => checkPublishEligibility(plan), [plan]);
+  const issues = useMemo(
+    () => [...eligibility.blockingIssues, ...eligibility.warnings],
+    [eligibility],
+  );
+  const errorCount = eligibility.blockingIssues.length;
+  const warningCount = eligibility.warnings.length;
   const selectedEvent = sortedEvents.find((e) => e.id === selectedEventId) ?? null;
 
   const holderName = useMemo(() => new Map(plan.holders.map((h) => [h.id, h.name] as const)), [plan.holders]);
@@ -764,6 +720,7 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
       const frozen: FrozenCapitalPlanVersion = {
         plan: frozenPlan,
         plan_name: selectedPlanRow?.name ?? plan.name,
+        project_name: projectName,
         version: version.version,
         source_revision: String(version.source_revision),
         published_at: version.published_at,
@@ -791,11 +748,12 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
 
   // ---- event / holder / allocation mutations ----------------------------
 
-  function addHolder() {
+  function addHolder(name?: string) {
     const id = genId("holder");
+    const trimmed = name?.trim();
     updatePlan((draft) => ({
       ...draft,
-      holders: [...draft.holders, { id, name: "新規株主", kind: "other" }],
+      holders: [...draft.holders, { id, name: trimmed || "新規株主", kind: "other" }],
     }));
   }
 
@@ -835,9 +793,239 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
   }
 
   function updateEvent(eventId: string, patch: Partial<CapitalEvent>) {
+    if (Object.prototype.hasOwnProperty.call(patch, "calculationBasis")) {
+      changeCalculationBasis(eventId, patch.calculationBasis ?? "manual");
+      return;
+    }
+
+    const event = plan.events.find((e) => e.id === eventId);
+    if (
+      event &&
+      Object.prototype.hasOwnProperty.call(patch, "pricePerShare") &&
+      patch.pricePerShare !== undefined &&
+      (event.calculationBasis === "valuation_and_investment" || event.calculationBasis === "ownership_target")
+    ) {
+      switchToPriceAndSharesOnPriceEdit(eventId, patch.pricePerShare);
+      return;
+    }
+
+    if (
+      event &&
+      Object.prototype.hasOwnProperty.call(patch, "preMoneyValuation") &&
+      patch.preMoneyValuation !== undefined &&
+      event.calculationBasis === "price_and_shares"
+    ) {
+      switchToValuationAndInvestmentOnPreMoneyEdit(eventId, patch.preMoneyValuation);
+      return;
+    }
+
+    if (
+      event &&
+      Object.prototype.hasOwnProperty.call(patch, "type") &&
+      patch.type === "convertible_conversion" &&
+      event.type !== "convertible_conversion"
+    ) {
+      switchToConvertibleConversionType(eventId, patch);
+      return;
+    }
+
     updatePlan((draft) => ({
       ...draft,
       events: draft.events.map((e) => (e.id === eventId ? { ...e, ...patch } : e)),
+    }));
+  }
+
+  /**
+   * イベント種類をconvertible_conversion（コンバーティブル転換）へ変更する際は、
+   * calculationBasisを強制的にmanualへ正規化する（コンバーティブル転換は
+   * deriveEvent側でmanual以外を許容しない）。切替前の方式がどうであれ、
+   * changeCalculationBasisの"manual"分岐と同じ役割配置で全フィールドの
+   * source を張り替える。convertible_conversionから他の種類へ変更する場合は
+   * この関数を通らず、calculationBasis: manualはそのまま残す（強制的に
+   * 元へ戻さない）。
+   */
+  function switchToConvertibleConversionType(eventId: string, patch: Partial<CapitalEvent>) {
+    updatePlan((draft) => ({
+      ...draft,
+      events: draft.events.map((e) => {
+        if (e.id !== eventId) return e;
+        return {
+          ...e,
+          ...patch,
+          calculationBasis: "manual",
+          preMoneyValuation: toInputResolved(e.preMoneyValuation),
+          pricePerShare: toInputResolved(e.pricePerShare),
+          postMoneyValuation: toCalculated(e.postMoneyValuation),
+          primaryRaise: toCalculated(e.primaryRaise),
+          newShares: toCalculated(e.newShares),
+          allocations: e.allocations.map((a) => ({
+            ...a,
+            shares: toInputResolved(a.shares) ?? a.shares,
+            amount: toInputResolved(a.amount),
+            pricePerShare: toInputResolved(a.pricePerShare),
+          })),
+        };
+      }),
+    }));
+  }
+
+  /**
+   * 評価額×投資額／目標比率方式のイベントで event.pricePerShare へ直接の編集・上書きが
+   * 入った場合、単価が入力された時点でそれは「単価×株数」方式への切替意図とみなし、
+   * 単価×株数方式へ自動的に切り替える。ユーザーが入力した単価をそのまま入力値として
+   * 採用し（切替前のフィールド値は使わない）、割当株数は入力へ、割当金額とイベント
+   * 集計値は計算値へ、割当ごとの単価はクリアして事後計算のイベント単価を唯一の
+   * driver にする（changeCalculationBasisのprice_and_shares分岐と同じ役割配置）。
+   */
+  function switchToPriceAndSharesOnPriceEdit(eventId: string, nextPricePerShare: EditableValue | undefined) {
+    updatePlan((draft) => ({
+      ...draft,
+      events: draft.events.map((e) => {
+        if (e.id !== eventId) return e;
+        return {
+          ...e,
+          calculationBasis: "price_and_shares",
+          pricePerShare: editableValue(resolvedValue(nextPricePerShare), "input"),
+          preMoneyValuation: toCalculated(e.preMoneyValuation),
+          postMoneyValuation: toCalculated(e.postMoneyValuation),
+          primaryRaise: toCalculated(e.primaryRaise),
+          newShares: toCalculated(e.newShares),
+          allocations: e.allocations.map((a) => ({
+            ...a,
+            shares: toInputResolved(a.shares) ?? a.shares,
+            amount: toCalculated(a.amount),
+            pricePerShare: undefined,
+          })),
+        };
+      }),
+    }));
+  }
+
+  /**
+   * 単価×株数方式のイベントで event.preMoneyValuation へ直接の編集・上書きが入った
+   * 場合、プレマネー評価額が入力された時点でそれは「評価額×投資額」方式への切替
+   * 意図とみなし、評価額×投資額方式へ自動的に切り替える。ユーザーが入力した
+   * プレマネー評価額をそのまま入力値として採用し、割当金額は入力へ、割当株数・
+   * 割当単価・イベント集計値は計算値へ（changeCalculationBasisのvaluation_and_investment
+   * 分岐と同じ役割配置）。
+   */
+  function switchToValuationAndInvestmentOnPreMoneyEdit(eventId: string, nextPreMoneyValuation: EditableValue | undefined) {
+    updatePlan((draft) => ({
+      ...draft,
+      events: draft.events.map((e) => {
+        if (e.id !== eventId) return e;
+        return {
+          ...e,
+          calculationBasis: "valuation_and_investment",
+          preMoneyValuation: editableValue(resolvedValue(nextPreMoneyValuation), "input"),
+          pricePerShare: toCalculated(e.pricePerShare),
+          postMoneyValuation: toCalculated(e.postMoneyValuation),
+          primaryRaise: toCalculated(e.primaryRaise),
+          newShares: toCalculated(e.newShares),
+          allocations: e.allocations.map((a) => ({
+            ...a,
+            amount: toInputResolved(a.amount),
+            shares: toCalculatedShares(a.shares),
+            pricePerShare: toCalculated(a.pricePerShare),
+          })),
+        };
+      }),
+    }));
+  }
+
+  /**
+   * イベントの算定方式（calculationBasis）を切り替える。方式間の直接切替を許可し、
+   * 切替先の方式で driver となるフィールドは resolvedValue を引き継いで source を
+   * input に張り替え、output となるフィールドは resolvedValue を引き継いで source を
+   * calculated に張り替える（役割が変わった時点で古い override はもはや意味を
+   * 持たないため、stale な override はここで意図的に消去する）。これにより
+   * 切替直後（次の編集を待たずに）deriveCapitalPlan が新しい役割で即座に
+   * 再計算できる。
+   */
+  function changeCalculationBasis(eventId: string, basis: CalculationBasis) {
+    const event = plan.events.find((e) => e.id === eventId);
+    if (!event) return;
+    setDirectEditError(null);
+
+    updatePlan((draft) => ({
+      ...draft,
+      events: draft.events.map((e) => {
+        if (e.id !== eventId) return e;
+        if (basis === "manual") {
+          return {
+            ...e,
+            calculationBasis: basis,
+            preMoneyValuation: toInputResolved(e.preMoneyValuation),
+            pricePerShare: toInputResolved(e.pricePerShare),
+            postMoneyValuation: toCalculated(e.postMoneyValuation),
+            primaryRaise: toCalculated(e.primaryRaise),
+            newShares: toCalculated(e.newShares),
+            allocations: e.allocations.map((a) => ({
+              ...a,
+              shares: toInputResolved(a.shares) ?? a.shares,
+              amount: toInputResolved(a.amount),
+              pricePerShare: toInputResolved(a.pricePerShare),
+            })),
+          };
+        }
+        if (basis === "valuation_and_investment") {
+          // driver: preMoneyValuation + allocation amount. output: allocation shares/price,
+          // event price/post/raise/newShares.
+          return {
+            ...e,
+            calculationBasis: basis,
+            preMoneyValuation: toInputResolved(e.preMoneyValuation),
+            pricePerShare: toCalculated(e.pricePerShare),
+            postMoneyValuation: toCalculated(e.postMoneyValuation),
+            primaryRaise: toCalculated(e.primaryRaise),
+            newShares: toCalculated(e.newShares),
+            allocations: e.allocations.map((a) => ({
+              ...a,
+              amount: toInputResolved(a.amount),
+              shares: toCalculatedShares(a.shares),
+              pricePerShare: toCalculated(a.pricePerShare),
+            })),
+          };
+        }
+        if (basis === "price_and_shares") {
+          // driver: event pricePerShare + allocation shares. output: allocation amount
+          // (pricePerShare is cleared on every allocation so the event price alone drives
+          // all allocations), event pre/post/raise/newShares.
+          return {
+            ...e,
+            calculationBasis: basis,
+            pricePerShare: toInputResolved(e.pricePerShare),
+            preMoneyValuation: toCalculated(e.preMoneyValuation),
+            postMoneyValuation: toCalculated(e.postMoneyValuation),
+            primaryRaise: toCalculated(e.primaryRaise),
+            newShares: toCalculated(e.newShares),
+            allocations: e.allocations.map((a) => ({
+              ...a,
+              shares: toInputResolved(a.shares) ?? a.shares,
+              amount: toCalculated(a.amount),
+              pricePerShare: undefined,
+            })),
+          };
+        }
+        // ownership_target: driver = preMoneyValuation + existing targetOwnershipPercentage.
+        // output: allocation shares/amount/price, event price/post/raise/newShares.
+        return {
+          ...e,
+          calculationBasis: basis,
+          preMoneyValuation: toInputResolved(e.preMoneyValuation),
+          pricePerShare: toCalculated(e.pricePerShare),
+          postMoneyValuation: toCalculated(e.postMoneyValuation),
+          primaryRaise: toCalculated(e.primaryRaise),
+          newShares: toCalculated(e.newShares),
+          allocations: e.allocations.map((a) => ({
+            ...a,
+            targetOwnershipPercentage: toInputResolved(a.targetOwnershipPercentage),
+            shares: toCalculatedShares(a.shares),
+            amount: toCalculated(a.amount),
+            pricePerShare: toCalculated(a.pricePerShare),
+          })),
+        };
+      }),
     }));
   }
 
@@ -847,14 +1035,55 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
     setSelectedEventId((cur) => (cur === eventId ? null : cur));
   }
 
+  /**
+   * 新規割当の初期role配置は、追加先イベントのcalculationBasisに合わせる（matrixの
+   * セル編集が新規allocationを作る際のrole配置と揃える）。評価額×投資額では金額が
+   * driverなので株数を入力値0にはしない（計算値0で始め、金額入力後の derive で
+   * 実株数に置き換わる）。単価×株数では株数がdriverなので株数を入力値0で始め、
+   * 金額は計算値に、割当ごとの単価はイベント単価が唯一のdriverになるよう未設定の
+   * ままにする。目標比率では株数・金額・単価はすべて計算値、目標比率だけを入力値
+   * として持たせる（deriveCapitalPlanのownership_target分岐が確定させる）。
+   */
   function addAllocation(eventId: string) {
     const firstHolder = plan.holders[0];
-    const alloc: EventAllocation = {
-      id: genId("alloc"),
-      holderId: firstHolder?.id ?? "",
-      shareClass: "common",
-      shares: editableValue(0, "input"),
-    };
+    const event = plan.events.find((e) => e.id === eventId);
+    const shareClass = defaultShareClassForNewAllocation(event?.type ?? "equity_issue");
+    const basis = event?.calculationBasis;
+    let alloc: EventAllocation;
+    if (basis === "valuation_and_investment") {
+      alloc = {
+        id: genId("alloc"),
+        holderId: firstHolder?.id ?? "",
+        shareClass,
+        shares: editableValue(0, "calculated"),
+        amount: editableValue(0, "input"),
+      };
+    } else if (basis === "price_and_shares") {
+      alloc = {
+        id: genId("alloc"),
+        holderId: firstHolder?.id ?? "",
+        shareClass,
+        shares: editableValue(0, "input"),
+        amount: editableValue(0, "calculated"),
+      };
+    } else if (basis === "ownership_target") {
+      alloc = {
+        id: genId("alloc"),
+        holderId: firstHolder?.id ?? "",
+        shareClass,
+        shares: editableValue(0, "calculated"),
+        amount: editableValue(0, "calculated"),
+        pricePerShare: editableValue(0, "calculated"),
+        targetOwnershipPercentage: editableValue(0, "input"),
+      };
+    } else {
+      alloc = {
+        id: genId("alloc"),
+        holderId: firstHolder?.id ?? "",
+        shareClass,
+        shares: editableValue(0, "input"),
+      };
+    }
     updatePlan((draft) => ({
       ...draft,
       events: draft.events.map((e) => (e.id === eventId ? { ...e, allocations: [...e.allocations, alloc] } : e)),
@@ -882,9 +1111,18 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
     }));
   }
 
+  const DEFAULT_SHARE_CLASS_BY_EVENT_TYPE: Partial<Record<CapitalEventType, ShareClass>> = {
+    equity_issue: "preferred",
+    ipo: "common",
+    convertible_issue: "convertible",
+    option_pool: "option",
+    convertible_conversion: "preferred",
+    secondary: "common",
+    incorporation: "common",
+  };
+
   function defaultShareClassForNewAllocation(eventType: CapitalEventType): ShareClass {
-    if (eventType === "option_pool") return "option";
-    return "common";
+    return DEFAULT_SHARE_CLASS_BY_EVENT_TYPE[eventType] ?? "common";
   }
 
   function overriddenSharesValue(current: EditableValue | undefined, nextValue: number): EditableValue {
@@ -893,6 +1131,47 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
       return overrideValue(current.value, nextValue);
     }
     return editableValue(nextValue, current?.source ?? "input");
+  }
+
+  /** Forces a field to source 'calculated' (unless already an override) so the next
+   * deriveCapitalPlan pass materializes it — see materializeField in capital-plan.ts,
+   * which only overwrites 'calculated'/undefined fields. */
+  function toCalculatedUnlessOverride(current: EditableValue | undefined): EditableValue | undefined {
+    if (current && current.source === "override") return current;
+    if (!current) return undefined;
+    return editableValue(current.value, "calculated");
+  }
+
+  function toCalculatedSharesUnlessOverride(current: EditableValue | undefined): EditableValue {
+    if (current && current.source === "override") return current;
+    return editableValue(current ? current.value : 0, "calculated");
+  }
+
+  /**
+   * calculationBasis の切替専用ヘルパー。切替により役割（driver / output）が
+   * 変わるフィールドについては、override であっても古い上書きをそのまま持ち越さない
+   * （役割が変わった時点でその override はもはや意味を持たないため）。常に現在の
+   * resolvedValue（override されていればその上書き値、そうでなければ計算値/入力値）
+   * を引き継ぎつつ、source だけを新しい役割に合わせて張り替える。
+   */
+  function toInputResolved(current: EditableValue | undefined): EditableValue | undefined {
+    if (current == null) return undefined;
+    return editableValue(resolvedValue(current), "input");
+  }
+
+  function toCalculated(current: EditableValue | undefined): EditableValue | undefined {
+    if (current == null) return undefined;
+    return editableValue(resolvedValue(current), "calculated");
+  }
+
+  function toCalculatedShares(current: EditableValue | undefined): EditableValue {
+    return editableValue(current ? resolvedValue(current) : 0, "calculated");
+  }
+
+  function allowsNegativeShares(event: CapitalEvent, holderId: string): boolean {
+    if (event.type === "secondary") return true;
+    if (event.type !== "convertible_conversion") return false;
+    return event.allocations.some((a) => a.holderId === holderId && a.shareClass === "convertible");
   }
 
   /**
@@ -1049,18 +1328,28 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
       ...draft,
       events: draft.events.map((e) => {
         if (e.id !== eventId) return e;
+        const isValuationBasis = e.calculationBasis === "valuation_and_investment";
         const existingIdx = e.allocations.findIndex((a) => a.holderId === holderId);
         if (existingIdx >= 0) {
           const alloc = e.allocations[existingIdx];
           const nextAllocations = [...e.allocations];
-          nextAllocations[existingIdx] = { ...alloc, amount: overriddenSharesValue(alloc.amount, firstAllocAmount) };
+          nextAllocations[existingIdx] = {
+            ...alloc,
+            amount: overriddenSharesValue(alloc.amount, firstAllocAmount),
+            ...(isValuationBasis
+              ? {
+                  shares: toCalculatedSharesUnlessOverride(alloc.shares),
+                  pricePerShare: toCalculatedUnlessOverride(alloc.pricePerShare),
+                }
+              : {}),
+          };
           return { ...e, allocations: nextAllocations };
         }
         const newAlloc: EventAllocation = {
           id: genId("alloc"),
           holderId,
           shareClass: defaultShareClassForNewAllocation(e.type),
-          shares: editableValue(0, "input"),
+          shares: isValuationBasis ? editableValue(0, "calculated") : editableValue(0, "input"),
           amount: editableValue(firstAllocAmount, "input"),
         };
         return { ...e, allocations: [...e.allocations, newAlloc] };
@@ -1077,8 +1366,11 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
     if (!event) return;
     const target = Math.round(targetShares);
     const name = holderName.get(holderId) ?? holderId;
-    if (target < 0) {
-      setDirectEditError(`${name}の株数はマイナスにできません。`);
+    const allowNegative = allowsNegativeShares(event, holderId);
+    if (target < 0 && !allowNegative) {
+      setDirectEditError(
+        `${name}の株数はマイナスにできません。譲渡（セカンダリ）イベントの譲渡人、またはコンバーティブル転換イベントでの転換社債等（shareClass: convertible）の消込以外ではマイナスの株数は認められません。`,
+      );
       return;
     }
     const holderAllocIndices = event.allocations
@@ -1089,7 +1381,7 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
       .reduce((sum, i) => sum + resolvedValue(event.allocations[i].shares), 0);
     const firstAllocShares = target - otherSameHolderTotal;
 
-    if (firstAllocShares < 0) {
+    if (firstAllocShares < 0 && !allowNegative) {
       setDirectEditError(
         `${name}の他の割当合計株数（${fmtShares(otherSameHolderTotal)}）が目標株数（${fmtShares(target)}）を超えています。他の割当を先に調整してください。`,
       );
@@ -1119,6 +1411,41 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
     }));
   }
 
+  /**
+   * editHolderPostEventRatio で設定した targetOwnershipPercentage を取り消す。
+   * 対象allocationからtargetOwnershipPercentageを取り除いた上で、shares/amount/pricePerShareが
+   * いずれも calculated ソースか未設定で、かつ note も無い（＝自動生成されたallocationのまま
+   * 何も手を加えられていない）場合は、そのallocation自体を削除する。それ以外（他の値が
+   * authored されている場合）はallocationを残し、他のフィールドはそのまま保持する。
+   */
+  function clearHolderPostEventRatio(eventId: string, holderId: string) {
+    setDirectEditError(null);
+    updatePlan((draft) => ({
+      ...draft,
+      events: draft.events.map((e) => {
+        if (e.id !== eventId) return e;
+        const nextAllocations: EventAllocation[] = [];
+        for (const a of e.allocations) {
+          if (a.holderId !== holderId || a.targetOwnershipPercentage == null) {
+            nextAllocations.push(a);
+            continue;
+          }
+          const { targetOwnershipPercentage: _drop, ...rest } = a;
+          void _drop;
+          const isCalculatedOrUnset = (v: EditableValue | undefined) => v == null || v.source === "calculated";
+          const isAutoGenerated =
+            isCalculatedOrUnset(rest.shares) &&
+            isCalculatedOrUnset(rest.amount) &&
+            isCalculatedOrUnset(rest.pricePerShare) &&
+            !rest.note;
+          if (isAutoGenerated) continue;
+          nextAllocations.push(rest);
+        }
+        return { ...e, allocations: nextAllocations };
+      }),
+    }));
+  }
+
   function selectEventFromIssue(eventId?: string) {
     if (!eventId) return;
     setSelectedEventId(eventId);
@@ -1142,7 +1469,7 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
   return (
     <div className="flex flex-col gap-4">
       {error && (
-        <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
+        <div role="alert" className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
           {error}
           <button className="ml-3 min-h-[44px] rounded px-2 underline" onClick={() => setError(null)}>
             閉じる
@@ -1307,6 +1634,15 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
         保存された資本政策表を社内承認とVC提出に使用します。
       </p>
 
+      {selectedPlanId && !eligibility.eligible && eligibility.blockingIssues.length > 0 && (
+        <div role="alert" className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
+          {eligibility.blockingIssues[0].message}
+          {eligibility.blockingIssues.length > 1 && (
+            <span className="ml-2 text-xs text-red-600">（他 {eligibility.blockingIssues.length - 1} 件）</span>
+          )}
+        </div>
+      )}
+
       {!selectedPlanId ? (
         <div className="rounded-lg border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-500">
           {projectName} にはまだ資本政策プランがありません。「+ IPOまでの標準プラン」「+ 確定履歴から作成」「+ 空のプラン」のいずれかから作成してください。
@@ -1314,7 +1650,7 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
       ) : (
         <>
           {deriveError && (
-            <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
+            <div role="alert" className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
               {deriveError}
             </div>
           )}
@@ -1345,10 +1681,14 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
           )}
 
           {directEditError && (
-            <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
+            <div role="alert" className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
               {directEditError}
             </div>
           )}
+
+          <p className="text-xs text-zinc-500" role="note">
+            プレマネー/投資額/単価などの入力に応じて算定方式が自動切替され、下流ラウンドも再計算される。
+          </p>
 
           {/* Capital plan matrix (holder x event grid, editable) */}
           <CapitalPlanMatrix
@@ -1358,11 +1698,13 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
             selectedEventId={selectedEventId}
             onSelectEvent={setSelectedEventId}
             onUpdateEvent={updateEvent}
-            onUpdateAllocation={updateAllocation}
             onEditHolderAmount={editHolderEventAmount}
             onEditHolderEventShares={editHolderEventShares}
-            onEditHolderPostShares={editHolderPostEventShares}
             onEditHolderPostRatio={editHolderPostEventRatio}
+            onClearHolderPostRatio={clearHolderPostEventRatio}
+            onChangeCalculationBasis={changeCalculationBasis}
+            onAddHolder={addHolder}
+            onAddEvent={addEvent}
           />
 
           {/* Selected event editor */}
@@ -1574,17 +1916,26 @@ function EventEditor({
             </label>
             <label className="flex flex-col gap-1">
               <span className="text-xs font-medium text-zinc-500">計算基準</span>
-              <select
-                className="min-h-[44px] rounded-md border border-zinc-300 px-2 py-2 text-sm"
-                value={event.calculationBasis ?? "manual"}
-                onChange={(e) => onUpdateEvent(event.id, { calculationBasis: e.target.value as CalculationBasis })}
-              >
-                {(Object.keys(CALCULATION_BASIS_LABEL) as CalculationBasis[]).map((b) => (
-                  <option key={b} value={b}>
-                    {CALCULATION_BASIS_LABEL[b]}
-                  </option>
-                ))}
-              </select>
+              {event.type === "convertible_conversion" ? (
+                <span
+                  className="flex min-h-[44px] items-center rounded-md border border-zinc-200 bg-zinc-50 px-2 py-2 text-sm text-zinc-500"
+                  title="コンバーティブル転換イベントは常に手動（自動計算なし）です"
+                >
+                  {CALCULATION_BASIS_LABEL.manual}
+                </span>
+              ) : (
+                <select
+                  className="min-h-[44px] rounded-md border border-zinc-300 px-2 py-2 text-sm"
+                  value={event.calculationBasis ?? "manual"}
+                  onChange={(e) => onUpdateEvent(event.id, { calculationBasis: e.target.value as CalculationBasis })}
+                >
+                  {(Object.keys(CALCULATION_BASIS_LABEL) as CalculationBasis[]).map((b) => (
+                    <option key={b} value={b}>
+                      {CALCULATION_BASIS_LABEL[b]}
+                    </option>
+                  ))}
+                </select>
+              )}
             </label>
           </div>
 
@@ -1608,11 +1959,13 @@ function EventEditor({
                   <input
                     className="min-h-[44px] min-w-[8rem] flex-1 rounded-md border border-zinc-300 px-2 py-2 text-sm"
                     value={h.name}
+                    aria-label={`株主名 ${h.name}`}
                     onChange={(e) => onUpdateHolder(h.id, { name: e.target.value })}
                   />
                   <select
                     className="min-h-[44px] rounded-md border border-zinc-300 px-2 py-2 text-sm"
                     value={h.kind}
+                    aria-label={`株主種別 ${h.name}`}
                     onChange={(e) => onUpdateHolder(h.id, { kind: e.target.value as HolderKind })}
                   >
                     {(Object.keys(HOLDER_KIND_LABEL) as HolderKind[]).map((k) => (
@@ -1656,7 +2009,7 @@ function EventEditor({
                     <span>株数</span>
                     <span>金額</span>
                     <span>1株価格</span>
-                    <span>目標比率</span>
+                    <span>目標比率（%）</span>
                     <span />
                   </div>
                   {event.allocations.map((alloc) => (
@@ -1667,6 +2020,7 @@ function EventEditor({
                       <select
                         className="min-h-[44px] w-full min-w-0 rounded-md border border-zinc-300 px-2 py-2 text-sm"
                         value={alloc.holderId}
+                        aria-label={`割当先株主 ${event.label} ${holders.find((h) => h.id === alloc.holderId)?.name ?? alloc.holderId}`}
                         onChange={(e) => onUpdateAllocation(event.id, alloc.id, { holderId: e.target.value })}
                       >
                         {holders.map((h) => (
@@ -1678,6 +2032,7 @@ function EventEditor({
                       <select
                         className="min-h-[44px] w-full min-w-0 rounded-md border border-zinc-300 px-2 py-2 text-sm"
                         value={alloc.shareClass}
+                        aria-label={`割当種別 ${event.label} ${holders.find((h) => h.id === alloc.holderId)?.name ?? alloc.holderId}`}
                         onChange={(e) => onUpdateAllocation(event.id, alloc.id, { shareClass: e.target.value as ShareClass })}
                       >
                         {(Object.keys(SHARE_CLASS_LABEL) as ShareClass[]).map((sc) => (
@@ -1689,19 +2044,31 @@ function EventEditor({
                       <TableNumberInput
                         ev={alloc.shares}
                         onChange={(v) => onUpdateAllocation(event.id, alloc.id, { shares: v ?? editableValue(0, "input") })}
+                        ariaLabel={`株数 ${event.label} ${holders.find((h) => h.id === alloc.holderId)?.name ?? alloc.holderId}`}
                       />
                       <TableNumberInput
                         ev={alloc.amount}
                         onChange={(v) => onUpdateAllocation(event.id, alloc.id, { amount: v })}
+                        ariaLabel={`金額 ${event.label} ${holders.find((h) => h.id === alloc.holderId)?.name ?? alloc.holderId}`}
                       />
+                      {!event.calculationBasis || event.calculationBasis === "manual" ? (
+                        <TableNumberInput
+                          ev={alloc.pricePerShare}
+                          onChange={(v) => onUpdateAllocation(event.id, alloc.id, { pricePerShare: v })}
+                          ariaLabel={`1株価格 ${event.label} ${holders.find((h) => h.id === alloc.holderId)?.name ?? alloc.holderId}`}
+                        />
+                      ) : (
+                        <TableNumberInput
+                          ev={event.pricePerShare}
+                          onChange={(v) => onUpdateEvent(event.id, { pricePerShare: v })}
+                          ariaLabel={`1株価格（イベント単価） ${event.label} ${holders.find((h) => h.id === alloc.holderId)?.name ?? alloc.holderId}。単価を入力すると計算基準が単価×株数方式に自動切替され、株数を維持したまま金額が再計算されます。`}
+                        />
+                      )}
                       <TableNumberInput
-                        ev={alloc.pricePerShare}
-                        onChange={(v) => onUpdateAllocation(event.id, alloc.id, { pricePerShare: v })}
-                      />
-                      <TableNumberInput
-                        ev={alloc.targetOwnershipPercentage}
-                        onChange={(v) => onUpdateAllocation(event.id, alloc.id, { targetOwnershipPercentage: v })}
+                        ev={scaleEditableValue(alloc.targetOwnershipPercentage, 100)}
+                        onChange={(v) => onUpdateAllocation(event.id, alloc.id, { targetOwnershipPercentage: scaleEditableValue(v, 1 / 100) })}
                         step={0.01}
+                        ariaLabel={`目標比率（%） ${event.label} ${holders.find((h) => h.id === alloc.holderId)?.name ?? alloc.holderId}`}
                       />
                       <button
                         className="min-h-[44px] min-w-[44px] rounded-md border border-red-300 px-2 text-xs text-red-700 hover:bg-red-50"
@@ -1721,4 +2088,3 @@ function EventEditor({
     </div>
   );
 }
-

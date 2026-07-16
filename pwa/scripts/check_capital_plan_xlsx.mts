@@ -72,6 +72,7 @@ function buildFixturePlan(): CapitalPlan {
         order: 2,
         date: "2025-02-01",
         status: "confirmed",
+        calculationBasis: "valuation_and_investment",
         poolSize: editableValue(100, "input"),
         allocations: [
           { id: "a-4", holderId: "h-esop", shareClass: "option", shares: editableValue(100, "input") },
@@ -136,6 +137,7 @@ function buildFrozenVersion(overrides: Partial<FrozenCapitalPlanVersion> = {}): 
   return {
     plan,
     plan_name: "テスト資本政策",
+    project_name: "テスト株式会社",
     version: 3,
     source_revision: "rev-abc123",
     published_at: "2026-07-01T00:00:00.000Z",
@@ -151,7 +153,7 @@ function buildFrozenVersion(overrides: Partial<FrozenCapitalPlanVersion> = {}): 
 
 assert.throws(
   () => createCapitalPlanXlsx({ ...buildFrozenVersion(), status: "draft" as unknown as "frozen" }),
-  /frozen/,
+  /凍結済み/,
   "must reject non-frozen input",
 );
 
@@ -201,6 +203,10 @@ assert.ok(sheet1Xml.includes("rev-abc123"), "submission info sheet must show sou
 assert.ok(sheet1Xml.includes("2026-07-01"), "submission info sheet must show published_at");
 assert.ok(sheet1Xml.includes(xmlEscapeCheck("まさ")), "submission info sheet must show published_by");
 assert.ok(sheet1Xml.includes("凍結済み"), "submission info sheet must show frozen status");
+assert.ok(sheet1Xml.includes("会社名"), "submission info sheet must show a company-name row");
+assert.ok(sheet1Xml.includes("テスト株式会社"), "submission info sheet must show the project's legal name independently of plan_name");
+assert.ok(sheet1Xml.includes("プラン名"), "submission info sheet must show a plan-name row");
+assert.ok(sheet1Xml.includes("テスト資本政策"), "submission info sheet must still show plan_name");
 
 // --- Chart: vertical 100%-stacked column chart, not horizontal bar ----------
 
@@ -212,24 +218,174 @@ assert.ok(!chartXml.includes('val="bar"'), "chart must not use horizontal bar di
 const serCount = (chartXml.match(/<c:ser>/g) ?? []).length;
 assert.equal(serCount, 4, "chart must have one series per holder");
 
-// Each series' category ref must point at the 資本政策 header row (event labels),
-// and its value ref must point at that holder's FD% row (last of the 6 per-holder rows).
+// Chart layout constants, mirrored from capital-plan-xlsx.ts: the native chart occupies
+// dedicated blank rows above the event table so it never overlays data. 1 title row +
+// 17 reserved chart rows + 1 spacer row = the event-label header row sits at 0-indexed
+// row 19 (Excel row 20, 1-indexed).
+const CHART_RESERVED_ROWS = 17;
+const CHART_SPACER_ROWS = 1;
+/** Extra columns of margin past the last event column when sizing the chart's right edge, mirrored from capital-plan-xlsx.ts. */
+const CHART_RIGHT_COL_MARGIN = 3;
+const POLICY_HEADER_ROW_INDEX = 1 + CHART_RESERVED_ROWS + CHART_SPACER_ROWS; // 19 (0-indexed)
+const POLICY_HEADER_ROW_1INDEXED = POLICY_HEADER_ROW_INDEX + 1; // 20
+const POLICY_METRIC_ROWS_AFTER_HEADER = 17;
+const POLICY_FIXED_ROWS = POLICY_HEADER_ROW_INDEX + 1 + POLICY_METRIC_ROWS_AFTER_HEADER; // 37 (0-indexed, first holder row)
+
+// Each series' category ref must point at the 資本政策 event-label header row (relocated
+// to row 20 to make room for the chart), and its value ref must point at that holder's
+// FD% row (last of the 6 per-holder rows).
 const catRefs = [...chartXml.matchAll(/<c:cat><c:strRef><c:f>([^<]+)<\/c:f>/g)].map((m) => m[1]);
 assert.ok(
-  catRefs.every((ref) => ref === "&apos;資本政策&apos;!$B$2:$G$2"),
-  "every series category ref must point at the event header row of 資本政策",
+  catRefs.every((ref) => ref === `&apos;資本政策&apos;!$B$${POLICY_HEADER_ROW_1INDEXED}:$G$${POLICY_HEADER_ROW_1INDEXED}`),
+  "every series category ref must point at the relocated event-label header row of 資本政策 (row 20)",
 );
-// Fixed rows before holders: title, header, date, type, status, basis, pre, post, price,
-// raise, cumulativeRaise, newIssuedShares, newFdShares, issued, fd, optionPool, split,
-// conversionTerms, holderSection = 19 rows (1-indexed rows 1..19); holders start at row 20.
 // Each holder occupies 6 rows (flow shares, paid amount, post issued, issued%, post FD, FD%),
-// so holder N's FD% row is at 1-based row 20 + 6*N - 1.
+// so holder N's FD% row is at 1-based row POLICY_FIXED_ROWS + 6*N.
 const valRefs = [...chartXml.matchAll(/<c:val><c:numRef><c:f>([^<]+)<\/c:f>/g)].map((m) => m[1]);
 assert.deepEqual(
   valRefs,
-  [1, 2, 3, 4].map((n) => `&apos;資本政策&apos;!$B$${19 + 6 * n}:$G$${19 + 6 * n}`),
+  [1, 2, 3, 4].map((n) => `&apos;資本政策&apos;!$B$${POLICY_FIXED_ROWS + 6 * n}:$G$${POLICY_FIXED_ROWS + 6 * n}`),
   "each series value ref must point at the correct holder's FD% row",
 );
+
+// Series titles must be the actual holder names (literal, not a cell reference that could
+// resolve to Excel's "Series 1" default), and must not be the generic placeholder.
+const seriesTitles = [...chartXml.matchAll(/<c:tx><c:v>([^<]+)<\/c:v><\/c:tx>/g)].map((m) => m[1]);
+const rawHolderNamesInOrder = ["=1+1<script>創業者タロウ'\"", "VCキャピタル", "ESOPプール", "ノート投資家"];
+assert.deepEqual(
+  seriesTitles,
+  rawHolderNamesInOrder.map(xmlEscapeForChart),
+  "series titles must be the actual holder names in holder order",
+);
+assert.ok(
+  seriesTitles.every((t) => !/^Series ?\d+$/i.test(t)),
+  "series titles must never fall back to Excel's generic 'Series N' placeholder",
+);
+
+// Chart anchor: dedicated rows above the event table (never overlays row 20+ data), and a
+// right edge that scales with the number of events (6 in the fixture); see the dedicated
+// 2/3/6/10-event regression block below for the general N -> toCol relationship.
+const drawingXml = strFromU8(files["xl/drawings/drawing1.xml"]);
+const fromMatch = drawingXml.match(/<xdr:from><xdr:col>(\d+)<\/xdr:col><xdr:colOff>(\d+)<\/xdr:colOff><xdr:row>(\d+)<\/xdr:row>/);
+const toMatch = drawingXml.match(/<xdr:to><xdr:col>(\d+)<\/xdr:col><xdr:colOff>(\d+)<\/xdr:colOff><xdr:row>(\d+)<\/xdr:row>/);
+assert.ok(fromMatch && toMatch, "chart drawing must have a two-cell anchor with from/to rows");
+const anchorFromCol = Number(fromMatch![1]);
+const anchorFromColOffset = Number(fromMatch![2]);
+const anchorFromRow = Number(fromMatch![3]);
+const anchorToCol = Number(toMatch![1]);
+const anchorToColOffset = Number(toMatch![2]);
+const anchorToRow = Number(toMatch![3]);
+assert.equal(anchorFromRow, 1, "chart top edge must start at 0-indexed row 1 (Excel row 2)");
+assert.ok(
+  anchorToRow <= POLICY_HEADER_ROW_INDEX,
+  `chart bottom edge (row ${anchorToRow}) must sit at or above the event-label header row (row ${POLICY_HEADER_ROW_INDEX}), never overlapping table data`,
+);
+
+// Anchor-offset correction: reviewer evidence from an actual render of 資本政策.png (6 events)
+// showed native bar centers sitting ~51px right of their event-column centers, though category
+// spacing exactly matched the event-column width — the whole plot area was offset, not the
+// spacing. The fix shifts the entire two-cell anchor (both edges) left by ~51px without
+// changing its width: left edge moves off column B (col 1, offset 0) into wide column A
+// (col 0) at 221px (272px column-A width minus the 51px shift); right edge moves one column
+// left (rightCol-1, offset 0) into the margin column at 16px (67px default column width minus
+// the 51px shift) — both derived from the same 51px correction, so the drawing's pixel width
+// is unchanged.
+const EMU_PER_PIXEL = 9525;
+assert.equal(anchorFromCol, 0, "chart left edge must move into column A (col 0), not stay at column B (col 1)");
+assert.equal(
+  anchorFromColOffset,
+  221 * EMU_PER_PIXEL,
+  "chart left edge offset must be exactly 221px (272px column-A width minus the 51px artifact-measured shift), in EMU",
+);
+assert.equal(
+  anchorToColOffset,
+  16 * EMU_PER_PIXEL,
+  "chart right edge offset must be exactly 16px (67px default column width minus the 51px artifact-measured shift), in EMU",
+);
+// 6 events in the fixture: rightCol = 6+1+3 = 10, so the shifted right-edge column
+// (rightCol-1) must be exactly 9 — right edge must scale with event count with no floor.
+assert.equal(anchorToCol, 9, "chart right edge column (rightCol-1) must scale with the number of events, with no minimum-width floor");
+
+// --- Chart anchor right edge / category range must scale with event count for
+// N = 2, 3, 6, 10 events, with no minimum-width floor (rightCol = N+1+margin(3),
+// toCol = rightCol-1 = N+3) ---------------------------------------------------
+
+function colLetter(index: number): string {
+  let n = index + 1;
+  let result = "";
+  while (n > 0) {
+    const remainder = (n - 1) % 26;
+    result = String.fromCharCode(65 + remainder) + result;
+    n = Math.floor((n - 1) / 26);
+  }
+  return result;
+}
+
+function buildPlanWithNEvents(n: number): CapitalPlan {
+  return {
+    id: `plan-n${n}`,
+    name: `N=${n} イベントプラン`,
+    holders: [{ id: "h-founder", name: "創業者", kind: "founder" }],
+    events: Array.from({ length: n }, (_, i) => ({
+      id: `e-${i}`,
+      type: "equity_issue" as const,
+      label: `イベント${i + 1}`,
+      order: i,
+      date: `2025-0${(i % 9) + 1}-01`,
+      status: "confirmed" as const,
+      calculationBasis: "manual" as const,
+      allocations: [
+        {
+          id: `a-${i}`,
+          holderId: "h-founder",
+          shareClass: "common" as const,
+          shares: editableValue((i + 1) * 100, "input"),
+          amount: editableValue((i + 1) * 100_000, "input"),
+          pricePerShare: editableValue(1000, "confirmed"),
+        },
+      ],
+    })),
+  };
+}
+
+for (const n of [2, 3, 6, 10]) {
+  const nPlan = buildPlanWithNEvents(n);
+  const nVersion: FrozenCapitalPlanVersion = {
+    plan: nPlan,
+    plan_name: `N=${n}`,
+    project_name: `N=${n} 株式会社`,
+    version: 1,
+    source_revision: `rev-n${n}`,
+    published_at: "2026-07-01T00:00:00.000Z",
+    published_by: "まさ",
+    document_json: JSON.stringify(nPlan),
+    status: "frozen",
+    validation: [],
+  };
+  const nBytes = createCapitalPlanXlsx(nVersion);
+  const nFiles = unzipSync(nBytes);
+  const nDrawingXml = strFromU8(nFiles["xl/drawings/drawing1.xml"]);
+  const nToMatch = nDrawingXml.match(/<xdr:to><xdr:col>(\d+)<\/xdr:col>/);
+  assert.ok(nToMatch, `N=${n}: drawing must have a to-col anchor`);
+  const expectedToCol = n + CHART_RIGHT_COL_MARGIN; // rightCol(N+1+margin) - 1 = N+margin
+  assert.equal(
+    Number(nToMatch![1]),
+    expectedToCol,
+    `N=${n}: chart right edge column must be ${expectedToCol} (N+1+margin-1), with no minimum-width floor`,
+  );
+
+  const nChartXml = strFromU8(nFiles["xl/charts/chart1.xml"]);
+  const nCatRefs = [...nChartXml.matchAll(/<c:cat><c:strRef><c:f>([^<]+)<\/c:f>/g)].map((m) => m[1]);
+  const expectedLastCol = colLetter(n);
+  assert.ok(
+    nCatRefs.length > 0 && nCatRefs.every((ref) => ref.endsWith(`:$${expectedLastCol}$${POLICY_HEADER_ROW_1INDEXED}`)),
+    `N=${n}: every category ref must span through column ${expectedLastCol} (the last event column)`,
+  );
+  assert.ok(
+    nCatRefs.every((ref) => ref.includes(`$B$${POLICY_HEADER_ROW_1INDEXED}:`)),
+    `N=${n}: every category ref must start at column B (the first event column)`,
+  );
+}
 
 const drawingRels = strFromU8(files["xl/drawings/_rels/drawing1.xml.rels"]);
 assert.ok(drawingRels.includes("chart1.xml"), "drawing rels must point at chart1.xml");
@@ -240,10 +396,37 @@ assert.ok(policySheetRels.includes("drawing1.xml"), "資本政策 sheet rels mus
 const sheet2Xml = strFromU8(files["xl/worksheets/sheet2.xml"]);
 assert.ok(sheet2Xml.includes("<drawing"), "資本政策 sheet must embed the drawing");
 
+// The event-label header row (containing event labels as column headers) must actually be
+// relocated to row 20 (1-indexed) in the sheet XML, with only blank reserved/spacer rows above it.
+{
+  const rowsXml = sheet2Xml.match(/<row r="(\d+)"[^>]*>([\s\S]*?)<\/row>/g) ?? [];
+  const headerRowXml = rowsXml.find((r) => r.startsWith(`<row r="${POLICY_HEADER_ROW_1INDEXED}"`));
+  assert.ok(headerRowXml, `event-label header row must be present at row ${POLICY_HEADER_ROW_1INDEXED}`);
+  assert.ok(headerRowXml!.includes("設立"), "relocated header row must contain the event labels");
+  assert.ok(headerRowXml!.includes("シード"), "relocated header row must contain the event labels");
+  // Rows 2..19 (1-indexed) must be blank reserved chart rows / spacer, not data.
+  for (let r = 2; r < POLICY_HEADER_ROW_1INDEXED; r++) {
+    const rowXml = rowsXml.find((x) => x.startsWith(`<row r="${r}"`));
+    if (!rowXml) continue; // omitted empty rows are fine
+    assert.ok(
+      !/<is>/.test(rowXml) && !/<v>/.test(rowXml),
+      `row ${r} must stay blank (reserved for the chart), found content: ${rowXml}`,
+    );
+  }
+}
+
+function xmlEscapeForChart(v: string) {
+  return v.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&apos;");
+}
+
 // --- Holder / event data and formulas appear correctly ----------------------
 
 assert.ok(sheet2Xml.includes("設立"), "資本政策 sheet must include event labels");
 assert.ok(sheet2Xml.includes("シード"), "資本政策 sheet must include event labels");
+assert.ok(
+  sheet2Xml.includes("テスト株式会社｜資本政策"),
+  "資本政策 sheet title must include the project_name (not just 提出情報)",
+);
 assert.ok(sheet2Xml.includes("VCキャピタル"), "資本政策 sheet must include holder names");
 assert.ok(sheet2Xml.includes("ESOPプール"), "資本政策 sheet must include holder names");
 
@@ -259,8 +442,20 @@ assert.ok(sheet2Xml.includes("新規発行株式数（完全希薄化後分）")
 assert.ok(sheet2Xml.includes("オプションプールサイズ"), "資本政策 sheet must include an option pool row");
 assert.ok(sheet2Xml.includes("株式分割比率"), "資本政策 sheet must include a split ratio row");
 assert.ok(sheet2Xml.includes("転換条件"), "資本政策 sheet must include a conversion terms row");
-assert.ok(sheet2Xml.includes("Cap: "), "資本政策 sheet must render the convertible cap amount");
-assert.ok(sheet2Xml.includes("Discount: "), "資本政策 sheet must render the convertible discount");
+assert.ok(sheet2Xml.includes("上限評価額: "), "資本政策 sheet must render the convertible cap amount");
+assert.ok(sheet2Xml.includes("割引率: "), "資本政策 sheet must render the convertible discount");
+
+// --- calculationBasis must render as a compact Japanese label, never the raw
+// identifier, so it does not overflow across the ~124 event columns ----------
+
+assert.ok(sheet2Xml.includes("算出方法"), "資本政策 sheet must include a calculation-basis row");
+assert.ok(sheet2Xml.includes("手動"), "資本政策 sheet must render the manual calculation-basis label");
+assert.ok(sheet2Xml.includes("評価額＋投資額"), "資本政策 sheet must render the valuation_and_investment calculation-basis label");
+assert.ok(!sheet2Xml.includes("calculationBasis"), "資本政策 sheet must never leak the raw calculationBasis field name");
+assert.ok(!sheet2Xml.includes("manual<"), "資本政策 sheet must never leak the raw 'manual' identifier");
+for (const rawIdentifier of ["valuation_and_investment", "price_and_shares", "ownership_target"]) {
+  assert.ok(!sheet2Xml.includes(rawIdentifier), `資本政策 sheet must never leak the raw calculationBasis identifier "${rawIdentifier}"`);
+}
 
 // --- New per-holder rows: event flow shares, paid amount, post issued shares,
 // issued %, post FD shares, FD % --------------------------------------------
@@ -273,7 +468,13 @@ assert.ok(sheet2Xml.includes("完全希薄化後比率"), "資本政策 sheet mu
 
 const sheet3Xml = strFromU8(files["xl/worksheets/sheet3.xml"]);
 assert.ok(sheet3Xml.includes("VCキャピタル"), "投資家別 sheet must include investor rows");
-assert.ok(sheet3Xml.includes("preferred"), "投資家別 sheet must include share class");
+assert.ok(sheet3Xml.includes("優先株式"), "投資家別 sheet must localize shareClass 'preferred' as 優先株式");
+assert.ok(sheet3Xml.includes("普通株式"), "投資家別 sheet must localize shareClass 'common' as 普通株式");
+assert.ok(sheet3Xml.includes("ストックオプション"), "投資家別 sheet must localize shareClass 'option' as ストックオプション");
+assert.ok(sheet3Xml.includes("転換前証券"), "投資家別 sheet must localize shareClass 'convertible' as 転換前証券");
+for (const rawShareClass of ["preferred", "common", "option", "convertible", "warrant"]) {
+  assert.ok(!sheet3Xml.includes(rawShareClass), `投資家別 sheet must never leak the raw shareClass identifier "${rawShareClass}"`);
+}
 
 // --- Investor sheet: event/status/holder/kind/flow type/share class/amount/shares/
 // price/target FD %/source columns, sign-based secondary buyer/seller labels ----

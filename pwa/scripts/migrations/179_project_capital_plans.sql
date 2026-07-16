@@ -1,8 +1,9 @@
 -- 179_project_capital_plans.sql
 --
--- 各 PJ の資本政策シミュレーション（複数ラウンドの what-if シナリオ）を
--- 全 AMD メンバーが閲覧・編集できる working scenario として保存する。
--- project_capital_plans = 編集可能な作業中シナリオ（楽観ロック用の revision 付き）。
+-- 各 PJ の資本政策プラン（設立からIPOまでの複数ラウンドを1本の資本イベント列
+-- として保存する、社内承認・VC提出に使う実運用の台帳）を、全 AMD メンバーが
+-- 閲覧・編集できる working ledger として保存する。
+-- project_capital_plans = 編集可能な作業中プラン（楽観ロック用の revision 付き）。
 -- project_capital_plan_versions = freeze 時に確定した JSON の append-only 履歴。
 --
 -- destructive DDL は行わない。
