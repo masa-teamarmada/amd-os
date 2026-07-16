@@ -1651,4 +1651,16 @@ expectIncludes("scripts/migrations/175_lst_cap_table_history.sql", [
   "in_kind_contribution",
 ]);
 
+// mobile tap-target fix (2026-07-16, v3.43.25): 本番390px計測で next-round-simulator の
+// SelectTrigger 2箇所が32pxしか出ず、shared data-size heightがh-11に勝っていた。min-h-11/sm:min-h-9へ
+// 変更してモバイル44px・sm+36pxの実高さを保証する。h-11/sm:h-9への巻き戻りを防ぐ。
+expectIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
+  '<SelectTrigger className="min-h-11 w-full bg-white text-[11px] sm:min-h-9">',
+  '<SelectTrigger className="min-h-11 w-full bg-white text-[11px] sm:min-h-9"><SelectValue placeholder="株主を選んでね" /></SelectTrigger>',
+]);
+expectNotIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
+  '<SelectTrigger className="h-11 w-full bg-white text-[11px] sm:h-9">',
+  '<SelectTrigger className="h-11 w-full bg-white text-[11px] sm:h-9"><SelectValue placeholder="株主を選んでね" /></SelectTrigger>',
+]);
+
 console.log("critical PWA UI anchors ok");

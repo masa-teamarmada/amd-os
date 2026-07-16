@@ -491,7 +491,7 @@ function CapitalPolicyWorkspace({
           <div className="space-y-2">
             <Field label="基準にする時点">
               <Select value={baseId} onValueChange={(next) => onSelectBase(next || "")}>
-                <SelectTrigger className="h-11 w-full bg-white text-[11px] sm:h-9">
+                <SelectTrigger className="min-h-11 w-full bg-white text-[11px] sm:min-h-9">
                   <SelectValue>{(value: string) => {
                     const item = snapshots.find((s) => s.id === value);
                     return item ? `${formatDate(item.effectiveOn)} ${item.label}` : null;
@@ -502,7 +502,7 @@ function CapitalPolicyWorkspace({
             </Field>
             <Field label="守りたい株主">
               <Select value={protectHolder} onValueChange={(next) => setProtectHolder(next || "")}>
-                <SelectTrigger className="h-11 w-full bg-white text-[11px] sm:h-9"><SelectValue placeholder="株主を選んでね" /></SelectTrigger>
+                <SelectTrigger className="min-h-11 w-full bg-white text-[11px] sm:min-h-9"><SelectValue placeholder="株主を選んでね" /></SelectTrigger>
                 <SelectContent>{holderOptions.map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}</SelectContent>
               </Select>
             </Field>
