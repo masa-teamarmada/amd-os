@@ -153,7 +153,7 @@ RLS:
   - 補助メタ: 日時 / l2_kind / target / 未読 badge / 修正依頼 N 件 badge
 - カードクリックで展開:
   - summary (本文)
-  - `coverage_gap` は summary の前に人間向けの差分説明を出す。「元情報で見えていたこと」「H-1要約で弱くなった可能性」「押すと起きること」を分け、タイトルも `経営ハイライトに残す？: ...` / `OSに残す？: ...` の質問形にする。
+  - `coverage_gap` は summary の前に人間向けの確認文を出す。「会議メモにあった話」「いまの要約で目立たない話」「残すとどうなる？」を分け、タイトルは `重要メモに残す？: ...` の質問形にする。UI 表示では `D-6` / `coverage_gap` / `raw transcript` / `元情報` / `取りこぼし` / `条件付き投資家関心` / `薄い` / `candidate` / `salience` を使わない。
   - 元データへの deep link (l2_kind ごと: protocols → /admin/protocols, ms_progress → /project/<id>/cockpit?ym=<ym>, etc.)
   - 既存 feedback 一覧 (この通知に紐づく / 同 (l2_kind, target_id, scope_key) の)
   - 「はい・反映」「いいえ・不採用」「コメントだけ送信」textarea + 送信ボタン
@@ -216,7 +216,7 @@ D-5 OS台帳差分と M-2 XRL根拠は、全文保存ではなく「OSへ入れ�
 
 `coverage_gap` は「あとで人間が本来の入れ先へ手当てする」通知にしない。安全に反映先が分かる場合は、「はい」と同時に下流テーブルへ自動ルートする。2026-06-27 時点の実装は `proposed_target_l2='strategy_signal'` を D-6 経営ハイライトへ昇格する。H-1 reviewer 由来の gap は `status='confirmed'` / `decision_state='observed'` の `project_strategy_signals` を作り、会社として正式決定済みとは扱わない。通知の採否APIは raw source の再取得を担当しない。raw再確認が必要な場合は H-1 reviewer / source fallback 側で再実行する。
 
-2026-07-16 以降、`coverage_gap` は候補行の保存済み (`l2_coverage_gaps.review_status='candidate'`) とまさの採否を分ける。通知 writer は `saved_count=0,total_count=1` で作り、既存の `saved_count=1,total_count=1` 通知も UI では保存済み扱いにしない。ボタン文言は `proposed_target_l2='strategy_signal'` なら「経営ハイライトに追加 / 見送る」。これは D-6 への追加であって、H-1要約本文を戻す操作ではない。
+2026-07-16 以降、`coverage_gap` は候補行の保存済み (`l2_coverage_gaps.review_status='candidate'`) とまさの採否を分ける。通知 writer は `saved_count=0,total_count=1` で作り、既存の `saved_count=1,total_count=1` 通知も UI では保存済み扱いにしない。ボタン文言は「重要メモに残す / 見送る」。これは内部的には D-6 への追加だが、画面では「プロジェクトの重要メモに残る。出資決定や正式合意としては扱わない」と説明する。H-1要約本文を戻す操作ではない。
 
 ### POST API
 [pwa/src/app/api/notifications/feedback/route.ts](../src/app/api/notifications/feedback/route.ts)
@@ -282,7 +282,7 @@ D-5 OS台帳差分と M-2 XRL根拠は、全文保存ではなく「OSへ入れ�
 
 | 日付 | 変更 |
 |---|---|
-| 2026-07-16 | **coverage_gap 通知の質問化**: `未OS化の可能性` / `薄まった可能性` の内部語をそのまま出さず、`経営ハイライトに残す？` / `OSに残す？` の質問形に変更。詳細欄は「元情報で見えていたこと」「H-1要約で弱くなった可能性」「押すと起きること」に分け、`saved_count=1,total_count=1` の既存 coverage_gap も保存済み扱いにしない。 |
+| 2026-07-16 | **coverage_gap 通知の質問化 v2**: 画面から `D-6` / `coverage_gap` / `raw transcript` / `元情報` / `取りこぼし` / `条件付き投資家関心` / `薄い` / `candidate` / `salience` を削除。タイトルは `重要メモに残す？`、詳細欄は「会議メモにあった話」「いまの要約で目立たない話」「残すとどうなる？」へ統一。 |
 | 2026-05-09 | 初版。`l2_feedbacks` テーブル + `/notifications` ページ + POST API + GAS 155 の 3 extractor で feedback 取り込み |
 | 2026-05-09 | **MTGサマリ feedback 連携完成** (gas/074): `_l2_loadFeedbackBlock_("meeting_summary", projectId, meetingId)` で過去依頼を取得 → userPrompt に追加。saved>0 で `_l2_recordFeedbackApplied_` で applied_count++ + last_applied_at = now()。source_hash 入力に active feedback hash を混ぜる → 修正依頼追加で自動再抽出 (`_meeting_feedbackHashInput_`)。prompt rev "v4_alias_feedback" にバンプ |
 | 2026-05-09 | **POST `/api/notifications/feedback` 末尾で 即 force 再抽出 fire-and-forget**: l2_kind ごとに対応 GAS 関数を runFunc で叩く (meeting_summary → `nav_meeting_processOneEvent_`、member_knowledge → `nav_member_knowledge_extractOne_` (member_id を server side で resolve)、project_knowledge → `nav_project_knowledge_extractOneForYm_`、protocols → `nav_protocol_extractOneForYm_`)。修正依頼を投げた瞬間に数十秒後に再抽出 → applied_count++ で UI 即反映 |

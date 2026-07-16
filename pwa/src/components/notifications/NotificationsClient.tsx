@@ -79,7 +79,7 @@ const L2_KIND_LABEL: Record<string, string> = {
   // D-11 メディア掲載
   news_mention: "D-11 メディア掲載",
   // Coverage Scanner (不在検知 / negative space)。既存抽出器の上位の安全網。
-  coverage_gap: "🛰 Coverage Scanner (不在検知)",
+  coverage_gap: "会議メモの確認",
   guardrail_match: "経営ガードレール",
 };
 
@@ -94,6 +94,17 @@ function isCoverageGapItem(i: UnifiedItem): boolean {
 function itemDisplayTitle(i: UnifiedItem): string {
   if (isCoverageGapItem(i)) return coverageGapQuestionTitle(i.data as Notification);
   return sanitizeMeetingTitle(i.data.title);
+}
+
+function itemMetaLabel(i: UnifiedItem, projectMap: Record<string, string>): string {
+  if (isCoverageGapItem(i)) {
+    const n = i.data as Notification;
+    return `会議メモの確認 / ${projectMap[n.target_id] ?? n.target_id}`;
+  }
+  if (i.kind === "l2") {
+    return `${l2KindLabel(i.data.l2_kind)} (${i.data.l2_kind}) / ${displayTarget(i.data.target_id, i.data.scope_key, projectMap)}`;
+  }
+  return `H-1 MTGサマリ / ${projectMap[i.data.project_id] ?? i.data.project_id}`;
 }
 
 function isAlreadySavedForReview(i: UnifiedItem): boolean {
@@ -768,29 +779,21 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
             .limit(1);
           if (error) throw error;
           rows = (data ?? []).map((r) => {
-            const gapClassLabel = r.gap_class === "extractor_miss" ? "抽出器の取りこぼし (本来どこかのL2が拾えたはず)"
-              : r.gap_class === "structural_gap" ? "構造的GAP (OSに受け皿が無いかも)"
-              : "分類先未確定 (捨てずに残してる)";
             const summary = String(r.summary ?? n.summary ?? "");
             const evidence = objectValue(r.evidence_refs_json);
             const original = coverageGapOriginalSignal(summary, evidence);
             const weakened = coverageGapWeakenedSignal(summary);
-            const targetLabel = coverageTargetLabel(textFromUnknown(r.proposed_target_l2));
-            const decisionCopy = coverageGapActionCopy(n);
             return {
-              heading: `${targetLabel}に残す？ [${r.review_status}]`,
+              heading: "この話を重要メモとして残す？",
               body: [
-                `判定: ${gapClassLabel}`,
-                `元情報で見えていたこと:\n${original}`,
-                `H-1要約で弱くなった可能性:\n${weakened}`,
-                `「${decisionCopy.yesLabel}」を押すと:\n${coverageGapApprovalConsequence(textFromUnknown(r.proposed_target_l2))}`,
+                `会議メモにあった話:\n${original}`,
+                `いまの要約で目立たない話:\n${weakened}`,
+                `残すとどうなる？\n${coverageGapApprovalConsequence(textFromUnknown(r.proposed_target_l2))}`,
               ].filter(Boolean).join("\n"),
               sub: [
-                `source=${r.source}`,
-                `行き先候補=${targetLabel}`,
-                r.salience_score != null ? `salience=${Number(r.salience_score).toFixed(2)}` : "",
-                r.due_at ? `期日=${formatJST(String(r.due_at))}` : "",
-                r.detected_at ? `検知=${formatJST(String(r.detected_at))}` : "",
+                "会議メモと資料から確認",
+                r.due_at ? `期限: ${formatJST(String(r.due_at))}` : "",
+                r.detected_at ? `確認日: ${formatJST(String(r.detected_at))}` : "",
               ].filter(Boolean).join(" · ") || undefined,
             };
           });
@@ -1109,18 +1112,10 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                     }`}>
                       {notificationPriorityLabel(priority)}
                     </span>
-                    {i.kind === "l2" ? (
-                      <>
-                        <span className="font-medium text-foreground/80">{l2KindLabel(i.data.l2_kind)}</span>
-                        <span className="ml-1 opacity-60">({i.data.l2_kind})</span>
-                        {" / "}
-                        {displayTarget(i.data.target_id, i.data.scope_key, projectMap)}
-                      </>
-                    ) : (
-                      `H-1 MTGサマリ / ${projectMap[i.data.project_id] ?? i.data.project_id}`
-                    )}
+                    {itemMetaLabel(i, projectMap)}
                     {!isReadUi(i) && <span className="ml-2 text-blue-600 dark:text-blue-400">● 未読</span>}
                     {(() => {
+                      if (isCoverageGapItem(i)) return null;
                       const kindKey = i.kind === "l2" ? i.data.l2_kind : "meeting_summary";
                       const cost = NOTIFICATION_COST_ESTIMATE_JPY[kindKey];
                       if (cost == null) return null;
@@ -1159,7 +1154,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                   {/* 通知 summary (上流が付けた一覧用見出し) */}
                   {i.kind === "l2" ? (
                     <div className="text-xs text-muted-foreground italic">
-                      {actionCopy.headlineLabel}: <LinkedMemberText text={i.data.summary || "(なし)"} />
+                      {actionCopy.headlineLabel}: <LinkedMemberText text={isCoverageGapItem(i) ? coverageGapQuestionSummary(i.data) : i.data.summary || "(なし)"} />
                     </div>
                   ) : (
                     <div className="text-xs text-muted-foreground italic">
@@ -1168,7 +1163,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                   )}
 
                   {/* 実データ (lazy fetch) */}
-                  <DetailSection detail={details[key]} />
+                  <DetailSection detail={details[key]} title={isCoverageGapItem(i) ? "確認したい内容" : undefined} />
 
                   {/* 元データへの deep link */}
                   <div className="text-xs">
@@ -1344,7 +1339,7 @@ function NotificationPrioritySection({
 }
 
 // 展開時の実データ表示セクション
-function DetailSection({ detail }: { detail: DetailRow | undefined }) {
+function DetailSection({ detail, title = "抽出された内容" }: { detail: DetailRow | undefined; title?: string }) {
   if (!detail) return null;
   if (detail.loading) {
     return <div className="text-xs text-muted-foreground italic">📥 抽出された内容を読み込み中...</div>;
@@ -1358,7 +1353,7 @@ function DetailSection({ detail }: { detail: DetailRow | undefined }) {
   }
   return (
     <div className="space-y-2 bg-muted/30 rounded p-2">
-      <div className="text-xs font-medium text-muted-foreground">📦 抽出された内容 ({rows.length} 件)</div>
+      <div className="text-xs font-medium text-muted-foreground">📦 {title} ({rows.length} 件)</div>
       {rows.map((r, idx) => (
         <div key={idx} className="border-l-2 border-primary/30 pl-2 py-0.5">
           <div className="text-sm font-medium">
@@ -1477,7 +1472,7 @@ function DeepLinkForL2({ n }: { n: Notification }) {
     case "coverage_gap":
       return (
         <a className="text-blue-600 hover:underline" href={`/admin/coverage-gaps`}>
-          /admin/coverage-gaps (検知内容と処理状態を確認)
+          確認一覧を開く
         </a>
       );
     case "guardrail_match":
@@ -1572,45 +1567,41 @@ function normalizeCoverageTarget(value: string): string {
   return v;
 }
 
-function coverageTargetLabel(value: string): string {
-  switch (normalizeCoverageTarget(value)) {
-    case "strategy_signal":
-      return "D-6 経営ハイライト";
-    case "action_item":
-      return "要対応";
-    case "shareholder_meeting":
-      return "株主・ガバナンス";
-    case "registry_diff":
-      return "D-5 OS台帳差分";
-    case "":
-      return "OS";
-    default:
-      return value;
-  }
-}
-
 function coverageGapSubjectFromTitle(raw: string | null | undefined): string {
   let s = stripNotificationPrefix(sanitizeMeetingTitle(raw ?? ""));
   s = s
     .replace(/^未OS化(?:の可能性|候補)?[:：]\s*/, "")
     .replace(/^(?:D-6\s*)?経営ハイライトに残す[？?][:：]\s*/, "")
+    .replace(/^重要メモに残す[？?][:：]\s*/, "")
     .replace(/^OSに残す[？?][:：]\s*/, "")
     .trim();
 
   const h1Match = s.match(/^H-1\s*要約で(.+?)が(?:薄まった|弱まった)可能性[:：]\s*(.+)$/);
   if (h1Match) {
-    return `${h1Match[1].trim()} / ${h1Match[2].trim()}`;
+    return humanizeCoverageSubject(`${h1Match[1].trim()} / ${h1Match[2].trim()}`);
   }
-  return s || "(no title)";
+  return humanizeCoverageSubject(s || "(no title)");
 }
 
 function coverageGapQuestionTitle(n: Notification): string {
-  const meta = objectValue(n.metadata_json);
-  const target = normalizeCoverageTarget(textFromUnknown(meta.proposed_target_l2));
-  const subject = coverageGapSubjectFromTitle(n.title || n.summary);
-  if (target === "strategy_signal") return `経営ハイライトに残す？: ${subject}`;
-  if (target) return `${coverageTargetLabel(target)}に残す？: ${subject}`;
-  return `OSに残す？: ${subject}`;
+  const subject = coverageGapQuestionSubject(n);
+  return `重要メモに残す？: ${subject}`;
+}
+
+function coverageGapQuestionSubject(n: Notification): string {
+  const summary = n.summary ?? "";
+  if (/VC\s*3社|VC3社/.test(summary) && /PoC|NEDO/.test(summary)) {
+    return "PoC後にVC3社が出資を検討するかも";
+  }
+  return coverageGapSubjectFromTitle(n.title || n.summary);
+}
+
+function coverageGapQuestionSummary(n: Notification): string {
+  const subject = coverageGapQuestionSubject(n);
+  if (subject.includes("VC3社")) {
+    return "会議メモでは「PoC後ならVC3社が出資を検討するかも」という話が出ていた。いまの要約では目立たないので、重要メモとして残すか確認している。";
+  }
+  return `会議メモにあった「${subject}」を、重要メモとして残すか確認している。`;
 }
 
 function coverageGapActionCopy(n: Notification): ReviewActionCopy {
@@ -1618,26 +1609,61 @@ function coverageGapActionCopy(n: Notification): ReviewActionCopy {
   const target = normalizeCoverageTarget(textFromUnknown(meta.proposed_target_l2));
   if (target === "strategy_signal") {
     return {
-      yesLabel: "経営ハイライトに追加",
+      yesLabel: "重要メモに残す",
       noLabel: "見送る",
-      yesDoneLabel: "経営ハイライトに追加済み",
+      yesDoneLabel: "重要メモに残した",
       noDoneLabel: "見送り済み",
-      prompt: "元情報で見えていた判断材料が、H-1要約では弱くなった可能性がある。D-6 経営ハイライトとして残すなら「経営ハイライトに追加」、ノイズなら「見送る」。",
-      footnote: "追加すると経営ハイライトの正本に残る。H-1要約本文そのものはここでは書き戻さないので、本文の復元が必要なら H-1確認側で直す。",
-      placeholder: "任意コメント。例: D-6に残す / H-1本文も別途直したい / 今回はノイズなので見送る",
-      headlineLabel: "検知メモ",
+      prompt: "会議メモにあった話が、いまの要約では目立たない。あとで経営判断に使うかもしれないなら「重要メモに残す」、要らないなら「見送る」。",
+      footnote: "残すとプロジェクトの重要メモに入る。出資決定や正式合意としては扱わない。",
+      placeholder: "任意コメント。例: 残す / 今の要約も直したい / これは要らない",
+      headlineLabel: "確認したいこと",
     };
   }
   return {
-    yesLabel: "確認して残す",
+    yesLabel: "重要メモに残す",
     noLabel: "見送る",
-    yesDoneLabel: "確認済み",
+    yesDoneLabel: "重要メモに残した",
     noDoneLabel: "見送り済み",
-    prompt: `元情報で見えていた内容を、${coverageTargetLabel(target)} の取りこぼし候補として残すかの確認。残すなら「確認して残す」、ノイズなら「見送る」。`,
-    footnote: "これは取りこぼし候補の確認状態を残す操作。安全な自動反映先がまだない種別は、ここで下流テーブルまでは書き込まない。",
-    placeholder: "任意コメント。例: この受け皿はD-5ではなくD-6 / 今回はノイズ / 抽出器側を直したい",
-    headlineLabel: "検知メモ",
+    prompt: "会議メモにあった話を、あとで見返す重要メモとして残すかの確認。要るなら「重要メモに残す」、要らないなら「見送る」。",
+    footnote: "残すと確認済みのメモとして残る。正式決定としては扱わない。",
+    placeholder: "任意コメント。例: 残す / これは要らない / 別の場所に残したい",
+    headlineLabel: "確認したいこと",
   };
+}
+
+function humanizeCoverageSubject(value: string): string {
+  let s = value.replace(/\s+/g, " ").trim();
+  s = s
+    .replace(/PoC後のVC関心確認/g, "PoC後にVCが出資を検討する話")
+    .replace(/VC関心確認/g, "VCが出資を検討する話")
+    .replace(/創業体制\/資金調達転換/g, "創業体制や資金調達方針の変化")
+    .replace(/合金キャピタル新株予約権の具体条件/g, "合金キャピタルの新株予約権の条件")
+    .replace(/条件付き投資家関心/g, "条件がそろえば出資を検討する話")
+    .replace(/条件付き情報/g, "条件つきの話")
+    .replace(/薄い/g, "目立たない");
+  return truncateOneLine(s, 80);
+}
+
+function humanizeCoverageSentence(value: string): string {
+  let s = value.replace(/\s+/g, " ").trim();
+  if (!s) return "";
+  if (/VC\s*3社|VC3社/.test(s) && /PoC|NEDO/.test(s)) {
+    if (/資本政策|CEO持株比率/.test(s) && /薄い|目立たない|中心/.test(s)) {
+      return "いまの要約では、資本政策やCEO持株比率の話が中心で、VC3社の話が目立たない。";
+    }
+    return "PoCが終わったあとなら、VC3社が出資を検討するかもしれない。まだ出資決定ではないので、期待しすぎない形で残す必要がある。";
+  }
+  s = s
+    .replace(/raw transcript/g, "会議メモ")
+    .replace(/Notion文字起こし/g, "会議メモ")
+    .replace(/Drive資料/g, "資料")
+    .replace(/H-1保存結果/g, "いまの要約")
+    .replace(/H-1要約/g, "いまの要約")
+    .replace(/条件付き投資家関心/g, "条件がそろえば出資を検討する話")
+    .replace(/条件付き情報/g, "条件つきの話")
+    .replace(/薄い/g, "目立たない")
+    .replace(/参画・リード投資家・出資決定・着金合意ではない前提で要確認/g, "まだ正式な出資決定ではないので、期待しすぎない形で残す");
+  return truncateOneLine(s, 220);
 }
 
 function extractBetween(text: string, start: string, end: string): string {
@@ -1650,7 +1676,11 @@ function extractBetween(text: string, start: string, end: string): string {
 
 function coverageGapOriginalSignal(summary: string, evidence: Record<string, unknown>): string {
   const fromSummary =
-    extractBetween(summary, "raw transcriptには", "が出ているが")
+    extractBetween(summary, "raw transcriptとDrive資料には", "。一方")
+    || extractBetween(summary, "raw transcriptとDrive資料には", "。")
+    || extractBetween(summary, "会議メモと資料には", "。一方")
+    || extractBetween(summary, "会議メモと資料には", "。")
+    || extractBetween(summary, "raw transcriptには", "が出ているが")
     || extractBetween(summary, "Notion文字起こしには", "が出ているが")
     || extractBetween(summary, "元情報には", "が出ているが")
     || extractBetween(summary, "元データには", "が出ているが");
@@ -1660,7 +1690,7 @@ function coverageGapOriginalSignal(summary: string, evidence: Record<string, unk
     || textFromUnknown(evidence.source_excerpt)
     || textFromUnknown(evidence.snippet)
     || textFromUnknown(evidence.summary);
-  return truncateOneLine(fromSummary || fromEvidence || summary || "(元情報の要約なし)", 420);
+  return humanizeCoverageSentence(fromSummary || fromEvidence || summary || "(会議メモの要約なし)");
 }
 
 function coverageGapWeakenedSignal(summary: string): string {
@@ -1669,21 +1699,24 @@ function coverageGapWeakenedSignal(summary: string): string {
     || extractBetween(summary, "H-1保存結果は", "。")
     || extractBetween(summary, "H-1要約では", "。")
     || extractBetween(summary, "保存結果では", "。");
-  return truncateOneLine(weakened || "H-1要約では、この具体条件や判断材料が弱くなった可能性がある", 420);
+  if (/VC\s*3社|VC3社/.test(summary) && /PoC|NEDO/.test(summary) && /資本政策|CEO持株比率|条件付き投資家関心|目立たない|薄い/.test(weakened)) {
+    return "いまの要約では、資本政策やCEO持株比率の話が中心で、VC3社の話が目立たない。";
+  }
+  return humanizeCoverageSentence(weakened || "いまの要約では、この話が目立たない。");
 }
 
 function coverageGapApprovalConsequence(targetValue: string): string {
   switch (normalizeCoverageTarget(targetValue)) {
     case "strategy_signal":
-      return "D-6 経営ハイライトに「観測済み」の重要シグナルとして追加する。会社として決定済み扱いにはせず、H-1要約本文もここでは書き戻さない。";
+      return "プロジェクトの重要メモに残る。出資決定や正式合意としては扱わない。";
     case "action_item":
-      return "取りこぼし候補を確認済みにする。現状このボタンだけでは要対応行の自動作成まではしない。";
+      return "確認済みのメモとして残る。現状このボタンだけでは要対応リストまでは作らない。";
     case "registry_diff":
-      return "取りこぼし候補を確認済みにして、D-5 OS台帳差分側の設計・抽出器改善対象として追えるようにする。";
+      return "確認済みのメモとして残る。台帳の修正が必要なら別途対応する。";
     case "shareholder_meeting":
-      return "取りこぼし候補を確認済みにして、株主・ガバナンス系の設計・抽出器改善対象として追えるようにする。";
+      return "確認済みのメモとして残る。株主・ガバナンス情報への反映が必要なら別途対応する。";
     default:
-      return "取りこぼし候補を確認済みにして、あとから設計・抽出器改善対象として追えるようにする。";
+      return "確認済みのメモとして残る。正式決定としては扱わない。";
   }
 }
 

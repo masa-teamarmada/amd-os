@@ -40,29 +40,43 @@ async function authorize(req: NextRequest): Promise<boolean> {
 
 const VALID_GAP_CLASS = new Set(["extractor_miss", "structural_gap", "uncertain"]);
 
-function normalizeTarget(value: string | null | undefined): string {
-  const v = String(value ?? "").trim().toLowerCase();
-  if (v === "project_strategy_signal") return "strategy_signal";
-  if (v === "registry_diff" || v === "project_registry_diff") return "registry_diff";
-  return v;
-}
-
 function coverageNotificationSubject(raw: string | null | undefined, fallback: string): string {
   let s = String(raw || fallback || "").trim();
   s = s
     .replace(/^未OS化(?:の可能性|候補)?[:：]\s*/, "")
     .replace(/^(?:D-6\s*)?経営ハイライトに残す[？?][:：]\s*/, "")
+    .replace(/^重要メモに残す[？?][:：]\s*/, "")
     .replace(/^OSに残す[？?][:：]\s*/, "")
     .trim();
   const h1Match = s.match(/^H-1\s*要約で(.+?)が(?:薄まった|弱まった)可能性[:：]\s*(.+)$/);
-  if (h1Match) return `${h1Match[1].trim()} / ${h1Match[2].trim()}`;
-  return s || fallback;
+  if (h1Match) return humanizeCoverageSubject(`${h1Match[1].trim()} / ${h1Match[2].trim()}`);
+  return humanizeCoverageSubject(s || fallback);
 }
 
 function coverageNotificationTitle(it: GapCandidate): string {
-  const target = normalizeTarget(it.proposed_target_l2);
-  const prefix = target === "strategy_signal" ? "経営ハイライトに残す？" : "OSに残す？";
-  return `${prefix}: ${coverageNotificationSubject(it.title, it.source)}`.slice(0, 300);
+  const subject = coverageNotificationQuestionSubject(it);
+  return `重要メモに残す？: ${subject}`.slice(0, 300);
+}
+
+function coverageNotificationQuestionSubject(it: GapCandidate): string {
+  const summary = String(it.summary ?? "");
+  if (/VC\s*3社|VC3社/.test(summary) && /PoC|NEDO/.test(summary)) {
+    return "PoC後にVC3社が出資を検討するかも";
+  }
+  return coverageNotificationSubject(it.title, it.source);
+}
+
+function humanizeCoverageSubject(value: string): string {
+  let s = value.replace(/\s+/g, " ").trim();
+  s = s
+    .replace(/PoC後のVC関心確認/g, "PoC後にVCが出資を検討する話")
+    .replace(/VC関心確認/g, "VCが出資を検討する話")
+    .replace(/創業体制\/資金調達転換/g, "創業体制や資金調達方針の変化")
+    .replace(/合金キャピタル新株予約権の具体条件/g, "合金キャピタルの新株予約権の条件")
+    .replace(/条件付き投資家関心/g, "条件がそろえば出資を検討する話")
+    .replace(/条件付き情報/g, "条件つきの話")
+    .replace(/薄い/g, "目立たない");
+  return s.length > 80 ? `${s.slice(0, 80)}...` : s;
 }
 
 export async function POST(req: NextRequest) {

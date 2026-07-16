@@ -90,7 +90,7 @@ POST body:
 すべての action は `l2_feedbacks` に保存し、`tsukuyomi_learnings` にも通知回答として残す。
 `coverage_gap` は「確認してから手作業で別L2へ入れる」通知ではない。安全に自動ルートできる `proposed_target_l2` は「はい」の同一トランザクション相当の処理で下流テーブルへ反映し、未対応の target は `routed_to` が空のまま残して設計 gap として扱う。
 
-PWA の `coverage_gap` 表示は、検知器の内部語 (`未OS化の可能性` / `薄まった可能性`) をそのまま出さない。カードタイトルは `proposed_target_l2='strategy_signal'` なら「経営ハイライトに残す？: ...」、詳細欄は「元情報で見えていたこと」「H-1要約で弱くなった可能性」「押すと起きること」を表示する。「経営ハイライトに追加」は D-6 `project_strategy_signals` への追加であり、H-1要約本文の復元ではない。
+PWA の `coverage_gap` 表示は、検知器の内部語をそのまま出さない。カードタイトルは「重要メモに残す？: ...」に統一し、詳細欄は「会議メモにあった話」「いまの要約で目立たない話」「残すとどうなる？」だけを表示する。UI 表示では `D-6` / `coverage_gap` / `raw transcript` / `元情報` / `取りこぼし` / `条件付き投資家関心` / `薄い` / `candidate` / `salience` を使わない。「重要メモに残す」は内部的には D-6 `project_strategy_signals` への追加だが、まさ向けには「あとで見返す重要メモ」と説明する。H-1要約本文の復元ではない。
 
 ## 禁止事項
 
