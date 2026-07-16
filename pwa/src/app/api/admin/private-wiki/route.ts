@@ -36,7 +36,12 @@ type PrivateWikiPayload = {
   personKind?: string;
   affiliation?: string | null;
   relationshipContext?: string | null;
-  tags?: string[] | string | null;
+  birthdayLabel?: string | null;
+  originLabel?: string | null;
+  residenceLabel?: string | null;
+  contactContext?: string | null;
+  familyNote?: string | null;
+  tabooNote?: string | null;
   memoBody?: string;
   sourceKind?: string;
   sourceRef?: string | null;
@@ -50,16 +55,6 @@ function asCleanString(value: unknown, max = 4000) {
   const trimmed = value.trim();
   if (!trimmed) return null;
   return trimmed.slice(0, max);
-}
-
-function normalizeTags(value: PrivateWikiPayload["tags"]) {
-  if (Array.isArray(value)) {
-    return Array.from(new Set(value.map((tag) => tag.trim()).filter(Boolean))).slice(0, 24);
-  }
-  if (typeof value === "string") {
-    return Array.from(new Set(value.split(",").map((tag) => tag.trim()).filter(Boolean))).slice(0, 24);
-  }
-  return [];
 }
 
 function normalizeConfidence(value: PrivateWikiPayload["confidence"]) {
@@ -94,7 +89,12 @@ function rowFromPayload(body: PrivateWikiPayload, updatedBy: string, mode: "crea
     person_kind: personKind,
     affiliation: asCleanString(body.affiliation, 300),
     relationship_context: asCleanString(body.relationshipContext, 1000),
-    tags: normalizeTags(body.tags),
+    birthday_label: asCleanString(body.birthdayLabel, 80),
+    origin_label: asCleanString(body.originLabel, 160),
+    residence_label: asCleanString(body.residenceLabel, 160),
+    contact_context: asCleanString(body.contactContext, 1800),
+    family_note: asCleanString(body.familyNote, 1200),
+    taboo_note: asCleanString(body.tabooNote, 1200),
     source_kind: sourceKind,
     source_ref: asCleanString(body.sourceRef, 1000),
     source_excerpt: asCleanString(body.sourceExcerpt, 1800),
@@ -119,7 +119,6 @@ export async function GET(req: NextRequest) {
 
   const projectId = req.nextUrl.searchParams.get("projectId");
   const status = req.nextUrl.searchParams.get("status");
-  const tag = req.nextUrl.searchParams.get("tag");
   const personKind = req.nextUrl.searchParams.get("personKind");
 
   const db = createAdminClient();
@@ -133,7 +132,6 @@ export async function GET(req: NextRequest) {
   if (projectId) query = query.eq("project_id", projectId);
   if (status && STATUSES.has(status)) query = query.eq("status", status);
   if (personKind && PERSON_KINDS.has(personKind)) query = query.eq("person_kind", personKind);
-  if (tag) query = query.contains("tags", [tag]);
 
   const { data, error } = await query;
   if (error) {

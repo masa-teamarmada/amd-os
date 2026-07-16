@@ -331,3 +331,4 @@
 | 2026-07-16 | 2-3 PJコックピット / 4-3 AMD Score | 修正 | cockpit embedded の360px FRL列では radar と6因子一覧を縦積みにし、通常の広い score view だけ従来の横並びを維持。`min-w-0` と radar 最大幅を追加。build v3.41.12 | desktop production確認で、FRL内の固定320px列 + 因子列がviewport外へはみ出していたため | えいみ |
 | 2026-07-16 | 2-3 PJコックピット | 修正 | Hero の PRS / XRL SVG はスマホ〜tabletで600pxを保つ場合だけ各グラフ内を横scrollし、`xl`横並びでは列幅へ縮める。build v3.41.13 | XRLグラフの600px最低幅がdesktop右列570pxを21px超え、本文全体の横overflowになっていたため | えいみ |
 | 2026-07-16 | 2-3 PJコックピット / 4-3 AMD Score | 修正 | cockpit embedded の3因子ブロックと親gridに `min-width: 0` を指定。build v3.41.14 | 因子内tableの最小内容幅がスマホの本文幅を超え、ページ全体を横へ押し広げていたため | えいみ |
+| 2026-07-16 | 2-6 adminオペ / 裏wiki | 変更 | `/admin/private-wiki` を `tags` 入力・tagフィルタから、誕生日・出身地・居住地・接点・家族・タブーの6項目へ変更。旧 `tags` は互換DB列として残し、UI/API主導線から外す。build v3.41.15 | 裏wikiを検索タグではなく、人物ごとの関係性と配慮事項を残せる admin-only 台帳へ寄せるため。まさ依頼（2026-07-16） | えいみ |

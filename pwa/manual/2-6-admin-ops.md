@@ -151,8 +151,9 @@ URL: `/admin/private-wiki`
 AMDメンバー、取引先、クライアント、研究者、外部協力者など、人物単位の関係性メモを PJ ごとに残す admin-only 台帳。
 
 - 人物名 / 種別 / 所属 / 関係性
-- 趣味・関心・プライベート寄りの接点メモ
-- tag / confidence / status
+- 誕生日 / 出身地 / 居住地 / 接点
+- 家族 / タブーなど、接し方に関わる private メモ
+- confidence / status
 - source_kind / source_ref / source_excerpt
 
 ### 重要な仕様
@@ -161,6 +162,7 @@ AMDメンバー、取引先、クライアント、研究者、外部協力者�
 - source_excerpt は短い根拠抜粋だけ。メール全文・議事録全文・資料全文は保存しない。
 - Codex / えいみが後から投入する entry は `source_kind='codex'` などで出所を残し、低確度なら `status='needs_review'` にする。
 - 不要になった entry は削除ではなくまず `archived` にする。直接的すぎる機微情報は本文に残さず、source_ref で辿れる最小限にする。
+- 旧 `tags` は既存互換のため DB には残すが、UI/API の編集・検索・フィルタの主導線には使わない。人物文脈は `birthday_label` / `origin_label` / `residence_label` / `contact_context` / `family_note` / `taboo_note` に分けて保存する。
 
 ---
 

@@ -85,10 +85,11 @@
 | table | `private_wiki_entries` |
 | authority | `members.is_admin=true` の authenticated admin と service_role のみ。anon / 一般 authenticated は不可 |
 | grouping | `project_id` nullable。PJ紐付けありはPJ別、nullは AMD 全体 / 未紐付けで表示 |
-| person fields | `person_name`, `person_kind`, `affiliation`, `relationship_context`, `tags`, `memo_body` |
+| person fields | `person_name`, `person_kind`, `affiliation`, `relationship_context`, `birthday_label`, `origin_label`, `residence_label`, `contact_context`, `family_note`, `taboo_note`, `memo_body` |
 | evidence fields | `source_kind`, `source_ref`, `source_excerpt`, `confidence`, `updated_by` |
 | safety | `visibility='admin_private'` 固定。通常 PJ cockpit、公開ページ、研究機関外部 workspace へ表示しない。`source_excerpt` は短い抜粋だけで全文保存しない |
 | lifecycle | `status` は `active` / `needs_review` / `archived` / `deleted`。UI は archive 導線を標準にする |
+| retired surface | 旧 `tags` 列は既存互換のため DB に残すが、UI/API の編集・検索・フィルタ契約からは外す |
 
 ## Admin Management Knowledge
 

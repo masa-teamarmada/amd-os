@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-07-14 14:10 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-07-16 12:57 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -72,7 +72,7 @@ PRIMARY KEY: `id`
 
 ## amd_management_score_raw_signals
 
-行数 (概算): 4,720
+行数 (概算): 4,763
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -581,7 +581,7 @@ PRIMARY KEY: `id`
 
 ## company_actual_monthly
 
-行数 (概算): 66
+行数 (概算): 68
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -997,7 +997,7 @@ UNIQUE: `(source_kind,source_table,source_id,source_term_hash)` (constraint: `co
 
 ## contracts
 
-行数 (概算): 2,159
+行数 (概算): 2,165
 PRIMARY KEY: `contract_id`
 
 | # | column | type | nullable | default |
@@ -1040,6 +1040,14 @@ PRIMARY KEY: `contract_id`
 | 36 | `confidentiality_coverage` | `text` | NOT NULL | `'unknown'::text` |
 | 37 | `confidentiality_survival_note` | `text` | NULL | `` |
 | 38 | `confidentiality_note` | `text` | NULL | `` |
+| 39 | `relationship_scope` | `text` | NOT NULL | `'needs_review'::text` |
+| 40 | `is_current_for_project` | `bool` | NOT NULL | `false` |
+| 41 | `amd_entity_name` | `text` | NOT NULL | `'株式会社チームアルマダ'::text` |
+| 42 | `amd_party_role` | `text` | NULL | `` |
+| 43 | `party_confirmation_note` | `text` | NULL | `` |
+| 44 | `party_confirmed_at` | `timestamptz` | NULL | `` |
+| 45 | `party_confirmed_by` | `text` | NULL | `` |
+| 46 | `operational_terms_json` | `jsonb` | NOT NULL | `'{}'::jsonb` |
 
 ## eimi_slack_usage_log
 
@@ -2458,6 +2466,12 @@ PRIMARY KEY: `id`
 | 17 | `archived_at` | `timestamptz` | NULL | `` |
 | 18 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 | 19 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 20 | `birthday_label` | `text` | NULL | `` |
+| 21 | `origin_label` | `text` | NULL | `` |
+| 22 | `residence_label` | `text` | NULL | `` |
+| 23 | `contact_context` | `text` | NULL | `` |
+| 24 | `family_note` | `text` | NULL | `` |
+| 25 | `taboo_note` | `text` | NULL | `` |
 
 ## proactive_loop_events
 
@@ -2546,7 +2560,7 @@ PRIMARY KEY: `outbox_id`
 
 ## proactive_todos
 
-行数 (概算): 266
+行数 (概算): 305
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -2796,7 +2810,7 @@ PRIMARY KEY: `id`
 
 ## project_meeting_summaries
 
-行数 (概算): 312
+行数 (概算): 333
 PRIMARY KEY: `meeting_id`
 
 | # | column | type | nullable | default |

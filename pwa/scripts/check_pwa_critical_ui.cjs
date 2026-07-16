@@ -232,10 +232,68 @@ expectNotIncludes("src/app/(app)/admin/layout.tsx", [
 expectIncludes("src/components/admin/AdminSidebar.tsx", [
   "請求書発行",
   "/admin/invoices",
+  "裏wiki",
+  "/admin/private-wiki",
   "BUILD_VERSION",
   "href=\"/dashboard\"",
   "Adminメニューを開く",
   "md:sticky",
+]);
+
+expectIncludes("src/components/admin/AdminPrivateWikiClient.tsx", [
+  "AdminPrivateWikiClient",
+  "birthdayLabel",
+  "originLabel",
+  "residenceLabel",
+  "contactContext",
+  "familyNote",
+  "tabooNote",
+  "誕生日",
+  "出身地",
+  "居住地",
+  "接点",
+  "家族",
+  "タブー",
+  "admin-only",
+  "通常cockpit、公開ページ、研究機関workspaceには出さない",
+]);
+
+expectNotIncludes("src/components/admin/AdminPrivateWikiClient.tsx", [
+  "tagsText",
+  "tagFilter",
+  "normalizeTags",
+]);
+
+expectIncludes("src/app/api/admin/private-wiki/route.ts", [
+  "requireAdmin",
+  "createAdminClient",
+  "birthdayLabel",
+  "originLabel",
+  "residenceLabel",
+  "contactContext",
+  "familyNote",
+  "tabooNote",
+  "birthday_label",
+  "origin_label",
+  "residence_label",
+  "contact_context",
+  "family_note",
+  "taboo_note",
+  "visibility: \"admin_private\"",
+]);
+
+expectNotIncludes("src/app/api/admin/private-wiki/route.ts", [
+  "req.nextUrl.searchParams.get(\"tag\")",
+  "contains(\"tags\"",
+]);
+
+expectIncludes("scripts/migrations/173_private_wiki_person_context_fields.sql", [
+  "birthday_label",
+  "origin_label",
+  "residence_label",
+  "contact_context",
+  "family_note",
+  "taboo_note",
 ]);
 
 expectIncludes("src/components/admin/AdminInvoiceIssueQueue.tsx", [

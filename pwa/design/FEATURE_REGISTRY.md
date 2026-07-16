@@ -270,7 +270,8 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - admin-only route: `/admin` layout の admin gate 内に置き、通常 PJ cockpit、公開ページ、研究機関外部 workspace から参照しない。
 - PJ別グルーピング: `private_wiki_entries.project_id` で PJ 別に grouping し、null は AMD 全体 / 未紐付けとして扱う。
 - 手作業編集: 追加 / 編集 / archive が UI からできる。直接削除を主導線にしない。
-- フィルタ: 検索、PJ、人物種別、tag、status で絞り込める。
+- フィルタ: 検索、PJ、人物種別、status で絞り込める。検索対象には人物名、所属、関係性、誕生日、出身地、居住地、接点、家族、タブー、本文メモ、source を含める。
+- 人物文脈: 誕生日 (`birthday_label`)、出身地 (`origin_label`)、居住地 (`residence_label`)、接点 (`contact_context`)、家族 (`family_note`)、タブー (`taboo_note`) を本文メモとは別に表示・編集できる。
 - evidence 表示: `source_kind` / `source_ref` / `source_excerpt` / `confidence` / `updated_by` を一覧上で確認できる。
 - source hygiene: `source_excerpt` は短い抜粋だけ。メール全文・議事録全文・資料全文を保存する場所にしない。
 - API 境界: browser 直接DB writeではなく `/api/admin/private-wiki` の `requireAdmin()` + service_role 経由で list/create/update/archive する。
@@ -278,6 +279,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 回帰防止:
 
 - `private_wiki_entries.visibility` は `admin_private` 固定。別画面へ再利用するときは `FEATURE_REGISTRY.md` と `/spec/2-1` を先に更新し、admin-only を崩さない。
+- 旧 `tags` は既存互換のため DB に残すだけ。UI/API の入力欄・フィルタ・必須アンカーとして戻さない。
 - seed は入れない。必要なテストデータはダミーだけにする。
 
 ## /admin/management-knowledge

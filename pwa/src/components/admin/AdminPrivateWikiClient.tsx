@@ -19,7 +19,12 @@ export interface PrivateWikiEntry {
   personKind: string;
   affiliation: string | null;
   relationshipContext: string | null;
-  tags: string[];
+  birthdayLabel: string | null;
+  originLabel: string | null;
+  residenceLabel: string | null;
+  contactContext: string | null;
+  familyNote: string | null;
+  tabooNote: string | null;
   memoBody: string;
   sourceKind: string;
   sourceRef: string | null;
@@ -53,7 +58,12 @@ type FormState = {
   personKind: string;
   affiliation: string;
   relationshipContext: string;
-  tagsText: string;
+  birthdayLabel: string;
+  originLabel: string;
+  residenceLabel: string;
+  contactContext: string;
+  familyNote: string;
+  tabooNote: string;
   memoBody: string;
   sourceKind: string;
   sourceRef: string;
@@ -97,7 +107,12 @@ const BLANK_FORM: FormState = {
   personKind: "external_collaborator",
   affiliation: "",
   relationshipContext: "",
-  tagsText: "",
+  birthdayLabel: "",
+  originLabel: "",
+  residenceLabel: "",
+  contactContext: "",
+  familyNote: "",
+  tabooNote: "",
   memoBody: "",
   sourceKind: "manual",
   sourceRef: "",
@@ -122,10 +137,6 @@ function compactDate(value: string | null) {
   });
 }
 
-function normalizeTags(text: string) {
-  return Array.from(new Set(text.split(",").map((tag) => tag.trim()).filter(Boolean))).slice(0, 24);
-}
-
 function formFromEntry(entry: PrivateWikiEntry): FormState {
   return {
     id: entry.id,
@@ -134,7 +145,12 @@ function formFromEntry(entry: PrivateWikiEntry): FormState {
     personKind: entry.personKind,
     affiliation: entry.affiliation ?? "",
     relationshipContext: entry.relationshipContext ?? "",
-    tagsText: entry.tags.join(", "),
+    birthdayLabel: entry.birthdayLabel ?? "",
+    originLabel: entry.originLabel ?? "",
+    residenceLabel: entry.residenceLabel ?? "",
+    contactContext: entry.contactContext ?? "",
+    familyNote: entry.familyNote ?? "",
+    tabooNote: entry.tabooNote ?? "",
     memoBody: entry.memoBody,
     sourceKind: entry.sourceKind,
     sourceRef: entry.sourceRef ?? "",
@@ -152,7 +168,12 @@ function mapApiEntry(entry: Record<string, unknown>): PrivateWikiEntry {
     personKind: String(entry.person_kind ?? "external_collaborator"),
     affiliation: typeof entry.affiliation === "string" ? entry.affiliation : null,
     relationshipContext: typeof entry.relationship_context === "string" ? entry.relationship_context : null,
-    tags: Array.isArray(entry.tags) ? entry.tags.map(String) : [],
+    birthdayLabel: typeof entry.birthday_label === "string" ? entry.birthday_label : null,
+    originLabel: typeof entry.origin_label === "string" ? entry.origin_label : null,
+    residenceLabel: typeof entry.residence_label === "string" ? entry.residence_label : null,
+    contactContext: typeof entry.contact_context === "string" ? entry.contact_context : null,
+    familyNote: typeof entry.family_note === "string" ? entry.family_note : null,
+    tabooNote: typeof entry.taboo_note === "string" ? entry.taboo_note : null,
     memoBody: String(entry.memo_body ?? ""),
     sourceKind: String(entry.source_kind ?? "manual"),
     sourceRef: typeof entry.source_ref === "string" ? entry.source_ref : null,
@@ -197,7 +218,6 @@ export function AdminPrivateWikiClient({ initialEntries, projects, initialError 
   const [entries, setEntries] = useState(initialEntries);
   const [query, setQuery] = useState("");
   const [projectFilter, setProjectFilter] = useState("");
-  const [tagFilter, setTagFilter] = useState("");
   const [kindFilter, setKindFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("active");
   const [editing, setEditing] = useState<FormState | null>(null);
@@ -206,11 +226,6 @@ export function AdminPrivateWikiClient({ initialEntries, projects, initialError 
   const [hint, setHint] = useState(initialError ? `読み込みエラー: ${initialError}` : "");
 
   const projectById = useMemo(() => new Map(projects.map((project) => [project.projectId, project])), [projects]);
-  const allTags = useMemo(() => {
-    const tags = new Set<string>();
-    entries.forEach((entry) => entry.tags.forEach((tag) => tags.add(tag)));
-    return Array.from(tags).sort((a, b) => a.localeCompare(b, "ja"));
-  }, [entries]);
 
   const filteredEntries = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -218,21 +233,25 @@ export function AdminPrivateWikiClient({ initialEntries, projects, initialError 
       if (projectFilter && entry.projectId !== projectFilter) return false;
       if (kindFilter && entry.personKind !== kindFilter) return false;
       if (statusFilter && entry.status !== statusFilter) return false;
-      if (tagFilter && !entry.tags.includes(tagFilter)) return false;
       if (!needle) return true;
       const haystack = [
         entry.personName,
         entry.affiliation,
         entry.relationshipContext,
+        entry.birthdayLabel,
+        entry.originLabel,
+        entry.residenceLabel,
+        entry.contactContext,
+        entry.familyNote,
+        entry.tabooNote,
         entry.memoBody,
         entry.sourceRef,
         entry.sourceExcerpt,
-        entry.tags.join(" "),
         projectById.get(entry.projectId ?? "")?.projectName,
       ].join(" ").toLowerCase();
       return haystack.includes(needle);
     });
-  }, [entries, kindFilter, projectById, projectFilter, query, statusFilter, tagFilter]);
+  }, [entries, kindFilter, projectById, projectFilter, query, statusFilter]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, PrivateWikiEntry[]>();
@@ -272,7 +291,12 @@ export function AdminPrivateWikiClient({ initialEntries, projects, initialError 
       personKind: editing.personKind,
       affiliation: editing.affiliation || null,
       relationshipContext: editing.relationshipContext || null,
-      tags: normalizeTags(editing.tagsText),
+      birthdayLabel: editing.birthdayLabel || null,
+      originLabel: editing.originLabel || null,
+      residenceLabel: editing.residenceLabel || null,
+      contactContext: editing.contactContext || null,
+      familyNote: editing.familyNote || null,
+      tabooNote: editing.tabooNote || null,
       memoBody: editing.memoBody,
       sourceKind: editing.sourceKind,
       sourceRef: editing.sourceRef || null,
@@ -313,7 +337,12 @@ export function AdminPrivateWikiClient({ initialEntries, projects, initialError 
         personKind: entry.personKind,
         affiliation: entry.affiliation,
         relationshipContext: entry.relationshipContext,
-        tags: entry.tags,
+        birthdayLabel: entry.birthdayLabel,
+        originLabel: entry.originLabel,
+        residenceLabel: entry.residenceLabel,
+        contactContext: entry.contactContext,
+        familyNote: entry.familyNote,
+        tabooNote: entry.tabooNote,
         memoBody: entry.memoBody,
         sourceKind: entry.sourceKind,
         sourceRef: entry.sourceRef,
@@ -353,7 +382,7 @@ export function AdminPrivateWikiClient({ initialEntries, projects, initialError 
             </span>
           </div>
           <p className="mt-1 max-w-3xl text-xs leading-5 text-muted-foreground">
-            PJ別に、人物の趣味・プライベート・関係性メモを保存する内部台帳。通常cockpit、公開ページ、研究機関workspaceには出さない。
+            PJ別に、人物の誕生日・出身地・居住地・接点・家族・タブーを保存する内部台帳。通常cockpit、公開ページ、研究機関workspaceには出さない。
           </p>
         </div>
         <button
@@ -392,7 +421,7 @@ export function AdminPrivateWikiClient({ initialEntries, projects, initialError 
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="人物 / 所属 / メモ / source"
+              placeholder="人物 / 所属 / 接点 / 家族 / タブー / source"
               className="h-8 w-full rounded-md border border-border bg-background pl-7 pr-2 text-xs text-foreground"
             />
           </span>
@@ -409,13 +438,6 @@ export function AdminPrivateWikiClient({ initialEntries, projects, initialError 
           </select>
         </label>
         <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
-          tag
-          <select value={tagFilter} onChange={(event) => setTagFilter(event.target.value)} className="h-8 rounded-md border border-border bg-background px-2 text-xs">
-            <option value="">全て</option>
-            {allTags.map((tag) => <option key={tag} value={tag}>{tag}</option>)}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
           status
           <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="h-8 rounded-md border border-border bg-background px-2 text-xs">
             <option value="">全て</option>
@@ -423,7 +445,7 @@ export function AdminPrivateWikiClient({ initialEntries, projects, initialError 
           </select>
         </label>
         <button
-          onClick={() => { setQuery(""); setProjectFilter(""); setKindFilter(""); setTagFilter(""); setStatusFilter("active"); }}
+          onClick={() => { setQuery(""); setProjectFilter(""); setKindFilter(""); setStatusFilter("active"); }}
           className="h-8 rounded-md border border-border px-3 text-xs text-muted-foreground hover:text-foreground"
         >
           リセット
@@ -464,14 +486,34 @@ export function AdminPrivateWikiClient({ initialEntries, projects, initialError 
               <input value={editing.relationshipContext} onChange={(event) => setEditing((form) => form && { ...form, relationshipContext: event.target.value })} className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground" />
             </label>
             <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
-              tags
-              <input value={editing.tagsText} onChange={(event) => setEditing((form) => form && { ...form, tagsText: event.target.value })} placeholder="趣味, 関心, 接点" className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground" />
+              誕生日
+              <input value={editing.birthdayLabel} onChange={(event) => setEditing((form) => form && { ...form, birthdayLabel: event.target.value })} placeholder="例: 5/12 / 1984-05-12" className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground" />
             </label>
             <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
               status
               <select value={editing.status} onChange={(event) => setEditing((form) => form && { ...form, status: event.target.value })} className="h-8 rounded-md border border-border bg-background px-2 text-xs">
                 {STATUS_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
+            </label>
+            <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
+              出身地
+              <input value={editing.originLabel} onChange={(event) => setEditing((form) => form && { ...form, originLabel: event.target.value })} className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground" />
+            </label>
+            <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
+              居住地
+              <input value={editing.residenceLabel} onChange={(event) => setEditing((form) => form && { ...form, residenceLabel: event.target.value })} className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground" />
+            </label>
+            <label className="flex flex-col gap-1 text-[11px] text-muted-foreground lg:col-span-2">
+              接点
+              <input value={editing.contactContext} onChange={(event) => setEditing((form) => form && { ...form, contactContext: event.target.value })} placeholder="初回接点 / 話題 / 紹介者など" className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground" />
+            </label>
+            <label className="flex flex-col gap-1 text-[11px] text-muted-foreground lg:col-span-2">
+              家族
+              <textarea value={editing.familyNote} onChange={(event) => setEditing((form) => form && { ...form, familyNote: event.target.value })} rows={2} className="rounded-md border border-border bg-background px-2 py-2 text-xs leading-5 text-foreground" />
+            </label>
+            <label className="flex flex-col gap-1 text-[11px] text-muted-foreground lg:col-span-2">
+              タブー
+              <textarea value={editing.tabooNote} onChange={(event) => setEditing((form) => form && { ...form, tabooNote: event.target.value })} rows={2} placeholder="避ける話題 / 配慮事項" className="rounded-md border border-border bg-background px-2 py-2 text-xs leading-5 text-foreground" />
             </label>
             <label className="flex flex-col gap-1 text-[11px] text-muted-foreground lg:col-span-4">
               本文メモ *
@@ -539,17 +581,52 @@ export function AdminPrivateWikiClient({ initialEntries, projects, initialError 
                       </div>
                       {entry.affiliation && <div className="mt-1 truncate text-xs text-muted-foreground">{entry.affiliation}</div>}
                       {entry.relationshipContext && <div className="mt-1 text-xs leading-5 text-muted-foreground">{entry.relationshipContext}</div>}
+                      {(entry.birthdayLabel || entry.originLabel || entry.residenceLabel) && (
+                        <dl className="mt-2 grid gap-1 text-[11px] text-muted-foreground">
+                          {entry.birthdayLabel && (
+                            <div className="flex min-w-0 gap-1">
+                              <dt className="shrink-0 text-muted-foreground/70">誕生日</dt>
+                              <dd className="truncate">{entry.birthdayLabel}</dd>
+                            </div>
+                          )}
+                          {entry.originLabel && (
+                            <div className="flex min-w-0 gap-1">
+                              <dt className="shrink-0 text-muted-foreground/70">出身地</dt>
+                              <dd className="truncate">{entry.originLabel}</dd>
+                            </div>
+                          )}
+                          {entry.residenceLabel && (
+                            <div className="flex min-w-0 gap-1">
+                              <dt className="shrink-0 text-muted-foreground/70">居住地</dt>
+                              <dd className="truncate">{entry.residenceLabel}</dd>
+                            </div>
+                          )}
+                        </dl>
+                      )}
                     </div>
                     <div className="min-w-0">
                       <p className="whitespace-pre-wrap break-words text-xs leading-5 text-foreground">{entry.memoBody}</p>
-                      {entry.tags.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          {entry.tags.map((tag) => (
-                            <button key={tag} onClick={() => setTagFilter(tag)} className="rounded-md bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground hover:text-foreground">
-                              #{tag}
-                            </button>
-                          ))}
-                        </div>
+                      {(entry.contactContext || entry.familyNote || entry.tabooNote) && (
+                        <dl className="mt-2 grid gap-1.5 text-[11px] leading-4">
+                          {entry.contactContext && (
+                            <div className="grid gap-0.5 sm:grid-cols-[48px_minmax(0,1fr)]">
+                              <dt className="font-medium text-muted-foreground">接点</dt>
+                              <dd className="min-w-0 whitespace-pre-wrap break-words text-muted-foreground">{entry.contactContext}</dd>
+                            </div>
+                          )}
+                          {entry.familyNote && (
+                            <div className="grid gap-0.5 sm:grid-cols-[48px_minmax(0,1fr)]">
+                              <dt className="font-medium text-muted-foreground">家族</dt>
+                              <dd className="min-w-0 whitespace-pre-wrap break-words text-muted-foreground">{entry.familyNote}</dd>
+                            </div>
+                          )}
+                          {entry.tabooNote && (
+                            <div className="grid gap-0.5 sm:grid-cols-[48px_minmax(0,1fr)]">
+                              <dt className="font-medium text-rose-700">タブー</dt>
+                              <dd className="min-w-0 whitespace-pre-wrap break-words text-rose-700">{entry.tabooNote}</dd>
+                            </div>
+                          )}
+                        </dl>
                       )}
                     </div>
                     <div className="min-w-0 rounded-md bg-muted/30 p-2">
