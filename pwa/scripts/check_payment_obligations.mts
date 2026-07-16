@@ -89,7 +89,8 @@ const statutory = buildAmdStatutoryPaymentDrafts({
   ],
   taxForecasts: [
     { ym: "202608", consumptionTaxYen: 405200, corporateTaxYen: 0 },
-    { ym: "202703", consumptionTaxYen: 1689315, corporateTaxYen: 70000 },
+    { ym: "202702", consumptionTaxYen: 1689315, corporateTaxYen: 70000 },
+    { ym: "202703", consumptionTaxYen: 0, corporateTaxYen: 0 },
   ],
 });
 const withholdingH1 = statutory.find((row) => row.sourceKey === "statutory:withholding-income-tax:special:2026-h1");
@@ -106,6 +107,21 @@ assert.equal(statutory.some((row) => row.sourceKey === "statutory:corporate-tax:
 assert.equal(statutory.find((row) => row.sourceKey === "statutory:consumption-tax:final:202601")?.dueDate, "2027-03-01");
 assert.equal(statutory.find((row) => row.sourceKey === "statutory:consumption-tax:interim:202701")?.amountYen, 1047258);
 assert.equal(statutory.find((row) => row.sourceKey === "statutory:social-insurance:202605")?.status, "needs_review");
+const shiftedSettlement = buildAmdStatutoryPaymentDrafts({
+  today: "2026-07-16",
+  horizonMonths: 18,
+  fiscalYearStartMonth: 1,
+  previousCorporateTaxYen: 72000,
+  previousConsumptionTaxYen: 810400,
+  payrollMonths: [],
+  paymentEvidence: [],
+  taxForecasts: [
+    { ym: "202702", consumptionTaxYen: 0, corporateTaxYen: 0 },
+    { ym: "202703", consumptionTaxYen: 302609, corporateTaxYen: 70000 },
+  ],
+});
+assert.equal(shiftedSettlement.find((row) => row.sourceKey === "statutory:consumption-tax:final:202601")?.amountYen, 302609);
+assert.equal(shiftedSettlement.find((row) => row.sourceKey === "statutory:corporate-tax:final:202601")?.amountYen, 70000);
 assert.deepEqual(
   notificationStage({ status: "open", due_date: "2026-07-10", due_date_precision: "day", expected_payment_ym: "202607", amount_status: "exact" }, "2026-07-16"),
   { scheduleKey: "2026-07-10", stage: "overdue-6-days" }

@@ -369,7 +369,14 @@ function taxDrafts(input: BuildStatutoryPaymentsInput, horizonYm: string): Statu
   const forecastByYm = new Map(input.taxForecasts.map((row) => [row.ym, row]));
   const forecastForBaseYm = (baseYm: string) => {
     const paymentYm = ymFromDate(statutoryEndOfMonthDueDate(baseYm));
-    return forecastByYm.get(paymentYm) ?? forecastByYm.get(baseYm);
+    const paymentMonth = forecastByYm.get(paymentYm);
+    const baseMonth = forecastByYm.get(baseYm);
+    if (!paymentMonth && !baseMonth) return undefined;
+    return {
+      ym: paymentYm,
+      consumptionTaxYen: paymentMonth?.consumptionTaxYen || baseMonth?.consumptionTaxYen || 0,
+      corporateTaxYen: paymentMonth?.corporateTaxYen || baseMonth?.corporateTaxYen || 0,
+    };
   };
   const currentYear = Number(input.today.slice(0, 4));
   const startMonth = Math.max(1, Math.min(12, Math.round(input.fiscalYearStartMonth || 1)));
