@@ -160,6 +160,11 @@ export type CapTableSnapshot = {
   id: string;
   label: string;
   effectiveOn: string;
+  transactionType: string;
+  roundId: string | null;
+  outstandingDelta: number;
+  dilutedDelta: number;
+  paidInYenDelta: number;
   rows: CapTableRow[];
   outstandingShares: number;
   dilutedShares: number;
@@ -199,6 +204,7 @@ export const TRANSACTION_LABELS: Record<string, string> = {
   consolidation: "株式併合",
   cancellation: "消却・失効",
   correction: "訂正",
+  in_kind_contribution: "現物出資",
 };
 
 function finiteNumber(value: unknown) {
@@ -267,6 +273,11 @@ export function buildCapTableSnapshots(data: CompanyOverviewData): CapTableSnaps
       id: "legacy-current",
       label: "現在",
       effectiveOn: current.map((row) => row.as_of_ym || "").sort().at(-1) || "",
+      transactionType: "opening_balance",
+      roundId: null,
+      outstandingDelta: 0,
+      dilutedDelta: 0,
+      paidInYenDelta: 0,
       rows,
       outstandingShares: rows.reduce((sum, row) => sum + row.outstandingShares, 0),
       dilutedShares: rows.reduce((sum, row) => sum + row.dilutedShares, 0),
@@ -277,7 +288,11 @@ export function buildCapTableSnapshots(data: CompanyOverviewData): CapTableSnaps
   const balances = new Map<string, Omit<CapTableRow, "ownershipPct" | "dilutedPct">>();
   const snapshots: CapTableSnapshot[] = [];
   for (const transaction of transactions) {
-    for (const entry of transaction.project_equity_entries || []) {
+    const entries = transaction.project_equity_entries || [];
+    const outstandingDelta = entries.reduce((sum, entry) => sum + finiteNumber(entry.outstanding_delta), 0);
+    const dilutedDelta = entries.reduce((sum, entry) => sum + finiteNumber(entry.diluted_delta), 0);
+    const paidInYenDelta = entries.reduce((sum, entry) => sum + finiteNumber(entry.paid_in_yen_delta), 0);
+    for (const entry of entries) {
       const securityClass = entry.security_class || "普通株式";
       const key = `${entry.holder_name}\u0000${securityClass}`;
       const current = balances.get(key) || {
@@ -302,6 +317,11 @@ export function buildCapTableSnapshots(data: CompanyOverviewData): CapTableSnaps
       id: transaction.id,
       label: transactionLabel(transaction),
       effectiveOn: transaction.effective_on,
+      transactionType: transaction.transaction_type,
+      roundId: transaction.round_id,
+      outstandingDelta,
+      dilutedDelta,
+      paidInYenDelta,
       rows,
       outstandingShares: rows.reduce((sum, row) => sum + row.outstandingShares, 0),
       dilutedShares: rows.reduce((sum, row) => sum + row.dilutedShares, 0),
@@ -348,6 +368,247 @@ export function convertibleScenario(data: CompanyOverviewData) {
     estimatedShares,
     proFormaDilutedShares: (current?.dilutedShares || 0) + estimatedShares,
   };
+}
+
+/**
+ * 資本履歴の起点が設立イベントかどうかを判定する pure helper。
+ * legacy-current（旧 cap table の現在値のみ）や opening_balance 止まりの履歴は
+ * 「設立イベントを含む正式な履歴」とは扱わないため、警告を出す。
+ */
+export function capTableOriginWarning(data: CompanyOverviewData, snapshots: CapTableSnapshot[]): boolean {
+  if (snapshots.length === 0) return false;
+  const confirmed = data.transactions
+    .filter((transaction) => transaction.status === "confirmed")
+    .sort((a, b) => a.effective_on.localeCompare(b.effective_on) || a.id.localeCompare(b.id));
+  return confirmed[0]?.transaction_type !== "incorporation";
+}
+
+export type NextRoundInputs = {
+  preMoneyYen: number;
+  raiseYen: number;
+  /** 追加SOプールの目標比率。0..0.5 の小数（10% なら 0.10）。 */
+  targetPoolRate: number;
+  includeConvertibles: boolean;
+  protectHolderName?: string | null;
+};
+
+export type NextRoundScenarioRow = {
+  key: string;
+  holderName: string;
+  holderType: string;
+  beforeShares: number;
+  beforePct: number;
+  afterShares: number;
+  afterPct: number;
+  isConvertible?: boolean;
+  isNewInvestor?: boolean;
+  isOptionPool?: boolean;
+  isProtected?: boolean;
+};
+
+export type NextRoundScenarioResult =
+  | { valid: false; error: string }
+  | {
+      valid: true;
+      error?: undefined;
+      f0: number;
+      existingPoolShares: number;
+      additionalPoolShares: number;
+      issuePriceYen: number;
+      newInvestorShares: number;
+      postFdShares: number;
+      preMoneyYen: number;
+      raiseYen: number;
+      postMoneyYen: number;
+      rows: NextRoundScenarioRow[];
+    };
+
+function outstandingConvertiblesFor(convertibles: ConvertibleInstrument[]) {
+  return convertibles.filter(
+    (instrument) => instrument.status === "outstanding" && finiteNumber(instrument.estimated_conversion_shares) > 0,
+  );
+}
+
+/**
+ * 次回ラウンド試算（何も保存しない pure function）。
+ * option pool の積み増しは pre-money 側で負担し、目標比率 q を満たす x を解析的に求める。
+ * x = max(0, (q*k*F0 - existingPool) / (1 - q*k))、k = 1 + r/p。
+ * 転換前証券の未確定株数は推定しない（estimated_conversion_shares が入力済みのものだけ使う）。
+ * 行は security 単位ではなく holderName 単位で合算し、転換社債が既存株主と同名なら
+ * その株主の post shares にそのまま合算する（新規投資家/追加SOプールだけ別行）。
+ */
+export function computeNextRoundScenario(
+  snapshot: CapTableSnapshot,
+  convertibles: ConvertibleInstrument[],
+  input: NextRoundInputs,
+): NextRoundScenarioResult {
+  const p = finiteNumber(input.preMoneyYen);
+  const r = finiteNumber(input.raiseYen);
+  const q = finiteNumber(input.targetPoolRate);
+  if (p <= 0) return { valid: false, error: "pre-money は0より大きい額を入力してね" };
+  if (r < 0) return { valid: false, error: "調達額は0以上で入力してね" };
+  if (q < 0 || q > 0.5) return { valid: false, error: "追加SOプールの目標比率は0%〜50%で入力してね" };
+
+  const convertibleRows = input.includeConvertibles ? outstandingConvertiblesFor(convertibles) : [];
+  const convertibleShares = convertibleRows.reduce((sum, instrument) => sum + finiteNumber(instrument.estimated_conversion_shares), 0);
+  const f0 = snapshot.dilutedShares + convertibleShares;
+  if (f0 <= 0) return { valid: false, error: "現在の完全希薄化後株式数が0以下のため試算できないよ" };
+
+  const existingPoolShares = snapshot.rows.reduce((sum, row) => sum + Math.max(0, row.dilutedShares - row.outstandingShares), 0);
+  const k = 1 + r / p;
+  const denominator = 1 - q * k;
+  if (denominator <= 0) return { valid: false, error: "この pre-money / 調達額の組み合わせでは目標SOプール比率を満たせないよ" };
+
+  const x = q === 0 ? 0 : Math.max(0, (q * k * f0 - existingPoolShares) / denominator);
+  const issuePriceYen = p / (f0 + x);
+  if (!Number.isFinite(issuePriceYen) || issuePriceYen <= 0) return { valid: false, error: "発行価格を計算できなかったよ" };
+  const newInvestorShares = r / issuePriceYen;
+  const postFdShares = f0 + x + newInvestorShares;
+  const postMoneyYen = p + r;
+
+  const holderMap = new Map<string, { holderType: string; beforeShares: number }>();
+  for (const row of snapshot.rows) {
+    const current = holderMap.get(row.holderName) || { holderType: row.holderType, beforeShares: 0 };
+    holderMap.set(row.holderName, { holderType: row.holderType, beforeShares: current.beforeShares + row.dilutedShares });
+  }
+
+  const mergedConvertibleShares = new Map<string, number>();
+  const standaloneConvertibles: Array<{ holderName: string; shares: number }> = [];
+  for (const instrument of convertibleRows) {
+    const shares = finiteNumber(instrument.estimated_conversion_shares);
+    if (holderMap.has(instrument.holder_name)) {
+      mergedConvertibleShares.set(instrument.holder_name, (mergedConvertibleShares.get(instrument.holder_name) || 0) + shares);
+    } else {
+      standaloneConvertibles.push({ holderName: instrument.holder_name, shares });
+    }
+  }
+
+  const rows: NextRoundScenarioRow[] = [...holderMap.entries()].map(([holderName, info]) => {
+    const mergedShares = mergedConvertibleShares.get(holderName) || 0;
+    const afterShares = info.beforeShares + mergedShares;
+    return {
+      key: `holder:${holderName}`,
+      holderName,
+      holderType: info.holderType,
+      beforeShares: info.beforeShares,
+      beforePct: snapshot.dilutedShares > 0 ? (info.beforeShares / snapshot.dilutedShares) * 100 : 0,
+      afterShares,
+      afterPct: postFdShares > 0 ? (afterShares / postFdShares) * 100 : 0,
+      isProtected: input.protectHolderName != null && holderName === input.protectHolderName,
+    };
+  });
+  for (const instrument of standaloneConvertibles) {
+    rows.push({
+      key: `holder:${instrument.holderName}`,
+      holderName: instrument.holderName,
+      holderType: "convertible",
+      beforeShares: 0,
+      beforePct: 0,
+      afterShares: instrument.shares,
+      afterPct: postFdShares > 0 ? (instrument.shares / postFdShares) * 100 : 0,
+      isConvertible: true,
+    });
+  }
+  if (x > 0.000001) {
+    rows.push({
+      key: "next-round:additional-pool",
+      holderName: "追加SOプール",
+      holderType: "employee",
+      beforeShares: 0,
+      beforePct: 0,
+      afterShares: x,
+      afterPct: postFdShares > 0 ? (x / postFdShares) * 100 : 0,
+      isOptionPool: true,
+    });
+  }
+  rows.push({
+    key: "next-round:new-investor",
+    holderName: "新規投資家（次回ラウンド）",
+    holderType: "vc",
+    beforeShares: 0,
+    beforePct: 0,
+    afterShares: newInvestorShares,
+    afterPct: postFdShares > 0 ? (newInvestorShares / postFdShares) * 100 : 0,
+    isNewInvestor: true,
+  });
+
+  return {
+    valid: true,
+    f0,
+    existingPoolShares,
+    additionalPoolShares: x,
+    issuePriceYen,
+    newInvestorShares,
+    postFdShares,
+    preMoneyYen: p,
+    raiseYen: r,
+    postMoneyYen,
+    rows,
+  };
+}
+
+/**
+ * 対象株主が目標比率を維持できる最低 pre-money を、computeNextRoundScenario と
+ * 同じ関数を使った単調二分探索で求める（別の閉じた式は実装しない = 計算式のドリフト防止）。
+ * 「現在の入力ですでに達成済みなら現在値を返す」ショートカットは意図的に使わない。
+ */
+export function minimumPreMoneyForTarget(
+  snapshot: CapTableSnapshot,
+  convertibles: ConvertibleInstrument[],
+  input: NextRoundInputs,
+  targetMinPct: number,
+): { valid: boolean; preMoneyYen?: number; error?: string } {
+  if (!input.protectHolderName) return { valid: false, error: "保護対象の株主を選んでね" };
+  if (!(targetMinPct > 0) || targetMinPct >= 100) return { valid: false, error: "維持したい比率は0%より大きく100%未満で入力してね" };
+
+  const protectHolderName = input.protectHolderName;
+  const holderExists = snapshot.rows.some((row) => row.holderName === protectHolderName)
+    || (input.includeConvertibles && outstandingConvertiblesFor(convertibles).some((instrument) => instrument.holder_name === protectHolderName));
+  if (!holderExists) return { valid: false, error: "対象の株主が見つからないよ" };
+
+  const pctAt = (preMoneyYen: number) => {
+    const result = computeNextRoundScenario(snapshot, convertibles, { ...input, preMoneyYen });
+    if (!result.valid) return null;
+    return result.rows.find((row) => row.holderName === protectHolderName)?.afterPct ?? null;
+  };
+
+  let hi = Math.max(input.preMoneyYen, input.raiseYen || 1, 1) * 2;
+  let hiPct = pctAt(hi);
+  let guard = 0;
+  while ((hiPct == null || hiPct < targetMinPct) && guard < 60) {
+    hi *= 2;
+    hiPct = pctAt(hi);
+    guard += 1;
+  }
+  if (hiPct == null || hiPct < targetMinPct) return { valid: false, error: "この目標比率は現実的な pre-money では達成できないよ" };
+
+  let lo = 0;
+  for (let i = 0; i < 80; i += 1) {
+    const mid = (lo + hi) / 2;
+    const midPct = pctAt(mid);
+    if (midPct != null && midPct >= targetMinPct) hi = mid;
+    else lo = mid;
+  }
+  return { valid: true, preMoneyYen: hi };
+}
+
+/**
+ * pre-money の感度分析（0.5x〜1.5x）。computeNextRoundScenario をそのまま再利用する。
+ */
+export function nextRoundSensitivity(
+  snapshot: CapTableSnapshot,
+  convertibles: ConvertibleInstrument[],
+  input: NextRoundInputs,
+) {
+  const multipliers = [0.5, 0.75, 1.0, 1.25, 1.5];
+  return multipliers.map((multiplier) => {
+    const preMoneyYen = input.preMoneyYen * multiplier;
+    const result = computeNextRoundScenario(snapshot, convertibles, { ...input, preMoneyYen });
+    const watchedPct = result.valid && input.protectHolderName
+      ? result.rows.find((row) => row.holderName === input.protectHolderName)?.afterPct ?? null
+      : null;
+    return { multiplier, preMoneyYen, result, watchedPct };
+  });
 }
 
 export function capTableTieOut(data: CompanyOverviewData) {
