@@ -4,7 +4,7 @@ import { requireAdmin } from "@/lib/supabase/api-auth";
 
 export const runtime = "nodejs";
 
-const CATEGORIES = new Set(["tax", "social_insurance", "payroll", "reimbursement", "reward", "invoice", "subscription", "loan", "other"]);
+const CATEGORIES = new Set(["tax", "social_insurance", "payroll", "reimbursement", "reward", "invoice", "subscription", "loan", "card_payment", "other"]);
 const STATUSES = new Set(["needs_review", "open", "scheduled", "paid", "cancelled"]);
 const AMOUNT_STATUSES = new Set(["exact", "estimated", "unknown"]);
 const PRECISIONS = new Set(["day", "month", "unknown"]);

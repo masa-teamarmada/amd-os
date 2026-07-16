@@ -38,6 +38,12 @@ function yen(value: number | null): string {
   return value == null ? "金額未確認" : `¥${Math.round(value).toLocaleString("ja-JP")}`;
 }
 
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object" && "message" in error) return String(error.message);
+  return String(error);
+}
+
 function isActiveInMonth(item: { start_ym: string; end_ym: string | null; frequency: string }, ym: string): boolean {
   if (ym < item.start_ym || (item.end_ym && ym > item.end_ym)) return false;
   if (item.frequency === "one_time" || item.frequency === "unknown") return ym === item.start_ym;
@@ -238,7 +244,7 @@ function isoDateFromInternalDate(value: string | null | undefined): string {
   return Number.isFinite(ms) ? currentDateJst(new Date(ms)) : currentDateJst();
 }
 
-function matchesRecurring(text: string, recurring: Array<{ id: string; display_name: string; vendor_name: string | null }>) {
+function matchesRecurring(text: string, recurring: Array<{ id: string; display_name: string; vendor_name: string | null; amount_yen: number }>) {
   const normalized = text.toLowerCase();
   return recurring.find((item) => [item.display_name, item.vendor_name]
     .filter((value): value is string => Boolean(value && value.trim().length >= 3))
@@ -294,7 +300,7 @@ async function generatedFromGmail(
   const [membersRes, tokensRes, recurringRes] = await Promise.all([
     db.from("members").select("member_id,email,code_name,is_admin,status").eq("status", "active").limit(1000),
     db.from("member_google_oauth_tokens").select("member_id,refresh_token").eq("provider", "google").not("refresh_token", "is", null).limit(1000),
-    db.from("company_finance_recurring_items").select("id,display_name,vendor_name").eq("status", "active").limit(1000),
+    db.from("company_finance_recurring_items").select("id,display_name,vendor_name,amount_yen").eq("status", "active").limit(1000),
   ]);
   if (membersRes.error) throw membersRes.error;
   if (tokensRes.error) throw tokensRes.error;
@@ -340,7 +346,10 @@ async function generatedFromGmail(
         const parsed = parsePaymentEmail(subject, message.data.snippet || "", referenceDate);
         if (!parsed) continue;
         const searchableText = `${subject}\n${message.data.snippet || ""}`;
-        const recurring = matchesRecurring(searchableText, recurringRes.data ?? []);
+        const recurringByText = matchesRecurring(searchableText, recurringRes.data ?? []);
+        const recurringByAmount = parsed.amountYen == null ? [] : (recurringRes.data ?? [])
+          .filter((item) => Math.round(Number(item.amount_yen) || 0) === parsed.amountYen);
+        const recurring = recurringByText ?? (recurringByAmount.length === 1 ? recurringByAmount[0] : undefined);
         const aggregateCardStatement = isAggregateCardStatement(searchableText);
         const now = new Date().toISOString();
         obligations.push({
@@ -523,7 +532,7 @@ export async function GET(req: NextRequest) {
     return await run(req, { dryRun, sendNotifications: !dryRun && req.nextUrl.searchParams.get("notify") !== "0" });
   } catch (error) {
     console.error("[payment-obligations cron]", error);
-    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : String(error) }, { status: 500 });
+    return NextResponse.json({ ok: false, error: errorMessage(error) }, { status: 500 });
   }
 }
 
@@ -537,6 +546,6 @@ export async function POST(req: NextRequest) {
     return await run(req, { dryRun, sendNotifications: !dryRun && body.sendNotifications !== false });
   } catch (error) {
     console.error("[payment-obligations manual]", error);
-    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : String(error) }, { status: 500 });
+    return NextResponse.json({ ok: false, error: errorMessage(error) }, { status: 500 });
   }
 }
