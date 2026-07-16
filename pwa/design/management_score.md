@@ -476,7 +476,7 @@ UI で必ず出すもの:
 | 月初 | 前月確定 snapshot を保存 |
 | 手動 | raw / calculate route は診断用に残すが、通常更新では refresh route を使う |
 
-GAS 月次試算表の凍結 baseline は fallback として保持し、予算線は OS ライブテーブル (`projects` / `billing_cycles` / `company_finance_recurring_items`) から毎回組み立てる。月次試算表の実績線は `company_actual_monthly` を正本にし、freee PL と freee 口座残高を refresh route で更新する。raw が partial / failed の時は stale な snapshot を作らないよう score 計算を止める。
+GAS 月次試算表の凍結 baseline は fallback として保持し、通常の予算線は OS ライブテーブル (`projects` / `billing_cycles` / `company_finance_recurring_items` / `company_payment_obligations`) から `source='os_live_monthly_pl'`, `version='os-live-current'` として `company_budget_monthly` に毎回 materialize する。`/management-score` と raw 収集は `company_budget_actual_monthly` のうち `budget_version='os-live-current'` または実績のみの行を読むため、旧GAS baseline の CTB などは通常表示・score入力に混ざらない。月次試算表の実績線は `company_actual_monthly` を正本にし、freee PL と freee 口座残高を refresh route で更新する。freee 口座残高がある月以降のcash予測は、その実績残高をアンカーにして未来月の見込みCFを積む。raw が partial / failed の時は stale な snapshot を作らないよう score 計算を止める。
 
 ---
 

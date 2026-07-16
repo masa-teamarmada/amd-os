@@ -10,6 +10,7 @@ import {
 import { AlertTriangle, CheckCircle2, CircleGauge, ShieldAlert } from "lucide-react";
 import { runMonthlyPlSimulation, type MonthlyPlInputs } from "@/lib/finance/monthly-pl-simulation";
 import { buildLiveMonthlyPlInputs } from "@/lib/finance/live-monthly-pl-inputs";
+import { LIVE_MONTHLY_PL_VERSION } from "@/lib/finance/live-monthly-pl-budget";
 import { expandExtraRevenue, type ExtraRevenueSourceRow } from "@/lib/finance/extra-revenue";
 import { effectivePaymentYmForCycle } from "@/lib/payment-groups";
 import { computeForwardCappedMemberCosts } from "@/lib/reward-summary";
@@ -34,6 +35,7 @@ type BudgetActualRow = {
   variance_yen: number | null;
   cash_amount_yen: number | null;
   runway_months: number | null;
+  budget_version?: string | null;
   budget_payload: Record<string, unknown> | null;
   actual_payload: Record<string, unknown> | null;
 };
@@ -1822,6 +1824,18 @@ function buildLiveGasSimulationResult(
 ): GasSimulationResult {
   const engine = runMonthlyPlSimulation(liveInputs, null);
   const actualByYm = new Map(snapshotResult.rows.map((row) => [row.ym, row]));
+  const visibleProjectIds = new Set<string>();
+  for (const row of engine.rows) {
+    for (const detail of row.pjDetails) {
+      const total =
+        Math.abs(detail.revenue ?? 0) +
+        Math.abs(detail.cashRevenue ?? 0) +
+        Math.abs(detail.externalMember ?? 0) +
+        Math.abs(detail.internalMember ?? 0) +
+        Math.abs(detail.extraRevenue ?? 0);
+      if (total > 0) visibleProjectIds.add(detail.projectId);
+    }
+  }
   const rows: GasMonthlyRow[] = engine.rows.map((row) => {
     const actual = actualByYm.get(row.ym);
     return {
@@ -1861,25 +1875,41 @@ function buildLiveGasSimulationResult(
       spotExpense: row.spotExpense,
       cashInflow: row.cashInflow,
       cashOutflow: row.cashOutflow,
-      pjDetails: row.pjDetails.map((pj) => ({
-        projectId: pj.projectId,
-        revenue: pj.revenue,
-        externalMember: pj.externalMember,
-        internalMember: pj.internalMember,
-        extraRevenue: pj.extraRevenue,
-      })),
+      pjDetails: row.pjDetails
+        .filter((pj) => visibleProjectIds.has(pj.projectId))
+        .map((pj) => ({
+          projectId: pj.projectId,
+          revenue: pj.revenue,
+          externalMember: pj.externalMember,
+          internalMember: pj.internalMember,
+          extraRevenue: pj.extraRevenue,
+        })),
       fixedCostDetails: row.fixedCostDetails.map((fc) => ({ name: fc.name, amount: fc.amount })),
       obligationDetails: row.obligationDetails,
     };
   });
+  let anchorIndex = -1;
+  for (let index = 0; index < rows.length; index += 1) {
+    if (rows[index].actualCashBalance != null) anchorIndex = index;
+  }
+  if (anchorIndex >= 0) {
+    let runningCash = rows[anchorIndex].actualCashBalance ?? rows[anchorIndex].cashBalance;
+    rows[anchorIndex] = { ...rows[anchorIndex], cashBalance: runningCash };
+    for (let index = anchorIndex + 1; index < rows.length; index += 1) {
+      runningCash += rows[index].netCashFlow;
+      rows[index] = { ...rows[index], cashBalance: runningCash };
+    }
+  }
   return {
     params: { rateCloser: engine.params.rateCloser },
     rows,
-    projectList: engine.projectList.map((pj) => ({
-      projectId: pj.projectId,
-      projectName: pj.projectName,
-      closerInternal: pj.closerInternal,
-    })),
+    projectList: engine.projectList
+      .filter((pj) => visibleProjectIds.has(pj.projectId))
+      .map((pj) => ({
+        projectId: pj.projectId,
+        projectName: pj.projectName,
+        closerInternal: pj.closerInternal,
+      })),
   };
 }
 
@@ -1973,7 +2003,8 @@ export default async function ManagementScorePage() {
     safeSelect<BudgetActualRow[]>(() =>
       supabase
         .from("company_budget_actual_monthly")
-        .select("ym,scope,project_id,category,account_name,budget_amount_yen,actual_amount_yen,variance_yen,cash_amount_yen,runway_months,budget_payload,actual_payload")
+        .select("ym,scope,project_id,category,account_name,budget_amount_yen,actual_amount_yen,variance_yen,cash_amount_yen,runway_months,budget_version,budget_payload,actual_payload")
+        .or(`budget_version.eq.${LIVE_MONTHLY_PL_VERSION},budget_version.is.null`)
         .order("ym", { ascending: false })
         .limit(2000)
     ),
@@ -2242,7 +2273,7 @@ export default async function ManagementScorePage() {
   let gasSimulationInputs = snapshotSimulationInputs;
   if (snapshotSimulationInputs?.params) {
     try {
-      const live = await buildLiveMonthlyPlInputs(supabase, {
+      const live = await buildLiveMonthlyPlInputs(admin, {
         startYm: snapshotSimulationInputs.params.startYm,
         months: snapshotSimulationInputs.params.months,
         fallbackParams: snapshotSimulationInputs.params,

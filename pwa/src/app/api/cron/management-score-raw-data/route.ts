@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
       cashBalanceStartYm: params.get("cashStartYm") || undefined,
       cashBalanceEndYm: params.get("cashEndYm") || undefined,
       cashBalanceHistoryStartYm: params.get("cashHistoryStartYm") || undefined,
+      refreshLiveMonthlyPlBudget: params.get("refreshLiveBudget") !== "0",
     });
     return NextResponse.json(result, { status: result.status === "failed" ? 500 : 200 });
   } catch (error) {

@@ -429,6 +429,8 @@ evidence summary の書き方ガイド (= v4):
 
 Finance Simulation は、会社 PL / cash runway を月次で試算する経営判断ビュー。**2026-06-16 に入力ソースを「凍結 snapshot (`company_budget_inputs`)」から「OS のライブテーブル直読み」に切り替えた**。それ以前は GAS 月次試算表から手で起こした `company_budget_inputs` を復元していたため、PJ の契約・MS 進捗・固定費が動いても snapshot を作り直さない限りシミュレータに反映されなかった。今は OS の生データ (請求サイクル / MS 進捗 / 固定費マスタ) が動けば、次に画面を開いた時点で自動でシミュレータに乗る。
 
+2026-07-16 追記: 画面表示だけ live にしても、`company_budget_actual_monthly` には旧GAS baselineが残るため、raw収集や上部KPIに古いPJ行が混ざる。refresh route は live inputs を `source='os_live_monthly_pl'`, `version='os-live-current'` として `company_budget_monthly` に materialize し、通常の表示・raw収集・finance score はそのversionだけ読む。旧GAS baselineは fallback と履歴用に残すが、現在値には混ぜない。
+
 ### なぜライブ駆動にしたか
 
 旧方式は「ある時点で手入力した予算表のコピー」を眺めるだけで、現実 (新規契約・MS 進捗・メンバー報酬の発生) とすぐ乖離した。経営判断 (先3か月キャッシュが持つか、どの月が赤字になるか) は最新の OS 状態で計算しないと意味がない。そこで入力を OS 正本テーブルから毎回組み立てる方式に変えた。
@@ -505,7 +507,7 @@ p21 の 26年4-5月は `billing_cycles.budget_yen` が 0 (reported=¥840,000 の
 
 ### baseline 表示も live 駆動 (= `buildLiveGasSimulationResult`)
 
-シミュレータ画面の初期表示 (panel の `result`) も、凍結 snapshot ではなく live inputs でエンジンを回した結果にする。`page.tsx` の `buildLiveGasSimulationResult` が `runMonthlyPlSimulation(liveInputs)` を**サーバ側で**実行し、その予算行に snapshot baseline (`buildGasSimulationResult`) が持つ実績列 (freee 実績・入金・支払通知など) をマージして `GasSimulationResult` を作る。
+シミュレータ画面の初期表示 (panel の `result`) も、凍結 snapshot ではなく live inputs でエンジンを回した結果にする。`page.tsx` の `buildLiveGasSimulationResult` が `runMonthlyPlSimulation(liveInputs)` を**サーバ側で**実行し、その予算行に実績列 (freee 実績・入金・支払通知など) をマージして `GasSimulationResult` を作る。全月0円のPJ明細は表示から外し、`freeze_from_ym` 以降のPJは予測へ入れない。
 
 - live 構築に失敗したら snapshot にフォールバックして画面は壊さない (`try/catch`)。
 - panel の「シナリオ実行」ボタンが叩く `/api/management-score/finance/simulate` にも live inputs (`gasSimulationInputs`) が渡るので、シナリオ再計算も live 駆動。
@@ -581,7 +583,7 @@ raw が partial / failed のまま score を作ると、最新実績と古い sn
 ```
 
 毎朝まさが /management-score を開く時には、前日までの freee PL 実績、freee 口座残高、内部 signal、score snapshot が同じ run の順序で反映済みになる。
-画面上部の「月次試算表の鮮度」は、予算入力、freee PL、現金残高、raw 収集、score snapshot の最終時刻を並べて表示する。
+画面上部の「月次試算表の鮮度」は、予算入力、freee PL、現金残高、raw 収集、score snapshot の最終時刻を並べて表示する。raw収集時には `os-live-current` の月次試算表も再materializeされ、`stats.liveBudgetRows` / `stats.liveBudgetProjectRows` に件数が残る。
 現金残高が前月まで届いていない場合は警告を出す。
 
 ### evidence drilldown UI (= EvidencePanel)

@@ -48,6 +48,7 @@ export async function GET(req: NextRequest) {
       cashBalanceStartYm: params.get("cashStartYm") || undefined,
       cashBalanceEndYm: params.get("cashEndYm") || undefined,
       cashBalanceHistoryStartYm: params.get("cashHistoryStartYm") || undefined,
+      refreshLiveMonthlyPlBudget: params.get("refreshLiveBudget") !== "0",
     });
 
     if (raw.status === "failed" || (!raw.ok && !calculateOnPartial)) {

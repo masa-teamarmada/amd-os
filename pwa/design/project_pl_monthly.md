@@ -424,7 +424,11 @@ CREATE TABLE company_budget_variance_notes (
 2026-07-16 更新: 日次更新は `/api/cron/management-score-refresh` に一本化する。
 この route が freee PL、freee 口座残高、OS内部 raw signals、score snapshot を同じリクエスト内で順番に更新する。
 現金残高は `company_actual_monthly.category='cash_balance'` として保存し、前月までの行が無ければ `/management-score` 上部の鮮度表示で警告する。
-GAS baseline (`company_budget_inputs` / `company_budget_monthly`) は凍結 fallback として残し、通常の予算線は OS ライブテーブルから再計算する。
+GAS baseline (`company_budget_inputs` / `company_budget_monthly`) は凍結 fallback として残し、通常の予算線は OS ライブテーブルから `source='os_live_monthly_pl'`, `version='os-live-current'` として `company_budget_monthly` に materialize する。
+`company_budget_actual_monthly` は全versionを返す互換viewなので、通常表示・raw収集・finance score入力では `budget_version='os-live-current'` または実績のみの行だけを読む。
+これにより旧GAS baselineに残る CTB などの古いPJ行は、fallbackとしてDBに残っていても月次試算表の現在値へ混ざらない。
+順序は freee PL → freee 口座残高 (`wallet_txns.balance`) → OSライブ月次試算表 materialize → OS内部raw → score snapshot。
+freee口座残高がある月以降のcash予測は、旧GASの初期残高ではなく最新実績残高をアンカーにして未来月の見込みCFを積む。
 
 ### PJ cockpit
 

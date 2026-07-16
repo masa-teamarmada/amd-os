@@ -108,6 +108,30 @@ function addMonths(ym: string, delta: number): string {
   return `${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
+function previousYmInt(ym: string): number | null {
+  const prev = cleanYmText(ym) ? addMonths(ym, -1) : null;
+  return prev ? ymToInt(prev) : null;
+}
+
+function effectiveProjectEndYm(project: ProjectRow): number | null {
+  const contractEnd = ymToInt(project.end_ym);
+  const freezeEnd = project.freeze_from_ym ? previousYmInt(project.freeze_from_ym) : null;
+  if (contractEnd != null && freezeEnd != null) return Math.min(contractEnd, freezeEnd);
+  return contractEnd ?? freezeEnd;
+}
+
+function isProjectBudgetActive(project: ProjectRow | undefined, ym: string): boolean {
+  if (!project) return false;
+  const status = String(project.status || "").toLowerCase();
+  if (["archived", "cancelled", "canceled", "ended", "inactive", "frozen"].includes(status)) return false;
+  if (project.freeze_from_ym && cleanYmText(project.freeze_from_ym) && ym >= project.freeze_from_ym) return false;
+  return isWithinContractPeriod(project, ym);
+}
+
+function isProjectActiveAtAnchor(project: ProjectRow, anchorYm: string): boolean {
+  return isProjectBudgetActive(project, anchorYm) && String(project.status || "").toLowerCase() === "active";
+}
+
 function invoiceDeadlineDay(rule: string | null | undefined): number | null {
   const match = String(rule ?? "").match(/\d{1,2}/);
   if (!match) return null;
@@ -227,11 +251,12 @@ export async function buildLiveMonthlyPlInputs(
       projectName: p.project_name || p.project_id,
       monthlyRevenue: num(p.fee_amount),
       startYm: ymToInt(p.start_ym) ?? startYm,
-      endYm: ymToInt(p.end_ym),
+      endYm: effectiveProjectEndYm(p),
       type: "fixed",
       status: "confirmed",
       billingType: "monthly",
-    }));
+    }))
+    .filter((p) => !p.endYm || p.endYm >= p.startYm);
 
   // ---- 変動収益: variable PJ の billing_cycles を月別に ----
   const variableProjectIds = projects
@@ -247,11 +272,12 @@ export async function buildLiveMonthlyPlInputs(
       projectName: p.project_name || p.project_id,
       monthlyRevenue: 0,
       startYm: ymToInt(p.start_ym) ?? startYm,
-      endYm: ymToInt(p.end_ym),
+      endYm: effectiveProjectEndYm(p),
       type: "fixed",
       status: "tentative",
       billingType: "monthly",
-    }));
+    }))
+    .filter((p) => !p.endYm || p.endYm >= p.startYm);
 
   if (variableProjectIds.length > 0) {
     const billingRes = await supabase
@@ -264,7 +290,7 @@ export async function buildLiveMonthlyPlInputs(
     if (billingRes.error) throw billingRes.error;
     for (const row of (billingRes.data ?? []) as BillingRow[]) {
       const project = projectById.get(row.project_id);
-      if (!isWithinContractPeriod(project, row.ym)) continue;
+      if (!isProjectBudgetActive(project, row.ym)) continue;
       const reported = num(row.budget_reported_amount);
       const budgetYen = num(row.budget_yen);
       // 売上 = reported (あれば) / なければ budget_yen を 0.65 で割り戻し
@@ -359,7 +385,7 @@ export async function buildLiveMonthlyPlInputs(
   // uncapped を計算する対象 = 報酬 plan cycle を持ちうる active PJ。
   // fee_type 問わず全 active PJ を対象にする (p00 含む)。
   const activeProjectIds = projects
-    .filter((p) => String(p.status || "").toLowerCase() === "active")
+    .filter((p) => isProjectActiveAtAnchor(p, anchorYm))
     .map((p) => p.project_id);
 
   const internalCostByPjYm = new Map<string, number>();
