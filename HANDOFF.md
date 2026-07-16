@@ -16,9 +16,10 @@ Topic: 月初合意モーダルの確認事項を発見できるUIへ再設計
 ## Current Truth
 
 - Accepted implementation: `8b014291 fix(pwa): make monthly agreement items unmistakable`。
-- Implementation closeout時点の `main` / `origin/main`: `8b0142914c4bcb05ddee82bce50da478d3e17d4a`。
-- Production readback: `build_version=v3.43.8`, `git_sha=8b0142914c4bcb05ddee82bce50da478d3e17d4a`, `git_branch=main`, `dirty=false`。
-- このhandoff更新でdocs-only commitが積まれる場合、次セッションは `/api/build-info` を再取得し、上記SHAを固定値として扱わない。
+- 月初合意handoff commit: `c33d6f65 docs: hand off monthly agreement UX closeout`。
+- Closeout最終時点の `main` / `origin/main`: `ca544b3078ca50753b7e88a67751edd59bb7f8e1`。`c33d6f65` と `8b014291` はそのancestor。
+- Production readback: `build_version=v3.43.9`, `git_sha=ca544b3078ca50753b7e88a67751edd59bb7f8e1`, `git_branch=main`, `dirty=false`。
+- この最終handoff更新でdocs-only commitが積まれるため、次セッションは `/api/build-info` を再取得し、上記SHAを固定値として扱わない。
 - 仕様正本は `pwa/spec/3-14-monthly-work-agreement-current-spec.md`。利用者向け導線はmanual 2-2、開発者向け契約はmanual 6-6。
 
 ## Verification Run
@@ -36,14 +37,13 @@ Topic: 月初合意モーダルの確認事項を発見できるUIへ再設計
 
 | path group | status | class / owner | resolution action | next judgment condition | risk |
 |---|---:|---|---|---|---|
-| `pwa/src/app/api/admin/payouts/route.ts` ほか payout API/UI/lib、関連 spec/manual/BUGS/guard/build-info | M | other-worker / `amd-payment-obligations` | 稼働中workerが検証・commit/deployまで完了 | 同worker closeout時 | medium |
 | `pwa/bzm/BOOK_A_MASTER_PLAN.md`, `pwa/bzm/terminology_glossary.md`, `pwa/bzm/2026-07-16_narrative_rebuild_ch4_5_merged_v1.md` | M / ?? | other-worker / Book A再構成lane | Book A ownerが単独bundleで検証・commit/deployまたはrevert | 次回Book A closeout前 | medium |
 | `pwa/bzm/2026-07-14_frontmatter_gairei_draft_v1.md` | ?? | preexisting / Book A巻頭lane | まさ確認後にBook A ownerがregister/move/deleteを判断 | 次回Book A closeout前 | low-medium |
 | `pwa/design/atlas_routine.md` | M | other-worker / Atlas D-8 lane | Atlas ownerが単独bundleでcommit/deployまたはrevert | 次回Atlas closeout前 | medium |
 | `pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md` | M | other-worker / L6 extract lane | L6 ownerが検証して単独commit/deployまたはrevert | 次回L6 closeout前 | medium |
 | `pwa/scheduled-tasks/amd-os-l6-meeting-reviewer/SKILL.md`, `pwa/scripts/check_h1_meeting_summary_reviewer.mjs`, `pwa/scripts/review_h1_meeting_summary.mjs` | M | other-worker / H-1 reviewer lane | H-1 ownerがテスト後に単独commit/deployまたはrevert | 次回H-1 closeout前 | medium |
 
-`claude agents` では別タスク `amd-payment-obligations` がrootで稼働中。関連dirtyには `pwa/BUGS.md`, `pwa/design/FEATURE_REGISTRY.md`, `pwa/design/SPEC_pwa.md`, payout manual/changelog、critical guard、payout API/UI/lib、`pwa/src/lib/build-info.ts` が含まれる。現在の一覧は変動しうるため、stage前に必ず取り直す。
+`amd-payment-obligations` の後続bundleは `ca544b30` でcommit/push/deploy済み。専用worktreeもownerが撤収済み。現在のdirty一覧は変動しうるため、stage前に必ず取り直す。
 
 ## Repo / Cleanup State
 

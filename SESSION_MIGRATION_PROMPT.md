@@ -24,9 +24,10 @@ cd /Users/masa/projects/AMD/amd-os
 - 01は全PJの担当内容、02は予定額合計と同じPJ順の内訳を表示する。
 - 主操作は02の後、参考情報はさらに後ろで初期状態を閉じる。
 - accepted implementation commit: `8b014291 fix(pwa): make monthly agreement items unmistakable`。
-- implementation closeout時点のmain/origin/main: `8b0142914c4bcb05ddee82bce50da478d3e17d4a`。
-- production readback: `v3.43.8 / 8b0142914c4bcb05ddee82bce50da478d3e17d4a / main / dirty=false`。
-- handoff docs commitでmain/production SHAが進む可能性があるため、次回は必ず `/api/build-info` を取り直す。
+- 月初合意handoff commit: `c33d6f65 docs: hand off monthly agreement UX closeout`。
+- closeout最終時点のmain/origin/main: `ca544b3078ca50753b7e88a67751edd59bb7f8e1`。`c33d6f65` と `8b014291` はそのancestor。
+- production readback: `v3.43.9 / ca544b3078ca50753b7e88a67751edd59bb7f8e1 / main / dirty=false`。
+- この最終handoff更新でmain/production SHAが進むため、次回は必ず `/api/build-info` を取り直す。
 - まさがproduction画面を確認し、分かりやすくなったと受入確認済み。
 
 今回確立した仕様:
@@ -60,13 +61,13 @@ git log -1 --oneline
 curl -fsS https://amd-os-pwa.vercel.app/api/build-info
 
 残dirtyのowner lane:
-- Payment obligations: pwa/BUGS.md, pwa/design/FEATURE_REGISTRY.md, pwa/design/SPEC_pwa.md, payout manual/changelog/critical guard, payout API/UI/lib, pwa/src/lib/build-info.ts。`amd-payment-obligations` workerが稼働中
 - Book A再構成: pwa/bzm/BOOK_A_MASTER_PLAN.md, pwa/bzm/terminology_glossary.md, pwa/bzm/2026-07-16_narrative_rebuild_ch4_5_merged_v1.md
 - Book A巻頭: pwa/bzm/2026-07-14_frontmatter_gairei_draft_v1.md
 - Atlas D-8: pwa/design/atlas_routine.md
 - L6 extract: pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md
 - H-1 reviewer: pwa/scheduled-tasks/amd-os-l6-meeting-reviewer/SKILL.md, pwa/scripts/check_h1_meeting_summary_reviewer.mjs, pwa/scripts/review_h1_meeting_summary.mjs
 これらを月初合意bundleへ混ぜない。dirty一覧は変動しうるのでstage前に取り直す。
+`amd-payment-obligations` は `ca544b30` でcommit/push/deploy済み、専用worktree撤収済み。
 
 確立済み運用ルール:
 - branch/worktreeを新規作成しない。dirtyならmainのdisposable clean cloneを使えるが、作業後に削除する。
