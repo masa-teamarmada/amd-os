@@ -177,6 +177,8 @@ interface CockpitViewProps {
     assignee?: string; priority?: string; description?: string;
   }>;
   initialModalYm?: string | null;
+  activeTab?: CockpitTab;
+  onTabChange?: (tab: CockpitTab) => void;
 }
 
 function formatYm(ym: string) {
@@ -237,14 +239,20 @@ function usesMsProgressCategory(category: string | null | undefined) {
   return ["dtsu", "ecosystem", "new_business"].includes(String(category || "dtsu").toLowerCase());
 }
 
-type CockpitTab = "progress" | "score-detail";
+export type CockpitTab = "progress" | "score-detail";
 
-export function CockpitView({ cockpit, initialModalYm }: CockpitViewProps) {
-  const [activeTab, setActiveTab] = useState<CockpitTab>("progress");
+export function CockpitView({ cockpit, initialModalYm, activeTab: controlledTab, onTabChange }: CockpitViewProps) {
+  const [localActiveTab, setLocalActiveTab] = useState<CockpitTab>("progress");
+  const activeTab = controlledTab ?? localActiveTab;
   const [modalYm, setModalYm] = useState<string | null>(initialModalYm || null);
   const [modalInitialTab, setModalInitialTab] = useState<MonthlyModalTab | undefined>(undefined);
   const [pastExpanded, setPastExpanded] = useState(false);
   const [progressPatches, setProgressPatches] = useState<ProgressShape[]>([]);
+
+  function selectTab(tab: CockpitTab) {
+    setLocalActiveTab(tab);
+    onTabChange?.(tab);
+  }
 
   function openMonthlyModal(ym: string, initialTab?: MonthlyModalTab) {
     setModalInitialTab(initialTab);
@@ -370,7 +378,10 @@ export function CockpitView({ cockpit, initialModalYm }: CockpitViewProps) {
       {project.projectId === "p00" ? (
         <CockpitManagementScoreHero />
       ) : showAmdScore ? (
-        <CockpitVentureStatus projectId={project.projectId} />
+        <CockpitVentureStatus
+          projectId={project.projectId}
+          onOpenScoreDetail={() => selectTab("score-detail")}
+        />
       ) : null}
 
       {hasScoreDetailTab && (
@@ -386,7 +397,7 @@ export function CockpitView({ cockpit, initialModalYm }: CockpitViewProps) {
                 type="button"
                 role="tab"
                 aria-selected={selected}
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => selectTab(tab.key)}
                 className={`relative min-h-11 w-full px-3 text-center text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1 ${
                   index > 0 ? "border-l border-[#d6d6da]" : ""
                 } ${

@@ -221,10 +221,10 @@ status='tentative' で保存
 | URL | 役割 |
 |---|---|
 | `/venture-map/amd-score` | 全 SU PJ の AMD Score 一覧。主表示は PRS primary、legacy AMD は comparison |
-| `/venture-map/amd-score/[projectId]` | 個別 PJ の PRS primary / PRS history / legacy M-X-F / FRL 6 因子 panel / 関連メンバー一覧 |
-| `/project/[projectId]/cockpit` | cockpit 内に PRS primary chip + score detail tab。legacy M-X-F は comparison として残す |
+| `/project/[projectId]/cockpit?tab=score-detail` | 個別 PJ の PRS primary / PRS history / legacy M-X-F / FRL 6 因子 panel / 関連メンバー一覧 / XRL チェックリスト |
+| `/venture-map/amd-score/[projectId]` | 互換URL。PJ cockpit の score detail tab へ自動転送 (`p99` デモを除く) |
 
-詳細 page の `FrlAlqPanel` は FRL 6 因子表示 + ALQ radar (= 各因子クリックで Tsukuyomi 起動)。
+cockpit の score detail tab にある `FrlAlqPanel` は FRL 6 因子表示 + ALQ radar (= 各因子クリックで Tsukuyomi 起動)。
 
 ## トラブル時
 

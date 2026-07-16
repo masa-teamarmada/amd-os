@@ -12,10 +12,9 @@
  * Shallow Tech モード (TRL=null): TRL 軸を X から除外、k 再校正。
  *
  * 詳細編集 (μ_A/μ_I/μ_G + 5 XRL + FRL のスライダー、α 重み調整) は
- * /venture-map/amd-score/[projectId] で。ここはチップクリック時の sneak peek。
+ * cockpit のスコア詳細タブで行う。ここはチップクリック時の sneak peek。
  */
 
-import Link from "next/link";
 import type { ReactNode } from "react";
 import {
   AXIS_COLOR,
@@ -28,13 +27,18 @@ import type { AmdScoreInputRow } from "@/lib/amd-score-data";
 import { Tex } from "@/components/venture-map/Tex";
 
 interface Props {
-  projectId: string;
   latestInput: AmdScoreInputRow | null;
   alpha: AlphaWeights;
   onClose: () => void;
+  onOpenScoreDetail: () => void;
 }
 
-export function CockpitAmdScoreBreakdownModal({ projectId, latestInput, alpha, onClose }: Props) {
+export function CockpitAmdScoreBreakdownModal({ latestInput, alpha, onClose, onOpenScoreDetail }: Props) {
+  function openScoreDetail() {
+    onClose();
+    onOpenScoreDetail();
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
@@ -46,40 +50,47 @@ export function CockpitAmdScoreBreakdownModal({ projectId, latestInput, alpha, o
       >
         <div className="px-4 py-3 border-b border-[#e5e5e7] flex items-center justify-between">
           <h3 className="text-sm font-semibold">Legacy AMD comparison の内訳</h3>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-sm">
+          <button
+            type="button"
+            aria-label="閉じる"
+            onClick={onClose}
+            className="text-muted-foreground hover:text-foreground text-sm"
+          >
             ✕
           </button>
         </div>
 
         <div className="px-4 py-4 flex flex-col gap-4">
-          {/* 数式と律速の根拠は詳細ページに移設済み (2026-05-09)。モーダルでは値の内訳のみ表示。 */}
+          {/* 数式と律速の根拠は cockpit のスコア詳細に集約。モーダルでは値の内訳のみ表示。 */}
           <div className="text-[11px] text-slate-700 bg-violet-50 border border-violet-200 rounded-md px-3 py-2 leading-relaxed flex items-center justify-between gap-3">
             <div>
               <strong>PRS primary の下に残している legacy AMD comparison</strong>。マクロ M × 会社の XRL X × CEO の FRL F を比較用に読む。
-              数式・律速の経済学的根拠は詳細ページに記載。
+              数式・律速の経済学的根拠はスコア詳細タブに記載。
             </div>
-            <Link
-              href={`/venture-map/amd-score/${projectId}`}
+            <button
+              type="button"
+              onClick={openScoreDetail}
               className="shrink-0 px-2 py-1 rounded bg-violet-600 text-white text-[10px] hover:bg-violet-700"
             >
               数式 →
-            </Link>
+            </button>
           </div>
 
           {!latestInput ? (
             <div className="text-[12px] text-muted-foreground py-6 text-center">
               この PJ の AMD Score 入力はまだ登録されていません。
               <div className="mt-3">
-                <Link
-                  href={`/venture-map/amd-score/${projectId}`}
+                <button
+                  type="button"
+                  onClick={openScoreDetail}
                   className="inline-block px-3 py-1.5 rounded bg-slate-900 text-white text-[11px]"
                 >
-                  入力ページを開く
-                </Link>
+                  スコア詳細を開く
+                </button>
               </div>
             </div>
           ) : (
-            <BreakdownContent latestInput={latestInput} alpha={alpha} projectId={projectId} />
+            <BreakdownContent latestInput={latestInput} alpha={alpha} onOpenScoreDetail={openScoreDetail} />
           )}
         </div>
       </div>
@@ -93,11 +104,11 @@ const FALLBACK_NOTE_MODAL = "根拠となる情報がないため仮置き";
 function BreakdownContent({
   latestInput,
   alpha,
-  projectId,
+  onOpenScoreDetail,
 }: {
   latestInput: AmdScoreInputRow;
   alpha: AlphaWeights;
-  projectId: string;
+  onOpenScoreDetail: () => void;
 }) {
   const result = calculateAmdScore(
     {
@@ -282,12 +293,13 @@ function BreakdownContent({
         <span className="text-[11px] text-muted-foreground">
           7 軸を編集・α を調整するには:
         </span>
-        <Link
-          href={`/venture-map/amd-score/${projectId}`}
+        <button
+          type="button"
+          onClick={onOpenScoreDetail}
           className="px-3 py-1 rounded bg-slate-900 text-white text-[11px]"
         >
-          AMD Score 詳細ページ →
-        </Link>
+          スコア詳細を開く →
+        </button>
       </div>
     </>
   );

@@ -5,7 +5,7 @@
  *
  * 仕様: pwa/design_log/2026-05_amd_score.md
  *   - 並べ替え: score 降順 (default) / phase 別 / lane 別
- *   - 行クリック → /venture-map/amd-score/[projectId]
+ *   - 行クリック → PJ cockpit のスコア詳細タブ
  *   - α 重みは下に独立カードで現役のみ表示 (編集は個別 PJ ビューで)
  */
 
@@ -17,6 +17,7 @@ import {
 } from "@/lib/amd-score";
 import type { AmdScoreInputRow } from "@/lib/amd-score-data";
 import { buildPrimaryScoreSnapshot } from "@/lib/amd-score-derived";
+import { amdScoreDetailHref } from "@/lib/amd-score-routes";
 import type { VentureRow } from "@/lib/venture-map-data";
 import { LaneBadges } from "@/components/lanes/LaneBadges";
 
@@ -116,7 +117,7 @@ export function AmdScoreList({ ventures, inputs, alpha }: Props) {
               <tr key={r.venture.project_id} className="border-t border-[#f1f5f9] hover:bg-slate-50">
                 <td className="px-3 py-2">
                   <Link
-                    href={`/venture-map/amd-score/${r.venture.project_id}`}
+                    href={amdScoreDetailHref(r.venture.project_id)}
                     className="hover:underline font-medium"
                   >
                     {r.venture.display_name}

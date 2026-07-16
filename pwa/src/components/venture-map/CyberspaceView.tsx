@@ -36,6 +36,7 @@ import {
 } from "@/lib/amd-score";
 import type { AmdScoreInputRow } from "@/lib/amd-score-data";
 import { resolveFrl } from "@/lib/amd-score-derived";
+import { amdScoreDetailHref } from "@/lib/amd-score-routes";
 import type { VentureRow } from "@/lib/venture-map-data";
 
 // ============================================================
@@ -852,7 +853,7 @@ function PjDetailHud({ pj, onClose }: { pj: PjPoint; onClose: () => void }) {
         WORLD POS · M={pj.mNorm.toFixed(2)} X={pj.xNorm.toFixed(2)} F={pj.fNorm.toFixed(2)}
       </div>
       <a
-        href={`/venture-map/amd-score/${pj.projectId}`}
+        href={amdScoreDetailHref(pj.projectId)}
         style={{
           display: "block",
           marginTop: 10,

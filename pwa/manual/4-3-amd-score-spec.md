@@ -2,6 +2,8 @@
 
 AMD Score は、PJ / SU の価値・成熟度を数値化する指標。現行画面の主表示は **PRS Primary** (`P x R x S`)。M / X / F と 7 軸 Cobb-Douglas は **legacy AMD comparison** として残し、PRS の根拠・履歴比較・旧モデル確認に使う。
 
+日常の確認・入力は PJ cockpit の **スコア詳細** に集約する。正規URLは `/project/{projectId}/cockpit?tab=score-detail`。PRS、R_net、FRL、XRL の根拠とチェックリストを同じタブで確認し、旧 `/venture-map/amd-score/{projectId}` は互換URLとして cockpit へ自動転送する。
+
 > 実装者向けの確定仕様は [/spec/4-2-amd-score-current-spec](/spec/4-2-amd-score-current-spec)。理論導出は `/bzm`、日常画面での読み方はこの章に置く。
 
 ## 先にここだけ読む

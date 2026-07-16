@@ -47,7 +47,8 @@
 | `/native/business-cards` | iOS名刺タブ用のナビ無しnative shell。通常の月初合意overlayを重ねず、認証cookieつきWKWebViewから `/business-cards` と同じUI/APIを使う |
 | `/poc` | PoC案件化。Seeds とPoC先を入力し、その掛け合わせからヒアリング論点、PoC条件、謝礼、契約、資金、収益分配を追う |
 | `/venture-map/amd-score` | AMD Score 一覧 |
-| `/venture-map/amd-score/[projectId]` | AMD Score 詳細 |
+| `/project/[projectId]/cockpit?tab=score-detail` | PJ cockpit 内の AMD Score 詳細 |
+| `/venture-map/amd-score/[projectId]` | 旧 AMD Score 詳細の互換 route。cockpit の `スコア詳細` へ redirect (`p99` デモを除く) |
 | `/atlas` / `/atlas/*` | Atlas signal / story / divergence / map |
 | `/admin/*` | 管理者向け台帳・設定・請求・支払・prompt |
 | `/admin/japanese-culture-map` | 日本文化マップ。`jp_culture_items` の active 行を、admin layout gate 内でマインドマップ / 日本地図として読む。旧 `/japanese-culture-map` はこの route へ redirect |

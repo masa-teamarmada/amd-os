@@ -691,6 +691,25 @@ expectIncludes("src/components/cockpit/CockpitView.tsx", [
   "lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_300px]",
   "lg:sticky lg:top-12",
   "renderMsSetupBanner",
+  "CockpitAmdScoreDetailTab",
+  "onOpenScoreDetail",
+  "score-detail",
+]);
+
+expectIncludes("src/components/cockpit/CockpitAmdScoreDetailTab.tsx", [
+  "AmdScoreView",
+  "embedded",
+]);
+expectIncludes("src/components/venture-map/AmdScoreView.tsx", [
+  "XrlChecklistPanel",
+]);
+expectIncludes("src/lib/amd-score-routes.ts", [
+  "amdScoreDetailHref",
+  "?tab=score-detail",
+  '"p99"',
+]);
+expectIncludes("src/app/(app)/venture-map/amd-score/[projectId]/page.tsx", [
+  "redirect(amdScoreDetailHref(projectId))",
 ]);
 
 expectIncludes("src/lib/supabase-data.ts", [

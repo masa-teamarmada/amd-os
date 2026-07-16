@@ -51,7 +51,7 @@ Supabase
 | `/project/p00/cockpit` | AMD 全社 cockpit |
 | `/management-score` | AMD Management Score |
 | `/venture-map/amd-score` | AMD Score 一覧 |
-| `/venture-map/amd-score/{projectId}` | AMD Score 詳細 |
+| `/project/{projectId}/cockpit?tab=score-detail` | PJ cockpit 内の AMD Score 詳細。旧 `/venture-map/amd-score/{projectId}` はここへ自動転送 |
 | `/atlas` | 外部マクロ signal / story |
 | `/atlas/macrotrends` | 構造課題と変化仮説 |
 | `/atlas/divergence` | 世界 / 日本差分 |

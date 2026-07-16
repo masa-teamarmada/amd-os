@@ -32,6 +32,7 @@ import {
   latestVisibleScorableScoreInput,
 } from "@/lib/amd-score-derived";
 import { AAA_PROJECT_ID, aaaVenture } from "@/lib/demo-aaa-data";
+import { amdScoreDetailHref } from "@/lib/amd-score-routes";
 import { createClient } from "@/lib/supabase/client";
 import { ALPHA_DEFAULT, type AlphaWeights } from "@/lib/amd-score";
 // PHASE_COLOR / PHASE_LABEL_JP / AmdScorePhase / classifyPhase は使用しない (検証データ蓄積後に復活検討、2026-05-09)
@@ -249,7 +250,7 @@ export function HudCockpitVentureStatus({ projectId }: { projectId: string }) {
     () => computeCockpitAmdScoreSeries(amdInputs, alpha),
     [amdInputs, alpha]
   );
-  // Score 詳細ページと同じ軸思想: X は score series の評価日、Y は実データ範囲にフィット。
+  // cockpit のスコア詳細と同じ軸思想: X は score series の評価日、Y は実データ範囲にフィット。
   const scoreRange = useMemo(() => {
     const now = SCORE_RANGE_FALLBACK_NOW;
     if (!scoreSeries.length) return { xMin: now - 30 * 86400000, xMax: now + 30 * 86400000 };
@@ -319,7 +320,7 @@ export function HudCockpitVentureStatus({ projectId }: { projectId: string }) {
     if (editingEvent || creatingAt) return; // モーダル開いてる間は無効
     const { x } = svgCoord(e);
     if (x < ML || x > ML + PW) return;
-    router.push(`/venture-map/amd-score/${projectId}`);
+    router.push(amdScoreDetailHref(projectId));
   };
 
   if (loading) {
@@ -434,7 +435,7 @@ export function HudCockpitVentureStatus({ projectId }: { projectId: string }) {
             グラフ未評価の PJ には未評価リンクをそのままここに残す。 */}
         {latestScore == null && (
           <Link
-            href={`/venture-map/amd-score/${projectId}`}
+            href={amdScoreDetailHref(projectId)}
             className="border border-dashed border-cyan-300/30 px-2 py-0.5 font-mono text-[11px] text-cyan-100/62 hover:bg-cyan-300/8"
             title="PRS primary 入力待ち。クリックで入力"
           >
@@ -498,7 +499,7 @@ export function HudCockpitVentureStatus({ projectId }: { projectId: string }) {
               </span>
             )}
             <Link
-              href={`/venture-map/amd-score/${projectId}`}
+              href={amdScoreDetailHref(projectId)}
               className="border border-cyan-300/30 bg-cyan-300/8 px-2 py-0.5 font-black text-cyan-100 hover:bg-cyan-300/14"
             >
               PRS DETAIL →
@@ -662,10 +663,10 @@ export function HudCockpitVentureStatus({ projectId }: { projectId: string }) {
                 style={{ cursor: "pointer" }}
                 onClick={(e) => {
                   e.stopPropagation();
-                  router.push(`/venture-map/amd-score/${projectId}`);
+                  router.push(amdScoreDetailHref(projectId));
                 }}
               >
-                <title>クリックで AMD スコア詳細ページを開く</title>
+                <title>クリックで cockpit のスコア詳細を開く</title>
                 {/* 引き出し線: 最新プロット → pill 左辺中点 */}
                 <line
                   x1={lx}
@@ -923,10 +924,10 @@ export function HudCockpitVentureStatus({ projectId }: { projectId: string }) {
 
       {scoreBreakdownOpen && (
         <CockpitAmdScoreBreakdownModal
-          projectId={projectId}
           latestInput={latestInput}
           alpha={alpha}
           onClose={() => setScoreBreakdownOpen(false)}
+          onOpenScoreDetail={() => router.push(amdScoreDetailHref(projectId))}
         />
       )}
 

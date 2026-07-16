@@ -149,9 +149,10 @@ $$
 | route | 役割 |
 |---|---|
 | `/venture-map/amd-score` | 全 SU PJ の PRS primary 一覧。legacy AMD は comparison 列 |
-| `/venture-map/amd-score/[projectId]` | PRS primary 入力 / PRS history / legacy M-X-F / FRL panel |
+| `/project/[projectId]/cockpit?tab=score-detail` | PRS primary 入力 / PRS history / R_net / legacy M-X-F / FRL panel / XRL チェックリストの正規画面 |
+| `/venture-map/amd-score/[projectId]` | 旧個別URLから cockpit score detail への互換 redirect (`p99` デモを除く) |
 | `/venture-map/amd-score/retrofit` | PRS review queue + legacy alpha 調整 |
-| `/project/[projectId]/cockpit` | PRS primary status chip / legacy AMD comparison |
+| `/project/[projectId]/cockpit` | PRS primary status chip / legacy AMD comparison / 進捗管理 |
 
 ## PRS primary
 
@@ -170,7 +171,7 @@ PRS (`P x R x S`) を主表示へ切り替えた。legacy 7軸 AMD Score / M×X�
 |---|---|
 | `pwa/src/lib/amd-score.ts` | `PRS_ALPHA_DEFAULT` / `calculatePrsScore()`。P/R_net missing 時は score を返さず `status='missing'` |
 | `pwa/src/lib/amd-score-derived.ts` | `derivePrsComponents()` / `buildPrimaryScoreSnapshot()`。stored P/R_net を優先し、主表示と legacy comparison を同じ row から作る |
-| `pwa/src/components/venture-map/AmdScoreView.tsx` | detail 上で P / R_net を保存し、PRS を primary、legacy AMD を comparison として表示 |
+| `pwa/src/components/venture-map/AmdScoreView.tsx` | cockpit score detail 上で P / R_net を保存し、PRS を primary、legacy AMD を comparison として表示 |
 | `pwa/src/components/venture-map/AmdScoreRetrofit.tsx` | PRS review queue。missing PJ の棚卸しと legacy α 比較 |
 
 禁止事項:
@@ -183,9 +184,9 @@ P/R_net rubric の厳密化と全 PJ の埋め切りは継続レビュー対象�
 
 legacy 値しかない PJ でも、primary を legacy AMD へ戻さない。画面上は PRS review pending とし、legacy は `Legacy AMD comparison` / `legacy M-X-F` / `comparison only` の文脈で表示する。
 
-## Score detail page 表示契約
+## Score detail 表示契約
 
-`/venture-map/amd-score/[projectId]` と cockpit の `スコア詳細` embedded view は、次の値をすべて説明可能な形で表示する。ここにある項目を UI に出す場合、算出式または入力元をこの章にも残す。
+cockpit の `スコア詳細` embedded view は、次の値をすべて説明可能な形で表示する。ここにある項目を UI に出す場合、算出式または入力元をこの章にも残す。旧 `/venture-map/amd-score/[projectId]` は同じ内容を別表示せず、この cockpit tab へ redirect する。
 
 | UI表示 | 現行の位置づけ | 算出 / 取得元 |
 |---|---|---|

@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 /**
  * α 重み retrofit ページ。
  *
- * 詳細ページ (/venture-map/amd-score/[projectId]) からのみリンク (タブバーには載せない)。
+ * cockpit のスコア詳細タブからのみリンク (タブバーには載せない)。
  * 全 PJ の評価入力を読み込んで、α を変えたときに各 PJ の score がどう動くかを並列に
  * 見ながら慎重に調整するための専用画面。
  */

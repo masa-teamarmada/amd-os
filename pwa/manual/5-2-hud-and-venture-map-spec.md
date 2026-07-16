@@ -151,7 +151,7 @@ D_i(t) = dN_i/dt - dM_i/dt
 |---|---|
 | `/venture-map` | lane ごとの macro wave、過去 PJ、paper / policy / investment の重なり |
 | `/venture-map/amd-score` | PJ / SU 単位の AMD Score 一覧 |
-| `/venture-map/amd-score/{projectId}` | 1 PJ の PRS primary、PRS history、legacy M-X-F、律速軸 |
+| `/project/{projectId}/cockpit?tab=score-detail` | 1 PJ の PRS primary、PRS history、legacy M-X-F、律速軸、XRL チェックリスト。HUD のスコア導線もここへ着地 |
 | `/venture-map/timeline-3d` | 過去 PJ と macro wave の時間軸 |
 | `/venture-map/state-space` | Triple Helix 状態空間 |
 | `/venture-map/oscillator` | coupled oscillator 実験 |

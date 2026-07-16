@@ -109,7 +109,7 @@ pwa/
 | `/dashboard-cyber-glass-cube` | 廃案比較用の旧 Cyber Dashboard 第2案。ガラスキューブPJ群は情報構造がカオス化したため、今後の正本候補にはしない。公開モックは `/mock/dashboard-cyber-glass-cube` |
 | `/dashboard-cyber-hud-wall` | Cyber Dashboard 第2案の作り直し。固定視点の `three.js` 空間に、参考HUD画像のようなKPI/PJ/Proof/Alert HUDモジュールを固定配置し、PJ選択時は同一空間内にPJ Cockpit Spatial Viewを展開する。公開モックは `/mock/dashboard-cyber-hud-wall` |
 | `/mypage` | 自分の参加 PJ × 今月の活動 + 今週やったこと + 月次報酬予定。PM向け月次TODO/nudgeは出さない。りり (`ID006`) は NIMS からの無償出向のため、報酬額は金額ではなく `ー` 表示 |
-| `/project/[projectId]/cockpit` | PJ コックピット (上 Header + Hero (AMD Score + XRL 横並び) + MS / 資料 + 経営ハイライト + ガバナンス + 助成金 + 下段 月次 + MTGサマリ)。Header はPJリスト正本からPJメンバー、契約条件、業務委託料、支払い条件、提出物、立替精算の発生額/不可を表示する。資料は Drive の当該PJ folder配下 `AMD OS 資料` folder に保存し、OSには `project_documents` のmetadata/linkだけを残す。旧 `proactive_outbox` 由来のTODO欄は表示しない。`max-w-[1600px]` で画面幅を広く使う。詳細は [`cockpit.md`](cockpit.md) / [`project_strategy_signals.md`](project_strategy_signals.md) |
+| `/project/[projectId]/cockpit` | PJ コックピット (上 Header + Hero (AMD Score + XRL 横並び) + `進捗管理` / `スコア詳細` + MS / 資料 + 経営ハイライト + ガバナンス + 助成金 + 下段 月次 + MTGサマリ)。`?tab=score-detail` で PRS / R_net / FRL / XRL evidence と XRL チェックリストを直接開く。Header はPJリスト正本からPJメンバー、契約条件、業務委託料、支払い条件、提出物、立替精算の発生額/不可を表示する。資料は Drive の当該PJ folder配下 `AMD OS 資料` folder に保存し、OSには `project_documents` のmetadata/linkだけを残す。旧 `proactive_outbox` 由来のTODO欄は表示しない。`max-w-[1600px]` で画面幅を広く使う。詳細は [`cockpit.md`](cockpit.md) / [`project_strategy_signals.md`](project_strategy_signals.md) |
 | `/institutions/[institutionId]/cockpit` | 研究機関カードから開く機関コックピット。KUTE (`inst_kute`) は既存KUTE PJ (`p25`)、NIMS (`inst_nims`) は正式NIMS OS導入PJ (`p28`) の `CockpitView` を同画面へマウントし、MS進捗・月次・MTG履歴を操作/確認する。CX (`p20`) はNIMS導入の初期ユースケースであり、NIMS PJそのものとは分けて扱う。既存PJコックピットの内容も研究機関ERS側の評価内容も削除しない。上部にERS概要と readiness snapshot を置き、進捗管理とスコア詳細をタブで分ける |
 | `/project/[projectId]/config` | 旧PJ設定。コックピットからは導線を外し、PJごとの契約・請求・支払条件は `/admin/projects` を正本にする |
 | `/manual` `/manual/[slug]` | AMD OS マニュアル。`pwa/manual/*.md` を正本として表示し、左カラムで章タイトル / summary / 見出し / 本文 / 画面パス / テーブル名を全文検索できる。`/manual` と各章だけに Gemini 実験版の `ManualTsukuyomiFloat` を出し、`POST /api/manual/tsukuyomi/ask` が該当章のマニュアル本文を根拠に回答する。DB 書き込みや既存つくよみ修正 tool は持たない |
@@ -127,8 +127,8 @@ pwa/
 | `/venture-map` | 9 PJ プロット (View A) |
 | `/venture-map/su/[id]` | SU 個別ビュー (XRL × マクロ指数) |
 | `/venture-map/amd-score` | AMD Score 一覧 (PRS primary、legacy M-X-F comparison)。詳細は [`amd_score.md`](amd_score.md) |
-| `/venture-map/amd-score/[projectId]` | AMD Score 個別 (PRS Primary / PRS history / legacy Triple Helix M-X-F / 軸クリックで Tsukuyomi) |
-| `/venture-map/amd-score/retrofit` | α 重み調整 + 全 PJ シミュレーション (タブバー非表示、詳細ページからリンク) |
+| `/venture-map/amd-score/[projectId]` | 旧 AMD Score 個別URL。`/project/[projectId]/cockpit?tab=score-detail` へ redirect (`p99` デモを除く) |
+| `/venture-map/amd-score/retrofit` | α 重み調整 + 全 PJ シミュレーション (タブバー非表示、cockpit score detail からリンク) |
 | `/management-score` | AMD Management Score (会社全体の経営状況スコア: 先手力 / 財務耐久 / 既存PJ継続 / 新規案件獲得 / 戦略接近度)。詳細は [`management_score.md`](management_score.md) |
 | `/admin/contracts` | 契約管理。初期表示は `registry_status IN ('accepted','candidate')` かつ cancelled 以外を1契約1行で表示し、版違い・形式違い・送付確認・微修正・DocuSign依頼は文書または関連記録へ収める。`canonical_contract_id` を契約同一性の正本とし、移行前だけ契約名による暫定集約を使う。PCはadmin本文の全幅を使い、PJ → 契約名を左固定。狭い画面は契約ごとの要約表示へ切り替える。行から大きなモーダルを開き、最上段で契約期限、立替経費、押印証跡、秘密保持へ即答し、文書と版・関連記録を別タブで確認する。実ファイル本体は `共有ドライブ/ARMADA/a3_backoffice/契約` に置き、DBにはDrive metadata/linkだけ保存する。詳細は [`/spec/5-6-contracts-management-current-spec`](/spec/5-6-contracts-management-current-spec) |
 | `/venture-map/oscillator` | (実験) coupled oscillator 可視化 |

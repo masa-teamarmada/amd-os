@@ -3,7 +3,7 @@
 /**
  * PRS primary + legacy AMD comparison モデル説明パネル。
  *
- * AMD Score 詳細ページ (/venture-map/amd-score/[projectId]) と
+ * PJ cockpit のスコア詳細タブと
  * Retrofit ページ (/venture-map/amd-score/retrofit) の両方で同一のモデル構造を表示。
  *
  * 数式はすべて LaTeX (Tex) で表示。各引用文献を要素ごとに併記。

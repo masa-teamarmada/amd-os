@@ -19,7 +19,7 @@
 
 ## 何を解いたか
 
-`/venture-map/amd-score` (一覧) + `/venture-map/amd-score/[projectId]` (個別) + PJ cockpit に AMD Score を実装した。現行 primary は **PRS (`P x R x S`)**。旧 7 軸 Cobb-Douglas / M-X-F は legacy AMD comparison と evidence chain として残す。
+`/venture-map/amd-score` (一覧) + PJ cockpit の `スコア詳細` に AMD Score を実装した。個別の正規URLは `/project/[projectId]/cockpit?tab=score-detail`。旧 `/venture-map/amd-score/[projectId]` は互換 redirect (`p99` デモを除く)。現行 primary は **PRS (`P x R x S`)**。旧 7 軸 Cobb-Douglas / M-X-F は legacy AMD comparison と evidence chain として残す。
 
 理論正本: [`/Users/masa/projects/AMD/before-zero/theory/amd_score.md`](../../../before-zero/theory/amd_score.md)。理論議論の最新正本は `BZSF/before_zero_theory.md`、全体解説は `BZSF/PRS_STRATEGIC_SLACK_OVERVIEW_20260612.html`。
 
@@ -153,7 +153,7 @@ $$
 | 15,000-50,000 | scale (シリーズ A/B) |
 | 50,000-100,000 | graduation (IPO/卒業) |
 
-**UI 上は非表示**: 現状実証データが少なくスコアレベルとフェーズ判定の精度が不十分なため、コックピット PJ Status / AMD Score 詳細ページ / Score 一覧 / breakdown モーダルの全箇所で **フェーズタブ・色付け・フィルタを非表示**にしている (まさ判断 2026-05-09)。`classifyPhase` / `PHASE_LABEL_JP` / `PHASE_COLOR` 自体は LLM context (Tsukuyomi chat) で内部利用するため残す。検証データが揃ったら復活検討。
+**UI 上は非表示**: 現状実証データが少なくスコアレベルとフェーズ判定の精度が不十分なため、コックピット PJ Status / cockpit スコア詳細 / Score 一覧 / breakdown モーダルの全箇所で **フェーズタブ・色付け・フィルタを非表示**にしている (まさ判断 2026-05-09)。`classifyPhase` / `PHASE_LABEL_JP` / `PHASE_COLOR` 自体は LLM context (Tsukuyomi chat) で内部利用するため残す。検証データが揃ったら復活検討。
 
 ---
 
@@ -168,7 +168,8 @@ $$
 | [`src/components/venture-map/AmdScoreView.tsx`](../src/components/venture-map/AmdScoreView.tsx) | 個別 PJ ビュー (hero / radar / 寄与表 / 経時 / 入力編集 / α サイドバー) |
 | [`src/components/venture-map/AmdScoreList.tsx`](../src/components/venture-map/AmdScoreList.tsx) | 全 SU PJ 一覧 (score 降順 / phase filter) |
 | [`src/app/(app)/venture-map/amd-score/page.tsx`](../src/app/(app)/venture-map/amd-score/page.tsx) | List ページ (server) |
-| [`src/app/(app)/venture-map/amd-score/[projectId]/page.tsx`](../src/app/(app)/venture-map/amd-score/[projectId]/page.tsx) | View ページ (server) |
+| [`src/components/cockpit/CockpitAmdScoreDetailTab.tsx`](../src/components/cockpit/CockpitAmdScoreDetailTab.tsx) | cockpit 内の正規個別 view。`AmdScoreView embedded` を表示 |
+| [`src/app/(app)/venture-map/amd-score/[projectId]/page.tsx`](../src/app/(app)/venture-map/amd-score/[projectId]/page.tsx) | 旧個別URLから cockpit score detail への redirect (`p99` デモを除く) |
 
 ### Cockpit 連携
 
@@ -207,12 +208,12 @@ amd_score_alpha (alpha jsonb, effective_from / effective_to)
 
 まさフィードバック「XRL / μ / FRL の値の根拠が UI で見たい」に対応:
 
-- **入力 (詳細ページ)**: `AmdScoreView.tsx` の `AxisSliderWithNote` で各軸スライダーの直下に textarea で根拠を入力
-- **読み取り (詳細ページ)**: `Factor3Breakdown` の 3 要素カード内で各軸ラベル直下に italic で根拠表示 (リアルタイム反映)
+- **入力 (cockpit スコア詳細)**: `AmdScoreView.tsx` の `AxisSliderWithNote` で各軸スライダーの直下に textarea で根拠を入力
+- **読み取り (cockpit スコア詳細)**: `Factor3Breakdown` の 3 要素カード内で各軸ラベル直下に italic で根拠表示 (リアルタイム反映)
 - **読み取り (Cockpit モーダル)**: `CockpitAmdScoreBreakdownModal.tsx` の `FactorRow` の `subtitle` で同じく italic で根拠表示
 - **Tsukuyomi 統合**: `update_amd_score_input` tool に `mu_notes_a/i/g` `xrl_notes_trl/brl/grl/srl/hrl` パラメータ追加。LLM がスコアを更新するときに**値だけでなく必ず根拠も書く**運用
 
-### 詳細ページのレイアウト (2026-05-09 改修 後期)
+### cockpit スコア詳細のレイアウト (2026-05-09 改修 後期)
 
 現行レイアウト:
 ```
@@ -232,7 +233,7 @@ XrlChecklistPanel      (XRL観測チェックリスト。達成レベルをtrl..
 
 ### Score detail display contract (2026-06-09)
 
-スコア詳細ページに表示するパラメータは、必ず `/spec/4-2-amd-score-current-spec.md` と `/manual/4-3-amd-score-spec.md` に算出元を持つ。表示だけ増やして説明を増やさない変更は禁止。
+cockpit のスコア詳細に表示するパラメータは、必ず `/spec/4-2-amd-score-current-spec.md` と `/manual/4-3-amd-score-spec.md` に算出元を持つ。表示だけ増やして説明を増やさない変更は禁止。
 
 | UI parameter | Component / function | Calculation contract |
 |---|---|---|
@@ -270,17 +271,17 @@ PRS `P` / `R_net` の resolution order は `resolvePrsInputs()` を正本にす�
 
 #### M/X/F Dashboard Copy Rule (2026-05-17)
 
-- `/hud/dashboard` の Project Signal Board に出す M/X/F 数値は、AMD Score 詳細ページの `BalanceBar` と同じ「今日以前の最新評価行」からコピーする。
-- ダッシュボード側で future / retrofit row を拾わない。詳細ページと同じく `evaluated_at <= today` の最新行を使う。
+- `/hud/dashboard` の Project Signal Board に出す M/X/F 数値は、cockpit スコア詳細の `BalanceBar` と同じ「今日以前の最新評価行」からコピーする。
+- ダッシュボード側で future / retrofit row を拾わない。cockpit スコア詳細と同じく `evaluated_at <= today` の最新行を使う。
 - M は Macrotrend raw contribution であり、理論最大値を置かない。`10^α_sigma` で割った達成率にしない。
 - X/F も表示値は raw contribution。バー幅だけ、画面内で比較しやすい表示スケールにしてよい。
-- 例: SX の詳細ページで `M=12.44, X=206, F=18.12` なら、HUD dashboard のPJ rowも同じ数値を表示する。`M=79` や `M=15.71` のような再計算値は出さない。
+- 例: SX の cockpit スコア詳細で `M=12.44, X=206, F=18.12` なら、HUD dashboard のPJ rowも同じ数値を表示する。`M=79` や `M=15.71` のような再計算値は出さない。
 
 ### Tsukuyomi 連携 (各軸クリックで修正依頼) — 2026-05-09 追加
 
 人が入力するスライダー UI は廃止 (まさ判断「人が入力する UI は使われない」)。値の修正は **Tsukuyomi (右下マスコット) 経由**:
 
-- 詳細ページの `Factor3Breakdown` の各軸 (μ_A/I/G、TRL/BRL/GRL/SRL/HRL、FRL) に `onClick` ハンドラ
+- cockpit スコア詳細の `Factor3Breakdown` の各軸 (μ_A/I/G、TRL/BRL/GRL/SRL/HRL、FRL) に `onClick` ハンドラ
 - `FrlAlqPanel` の各 6 因子 (ALQ 4 + Grit + Resilience + FRL + 自由備考) も同様
 - クリックすると `window.dispatchEvent("tsukuyomi:open", { detail: { message: "..." } })` を発火
 - `Mascot` がイベントを受け取って drawer を open + `localStorage["tsukuyomi:pending-prefill"]` に message を保存
@@ -344,7 +345,7 @@ PJ {ventureName} の {fieldName} = {currentValue} の評価を見直したい。
 
 **μ_A/I/G は Triple Helix の隠れ状態** (state_space_model.md §4.1)。観測量 (P, B, V, R, I_R, N, C) から **C 行列 loading** で生成される。**個別論文の蓄積ではなく、観測量の lane × quarter trend** が μ_A 等の根拠。
 
-#### モデル構造 (詳細ページ M カードで全部表示)
+#### モデル構造 (cockpit スコア詳細の M カードで全部表示)
 
 ```
 M = (σ_SU+1)^α_σ                                          ← 数式 M-1
@@ -365,7 +366,7 @@ M = (σ_SU+1)^α_σ                                          ← 数式 M-1
 | N (論文) | **0.90** | 0.05 | 0.05 | 本/Q | OpenAlex (papers_log) ✅ |
 | C_compete (競合) | 0.05 | **0.85** | 0.10 | 社 | project_ventures 集計 ❌ Phase 2 |
 
-#### 詳細ページ UI (M カード = `TripleHelixMatrix`)
+#### cockpit スコア詳細 UI (M カード = `TripleHelixMatrix`)
 
 `pwa/src/components/venture-map/TripleHelixMatrix.tsx` で:
 1. **数式 4 段** (Tex 表示)
@@ -401,7 +402,7 @@ state_space_model.md §4.5 に従い、BVAR Kalman filter で μ_A(t)/μ_I(t)/μ
 
 ### Retrofit ページ (α 重み調整) — 2026-05-09 追加
 
-Path: `/venture-map/amd-score/retrofit` (タブバーには出さない、詳細ページからのリンクのみ)
+Path: `/venture-map/amd-score/retrofit` (タブバーには出さない、cockpit スコア詳細からのリンクのみ)
 
 理由: α は全 PJ のスコアに同時に効く重要パラメータ。スライダーで気軽に変えられる UI を日常画面に置くと事故が起きる (まさフィードバック 2026-05-09)。
 

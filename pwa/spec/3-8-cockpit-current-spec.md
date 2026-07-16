@@ -59,6 +59,7 @@ This route is read-only during load. It does not create a duplicate project or w
 |---|---|
 | `?ym=YYYYMM` | monthly modal を開く |
 | `?meeting=<meeting_id>` | MTG詳細 modal を優先。月次 modal と二重起動しない |
+| `?tab=score-detail` | SU 系 PJ の `スコア詳細` を初期表示し、PRS / R_net / FRL / XRL evidence と XRL チェックリストを同じ cockpit 内で開く |
 | `?step=<stepId>&ym=YYYYMM` | legacy query。現行 cockpit は step modal を持たず、`step` は解釈しない |
 
 ## Major Sections
@@ -70,7 +71,7 @@ This route is read-only during load. It does not create a duplicate project or w
 | venture status | `CockpitVentureStatus` | `project_ventures`, `project_xrl_log`, related data |
 | AMD / Management score hero | `CockpitManagementScoreHero` | AMD Score / Management Score derived data |
 | tabs | `CockpitView` | `進捗管理` / `スコア詳細` display state。SU 系 PJ では横幅いっぱいを2等分し、各タブのクリック領域も 1/2 にする |
-| score detail tab | `CockpitAmdScoreDetailTab`, `AmdScoreView embedded` | `/api/project/[projectId]/amd-score-detail`。PRS Primary / PRS history を主表示し、legacy AMD / M-X-F は comparison と evidence 用に残す。cockpit mount 時に hidden panel として先読みし、client memory cache 5 分TTL + private HTTP cache で再表示待ちを減らす。TTL 超過後にタブが active になったら、表示済み内容を保ったまま背景再取得する |
+| score detail tab | `CockpitAmdScoreDetailTab`, `AmdScoreView embedded` | 正規URLは `/project/[projectId]/cockpit?tab=score-detail`。`/api/project/[projectId]/amd-score-detail` から PRS Primary / PRS history / R_net / FRL / XRL evidence と XRL チェックリストを表示し、legacy AMD / M-X-F は comparison と evidence 用に残す。cockpit mount 時に hidden panel として先読みし、client memory cache 5 分TTL + private HTTP cache で再表示待ちを減らす。TTL 超過後にタブが active になったら、表示済み内容を保ったまま背景再取得する。旧 `/venture-map/amd-score/[projectId]` はこのタブへ redirect する (`p99` デモを除く) |
 | goals compact | `CockpitGoalsCompact` | value plan / MS。`MilestoneGanttChart` の各MS行に pt / tag / 担当 / 進捗とあわせて `設計額` を表示し、バー上の担当者 chip には担当設計額も併記する。通常MSは plan cycle 予算、`cap_extra` は同期間の別財布予算から按分し、支払確定額としては扱わない |
 | MS change history | `CockpitMsChangeHistory` | `milestone_change_events`。今期MSの直下、`CockpitSeasonFinance` の手前に初期折りたたみで表示する。`/admin/ms-overview` の保存イベントと、2026-07-09 backfill の `source='migration'` 基準線を読み、cockpit からは編集しない。契約本文・メール全文・議事録全文・raw source は扱わない |
 | season finance | `CockpitSeasonFinance` | `fetchCockpitFromSupabase` が `billing_cycles`, `projects`, `reward_summary_json` から組み立てた `seasonFinance`。MS リスト直下、月次カードより上に表示し、シーズン全体と月次別に `クライアント支払` / `バッファ` / `原資上限` / `PJ予算` / `メンバー支払` / `期末未払` / `収支` を出す。`期末未払` / `未払残` は支払通知対象の外部メンバーへ将来払う残高だけで、役員分の繰越は会社留保側の内部検算へ寄せる |

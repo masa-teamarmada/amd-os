@@ -215,7 +215,7 @@ export function deriveFrl(e: Pick<EditableInput, "alq_self_awareness" | "alq_rel
 export const deriveFrlFromAlq = deriveFrl;
 
 /**
- * AMD Score 詳細ページ — 表示 + Tsukuyomi 連携。
+ * cockpit の AMD Score 詳細 — 表示 + Tsukuyomi 連携。
  *
  * 旧来の InputEditor (スライダー + textarea) と AlphaSidebar (α 編集) は削除。
  * 値の修正は Tsukuyomi 経由 (各軸クリック → drawer 起動 + prefill)、α 編集は別ページ
@@ -569,7 +569,7 @@ function ScoreHeroCard({
 //   F_max = 10^α_F          (≈ 31.62 default)
 // M は外部環境の合成寄与なので、理論上の「最大値」を置かない。
 // UI 上のバー幅は raw contribution を読むための表示スケールであり、
-// M/X/F の数値自体は AmdScore 詳細ページと同じ実データをそのまま出す。
+// M/X/F の数値自体は cockpit スコア詳細と同じ実データをそのまま出す。
 //
 function BalanceBar({
   result,
@@ -831,7 +831,7 @@ function _DeletedFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
 // ============================================================
 // Factor3Breakdown — 3 要素 (M × X × F) の内訳カード
 // ============================================================
-//   モーダルと同じレイアウトを詳細ページにも提供。各軸の評価根拠 (notes) を subtitle で表示。
+//   モーダルと同じレイアウトを cockpit スコア詳細にも提供。各軸の評価根拠 (notes) を subtitle で表示。
 //   モーダルと違って editable 経由でリアルタイム更新される (右側パネルで notes を編集すると
 //   即座にここで見える)。
 function Factor3Breakdown({

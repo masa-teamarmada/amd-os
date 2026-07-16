@@ -1,33 +1,55 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useSearchParams } from "next/navigation";
-import { CockpitView } from "@/components/cockpit/CockpitView";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
+import { CockpitView, type CockpitTab } from "@/components/cockpit/CockpitView";
 import { fetchCockpitFromSupabase, type CockpitData } from "@/lib/supabase-data";
+
+interface CockpitLoadState {
+  projectId: string;
+  cockpit: CockpitData | null;
+  error: string | null;
+}
 
 export default function CockpitPage() {
   const params = useParams();
+  const pathname = usePathname();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const projectId = params.projectId as string;
 
-  const [cockpit, setCockpit] = useState<CockpitData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadState, setLoadState] = useState<CockpitLoadState>(() => ({
+    projectId,
+    cockpit: null,
+    error: null,
+  }));
 
   useEffect(() => {
-    setLoading(true);
-    setError(null);
+    let cancelled = false;
 
     fetchCockpitFromSupabase(projectId)
       .then((data) => {
-        setCockpit(data);
-        setLoading(false);
+        if (cancelled) return;
+        setLoadState({ projectId, cockpit: data, error: null });
       })
       .catch((err) => {
-        setError(err.message || "データ取得に失敗");
-        setLoading(false);
+        if (cancelled) return;
+        setLoadState({
+          projectId,
+          cockpit: null,
+          error: err instanceof Error ? err.message : "データ取得に失敗",
+        });
       });
+
+    return () => {
+      cancelled = true;
+    };
   }, [projectId]);
+
+  const isCurrentProject = loadState.projectId === projectId;
+  const cockpit = isCurrentProject ? loadState.cockpit : null;
+  const error = isCurrentProject ? loadState.error : null;
+  const loading = !isCurrentProject || (!cockpit && !error);
 
   if (loading) {
     return (
@@ -55,13 +77,27 @@ export default function CockpitPage() {
 
   const ymParam = searchParams.get("ym");
   const meetingParam = searchParams.get("meeting");
+  const activeTab: CockpitTab = searchParams.get("tab") === "score-detail" ? "score-detail" : "progress";
   // ?meeting= がある場合は MTG詳細モーダルを優先し、月次モーダルとの二重起動を避ける。
+
+  function handleTabChange(tab: CockpitTab) {
+    const nextParams = new URLSearchParams(searchParams.toString());
+    if (tab === "score-detail") {
+      nextParams.set("tab", "score-detail");
+    } else {
+      nextParams.delete("tab");
+    }
+    const query = nextParams.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }
 
   return (
     <CockpitView
       cockpit={cockpit}
       tasks={cockpit.tasks || []}
       initialModalYm={meetingParam ? null : ymParam}
+      activeTab={activeTab}
+      onTabChange={handleTabChange}
     />
   );
 }

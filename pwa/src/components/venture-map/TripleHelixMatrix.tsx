@@ -3,7 +3,7 @@
 /**
  * Triple Helix 観測モデル C 行列の表示コンポーネント (通常版 UI、2026-05-27 改修)。
  *
- * AMD Score 詳細ページの M カード内で、6 観測量 × 3 隠れ状態 (μ_A/μ_I/μ_G) の
+ * cockpit スコア詳細の M カード内で、6 観測量 × 3 隠れ状態 (μ_A/μ_I/μ_G) の
  * loading 行列 + PJ.lane × 直近 quarter の観測値 + 寄与計算を可視化する。
  *
  * 2026-05-27: HUD パレット (cyan/slate-950) を通常版 (slate/white) に置換。

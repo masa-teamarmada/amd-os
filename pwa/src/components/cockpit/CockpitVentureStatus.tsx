@@ -12,7 +12,6 @@
  * 単位ルール: SU は「PJ」と数える。「ventures」「社」表記は禁止。
  */
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   fetchVentureStatus,
@@ -140,7 +139,13 @@ interface RoleMembers {
   closers: string[];
 }
 
-export function CockpitVentureStatus({ projectId }: { projectId: string }) {
+export function CockpitVentureStatus({
+  projectId,
+  onOpenScoreDetail,
+}: {
+  projectId: string;
+  onOpenScoreDetail: () => void;
+}) {
   const [bundle, setBundle] = useState<VentureStatusBundle | null>(null);
   const [amdInputs, setAmdInputs] = useState<AmdScoreInputRow[]>([]);
   const [alpha, setAlpha] = useState<AlphaWeights>(ALPHA_DEFAULT);
@@ -279,7 +284,7 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
   }, [fullComputedSeries, pastSeries, todayIso]);
   const latestPrimaryPoint = pastComputedSeries[pastComputedSeries.length - 1] ?? null;
   const latestComponents = latestPrimaryPoint?.prs.components ?? null;
-  // Score 詳細ページと同じ軸思想: X は score series の評価日、Y は実データ範囲にフィット。
+  // cockpit のスコア詳細と同じ軸思想: X は score series の評価日、Y は実データ範囲にフィット。
   const scoreRange = useMemo(() => {
     const now = SCORE_RANGE_FALLBACK_NOW;
     if (!scoreSeries.length) return { xMin: now - 30 * 86400000, xMax: now + 30 * 86400000 };
@@ -479,13 +484,14 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
             代わりに「Chart 1: AMD スコア」グラフ内の現在地点プロットの上に大きいフォントで表示する。
             グラフ未評価の PJ には未評価リンクをそのままここに残す。 */}
         {latestScore == null && (
-          <Link
-            href={`/venture-map/amd-score/${projectId}`}
+          <button
+            type="button"
+            onClick={onOpenScoreDetail}
             className="text-[11px] font-mono px-2 py-0.5 rounded-full border border-dashed border-slate-300 text-muted-foreground hover:bg-slate-50"
             title="PRS primary 入力待ち。クリックで入力"
           >
             PRS: 入力待ち →
-          </Link>
+          </button>
         )}
       </div>
 
@@ -552,12 +558,13 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
                 legacy AMD {formatRoundedNumber(primarySnapshot.legacy.score)}
               </span>
             )}
-            <Link
-              href={`/venture-map/amd-score/${projectId}`}
-              className="text-cyan-700 hover:underline"
+            <button
+              type="button"
+              onClick={onOpenScoreDetail}
+              className="text-cyan-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 focus-visible:ring-offset-2"
             >
               スコア詳細 →
-            </Link>
+            </button>
             <span className="text-muted-foreground">
               · グラフをタップでイベント追加 / ドットタップで編集
             </span>
@@ -998,10 +1005,10 @@ export function CockpitVentureStatus({ projectId }: { projectId: string }) {
 
       {scoreBreakdownOpen && (
         <CockpitAmdScoreBreakdownModal
-          projectId={projectId}
           latestInput={latestInput}
           alpha={alpha}
           onClose={() => setScoreBreakdownOpen(false)}
+          onOpenScoreDetail={onOpenScoreDetail}
         />
       )}
 
