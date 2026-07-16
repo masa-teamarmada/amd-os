@@ -1,99 +1,66 @@
-# HANDOFF
+# AMD OS iOS Handoff
 
-## プロジェクト
+最終更新: 2026-07-16 JST
 
-- AMD OS iOS ネイティブアプリ
-- 正本: GitHub `masa-teamarmada/amd-os-ios`
-- 作業ディレクトリ: `~/dev/amd-os-ios`（Drive 外のローカルクローン）
-- ⚠️ Drive 上の `共有ドライブ/claude/AMD_OS/amd-os-ios/` は廃止済み。参照禁止。
+対象: `/Users/masa/projects/AMD/amd-os/ios`
 
-## 必読の他ドキュメント
+トピック: 通知の判断カード化と5タブ再編
 
-- `CLAUDE.md` — 最重要ルール / セッション開始時の 4 ステップ
-- `AGENTS.md` — エージェント運用メモ
-- `DESIGN.md` ⭐ — 全画面の正本仕様
-- `HANDOFF_ios_to_android.md` — 直近の Android 向け引き継ぎ
-- `BUGS.md` / `DEBUG.md` / `TESTFLIGHT_WORKFLOW.md`
+## Latest Session Summary
 
-## 現在の作業状態
+- Swift版の下部タブを `今日 / PJ / 通知 / 登録 / 設定` の5つへ再編した。
+- `通知` は未回答を1件ずつ処理する判断キューになり、次カードの予告、根拠展開、種別別アクション、修正コメント、セッション内の「あとで」を持つ。
+- 判断カードは `観測 → 候補 → 判断 → 正本` の現在地と、「押すと起きること」を明示する。汎用の「はい / いいえ」は表示しない。
+- `登録` は立替申請と名刺登録を1つのハブへ統合した。
+- 月次ルーティンの立替確認は登録タブ内の立替一覧へ直接遷移し、支払通知は既存のadmin権限ゲートを通って管理画面を開く。
+- 既存のSupabase書き込み境界は変更していない。詳細は `DESIGN.md` と `design_log/sessions_2026-07.md` を参照。
 
-- 月次ルーティンまわりは安定稼働
-- TestFlight 配布の土台を整備済み
-- 配布用ブランチは `main`、日々の開発は `develop`
-- TestFlight 配布済み: `0.1.0`
-  - 既存の内部テストグループ `AMD` に割り当て済み
-  - 内部テスターとして実機確認済み: `肥塚恭子` さん 1 名
-  - `umemoto@team-armada.jp` は招待送信済み・承認待ち
-- 直近のローカル変更（Mac 側 masaiPhone 実機反映済み、TestFlight 未上げ）:
-  - フロートボタン（Admin タブ全体）
-  - 支払通知書ロジック改修（active メンバー × 全参加 PJ 起点）
-  - PJ Config キーボード処理 / 戻るボタン重複解消
-  - 月額固定 PJ で予算自動入力
-  - DESIGN.md 新設
-  - マイページ MS の「当月差分があるもののみ」絞り込み + 月次モーダル同等の差分テキスト
+## Repo State
 
-## 実行コマンド（実機反映の標準手順）
+- 正本repo: `/Users/masa/projects/AMD/amd-os`
+- 正本branch: `main`
+- 実装commit: `3dfd235c feat(ios): add notification judgment deck`
+- TestFlight: 未更新
+- 今回の実装でDB migration、環境変数、API追加はなし。
+- root checkoutには別ownerのPWA/H-1/KENQ系dirtyがあるため、今回のiOS bundleへ混ぜていない。
 
-### iOS ビルド / 実機反映
+## Verification Run
 
-```sh
-xcodebuild \
-  -project ~/dev/amd-os-ios/AMDOS.xcodeproj \
-  -scheme AMDOS \
-  -configuration Debug \
-  -sdk iphoneos \
-  -derivedDataPath /tmp/amdos-ios-deploy-deriv \
-  CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=YES \
-  build
+- iPhone 17 Pro / iOS 26.5 simulator向けDebug build: `BUILD SUCCEEDED`
+- masaiPhone（iPhone 16 Pro）向けDebug build: `BUILD SUCCEEDED`
+- `xcrun devicectl device install app`: `App installed` を確認
+- `xcrun devicectl device process launch --terminate-existing`: `jp.team-armada.amdos` の起動成功を確認
+- シミュレータは未ログインだったため、新しい判断カードを実データ入りで目視できていない。実機には最新ビルドを起動済み。
 
-xcrun devicectl device install app \
-  --device 22F6F889-985D-5CAF-AFF3-D50D5E80FFA0 \
-  /tmp/amdos-ios-deploy-deriv/Build/Products/Debug-iphoneos/AMDOS.app
+## Unresolved Tasks
 
-xcrun devicectl device process launch \
-  --device 22F6F889-985D-5CAF-AFF3-D50D5E80FFA0 \
-  --terminate-existing \
-  jp.team-armada.amdos
-```
+- アプリ終了中にも届く本物のリモートPushは未実装。
+- delivered と人間既読の完全分離、server-driven action card、recipient/role scope、自己/AMD全体切替、backend undoは未実装。
+- 実データの長文通知を使ったLight/Dark Modeと最大Dynamic Typeの目視確認は未実施。
+- Android版には今回の5タブと判断カードUIを未移植。`HANDOFF_ios_to_android.md` を入口にする。
 
-- 実機 UDID: `22F6F889-985D-5CAF-AFF3-D50D5E80FFA0` (`masaiPhone`, iPhone 16 Pro)
-- Bundle ID: `jp.team-armada.amdos`
+## First Next Action
 
-### archive / upload (TestFlight)
+1. masaiPhoneで `通知` タブを開き、実データを3〜5件処理してカード密度・文言・「あとで」の手触りを確認する。
+2. 修正する場合は `SettingsView.swift` の `NotificationInboxView` / `NotificationJudgmentCard` と `MainTabView.swift` を対象にする。
+3. iOSソースを変えたら、buildだけで終わらず実機install + launchまで行う。
 
-```sh
-xcodebuild \
-  -project ~/dev/amd-os-ios/AMDOS.xcodeproj \
-  -scheme AMDOS \
-  -configuration Release \
-  -destination 'generic/platform=iOS' \
-  -archivePath /tmp/AMDOS-TestFlight-<日付>.xcarchive \
-  archive
-```
+## Pointers
 
-- Xcode Organizer から App Store Connect へ upload
+- 画面・アクション正本: `DESIGN.md` §2.1.1
+- 通知コード: `AMDOS/Features/Settings/SettingsView.swift`
+- タブ・登録ハブ: `AMDOS/Features/Home/MainTabView.swift`
+- ルーティン直接導線: `AMDOS/Features/Routine/RoutineFlowView.swift`
+- OSマニュアル: `../pwa/manual/3-3-notifications-and-tsukuyomi.md`
+- バグ・教訓: `BUGS.md`
+- セッションログ: `design_log/sessions_2026-07.md`
+- 次セッションprompt: `HANDOFF_PROMPT.md` / `../SESSION_MIGRATION_PROMPT_IOS_NOTIFICATION_DECK.md`
 
-## 未解決タスク
+## Guardrails
 
-1. `umemoto@team-armada.jp` が App Store Connect 招待を承認したら `AMD` 内部テストグループへ追加
-2. 必要なら他の AMD メンバーも `ユーザとアクセス` から招待し、内部テスターへ追加
-3. 次に TestFlight へ出すときは `main` で `MARKETING_VERSION` を上げ、`CURRENT_PROJECT_VERSION` は同じ値に揃える
-
-## 次セッションの最初の一手
-
-1. `~/dev/amd-os-ios` で `git fetch --all --prune`
-2. `git log --branches --not --remotes --oneline` で未 push commit を検知（CLAUDE.md の 4 ステップ）
-3. `CLAUDE.md` / `DESIGN.md` / `BUGS.md` / `HANDOFF_ios_to_android.md` を読む
-4. `git branch --show-current` でブランチ確認
-
-## 運用ルール / 落とし穴
-
-- iOS 修正は `xcodebuild` の `BUILD SUCCEEDED` だけで完了扱いにしない
-- 必ず `devicectl device install app` の `App installed` と `device process launch` の起動成功まで確認する
-- 別建ての build 番号運用は廃止。`CURRENT_PROJECT_VERSION` は `MARKETING_VERSION` と同じ値に揃える
-- 内部テスター追加は 2 段階:
-  - 先に `ユーザとアクセス` で App Store Connect ユーザーとして招待
-  - 招待受諾後に TestFlight の内部テストグループへ追加
-- main を更新したら `HANDOFF_ios_to_android.md` を更新して GitHub に push するまでがワンセット
-- **commit したら即 push** を徹底する（エラー閉じ・他マシン作業で未 push commit を作らない）
-- 画面・機能を追加・削除・名称変更したら **同じコミットで `DESIGN.md` を更新**
+- 最初に `/Users/masa/projects/AGENTS.common.md`、AMD level memory、repo/iOSの `CLAUDE.md` / `AGENTS.md` を読む。
+- branch/worktreeを作らずmainで対象ファイルだけを明示stageする。`git add .` は禁止。
+- `project_registry_diff` のiOS採用は候補をacceptedにするところまで。OS台帳への実反映はPWA/helperの安全な反映処理に任せる。
+- `meeting_summary` の「確認した」は確認記録だけで再抽出しない。
+- connector再認証は採否ではなく復旧アクション。リンクを開いたことを復旧成功とみなさない。
+- iOS修正は `BUILD SUCCEEDED`、`App installed`、実機launch成功の3点を揃える。

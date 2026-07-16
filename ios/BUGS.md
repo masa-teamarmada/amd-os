@@ -7,6 +7,27 @@
 
 ---
 
+## 2026-07-16: タブ再編後にルーティンの立替・管理画面導線が行き先を失った
+
+### 症状
+- 下部タブを `今日 / PJ / 通知 / 登録 / 設定` に再編した初回差分で、月次ルーティンの `reimburseConfirm` と `payoutNotice` が画面遷移しなくなった。
+
+### 原因
+- `AppTab.reimburse` / `.admin` を互換用としてenumに残したが、現行 `TabView` には対応する `.tag` が無かった。
+- 存在しないタブ値をselectionへ入れても、登録ハブの立替一覧やadmin fullScreenCoverは開かれない。
+
+### 対応内容
+- `AppTab` を実在する5タブだけに限定した。
+- `reimburseConfirm` は `RegistrationRoute.reimburse` を型安全なNavigationStack pathへ積んでから登録タブへ切り替えるようにした。
+- `payoutNotice` は `AppNavigationState.requestAdminPresentation` を通じて、`MainTabView` が既存の `isAdmin` ゲート後にfullScreenCoverを開くようにした。
+
+### 再発防止策
+- タブ削除・統合時は、画面上のタブだけでなく `selectedTab =` と `AppTab.` の全参照を検索する。
+- enumに旧値を残すだけの互換対応はしない。実際の遷移先をpath/presentationとして接続する。
+- タブ再編のレビューには、ルーティン・通知deep link・floating adminのプログラム遷移を含める。
+
+---
+
 ## 2026-07-14: 名刺台帳の正常読込後もWebViewの一時キャンセルを失敗表示した
 
 ### 症状
