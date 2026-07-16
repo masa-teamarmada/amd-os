@@ -1031,7 +1031,7 @@ function DetailFactorCard({
 }) {
   return (
     <div
-      className="border p-4 shadow-[0_0_28px_rgba(34,211,238,0.12),inset_0_0_28px_rgba(34,211,238,0.06)]"
+      className="min-w-0 border p-4 shadow-[0_0_28px_rgba(34,211,238,0.12),inset_0_0_28px_rgba(34,211,238,0.06)]"
       style={{
         borderColor: bottleneck ? "rgba(244,114,182,0.62)" : "rgba(103,232,249,0.32)",
         backgroundColor: bottleneck ? "rgba(80, 7, 36, 0.34)" : "rgba(2, 8, 23, 0.80)",
@@ -1052,9 +1052,11 @@ function DetailFactorCard({
       <div className="text-[10.5px] text-muted-foreground mb-2">
         {sub} · <span className="font-mono">{formula}</span>
       </div>{/* formula は ReactNode (string or <Tex/>) を受ける */}
-      <table className="w-full text-[11px]">
-        <tbody>{children}</tbody>
-      </table>
+      <div className="overflow-x-auto">
+        <table className="w-full text-[11px]">
+          <tbody>{children}</tbody>
+        </table>
+      </div>
     </div>
   );
 }
