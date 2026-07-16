@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { addMonths as addFinanceMonths, syncFreeeCashBalances } from "@/lib/finance/freee-cash-balances";
 
 type Axis = "initiative" | "finance" | "retention" | "pipeline" | "direction";
 type RunStatus = "running" | "success" | "partial" | "failed";
@@ -25,6 +26,10 @@ interface CollectOptions {
   includeFreee?: boolean;
   freeeStartDate?: string;
   freeeEndDate?: string;
+  includeFreeeCashBalances?: boolean;
+  cashBalanceStartYm?: string;
+  cashBalanceEndYm?: string;
+  cashBalanceHistoryStartYm?: string;
 }
 
 interface CollectResult {
@@ -1246,6 +1251,9 @@ export async function collectManagementScoreRawData(
   const dateRange = ymToDateRange(ym);
   const startDate = options.freeeStartDate ?? dateRange.startDate;
   const endDate = options.freeeEndDate ?? dateRange.endDate;
+  const includeCashBalances = !!options.includeFreee && options.includeFreeeCashBalances !== false;
+  const cashBalanceStartYm = options.cashBalanceStartYm ?? addFinanceMonths(ym, -1);
+  const cashBalanceEndYm = options.cashBalanceEndYm ?? ym;
   const errors: string[] = [];
   const counts: Record<string, number> = {};
   const { data: run, error: runError } = await supabase
@@ -1255,7 +1263,14 @@ export async function collectManagementScoreRawData(
       source_kind: options.includeFreee ? "os_internal+freee" : "os_internal",
       source: "management_score_raw_collector",
       status: "running",
-      params: { includeFreee: !!options.includeFreee, startDate, endDate },
+      params: {
+        includeFreee: !!options.includeFreee,
+        includeCashBalances,
+        startDate,
+        endDate,
+        cashBalanceStartYm: includeCashBalances ? cashBalanceStartYm : null,
+        cashBalanceEndYm: includeCashBalances ? cashBalanceEndYm : null,
+      },
     })
     .select("id")
     .single();
@@ -1291,6 +1306,21 @@ export async function collectManagementScoreRawData(
       } catch (error) {
         errors.push(error instanceof Error ? error.message : String(error));
         counts.freee = 0;
+      }
+
+      if (includeCashBalances) {
+        try {
+          const cashResult = await syncFreeeCashBalances(supabase, {
+            startYm: cashBalanceStartYm,
+            endYm: cashBalanceEndYm,
+            historyStartYm: options.cashBalanceHistoryStartYm,
+          });
+          counts.cashBalance = cashResult.rowCount;
+          counts.cashBalanceWalletTxns = cashResult.walletTxnCount;
+        } catch (error) {
+          errors.push(error instanceof Error ? error.message : String(error));
+          counts.cashBalance = 0;
+        }
       }
     }
 

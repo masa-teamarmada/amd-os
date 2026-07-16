@@ -30,6 +30,10 @@ export async function GET(req: NextRequest) {
       includeFreee: params.get("includeFreee") === "1" || params.get("includeFreee") === "true",
       freeeStartDate: params.get("startDate") || undefined,
       freeeEndDate: params.get("endDate") || undefined,
+      includeFreeeCashBalances: params.get("includeCashBalances") !== "0",
+      cashBalanceStartYm: params.get("cashStartYm") || undefined,
+      cashBalanceEndYm: params.get("cashEndYm") || undefined,
+      cashBalanceHistoryStartYm: params.get("cashHistoryStartYm") || undefined,
     });
     return NextResponse.json(result, { status: result.status === "failed" ? 500 : 200 });
   } catch (error) {

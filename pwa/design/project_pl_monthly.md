@@ -418,6 +418,13 @@ CREATE TABLE company_budget_variance_notes (
 - 予算にない実績 / 実績がない予算
 - freee 最終同期時刻
 - GAS 予算表の最終 import 時刻
+- freee 口座残高 (`wallet_txns.balance`) の最新反映月
+- raw 収集 run と score snapshot の最終更新時刻
+
+2026-07-16 更新: 日次更新は `/api/cron/management-score-refresh` に一本化する。
+この route が freee PL、freee 口座残高、OS内部 raw signals、score snapshot を同じリクエスト内で順番に更新する。
+現金残高は `company_actual_monthly.category='cash_balance'` として保存し、前月までの行が無ければ `/management-score` 上部の鮮度表示で警告する。
+GAS baseline (`company_budget_inputs` / `company_budget_monthly`) は凍結 fallback として残し、通常の予算線は OS ライブテーブルから再計算する。
 
 ### PJ cockpit
 

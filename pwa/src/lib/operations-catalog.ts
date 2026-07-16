@@ -691,6 +691,17 @@ export const cronOperations: CronOperation[] = [
     run: { type: "pwa", path: "/api/cron/payout-reward-cache-refresh", defaultQuery: {} },
   },
   {
+    id: "pwa-management-score-refresh",
+    label: "Management Score / 月次試算表更新",
+    layer: "PWA",
+    cadence: "日次 06:00 JST",
+    trigger: "/api/cron/management-score-refresh",
+    defaultParams: "{\"query\":{\"ym\":\"YYYYMM\"}}",
+    input: "freee PL + freee wallet_txns + member_activities + billing + PJ継続 + pipeline",
+    output: "company_actual_monthly / amd_management_score_raw_signals / amd_management_score_snapshots",
+    run: { type: "pwa", path: "/api/cron/management-score-refresh", defaultQuery: {} },
+  },
+  {
     id: "manual-management-score-raw",
     label: "Management Score raw data",
     layer: "PWA",

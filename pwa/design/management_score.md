@@ -468,15 +468,15 @@ UI で必ず出すもの:
 
 ## Cron / 更新タイミング
 
-初期:
+現行:
 
 | タイミング | 処理 |
 |---|---|
-| daily 06:30 JST | GAS 予算 snapshot / freee 実績 snapshot / L2 / billing を使って当月 score 再計算 |
+| daily 06:00 JST | `/api/cron/management-score-refresh` を1本だけ実行。freee PL → freee 口座残高 (`wallet_txns.balance`) → OS内部 raw signals → score snapshot の順に同一リクエスト内で更新する |
 | 月初 | 前月確定 snapshot を保存 |
-| 手動 | `/management-score` から再計算 |
+| 手動 | raw / calculate route は診断用に残すが、通常更新では refresh route を使う |
 
-GAS 月次試算表 import と freee API 取得は token / rate limit / 勘定科目 mapping を別 md または implementation note に分ける。
+GAS 月次試算表の凍結 baseline は fallback として保持し、予算線は OS ライブテーブル (`projects` / `billing_cycles` / `company_finance_recurring_items`) から毎回組み立てる。月次試算表の実績線は `company_actual_monthly` を正本にし、freee PL と freee 口座残高を refresh route で更新する。raw が partial / failed の時は stale な snapshot を作らないよう score 計算を止める。
 
 ---
 

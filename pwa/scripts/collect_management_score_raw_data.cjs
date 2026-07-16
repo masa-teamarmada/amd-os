@@ -9,9 +9,22 @@ const { createClient } = require("@supabase/supabase-js");
 
 dotenv.config({ path: path.join(process.cwd(), ".env.local") });
 
-function loadCollector() {
-  const sourcePath = path.join(process.cwd(), "src/lib/management-score/raw-data.ts");
-  const source = fs.readFileSync(sourcePath, "utf8");
+const tsModuleCache = new Map();
+
+function resolveTsModule(request, fromPath) {
+  if (!request.startsWith("@/") && !request.startsWith(".")) return null;
+  const base = request.startsWith("@/")
+    ? path.join(process.cwd(), "src", request.slice(2))
+    : path.resolve(path.dirname(fromPath), request);
+  const candidates = [base, `${base}.ts`, `${base}.tsx`, path.join(base, "index.ts"), path.join(base, "index.tsx")];
+  return candidates.find((candidate) => fs.existsSync(candidate)) ?? null;
+}
+
+function loadTsModule(sourcePath) {
+  const absPath = path.isAbsolute(sourcePath) ? sourcePath : path.join(process.cwd(), sourcePath);
+  const cached = tsModuleCache.get(absPath);
+  if (cached) return cached.exports;
+  const source = fs.readFileSync(absPath, "utf8");
   const output = ts.transpileModule(source, {
     compilerOptions: {
       module: ts.ModuleKind.CommonJS,
@@ -20,8 +33,18 @@ function loadCollector() {
     },
   }).outputText;
   const mod = { exports: {} };
-  new Function("require", "module", "exports", output)(require, mod, mod.exports);
+  tsModuleCache.set(absPath, mod);
+  const localRequire = (request) => {
+    const resolvedTs = resolveTsModule(request, absPath);
+    if (resolvedTs) return loadTsModule(resolvedTs);
+    return require(request);
+  };
+  new Function("require", "module", "exports", output)(localRequire, mod, mod.exports);
   return mod.exports;
+}
+
+function loadCollector() {
+  return loadTsModule("src/lib/management-score/raw-data.ts");
 }
 
 function argValue(name) {
