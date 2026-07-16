@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type
 import {
   AlertTriangle,
   Building2,
+  Calculator,
   Check,
   Download,
   FileSpreadsheet,
@@ -27,11 +28,18 @@ import {
   HOLDER_LABELS,
   TRANSACTION_LABELS,
   buildCapTableSnapshots,
+  capTableOriginWarning,
   capTableTieOut,
+  computeNextRoundScenario,
   convertibleScenario,
   groupSnapshotByHolderType,
+  minimumPreMoneyForTarget,
+  nextRoundSensitivity,
   type CapTableSnapshot,
   type CompanyOverviewData,
+  type NextRoundInputs,
+  type NextRoundScenarioResult,
+  type ValuationRound,
 } from "@/lib/company-overview";
 import { downloadCompanyOverviewXlsx } from "@/lib/company-overview-xlsx";
 
@@ -56,7 +64,7 @@ const LEGAL_STATUS = [
   { value: "closed", label: "清算済み" },
 ];
 const HOLDER_TYPES = Object.entries(HOLDER_LABELS).map(([value, label]) => ({ value, label }));
-const TRANSACTION_TYPES = ["incorporation", "opening_balance", "new_issue", "transfer", "stock_option_grant", "stock_option_exercise", "cancellation", "correction"]
+const TRANSACTION_TYPES = ["incorporation", "opening_balance", "new_issue", "transfer", "stock_option_grant", "stock_option_exercise", "in_kind_contribution", "cancellation", "correction"]
   .map((value) => ({ value, label: TRANSACTION_LABELS[value] }));
 const MEETING_TYPES = [
   { value: "agm", label: "定時株主総会" },
@@ -194,32 +202,440 @@ function CapitalDonut({ snapshot, mode }: { snapshot: CapTableSnapshot; mode: Ca
   );
 }
 
-function CapitalTimeline({ snapshots, selectedId, onSelect }: { snapshots: CapTableSnapshot[]; selectedId: string; onSelect: (id: string) => void }) {
+const HOLDER_NAME_PALETTE = [
+  "#1d4ed8", "#0d9488", "#7c3aed", "#d97706", "#dc2626",
+  "#0284c7", "#65a30d", "#c026d3", "#ea580c", "#0f766e",
+  "#4338ca", "#b91c1c", "#059669", "#a16207", "#475569",
+];
+
+function buildHolderColorMap(snapshots: CapTableSnapshot[]): Map<string, string> {
+  const order: string[] = [];
+  const seen = new Set<string>();
+  const addFrom = (snapshot: CapTableSnapshot) => {
+    for (const holder of aggregateByHolderName(snapshot, true)) {
+      if (!seen.has(holder.holderName)) {
+        seen.add(holder.holderName);
+        order.push(holder.holderName);
+      }
+    }
+  };
+  const latest = snapshots.at(-1);
+  if (latest) addFrom(latest);
+  for (const snapshot of snapshots) addFrom(snapshot);
+  const map = new Map<string, string>();
+  order.forEach((name, index) => map.set(name, HOLDER_NAME_PALETTE[index % HOLDER_NAME_PALETTE.length]));
+  return map;
+}
+
+function aggregateByHolderName(snapshot: CapTableSnapshot, diluted = false) {
+  const totals = new Map<string, { holderName: string; holderType: string; shares: number }>();
+  for (const row of snapshot.rows) {
+    const shares = diluted ? row.dilutedShares : row.outstandingShares;
+    const current = totals.get(row.holderName) || { holderName: row.holderName, holderType: row.holderType, shares: 0 };
+    totals.set(row.holderName, { ...current, shares: current.shares + shares });
+  }
+  const total = diluted ? snapshot.dilutedShares : snapshot.outstandingShares;
+  return [...totals.values()]
+    .filter((item) => Math.abs(item.shares) > 0.000001)
+    .map((item) => ({ ...item, pct: total > 0 ? (item.shares / total) * 100 : 0 }))
+    .sort((a, b) => b.shares - a.shares);
+}
+
+function CapTableOriginWarning({ onAddFoundingEvent }: { onAddFoundingEvent: () => void }) {
+  return (
+    <div data-cap-table-origin-warning className="mx-4 mb-3 flex flex-wrap items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-900 sm:mx-5">
+      <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" />
+      <div className="min-w-0 flex-1">
+        <p className="font-semibold">履歴の起点が創業時ではないよ</p>
+        <p className="mt-1 leading-5 text-amber-800">現在値は見られるけど、創業からの希薄化の推移はこの履歴だけでは復元できないよ。</p>
+      </div>
+      <Button type="button" variant="outline" className="h-11 border-amber-300 bg-white text-amber-900 hover:bg-amber-100" onClick={onAddFoundingEvent}><Plus />創業時の株式イベントを追加</Button>
+    </div>
+  );
+}
+
+function CapitalTimeline({ snapshots, selectedId, onSelect, colorMap }: { snapshots: CapTableSnapshot[]; selectedId: string; onSelect: (id: string) => void; colorMap: Map<string, string> }) {
   if (snapshots.length === 0) return <EmptyState>株式イベントを追加すると、ここに資本構成の推移が出るよ。</EmptyState>;
   return (
-    <div className="space-y-2 px-4 py-4 sm:px-5">
-      {snapshots.map((snapshot) => {
-        const groups = groupSnapshotByHolderType(snapshot);
-        const selected = snapshot.id === selectedId;
-        return (
-          <button
-            key={snapshot.id}
-            type="button"
-            onClick={() => onSelect(snapshot.id)}
-            className={`grid min-h-14 w-full grid-cols-[84px_minmax(0,1fr)] items-center gap-3 rounded-xl border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 sm:grid-cols-[96px_180px_minmax(0,1fr)_92px] ${selected ? "border-slate-900 bg-slate-50" : "border-slate-200 bg-white hover:bg-slate-50"}`}
-            aria-pressed={selected}
-          >
-            <span className="text-[11px] tabular-nums text-slate-500">{formatDate(snapshot.effectiveOn)}</span>
-            <span className="hidden truncate text-xs font-medium text-slate-800 sm:block">{snapshot.label}</span>
-            <span className="flex h-3.5 min-w-0 overflow-hidden rounded-sm bg-slate-100" aria-hidden="true">
-              {groups.map((group) => <span key={group.holderType} style={{ width: `${group.pct}%`, backgroundColor: group.color }} />)}
-            </span>
-            <span className="text-right text-[11px] tabular-nums text-slate-600">{formatNumber(snapshot.outstandingShares)}株</span>
-            <span className="col-span-2 truncate text-[11px] font-medium text-slate-700 sm:hidden">{snapshot.label}</span>
-          </button>
-        );
-      })}
+    <div className="space-y-3 px-4 py-4 sm:px-5">
+      <div className="space-y-2">
+        {snapshots.map((snapshot) => {
+          const holders = aggregateByHolderName(snapshot);
+          const selected = snapshot.id === selectedId;
+          return (
+            <button
+              key={snapshot.id}
+              type="button"
+              onClick={() => onSelect(snapshot.id)}
+              className={`grid min-h-14 w-full grid-cols-[84px_minmax(0,1fr)] items-center gap-3 rounded-xl border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 sm:grid-cols-[96px_180px_minmax(0,1fr)_92px] ${selected ? "border-slate-900 bg-slate-50" : "border-slate-200 bg-white hover:bg-slate-50"}`}
+              aria-pressed={selected}
+            >
+              <span className="text-[11px] tabular-nums text-slate-500">{formatDate(snapshot.effectiveOn)}</span>
+              <span className="hidden truncate text-xs font-medium text-slate-800 sm:block">{snapshot.label}</span>
+              <span className="flex h-3.5 min-w-0 overflow-hidden rounded-sm bg-slate-100" role="list" aria-label={`${snapshot.label}時点の株主別内訳`}>
+                {holders.map((holder) => (
+                  <span
+                    key={holder.holderName}
+                    role="listitem"
+                    aria-label={`${holder.holderName} ${holder.pct.toFixed(1)}%`}
+                    title={`${holder.holderName} ${holder.pct.toFixed(1)}%`}
+                    style={{ width: `${holder.pct}%`, backgroundColor: colorMap.get(holder.holderName) || HOLDER_COLORS.other }}
+                  />
+                ))}
+              </span>
+              <span className="text-right text-[11px] tabular-nums text-slate-600">{formatNumber(snapshot.outstandingShares)}株</span>
+              <span className="col-span-2 truncate text-[11px] font-medium text-slate-700 sm:hidden">{snapshot.label}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1.5 border-t border-slate-100 pt-3">
+        {[...colorMap.entries()].map(([name, color]) => (
+          <span key={name} className="flex items-center gap-1.5 text-[11px] text-slate-600">
+            <span className="size-2.5 shrink-0 rounded-sm" style={{ backgroundColor: color }} />{name}
+          </span>
+        ))}
+      </div>
     </div>
+  );
+}
+
+function MatrixMetaRow({ label, values, snapshots, selectedId }: { label: string; values: string[]; snapshots: CapTableSnapshot[]; selectedId: string }) {
+  return (
+    <tr>
+      <td className="sticky left-0 z-10 min-w-[160px] border-r border-slate-100 bg-slate-50 px-4 py-2 text-[11px] font-medium text-slate-500">{label}</td>
+      {snapshots.map((snapshot, index) => (
+        <td key={snapshot.id} className={`min-w-[180px] px-3 py-2 text-right text-[11px] tabular-nums text-slate-600 ${snapshot.id === selectedId ? "bg-slate-100" : "bg-slate-50/60"}`}>{values[index]}</td>
+      ))}
+    </tr>
+  );
+}
+
+function CapTableHistoryMatrix({ snapshots, rounds, selectedId, onSelect, colorMap }: { snapshots: CapTableSnapshot[]; rounds: ValuationRound[]; selectedId: string; onSelect: (id: string) => void; colorMap: Map<string, string> }) {
+  if (snapshots.length === 0) return null;
+  const holderOrder: string[] = [];
+  const seen = new Set<string>();
+  for (const snapshot of [...snapshots].reverse()) {
+    for (const holder of aggregateByHolderName(snapshot)) {
+      if (!seen.has(holder.holderName)) {
+        seen.add(holder.holderName);
+        holderOrder.push(holder.holderName);
+      }
+    }
+  }
+  return (
+    <div data-testid="cap-table-history-matrix" className="overflow-x-auto border-t border-slate-200">
+      <table className="w-full min-w-[760px] border-collapse text-xs">
+        <thead>
+          <tr>
+            <th className="sticky left-0 z-10 min-w-[160px] border-b border-slate-200 bg-slate-50 px-4 py-3 text-left font-medium text-slate-500">ラウンド別 cap table</th>
+            {snapshots.map((snapshot) => {
+              const selected = snapshot.id === selectedId;
+              return (
+                <th key={snapshot.id} className={`min-w-[180px] border-b border-slate-200 px-2 py-2 text-left align-bottom ${selected ? "bg-slate-100" : "bg-slate-50"}`}>
+                  <button
+                    type="button"
+                    onClick={() => onSelect(snapshot.id)}
+                    className={`w-full rounded-md px-2 py-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${selected ? "bg-white shadow-sm" : "hover:bg-white/60"}`}
+                    aria-pressed={selected}
+                  >
+                    <div className="text-[11px] tabular-nums text-slate-500">{formatDate(snapshot.effectiveOn)}</div>
+                    <div className="mt-0.5 truncate text-xs font-semibold text-slate-900">{snapshot.label}</div>
+                  </button>
+                </th>
+              );
+            })}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          <MatrixMetaRow label="発行済株式" values={snapshots.map((snapshot) => `${formatNumber(snapshot.outstandingShares, 2)}株`)} snapshots={snapshots} selectedId={selectedId} />
+          <MatrixMetaRow label="新規発行株式" values={snapshots.map((snapshot) => snapshot.outstandingDelta ? `${snapshot.outstandingDelta > 0 ? "+" : ""}${formatNumber(snapshot.outstandingDelta, 2)}株` : "—")} snapshots={snapshots} selectedId={selectedId} />
+          <MatrixMetaRow label="払込・調達額" values={snapshots.map((snapshot) => snapshot.paidInYenDelta ? formatYen(snapshot.paidInYenDelta) : "—")} snapshots={snapshots} selectedId={selectedId} />
+          <MatrixMetaRow
+            label="発行価額"
+            values={snapshots.map((snapshot) => {
+              const round = rounds.find((item) => item.id === snapshot.roundId);
+              const price = round?.price_per_share_yen ?? (snapshot.outstandingDelta > 0 ? snapshot.paidInYenDelta / snapshot.outstandingDelta : null);
+              return price ? formatYen(price) : "—";
+            })}
+            snapshots={snapshots}
+            selectedId={selectedId}
+          />
+          <MatrixMetaRow
+            label="pre-money"
+            values={snapshots.map((snapshot) => {
+              const round = rounds.find((item) => item.id === snapshot.roundId);
+              return round?.pre_money_yen != null ? formatYen(round.pre_money_yen) : "—";
+            })}
+            snapshots={snapshots}
+            selectedId={selectedId}
+          />
+          <MatrixMetaRow
+            label="post-money"
+            values={snapshots.map((snapshot) => {
+              const round = rounds.find((item) => item.id === snapshot.roundId);
+              return round?.post_money_yen != null ? formatYen(round.post_money_yen) : "—";
+            })}
+            snapshots={snapshots}
+            selectedId={selectedId}
+          />
+          {holderOrder.map((holderName) => (
+            <tr key={holderName} className="hover:bg-slate-50">
+              <td className="sticky left-0 z-10 min-w-[160px] border-r border-slate-100 bg-white px-4 py-2.5 font-medium text-slate-900">
+                <span className="flex items-center gap-1.5"><span className="size-2 shrink-0 rounded-sm" style={{ backgroundColor: colorMap.get(holderName) || HOLDER_COLORS.other }} />{holderName}</span>
+              </td>
+              {snapshots.map((snapshot) => {
+                const holder = aggregateByHolderName(snapshot).find((item) => item.holderName === holderName);
+                const selected = snapshot.id === selectedId;
+                return (
+                  <td
+                    key={snapshot.id}
+                    className={`min-w-[180px] cursor-pointer px-3 py-2.5 text-right tabular-nums ${selected ? "bg-slate-50" : ""}`}
+                    onClick={() => onSelect(snapshot.id)}
+                  >
+                    {holder ? <><div>{formatNumber(holder.shares, 2)}株</div><div className="text-[11px] text-slate-500">{holder.pct.toFixed(2)}%</div></> : <span className="text-slate-300">—</span>}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function MetricTile({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-3">
+      <div className="text-[11px] text-slate-500">{label}</div>
+      <div className="mt-1 text-sm font-semibold tabular-nums text-slate-950">{value}</div>
+    </div>
+  );
+}
+
+function ScenarioBar({ rows, total, valueKey, pctKey, colorOf }: { rows: NextRoundScenarioRowLike[]; total: number; valueKey: "beforeShares" | "afterShares"; pctKey: "beforePct" | "afterPct"; colorOf: (row: NextRoundScenarioRowLike) => string }) {
+  if (!rows.length || total <= 0) return <div className="flex h-6 items-center justify-center rounded-sm bg-slate-100 text-[10px] text-slate-400">データなし</div>;
+  const sorted = [...rows].sort((a, b) => b[valueKey] - a[valueKey]);
+  return (
+    <div role="list" aria-label="株主別持株比率" className="flex h-6 w-full overflow-hidden rounded-sm bg-slate-100">
+      {sorted.map((row) => (
+        <span
+          key={row.key}
+          role="listitem"
+          aria-label={`${row.holderName} ${row[pctKey].toFixed(1)}%`}
+          title={`${row.holderName} ${row[pctKey].toFixed(1)}%`}
+          style={{ width: `${row[pctKey]}%`, backgroundColor: colorOf(row) }}
+        />
+      ))}
+    </div>
+  );
+}
+
+type NextRoundScenarioRowLike = {
+  key: string;
+  holderName: string;
+  holderType: string;
+  beforeShares: number;
+  beforePct: number;
+  afterShares: number;
+  afterPct: number;
+  isConvertible?: boolean;
+  isNewInvestor?: boolean;
+  isOptionPool?: boolean;
+  isProtected?: boolean;
+};
+
+function NextRoundSimulator({ data, snapshots, colorMap }: { data: CompanyOverviewData; snapshots: CapTableSnapshot[]; colorMap: Map<string, string> }) {
+  const latestSnapshot = snapshots.at(-1) || null;
+  return (
+    <Section title="次回ラウンド試算" description="仮定の試算だよ。保存されないし、法的な現在値のcap tableには反映されない" className="ring-1 ring-blue-100">
+      <div data-testid="next-round-simulator" className="space-y-5 bg-blue-50/40 px-4 py-4 sm:px-5">
+        <div className="flex items-start gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-5 text-blue-900">
+          <Calculator className="mt-0.5 size-4 shrink-0 text-blue-600" />
+          <p>ここでの数値はあくまで仮定の試算だよ。保存されないし、法的な現在値のcap tableには反映されないから、実行前に必ずチームで確認してね。</p>
+        </div>
+        {!latestSnapshot ? <EmptyState>株式イベントを追加すると試算できるよ。</EmptyState> : (
+          <NextRoundForm data={data} snapshots={snapshots} colorMap={colorMap} latestSnapshot={latestSnapshot} />
+        )}
+      </div>
+    </Section>
+  );
+}
+
+function NextRoundForm({ data, snapshots, colorMap, latestSnapshot }: { data: CompanyOverviewData; snapshots: CapTableSnapshot[]; colorMap: Map<string, string>; latestSnapshot: CapTableSnapshot }) {
+  const [baseId, setBaseId] = useState(latestSnapshot.id);
+  const [preMoney, setPreMoney] = useState<number | "">(() => {
+    const sortedRounds = [...data.rounds].sort((a, b) => (b.round_date || b.round_ym || "").localeCompare(a.round_date || a.round_ym || ""));
+    const preFromRound = sortedRounds.find((round) => round.pre_money_yen != null)?.pre_money_yen;
+    const preFallback = Math.max(500_000_000, Math.round((latestSnapshot.paidInYen || 0) * 10));
+    return preFromRound ?? preFallback;
+  });
+  const [raise, setRaise] = useState<number | "">(() => {
+    const sortedRounds = [...data.rounds].sort((a, b) => (b.round_date || b.round_ym || "").localeCompare(a.round_date || a.round_ym || ""));
+    return sortedRounds[0]?.raised_yen ?? 100_000_000;
+  });
+  const [poolPct, setPoolPct] = useState<number | "">(0);
+  const [includeConvertibles, setIncludeConvertibles] = useState(true);
+  const [protectHolder, setProtectHolder] = useState(() => {
+    const founderRows = latestSnapshot.rows.filter((row) => row.holderType === "founder");
+    const candidates = aggregateByHolderName(latestSnapshot, true).filter((holder) => (founderRows.length ? founderRows.some((row) => row.holderName === holder.holderName) : true));
+    const topHolder = candidates[0] || aggregateByHolderName(latestSnapshot, true)[0];
+    return topHolder?.holderName || "";
+  });
+  const [targetMinPct, setTargetMinPct] = useState<number | "">(() => {
+    const founderRows = latestSnapshot.rows.filter((row) => row.holderType === "founder");
+    const candidates = aggregateByHolderName(latestSnapshot, true).filter((holder) => (founderRows.length ? founderRows.some((row) => row.holderName === holder.holderName) : true));
+    const topHolder = candidates[0] || aggregateByHolderName(latestSnapshot, true)[0];
+    return topHolder ? Math.min(99, Math.max(1, Math.round((topHolder.pct - 5) * 10) / 10)) : "";
+  });
+  const [sensitivityIndex, setSensitivityIndex] = useState(2);
+
+  const snapshot = snapshots.find((item) => item.id === baseId) || latestSnapshot;
+  const input: NextRoundInputs = {
+    preMoneyYen: Number(preMoney) || 0,
+    raiseYen: Number(raise) || 0,
+    targetPoolRate: (Number(poolPct) || 0) / 100,
+    includeConvertibles,
+    protectHolderName: protectHolder || null,
+  };
+  const result: NextRoundScenarioResult | null = snapshot ? computeNextRoundScenario(snapshot, data.convertibles, input) : null;
+  const minPre = snapshot && protectHolder && Number(targetMinPct) > 0
+    ? minimumPreMoneyForTarget(snapshot, data.convertibles, input, Number(targetMinPct))
+    : null;
+  const sensitivity = snapshot ? nextRoundSensitivity(snapshot, data.convertibles, input) : [];
+
+  const currentPct = snapshot && protectHolder
+    ? aggregateByHolderName(snapshot, true).find((holder) => holder.holderName === protectHolder)?.pct ?? null
+    : null;
+  const afterPct = result?.valid ? result.rows.find((row) => row.holderName === protectHolder)?.afterPct ?? null : null;
+  const holderOptions = snapshot ? aggregateByHolderName(snapshot, true).map((holder) => holder.holderName) : [];
+
+  function rowColor(row: NextRoundScenarioRowLike) {
+    if (row.isNewInvestor) return "#0ea5e9";
+    if (row.isOptionPool) return "#8b5cf6";
+    if (row.isConvertible) return "#f59e0b";
+    return colorMap.get(row.holderName) || HOLDER_COLORS[row.holderType] || HOLDER_COLORS.other;
+  }
+
+  return (
+    <>
+      <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="基準にする時点">
+                <Select value={baseId} onValueChange={(next) => setBaseId(next || "")}>
+                  <SelectTrigger className="h-11 w-full bg-white"><SelectValue /></SelectTrigger>
+                  <SelectContent>{snapshots.map((item) => <SelectItem key={item.id} value={item.id}>{formatDate(item.effectiveOn)} {item.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </Field>
+              <Field label="守りたい株主">
+                <Select value={protectHolder} onValueChange={(next) => setProtectHolder(next || "")}>
+                  <SelectTrigger className="h-11 w-full bg-white"><SelectValue placeholder="株主を選んでね" /></SelectTrigger>
+                  <SelectContent>{holderOptions.map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}</SelectContent>
+                </Select>
+              </Field>
+              <Field label="pre-money（円）" hint="1,000,000円単位で入力してね">
+                <Input type="number" step={1_000_000} className="h-11 bg-white" value={preMoney} onChange={(event) => setPreMoney(event.target.value === "" ? "" : Number(event.target.value))} />
+              </Field>
+              <Field label="調達額（円）" hint="1,000,000円単位で入力してね">
+                <Input type="number" step={1_000_000} className="h-11 bg-white" value={raise} onChange={(event) => setRaise(event.target.value === "" ? "" : Number(event.target.value))} />
+              </Field>
+              <Field label="追加SOプール目標（%）" hint="発行後の完全希薄化ベース、0〜50%">
+                <Input type="number" step={0.1} min={0} max={50} className="h-11 bg-white" value={poolPct} onChange={(event) => setPoolPct(event.target.value === "" ? "" : Number(event.target.value))} />
+              </Field>
+              <Field label="守りたい最低比率（%）" hint="この比率を維持できる最低pre-moneyを計算するよ">
+                <Input type="number" step={0.1} min={0} max={100} className="h-11 bg-white" value={targetMinPct} onChange={(event) => setTargetMinPct(event.target.value === "" ? "" : Number(event.target.value))} />
+              </Field>
+              <div className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 sm:col-span-2">
+                <input id="nr-include-convertibles" type="checkbox" className="size-4 accent-blue-600" checked={includeConvertibles} onChange={(event) => setIncludeConvertibles(event.target.checked)} />
+                <Label htmlFor="nr-include-convertibles" className="text-xs text-slate-700">入力済みの転換前証券の転換見込を含めて計算する</Label>
+              </div>
+            </div>
+
+            <div className={`rounded-xl border px-4 py-4 ${!protectHolder || !result || !result.valid ? "border-amber-200 bg-amber-50" : "border-blue-200 bg-white"}`}>
+              {!protectHolder ? (
+                <p className="text-xs text-amber-700">守りたい株主を選ぶと、試算後の比率がここに出るよ。</p>
+              ) : !result || !result.valid ? (
+                <p className="text-xs text-rose-700">{result?.error || "入力を確認してね"}</p>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <div className="text-[11px] font-medium text-slate-500">{protectHolder}の持株比率</div>
+                    <div className="mt-1 text-2xl font-semibold tabular-nums text-slate-950">{currentPct?.toFixed(1) ?? "—"}% <span className="mx-1 text-sm font-normal text-slate-400">→</span> {afterPct?.toFixed(1) ?? "—"}%</div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] font-medium text-slate-500">この比率を守れる最低pre-money</div>
+                    {minPre?.valid ? (
+                      <div className="mt-1 text-2xl font-semibold tabular-nums text-slate-950">{formatYen(minPre.preMoneyYen)}</div>
+                    ) : (
+                      <div className="mt-1 text-xs leading-5 text-rose-600">{minPre?.error || (targetMinPct === "" ? "維持したい比率を入力してね" : "算出できないよ")}</div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {result?.valid && (
+              <>
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <MetricTile label="発行価額" value={formatYen(result.issuePriceYen)} />
+                  <MetricTile label="新規投資家株式" value={`${formatNumber(result.newInvestorShares, 2)}株`} />
+                  <MetricTile label="追加SOプール株式" value={`${formatNumber(result.additionalPoolShares, 2)}株`} />
+                  <MetricTile label="post-money / post FD" value={`${formatYen(result.postMoneyYen)} / ${formatNumber(result.postFdShares, 2)}株`} />
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <div className="mb-2 text-[11px] font-medium text-slate-500">ラウンド前（完全希薄化後）</div>
+                    <ScenarioBar rows={result.rows.filter((row) => row.beforeShares > 0)} total={snapshot.dilutedShares} valueKey="beforeShares" pctKey="beforePct" colorOf={rowColor} />
+                  </div>
+                  <div>
+                    <div className="mb-2 text-[11px] font-medium text-slate-500">ラウンド後（完全希薄化後）</div>
+                    <ScenarioBar rows={result.rows.filter((row) => row.afterShares > 0)} total={result.postFdShares} valueKey="afterShares" pctKey="afterPct" colorOf={rowColor} />
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                  <table className="w-full min-w-[560px] text-xs">
+                    <thead className="bg-slate-50 text-left text-[11px] text-slate-500"><tr><th className="px-4 py-3 font-medium">株主</th><th className="px-3 py-3 text-right font-medium">ラウンド前株式</th><th className="px-3 py-3 text-right font-medium">ラウンド前%</th><th className="px-3 py-3 text-right font-medium">ラウンド後株式</th><th className="px-4 py-3 text-right font-medium">ラウンド後%</th></tr></thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {result.rows.map((row) => (
+                        <tr key={row.key} className={row.isProtected ? "bg-blue-50/60" : ""}>
+                          <td className="px-4 py-2.5 font-medium text-slate-900"><span className="flex items-center gap-1.5"><span className="size-2 shrink-0 rounded-sm" style={{ backgroundColor: rowColor(row) }} />{row.holderName}</span></td>
+                          <td className="px-3 py-2.5 text-right tabular-nums">{row.beforeShares > 0 ? formatNumber(row.beforeShares, 2) : "—"}</td>
+                          <td className="px-3 py-2.5 text-right tabular-nums">{row.beforeShares > 0 ? `${row.beforePct.toFixed(2)}%` : "—"}</td>
+                          <td className="px-3 py-2.5 text-right tabular-nums">{formatNumber(row.afterShares, 2)}</td>
+                          <td className="px-4 py-2.5 text-right font-medium tabular-nums">{row.afterPct.toFixed(2)}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div>
+                  <div className="mb-2 text-[11px] font-medium text-slate-500">pre-money感度（{protectHolder || "対象株主"}のラウンド後%）</div>
+                  <div className="grid grid-cols-5 gap-2">
+                    {sensitivity.map((point, index) => (
+                      <button
+                        key={point.multiplier}
+                        type="button"
+                        onClick={() => setSensitivityIndex(index)}
+                        className={`flex min-h-16 flex-col items-center justify-center gap-1 rounded-lg border px-2 py-2 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${sensitivityIndex === index ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white hover:bg-slate-50"}`}
+                        aria-pressed={sensitivityIndex === index}
+                      >
+                        <span className="text-[11px] font-medium text-slate-500">{point.multiplier}x</span>
+                        <span className="text-sm font-semibold tabular-nums text-slate-950">{point.watchedPct != null ? `${point.watchedPct.toFixed(1)}%` : "—"}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {sensitivity[sensitivityIndex] && (
+                    <p className="mt-2 text-[11px] leading-5 text-slate-500">
+                      pre-money {formatYen(sensitivity[sensitivityIndex].preMoneyYen)}（基準の{sensitivity[sensitivityIndex].multiplier}倍）のとき、{protectHolder || "対象株主"}のラウンド後比率は{sensitivity[sensitivityIndex].watchedPct != null ? `${sensitivity[sensitivityIndex].watchedPct!.toFixed(1)}%` : "算出できないよ"}。
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
+    </>
   );
 }
 
@@ -233,6 +649,7 @@ export function CockpitCompanyOverview({ projectId, projectName }: { projectId: 
   const [exportingPdf, setExportingPdf] = useState(false);
   const [capView, setCapView] = useState<CapView>("outstanding");
   const [selectedSnapshotId, setSelectedSnapshotId] = useState("");
+  const [equityDefaultType, setEquityDefaultType] = useState("new_issue");
   const exportRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
@@ -259,6 +676,8 @@ export function CockpitCompanyOverview({ projectId, projectName }: { projectId: 
   }, [selectedSnapshotId, snapshots]);
   const selectedSnapshot = snapshots.find((snapshot) => snapshot.id === selectedSnapshotId) || snapshots.at(-1) || null;
   const latestSnapshot = snapshots.at(-1) || null;
+  const holderColorMap = useMemo(() => buildHolderColorMap(snapshots), [snapshots]);
+  const originWarning = capTableOriginWarning(data, snapshots);
   const tieOut = capTableTieOut(data);
   const conversion = convertibleScenario(data);
   const latestRound = data.rounds.find((round) => round.price_per_share_yen != null || round.post_money_yen != null) || data.rounds[0];
@@ -330,8 +749,10 @@ export function CockpitCompanyOverview({ projectId, projectName }: { projectId: 
     else if (transactionType === "cancellation") entries = [entry(toHolder, -shares, -shares)];
     else entries = [entry(toHolder, shares, shares, paidIn)];
 
+    const roundId = String(form.get("round_id") || "none");
+
     await save("株式イベント", () => post("equity_transaction", {
-      project_id: projectId, effective_on: form.get("effective_on"), transaction_type: transactionType,
+      project_id: projectId, round_id: roundId === "none" ? null : roundId, effective_on: form.get("effective_on"), transaction_type: transactionType,
       description: textOrNull(form.get("description")), status: form.get("status"), source_ref: textOrNull(form.get("source_ref")),
       notes: textOrNull(form.get("notes")), entries,
     }));
@@ -464,8 +885,10 @@ export function CockpitCompanyOverview({ projectId, projectName }: { projectId: 
           </div>
         </Section>
 
-        <Section title="資本構成の推移" description="確定した株式イベントを時系列で積み上げた100%構成グラフ" action={<Button className="h-11 bg-slate-950 text-white hover:bg-slate-800" onClick={() => setDialog("equity")}><Plus />株式イベント</Button>}>
-          <CapitalTimeline snapshots={snapshots} selectedId={selectedSnapshot?.id || ""} onSelect={setSelectedSnapshotId} />
+        <Section title="資本構成の推移" description="確定した株式イベントを時系列で積み上げた100%構成グラフ" action={<Button className="h-11 bg-slate-950 text-white hover:bg-slate-800" onClick={() => { setEquityDefaultType("new_issue"); setDialog("equity"); }}><Plus />株式イベント</Button>}>
+          {originWarning && <CapTableOriginWarning onAddFoundingEvent={() => { setEquityDefaultType("incorporation"); setDialog("equity"); }} />}
+          <CapitalTimeline snapshots={snapshots} selectedId={selectedSnapshot?.id || ""} onSelect={setSelectedSnapshotId} colorMap={holderColorMap} />
+          <CapTableHistoryMatrix snapshots={snapshots} rounds={data.rounds} selectedId={selectedSnapshot?.id || ""} onSelect={setSelectedSnapshotId} colorMap={holderColorMap} />
         </Section>
 
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
@@ -489,6 +912,8 @@ export function CockpitCompanyOverview({ projectId, projectName }: { projectId: 
             </div>
           </Section>
         </div>
+
+        <NextRoundSimulator data={data} snapshots={snapshots} colorMap={holderColorMap} />
 
         <Section title="資金調達・潜在株式" description="株式ラウンドとJ-KISS・SAFE等は分けて管理。転換前証券は現在持株比率へ混ぜない" action={<div className="flex flex-wrap gap-2"><Button variant="outline" className="h-11" onClick={() => setDialog("round")}><Plus />ラウンド</Button><Button variant="outline" className="h-11" onClick={() => setDialog("convertible")}><Plus />転換前証券</Button></div>}>
           {data.rounds.length === 0 && data.convertibles.length === 0 ? <EmptyState>調達ラウンドや転換前証券を追加すると、企業価値と希薄化の検討材料をまとめられるよ。</EmptyState> : <div className="grid divide-y divide-slate-100 lg:grid-cols-2 lg:divide-x lg:divide-y-0">
@@ -534,10 +959,11 @@ export function CockpitCompanyOverview({ projectId, projectName }: { projectId: 
       </div><DialogFooter><Button type="button" variant="outline" className="h-11" onClick={() => setDialog(null)}>閉じる</Button><Button type="submit" className="h-11" disabled={saving}>{saving && <Loader2 className="animate-spin" />}保存</Button></DialogFooter></form></DialogContent></Dialog>
 
       <Dialog open={dialog === "equity"} onOpenChange={(open) => !open && setDialog(null)}><DialogContent className="max-h-[90vh] overflow-y-auto sm:!max-w-2xl"><form onSubmit={(event) => void saveEquity(event)}><DialogHeader><DialogTitle>株式イベントを追加</DialogTitle><DialogDescription>確定イベントだけが現在のcap tableに反映されるよ。譲渡は譲渡元と譲渡先を同時に記録する。</DialogDescription></DialogHeader><div className="my-5 grid gap-4 sm:grid-cols-2">
-        <Field label="イベント"><NativeSelect name="transaction_type" defaultValue="new_issue" options={TRANSACTION_TYPES} /></Field>
+        <Field label="イベント"><NativeSelect key={equityDefaultType} name="transaction_type" defaultValue={equityDefaultType} options={TRANSACTION_TYPES} /></Field>
         <Field label="状態"><NativeSelect name="status" defaultValue="confirmed" options={[{ value: "planned", label: "計画" }, { value: "confirmed", label: "確定" }]} /></Field>
         <Field label="効力日" name="effective_on" hint="YYYY-MM-DD"><Input id="effective_on" name="effective_on" required defaultValue={new Date().toISOString().slice(0, 10)} className="h-11" /></Field>
         <Field label="株主区分"><NativeSelect name="holder_type" defaultValue="founder" options={HOLDER_TYPES} /></Field>
+        <Field label="関連ラウンド" hint="任意。ラウンドと株式イベントを紐付けたいときに選択"><NativeSelect name="round_id" defaultValue="none" options={[{ value: "none", label: "なし" }, ...data.rounds.map((round) => ({ value: round.id, label: round.round_name || formatDate(round.round_date || round.round_ym) }))]} /></Field>
         <Field label="譲渡元（譲渡のとき）" name="from_holder"><Input id="from_holder" name="from_holder" className="h-11" /></Field>
         <Field label="株主・譲渡先・付与先" name="to_holder"><Input id="to_holder" name="to_holder" className="h-11" /></Field>
         <Field label="証券種別" name="security_class"><Input id="security_class" name="security_class" defaultValue="普通株式" className="h-11" /></Field>
