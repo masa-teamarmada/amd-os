@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/supabase/api-auth";
 import { getGoogleAuthAsync, getMemberGoogleAuth } from "@/lib/sources/google";
+import { freeeApi } from "@/lib/freee-client";
 import {
   addMonthsToYm,
   currentDateJst,
@@ -12,6 +13,13 @@ import {
   parsePaymentEmail,
   type CompanyPaymentObligation,
 } from "@/lib/finance/payment-obligations";
+import {
+  addMonthsToStatutoryYm,
+  buildAmdStatutoryPaymentDrafts,
+  type StatutoryPayrollMonth,
+  type StatutoryPaymentEvidence,
+  type StatutoryTaxForecast,
+} from "@/lib/finance/statutory-payment-rules";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -64,6 +72,271 @@ async function kiyoMember(db: ReturnType<typeof createAdminClient>) {
   if (error) throw error;
   if (!data?.member_id) throw new Error("active member code_name=きよ not found");
   return data as { member_id: string; code_name: string; slack_id: string | null };
+}
+
+function numeric(value: unknown): number {
+  const result = typeof value === "number" ? value : Number(value ?? 0);
+  return Number.isFinite(result) ? Math.max(0, Math.round(result)) : 0;
+}
+
+function monthEndIso(ym: string): string {
+  const value = new Date(Date.UTC(Number(ym.slice(0, 4)), Number(ym.slice(4, 6)), 0));
+  return `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, "0")}-${String(value.getUTCDate()).padStart(2, "0")}`;
+}
+
+type FreeeAccountItem = { id?: number | string; name?: string | null };
+type FreeeDealDetail = {
+  entry_side?: string | null;
+  account_item_id?: number | string | null;
+  amount?: number | string | null;
+  description?: string | null;
+};
+type FreeeDeal = {
+  id?: number | string;
+  issue_date?: string | null;
+  amount?: number | string | null;
+  details?: FreeeDealDetail[];
+};
+type FreeeWalletTxn = {
+  id?: number | string;
+  date?: string | null;
+  entry_side?: string | null;
+  amount?: number | string | null;
+  description?: string | null;
+  walletable_type?: string | null;
+};
+
+async function fetchFreeePayrollDeals(startDate: string, endDate: string, accountItemId: string): Promise<FreeeDeal[]> {
+  const deals: FreeeDeal[] = [];
+  for (let offset = 0; offset < 1000; offset += 100) {
+    const params = new URLSearchParams({
+      start_issue_date: startDate,
+      end_issue_date: endDate,
+      account_item_id: accountItemId,
+      accruals: "with",
+      limit: "100",
+      offset: String(offset),
+    });
+    const data = await freeeApi("GET", `/api/1/deals?${params.toString()}`) as { deals?: FreeeDeal[] };
+    const page = data.deals ?? [];
+    deals.push(...page);
+    if (page.length < 100) break;
+  }
+  return deals;
+}
+
+async function fetchFreeeWalletEvidence(startYm: string, endYm: string): Promise<StatutoryPaymentEvidence[]> {
+  const evidence: StatutoryPaymentEvidence[] = [];
+  for (let ym = startYm; ym <= endYm; ym = addMonthsToStatutoryYm(ym, 1)) {
+    for (let offset = 0; offset < 500; offset += 100) {
+      const params = new URLSearchParams({
+        start_date: `${ym.slice(0, 4)}-${ym.slice(4, 6)}-01`,
+        end_date: monthEndIso(ym),
+        entry_side: "expense",
+        limit: "100",
+        offset: String(offset),
+      });
+      const data = await freeeApi("GET", `/api/1/wallet_txns?${params.toString()}`) as { wallet_txns?: FreeeWalletTxn[] };
+      const page = data.wallet_txns ?? [];
+      for (const row of page) {
+        if (!row.id || !row.date || row.walletable_type !== "bank_account") continue;
+        const description = String(row.description ?? "");
+        const kind = /シヤカイホケン|社会保険/.test(description)
+          ? "social_insurance"
+          : /ロウドウホケン|労働保険/.test(description)
+            ? "labor_insurance"
+            : /ゼイムシヨ|税務署/.test(description)
+              ? "tax_office"
+              : /チホウゼイ|地方税/.test(description)
+                ? "local_tax"
+                : null;
+        if (!kind) continue;
+        evidence.push({
+          kind,
+          date: row.date,
+          amountYen: numeric(row.amount),
+          sourceRef: `freee:wallet_txn:${row.id}`,
+        });
+      }
+      if (page.length < 100) break;
+    }
+  }
+  return evidence;
+}
+
+async function fetchFreeeStatutoryInputs(today: string): Promise<{
+  payrollMonths: StatutoryPayrollMonth[];
+  paymentEvidence: StatutoryPaymentEvidence[];
+}> {
+  const currentYear = Number(today.slice(0, 4));
+  const accountItems = await freeeApi("GET", "/api/1/account_items?limit=500") as { account_items?: FreeeAccountItem[] };
+  const byName = new Map((accountItems.account_items ?? []).map((row) => [String(row.name ?? ""), String(row.id ?? "")]));
+  const withheldId = byName.get("預り金");
+  const legalBenefitsId = byName.get("法定福利費");
+  if (!withheldId || !legalBenefitsId) throw new Error("freee account items for payroll liabilities were not found");
+
+  const deals = await fetchFreeePayrollDeals(`${currentYear - 1}-01-01`, today, withheldId);
+  const payrollByYm = new Map<string, StatutoryPayrollMonth>();
+  const rowFor = (ym: string) => {
+    const existing = payrollByYm.get(ym);
+    if (existing) return existing;
+    const created: StatutoryPayrollMonth = {
+      ym,
+      withholdingIncomeTaxYen: null,
+      withholdingObserved: false,
+      socialInsuranceYen: null,
+      socialInsuranceObserved: false,
+      residentTaxYen: null,
+      residentTaxObserved: false,
+    };
+    payrollByYm.set(ym, created);
+    return created;
+  };
+
+  for (const deal of deals) {
+    const ym = ymFromDate(deal.issue_date);
+    if (!ym) continue;
+    const target = rowFor(ym);
+    let socialDeal = false;
+    for (const detail of deal.details ?? []) {
+      const accountId = String(detail.account_item_id ?? "");
+      const description = String(detail.description ?? "");
+      const signedAmount = numeric(detail.amount) * (detail.entry_side === "debit" ? -1 : 1);
+      if (accountId === withheldId && /源泉所得税/.test(description)) {
+        target.withholdingObserved = true;
+        target.withholdingIncomeTaxYen = (target.withholdingIncomeTaxYen ?? 0) + signedAmount;
+      }
+      if (accountId === withheldId && /住民税/.test(description)) {
+        target.residentTaxObserved = true;
+        target.residentTaxYen = (target.residentTaxYen ?? 0) + signedAmount;
+      }
+      if (accountId === legalBenefitsId || (accountId === withheldId && detail.entry_side === "debit" && /保険料|厚生年金|子ども・子育て支援金/.test(description))) {
+        socialDeal = true;
+      }
+    }
+    if (socialDeal && numeric(deal.amount) > 0) {
+      target.socialInsuranceObserved = true;
+      target.socialInsuranceYen = Math.max(numeric(target.socialInsuranceYen), numeric(deal.amount));
+    }
+  }
+
+  const paymentEvidence = await fetchFreeeWalletEvidence(`${currentYear - 1}07`, today.slice(0, 7).replace("-", ""));
+  const payrollMonths = [...payrollByYm.values()]
+    .map((row) => ({
+      ...row,
+      withholdingIncomeTaxYen: row.withholdingObserved ? numeric(row.withholdingIncomeTaxYen) : null,
+      residentTaxYen: row.residentTaxObserved ? numeric(row.residentTaxYen) : null,
+    }))
+    .sort((a, b) => a.ym.localeCompare(b.ym));
+  return { payrollMonths, paymentEvidence };
+}
+
+async function generatedFromStatutoryRules(
+  db: ReturnType<typeof createAdminClient>,
+  ownerMemberId: string,
+  today: string
+): Promise<{ obligations: GeneratedObligation[]; counts: Record<string, number>; sourceError: string | null }> {
+  const currentYm = today.slice(0, 7).replace("-", "");
+  const horizonYm = addMonthsToYm(currentYm, 18);
+  const [paramsRes, liveForecastRes, fallbackForecastRes] = await Promise.all([
+    db.from("company_budget_inputs")
+      .select("payload")
+      .eq("input_kind", "params")
+      .eq("source", "gas_monthly_pl")
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    db.from("company_budget_monthly")
+      .select("ym,category,budget_amount_yen")
+      .eq("scope", "company")
+      .eq("source", "os_live_monthly_pl")
+      .eq("version", "os-live-current")
+      .gte("ym", currentYm)
+      .lte("ym", horizonYm)
+      .in("category", ["tax_payment_consumption", "tax_payment_corporate"])
+      .order("ym", { ascending: true })
+      .limit(100),
+    db.from("company_budget_actual_monthly")
+      .select("ym,category,budget_amount_yen")
+      .gte("ym", currentYm)
+      .lte("ym", horizonYm)
+      .in("category", ["tax_payment_consumption", "tax_payment_corporate"])
+      .order("ym", { ascending: true })
+      .limit(100),
+  ]);
+  if (paramsRes.error) throw paramsRes.error;
+  if (liveForecastRes.error) throw liveForecastRes.error;
+  if (fallbackForecastRes.error) throw fallbackForecastRes.error;
+  const params = (paramsRes.data?.payload ?? {}) as Record<string, unknown>;
+  const forecastsByYm = new Map<string, StatutoryTaxForecast>();
+  const forecastRows = (liveForecastRes.data ?? []).length > 0
+    ? liveForecastRes.data ?? []
+    : fallbackForecastRes.data ?? [];
+  for (const row of forecastRows) {
+    const forecast = forecastsByYm.get(row.ym) ?? { ym: row.ym, consumptionTaxYen: 0, corporateTaxYen: 0 };
+    if (row.category === "tax_payment_consumption") forecast.consumptionTaxYen = numeric(row.budget_amount_yen);
+    if (row.category === "tax_payment_corporate") forecast.corporateTaxYen = numeric(row.budget_amount_yen);
+    forecastsByYm.set(row.ym, forecast);
+  }
+
+  let payrollMonths: StatutoryPayrollMonth[] = [];
+  let paymentEvidence: StatutoryPaymentEvidence[] = [];
+  let sourceError: string | null = null;
+  try {
+    const freee = await fetchFreeeStatutoryInputs(today);
+    payrollMonths = freee.payrollMonths;
+    paymentEvidence = freee.paymentEvidence;
+  } catch (error) {
+    sourceError = errorMessage(error).slice(0, 300);
+  }
+
+  const drafts = buildAmdStatutoryPaymentDrafts({
+    today,
+    horizonMonths: 18,
+    fiscalYearStartMonth: numeric(params.fiscalYearStartMonth) || 1,
+    previousCorporateTaxYen: numeric(params.prevCorpTax),
+    previousConsumptionTaxYen: numeric(params.prevConsumptionTax),
+    payrollMonths,
+    paymentEvidence,
+    taxForecasts: [...forecastsByYm.values()],
+  });
+  const now = new Date().toISOString();
+  const obligations: GeneratedObligation[] = drafts.map((draft) => ({
+    source_key: draft.sourceKey,
+    title: draft.title,
+    counterparty: draft.counterparty,
+    category: draft.category,
+    amount_yen: draft.amountYen,
+    amount_status: draft.amountStatus,
+    due_date: draft.dueDate,
+    due_date_precision: "day",
+    expected_payment_ym: draft.dueDate.slice(0, 7).replace("-", ""),
+    status: draft.status,
+    cashflow_treatment: draft.cashflowTreatment,
+    budget_category: draft.budgetCategory,
+    auto_debit: draft.autoDebit,
+    owner_member_id: ownerMemberId,
+    source_kind: "statutory_rule",
+    source_ref: draft.sourceRef,
+    confidence: draft.confidence,
+    paid_at: draft.paidAt,
+    paid_amount_yen: draft.paidAmountYen,
+    payload: { ...draft.payload, generatedFrom: "statutory_rule+freee+management_forecast" },
+    last_seen_at: now,
+    updated_at: now,
+  }));
+  return {
+    obligations,
+    counts: {
+      statutory: obligations.length,
+      withholding: obligations.filter((row) => row.payload.ruleKey === "withholding_income_tax_special").length,
+      socialInsurance: obligations.filter((row) => row.payload.ruleKey === "monthly_social_insurance").length,
+      residentTax: obligations.filter((row) => row.payload.ruleKey === "resident_tax_special_collection").length,
+      laborInsurance: obligations.filter((row) => row.payload.ruleKey === "annual_labor_insurance").length,
+      corporateAndConsumptionTax: obligations.filter((row) => /tax_(?:interim|final)$/.test(String(row.payload.ruleKey ?? ""))).length,
+    },
+    sourceError,
+  };
 }
 
 async function generatedFromOsSources(
@@ -504,11 +777,12 @@ async function run(req: NextRequest, options: { dryRun: boolean; sendNotificatio
   const { dryRun, sendNotifications } = options;
   const today = req.nextUrl.searchParams.get("date") || currentDateJst();
   const kiyo = await kiyoMember(db);
-  const [osSources, gmail] = await Promise.all([
+  const [statutory, osSources, gmail] = await Promise.all([
+    generatedFromStatutoryRules(db, kiyo.member_id, today),
     generatedFromOsSources(db, kiyo.member_id, today),
     generatedFromGmail(db, kiyo.member_id),
   ]);
-  const all = [...osSources.obligations, ...gmail.obligations];
+  const all = [...statutory.obligations, ...osSources.obligations, ...gmail.obligations];
   const sync = dryRun ? { upserted: 0, preserved: 0 } : await upsertGenerated(db, all);
   const notifications = dryRun || !sendNotifications
     ? { candidates: [], sent: 0, skipped: 0 }
@@ -519,14 +793,15 @@ async function run(req: NextRequest, options: { dryRun: boolean; sendNotificatio
     sendNotifications,
     notificationSourceKey: options.notificationSourceKey ?? null,
     today,
-    discovered: { ...osSources.counts, gmail: gmail.obligations.length, gmailMailboxes: gmail.mailboxes, gmailMessagesScanned: gmail.messages },
+    discovered: { ...statutory.counts, ...osSources.counts, gmail: gmail.obligations.length, gmailMailboxes: gmail.mailboxes, gmailMessagesScanned: gmail.messages },
     preview: dryRun ? all
-      .filter((row) => row.source_kind === "gmail" || row.source_kind === "action_item")
+      .filter((row) => row.source_kind === "statutory_rule" || row.source_kind === "gmail" || row.source_kind === "action_item")
       .slice(0, 100)
       .map((row) => ({ title: row.title, category: row.category, amountYen: row.amount_yen, dueDate: row.due_date, status: row.status, sourceKind: row.source_kind })) : undefined,
     sync,
     notifications,
     tokenErrors: gmail.tokenErrors,
+    sourceErrors: [...gmail.tokenErrors, ...(statutory.sourceError ? [`freee-statutory:${statutory.sourceError}`] : [])],
   });
 }
 

@@ -6,6 +6,11 @@ import {
   notificationStage,
   parsePaymentEmail,
 } from "../src/lib/finance/payment-obligations.ts";
+import {
+  buildAmdStatutoryPaymentDrafts,
+  nextStatutoryBusinessDay,
+  statutoryEndOfMonthDueDate,
+} from "../src/lib/finance/statutory-payment-rules.ts";
 import { runMonthlyPlSimulation } from "../src/lib/finance/monthly-pl-simulation.ts";
 
 assert.equal(extractPaymentAmount("納付額 512,300円"), 512300);
@@ -49,6 +54,58 @@ assert.deepEqual(
   notificationStage({ status: "open", due_date: "2026-07-10", due_date_precision: "day", expected_payment_ym: "202607", amount_status: "exact" }, "2026-07-03"),
   { scheduleKey: "2026-07-10", stage: "7-days-before" }
 );
+
+assert.equal(nextStatutoryBusinessDay("2027-03-21"), "2027-03-23");
+assert.equal(statutoryEndOfMonthDueDate("202702"), "2027-03-01");
+
+const payrollMonths = [
+  ["202601", 104400, 333366],
+  ["202602", 43700, 333366],
+  ["202603", 43810, 331782],
+  ["202604", 43590, 334818],
+  ["202605", 43590, 334818],
+].map(([ym, withholding, social]) => ({
+  ym: String(ym),
+  withholdingIncomeTaxYen: Number(withholding),
+  withholdingObserved: true,
+  socialInsuranceYen: Number(social),
+  socialInsuranceObserved: true,
+  residentTaxYen: null,
+  residentTaxObserved: false,
+}));
+const statutory = buildAmdStatutoryPaymentDrafts({
+  today: "2026-07-16",
+  horizonMonths: 18,
+  fiscalYearStartMonth: 1,
+  previousCorporateTaxYen: 72000,
+  previousConsumptionTaxYen: 810400,
+  payrollMonths,
+  paymentEvidence: [
+    { kind: "social_insurance", date: "2026-02-18", amountYen: 333366, sourceRef: "social:1" },
+    { kind: "social_insurance", date: "2026-03-17", amountYen: 333366, sourceRef: "social:2" },
+    { kind: "social_insurance", date: "2026-05-19", amountYen: 331782, sourceRef: "social:3" },
+    { kind: "social_insurance", date: "2026-06-16", amountYen: 334818, sourceRef: "social:4" },
+    { kind: "labor_insurance", date: "2025-07-11", amountYen: 29056, sourceRef: "labor:2025" },
+  ],
+  taxForecasts: [
+    { ym: "202608", consumptionTaxYen: 405200, corporateTaxYen: 0 },
+    { ym: "202703", consumptionTaxYen: 1689315, corporateTaxYen: 70000 },
+  ],
+});
+const withholdingH1 = statutory.find((row) => row.sourceKey === "statutory:withholding-income-tax:special:2026-h1");
+assert.equal(withholdingH1?.dueDate, "2026-07-10");
+assert.equal(withholdingH1?.amountYen, 322680);
+assert.equal(withholdingH1?.amountStatus, "estimated");
+assert.equal(withholdingH1?.status, "needs_review");
+assert.deepEqual((withholdingH1?.payload.missingMonths as string[]), ["202606"]);
+const consumptionInterim = statutory.find((row) => row.sourceKey === "statutory:consumption-tax:interim:202601");
+assert.equal(consumptionInterim?.dueDate, "2026-08-31");
+assert.equal(consumptionInterim?.amountYen, 405200);
+assert.equal(consumptionInterim?.amountStatus, "estimated");
+assert.equal(statutory.some((row) => row.sourceKey === "statutory:corporate-tax:interim:202601"), false);
+assert.equal(statutory.find((row) => row.sourceKey === "statutory:consumption-tax:final:202601")?.dueDate, "2027-03-01");
+assert.equal(statutory.find((row) => row.sourceKey === "statutory:consumption-tax:interim:202701")?.amountYen, 1047258);
+assert.equal(statutory.find((row) => row.sourceKey === "statutory:social-insurance:202605")?.status, "needs_review");
 assert.deepEqual(
   notificationStage({ status: "open", due_date: "2026-07-10", due_date_precision: "day", expected_payment_ym: "202607", amount_status: "exact" }, "2026-07-16"),
   { scheduleKey: "2026-07-10", stage: "overdue-6-days" }
@@ -97,5 +154,51 @@ assert.equal(simulation.rows[0].obligationPaymentTotal, 600000);
 assert.equal(simulation.rows[0].obligationPaymentAdditive, 500000);
 assert.equal(simulation.rows[0].cashBalance, 500000);
 assert.equal(simulation.rows[0].cashOutflow, 500000);
+
+const timingSimulation = runMonthlyPlSimulation({
+  params: {
+    startYm: 202601,
+    months: 7,
+    rateCloser: 0,
+    rateMember: 0,
+    initialCash: 1000000,
+    fiscalYearStartMonth: 1,
+  },
+  projects: [],
+  fixedCosts: [{ costId: "gross-pay", costName: "給与総額", monthlyCost: 100000, startYm: 202601, endYm: 202606, costType: "exempt" }],
+  paymentObligations: [{
+    obligationId: "withholding-timing",
+    title: "源泉所得税",
+    category: "tax",
+    amountYen: 600000,
+    amountStatus: "exact",
+    dueDate: "2026-07-10",
+    expectedPaymentYm: 202607,
+    cashflowTreatment: "additive",
+    status: "open",
+    autoDebit: false,
+    originCashOffsets: [202601, 202602, 202603, 202604, 202605, 202606].map((ym) => ({ ym, amountYen: 100000, amountStatus: "exact" as const })),
+  }],
+});
+assert.equal(timingSimulation.rows[0].cashOutflow, 0);
+assert.equal(timingSimulation.rows[0].cashBalance, 1000000);
+assert.equal(timingSimulation.rows[6].cashOutflow, 600000);
+assert.equal(timingSimulation.rows[6].cashBalance, 400000);
+
+const weekendSettlement = runMonthlyPlSimulation({
+  params: {
+    startYm: 202701,
+    months: 3,
+    rateCloser: 0,
+    rateMember: 0,
+    initialCash: 2000000,
+    fiscalYearStartMonth: 1,
+    unpaidConsumptionTax: 810400,
+  },
+  projects: [],
+  fixedCosts: [],
+});
+assert.equal(weekendSettlement.rows[1].ctaxPayment, 0);
+assert.equal(weekendSettlement.rows[2].ctaxPayment, 810400);
 
 console.log("payment obligation checks passed");
