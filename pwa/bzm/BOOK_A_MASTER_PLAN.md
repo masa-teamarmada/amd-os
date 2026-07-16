@@ -219,25 +219,22 @@ Book A の章頭場面の台帳。**※PF-019 (2026-07-11) により Book B は 
 ### Ch 3 (第I部、26p) — 評価問題の定式化 — Valuation の限界と期待値分解 M×P×R×S
 - **章頭ケース**: model-overview.md 章頭 (三案件——大きいが未成熟/小さいが堅い/追い風は強いが人がいない——で三周する月例会議) を意思決定直前で切る A/B 再構成 — A: あなたが配分責任者ならどう決めるか。was 節の挿話に why-valuation-fails.md「30億円の数字の旅」を低解像度で使用。※両場面とも Book A クレームを台帳登録
 - **was (標準理論)**: DCF (Damodaran/Brealey-Myers-Allen)、VC メソッド・マルチプル法 (Gompers & Lerner; Sahlman)、スコアカード法、リアルオプション評価の実務、機会発見 vs 創造 (Alvarez & Barney 2007)
-- **therefore (BZM)**: Before Zero では DCF の前提がすべて仮定になる (四つの壁: 前提が全部仮定/ハイプを測る/単一値が律速を隠す/死なない力の軸なし)。価値を期待値分解 E[V] ≈ M×P×R×S へ読み替え (導出は二段: 走り切る力を天候 M と体質 S に開く)、「DCF が測っていたのは P だけ (未分化版)」という honest 位置付け。判定層+動学層の二層アーキテクチャの予告。乗法/加重和/補完性の4層対応表 (トップ乗法 / M 内部代替 / S 内部代替 / F 内部補完。terminology_glossary §4 正本からのみ引く) を導入し「ゼロなら全滅」と教えない規律を最初に固定。モノグラフ Ch 6 + Ch 2 + Ch 0.3 の降圧翻訳
+- **therefore (BZM)**: Before Zero では DCF の前提がすべて仮定になる (四つの壁: 前提が全部仮定/ハイプを測る/単一値が律速を隠す/死なない力の軸なし)。価値を期待値分解 E[V] ≈ M×P×R×S へ読み替え (導出は二段: 走り切る力を天候 M と体質 S に開く)、「DCF が測っていたのは P だけ (未分化版)」という honest 位置付け。天井 P の観測ルーブリック (緊急性・支払い意思の二束、証拠の質三段=主張/関心の兆候/行動の証拠) を本章後半で単独に組み立て、退去した統合章に代わる P のオーナー章として機能する (2026-07-16 案3確定)。判定層+動学層の二層アーキテクチャの予告。乗法/加重和/補完性の4層対応表 (トップ乗法 / M 内部代替 / S 内部代替 / F 内部補完。terminology_glossary §4 正本からのみ引く) を導入し「ゼロなら全滅」と教えない規律を最初に固定。モノグラフ Ch 6 + Ch 2 + Ch 0.3 の降圧翻訳
 - **数式アイテム**: DCF: PV = Σ CF_t/(1+r)^t と割引率の3つの仕事・前提条件 / 期待値分解 E[V] ≈ M × P × R × S (honest 位置付け、2026-07-16 M 分離) / Cobb-Douglas 乗法の直感と +1 シフトの予告 / 4層対応表 (トップ乗法 / M内部代替 / S内部代替 / F内部補完) の導入 / 割引率 r の3分解と S が肩代わりできる範囲 (Box)
 - **降圧翻訳元**: Book II Ch 6 (期待値分解の honest 位置付け) + Book I Ch 2 (SPS 概念体系) + Book 0 Ch 0.3 (二層 readiness 方法論の宣言形) の降圧翻訳。素材: why-valuation-fails.md / model-overview.md
 - **演習**: シーズカード1枚で簡易 DCF を Excel で実際に組み、感度分析 (割引率±・成長率±) で仮定の連鎖の壊れ方を体験 → 同じカードを M×P×R×S の4問に読み替える。討議「30億円という数字は何を測っていたか」
 - **到達目標**: DCF が Before Zero で壊れる四つの壁を説明し、評価問題を E[V]≈M×P×R×S へ定式化し直せる
 
-### Ch 4 (第II部、54p目安) — 【統合章タイトル未確定】— P と R を観測で採点する
+### Ch 4 (第II部、54p目安) — 外の必要と内の到達 — M と R を観測で採点する
 - 章頭ケース: `materials/book_a_chapters/p-potential.md` と `materials/book_a_chapters/r-readiness.md` を統合素材として扱う。前半は戸倉視点で P の観測、後半は瀬戸視点で R の実測。Ch4 v1 展示会案は失効。Ch4 v2「この数字を疑うのは、やめます」と Ch5 v1 移転実験案は、統合章素材として候補存続。
 - was: TAM/SAM/SOM、Bass diffusion、機会論、NASA TRL、内閣府SIP 5視点、KTH IRL、Blank、Ries。
-- therefore: P は「市場規模の主張」ではなく、TAM/urgency/WTP/evidence quality を同じ観測束で査定する。R は TRL/IRL/CRL/LRL/ORL の最小値として扱い、最も遅れた軸が事業化の速度を決める。章末命題は「P と R は主張の査定ではなく観測から採点する — 第II部の背骨」。
+- therefore: 事業は、外の必要(M)と内の到達(R)の積で動く (2026-07-16 中心命題 v4)。天井$P$の観測は第3章が単独で引き取り、本章では扱わない (2026-07-16 案3確定)。M は産・学・官の勢いという外から吹く追い風として観測し (詳しい構成は第6章)、R は TRL/IRL/CRL/LRL/ORL の最小値として扱い、最も遅れた軸が事業化の速度を決める。章末命題は「事業は、外の必要(M)と内の到達(R)の積で動く — 第II部の背骨」。
 - 数式アイテム:
-  - `P = αTAM + βUrgency + γWTP + ηEvidenceQuality`
-  - Evidence Quality rubric
-  - Urgency/WTP 2x2
-  - `U(t)` urgency decay
   - `R = min(TRL, IRL, CRL, LRL, ORL)`
   - XRL radar
   - readiness bottleneck
   - readiness evidence ladder
+  - (P 関連の数式アイテム [`P = αTAM + βUrgency + γWTP + ηEvidenceQuality`・Evidence Quality rubric・Urgency/WTP 2x2・`U(t)` urgency decay] は 2026-07-16 案3確定により第3章へ移管、本章からは削除)
 - 降圧翻訳元: Book I Ch2、Ch3、Ch4。素材は `p-potential.md` / `r-readiness.md`。
 - 演習:
   1. 自社技術の P を「市場規模」ではなく「観測された証拠の質」で採点する。
