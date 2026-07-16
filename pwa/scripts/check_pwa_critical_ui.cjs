@@ -1532,6 +1532,22 @@ expectIncludes("src/lib/company-overview-xlsx.ts", [
   "minimumPreMoneyForTarget",
 ]);
 
+// 資本政策ワークスペース統合 (2026-07-16, v3.43.2): 縦積み100%構成グラフ + 履歴マトリクス +
+// 次回ラウンド試算列を1つの`資本政策`セクションへ統合。cap-table-history-matrix / next-round-simulator
+// が離れた場所に再分裂しないこと、selected-eventだけを再掲する冗長セクション (`cap table｜{label}`) が
+// 復活しないこと、仮・FD試算列が同じ表内に残ることを保証する。
+expectIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
+  "function CapitalPolicyWorkspace(",
+  "仮・FD",
+  "次回ラウンド（試算）",
+]);
+expectNotIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
+  "cap table｜${selectedSnapshot",
+  "function CapitalTimeline(",
+  "function CapTableHistoryMatrix(",
+  "function NextRoundSimulator(",
+]);
+
 // migration 175: LST (p07) の創業〜QST in-kind まで正史を復元 (source: xlsx:LST_captable_250415.xlsx)。
 expectIncludes("scripts/migrations/175_lst_cap_table_history.sql", [
   "xlsx:LST_captable_250415.xlsx#incorporation-202307",
