@@ -1548,6 +1548,22 @@ expectNotIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
   "function NextRoundSimulator(",
 ]);
 
+// UX review repair (2026-07-16, v3.43.3): 冗長な株主区分別ドーナツを撤去し、仮説列の基準時点を明示。
+// 感度は非インタラクティブな参考情報に変更し、株主セルのクリック誤解を排除。
+expectIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
+  "基準",
+  "仮・FD",
+  "FD ",
+  "新規投資家",
+  "参考",
+]);
+expectNotIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
+  "function CapitalDonut",
+  "title=\"株主区分別\"",
+  "sensitivityIndex",
+  "onClick={() => onSelectBase(s.id)} className={`cursor-pointer",
+]);
+
 // migration 175: LST (p07) の創業〜QST in-kind まで正史を復元 (source: xlsx:LST_captable_250415.xlsx)。
 expectIncludes("scripts/migrations/175_lst_cap_table_history.sql", [
   "xlsx:LST_captable_250415.xlsx#incorporation-202307",
