@@ -775,6 +775,11 @@ expectIncludes("src/components/cockpit/CockpitVentureStatus.tsx", [
   "overflow-x-auto",
   "min-w-[600px] xl:min-w-0",
 ]);
+expectIncludes("src/components/venture-map/AmdScoreView.tsx", [
+  '<div className="min-w-0 text-slate-900">',
+  '<section className="min-w-0 grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">',
+  '<div className="min-w-0 flex flex-col gap-3">',
+]);
 
 // p00 (= AMD 会社全体) は Management Score Hero に切り替わる
 expectIncludes("src/components/cockpit/CockpitView.tsx", [

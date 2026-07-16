@@ -299,8 +299,8 @@ export function AmdScoreView({
 
   if (embedded && primarySnapshot && result && latestBreakdown) {
     return (
-      <div className="text-slate-900">
-        <div className="w-full space-y-4">
+      <div className="min-w-0 text-slate-900">
+        <div className="min-w-0 w-full space-y-4">
           <PrimaryPrsHeroCard
             key={`${latest?.id ?? "no-row"}:${latest?.prs_potential ?? "null"}:${latest?.prs_r_net ?? "null"}:embedded`}
             venture={venture}
@@ -351,7 +351,7 @@ export function AmdScoreView({
               <span className="ml-2 text-amber-800/80">S の直接入力パラメータ</span>
             </div>
           </section>
-          <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <section className="min-w-0 grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
             <Factor3Breakdown
               result={result}
               alpha={alpha}
@@ -884,7 +884,7 @@ function Factor3Breakdown({
   const F = result.contributions.FRL ?? 1;
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="min-w-0 flex flex-col gap-3">
       <DetailFactorCard
         label="M"
         ja="Macrotrend"

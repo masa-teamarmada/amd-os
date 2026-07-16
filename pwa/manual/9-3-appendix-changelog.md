@@ -330,3 +330,4 @@
 | 2026-07-16 | 2-3 PJコックピット / 4-3 AMD Score / BUGS | 修正 | `AmdScoreView embedded` の早期return内にも `XrlChecklistPanel` を追加し、cockpit の `スコア詳細` タブで実際にXRLチェックボックスを表示。critical UI は import の存在だけでなく embedded 分岐内への配置を検査するよう強化。build v3.41.11 | 初回production確認で、通常viewにしかチェックリストがなくcockpit埋め込みでは欠ける分岐漏れを検出したため | えいみ |
 | 2026-07-16 | 2-3 PJコックピット / 4-3 AMD Score | 修正 | cockpit embedded の360px FRL列では radar と6因子一覧を縦積みにし、通常の広い score view だけ従来の横並びを維持。`min-w-0` と radar 最大幅を追加。build v3.41.12 | desktop production確認で、FRL内の固定320px列 + 因子列がviewport外へはみ出していたため | えいみ |
 | 2026-07-16 | 2-3 PJコックピット | 修正 | Hero の PRS / XRL SVG はスマホ〜tabletで600pxを保つ場合だけ各グラフ内を横scrollし、`xl`横並びでは列幅へ縮める。build v3.41.13 | XRLグラフの600px最低幅がdesktop右列570pxを21px超え、本文全体の横overflowになっていたため | えいみ |
+| 2026-07-16 | 2-3 PJコックピット / 4-3 AMD Score | 修正 | cockpit embedded の3因子ブロックと親gridに `min-width: 0` を指定。build v3.41.14 | 因子内tableの最小内容幅がスマホの本文幅を超え、ページ全体を横へ押し広げていたため | えいみ |
