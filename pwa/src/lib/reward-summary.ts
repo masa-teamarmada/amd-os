@@ -238,6 +238,7 @@ export type RewardCycleProtectionRow = {
 export type RewardLiabilityOffsetRow = {
   id?: string | null;
   project_id?: string | null;
+  plan_cycle_id?: string | null;
   source_ym?: string | null;
   apply_ym?: string | null;
   applies_from_ym?: string | null;
@@ -246,6 +247,8 @@ export type RewardLiabilityOffsetRow = {
   amount_yen?: number | string | null;
   pool?: RewardPool | string | null;
   status?: string | null;
+  origin_type?: string | null;
+  metadata_json?: unknown;
 };
 
 export type RewardLiabilityOffsetsByYm = Map<string, RewardLiabilityOffsetRow[]>;
@@ -291,16 +294,43 @@ function isMissingRelationError(error: unknown): boolean {
   return code === "42P01" || code === "PGRST205" || message.includes("reward_member_liability_offsets");
 }
 
+function toleratedNegativeOffsetMembers(rows: RewardLiabilityOffsetRow[]): Set<string> {
+  const tolerated = new Set<string>();
+  for (const row of rows) {
+    const metadata = asRecord(row.metadata_json);
+    const members = metadata?.tolerated_members;
+    if (!Array.isArray(members)) continue;
+    for (const member of members) {
+      const memberId = String(member ?? "").trim();
+      if (memberId) tolerated.add(memberId);
+    }
+  }
+  return tolerated;
+}
+
+function shouldSkipToleratedRecovery(
+  row: RewardLiabilityOffsetRow,
+  memberId: string,
+  amount: number,
+  toleratedMembers: Set<string>
+): boolean {
+  if (amount >= 0) return false;
+  if (!toleratedMembers.has(memberId)) return false;
+  return String(row.origin_type ?? "") === "ms_overview_edit";
+}
+
 async function loadRewardLiabilityOffsetsByYm(
   db: SupabaseLike,
   projectId: string,
+  planCycleId: string,
   startYm: string,
   targetYm: string
 ): Promise<RewardLiabilityOffsetsByYm> {
   const res = await db
     .from("reward_member_liability_offsets")
-    .select("id, project_id, source_ym, apply_ym, applies_from_ym, member_id, offset_yen, amount_yen, pool, status")
+    .select("id, project_id, plan_cycle_id, source_ym, apply_ym, applies_from_ym, member_id, offset_yen, amount_yen, pool, status, origin_type, metadata_json")
     .eq("project_id", projectId)
+    .eq("plan_cycle_id", planCycleId)
     .in("status", ["pending", "active"])
     .not("apply_ym", "is", null)
     .gte("apply_ym", startYm)
@@ -313,14 +343,17 @@ async function loadRewardLiabilityOffsetsByYm(
   }
 
   const byYm: RewardLiabilityOffsetsByYm = new Map();
-  for (const row of (res.data ?? []) as RewardLiabilityOffsetRow[]) {
+  const rows = (res.data ?? []) as RewardLiabilityOffsetRow[];
+  const toleratedMembers = toleratedNegativeOffsetMembers(rows);
+  for (const row of rows) {
     const applyYm = String(row.apply_ym ?? row.applies_from_ym ?? "");
     const memberId = String(row.member_id ?? "");
     const amount = Math.round(numberValue(row.offset_yen ?? row.amount_yen));
     if (!/^\d{6}$/.test(applyYm) || !memberId || amount === 0) continue;
-    const rows = byYm.get(applyYm) ?? [];
-    rows.push(row);
-    byYm.set(applyYm, rows);
+    if (shouldSkipToleratedRecovery(row, memberId, amount, toleratedMembers)) continue;
+    const offsetsForYm = byYm.get(applyYm) ?? [];
+    offsetsForYm.push(row);
+    byYm.set(applyYm, offsetsForYm);
   }
   return byYm;
 }
@@ -1662,7 +1695,7 @@ async function computeRewardSummaryForCycle(
     liabilityOffsetsByYm: options.liabilityOffsetsOverride ?? (
       options.includeLiabilityOffsets === false
         ? undefined
-        : await loadRewardLiabilityOffsetsByYm(db, projectId, planCycle.period_start_ym, ym)
+        : await loadRewardLiabilityOffsetsByYm(db, projectId, planCycle.plan_cycle_id, planCycle.period_start_ym, ym)
     ),
     planCycle,
     project,
@@ -2039,6 +2072,7 @@ export async function computeForwardCappedMemberCosts(
   const liabilityOffsetsByYm = await loadRewardLiabilityOffsetsByYm(
     db,
     projectId,
+    planCycle.plan_cycle_id,
     planCycle.period_start_ym,
     planCycle.period_end_ym
   );

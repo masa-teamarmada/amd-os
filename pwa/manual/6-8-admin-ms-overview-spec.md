@@ -227,6 +227,7 @@ memberDesignYen[m] = Σ over MS of (effectivePoints × share[m] × designUnitYen
 - 期間は `YYYYMM` 形式、かつ `period_start_ym <= target_ym` でないと 400 で弾く。
 - `syncRewardSummariesForProject` 内部で `reward_paid_at` / `payout_notice_uploaded_at` / `payment_confirmed_at` のある月は再計算対象から外れる (= 既に支払い済みの過去月を勝手に書き換えない)。
 - protected 月に MS 修正差額が出た場合、過去月の `reward_summary_json` は保存し直さず、同じ member の次の未保護月へ `reward_member_liability_offsets.offset_yen` として精算する。正の差額は追加支払、負の差額は将来支払から本人単位で回収する。同じ source_ym の既存 pending offset は保存のたびに `voided` にして入れ直すので、複数回編集しても二重精算しない。
+- 例外として、同じ plan cycle の active/manual 台帳に `metadata_json.tolerated_members` があり、該当 member の過払いを経営判断で許容すると記録されている場合、その member の負の pending 回収行は報酬計算へ入れない。正の追加支払は通常どおり精算する。
 - MS設計の保存が成功した場合、`milestone_change_events` に追加/無効化/更新されたMS、pt・期間・完了条件・担当share差分、保存前支払検算の状態、追加支払/過払い回収の合計を残す。これはメンバー向け cockpit の折りたたみ `MS変更履歴` の正本で、契約本文・メール全文・議事録全文・raw source は含めない。
 - 2026-07-09 に既存MSの履歴基準線を backfill 済み。対象は active / fixed の 11 plan cycle、110 MS、19 event。`source='migration'`、`changed_by_email='amd-os-backfill@teamarmada.local'`、`metadata_json.backfillKey='2026-07-09-ms-change-history-created-at-batches-v1'`。`value_milestones.created_at` ごとの作成バッチで `changed_at` を復元し、ログ導入前の pt/share 更新時刻は復元不能として `metadata_json.limitations` に明記する。
 - 保存前支払検算で `blocked` の場合、UI の保存ボタンを無効化するだけでなく、PUT route も 409 を返して保存前に止める。

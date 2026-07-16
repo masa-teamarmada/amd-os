@@ -5,6 +5,16 @@
 
 ---
 
+### [finance/reward] 許容済みのしん過払い回収が今月支払を0円にした (2026-07-16)
+
+- **状態**: クローズ (2026-07-16 — `v3.43.10`、migration 164 で既存 pending 回収を voided)。
+- **症状**: `/admin/payouts` で ZMP 2026年6月稼働分の今月支払に、しん(ID026)だけが出なかった。あび・こう・うめは表示され、合計は58,402円になっていた。
+- **原因**: 2026-07-02 の方針では「しん・こうの小額過払いは許容」だったが、後続のMS編集で protected 月との差額から、しん向けに `origin_type='ms_overview_edit'` の負の pending 回収5行、合計 -30,030円が作られた。報酬計算は pending 回収行を正しく読むため、本来23,205円ある202606支払が0円まで削られた。
+- **対応内容**: 同じ plan cycle の active/manual 台帳に `metadata_json.tolerated_members` がある場合、該当 member の MS編集由来の負の pending 回収行を報酬計算から外すガードを追加した。既存のしん向け pending 回収5行は削除せず `voided` にし、監査メタへ理由を残した。
+- **再発防止**: pending を一律に無視しない。MS編集由来の pending は通常の精算ルートなので、例外は `tolerated_members` に入っている member の負の回収だけに限定する。正の追加支払は通常どおり入れる。
+
+---
+
 ### [monthly-agreement/required-hierarchy] 合意事項1・2が最小文字で発見できない (2026-07-16)
 
 - **状態**: クローズ (2026-07-16 — `v3.43.8`)。
