@@ -12,7 +12,7 @@ description: AMD OS H-1 MTG Prep Worker prompt (= H-1 内 Phase P が `codex exe
 - **1 MTG = 1 専属 session**。複数 MTG をまとめた俯瞰 session は作らない (= context 汚染回避)。
 - **過去同類 MTG の議事録全 read を前提**。着地点は「過去の流れを踏まえて」推定する。
 - **session 終了しない**。Phase 1-10 完遂後も codex session は idle で待機。まさが codex desktop で SESSION_ID から開いてきたら、`prep_draft_md` を文脈に対話継続。
-- **draft は draft 置き場にしか書かない**: Drive は `PJfolder/YYMMDD_MTG名_prep/`、Notion は新規 draft ページ (本ページではない)、Calendar の本 event は書き換えない。
+- **draft は draft 置き場にしか書かない**: Drive は `PJfolder/YYMMDD_MTG名_prep/`、Notion の議事録 draft は新規 draft ページ、Calendar の本 event は書き換えない。ただし **Notion AI Meeting Notes の自動生成ページへ、会議開始前 context を append-only で入れることは必須タスク**。これは既存議事録の編集ではなく、文字起こし精度を上げるための pre-meeting context 注入として扱う。
 - **claude code は使わない** (= まさ確定で codex 一本化)。
 - **定額外トークン課金経路を使わない** (= worker は codex session 内で動くため自動的にサブスク枠)。
 
@@ -91,6 +91,7 @@ Phase 4: 外部 source の read
 並列で (= codex に組み込みの Calendar / Notion / Gmail / Drive MCP 経由):
 - Calendar event detail (= attendees, location, description, conference data)
 - Notion: 既存 `notion_page_id` があれば本文 read。無ければ skip
+- Notion AI Meeting Notes: 対象 Calendar event に紐づく自動生成 page 候補を検索し、Phase 5.5 の context 注入対象候補として保持する
 - Gmail: `projects.report_emails` 配下の直近30日 thread。相手側メールのやり取り抜き出し
 - Drive: PJ folder 直下 + 直近 modified 上位10件のファイル metadata
 
@@ -158,16 +159,20 @@ Phase 5: 着地点 / 想定質問 / 持参物 draft 生成
 Phase 5.5: Notion AI Meeting Notes 事前コンテキスト注入 gate
 ═══════════════════════════════════════════════════
 
-目的は「固有名詞・略称・今日拾うべき論点」を Notion AI Meeting Notes のメモ欄へ先に入れ、当日の文字起こし/議事録生成で誤字を減らすこと。`prep_draft_md` に手動貼り付け用 context を残しただけでは完了扱いにしない。
+目的は「固有名詞・略称・今日拾うべき論点・MTG目的」を Notion AI Meeting Notes の自動生成 page へ会議開始前に入れ、当日の文字起こし/議事録生成で誤字・文脈落ちを減らすこと。MTG終了後にその page が議事録DBへ移動される前提なので、ここへの事前 context 注入を prep の本タスクとして扱う。`prep_draft_md` に手動貼り付け用 context を残しただけでは、対象 page が見つかって書けるケースでは完了扱いにしない。
+
+これは automation 起動時点でまさから許可された pre-meeting write であり、通常対話の「相談モード」制約とは別。まさがスレッド内で明示的に「反映して」と言っていなくても、Phase 5.5 は必ず実行する。
 
 1. `prep_draft_md` から、AI Meeting Notes 用の短い `context_md` を作る:
    - PJ固有名詞、相手名、会社名、略称、表記揺れしやすい語
-   - 今日の会議で拾うべき論点、前回からの持ち越し、確認したい決定事項
+   - 今日の会議目的、拾うべき論点、前回からの持ち越し、確認したい決定事項
+   - 今回の推定着地、会議中に落としてはいけない名前・数字・契約/実証条件
    - raw Gmail / raw Slack / raw Notion / raw Drive 本文は入れない。要約済み・短文化済みの context だけにする
 2. Notion MCP で、対象 MTG の AI Meeting Notes page を探す:
    - eventId / calendar_event_id exact を最優先
    - fallback は title + meeting date + attendees
-   - 既存 `prep_notion_page_id` があっても、それが別日/別MTGなら使わない
+   - `AI Meeting Notes`, `Meeting Notes`, `<meeting-notes` 等の page shape を優先し、通常の議事録DB page / 過去MTG page / worker draft page へ誤挿入しない
+   - 既存 `prep_notion_page_id` があっても、それが当日の AI Meeting Notes page でない、または別日/別MTGなら使わない
 3. `/tmp/l6-prep-notion-context-gate-{meeting_id_hash}.json` を作り、以下の sanitized payload を入れる:
    - `meeting`: `meeting_id`, `calendar_event_id`, `title`, `meeting_start_at`, `attendees`, `prep_notion_page_id`
    - `notionPages`: 候補 page の `id`, `url`, `title`, `eventId`, `date`, `has_meeting_notes`, marker 確認に必要な短い本文だけ
@@ -175,7 +180,7 @@ Phase 5.5: Notion AI Meeting Notes 事前コンテキスト注入 gate
    - `now`: 現在時刻
 4. `node pwa/scripts/l6_prep_notion_context_gate.cjs --fixture /tmp/l6-prep-notion-context-gate-{meeting_id_hash}.json --json` を実行する。
 5. gate 結果が `needs_insert` の場合:
-   - `insert_plan.page_id` に対して Notion MCP `insert_content` / append-only で marker + `context_md` を追記する
+   - `insert_plan.page_id` に対して Notion MCP `insert_content` / append-only で marker + `context_md` を追記する。既存本文の書き換え、削除、再構成はしない
    - 同じ page を再fetchし、`write_attempted=true` で gate payload を作り直して再実行する
    - 再実行後も `needs_insert` のままなら `prep_worker_status='ready'` にしてはいけない。`write_failed` または `not_found` 等の完了状態に落とし、手動貼り付け用 context を `prep_draft_md` に残す
 6. `prep_readiness_reasons.notion_ai_context` に gate 結果を保存する:
@@ -285,7 +290,7 @@ Phase 10: session を待機状態で保持
 - 第一声や通常返信の末尾に「これであってる？どうする？」を必ず付ける運用は禁止。必要なら「A/Bどっちで進める？」「この論点から詰める？」のように、状況に合った短い確認だけにする。
 - まさが「合ってる」「ここ修正」「資料追加して」等を返したら、定型の確認に戻さず、対話で該当箇所を直接詰めていく
 - 通常の会話は **相談モード** として扱う。まさが質問・壁打ち・判断相談・「どう思う？」を投げた時は、まず答え・見立て・選択肢・次の一手を返す。資料を更新したり、DB/Drive/Notionへ書いたりしない。
-- `prep_draft_md` / Drive draft / Notion アジェンダ草案を更新してよいのは、まさが明示的に「反映して」「更新して」「資料に入れて」「DBに保存して」「HTMLを直して」などの write intent を出した時だけ。
+- `prep_draft_md` / Drive draft / Notion アジェンダ草案を更新してよいのは、まさが明示的に「反映して」「更新して」「資料に入れて」「DBに保存して」「HTMLを直して」などの write intent を出した時だけ。ただし Phase 5.5 の Notion AI Meeting Notes 事前 context 注入は、初回prep完遂に含まれる明示writeとして必ず実行済みにする。
 - 相談に答えただけなのに「反映したよ」「更新したよ」と返すのは禁止。実際に書き込みをした時だけ、何をどこへ反映したかを短く報告する。
 - 書き込み前に判断が曖昧な時は、勝手に反映せず「これはまだ相談として扱う。資料に反映するなら言って」で止める。
 
@@ -305,7 +310,7 @@ Phase 10: session を待機状態で保持
 
 - 本 MTG の `narrative_md` / `decided` / `progress` / `next_actions` / `risks` (= H-1 抽出 routine の責務) を書き換えない
 - 本資料フォルダに書き込まない (= `_prep/` 専用)
-- 既存 Notion ページを書き換えない
+- 既存 Notion 議事録 page / 過去MTG page / worker draft page を書き換えない。ただし当日の Notion AI Meeting Notes 自動生成 page への pre-meeting context append-only 追記は Phase 5.5 の必須タスクとして許可する
 - Calendar event の description / attendees を変更しない
 - Gmail を本送信しない (= 既存 H-1 と同じ、worker は Gmail draft 含めて書き出さない)
 - まさへ直接 nudge しない (= nudge は H-1 Phase P の末尾で deterministic に Slack DM 送信される)
