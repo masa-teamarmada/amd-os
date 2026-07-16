@@ -722,14 +722,16 @@ private struct StepRowView: View {
         case "reportFix":
             activeSheet = .reportFix
         case "reimburseConfirm":
-            navigation.selectedTab = .reimburse
+            navigation.registrationPath = [.reimburse]
+            navigation.selectedTab = .registration
         case "invoiceIssue":
             activeSheet = .invoiceIssue(bizYm, .invoice)
         case "invoiceSend":
             showInvoiceSendConfirm = true
         case "payoutNotice":
-            // 支払通知書はメンバー単位の運用に変わったため、Admin タブから操作する
-            navigation.selectedTab = .admin
+            // 支払通知書はメンバー単位の運用に変わったため、Admin fullScreenCover を直接開く
+            // （admin 判定は MainTabView の isAdmin ゲート任せ、既存権限仕様のまま）
+            navigation.requestAdminPresentation = true
         case "payment":
             showPaymentConfirm = true
         case "payout":

@@ -11,7 +11,7 @@
 > - えいみ（Win側 Android担当）が「これ知らない画面なんだけど…」となったら必ずここを参照する
 > - えいみがここを見て知らない画面があるならアラート → 即同期する
 >
-> 最終更新: 2026-07-14 (名刺タブ追加・月次ルーティンタブ廃止)
+> 最終更新: 2026-07-16 (タブ構成を今日/PJ/通知/登録/設定へ再編、通知ボックス→判断キューUIへ刷新)
 
 ---
 
@@ -35,24 +35,28 @@
 
 | 順 | タブ名 | ファイル | 表示条件 |
 |---|---|---|---|
-| 1 | マイページ | `MyPage/MyPageView.swift` | 全員 |
-| 2 | 立替 | `Reimburse/ReimburseListView.swift` | 全員 |
-| 3 | PJ進捗 | `Cockpit/CockpitView.swift` | 全員 |
-| 4 | 名刺 | `BusinessCards/BusinessCardsView.swift` | 全員 |
+| 1 | 今日 | `MyPage/MyPageView.swift` | 全員 |
+| 2 | PJ | `Cockpit/CockpitView.swift` | 全員 |
+| 3 | 通知 | `Settings/SettingsView.swift` の `NotificationInboxView` | 全員 |
+| 4 | 登録 | `Home/MainTabView.swift` の `RegistrationHubView`（立替 + 名刺） | 全員 |
 | 5 | 設定 | `Settings/SettingsView.swift` | 全員 |
 
-Admin はタブではなく、`members.is_admin=true` の時だけ右下フロートボタンから `AdminTabView` を開く。名刺タブは、まさ指定どおり **PJ進捗と設定の間** に置く。
+Admin はタブではなく、`members.is_admin=true` の時だけ右下フロートボタンから `AdminTabView` を開く。
+
+「登録」は独立タブだった「立替」「名刺」を1つに畳んだハブ画面（`RegistrationHubView`）。カード2枚（立替申請 → `ReimburseListView`、名刺登録 → `BusinessCardsView`）から NavigationLink で遷移する。
+
+`AppTab` は実タブ5種のみ（`mypage` / `cockpit` / `notifications` / `registration` / `settings`）。月次ルーティン（`RoutineFlowView`）からの直接導線は2つ: `reimburseConfirm` タップで `registration` タブへ切替 + `RegistrationRoute.reimburse` を `NavigationStack` の `path` に積んで立替申請一覧まで自動 push、`payoutNotice` タップで `AppNavigationState.requestAdminPresentation` を立てて `MainTabView` が（`isAdmin` の時だけ）`AdminTabView` の fullScreenCover を直接開く。
 
 ---
 
 ## 2. 各タブ・画面の詳細
 
-### 2.1 マイページ（MyPageView）
+### 2.1 今日（MyPageView）
 
-**目的**: 自分のPJ報酬・提案・通知をまとめて確認するホーム画面。
+**目的**: 自分のPJ報酬・提案・通知をまとめて確認するホーム画面。タブ名は「今日」。
 
 主要コンポーネント:
-- `NotificationInboxView` への導線 — L2/議事録通知の確認・回答ボックス（マイページ最上部）
+- `NotificationInboxView` への導線 — 判断キュー（後述 2.1.1）への近道（マイページ最上部）。同じ画面は「通知」タブからも開ける
 - `ProjectRewardCard` — 自分が参加してる各PJの当月報酬カード
 - 最近の通知（`app_notifications`）リスト
 - 提案箱 への導線 → `ProposalComposeSheet` / `ProposalThreadView`
@@ -70,35 +74,59 @@ Admin はタブではなく、`members.is_admin=true` の時だけ右下フロ�
 `billing_cycles.member_allocations_json` / `billing_cycles.reward_summary_json` /
 `milestone_monthly_progress` / `app_notifications` / `proposals`
 
-#### 2.1.1 通知ボックス（NotificationInboxView）
+#### 2.1.1 通知（NotificationInboxView） — 判断キュー
 
-**目的**: Swift に届いた L2 通知・議事録通知を、PWA を開かずに iOS 内で確認し、`はい` / `いいえ` / コメントで返せるようにする。
+**目的**: OS の観測パイプライン（観測→候補→判断→正本）のうち「判断」を担う画面。Swift に届いた L2 通知・議事録通知を PWA を開かずに iOS 内で確認し、判断・修正コメントで返せるようにする。`SettingsView.swift` に実装があるが、独立タブ「通知」として表示される（`MainTabView` からも「今日」タブからも同じビューを開く）。
 
 入口:
-- マイページ最上部 → 「通知ボックス」
-- ローカル通知タップ → `NotificationInboxView` を sheet 表示し、該当通知を展開
-- ローカル通知アクション → `はい` / `いいえ` / `コメント` を直接送信
-- `app_notifications(kind='connector_auth')` → Swiftローカル通知。これは回答対象ではなく、通知タップで `meta.reauth_url` を即開く。タップ時に `read_at` を打つが、失敗時に再試行できるよう通知ボックスの既読側にも残す。
+- タブバー「通知」
+- マイページ最上部 → 「通知ボックス」導線
+- ローカル通知タップ → `NotificationInboxView` を sheet 表示し、該当通知を判断カードにフォーカス
+- `app_notifications(kind='connector_auth')` → Swiftローカル通知。採用・不採用の判断対象ではなく、未読の間は「再認証」という復旧アクションとして判断キューに出る。通知タップで `meta.reauth_url` を即開く。タップ時に `read_at` を打つが、失敗時に再試行できるよう「既読」セグメントにも connector カードとして残し、再認証を開き直せる。
 
-表示:
+画面構成:
+- 上部にパイプラインの現在地を示すレール（観測→候補→判断→正本、判断を強調）。横幅が足りない場合は矢印付きの横並びをやめ、番号付き2列グリッドにフォールバックする（矢印は出さない）
+- セグメント: `判断` / `未読` / `履歴`
+  - `判断`: 未回答アイテムを1件ずつカードで判断させるキュー。件数分母・表示対象は「このセッションで“あとで”にしていないアイテム」のみ（あとでにした分は分母・表示から外れる。ただし総未回答件数は「あとで中」画面で別掲）
+  - `未読`: 未読の通知一覧（開閉式カード）
+  - `履歴`: 既読 or 回答済みの通知一覧。connector auth は既読後もここに残り、再認証を開き直せる
 - `l2_notifications` と `meeting_notifications` を作成日時降順で統合表示
-- connector auth はOSローカル通知から直接再認証へ飛ばし、通知ボックスの「既読」側にも履歴アクションとして表示する。配信済み管理は `app_notifications.native_notified_at`、人間既読は `app_notifications.read_at`。再認証リンクを開く操作は復旧成功を意味しないため、既読後も「再認証を開く」ボタンから再試行できる。
-- フィルタ: `すべて` / `未読` / `既読`
-- `すべて` は全通知、`未読` は未読通知、`既読` は読んだ通知と回答済み通知を表示する。connector auth は既読後もここに残り、再認証を開き直せる。
-- カード展開で通知本文、関連データ、過去の回答・コメント、回答フォームを表示
-- 関連データは通知種別ごとに取得:
+
+判断カード（1件ずつ表示、`NotificationJudgmentCard`）:
+- 「OSの見立て」= 通知タイトル・本文
+- 種別ラベル（議事録 / MS進捗 / OS台帳差分 / XRL根拠 / 再認証 など）を必ず表示、内部の英語種別名をそのまま出さない
+- 「押すと起きること」欄で、ボタンを押すと何が起きるかを日本語で明示（例:「採用候補として記録するところまで。実際の台帳反映はブラウザ版の安全な反映処理が行うよ」）
+- 「根拠」は折りたたみ式。展開すると通知種別ごとの関連データを取得して表示:
   - `meeting_summary`: `project_meeting_summaries`
   - `ms_progress`: `ms_progress_revisions` + `value_milestones`
   - `project_registry_diff`: `project_registry_diffs`
   - `xrl_evidence`: `project_xrl_evidence`
+- アクション: 種別ごとのラベル付き2択（例: 議事録=「確認した」/「修正する」、MS進捗=「MS進捗を確定」/「提案を破棄」、OS台帳差分=「採用候補にする」/「見送る」、XRL根拠=「根拠として確定」/「不採用」）。汎用の「はい」/「いいえ」表示はしない
+- 2択ボタンは横並びを優先し、長い日本語ラベルや Dynamic Type で収まらない場合は縦並びにフォールバックする（`TwoButtonRow`）
+- 「修正・コメント」ボタン → 修正 sheet（下記）。「あとで」ボタン → `@State` によるセッション内保留（単なるリロードでは復活せず、通知画面を閉じて開き直すなどビューが再生成されたときに復活する。永続的な既読/未読とは別軸）
+- 判断キューが全件「あとで」になった場合は「もう一度見る」で後回しをリセットする画面を出す
 
-回答:
-- `はい` / `いいえ` / `コメントだけ送る` は共通で `l2_feedbacks` に保存
+修正 sheet:
+- クイック選択チップ（「PJが違う」「人物が違う」「数値が違う」「重要度が違う」）+ 自由記述
+- 送信中は閉じる操作を無効化。閉じるボタンあり
+- 送信は `コメントを送る` → `l2_feedbacks` に `comment` として保存
+
+判断（アクション送信）:
+- すべて共通で `l2_feedbacks` に保存
 - 回答した通知は既読化し、OS の delivered notification も削除対象にする
 - `tsukuyomi_learnings` にも best-effort で回答履歴を残す
-- `ms_progress` の `はい` は pending revision を confirm、`いいえ` は discard
-- `project_registry_diff` の `はい` / `いいえ` は candidate diff を accepted / rejected に更新。ただし実DB反映は既存ルール通り helper/PWA 経由で行う
-- `xrl_evidence` の `はい` / `いいえ` は candidate evidence を confirmed / rejected に更新
+- `ms_progress` の採用は pending revision を confirm、破棄は discard
+- `project_registry_diff` の採用/見送りは candidate diff を accepted / rejected に更新するところまで。**実DB（OS台帳）反映はここでは行わない** — 既存ルール通りブラウザ版（PWA）/helper 経由で別途反映される
+- `xrl_evidence` の確定/不採用は candidate evidence を confirmed / rejected に更新
+- `meeting_summary` の「確認した」は確認記録を残すだけで、要約の再抽出はしない
+
+**未実装（2026-07-16 時点）**:
+- アプリ終了中に届く remote push（現状はアプリ起動中のローカル通知 + `pull-app-notifications` によるポーリングのみ）
+- 「配信済み（`native_notified_at`）」と「人間が既読した（`read_at`）」の完全な分離運用（現状は両者が近い扱いで、UI上厳密に作り分けていない）
+- サーバー駆動のアクションカード（通知ペイロード側でボタン構成・アクション種別を指定する仕組み）
+- 通知の recipient / role scope（誰宛の通知かの粒度制御）
+- 「自分」/「AMD全体」を切り替えるトグル
+- バックエンド側の undo（一度確定・不採用にした判断を取り消す機構）
 
 ---
 
@@ -168,7 +196,7 @@ Google Calendar に月次MTG枠を作成、参加者に招待を飛ばす。`sch
 
 ### 2.3 立替（ReimburseListView）
 
-**目的**: メンバーが立替経費を申請、PMが承認、admin が支払う。
+**目的**: メンバーが立替経費を申請、PMが承認、admin が支払う。「登録」タブ → 「立替申請」カードから開く（独立タブではない）。
 
 | 画面 | 役割 |
 |---|---|
@@ -220,7 +248,7 @@ Google Calendar に月次MTG枠を作成、参加者に招待を飛ばす。`sch
 
 **目的**: スマホで名刺を撮影し、OCR候補を人が確認してPJへ紐付け、連絡先台帳とPJ人物ナレッジを同時に育てる。
 
-- タブ位置: `PJ進捗` と `設定` の間。
+- タブ位置: 「登録」タブ → 「名刺登録」カードから開く（独立タブではない）。
 - `BusinessCardsView` は現在のSupabase sessionを `@supabase/ssr`互換cookieへ変換し、PWAのナビ無し native shell `/native/business-cards` を `WKWebView` で開く。
 - WebViewのredirect・再読込に伴う一時的なnavigation cancelは失敗表示にせず、最終ページの読込完了時にエラー表示を解除する。本当の通信失敗だけ「もう一度」導線を出す。
 - WebViewのUser-AgentはSafari/WKWebView標準値を維持し、`applicationNameForUserAgent` で `AMDOS-iOS BusinessCards` を追記する。標準UAを丸ごと上書きしない。

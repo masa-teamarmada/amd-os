@@ -437,12 +437,27 @@ private struct TextbookChapter: Identifiable {
 
 // MARK: - NotificationInboxView
 
+private enum InboxSegment: String, CaseIterable, Hashable {
+    case judgment
+    case unread
+    case history
+
+    var title: String {
+        switch self {
+        case .judgment: return "判断"
+        case .unread: return "未読"
+        case .history: return "履歴"
+        }
+    }
+}
+
 struct NotificationInboxView: View {
     let initialFocus: NotificationDeepLink?
 
     @EnvironmentObject private var authService: AuthService
     @State private var inbox = NotificationInboxData(items: [], feedbacks: [], projectMap: [:])
-    @State private var filter: InboxFilter = .all
+    @State private var segment: InboxSegment = .judgment
+    @State private var judgmentIndex: Int = 0
     @State private var expandedIds: Set<String> = []
     @State private var detailsById: [String: [NotificationDetailLine]] = [:]
     @State private var feedbackTexts: [String: String] = [:]
@@ -450,6 +465,11 @@ struct NotificationInboxView: View {
     @State private var errorMessage: String?
     @State private var toastMessage: String?
     @State private var submittingIds: Set<String> = []
+    @State private var sessionDeferredIds: [String] = []
+    @State private var correctionTarget: NotificationInboxItem?
+    @State private var correctionText: String = ""
+    @State private var correctionError: String?
+    @State private var isSubmittingCorrection = false
 
     init(initialFocus: NotificationDeepLink? = nil) {
         self.initialFocus = initialFocus
@@ -479,8 +499,9 @@ struct NotificationInboxView: View {
             } else {
                 ScrollViewReader { proxy in
                     ScrollView {
-                        VStack(spacing: 12) {
-                            filterPicker
+                        VStack(spacing: 16) {
+                            pipelineRail
+                            segmentPicker
 
                             if let toastMessage {
                                 Text(toastMessage)
@@ -492,57 +513,36 @@ struct NotificationInboxView: View {
                                     .clipShape(RoundedRectangle(cornerRadius: 8))
                             }
 
-                            if filteredItems.isEmpty {
-                                ContentUnavailableView(
-                                    "通知なし",
-                                    systemImage: "bell.slash",
-                                    description: Text("この条件に合う通知はないよ")
-                                )
-                                .padding(.top, 48)
-                            } else {
-                                ForEach(filteredItems) { item in
-                                    NotificationInboxCard(
-                                        item: item,
-                                        projectMap: inbox.projectMap,
-                                        feedbacks: feedbacks(for: item),
-                                        details: detailsById[item.id],
-                                        isExpanded: expandedIds.contains(item.id),
-                                        feedbackText: Binding(
-                                            get: { feedbackTexts[item.id] ?? "" },
-                                            set: { feedbackTexts[item.id] = $0 }
-                                        ),
-                                        isSubmitting: submittingIds.contains(item.id),
-                                        onToggle: { toggle(item) },
-                                        onSubmit: { action in
-                                            Task { await submit(item: item, action: action) }
-                                        },
-                                        onOpenReauth: {
-                                            Task { await openReauth(item) }
-                                        }
-                                    )
-                                    .id(item.id)
-                                }
+                            switch segment {
+                            case .judgment:
+                                judgmentSection
+                            case .unread:
+                                compactList(unreadItems, emptyText: "未読の通知はないよ")
+                            case .history:
+                                compactList(historyItems, emptyText: "履歴はまだないよ")
                             }
                         }
                         .padding()
                     }
+                    .background(Color(.systemGroupedBackground))
                     .onChange(of: inbox.items) { _, _ in
                         guard let focusId = initialFocus?.id,
-                              inbox.items.contains(where: { $0.id == focusId }) else { return }
+                              let item = inbox.items.first(where: { $0.id == focusId }),
+                              hasFeedback(item) else { return }
                         expandedIds.insert(focusId)
                         Task {
-                            if let item = inbox.items.first(where: { $0.id == focusId }) {
-                                await loadDetailsIfNeeded(for: item)
-                            }
+                            await loadDetailsIfNeeded(for: item)
                             await MainActor.run {
-                                withAnimation { proxy.scrollTo(focusId, anchor: .center) }
+                                withAnimation(.easeOut(duration: 0.25)) {
+                                    proxy.scrollTo(focusId, anchor: .center)
+                                }
                             }
                         }
                     }
                 }
             }
         }
-        .navigationTitle("通知")
+        .navigationTitle("判断キュー")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -552,34 +552,300 @@ struct NotificationInboxView: View {
                     Image(systemName: "arrow.clockwise")
                 }
                 .disabled(isLoading)
+                .accessibilityLabel("再読み込み")
             }
         }
         .task { await load() }
         .refreshable { await load() }
+        .sheet(item: $correctionTarget) { item in
+            correctionSheet(for: item)
+        }
     }
 
-    private var filterPicker: some View {
-        Picker("表示", selection: $filter) {
-            Text("すべて").tag(InboxFilter.all)
-            Text("未読").tag(InboxFilter.unread)
-            Text("既読").tag(InboxFilter.feedback)
+    private var pipelineRail: some View {
+        PipelineRailView()
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var segmentPicker: some View {
+        Picker("表示", selection: $segment) {
+            ForEach(InboxSegment.allCases, id: \.self) { seg in
+                Text(seg.title).tag(seg)
+            }
         }
         .pickerStyle(.segmented)
     }
 
-    private var filteredItems: [NotificationInboxItem] {
-        switch filter {
-        case .all:
-            return inbox.items
-        case .unread:
-            return inbox.items.filter(\.isUnread)
-        case .feedback:
-            return inbox.items.filter { !$0.isUnread || hasFeedback($0) }
+    @ViewBuilder
+    private func compactList(_ items: [NotificationInboxItem], emptyText: String) -> some View {
+        if items.isEmpty {
+            ContentUnavailableView(
+                "通知なし",
+                systemImage: "bell.slash",
+                description: Text(emptyText)
+            )
+            .padding(.top, 48)
+        } else {
+            VStack(spacing: 8) {
+                ForEach(items) { item in
+                    NotificationInboxCard(
+                        item: item,
+                        projectMap: inbox.projectMap,
+                        feedbacks: feedbacks(for: item),
+                        details: detailsById[item.id],
+                        isExpanded: expandedIds.contains(item.id),
+                        onToggle: { toggle(item) },
+                        onOpenReauth: {
+                            Task { await openReauth(item) }
+                        },
+                        onFocusJudgment: {
+                            focusOnJudgment(item)
+                        }
+                    )
+                    .id(item.id)
+                }
+            }
         }
     }
 
+    @ViewBuilder
+    private var judgmentSection: some View {
+        let unanswered = unansweredItems
+        if unanswered.isEmpty {
+            ContentUnavailableView(
+                "判断待ちなし",
+                systemImage: "checkmark.seal",
+                description: Text("いまはOSからの判断待ちはないよ")
+            )
+            .padding(.top, 48)
+        } else if activeJudgmentCount == 0 {
+            deferredAllView(count: unanswered.count)
+        } else {
+            let queue = judgmentQueue
+            let idx = min(judgmentIndex, queue.count - 1)
+            let current = queue[idx]
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("判断待ち \(activeJudgmentCount)件")
+                        .font(.subheadline.bold())
+                        .foregroundStyle(AMD.text)
+                    Spacer()
+                    Text("\(idx + 1) / \(queue.count)")
+                        .font(.footnote.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+
+                ZStack {
+                    if idx + 1 < queue.count {
+                        judgmentPeek(for: queue[idx + 1])
+                            .padding(.horizontal, 12)
+                            .offset(y: 14)
+                            .scaleEffect(0.96)
+                    }
+
+                    NotificationJudgmentCard(
+                        item: current,
+                        projectMap: inbox.projectMap,
+                        details: detailsById[current.id],
+                        isSubmitting: submittingIds.contains(current.id),
+                        onSubmit: { action in
+                            Task { await submit(item: current, action: action) }
+                        },
+                        onOpenReauth: {
+                            Task { await openReauth(current) }
+                        },
+                        onSkip: {
+                            withAnimation(.easeOut(duration: 0.2)) {
+                                if !sessionDeferredIds.contains(current.id) {
+                                    sessionDeferredIds.append(current.id)
+                                }
+                                clampJudgmentIndex()
+                            }
+                        },
+                        onRequestCorrection: {
+                            correctionText = feedbackTexts[current.id] ?? ""
+                            correctionError = nil
+                            correctionTarget = current
+                        }
+                    )
+                }
+            }
+            .task(id: current.id) {
+                await loadDetailsIfNeeded(for: current)
+            }
+        }
+    }
+
+    private func deferredAllView(count: Int) -> some View {
+        VStack(spacing: 16) {
+            Image(systemName: "tray.full")
+                .font(.system(size: 36, weight: .semibold))
+                .foregroundStyle(.secondary)
+            Text("\(count)件をこの画面では後回し中")
+                .font(.subheadline.bold())
+                .foregroundStyle(AMD.text)
+            Text("あとでにしたカードは、もう一度見るまで判断カードに出てこないよ")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            Button {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    sessionDeferredIds.removeAll()
+                    judgmentIndex = 0
+                }
+            } label: {
+                Text("もう一度見る")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(AMD.blue)
+            .frame(minHeight: 44)
+        }
+        .padding(.top, 48)
+        .frame(maxWidth: .infinity)
+    }
+
+    @ViewBuilder
+    private func correctionSheet(for item: NotificationInboxItem) -> some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 16) {
+                Text(item.title)
+                    .font(.headline)
+                    .foregroundStyle(AMD.text)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                correctionChipRow
+
+                TextEditor(text: $correctionText)
+                    .frame(minHeight: 120)
+                    .padding(6)
+                    .background(Color(.secondarySystemGroupedBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(AMD.divider, lineWidth: 1)
+                    )
+                    .accessibilityLabel("修正内容の入力")
+
+                if let correctionError {
+                    Text(correctionError)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                }
+
+                Button {
+                    Task { await submitCorrection(item: item) }
+                } label: {
+                    if isSubmittingCorrection {
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                    } else {
+                        Text("コメントを送る")
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(AMD.blue)
+                .frame(minHeight: 44)
+                .disabled(correctionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSubmittingCorrection)
+
+                Spacer(minLength: 0)
+            }
+            .padding()
+            .navigationTitle("修正・コメント")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("閉じる") {
+                        correctionTarget = nil
+                    }
+                    .disabled(isSubmittingCorrection)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    private var correctionChipRow: some View {
+        let chips = ["PJが違う", "人物が違う", "数値が違う", "重要度が違う"]
+        return LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 8)], spacing: 8) {
+            ForEach(chips, id: \.self) { chip in
+                Button {
+                    toggleChip(chip)
+                } label: {
+                    Text(chip)
+                        .font(.footnote)
+                        .frame(maxWidth: .infinity, minHeight: 36)
+                }
+                .buttonStyle(.bordered)
+                .tint(correctionText.contains(chip) ? AMD.blue : .secondary)
+            }
+        }
+    }
+
+    private func toggleChip(_ label: String) {
+        if correctionText.contains(label) {
+            correctionText = correctionText.replacingOccurrences(of: label, with: "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        } else if correctionText.isEmpty {
+            correctionText = label
+        } else {
+            correctionText += " / \(label)"
+        }
+    }
+
+    private func judgmentPeek(for item: NotificationInboxItem) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: notificationIconName(item))
+                .foregroundStyle(.secondary)
+            Text(item.title)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
+        .opacity(0.6)
+        .accessibilityHidden(true)
+    }
+
+    private var unreadItems: [NotificationInboxItem] {
+        inbox.items.filter(\.isUnread)
+    }
+
+    private var historyItems: [NotificationInboxItem] {
+        inbox.items.filter { !$0.isUnread || hasFeedback($0) }
+    }
+
     private var unansweredItems: [NotificationInboxItem] {
-        inbox.items.filter { !hasFeedback($0) }
+        inbox.items.filter { item in
+            if item.kind == "connector_auth" { return item.isUnread }
+            return !hasFeedback(item)
+        }
+    }
+
+    private var judgmentQueue: [NotificationInboxItem] {
+        let deferredSet = Set(sessionDeferredIds)
+        return unansweredItems.filter { !deferredSet.contains($0.id) }
+    }
+
+    private var activeJudgmentCount: Int {
+        judgmentQueue.count
+    }
+
+    private func pruneSessionDeferredIds() {
+        let activeIds = Set(unansweredItems.map(\.id))
+        sessionDeferredIds.removeAll { !activeIds.contains($0) }
+    }
+
+    private func clampJudgmentIndex() {
+        judgmentIndex = min(judgmentIndex, max(judgmentQueue.count - 1, 0))
     }
 
     private func load() async {
@@ -587,18 +853,30 @@ struct NotificationInboxView: View {
         errorMessage = nil
         do {
             inbox = try await SupabaseService.shared.fetchNotificationInbox()
+            pruneSessionDeferredIds()
             if let focusId = initialFocus?.id,
                let item = inbox.items.first(where: { $0.id == focusId }) {
                 if hasFeedback(item) {
-                    filter = .feedback
+                    segment = .history
+                    expandedIds.insert(item.id)
+                } else {
+                    focusOnJudgment(item)
                 }
-                expandedIds.insert(item.id)
                 await loadDetailsIfNeeded(for: item)
             }
+            clampJudgmentIndex()
         } catch {
             errorMessage = "通知を読めなかった: \(error.localizedDescription)"
         }
         isLoading = false
+    }
+
+    private func focusOnJudgment(_ item: NotificationInboxItem) {
+        sessionDeferredIds.removeAll { $0 == item.id }
+        segment = .judgment
+        if let idx = judgmentQueue.firstIndex(where: { $0.id == item.id }) {
+            judgmentIndex = idx
+        }
     }
 
     private func toggle(_ item: NotificationInboxItem) {
@@ -646,10 +924,11 @@ struct NotificationInboxView: View {
         }
     }
 
-    private func submit(item: NotificationInboxItem, action: NotificationInboxAction) async {
+    @discardableResult
+    private func submit(item: NotificationInboxItem, action: NotificationInboxAction) async -> Bool {
         guard let email = authService.userEmail else {
             toastMessage = "ログイン状態を確認してね"
-            return
+            return false
         }
         submittingIds.insert(item.id)
         defer { submittingIds.remove(item.id) }
@@ -662,11 +941,32 @@ struct NotificationInboxView: View {
             )
             feedbackTexts[item.id] = ""
             toastMessage = result.message
-            inbox = try await SupabaseService.shared.fetchNotificationInbox()
+            let refreshed = try await SupabaseService.shared.fetchNotificationInbox()
+            withAnimation(.easeOut(duration: 0.3)) {
+                inbox = refreshed
+            }
+            pruneSessionDeferredIds()
+            clampJudgmentIndex()
             detailsById[item.id] = nil
             await loadDetailsIfNeeded(for: item)
+            return true
         } catch {
             toastMessage = "送信失敗: \(error.localizedDescription)"
+            return false
+        }
+    }
+
+    private func submitCorrection(item: NotificationInboxItem) async {
+        isSubmittingCorrection = true
+        correctionError = nil
+        feedbackTexts[item.id] = correctionText
+        let ok = await submit(item: item, action: .comment)
+        isSubmittingCorrection = false
+        if ok {
+            correctionText = ""
+            correctionTarget = nil
+        } else {
+            correctionError = toastMessage
         }
     }
 
@@ -687,11 +987,447 @@ struct NotificationInboxView: View {
     }
 }
 
-private enum InboxFilter {
-    case all
-    case unread
-    case feedback
+private func notificationIconName(_ item: NotificationInboxItem) -> String {
+    if item.kind == "connector_auth" { return "key" }
+    switch item.responseTarget.feedbackKind {
+    case "meeting_summary": return "doc.text"
+    case "ms_progress": return "chart.line.uptrend.xyaxis"
+    case "project_registry_diff": return "tray.and.arrow.down"
+    case "xrl_evidence": return "checklist.checked"
+    case "protocols": return "scale.3d"
+    default: return "bell"
+    }
 }
+
+private func notificationIconColor(_ item: NotificationInboxItem) -> Color {
+    if item.kind == "connector_auth" { return .red }
+    return item.importance >= 3 ? .orange : AMD.blue
+}
+
+private func notificationKindLabel(_ item: NotificationInboxItem) -> String {
+    if item.kind == "connector_auth" { return "再認証" }
+    switch item.responseTarget.feedbackKind {
+    case "meeting_summary": return "議事録"
+    case "ms_progress": return "MS進捗"
+    case "project_registry_diff": return "OS台帳差分"
+    case "xrl_evidence": return "XRL根拠"
+    case "member_knowledge": return "メンバー知"
+    case "project_knowledge": return "PJ知"
+    case "protocols": return "プロトコル"
+    default: return item.responseTarget.feedbackKind
+    }
+}
+
+private func formatJST(_ iso: String) -> String {
+    let parser = ISO8601DateFormatter()
+    parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    let date = parser.date(from: iso) ?? ISO8601DateFormatter().date(from: iso)
+    guard let date else { return iso }
+    let fmt = DateFormatter()
+    fmt.locale = Locale(identifier: "ja_JP")
+    fmt.timeZone = TimeZone(identifier: "Asia/Tokyo")
+    fmt.dateFormat = "M/d HH:mm"
+    return fmt.string(from: date)
+}
+
+private func connectorLabelJa(_ connector: String) -> String {
+    switch connector {
+    case "notion": return "ノーション"
+    case "gmail": return "メール"
+    case "drive": return "ドライブ"
+    case "calendar": return "カレンダー"
+    case "slack": return "スラック"
+    default: return connector
+    }
+}
+
+private func reasonLabelJa(_ reason: String) -> String {
+    switch reason {
+    case "oauth_token_invalid_grant": return "認証の有効期限切れ"
+    case "TRIGGER_REAUTHENTICATION", "reauth_required": return "再認証が必要"
+    default: return reason
+    }
+}
+
+// MARK: - PipelineRailView
+
+private struct PipelineStage {
+    let label: String
+    let systemImage: String
+    let active: Bool
+}
+
+private struct PipelineRailView: View {
+    var compact: Bool = false
+
+    private let stages: [PipelineStage] = [
+        PipelineStage(label: "観測", systemImage: "eye", active: false),
+        PipelineStage(label: "候補", systemImage: "tray.full", active: false),
+        PipelineStage(label: "判断", systemImage: "checkmark.circle.fill", active: true),
+        PipelineStage(label: "正本", systemImage: "checkmark.seal", active: false),
+    ]
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: compact ? 3 : 4) {
+                horizontalContent
+            }
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
+                ForEach(Array(stages.enumerated()), id: \.offset) { index, stage in
+                    stageChip(number: index + 1, stage: stage)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var horizontalContent: some View {
+        ForEach(Array(stages.enumerated()), id: \.offset) { index, stage in
+            step(stage.label, systemImage: stage.systemImage, active: stage.active)
+            if index < stages.count - 1 {
+                arrow
+            }
+        }
+    }
+
+    private func stageChip(number: Int, stage: PipelineStage) -> some View {
+        HStack(spacing: 4) {
+            Text("\(number)")
+                .font(.caption2.bold())
+                .foregroundStyle(stage.active ? .white : .secondary)
+                .frame(width: 16, height: 16)
+                .background(stage.active ? AMD.blue : Color(.tertiarySystemFill))
+                .clipShape(Circle())
+            Image(systemName: stage.systemImage)
+                .font(.caption2)
+            Text(stage.label)
+                .font(.caption2)
+        }
+        .foregroundStyle(stage.active ? AMD.blue : .secondary)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func step(_ label: String, systemImage: String, active: Bool) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: systemImage)
+            Text(label)
+        }
+        .font(compact ? (active ? .caption2.bold() : .caption2) : (active ? .caption.bold() : .caption))
+        .foregroundStyle(active ? AMD.blue : .secondary)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var arrow: some View {
+        Image(systemName: "chevron.right")
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+    }
+}
+
+// MARK: - Action button helpers
+
+private enum ActionButtonStyle {
+    case prominent
+    case destructiveBordered
+    case bordered
+}
+
+private struct ActionButtonSpec {
+    let title: String
+    let systemImage: String
+    let style: ActionButtonStyle
+    var tint: Color? = nil
+    let action: () -> Void
+}
+
+@ViewBuilder
+private func renderActionButton(_ spec: ActionButtonSpec) -> some View {
+    Group {
+        switch spec.style {
+        case .prominent:
+            Button(action: spec.action) {
+                Label(spec.title, systemImage: spec.systemImage)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+        case .destructiveBordered:
+            Button(role: .destructive, action: spec.action) {
+                Label(spec.title, systemImage: spec.systemImage)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+        case .bordered:
+            Button(action: spec.action) {
+                Label(spec.title, systemImage: spec.systemImage)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+        }
+    }
+    .tint(spec.tint)
+    .frame(minHeight: 44)
+}
+
+/// 長い日本語ラベルや Dynamic Type で横並びが潰れる場合、縦並びへフォールバックする2ボタン行。
+private struct TwoButtonRow: View {
+    let primary: ActionButtonSpec
+    let secondary: ActionButtonSpec
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) {
+                renderActionButton(primary)
+                renderActionButton(secondary)
+            }
+            VStack(spacing: 8) {
+                renderActionButton(primary)
+                renderActionButton(secondary)
+            }
+        }
+    }
+}
+
+// MARK: - NotificationJudgmentCard
+
+private struct NotificationJudgmentCard: View {
+    let item: NotificationInboxItem
+    let projectMap: [String: String]
+    let details: [NotificationDetailLine]?
+    let isSubmitting: Bool
+    let onSubmit: (NotificationInboxAction) -> Void
+    let onOpenReauth: () -> Void
+    let onSkip: () -> Void
+    let onRequestCorrection: () -> Void
+
+    @State private var isEvidenceExpanded = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            PipelineRailView(compact: true)
+            header
+
+            VStack(alignment: .leading, spacing: 8) {
+                sectionLabel("OSの見立て")
+                Text(item.title)
+                    .font(.headline)
+                    .foregroundStyle(AMD.text)
+                    .fixedSize(horizontal: false, vertical: true)
+                if item.body.isEmpty == false {
+                    Text(item.body)
+                        .font(.subheadline)
+                        .foregroundStyle(AMD.textSub)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Text("\(formatJST(item.createdAt)) / \(item.displayTarget(projectMap: projectMap))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                sectionLabel("押すと起きること")
+                Text(effectText)
+                    .font(.footnote)
+                    .foregroundStyle(AMD.textSub)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            evidenceSection
+
+            if item.kind == "connector_auth" {
+                connectorActions
+            } else {
+                judgmentActions
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(AMD.card)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(item.isUnread ? AMD.blue.opacity(0.35) : AMD.divider, lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.06), radius: 10, x: 0, y: 4)
+        .disabled(isSubmitting)
+        .frame(maxWidth: .infinity)
+    }
+
+    private var header: some View {
+        HStack(spacing: 10) {
+            Image(systemName: notificationIconName(item))
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(notificationIconColor(item))
+                .frame(width: 28, height: 28)
+
+            HStack(spacing: 6) {
+                if item.isUnread {
+                    Text("未読")
+                        .font(.caption2.bold())
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(AMD.blue)
+                        .clipShape(Capsule())
+                }
+                Text(notificationKindLabel(item))
+                    .font(.caption2.bold())
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func sectionLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.caption.bold())
+            .foregroundStyle(.secondary)
+    }
+
+    private var evidenceSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    isEvidenceExpanded.toggle()
+                }
+            } label: {
+                HStack {
+                    sectionLabel("根拠")
+                    Spacer()
+                    Image(systemName: isEvidenceExpanded ? "chevron.up" : "chevron.down")
+                        .font(.caption2.bold())
+                        .foregroundStyle(.secondary)
+                }
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("根拠")
+            .accessibilityValue(isEvidenceExpanded ? "展開済み" : "折りたたみ")
+
+            if isEvidenceExpanded {
+                if let details {
+                    if details.isEmpty {
+                        Text("この通知種別は、上のOSの見立てが確認用の本文だよ。")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(details) { line in
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(line.title)
+                                    .font(.footnote.bold())
+                                Text(line.body)
+                                    .font(.footnote)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                if let footnote = line.footnote, !footnote.isEmpty {
+                                    Text(footnote)
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color(.secondarySystemGroupedBackground))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
+                    }
+                } else {
+                    ProgressView()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+    }
+
+    private var actionLabels: (yes: String, no: String) {
+        switch item.responseTarget.feedbackKind {
+        case "ms_progress": return ("MS進捗を確定", "提案を破棄")
+        case "project_registry_diff": return ("採用候補にする", "見送る")
+        case "xrl_evidence": return ("根拠として確定", "不採用")
+        case "meeting_summary": return ("確認した", "修正する")
+        default: return ("採用を回答", "不採用を回答")
+        }
+    }
+
+    private var effectText: String {
+        if item.kind == "connector_auth" {
+            return "「再認証を開く」は連携アプリの認証画面を開くだけ。「あとで」はこのカードを後回しにして次に進むよ。"
+        }
+        switch item.responseTarget.feedbackKind {
+        case "project_registry_diff":
+            return "「\(actionLabels.yes)」は採用候補として記録するところまで。実際の台帳反映はブラウザ版の安全な反映処理が行うよ。"
+        case "meeting_summary":
+            return "「\(actionLabels.yes)」は確認した記録を残すだけ。要約の再抽出はしないよ。"
+        case "ms_progress":
+            return "「\(actionLabels.yes)」は確認待ちの修正候補をまとめて確定するよ。「\(actionLabels.no)」はその修正候補をまとめて不採用にするよ。"
+        case "xrl_evidence":
+            return "「\(actionLabels.yes)」は候補の根拠を確定済みへ更新するよ。「\(actionLabels.no)」は不採用へ更新するよ。"
+        default:
+            return "この回答は修正・学習材料として保存されるだけ。自動で反映される保証はないよ。"
+        }
+    }
+
+    private var judgmentActions: some View {
+        VStack(spacing: 8) {
+            if item.responseTarget.feedbackKind == "meeting_summary" {
+                TwoButtonRow(
+                    primary: ActionButtonSpec(title: actionLabels.yes, systemImage: "checkmark.circle", style: .prominent, tint: AMD.blue, action: { onSubmit(.yes) }),
+                    secondary: ActionButtonSpec(title: actionLabels.no, systemImage: "pencil", style: .bordered, action: onRequestCorrection)
+                )
+            } else {
+                TwoButtonRow(
+                    primary: ActionButtonSpec(title: actionLabels.yes, systemImage: "checkmark.circle", style: .prominent, tint: AMD.blue, action: { onSubmit(.yes) }),
+                    secondary: ActionButtonSpec(title: actionLabels.no, systemImage: "xmark.circle", style: .destructiveBordered, action: { onSubmit(.no) })
+                )
+            }
+
+            if item.responseTarget.feedbackKind != "meeting_summary" {
+                renderActionButton(ActionButtonSpec(title: "修正・コメント", systemImage: "pencil", style: .bordered, tint: .secondary, action: onRequestCorrection))
+            }
+
+            renderActionButton(ActionButtonSpec(title: "あとで", systemImage: "arrow.uturn.forward", style: .bordered, tint: .secondary, action: onSkip))
+
+            if isSubmitting {
+                ProgressView("送信中...")
+                    .font(.caption)
+            }
+        }
+    }
+
+    private var connectorActions: some View {
+        VStack(spacing: 8) {
+            Button {
+                onOpenReauth()
+            } label: {
+                Label("再認証を開く", systemImage: "arrow.up.right.square")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(AMD.blue)
+            .frame(minHeight: 44)
+
+            Button {
+                onSkip()
+            } label: {
+                Label("あとで", systemImage: "arrow.uturn.forward")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .tint(.secondary)
+            .frame(minHeight: 44)
+
+            if let connector = item.connector {
+                Text([connectorLabelJa(connector), item.reason.map(reasonLabelJa)].compactMap { $0 }.joined(separator: " / "))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+}
+
+// MARK: - NotificationInboxCard
 
 private struct NotificationInboxCard: View {
     let item: NotificationInboxItem
@@ -699,19 +1435,17 @@ private struct NotificationInboxCard: View {
     let feedbacks: [NotificationFeedback]
     let details: [NotificationDetailLine]?
     let isExpanded: Bool
-    @Binding var feedbackText: String
-    let isSubmitting: Bool
     let onToggle: () -> Void
-    let onSubmit: (NotificationInboxAction) -> Void
     let onOpenReauth: () -> Void
+    let onFocusJudgment: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button(action: onToggle) {
                 HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: iconName)
+                    Image(systemName: notificationIconName(item))
                         .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(iconColor)
+                        .foregroundStyle(notificationIconColor(item))
                         .frame(width: 28, height: 28)
 
                     VStack(alignment: .leading, spacing: 5) {
@@ -725,7 +1459,7 @@ private struct NotificationInboxCard: View {
                                     .background(AMD.blue)
                                     .clipShape(Capsule())
                             }
-                            Text(kindLabel)
+                            Text(notificationKindLabel(item))
                                 .font(.caption2.bold())
                                 .foregroundStyle(.secondary)
                             if feedbacks.isEmpty == false {
@@ -775,8 +1509,14 @@ private struct NotificationInboxCard: View {
                     feedbackSection
                     if item.kind == "connector_auth" {
                         connectorAuthSection
-                    } else {
-                        responseSection
+                    } else if feedbacks.isEmpty {
+                        Button(action: onFocusJudgment) {
+                            Label("判断カードで処理", systemImage: "checkmark.circle")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(AMD.blue)
+                        .frame(minHeight: 44)
                     }
                 }
                 .padding(12)
@@ -857,55 +1597,6 @@ private struct NotificationInboxCard: View {
         }
     }
 
-    private var responseSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("回答・コメント")
-                .font(.caption.bold())
-                .foregroundStyle(.secondary)
-            TextEditor(text: $feedbackText)
-                .frame(minHeight: 74)
-                .padding(6)
-                .background(AMD.card)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(AMD.divider, lineWidth: 1)
-                )
-            HStack(spacing: 8) {
-                Button {
-                    onSubmit(.yes)
-                } label: {
-                    Label("はい", systemImage: "checkmark.circle")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.green)
-
-                Button(role: .destructive) {
-                    onSubmit(.no)
-                } label: {
-                    Label("いいえ", systemImage: "xmark.circle")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-            }
-            Button {
-                onSubmit(.comment)
-            } label: {
-                Label("コメントだけ送る", systemImage: "text.bubble")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
-            .disabled(feedbackText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSubmitting)
-
-            if isSubmitting {
-                ProgressView("送信中...")
-                    .font(.caption)
-            }
-        }
-        .disabled(isSubmitting)
-    }
-
     private var connectorAuthSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("再認証")
@@ -926,67 +1617,6 @@ private struct NotificationInboxCard: View {
         }
     }
 
-    private var iconName: String {
-        if item.kind == "connector_auth" { return "key" }
-        switch item.responseTarget.feedbackKind {
-        case "meeting_summary": return "doc.text"
-        case "ms_progress": return "chart.line.uptrend.xyaxis"
-        case "project_registry_diff": return "tray.and.arrow.down"
-        case "xrl_evidence": return "checklist.checked"
-        case "protocols": return "scale.3d"
-        default: return "bell"
-        }
-    }
-
-    private var iconColor: Color {
-        if item.kind == "connector_auth" { return .red }
-        return item.importance >= 3 ? .orange : AMD.blue
-    }
-
-    private var kindLabel: String {
-        if item.kind == "connector_auth" { return "再認証" }
-        switch item.responseTarget.feedbackKind {
-        case "meeting_summary": return "議事録"
-        case "ms_progress": return "MS進捗"
-        case "project_registry_diff": return "OS台帳差分"
-        case "xrl_evidence": return "XRL根拠"
-        case "member_knowledge": return "メンバー知"
-        case "project_knowledge": return "PJ知"
-        case "protocols": return "プロトコル"
-        default: return item.responseTarget.feedbackKind
-        }
-    }
-
-    private func formatJST(_ iso: String) -> String {
-        let parser = ISO8601DateFormatter()
-        parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let date = parser.date(from: iso) ?? ISO8601DateFormatter().date(from: iso)
-        guard let date else { return iso }
-        let fmt = DateFormatter()
-        fmt.locale = Locale(identifier: "ja_JP")
-        fmt.timeZone = TimeZone(identifier: "Asia/Tokyo")
-        fmt.dateFormat = "M/d HH:mm"
-        return fmt.string(from: date)
-    }
-
-    private func connectorLabelJa(_ connector: String) -> String {
-        switch connector {
-        case "notion": return "ノーション"
-        case "gmail": return "メール"
-        case "drive": return "ドライブ"
-        case "calendar": return "カレンダー"
-        case "slack": return "スラック"
-        default: return connector
-        }
-    }
-
-    private func reasonLabelJa(_ reason: String) -> String {
-        switch reason {
-        case "oauth_token_invalid_grant": return "認証の有効期限切れ"
-        case "TRIGGER_REAUTHENTICATION", "reauth_required": return "再認証が必要"
-        default: return reason
-        }
-    }
 }
 
 // MARK: - PayoutInfoEditView
