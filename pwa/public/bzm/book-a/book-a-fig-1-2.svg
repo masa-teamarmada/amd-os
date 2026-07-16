@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 520" font-family="'Hiragino Sans','Hiragino Kaku Gothic ProN',sans-serif" role="img" aria-labelledby="title desc">
+  <title id="title">図1-2 三項構造マップ</title>
+  <desc id="desc">見えない状態空間 x を、SPS と ECR の二つの観測レンズで別々に測り、RT が観測結果を行動に変えて状態へ働きかける構造図。SPS と ECR の間には合成演算の線を引かない。</desc>
+  <rect width="880" height="520" fill="#ffffff"/>
+
+  <defs>
+    <marker id="arrowBlue" markerWidth="11" markerHeight="11" refX="8" refY="3.4" orient="auto">
+      <path d="M0,0 L8,3.4 L0,6.8 Z" fill="#2a4d8f"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="11" markerHeight="11" refX="8" refY="3.4" orient="auto">
+      <path d="M0,0 L8,3.4 L0,6.8 Z" fill="#3a7a4a"/>
+    </marker>
+    <marker id="arrowOrange" markerWidth="11" markerHeight="11" refX="8" refY="3.4" orient="auto">
+      <path d="M0,0 L8,3.4 L0,6.8 Z" fill="#e07a5f"/>
+    </marker>
+    <marker id="arrowAction" markerWidth="12" markerHeight="12" refX="9" refY="3.6" orient="auto">
+      <path d="M0,0 L9,3.6 L0,7.2 Z" fill="#c0563c"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="40" y="44" font-size="17" font-weight="700" fill="#1a2a52">三項構造マップ</text>
+  <text x="40" y="67" font-size="12.5" fill="#555">観測二層と行動一層は、状態 x を挟んで役割を分担する「構造の組」である</text>
+
+  <!-- Group labels -->
+  <text x="60" y="98" font-size="14" font-weight="700" fill="#1a2a52">観測二層</text>
+  <text x="612" y="184" font-size="14" font-weight="700" fill="#c0563c">行動一層</text>
+
+  <!-- SPS card -->
+  <rect x="60" y="112" width="260" height="118" rx="8" fill="#eef2fb" stroke="#2a4d8f" stroke-width="2"/>
+  <text x="190" y="142" font-size="17" font-weight="700" fill="#1a2a52" text-anchor="middle">SPS</text>
+  <text x="190" y="164" font-size="12.5" fill="#2a4d8f" text-anchor="middle">シーズ有望度 / 案件を測る</text>
+  <rect x="92" y="181" width="196" height="28" rx="5" fill="#ffffff" stroke="#5b73b0" stroke-width="1.2"/>
+  <text x="190" y="200" font-size="12.5" font-weight="700" fill="#1a2a52" text-anchor="middle">P × R × S</text>
+  <text x="190" y="220" font-size="10.8" fill="#555" text-anchor="middle">天井・到達・生存を掛け算で見る</text>
+
+  <!-- ECR card -->
+  <rect x="60" y="318" width="260" height="118" rx="8" fill="#eef7f0" stroke="#3a7a4a" stroke-width="2"/>
+  <text x="190" y="348" font-size="17" font-weight="700" fill="#2c6038" text-anchor="middle">ECR</text>
+  <text x="190" y="370" font-size="12.5" fill="#3a7a4a" text-anchor="middle">エコシステム構築率 / 苗床を測る</text>
+  <rect x="92" y="387" width="196" height="28" rx="5" fill="#ffffff" stroke="#6f9b78" stroke-width="1.2"/>
+  <text x="190" y="406" font-size="12.2" font-weight="700" fill="#2c6038" text-anchor="middle">重み付き充足率</text>
+  <text x="190" y="426" font-size="10.8" fill="#555" text-anchor="middle">欠けている軸を足し算で診断する</text>
+
+  <!-- Non-composition note -->
+  <text x="190" y="268" font-size="11.5" fill="#c0563c" text-anchor="middle">二つの測定値は、単一点数へ混ぜない</text>
+  <text x="190" y="302" font-size="10.8" fill="#777" text-anchor="middle">線を引かず、役割を分ける</text>
+
+  <!-- Hidden state x -->
+  <rect x="358" y="212" width="202" height="112" rx="10" fill="#fffaf4" stroke="#8a6f4d" stroke-width="2" stroke-dasharray="7 5"/>
+  <text x="459" y="244" font-size="17" font-weight="700" fill="#604822" text-anchor="middle">状態空間 x</text>
+  <text x="459" y="268" font-size="14" fill="#604822" text-anchor="middle">x = (ι, F, S₀, I)</text>
+  <text x="459" y="292" font-size="11.5" fill="#555" text-anchor="middle">直接は見えない Before Zero の現在地</text>
+  <text x="459" y="310" font-size="10.5" fill="#777" text-anchor="middle">見えるのは論文・特許・契約・調達などの断片</text>
+
+  <!-- Observable fragments around x -->
+  <g font-size="10.5" fill="#777">
+    <rect x="372" y="185" width="48" height="20" rx="10" fill="#f7f7f7" stroke="#d0d0d0"/>
+    <text x="396" y="199" text-anchor="middle">論文</text>
+    <rect x="429" y="178" width="48" height="20" rx="10" fill="#f7f7f7" stroke="#d0d0d0"/>
+    <text x="453" y="192" text-anchor="middle">特許</text>
+    <rect x="486" y="185" width="48" height="20" rx="10" fill="#f7f7f7" stroke="#d0d0d0"/>
+    <text x="510" y="199" text-anchor="middle">契約</text>
+  </g>
+
+  <!-- RT card -->
+  <rect x="604" y="202" width="236" height="132" rx="8" fill="#fff3ec" stroke="#e07a5f" stroke-width="2.2" stroke-dasharray="7 4"/>
+  <text x="722" y="235" font-size="17" font-weight="700" fill="#c0563c" text-anchor="middle">RT</text>
+  <text x="722" y="258" font-size="12.5" fill="#c0563c" text-anchor="middle">ラウンドテーブル / 動かす手</text>
+  <rect x="634" y="276" width="176" height="30" rx="5" fill="#ffffff" stroke="#e0a08d" stroke-width="1.2"/>
+  <text x="722" y="296" font-size="12" font-weight="700" fill="#8d3b27" text-anchor="middle">経済的コミットメントと権利</text>
+  <text x="722" y="323" font-size="10.8" fill="#777" text-anchor="middle">仮説的な柱として検証の途上</text>
+
+  <!-- Observation arrows into x -->
+  <path d="M320 164 C350 172 346 215 358 237" fill="none" stroke="#2a4d8f" stroke-width="2.1" marker-end="url(#arrowBlue)"/>
+  <text x="356" y="178" font-size="11.2" fill="#2a4d8f">案件側の観測</text>
+  <path d="M320 377 C344 362 348 316 358 292" fill="none" stroke="#3a7a4a" stroke-width="2.1" marker-end="url(#arrowGreen)"/>
+  <text x="350" y="359" font-size="11.2" fill="#3a7a4a">苗床側の観測</text>
+
+  <!-- Measurement results into RT, routed around x -->
+  <path d="M292 124 C430 86 580 114 642 202" fill="none" stroke="#e07a5f" stroke-width="1.9" marker-end="url(#arrowOrange)"/>
+  <text x="446" y="109" font-size="10.8" fill="#c0563c" text-anchor="middle">測定結果を行動へ渡す</text>
+  <path d="M292 424 C430 464 580 420 642 334" fill="none" stroke="#e07a5f" stroke-width="1.9" marker-end="url(#arrowOrange)"/>
+  <text x="446" y="438" font-size="10.8" fill="#c0563c" text-anchor="middle">測定結果を行動へ渡す</text>
+
+  <!-- Action arrow back to x -->
+  <path d="M604 268 C590 268 577 268 560 268" fill="none" stroke="#c0563c" stroke-width="3" marker-end="url(#arrowAction)"/>
+  <text x="582" y="257" font-size="11.2" fill="#c0563c" text-anchor="middle">動かす</text>
+
+  <!-- Footer -->
+  <text x="40" y="474" font-size="11.8" fill="#555">SPS は案件を、ECR は苗床を別々に測る。RT はその二層の測定結果を、現実を動かす行動へ変換する。</text>
+  <text x="40" y="496" font-size="11.5" fill="#777">三項は積の式ではなく、状態 x をめぐる役割分担の地図である。</text>
+</svg>
