@@ -17,10 +17,13 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib import font_manager
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
 OUT = os.path.join(os.path.dirname(__file__), "..", "public", "bzm")
 os.makedirs(OUT, exist_ok=True)
+BOOK_A_OUT = os.path.join(OUT, "book-a")
+os.makedirs(BOOK_A_OUT, exist_ok=True)
 DPI = 150
 
 plt.rcParams.update({
@@ -33,6 +36,50 @@ plt.rcParams.update({
 
 def save(fig, name):
     path = os.path.join(OUT, name)
+    fig.savefig(path, dpi=DPI, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+    print("wrote", os.path.relpath(path))
+
+
+def book_a_style():
+    """Use a local Japanese font for Book A figures without changing old figure labels."""
+    font_candidates = [
+        "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc",
+        "/System/Library/Fonts/ヒラギノ角ゴシック W2.ttc",
+        "/System/Library/Fonts/ヒラギノ角ゴシック W1.ttc",
+        "/System/Library/Fonts/ヒラギノ明朝 ProN.ttc",
+    ]
+    for font_path in font_candidates:
+        if os.path.exists(font_path):
+            font_manager.fontManager.addfont(font_path)
+            jp = font_manager.FontProperties(fname=font_path).get_name()
+            plt.rcParams.update({
+                "font.family": jp,
+                "axes.unicode_minus": False,
+            })
+            break
+    else:
+        plt.rcParams.update({
+            "font.sans-serif": [
+                "Hiragino Sans",
+                "Hiragino Kaku Gothic ProN",
+                "Yu Gothic",
+                "Noto Sans CJK JP",
+                "Arial Unicode MS",
+                "DejaVu Sans",
+            ],
+            "axes.unicode_minus": False,
+        })
+    plt.rcParams.update({
+        "figure.facecolor": "white",
+        "axes.facecolor": "white",
+        "font.size": 11,
+        "axes.titlesize": 13,
+    })
+
+
+def save_book_a(fig, name):
+    path = os.path.join(BOOK_A_OUT, name)
     fig.savefig(path, dpi=DPI, bbox_inches="tight", facecolor="white")
     plt.close(fig)
     print("wrote", os.path.relpath(path))
@@ -414,18 +461,547 @@ def fig_f9():
     save(fig, "f9_hype_vs_readiness.png")
 
 
+# ---------------------------------------------------------------------------
+# Book A matplotlib batch2: 8 confirmed figures + 4 provisional worked examples
+# 出力先: pwa/public/bzm/book-a/*.png
+# 既存F1-F9は英語ラベルのまま維持し、Book A用だけ日本語ラベルで再制作する。
+# ---------------------------------------------------------------------------
+BOOK_A_BLUE = "#2a4d8f"
+BOOK_A_ORANGE = "#e07a5f"
+BOOK_A_GREEN = "#3a7a4a"
+BOOK_A_PURPLE = "#7b5ea7"
+BOOK_A_GREY = "#8b8f9f"
+
+
+def book_a_fig_4_2():
+    book_a_style()
+    t = [0, 2, 2, 4.5, 4.5, 7, 7, 10]
+    p = [2, 2, 4, 4, 6.5, 6.5, 8.5, 8.5]
+    fig, ax = plt.subplots(figsize=(7.6, 4.6))
+    ax.plot(t, p, color=BOOK_A_BLUE, lw=2.6, zorder=3)
+    ax.fill_between(t, 0, p, color=BOOK_A_BLUE, alpha=0.06)
+
+    for x, ymid, label in [
+        (2, 3.0, "隣接用途の発見"),
+        (4.5, 5.25, "産業文脈の書き換え"),
+        (7, 7.5, "標準・規格への接続"),
+    ]:
+        ax.annotate("", xy=(x, ymid + 1.0), xytext=(x, ymid - 1.0),
+                    arrowprops=dict(arrowstyle="->", color=BOOK_A_ORANGE, lw=1.6))
+        ax.text(x + 0.12, ymid, label, fontsize=9, color=BOOK_A_ORANGE, va="center")
+
+    ax.axhline(2, color=BOOK_A_GREY, ls="--", lw=1.2)
+    ax.text(9.8, 2.2, "当初用途の天井", ha="right", fontsize=9, color="#666")
+    ax.text(0.15, 8.85, r"$P(t)=\max_{u\in U(t)}P_u$", fontsize=12, color="#333")
+    ax.set_xlabel("時間")
+    ax.set_ylabel("天井 P(t)")
+    ax.set_xlim(0, 10)
+    ax.set_ylim(0, 9.5)
+    ax.set_title("図4-2  Pは測るものであると同時に、動かすもの")
+    ax.set_xticks([])
+    ax.grid(axis="y", alpha=0.2)
+    for s in ["top", "right"]:
+        ax.spines[s].set_visible(False)
+    save_book_a(fig, "book-a-fig-4-2.png")
+
+
+def book_a_fig_7_3():
+    book_a_style()
+
+    def sigma_su(vals):
+        return float(np.prod(np.array(vals) + 1.0) ** (1 / 3) - 1.0)
+
+    patterns = [
+        ("三者が揃う\n真の進展", [0.60, 0.60, 0.60], 0.72),
+        ("学だけ跳ねる\nハイプ/先回り", [1.50, 0.15, 0.15], 0.38),
+        ("追い風は強いが\n社会受容が低い", [0.60, 0.60, 0.60], 0.16),
+    ]
+    labels = [p[0] for p in patterns]
+    values = np.array([p[1] for p in patterns])
+    social = np.array([p[2] for p in patterns])
+    sigmas = [sigma_su(v) for v in values]
+    x = np.arange(len(patterns))
+    width = 0.18
+    offsets = [-1.5 * width, -0.5 * width, 0.5 * width, 1.5 * width]
+
+    fig, ax = plt.subplots(figsize=(8.8, 4.9))
+    series = [
+        (r"$\mu_A$ 学", values[:, 0], BOOK_A_BLUE, None),
+        (r"$\mu_I$ 産", values[:, 1], BOOK_A_GREEN, None),
+        (r"$\mu_G$ 官", values[:, 2], BOOK_A_ORANGE, None),
+        ("社会受容", social, "#aaaaaa", "//"),
+    ]
+    for i, (name, data, color, hatch) in enumerate(series):
+        ax.bar(x + offsets[i], data, width, label=name, color=color,
+               edgecolor="white", linewidth=0.8, hatch=hatch, zorder=3)
+
+    for xi, sig in zip(x, sigmas):
+        ax.text(xi, 1.72, rf"$\sigma_{{SU}}\approx{sig:.2f}$",
+                ha="center", va="bottom", fontsize=10, color="#333")
+    ax.text(x[2], 0.33, "ここだけ\n別の時計", ha="center", va="center",
+            fontsize=9, color="#666")
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels)
+    ax.set_ylim(0, 1.9)
+    ax.set_ylabel("強度・受容の教材値")
+    ax.set_title("図7-3  追い風は値だけでなく、内訳と社会受容を分けて読む")
+    ax.legend(loc="upper right", ncol=4, fontsize=8.5, frameon=False)
+    ax.grid(axis="y", alpha=0.2, zorder=0)
+    for s in ["top", "right"]:
+        ax.spines[s].set_visible(False)
+    save_book_a(fig, "book-a-fig-7-3.png")
+
+
+def book_a_fig_8_1():
+    book_a_style()
+    fig, ax = plt.subplots(figsize=(9.0, 5.4))
+    ax.axhspan(-3, 0, color="crimson", alpha=0.10)
+    ax.axhline(0, color="crimson", lw=2.0)
+    ax.text(0.02, -1.7, "y=0: 主導権喪失ライン", color="crimson", fontsize=9, va="center")
+
+    ax.axvline(1.0, color=BOOK_A_GREEN, lw=2.0, ls="--")
+    ax.text(1.01, 27, "事業化ライン", color=BOOK_A_GREEN, fontsize=9, va="center")
+
+    seg = [
+        (0.06, 7), (0.18, 5.5),
+        (0.18, 24),
+        (0.38, 16),
+        (0.38, 23),
+        (0.62, 13),
+        (0.62, 27),
+        (1.00, 14),
+    ]
+    xs = [p[0] for p in seg]
+    ys = [p[1] for p in seg]
+    ax.plot(xs, ys, color="navy", lw=2.2, marker="o", ms=4, zorder=5)
+
+    ax.annotate("設立:\n資本金で縦に跳ぶ", xy=(0.18, 24), xytext=(0.05, 30),
+                fontsize=9, color="navy",
+                arrowprops=dict(arrowstyle="->", color="navy", lw=0.9))
+    ax.annotate("PoC・開示:\nyを使ってxを買う", xy=(0.30, 19.5), xytext=(0.36, 7.6),
+                fontsize=9, color="navy",
+                arrowprops=dict(arrowstyle="->", color="navy", lw=0.9))
+    ax.annotate("助成金・調達:\n余力を補充", xy=(0.62, 27), xytext=(0.55, 33),
+                fontsize=9, color="navy",
+                arrowprops=dict(arrowstyle="->", color="navy", lw=0.9))
+    ax.annotate("y>0のまま到達", xy=(1.00, 14), xytext=(0.76, 19.5),
+                fontsize=9, color=BOOK_A_GREEN,
+                arrowprops=dict(arrowstyle="->", color=BOOK_A_GREEN, lw=0.9))
+
+    ax.set_xlim(0, 1.18)
+    ax.set_ylim(-3, 38)
+    ax.set_xlabel("事業化への到達度 x")
+    ax.set_ylabel("戦略余力 y（月）")
+    ax.set_title("図8-1  (x,y)平面で見る、余力を使って到達度を買う道のり")
+    ax.grid(True, alpha=0.2)
+    save_book_a(fig, "book-a-fig-8-1.png")
+
+
+def _book_a_xy_sample_paths():
+    rng = np.random.default_rng(8202)
+    months = np.arange(49)
+    dx = rng.normal(0.02, 0.015, 48)
+    burn = rng.normal(1.0, 0.3, 48)
+    jump = rng.random(48) < 0.05
+    if not jump.any():
+        jump[[10, 29]] = True
+
+    def run(with_jump):
+        x_vals = [0.2]
+        y_vals = [30.0]
+        jump_months = []
+        for i in range(48):
+            x_next = max(0.0, min(1.08, x_vals[-1] + max(dx[i], -0.01)))
+            y_next = y_vals[-1] - max(burn[i], 0.1)
+            if with_jump and jump[i]:
+                y_next += 8
+                jump_months.append(i + 1)
+            x_vals.append(x_next)
+            y_vals.append(y_next)
+        return np.array(x_vals), np.array(y_vals), jump_months
+
+    return months, run(False), run(True)
+
+
+def book_a_fig_8_2():
+    book_a_style()
+    months, diffusion, with_jump = _book_a_xy_sample_paths()
+    x_d, y_d, _ = diffusion
+    x_j, y_j, jump_months = with_jump
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8.8, 6.0), sharex=True,
+                                   gridspec_kw={"height_ratios": [1, 1.1]})
+    ax1.plot(months, x_d, color=BOOK_A_BLUE, lw=2.0, label="拡散のみ")
+    ax1.plot(months, x_j, color=BOOK_A_ORANGE, lw=2.0, ls="--", label="拡散+ジャンプ")
+    ax1.axhline(1.0, color=BOOK_A_GREEN, lw=1.5, ls="--")
+    ax1.text(48, 1.01, "事業化ライン", ha="right", va="bottom", fontsize=9, color=BOOK_A_GREEN)
+    ax1.set_ylabel("到達度 x")
+    ax1.set_ylim(0.15, 1.1)
+    ax1.grid(True, alpha=0.2)
+    ax1.legend(loc="upper left", fontsize=9, frameon=False)
+
+    ax2.plot(months, y_d, color=BOOK_A_BLUE, lw=2.0, label="拡散のみ")
+    ax2.plot(months, y_j, color=BOOK_A_ORANGE, lw=2.0, ls="--", label="拡散+ジャンプ")
+    ax2.axhline(0, color="crimson", lw=1.7)
+    for jm in jump_months:
+        ax2.scatter([jm], [y_j[jm]], color=BOOK_A_ORANGE, s=45, zorder=5)
+        ax2.annotate("+8か月", xy=(jm, y_j[jm]), xytext=(jm + 1, y_j[jm] + 4),
+                     fontsize=8.5, color=BOOK_A_ORANGE,
+                     arrowprops=dict(arrowstyle="->", color=BOOK_A_ORANGE, lw=0.8))
+    ax2.set_xlabel("月")
+    ax2.set_ylabel("戦略余力 y（月）")
+    ax2.set_ylim(min(y_d.min(), y_j.min()) - 2, max(y_j.max(), y_d.max()) + 8)
+    ax2.grid(True, alpha=0.2)
+    fig.suptitle("図8-2  同じ出発点でも、ジャンプの有無で軌跡の見え方が変わる", y=0.995)
+    save_book_a(fig, "book-a-fig-8-2.png")
+
+
+def book_a_fig_8_4():
+    book_a_style()
+    fig, ax = plt.subplots(figsize=(9.2, 5.4))
+    ax.axhline(0, color="crimson", lw=2.0)
+    ax.axhspan(-2, 0, color="crimson", alpha=0.10)
+    ax.axvline(1.0, color=BOOK_A_GREEN, lw=1.8, ls="--")
+    ax.text(1.01, 2.0, "事業化\nライン", color=BOOK_A_GREEN, fontsize=9)
+    ax.text(0.02, -1.4, "y=0: 主導権喪失", color="crimson", fontsize=9)
+
+    paths = [
+        ("自走型", [0.10, 0.18, 0.18, 0.36, 0.36, 0.58, 0.58, 1.00],
+         [6, 5, 22, 14, 21, 12, 25, 13], BOOK_A_GREEN),
+        ("ゾンビ型", [0.10, 0.16, 0.21, 0.25, 0.28, 0.30],
+         [18, 13, 8.5, 4.5, 1.8, 0], "darkorange"),
+        ("即落型", [0.10, 0.15, 0.18],
+         [9, 3, 0], "crimson"),
+        ("鋸歯型", [0.10, 0.24, 0.24, 0.40, 0.40, 0.56, 0.56, 0.72, 0.72, 1.00],
+         [7, 2.5, 10, 4, 11, 4.5, 12, 5, 13, 6], "mediumpurple"),
+    ]
+    for label, xs, ys, color in paths:
+        ax.plot(xs, ys, color=color, lw=2.2, label=label)
+        ax.text(xs[-1] + 0.018, ys[-1], label, color=color, fontsize=9, va="center")
+    ax.scatter([0.30, 0.18], [0, 0], color=["darkorange", "crimson"], marker="x", s=70)
+
+    ax.set_xlim(0, 1.20)
+    ax.set_ylim(-2, 30)
+    ax.set_xlabel("事業化への到達度 x")
+    ax.set_ylabel("戦略余力 y（月）")
+    ax.set_title("図8-4  四つの軌跡型は、同じ断面でも生存構造が違う")
+    ax.legend(loc="upper right", fontsize=8.8, frameon=False)
+    ax.grid(True, alpha=0.2)
+    save_book_a(fig, "book-a-fig-8-4.png")
+
+
+BOOK_A_WEIGHTS = {
+    "F": 1.6,
+    "σ_SU": 1.2,
+    "HRL": 1.0,
+    "TRL": 0.9,
+    "P": 0.9,
+    "R_net": 0.7,
+    "BRL": 0.5,
+    "GRL": 0.4,
+    "SRL": 0.3,
+}
+BOOK_A_EXAMPLE_X = {
+    "P": 6,
+    "TRL": 2,
+    "BRL": 1,
+    "GRL": 4,
+    "SRL": 4,
+    "HRL": 2,
+    "σ_SU": 7,
+    "R_net": 0,
+    "F": 3,
+}
+
+
+def _book_a_sps(values):
+    k = 100000 / (10 ** sum(BOOK_A_WEIGHTS.values()))
+    score = k
+    for axis, alpha in BOOK_A_WEIGHTS.items():
+        score *= (values[axis] + 1) ** alpha
+    return score
+
+
+def _normalize_0_100(vals):
+    vals = np.asarray(vals, dtype=float)
+    span = vals.max() - vals.min()
+    if span == 0:
+        return np.zeros_like(vals)
+    return (vals - vals.min()) / span * 100
+
+
+def book_a_fig_9_1():
+    book_a_style()
+    moving_axis = "R_net"
+    xs = np.linspace(0, 9, 181)
+    weighted = []
+    minimum = []
+    cobb = []
+    for x in xs:
+        values = dict(BOOK_A_EXAMPLE_X)
+        values[moving_axis] = x
+        weighted.append(sum(BOOK_A_WEIGHTS[a] * values[a] for a in BOOK_A_WEIGHTS))
+        minimum.append(min(values.values()))
+        cobb.append(_book_a_sps(values))
+
+    fig, ax = plt.subplots(figsize=(8.6, 4.8))
+    ax.plot(xs, _normalize_0_100(weighted), color=BOOK_A_GREY, lw=2.2, label="加重和")
+    ax.plot(xs, _normalize_0_100(minimum), color="crimson", lw=2.2, label="min")
+    ax.plot(xs, _normalize_0_100(cobb), color=BOOK_A_BLUE, lw=2.6, label="Cobb-Douglas")
+    ax.axvline(BOOK_A_EXAMPLE_X[moving_axis], color="#999", ls=":", lw=1.2)
+    ax.text(BOOK_A_EXAMPLE_X[moving_axis] + 0.1, 8, "例題の現在地\nR_net=0",
+            fontsize=9, color="#666")
+    ax.set_xlabel(r"動かす軸: $R_{\mathrm{net}}$（0→9）")
+    ax.set_ylabel("比較用に0〜100へ正規化")
+    ax.set_title("図9-1  束ね方が違うと、一軸改善の見え方も変わる")
+    ax.legend(loc="lower right", frameon=False)
+    ax.grid(True, alpha=0.2)
+    for s in ["top", "right"]:
+        ax.spines[s].set_visible(False)
+    save_book_a(fig, "book-a-fig-9-1.png")
+
+
+def book_a_fig_9_2():
+    book_a_style()
+    score = 72
+    fig, ax = plt.subplots(figsize=(8.2, 2.7))
+    ax.set_xscale("log")
+    ax.set_xlim(1, 100000)
+    ax.set_ylim(0, 1)
+    ax.axhline(0.5, color="#444", lw=1.6, zorder=1)
+    for v in [1, 10, 100, 1000, 10000, 100000]:
+        ax.plot([v, v], [0.44, 0.56], color="#444", lw=1.2)
+        ax.text(v, 0.30, f"{v:,}", ha="center", fontsize=9, color="#444")
+    ax.plot([score], [0.5], "o", color=BOOK_A_BLUE, ms=11, zorder=5)
+    ax.annotate("例題スコア\n約72", xy=(score, 0.5), xytext=(260, 0.80),
+                ha="left", fontsize=10, color=BOOK_A_BLUE,
+                arrowprops=dict(arrowstyle="->", color=BOOK_A_BLUE, lw=1.2))
+    ax.text(1, 0.64, "シーズの気配", ha="left", va="top", fontsize=9, color="#777")
+    ax.text(100000, 0.64, "全軸最高\n=100,000", ha="right", va="top", fontsize=9, color="#777")
+    ax.text(50000, 0.12, "1桁 = 1段階として読む", ha="center",
+            fontsize=9, color=BOOK_A_ORANGE, style="italic")
+    ax.set_title("図9-2  統合スコアは対数の物差しで読む")
+    ax.set_yticks([])
+    ax.set_xticks([])
+    ax.set_xticks([], minor=True)
+    ax.tick_params(axis="x", which="both", length=0)
+    for s in ["top", "right", "left", "bottom"]:
+        ax.spines[s].set_visible(False)
+    save_book_a(fig, "book-a-fig-9-2.png")
+
+
+def book_a_fig_9_3():
+    book_a_style()
+    rows = sorted(
+        [(axis, BOOK_A_WEIGHTS[axis], BOOK_A_EXAMPLE_X[axis]) for axis in BOOK_A_WEIGHTS],
+        key=lambda r: -r[1] / (r[2] + 1),
+    )
+    names = [r[0] for r in rows]
+    ratio = [r[1] / (r[2] + 1) for r in rows]
+    y = np.arange(len(rows))[::-1]
+
+    fig, ax = plt.subplots(figsize=(7.9, 4.8))
+    colors = [BOOK_A_BLUE] * len(rows)
+    colors[0] = BOOK_A_ORANGE
+    bars = ax.barh(y, ratio, color=colors, height=0.62, zorder=3)
+    for bar, yi, (name, alpha, x_val), rt in zip(bars, y, rows, ratio):
+        ax.text(rt + 0.015, yi, f"{rt:.3f}", va="center", fontsize=9.5,
+                color="#333", fontweight="bold")
+        if rt > 0.18:
+            ax.text(0.012, yi, f"α={alpha:g}, X={x_val:g}", va="center", fontsize=8,
+                    color="#fff")
+        else:
+            ax.text(rt + 0.105, yi, f"α={alpha:g}, X={x_val:g}", va="center",
+                    fontsize=8, color="#777")
+    ax.set_yticks(y)
+    ax.set_yticklabels(names)
+    ax.set_xlabel(r"限界収益  $\alpha/(X+1)$")
+    ax.set_xlim(0, 0.82)
+    ax.set_title(r"図9-3  律速軸は $R_{\mathrm{net}}$、次に F と HRL が続く")
+    ax.annotate("次の一手:\n対価を得る検証", xy=(0.7, y[0]), xytext=(0.49, y[0] - 1.15),
+                fontsize=9.5, color=BOOK_A_ORANGE, fontweight="bold",
+                arrowprops=dict(arrowstyle="->", color=BOOK_A_ORANGE, lw=1.3))
+    ax.grid(axis="x", alpha=0.2)
+    for s in ["top", "right"]:
+        ax.spines[s].set_visible(False)
+    save_book_a(fig, "book-a-fig-9-3.png")
+
+
+def book_a_fig_11_1():
+    book_a_style()
+    labels = [
+        "1 シーズ\n技術評価", "2 知財\nTLO", "3 起業\n支援", "4 産学\n接続",
+        "5 資金\n接続", "6 経営\n人材", "7 規程\nガバナンス", "8 政策\n連携",
+    ]
+    scores = [0.65, 0.45, 0.55, 0.30, 0.35, 0.40, 0.25, 0.60]
+    ecr = np.mean(scores) * 100
+    angles = np.linspace(0, 2 * np.pi, len(labels), endpoint=False).tolist()
+    vals = scores + scores[:1]
+    angles_c = angles + angles[:1]
+
+    fig, ax = plt.subplots(figsize=(6.9, 6.6), subplot_kw=dict(polar=True))
+    ax.plot(angles_c, vals, color=BOOK_A_BLUE, lw=2)
+    ax.fill(angles_c, vals, color=BOOK_A_BLUE, alpha=0.22)
+    ax.set_xticks(angles)
+    ax.set_xticklabels(labels, fontsize=9)
+    ax.set_ylim(0, 1)
+    ax.set_yticks([0.25, 0.50, 0.75, 1.00])
+    ax.set_yticklabels(["0.25", "0.50", "0.75", "1.00"], fontsize=8)
+    for idx in (3, 4, 6):
+        ax.scatter(angles[idx], scores[idx], color="crimson", s=64, zorder=5)
+    ax.set_title(f"図11-1 仮案  ECR 8軸充足率（架空例）\nECR={ecr:.1f}%、赤点は優先ギャップ", y=1.10)
+    save_book_a(fig, "book-a-fig-11-1.png")
+
+
+def book_a_fig_12_2():
+    book_a_style()
+    groups = ["高ECR層", "低ECR層", "合算"]
+    a_success = np.array([18, 16, 34])
+    a_total = np.array([30, 80, 110])
+    b_success = np.array([55, 3, 58])
+    b_total = np.array([100, 20, 120])
+    a_rate = a_success / a_total
+    b_rate = b_success / b_total
+    x = np.arange(len(groups))
+    width = 0.34
+
+    fig, ax = plt.subplots(figsize=(8.0, 4.8))
+    ax.bar(x - width / 2, a_rate * 100, width, color=BOOK_A_BLUE, label="施策A")
+    ax.bar(x + width / 2, b_rate * 100, width, color=BOOK_A_ORANGE, label="施策B")
+    for xi, ar, br, at, bt in zip(x, a_rate, b_rate, a_total, b_total):
+        ax.text(xi - width / 2, ar * 100 + 1.5, f"{ar*100:.0f}%\n(n={at})",
+                ha="center", fontsize=8.5, color=BOOK_A_BLUE)
+        ax.text(xi + width / 2, br * 100 + 1.5, f"{br*100:.0f}%\n(n={bt})",
+                ha="center", fontsize=8.5, color=BOOK_A_ORANGE)
+    ax.annotate("層別ではAが上", xy=(0, 62), xytext=(0.35, 72),
+                fontsize=9.5, color=BOOK_A_BLUE,
+                arrowprops=dict(arrowstyle="->", color=BOOK_A_BLUE, lw=1.0))
+    ax.annotate("合算するとBが上", xy=(2.18, 49), xytext=(1.52, 64),
+                fontsize=9.5, color=BOOK_A_ORANGE,
+                arrowprops=dict(arrowstyle="->", color=BOOK_A_ORANGE, lw=1.0))
+    ax.set_xticks(x)
+    ax.set_xticklabels(groups)
+    ax.set_ylim(0, 82)
+    ax.set_ylabel("成功率（架空データ）")
+    ax.set_title("図12-2 仮案  層を混ぜると、Simpson反転が起きる")
+    ax.legend(loc="upper right", frameon=False)
+    ax.grid(axis="y", alpha=0.2)
+    for s in ["top", "right"]:
+        ax.spines[s].set_visible(False)
+    save_book_a(fig, "book-a-fig-12-2.png")
+
+
+def book_a_fig_15_2():
+    book_a_style()
+    classes = ["IPO", "大型M&A", "小型M&A", "持続型\n小事業", "ライセンス"]
+    values = np.array([120, 35, 8, 3, 1.2])
+    probs = np.array([0.015, 0.04, 0.16, 0.55, 0.75])
+    allocations = {
+        "全ユニコーン案": np.array([14, 6, 0, 0, 0]),
+        "分散ポートフォリオ": np.array([3, 4, 5, 5, 3]),
+    }
+    colors = [BOOK_A_BLUE, BOOK_A_PURPLE, BOOK_A_GREEN, BOOK_A_ORANGE, "#9aa0b4"]
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11.2, 4.9),
+                                   gridspec_kw={"width_ratios": [1.65, 0.80]})
+    bottoms = np.zeros(len(allocations))
+    labels = list(allocations.keys())
+    totals = []
+    for idx, cls in enumerate(classes):
+        contrib = np.array([allocations[label][idx] * values[idx] * probs[idx] for label in labels])
+        totals = contrib if idx == 0 else totals + contrib
+        ax1.bar(labels, contrib, bottom=bottoms, color=colors[idx], edgecolor="white",
+                linewidth=0.8, label=cls)
+        bottoms += contrib
+    for xi, total in enumerate(bottoms):
+        ax1.text(xi, total + 0.6, f"期待還流\n{total:.1f}", ha="center", fontsize=9.5,
+                 color="#333", fontweight="bold")
+    ax1.set_ylabel("期待還流（架空単位）")
+    ax1.set_title("出口クラス別の期待還流")
+    ax1.legend(loc="upper center", bbox_to_anchor=(0.5, -0.18),
+               ncol=3, fontsize=8.5, frameon=False)
+    ax1.grid(axis="y", alpha=0.2)
+
+    concentration_risk = [0.82, 0.43]
+    ax2.bar(labels, concentration_risk, color=[BOOK_A_ORANGE, BOOK_A_GREEN], width=0.55)
+    for xi, v in enumerate(concentration_risk):
+        ax2.text(xi, v + 0.03, f"{v:.2f}", ha="center", fontsize=10, color="#333")
+    ax2.set_ylim(0, 1.0)
+    ax2.set_ylabel("集中リスク（教材値）")
+    ax2.set_title("リスクの違い")
+    ax2.grid(axis="y", alpha=0.2)
+    for ax in (ax1, ax2):
+        for s in ["top", "right"]:
+            ax.spines[s].set_visible(False)
+    fig.subplots_adjust(bottom=0.26, wspace=0.34)
+    fig.suptitle("図15-2 仮案  全ユニコーン案と出口分散案を比べる", y=1.03)
+    save_book_a(fig, "book-a-fig-15-2.png")
+
+
+def book_a_fig_16_2():
+    book_a_style()
+    names = [f"案件{i}" for i in range(1, 9)]
+    pred = np.array([0.85, 0.70, 0.65, 0.55, 0.45, 0.35, 0.25, 0.15])
+    outcome = np.array([1, 1, 0, 1, 0, 0, 1, 0])
+    brier_each = (pred - outcome) ** 2
+    brier = brier_each.mean()
+    eps = 1e-9
+    logloss = -(outcome * np.log(pred + eps) + (1 - outcome) * np.log(1 - pred + eps)).mean()
+    x = np.arange(len(names))
+
+    fig, ax = plt.subplots(figsize=(9.0, 4.9))
+    ax.bar(x, pred, color=BOOK_A_BLUE, alpha=0.82, label="予測確率 p")
+    ax.scatter(x, outcome, color=BOOK_A_ORANGE, s=58, zorder=5, label="実際の結果 o")
+    for xi, p, o, err in zip(x, pred, outcome, brier_each):
+        ax.plot([xi, xi], [p, o], color="#555", lw=1.1, alpha=0.65)
+        ax.text(xi, max(p, o) + 0.045, f"{err:.2f}", ha="center", fontsize=8.3, color="#555")
+    ax.text(0.15, 0.10, f"Brier score = {brier:.3f}\nlog-loss = {logloss:.3f}",
+            fontsize=10, color="#333",
+            bbox=dict(boxstyle="round,pad=0.35", facecolor="white", edgecolor="#cccccc"))
+    ax.set_xticks(x)
+    ax.set_xticklabels(names)
+    ax.set_ylim(0, 1.12)
+    ax.set_ylabel("確率 / 結果")
+    ax.set_title("図16-2 仮案  予測確率は、結果と突き合わせて採点する")
+    ax.legend(loc="upper right", frameon=False)
+    ax.grid(axis="y", alpha=0.2)
+    for s in ["top", "right"]:
+        ax.spines[s].set_visible(False)
+    save_book_a(fig, "book-a-fig-16-2.png")
+
+
 if __name__ == "__main__":
     import sys
     targets = sys.argv[1:]
-    all_figs = {
+    default_figs = {
         "f1": fig_f1, "f2": fig_f2, "f3": fig_f3, "f4": fig_f4, "f5": fig_f5,
         "f6": fig_f6, "f7": fig_f7, "f8": fig_f8, "f9": fig_f9,
     }
+    book_a_batch2 = {
+        "book-a-4-2": book_a_fig_4_2,
+        "book-a-7-3": book_a_fig_7_3,
+        "book-a-8-1": book_a_fig_8_1,
+        "book-a-8-2": book_a_fig_8_2,
+        "book-a-8-4": book_a_fig_8_4,
+        "book-a-9-1": book_a_fig_9_1,
+        "book-a-9-2": book_a_fig_9_2,
+        "book-a-9-3": book_a_fig_9_3,
+        "book-a-11-1": book_a_fig_11_1,
+        "book-a-12-2": book_a_fig_12_2,
+        "book-a-15-2": book_a_fig_15_2,
+        "book-a-16-2": book_a_fig_16_2,
+    }
+    all_figs = {**default_figs, **book_a_batch2}
     if targets:
         for t in targets:
-            all_figs[t]()
+            if t == "book-a-batch2":
+                for fn in book_a_batch2.values():
+                    fn()
+            else:
+                all_figs[t]()
         print(f"done. {', '.join(targets)} generated.")
     else:
-        for fn in all_figs.values():
+        for fn in default_figs.values():
             fn()
         print("done. F1-F8 generated (F3 = self-consistent retrofit recompute, B-plan).")
