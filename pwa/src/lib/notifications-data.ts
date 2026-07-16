@@ -12,6 +12,7 @@ export type NotificationKind =
   | "vc_fund"
   | "task_created"
   | "connector_auth"
+  | "h1_report"
   | "misc";
 
 export interface AppNotification {
@@ -36,6 +37,7 @@ export const NOTIFICATION_KIND_LABEL: Record<string, string> = {
   vc_fund: "💰 ファンド更新",
   task_created: "タスク追加",
   connector_auth: "再認証",
+  h1_report: "H-1報告",
   misc: "その他",
 };
 

@@ -17,7 +17,7 @@
 | `l2_notifications` | D-1 プロトコル / D-2 MS 進捗 / D-3 PJ ナレッジ / D-4 メンバーナレッジ / D-5 OS 台帳差分 / M-2 XRL 根拠 / D-6 経営ハイライト 等 |
 | `meeting_notifications` | H-1 MTG サマリ通知 |
 | `l2_feedbacks` | 過去の修正依頼履歴 (= conversation 履歴) |
-| `app_notifications` | OS 全体の運用通知 (= task追加、入金 nudge、cron 失敗 等) |
+| `app_notifications` | OS 全体の運用通知 (= task追加、入金 nudge、cron 失敗、H-1報告 等) |
 
 `l2_notifications` 列:
 
@@ -53,7 +53,7 @@ server page で `members.is_admin` を確認、 admin 以外は `notFound()`。 
 
 | source | critical にしてよい条件 |
 |---|---|
-| `app_notifications` | `kind='connector_auth'`、または `meta.priority/severity/urgency/notification_priority/notification_channel/risk_level` が `critical` / `urgent` / `blocker` 等。title/body/meta reason の再認証・blocker・期限超過も critical。 |
+| `app_notifications` | `kind='connector_auth'`、または `meta.priority/severity/urgency/notification_priority/risk_level` が `critical` / `urgent` / `blocker` 等。title/body/meta reason の再認証・blocker・期限超過も critical。H-1報告 (`kind='h1_report'`) は通常通知として扱う。 |
 | `l2_notifications` | 明示 `metadata_json.notification_priority='critical'`、または `metadata_json` の priority/severity/reason/blocker_kind 等に blocker / 期限超過 / 再認証 / 緊急等がある場合だけ critical。`l2_kind`、`importance`、title、summary だけでは critical にしない。 |
 | `meeting_notifications` | 常に normal。MTG本文は一次記録なので、NDA / 契約 / 法務 / SHA / 再認証 / blocker 等の語が入っても右下ポップアップには出さない。 |
 

@@ -29,6 +29,7 @@
     "test:h1-local-notion-fallback": "node scripts/check_h1_local_notion_fallback.mjs",
     "test:h1-meeting-summary-reviewer": "node scripts/check_h1_meeting_summary_reviewer.mjs",
     "notify:connector-auth": "node scripts/notify_connector_auth.mjs",
+    "notify:h1-report": "node scripts/notify_h1_report.mjs",
     "health:l2:actions": "node scripts/l2_health_action_loop.cjs",
     "diagnose:l6-calendar-colors": "node scripts/l6_calendar_color_diagnostic.mjs",
     "import:monthly-pl-budget": "node scripts/import_monthly_pl_budget.cjs",

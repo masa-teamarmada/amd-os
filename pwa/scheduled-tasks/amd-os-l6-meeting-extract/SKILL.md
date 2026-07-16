@@ -46,16 +46,23 @@ GAS 153 `nav_meeting_pollRecentlyEndedEvents` + GAS 074 `nav_meeting_processOneE
 - Notion が取れていない場合でも、対象MTGが無い / 対象MTGが抽出窓外 / 予定カード同期や Phase P だけの run なら、報告全体を「不完全」とは書かない。Notion 欠落が会議本文の抽出・保存・レビュー判断に影響した場合だけ、該当MTGの説明の先頭に「ノーションが取れていないので、この報告は不完全」と明記する。代替ソースだけで会議本文を判断した run を「問題なし」「かなり良い」「正常」と表現しない。
 - raw 本文や個人情報は出さない。ただし、何が取れて何が取れていないかは、日本語で具体的に書く。
 
-## Codex スレッド表示の扱い
+## OS通知と Codex スレッド表示の扱い
 
-H-1 は毎時起動するが、Codex の一覧を毎時スレッドで埋めない。毎回の作業結果は、その日の「H-1 日次まとめ」スレッドへ追記する。
+H-1 は毎時起動するが、まさが見に行く場所は Codex スレッドではなく AMD OS の通知箱にする。毎回の作業結果は、まず OS 通知 (`app_notifications`) へ送る。日次まとめスレッドは控えの記録であり、OS通知が主導線。
+
+- 毎時 run の最後に、ユーザー向け最終報告と同じ sanitized 報告を OS通知へ送る。実行入口は `cd /Users/masa/projects/AMD/amd-os/pwa && npm run notify:h1-report -- --title "<短いタイトル>" --run-key "<JST日時またはrun id>" --body-file <sanitized_report_file>`。
+- 通知の `kind` は `h1_report`、`source` は `h1_meeting_flow`、`link` は `/notifications`。raw議事録本文、Notion本文、個人情報、secret、Drive URL、Calendar URL、会議参加URLを本文に含めると helper が失敗するので、必ず報告文を作ってから渡す。
+- OS通知へ送れた場合でも、通知箱を荒らさないよう件名は短くする。例: `H-1: OkuDoor議事録を保存`、`H-1: 対象会議なし`。
+- OS通知への送信に失敗した場合は成功扱いにしない。失敗理由を最終報告と automation memory に残し、現在の毎時 run スレッドはアーカイブしない。
+
+Codex 側は、一覧を毎時スレッドで埋めないために日次まとめへ寄せる。
 
 - 日次まとめスレッドのタイトルは `H-1 YYYY-MM-DD 日次まとめ` とする。日付は JST。
 - スレッド操作ツールが最初から見えていない場合は、`tool_search` で `list_threads` / `read_thread` / `create_thread` / `send_message_to_thread` / `set_thread_archived` を探してから使う。
 - 日次まとめスレッドの registry は `/Users/masa/.codex/automations/amd-os-l6-meeting-flow/daily_threads/YYYY-MM-DD.json` に置く。無ければ既存スレッドを `list_threads` で探し、見つからなければ `create_thread` で作る。
 - 日次まとめスレッドを作る時は、作業ディレクトリ `/Users/masa/projects/AMD/amd-os-automation-sessions` の project thread にし、H-1本体を再実行させない説明だけを初回 prompt に書く。
 - 毎時 run の最後に、ユーザー向け最終報告と同じ sanitized 報告を `send_message_to_thread` で日次まとめスレッドへ送る。raw議事録本文、Notion本文、個人情報、secret、Drive URL、Calendar URL、会議参加URLは送らない。
-- 日次まとめへ送信できたら、現在の毎時 run スレッドは `set_thread_archived` でアーカイブしてよい。送信に失敗した場合はアーカイブせず、失敗理由を最終報告と automation memory に残す。
+- OS通知と日次まとめの両方へ送信できたら、現在の毎時 run スレッドは `set_thread_archived` でアーカイブしてよい。どちらかに失敗した場合はアーカイブせず、失敗理由を最終報告と automation memory に残す。
 - 真の blocker だけは、日次まとめへの追記に失敗しても通常の最終報告に残す。進捗・途中報告・自己完了報告を親司令塔へ送らないルールは維持する。
 
 ## 【絶対】 動く前に必ず Read
@@ -879,7 +886,7 @@ Phase E: run summary
    - 例: `H-1は、終わった会議の議事録を作る、直近の議事録なしを再確認する、前後24時間の予定カードを同期し、ノーション議事録のひも付けを補完する係。今回は準備セッション起動の対象はなし。`
 2. 件数を出すたびに、直後へ必ず内訳リストを書く。
 3. リストには、会議名 / 日時 / PJ / 今回の扱いだけを書く。raw本文、ノーション本文、個人情報、secret、Drive URL、Calendar URL、会議参加URLは書かない。
-4. 同じ報告をその日の `H-1 YYYY-MM-DD 日次まとめ` スレッドへ追記する。追記できた場合、現在の毎時 run スレッドはアーカイブして、Codex 一覧に毎時スレッドを残さない。
+4. 同じ報告を OS通知へ送る。さらに控えとして、その日の `H-1 YYYY-MM-DD 日次まとめ` スレッドへ追記する。OS通知と日次まとめの両方へ送れた場合だけ、現在の毎時 run スレッドをアーカイブしてよい。
 
 テンプレ:
 ```
