@@ -21,7 +21,7 @@ UI は `open` / `unread` / `answered` / `feedback` で絞り込み、展開時�
 
 展開時の詳細欄は、kind ごとに正本テーブルを lazy fetch して表示する。個別 fetch が未実装、または候補行が通知作成後に移動/統合されて見つからない場合でも、「DB未反映」と断定せず、通知本文を fallback 詳細として表示する。D-11 `news_mention` は `project_media_mentions` を `metadata_json.source_url` / `occurred_on` / title fallback で引き、保存済みの掲載行を表示する。
 
-`l2_notifications.saved_count >= total_count` かつ `total_count > 0` の通知は、すでに正本保存済みとみなし、UI の肯定ボタンを「はい・確認済み」と表示する。保存済み通知の yes feedback は、追加反映ではなく確認・学習フィードバックとして扱う。
+`l2_notifications.saved_count >= total_count` かつ `total_count > 0` の通知は、すでに正本保存済みとみなし、UI の肯定ボタンを「はい・確認済み」と表示する。保存済み通知の yes feedback は、追加反映ではなく確認・学習フィードバックとして扱う。ただし `coverage_gap` は例外。候補行 (`l2_coverage_gaps`) が保存済みでも、まさの採否判断は未完了なので、`saved_count` に関係なく「経営ハイライトに追加 / 見送る」等の判断ボタンとして表示する。2026-07-16 以降の coverage gap 通知 writer は `saved_count=0,total_count=1` で作る。
 
 `project_config_gap` は通知一覧に残さず、dashboard の抽出状況へ集約する。`source_cache.collected_at` は根拠の保存証跡であり、connector監視の実行周期ではない。抽出状況は保存証跡と `project_meeting_summaries.source_kinds` から得るMTG抽出での利用時刻を分ける。対応事項は未読かつ未dismissの `connector_auth`、PJ台帳の設定不足、ログイン中管理者の Calendar 接続エラーだけに限定し、保存時刻の古さで接続障害を断定しない。
 
@@ -89,6 +89,8 @@ POST body:
 
 すべての action は `l2_feedbacks` に保存し、`tsukuyomi_learnings` にも通知回答として残す。
 `coverage_gap` は「確認してから手作業で別L2へ入れる」通知ではない。安全に自動ルートできる `proposed_target_l2` は「はい」の同一トランザクション相当の処理で下流テーブルへ反映し、未対応の target は `routed_to` が空のまま残して設計 gap として扱う。
+
+PWA の `coverage_gap` 表示は、検知器の内部語 (`未OS化の可能性` / `薄まった可能性`) をそのまま出さない。カードタイトルは `proposed_target_l2='strategy_signal'` なら「経営ハイライトに残す？: ...」、詳細欄は「元情報で見えていたこと」「H-1要約で弱くなった可能性」「押すと起きること」を表示する。「経営ハイライトに追加」は D-6 `project_strategy_signals` への追加であり、H-1要約本文の復元ではない。
 
 ## 禁止事項
 

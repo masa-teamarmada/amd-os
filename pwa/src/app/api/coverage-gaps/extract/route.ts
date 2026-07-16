@@ -40,6 +40,31 @@ async function authorize(req: NextRequest): Promise<boolean> {
 
 const VALID_GAP_CLASS = new Set(["extractor_miss", "structural_gap", "uncertain"]);
 
+function normalizeTarget(value: string | null | undefined): string {
+  const v = String(value ?? "").trim().toLowerCase();
+  if (v === "project_strategy_signal") return "strategy_signal";
+  if (v === "registry_diff" || v === "project_registry_diff") return "registry_diff";
+  return v;
+}
+
+function coverageNotificationSubject(raw: string | null | undefined, fallback: string): string {
+  let s = String(raw || fallback || "").trim();
+  s = s
+    .replace(/^未OS化(?:の可能性|候補)?[:：]\s*/, "")
+    .replace(/^(?:D-6\s*)?経営ハイライトに残す[？?][:：]\s*/, "")
+    .replace(/^OSに残す[？?][:：]\s*/, "")
+    .trim();
+  const h1Match = s.match(/^H-1\s*要約で(.+?)が(?:薄まった|弱まった)可能性[:：]\s*(.+)$/);
+  if (h1Match) return `${h1Match[1].trim()} / ${h1Match[2].trim()}`;
+  return s || fallback;
+}
+
+function coverageNotificationTitle(it: GapCandidate): string {
+  const target = normalizeTarget(it.proposed_target_l2);
+  const prefix = target === "strategy_signal" ? "経営ハイライトに残す？" : "OSに残す？";
+  return `${prefix}: ${coverageNotificationSubject(it.title, it.source)}`.slice(0, 300);
+}
+
 export async function POST(req: NextRequest) {
   if (!(await authorize(req))) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
 
@@ -104,9 +129,9 @@ export async function POST(req: NextRequest) {
       l2_kind: "coverage_gap",
       target_id: projectId ?? scope,
       scope_key: gapId,
-      title: `未OS化の可能性: ${it.title ? String(it.title).slice(0, 110) : it.source}`,
+      title: coverageNotificationTitle(it),
       summary: it.summary ?? null,
-      saved_count: 1,
+      saved_count: 0,
       total_count: 1,
       importance,
       notified_at: nowIso,

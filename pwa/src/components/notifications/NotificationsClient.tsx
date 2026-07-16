@@ -87,6 +87,60 @@ function l2KindLabel(l2Kind: string): string {
   return L2_KIND_LABEL[l2Kind] ?? l2Kind;
 }
 
+function isCoverageGapItem(i: UnifiedItem): boolean {
+  return i.kind === "l2" && i.data.l2_kind === "coverage_gap";
+}
+
+function itemDisplayTitle(i: UnifiedItem): string {
+  if (isCoverageGapItem(i)) return coverageGapQuestionTitle(i.data as Notification);
+  return sanitizeMeetingTitle(i.data.title);
+}
+
+function isAlreadySavedForReview(i: UnifiedItem): boolean {
+  // coverage_gap は「候補行が保存済み」でも、まさの yes/no 判断はまだ未完了。
+  // 既存データに saved_count=1,total_count=1 の行があるので、ここだけ明示的に review 扱いに戻す。
+  if (isCoverageGapItem(i)) return false;
+  return i.kind === "l2"
+    && Number(i.data.total_count ?? 0) > 0
+    && Number(i.data.saved_count ?? 0) >= Number(i.data.total_count ?? 0);
+}
+
+type ReviewActionCopy = {
+  yesLabel: string;
+  noLabel: string;
+  yesDoneLabel: string;
+  noDoneLabel: string;
+  prompt: string;
+  footnote: string;
+  placeholder: string;
+  headlineLabel: string;
+};
+
+function reviewActionCopyForItem(i: UnifiedItem, alreadySaved: boolean): ReviewActionCopy {
+  if (isCoverageGapItem(i)) return coverageGapActionCopy(i.data as Notification);
+  return {
+    yesLabel: alreadySaved ? "はい・確認済み" : "はい・反映",
+    noLabel: "いいえ・不採用",
+    yesDoneLabel: alreadySaved ? "はい・確認済み" : "はい・反映",
+    noDoneLabel: "いいえ・不採用",
+    prompt: alreadySaved
+      ? "これは既に正本へ保存済みの通知。内容が正しければ「はい・確認済み」、違っていれば「いいえ・不採用」。補足だけ残すならコメントだけ送信。"
+      : "反映してよければ「はい・反映」、違っていれば「いいえ・不採用」。補足だけ残すならコメントだけ送信。",
+    footnote: alreadySaved
+      ? "はい/いいえ/コメントは admin/tsukuyomi の学習リストに残る。保存済み通知の「はい」は確認済みフィードバックとして扱う。"
+      : "はい/いいえ/コメントは admin/tsukuyomi の学習リストに残る。安全に反映できる候補は「はい」でSupabaseへ反映する。",
+    placeholder: "任意コメント。例: 今回は契約レビューだけなのでPJメンバーには入れない / 品質確認として継続参加なので登録してOK",
+    headlineLabel: "通知ヘッドライン",
+  };
+}
+
+function responseLabelForItem(action: FeedbackAction, i: UnifiedItem, alreadySaved: boolean): string {
+  const copy = reviewActionCopyForItem(i, alreadySaved);
+  if (action === "yes") return copy.yesDoneLabel;
+  if (action === "no") return copy.noDoneLabel;
+  return "コメント送信済み";
+}
+
 function unifiedItemPriority(i: UnifiedItem): NotificationPriority {
   return i.kind === "l2"
     ? l2NotificationPriority(i.data)
@@ -717,15 +771,23 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
             const gapClassLabel = r.gap_class === "extractor_miss" ? "抽出器の取りこぼし (本来どこかのL2が拾えたはず)"
               : r.gap_class === "structural_gap" ? "構造的GAP (OSに受け皿が無いかも)"
               : "分類先未確定 (捨てずに残してる)";
+            const summary = String(r.summary ?? n.summary ?? "");
+            const evidence = objectValue(r.evidence_refs_json);
+            const original = coverageGapOriginalSignal(summary, evidence);
+            const weakened = coverageGapWeakenedSignal(summary);
+            const targetLabel = coverageTargetLabel(textFromUnknown(r.proposed_target_l2));
+            const decisionCopy = coverageGapActionCopy(n);
             return {
-              heading: `${r.title ?? "(no title)"} [${r.review_status}]`,
+              heading: `${targetLabel}に残す？ [${r.review_status}]`,
               body: [
                 `判定: ${gapClassLabel}`,
-                `本来の入れ先候補: ${r.proposed_target_l2 ?? "未確定"}`,
-                r.summary ? `要約: ${r.summary}` : "",
+                `元情報で見えていたこと:\n${original}`,
+                `H-1要約で弱くなった可能性:\n${weakened}`,
+                `「${decisionCopy.yesLabel}」を押すと:\n${coverageGapApprovalConsequence(textFromUnknown(r.proposed_target_l2))}`,
               ].filter(Boolean).join("\n"),
               sub: [
                 `source=${r.source}`,
+                `行き先候補=${targetLabel}`,
                 r.salience_score != null ? `salience=${Number(r.salience_score).toFixed(2)}` : "",
                 r.due_at ? `期日=${formatJST(String(r.due_at))}` : "",
                 r.detected_at ? `検知=${formatJST(String(r.detected_at))}` : "",
@@ -971,12 +1033,6 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
     }
   };
 
-  const responseLabel = (action: FeedbackAction, alreadySaved = false) => {
-    if (action === "yes") return alreadySaved ? "はい・確認済み" : "はい・反映";
-    if (action === "no") return "いいえ・不採用";
-    return "コメント送信済み";
-  };
-
   return (
     <div>
       {/* フィルタタブ */}
@@ -1018,9 +1074,8 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
           const itemFeedbacks = findFeedbacksFor(i);
           const responseAction = responseActionFor(key, itemFeedbacks);
           const priority = unifiedItemPriority(i);
-          const alreadySaved =
-            i.kind === "l2" && Number(i.data.total_count ?? 0) > 0 && Number(i.data.saved_count ?? 0) >= Number(i.data.total_count ?? 0);
-          const yesLabel = alreadySaved ? "はい・確認済み" : "はい・反映";
+          const alreadySaved = isAlreadySavedForReview(i);
+          const actionCopy = reviewActionCopyForItem(i, alreadySaved);
           return (
             <div
               id={`notification-card-${key}`}
@@ -1043,7 +1098,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
               >
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-sm leading-snug">
-                    <LinkedMemberText text={sanitizeMeetingTitle(i.data.title)} />
+                    <LinkedMemberText text={itemDisplayTitle(i)} />
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
                     {formatJST(i.data.created_at)} ・{" "}
@@ -1104,7 +1159,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                   {/* 通知 summary (上流が付けた一覧用見出し) */}
                   {i.kind === "l2" ? (
                     <div className="text-xs text-muted-foreground italic">
-                      通知ヘッドライン: <LinkedMemberText text={i.data.summary || "(なし)"} />
+                      {actionCopy.headlineLabel}: <LinkedMemberText text={i.data.summary || "(なし)"} />
                     </div>
                   ) : (
                     <div className="text-xs text-muted-foreground italic">
@@ -1148,7 +1203,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                     {responseAction ? (
                       <div className="flex flex-wrap items-center justify-between gap-2 rounded border border-emerald-500/25 bg-emerald-500/8 px-3 py-2">
                         <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">
-                          回答済み: {responseLabel(responseAction, alreadySaved)}
+                          回答済み: {responseLabelForItem(responseAction, i, alreadySaved)}
                         </span>
                         {isSubmitting && <span className="text-[11px] text-muted-foreground">送信中...</span>}
                       </div>
@@ -1156,13 +1211,11 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                       <>
                         <label className="text-xs font-medium block mb-1">回答・コメント</label>
                         <p className="mb-2 text-[11px] text-muted-foreground">
-                          {alreadySaved
-                            ? "これは既に正本へ保存済みの通知。内容が正しければ「はい・確認済み」、違っていれば「いいえ・不採用」。補足だけ残すならコメントだけ送信。"
-                            : "反映してよければ「はい・反映」、違っていれば「いいえ・不採用」。補足だけ残すならコメントだけ送信。"}
+                          {actionCopy.prompt}
                         </p>
                         <textarea
                           className="w-full text-sm border rounded p-2 min-h-[60px] bg-background"
-                          placeholder="任意コメント。例: 今回は契約レビューだけなのでPJメンバーには入れない / 品質確認として継続参加なので登録してOK"
+                          placeholder={actionCopy.placeholder}
                           value={feedbackTexts[key] ?? ""}
                           onChange={(e) => setFeedbackTexts((prev) => ({ ...prev, [key]: e.target.value }))}
                           disabled={isSubmitting}
@@ -1173,14 +1226,14 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                             onClick={() => submitFeedback(i, "yes")}
                             disabled={isSubmitting}
                           >
-                            {isSubmitting ? "送信中..." : yesLabel}
+                            {isSubmitting ? "送信中..." : actionCopy.yesLabel}
                           </button>
                           <button
                             className="text-xs px-3 py-1.5 border border-red-400 text-red-700 rounded hover:bg-red-50 disabled:opacity-50"
                             onClick={() => submitFeedback(i, "no")}
                             disabled={isSubmitting}
                           >
-                            {isSubmitting ? "送信中..." : "いいえ・不採用"}
+                            {isSubmitting ? "送信中..." : actionCopy.noLabel}
                           </button>
                           <button
                             className="text-xs px-3 py-1.5 bg-amber-600 text-white rounded hover:bg-amber-700 disabled:opacity-50"
@@ -1191,9 +1244,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                           </button>
                         </div>
                         <p className="text-[10px] text-muted-foreground mt-1">
-                          {alreadySaved
-                            ? "はい/いいえ/コメントは admin/tsukuyomi の学習リストに残る。保存済み通知の「はい」は確認済みフィードバックとして扱う。"
-                            : "はい/いいえ/コメントは admin/tsukuyomi の学習リストに残る。安全に反映できる候補は「はい」でSupabaseへ反映する。"}
+                          {actionCopy.footnote}
                         </p>
                       </>
                     )}
@@ -1426,7 +1477,7 @@ function DeepLinkForL2({ n }: { n: Notification }) {
     case "coverage_gap":
       return (
         <a className="text-blue-600 hover:underline" href={`/admin/coverage-gaps`}>
-          /admin/coverage-gaps (不在検知 gap 一覧で確認・本来の入れ先へ手当て)
+          /admin/coverage-gaps (検知内容と処理状態を確認)
         </a>
       );
     case "guardrail_match":
@@ -1512,6 +1563,128 @@ function stripNotificationPrefix(title: string): string {
   return title
     .replace(/^D-\d+\s*[^:：]*[:：]\s*/, "")
     .trim();
+}
+
+function normalizeCoverageTarget(value: string): string {
+  const v = value.trim().toLowerCase();
+  if (v === "project_strategy_signal") return "strategy_signal";
+  if (v === "registry_diff" || v === "project_registry_diff") return "registry_diff";
+  return v;
+}
+
+function coverageTargetLabel(value: string): string {
+  switch (normalizeCoverageTarget(value)) {
+    case "strategy_signal":
+      return "D-6 経営ハイライト";
+    case "action_item":
+      return "要対応";
+    case "shareholder_meeting":
+      return "株主・ガバナンス";
+    case "registry_diff":
+      return "D-5 OS台帳差分";
+    case "":
+      return "OS";
+    default:
+      return value;
+  }
+}
+
+function coverageGapSubjectFromTitle(raw: string | null | undefined): string {
+  let s = stripNotificationPrefix(sanitizeMeetingTitle(raw ?? ""));
+  s = s
+    .replace(/^未OS化(?:の可能性|候補)?[:：]\s*/, "")
+    .replace(/^(?:D-6\s*)?経営ハイライトに残す[？?][:：]\s*/, "")
+    .replace(/^OSに残す[？?][:：]\s*/, "")
+    .trim();
+
+  const h1Match = s.match(/^H-1\s*要約で(.+?)が(?:薄まった|弱まった)可能性[:：]\s*(.+)$/);
+  if (h1Match) {
+    return `${h1Match[1].trim()} / ${h1Match[2].trim()}`;
+  }
+  return s || "(no title)";
+}
+
+function coverageGapQuestionTitle(n: Notification): string {
+  const meta = objectValue(n.metadata_json);
+  const target = normalizeCoverageTarget(textFromUnknown(meta.proposed_target_l2));
+  const subject = coverageGapSubjectFromTitle(n.title || n.summary);
+  if (target === "strategy_signal") return `経営ハイライトに残す？: ${subject}`;
+  if (target) return `${coverageTargetLabel(target)}に残す？: ${subject}`;
+  return `OSに残す？: ${subject}`;
+}
+
+function coverageGapActionCopy(n: Notification): ReviewActionCopy {
+  const meta = objectValue(n.metadata_json);
+  const target = normalizeCoverageTarget(textFromUnknown(meta.proposed_target_l2));
+  if (target === "strategy_signal") {
+    return {
+      yesLabel: "経営ハイライトに追加",
+      noLabel: "見送る",
+      yesDoneLabel: "経営ハイライトに追加済み",
+      noDoneLabel: "見送り済み",
+      prompt: "元情報で見えていた判断材料が、H-1要約では弱くなった可能性がある。D-6 経営ハイライトとして残すなら「経営ハイライトに追加」、ノイズなら「見送る」。",
+      footnote: "追加すると経営ハイライトの正本に残る。H-1要約本文そのものはここでは書き戻さないので、本文の復元が必要なら H-1確認側で直す。",
+      placeholder: "任意コメント。例: D-6に残す / H-1本文も別途直したい / 今回はノイズなので見送る",
+      headlineLabel: "検知メモ",
+    };
+  }
+  return {
+    yesLabel: "確認して残す",
+    noLabel: "見送る",
+    yesDoneLabel: "確認済み",
+    noDoneLabel: "見送り済み",
+    prompt: `元情報で見えていた内容を、${coverageTargetLabel(target)} の取りこぼし候補として残すかの確認。残すなら「確認して残す」、ノイズなら「見送る」。`,
+    footnote: "これは取りこぼし候補の確認状態を残す操作。安全な自動反映先がまだない種別は、ここで下流テーブルまでは書き込まない。",
+    placeholder: "任意コメント。例: この受け皿はD-5ではなくD-6 / 今回はノイズ / 抽出器側を直したい",
+    headlineLabel: "検知メモ",
+  };
+}
+
+function extractBetween(text: string, start: string, end: string): string {
+  const startIndex = text.indexOf(start);
+  if (startIndex < 0) return "";
+  const from = startIndex + start.length;
+  const endIndex = text.indexOf(end, from);
+  return (endIndex >= 0 ? text.slice(from, endIndex) : text.slice(from)).trim();
+}
+
+function coverageGapOriginalSignal(summary: string, evidence: Record<string, unknown>): string {
+  const fromSummary =
+    extractBetween(summary, "raw transcriptには", "が出ているが")
+    || extractBetween(summary, "Notion文字起こしには", "が出ているが")
+    || extractBetween(summary, "元情報には", "が出ているが")
+    || extractBetween(summary, "元データには", "が出ているが");
+  const fromEvidence =
+    textFromUnknown(evidence.raw_signal)
+    || textFromUnknown(evidence.original_signal)
+    || textFromUnknown(evidence.source_excerpt)
+    || textFromUnknown(evidence.snippet)
+    || textFromUnknown(evidence.summary);
+  return truncateOneLine(fromSummary || fromEvidence || summary || "(元情報の要約なし)", 420);
+}
+
+function coverageGapWeakenedSignal(summary: string): string {
+  const weakened =
+    extractBetween(summary, "H-1保存結果では", "。")
+    || extractBetween(summary, "H-1保存結果は", "。")
+    || extractBetween(summary, "H-1要約では", "。")
+    || extractBetween(summary, "保存結果では", "。");
+  return truncateOneLine(weakened || "H-1要約では、この具体条件や判断材料が弱くなった可能性がある", 420);
+}
+
+function coverageGapApprovalConsequence(targetValue: string): string {
+  switch (normalizeCoverageTarget(targetValue)) {
+    case "strategy_signal":
+      return "D-6 経営ハイライトに「観測済み」の重要シグナルとして追加する。会社として決定済み扱いにはせず、H-1要約本文もここでは書き戻さない。";
+    case "action_item":
+      return "取りこぼし候補を確認済みにする。現状このボタンだけでは要対応行の自動作成まではしない。";
+    case "registry_diff":
+      return "取りこぼし候補を確認済みにして、D-5 OS台帳差分側の設計・抽出器改善対象として追えるようにする。";
+    case "shareholder_meeting":
+      return "取りこぼし候補を確認済みにして、株主・ガバナンス系の設計・抽出器改善対象として追えるようにする。";
+    default:
+      return "取りこぼし候補を確認済みにして、あとから設計・抽出器改善対象として追えるようにする。";
+  }
 }
 
 function notificationFallbackRows(n: Notification): NonNullable<DetailRow["rows"]> {
