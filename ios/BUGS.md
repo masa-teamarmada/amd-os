@@ -7,6 +7,28 @@
 
 ---
 
+## 2026-07-17: 共有 checkout の `git commit` が他セッションの staged 変更 49 ファイルを巻き込み push (実害・復旧済み)
+
+### 症状
+- Ch13 理論ワーカーが closeout 記帳 2 ファイルを `git add <2files> && git commit && git push` したところ、commit が **49 files changed** になった (`0c498f2b`)。別セッションが本体 checkout の index に stage していた大規模リファクタ (migration 178 + `project-labels.ts` 新規 + PWA コード 40+ ファイル) が同乗して main へ push され、Vercel deploy が発火した。
+
+### 原因
+- AMD OS は常時 5-10 セッション並行で、本体 checkout は **working tree だけでなく index (staging area) も共有状態**。`git add` は自分の 2 ファイルだけを指定していたが、**`git commit` (パス指定なし) は index 全体をコミットする**ため、他セッションの staged 分が全部入った。
+- 直前の `git status -sb | head -2` では表示行数を絞っていて、staged (左列 M/A) の他レーン分を視認しないまま commit した。
+- 下の「事故未遂」エントリの再発防止 (`git add -p` で hunk 選択) は同一ファイル内の混入対策であり、**index に既に載っている他人の staged はそれでは防げない** — 別パターン。
+
+### 対応内容
+- `tsc --noEmit` exit 0 を確認 (巻き込み分込みで型は健全)。Vercel build を sha 監視。
+- **revert せず main に残置** — staged = commit 寸前の完成度と判断し、revert は当該レーンの進行を壊すため。当該レーン owner と司令塔へ報告し、残置/revert の最終判断を委ねた。
+- 巻き込んだ commit のメッセージは Ch13 記帳の文言のまま — 当該レーンは自分の変更が `0c498f2b` に入っていることを前提に続きを進めること。
+
+### 再発防止策
+- **共有 checkout では `git commit` の前に必ず `git status` (絞らずフル) で staged 列を読む**。自分が add した覚えのない staged があれば commit しない。
+- 自分の変更だけを確実に commit する標準経路: **自セッションの worktree を `git checkout --detach origin/main` → 編集/コピー → add → commit → `git push origin HEAD:main` → 元 branch へ checkout で戻す** (branch 新規作成なし・他レーンの index/working tree に一切触れない)。本体 checkout が他レーン dirty で ff できない時もこの経路が使える。
+- 共有 append ファイル (BUGS/changelog 等) に他レーンの未 commit 変更 (`M`) がある場合、本体でそのファイルへ追記して commit すると同一ファイル内で他レーン変更が混ざる — 上記 worktree 経路で origin/main 版へ追記する。
+
+---
+
 ## 2026-07-17: 並列 worker の同一 append-only md 追記で stage 干渉と rebase conflict (事故未遂・回避手順確立)
 
 ### 症状
