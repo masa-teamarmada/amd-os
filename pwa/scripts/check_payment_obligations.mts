@@ -27,7 +27,11 @@ assert.equal(parsePaymentEmail("振込入金のご連絡", "318,898円を入金�
 assert.equal(parsePaymentEmail("請求書テンプレートが更新されました", "便利な請求機能です", "2026-07-01"), null);
 assert.equal(parsePaymentEmail("サービス仕様変更", "請求APIを更新します", "2026-07-01"), null);
 assert.equal(parsePaymentEmail("月次レポート", "税制について解説します", "2026-07-01"), null);
+assert.equal(parsePaymentEmail("契約書類の確認", "請求書も添付しました", "2026-07-01"), null);
+assert.equal(parsePaymentEmail("ペイジー払い込みのご確認", "社会保険料の納付期限は6月16日でした", "2026-07-01"), null);
+assert.equal(parsePaymentEmail("サブスクリプションが更新されました", "次回請求日は7月28日です", "2026-07-01"), null);
 assert.equal(parsePaymentEmail("納付の督促", "金額と納期限を確認してください", "2026-07-15")?.status, "needs_review");
+assert.equal(parsePaymentEmail("【月会費お振込みのお願い】", "詳細をご確認ください", "2026-07-15")?.status, "needs_review");
 
 const duplicateDebit = {
   senderDomain: "example.jp",

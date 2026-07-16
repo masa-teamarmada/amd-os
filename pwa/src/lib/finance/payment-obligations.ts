@@ -88,9 +88,11 @@ const NON_OBLIGATION_SUBJECT = [
   /ポイント(?:付与|.*お知らせ)/,
   /請求書テンプレート/,
   /出展社募集/,
+  /払い込みのご確認/,
+  /サブスクリプションが更新されました/,
   /(?:api|システム).*(?:仕様変更|更新)/i,
 ];
-const STRONG_PAYMENT_INTENT = /納付|納期限|納付書|督促|支払期限|支払期日|お支払い(?:のお願い|ください|が必要|予定)|引落予定|引き落とし|口座振替|請求書|社会保険料|源泉所得税|住民税/;
+const STRONG_PAYMENT_INTENT = /納付|納期限|納付書|督促|支払期限|支払期日|お支払い(?:のお願い|ください|が必要|予定)|お振り?込みのお願い|引落予定|引き落とし|口座振替|請求書|社会保険料|源泉所得税|住民税/;
 
 function normalizeDigits(text: string): string {
   return text.replace(/[０-９]/g, (char) => String(char.charCodeAt(0) - 0xff10));
@@ -159,7 +161,7 @@ export function parsePaymentEmail(subject: string, snippet: string, referenceDat
   if (COMPLETION_ONLY.some((keyword) => text.includes(keyword)) && !/期限|期日|納期限|支払日|引落日/.test(text)) return null;
   const amountYen = extractPaymentAmount(text);
   const dueDate = extractPaymentDueDate(text, referenceDate);
-  if (amountYen == null && dueDate == null && !STRONG_PAYMENT_INTENT.test(text)) return null;
+  if (amountYen == null && dueDate == null && !STRONG_PAYMENT_INTENT.test(compactSubject)) return null;
   const complete = amountYen != null && dueDate != null;
   return {
     title: compactSubject,

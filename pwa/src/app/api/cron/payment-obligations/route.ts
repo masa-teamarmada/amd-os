@@ -250,6 +250,24 @@ function isAggregateCardStatement(text: string): boolean {
 }
 
 function deduplicateGmailObligations(rows: GeneratedObligation[]): GeneratedObligation[] {
+  const cardPayments = new Set(rows
+    .filter((row) => row.category === "card_payment" && row.amount_yen != null && row.due_date)
+    .map((row) => `${row.amount_yen}:${row.due_date}`));
+  for (const row of rows) {
+    if (row.amount_yen == null || !row.due_date || !cardPayments.has(`${row.amount_yen}:${row.due_date}`)) continue;
+    row.category = "card_payment";
+    row.cashflow_treatment = "included_in_budget";
+    row.budget_category = "fixed_cost";
+    row.auto_debit = true;
+    row.source_key = gmailObligationSourceKey({
+      senderDomain: String(row.payload.senderDomain ?? "unknown"),
+      title: row.title,
+      category: "card_payment",
+      amountYen: row.amount_yen,
+      dueDate: row.due_date,
+      referenceDate: String(row.payload.messageDate ?? row.due_date),
+    });
+  }
   const unique = new Map<string, GeneratedObligation>();
   for (const row of rows) {
     const current = unique.get(row.source_key);
@@ -257,12 +275,14 @@ function deduplicateGmailObligations(rows: GeneratedObligation[]): GeneratedObli
       unique.set(row.source_key, row);
       continue;
     }
+    const preferred = row.payload.aggregateCardStatement === true && current.payload.aggregateCardStatement !== true ? row : current;
     const mailboxIds = new Set<string>([
       ...((current.payload.mailboxMemberIds as string[] | undefined) ?? []),
       ...((row.payload.mailboxMemberIds as string[] | undefined) ?? []),
     ]);
-    current.payload = { ...current.payload, mailboxMemberIds: [...mailboxIds] };
-    current.confidence = Math.max(current.confidence, row.confidence);
+    preferred.payload = { ...preferred.payload, mailboxMemberIds: [...mailboxIds] };
+    preferred.confidence = Math.max(current.confidence, row.confidence);
+    unique.set(row.source_key, preferred);
   }
   return [...unique.values()];
 }
