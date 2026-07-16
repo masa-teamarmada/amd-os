@@ -10,6 +10,7 @@ import {
 import { AlertTriangle, CheckCircle2, CircleGauge, ShieldAlert } from "lucide-react";
 import { runMonthlyPlSimulation, type MonthlyPlInputs } from "@/lib/finance/monthly-pl-simulation";
 import { buildLiveMonthlyPlInputs } from "@/lib/finance/live-monthly-pl-inputs";
+import { LIVE_MONTHLY_PL_VERSION } from "@/lib/finance/live-monthly-pl-budget";
 import { expandExtraRevenue, type ExtraRevenueSourceRow } from "@/lib/finance/extra-revenue";
 import { effectivePaymentYmForCycle } from "@/lib/payment-groups";
 import { computeForwardCappedMemberCosts } from "@/lib/reward-summary";
@@ -34,6 +35,7 @@ type BudgetActualRow = {
   variance_yen: number | null;
   cash_amount_yen: number | null;
   runway_months: number | null;
+  budget_version?: string | null;
   budget_payload: Record<string, unknown> | null;
   actual_payload: Record<string, unknown> | null;
 };
@@ -140,9 +142,30 @@ type ManagementSignalReview = {
 
 type BudgetInputRow = {
   input_kind: string;
+  source: string | null;
+  version: string | null;
   source_id: string | null;
   label: string | null;
   payload: Record<string, unknown> | null;
+  updated_at: string | null;
+};
+
+type ActualFreshnessRow = {
+  ym: string;
+  category: string;
+  source_ref: string | null;
+  imported_at: string | null;
+};
+
+type ManagementScoreSourceRunRow = {
+  id: string;
+  ym: string;
+  source_kind: string | null;
+  status: string | null;
+  stats: Record<string, unknown> | null;
+  error: string | null;
+  started_at: string | null;
+  finished_at: string | null;
 };
 
 type PaymentProjectRow = {
@@ -474,6 +497,26 @@ function addMonths(ym: string, delta: number): string {
 
 function shortYm(ym: string): string {
   return `${ym.slice(2, 4)}/${ym.slice(4, 6)}`;
+}
+
+function timeValue(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const time = new Date(value).getTime();
+  return Number.isNaN(time) ? null : time;
+}
+
+function latestTimestamp(values: Array<string | null | undefined>): string | null {
+  const latest = values
+    .map((value) => ({ value, time: timeValue(value) }))
+    .filter((item): item is { value: string; time: number } => item.time != null && typeof item.value === "string")
+    .sort((a, b) => b.time - a.time)[0];
+  return latest?.value ?? null;
+}
+
+function formatDateTime(value: string | null | undefined): string {
+  const time = timeValue(value);
+  if (time == null) return "-";
+  return new Date(time).toLocaleString("ja-JP");
 }
 
 function centeredMonths(centerYm: string | null, availableYms: string[], before = 12, after = 12): string[] {
@@ -1715,6 +1758,8 @@ function buildGasSimulationResult(
       actualCtaxPayment: actualSummary?.actualCtaxPayment ?? 0,
       corpTaxPayment: companyBudgetValue(categoryRows, ym, "tax_payment_corporate"),
       actualCorpTaxPayment: actualSummary?.actualCorpTaxPayment ?? 0,
+      obligationPaymentTotal: companyBudgetValue(categoryRows, ym, "payment_obligation"),
+      obligationPaymentAdditive: payloadNumberValue(companyBudgetRow(categoryRows, ym, "payment_obligation")?.budget_payload, "additiveAmountYen"),
       netCashFlow: companyBudgetValue(categoryRows, ym, "net_cash_flow"),
       actualNetCashFlow: actualSummary?.actualNetCashFlow ?? 0,
       actualSpotIncome: actualSummary?.actualSpotIncome ?? 0,
@@ -1739,6 +1784,7 @@ function buildGasSimulationResult(
         };
       }),
       fixedCostDetails: fixedCostDetailsForGas(categoryRows, ym),
+      obligationDetails: [],
     };
   });
   return {
@@ -1778,6 +1824,18 @@ function buildLiveGasSimulationResult(
 ): GasSimulationResult {
   const engine = runMonthlyPlSimulation(liveInputs, null);
   const actualByYm = new Map(snapshotResult.rows.map((row) => [row.ym, row]));
+  const visibleProjectIds = new Set<string>();
+  for (const row of engine.rows) {
+    for (const detail of row.pjDetails) {
+      const total =
+        Math.abs(detail.revenue ?? 0) +
+        Math.abs(detail.cashRevenue ?? 0) +
+        Math.abs(detail.externalMember ?? 0) +
+        Math.abs(detail.internalMember ?? 0) +
+        Math.abs(detail.extraRevenue ?? 0);
+      if (total > 0) visibleProjectIds.add(detail.projectId);
+    }
+  }
   const rows: GasMonthlyRow[] = engine.rows.map((row) => {
     const actual = actualByYm.get(row.ym);
     return {
@@ -1801,6 +1859,8 @@ function buildLiveGasSimulationResult(
       actualCtaxPayment: actual?.actualCtaxPayment ?? 0,
       corpTaxPayment: row.corpTaxPayment,
       actualCorpTaxPayment: actual?.actualCorpTaxPayment ?? 0,
+      obligationPaymentTotal: row.obligationPaymentTotal,
+      obligationPaymentAdditive: row.obligationPaymentAdditive,
       actualSpotIncome: actual?.actualSpotIncome ?? 0,
       actualSpotExpense: actual?.actualSpotExpense ?? 0,
       netCashFlow: row.netCashFlow,
@@ -1815,24 +1875,41 @@ function buildLiveGasSimulationResult(
       spotExpense: row.spotExpense,
       cashInflow: row.cashInflow,
       cashOutflow: row.cashOutflow,
-      pjDetails: row.pjDetails.map((pj) => ({
-        projectId: pj.projectId,
-        revenue: pj.revenue,
-        externalMember: pj.externalMember,
-        internalMember: pj.internalMember,
-        extraRevenue: pj.extraRevenue,
-      })),
+      pjDetails: row.pjDetails
+        .filter((pj) => visibleProjectIds.has(pj.projectId))
+        .map((pj) => ({
+          projectId: pj.projectId,
+          revenue: pj.revenue,
+          externalMember: pj.externalMember,
+          internalMember: pj.internalMember,
+          extraRevenue: pj.extraRevenue,
+        })),
       fixedCostDetails: row.fixedCostDetails.map((fc) => ({ name: fc.name, amount: fc.amount })),
+      obligationDetails: row.obligationDetails,
     };
   });
+  let anchorIndex = -1;
+  for (let index = 0; index < rows.length; index += 1) {
+    if (rows[index].actualCashBalance != null) anchorIndex = index;
+  }
+  if (anchorIndex >= 0) {
+    let runningCash = rows[anchorIndex].actualCashBalance ?? rows[anchorIndex].cashBalance;
+    rows[anchorIndex] = { ...rows[anchorIndex], cashBalance: runningCash };
+    for (let index = anchorIndex + 1; index < rows.length; index += 1) {
+      runningCash += rows[index].netCashFlow;
+      rows[index] = { ...rows[index], cashBalance: runningCash };
+    }
+  }
   return {
     params: { rateCloser: engine.params.rateCloser },
     rows,
-    projectList: engine.projectList.map((pj) => ({
-      projectId: pj.projectId,
-      projectName: pj.projectName,
-      closerInternal: pj.closerInternal,
-    })),
+    projectList: engine.projectList
+      .filter((pj) => visibleProjectIds.has(pj.projectId))
+      .map((pj) => ({
+        projectId: pj.projectId,
+        projectName: pj.projectName,
+        closerInternal: pj.closerInternal,
+      })),
   };
 }
 
@@ -1906,7 +1983,7 @@ export default async function ManagementScorePage() {
   // 計算ミスやデータ不足の 6 月 snapshot が「最新」 と判定されて表示されないように、
   // ym <= currentYmJST() で filter する。
   const ymCap = currentYmJST();
-  const [scoreRes, scoreHistoryRes, budgetRes, inputRes, runRes, notesRes, signalReviewsRes, evidenceRes, dialogueConfirmedRes] = await Promise.all([
+  const [scoreRes, scoreHistoryRes, budgetRes, inputRes, actualFreshnessRes, sourceRunRes, runRes, notesRes, signalReviewsRes, evidenceRes, dialogueConfirmedRes] = await Promise.all([
     safeSelect<ScoreSnapshotFull[]>(() =>
       supabase
         .from("amd_management_score_snapshots")
@@ -1926,17 +2003,36 @@ export default async function ManagementScorePage() {
     safeSelect<BudgetActualRow[]>(() =>
       supabase
         .from("company_budget_actual_monthly")
-        .select("ym,scope,project_id,category,account_name,budget_amount_yen,actual_amount_yen,variance_yen,cash_amount_yen,runway_months,budget_payload,actual_payload")
+        .select("ym,scope,project_id,category,account_name,budget_amount_yen,actual_amount_yen,variance_yen,cash_amount_yen,runway_months,budget_version,budget_payload,actual_payload")
+        .or(`budget_version.eq.${LIVE_MONTHLY_PL_VERSION},budget_version.is.null`)
         .order("ym", { ascending: false })
         .limit(2000)
     ),
     safeSelect<BudgetInputRow[]>(() =>
       supabase
         .from("company_budget_inputs")
-        .select("input_kind,source_id,label,payload")
+        .select("input_kind,source,version,source_id,label,payload,updated_at")
         .eq("source", "gas_monthly_pl")
         .order("input_kind", { ascending: true })
         .limit(500)
+    ),
+    safeSelect<ActualFreshnessRow[]>(() =>
+      supabase
+        .from("company_actual_monthly")
+        .select("ym,category,source_ref,imported_at")
+        .eq("scope", "company")
+        .gte("ym", addMonths(ymCap, -3))
+        .lte("ym", ymCap)
+        .order("imported_at", { ascending: false, nullsFirst: false })
+        .limit(500)
+    ),
+    safeSelect<ManagementScoreSourceRunRow[]>(() =>
+      supabase
+        .from("amd_management_score_source_runs")
+        .select("id,ym,source_kind,status,stats,error,started_at,finished_at")
+        .lte("ym", ymCap)
+        .order("started_at", { ascending: false, nullsFirst: false })
+        .limit(8)
     ),
     safeSelect<SimulationRun[]>(() =>
       supabase
@@ -2177,7 +2273,7 @@ export default async function ManagementScorePage() {
   let gasSimulationInputs = snapshotSimulationInputs;
   if (snapshotSimulationInputs?.params) {
     try {
-      const live = await buildLiveMonthlyPlInputs(supabase, {
+      const live = await buildLiveMonthlyPlInputs(admin, {
         startYm: snapshotSimulationInputs.params.startYm,
         months: snapshotSimulationInputs.params.months,
         fallbackParams: snapshotSimulationInputs.params,
@@ -2251,6 +2347,28 @@ export default async function ManagementScorePage() {
   const latestRows = aggregateCategoryRows(budgetRows, selectedYm ?? undefined);
   const latestYm = latestRows[0]?.ym ?? null;
   const latestRun = runRes.data?.[0] ?? null;
+  const actualFreshnessRows = actualFreshnessRes.data ?? [];
+  const sourceRuns = sourceRunRes.data ?? [];
+  const latestRawRun = sourceRuns.find((run) => run.ym === (selectedYm ?? ymCap)) ?? sourceRuns[0] ?? null;
+  const latestFreeePlAt = latestTimestamp(
+    actualFreshnessRows
+      .filter((row) => row.source_ref?.startsWith("freee:trial_pl"))
+      .map((row) => row.imported_at)
+  );
+  const cashActualRows = actualFreshnessRows.filter((row) => row.category === "cash_balance");
+  const latestCashActual = cashActualRows
+    .slice()
+    .sort((a, b) => b.ym.localeCompare(a.ym) || (timeValue(b.imported_at) ?? 0) - (timeValue(a.imported_at) ?? 0))[0] ?? null;
+  const requiredCashYm = addMonths(ymCap, -1);
+  const cashBalanceMissing = !latestCashActual?.ym || latestCashActual.ym < requiredCashYm;
+  const budgetInputLatestAt = latestTimestamp(budgetInputRows.map((row) => row.updated_at));
+  const budgetInputVersion = budgetInputRows.find((row) => row.version)?.version ?? "-";
+  const rawStats = latestRawRun?.stats ?? {};
+  const rawStatsLabel = [
+    typeof rawStats.internal === "number" ? `内部 ${rawStats.internal}` : null,
+    typeof rawStats.freee === "number" ? `freee ${rawStats.freee}` : null,
+    typeof rawStats.cashBalance === "number" ? `現金 ${rawStats.cashBalance}` : null,
+  ].filter(Boolean).join(" / ");
   const runway = latestRows.find((row) => row.runway_months != null)?.runway_months ?? null;
   const cash = latestRows.find((row) => row.cash_amount_yen != null)?.cash_amount_yen ?? null;
   const revenueBudget = findAmount(latestRows, "revenue", "budget_amount_yen");
@@ -2262,6 +2380,8 @@ export default async function ManagementScorePage() {
     scoreHistoryRes.error ||
     budgetRes.error ||
     inputRes.error ||
+    actualFreshnessRes.error ||
+    sourceRunRes.error ||
     runRes.error ||
     notesRes.error ||
     evidenceRes.error ||
@@ -2321,6 +2441,58 @@ export default async function ManagementScorePage() {
             <span>計算 {latestRun ? new Date(latestRun.ran_at).toLocaleString("ja-JP") : materialTime ? materialTime.toLocaleString("ja-JP") : "-"}</span>
           </div>
         </div>
+
+        <section className={`rounded-md border px-4 py-3 ${cashBalanceMissing ? "border-amber-200 bg-amber-50" : "bg-card"}`}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              {cashBalanceMissing ? (
+                <AlertTriangle className="h-4 w-4 text-amber-700" aria-hidden="true" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+              )}
+              <div>
+                <h2 className="text-sm font-semibold">月次試算表の鮮度</h2>
+                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                  予算はOSライブ値、実績はfreee PL・入金確認・支払通知・freee口座残高を分けて読む。
+                </p>
+              </div>
+            </div>
+            {cashBalanceMissing && (
+              <div className="text-xs font-medium text-amber-900">
+                現金残高が {requiredCashYm} まで届いていない。freee口座残高同期を確認。
+              </div>
+            )}
+          </div>
+          <div className="mt-3 grid gap-2 md:grid-cols-5">
+            <FreshnessFact
+              label="予算入力"
+              value={formatDateTime(budgetInputLatestAt)}
+              detail={`version ${budgetInputVersion}`}
+            />
+            <FreshnessFact
+              label="freee PL実績"
+              value={formatDateTime(latestFreeePlAt)}
+              detail="company_actual_monthly"
+            />
+            <FreshnessFact
+              label="現金残高"
+              value={latestCashActual?.ym ? `${latestCashActual.ym} まで` : "-"}
+              detail={`同期 ${formatDateTime(latestCashActual?.imported_at)}`}
+              tone={cashBalanceMissing ? "warning" : "ok"}
+            />
+            <FreshnessFact
+              label="raw収集"
+              value={latestRawRun ? formatDateTime(latestRawRun.finished_at ?? latestRawRun.started_at) : "-"}
+              detail={`${latestRawRun?.status ?? "-"}${rawStatsLabel ? ` / ${rawStatsLabel}` : ""}`}
+              tone={latestRawRun?.status === "success" ? "ok" : latestRawRun ? "warning" : "neutral"}
+            />
+            <FreshnessFact
+              label="score snapshot"
+              value={formatDateTime(score?.updated_at ?? score?.created_at)}
+              detail={`raw ${rawSignalCount ?? "-"}件`}
+            />
+          </div>
+        </section>
 
         {excludedCurrentSnapshot && (
           <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-950">
@@ -3003,6 +3175,32 @@ function Metric({
         )}
       </div>
       <div className={`mt-1 text-lg font-semibold tabular-nums tracking-normal ${className}`}>{value}</div>
+    </div>
+  );
+}
+
+function FreshnessFact({
+  label,
+  value,
+  detail,
+  tone = "neutral",
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  tone?: "neutral" | "ok" | "warning";
+}) {
+  const toneClass =
+    tone === "ok"
+      ? "border-emerald-200 bg-emerald-50/70"
+      : tone === "warning"
+        ? "border-amber-200 bg-amber-50/80"
+        : "border-border bg-background";
+  return (
+    <div className={`rounded-md border px-3 py-2 ${toneClass}`}>
+      <div className="text-[11px] font-medium text-muted-foreground">{label}</div>
+      <div className="mt-1 text-xs font-semibold tabular-nums text-foreground">{value}</div>
+      <div className="mt-0.5 min-h-4 text-[11px] leading-snug text-muted-foreground">{detail}</div>
     </div>
   );
 }

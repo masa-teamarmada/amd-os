@@ -55,6 +55,8 @@ status:
 
 台帳は admin 本文の利用可能幅をすべて使う。PCでは列順を `PJ → 契約 → 状態・期間 → 金額・支払 → 業務・成果物 → 費用・報告 → 権利・制限・リスク` とし、PJと契約を左端の固定列として常に表示する。詳細条項をすべて横に並べず、比較と不足検知に必要な要約だけを置く。狭い画面では1契約ごとの要約表示へ切り替える。
 
+一覧上部には、契約の表示条件とは別に `PJ状態` と `並び順` を置く。PJ状態は `稼働中PJ` (= `projects.status IN ('active','sales')`)、`非アクティブ/未確認PJ`、`全PJ状態` を切り替える。並び順は最低限 `締結日 新しい順 / 古い順` を持つ。締結日ソートは `contracts.signed_at` を最優先し、未押印の行は `expected_signing_date`、`effective_date`、最新活動日を fallback として使い、日付不明は末尾へ送る。補助的に終了日、更新通知期限、最新活動、PJ、契約名でも並べ替えられる。
+
 行を開くと、画面下ではなく大きなモーダルを表示する。最初の `実務条件` タブは、当事者/状態/現行指定に続いて、期間・更新、金額・支払、業務・成果物、費用負担、知財・利用、秘密保持・制限、解除・責任、文書・根拠を表示する。ユーザー例の4項目だけを固定回答にしない。文書・版・形式違いは「文書と版」、過去の作業記録や検知signalは「関連記録」で確認する。
 
 契約の正規IDは `contracts.canonical_contract_id`。同じ契約に属する既存記録を保存する時、基準となる `contract_id` を全記録へ一括設定し、以後は同じ契約として読む。移行前データだけは、`canonical_title` または契約名から送付確認・微修正・DocuSign依頼などの作業語を除いた同一性候補で暫定集約する。この文字列推定は互換処理であり、契約概念や表示名ではない。
@@ -83,6 +85,8 @@ status:
 
 初期表示 filter は `ledger`。`relationship_scope='amd_contract'`、`registry_status IN ('accepted','candidate')`、`status!='cancelled'` の行だけを表示する。`needs_review` / `third_party` / `template` は判定・除外確認用の表示でのみ開く。`needs_metadata` は相手先、期間、主要な実務条件が不足するAMD契約を表示する。
 
+`要確認` は「ユーザーがOS上で思い出して入力する」指示ではない。D-13 / Drive / Gmail / 押印版metadata / 請求・見積根拠からOSが拾った候補について、admin が根拠を見て採用・除外・補正するためのレビュー状態である。文言も `入力` を促すのではなく、`根拠から正式名称候補を採用できるか確認` のように、候補の確定と根拠確認を主語にする。
+
 Drive backfill では、契約書そのものに見える PDF / Doc / xlsx / signed document を `contract_documents` に登録し、親フォルダ名や MTG名だけで `contracts` 行を増やさない。フォルダは grouping hint、文書は evidence、契約台帳行は normalized registry という役割分担を守る。
 
 ## API
@@ -90,7 +94,7 @@ Drive backfill では、契約書そのものに見える PDF / Doc / xlsx / sig
 | route | method | write? | contract |
 |---|---:|---:|---|
 | `/api/contracts` | GET | no | 契約、documents、signals、terms、nudges、projects、Drive保存先設定を返す |
-| `/api/contracts` | POST | yes | admin手動で契約予定枠を作る |
+| `/api/contracts` | POST | yes | admin が例外的に契約予定枠を作る。通常はD-13候補やDrive文書候補からレビューして採用する |
 | `/api/contracts` | PATCH | yes | 複数の既存記録へ同じ `canonical_contract_id` を一括設定する |
 | `/api/contracts/[contractId]` | PATCH | yes | 現在status、AMD当事者確認、PJ現行指定、契約期間、更新、実務条件、担当、メモなどを更新 |
 | `/api/contracts/documents` | POST | yes | 既存Drive link/file idをmetadata登録。`document_kind='signed'` なら契約を `signed` にする |

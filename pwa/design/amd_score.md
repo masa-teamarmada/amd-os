@@ -1,4 +1,4 @@
-# AMD Score 実装 — PRS primary / legacy MXF appendix
+# AMD Score 実装 — SPS primary / legacy MXF appendix
 
 作成: 2026-05-07 (blissful-kepler-9e95b0 セッション)
 正本ステータス: 進化中。仕様変更したらここを同じ commit で更新する。
@@ -19,7 +19,7 @@
 
 ## 何を解いたか
 
-`/venture-map/amd-score` (一覧) + PJ cockpit の `スコア詳細` に AMD Score を実装した。個別の正規URLは `/project/[projectId]/cockpit?tab=score-detail`。旧 `/venture-map/amd-score/[projectId]` は互換 redirect (`p99` デモを除く)。現行 primary は **PRS (`P x R x S`)**。旧 7 軸 Cobb-Douglas / M-X-F は legacy AMD comparison と evidence chain として残す。
+`/venture-map/amd-score` (一覧) + PJ cockpit の `スコア詳細` に AMD Score を実装した。個別の正規URLは `/project/[projectId]/cockpit?tab=score-detail`。旧 `/venture-map/amd-score/[projectId]` は互換 redirect (`p99` デモを除く)。現行 primary は **SPS = Seed Prospect Score (シーズ有望度、`M x P x R x S`)**。旧 7 軸 Cobb-Douglas / M-X-F は legacy AMD comparison と evidence chain として残す。
 
 理論正本: [`/Users/masa/projects/AMD/before-zero/theory/amd_score.md`](../../../before-zero/theory/amd_score.md)。理論議論の最新正本は `BZSF/before_zero_theory.md`、全体解説は `BZSF/PRS_STRATEGIC_SLACK_OVERVIEW_20260612.html`。
 
@@ -27,12 +27,14 @@
 
 ---
 
-## Current primary: PRS (M·P·R·S)
+## Current primary: SPS (M·P·R·S)
 
-> **2026-07-16 まさ確定**: σ_SU を S から分離して独立項 M へ格上げ (Score = K·M·P·R·S)。S = 自走力 (FRL × R_net) に純化。フラット Cobb-Douglas の結合則により**スコア数値・α・K・履歴は完全不変**、変わるのは breakdown グルーピングと表示ラベルのみ。決定の正本 = `/Users/masa/projects/AMD/BZSF/before_zero_theory.md` の 2026-07-16 節。回帰テスト = `npm run test:prs-mprs-grouping`。MPRS への全面改称はまさ判断待ちで、当面「PRS (M·P·R·S)」と併記する。
+> **2026-07-16 まさ確定**: σ_SU を S から分離して独立項 M へ格上げ (Score = K·M·P·R·S)。S = 自走力 (FRL × R_net) に純化。フラット Cobb-Douglas の結合則により**スコア数値・α・K・履歴は完全不変**、変わるのは breakdown グルーピングと表示ラベルのみ。決定の正本 = `/Users/masa/projects/AMD/BZSF/before_zero_theory.md` の 2026-07-16 節。回帰テスト = `npm run test:prs-mprs-grouping`。
+>
+> **呼称**: SPS = Seed Prospect Score (シーズ有望度)。旧称 PRS は 2026-07-11 まさ確定で廃止 (`pwa/bzm/terminology_glossary.md` §1.5)。SPS は和名の略なので4因子化でも名前は壊れず、MPRS 改称は不要 (まさ再確認 2026-07-16)。内部識別子 (`prs_*` 列・`calculatePrsScore` 等) は据え置き、表示テキストのみ SPS。
 
 $$
-\mathrm{Score}_{\mathrm{PRS}} = K_{\mathrm{PRS}} \cdot M \cdot P \cdot R \cdot S
+\mathrm{Score}_{\mathrm{SPS}} = K_{\mathrm{SPS}} \cdot M \cdot P \cdot R \cdot S
 $$
 
 $$
@@ -52,7 +54,7 @@ S = (\mathrm{FRL}+1)^{\alpha_F} \cdot (R_{\mathrm{net}}+1)^{\alpha_{R_{\mathrm{n
 $$
 
 $$
-K_{\mathrm{PRS}} = \frac{100{,}000}{10^{\sum_{x \in \mathcal{A}_{\mathrm{PRS}}}\alpha_x}}
+K_{\mathrm{SPS}} = \frac{100{,}000}{10^{\sum_{x \in \mathcal{A}_{\mathrm{SPS}}}\alpha_x}}
 $$
 
 - `M`: マクロ追い風 (Macrotrend)。σ_SU の contribution。`PrsComponentBreakdown.macro`
@@ -65,11 +67,11 @@ $$
 
 ### K / M / P / R / S の意味
 
-PRS (M·P·R·S) は、PJ / SU の価値を「加点合計」ではなく、同時に満たすべき4つの必要条件として見る。
+SPS (M·P·R·S) は、PJ / SU の価値を「加点合計」ではなく、同時に満たすべき4つの必要条件として見る。
 
 | Symbol | Meaning | Design intent |
 |---|---|---|
-| `K_PRS` | Calibration constant | 全active axisが9の時に100,000へ揃える係数。価値入力ではなく表示スケール |
+| `K_SPS` | Calibration constant | 全active axisが9の時に100,000へ揃える係数。価値入力ではなく表示スケール |
 | `M` | マクロ追い風 (Macrotrend) | いま、この分野に吹いている風。案件の属性ではなく時変の環境状態 |
 | `P` | Potential | 当たった時の天井。市場・事業・社会インパクトの大きさ |
 | `R` | Reach | 天井へ届く準備。TRL/BRL/GRL/SRL/HRL の readiness |
@@ -79,7 +81,7 @@ PRS (M·P·R·S) は、PJ / SU の価値を「加点合計」ではなく、同�
 
 ## Legacy MXF / 7軸モデル (比較・根拠用)
 
-ここからの 7 軸 Cobb-Douglas / M-X-F 説明は、過去モデルの保存と比較・根拠用。現行 primary は PRS。
+ここからの 7 軸 Cobb-Douglas / M-X-F 説明は、過去モデルの保存と比較・根拠用。現行 primary は SPS。
 
 ## 数式 (legacy 要約)
 
@@ -227,12 +229,12 @@ amd_score_alpha (alpha jsonb, effective_from / effective_to)
 ```
 ヘッダ (← 一覧 / コックピットリンク / α retrofit へのリンク)
 案内バー (値の修正は Tsukuyomi 経由)
-PrimaryPrsHeroCard     (PRS primary score / P Potential / R_net / P/R/S breakdown)
-PrimaryPrsTimeSeries   (PRS primary history。ready row のみ)
+PrimaryPrsHeroCard     (SPS primary score / P Potential / R_net / P/R/S breakdown)
+PrimaryPrsTimeSeries   (SPS primary history。ready row のみ)
 PrimaryPrsBreakdown    (P potential / R reach / S survival / R_net)
 ScoreHeroCard          (legacy AMD comparison。S 値、log バー、律速軸ラベル、K/Σα/σ_SU、lane)
 BalanceBar             (legacy 3 要素 M/X/F の raw contribution signal。M は理論最大値を置かない)
-FormulaPanel           (PRS式 + legacy 3 要素式 + 律速の経済学的根拠 + 各式の引用文献)
+FormulaPanel           (SPS式 + legacy 3 要素式 + 律速の経済学的根拠 + 各式の引用文献)
 Factor3Breakdown       (legacy 3 要素カード — 各軸クリックで Tsukuyomi 起動)
 TimeSeriesChart        (legacy 経時 line chart)
 FrlAlqPanel            (FRL 6 因子表示 + ALQ radar — 各因子クリックで Tsukuyomi 起動)
@@ -245,13 +247,13 @@ cockpit のスコア詳細に表示するパラメータは、必ず `/spec/4-2-
 
 | UI parameter | Component / function | Calculation contract |
 |---|---|---|
-| PRS score | `PrimaryPrsHeroCard`, `calculatePrsScore()` | `K_PRS * M * P * R * S` |
+| SPS score | `PrimaryPrsHeroCard`, `calculatePrsScore()` | `K_SPS * M * P * R * S` |
 | P Potential | `PrimaryPrsHeroCard` | `(prs_potential + 1)^alpha_P`; nullable review input |
 | R_net | `PrimaryPrsHeroCard` | `(prs_r_net + 1)^alpha_R_net`; nullable review input |
 | M macro (マクロ追い風) | `calculatePrsScore()` | `(sigma_SU + 1)^alpha_sigma` contribution (`components.macro`) |
 | R reach | `calculatePrsScore()` | product of TRL/BRL/GRL/SRL/HRL contributions |
 | S survival (自走力 = FRL × R_net) | `calculatePrsScore()` | final FRL, R_net contributions (σ_SU は M へ分離済み 2026-07-16) |
-| PRS history | `computePrsScoreSeries()` | only `status='ready'` points |
+| SPS history | `computePrsScoreSeries()` | only `status='ready'` points |
 | legacy score | `ScoreHeroCard`, `calculateAmdScore()` | old 7-axis Cobb-Douglas, comparison only |
 | M | `breakdownFromResult()` / `TripleHelixMatrix` | `(sigma_SU+1)^alpha_sigma` |
 | X | `breakdownFromResult()` | product of XRL contributions |
@@ -264,7 +266,7 @@ cockpit のスコア詳細に表示するパラメータは、必ず `/spec/4-2-
 | final FRL | `resolveFrl()` | CES with `frl_cap` when available |
 | bottleneck | `calculateAmdScore()` / formula panel | `argmax alpha_i/(Z_i+1)` |
 
-PRS `P` / `R_net` の resolution order は `resolvePrsInputs()` を正本にする。対象 row、同一PJの過去保存値、同一PJの最新保存値、null の順。null は missing であって 0 ではない。
+SPS `P` / `R_net` の resolution order は `resolvePrsInputs()` を正本にする。対象 row、同一PJの過去保存値、同一PJの最新保存値、null の順。null は missing であって 0 ではない。
 
 削除したもの:
 - **RadarChart (寄与度シェア)**: α が大きい軸ほど大きく見える構造的偏りで情報量低い (まさフィードバック 2026-05-09)
@@ -421,13 +423,13 @@ Path: `/venture-map/amd-score/retrofit` (タブバーには出さない、cockpi
 - α を動かすたび右の表がリアルタイム更新 → retrofit (過去 PJ の設立タイミング判定が当たるか) を見ながら慎重に決められる
 - 「現役 α に戻す」「base case (default) に戻す」「新しい α を保存」ボタン
 
-### PRS primary / legacy comparison (2026-06-06 更新)
+### SPS primary / legacy comparison (2026-06-06 更新)
 
-PRS (`P x R x S`) を主表示へ切り替え、legacy 7軸 AMD Score は comparison / evidence 層として残した。
+SPS (`P x R x S`) を主表示へ切り替え、legacy 7軸 AMD Score は comparison / evidence 層として残した。
 
 実装上の扱い:
 
-- 計算ロジックは `src/lib/amd-score.ts` の `calculatePrsScore()` / `PRS_ALPHA_DEFAULT` を使う。legacy `calculateAmdScore()` は comparison 専用。
+- 計算ロジックは `src/lib/amd-score.ts` の `calculatePrsScore()` / `SPS_ALPHA_DEFAULT` を使う。legacy `calculateAmdScore()` は comparison 専用。
 - `P` と `R_net` は `amd_score_inputs.prs_potential` / `amd_score_inputs.prs_r_net` に nullable で保存する。
 - `P` / `R_net` が無い場合は `status='missing'` とし、scoreを出さない。legacy AMD を primary へ戻さない。
 - `M` は σ_SU の contribution、`R` は TRL/BRL/GRL/SRL/HRL の contribution product、`S` は FRL/R_net の contribution product として表示する (2026-07-16 M·P·R·S 再グルーピング)。

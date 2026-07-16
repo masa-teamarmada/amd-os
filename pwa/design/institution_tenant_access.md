@@ -13,7 +13,7 @@ NIMS Pilot は、現行 AMD OS をそのまま社外公開する話ではない�
 1. `institution_id` は外部機関スコープの基準。`project_id` は業務・PJ単位の基準。NIMS OS導入の正式PJは `p28` であり、CX `p20` は初期ユースケースとして分ける。
 2. 初期実装は「single Supabase project + row / API scoped multi-tenant」で始める。tenant ごとに DB を分ける設計は Phase 2 以降。
 3. 外部ユーザーは Supabase の raw table を直接広く読まない。PWA API / scoped view / RLS で列と行を絞る。
-4. NIMS データを他機関営業、ERS 比較、Before Zero 教科書、cross-institution benchmark に使う場合は、匿名化、明示許諾、契約条項、audit trail が必須。
+4. NIMS データを他機関営業、ECR 比較、Before Zero 教科書、cross-institution benchmark に使う場合は、匿名化、明示許諾、契約条項、audit trail が必須。
 5. LLM / automation / service_role は外部機関権限を bypass できるが、bypass した処理は audit log に残し、外部公開用 artifact へ直接流さない。
 6. NIMS Pilot の minimum safe configuration は、外部ユーザー 1-3 名、`institution_id='inst_nims'`、workspace project は NIMS OS導入 `p28`、scoped use case は CX `p20` + NIMS pilot seeds だけ、外部編集は candidate / comment / evidence proposal に限定する。
 
@@ -25,14 +25,14 @@ NIMS Pilot は、現行 AMD OS をそのまま社外公開する話ではない�
 - 現行マニュアルでは AMD OS は社内専用で、SU 側メンバーや外部ユーザーは使わない前提。
 - NIMS 導入ゲート文書では、NIMS workspace / institution scope / row-level policy / external user role の設計が導入開始前の不足領域として残っている。
 - `institutions`, `institution_assessments`, `institution_policy_*` は既にあるが、外部ユーザー向けの tenant membership / project scope / audit log は未実装。
-- `projects` には現時点で `institution_id` がない。機関と PJ の関係は knowledge docs / ERS / seeds / project context で整理されているが、DB 上の権限スコープとしてはまだ固定されていない。
+- `projects` には現時点で `institution_id` がない。機関と PJ の関係は knowledge docs / ECR / seeds / project context で整理されているが、DB 上の権限スコープとしてはまだ固定されていない。
 
 ### Risk if skipped
 
 | risk | 起きること |
 |---|---|
 | AMD internal leak | 報酬、請求、他PJ、他機関、Slack/Gmail snippet、内部Protocolが NIMS 側に見える |
-| NIMS data misuse | NIMS由来のシーズ、会議、ERSギャップを許諾なしに他機関営業・教科書・比較に使う |
+| NIMS data misuse | NIMS由来のシーズ、会議、ECRギャップを許諾なしに他機関営業・教科書・比較に使う |
 | CX confusion | NIMS OS導入 `p28`、CX `p20`、NIMS institution tenant を同一視し、法人設立準備データと機関導入データが混ざる |
 | audit gap | 誰が見た、編集した、export した、service_role が触った、を後から説明できない |
 | automation spillover | proactive outbox / L2 outbox が外部機関 data を AMD 内部司令塔や別PJ thread へ誤送信する |
@@ -46,8 +46,8 @@ NIMS Pilot は、現行 AMD OS をそのまま社外公開する話ではない�
 許可すること:
 
 - 自機関 tenant のダッシュボード閲覧。
-- 自機関に scoped された PJ / seeds / ERS / monthly review artifact の閲覧。
-- candidate comment、ERS evidence proposal、seed status proposal、monthly review comment の投稿。
+- 自機関に scoped された PJ / seeds / ECR / monthly review artifact の閲覧。
+- candidate comment、ECR evidence proposal、seed status proposal、monthly review comment の投稿。
 - 契約で許された範囲の export request。
 
 許可しないこと:
@@ -85,7 +85,7 @@ AMD 社内の判断・経理・人事・報酬・他PJ横断情報。外部機�
 例:
 
 - 自機関 master: `institutions` の自機関 row の基本情報。
-- 自機関 ERS summary: `institution_assessments` の評価結果と、共有可能な根拠メモ。
+- 自機関 ECR summary: `institution_assessments` の評価結果と、共有可能な根拠メモ。
 - scoped PJ summary: CX `p20` の外部向け project summary / status / monthly review。
 - scoped seeds: NIMS 由来・NIMS と共有可のシーズ概要。
 - NIMS向けに承認済みの monthly review artifact / meeting summary narrative。
@@ -97,7 +97,7 @@ AMD 社内の判断・経理・人事・報酬・他PJ横断情報。外部機�
 
 例:
 
-- ERS evidence proposal: 制度資料 URL、ヒアリング補足、評価へのコメント。
+- ECR evidence proposal: 制度資料 URL、ヒアリング補足、評価へのコメント。
 - seed proposal: 追加シーズ候補、PI情報、公開可否、次アクション案。
 - monthly review comment: 月次レポートへの補足、修正依頼。
 - meeting summary correction: 議事録の誤り指摘。
@@ -105,7 +105,7 @@ AMD 社内の判断・経理・人事・報酬・他PJ横断情報。外部機�
 
 ### Anonymized/cross-institution reusable
 
-契約・許諾・匿名化を満たした後にだけ、他機関比較、ERS benchmark、Before Zero 教科書、営業資料へ再利用できる情報。
+契約・許諾・匿名化を満たした後にだけ、他機関比較、ECR benchmark、Before Zero 教科書、営業資料へ再利用できる情報。
 
 条件:
 
@@ -133,7 +133,7 @@ AMD 社内の判断・経理・人事・報酬・他PJ横断情報。外部機�
 | `amd_admin` | AMD 管理者 | 全体管理、tenant scope 設定、role 付与、audit review、final approve |
 | `amd_pm` | AMD PJ担当 | 担当 project / institution の閲覧、candidate review、monthly artifact 作成、外部共有準備 |
 | `institution_owner` | 機関側責任者 | 自機関 workspace の閲覧、member 招待申請、export request、candidate 作成 |
-| `institution_member` | 機関側実務者 | 自機関の scoped project / seeds / ERS 閲覧、candidate/comment 作成 |
+| `institution_member` | 機関側実務者 | 自機関の scoped project / seeds / ECR 閲覧、candidate/comment 作成 |
 | `institution_readonly` | 機関側閲覧者 | 自機関の承認済み artifact の閲覧のみ。コメント不可または限定 |
 | `service_role` / `automation` | server / LaunchAgent / Codex automation | DB/API 処理用 bypass。外部公開データ生成時は必ず scoped guard + audit |
 
@@ -176,7 +176,7 @@ project_institution_scopes
 使い道:
 
 - 外部ユーザー membership。
-- ERS / policy assessment / seeds / project scope / proactive outbox の row scope。
+- ECR / policy assessment / seeds / project scope / proactive outbox の row scope。
 - audit log の対象 institution。
 - data export / deletion / offboarding の単位。
 
@@ -199,7 +199,7 @@ workspace = institution tenant view
   institution_id
   allowed project_id list
   allowed seeds list or org_name filter
-  allowed ERS rows
+  allowed ECR rows
   allowed file/link refs
   role membership
   export/offboarding policy
@@ -213,7 +213,7 @@ CX `p20` は NIMS Pilot の最小ユースケースだが、次のものは分�
 
 | concept | scope |
 |---|---|
-| NIMS tenant | NIMS 機関ユーザー、NIMS ERS、NIMS seeds、NIMS向け月次レビュー |
+| NIMS tenant | NIMS 機関ユーザー、NIMS ECR、NIMS seeds、NIMS向け月次レビュー |
 | CX project | CryoX 法人設立準備、CX 月次、CX MTG、CX strategy signals |
 | NIMS pilot seeds | CX以外の NIMS内シーズ 3-5件。PJ化前は `seeds`、PJ化後に `projects` |
 | AMD internal CX data | AMD の社内判断、資金調達、CEO候補、価格・契約、他PJ比較 |
@@ -232,9 +232,9 @@ Legend:
 |---|---|---|---|
 | `projects` | `visible` for scoped projects only | no direct edit | expose limited fields: `project_id`, public/display name, status summary, start/end if approved. Hide fee, invoice, report emails, Slack/Drive IDs, internal category notes. |
 | `institutions` | own institution `visible`; other institutions only if public benchmark approved | no direct edit | external users see own row. Cross-institution list is anonymized or aggregated unless explicitly public. |
-| `institution_assessments` | own ERS result `visible` | `candidate` via proposal | raw `note` may contain internal hearing. Split public note vs internal note before external read. |
-| ERS policy: `institution_policy_items` | `visible` as rubric/master | no direct edit | master can be globally readable if it contains no internal note. |
-| ERS policy: `institution_policy_assessments` | own institution `visible` with redaction | `candidate` via evidence proposal | Current RLS is admin-only because `source_path` / hearing evidence may be internal. External view must hide `source_path` and internal evidence. |
+| `institution_assessments` | own ECR result `visible` | `candidate` via proposal | raw `note` may contain internal hearing. Split public note vs internal note before external read. |
+| ECR policy: `institution_policy_items` | `visible` as rubric/master | no direct edit | master can be globally readable if it contains no internal note. |
+| ECR policy: `institution_policy_assessments` | own institution `visible` with redaction | `candidate` via evidence proposal | Current RLS is admin-only because `source_path` / hearing evidence may be internal. External view must hide `source_path` and internal evidence. |
 | `seeds` | scoped NIMS seeds `visible` with `public_summary`; AMD-wide seed list internal | `candidate` via seed proposal | `internal_notes`, `amd_rating_note`, owner, source_detail are internal unless explicitly approved. |
 | `seed_contact_log`, `seed_funding`, `seed_news` | selected rows `visible` if tied to scoped seed and approved | candidate comment only | contact history can leak AMD relationship strategy. Default internal. |
 | `monthly_reports` | scoped project + approved month `visible` | comment / correction candidate | `draft_content` internal until approved for external. `final_content` for scoped project can be visible if sanitized. Never expose source checklist raw details that include other connectors. |
@@ -337,7 +337,7 @@ institution_access_audit_logs
 ### Must log
 
 - 外部ユーザーの login / workspace open / major artifact read。
-- monthly report / meeting summary / seed / ERS の閲覧。
+- monthly report / meeting summary / seed / ECR の閲覧。
 - candidate 作成・修正・削除。
 - AMD による candidate approve / reject。
 - export request / export file generation / download。
@@ -359,7 +359,7 @@ NIMS Pilot は最低 2 年保持を推奨。契約やセキュリティ要件で
 | export type | allowed for | content |
 |---|---|---|
 | monthly review PDF / doc | `institution_owner`, approved `institution_member` | approved monthly reports, meeting narrative, next actions |
-| ERS snapshot | `institution_owner` | own ERS score, public rubric, approved evidence summary |
+| ECR snapshot | `institution_owner` | own ECR score, public rubric, approved evidence summary |
 | seed list | `institution_owner/member` | own scoped seeds, public_summary, status, next action |
 | audit summary | `institution_owner` by request | access summary, not raw internal logs |
 
@@ -379,7 +379,7 @@ NIMSデータは3分類する。
 
 1. user roles revoke。
 2. signed links / exported artifact access revoke。
-3. scoped project / seed / ERS visibility pause。
+3. scoped project / seed / ECR visibility pause。
 4. pending candidates close or hand back。
 5. NIMS data reuse status review。
 6. deletion / retention certificate 作成。
@@ -429,11 +429,11 @@ For NIMS Pilot, `proactive_outbox` is AMD internal only. The external institutio
 
 初期に見せてよいものだけを限定する。
 
-1. NIMS workspace home: Pilot purpose, scoped projects, scoped seeds, ERS snapshot。
+1. NIMS workspace home: Pilot purpose, scoped projects, scoped seeds, ECR snapshot。
 2. CX monthly review: approved monthly report + sanitized meeting summary。
-3. NIMS ERS: score, rubric, approved evidence summary。
+3. NIMS ECR: score, rubric, approved evidence summary。
 4. NIMS seeds: public summary / status / next action。
-5. Candidate proposal form: ERS evidence, seed update, monthly comment。
+5. Candidate proposal form: ECR evidence, seed update, monthly comment。
 
 初期に見せないもの。
 
@@ -463,7 +463,7 @@ NIMS Pilot GO の最低条件。
 2. 外部ユーザーの identity は Google Workspace login に寄せるか、Supabase Auth email/password / magic link にするか。
 3. `projects` に `institution_id` を直接持たせるか、初期から `project_institution_scopes` を作るか。推奨は mapping table。
 4. NIMS 側が編集できる範囲を「candidate only」に固定するか、一部 field は direct update を許すか。推奨は Pilot 期間 candidate only。
-5. ERS の根拠メモを外部表示用 / 内部用で列分割するか、redacted view で処理するか。
+5. ECR の根拠メモを外部表示用 / 内部用で列分割するか、redacted view で処理するか。
 6. NIMS由来データを Before Zero 教科書へ使う許諾条項を、Pilot契約に最初から入れるか、個別承認にするか。
 7. proactive outbox の institution-level loop は `project_id` 必須をどう扱うか。`p00` / synthetic project / nullable project_id のどれにするか。
 8. 外部機関向け export の保存先を Supabase Storage にするか、Drive にするか。
@@ -480,7 +480,7 @@ Scope:
 - `project_institution_scopes`
 - `institution_candidate_proposals` or per-domain candidate tables
 - `institution_access_audit_logs`
-- optional redacted views for ERS / monthly / meetings
+- optional redacted views for ECR / monthly / meetings
 
 Must not:
 
@@ -511,7 +511,7 @@ Scope:
 
 - `/institution` workspace home。
 - scoped project/monthly review view。
-- ERS read view + evidence proposal form。
+- ECR read view + evidence proposal form。
 - seed proposal/update form。
 - readonly role behavior。
 

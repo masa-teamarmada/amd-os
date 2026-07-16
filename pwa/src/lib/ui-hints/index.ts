@@ -72,8 +72,8 @@ export const UI_HINTS: Record<string, UiHint> = {
   // ──────────────────────────────────────
   "cockpit.amd-score.pill": {
     id: "cockpit.amd-score.pill",
-    title: "PRS primary / legacy comparison",
-    body: "cockpit では PRS を primary status として見せ、折れ線と大きい数値は legacy AMD comparison を保持する。P/R_net が無ければ primary score は出さない。",
+    title: "SPS primary / legacy comparison",
+    body: "cockpit では SPS を primary status として見せ、折れ線と大きい数値は legacy AMD comparison を保持する。P/R_net が無ければ primary score は出さない。",
     docHref: "/manual/03-data-and-extraction#18-xrl-根拠",
   },
   "cockpit.amd-score.future-dot": {

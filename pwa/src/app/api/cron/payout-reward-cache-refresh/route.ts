@@ -4,7 +4,7 @@ import {
   candidateSourceYmsForPaymentYm,
   cleanYm,
   currentYmJst,
-  effectivePaymentYmForCycle,
+  effectiveMemberPayoutYmForCycle,
   type PaymentProjectRow,
 } from "@/lib/payment-groups";
 import { syncRewardSummariesForBillingCycles } from "@/lib/reward-summary";
@@ -63,18 +63,16 @@ async function refreshPayoutRewardCache(paymentYms: string[], cycleYms: string[]
   const sourceYms = [...new Set(paymentYms.flatMap((ym) => candidateSourceYmsForPaymentYm(ym)))];
   const targetCycleYms = [...new Set(cycleYms)];
 
-  const [projectsRes, explicitRes, unsetRes, forecastCycleRes] = await Promise.all([
+  const [projectsRes, paymentCandidateCyclesRes, forecastCycleRes] = await Promise.all([
     db
       .from("projects")
       .select("project_id, project_name, client_name, status, freee_partner_id, payment_due_rule, payment_due_day, invoice_send_deadline_rule"),
-    db.from("billing_cycles").select(cycleSelect).in("invoice_ym", paymentYms),
-    db.from("billing_cycles").select(cycleSelect).in("ym", sourceYms).is("invoice_ym", null),
+    db.from("billing_cycles").select(cycleSelect).in("ym", sourceYms),
     db.from("billing_cycles").select(cycleSelect).in("ym", targetCycleYms),
   ]);
 
   if (projectsRes.error) throw projectsRes.error;
-  if (explicitRes.error) throw explicitRes.error;
-  if (unsetRes.error) throw unsetRes.error;
+  if (paymentCandidateCyclesRes.error) throw paymentCandidateCyclesRes.error;
   if (forecastCycleRes.error) throw forecastCycleRes.error;
 
   const projectMap = new Map<string, PaymentProjectRow>();
@@ -86,15 +84,9 @@ async function refreshPayoutRewardCache(paymentYms: string[], cycleYms: string[]
   for (const row of (forecastCycleRes.data ?? []) as BillingCycleRow[]) {
     cycleMap.set(`${row.project_id}:${row.ym}`, row);
   }
-  for (const row of (explicitRes.data ?? []) as BillingCycleRow[]) {
-    const invoiceYm = cleanYm(row.invoice_ym);
-    if (invoiceYm && paymentYms.includes(invoiceYm)) {
-      cycleMap.set(`${row.project_id}:${row.ym}`, row);
-    }
-  }
-  for (const row of (unsetRes.data ?? []) as BillingCycleRow[]) {
+  for (const row of (paymentCandidateCyclesRes.data ?? []) as BillingCycleRow[]) {
     const project = projectMap.get(row.project_id);
-    const effectiveYm = effectivePaymentYmForCycle(row, project);
+    const effectiveYm = effectiveMemberPayoutYmForCycle(row, project);
     if (paymentYms.includes(effectiveYm)) {
       cycleMap.set(`${row.project_id}:${row.ym}`, { ...row, invoice_ym: effectiveYm });
     }

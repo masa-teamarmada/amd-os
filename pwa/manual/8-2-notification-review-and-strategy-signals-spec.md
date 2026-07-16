@@ -103,6 +103,7 @@ server page で `members.is_admin` を確認、 admin 以外は `notFound()`。 
 | `project_registry_diff` | `pending` | allowlist 済 DB 反映 + `applied` | `rejected` |
 | `xrl_evidence` | `candidate` | `confirmed` | `rejected` |
 | `strategy_signal` | `candidate` | `confirmed` (= まさえいMTGで `decision_state` 別途進む) | `rejected` |
+| `textbook_insight` | `candidate` | `textbook_insight_candidates.status='approved'`。BZM本文の追記は後続のローカル反映処理だけが行う | `rejected` |
 | `raw_data_gap` | (通知のみ) | feedback 記録 + 再抽出 / 経路確認、 現物 DB 取り込みは保証しない | feedback 記録 |
 | `coverage_gap` | `l2_coverage_gaps.review_status='candidate'` | `confirmed`。`proposed_target_l2='strategy_signal'` なら `project_strategy_signals.status='confirmed'` も自動作成し、`routed_to` に行き先を残す | `rejected` |
 
@@ -110,7 +111,9 @@ server page で `members.is_admin` を確認、 admin 以外は `notFound()`。 
 
 > `raw_data_gap` は **例外**。 「はい」を押せば現物が OS に入る、 と勘違いする UX を作らない。 通知タイトルは `〜が OS 未取り込み` ではなく `〜の取り込み経路を確認` のように、 押した後に起きることを明示する書き方にする。
 
-> `coverage_gap` は `raw_data_gap` と違い、OS のカバレッジ漏れ候補を扱う。押したあとに手作業で別L2へ入れる運用にしない。安全にルートできる候補は「はい」と同時に下流テーブルへ自動反映する。2026-06-27 時点では `proposed_target_l2='strategy_signal'` を D-6 経営ハイライトへ自動昇格する。H-1 reviewer 由来の raw 再確認は採否APIではなく reviewer / source fallback 側の責務にする。
+> `coverage_gap` は `raw_data_gap` と違い、OS のカバレッジ漏れ候補を扱う。押したあとに手作業で別L2へ入れる運用にしない。安全にルートできる候補は「はい」と同時に下流テーブルへ自動反映する。2026-06-27 時点では `proposed_target_l2='strategy_signal'` を D-6 経営ハイライトへ自動昇格する。H-1 reviewer 由来の raw 再確認は採否APIではなく reviewer / source fallback 側の責務にする。ただし PWA のまさ向け表示では、この内部語を出さない。2026-07-16 以降、具体候補が取れている通知タイトルは「重要メモにコピーする？: ...」、詳細は「コピーされる文章」「判断の目安」「コピーしても起きないこと」へ統一する。元候補が見つからない / 通知本文が薄すぎる場合は「コピー前に元情報を確認」と表示し、重要メモへのコピー肯定ボタンを disabled にする。表示禁止語は `D-6` / `coverage_gap` / `raw transcript` / `元情報` / `取りこぼし` / `条件付き投資家関心` / `薄い` / `candidate` / `salience` / `目立たない話`。「重要メモにコピー」は D-6 への追加だが、H-1要約本文の復元・書き換えではない。
+
+> `textbook_insight` は、BZM / Before Zero 実践テキストへ追記する候補。通知詳細では `classification` / `scope` / `sanitized` / UUID / `result null` のような内部メタを読ませず、「元情報」「通知の種類」「追記先」「BZMに追記される内容」「判断の目安」「押すと起きること」「AMDプロトコルとの関係」を出す。元情報が `protocols` の場合でも、元ネタがAMDプロトコル、追記先がBZMであるだけで、AMDプロトコル本文は書き換えない。ボタンは「BZM追記を承認 / BZMには入れない」。
 
 ## 経営ハイライト確認 UI (= CockpitStrategySignals)
 

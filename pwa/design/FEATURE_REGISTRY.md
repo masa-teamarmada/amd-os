@@ -166,19 +166,52 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - `pwa/scripts/check_pwa_critical_ui.cjs` が `/admin/invoices` route、`/admin/billing` redirect、AdminSidebar 導線、`AdminInvoiceIssueQueue`、`FreeePartnerPicker`、`AdminInvoiceIssueDialog` の `基本明細行 / 立替精算 / 調整行 / 備考 / 発行を取り消す`、`issue-invoice` anchor を検査する。
 - 旧 PM 月次 routine へ請求書発行を戻さない。請求書発行・送付は admin 業務のままにする。
 
+## /monthly-agreement
+
+目的: 月初に、本人が「何への合意か」「何を確認するか」を迷わず理解し、各PJの担当内容と予定額を対応づけて合意できるようにする。
+
+必須機能:
+
+- 状態の明示: ヘッダー直下に横幅いっぱいの状態欄を置き、`合意状態：未合意 / 条件更新あり / 合意済み / 対象外` のいずれかと、その理由を一文で表示する。状態値だけの `未確認` と、対象が曖昧な `確認不要` は使わない。
+- 確認対象の明示: 状態欄の直下に `確認して合意する内容` を置き、`01 担当する仕事` と `02 その対価としての予定額` をそれぞれ独立した全幅セクションとして縦に並べる。`01` は全PJの担当内容、`02` は予定額合計と同じPJ順の内訳を表示する。契約上の必須事項を表の小見出しへ戻さず、必須領域では12px未満の文字を使わない。
+- 操作順序: `確認して合意` は全PJの確認内容より後ろに置く。`修正要望` は隣の副操作から必要なときだけ開く。合意済み / 対象外では主ボタンを状態表示へ切り替える。
+- 参考情報: 支払い状況、予定額の根拠、snapshot ID、PJ詳細は、合意操作より後ろの初期状態で閉じた `参考情報` にまとめる。
+- 回帰確認: `320 / 375 / 768 / 1280px` で横overflowがないことに加え、5秒で `01` と `02` の位置と内容を指せること、縮小表示でも状態→`01`→`02`→主操作の順序が判別できることを完了条件にする。
+- 強制表示: 背景クリックで一時的に閉じても合意状態は保存しない。未合意のまま再入場した場合は再表示する。
+
+回帰防止:
+
+- `pwa/scripts/check_pwa_critical_ui.cjs` が状態接頭辞、4状態、確認する2点、各PJ内の担当内容と予定額、主操作より前に確認領域があること、参考情報の折りたたみ、修正要望の開閉を検査する。
+- `320 / 375 / 768 / 1280px` で document の横overflow、状態欄の圧縮、別PJをまたいだ確認項目の並び替わりを認めない。
+
+## /admin/finance
+
+目的: 法人の支払義務を出金前から一元管理し、きよへのSlack通知と月次資金繰りを同じ正本から動かす。
+
+必須機能:
+
+- 支払義務台帳: `company_payment_obligations` を正本に、金額・期日未確認の候補も `needs_review` で保持する。
+- 自動収集: 継続支払い、承認済み経費、報酬通知、finance/tax系 action item、active admin + info Gmail を日次同期する。
+- 二重計上防止: 各義務に `additive` / `included_in_budget` を持たせ、追加流出だけ月次CFとcashを減らす。
+- きよ通知: `members.code_name='きよ'` を動的に解決し、期限前・当日・期限超過・要確認をDMする。通知履歴の一意制約で同じ段階をexact-onceにする。
+- 管理操作: `/admin/finance#payment-obligations` で作成・修正・支払済み更新ができる。継続支払い・領収イベントの既存機能は維持する。
+- 月次表示: `/management-score` の月次試算表に展開可能な `支払義務` 行を置き、支払内容、期日、金額状態、予算内/追加流出を表示する。
+
+正本仕様: [`pwa/manual/6-9-company-payment-obligations-spec.md`](../manual/6-9-company-payment-obligations-spec.md)
+
 ## /admin/payouts
 
 目的: 支払月単位で、対象cycleの報酬確認、PJ別収支確認、支払データ同期状態、支払通知書発行、入金確認nudgeを一画面で運用する。
 
 必須機能:
 
-- 支払月選択: `ym=YYYYMM` で対象月を選び、`billing_cycles.invoice_ym` を優先する。未設定cycleは `/admin/projects` の `projects.payment_due_rule` から支払月を判定する。
+- 支払月選択: `ym=YYYYMM` でメンバー支払月を選び、稼働月 `billing_cycles.ym` を `/admin/projects` の `projects.payment_due_rule` / `payment_due_day` で集約する。`billing_cycles.invoice_ym` はクライアント請求月なので、メンバー支払月判定には使わない。
 - 高速初期表示: 通常GETは `billing_cycles.reward_summary_json` の報酬キャッシュを読むだけにする。毎回 `syncRewardSummariesForBillingCycles()` を再計算しない。先12か月の capped 投影 (`forecastCapped`) も `forecastCycles.reward_summary_json` から集計し、画面を開いただけで全PJの `computeForwardCappedMemberCosts()` を走らせない。
 - SSR初回データ: `/admin/payouts` page は `loadTargetData(currentYm, { includeAgreementGate: false })` をサーバー側で実行し、`AdminPayoutsClient initialData` へ渡す。初回 client GET を省き、月変更・手動再計算・write後の再取得だけ `/api/admin/payouts` を使う。
 - 月初合意gateの後追い表示: 初期表示GETは支払データ本体を先に返し、月初合意gateは `gateOnly=1` の別GETで後追い取得する。保存・発行・送付などのwrite actionではサーバー側gateを必ず実行する。
 - 報酬キャッシュ再計算: 明示的な「報酬キャッシュ再計算」操作または保存系処理だけが `refreshRewards=1` / `refreshRewards: true` で再計算する。
 - 0円キャッシュ: 報酬対象メンバーがいない月も `reward_summary_json.members=[]` の0円キャッシュとして保存し、`forecastCapped` では key 有りの0円として扱う。`null` の未計算扱いにして budget fallback へ落とさない。
-- 報酬キャッシュ日次更新: `payout-reward-cache-refresh` cron が毎日03:05 JSTに、前月 + 当月から先12か月の支払月、および同じ窓内の稼働月について `billing_cycles.reward_summary_json` を再生成する。手動で `ym=YYYYMM&lookahead=11` を付けると、指定月から先12か月のキャッシュを作れる。
+- 報酬キャッシュ日次更新: `payout-reward-cache-refresh` cron が毎日03:05 JSTに、前月 + 当月から先12か月のメンバー支払月、および同じ窓内の稼働月について `billing_cycles.reward_summary_json` を再生成する。支払月対象は `projects.payment_due_rule` / `payment_due_day` で判定し、`billing_cycles.invoice_ym` は使わない。手動で `ym=YYYYMM&lookahead=11` を付けると、指定月から先12か月のキャッシュを作れる。
 - 予定担当比率のみ: 報酬計算は MS の期間按分で当月消化ptを出し、`milestone_responsibility.share` で分配する。活動ログ由来の実績配分や手入力報酬 override は使わない。
 - 支払額の同期: 画面の支払額・PDF生成の元データは、最新の `billing_cycles.reward_summary_json` から計算した値を正にする。`monthly_reward_payout.total_pay` と `payout_notices.total_yen` は保存済み額で表示値を固定するためではなく、夜間の先回り生成または正式PDF発行時に同期される税抜スナップショットとして扱う。`/admin/payouts` を開いただけでは保存しない。送付操作は同期・PDF生成を行わず、保存済み正式PDFが最新DBと一致するかだけを照合する。
 - 月初合意支払gate: `member × 稼働月 × PJ` で未合意 / 条件更新あり / 修正要望中を server-side に止める。2026年6月以前の稼働月 (`source_ym <= 202606`) は導入前/移行月として gate 上 `合意済` 扱いにし、2026年7月以降から通常判定にする。6月は契約改定前かつシステム未完成期間だったため、合意条件として支払いを止めない。移行月だけで blocker が無い場合、admin UI は個別メンバー一覧ではなく「対象支払行 / 移行月スキップ / blocker 0」の summary を表示する。
@@ -250,7 +283,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - PJ ブロック構造: ① メトリクスカード 4 枚 (合計pt / 本契約pt / 別財布pt / PJ予算残または不足額。設計額・設計単価・保存前支払検算を含む。個人名カードは出さない)、② 全MS (pt順) (MS 名 + 期間 + tag、pt、設計額、pt比、担当 share)、③ メンバー別 pt配分 / 設計額 (`codeName` + 本契約濃 + 別財布淡 の積み上げ横バー + 合計pt + 設計額)、④ tag 凡例 (normal #1D9E75 / routine #888780 / cap_extra #7F77DD)。
 - 別財布 (cap_extra) プールは pt 配分として分離。`tag` が cap_extra 系 (`cap_extra` / `extra_contract` / `contract_extra` / `cap_outside` / `uncapped`) の MS は extraPt に積み、通常 MS は regularPt に積む。
 - 編集モード (2026-07-09 更新): PJ ブロックごとに「編集モード」トグル。MS 名 / pt / tag / 期間 (`period_start_ym` / `target_ym`) / 完了条件 / 担当 share・役割・担当タスク / MS追加・無効化を編集できる。編集カードは左に MS 基本情報、右にメンバー share 表を置く 2 ペイン構成。pt は編集カード内の数値入力 + pt配分スライダーに加え、MS 一覧先頭の **全MS 編集テーブル** でも調整できる。全MS 編集テーブルは MS名 / tag / 期間 / pt / pt配分スライダー / 設計額 / メンバーのエフォート / 無効化を同じ行に出し、上段だけで MS名・期間・pt と金額感を確認できる。通常 MS のスライダー範囲は編集開始時点の最大 pt × 1.5 を右端に固定し、ドラッグ中に max を変えない。通常 MS の pt を動かすと `regularPointBasis - Σ(non-cap_extra MS effectivePoints)` の **残り割り振り可能pt** をリアルタイム表示する。担当 share 表は 2 カラムにせず、メンバー1人=1行で `メンバー / share / 役割 / 担当pt / 担当設計額 / 担当タスク` を並べる。`cap_extra` の pt は「別財布pt」として編集でき、明示 `points > 0` なら明示pt、未設定/0なら MS 期間月数×10ptで自動算出する。変更のたびに `src/lib/admin/ms-overview-calc.ts` の `recomputeMsOverview` で メトリクス / MS pt比 / MS設計額 / 担当 share 行の担当pt・担当設計額 / メンバー別 pt配分・設計額 を JS 側でリアルタイム再計算する (= API 不要)。算定式は `memberPt=ΣeffectivePoints×share`, `memberDesignYen=ΣeffectivePoints×share×designUnitYen`。`milestone_monthly_contribution_allocations.actual_share` は読まない (plannedShare のみ)。編集モード ON 直後の上部保存バーとフッターの両方に「↻ DB値に戻す」「保存して DB へ反映」を持ち、保存先 DB / reward 再計算 / 保存前支払検算まで表示する。cockpit 側には MS 設計の保存口を置かない。
-- 保存前支払検算: `POST /api/admin/ms-overview/{planCycleId}` (body `{ milestones: [...], deletedMilestoneIds: [...] }`) は DB を書き換えず、編集後MS案で protected 月の旧 reward cache と新計算値を比較し、`rewardPreview.status` (`safe` / `warning` / `blocked`) を返す。画面は `blocked` の間「保存不可」として保存ボタンを無効化し、`memberImpacts` でメンバー別の追加支払 / 過払い回収 / 本契約・別財布内訳を表示する。`budgetImpact` では支払済み固定 / 実績未照合 / これから支払予定 / 外部メンバーの期末未払い残 / 原資上限 / PJ予算残を表示し、クライアント支払は本契約 + 別財布売上、schedule_based 契約では `contract_terms_json.monthlySchedule.amountTaxExcl`、バッファは `value_plan_cycles.buffer_breakdown_json` 優先で読む。期末未払い残は支払通知対象の外部メンバー分だけを blocker 判定し、役員繰越は会社留保側の内部検算へ寄せる。メンバー支払義務のPJ予算超過、または `PJ予算 > (クライアント支払 - バッファ) × 65%` の原資超過も blocker とする。freee銀行出金と `monthly_reward_payout` 明細が一致した支払済み実績を固定した結果の赤字見込みを warning にする。旧 reward cache が無い、次回精算先の未保護月が無い、過払い回収がシーズン内で吸収できない可能性がある、または支払済み印はあるが実支払証跡と明細額が未照合の月がある場合は blocker とする。別財布は protected 月に `extraPaidYen` がある場合だけ本人別差額を作り、未払い在庫だけの端数差では差額台帳を作らない。閲覧モードで cycle を開いた時点でも同じ POST 検算を走らせ、既存状態が blocked なら MS 一覧の上に `MS編集停止中` を出す。
+- 保存前支払検算: `POST /api/admin/ms-overview/{planCycleId}` (body `{ milestones: [...], deletedMilestoneIds: [...] }`) は DB を書き換えず、編集後MS案で protected 月の旧 reward cache と新計算値を比較し、`rewardPreview.status` (`safe` / `warning` / `blocked`) を返す。画面は `blocked` の間「保存不可」として保存ボタンを無効化し、`memberImpacts` でメンバー別の追加支払 / 差額控除 / 本契約・別財布内訳を表示する。`budgetImpact` では支払済み固定 / 実績未照合 / これから支払予定 / 外部メンバーの期末未払い残 / 原資上限 / PJ予算残を表示し、クライアント支払は本契約 + 別財布売上、schedule_based 契約では `contract_terms_json.monthlySchedule.amountTaxExcl`、バッファは `value_plan_cycles.buffer_breakdown_json` 優先で読む。期末未払い残は支払通知対象の外部メンバー分だけを blocker 判定し、役員繰越は会社留保側の内部検算へ寄せる。メンバー支払義務のPJ予算超過、または `PJ予算 > (クライアント支払 - バッファ) × 65%` の原資超過も blocker とする。freee銀行出金と `monthly_reward_payout` 明細が一致した支払済み実績を固定した結果の赤字見込みを warning にする。旧 reward cache が無い、次回精算先の未保護月が無い、差額控除がシーズン内で吸収できない可能性がある、または支払済み印はあるが実支払証跡と明細額が未照合の月がある場合は blocker とする。別財布は protected 月に `extraPaidYen` がある場合だけ本人別差額を作り、未払い在庫だけの端数差では差額台帳を作らない。閲覧モードで cycle を開いた時点でも同じ POST 検算を走らせ、既存状態が blocked なら MS 一覧の上に `MS編集停止中` を出す。`source_ym < 202607` の旧制度合意済み月は新ポイント制の差額控除へ使わない。
 - 編集モード保存: `PUT /api/admin/ms-overview/{planCycleId}` (body `{ milestones: [...], deletedMilestoneIds: [...] }`) は保存前支払検算をサーバー側でも再実行し、`blocked` なら 409 で保存前に止める。通過したら (a) `value_milestones` を upsert / 無効化 (`cap_extra` points は明示ptがあれば明示pt、未設定/0なら MS 期間×10ptへ正規化)、(b) `milestone_responsibility` を保存値で置換、(c) `value_plan_cycles.total_points = シーズン期間月数×10 + Σcap_extra effective pt` 再計算、(d) protected 月の差額を `reward_member_liability_offsets` に本人別で記録、(e) 変更前後の MS / 担当 share 差分と保存前支払検算サマリを `milestone_change_events` に記録、(f) `syncRewardSummariesForProject` で未保護月だけ reward 再計算する。protected 月差額が出る場合は `milestone_change_events.revision_id` と `reward_member_liability_offsets.revision_id` を一致させる。payload の MS が同じ plan_cycle に属するかを `plan_cycle_id` 突合で検査し、他 PJ への巻き込み更新を防ぐ。
 
 回帰防止:
@@ -314,10 +347,10 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - 抽出状況: dashboard 上段に admin 限定の `ExtractionStatusCard` を出す。Gmail / Drive / Calendar / Slack / Notion ごとの「OSへ最後に保存された証跡」と「MTG抽出で実際に使えた時刻」を分けて並べ、月次対象PJのメール・Slack・Drive設定不足は「設定が必要」に集約して `/admin/projects` へ送る。保存証跡の古さを接続異常と扱わず、未読の再認証通知、PJ設定不足、Calendar接続エラーだけを対応事項として出す。`project_config_gap` は採否通知に出さない。
 - PJ台帳の Slack CH 列: `projects.slack_channel_not_required=true` を「チャンネルなし」チェックで編集できる。これは未設定ではなく意図的にSlackチャンネルを使わないPJを示し、抽出状況の設定不足から外す。チェック時は古い `slack_channel_id` を空にする。PJ台帳の見出し行は縦横スクロール中も固定する。
 - AMD全体 累計実績カード: dashboard 上段の `FundingStatsCard` は、資金調達ラウンドと助成金・補助金を会社別/行別に表示する。累計値は `amd_contribution_status in ('full','partial')` の AMD貢献額だけで計算し、`none` / `unreviewed` はリストには残すが累計には入れない。投資家別内訳・持株比率・cap table snapshot は dashboard API に返さない。
-- PJ一覧: Active / Sales-Draft / Ended-Frozen の横長 stripe 一覧を維持する。KUTE (`p25`) など研究機関エコシステム構築PJは通常PJ一覧に二重表示せず、研究機関ERSリスト側へ寄せる。
+- PJ一覧: Active / Sales-Draft / Ended-Frozen の横長 stripe 一覧を維持する。KUTE (`p25`) など研究機関エコシステム構築PJは通常PJ一覧に二重表示せず、研究機関ECRリスト側へ寄せる。
 - 左メニューのボード: マウスオーバーまたはキーボードフォーカスで、右側に全アクティブPJの一覧を出す。各行は対応するPJコックピットへ遷移し、一覧は固定せず `projects.status='active'` を読む。ボード本体の `/dashboard` 導線は維持する。フライアウトはナビのスクロール領域にクリップされない上位レイヤーで表示し、画面下端では一覧部分だけをスクロールさせる。
-- 研究機関ERSリスト: PJ一覧と同じ左/mainカラム内で、PJ一覧の直下に `InstitutionReadinessList` を表示し、PJリストの続きとして苗床レイヤーを確認できるようにする。MyPage右カラムの下や全幅下段に落とさない。表示名はPJ名を主タイトルに寄せ、KUTE / KGW / NIMS を title、工学院大学 / 香川大学 / 物質・材料研究機構を subtitle にする。KUTEカードは `/institutions/inst_kute/cockpit`、NIMSカードは `/institutions/inst_nims/cockpit` へ遷移する。
-- Company Content shelf: 研究機関ERSリストの下に、`CompanyContentShelf` を4カラムで表示する。列はメンバー / 沿革 / メディア掲載 / photo。`member_profiles` / `company_history_events` / `media_assets` の approved rows を優先し、未適用環境では既存 `members` + `project_members`、`project_events` / `project_ventures`、photo permission placeholder に fallback する。Notion photo URL や個人情報本文は表示しない。
+- 研究機関ECRリスト: PJ一覧と同じ左/mainカラム内で、PJ一覧の直下に `InstitutionReadinessList` を表示し、PJリストの続きとして苗床レイヤーを確認できるようにする。MyPage右カラムの下や全幅下段に落とさない。表示名はPJ名を主タイトルに寄せ、KUTE / KGW / NIMS を title、工学院大学 / 香川大学 / 物質・材料研究機構を subtitle にする。KUTEカードは `/institutions/inst_kute/cockpit`、NIMSカードは `/institutions/inst_nims/cockpit` へ遷移する。
+- Company Content shelf: 研究機関ECRリストの下に、`CompanyContentShelf` を4カラムで表示する。列はメンバー / 沿革 / メディア掲載 / photo。`member_profiles` / `company_history_events` / `media_assets` の approved rows を優先し、未適用環境では既存 `members` + `project_members`、`project_events` / `project_ventures`、photo permission placeholder に fallback する。Notion photo URL や個人情報本文は表示しない。
 - MyPage embed: `/dashboard` 右カラムでは `<MyPageContent embedded showMonthlyProjects={false} />` を使い、「今週やったこと」より下の月別PJカードを出さない。`/mypage` 単体では従来どおり月別PJカードを維持する。
 - Dashboard上部: Management Score と明示 action queue を維持する。月次ルーティン由来の自動タスクは生成しない。
 
@@ -356,9 +389,9 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - Header契約サマリー: `CockpitHeader` はPJ名/status/分類に加え、PJリスト正本からPJメンバー、契約条件、業務委託料、支払い条件、提出物の有無、月次報告書の提出ルール、立替精算の発生額/不可を表示する。提出物/月次報告/立替精算は `projects.contract_terms_json.deliverablesRequired` / `deliverablesNote` / `monthlyReportSubmissionRule` / `monthlyReportSubmissionNote` / `expenseReimbursementAllowed` / `expenseReimbursementNote` を読む。立替精算は不可PJだけ `不可`、OK運用のPJは `expenseReimbursementNote` の発生額/実務メモを主値にする。コックピットから `/admin/projects` や旧configへ飛ばす導線は置かない。
 - KUTE年度内ロードマップ: `projectId === 'p25'` では Header 直下に `CockpitKuteAnnualRoadmap` を表示する。6/11キックオフ資料 / `PROJECT_BRIEF` の年度内スケジュールを根拠に、規程整備 (`2027-01` 完了目途) とシーズ発掘 / after GTIE (`2027-03` 型化目途) を同じ横軸で見せる。研究機関コックピット `/institutions/inst_kute/cockpit` でも同じ `CockpitView` 経由で表示する。
 - 上 hero: PJ ごとに出し分け。p00 (= AMD 会社全体) は `CockpitManagementScoreHero` で AMD Management Score の時系列折れ線 + 最新値カード。SU 系 PJ は `CockpitVentureStatus` 内で AMD Score 折れ線と XRL 折れ線を `xl:flex-row` で横並びにする。`xl` 未満では縦並びへ自動 fallback する。
-- Hero 下タブ: SU 系 PJ は `進捗管理` / `スコア詳細` を切り替える。AMD Score / XRL hero はタブ外に置いて常時表示し、`進捗管理` に従来の cockpit 本文、`スコア詳細` に `AmdScoreView` の embedded 表示を出す。正規URLは `/project/[projectId]/cockpit?tab=score-detail` で、PRS / R_net / FRL / XRL evidence と XRL チェックリストを同じタブに集約する。旧 `/venture-map/amd-score/[projectId]` はここへ redirect (`p99` デモを除く)。
+- Hero 下タブ: SU 系 PJ は `進捗管理` / `スコア詳細` を切り替える。AMD Score / XRL hero はタブ外に置いて常時表示し、`進捗管理` に従来の cockpit 本文、`スコア詳細` に `AmdScoreView` の embedded 表示を出す。正規URLは `/project/[projectId]/cockpit?tab=score-detail` で、SPS / R_net / FRL / XRL evidence と XRL チェックリストを同じタブに集約する。旧 `/venture-map/amd-score/[projectId]` はここへ redirect (`p99` デモを除く)。
 - 今期MSリスト: `CockpitGoalsCompact` / `MilestoneGanttChart` でMS期間、pt、担当、sub item、MS単位の `設計額`、担当者ごとの `担当設計額` を表示する。設計額は通常MSなら `value_plan_cycles.budget_yen`、`cap_extra` なら同期間の `billing_cycles.extra_budget_yen` 合計を、それぞれの有効ptで按分する目安で、支払確定額ではない。MS 設計編集は `/admin/ms-overview` に集約し、cockpit / HUD cockpit からは編集しない。
-- MS変更履歴: `CockpitMsChangeHistory` を今期MSの直下、`CockpitSeasonFinance` の手前に初期折りたたみで表示する。正本は `/admin/ms-overview` 保存時に追加される `milestone_change_events` と、2026-07-09 backfill の `source='migration'` 基準線。表示は確認専用で、変更日時、記録者、追加/無効化/更新されたMS、担当share差分、保存前支払検算の状態、追加支払/過払い回収の合計を出す。契約本文、メール全文、議事録全文、raw source は保存・表示しない。cockpit 側には MS 設計の保存口を置かない。
+- MS変更履歴: `CockpitMsChangeHistory` を今期MSの直下、`CockpitSeasonFinance` の手前に初期折りたたみで表示する。正本は `/admin/ms-overview` 保存時に追加される `milestone_change_events` と、2026-07-09 backfill の `source='migration'` 基準線。表示は確認専用で、変更日時、記録者、追加/無効化/更新されたMS、担当share差分、保存前支払検算の状態、追加支払/差額控除の合計を出す。契約本文、メール全文、議事録全文、raw source は保存・表示しない。cockpit 側には MS 設計の保存口を置かない。
 - 今シーズン収支: `CockpitSeasonFinance` をMS変更履歴の下、月次カードの手前に表示する。シーズン合計と月次行で `クライアント支払` / `バッファ` / `原資上限` / `PJ予算` / `メンバー支払` / `期末未払` / `収支` を出す。クライアント支払は `contractBackedClientAmount` + 別財布売上、schedule_based 契約では `contract_terms_json.monthlySchedule.amountTaxExcl`、バッファは `value_plan_cycles.buffer_breakdown_json` 優先、原資上限は `(クライアント支払 - バッファ) × 65%`、PJ予算は `budget_yen + extra_budget_yen`、メンバー支払・未払残は `reward_summary_json` を正本にする。`期末未払` / `未払残` は支払通知対象の外部メンバーへ将来払う残高だけを表示し、役員の未充当繰越は会社留保側の内部検算へ寄せる。`収支` は現金主義で `クライアント支払 - バッファ - メンバー支払` とし、役員向け報酬相当額や未払残は含めない。役員向け報酬相当額は検算には含めるが、PJ cockpit では表示しない。期末未払または原資超過が 1 円でも残る場合は `不足` 表示と赤い停止帯を出し、報酬計算側の自動上乗せでゼロに見せない。
 - 先手TODO: 旧 `proactive_outbox` 由来の `ProactiveQueuePanel` は通常PJ / institution cockpit に表示しない。`資料作成済み` など旧司令塔状態の手動seedがPJ状況面に残ると読解ノイズになるため。先手TODOの棚卸しは `proactive_todos` + `/proactive` + dashboard 上段バッジで扱う。
 - 経営ハイライト: MSリスト横の col2 として `CockpitStrategySignals` を表示し、`project_strategy_signals` の candidate/confirmed を日付・type・impact・summary・source refs付きで表示する。
@@ -382,10 +415,10 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 必須機能:
 
-- KUTEカードは `/dashboard` の研究機関ERSリストから `/institutions/inst_kute/cockpit` へ遷移する。KUTEは通常PJリストには二重表示せず、既存KUTE PJ (`p25`) は関連PJコックピットのデータソースとして残す。
-- NIMSカードは `/dashboard` の研究機関ERSリストから `/institutions/inst_nims/cockpit` へ遷移する。NIMS OS導入は正式PJ `p28` として扱い、CX `p20` は初期ユースケースとして分ける。
+- KUTEカードは `/dashboard` の研究機関ECRリストから `/institutions/inst_kute/cockpit` へ遷移する。KUTEは通常PJリストには二重表示せず、既存KUTE PJ (`p25`) は関連PJコックピットのデータソースとして残す。
+- NIMSカードは `/dashboard` の研究機関ECRリストから `/institutions/inst_nims/cockpit` へ遷移する。NIMS OS導入は正式PJ `p28` として扱い、CX `p20` は初期ユースケースとして分ける。
 - 研究機関コックピットは `inst_kute -> p25` / `inst_nims -> p28` の静的関連付けを使い、既存PJコックピットの `CockpitView` を同画面にマウントする。これによりMS進捗、月次カード/モーダル、MTGサマリを既存データのまま使う。
-- 上部にERS充足率、関連PJ、今期MS件数、MTG履歴件数を出す。
+- 上部にECR充足率、関連PJ、今期MS件数、MTG履歴件数を出す。
 - `project_meeting_summaries` を月ごとに束ねたMTGツリーを表示し、各行から通常PJコックピットのMTG詳細 (`?meeting=`) へ遷移する。
 - `/institutions/[institutionId]` の詳細画面からも研究機関コックピットと通常PJコックピットへ戻れる。
 

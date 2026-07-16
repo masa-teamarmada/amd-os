@@ -42,6 +42,17 @@ description: AMD OS L2 M-1 月次業務報告書生成 routine (= 旧 amd-os-l1-
 - **対外版は `monthly_reports_external` に insert** (新 row。`monthly_reports.final_content` に上書きしない)。
 - 既存内部版 `final_content` がある場合は `force` 明示なしで上書きしない (= 旧 SKILL から継承)。force 上書きは routine 内では発生させない (= まさ手動 or 別 backfill routine 経由)。
 
+## 【1 PJ ごとの完了条件 (= これを満たさないと routine 未完了)】
+
+各 PJ について、以下 4 つが**すべて**達成された時点で「1 PJ 完了」と数える。1 つでも欠けたら Phase 2.7 の Slack 通知は失敗版で送る (成功版は絶対禁止)。
+
+1. **内部版 markdown を LLM で生成した** (Phase 2.3 の 1-4)
+2. **`monthly_reports.final_content` に markdown を DB write した** (Phase 2.3 の 5-c + 5-d、`node pwa/scripts/ms_progress_review_tool.mjs upsert-monthly-reports --file <outbox path>` を実際に叩き、`writtenCount>=1` かつ `action∈{inserted,updated}` を受け取っていること)
+3. **書き込み後 GET で verify した** (Phase 2.3 の 5-e、final_content が生成 markdown と同じ長さで、status='final'、generated_at が今の run 時刻であること)
+4. **Slack で完了通知した** (Phase 2.7、scope に応じたテンプレ)
+
+上記 1 と 4 だけで 2 と 3 を skip すると、月次モーダルに反映されず、まさが手で流し込む羽目になる (= 2026-07-01 test task で実際に起きた事故、まさ「毎月えいみが手動で流し込むのは絶対イヤ」明言、BUGS.md 該当エントリ参照)。
+
 ## 【絶対】 動く前に必ず Read
 
 1. `pwa/spec/5-3-automation-responsibility-current-spec.md` (= 責務分担 current truth)

@@ -1,10 +1,12 @@
 # AMD Score 詳細仕様
 
-AMD Score は、PJ / SU の価値・成熟度を数値化する指標。現行画面の主表示は **PRS Primary** (`M x P x R x S`)。M / X / F と 7 軸 Cobb-Douglas は **legacy AMD comparison** として残し、PRS の根拠・履歴比較・旧モデル確認に使う。
+AMD Score は、PJ / SU の価値・成熟度を数値化する指標。現行画面の主表示は **SPS Primary** (`M x P x R x S`)。M / X / F と 7 軸 Cobb-Douglas は **legacy AMD comparison** として残し、SPS の根拠・履歴比較・旧モデル確認に使う。
 
-> **2026-07-16 まさ確定**: σ_SU (マクロ追い風) を S から分離して独立因子 M へ格上げし、S を自走力 (FRL × R_net) に純化した。総合スコアの数値・重み・履歴は完全に不変で、変わるのは内訳のグルーピングとラベルだけ。名称は当面「PRS (M·P·R·S)」と併記し、MPRS への全面改称はまさ判断待ち。
+> **2026-07-16 まさ確定**: σ_SU (マクロ追い風) を S から分離して独立因子 M へ格上げし、S を自走力 (FRL × R_net) に純化した。総合スコアの数値・重み・履歴は完全に不変で、変わるのは内訳のグルーピングとラベルだけ。
+>
+> **呼称**: 正式名は **SPS = Seed Prospect Score (シーズ有望度)**。旧称 PRS は 2026-07-11 まさ確定で廃止 ([`pwa/bzm/terminology_glossary.md`](../bzm/terminology_glossary.md) §1.5)。SPS は和名の略であって成分の頭字ではないから、4因子になっても名前は壊れず、MPRS への改称は不要。`prs_potential` などの小文字が画面や表に残るのは DB 列・コードの内部識別子で、表示呼称とは別物。
 
-日常の確認・入力は PJ cockpit の **スコア詳細** に集約する。正規URLは `/project/{projectId}/cockpit?tab=score-detail`。PRS、R_net、FRL、XRL の根拠とチェックリストを同じタブで確認し、旧 `/venture-map/amd-score/{projectId}` は互換URLとして cockpit へ自動転送する。
+日常の確認・入力は PJ cockpit の **スコア詳細** に集約する。正規URLは `/project/{projectId}/cockpit?tab=score-detail`。SPS、R_net、FRL、XRL の根拠とチェックリストを同じタブで確認し、旧 `/venture-map/amd-score/{projectId}` は互換URLとして cockpit へ自動転送する。
 
 > 実装者向けの確定仕様は [/spec/4-2-amd-score-current-spec](/spec/4-2-amd-score-current-spec)。理論導出は `/bzm`、日常画面での読み方はこの章に置く。
 
@@ -12,7 +14,7 @@ AMD Score は、PJ / SU の価値・成熟度を数値化する指標。現行�
 
 AMD Score は PJ / SU の価値評価。AMD 全社の健康度を見る AMD Management Score とは別物。
 
-PRS (M·P·R·S) は、PJ が立ち上がるための4つの必要条件を掛け合わせるモデル。
+SPS (M·P·R·S) は、PJ が立ち上がるための4つの必要条件を掛け合わせるモデル。
 
 | 要素 | 意味 | 何を見るか | 主なデータ |
 |---|---|---|---|
@@ -23,7 +25,7 @@ PRS (M·P·R·S) は、PJ が立ち上がるための4つの必要条件を掛�
 
 足し算ではなく掛け算にするのは、4つが「どれか1つ高ければOK」ではないから。Potential が大きくても Reach が低ければ届かない。Macrotrend が吹いていても自走力が無ければ、環境で延命しているだけになる。積にすると、弱い要素が自然に全体を抑え、4つが同時に揃った時だけ score が伸びる。
 
-`P` / `R_net` が未入力なら、PRS は `INPUT NEEDED` / review pending として止める。legacy AMD score を代わりに主表示へ戻さない。
+`P` / `R_net` が未入力なら、SPS は `INPUT NEEDED` / review pending として止める。legacy AMD score を代わりに主表示へ戻さない。
 
 この章を読む時は、数式を全部暗記しなくていい。大事なのは、AMD Score が「このPJは大きくなりそうか」を1つの数字に潰しているだけではなく、次の4つの質問に分解して見ていること。
 
@@ -41,8 +43,8 @@ PRS (M·P·R·S) は、PJ が立ち上がるための4つの必要条件を掛�
 ## Primary Formula
 
 $$
-\mathrm{Score}_{\mathrm{PRS}}
-= K_{\mathrm{PRS}} \cdot M \cdot P \cdot R \cdot S
+\mathrm{Score}_{\mathrm{SPS}}
+= K_{\mathrm{SPS}} \cdot M \cdot P \cdot R \cdot S
 $$
 
 $$
@@ -66,21 +68,21 @@ S =
 $$
 
 $$
-K_{\mathrm{PRS}}
-= \frac{100{,}000}{10^{\sum_{x \in \mathcal{A}_{\mathrm{PRS}}}\alpha_x}}
+K_{\mathrm{SPS}}
+= \frac{100{,}000}{10^{\sum_{x \in \mathcal{A}_{\mathrm{SPS}}}\alpha_x}}
 $$
 
 $$
-\mathcal{A}_{\mathrm{PRS}}
+\mathcal{A}_{\mathrm{SPS}}
 = \{P,\mathrm{TRL},\mathrm{BRL},\mathrm{GRL},\mathrm{SRL},\mathrm{HRL},
 \sigma_{\mathrm{SU}},\mathrm{FRL},R_{\mathrm{net}}\}
 $$
 
-全active axis が 9 点の時に `100,000` になるように `K_PRS` で校正する。`K_PRS` は価値入力ではなく、スコアの物差しをそろえる倍率。Shallow Tech mode では `TRL=null` として `R` から TRL を外し、`K_PRS` も active axes だけで再校正する。
+全active axis が 9 点の時に `100,000` になるように `K_SPS` で校正する。`K_SPS` は価値入力ではなく、スコアの物差しをそろえる倍率。Shallow Tech mode では `TRL=null` として `R` から TRL を外し、`K_SPS` も active axes だけで再校正する。
 
 ### 式を日本語にすると
 
-`Score_PRS = K_PRS * M * P * R * S` は、ざっくり言うと次の意味。
+`Score_SPS = K_SPS * M * P * R * S` は、ざっくり言うと次の意味。
 
 ```text
 AMD Score
@@ -93,7 +95,7 @@ AMD Score
 
 `+1` が入っているのは、0点の軸があっても計算全体が完全に0になりすぎないようにするため。0点は「まったく効かない」ではなく、「最低状態からのスタート」として扱う。`alpha` は、その軸をどれくらい重く見るかを決めるつまみ。たとえば `FRL` の alpha が大きいのは、deeptech startup では創業者・経営チームの質がかなり効く、という考え方を反映している。
 
-`K_PRS` は偏差値の換算表みたいなもの。PJの実力そのものではなく、全軸9点の理想状態が `100,000` になるように表示スケールを合わせている。
+`K_SPS` は偏差値の換算表みたいなもの。PJの実力そのものではなく、全軸9点の理想状態が `100,000` になるように表示スケールを合わせている。
 
 ### 0-9点の感覚
 
@@ -124,9 +126,9 @@ AMD Score
 | `sigma_SU` | 0-9 | Triple Helix 合成値。学・産・官の追い風 | `mu_A` / `mu_I` / `mu_G` から算出 | 上記3系列 |
 | `FRL_final` | 0-9 | Founder Readiness。創業者・経営中核の readiness | `resolveFrl()`。`frl_cap` があれば CES、なければ `frl` | ALQ 4因子、Grit、Resilience、経営実行力、AMD寄与 |
 | `R_net` / `prs_r_net` | 0-9 / null | 純残存力。粗利・運営コスト・本命PJへの資源毀損を見た生存力 | 詳細画面でレビュー保存。未入力は null | 収益化見込み、運営コスト、リソース毀損、事業優先度 |
-| `alpha_x` | 正数 | 各軸の重み / 弾力性 | `PRS_ALPHA_DEFAULT` または `amd_score_alpha` | retrofit / review |
+| `alpha_x` | 正数 | 各軸の重み / 弾力性 | `SPS_ALPHA_DEFAULT` または `amd_score_alpha` | retrofit / review |
 
-## PRS Input Resolution
+## SPS Input Resolution
 
 `P` と `R_net` は、表示時に次の順で解決する。
 
@@ -136,7 +138,7 @@ AMD Score
 4. 同一PJの最新 project-level row に保存済みの値
 5. null
 
-null は 0 ではない。null の場合は `missingAxes` に入り、PRS score は `null` のまま。これで「情報がないのに低い点を付ける」「legacy score を勝手に primary に戻す」事故を防ぐ。
+null は 0 ではない。null の場合は `missingAxes` に入り、SPS score は `null` のまま。これで「情報がないのに低い点を付ける」「legacy score を勝手に primary に戻す」事故を防ぐ。
 
 ## R の算出
 
@@ -352,7 +354,7 @@ FRL内部だけ CES にしているのは、「人柄は良いが経営実行力
 
 ## Alpha Weights
 
-現行の PRS default は `pwa/src/lib/amd-score.ts` の `PRS_ALPHA_DEFAULT`。
+現行の SPS default は `pwa/src/lib/amd-score.ts` の `SPS_ALPHA_DEFAULT`。
 
 | 軸 | alpha | 読み方 |
 |---|---:|---|
@@ -366,7 +368,7 @@ FRL内部だけ CES にしているのは、「人柄は良いが経営実行力
 | `FRL` | 1.5 | founder quality を最重視 |
 | `R_net` | 0.8 | 純残存力を Survival に効かせる |
 
-`amd_score_alpha` は legacy alpha の version 管理に使う。PRS weight の恒久変更をする時は、manual / spec / design と UI 表示を同じ作業単位で同期する。
+`amd_score_alpha` は legacy alpha の version 管理に使う。SPS weight の恒久変更をする時は、manual / spec / design と UI 表示を同じ作業単位で同期する。
 
 alpha は「その軸が1点上がった時、全体にどれくらい効くか」を決める重み。点数そのものだけでなく、重みも見る。
 
@@ -388,7 +390,7 @@ $$
 = \arg\max_i \frac{\alpha_i}{Z_i+1}
 $$
 
-単に値が低い軸ではない。alpha が大きく、現在値が低い軸が最も効く。現行画面では legacy comparison の bottleneck も併記するが、主表示の判断は PRS primary を先に読む。
+単に値が低い軸ではない。alpha が大きく、現在値が低い軸が最も効く。現行画面では legacy comparison の bottleneck も併記するが、主表示の判断は SPS primary を先に読む。
 
 律速軸は「一番悪い軸」ではなく、「次に直すと一番スコアが伸びる軸」。たとえば `SRL=1` でも alpha が小さければ、短期の最優先にはならないことがある。逆に `FRL=4` で一見そこまで低くなくても、alpha が大きいので、創業者・経営中核の補強が一番効くことがある。
 
@@ -403,15 +405,15 @@ $$
 
 | 表示 | 位置づけ | 算出 / 取得元 |
 |---|---|---|
-| `PRS Primary` | 現行 primary | `calculatePrsScore()`。`P` / `R_net` が揃った時だけ score を出す |
+| `SPS Primary` | 現行 primary | `calculatePrsScore()`。`P` / `R_net` が揃った時だけ score を出す |
 | `INPUT NEEDED` | review pending | `missingAxes`。`P` / `R_net` のどちらかが null |
 | `P Potential` | primary input | `amd_score_inputs.prs_potential` |
 | `R_net` | primary input | `amd_score_inputs.prs_r_net` |
-| `M マクロ追い風` | PRS component | `sigma_SU` の contribution `(sigma_SU+1)^alpha_sigma` |
-| `R reach` | PRS component | TRL / BRL / GRL / SRL / HRL の contribution product |
-| `S 自走力 (Survival = FRL × R_net)` | PRS component | final FRL / `R_net` の contribution product |
-| `PRS history` | primary history | `computePrsScoreSeries()`。`status='ready'` の行だけ採用 |
-| `Legacy AMD comparison` | legacy comparison | 旧 7 軸 Cobb-Douglas。PRS missing の代替 primary ではない |
+| `M マクロ追い風` | SPS component | `sigma_SU` の contribution `(sigma_SU+1)^alpha_sigma` |
+| `R reach` | SPS component | TRL / BRL / GRL / SRL / HRL の contribution product |
+| `S 自走力 (Survival = FRL × R_net)` | SPS component | final FRL / `R_net` の contribution product |
+| `SPS history` | primary history | `computePrsScoreSeries()`。`status='ready'` の行だけ採用 |
+| `Legacy AMD comparison` | legacy comparison | 旧 7 軸 Cobb-Douglas。SPS missing の代替 primary ではない |
 | `M / X / F バランス` | legacy evidence | `M=sigma_SU`, `X=5 XRL`, `F=FRL` |
 | `Triple Helix Matrix` | `sigma_SU` (= M) evidence | `mu_A` / `mu_I` / `mu_G`、C行列、観測値、被覆率 |
 | `FRL panel` | founder evidence | ALQ 4因子 / Grit / Resilience / F_cap / notes |
@@ -419,7 +421,7 @@ $$
 
 画面を見る時は、いきなり総合点だけを見ない。次の順番で見る。
 
-1. `PRS Primary` が出ているか、`INPUT NEEDED` かを見る
+1. `SPS Primary` が出ているか、`INPUT NEEDED` かを見る
 2. `INPUT NEEDED` なら、足りないのが `P` か `R_net` かを見る
 3. score が出ているなら、`M / P / R / S` のどれが弱いかを見る
 4. 弱い component の内訳を見る
@@ -470,11 +472,11 @@ $$
 ```text
 XRL / Macrotrend / FRL / P / R_net の根拠が増える
         ↓
-amd_score_inputs に評価 row または PRS input を保存
+amd_score_inputs に評価 row または SPS input を保存
         ↓
 cockpit / venture-map が today 以前の最新 row を読む
         ↓
-PRS Primary / PRS history / legacy M-X-F / evidence を表示
+SPS Primary / SPS history / legacy M-X-F / evidence を表示
         ↓
 まさが違和感を持ったら詳細画面・Tsukuyomi・修正依頼 loop で直す
 ```
@@ -483,9 +485,9 @@ PRS Primary / PRS history / legacy M-X-F / evidence を表示
 
 legacy MXF (= M-X-F / 7 軸 Cobb-Douglas) は過去モデル。削除しないが、現行 primary として読まない。
 
-M-X-F は、昔のAMD Scoreを読むための地図として残す。いまの主表示は PRS (M·P·R·S) だけど、M-X-F は無駄ではない。legacy の `M` は PRS の `M` と同一の式 `(sigma_SU+1)^alpha_sigma`、`X` は PRS の `R` の根拠、`F` は PRS の `S` (自走力) に入る FRL の根拠として使う。
+M-X-F は、昔のAMD Scoreを読むための地図として残す。いまの主表示は SPS (M·P·R·S) だけど、M-X-F は無駄ではない。legacy の `M` は SPS の `M` と同一の式 `(sigma_SU+1)^alpha_sigma`、`X` は SPS の `R` の根拠、`F` は SPS の `S` (自走力) に入る FRL の根拠として使う。
 
-つまり、M-X-F は「古い点数をそのまま主役に戻すもの」ではなく、「PRSがなぜその値になったかを説明する証拠棚」。古い資料や過去のscore historyを見る時も、M-X-Fが残っていると当時の判断を読み解ける。
+つまり、M-X-F は「古い点数をそのまま主役に戻すもの」ではなく、「SPSがなぜその値になったかを説明する証拠棚」。古い資料や過去のscore historyを見る時も、M-X-Fが残っていると当時の判断を読み解ける。
 
 $$
 \mathrm{Score}_{\mathrm{legacy}}
@@ -516,25 +518,25 @@ $$
 F=(\mathrm{FRL}_{\mathrm{final}}+1)^{\alpha_F}
 $$
 
-| legacy 要素 | 意味 | 現行 PRS での読み方 |
+| legacy 要素 | 意味 | 現行 SPS での読み方 |
 |---|---|---|
-| `M` | Macrotrend / Triple Helix | PRS の `M` と同一の式 (2026-07-16 に PRS 側でも独立因子へ) |
+| `M` | Macrotrend / Triple Helix | SPS の `M` と同一の式 (2026-07-16 に SPS 側でも独立因子へ) |
 | `X` | 5 XRL readiness | `R` の evidence |
 | `F` | Founder readiness | `S` (自走力) の FRL evidence |
 
 保存目的:
 
 - 過去の retrofit / score history を読み解く
-- PRS の R/S の根拠として XRL / sigma_SU / FRL を残す
+- SPS の R/S の根拠として XRL / sigma_SU / FRL を残す
 - 旧画面・旧説明との比較対象にする
 
 禁止:
 
-- legacy score を PRS missing の代替 primary にする
+- legacy score を SPS missing の代替 primary にする
 - M-X-F を章 summary や cockpit 主表示の主語へ戻す
 - 既存 7 軸履歴を破壊的に再計算する
 
-たとえば `PRS Primary` が `INPUT NEEDED` の時に、legacy score が高いからといって「このPJは高スコア」と表示しない。必要なのは legacy を主役に戻すことではなく、足りない `P` / `R_net` をレビューして PRS を完成させること。
+たとえば `SPS Primary` が `INPUT NEEDED` の時に、legacy score が高いからといって「このPJは高スコア」と表示しない。必要なのは legacy を主役に戻すことではなく、足りない `P` / `R_net` をレビューして SPS を完成させること。
 
 ## 関連
 

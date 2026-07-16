@@ -13,7 +13,9 @@ function expectIncludes(rel, needles) {
   const text = read(rel);
   const missing = needles.filter((needle) => !text.includes(needle));
   if (missing.length > 0) {
-    throw new Error(`${rel} missing critical UI anchors: ${missing.join(", ")}`);
+    throw new Error(
+      `${rel} missing critical UI anchors: ${missing.join(", ")}`,
+    );
   }
 }
 
@@ -21,7 +23,9 @@ function expectPattern(rel, patterns) {
   const text = read(rel);
   const missing = patterns.filter((pattern) => !pattern.test(text));
   if (missing.length > 0) {
-    throw new Error(`${rel} missing critical UI patterns: ${missing.map(String).join(", ")}`);
+    throw new Error(
+      `${rel} missing critical UI patterns: ${missing.map(String).join(", ")}`,
+    );
   }
 }
 
@@ -29,14 +33,18 @@ function expectNotIncludes(rel, needles) {
   const text = read(rel);
   const present = needles.filter((needle) => text.includes(needle));
   if (present.length > 0) {
-    throw new Error(`${rel} contains retired critical UI anchors: ${present.join(", ")}`);
+    throw new Error(
+      `${rel} contains retired critical UI anchors: ${present.join(", ")}`,
+    );
   }
 }
 
 function expectFileMissing(rel) {
   const target = path.join(root, rel);
   if (fs.existsSync(target)) {
-    throw new Error(`${rel} should not exist; retired UI component was restored`);
+    throw new Error(
+      `${rel} should not exist; retired UI component was restored`,
+    );
   }
 }
 
@@ -157,7 +165,7 @@ expectIncludes("src/app/(app)/admin/invoices/page.tsx", [
 ]);
 
 expectIncludes("src/app/(app)/admin/billing/page.tsx", [
-  "redirect(\"/admin/invoices\")",
+  'redirect("/admin/invoices")',
 ]);
 
 expectIncludes("src/components/contracts/ContractsClient.tsx", [
@@ -215,7 +223,7 @@ expectIncludes("src/app/(app)/layout.tsx", [
 
 expectIncludes("src/components/nav/AppShell.tsx", [
   "usePathname",
-  "const isAdminRoute = pathname.startsWith(\"/admin\")",
+  'const isAdminRoute = pathname.startsWith("/admin")',
   "<AdminSidebar />",
   "<GlobalNav",
 ]);
@@ -235,7 +243,7 @@ expectIncludes("src/components/admin/AdminSidebar.tsx", [
   "裏wiki",
   "/admin/private-wiki",
   "BUILD_VERSION",
-  "href=\"/dashboard\"",
+  'href="/dashboard"',
   "Adminメニューを開く",
   "md:sticky",
 ]);
@@ -279,22 +287,25 @@ expectIncludes("src/app/api/admin/private-wiki/route.ts", [
   "contact_context",
   "family_note",
   "taboo_note",
-  "visibility: \"admin_private\"",
+  'visibility: "admin_private"',
 ]);
 
 expectNotIncludes("src/app/api/admin/private-wiki/route.ts", [
-  "req.nextUrl.searchParams.get(\"tag\")",
-  "contains(\"tags\"",
+  'req.nextUrl.searchParams.get("tag")',
+  'contains("tags"',
 ]);
 
-expectIncludes("scripts/migrations/173_private_wiki_person_context_fields.sql", [
-  "birthday_label",
-  "origin_label",
-  "residence_label",
-  "contact_context",
-  "family_note",
-  "taboo_note",
-]);
+expectIncludes(
+  "scripts/migrations/173_private_wiki_person_context_fields.sql",
+  [
+    "birthday_label",
+    "origin_label",
+    "residence_label",
+    "contact_context",
+    "family_note",
+    "taboo_note",
+  ],
+);
 
 expectIncludes("src/components/admin/AdminInvoiceIssueQueue.tsx", [
   "AdminInvoiceIssueDialog",
@@ -447,7 +458,7 @@ expectIncludes("src/app/api/business-cards/[cardId]/image/route.ts", [
   "requireAuth",
   "business_cards",
   "admin.storage",
-  'Cache-Control',
+  "Cache-Control",
 ]);
 
 expectIncludes("src/lib/business-card-server.ts", [
@@ -566,7 +577,7 @@ expectIncludes("src/app/api/admin/members/route.ts", [
   "member_address",
   "invoice_registration_number",
   "normalizeInvoiceRegistrationNumber",
-  "select(\"*\")",
+  'select("*")',
   "member not found or not updated",
 ]);
 
@@ -675,6 +686,7 @@ expectNotIncludes("../gas/064_PayoutFreeeNotice.js", [
 expectIncludes("src/app/api/cron/payout-reward-cache-refresh/route.ts", [
   "payout-reward-cache-refresh",
   "syncRewardSummariesForBillingCycles",
+  "effectiveMemberPayoutYmForCycle",
   "DEFAULT_FORWARD_CACHE_LOOKAHEAD_MONTHS",
   "lookahead",
   "cycleYms",
@@ -794,9 +806,10 @@ expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
 expectNotIncludes("src/app/(app)/project/[projectId]/cockpit/page.tsx", [
   "nudges={cockpit.nudges",
 ]);
-expectNotIncludes("src/app/(app)/institutions/[institutionId]/cockpit/page.tsx", [
-  "nudges={cockpit.nudges",
-]);
+expectNotIncludes(
+  "src/app/(app)/institutions/[institutionId]/cockpit/page.tsx",
+  ["nudges={cockpit.nudges"],
+);
 expectNotIncludes("src/components/dashboard/CyberHudWallDashboard.tsx", [
   "nudges={cockpit.nudges",
 ]);
@@ -850,7 +863,7 @@ expectIncludes("src/components/venture-map/AmdScoreView.tsx", [
 // p00 (= AMD 会社全体) は Management Score Hero に切り替わる
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
   "CockpitManagementScoreHero",
-  "project.projectId === \"p00\"",
+  'project.projectId === "p00"',
 ]);
 expectIncludes("src/components/cockpit/CockpitManagementScoreHero.tsx", [
   "amd_management_score_snapshots",
@@ -977,8 +990,8 @@ expectIncludes("src/app/api/meeting-prep/calendar-sync/route.ts", [
   "SolvioraX",
 ]);
 expectIncludes("src/components/cockpit/CockpitMeetingSummary.tsx", [
-  "params.set(\"meeting\", meetingId)",
-  "params.delete(\"ym\")",
+  'params.set("meeting", meetingId)',
+  'params.delete("ym")',
   "router.replace(meetingUrl(meeting.meetingId), { scroll: false })",
   "groupUpcomingMeetingsBySeries",
 ]);
@@ -1132,13 +1145,13 @@ expectIncludes("src/app/api/cron/member-activities/route.ts", [
   "loadAliasProfiles",
   "textFitsProject",
   "project_category.eq.advisor",
-  "neq(\"status\", \"invalid\")",
+  'neq("status", "invalid")',
 ]);
 
 expectIncludes("src/app/auth/login/page.tsx", [
   "calendar.readonly",
   "gmail.readonly",
-  "prompt: \"consent\"",
+  'prompt: "consent"',
 ]);
 
 expectIncludes("src/app/auth/callback/route.ts", [
@@ -1196,7 +1209,7 @@ expectIncludes("src/app/api/notifications/feedback/route.ts", [
 ]);
 
 expectIncludes("../gas/155_L2KnowledgeExtractor.js", [
-  "status: \"candidate\"",
+  'status: "candidate"',
   "承認されるまで正本反映しない",
 ]);
 
@@ -1221,8 +1234,8 @@ expectIncludes("src/app/api/admin/season-pl/route.ts", [
   "value_plan_cycles",
   "buffer_breakdown_json",
   "planCycleId",
-  "mode: \"list\"",
-  "mode: \"detail\"",
+  'mode: "list"',
+  'mode: "detail"',
 ]);
 
 expectIncludes("src/components/admin/AdminSeasonPlClient.tsx", [
@@ -1340,57 +1353,112 @@ expectIncludes("src/components/admin/AdminSidebar.tsx", [
   "/admin/ms-overview",
 ]);
 
-expectIncludes("src/components/monthly-agreement/MonthlyAgreementExperience.tsx", [
-  "合意前に必ず確認すること",
-  "担当内容",
-  "予定額合計",
-  "PJごとの予定額",
-  "この月の支払いには進めません",
-  "修正要望",
-  "参考情報",
-  "PJごとの支払い状況",
-  "monthly-agreement-payment-details",
-  "担当内容の詳細",
-  "予定額の根拠",
-  "支払い予定・未払残",
-  "今シーズンのMS",
-  "予定額は、ここに出ているMSのpt",
-  "今月のpt",
-  "支払い済み",
-  "これから支払う予定",
-  "PayoutSourceBadge",
-  "支払い済み",
-  "確認中",
-  "保存済み",
-  "過去の保存額",
-  "税込",
-]);
-expectNotIncludes("src/components/monthly-agreement/MonthlyAgreementExperience.tsx", [
-  "合意から支払いまでの流れ",
-  "あとで支払い画面で別に決めます",
-  "この画面でMSを見る",
-  "今月の点数",
-  "MSの点数",
-  "直してほしいこと",
-  "到達目標",
-]);
-expectPattern("src/components/monthly-agreement/MonthlyAgreementExperience.tsx", [
-  /onClick=\{handleAgree\}[\s\S]{0,1800}修正要望/,
-]);
-expectIncludes("src/components/monthly-agreement/MonthlyAgreementGateOverlay.tsx", [
-  "onBackdropClick",
-  "event.target !== event.currentTarget",
-  "closedGateKey",
-  "bundle.currentHash",
-  "router.refresh()",
-]);
+expectIncludes(
+  "src/components/monthly-agreement/MonthlyAgreementExperience.tsx",
+  [
+    "未合意",
+    "条件更新あり",
+    "対象外",
+    "担当内容と予定額の確認・合意がまだ完了していません。",
+    "前回合意後に担当内容または予定額が更新されたので最新内容を再確認",
+    "この内容で合意済み",
+    "この月は対象外",
+    "合意状態：",
+    "確認して合意する内容",
+    "担当する仕事",
+    "その対価としての予定額",
+    "予定額合計",
+    "上の「担当する仕事」と「その対価としての予定額」を確認したうえで合意してください。未合意または条件更新ありの場合は、合意が完了するまでこの月の支払いには進めません。",
+    "確認して合意",
+    "修正要望",
+    "内容が違う場合は修正要望",
+    "参考情報",
+    "PJごとの支払い状況",
+    "monthly-agreement-status",
+    "monthly-agreement-required-checks",
+    "monthly-agreement-scope-section",
+    "monthly-agreement-reward-section",
+    "monthly-agreement-section-number-01",
+    "monthly-agreement-section-number-02",
+    "monthly-agreement-check-scope",
+    "monthly-agreement-check-reward",
+    "monthly-agreement-agree-button",
+    "monthly-agreement-revision-button",
+    "monthly-agreement-revision-panel",
+    "monthly-agreement-payment-details",
+    "monthly-agreement-reward-basis-details",
+    "max-w-[960px]",
+    "[&_button]:text-[12px]",
+    "h-12 w-full",
+    "予定額の根拠",
+    "今シーズンのMS",
+    "予定額は、ここに出ているMSのpt",
+    "今月のpt",
+    "支払い済み",
+    "これから支払う予定",
+    "PayoutSourceBadge",
+    "確認中",
+    "保存済み",
+    "過去の保存額",
+    "税込",
+  ],
+);
+expectNotIncludes(
+  "src/components/monthly-agreement/MonthlyAgreementExperience.tsx",
+  [
+    "合意から支払いまでの流れ",
+    "あとで支払い画面で別に決めます",
+    "この画面でMSを見る",
+    "今月の点数",
+    "MSの点数",
+    "直してほしいこと",
+    "到達目標",
+    "未確認",
+    "確認不要",
+    "下の必須2点",
+    "合意前に必ず確認すること",
+    "確認して合意する2点",
+    "1. PJごとの担当内容",
+  ],
+);
+expectPattern(
+  "src/components/monthly-agreement/MonthlyAgreementExperience.tsx",
+  [
+    /onClick=\{handleAgree\}[\s\S]{0,2200}内容が違う場合は修正要望/,
+    /data-testid="monthly-agreement-status"[\s\S]{0,2000}<RequiredChecksSection[\s\S]{0,2000}data-testid="monthly-agreement-agree-button"[\s\S]{0,9000}参考情報/,
+    /data-testid="monthly-agreement-required-checks"[\s\S]{0,2000}data-testid="monthly-agreement-scope-section"[\s\S]{0,3000}data-testid="monthly-agreement-reward-section"/,
+  ],
+);
+expectIncludes(
+  "src/components/monthly-agreement/MonthlyAgreementExperience.tsx",
+  [
+    "text-[14px]",
+    "text-[18px]",
+    "sm:text-[20px]",
+    "text-[16px]",
+    "text-[26px]",
+    "sm:text-[28px]",
+    "grid-cols-[minmax(0,1fr)_auto]",
+  ],
+);
+expectIncludes(
+  "src/components/monthly-agreement/MonthlyAgreementGateOverlay.tsx",
+  [
+    "onBackdropClick",
+    "event.target !== event.currentTarget",
+    "closedGateKey",
+    "bundle.currentHash",
+    "router.refresh()",
+  ],
+);
 expectIncludes("src/components/nav/AppShell.tsx", [
   "agreementGateBundle",
   "MonthlyAgreementGateOverlay",
 ]);
-expectIncludes("src/components/monthly-agreement/MonthlyAgreementGateOverlay.tsx", [
-  "const gateKey = `${pathname}:${bundle.ym}:${bundle.currentHash}`",
-]);
+expectIncludes(
+  "src/components/monthly-agreement/MonthlyAgreementGateOverlay.tsx",
+  ["const gateKey = `${pathname}:${bundle.ym}:${bundle.currentHash}`"],
+);
 expectIncludes("src/lib/monthly-work-agreement.ts", [
   "monthly_reward_payout",
   "payoutSnapshotForCycle",
@@ -1447,8 +1515,8 @@ require("./check_payout_notice_pdf_golden.cjs");
 // 会社概要タブ (2026-07-16 まさ確定): 全PJ常設・全AMDメンバー閲覧編集。旧 CockpitGovernance を統合廃止。
 expectIncludes("src/components/cockpit/CockpitView.tsx", [
   "CockpitCompanyOverview",
-  "\"company\" as const, label: \"会社概要\"",
-  "aria-label=\"会社概要\"",
+  '"company" as const, label: "会社概要"',
+  'aria-label="会社概要"',
 ]);
 expectFileMissing("src/components/cockpit/CockpitGovernance.tsx");
 expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
@@ -1456,7 +1524,7 @@ expectNotIncludes("src/components/cockpit/CockpitView.tsx", [
 ]);
 
 expectIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
-  "data-testid=\"company-overview-tab\"",
+  'data-testid="company-overview-tab"',
   "buildCapTableSnapshots",
   "capTableTieOut",
   "convertibleScenario",
@@ -1483,26 +1551,27 @@ expectIncludes("src/app/api/governance/route.ts", [
   "convertible",
   "financial_period",
 ]);
-expectNotIncludes("src/app/api/governance/route.ts", [
-  "requireAdmin",
-]);
+expectNotIncludes("src/app/api/governance/route.ts", ["requireAdmin"]);
 expectIncludes("src/lib/supabase/api-auth.ts", [
   "export async function requireMember",
 ]);
 
-expectIncludes("scripts/migrations/174_project_company_overview_and_equity_ledger.sql", [
-  "project_company_profiles",
-  "project_equity_transactions",
-  "project_equity_entries",
-  "project_convertible_instruments",
-  "project_financial_periods",
-  "amd_os_is_member",
-]);
+expectIncludes(
+  "scripts/migrations/174_project_company_overview_and_equity_ledger.sql",
+  [
+    "project_company_profiles",
+    "project_equity_transactions",
+    "project_equity_entries",
+    "project_convertible_instruments",
+    "project_financial_periods",
+    "amd_os_is_member",
+  ],
+);
 
 // 390px本番実測 (2026-07-16): Section headerがtitleをflex-1で潰し、
 // 「資金調達・潜在株式」の2ボタンが同一行を奪ってtitleが1文字縦積みになった不具合の再発防止。
 expectIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
-  "data-section-header=\"mobile-stack-sm-row\"",
+  'data-section-header="mobile-stack-sm-row"',
   "flex flex-col gap-3 border-b border-slate-200 px-4 py-4 sm:flex-row sm:flex-wrap sm:items-start sm:px-5",
   "flex w-full flex-wrap gap-2 sm:w-auto sm:shrink-0",
 ]);
@@ -1510,8 +1579,8 @@ expectIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
 // cap table 履歴マトリクス + 次回ラウンド試算 (2026-07-16, v3.43.0): confirmed済み株式イベントの
 // holderNameベース100%推移・創業からのラウンド別マトリクス、および未保存の仮シミュレーションを保護する。
 expectIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
-  "data-testid=\"cap-table-history-matrix\"",
-  "data-testid=\"next-round-simulator\"",
+  'data-testid="cap-table-history-matrix"',
+  'data-testid="next-round-simulator"',
   "data-cap-table-origin-warning",
   "capTableOriginWarning",
   "computeNextRoundScenario",

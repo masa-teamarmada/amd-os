@@ -1,7 +1,7 @@
 /**
  * POST /api/institutions/assess
  *
- * ERS マトリクス編集UI (/institutions/assess) から 1 セル分の評価を upsert する。
+ * ECR マトリクス編集UI (/institutions/assess) から 1 セル分の評価を upsert する。
  * institution_assessments は unique(institution_id, criterion_id, evaluated_at)。
  * 当日分 (evaluated_at = today JST) を onConflict で上書きするため、同日中の編集は
  * 1 レコードに集約され、過去日の評価は履歴として残る (fetchErsBundle は最新1件を採用)。

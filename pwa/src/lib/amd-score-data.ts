@@ -1,7 +1,7 @@
 /**
  * AMD Score データアクセス層 (client-side)。
  *
- * - amd_score_inputs: PJ × 評価時点の legacy 7 軸入力 + PRS primary review fields
+ * - amd_score_inputs: PJ × 評価時点の legacy 7 軸入力 + SPS primary review fields
  * - amd_score_alpha:  弾力性 α_i のバージョン管理
  *
  * 読みは anon (DEV_MODE)、書きは getAuthClient() (is_admin RLS)。

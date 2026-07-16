@@ -246,6 +246,9 @@ type ContractReviewItem = {
   tone: "warning" | "danger";
 };
 
+type ProjectActivityFilter = "active" | "inactive" | "all";
+type ContractSortMode = "signing_desc" | "signing_asc" | "expiration_asc" | "renewal_asc" | "activity_desc" | "project_asc" | "title_asc";
+
 const STATUS_LABEL: Record<ContractStatus, string> = {
   planned: "予定枠",
   drafting: "作成中",
@@ -280,6 +283,24 @@ const CONTRACT_TYPE_LABEL: Record<string, string> = {
 
 const CONTROL_CLASS = "h-8 w-full min-w-0 rounded-md border border-slate-200 bg-white px-2 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200";
 const CONTRACT_DRIVE_PATH = "共有ドライブ/ARMADA/a3_backoffice/契約";
+const ACTIVE_PROJECT_STATUSES = new Set(["active", "sales"]);
+const JA_COLLATOR = new Intl.Collator("ja-JP", { numeric: true, sensitivity: "base" });
+
+const PROJECT_ACTIVITY_LABEL: Record<ProjectActivityFilter, string> = {
+  active: "稼働中PJ",
+  inactive: "非アクティブ/未確認PJ",
+  all: "全PJ状態",
+};
+
+const CONTRACT_SORT_LABEL: Record<ContractSortMode, string> = {
+  signing_desc: "締結日 新しい順",
+  signing_asc: "締結日 古い順",
+  expiration_asc: "終了日 近い順",
+  renewal_asc: "更新通知 近い順",
+  activity_desc: "最新活動順",
+  project_asc: "PJ順",
+  title_asc: "契約名順",
+};
 
 const BLANK_CONTRACT = {
   projectId: "",
@@ -380,6 +401,78 @@ function remainingLabel(value: string | null | undefined) {
 
 function contractTitle(contract: Pick<ContractRow, "canonical_title" | "contract_title">) {
   return contract.canonical_title || contract.contract_title;
+}
+
+function isActiveProject(project?: Project) {
+  return ACTIVE_PROJECT_STATUSES.has(String(project?.status || "").toLowerCase());
+}
+
+function matchesProjectActivityFilter(project: Project | undefined, filter: ProjectActivityFilter) {
+  if (filter === "all") return true;
+  const active = isActiveProject(project);
+  return filter === "active" ? active : !active;
+}
+
+function sortableDate(value: string | null | undefined) {
+  if (!value) return null;
+  const normalized = /^\d{4}-\d{2}$/.test(value)
+    ? `${value}-28T23:59:59+09:00`
+    : value.includes("T")
+      ? value
+      : `${value.slice(0, 10)}T23:59:59+09:00`;
+  const time = new Date(normalized).getTime();
+  return Number.isFinite(time) ? time : null;
+}
+
+function signingDateForSort(contract: LedgerContract) {
+  return sortableDate(
+    contract.signed_at
+    || contract.expected_signing_date
+    || contract.effective_date
+    || contract.last_activity_at
+    || contract.planned_at
+    || contract.latest_record_at,
+  );
+}
+
+function compareNullableDate(a: number | null, b: number | null, direction: "asc" | "desc") {
+  if (a === null && b === null) return 0;
+  if (a === null) return 1;
+  if (b === null) return -1;
+  return direction === "asc" ? a - b : b - a;
+}
+
+function compareContractText(a: string | null | undefined, b: string | null | undefined) {
+  return JA_COLLATOR.compare(a || "", b || "");
+}
+
+function compareContractsBySortMode(a: LedgerContract, b: LedgerContract, projectA: Project | undefined, projectB: Project | undefined, sortMode: ContractSortMode) {
+  const periodA = resolveContractPeriod(a, projectA);
+  const periodB = resolveContractPeriod(b, projectB);
+  const compared = (() => {
+    switch (sortMode) {
+      case "signing_asc":
+        return compareNullableDate(signingDateForSort(a), signingDateForSort(b), "asc");
+      case "signing_desc":
+        return compareNullableDate(signingDateForSort(a), signingDateForSort(b), "desc");
+      case "expiration_asc":
+        return compareNullableDate(sortableDate(periodA.end), sortableDate(periodB.end), "asc");
+      case "renewal_asc":
+        return compareNullableDate(sortableDate(a.renewal_notice_date), sortableDate(b.renewal_notice_date), "asc");
+      case "activity_desc":
+        return compareNullableDate(sortableDate(a.latest_record_at || a.last_activity_at || a.planned_at), sortableDate(b.latest_record_at || b.last_activity_at || b.planned_at), "desc");
+      case "project_asc":
+        return compareContractText(a.project_id, b.project_id) || compareContractText(projectA?.project_name, projectB?.project_name);
+      case "title_asc":
+        return compareContractText(contractTitle(a), contractTitle(b));
+      default:
+        return 0;
+    }
+  })();
+  return compared
+    || compareContractText(a.project_id, b.project_id)
+    || compareContractText(contractTitle(a), contractTitle(b))
+    || compareContractText(a.contract_id, b.contract_id);
 }
 
 function contractTypeLabel(value: string) {
@@ -533,7 +626,7 @@ function contractReviewItems(contract: LedgerContract, project: Project | undefi
     add("scope", "AMD当事者", "株式会社チームアルマダまたはAMD側が契約当事者かを確認", "danger");
   }
   if (!contract.counterparty_name) {
-    add("counterparty", "相手先", "契約相手の正式名称を確認して入力", "danger");
+    add("counterparty", "相手先", "契約本文・押印版・請求/見積の根拠から、OSが拾った相手先候補を正式名称として採用できるか確認", "danger");
   }
   if (!period.end) {
     add("period", "終了・更新", "契約満了日、無期限、更新通知期限のどれかを確定", "danger");
@@ -572,6 +665,8 @@ export function ContractsClient() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ledger");
   const [projectFilter, setProjectFilter] = useState("");
+  const [projectActivityFilter, setProjectActivityFilter] = useState<ProjectActivityFilter>("active");
+  const [sortMode, setSortMode] = useState<ContractSortMode>("signing_desc");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -632,6 +727,7 @@ export function ContractsClient() {
       if (!isScopeReview && !isExcludedReview && relationshipScope !== "amd_contract") return false;
       if (statusFilter === "ledger" && (["evidence_only", "rejected"].includes(registryStatus) || contract.status === "cancelled")) return false;
       if (projectFilter && contract.project_id !== projectFilter) return false;
+      if (!matchesProjectActivityFilter(project, projectActivityFilter)) return false;
       if (statusFilter === "current") {
         if (!contract.is_current_for_project || ["evidence_only", "rejected"].includes(registryStatus) || contract.status === "cancelled") return false;
       } else if (statusFilter === "needs_metadata") {
@@ -665,8 +761,8 @@ export function ContractsClient() {
         ...contract.related_titles,
         ...rowDocs.map((doc) => doc.file_name),
       ].join(" ").toLowerCase().includes(needle);
-    });
-  }, [docsByContract, ledgerContracts, projectById, projectFilter, query, statusFilter]);
+    }).sort((a, b) => compareContractsBySortMode(a, b, projectById.get(a.project_id), projectById.get(b.project_id), sortMode));
+  }, [docsByContract, ledgerContracts, projectActivityFilter, projectById, projectFilter, query, sortMode, statusFilter]);
 
   const metrics = useMemo(() => {
     const ledger = ledgerContracts.filter((contract) => contract.relationship_scope === "amd_contract" && !["evidence_only", "rejected"].includes(contract.registry_status) && contract.status !== "cancelled");
@@ -1111,6 +1207,17 @@ export function ContractsClient() {
                 {CONTRACT_STATUSES.map((status) => <option key={status} value={status}>{STATUS_LABEL[status]}</option>)}
               </select>
             </label>
+            <select value={projectActivityFilter} onChange={(event) => setProjectActivityFilter(event.target.value as ProjectActivityFilter)} aria-label="PJ状態で絞り込む" className="h-8 w-[180px] rounded-md border border-slate-200 bg-white px-2 text-sm">
+              <option value="active">{PROJECT_ACTIVITY_LABEL.active}</option>
+              <option value="inactive">{PROJECT_ACTIVITY_LABEL.inactive}</option>
+              <option value="all">{PROJECT_ACTIVITY_LABEL.all}</option>
+            </select>
+            <label className="relative">
+              <CalendarRange className="pointer-events-none absolute left-2 top-2 h-4 w-4 text-slate-400" />
+              <select value={sortMode} onChange={(event) => setSortMode(event.target.value as ContractSortMode)} aria-label="契約の並び順" className="h-8 w-[180px] rounded-md border border-slate-200 bg-white pl-8 pr-2 text-sm">
+                {Object.entries(CONTRACT_SORT_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </label>
             <select value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)} aria-label="PJで絞り込む" className="h-8 w-[170px] rounded-md border border-slate-200 bg-white px-2 text-sm">
               <option value="">全PJ</option>
               {projects.map((project) => <option key={project.project_id} value={project.project_id}>{project.project_id} {project.project_name}</option>)}
@@ -1126,6 +1233,7 @@ export function ContractsClient() {
 
           <div className="border-b border-slate-200 px-3 py-2 text-xs text-slate-500">
             {filteredContracts.length}件の契約
+            <span className="ml-2">{PROJECT_ACTIVITY_LABEL[projectActivityFilter]} / {CONTRACT_SORT_LABEL[sortMode]}</span>
             {filteredContracts.reduce((sum, contract) => sum + contract.related_record_count, 0) !== filteredContracts.length && (
               <span className="ml-2">関連記録を契約単位に整理済み</span>
             )}

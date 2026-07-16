@@ -5,6 +5,66 @@
 
 ---
 
+### [finance/reward] 旧制度の合意済み支払を新ポイント制の差額控除に使った (2026-07-16)
+
+- **状態**: クローズ (2026-07-16 — `v3.43.20`、migration 165 で旧制度月由来の差額行を voided)。
+- **症状**: `/admin/payouts` で ZMP 2026年6月稼働分の今月支払に、しん(ID026)だけが出なかった。あび・こう・うめは表示され、合計は58,402円になっていた。
+- **原因**: 2026年7月からポイント制へ移行したのに、2026年6月以前に旧制度で合意・支払済みだった月を、新ポイント制の再計算結果と比べて差額控除の対象にしていた。過去に合意して支払った額を、あとから新制度で減額対象にする設計・表現は不適切だった。
+- **対応内容**: 報酬計算で `source_ym < 202607` の差額行を読まないガードへ変更した。ZMP 2026 の旧制度月由来の pending / active 差額行は削除せず `voided` にし、監査メタへ「旧制度の合意済み月は新制度差額にしない」理由を残した。202606報酬キャッシュと `monthly_reward_payout` も再同期した。
+- **再発防止**: 旧制度で合意・支払済みの月を、新制度のポイント計算であとから減額対象にしない。ポイント制移行後の未確定月だけを差額精算の対象にし、説明でも「過払い」という語を過去合意済み支払に使わない。
+
+---
+
+### [monthly-agreement/required-hierarchy] 合意事項1・2が最小文字で発見できない (2026-07-16)
+
+- **状態**: クローズ (2026-07-16 — `v3.43.8`)。
+- **症状**: 「確認して合意する2点」と書いてあっても、どこが1・2なのか一目で分からなかった。番号と項目名が必須領域で最小の10pxになり、契約上の確認事項より補助情報の方が強く見えていた。
+- **原因**: 合意事項を手続きの主要ステップではなく、PJ別の2列表を説明する列ラベルとして扱った。旧文言の不在・DOM順序・横overflowだけを確認し、5秒で項目を発見できるか、縮小しても階層が残るか、実際の文字サイズが重要度に合うかをUXの完了条件にしていなかった。
+- **対応内容**: 表を廃止し、`01 担当する仕事` と `02 その対価としての予定額` を独立した全幅セクションとして縦に配置した。番号14px、見出し18px以上、担当内容14px、PJ別予定額16px、合計26px以上へ引き上げ、2の後に主操作、さらにその後に初期状態で閉じた参考情報を置いた。
+- **再発防止**: critical UI guardで2セクションと順序、文字サイズの設計トークンを固定する。本番を `320 / 375 / 768 / 1280px` で確認し、横overflowに加えて5秒テスト、縮小表示、computed font-sizeを完了条件にする。
+
+---
+
+### [monthly-agreement/status-and-check-scope] 月初合意の状態と確認対象が曖昧 (2026-07-16)
+
+- **状態**: クローズ (2026-07-16 — `v3.43.5`)。
+- **症状**: モーダル冒頭に状態値だけの「未確認」が出て、何が未確認なのか分からなかった。「確認すること2点」も対象名がなく、どれとどれを確認すれば合意できるか読み取れなかった。状態カードを他の数値カードと同じ列へ押し込んでいたため、狭い幅では日本語が数文字ずつ折り返され、判断順序も崩れていた。
+- **原因**: データ上の状態値を説明なしで見出しに流用し、状態・確認対象・参考数値を同じ視覚階層に置いていた。担当内容と予定額をPJ単位で対応づけず、確認対象を読む前に合意操作へ到達する構造だった。
+- **対応内容**: ヘッダー直下に `合意状態：未合意 / 条件更新あり / 合意済み / 対象外` と理由を横幅いっぱいで表示した。次に `確認して合意する2点` を置き、PJごとに `担当内容` と `その対価としての予定額` をPCでは2列、mobileでは同じPJ内の縦積みにした。`確認して合意` は確認内容の後ろへ移し、支払い状況・根拠・snapshot ID・PJ詳細は初期状態で閉じた参考情報へまとめた。
+- **再発防止**: critical UI guardで旧文言、4状態、DOM順序、必要なtestid、折りたたみを固定する。本番画面を `320 / 375 / 768 / 1280px` で確認し、document横overflowと状態欄の圧縮がないことを完了条件にする。
+
+---
+
+### [L2M-1/Cockpit] MSカード「この月の仕事」欄に月次レポート markdown table が重複表示 (2026-07-01)
+
+- **状態**: クローズ (2026-07-01 — `v0.36.42` / commit `5f7f15bd` で `extractReportSnippets` を削除)。
+- **症状**: L2M-1 v2 (KUTE 準拠新プロンプト) で `monthly_reports.final_content` を上書きするたびに、月次モーダル右カラム「この月の仕事」欄に「月次レポート: | 項目 | 内容 |」等の markdown table 行が各 MS カードへ重複挿入されるように見えた。テストラン毎に肥大化して見え、まさから「設計間違ってない?」指摘。
+- **原因**: `CockpitMonthlyModal.tsx` の `extractReportSnippets` が **正本仕様外の追加実装**。design/cockpit.md L105 と manual/2-3-pj-cockpit.md L111 の「現状」欄正本は `milestone_monthly_progress.note` + `member_ms_activities` narrative + `member_activities` 直近材料の 3 ソースのみで、`monthly_reports.final_content` からのキーワード切り出しは含まれない。加えて新プロンプトが markdown table 主体で章立てするため、`\n{2,}` の paragraph 分割で table 全体が 1 chunk となり、各 MS の title キーワードにヒットして複数 MS カードに同じ表全体が繰り返し表示された。DB は追記されておらず、UI 側の重複表示のみだったが、まさが「テスト毎に増えてる」と認識するほど視覚的に破綻。
+- **対応内容**: `extractReportSnippets` 関数・prop・呼び出し 2 箇所・`hasWork` 判定内の分岐・レンダリングブロックを全削除。関数定義位置には正本仕様参照付きの説明コメントを残す。BUILD_VERSION `v0.36.41`→`v0.36.42`。
+- **再発防止**: MS カード「現状」欄に新しいソースを追加する場合、必ず `design/cockpit.md` と `manual/2-3-pj-cockpit.md` の 3 ソース記述を先に更新してから実装する。仕様外の実装を追加すると、後段の routine 出力仕様が変わるたびに UI 破綻の温床になる。
+
+---
+
+### [L2M-1] one-shot テストで DB write skip → 月次モーダル未反映 (2026-07-01)
+
+- **状態**: クローズ (2026-07-01 — 本番 SKILL.md に「1 PJ 完了条件 4 つ」節を追加、DB upsert + verify を完了条件に組み込み)。
+- **症状**: L2M-1 test task (`l2m1-test-p00-june-internal-only`) を実行して LLM 生成は成功、ローカルファイル (`output/l2m1_test/p00_202606_internal.md`) は出力されたが、`monthly_reports.final_content` は旧 gpt-5.5 版のまま残り、月次モーダルに新版が反映されなかった。
+- **原因**: test task の SKILL.md に「絶対条件 6: DB に一切書かない」と記述してあり、LLM が忠実に skip した。ファイル出力 front matter が `db_written: false` / `note: TEST RUN - not saved to monthly_reports` となっており、LLM は仕様通り動作。ただし本番 routine SKILL.md 側も同様に「LLM 生成 → ファイル書き出し → Slack 通知」で「1 PJ 完了扱い」の抜け穴があり、月末最終日発火時にも同じ事故が再現する可能性が判明。まさ「毎月えいみが手動で流し込むのは絶対イヤ」明言 (2026-07-01)。
+- **対応内容**: 本番 SKILL.md に「1 PJ ごとの完了条件」節を新設し、4 条件 (LLM生成 / `upsertMonthlyReports` 実行で `writtenCount>=1` 受領 / GET verify で length・status・generated_at 一致確認 / Slack 完了通知) を全部満たさない限り成功版 Slack 通知禁止と明記。テスト task の SKILL.md も DB 上書き + verify + Slack を必須にする形へ書き直し (fireAt 再武装済み)。
+- **再発防止**: routine を書くとき「LLM 生成成功 = task 完了」ではなく「DB reflect 確認 = task 完了」を完了条件に据える。Slack 通知テンプレは「成功」を絶対条件と紐付け、条件不成立時は失敗版のみ送るガードを入れる。ローカルファイル出力は verify 副本として位置付け、完了判定に使わない。
+
+---
+
+### [PWA/AMD Score] async読込後の因子表がmobile documentを横へ拡張した (2026-07-16)
+
+- **状態**: クローズ (2026-07-16 — `v3.41.16` でtableをcard内scrollへ収容し、production 390px viewportでdocument幅390pxを確認)。
+- **症状**: cockpit `スコア詳細` は初期表示ではmobile幅に収まるが、score evidenceのasync読込後にdocument `scrollWidth`が567px、途中修正後も550pxへ広がった。desktopでも600px固定SVGが右列を21px押し広げた。
+- **原因**: 600px最低幅のPRS/XRL SVG、360px列内のFRL横並び、CSS grid itemのintrinsic min-width、441pxのM/X/F因子tableが別々に外側へoverflowしていた。親gridへ`min-width:0`を付けるだけでは、async後に描画されるtable自体のoverflowは閉じ込められなかった。
+- **対応内容**: graph wrapperをresponsiveな内部scrollへ変更し、embedded FRLをcompact縦積み化、AmdScoreView root / grid / factor itemへ`min-width:0`を追加、最後にDetailFactorCardのtableを`overflow-x:auto` wrapperへ収容した。
+- **再発防止**: responsive確認は初期skeletonだけで完了しない。async detailが読み込まれた後にdesktop/mobile双方で`document.scrollWidth === viewport width`を計測し、固定幅chart・grid item・tableの三層を別々に検査する。critical UI guardでcontainment classを固定する。
+
+---
+
 ### [PWA/AMD Score] cockpit 埋め込み分岐だけ XRL チェックリストが欠けた (2026-07-16)
 
 - **状態**: クローズ (2026-07-16 — `v3.41.11` で embedded view に統合し、本番DOMで確認)。
@@ -306,20 +366,20 @@
 
 ---
 
-### [finance/reward] 支払済み過払いを「会社留保で吸収できる」と誤説明した (2026-07-03)
+### [finance/reward] 支払済みの旧制度差額を「会社留保で吸収できる」と誤説明した (2026-07-03)
 
-- **状態**: クローズ (2026-07-03 — 仕様書・handoff・session log に「本人の未払残からだけ相殺」を固定し、ZMP active offset もその方針で本番反映済み)。
+- **状態**: クローズ (2026-07-16 — `v3.43.20` で、旧制度の合意済み月は新ポイント制の差額控除に使わない方針へ訂正済み)。
 - **症状**: ZMP 2026 の5月稼働分が発行・支払済みで変更できない状況で、シーズン全体の原資整合を確認していた時に、「会社留保を17,453円減らせば整合する。現金支払ではないから吸収できる」という説明をしてしまった。まさが確認したかったのは「会社が負担することはないよね？」であり、この説明は「会社が赤字を被ればOK」と読める雑な回答だった。
 - **原因**: 収支の閉じ方を「支払通知書を変更しない」観点だけで見て、`PJ原資 = (クライアント支払額 − バッファ) × 65%` の上限を超えないこと、会社留保は都合よく赤字吸収枠にできないことを同時に検算しなかった。さらに、他メンバーの未払残から差し引く案がありえないことも先に明文化しなかった。
-- **対応内容**: 方針を「支払済み/送付済みの過去額は変更しない」「差額は同一メンバー本人の未払 `stockYen` からだけ相殺」「しん・こうの小額差分はまさ判断で許容」に修正。`reward_member_liability_offsets` の active rows は、あび `ID009` 1,658円、うめ `ID008` 1,560円だけにした。
-- **再発防止策**: 支払済み過払いの調整では、まず「誰の財布から引かれるのか」を明示する。会社留保・他メンバー・PJバッファでの吸収は原則禁止として扱い、許容差にする場合は「会社負担」ではなく「その過払いを経営判断で許容」と言い切る。説明時も、現金支払でないからOK、という言い方をしない。
+- **対応内容**: 方針を「支払済み/送付済みの過去額は変更しない」へ置いたうえで、2026年7月のポイント制移行前に旧制度で合意・支払済みだった月は、新ポイント制の再計算差額として控除しない形へ訂正した。ZMP 2026 の旧制度月由来の active / pending offset は `voided` にした。
+- **再発防止策**: 先月までの合意済み支払を、あとから新制度の計算で減額対象にしない。ポイント制移行後の未確定月で差額控除が必要な場合だけ、誰の将来支払から控除するのかを明示する。
 
 ---
 
-### [finance/reward] ZMP 相殺台帳の監査メタで、許容メンバーIDを `ID010` と誤記した (2026-07-03)
+### [finance/reward] ZMP 旧制度差額台帳の監査メタで、member ID を `ID010` と誤記した (2026-07-03)
 
-- **状態**: クローズ (2026-07-03 — migration 163 を本番適用し、active offset 2行の `metadata_json.tolerated_members` を `["ID004","ID026"]` へ修正)。
-- **症状**: ZMP 2026 の支払済み過払い調整で、仕様書・まさ判断は「しん・こうの小額過払いは許容」だったが、migration 162 の監査メタだけ `tolerated_members=["ID004","ID010"]` になっていた。`ID010` は `らん` で、しんは `ID026`。計算ロジックは `status='active'` のあび/うめ相殺額だけを見るため金額には影響しないが、監査ログとして読むと誤った人に見える状態だった。
+- **状態**: クローズ (2026-07-16 — migration 165 で旧制度月由来の台帳を `voided` にし、報酬計算からも読み飛ばす方針へ訂正済み)。
+- **症状**: ZMP 2026 の旧制度差額台帳で、migration 162 の監査メタだけ `tolerated_members=["ID004","ID010"]` になっていた。`ID010` は `らん` で、しんは `ID026`。当時の計算ロジックは `status='active'` のあび/うめ相殺額だけを見るため金額には影響しないが、監査ログとして読むと誤った人に見える状態だった。
 - **原因**: 金額修正を急ぐ中で、コードネームから member_id への最終照合を DB で行わず、手元メモのIDを migration metadata に手入力した。docs には「しん・こう」と正しく書けていたが、DB監査メタのIDだけずれた。
 - **対応内容**: `pwa/scripts/migrations/162_zmp_2026_liability_offsets.sql` のメタを `ID004/ID026` に修正し、追加 migration `163_fix_zmp_liability_offset_metadata.sql` で既存本番DBの active 2行も更新。本番確認で active offset は ID008=1,560円 / ID009=1,658円のまま、`tolerated_members=["ID004","ID026"]` へ修正済み。
 - **再発防止策**: finance / reward の監査メタに member_id を書く時は、必ず `members` DB で `member_id + code_name` を照合してから書く。計算に使わない metadata でも、後続の監査・handoff・説明では current truth として読まれるため、名前とIDをセットで確認する。
@@ -3979,6 +4039,13 @@
 - **原因**: 月初合意の支払月判定で、`billing_cycles.invoice_ym` を支払月として優先していた。`invoice_ym` はクライアント向けの請求書発行月であり、メンバーへの現金支払月ではない。ZMP 202606 の報酬明細は存在していたが、`invoice_ym=202606` を見たことで 202607 の支払一覧から落ちていた。
 - **対応内容**: 月初合意の報酬支払説明では `invoice_ym` を使わず、PJ/member 支払条件から支払月を計算する helper を追加した。`payoutSchedule` と `/admin/monthly-work-agreements` の `今月支払` 集計も同じ判定に統一した。read-only 再計算で 202607 の ZMP 202606 分が 4名合計 87,457円として出ることを確認し、`v0.39.40` で本番反映した。後続 main/prod にも ancestor として含まれる。
 - **再発防止策**: finance / agreement では `稼働月`、`請求書発行月`、`入金月`、`メンバー支払月` を同じ `ym` として扱わない。DB列名を根拠にせず、契約・manual/spec・実支払データの意味を先に確認する。画面で `0円` が出た場合は「予定額が0」なのか「支払月判定から落ちた」のかを、保存済み明細と支払条件で切り分けてから説明する。
+
+## [admin-payouts/payout-month] payouts が請求書発行月を優先し、今月の支払予定を欠落させた (2026-07-16)
+
+- **症状**: `/admin/payouts` のメンバー別支払が空、または今月の支払予定が不足して見えた。202607 確認では、ZMP 202606 分が本来 202607 支払予定なのに、`invoice_ym=202606` のため 202607 支払から落ちていた。
+- **原因**: `/admin/payouts` が支払月候補を `billing_cycles.invoice_ym` 優先で集めていた。`invoice_ym` はクライアント向け請求書発行月で、AMD からメンバーへ支払う月ではない。月初合意では同じ事故を直していたが、payouts 側の集計が古いままだった。
+- **対応内容**: 共通 helper `effectiveMemberPayoutYmForCycle()` を追加し、`/admin/payouts` API、画面側の支払月表示、日次 `payout-reward-cache-refresh` の対象cycle抽出を PJ 台帳の支払条件ベースに統一した。対象cycle取得も `invoice_ym` ではなく候補稼働月から集めてからメンバー支払月で絞る方式へ変更。空表示は「対象cycleがあるのか / 報酬キャッシュ再計算が必要か」を示す文言にした。
+- **再発防止策**: `/admin/payouts`、`payout-reward-cache-refresh`、月初合意、経理チェックなど、メンバー支払を見る画面/キャッシュ更新では `effectiveMemberPayoutYmForCycle()` を使う。クライアント請求・入金確認だけが `invoice_ym` 優先の `effectivePaymentYmForCycle()` を使う。
 
 ## [bzm-worker/deploy] ワーカー専用ブランチへの commit だけでは正本変更が本番に反映されなかった (2026-07-12)
 

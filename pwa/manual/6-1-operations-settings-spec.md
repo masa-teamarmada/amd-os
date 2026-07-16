@@ -43,7 +43,7 @@ L2 Data は、Raw Data を OS が使える知識に変換したもの。
 | OS台帳差分 | `project_registry_diffs` | 5 生データと OS 台帳の差分候補 |
 | XRL根拠 | `project_xrl_evidence` / `project_xrl_log` | AMD Score の XRL 根拠 |
 | 経営ハイライト | `project_strategy_signals` | 進んだこと・起きたこと |
-| Score Inputs | `amd_score_inputs` | PRS input (`prs_potential`, `prs_r_net`) と legacy M-X-F 入力値・根拠 |
+| Score Inputs | `amd_score_inputs` | SPS input (`prs_potential`, `prs_r_net`) と legacy M-X-F 入力値・根拠 |
 
 この一覧は `operations-catalog.ts` の `l2Datasets` が正本。
 

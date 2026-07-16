@@ -149,10 +149,13 @@ RLS:
 [pwa/src/components/notifications/NotificationsClient.tsx](../src/components/notifications/NotificationsClient.tsx)
 - フィルタタブ: 未対応 / 未読 (`read_at IS NULL` かつ未回答) / 回答済み / 修正依頼あり
 - 通知カード (時系列降順):
+  - 表示中リスト内の通し番号 (`No.1` など)。DB列ではなく、その時点のフィルタ結果の 1 始まり番号。まさが後から「あの通知のNo.」で探せるようにするための表示補助で、永続IDではない。
   - title (l2 通知は絵文字付き、meeting 通知は "📋 議事録: ..." を表示)
   - 補助メタ: 日時 / l2_kind / target / 未読 badge / 修正依頼 N 件 badge
 - カードクリックで展開:
   - summary (本文)
+  - `coverage_gap` は summary の前に人間向けの確認文を出す。元候補の詳細が取れている場合だけ、タイトルを `重要メモにコピーする？: ...` の質問形にし、展開部は「コピーされる文章」「判断の目安」「コピーしても起きないこと」の3項目にする。`SX）intの元ソースには...可能性がある` のような監査メモをそのまま見せず、重要メモへ実際に入る一文へ変換して最初に出す。元候補が取れない / 通知本文が薄すぎる場合は `コピー前に元情報を確認: ...` に変え、「このカードだけではコピー対象を判断できない」と出して肯定ボタンを disabled にする。UI 表示では `D-6` / `coverage_gap` / `raw transcript` / `元情報` / `取りこぼし` / `条件付き投資家関心` / `薄い` / `candidate` / `salience` / `目立たない話` を使わない。
+  - `textbook_insight` は、内部メタ (`classification`, `scope`, `sanitized`, UUID, `result null`) を判断本文に出さない。展開部は「元情報」「通知の種類」「追記先」「BZMに追記される内容」「判断の目安」「押すと起きること」「AMDプロトコルとの関係」で表示する。`source_tables` に `protocols` がある場合は、元ネタはAMDプロトコル、追記先はBZMであり、AMDプロトコル本文は書き換えないことを明示する。ボタンは「BZM追記を承認 / BZMには入れない」。
   - 元データへの deep link (l2_kind ごと: protocols → /admin/protocols, ms_progress → /project/<id>/cockpit?ym=<ym>, etc.)
   - 既存 feedback 一覧 (この通知に紐づく / 同 (l2_kind, target_id, scope_key) の)
   - 「はい・反映」「いいえ・不採用」「コメントだけ送信」textarea + 送信ボタン
@@ -214,6 +217,8 @@ D-5 OS台帳差分と M-2 XRL根拠は、全文保存ではなく「OSへ入れ�
 `raw_data_gap` は例外。これは「はいを押せばOSに現物が入る候補」ではなく、raw source は見つかったが L2 化先・backfill 経路・helper/UI 対応が未確定であることを示す運用通知。反映可能な候補を作れる場合は `raw_data_gap` を主成果にせず、`project_registry_diff` / `xrl_evidence` / `ms_progress` revision / `meeting_summary` など、押した後のDB反映先が明確な kind に寄せる。
 
 `coverage_gap` は「あとで人間が本来の入れ先へ手当てする」通知にしない。安全に反映先が分かる場合は、「はい」と同時に下流テーブルへ自動ルートする。2026-06-27 時点の実装は `proposed_target_l2='strategy_signal'` を D-6 経営ハイライトへ昇格する。H-1 reviewer 由来の gap は `status='confirmed'` / `decision_state='observed'` の `project_strategy_signals` を作り、会社として正式決定済みとは扱わない。通知の採否APIは raw source の再取得を担当しない。raw再確認が必要な場合は H-1 reviewer / source fallback 側で再実行する。
+
+2026-07-16 以降、`coverage_gap` は候補行の保存済み (`l2_coverage_gaps.review_status='candidate'`) とまさの採否を分ける。通知 writer は `saved_count=0,total_count=1` で作り、既存の `saved_count=1,total_count=1` 通知も UI では保存済み扱いにしない。ボタン文言は「重要メモにコピー / コピーしない」。これは内部的には D-6 への追加だが、画面では「保存済みの会議要約は書き換えず、プロジェクトの重要メモにコピーする。出資決定や正式合意としては扱わない」と説明する。H-1要約本文を戻す操作ではない。元の `l2_coverage_gaps` 行が見つからない通知は、具体候補なしでコピー判断を迫らず、「コピー前に元情報を確認」として肯定ボタンを disabled にする。
 
 ### POST API
 [pwa/src/app/api/notifications/feedback/route.ts](../src/app/api/notifications/feedback/route.ts)
@@ -279,6 +284,10 @@ D-5 OS台帳差分と M-2 XRL根拠は、全文保存ではなく「OSへ入れ�
 
 | 日付 | 変更 |
 |---|---|
+| 2026-07-16 | **coverage_gap 通知の空カード防止**: 元候補が見つからない / 通知本文が薄すぎるカードは `重要メモにコピーする？` と聞かず、`コピー前に元情報を確認` に変えて「このカードだけではコピー対象を判断できない」と表示。肯定ボタンを disabled にし、`通知本文と確認先を見て判断してね` や scope ID を出さない。 |
+| 2026-07-16 | **coverage_gap 通知の質問化 v4**: 詳細欄から「会議メモで見つかった内容」「通知した理由」を廃止し、「コピーされる文章」「判断の目安」「コピーしても起きないこと」に変更。監査メモではなく、重要メモへ実際に残る一文を先頭に出す。 |
+| 2026-07-16 | **coverage_gap 通知の質問化 v3**: 画面から `目立たない話` とカード内の追加疑問文を削除。タイトルは `重要メモにコピーする？`、詳細欄は「会議メモで見つかった内容」「通知した理由」「ボタンを押すと起きること」へ統一し、元の会議要約を書き換えないことを明示。 |
+| 2026-07-16 | **coverage_gap 通知の質問化 v2**: 画面から `D-6` / `coverage_gap` / `raw transcript` / `元情報` / `取りこぼし` / `条件付き投資家関心` / `薄い` / `candidate` / `salience` を削除。タイトルは `重要メモに残す？`、詳細欄は「会議メモにあった話」「いまの要約で目立たない話」「残すとどうなる？」へ統一。 |
 | 2026-05-09 | 初版。`l2_feedbacks` テーブル + `/notifications` ページ + POST API + GAS 155 の 3 extractor で feedback 取り込み |
 | 2026-05-09 | **MTGサマリ feedback 連携完成** (gas/074): `_l2_loadFeedbackBlock_("meeting_summary", projectId, meetingId)` で過去依頼を取得 → userPrompt に追加。saved>0 で `_l2_recordFeedbackApplied_` で applied_count++ + last_applied_at = now()。source_hash 入力に active feedback hash を混ぜる → 修正依頼追加で自動再抽出 (`_meeting_feedbackHashInput_`)。prompt rev "v4_alias_feedback" にバンプ |
 | 2026-05-09 | **POST `/api/notifications/feedback` 末尾で 即 force 再抽出 fire-and-forget**: l2_kind ごとに対応 GAS 関数を runFunc で叩く (meeting_summary → `nav_meeting_processOneEvent_`、member_knowledge → `nav_member_knowledge_extractOne_` (member_id を server side で resolve)、project_knowledge → `nav_project_knowledge_extractOneForYm_`、protocols → `nav_protocol_extractOneForYm_`)。修正依頼を投げた瞬間に数十秒後に再抽出 → applied_count++ で UI 即反映 |

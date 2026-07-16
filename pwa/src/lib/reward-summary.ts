@@ -16,6 +16,8 @@ type SupabaseLike = SupabaseClient;
 
 const ACTIVE_PLAN_STATUSES = ["active", "confirmed", "fixed", "draft"];
 const REWARD_SUMMARY_VERSION = "server_v5_planned_share_cap_carry_no_final_topup";
+// 2026-07 以降がポイント制の対象。旧制度で合意済みの月を新制度差額として精算しない。
+const POINT_REWARD_TRANSITION_YM = "202607";
 const CAP_EXTRA_MILESTONE_TAGS = new Set(["cap_extra", "extra_contract", "contract_extra", "cap_outside", "uncapped"]);
 
 type RewardPool = "regular" | "cap_extra";
@@ -238,6 +240,7 @@ export type RewardCycleProtectionRow = {
 export type RewardLiabilityOffsetRow = {
   id?: string | null;
   project_id?: string | null;
+  plan_cycle_id?: string | null;
   source_ym?: string | null;
   apply_ym?: string | null;
   applies_from_ym?: string | null;
@@ -246,6 +249,8 @@ export type RewardLiabilityOffsetRow = {
   amount_yen?: number | string | null;
   pool?: RewardPool | string | null;
   status?: string | null;
+  origin_type?: string | null;
+  metadata_json?: unknown;
 };
 
 export type RewardLiabilityOffsetsByYm = Map<string, RewardLiabilityOffsetRow[]>;
@@ -291,16 +296,33 @@ function isMissingRelationError(error: unknown): boolean {
   return code === "42P01" || code === "PGRST205" || message.includes("reward_member_liability_offsets");
 }
 
+function ymText(value: unknown): string {
+  const ym = String(value ?? "").trim();
+  return /^\d{6}$/.test(ym) ? ym : "";
+}
+
+function isLegacyAgreementOffset(row: RewardLiabilityOffsetRow): boolean {
+  const sourceYm = ymText(row.source_ym ?? row.applies_from_ym);
+  if (!sourceYm || sourceYm >= POINT_REWARD_TRANSITION_YM) return false;
+
+  const metadata = asRecord(row.metadata_json);
+  const metadataSource = String(metadata?.source ?? "");
+  const originType = String(row.origin_type ?? "");
+  return originType === "ms_overview_edit" || metadataSource === "zmp_locked_actuals_audit";
+}
+
 async function loadRewardLiabilityOffsetsByYm(
   db: SupabaseLike,
   projectId: string,
+  planCycleId: string,
   startYm: string,
   targetYm: string
 ): Promise<RewardLiabilityOffsetsByYm> {
   const res = await db
     .from("reward_member_liability_offsets")
-    .select("id, project_id, source_ym, apply_ym, applies_from_ym, member_id, offset_yen, amount_yen, pool, status")
+    .select("id, project_id, plan_cycle_id, source_ym, apply_ym, applies_from_ym, member_id, offset_yen, amount_yen, pool, status, origin_type, metadata_json")
     .eq("project_id", projectId)
+    .eq("plan_cycle_id", planCycleId)
     .in("status", ["pending", "active"])
     .not("apply_ym", "is", null)
     .gte("apply_ym", startYm)
@@ -313,14 +335,16 @@ async function loadRewardLiabilityOffsetsByYm(
   }
 
   const byYm: RewardLiabilityOffsetsByYm = new Map();
-  for (const row of (res.data ?? []) as RewardLiabilityOffsetRow[]) {
+  const rows = (res.data ?? []) as RewardLiabilityOffsetRow[];
+  for (const row of rows) {
     const applyYm = String(row.apply_ym ?? row.applies_from_ym ?? "");
     const memberId = String(row.member_id ?? "");
     const amount = Math.round(numberValue(row.offset_yen ?? row.amount_yen));
     if (!/^\d{6}$/.test(applyYm) || !memberId || amount === 0) continue;
-    const rows = byYm.get(applyYm) ?? [];
-    rows.push(row);
-    byYm.set(applyYm, rows);
+    if (isLegacyAgreementOffset(row)) continue;
+    const offsetsForYm = byYm.get(applyYm) ?? [];
+    offsetsForYm.push(row);
+    byYm.set(applyYm, offsetsForYm);
   }
   return byYm;
 }
@@ -1662,7 +1686,7 @@ async function computeRewardSummaryForCycle(
     liabilityOffsetsByYm: options.liabilityOffsetsOverride ?? (
       options.includeLiabilityOffsets === false
         ? undefined
-        : await loadRewardLiabilityOffsetsByYm(db, projectId, planCycle.period_start_ym, ym)
+        : await loadRewardLiabilityOffsetsByYm(db, projectId, planCycle.plan_cycle_id, planCycle.period_start_ym, ym)
     ),
     planCycle,
     project,
@@ -2039,6 +2063,7 @@ export async function computeForwardCappedMemberCosts(
   const liabilityOffsetsByYm = await loadRewardLiabilityOffsetsByYm(
     db,
     projectId,
+    planCycle.plan_cycle_id,
     planCycle.period_start_ym,
     planCycle.period_end_ym
   );

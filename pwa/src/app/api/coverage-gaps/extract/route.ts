@@ -40,6 +40,47 @@ async function authorize(req: NextRequest): Promise<boolean> {
 
 const VALID_GAP_CLASS = new Set(["extractor_miss", "structural_gap", "uncertain"]);
 
+function coverageNotificationSubject(raw: string | null | undefined, fallback: string): string {
+  let s = String(raw || fallback || "").trim();
+  s = s
+    .replace(/^未OS化(?:の可能性|候補)?[:：]\s*/, "")
+    .replace(/^(?:D-6\s*)?経営ハイライトに残す[？?][:：]\s*/, "")
+    .replace(/^重要メモに残す[？?][:：]\s*/, "")
+    .replace(/^重要メモにコピーする[？?][:：]\s*/, "")
+    .replace(/^OSに残す[？?][:：]\s*/, "")
+    .replace(/\s*\/\s*(?:【web】\s*)?.*(?:経営会議|会議|審査委員会|委員会)\s*$/, "")
+    .trim();
+  const h1Match = s.match(/^H-1\s*要約で(.+?)が(?:薄まった|弱まった)可能性[:：]\s*(.+)$/);
+  if (h1Match) return humanizeCoverageSubject(h1Match[1].trim());
+  return humanizeCoverageSubject(s || fallback);
+}
+
+function coverageNotificationTitle(it: GapCandidate): string {
+  const subject = coverageNotificationQuestionSubject(it);
+  return `重要メモにコピーする？: ${subject}`.slice(0, 300);
+}
+
+function coverageNotificationQuestionSubject(it: GapCandidate): string {
+  const summary = String(it.summary ?? "");
+  if (/VC\s*3社|VC3社/.test(summary) && /PoC|NEDO/.test(summary)) {
+    return "PoC後にVC3社が出資を検討するかも";
+  }
+  return coverageNotificationSubject(it.title, it.source);
+}
+
+function humanizeCoverageSubject(value: string): string {
+  let s = value.replace(/\s+/g, " ").trim();
+  s = s
+    .replace(/PoC後のVC関心確認/g, "PoC後にVCが出資を検討する話")
+    .replace(/VC関心確認/g, "VCが出資を検討する話")
+    .replace(/創業体制\/資金調達転換/g, "創業体制や資金調達方針の変化")
+    .replace(/合金キャピタル新株予約権の具体条件/g, "合金キャピタルの新株予約権の条件")
+    .replace(/条件付き投資家関心/g, "条件がそろえば出資を検討する話")
+    .replace(/条件付き情報/g, "条件つきの話")
+    .replace(/薄い/g, "弱く書かれている");
+  return s.length > 80 ? `${s.slice(0, 80)}...` : s;
+}
+
 export async function POST(req: NextRequest) {
   if (!(await authorize(req))) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
 
@@ -104,9 +145,9 @@ export async function POST(req: NextRequest) {
       l2_kind: "coverage_gap",
       target_id: projectId ?? scope,
       scope_key: gapId,
-      title: `未OS化の可能性: ${it.title ? String(it.title).slice(0, 110) : it.source}`,
+      title: coverageNotificationTitle(it),
       summary: it.summary ?? null,
-      saved_count: 1,
+      saved_count: 0,
       total_count: 1,
       importance,
       notified_at: nowIso,

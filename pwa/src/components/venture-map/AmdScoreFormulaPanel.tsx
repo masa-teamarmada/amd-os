@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * PRS primary + legacy AMD comparison モデル説明パネル。
+ * SPS (シーズ有望度) primary + legacy AMD comparison モデル説明パネル。
  *
  * PJ cockpit のスコア詳細タブと
  * Retrofit ページ (/venture-map/amd-score/retrofit) の両方で同一のモデル構造を表示。
@@ -48,7 +48,7 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
       <div className="relative mb-4 flex flex-wrap items-end justify-between gap-3 border-b border-cyan-300/24 pb-3">
         <div>
           <div className="text-[16px] font-black uppercase tracking-[0.2em] text-cyan-100 drop-shadow-[0_0_14px_rgba(103,232,249,.72)]">
-            PRS (M·P·R·S) PRIMARY FORMULA
+            SPS シーズ有望度 (M·P·R·S) PRIMARY FORMULA
           </div>
           <div className="mt-2 max-w-4xl text-[13px] font-semibold text-cyan-100/78">
             主表示は{" "}
@@ -57,7 +57,8 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
             <strong className="text-sky-300">Reach R</strong> ×{" "}
             <strong className="text-pink-200">Survival S (自走力)</strong>。2026-07-16 に σ_SU を S から分離して独立項 M へ
             (フラット Cobb-Douglas の結合則によりスコア数値は完全不変)。旧{" "}
-            <strong className="text-cyan-200">M × X × F</strong> は下段に comparison layer として残す。MPRS への全面改称はまさ判断待ちで、当面 PRS (M·P·R·S) と併記する。
+            <strong className="text-cyan-200">M × X × F</strong> は下段に comparison layer として残す。呼称は{" "}
+            <strong className="text-cyan-200">SPS = Seed Prospect Score (シーズ有望度)</strong> — 和名の略であって成分の頭字ではないため、4因子化しても名前は壊れない (旧 PRS は 2026-07-11 まさ確定で廃止、terminology_glossary §1.5)。
           </div>
         </div>
         <div className="border border-pink-300/42 bg-pink-500/8 px-3 py-2 text-right font-mono text-[12px] font-black uppercase tracking-[0.12em] text-pink-200 shadow-[0_0_20px_rgba(244,114,182,.18)]">
@@ -66,16 +67,16 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
       </div>
 
       <div className="relative flex flex-col gap-3">
-        <FormulaBlock title="PRIMARY OVERALL SCORE" accent="cyan" subtitle="主表示の PRS score。compact と expanded を両方表示">
+        <FormulaBlock title="PRIMARY OVERALL SCORE" accent="cyan" subtitle="主表示の SPS score。compact と expanded を両方表示">
           <div className="grid gap-2">
             <FormulaLine label="compact">
-              <Tex tex={String.raw`\mathrm{Score}_{\mathrm{PRS}} \;=\; k \cdot M \cdot P \cdot R \cdot S`} />
+              <Tex tex={String.raw`\mathrm{Score}_{\mathrm{SPS}} \;=\; k \cdot M \cdot P \cdot R \cdot S`} />
             </FormulaLine>
             <FormulaLine label="expanded">
-              <Tex tex={String.raw`\mathrm{Score}_{\mathrm{PRS}} \;=\; k \cdot (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma} \cdot (P_{\mathrm{input}}+1)^{\alpha_P} \cdot \prod_{x \in \{\mathrm{TRL},\, \mathrm{BRL},\, \mathrm{GRL},\, \mathrm{SRL},\, \mathrm{HRL}\}} (x+1)^{\alpha_x} \cdot (\mathrm{FRL}+1)^{\alpha_F} \cdot (R_{\mathrm{net}}+1)^{\alpha_{R_{\mathrm{net}}}}`} />
+              <Tex tex={String.raw`\mathrm{Score}_{\mathrm{SPS}} \;=\; k \cdot (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma} \cdot (P_{\mathrm{input}}+1)^{\alpha_P} \cdot \prod_{x \in \{\mathrm{TRL},\, \mathrm{BRL},\, \mathrm{GRL},\, \mathrm{SRL},\, \mathrm{HRL}\}} (x+1)^{\alpha_x} \cdot (\mathrm{FRL}+1)^{\alpha_F} \cdot (R_{\mathrm{net}}+1)^{\alpha_{R_{\mathrm{net}}}}`} />
             </FormulaLine>
             <FormulaLine label="k calibration">
-              <Tex tex={String.raw`k \;=\; \frac{100{,}000}{10^{\sum_{x \in \mathcal{A}_{PRS}} \alpha_x}}, \qquad \mathcal{A}_{PRS} \;=\; \{P, \mathrm{TRL}, \mathrm{BRL}, \mathrm{GRL}, \mathrm{SRL}, \mathrm{HRL}, \sigma_{\mathrm{SU}}, \mathrm{FRL}, R_{\mathrm{net}}\}`} />
+              <Tex tex={String.raw`k \;=\; \frac{100{,}000}{10^{\sum_{x \in \mathcal{A}_{SPS}} \alpha_x}}, \qquad \mathcal{A}_{SPS} \;=\; \{P, \mathrm{TRL}, \mathrm{BRL}, \mathrm{GRL}, \mathrm{SRL}, \mathrm{HRL}, \sigma_{\mathrm{SU}}, \mathrm{FRL}, R_{\mathrm{net}}\}`} />
             </FormulaLine>
           </div>
           <Citation>
@@ -94,7 +95,7 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
               <MeaningChip label="S" title="自走力" body="外の資金が止まっても自分の力で走り続けられる体質。FRL × R_net。" />
             </div>
             <div className="rounded border border-cyan-300/24 bg-cyan-300/7 px-3 py-2 leading-relaxed">
-              PRS は足し算の加点表ではなく、立ち上がるための必要条件を同時に見るモデル。
+              SPS は足し算の加点表ではなく、立ち上がるための必要条件を同時に見るモデル。
               P が大きくても R が低ければ届かない。M が吹いていても S (自走力) が低ければ環境で延命しているだけ。
               積にすると、どれか1つが弱い時に score が自然に抑えられ、4つが同時に揃った時だけ大きく伸びる。
               M と S を分けたことで「環境で延命しているのか、自走できるのか」を別々に診断できる (2026-07-16 まさ確定)。
@@ -136,7 +137,7 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
         <FormulaBlock title="POTENTIAL P" accent="rose" subtitle="目標成功規模の ceiling。review 入力の P をそのまま使う">
           <Tex display tex={String.raw`P \;=\; (P_{\mathrm{input}}+1)^{\alpha_P}`} />
           <Citation>
-            いまの P は review queue で決める事業ポテンシャル入力。未入力なら PRS を出さず、legacy AMD へ silent fallback しない。
+            いまの P は review queue で決める事業ポテンシャル入力。未入力なら SPS を出さず、legacy AMD へ silent fallback しない。
           </Citation>
         </FormulaBlock>
 
@@ -158,7 +159,7 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
           <Citation>
             Survival = 自走力 (Survival = FRL × R_net)。<strong>FRL</strong> (founder readiness) と{" "}
             <strong>R_net</strong> (資源毀損を引いた純残存力) の積。σ_SU は 2026-07-16 に独立項 M へ分離 —
-            「環境で延命している」と「自走できる」を別々に診断するため。R_net 未入力時は PRS を review pending で止める。
+            「環境で延命している」と「自走できる」を別々に診断するため。R_net 未入力時は SPS を review pending で止める。
           </Citation>
         </FormulaBlock>
 
@@ -217,7 +218,7 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
         <div className="relative overflow-hidden border border-cyan-300/28 bg-cyan-300/7 px-4 py-3 text-[12px] font-semibold text-cyan-100/78 shadow-[inset_0_0_22px_rgba(34,211,238,.08)]">
           <div className="absolute left-0 top-0 h-full w-1 bg-cyan-200 shadow-[0_0_16px_rgba(103,232,249,.9)]" />
           <div className="font-mono text-[13px] font-black uppercase tracking-[0.12em] text-cyan-100">
-            PRS α WEIGHT ARRAY
+            SPS α WEIGHT ARRAY
           </div>
           <div className="mt-2">
             α_F=<span className="font-mono text-rose-200">{PRS_ALPHA_DEFAULT.FRL}</span> &gt;
@@ -231,7 +232,7 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
             α_SRL=<span className="font-mono text-sky-200">{PRS_ALPHA_DEFAULT.SRL}</span>
           </div>
           <div className="mt-1">
-            <Tex tex={String.raw`k = 100{,}000 / 10^{\sum_{x \in \mathcal{A}_{PRS}} \alpha_x}`} /> で全軸 9 (= IPO 級) を 100,000 に校正 ·
+            <Tex tex={String.raw`k = 100{,}000 / 10^{\sum_{x \in \mathcal{A}_{SPS}} \alpha_x}`} /> で全軸 9 (= IPO 級) を 100,000 に校正 ·
             Shallow Tech モード (TRL=null) では TRL を reach から除外して k を再校正。
           </div>
         </div>
@@ -239,15 +240,15 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
         <div className="relative overflow-hidden border border-amber-300/48 bg-amber-300/8 px-4 py-3 text-[13px] text-amber-50 shadow-[0_0_24px_rgba(251,191,36,.12),inset_0_0_22px_rgba(251,191,36,.08)]">
           <div className="absolute inset-x-0 top-0 h-px bg-amber-200 shadow-[0_0_14px_rgba(251,191,36,.75)]" />
           <div className="mb-2 font-mono text-[14px] font-black uppercase tracking-[0.15em] text-amber-100 drop-shadow-[0_0_12px_rgba(251,191,36,.58)]">
-            PRS RATE-LIMITING AXIS
+            SPS RATE-LIMITING AXIS
           </div>
           <div className="mb-2 font-semibold text-amber-50/82">
-            「1 段階上げたとき PRS score が最も大きく増える軸」を律速とする。Cobb-Douglas の偏微分から:
+            「1 段階上げたとき SPS score が最も大きく増える軸」を律速とする。Cobb-Douglas の偏微分から:
           </div>
           <div className="overflow-x-auto border border-amber-200/24 bg-slate-950/82 px-3 py-2">
             <Tex
               display
-              tex={String.raw`\frac{\partial \mathrm{Score}_{\mathrm{PRS}}}{\partial Z_i} \;=\; \frac{\alpha_i \cdot \mathrm{Score}_{\mathrm{PRS}}}{Z_i + 1} \quad\Rightarrow\quad \mathrm{bottleneck}_{PRS} \;=\; \arg\max_i \frac{\alpha_i}{Z_i + 1}, \qquad Z_i \in \mathcal{A}_{PRS}`}
+              tex={String.raw`\frac{\partial \mathrm{Score}_{\mathrm{SPS}}}{\partial Z_i} \;=\; \frac{\alpha_i \cdot \mathrm{Score}_{\mathrm{SPS}}}{Z_i + 1} \quad\Rightarrow\quad \mathrm{bottleneck}_{SPS} \;=\; \arg\max_i \frac{\alpha_i}{Z_i + 1}, \qquad Z_i \in \mathcal{A}_{SPS}`}
             />
           </div>
           <div className="mt-2 font-semibold text-amber-50/78">

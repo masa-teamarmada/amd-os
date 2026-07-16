@@ -73,10 +73,10 @@ Atlas は、AMD が見るべき外部シグナルを蓄積し、後から判断�
 
 ## AMD Score
 
-AMD Score は、PJ / SU 単位の価値・成熟度を見るスコア。現行 primary は PRS (`P x R x S`)。Before Zero Theory v3.2 の M-X-F / 7軸 Cobb-Douglas は legacy comparison と evidence chain として残す。
+AMD Score は、PJ / SU 単位の価値・成熟度を見るスコア。現行 primary は SPS (`M x P x R x S`)。Before Zero Theory v3.2 の M-X-F / 7軸 Cobb-Douglas は legacy comparison と evidence chain として残す。
 
 $$
-\mathrm{Score}_{\mathrm{PRS}} = K_{\mathrm{PRS}}\cdot P\cdot R\cdot S
+\mathrm{Score}_{\mathrm{SPS}} = K_{\mathrm{SPS}}\cdot M\cdot P\cdot R\cdot S
 $$
 
 $$

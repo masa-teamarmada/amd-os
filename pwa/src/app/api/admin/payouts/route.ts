@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/supabase/api-auth";
 import {
   candidateSourceYmsForPaymentYm,
-  effectivePaymentYmForCycle,
+  effectiveMemberPayoutYmForCycle,
   type PaymentProjectRow,
 } from "@/lib/payment-groups";
 import {
@@ -1091,11 +1091,9 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
     membersRes,
     projectsRes,
     projectMembersRes,
-    invoiceCyclesRes,
-    unsetInvoiceCyclesRes,
+    paymentCandidateCyclesRes,
     forecastCyclesRes,
-    forecastPaymentExplicitCyclesRes,
-    forecastPaymentUnsetCyclesRes,
+    forecastPaymentCandidateCyclesRes,
     forecastPlanCyclesRes,
   ] = await Promise.all([
     db
@@ -1114,12 +1112,8 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
     db
       .from("billing_cycles")
       .select(cycleSelect)
-      .eq("invoice_ym", ym),
-    db
-      .from("billing_cycles")
-      .select(cycleSelect)
       .in("ym", candidateYms)
-      .is("invoice_ym", null),
+      .order("ym", { ascending: true }),
     db
       .from("billing_cycles")
       .select(cycleSelect)
@@ -1129,13 +1123,7 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
     db
       .from("billing_cycles")
       .select(cycleSelect)
-      .in("invoice_ym", forecastMonths)
-      .order("ym", { ascending: true }),
-    db
-      .from("billing_cycles")
-      .select(cycleSelect)
       .in("ym", forecastPaymentSourceYms)
-      .is("invoice_ym", null)
       .order("ym", { ascending: true }),
     db
       .from("value_plan_cycles")
@@ -1148,11 +1136,9 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
   if (membersRes.error) throw membersRes.error;
   if (projectsRes.error) throw projectsRes.error;
   if (projectMembersRes.error) throw projectMembersRes.error;
-  if (invoiceCyclesRes.error) throw invoiceCyclesRes.error;
-  if (unsetInvoiceCyclesRes.error) throw unsetInvoiceCyclesRes.error;
+  if (paymentCandidateCyclesRes.error) throw paymentCandidateCyclesRes.error;
   if (forecastCyclesRes.error) throw forecastCyclesRes.error;
-  if (forecastPaymentExplicitCyclesRes.error) throw forecastPaymentExplicitCyclesRes.error;
-  if (forecastPaymentUnsetCyclesRes.error) throw forecastPaymentUnsetCyclesRes.error;
+  if (forecastPaymentCandidateCyclesRes.error) throw forecastPaymentCandidateCyclesRes.error;
   if (forecastPlanCyclesRes.error) throw forecastPlanCyclesRes.error;
 
   const projectMap = new Map<string, PaymentProjectRow>();
@@ -1160,12 +1146,9 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
     projectMap.set(project.project_id, project);
   }
   const cycleMap = new Map<string, BillingCycleRow>();
-  for (const row of (invoiceCyclesRes.data ?? []) as BillingCycleRow[]) {
-    cycleMap.set(cycleKey(row), row);
-  }
-  for (const row of (unsetInvoiceCyclesRes.data ?? []) as BillingCycleRow[]) {
+  for (const row of (paymentCandidateCyclesRes.data ?? []) as BillingCycleRow[]) {
     const project = projectMap.get(row.project_id);
-    const effectiveYm = effectivePaymentYmForCycle(row, project);
+    const effectiveYm = effectiveMemberPayoutYmForCycle(row, project);
     if (effectiveYm === ym) {
       cycleMap.set(cycleKey(row), { ...row, invoice_ym: effectiveYm });
     }
@@ -1173,15 +1156,9 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
   const cycles = [...cycleMap.values()].sort(cycleSort);
   const forecastCycles = ((forecastCyclesRes.data ?? []) as BillingCycleRow[]).sort(cycleSort);
   const forecastPaymentCycleMap = new Map<string, BillingCycleRow>();
-  for (const row of (forecastPaymentExplicitCyclesRes.data ?? []) as BillingCycleRow[]) {
-    const invoiceYm = cleanYm(row.invoice_ym);
-    if (invoiceYm && forecastMonths.includes(invoiceYm)) {
-      forecastPaymentCycleMap.set(cycleKey(row), row);
-    }
-  }
-  for (const row of (forecastPaymentUnsetCyclesRes.data ?? []) as BillingCycleRow[]) {
+  for (const row of (forecastPaymentCandidateCyclesRes.data ?? []) as BillingCycleRow[]) {
     const project = projectMap.get(row.project_id);
-    const effectiveYm = effectivePaymentYmForCycle(row, project);
+    const effectiveYm = effectiveMemberPayoutYmForCycle(row, project);
     if (forecastMonths.includes(effectiveYm)) {
       forecastPaymentCycleMap.set(cycleKey(row), { ...row, invoice_ym: effectiveYm });
     }

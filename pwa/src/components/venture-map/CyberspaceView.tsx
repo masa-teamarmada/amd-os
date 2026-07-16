@@ -658,7 +658,7 @@ function TitleBar() {
         LEGACY S = K · M · X · F
       </div>
       <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 4, textShadow: "none", letterSpacing: 1 }}>
-        PRS primary の比較用に、legacy M × X × F を 3D 空間へ展開した view。
+        SPS primary の比較用に、legacy M × X × F を 3D 空間へ展開した view。
       </div>
     </div>
   );

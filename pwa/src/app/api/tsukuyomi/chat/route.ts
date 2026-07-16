@@ -299,7 +299,7 @@ const TOOLS: Anthropic.Messages.Tool[] = [
   {
     name: "update_amd_score_input",
     description:
-      "AMD Score の legacy 7 軸入力と PRS primary 入力 (P / R_net) を amd_score_inputs に upsert する。\n\n" +
+      "AMD Score の legacy 7 軸入力と SPS primary 入力 (P / R_net) を amd_score_inputs に upsert する。\n\n" +
       "## 各軸の正式定義 (内閣府 SIP / NASA 9 段階) — レベリング時は必ずこの定義に沿う\n\n" +
       "**TRL** (Technology Readiness Level, NASA Mankins 1995, 内閣府 SIP 互換):\n" +
       "  1=基本原理確認 / 2=技術概念定式化 / 3=実験的概念検証\n" +
@@ -349,8 +349,8 @@ const TOOLS: Anthropic.Messages.Tool[] = [
         frl_grit: { type: "number", description: "Grit (集中力) 0-9 — 脇目も振らず長期目標に邁進する passion + perseverance (Duckworth 2007)" },
         frl_resilience: { type: "number", description: "Resilience (タフさ) 0-9 — VC 拒絶等の失敗からの回復力 (Markman 2005)" },
         frl_notes: { type: "string", description: "FRL 自由備考 (CEO 像、外部評価、Founder Network 効果、過去 SU 経験など)" },
-        prs_potential: { type: "number", description: "PRS primary の P (Potential) 0-9。未確定なら送らない" },
-        prs_r_net: { type: "number", description: "PRS primary の R_net 0-9。粗利 - 運営コスト - 本命から奪うリソース毀損。" },
+        prs_potential: { type: "number", description: "SPS primary の P (Potential) 0-9。未確定なら送らない" },
+        prs_r_net: { type: "number", description: "SPS primary の R_net 0-9。粗利 - 運営コスト - 本命から奪うリソース毀損。" },
         shallow_tech_mode: { type: "boolean", description: "Shallow Tech モード (独自技術なし SU で TRL 軸を計算から除外)" },
         notes: { type: "string", description: "全体に対する備考" },
         reason: { type: "string", description: "なぜこう更新したか、まさへの 1 行報告" },

@@ -1,17 +1,19 @@
-# ERS 実装仕様
+# ECR 実装仕様
 
-> **この章は何か**: 研究機関 ERS (Ecosystem Readiness Score) の PWA 実装、DB、評価 UI、API contract。理論と rubric は `/bzm/7-1-ers-ecosystem-readiness` と `/bzm/9-4-ers-rubric`。
+> **この章は何か**: 研究機関 ECR (Ecosystem Construction Rate / エコシステム構築率) の PWA 実装、DB、評価 UI、API contract。理論と rubric は `/bzm/7-1-ers-ecosystem-readiness` と `/bzm/9-4-ers-rubric`。
+>
+> **呼称**: 旧称 ERS (Ecosystem Readiness Score) は 2026-07-11 まさ確定で廃止 (`pwa/bzm/terminology_glossary.md` §1.5)。式・計算は不変で、`ers.ts` / `fetchErsBundle` などのコード・route slug は内部識別子として据え置き。アーカイブ内の「ERS」は「= 現 ECR」と読む。
 
 ## Route / Files
 
 | route / file | 役割 |
 |---|---|
-| `/institutions` | ERS 一覧 |
+| `/institutions` | ECR 一覧 |
 | `/institutions/[institutionId]` | 機関詳細 |
 | `/institutions/[institutionId]/cockpit` | 機関カード起点の関連PJコックピット。NIMSは `inst_nims -> p20` |
-| `/institutions/assess` | ERS 評価 matrix |
+| `/institutions/assess` | ECR 評価 matrix |
 | `pwa/src/lib/ers-data.ts` | client fetch bundle |
-| `pwa/src/lib/ers.ts` | ERS 型 / score calculation |
+| `pwa/src/lib/ers.ts` | ECR 型 / score calculation |
 | `pwa/src/lib/institution-projects.ts` | 機関と既存PJの静的関連付け |
 | `pwa/src/app/api/institutions/assess/route.ts` | 評価 cell upsert |
 
@@ -20,7 +22,7 @@
 | table | contract |
 |---|---|
 | `institutions` | 機関 master。`institution_id` PK、name、short_name、type、region、contract_status、sort_order |
-| `institution_capability_axes` | ERS 8 軸。`axis_id` PK、axis_no、name、corresponds_xrl、weight、sort_order |
+| `institution_capability_axes` | ECR 8 軸。`axis_id` PK、axis_no、name、corresponds_xrl、weight、sort_order |
 | `institution_capability_criteria` | 各軸の sub criteria。`criterion_id` PK、axis_id、code、name、rubric JSON |
 | `institution_assessments` | 評価履歴。`assessment_id` PK、unique `(institution_id, criterion_id, evaluated_at)` |
 | `institution_policy_items` | 制度比較マトリクスの項目 master。`policy_item_id` PK、category、key、label、description、value_type、sort_order |
@@ -43,15 +45,15 @@ assessment は `(institution_id, criterion_id)` ごとに最新 `evaluated_at` �
 
 ## Institution Cockpit Contract
 
-`/dashboard` の研究機関ERSリストから、NIMS (`inst_nims`) は `/institutions/inst_nims/cockpit` へ遷移する。これは新規PJ作成ではなく、既存関連PJ CX (`p20`) のコックピットを機関文脈で表示する route。
+`/dashboard` の研究機関ECRリストから、NIMS (`inst_nims`) は `/institutions/inst_nims/cockpit` へ遷移する。これは新規PJ作成ではなく、既存関連PJ CX (`p20`) のコックピットを機関文脈で表示する route。
 
 実装 contract:
 
 - `pwa/src/lib/institution-projects.ts` が `inst_nims -> p20` を定義する。
 - `/institutions/[institutionId]/cockpit` は `fetchErsBundle()`, `fetchCockpitFromSupabase(projectId)`, `fetchProjectMeetingSummaries(projectId)` を読むだけで、本番DBへ write しない。
-- 上部に ERS summary / 関連PJ / 今期MS / MTG件数を表示する。
-- ERS summary の直下に常時見る readiness snapshot を置き、ERS充足率、強い軸、確認したい軸、関連PJのMS/月次件数を表示する。
-- 基本タブは `進捗管理` / `スコア詳細`。研究機関でも運用構造はPJ cockpitに寄せるが、スコア詳細はSU向けAMD ScoreではなくERS 8軸・評価項目・Lv/根拠メモを表示する。
+- 上部に ECR summary / 関連PJ / 今期MS / MTG件数を表示する。
+- ECR summary の直下に常時見る readiness snapshot を置き、ECR充足率、強い軸、確認したい軸、関連PJのMS/月次件数を表示する。
+- 基本タブは `進捗管理` / `スコア詳細`。研究機関でも運用構造はPJ cockpitに寄せるが、スコア詳細はSU向けAMD ScoreではなくECR 8軸・評価項目・Lv/根拠メモを表示する。
 - `進捗管理` は既存 `CockpitView` を使うため、MS進捗管理、月次カード/モーダル、MTGサマリの挙動は通常PJコックピットと同じ。
 - `project_meeting_summaries` は月別の MTG tree として `進捗管理` の下部に表示し、各 row は `/project/[projectId]/cockpit?meeting=<meeting_id>` へ遷移する。MTG tree を機関コックピット最上部には置かない。
 - まだ機関とPJの正式 scope table はない。外部機関向け tenant/access 設計は `pwa/design/institution_tenant_access.md` の draft を正本にし、現時点では内部向け導線に留める。
@@ -148,4 +150,4 @@ python3 -X utf8 scripts/apply_ddl.py scripts/migrations/120_institution_policy_a
 
 ## 再構築可能性チェック
 
-この章で ERS の DB、fetch、upsert API、admin gate、制度比較seedの投入手順は再構築できる。まだ不足しているのは ERS 8 軸 rubric の PWA seed と `/bzm` からの同期方法。
+この章で ECR の DB、fetch、upsert API、admin gate、制度比較seedの投入手順は再構築できる。まだ不足しているのは ECR 8 軸 rubric の PWA seed と `/bzm` からの同期方法。

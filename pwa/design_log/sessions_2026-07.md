@@ -1,6 +1,53 @@
 # 2026-07 Sessions
 
-## 2026-07-14 — MTG本文のセクション別形式 / 添付資料込みPDF出力
+## 2026-07-01 — L2M-1 v2 移植: Codex (gpt-5.5 daily) → Claude routine (opus-4-8 + ultracode / 月末最終日 03:00 JST) + 内部/対外 2 段生成 + プロンプト DB管理化 + admin/projects 4列追加
+
+### コンテキスト
+- まさ「KUTE で固めた月次業務報告書PDFフォーマットを、AMD OS の月次報告書雛形として実装」の依頼で開始。参考成果物: `/Users/masa/projects/AMD/kute/output/monthly_reports/KUTE_月次業務報告書_202605-202606.md|.html|.pdf`。
+- 実態調査で判明: 旧 M-1 primary writer は Codex `~/.codex/automations/amd-os-l2/automation.toml` (name="AMD OS M-1 月次報告抽出") が gpt-5.5 + reasoning_effort=high で **daily 05:30 JST** に動いてた (認識のズレ: えいみは Codex amd-os-ms かと思っていたが別 automation)。
+- まさ確定方針: 「月次報告書は月1回、月末最終日の早朝3時。opus-4-8 + ultracode に品質を上げるため Claude routine へ移植」「内部保存版 + 対外提出版 の 2 段生成、両方モーダルで見られるように」「AMD (p00) は内部のみ、KUTE/SX/CX = 内部+対外、CTB/NIMS = なし」(途中で CX は internal_and_external に変更、NIMS の位置付けは実は「CX が NIMS 案件」で integrated)、「Slack 通知は `scripts/send-eimi-slack.mjs` でまさ DM に集約」。
+
+### 設計・実装 (main 8 commit 積み上げ)
+1. `8b877306` L2M-1 SKILL.md 初版 + migration 159 (前セッション成果採用)
+   - migration 159: `projects` (work_content jsonb / monthly_report_required bool / report_local_alias text / report_extra_allow_terms text[]) 4 列、`contracts` (tax_basis / recipient_emails) 2 列、`project_documents.delivered_to_client_at`、新 table `monthly_reports_external` (id/project_id/ym/body_md/pdf_drive_url/pdf_local_path/jargon_check_status/jargon_check_findings + UNIQUE(project_id,ym) + RLS admin+service_role)、新 table `llm_prompt_revisions`、`llm_prompts` に `l2m1.monthly_report.internal.v2` / `l2m1.monthly_report.external.v2` seed (body 空、is_active=false 初期)
+2. `4a4ff80f` Slack 通知を `scripts/send-eimi-slack.mjs` (= GAS webapp えいみ persona bot) 経由に一本化、まさ DM に集約。PJ チャンネル通知は廃止。SKILL.md の Phase 2.1 / 2.7 / 3 を書き換え。
+3. `bae00be4` migration 160 で `monthly_report_scope text CHECK IN ('none','internal_only','internal_and_external')` を追加、backfill: p25 KUTE / p21 SX / (後で) p20 CX = internal_and_external、p00 AMD / p07 LST / p10 SE / p19 ZMP / p24 CLG / p26 VasculaX = internal_only、p06 CTB = none。SKILL.md の Phase 1 select と Phase 2.4 scope ガード、Phase 2.7 完了通知テンプレを 4 パターン化 (internal_only 成功 / internal_and_external 成功 / hard_fail / pdf_failed)。
+4. `afeeee3b` admin/projects `page.tsx` row mapper と `AdminProjectsTable.tsx` の `ProjectRow` interface に 4 列追加 (型 + データ供給、UI 未実装)。
+5. `83f50bbe` admin/projects UI 完全実装 (th ヘッダ 4 列追加 + td cell 実装 + edit form)。scope は select、alias は text、allow_terms は textarea(カンマ区切り→string[]変換)、work_content は JSON.parse。BUILD_VERSION `v0.36.36`→`v0.36.37`。
+6. `d5dc34c3` spec/manual 同期: `pwa/spec/3-2-monthly-reports-current-spec.md` を v2 に更新 (v1→v2 差分マトリクス、正本テーブル、現行 writer = Claude routine、旧 Codex `amd-os-l2` は v1 廃止済 writer 節、対外提出版節 (KUTE 準拠フォーマット + allow_list + 対象 PJ 表))。`pwa/spec/6-1-appendix-changelog.md` と `pwa/manual/9-3-appendix-changelog.md` に 2026-07-01 エントリ追記。
+7. `69d01a02` p20 CX (NIMS) を none → internal_and_external に変更 (まさ「CX は internal + external 必須」)。
+8. `9b6e6021` SKILL.md 実行環境記述の誤り訂正 (旧「Anthropic クラウド sandbox VM で発火」→「まさの mac local Claude Code アプリ内で発火」)。2026-07-01 のテスト実走で判明した MCP `create_scheduled_task` の実挙動に合わせる。前提条件「まさの mac は 24 時間常時起動 + アプリ常時 open」を明記。
+
+### llm_prompts DB 反映
+- Workflow で本番と同じ opus-4-8 想定の system + user プロンプト完成形を作成、`$PROMPT$` dollar-quote で `UPDATE public.llm_prompts SET body=$PROMPT$...$PROMPT$, is_active=true WHERE prompt_key='l2m1.monthly_report.internal.v2'` を Supabase MCP `execute_sql` で反映。external.v2 も同様。verify: internal body 8,569 chars / external body 3,990 chars、is_active=true。
+- プロンプト設計方針: LLM が主役、章構成 (何を第N領域として立てるか) も含めて全 DB データから判断して書く、表・数値・日付は決定論的に入力 JSON に含めて渡すが LLM が組み込む、KUTE 実納品 markdown を few-shot として user 側に含める、内部版は §A-§F 内部評価節必須、対外版は allow_list 動的注入 + 禁止語厳格削除。
+
+### Claude routine 登録 (Anthropic 側)
+- MCP `create_scheduled_task` で taskId=`amd-os-l2m1-monthly-report`、cronExpression=`0 3 28-31 * *` (LOCAL time = JST)、prompt には repo SKILL.md 参照 + 概略。**Next run: Tue, Jul 28 03:04 JST** (Anthropic 側の jitterSeconds=299 で 03:00 の +5 分程度)。
+- 実行環境が Anthropic クラウド sandbox ではなく、**まさの mac local Claude Code アプリ**であることが本セッション中のテスト実走 (l2m1-test-p00-june-internal-only、2026-07-01 16:12 発火、14秒で exit) で判明。
+
+### 旧 Codex `amd-os-l2` disable
+- `~/.codex/automations/amd-os-l2/automation.toml` を `status = "ACTIVE"` → `"PAUSED"` に変更。バックアップ: `automation.toml.bak_20260701_disable_by_eimi`。旧 daily 05:30 JST の M-1 生成は停止。並走なし、まさ「即 disable でOK」確定。
+
+### まさ手動修正 (session 内): 本番 SKILL.md に「1 PJ ごとの完了条件」節を追加
+- 完了条件 4 つ (LLM 生成 / `upsertMonthlyReports` で `writtenCount>=1` 受領 / GET verify で length・status・generated_at 一致 / Slack 通知)。1 つでも欠けたら成功版 Slack 通知禁止。
+- **今 handoff で復元 commit**。前 worktree で作業していた変更が unpushed のまま失われかけたが、次セッションのえいみが commit で確定させる。
+
+### CockpitMonthlyModal 修正 (main `5f7f15bd`)
+- MS カード「この月の仕事」欄に markdown table が重複表示される事象を修正 (BUGS.md 該当エントリ参照)。`extractReportSnippets` を全削除、正本 3 ソース (`milestone_monthly_progress.note` + `member_ms_activities` + `member_activities`) のみに戻す。BUILD_VERSION `v0.36.41`→`v0.36.42`。
+
+### テストラン結果と教訓
+- `l2m1-test-p00-june-internal-only` 一次実行 (2026-07-01 16:12): SKILL.md に「DB に一切書かない」と絶対条件を書いた結果、LLM は忠実に skip → ローカルファイル出力のみで DB は旧 gpt-5.5 版のまま → 月次モーダル未更新。
+- テスト task を SKILL.md 全面書き換えで再武装 (2026-07-01 18:00 fireAt): 本番 SKILL.md の「1 PJ 完了条件 4 つ」を検証する形にし、DB 上書き必須。まさが「今すぐ実行」で kick、opus-4-8 + ultracode + 新プロンプトで生成された p00 6月 markdown を月次モーダル左カラムで確認、「ちゃんとクオリティ高い」評価済み。
+- **教訓 (BUGS.md 反映)**: routine の完了判定は「LLM 生成成功」ではなく「DB reflect verify 成功」を基準にすべき。ローカルファイル副本は verify 材料であって完了条件ではない。
+
+### 次セッションで着手する残タスク
+- **KUTE p25 / SX p21 / CX p20 で実走検証** (本番 routine を手動 kick、月次モーダル反映 + Slack DM 通知 + 副本ファイル出力の 4 セット確認)。scope=internal_and_external なので Phase 2.4-2.6 (対外版生成 + 禁止語チェック + PDF 生成) も走らせる。
+- **`scripts/strip_internal_jargon.py` と `scripts/generate_monthly_report.py` の実装** (SKILL.md では references として登場するが未実装、まさが月末までに PDF 生成経路を有効化したい場合は必要)。
+- **本番 routine の 2026-07-31 発火時の実走確認**。まさの mac が 03:00 JST に起動 + Claude Code アプリ open していれば発火、翌朝業務開始までに全対象 PJ の DB reflect + Slack 通知が揃う想定。
+
+---
+
 
 ### コンテキスト
 - 7/14 `SolvioraX経営会議` の会議後カードで、まさから `決まったこと / 次の一手 / 残課題` を箇条書きにすること、PDF出力に投影資料と参加者共有資料も含めることが確定した。
@@ -1393,3 +1440,67 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 - private wiki の未解決実装タスクはなし。
 - optional next: まさログイン状態で本番 `/admin/private-wiki` を開き、dummy entryで新6項目の保存・再表示・archiveを確認する。
 - 旧 `tags` 列は互換のためDBに残すだけ。UI/APIの入力・検索フィルタ・必須アンカーとして戻さない。
+
+---
+
+## 2026-07-16 — KENQ AMD Score detailをPJ cockpitへ統合
+
+### コンテキスト / 判断
+- まさから、`R_net / BRL / GRLは抑えめにした`という説明は「えいみの匙加減で抑えられる設計ではない」と指摘があった。
+- 続けて、分かる範囲でXRL checkboxを付け、R_net用dataを収集してscoringし、確認画面をcockpitのscore detailへmergeする依頼があった。
+- 途中の`p27`指定は言い間違い。対象はKENQの`p29`。
+- standalone score detailとcockpit score detailの二重面は混乱を生むため、通常PJはcockpitを正規面とし、`p99` demoだけstandaloneを維持する判断にした。
+
+### 実装 / 仕様同期
+- `amdScoreDetailHref()`を追加し、list / retrofit / cyberspace / HUD / cockpit内modalの通常PJ導線を`/project/{projectId}/cockpit?tab=score-detail`へ統一した。
+- 旧`/venture-map/amd-score/[projectId]`は通常PJをcockpitへredirectし、`p99`だけ従来pageをrenderする。
+- `CockpitView`をcontrolled tab対応にし、URL queryと`スコア詳細`selected stateを同期した。
+- `AmdScoreView embedded`にPRS primary、`R_net` evidence、M/X/F、FRL、XRL checklistを集約した。
+- manual 2-3 / 3-1 / 4-3 / 4-4 / 5-2、spec 2-1 / 3-8 / 4-2、design `FEATURE_REGISTRY` / `SPEC_pwa` / `amd_score` / `cockpit`、iOS DESIGN、critical UI、changelogを同期した。
+
+### Productionで見つけた分岐漏れ / responsive不具合
+- 初回統合ではembedded早期returnによりXRL checklistが欠けたため、同分岐内へ明示配置し`v3.41.11`で修正した。
+- FRLの固定列、PRS/XRL SVGの600px最低幅、factor gridのintrinsic min-width、M/X/F tableの441px内容幅を順に本番実測で検出した。
+- `v3.41.12`から`v3.41.16`で、compact FRL、responsive chart scroll、`min-width:0`、factor tableのcard内scrollを追加した。
+- 詳細な症状/原因/再発防止は`pwa/BUGS.md`へ記録した。
+
+### Verification / Deploy
+- `npm run test:critical-ui`、`npx tsc --noEmit`、対象eslint、`npm run build`がpass。
+- feature commits: `1bb11009`, `cb34d085`, `6f679106`, `1d6ac74f`, `fe920eb9`, `692db89b`。
+- clean disposable cloneからofficial deploy scriptを実行し、最終機能版`v3.41.16 / 692db89b`をproductionへ反映した。
+- production desktopはviewport/documentとも1586px、mobileはviewport/documentとも390px。score tab selected、XRL checklist 18項目、mobile tab 44pxを確認した。
+- closeout時点のlive dataは`PRS 86 / P=7 / R=12 / S=568 / R_net=3 / checked 5`。途中の`PRS 215 / R=30 / checked 4`からlive data更新があり、UIコードの恣意的な抑制ではない。
+
+### Closeout notes
+- cockpit統合とresponsive修正の既知残タスクはなし。
+- score値はlive dataで変動するため、次回はproduction/API/DBを読み直す。会話中の数値を固定値としてhandoffしない。
+- root checkoutのAtlas / L6 / H-1 reviewer / Book A dirtyは別owner laneであり、今回bundleには混ぜない。
+
+---
+
+## 2026-07-16 — 月初合意の合意事項を独立した01・02へ再設計
+
+### コンテキスト / 判断
+- 最初の改善で状態の主語と確認順は直ったが、合意事項1・2を10pxの列ラベルとして扱ったため、初見で場所を発見できなかった。
+- まさの再指摘を受け、申込・振込などの確認手続きと同じく、必須事項を独立した手続きステップとして見せる方針へ変更した。
+- Solが縦長になるコストを受け入れて発見可能性を優先する設計を確定し、Sonnet workerが実装、司令塔が統合とproduction検証を担当した。
+
+### 実装 / 仕様同期
+- `MonthlyAgreementExperience` を、状態→`01 担当する仕事`→`02 その対価としての予定額`→主操作→参考情報の順へ再構成した。
+- 01は全PJの担当内容、02は予定額合計と同じPJ順の内訳を表示する。PJ別2列表は廃止した。
+- 必須領域の文字サイズ下限を12pxとし、番号14px、見出し18/20px、担当内容14px、PJ別予定額16px、合計26/28pxへ固定した。
+- mobile主操作を全幅48pxにし、長いPJ名は省略せず折り返す。
+- spec 3-14、manual 2-2 / 6-6、FEATURE_REGISTRY、BUGS、manual/spec changelog、critical UI guardを同じbundleで同期した。
+- BUGSには、存在確認・DOM順・横overflowだけをUX完了条件にして、5秒理解・縮小表示・文字サイズ序列を見なかった失敗を記録した。
+
+### Verification / Deploy
+- `node pwa/scripts/check_pwa_critical_ui.cjs` と `npm --prefix pwa run build` がpass。
+- commit `8b014291 fix(pwa): make monthly agreement items unmistakable` をmainへpushし、production `v3.43.8 / 8b014291 / dirty=false` を確認した。
+- productionを320 / 375 / 768 / 1280pxで実測し、全幅でdocument横overflowなし。必須領域のcomputed font-size最小12px、DOM順も仕様どおりだった。
+- まさがproduction画面を確認し、分かりやすくなったと受入確認した。
+
+### Closeout notes
+- 月初合意UI・仕様同期・deploy・responsive検証の必須残タスクはなし。
+- 今回作ったdisposable clean cloneと完了済みSonnet workerはcloseoutで削除・終了した。
+- main-alignedの古いClaude worktree 1つとbranch 1本は証跡保存後に削除し、root worktree / main branchだけへ戻した。
+- root checkoutのBook A / Atlas / L6 / H-1 dirtyは別owner laneであり、月初合意bundleへ混ぜない。

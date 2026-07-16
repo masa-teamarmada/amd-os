@@ -355,8 +355,9 @@ for each member in members:                      # earnedPt 降順
 MS をシーズン途中で修正し、すでに protected な月 (`reward_paid_at` / `payout_notice_uploaded_at` / `payment_confirmed_at`) の本来報酬が変わる場合、その月の `billing_cycles.reward_summary_json` は書き換えない。`/admin/ms-overview` 保存時に旧 cache と新計算値の member×pool 差額を `reward_member_liability_offsets` に記録し、次の未保護月の報酬計算へ入れる。
 
 - `offset_yen > 0`: 本人への追加支払。`apply_ym` の basePay に加算され、通常の cap / stock 繰越に乗る。
-- `offset_yen < 0`: 本人への過払い回収。`apply_ym` 以降の本人の `basePay + carryInYen` から控除し、回収しきれない分は `liabilityRecoupCarryYen` として次月へ残る。
+- `offset_yen < 0`: ポイント制移行後の未確定月で、同じ本人の将来支払から控除する差額。`apply_ym` 以降の本人の `basePay + carryInYen` から控除し、控除しきれない分は `liabilityRecoupCarryYen` として次月へ残る。
 - `apply_ym IS NULL`: シーズン内に未保護の未来月が無い pending 差額。自動では他メンバーや会社バッファへ振らない。
+- `source_ym < 202607` の差額行は、2026年7月のポイント制移行前に合意済みだった月なので、報酬計算へ入れない。過去に合意・支払済みの額を、新制度の計算結果であとから減額対象にしない。
 - 同じ MS 編集由来の pending 行は、保存し直すたびに `voided` へ置き換える。差額は常に「protected 月の保存済み cache」と「現在の MS 設計で再計算した本来値」の差として再作成する。
 
 先12か月の見通しでは、会社留保を `出` に混ぜない。`キャッシュ支払` は外部支払だけ、`会社留保` は `cap/売上枠 - 外部支払`、`報酬債務` は外部メンバーへの月末未払い残、`cap超過チェック` は報酬需要と cap/売上枠の差だけを見る。各表のセルは、その表で確認したい主数字を優先し、別目的の補助数字を混ぜない。`stockYen` は残高なので、12か月分の単純合計を「未払い総額」として読まない。報酬債務表の合計列はピークではなく、最終月に外部メンバーへの未払い残がゼロ着地するかを最優先で表示する。役員分の繰越は会社留保側の内部検算で追う。

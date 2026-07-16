@@ -17,7 +17,7 @@
 | 3 | [cockpit.md](cockpit.md) ⭐ | コックピット (`/project/[projectId]/cockpit`) — PJ Status / MS / カンバン / 月次カード / MTGサマリ |
 | 4 | [routine.md](routine.md) ⭐ | OS上のPM月次ルーティン廃止の正本。dashboard / mypage / cockpit / legacy GAS の回帰防止 |
 | 4 | [mypage.md](mypage.md) | `/mypage` 仕様 — 自分の参加 PJ・今月の活動・月次報酬 |
-| 5 | [amd_score.md](amd_score.md) | AMD Score (PRS primary / legacy M-X-F comparison)、cron / L2 抽出 |
+| 5 | [amd_score.md](amd_score.md) | AMD Score (SPS primary / legacy M-X-F comparison)、cron / L2 抽出 |
 | 5.2 | [management_score.md](management_score.md) ⭐ | **AMD Management Score** — AMD会社全体の経営状況スコア。先手力 / 財務耐久 / 既存PJ継続 / 新規案件獲得 / 戦略接近度 |
 | 5.5 | [aspi_lanes.md](aspi_lanes.md) ⭐ | **ASPI Critical Technology Tracker 8 domain** (= 新 lane 体系、旧 5 lane 廃止)。PJ.lanes JSONB weighted / 10 PJ mapping / 新 cron (lane-suggest / kaken / grant / vc-investment) の正本 |
 

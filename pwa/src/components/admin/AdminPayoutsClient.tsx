@@ -5,7 +5,7 @@ import { CockpitMonthlyModal } from "@/components/cockpit/CockpitMonthlyModal";
 import { fetchCockpitFromSupabase, type CockpitData } from "@/lib/supabase-data";
 import { expandExtraRevenue, type ExtraRevenueSourceRow } from "@/lib/finance/extra-revenue";
 import { basePayoutCapYen, contractBackedClientAmount } from "@/lib/contract-money";
-import { effectivePaymentYmForCycle } from "@/lib/payment-groups";
+import { effectiveMemberPayoutYmForCycle } from "@/lib/payment-groups";
 
 type Member = {
   member_id: string;
@@ -761,7 +761,7 @@ function buildEntries(
     const summary = asRewardSummary(cycle.reward_summary_json);
     const project = options.projectMap?.get(cycle.project_id);
     const invoiceYm = options.projectMap
-      ? effectivePaymentYmForCycle(cycle, project)
+      ? effectiveMemberPayoutYmForCycle(cycle, project)
       : cycle.invoice_ym || cycle.ym;
     for (const member of summary?.members ?? []) {
       const memberId = memberIdOf(member);
@@ -2497,7 +2497,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
               {memberRows.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
-                    報酬確定済みのメンバーがいない
+                    この支払月のメンバー支払予定はまだ出ていない。対象cycleがあるのに空なら、報酬キャッシュ再計算を実行してね。
                   </td>
                 </tr>
               ) : (
@@ -2632,7 +2632,7 @@ export function AdminPayoutsClient({ initialYm, ymOptions, initialData = null }:
         <div className="flex items-center justify-between">
           <h2 className="text-[13px] font-semibold">対象の請求・報酬cycle</h2>
           <span className="text-[11px] text-muted-foreground">
-            支払月はPJ台帳の支払条件から自動判定。個別上書きがあるcycleだけ invoice_ym を優先
+            支払月はPJ台帳の支払条件から自動判定。クライアント請求月はここでは使わない
           </span>
         </div>
         <div className="overflow-hidden rounded-lg border border-border">

@@ -322,7 +322,7 @@ export function AmdScoreView({
             <PrimaryPrsBreakdownPanel primary={primarySnapshot} venture={venture} />
           </div>
           <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-700">PRS (M·P·R·S) parameter evidence</div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-700">SPS シーズ有望度 (M·P·R·S) parameter evidence</div>
             <div className="mt-2 grid gap-3 lg:grid-cols-4">
               <div className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-3 text-[11px] text-cyan-900">
                 <div className="font-semibold">M マクロ追い風 (Macrotrend)</div>
@@ -426,7 +426,7 @@ export function AmdScoreView({
             ↩ コックピット
           </Link>
           <h1 className="ml-2 text-2xl font-bold tracking-tight text-slate-900">{venture.display_name}</h1>
-          <span className="text-xs font-semibold tracking-wide text-slate-500">PRS primary / legacy AMD</span>
+          <span className="text-xs font-semibold tracking-wide text-slate-500">SPS primary / legacy AMD</span>
           <Link
             href="/venture-map/amd-score/retrofit"
             className="ml-auto rounded-md border border-pink-200 bg-pink-50 px-3 py-1 text-[11px] font-semibold tracking-wide text-pink-700 hover:bg-pink-100"
@@ -454,7 +454,7 @@ export function AmdScoreView({
         <div className="rounded-xl border border-slate-200 bg-slate-950 px-4 py-3 text-[11px] leading-relaxed text-cyan-50 shadow-sm">
           <div className="font-mono text-[11px] font-black uppercase tracking-[0.14em] text-cyan-200">LEGACY AMD COMPARISON</div>
           <div className="mt-1 text-cyan-50/78">
-            下の M × X × F / FRL / XRL / 経時グラフは legacy AMD を comparison と evidence 用に残したもの。主表示は上の PRS で、ここを primary として読まない。
+            下の M × X × F / FRL / XRL / 経時グラフは legacy AMD を comparison と evidence 用に残したもの。主表示は上の SPS で、ここを primary として読まない。
           </div>
         </div>
         {/* 順序: スコア → 経時 → 3 要素のバランス → 数式 → 3 要素詳細 → FRL レーダー
@@ -1144,7 +1144,7 @@ function PrimaryPrsBreakdownPanel({
 }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700">PRS (M·P·R·S) breakdown</div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700">SPS (M·P·R·S) breakdown</div>
       <div className="mt-3 space-y-2 text-[12px] text-slate-700">
         <div className="flex items-center justify-between gap-3 rounded-lg bg-cyan-50 px-3 py-2">
           <span className="font-semibold">M マクロ追い風</span>
@@ -1240,9 +1240,9 @@ function PrimaryPrsTimeSeriesChart({
   if (allPoints.length === 0) {
     return (
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700">PRS history</div>
+        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700">SPS history</div>
         <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
-          PRS primary は {missingAxes.join(" / ") || "P / R_net"} 入力待ち。score を出さずに止めてる。
+          SPS primary は {missingAxes.join(" / ") || "P / R_net"} 入力待ち。score を出さずに止めてる。
         </div>
       </div>
     );
@@ -1276,7 +1276,7 @@ function PrimaryPrsTimeSeriesChart({
   return (
     <div className="relative rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
       <div className="mb-2 flex items-center gap-2 border-b border-slate-200 pb-2 text-[11px] text-slate-600">
-        <span className="font-bold tracking-wide text-slate-900">PRS primary history</span>
+        <span className="font-bold tracking-wide text-slate-900">SPS primary history</span>
         <span className="text-[10px] text-slate-400">クリックで詳細</span>
         {active && (
           <button
@@ -1408,7 +1408,7 @@ function PrimaryPrsScorePopup({
         <span className="font-mono text-[10px] text-slate-500">{point.evaluated_at}</span>
         <button type="button" onClick={onClose} className="text-[10px] text-slate-500 hover:text-slate-900" aria-label="閉じる">×</button>
       </div>
-      <div className="text-[10px] text-slate-500">PRS (M·P·R·S) primary</div>
+      <div className="text-[10px] text-slate-500">SPS (M·P·R·S) primary</div>
       <div className="font-mono text-2xl font-bold leading-none text-slate-900">{formatRoundedDisplay(point.score)}</div>
       <div className="mt-2 grid grid-cols-3 gap-2 border-t border-slate-200 pt-2">
         <div>
@@ -1747,14 +1747,14 @@ function PrimaryPrsHeroCard({
     <section className="rounded-xl border border-emerald-200 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">PRS (M·P·R·S) Primary</div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">SPS シーズ有望度 (M·P·R·S) Primary</div>
           <div className="mt-1 text-4xl font-mono font-bold leading-none text-slate-950">
             {ready ? fmt(primary.prs.score) : "INPUT NEEDED"}
           </div>
           <div className="mt-2 text-[11px] text-slate-600">
             {ready
-              ? "score = k × M × P × R × S を主表示 (M = マクロ追い風、S = 自走力)。legacy AMD/MXF は比較用。"
-              : `主モデルは PRS だけど、${missingText} が未入力なので score を出さず review 待ちで止めてる。`}
+              ? "SPS (シーズ有望度) = k × M × P × R × S を主表示 (M = マクロ追い風、S = 自走力)。legacy AMD/MXF は比較用。"
+              : `主モデルは SPS だけど、${missingText} が未入力なので score を出さず review 待ちで止めてる。`}
           </div>
         </div>
         <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-right text-[11px] text-slate-600">
@@ -1811,9 +1811,9 @@ function PrimaryPrsHeroCard({
               disabled={saveState === "saving"}
               className="rounded-md bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white disabled:opacity-50"
             >
-              {saveState === "saving" ? "保存中…" : "PRS 入力を保存"}
+              {saveState === "saving" ? "保存中…" : "SPS 入力を保存"}
             </button>
-            {saveState === "done" && <span className="text-[10px] text-emerald-700">保存済み。主表示を PRS で再計算したよ。</span>}
+            {saveState === "done" && <span className="text-[10px] text-emerald-700">保存済み。主表示を SPS で再計算したよ。</span>}
             {saveState === "error" && <span className="text-[10px] text-rose-700">保存に失敗した。認証か RLS を確認して。</span>}
           </div>
         </div>

@@ -1,5 +1,7 @@
 /**
- * ERS — Ecosystem Readiness Score (機関エコシステム整備度スコア)
+ * ECR — Ecosystem Construction Rate (エコシステム構築率)
+ * 旧称 ERS (Ecosystem Readiness Score) は 2026-07-11 廃止 (pwa/bzm/terminology_glossary.md §1.5)。
+ * ファイル名・型名・関数名の ers/Ers は内部識別子として据え置き。
  *
  * 設計正本: pwa/design/institution_readiness.md
  *
@@ -10,7 +12,7 @@
  * 集計:
  *   サブ軸正規化  s = (level - 1) / 4         → Lv1=0.00 .. Lv5=1.00
  *   軸スコア      A_k = mean(評価済みサブ軸 s)  (N/A・未評価は分母から除外、なければ null)
- *   ERS          100 · Σ_k w_k·A_k / Σ_k w_k   (評価済み軸のみで重み正規化、なければ null)
+ *   ECR          100 · Σ_k w_k·A_k / Σ_k w_k   (評価済み軸のみで重み正規化、なければ null)
  */
 
 export interface ErsInstitution {

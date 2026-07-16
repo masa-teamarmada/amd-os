@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { addMonths as addFinanceMonths, syncFreeeCashBalances } from "@/lib/finance/freee-cash-balances";
+import { LIVE_MONTHLY_PL_VERSION, refreshLiveMonthlyPlBudget } from "@/lib/finance/live-monthly-pl-budget";
 
 type Axis = "initiative" | "finance" | "retention" | "pipeline" | "direction";
 type RunStatus = "running" | "success" | "partial" | "failed";
@@ -25,6 +27,11 @@ interface CollectOptions {
   includeFreee?: boolean;
   freeeStartDate?: string;
   freeeEndDate?: string;
+  includeFreeeCashBalances?: boolean;
+  cashBalanceStartYm?: string;
+  cashBalanceEndYm?: string;
+  cashBalanceHistoryStartYm?: string;
+  refreshLiveMonthlyPlBudget?: boolean;
 }
 
 interface CollectResult {
@@ -570,7 +577,9 @@ async function collectInternalSignals(supabase: SupabaseClient, ym: string): Pro
     projectPartners,
   ] = await Promise.all([
     fetchAll(supabase, "member_activities", "id,member_id,project_id,ym,source,source_item_id,title,content_preview,item_date,raw_metadata,milestone_id,initiative_origin,impact,depth,reject_reason", (q) => q.eq("ym", ym)),
-    fetchAll(supabase, "company_budget_actual_monthly", "ym,scope,project_id,category,account_name,budget_amount_yen,actual_amount_yen,variance_yen,cash_amount_yen,runway_months,budget_version,freee_account_item_id,freee_partner_id,budget_payload,actual_payload", (q) => q.eq("ym", ym)),
+    fetchAll(supabase, "company_budget_actual_monthly", "ym,scope,project_id,category,account_name,budget_amount_yen,actual_amount_yen,variance_yen,cash_amount_yen,runway_months,budget_version,freee_account_item_id,freee_partner_id,budget_payload,actual_payload", (q) =>
+      q.eq("ym", ym).or(`budget_version.eq.${LIVE_MONTHLY_PL_VERSION},budget_version.is.null`)
+    ),
     fetchAll(supabase, "company_actual_monthly", "id,ym,scope,project_id,category,account_name,actual_amount_yen,freee_account_item_id,freee_partner_id,source_ref,raw_hash,payload,imported_at", (q) => q.eq("ym", ym)),
     fetchAll(supabase, "billing_cycles", "id,project_id,ym,budget_yen,status,meeting_start_at,report_fixed_at,invoice_sent_at,payment_confirmed_at,budget_confirmed_at,invoice_issued_at,invoice_ym,freee_invoice_number,updated_at", (q) => q.eq("ym", ym)),
     fetchAll(supabase, "company_finance_recurring_items", "id,status,item_kind,display_name,vendor_name,category,amount_yen,frequency,start_ym,end_ym,budget_forward_fill,auto_debit,withdrawal_account,payment_method,source_kind,source_ref,last_receipt_at,last_budget_synced_at,notes,updated_at"),
@@ -1246,6 +1255,10 @@ export async function collectManagementScoreRawData(
   const dateRange = ymToDateRange(ym);
   const startDate = options.freeeStartDate ?? dateRange.startDate;
   const endDate = options.freeeEndDate ?? dateRange.endDate;
+  const includeCashBalances = !!options.includeFreee && options.includeFreeeCashBalances !== false;
+  const shouldRefreshLiveBudget = options.refreshLiveMonthlyPlBudget !== false;
+  const cashBalanceStartYm = options.cashBalanceStartYm ?? addFinanceMonths(ym, -1);
+  const cashBalanceEndYm = options.cashBalanceEndYm ?? ym;
   const errors: string[] = [];
   const counts: Record<string, number> = {};
   const { data: run, error: runError } = await supabase
@@ -1255,7 +1268,15 @@ export async function collectManagementScoreRawData(
       source_kind: options.includeFreee ? "os_internal+freee" : "os_internal",
       source: "management_score_raw_collector",
       status: "running",
-      params: { includeFreee: !!options.includeFreee, startDate, endDate },
+      params: {
+        includeFreee: !!options.includeFreee,
+        includeCashBalances,
+        startDate,
+        endDate,
+        cashBalanceStartYm: includeCashBalances ? cashBalanceStartYm : null,
+        cashBalanceEndYm: includeCashBalances ? cashBalanceEndYm : null,
+        refreshLiveMonthlyPlBudget: shouldRefreshLiveBudget,
+      },
     })
     .select("id")
     .single();
@@ -1291,6 +1312,35 @@ export async function collectManagementScoreRawData(
       } catch (error) {
         errors.push(error instanceof Error ? error.message : String(error));
         counts.freee = 0;
+      }
+
+      if (includeCashBalances) {
+        try {
+          const cashResult = await syncFreeeCashBalances(supabase, {
+            startYm: cashBalanceStartYm,
+            endYm: cashBalanceEndYm,
+            historyStartYm: options.cashBalanceHistoryStartYm,
+          });
+          counts.cashBalance = cashResult.rowCount;
+          counts.cashBalanceWalletTxns = cashResult.walletTxnCount;
+        } catch (error) {
+          errors.push(error instanceof Error ? error.message : String(error));
+          counts.cashBalance = 0;
+        }
+      }
+    }
+
+    if (shouldRefreshLiveBudget) {
+      try {
+        const liveBudget = await refreshLiveMonthlyPlBudget(supabase, {
+          sourceRef: `management-score-raw-data:${ym}`,
+        });
+        counts.liveBudgetRows = liveBudget.rowCount;
+        counts.liveBudgetProjectRows = liveBudget.projectRowCount;
+        if (liveBudget.warnings.length > 0) counts.liveBudgetWarnings = liveBudget.warnings.length;
+      } catch (error) {
+        errors.push(error instanceof Error ? error.message : String(error));
+        counts.liveBudgetRows = 0;
       }
     }
 

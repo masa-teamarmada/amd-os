@@ -51,6 +51,19 @@ export type GasFixedCostDetail = {
   amount: number;
 };
 
+export type GasObligationDetail = {
+  obligationId: string;
+  title: string;
+  category: string;
+  amountYen: number | null;
+  amountStatus: "exact" | "estimated" | "unknown";
+  dueDate: string | null;
+  expectedPaymentYm: number;
+  cashflowTreatment: "additive" | "included_in_budget";
+  status: "needs_review" | "open" | "scheduled" | "paid" | "cancelled";
+  autoDebit: boolean | null;
+};
+
 export type GasMonthlyRow = {
   ym: number;
   actualStatus: "actual" | "missing" | "future";
@@ -72,6 +85,8 @@ export type GasMonthlyRow = {
   actualCtaxPayment: number;
   corpTaxPayment: number;
   actualCorpTaxPayment: number;
+  obligationPaymentTotal: number;
+  obligationPaymentAdditive: number;
   actualSpotIncome: number;
   actualSpotExpense: number;
   netCashFlow: number;
@@ -88,6 +103,7 @@ export type GasMonthlyRow = {
   cashOutflow: number;
   pjDetails: GasProjectDetail[];
   fixedCostDetails: GasFixedCostDetail[];
+  obligationDetails: GasObligationDetail[];
 };
 
 export type GasSimulationResult = {
@@ -107,6 +123,7 @@ type ToggleState = {
   cost: boolean;
   fixedCost: boolean;
   grossProfit: boolean;
+  obligations: boolean;
 };
 
 function fmt(value: number | null | undefined): string {
@@ -215,6 +232,7 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
     cost: false,
     fixedCost: false,
     grossProfit: false,
+    obligations: false,
   });
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const chartRef = useRef<Chart | null>(null);
@@ -415,6 +433,10 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
         ];
       })}
     </tr>
+  );
+
+  const obligationDetails = Array.from(
+    new Map(rows.flatMap((row) => row.obligationDetails ?? []).map((detail) => [detail.obligationId, detail])).values()
   );
 
   const actualCashOutflow = (row: GasMonthlyRow) =>
@@ -1105,6 +1127,23 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
               Array.from(new Set(rows.flatMap((row) => row.fixedCostDetails.map((detail) => detail.name)))).map((name) =>
                 detailRow(name, (row) => row.fixedCostDetails.find((detail) => detail.name === name)?.amount || 0)
               )}
+
+            {renderComparisonGroup({
+              id: "payment_obligations",
+              label: `${toggleState.obligations ? "▼" : "▶"} 支払義務`,
+              budget: (row) => row.obligationPaymentTotal || 0,
+              source: "義務台帳・追加分のみCF反映",
+              bold: true,
+              onToggle: () => switchToggle("obligations"),
+            })}
+            {toggleState.obligations && obligationDetails.map((detail) => {
+              const due = detail.dueDate ?? `${String(detail.expectedPaymentYm).slice(0, 4)}年${Number(String(detail.expectedPaymentYm).slice(4, 6))}月`;
+              const treatment = detail.cashflowTreatment === "additive" ? "追加流出" : "予算内";
+              const amountState = detail.amountStatus === "unknown" ? "・金額確認中" : detail.amountStatus === "estimated" ? "・概算" : "";
+              return detailRow(`${detail.title}・${due}・${treatment}${amountState}`, (row) =>
+                row.obligationDetails?.find((item) => item.obligationId === detail.obligationId)?.amountYen ?? 0
+              );
+            })}
 
             {[
               { label: "社保", key: "socialIns" as const, actualKey: "actualSocialIns" as const },

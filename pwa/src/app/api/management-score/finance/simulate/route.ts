@@ -84,6 +84,13 @@ function toInputRows(inputs: MonthlyPlInputs, version: string) {
       amountYen: row.amount,
     });
   }
+  for (const row of inputs.paymentObligations ?? []) {
+    push("payment_obligation", row.obligationId, row as unknown as Record<string, unknown>, {
+      ym: String(row.expectedPaymentYm),
+      label: row.title,
+      amountYen: row.amountYen,
+    });
+  }
   for (const row of inputs.scenarios ?? []) {
     push("scenario", `${row.scenarioId}_${row.paramKey}`, row as unknown as Record<string, unknown>, {
       label: row.scenarioName ?? row.scenarioId,

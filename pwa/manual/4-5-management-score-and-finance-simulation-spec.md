@@ -429,6 +429,8 @@ evidence summary の書き方ガイド (= v4):
 
 Finance Simulation は、会社 PL / cash runway を月次で試算する経営判断ビュー。**2026-06-16 に入力ソースを「凍結 snapshot (`company_budget_inputs`)」から「OS のライブテーブル直読み」に切り替えた**。それ以前は GAS 月次試算表から手で起こした `company_budget_inputs` を復元していたため、PJ の契約・MS 進捗・固定費が動いても snapshot を作り直さない限りシミュレータに反映されなかった。今は OS の生データ (請求サイクル / MS 進捗 / 固定費マスタ) が動けば、次に画面を開いた時点で自動でシミュレータに乗る。
 
+2026-07-16 追記: 画面表示だけ live にしても、`company_budget_actual_monthly` には旧GAS baselineが残るため、raw収集や上部KPIに古いPJ行が混ざる。refresh route は live inputs を `source='os_live_monthly_pl'`, `version='os-live-current'` として `company_budget_monthly` に materialize し、通常の表示・raw収集・finance score はそのversionだけ読む。旧GAS baselineは fallback と履歴用に残すが、現在値には混ぜない。
+
 ### なぜライブ駆動にしたか
 
 旧方式は「ある時点で手入力した予算表のコピー」を眺めるだけで、現実 (新規契約・MS 進捗・メンバー報酬の発生) とすぐ乖離した。経営判断 (先3か月キャッシュが持つか、どの月が赤字になるか) は最新の OS 状態で計算しないと意味がない。そこで入力を OS 正本テーブルから毎回組み立てる方式に変えた。
@@ -505,7 +507,7 @@ p21 の 26年4-5月は `billing_cycles.budget_yen` が 0 (reported=¥840,000 の
 
 ### baseline 表示も live 駆動 (= `buildLiveGasSimulationResult`)
 
-シミュレータ画面の初期表示 (panel の `result`) も、凍結 snapshot ではなく live inputs でエンジンを回した結果にする。`page.tsx` の `buildLiveGasSimulationResult` が `runMonthlyPlSimulation(liveInputs)` を**サーバ側で**実行し、その予算行に snapshot baseline (`buildGasSimulationResult`) が持つ実績列 (freee 実績・入金・支払通知など) をマージして `GasSimulationResult` を作る。
+シミュレータ画面の初期表示 (panel の `result`) も、凍結 snapshot ではなく live inputs でエンジンを回した結果にする。`page.tsx` の `buildLiveGasSimulationResult` が `runMonthlyPlSimulation(liveInputs)` を**サーバ側で**実行し、その予算行に実績列 (freee 実績・入金・支払通知など) をマージして `GasSimulationResult` を作る。全月0円のPJ明細は表示から外し、`freeze_from_ym` 以降のPJは予測へ入れない。
 
 - live 構築に失敗したら snapshot にフォールバックして画面は壊さない (`try/catch`)。
 - panel の「シナリオ実行」ボタンが叩く `/api/management-score/finance/simulate` にも live inputs (`gasSimulationInputs`) が渡るので、シナリオ再計算も live 駆動。
@@ -558,30 +560,31 @@ admin-only。body は `inputs.params`, `inputs.projects`, `inputs.fixedCosts` �
 
 ## 更新運用
 
-バイタルサインを更新する時は、raw 収集 → score 計算の順に実行する。
+バイタルサインと月次試算表を更新する時は、通常は refresh route を1回だけ実行する。
+この route は freee PL → freee 口座残高 → OS内部 raw signals → score 計算を同じリクエスト内で順番に行う。
 
 ```text
 1. 対象月を決める (= 完結月のみ、 未来月は計算しない)
-2. raw data 収集
-   /api/cron/management-score-raw-data?ym=YYYYMM&includeFreee=1
-3. source_runs を見て success / partial / failed を確認
-4. score 計算
-   /api/cron/management-score-calculate?ym=YYYYMM
-5. /project/p00/cockpit と /management-score を確認
-6. 異常な点数なら raw_signals / inputs_json / evidence を見る
+2. 一括更新
+   /api/cron/management-score-refresh?ym=YYYYMM
+3. response の raw.status / score.ok を確認
+4. /project/p00/cockpit と /management-score を確認
+5. 異常な点数なら source_runs / raw_signals / inputs_json / evidence を見る
 ```
 
-`/admin/settings` には operation として表示するが、Run Now は出さない。 対象月、freee 同期有無、実行順序を間違えると読み解きづらい snapshot が残るため。
+`/api/cron/management-score-raw-data` と `/api/cron/management-score-calculate` は診断用に残すが、日次運用では使わない。
+raw が partial / failed のまま score を作ると、最新実績と古い snapshot が混ざるため、refresh route は default では partial 時に score 計算を止める。
 
-### 自動 cron (= vercel.json 2026-05-27 から運用化)
+### 自動 cron (= vercel.json 2026-07-16 更新)
 
 ```text
-"0 21 * * *"  → /api/cron/management-score-raw-data?includeFreee=1   (= 毎日 06:00 JST)
-"30 21 * * *" → /api/cron/management-score-calculate                  (= 毎日 06:30 JST)
+"0 21 * * *"  → /api/cron/management-score-refresh                    (= 毎日 06:00 JST)
 "0 20 1 * *"  → /api/cron/graduation-detection                        (= 月初 1 日 05:00 JST)
 ```
 
-毎朝まさが /management-score を開く時には、前日までの freee 実績 + 内部 signal が反映済の状態になる。 raw-data 収集後 30 分待ってから calculate を走らせて、 freee 取得失敗時 (= partial / failed) にも score 算出は走る (= confidence を下げて表示)。
+毎朝まさが /management-score を開く時には、前日までの freee PL 実績、freee 口座残高、内部 signal、score snapshot が同じ run の順序で反映済みになる。
+画面上部の「月次試算表の鮮度」は、予算入力、freee PL、現金残高、raw 収集、score snapshot の最終時刻を並べて表示する。raw収集時には `os-live-current` の月次試算表も再materializeされ、`stats.liveBudgetRows` / `stats.liveBudgetProjectRows` に件数が残る。
+現金残高が前月まで届いていない場合は警告を出す。
 
 ### evidence drilldown UI (= EvidencePanel)
 
@@ -661,14 +664,15 @@ DB分類として、`project_strategy_signals` に `signal_scope` / `applies_to_
 | 見るもの | 正本 | UI上の扱い |
 |---|---|---|
 | freee PL実績 | `company_actual_monthly` / `company_budget_actual_monthly.actual_amount_yen` | `売上実績 freee PL`、`固定費実績 freee`、`実績差引` |
-| freee口座残高実績 | `company_actual_monthly` の `category='cash_balance'` (生成元: `pwa/scripts/sync_freee_cash_balances.cjs`、freee `wallet_txns.balance` 月末合算) | `キャッシュ残高(実績)` line と月次表 `キャッシュ` 実績欄に使う。未来月の主残高線は最新実績残高に月次CF見込みを足した `実績接続見込み` として表示し、予算残高 (`company_budget_monthly.cash_amount_yen`) は上書きしない |
+| freee口座残高実績 | `company_actual_monthly` の `category='cash_balance'` (生成元: `src/lib/finance/freee-cash-balances.ts`、日次 refresh route、freee `wallet_txns.balance` 月末合算。手動script `pwa/scripts/sync_freee_cash_balances.cjs` は診断用に残す) | `キャッシュ残高(実績)` line と月次表 `キャッシュ` 実績欄に使う。未来月の主残高線は最新実績残高に月次CF見込みを足した `実績接続見込み` として表示し、予算残高 (`company_budget_monthly.cash_amount_yen`) は上書きしない |
 | 入金確認済み | `billing_cycles.payment_confirmed_at` + `budget_reported_amount` / `invoice_base_lines_json` | 税込入金として `入金確認済` に集計。CTB 202604 のように `invoice_ym=202605` なら入金月側に寄せる |
 | 支払通知書 | `payout_notices.sent_at` / `total_yen` | `支払通知書送付済(税抜)` として表示。実績差引では税込相当を cash outflow として扱う |
+| 法人支払義務 | `company_payment_obligations` | 月次表の `支払義務` 行に内容・期日・金額状態を表示。`additive` だけ cash outflow へ加算し、`included_in_budget` は既存費用との二重計上をしない |
 | 報酬支払済み | `billing_cycles.reward_paid_at` | 支払済み反映の有無をアラートに使う |
 | 先3か月入金予定 | `billing_cycles` + `projects.payment_due_rule` | `invoice_sent` / `invoice_issued` / `budget_confirmed` / `unconfirmed` の source label 付きで表示 |
 | 先3か月支出予定・Cash | `company_budget_actual_monthly.budget_payload.cashInflow/cashOutflow` と `cash_amount_yen` | 当月着地見込み、先3か月最低Cash、一括入金除きCFを表示 |
 
-月次予実表で比較する項目は、少なくとも `売上計`、`入金`、`売上原価`、`粗利`、`固定費`、`社保`、`臨時収入`、`臨時支出`、`営業利益`、`融資実行`、`借入返済`、`税金`、`月次CF`、`支払い`、`キャッシュ` を含める。実績sourceは行ラベルに chip で出す。未来月や未確定月の実績欄は `未確定`、過去月なのに実績sourceが無い欄は `未反映`、OS側に実績sourceがまだ無い項目は `未連携` と表示する。数字色は、予算をグレー、実績を黒、差分をプラス水色・マイナスピンクで区別する。
+月次予実表で比較する項目は、少なくとも `売上計`、`入金`、`売上原価`、`粗利`、`固定費`、`支払義務`、`社保`、`臨時収入`、`臨時支出`、`営業利益`、`融資実行`、`借入返済`、`税金`、`月次CF`、`支払い`、`キャッシュ` を含める。実績sourceは行ラベルに chip で出す。未来月や未確定月の実績欄は `未確定`、過去月なのに実績sourceが無い欄は `未反映`、OS側に実績sourceがまだ無い項目は `未連携` と表示する。数字色は、予算をグレー、実績を黒、差分をプラス水色・マイナスピンクで区別する。
 
 この画面では `actual` と `forecast` を同じ数字として混ぜない。実績は `payment_confirmed_at` / `sent_at` / freee PL / freee `wallet_txns.balance` のように OS が確認済みのデータだけ、予定は予算・請求サイクル・支払ルールに基づく見込み、未確認は請求未送付・入金未確認・支払済み未反映として label を出す。キャッシュ判断パネルは補助であり、主UIは下部の月次試算表を予実表として読むこと。実績キャッシュを同期しても予算キャッシュは書き換えない (= 予実差分を残す)。ただし意思決定用の残高予測は、最新実績残高を起点に以後の見込み月次CFを積み上げる `実績接続見込み` を主線にする。
 

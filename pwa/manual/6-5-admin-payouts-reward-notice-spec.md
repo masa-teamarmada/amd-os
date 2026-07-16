@@ -59,7 +59,7 @@ flowchart TD
 
 ### 報酬キャッシュ再計算
 
-- 自動: `/api/cron/payout-reward-cache-refresh` (= 日次 03:05 JST)。通常実行は前月 + 当月から先12か月の支払 ym と、同じ窓内の稼働 ym を対象にし、`/admin/payouts` の先12か月表で読む `forecastCycles.reward_summary_json` を事前生成する。`ym=YYYYMM` を指定した手動実行は既定でその月のみ、`lookahead=11` などを付けると指定月から先12か月まで更新する。
+- 自動: `/api/cron/payout-reward-cache-refresh` (= 日次 03:05 JST)。通常実行は前月 + 当月から先12か月のメンバー支払 ym と、同じ窓内の稼働 ym を対象にし、支払 ym に紐づく cycle は `projects.payment_due_rule` / `payment_due_day` で判定する。`billing_cycles.invoice_ym` はクライアント請求月なので、この cron の対象抽出にも使わない。`/admin/payouts` の先12か月表で読む `forecastCycles.reward_summary_json` を事前生成する。`ym=YYYYMM` を指定した手動実行は既定でその月のみ、`lookahead=11` などを付けると指定月から先12か月まで更新する。
 - 手動: `/admin/payouts` の「報酬キャッシュ再計算」ボタン (= UI から `refreshRewards=1` で route 叩く)
 - 入力: `billing_cycles` + `value_milestones` + `milestone_monthly_progress` + `milestone_responsibility`
 - 出力: `billing_cycles.reward_summary_json` (= 上書き。0円月も `members=[]` のキャッシュを保存) + `budget_yen` fallback
@@ -70,7 +70,7 @@ flowchart TD
 
 支払通知書を送付済み、または実際に支払い済みの月は、金額をあとから現行ロジックへ書き換えない。再発行しても、送付済み・支払済みの事実は保護する。
 
-現行ロジックとの差で過払いが見つかった場合は、`reward_member_liability_offsets` に本人別の相殺額を記録し、以後の報酬キャッシュ再計算で同一メンバー本人の未払残からだけ差し引く。他メンバーの未払残・会社留保・PJ全体バッファからは差し引かない。相殺しないと決めた小額差分は、台帳に入れず許容差として扱う。
+2026年7月のポイント制移行より前に合意・支払済みだった月は、現行ロジックとの差を支払控除に使わない。ポイント制移行後の未確定月で差額控除が必要な場合だけ、`reward_member_liability_offsets` に本人別の控除額を記録し、以後の報酬キャッシュ再計算で同一メンバー本人の未払残からだけ差し引く。他メンバーの未払残・会社留保・PJ全体バッファからは差し引かない。
 
 `/admin/payouts` の初回表示は、page 側が `loadTargetData(currentYm, { includeAgreementGate: false })` を SSR で実行し、`AdminPayoutsClient initialData` として渡す。クライアントは初回 client GET をスキップし、月変更・手動再計算・保存/発行後の再取得だけ `/api/admin/payouts` を使う。これにより、キャッシュ済みデータを表示するだけなのに hydration 後の API 待ちで空表示が続く事故を避ける。
 
@@ -345,10 +345,12 @@ GAS 064 が読む:
 
 ## 支払月判定 (= 「いつの ym を払うか」)
 
-`/admin/payouts?ym=YYYYMM` の `ym` は **支払 ym**。 「YYYYMM 月の業務に対する支払」を意味する。 実際の振込日は `members.bank_info` に書いた支払サイクル (= 末締め翌月末払い 等) で決まる。
+`/admin/payouts?ym=YYYYMM` の `ym` は **メンバー支払 ym**。 「YYYYMM にメンバーへ支払う予定」を意味する。対象になる稼働月は PJ 台帳の `projects.payment_due_rule` / `payment_due_day` から自動判定する。
 
-- `billing_cycles.ym` も同じ意味で **業務 ym** を指す
-- 「3 月分の支払を 4 月末に振り込む」場合、 `ym='202603'` の `billing_cycles` を見て、 `payout_notices.ym='202603'` で発行、 振込実行日は別管理
+- `billing_cycles.ym` は **稼働 ym**。メンバー支払 ym とは別。
+- `billing_cycles.invoice_ym` はクライアント向けの請求書発行月であり、メンバー支払月判定には使わない。
+- 例: 6月稼働分を翌月末に払う PJ は、`billing_cycles.ym='202606'` を `/admin/payouts?ym=202607` に集約し、`payout_notices.ym='202607'` で支払通知書を発行する。
+- 実際の振込日は `members.bank_info` の支払サイクルや経理実行で別管理する。
 
 ## 会社留保 / 契約バッファの扱い
 

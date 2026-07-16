@@ -72,7 +72,7 @@ export const ALPHA_DEFAULT: AlphaWeights = {
   FRL: 1.5,
 };
 
-/** PRS primary weights. P/R_net inputs may remain missing until each PJ is reviewed. */
+/** SPS primary weights. P/R_net inputs may remain missing until each PJ is reviewed. */
 export const PRS_ALPHA_DEFAULT: PrsScoreWeights = {
   P: 1.0,
   TRL: ALPHA_DEFAULT.TRL,
@@ -347,7 +347,12 @@ export function normalizeAlpha(raw: unknown): AlphaWeights {
 }
 
 // ============================================================
-// M x P x R x S primary layer (呼称は当面 "PRS (M·P·R·S)")
+// SPS = Seed Prospect Score (シーズ有望度) — M x P x R x S primary layer
+//
+// 呼称: 旧 PRS は 2026-07-11 まさ確定で廃止 (pwa/bzm/terminology_glossary.md §1.5)。
+// SPS は和名の略で成分頭字ではないため 4 因子化でも名称不変、MPRS 改称は不要。
+// このファイルの Prs* / PRS_* 識別子と DB 列 prs_* は glossary の張り替え規律
+// (「コード変数・DB 列は内部識別子として不変、表示テキストのみ改称」) で据え置き。
 //
 // 2026-07-16 まさ確定: σ_SU を S から分離して独立項 M へ格上げ。
 //   Score = K · M · P · R · S
@@ -356,7 +361,6 @@ export function normalizeAlpha(raw: unknown): AlphaWeights {
 // フラット Cobb-Douglas の結合則により総合スコア数値・α・K は完全不変。
 // 変わるのは breakdown のグルーピングと表示ラベルのみ。
 // 正本: /Users/masa/projects/AMD/BZSF/before_zero_theory.md の 2026-07-16 節。
-// MPRS への全面改称はまさ判断待ち (ブランディング)。
 // ============================================================
 
 export interface PrsScoreInput {
@@ -403,15 +407,15 @@ export function sumPrsAlpha(weights: PrsScoreWeights = PRS_ALPHA_DEFAULT, includ
     .reduce((acc, axis) => acc + (weights[axis] ?? 0), 0);
 }
 
-/** PRS primary K. Same IPO-target calibration, but with the 9-axis weight sum. */
+/** SPS primary K. Same IPO-target calibration, but with the 9-axis weight sum. */
 export function computePrsK(weights: PrsScoreWeights = PRS_ALPHA_DEFAULT, shallowTechMode = false): number {
   return IPO_TARGET / Math.pow(10, sumPrsAlpha(weights, !shallowTechMode));
 }
 
 /**
- * PRS primary score.
+ * SPS primary score.
  *
- * PRS is now the primary model shown to operators. It still refuses to emit a score when
+ * SPS is now the primary model shown to operators. It still refuses to emit a score when
  * P/R_net are missing so the UI can surface an explicit review state instead of silently
  * falling back to the legacy AMD/MXF score.
  */

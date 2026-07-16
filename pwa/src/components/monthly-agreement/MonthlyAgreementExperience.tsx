@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   CircleDollarSign,
   FileCheck2,
-  ListChecks,
   Loader2,
   RefreshCw,
   Send,
@@ -41,9 +40,9 @@ function formatPt(value: number | null | undefined) {
 
 function statusLabel(status: MonthlyWorkAgreementBundle["status"]) {
   if (status === "agreed") return "合意済み";
-  if (status === "needs_reagreement") return "内容が更新されています";
-  if (status === "not_required") return "確認不要";
-  return "未確認";
+  if (status === "needs_reagreement") return "条件更新あり";
+  if (status === "not_required") return "対象外";
+  return "未合意";
 }
 
 function statusClass(status: MonthlyWorkAgreementBundle["status"]) {
@@ -58,15 +57,18 @@ function statusClass(status: MonthlyWorkAgreementBundle["status"]) {
 
 function agreementStatusMessage(bundle: MonthlyWorkAgreementBundle) {
   if (bundle.status === "agreed") {
-    return `確認した日時: ${bundle.latestAgreement?.agreedAt ? new Date(bundle.latestAgreement.agreedAt).toLocaleString("ja-JP") : "記録済み"}`;
+    const agreedAt = bundle.latestAgreement?.agreedAt
+      ? new Date(bundle.latestAgreement.agreedAt).toLocaleString("ja-JP")
+      : "記録済み";
+    return `この内容で合意済みです。確認した日時: ${agreedAt}`;
   }
   if (bundle.status === "needs_reagreement") {
-    return "前に確認したあとで、担当内容か予定額が変わりました。下の必須2点を見直して、問題なければ合意してください。";
+    return "前回合意後に担当内容または予定額が更新されたので最新内容を再確認してください。";
   }
   if (bundle.status === "not_required") {
-    return bundle.exclusionReason || "この月の月初合意は不要です。";
+    return bundle.exclusionReason || "この月は対象外です。";
   }
-  return "下の必須2点を確認して、問題なければ合意してください。";
+  return "担当内容と予定額の確認・合意がまだ完了していません。";
 }
 
 function formatBillingStatus(status: string | null | undefined) {
@@ -272,7 +274,7 @@ export function MonthlyAgreementExperience({
   const metricCount =
     4 + (unverifiedPaidYen > 0 ? 1 : 0) + (totalStockYen > 0 ? 1 : 0);
   const summaryCols = metricCount >= 5 ? "lg:grid-cols-3" : "lg:grid-cols-4";
-  const contentWidth = isModal ? "max-w-7xl" : "max-w-5xl";
+  const contentWidth = isModal ? "max-w-[960px]" : "max-w-5xl";
 
   return (
     <div
@@ -291,19 +293,16 @@ export function MonthlyAgreementExperience({
               月初合意
             </p>
             <h1
-              className={`${isModal ? "text-[18px]" : "text-[22px]"} mt-1 font-semibold text-[#1d1d1f]`}
+              className={`${isModal ? "text-[20px]" : "text-[22px]"} mt-1 font-semibold text-[#1d1d1f]`}
             >
               {formatYm(bundle.ym)}の担当内容と予定額
             </h1>
-            <p
-              className={`${isModal ? "text-[12px]" : "text-[13px]"} mt-1 text-[#6e6e73]`}
-            >
-              {bundle.member.codeName} / 記録ID{" "}
-              {bundle.currentHash.slice(0, 10)}
+            <p className="mt-1 text-[13px] text-[#6e6e73]">
+              {bundle.member.codeName}
             </p>
           </div>
           {isModal ? (
-            <p className="max-w-sm text-[11px] leading-relaxed text-[#6e6e73]">
+            <p className="max-w-sm text-[13px] leading-[20px] text-[#6e6e73]">
               確認して合意すると、この画面は自動で閉じます。
             </p>
           ) : (
@@ -321,449 +320,426 @@ export function MonthlyAgreementExperience({
         className={`mx-auto flex ${contentWidth} flex-col px-3 sm:px-4 ${isModal ? "gap-3 py-3" : "mt-6 gap-5"}`}
       >
         <section
-          className={
-            isModal
-              ? "flex max-w-full flex-wrap items-start gap-2"
-              : `grid gap-3 sm:grid-cols-2 ${summaryCols}`
-          }
+          data-testid="monthly-agreement-status"
+          className={`w-full rounded-lg border p-4 ${statusClass(bundle.status)}`}
         >
-          <div
-            className={`rounded-lg border ${isModal ? "min-w-[360px] flex-[1_1_520px] p-2.5 md:max-w-[640px]" : "p-4"} ${statusClass(bundle.status)}`}
-          >
-            <div
-              className={`${isModal ? "flex flex-col gap-2 sm:grid sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center" : "flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"}`}
-            >
-              <div
-                className={`flex min-w-0 items-start ${isModal ? "gap-2" : "gap-2.5"}`}
-              >
-                {bundle.status === "agreed" ? (
-                  <CheckCircle2 className="mt-0.5 size-4" />
-                ) : (
-                  <FileCheck2 className="mt-0.5 size-4" />
-                )}
-                <div className="min-w-0">
-                  <p
-                    className={`${isModal ? "text-[13px]" : "text-sm"} font-semibold`}
-                  >
-                    {statusLabel(bundle.status)}
-                  </p>
-                  <p
-                    className={`${isModal ? "mt-0.5 text-[11px]" : "mt-1 text-xs"} leading-relaxed`}
-                  >
-                    {agreementStatusMessage(bundle)}
-                  </p>
-                </div>
-              </div>
-              <div className="flex shrink-0 self-end items-center gap-1.5 sm:self-auto">
-                <button
-                  type="button"
-                  onClick={handleAgree}
-                  disabled={
-                    saving ||
-                    bundle.status === "agreed" ||
-                    !bundle.tableReady ||
-                    !bundle.canAgree
-                  }
-                  className={`${isModal ? "h-8 px-3 text-xs" : "px-3 py-2 text-sm"} inline-flex items-center justify-center gap-2 rounded-md bg-[#1d1d1f] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50`}
-                  title={
-                    !bundle.canAgree
-                      ? bundle.exclusionReason || "本人だけが合意できます"
-                      : "担当内容と予定額を確認して合意"
-                  }
-                >
-                  {saving ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <FileCheck2 className="size-4" />
-                  )}
-                  {bundle.status === "agreed"
-                    ? "合意済み"
-                    : bundle.status === "not_required"
-                      ? "確認不要"
-                      : "確認して合意"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRequestMessage(null);
-                    setRevisionOpen(true);
-                  }}
-                  disabled={!bundle.canAgree}
-                  className={`${isModal ? "h-7 px-2 text-[11px]" : "h-8 px-2.5 text-xs"} inline-flex items-center justify-center gap-1 rounded-md border border-current/25 bg-transparent font-semibold opacity-75 transition-opacity hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-40`}
-                  title={
-                    !bundle.canAgree
-                      ? bundle.exclusionReason || "本人だけが修正要望を送れます"
-                      : "担当内容、または予定額の修正要望を送る"
-                  }
-                >
-                  <Send className="size-3" />
-                  修正要望
-                </button>
-              </div>
+          <div className="flex min-w-0 items-start gap-2.5">
+            {bundle.status === "agreed" ? (
+              <CheckCircle2 className="mt-0.5 size-4" />
+            ) : (
+              <FileCheck2 className="mt-0.5 size-4" />
+            )}
+            <div className="min-w-0">
+              <p className="text-[14px] font-semibold">
+                合意状態：{statusLabel(bundle.status)}
+              </p>
+              <p className="mt-1 text-[13px] leading-[20px]">
+                {agreementStatusMessage(bundle)}
+              </p>
             </div>
-            {bundle.status !== "agreed" && bundle.status !== "not_required" && (
-              <p
-                className={`${isModal ? "mt-1 text-right text-[10px]" : "mt-2 text-xs"} font-semibold text-amber-900`}
-              >
-                「確認して合意」を押すまで、この月の支払いには進めません。
-              </p>
-            )}
-            {!bundle.tableReady && (
-              <p
-                className={`${isModal ? "mt-2 px-2 py-1 text-[11px]" : "mt-3 px-3 py-2 text-xs"} rounded-md border border-red-200 bg-white/70 text-red-700`}
-              >
-                保存に必要な準備がまだ終わっていません。準備が終わると合意できます。
-              </p>
-            )}
-            {revisionOpen && (
-              <section
-                aria-labelledby="monthly-agreement-revision-heading"
-                className={`${isModal ? "mt-2 pt-2" : "mt-4 pt-3"} border-t border-current/20`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h2
-                      id="monthly-agreement-revision-heading"
-                      className={`${isModal ? "text-[12px]" : "text-sm"} font-semibold`}
-                    >
-                      修正要望
-                    </h2>
-                    <p
-                      className={`${isModal ? "mt-0.5 text-[10px]" : "mt-1 text-xs"} leading-relaxed opacity-80`}
-                    >
-                      担当内容、予定額に違いがあるときだけ送ってください。
-                      <Hint id="monthly-agreement.revision-request" />
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setRevisionOpen(false)}
-                    className="text-[11px] font-semibold opacity-75 hover:opacity-100"
-                  >
-                    閉じる
-                  </button>
-                </div>
-                <div
-                  className={`${isModal ? "mt-2 grid gap-1.5 sm:grid-cols-2" : "mt-3 grid gap-2 sm:grid-cols-[160px_180px_minmax(0,1fr)]"}`}
-                >
-                  <select
-                    value={requestType}
-                    onChange={(event) => setRequestType(event.target.value)}
-                    disabled={!bundle.canAgree}
-                    className={`${isModal ? "h-8 py-1 text-xs" : "py-2 text-sm"} min-w-0 rounded-md border border-current/25 bg-white/80 px-2 text-[#1d1d1f]`}
-                  >
-                    <option value="scope_or_goal">担当内容</option>
-                    <option value="reward">予定額</option>
-                    <option value="other">その他</option>
-                  </select>
-                  <select
-                    value={requestProjectId}
-                    onChange={(event) =>
-                      setRequestProjectId(event.target.value)
-                    }
-                    disabled={!bundle.canAgree}
-                    className={`${isModal ? "h-8 py-1 text-xs" : "py-2 text-sm"} min-w-0 rounded-md border border-current/25 bg-white/80 px-2 text-[#1d1d1f]`}
-                  >
-                    <option value="">全体</option>
-                    {bundle.snapshot.projects.map((project) => (
-                      <option key={project.projectId} value={project.projectId}>
-                        {project.projectName}
-                      </option>
-                    ))}
-                  </select>
-                  <textarea
-                    value={requestBody}
-                    onChange={(event) => setRequestBody(event.target.value)}
-                    disabled={!bundle.canAgree}
-                    rows={isModal ? 2 : 3}
-                    className={`${isModal ? "sm:col-span-2 text-xs" : "min-h-[84px] text-sm"} min-h-12 rounded-md border border-current/25 bg-white/80 px-3 py-2 text-[#1d1d1f] outline-none focus:border-[#007aff]`}
-                    placeholder="例: この目標ではなく、登記準備を優先したい"
-                  />
-                </div>
-                <div
-                  className={`${isModal ? "mt-2" : "mt-3"} flex flex-wrap items-center justify-between gap-2`}
-                >
-                  <p
-                    className={`${isModal ? "text-[10px]" : "text-[11px]"} opacity-75`}
-                  >
-                    送った時点の記録IDも一緒に残ります。
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleRevisionRequest}
-                    disabled={
-                      requestSaving ||
-                      !bundle.canAgree ||
-                      requestBody.trim().length < 4
-                    }
-                    className={`${isModal ? "h-8 px-3 text-xs" : "px-3 py-2 text-xs"} inline-flex items-center justify-center gap-1.5 rounded-md border border-current/40 bg-white/80 font-semibold text-[#1d1d1f] disabled:cursor-not-allowed disabled:opacity-50`}
-                  >
-                    {requestSaving ? (
-                      <Loader2 className="size-3.5 animate-spin" />
-                    ) : (
-                      <Send className="size-3.5" />
-                    )}
-                    送る
-                  </button>
-                </div>
-                {requestMessage && (
-                  <p className="mt-2 text-[12px] font-semibold text-emerald-800">
-                    {requestMessage}
-                  </p>
-                )}
-                {bundle.revisionRequests.length > 0 && (
-                  <div className="mt-2 divide-y divide-current/15 border-t border-current/15 text-[11px]">
-                    {bundle.revisionRequests.slice(0, 3).map((request) => (
-                      <div key={request.id} className="py-1.5">
-                        <span className="font-semibold">
-                          {request.status === "open"
-                            ? "対応中"
-                            : request.status}
-                        </span>
-                        <span className="ml-2 opacity-75">
-                          {request.projectId || "全体"}
-                        </span>
-                        <p className="mt-0.5 line-clamp-2 opacity-85">
-                          {request.body}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </section>
-            )}
           </div>
-          {!isModal && (
-            <MetricCard
-              label="対象プロジェクト"
-              value={`${bundle.snapshot.totals.projectCount}`}
-              hintId="monthly-agreement.project-count"
-            />
-          )}
-          {!isModal && (
-            <MetricCard
-              label="もらえる予定額"
-              value={formatYen(bundle.snapshot.totals.expectedRewardYen)}
-              hintId="monthly-agreement.expected-reward"
-              description="今月やる仕事に対して、今の計画で見込んでいる金額"
-            />
-          )}
-          {!isModal && (
-            <MetricCard
-              label="支払い済み"
-              value={formatYen(paidActualYen)}
-              hintId="monthly-agreement.payout"
-            />
-          )}
-          {!isModal && unverifiedPaidYen > 0 && (
-            <MetricCard
-              label="支払い確認中"
-              value={formatYen(unverifiedPaidYen)}
-              emphasis
-              hintId="monthly-agreement.payout"
-            />
-          )}
-          {!isModal && (
-            <MetricCard
-              label="これから支払う予定"
-              value={formatYen(futurePayoutYen)}
-              hintId="monthly-agreement.payout"
-            />
-          )}
-          {!isModal && totalStockYen > 0 && (
-            <MetricCard
-              label="まだ支払われていない残り"
-              value={formatYen(totalStockYen)}
-              emphasis
-              hintId="monthly-agreement.stock"
-              description="今月は支払われず、次の月以降に残る金額"
-            />
+          {!bundle.tableReady && (
+            <p
+              className={`${isModal ? "mt-2 px-2 py-1 text-[11px]" : "mt-3 px-3 py-2 text-xs"} rounded-md border border-red-200 bg-white/70 text-red-700`}
+            >
+              保存に必要な準備がまだ終わっていません。準備が終わると合意できます。
+            </p>
           )}
         </section>
 
-        <div
-          className={isModal ? "flex max-w-full flex-col gap-2" : "contents"}
-        >
-          <AgreementFlowRail
-            compact={isModal}
-            projects={bundle.snapshot.projects}
-            totalExpectedRewardYen={bundle.snapshot.totals.expectedRewardYen}
-          />
+        <RequiredChecksSection
+          compact={isModal}
+          projects={bundle.snapshot.projects}
+          totalExpectedRewardYen={bundle.snapshot.totals.expectedRewardYen}
+        />
 
-          {isModal && (
-            <section
-              aria-labelledby="monthly-agreement-reference-heading"
-              className="border-t border-[#d1d1d6] pt-2"
+        <section className="w-full rounded-lg border border-[#e5e5e7] bg-white p-4">
+          {bundle.status !== "agreed" && bundle.status !== "not_required" && (
+            <p className="mb-3 text-[13px] leading-[20px] text-[#3c3c43]">
+              上の「担当する仕事」と「その対価としての予定額」を確認したうえで合意してください。未合意または条件更新ありの場合は、合意が完了するまでこの月の支払いには進めません。
+            </p>
+          )}
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-2">
+            <button
+              type="button"
+              data-testid="monthly-agreement-agree-button"
+              onClick={handleAgree}
+              disabled={
+                saving ||
+                bundle.status === "agreed" ||
+                !bundle.tableReady ||
+                !bundle.canAgree
+              }
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-md bg-[#007aff] px-4 text-[15px] font-semibold text-white transition-colors hover:bg-[#006edb] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007aff] disabled:cursor-not-allowed disabled:opacity-50 sm:h-10 sm:w-auto sm:px-4 sm:text-[14px]"
+              title={
+                !bundle.canAgree
+                  ? bundle.exclusionReason || "本人だけが合意できます"
+                  : "担当内容と予定額を確認して合意"
+              }
             >
-              <h2
-                id="monthly-agreement-reference-heading"
-                className="text-[11px] font-semibold text-[#6e6e73]"
+              {saving ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <FileCheck2 className="size-4" />
+              )}
+              {bundle.status === "agreed"
+                ? "合意済み"
+                : bundle.status === "not_required"
+                  ? "対象外"
+                  : "確認して合意"}
+            </button>
+            <button
+              type="button"
+              data-testid="monthly-agreement-revision-button"
+              aria-expanded={revisionOpen}
+              aria-controls="monthly-agreement-revision-panel"
+              onClick={() => {
+                setRequestMessage(null);
+                setRevisionOpen((open) => !open);
+              }}
+              disabled={!bundle.canAgree}
+              className="inline-flex h-11 w-full items-center justify-center gap-1 rounded-md border border-[#d1d1d6] bg-transparent px-3 text-[13px] font-semibold text-[#3c3c43] opacity-80 transition-opacity hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007aff] disabled:cursor-not-allowed disabled:opacity-40 sm:h-10 sm:w-auto sm:px-3 sm:text-[12px]"
+              title={
+                !bundle.canAgree
+                  ? bundle.exclusionReason || "本人だけが修正要望を送れます"
+                  : "担当内容、または予定額の修正要望を送る"
+              }
+            >
+              <Send className="size-3" />
+              内容が違う場合は修正要望
+            </button>
+          </div>
+          {revisionOpen && (
+            <section
+              data-testid="monthly-agreement-revision-panel"
+              id="monthly-agreement-revision-panel"
+              aria-labelledby="monthly-agreement-revision-heading"
+              className={`${isModal ? "mt-2 pt-2" : "mt-4 pt-3"} border-t border-[#e5e5e7]`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2
+                    id="monthly-agreement-revision-heading"
+                    className={`${isModal ? "text-[12px]" : "text-sm"} font-semibold text-[#1d1d1f]`}
+                  >
+                    修正要望
+                  </h2>
+                  <p
+                    className={`${isModal ? "mt-0.5 text-[10px]" : "mt-1 text-xs"} leading-relaxed text-[#6e6e73]`}
+                  >
+                    担当内容、予定額に違いがあるときだけ送ってください。
+                    <Hint id="monthly-agreement.revision-request" />
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setRevisionOpen(false)}
+                  className="text-[11px] font-semibold text-[#6e6e73] opacity-75 hover:opacity-100"
+                >
+                  閉じる
+                </button>
+              </div>
+              <div
+                className={`${isModal ? "mt-2 grid gap-1.5 sm:grid-cols-2" : "mt-3 grid gap-2 sm:grid-cols-[160px_180px_minmax(0,1fr)]"}`}
               >
-                参考情報
-                <span className="ml-2 font-normal">
-                  予定額の根拠、支払い状況
-                </span>
-              </h2>
+                <select
+                  value={requestType}
+                  onChange={(event) => setRequestType(event.target.value)}
+                  disabled={!bundle.canAgree}
+                  className={`${isModal ? "h-8 py-1 text-xs" : "py-2 text-sm"} min-w-0 rounded-md border border-[#d1d1d6] bg-white px-2 text-[#1d1d1f]`}
+                >
+                  <option value="scope_or_goal">担当内容</option>
+                  <option value="reward">予定額</option>
+                  <option value="other">その他</option>
+                </select>
+                <select
+                  value={requestProjectId}
+                  onChange={(event) => setRequestProjectId(event.target.value)}
+                  disabled={!bundle.canAgree}
+                  className={`${isModal ? "h-8 py-1 text-xs" : "py-2 text-sm"} min-w-0 rounded-md border border-[#d1d1d6] bg-white px-2 text-[#1d1d1f]`}
+                >
+                  <option value="">全体</option>
+                  {bundle.snapshot.projects.map((project) => (
+                    <option key={project.projectId} value={project.projectId}>
+                      {project.projectName}
+                    </option>
+                  ))}
+                </select>
+                <textarea
+                  value={requestBody}
+                  onChange={(event) => setRequestBody(event.target.value)}
+                  disabled={!bundle.canAgree}
+                  rows={isModal ? 2 : 3}
+                  className={`${isModal ? "sm:col-span-2 text-xs" : "min-h-[84px] text-sm"} min-h-12 rounded-md border border-[#d1d1d6] bg-white px-3 py-2 text-[#1d1d1f] outline-none focus:border-[#007aff]`}
+                  placeholder="例: この目標ではなく、登記準備を優先したい"
+                />
+              </div>
+              <div
+                className={`${isModal ? "mt-2" : "mt-3"} flex flex-wrap items-center justify-between gap-2`}
+              >
+                <p
+                  className={`${isModal ? "text-[10px]" : "text-[11px]"} text-[#86868b]`}
+                >
+                  送った時点の記録IDも一緒に残ります。
+                </p>
+                <button
+                  type="button"
+                  onClick={handleRevisionRequest}
+                  disabled={
+                    requestSaving ||
+                    !bundle.canAgree ||
+                    requestBody.trim().length < 4
+                  }
+                  className={`${isModal ? "h-8 px-3 text-xs" : "px-3 py-2 text-xs"} inline-flex items-center justify-center gap-1.5 rounded-md border border-[#d1d1d6] bg-white font-semibold text-[#1d1d1f] disabled:cursor-not-allowed disabled:opacity-50`}
+                >
+                  {requestSaving ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Send className="size-3.5" />
+                  )}
+                  送る
+                </button>
+              </div>
+              {requestMessage && (
+                <p className="mt-2 text-[12px] font-semibold text-emerald-800">
+                  {requestMessage}
+                </p>
+              )}
+              {bundle.revisionRequests.length > 0 && (
+                <div className="mt-2 divide-y divide-[#e5e5e7] border-t border-[#e5e5e7] text-[11px]">
+                  {bundle.revisionRequests.slice(0, 3).map((request) => (
+                    <div key={request.id} className="py-1.5">
+                      <span className="font-semibold text-[#1d1d1f]">
+                        {request.status === "open" ? "対応中" : request.status}
+                      </span>
+                      <span className="ml-2 text-[#6e6e73]">
+                        {request.projectId || "全体"}
+                      </span>
+                      <p className="mt-0.5 line-clamp-2 text-[#3c3c43]">
+                        {request.body}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
           )}
-        </div>
+        </section>
 
-        {isModal && (
-          <details
-            data-testid="monthly-agreement-payment-details"
-            className="group w-full overflow-hidden rounded-lg border border-[#e5e5e7] bg-white"
-          >
-            <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 px-2.5 py-2">
-              <div>
-                <span className="text-[10px] font-semibold text-[#86868b]">
-                  参考情報
+        <details className="group w-full overflow-hidden rounded-lg border border-[#e5e5e7] bg-white">
+          <summary className="group flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 px-3 py-2.5">
+            <h2 className="text-[13px] font-semibold text-[#1d1d1f]">
+              参考情報
+            </h2>
+            <span className="text-[11px] font-semibold text-[#007aff] group-open:hidden">
+              開く
+            </span>
+            <span className="hidden text-[11px] font-semibold text-[#007aff] group-open:inline">
+              閉じる
+            </span>
+          </summary>
+          <div className="flex flex-col gap-3 border-t border-[#e5e5e7] p-3">
+            <p className="text-[11px] text-[#6e6e73]">
+              記録ID {bundle.currentHash.slice(0, 10)}
+            </p>
+
+            <div className={`grid gap-3 sm:grid-cols-2 ${summaryCols}`}>
+              <MetricCard
+                label="対象プロジェクト"
+                value={`${bundle.snapshot.totals.projectCount}`}
+                hintId="monthly-agreement.project-count"
+              />
+              <MetricCard
+                label="もらえる予定額"
+                value={formatYen(bundle.snapshot.totals.expectedRewardYen)}
+                hintId="monthly-agreement.expected-reward"
+                description="今月やる仕事に対して、今の計画で見込んでいる金額"
+              />
+              <MetricCard
+                label="支払い済み"
+                value={formatYen(paidActualYen)}
+                hintId="monthly-agreement.payout"
+              />
+              {unverifiedPaidYen > 0 && (
+                <MetricCard
+                  label="支払い確認中"
+                  value={formatYen(unverifiedPaidYen)}
+                  emphasis
+                  hintId="monthly-agreement.payout"
+                />
+              )}
+              <MetricCard
+                label="これから支払う予定"
+                value={formatYen(futurePayoutYen)}
+                hintId="monthly-agreement.payout"
+              />
+              {totalStockYen > 0 && (
+                <MetricCard
+                  label="まだ支払われていない残り"
+                  value={formatYen(totalStockYen)}
+                  emphasis
+                  hintId="monthly-agreement.stock"
+                  description="今月は支払われず、次の月以降に残る金額"
+                />
+              )}
+            </div>
+
+            <details
+              data-testid="monthly-agreement-payment-details"
+              className="group w-full overflow-hidden rounded-lg border border-[#e5e5e7] bg-white"
+            >
+              <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 px-2.5 py-2">
+                <div>
+                  <span className="text-[10px] font-semibold text-[#86868b]">
+                    参考情報
+                  </span>
+                  <h3 className="text-[13px] font-semibold text-[#1d1d1f]">
+                    支払い状況と対象PJ
+                  </h3>
+                </div>
+                <span className="text-[11px] font-semibold text-[#007aff] group-open:hidden">
+                  開く
                 </span>
-                <h2 className="text-[13px] font-semibold text-[#1d1d1f]">
-                  支払い状況と対象PJ
-                </h2>
-              </div>
-              <span className="text-[11px] font-semibold text-[#007aff] group-open:hidden">
-                開く
-              </span>
-              <span className="hidden text-[11px] font-semibold text-[#007aff] group-open:inline">
-                閉じる
-              </span>
-            </summary>
-            <div className="border-t border-[#e5e5e7] p-2.5">
-              <p className="mb-2 text-[11px] leading-relaxed text-[#6e6e73]">
-                支払い済み・支払予定・未払残は、合意する担当内容や予定額そのものではなく、支払いの見通しを知るための情報です。
-              </p>
-              <dl className="grid gap-x-5 gap-y-1.5 text-[11px] sm:grid-cols-2">
-                <div className="flex items-baseline justify-between gap-3 border-b border-[#f0f0f2] pb-1">
-                  <dt className="text-[#6e6e73]">
-                    対象PJ <Hint id="monthly-agreement.project-count" />
-                  </dt>
-                  <dd className="font-semibold tabular-nums text-[#1d1d1f]">
-                    {bundle.snapshot.totals.projectCount}件
-                  </dd>
-                </div>
-                <div className="flex items-baseline justify-between gap-3 border-b border-[#f0f0f2] pb-1">
-                  <dt className="text-[#6e6e73]">
-                    支払済 <Hint id="monthly-agreement.payout" />
-                  </dt>
-                  <dd className="font-semibold tabular-nums text-[#1d1d1f]">
-                    {formatYen(paidActualYen)}
-                  </dd>
-                </div>
-                {unverifiedPaidYen > 0 && (
-                  <div className="flex items-baseline justify-between gap-3 border-b border-[#f0f0f2] pb-1">
-                    <dt className="text-[#6e6e73]">支払い確認中</dt>
-                    <dd className="font-semibold tabular-nums text-amber-700">
-                      {formatYen(unverifiedPaidYen)}
-                    </dd>
-                  </div>
-                )}
-                <div className="flex items-baseline justify-between gap-3 border-b border-[#f0f0f2] pb-1">
-                  <dt className="text-[#6e6e73]">これから支払う予定</dt>
-                  <dd className="font-semibold tabular-nums text-[#1d1d1f]">
-                    {formatYen(futurePayoutYen)}
-                  </dd>
-                </div>
-                {totalStockYen > 0 && (
+                <span className="hidden text-[11px] font-semibold text-[#007aff] group-open:inline">
+                  閉じる
+                </span>
+              </summary>
+              <div className="border-t border-[#e5e5e7] p-2.5">
+                <p className="mb-2 text-[11px] leading-relaxed text-[#6e6e73]">
+                  支払い済み・支払予定・未払残は、合意する担当内容や予定額そのものではなく、支払いの見通しを知るための情報です。
+                </p>
+                <dl className="grid gap-x-5 gap-y-1.5 text-[11px] sm:grid-cols-2">
                   <div className="flex items-baseline justify-between gap-3 border-b border-[#f0f0f2] pb-1">
                     <dt className="text-[#6e6e73]">
-                      未払残 <Hint id="monthly-agreement.stock" />
+                      対象PJ <Hint id="monthly-agreement.project-count" />
                     </dt>
-                    <dd className="font-semibold tabular-nums text-amber-700">
-                      {formatYen(totalStockYen)}
+                    <dd className="font-semibold tabular-nums text-[#1d1d1f]">
+                      {bundle.snapshot.totals.projectCount}件
                     </dd>
                   </div>
-                )}
-              </dl>
-              <div className="mt-3 border-t border-[#e5e5e7] pt-2">
-                <p className="text-[10px] font-semibold text-[#86868b]">
-                  PJごとの支払い状況
-                </p>
-                {bundle.snapshot.projects.length === 0 ? (
-                  <p className="mt-1.5 text-[11px] text-[#6e6e73]">
-                    対象PJはありません
+                  <div className="flex items-baseline justify-between gap-3 border-b border-[#f0f0f2] pb-1">
+                    <dt className="text-[#6e6e73]">
+                      支払済 <Hint id="monthly-agreement.payout" />
+                    </dt>
+                    <dd className="font-semibold tabular-nums text-[#1d1d1f]">
+                      {formatYen(paidActualYen)}
+                    </dd>
+                  </div>
+                  {unverifiedPaidYen > 0 && (
+                    <div className="flex items-baseline justify-between gap-3 border-b border-[#f0f0f2] pb-1">
+                      <dt className="text-[#6e6e73]">支払い確認中</dt>
+                      <dd className="font-semibold tabular-nums text-amber-700">
+                        {formatYen(unverifiedPaidYen)}
+                      </dd>
+                    </div>
+                  )}
+                  <div className="flex items-baseline justify-between gap-3 border-b border-[#f0f0f2] pb-1">
+                    <dt className="text-[#6e6e73]">これから支払う予定</dt>
+                    <dd className="font-semibold tabular-nums text-[#1d1d1f]">
+                      {formatYen(futurePayoutYen)}
+                    </dd>
+                  </div>
+                  {totalStockYen > 0 && (
+                    <div className="flex items-baseline justify-between gap-3 border-b border-[#f0f0f2] pb-1">
+                      <dt className="text-[#6e6e73]">
+                        未払残 <Hint id="monthly-agreement.stock" />
+                      </dt>
+                      <dd className="font-semibold tabular-nums text-amber-700">
+                        {formatYen(totalStockYen)}
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+                <div className="mt-3 border-t border-[#e5e5e7] pt-2">
+                  <p className="text-[10px] font-semibold text-[#86868b]">
+                    PJごとの支払い状況
                   </p>
-                ) : (
-                  <div className="mt-1 divide-y divide-[#e5e5e7]">
-                    {bundle.snapshot.projects.map((project) => (
-                      <div
-                        key={project.projectId}
-                        className="grid gap-x-3 gap-y-1 py-2 sm:grid-cols-[minmax(120px,1fr)_auto_auto_auto] sm:items-baseline"
-                      >
-                        <div className="min-w-0">
-                          <p className="truncate text-[11px] font-semibold text-[#1d1d1f]">
-                            {project.projectName}
+                  {bundle.snapshot.projects.length === 0 ? (
+                    <p className="mt-1.5 text-[11px] text-[#6e6e73]">
+                      対象PJはありません
+                    </p>
+                  ) : (
+                    <div className="mt-1 divide-y divide-[#e5e5e7]">
+                      {bundle.snapshot.projects.map((project) => (
+                        <div
+                          key={project.projectId}
+                          className="grid gap-x-3 gap-y-1 py-2 sm:grid-cols-[minmax(120px,1fr)_auto_auto_auto] sm:items-baseline"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-[11px] font-semibold text-[#1d1d1f]">
+                              {project.projectName}
+                            </p>
+                            <p className="mt-0.5 text-[10px] text-[#86868b]">
+                              請求 {formatBillingStatus(project.billingStatus)}
+                            </p>
+                          </div>
+                          <p className="text-[10px] text-[#6e6e73]">
+                            今月支払{" "}
+                            <span className="font-semibold tabular-nums text-[#3c3c43]">
+                              {formatYen(project.payoutYen)}
+                            </span>
                           </p>
-                          <p className="mt-0.5 text-[10px] text-[#86868b]">
-                            請求 {formatBillingStatus(project.billingStatus)}
+                          <p className="text-[10px] text-[#6e6e73]">
+                            {project.paymentYm
+                              ? `${formatYm(project.paymentYm)}支払予定`
+                              : "支払予定"}{" "}
+                            <span className="font-semibold tabular-nums text-[#3c3c43]">
+                              {formatYen(project.currentCyclePayoutYen)}
+                            </span>
+                          </p>
+                          <p className="text-[10px] text-[#6e6e73]">
+                            未払残{" "}
+                            <span className="font-semibold tabular-nums text-amber-700">
+                              {formatYen(project.stockYen)}
+                            </span>
                           </p>
                         </div>
-                        <p className="text-[10px] text-[#6e6e73]">
-                          今月支払{" "}
-                          <span className="font-semibold tabular-nums text-[#3c3c43]">
-                            {formatYen(project.payoutYen)}
-                          </span>
-                        </p>
-                        <p className="text-[10px] text-[#6e6e73]">
-                          {project.paymentYm
-                            ? `${formatYm(project.paymentYm)}支払予定`
-                            : "支払予定"}{" "}
-                          <span className="font-semibold tabular-nums text-[#3c3c43]">
-                            {formatYen(project.currentCyclePayoutYen)}
-                          </span>
-                        </p>
-                        <p className="text-[10px] text-[#6e6e73]">
-                          未払残{" "}
-                          <span className="font-semibold tabular-nums text-amber-700">
-                            {formatYen(project.stockYen)}
-                          </span>
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
+            </details>
+
+            <RewardBasisDetails projects={bundle.snapshot.projects} />
+
+            <section className="flex flex-col items-start gap-4">
+              {bundle.snapshot.projects.length === 0 ? (
+                <div className="rounded-lg border border-[#e5e5e7] bg-white p-5 text-sm text-[#6e6e73]">
+                  {bundle.exclusionReason ||
+                    `${formatYm(bundle.ym)}に参加中のプロジェクトはありません。`}
+                </div>
+              ) : (
+                bundle.snapshot.projects.map((project) => (
+                  <ProjectAgreementCard
+                    key={project.projectId}
+                    project={project}
+                    ym={bundle.ym}
+                    viewerIsAdmin={Boolean(bundle.member.isAdmin)}
+                    linksInNewTab={false}
+                  />
+                ))
+              )}
+            </section>
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={load}
+                className="inline-flex items-center gap-2 rounded-md border border-[#d1d1d6] bg-white px-3 py-2 text-xs font-semibold text-[#3c3c43]"
+              >
+                <RefreshCw className="size-3.5" />
+                再読み込み
+              </button>
             </div>
-          </details>
-        )}
-
-        {!isModal && (
-          <section className="flex flex-col items-start gap-4">
-            {bundle.snapshot.projects.length === 0 ? (
-              <div className="rounded-lg border border-[#e5e5e7] bg-white p-5 text-sm text-[#6e6e73]">
-                {bundle.exclusionReason ||
-                  `${formatYm(bundle.ym)}に参加中のプロジェクトはありません。`}
-              </div>
-            ) : (
-              bundle.snapshot.projects.map((project) => (
-                <ProjectAgreementCard
-                  key={project.projectId}
-                  project={project}
-                  ym={bundle.ym}
-                  viewerIsAdmin={Boolean(bundle.member.isAdmin)}
-                  linksInNewTab={false}
-                />
-              ))
-            )}
-          </section>
-        )}
-
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={load}
-            className="inline-flex items-center gap-2 rounded-md border border-[#d1d1d6] bg-white px-3 py-2 text-xs font-semibold text-[#3c3c43]"
-          >
-            <RefreshCw className="size-3.5" />
-            再読み込み
-          </button>
-        </div>
+          </div>
+        </details>
       </main>
     </div>
   );
 }
 
-function AgreementFlowRail({
+function RequiredChecksSection({
   compact = false,
   projects,
   totalExpectedRewardYen,
@@ -774,143 +750,231 @@ function AgreementFlowRail({
 }) {
   return (
     <section
-      className={`${compact ? "w-full max-w-full p-2.5" : "p-4"} rounded-lg border border-[#e5e5e7] bg-white`}
+      data-testid="monthly-agreement-required-checks"
+      className="flex w-full max-w-full flex-col gap-4"
     >
-      <div
-        className={`${compact ? "mb-2" : "mb-3"} flex flex-wrap items-center justify-between gap-2`}
-      >
-        <div>
-          <h2
-            className={`${compact ? "text-[12px]" : "text-[14px]"} font-semibold text-[#1d1d1f]`}
-          >
-            合意前に必ず確認すること <Hint id="monthly-agreement.flow" />
-          </h2>
-          <p
-            className={`${compact ? "mt-0.5 text-[11px]" : "mt-1 text-[12px]"} text-[#6e6e73]`}
-          >
-            各PJの担当内容と、予定額に問題がなければ合意してください。pt・担当割合・支払い予定は参考情報です。
-          </p>
-        </div>
+      <div className="px-1">
+        <h2 className="text-[18px] font-semibold text-[#1d1d1f] sm:text-[20px]">
+          確認して合意する内容{" "}
+          <span className="inline-flex align-middle [&_button]:h-5 [&_button]:w-5 [&_button]:text-[12px]">
+            <Hint id="monthly-agreement.flow" />
+          </span>
+        </h2>
+        <p className="mt-1 text-[13px] text-[#6e6e73]">
+          このページでは、まず担当する仕事を確認し、次にその対価としての予定額を確認します。問題がなければ合意してください。
+        </p>
       </div>
-      <div
-        className={
-          compact
-            ? "grid max-w-full items-start gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]"
-            : "grid gap-2 md:grid-cols-2"
-        }
-      >
-        <section
-          className={`relative min-w-0 rounded-md border border-[#e5e5e7] bg-[#fbfbfd] ${compact ? "p-2" : "p-3"}`}
-        >
-          <div className="flex items-center gap-2 text-[12px] font-semibold text-[#1d1d1f]">
-            <span
-              className={`inline-flex ${compact ? "size-6" : "size-7"} items-center justify-center rounded-full bg-white text-[#007aff] ring-1 ring-[#d1d1d6]`}
-            >
-              <FileCheck2 className="size-4" />
-            </span>
-            <span className="min-w-0 truncate">担当内容</span>
-            <span className="ml-auto rounded-full bg-sky-100 px-1.5 py-0.5 text-[9px] font-semibold text-sky-800">
-              必須
-            </span>
-          </div>
-          {projects.length === 0 ? (
-            <p
-              className={`${compact ? "mt-1.5" : "mt-2"} text-[11px] text-[#6e6e73]`}
-            >
-              対象PJはありません
-            </p>
-          ) : (
-            <div
-              className={`${compact ? "mt-1.5" : "mt-2"} divide-y divide-[#e5e5e7] border-t border-[#e5e5e7]`}
-            >
-              {projects.map((project) => (
-                <div key={project.projectId} className="py-1.5">
-                  <p className="text-[11px] font-semibold text-[#1d1d1f]">
-                    {project.projectName}
-                  </p>
-                  {project.milestones.length === 0 ? (
-                    <p className="mt-0.5 text-[10px] text-amber-700">
-                      担当内容が未登録です
-                    </p>
-                  ) : (
-                    <dl className="mt-1 grid grid-cols-[58px_minmax(0,1fr)] gap-x-2 text-[10px] leading-relaxed">
-                      <dt className="font-semibold text-[#6e6e73]">担当内容</dt>
-                      <dd className="flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-[#3c3c43]">
-                        {project.milestones.map((milestone) => (
-                          <span
-                            key={milestone.milestoneId}
-                            className="inline-flex min-w-0 items-start gap-1"
-                          >
-                            <span aria-hidden="true" className="text-[#86868b]">
-                              ・
-                            </span>
-                            <span className="break-words">
-                              {milestone.taskDescription || milestone.title}
-                            </span>
-                          </span>
-                        ))}
-                      </dd>
-                    </dl>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
 
-        <section
-          className={`relative min-w-0 rounded-md border border-[#e5e5e7] bg-[#fbfbfd] ${compact ? "p-2" : "p-3"}`}
-        >
-          <div className="flex items-center gap-2 text-[12px] font-semibold text-[#1d1d1f]">
-            <span
-              className={`inline-flex ${compact ? "size-6" : "size-7"} items-center justify-center rounded-full bg-white text-[#007aff] ring-1 ring-[#d1d1d6]`}
+      <ScopeSection compact={compact} projects={projects} />
+      <RewardSection
+        compact={compact}
+        projects={projects}
+        totalExpectedRewardYen={totalExpectedRewardYen}
+      />
+    </section>
+  );
+}
+
+function SectionNumberBadge({ number }: { number: "01" | "02" }) {
+  const testId =
+    number === "01"
+      ? "monthly-agreement-section-number-01"
+      : "monthly-agreement-section-number-02";
+  return (
+    <span
+      data-testid={testId}
+      className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-[#007aff] text-[14px] font-bold text-white"
+    >
+      {number}
+    </span>
+  );
+}
+
+function ScopeSection({
+  compact,
+  projects,
+}: {
+  compact: boolean;
+  projects: MonthlyWorkAgreementProject[];
+}) {
+  return (
+    <section
+      data-testid="monthly-agreement-scope-section"
+      className={`w-full max-w-full rounded-lg border border-[#e5e5e7] bg-white ${compact ? "p-4" : "p-4 sm:p-6"}`}
+    >
+      <div className="flex items-center gap-2">
+        <SectionNumberBadge number="01" />
+        <h3 className="text-[18px] font-semibold text-[#1d1d1f] sm:text-[20px]">
+          担当する仕事
+        </h3>
+      </div>
+      <p className="mt-2 text-[13px] leading-relaxed text-[#6e6e73]">
+        今月あなたが担当するプロジェクトと、その中の具体的な仕事内容です。
+      </p>
+
+      {projects.length === 0 ? (
+        <p className="mt-3 text-[13px] text-[#6e6e73]">対象PJはありません</p>
+      ) : (
+        <div className="mt-3 max-w-full divide-y divide-[#e5e5e7] border-t border-[#e5e5e7]">
+          {projects.map((project) => (
+            <div
+              key={project.projectId}
+              data-testid="monthly-agreement-check-scope"
+              className="min-w-0 max-w-full py-3"
             >
-              <ListChecks className="size-4" />
-            </span>
-            <span className="min-w-0 truncate">予定額</span>
-            <span className="ml-auto rounded-full bg-sky-100 px-1.5 py-0.5 text-[9px] font-semibold text-sky-800">
-              必須
-            </span>
-          </div>
-          <dl className={`${compact ? "mt-1.5" : "mt-2"} space-y-1`}>
-            <div className="inline-flex max-w-full items-baseline gap-3 rounded-md bg-white px-2 py-1">
-              <dt className="text-[10px] font-semibold text-[#6e6e73]">
-                予定額合計
-              </dt>
-              <dd className="text-[15px] font-semibold tabular-nums text-[#1d1d1f]">
-                {formatYen(totalExpectedRewardYen)}
-              </dd>
-            </div>
-            <div className="w-fit min-w-[260px] max-w-full overflow-hidden rounded-md border border-[#dbeafe] bg-white">
-              <p className="border-b border-[#dbeafe] px-2 py-1 text-[10px] font-semibold text-sky-800">
-                PJごとの予定額
+              <p className="text-[14px] font-semibold text-[#1d1d1f]">
+                {project.projectName}
               </p>
-              {projects.length === 0 ? (
-                <p className="px-2 py-1.5 text-[11px] text-[#6e6e73]">
-                  対象PJはありません
+              {project.milestones.length === 0 ? (
+                <p className="mt-1 text-[13px] text-amber-700">
+                  担当内容が未登録です
                 </p>
               ) : (
-                <div className="divide-y divide-[#e5e5e7]">
-                  {projects.map((project) => (
+                <ul className="mt-1.5 space-y-1">
+                  {project.milestones.map((milestone) => (
+                    <li
+                      key={milestone.milestoneId}
+                      className="flex min-w-0 items-start gap-1.5 text-[14px] leading-[22px] text-[#3c3c43]"
+                    >
+                      <span aria-hidden="true" className="text-[#86868b]">
+                        ・
+                      </span>
+                      <span className="min-w-0 break-words">
+                        {milestone.taskDescription || milestone.title}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function RewardSection({
+  compact,
+  projects,
+  totalExpectedRewardYen,
+}: {
+  compact: boolean;
+  projects: MonthlyWorkAgreementProject[];
+  totalExpectedRewardYen: number | null | undefined;
+}) {
+  return (
+    <section
+      data-testid="monthly-agreement-reward-section"
+      className={`w-full max-w-full rounded-lg border border-[#e5e5e7] bg-white ${compact ? "p-4" : "p-4 sm:p-6"}`}
+    >
+      <div className="flex items-center gap-2">
+        <SectionNumberBadge number="02" />
+        <h3 className="text-[18px] font-semibold text-[#1d1d1f] sm:text-[20px]">
+          その対価としての予定額
+        </h3>
+      </div>
+
+      <div className="mt-3 rounded-lg border border-[#dbeafe] bg-sky-50 px-4 py-3">
+        <p className="text-[13px] font-semibold text-sky-800">予定額合計</p>
+        <p className="mt-1 text-[26px] font-bold tabular-nums text-sky-950 sm:text-[28px]">
+          {formatYen(totalExpectedRewardYen)}
+        </p>
+      </div>
+
+      {projects.length === 0 ? (
+        <p className="mt-3 text-[13px] text-[#6e6e73]">対象PJはありません</p>
+      ) : (
+        <div className="mt-3 max-w-full divide-y divide-[#e5e5e7] border-t border-[#e5e5e7]">
+          {projects.map((project) => (
+            <div
+              key={project.projectId}
+              data-testid="monthly-agreement-check-reward"
+              className="grid min-w-0 max-w-full grid-cols-[minmax(0,1fr)_auto] items-start gap-3 py-3"
+            >
+              <p className="min-w-0 break-words text-[14px] font-semibold leading-[22px] text-[#1d1d1f]">
+                {project.projectName}
+              </p>
+              <p className="shrink-0 text-[16px] font-semibold tabular-nums text-[#1d1d1f]">
+                {formatYen(project.expectedRewardYen)}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function RewardBasisDetails({
+  projects,
+}: {
+  projects: MonthlyWorkAgreementProject[];
+}) {
+  return (
+    <details
+      data-testid="monthly-agreement-reward-basis-details"
+      className="group w-full overflow-hidden rounded-lg border border-[#e5e5e7] bg-white"
+    >
+      <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 px-2.5 py-2">
+        <div>
+          <span className="text-[10px] font-semibold text-[#86868b]">
+            参考情報
+          </span>
+          <h3 className="text-[13px] font-semibold text-[#1d1d1f]">
+            予定額の根拠
+          </h3>
+        </div>
+        <span className="text-[11px] font-semibold text-[#007aff] group-open:hidden">
+          開く
+        </span>
+        <span className="hidden text-[11px] font-semibold text-[#007aff] group-open:inline">
+          閉じる
+        </span>
+      </summary>
+      <div className="border-t border-[#e5e5e7] p-2.5">
+        <p className="mb-2 text-[11px] leading-relaxed text-[#6e6e73]">
+          予定額は、担当割合と今月のptから算出しています。
+        </p>
+        {projects.length === 0 ? (
+          <p className="text-[11px] text-[#6e6e73]">対象PJはありません</p>
+        ) : (
+          projects.map((project) => (
+            <div key={project.projectId} className="mb-3 last:mb-0">
+              <p className="text-[11px] font-semibold text-[#1d1d1f]">
+                {project.projectName}
+              </p>
+              {project.milestones.length === 0 ? (
+                <p className="mt-1 text-[11px] text-[#6e6e73]">
+                  担当内容が未登録です
+                </p>
+              ) : (
+                <div className="mt-1 divide-y divide-[#e5e5e7] border-t border-[#e5e5e7]">
+                  {project.milestones.map((ms) => (
                     <div
-                      key={project.projectId}
-                      className="grid grid-cols-[minmax(88px,1fr)_max-content] items-center gap-x-3 px-2 py-1.5 text-[11px]"
+                      key={ms.milestoneId}
+                      className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-1.5 text-[11px]"
                     >
                       <span className="min-w-0 truncate font-semibold text-[#3c3c43]">
-                        {project.projectName}
+                        {ms.title}
                       </span>
-                      <span className="whitespace-nowrap font-semibold tabular-nums text-[#1d1d1f]">
-                        {formatYen(project.expectedRewardYen)}
+                      <span className="whitespace-nowrap tabular-nums text-[#6e6e73]">
+                        担当割合{" "}
+                        {ms.plannedShare == null
+                          ? "未設定"
+                          : `${Math.round(ms.plannedShare * 100)}%`}{" "}
+                        / 今月のpt {formatPt(ms.earnedPt)} / 予定額{" "}
+                        {formatYen(ms.expectedRewardYen)}
                       </span>
                     </div>
                   ))}
                 </div>
               )}
             </div>
-          </dl>
-        </section>
+          ))
+        )}
       </div>
-    </section>
+    </details>
   );
 }
 

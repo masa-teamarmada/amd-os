@@ -37,6 +37,8 @@ type DetailRow = {
   rows?: Array<{ heading: string; body: string; sub?: string }>;
 };
 
+const COVERAGE_GAP_UNAVAILABLE_HEADING = "このカードだけではコピー対象を判断できない";
+
 function parseProtocolNotificationScope(scopeKey: string): { ym: string; protocolId: string | null } {
   const scoped = scopeKey.match(/^(20\d{4}):protocol:([^:]+)$/);
   if (scoped) {
@@ -79,12 +81,99 @@ const L2_KIND_LABEL: Record<string, string> = {
   // D-11 メディア掲載
   news_mention: "D-11 メディア掲載",
   // Coverage Scanner (不在検知 / negative space)。既存抽出器の上位の安全網。
-  coverage_gap: "🛰 Coverage Scanner (不在検知)",
+  coverage_gap: "会議メモの確認",
   guardrail_match: "経営ガードレール",
 };
 
 function l2KindLabel(l2Kind: string): string {
   return L2_KIND_LABEL[l2Kind] ?? l2Kind;
+}
+
+function isCoverageGapItem(i: UnifiedItem): boolean {
+  return i.kind === "l2" && i.data.l2_kind === "coverage_gap";
+}
+
+function isTextbookInsightItem(i: UnifiedItem): boolean {
+  return i.kind === "l2" && i.data.l2_kind === "textbook_insight";
+}
+
+function itemDisplayTitle(i: UnifiedItem): string {
+  if (isCoverageGapItem(i)) return coverageGapQuestionTitle(i.data as Notification);
+  return sanitizeMeetingTitle(i.data.title);
+}
+
+function itemMetaLabel(i: UnifiedItem, projectMap: Record<string, string>): string {
+  if (isCoverageGapItem(i)) {
+    const n = i.data as Notification;
+    return `会議メモの確認 / ${projectMap[n.target_id] ?? n.target_id}`;
+  }
+  if (i.kind === "l2") {
+    return `${l2KindLabel(i.data.l2_kind)} (${i.data.l2_kind}) / ${displayTarget(i.data.target_id, i.data.scope_key, projectMap)}`;
+  }
+  return `H-1 MTGサマリ / ${projectMap[i.data.project_id] ?? i.data.project_id}`;
+}
+
+function isAlreadySavedForReview(i: UnifiedItem): boolean {
+  // coverage_gap は「候補行が保存済み」でも、まさの yes/no 判断はまだ未完了。
+  // 既存データに saved_count=1,total_count=1 の行があるので、ここだけ明示的に review 扱いに戻す。
+  if (isCoverageGapItem(i)) return false;
+  return i.kind === "l2"
+    && Number(i.data.total_count ?? 0) > 0
+    && Number(i.data.saved_count ?? 0) >= Number(i.data.total_count ?? 0);
+}
+
+type ReviewActionCopy = {
+  yesLabel: string;
+  noLabel: string;
+  yesDoneLabel: string;
+  noDoneLabel: string;
+  prompt: string;
+  footnote: string;
+  placeholder: string;
+  headlineLabel: string;
+};
+
+function reviewActionCopyForItem(i: UnifiedItem, alreadySaved: boolean): ReviewActionCopy {
+  if (isCoverageGapItem(i)) return coverageGapActionCopy(i.data as Notification);
+  if (isTextbookInsightItem(i)) {
+    return {
+      yesLabel: "BZM追記を承認",
+      noLabel: "BZMには入れない",
+      yesDoneLabel: "BZM追記を承認",
+      noDoneLabel: "BZMには入れない",
+      prompt: "AMD OS内の記録から抜き出した学びを、BZM / Before Zero 実践テキストに残すか判断する。元のAMDプロトコルや会議メモは書き換えない。",
+      footnote: "承認しても、この画面からBZM本文を直接書き換えない。後続のローカル反映処理が、承認済み候補だけをBZMのmdへ追記する。",
+      placeholder: "例: BZM向き / AMDプロトコルだけでよい / 抽象化し直して",
+      headlineLabel: "通知ヘッドライン",
+    };
+  }
+  return {
+    yesLabel: alreadySaved ? "はい・確認済み" : "はい・反映",
+    noLabel: "いいえ・不採用",
+    yesDoneLabel: alreadySaved ? "はい・確認済み" : "はい・反映",
+    noDoneLabel: "いいえ・不採用",
+    prompt: alreadySaved
+      ? "これは既に正本へ保存済みの通知。内容が正しければ「はい・確認済み」、違っていれば「いいえ・不採用」。補足だけ残すならコメントだけ送信。"
+      : "反映してよければ「はい・反映」、違っていれば「いいえ・不採用」。補足だけ残すならコメントだけ送信。",
+    footnote: alreadySaved
+      ? "はい/いいえ/コメントは admin/tsukuyomi の学習リストに残る。保存済み通知の「はい」は確認済みフィードバックとして扱う。"
+      : "はい/いいえ/コメントは admin/tsukuyomi の学習リストに残る。安全に反映できる候補は「はい」でSupabaseへ反映する。",
+    placeholder: "任意コメント。例: 今回は契約レビューだけなのでPJメンバーには入れない / 品質確認として継続参加なので登録してOK",
+    headlineLabel: "通知ヘッドライン",
+  };
+}
+
+function responseLabelForItem(action: FeedbackAction, i: UnifiedItem, alreadySaved: boolean): string {
+  const copy = reviewActionCopyForItem(i, alreadySaved);
+  if (action === "yes") return copy.yesDoneLabel;
+  if (action === "no") return copy.noDoneLabel;
+  return "コメント送信済み";
+}
+
+function detailTitleForItem(i: UnifiedItem): string | undefined {
+  if (isCoverageGapItem(i)) return "確認したい内容";
+  if (isTextbookInsightItem(i)) return "BZMに追記する候補";
+  return undefined;
 }
 
 function unifiedItemPriority(i: UnifiedItem): NotificationPriority {
@@ -643,32 +732,26 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
           if (error) throw error;
           rows = (data ?? []).map((r) => {
             const refs = Array.isArray(r.evidence_refs) ? r.evidence_refs : [];
-            const refText = refs
-              .slice(0, 4)
-              .map((e) => {
-                const ref = e && typeof e === "object" ? e as Record<string, unknown> : {};
-                return [
-                  ref.table || ref.source || ref.kind || "source",
-                  ref.row_id || ref.ref_id || ref.id || "",
-                  ref.date || ref.item_date || "",
-                  ref.title || ref.snippet || ref.summary || "",
-                ].filter(Boolean).join(" / ");
-              })
-              .filter(Boolean)
-              .join("\n");
-            const sourceTables = Array.isArray(r.source_tables) ? r.source_tables.join(", ") : "";
+            const sourceTables = Array.isArray(r.source_tables) ? r.source_tables.map(String).filter(Boolean) : [];
+            const candidateMeta = objectValue(r.metadata_json);
+            const practiceKind = textFromUnknown(candidateMeta.practice_kind) || "decision_branch";
+            const appendTarget = textbookAppendTargetText(textFromUnknown(r.target_bzm_slug), textFromUnknown(r.proposed_section), practiceKind);
+            const sourceSummary = textbookSourceSummary(sourceTables, refs);
+            const bodyText = cleanTextbookBodyMarkdown(String(r.body_md ?? ""));
             return {
-              heading: `${r.title} [${r.status}]`,
+              heading: `BZMに追記する候補: ${r.title}`,
               body: [
-                `分類: ${r.insight_type} / priority ${r.priority}`,
-                `実践分類: ${textFromUnknown(objectValue(r.metadata_json).practice_kind) || "decision_branch"}`,
-                `機密: ${r.confidentiality || "internal_only"} / BZM review: ${r.bzm_review_required ? r.bzm_review_status || "pending" : "not_required"} / scope: ${r.theory_change_scope || "none"}`,
-                `追記先: /bzm/${r.target_bzm_slug}${r.proposed_section ? ` / ${r.proposed_section}` : ""}`,
-                String(r.body_md ?? ""),
-                refText ? `根拠:\n${refText}` : "",
-              ].filter(Boolean).join("\n"),
+                `元情報:\n${sourceSummary}`,
+                "通知の種類:\nD-7 Textbook Insights。AMD OS内の記録から、BZM / Before Zero 実践テキストに残せそうな学びを候補化した通知。",
+                `追記先:\n${appendTarget}`,
+                `BZMに追記される内容:\n${bodyText || "追記候補本文が空。判断せず、コメントで再抽出を依頼してね。"}`,
+                `判断の目安:\n${textbookDecisionGuide(String(r.insight_type ?? ""), Number(r.priority ?? 0), practiceKind, sourceTables)}`,
+                "押すと起きること:\n「BZM追記を承認」を押すと、この候補が承認済みになる。Web本番からBZM本文を直接書き換えず、後続のローカル反映処理が承認済み候補だけをBZMのmdへ追記する。「BZMには入れない」を押すと候補を不採用にする。",
+                `AMDプロトコルとの関係:\n${textbookProtocolRelationship(sourceTables, practiceKind)}`,
+              ].filter(Boolean).join("\n\n"),
               sub: [
-                sourceTables ? `source=${sourceTables}` : "",
+                `状態: ${textbookCandidateStatusLabel(String(r.status ?? ""))}`,
+                textbookReviewGateText(Boolean(r.bzm_review_required), textFromUnknown(r.bzm_review_status), textFromUnknown(r.theory_change_scope)),
                 r.applied_file ? `applied=${r.applied_file}` : "",
                 r.applied_at ? `applied_at=${formatJST(String(r.applied_at))}` : "",
               ].filter(Boolean).join(" · ") || undefined,
@@ -714,21 +797,21 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
             .limit(1);
           if (error) throw error;
           rows = (data ?? []).map((r) => {
-            const gapClassLabel = r.gap_class === "extractor_miss" ? "抽出器の取りこぼし (本来どこかのL2が拾えたはず)"
-              : r.gap_class === "structural_gap" ? "構造的GAP (OSに受け皿が無いかも)"
-              : "分類先未確定 (捨てずに残してる)";
+            const summary = String(r.summary ?? n.summary ?? "");
+            const evidence = objectValue(r.evidence_refs_json);
+            const copyMemo = coverageGapCopyMemo(summary, evidence, String(r.title ?? n.title ?? ""));
+            const decisionGuide = coverageGapDecisionGuide(copyMemo, summary);
             return {
-              heading: `${r.title ?? "(no title)"} [${r.review_status}]`,
+              heading: "重要メモにコピーされる内容",
               body: [
-                `判定: ${gapClassLabel}`,
-                `本来の入れ先候補: ${r.proposed_target_l2 ?? "未確定"}`,
-                r.summary ? `要約: ${r.summary}` : "",
-              ].filter(Boolean).join("\n"),
+                `コピーされる文章:\n${copyMemo}`,
+                `判断の目安:\n${decisionGuide}`,
+                `コピーしても起きないこと:\n${coverageGapCopyNonConsequence(textFromUnknown(r.proposed_target_l2))}`,
+              ].filter(Boolean).join("\n\n"),
               sub: [
-                `source=${r.source}`,
-                r.salience_score != null ? `salience=${Number(r.salience_score).toFixed(2)}` : "",
-                r.due_at ? `期日=${formatJST(String(r.due_at))}` : "",
-                r.detected_at ? `検知=${formatJST(String(r.detected_at))}` : "",
+                "上の文章を重要メモに残すかだけ判断",
+                r.due_at ? `期限: ${formatJST(String(r.due_at))}` : "",
+                r.detected_at ? `確認日: ${formatJST(String(r.detected_at))}` : "",
               ].filter(Boolean).join(" · ") || undefined,
             };
           });
@@ -971,12 +1054,6 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
     }
   };
 
-  const responseLabel = (action: FeedbackAction, alreadySaved = false) => {
-    if (action === "yes") return alreadySaved ? "はい・確認済み" : "はい・反映";
-    if (action === "no") return "いいえ・不採用";
-    return "コメント送信済み";
-  };
-
   return (
     <div>
       {/* フィルタタブ */}
@@ -1010,17 +1087,23 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
         const unreadItems = activeReviewItems.filter((i) => isRecentlyAnswered(i) || !isReadBucket(i));
         const readItems = activeReviewItems.filter((i) => !isRecentlyAnswered(i) && isReadBucket(i));
         const answeredItems = filtered.filter((i) => isAnswered(i));
+        const displayNumberByKey = new Map(filtered.map((i, idx) => [itemKey(i), idx + 1]));
 
         const renderCard = (i: UnifiedItem) => {
           const key = itemKey(i);
+          const displayNumber = displayNumberByKey.get(key);
           const isExpanded = expanded.has(key);
           const isSubmitting = submitting.has(key);
+          const detail = details[key];
           const itemFeedbacks = findFeedbacksFor(i);
           const responseAction = responseActionFor(key, itemFeedbacks);
           const priority = unifiedItemPriority(i);
-          const alreadySaved =
-            i.kind === "l2" && Number(i.data.total_count ?? 0) > 0 && Number(i.data.saved_count ?? 0) >= Number(i.data.total_count ?? 0);
-          const yesLabel = alreadySaved ? "はい・確認済み" : "はい・反映";
+          const alreadySaved = isAlreadySavedForReview(i);
+          const actionCopy = reviewActionCopyForItem(i, alreadySaved);
+          const coverageGapCopyBlocked = isCoverageGapItem(i) && coverageGapDetailBlocksCopy(detail);
+          const actionPrompt = coverageGapCopyBlocked ? coverageGapBlockedPrompt(detail) : actionCopy.prompt;
+          const actionFootnote = coverageGapCopyBlocked ? coverageGapBlockedFootnote(detail) : actionCopy.footnote;
+          const yesLabel = coverageGapCopyBlocked ? coverageGapBlockedYesLabel(detail) : actionCopy.yesLabel;
           return (
             <div
               id={`notification-card-${key}`}
@@ -1042,8 +1125,18 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleExpand(i); } }}
               >
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm leading-snug">
-                    <LinkedMemberText text={sanitizeMeetingTitle(i.data.title)} />
+                  <div className="flex items-start gap-2">
+                    {displayNumber != null && (
+                      <span
+                        className="mt-0.5 shrink-0 rounded-full border border-border bg-background px-2 py-0.5 text-[11px] font-semibold tabular-nums text-muted-foreground"
+                        title="いま表示している一覧内の通し番号"
+                      >
+                        No.{displayNumber}
+                      </span>
+                    )}
+                    <div className="font-medium text-sm leading-snug min-w-0">
+                      <LinkedMemberText text={itemDisplayTitle(i)} />
+                    </div>
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
                     {formatJST(i.data.created_at)} ・{" "}
@@ -1054,18 +1147,10 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                     }`}>
                       {notificationPriorityLabel(priority)}
                     </span>
-                    {i.kind === "l2" ? (
-                      <>
-                        <span className="font-medium text-foreground/80">{l2KindLabel(i.data.l2_kind)}</span>
-                        <span className="ml-1 opacity-60">({i.data.l2_kind})</span>
-                        {" / "}
-                        {displayTarget(i.data.target_id, i.data.scope_key, projectMap)}
-                      </>
-                    ) : (
-                      `H-1 MTGサマリ / ${projectMap[i.data.project_id] ?? i.data.project_id}`
-                    )}
+                    {itemMetaLabel(i, projectMap)}
                     {!isReadUi(i) && <span className="ml-2 text-blue-600 dark:text-blue-400">● 未読</span>}
                     {(() => {
+                      if (isCoverageGapItem(i)) return null;
                       const kindKey = i.kind === "l2" ? i.data.l2_kind : "meeting_summary";
                       const cost = NOTIFICATION_COST_ESTIMATE_JPY[kindKey];
                       if (cost == null) return null;
@@ -1104,7 +1189,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                   {/* 通知 summary (上流が付けた一覧用見出し) */}
                   {i.kind === "l2" ? (
                     <div className="text-xs text-muted-foreground italic">
-                      通知ヘッドライン: <LinkedMemberText text={i.data.summary || "(なし)"} />
+                      {actionCopy.headlineLabel}: <LinkedMemberText text={isCoverageGapItem(i) ? coverageGapQuestionSummary(i.data) : i.data.summary || "(なし)"} />
                     </div>
                   ) : (
                     <div className="text-xs text-muted-foreground italic">
@@ -1113,7 +1198,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                   )}
 
                   {/* 実データ (lazy fetch) */}
-                  <DetailSection detail={details[key]} />
+                  <DetailSection detail={details[key]} title={detailTitleForItem(i)} />
 
                   {/* 元データへの deep link */}
                   <div className="text-xs">
@@ -1148,7 +1233,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                     {responseAction ? (
                       <div className="flex flex-wrap items-center justify-between gap-2 rounded border border-emerald-500/25 bg-emerald-500/8 px-3 py-2">
                         <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">
-                          回答済み: {responseLabel(responseAction, alreadySaved)}
+                          回答済み: {responseLabelForItem(responseAction, i, alreadySaved)}
                         </span>
                         {isSubmitting && <span className="text-[11px] text-muted-foreground">送信中...</span>}
                       </div>
@@ -1156,13 +1241,11 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                       <>
                         <label className="text-xs font-medium block mb-1">回答・コメント</label>
                         <p className="mb-2 text-[11px] text-muted-foreground">
-                          {alreadySaved
-                            ? "これは既に正本へ保存済みの通知。内容が正しければ「はい・確認済み」、違っていれば「いいえ・不採用」。補足だけ残すならコメントだけ送信。"
-                            : "反映してよければ「はい・反映」、違っていれば「いいえ・不採用」。補足だけ残すならコメントだけ送信。"}
+                          {actionPrompt}
                         </p>
                         <textarea
                           className="w-full text-sm border rounded p-2 min-h-[60px] bg-background"
-                          placeholder="任意コメント。例: 今回は契約レビューだけなのでPJメンバーには入れない / 品質確認として継続参加なので登録してOK"
+                          placeholder={actionCopy.placeholder}
                           value={feedbackTexts[key] ?? ""}
                           onChange={(e) => setFeedbackTexts((prev) => ({ ...prev, [key]: e.target.value }))}
                           disabled={isSubmitting}
@@ -1171,7 +1254,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                           <button
                             className="text-xs px-3 py-1.5 border border-emerald-500 text-emerald-700 rounded hover:bg-emerald-50 disabled:opacity-50"
                             onClick={() => submitFeedback(i, "yes")}
-                            disabled={isSubmitting}
+                            disabled={isSubmitting || coverageGapCopyBlocked}
                           >
                             {isSubmitting ? "送信中..." : yesLabel}
                           </button>
@@ -1180,7 +1263,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                             onClick={() => submitFeedback(i, "no")}
                             disabled={isSubmitting}
                           >
-                            {isSubmitting ? "送信中..." : "いいえ・不採用"}
+                            {isSubmitting ? "送信中..." : actionCopy.noLabel}
                           </button>
                           <button
                             className="text-xs px-3 py-1.5 bg-amber-600 text-white rounded hover:bg-amber-700 disabled:opacity-50"
@@ -1191,9 +1274,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                           </button>
                         </div>
                         <p className="text-[10px] text-muted-foreground mt-1">
-                          {alreadySaved
-                            ? "はい/いいえ/コメントは admin/tsukuyomi の学習リストに残る。保存済み通知の「はい」は確認済みフィードバックとして扱う。"
-                            : "はい/いいえ/コメントは admin/tsukuyomi の学習リストに残る。安全に反映できる候補は「はい」でSupabaseへ反映する。"}
+                          {actionFootnote}
                         </p>
                       </>
                     )}
@@ -1293,7 +1374,7 @@ function NotificationPrioritySection({
 }
 
 // 展開時の実データ表示セクション
-function DetailSection({ detail }: { detail: DetailRow | undefined }) {
+function DetailSection({ detail, title = "抽出された内容" }: { detail: DetailRow | undefined; title?: string }) {
   if (!detail) return null;
   if (detail.loading) {
     return <div className="text-xs text-muted-foreground italic">📥 抽出された内容を読み込み中...</div>;
@@ -1307,7 +1388,7 @@ function DetailSection({ detail }: { detail: DetailRow | undefined }) {
   }
   return (
     <div className="space-y-2 bg-muted/30 rounded p-2">
-      <div className="text-xs font-medium text-muted-foreground">📦 抽出された内容 ({rows.length} 件)</div>
+      <div className="text-xs font-medium text-muted-foreground">📦 {title} ({rows.length} 件)</div>
       {rows.map((r, idx) => (
         <div key={idx} className="border-l-2 border-primary/30 pl-2 py-0.5">
           <div className="text-sm font-medium">
@@ -1426,7 +1507,7 @@ function DeepLinkForL2({ n }: { n: Notification }) {
     case "coverage_gap":
       return (
         <a className="text-blue-600 hover:underline" href={`/admin/coverage-gaps`}>
-          /admin/coverage-gaps (不在検知 gap 一覧で確認・本来の入れ先へ手当て)
+          確認一覧を開く
         </a>
       );
     case "guardrail_match":
@@ -1508,13 +1589,482 @@ function truncateOneLine(value: string, limit = 360): string {
   return s.length > limit ? `${s.slice(0, limit)}...` : s;
 }
 
+function textbookSourceLabel(table: string): string {
+  const key = table.trim().toLowerCase();
+  const labels: Record<string, string> = {
+    protocols: "AMDプロトコル",
+    protocol_examples: "AMDプロトコルの事例",
+    protocol_result_observations: "AMDプロトコルの後追い結果",
+    project_meeting_summaries: "会議要約",
+    project_strategy_signals: "重要メモ",
+    project_knowledge: "PJナレッジ",
+    monthly_reports: "月次レポート",
+  };
+  return labels[key] ?? table;
+}
+
+function textbookSourceSummary(sourceTables: string[], refs: unknown[]): string {
+  const labels = sourceTables.length > 0
+    ? Array.from(new Set(sourceTables.map(textbookSourceLabel)))
+    : ["AMD OS内の記録"];
+  const evidenceTitles = refs
+    .map((entry) => objectValue(entry))
+    .map((ref) => textFromUnknown(ref.title) || textFromUnknown(ref.summary) || textFromUnknown(ref.snippet))
+    .filter(Boolean)
+    .map((v) => truncateOneLine(v, 120));
+  const firstTitle = evidenceTitles[0];
+  const base = `${labels.join("・")}に残っていた記録から抽出。`;
+  if (!firstTitle) return base;
+  return `${base}\n根拠の見出し: ${firstTitle}`;
+}
+
+function textbookPracticeKindLabel(practiceKind: string): string {
+  const labels: Record<string, string> = {
+    decision_branch: "現場判断と分岐",
+    failure_learning: "失敗・手戻りからの学び",
+    cross_project_pattern: "PJ横断パターン",
+    theory_case: "BZM理論の検証ケース",
+    reusable_question: "次回も使える問い",
+    relationship_playbook: "関係構築プレイブック",
+    field_transition: "研究現場から事業化への移行",
+  };
+  return labels[practiceKind] ?? (practiceKind || "実践知");
+}
+
+function textbookAppendTargetText(slug: string, section: string, practiceKind: string): string {
+  const target = slug ? `/bzm/${slug}` : "BZMの該当章";
+  const sectionText = section || textbookPracticeKindLabel(practiceKind);
+  if (practiceKind === "decision_branch") {
+    return `${target} / ${sectionText}\n「分岐点」はAMDプロトコル本文の疑問文ではなく、BZM側で“判断の条件・材料・結果を再利用可能に残す”ための分類。`;
+  }
+  return `${target} / ${sectionText}`;
+}
+
+function cleanTextbookBodyMarkdown(value: string): string {
+  return value
+    .replace(/\r/g, "")
+    .replace(/^#{1,6}\s*/gm, "")
+    .replace(/^結果\s+null\s*$/gim, "")
+    .replace(/^null\s*$/gim, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function textbookDecisionGuide(insightType: string, priority: number, practiceKind: string, sourceTables: string[]): string {
+  const kindLabel = textbookPracticeKindLabel(practiceKind);
+  const sourceHasProtocol = sourceTables.map((v) => v.toLowerCase()).includes("protocols");
+  const typeText = insightType === "before_zero_knowhow"
+    ? "Before Zeroで再利用できる経営判断・失敗回避の知見"
+    : "PJ横断で再利用できる知見";
+  const priorityText = priority === 1 ? "優先度は高め。" : "優先度は中程度。";
+  const protocolText = sourceHasProtocol
+    ? "元ネタがAMDプロトコルなので、単なるSX固有メモではなく“次のPJでも使える判断パターン”に抽象化できているかを見る。"
+    : "元記録が特定PJに寄りすぎていないか、次のPJでも使える言い方になっているかを見る。";
+  return `${priorityText}${typeText}として、分類は「${kindLabel}」。${protocolText}`;
+}
+
+function textbookProtocolRelationship(sourceTables: string[], practiceKind: string): string {
+  const sourceHasProtocol = sourceTables.map((v) => v.toLowerCase()).includes("protocols");
+  if (!sourceHasProtocol) {
+    return "この候補はAMDプロトコルの書き換えではない。元記録からBZM向きの学びだけを抜き出す候補。";
+  }
+  if (practiceKind === "decision_branch") {
+    return "元ネタはAMDプロトコル。追記先はBZM。AMDプロトコルにある「分岐点 / 判断材料 / アクション」を、Before Zeroの教材として再利用できる判断パターンに変換する候補。AMDプロトコル本文は書き換えない。";
+  }
+  return "元ネタはAMDプロトコル。追記先はBZM。元ネタと追記先が違うので、AMDプロトコル本文は書き換えない。";
+}
+
+function textbookCandidateStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    candidate: "未判断",
+    approved: "承認済み",
+    rejected: "不採用",
+    applied: "BZMへ追記済み",
+  };
+  return labels[status] ?? (status || "未判断");
+}
+
+function textbookReviewGateText(reviewRequired: boolean, reviewStatus: string, theoryScope: string): string {
+  if (reviewRequired) {
+    return `BZM理論レビュー: ${reviewStatus || "未完了"}`;
+  }
+  if (theoryScope && theoryScope !== "none") {
+    return `理論変更範囲: ${theoryScope}`;
+  }
+  return "BZM理論レビュー: 不要";
+}
+
 function stripNotificationPrefix(title: string): string {
   return title
     .replace(/^D-\d+\s*[^:：]*[:：]\s*/, "")
     .trim();
 }
 
+function normalizeCoverageTarget(value: string): string {
+  const v = value.trim().toLowerCase();
+  if (v === "project_strategy_signal") return "strategy_signal";
+  if (v === "registry_diff" || v === "project_registry_diff") return "registry_diff";
+  return v;
+}
+
+function coverageGapSubjectFromTitle(raw: string | null | undefined): string {
+  let s = stripNotificationPrefix(sanitizeMeetingTitle(raw ?? ""));
+  s = s
+    .replace(/^未OS化(?:の可能性|候補)?[:：]\s*/, "")
+    .replace(/^(?:D-6\s*)?経営ハイライトに残す[？?][:：]\s*/, "")
+    .replace(/^重要メモに残す[？?][:：]\s*/, "")
+    .replace(/^重要メモにコピーする[？?][:：]\s*/, "")
+    .replace(/^OSに残す[？?][:：]\s*/, "")
+    .replace(/\s*\/\s*(?:【web】\s*)?.*(?:経営会議|会議|審査委員会|委員会)\s*$/, "")
+    .trim();
+
+  const h1Match = s.match(/^H-1\s*要約で(.+?)が(?:薄まった|弱まった)可能性[:：]\s*(.+)$/);
+  if (h1Match) {
+    return humanizeCoverageSubject(h1Match[1].trim());
+  }
+  return humanizeCoverageSubject(s || "(no title)");
+}
+
+function coverageGapQuestionTitle(n: Notification): string {
+  const subject = coverageGapQuestionSubject(n);
+  if (coverageGapNotificationNeedsSourceRecovery(n)) {
+    return `コピー前に元情報を確認: ${subject}`;
+  }
+  return `重要メモにコピーする？: ${subject}`;
+}
+
+function coverageGapQuestionSubject(n: Notification): string {
+  const summary = n.summary ?? "";
+  if (/VC\s*3社|VC3社/.test(summary) && /PoC|NEDO/.test(summary)) {
+    return "PoC後にVC3社が出資を検討するかも";
+  }
+  const fromTitle = coverageGapSubjectFromTitle(n.title || n.summary);
+  const fromSummary = coverageGapSubjectFromSummary(summary);
+  if (coverageGapSubjectLooksGeneric(fromTitle) && fromSummary) return fromSummary;
+  return fromTitle;
+}
+
+function coverageGapQuestionSummary(n: Notification): string {
+  const subject = coverageGapQuestionSubject(n);
+  if (coverageGapNotificationNeedsSourceRecovery(n)) {
+    return `この通知は「${subject}」を重要メモ候補として出しているが、具体的な会議メモ本文がこのカードだけでは確認できない。内容を確認できるまで、重要メモへのコピー判断はしない。`;
+  }
+  if (subject.includes("VC3社")) {
+    return "下の「コピーされる文章」を、保存済みの会議要約とは別に、重要メモへコピーするかの確認。元の会議要約は書き換えない。";
+  }
+  return `下の「コピーされる文章」を、保存済みの会議要約とは別に、重要メモへコピーするかの確認。コピー候補の主題: ${subject}。元の会議要約は書き換えない。`;
+}
+
+function coverageGapActionCopy(n: Notification): ReviewActionCopy {
+  const meta = objectValue(n.metadata_json);
+  const target = normalizeCoverageTarget(textFromUnknown(meta.proposed_target_l2));
+  if (target === "strategy_signal") {
+    return {
+      yesLabel: "重要メモにコピー",
+      noLabel: "コピーしない",
+      yesDoneLabel: "重要メモにコピー済み",
+      noDoneLabel: "コピーしないで完了",
+      prompt: "上の「コピーされる文章」を重要メモに残すかだけを選ぶ。コピーしても元の会議要約は書き換えない。",
+      footnote: "コピーしても出資決定・正式合意・着金合意としては扱わない。元の会議要約を直したい場合はコメントに書く。",
+      placeholder: "任意コメント。例: この文章なら残す / 元の要約も直したい / これはコピーしない",
+      headlineLabel: "確認したいこと",
+    };
+  }
+  return {
+    yesLabel: "重要メモにコピー",
+    noLabel: "コピーしない",
+    yesDoneLabel: "重要メモにコピー済み",
+    noDoneLabel: "コピーしないで完了",
+    prompt: "上の「コピーされる文章」を重要メモに残すかだけを選ぶ。コピーしても元の会議要約は書き換えない。",
+    footnote: "コピーしても正式決定としては扱わない。元の会議要約を直したい場合はコメントに書く。",
+    placeholder: "任意コメント。例: この文章なら残す / 元の要約も直したい / これはコピーしない",
+    headlineLabel: "確認したいこと",
+  };
+}
+
+function humanizeCoverageSubject(value: string): string {
+  let s = value.replace(/\s+/g, " ").trim();
+  s = s
+    .replace(/PoC後のVC関心確認/g, "PoC後にVCが出資を検討する話")
+    .replace(/VC関心確認/g, "VCが出資を検討する話")
+    .replace(/創業体制\/資金調達転換/g, "創業体制や資金調達方針の変化")
+    .replace(/合金キャピタル新株予約権の具体条件/g, "合金キャピタルの新株予約権の条件")
+    .replace(/条件付き投資家関心/g, "条件がそろえば出資を検討する話")
+    .replace(/条件付き情報/g, "条件つきの話")
+    .replace(/薄い/g, "弱く書かれている");
+  return truncateOneLine(s, 80);
+}
+
+function humanizeCoverageSentence(value: string): string {
+  let s = value.replace(/\s+/g, " ").trim();
+  if (!s) return "";
+  if (/VC\s*3社|VC3社/.test(s) && /PoC|NEDO/.test(s)) {
+    if (/資本政策|CEO持株比率/.test(s) && /薄い|目立たない|中心/.test(s)) {
+      return "保存済みの会議要約では、資本政策やCEO持株比率の話が中心で、VC3社の出資検討の話が入っていないか、弱く書かれている可能性がある。";
+    }
+    return "PoCが終わったあとなら、VC3社が出資を検討するかもしれない。まだ出資決定ではないので、期待しすぎない形で残す必要がある。";
+  }
+  s = s
+    .replace(/raw transcript/g, "会議メモ")
+    .replace(/Notion文字起こし/g, "会議メモ")
+    .replace(/Drive資料/g, "資料")
+    .replace(/H-1保存結果/g, "保存済みの会議要約")
+    .replace(/H-1要約/g, "保存済みの会議要約")
+    .replace(/条件付き投資家関心/g, "条件がそろえば出資を検討する話")
+    .replace(/条件付き情報/g, "条件つきの話")
+    .replace(/目立たない\/欠落している可能性がある/g, "入っていないか、弱く書かれている可能性がある")
+    .replace(/目立たない/g, "弱く書かれている")
+    .replace(/薄い/g, "弱く書かれている")
+    .replace(/参画・リード投資家・出資決定・着金合意ではない前提で要確認/g, "まだ正式な出資決定ではないので、期待しすぎない形で残す");
+  return truncateOneLine(s, 220);
+}
+
+function coverageGapProjectLabel(value: string): string {
+  const text = value.replace(/\s+/g, " ").trim();
+  const prefix = text.match(/^([A-Za-z0-9]{2,8}|[Ａ-ＺA-Z]{2,8})[）)]\s*(?:int|定例|MTG|会議)?/);
+  if (prefix?.[1]) return prefix[1].replace(/[Ａ-Ｚ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xfee0));
+  return "";
+}
+
+function normalizeCoverageMemoTopic(value: string): string {
+  const cleaned = value
+    .replace(/投資家向け資金調達文脈/g, "投資家向けの資金調達方針")
+    .replace(/資金調達文脈/g, "資金調達方針")
+    .replace(/CEO\/代表/g, "CEO・代表")
+    .replace(/CEO体制/g, "CEO体制")
+    .replace(/\s+/g, "")
+    .trim();
+  const parts = cleaned.split(/[・、,／/]+/).map((v) => v.trim()).filter(Boolean);
+  if (parts.length === 0) return cleaned;
+  if (parts.length === 1) return parts[0];
+  if (parts.length === 2) return `${parts[0]}と${parts[1]}`;
+  return `${parts.slice(0, -1).join("、")}、${parts[parts.length - 1]}`;
+}
+
+function normalizeCoverageMemoCurrentFocus(value: string): string {
+  return value
+    .replace(/H-1本文/g, "会議要約")
+    .replace(/H-1要約/g, "会議要約")
+    .replace(/PoC探索/g, "PoC探索")
+    .replace(/\s+/g, "")
+    .trim();
+}
+
+function stripCoverageAuditBoilerplate(value: string): string {
+  return value
+    .replace(/本文は自動上書きせず、人間確認候補として残す。?/g, "")
+    .replace(/会社として決定済み扱いにはせず、?/g, "")
+    .replace(/参画・リード投資家・出資決定・着金合意ではない前提で要確認。?/g, "")
+    .replace(/正式決定ではない前提で要確認。?/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function coverageGapMemoFromAuditPattern(value: string): string {
+  const text = stripCoverageAuditBoilerplate(value);
+  const patterns = [
+    /^(.+?)の元ソースには(.+?)も出ているが、保存済みH-1本文では主に(.+?)(?:へ|に)寄っている可能性がある。?$/,
+    /^(.+?)の元ソースには(.+?)も出ているが、保存済みの会議要約では主に(.+?)(?:へ|に)寄っている可能性がある。?$/,
+    /^(.+?)には(.+?)も出ているが、保存済みH-1本文では主に(.+?)(?:へ|に)寄っている可能性がある。?$/,
+    /^(.+?)には(.+?)も出ているが、保存済みの会議要約では主に(.+?)(?:へ|に)寄っている可能性がある。?$/,
+  ];
+  for (const pattern of patterns) {
+    const m = text.match(pattern);
+    if (!m) continue;
+    const project = coverageGapProjectLabel(m[1]) || "この会議";
+    const topic = normalizeCoverageMemoTopic(m[2]);
+    const currentFocus = normalizeCoverageMemoCurrentFocus(m[3]);
+    const subject = project === "この会議" ? "この会議では" : `${project}の会議では`;
+    return `${subject}、${topic}も論点に出ていた。保存済みの会議要約では${currentFocus}が中心なので、この経営論点を重要メモとして別枠で残す。`;
+  }
+  return "";
+}
+
+function coverageGapCopyMemo(summary: string, evidence: Record<string, unknown>, title: string): string {
+  const rawCandidates = [
+    textFromUnknown(evidence.copy_memo),
+    textFromUnknown(evidence.proposed_memo),
+    summary,
+    textFromUnknown(evidence.raw_signal),
+    textFromUnknown(evidence.original_signal),
+    textFromUnknown(evidence.summary),
+    title,
+  ].filter(Boolean);
+  for (const candidate of rawCandidates) {
+    const auditMemo = coverageGapMemoFromAuditPattern(candidate);
+    if (auditMemo) return auditMemo;
+  }
+  const raw = rawCandidates[0] || "";
+  if (/VC\s*3社|VC3社/.test(raw) && /PoC|NEDO/.test(raw)) {
+    return "PoCやNEDO確認のあとに、VC3社が出資を検討する可能性がある。まだ出資決定ではないので、要確認の投資家関心として重要メモに残す。";
+  }
+  const original = coverageGapOriginalSignal(summary, evidence);
+  const sentence = stripCoverageAuditBoilerplate(original || raw);
+  if (!sentence || sentence === "(snippetなし)") {
+    return "会議メモで見つかった経営論点を、正式決定ではなく要確認の重要メモとして別枠で残す。";
+  }
+  if (/可能性がある$/.test(sentence)) {
+    return `${sentence}ため、正式決定ではなく要確認の重要メモとして別枠で残す。`;
+  }
+  return `${sentence.replace(/。?$/, "")}。正式決定ではなく要確認の重要メモとして別枠で残す。`;
+}
+
+function coverageGapManagementTerms(value: string): string[] {
+  const terms: string[] = [];
+  const checks: Array<[RegExp, string]> = [
+    [/CEO|代表|創業体制|就任|体制/, "CEO体制"],
+    [/資金調達|投資家|VC|出資|リード投資家/, "資金調達・投資家"],
+    [/資本政策|持株|株式|新株予約権|SO|cap table/i, "資本政策"],
+    [/契約|合意|MOU|NDA|共同開発/, "契約・合意"],
+    [/PoC|実証|採択|補助金|NEDO/, "PoC・実証"],
+  ];
+  for (const [regex, label] of checks) {
+    if (regex.test(value) && !terms.includes(label)) terms.push(label);
+  }
+  return terms;
+}
+
+function coverageGapDecisionGuide(copyMemo: string, summary: string): string {
+  const terms = coverageGapManagementTerms(`${copyMemo}\n${summary}`);
+  if (terms.length > 0) {
+    return `残す寄り。${terms.slice(0, 3).join(" / ")}は後から経営判断で確認したくなる論点なので、正式決定ではなく「要確認の重要メモ」として残す価値がある。`;
+  }
+  return "迷ったらコピーしない寄り。後で経営判断に使う具体的な論点が見えないなら、重要メモへ増やさない。";
+}
+
+function coverageGapSubjectFromSummary(summary: string | null | undefined): string {
+  const text = String(summary ?? "")
+    .replace(/H-1\s*保存済み[。.\s]*/g, "")
+    .replace(/D-6/g, "重要メモ")
+    .trim();
+  const promotion = text.match(/(.+?)の重要メモ\s*昇格を確認/);
+  if (promotion?.[1]) {
+    return humanizeCoverageSubject(`${promotion[1].trim()}の話`);
+  }
+  if (/資金調達|創業体制/.test(text)) return "資金調達・創業体制の話";
+  if (/資本政策|CEO持株比率|持株/.test(text)) return "資本政策・持株比率の話";
+  if (/VC\s*3社|VC3社|PoC|NEDO/.test(text)) return "PoC後にVC3社が出資を検討するかも";
+  return "";
+}
+
+function coverageGapSubjectLooksGeneric(subject: string): boolean {
+  const s = String(subject ?? "").replace(/\s+/g, "");
+  if (!s) return true;
+  if (/^(?:CX定例の)?経営判断を要確認$/.test(s)) return true;
+  if (/^(?:会議メモの)?確認$/.test(s)) return true;
+  if (/要確認/.test(s) && !/(資金調達|創業体制|資本政策|持株|CEO|代表|VC|PoC|NEDO|新株予約権|合金)/.test(s)) return true;
+  return false;
+}
+
+function coverageGapNotificationNeedsSourceRecovery(n: Notification): boolean {
+  const titleSubject = coverageGapSubjectFromTitle(n.title || "");
+  const text = `${n.title ?? ""}\n${n.summary ?? ""}`;
+  return coverageGapSubjectLooksGeneric(titleSubject)
+    || /H-1\s*保存済み/.test(text)
+    || /D-6\s*昇格を確認/.test(text)
+    || /対応する正本行の詳細表示/.test(text)
+    || /通知本文と下の確認先を見て判断/.test(text);
+}
+
+function extractBetween(text: string, start: string, end: string): string {
+  const startIndex = text.indexOf(start);
+  if (startIndex < 0) return "";
+  const from = startIndex + start.length;
+  const endIndex = text.indexOf(end, from);
+  return (endIndex >= 0 ? text.slice(from, endIndex) : text.slice(from)).trim();
+}
+
+function coverageGapOriginalSignal(summary: string, evidence: Record<string, unknown>): string {
+  const fromSummary =
+    extractBetween(summary, "raw transcriptとDrive資料には", "。一方")
+    || extractBetween(summary, "raw transcriptとDrive資料には", "。")
+    || extractBetween(summary, "会議メモと資料には", "。一方")
+    || extractBetween(summary, "会議メモと資料には", "。")
+    || extractBetween(summary, "raw transcriptには", "が出ているが")
+    || extractBetween(summary, "Notion文字起こしには", "が出ているが")
+    || extractBetween(summary, "元情報には", "が出ているが")
+    || extractBetween(summary, "元データには", "が出ているが");
+  const fromEvidence =
+    textFromUnknown(evidence.raw_signal)
+    || textFromUnknown(evidence.original_signal)
+    || textFromUnknown(evidence.source_excerpt)
+    || textFromUnknown(evidence.snippet)
+    || textFromUnknown(evidence.summary);
+  return humanizeCoverageSentence(fromSummary || fromEvidence || summary || "(会議メモの要約なし)");
+}
+
+function coverageGapCopyNonConsequence(targetValue: string): string {
+  switch (normalizeCoverageTarget(targetValue)) {
+    case "strategy_signal":
+      return "元の会議要約は直さない。会社の正式決定、出資合意、着金合意としても扱わない。";
+    case "action_item":
+      return "元の会議要約は直さない。このボタンだけで担当者つきの要対応リストは作らない。";
+    case "registry_diff":
+      return "元の会議要約は直さない。このボタンだけでPJ台帳や契約台帳は書き換えない。";
+    case "shareholder_meeting":
+      return "元の会議要約は直さない。このボタンだけで株主・ガバナンス台帳は書き換えない。";
+    default:
+      return "元の会議要約は直さない。会社の正式決定としても扱わない。";
+  }
+}
+
+function coverageGapUnavailableRows(n: Notification): NonNullable<DetailRow["rows"]> {
+  const subject = coverageGapQuestionSubject(n);
+  const clue = coverageGapUnavailableClue(n);
+  return [
+    {
+      heading: COVERAGE_GAP_UNAVAILABLE_HEADING,
+      body: [
+        "元の確認候補が見つからないため、会議メモの具体的な内容をこの画面に表示できていない。",
+        clue ? `残っている手がかり:\n${clue}` : "",
+        "今できる判断:\n内容を確認できないなら「コピーしない」。元情報から確認し直したい場合は、コメントに「元情報を再確認」と書いて送る。",
+        "重要メモにコピーしてよい条件:\n確認一覧や会議メモで、実際に残したい内容を自分で確認できている場合だけ。",
+      ].filter(Boolean).join("\n\n"),
+      sub: subject ? `候補: ${subject}` : "候補の具体内容を確認できていない",
+    },
+  ];
+}
+
+function coverageGapUnavailableClue(n: Notification): string {
+  const clues: string[] = [];
+  const subject = coverageGapQuestionSubject(n);
+  if (subject && !coverageGapSubjectLooksGeneric(subject)) {
+    clues.push(`候補名: ${subject}`);
+  }
+  const summarySubject = coverageGapSubjectFromSummary(n.summary);
+  if (summarySubject && summarySubject !== subject) {
+    clues.push(`通知本文の手がかり: ${summarySubject}`);
+  }
+  return clues.map((v) => `・${v}`).join("\n");
+}
+
+function coverageGapDetailBlocksCopy(detail: DetailRow | undefined): boolean {
+  if (!detail) return true;
+  if (detail.loading) return true;
+  if (detail.error) return true;
+  return (detail.rows ?? []).some((row) => row.heading === COVERAGE_GAP_UNAVAILABLE_HEADING);
+}
+
+function coverageGapBlockedPrompt(detail: DetailRow | undefined): string {
+  if (!detail || detail.loading) return "コピー対象の具体内容を確認中。内容が表示されるまで、重要メモへのコピー判断は止める。";
+  if (detail.error) return "コピー対象の具体内容を読み込めていない。内容が分からない場合は「コピーしない」。元情報から確認し直したい場合は、コメントに「元情報を再確認」と書いて送る。";
+  return "このカードだけではコピー対象を判断できない。内容が分からない場合は「コピーしない」。元情報から確認し直したい場合は、コメントに「元情報を再確認」と書いて送る。";
+}
+
+function coverageGapBlockedFootnote(detail: DetailRow | undefined): string {
+  if (!detail || detail.loading) return "具体内容を読み込み中。コピーはまだできない。";
+  return "内容不足のまま重要メモへコピーしない。元の会議要約も、この操作では書き換えない。";
+}
+
+function coverageGapBlockedYesLabel(detail: DetailRow | undefined): string {
+  if (!detail || detail.loading) return "内容を確認中";
+  return "内容不足でコピー不可";
+}
+
 function notificationFallbackRows(n: Notification): NonNullable<DetailRow["rows"]> {
+  if (n.l2_kind === "coverage_gap") {
+    return coverageGapUnavailableRows(n);
+  }
   const meta = objectValue(n.metadata_json);
   const metaBits = [
     textFromUnknown(meta.occurred_on) ? `date=${textFromUnknown(meta.occurred_on)}` : "",

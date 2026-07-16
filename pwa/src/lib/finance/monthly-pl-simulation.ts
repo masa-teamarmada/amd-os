@@ -1,3 +1,5 @@
+import { statutoryEndOfMonthDueDate } from "./statutory-payment-rules.ts";
+
 export type BudgetInputKind =
   | "params"
   | "project"
@@ -6,6 +8,7 @@ export type BudgetInputKind =
   | "var_cost"
   | "loan"
   | "spot"
+  | "payment_obligation"
   | "scenario";
 
 export interface MonthlyPlParams {
@@ -115,6 +118,24 @@ export interface MonthlyPlSpot {
   memo?: string;
 }
 
+export interface MonthlyPlPaymentObligation {
+  obligationId: string;
+  title: string;
+  category: string;
+  amountYen: number | null;
+  amountStatus: "exact" | "estimated" | "unknown";
+  dueDate: string | null;
+  expectedPaymentYm: number;
+  cashflowTreatment: "additive" | "included_in_budget";
+  status: "needs_review" | "open" | "scheduled" | "paid" | "cancelled";
+  autoDebit: boolean | null;
+  originCashOffsets?: Array<{
+    ym: number;
+    amountYen: number;
+    amountStatus: "exact" | "estimated";
+  }>;
+}
+
 export type CostType = "taxable" | "executive" | "salary" | "exempt" | string;
 
 export interface MonthlyPlInputs {
@@ -126,6 +147,7 @@ export interface MonthlyPlInputs {
   projectRevenues?: MonthlyPlProjectRevenue[];
   loans?: MonthlyPlLoan[];
   spots?: MonthlyPlSpot[];
+  paymentObligations?: MonthlyPlPaymentObligation[];
 }
 
 export interface MonthlyPlProjectDetail {
@@ -156,6 +178,9 @@ export interface MonthlyPlRow {
   loanInterest: number;
   ctaxPayment: number;
   corpTaxPayment: number;
+  obligationPaymentTotal: number;
+  obligationPaymentAdditive: number;
+  obligationCashTimingOffset: number;
   netCashFlow: number;
   cashBalance: number;
   runway: number;
@@ -166,6 +191,7 @@ export interface MonthlyPlRow {
   cashOutflow: number;
   pjDetails: MonthlyPlProjectDetail[];
   fixedCostDetails: MonthlyPlFixedCostDetail[];
+  obligationDetails: MonthlyPlPaymentObligation[];
 }
 
 export interface MonthlyPlProjectListItem {
@@ -236,6 +262,16 @@ function addMonthsToYm(ym: number, delta: number): number {
   const nextYear = Math.floor(zeroBasedMonth / 12);
   const nextMonth = zeroBasedMonth % 12 + 1;
   return nextYear * 100 + nextMonth;
+}
+
+function isStatutoryEndOfMonthPaymentYm(ym: number, baseMonth: number): boolean {
+  for (const delta of [0, -1]) {
+    const baseYm = addMonthsToYm(ym, delta);
+    if (baseYm % 100 !== baseMonth) continue;
+    const dueDate = statutoryEndOfMonthDueDate(String(baseYm));
+    if (Number(dueDate.slice(0, 7).replace("-", "")) === ym) return true;
+  }
+  return false;
 }
 
 function isActive(ym: number, startYm: number, endYm?: number | null): boolean {
@@ -470,6 +506,16 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
     ym: numberOr(row.ym),
     amount: numberOr(row.amount),
   }));
+  const paymentObligations = (rawInputs.paymentObligations ?? []).map((row) => ({
+    ...row,
+    amountYen: optionalNumber(row.amountYen),
+    expectedPaymentYm: numberOr(row.expectedPaymentYm),
+    originCashOffsets: (row.originCashOffsets ?? []).map((offset) => ({
+      ...offset,
+      ym: numberOr(offset.ym),
+      amountYen: numberOr(offset.amountYen),
+    })),
+  }));
 
   if (scenarioId) {
     const overrides = (rawInputs.scenarios ?? []).filter((row) => row.scenarioId === scenarioId);
@@ -677,7 +723,21 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
     let ctaxPayment = 0;
     let corpTaxPayment = 0;
 
-    if (month === settlementMonth) {
+    const obligationDetails = paymentObligations.filter((obligation) =>
+      obligation.expectedPaymentYm === ym && obligation.status !== "paid" && obligation.status !== "cancelled"
+    );
+    const obligationPaymentTotal = obligationDetails.reduce((sum, obligation) => sum + numberOr(obligation.amountYen), 0);
+    const obligationPaymentAdditive = obligationDetails.reduce(
+      (sum, obligation) => sum + (obligation.cashflowTreatment === "additive" ? numberOr(obligation.amountYen) : 0),
+      0
+    );
+    const obligationCashTimingOffset = paymentObligations
+      .filter((obligation) => obligation.status !== "paid" && obligation.status !== "cancelled")
+      .flatMap((obligation) => obligation.originCashOffsets ?? [])
+      .filter((offset) => offset.ym === ym)
+      .reduce((sum, offset) => sum + numberOr(offset.amountYen), 0);
+
+    if (isStatutoryEndOfMonthPaymentYm(ym, settlementMonth)) {
       if (!unpaidCtaxDone && unpaidCtax > 0) {
         ctaxPayment += unpaidCtax;
         unpaidCtaxDone = true;
@@ -694,7 +754,7 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
       }
     }
 
-    if (month === interimMonth) {
+    if (isStatutoryEndOfMonthPaymentYm(ym, interimMonth)) {
       if (lastFyCtaxAnnual > 480000) {
         const ctaxInterim = Math.round(lastFyCtaxAnnual / 2);
         ctaxPayment += ctaxInterim;
@@ -742,7 +802,9 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
       - spotExpenseFlow
       - loanPayment
       - ctaxPayment
-      - corpTaxPayment;
+      - corpTaxPayment
+      - obligationPaymentAdditive
+      + obligationCashTimingOffset;
 
     cash += netCashFlow;
 
@@ -769,7 +831,7 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
     const confirmedGrossInflow = Math.round(confirmedRevenue * 1.1)
       - Math.round(confirmedMemberCost * 1.1)
       - Math.round(confirmedCloserExt * 1.1);
-    const monthlyBurn = fixedCostTotal + socialIns + loanPayment;
+    const monthlyBurn = Math.max(0, fixedCostTotal + socialIns + loanPayment + obligationPaymentAdditive - obligationCashTimingOffset);
     const netBurn = monthlyBurn - confirmedGrossInflow;
     const runway = netBurn > 0 ? Math.round((cash / netBurn) * 10) / 10 : 999;
 
@@ -786,6 +848,9 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
       loanInterest,
       ctaxPayment,
       corpTaxPayment,
+      obligationPaymentTotal,
+      obligationPaymentAdditive,
+      obligationCashTimingOffset,
       netCashFlow,
       cashBalance: cash,
       runway,
@@ -793,9 +858,10 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
       spotIncome,
       spotExpense,
       cashInflow: taxIncomeFlow + loanDisbursement + (ctaxPayment < 0 ? Math.abs(ctaxPayment) : 0),
-      cashOutflow: taxMemberFlow + taxCloserExtFlow + taxFixedFlow + exemptFixedCost + socialIns + spotExpenseFlow + loanPayment + (ctaxPayment > 0 ? ctaxPayment : 0) + corpTaxPayment,
+      cashOutflow: Math.max(0, taxMemberFlow + taxCloserExtFlow + taxFixedFlow + exemptFixedCost + socialIns + spotExpenseFlow + loanPayment + (ctaxPayment > 0 ? ctaxPayment : 0) + corpTaxPayment + obligationPaymentAdditive - obligationCashTimingOffset),
       pjDetails,
       fixedCostDetails,
+      obligationDetails,
     });
 
     ym = nextYm(ym);
@@ -836,6 +902,11 @@ export function toCompanyBudgetMonthlyRows(result: MonthlyPlSimulationResult): C
     rows.push(companyRow(row, "loan_interest", row.loanInterest));
     rows.push(companyRow(row, "tax_payment_consumption", row.ctaxPayment));
     rows.push(companyRow(row, "tax_payment_corporate", row.corpTaxPayment));
+    rows.push(companyRow(row, "payment_obligation", row.obligationPaymentTotal, {
+      additiveAmountYen: row.obligationPaymentAdditive,
+      timingOffsetYen: row.obligationCashTimingOffset,
+      obligations: row.obligationDetails,
+    }));
     rows.push(companyRow(row, "net_cash_flow", row.netCashFlow, {
       cashInflow: row.cashInflow,
       cashOutflow: row.cashOutflow,

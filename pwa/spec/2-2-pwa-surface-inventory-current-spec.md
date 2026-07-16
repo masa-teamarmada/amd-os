@@ -17,7 +17,7 @@
 | contacts | `/business-cards` | スマホ撮影 / 写真選択、OCR確認、複数PJ紐付け、名刺検索。確定時だけ D-3 PJナレッジへ人物情報を同期する | `business-cards/page.tsx`, `BusinessCardsClient.tsx` |
 | contacts native | `/native/business-cards` | iOSの名刺タブが認証cookieつきWKWebViewで開く、GlobalNavなしのnative shell | `native/business-cards/page.tsx`, `ios/.../BusinessCardsView.swift` |
 | notifications | `/notifications` | L2 / MTG / app notifications の確認と採否 | `notifications/page.tsx` |
-| decision | `/venture-map/amd-score`, `/management-score`, `/institutions`, `/institutions/assess` | AMD Score / Management Score / ERS | related page files |
+| decision | `/venture-map/amd-score`, `/management-score`, `/institutions`, `/institutions/assess` | AMD Score / Management Score / ECR | related page files |
 | discovery | `/atlas/*`, `/seeds/*`, `/vcs/*`, `/scholar` | 外部シグナル、研究シーズ、VC、学術トレンド | related page files |
 | HUD | `/hud/*` | mirror UI / projection UI | `hud/*` |
 
@@ -35,7 +35,7 @@
 | payouts / reward | `/api/admin/payouts`, `/api/cron/payout-*`, `/api/rewards/sync` | reward cache, payout notices, GAS PDF | TODO spec |
 | Atlas | `/api/atlas/*` | atlas signals / stories / themes | TODO spec |
 | Seeds / VC | `/api/cron/seeds-ingest`, `/api/cron/vc-*`, admin seed/vc helpers | seeds / vcs / investments | TODO spec |
-| ERS | `/api/institutions/assess` | `institution_assessments` upsert | `/spec/4-3-ers-current-spec` |
+| ECR | `/api/institutions/assess` | `institution_assessments` upsert | `/spec/4-3-ers-current-spec` |
 | business cards | `/api/business-cards`, `/api/business-cards/[cardId]`, `/api/business-cards/[cardId]/image` | private画像保存、Gemini OCR、確認済み名刺 / PJ紐付け / `project_knowledge` 同期 | `/spec/2-5-business-cards-current-spec` |
 | cron | `/api/cron/*` | Vercel cron or on-demand batch | `/spec/5-3-automation-responsibility-current-spec` |
 
@@ -45,7 +45,7 @@
 - `/spec` は admin 限定。
 - `/notifications` は `members.is_admin=true` だけ表示する。
 - `/admin/*` は admin layout gate。
-- ERS assessment API、notification feedback API は auth user の email から `members` を引き、admin でない場合 403。
+- ECR assessment API、notification feedback API は auth user の email から `members` を引き、admin でない場合 403。
 - 名刺APIは auth user が `members` に存在することを要求する。画像は private Storage に置き、認証済み AMD メンバー以外へ公開しない。
 
 ## Failure Mode

@@ -4,7 +4,7 @@
 
 ## 現行仕様
 
-FRL は AMD Score の PRS primary では **S (Survival)** を構成する創業者・経営チーム readiness。legacy 7 軸 / M-X-F comparison では F 軸として残る。2026-05-30 #101 で、旧 6 因子 FRL を次の 2 レイヤーへ分けた。
+FRL は AMD Score の SPS primary では **S (Survival)** を構成する創業者・経営チーム readiness。legacy 7 軸 / M-X-F comparison では F 軸として残る。2026-05-30 #101 で、旧 6 因子 FRL を次の 2 レイヤーへ分けた。
 
 | レイヤー | DB / 実装 | 意味 |
 |---|---|---|
