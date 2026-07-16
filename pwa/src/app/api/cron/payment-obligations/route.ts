@@ -422,14 +422,17 @@ async function sendKiyoNotifications(
   db: ReturnType<typeof createAdminClient>,
   kiyo: { member_id: string; slack_id: string | null },
   today: string,
-  dryRun: boolean
+  dryRun: boolean,
+  sourceKey?: string | null
 ) {
-  const { data, error } = await db
+  let obligationQuery = db
     .from("company_payment_obligations")
     .select("*")
     .in("status", ["needs_review", "open", "scheduled"])
     .or(`expected_payment_ym.is.null,expected_payment_ym.lte.${addMonthsToYm(today.slice(0, 7).replace("-", ""), 1)}`)
     .limit(2000);
+  if (sourceKey) obligationQuery = obligationQuery.eq("source_key", sourceKey);
+  const { data, error } = await obligationQuery;
   if (error) throw error;
   const candidates = ((data ?? []) as CompanyPaymentObligation[])
     .map((obligation) => ({ obligation, stage: notificationStage(obligation, today) }))
@@ -474,15 +477,16 @@ async function sendKiyoNotifications(
     if (auditError) throw auditError;
     const due = obligation.due_date || (obligation.expected_payment_ym ? `${obligation.expected_payment_ym.slice(0, 4)}年${Number(obligation.expected_payment_ym.slice(4, 6))}月` : "期日未確認");
     const needsReview = obligation.status === "needs_review" || obligation.amount_status === "unknown" || obligation.due_date_precision === "unknown";
+    const amountText = obligation.amount_status === "estimated" && obligation.amount_yen != null ? `約${yen(obligation.amount_yen)}` : yen(obligation.amount_yen);
     const text = needsReview
-      ? `支払義務の確認が必要: ${obligation.title} / ${yen(obligation.amount_yen)} / ${due}`
-      : `支払期限アラート: ${obligation.title} / ${yen(obligation.amount_yen)} / ${due}`;
+      ? `支払義務の確認が必要: ${obligation.title} / ${amountText} / ${due}`
+      : `支払期限アラート: ${obligation.title} / ${amountText} / ${due}`;
     try {
       const posted = await slack.chat.postMessage({
         channel,
         text,
         blocks: [
-          { type: "section", text: { type: "mrkdwn", text: `*${needsReview ? "支払義務を確認して" : "支払期限アラート"}*\n${obligation.title}\n金額: *${yen(obligation.amount_yen)}* / 期日: *${due}*` } },
+          { type: "section", text: { type: "mrkdwn", text: `*${needsReview ? "支払義務を確認して" : "支払期限アラート"}*\n${obligation.title}\n金額: *${amountText}* / 期日: *${due}*` } },
           { type: "actions", elements: [{ type: "button", text: { type: "plain_text", text: "支払義務を開く" }, url: `${APP_BASE_URL}/admin/finance#payment-obligations` }] },
         ],
       });
@@ -495,7 +499,7 @@ async function sendKiyoNotifications(
   return { candidates: candidates.length, sent, skipped };
 }
 
-async function run(req: NextRequest, options: { dryRun: boolean; sendNotifications: boolean }) {
+async function run(req: NextRequest, options: { dryRun: boolean; sendNotifications: boolean; notificationSourceKey?: string | null }) {
   const db = createAdminClient();
   const { dryRun, sendNotifications } = options;
   const today = req.nextUrl.searchParams.get("date") || currentDateJst();
@@ -508,11 +512,12 @@ async function run(req: NextRequest, options: { dryRun: boolean; sendNotificatio
   const sync = dryRun ? { upserted: 0, preserved: 0 } : await upsertGenerated(db, all);
   const notifications = dryRun || !sendNotifications
     ? { candidates: [], sent: 0, skipped: 0 }
-    : await sendKiyoNotifications(db, kiyo, today, false);
+    : await sendKiyoNotifications(db, kiyo, today, false, options.notificationSourceKey);
   return NextResponse.json({
     ok: true,
     dryRun,
     sendNotifications,
+    notificationSourceKey: options.notificationSourceKey ?? null,
     today,
     discovered: { ...osSources.counts, gmail: gmail.obligations.length, gmailMailboxes: gmail.mailboxes, gmailMessagesScanned: gmail.messages },
     preview: dryRun ? all
@@ -529,7 +534,11 @@ export async function GET(req: NextRequest) {
   if (!isCronAuthorized(req)) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   try {
     const dryRun = req.nextUrl.searchParams.get("dryRun") === "1";
-    return await run(req, { dryRun, sendNotifications: !dryRun && req.nextUrl.searchParams.get("notify") !== "0" });
+    return await run(req, {
+      dryRun,
+      sendNotifications: !dryRun && req.nextUrl.searchParams.get("notify") !== "0",
+      notificationSourceKey: req.nextUrl.searchParams.get("sourceKey"),
+    });
   } catch (error) {
     console.error("[payment-obligations cron]", error);
     return NextResponse.json({ ok: false, error: errorMessage(error) }, { status: 500 });
@@ -540,10 +549,10 @@ export async function POST(req: NextRequest) {
   const auth = await requireAdmin();
   if (!auth.ok) return auth.errorResponse;
   try {
-    let body: { dryRun?: boolean; sendNotifications?: boolean } = {};
+    let body: { dryRun?: boolean; sendNotifications?: boolean; notificationSourceKey?: string | null } = {};
     try { body = await req.json(); } catch { body = {}; }
     const dryRun = Boolean(body.dryRun);
-    return await run(req, { dryRun, sendNotifications: !dryRun && body.sendNotifications !== false });
+    return await run(req, { dryRun, sendNotifications: !dryRun && body.sendNotifications !== false, notificationSourceKey: body.notificationSourceKey });
   } catch (error) {
     console.error("[payment-obligations manual]", error);
     return NextResponse.json({ ok: false, error: errorMessage(error) }, { status: 500 });
