@@ -363,6 +363,11 @@ export function AmdScoreView({
             />
             <FrlAlqPanel editable={editable} effectiveFrl={effectiveFrl} ventureName={venture.display_name} />
           </section>
+          <XrlChecklistPanel
+            projectId={venture.project_id}
+            latestInput={latest}
+            onSaved={() => window.location.reload()}
+          />
           <details className="rounded-xl border border-slate-200 bg-white shadow-sm">
             <summary className="cursor-pointer list-none px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">
               Legacy AMD comparison

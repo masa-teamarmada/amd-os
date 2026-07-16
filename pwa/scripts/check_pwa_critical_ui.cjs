@@ -703,6 +703,9 @@ expectIncludes("src/components/cockpit/CockpitAmdScoreDetailTab.tsx", [
 expectIncludes("src/components/venture-map/AmdScoreView.tsx", [
   "XrlChecklistPanel",
 ]);
+expectPattern("src/components/venture-map/AmdScoreView.tsx", [
+  /if \(embedded && primarySnapshot[\s\S]*?<XrlChecklistPanel[\s\S]*?if \(!result/,
+]);
 expectIncludes("src/lib/amd-score-routes.ts", [
   "amdScoreDetailHref",
   "?tab=score-detail",

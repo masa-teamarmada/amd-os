@@ -5,6 +5,16 @@
 
 ---
 
+### [PWA/AMD Score] cockpit 埋め込み分岐だけ XRL チェックリストが欠けた (2026-07-16)
+
+- **状態**: クローズ (2026-07-16 — `v3.41.11` で embedded view に統合し、本番DOMで確認)。
+- **症状**: 旧 AMD Score 個別URLには `XRL 観測チェックリスト` が出る一方、PJ cockpit の `スコア詳細` タブには PRS / R_net / FRL までしか出ず、チェックボックスを確認できなかった。
+- **原因**: `AmdScoreView` は `embedded && primarySnapshot && result && latestBreakdown` の早期 return を持ち、通常 view の末尾にある `XrlChecklistPanel` へ到達しなかった。重要UIチェックも component 名の存在だけを見ており、embedded 分岐内への配置を保証していなかった。
+- **対応内容**: embedded 分岐の FRL panel 直後へ同じ `XrlChecklistPanel` を追加した。旧個別URLは cockpit の `?tab=score-detail` へ redirect し、正規面を一箇所に固定した。
+- **再発防止**: critical UI guard は `embedded` 早期 return 内に `XrlChecklistPanel` があることを正規表現で検査する。統合系UIは component import の有無だけでなく、実際に表示される分岐を production DOM で確認する。
+
+---
+
 ### [PWA/business-cards] 名刺撮影shellを全体セキュリティヘッダで塞いだ (2026-07-14)
 
 - **状態**: クローズ (2026-07-14 — 名刺ルート限定で camera / blob 画像を許可)。
