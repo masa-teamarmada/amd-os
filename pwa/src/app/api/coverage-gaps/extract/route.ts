@@ -46,16 +46,18 @@ function coverageNotificationSubject(raw: string | null | undefined, fallback: s
     .replace(/^未OS化(?:の可能性|候補)?[:：]\s*/, "")
     .replace(/^(?:D-6\s*)?経営ハイライトに残す[？?][:：]\s*/, "")
     .replace(/^重要メモに残す[？?][:：]\s*/, "")
+    .replace(/^重要メモにコピーする[？?][:：]\s*/, "")
     .replace(/^OSに残す[？?][:：]\s*/, "")
+    .replace(/\s*\/\s*(?:【web】\s*)?.*(?:経営会議|会議|審査委員会|委員会)\s*$/, "")
     .trim();
   const h1Match = s.match(/^H-1\s*要約で(.+?)が(?:薄まった|弱まった)可能性[:：]\s*(.+)$/);
-  if (h1Match) return humanizeCoverageSubject(`${h1Match[1].trim()} / ${h1Match[2].trim()}`);
+  if (h1Match) return humanizeCoverageSubject(h1Match[1].trim());
   return humanizeCoverageSubject(s || fallback);
 }
 
 function coverageNotificationTitle(it: GapCandidate): string {
   const subject = coverageNotificationQuestionSubject(it);
-  return `重要メモに残す？: ${subject}`.slice(0, 300);
+  return `重要メモにコピーする？: ${subject}`.slice(0, 300);
 }
 
 function coverageNotificationQuestionSubject(it: GapCandidate): string {
@@ -75,7 +77,7 @@ function humanizeCoverageSubject(value: string): string {
     .replace(/合金キャピタル新株予約権の具体条件/g, "合金キャピタルの新株予約権の条件")
     .replace(/条件付き投資家関心/g, "条件がそろえば出資を検討する話")
     .replace(/条件付き情報/g, "条件つきの話")
-    .replace(/薄い/g, "目立たない");
+    .replace(/薄い/g, "弱く書かれている");
   return s.length > 80 ? `${s.slice(0, 80)}...` : s;
 }
 

@@ -21,7 +21,7 @@ UI は `open` / `unread` / `answered` / `feedback` で絞り込み、展開時�
 
 展開時の詳細欄は、kind ごとに正本テーブルを lazy fetch して表示する。個別 fetch が未実装、または候補行が通知作成後に移動/統合されて見つからない場合でも、「DB未反映」と断定せず、通知本文を fallback 詳細として表示する。D-11 `news_mention` は `project_media_mentions` を `metadata_json.source_url` / `occurred_on` / title fallback で引き、保存済みの掲載行を表示する。
 
-`l2_notifications.saved_count >= total_count` かつ `total_count > 0` の通知は、すでに正本保存済みとみなし、UI の肯定ボタンを「はい・確認済み」と表示する。保存済み通知の yes feedback は、追加反映ではなく確認・学習フィードバックとして扱う。ただし `coverage_gap` は例外。候補行 (`l2_coverage_gaps`) が保存済みでも、まさの採否判断は未完了なので、`saved_count` に関係なく「経営ハイライトに追加 / 見送る」等の判断ボタンとして表示する。2026-07-16 以降の coverage gap 通知 writer は `saved_count=0,total_count=1` で作る。
+`l2_notifications.saved_count >= total_count` かつ `total_count > 0` の通知は、すでに正本保存済みとみなし、UI の肯定ボタンを「はい・確認済み」と表示する。保存済み通知の yes feedback は、追加反映ではなく確認・学習フィードバックとして扱う。ただし `coverage_gap` は例外。候補行 (`l2_coverage_gaps`) が保存済みでも、まさの採否判断は未完了なので、`saved_count` に関係なく「重要メモにコピー / コピーしない」の判断ボタンとして表示する。2026-07-16 以降の coverage gap 通知 writer は `saved_count=0,total_count=1` で作る。
 
 `project_config_gap` は通知一覧に残さず、dashboard の抽出状況へ集約する。`source_cache.collected_at` は根拠の保存証跡であり、connector監視の実行周期ではない。抽出状況は保存証跡と `project_meeting_summaries.source_kinds` から得るMTG抽出での利用時刻を分ける。対応事項は未読かつ未dismissの `connector_auth`、PJ台帳の設定不足、ログイン中管理者の Calendar 接続エラーだけに限定し、保存時刻の古さで接続障害を断定しない。
 
@@ -90,7 +90,7 @@ POST body:
 すべての action は `l2_feedbacks` に保存し、`tsukuyomi_learnings` にも通知回答として残す。
 `coverage_gap` は「確認してから手作業で別L2へ入れる」通知ではない。安全に自動ルートできる `proposed_target_l2` は「はい」の同一トランザクション相当の処理で下流テーブルへ反映し、未対応の target は `routed_to` が空のまま残して設計 gap として扱う。
 
-PWA の `coverage_gap` 表示は、検知器の内部語をそのまま出さない。カードタイトルは「重要メモに残す？: ...」に統一し、詳細欄は「会議メモにあった話」「いまの要約で目立たない話」「残すとどうなる？」だけを表示する。UI 表示では `D-6` / `coverage_gap` / `raw transcript` / `元情報` / `取りこぼし` / `条件付き投資家関心` / `薄い` / `candidate` / `salience` を使わない。「重要メモに残す」は内部的には D-6 `project_strategy_signals` への追加だが、まさ向けには「あとで見返す重要メモ」と説明する。H-1要約本文の復元ではない。
+PWA の `coverage_gap` 表示は、検知器の内部語をそのまま出さない。カードタイトルは「重要メモにコピーする？: ...」に統一し、カード内の疑問文はタイトルだけにする。詳細欄は「会議メモで見つかった内容」「通知した理由」「ボタンを押すと起きること」を表示する。UI 表示では `D-6` / `coverage_gap` / `raw transcript` / `元情報` / `取りこぼし` / `条件付き投資家関心` / `薄い` / `candidate` / `salience` / `目立たない話` を使わない。「重要メモにコピー」は内部的には D-6 `project_strategy_signals` への追加だが、まさ向けには「保存済みの会議要約とは別に、重要メモへコピーする」と説明する。H-1要約本文の復元・書き換えではない。
 
 ## 禁止事項
 

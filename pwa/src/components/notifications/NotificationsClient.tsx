@@ -782,13 +782,13 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
             const summary = String(r.summary ?? n.summary ?? "");
             const evidence = objectValue(r.evidence_refs_json);
             const original = coverageGapOriginalSignal(summary, evidence);
-            const weakened = coverageGapWeakenedSignal(summary);
+            const reason = coverageGapMissingReason(summary);
             return {
-              heading: "この話を重要メモとして残す？",
+              heading: "重要メモにコピーする候補",
               body: [
-                `会議メモにあった話:\n${original}`,
-                `いまの要約で目立たない話:\n${weakened}`,
-                `残すとどうなる？\n${coverageGapApprovalConsequence(textFromUnknown(r.proposed_target_l2))}`,
+                `会議メモで見つかった内容:\n${original}`,
+                `通知した理由:\n${reason}`,
+                `ボタンを押すと起きること:\n${coverageGapCopyConsequence(textFromUnknown(r.proposed_target_l2))}`,
               ].filter(Boolean).join("\n"),
               sub: [
                 "会議メモと資料から確認",
@@ -1573,19 +1573,21 @@ function coverageGapSubjectFromTitle(raw: string | null | undefined): string {
     .replace(/^未OS化(?:の可能性|候補)?[:：]\s*/, "")
     .replace(/^(?:D-6\s*)?経営ハイライトに残す[？?][:：]\s*/, "")
     .replace(/^重要メモに残す[？?][:：]\s*/, "")
+    .replace(/^重要メモにコピーする[？?][:：]\s*/, "")
     .replace(/^OSに残す[？?][:：]\s*/, "")
+    .replace(/\s*\/\s*(?:【web】\s*)?.*(?:経営会議|会議|審査委員会|委員会)\s*$/, "")
     .trim();
 
   const h1Match = s.match(/^H-1\s*要約で(.+?)が(?:薄まった|弱まった)可能性[:：]\s*(.+)$/);
   if (h1Match) {
-    return humanizeCoverageSubject(`${h1Match[1].trim()} / ${h1Match[2].trim()}`);
+    return humanizeCoverageSubject(h1Match[1].trim());
   }
   return humanizeCoverageSubject(s || "(no title)");
 }
 
 function coverageGapQuestionTitle(n: Notification): string {
   const subject = coverageGapQuestionSubject(n);
-  return `重要メモに残す？: ${subject}`;
+  return `重要メモにコピーする？: ${subject}`;
 }
 
 function coverageGapQuestionSubject(n: Notification): string {
@@ -1599,9 +1601,9 @@ function coverageGapQuestionSubject(n: Notification): string {
 function coverageGapQuestionSummary(n: Notification): string {
   const subject = coverageGapQuestionSubject(n);
   if (subject.includes("VC3社")) {
-    return "会議メモでは「PoC後ならVC3社が出資を検討するかも」という話が出ていた。いまの要約では目立たないので、重要メモとして残すか確認している。";
+    return "会議メモにあった内容を、保存済みの会議要約とは別に、重要メモへコピーするかの確認。元の会議要約は書き換えない。";
   }
-  return `会議メモにあった「${subject}」を、重要メモとして残すか確認している。`;
+  return `会議メモにあった「${subject}」を、保存済みの会議要約とは別に、重要メモへコピーするかの確認。元の会議要約は書き換えない。`;
 }
 
 function coverageGapActionCopy(n: Notification): ReviewActionCopy {
@@ -1609,24 +1611,24 @@ function coverageGapActionCopy(n: Notification): ReviewActionCopy {
   const target = normalizeCoverageTarget(textFromUnknown(meta.proposed_target_l2));
   if (target === "strategy_signal") {
     return {
-      yesLabel: "重要メモに残す",
-      noLabel: "見送る",
-      yesDoneLabel: "重要メモに残した",
-      noDoneLabel: "見送り済み",
-      prompt: "会議メモにあった話が、いまの要約では目立たない。あとで経営判断に使うかもしれないなら「重要メモに残す」、要らないなら「見送る」。",
-      footnote: "残すとプロジェクトの重要メモに入る。出資決定や正式合意としては扱わない。",
-      placeholder: "任意コメント。例: 残す / 今の要約も直したい / これは要らない",
+      yesLabel: "重要メモにコピー",
+      noLabel: "コピーしない",
+      yesDoneLabel: "重要メモにコピー済み",
+      noDoneLabel: "コピーしないで完了",
+      prompt: "会議メモにあった内容を、保存済みの会議要約とは別に重要メモへコピーするかの確認。コピーしても元の会議要約は書き換えない。",
+      footnote: "重要メモにコピーしても、出資決定や正式合意としては扱わない。元の会議要約を直したい場合はコメントに書く。",
+      placeholder: "任意コメント。例: コピーする / 元の要約も直したい / これはコピーしない",
       headlineLabel: "確認したいこと",
     };
   }
   return {
-    yesLabel: "重要メモに残す",
-    noLabel: "見送る",
-    yesDoneLabel: "重要メモに残した",
-    noDoneLabel: "見送り済み",
-    prompt: "会議メモにあった話を、あとで見返す重要メモとして残すかの確認。要るなら「重要メモに残す」、要らないなら「見送る」。",
-    footnote: "残すと確認済みのメモとして残る。正式決定としては扱わない。",
-    placeholder: "任意コメント。例: 残す / これは要らない / 別の場所に残したい",
+    yesLabel: "重要メモにコピー",
+    noLabel: "コピーしない",
+    yesDoneLabel: "重要メモにコピー済み",
+    noDoneLabel: "コピーしないで完了",
+    prompt: "会議メモにあった内容を、保存済みの会議要約とは別に重要メモへコピーするかの確認。コピーしても元の会議要約は書き換えない。",
+    footnote: "重要メモにコピーしても、正式決定としては扱わない。元の会議要約を直したい場合はコメントに書く。",
+    placeholder: "任意コメント。例: コピーする / 元の要約も直したい / これはコピーしない",
     headlineLabel: "確認したいこと",
   };
 }
@@ -1640,7 +1642,7 @@ function humanizeCoverageSubject(value: string): string {
     .replace(/合金キャピタル新株予約権の具体条件/g, "合金キャピタルの新株予約権の条件")
     .replace(/条件付き投資家関心/g, "条件がそろえば出資を検討する話")
     .replace(/条件付き情報/g, "条件つきの話")
-    .replace(/薄い/g, "目立たない");
+    .replace(/薄い/g, "弱く書かれている");
   return truncateOneLine(s, 80);
 }
 
@@ -1649,7 +1651,7 @@ function humanizeCoverageSentence(value: string): string {
   if (!s) return "";
   if (/VC\s*3社|VC3社/.test(s) && /PoC|NEDO/.test(s)) {
     if (/資本政策|CEO持株比率/.test(s) && /薄い|目立たない|中心/.test(s)) {
-      return "いまの要約では、資本政策やCEO持株比率の話が中心で、VC3社の話が目立たない。";
+      return "保存済みの会議要約では、資本政策やCEO持株比率の話が中心で、VC3社の出資検討の話が入っていないか、弱く書かれている可能性がある。";
     }
     return "PoCが終わったあとなら、VC3社が出資を検討するかもしれない。まだ出資決定ではないので、期待しすぎない形で残す必要がある。";
   }
@@ -1657,11 +1659,13 @@ function humanizeCoverageSentence(value: string): string {
     .replace(/raw transcript/g, "会議メモ")
     .replace(/Notion文字起こし/g, "会議メモ")
     .replace(/Drive資料/g, "資料")
-    .replace(/H-1保存結果/g, "いまの要約")
-    .replace(/H-1要約/g, "いまの要約")
+    .replace(/H-1保存結果/g, "保存済みの会議要約")
+    .replace(/H-1要約/g, "保存済みの会議要約")
     .replace(/条件付き投資家関心/g, "条件がそろえば出資を検討する話")
     .replace(/条件付き情報/g, "条件つきの話")
-    .replace(/薄い/g, "目立たない")
+    .replace(/目立たない\/欠落している可能性がある/g, "入っていないか、弱く書かれている可能性がある")
+    .replace(/目立たない/g, "弱く書かれている")
+    .replace(/薄い/g, "弱く書かれている")
     .replace(/参画・リード投資家・出資決定・着金合意ではない前提で要確認/g, "まだ正式な出資決定ではないので、期待しすぎない形で残す");
   return truncateOneLine(s, 220);
 }
@@ -1693,30 +1697,34 @@ function coverageGapOriginalSignal(summary: string, evidence: Record<string, unk
   return humanizeCoverageSentence(fromSummary || fromEvidence || summary || "(会議メモの要約なし)");
 }
 
-function coverageGapWeakenedSignal(summary: string): string {
+function coverageGapMissingReason(summary: string): string {
   const weakened =
     extractBetween(summary, "H-1保存結果では", "。")
     || extractBetween(summary, "H-1保存結果は", "。")
     || extractBetween(summary, "H-1要約では", "。")
     || extractBetween(summary, "保存結果では", "。");
   if (/VC\s*3社|VC3社/.test(summary) && /PoC|NEDO/.test(summary) && /資本政策|CEO持株比率|条件付き投資家関心|目立たない|薄い/.test(weakened)) {
-    return "いまの要約では、資本政策やCEO持株比率の話が中心で、VC3社の話が目立たない。";
+    return "保存済みの会議要約では、VC3社の出資検討の話が入っていないか、弱く書かれている可能性がある。";
   }
-  return humanizeCoverageSentence(weakened || "いまの要約では、この話が目立たない。");
+  const missingSubject = weakened.match(/^(.+?)\s*が(?:目立たない|欠落している|欠落|薄い|弱い|弱まった|入っていない)/);
+  if (missingSubject?.[1]) {
+    return `保存済みの会議要約に「${humanizeCoverageSubject(missingSubject[1])}」が入っていないか、弱く書かれている可能性がある。`;
+  }
+  return humanizeCoverageSentence(weakened || "保存済みの会議要約に入っていないか、弱く書かれている可能性がある。");
 }
 
-function coverageGapApprovalConsequence(targetValue: string): string {
+function coverageGapCopyConsequence(targetValue: string): string {
   switch (normalizeCoverageTarget(targetValue)) {
     case "strategy_signal":
-      return "プロジェクトの重要メモに残る。出資決定や正式合意としては扱わない。";
+      return "元の会議要約は書き換えず、プロジェクトの重要メモにコピーする。出資決定や正式合意としては扱わない。";
     case "action_item":
-      return "確認済みのメモとして残る。現状このボタンだけでは要対応リストまでは作らない。";
+      return "元の会議要約は書き換えず、確認済みのメモとしてコピーする。現状このボタンだけでは要対応リストまでは作らない。";
     case "registry_diff":
-      return "確認済みのメモとして残る。台帳の修正が必要なら別途対応する。";
+      return "元の会議要約は書き換えず、確認済みのメモとしてコピーする。台帳の修正が必要なら別途対応する。";
     case "shareholder_meeting":
-      return "確認済みのメモとして残る。株主・ガバナンス情報への反映が必要なら別途対応する。";
+      return "元の会議要約は書き換えず、確認済みのメモとしてコピーする。株主・ガバナンス情報への反映が必要なら別途対応する。";
     default:
-      return "確認済みのメモとして残る。正式決定としては扱わない。";
+      return "元の会議要約は書き換えず、確認済みのメモとしてコピーする。正式決定としては扱わない。";
   }
 }
 
