@@ -41,6 +41,11 @@ export type MonthlyPaymentObligation = {
   cashflowTreatment: PaymentObligationCashflowTreatment;
   status: PaymentObligationStatus;
   autoDebit: boolean | null;
+  originCashOffsets: Array<{
+    ym: number;
+    amountYen: number;
+    amountStatus: "exact" | "estimated";
+  }>;
 };
 
 export function currentDateJst(now = new Date()): string {
@@ -63,6 +68,19 @@ export function obligationToMonthlyInput(row: CompanyPaymentObligation): Monthly
   if (row.status === "paid" || row.status === "cancelled") return null;
   const ym = row.expected_payment_ym ?? row.due_date?.slice(0, 7).replace("-", "") ?? null;
   if (!ym || !/^\d{6}$/.test(ym)) return null;
+  const rawOffsets = Array.isArray(row.payload?.originCashOffsets) ? row.payload.originCashOffsets : [];
+  const originCashOffsets = rawOffsets.flatMap((value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+    const offset = value as Record<string, unknown>;
+    const offsetYm = String(offset.ym ?? "");
+    const amount = Number(offset.amountYen ?? offset.amount_yen);
+    if (!/^\d{6}$/.test(offsetYm) || !Number.isFinite(amount) || amount <= 0) return [];
+    return [{
+      ym: Number(offsetYm),
+      amountYen: Math.round(amount),
+      amountStatus: offset.amountStatus === "exact" ? "exact" as const : "estimated" as const,
+    }];
+  });
   return {
     obligationId: row.id,
     title: row.title,
@@ -74,6 +92,7 @@ export function obligationToMonthlyInput(row: CompanyPaymentObligation): Monthly
     cashflowTreatment: row.cashflow_treatment,
     status: row.status,
     autoDebit: row.auto_debit,
+    originCashOffsets,
   };
 }
 

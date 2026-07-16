@@ -1,8 +1,8 @@
 -- 164_void_zmp_shin_tolerated_recovery_offsets.sql
--- ZMP 2026 season: Shin (ID026) small overpayment was explicitly tolerated by
--- Masa's 2026-07-02 decision. Later MS edits generated pending negative recovery
--- rows for the protected 202601-202605 months and applied them to 202606,
--- which zeroed Shin's July payout. Keep the audit trail, but do not recover it.
+-- ZMP 2026 season: Shin (ID026) was paid/agreed under the pre-2026-07 terms.
+-- Later MS edits generated pending negative rows by comparing those fixed months
+-- with the new point basis, and applied them to 202606, which zeroed Shin's July
+-- payout. Keep the audit trail, but do not recover legacy-agreement differences.
 
 UPDATE public.reward_member_liability_offsets
 SET
@@ -11,7 +11,7 @@ SET
   voided_by = 'codex:2026-07-16-zmp-shin-tolerated-recovery',
   metadata_json = metadata_json || jsonb_build_object(
     'void_reason',
-    'Shin (ID026) negative MS-overview recovery is tolerated for ZMP 2026 per Masa 2026-07-02 decision',
+    'Shin (ID026) legacy-agreement months are fixed before the 2026-07 point-system transition',
     'void_source',
     'payouts_shin_missing_202607'
   )

@@ -1,7 +1,7 @@
 -- 163_fix_zmp_liability_offset_metadata.sql
--- Correct audit metadata only: ID010 is ran; the tolerated ZMP 2026 small-overpayment
--- members are kou (ID004) and shin (ID026). This does not change offset amounts or
--- reward calculation behavior.
+-- Correct legacy audit metadata only: ID010 is ran; the intended ZMP 2026
+-- metadata members were kou (ID004) and shin (ID026). This does not change
+-- offset amounts or reward calculation behavior.
 
 UPDATE public.reward_member_liability_offsets
 SET metadata_json = jsonb_set(
