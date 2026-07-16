@@ -1501,4 +1501,38 @@ expectIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
   "flex w-full flex-wrap gap-2 sm:w-auto sm:shrink-0",
 ]);
 
+// cap table 履歴マトリクス + 次回ラウンド試算 (2026-07-16, v3.43.0): confirmed済み株式イベントの
+// holderNameベース100%推移・創業からのラウンド別マトリクス、および未保存の仮シミュレーションを保護する。
+expectIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
+  "data-testid=\"cap-table-history-matrix\"",
+  "data-testid=\"next-round-simulator\"",
+  "data-cap-table-origin-warning",
+  "capTableOriginWarning",
+  "computeNextRoundScenario",
+  "minimumPreMoneyForTarget",
+]);
+
+expectIncludes("src/lib/company-overview.ts", [
+  "export function capTableOriginWarning",
+  "export function computeNextRoundScenario",
+  "export function minimumPreMoneyForTarget",
+  "export function nextRoundSensitivity",
+]);
+
+expectIncludes("src/lib/company-overview-xlsx.ts", [
+  "ラウンド別cap table",
+  "次回ラウンド試算",
+  "computeNextRoundScenario",
+  "minimumPreMoneyForTarget",
+]);
+
+// migration 175: LST (p07) の創業〜QST in-kind まで正史を復元 (source: xlsx:LST_captable_250415.xlsx)。
+expectIncludes("scripts/migrations/175_lst_cap_table_history.sql", [
+  "xlsx:LST_captable_250415.xlsx#incorporation-202307",
+  "xlsx:LST_captable_250415.xlsx#seed-202312",
+  "xlsx:LST_captable_250415.xlsx#qst-202503",
+  "星野毅",
+  "in_kind_contribution",
+]);
+
 console.log("critical PWA UI anchors ok");
