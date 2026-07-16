@@ -686,6 +686,7 @@ expectNotIncludes("../gas/064_PayoutFreeeNotice.js", [
 expectIncludes("src/app/api/cron/payout-reward-cache-refresh/route.ts", [
   "payout-reward-cache-refresh",
   "syncRewardSummariesForBillingCycles",
+  "effectiveMemberPayoutYmForCycle",
   "DEFAULT_FORWARD_CACHE_LOOKAHEAD_MONTHS",
   "lookahead",
   "cycleYms",

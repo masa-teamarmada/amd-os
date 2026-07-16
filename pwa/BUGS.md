@@ -4030,6 +4030,13 @@
 - **対応内容**: 月初合意の報酬支払説明では `invoice_ym` を使わず、PJ/member 支払条件から支払月を計算する helper を追加した。`payoutSchedule` と `/admin/monthly-work-agreements` の `今月支払` 集計も同じ判定に統一した。read-only 再計算で 202607 の ZMP 202606 分が 4名合計 87,457円として出ることを確認し、`v0.39.40` で本番反映した。後続 main/prod にも ancestor として含まれる。
 - **再発防止策**: finance / agreement では `稼働月`、`請求書発行月`、`入金月`、`メンバー支払月` を同じ `ym` として扱わない。DB列名を根拠にせず、契約・manual/spec・実支払データの意味を先に確認する。画面で `0円` が出た場合は「予定額が0」なのか「支払月判定から落ちた」のかを、保存済み明細と支払条件で切り分けてから説明する。
 
+## [admin-payouts/payout-month] payouts が請求書発行月を優先し、今月の支払予定を欠落させた (2026-07-16)
+
+- **症状**: `/admin/payouts` のメンバー別支払が空、または今月の支払予定が不足して見えた。202607 確認では、ZMP 202606 分が本来 202607 支払予定なのに、`invoice_ym=202606` のため 202607 支払から落ちていた。
+- **原因**: `/admin/payouts` が支払月候補を `billing_cycles.invoice_ym` 優先で集めていた。`invoice_ym` はクライアント向け請求書発行月で、AMD からメンバーへ支払う月ではない。月初合意では同じ事故を直していたが、payouts 側の集計が古いままだった。
+- **対応内容**: 共通 helper `effectiveMemberPayoutYmForCycle()` を追加し、`/admin/payouts` API、画面側の支払月表示、日次 `payout-reward-cache-refresh` の対象cycle抽出を PJ 台帳の支払条件ベースに統一した。対象cycle取得も `invoice_ym` ではなく候補稼働月から集めてからメンバー支払月で絞る方式へ変更。空表示は「対象cycleがあるのか / 報酬キャッシュ再計算が必要か」を示す文言にした。
+- **再発防止策**: `/admin/payouts`、`payout-reward-cache-refresh`、月初合意、経理チェックなど、メンバー支払を見る画面/キャッシュ更新では `effectiveMemberPayoutYmForCycle()` を使う。クライアント請求・入金確認だけが `invoice_ym` 優先の `effectivePaymentYmForCycle()` を使う。
+
 ## [bzm-worker/deploy] ワーカー専用ブランチへの commit だけでは正本変更が本番に反映されなかった (2026-07-12)
 
 - **症状**: BZM Book A 第1章 (`pwa/bzm/book-a-ch-1.md`) の「である」調変換 (PF-020 フェーズA) を spawn_task 起票のワーカーセッション (`claude/brave-wozniak-b16328`) が実施し commit したが、まさが本番 PWA で確認すると `v3.39.63` のままで、冒頭は変換前の「ですます」調だった。

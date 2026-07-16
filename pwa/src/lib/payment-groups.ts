@@ -160,6 +160,19 @@ export function effectivePaymentYmForCycle(
   );
 }
 
+export function effectiveMemberPayoutYmForCycle(
+  cycle: Pick<PaymentCycleRow, "invoice_ym" | "ym"> & Partial<Pick<PaymentCycleRow, "invoice_sent_at" | "invoice_issued_at">>,
+  project: Pick<PaymentProjectRow, "payment_due_rule" | "payment_due_day" | "invoice_send_deadline_rule"> | undefined
+): string {
+  // invoice_ym is the client invoice month. Member payouts use the PJ payment rule.
+  return computePaymentYmByRule(
+    cycle.ym,
+    project?.payment_due_rule ?? null,
+    project?.payment_due_day ?? null,
+    paymentRuleReferenceDate(cycle, project)
+  );
+}
+
 export async function loadPaymentConfirmationGroups(
   db: SupabaseClient,
   paymentYm: string,
