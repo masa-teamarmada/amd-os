@@ -108,9 +108,9 @@ export function AmdScoreRetrofit({ ventures, inputs, initialAlpha }: Props) {
     <div className="mx-auto w-full max-w-[1400px] px-4 py-6">
       <div className="flex items-baseline gap-3 mb-4 flex-wrap">
         <Link href="/venture-map/amd-score" className="text-xs text-cyan-700 hover:underline">← AMD Score 一覧</Link>
-        <h1 className="text-xl font-semibold ml-2">PRS Review / Legacy Alpha</h1>
+        <h1 className="text-xl font-semibold ml-2">SPS Review / Legacy Alpha</h1>
         <span className="text-xs text-muted-foreground">
-          PRS primary review queue + legacy AMD alpha simulation
+          SPS primary review queue + legacy AMD alpha simulation
         </span>
       </div>
 
@@ -123,11 +123,11 @@ export function AmdScoreRetrofit({ ventures, inputs, initialAlpha }: Props) {
       <div className="mb-4 border border-sky-200 bg-sky-50 px-3 py-3 text-[11px] leading-relaxed text-slate-800">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <div className="text-[12px] font-semibold text-slate-950">PRS primary review queue</div>
+            <div className="text-[12px] font-semibold text-slate-950">SPS primary review queue</div>
             <div className="mt-1 max-w-3xl">
-              主表示は{" "}
-              <span className="font-mono">score = k × P × R × S</span>{" "}
-              に切り替えた。P/R_net は最新 `amd_score_inputs` 行に保存し、未入力の PJ は score を出さず review queue として残す。
+              主表示は SPS (シーズ有望度){" "}
+              <span className="font-mono">score = k × M × P × R × S</span>。
+              P/R_net は最新 `amd_score_inputs` 行に保存し、未入力の PJ は score を出さず review queue として残す。
             </div>
           </div>
         </div>
@@ -147,7 +147,7 @@ export function AmdScoreRetrofit({ ventures, inputs, initialAlpha }: Props) {
       {/* モデル説明 (cockpit スコア詳細と同じ FormulaPanel を再利用) */}
       <details className="mb-4">
         <summary className="text-xs text-slate-700 hover:text-slate-900 cursor-pointer select-none px-2 py-1 inline-block">
-          📐 モデル構造 (M × X × F + Triple Helix 観測モデル) を表示
+          📐 モデル構造 (SPS M·P·R·S + legacy M × X × F + Triple Helix 観測モデル) を表示
         </summary>
         <div className="mt-2">
           <AmdScoreFormulaPanel alpha={alpha} />
@@ -254,9 +254,9 @@ export function AmdScoreRetrofit({ ventures, inputs, initialAlpha }: Props) {
         {/* 右: 全 PJ シミュレーション */}
         <div className="border border-[#e5e5e7] rounded-xl overflow-hidden bg-white">
           <div className="px-3 py-2 border-b border-[#e5e5e7] flex items-baseline justify-between">
-            <div className="text-[12px] font-semibold">PRS primary queue / legacy alpha simulation</div>
+            <div className="text-[12px] font-semibold">SPS primary queue / legacy alpha simulation</div>
             <div className="text-[10px] text-muted-foreground">
-              ready は PRS 優先。legacy AMD は comparison only。
+              ready は SPS 優先。legacy AMD は comparison only。
             </div>
           </div>
           <table className="w-full text-xs">
@@ -264,7 +264,7 @@ export function AmdScoreRetrofit({ ventures, inputs, initialAlpha }: Props) {
               <tr>
                 <th className="text-left px-3 py-2">PJ</th>
                 <th className="text-left px-3 py-2">Lane</th>
-                <th className="text-right px-3 py-2 font-mono">PRS primary</th>
+                <th className="text-right px-3 py-2 font-mono">SPS primary</th>
                 <th className="text-left px-3 py-2">M/P/R/S</th>
                 <th className="text-left px-3 py-2">入力状態</th>
                 <th className="text-right px-3 py-2 font-mono">現役 α score</th>

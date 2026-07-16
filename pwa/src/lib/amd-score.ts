@@ -347,7 +347,12 @@ export function normalizeAlpha(raw: unknown): AlphaWeights {
 }
 
 // ============================================================
-// M x P x R x S primary layer (呼称は当面 "PRS (M·P·R·S)")
+// SPS = Seed Prospect Score (シーズ有望度) — M x P x R x S primary layer
+//
+// 呼称: 旧 PRS は 2026-07-11 まさ確定で廃止 (pwa/bzm/terminology_glossary.md §1.5)。
+// SPS は和名の略で成分頭字ではないため 4 因子化でも名称不変、MPRS 改称は不要。
+// このファイルの Prs* / PRS_* 識別子と DB 列 prs_* は glossary の張り替え規律
+// (「コード変数・DB 列は内部識別子として不変、表示テキストのみ改称」) で据え置き。
 //
 // 2026-07-16 まさ確定: σ_SU を S から分離して独立項 M へ格上げ。
 //   Score = K · M · P · R · S
@@ -356,7 +361,6 @@ export function normalizeAlpha(raw: unknown): AlphaWeights {
 // フラット Cobb-Douglas の結合則により総合スコア数値・α・K は完全不変。
 // 変わるのは breakdown のグルーピングと表示ラベルのみ。
 // 正本: /Users/masa/projects/AMD/BZSF/before_zero_theory.md の 2026-07-16 節。
-// MPRS への全面改称はまさ判断待ち (ブランディング)。
 // ============================================================
 
 export interface PrsScoreInput {

@@ -64,7 +64,7 @@ export function CockpitAmdScoreBreakdownModal({ latestInput, alpha, onClose, onO
           {/* 数式と律速の根拠は cockpit のスコア詳細に集約。モーダルでは値の内訳のみ表示。 */}
           <div className="text-[11px] text-slate-700 bg-violet-50 border border-violet-200 rounded-md px-3 py-2 leading-relaxed flex items-center justify-between gap-3">
             <div>
-              <strong>PRS primary の下に残している legacy AMD comparison</strong>。マクロ M × 会社の XRL X × CEO の FRL F を比較用に読む。
+              <strong>SPS primary の下に残している legacy AMD comparison</strong>。マクロ M × 会社の XRL X × CEO の FRL F を比較用に読む。
               数式・律速の経済学的根拠はスコア詳細タブに記載。
             </div>
             <button

@@ -299,7 +299,7 @@ const TOOLS: Anthropic.Messages.Tool[] = [
   {
     name: "update_amd_score_input",
     description:
-      "AMD Score の legacy 7 軸入力と PRS primary 入力 (P / R_net) を amd_score_inputs に upsert する。\n\n" +
+      "AMD Score の legacy 7 軸入力と SPS primary 入力 (P / R_net) を amd_score_inputs に upsert する。\n\n" +
       "## 各軸の正式定義 (内閣府 SIP / NASA 9 段階) — レベリング時は必ずこの定義に沿う\n\n" +
       "**TRL** (Technology Readiness Level, NASA Mankins 1995, 内閣府 SIP 互換):\n" +
       "  1=基本原理確認 / 2=技術概念定式化 / 3=実験的概念検証\n" +

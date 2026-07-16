@@ -69,7 +69,7 @@ export function AmdScoreList({ ventures, inputs, alpha }: Props) {
     <div className="mx-auto w-full max-w-[1400px] px-4 py-6">
       <div className="flex items-baseline justify-between mb-4 gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl font-semibold">PRS Primary / Legacy AMD</h1>
+          <h1 className="text-xl font-semibold">SPS Primary / Legacy AMD</h1>
           <p className="text-xs text-muted-foreground mt-1">
             主表示は `P × R × S`。M × X × F / 7軸 AMD Score は比較用として残し、P/R_net 未入力は明示的に review 待ちで止める。
           </p>
@@ -99,7 +99,7 @@ export function AmdScoreList({ ventures, inputs, alpha }: Props) {
             <tr>
               <th className="text-left px-3 py-2">PJ</th>
               <th className="text-left px-3 py-2">Lane</th>
-              <th className="text-right px-3 py-2 font-mono">PRS primary</th>
+              <th className="text-right px-3 py-2 font-mono">SPS primary</th>
               <th className="text-left px-3 py-2">状態</th>
               <th className="text-right px-3 py-2 font-mono">Legacy AMD</th>
               <th className="text-left px-3 py-2">最終評価</th>
@@ -159,7 +159,7 @@ export function AmdScoreList({ ventures, inputs, alpha }: Props) {
       </div>
 
       <div className="mt-3 text-[10px] text-muted-foreground">
-        各 PJ をクリックして PRS primary の P/R_net を確認・入力。α 重みと M/X/F は legacy AMD comparison として個別ビューに残す。
+        各 PJ をクリックして SPS primary の P/R_net を確認・入力。α 重みと M/X/F は legacy AMD comparison として個別ビューに残す。
       </div>
     </div>
   );

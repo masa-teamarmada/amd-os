@@ -231,10 +231,10 @@ function ProjectStripe({
           <div className="truncate text-foreground" title={rolesInline}>{rolesInline}</div>
         </div>
 
-        {/* === PRS primary + sparkline: col-span-3 === */}
+        {/* === SPS primary + sparkline: col-span-3 === */}
         <div className="col-span-3 flex items-center gap-2 border-l border-[var(--desk-line)] pl-3 min-w-0">
           <div className="flex flex-col shrink-0">
-            <div className="text-[9px] text-muted-foreground font-mono uppercase">PRS Primary</div>
+            <div className="text-[9px] text-muted-foreground font-mono uppercase">SPS Primary</div>
             <div className="flex items-baseline gap-1 min-h-[28px]">
               <span className="text-lg font-bold leading-none">{lastScoreV != null ? formatScore(lastScoreV) : "—"}</span>
               {trend && <span className={`text-xs font-bold ${trendColor}`}>{trend}</span>}
@@ -253,7 +253,7 @@ function ProjectStripe({
         <div className="col-span-2 border-l border-[var(--desk-line)] pl-3">
           {primarySnapshot?.components ? (
             <>
-              <div className="mb-1 text-[9px] text-muted-foreground font-mono uppercase">PRS M/P/R/S</div>
+              <div className="mb-1 text-[9px] text-muted-foreground font-mono uppercase">SPS M/P/R/S</div>
               <div className="grid grid-cols-4 gap-1 text-[10px]">
                 <MetricCell label="M" value={primarySnapshot.components.macro} />
                 <MetricCell label="P" value={primarySnapshot.components.potential} />

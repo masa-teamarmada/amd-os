@@ -249,7 +249,7 @@ export function CockpitVentureStatus({
   const xOf = (yd: number) => ML + ((yd - range.xMin) / (range.xMax - range.xMin)) * PW;
   const xOfDate = (iso: string) => xOf(dateToYearDecimal(iso));
 
-  // PRS primary 時系列
+  // SPS primary 時系列
   // まさ #20-2nd (2026-05-24):
   //  - chart 表示期間は元通り (過去 + 未来 計算可能な全範囲)
   //  - 折れ線は 「today <= 過去 = 実線」「today > 未来 = 破線」 に分割
@@ -488,9 +488,9 @@ export function CockpitVentureStatus({
             type="button"
             onClick={onOpenScoreDetail}
             className="text-[11px] font-mono px-2 py-0.5 rounded-full border border-dashed border-slate-300 text-muted-foreground hover:bg-slate-50"
-            title="PRS primary 入力待ち。クリックで入力"
+            title="SPS primary 入力待ち。クリックで入力"
           >
-            PRS: 入力待ち →
+            SPS: 入力待ち →
           </button>
         )}
       </div>
@@ -534,11 +534,11 @@ export function CockpitVentureStatus({
           案C レイアウト (上 hero に AMD Score + XRL を並べる) のため。
           それ未満は従来通り縦並び。 */}
       <div className="flex flex-col xl:flex-row gap-2">
-      {/* Chart 1: PRS primary */}
+      {/* Chart 1: SPS primary */}
       <div className="flex-1 min-w-0 overflow-x-auto px-2 pt-3">
         <div className="px-2 flex items-center justify-between flex-wrap gap-2">
           <h3 className="text-[12px] font-semibold">
-            PRS primary
+            SPS primary (シーズ有望度)
             <span className="ml-2 text-[9px] text-muted-foreground font-normal">linear scale / dynamic range</span>
           </h3>
           <div className="flex items-center gap-2 text-[10px]">
@@ -748,7 +748,7 @@ export function CockpitVentureStatus({
                 style={{ cursor: "pointer" }}
                 onClick={(e) => { e.stopPropagation(); setScoreBreakdownOpen(true); }}
               >
-                <title>クリックで PRS / legacy 比較を開く</title>
+                <title>クリックで SPS / legacy 比較を開く</title>
                 {/* 背景 pill */}
                 <rect
                   x={pillX}
@@ -788,8 +788,8 @@ export function CockpitVentureStatus({
         </svg>
       </div>
 
-      {/* M/P/R/S 値カード — Chart 1 (PRS) と Chart 2 (XRL) の間に挟む。
-            現在 (今日以前) の PRS (M·P·R·S) primary components:
+      {/* M/P/R/S 値カード — Chart 1 (SPS) と Chart 2 (XRL) の間に挟む。
+            現在 (今日以前) の SPS (M·P·R·S) primary components:
               M = macrotrend (マクロ追い風、σ_SU。2026-07-16 S から分離)
               P = potential input
               R = readiness reach
@@ -804,7 +804,7 @@ export function CockpitVentureStatus({
             <PrsCard axis="S" label="SURVIVAL 自走力" value={latestComponents.survival} color="#7c3aed" />
           </>
         ) : (
-          <span className="text-[10px] text-[#86868b]">PRS primary 入力待ち</span>
+          <span className="text-[10px] text-[#86868b]">SPS primary 入力待ち</span>
         )}
       </aside>
 
@@ -1031,7 +1031,7 @@ export function CockpitVentureStatus({
 
 /**
  * PrsCard — PRS primary の P / R / S 値カード。
- * Chart 1 (PRS) と Chart 2 (XRL 折れ線) の間に縦 stack (xl 以上) で並ぶ。
+ * Chart 1 (SPS) と Chart 2 (XRL 折れ線) の間に縦 stack (xl 以上) で並ぶ。
  */
 function PrsCard({ axis, label, value, color }: { axis: string; label: string; value: number | null; color: string }) {
   const display = formatRoundedNumber(value);
@@ -1042,7 +1042,7 @@ function PrsCard({ axis, label, value, color }: { axis: string; label: string; v
         <span className="text-[8px] text-[#86868b] font-semibold uppercase tracking-wider">{label}</span>
       </div>
       <div className="text-[18px] font-bold tabular-nums leading-none" style={{ color }}>{display}</div>
-      <div className="text-[8px] font-mono uppercase tracking-wider text-[#86868b]">PRS component</div>
+      <div className="text-[8px] font-mono uppercase tracking-wider text-[#86868b]">SPS component</div>
     </div>
   );
 }
