@@ -8,7 +8,6 @@ import {
   latestCapTable,
   minimumPreMoneyForTarget,
   nextRoundSensitivity,
-  type CapTableRow,
   type CapTableSnapshot,
   type CompanyOverviewData,
   type NextRoundInputs,
@@ -280,11 +279,27 @@ function pickNewestRoundValue(rounds: ValuationRound[], field: "pre_money_yen" |
   return sorted[0][field] as number;
 }
 
-function pickProtectedHolder(base: CapTableSnapshot): CapTableRow | null {
-  const founders = base.rows.filter((row) => row.holderType === "founder");
-  const pool = founders.length > 0 ? founders : base.rows;
-  if (pool.length === 0) return null;
-  return pool.reduce((max, row) => (row.dilutedShares > max.dilutedShares ? row : max), pool[0]);
+function pickProtectedHolder(base: CapTableSnapshot): { holderName: string; dilutedShares: number; dilutedPct: number } | null {
+  const aggregated = new Map<string, { holderName: string; isFounder: boolean; dilutedShares: number }>();
+  for (const row of base.rows) {
+    const current = aggregated.get(row.holderName);
+    if (current) {
+      current.dilutedShares += row.dilutedShares;
+      current.isFounder = current.isFounder || row.holderType === "founder";
+    } else {
+      aggregated.set(row.holderName, { holderName: row.holderName, isFounder: row.holderType === "founder", dilutedShares: row.dilutedShares });
+    }
+  }
+  const holders = [...aggregated.values()];
+  if (holders.length === 0) return null;
+  const founders = holders.filter((holder) => holder.isFounder);
+  const pool = founders.length > 0 ? founders : holders;
+  const picked = pool.reduce((max, holder) => (holder.dilutedShares > max.dilutedShares ? holder : max), pool[0]);
+  return {
+    holderName: picked.holderName,
+    dilutedShares: picked.dilutedShares,
+    dilutedPct: base.dilutedShares > 0 ? (picked.dilutedShares / base.dilutedShares) * 100 : 0,
+  };
 }
 
 /**
