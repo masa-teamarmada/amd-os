@@ -1,5 +1,5 @@
 /**
- * ERS データ取得 (Supabase client 経由)。設計正本: pwa/design/institution_readiness.md
+ * ECR データ取得 (Supabase client 経由)。設計正本: pwa/design/institution_readiness.md
  */
 import { createClient } from "@/lib/supabase/client";
 import type {

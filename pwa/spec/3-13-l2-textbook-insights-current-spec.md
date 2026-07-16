@@ -28,7 +28,7 @@
 | 1 | `before_zero_knowhow` | Before Zero の PJ を進めるためのノウハウ、経営判断、分岐点、失敗回避 |
 | 2 | `cross_project_pattern` | これまでの PJ 情報や AMD Protocol から総合的に見える横断傾向 |
 | 3 | `case_study` | 各 PJ の中でケーススタディとして有効な情報 |
-| 3 | `theory_evidence` | BZM / AMD Score / ERS / Protocol の既存理論を裏付ける観測 |
+| 3 | `theory_evidence` | BZM / AMD Score / ECR / Protocol の既存理論を裏付ける観測 |
 
 `priority=4` は弱い候補・保留候補。通知には出せるが、本文追記より再抽出・補強を優先する。
 
@@ -41,7 +41,7 @@
 | `decision_branch` | GO/NO-GO、設立タイミング、律速判断などの分岐 | 判断の条件・材料・結果を再利用可能に書く |
 | `failure_learning` | 失敗・未達・手戻りから得た学習 | 原因、早期検知、次の回避策を分ける |
 | `cross_project_pattern` | 複数PJにまたがる反復パターン | 特定PJだけの偶然と普遍パターンを分ける |
-| `theory_case` | BZM/AMD Score/ERS/Protocol 理論に関わるケース | `theory_case_kind` と `theory_change_scope` を必ず明示する |
+| `theory_case` | BZM/AMD Score/ECR/Protocol 理論に関わるケース | `theory_case_kind` と `theory_change_scope` を必ず明示する |
 | `reusable_question` | 次回PJで使える問い・チェックリスト | 質問形またはrubric補助として書く |
 | `relationship_playbook` | PI/候補CEO/VC/企業/大学との関係構築 | 相手別の打ち手・注意点・禁じ手を書く |
 | `field_transition` | 研究現場から事業化・会社化へ移る局面 | 誰が何をいつ引き受けるかを具体化する |
@@ -164,7 +164,7 @@ node pwa/scripts/apply_approved_textbook_insights.mjs --apply --limit 20
 | XRL / readiness | `3-1-xrl-group` |
 | FRL / founder readiness | `4-1-frl-founder-readiness` |
 | AMD Score / 律速判断 | `5-1-amd-score-integration` |
-| ERS / research institution readiness | `7-1-ers-ecosystem-readiness` |
+| ECR / research institution readiness | `7-1-ers-ecosystem-readiness` |
 
 新章が main にまだ無い場合は、新章を勝手に作らず `8-1-amd-os-operations` + `proposed_section='未分類の実務知見'` へ fallback し、`metadata_json.validation_warnings` に routing fallback を残す。unknown `practice_kind` は helper が勝手に丸めず、fallback slug と warning のまま候補DBへ残す。
 

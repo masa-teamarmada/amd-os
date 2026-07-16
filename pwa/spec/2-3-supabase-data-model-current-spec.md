@@ -26,7 +26,7 @@
 | L2 / knowledge | `source_cache`, `protocols`, `project_knowledge`, `member_knowledge`, `project_meeting_summaries`, `project_registry_diffs`, `project_xrl_evidence`, `project_strategy_signals`, `l2_notifications`, `l2_feedbacks` |
 | management guardrails | `guardrail_tag_definitions`, `guardrail_cards`, `guardrail_matches`, `guardrail_feedbacks` |
 | decision | `amd_score_inputs`, `amd_score_alpha`, `amd_score_revisions`, `project_xrl_log`, `project_founding_members`, `project_graduation_signals` |
-| ERS | `institutions`, `institution_capability_axes`, `institution_capability_criteria`, `institution_assessments` |
+| ECR | `institutions`, `institution_capability_axes`, `institution_capability_criteria`, `institution_assessments` |
 | Atlas | `atlas_signals`, `atlas_stories`, `atlas_story_merges`, `atlas_themes`, `atlas_story_themes`, `atlas_divergences` |
 | Seeds / VC / Scholar | `seeds`, `seed_funding`, `seed_news`, `seed_contact_log`, `vcs`, `vc_funds`, `vc_investments`, `vc_contacts`, `vc_news`, `papers_log` |
 | Management Score / finance | `amd_management_score_*`, `company_*`, `freee_oauth_tokens` |

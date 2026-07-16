@@ -7,7 +7,7 @@
 
 ## 何を解くか
 
-AMD Score は PJ / SU 単位の価値評価であり、現行 primary は PRS (`P x R x S`)。Before Zero Theory v3.2 の 7 軸 Cobb-Douglas / M-X-F は legacy comparison と evidence chain として残す。
+AMD Score は PJ / SU 単位の価値評価であり、現行 primary は SPS (`M x P x R x S`)。Before Zero Theory v3.2 の 7 軸 Cobb-Douglas / M-X-F は legacy comparison と evidence chain として残す。
 
 本設計の `AMD Management Score` は、それとは別に **株式会社チームアルマダ全体の経営状態** を見る。足元の月次収支だけでなく、AMD が先手を打てているか、既存 PJ が続くか、新規案件が増えるか、そして AMD が目指す方向へ近づいているかを 1 画面で評価する。
 

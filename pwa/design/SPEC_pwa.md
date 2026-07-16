@@ -104,13 +104,13 @@ pwa/
 
 | パス | 機能 |
 |---|---|
-| `/dashboard` | トップ。PJ 一覧 + 先手TODOバッジ + Atlas/Venture Map/MyPage/Admin への入口。上部のバイタルサイン枠はクリックで AMD 全体 cockpit (`/project/p00/cockpit`) へ遷移し、右上の詳細リンクだけ `/management-score` へ遷移する。基本表示順は左/mainカラム内で PJ 一覧 → 研究機関ERSリスト、下段全幅で Company Content shelf。PJ一覧は通常PJだけを表示し、AMD 全体PJ (`p00`) はバイタルサイン枠を入口にして通常PJ一覧には表示しない。`projects.project_category='ecosystem'` または `p25` / `p28` / KUTE・NIMS名に該当する研究機関エコシステム構築PJは研究機関ERSリスト側へ寄せる。研究機関ERSリストはPJリストの続きとして、PJ名を主タイトルに寄せて KUTE / KGW / NIMS を title、工学院大学 / 香川大学 / 物質・材料研究機構を subtitle にする。KUTEカードは `/institutions/inst_kute/cockpit`、NIMSカードは `/institutions/inst_nims/cockpit` へ遷移する。Company Content shelf はメンバー / 沿革 / メディア掲載 / photo を preview する。右カラムの MyPage embed は「今週やったこと」までに留め、月別PJカードは `/mypage` 単体にだけ残す |
+| `/dashboard` | トップ。PJ 一覧 + 先手TODOバッジ + Atlas/Venture Map/MyPage/Admin への入口。上部のバイタルサイン枠はクリックで AMD 全体 cockpit (`/project/p00/cockpit`) へ遷移し、右上の詳細リンクだけ `/management-score` へ遷移する。基本表示順は左/mainカラム内で PJ 一覧 → 研究機関ECRリスト、下段全幅で Company Content shelf。PJ一覧は通常PJだけを表示し、AMD 全体PJ (`p00`) はバイタルサイン枠を入口にして通常PJ一覧には表示しない。`projects.project_category='ecosystem'` または `p25` / `p28` / KUTE・NIMS名に該当する研究機関エコシステム構築PJは研究機関ECRリスト側へ寄せる。研究機関ECRリストはPJリストの続きとして、PJ名を主タイトルに寄せて KUTE / KGW / NIMS を title、工学院大学 / 香川大学 / 物質・材料研究機構を subtitle にする。KUTEカードは `/institutions/inst_kute/cockpit`、NIMSカードは `/institutions/inst_nims/cockpit` へ遷移する。Company Content shelf はメンバー / 沿革 / メディア掲載 / photo を preview する。右カラムの MyPage embed は「今週やったこと」までに留め、月別PJカードは `/mypage` 単体にだけ残す |
 | `/dashboard-cyber-3d-lab` | 実験中の3D Cyber Dashboard。`three.js` 空間上に X/F/M 軸、PJ球体、床面KPI、ホログラム投影コックピットを配置。仕様方針は [`cyber_hud_design_code.md`](cyber_hud_design_code.md) / [`cyber_dashboard_content_design.md`](cyber_dashboard_content_design.md) |
 | `/dashboard-cyber-glass-cube` | 廃案比較用の旧 Cyber Dashboard 第2案。ガラスキューブPJ群は情報構造がカオス化したため、今後の正本候補にはしない。公開モックは `/mock/dashboard-cyber-glass-cube` |
 | `/dashboard-cyber-hud-wall` | Cyber Dashboard 第2案の作り直し。固定視点の `three.js` 空間に、参考HUD画像のようなKPI/PJ/Proof/Alert HUDモジュールを固定配置し、PJ選択時は同一空間内にPJ Cockpit Spatial Viewを展開する。公開モックは `/mock/dashboard-cyber-hud-wall` |
 | `/mypage` | 自分の参加 PJ × 今月の活動 + 今週やったこと + 月次報酬予定。PM向け月次TODO/nudgeは出さない。りり (`ID006`) は NIMS からの無償出向のため、報酬額は金額ではなく `ー` 表示 |
-| `/project/[projectId]/cockpit` | PJ コックピット (上 Header + Hero (AMD Score + XRL 横並び) + `進捗管理` / `スコア詳細` + MS / 資料 + 経営ハイライト + ガバナンス + 助成金 + 下段 月次 + MTGサマリ)。`?tab=score-detail` で PRS / R_net / FRL / XRL evidence と XRL チェックリストを直接開く。Header はPJリスト正本からPJメンバー、契約条件、業務委託料、支払い条件、提出物、立替精算の発生額/不可を表示する。資料は Drive の当該PJ folder配下 `AMD OS 資料` folder に保存し、OSには `project_documents` のmetadata/linkだけを残す。旧 `proactive_outbox` 由来のTODO欄は表示しない。`max-w-[1600px]` で画面幅を広く使う。詳細は [`cockpit.md`](cockpit.md) / [`project_strategy_signals.md`](project_strategy_signals.md) |
-| `/institutions/[institutionId]/cockpit` | 研究機関カードから開く機関コックピット。KUTE (`inst_kute`) は既存KUTE PJ (`p25`)、NIMS (`inst_nims`) は正式NIMS OS導入PJ (`p28`) の `CockpitView` を同画面へマウントし、MS進捗・月次・MTG履歴を操作/確認する。CX (`p20`) はNIMS導入の初期ユースケースであり、NIMS PJそのものとは分けて扱う。既存PJコックピットの内容も研究機関ERS側の評価内容も削除しない。上部にERS概要と readiness snapshot を置き、進捗管理とスコア詳細をタブで分ける |
+| `/project/[projectId]/cockpit` | PJ コックピット (上 Header + Hero (AMD Score + XRL 横並び) + `進捗管理` / `スコア詳細` + MS / 資料 + 経営ハイライト + ガバナンス + 助成金 + 下段 月次 + MTGサマリ)。`?tab=score-detail` で SPS / R_net / FRL / XRL evidence と XRL チェックリストを直接開く。Header はPJリスト正本からPJメンバー、契約条件、業務委託料、支払い条件、提出物、立替精算の発生額/不可を表示する。資料は Drive の当該PJ folder配下 `AMD OS 資料` folder に保存し、OSには `project_documents` のmetadata/linkだけを残す。旧 `proactive_outbox` 由来のTODO欄は表示しない。`max-w-[1600px]` で画面幅を広く使う。詳細は [`cockpit.md`](cockpit.md) / [`project_strategy_signals.md`](project_strategy_signals.md) |
+| `/institutions/[institutionId]/cockpit` | 研究機関カードから開く機関コックピット。KUTE (`inst_kute`) は既存KUTE PJ (`p25`)、NIMS (`inst_nims`) は正式NIMS OS導入PJ (`p28`) の `CockpitView` を同画面へマウントし、MS進捗・月次・MTG履歴を操作/確認する。CX (`p20`) はNIMS導入の初期ユースケースであり、NIMS PJそのものとは分けて扱う。既存PJコックピットの内容も研究機関ECR側の評価内容も削除しない。上部にECR概要と readiness snapshot を置き、進捗管理とスコア詳細をタブで分ける |
 | `/project/[projectId]/config` | 旧PJ設定。コックピットからは導線を外し、PJごとの契約・請求・支払条件は `/admin/projects` を正本にする |
 | `/manual` `/manual/[slug]` | AMD OS マニュアル。`pwa/manual/*.md` を正本として表示し、左カラムで章タイトル / summary / 見出し / 本文 / 画面パス / テーブル名を全文検索できる。`/manual` と各章だけに Gemini 実験版の `ManualTsukuyomiFloat` を出し、`POST /api/manual/tsukuyomi/ask` が該当章のマニュアル本文を根拠に回答する。DB 書き込みや既存つくよみ修正 tool は持たない |
 | `/knowledge-map` | AMD Materials。118元素の周期表、代表的な鉱物・鉱石、樹脂・高分子、2〜4件比較、従来の力学地図を束ねる読み取り専用の材料データベース。高校生が辞書なしで読める日本語を原則とし、化学記号や略称には説明を添える。周期表は注目度 / 需要 / 供給不安 / AMD相性を切り替え、注目度5を深紅とする熱色、枠内の日本語主用途、軸から独立した`警戒` / `危機`表示と供給警報帯で俯瞰する。枠内の`x/5`表示は持たず、未評価を低評価と分ける。別建ての総合評価は持たず、4指標合計（20点満点）を総合値とし、周期表以外の全体ランキング、鉱物一覧、樹脂一覧、比較列を合計値の高い順に並べる。全材料横断の需給の崩れランキングは専用の偏りの強さ（5点満点）で並べ、不足側、供給過剰側、価格乱高下を区別し、原因、供給が詰まる工程、評価時点、確からしさを示す。全体タブの3入口はカード全面を操作対象にする。元素・鉱物・樹脂は項目を押した直後に要点の小窓を開き、詳細操作で同じ小窓を拡張する。樹脂の詳細は原料と製造方法も示す。元素の要点では用途・警報・直近公表相場・5年推移・産出国円グラフも示す。相場は代表品目、単位、公表時点、速報値ではないことを明示する。従来の `protocols` 等の件数と直近代表項目は `材料マップ` タブに残し、原文全文、画面内Q&A、DB書き込み、生成AI呼び出しは持たない |
@@ -126,7 +126,7 @@ pwa/
 | `/atlas/admin/themes` | テーマクラスタリング管理 |
 | `/venture-map` | 9 PJ プロット (View A) |
 | `/venture-map/su/[id]` | SU 個別ビュー (XRL × マクロ指数) |
-| `/venture-map/amd-score` | AMD Score 一覧 (PRS primary、legacy M-X-F comparison)。詳細は [`amd_score.md`](amd_score.md) |
+| `/venture-map/amd-score` | AMD Score 一覧 (SPS primary、legacy M-X-F comparison)。詳細は [`amd_score.md`](amd_score.md) |
 | `/venture-map/amd-score/[projectId]` | 旧 AMD Score 個別URL。`/project/[projectId]/cockpit?tab=score-detail` へ redirect (`p99` デモを除く) |
 | `/venture-map/amd-score/retrofit` | α 重み調整 + 全 PJ シミュレーション (タブバー非表示、cockpit score detail からリンク) |
 | `/management-score` | AMD Management Score (会社全体の経営状況スコア: 先手力 / 財務耐久 / 既存PJ継続 / 新規案件獲得 / 戦略接近度)。詳細は [`management_score.md`](management_score.md) |
@@ -256,7 +256,7 @@ pwa/
 | `project_ventures` | SU 系 PJ の基本情報 (`project_id` PK = `projects.project_id` FK)。9 PJ。`ventures` を廃止して 008 で統合 |
 | `project_xrl_log` | TRL/BRL/HRL 時系列 + `bottleneck` (旧 `ventures_xrl_log`、008 で rename) |
 | `project_events` | PJ ごとの汎用イベントログ (`kind` ∈ hire/funding/deal/governance/note 等、`occurred_on` + `meta` jsonb)。沿革生成の元データ + AMD スコアグラフのアノテーション |
-| `amd_score_inputs` | AMD Score の PRS input (`prs_potential`, `prs_r_net`) と legacy 7 軸入力 (μ_A/I/G + 5 XRL + FRL, shallow_tech_mode)。`UNIQUE(project_id, evaluated_at)` (013 migration) |
+| `amd_score_inputs` | AMD Score の SPS input (`prs_potential`, `prs_r_net`) と legacy 7 軸入力 (μ_A/I/G + 5 XRL + FRL, shallow_tech_mode)。`UNIQUE(project_id, evaluated_at)` (013 migration) |
 | `amd_score_alpha` | 弾力性 α_i のバージョン管理 (`effective_from` / `effective_to`、jsonb)。base case を seed 済 |
 | `seeds` | seed 管理 |
 | `papers_log` | OpenAlex 論文数 (lane × **quarter**、UNIQUE lane+observed_at)。Triple Helix 観測量 N の供給。`cron/papers-quarterly-ingest` で投入 |
@@ -558,4 +558,4 @@ npm run test:critical-ui
 | 進捗推定設計 | `progress_estimation.md` |
 | Venture Map 数理モデル | `venture_map_model.md` |
 | PJ Status コックピット (SU 系 PJ の上部セクション) | `cockpit.md` ⭐ |
-| AMD Score (PRS primary / legacy M-X-F comparison) | `amd_score.md` ⭐ |
+| AMD Score (SPS primary / legacy M-X-F comparison) | `amd_score.md` ⭐ |

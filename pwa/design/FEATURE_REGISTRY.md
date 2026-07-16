@@ -314,10 +314,10 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - 抽出状況: dashboard 上段に admin 限定の `ExtractionStatusCard` を出す。Gmail / Drive / Calendar / Slack / Notion ごとの「OSへ最後に保存された証跡」と「MTG抽出で実際に使えた時刻」を分けて並べ、月次対象PJのメール・Slack・Drive設定不足は「設定が必要」に集約して `/admin/projects` へ送る。保存証跡の古さを接続異常と扱わず、未読の再認証通知、PJ設定不足、Calendar接続エラーだけを対応事項として出す。`project_config_gap` は採否通知に出さない。
 - PJ台帳の Slack CH 列: `projects.slack_channel_not_required=true` を「チャンネルなし」チェックで編集できる。これは未設定ではなく意図的にSlackチャンネルを使わないPJを示し、抽出状況の設定不足から外す。チェック時は古い `slack_channel_id` を空にする。PJ台帳の見出し行は縦横スクロール中も固定する。
 - AMD全体 累計実績カード: dashboard 上段の `FundingStatsCard` は、資金調達ラウンドと助成金・補助金を会社別/行別に表示する。累計値は `amd_contribution_status in ('full','partial')` の AMD貢献額だけで計算し、`none` / `unreviewed` はリストには残すが累計には入れない。投資家別内訳・持株比率・cap table snapshot は dashboard API に返さない。
-- PJ一覧: Active / Sales-Draft / Ended-Frozen の横長 stripe 一覧を維持する。KUTE (`p25`) など研究機関エコシステム構築PJは通常PJ一覧に二重表示せず、研究機関ERSリスト側へ寄せる。
+- PJ一覧: Active / Sales-Draft / Ended-Frozen の横長 stripe 一覧を維持する。KUTE (`p25`) など研究機関エコシステム構築PJは通常PJ一覧に二重表示せず、研究機関ECRリスト側へ寄せる。
 - 左メニューのボード: マウスオーバーまたはキーボードフォーカスで、右側に全アクティブPJの一覧を出す。各行は対応するPJコックピットへ遷移し、一覧は固定せず `projects.status='active'` を読む。ボード本体の `/dashboard` 導線は維持する。フライアウトはナビのスクロール領域にクリップされない上位レイヤーで表示し、画面下端では一覧部分だけをスクロールさせる。
-- 研究機関ERSリスト: PJ一覧と同じ左/mainカラム内で、PJ一覧の直下に `InstitutionReadinessList` を表示し、PJリストの続きとして苗床レイヤーを確認できるようにする。MyPage右カラムの下や全幅下段に落とさない。表示名はPJ名を主タイトルに寄せ、KUTE / KGW / NIMS を title、工学院大学 / 香川大学 / 物質・材料研究機構を subtitle にする。KUTEカードは `/institutions/inst_kute/cockpit`、NIMSカードは `/institutions/inst_nims/cockpit` へ遷移する。
-- Company Content shelf: 研究機関ERSリストの下に、`CompanyContentShelf` を4カラムで表示する。列はメンバー / 沿革 / メディア掲載 / photo。`member_profiles` / `company_history_events` / `media_assets` の approved rows を優先し、未適用環境では既存 `members` + `project_members`、`project_events` / `project_ventures`、photo permission placeholder に fallback する。Notion photo URL や個人情報本文は表示しない。
+- 研究機関ECRリスト: PJ一覧と同じ左/mainカラム内で、PJ一覧の直下に `InstitutionReadinessList` を表示し、PJリストの続きとして苗床レイヤーを確認できるようにする。MyPage右カラムの下や全幅下段に落とさない。表示名はPJ名を主タイトルに寄せ、KUTE / KGW / NIMS を title、工学院大学 / 香川大学 / 物質・材料研究機構を subtitle にする。KUTEカードは `/institutions/inst_kute/cockpit`、NIMSカードは `/institutions/inst_nims/cockpit` へ遷移する。
+- Company Content shelf: 研究機関ECRリストの下に、`CompanyContentShelf` を4カラムで表示する。列はメンバー / 沿革 / メディア掲載 / photo。`member_profiles` / `company_history_events` / `media_assets` の approved rows を優先し、未適用環境では既存 `members` + `project_members`、`project_events` / `project_ventures`、photo permission placeholder に fallback する。Notion photo URL や個人情報本文は表示しない。
 - MyPage embed: `/dashboard` 右カラムでは `<MyPageContent embedded showMonthlyProjects={false} />` を使い、「今週やったこと」より下の月別PJカードを出さない。`/mypage` 単体では従来どおり月別PJカードを維持する。
 - Dashboard上部: Management Score と明示 action queue を維持する。月次ルーティン由来の自動タスクは生成しない。
 
@@ -356,7 +356,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - Header契約サマリー: `CockpitHeader` はPJ名/status/分類に加え、PJリスト正本からPJメンバー、契約条件、業務委託料、支払い条件、提出物の有無、月次報告書の提出ルール、立替精算の発生額/不可を表示する。提出物/月次報告/立替精算は `projects.contract_terms_json.deliverablesRequired` / `deliverablesNote` / `monthlyReportSubmissionRule` / `monthlyReportSubmissionNote` / `expenseReimbursementAllowed` / `expenseReimbursementNote` を読む。立替精算は不可PJだけ `不可`、OK運用のPJは `expenseReimbursementNote` の発生額/実務メモを主値にする。コックピットから `/admin/projects` や旧configへ飛ばす導線は置かない。
 - KUTE年度内ロードマップ: `projectId === 'p25'` では Header 直下に `CockpitKuteAnnualRoadmap` を表示する。6/11キックオフ資料 / `PROJECT_BRIEF` の年度内スケジュールを根拠に、規程整備 (`2027-01` 完了目途) とシーズ発掘 / after GTIE (`2027-03` 型化目途) を同じ横軸で見せる。研究機関コックピット `/institutions/inst_kute/cockpit` でも同じ `CockpitView` 経由で表示する。
 - 上 hero: PJ ごとに出し分け。p00 (= AMD 会社全体) は `CockpitManagementScoreHero` で AMD Management Score の時系列折れ線 + 最新値カード。SU 系 PJ は `CockpitVentureStatus` 内で AMD Score 折れ線と XRL 折れ線を `xl:flex-row` で横並びにする。`xl` 未満では縦並びへ自動 fallback する。
-- Hero 下タブ: SU 系 PJ は `進捗管理` / `スコア詳細` を切り替える。AMD Score / XRL hero はタブ外に置いて常時表示し、`進捗管理` に従来の cockpit 本文、`スコア詳細` に `AmdScoreView` の embedded 表示を出す。正規URLは `/project/[projectId]/cockpit?tab=score-detail` で、PRS / R_net / FRL / XRL evidence と XRL チェックリストを同じタブに集約する。旧 `/venture-map/amd-score/[projectId]` はここへ redirect (`p99` デモを除く)。
+- Hero 下タブ: SU 系 PJ は `進捗管理` / `スコア詳細` を切り替える。AMD Score / XRL hero はタブ外に置いて常時表示し、`進捗管理` に従来の cockpit 本文、`スコア詳細` に `AmdScoreView` の embedded 表示を出す。正規URLは `/project/[projectId]/cockpit?tab=score-detail` で、SPS / R_net / FRL / XRL evidence と XRL チェックリストを同じタブに集約する。旧 `/venture-map/amd-score/[projectId]` はここへ redirect (`p99` デモを除く)。
 - 今期MSリスト: `CockpitGoalsCompact` / `MilestoneGanttChart` でMS期間、pt、担当、sub item、MS単位の `設計額`、担当者ごとの `担当設計額` を表示する。設計額は通常MSなら `value_plan_cycles.budget_yen`、`cap_extra` なら同期間の `billing_cycles.extra_budget_yen` 合計を、それぞれの有効ptで按分する目安で、支払確定額ではない。MS 設計編集は `/admin/ms-overview` に集約し、cockpit / HUD cockpit からは編集しない。
 - MS変更履歴: `CockpitMsChangeHistory` を今期MSの直下、`CockpitSeasonFinance` の手前に初期折りたたみで表示する。正本は `/admin/ms-overview` 保存時に追加される `milestone_change_events` と、2026-07-09 backfill の `source='migration'` 基準線。表示は確認専用で、変更日時、記録者、追加/無効化/更新されたMS、担当share差分、保存前支払検算の状態、追加支払/過払い回収の合計を出す。契約本文、メール全文、議事録全文、raw source は保存・表示しない。cockpit 側には MS 設計の保存口を置かない。
 - 今シーズン収支: `CockpitSeasonFinance` をMS変更履歴の下、月次カードの手前に表示する。シーズン合計と月次行で `クライアント支払` / `バッファ` / `原資上限` / `PJ予算` / `メンバー支払` / `期末未払` / `収支` を出す。クライアント支払は `contractBackedClientAmount` + 別財布売上、schedule_based 契約では `contract_terms_json.monthlySchedule.amountTaxExcl`、バッファは `value_plan_cycles.buffer_breakdown_json` 優先、原資上限は `(クライアント支払 - バッファ) × 65%`、PJ予算は `budget_yen + extra_budget_yen`、メンバー支払・未払残は `reward_summary_json` を正本にする。`期末未払` / `未払残` は支払通知対象の外部メンバーへ将来払う残高だけを表示し、役員の未充当繰越は会社留保側の内部検算へ寄せる。`収支` は現金主義で `クライアント支払 - バッファ - メンバー支払` とし、役員向け報酬相当額や未払残は含めない。役員向け報酬相当額は検算には含めるが、PJ cockpit では表示しない。期末未払または原資超過が 1 円でも残る場合は `不足` 表示と赤い停止帯を出し、報酬計算側の自動上乗せでゼロに見せない。
@@ -382,10 +382,10 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 必須機能:
 
-- KUTEカードは `/dashboard` の研究機関ERSリストから `/institutions/inst_kute/cockpit` へ遷移する。KUTEは通常PJリストには二重表示せず、既存KUTE PJ (`p25`) は関連PJコックピットのデータソースとして残す。
-- NIMSカードは `/dashboard` の研究機関ERSリストから `/institutions/inst_nims/cockpit` へ遷移する。NIMS OS導入は正式PJ `p28` として扱い、CX `p20` は初期ユースケースとして分ける。
+- KUTEカードは `/dashboard` の研究機関ECRリストから `/institutions/inst_kute/cockpit` へ遷移する。KUTEは通常PJリストには二重表示せず、既存KUTE PJ (`p25`) は関連PJコックピットのデータソースとして残す。
+- NIMSカードは `/dashboard` の研究機関ECRリストから `/institutions/inst_nims/cockpit` へ遷移する。NIMS OS導入は正式PJ `p28` として扱い、CX `p20` は初期ユースケースとして分ける。
 - 研究機関コックピットは `inst_kute -> p25` / `inst_nims -> p28` の静的関連付けを使い、既存PJコックピットの `CockpitView` を同画面にマウントする。これによりMS進捗、月次カード/モーダル、MTGサマリを既存データのまま使う。
-- 上部にERS充足率、関連PJ、今期MS件数、MTG履歴件数を出す。
+- 上部にECR充足率、関連PJ、今期MS件数、MTG履歴件数を出す。
 - `project_meeting_summaries` を月ごとに束ねたMTGツリーを表示し、各行から通常PJコックピットのMTG詳細 (`?meeting=`) へ遷移する。
 - `/institutions/[institutionId]` の詳細画面からも研究機関コックピットと通常PJコックピットへ戻れる。
 

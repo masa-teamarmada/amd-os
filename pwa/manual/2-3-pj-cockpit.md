@@ -14,7 +14,7 @@ AMD OS の **中心画面**。各 PJ ごとに 1 つあり、URL は `/project/{
 ┌─────────────────────────────────────────────────────┐
 │  PJ ヘッダー (= 名前 / status / 分類 / 契約サマリー)    │
 ├─────────────────────────────────────────────────────┤
-│  AMD スコアグラフ │ PRS / legacy M-X-F │ XRL 進捗グラフ    │
+│  AMD スコアグラフ │ SPS / legacy M-X-F │ XRL 進捗グラフ    │
 ├──────────────────┬──────────────────┬──────────────┤
 │  タブ: 進捗管理 / スコア詳細 / 会社概要 (常設)         │
 ├──────────────────┬──────────────────┬──────────────┤
@@ -29,7 +29,7 @@ AMD OS の **中心画面**。各 PJ ごとに 1 つあり、URL は `/project/{
 
 PJ ヘッダー最上部には、PJリスト (`/admin/projects`) の正本から、PJメンバー、契約条件、業務委託料、支払い条件、提出物の有無、月次報告書の状態と詳細、立替精算の発生額/不可を表示する。提出物/月次報告/立替精算は `projects.contract_terms_json` の `deliverablesRequired` / `deliverablesNote` / `monthlyReportSubmissionRule` / `monthlyReportSubmissionTiming` / `monthlyReportSubmissionDeadline` / `monthlyReportSubmissionFormat` / `monthlyReportSubmissionRequiredItems` / `monthlyReportSubmissionNote` / `expenseReimbursementAllowed` / `expenseReimbursementNote` を見る。月次報告の値は `要提出` / `不要` / `指定なし` / `要確認` / `不明` を短く出し、時期・提出期限・フォーマット・記載事項・根拠を補足に畳む。立替精算は `expenseReimbursementAllowed=false` なら `不可`、それ以外で `expenseReimbursementNote` があればその文字列 (= 発生額/実務メモ) を主値にする。値は契約書/見積書から `contract_terms.extracted_terms_json` へ抽出され、Contract Apply 後に PJ 正本へ畳まれる。契約条項に無くても PJ 運用として提出/立替精算が必要な場合は、同じJSONに根拠や実務値を残して表示する。
 
-SU 系 PJ では、PRS primary / legacy M-X-F / XRL グラフは常時表示し、その下で **進捗管理** と **スコア詳細** をタブ切り替えする。2つのタブは横幅いっぱいを左右半分ずつ使う。進捗管理タブは従来のコックピット本文、スコア詳細タブは PRS Primary / PRS history / legacy M-X-F 詳細 / FRL / XRL チェックリストを cockpit 内に埋め込む。スコア詳細の正規URLは `/project/{projectId}/cockpit?tab=score-detail`。旧 `/venture-map/amd-score/{projectId}` はこのタブへ自動転送し、別の個別画面として運用しない。スコア詳細は画面表示直後に裏で読み込み、同じコックピットを見ている間は数分単位で再利用するため、2回目以降のタブ切り替えでは読み込み待ちが出にくい。
+SU 系 PJ では、SPS primary / legacy M-X-F / XRL グラフは常時表示し、その下で **進捗管理** と **スコア詳細** をタブ切り替えする。2つのタブは横幅いっぱいを左右半分ずつ使う。進捗管理タブは従来のコックピット本文、スコア詳細タブは SPS Primary / SPS history / legacy M-X-F 詳細 / FRL / XRL チェックリストを cockpit 内に埋め込む。スコア詳細の正規URLは `/project/{projectId}/cockpit?tab=score-detail`。旧 `/venture-map/amd-score/{projectId}` はこのタブへ自動転送し、別の個別画面として運用しない。スコア詳細は画面表示直後に裏で読み込み、同じコックピットを見ている間は数分単位で再利用するため、2回目以降のタブ切り替えでは読み込み待ちが出にくい。
 
 KUTE (`p25`) では、ヘッダー直下に **年度内ロードマップ** を表示する。2026年6月から2027年3月までの横軸で、規程整備レーン (`2027年1月目途で整備完了`) と、シーズ発掘 / after GTIE レーン (`2027年3月までに支援実務の型化`) を同時に確認する。根拠は 6/11 キックオフ資料と `PROJECT_BRIEF` の年度内スケジュール。
 
@@ -66,7 +66,7 @@ MTG詳細モーダル内の「添付資料」は会議単位の `meeting_assets`
 
 ### AMD Score
 - PJ / SU の価値・成熟度を見る総合スコア。p00 の `AMD Management Score` とは別物
-- 現行 primary は PRS (`P x R x S`)。legacy M-X-F / 7軸 Cobb-Douglas は comparison と evidence 用に残す
+- 現行 primary は SPS (`M x P x R x S`)。legacy M-X-F / 7軸 Cobb-Douglas は comparison と evidence 用に残す
   - `P` = Potential / 潜在規模
   - `R` = Reach / Readiness (= TRL/BRL/GRL/SRL/HRL の contribution product)
   - `S` = Survival (= σ_SU / FRL / R_net の contribution product)
@@ -76,7 +76,7 @@ MTG詳細モーダル内の「添付資料」は会議単位の `meeting_assets`
   - FRL = CEO / founder 側の leadership readiness (= ALQ / Grit / Resilience 等)
 - **過去 = 実線** (黒)、**未来予測 = 破線** (5 4 dash) で表示
 - 右上 pill (大数字) は **現在のスコア** (= 過去最終点)
-- legacy M/X/F カード = PRS の根拠・比較用。現行 primary に戻さない
+- legacy M/X/F カード = SPS の根拠・比較用。現行 primary に戻さない
 
 ### XRL 進捗 (5 軸)
 - TRL (技術) / BRL (事業化) / GRL (制度) / SRL (社会) / HRL (人材)

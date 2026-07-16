@@ -36,8 +36,8 @@ function pathToTitle(pathname: string): string | null {
   if (pathname === "/venture-map") return "Venture Map";
   if (pathname.startsWith("/knowledge-map")) return "AMD Materials";
   if (pathname.startsWith("/business-cards") || pathname.startsWith("/native/business-cards")) return "名刺";
-  if (pathname.startsWith("/institutions/")) return "研究機関 ERS 詳細";
-  if (pathname === "/institutions") return "研究機関 ERS";
+  if (pathname.startsWith("/institutions/")) return "研究機関 ECR 詳細";
+  if (pathname === "/institutions") return "研究機関 ECR";
   if (pathname.startsWith("/management-score")) return "Management Score";
   if (pathname === "/seeds") return "Seeds";
   if (pathname === "/poc") return "PoC案件化";

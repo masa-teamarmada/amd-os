@@ -549,8 +549,8 @@ export function CockpitVentureStatus({
                   : "bg-amber-50 text-amber-700"
               }`}>
                 {primarySnapshot.prs.status === "ready" && primarySnapshot.prs.score != null
-                  ? `PRS ${formatRoundedNumber(primarySnapshot.prs.score)}`
-                  : `PRS missing: ${primarySnapshot.prs.missingAxes.join(" / ")}`}
+                  ? `SPS ${formatRoundedNumber(primarySnapshot.prs.score)}`
+                  : `SPS missing: ${primarySnapshot.prs.missingAxes.join(" / ")}`}
               </span>
             )}
             {primarySnapshot?.legacy.score != null && (
@@ -1030,7 +1030,7 @@ export function CockpitVentureStatus({
 }
 
 /**
- * PrsCard — PRS primary の P / R / S 値カード。
+ * PrsCard — SPS primary の M / P / R / S 値カード。
  * Chart 1 (SPS) と Chart 2 (XRL 折れ線) の間に縦 stack (xl 以上) で並ぶ。
  */
 function PrsCard({ axis, label, value, color }: { axis: string; label: string; value: number | null; color: string }) {

@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * /institutions — 研究機関 横断ヒートマップ比較 (ERS)
+ * /institutions — 研究機関 横断ヒートマップ比較 (ECR)
  * 設計正本: pwa/design/institution_readiness.md
  */
 import { useEffect, useMemo, useState } from "react";
@@ -61,7 +61,7 @@ export default function InstitutionsPage() {
     <div className="p-4 max-w-[1400px] mx-auto space-y-4">
       <header className="space-y-1">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h1 className="text-xl font-bold">研究機関 — ERS / エコシステム整備度</h1>
+          <h1 className="text-xl font-bold">研究機関 — ECR / エコシステム構築率</h1>
           <Link
             href="/institutions/assess"
             className="shrink-0 text-xs rounded-md border border-primary/40 bg-primary/5 text-primary px-3 py-1.5 font-medium hover:bg-primary/10"
@@ -98,11 +98,11 @@ export default function InstitutionsPage() {
             </tr>
           </thead>
           <tbody>
-            {/* 総合 ERS (強調) */}
+            {/* 総合 ECR (強調) */}
             <tr>
               <th className="sticky left-0 z-10 bg-card px-3 py-5 text-left text-base font-bold border-b-2 border-r border-border align-middle">
-                総合 ERS
-                <span className="block text-[10px] font-normal text-muted-foreground">エコシステム整備度</span>
+                総合 ECR
+                <span className="block text-[10px] font-normal text-muted-foreground">エコシステム構築率</span>
               </th>
               {results.map(({ inst, result }) => {
                 const c = heatCell(result.ers != null ? result.ers / 100 : null);

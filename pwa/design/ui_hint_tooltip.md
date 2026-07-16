@@ -109,7 +109,7 @@ CREATE TABLE ui_hints (
 1. **cockpit 月次カード / monthly modal**: 月次カードが TODO ではなく確認面であること、報告書・報酬・請求情報の読み方
 2. **経営事業シグナル 4 分類 chip + 「つくよみに修正依頼」ボタン**
 3. **MS Gantt bar / 月次カード**: hover で「このバーは何 / メンバー share の意味」
-4. **AMD スコアグラフ要素**: PRS primary pill / legacy M-X-F comparison / 破線 (= 「破線をクリックすると修正できる」を hover で明示)
+4. **AMD スコアグラフ要素**: SPS primary pill / legacy M-X-F comparison / 破線 (= 「破線をクリックすると修正できる」を hover で明示)
 5. **HUD 系**: signal strip / cockpit signal cards
 
 ざっと **30-50 個** の hint を最初に投入。

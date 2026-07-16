@@ -72,7 +72,7 @@ export const ALPHA_DEFAULT: AlphaWeights = {
   FRL: 1.5,
 };
 
-/** PRS primary weights. P/R_net inputs may remain missing until each PJ is reviewed. */
+/** SPS primary weights. P/R_net inputs may remain missing until each PJ is reviewed. */
 export const PRS_ALPHA_DEFAULT: PrsScoreWeights = {
   P: 1.0,
   TRL: ALPHA_DEFAULT.TRL,
@@ -407,15 +407,15 @@ export function sumPrsAlpha(weights: PrsScoreWeights = PRS_ALPHA_DEFAULT, includ
     .reduce((acc, axis) => acc + (weights[axis] ?? 0), 0);
 }
 
-/** PRS primary K. Same IPO-target calibration, but with the 9-axis weight sum. */
+/** SPS primary K. Same IPO-target calibration, but with the 9-axis weight sum. */
 export function computePrsK(weights: PrsScoreWeights = PRS_ALPHA_DEFAULT, shallowTechMode = false): number {
   return IPO_TARGET / Math.pow(10, sumPrsAlpha(weights, !shallowTechMode));
 }
 
 /**
- * PRS primary score.
+ * SPS primary score.
  *
- * PRS is now the primary model shown to operators. It still refuses to emit a score when
+ * SPS is now the primary model shown to operators. It still refuses to emit a score when
  * P/R_net are missing so the UI can surface an explicit review state instead of silently
  * falling back to the legacy AMD/MXF score.
  */

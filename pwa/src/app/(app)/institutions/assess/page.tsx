@@ -1,13 +1,13 @@
 "use client";
 
 /**
- * /institutions/assess — ERS 評価入力マトリクス (admin)
+ * /institutions/assess — ECR 評価入力マトリクス (admin)
  * 設計正本: pwa/design/institution_readiness.md
  *
  * 各サブ軸を Lv1-5 の 5 行 + メモ行に展開。各レベル行に基準 (rubric) をフル表示し、
  * 右側の各機関列はチェックボックスのみ。Lv1-5 のどれか 1 つにチェックでそのレベル。
  * どれにもチェックしなければ N/A (軸平均から除外)。列 = 機関、ヘッダ行・左列 sticky 固定。
- * 変更は 1 セルずつ即保存 (楽観更新)、ERS はリアルタイム再計算。
+ * 変更は 1 セルずつ即保存 (楽観更新)、ECR はリアルタイム再計算。
  */
 import { Fragment, useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
@@ -144,7 +144,7 @@ export default function AssessMatrixPage() {
     return out;
   }, [policyBundle]);
 
-  // 機関ごと ERS をリアルタイム計算
+  // 機関ごと ECR をリアルタイム計算
   const ersByInst = useMemo(() => {
     const out: Record<string, ReturnType<typeof computeErs>> = {};
     if (!bundle) return out;
@@ -321,7 +321,7 @@ export default function AssessMatrixPage() {
     <div className="p-4 max-w-[1600px] mx-auto space-y-3">
       <header className="space-y-1">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h1 className="text-xl font-bold">ERS 評価入力マトリクス</h1>
+          <h1 className="text-xl font-bold">ECR 評価入力マトリクス</h1>
           <Link href="/institutions" className="text-xs text-primary hover:underline shrink-0">
             ← ヒートマップ比較へ
           </Link>
@@ -329,14 +329,14 @@ export default function AssessMatrixPage() {
         <p className="text-xs text-muted-foreground">
           各サブ軸の Lv1–5 の基準を読み、機関ごとに到達レベルへチェックを 1 つ入れる。
           <span className="font-medium text-foreground">どのレベルにもチェックしなければ N/A</span>（軸平均から除外）。
-          変更は自動保存・ERS はリアルタイム再計算。
+          変更は自動保存・ECR はリアルタイム再計算。
         </p>
         {error && (
           <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">⚠️ {error}</div>
         )}
         <nav className="flex flex-wrap gap-1 border-b border-border pt-2">
           {[
-            ["ers", "ERS評価"],
+            ["ers", "ECR評価"],
             ["policy-status", "制度整備"],
             ["policy-attributes", "規程比較"],
             ["evidence", "根拠資料"],
@@ -387,7 +387,7 @@ export default function AssessMatrixPage() {
                       <span className="font-mono tabular-nums text-sm font-bold">
                         {ers != null ? `${Math.round(ers)}%` : "—"}
                       </span>
-                      <span className="text-[9px] text-muted-foreground/70">ERS</span>
+                      <span className="text-[9px] text-muted-foreground/70">ECR</span>
                     </div>
                   </th>
                 );

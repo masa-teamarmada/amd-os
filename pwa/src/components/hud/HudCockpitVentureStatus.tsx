@@ -437,9 +437,9 @@ export function HudCockpitVentureStatus({ projectId }: { projectId: string }) {
           <Link
             href={amdScoreDetailHref(projectId)}
             className="border border-dashed border-cyan-300/30 px-2 py-0.5 font-mono text-[11px] text-cyan-100/62 hover:bg-cyan-300/8"
-            title="PRS primary 入力待ち。クリックで入力"
+            title="SPS primary 入力待ち。クリックで入力"
           >
-            PRS: 入力待ち →
+            SPS: 入力待ち →
           </Link>
         )}
       </div>
@@ -494,15 +494,15 @@ export function HudCockpitVentureStatus({ projectId }: { projectId: string }) {
                   : "border-amber-300/40 bg-amber-300/10 text-amber-100"
               }`}>
                 {primarySnapshot.prs.status === "ready" && primarySnapshot.prs.score != null
-                  ? `PRS ${primarySnapshot.prs.score < 1 ? primarySnapshot.prs.score.toFixed(2) : Math.round(primarySnapshot.prs.score).toLocaleString()}`
-                  : `PRS missing: ${primarySnapshot.prs.missingAxes.join(" / ")}`}
+                  ? `SPS ${primarySnapshot.prs.score < 1 ? primarySnapshot.prs.score.toFixed(2) : Math.round(primarySnapshot.prs.score).toLocaleString()}`
+                  : `SPS missing: ${primarySnapshot.prs.missingAxes.join(" / ")}`}
               </span>
             )}
             <Link
               href={amdScoreDetailHref(projectId)}
               className="border border-cyan-300/30 bg-cyan-300/8 px-2 py-0.5 font-black text-cyan-100 hover:bg-cyan-300/14"
             >
-              PRS DETAIL →
+              SPS DETAIL →
             </Link>
             <span className="text-cyan-100/45">
               · グラフクリックで詳細解析

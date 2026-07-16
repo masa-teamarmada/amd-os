@@ -55,7 +55,7 @@ CockpitHeader は `projects.contract_terms_json.currentContracts[]` を優先し
                                                 2タブは横幅いっぱいを 1/2 ずつ占有し、クリック領域も左右半分。
                                                 進捗管理 = 従来 cockpit 本文。
                                                 スコア詳細 = `AmdScoreView embedded`。正規URLは `/project/[projectId]/cockpit?tab=score-detail`。
-                                                PRS / R_net / FRL / XRL evidence と XRL チェックリストをここへ集約。
+                                                SPS / R_net / FRL / XRL evidence と XRL チェックリストをここへ集約。
                                                 旧 `/venture-map/amd-score/[projectId]` はこのタブへ redirect (`p99` デモを除く)。
                                                 スコア詳細は cockpit mount 時に非表示で先読みし、同一セッションでは 5 分TTLで再利用。
                                                 タブ再表示時に TTL 超過なら表示済み内容を保ったまま背景再取得する。

@@ -55,7 +55,7 @@ HUD版
 | `projects` | PJ signal board、status、role line |
 | `billing_cycles` | 月次報告書確認nudge / 請求書発行・入金状態 |
 | `members` | login user の code name |
-| `amd_score_inputs` + `amd_score_alpha` | PJ ごとの PRS primary input / legacy M-X-F signal / score history |
+| `amd_score_inputs` + `amd_score_alpha` | PJ ごとの SPS primary input / legacy M-X-F signal / score history |
 | `amd_management_score_snapshots` | AMD Management Score ring / history |
 
 action queue は `billing_cycles` から、PM向けnudgeとadmin請求書発行・入金確認の残だけを作る。
@@ -151,7 +151,7 @@ D_i(t) = dN_i/dt - dM_i/dt
 |---|---|
 | `/venture-map` | lane ごとの macro wave、過去 PJ、paper / policy / investment の重なり |
 | `/venture-map/amd-score` | PJ / SU 単位の AMD Score 一覧 |
-| `/project/{projectId}/cockpit?tab=score-detail` | 1 PJ の PRS primary、PRS history、legacy M-X-F、律速軸、XRL チェックリスト。HUD のスコア導線もここへ着地 |
+| `/project/{projectId}/cockpit?tab=score-detail` | 1 PJ の SPS primary、SPS history、legacy M-X-F、律速軸、XRL チェックリスト。HUD のスコア導線もここへ着地 |
 | `/venture-map/timeline-3d` | 過去 PJ と macro wave の時間軸 |
 | `/venture-map/state-space` | Triple Helix 状態空間 |
 | `/venture-map/oscillator` | coupled oscillator 実験 |

@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * /institutions/[institutionId] — 研究機関 ERS 詳細
+ * /institutions/[institutionId] — 研究機関 ECR 詳細
  * 設計正本: pwa/design/institution_readiness.md
  *
  * 8 軸レーダー + 軸ごとのサブ軸 (Lv1-5 rubric) 充足状況 + ノート。
@@ -98,7 +98,7 @@ export default function InstitutionDetailPage() {
             {meta && <p className="text-xs text-muted-foreground mt-1">{meta}</p>}
           </div>
           <div className="text-right shrink-0">
-            <div className="text-[10px] text-muted-foreground font-mono uppercase">ERS 充足率</div>
+            <div className="text-[10px] text-muted-foreground font-mono uppercase">ECR 充足率</div>
             <div className="text-3xl font-bold leading-none">
               {result.ers != null ? `${Math.round(result.ers)}%` : "—"}
             </div>
@@ -250,7 +250,7 @@ function LevelBadge({ level, na }: { level: number | null; na: boolean }) {
   );
 }
 
-/** 8 軸 ERS レーダーチャート (SVG)。score は 0..1 / null。 */
+/** 8 軸 ECR レーダーチャート (SVG)。score は 0..1 / null。 */
 function ErsRadar({ axes }: { axes: { axisNo: number; name: string; score: number | null }[] }) {
   const size = 280;
   const cx = size / 2;
@@ -274,7 +274,7 @@ function ErsRadar({ axes }: { axes: { axisNo: number; name: string; score: numbe
     .join(" ");
 
   return (
-    <svg viewBox={`0 0 ${size} ${size}`} className="w-full max-w-[300px] mx-auto" role="img" aria-label="ERS 8軸レーダー">
+    <svg viewBox={`0 0 ${size} ${size}`} className="w-full max-w-[300px] mx-auto" role="img" aria-label="ECR 8軸レーダー">
       {/* グリッド ring */}
       {rings.map((ring) => (
         <polygon

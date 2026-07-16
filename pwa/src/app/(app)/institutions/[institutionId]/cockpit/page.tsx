@@ -198,7 +198,7 @@ function InstitutionCockpitHeader({
             href={`/institutions/${projectLink.institutionId}`}
             className="text-xs rounded-md border border-border bg-white px-3 py-1.5 hover:bg-muted/40"
           >
-            ERS詳細
+            ECR詳細
           </Link>
           <Link
             href={`/project/${projectLink.projectId}/cockpit`}
@@ -210,7 +210,7 @@ function InstitutionCockpitHeader({
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <HeaderMetric label="ERS充足率" value={ersPercent != null ? `${Math.round(ersPercent)}%` : "未評価"} sub={`評価済 ${assessed}`} />
+        <HeaderMetric label="ECR充足率" value={ersPercent != null ? `${Math.round(ersPercent)}%` : "未評価"} sub={`評価済 ${assessed}`} />
         <HeaderMetric label="関連PJ" value={cockpit.project.projectName || projectLink.projectLabel} sub={cockpit.project.status || "status未設定"} />
         <HeaderMetric label="今期MS" value={activeMilestones.length ? `${activeMilestones.length}件` : "未設定"} sub={cockpit.planCycle ? `${formatYm(cockpit.planCycle.periodStartYm)}-${formatYm(cockpit.planCycle.periodEndYm)}` : "MS期間なし"} />
         <HeaderMetric label="MTG履歴" value={`${meetings.length}件`} sub={latestMeeting ? latestMeeting.title : "履歴なし"} />
@@ -250,7 +250,7 @@ function InstitutionReadinessSummary({ ersResult, cockpit }: { ersResult: ErsRes
               {ersResult.ers != null ? `${Math.round(ersResult.ers)}%` : "未評価"}
             </div>
             <div className="pb-0.5 text-xs text-muted-foreground">
-              ERS / 評価済 {ersResult.assessedCriteria}/{ersResult.totalCriteria}
+              ECR / 評価済 {ersResult.assessedCriteria}/{ersResult.totalCriteria}
             </div>
           </div>
           <div className="mt-3 h-2 rounded-full bg-muted overflow-hidden">
@@ -372,14 +372,14 @@ function InstitutionScoreDetail({
         <div>
           <h2 className="text-base font-semibold">研究機関スコア詳細</h2>
           <p className="text-xs text-muted-foreground mt-1">
-            ここはSU向けAMD Scoreではなく、研究機関ERSの8軸と評価根拠を見るタブ。制度整備・規程比較の詳細は評価画面で扱う。
+            ここはSU向けAMD Scoreではなく、研究機関ECRの8軸と評価根拠を見るタブ。制度整備・規程比較の詳細は評価画面で扱う。
           </p>
         </div>
         <Link
           href={`/institutions/${institutionId}`}
           className="text-xs rounded-md border border-border bg-white px-3 py-1.5 hover:bg-muted/40"
         >
-          ERS詳細画面を開く
+          ECR詳細画面を開く
         </Link>
       </div>
 

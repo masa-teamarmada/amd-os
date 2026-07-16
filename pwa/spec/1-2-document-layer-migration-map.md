@@ -27,7 +27,7 @@
 1. **P0: 再構築カバレッジ監査** — `/spec/1-3-reconstruction-coverage-audit` を更新し、どの章で何が再構築できるかを可視化する。
 2. **P1: PWA全体仕様** — `/spec/2-1`〜`2-3` へ route/API/data model 入口を移行済み。次は admin/finance/reward/Atlas など領域別 detail。
 3. **P1: L2データ/抽出** — `/spec/3-1`〜`3-8` へ M-1/H-1/D-5/M-2/D-6、notifications、cockpit を移行開始済み。次は D-1/D-2/D-3/D-4 の個別章化。
-4. **P1: FRL / AMD Score / ERS** — `/spec/4-1`〜`4-3` へ FRL CES、AMD Score、ERS を移行済み。次は XRL revision / alpha retrofit / Triple Helix recompute の詳細章化。
+4. **P1: FRL / AMD Score / ECR** — `/spec/4-1`〜`4-3` へ FRL CES、AMD Score、ECR を移行済み。次は XRL revision / alpha retrofit / Triple Helix recompute の詳細章化。
 5. **P1: 開発統制 / automation / 判断履歴** — manual 9章の開発情報は `/spec/5-1`〜`5-4` へ移植済み。次は GAS function 別 current/deprecated 表、iOS 役割境界。
 6. **P2: 報酬・請求・支払** — 業務影響が大きいので、`manual` から仕様を抜く前に spec 側の検証観点を作る。
 
