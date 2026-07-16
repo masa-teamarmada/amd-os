@@ -535,7 +535,7 @@ export function CockpitVentureStatus({
           それ未満は従来通り縦並び。 */}
       <div className="flex flex-col xl:flex-row gap-2">
       {/* Chart 1: PRS primary */}
-      <div className="flex-1 min-w-0 px-2 pt-3">
+      <div className="flex-1 min-w-0 overflow-x-auto px-2 pt-3">
         <div className="px-2 flex items-center justify-between flex-wrap gap-2">
           <h3 className="text-[12px] font-semibold">
             PRS primary
@@ -572,8 +572,7 @@ export function CockpitVentureStatus({
         </div>
         <svg
           viewBox={`0 0 ${SVG_W} ${SVG_H}`}
-          className="w-full h-auto block cursor-crosshair"
-          style={{ minWidth: 600 }}
+          className="block h-auto w-full min-w-[600px] cursor-crosshair xl:min-w-0"
           onClick={onScoreChartClick}
         >
           {/* AMD 参画期間の背景帯 (started_at - ended_at もしくは present) */}
@@ -808,7 +807,7 @@ export function CockpitVentureStatus({
       </aside>
 
       {/* Chart 2: XRL */}
-      <div className="flex-1 min-w-0 px-2 pt-2 pb-3 xl:pt-3">
+      <div className="flex-1 min-w-0 overflow-x-auto px-2 pt-2 pb-3 xl:pt-3">
         <div className="px-2 flex items-center justify-between flex-wrap gap-2">
           <h3 className="text-[12px] font-semibold">XRL 進捗 (TRL / BRL / GRL / SRL / HRL)</h3>
           <div className="flex items-center gap-3 text-[10px]">
@@ -854,7 +853,7 @@ export function CockpitVentureStatus({
             </div>
           </div>
         )}
-        <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`} className="w-full h-auto block" style={{ minWidth: 600 }}>
+        <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`} className="block h-auto w-full min-w-[600px] xl:min-w-0">
           {[1, 3, 5, 7, 9].map((lv) => (
             <g key={lv}>
               <line x1={ML} y1={yOfXrl(lv)} x2={ML + PW} y2={yOfXrl(lv)} stroke="#f1f5f9" />
