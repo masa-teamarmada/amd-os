@@ -466,14 +466,20 @@ expectIncludes("scripts/migrations/172_business_cards.sql", [
 ]);
 
 expectIncludes("../ios/AMDOS/Features/Home/MainTabView.swift", [
-  "BusinessCardsView()",
-  'Label("PJ進捗"',
-  'Label("名刺"',
+  'Label("今日"',
+  'Label("PJ"',
+  'Label("通知"',
+  'Label("登録"',
   'Label("設定"',
+  "NotificationInboxView()",
+  "RegistrationHubView(path:",
+  "BusinessCardsView()",
 ]);
 
 expectNotIncludes("../ios/AMDOS/Features/Home/MainTabView.swift", [
   'Label("月次ルーティン"',
+  'Label("PJ進捗"',
+  'Label("名刺"',
 ]);
 
 expectIncludes("../ios/AMDOS/Features/BusinessCards/BusinessCardsView.swift", [

@@ -29,6 +29,7 @@
 
 - 初回タブ再編では、旧 `AppTab.reimburse` / `.admin` をenumに残しただけで実在タブがなく、ルーティンからの遷移が失われる回帰をレビューで検出した。
 - 実在する5タブだけをenumに残し、立替は型安全な `NavigationStack` path、adminはpresentation requestへ置き換えた。
+- closeout時にcritical UI guardが旧 `PJ進捗 / 名刺` を必須にして停止したため、新5タブと通知・登録ハブのアンカーへ更新した。
 - 詳細は `ios/BUGS.md` の2026-07-16項目を参照。
 
 ### Verification
