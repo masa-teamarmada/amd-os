@@ -4,10 +4,16 @@
 
 ## 定義
 
-AMD Score の現行 primary model は PRS (`P x R x S`)。PWA の主表示は PRS を前面に出し、旧 7 軸 Cobb-Douglas / M-X-F は legacy AMD comparison と evidence chain として残す。
+AMD Score の現行 primary model は PRS (`M x P x R x S`)。PWA の主表示は PRS を前面に出し、旧 7 軸 Cobb-Douglas / M-X-F は legacy AMD comparison と evidence chain として残す。名称は当面「**PRS (M·P·R·S)**」と併記し、MPRS への全面改称はまさ判断待ち (2026-07-16)。
+
+> **2026-07-16 まさ確定 — σ_SU を S から分離、M·P·R·S 4因子へ**: 旧 S = σ_SU × FRL × R_net から σ_SU を独立項 M へ格上げし、S を自走力 (FRL × R_net) に純化した。「この会社は死なないか (予測、環境込み)」と「この会社は自走できるか (診断、内部要因のみ)」の二問が S に同居していたのを解消するため。フラット Cobb-Douglas の結合則により**総合スコア数値・α・K・履歴データは完全不変**。変わるのは breakdown のグルーピング・表示ラベル・律速診断の読みだけ。決定の正本は `/Users/masa/projects/AMD/BZSF/before_zero_theory.md` の「2026-07-16 セッション」節。数値不変の回帰テスト: `npm run test:prs-mprs-grouping` ([`scripts/check_prs_mprs_grouping.mts`](../scripts/check_prs_mprs_grouping.mts))。
 
 $$
-\mathrm{Score}_{\mathrm{PRS}} = K_{\mathrm{PRS}} \cdot P \cdot R \cdot S
+\mathrm{Score}_{\mathrm{PRS}} = K_{\mathrm{PRS}} \cdot M \cdot P \cdot R \cdot S
+$$
+
+$$
+M = (\sigma_{\mathrm{SU}} + 1)^{\alpha_\sigma}
 $$
 
 $$
@@ -19,7 +25,7 @@ R = \prod_{x \in \{\mathrm{TRL},\mathrm{BRL},\mathrm{GRL},\mathrm{SRL},\mathrm{H
 $$
 
 $$
-S = (\sigma_{\mathrm{SU}} + 1)^{\alpha_\sigma} \cdot (\mathrm{FRL} + 1)^{\alpha_F} \cdot (R_{\mathrm{net}} + 1)^{\alpha_{R_{\mathrm{net}}}}
+S = (\mathrm{FRL} + 1)^{\alpha_F} \cdot (R_{\mathrm{net}} + 1)^{\alpha_{R_{\mathrm{net}}}}
 $$
 
 $$
@@ -32,22 +38,27 @@ $$
 \mathcal{A}_{\mathrm{PRS}} = \{P,\mathrm{TRL},\mathrm{BRL},\mathrm{GRL},\mathrm{SRL},\mathrm{HRL},\sigma_{\mathrm{SU}},\mathrm{FRL},R_{\mathrm{net}}\}
 $$
 
+軸集合 $\mathcal{A}_{\mathrm{PRS}}$・α・K は再グルーピング前と同一 (= スコア数値不変の機械的裏付け)。
+
 `P` / `R_net` が未入力の場合は `status='missing'` / review pending とし、0点に丸めたり legacy AMD を primary として代替表示したりしない。
 
-### Conceptual meaning of K / P / R / S
+### Conceptual meaning of K / M / P / R / S
 
-PRS は「大きくなりうるか」「届く準備があるか」「生き残れるか」を別々の必要条件として扱うモデル。各要素は足し算の部分点ではなく、PJ / SU が立ち上がるために同時に必要なレバーとして読む。
+PRS (M·P·R·S) は「追い風が吹いているか」「大きくなりうるか」「届く準備があるか」「自走できるか」を別々の必要条件として扱うモデル。各要素は足し算の部分点ではなく、PJ / SU が立ち上がるために同時に必要なレバーとして読む。
 
 | 記号 | 意味 | ざっくり解釈 | 主な入力 |
 |---|---|---|---|
 | `K_PRS` | Calibration constant | スコアの物差しを合わせるための倍率。全active axisが9点なら100,000になるように正規化する | alpha set / Shallow Tech mode |
+| `M` | マクロ追い風 (Macrotrend) | いま、この分野に吹いている風。案件の属性ではなく時変の環境状態・タイミングの変数 | `sigma_SU` (Triple Helix: `mu_A` / `mu_I` / `mu_G`) |
 | `P` | Potential | そもそも当たった時にどれくらい大きな事業・市場・社会インパクトになりうるか | `prs_potential` |
 | `R` | Reach | そのポテンシャルへ到達するための会社側 readiness がどこまで揃っているか | TRL / BRL / GRL / SRL / HRL |
-| `S` | Survival | 到達まで走り切るための追い風・founder readiness・純残存力があるか | `sigma_SU` / final FRL / `R_net` |
+| `S` | 自走力 (Survival = FRL × R_net) | 外の資金がどれだけ止まっても、自分の力で走り続けられる体質があるか | final FRL / `R_net` |
 
-積を取る理由は、PRS の3要素が代替可能な加点項目ではないため。Potential が大きくても Reach が弱ければ届かない。Reach が高くても Survival が低ければ途中で止まる。Survival が高くても Potential が小さければ大きな AMD Score にはならない。積にすると、どれか1つが弱い時に全体scoreも自然に抑えられ、3要素が同時に揃った時だけ大きく伸びる。
+積を取る理由は、PRS の4要素が代替可能な加点項目ではないため。Potential が大きくても Reach が弱ければ届かない。Macrotrend が吹いていても Survival (自走力) が低ければ「環境で延命しているだけ」になる。積にすると、どれか1つが弱い時に全体scoreも自然に抑えられ、4要素が同時に揃った時だけ大きく伸びる。
 
-`K_PRS` はこの構造を壊さないための校正係数であり、事業価値そのものの入力ではない。`P` / `R` / `S` の相対構造を保ったまま、全軸9点の理想状態を `100,000` に合わせる。
+M と S を分けた効果は診断にある。旧構造では σ_SU の高さが自走力の欠如をマスクしていた (追い風型 PJ の S が高く出て「自走できていない」事実が見えなかった)。分離後は「M 高 × S 低 = 環境で延命、自走は未達」「M 低 × S 高 = 無風でも走れる体質」を別々に読める。M と P の分離基準は「案件の属性か、環境の状態か」— P はこの案件が当たったときの天井 (案件固有)、M はいまこの分野に吹いている風 (案件のものではない時変の環境)。
+
+`K_PRS` はこの構造を壊さないための校正係数であり、事業価値そのものの入力ではない。`M` / `P` / `R` / `S` の相対構造を保ったまま、全軸9点の理想状態を `100,000` に合わせる。
 
 ## Legacy AMD / M-X-F の位置づけ
 
@@ -90,9 +101,9 @@ PRS primary は、次のデータを同じ `amd_score_inputs` row から組み�
 
 | PRS要素 | 実装値 | 算出 / 解決順 | ベースデータ |
 |---|---|---|---|
+| `M` | `computeSigmaSU(mu_A, mu_I, mu_G)` の contribution | `((mu_A+1)(mu_I+1)(mu_G+1))^(1/3)-1`、`M=(σ_SU+1)^ασ` | `papers_log`, scholar/OpenAlex, `atlas_signals`, `macro_index_log`, policy/news/investment signals |
 | `P` | `prs_potential` | detail draft -> row value -> past persisted row -> latest project-level row -> null | 事業仮説、Venture narrative、PL hearing、Atlas/市場根拠、まさレビュー |
 | `R` | TRL / BRL / GRL / SRL / HRL contribution product | `xrl_checklist` 保存値または row の `trl..hrl` | `project_xrl_log`, `project_xrl_evidence`, `amd_score_inputs.xrl_checklist`, XRL notes |
-| `S:sigma_SU` | `computeSigmaSU(mu_A, mu_I, mu_G)` | `((mu_A+1)(mu_I+1)(mu_G+1))^(1/3)-1` | `papers_log`, scholar/OpenAlex, `atlas_signals`, `macro_index_log`, policy/news/investment signals |
 | `S:FRL` | `resolveFrl(row)` | `frl_cap` があれば CES、無ければ `frl` | ALQ 4因子、Grit、Resilience、F_capability、`project_founding_members` |
 | `S:R_net` | `prs_r_net` | detail draft -> row value -> past persisted row -> latest project-level row -> null | 収益化見込み、粗利、運営コスト、本命PJへのリソース毀損 |
 
@@ -156,13 +167,14 @@ $$
 
 ## PRS primary
 
-PRS (`P x R x S`) を主表示へ切り替えた。legacy 7軸 AMD Score / M×X×F は comparison と evidence 用に保持する。
+PRS (`M x P x R x S`) を主表示とする。legacy 7軸 AMD Score / M×X×F は comparison と evidence 用に保持する。
 
 | 要素 | 実装上の扱い |
 |---|---|
+| `M` | マクロ追い風 (Macrotrend)。`sigma_SU` の contribution。`PrsComponentBreakdown.macro` (2026-07-16 S から分離) |
 | `P` | Potential / 潜在規模。`amd_score_inputs.prs_potential` に nullable で保存 |
 | `R` | Reach / Readiness。TRL / BRL / GRL / SRL / HRL の contribution product |
-| `S` | Survival。`sigma_SU` / FRL / `R_net` の contribution product |
+| `S` | 自走力 (Survival = FRL × R_net)。final FRL / `R_net` の contribution product |
 | `R_net` | 収益化指数。粗利 - 運営コスト - 本命から奪うリソース毀損。`amd_score_inputs.prs_r_net` に nullable で保存 |
 
 実装ファイル:
@@ -194,9 +206,10 @@ cockpit の `スコア詳細` embedded view は、次の値をすべて説明可
 | `INPUT NEEDED` / missing axes | review pending | `missingAxes`。`P` / `R_net` が null または非数なら score は null |
 | `P Potential` | primary input | `amd_score_inputs.prs_potential`。空欄保存は null |
 | `R_net` | primary input | `amd_score_inputs.prs_r_net`。空欄保存は null |
+| `M` breakdown / `M マクロ追い風` | PRS component | `(sigma_SU + 1)^{alpha_sigma}`。`PrsComponentBreakdown.macro` |
 | `P` breakdown | PRS component | `(P_input + 1)^{alpha_P}` |
 | `R` breakdown / `R reach` | PRS component | TRL / BRL / GRL / SRL / HRL の contribution product |
-| `S` breakdown / `S survival` | PRS component | `sigma_SU` / final FRL / `R_net` の contribution product |
+| `S` breakdown / `S 自走力 (Survival = FRL × R_net)` | PRS component | final FRL / `R_net` の contribution product (σ_SU は `M` へ分離済み) |
 | `PRS history` | primary history | `computePrsScoreSeries()`。`status='ready'` の行だけ採用し、Y軸は log scale |
 | `Legacy AMD comparison` | legacy comparison | `calculateAmdScore()`。PRS missing の代替 primary ではない |
 | `Legacy AMD` hero score | legacy comparison | `K_legacy * M * X * F` |
@@ -223,16 +236,16 @@ null の場合は missing とし、0 へ丸めない。
 $$
 \mathrm{Score}_{\mathrm{PRS}}
 = K_{\mathrm{PRS}}
+\cdot (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}
 \cdot (P_{\mathrm{input}}+1)^{\alpha_P}
 \cdot \prod_{x \in \{\mathrm{TRL},\mathrm{BRL},\mathrm{GRL},\mathrm{SRL},\mathrm{HRL}\}}(x+1)^{\alpha_x}
-\cdot (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}
 \cdot (\mathrm{FRL}+1)^{\alpha_F}
 \cdot (R_{\mathrm{net}}+1)^{\alpha_{R_{\mathrm{net}}}}
 $$
 
-Shallow Tech mode では `TRL=null` として R から TRL を除外し、`K_PRS` も active axes の alpha sum で再校正する。
+フラット Cobb-Douglas なので因子の掛け順・グルーピングは数値に影響しない (M·P·R·S 再グルーピングでスコアが不変な根拠)。Shallow Tech mode では `TRL=null` として R から TRL を除外し、`K_PRS` も active axes の alpha sum で再校正する。
 
-### Triple Helix / Macrotrend
+### Triple Helix / Macrotrend (= PRS の M)
 
 $$
 \sigma_{\mathrm{SU}} = \sqrt[3]{(\mu_A+1)(\mu_I+1)(\mu_G+1)} - 1
@@ -278,7 +291,7 @@ $$
 
 保存時は `amd_score_inputs.xrl_checklist` に JSONB を保存し、同じ row の `trl`, `brl`, `grl`, `srl`, `hrl` を `level_a` で上書きする。
 
-### FRL / Survival
+### FRL / Survival (自走力)
 
 FRL 自動算出モードでは、入力済み component の重みだけを使って正規化する。全 component が null の場合は null。
 
@@ -303,10 +316,11 @@ $$
 $$
 
 $$
-S = (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}
-\cdot (\mathrm{FRL}_{\mathrm{final}}+1)^{\alpha_F}
+S = (\mathrm{FRL}_{\mathrm{final}}+1)^{\alpha_F}
 \cdot (R_{\mathrm{net}}+1)^{\alpha_{R_{\mathrm{net}}}}
 $$
+
+S = 自走力 (Survival = FRL × R_net)。σ_SU は 2026-07-16 に独立項 M へ分離した (上の「Triple Helix / Macrotrend (= PRS の M)」参照)。
 
 ## Appendix: legacy MXF / 7軸モデル
 

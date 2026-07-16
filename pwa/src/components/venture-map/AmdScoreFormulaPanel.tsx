@@ -48,14 +48,16 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
       <div className="relative mb-4 flex flex-wrap items-end justify-between gap-3 border-b border-cyan-300/24 pb-3">
         <div>
           <div className="text-[16px] font-black uppercase tracking-[0.2em] text-cyan-100 drop-shadow-[0_0_14px_rgba(103,232,249,.72)]">
-            PRS PRIMARY FORMULA
+            PRS (M·P·R·S) PRIMARY FORMULA
           </div>
           <div className="mt-2 max-w-4xl text-[13px] font-semibold text-cyan-100/78">
             主表示は{" "}
+            <strong className="text-cyan-200">Macrotrend M (マクロ追い風)</strong> ×{" "}
             <strong className="text-emerald-200">Potential P</strong> ×{" "}
             <strong className="text-sky-300">Reach R</strong> ×{" "}
-            <strong className="text-cyan-200">Survival S</strong>。Before Zero Theory v3.2 の{" "}
-            <strong className="text-cyan-200">M × X × F</strong> は下段に comparison layer として残す。
+            <strong className="text-pink-200">Survival S (自走力)</strong>。2026-07-16 に σ_SU を S から分離して独立項 M へ
+            (フラット Cobb-Douglas の結合則によりスコア数値は完全不変)。旧{" "}
+            <strong className="text-cyan-200">M × X × F</strong> は下段に comparison layer として残す。MPRS への全面改称はまさ判断待ちで、当面 PRS (M·P·R·S) と併記する。
           </div>
         </div>
         <div className="border border-pink-300/42 bg-pink-500/8 px-3 py-2 text-right font-mono text-[12px] font-black uppercase tracking-[0.12em] text-pink-200 shadow-[0_0_20px_rgba(244,114,182,.18)]">
@@ -67,10 +69,10 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
         <FormulaBlock title="PRIMARY OVERALL SCORE" accent="cyan" subtitle="主表示の PRS score。compact と expanded を両方表示">
           <div className="grid gap-2">
             <FormulaLine label="compact">
-              <Tex tex={String.raw`\mathrm{Score}_{\mathrm{PRS}} \;=\; k \cdot P \cdot R \cdot S`} />
+              <Tex tex={String.raw`\mathrm{Score}_{\mathrm{PRS}} \;=\; k \cdot M \cdot P \cdot R \cdot S`} />
             </FormulaLine>
             <FormulaLine label="expanded">
-              <Tex tex={String.raw`\mathrm{Score}_{\mathrm{PRS}} \;=\; k \cdot (P_{\mathrm{input}}+1)^{\alpha_P} \cdot \prod_{x \in \{\mathrm{TRL},\, \mathrm{BRL},\, \mathrm{GRL},\, \mathrm{SRL},\, \mathrm{HRL}\}} (x+1)^{\alpha_x} \cdot (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma} \cdot (\mathrm{FRL}+1)^{\alpha_F} \cdot (R_{\mathrm{net}}+1)^{\alpha_{R_{\mathrm{net}}}}`} />
+              <Tex tex={String.raw`\mathrm{Score}_{\mathrm{PRS}} \;=\; k \cdot (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma} \cdot (P_{\mathrm{input}}+1)^{\alpha_P} \cdot \prod_{x \in \{\mathrm{TRL},\, \mathrm{BRL},\, \mathrm{GRL},\, \mathrm{SRL},\, \mathrm{HRL}\}} (x+1)^{\alpha_x} \cdot (\mathrm{FRL}+1)^{\alpha_F} \cdot (R_{\mathrm{net}}+1)^{\alpha_{R_{\mathrm{net}}}}`} />
             </FormulaLine>
             <FormulaLine label="k calibration">
               <Tex tex={String.raw`k \;=\; \frac{100{,}000}{10^{\sum_{x \in \mathcal{A}_{PRS}} \alpha_x}}, \qquad \mathcal{A}_{PRS} \;=\; \{P, \mathrm{TRL}, \mathrm{BRL}, \mathrm{GRL}, \mathrm{SRL}, \mathrm{HRL}, \sigma_{\mathrm{SU}}, \mathrm{FRL}, R_{\mathrm{net}}\}`} />
@@ -82,20 +84,53 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
           </Citation>
         </FormulaBlock>
 
-        <FormulaBlock title="K / P / R / S INTUITION" accent="cyan" subtitle="式を経営判断として読むためのざっくり意味">
+        <FormulaBlock title="K / M / P / R / S INTUITION" accent="cyan" subtitle="式を経営判断として読むためのざっくり意味">
           <div className="grid gap-2 text-[12px] text-cyan-50/82">
-            <div className="grid gap-2 md:grid-cols-4">
+            <div className="grid gap-2 md:grid-cols-5">
               <MeaningChip label="K" title="Calibration" body="全active axisが9点の時に100,000へ合わせる倍率。価値入力ではなく物差し。" />
+              <MeaningChip label="M" title="マクロ追い風" body="いま、この分野に吹いている風。σ_SU (Triple Helix)。案件の属性ではなく時変の環境状態。" />
               <MeaningChip label="P" title="Potential" body="当たった時の大きさ。市場・事業・社会インパクトの天井。" />
               <MeaningChip label="R" title="Reach" body="そこへ届く準備。TRL/BRL/GRL/SRL/HRL の会社側 readiness。" />
-              <MeaningChip label="S" title="Survival" body="届くまで生き残る力。macrotrend・FRL・R_net の合成。" />
+              <MeaningChip label="S" title="自走力" body="外の資金が止まっても自分の力で走り続けられる体質。FRL × R_net。" />
             </div>
             <div className="rounded border border-cyan-300/24 bg-cyan-300/7 px-3 py-2 leading-relaxed">
               PRS は足し算の加点表ではなく、立ち上がるための必要条件を同時に見るモデル。
-              P が大きくても R が低ければ届かない。R が高くても S が低ければ途中で止まる。
-              積にすると、どれか1つが弱い時に score が自然に抑えられ、3つが同時に揃った時だけ大きく伸びる。
+              P が大きくても R が低ければ届かない。M が吹いていても S (自走力) が低ければ環境で延命しているだけ。
+              積にすると、どれか1つが弱い時に score が自然に抑えられ、4つが同時に揃った時だけ大きく伸びる。
+              M と S を分けたことで「環境で延命しているのか、自走できるのか」を別々に診断できる (2026-07-16 まさ確定)。
             </div>
           </div>
+        </FormulaBlock>
+
+        <FormulaBlock title="MACROTREND M — マクロ追い風" accent="cyan" subtitle="環境の状態・タイミングの変数 / Triple Helix 観測モデル">
+          <div className="grid gap-2">
+            <FormulaLine label="M (Macrotrend)">
+            <Tex tex={String.raw`M \;=\; (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}`} />
+            </FormulaLine>
+            <FormulaLine label="σ_SU (Triple Helix CD)">
+            <Tex tex={String.raw`\sigma_{\mathrm{SU}} \;=\; \sqrt[3]{(\mu_A+1)(\mu_I+1)(\mu_G+1)} - 1`} />
+            </FormulaLine>
+            <FormulaLine label="μ_x (隠れ状態 ← 観測量)">
+            <Tex tex={String.raw`\mu_x \;=\; \frac{\sum_p c_{xp} \, \tilde{y}_p}{\sum_p c_{xp}}, \quad p \in \{P, B, V, R, I_R, N, C\}`} />
+            </FormulaLine>
+            <FormulaLine label="ỹ_p (観測値正規化)">
+            <Tex tex={String.raw`\tilde{y}_p \;=\; 9 \, \frac{y_p - \min_t y_p}{\max_t y_p - \min_t y_p}`} />
+              <span className="ml-2 text-[11px] text-cyan-100/58">(過去 16 quarter で min-max)</span>
+            </FormulaLine>
+          </div>
+          <Citation>
+          <div>
+            2026-07-16 まさ確定で S から分離した独立項。P との分離基準は「案件の属性か、環境の状態か」— P はこの案件が当たったときの天井 (案件固有)、M はいまこの分野に吹いている風 (時変の環境)。
+          </div>
+          <div>
+            根拠 (Triple Helix): Etzkowitz &amp; Leydesdorff (2000). &quot;The dynamics of innovation: from National Systems and Mode 2 to a Triple Helix of university–industry–government relations.&quot;{" "}
+            <em>Research Policy</em>, 29(2), 109-123.
+          </div>
+          <div>
+            根拠 (状態空間モデル + C 行列 prior): <code className="rounded bg-slate-100 px-1">theory/state_space_model.md §4.1</code>
+            {" / "}<code className="rounded bg-slate-100 px-1">theory/bvar_prior.md §3.2</code>
+          </div>
+          </Citation>
         </FormulaBlock>
 
         <FormulaBlock title="POTENTIAL P" accent="rose" subtitle="目標成功規模の ceiling。review 入力の P をそのまま使う">
@@ -115,49 +150,22 @@ export function AmdScoreFormulaPanel({ alpha }: { alpha: AlphaWeights }) {
           </Citation>
         </FormulaBlock>
 
-        <FormulaBlock title="SURVIVAL S" accent="cyan" subtitle="マクロ追い風と founder readiness に R_net を掛け合わせる">
+        <FormulaBlock title="SURVIVAL S — 自走力" accent="cyan" subtitle="founder readiness × 純残存力。外の資金が止まっても走り続けられる体質">
           <Tex
             display
-            tex={String.raw`S \;=\; (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma} \cdot (\mathrm{FRL}+1)^{\alpha_F} \cdot (R_{\mathrm{net}}+1)^{\alpha_{R_{\mathrm{net}}}}`}
+            tex={String.raw`S \;=\; (\mathrm{FRL}+1)^{\alpha_F} \cdot (R_{\mathrm{net}}+1)^{\alpha_{R_{\mathrm{net}}}}`}
           />
           <Citation>
-            Survival は <strong>σ_SU</strong> (Triple Helix macrotrend)・<strong>FRL</strong> (founder readiness)・
-            <strong>R_net</strong> (資源毀損を引いた純残存力) の積。R_net 未入力時は PRS を review pending で止める。
+            Survival = 自走力 (Survival = FRL × R_net)。<strong>FRL</strong> (founder readiness) と{" "}
+            <strong>R_net</strong> (資源毀損を引いた純残存力) の積。σ_SU は 2026-07-16 に独立項 M へ分離 —
+            「環境で延命している」と「自走できる」を別々に診断するため。R_net 未入力時は PRS を review pending で止める。
           </Citation>
         </FormulaBlock>
 
         <FormulaBlock title="LEGACY AMD OVERALL SCORE" accent="cyan" subtitle="比較用に残している旧 M × X × F モデル">
           <Tex display tex={String.raw`S_{\mathrm{legacy}} \;=\; k \cdot M \cdot X \cdot F, \qquad k \;=\; \frac{100{,}000}{10^{\sum_x \alpha_x}}`} />
           <Citation>
-            comparison layer。過去比較と evidence 用に残している旧 AMD/MXF の式で、主表示としては読まない。
-          </Citation>
-        </FormulaBlock>
-
-        <FormulaBlock title="M MACROTREND VECTOR" accent="cyan" subtitle="世界課題・政策・産業・学術の外部潮流 / Triple Helix 観測モデル">
-          <div className="grid gap-2">
-            <FormulaLine label="M (Macrotrend)">
-            <Tex tex={String.raw`M \;=\; (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}`} />
-            </FormulaLine>
-            <FormulaLine label="σ_SU (Triple Helix CD)">
-            <Tex tex={String.raw`\sigma_{\mathrm{SU}} \;=\; \sqrt[3]{(\mu_A+1)(\mu_I+1)(\mu_G+1)} - 1`} />
-            </FormulaLine>
-            <FormulaLine label="μ_x (隠れ状態 ← 観測量)">
-            <Tex tex={String.raw`\mu_x \;=\; \frac{\sum_p c_{xp} \, \tilde{y}_p}{\sum_p c_{xp}}, \quad p \in \{P, B, V, R, I_R, N, C\}`} />
-            </FormulaLine>
-            <FormulaLine label="ỹ_p (観測値正規化)">
-            <Tex tex={String.raw`\tilde{y}_p \;=\; 9 \, \frac{y_p - \min_t y_p}{\max_t y_p - \min_t y_p}`} />
-              <span className="ml-2 text-[11px] text-cyan-100/58">(過去 16 quarter で min-max)</span>
-            </FormulaLine>
-          </div>
-          <Citation>
-          <div>
-            根拠 (Triple Helix): Etzkowitz &amp; Leydesdorff (2000). &quot;The dynamics of innovation: from National Systems and Mode 2 to a Triple Helix of university–industry–government relations.&quot;{" "}
-            <em>Research Policy</em>, 29(2), 109-123.
-          </div>
-          <div>
-            根拠 (状態空間モデル + C 行列 prior): <code className="rounded bg-slate-100 px-1">theory/state_space_model.md §4.1</code>
-            {" / "}<code className="rounded bg-slate-100 px-1">theory/bvar_prior.md §3.2</code>
-          </div>
+            comparison layer。過去比較と evidence 用に残している旧 AMD/MXF の式で、主表示としては読まない。M は上の MACROTREND M と同一の <Tex tex={String.raw`(\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}`} />。
           </Citation>
         </FormulaBlock>
 

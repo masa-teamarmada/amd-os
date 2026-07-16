@@ -27,10 +27,16 @@
 
 ---
 
-## Current primary: PRS
+## Current primary: PRS (M·P·R·S)
+
+> **2026-07-16 まさ確定**: σ_SU を S から分離して独立項 M へ格上げ (Score = K·M·P·R·S)。S = 自走力 (FRL × R_net) に純化。フラット Cobb-Douglas の結合則により**スコア数値・α・K・履歴は完全不変**、変わるのは breakdown グルーピングと表示ラベルのみ。決定の正本 = `/Users/masa/projects/AMD/BZSF/before_zero_theory.md` の 2026-07-16 節。回帰テスト = `npm run test:prs-mprs-grouping`。MPRS への全面改称はまさ判断待ちで、当面「PRS (M·P·R·S)」と併記する。
 
 $$
-\mathrm{Score}_{\mathrm{PRS}} = K_{\mathrm{PRS}} \cdot P \cdot R \cdot S
+\mathrm{Score}_{\mathrm{PRS}} = K_{\mathrm{PRS}} \cdot M \cdot P \cdot R \cdot S
+$$
+
+$$
+M = (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma}
 $$
 
 $$
@@ -42,32 +48,34 @@ R = \prod_{x \in \{\mathrm{TRL},\mathrm{BRL},\mathrm{GRL},\mathrm{SRL},\mathrm{H
 $$
 
 $$
-S = (\sigma_{\mathrm{SU}}+1)^{\alpha_\sigma} \cdot (\mathrm{FRL}+1)^{\alpha_F} \cdot (R_{\mathrm{net}}+1)^{\alpha_{R_{\mathrm{net}}}}
+S = (\mathrm{FRL}+1)^{\alpha_F} \cdot (R_{\mathrm{net}}+1)^{\alpha_{R_{\mathrm{net}}}}
 $$
 
 $$
 K_{\mathrm{PRS}} = \frac{100{,}000}{10^{\sum_{x \in \mathcal{A}_{\mathrm{PRS}}}\alpha_x}}
 $$
 
+- `M`: マクロ追い風 (Macrotrend)。σ_SU の contribution。`PrsComponentBreakdown.macro`
 - `P`: Potential / 潜在規模
 - `R`: Reach / Readiness。TRL / BRL / GRL / SRL / HRL の contribution product
-- `S`: Survival。σ_SU / FRL / R_net の contribution product
+- `S`: 自走力 (Survival = FRL × R_net)。final FRL / R_net の contribution product
 - `R_net`: 粗利 - 運営コスト - 本命から奪うリソース毀損
 
 `P` / `R_net` が無い場合は `status='missing'` とし、score を出さない。legacy AMD を primary へ戻さない。
 
-### K / P / R / S の意味
+### K / M / P / R / S の意味
 
-PRS は、PJ / SU の価値を「加点合計」ではなく、同時に満たすべき3つの必要条件として見る。
+PRS (M·P·R·S) は、PJ / SU の価値を「加点合計」ではなく、同時に満たすべき4つの必要条件として見る。
 
 | Symbol | Meaning | Design intent |
 |---|---|---|
 | `K_PRS` | Calibration constant | 全active axisが9の時に100,000へ揃える係数。価値入力ではなく表示スケール |
+| `M` | マクロ追い風 (Macrotrend) | いま、この分野に吹いている風。案件の属性ではなく時変の環境状態 |
 | `P` | Potential | 当たった時の天井。市場・事業・社会インパクトの大きさ |
 | `R` | Reach | 天井へ届く準備。TRL/BRL/GRL/SRL/HRL の readiness |
-| `S` | Survival | 走り切る力。macrotrend、founder readiness、R_net |
+| `S` | 自走力 (Survival = FRL × R_net) | 外の資金が止まっても自分の力で走り続けられる体質 |
 
-積を使う理由は、`P` / `R` / `S` が互いに代替しづらいから。`P` が大きくても `R` が低ければ届かない。`R` が高くても `S` が低ければ途中で止まる。`S` が高くても `P` が小さければ大きなAMD Scoreにはならない。Cobb-Douglas 型の積にすることで、1要素の弱さが全体を抑え、3要素が同時に揃った時だけscoreが大きく伸びる。
+積を使う理由は、`M` / `P` / `R` / `S` が互いに代替しづらいから。`P` が大きくても `R` が低ければ届かない。`M` が吹いていても `S` (自走力) が低ければ環境で延命しているだけ。Cobb-Douglas 型の積にすることで、1要素の弱さが全体を抑え、4要素が同時に揃った時だけscoreが大きく伸びる。M と S の分離で「環境で延命しているのか、自走できるのか」を別々に診断できる — 旧構造ではこの欠如が σ_SU にマスクされて見えなかった。
 
 ## Legacy MXF / 7軸モデル (比較・根拠用)
 
@@ -237,11 +245,12 @@ cockpit のスコア詳細に表示するパラメータは、必ず `/spec/4-2-
 
 | UI parameter | Component / function | Calculation contract |
 |---|---|---|
-| PRS score | `PrimaryPrsHeroCard`, `calculatePrsScore()` | `K_PRS * P * R * S` |
+| PRS score | `PrimaryPrsHeroCard`, `calculatePrsScore()` | `K_PRS * M * P * R * S` |
 | P Potential | `PrimaryPrsHeroCard` | `(prs_potential + 1)^alpha_P`; nullable review input |
 | R_net | `PrimaryPrsHeroCard` | `(prs_r_net + 1)^alpha_R_net`; nullable review input |
+| M macro (マクロ追い風) | `calculatePrsScore()` | `(sigma_SU + 1)^alpha_sigma` contribution (`components.macro`) |
 | R reach | `calculatePrsScore()` | product of TRL/BRL/GRL/SRL/HRL contributions |
-| S survival | `calculatePrsScore()` | `sigma_SU`, final FRL, R_net contributions |
+| S survival (自走力 = FRL × R_net) | `calculatePrsScore()` | final FRL, R_net contributions (σ_SU は M へ分離済み 2026-07-16) |
 | PRS history | `computePrsScoreSeries()` | only `status='ready'` points |
 | legacy score | `ScoreHeroCard`, `calculateAmdScore()` | old 7-axis Cobb-Douglas, comparison only |
 | M | `breakdownFromResult()` / `TripleHelixMatrix` | `(sigma_SU+1)^alpha_sigma` |
@@ -421,7 +430,7 @@ PRS (`P x R x S`) を主表示へ切り替え、legacy 7軸 AMD Score は compar
 - 計算ロジックは `src/lib/amd-score.ts` の `calculatePrsScore()` / `PRS_ALPHA_DEFAULT` を使う。legacy `calculateAmdScore()` は comparison 専用。
 - `P` と `R_net` は `amd_score_inputs.prs_potential` / `amd_score_inputs.prs_r_net` に nullable で保存する。
 - `P` / `R_net` が無い場合は `status='missing'` とし、scoreを出さない。legacy AMD を primary へ戻さない。
-- `R` は TRL/BRL/GRL/SRL/HRL の contribution product、`S` は σ_SU/FRL/R_net の contribution product として表示する。
+- `M` は σ_SU の contribution、`R` は TRL/BRL/GRL/SRL/HRL の contribution product、`S` は FRL/R_net の contribution product として表示する (2026-07-16 M·P·R·S 再グルーピング)。
 - detail 画面で P / R_net を保存し、retrofit 画面は ready / missing queue と legacy α 調整に使う。
 
 ### FRL 6 因子拡張 (2026-05-09 追加)

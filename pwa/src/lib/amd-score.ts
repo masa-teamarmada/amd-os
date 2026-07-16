@@ -347,7 +347,16 @@ export function normalizeAlpha(raw: unknown): AlphaWeights {
 }
 
 // ============================================================
-// P x R x S primary layer
+// M x P x R x S primary layer (呼称は当面 "PRS (M·P·R·S)")
+//
+// 2026-07-16 まさ確定: σ_SU を S から分離して独立項 M へ格上げ。
+//   Score = K · M · P · R · S
+//   M = (σ_SU+1)^ασ (マクロ追い風 / Macrotrend)
+//   S = (FRL+1)^αF · (R_net+1)^αRnet (自走力 / Survival)
+// フラット Cobb-Douglas の結合則により総合スコア数値・α・K は完全不変。
+// 変わるのは breakdown のグルーピングと表示ラベルのみ。
+// 正本: /Users/masa/projects/AMD/BZSF/before_zero_theory.md の 2026-07-16 節。
+// MPRS への全面改称はまさ判断待ち (ブランディング)。
 // ============================================================
 
 export interface PrsScoreInput {
@@ -367,8 +376,11 @@ export interface PrsScoreInput {
 }
 
 export interface PrsComponentBreakdown {
+  /** M = (σ_SU+1)^ασ。マクロ追い風 (Macrotrend)。環境の状態・制御不能・タイミング変数 */
+  macro: number;
   potential: number;
   reach: number;
+  /** S = (FRL+1)^αF · (R_net+1)^αRnet。自走力 (Survival = FRL × R_net)。σ_SU は macro へ分離済み */
   survival: number;
 }
 
@@ -459,8 +471,10 @@ export function calculatePrsScore(
     if (shallowTechMode && axis === "TRL") return acc;
     return acc * (contributions[axis] ?? 1);
   }, 1);
-  const survival =
-    (contributions.sigma_SU ?? 1) * (contributions.FRL ?? 1) * (contributions.R_net ?? 1);
+  // M·P·R·S グルーピング (2026-07-16): σ_SU は survival から macro へ。
+  // macro × survival = 旧 survival なので score = K × macro × potential × reach × survival は不変。
+  const macro = contributions.sigma_SU ?? 1;
+  const survival = (contributions.FRL ?? 1) * (contributions.R_net ?? 1);
   const potential = contributions.P ?? 1;
 
   return {
@@ -474,6 +488,7 @@ export function calculatePrsScore(
     axisValues,
     contributions,
     components: {
+      macro,
       potential,
       reach,
       survival,

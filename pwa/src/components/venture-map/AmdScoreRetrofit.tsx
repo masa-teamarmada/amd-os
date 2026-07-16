@@ -265,7 +265,7 @@ export function AmdScoreRetrofit({ ventures, inputs, initialAlpha }: Props) {
                 <th className="text-left px-3 py-2">PJ</th>
                 <th className="text-left px-3 py-2">Lane</th>
                 <th className="text-right px-3 py-2 font-mono">PRS primary</th>
-                <th className="text-left px-3 py-2">P/R/S</th>
+                <th className="text-left px-3 py-2">M/P/R/S</th>
                 <th className="text-left px-3 py-2">入力状態</th>
                 <th className="text-right px-3 py-2 font-mono">現役 α score</th>
                 <th className="text-right px-3 py-2 font-mono">新 α score</th>
@@ -319,8 +319,8 @@ export function AmdScoreRetrofit({ ventures, inputs, initialAlpha }: Props) {
                     <td className="px-3 py-2 text-[10px] text-muted-foreground">
                       {r.prs?.status === "ready" && r.prs.components ? (
                         <span className="font-mono">
-                          {fmtPrsComponent(r.prs.components.potential)} / {fmtPrsComponent(r.prs.components.reach)} /{" "}
-                          {fmtPrsComponent(r.prs.components.survival)}
+                          {fmtPrsComponent(r.prs.components.macro)} / {fmtPrsComponent(r.prs.components.potential)} /{" "}
+                          {fmtPrsComponent(r.prs.components.reach)} / {fmtPrsComponent(r.prs.components.survival)}
                         </span>
                       ) : r.prs?.status === "missing" ? (
                         <span>missing: {r.prs.missingAxes.join(", ")}</span>

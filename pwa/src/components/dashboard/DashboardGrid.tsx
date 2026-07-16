@@ -48,8 +48,11 @@ export interface DashboardPrimarySnapshot {
   missingAxes: string[];
   legacyScore: number | null;
   components: {
+    /** M = マクロ追い風 (Macrotrend)。σ_SU contribution (2026-07-16 S から分離) */
+    macro: number | null;
     potential: number | null;
     reach: number | null;
+    /** S = 自走力 (Survival = FRL × R_net) */
     survival: number | null;
   };
 }
@@ -250,8 +253,9 @@ function ProjectStripe({
         <div className="col-span-2 border-l border-[var(--desk-line)] pl-3">
           {primarySnapshot?.components ? (
             <>
-              <div className="mb-1 text-[9px] text-muted-foreground font-mono uppercase">PRS P/R/S</div>
-              <div className="grid grid-cols-3 gap-1 text-[10px]">
+              <div className="mb-1 text-[9px] text-muted-foreground font-mono uppercase">PRS M/P/R/S</div>
+              <div className="grid grid-cols-4 gap-1 text-[10px]">
+                <MetricCell label="M" value={primarySnapshot.components.macro} />
                 <MetricCell label="P" value={primarySnapshot.components.potential} />
                 <MetricCell label="R" value={primarySnapshot.components.reach} />
                 <MetricCell label="S" value={primarySnapshot.components.survival} />

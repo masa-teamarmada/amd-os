@@ -322,8 +322,15 @@ export function AmdScoreView({
             <PrimaryPrsBreakdownPanel primary={primarySnapshot} venture={venture} />
           </div>
           <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-700">PRS parameter evidence</div>
-            <div className="mt-2 grid gap-3 lg:grid-cols-3">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-700">PRS (M·P·R·S) parameter evidence</div>
+            <div className="mt-2 grid gap-3 lg:grid-cols-4">
+              <div className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-3 text-[11px] text-cyan-900">
+                <div className="font-semibold">M マクロ追い風 (Macrotrend)</div>
+                <div className="mt-1 font-mono text-2xl font-bold text-slate-900">
+                  {formatRoundedDisplay(primarySnapshot.prs.components?.macro ?? null)}
+                </div>
+                <div className="mt-1 text-cyan-800/80">σ_SU (Triple Helix) から合成</div>
+              </div>
               <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 text-[11px] text-emerald-900">
                 <div className="font-semibold">P potential</div>
                 <div className="mt-1 font-mono text-2xl font-bold text-slate-900">
@@ -339,11 +346,11 @@ export function AmdScoreView({
                 <div className="mt-1 text-sky-800/80">TRL / BRL / GRL / SRL / HRL から合成</div>
               </div>
               <div className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-3 text-[11px] text-violet-900">
-                <div className="font-semibold">S survival</div>
+                <div className="font-semibold">S 自走力 (Survival = FRL × R_net)</div>
                 <div className="mt-1 font-mono text-2xl font-bold text-slate-900">
                   {formatRoundedDisplay(primarySnapshot.prs.components?.survival ?? null)}
                 </div>
-                <div className="mt-1 text-violet-800/80">σ_SU / FRL / R_net から合成</div>
+                <div className="mt-1 text-violet-800/80">FRL / R_net から合成 (σ_SU は M へ分離)</div>
               </div>
             </div>
             <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
@@ -1137,8 +1144,12 @@ function PrimaryPrsBreakdownPanel({
 }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700">PRS breakdown</div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700">PRS (M·P·R·S) breakdown</div>
       <div className="mt-3 space-y-2 text-[12px] text-slate-700">
+        <div className="flex items-center justify-between gap-3 rounded-lg bg-cyan-50 px-3 py-2">
+          <span className="font-semibold">M マクロ追い風</span>
+          <span className="font-mono text-slate-900">{formatRoundedDisplay(primary.prs.components?.macro ?? null)}</span>
+        </div>
         <div className="flex items-center justify-between gap-3 rounded-lg bg-emerald-50 px-3 py-2">
           <span className="font-semibold">P potential</span>
           <span className="font-mono text-slate-900">{formatRoundedDisplay(primary.prs.axisValues.P)}</span>
@@ -1148,7 +1159,7 @@ function PrimaryPrsBreakdownPanel({
           <span className="font-mono text-slate-900">{formatRoundedDisplay(primary.prs.components?.reach ?? null)}</span>
         </div>
         <div className="flex items-center justify-between gap-3 rounded-lg bg-violet-50 px-3 py-2">
-          <span className="font-semibold">S survival</span>
+          <span className="font-semibold">S 自走力 (FRL × R_net)</span>
           <span className="font-mono text-slate-900">{formatRoundedDisplay(primary.prs.components?.survival ?? null)}</span>
         </div>
         <div className="flex items-center justify-between gap-3 rounded-lg bg-amber-50 px-3 py-2">
@@ -1177,7 +1188,7 @@ function PrimaryPrsTimeSeriesChart({
     evaluated_at: string;
     score: number;
     prs: {
-      components: { potential: number; reach: number; survival: number } | null;
+      components: { macro: number; potential: number; reach: number; survival: number } | null;
       axisValues: { P: number | null; R_net: number | null };
     };
   }>;
@@ -1187,7 +1198,7 @@ function PrimaryPrsTimeSeriesChart({
     evaluated_at: string;
     score: number;
     prs: {
-      components: { potential: number; reach: number; survival: number } | null;
+      components: { macro: number; potential: number; reach: number; survival: number } | null;
       axisValues: { P: number | null; R_net: number | null };
     };
   } | null;
@@ -1198,6 +1209,7 @@ function PrimaryPrsTimeSeriesChart({
     id: string;
     evaluated_at: string;
     score: number;
+    macro: number | null;
     potential: number | null;
     reach: number | null;
     survival: number | null;
@@ -1217,6 +1229,7 @@ function PrimaryPrsTimeSeriesChart({
     id: point.id,
     evaluated_at: point.evaluated_at,
     score: point.score,
+    macro: point.prs.components?.macro ?? null,
     potential: point.prs.axisValues.P,
     reach: point.prs.components?.reach ?? null,
     survival: point.prs.components?.survival ?? null,
@@ -1365,6 +1378,7 @@ function PrimaryPrsScorePopup({
     id: string;
     evaluated_at: string;
     score: number;
+    macro: number | null;
     potential: number | null;
     reach: number | null;
     survival: number | null;
@@ -1394,16 +1408,16 @@ function PrimaryPrsScorePopup({
         <span className="font-mono text-[10px] text-slate-500">{point.evaluated_at}</span>
         <button type="button" onClick={onClose} className="text-[10px] text-slate-500 hover:text-slate-900" aria-label="閉じる">×</button>
       </div>
-      <div className="text-[10px] text-slate-500">PRS primary</div>
+      <div className="text-[10px] text-slate-500">PRS (M·P·R·S) primary</div>
       <div className="font-mono text-2xl font-bold leading-none text-slate-900">{formatRoundedDisplay(point.score)}</div>
-      <div className="mt-2 grid grid-cols-2 gap-2 border-t border-slate-200 pt-2">
+      <div className="mt-2 grid grid-cols-3 gap-2 border-t border-slate-200 pt-2">
+        <div>
+          <div className="text-[9px] text-cyan-700">M</div>
+          <div className="font-mono font-semibold text-slate-900">{formatRoundedDisplay(point.macro)}</div>
+        </div>
         <div>
           <div className="text-[9px] text-emerald-700">P</div>
           <div className="font-mono font-semibold text-slate-900">{formatRoundedDisplay(point.potential)}</div>
-        </div>
-        <div>
-          <div className="text-[9px] text-amber-700">R_net</div>
-          <div className="font-mono font-semibold text-slate-900">{formatRoundedDisplay(point.rNet)}</div>
         </div>
         <div>
           <div className="text-[9px] text-sky-700">R</div>
@@ -1412,6 +1426,10 @@ function PrimaryPrsScorePopup({
         <div>
           <div className="text-[9px] text-violet-700">S</div>
           <div className="font-mono font-semibold text-slate-900">{formatRoundedDisplay(point.survival)}</div>
+        </div>
+        <div>
+          <div className="text-[9px] text-amber-700">R_net</div>
+          <div className="font-mono font-semibold text-slate-900">{formatRoundedDisplay(point.rNet)}</div>
         </div>
       </div>
     </div>
@@ -1729,13 +1747,13 @@ function PrimaryPrsHeroCard({
     <section className="rounded-xl border border-emerald-200 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">PRS Primary</div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700">PRS (M·P·R·S) Primary</div>
           <div className="mt-1 text-4xl font-mono font-bold leading-none text-slate-950">
             {ready ? fmt(primary.prs.score) : "INPUT NEEDED"}
           </div>
           <div className="mt-2 text-[11px] text-slate-600">
             {ready
-              ? "score = k × P × R × S を主表示。legacy AMD/MXF は比較用。"
+              ? "score = k × M × P × R × S を主表示 (M = マクロ追い風、S = 自走力)。legacy AMD/MXF は比較用。"
               : `主モデルは PRS だけど、${missingText} が未入力なので score を出さず review 待ちで止めてる。`}
           </div>
         </div>
@@ -1801,11 +1819,12 @@ function PrimaryPrsHeroCard({
         </div>
 
         <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-[11px] text-slate-700">
-          <div className="font-semibold text-slate-900">Primary breakdown</div>
+          <div className="font-semibold text-slate-900">Primary breakdown (M·P·R·S)</div>
           <div className="mt-2 space-y-1">
+            <div>M = <span className="font-mono">{primary.prs.components ? fmt(primary.prs.components.macro) : "—"}</span> <span className="text-[10px] text-slate-500">マクロ追い風 (Macrotrend)</span></div>
             <div>P = <span className="font-mono">{fmt(potentialValue)}</span></div>
             <div>R = <span className="font-mono">{primary.prs.components ? fmt(primary.prs.components.reach) : "—"}</span></div>
-            <div>S = <span className="font-mono">{primary.prs.components ? fmt(primary.prs.components.survival) : "—"}</span></div>
+            <div>S = <span className="font-mono">{primary.prs.components ? fmt(primary.prs.components.survival) : "—"}</span> <span className="text-[10px] text-slate-500">自走力 (FRL × R_net)</span></div>
             <div>R_net = <span className="font-mono">{fmt(rNetValue)}</span></div>
           </div>
           <div className="mt-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-[10px] text-slate-500">

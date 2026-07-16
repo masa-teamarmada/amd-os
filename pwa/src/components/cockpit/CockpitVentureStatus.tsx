@@ -788,18 +788,20 @@ export function CockpitVentureStatus({
         </svg>
       </div>
 
-      {/* P/R/S 値カード — Chart 1 (PRS) と Chart 2 (XRL) の間に挟む。
-            現在 (今日以前) の PRS primary components:
+      {/* M/P/R/S 値カード — Chart 1 (PRS) と Chart 2 (XRL) の間に挟む。
+            現在 (今日以前) の PRS (M·P·R·S) primary components:
+              M = macrotrend (マクロ追い風、σ_SU。2026-07-16 S から分離)
               P = potential input
               R = readiness reach
-              S = survival
+              S = survival (自走力 = FRL × R_net)
             xl breakpoint 以上は縦 stack、xl 未満は横並びで Chart 間 row として配置。 */}
       <aside className="xl:w-[140px] xl:py-3 xl:px-2 flex xl:flex-col flex-row flex-wrap gap-2 justify-around xl:justify-start border-t xl:border-t-0 xl:border-l xl:border-r border-[#e5e5e7] px-2 py-2">
         {latestComponents && primarySnapshot ? (
           <>
+            <PrsCard axis="M" label="MACROTREND" value={latestComponents.macro} color="#0e7490" />
             <PrsCard axis="P" label="POTENTIAL" value={primarySnapshot.prs.axisValues.P} color="#0f766e" />
             <PrsCard axis="R" label="REACH" value={latestComponents.reach} color="#0369a1" />
-            <PrsCard axis="S" label="SURVIVAL" value={latestComponents.survival} color="#7c3aed" />
+            <PrsCard axis="S" label="SURVIVAL 自走力" value={latestComponents.survival} color="#7c3aed" />
           </>
         ) : (
           <span className="text-[10px] text-[#86868b]">PRS primary 入力待ち</span>
