@@ -1,4 +1,4 @@
-# SESSION MIGRATION PROMPT — Admin 裏wiki 人物文脈6項目化 closeout
+# SESSION MIGRATION PROMPT — 月初合意UX closeout
 
 ```text
 cd /Users/masa/projects/AMD/amd-os
@@ -11,85 +11,68 @@ cd /Users/masa/projects/AMD/amd-os
 5. /Users/masa/projects/AMD/amd-os/AGENTS.md
 6. /Users/masa/projects/AMD/amd-os/pwa/AGENTS.md
 7. /Users/masa/projects/AMD/amd-os/pwa/CLAUDE.md
-8. /Users/masa/projects/AMD/amd-os/pwa/manual/1-1-intro.md
-9. /Users/masa/projects/AMD/amd-os/pwa/manual/2-6-admin-ops.md
-10. /Users/masa/projects/AMD/amd-os/pwa/spec/1-3-reconstruction-coverage-audit.md
-11. /Users/masa/projects/AMD/amd-os/pwa/spec/2-1-pwa-runtime-routes.md
-12. /Users/masa/projects/AMD/amd-os/pwa/design/SPEC_pwa.md
-13. /Users/masa/projects/AMD/amd-os/pwa/design/FEATURE_REGISTRY.md
-14. /Users/masa/projects/AMD/amd-os/pwa/design/db_schema.md
-15. /Users/masa/projects/AMD/amd-os/pwa/design_log/sessions_2026-07.md
-16. /Users/masa/projects/AMD/amd-os/pwa/BUGS.md
+8. /Users/masa/projects/AMD/amd-os/pwa/spec/3-14-monthly-work-agreement-current-spec.md
+9. /Users/masa/projects/AMD/amd-os/pwa/manual/2-2-member-workflows-quick-start.md
+10. /Users/masa/projects/AMD/amd-os/pwa/manual/6-6-member-billing-prompts-spec.md
+11. /Users/masa/projects/AMD/amd-os/pwa/design/FEATURE_REGISTRY.md
+12. /Users/masa/projects/AMD/amd-os/pwa/BUGS.md
+13. /Users/masa/projects/AMD/amd-os/pwa/design_log/sessions_2026-07.md
 
 状態スナップショット:
-- /admin/private-wiki の「tags」UI/API導線は削除済み。
-- 代わりに、誕生日・出身地・居住地・接点・家族・タブーを追加済み。
-- accepted implementation commit: 0d0cf4a0 Update admin private wiki person context fields。
-- implementation baseline before the handoff-docs commit: 692db89b fix(pwa): contain score factor tables。
-- production readback before the handoff-docs commit: build_version v3.41.16, git_sha 692db89b17fe8dec83466db184e17b697bc31ebe, dirty=false。
-- このSESSION_MIGRATION_PROMPT保存自体でdocs-only commitが積まれる可能性があるため、次回は必ず /api/build-info を取り直す。
-- 0d0cf4a0 は 692db89b の ancestor なので、private wiki変更は本番current lineに含まれている。
-- DB migration 173 は production DB に適用済み。
-- db_schema dump済み。private_wiki_entries は birthday_label / origin_label / residence_label / contact_context / family_note / taboo_note を持つ。
-- stale Claude worktrees 2つは main-aligned だったため、証跡保存後に削除済み。残worktreeはroot checkoutのみ。
+- 月初合意の状態は `合意状態：未合意 / 条件更新あり / 合意済み / 対象外` と理由の一文で表示する。
+- 合意事項は全幅の `01 担当する仕事` → `02 その対価としての予定額`。小さい2列表へ戻さない。
+- 01は全PJの担当内容、02は予定額合計と同じPJ順の内訳を表示する。
+- 主操作は02の後、参考情報はさらに後ろで初期状態を閉じる。
+- accepted implementation commit: `8b014291 fix(pwa): make monthly agreement items unmistakable`。
+- implementation closeout時点のmain/origin/main: `8b0142914c4bcb05ddee82bce50da478d3e17d4a`。
+- production readback: `v3.43.8 / 8b0142914c4bcb05ddee82bce50da478d3e17d4a / main / dirty=false`。
+- handoff docs commitでmain/production SHAが進む可能性があるため、次回は必ず `/api/build-info` を取り直す。
+- まさがproduction画面を確認し、分かりやすくなったと受入確認済み。
 
-今回の仕様:
-- private_wiki_entries の新列:
-  - birthday_label text
-  - origin_label text
-  - residence_label text
-  - contact_context text
-  - family_note text
-  - taboo_note text
-- API:
-  - POST/PATCH payload は birthdayLabel / originLabel / residenceLabel / contactContext / familyNote / tabooNote を受ける。
-  - tags payload normalize は削除。
-  - GET の tag query / contains("tags") filter は削除。
-  - requireAdmin() + createAdminClient() + visibility="admin_private" は維持。
-- UI:
-  - 検索対象は人物名、所属、関係性、誕生日、出身地、居住地、接点、家族、タブー、本文メモ、source。
-  - tag filter / tag chip / tags input は存在しない。
-  - タブーは一覧上で rose tone 表示。
-- DB互換:
-  - 旧 tags 列はDBには残るが、UI/APIの主導線へ戻さない。
+今回確立した仕様:
+- 必須領域の最小文字は12px。
+- 番号14px、見出し18px mobile / 20px desktop、PJ名と担当内容14px、PJ別予定額16px、合計26px mobile / 28px desktop。
+- mobile主操作は全幅48px。
+- 01と02のPJ順を一致させる。担当内容・予定額を折りたたまない。
+- 長いPJ名は省略せず折り返し、金額列を画面外へ押し出さない。
+- `/monthly-agreement` ページと強制表示モーダルは同じ `MonthlyAgreementExperience` を使う。
+- 受入条件は、5秒理解・縮小表示・computed font-size・`320 / 375 / 768 / 1280px` のdocument横overflowなし。
 
 検証済み:
-- python3 -X utf8 scripts/apply_ddl.py scripts/migrations/173_private_wiki_person_context_fields.sql -> OK (201)
-- python3 -X utf8 scripts/dump_schema.py -> pwa/design/db_schema.md regenerated
-- npm run test:critical-ui -> pass
-- npx eslint 'src/app/(app)/admin/private-wiki/page.tsx' src/app/api/admin/private-wiki/route.ts src/components/admin/AdminPrivateWikiClient.tsx -> pass
-- npm run build -> pass
-- clean disposable cloneから AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh -> v3.41.15 / 0d0cf4a0 本番反映確認
-- その後、別件 score fix v3.41.16 / 692db89b が本番currentになったが、private wiki commitは含まれる。
-- unauthenticated GET https://amd-os-pwa.vercel.app/api/admin/private-wiki -> 401 Unauthorized
-- 未確認: logged-in adminでの手操作smoke。auth-gatedのため、必要ならまさログイン状態で確認する。
+- node pwa/scripts/check_pwa_critical_ui.cjs -> pass
+- npm --prefix pwa run build -> pass。TypeScriptと481 route生成を完了
+- production browser 320 / 375 / 768 / 1280px -> document横overflowなし
+- 必須領域 min font 12px、番号14px、mobile見出し18px、desktop見出し20px、担当内容14px、PJ別予定額16px、合計26/28px
+- DOM順 `状態 → 01 → 02 → 主操作 → 参考情報`
+- 旧 `確認して合意する2点` / `1. PJごとの担当内容` はproduction DOMに存在しない
 
 次タスク:
-1. 基本的には private wiki 実装の追加作業なし。
-2. 手操作確認が必要なら、logged-in production adminで /admin/private-wiki を開き、dummy entryを作成/編集:
-   - 誕生日 / 出身地 / 居住地 / 接点 / 家族 / タブーが入力・保存・再表示されること
-   - tags UIがないこと
-   - 確認後はdummy entryをarchiveする
-3. 残dirtyのcloseoutを行う場合は private wiki とは別レーンで扱う:
-   - pwa/design/atlas_routine.md = Atlas / D-8 routine lane
-   - pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md = L6 meeting extract lane
-   - pwa/scheduled-tasks/amd-os-l6-meeting-reviewer/SKILL.md = H-1 meeting summary reviewer lane
-   - pwa/scripts/check_h1_meeting_summary_reviewer.mjs = H-1 meeting summary reviewer lane
-   - pwa/scripts/review_h1_meeting_summary.mjs = H-1 meeting summary reviewer lane
-   - pwa/bzm/2026-07-14_frontmatter_gairei_draft_v1.md = Book A frontmatter lane
+1. 月初合意UI・仕様同期・deploy・responsive検証の必須残タスクはなし。
+2. 新しいフィードバックが来た場合だけ、production `/monthly-agreement` と `/api/build-info` を読み直して再開する。
+3. 01・02を小さい列ラベルへ戻す案は採用しない。情報密度より合意事項の発見可能性を優先する。
+4. UI変更時はSolが反証レビューし、Sonnet workerが実装・ローカル検証、司令塔が統合・production確認を行う。
 
 次回開始時に必ず実行:
 git fetch origin main
 git status -sb --untracked-files=all
+git rev-list --left-right --count HEAD...origin/main
 git log -1 --oneline
 curl -fsS https://amd-os-pwa.vercel.app/api/build-info
 
+残dirtyのowner lane:
+- Payment obligations: pwa/BUGS.md, pwa/design/FEATURE_REGISTRY.md, pwa/design/SPEC_pwa.md, payout manual/changelog/critical guard, payout API/UI/lib, pwa/src/lib/build-info.ts。`amd-payment-obligations` workerが稼働中
+- Book A再構成: pwa/bzm/BOOK_A_MASTER_PLAN.md, pwa/bzm/terminology_glossary.md, pwa/bzm/2026-07-16_narrative_rebuild_ch4_5_merged_v1.md
+- Book A巻頭: pwa/bzm/2026-07-14_frontmatter_gairei_draft_v1.md
+- Atlas D-8: pwa/design/atlas_routine.md
+- L6 extract: pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md
+- H-1 reviewer: pwa/scheduled-tasks/amd-os-l6-meeting-reviewer/SKILL.md, pwa/scripts/check_h1_meeting_summary_reviewer.mjs, pwa/scripts/review_h1_meeting_summary.mjs
+これらを月初合意bundleへ混ぜない。dirty一覧は変動しうるのでstage前に取り直す。
+
 確立済み運用ルール:
-- まず /Users/masa/projects/AGENTS.common.md と AMD level memory を読む。
-- branch/worktree作成は禁止。main直編集・main直push。
-- dirtyを理由にbranchを切らない。対象ファイルだけ明示stageする。git add . 禁止。
-- admin/private-wikiはadmin-only。通常cockpit、公開ページ、研究機関外部workspaceへ出さない。
-- 個人情報・機微情報は最小限。raw本文、メール全文、議事録全文、secret、URLをdurable artifactに貼らない。
-- PWA本番反映は clean checkout から AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh。
-- manual/spec/design/db_schema/FEATURE_REGISTRY/critical-ui/changelog の同期を崩さない。
+- branch/worktreeを新規作成しない。dirtyならmainのdisposable clean cloneを使えるが、作業後に削除する。
+- 対象ファイルだけ明示stageし、`git add .`を使わない。
+- PWA本番反映は `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`。
+- local checkout、origin/main、production `/api/build-info` を並べてcurrent truthを決める。
+- manual/spec/design/FEATURE_REGISTRY/BUGS/critical UI/changelogの同期を崩さない。
+- raw本文、個人情報、secret、private URLをhandoffやdurable logへ残さない。
 ```

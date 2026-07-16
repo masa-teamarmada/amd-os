@@ -1475,3 +1475,32 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 - cockpit統合とresponsive修正の既知残タスクはなし。
 - score値はlive dataで変動するため、次回はproduction/API/DBを読み直す。会話中の数値を固定値としてhandoffしない。
 - root checkoutのAtlas / L6 / H-1 reviewer / Book A dirtyは別owner laneであり、今回bundleには混ぜない。
+
+---
+
+## 2026-07-16 — 月初合意の合意事項を独立した01・02へ再設計
+
+### コンテキスト / 判断
+- 最初の改善で状態の主語と確認順は直ったが、合意事項1・2を10pxの列ラベルとして扱ったため、初見で場所を発見できなかった。
+- まさの再指摘を受け、申込・振込などの確認手続きと同じく、必須事項を独立した手続きステップとして見せる方針へ変更した。
+- Solが縦長になるコストを受け入れて発見可能性を優先する設計を確定し、Sonnet workerが実装、司令塔が統合とproduction検証を担当した。
+
+### 実装 / 仕様同期
+- `MonthlyAgreementExperience` を、状態→`01 担当する仕事`→`02 その対価としての予定額`→主操作→参考情報の順へ再構成した。
+- 01は全PJの担当内容、02は予定額合計と同じPJ順の内訳を表示する。PJ別2列表は廃止した。
+- 必須領域の文字サイズ下限を12pxとし、番号14px、見出し18/20px、担当内容14px、PJ別予定額16px、合計26/28pxへ固定した。
+- mobile主操作を全幅48pxにし、長いPJ名は省略せず折り返す。
+- spec 3-14、manual 2-2 / 6-6、FEATURE_REGISTRY、BUGS、manual/spec changelog、critical UI guardを同じbundleで同期した。
+- BUGSには、存在確認・DOM順・横overflowだけをUX完了条件にして、5秒理解・縮小表示・文字サイズ序列を見なかった失敗を記録した。
+
+### Verification / Deploy
+- `node pwa/scripts/check_pwa_critical_ui.cjs` と `npm --prefix pwa run build` がpass。
+- commit `8b014291 fix(pwa): make monthly agreement items unmistakable` をmainへpushし、production `v3.43.8 / 8b014291 / dirty=false` を確認した。
+- productionを320 / 375 / 768 / 1280pxで実測し、全幅でdocument横overflowなし。必須領域のcomputed font-size最小12px、DOM順も仕様どおりだった。
+- まさがproduction画面を確認し、分かりやすくなったと受入確認した。
+
+### Closeout notes
+- 月初合意UI・仕様同期・deploy・responsive検証の必須残タスクはなし。
+- 今回作ったdisposable clean cloneと完了済みSonnet workerはcloseoutで削除・終了した。
+- main-alignedの古いClaude worktree 1つとbranch 1本は証跡保存後に削除し、root worktree / main branchだけへ戻した。
+- root checkoutのBook A / Atlas / L6 / H-1 dirtyは別owner laneであり、月初合意bundleへ混ぜない。
