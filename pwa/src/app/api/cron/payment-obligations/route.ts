@@ -7,7 +7,7 @@ import {
   addMonthsToYm,
   currentDateJst,
   currentYmJst,
-  gmailSourceKey,
+  gmailObligationSourceKey,
   notificationStage,
   parsePaymentEmail,
   type CompanyPaymentObligation,
@@ -218,6 +218,21 @@ function headerValue(headers: Array<{ name?: string | null; value?: string | nul
   return headers?.find((header) => header.name?.toLowerCase() === name.toLowerCase())?.value ?? "";
 }
 
+function addressFromHeader(value: string): string {
+  const bracketed = value.match(/<([^>]+@[^>]+)>/);
+  const plain = value.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  return String(bracketed?.[1] ?? plain?.[0] ?? "").trim().toLowerCase();
+}
+
+function senderDomainFromHeader(value: string): string {
+  return addressFromHeader(value).split("@")[1] ?? "unknown";
+}
+
+function isOwnCompanySender(fromHeader: string, mailboxEmail: string | null): boolean {
+  const from = addressFromHeader(fromHeader);
+  return Boolean(from && (from.endsWith("@team-armada.jp") || from === String(mailboxEmail ?? "").toLowerCase()));
+}
+
 function isoDateFromInternalDate(value: string | null | undefined): string {
   const ms = Number(value);
   return Number.isFinite(ms) ? currentDateJst(new Date(ms)) : currentDateJst();
@@ -228,6 +243,28 @@ function matchesRecurring(text: string, recurring: Array<{ id: string; display_n
   return recurring.find((item) => [item.display_name, item.vendor_name]
     .filter((value): value is string => Boolean(value && value.trim().length >= 3))
     .some((value) => normalized.includes(value.toLowerCase())));
+}
+
+function isAggregateCardStatement(text: string): boolean {
+  return /freeeカード|クレジットカード|カード(?:ご利用|利用代金|代金|引落)|ご利用代金/.test(text);
+}
+
+function deduplicateGmailObligations(rows: GeneratedObligation[]): GeneratedObligation[] {
+  const unique = new Map<string, GeneratedObligation>();
+  for (const row of rows) {
+    const current = unique.get(row.source_key);
+    if (!current) {
+      unique.set(row.source_key, row);
+      continue;
+    }
+    const mailboxIds = new Set<string>([
+      ...((current.payload.mailboxMemberIds as string[] | undefined) ?? []),
+      ...((row.payload.mailboxMemberIds as string[] | undefined) ?? []),
+    ]);
+    current.payload = { ...current.payload, mailboxMemberIds: [...mailboxIds] };
+    current.confidence = Math.max(current.confidence, row.confidence);
+  }
+  return [...unique.values()];
 }
 
 async function generatedFromGmail(
@@ -263,7 +300,7 @@ async function generatedFromGmail(
       const gmail = google.gmail({ version: "v1", auth });
       const listed = await gmail.users.messages.list({
         userId: "me",
-        q: "newer_than:45d -label:spam -label:trash {納付 支払 お支払い 請求 振込 口座振替 税 社会保険 保険料 源泉 e-Tax eLTAX}",
+        q: "newer_than:45d -in:sent -label:spam -label:trash {納付 納期限 納付書 督促 支払 お支払い 請求 振込 口座振替 引落 税 社会保険 保険料 源泉 e-Tax eLTAX}",
         maxResults: 100,
       });
       for (const ref of listed.data.messages ?? []) {
@@ -272,29 +309,41 @@ async function generatedFromGmail(
           userId: "me",
           id: ref.id,
           format: "metadata",
-          metadataHeaders: ["Subject"],
+          metadataHeaders: ["Subject", "From", "To"],
         });
         messages += 1;
         const subject = headerValue(message.data.payload?.headers, "Subject") || "支払義務候補";
+        const fromHeader = headerValue(message.data.payload?.headers, "From");
+        if (isOwnCompanySender(fromHeader, member.email)) continue;
+        const senderDomain = senderDomainFromHeader(fromHeader);
         const referenceDate = isoDateFromInternalDate(message.data.internalDate);
         const parsed = parsePaymentEmail(subject, message.data.snippet || "", referenceDate);
         if (!parsed) continue;
-        const recurring = matchesRecurring(`${subject}\n${message.data.snippet || ""}`, recurringRes.data ?? []);
+        const searchableText = `${subject}\n${message.data.snippet || ""}`;
+        const recurring = matchesRecurring(searchableText, recurringRes.data ?? []);
+        const aggregateCardStatement = isAggregateCardStatement(searchableText);
         const now = new Date().toISOString();
         obligations.push({
-          source_key: gmailSourceKey(member.member_id, ref.id),
+          source_key: gmailObligationSourceKey({
+            senderDomain,
+            title: parsed.title,
+            category: aggregateCardStatement ? "card_payment" : parsed.category,
+            amountYen: parsed.amountYen,
+            dueDate: parsed.dueDate,
+            referenceDate,
+          }),
           title: parsed.title,
-          counterparty: null,
-          category: parsed.category,
+          counterparty: senderDomain === "unknown" ? null : senderDomain,
+          category: aggregateCardStatement ? "card_payment" : parsed.category,
           amount_yen: parsed.amountYen,
           amount_status: parsed.amountStatus,
           due_date: parsed.dueDate,
           due_date_precision: parsed.dueDatePrecision,
           expected_payment_ym: parsed.expectedPaymentYm,
           status: parsed.status,
-          cashflow_treatment: recurring ? "included_in_budget" : "additive",
-          budget_category: recurring ? "fixed_cost" : null,
-          auto_debit: null,
+          cashflow_treatment: recurring || aggregateCardStatement ? "included_in_budget" : "additive",
+          budget_category: recurring || aggregateCardStatement ? "fixed_cost" : null,
+          auto_debit: /引落|引き落とし|口座振替/.test(searchableText) ? true : null,
           owner_member_id: ownerMemberId,
           source_kind: "gmail",
           source_ref: `gmail:${member.member_id}:${ref.id}`,
@@ -302,10 +351,12 @@ async function generatedFromGmail(
           paid_at: null,
           paid_amount_yen: null,
           payload: {
-            mailboxMemberId: member.member_id,
+            mailboxMemberIds: [member.member_id],
             messageDate: referenceDate,
+            senderDomain,
             matchedKeywords: parsed.matchedKeywords,
             recurringItemId: recurring?.id ?? null,
+            aggregateCardStatement,
           },
           last_seen_at: now,
           updated_at: now,
@@ -315,7 +366,7 @@ async function generatedFromGmail(
       tokenErrors.push(`${member.member_id}:${error instanceof Error ? error.message.slice(0, 120) : "gmail-error"}`);
     }
   }
-  return { obligations, mailboxes, messages, tokenErrors };
+  return { obligations: deduplicateGmailObligations(obligations), mailboxes, messages, tokenErrors };
 }
 
 async function upsertGenerated(db: ReturnType<typeof createAdminClient>, rows: GeneratedObligation[]) {
@@ -415,8 +466,9 @@ async function sendKiyoNotifications(
   return { candidates: candidates.length, sent, skipped };
 }
 
-async function run(req: NextRequest, dryRun: boolean) {
+async function run(req: NextRequest, options: { dryRun: boolean; sendNotifications: boolean }) {
   const db = createAdminClient();
+  const { dryRun, sendNotifications } = options;
   const today = req.nextUrl.searchParams.get("date") || currentDateJst();
   const kiyo = await kiyoMember(db);
   const [osSources, gmail] = await Promise.all([
@@ -425,12 +477,13 @@ async function run(req: NextRequest, dryRun: boolean) {
   ]);
   const all = [...osSources.obligations, ...gmail.obligations];
   const sync = dryRun ? { upserted: 0, preserved: 0 } : await upsertGenerated(db, all);
-  const notifications = dryRun
+  const notifications = dryRun || !sendNotifications
     ? { candidates: [], sent: 0, skipped: 0 }
     : await sendKiyoNotifications(db, kiyo, today, false);
   return NextResponse.json({
     ok: true,
     dryRun,
+    sendNotifications,
     today,
     discovered: { ...osSources.counts, gmail: gmail.obligations.length, gmailMailboxes: gmail.mailboxes, gmailMessagesScanned: gmail.messages },
     preview: dryRun ? all
@@ -446,7 +499,8 @@ async function run(req: NextRequest, dryRun: boolean) {
 export async function GET(req: NextRequest) {
   if (!isCronAuthorized(req)) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   try {
-    return await run(req, req.nextUrl.searchParams.get("dryRun") === "1");
+    const dryRun = req.nextUrl.searchParams.get("dryRun") === "1";
+    return await run(req, { dryRun, sendNotifications: !dryRun && req.nextUrl.searchParams.get("notify") !== "0" });
   } catch (error) {
     console.error("[payment-obligations cron]", error);
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : String(error) }, { status: 500 });
@@ -457,9 +511,10 @@ export async function POST(req: NextRequest) {
   const auth = await requireAdmin();
   if (!auth.ok) return auth.errorResponse;
   try {
-    let body: { dryRun?: boolean } = {};
+    let body: { dryRun?: boolean; sendNotifications?: boolean } = {};
     try { body = await req.json(); } catch { body = {}; }
-    return await run(req, Boolean(body.dryRun));
+    const dryRun = Boolean(body.dryRun);
+    return await run(req, { dryRun, sendNotifications: !dryRun && body.sendNotifications !== false });
   } catch (error) {
     console.error("[payment-obligations manual]", error);
     return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : String(error) }, { status: 500 });

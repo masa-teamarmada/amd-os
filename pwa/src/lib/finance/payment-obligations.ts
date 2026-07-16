@@ -78,9 +78,19 @@ export function obligationToMonthlyInput(row: CompanyPaymentObligation): Monthly
 }
 
 const PAYMENT_KEYWORDS = [
-  "納付", "支払", "お支払い", "請求", "振込", "口座振替", "税", "社会保険", "保険料", "源泉", "e-tax", "eltax",
+  "納付", "納期限", "納付書", "督促", "支払", "お支払い", "請求", "振込", "口座振替", "引落", "税", "社会保険", "保険料", "源泉", "e-tax", "eltax",
 ];
 const COMPLETION_ONLY = ["領収", "受領", "支払完了", "決済完了", "振込完了", "入金済", "納付完了"];
+const NON_OBLIGATION_SUBJECT = [
+  /振り込みのご確認/,
+  /振込入金/,
+  /入金(?:のご連絡|のお知らせ|を確認)/,
+  /ポイント(?:付与|.*お知らせ)/,
+  /請求書テンプレート/,
+  /出展社募集/,
+  /(?:api|システム).*(?:仕様変更|更新)/i,
+];
+const STRONG_PAYMENT_INTENT = /納付|納期限|納付書|督促|支払期限|支払期日|お支払い(?:のお願い|ください|が必要|予定)|引落予定|引き落とし|口座振替|請求書|社会保険料|源泉所得税|住民税/;
 
 function normalizeDigits(text: string): string {
   return text.replace(/[０-９]/g, (char) => String(char.charCodeAt(0) - 0xff10));
@@ -143,11 +153,13 @@ export function parsePaymentEmail(subject: string, snippet: string, referenceDat
   const compactSubject = subject.replace(/\s+/g, " ").trim().slice(0, 160) || "支払義務候補";
   const text = `${compactSubject}\n${snippet.replace(/\s+/g, " ").slice(0, 800)}`;
   const lower = text.toLowerCase();
+  if (NON_OBLIGATION_SUBJECT.some((pattern) => pattern.test(compactSubject))) return null;
   const matchedKeywords = PAYMENT_KEYWORDS.filter((keyword) => lower.includes(keyword.toLowerCase()));
   if (!matchedKeywords.length) return null;
   if (COMPLETION_ONLY.some((keyword) => text.includes(keyword)) && !/期限|期日|納期限|支払日|引落日/.test(text)) return null;
   const amountYen = extractPaymentAmount(text);
   const dueDate = extractPaymentDueDate(text, referenceDate);
+  if (amountYen == null && dueDate == null && !STRONG_PAYMENT_INTENT.test(text)) return null;
   const complete = amountYen != null && dueDate != null;
   return {
     title: compactSubject,
@@ -163,8 +175,29 @@ export function parsePaymentEmail(subject: string, snippet: string, referenceDat
   };
 }
 
-export function gmailSourceKey(memberId: string, messageId: string): string {
-  return `gmail:${createHash("sha256").update(`${memberId}:${messageId}`).digest("hex")}`;
+function normalizedSourceTitle(title: string): string {
+  return normalizeDigits(title)
+    .toLowerCase()
+    .replace(/^(?:re|fw|fwd)\s*[:：]\s*/i, "")
+    .replace(/20\d{2}[年/.-]\d{1,2}[月/.-]\d{1,2}日?/g, "")
+    .replace(/\d{1,2}月\d{1,2}日/g, "")
+    .replace(/[^\p{L}\p{N}]+/gu, "")
+    .slice(0, 120);
+}
+
+export function gmailObligationSourceKey(input: {
+  senderDomain: string;
+  title: string;
+  category: string;
+  amountYen: number | null;
+  dueDate: string | null;
+  referenceDate: string;
+}): string {
+  const sender = input.category === "card_payment" ? "aggregate-card-statement" : input.senderDomain.toLowerCase() || "unknown";
+  const identity = input.amountYen != null && input.dueDate
+    ? [sender, input.category, input.amountYen, input.dueDate]
+    : [sender, input.category, normalizedSourceTitle(input.title), input.referenceDate.slice(0, 7)];
+  return `gmail-obligation:${createHash("sha256").update(identity.join(":"), "utf8").digest("hex")}`;
 }
 
 export function notificationStage(
