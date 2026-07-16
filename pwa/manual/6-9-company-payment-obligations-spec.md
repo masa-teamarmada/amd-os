@@ -61,3 +61,15 @@ Gmailは法定期限の発生源にはしない。件名と短いsnippetだけ�
 ## 検証
 
 `npm run test:payment-obligations` で、メール抽出、通知段階、予算内/追加流出の二重計上防止を検査する。
+
+## 運営カレンダーとの境界
+
+`/admin/schedule` はこの支払義務台帳を予定入力画面として複製しない。
+
+`company_payment_obligations` の行は `company_schedule_occurrences` へ自動導出されるが、支払期日、金額、担当者、支払済み状態の正本はこの台帳のままである。
+
+支払義務の通知は既存の `company_payment_obligation_notifications` が所有する。
+
+運営カレンダー側の `company_schedule_notifications` は `notification_owner='company_schedule'` の契約・報告・請求等だけを扱い、支払義務を二重送信しない。
+
+カレンダー上で誤りを直すことはできない。元の支払義務または接続元を修正し、`POST /api/admin/schedule/rebuild` を理由つきで実行する。

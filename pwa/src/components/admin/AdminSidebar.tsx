@@ -29,6 +29,7 @@ const ADMIN_TABS = [
   { label: "シーズン予実", href: "/admin/season-pl" },
   { label: "MS一覧", href: "/admin/ms-overview" },
   { label: "Finance", href: "/admin/finance" },
+  { label: "運営カレンダー", href: "/admin/schedule" },
   { label: "📄 知財 / IP", href: "/admin/ip" },
   { label: "Settings", href: "/admin/settings" },
 ];

@@ -58,6 +58,7 @@ function pathToTitle(pathname: string): string | null {
   if (pathname === "/admin/payouts") return "Admin 報酬";
   if (pathname === "/admin/monthly-work-agreements") return "Admin 月初合意";
   if (pathname === "/admin/finance") return "Admin Finance";
+  if (pathname === "/admin/schedule") return "運営カレンダー";
   if (pathname === "/admin/tsukuyomi") return "Admin つくよみ";
   if (pathname === "/admin/contexts") return "Admin Contexts";
   if (pathname === "/admin/settings") return "Admin 設定";

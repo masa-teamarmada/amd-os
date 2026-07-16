@@ -434,3 +434,21 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - **`/api/governance/extract`**: Gmail/Drive/Calendar 等から抽出された総会・取締役会・書面決議候補の受け口。既定は `l2_coverage_gaps` review candidate、`apply=true` のときだけ `project_shareholder_meetings` に canonical insert。`attachments` に `content_base64` / `data_url` があれば、確認済み反映時に `projects.drive_folder_id` 直下の `YYMMDD_会議名` folder へ保存し、Drive link を `attachments_json` に残す。削除禁止理由: LST の取締役書面決議のようなメール由来ガバナンス履歴を資料リンク込みで OS 化するための入口 (まさ依頼 2026-06-16)。
 - **`/admin/projects` の「総会」「役会」checkbox + `/api/cron/governance-email-sweep`**: `projects.governance_watch_shareholder_meetings` / `governance_watch_board_meetings` がONのPJだけ、`report_emails` とのGmailやりとりを総会/役会keywordで狭く検索し、`/api/governance/extract` に candidate / apply を渡す。削除禁止理由: D-14G の検索範囲をPJ台帳から明示的に制御し、全メール横断の誤検知・取りこぼしを減らすため (まさ依頼 2026-06-16)。
 - 既存 `tasks` は H-1 / cockpit 互換の旧データレーン。`action_items` は5生データ抽出 + 採否ループ + personal scope を持つ inbound 義務で、`tasks` table を置換しない。
+
+## /admin/schedule
+
+目的: 契約・支払義務・請求・報告書・確定 action item・会社運営ファクト・公式期限ルールから、年間の締切を自動生成するadmin read model。
+
+必須機能:
+
+- `AdminSidebar` に `運営カレンダー` → `/admin/schedule` を置く。admin layout/auth gateと既存full-width shellを使う。
+- デスクトップは12か月の年間締切レールを主役にし、月別カードを4×3で表示する。モバイルは12列を縮めず、月アコーディオン + リストへ切り替える。
+- カレンダーから予定・日付・金額・担当者を追加、編集、削除しない。元正本の修正後に `/api/admin/schedule/rebuild` で再生成する。
+- detail drawer/sheet は期限精度 (`day` / `month` / `period` / `unknown`)、金額役割 (`outgoing` / `incoming` / `contract_reference` / `informational`)、担当、正本リンク、公式根拠、生成状態を表示する。不明額を0円表示しない。
+- `company_payment_obligations` は `notification_owner='payment_obligation'` として既存通知台帳を所有する。運営カレンダー通知は `company_schedule_notifications` の一意キーでのみ送信する。
+- migration `178_admin_operating_calendar.sql` の5テーブルは、facts/rules/occurrences/notificationsをservice_role writer、actionsを`requireAdmin`済みadmin APIがservice-roleでappend-only insertするwriterに限定する。browserからのauthenticated直書きは不可。middleware/proxyだけを認可根拠にしない。
+
+回帰防止:
+
+- `npm run test:admin-schedule` が法定期限の純粋日付計算、公式URL、amount role、notification owner、手入力禁止のanchorを検査する。
+- 予定追加ボタン、カレンダー上の日付/金額/担当者編集、支払義務の重複通知を戻さない。ルールの変更は公式一次情報、版、確認日、テストを同じ束で更新する。

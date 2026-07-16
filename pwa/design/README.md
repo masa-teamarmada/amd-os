@@ -51,6 +51,7 @@
 | AMD Management Score (会社全体の経営スコア) ⭐ | [management_score.md](management_score.md) |
 | 月次試算表 (project_pl_monthly) | [project_pl_monthly.md](project_pl_monthly.md) — 生データから未来予測抽出方針、優先度低 |
 | Admin Finance Ops | [project_pl_monthly.md](project_pl_monthly.md) / [management_score.md](management_score.md) — サブスク・固定継続費・自動振替・Gmail領収書イベント |
+| AMD運営カレンダー | [../spec/5-9-admin-operating-calendar-current-spec.md](../spec/5-9-admin-operating-calendar-current-spec.md) / [adr/001-admin-operating-calendar-derived-read-model.md](adr/001-admin-operating-calendar-derived-read-model.md) — 税務、労務、契約、報告、請求、支払期限を正本から自動生成するadmin年間カレンダー。migration 178 / `/admin/schedule` 実装 |
 | Cyber Dashboard / HUD | [hud_visual_language.md](hud_visual_language.md) / [cyber_hud_design_code.md](cyber_hud_design_code.md) / [cyber_dashboard_content_design.md](cyber_dashboard_content_design.md) — HUD Client全体の視覚言語、3D HUD dashboard の実装方針、CSS禁止ライン、X/F/M空間配置 |
 | 請求書 URL / Payout 認証 | [invoice_url_payout_auth.md](invoice_url_payout_auth.md) |
 | Supabase migration 履歴 | [supabase_migration.md](supabase_migration.md) |
