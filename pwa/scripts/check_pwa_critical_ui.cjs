@@ -1493,4 +1493,12 @@ expectIncludes("scripts/migrations/174_project_company_overview_and_equity_ledge
   "amd_os_is_member",
 ]);
 
+// 390px本番実測 (2026-07-16): Section headerがtitleをflex-1で潰し、
+// 「資金調達・潜在株式」の2ボタンが同一行を奪ってtitleが1文字縦積みになった不具合の再発防止。
+expectIncludes("src/components/cockpit/CockpitCompanyOverview.tsx", [
+  "data-section-header=\"mobile-stack-sm-row\"",
+  "flex flex-col gap-3 border-b border-slate-200 px-4 py-4 sm:flex-row sm:flex-wrap sm:items-start sm:px-5",
+  "flex w-full flex-wrap gap-2 sm:w-auto sm:shrink-0",
+]);
+
 console.log("critical PWA UI anchors ok");

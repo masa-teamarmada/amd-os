@@ -116,12 +116,12 @@ function sourceHref(attachment: { url?: string; webViewLink?: string; web_view_l
 function Section({ title, description, action, children, className = "" }: { title: string; description?: string; action?: ReactNode; children: ReactNode; className?: string }) {
   return (
     <section className={`overflow-hidden rounded-2xl border border-slate-200 bg-white ${className}`}>
-      <div className="flex flex-wrap items-start gap-3 border-b border-slate-200 px-4 py-4 sm:px-5">
+      <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-4 sm:flex-row sm:flex-wrap sm:items-start sm:px-5" data-section-header="mobile-stack-sm-row">
         <div className="min-w-0 flex-1">
           <h2 className="text-[15px] font-semibold tracking-tight text-slate-950">{title}</h2>
           {description && <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>}
         </div>
-        {action && <div data-html2canvas-ignore="true">{action}</div>}
+        {action && <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:shrink-0" data-html2canvas-ignore="true">{action}</div>}
       </div>
       {children}
     </section>
@@ -490,7 +490,7 @@ export function CockpitCompanyOverview({ projectId, projectName }: { projectId: 
           </Section>
         </div>
 
-        <Section title="資金調達・潜在株式" description="株式ラウンドとJ-KISS・SAFE等は分けて管理。転換前証券は現在持株比率へ混ぜない" action={<div className="flex gap-2"><Button variant="outline" className="h-11" onClick={() => setDialog("round")}><Plus />ラウンド</Button><Button variant="outline" className="h-11" onClick={() => setDialog("convertible")}><Plus />転換前証券</Button></div>}>
+        <Section title="資金調達・潜在株式" description="株式ラウンドとJ-KISS・SAFE等は分けて管理。転換前証券は現在持株比率へ混ぜない" action={<div className="flex flex-wrap gap-2"><Button variant="outline" className="h-11" onClick={() => setDialog("round")}><Plus />ラウンド</Button><Button variant="outline" className="h-11" onClick={() => setDialog("convertible")}><Plus />転換前証券</Button></div>}>
           {data.rounds.length === 0 && data.convertibles.length === 0 ? <EmptyState>調達ラウンドや転換前証券を追加すると、企業価値と希薄化の検討材料をまとめられるよ。</EmptyState> : <div className="grid divide-y divide-slate-100 lg:grid-cols-2 lg:divide-x lg:divide-y-0">
             <div className="p-4 sm:p-5"><div className="mb-3 text-[11px] font-semibold text-slate-500">株式ラウンド</div><div className="space-y-3">{data.rounds.map((round) => <div key={round.id} className="rounded-xl border border-slate-200 p-3"><div className="flex items-start justify-between gap-2"><div><div className="text-sm font-semibold text-slate-900">{round.round_name || "名称未入力"}</div><div className="mt-1 text-[11px] text-slate-500">{formatDate(round.round_date || round.round_ym)}</div></div><div className="text-right"><div className="text-xs font-semibold text-slate-900">{formatYen(round.raised_yen)}</div><div className="mt-1 text-[10px] text-slate-500">調達額</div></div></div><div className="mt-3 grid grid-cols-3 gap-2 text-[10px] text-slate-500"><div>pre<br/><span className="text-xs font-medium text-slate-800">{formatYen(round.pre_money_yen)}</span></div><div>post<br/><span className="text-xs font-medium text-slate-800">{formatYen(round.post_money_yen)}</span></div><div>1株<br/><span className="text-xs font-medium text-slate-800">{formatYen(round.price_per_share_yen)}</span></div></div></div>)}</div></div>
             <div className="p-4 sm:p-5"><div className="mb-3 flex items-center justify-between text-[11px] font-semibold text-slate-500"><span>転換前証券</span><span>転換見込 {formatNumber(conversion.estimatedShares, 2)}株</span></div><div className="space-y-3">{data.convertibles.map((instrument) => <div key={instrument.id} className="rounded-xl border border-amber-200 bg-amber-50/50 p-3"><div className="flex items-start justify-between gap-2"><div><div className="text-sm font-semibold text-slate-900">{instrument.holder_name}</div><div className="mt-1 text-[11px] text-slate-500">{instrument.instrument_type} / {statusLabel(instrument.status)}</div></div><div className="text-right text-xs font-semibold text-slate-900">{formatYen(instrument.principal_yen)}</div></div><div className="mt-3 grid grid-cols-2 gap-2 text-[10px] text-slate-500"><div>評価上限<br/><span className="text-xs font-medium text-slate-800">{formatYen(instrument.valuation_cap_yen)}</span></div><div>転換見込<br/><span className="text-xs font-medium text-slate-800">{formatNumber(instrument.estimated_conversion_shares, 2)}株</span></div></div></div>)}</div></div>
