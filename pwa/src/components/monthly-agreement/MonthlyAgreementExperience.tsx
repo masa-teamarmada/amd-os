@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   CircleDollarSign,
   FileCheck2,
-  ListChecks,
   Loader2,
   RefreshCw,
   Send,
@@ -275,7 +274,7 @@ export function MonthlyAgreementExperience({
   const metricCount =
     4 + (unverifiedPaidYen > 0 ? 1 : 0) + (totalStockYen > 0 ? 1 : 0);
   const summaryCols = metricCount >= 5 ? "lg:grid-cols-3" : "lg:grid-cols-4";
-  const contentWidth = isModal ? "max-w-7xl" : "max-w-5xl";
+  const contentWidth = isModal ? "max-w-[960px]" : "max-w-5xl";
 
   return (
     <div
@@ -294,18 +293,16 @@ export function MonthlyAgreementExperience({
               月初合意
             </p>
             <h1
-              className={`${isModal ? "text-[18px]" : "text-[22px]"} mt-1 font-semibold text-[#1d1d1f]`}
+              className={`${isModal ? "text-[20px]" : "text-[22px]"} mt-1 font-semibold text-[#1d1d1f]`}
             >
               {formatYm(bundle.ym)}の担当内容と予定額
             </h1>
-            <p
-              className={`${isModal ? "text-[12px]" : "text-[13px]"} mt-1 text-[#6e6e73]`}
-            >
+            <p className="mt-1 text-[13px] text-[#6e6e73]">
               {bundle.member.codeName}
             </p>
           </div>
           {isModal ? (
-            <p className="max-w-sm text-[11px] leading-relaxed text-[#6e6e73]">
+            <p className="max-w-sm text-[13px] leading-[20px] text-[#6e6e73]">
               確認して合意すると、この画面は自動で閉じます。
             </p>
           ) : (
@@ -324,25 +321,19 @@ export function MonthlyAgreementExperience({
       >
         <section
           data-testid="monthly-agreement-status"
-          className={`w-full rounded-lg border ${isModal ? "p-2.5" : "p-4"} ${statusClass(bundle.status)}`}
+          className={`w-full rounded-lg border p-4 ${statusClass(bundle.status)}`}
         >
-          <div
-            className={`flex min-w-0 items-start ${isModal ? "gap-2" : "gap-2.5"}`}
-          >
+          <div className="flex min-w-0 items-start gap-2.5">
             {bundle.status === "agreed" ? (
               <CheckCircle2 className="mt-0.5 size-4" />
             ) : (
               <FileCheck2 className="mt-0.5 size-4" />
             )}
             <div className="min-w-0">
-              <p
-                className={`${isModal ? "text-[13px]" : "text-sm"} font-semibold`}
-              >
+              <p className="text-[14px] font-semibold">
                 合意状態：{statusLabel(bundle.status)}
               </p>
-              <p
-                className={`${isModal ? "mt-0.5 text-[11px]" : "mt-1 text-xs"} leading-relaxed`}
-              >
+              <p className="mt-1 text-[13px] leading-[20px]">
                 {agreementStatusMessage(bundle)}
               </p>
             </div>
@@ -362,17 +353,13 @@ export function MonthlyAgreementExperience({
           totalExpectedRewardYen={bundle.snapshot.totals.expectedRewardYen}
         />
 
-        <section
-          className={`w-full rounded-lg border border-[#e5e5e7] bg-white ${isModal ? "p-2.5" : "p-4"}`}
-        >
+        <section className="w-full rounded-lg border border-[#e5e5e7] bg-white p-4">
           {bundle.status !== "agreed" && bundle.status !== "not_required" && (
-            <p
-              className={`${isModal ? "text-[11px]" : "text-xs"} mb-2 leading-relaxed text-[#3c3c43]`}
-            >
-              担当内容と予定額を確認したうえで合意してください。未合意または条件更新ありの場合は、合意が完了するまでこの月の支払いには進めません。
+            <p className="mb-3 text-[13px] leading-[20px] text-[#3c3c43]">
+              上の「担当する仕事」と「その対価としての予定額」を確認したうえで合意してください。未合意または条件更新ありの場合は、合意が完了するまでこの月の支払いには進めません。
             </p>
           )}
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-2">
             <button
               type="button"
               data-testid="monthly-agreement-agree-button"
@@ -383,7 +370,7 @@ export function MonthlyAgreementExperience({
                 !bundle.tableReady ||
                 !bundle.canAgree
               }
-              className={`${isModal ? "h-8 px-3 text-xs" : "px-3 py-2 text-sm"} inline-flex items-center justify-center gap-2 rounded-md bg-[#1d1d1f] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50`}
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-md bg-[#007aff] px-4 text-[15px] font-semibold text-white transition-colors hover:bg-[#006edb] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007aff] disabled:cursor-not-allowed disabled:opacity-50 sm:h-10 sm:w-auto sm:px-4 sm:text-[14px]"
               title={
                 !bundle.canAgree
                   ? bundle.exclusionReason || "本人だけが合意できます"
@@ -411,7 +398,7 @@ export function MonthlyAgreementExperience({
                 setRevisionOpen((open) => !open);
               }}
               disabled={!bundle.canAgree}
-              className={`${isModal ? "h-8 px-2.5 text-[11px]" : "h-9 px-2.5 text-xs"} inline-flex items-center justify-center gap-1 rounded-md border border-[#d1d1d6] bg-transparent font-semibold text-[#3c3c43] opacity-75 transition-opacity hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-40`}
+              className="inline-flex h-11 w-full items-center justify-center gap-1 rounded-md border border-[#d1d1d6] bg-transparent px-3 text-[13px] font-semibold text-[#3c3c43] opacity-80 transition-opacity hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007aff] disabled:cursor-not-allowed disabled:opacity-40 sm:h-10 sm:w-auto sm:px-3 sm:text-[12px]"
               title={
                 !bundle.canAgree
                   ? bundle.exclusionReason || "本人だけが修正要望を送れます"
@@ -419,7 +406,7 @@ export function MonthlyAgreementExperience({
               }
             >
               <Send className="size-3" />
-              修正要望
+              内容が違う場合は修正要望
             </button>
           </div>
           {revisionOpen && (
@@ -764,104 +751,157 @@ function RequiredChecksSection({
   return (
     <section
       data-testid="monthly-agreement-required-checks"
-      className={`w-full max-w-full rounded-lg border border-[#e5e5e7] bg-white ${compact ? "p-2.5" : "p-4"}`}
+      className="flex w-full max-w-full flex-col gap-4"
     >
-      <h2
-        className={`${compact ? "text-[13px]" : "text-[15px]"} font-semibold text-[#1d1d1f]`}
-      >
-        確認して合意する2点 <Hint id="monthly-agreement.flow" />
-      </h2>
-      <p
-        className={`${compact ? "mt-0.5 text-[11px]" : "mt-1 text-[12px]"} text-[#6e6e73]`}
-      >
-        「1. PJごとの担当内容」と「2.
-        その対価としての予定額」を確認し、問題がなければ合意してください。
-      </p>
-
-      <div
-        className={`hidden ${compact ? "mt-2" : "mt-3"} border-t border-[#e5e5e7] pt-1.5 sm:grid sm:grid-cols-[minmax(0,1fr)_minmax(0,220px)] sm:gap-x-4`}
-      >
-        <span className="flex items-center gap-1.5 text-[10px] font-semibold text-[#6e6e73]">
-          <FileCheck2 className="size-3.5" />
-          1. PJごとの担当内容
-        </span>
-        <span className="flex items-center gap-1.5 text-[10px] font-semibold text-[#6e6e73] sm:justify-end">
-          <ListChecks className="size-3.5" />
-          2. その対価としての予定額
-        </span>
+      <div className="px-1">
+        <h2 className="text-[18px] font-semibold text-[#1d1d1f] sm:text-[20px]">
+          確認して合意する内容{" "}
+          <span className="inline-flex align-middle [&_button]:h-5 [&_button]:w-5 [&_button]:text-[12px]">
+            <Hint id="monthly-agreement.flow" />
+          </span>
+        </h2>
+        <p className="mt-1 text-[13px] text-[#6e6e73]">
+          このページでは、まず担当する仕事を確認し、次にその対価としての予定額を確認します。問題がなければ合意してください。
+        </p>
       </div>
 
+      <ScopeSection compact={compact} projects={projects} />
+      <RewardSection
+        compact={compact}
+        projects={projects}
+        totalExpectedRewardYen={totalExpectedRewardYen}
+      />
+    </section>
+  );
+}
+
+function SectionNumberBadge({ number }: { number: "01" | "02" }) {
+  const testId =
+    number === "01"
+      ? "monthly-agreement-section-number-01"
+      : "monthly-agreement-section-number-02";
+  return (
+    <span
+      data-testid={testId}
+      className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-[#007aff] text-[14px] font-bold text-white"
+    >
+      {number}
+    </span>
+  );
+}
+
+function ScopeSection({
+  compact,
+  projects,
+}: {
+  compact: boolean;
+  projects: MonthlyWorkAgreementProject[];
+}) {
+  return (
+    <section
+      data-testid="monthly-agreement-scope-section"
+      className={`w-full max-w-full rounded-lg border border-[#e5e5e7] bg-white ${compact ? "p-4" : "p-4 sm:p-6"}`}
+    >
+      <div className="flex items-center gap-2">
+        <SectionNumberBadge number="01" />
+        <h3 className="text-[18px] font-semibold text-[#1d1d1f] sm:text-[20px]">
+          担当する仕事
+        </h3>
+      </div>
+      <p className="mt-2 text-[13px] leading-relaxed text-[#6e6e73]">
+        今月あなたが担当するプロジェクトと、その中の具体的な仕事内容です。
+      </p>
+
       {projects.length === 0 ? (
-        <p
-          className={`${compact ? "mt-1.5" : "mt-2"} text-[11px] text-[#6e6e73]`}
-        >
-          対象PJはありません
-        </p>
+        <p className="mt-3 text-[13px] text-[#6e6e73]">対象PJはありません</p>
       ) : (
-        <div className="max-w-full divide-y divide-[#e5e5e7] border-t border-[#e5e5e7] sm:border-t-0">
+        <div className="mt-3 max-w-full divide-y divide-[#e5e5e7] border-t border-[#e5e5e7]">
           {projects.map((project) => (
             <div
               key={project.projectId}
-              className={`grid min-w-0 max-w-full gap-2 ${compact ? "py-2" : "py-2.5"} sm:grid-cols-[minmax(0,1fr)_minmax(0,220px)] sm:items-start sm:gap-x-4`}
+              data-testid="monthly-agreement-check-scope"
+              className="min-w-0 max-w-full py-3"
             >
-              <div
-                data-testid="monthly-agreement-check-scope"
-                className="min-w-0"
-              >
-                <p className="text-[10px] font-semibold text-[#6e6e73] sm:hidden">
-                  1. PJごとの担当内容
+              <p className="text-[14px] font-semibold text-[#1d1d1f]">
+                {project.projectName}
+              </p>
+              {project.milestones.length === 0 ? (
+                <p className="mt-1 text-[13px] text-amber-700">
+                  担当内容が未登録です
                 </p>
-                <p className="mt-0.5 text-[11px] font-semibold text-[#1d1d1f] sm:mt-0">
-                  {project.projectName}
-                </p>
-                {project.milestones.length === 0 ? (
-                  <p className="mt-0.5 text-[10px] text-amber-700">
-                    担当内容が未登録です
-                  </p>
-                ) : (
-                  <ul className="mt-1 space-y-0.5 text-[10px] leading-relaxed text-[#3c3c43]">
-                    {project.milestones.map((milestone) => (
-                      <li
-                        key={milestone.milestoneId}
-                        className="flex min-w-0 items-start gap-1"
-                      >
-                        <span aria-hidden="true" className="text-[#86868b]">
-                          ・
-                        </span>
-                        <span className="min-w-0 break-words">
-                          {milestone.taskDescription || milestone.title}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-              <div
-                data-testid="monthly-agreement-check-reward"
-                className="min-w-0 sm:text-right"
-              >
-                <p className="text-[10px] font-semibold text-[#6e6e73] sm:hidden">
-                  2. その対価としての予定額
-                </p>
-                <p className="mt-0.5 text-[14px] font-semibold tabular-nums text-[#1d1d1f] sm:mt-0">
-                  {formatYen(project.expectedRewardYen)}
-                </p>
-              </div>
+              ) : (
+                <ul className="mt-1.5 space-y-1">
+                  {project.milestones.map((milestone) => (
+                    <li
+                      key={milestone.milestoneId}
+                      className="flex min-w-0 items-start gap-1.5 text-[14px] leading-[22px] text-[#3c3c43]"
+                    >
+                      <span aria-hidden="true" className="text-[#86868b]">
+                        ・
+                      </span>
+                      <span className="min-w-0 break-words">
+                        {milestone.taskDescription || milestone.title}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           ))}
         </div>
       )}
+    </section>
+  );
+}
 
-      <div
-        className={`${compact ? "mt-2" : "mt-3"} flex items-center justify-between rounded-md border border-[#dbeafe] bg-sky-50 px-3 py-2`}
-      >
-        <span className="text-[11px] font-semibold text-sky-800">
-          予定額合計
-        </span>
-        <span className="text-[15px] font-semibold tabular-nums text-sky-950">
-          {formatYen(totalExpectedRewardYen)}
-        </span>
+function RewardSection({
+  compact,
+  projects,
+  totalExpectedRewardYen,
+}: {
+  compact: boolean;
+  projects: MonthlyWorkAgreementProject[];
+  totalExpectedRewardYen: number | null | undefined;
+}) {
+  return (
+    <section
+      data-testid="monthly-agreement-reward-section"
+      className={`w-full max-w-full rounded-lg border border-[#e5e5e7] bg-white ${compact ? "p-4" : "p-4 sm:p-6"}`}
+    >
+      <div className="flex items-center gap-2">
+        <SectionNumberBadge number="02" />
+        <h3 className="text-[18px] font-semibold text-[#1d1d1f] sm:text-[20px]">
+          その対価としての予定額
+        </h3>
       </div>
+
+      <div className="mt-3 rounded-lg border border-[#dbeafe] bg-sky-50 px-4 py-3">
+        <p className="text-[13px] font-semibold text-sky-800">予定額合計</p>
+        <p className="mt-1 text-[26px] font-bold tabular-nums text-sky-950 sm:text-[28px]">
+          {formatYen(totalExpectedRewardYen)}
+        </p>
+      </div>
+
+      {projects.length === 0 ? (
+        <p className="mt-3 text-[13px] text-[#6e6e73]">対象PJはありません</p>
+      ) : (
+        <div className="mt-3 max-w-full divide-y divide-[#e5e5e7] border-t border-[#e5e5e7]">
+          {projects.map((project) => (
+            <div
+              key={project.projectId}
+              data-testid="monthly-agreement-check-reward"
+              className="grid min-w-0 max-w-full grid-cols-[minmax(0,1fr)_auto] items-start gap-3 py-3"
+            >
+              <p className="min-w-0 break-words text-[14px] font-semibold leading-[22px] text-[#1d1d1f]">
+                {project.projectName}
+              </p>
+              <p className="shrink-0 text-[16px] font-semibold tabular-nums text-[#1d1d1f]">
+                {formatYen(project.expectedRewardYen)}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
