@@ -5,6 +5,16 @@
 
 ---
 
+### [cockpit/company-overview] 資本政策の次回ラウンド試算が単発・未保存で cap table 本体と切り離れていた (2026-07-17)
+
+- **状態**: クローズ (2026-07-17 — `CapitalPlanWorkspace` / migration `179_project_capital_plans.sql` で置き換え)。
+- **症状**: 会社概要タブの `NextRoundSimulator`（次回ラウンド試算列）は入力しても保存されず、タブを閉じる・再読込すると内容が消えた。試算結果は cap table 履歴マトリクスとは別枠の一時計算にとどまり、Excel・現在値にも反映されなかった。設立からIPOまでの複数ラウンドを積み上げて保存する手段が無く、1回分の試算しかできなかった。また試算のベース入力に「保護株主」という、特定株主の目標比率維持を前提にした概念が固定で組み込まれていた。
+- **原因**: 「次回ラウンドの意思決定材料を1つの統合グリッドに揃える」目的で設計したが、保存先を持たない都度計算のUIとして作ってしまい、複数シナリオを比較・保存したい実運用の要求（1シナリオだけでなく複数の名前付き案を残したい、過去の確定版を後から見返したい）に応えられなかった。「保護株主」という決め打ち概念も、実際には株主ごとに目標比率が個別に変わる運用と合わず、汎用性を欠いていた。
+- **対応内容**: `CapitalPlanWorkspace`（`src/lib/capital-plan.ts` / `project_capital_plans` / `project_capital_plan_versions`）に置き換えた。名前付きシナリオを複数保存でき、編集は800msデバウンスで自動保存、`revision`列の楽観ロックで同時編集競合を検知する。設立から `equity_issue` / `option_pool` / `convertible_issue` / `convertible_conversion` / `secondary` / `share_split` / `ipo` までの複数ラウンドを1本のイベント列で連結・保存できる。イベント/割当のすべての数値は `input` / `calculated` / `imported` / `confirmed` / `override` の由来タグ付きで編集可能にし、「保護株主」概念は廃止（目標比率は割当ごとの `targetOwnershipPercentage` を個別編集するのみ）。`validateCapitalPlan` のエラーが残る間は freeze（確定）ボタンを無効化し、確定内容は `project_capital_plan_versions` に改変不可の append-only 版として残る。VC向けExcel出力 (`createCapitalPlanXlsx`) は確定版からのみ生成できるようにした。
+- **再発防止**: 「試算・シミュレーション」系UIを作るときは、保存先（名前付きシナリオ or 確定版）を最初から設計に含める。都度計算だけで完結させ、あとから保存機能を足す想定で作らない。特定の立場（株主・メンバー等）を自動的に優遇・保護する概念を導入するときは、汎用的な個別設定（目標値の直接編集）で代替できないか先に検討する。詳細仕様は `pwa/spec/3-8-cockpit-current-spec.md` / `pwa/design/FEATURE_REGISTRY.md` / `pwa/manual/2-3-pj-cockpit.md`、変更履歴は `pwa/spec/6-1-appendix-changelog.md` (2026-07-17) を参照。
+
+---
+
 ### [finance/reward] 旧制度の合意済み支払を新ポイント制の差額控除に使った (2026-07-16)
 
 - **状態**: クローズ (2026-07-16 — `v3.43.20`、migration 165 で旧制度月由来の差額行を voided)。

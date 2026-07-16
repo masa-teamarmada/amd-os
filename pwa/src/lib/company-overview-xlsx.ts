@@ -3,15 +3,9 @@ import {
   HOLDER_LABELS,
   TRANSACTION_LABELS,
   buildCapTableSnapshots,
-  computeNextRoundScenario,
   convertibleScenario,
   latestCapTable,
-  minimumPreMoneyForTarget,
-  nextRoundSensitivity,
-  type CapTableSnapshot,
   type CompanyOverviewData,
-  type NextRoundInputs,
-  type ValuationRound,
 } from "@/lib/company-overview";
 
 type CellValue = string | number | null | undefined;
@@ -268,140 +262,6 @@ function capTableHistorySheet(projectName: string, data: CompanyOverviewData): S
   };
 }
 
-function pickNewestRoundValue(rounds: ValuationRound[], field: "pre_money_yen" | "raised_yen"): number | null {
-  const withValue = rounds.filter((round) => round[field] != null);
-  if (withValue.length === 0) return null;
-  const sorted = [...withValue].sort((a, b) => {
-    const aKey = a.round_date || a.round_ym || "";
-    const bKey = b.round_date || b.round_ym || "";
-    return bKey.localeCompare(aKey);
-  });
-  return sorted[0][field] as number;
-}
-
-function pickProtectedHolder(base: CapTableSnapshot): { holderName: string; dilutedShares: number; dilutedPct: number } | null {
-  const aggregated = new Map<string, { holderName: string; isFounder: boolean; dilutedShares: number }>();
-  for (const row of base.rows) {
-    const current = aggregated.get(row.holderName);
-    if (current) {
-      current.dilutedShares += row.dilutedShares;
-      current.isFounder = current.isFounder || row.holderType === "founder";
-    } else {
-      aggregated.set(row.holderName, { holderName: row.holderName, isFounder: row.holderType === "founder", dilutedShares: row.dilutedShares });
-    }
-  }
-  const holders = [...aggregated.values()];
-  if (holders.length === 0) return null;
-  const founders = holders.filter((holder) => holder.isFounder);
-  const pool = founders.length > 0 ? founders : holders;
-  const picked = pool.reduce((max, holder) => (holder.dilutedShares > max.dilutedShares ? holder : max), pool[0]);
-  return {
-    holderName: picked.holderName,
-    dilutedShares: picked.dilutedShares,
-    dilutedPct: base.dilutedShares > 0 ? (picked.dilutedShares / base.dilutedShares) * 100 : 0,
-  };
-}
-
-/**
- * 次回ラウンド試算シート。何も保存しない仮シミュレーションで、valuation ロジックは
- * computeNextRoundScenario / minimumPreMoneyForTarget / nextRoundSensitivity をそのまま使い、
- * このファイルでは計算式を重複実装しない。
- */
-function nextRoundScenarioSheet(projectName: string, data: CompanyOverviewData): Sheet {
-  const columns = 7;
-  const widths = [34, 22, 20, 20, 20, 20, 14];
-  const rows: Cell[][] = [
-    titleRow(`${projectName}｜次回ラウンド試算（未保存の仮シミュレーション）`, columns),
-    [c("⚠️ このシートは未保存の仮シミュレーションです。法的な現行cap tableではありません。実際のラウンドが確定したら「株式イベント台帳」「ラウンド別cap table」に正式記録してください。", 2), ...Array.from({ length: columns - 1 }, () => c("", 2))],
-  ];
-
-  const base = latestCapTable(data);
-  if (!base || base.rows.length === 0) {
-    rows.push([c("試算対象の cap table がありません（confirmed な株式イベントが未登録）")]);
-    return { name: "次回ラウンド試算", rows, widths, freezeRow: 2 };
-  }
-
-  const protectedHolder = pickProtectedHolder(base);
-  const protectHolderName = protectedHolder?.holderName ?? null;
-  const defaultPreMoney = pickNewestRoundValue(data.rounds, "pre_money_yen") ?? Math.max(500_000_000, base.paidInYen * 10);
-  const defaultRaise = pickNewestRoundValue(data.rounds, "raised_yen") ?? 100_000_000;
-  const currentFdPct = protectedHolder?.dilutedPct ?? null;
-  const targetMinPct = currentFdPct == null ? null : Math.min(99, Math.max(1, currentFdPct - 5));
-
-  const input: NextRoundInputs = {
-    preMoneyYen: defaultPreMoney,
-    raiseYen: defaultRaise,
-    targetPoolRate: 0,
-    includeConvertibles: true,
-    protectHolderName,
-  };
-
-  const result = computeNextRoundScenario(base, data.convertibles, input);
-  const minResult = protectHolderName && targetMinPct != null
-    ? minimumPreMoneyForTarget(base, data.convertibles, input, targetMinPct)
-    : { valid: false as const, error: "保護対象株主が未設定のため計算できないよ" };
-  const sensitivity = nextRoundSensitivity(base, data.convertibles, input);
-
-  rows.push([c("前提条件", 2), ...Array.from({ length: columns - 1 }, () => c("", 2))]);
-  rows.push([c("起点スナップショット"), c(`${base.effectiveOn} / ${base.label}`)]);
-  rows.push([c("pre-money（前提）"), c(input.preMoneyYen, 4)]);
-  rows.push([c("調達額（前提）"), c(input.raiseYen, 4)]);
-  rows.push([c("追加SOプール目標比率"), c(input.targetPoolRate, 5)]);
-  rows.push([c("転換前証券を含める"), c(input.includeConvertibles ? "含める" : "含めない")]);
-  rows.push([c("保護対象株主"), c(protectHolderName || "（該当なし）")]);
-  rows.push([c("保護対象株主の目標維持比率（現在比 -5pt）"), c(targetMinPct == null ? null : targetMinPct / 100, 5)]);
-
-  rows.push([c("試算結果サマリー", 2), ...Array.from({ length: columns - 1 }, () => c("", 2))]);
-  rows.push([c("保護対象株主の現在の完全希薄化後比率"), c(currentFdPct == null ? null : currentFdPct / 100, 5)]);
-  if (result.valid) {
-    const afterPct = protectHolderName ? result.rows.find((row) => row.holderName === protectHolderName)?.afterPct ?? null : null;
-    rows.push([c("保護対象株主の試算後比率"), c(afterPct == null ? null : afterPct / 100, 5)]);
-  } else {
-    rows.push([c("試算結果"), c(result.error)]);
-  }
-  rows.push([c("目標維持に必要な最低pre-money"), c(minResult.valid ? minResult.preMoneyYen : null, 4), c(minResult.valid ? "" : minResult.error)]);
-
-  rows.push([c("発行条件", 2), ...Array.from({ length: columns - 1 }, () => c("", 2))]);
-  if (result.valid) {
-    rows.push([c("発行価格"), c(Math.round(result.issuePriceYen * 100) / 100, 4)]);
-    rows.push([c("新規投資家株式数"), c(result.newInvestorShares, 3)]);
-    rows.push([c("追加SOプール株式数"), c(result.additionalPoolShares, 3)]);
-    rows.push([c("調達後 完全希薄化後株式数"), c(result.postFdShares, 3)]);
-    rows.push([c("post-money"), c(result.postMoneyYen, 4)]);
-  } else {
-    rows.push([c("試算不可"), c(result.error)]);
-  }
-
-  rows.push([c("株主", 2), c("区分", 2), c("before株式", 2), c("before比率", 2), c("after株式", 2), c("after比率", 2), c("保護対象", 2)]);
-  if (result.valid) {
-    for (const row of result.rows) {
-      rows.push([
-        c(row.holderName), c(HOLDER_LABELS[row.holderType] || row.holderType),
-        c(row.beforeShares, 3), c(row.beforePct / 100, 5),
-        c(row.afterShares, 3), c(row.afterPct / 100, 5),
-        c(row.isProtected ? "★" : ""),
-      ]);
-    }
-  }
-
-  rows.push([c("pre-money 感度分析（0.5x〜1.5x）", 2), ...Array.from({ length: columns - 1 }, () => c("", 2))]);
-  rows.push([c("倍率", 2), c("pre-money", 2), c("発行価格", 2), c("保護対象後比率", 2), c("post-FD株式数", 2)]);
-  for (const point of sensitivity) {
-    if (point.result.valid) {
-      rows.push([
-        c(`${point.multiplier}x`), c(point.preMoneyYen, 4),
-        c(Math.round(point.result.issuePriceYen * 100) / 100, 4),
-        c(point.watchedPct == null ? null : point.watchedPct / 100, 5),
-        c(point.result.postFdShares, 3),
-      ]);
-    } else {
-      rows.push([c(`${point.multiplier}x`), c(point.preMoneyYen, 4), c(point.result.error)]);
-    }
-  }
-
-  return { name: "次回ラウンド試算", rows, widths, freezeRow: 2 };
-}
-
 function financingSheet(projectName: string, data: CompanyOverviewData): Sheet {
   const scenario = convertibleScenario(data);
   const rows: Cell[][] = [
@@ -451,7 +311,6 @@ export function createCompanyOverviewXlsx(projectName: string, data: CompanyOver
     capTableHistorySheet(projectName, data),
     financingSheet(projectName, data),
     financialSheet(projectName, data),
-    nextRoundScenarioSheet(projectName, data),
   ];
   const now = new Date().toISOString();
   const workbookSheets = sheets.map((sheet, index) => `<sheet name="${xml(sheet.name)}" sheetId="${index + 1}" r:id="rId${index + 1}"/>`).join("");
