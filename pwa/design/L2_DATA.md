@@ -28,7 +28,7 @@ Claude routine を止めた理由は **daily run cap** (= 1 日に開始でき�
 | **D-12** | PWA non-LLM cron / freee sync / admin review | daily、Claude routine化しない | Finance Ops Evidence / freee Transaction Actuals |
 | **M-1〜M-3** | Claude routine `amd-os-l2-monthend-evidence` | 月末候補日 16:00 発火 (`0 16 28-31 * *`)、Phase 0 で最終日判定、17:00 完了 | M-1 M-2 M-3 |
 | **W-1** | Claude routine `amd-os-l2-weekly-vc-funding-signals` | weekly Saturday 09:00 JST (`0 9 * * 6`)、週 +1 | W-1 |
-| **H-1** | MMOマシン Windows Task Scheduler `amd-os-l6-meeting-flow-launcher` → `codex exec` Live launcher | 毎時 09:00-21:00 JST、Claude routine 化しない | H-1 |
+| **H-1** | MMOマシン Windows Task Scheduler `amd-os-l6-meeting-flow-launcher` → `codex exec` Live launcher | 毎時 09:00-21:00 JST、Claude routine 化しない。Codex表示はJST日付ごとの `H-1 YYYY-MM-DD 日次まとめ` スレッドへ集約し、毎時runスレッドは追記後にアーカイブする | H-1 |
 
 新旧対応: D-1=D-1 / D-2=D-2 / D-3=D-3 / D-4=D-4 / D-5=D-5 / D-6=D-6 / D-7=D-7 / D-8=D-8 / D-9=D-9 / D-10=D-10 / M-1=M-1 / M-2=M-2 / M-3=M-3 / W-1=W-1 / H-1=H-1。
 
@@ -322,7 +322,7 @@ JST タイムライン (毎日 / 週次 / 月次 / 不定):
 | ~~毎時~~ ⛔ | ~~`nav_project_knowledge_pollAll`~~ | ~~PJナレッジ抽出 (D-3)~~ → ⛔ **2026-05-22 停止** | 本体GAS 155 (kill switch) |
 | ~~毎時~~ ⛔ | ~~`nav_protocol_pollAll`~~ | ~~AMDプロトコル抽出 (D-1)~~ → ⛔ **2026-05-22 停止** | 本体GAS 155 (kill switch) |
 | **05:30 daily** | `AMD OS M-1 月次報告抽出` (= Codex automation、repo正本 `pwa/scheduled-tasks/amd-os-l1-monthly-report-extract/SKILL.md`) | **M-1 monthly_reports**。5 生データから active / sales PJ の当月・前月 monthly draft を作り、`amd-os-ms/outbox.monthlyReports` 経由で非LLM applier が Supabase に反映。R313 / PWA heavy route は定期実行しない | Codex automation + LaunchAgent |
-| **毎日 09:00-21:00 毎時** | `amd-os-l6-meeting-flow` (= Windows MMO Codex Desktop automation、repo正本 `pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md`) | **H-1 MTG サマリ + MTGフロー**。過去60-180分終了eventsの議事録抽出、現在時刻の前後24時間にある確定Calendar予定カード同期、Phase P準備、Drive関連資料 metadata 反映、次MTGカード / Slack nudge / TODO→cockpit / Calendar作業枠 / 資料即生成 / Gmail draft。未来60日の全量予定同期はM系メンテが担当 | Windows MMO PC Codex Desktop + PWA `calendar-sync` / `meeting-prep` |
+| **毎日 09:00-21:00 毎時** | `amd-os-l6-meeting-flow` (= Windows MMO Codex Desktop automation、repo正本 `pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md`) | **H-1 MTG サマリ + MTGフロー**。過去60-180分終了eventsの議事録抽出、現在時刻の前後24時間にある確定Calendar予定カード同期、Phase P準備、Drive関連資料 metadata 反映、次MTGカード / Slack nudge / TODO→cockpit / Calendar作業枠 / 資料即生成 / Gmail draft。未来60日の全量予定同期はM系メンテが担当。Codexの見える報告は1日1本の日次まとめスレッドへ追記し、毎時runスレッドは残さない | Windows MMO PC Codex Desktop + PWA `calendar-sync` / `meeting-prep` |
 | **M系メンテ** | `AMD OS M-1 月次報告抽出` (= `amd-os-l2`) | **未来60日予定カード同期**。今日0:00 JSTから60日先の確定Calendar予定を `calendar-sync` に渡し、recurring は series ごとに次回1件だけ残す。毎時H-1では実行しない | Codex automation + PWA `calendar-sync` |
 | **08:00 daily** | `amd-os-l2-protocol-extract` (= MMOマシン Codex Desktop automation) | **D-1 AMD プロトコル抽出** (= GAS 155 後継) | Windows MMO PC Codex Desktop + `pwa/scheduled-tasks/amd-os-l2-protocol-extract/SKILL.md` |
 | **08:15 daily** | `amd-os-l4-project-knowledge-extract` (= MMOマシン Codex Desktop automation) | **D-3 PJ ナレッジ抽出** (= GAS 155 後継) | Windows MMO PC Codex Desktop + `pwa/scheduled-tasks/amd-os-l4-project-knowledge-extract/SKILL.md` |
