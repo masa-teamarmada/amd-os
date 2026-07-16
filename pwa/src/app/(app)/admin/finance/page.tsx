@@ -5,6 +5,8 @@ import {
   type FinanceReceiptEvent,
   type FinanceRecurringItem,
 } from "@/components/admin/AdminFinanceClient";
+import { PaymentObligationsPanel } from "@/components/admin/PaymentObligationsPanel";
+import type { CompanyPaymentObligation } from "@/lib/finance/payment-obligations";
 import {
   candidateSourceYmsForPaymentYm,
   currentYmJst,
@@ -52,7 +54,7 @@ function yenValue(value: unknown): number {
 export default async function AdminFinancePage() {
   const supabase = await createClient();
   const paymentYm = currentYmJst();
-  const [{ data: recurringItems, error: itemError }, { data: receiptEvents, error: receiptError }, officerReserve] = await Promise.all([
+  const [{ data: recurringItems, error: itemError }, { data: receiptEvents, error: receiptError }, { data: obligations, error: obligationsError }, officerReserve] = await Promise.all([
     supabase
       .from("company_finance_recurring_items")
       .select("*")
@@ -63,23 +65,33 @@ export default async function AdminFinancePage() {
       .select("*")
       .order("created_at", { ascending: false })
       .limit(30),
+    supabase
+      .from("company_payment_obligations")
+      .select("*")
+      .order("status", { ascending: true })
+      .order("expected_payment_ym", { ascending: true, nullsFirst: false })
+      .order("due_date", { ascending: true, nullsFirst: false })
+      .limit(2000),
     loadOfficerReserve(supabase, paymentYm),
   ]);
 
   if (itemError) console.error("AdminFinancePage items:", itemError.message);
   if (receiptError) console.error("AdminFinancePage receipts:", receiptError.message);
+  if (obligationsError) console.error("AdminFinancePage obligations:", obligationsError.message);
 
   const items = (recurringItems ?? []) as FinanceRecurringItem[];
   const receipts = (receiptEvents ?? []) as FinanceReceiptEvent[];
+  const paymentObligations = (obligations ?? []) as CompanyPaymentObligation[];
 
   return (
-    <div>
+    <div className="space-y-5">
       <div className="mb-4 flex items-baseline gap-3">
         <h1 className="text-lg font-semibold">Finance Ops</h1>
         <span className="text-sm text-muted-foreground">
           recurring {items.length} / receipts {receipts.length}
         </span>
       </div>
+      <PaymentObligationsPanel initialObligations={paymentObligations} />
       <AdminFinanceClient recurringItems={items} receiptEvents={receipts} officerReserve={officerReserve} />
     </div>
   );

@@ -184,6 +184,21 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - `pwa/scripts/check_pwa_critical_ui.cjs` が状態接頭辞、4状態、確認する2点、各PJ内の担当内容と予定額、主操作より前に確認領域があること、参考情報の折りたたみ、修正要望の開閉を検査する。
 - `320 / 375 / 768 / 1280px` で document の横overflow、状態欄の圧縮、別PJをまたいだ確認項目の並び替わりを認めない。
 
+## /admin/finance
+
+目的: 法人の支払義務を出金前から一元管理し、きよへのSlack通知と月次資金繰りを同じ正本から動かす。
+
+必須機能:
+
+- 支払義務台帳: `company_payment_obligations` を正本に、金額・期日未確認の候補も `needs_review` で保持する。
+- 自動収集: 継続支払い、承認済み経費、報酬通知、finance/tax系 action item、active admin + info Gmail を日次同期する。
+- 二重計上防止: 各義務に `additive` / `included_in_budget` を持たせ、追加流出だけ月次CFとcashを減らす。
+- きよ通知: `members.code_name='きよ'` を動的に解決し、期限前・当日・期限超過・要確認をDMする。通知履歴の一意制約で同じ段階をexact-onceにする。
+- 管理操作: `/admin/finance#payment-obligations` で作成・修正・支払済み更新ができる。継続支払い・領収イベントの既存機能は維持する。
+- 月次表示: `/management-score` の月次試算表に展開可能な `支払義務` 行を置き、支払内容、期日、金額状態、予算内/追加流出を表示する。
+
+正本仕様: [`pwa/manual/6-9-company-payment-obligations-spec.md`](../manual/6-9-company-payment-obligations-spec.md)
+
 ## /admin/payouts
 
 目的: 支払月単位で、対象cycleの報酬確認、PJ別収支確認、支払データ同期状態、支払通知書発行、入金確認nudgeを一画面で運用する。

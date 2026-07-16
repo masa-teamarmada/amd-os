@@ -12,6 +12,7 @@
     "test:task-calendar-schedule-plan": "node --experimental-strip-types scripts/check_task_calendar_schedule_plan.mts --fixture scripts/__fixtures__/task_calendar_schedule_plan.json",
     "test:task-calendar-register": "node --experimental-strip-types scripts/check_task_calendar_register.mts",
     "test:contracts-ledger": "node --experimental-strip-types scripts/check_contracts_ledger_grouping.mts",
+    "test:payment-obligations": "node --experimental-strip-types scripts/check_payment_obligations.mts",
     "test:prs-mprs-grouping": "node --experimental-strip-types scripts/check_prs_mprs_grouping.mts",
     "test:company-overview-cap-table": "node --experimental-strip-types scripts/check_company_overview_cap_table.mts",
     "test:proactive-meeting-due": "node --experimental-strip-types scripts/check_proactive_meeting_action_due.mts",

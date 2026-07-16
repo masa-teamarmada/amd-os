@@ -6,6 +6,7 @@ export type BudgetInputKind =
   | "var_cost"
   | "loan"
   | "spot"
+  | "payment_obligation"
   | "scenario";
 
 export interface MonthlyPlParams {
@@ -115,6 +116,19 @@ export interface MonthlyPlSpot {
   memo?: string;
 }
 
+export interface MonthlyPlPaymentObligation {
+  obligationId: string;
+  title: string;
+  category: string;
+  amountYen: number | null;
+  amountStatus: "exact" | "estimated" | "unknown";
+  dueDate: string | null;
+  expectedPaymentYm: number;
+  cashflowTreatment: "additive" | "included_in_budget";
+  status: "needs_review" | "open" | "scheduled" | "paid" | "cancelled";
+  autoDebit: boolean | null;
+}
+
 export type CostType = "taxable" | "executive" | "salary" | "exempt" | string;
 
 export interface MonthlyPlInputs {
@@ -126,6 +140,7 @@ export interface MonthlyPlInputs {
   projectRevenues?: MonthlyPlProjectRevenue[];
   loans?: MonthlyPlLoan[];
   spots?: MonthlyPlSpot[];
+  paymentObligations?: MonthlyPlPaymentObligation[];
 }
 
 export interface MonthlyPlProjectDetail {
@@ -156,6 +171,8 @@ export interface MonthlyPlRow {
   loanInterest: number;
   ctaxPayment: number;
   corpTaxPayment: number;
+  obligationPaymentTotal: number;
+  obligationPaymentAdditive: number;
   netCashFlow: number;
   cashBalance: number;
   runway: number;
@@ -166,6 +183,7 @@ export interface MonthlyPlRow {
   cashOutflow: number;
   pjDetails: MonthlyPlProjectDetail[];
   fixedCostDetails: MonthlyPlFixedCostDetail[];
+  obligationDetails: MonthlyPlPaymentObligation[];
 }
 
 export interface MonthlyPlProjectListItem {
@@ -470,6 +488,11 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
     ym: numberOr(row.ym),
     amount: numberOr(row.amount),
   }));
+  const paymentObligations = (rawInputs.paymentObligations ?? []).map((row) => ({
+    ...row,
+    amountYen: optionalNumber(row.amountYen),
+    expectedPaymentYm: numberOr(row.expectedPaymentYm),
+  }));
 
   if (scenarioId) {
     const overrides = (rawInputs.scenarios ?? []).filter((row) => row.scenarioId === scenarioId);
@@ -677,6 +700,15 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
     let ctaxPayment = 0;
     let corpTaxPayment = 0;
 
+    const obligationDetails = paymentObligations.filter((obligation) =>
+      obligation.expectedPaymentYm === ym && obligation.status !== "paid" && obligation.status !== "cancelled"
+    );
+    const obligationPaymentTotal = obligationDetails.reduce((sum, obligation) => sum + numberOr(obligation.amountYen), 0);
+    const obligationPaymentAdditive = obligationDetails.reduce(
+      (sum, obligation) => sum + (obligation.cashflowTreatment === "additive" ? numberOr(obligation.amountYen) : 0),
+      0
+    );
+
     if (month === settlementMonth) {
       if (!unpaidCtaxDone && unpaidCtax > 0) {
         ctaxPayment += unpaidCtax;
@@ -742,7 +774,8 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
       - spotExpenseFlow
       - loanPayment
       - ctaxPayment
-      - corpTaxPayment;
+      - corpTaxPayment
+      - obligationPaymentAdditive;
 
     cash += netCashFlow;
 
@@ -769,7 +802,7 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
     const confirmedGrossInflow = Math.round(confirmedRevenue * 1.1)
       - Math.round(confirmedMemberCost * 1.1)
       - Math.round(confirmedCloserExt * 1.1);
-    const monthlyBurn = fixedCostTotal + socialIns + loanPayment;
+    const monthlyBurn = fixedCostTotal + socialIns + loanPayment + obligationPaymentAdditive;
     const netBurn = monthlyBurn - confirmedGrossInflow;
     const runway = netBurn > 0 ? Math.round((cash / netBurn) * 10) / 10 : 999;
 
@@ -786,6 +819,8 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
       loanInterest,
       ctaxPayment,
       corpTaxPayment,
+      obligationPaymentTotal,
+      obligationPaymentAdditive,
       netCashFlow,
       cashBalance: cash,
       runway,
@@ -793,9 +828,10 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
       spotIncome,
       spotExpense,
       cashInflow: taxIncomeFlow + loanDisbursement + (ctaxPayment < 0 ? Math.abs(ctaxPayment) : 0),
-      cashOutflow: taxMemberFlow + taxCloserExtFlow + taxFixedFlow + exemptFixedCost + socialIns + spotExpenseFlow + loanPayment + (ctaxPayment > 0 ? ctaxPayment : 0) + corpTaxPayment,
+      cashOutflow: taxMemberFlow + taxCloserExtFlow + taxFixedFlow + exemptFixedCost + socialIns + spotExpenseFlow + loanPayment + (ctaxPayment > 0 ? ctaxPayment : 0) + corpTaxPayment + obligationPaymentAdditive,
       pjDetails,
       fixedCostDetails,
+      obligationDetails,
     });
 
     ym = nextYm(ym);
@@ -836,6 +872,10 @@ export function toCompanyBudgetMonthlyRows(result: MonthlyPlSimulationResult): C
     rows.push(companyRow(row, "loan_interest", row.loanInterest));
     rows.push(companyRow(row, "tax_payment_consumption", row.ctaxPayment));
     rows.push(companyRow(row, "tax_payment_corporate", row.corpTaxPayment));
+    rows.push(companyRow(row, "payment_obligation", row.obligationPaymentTotal, {
+      additiveAmountYen: row.obligationPaymentAdditive,
+      obligations: row.obligationDetails,
+    }));
     rows.push(companyRow(row, "net_cash_flow", row.netCashFlow, {
       cashInflow: row.cashInflow,
       cashOutflow: row.cashOutflow,

@@ -1715,6 +1715,8 @@ function buildGasSimulationResult(
       actualCtaxPayment: actualSummary?.actualCtaxPayment ?? 0,
       corpTaxPayment: companyBudgetValue(categoryRows, ym, "tax_payment_corporate"),
       actualCorpTaxPayment: actualSummary?.actualCorpTaxPayment ?? 0,
+      obligationPaymentTotal: companyBudgetValue(categoryRows, ym, "payment_obligation"),
+      obligationPaymentAdditive: payloadNumberValue(companyBudgetRow(categoryRows, ym, "payment_obligation")?.budget_payload, "additiveAmountYen"),
       netCashFlow: companyBudgetValue(categoryRows, ym, "net_cash_flow"),
       actualNetCashFlow: actualSummary?.actualNetCashFlow ?? 0,
       actualSpotIncome: actualSummary?.actualSpotIncome ?? 0,
@@ -1739,6 +1741,7 @@ function buildGasSimulationResult(
         };
       }),
       fixedCostDetails: fixedCostDetailsForGas(categoryRows, ym),
+      obligationDetails: [],
     };
   });
   return {
@@ -1801,6 +1804,8 @@ function buildLiveGasSimulationResult(
       actualCtaxPayment: actual?.actualCtaxPayment ?? 0,
       corpTaxPayment: row.corpTaxPayment,
       actualCorpTaxPayment: actual?.actualCorpTaxPayment ?? 0,
+      obligationPaymentTotal: row.obligationPaymentTotal,
+      obligationPaymentAdditive: row.obligationPaymentAdditive,
       actualSpotIncome: actual?.actualSpotIncome ?? 0,
       actualSpotExpense: actual?.actualSpotExpense ?? 0,
       netCashFlow: row.netCashFlow,
@@ -1823,6 +1828,7 @@ function buildLiveGasSimulationResult(
         extraRevenue: pj.extraRevenue,
       })),
       fixedCostDetails: row.fixedCostDetails.map((fc) => ({ name: fc.name, amount: fc.amount })),
+      obligationDetails: row.obligationDetails,
     };
   });
   return {

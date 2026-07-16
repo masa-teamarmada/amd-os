@@ -664,11 +664,12 @@ DB分類として、`project_strategy_signals` に `signal_scope` / `applies_to_
 | freee口座残高実績 | `company_actual_monthly` の `category='cash_balance'` (生成元: `pwa/scripts/sync_freee_cash_balances.cjs`、freee `wallet_txns.balance` 月末合算) | `キャッシュ残高(実績)` line と月次表 `キャッシュ` 実績欄に使う。未来月の主残高線は最新実績残高に月次CF見込みを足した `実績接続見込み` として表示し、予算残高 (`company_budget_monthly.cash_amount_yen`) は上書きしない |
 | 入金確認済み | `billing_cycles.payment_confirmed_at` + `budget_reported_amount` / `invoice_base_lines_json` | 税込入金として `入金確認済` に集計。CTB 202604 のように `invoice_ym=202605` なら入金月側に寄せる |
 | 支払通知書 | `payout_notices.sent_at` / `total_yen` | `支払通知書送付済(税抜)` として表示。実績差引では税込相当を cash outflow として扱う |
+| 法人支払義務 | `company_payment_obligations` | 月次表の `支払義務` 行に内容・期日・金額状態を表示。`additive` だけ cash outflow へ加算し、`included_in_budget` は既存費用との二重計上をしない |
 | 報酬支払済み | `billing_cycles.reward_paid_at` | 支払済み反映の有無をアラートに使う |
 | 先3か月入金予定 | `billing_cycles` + `projects.payment_due_rule` | `invoice_sent` / `invoice_issued` / `budget_confirmed` / `unconfirmed` の source label 付きで表示 |
 | 先3か月支出予定・Cash | `company_budget_actual_monthly.budget_payload.cashInflow/cashOutflow` と `cash_amount_yen` | 当月着地見込み、先3か月最低Cash、一括入金除きCFを表示 |
 
-月次予実表で比較する項目は、少なくとも `売上計`、`入金`、`売上原価`、`粗利`、`固定費`、`社保`、`臨時収入`、`臨時支出`、`営業利益`、`融資実行`、`借入返済`、`税金`、`月次CF`、`支払い`、`キャッシュ` を含める。実績sourceは行ラベルに chip で出す。未来月や未確定月の実績欄は `未確定`、過去月なのに実績sourceが無い欄は `未反映`、OS側に実績sourceがまだ無い項目は `未連携` と表示する。数字色は、予算をグレー、実績を黒、差分をプラス水色・マイナスピンクで区別する。
+月次予実表で比較する項目は、少なくとも `売上計`、`入金`、`売上原価`、`粗利`、`固定費`、`支払義務`、`社保`、`臨時収入`、`臨時支出`、`営業利益`、`融資実行`、`借入返済`、`税金`、`月次CF`、`支払い`、`キャッシュ` を含める。実績sourceは行ラベルに chip で出す。未来月や未確定月の実績欄は `未確定`、過去月なのに実績sourceが無い欄は `未反映`、OS側に実績sourceがまだ無い項目は `未連携` と表示する。数字色は、予算をグレー、実績を黒、差分をプラス水色・マイナスピンクで区別する。
 
 この画面では `actual` と `forecast` を同じ数字として混ぜない。実績は `payment_confirmed_at` / `sent_at` / freee PL / freee `wallet_txns.balance` のように OS が確認済みのデータだけ、予定は予算・請求サイクル・支払ルールに基づく見込み、未確認は請求未送付・入金未確認・支払済み未反映として label を出す。キャッシュ判断パネルは補助であり、主UIは下部の月次試算表を予実表として読むこと。実績キャッシュを同期しても予算キャッシュは書き換えない (= 予実差分を残す)。ただし意思決定用の残高予測は、最新実績残高を起点に以後の見込み月次CFを積み上げる `実績接続見込み` を主線にする。
 
