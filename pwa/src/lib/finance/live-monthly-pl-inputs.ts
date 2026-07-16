@@ -1,5 +1,4 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { computeForwardUncappedMemberCosts } from "@/lib/reward-summary";
 import {
   expandExtraRevenue,
   ymToInt,
@@ -33,13 +32,11 @@ import type {
  *             売上 = budget_reported_amount (あれば優先)、無ければ budget_yen / 0.65 で逆算
  *             (budget_yen は報酬予算 = reported×0.65 であって売上ではないため)
  * - 固定費: company_finance_recurring_items (status='active')
- * - 将来メンバー原価: 各 PJ の MS を期間按分した uncapped 報酬を projectRevenues[].internalMemberCost に注入
- *                    (注入された PJ/月はエンジンの revenue×rateMember を override し、実発生原価で計算される)
+ * - 売上原価: `/admin/payouts` の capped 外部支払キャッシュを projectRevenues[].externalMemberCost に注入
+ *                (注入された PJ/月はエンジンの revenue×rateMember を使わず、payouts の支払予定に一致させる)
  * - パラメータ / 融資 / スポット: OS にライブテーブルが無いので snapshot から流用 (fallback* 引数)
  *
- * persistForecast=true のとき、将来月の uncapped を billing_cycles.reward_summary_json の
- * forecastUncapped キーへ保存する (capped actual は上書きしない)。本番データ書き込みなので
- * 呼び出し側でまさ承認済みのときだけ true を渡す。
+ * persistForecast は互換引数。payouts 正本化後、月次PL側は報酬キャッシュを書き換えず読むだけにする。
  */
 
 const REWARD_RATE = 0.65;
@@ -61,8 +58,9 @@ type ProjectRow = {
 type BillingRow = {
   project_id: string;
   ym: string;
-  budget_yen: number | string | null;
-  budget_reported_amount: number | string | null;
+  budget_yen?: number | string | null;
+  budget_reported_amount?: number | string | null;
+  reward_summary_json?: unknown;
 };
 
 type ExtraRevenueRow = {
@@ -84,10 +82,102 @@ type RecurringItemRow = {
   status: string | null;
 };
 
+type MemberRow = {
+  member_id: string;
+  is_officer: boolean | null;
+  exclude_from_payout_notice: boolean | null;
+};
+
+type PayoutCost = {
+  externalYen: number;
+  companyReserveYen: number;
+};
+
 function num(value: unknown): number {
   if (value == null) return 0;
   const n = typeof value === "number" ? value : Number(value);
   return Number.isFinite(n) ? n : 0;
+}
+
+function hasExplicitNumber(value: unknown): boolean {
+  if (value === null || value === undefined || value === "") return false;
+  return Number.isFinite(Number(value));
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+function boolValue(value: unknown): boolean {
+  return value === true || value === "true" || value === "TRUE" || value === "1" || value === 1;
+}
+
+function rewardSummaryMembers(summary: Record<string, unknown> | null): Record<string, unknown>[] {
+  const raw = summary?.members;
+  if (Array.isArray(raw)) return raw.filter((item): item is Record<string, unknown> => Boolean(asRecord(item)));
+  const record = asRecord(raw);
+  if (!record) return [];
+  const members: Record<string, unknown>[] = [];
+  for (const [memberId, value] of Object.entries(record)) {
+    const member = asRecord(value);
+    if (member) members.push({ memberId, ...member });
+  }
+  return members;
+}
+
+function rewardMemberId(member: Record<string, unknown>): string {
+  return String(member.memberId ?? member.member_id ?? "").trim();
+}
+
+function payoutCostFromRewardSummary(
+  summaryValue: unknown,
+  memberById: Map<string, MemberRow>
+): PayoutCost | null {
+  const summary = asRecord(summaryValue);
+  if (!summary) return null;
+
+  const hasTopLevelExternal =
+    hasExplicitNumber(summary.externalRegularPayoutCapYen) ||
+    hasExplicitNumber(summary.externalExtraPayoutCapYen);
+  const hasTopLevelReserve =
+    hasExplicitNumber(summary.regularCompanyReserveYen) ||
+    hasExplicitNumber(summary.extraCompanyReserveYen);
+
+  if (hasTopLevelExternal || hasTopLevelReserve) {
+    return {
+      externalYen: num(summary.externalRegularPayoutCapYen) + num(summary.externalExtraPayoutCapYen),
+      companyReserveYen: num(summary.regularCompanyReserveYen) + num(summary.extraCompanyReserveYen),
+    };
+  }
+
+  let externalYen = 0;
+  let companyReserveYen = 0;
+  for (const member of rewardSummaryMembers(summary)) {
+    const memberId = rewardMemberId(member);
+    const memberRow = memberById.get(memberId);
+    const isOfficer = memberRow?.is_officer === true;
+    const isExcluded =
+      memberRow?.exclude_from_payout_notice === true ||
+      boolValue(member.payoutExcluded ?? member.payout_excluded);
+    const extraPaidYen = num(member.extraPaidYen ?? member.extra_paid_yen);
+    const totalPay = num(member.totalPay ?? member.total_pay);
+    const regularPaidYen = hasExplicitNumber(member.regularPaidYen ?? member.regular_paid_yen)
+      ? num(member.regularPaidYen ?? member.regular_paid_yen)
+      : Math.max(0, totalPay - extraPaidYen);
+    const extraReserveYen = num(member.extraCompanyReserveYen ?? member.extra_company_reserve_yen);
+    const reserveYen = num(member.companyReserveYen ?? member.company_reserve_yen ?? member.officerReserveYen ?? member.officer_reserve_yen);
+    const regularReserveYen = hasExplicitNumber(member.regularCompanyReserveYen ?? member.regular_company_reserve_yen)
+      ? num(member.regularCompanyReserveYen ?? member.regular_company_reserve_yen)
+      : Math.max(0, (reserveYen || totalPay) - extraReserveYen);
+
+    if (isOfficer) {
+      companyReserveYen += regularReserveYen + extraReserveYen;
+    } else if (!isExcluded) {
+      externalYen += regularPaidYen + extraPaidYen;
+    }
+  }
+
+  return { externalYen, companyReserveYen };
 }
 
 function cleanYmText(value: string | number | null | undefined): string | null {
@@ -108,6 +198,16 @@ function addMonths(ym: string, delta: number): string {
   return `${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
+function ymRange(startYm: string, endYm: string): string[] {
+  const months: string[] = [];
+  let current = startYm;
+  while (current <= endYm) {
+    months.push(current);
+    current = addMonths(current, 1);
+  }
+  return months;
+}
+
 function previousYmInt(ym: string): number | null {
   const prev = cleanYmText(ym) ? addMonths(ym, -1) : null;
   return prev ? ymToInt(prev) : null;
@@ -126,10 +226,6 @@ function isProjectBudgetActive(project: ProjectRow | undefined, ym: string): boo
   if (["archived", "cancelled", "canceled", "ended", "inactive", "frozen"].includes(status)) return false;
   if (project.freeze_from_ym && cleanYmText(project.freeze_from_ym) && ym >= project.freeze_from_ym) return false;
   return isWithinContractPeriod(project, ym);
-}
-
-function isProjectActiveAtAnchor(project: ProjectRow, anchorYm: string): boolean {
-  return isProjectBudgetActive(project, anchorYm) && String(project.status || "").toLowerCase() === "active";
 }
 
 function invoiceDeadlineDay(rule: string | null | undefined): number | null {
@@ -185,13 +281,13 @@ export interface BuildLiveInputsOptions {
   fallbackSpots?: MonthlyPlSpot[];
   /** シナリオ override (snapshot 流用) */
   fallbackScenarios?: MonthlyPlScenarioOverride[];
-  /** 将来月の uncapped を billing_cycles へ保存するか (まさ承認時のみ true) */
+  /** 旧互換引数。payouts 正本化後、ここでは報酬キャッシュを書き換えない */
   persistForecast?: boolean;
 }
 
 export interface BuildLiveInputsResult {
   inputs: MonthlyPlInputs;
-  /** uncapped 原価がマイナス利益を生む月の診断用 */
+  /** `/admin/payouts` 由来の外部支払予定 (PJ×月) */
   forwardMemberCostByPjYm: Map<string, number>;
   /** 警告 (データ欠損など) */
   warnings: string[];
@@ -214,7 +310,7 @@ export async function buildLiveMonthlyPlInputs(
   })();
   const endYmStr = String(endInt);
 
-  const [projectsRes, recurringRes, obligationsRes] = await Promise.all([
+  const [projectsRes, recurringRes, obligationsRes, membersRes] = await Promise.all([
     supabase
       .from("projects")
       .select("project_id, project_name, status, fee_type, fee_amount, start_ym, end_ym, freeze_from_ym, payment_due_rule, payment_due_day, invoice_send_deadline_rule")
@@ -231,13 +327,19 @@ export async function buildLiveMonthlyPlInputs(
       .gte("expected_payment_ym", startYmStr)
       .lte("expected_payment_ym", endYmStr)
       .limit(2000),
+    supabase
+      .from("members")
+      .select("member_id, is_officer, exclude_from_payout_notice")
+      .limit(500),
   ]);
   if (projectsRes.error) throw projectsRes.error;
   if (recurringRes.error) throw recurringRes.error;
   if (obligationsRes.error) throw obligationsRes.error;
+  if (membersRes.error) throw membersRes.error;
 
   const projects = (projectsRes.data ?? []) as ProjectRow[];
   const recurringItems = (recurringRes.data ?? []) as RecurringItemRow[];
+  const memberById = new Map(((membersRes.data ?? []) as MemberRow[]).map((member) => [member.member_id, member]));
   const paymentObligations = ((obligationsRes.data ?? []) as CompanyPaymentObligation[])
     .map(obligationToMonthlyInput)
     .filter((row): row is NonNullable<typeof row> => row !== null);
@@ -255,6 +357,7 @@ export async function buildLiveMonthlyPlInputs(
       type: "fixed",
       status: "confirmed",
       billingType: "monthly",
+      closerInternal: true,
     }))
     .filter((p) => !p.endYm || p.endYm >= p.startYm);
 
@@ -276,6 +379,7 @@ export async function buildLiveMonthlyPlInputs(
       type: "fixed",
       status: "tentative",
       billingType: "monthly",
+      closerInternal: true,
     }))
     .filter((p) => !p.endYm || p.endYm >= p.startYm);
 
@@ -309,7 +413,7 @@ export async function buildLiveMonthlyPlInputs(
   // 本契約 (定額/変動) とは別枠の単発受託売上。fee_type を問わず全 PJ から読む。
   // エンジンには PL 用 extraRevenue とキャッシュ用 extraRevenueCash を分けて注入する。
   // extraRevenue は売上・粗利・消費税に、extraRevenueCash は入金月の CF/残高にだけ乗る
-  // (原価は cap_extra プールで別途計上済みのため自動原価率は通さない)。
+  // (原価は `/admin/payouts` 由来の externalMemberCost で別途注入するため自動原価率は通さない)。
   // period_start_ym〜period_end_ym 指定があれば開発期間で月次按分 (B-a, 2026-06-16)、
   // 無ければ billing_cycles.ym へ一括計上 (後方互換)。キャッシュは invoice_ym 優先、
   // 無ければ billing_date 月 + PJ 支払サイト (null は翌月末) で解決する。
@@ -377,62 +481,69 @@ export async function buildLiveMonthlyPlInputs(
       };
     });
 
-  // ---- 将来メンバー原価: 各 active PJ の uncapped 報酬を projectRevenues[].internalMemberCost へ ----
-  // アンカー月 = startYm 近辺の「当月」。ここでは startYm を anchor に使う
-  // (将来月 = anchor より後の月が uncapped 予測)。
-  const anchorYm = startYmStr;
-  const forwardMemberCostByPjYm = new Map<string, number>();
-  // uncapped を計算する対象 = 報酬 plan cycle を持ちうる active PJ。
-  // fee_type 問わず全 active PJ を対象にする (p00 含む)。
-  const activeProjectIds = projects
-    .filter((p) => isProjectActiveAtAnchor(p, anchorYm))
-    .map((p) => p.project_id);
+  const projectsList: MonthlyPlProject[] = [...fixedRevenueProjects, ...variableProjectShells];
 
-  const internalCostByPjYm = new Map<string, number>();
-  for (const projectId of activeProjectIds) {
-    let forward;
-    try {
-      forward = await computeForwardUncappedMemberCosts(supabase, projectId, anchorYm, {
-        persist: options.persistForecast === true,
-      });
-    } catch (err) {
-      warnings.push(`uncapped 計算失敗 ${projectId}: ${err instanceof Error ? err.message : String(err)}`);
-      continue;
-    }
-    for (const month of forward.months) {
-      const key = `${projectId}_${month.ym}`;
-      internalCostByPjYm.set(key, month.uncappedTotalYen);
-      forwardMemberCostByPjYm.set(key, month.uncappedTotalYen);
+  // ---- 売上原価: `/admin/payouts` の capped 外部支払予定を使う ----
+  // 月次試算表の cash out / 売上原価は、MS理論原価や売上×65%ではなく
+  // 支払通知書フローの正本である billing_cycles.reward_summary_json に合わせる。
+  // reward cache が無い PJ/月は「支払予定なし」として 0 円を明示し、自動原価に戻さない。
+  const forwardMemberCostByPjYm = new Map<string, number>();
+  const payoutCostByPjYm = new Map<string, PayoutCost>();
+  const payoutProjectIds = projectsList.map((project) => project.projectId);
+  if (payoutProjectIds.length > 0) {
+    const payoutRes = await supabase
+      .from("billing_cycles")
+      .select("project_id, ym, reward_summary_json")
+      .in("project_id", payoutProjectIds)
+      .gte("ym", startYmStr)
+      .lte("ym", endYmStr)
+      .limit(5000);
+    if (payoutRes.error) throw payoutRes.error;
+    for (const row of (payoutRes.data ?? []) as BillingRow[]) {
+      const cost = payoutCostFromRewardSummary(row.reward_summary_json, memberById);
+      if (!cost) continue;
+      payoutCostByPjYm.set(`${row.project_id}_${row.ym}`, cost);
     }
   }
 
-  // internalMemberCost を projectRevenues にマージ (既存行があれば上書き、無ければ新規行)
+  // projectRevenues に原価 override をマージ (既存行があれば上書き、無ければ新規行)
   const revenueIndex = new Map<string, MonthlyPlProjectRevenue>();
   for (const rev of projectRevenues) revenueIndex.set(`${rev.projectId}_${rev.ym}`, rev);
-  for (const [key, cost] of internalCostByPjYm.entries()) {
-    if (cost <= 0) continue;
-    const [projectId, ymStr] = key.split("_");
-    const existing = revenueIndex.get(`${projectId}_${ymStr}`);
-    if (existing) {
-      existing.internalMemberCost = cost;
-    } else {
-      const newRow: MonthlyPlProjectRevenue = {
-        projectId,
-        ym: Number(ymStr),
-        internalMemberCost: cost,
-      };
-      projectRevenues.push(newRow);
-      revenueIndex.set(key, newRow);
+  for (const project of projectsList) {
+    const sourceProject = projectById.get(project.projectId);
+    for (const ym of ymRange(startYmStr, endYmStr)) {
+      if (!isProjectBudgetActive(sourceProject, ym)) continue;
+      const key = `${project.projectId}_${ym}`;
+      const cost = payoutCostByPjYm.get(key);
+      const externalMemberCost = cost?.externalYen ?? 0;
+      forwardMemberCostByPjYm.set(key, externalMemberCost);
+      const existing = revenueIndex.get(key);
+      if (existing) {
+        existing.externalMemberCost = externalMemberCost;
+        existing.internalMemberCost = 0;
+        existing.memo = existing.memo ?? "member cost from /admin/payouts capped external payout";
+      } else {
+        const newRow: MonthlyPlProjectRevenue = {
+          projectId: project.projectId,
+          ym: Number(ym),
+          externalMemberCost,
+          internalMemberCost: 0,
+          memo: "member cost from /admin/payouts capped external payout",
+        };
+        projectRevenues.push(newRow);
+        revenueIndex.set(key, newRow);
+      }
     }
   }
-
-  const projectsList: MonthlyPlProject[] = [...fixedRevenueProjects, ...variableProjectShells];
 
   const inputs: MonthlyPlInputs = {
     params: {
       ...fallbackParams,
       startYm,
       months,
+      // live 月次PLの売上原価は `/admin/payouts` の外部支払予定に一本化する。
+      // 旧 GAS snapshot の理論クローザー率を残すと、payouts に存在しない原価が再発生する。
+      rateCloser: 0,
     },
     projects: projectsList,
     fixedCosts,

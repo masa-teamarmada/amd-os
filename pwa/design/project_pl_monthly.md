@@ -135,7 +135,7 @@ cashDelayMonths?: number | null;
 cashStartYm?: number | null;
 ```
 
-PL上の `revenue` / member cost / closer cost は発生月で計上し、`cashInflow` / `netCashFlow` / `cashBalance` は `cashDelayMonths` を反映した月で計算する。これで「請求は6月から、最初の振込は8月末」のような案件別入金条件を月次試算表に入れられる。
+PL上の `revenue` は発生月で計上し、`cashInflow` / `netCashFlow` / `cashBalance` は `cashDelayMonths` を反映した月で計算する。live 月次試算表の売上原価は `/admin/payouts` の capped 外部支払予定を正本にし、旧GASの `rateMember` / `rateCloser` から理論原価を自動発生させない。これで「請求は6月から、最初の振込は8月末」のような案件別入金条件を月次試算表に入れつつ、支払通知に存在しない外注費・内製費を出さない。
 
 ### 報酬債務と PL / cash の境界
 
@@ -143,12 +143,14 @@ SX のように契約開始前の実働を後月支払へ回す PJ では、次�
 
 | レイヤー | 正本 | 画面上の読み方 |
 |---|---|---|
-| PL 売上/原価 | `/management-score` の月次収支シミュレータ | 発生月ベース。売上・原価・利益を見る |
+| PL 売上/原価 | `/management-score` の月次収支シミュレータ | 売上は発生月ベース。売上原価は `/admin/payouts` の capped 外部支払予定に一致させる |
 | cash | freee 実績 / cash inflow 予定 | 入金月・出金月ベース。runway と残高を見る |
 | 支払予定 | `/admin/payouts` の capped 支払予定 | 実際に今月支払う金額。支払通知書の対象 |
 | 報酬債務 | `reward_summary_json.members[].carryInYen / grossDueYen / totalPay / stockYen` | まだ払っていない月末残高。`前月残 + 今月発生 - 今月支払 = 月末未払い残` で見る |
 
 `stockYen` は PL の原価でも cash out でもなく、非役員メンバーへの未払い残高。先12か月表や支払管理では `stock` とだけ表示せず、`未払い残` として支払予定から分ける。契約前稼働がある PJ は、契約開始前の月に発生した `stockYen` が契約開始後の `carryInYen` へ流れるため、金額だけを見ると大きく見える。admin は `/admin/payouts` の報酬債務台帳で原因ラベルと式を確認する。
+
+会社留保・役員留保・報酬債務・旧GASのクローザー5%は、銀行から外へ出る支払ではない。live 月次試算表の `cost_member` は `reward_summary_json.externalRegularPayoutCapYen + externalExtraPayoutCapYen` の合計、`cost_closer` は外部支払予定に存在しない限り 0 円にする。報酬キャッシュが無い PJ/月や支払対象メンバーがいない PJ/月は 0 円を明示し、`fee_amount × 65%` や `budget_yen` へフォールバックしない。
 
 先12か月のPJ表は `キャッシュ支払` / `会社留保` / `報酬債務` / `cap超過チェック` を分ける。会社留保は支出ではなく `cap/売上枠 - 外部支払`。役員会社留保は留保の内訳であり、外部支払や報酬債務には入れない。各表は、その目的で確認したい主数字だけをセルの中心に置く。報酬債務は残高なので12か月分を足さず、ピークよりも最終月に未払い残がゼロ着地するかを最優先で見る。
 

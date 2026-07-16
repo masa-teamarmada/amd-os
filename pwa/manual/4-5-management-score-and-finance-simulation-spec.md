@@ -447,38 +447,24 @@ Finance Simulation は、会社 PL / cash runway を月次で試算する経営�
 | 固定費 | `company_finance_recurring_items` (`status='active'`) | 家賃・SaaS・役員報酬・固定人件費など定常支出。各行を `start_ym`〜`end_ym` 付きの fixed cost にマップし、月レンジはエンジン側で解決。実例: 役員報酬(まさ) 26年4月以降 ¥70万 / 役員報酬(きよ) ¥34万 / 家賃按分 ¥72,666 / claude ¥22,945 ほか |
 | └ サブスク額の正本 | freee `/api/1/deals?partner_id=<取引先>` の取引実額 | ⚠️ SaaS/サブスクの `amount_yen` は手動入力前提にしない。**freee の取引先別 deals 履歴 (= 実際の支払実額) が正本**。最新の取引額を引いて `company_finance_recurring_items` を更新する。2026-06-16 棚卸し実績: slack ¥20,828 / claude ¥22,945 (freee最新2025-10、Max化前のため freee に2026実額が入り次第追従) / conduct ¥48,400 (税理士のみ。社労士法人コンダクトは2025-10で取引終了=契約解除、合算¥44,000→税理士単独¥48,400へ) / co-en=つくばまちなかデザイン ¥38,500 (費目=地代家賃) / notion ¥3,800 / DocuSign ¥3,100 (年額¥37,200÷12) / freee ¥5,480 |
 | 社保ベース判定 | 固定費のうち `display_name` が `役員報酬` / `上乗せ` / `給与` / `給料` / `賞与` を含む行を `costType='executive'` にマップ。残りは `taxable` | ⚠️ `company_finance_recurring_items` に `cost_type` 列は無いため `display_name` で判別する。エンジンは `executive`/`salary` の月額だけを `socialInsBase` に積み、`socialInsBase × socialInsRate(=0.15)` を社保額とする。**この判別を入れる前は全固定費が `taxable` 扱いで `socialInsBase=0` → 社保が常時¥0だった (2026-06-16 修正)**。実例: 役員報酬(まさ¥70万)+役員報酬(きよ¥34万)+まさ上乗せ¥127,334 = base ¥1,167,334 → 社保 ≒ ¥175,100/月 |
-| 将来メンバー原価 | MS 進捗 → uncapped 報酬 (後述) を `projectRevenues[].internalMemberCost` に注入 | 各 PJ の MS を期間月数で按分し、将来月の uncapped 報酬を原価として投影 |
-| 別財布（別契約）売上 | 全 PJ の `billing_cycles.extra_revenue_json` (= migration 142) を `projectRevenues[].extraRevenue` / `extraRevenueCash` に注入 | ⚠️ 本契約 (定額/変動) とは**別枠**の受託売上。fee_type を問わず全 PJ から読む。エンジンで売上計・粗利・消費税に加算し、キャッシュ入金は別途 `extraRevenueCash` で入金月の CF・残高に加算する。**原価は cap_extra プールの uncapped 報酬として `internalMemberCost` 経由で別途計上済みのため、自動原価率 (rateMember/rateCloser) は通さない** (= 二重計上防止)。**計上方式 (B-a, 2026-06-16 まさ確定 / 2026-06-18 キャッシュ分離)**: エントリに `period_start_ym`〜`period_end_ym` があれば**PL計上だけ開発期間で月次按分**し (総額÷期間月数、端数は最終月寄せ、pt消化と同じ「期間で割る」思想)、キャッシュ入金は `invoice_ym` があればその月、無ければ `billing_date` 月 + PJ 支払サイト (`payment_due_rule` / `payment_due_day`, null は翌月末) で解決した月に乗せる。按分ロジックは共通 lib `src/lib/finance/extra-revenue.ts` の `expandExtraRevenue(rows, {minYm, maxYm})` に集約され、`/management-score` の live builder (`live-monthly-pl-inputs.ts`) と `/admin/payouts`「先12か月 PJ収支」表 (`AdminPayoutsClient.tsx`) の**両系統が同じ関数を呼ぶ** (2026-06-17, v0.25.2 で一本化)。エンジンの `extraRevenueForYm` は PL ym 一致額、`extraRevenueCashForYm` は入金 ym 一致額をそれぞれ合算する。期間指定が無いエントリは `billing_cycles.ym` へ一括計上 (後方互換)。実例: OkuDoor システム開発 ¥2,000,000 税抜 (p19, INV-0000000305, 2026-03-31 一括請求 / 開発期間 202605〜202610 を6ヶ月按分 ≒ ¥333,333/月・最終月¥333,335、キャッシュは 202604 入金見込み, 葛飾ロードへ定額¥30万/月とは別財布の受託)。収支表では PJ名に `🔵別財布込` が付く |
+| 売上原価 | `/admin/payouts` の capped 外部支払キャッシュ (`billing_cycles.reward_summary_json`) を `projectRevenues[].externalMemberCost` に注入 | 月次試算表の売上原価は支払通知書フローと同じ正本に合わせる。`externalRegularPayoutCapYen + externalExtraPayoutCapYen` が PJ/月の外部原価。会社留保・役員留保・報酬債務・旧GASのクローザー5%は外部支払ではないので、live 月次試算表の原価/cash out に混ぜない。報酬キャッシュが無い PJ/月や支払対象メンバーがいない PJ/月は 0 円を明示し、`fee_amount × 65%` / `budget_yen` / `rateCloser` にフォールバックしない |
+| 別財布（別契約）売上 | 全 PJ の `billing_cycles.extra_revenue_json` (= migration 142) を `projectRevenues[].extraRevenue` / `extraRevenueCash` に注入 | ⚠️ 本契約 (定額/変動) とは**別枠**の受託売上。fee_type を問わず全 PJ から読む。エンジンで売上計・粗利・消費税に加算し、キャッシュ入金は別途 `extraRevenueCash` で入金月の CF・残高に加算する。原価は同じ月の `/admin/payouts` capped 外部支払予定から読むため、自動原価率 (`rateMember` / `rateCloser`) は通さない (= 二重計上防止)。**計上方式 (B-a, 2026-06-16 まさ確定 / 2026-06-18 キャッシュ分離)**: エントリに `period_start_ym`〜`period_end_ym` があれば**PL計上だけ開発期間で月次按分**し (総額÷期間月数、端数は最終月寄せ、pt消化と同じ「期間で割る」思想)、キャッシュ入金は `invoice_ym` があればその月、無ければ `billing_date` 月 + PJ 支払サイト (`payment_due_rule` / `payment_due_day`, null は翌月末) で解決した月に乗せる。按分ロジックは共通 lib `src/lib/finance/extra-revenue.ts` の `expandExtraRevenue(rows, {minYm, maxYm})` に集約され、`/management-score` の live builder (`live-monthly-pl-inputs.ts`) と `/admin/payouts`「先12か月 PJ収支」表 (`AdminPayoutsClient.tsx`) の**両系統が同じ関数を呼ぶ** (2026-06-17, v0.25.2 で一本化)。エンジンの `extraRevenueForYm` は PL ym 一致額、`extraRevenueCashForYm` は入金 ym 一致額をそれぞれ合算する。期間指定が無いエントリは `billing_cycles.ym` へ一括計上 (後方互換)。実例: OkuDoor システム開発 ¥2,000,000 税抜 (p19, INV-0000000305, 2026-03-31 一括請求 / 開発期間 202605〜202610 を6ヶ月按分 ≒ ¥333,333/月・最終月¥333,335、キャッシュは 202604 入金見込み, 葛飾ロードへ定額¥30万/月とは別財布の受託)。収支表では PJ名に `🔵別財布込` が付く |
 | パラメータ / 融資 / スポット | 旧 `company_budget_inputs` から流用 | 繰越欠損 / 前期消費税 / 社保率 / 各種率、および OS にライブテーブルが無い融資 (`loan`)・臨時収支 (`spot`) は当面 snapshot 値を再利用。ただし融資予定は**実行済み、または実行日・返済開始が現実に確定したものだけ**を入れる。予算線は「計画・確定済み前提」を残し、実績線は freee / 入出金の実額で別管理する。未実績の古い借入予定を fallback に残すと `loanDisbursement` が cash balance を過大にする一方、実行済み融資を予算から消すと cash balance がありえないマイナスになる。2026-06-18 時点で `loan01` (商工中金 500万円、`disbursementYm=202601`) は freee `wallet_txns` によって 2026-01-19 の融資実行と PayPay銀行への 500万円入金を確認済みのため、予算入力に残す |
 
-### 将来メンバー原価は uncapped を使う
+### live 売上原価は `/admin/payouts` の capped 外部支払を使う
 
-シミュレータの将来原価は、月次支払キャップ・キャリーストック平準化を**かけない生の月次報酬 (uncapped)** を使う。理由は、キャップ後の数字は「実際にいくら払うか」であって「その月にいくら発生したか (= 原価)」ではないため。経営判断としては「その月に本当に発生する原価」で赤字月を見たい。uncapped 報酬の定義は [7-1 章 報酬計算仕様](7-1-reward-calc-spec.md) の「uncapped」セクションが正本。
+`/management-score` の月次試算表は「会社の現在の支払予定と残高」を見る画面なので、売上原価は `/admin/payouts` と同じ capped 外部支払予定を使う。`billing_cycles.reward_summary_json` の `externalRegularPayoutCapYen + externalExtraPayoutCapYen` を PJ/月の `externalMemberCost` として注入し、画面の「売上原価」と `cost_member` はその合計に一致させる。
 
-**「将来メンバー原価 = uncapped」は (A) `/management-score` 月次収支シミュレータの正本** (実績メンバーがまだ載っていない将来月の原価を `computeForwardUncappedMemberCosts` の uncapped 投影で出す)。**将来月の原価に `budget_yen` (= 予算 = baseCap) をそのままコピーするのは禁止** — 「予算 = 原価」になり収支がゼロに張り付く嘘になる (= BUGS.md 2026-06-17「予算195,000に対して原価195,000っておかしい」)。実例: p19 の 202607 は予算 ¥195,000 だが真の uncapped 原価 = ¥393,705 (まさの稼働分 ¥191,685 を含む)。uncapped が取れない月 (plan 期間外など) に限り budgetYen 決め打ちへフォールバックする。
+会社留保・役員留保・報酬債務・旧GASの `rateCloser` 5% は、銀行から外へ出る支払ではない。live builder は `rateCloser=0` とし、payouts に存在しない理論原価を `cost_closer` に出さない。報酬キャッシュが無い PJ/月、または支払対象メンバーがいない PJ/月は 0 円を明示して、エンジンの `revenue × rateMember` フォールバックへ落とさない。
 
-> ⚠️ **(B) `/admin/payouts`「先12か月 PJ収支」表の将来「支払予定」は uncapped ではなく capped (2026-06-17, v0.25.4)**: (B) の収支表は**支払予定**を出す表であって、(A) の**原価**シミュとは列の意味が違う。支払予定 = 実際にいくら払うか = **capped (月次キャップ + 繰越平準化) + 役員/支払対象外の除外**が正本 (spec 7-1)。`computeForwardCappedMemberCosts` が投影する。v0.25.3 で一度 (B) の支払予定にも uncapped を入れてしまい、pt 消化が厚い月に budget を超えて跳ねてマイナス月・役員のみ PJ (KUTE) で巨額の支払予定が出る嘘になったため、v0.25.4 で capped に訂正した (BUGS.md 2026-06-17)。**「原価 (uncapped) と支払予定 (capped) を取り違えない」が今回の最大の教訓。**
+この境界により、p10 SE のように支払対象メンバーがいない PJ は原価 0 円、p19 ZMP は「内製」ではなく payouts の外部支払額だけが原価になる。2026-07 時点の検証では、202607 の会社 `cost_member` は p19 ¥73,905 + p21 ¥227,050 = ¥300,955、`cost_closer` は ¥0。以後の月も project row の `externalMember` と payouts の外部支払額が一致する。
 
-MS の pt 消化は**必ず期間の月数で按分**する (まとめ達成禁止、[7-1 章](7-1-reward-calc-spec.md) の按分ルール参照)。按分された結果ある月に集中するのは問題ない。按分を入れずに将来投影すると、特定月だけ原価が跳ねて存在しない赤字月が捏造される。
+uncapped 報酬は MS 進捗・pt単価・設計上の報酬需要を監査するための計算として残る。ただし、月次試算表の売上原価/cash out へ直接入れない。uncapped を原価として使うと、役員会社留保や未払い残が支出のように見え、残高予測が実感より悪化する。
 
-#### エンジンの「revenue が無い月は原価も計上しない」制約と現行データでの無害性
+MS の pt 消化は**必ず期間の月数で按分**する (まとめ達成禁止、[7-1 章](7-1-reward-calc-spec.md) の按分ルール参照)。これは `/admin/payouts` の capped 支払予定を作る前段の報酬計算と、下部の MS 月割監査表示で使う。月次試算表の原価自体は、その計算結果を capped 外部支払に平準化した payouts キャッシュを読む。
 
-`monthly-pl-simulation.ts` のメンバー原価ループは「その月に売上のある PJ」だけ `internalMemberCost` を原価計上する (= 売上 0 の月は原価行ごとスキップ)。これは「売上が立つ前の PJ で報酬原価だけが先行計上される」のを防ぐ設計だが、**uncapped 報酬が立つのに売上が無い月があると、その原価がシミュレータに乗らない**という穴になりうる。現行 active PJ で全件確認した結果、この穴に落ちる PJ・月は無い:
-
-| PJ | 状況 | uncapped 原価が立つ月 |
-|---|---|---|
-| p00 (AMD) | plan cycle `total_points=0` / MS pt 合計 0 | uncapped 自体が 0 (穴に落ちない) |
-| p07 (LST) / p24 (CLG) / p26 (VasculaX) | plan cycle 無し | uncapped 0 |
-| p06 (CTB, variable) | plan cycle が 2023-2024 で終了済 | 将来月の uncapped 無し |
-| p10/p19/p20/p21 (monthly_fixed) | 毎月 `fee_amount` の売上が立つ | 原価月と売上月が一致 |
-| p25 (KUTE, variable) | plan cycle 全期間 (202605-202703) で billing に `budget_yen` あり | 全月で売上が立つ |
-
-したがって `projectRevenues[].internalMemberCost` 注入方式のままで取りこぼしは無い。**将来、売上が立たない月に報酬原価だけ発生する PJ が現れたら**、その月の原価は `varCosts[]` (= 売上に紐づかない変動費) として注入する必要がある。live builder にこの分岐を足す前に、この表を再確認する。
-
-> **逆ケース (= 別財布売上) は実装済み (2026-06-16 / 2026-06-18 キャッシュ分離)**: 上記は「原価だけ立って売上が無い」穴だが、ZMP (p19) で逆の「**別契約の原価 (cap_extra) は立つのに、その売上が本契約売上に乗らない**」問題が起きていた。OkuDoor システム開発を定額¥30万/月とは別に ¥2,000,000 (税抜) で受託していたが、原価 (cap_extra uncapped 報酬) だけが costMember に乗り、売上が無いため粗利を食い潰して収支がゼロ〜赤字に見えていた。対策として `billing_cycles.extra_revenue_json` (migration 142) に別財布売上を構造化して持たせ、live builder が `projectRevenues[].extraRevenue` として PL 按分額、`projectRevenues[].extraRevenueCash` として入金予定額を注入する。エンジンは PL では売上計・粗利・消費税に、キャッシュでは入金月の CF に加算する (原価率は通さない)。複数財布 PJ の汎用管理基盤としても使う (まさ確定 2026-06-16, B案: extraRevenue を一級市民化)。**計上方式は PL=開発期間按分、キャッシュ=請求/支払サイト**: `period_start_ym`〜`period_end_ym` を持たせると総額を開発期間で月次按分し、PL計上だけその按分月に乗せる (= 単月の収支が実態に近くなる、pt消化と同じ「期間で割る」思想)。キャッシュ入金は `invoice_ym` 優先、無ければ `billing_date` 月 + PJ 支払サイトで解決する。OkuDoor は開発期間 202605〜202610 の6ヶ月按分 (≒¥333,333/月) だが、2026-03-31 請求分のキャッシュは翌月末ルールで 202604 に乗る。当初は請求月一括計上で実装し、その後まさ確定で PL 按分方式に修正、さらにキャッシュ残高乖離のため PL とキャッシュを分離した (2026-06-18)。
-> ✅ **収支系3系統に反映済み (2026-06-18, v0.27.7)**: PJ収支を出す画面は少なくとも3系統ある — (A) `/management-score` 月次収支シミュレータ (`buildLiveMonthlyPlInputs`→エンジン)、(B) `/admin/payouts`「先12か月 PJ収支」表 (`AdminPayoutsClient.tsx`)、(C) `/management-score` 下部の「PJ別 先12か月収支」表 (`management-score/page.tsx` の `ProjectMonthlyFinanceTable`)。当初 (A) だけ実装し (B) を verify 時に見落として横ばい表示になった (= BUGS.md 2026-06-17)。さらに 2026-06-18、(C) が旧ロジックのまま残り ZMP 202607〜202612 を `195,000 - 195,000 = 0` と表示していた (= BUGS.md 2026-06-18)。**対策として按分ロジックを共通 lib `src/lib/finance/extra-revenue.ts` (`expandExtraRevenue`) に集約し、(B)(C) は `extra_revenue_json IS NOT NULL` の全行を展開して各月セルに `extraRevenueYen` を加算、`別財布 ¥…` を表示する**。按分元 ym が表示窓より前でも取りこぼさないよう、絞り込みは展開後の minYm/maxYm で行う。**finance の数字を変えたら必ず `/management-score` の月次収支シミュレータ、`/management-score` 下部PJ別表、`/admin/payouts` の3系統で確認すること**。
-
-> ✅ **(B) の将来支払予定を capped + 役員除外に修正 (2026-06-17, v0.25.4)**: (B) `/admin/payouts`「先12か月 PJ収支」表は支払予定 (`forecastPayoutYen`) を出す表。当初 `cycle.budget_yen` 決め打ち → v0.25.3 で uncapped 投影に変えたが、**uncapped はキャップ・繰越を通さない生報酬なので支払予定としては誤り**。pt 消化が厚い月に budget_yen を超えて跳ね、まさのスクショで ① マイナス月 ② ZMP 巨額 ③ 役員のみ PJ (KUTE) で巨額の支払予定、が露見した (BUGS.md 2026-06-17)。**対策 (v0.25.4)**: route が `computeForwardCappedMemberCosts(db, projectId, ym)` を呼び `forecastCapped: [{projectId, ym, cappedTotalYen}]` を返却。この関数は各月 `buildRewardSummary` で **capped (キャップ + 繰越平準化)** を投影し、`is_officer` / `exclude_from_payout_notice` のメンバーを**単に落とす** (i 案: 再配分しない)。client は capped が「計算済み」なら値 0 でも使う (役員のみ PJ の支払予定ゼロを budget フォールバックに落とさない)。実測: KUTE(p25) 全月 capped 支払予定 = ¥0、ZMP(p19) 202609 は uncapped ¥777,465 → capped ¥215,169 に平準化、マイナス月消滅。**支払予定 (capped) と原価 (uncapped) は列の意味が違うので取り違えないこと。**
+> **別財布売上は実装済み (2026-06-16 / 2026-06-18 キャッシュ分離)**: ZMP (p19) の OkuDoor システム開発のような本契約外の受託売上は、`billing_cycles.extra_revenue_json` に構造化し、live builder が `projectRevenues[].extraRevenue` として PL 按分額、`projectRevenues[].extraRevenueCash` として入金予定額を注入する。エンジンは PL では売上計・粗利・消費税に、キャッシュでは入金月の CF に加算する。原価はこの別財布売上にも自動率を通さず、同じ月の payouts capped 外部支払から読む。
+> ✅ **収支系3系統に反映済み (2026-06-18, v0.27.7 / 2026-07-17 更新)**: PJ収支を出す画面は少なくとも3系統ある — (A) `/management-score` 月次収支シミュレータ (`buildLiveMonthlyPlInputs`→エンジン)、(B) `/admin/payouts`「先12か月 PJ収支」表 (`AdminPayoutsClient.tsx`)、(C) `/management-score` 下部の「PJ別 先12か月収支」表 (`management-score/page.tsx` の `ProjectMonthlyFinanceTable`)。按分ロジックは共通 lib `src/lib/finance/extra-revenue.ts` (`expandExtraRevenue`) に集約し、支払予定/原価は `billing_cycles.reward_summary_json` の capped 外部支払を正本にする。**finance の数字を変えたら必ず `/management-score` の月次収支シミュレータ、`/management-score` 下部PJ別表、`/admin/payouts` の3系統で確認すること**。
 
 > ✅ **(B)(C) の先12か月表を目的別4表へ分解 (2026-06-19, v0.28.13)**: `/admin/payouts` と `/management-score` 下部の先12か月表は、`キャッシュ支払` / `会社留保` / `報酬債務` / `cap超過チェック` に分ける。会社留保は支出ではなく `cap/売上枠 - 外部支払` で見る。報酬債務は月末残高なので、12か月分を合計せず、各月残・ピーク・最終月残で見る。cap超過チェックだけが `報酬需要 - cap/売上枠` を見る。`computeForwardCappedMemberCosts` は `cappedRegularYen` / `cappedExtraYen` に加えて `cappedRegularExternalYen` / `cappedExtraExternalYen` / `regularCompanyReserveYen` / `extraCompanyReserveYen` / gross due / carry over を返す。
 
@@ -486,7 +472,7 @@ MS の pt 消化は**必ず期間の月数で按分**する (まとめ達成禁�
 
 > ✅ **(C) で MS 月割ptも確認する (2026-06-18, v0.27.8)**: 同じ表は「収支」だけでなく、各PJのMSが12か月予測上でプロラタに散っているかを確認する監査面でもある。各 PJ × ym セルに `MS月割 +{pt}pt / {N}MS` を表示し、`value_milestones.period_start_ym`〜`target_ym` と `ms-schedule-shared.ts` のアンカー方式で、その月の単月消化ptを計算する。非確定 `milestone_monthly_progress` は正本にせず、PM locked source があるMSだけ `PM確定` と表示する。`期間未設定` が出るMSは、プロラタ計算に必要な期間入力が欠けているので、MS台帳の `period_start_ym` / `target_ym` を直す。これにより「支払予定がなぜこの月に出るか」と「MS消化が月末一括でなく月割りになっているか」を同じ12か月横軸で確認できる。
 
-#### 報酬予算の月次解決順 (`deriveRewardBudgetForPt`) と uncapped 月次原価の実測概算
+#### 報酬予算の月次解決順 (`deriveRewardBudgetForPt`) と uncapped 月次需要の実測概算
 
 uncapped 報酬の ptUnit は「月次報酬予算 ÷ plan cycle 総 pt」で出す。月次報酬予算 (`deriveRewardBudgetForPt`) は次の優先順で解決する。**`billing_cycles.budget_reported_amount` は売上であって報酬予算ではないので、ここでは参照しない** (= budget_yen が 0 の月は fee fallback に落ちる):
 
@@ -496,14 +482,14 @@ uncapped 報酬の ptUnit は「月次報酬予算 ÷ plan cycle 総 pt」で出
 
 主要 active PJ の実測 (2026-06 時点):
 
-| PJ | plan cycle | 総pt | 月次報酬予算 | 月次按分pt | uncapped 月次原価 ≒ |
+| PJ | plan cycle | 総pt | 月次報酬予算 | 月次按分pt | uncapped 月次需要 ≒ |
 |---|---|---|---|---|---|
 | p19 ZMP | 202601-202612 (12ヶ月) | 187 | billing `budget_yen` ≈ ¥195,000 | 187/12 ≈ 15.6 | ≈ ¥195,000 |
 | p20 CX | 202606-202609 (4ヶ月) | 40 | billing `budget_yen` ≈ ¥50,700 | 40/4 = 10 | ≈ ¥50,700 |
 | p21 SX | 202604-202703 (12ヶ月) | 120 | 26年4-5月は `budget_yen=0` → fee fallback ¥681,200 / 6月以降は billing `budget_yen=681,200` | 120/12 = 10 | ≈ ¥56,767 |
 | p25 KUTE | 202605-202703 (11ヶ月) | 110 | billing `budget_yen` ≈ ¥654,545 | 110/11 = 10 | ≈ ¥654,545 |
 
-p21 の 26年4-5月は `billing_cycles.budget_yen` が 0 (reported=¥840,000 のみ) なので fee fallback (¥1,048,000 × 0.65 = ¥681,200) が効き、報酬原価が 0 に落ちない。この fallback が無いと SX の人件費原価が前半 0 円になり赤字月を誤って消してしまう。
+p21 の 26年4-5月は `billing_cycles.budget_yen` が 0 (reported=¥840,000 のみ) なので fee fallback (¥1,048,000 × 0.65 = ¥681,200) が効き、uncapped 報酬需要が 0 に落ちない。この fallback が無いと SX の cap 設計や MS 配分監査で前半の需要を誤って消してしまう。
 
 ### baseline 表示も live 駆動 (= `buildLiveGasSimulationResult`)
 
@@ -515,26 +501,23 @@ p21 の 26年4-5月は `billing_cycles.budget_yen` が 0 (reported=¥840,000 の
 
 外部クライアントが同じ残高線だけを読む場合は `GET /api/finance/live-cash-balances?from=YYYYMM&to=YYYYMM` を使う。これは `company_budget_actual_monthly.cash_amount_yen` の直読みではなく、上記 live inputs で再計算した budget cash に、`category='cash_balance'` の実績残高を月別に優先マージして返す read-only API。実績残高がある場合、未来月の主 `cashBalance` は「最新実績残高 + 以後の見込み月次CF累計」で出し、当初計画は `budgetCashBalance` として併記する。KAGAMI の財布画面の AMD 残高スタックはこの route を正本にする。レスポンスは月次残高・実績/予算 source・runway に限定し、PJ別売上/固定費/報酬内訳は返さない。
 
-### 予実管理のための DB 書き込み (= A案)
+### 予実管理のための DB 書き込み
 
-シミュレーションだからといって DB に書かない、という方針は取らない。**書いておかないと予実管理 (予定 vs 実績) ができない**ため。将来月の予測報酬は次の流れで保存する。
+月次試算表は、報酬キャッシュを自分では作らない。`/admin/payouts` / `payout-reward-cache-refresh` が `billing_cycles.reward_summary_json` に capped 支払予定を保存し、月次試算表はそれを読み取って `company_budget_monthly` の `source='os_live_monthly_pl'`, `version='os-live-current'` へ materialize する。
 
 ```mermaid
 flowchart LR
-  A["MS 進捗 (期間按分)"] --> B["uncapped 月次報酬を将来月まで計算"]
-  B --> C["将来月の billing_cycles 行を用意"]
-  C --> D["billing_cycles.reward_summary_json へ予測報酬を保存"]
-  D --> E["/management-score シミュレータが保存値を読む"]
-  E --> F["実績が出たら予実比較 (差分列)"]
+  A["/admin/payouts / payout cron"] --> B["billing_cycles.reward_summary_json へ capped 外部支払を保存"]
+  B --> C["/management-score live builder が読む"]
+  C --> D["company_budget_monthly os_live_monthly_pl を再生成"]
+  D --> E["raw収集 / score / 画面が同じversionを読む"]
 ```
 
-保存先は `billing_cycles.reward_summary_json` の **`forecastUncapped` キー** (= `computeForwardUncappedMemberCosts(persist:true)` が書く)。既存の capped actual (実支払データ = `members`/`totalPaySum` 等) は**上書きしない**。capped (実際にいくら払ったか) と uncapped forecast (その月に発生する原価予測) を同じ行に共存させる。
-
-行追加 (INSERT) は不要。現行 active PJ (p00/p19/p20/p21/p25) は plan cycle 末まで `billing_cycles` 行が既に揃っているため、**既存行の `reward_summary_json` 更新だけで済む** (= 新規行 backfill が無いのでまさ承認ゲートに当たらない)。将来 plan cycle が延長され末月以降に行が無くなった場合のみ、INSERT 是非をまさに確認する。
+`refreshLiveMonthlyPlBudget` は `company_budget_monthly` の live version を delete/insert する。`reward_summary_json` は読み取り専用として扱い、月次試算表側で `forecastUncapped` を保存したり、payouts の capped actual を上書きしたりしない。将来 plan cycle が延長され `billing_cycles` 行が足りない場合は、payouts 側の報酬キャッシュ更新ルートで補う。
 
 ### シミュレータ画面 (= `GasMonthlySimulationPanel`)
 
-panel 自体の表示構造は不変 (エンジン `monthly-pl-simulation.ts` も不変)。入力の作り方だけが live builder に変わった。
+panel 自体の表示構造は既存の比較表を使う。入力の作り方は live builder に寄せ、エンジンは `externalMemberCost` が明示された PJ/月では `revenue × rateMember` の自動原価を使わない。
 
 | 表示 | 内容 |
 |---|---|
@@ -692,7 +675,7 @@ DB分類として、`project_strategy_signals` に `signal_scope` / `applies_to_
 | P0 | initiative 抽出の cron 健康度 | 202606 unknown 100% (= 入力薄) | `/api/cron/member-activities` 実行履歴と入力本文を確認 |
 | P0 | amd_os_installations 新テーブル | 未作成 | migration 設計 + L2 抽出経路 |
 | P1 | next_actions 自動生成 | `next_actions_json` は空配列で保存 | evidence と strategy signal から次アクション生成 |
-| P2 | finance simulation ライブ駆動 | 2026-06-16 に入力を OS ライブテーブル直読み (`buildLiveMonthlyPlInputs`) へ移行。将来原価は uncapped 報酬を期間按分で投影 | 将来月の `billing_cycles` 行 INSERT (予測報酬保存) はまさ承認後に backfill。旧 `simulate` API は保存運用用に残置 |
+| P2 | finance simulation ライブ駆動 | 2026-06-16 に入力を OS ライブテーブル直読み (`buildLiveMonthlyPlInputs`) へ移行。2026-07-17 以降、売上原価は `/admin/payouts` の capped 外部支払予定を読む | 報酬キャッシュは payouts 側で更新し、月次試算表は `company_budget_monthly` live version を再生成する。旧 `simulate` API は保存運用用に残置 |
 | P2 | freee freshness 見える化 | freee row が無い時に score / confidence が下がる | token / sync failure を `/admin/settings` と差分メモで見える化 |
 
 ## 卒業フェーズ検出との接続

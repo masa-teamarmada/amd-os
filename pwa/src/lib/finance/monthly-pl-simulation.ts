@@ -75,11 +75,17 @@ export interface MonthlyPlProjectRevenue {
   projectId: string;
   ym: number;
   monthlyRevenue?: number | null;
+  /**
+   * 当月に実際に外部へ支払うメンバー原価。
+   * live 月次PLでは `/admin/payouts` の capped 支払予定をここへ入れる。
+   * 明示された月は revenue×rateMember の自動原価を使わない。
+   */
+  externalMemberCost?: number | null;
   internalMemberCost?: number | null;
   /**
    * 別財布（別契約）売上。定額/変動の本契約売上とは別枠で、その月だけ revenue に加算される。
    * monthlyRevenue (= 上書き・持続) と違い「立つ月だけ加算」セマンティクス (spot と同じ)。
-   * 原価は cap_extra プールの uncapped 報酬として internalMemberCost 経由で別途計上済みなので、
+   * 原価は payouts 由来の externalMemberCost として別途注入済みなので、
    * extraRevenue には rateMember/rateCloser の自動原価計算を **通さない** (二重計上を防ぐ)。
    * 開発期間按分は live-inputs 層 (live-monthly-pl-inputs.ts) で総額÷期間月数を各月行に展開して
    * 注入する (= pt消化と同じ「期間で割る」思想)。エンジンはここで来た ym ごとの額を素直に加算する。
@@ -360,6 +366,20 @@ function resolveInternalMemberCost(
   return resolved;
 }
 
+function resolveExternalMemberCost(
+  projectId: string,
+  ym: number,
+  overrides: MonthlyPlProjectRevenue[]
+): number | null {
+  let resolved: number | null = null;
+  for (const override of overrides) {
+    if (override.projectId === projectId && override.ym === ym && override.externalMemberCost !== null && override.externalMemberCost !== undefined) {
+      resolved = override.externalMemberCost;
+    }
+  }
+  return resolved;
+}
+
 function projectRevenueForYm(
   project: MonthlyPlProject,
   ym: number,
@@ -374,7 +394,7 @@ function projectRevenueForYm(
  * その月・その PJ の別財布（別契約）売上の合計。
  * monthlyRevenue (上書き・持続) と違い「その月ちょうど (ym 一致)」だけ加算する。
  * 開発期間按分は live-inputs 層で各月行に展開済みなので、ここは ym 一致の額を素直に合算する。
- * 原価は cap_extra プールで別途計上済みなので、ここで rateMember/rateCloser は通さない。
+ * 原価は payouts 由来の externalMemberCost で別途注入済みなので、ここで rateMember/rateCloser は通さない。
  */
 function extraRevenueForYm(
   projectId: string,
@@ -488,6 +508,7 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
       ...row,
       ym: numberOr(row.ym),
       monthlyRevenue: optionalNumber(row.monthlyRevenue),
+      externalMemberCost: optionalNumber(row.externalMemberCost),
       internalMemberCost: optionalNumber(row.internalMemberCost),
       extraRevenue: optionalNumber(row.extraRevenue),
       extraRevenueCash: optionalNumber(row.extraRevenueCash),
@@ -619,7 +640,7 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
         pjDetails.push({ projectId: pj.projectId, revenue: 0, cashRevenue });
         continue;
       }
-      // 別財布（別契約）売上: 本契約売上とは別枠で revenue に加算。原価は cap_extra 側で計上済みのため
+      // 別財布（別契約）売上: 本契約売上とは別枠で revenue に加算。原価は payouts 側で注入済みのため
       // rateMember/rateCloser は通さない (= 自動原価の二重計上を防ぐ)。
       const pjExtra = extraRevenueForYm(pj.projectId, ym, projectRevenues);
       const pjRev = projectRevenueForYm(pj, ym, projectRevenues);
@@ -630,10 +651,15 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
 
       revenue += pjRev + pjExtra;
       const memberAlloc = Math.round(pjRev * rateMember);
+      const extCost = resolveExternalMemberCost(pj.projectId, ym, projectRevenues);
       const intCost = resolveInternalMemberCost(pj.projectId, ym, projectRevenues, pj.internalMemberCost ?? null);
       let pjExternal = 0;
       let pjInternal = 0;
-      if (intCost !== null) {
+      if (extCost !== null) {
+        pjExternal = Math.max(0, extCost);
+        pjInternal = Math.max(0, intCost ?? 0);
+        actualMemberTotal += pjExternal;
+      } else if (intCost !== null) {
         pjExternal = Math.max(0, memberAlloc - intCost);
         pjInternal = intCost;
         actualMemberTotal += pjExternal;
@@ -818,8 +844,11 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
       const cpjExtra = extraRevenueForYm(cpj.projectId, ym, projectRevenues);
       confirmedRevenue += cpjRev + cpjExtra;
 
+      const cExtCost = resolveExternalMemberCost(cpj.projectId, ym, projectRevenues);
       const cIntCost = resolveInternalMemberCost(cpj.projectId, ym, projectRevenues, cpj.internalMemberCost ?? null);
-      if (cIntCost !== null) {
+      if (cExtCost !== null) {
+        confirmedMemberCost += Math.max(0, cExtCost);
+      } else if (cIntCost !== null) {
         confirmedMemberCost += Math.max(0, Math.round(cpjRev * rateMember) - cIntCost);
       } else {
         confirmedMemberCost += Math.round(cpjRev * rateMember);

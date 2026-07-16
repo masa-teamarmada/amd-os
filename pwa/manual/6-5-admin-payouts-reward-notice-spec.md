@@ -42,6 +42,8 @@ flowchart TD
 
 報酬対象メンバーがいない月も、`reward_summary_json.members=[]` の **0円キャッシュ**として保存する。`null` のままだと `/admin/payouts` の先12か月表が「未計算」と解釈し、budget fallback で本来 0 円のPJに支払予定を出す事故になるため。
 
+`/management-score` の live 月次試算表も、この `reward_summary_json` の capped 外部支払額を売上原価として読む。0円キャッシュは 0 円の正本であり、`fee_amount × 65%` や `budget_yen` へフォールバックしてはいけない。
+
 `reward_summary_json` の構造 (= GAS rv2 計算):
 
 ```json

@@ -2,7 +2,7 @@
 
 メンバーの月次報酬がどう決まるかの **計算正本**。 数式・入力データ・優先順位・キャップ制御まで一通り。 **現行の動作実装は `pwa/src/lib/reward-summary.ts` (= こちらが正本)**。 GAS版 `gas/059_RewardV2_Ops.js` は旧互換実装で、 主従は PWA 側。 ここはそれを読み手向けに明文化したもの。
 
-> **2026-06-15 同期メモ**: 本章は元々 GAS実装基準で書かれていたが、 現行PWA実装 (`reward-summary.ts`) に合わせて以下を同期した — (1) PM確定 source 一覧を実装の `PM_LOCKED_PROGRESS_SOURCES` に更新、 (2) 期間按分を 2026-06-12 まさ確定の **アンカー方式** (`anchoredExpectedCumPctForYm`) に更新、 (3) **uncapped (キャップ前) 月次報酬** と、 それを使う **月次収支シミュレータの将来原価** の節を新設。 計算式の主従が GAS→PWA に逆転した点に注意。
+> **2026-06-15 同期メモ / 2026-07-17 訂正**: 本章は元々 GAS実装基準で書かれていたが、 現行PWA実装 (`reward-summary.ts`) に合わせて PM確定 source、期間按分、uncapped (キャップ前) 月次報酬を同期した。2026-07-17 以降、`/management-score` live 月次試算表の売上原価は uncapped ではなく `/admin/payouts` の capped 外部支払予定を正本にする。uncapped は cap 設計・MS期間設定・報酬需要の監査に使う。
 
 メンバー向け使い方は [2-2 章 メンバーの日常ワークフロー](2-2-member-workflows-quick-start.md)、 admin 入口は [6-5 章 Admin Payouts / 支払通知書](6-5-admin-payouts-reward-notice-spec.md) を見る。
 
@@ -381,25 +381,26 @@ payYen[member]   = round(earnedPt[member] × ptUnit)      # = そのまま支払
 | 用途 | capped / uncapped |
 |---|---|
 | 実際の月次支払い (= /admin/payouts、 支払通知書) | **capped** (支払上限と繰越で平準化) |
-| 月次収支シミュレータの**メンバー原価** (下記) | **uncapped** (その月に発生した原価そのもの) |
+| `/management-score` live 月次試算表の**売上原価** | **capped の外部支払分** (`externalRegularPayoutCapYen + externalExtraPayoutCapYen`) |
+| MS進捗・pt単価・報酬需要の監査 | **uncapped** (cap 前の理論需要) |
 
-収支シミュは「その月にいくら原価が発生したか」を見たいので、 支払いを翌月に繰り越す capped ではなく、 発生 baseの uncapped を使う。
+月次試算表は「実際に会社から外へ出る支払」を見るので、`/admin/payouts` と同じ capped 外部支払を使う。会社留保・役員留保・未払い残・uncapped の理論需要は、支出ではなく監査/設計の数字として別枠で見る。
 
 ---
 
-## 月次収支シミュレータの将来原価 (= 予実管理)
+## 月次収支シミュレータの売上原価 (= 予実管理)
 
-`/management-score` の月次収支シミュレータは、 将来各月の**メンバー原価**を上記 uncapped 報酬で投影する。 「いつ・どの MS が・何 pt 消化される予定か」は [期間按分デフォルト](#期間按分デフォルト--アンカー方式-2026-06-12-まさ確定) で各月に散っているので、 将来月でも uncapped 月次報酬が出せる。
+`/management-score` の live 月次試算表は、将来各月の**売上原価**を `/admin/payouts` と同じ capped 外部支払予定で投影する。`billing_cycles.reward_summary_json.externalRegularPayoutCapYen + externalExtraPayoutCapYen` が正本で、役員会社留保・会社留保・未払い残・uncapped の理論需要は原価/cash out に混ぜない。
 
 `/management-score` 下部の「PJ別 先12か月収支」表は、支払予定 (capped) とは別に `MS月割 +{pt}pt / {N}MS` を表示する。これは報酬計算をもう一度行う列ではなく、`value_milestones.period_start_ym`〜`target_ym` と `anchoredExpectedCumPctForYm` から、その月にどの程度MSが進む前提かを目視確認するための監査表示。PM locked 行があるMSは `PM確定` として表示し、非確定の `routine_auto` / LLM推定行は正本にしない。
 
-> **`/admin/payouts`「先12か月 PJ収支」表の将来「支払予定」は capped + 役員除外を使う (2026-06-17, v0.25.4)**: `/admin/payouts` の「先12か月 PJ収支」収支表の支払予定列は、**月次収支シミュの原価 (uncapped) とは別物**で、実際にいくら払うか = **capped (月次キャップ `budget_yen` + stock 繰越平準化)** が正本 (上の表 279行)。`computeForwardCappedMemberCosts` が plan cycle 期間の各月を `buildRewardSummary` で投影し、`is_officer` / `exclude_from_payout_notice` のメンバーは支払予定から**単に落とす** (再配分しない = AMD 持ち出しが無限に膨らむのを防ぐ)。**将来月の支払予定に uncapped を入れたり `budget_yen` を決め打ちコピーするのは禁止** — uncapped は pt 消化が厚い月に budget を超えて跳ね、マイナス月・役員のみ PJ (KUTE) で巨額の支払いが出る嘘になる (BUGS.md 2026-06-17、v0.25.3 で一度この誤りを犯し v0.25.4 で訂正)。役員のみ PJ は capped 支払予定 = ¥0 が正しい結果なので、値 0 を「未計算」と誤判定して budget フォールバックに落とさないこと。
+> **`/admin/payouts`「先12か月 PJ収支」表の将来「支払予定」は capped + 役員除外を使う (2026-06-17, v0.25.4 / 2026-07-17 月次試算表へ正本化)**: `/admin/payouts` の支払予定列は、実際にいくら払うか = **capped (月次キャップ `budget_yen` + stock 繰越平準化)** が正本。`computeForwardCappedMemberCosts` が plan cycle 期間の各月を `buildRewardSummary` で投影し、`is_officer` / `exclude_from_payout_notice` のメンバーは支払予定から**単に落とす** (再配分しない = AMD 持ち出しが無限に膨らむのを防ぐ)。**将来月の支払予定や月次試算表の売上原価に uncapped を入れたり `budget_yen` を決め打ちコピーするのは禁止**。役員のみ PJ や支払対象メンバーがいない PJ は capped 外部支払予定 = ¥0 が正しい結果なので、値 0 を「未計算」と誤判定してフォールバックに落とさないこと。
 
 - **入力**: live テーブル (`projects` の `monthly_fixed` / `value_plan_cycles` (active) / `value_milestones` の `period_start_ym`・`target_ym`・`points` / `milestone_responsibility` / `billing_cycles`)。 旧 `company_budget_inputs` の凍結スナップショットは使わない。
-- **将来原価 = 将来各月の uncapped 報酬**。 capped を使うと繰越で原価が翌月にずれて月次収支が歪むため、 uncapped が正。
-- **DB に書く (= 予実管理)**: 将来月の予定報酬も `billing_cycles.reward_summary_json` に保存する。 後で実績が確定したら同じ行が上書きされ、 予実が 1 テーブルに並ぶ。 「シミュだから DB に書かない」は誤り (2026-06-15 まさ確定)。
+- **売上原価 = 将来各月の capped 外部支払予定**。`/admin/payouts` の支払通知フローと同じ `reward_summary_json` を読む。
+- **DB に書く (= 予実管理)**: 報酬キャッシュは `/admin/payouts` / `payout-reward-cache-refresh` 側で `billing_cycles.reward_summary_json` に保存する。月次試算表はそのキャッシュを読み、原価用に上書きしない。
 
-> **注意 (uncapped の単月赤字)**: uncapped はキャリーストック平準化をしないので、 pt 消化が厚い月はメンバー原価が跳ねて**単月赤字**が出ることがある。 これは実運用の capped (繰越平準化) では均される性質。 シミュ上で赤字月が顕著なら、 按分計画 (MS の `period_start_ym`〜`target_ym`) かサイクル設計を見直すシグナルとして扱う。
+> **注意 (uncapped の扱い)**: uncapped はキャリーストック平準化をしないので、pt 消化が厚い月は報酬需要が跳ねる。これは支出予定ではなく、cap 設計や MS 期間設定を監査するシグナルとして扱う。月次試算表の cash / 売上原価へは capped 外部支払予定だけを入れる。
 
 詳細な収支シミュ仕様は [4-5 章 Management Score / 収支シミュレーション](4-5-management-score-and-finance-simulation-spec.md) を参照。
 
