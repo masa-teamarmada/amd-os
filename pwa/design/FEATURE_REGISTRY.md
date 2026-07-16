@@ -442,7 +442,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 必須機能:
 
 - `AdminSidebar` に `運営カレンダー` → `/admin/schedule` を置く。admin layout/auth gateと既存full-width shellを使う。
-- デスクトップは12か月の年間締切レールを主役にし、月別カードを4×3で表示する。モバイルは12列を縮めず、月アコーディオン + リストへ切り替える。
+- デスクトップは12か月すべての実日付7列グリッドを主役にし、xlは3か月×4段、md/lgは2か月で表示する。モバイルも1か月ずつの7列グリッドを使い、前月/次月・月選択・今日・選択日agendaを備える。
 - カレンダーから予定・日付・金額・担当者を追加、編集、削除しない。元正本の修正後に `/api/admin/schedule/rebuild` で再生成する。
 - detail drawer/sheet は期限精度 (`day` / `month` / `period` / `unknown`)、金額役割 (`outgoing` / `incoming` / `contract_reference` / `informational`)、担当、正本リンク、公式根拠、生成状態を表示する。不明額を0円表示しない。
 - `company_payment_obligations` は `notification_owner='payment_obligation'` として既存通知台帳を所有する。運営カレンダー通知は `company_schedule_notifications` の一意キーでのみ送信する。

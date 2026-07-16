@@ -9,7 +9,8 @@ import {
   CalendarDays,
   Check,
   CheckCircle2,
-  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   CircleAlert,
   Clock3,
   ExternalLink,
@@ -22,6 +23,7 @@ import {
   WalletCards,
   X,
 } from "lucide-react";
+import { buildMonthGrid, CALENDAR_WEEKDAYS, isDatePrecisionDay } from "@/lib/admin-schedule/calendar";
 import { todayJst } from "@/lib/admin-schedule/date";
 import type {
   AmountRole,
@@ -32,6 +34,7 @@ import type {
 
 type Props = { initialData: ScheduleViewData };
 type StatusFilter = "all" | ScheduleViewOccurrence["computed_status"];
+type CalendarMonth = { year: number; month: number; key: string };
 
 const CATEGORY_LABELS: Record<ScheduleCategory, string> = {
   tax: "税務",
@@ -56,13 +59,23 @@ const STATUS_LABELS: Record<StatusFilter, string> = {
 };
 
 const STATUS_STYLES: Record<ScheduleViewOccurrence["computed_status"], string> = {
-  overdue: "border-red-200 bg-red-50 text-red-800",
-  due_today: "border-orange-200 bg-orange-50 text-orange-800",
-  due_soon: "border-amber-200 bg-amber-50 text-amber-900",
-  open: "border-sky-200 bg-sky-50 text-sky-800",
-  completed: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  cancelled: "border-border bg-muted text-muted-foreground",
-  needs_source: "border-amber-300 bg-amber-50 text-amber-950",
+  overdue: "border-l-rose-600 bg-rose-50 text-rose-950",
+  due_today: "border-l-amber-600 bg-amber-50 text-amber-950",
+  due_soon: "border-l-amber-400 bg-amber-50/70 text-amber-950",
+  open: "border-l-sky-500 bg-sky-50 text-sky-950",
+  completed: "border-l-emerald-500 bg-emerald-50 text-emerald-950",
+  cancelled: "border-l-slate-400 bg-muted text-muted-foreground",
+  needs_source: "border-l-amber-700 bg-amber-50 text-amber-950",
+};
+
+const STATUS_DOT_STYLES: Record<ScheduleViewOccurrence["computed_status"], string> = {
+  overdue: "bg-rose-600",
+  due_today: "bg-amber-600",
+  due_soon: "bg-amber-400",
+  open: "bg-sky-500",
+  completed: "bg-emerald-500",
+  cancelled: "bg-slate-400",
+  needs_source: "bg-amber-700",
 };
 
 const CATEGORY_ICONS: Record<ScheduleCategory, typeof CalendarDays> = {
@@ -100,6 +113,13 @@ function fullDateLabel(item: ScheduleViewOccurrence): string {
   return `${dateLabel(item)} / ${item.date_kind}`;
 }
 
+function amountRoleLabel(role: AmountRole): string {
+  if (role === "outgoing") return "支出";
+  if (role === "incoming") return "入金";
+  if (role === "contract_reference") return "契約参照額";
+  return "情報";
+}
+
 function amountLabel(item: ScheduleViewOccurrence): string {
   if (item.amount_status === "not_applicable") return "金額なし";
   if (item.amount_yen == null || item.amount_status === "unknown") return "金額未確定";
@@ -107,11 +127,9 @@ function amountLabel(item: ScheduleViewOccurrence): string {
   return `${prefix}¥${item.amount_yen.toLocaleString("ja-JP")} / ${amountRoleLabel(item.amount_role)}`;
 }
 
-function amountRoleLabel(role: AmountRole): string {
-  if (role === "outgoing") return "支出";
-  if (role === "incoming") return "入金";
-  if (role === "contract_reference") return "契約参照額";
-  return "情報";
+function shortAmountLabel(item: ScheduleViewOccurrence): string | null {
+  if (item.amount_yen == null || item.amount_status === "unknown" || item.amount_status === "not_applicable") return null;
+  return `${item.amount_status === "estimated" ? "概算 " : ""}¥${item.amount_yen.toLocaleString("ja-JP")}`;
 }
 
 function itemMatchesMonth(item: ScheduleViewOccurrence, key: string): boolean {
@@ -136,16 +154,31 @@ function statusIcon(status: ScheduleViewOccurrence["computed_status"]) {
   return <Clock3 className="h-4 w-4" aria-hidden="true" />;
 }
 
+function isUnknownDate(item: ScheduleViewOccurrence): boolean {
+  return !item.due_on && !item.due_ym && !item.period_key;
+}
+
+function formatDayAgendaHeading(date: string): string {
+  const parsed = new Date(`${date}T00:00:00Z`);
+  return `${parsed.getUTCMonth() + 1}月${parsed.getUTCDate()}日（${CALENDAR_WEEKDAYS[(parsed.getUTCDay() + 6) % 7]}）`;
+}
+
 export function AdminScheduleClient({ initialData }: Props) {
   const [data] = useState(initialData);
-  const [year, setYear] = useState(Number(initialData.from.slice(0, 4)));
+  const initialYear = Number(initialData.from.slice(0, 4));
+  const today = todayJst();
+  const todayYear = Number(today.slice(0, 4));
+  const initialMonth = Number(today.slice(5, 7));
+  const [year, setYear] = useState(initialYear);
   const [activeMonth, setActiveMonth] = useState<number | null>(null);
+  const [mobileMonth, setMobileMonth] = useState(initialYear === todayYear ? initialMonth : 1);
+  const [selectedDate, setSelectedDate] = useState<string | null>(initialYear === todayYear ? today : null);
+  const [agendaDate, setAgendaDate] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [category, setCategory] = useState<ScheduleCategory | "all">("all");
   const [projectId, setProjectId] = useState("all");
   const [ownerId, setOwnerId] = useState("all");
   const [status, setStatus] = useState<StatusFilter>("all");
-  const [mobileOpenMonth, setMobileOpenMonth] = useState<string | null>(null);
   const [rebuildReason, setRebuildReason] = useState("");
   const [rebuilding, setRebuilding] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
@@ -181,13 +214,56 @@ export function AdminScheduleClient({ initialData }: Props) {
   }), [visibleItems, year]);
 
   const selected = selectedId ? data.occurrences.find((item) => item.occurrence_id === selectedId) ?? null : null;
-  const today = todayJst();
-  const todayYear = Number(today.slice(0, 4));
   const monthKeys = Array.from({ length: 12 }, (_, index) => monthKey(year, index + 1));
-  const firstPopulatedMonthIndex = monthKeys.findIndex((key) => yearItems.some((item) => itemMatchesMonth(item, key)));
+  const monthList: CalendarMonth[] = monthKeys.map((key, index) => ({ key, year, month: index + 1 }));
+  const yearUnknownItems = yearItems.filter((item) => item.computed_status === "needs_source" && isUnknownDate(item));
   const nearest = yearItems.filter((item) => item.computed_status !== "completed" && item.computed_status !== "cancelled").slice(0, 6);
   const categoryOptions = [...new Set(data.occurrences.map((item) => item.category))].sort();
   const years = [...new Set([Number(initialData.from.slice(0, 4)), Number(initialData.to.slice(0, 4)), todayYear])].sort();
+  const mobileKey = monthKey(year, mobileMonth);
+  const mobileItems = yearItems.filter((item) => itemMatchesMonth(item, mobileKey));
+  const mobileSelectedDate = selectedDate && selectedDate.startsWith(`${year}-${String(mobileMonth).padStart(2, "0")}-`) ? selectedDate : null;
+  const mobileAgendaItems = mobileSelectedDate ? mobileItems.filter((item) => item.due_on === mobileSelectedDate && isDatePrecisionDay(item)) : [];
+  const desktopAgendaItems = agendaDate ? yearItems.filter((item) => item.due_on === agendaDate && isDatePrecisionDay(item)) : [];
+
+  function focusMonth(month: number) {
+    setActiveMonth(month);
+    setMobileMonth(month);
+    const key = `${year}-${String(month).padStart(2, "0")}`;
+    window.requestAnimationFrame(() => document.getElementById(`schedule-month-${key}`)?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
+
+  function setMobileCalendarMonth(month: number) {
+    const next = Math.min(12, Math.max(1, month));
+    setMobileMonth(next);
+    setSelectedDate(null);
+    setAgendaDate(null);
+  }
+
+  function shiftMobileMonth(delta: number) {
+    const next = new Date(Date.UTC(year, mobileMonth - 1 + delta, 1));
+    setYear(next.getUTCFullYear());
+    setMobileMonth(next.getUTCMonth() + 1);
+    setSelectedDate(null);
+    setAgendaDate(null);
+  }
+
+  function goToToday() {
+    setYear(todayYear);
+    setMobileMonth(initialMonth);
+    setSelectedDate(today);
+    setAgendaDate(today);
+  }
+
+  function selectDate(date: string) {
+    setSelectedDate(date);
+    setAgendaDate(date);
+  }
+
+  function showAgenda(date: string) {
+    setSelectedDate(date);
+    setAgendaDate(date);
+  }
 
   async function rebuild() {
     const reason = rebuildReason.trim();
@@ -225,16 +301,16 @@ export function AdminScheduleClient({ initialData }: Props) {
   }
 
   return (
-    <div className="space-y-5 pb-8">
+    <div className="min-w-0 space-y-5 pb-8">
       <header className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-5">
-        <div className="flex items-start gap-3">
-          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-foreground text-background shadow-sm">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-foreground text-background">
             <CalendarDays className="h-5 w-5" aria-hidden="true" />
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Admin / Operations</p>
             <h1 className="mt-1 text-2xl font-semibold tracking-tight">運営カレンダー</h1>
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">契約・債務・請求・報告書・確定action itemの正本から、今年の締切を自動で俯瞰する。</p>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">人が日付を探し、ジョブが正本を走査する。契約・債務・請求・報告・確定action itemを実日付で俯瞰する。</p>
           </div>
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
@@ -258,31 +334,32 @@ export function AdminScheduleClient({ initialData }: Props) {
         </div>
       )}
 
-      <section aria-label="カレンダーの状態" className="grid gap-2 sm:grid-cols-3">
-        <StateStrip icon={<CheckCircle2 className="h-4 w-4" />} label="生成済み" value={data.meta.generatedCount} tone="green" />
-        <StateStrip icon={<CircleAlert className="h-4 w-4" />} label="根拠不足" value={data.meta.needsSourceCount} tone="amber" />
-        <StateStrip icon={<Clock3 className="h-4 w-4" />} label="鮮度・ルール確認" value={data.meta.staleOccurrenceCount + data.meta.staleRuleCount} tone="blue" />
+      <section aria-label="カレンダーの状態" className="flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-border py-3 text-sm">
+        <span className="inline-flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden="true" /><span className="text-muted-foreground">生成済み</span><strong>{data.meta.generatedCount}</strong></span>
+        <span className="inline-flex items-center gap-2"><CircleAlert className="h-4 w-4 text-amber-700" aria-hidden="true" /><span className="text-muted-foreground">根拠不足</span><strong>{data.meta.needsSourceCount}</strong></span>
+        <span className="inline-flex items-center gap-2"><Clock3 className="h-4 w-4 text-sky-600" aria-hidden="true" /><span className="text-muted-foreground">鮮度・ルール確認</span><strong>{data.meta.staleOccurrenceCount + data.meta.staleRuleCount}</strong></span>
+        <span className="ml-auto text-xs text-muted-foreground">{year}年 / {yearItems.length}件を表示</span>
       </section>
 
-      <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm" aria-labelledby="annual-rail-title">
+      <section className="overflow-hidden border border-border bg-card" aria-labelledby="annual-rail-title">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
-          <div><h2 id="annual-rail-title" className="font-semibold">年間締切レール</h2><p className="text-xs text-muted-foreground">期限の密度と、いちばん近い月を先に見る</p></div>
-          <label className="flex h-10 items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm"><span className="text-xs text-muted-foreground">対象年</span><select value={year} onChange={(event) => setYear(Number(event.target.value))} className="bg-transparent font-semibold outline-none">{years.map((item) => <option key={item} value={item}>{item}年</option>)}</select></label>
+          <div><h2 id="annual-rail-title" className="font-semibold">年間締切レール</h2><p className="text-xs text-muted-foreground">月を押すと、実日付カレンダーへ移動</p></div>
+          <label className="flex h-10 items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm"><span className="text-xs text-muted-foreground">対象年</span><select value={year} onChange={(event) => { const nextYear = Number(event.target.value); setYear(nextYear); setMobileMonth(1); setSelectedDate(null); }} className="bg-transparent font-semibold outline-none">{years.map((item) => <option key={item} value={item}>{item}年</option>)}</select></label>
         </div>
-        <div className="px-4 py-5 sm:px-5">
-          <div className="relative grid grid-cols-4 gap-1.5 sm:grid-cols-6 lg:grid-cols-12">
+        <div className="px-4 py-4 sm:px-5">
+          <div className="relative grid grid-cols-6 gap-1 sm:grid-cols-6 lg:grid-cols-12">
             {monthKeys.map((key, index) => {
               const count = yearItems.filter((item) => itemMatchesMonth(item, key)).length;
               const urgent = yearItems.some((item) => itemMatchesMonth(item, key) && ["overdue", "due_today", "needs_source"].includes(item.computed_status));
-              return <button type="button" key={key} onClick={() => { setActiveMonth(index + 1); setMobileOpenMonth(key); }} className={`group relative min-h-[76px] rounded-lg border p-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${activeMonth === index + 1 ? "border-foreground bg-muted" : "border-border/70 bg-background hover:border-foreground/40"}`} aria-label={`${monthLabel(year, index + 1)}を表示`}><span className="text-xs font-semibold">{index + 1}月</span><span className="mt-2 block text-2xl font-semibold tracking-tight">{count}</span><span className={`mt-1 block h-1 rounded-full ${urgent ? "bg-amber-500" : count ? "bg-sky-400" : "bg-muted"}`} /></button>;
+              return <button type="button" key={key} onClick={() => focusMonth(index + 1)} className={`group relative min-h-12 rounded-lg border p-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-[64px] sm:p-2 ${activeMonth === index + 1 ? "border-foreground bg-muted" : "border-border/70 bg-background hover:border-foreground/40"}`} aria-label={`${monthLabel(year, index + 1)}へ移動`}><span className="whitespace-nowrap text-[10px] font-semibold sm:text-xs">{index + 1}月</span><span className="mt-0.5 block text-lg font-semibold tracking-tight sm:text-xl">{count}</span><span className={`mt-1 block h-1 rounded-full ${urgent ? "bg-amber-500" : count ? "bg-sky-400" : "bg-muted"}`} /></button>;
             })}
-            {todayYear === year && <span aria-hidden="true" className="pointer-events-none absolute -top-2 bottom-0 w-px bg-foreground/70" style={{ left: `${((Number(today.slice(5, 7)) - 0.5) / 12) * 100}%` }}><span className="absolute -top-4 -translate-x-1/2 whitespace-nowrap text-[10px] font-semibold text-muted-foreground">今日</span></span>}
+            {todayYear === year && <span aria-hidden="true" className="pointer-events-none absolute -top-2 bottom-0 hidden w-px bg-foreground/70 sm:block" style={{ left: `${((Number(today.slice(5, 7)) - 0.5) / 12) * 100}%` }}><span className="absolute -top-4 -translate-x-1/2 whitespace-nowrap text-[10px] font-semibold text-muted-foreground">今日</span></span>}
           </div>
-          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground"><span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-amber-500" />要確認 / 期限超過</span><span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-sky-400" />締切あり</span><span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-muted" />該当なし</span></div>
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground"><span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-rose-600" />期限超過</span><span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-amber-500" />要確認 / 今日</span><span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-sky-400" />締切あり</span></div>
         </div>
       </section>
 
-      <section className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-3 shadow-sm" aria-label="表示フィルター">
+      <section className="flex flex-wrap items-center gap-2 border border-border bg-card p-3" aria-label="表示フィルター">
         <span className="inline-flex items-center gap-2 px-1 text-xs font-semibold text-muted-foreground"><SlidersHorizontal className="h-4 w-4" aria-hidden="true" />絞り込み</span>
         <FilterSelect label="カテゴリ" value={category} onChange={(value) => setCategory(value as ScheduleCategory | "all")} options={["all", ...categoryOptions]} labels={{ all: "すべて", ...CATEGORY_LABELS }} />
         <FilterSelect label="プロジェクト" value={projectId} onChange={setProjectId} options={["all", ...data.projects.map((item) => item.project_id)]} labels={{ all: "すべて", ...Object.fromEntries(data.projects.map((item) => [item.project_id, item.project_name])) }} />
@@ -291,48 +368,111 @@ export function AdminScheduleClient({ initialData }: Props) {
         <span className="ml-auto px-1 text-xs text-muted-foreground">{visibleItems.length}件</span>
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="space-y-4">
-          <div className="flex items-end justify-between gap-3"><div><h2 className="text-lg font-semibold">{year}年の締切</h2><p className="text-sm text-muted-foreground">デスクトップは月の並びで、モバイルは月ごとのリストで確認できる。</p></div></div>
-          <div className="hidden gap-3 sm:grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {monthKeys.map((key, index) => <MonthCard key={key} title={monthLabel(year, index + 1)} items={yearItems.filter((item) => itemMatchesMonth(item, key))} onSelect={setSelectedId} />)}
-          </div>
-          <div className="space-y-2 sm:hidden">
-            {monthKeys.map((key, index) => {
-              const items = yearItems.filter((item) => itemMatchesMonth(item, key));
-              const open = mobileOpenMonth === key || (mobileOpenMonth === null && index === firstPopulatedMonthIndex);
-              return <div key={key} className="overflow-hidden rounded-xl border border-border bg-card"><button type="button" onClick={() => setMobileOpenMonth(open ? null : key)} className="flex min-h-12 w-full items-center justify-between gap-3 px-4 text-left" aria-expanded={open}><span className="font-semibold">{monthLabel(year, index + 1)}</span><span className="ml-auto text-xs text-muted-foreground">{items.length}件</span><ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" /></button>{open && <div className="border-t border-border p-2">{items.length ? items.map((item) => <ScheduleListItem key={item.occurrence_id} item={item} onSelect={setSelectedId} />) : <p className="px-3 py-5 text-sm text-muted-foreground">この月の締切はないよ。</p>}</div>}</div>;
-            })}
-          </div>
+      <section aria-labelledby="schedule-calendar-title" className="space-y-4">
+        <div className="flex items-end justify-between gap-3">
+          <div><h2 id="schedule-calendar-title" className="text-lg font-semibold">{year}年の実日付カレンダー</h2><p className="text-sm text-muted-foreground">月・曜日・日付を固定し、当日の締切から詳細へ進む。</p></div>
+          <span className="hidden text-xs text-muted-foreground md:inline">月 火 水 木 金 土 日</span>
         </div>
-        <aside className="space-y-3 xl:pt-1">
-          <div className="rounded-xl border border-border bg-card p-4 shadow-sm"><div className="flex items-center justify-between gap-3"><h2 className="font-semibold">次に見る</h2><ArrowUpRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" /></div><p className="mt-1 text-xs text-muted-foreground">未完了・根拠不足を近い順に表示</p><div className="mt-3 space-y-1">{nearest.length ? nearest.map((item) => <ScheduleListItem key={item.occurrence_id} item={item} compact onSelect={setSelectedId} />) : <p className="py-5 text-sm text-muted-foreground">確認対象はないよ。</p>}</div></div>
-          <div className="rounded-xl border border-dashed border-border bg-muted/20 p-4 text-sm"><p className="font-semibold">正本を直す場所</p><p className="mt-1 leading-6 text-muted-foreground">日付・金額・担当者の誤りは、契約・債務・請求・報告書・action item側を修正してから再生成してね。</p></div>
-        </aside>
+
+        <div className="hidden gap-4 md:grid md:grid-cols-2 xl:grid-cols-3">
+          {monthList.map((item) => <CalendarMonth key={item.key} calendarMonth={item} items={yearItems} today={today} onSelectId={setSelectedId} onSelectDate={selectDate} onShowAgenda={setAgendaDate} />)}
+        </div>
+
+        <div className="space-y-3 md:hidden" data-testid="mobile-calendar">
+          <div className="flex items-center gap-2 border border-border bg-card p-2">
+            <button type="button" onClick={() => shiftMobileMonth(-1)} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-border hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="前月"><ChevronLeft className="h-5 w-5" aria-hidden="true" /></button>
+            <label className="flex min-w-0 flex-1 items-center justify-center gap-2 text-sm font-semibold"><span className="sr-only">表示月</span><select value={mobileMonth} onChange={(event) => setMobileCalendarMonth(Number(event.target.value))} className="min-w-0 max-w-full bg-transparent text-center outline-none">{monthList.map((item) => <option key={item.key} value={item.month}>{monthLabel(year, item.month)}</option>)}</select></label>
+            <button type="button" onClick={() => shiftMobileMonth(1)} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-border hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="次月"><ChevronRight className="h-5 w-5" aria-hidden="true" /></button>
+            <button type="button" onClick={goToToday} className="min-h-11 shrink-0 rounded-lg border border-border px-3 text-xs font-semibold hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">今日</button>
+          </div>
+          <CalendarMonth calendarMonth={{ year, month: mobileMonth, key: mobileKey }} items={yearItems} today={today} mobile selectedDate={mobileSelectedDate} onSelectId={setSelectedId} onSelectDate={selectDate} onShowAgenda={showAgenda} />
+          <DayAgenda date={mobileSelectedDate} items={mobileAgendaItems} onSelect={setSelectedId} emptyLabel="日付を選ぶと、この日の締切がここに出るよ。" />
+        </div>
+
+        {agendaDate && <div className="hidden md:block"><DayAgenda date={agendaDate} items={desktopAgendaItems} onSelect={setSelectedId} /></div>}
       </section>
+
+      <section className="grid gap-4 lg:grid-cols-2" aria-label="カレンダー補助情報">
+        <div className="border border-border bg-card p-4">
+          <div className="flex items-center justify-between gap-3"><h2 className="font-semibold">次に見る</h2><ArrowUpRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" /></div>
+          <p className="mt-1 text-xs text-muted-foreground">未完了・根拠不足を近い順に表示</p>
+          <div className="mt-3 space-y-1">{nearest.length ? nearest.map((item) => <ScheduleListItem key={item.occurrence_id} item={item} compact onSelect={setSelectedId} />) : <p className="py-5 text-sm text-muted-foreground">確認対象はないよ。</p>}</div>
+        </div>
+        <div className="border border-dashed border-border bg-muted/20 p-4">
+          <p className="font-semibold">日付を生成できない締切</p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">月自体も不明な予定は、架空の日へ置かずここで常時確認できる。</p>
+          <div className="mt-3 space-y-1">{yearUnknownItems.length ? yearUnknownItems.map((item) => <ScheduleListItem key={item.occurrence_id} item={item} compact onSelect={setSelectedId} />) : <p className="py-4 text-sm text-muted-foreground">該当なし</p>}</div>
+        </div>
+      </section>
+
+      <div className="border border-dashed border-border bg-muted/20 p-4 text-sm">
+        <p className="font-semibold">正本を直す場所</p>
+        <p className="mt-1 leading-6 text-muted-foreground">日付・金額・担当者の誤りは、契約・債務・請求・報告書・action item側を修正してから再生成してね。</p>
+      </div>
 
       {selected && <DetailDrawer item={selected} onClose={() => setSelectedId(null)} actionBusy={actionBusy} actionReason={actionReason} evidenceRef={evidenceRef} onReasonChange={setActionReason} onEvidenceChange={setEvidenceRef} onAction={recordAction} />}
     </div>
   );
 }
 
-function StateStrip({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: number; tone: "green" | "amber" | "blue" }) {
-  const style = tone === "green" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : tone === "amber" ? "border-amber-200 bg-amber-50 text-amber-900" : "border-sky-200 bg-sky-50 text-sky-800";
-  return <div className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 ${style}`}><span>{icon}</span><span className="text-sm font-medium">{label}</span><span className="ml-auto text-xl font-semibold">{value}</span></div>;
+function CalendarMonth({ calendarMonth, items, today, mobile = false, selectedDate, onSelectId, onSelectDate, onShowAgenda }: { calendarMonth: CalendarMonth; items: ScheduleViewOccurrence[]; today: string; mobile?: boolean; selectedDate?: string | null; onSelectId: (id: string) => void; onSelectDate: (date: string) => void; onShowAgenda: (date: string) => void }) {
+  const { year, month, key } = calendarMonth;
+  const cells = buildMonthGrid(year, month);
+  const monthItems = items.filter((item) => itemMatchesMonth(item, key));
+  const datedItems = monthItems.filter((item) => isDatePrecisionDay(item) && item.due_on?.startsWith(`${year}-${String(month).padStart(2, "0")}-`));
+  const undatedItems = monthItems.filter((item) => !isDatePrecisionDay(item));
+  const cellSize = mobile ? "min-h-[58px]" : "min-h-[92px]";
+
+  return (
+    <section id={`schedule-month-${year}-${String(month).padStart(2, "0")}`} className="min-w-0 border border-border bg-card" aria-labelledby={`schedule-month-title-${key}`}>
+      <div className="flex items-baseline justify-between gap-3 border-b border-border px-3 py-3">
+        <h3 id={`schedule-month-title-${key}`} className="text-base font-semibold">{monthLabel(year, month)}</h3>
+        <span className="text-xs text-muted-foreground">{monthItems.length}件</span>
+      </div>
+      <div className="grid grid-cols-7 border-b border-border bg-muted/30" aria-hidden="true">
+        {CALENDAR_WEEKDAYS.map((weekday, index) => <span key={weekday} className={`py-1.5 text-center text-[10px] font-semibold ${index >= 5 ? "text-muted-foreground" : "text-foreground/70"}`}>{weekday}</span>)}
+      </div>
+      <div className="grid grid-cols-7">
+        {cells.map((cell, index) => {
+          const dateItems = cell.date ? datedItems.filter((item) => item.due_on === cell.date) : [];
+          const shown = dateItems.slice(0, 3);
+          const remainder = dateItems.length - shown.length;
+          const isToday = cell.date === today;
+          const isSelected = cell.date === selectedDate;
+          return <div key={cell.date ?? `outside-${index}`} className={`relative min-w-0 overflow-hidden border-b border-r border-border/70 p-1 ${cellSize} ${cell.outside ? "bg-muted/20" : cell.weekend ? "bg-muted/10" : "bg-card"} ${isToday ? "outline outline-2 -outline-offset-2 outline-amber-500" : ""} ${isSelected ? "bg-sky-50/60" : ""}`}>
+            {cell.day && cell.date ? <button type="button" onClick={() => onSelectDate(cell.date ?? "")} className="flex min-h-7 w-full items-center gap-1 rounded px-1 text-left text-xs font-semibold text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`${cell.date}の締切`}><span>{cell.day}</span>{dateItems.length > 0 && <span className="h-1.5 w-1.5 rounded-full bg-foreground/50 md:hidden" />}</button> : <span className="block min-h-7" aria-hidden="true" />}
+            <div className="space-y-0.5">
+              {shown.map((item) => <EventPill key={item.occurrence_id} item={item} date={cell.date ?? ""} mobile={mobile} onSelect={() => onSelectId(item.occurrence_id)} />)}
+              {remainder > 0 && <button type="button" onClick={() => onShowAgenda(cell.date ?? "")} className="flex min-h-7 w-full items-center rounded px-1 text-left text-[10px] font-semibold text-muted-foreground underline-offset-2 hover:bg-muted hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">ほか{remainder}件</button>}
+            </div>
+          </div>;
+        })}
+      </div>
+      <div className="border-t border-border px-3 py-2">
+        <p className="text-[10px] font-semibold tracking-wide text-muted-foreground">月内・日付未確定 {undatedItems.length}件</p>
+        {undatedItems.length > 0 && <div className="mt-1 space-y-0.5">{undatedItems.slice(0, 2).map((item) => <button type="button" key={item.occurrence_id} onClick={() => onSelectId(item.occurrence_id)} className="flex min-h-8 w-full min-w-0 items-center gap-1.5 rounded px-1 text-left text-xs hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><span className={`h-1.5 w-1.5 shrink-0 rounded-full ${STATUS_DOT_STYLES[item.computed_status]}`} /><span className="min-w-0 flex-1 truncate">{shortTitle(item)}</span><span className="shrink-0 text-[10px] text-muted-foreground">{CATEGORY_LABELS[item.category]}</span></button>)}{undatedItems.length > 2 && <button type="button" onClick={() => onSelectId(undatedItems[2].occurrence_id)} className="min-h-8 px-1 text-xs font-semibold text-muted-foreground hover:underline">ほか{undatedItems.length - 2}件</button>}</div>}
+      </div>
+    </section>
+  );
+}
+
+function EventPill({ item, date, mobile, onSelect }: { item: ScheduleViewOccurrence; date: string; mobile: boolean; onSelect: () => void }) {
+  const amount = shortAmountLabel(item);
+  return <button type="button" onClick={onSelect} title={item.title} aria-label={`${date} ${shortTitle(item)} ${stateLabel(item)}${amount ? ` ${amount}` : ""}`} className={`block min-h-7 w-full min-w-0 overflow-hidden rounded border border-transparent border-l-[3px] px-1.5 py-1 text-left text-[10px] font-semibold leading-tight transition-colors hover:border-foreground/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${STATUS_STYLES[item.computed_status]}`}><span className="block truncate">{shortTitle(item)}</span>{!mobile && <span className="block truncate text-[9px] font-normal opacity-75">{amount ?? CATEGORY_LABELS[item.category]}</span>}</button>;
+}
+
+function DayAgenda({ date, items, onSelect, emptyLabel = "この日の締切はないよ。" }: { date: string | null; items: ScheduleViewOccurrence[]; onSelect: (id: string) => void; emptyLabel?: string }) {
+  if (!date) return <div className="border border-dashed border-border bg-muted/20 p-4 text-sm text-muted-foreground">{emptyLabel}</div>;
+  return <section className="border border-border bg-card p-4" aria-labelledby="selected-day-agenda-title"><div className="flex items-baseline justify-between gap-3"><div><p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Selected date</p><h3 id="selected-day-agenda-title" className="mt-1 font-semibold">{formatDayAgendaHeading(date)}</h3></div><span className="text-xs text-muted-foreground">{items.length}件</span></div><div className="mt-3 space-y-1">{items.length ? items.map((item) => <ScheduleListItem key={item.occurrence_id} item={item} onSelect={onSelect} />) : <p className="py-4 text-sm text-muted-foreground">この日の締切はないよ。</p>}</div></section>;
 }
 
 function FilterSelect({ label, value, onChange, options, labels }: { label: string; value: string; onChange: (value: string) => void; options: string[]; labels: Record<string, string> }) {
   return <label className="flex h-10 min-w-[132px] items-center gap-2 rounded-lg border border-border bg-background px-3 text-xs"><span className="text-muted-foreground">{label}</span><select value={value} onChange={(event) => onChange(event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm font-medium outline-none">{options.map((option) => <option key={option} value={option}>{labels[option] ?? option}</option>)}</select></label>;
 }
 
-function MonthCard({ title, items, onSelect }: { title: string; items: ScheduleViewOccurrence[]; onSelect: (id: string) => void }) {
-  const shown = items.slice(0, 4);
-  return <section className="min-h-[180px] rounded-xl border border-border bg-card p-3 shadow-sm"><div className="flex items-center justify-between gap-2 border-b border-border pb-2"><h3 className="text-sm font-semibold">{title}</h3><span className="text-xs text-muted-foreground">{items.length}件</span></div><div className="mt-2 space-y-1">{shown.map((item) => <ScheduleListItem key={item.occurrence_id} item={item} compact onSelect={onSelect} />)}{items.length > shown.length && <p className="px-2 py-2 text-xs text-muted-foreground">ほか {items.length - shown.length}件</p>}{items.length === 0 && <p className="px-2 py-5 text-xs text-muted-foreground">締切なし</p>}</div></section>;
-}
-
 function ScheduleListItem({ item, onSelect, compact = false }: { item: ScheduleViewOccurrence; onSelect: (id: string) => void; compact?: boolean }) {
   const Icon = CATEGORY_ICONS[item.category] ?? CalendarDays;
-  return <button type="button" onClick={() => onSelect(item.occurrence_id)} className={`group flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left transition-colors hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${compact ? "py-1.5" : "py-2"}`}><span className={`grid h-8 w-8 shrink-0 place-items-center rounded-md ${STATUS_STYLES[item.computed_status]}`}><Icon className="h-4 w-4" aria-hidden="true" /></span><span className="min-w-0 flex-1"><span className="flex items-center gap-2"><span className="truncate text-sm font-medium">{shortTitle(item)}</span>{item.computed_status === "needs_source" && <span className="shrink-0 text-[10px] font-semibold text-amber-700">要根拠</span>}</span><span className="mt-0.5 block truncate text-xs text-muted-foreground">{dateLabel(item)} · {CATEGORY_LABELS[item.category]}</span></span><span className="hidden shrink-0 text-xs text-muted-foreground group-hover:block">詳細</span></button>;
+  return <button type="button" onClick={() => onSelect(item.occurrence_id)} className={`group flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left transition-colors hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${compact ? "py-1.5" : "py-2"}`}><span className={`grid h-8 w-8 shrink-0 place-items-center rounded-md border-l-[3px] ${STATUS_STYLES[item.computed_status]}`}><Icon className="h-4 w-4" aria-hidden="true" /></span><span className="min-w-0 flex-1"><span className="flex items-center gap-2"><span className="truncate text-sm font-medium">{shortTitle(item)}</span>{item.computed_status === "needs_source" && <span className="shrink-0 text-[10px] font-semibold text-amber-700">要根拠</span>}</span><span className="mt-0.5 block truncate text-xs text-muted-foreground">{dateLabel(item)} · {CATEGORY_LABELS[item.category]}</span></span><span className="hidden shrink-0 text-xs text-muted-foreground group-hover:block">詳細</span></button>;
 }
 
 function DetailDrawer({ item, onClose, actionBusy, actionReason, evidenceRef, onReasonChange, onEvidenceChange, onAction }: { item: ScheduleViewOccurrence; onClose: () => void; actionBusy: boolean; actionReason: string; evidenceRef: string; onReasonChange: (value: string) => void; onEvidenceChange: (value: string) => void; onAction: (action: "completed" | "not_applicable" | "reopened") => void }) {

@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { adjustToNextBusinessDay, dateAtDay, nextMonthDay, nextMonthEnd, scheduleGenerationRange, ymFromDate } from "../src/lib/admin-schedule/date.ts";
 import { notificationStateLabel, scheduleKey, stageFor } from "../src/lib/admin-schedule/notifications.ts";
 import { isAcceptedAmdContract, isContractSigningExpected, isCurrentAmdContract, isScheduleActionItem } from "../src/lib/admin-schedule/predicates.ts";
+import { buildMonthGrid, CALENDAR_WEEKDAYS, isDatePrecisionDay, mondayIndex } from "../src/lib/admin-schedule/calendar.ts";
 import { OFFICIAL_RULES } from "../src/lib/admin-schedule/rules/official.ts";
 
 const root = join(import.meta.dirname, "..");
@@ -17,6 +18,20 @@ assert.equal(dateAtDay("202602", 28), "2026-02-28");
 assert.equal(ymFromDate("2026-01-01"), "202601");
 assert.equal(ymFromDate("2026-12-31"), "202612");
 assert.deepEqual(scheduleGenerationRange("2026-07-16"), { from: "2025-01-01", to: "2028-12-31" });
+
+assert.deepEqual(CALENDAR_WEEKDAYS, ["月", "火", "水", "木", "金", "土", "日"]);
+assert.equal(mondayIndex(2026, 1), 3, "2026-01-01 is Thursday in a Monday-first grid");
+const januaryGrid = buildMonthGrid(2026, 1);
+assert.equal(januaryGrid.length % 7, 0, "month grid stays seven columns wide");
+assert.equal(januaryGrid.find((cell) => cell.date === "2026-01-01")?.day, 1);
+assert.equal(januaryGrid.find((cell) => cell.date === "2026-01-01")?.weekend, false);
+const decemberDueCell = buildMonthGrid(2026, 12).find((cell) => cell.date === "2026-12-31");
+assert.ok(decemberDueCell, "a due_on date maps to its exact calendar cell");
+assert.equal(decemberDueCell?.day, 31);
+assert.equal(isDatePrecisionDay({ date_precision: "day", due_on: "2026-12-31" }), true);
+assert.equal(isDatePrecisionDay({ date_precision: "month", due_on: null }), false, "month-only item cannot receive a fake day");
+assert.equal(isDatePrecisionDay({ date_precision: "period", due_on: null }), false, "period item cannot receive a fake day");
+assert.equal(buildMonthGrid(2026, 2).some((cell) => cell.outside && cell.date !== null), false, "outside cells never receive dates");
 
 const overdue = { lifecycle_status: "open", notification_owner: "company_schedule", category: "report", due_on: "2026-07-15" };
 assert.equal(stageFor(overdue, "2026-07-16"), "overdue:2026-07-16");
@@ -113,7 +128,17 @@ assert.doesNotMatch(migration, /CREATE POLICY company_schedule_actions_admin_ins
 assert.doesNotMatch(migration, /GRANT INSERT ON public\.company_schedule_actions/);
 assert.match(cronRoute, /scheduleGenerationRange\(todayJst\(\)\)/);
 assert.match(ui, /年間締切レール/);
-assert.match(ui, /モバイルは月ごとのリスト/);
+assert.match(ui, /grid-cols-7/);
+assert.match(ui, /md:grid-cols-2 xl:grid-cols-3/);
+assert.match(ui, /data-testid="mobile-calendar"/);
+assert.match(ui, /ほか\{remainder\}件/);
+assert.match(ui, /hidden md:block.*DayAgenda/);
+assert.match(ui, /setYear\(todayYear\)/);
+assert.match(ui, /shiftMobileMonth/);
+assert.match(ui, /月内・日付未確定/);
+assert.match(ui, /日付を生成できない締切/);
+assert.doesNotMatch(ui, /MonthCard/);
+assert.doesNotMatch(ui, /モバイルは月ごとのリスト/);
 assert.doesNotMatch(ui, /予定を追加|日付を編集|金額を編集/);
 
 console.log("admin schedule checks: ok");

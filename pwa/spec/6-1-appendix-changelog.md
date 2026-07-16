@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-07-17 | 5-9 AMD運営カレンダー / FEATURE_REGISTRY | UI再設計 | `/admin/schedule`を月別カード/モバイルリストから、月曜始まり7列の実日付グリッドへ変更。xl 3か月×4段、md/lg 2列、mobile 1か月grid + 前後月/今日/選択日agenda、日付未確定laneをcurrent truth化。build v3.44.2 | きよとまさが税務・契約・報告・請求・支払の「何月」ではなく「何日」を一目で拾うため | えいみ |
 | 2026-07-17 | 5-9 AMD運営カレンダー / ADR 001 | 実装 | migration `178_admin_operating_calendar.sql`、`/admin/schedule`、facts sync / schedule generation cron、派生生成器、admin再生成・append-only action API、exact-once通知台帳を追加。公式ルールはURL・版・確認日を保持し、DB適用とproduction deployはこのbundleで実施する。build v3.44.0 | 設計済みの運営カレンダーを、既存正本の自動導出面として本番反映するため | えいみ |
 | 2026-07-16 | 3-7 Notifications / `/notifications` UI | 修正 | 通知カードに表示中リスト内の通し番号 `No.` を追加。D-7 Textbook Insights の詳細表示を、内部メタ羅列から「元情報 / 通知の種類 / 追記先 / BZMに追記される内容 / 判断の目安 / 押すと起きること / AMDプロトコルとの関係」へ変更。ボタンも「BZM追記を承認 / BZMには入れない」に変更。build v3.43.19 | まさが通知を探せず、またBZM候補が「BZM本向け知見」なのか「AMDプロトコル誤分類」なのか判断できなかったため | えいみ |
 | 2026-07-16 | 3-7 Notifications / `/notifications` UI | 修正 | coverage gap の具体候補カードを、「会議メモで見つかった内容 / 通知した理由 / ボタンを押すと起きること」から「コピーされる文章 / 判断の目安 / コピーしても起きないこと」へ変更。`SX）intの元ソースには...` のような監査メモはそのまま出さず、重要メモへ実際に残る一文へ変換して先頭に表示する。build v3.43.16 | 中身のあるカードでも、監査メモを読ませるだけでは反映すべきか判断できなかったため | えいみ |
