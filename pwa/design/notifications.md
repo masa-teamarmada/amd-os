@@ -153,7 +153,7 @@ RLS:
   - 補助メタ: 日時 / l2_kind / target / 未読 badge / 修正依頼 N 件 badge
 - カードクリックで展開:
   - summary (本文)
-  - `coverage_gap` は summary の前に人間向けの確認文を出す。タイトルだけを `重要メモにコピーする？: ...` の質問形にし、展開部は「会議メモで見つかった内容」「通知した理由」「ボタンを押すと起きること」の3項目にする。UI 表示では `D-6` / `coverage_gap` / `raw transcript` / `元情報` / `取りこぼし` / `条件付き投資家関心` / `薄い` / `candidate` / `salience` / `目立たない話` を使わない。
+  - `coverage_gap` は summary の前に人間向けの確認文を出す。元候補の詳細が取れている場合だけ、タイトルを `重要メモにコピーする？: ...` の質問形にし、展開部は「会議メモで見つかった内容」「通知した理由」「ボタンを押すと起きること」の3項目にする。元候補が取れない / 通知本文が薄すぎる場合は `コピー前に元情報を確認: ...` に変え、「このカードだけではコピー対象を判断できない」と出して肯定ボタンを disabled にする。UI 表示では `D-6` / `coverage_gap` / `raw transcript` / `元情報` / `取りこぼし` / `条件付き投資家関心` / `薄い` / `candidate` / `salience` / `目立たない話` を使わない。
   - 元データへの deep link (l2_kind ごと: protocols → /admin/protocols, ms_progress → /project/<id>/cockpit?ym=<ym>, etc.)
   - 既存 feedback 一覧 (この通知に紐づく / 同 (l2_kind, target_id, scope_key) の)
   - 「はい・反映」「いいえ・不採用」「コメントだけ送信」textarea + 送信ボタン
@@ -216,7 +216,7 @@ D-5 OS台帳差分と M-2 XRL根拠は、全文保存ではなく「OSへ入れ�
 
 `coverage_gap` は「あとで人間が本来の入れ先へ手当てする」通知にしない。安全に反映先が分かる場合は、「はい」と同時に下流テーブルへ自動ルートする。2026-06-27 時点の実装は `proposed_target_l2='strategy_signal'` を D-6 経営ハイライトへ昇格する。H-1 reviewer 由来の gap は `status='confirmed'` / `decision_state='observed'` の `project_strategy_signals` を作り、会社として正式決定済みとは扱わない。通知の採否APIは raw source の再取得を担当しない。raw再確認が必要な場合は H-1 reviewer / source fallback 側で再実行する。
 
-2026-07-16 以降、`coverage_gap` は候補行の保存済み (`l2_coverage_gaps.review_status='candidate'`) とまさの採否を分ける。通知 writer は `saved_count=0,total_count=1` で作り、既存の `saved_count=1,total_count=1` 通知も UI では保存済み扱いにしない。ボタン文言は「重要メモにコピー / コピーしない」。これは内部的には D-6 への追加だが、画面では「保存済みの会議要約は書き換えず、プロジェクトの重要メモにコピーする。出資決定や正式合意としては扱わない」と説明する。H-1要約本文を戻す操作ではない。
+2026-07-16 以降、`coverage_gap` は候補行の保存済み (`l2_coverage_gaps.review_status='candidate'`) とまさの採否を分ける。通知 writer は `saved_count=0,total_count=1` で作り、既存の `saved_count=1,total_count=1` 通知も UI では保存済み扱いにしない。ボタン文言は「重要メモにコピー / コピーしない」。これは内部的には D-6 への追加だが、画面では「保存済みの会議要約は書き換えず、プロジェクトの重要メモにコピーする。出資決定や正式合意としては扱わない」と説明する。H-1要約本文を戻す操作ではない。元の `l2_coverage_gaps` 行が見つからない通知は、具体候補なしでコピー判断を迫らず、「コピー前に元情報を確認」として肯定ボタンを disabled にする。
 
 ### POST API
 [pwa/src/app/api/notifications/feedback/route.ts](../src/app/api/notifications/feedback/route.ts)
@@ -282,6 +282,7 @@ D-5 OS台帳差分と M-2 XRL根拠は、全文保存ではなく「OSへ入れ�
 
 | 日付 | 変更 |
 |---|---|
+| 2026-07-16 | **coverage_gap 通知の空カード防止**: 元候補が見つからない / 通知本文が薄すぎるカードは `重要メモにコピーする？` と聞かず、`コピー前に元情報を確認` に変えて「このカードだけではコピー対象を判断できない」と表示。肯定ボタンを disabled にし、`通知本文と確認先を見て判断してね` や scope ID を出さない。 |
 | 2026-07-16 | **coverage_gap 通知の質問化 v3**: 画面から `目立たない話` とカード内の追加疑問文を削除。タイトルは `重要メモにコピーする？`、詳細欄は「会議メモで見つかった内容」「通知した理由」「ボタンを押すと起きること」へ統一し、元の会議要約を書き換えないことを明示。 |
 | 2026-07-16 | **coverage_gap 通知の質問化 v2**: 画面から `D-6` / `coverage_gap` / `raw transcript` / `元情報` / `取りこぼし` / `条件付き投資家関心` / `薄い` / `candidate` / `salience` を削除。タイトルは `重要メモに残す？`、詳細欄は「会議メモにあった話」「いまの要約で目立たない話」「残すとどうなる？」へ統一。 |
 | 2026-05-09 | 初版。`l2_feedbacks` テーブル + `/notifications` ページ + POST API + GAS 155 の 3 extractor で feedback 取り込み |

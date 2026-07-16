@@ -19,7 +19,7 @@ server page は以下を取得して `NotificationsClient` に渡す。
 
 UI は `open` / `unread` / `answered` / `feedback` で絞り込み、展開時に `read_at` を楽観更新する。
 
-展開時の詳細欄は、kind ごとに正本テーブルを lazy fetch して表示する。個別 fetch が未実装、または候補行が通知作成後に移動/統合されて見つからない場合でも、「DB未反映」と断定せず、通知本文を fallback 詳細として表示する。D-11 `news_mention` は `project_media_mentions` を `metadata_json.source_url` / `occurred_on` / title fallback で引き、保存済みの掲載行を表示する。
+展開時の詳細欄は、kind ごとに正本テーブルを lazy fetch して表示する。個別 fetch が未実装、または候補行が通知作成後に移動/統合されて見つからない場合でも、「DB未反映」と断定せず、通知本文を fallback 詳細として表示する。D-11 `news_mention` は `project_media_mentions` を `metadata_json.source_url` / `occurred_on` / title fallback で引き、保存済みの掲載行を表示する。ただし `coverage_gap` は例外。元の `l2_coverage_gaps` 行が見つからない場合、汎用 fallback や内部IDを見せず、タイトルを「コピー前に元情報を確認」に変え、「このカードだけではコピー対象を判断できない」と表示して肯定ボタンを disabled にする。
 
 `l2_notifications.saved_count >= total_count` かつ `total_count > 0` の通知は、すでに正本保存済みとみなし、UI の肯定ボタンを「はい・確認済み」と表示する。保存済み通知の yes feedback は、追加反映ではなく確認・学習フィードバックとして扱う。ただし `coverage_gap` は例外。候補行 (`l2_coverage_gaps`) が保存済みでも、まさの採否判断は未完了なので、`saved_count` に関係なく「重要メモにコピー / コピーしない」の判断ボタンとして表示する。2026-07-16 以降の coverage gap 通知 writer は `saved_count=0,total_count=1` で作る。
 
@@ -90,7 +90,7 @@ POST body:
 すべての action は `l2_feedbacks` に保存し、`tsukuyomi_learnings` にも通知回答として残す。
 `coverage_gap` は「確認してから手作業で別L2へ入れる」通知ではない。安全に自動ルートできる `proposed_target_l2` は「はい」の同一トランザクション相当の処理で下流テーブルへ反映し、未対応の target は `routed_to` が空のまま残して設計 gap として扱う。
 
-PWA の `coverage_gap` 表示は、検知器の内部語をそのまま出さない。カードタイトルは「重要メモにコピーする？: ...」に統一し、カード内の疑問文はタイトルだけにする。詳細欄は「会議メモで見つかった内容」「通知した理由」「ボタンを押すと起きること」を表示する。UI 表示では `D-6` / `coverage_gap` / `raw transcript` / `元情報` / `取りこぼし` / `条件付き投資家関心` / `薄い` / `candidate` / `salience` / `目立たない話` を使わない。「重要メモにコピー」は内部的には D-6 `project_strategy_signals` への追加だが、まさ向けには「保存済みの会議要約とは別に、重要メモへコピーする」と説明する。H-1要約本文の復元・書き換えではない。
+PWA の `coverage_gap` 表示は、検知器の内部語をそのまま出さない。カードタイトルは、具体候補が取れている場合だけ「重要メモにコピーする？: ...」にする。元候補が取れない、またはタイトルが「経営判断を要確認」程度の薄い通知は「コピー前に元情報を確認: ...」に変え、カード内では「このカードだけではコピー対象を判断できない」「内容が分からないならコピーしない」「再確認したい場合はコメントに元情報を再確認と書く」を表示する。この状態では肯定ボタンを押せない。具体候補が取れている場合の詳細欄は「会議メモで見つかった内容」「通知した理由」「ボタンを押すと起きること」を表示する。UI 表示では `D-6` / `coverage_gap` / `raw transcript` / `元情報` / `取りこぼし` / `条件付き投資家関心` / `薄い` / `candidate` / `salience` / `目立たない話` を使わない。「重要メモにコピー」は内部的には D-6 `project_strategy_signals` への追加だが、まさ向けには「保存済みの会議要約とは別に、重要メモへコピーする」と説明する。H-1要約本文の復元・書き換えではない。
 
 ## 禁止事項
 

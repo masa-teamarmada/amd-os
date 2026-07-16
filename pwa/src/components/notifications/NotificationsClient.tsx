@@ -37,6 +37,8 @@ type DetailRow = {
   rows?: Array<{ heading: string; body: string; sub?: string }>;
 };
 
+const COVERAGE_GAP_UNAVAILABLE_HEADING = "このカードだけではコピー対象を判断できない";
+
 function parseProtocolNotificationScope(scopeKey: string): { ym: string; protocolId: string | null } {
   const scoped = scopeKey.match(/^(20\d{4}):protocol:([^:]+)$/);
   if (scoped) {
@@ -1074,11 +1076,16 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
           const key = itemKey(i);
           const isExpanded = expanded.has(key);
           const isSubmitting = submitting.has(key);
+          const detail = details[key];
           const itemFeedbacks = findFeedbacksFor(i);
           const responseAction = responseActionFor(key, itemFeedbacks);
           const priority = unifiedItemPriority(i);
           const alreadySaved = isAlreadySavedForReview(i);
           const actionCopy = reviewActionCopyForItem(i, alreadySaved);
+          const coverageGapCopyBlocked = isCoverageGapItem(i) && coverageGapDetailBlocksCopy(detail);
+          const actionPrompt = coverageGapCopyBlocked ? coverageGapBlockedPrompt(detail) : actionCopy.prompt;
+          const actionFootnote = coverageGapCopyBlocked ? coverageGapBlockedFootnote(detail) : actionCopy.footnote;
+          const yesLabel = coverageGapCopyBlocked ? coverageGapBlockedYesLabel(detail) : actionCopy.yesLabel;
           return (
             <div
               id={`notification-card-${key}`}
@@ -1206,7 +1213,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                       <>
                         <label className="text-xs font-medium block mb-1">回答・コメント</label>
                         <p className="mb-2 text-[11px] text-muted-foreground">
-                          {actionCopy.prompt}
+                          {actionPrompt}
                         </p>
                         <textarea
                           className="w-full text-sm border rounded p-2 min-h-[60px] bg-background"
@@ -1219,9 +1226,9 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                           <button
                             className="text-xs px-3 py-1.5 border border-emerald-500 text-emerald-700 rounded hover:bg-emerald-50 disabled:opacity-50"
                             onClick={() => submitFeedback(i, "yes")}
-                            disabled={isSubmitting}
+                            disabled={isSubmitting || coverageGapCopyBlocked}
                           >
-                            {isSubmitting ? "送信中..." : actionCopy.yesLabel}
+                            {isSubmitting ? "送信中..." : yesLabel}
                           </button>
                           <button
                             className="text-xs px-3 py-1.5 border border-red-400 text-red-700 rounded hover:bg-red-50 disabled:opacity-50"
@@ -1239,7 +1246,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                           </button>
                         </div>
                         <p className="text-[10px] text-muted-foreground mt-1">
-                          {actionCopy.footnote}
+                          {actionFootnote}
                         </p>
                       </>
                     )}
@@ -1587,6 +1594,9 @@ function coverageGapSubjectFromTitle(raw: string | null | undefined): string {
 
 function coverageGapQuestionTitle(n: Notification): string {
   const subject = coverageGapQuestionSubject(n);
+  if (coverageGapNotificationNeedsSourceRecovery(n)) {
+    return `コピー前に元情報を確認: ${subject}`;
+  }
   return `重要メモにコピーする？: ${subject}`;
 }
 
@@ -1595,11 +1605,17 @@ function coverageGapQuestionSubject(n: Notification): string {
   if (/VC\s*3社|VC3社/.test(summary) && /PoC|NEDO/.test(summary)) {
     return "PoC後にVC3社が出資を検討するかも";
   }
-  return coverageGapSubjectFromTitle(n.title || n.summary);
+  const fromTitle = coverageGapSubjectFromTitle(n.title || n.summary);
+  const fromSummary = coverageGapSubjectFromSummary(summary);
+  if (coverageGapSubjectLooksGeneric(fromTitle) && fromSummary) return fromSummary;
+  return fromTitle;
 }
 
 function coverageGapQuestionSummary(n: Notification): string {
   const subject = coverageGapQuestionSubject(n);
+  if (coverageGapNotificationNeedsSourceRecovery(n)) {
+    return `この通知は「${subject}」を重要メモ候補として出しているが、具体的な会議メモ本文がこのカードだけでは確認できない。内容を確認できるまで、重要メモへのコピー判断はしない。`;
+  }
   if (subject.includes("VC3社")) {
     return "会議メモにあった内容を、保存済みの会議要約とは別に、重要メモへコピーするかの確認。元の会議要約は書き換えない。";
   }
@@ -1670,6 +1686,40 @@ function humanizeCoverageSentence(value: string): string {
   return truncateOneLine(s, 220);
 }
 
+function coverageGapSubjectFromSummary(summary: string | null | undefined): string {
+  const text = String(summary ?? "")
+    .replace(/H-1\s*保存済み[。.\s]*/g, "")
+    .replace(/D-6/g, "重要メモ")
+    .trim();
+  const promotion = text.match(/(.+?)の重要メモ\s*昇格を確認/);
+  if (promotion?.[1]) {
+    return humanizeCoverageSubject(`${promotion[1].trim()}の話`);
+  }
+  if (/資金調達|創業体制/.test(text)) return "資金調達・創業体制の話";
+  if (/資本政策|CEO持株比率|持株/.test(text)) return "資本政策・持株比率の話";
+  if (/VC\s*3社|VC3社|PoC|NEDO/.test(text)) return "PoC後にVC3社が出資を検討するかも";
+  return "";
+}
+
+function coverageGapSubjectLooksGeneric(subject: string): boolean {
+  const s = String(subject ?? "").replace(/\s+/g, "");
+  if (!s) return true;
+  if (/^(?:CX定例の)?経営判断を要確認$/.test(s)) return true;
+  if (/^(?:会議メモの)?確認$/.test(s)) return true;
+  if (/要確認/.test(s) && !/(資金調達|創業体制|資本政策|持株|CEO|代表|VC|PoC|NEDO|新株予約権|合金)/.test(s)) return true;
+  return false;
+}
+
+function coverageGapNotificationNeedsSourceRecovery(n: Notification): boolean {
+  const titleSubject = coverageGapSubjectFromTitle(n.title || "");
+  const text = `${n.title ?? ""}\n${n.summary ?? ""}`;
+  return coverageGapSubjectLooksGeneric(titleSubject)
+    || /H-1\s*保存済み/.test(text)
+    || /D-6\s*昇格を確認/.test(text)
+    || /対応する正本行の詳細表示/.test(text)
+    || /通知本文と下の確認先を見て判断/.test(text);
+}
+
 function extractBetween(text: string, start: string, end: string): string {
   const startIndex = text.indexOf(start);
   if (startIndex < 0) return "";
@@ -1728,7 +1778,63 @@ function coverageGapCopyConsequence(targetValue: string): string {
   }
 }
 
+function coverageGapUnavailableRows(n: Notification): NonNullable<DetailRow["rows"]> {
+  const subject = coverageGapQuestionSubject(n);
+  const clue = coverageGapUnavailableClue(n);
+  return [
+    {
+      heading: COVERAGE_GAP_UNAVAILABLE_HEADING,
+      body: [
+        "元の確認候補が見つからないため、会議メモの具体的な内容をこの画面に表示できていない。",
+        clue ? `残っている手がかり:\n${clue}` : "",
+        "今できる判断:\n内容を確認できないなら「コピーしない」。元情報から確認し直したい場合は、コメントに「元情報を再確認」と書いて送る。",
+        "重要メモにコピーしてよい条件:\n確認一覧や会議メモで、実際に残したい内容を自分で確認できている場合だけ。",
+      ].filter(Boolean).join("\n\n"),
+      sub: subject ? `候補: ${subject}` : "候補の具体内容を確認できていない",
+    },
+  ];
+}
+
+function coverageGapUnavailableClue(n: Notification): string {
+  const clues: string[] = [];
+  const subject = coverageGapQuestionSubject(n);
+  if (subject && !coverageGapSubjectLooksGeneric(subject)) {
+    clues.push(`候補名: ${subject}`);
+  }
+  const summarySubject = coverageGapSubjectFromSummary(n.summary);
+  if (summarySubject && summarySubject !== subject) {
+    clues.push(`通知本文の手がかり: ${summarySubject}`);
+  }
+  return clues.map((v) => `・${v}`).join("\n");
+}
+
+function coverageGapDetailBlocksCopy(detail: DetailRow | undefined): boolean {
+  if (!detail) return true;
+  if (detail.loading) return true;
+  if (detail.error) return true;
+  return (detail.rows ?? []).some((row) => row.heading === COVERAGE_GAP_UNAVAILABLE_HEADING);
+}
+
+function coverageGapBlockedPrompt(detail: DetailRow | undefined): string {
+  if (!detail || detail.loading) return "コピー対象の具体内容を確認中。内容が表示されるまで、重要メモへのコピー判断は止める。";
+  if (detail.error) return "コピー対象の具体内容を読み込めていない。内容が分からない場合は「コピーしない」。元情報から確認し直したい場合は、コメントに「元情報を再確認」と書いて送る。";
+  return "このカードだけではコピー対象を判断できない。内容が分からない場合は「コピーしない」。元情報から確認し直したい場合は、コメントに「元情報を再確認」と書いて送る。";
+}
+
+function coverageGapBlockedFootnote(detail: DetailRow | undefined): string {
+  if (!detail || detail.loading) return "具体内容を読み込み中。コピーはまだできない。";
+  return "内容不足のまま重要メモへコピーしない。元の会議要約も、この操作では書き換えない。";
+}
+
+function coverageGapBlockedYesLabel(detail: DetailRow | undefined): string {
+  if (!detail || detail.loading) return "内容を確認中";
+  return "内容不足でコピー不可";
+}
+
 function notificationFallbackRows(n: Notification): NonNullable<DetailRow["rows"]> {
+  if (n.l2_kind === "coverage_gap") {
+    return coverageGapUnavailableRows(n);
+  }
   const meta = objectValue(n.metadata_json);
   const metaBits = [
     textFromUnknown(meta.occurred_on) ? `date=${textFromUnknown(meta.occurred_on)}` : "",
