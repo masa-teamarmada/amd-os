@@ -138,7 +138,7 @@ COMMENT ON COLUMN public.reward_member_liability_offsets.source_ym IS
 COMMENT ON COLUMN public.reward_member_liability_offsets.apply_ym IS
   '差額を報酬計算へ反映する未保護の未来月。NULL はシーズン内に反映先が無い pending 差額。';
 COMMENT ON COLUMN public.reward_member_liability_offsets.offset_yen IS
-  '正=追加支払、負=過払い回収。本人別に future reward summary へ反映する。';
+  '正=追加支払、負=ポイント制移行後の未確定月に対する差額控除。本人別に future reward summary へ反映する。';
 COMMENT ON COLUMN public.reward_member_liability_offsets.pool IS
   'regular は本契約財布、cap_extra は別財布。報酬cap/stockの系統を分ける。';
 COMMENT ON COLUMN public.reward_member_liability_offsets.status IS

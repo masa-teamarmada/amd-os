@@ -14,6 +14,7 @@
 
 | 日付 | 対象章 | 種別 | 内容 | 理由 | 誰が |
 |---|---|---|---|---|---|
+| 2026-07-16 | 2-3 PJ Cockpit / 6-5 Admin Payouts / 6-8 Admin MS Overview / 7-1 報酬計算 | 訂正 | 2026年7月のポイント制移行より前に合意・支払済みだった月は、新制度との差額控除へ使わない仕様に訂正。`source_ym < 202607` の差額台帳は報酬計算で読み飛ばし、ZMP 2026の旧制度月由来の pending / active 差額行を `voided` にして202606報酬キャッシュを再計算する。build v3.43.21 | 過去に合意して支払った額を、あとから新ポイント制で減額対象にするのは不適切で、先月までの支払済み分を「過払い」と定義できないため | えいみ |
 | 2026-07-16 | 4-5 Management Score / Finance Simulation | 修正 | 月次試算表の通常表示・raw収集・finance score入力を `os_live_monthly_pl` / `os-live-current` に固定し、旧GAS baseline行を混ぜないようにした。refresh route はOSライブテーブルから `company_budget_monthly` を毎回materializeし、freee口座残高の最新実績をcash予測のアンカーに使う。全月0円のPJ明細は表示から外し、freeze_from_ym以降のPJは予測に入れない。build v3.43.20 | CTBの旧GAS baseline (`CTB 30万円 / 外注19.5万円`) が今月以降も残り、月次試算表が古い会社状況に見えたため | えいみ |
 | 2026-07-16 | 3-3 通知とつくよみ / 8-2 通知レビュー | 修正 | 通知カードに表示中リスト内の通し番号 `No.` を追加。D-7 Textbook Insights の詳細表示を「元情報 / 通知の種類 / 追記先 / BZMに追記される内容 / 判断の目安 / 押すと起きること / AMDプロトコルとの関係」へ変更し、ボタンも「BZM追記を承認 / BZMには入れない」に変更。元情報がAMDプロトコルでも追記先はBZMで、AMDプロトコル本文は書き換えないことを明示。build v3.43.19 | まさが通知を探せず、またBZM候補が「BZM本向け知見」なのか「AMDプロトコル誤分類」なのか判断できなかったため | えいみ |
 | 2026-07-16 | 4-5 Management Score / Finance Simulation | 修正 | 月次試算表と経営スコアの日次更新を `/api/cron/management-score-refresh` 1本へ変更。freee PL、freee口座残高、OS内部raw、score snapshotを同一リクエスト内で順番に更新し、rawがpartial/failedの時は既定でscore計算を止める。画面上部に予算入力・freee PL・現金残高・raw収集・score snapshotの鮮度表示を追加。build v3.43.18 | raw収集とscore計算が別cronで逆順になり、月次試算表の現金残高も手動scriptのまま古く残っていたため | えいみ |

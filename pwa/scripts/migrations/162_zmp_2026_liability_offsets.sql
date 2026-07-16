@@ -1,7 +1,8 @@
 -- 162_zmp_2026_liability_offsets.sql
--- ZMP 2026 season: keep already paid/sent 202605 payouts unchanged, and offset only
--- Abi/Ume overpaid amounts from each same member's unpaid stock. Shin/Koh differences are
--- intentionally tolerated by Masa's 2026-07-02 decision.
+-- ZMP 2026 season legacy note:
+-- This migration predated the 2026-07 policy correction. Migration 165 voids
+-- these rows because pre-point-system months were agreed/paid under the old terms
+-- and must not become retroactive point-basis payout differences.
 
 INSERT INTO public.reward_member_liability_offsets (
   project_id,
@@ -21,7 +22,7 @@ SELECT
   'any',
   1658,
   '202605',
-  'ZMP 2026 paid/sent amount exceeded current reward basis; offset only from Abi same-member unpaid stock.',
+  'Legacy ZMP 2026 point-basis difference row; superseded and voided by migration 165 because pre-2026-07 months are fixed by prior agreement.',
   '{"policy":"same_member_stock_only","decision_date":"2026-07-02","tolerated_members":["ID004","ID026"],"source":"zmp_locked_actuals_audit"}'::jsonb,
   'codex:2026-07-02'
 WHERE NOT EXISTS (
@@ -53,7 +54,7 @@ SELECT
   'any',
   1560,
   '202605',
-  'ZMP 2026 paid/sent amount exceeded current reward basis; offset only from Ume same-member unpaid stock.',
+  'Legacy ZMP 2026 point-basis difference row; superseded and voided by migration 165 because pre-2026-07 months are fixed by prior agreement.',
   '{"policy":"same_member_stock_only","decision_date":"2026-07-02","tolerated_members":["ID004","ID026"],"source":"zmp_locked_actuals_audit"}'::jsonb,
   'codex:2026-07-02'
 WHERE NOT EXISTS (

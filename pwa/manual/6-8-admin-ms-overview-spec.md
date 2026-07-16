@@ -214,9 +214,9 @@ memberDesignYen[m] = Σ over MS of (effectivePoints × share[m] × designUnitYen
 - `protectedCycleCount` — 変更の影響を比べる保護済み月数
 - `offsetCount` / `positiveOffsetYen` / `negativeOffsetYen` — 本人別に次回以降へ精算される差額
 - `applyYms` — 差額を反映する未保護月
-- `memberImpacts` — メンバー別の追加支払 / 過払い回収 / 本契約・別財布内訳
+- `memberImpacts` — メンバー別の追加支払 / 差額控除 / 本契約・別財布内訳
 - `budgetImpact` — freee銀行出金と `monthly_reward_payout` 明細が一致した支払済み実績だけを固定し、これから支払う見込み・会社留保・外部メンバーの期末未払い残を足した PJ 予算影響。表示項目は `クライアント支払` / `バッファ` / `原資上限` / `PJ予算` / `メンバー支払` / `会社留保` / `支払済み固定` / `実績未照合` / `これから支払予定` / `期末未払` / `保存後残予算または予算不足`。`クライアント支払` は本契約に別財布売上を加算し、schedule_based 契約では `contract_terms_json.monthlySchedule.amountTaxExcl` も予定売上として読む。`バッファ` は `value_plan_cycles.buffer_breakdown_json` を優先する。`原資上限 = (クライアント支払 - バッファ) × 65%`。`PJ予算 = 本契約原資 + 別財布原資`、`メンバー支払 = 支払済み固定 + これから支払予定`。会社留保は支払通知書対象外だが、役員の未充当繰越も含めて PJ予算を消費するため支払義務側に含める。期末未払は支払通知対象の外部メンバー分だけを不足額として赤表示し、役員繰越は会社留保側の内部検算へ寄せる。原資超過も不足額そのものとして赤表示する。
-- `blockers` — 保存不可理由。旧 reward cache が無い、次回精算先が無い、過払い回収がシーズン内で吸収できない可能性がある、支払済み印はあるが実支払証跡と明細額が未照合の月がある、支払通知対象メンバーへの期末未払残が 1 円以上ある、メンバー支払義務が PJ 予算を 1 円以上超える、など。
+- `blockers` — 保存不可理由。旧 reward cache が無い、次回精算先が無い、差額控除がシーズン内で吸収できない可能性がある、支払済み印はあるが実支払証跡と明細額が未照合の月がある、支払通知対象メンバーへの期末未払残が 1 円以上ある、メンバー支払義務が PJ 予算を 1 円以上超える、など。
 
 このパネルの目的は「差分を見せる」ことではなく、MS を期中変更しても **払いすぎ・払い足りなさを作らず、証跡つき支払済み実績を固定し、シーズン終了時の外部メンバー向け未払残を必ず 0 円にすること** を編集中に判定すること。実支払額と同一だと確認できない月は `実績未照合` に分け、保存は `blocked` にする。支払通知対象メンバーへの期末未払残、メンバー支払義務の PJ 予算超過、または PJ 予算の原資上限超過が 1 円でもある状態では MS 編集を終えられない。役員繰越は外部未払ではなく会社留保の内部検算に入れる。AMD運営側が認識していないところでバッファ/運営費が勝手に削られてメンバー支払に回る設計は禁止する。`warning` は保存可能だが本人別精算などの注意が残る状態、`blocked` は保存不可。
 
@@ -226,9 +226,9 @@ memberDesignYen[m] = Σ over MS of (effectivePoints × share[m] × designUnitYen
 - `points < 0` や NaN は server で 400 で弾く。
 - 期間は `YYYYMM` 形式、かつ `period_start_ym <= target_ym` でないと 400 で弾く。
 - `syncRewardSummariesForProject` 内部で `reward_paid_at` / `payout_notice_uploaded_at` / `payment_confirmed_at` のある月は再計算対象から外れる (= 既に支払い済みの過去月を勝手に書き換えない)。
-- protected 月に MS 修正差額が出た場合、過去月の `reward_summary_json` は保存し直さず、同じ member の次の未保護月へ `reward_member_liability_offsets.offset_yen` として精算する。正の差額は追加支払、負の差額は将来支払から本人単位で回収する。同じ source_ym の既存 pending offset は保存のたびに `voided` にして入れ直すので、複数回編集しても二重精算しない。
-- 例外として、同じ plan cycle の active/manual 台帳に `metadata_json.tolerated_members` があり、該当 member の過払いを経営判断で許容すると記録されている場合、その member の負の pending 回収行は報酬計算へ入れない。正の追加支払は通常どおり精算する。
-- MS設計の保存が成功した場合、`milestone_change_events` に追加/無効化/更新されたMS、pt・期間・完了条件・担当share差分、保存前支払検算の状態、追加支払/過払い回収の合計を残す。これはメンバー向け cockpit の折りたたみ `MS変更履歴` の正本で、契約本文・メール全文・議事録全文・raw source は含めない。
+- protected 月に MS 修正差額が出た場合、過去月の `reward_summary_json` は保存し直さず、同じ member の次の未保護月へ `reward_member_liability_offsets.offset_yen` として精算する。正の差額は追加支払、負の差額はポイント制移行後の未確定月に限り将来支払から本人単位で控除する。同じ source_ym の既存 pending offset は保存のたびに `voided` にして入れ直すので、複数回編集しても二重精算しない。
+- `source_ym < 202607` の差額行は、2026年7月のポイント制移行前に合意済みだった月なので、報酬計算へ入れない。過去に合意・支払済みの額を、新制度の計算結果であとから減額対象にしない。
+- MS設計の保存が成功した場合、`milestone_change_events` に追加/無効化/更新されたMS、pt・期間・完了条件・担当share差分、保存前支払検算の状態、追加支払/差額控除の合計を残す。これはメンバー向け cockpit の折りたたみ `MS変更履歴` の正本で、契約本文・メール全文・議事録全文・raw source は含めない。
 - 2026-07-09 に既存MSの履歴基準線を backfill 済み。対象は active / fixed の 11 plan cycle、110 MS、19 event。`source='migration'`、`changed_by_email='amd-os-backfill@teamarmada.local'`、`metadata_json.backfillKey='2026-07-09-ms-change-history-created-at-batches-v1'`。`value_milestones.created_at` ごとの作成バッチで `changed_at` を復元し、ログ導入前の pt/share 更新時刻は復元不能として `metadata_json.limitations` に明記する。
 - 保存前支払検算で `blocked` の場合、UI の保存ボタンを無効化するだけでなく、PUT route も 409 を返して保存前に止める。
 

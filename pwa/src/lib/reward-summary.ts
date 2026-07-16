@@ -16,6 +16,8 @@ type SupabaseLike = SupabaseClient;
 
 const ACTIVE_PLAN_STATUSES = ["active", "confirmed", "fixed", "draft"];
 const REWARD_SUMMARY_VERSION = "server_v5_planned_share_cap_carry_no_final_topup";
+// 2026-07 以降がポイント制の対象。旧制度で合意済みの月を新制度差額として精算しない。
+const POINT_REWARD_TRANSITION_YM = "202607";
 const CAP_EXTRA_MILESTONE_TAGS = new Set(["cap_extra", "extra_contract", "contract_extra", "cap_outside", "uncapped"]);
 
 type RewardPool = "regular" | "cap_extra";
@@ -294,29 +296,19 @@ function isMissingRelationError(error: unknown): boolean {
   return code === "42P01" || code === "PGRST205" || message.includes("reward_member_liability_offsets");
 }
 
-function toleratedNegativeOffsetMembers(rows: RewardLiabilityOffsetRow[]): Set<string> {
-  const tolerated = new Set<string>();
-  for (const row of rows) {
-    const metadata = asRecord(row.metadata_json);
-    const members = metadata?.tolerated_members;
-    if (!Array.isArray(members)) continue;
-    for (const member of members) {
-      const memberId = String(member ?? "").trim();
-      if (memberId) tolerated.add(memberId);
-    }
-  }
-  return tolerated;
+function ymText(value: unknown): string {
+  const ym = String(value ?? "").trim();
+  return /^\d{6}$/.test(ym) ? ym : "";
 }
 
-function shouldSkipToleratedRecovery(
-  row: RewardLiabilityOffsetRow,
-  memberId: string,
-  amount: number,
-  toleratedMembers: Set<string>
-): boolean {
-  if (amount >= 0) return false;
-  if (!toleratedMembers.has(memberId)) return false;
-  return String(row.origin_type ?? "") === "ms_overview_edit";
+function isLegacyAgreementOffset(row: RewardLiabilityOffsetRow): boolean {
+  const sourceYm = ymText(row.source_ym ?? row.applies_from_ym);
+  if (!sourceYm || sourceYm >= POINT_REWARD_TRANSITION_YM) return false;
+
+  const metadata = asRecord(row.metadata_json);
+  const metadataSource = String(metadata?.source ?? "");
+  const originType = String(row.origin_type ?? "");
+  return originType === "ms_overview_edit" || metadataSource === "zmp_locked_actuals_audit";
 }
 
 async function loadRewardLiabilityOffsetsByYm(
@@ -344,13 +336,12 @@ async function loadRewardLiabilityOffsetsByYm(
 
   const byYm: RewardLiabilityOffsetsByYm = new Map();
   const rows = (res.data ?? []) as RewardLiabilityOffsetRow[];
-  const toleratedMembers = toleratedNegativeOffsetMembers(rows);
   for (const row of rows) {
     const applyYm = String(row.apply_ym ?? row.applies_from_ym ?? "");
     const memberId = String(row.member_id ?? "");
     const amount = Math.round(numberValue(row.offset_yen ?? row.amount_yen));
     if (!/^\d{6}$/.test(applyYm) || !memberId || amount === 0) continue;
-    if (shouldSkipToleratedRecovery(row, memberId, amount, toleratedMembers)) continue;
+    if (isLegacyAgreementOffset(row)) continue;
     const offsetsForYm = byYm.get(applyYm) ?? [];
     offsetsForYm.push(row);
     byYm.set(applyYm, offsetsForYm);
