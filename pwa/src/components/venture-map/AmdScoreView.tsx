@@ -361,7 +361,12 @@ export function AmdScoreView({
               atlasMacroSignals={atlasMacroSignals}
               tripleHelix={tripleHelix}
             />
-            <FrlAlqPanel editable={editable} effectiveFrl={effectiveFrl} ventureName={venture.display_name} />
+            <FrlAlqPanel
+              editable={editable}
+              effectiveFrl={effectiveFrl}
+              ventureName={venture.display_name}
+              compact
+            />
           </section>
           <XrlChecklistPanel
             projectId={venture.project_id}
@@ -1844,10 +1849,12 @@ function FrlAlqPanel({
   editable,
   effectiveFrl,
   ventureName,
+  compact = false,
 }: {
   editable: EditableInput;
   effectiveFrl: number;
   ventureName: string;
+  compact?: boolean;
 }) {
   const W = 320;
   const H = 300;
@@ -1878,7 +1885,7 @@ function FrlAlqPanel({
   const derived = deriveFrl(editable);
 
   return (
-    <div className="border border-[#e5e5e7] rounded-xl p-4 bg-white">
+    <div className="min-w-0 border border-[#e5e5e7] rounded-xl p-4 bg-white">
       <div className="flex items-baseline justify-between mb-2">
         <div>
           <div className="text-[12px] font-semibold">FRL — Founder Readiness Level (6 因子)</div>
@@ -1896,8 +1903,8 @@ function FrlAlqPanel({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-3 mt-3">
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto">
+      <div className={`mt-3 grid grid-cols-1 gap-3 ${compact ? "" : "md:grid-cols-[320px_minmax(0,1fr)]"}`}>
+        <svg viewBox={`0 0 ${W} ${H}`} className="mx-auto h-auto w-full max-w-[320px]">
           {grid.map((g, gi) => (
             <polygon
               key={gi}
@@ -1944,7 +1951,7 @@ function FrlAlqPanel({
           ))}
         </svg>
 
-        <div className="flex flex-col gap-2">
+        <div className="min-w-0 flex flex-col gap-2">
           {ALQ_AXES.map((a) => (
             <FrlAxisRow
               key={a.key}
