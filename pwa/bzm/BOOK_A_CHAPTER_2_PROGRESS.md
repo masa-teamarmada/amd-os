@@ -1,5 +1,7 @@
 # BOOK_A_CHAPTER_2_PROGRESS.md — Book A 第2章 関係者の時計と不可逆点 (L3)
 
+> **⚠️ 2026-07-16 章番号の読み替え (Ch4+Ch5 統合、TOC v3)**: 本書の起草時点 (TOC v1/v2) の章番号表記はそのままの記録として残す。現行の章番号対応は `pwa/bzm/2026-07-16_ch4_ch5_merger_execution_report.md` §2 を参照 (本書 = 新Ch2、旧Ch2相当)。
+
 起草根拠: PF-012 / PF-014。24p 想定 (≈15,270字)。TOC 仕様は `BOOK_A_MASTER_PLAN.md` §9 Ch 2。本文正本 = `pwa/bzm/book-a-ch-2.md` (OS `/bzm/book-a-ch-2`) — ステージ4 以降で作成。
 
 ## 6ステージ進捗

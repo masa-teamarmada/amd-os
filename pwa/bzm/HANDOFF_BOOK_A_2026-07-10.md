@@ -2,6 +2,8 @@
 
 *最終更新: 2026-07-10 (第3セッション) / トピック: 第3章の全 pipeline 完走・正本化・公開 + 第1章クローズ + 第2章 status 整合*
 
+> **⚠️ 2026-07-16 章番号の読み替え (Ch4+Ch5 統合、TOC v3)**: このHANDOFF内の章番号表記は作成当時 (TOC v1/v2) の記録として残す。現行の章番号対応は `pwa/bzm/2026-07-16_ch4_ch5_merger_execution_report.md` §2 を参照。
+
 ## このセッションでやったこと (詳細は各正本 md の Changelog / L3)
 
 1. **第3章を1セッションで完走・公開 (全 pipeline を1セッション内で完走したのは初)**: 節 skeleton 3案 (Opus 並列、run wf_2d5adbbf-2a5) → 本体 synth 9節 → まさ確定 (論点5件を推奨どおり一括承認「それでいこ！」) → outline/draft 9節 (Sonnet、wf_e394dfbf-d48) → 敵対検証 **5/5 persona 完走** (Opus、wf_8c9f0b2d-f13 — 出力制約を全員に入れて初の全員完走) → 本体裁定 (must_fix 1 は方向反転 = 3.7 側を修正、should_fix 13 + nice 7 全採用) → Sonnet 反映 (wf_9224eda5-f53、§3.6 出力破損は単発 agent で復旧) → 本体最終整合 2箇所 → `book-a-ch-3.md` 正本化 (9節・17,213字)。OS `/bzm/book-a-ch-3` 公開 (status in-progress、Vercel deploy success 確認済み)。

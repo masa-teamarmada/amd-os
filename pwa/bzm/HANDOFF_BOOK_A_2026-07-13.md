@@ -2,6 +2,8 @@
 
 *最終更新: 2026-07-13 (第9章セッション) / トピック: 第9章の全 pipeline 完走・正本化・公開 (PF-018 章頭フル物語 + PF-020 である調の新設章初適用)*
 
+> **⚠️ 2026-07-16 章番号の読み替え (Ch4+Ch5 統合、TOC v3)**: このHANDOFF内の章番号表記は作成当時 (TOC v1/v2) の記録として残す。現行の章番号対応は `pwa/bzm/2026-07-16_ch4_ch5_merger_execution_report.md` §2 を参照。
+
 ## このセッションでやったこと (詳細は各正本 md の Changelog / L3)
 
 1. **第9章「統合スコアと律速診断」を完走・公開**: 節 skeleton 3 persona (Opus 並列、run wf_5da648ca-ff7 — セッションプロセス落ち + instructor の月間 spend limit 落ちを **resume 2回で完走**) → 本体 synth 10節・18.1k字設計 → 論点8件を推奨案で自動確定 → outline/draft 20/20 (Sonnet、9.0 のみ Opus、wf_2d5c45f9-f91) → 敵対検証 **5/5 persona 完走・must_fix 0** (Opus、wf_c3f4ef40-cc8、全 persona が全数値の独立検算に合格) → 本体裁定 (should 11 全採用 + nice 8 + 本体所見 2) → **fix は本体 Edit 17件** (fix agent 破損リスク回避) → 機械検査全 PASS → `book-a-ch-9.md` 正本化 (10節・23,445字)。OS `/bzm/book-a-ch-9` 公開 (status in-progress、BUILD_VERSION v3.39.63、本番反映を build-info API で確認済み)。

@@ -1,5 +1,7 @@
 # BOOK_A_CHAPTER_4_PROGRESS.md — Book A 第4章 潜在規模 P (L3)
 
+> **⚠️ 2026-07-16 章番号の読み替え (Ch4+Ch5 統合、TOC v3)**: 本書の起草時点 (TOC v1/v2) の章番号表記はそのままの記録として残す。現行の章番号対応は `pwa/bzm/2026-07-16_ch4_ch5_merger_execution_report.md` §2 を参照 (本書 = 新Ch4統合章前半/P、旧Ch4相当)。
+
 起草根拠: PF-012 / PF-014 / PF-016。26p 目安 (第II部開幕章)。TOC 仕様は `BOOK_A_MASTER_PLAN.md` §9 Ch 4。本文正本 = `pwa/bzm/book-a-ch-4.md` (OS `/bzm/book-a-ch-4`) — ステージ4 以降で作成。素材 = p-potential.md (章頭場面は Book A クレーム済み — ⚠️ BOOKS_PORTFOLIO §5 の場面単位台帳に p-potential 章頭の行が未登録。K1 の7場面に含まれる確定済みクレームの登録漏れなので、正本化 commit で行を追加する)。
 
 ## 6ステージ進捗

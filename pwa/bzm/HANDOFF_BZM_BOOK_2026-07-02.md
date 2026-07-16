@@ -3,6 +3,8 @@
 Last updated: 2026-07-02
 Session topic: 教科書2冊 (Book A/B) の設計確定 + RT 組成論を仮説的第三柱として BZM 理論・940p 本に正式組み込み + Ch 9.5 (RT 結合機構) / Ch 37.5 (自己批判とオープンプロブレム) 新設 + skeleton ステージ2確定
 
+> **⚠️ 2026-07-16 章番号の読み替え (Ch4+Ch5 統合、TOC v3)**: このHANDOFF内の章番号表記は作成当時 (TOC v1/v2) の記録として残す。Book A / Book B / 940pモノグラフの章番号体系が混在するため、Book A の新旧対応をモノグラフ章番号へ適用しない。現行の Book A 章番号対応は `pwa/bzm/2026-07-16_ch4_ch5_merger_execution_report.md` §2 を参照。
+
 詳細セッションログは `pwa/design_log/sessions_2026-07.md` の 2026-07-02 (BZM) エントリ。理論・設計・進捗の正本は下記 §ポインタ参照。
 
 ---

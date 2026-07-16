@@ -5,6 +5,8 @@ Topic: 司令塔セッション — Codex 切り出しの量産 + Ch4+Ch5 統合
 Working root: `/Users/masa/projects/AMD/amd-os`
 BZM root: `/Users/masa/projects/AMD/amd-os/pwa/bzm`
 
+> **⚠️ 2026-07-16 章番号の読み替え (Ch4+Ch5 統合、TOC v3)**: このHANDOFF内の章番号表記は作成当時 (TOC v1/v2) の記録として残す。現行の章番号対応は `pwa/bzm/2026-07-16_ch4_ch5_merger_execution_report.md` §2 を参照。
+
 ## Summary
 
 - 本セッションは Book A 出版準備の司令塔セッション。fable トークン節約のため Codex に切り出せるタスクを量産し、並行して Ch4+Ch5 統合(16→15章化)の司令塔裁定を確定・Codex へ機械実装を委譲した。

@@ -1,5 +1,7 @@
 # BOOK_A_CHAPTER_1_PROGRESS.md — Book A 第1章 ディープテック起業と Before Zero (L3)
 
+> **⚠️ 2026-07-16 章番号の読み替え (Ch4+Ch5 統合、TOC v3)**: 本書の起草時点 (TOC v1/v2) の章番号表記はそのままの記録として残す。現行の章番号対応は `pwa/bzm/2026-07-16_ch4_ch5_merger_execution_report.md` §2 を参照 (本書 = 新Ch1、旧Ch1相当)。
+
 起草根拠: PF-012 (2026-07-03)。22p 想定。TOC 仕様は `BOOK_A_MASTER_PLAN.md` §9 Ch 1。本文正本 = `pwa/bzm/book-a-ch-1.md` (OS `/bzm/book-a-ch-1`)。
 
 ## 6ステージ進捗

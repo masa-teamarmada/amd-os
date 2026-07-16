@@ -1,5 +1,7 @@
 # BOOK_A_CHAPTER_5_PROGRESS.md — Book A 第5章 到達度 R (L3)
 
+> **⚠️ 2026-07-16 章番号の読み替え (Ch4+Ch5 統合、TOC v3)**: 本書の起草時点 (TOC v1/v2) の章番号表記はそのままの記録として残す。現行の章番号対応は `pwa/bzm/2026-07-16_ch4_ch5_merger_execution_report.md` §2 を参照 (本書 = 新Ch4統合章後半/R、旧Ch5相当)。
+
 起草根拠: PF-012 / PF-014 / PF-016。28p 想定 (第II部)。TOC 仕様は `BOOK_A_MASTER_PLAN.md` §9 Ch 5。本文正本 = `pwa/bzm/book-a-ch-5.md` (OS `/bzm/book-a-ch-5`) — ステージ4 以降で作成。**第II部で XRL 群・マトリクス min・G(t) を導入する多軸章** (第4章 [P、並行執筆中] の次、第6章 [S 静学] への送り)。
 
 ## 6ステージ進捗
