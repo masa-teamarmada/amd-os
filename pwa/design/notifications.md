@@ -149,11 +149,13 @@ RLS:
 [pwa/src/components/notifications/NotificationsClient.tsx](../src/components/notifications/NotificationsClient.tsx)
 - フィルタタブ: 未対応 / 未読 (`read_at IS NULL` かつ未回答) / 回答済み / 修正依頼あり
 - 通知カード (時系列降順):
+  - 表示中リスト内の通し番号 (`No.1` など)。DB列ではなく、その時点のフィルタ結果の 1 始まり番号。まさが後から「あの通知のNo.」で探せるようにするための表示補助で、永続IDではない。
   - title (l2 通知は絵文字付き、meeting 通知は "📋 議事録: ..." を表示)
   - 補助メタ: 日時 / l2_kind / target / 未読 badge / 修正依頼 N 件 badge
 - カードクリックで展開:
   - summary (本文)
   - `coverage_gap` は summary の前に人間向けの確認文を出す。元候補の詳細が取れている場合だけ、タイトルを `重要メモにコピーする？: ...` の質問形にし、展開部は「コピーされる文章」「判断の目安」「コピーしても起きないこと」の3項目にする。`SX）intの元ソースには...可能性がある` のような監査メモをそのまま見せず、重要メモへ実際に入る一文へ変換して最初に出す。元候補が取れない / 通知本文が薄すぎる場合は `コピー前に元情報を確認: ...` に変え、「このカードだけではコピー対象を判断できない」と出して肯定ボタンを disabled にする。UI 表示では `D-6` / `coverage_gap` / `raw transcript` / `元情報` / `取りこぼし` / `条件付き投資家関心` / `薄い` / `candidate` / `salience` / `目立たない話` を使わない。
+  - `textbook_insight` は、内部メタ (`classification`, `scope`, `sanitized`, UUID, `result null`) を判断本文に出さない。展開部は「元情報」「通知の種類」「追記先」「BZMに追記される内容」「判断の目安」「押すと起きること」「AMDプロトコルとの関係」で表示する。`source_tables` に `protocols` がある場合は、元ネタはAMDプロトコル、追記先はBZMであり、AMDプロトコル本文は書き換えないことを明示する。ボタンは「BZM追記を承認 / BZMには入れない」。
   - 元データへの deep link (l2_kind ごと: protocols → /admin/protocols, ms_progress → /project/<id>/cockpit?ym=<ym>, etc.)
   - 既存 feedback 一覧 (この通知に紐づく / 同 (l2_kind, target_id, scope_key) の)
   - 「はい・反映」「いいえ・不採用」「コメントだけ送信」textarea + 送信ボタン

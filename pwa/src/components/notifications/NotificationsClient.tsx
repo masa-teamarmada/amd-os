@@ -93,6 +93,10 @@ function isCoverageGapItem(i: UnifiedItem): boolean {
   return i.kind === "l2" && i.data.l2_kind === "coverage_gap";
 }
 
+function isTextbookInsightItem(i: UnifiedItem): boolean {
+  return i.kind === "l2" && i.data.l2_kind === "textbook_insight";
+}
+
 function itemDisplayTitle(i: UnifiedItem): string {
   if (isCoverageGapItem(i)) return coverageGapQuestionTitle(i.data as Notification);
   return sanitizeMeetingTitle(i.data.title);
@@ -131,6 +135,18 @@ type ReviewActionCopy = {
 
 function reviewActionCopyForItem(i: UnifiedItem, alreadySaved: boolean): ReviewActionCopy {
   if (isCoverageGapItem(i)) return coverageGapActionCopy(i.data as Notification);
+  if (isTextbookInsightItem(i)) {
+    return {
+      yesLabel: "BZM追記を承認",
+      noLabel: "BZMには入れない",
+      yesDoneLabel: "BZM追記を承認",
+      noDoneLabel: "BZMには入れない",
+      prompt: "AMD OS内の記録から抜き出した学びを、BZM / Before Zero 実践テキストに残すか判断する。元のAMDプロトコルや会議メモは書き換えない。",
+      footnote: "承認しても、この画面からBZM本文を直接書き換えない。後続のローカル反映処理が、承認済み候補だけをBZMのmdへ追記する。",
+      placeholder: "例: BZM向き / AMDプロトコルだけでよい / 抽象化し直して",
+      headlineLabel: "通知ヘッドライン",
+    };
+  }
   return {
     yesLabel: alreadySaved ? "はい・確認済み" : "はい・反映",
     noLabel: "いいえ・不採用",
@@ -152,6 +168,12 @@ function responseLabelForItem(action: FeedbackAction, i: UnifiedItem, alreadySav
   if (action === "yes") return copy.yesDoneLabel;
   if (action === "no") return copy.noDoneLabel;
   return "コメント送信済み";
+}
+
+function detailTitleForItem(i: UnifiedItem): string | undefined {
+  if (isCoverageGapItem(i)) return "確認したい内容";
+  if (isTextbookInsightItem(i)) return "BZMに追記する候補";
+  return undefined;
 }
 
 function unifiedItemPriority(i: UnifiedItem): NotificationPriority {
@@ -710,32 +732,26 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
           if (error) throw error;
           rows = (data ?? []).map((r) => {
             const refs = Array.isArray(r.evidence_refs) ? r.evidence_refs : [];
-            const refText = refs
-              .slice(0, 4)
-              .map((e) => {
-                const ref = e && typeof e === "object" ? e as Record<string, unknown> : {};
-                return [
-                  ref.table || ref.source || ref.kind || "source",
-                  ref.row_id || ref.ref_id || ref.id || "",
-                  ref.date || ref.item_date || "",
-                  ref.title || ref.snippet || ref.summary || "",
-                ].filter(Boolean).join(" / ");
-              })
-              .filter(Boolean)
-              .join("\n");
-            const sourceTables = Array.isArray(r.source_tables) ? r.source_tables.join(", ") : "";
+            const sourceTables = Array.isArray(r.source_tables) ? r.source_tables.map(String).filter(Boolean) : [];
+            const candidateMeta = objectValue(r.metadata_json);
+            const practiceKind = textFromUnknown(candidateMeta.practice_kind) || "decision_branch";
+            const appendTarget = textbookAppendTargetText(textFromUnknown(r.target_bzm_slug), textFromUnknown(r.proposed_section), practiceKind);
+            const sourceSummary = textbookSourceSummary(sourceTables, refs);
+            const bodyText = cleanTextbookBodyMarkdown(String(r.body_md ?? ""));
             return {
-              heading: `${r.title} [${r.status}]`,
+              heading: `BZMに追記する候補: ${r.title}`,
               body: [
-                `分類: ${r.insight_type} / priority ${r.priority}`,
-                `実践分類: ${textFromUnknown(objectValue(r.metadata_json).practice_kind) || "decision_branch"}`,
-                `機密: ${r.confidentiality || "internal_only"} / BZM review: ${r.bzm_review_required ? r.bzm_review_status || "pending" : "not_required"} / scope: ${r.theory_change_scope || "none"}`,
-                `追記先: /bzm/${r.target_bzm_slug}${r.proposed_section ? ` / ${r.proposed_section}` : ""}`,
-                String(r.body_md ?? ""),
-                refText ? `根拠:\n${refText}` : "",
-              ].filter(Boolean).join("\n"),
+                `元情報:\n${sourceSummary}`,
+                "通知の種類:\nD-7 Textbook Insights。AMD OS内の記録から、BZM / Before Zero 実践テキストに残せそうな学びを候補化した通知。",
+                `追記先:\n${appendTarget}`,
+                `BZMに追記される内容:\n${bodyText || "追記候補本文が空。判断せず、コメントで再抽出を依頼してね。"}`,
+                `判断の目安:\n${textbookDecisionGuide(String(r.insight_type ?? ""), Number(r.priority ?? 0), practiceKind, sourceTables)}`,
+                "押すと起きること:\n「BZM追記を承認」を押すと、この候補が承認済みになる。Web本番からBZM本文を直接書き換えず、後続のローカル反映処理が承認済み候補だけをBZMのmdへ追記する。「BZMには入れない」を押すと候補を不採用にする。",
+                `AMDプロトコルとの関係:\n${textbookProtocolRelationship(sourceTables, practiceKind)}`,
+              ].filter(Boolean).join("\n\n"),
               sub: [
-                sourceTables ? `source=${sourceTables}` : "",
+                `状態: ${textbookCandidateStatusLabel(String(r.status ?? ""))}`,
+                textbookReviewGateText(Boolean(r.bzm_review_required), textFromUnknown(r.bzm_review_status), textFromUnknown(r.theory_change_scope)),
                 r.applied_file ? `applied=${r.applied_file}` : "",
                 r.applied_at ? `applied_at=${formatJST(String(r.applied_at))}` : "",
               ].filter(Boolean).join(" · ") || undefined,
@@ -1071,9 +1087,11 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
         const unreadItems = activeReviewItems.filter((i) => isRecentlyAnswered(i) || !isReadBucket(i));
         const readItems = activeReviewItems.filter((i) => !isRecentlyAnswered(i) && isReadBucket(i));
         const answeredItems = filtered.filter((i) => isAnswered(i));
+        const displayNumberByKey = new Map(filtered.map((i, idx) => [itemKey(i), idx + 1]));
 
         const renderCard = (i: UnifiedItem) => {
           const key = itemKey(i);
+          const displayNumber = displayNumberByKey.get(key);
           const isExpanded = expanded.has(key);
           const isSubmitting = submitting.has(key);
           const detail = details[key];
@@ -1107,8 +1125,18 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleExpand(i); } }}
               >
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm leading-snug">
-                    <LinkedMemberText text={itemDisplayTitle(i)} />
+                  <div className="flex items-start gap-2">
+                    {displayNumber != null && (
+                      <span
+                        className="mt-0.5 shrink-0 rounded-full border border-border bg-background px-2 py-0.5 text-[11px] font-semibold tabular-nums text-muted-foreground"
+                        title="いま表示している一覧内の通し番号"
+                      >
+                        No.{displayNumber}
+                      </span>
+                    )}
+                    <div className="font-medium text-sm leading-snug min-w-0">
+                      <LinkedMemberText text={itemDisplayTitle(i)} />
+                    </div>
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
                     {formatJST(i.data.created_at)} ・{" "}
@@ -1170,7 +1198,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                   )}
 
                   {/* 実データ (lazy fetch) */}
-                  <DetailSection detail={details[key]} title={isCoverageGapItem(i) ? "確認したい内容" : undefined} />
+                  <DetailSection detail={details[key]} title={detailTitleForItem(i)} />
 
                   {/* 元データへの deep link */}
                   <div className="text-xs">
@@ -1559,6 +1587,111 @@ function truncateOneLine(value: string, limit = 360): string {
   const s = value.replace(/\s+/g, " ").trim();
   if (!s) return "(snippetなし)";
   return s.length > limit ? `${s.slice(0, limit)}...` : s;
+}
+
+function textbookSourceLabel(table: string): string {
+  const key = table.trim().toLowerCase();
+  const labels: Record<string, string> = {
+    protocols: "AMDプロトコル",
+    protocol_examples: "AMDプロトコルの事例",
+    protocol_result_observations: "AMDプロトコルの後追い結果",
+    project_meeting_summaries: "会議要約",
+    project_strategy_signals: "重要メモ",
+    project_knowledge: "PJナレッジ",
+    monthly_reports: "月次レポート",
+  };
+  return labels[key] ?? table;
+}
+
+function textbookSourceSummary(sourceTables: string[], refs: unknown[]): string {
+  const labels = sourceTables.length > 0
+    ? Array.from(new Set(sourceTables.map(textbookSourceLabel)))
+    : ["AMD OS内の記録"];
+  const evidenceTitles = refs
+    .map((entry) => objectValue(entry))
+    .map((ref) => textFromUnknown(ref.title) || textFromUnknown(ref.summary) || textFromUnknown(ref.snippet))
+    .filter(Boolean)
+    .map((v) => truncateOneLine(v, 120));
+  const firstTitle = evidenceTitles[0];
+  const base = `${labels.join("・")}に残っていた記録から抽出。`;
+  if (!firstTitle) return base;
+  return `${base}\n根拠の見出し: ${firstTitle}`;
+}
+
+function textbookPracticeKindLabel(practiceKind: string): string {
+  const labels: Record<string, string> = {
+    decision_branch: "現場判断と分岐",
+    failure_learning: "失敗・手戻りからの学び",
+    cross_project_pattern: "PJ横断パターン",
+    theory_case: "BZM理論の検証ケース",
+    reusable_question: "次回も使える問い",
+    relationship_playbook: "関係構築プレイブック",
+    field_transition: "研究現場から事業化への移行",
+  };
+  return labels[practiceKind] ?? (practiceKind || "実践知");
+}
+
+function textbookAppendTargetText(slug: string, section: string, practiceKind: string): string {
+  const target = slug ? `/bzm/${slug}` : "BZMの該当章";
+  const sectionText = section || textbookPracticeKindLabel(practiceKind);
+  if (practiceKind === "decision_branch") {
+    return `${target} / ${sectionText}\n「分岐点」はAMDプロトコル本文の疑問文ではなく、BZM側で“判断の条件・材料・結果を再利用可能に残す”ための分類。`;
+  }
+  return `${target} / ${sectionText}`;
+}
+
+function cleanTextbookBodyMarkdown(value: string): string {
+  return value
+    .replace(/\r/g, "")
+    .replace(/^#{1,6}\s*/gm, "")
+    .replace(/^結果\s+null\s*$/gim, "")
+    .replace(/^null\s*$/gim, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function textbookDecisionGuide(insightType: string, priority: number, practiceKind: string, sourceTables: string[]): string {
+  const kindLabel = textbookPracticeKindLabel(practiceKind);
+  const sourceHasProtocol = sourceTables.map((v) => v.toLowerCase()).includes("protocols");
+  const typeText = insightType === "before_zero_knowhow"
+    ? "Before Zeroで再利用できる経営判断・失敗回避の知見"
+    : "PJ横断で再利用できる知見";
+  const priorityText = priority === 1 ? "優先度は高め。" : "優先度は中程度。";
+  const protocolText = sourceHasProtocol
+    ? "元ネタがAMDプロトコルなので、単なるSX固有メモではなく“次のPJでも使える判断パターン”に抽象化できているかを見る。"
+    : "元記録が特定PJに寄りすぎていないか、次のPJでも使える言い方になっているかを見る。";
+  return `${priorityText}${typeText}として、分類は「${kindLabel}」。${protocolText}`;
+}
+
+function textbookProtocolRelationship(sourceTables: string[], practiceKind: string): string {
+  const sourceHasProtocol = sourceTables.map((v) => v.toLowerCase()).includes("protocols");
+  if (!sourceHasProtocol) {
+    return "この候補はAMDプロトコルの書き換えではない。元記録からBZM向きの学びだけを抜き出す候補。";
+  }
+  if (practiceKind === "decision_branch") {
+    return "元ネタはAMDプロトコル。追記先はBZM。AMDプロトコルにある「分岐点 / 判断材料 / アクション」を、Before Zeroの教材として再利用できる判断パターンに変換する候補。AMDプロトコル本文は書き換えない。";
+  }
+  return "元ネタはAMDプロトコル。追記先はBZM。元ネタと追記先が違うので、AMDプロトコル本文は書き換えない。";
+}
+
+function textbookCandidateStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    candidate: "未判断",
+    approved: "承認済み",
+    rejected: "不採用",
+    applied: "BZMへ追記済み",
+  };
+  return labels[status] ?? (status || "未判断");
+}
+
+function textbookReviewGateText(reviewRequired: boolean, reviewStatus: string, theoryScope: string): string {
+  if (reviewRequired) {
+    return `BZM理論レビュー: ${reviewStatus || "未完了"}`;
+  }
+  if (theoryScope && theoryScope !== "none") {
+    return `理論変更範囲: ${theoryScope}`;
+  }
+  return "BZM理論レビュー: 不要";
 }
 
 function stripNotificationPrefix(title: string): string {
