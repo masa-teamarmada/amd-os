@@ -523,7 +523,12 @@ function NextRoundForm({ data, snapshots, colorMap, latestSnapshot }: { data: Co
       <div className="grid gap-4 sm:grid-cols-2">
               <Field label="基準にする時点">
                 <Select value={baseId} onValueChange={(next) => setBaseId(next || "")}>
-                  <SelectTrigger className="h-11 w-full bg-white"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-11 w-full bg-white">
+                    <SelectValue>{(value: string) => {
+                      const item = snapshots.find((snapshot) => snapshot.id === value);
+                      return item ? `${formatDate(item.effectiveOn)} ${item.label}` : null;
+                    }}</SelectValue>
+                  </SelectTrigger>
                   <SelectContent>{snapshots.map((item) => <SelectItem key={item.id} value={item.id}>{formatDate(item.effectiveOn)} {item.label}</SelectItem>)}</SelectContent>
                 </Select>
               </Field>
