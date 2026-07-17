@@ -32,6 +32,10 @@ struct AMDOSRootView: View {
                 AMDOSLoginView()
             }
         }
+        .onOpenURL { url in
+            guard url.scheme?.lowercased() == "amdos-mac" else { return }
+            Task { await auth.acceptOAuthCallback(url) }
+        }
         .preferredColorScheme(nil)
     }
 }

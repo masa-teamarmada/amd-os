@@ -17,7 +17,7 @@
 
 | PWA route（全件） | NativeScreenID | 読取元 | 書込み先 | 権限 | 状態 / 回帰確認 |
 |---|---|---|---|---|---|
-| `/auth/login`, `/auth/callback` | `account` | Supabase Auth + 透過 `AMDLogoMark.imageset` | Supabase OAuth PKCE | 本人 | 実装済み。AppIconと同じAMDロゴmarkを白背景に表示、Google callback / session保存 |
+| `/auth/login`, `/auth/callback` | `account` | Supabase Auth + 透過 `AMDLogoMark.imageset` | Supabase OAuth PKCE | 本人 | 実装済み。AppIconと同じAMDロゴmarkを白背景に表示。Google callbackはASWebAuthenticationSessionとSwiftUI `onOpenURL`の両方からPKCE sessionへ戻し、session保存 |
 | `/dashboard`, `/mypage` | `today`, `projects` | `projects`, `app_notifications`, iOS MyPage | 既存通知・PJ安全API | member | 実装済み。PJカードと通知件数 |
 | `/project/[projectId]/cockpit`, `/project/[projectId]/config`, `/project/[projectId]/report/[ym]/print` | `projectDetail` | Cockpit / `projects`, `ms_*`, `billing_cycles`, `project_meeting_summaries` | 既存MS保存前検算・管理API | member / APIごとの権限 | ネイティブ骨格。選択PJ詳細を削除しない |
 | `/notifications` | `notifications` | `l2_notifications`, `meeting_notifications`, `app_notifications` | `/api/notifications/feedback` 等の既存安全経路 | 通知対象 / admin | ネイティブ骨格。判断ボタンはPWA安全経路へ |

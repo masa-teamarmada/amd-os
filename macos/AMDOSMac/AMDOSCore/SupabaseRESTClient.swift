@@ -20,6 +20,13 @@ actor AMDOSRESTClient {
         self.session = session
     }
 
+    /// ブラウザがcustom URL schemeをSwiftUIアプリへ直接配送した場合の復帰口。
+    /// `ASWebAuthenticationSession` のcompletionと競合しても、先に届いた一方だけが継続を再開する。
+    func acceptOAuthCallback(_ callback: URL) async {
+        guard callback.scheme?.lowercased() == "amdos-mac" else { return }
+        await oauthSession?.receive(callback)
+    }
+
     func authenticateWithGoogle() async throws -> AMDOSSession {
         let verifier = PKCE.generateVerifier()
         let challenge = PKCE.challenge(for: verifier)
@@ -36,29 +43,38 @@ actor AMDOSRESTClient {
         self.oauthSession = oauthSession
         defer { self.oauthSession = nil }
         let callback = try await oauthSession.start(url: authorizeURL, callbackScheme: "amdos-mac")
-        guard let code = URLComponents(url: callback, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "code" })?.value else {
-            throw AMDOSNetworkError.oauthCallbackMissing
+        let callbackComponents = URLComponents(url: callback, resolvingAgainstBaseURL: false)
+        let queryItems = callbackComponents?.queryItems ?? []
+        var fragmentComponents = URLComponents()
+        fragmentComponents.percentEncodedQuery = callbackComponents?.fragment
+        let callbackItems = queryItems + (fragmentComponents.queryItems ?? [])
+
+        if callbackItems.contains(where: { $0.name == "error" }) {
+            throw AMDOSNetworkError.oauthProviderError
         }
 
-        var tokenComponents = URLComponents(url: baseURL.appendingPathComponent("auth/v1/token"), resolvingAgainstBaseURL: false)!
-        tokenComponents.queryItems = [URLQueryItem(name: "grant_type", value: "pkce")]
-        var request = URLRequest(url: tokenComponents.url!)
-        request.httpMethod = "POST"
-        request.setValue(anonKey, forHTTPHeaderField: "apikey")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONSerialization.data(withJSONObject: [
-            "auth_code": code,
-            "code_verifier": verifier,
-            "redirect_to": redirect
-        ])
+        if let code = callbackItems.first(where: { $0.name == "code" })?.value {
+            var tokenComponents = URLComponents(url: baseURL.appendingPathComponent("auth/v1/token"), resolvingAgainstBaseURL: false)!
+            tokenComponents.queryItems = [URLQueryItem(name: "grant_type", value: "pkce")]
+            var request = URLRequest(url: tokenComponents.url!)
+            request.httpMethod = "POST"
+            request.setValue(anonKey, forHTTPHeaderField: "apikey")
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try JSONSerialization.data(withJSONObject: [
+                "auth_code": code,
+                "code_verifier": verifier
+            ])
 
-        let (data, response) = try await URLSession.shared.data(for: request)
-        try validate(response: response, data: data)
-        let token = try JSONDecoder().decode(AMDOSTokenResponse.self, from: data)
-        let expiresAt = token.expiresIn.map { Date().addingTimeInterval(TimeInterval($0)) }
-        let next = AMDOSSession(accessToken: token.accessToken, refreshToken: token.refreshToken, expiresAt: expiresAt, email: emailFromJWT(token.accessToken))
-        session = next
-        return next
+            let (data, response) = try await URLSession.shared.data(for: request)
+            try validate(response: response, data: data)
+            let token = try JSONDecoder().decode(AMDOSTokenResponse.self, from: data)
+            let expiresAt = token.expiresIn.map { Date().addingTimeInterval(TimeInterval($0)) }
+            let next = AMDOSSession(accessToken: token.accessToken, refreshToken: token.refreshToken, expiresAt: expiresAt, email: emailFromJWT(token.accessToken))
+            session = next
+            return next
+        }
+
+        throw AMDOSNetworkError.oauthCallbackMissing
     }
 
     func fetchProjects(activeOnly: Bool = true) async throws -> [AMDOSProject] {
@@ -136,6 +152,7 @@ enum AMDOSNetworkError: LocalizedError {
     case invalidURL
     case oauthStartFailed
     case oauthCallbackMissing
+    case oauthProviderError
     case notFound
     case http(String)
 
@@ -144,6 +161,7 @@ enum AMDOSNetworkError: LocalizedError {
         case .invalidURL: return "接続先の設定が正しくないよ。"
         case .oauthStartFailed: return "Googleログイン画面を開始できなかったよ。もう一度試してね。"
         case .oauthCallbackMissing: return "Googleログインの戻り値を確認できなかったよ。"
+        case .oauthProviderError: return "Googleログインが中断されたか、許可されなかったよ。Google画面で許可してもう一度試してね。"
         case .notFound: return "対象のデータが見つからなかったよ。"
         case .http(let body): return "OSとの通信に失敗したよ。\n\(body)"
         }
@@ -175,26 +193,42 @@ private enum PKCE {
 @MainActor
 private final class OAuthSession: NSObject, ASWebAuthenticationPresentationContextProviding {
     private var webSession: ASWebAuthenticationSession?
+    private var continuation: CheckedContinuation<URL, Error>?
 
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
         NSApplication.shared.keyWindow ?? NSApplication.shared.windows.first ?? NSWindow()
     }
 
     func start(url: URL, callbackScheme: String) async throws -> URL {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, Error>) in
+            self.continuation = continuation
             let session = ASWebAuthenticationSession(url: url, callbackURLScheme: callbackScheme) { callback, error in
-                self.webSession = nil
-                if let callback { continuation.resume(returning: callback) }
-                else { continuation.resume(throwing: error ?? AMDOSNetworkError.oauthCallbackMissing) }
+                if let callback { self.finish(.success(callback)) }
+                else { self.finish(.failure(error ?? AMDOSNetworkError.oauthCallbackMissing)) }
             }
             self.webSession = session
             session.presentationContextProvider = self
             session.prefersEphemeralWebBrowserSession = false
             guard session.start() else {
-                self.webSession = nil
-                continuation.resume(throwing: AMDOSNetworkError.oauthStartFailed)
+                self.finish(.failure(AMDOSNetworkError.oauthStartFailed))
                 return
             }
+        }
+    }
+
+    func receive(_ callback: URL) {
+        finish(.success(callback), cancellingWebSession: true)
+    }
+
+    private func finish(_ result: Result<URL, Error>, cancellingWebSession: Bool = false) {
+        guard let continuation else { return }
+        self.continuation = nil
+        let session = webSession
+        webSession = nil
+        if cancellingWebSession { session?.cancel() }
+        switch result {
+        case .success(let callback): continuation.resume(returning: callback)
+        case .failure(let error): continuation.resume(throwing: error)
         }
     }
 }

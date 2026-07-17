@@ -62,6 +62,7 @@ PWAの全機能をこの初回実装だけで完了とは扱わず、未移植�
 - ログイン画面の主役は `AMDLogoMark.imageset` の同じAMDロゴmarkを128ptで表示し、仮の記号や別形状のシステム画像を使わない。
 - ログイン用markは背景を透過し、白いログイン画面にはmarkだけを置く。深いネイビー地のAppIconとは表示用途を分ける。
 - ログイン画面は白背景、ロゴ、`AMD OS`の名称、説明文、既存のGoogle認証導線の順序を保ち、ブランド表示の変更で認証本文や権限説明を壊さない。
+- Google OAuthの戻りは`ASWebAuthenticationSession`だけに依存せず、`amdos-mac://auth/callback`をSwiftUIの`onOpenURL`でも同じ認証待機へ渡す。受け取るのはPKCE codeだけに固定して交換する。
 - PWAの安全な確認経路へ委譲する外部導線はSwiftUI `Link`として実装し、通常クリックは既定ブラウザ、Commandクリックは既定ブラウザの新しいタブで開く。
 - XcodeGenの `ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon` と `Assets.xcassets` を通じて、実アプリの `CFBundleIconName` に結び付ける。
 - 配布用サイズはマスターから機械的に縮小生成する。ロゴの再描画・色変更・自動トリミングはしない。

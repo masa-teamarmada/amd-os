@@ -35,6 +35,12 @@ final class AMDOSAuthStore: ObservableObject {
         }
     }
 
+    /// `ASWebAuthenticationSession` が捕捉できなかったURLも、SwiftUIのアプリ入口から
+    /// 同じ認証待機へ戻す。macOSでは外部ブラウザがcustom URL schemeをアプリに渡す場合がある。
+    func acceptOAuthCallback(_ url: URL) async {
+        await client.acceptOAuthCallback(url)
+    }
+
     func refreshAuthority() async {
         guard let email else { return }
         do { isAdmin = try await client.fetchIsAdmin(email: email) }
@@ -64,4 +70,3 @@ final class AMDOSAuthStore: ObservableObject {
         Task { await client.setSession(session) }
     }
 }
-
