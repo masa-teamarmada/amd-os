@@ -2,8 +2,20 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { adjustToNextBusinessDay, dateAtDay, nextMonthDay, nextMonthEnd, scheduleGenerationRange, ymFromDate } from "../src/lib/admin-schedule/date.ts";
-import { notificationStateLabel, scheduleKey, stageFor } from "../src/lib/admin-schedule/notifications.ts";
-import { isAcceptedAmdContract, isContractSigningExpected, isCurrentAmdContract, isScheduleActionItem } from "../src/lib/admin-schedule/predicates.ts";
+import {
+  notificationStateLabel,
+  scheduleKey,
+  scheduleNotificationsEnabled,
+  sendScheduleNotificationsWhenEnabled,
+  stageFor,
+} from "../src/lib/admin-schedule/notifications.ts";
+import {
+  isAcceptedAmdContract,
+  isContractSigningExpected,
+  isCurrentAmdContract,
+  isScheduleActionItem,
+  isStatutoryScheduleObligation,
+} from "../src/lib/admin-schedule/predicates.ts";
 import { buildMonthGrid, CALENDAR_WEEKDAYS, isDatePrecisionDay, mondayIndex } from "../src/lib/admin-schedule/calendar.ts";
 import { OFFICIAL_RULES } from "../src/lib/admin-schedule/rules/official.ts";
 
@@ -53,6 +65,23 @@ const ordinaryDay = { lifecycle_status: "open", notification_owner: "company_sch
 assert.equal(stageFor(ordinaryDay, "2026-07-14"), null, "non-threshold day is not notified");
 assert.equal(stageFor({ ...overdue, notification_owner: "payment_obligation" }, "2026-07-16"), null, "payment obligation is excluded");
 assert.notEqual(scheduleKey({ source_hash: "hash-a" }), scheduleKey({ source_hash: "hash-b" }), "source hash change creates a new schedule key");
+assert.equal(scheduleNotificationsEnabled({}), false);
+assert.equal(scheduleNotificationsEnabled({ AMD_OS_SCHEDULE_NOTIFICATIONS_ENABLED: "1" }), true);
+let notificationSendCalls = 0;
+const disabledNotifications = await sendScheduleNotificationsWhenEnabled(async () => {
+  notificationSendCalls += 1;
+  return { ok: true, considered: 1, created: 1, sent: 1, skipped: 0, failed: 0, errors: [] };
+}, {});
+assert.equal(disabledNotifications.enabled, false);
+assert.equal(disabledNotifications.reason, "disabled_by_env");
+assert.equal(notificationSendCalls, 0, "disabled notifications never invoke Slack sender");
+const enabledNotifications = await sendScheduleNotificationsWhenEnabled(async () => {
+  notificationSendCalls += 1;
+  return { ok: true, considered: 1, created: 1, sent: 1, skipped: 0, failed: 0, errors: [] };
+}, { AMD_OS_SCHEDULE_NOTIFICATIONS_ENABLED: "1" });
+assert.equal(enabledNotifications.enabled, true);
+assert.equal(enabledNotifications.reason, "enabled");
+assert.equal(notificationSendCalls, 1);
 
 const acceptedAmdContract = {
   relationship_scope: "amd_contract",
@@ -69,6 +98,9 @@ assert.equal(isAcceptedAmdContract({ ...acceptedAmdContract, relationship_scope:
 assert.equal(isAcceptedAmdContract({ ...acceptedAmdContract, registry_status: "needs_review" }), false);
 assert.equal(isAcceptedAmdContract({ ...acceptedAmdContract, registry_status: "candidate" }), false);
 assert.equal(isCurrentAmdContract({ ...acceptedAmdContract, is_current_for_project: false }), false);
+assert.equal(isStatutoryScheduleObligation({ category: "tax" }), true);
+assert.equal(isStatutoryScheduleObligation({ category: "social_insurance" }), true);
+assert.equal(isStatutoryScheduleObligation({ category: "invoice" }), false);
 
 const actionBase = { review_status: "confirmed", status: "open", due_at: "2026-08-01" };
 assert.equal(isScheduleActionItem({ ...actionBase, scope: "company", category: "engineering" }), true, "company action is included");
@@ -94,18 +126,26 @@ const ui = read("src/components/admin/AdminScheduleClient.tsx");
 
 assert.match(generator, /amountRole: "outgoing"/);
 assert.match(generator, /amountRole: "contract_reference"/);
-assert.match(generator, /amountFields\(amountYen, amountStatus, "incoming"\)/);
+assert.doesNotMatch(generator, /amountFields\(amountYen, amountStatus, "incoming"\)/);
 assert.match(generator, /amount_status/);
-assert.match(generator, /notification_owner: input\.notificationOwner \?\? "company_schedule"/);
+assert.match(generator, /notification_owner: input\.notificationOwner \?\? scheduleNotificationOwner\(\)/);
 assert.match(generator, /const fromYm = ymFromDate\(from\)/);
 assert.match(generator, /const toYm = ymFromDate\(to\)/);
 assert.match(generator, /!fromYm \|\| !toYm/);
 assert.match(generator, /\.gte\("ym", fromYm\)\.lte\("ym", toYm\)/);
 assert.doesNotMatch(generator, /\.gte\("ym", from\.slice\(0, 7\)\)/);
+assert.match(generator, /\.in\("category", \["tax", "social_insurance"\]\)/);
+assert.match(generator, /\.eq\("relationship_scope", "amd_contract"\)\.eq\("registry_status", "accepted"\)/);
 assert.match(generator, /contracts\.filter\(isAcceptedAmdContract\)/);
+assert.match(generator, /generateContracts\(contracts, projects, projectMembers, members, from, to\)/);
+assert.match(generator, /projectOwnerId\(projectId, project \?\? \{\}, contract, projectMembers, members\)/);
 assert.match(generator, /isContractSigningExpected\(contract\)/);
 assert.match(generator, /const current = isCurrentAmdContract\(contract\)/);
+assert.match(generator, /const currentContracts = contracts\.filter\(isCurrentAmdContract\)/);
 assert.doesNotMatch(generator, /is_current_for_project !== false/);
+assert.doesNotMatch(generator, /db\.from\("billing_cycles"\)/);
+assert.doesNotMatch(generator, /generateBilling\(/);
+assert.doesNotMatch(generator, /source: "billing_cycles"/);
 assert.match(generator, /actionItems\.filter\(isScheduleActionItem\)/);
 assert.doesNotMatch(generator, /checked_at: new Date\(\)/);
 assert.doesNotMatch(generator, /status: "clean"/);
@@ -117,6 +157,7 @@ assert.match(notifications, /notification_owner.*company_schedule/);
 assert.match(notifications, /payment_obligation/);
 assert.match(notifications, /company_schedule_notifications/);
 assert.match(notifications, /schedule-v1:/);
+assert.match(notifications, /AMD_OS_SCHEDULE_NOTIFICATIONS_ENABLED === "1"/);
 assert.doesNotMatch(rebuildRoute, /amount_yen|due_on|owner_member_id/);
 assert.doesNotMatch(actionsRoute, /amount_yen|due_on|owner_member_id/);
 assert.match(actionsRoute, /company_schedule_actions/);
@@ -127,6 +168,7 @@ assert.match(migration, /company_schedule_actions_admin_select/);
 assert.doesNotMatch(migration, /CREATE POLICY company_schedule_actions_admin_insert/);
 assert.doesNotMatch(migration, /GRANT INSERT ON public\.company_schedule_actions/);
 assert.match(cronRoute, /scheduleGenerationRange\(todayJst\(\)\)/);
+assert.match(cronRoute, /sendScheduleNotificationsWhenEnabled/);
 assert.match(ui, /年間締切レール/);
 assert.match(ui, /grid-cols-7/);
 assert.match(ui, /md:grid-cols-2 xl:grid-cols-3/);

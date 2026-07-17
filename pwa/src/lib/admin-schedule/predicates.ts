@@ -57,6 +57,11 @@ export function isContractSigningExpected(row: SchedulePredicateRow): boolean {
     && IN_PROGRESS_CONTRACT_STATUSES.has(normalized(row.status));
 }
 
+export function isStatutoryScheduleObligation(row: SchedulePredicateRow): boolean {
+  const category = normalized(row.category);
+  return category === "tax" || category === "socialinsurance";
+}
+
 function isAllowedActionClassification(value: unknown): boolean {
   const category = normalized(value);
   return /tax|税/.test(category)

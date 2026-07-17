@@ -15,6 +15,11 @@ export type ScheduleNotificationResult = {
   errors: string[];
 };
 
+export type ScheduleNotificationRunResult = ScheduleNotificationResult & {
+  enabled: boolean;
+  reason: "enabled" | "disabled_by_env";
+};
+
 export type NotificationStageRow = {
   lifecycle_status?: unknown;
   generation_state?: unknown;
@@ -30,6 +35,40 @@ export type NotificationStageRow = {
 
 export function notificationStateLabel(stage: string): string {
   return stage.startsWith("overdue:") ? "期限超過" : stage;
+}
+
+export function scheduleNotificationsEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  return env.AMD_OS_SCHEDULE_NOTIFICATIONS_ENABLED === "1";
+}
+
+function emptyNotificationResult(): ScheduleNotificationResult {
+  return {
+    ok: true,
+    considered: 0,
+    created: 0,
+    sent: 0,
+    skipped: 0,
+    failed: 0,
+    errors: [],
+  };
+}
+
+export async function sendScheduleNotificationsWhenEnabled(
+  send: () => Promise<ScheduleNotificationResult>,
+  env: Record<string, string | undefined> = process.env,
+): Promise<ScheduleNotificationRunResult> {
+  if (!scheduleNotificationsEnabled(env)) {
+    return {
+      ...emptyNotificationResult(),
+      enabled: false,
+      reason: "disabled_by_env",
+    };
+  }
+  return {
+    ...(await send()),
+    enabled: true,
+    reason: "enabled",
+  };
 }
 
 function jstDateFromTimestamp(value: unknown): string | null {

@@ -438,15 +438,16 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 ## /admin/schedule
 
-目的: 契約・支払義務・請求・報告書・確定 action item・会社運営ファクト・公式期限ルールから、年間の締切を自動生成するadmin read model。
+目的: 契約・法定支払義務・報告書・確定 action item・会社運営ファクト・公式期限ルールから、年間の締切を自動生成するadmin read model。
 
 必須機能:
 
 - `AdminSidebar` に `運営カレンダー` → `/admin/schedule` を置く。admin layout/auth gateと既存full-width shellを使う。
 - デスクトップは12か月すべての実日付7列グリッドを主役にし、xlは3か月×4段、md/lgは2か月で表示する。モバイルも1か月ずつの7列グリッドを使い、前月/次月・月選択・今日・選択日agendaを備える。
+- 会社単位の法定納付を主役にする。`company_payment_obligations` は `tax` / `social_insurance` だけを運営カレンダーへ取り込み、PJ別の請求書発行/送付・入金確認 (`billing_cycles`) は生成対象から除外する。
 - カレンダーから予定・日付・金額・担当者を追加、編集、削除しない。元正本の修正後に `/api/admin/schedule/rebuild` で再生成する。
 - detail drawer/sheet は期限精度 (`day` / `month` / `period` / `unknown`)、金額役割 (`outgoing` / `incoming` / `contract_reference` / `informational`)、担当、正本リンク、公式根拠、生成状態を表示する。不明額を0円表示しない。
-- `company_payment_obligations` は `notification_owner='payment_obligation'` として既存通知台帳を所有する。運営カレンダー通知は `company_schedule_notifications` の一意キーでのみ送信する。
+- `company_payment_obligations` は `notification_owner='payment_obligation'` として既存通知台帳を所有する。運営カレンダー通知は `AMD_OS_SCHEDULE_NOTIFICATIONS_ENABLED='1'` の明示opt-in時だけ `company_schedule_notifications` の一意キーで送信する。
 - migration `178_admin_operating_calendar.sql` の5テーブルは、facts/rules/occurrences/notificationsをservice_role writer、actionsを`requireAdmin`済みadmin APIがservice-roleでappend-only insertするwriterに限定する。browserからのauthenticated直書きは不可。middleware/proxyだけを認可根拠にしない。
 
 回帰防止:

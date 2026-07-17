@@ -56,8 +56,7 @@ AMD運営カレンダーは、税務、労務、契約、報告、請求、入�
 | 労務 | 社会保険料納付、労働保険年度更新、年末調整の社内工程、源泉徴収票交付 | AMD運営ファクト、公的ルール、給与と保険の外部ソース |
 | 契約 | 締結予定、更新通知、満了 | `contracts` |
 | 提出 | 月次報告書、年次報告書、契約上の成果物 | `contracts`、`contract_terms`、`projects.contract_terms_json`、`monthly_reports` |
-| 請求と入金 | 請求書発行、送付、支払期日、入金確認 | `projects`、`billing_cycles` |
-| 支払 | 税、社会保険、報酬、経費、継続支払、借入返済 | `company_payment_obligations` |
+| 支払 | 源泉所得税、社会保険料、住民税、労働保険料、法人税、消費税などの法定納付 | `company_payment_obligations`、AMD運営ファクト、公的ルール |
 | 要対応 | 税務、法務、契約、ガバナンスの期限つき対応 | `action_items` |
 
 ### 後続拡張に含めるもの
@@ -265,21 +264,21 @@ hashが変わった場合は、適用条件、期限式、年度別日付への�
 
 契約上の提出完了とOS内の原稿FIXが一致しない場合は、完了とみなさず`completion_unverified`を表示する。
 
-### 請求と入金
+### PJ別請求と入金
 
-請求書発行と送付は、`projects.invoice_send_deadline_rule`と`billing_cycles`から生成する。
+PJ別の請求書発行、送付、入金確認は、この運営カレンダーの生成対象に含めない。
 
-クライアント支払期日は、`projects.payment_due_rule`または`payment_due_day`と請求対象月から計算する。
+本画面の主役は「会社として税務署、年金事務所、労働局等へ、いつ・いくら納めるか」である。
 
-請求額は`invoice_base_lines_json`の明細合計、`budget_reported_amount`、月額固定契約の`fee_amount`の順で解決する。
-
-PJ予算の`budget_yen`を請求額の代わりに使わない。
-
-完了状態は、`invoice_issued_at`、`invoice_sent_at`、`payment_confirmed_at`から判定する。
+`billing_cycles`由来のPJ別請求/入金は、請求管理やPJコックピットで扱い、運営カレンダーへ写像しない。
 
 ### 支払義務
 
 `company_payment_obligations`は支払期限と金額の正本として、そのまま期限発生日へ写像する。
+
+運営カレンダーへ取り込むのは、`category in ('tax','social_insurance')`の法定納付だけである。
+
+一般SaaS、家賃、役員報酬、カード、通常請求、借入返済など、会社の一般支払はこの画面へ出さない。
 
 `due_date_precision='month'`の行を、任意の日に置かない。
 
@@ -400,7 +399,7 @@ activeな継続支払に対応する支払義務が生成されていない場�
 
 1. `company_payment_obligations`の確定支払義務。
 2. acceptedかつcurrentな契約。
-3. `billing_cycles`または`monthly_reports`の実行状態。
+3. `monthly_reports`の実行状態。
 4. review済み`action_items`。
 5. 検知メールや抽出候補。
 
@@ -425,8 +424,6 @@ activeな継続支払に対応する支払義務が生成されていない場�
 元正本が完了状態を持つ予定は、カレンダーで完了操作を行わない。
 
 - 支払は`company_payment_obligations.paid_at`を使う。
-- 請求は`billing_cycles.invoice_issued_at`と`invoice_sent_at`を使う。
-- 入金は`billing_cycles.payment_confirmed_at`を使う。
 - 月次報告は`monthly_reports.status`と`fixed_at`を使う。
 
 法定手続など、既存正本に完了記録がない予定だけ、`company_schedule_actions`へ完了事実を保存する。
@@ -451,7 +448,7 @@ Gmail本文や添付の新規抽出を期限生成routeへ混ぜない。
 
 初期案はAMD運営ファクト同期を毎日09:05 JST、既存の支払義務同期を09:20 JST、期限発生日生成を09:35 JSTとする。
 
-契約Apply、会社運営ファクト同期、請求更新、報告書FIX後にも、対象範囲だけを再生成する。
+契約Apply、会社運営ファクト同期、支払義務更新、報告書FIX後にも、対象範囲だけを再生成する。
 
 画面GETで重い全件再生成を行わない。
 
@@ -474,12 +471,13 @@ Gmail本文や添付の新規抽出を期限生成routeへ混ぜない。
 | 契約更新と満了 | 90日前、60日前、30日前、14日前、7日前、1日前、当日、期限超過 |
 | 報告と成果物 | 14日前、7日前、3日前、1日前、当日、期限超過 |
 | 税務と労務 | 30日前、14日前、7日前、1日前、当日、期限超過 |
-| 請求と入金 | 14日前、7日前、1日前、当日、期限超過 |
 | 生成不能 | 初回、状態変化時、7日間未解決時 |
 
 `company_payment_obligations`由来の予定は、既存の支払義務通知だけを使う。
 
 新しい通知処理は`notification_owner='company_schedule'`の予定に限って送る。
+
+ただし送信自体は既定で停止し、`AMD_OS_SCHEDULE_NOTIFICATIONS_ENABLED='1'`の明示opt-in時だけSlack送信を有効にする。
 
 `company_schedule_notifications`は、`occurrence_id`、通知先、`schedule_key`、`stage`に一意制約を置く。
 

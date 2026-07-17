@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Supabase schema varies across applied migrations; runtime rows stay narrow at adapter boundaries. */
 import { createHash } from "node:crypto";
-import { computePaymentDueDateByRule } from "@/lib/payment-rules";
 import {
   addMonthsYm,
   adjustToNextBusinessDay,
@@ -33,8 +32,15 @@ import {
   isContractSigningExpected,
   isCurrentAmdContract,
   isScheduleActionItem,
+  isStatutoryScheduleObligation,
 } from "./predicates.ts";
-export { isAcceptedAmdContract, isContractSigningExpected, isCurrentAmdContract, isScheduleActionItem } from "./predicates.ts";
+export {
+  isAcceptedAmdContract,
+  isContractSigningExpected,
+  isCurrentAmdContract,
+  isScheduleActionItem,
+  isStatutoryScheduleObligation,
+} from "./predicates.ts";
 
 // Supabase's generated Database type is intentionally not used in this repo.
 // Keep this module tolerant of schema additions while retaining narrow runtime shapes below.
@@ -159,6 +165,10 @@ function amountFields(amountYen: number | null, status: AmountStatus, role: Amou
   return { amount_yen: amountYen, amount_status: status, amount_role: role };
 }
 
+function scheduleNotificationOwner(): "company_schedule" | "none" {
+  return process.env.AMD_OS_SCHEDULE_NOTIFICATIONS_ENABLED === "1" ? "company_schedule" : "none";
+}
+
 function occurrence(input: {
   key: string;
   source: string;
@@ -216,7 +226,7 @@ function occurrence(input: {
     rule_review_after: meta.reviewAfter,
     lifecycle_status: input.lifecycleStatus ?? (input.dueOn || input.dueYm ? "open" : "needs_source"),
     generation_state: input.lifecycleStatus === "needs_source" || (!input.dueOn && !input.dueYm) ? "needs_source" : "generated",
-    notification_owner: input.notificationOwner ?? "company_schedule",
+    notification_owner: input.notificationOwner ?? scheduleNotificationOwner(),
     metadata_json: input.metadata ?? {},
     generated_at: now,
     last_seen_at: now,
@@ -363,43 +373,10 @@ function projectTerms(project: RawRow, contract: RawRow | null): JsonRecord {
   return { ...project, ...projectTerms, ...contractTerms };
 }
 
-function invoiceAmount(cycle: RawRow): number | null {
-  const raw = cycle.invoice_base_lines_json ?? cycle.invoice_lines_json ?? cycle.invoice_items_json;
-  if (!Array.isArray(raw)) return null;
-  const amounts = raw.map((line) => {
-    const item = record(line);
-    return numberValue(item.amount_yen ?? item.amount_tax_excl ?? item.amountTaxExcl ?? item.total_yen);
-  }).filter((value): value is number => value != null);
-  return amounts.length ? amounts.reduce((sum, value) => sum + value, 0) : null;
-}
-
 function contractAmount(contract: RawRow, terms: JsonRecord): number | null {
   return numberValue(contract.contract_value_yen)
     ?? numberValue(terms.amountTaxExclTotal)
     ?? numberValue(terms.monthlyFeeYen);
-}
-
-function resolveInvoiceDue(ym: string, rule: unknown): string | null {
-  const raw = String(rule ?? "").trim();
-  if (!raw) return null;
-  if (/翌月末|next_month_eom/.test(raw)) return nextMonthEnd(ym);
-  if (/月末|当月末|current_month_eom/.test(raw)) return adjustToNextBusinessDay(lastDayOfYm(ym));
-  const day = readDeadlineDay(raw);
-  if (day == null) return null;
-  return /翌月|next_month/.test(raw) ? nextMonthDay(ym, day) : dateAtDay(ym, day);
-}
-
-function resolvePaymentDue(ym: string, rule: unknown, day: unknown): string | null {
-  const normalizedRule = String(rule ?? "").trim();
-  const dueDay = readDeadlineDay(day) ?? readDeadlineDay(rule);
-  if (/next_month_eom|翌月末/.test(normalizedRule)) {
-    return nextMonthEnd(ym);
-  }
-  if (/月末|当月末|current_month_eom/.test(normalizedRule)) {
-    return computePaymentDueDateByRule(ym, "current_month_eom");
-  }
-  if (dueDay != null) return computePaymentDueDateByRule(ym, null, dueDay);
-  return null;
 }
 
 function matchesObligation(obligation: RawRow, words: string[], dueOn: string | null, dueYm: string | null): boolean {
@@ -446,20 +423,21 @@ function officialNextMonthEnd(ym: string): { raw: string; dueOn: string | null }
 }
 
 function generatePaymentObligations(obligations: RawRow[]): GeneratedOccurrence[] {
-  return obligations.map((row) => {
+  return obligations.filter(isStatutoryScheduleObligation).map((row) => {
     const dueOn = text(row.due_date);
     const dueYm = text(row.expected_payment_ym) || ymFromDate(dueOn);
     const precision = row.due_date_precision === "month" || (!dueOn && dueYm) ? "month" : dueOn ? "day" : "unknown";
     const amountYen = numberValue(row.amount_yen);
     const amountStatus: AmountStatus = row.amount_status === "estimated" ? "estimated" : amountYen == null ? "unknown" : "exact";
+    const isTax = normalized(row.category) === "tax";
     return occurrence({
       key: `company:payment:${row.id}`,
       source: "company_payment_obligation",
       sourceId: row.id,
       sourceHash: sourceHash("company_payment_obligation", row),
       scope: "company",
-      category: "payment",
-      eventKind: "payment_due",
+      category: isTax ? "tax" : "labor",
+      eventKind: isTax ? "tax_payment" : "social_insurance_payment",
       title: String(row.title || "支払義務"),
       periodKey: dueYm,
       dueOn,
@@ -800,7 +778,7 @@ function generateLaborInsurance(
   }
   return rangeYears(from, to).flatMap((year) => {
     const officialDeadline = year === 2026 ? "2026-07-10" : null;
-    if (officialDeadline && findObligation(obligations, ["労働保険", "年度更新"], officialDeadline, ymFromDate(officialDeadline))) return [];
+    if (findObligation(obligations, ["労働保険", "年度更新"], officialDeadline, `${year}07`)) return [];
     return occurrence({
       key: `company:labor:labor-insurance-annual:${year}`,
       source: officialDeadline ? "official_rule" : "official_rule_pending",
@@ -911,6 +889,7 @@ function reportCompletion(report: RawRow | null): boolean {
 function generateContracts(
   contracts: RawRow[],
   projects: RawRow[],
+  projectMembers: RawRow[],
   members: RawRow[],
   from: string,
   to: string,
@@ -921,7 +900,7 @@ function generateContracts(
     const projectId = text(contract.project_id);
     const project = projectById.get(String(projectId)) ?? null;
     const terms = projectTerms(project ?? {}, contract);
-    const ownerMemberId = ownerIdByName(contract.owner_member_id ?? contract.business_owner, members);
+    const ownerMemberId = projectOwnerId(projectId, project ?? {}, contract, projectMembers, members);
     const sourceRefs = [
       { kind: "contract", ref: contract.contract_id ?? contract.id },
       projectId ? { kind: "project", ref: projectId } : null,
@@ -1031,7 +1010,7 @@ function generateReports(
   to: string,
 ): GeneratedOccurrence[] {
   const rows: GeneratedOccurrence[] = [];
-  const currentContracts = contracts.filter(isAcceptedAmdContract);
+  const currentContracts = contracts.filter(isCurrentAmdContract);
   const contractByProject = new Map<string, RawRow>();
   for (const contract of currentContracts) {
     const projectId = text(contract.project_id);
@@ -1127,94 +1106,6 @@ function generateReports(
         }));
       }
     }
-  }
-  return rows.filter((row) => dateInRange(row.due_on, from, to) || ymInRange(row.due_ym, from, to) || row.lifecycle_status === "needs_source");
-}
-
-function cycleDate(cycle: RawRow, ...keys: string[]): string | null {
-  for (const key of keys) {
-    const value = dateOnly(cycle[key]);
-    if (value) return value;
-  }
-  return null;
-}
-
-function generateBilling(
-  billingCycles: RawRow[],
-  projects: RawRow[],
-  from: string,
-  to: string,
-): GeneratedOccurrence[] {
-  const rows: GeneratedOccurrence[] = [];
-  const projectById = new Map(projects.map((project) => [String(project.project_id), project]));
-  for (const cycle of billingCycles) {
-    const projectId = text(cycle.project_id);
-    const project = projectById.get(String(projectId)) ?? null;
-    const ym = String(cycle.ym ?? cycle.invoice_ym ?? "").replace("-", "");
-    if (!projectId || !isYm(ym)) continue;
-    const terms = projectTerms(project ?? {}, null);
-    const invoiceRule = cycle.invoice_send_deadline_rule ?? cycle.invoice_due_rule ?? project?.invoice_send_deadline_rule ?? terms.invoiceSendDeadlineRule ?? terms.invoice_send_deadline_rule ?? terms.invoiceDueRule ?? terms.invoice_due_rule;
-    const paymentRule = cycle.payment_due_rule ?? project?.payment_due_rule ?? terms.paymentDueRule ?? terms.payment_due_rule;
-    const paymentDay = cycle.payment_due_day ?? project?.payment_due_day ?? terms.paymentDueDay ?? terms.payment_due_day;
-    const amountYen = invoiceAmount(cycle);
-    const amountStatus: AmountStatus = amountYen == null ? "unknown" : "exact";
-    const projectName = projectLabel(project, projectId);
-    const ownerMemberId = text(cycle.owner_member_id ?? project?.owner_member_id ?? project?.business_owner_member_id);
-    const invoiceActual = cycleDate(cycle, "invoice_sent_at", "invoice_issued_at", "invoice_date");
-    const invoiceDue = invoiceActual ?? resolveInvoiceDue(ym, invoiceRule);
-    const invoiceMissing = !invoiceDue ? "請求書の発行期限ルールが正本に未設定" : (!ownerMemberId ? "請求担当者が正本に未設定" : null);
-    rows.push(occurrence({
-      key: `project:billing:invoice:${projectId}:${ym}`,
-      source: "billing_cycles",
-      sourceId: String(cycle.billing_cycle_id ?? cycle.cycle_id ?? cycle.id ?? `${projectId}:${ym}`),
-      sourceHash: sourceHash("billing_invoice", { cycle, project, invoiceRule }),
-      scope: "project",
-      category: "invoice",
-      eventKind: "invoice_sent",
-      title: `${projectName} / 請求書発行`,
-      periodKey: ym,
-      dueOn: invoiceDue,
-      dueYm: invoiceDue ? ymFromDate(invoiceDue) : ym,
-      datePrecision: invoiceDue ? "day" : "month",
-      dateKind: invoiceActual ? "実績日" : "請求ルール期限",
-      ...amountFields(amountYen, amountStatus, "incoming"),
-      projectId,
-      ownerMemberId,
-      sourceRefs: [{ kind: "billing_cycle", ref: cycle.billing_cycle_id ?? cycle.cycle_id ?? cycle.id ?? `${projectId}:${ym}` }],
-      resolutionHref: "/admin/invoices",
-      lifecycleStatus: invoiceActual ? "completed" : invoiceMissing ? "needs_source" : "open",
-      missingReason: invoiceMissing,
-      sourceObservedAt: text(cycle.updated_at),
-      metadata: { billingCycleId: cycle.billing_cycle_id ?? cycle.cycle_id ?? cycle.id ?? null, ym, invoiceRule: invoiceRule ?? null },
-    }));
-
-    const paymentActual = cycleDate(cycle, "payment_confirmed_at", "payment_received_at", "paid_at");
-    const paymentDue = paymentActual ?? cycleDate(cycle, "payment_due_at", "payment_due_date") ?? resolvePaymentDue(ym, paymentRule, paymentDay);
-    const paymentMissing = !paymentDue ? "入金予定日ルールが正本に未設定" : (!ownerMemberId ? "入金担当者が正本に未設定" : null);
-    rows.push(occurrence({
-      key: `project:billing:payment-due:${projectId}:${ym}`,
-      source: "billing_cycles",
-      sourceId: String(cycle.billing_cycle_id ?? cycle.cycle_id ?? cycle.id ?? `${projectId}:${ym}`),
-      sourceHash: sourceHash("billing_payment_due", { cycle, project, paymentRule, paymentDay }),
-      scope: "project",
-      category: "receipt",
-      eventKind: "payment_received",
-      title: `${projectName} / 入金確認`,
-      periodKey: ym,
-      dueOn: paymentDue,
-      dueYm: paymentDue ? ymFromDate(paymentDue) : ym,
-      datePrecision: paymentDue ? "day" : "month",
-      dateKind: paymentActual ? "実績日" : "入金予定期限",
-      ...amountFields(amountYen, amountStatus, "incoming"),
-      projectId,
-      ownerMemberId,
-      sourceRefs: [{ kind: "billing_cycle", ref: cycle.billing_cycle_id ?? cycle.cycle_id ?? cycle.id ?? `${projectId}:${ym}` }],
-      resolutionHref: "/admin/invoices",
-      lifecycleStatus: paymentActual ? "completed" : paymentMissing ? "needs_source" : "open",
-      missingReason: paymentMissing,
-      sourceObservedAt: text(cycle.updated_at),
-      metadata: { billingCycleId: cycle.billing_cycle_id ?? cycle.cycle_id ?? cycle.id ?? null, ym, paymentRule: paymentRule ?? null, paymentDay: paymentDay ?? null },
-    }));
   }
   return rows.filter((row) => dateInRange(row.due_on, from, to) || ymInRange(row.due_ym, from, to) || row.lifecycle_status === "needs_source");
 }
@@ -1407,14 +1298,13 @@ export async function generateSchedule(db: ScheduleDb, options: ScheduleGenerati
       to,
     };
   }
-  const [factsResult, obligationsResult, contractsResult, projectsResult, projectMembersResult, reportsResult, billingResult, actionsResult, membersResult] = await Promise.all([
+  const [factsResult, obligationsResult, contractsResult, projectsResult, projectMembersResult, reportsResult, actionsResult, membersResult] = await Promise.all([
     db.from("company_operating_facts").select("*").is("superseded_at", null).limit(1000),
-    db.from("company_payment_obligations").select("*").in("status", GENERATED_STATUSES).limit(10000),
-    db.from("contracts").select("*").limit(5000),
+    db.from("company_payment_obligations").select("*").in("status", GENERATED_STATUSES).in("category", ["tax", "social_insurance"]).limit(10000),
+    db.from("contracts").select("*").eq("relationship_scope", "amd_contract").eq("registry_status", "accepted").limit(1000),
     db.from("projects").select("*").limit(5000),
     db.from("project_members").select("*").limit(10000),
     db.from("monthly_reports").select("*").gte("ym", fromYm).lte("ym", toYm).limit(20000),
-    db.from("billing_cycles").select("*").gte("ym", fromYm).lte("ym", toYm).limit(20000),
     db.from("action_items").select("*").eq("review_status", "confirmed").in("status", ACTIVE_ACTION_STATUSES).not("due_at", "is", null).limit(10000),
     db.from("members").select("*").eq("status", "active").limit(1000),
   ]);
@@ -1425,7 +1315,6 @@ export async function generateSchedule(db: ScheduleDb, options: ScheduleGenerati
     ["projects", projectsResult],
     ["project_members", projectMembersResult],
     ["monthly_reports", reportsResult],
-    ["billing_cycles", billingResult],
     ["action_items", actionsResult],
     ["members", membersResult],
   ] as const;
@@ -1439,7 +1328,6 @@ export async function generateSchedule(db: ScheduleDb, options: ScheduleGenerati
   const projects = (projectsResult.data ?? []) as RawRow[];
   const projectMembers = (projectMembersResult.data ?? []) as RawRow[];
   const monthlyReports = (reportsResult.data ?? []) as RawRow[];
-  const billingCycles = (billingResult.data ?? []) as RawRow[];
   const actionItems = (actionsResult.data ?? []) as RawRow[];
   const members = (membersResult.data ?? []) as RawRow[];
   const ownerMemberId = kiyoId(members);
@@ -1451,9 +1339,8 @@ export async function generateSchedule(db: ScheduleDb, options: ScheduleGenerati
     ...generateSocialInsurance(facts, obligations, ownerMemberId, from, to),
     ...generateLaborInsurance(facts, obligations, ownerMemberId, from, to),
     ...generateYearEndAdjustment(facts, ownerMemberId, from, to),
-    ...generateContracts(contracts, projects, members, from, to),
+    ...generateContracts(contracts, projects, projectMembers, members, from, to),
     ...generateReports(contracts, projects, projectMembers, members, monthlyReports, from, to),
-    ...generateBilling(billingCycles, projects, from, to),
     ...generateActionItems(actionItems, obligations, projects, from, to),
   ]);
   const persistence = await persistGeneratedOccurrences(db, generated, from, to);
