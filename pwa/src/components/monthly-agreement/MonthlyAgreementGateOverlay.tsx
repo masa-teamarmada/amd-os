@@ -1,9 +1,14 @@
 "use client";
 
 import { useEffect, useState, type MouseEvent } from "react";
+import dynamic from "next/dynamic";
 import { usePathname, useRouter } from "next/navigation";
-import { MonthlyAgreementExperience } from "@/components/monthly-agreement/MonthlyAgreementExperience";
 import type { MonthlyWorkAgreementBundle } from "@/lib/monthly-work-agreement-types";
+
+const MonthlyAgreementExperience = dynamic(
+  () => import("@/components/monthly-agreement/MonthlyAgreementExperience").then((mod) => mod.MonthlyAgreementExperience),
+  { ssr: false },
+);
 
 type MonthlyAgreementGateOverlayProps = {
   bundle: MonthlyWorkAgreementBundle;

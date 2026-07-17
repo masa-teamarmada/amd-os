@@ -2,11 +2,6 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/nav/AppShell";
-import {
-  buildMonthlyWorkAgreementBundle,
-  currentYmJst,
-} from "@/lib/monthly-work-agreement";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 // pathname → タブタイトル変換 (= PageTitleSetter と同じマッピングを SSR でも使う)
@@ -67,37 +62,6 @@ function pathToTitle(pathname: string): string | null {
   return null;
 }
 
-function shouldSkipMonthlyAgreementGate(pathname: string) {
-  return pathname.startsWith("/monthly-agreement") || pathname.startsWith("/hud") || pathname.startsWith("/native");
-}
-
-async function getMonthlyAgreementGateBundle({
-  memberId,
-  pathname,
-}: {
-  memberId: string;
-  pathname: string;
-}) {
-  if (shouldSkipMonthlyAgreementGate(pathname)) return null;
-  try {
-    const admin = createAdminClient();
-    const bundle = await buildMonthlyWorkAgreementBundle(admin, {
-      ym: currentYmJst(),
-      memberId,
-      viewerMemberId: memberId,
-    });
-    const requiresAgreement =
-      bundle.tableReady &&
-      bundle.snapshot.totals.projectCount > 0 &&
-      (bundle.status === "pending" || bundle.status === "needs_reagreement");
-    if (!requiresAgreement) return null;
-    return bundle;
-  } catch (err) {
-    console.warn("[monthly-agreement] failed to evaluate entry gate:", err);
-    return null;
-  }
-}
-
 // SSR 時点で <title> を確定させる (= タブタイトル「変わらない」事故防止)。
 // middleware が x-pathname header をセットしてくれている前提。
 export async function generateMetadata(): Promise<Metadata> {
@@ -146,18 +110,11 @@ export default async function AppLayout({
       );
     }
   }
-  const agreementGateBundle = memberId
-    ? await getMonthlyAgreementGateBundle({
-      memberId,
-      pathname,
-    })
-    : null;
   return (
     <AppShell
       userCodeName={userCodeName}
       isAdmin={isAdmin}
       memberId={memberId}
-      agreementGateBundle={agreementGateBundle}
     >
       {children}
     </AppShell>

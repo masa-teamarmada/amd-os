@@ -180,12 +180,33 @@ export function CriticalRealtimeNotify() {
 
   useEffect(() => {
     let cancelled = false;
+    let interval: number | null = null;
     const refresh = () => {
       if (!cancelled) void loadCritical();
     };
 
+    const startPolling = () => {
+      if (interval !== null) return;
+      interval = window.setInterval(refresh, 60_000);
+    };
+    const stopPolling = () => {
+      if (interval === null) return;
+      window.clearInterval(interval);
+      interval = null;
+    };
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        stopPolling();
+        return;
+      }
+      refresh();
+      startPolling();
+    };
+
     refresh();
-    const interval = window.setInterval(refresh, 10_000);
+    if (!document.hidden) startPolling();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
     const channel = supabase
       .channel("critical-notifications-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "app_notifications" }, refresh)
@@ -195,7 +216,8 @@ export function CriticalRealtimeNotify() {
 
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
+      stopPolling();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       void supabase.removeChannel(channel);
     };
   }, [loadCritical, supabase]);

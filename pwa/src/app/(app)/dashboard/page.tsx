@@ -1,21 +1,20 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { DashboardGrid } from "@/components/dashboard/DashboardGrid";
-import {
-  CompanyContentShelf,
-  type CompanyHistoryPreview,
-  type CompanyImageCrop,
-  type CompanyMediaMentionPreview,
-  type CompanyMemberPreview,
-  type CompanyPhotoPreview,
+import type {
+  CompanyHistoryPreview,
+  CompanyImageCrop,
+  CompanyMediaMentionPreview,
+  CompanyMemberPreview,
+  CompanyPhotoPreview,
 } from "@/components/dashboard/CompanyContentShelf";
 import {
   DashboardScoreOverview,
   type DashboardManagementScoreSnapshot,
 } from "@/components/dashboard/DashboardScoreOverview";
 import type { DashboardPrimarySnapshot } from "@/components/dashboard/DashboardGrid";
-import { MyPageContent } from "@/app/(app)/mypage/page";
 import { createClient } from "@/lib/supabase/client";
 import {
   fetchProjectsFromSupabase,
@@ -42,6 +41,26 @@ import { ProactiveTodoBadge } from "@/components/proactive-todo/ProactiveTodoBad
 import { ExtractionStatusCard } from "@/components/dashboard/ExtractionStatusCard";
 import { isInstitutionDashboardProject } from "@/lib/institution-projects";
 
+const MyPageContent = dynamic(
+  () => import("@/app/(app)/mypage/page").then((mod) => mod.MyPageContent),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="text-sm text-muted-foreground py-8 text-center">マイページ読み込み中…</div>
+    ),
+  },
+);
+
+const CompanyContentShelf = dynamic(
+  () => import("@/components/dashboard/CompanyContentShelf").then((mod) => mod.CompanyContentShelf),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="text-sm text-muted-foreground py-8 text-center">会社コンテンツ読み込み中…</div>
+    ),
+  },
+);
+
 function getCurrentYm() {
   const now = new Date();
   return String(now.getFullYear()) + String(now.getMonth() + 1).padStart(2, "0");
@@ -61,12 +80,9 @@ export default function DashboardPage() {
   const [managementHistory, setManagementHistory] = useState<DashboardManagementScoreSnapshot[]>([]);
   const [myProjectIds, setMyProjectIds] = useState<Set<string>>(new Set());
   const [ersBundle, setErsBundle] = useState<ErsBundle | null>(null);
-  const [companyContent, setCompanyContent] = useState<CompanyContentPreview>({
-    members: [],
-    history: [],
-    photos: DASHBOARD_PHOTO_PREVIEW,
-    mediaMentions: [],
-  });
+  const [companyContent, setCompanyContent] = useState<CompanyContentPreview | null>(null);
+  const [companyLoading, setCompanyLoading] = useState(false);
+  const companyAnchorRef = useRef<HTMLDivElement | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -114,8 +130,7 @@ export default function DashboardPage() {
       fetchManagementScoreHistory(supabase),
       fetchMyProjectIds(supabase),
       fetchErsBundle(),
-      fetchCompanyContentPreview(supabase),
-    ]).then(([projRes, billRes, scoreRes, mgmtRes, myProjRes, ersRes, companyRes]) => {
+    ]).then(([projRes, billRes, scoreRes, mgmtRes, myProjRes, ersRes]) => {
       const projectsValue = projRes.status === "fulfilled" ? projRes.value : [];
       const billingValue = billRes.status === "fulfilled" ? billRes.value : {};
       setProjects(projectsValue);
@@ -139,13 +154,28 @@ export default function DashboardPage() {
         setErsBundle(ersRes.value);
       }
 
-      if (companyRes.status === "fulfilled") {
-        setCompanyContent(companyRes.value);
-      }
-
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    const node = companyAnchorRef.current;
+    if (!node || companyContent || companyLoading) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        observer.disconnect();
+        setCompanyLoading(true);
+        fetchCompanyContentPreview(createClient())
+          .then((value) => setCompanyContent(value))
+          .catch(() => setCompanyContent({ members: [], history: [], photos: DASHBOARD_PHOTO_PREVIEW, mediaMentions: [] }))
+          .finally(() => setCompanyLoading(false));
+      },
+      { rootMargin: "600px 0px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [loading, companyContent, companyLoading]);
 
   const projectLabels = useMemo(() => {
     return Object.fromEntries(
@@ -193,17 +223,19 @@ export default function DashboardPage() {
           </main>
           {/* /mypage の中身そっくり embed (= まさ #71 v3 確定、MyPageContent を再利用) */}
           <aside className="hidden xl:block min-w-0 border-l border-border/50 pl-4">
-            <Suspense fallback={<div className="text-sm text-muted-foreground py-8 text-center">マイページ読み込み中…</div>}>
-              <MyPageContent embedded showMonthlyProjects={false} />
-            </Suspense>
+            <MyPageContent embedded showMonthlyProjects={false} />
           </aside>
-          <div id="company-content" className="xl:col-span-2">
-            <CompanyContentShelf
-              members={companyContent.members}
-              history={companyContent.history}
-              photos={companyContent.photos}
-              mediaMentions={companyContent.mediaMentions}
-            />
+          <div id="company-content" ref={companyAnchorRef} className="xl:col-span-2">
+            {companyContent ? (
+              <CompanyContentShelf
+                members={companyContent.members}
+                history={companyContent.history}
+                photos={companyContent.photos}
+                mediaMentions={companyContent.mediaMentions}
+              />
+            ) : (
+              <div className="text-sm text-muted-foreground py-8 text-center">会社コンテンツ読み込み中…</div>
+            )}
           </div>
         </div>
       </div>

@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TsukuyomiChatDrawer } from "./TsukuyomiChatDrawer";
+import dynamic from "next/dynamic";
+
+const TsukuyomiChatDrawer = dynamic(
+  () => import("./TsukuyomiChatDrawer").then((mod) => mod.TsukuyomiChatDrawer),
+  { ssr: false },
+);
 
 export function TsukuyomiChatBridge() {
   const [chatOpen, setChatOpen] = useState(false);
