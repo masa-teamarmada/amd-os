@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>AMDOS_SUPABASE_ANON_KEY</key>
-	<string>eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmF0ZSIsInJlZiI6Im5ibmhyaHlianNsYmF3ZHV2a3ZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0NDEzNjUsImV4cCI6MjA5MTAxNzM2NX0.X16kjZlqeUCHKinkiAodSXrI1iQi47Z4dPZxt_Ja4Bg</string>
+	<string>eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ibmhyaHlianNsYmF3ZHVrdnZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0NDEzNjUsImV4cCI6MjA5MTAxNzM2NX0.X16kjZlqeUCHKinkiAodSXrI1iQi47Z4dPZxt_Ja4Bg</string>
 	<key>AMDOS_SUPABASE_URL</key>
 	<string>https://nbnhrhybjslbawdukvvk.supabase.co</string>
 	<key>CFBundleDevelopmentRegion</key>

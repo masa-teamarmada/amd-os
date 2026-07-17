@@ -6,7 +6,7 @@ struct AMDOSMacApp: App {
     @StateObject private var workspace = AMDOSWorkspaceModel()
 
     var body: some Scene {
-        WindowGroup("AMD OS") {
+        Window("AMD OS", id: "main") {
             AMDOSRootView()
                 .environmentObject(auth)
                 .environmentObject(workspace)
