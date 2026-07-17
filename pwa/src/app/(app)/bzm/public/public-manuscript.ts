@@ -30,7 +30,7 @@ export const PUBLIC_MANUSCRIPT_PARTS: PublicManuscriptPart[] = [
   },
   {
     key: "traps",
-    label: "Part 2 — Before Zero の鬼門",
+    label: "Part 2 — Before Zero の不可逆点",
     chapters: [
       { slug: "04-gap-vc-ceo-function", number: "4", title: "GAPファンドとVCのあいだで、CEO機能がねじれる" },
       { slug: "05-before-disclosure", number: "5", title: "外に出す前に、守るものを決める" },
