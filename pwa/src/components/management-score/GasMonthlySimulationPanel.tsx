@@ -40,6 +40,8 @@ export type GasProjectListItem = {
 export type GasProjectDetail = {
   projectId: string;
   revenue: number;
+  /** 契約条件から解決した税抜の入金予定額。 */
+  cashRevenue?: number;
   externalMember?: number;
   internalMember?: number;
   /** 別財布（別契約）売上の内訳。revenue にこの額が含まれる。 */
@@ -120,6 +122,7 @@ type SimulateResponse = {
 
 type ToggleState = {
   revenue: boolean;
+  cashIn: boolean;
   cost: boolean;
   fixedCost: boolean;
   grossProfit: boolean;
@@ -229,6 +232,7 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
   const [simStatus, setSimStatus] = useState("");
   const [toggleState, setToggleState] = useState<ToggleState>({
     revenue: false,
+    cashIn: false,
     cost: false,
     fixedCost: false,
     grossProfit: false,
@@ -1012,12 +1016,21 @@ export function GasMonthlySimulationPanel({ result, inputs }: { result: GasSimul
             })}
             {renderComparisonGroup({
               id: "cash_in",
-              label: "入金",
+              label: `${toggleState.cashIn ? "▼" : "▶"} 入金`,
               budget: (row) => row.cashInflow,
               actual: (row) => row.confirmedDepositsGross,
               source: "billing確認済(税込)",
               bold: true,
+              onToggle: () => switchToggle("cashIn"),
             })}
+            {toggleState.cashIn &&
+              pjList.flatMap((pj, pi) => {
+                const hasCashReceipt = rows.some((row) => (row.pjDetails[pi]?.cashRevenue || 0) > 0);
+                if (!hasCashReceipt) return [];
+                return detailRow(`${pj.projectName}・入金予定（税込）`, (row) =>
+                  Math.round((row.pjDetails[pi]?.cashRevenue || 0) * 1.1)
+                );
+              })}
             {toggleState.revenue &&
               pjList.flatMap((pj, pi) => {
                 const hasExtra = rows.some((row) => (row.pjDetails[pi]?.extraRevenue || 0) > 0);

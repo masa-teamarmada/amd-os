@@ -1881,6 +1881,7 @@ function buildLiveGasSimulationResult(
         .map((pj) => ({
           projectId: pj.projectId,
           revenue: pj.revenue,
+          cashRevenue: pj.cashRevenue,
           externalMember: pj.externalMember,
           internalMember: pj.internalMember,
           extraRevenue: pj.extraRevenue,
