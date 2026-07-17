@@ -178,6 +178,7 @@ const generator = read("src/lib/admin-schedule/generator.ts");
 const notifications = read("src/lib/admin-schedule/notifications.ts");
 const rebuildRoute = read("src/app/api/admin/schedule/rebuild/route.ts");
 const actionsRoute = read("src/app/api/admin/schedule/actions/route.ts");
+const scheduleApiRoute = read("src/app/api/admin/schedule/route.ts");
 const cronRoute = read("src/app/api/cron/company-schedule/route.ts");
 const migration = read("scripts/migrations/178_admin_operating_calendar.sql");
 const ui = read("src/components/admin/AdminScheduleClient.tsx");
@@ -233,6 +234,7 @@ assert.doesNotMatch(migration, /CREATE POLICY company_schedule_actions_admin_ins
 assert.doesNotMatch(migration, /GRANT INSERT ON public\.company_schedule_actions/);
 assert.match(cronRoute, /scheduleGenerationRange\(todayJst\(\)\)/);
 assert.match(cronRoute, /sendScheduleNotificationsWhenEnabled/);
+assert.match(scheduleApiRoute, /scheduleGenerationRange\(todayJst\(\)\)/);
 assert.match(ui, /年間締切レール/);
 assert.match(ui, /data-testid="annual-payment-summary"/);
 assert.match(ui, /data-testid="annual-payment-rail"/);
