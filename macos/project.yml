@@ -38,4 +38,3 @@ targets:
           - CFBundleURLName: "AMD OS macOS OAuth callback"
             CFBundleURLSchemes:
               - "amdos-mac"
-              - "com.googleusercontent.apps.1063456084878-1pui006kicgahn5r6eo6j18p4hiq5pnc"

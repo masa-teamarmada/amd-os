@@ -24,7 +24,7 @@ final class AMDOSAuthStore: ObservableObject {
     func signInWithGoogle() async {
         isLoading = true
         errorMessage = nil
-        signInStatus = "Google認証を開始中…"
+        signInStatus = "ChromeでGoogleログインを続けて…"
         AMDOSAuthLog.logger.notice("google_auth_requested")
         defer {
             isLoading = false
