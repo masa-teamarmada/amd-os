@@ -1,6 +1,11 @@
 [shell_environment_policy]
 inherit = "core"
 
+[features]
+# AMD OS は main 一本で運用する。Codex の子タスク起点で `codex/<id>`
+# ブランチが作られ、正本から乖離する事故を防ぐため、このリポだけ無効化する。
+multi_agent = false
+
 [shell_environment_policy.set]
 CLAUDE_CODE_DISABLE_1M_CONTEXT = "1"
 CLAUDE_CODE_DISABLE_THINKING = "1"
