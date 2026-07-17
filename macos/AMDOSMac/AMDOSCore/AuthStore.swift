@@ -1,0 +1,67 @@
+import Foundation
+import Combine
+
+@MainActor
+final class AMDOSAuthStore: ObservableObject {
+    @Published private(set) var session: AMDOSSession?
+    @Published private(set) var isLoading = false
+    @Published var errorMessage: String?
+    @Published private(set) var isAdmin = false
+
+    let client: AMDOSRESTClient
+    private let defaultsKey = "amdos.macos.session"
+
+    init(client: AMDOSRESTClient = .shared) {
+        self.client = client
+        restoreSession()
+    }
+
+    var isSignedIn: Bool { session != nil }
+    var email: String? { session?.email }
+
+    func signInWithGoogle() async {
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+        do {
+            let next = try await client.authenticateWithGoogle()
+            session = next
+            persist(next)
+            if let email = next.email {
+                isAdmin = try await client.fetchIsAdmin(email: email)
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func refreshAuthority() async {
+        guard let email else { return }
+        do { isAdmin = try await client.fetchIsAdmin(email: email) }
+        catch { errorMessage = error.localizedDescription }
+    }
+
+    func signOut() {
+        session = nil
+        isAdmin = false
+        UserDefaults.standard.removeObject(forKey: defaultsKey)
+        Task { await client.setSession(nil) }
+    }
+
+    private func restoreSession() {
+        guard let data = UserDefaults.standard.data(forKey: defaultsKey),
+              let stored = try? JSONDecoder().decode(AMDOSSession.self, from: data) else { return }
+        session = stored
+        Task {
+            await client.setSession(stored)
+            await refreshAuthority()
+        }
+    }
+
+    private func persist(_ session: AMDOSSession) {
+        guard let data = try? JSONEncoder().encode(session) else { return }
+        UserDefaults.standard.set(data, forKey: defaultsKey)
+        Task { await client.setSession(session) }
+    }
+}
+

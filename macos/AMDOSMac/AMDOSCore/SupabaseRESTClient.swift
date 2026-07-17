@@ -1,0 +1,191 @@
+import Foundation
+import AppKit
+import AuthenticationServices
+import CryptoKit
+
+actor AMDOSRESTClient {
+    static let shared = AMDOSRESTClient()
+
+    private let baseURL: URL
+    private let anonKey: String
+    private var session: AMDOSSession?
+
+    init(configuration: AMDOSConfiguration = .fromBundle()) {
+        self.baseURL = configuration.supabaseURL
+        self.anonKey = configuration.anonKey
+    }
+
+    func setSession(_ session: AMDOSSession?) {
+        self.session = session
+    }
+
+    func authenticateWithGoogle() async throws -> AMDOSSession {
+        let verifier = PKCE.generateVerifier()
+        let challenge = PKCE.challenge(for: verifier)
+        let redirect = "amdos-mac://auth/callback"
+        var components = URLComponents(url: baseURL.appendingPathComponent("auth/v1/authorize"), resolvingAgainstBaseURL: false)!
+        components.queryItems = [
+            URLQueryItem(name: "provider", value: "google"),
+            URLQueryItem(name: "redirect_to", value: redirect),
+            URLQueryItem(name: "code_challenge", value: challenge),
+            URLQueryItem(name: "code_challenge_method", value: "S256")
+        ]
+        guard let authorizeURL = components.url else { throw AMDOSNetworkError.invalidURL }
+        let callback = try await OAuthSession().start(url: authorizeURL, callbackScheme: "amdos-mac")
+        guard let code = URLComponents(url: callback, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "code" })?.value else {
+            throw AMDOSNetworkError.oauthCallbackMissing
+        }
+
+        var tokenComponents = URLComponents(url: baseURL.appendingPathComponent("auth/v1/token"), resolvingAgainstBaseURL: false)!
+        tokenComponents.queryItems = [URLQueryItem(name: "grant_type", value: "pkce")]
+        var request = URLRequest(url: tokenComponents.url!)
+        request.httpMethod = "POST"
+        request.setValue(anonKey, forHTTPHeaderField: "apikey")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "auth_code": code,
+            "code_verifier": verifier,
+            "redirect_to": redirect
+        ])
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try validate(response: response, data: data)
+        let token = try JSONDecoder().decode(AMDOSTokenResponse.self, from: data)
+        let expiresAt = token.expiresIn.map { Date().addingTimeInterval(TimeInterval($0)) }
+        let next = AMDOSSession(accessToken: token.accessToken, refreshToken: token.refreshToken, expiresAt: expiresAt, email: emailFromJWT(token.accessToken))
+        session = next
+        return next
+    }
+
+    func fetchProjects(activeOnly: Bool = true) async throws -> [AMDOSProject] {
+        var query = "select=project_id,project_name,client_name,status,start_ym,end_ym,project_type&order=project_id"
+        if activeOnly { query += "&status=eq.active" }
+        let data = try await request(path: "rest/v1/projects?\(query)")
+        return try JSONDecoder().decode([AMDOSProject].self, from: data)
+    }
+
+    func fetchProjectDetail(projectId: String) async throws -> AMDOSProjectDetail {
+        let safeId = projectId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? projectId
+        let data = try await request(path: "rest/v1/projects?select=project_id,project_name,client_name,status,start_ym,end_ym,project_type&project_id=eq.\(safeId)")
+        guard let project = try JSONDecoder().decode([AMDOSProject].self, from: data).first else {
+            throw AMDOSNetworkError.notFound
+        }
+        return AMDOSProjectDetail(project: project, summary: "詳細の進捗・月次・MTGは、このPJのネイティブ詳細画面へ順次移植するよ。", source: "projects / PWA /project/[projectId]/cockpit")
+    }
+
+    func fetchNotifications(limit: Int = 30) async throws -> [AMDOSNotification] {
+        let data = try await request(path: "rest/v1/app_notifications?select=id,kind,title,body,created_at,read_at&order=created_at.desc&limit=\(limit)")
+        return try JSONDecoder().decode([AMDOSNotification].self, from: data)
+    }
+
+    func fetchIsAdmin(email: String) async throws -> Bool {
+        let escaped = email.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? email
+        let data = try await request(path: "rest/v1/members?select=is_admin&email=eq.\(escaped)&limit=1")
+        struct Row: Decodable { let is_admin: Bool? }
+        return try JSONDecoder().decode([Row].self, from: data).first?.is_admin == true
+    }
+
+    private func request(path: String) async throws -> Data {
+        guard let url = URL(string: baseURL.absoluteString + "/" + path) else { throw AMDOSNetworkError.invalidURL }
+        var request = URLRequest(url: url)
+        request.setValue(anonKey, forHTTPHeaderField: "apikey")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        if let token = session?.accessToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try validate(response: response, data: data)
+        return data
+    }
+
+    private func validate(response: URLResponse, data: Data) throws {
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            let body = String(data: data, encoding: .utf8) ?? "unknown error"
+            throw AMDOSNetworkError.http(body)
+        }
+    }
+
+    private func emailFromJWT(_ token: String) -> String? {
+        let parts = token.split(separator: ".")
+        guard parts.count > 1 else { return nil }
+        var value = String(parts[1]).replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
+        value += String(repeating: "=", count: (4 - value.count % 4) % 4)
+        guard let data = Data(base64Encoded: value) else { return nil }
+        struct Claims: Decodable { let email: String? }
+        return try? JSONDecoder().decode(Claims.self, from: data).email
+    }
+}
+
+struct AMDOSConfiguration: Sendable {
+    let supabaseURL: URL
+    let anonKey: String
+
+    static func fromBundle() -> AMDOSConfiguration {
+        let urlString = Bundle.main.object(forInfoDictionaryKey: "AMDOS_SUPABASE_URL") as? String ?? "https://nbnhrhybjslbawdukvvk.supabase.co"
+        let key = Bundle.main.object(forInfoDictionaryKey: "AMDOS_SUPABASE_ANON_KEY") as? String
+            ?? ""
+        return AMDOSConfiguration(supabaseURL: URL(string: urlString)!, anonKey: key)
+    }
+}
+
+enum AMDOSNetworkError: LocalizedError {
+    case invalidURL
+    case oauthCallbackMissing
+    case notFound
+    case http(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidURL: return "接続先の設定が正しくないよ。"
+        case .oauthCallbackMissing: return "Googleログインの戻り値を確認できなかったよ。"
+        case .notFound: return "対象のデータが見つからなかったよ。"
+        case .http(let body): return "OSとの通信に失敗したよ。\n\(body)"
+        }
+    }
+}
+
+private struct AMDOSTokenResponse: Decodable {
+    let accessToken: String
+    let refreshToken: String
+    let expiresIn: Int?
+    enum CodingKeys: String, CodingKey {
+        case accessToken = "access_token"
+        case refreshToken = "refresh_token"
+        case expiresIn = "expires_in"
+    }
+}
+
+private enum PKCE {
+    static func generateVerifier() -> String {
+        let bytes = (0..<32).map { _ in UInt8.random(in: 0...255) }
+        return Data(bytes).base64URLEncoded
+    }
+
+    static func challenge(for verifier: String) -> String {
+        Data(SHA256.hash(data: Data(verifier.utf8))).base64URLEncoded
+    }
+}
+
+private final class OAuthSession: NSObject, ASWebAuthenticationPresentationContextProviding {
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        NSApplication.shared.keyWindow ?? NSApplication.shared.windows.first ?? NSWindow()
+    }
+
+    func start(url: URL, callbackScheme: String) async throws -> URL {
+        try await withCheckedThrowingContinuation { continuation in
+            let session = ASWebAuthenticationSession(url: url, callbackURLScheme: callbackScheme) { callback, error in
+                if let callback { continuation.resume(returning: callback) }
+                else { continuation.resume(throwing: error ?? AMDOSNetworkError.oauthCallbackMissing) }
+            }
+            session.presentationContextProvider = self
+            session.prefersEphemeralWebBrowserSession = false
+            session.start()
+        }
+    }
+}
+
+private extension Data {
+    var base64URLEncoded: String {
+        base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
+    }
+}

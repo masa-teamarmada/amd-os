@@ -32,6 +32,10 @@ amd-os/
 │   ├── BUGS.md / DEBUG.md / TESTFLIGHT_WORKFLOW.md
 │   ├── AMDOS/         ← Swift ソース
 │   └── supabase/      ← migrations + Edge Functions（共通インフラ）
+├── macos/             ← 独立したSwiftUI macOSクライアント
+│   ├── AMDOSMac/      ← AMDOSCore / AMDOSDesign / Features
+│   ├── DESIGN.md      ← macOS画面設計正本
+│   └── PARITY.md      ← PWA・重要UI・iOS全件対応表
 ├── pwa/               ← Next.js (App Router) Web/PWA
 │   ├── CLAUDE.md      ← PWA固有ルール
 │   ├── AGENTS.md
@@ -171,6 +175,7 @@ DESIGN.md は **全プラットフォーム共通の正本**。Android / PWA も
 ## 🛠️ Claude / えいみ向けの行動指針
 
 - **モノレポ意識**: 何かを変える前に「これは全プラットフォームに影響する？」を考える
+- **macOS移植**: PWAをWKWebViewで包まず、`macos/`の独立SwiftUIアプリとして作る。ナビは「仕事 / 探索 / 管理 / 設定」、PWA route・重要UI・iOS画面の未移植項目は`macos/PARITY.md`から削除しない
 - **メタ判断セルフチェック**: まさの指摘や直近タスクにそのまま反応する前に、「既存の正本体系・DB設計・算定ロジックと整合するか」「UI都合で新しい分類や概念を増やしていないか」「まさより一段メタに見てこの方向で本当に良いか」を自問してから答える。違和感があれば、実装前にその違和感を明示して方向修正する
 - **DESIGN.md ファースト**: 画面追加 / 削除 / 改名 → 同じ commit で DESIGN.md を更新
 - **HANDOFF doc を書く**: main 更新時、他プラットフォームに影響するなら必ず追記
@@ -227,6 +232,7 @@ daily 議題プリペアは scheduled task `amd-os-management-dialogue-prep` が
 - [ ] コード変更が終わってる
 - [ ] DESIGN.md / HANDOFF_*.md が必要に応じて更新済み
 - [ ] iOS 触ったなら実機デプロイまで完了（`devicectl install` + `launch` 成功）
+- [ ] macOS 触ったなら `macos/` の生成・`xcodebuild`・起動確認まで完了し、`macos/PARITY.md` の未移植を明記
 - [ ] PWA 触ったなら main push (= Vercel 自動 deploy、原則ノンストップ) まで完了
 - [ ] GAS 触ったなら `clasp push` 完了
 - [ ] commit はすべて GitHub に push 済み

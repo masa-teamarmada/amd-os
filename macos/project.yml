@@ -1,0 +1,38 @@
+name: AMDOSMac
+options:
+  deploymentTarget:
+    macOS: "14.0"
+  xcodeVersion: "16.0"
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    CODE_SIGN_STYLE: Automatic
+    INFOPLIST_FILE: SupportingFiles/Info.plist
+
+targets:
+  AMDOSMac:
+    type: application
+    platform: macOS
+    sources:
+      - path: AMDOSMac
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: jp.team-armada.amdos.macos
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        PRODUCT_NAME: "AMD OS"
+    info:
+      path: SupportingFiles/Info.plist
+      properties:
+        CFBundleDisplayName: AMD OS
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        AMDOS_SUPABASE_URL: "https://nbnhrhybjslbawdukvvk.supabase.co"
+        AMDOS_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmF0ZSIsInJlZiI6Im5ibmhyaHlianNsYmF3ZHV2a3ZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0NDEzNjUsImV4cCI6MjA5MTAxNzM2NX0.X16kjZlqeUCHKinkiAodSXrI1iQi47Z4dPZxt_Ja4Bg"
+        CFBundleURLTypes:
+          - CFBundleURLName: "AMD OS macOS OAuth callback"
+            CFBundleURLSchemes:
+              - "amdos-mac"

@@ -2,7 +2,7 @@
 
 > See also: [CLAUDE.md](CLAUDE.md) — 最重要ルール / [HANDOFF.md](HANDOFF.md) — 現在の配布状況 / [HANDOFF_ios_to_android.md](HANDOFF_ios_to_android.md) — 直近の Android 向け引き継ぎ / [BUGS.md](BUGS.md) — 既知バグ
 >
-> **目的**: AMD OS（iOS / Android）に存在する **すべての画面 / 機能** の一覧と仕様。
+> **目的**: AMD OS（iOS / macOS / Android）に存在する **すべての画面 / 機能** の一覧と仕様。
 > Drive 同期トラブルや Git 操作ミスでファイルが消えた場合でも、
 > **このドキュメント単体で「何が在るべきか」が完全にわかる** ことをゴールにする。
 >
@@ -11,7 +11,7 @@
 > - えいみ（Win側 Android担当）が「これ知らない画面なんだけど…」となったら必ずここを参照する
 > - えいみがここを見て知らない画面があるならアラート → 即同期する
 >
-> 最終更新: 2026-07-16 (タブ構成を今日/PJ/通知/登録/設定へ再編、通知ボックス→判断キューUIへ刷新)
+> 最終更新: 2026-07-17 (macOS独立クライアントの共通層・NavigationSplitView・PWA parity契約を追加)
 
 ---
 
@@ -21,9 +21,13 @@
 |---|---|---|
 | iOS UI | SwiftUI (iOS 17+) | `AMDOS/Features/*` |
 | Android UI | Jetpack Compose | (別リポ / Win 側) |
+| macOS UI | SwiftUI (macOS 14+) | `../macos/AMDOSMac/Features/*` |
 | データ | Supabase (Postgres + RLS + Edge Functions) | `supabase/` |
 | 認証 | Google Sign-In + Supabase Auth | `AMDOS/Features/Auth/` |
 | 業務ロジック (重い処理) | GAS WebApp + 各種 Edge Function | `supabase/functions/*` |
+
+macOSはiOSの5タブを横展開せず、`仕事 / 探索 / 管理 / 設定` の常設ナビを使う。
+PWAの全route・重要UI・iOS画面の対応状況は `../macos/PARITY.md` を正本とし、実装済みだけを完了扱いにする。
 
 主要 Supabase テーブル: `projects` / `project_members` / `members` / `billing_cycles` / `payout_notices` / `reimbursements` / `knowledge_sessions` / `ms_*` (マイルストーン) / `tsukuyomi_*` / `proposals` / `app_notifications` / `l2_notifications` / `meeting_notifications` / `l2_feedbacks` ほか。
 

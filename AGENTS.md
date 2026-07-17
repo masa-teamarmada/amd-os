@@ -19,6 +19,7 @@
 |---|---|
 | `gas/` | Google Apps Script。freee連携、Slack通知、外部サービス→Supabase 供給ハブ |
 | `pwa/` | Web/PWA版。Next.js (App Router) + Vercel デプロイ |
+| `macos/` | macOS版。独立したSwiftUIクライアント。AMDOSCore + AMDOSDesign |
 | `ios/` | Swift / SwiftUI ネイティブアプリ。TestFlight 配布 |
 | `android/` | Jetpack Compose ネイティブアプリ（TBD） |
 
@@ -28,6 +29,7 @@
 - **Supabase が DB の正本**（migrations / Edge Functions は `ios/supabase/` で集中管理）
 - GAS は外部サービス（freee, Slack等）から Supabase へデータを供給するハブ役
 - 各クライアント（pwa / ios / android）は Supabase を直接読み書き
+- macOSはPWAをWKWebViewで包まず、`macos/PARITY.md`でPWA route・重要UI・iOS画面をNativeScreenIDへ対応付ける。読み取りはRLS、書込みは既存の認可済みAPI・Edge Function・GASへ委譲する
 
 ## デプロイ
 - **gas** → `clasp push`
