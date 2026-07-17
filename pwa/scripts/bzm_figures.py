@@ -971,6 +971,280 @@ def book_a_fig_16_2():
     save_book_a(fig, "book-a-fig-16-2.png")
 
 
+# ---------------------------------------------------------------------------
+# Book A matplotlib batch1: 5 confirmed figures (図3-1/図4-1/図4-3/図6-3/図8-3)
+# 出力先: pwa/public/bzm/book-a/*.png。既存 batch2 の12PNG+1SVGは変更しない。
+# ---------------------------------------------------------------------------
+def book_a_fig_3_1():
+    book_a_style()
+    fig, ax = plt.subplots(figsize=(9.0, 5.2))
+    t = np.linspace(0, 8, 400)
+
+    hype = 10 + 38 * np.exp(-((t - 2.0) ** 2) / 0.9) + 14 / (1 + np.exp(-(t - 6.2)))
+    ax.plot(t, hype, color="crimson", lw=2.4, label="評価額（期待で揺れる）")
+
+    steps_t = [0, 1.2, 2.6, 3.4, 4.8, 5.6, 6.8, 8]
+    steps_v = [4, 8, 12, 18, 22, 30, 36, 40]
+    ax2 = ax.twinx()
+    ax2.step(steps_t, steps_v, where="post", color=BOOK_A_BLUE, lw=2.4,
+             label="準備度（事実として積み上がる）")
+
+    ax.annotate("同じ案件、\n違う二つの数字", xy=(2.1, 47), xytext=(3.1, 50),
+                fontsize=10, color="dimgray",
+                arrowprops=dict(arrowstyle="->", color="dimgray", lw=0.9))
+    ax.annotate("ハイプの頂点:\n内実は何も変わっていない", xy=(2.0, 48.5), xytext=(0.1, 56),
+                fontsize=9, color="crimson",
+                arrowprops=dict(arrowstyle="->", color="crimson", lw=0.9))
+    ax2.annotate("データ・特許・有償検証:\n積み上がる一方", xy=(5.6, 30), xytext=(4.6, 12),
+                 fontsize=9, color=BOOK_A_BLUE,
+                 arrowprops=dict(arrowstyle="->", color=BOOK_A_BLUE, lw=0.9))
+
+    ax.set_xlabel("時間")
+    ax.set_ylabel("評価額（期待）", color="crimson")
+    ax2.set_ylabel("準備度（事実）", color=BOOK_A_BLUE)
+    ax.set_ylim(0, 62)
+    ax2.set_ylim(0, 62)
+    ax.tick_params(axis="y", labelcolor="crimson")
+    ax2.tick_params(axis="y", labelcolor=BOOK_A_BLUE)
+    ax.set_xticks([])
+    ax.set_title("図3-1  期待で揺れる評価額と、積み上がる準備度")
+    lines1, labels1 = ax.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax.legend(lines1 + lines2, labels1 + labels2, loc="lower right", fontsize=9, frameon=False)
+    ax.grid(True, alpha=0.2)
+    for s in ["top"]:
+        ax.spines[s].set_visible(False)
+        ax2.spines[s].set_visible(False)
+    save_book_a(fig, "book-a-fig-3-1.png")
+
+
+def book_a_fig_4_1():
+    book_a_style()
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11.2, 4.8),
+                                    gridspec_kw={"width_ratios": [1, 1.3]})
+
+    labels = ["飾られた", "未開封", "棚・引き出し・所在不明", "使い込まれた（十一社目）"]
+    counts = [1, 1, 23, 1]
+    colors = [BOOK_A_GREY, BOOK_A_GREY, BOOK_A_GREY, BOOK_A_ORANGE]
+    xpos = np.arange(len(labels))
+    bars = ax1.bar(xpos, counts, color=colors, edgecolor="black", linewidth=0.6, zorder=3)
+    ax1.set_xticks(xpos)
+    for b, c in zip(bars, counts):
+        ax1.text(b.get_x() + b.get_width() / 2, c + 0.5, str(c),
+                  ha="center", va="bottom", fontsize=10)
+    ax1.text(0.02, 0.95, "n = 26 社（サンプルの行き先）", transform=ax1.transAxes,
+              fontsize=9.5, color="#333", va="top")
+    ax1.set_ylabel("社数")
+    ax1.set_ylim(0, 27)
+    ax1.set_title("行き先の分布")
+    ax1.set_xticklabels(labels, rotation=20, ha="right", fontsize=8.7)
+    ax1.grid(axis="y", alpha=0.2, zorder=0)
+    for s in ["top", "right"]:
+        ax1.spines[s].set_visible(False)
+
+    traces = ["質問の\n具体度", "求めの\n反復", "内部の\n段取り"]
+    weak = [0.08, 0.05, 0.05]
+    strong = [0.90, 0.85, 0.88]
+    x = np.arange(len(traces))
+    width = 0.32
+    ax2.bar(x - width / 2, weak, width, color=BOOK_A_GREY, edgecolor="white",
+            linewidth=0.8, label="他25社（弱い側の典型）", zorder=3)
+    ax2.bar(x + width / 2, strong, width, color=BOOK_A_ORANGE, edgecolor="white",
+            linewidth=0.8, label="使い込まれた1社", zorder=3)
+    ax2.set_xticks(x)
+    ax2.set_xticklabels(traces)
+    ax2.set_ylim(0, 1.05)
+    ax2.set_ylabel("弱 ← スコア（教材値） → 強")
+    ax2.set_title("痕跡が積み上がるのは一社だけ")
+    ax2.legend(loc="upper center", fontsize=8.7, frameon=False, ncol=1)
+    ax2.grid(axis="y", alpha=0.2, zorder=0)
+    for s in ["top", "right"]:
+        ax2.spines[s].set_visible(False)
+
+    fig.suptitle("図4-1  二十六枚のサンプルの行き先——飾られた/未開封/棚・引き出し・所在不明/使い込まれた", y=1.02)
+    save_book_a(fig, "book-a-fig-4-1.png")
+
+
+def book_a_fig_4_3():
+    book_a_style()
+    axes = ["TRL", "BRL", "GRL", "SRL", "HRL"]
+    vals = {"TRL": 2, "BRL": 3, "GRL": 6, "SRL": 5, "HRL": 4}
+    values = [vals[a] for a in axes]
+    mean_v = float(np.mean(values))
+    min_a = axes[int(np.argmin(values))]
+    max_a = axes[int(np.argmax(values))]
+    min_v, max_v = min(values), max(values)
+    gap = max_v - min_v
+
+    colors = [BOOK_A_GREY] * len(axes)
+    colors[axes.index(min_a)] = "crimson"
+    colors[axes.index(max_a)] = BOOK_A_BLUE
+
+    fig, ax = plt.subplots(figsize=(8.2, 5.0))
+    bars = ax.bar(axes, values, color=colors, edgecolor="black", linewidth=0.6, zorder=3)
+    for b, v in zip(bars, values):
+        ax.text(b.get_x() + b.get_width() / 2, v + 0.12, str(v),
+                ha="center", va="bottom", fontsize=10)
+
+    ax.axhline(mean_v, color=BOOK_A_PURPLE, ls="--", lw=1.6, zorder=2)
+    ax.annotate(f"平均 = {mean_v:.1f}\n（凹みを隠す）", xy=(len(axes) - 1, mean_v),
+                xytext=(len(axes) - 1.35, 6.6), fontsize=9, color=BOOK_A_PURPLE,
+                ha="center", va="bottom",
+                arrowprops=dict(arrowstyle="->", color=BOOK_A_PURPLE, lw=1.0))
+
+    bx = -0.85
+    ax.annotate("", xy=(bx, max_v), xytext=(bx, min_v),
+                arrowprops=dict(arrowstyle="<->", color="#333", lw=1.3))
+    ax.text(bx - 0.12, (max_v + min_v) / 2, f"G = {gap:g}",
+            fontsize=10.5, color="#333", ha="right", va="center", rotation=90)
+
+    ax.text(axes.index(min_a), min_v - 0.35, "律速軸\n（ボトルネック）", ha="center", va="top",
+            fontsize=9, color="crimson")
+    ax.set_xlim(-1.3, len(axes) - 0.4)
+    ax.set_ylabel("到達度（0-9、教材値）")
+    ax.set_ylim(0, 8.2)
+    ax.set_title(f"図4-3  到達度プロファイルとボトルネックギャップ G（律速軸: {min_a}）")
+    ax.grid(axis="y", alpha=0.2, zorder=0)
+    for s in ["top", "right"]:
+        ax.spines[s].set_visible(False)
+    save_book_a(fig, "book-a-fig-4-3.png")
+
+
+def book_a_fig_6_3():
+    book_a_style()
+    a = 0.6
+    rho = -2.0
+    fchar = np.linspace(0.01, 9, 240)
+    fcap = np.linspace(0.01, 9, 240)
+    FC, FP = np.meshgrid(fchar, fcap)
+
+    ces_inner = a * (FC + 1) ** rho + (1 - a) * (FP + 1) ** rho
+    F_ces = ces_inner ** (1 / rho) - 1
+    F_cd = (FC + 1) ** a * (FP + 1) ** (1 - a) - 1
+
+    levels = [1, 2, 3, 4, 5, 6, 7, 8]
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11.2, 5.0), sharex=True, sharey=True)
+    cs1 = ax1.contour(FC, FP, F_ces, levels=levels, colors=BOOK_A_BLUE, linewidths=1.4)
+    ax1.clabel(cs1, inline=True, fontsize=8, fmt="F=%d")
+    pts = [(8, 1, 2.05), (8, 5, 6.35), (8, 6, 7.01)]
+    for pc, pp, pf in pts:
+        ax1.scatter([pc], [pp], color="crimson", s=36, zorder=5)
+        ax1.annotate(f"F≈{pf}", xy=(pc, pp), xytext=(pc - 2.6, pp + 0.5),
+                     fontsize=8.3, color="crimson",
+                     arrowprops=dict(arrowstyle="->", color="crimson", lw=0.8))
+    ax1.set_title("CES（ρ=-2、代替不可・架空パラメータ）\na=0.6")
+    ax1.set_xlabel(r"資質 $F_{char}$")
+    ax1.set_ylabel(r"実行力 $F_{cap}$")
+    ax1.text(0.3, 8.3, "原点側へ折れたL字型\n片方が低いと他方を伸ばしても越えられない",
+              fontsize=8.3, color="#444", va="top")
+
+    cs2 = ax2.contour(FC, FP, F_cd, levels=levels, colors=BOOK_A_GREEN, linewidths=1.4)
+    ax2.clabel(cs2, inline=True, fontsize=8, fmt="F=%d")
+    ax2.set_title("掛け算型（コブ・ダグラス、代替的）\na=0.6")
+    ax2.set_xlabel(r"資質 $F_{char}$")
+    ax2.text(0.3, 8.3, "なだらかな等高線\n一方の不足を他方でなだらかに補える",
+              fontsize=8.3, color="#444", va="top")
+
+    for ax in (ax1, ax2):
+        ax.set_xlim(0, 9)
+        ax.set_ylim(0, 9)
+        ax.grid(True, alpha=0.15)
+        for s in ["top", "right"]:
+            ax.spines[s].set_visible(False)
+
+    fig.suptitle(r"図6-3  $F_{char}$と$F_{cap}$の平面に見る、CESと掛け算型の等高線の違い", y=1.02)
+    save_book_a(fig, "book-a-fig-6-3.png")
+
+
+def book_a_fig_8_3():
+    book_a_style()
+    rng = np.random.default_rng(8303)
+    horizon = 48
+    n_trials = 5000
+    n_display = 6
+
+    tau_x = np.full(n_trials, np.nan)
+    tau_y = np.full(n_trials, np.nan)
+    display_paths = []
+
+    for i in range(n_trials):
+        x, y = 0.2, 30.0
+        tx, ty = np.nan, np.nan
+        if i < n_display:
+            xs, ys = [x], [y]
+        for m in range(1, horizon + 1):
+            x = x + rng.normal(0.02, 0.015)
+            y = y - rng.normal(1.0, 0.3)
+            if rng.random() < 0.05:
+                y += 8.0
+            if m == 12 or m == 24:
+                y += 6.0
+            if np.isnan(tx) and x >= 1.0:
+                tx = m
+            if np.isnan(ty) and y <= 0:
+                ty = m
+            if i < n_display:
+                xs.append(x)
+                ys.append(y)
+        tau_x[i] = tx
+        tau_y[i] = ty
+        if i < n_display:
+            display_paths.append((np.array(xs), np.array(ys)))
+
+    s_hat = float(np.mean(np.logical_and(~np.isnan(tau_x),
+                                          np.isnan(tau_y) | (tau_x < tau_y))))
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(9.0, 8.4),
+                                    gridspec_kw={"height_ratios": [1, 1.1]})
+
+    months = np.arange(horizon + 1)
+    ax1b = ax1.twinx()
+    for k, (xs, ys) in enumerate(display_paths):
+        alpha = 0.9 if k == 0 else 0.35
+        lw = 2.0 if k == 0 else 1.1
+        ax1.plot(months, xs, color=BOOK_A_BLUE, lw=lw, alpha=alpha, zorder=3)
+        ax1b.plot(months, ys, color=BOOK_A_ORANGE, lw=lw, alpha=alpha, ls="--", zorder=3)
+    ax1.axhline(1.0, color=BOOK_A_GREEN, lw=1.8, zorder=2)
+    ax1b.axhline(0, color="crimson", lw=1.8, zorder=2)
+    ax1.text(horizon, 1.03, "壁1: 事業化ライン（$\\tau_x$）", ha="right", fontsize=9, color=BOOK_A_GREEN)
+    ax1b.text(horizon, 2, "壁2: 破産（$\\tau_y$、y=0）", ha="right", fontsize=9, color="crimson")
+    ax1.set_xlabel("月")
+    ax1.set_ylabel("到達度 x（実線）", color=BOOK_A_BLUE)
+    ax1b.set_ylabel("戦略余力 y（月、破線）", color=BOOK_A_ORANGE)
+    ax1.tick_params(axis="y", labelcolor=BOOK_A_BLUE)
+    ax1b.tick_params(axis="y", labelcolor=BOOK_A_ORANGE)
+    ax1.set_title("二つの壁へ向かう資本の道のり（ギャンブラーの破産問題の一次元の図、代表6試行）")
+    ax1.grid(True, alpha=0.2)
+
+    bins = np.arange(0, horizon + 4, 2)
+    tx_finite = tau_x[~np.isnan(tau_x)]
+    ty_finite = tau_y[~np.isnan(tau_y)]
+    ax2.hist(tx_finite, bins=bins, color=BOOK_A_BLUE, alpha=0.55, label=r"$\tau_x$（事業化到達）", zorder=3)
+    ax2.hist(ty_finite, bins=bins, color=BOOK_A_ORANGE, alpha=0.55, label=r"$\tau_y$（余力の枯渇）", zorder=3)
+    n_censored_x = int(np.isnan(tau_x).sum())
+    n_censored_y = int(np.isnan(tau_y).sum())
+    ax2.text(0.02, 0.95,
+             f"S = Pr(τx < τy) ≈ {s_hat:.2f}  (n={n_trials}試行)\n"
+             f"48ヶ月時点で未到達: τx {n_censored_x}件 / τy {n_censored_y}件",
+             transform=ax2.transAxes, va="top", fontsize=9.3, color="#333",
+             bbox=dict(boxstyle="round,pad=0.35", facecolor="white", edgecolor="#cccccc"))
+    ax2.set_xlabel("月")
+    ax2.set_ylabel("試行数")
+    ax2.set_title(r"$\tau_x$と$\tau_y$の分布の重なり——どちらの時刻が先に来るか")
+    ax2.legend(loc="upper right", fontsize=9, frameon=False)
+    ax2.grid(True, alpha=0.2)
+    for ax in (ax1, ax2):
+        for s in ["top"]:
+            ax.spines[s].set_visible(False)
+    for s in ["top", "right"]:
+        ax2.spines[s].set_visible(False)
+
+    fig.suptitle("図8-3  二つの停止時刻の競争——S = Pr(τx < τy)", y=1.02)
+    fig.subplots_adjust(hspace=0.45)
+    save_book_a(fig, "book-a-fig-8-3.png")
+
+
 if __name__ == "__main__":
     import sys
     targets = sys.argv[1:]
@@ -992,11 +1266,21 @@ if __name__ == "__main__":
         "book-a-15-2": book_a_fig_15_2,
         "book-a-16-2": book_a_fig_16_2,
     }
-    all_figs = {**default_figs, **book_a_batch2}
+    book_a_batch1 = {
+        "book-a-3-1": book_a_fig_3_1,
+        "book-a-4-1": book_a_fig_4_1,
+        "book-a-4-3": book_a_fig_4_3,
+        "book-a-6-3": book_a_fig_6_3,
+        "book-a-8-3": book_a_fig_8_3,
+    }
+    all_figs = {**default_figs, **book_a_batch2, **book_a_batch1}
     if targets:
         for t in targets:
             if t == "book-a-batch2":
                 for fn in book_a_batch2.values():
+                    fn()
+            elif t == "book-a-batch1":
+                for fn in book_a_batch1.values():
                     fn()
             else:
                 all_figs[t]()
