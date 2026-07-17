@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1403716FBE48DB6D491498AE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0CB3E14E695A418452CE6911 /* Assets.xcassets */; };
 		37AAB67754FC850946C653C8 /* AMDOSDesign.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98698B42B4A20EF05FD950A9 /* AMDOSDesign.swift */; };
 		45B1F5E7E2E696BEDA8DD82E /* WorkspaceModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31DA7EC0781639EE76B7D1F /* WorkspaceModel.swift */; };
 		A3ED43ED94DEE7C67A8AD63C /* ScreenViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1173E9F1A2713001480AC517 /* ScreenViews.swift */; };
@@ -19,6 +20,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		0CB3E14E695A418452CE6911 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		10F2C20DA19BF43ECF23A97B /* SupabaseRESTClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseRESTClient.swift; sourceTree = "<group>"; };
 		1173E9F1A2713001480AC517 /* ScreenViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenViews.swift; sourceTree = "<group>"; };
 		3312EEFDDBB61D5A0052A1CA /* WorkspaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceView.swift; sourceTree = "<group>"; };
@@ -84,8 +86,17 @@
 			isa = PBXGroup;
 			children = (
 				6073B83361872FB595BE059B /* AMDOSMac */,
+				E402567B2259497C1BDD98DF /* SupportingFiles */,
 				66C3A7490E5B5EB14586465A /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		E402567B2259497C1BDD98DF /* SupportingFiles */ = {
+			isa = PBXGroup;
+			children = (
+				0CB3E14E695A418452CE6911 /* Assets.xcassets */,
+			);
+			path = SupportingFiles;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -96,6 +107,7 @@
 			buildConfigurationList = FC960800459A18BB4E35C854 /* Build configuration list for PBXNativeTarget "AMDOSMac" */;
 			buildPhases = (
 				B544488B7030C24C7D493456 /* Sources */,
+				ED1B55F7B35A28D9A7798ACB /* Resources */,
 			);
 			buildRules = (
 			);
@@ -140,6 +152,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		ED1B55F7B35A28D9A7798ACB /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1403716FBE48DB6D491498AE /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		B544488B7030C24C7D493456 /* Sources */ = {

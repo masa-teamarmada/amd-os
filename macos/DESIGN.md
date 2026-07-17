@@ -15,6 +15,7 @@ Macでの仕事は画面の横幅を活かし、常設ナビ・一覧・詳細�
 | データ | `AMDOSCore` のRLS付きSupabase REST読み取り。既存PWA API / Edge Functionを安全な書込み先として扱う |
 | 表示 | `AMDOSDesign` の色・文字・状態・カード・アクセシビリティ |
 | ナビ | `NavigationSplitView`: 仕事 / 探索 / 管理 / 設定 |
+| アプリアイコン | `SupportingFiles/Assets.xcassets/AppIcon.appiconset`: AMD三連中空六角形 |
 | 追跡 | `PARITY.md`: PWA route・重要UI・iOS画面を `AMDOSScreenID` と対応付ける |
 
 ## 3. ナビゲーション
@@ -53,3 +54,14 @@ admin権限がある場合だけ「管理ホーム」「請求書」「財務」
 Googleログイン、PJ一覧、PJ詳細の入口、通知判断のPWA安全経路への導線、名刺ファイル受付、admin権限ゲート、PARITY表示を実装済み。
 PWAの全機能をこの初回実装だけで完了とは扱わず、未移植の詳細は `PARITY.md` に残す。
 
+## 6. アプリアイコン仕様
+
+- 完成マスターは `SupportingFiles/Brand/AMDLogo-master.png` に原寸のまま保存し、元画像を上書き・再圧縮しない。
+- マスターは深いネイビー地に高コントラストの青でAMDの三連中空六角形を置いた正方形画像。
+- `AppIcon.appiconset` にはmacOSの16 / 32 / 128 / 256 / 512ポイントを1倍・2倍で収録し、最大1024pxの派生画像を使う。
+- ログイン画面の主役は `AMDLogoMark.imageset` の同じAMDロゴmarkを128ptで表示し、仮の記号や別形状のシステム画像を使わない。
+- ログイン用markは背景を透過し、白いログイン画面にはmarkだけを置く。深いネイビー地のAppIconとは表示用途を分ける。
+- ログイン画面は白背景、ロゴ、`AMD OS`の名称、説明文、既存のGoogle認証導線の順序を保ち、ブランド表示の変更で認証本文や権限説明を壊さない。
+- PWAの安全な確認経路へ委譲する外部導線はSwiftUI `Link`として実装し、通常クリックは既定ブラウザ、Commandクリックは既定ブラウザの新しいタブで開く。
+- XcodeGenの `ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon` と `Assets.xcassets` を通じて、実アプリの `CFBundleIconName` に結び付ける。
+- 配布用サイズはマスターから機械的に縮小生成する。ロゴの再描画・色変更・自動トリミングはしない。

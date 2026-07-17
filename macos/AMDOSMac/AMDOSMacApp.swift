@@ -41,9 +41,12 @@ struct AMDOSLoginView: View {
 
     var body: some View {
         VStack(spacing: 24) {
-            Image(systemName: "circle.hexagongrid.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(AMDOSDesign.blue)
+            Image("AMDLogoMark")
+                .interpolation(.high)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 128, height: 128)
+                .accessibilityLabel("AMDロゴ")
             VStack(spacing: 8) {
                 Text("AMD OS")
                     .font(.system(size: 32, weight: .bold, design: .rounded))
@@ -75,4 +78,3 @@ struct AMDOSLoginView: View {
         .background(AMDOSDesign.page)
     }
 }
-

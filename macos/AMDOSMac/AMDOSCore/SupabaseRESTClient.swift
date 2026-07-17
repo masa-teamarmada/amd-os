@@ -9,6 +9,7 @@ actor AMDOSRESTClient {
     private let baseURL: URL
     private let anonKey: String
     private var session: AMDOSSession?
+    private var oauthSession: OAuthSession?
 
     init(configuration: AMDOSConfiguration = .fromBundle()) {
         self.baseURL = configuration.supabaseURL
@@ -31,7 +32,10 @@ actor AMDOSRESTClient {
             URLQueryItem(name: "code_challenge_method", value: "S256")
         ]
         guard let authorizeURL = components.url else { throw AMDOSNetworkError.invalidURL }
-        let callback = try await OAuthSession().start(url: authorizeURL, callbackScheme: "amdos-mac")
+        let oauthSession = await OAuthSession()
+        self.oauthSession = oauthSession
+        defer { self.oauthSession = nil }
+        let callback = try await oauthSession.start(url: authorizeURL, callbackScheme: "amdos-mac")
         guard let code = URLComponents(url: callback, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "code" })?.value else {
             throw AMDOSNetworkError.oauthCallbackMissing
         }
@@ -130,6 +134,7 @@ struct AMDOSConfiguration: Sendable {
 
 enum AMDOSNetworkError: LocalizedError {
     case invalidURL
+    case oauthStartFailed
     case oauthCallbackMissing
     case notFound
     case http(String)
@@ -137,6 +142,7 @@ enum AMDOSNetworkError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidURL: return "接続先の設定が正しくないよ。"
+        case .oauthStartFailed: return "Googleログイン画面を開始できなかったよ。もう一度試してね。"
         case .oauthCallbackMissing: return "Googleログインの戻り値を確認できなかったよ。"
         case .notFound: return "対象のデータが見つからなかったよ。"
         case .http(let body): return "OSとの通信に失敗したよ。\n\(body)"
@@ -166,7 +172,10 @@ private enum PKCE {
     }
 }
 
+@MainActor
 private final class OAuthSession: NSObject, ASWebAuthenticationPresentationContextProviding {
+    private var webSession: ASWebAuthenticationSession?
+
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
         NSApplication.shared.keyWindow ?? NSApplication.shared.windows.first ?? NSWindow()
     }
@@ -174,12 +183,18 @@ private final class OAuthSession: NSObject, ASWebAuthenticationPresentationConte
     func start(url: URL, callbackScheme: String) async throws -> URL {
         try await withCheckedThrowingContinuation { continuation in
             let session = ASWebAuthenticationSession(url: url, callbackURLScheme: callbackScheme) { callback, error in
+                self.webSession = nil
                 if let callback { continuation.resume(returning: callback) }
                 else { continuation.resume(throwing: error ?? AMDOSNetworkError.oauthCallbackMissing) }
             }
+            self.webSession = session
             session.presentationContextProvider = self
             session.prefersEphemeralWebBrowserSession = false
-            session.start()
+            guard session.start() else {
+                self.webSession = nil
+                continuation.resume(throwing: AMDOSNetworkError.oauthStartFailed)
+                return
+            }
         }
     }
 }

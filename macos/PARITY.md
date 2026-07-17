@@ -5,11 +5,19 @@
 判定は「実装済み」「ネイティブ骨格」「未移植」の3段階。
 行を消すこと、骨格を実装済みに読み替えること、旧PWA `/tasks` や旧月次ルーティンを復活させることは禁止。
 
+## 0. macOS配布入口（アプリアイコン）
+
+| NativeScreenID / 配布物 | 読取元 | 書込み先 | 権限 | 状態 / 回帰確認 |
+|---|---|---|---|---|
+| アプリケーションアイコン `AppIcon` | `SupportingFiles/Brand/AMDLogo-master.png`（原寸保存） | `Assets.xcassets/AppIcon.appiconset` のmacOS 1x/2x派生画像 | 全ユーザー | 実装済み。`Contents.json`、XcodeGen設定、ビルド済みアプリの `CFBundleIconName` を確認 |
+
+元画像はプロジェクト内のBrand正本として非破壊で保持し、AppIconの各サイズはそこから縮小生成する。
+
 ## 1. PWA route → NativeScreenID
 
 | PWA route（全件） | NativeScreenID | 読取元 | 書込み先 | 権限 | 状態 / 回帰確認 |
 |---|---|---|---|---|---|
-| `/auth/login`, `/auth/callback` | `account` | Supabase Auth | Supabase OAuth PKCE | 本人 | 実装済み。Google callback / session保存 |
+| `/auth/login`, `/auth/callback` | `account` | Supabase Auth + 透過 `AMDLogoMark.imageset` | Supabase OAuth PKCE | 本人 | 実装済み。AppIconと同じAMDロゴmarkを白背景に表示、Google callback / session保存 |
 | `/dashboard`, `/mypage` | `today`, `projects` | `projects`, `app_notifications`, iOS MyPage | 既存通知・PJ安全API | member | 実装済み。PJカードと通知件数 |
 | `/project/[projectId]/cockpit`, `/project/[projectId]/config`, `/project/[projectId]/report/[ym]/print` | `projectDetail` | Cockpit / `projects`, `ms_*`, `billing_cycles`, `project_meeting_summaries` | 既存MS保存前検算・管理API | member / APIごとの権限 | ネイティブ骨格。選択PJ詳細を削除しない |
 | `/notifications` | `notifications` | `l2_notifications`, `meeting_notifications`, `app_notifications` | `/api/notifications/feedback` 等の既存安全経路 | 通知対象 / admin | ネイティブ骨格。判断ボタンはPWA安全経路へ |
@@ -102,3 +110,4 @@
 | 支払・請求・管理台帳 | admin gate + 既存API | PWA API / Edge Function / GAS |
 | 教科書・材料・HUD | read-only | bundled markdown / read model |
 
+PWAへ委譲する確認導線はSwiftUI `Link`で保持する。通常クリックは既定ブラウザで開き、Commandクリックは既定ブラウザの新しいタブへ開くmacOS標準操作に委譲する。

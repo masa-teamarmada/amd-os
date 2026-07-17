@@ -232,8 +232,9 @@ private struct BusinessCardScreen: View {
                                 .font(.headline)
                             Text("このMac版は画像を勝手に確定しない。既存の `/api/business-cards` でOCR候補を作り、氏名とPJを確認したPATCHだけを確定経路にする。")
                                 .foregroundStyle(AMDOSDesign.muted)
-                            Button("PWAの名刺確認面を開く") { openPWA(path: "/business-cards") }
-                                .buttonStyle(.bordered)
+                            PWAExternalLink(path: "/business-cards") {
+                                Label("PWAの名刺確認面を開く", systemImage: "arrow.up.right.square")
+                            }
                         }
                     }
                     .padding(.horizontal, 30)
@@ -396,8 +397,9 @@ private struct NotificationCard: View {
                         .font(.caption)
                         .foregroundStyle(AMDOSDesign.muted)
                     Spacer()
-                    Button("判断を開く") { openPWA(path: "/notifications") }
-                        .buttonStyle(.bordered)
+                    PWAExternalLink(path: "/notifications") {
+                        Label("判断を開く", systemImage: "arrow.up.right.square")
+                    }
                 }
             }
         }
@@ -468,8 +470,18 @@ private struct ReloadToolbar: ToolbarContent {
     }
 }
 
-private func openPWA(path: String) {
-    guard let url = URL(string: "https://amd-os-pwa.vercel.app\(path)") else { return }
-    NSWorkspace.shared.open(url)
-}
+private struct PWAExternalLink<Label: View>: View {
+    let url: URL
+    @ViewBuilder let label: () -> Label
 
+    init(path: String, @ViewBuilder label: @escaping () -> Label) {
+        self.url = URL(string: "https://amd-os-pwa.vercel.app\(path)")!
+        self.label = label
+    }
+
+    var body: some View {
+        Link(destination: url, label: label)
+            .buttonStyle(.bordered)
+            .accessibilityHint("Commandキーを押しながらクリックすると新しいタブで開く")
+    }
+}
