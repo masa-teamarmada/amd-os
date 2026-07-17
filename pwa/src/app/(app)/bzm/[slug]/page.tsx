@@ -9,6 +9,7 @@ import {
   BZM_CHAPTERS,
   BZM_PARTS,
   getBzmChapter,
+  getBzmChapterStatus,
   sortBzmSlugs,
 } from "../bzm-chapters";
 import { isBzmChapterFile, normalizeBzmMarkdownSource } from "../bzm-data";
@@ -42,6 +43,7 @@ export default async function BzmChapterPage({ params }: { params: Promise<{ slu
   const filePath = path.join(bzmDir(), `${decoded}.md`);
   const fileExists = fs.existsSync(filePath);
   const chapterEntry = getBzmChapter(decoded);
+  const chapterStatus = getBzmChapterStatus(decoded);
 
   if (!fileExists && !chapterEntry) {
     notFound();
@@ -123,6 +125,11 @@ export default async function BzmChapterPage({ params }: { params: Promise<{ slu
           {!fileExists && (
             <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
               <span className="font-black">執筆待機中</span> — このセクションはまだ本文 draft が作成されていません。サイドナビの緑チェック印 (完成) または黄色半円印 (進行中) のセクションから本文が読めます。
+            </div>
+          )}
+          {fileExists && chapterStatus === "legacy" && (
+            <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+              <span className="font-black">旧版アーカイブ</span> — このセクションは Book A 完成前の旧稿です。最新の正本は「Book A 教科書 — ディープテック起業の経営学」(サイドナビ最上段、序章から読めます) を参照してください。
             </div>
           )}
           <BzmMarkdown source={displaySource} />

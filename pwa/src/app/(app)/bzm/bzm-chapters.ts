@@ -58,6 +58,7 @@ export const BZM_PARTS: BzmPartConfig[] = [
     label: "Book A 教科書 — ディープテック起業の経営学 (仮題、15章 ≈ 440p)",
     description: "理論の集大成テキスト (数式全部入り)。主対象 = MBA/MOT 院1年 + 学部3-4年ゼミ + URA/EIR/VC 研修。三項構造 (観測二層 SPS/ECR + 行動一層 RT) + 出口ポートフォリオ論 (看板、第14章)。15章構成。TOC v3 は BOOK_A_MASTER_PLAN.md 正本。",
     slugs: [
+      "book-a-frontmatter",
       "book-a-ch-1",
       "book-a-ch-2",
       "book-a-ch-3",
@@ -73,6 +74,7 @@ export const BZM_PARTS: BzmPartConfig[] = [
       "book-a-ch-13-5",
       "book-a-ch-14",
       "book-a-ch-15",
+      "book-a-backmatter",
     ],
   },
 
@@ -205,27 +207,32 @@ export const BZM_PARTS: BzmPartConfig[] = [
   },
 
   // ============================================================
-  // 実戦書 (= 後から出版予定の実践書、まさ確定 2026-06-28)
+  // 旧版アーカイブ (= 2026-06-13 章割で起草した実戦書素材、まさ確定 2026-06-28)
   // 新 BZM 本書 940p (Cambridge UP 学術モノグラフ) とは別の道として、現場運用に直接使える実戦的な内容を
-  // ナラティブ + 道具集の形でまとめる本。素材は 2026-06-13 章割で起草済み (preface/field/model/nursery/toolkit)。
-  // 学術書 (新 BZM 本書) で立てた理論を、実戦書で現場へ橋渡しする二段構え。
+  // ナラティブ + 道具集の形でまとめる本として構想。素材は 2026-06-13 章割で起草済み
+  // (preface/field/model/nursery/toolkit)。学術書 (新 BZM 本書) で立てた理論を、
+  // 実戦書で現場へ橋渡しする二段構えという企画自体はここでは判断しない。
+  // 2026-07-18 追記 (まさフィードバック対応): Book A (上記) が完成し正本になったため、
+  // 読者向け UI 表示は「[実戦書]」→「[旧版アーカイブ]」に変更。通読の入口 (/bzm) で
+  // です・ます調の旧序文に当たって Book A と取り違えられる混乱を防ぐための表示替え。
+  // 本文 md ファイルは削除せず保全する (履歴保全、実戦書としての将来出版可否は別途判断)。
   // ============================================================
   {
     key: "practical-preface",
-    label: "[実戦書] 序章 — この本の読み方",
-    description: "実戦書 (= 現場運用向け実践書) の序章。学術書 (新 BZM 本書) で立てた天井 × 到達 × 生存のモデルを、研究者・支援者・投資家の現場で明日から使える形にまとめる。",
+    label: "[旧版アーカイブ] 序章 — この本の読み方",
+    description: "旧版アーカイブ (Book A 完成前に 2026-06-13 章割で起草した実戦書素材) の序章。正本は上記 Book A。学術書 (新 BZM 本書) で立てた天井 × 到達 × 生存のモデルを、研究者・支援者・投資家の現場で明日から使える形にまとめようとした草稿。",
     slugs: ["preface"],
   },
   {
     key: "practical-field",
-    label: "[実戦書] 第 I 部 — Before Zero の現場",
-    description: "実戦書の第 I 部 (現場誌)。会社になる前に何が起きるか、関係者の時計のズレ、鬼門、誰が何を背負うかを現場目線で描く。学術書では Book I (Ch 1-4) として再編・形式化。",
+    label: "[旧版アーカイブ] 第 I 部 — Before Zero の現場",
+    description: "旧版アーカイブの第 I 部 (現場誌)。会社になる前に何が起きるか、関係者の時計のズレ、不可逆点、誰が何を背負うかを現場目線で描く。学術書では Book I (Ch 1-4) として再編・形式化。",
     slugs: ["field-before-zero", "field-clocks", "field-gates", "field-who-carries"],
   },
   {
     key: "practical-model",
-    label: "[実戦書] 第 II 部 — Before Zero Model",
-    description: "実戦書の第 II 部 (モデル説明)。SPS = 天井 P × 到達 R × 生存 S と戦略余力を、現場で使える形で説明する。学術書では Book II (Ch 5-11.5) として理論的に再編・拡張。",
+    label: "[旧版アーカイブ] 第 II 部 — Before Zero Model",
+    description: "旧版アーカイブの第 II 部 (モデル説明)。SPS = 天井 P × 到達 R × 生存 S と戦略余力を、現場で使える形で説明する。学術書では Book II (Ch 5-11.5) として理論的に再編・拡張。",
     slugs: [
       "why-valuation-fails",
       "model-overview",
@@ -240,20 +247,20 @@ export const BZM_PARTS: BzmPartConfig[] = [
   },
   {
     key: "practical-nursery",
-    label: "[実戦書] 第 III 部 — 苗床",
-    description: "実戦書の第 III 部 (ECR エコシステム構築率)。研究機関をベンチャーを生み育てる装置として読み、整備度の測り方と制度設計を扱う。学術書では Book III + Book V として再編される。",
+    label: "[旧版アーカイブ] 第 III 部 — 苗床",
+    description: "旧版アーカイブの第 III 部 (ECR エコシステム構築率)。研究機関をベンチャーを生み育てる装置として読み、整備度の測り方と制度設計を扱う。学術書では Book III + Book V として再編される。",
     slugs: ["nursery-ers"],
   },
   {
     key: "practical-toolkit",
-    label: "[実戦書] 第 IV 部 — 実践ツールキット",
-    description: "実戦書の第 IV 部 (実践道具集)。面談の問い、開示台本、判断チェックリスト、九十日 pilot charter など、明日から使える道具集。学術書では Book IV + 付録 B として再編される。",
+    label: "[旧版アーカイブ] 第 IV 部 — 実践ツールキット",
+    description: "旧版アーカイブの第 IV 部 (実践道具集)。面談の問い、開示台本、判断チェックリスト、九十日 pilot charter など、明日から使える道具集。学術書では Book IV + 付録 B として再編される。",
     slugs: ["field-toolkit"],
   },
   {
     key: "practical-appendix",
-    label: "[実戦書] 巻末資料",
-    description: "実戦書の巻末資料 (倫理・変更履歴)。著者性・利害・倫理への批判と附則。学術書では Ch 0.0 + 付録 として再編される。",
+    label: "[旧版アーカイブ] 巻末資料",
+    description: "旧版アーカイブの巻末資料 (倫理・変更履歴)。著者性・利害・倫理への批判と附則。学術書では Ch 0.0 + 付録 として再編される。",
     slugs: ["ethics-and-authorship", "9-5-appendix-changelog"],
   },
   {
@@ -271,9 +278,12 @@ export const BZM_PARTS: BzmPartConfig[] = [
 
 export const BZM_CHAPTERS: BzmChapterConfig[] = [
   // --- Book A 教科書 15章 (PF-012、L1 = BOOK_A_MASTER_PLAN.md、L3 = BOOK_A_CHAPTER_*_PROGRESS.md) ---
+  // 巻頭・巻末は 2026-07-17 起草、2026-07-18 登録 (まさ 2026-07-18 フィードバック対応:
+  // /bzm の入口が旧版アーカイブの序文に飛んでいた導線バグを塞ぎ、Book A を巻頭から巻末まで揃える)。
+  { slug: "book-a-frontmatter", title: "序・凡例・記号一覧", summary: "「会社は、生まれる前に、いちばん多く死ぬ」から始まる序文。Before Zero の領土宣言、道具立ての由来、検証済みと仮説の峻別方針、そして全15章の記号・数式一覧 (凡例)。", status: "in-progress" },
   { slug: "book-a-ch-1", title: "第1章 — ディープテック起業と Before Zero — なぜ設立前を経営学の対象にするのか", summary: "章頭ケース「設立三周年の花束」(逆年表)。標準アントレ理論が「ゼロの後」から始まる射程の限界を示し、Before Zero の領土宣言・状態空間 (ι, F, S0, I)・三項構造 (観測二層 SPS/ECR + 行動一層 RT) を本書15章の地図として提示。22p。v1 確定 (まさレビュー完了)。", status: "completed" },
   { slug: "book-a-ch-2", title: "第2章 — 関係者の時計と不可逆点 — 開示の順序・法人化境界・進める/待つ/止めるの語彙", summary: "関係者×関心×時計の地図、三つの不可逆点 (開示順序・会社化タイミング・早すぎる CEO 要求)、GO/WAIT/NO_GO/HOLD と WAIT の3部品。意図的に数式ゼロの回 (数式強度曲線の起点)。24p。v1 確定 (まさレビュー完了)。", status: "completed" },
-  { slug: "book-a-ch-3", title: "第3章 — 評価問題の定式化 — Valuation の限界と期待値分解 P×R×S", summary: "DCF が Before Zero で壊れる四つの壁を示し、評価問題を E[V] = P×R×S へ定式化し直す。乗法/加重和/補完性の3層対応表を導入。26p。起草中 (v1 draft)。", status: "in-progress" },
+  { slug: "book-a-ch-3", title: "第3章 — 評価問題の定式化 — Valuation の限界と期待値分解 M×P×R×S", summary: "DCF が Before Zero で壊れる四つの壁を示し、評価問題を E[V] = P×R×S へ定式化し直す。乗法/加重和/補完性の3層対応表を導入。26p。起草中 (v1 draft)。", status: "in-progress" },
   { slug: "book-a-ch-4-5", title: "第4章 — 外の必要と内の到達 — M と R を観測で採点する", summary: "現行第4章(P)と第5章(R)を統合する章。中心命題: 事業は外の必要(M)と内の到達(R)の積で動き、どちらも他方の代わりにならない。章頭(4.0)は断熱素材のサンプルのなりゆきを通じて M と R を観測で採点する場面を描く (まさ承認済み)。市場の天井(P)は第3章へ前方参照。理論本文(4.1以降)は執筆中。54p目安。", status: "in-progress" },
   { slug: "book-a-ch-6", title: "第5章 — 生存の静学 — 生存条件式と創業者機能 F-CES", summary: "生存は残り時間ではなく、自分の手で稼ぎながら学習し続ける力で測る。生存条件式 B−R_net≤F と F 内部の CES 補完 (資質×実行力は両方必須) — 3層対応表の中核回。30p。起草中 (v1 draft)。", status: "in-progress" },
   { slug: "book-a-ch-7", title: "第6章 — マクロ追い風の計測 — Triple Helix と投入シグナル σ_SU", summary: "「追い風」を雰囲気でなく観測量にする: σ_SU の Triple Helix Cobb-Douglas 構成と状態空間モデルの直感。ハイプと真の進展、揃った風と乖離の先行窓を識別する。28p。起草中 (v1 draft)。", status: "in-progress" },
@@ -286,6 +296,7 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
   { slug: "book-a-ch-13-5", title: "第13章 — CEOという難問 — 機能は分割できても、愛情の総量だけは外注できない", summary: "章頭は「肩書のまま決める機能を失った男」(一枚の組織図)。CEO 像の通時変化・制度と市場の不整合・機能分割 (新第5章=旧第6章 §6.7 の実務適用)・エバンジェリスト機能の非外注性・育成可能性・肩書だけの CEO という7つの問いを実話で辿り、Before Zero から法人化後までの一気通貫供給を解として示す「問い×実話」変奏章。AMD の実践は序章/あとがき/著者性 Box でのみ明かす (a案)。26p。", status: "in-progress" },
   { slug: "book-a-ch-14", title: "第14章 — 出口ポートフォリオ — シーズごとに正しいサイズの成功を", summary: "本書の看板主張: ユニコーン単願ではなく出口ポートフォリオを設計する。絶対スケール+達成率の2読み方式の正準オーナー回。「サイズを選ぶ」という第三の判断。26p。起草中 (理論パート 14.1-14.9 正本化済み、章頭 14.0 は別途)。", status: "in-progress" },
   { slug: "book-a-ch-15", title: "第15章 — 検証と限界 — 総合演習: モデルを疑いながら使う", summary: "後付け校正と検証の峻別 (Tier 規律)、blind retrofit、反証条件リスト = BZM の可死性の明文化。総合演習 = 期末課題 (フル評価レポート)。「モデルは信じるものではなく検証するもの」で本を閉じる。28p。", status: "in-progress" },
+  { slug: "book-a-backmatter", title: "読書案内と索引", summary: "全15章の文献をテーマ別に組み直した読書案内と、記号・用語の索引。巻末パッケージ初版 (2026-07-17)、第11〜15章のまさレビュー後に本文追随が必要な暫定版。", status: "in-progress" },
 
   {
     slug: "preface",
@@ -304,7 +315,7 @@ export const BZM_CHAPTERS: BzmChapterConfig[] = [
   },
   {
     slug: "field-gates",
-    title: "鬼門 — 進める、待つ、止めるを分ける",
+    title: "不可逆点 — 進める、待つ、止めるを分ける",
     summary: "外部開示の順序、会社化のタイミング、CEO機能の早すぎる要求。GO/WAIT/NO_GO/HOLD の語彙で空気から判断を取り戻し、戻る条件を書いた WAIT が未来の GO を作る。",
   },
   {
