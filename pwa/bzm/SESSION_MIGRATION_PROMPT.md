@@ -131,6 +131,16 @@
 - commit → 即 push、他 worker と並行するので push 直前に `git fetch origin main` 必須
 - コミットメッセージは日本語、`docs(bzm): ...` / `feat(pwa): ...` 形式、Co-Authored-By ライン
 
+### 共有 checkout での git 作法 (2026-07-17 事故 `0c498f2b` を受けて恒久化)
+
+Book A は常時 5-10 セッションが同じ root checkout (`/Users/masa/projects/AMD/amd-os`) を共有する。**index (staged) も共有**されるため:
+
+- **`git commit` は必ずパス指定付き** (`git commit <paths>` または `git commit --only -- <paths>`)。パス指定なし `git commit` は他セッションの staged を巻き込む (事故 `0c498f2b` = 他レーン 49 ファイル巻き込み push。`ios/BUGS.md` 2026-07-17 エントリ参照)
+- commit 前に `git status` で staged 列を読む。自分の対象外が staged にあっても**除染しない** (他セッションの意図的 staged の可能性)、自分のファイルだけパス指定 commit する
+- **non-FF (origin が先行) 時の正規経路**: 自セッション worktree を origin/main へ detach → cherry-pick (または編集) → `git push origin HEAD:main` → 完了。root checkout の rebase/merge は他レーン dirty と衝突するため試みない
+- root main の ref 追従が必要な場合は `git reset --soft origin/main` のみ可 (working tree / index 不変)。その直後に staged の見かけ差分が発生し得るため、追従後は commit しない (次の作業者へ引き渡す)
+- 一時 branch へ push した場合は main へ畳み込み後、リモート枝を削除 (patch-equivalent-main の残置禁止)
+
 ### fable トークン節約方針 (継続)
 
 - fable トークンがもうなくなりそうというまさ制約は継続
