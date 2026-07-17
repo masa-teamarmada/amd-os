@@ -218,7 +218,7 @@ expectNotIncludes("src/components/contracts/ContractsClient.tsx", [
 
 expectIncludes("src/app/(app)/layout.tsx", [
   "AppShell",
-  "agreementGateBundle={agreementGateBundle}",
+  "memberId={memberId}",
 ]);
 
 expectIncludes("src/components/nav/AppShell.tsx", [
