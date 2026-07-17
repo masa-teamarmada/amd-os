@@ -1205,12 +1205,12 @@ export async function loadTargetData(ym: string, options: LoadTargetDataOptions 
           .in("project_id", projectIds)
       : Promise.resolve({ data: [], error: null }),
     db.from("payout_notices").select("*").eq("ym", ym),
-    // 別財布（別契約）売上の按分元行。period 按分先 (将来月) と按分元行の ym は別月に
-    // なりうるので、forecast 期間で絞らず extra_revenue_json IS NOT NULL の全行を取る。
-    // 表示期間での絞り込みはクライアントの expandExtraRevenue(minYm/maxYm) で行う。
+    // 別財布（別契約）売上の元行。PL按分元と現金入金月は別月になりうるので、
+    // forecast 期間で絞らず extra_revenue_json IS NOT NULL の全行を取る。
+    // 表示期間での絞り込みはクライアントの expandExtraRevenueCash(minYm/maxYm) で行う。
     db
       .from("billing_cycles")
-      .select("project_id, ym, extra_revenue_json")
+      .select("project_id, ym, invoice_ym, extra_revenue_json")
       .not("extra_revenue_json", "is", null)
       .limit(2000),
   ]);

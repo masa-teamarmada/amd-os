@@ -11,7 +11,7 @@ import { AlertTriangle, CheckCircle2, CircleGauge, ShieldAlert } from "lucide-re
 import { runMonthlyPlSimulation, type MonthlyPlInputs } from "@/lib/finance/monthly-pl-simulation";
 import { buildLiveMonthlyPlInputs } from "@/lib/finance/live-monthly-pl-inputs";
 import { LIVE_MONTHLY_PL_VERSION } from "@/lib/finance/live-monthly-pl-budget";
-import { expandExtraRevenue, type ExtraRevenueSourceRow } from "@/lib/finance/extra-revenue";
+import { expandExtraRevenueCash, type ExtraRevenueSourceRow } from "@/lib/finance/extra-revenue";
 import { effectivePaymentYmForCycle } from "@/lib/payment-groups";
 import { computeForwardCappedMemberCosts } from "@/lib/reward-summary";
 import { contractBackedClientAmount, isWithinContractPeriod } from "@/lib/contract-money";
@@ -943,7 +943,11 @@ function buildProjectMonthlyFinanceRows({
   const minMonth = monthInts.length > 0 ? Math.min(...monthInts) : undefined;
   const maxMonth = monthInts.length > 0 ? Math.max(...monthInts) : undefined;
   const extraByPjYm = new Map<string, { amount: number; labels: string[] }>();
-  for (const ex of expandExtraRevenue(extraRevenueRows, { minYm: minMonth, maxYm: maxMonth })) {
+  for (const ex of expandExtraRevenueCash(extraRevenueRows, {
+    minYm: minMonth,
+    maxYm: maxMonth,
+    paymentTermsByProjectId: projectMap,
+  })) {
     extraByPjYm.set(`${ex.projectId}:${ex.ym}`, { amount: ex.amount, labels: ex.labels });
   }
   const takeExtra = (projectId: string, ym: string) => {
@@ -2169,7 +2173,7 @@ export default async function ManagementScorePage() {
     safeSelect<ExtraRevenueSourceRow[]>(() =>
       admin
         .from("billing_cycles")
-        .select("project_id, ym, extra_revenue_json")
+        .select("project_id, ym, invoice_ym, extra_revenue_json")
         .not("extra_revenue_json", "is", null)
         .limit(2000)
     ),

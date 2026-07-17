@@ -151,6 +151,7 @@
 **① 別財布の売上を `billing_cycles.extra_revenue_json` に計上** (= PL/キャッシュの売上側)
 - 計上月は **請求日ベースの billing 月** の1行に置く (例: OkuDoor は請求 2026-03 → ym=202603 の `extra_revenue_json`)。
 - `{label, amount_tax_excl, billing_date, period_start_ym, period_end_ym, freee_invoice_number, memo}` を持たせる。`period_*` で開発期間に按分される (PL表示用。原価計算には使わない)。
+- **現金は開発期間で按分しない**。entry に `payment_received_ym` / `payment_received_at` があればその実入金月、無ければ `invoice_ym`、次に `billing_date` とPJ支払条件で予測した月へ、税抜総額を一括計上する。実入金が入った後に予測月を残さない。
 - これは「売上が OS に存在する」ための計上。**pt単価原資 (extra_budget_yen) とは別物**なので混同しない。
 
 **② 別財布の MS を `tag=cap_extra` で作り、期間と share を決める** (= 原価/配分側)
@@ -197,6 +198,7 @@
 ## Changelog
 | 日付 | 変更 | 誰 |
 |---|---|---|
+| 2026-07-17 | §5.2 の別財布 cash ルールを、PLの期間按分から分離。entry実入金月を最優先し、未確認時だけ `invoice_ym`、次に請求日+PJ支払条件で予測月を決め、総額を一括計上する。p19 OkuDoorはPL 202605〜202610の6か月按分を維持しつつ、現金予測を202604の200万円へ統一 | えいみ |
 | 2026-06-19 | 初版。SX一連の議論から予実表を設計正本化。データソース・バッファ内訳列・画面配置・実装ステップを確定 | えいみ |
 | 2026-06-19 | §5 実装完了 (v0.29.0)。migration 148 + `season-pl.ts` + `/admin/season-pl` + API + FEATURE_REGISTRY + critical-ui anchor。未割当pt 検算を `total_points − Σ(MS points)` に修正。SX 1pt 穴 / ZMP cap-原資不整合 / KUTE 非閉じ を実検出 (別タスク監査へ) | えいみ |
 | 2026-06-20 | §5.1 別財布 cap_extra エンジン実装 (migration 149 + `reward-summary.ts` extra cap/extra pt単価独立化)。ZMP DB是正を実証完了 (total_points 177 / OkuDoor share 0.6923系 / extra_budget_yen 202610=130万)。完了月cap=満額130万 (A案: 202605保護一時解除→全期間再計算→復元で既払い打ち消し)。うめ/あび各20万・OkuDoor総消化130万にぴったり収束。§5.2 別財布処理プレイブック (汎用3ステップ) を正本化。`computeSeasonPl` を別財布対応 (regular/extra pt単価分離) に改修 | えいみ |

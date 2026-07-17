@@ -530,7 +530,7 @@ expectIncludes("src/app/api/admin/ms-overview/[planCycleId]/route.ts", [
   "PJ予算がクライアント支払からバッファを引いた原資上限を",
   "シーズン終了月に未払残が",
   "contractBackedClientAmount",
-  "buildExtraRevenueByYm",
+  "buildExtraRevenueCashByYm",
   "parseSeasonBufferTotal",
   "milestone_change_events",
   "persistMilestoneChangeEvent",

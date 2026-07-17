@@ -1,4 +1,4 @@
-import { adjustToPreviousBusinessDay } from "@/lib/japanese-holidays";
+import { adjustToPreviousBusinessDay } from "./japanese-holidays.ts";
 
 export type PaymentDueRule =
   | "current_month_eom"

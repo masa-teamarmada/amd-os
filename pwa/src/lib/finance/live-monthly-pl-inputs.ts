@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   expandExtraRevenue,
+  expandExtraRevenueCash,
   ymToInt,
   type ExtraRevenueEntry,
 } from "@/lib/finance/extra-revenue";
@@ -195,12 +196,6 @@ function cleanYmText(value: string | number | null | undefined): string | null {
   return /^\d{6}$/.test(ym) ? ym : null;
 }
 
-function ymFromIsoDate(value: string | null | undefined): string | null {
-  const match = String(value ?? "").trim().match(/^(\d{4})-(\d{2})/);
-  if (!match) return null;
-  return `${match[1]}${match[2]}`;
-}
-
 function addMonths(ym: string, delta: number): string {
   const year = Number(ym.slice(0, 4));
   const month = Number(ym.slice(4, 6));
@@ -292,30 +287,6 @@ function contractNetRevenueForCycle(row: BillingRow, project: ProjectRow | undef
   }
   const budgetYen = num(row.budget_yen);
   return budgetYen > 0 ? Math.round(budgetYen / REWARD_RATE) : 0;
-}
-
-function resolveExtraRevenueCashYm(
-  row: ExtraRevenueRow,
-  entry: ExtraRevenueEntry,
-  project: ProjectRow | undefined
-): number | null {
-  const explicitInvoiceYm = cleanYmText(row.invoice_ym);
-  if (explicitInvoiceYm) return ymToInt(explicitInvoiceYm);
-
-  const billingYm = ymFromIsoDate(entry.billing_date);
-  if (billingYm) {
-    return ymToInt(
-      computePaymentYmByRule(
-        billingYm,
-        project?.payment_due_rule ?? null,
-        project?.payment_due_day ?? null,
-        invoiceDeadlineReferenceDate(billingYm, project)
-      )
-    );
-  }
-
-  // Legacy entries without billing_date keep the historical behavior: cash in billing_cycles.ym.
-  return ymToInt(row.ym);
 }
 
 export interface BuildLiveInputsOptions {
@@ -506,8 +477,8 @@ export async function buildLiveMonthlyPlInputs(
   // extraRevenue は売上・粗利・消費税に、extraRevenueCash は入金月の CF/残高にだけ乗る
   // (原価は `/admin/payouts` 由来の externalMemberCost で別途注入するため自動原価率は通さない)。
   // period_start_ym〜period_end_ym 指定があれば開発期間で月次按分 (B-a, 2026-06-16)、
-  // 無ければ billing_cycles.ym へ一括計上 (後方互換)。キャッシュは invoice_ym 優先、
-  // 無ければ billing_date 月 + PJ 支払サイト (null は翌月末) で解決する。
+  // 無ければ billing_cycles.ym へ一括計上 (後方互換)。キャッシュは共通 helper で
+  // 実入金月 / invoice_ym / billing_date 月 + PJ 支払サイトの順に解決する。
   if (allProjectIds.length > 0) {
     const extraRes = await supabase
       .from("billing_cycles")
@@ -532,21 +503,17 @@ export async function buildLiveMonthlyPlInputs(
       });
     }
 
-    for (const row of (extraRes.data ?? []) as ExtraRevenueRow[]) {
-      const entries = Array.isArray(row.extra_revenue_json) ? row.extra_revenue_json : [];
-      for (const entry of entries) {
-        const total = Math.round(num(entry?.amount_tax_excl));
-        if (total <= 0) continue;
-        const cashYm = resolveExtraRevenueCashYm(row, entry, projectById.get(row.project_id));
-        if (cashYm == null || cashYm < startYm || cashYm > endInt) continue;
-        const label = typeof entry?.label === "string" && entry.label.length > 0 ? entry.label : "別財布売上";
-        projectRevenues.push({
-          projectId: row.project_id,
-          ym: cashYm,
-          extraRevenueCash: total,
-          extraRevenueCashMemo: `${label} cash receipt`,
-        });
-      }
+    for (const ex of expandExtraRevenueCash((extraRes.data ?? []) as ExtraRevenueRow[], {
+      minYm: startYm,
+      maxYm: endInt,
+      paymentTermsByProjectId: projectById,
+    })) {
+      projectRevenues.push({
+        projectId: ex.projectId,
+        ym: ex.ym,
+        extraRevenueCash: ex.amount,
+        extraRevenueCashMemo: `${ex.labels.join(", ") || "別財布売上"} cash receipt`,
+      });
     }
   }
 

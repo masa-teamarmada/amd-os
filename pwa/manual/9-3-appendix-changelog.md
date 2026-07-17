@@ -14,6 +14,7 @@
 
 | 日付 | 対象章 | 種別 | 内容 | 理由 | 誰が |
 |---|---|---|---|---|---|
+| 2026-07-17 | 2-3 PJ Cockpit / 4-5 Management Score / 6-5 Admin Payouts | 修正 | 別財布 `extra_revenue_json` のPL期間按分とcash入金を分離。実入金月をentry単位で最優先し、未確認時だけ `invoice_ym`、次に請求日とPJ支払条件で予測月を解決して総額を一括計上する。p19 OkuDoorはPL 202605〜202610の6か月按分を保ち、現金予測は202604の200万円に統一。PJ cockpit、月次試算表、payouts、MS予算検算は同じcash helperを使う。build v3.44.12 | 開発期間のPL按分が現金入金にも混ざり、振込月と異なる月へ小分け計上されていたため | えいみ |
 | 2026-07-17 | 4-5 Management Score / Finance Simulation | 修正 | 月次試算表の`入金`行をPJ別の`入金予定（税込）`へ展開できるようにした。PLの売上計と混同せず、`invoice_ym`と契約上の支払条件で解決済みの現金入金月をPJごとに読める。KUTEの2か月分初回入金、SXの請求書受理後60日条件による初回入金もここで確認する。build v3.44.11 | 会社合計の入金だけでは、契約条件を反映した結果がKUTE/SXごとに見えず、修正漏れに見えていたため | えいみ |
 | 2026-07-17 | 4-5 Management Score / 6-5 Admin Payouts / 7-1 報酬計算 | 修正 | live 月次試算表の売上原価を `/admin/payouts` の capped 外部支払予定に統一。`reward_summary_json.externalRegularPayoutCapYen + externalExtraPayoutCapYen` を PJ/月の原価とし、会社留保・役員留保・報酬債務・旧GASのクローザー5%は cash out に混ぜない。報酬キャッシュが無い PJ/月や支払対象メンバーがいない PJ/月は 0 円を正本にし、`fee_amount×65%` / `budget_yen` / `rateCloser` フォールバックへ落とさない。build v3.44.4 | SE に存在しない外注費が出たり、ZMP の役員/会社留保が内製原価として見えたりして、payouts と月次試算表の売上原価が一致せず、残高予測も実感より悪化していたため | えいみ |
 | 2026-07-17 | 6-9 法人支払義務 / Admin運営カレンダー | 追加 | `/admin/schedule` を、支払義務・契約・報告・請求などの正本から自動導出する読み取りモデルとして追加。カレンダー上の手入力は行わず、支払義務通知は既存台帳に委譲する。build v3.44.0 | 運営期限を一つの画面で俯瞰しつつ、正本との二重管理と通知重複を防ぐため | えいみ |

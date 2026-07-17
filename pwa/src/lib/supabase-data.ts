@@ -11,7 +11,7 @@ import { contractBackedClientAmount, yenNumber } from "@/lib/contract-money";
 import type { ProjectContractTerms } from "@/lib/project-contract-terms";
 import {
   allocateSeasonBufferByYm,
-  buildExtraRevenueByYm,
+  buildExtraRevenueCashByYm,
   parseSeasonBufferTotal,
 } from "@/lib/finance/season-finance";
 
@@ -1860,16 +1860,25 @@ function buildCockpitSeasonFinance({
     start_ym: typeof projectRow.start_ym === "string" ? projectRow.start_ym : null,
     end_ym: typeof projectRow.end_ym === "string" ? projectRow.end_ym : null,
     contract_terms_json: projectRow.contract_terms_json,
+    payment_due_rule: typeof projectRow.payment_due_rule === "string" ? projectRow.payment_due_rule : null,
+    payment_due_day: typeof projectRow.payment_due_day === "number" ? projectRow.payment_due_day : null,
+    invoice_send_deadline_rule: typeof projectRow.invoice_send_deadline_rule === "string" ? projectRow.invoice_send_deadline_rule : null,
   };
   const rowByYm = new Map(billingRows.map((row) => [String(row.ym || ""), row]));
   const projectId = planCycle.projectId || String(projectRow.project_id || "");
-  const extraRevenueByYm = buildExtraRevenueByYm(
+  const extraRevenueCashByYm = buildExtraRevenueCashByYm(
     billingRows.map((row) => ({
       project_id: String(row.project_id || projectId),
       ym: row.ym as string | number | null | undefined,
+      invoice_ym: row.invoice_ym as string | number | null | undefined,
       extra_revenue_json: Array.isArray(row.extra_revenue_json) ? row.extra_revenue_json : null,
     })),
-    { projectId, minYm: planCycle.periodStartYm, maxYm: planCycle.periodEndYm },
+    {
+      projectId,
+      minYm: planCycle.periodStartYm,
+      maxYm: planCycle.periodEndYm,
+      paymentTerms: projectForContract,
+    },
   );
   const regularClientAmountByYm = new Map<string, number>();
   for (const ym of months) {
@@ -1897,7 +1906,7 @@ function buildCockpitSeasonFinance({
       : null) as RewardSummary | null;
     const cycleStatus = String(row?.status || "");
     const regularClientPaymentYen = regularClientAmountByYm.get(ym) ?? 0;
-    const clientPaymentYen = regularClientPaymentYen + (extraRevenueByYm.get(ym) ?? 0);
+    const clientPaymentYen = regularClientPaymentYen + (extraRevenueCashByYm.get(ym) ?? 0);
     const bufferYen = seasonBufferByYm.get(ym) ?? rewardNumber(row?.budget_buffer_amount);
     const regularBudgetYen = rewardNumber(row?.budget_yen);
     const extraBudgetYen = row?.extra_budget_yen == null ? 0 : rewardNumber(row.extra_budget_yen);

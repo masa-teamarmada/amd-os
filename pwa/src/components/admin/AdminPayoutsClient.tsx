@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { CockpitMonthlyModal } from "@/components/cockpit/CockpitMonthlyModal";
 import { fetchCockpitFromSupabase, type CockpitData } from "@/lib/supabase-data";
-import { expandExtraRevenue, type ExtraRevenueSourceRow } from "@/lib/finance/extra-revenue";
+import { expandExtraRevenueCash, type ExtraRevenueSourceRow } from "@/lib/finance/extra-revenue";
 import { basePayoutCapYen, contractBackedClientAmount } from "@/lib/contract-money";
 import { effectiveMemberPayoutYmForCycle } from "@/lib/payment-groups";
 
@@ -933,14 +933,18 @@ function buildProjectMonthlyFinanceRows({
     officerByCycle.set(key, list);
   }
 
-  // 別財布（別契約）売上を表示期間で按分展開し (projectId:ym) ごとに引けるようにする。
+  // 別財布（別契約）売上を現金入金月で展開し (projectId:ym) ごとに引けるようにする。
   // 按分元行の ym は表示期間より前のこともあるので、絞り込みは展開後の minYm/maxYm で行う
-  // (= live-monthly-pl-inputs と同じ共通ヘルパー expandExtraRevenue を共用)。
+  // (= live-monthly-pl-inputs と同じ共通ヘルパー expandExtraRevenueCash を共用)。
   const monthInts = months.map((ym) => Number(ym)).filter((n) => Number.isFinite(n));
   const minMonth = monthInts.length > 0 ? Math.min(...monthInts) : undefined;
   const maxMonth = monthInts.length > 0 ? Math.max(...monthInts) : undefined;
   const extraByPjYm = new Map<string, { amount: number; labels: string[] }>();
-  for (const ex of expandExtraRevenue(extraRevenueRows, { minYm: minMonth, maxYm: maxMonth })) {
+  for (const ex of expandExtraRevenueCash(extraRevenueRows, {
+    minYm: minMonth,
+    maxYm: maxMonth,
+    paymentTermsByProjectId: projectMap,
+  })) {
     extraByPjYm.set(`${ex.projectId}:${ex.ym}`, { amount: ex.amount, labels: ex.labels });
   }
   const takeExtra = (projectId: string, ym: string): { amount: number; labels: string[] } => {

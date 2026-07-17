@@ -137,6 +137,8 @@ cashStartYm?: number | null;
 
 PL上の `revenue` は発生月で計上し、`cashInflow` / `netCashFlow` / `cashBalance` は `cashDelayMonths` を反映した月で計算する。live 月次試算表の売上原価は `/admin/payouts` の capped 外部支払予定を正本にし、旧GASの `rateMember` / `rateCloser` から理論原価を自動発生させない。これで「請求は6月から、最初の振込は8月末」のような案件別入金条件を月次試算表に入れつつ、支払通知に存在しない外注費・内製費を出さない。
 
+別財布 (`billing_cycles.extra_revenue_json`) もこの境界を守る。`period_start_ym`〜`period_end_ym` はPLの発生配分だけに使い、cash には使わない。cash は entry の実入金月を最優先し、未確認時だけ `invoice_ym`、次に `billing_date` とPJ支払条件から予測月を解決して、その月に税抜総額を一括計上する。例えばp19のOkuDoor 200万円はPLでは202605〜202610に按分する一方、現金予測は請求日2026-03-31と翌月末条件から202604に200万円を置く。
+
 ### 報酬債務と PL / cash の境界
 
 SX のように契約開始前の実働を後月支払へ回す PJ では、次の 4 つを別々のレイヤーとして扱う。

@@ -13,7 +13,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/supabase/api-auth";
 import { contractBackedClientAmount } from "@/lib/contract-money";
-import { buildExtraRevenueByYm, parseSeasonBufferTotal } from "@/lib/finance/season-finance";
+import { buildExtraRevenueCashByYm, parseSeasonBufferTotal } from "@/lib/finance/season-finance";
 import {
   calculateRewardSummaryForCycle,
   isRewardCycleProtected,
@@ -69,6 +69,9 @@ type ProjectMoneyRow = {
   start_ym?: string | null;
   end_ym?: string | null;
   contract_terms_json?: unknown;
+  payment_due_rule?: string | null;
+  payment_due_day?: number | null;
+  invoice_send_deadline_rule?: string | null;
 };
 
 type ExistingMilestoneRow = {
@@ -95,6 +98,7 @@ type ProtectedBillingCycleRow = {
 type ExtraRevenueSourceRow = {
   project_id: string;
   ym: string;
+  invoice_ym?: string | null;
   extra_revenue_json?: unknown[] | null;
 };
 
@@ -518,10 +522,11 @@ async function buildRewardRevisionBudgetImpact({
   const regularBudgetYen = Math.max(0, Math.round(safeNumber(plan.budget_yen)));
   const extraBudgetYen = cycles.reduce((sum, cycle) => sum + Math.max(0, Math.round(safeNumber(cycle.extra_budget_yen))), 0);
   const seasonBudgetYen = regularBudgetYen + extraBudgetYen;
-  const extraRevenueByYm = buildExtraRevenueByYm(extraRevenueRows, {
+  const extraRevenueCashByYm = buildExtraRevenueCashByYm(extraRevenueRows, {
     projectId: plan.project_id,
     minYm: plan.period_start_ym,
     maxYm: plan.period_end_ym,
+    paymentTerms: project ?? undefined,
   });
   const clientPaymentYen = cycles.reduce((sum, cycle) => {
     return sum + contractBackedClientAmount({
@@ -529,7 +534,7 @@ async function buildRewardRevisionBudgetImpact({
       project,
       reportedAmount: cycle.budget_reported_amount,
       cycleStatus: cycle.status,
-    }) + (extraRevenueByYm.get(cycle.ym) ?? 0);
+    }) + (extraRevenueCashByYm.get(cycle.ym) ?? 0);
   }, 0);
   const bufferYen = parseSeasonBufferTotal(plan.buffer_breakdown_json)
     ?? cycles.reduce((sum, cycle) => sum + Math.max(0, Math.round(safeNumber(cycle.budget_buffer_amount))), 0);
@@ -1226,7 +1231,7 @@ async function prepareMsEditPayload(
   const [projectRes, cyclesRes, extraRevenueRes, existingRes] = await Promise.all([
     db
       .from("projects")
-      .select("project_id, fee_type, fee_amount, start_ym, end_ym, contract_terms_json")
+      .select("project_id, fee_type, fee_amount, start_ym, end_ym, contract_terms_json, payment_due_rule, payment_due_day, invoice_send_deadline_rule")
       .eq("project_id", plan.project_id)
       .maybeSingle(),
     db
@@ -1238,7 +1243,7 @@ async function prepareMsEditPayload(
       .order("ym", { ascending: true }),
     db
       .from("billing_cycles")
-      .select("project_id, ym, extra_revenue_json")
+      .select("project_id, ym, invoice_ym, extra_revenue_json")
       .eq("project_id", plan.project_id)
       .not("extra_revenue_json", "is", null),
     db

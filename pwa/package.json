@@ -13,6 +13,7 @@
     "test:task-calendar-register": "node --experimental-strip-types scripts/check_task_calendar_register.mts",
     "test:contracts-ledger": "node --experimental-strip-types scripts/check_contracts_ledger_grouping.mts",
     "test:payment-obligations": "node --experimental-strip-types scripts/check_payment_obligations.mts",
+    "test:extra-revenue-cash": "node --experimental-strip-types scripts/check_extra_revenue_cash_timing.mts",
     "test:admin-schedule": "node --experimental-strip-types scripts/check_admin_schedule.mts",
     "test:prs-mprs-grouping": "node --experimental-strip-types scripts/check_prs_mprs_grouping.mts",
     "test:company-overview-cap-table": "node --experimental-strip-types scripts/check_company_overview_cap_table.mts",

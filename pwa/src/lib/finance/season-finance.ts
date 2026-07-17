@@ -1,8 +1,14 @@
-import { expandExtraRevenue, type ExtraRevenueEntry } from "@/lib/finance/extra-revenue";
+import {
+  expandExtraRevenue,
+  expandExtraRevenueCash,
+  type ExtraRevenueEntry,
+  type ExtraRevenuePaymentTerms,
+} from "@/lib/finance/extra-revenue";
 
 export type SeasonExtraRevenueRow = {
   project_id?: string | null;
   ym?: string | number | null;
+  invoice_ym?: string | number | null;
   extra_revenue_json?: unknown[] | null;
 };
 
@@ -48,6 +54,41 @@ export function buildExtraRevenueByYm(
     {
       minYm: Number.isFinite(minYm) ? minYm : undefined,
       maxYm: Number.isFinite(maxYm) ? maxYm : undefined,
+    },
+  );
+  const byYm = new Map<string, number>();
+  for (const item of expanded) {
+    const ym = String(item.ym);
+    byYm.set(ym, (byYm.get(ym) ?? 0) + Math.max(0, Math.round(item.amount)));
+  }
+  return byYm;
+}
+
+/** PJ収支の現金入金用。別財布を開発期間に按分せず、入金月へ総額を寄せる。 */
+export function buildExtraRevenueCashByYm(
+  rows: SeasonExtraRevenueRow[],
+  options: {
+    projectId: string;
+    minYm: string | number;
+    maxYm: string | number;
+    paymentTerms?: ExtraRevenuePaymentTerms;
+  },
+): Map<string, number> {
+  const minYm = Number(options.minYm);
+  const maxYm = Number(options.maxYm);
+  const expanded = expandExtraRevenueCash(
+    rows
+      .filter((row) => row.project_id === options.projectId || !row.project_id)
+      .map((row) => ({
+        project_id: options.projectId,
+        ym: row.ym ?? 0,
+        invoice_ym: row.invoice_ym ?? null,
+        extra_revenue_json: Array.isArray(row.extra_revenue_json) ? row.extra_revenue_json as ExtraRevenueEntry[] : null,
+      })),
+    {
+      minYm: Number.isFinite(minYm) ? minYm : undefined,
+      maxYm: Number.isFinite(maxYm) ? maxYm : undefined,
+      paymentTermsByProjectId: new Map([[options.projectId, options.paymentTerms]]),
     },
   );
   const byYm = new Map<string, number>();

@@ -444,6 +444,7 @@ UI で必ず出すもの:
   - 数字色は、予算をグレー、実績を黒、差分をプラス水色・マイナスピンクにする
   - 予算は `company_budget_monthly` の GAS 移植結果、実績は freee `trial_pl` 由来の `company_actual_monthly`
   - 入金実績は `billing_cycles.payment_confirmed_at` を正本にし、`invoice_ym` / `payment_due_rule` で入金月へ寄せる。金額は発行済み請求明細 (`invoice_base_lines_json`) → 確定請求額 (`budget_reported_amount`) → 互換 fallback (`budget_yen / 0.65`) の順で税抜を取り、税込にして表示する
+  - 別財布 `extra_revenue_json` は、開発期間の按分をPLにだけ使う。現金は entry の `payment_received_ym` / `payment_received_at` を最優先し、未確認時だけ `invoice_ym`、次に `billing_date` とPJ支払条件から入金見込み月を決めて総額を一括計上する
   - 支払通知書は `payout_notices.sent_at` / `total_yen` を正本にし、送付済み税抜額と cash outflow 用の税込相当を分ける。報酬振込済みの反映有無は `billing_cycles.reward_paid_at` を見る
   - 未来月の実績欄は `未確定`、過去月でOSに実績が無い欄は `未反映`、実績source自体がまだ接続されていない項目は `未連携` と出す
 - キャッシュ判断パネル
