@@ -60,6 +60,9 @@ type BillingRow = {
   ym: string;
   budget_yen?: number | string | null;
   budget_reported_amount?: number | string | null;
+  invoice_ym?: string | null;
+  invoice_issued_at?: string | null;
+  invoice_sent_at?: string | null;
   reward_summary_json?: unknown;
 };
 
@@ -244,6 +247,46 @@ function invoiceDeadlineReferenceDate(billingYm: string, project: ProjectRow | u
   return `${referenceYm.slice(0, 4)}-${referenceYm.slice(4, 6)}-${String(Math.min(deadlineDay, lastDay)).padStart(2, "0")}`;
 }
 
+function isoForYmDay(ym: string, day: number): string | null {
+  if (!cleanYmText(ym)) return null;
+  const lastDay = new Date(Date.UTC(Number(ym.slice(0, 4)), Number(ym.slice(4, 6)), 0)).getUTCDate();
+  return `${ym.slice(0, 4)}-${ym.slice(4, 6)}-${String(Math.min(Math.max(1, day), lastDay)).padStart(2, "0")}`;
+}
+
+function contractInvoiceReferenceDate(row: BillingRow, project: ProjectRow | undefined): string | null {
+  if (row.invoice_sent_at) return String(row.invoice_sent_at).slice(0, 10);
+  if (row.invoice_issued_at) return String(row.invoice_issued_at).slice(0, 10);
+  if (project?.payment_due_rule !== "invoice_received_60_days") return null;
+  const deadlineDay = invoiceDeadlineDay(project.invoice_send_deadline_rule);
+  if (!deadlineDay) return null;
+  const invoiceYm = cleanYmText(row.invoice_ym);
+  return invoiceYm ? isoForYmDay(invoiceYm, deadlineDay) : invoiceDeadlineReferenceDate(row.ym, project);
+}
+
+function contractRevenueCashYm(row: BillingRow, project: ProjectRow | undefined): number | null {
+  const invoiceYm = cleanYmText(row.invoice_ym);
+  const baseYm = invoiceYm ?? cleanYmText(row.ym);
+  if (!baseYm) return null;
+  return ymToInt(
+    computePaymentYmByRule(
+      baseYm,
+      project?.payment_due_rule ?? null,
+      project?.payment_due_day ?? null,
+      contractInvoiceReferenceDate(row, project)
+    )
+  );
+}
+
+function contractNetRevenueForCycle(row: BillingRow, project: ProjectRow | undefined): number {
+  const reported = num(row.budget_reported_amount);
+  if (reported > 0) return reported;
+  if (String(project?.fee_type || "").toLowerCase() === "monthly_fixed" && num(project?.fee_amount) > 0) {
+    return num(project?.fee_amount);
+  }
+  const budgetYen = num(row.budget_yen);
+  return budgetYen > 0 ? Math.round(budgetYen / REWARD_RATE) : 0;
+}
+
 function resolveExtraRevenueCashYm(
   row: ExtraRevenueRow,
   entry: ExtraRevenueEntry,
@@ -409,6 +452,47 @@ export async function buildLiveMonthlyPlInputs(
     }
   }
 
+  const allProjectIds = projects.map((p) => p.project_id);
+
+  // ---- 本契約売上のキャッシュ入金: billing_cycles.invoice_ym + PJ 支払条件 ----
+  // PL 売上は稼働月に残し、キャッシュだけ請求月/支払サイトへ移す。
+  // KUTE のように試算開始月より前の稼働分が当月入金になるケースを拾うため、
+  // billing cycle は開始月から6か月遡って読む。
+  const contractCashProjectIds = new Set<string>();
+  if (allProjectIds.length > 0) {
+    const contractCashLookbackYm = addMonths(startYmStr, -6);
+    const contractCashRes = await supabase
+      .from("billing_cycles")
+      .select("project_id, ym, budget_yen, budget_reported_amount, invoice_ym, invoice_issued_at, invoice_sent_at")
+      .in("project_id", allProjectIds)
+      .gte("ym", contractCashLookbackYm)
+      .lte("ym", endYmStr)
+      .limit(5000);
+    if (contractCashRes.error) throw contractCashRes.error;
+
+    for (const row of (contractCashRes.data ?? []) as BillingRow[]) {
+      const project = projectById.get(row.project_id);
+      if (!isProjectBudgetActive(project, row.ym)) continue;
+      const cashRevenue = contractNetRevenueForCycle(row, project);
+      if (cashRevenue <= 0) continue;
+      contractCashProjectIds.add(row.project_id);
+      const cashYm = contractRevenueCashYm(row, project);
+      if (cashYm == null || cashYm < startYm || cashYm > endInt) continue;
+      projectRevenues.push({
+        projectId: row.project_id,
+        ym: cashYm,
+        contractRevenueCash: cashRevenue,
+        contractRevenueCashMemo: cleanYmText(row.invoice_ym)
+          ? `main contract cash from invoice_ym ${row.invoice_ym}`
+          : "main contract cash from project payment terms",
+      });
+    }
+  }
+
+  for (const project of [...fixedRevenueProjects, ...variableProjectShells]) {
+    if (contractCashProjectIds.has(project.projectId)) project.cashRevenueMode = "explicit";
+  }
+
   // ---- 別財布（別契約）売上: 全 PJ の billing_cycles.extra_revenue_json ----
   // 本契約 (定額/変動) とは別枠の単発受託売上。fee_type を問わず全 PJ から読む。
   // エンジンには PL 用 extraRevenue とキャッシュ用 extraRevenueCash を分けて注入する。
@@ -417,7 +501,6 @@ export async function buildLiveMonthlyPlInputs(
   // period_start_ym〜period_end_ym 指定があれば開発期間で月次按分 (B-a, 2026-06-16)、
   // 無ければ billing_cycles.ym へ一括計上 (後方互換)。キャッシュは invoice_ym 優先、
   // 無ければ billing_date 月 + PJ 支払サイト (null は翌月末) で解決する。
-  const allProjectIds = projects.map((p) => p.project_id);
   if (allProjectIds.length > 0) {
     const extraRes = await supabase
       .from("billing_cycles")

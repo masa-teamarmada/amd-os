@@ -43,6 +43,7 @@ export interface MonthlyPlProject {
   billingType?: "monthly" | "annual_march" | string;
   cashDelayMonths?: number | null;
   cashStartYm?: number | null;
+  cashRevenueMode?: "default" | "explicit" | string | null;
 }
 
 export interface MonthlyPlFixedCost {
@@ -99,6 +100,12 @@ export interface MonthlyPlProjectRevenue {
   extraRevenueCash?: number | null;
   extraRevenueMemo?: string | null;
   extraRevenueCashMemo?: string | null;
+  /**
+   * 本契約売上のキャッシュ入金。PL 売上は稼働月に立てたまま、
+   * 入金だけ billing_cycles.invoice_ym と PJ 支払条件から解決した月へ移す。
+   */
+  contractRevenueCash?: number | null;
+  contractRevenueCashMemo?: string | null;
   memo?: string;
 }
 
@@ -428,6 +435,20 @@ function extraRevenueCashForYm(
   return total;
 }
 
+function contractRevenueCashForYm(
+  projectId: string,
+  ym: number,
+  overrides: MonthlyPlProjectRevenue[]
+): number {
+  let total = 0;
+  for (const override of overrides) {
+    if (override.projectId !== projectId || override.ym !== ym) continue;
+    const v = override.contractRevenueCash;
+    if (v !== null && v !== undefined && Number.isFinite(v)) total += v;
+  }
+  return total;
+}
+
 function calcLoanSchedule(loan: MonthlyPlLoan): LoanScheduleRow[] {
   const principal = numberOr(loan.principal);
   const monthlyRate = numberOr(loan.annualRate) / 12;
@@ -512,6 +533,7 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
       internalMemberCost: optionalNumber(row.internalMemberCost),
       extraRevenue: optionalNumber(row.extraRevenue),
       extraRevenueCash: optionalNumber(row.extraRevenueCash),
+      contractRevenueCash: optionalNumber(row.contractRevenueCash),
     }))
     .sort((a, b) => a.ym - b.ym);
   const loans = (rawInputs.loans ?? []).map((row) => ({
@@ -578,6 +600,7 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
     billingType: p.billingType || "monthly",
     cashDelayMonths: p.cashDelayMonths,
     cashStartYm: p.cashStartYm,
+    cashRevenueMode: p.cashRevenueMode,
   }));
   const cashRevenueByYm = new Map<number, Map<string, number>>();
   const addCashRevenue = (cashYm: number, projectId: string, amount: number) => {
@@ -586,18 +609,24 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
     cashRevenueByYm.set(cashYm, byProject);
   };
 
+  for (const override of projectRevenues) {
+    if (!override.contractRevenueCash || override.contractRevenueCash <= 0) continue;
+    addCashRevenue(override.ym, override.projectId, override.contractRevenueCash);
+  }
+
   let scheduleYm = startYm;
   for (let i = 0; i < months; i++) {
     for (const pj of projects) {
       if (pj.billingType === "annual_march") continue;
       const pjRev = projectRevenueForYm(pj, scheduleYm, projectRevenues);
       const pjExtraCash = extraRevenueCashForYm(pj.projectId, scheduleYm, projectRevenues);
-      if (pjRev === 0 && pjExtraCash === 0) continue;
+      const pjContractCash = contractRevenueCashForYm(pj.projectId, scheduleYm, projectRevenues);
+      if (pjRev === 0 && pjExtraCash === 0 && pjContractCash === 0) continue;
 
       const delay = Math.max(0, Math.floor(pj.cashDelayMonths ?? 0));
       let cashYm = addMonthsToYm(scheduleYm, delay);
       if (pj.cashStartYm && cashYm < pj.cashStartYm) cashYm = pj.cashStartYm;
-      if (pjRev > 0) addCashRevenue(cashYm, pj.projectId, pjRev);
+      if (pjRev > 0 && pj.cashRevenueMode !== "explicit") addCashRevenue(cashYm, pj.projectId, pjRev);
       if (pjExtraCash > 0) addCashRevenue(scheduleYm, pj.projectId, pjExtraCash);
     }
     scheduleYm = nextYm(scheduleYm);
