@@ -35,7 +35,16 @@ struct AMDOSNotification: Identifiable, Codable, Hashable, Sendable {
     let createdAt: String?
     let readAt: String?
 
-    var displayTitle: String { title?.trimmedNonEmpty ?? "お知らせ" }
+    enum CodingKeys: String, CodingKey {
+        case id
+        case kind
+        case title
+        case body
+        case createdAt = "created_at"
+        case readAt = "read_at"
+    }
+
+    var displayTitle: String { title?.trimmedNonEmpty ?? "通知" }
     var displayBody: String { body?.trimmedNonEmpty ?? "内容を確認してね。" }
     var isUnread: Bool { readAt == nil }
 }
@@ -44,6 +53,14 @@ struct AMDOSProjectDetail: Hashable, Sendable {
     let project: AMDOSProject
     let summary: String
     let source: String
+}
+
+enum AMDOSSafeWrite: String, CaseIterable, Sendable {
+    case notificationFeedback = "通知への判断コメント"
+    case businessCardReview = "名刺の人確認"
+    case reimbursement = "立替申請"
+    case milestoneProgress = "MS進捗の安全な更新"
+    case adminLedger = "管理台帳の明示操作"
 }
 
 enum AMDOSArea: String, CaseIterable, Identifiable, Sendable {
@@ -64,13 +81,67 @@ enum AMDOSArea: String, CaseIterable, Identifiable, Sendable {
 }
 
 enum AMDOSScreenID: String, CaseIterable, Identifiable, Hashable, Sendable {
-    case today, projects, projectDetail, notifications, reimbursements, businessCards, monthlyAgreement
-    case atlas, materials, seeds, poc, vcs, scholar, institutions, amdScore
-    case adminHome, adminInvoices, adminFinance, adminPayouts, adminContracts, adminMembers, adminGovernance
-    case adminPrivateWiki, adminManagementKnowledge, adminSchedule, adminMsOverview, adminSeasonPl, adminWeekly
-    case hud, manual, spec, bzm, account
+    case today
+    case projects
+    case projectDetail
+    case notifications
+    case reimbursements
+    case businessCards
+    case monthlyAgreement
+    case atlas
+    case materials
+    case seeds
+    case poc
+    case vcs
+    case scholar
+    case institutions
+    case amdScore
+    case adminHome
+    case adminInvoices
+    case adminFinance
+    case adminPayouts
+    case adminContracts
+    case adminMembers
+    case adminGovernance
+    case adminPrivateWiki
+    case adminManagementKnowledge
+    case adminSchedule
+    case adminMsOverview
+    case adminSeasonPl
+    case adminWeekly
+    case hud
+    case manual
+    case spec
+    case bzm
+    case account
 
     var id: String { rawValue }
+}
+
+struct AMDOSScreenDescriptor: Identifiable, Hashable, Sendable {
+    let id: AMDOSScreenID
+    let title: String
+    let eyebrow: String
+    let purpose: String
+    let source: String
+    let authority: String
+    let readStatus: AMDOSParityStatus
+    let writeTargets: [AMDOSSafeWrite]
+    let note: String?
+}
+
+enum AMDOSParityStatus: String, Hashable, Sendable {
+    case implemented = "実装済み"
+    case shell = "ネイティブ骨格"
+    case pending = "未移植"
+
+    var colorName: String {
+        switch self {
+        case .implemented: return "green"
+        case .shell: return "orange"
+        case .pending: return "gray"
+        }
+    }
 }
 
 extension String {
@@ -79,3 +150,4 @@ extension String {
         return value.isEmpty ? nil : value
     }
 }
+

@@ -3,6 +3,7 @@ import AppKit
 import UniformTypeIdentifiers
 
 struct AMDOSScreenView: View {
+    @EnvironmentObject private var auth: AMDOSAuthStore
     @EnvironmentObject private var workspace: AMDOSWorkspaceModel
     let screen: AMDOSScreenID
     @Binding var selectedProjectId: String?
@@ -15,120 +16,76 @@ struct AMDOSScreenView: View {
         case .projectDetail: ProjectDetailScreen(projectId: selectedProjectId)
         case .notifications: NotificationScreen()
         case .businessCards: BusinessCardScreen()
-        case .monthlyAgreement: MonthlyAgreementScreen()
         case .adminHome: AdminHomeScreen()
         case .account: AccountScreen()
-        case .reimbursements: SimpleLandingScreen(title: "立替", subtitle: "申請と確認をひとつの場所で")
-        case .atlas: ExploreScreen(title: "Atlas", subtitle: "世界の変化から、次の一手を見つける", cards: ["技術の動き", "市場の変化", "気になるシグナル"])
-        case .materials: ExploreScreen(title: "材料", subtitle: "素材の特徴と使い道を比べる", cards: ["元素・鉱物", "樹脂・複合材", "用途から探す"])
-        case .seeds: ExploreScreen(title: "研究シーズ", subtitle: "研究の芽を、育てる相手と出会わせる", cards: ["新しい研究", "技術の強み", "育て方の候補"])
-        case .poc: ExploreScreen(title: "PoC候補", subtitle: "技術と現場の組み合わせを考える", cards: ["候補案件", "試してみたいこと", "次の打ち合わせ"])
-        case .vcs: ExploreScreen(title: "投資候補", subtitle: "相性のよいパートナーを見つける", cards: ["投資家の動き", "紹介のきっかけ", "準備するもの"])
-        case .scholar: ExploreScreen(title: "研究動向", subtitle: "学術の流れを、仕事の視点で読む", cards: ["注目のテーマ", "新しい論文", "研究者の動き"])
-        case .institutions: ExploreScreen(title: "研究機関", subtitle: "研究機関とのつながりを整理する", cards: ["研究機関", "連携の可能性", "関係するPJ"])
-        case .amdScore: ExploreScreen(title: "プロジェクトの見立て", subtitle: "技術と事業の現在地を根拠と一緒に見る", cards: ["技術の準備", "事業の準備", "次に確かめること"])
-        case .adminInvoices: AdminSectionScreen(title: "請求書", subtitle: "締めた仕事の請求を確認する", icon: "doc.text.fill")
-        case .adminFinance: AdminSectionScreen(title: "財務", subtitle: "支払と資金の流れを確認する", icon: "yensign.circle.fill")
-        case .adminPayouts: AdminSectionScreen(title: "支払", subtitle: "報酬と支払の状態を確認する", icon: "banknote.fill")
-        case .adminContracts: AdminSectionScreen(title: "契約", subtitle: "契約条件と更新時期を確認する", icon: "signature")
-        case .adminMembers: AdminSectionScreen(title: "メンバー", subtitle: "メンバーと役割を確認する", icon: "person.2.fill")
-        case .adminGovernance: AdminSectionScreen(title: "会社情報", subtitle: "会社の大切な情報を確認する", icon: "building.columns")
-        case .adminPrivateWiki: AdminSectionScreen(title: "人物メモ", subtitle: "チームの文脈を安全に引き継ぐ", icon: "lock.document")
-        case .adminManagementKnowledge: AdminSectionScreen(title: "経営ノウハウ", subtitle: "次の判断に活かせる知恵を探す", icon: "lightbulb.fill")
-        case .adminSchedule: AdminSectionScreen(title: "運営カレンダー", subtitle: "これからの締切と予定を見通す", icon: "calendar")
-        case .adminMsOverview: AdminSectionScreen(title: "マイルストーン", subtitle: "プロジェクトの節目を確認する", icon: "chart.bar.doc.horizontal")
-        case .adminSeasonPl: AdminSectionScreen(title: "シーズン予実", subtitle: "シーズンの計画と実績を比べる", icon: "chart.bar.fill")
-        case .adminWeekly: AdminSectionScreen(title: "週次活動", subtitle: "今週の動きと積み重ねを確認する", icon: "calendar.badge.clock")
-        case .hud: AdminSectionScreen(title: "状況モニター", subtitle: "チームとプロジェクトの状態を俯瞰する", icon: "display")
-        case .manual: SimpleLandingScreen(title: "使い方", subtitle: "AMD OSを気持ちよく使うための案内")
-        case .spec: SimpleLandingScreen(title: "設計書", subtitle: "チームの仕事を支える考え方")
-        case .bzm: SimpleLandingScreen(title: "教科書", subtitle: "Before Zeroの考え方を読む")
+        default: ParityScreen(descriptor: AMDOSParityCatalog.descriptor(for: screen))
         }
     }
 }
 
-private struct PageHeader: View {
-    let eyebrow: String
-    let title: String
-    let subtitle: String
+private struct ScreenHeader: View {
+    let descriptor: AMDOSScreenDescriptor
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(eyebrow.uppercased())
-                .font(.caption.weight(.semibold))
-                .tracking(1.4)
-                .foregroundStyle(AMDOSDesign.blue)
-            Text(title)
-                .font(.system(size: 30, weight: .bold, design: .rounded))
-            Text(subtitle)
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(descriptor.eyebrow.uppercased())
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(AMDOSDesign.blue)
+                    Text(descriptor.title)
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                }
+                Spacer()
+                AMDOSStatusBadge(status: descriptor.readStatus)
+            }
+            Text(descriptor.purpose)
                 .font(.body)
                 .foregroundStyle(AMDOSDesign.muted)
+                .frame(maxWidth: 760, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
-private struct ContentShell<Content: View>: View {
-    let content: Content
-    init(@ViewBuilder content: () -> Content) { self.content = content() }
-
-    var body: some View {
-        ScrollView {
-            content
-                .frame(maxWidth: 1060, alignment: .leading)
-                .padding(32)
-                .padding(.bottom, 24)
-        }
-        .background(AMDOSDesign.page)
+        .padding(.horizontal, 30)
+        .padding(.top, 28)
+        .padding(.bottom, 18)
     }
 }
 
 private struct TodayScreen: View {
-    @EnvironmentObject private var auth: AMDOSAuthStore
     @EnvironmentObject private var workspace: AMDOSWorkspaceModel
     let onSelectProject: (String) -> Void
 
     var body: some View {
-        ContentShell {
-            VStack(alignment: .leading, spacing: 24) {
-                PageHeader(eyebrow: "TODAY", title: "今日", subtitle: "いま動かす仕事と、チームの現在地をひとつに")
-                HStack(spacing: 14) {
-                    TodayMetric(title: "進行中のプロジェクト", value: "\(workspace.projects.count)", icon: "rectangle.3.group.fill", tint: AMDOSDesign.blue)
-                    TodayMetric(title: "確認するお知らせ", value: "\(workspace.notifications.count)", icon: "bell.fill", tint: AMDOSDesign.warning)
-                    TodayMetric(title: "次に進めること", value: workspace.projects.isEmpty ? "—" : "1", icon: "arrow.right.circle.fill", tint: AMDOSDesign.success)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                ScreenHeader(descriptor: AMDOSParityCatalog.descriptor(for: .today))
+                if let errorMessage = workspace.errorMessage { ErrorBanner(message: errorMessage) }
+                HStack(spacing: 16) {
+                    SummaryMetric(title: "アクティブPJ", value: "\(workspace.projects.count)", detail: "projects.status=active")
+                    SummaryMetric(title: "未読通知", value: "\(workspace.notifications.filter(\.isUnread).count)", detail: "app_notifications")
+                    SummaryMetric(title: "Mac移植", value: "P0–P2", detail: "実装状況をPARITYで管理")
                 }
-                HStack(alignment: .top, spacing: 20) {
-                    AMDOSCard {
-                        VStack(alignment: .leading, spacing: 14) {
-                            SectionTitle(title: "プロジェクト", action: nil, systemImage: "rectangle.3.group.fill")
-                            if workspace.projects.isEmpty {
-                                EmptyState(title: "プロジェクトを読み込んでいるよ", detail: "接続できると、ここに参加中のプロジェクトが並ぶよ。")
-                            } else {
-                                ForEach(workspace.projects.prefix(5)) { project in
-                                    Button { onSelectProject(project.id) } label: {
-                                        ProjectRow(project: project)
-                                    }
-                                    .buttonStyle(.plain)
-                                    if project.id != workspace.projects.prefix(5).last?.id { Divider() }
-                                }
-                            }
+                .padding(.horizontal, 30)
+                Text("PJの現在地")
+                    .font(.title2.weight(.semibold))
+                    .padding(.horizontal, 30)
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 16)], spacing: 16) {
+                    ForEach(workspace.projects) { project in
+                        Button { onSelectProject(project.id) } label: {
+                            ProjectCard(project: project)
                         }
+                        .buttonStyle(.plain)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    AMDOSCard {
-                        VStack(alignment: .leading, spacing: 14) {
-                            SectionTitle(title: "今日の流れ", action: nil, systemImage: "sun.max.fill")
-                            FlowRow(number: "01", title: "状況を見る", detail: "進行中のPJを確認")
-                            FlowRow(number: "02", title: "ひとつ決める", detail: "先に進めることを選ぶ")
-                            FlowRow(number: "03", title: "チームに渡す", detail: "次の動きを共有")
-                        }
-                    }
-                    .frame(width: 300)
+                }
+                .padding(.horizontal, 30)
+                if workspace.projects.isEmpty && !workspace.isLoading {
+                    EmptyState(title: "PJがまだ読み込まれていないよ", detail: "右上の再読み込みでSupabaseの現在値を取り直してね。")
+                        .padding(.horizontal, 30)
                 }
             }
+            .padding(.bottom, 30)
         }
-        .toolbar { ReloadToolbar { Task { await workspace.loadHome(email: auth.email) } } }
+        .background(AMDOSDesign.page)
+        .toolbar { ReloadToolbar { Task { await workspace.loadHome() } } }
     }
 }
 
@@ -137,21 +94,20 @@ private struct ProjectsScreen: View {
     let onSelectProject: (String) -> Void
 
     var body: some View {
-        ContentShell {
-            VStack(alignment: .leading, spacing: 24) {
-                PageHeader(eyebrow: "WORK", title: "プロジェクト", subtitle: "一覧から選んで、詳細と次の一歩を確認")
-                if workspace.projects.isEmpty {
-                    EmptyState(title: "プロジェクトがまだありません", detail: "右上の更新ボタンで最新の状態を読み込めるよ。")
-                } else {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 290), spacing: 16)], spacing: 16) {
-                        ForEach(workspace.projects) { project in
-                            Button { onSelectProject(project.id) } label: { ProjectCard(project: project) }
-                                .buttonStyle(.plain)
-                        }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                ScreenHeader(descriptor: AMDOSParityCatalog.descriptor(for: .projects))
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 280), spacing: 16)], spacing: 16) {
+                    ForEach(workspace.projects) { project in
+                        Button { onSelectProject(project.id) } label: { ProjectCard(project: project) }
+                            .buttonStyle(.plain)
                     }
                 }
+                .padding(.horizontal, 30)
             }
+            .padding(.bottom, 30)
         }
+        .background(AMDOSDesign.page)
         .toolbar { ReloadToolbar { Task { await workspace.loadProjects() } } }
     }
 }
@@ -161,46 +117,41 @@ private struct ProjectDetailScreen: View {
     let projectId: String?
 
     var body: some View {
-        ContentShell {
-            VStack(alignment: .leading, spacing: 24) {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                ScreenHeader(descriptor: AMDOSParityCatalog.descriptor(for: .projectDetail))
                 if let project = workspace.projectDetail {
-                    PageHeader(eyebrow: "PROJECT", title: project.project.name, subtitle: project.project.clientName ?? "チームで進めるプロジェクト")
-                    HStack(alignment: .top, spacing: 18) {
-                        AMDOSCard {
-                            VStack(alignment: .leading, spacing: 14) {
-                                Label("現在地", systemImage: "location.fill").font(.headline).foregroundStyle(AMDOSDesign.blue)
-                                Text(project.project.status.capitalized)
-                                    .font(.system(size: 24, weight: .bold, design: .rounded))
-                                Text("このプロジェクトの情報を確認しながら、次の一歩を決められるよ。")
-                                    .foregroundStyle(AMDOSDesign.muted)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        AMDOSCard {
-                            VStack(alignment: .leading, spacing: 10) {
-                                Label("期間", systemImage: "calendar").font(.headline)
-                                Text([project.project.startYm, project.project.endYm].compactMap { $0 }.joined(separator: " 〜 ").ifEmpty("設定なし"))
-                                    .font(.title3.weight(.semibold))
-                                Text(project.project.projectType ?? "プロジェクト")
-                                    .foregroundStyle(AMDOSDesign.muted)
-                            }
-                        }
-                        .frame(width: 270)
-                    }
                     AMDOSCard {
-                        VStack(alignment: .leading, spacing: 14) {
-                            SectionTitle(title: "次に確認すること", action: nil, systemImage: "checklist")
-                            DetailRow(icon: "flag.fill", title: "節目", detail: "今月の進み具合を確認")
-                            DetailRow(icon: "doc.text.fill", title: "資料", detail: "関係する資料をまとめて見る")
-                            DetailRow(icon: "person.2.fill", title: "チーム", detail: "関わるメンバーを確認")
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text(project.project.name).font(.title2.weight(.semibold))
+                            Text(project.project.clientName ?? "顧客名未設定")
+                                .foregroundStyle(AMDOSDesign.muted)
+                            Divider()
+                            LabeledContent("状態", value: project.project.status)
+                            LabeledContent("期間", value: [project.project.startYm, project.project.endYm].compactMap { $0 }.joined(separator: " – "))
+                            LabeledContent("読み取り元", value: project.source)
                         }
                     }
+                    .padding(.horizontal, 30)
+                    AMDOSCard {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Label("移植の境界", systemImage: "arrow.triangle.branch")
+                                .font(.headline)
+                            Text(project.summary)
+                                .foregroundStyle(AMDOSDesign.muted)
+                            Text("MSの確定・変更は保存前検算を通す既存PWA/APIへ委譲し、Mac側で任意のREST更新は行わない。")
+                                .font(.callout)
+                        }
+                    }
+                    .padding(.horizontal, 30)
                 } else {
-                    PageHeader(eyebrow: "PROJECT", title: "プロジェクト詳細", subtitle: "一覧からプロジェクトを選んでね")
-                    EmptyState(title: "プロジェクトを選んでね", detail: "左の一覧から選ぶと、ここに詳細が開くよ。")
+                    EmptyState(title: "PJを選んでね", detail: "一覧のカードをクリックすると、ここに詳細が開くよ。")
+                        .padding(.horizontal, 30)
                 }
             }
+            .padding(.bottom, 30)
         }
+        .background(AMDOSDesign.page)
         .task(id: projectId) {
             if let projectId { await workspace.loadProjectDetail(projectId) }
         }
@@ -208,23 +159,26 @@ private struct ProjectDetailScreen: View {
 }
 
 private struct NotificationScreen: View {
-    @EnvironmentObject private var auth: AMDOSAuthStore
     @EnvironmentObject private var workspace: AMDOSWorkspaceModel
 
     var body: some View {
-        ContentShell {
-            VStack(alignment: .leading, spacing: 24) {
-                PageHeader(eyebrow: "INBOX", title: "お知らせ", subtitle: "チームから届いた、確認しておきたいこと")
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                ScreenHeader(descriptor: AMDOSParityCatalog.descriptor(for: .notifications))
+                DecisionRail().padding(.horizontal, 30)
+                ForEach(workspace.notifications) { notification in
+                    NotificationCard(notification: notification)
+                        .padding(.horizontal, 30)
+                }
                 if workspace.notifications.isEmpty {
-                    EmptyState(title: "いま確認することはないよ", detail: "新しいお知らせが届いたら、ここに表示されるよ。")
-                } else {
-                    ForEach(workspace.notifications) { notification in
-                        NotificationCard(notification: notification)
-                    }
+                    EmptyState(title: "判断待ちの通知はないよ", detail: "読み取り元はapp_notifications。")
+                        .padding(.horizontal, 30)
                 }
             }
+            .padding(.bottom, 30)
         }
-        .toolbar { ReloadToolbar { Task { await workspace.loadHome(email: auth.email) } } }
+        .background(AMDOSDesign.page)
+        .toolbar { ReloadToolbar { Task { await workspace.loadHome() } } }
     }
 }
 
@@ -233,55 +187,62 @@ private struct BusinessCardScreen: View {
     @State private var isDropTargeted = false
 
     var body: some View {
-        ContentShell {
-            VStack(alignment: .leading, spacing: 24) {
-                PageHeader(eyebrow: "CONTACTS", title: "名刺", subtitle: "Macに届いた名刺を、確認しながらチームの資産へ")
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                ScreenHeader(descriptor: AMDOSParityCatalog.descriptor(for: .businessCards))
                 AMDOSCard {
-                    VStack(alignment: .leading, spacing: 16) {
-                        SectionTitle(title: "名刺画像を追加", action: nil, systemImage: "person.text.rectangle")
-                        Text("ファイルを選ぶ、ここへドロップする、画像を貼り付ける。どの入口からでも、候補を確認してから保存できるよ。")
+                    VStack(alignment: .leading, spacing: 14) {
+                        Label("Macの主導線", systemImage: "rectangle.and.hand.point.up.left.fill")
+                            .font(.headline)
+                        Text("ファイル選択・ドラッグ&ドロップ・クリップボード貼付を入口にして、OCR候補は必ず人が確認してから確定するよ。")
                             .foregroundStyle(AMDOSDesign.muted)
-                        HStack(spacing: 10) {
+                        HStack {
                             Button("ファイルを選ぶ", systemImage: "plus") { chooseFile() }
-                                .buttonStyle(.borderedProminent).tint(AMDOSDesign.blue)
-                            Button("画像を貼り付ける", systemImage: "doc.on.clipboard") { stageClipboard() }
+                                .buttonStyle(.borderedProminent)
+                                .tint(AMDOSDesign.blue)
+                            Button("クリップボードから") { stageClipboard() }
                                 .buttonStyle(.bordered)
+                            Spacer()
                         }
-                        RoundedRectangle(cornerRadius: 14)
+                        RoundedRectangle(cornerRadius: 12)
                             .stroke(isDropTargeted ? AMDOSDesign.blue : AMDOSDesign.border, style: StrokeStyle(lineWidth: 2, dash: [8]))
-                            .frame(height: 170)
+                            .frame(height: 150)
                             .overlay {
                                 VStack(spacing: 8) {
-                                    Image(systemName: "arrow.down.doc.fill").font(.title2).foregroundStyle(AMDOSDesign.blue)
+                                    Image(systemName: "arrow.down.doc")
+                                        .font(.title2)
                                     Text(stagedFile?.lastPathComponent ?? "名刺画像をここへドロップ")
                                         .foregroundStyle(AMDOSDesign.muted)
                                 }
                             }
                             .onDrop(of: [UTType.fileURL.identifier], isTargeted: $isDropTargeted) { providers in
                                 guard let provider = providers.first else { return false }
-                                _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                                provider.loadObject(ofClass: URL.self) { url, _ in
                                     DispatchQueue.main.async { stagedFile = url }
                                 }
                                 return true
                             }
                     }
                 }
+                .padding(.horizontal, 30)
                 if stagedFile != nil {
                     AMDOSCard {
-                        Label("確認してから保存", systemImage: "checkmark.seal.fill")
-                            .font(.headline)
-                            .foregroundStyle(AMDOSDesign.success)
-                        Text("読み取り候補は自動で確定しないよ。氏名や所属、関係するプロジェクトを確認してから保存する流れ。")
-                            .foregroundStyle(AMDOSDesign.muted)
-                            .padding(.top, 4)
-                        AMDOSExternalLink(path: "/business-cards") {
-                            Label("候補を確認する", systemImage: "arrow.up.right.square")
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("人の確認待ち", systemImage: "person.crop.circle.badge.questionmark")
+                                .font(.headline)
+                            Text("このMac版は画像を勝手に確定しない。既存の `/api/business-cards` でOCR候補を作り、氏名とPJを確認したPATCHだけを確定経路にする。")
+                                .foregroundStyle(AMDOSDesign.muted)
+                            PWAExternalLink(path: "/business-cards") {
+                                Label("PWAの名刺確認面を開く", systemImage: "arrow.up.right.square")
+                            }
                         }
-                        .padding(.top, 4)
                     }
+                    .padding(.horizontal, 30)
                 }
             }
+            .padding(.bottom, 30)
         }
+        .background(AMDOSDesign.page)
     }
 
     private func chooseFile() {
@@ -292,55 +253,41 @@ private struct BusinessCardScreen: View {
     }
 
     private func stageClipboard() {
-        guard NSPasteboard.general.canReadObject(forClasses: [NSImage.self]) else { return }
-        stagedFile = URL(fileURLWithPath: "貼り付けた画像")
-    }
-}
-
-private struct MonthlyAgreementScreen: View {
-    var body: some View {
-        ContentShell {
-            VStack(alignment: .leading, spacing: 24) {
-                PageHeader(eyebrow: "THIS MONTH", title: "月初の確認", subtitle: "今月やることと、報酬の見込みを同じ画面で確認")
-                AMDOSCard {
-                    VStack(alignment: .leading, spacing: 16) {
-                        Label("今月の仕事", systemImage: "list.bullet.clipboard")
-                            .font(.headline).foregroundStyle(AMDOSDesign.blue)
-                        AgreementRow(title: "担当する仕事", detail: "今月の遂行対象を確認")
-                        AgreementRow(title: "見込みの報酬", detail: "仕事ごとの期待額を確認")
-                        AgreementRow(title: "確認の履歴", detail: "合意した内容をいつでも見返す")
-                        Divider()
-                        AMDOSExternalLink(path: "/mypage") {
-                            Label("今月の内容を開く", systemImage: "arrow.up.right.square")
-                        }
-                    }
-                }
-            }
+        if NSPasteboard.general.canReadObject(forClasses: [NSImage.self]) {
+            stagedFile = URL(fileURLWithPath: "クリップボードの画像")
         }
     }
 }
 
 private struct AdminHomeScreen: View {
+    @EnvironmentObject private var auth: AMDOSAuthStore
+
     var body: some View {
-        ContentShell {
-            VStack(alignment: .leading, spacing: 24) {
-                PageHeader(eyebrow: "OPERATIONS", title: "管理ホーム", subtitle: "会社とチームの運営を、今日見るべき順番で")
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: 16)], spacing: 16) {
-                    AdminTile(title: "今月の締め", detail: "請求・報酬・支払を確認", icon: "calendar.badge.clock")
-                    AdminTile(title: "お金の流れ", detail: "財務と入出金を確認", icon: "yensign.circle.fill")
-                    AdminTile(title: "チーム", detail: "メンバーと役割を確認", icon: "person.2.fill")
-                    AdminTile(title: "会社情報", detail: "契約と大切な記録を確認", icon: "building.columns.fill")
-                }
-                AMDOSCard {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Label("管理者向けの入口", systemImage: "sparkles")
-                            .font(.headline).foregroundStyle(AMDOSDesign.blue)
-                        Text("左のメニューから、必要な台帳を選んで確認できるよ。")
-                            .foregroundStyle(AMDOSDesign.muted)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                ScreenHeader(descriptor: AMDOSParityCatalog.descriptor(for: .adminHome))
+                if !auth.isAdmin {
+                    EmptyState(title: "管理画面はadmin専用だよ", detail: "members.is_admin=true の権限境界をMac側でも守っているよ。")
+                        .padding(.horizontal, 30)
+                } else {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 250), spacing: 16)], spacing: 16) {
+                        ForEach([AMDOSScreenID.adminInvoices, .adminFinance, .adminPayouts, .adminSchedule], id: \.self) { id in
+                            let item = AMDOSParityCatalog.descriptor(for: id)
+                            AMDOSCard {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text(item.title).font(.headline)
+                                    Text(item.purpose).font(.callout).foregroundStyle(AMDOSDesign.muted)
+                                    AMDOSStatusBadge(status: item.readStatus)
+                                }
+                            }
+                        }
                     }
+                    .padding(.horizontal, 30)
                 }
             }
+            .padding(.bottom, 30)
         }
+        .background(AMDOSDesign.page)
     }
 }
 
@@ -348,140 +295,63 @@ private struct AccountScreen: View {
     @EnvironmentObject private var auth: AMDOSAuthStore
 
     var body: some View {
-        ContentShell {
-            VStack(alignment: .leading, spacing: 24) {
-                PageHeader(eyebrow: "ACCOUNT", title: "アカウント", subtitle: "ログイン状態とAMD OSの接続を管理")
-                AMDOSCard {
-                    VStack(alignment: .leading, spacing: 14) {
-                        LabeledContent("メールアドレス", value: auth.email ?? "確認中")
-                        Divider()
-                        Button("サインアウト", role: .destructive) { auth.signOut() }
-                    }
+        VStack(alignment: .leading, spacing: 20) {
+            ScreenHeader(descriptor: AMDOSParityCatalog.descriptor(for: .account))
+            AMDOSCard {
+                VStack(alignment: .leading, spacing: 12) {
+                    LabeledContent("ログイン", value: auth.email ?? "確認中")
+                    LabeledContent("権限", value: auth.isAdmin ? "admin" : "member")
+                    Divider()
+                    Button("ログアウト", role: .destructive) { auth.signOut() }
                 }
             }
+            .padding(.horizontal, 30)
+            Spacer()
         }
+        .background(AMDOSDesign.page)
     }
 }
 
-private struct ExploreScreen: View {
-    let title: String
-    let subtitle: String
-    let cards: [String]
+private struct ParityScreen: View {
+    let descriptor: AMDOSScreenDescriptor
 
     var body: some View {
-        ContentShell {
-            VStack(alignment: .leading, spacing: 24) {
-                PageHeader(eyebrow: "EXPLORE", title: title, subtitle: subtitle)
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: 16)], spacing: 16) {
-                    ForEach(cards, id: \.self) { card in
-                        AMDOSCard {
-                            VStack(alignment: .leading, spacing: 12) {
-                                Image(systemName: "circle.grid.2x2.fill").foregroundStyle(AMDOSDesign.blue)
-                                Text(card).font(.headline)
-                                Text("気になる情報を集めて、チームの会話につなげる")
-                                    .font(.callout).foregroundStyle(AMDOSDesign.muted)
-                            }
-                            .frame(maxWidth: .infinity, minHeight: 106, alignment: .leading)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-private struct AdminSectionScreen: View {
-    let title: String
-    let subtitle: String
-    let icon: String
-
-    var body: some View {
-        ContentShell {
-            VStack(alignment: .leading, spacing: 24) {
-                PageHeader(eyebrow: "OPERATIONS", title: title, subtitle: subtitle)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                ScreenHeader(descriptor: descriptor)
                 AMDOSCard {
                     VStack(alignment: .leading, spacing: 12) {
-                        Image(systemName: icon).font(.title2).foregroundStyle(AMDOSDesign.blue)
-                        Text("確認したい内容を選んで、最新の状態を見られるよ。")
-                            .foregroundStyle(AMDOSDesign.muted)
-                        AMDOSExternalLink(path: "/admin") {
-                            Label("管理画面を開く", systemImage: "arrow.up.right.square")
-                        }
+                        Label("移植契約", systemImage: "checklist")
+                            .font(.headline)
+                        LabeledContent("読み取り元", value: descriptor.source)
+                        LabeledContent("権限", value: descriptor.authority)
+                        LabeledContent("書込み先", value: descriptor.writeTargets.isEmpty ? "書込みなし" : descriptor.writeTargets.map(\.rawValue).joined(separator: " / "))
                     }
                 }
-            }
-        }
-    }
-}
-
-private struct SimpleLandingScreen: View {
-    let title: String
-    let subtitle: String
-
-    var body: some View {
-        ContentShell {
-            VStack(alignment: .leading, spacing: 24) {
-                PageHeader(eyebrow: "AMD OS", title: title, subtitle: subtitle)
+                .padding(.horizontal, 30)
+                if let note = descriptor.note {
+                    AMDOSCard {
+                        Label("未完了の境界", systemImage: "exclamationmark.triangle")
+                            .font(.headline)
+                        Text(note).foregroundStyle(AMDOSDesign.muted)
+                    }
+                    .padding(.horizontal, 30)
+                }
                 AMDOSCard {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Image("AMDLogoMark").resizable().scaledToFit().frame(width: 48, height: 48)
-                        Text("チームの仕事を支える情報を、ここから探せるよ。")
+                    VStack(alignment: .leading, spacing: 10) {
+                        Label("PARITYの扱い", systemImage: "arrow.triangle.2.circlepath")
+                            .font(.headline)
+                        Text("この画面はPWA route・iOS画面・データ境界を対応表に登録済み。実装済みだけを完了扱いにせず、未移植は削除せず残しているよ。")
                             .foregroundStyle(AMDOSDesign.muted)
+                        Text("macos/PARITY.md を正本にして、NativeScreenID・読取元・書込み先・権限・回帰確認を追跡する。")
+                            .font(.callout.weight(.semibold))
                     }
                 }
+                .padding(.horizontal, 30)
             }
+            .padding(.bottom, 30)
         }
-    }
-}
-
-private struct SectionTitle: View {
-    let title: String
-    let action: String?
-    let systemImage: String
-
-    var body: some View {
-        HStack {
-            Label(title, systemImage: systemImage).font(.headline)
-            Spacer()
-            if let action { Text(action).font(.caption).foregroundStyle(AMDOSDesign.blue) }
-        }
-    }
-}
-
-private struct TodayMetric: View {
-    let title: String
-    let value: String
-    let icon: String
-    let tint: Color
-
-    var body: some View {
-        AMDOSCard {
-            HStack(spacing: 12) {
-                Image(systemName: icon).font(.title3).foregroundStyle(tint)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(value).font(.title2.weight(.bold))
-                    Text(title).font(.caption).foregroundStyle(AMDOSDesign.muted)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-}
-
-private struct ProjectRow: View {
-    let project: AMDOSProject
-
-    var body: some View {
-        HStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: 4).fill(AMDOSDesign.blue).frame(width: 4, height: 38)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(project.name).font(.headline)
-                Text(project.clientName ?? "チームのプロジェクト").font(.caption).foregroundStyle(AMDOSDesign.muted)
-            }
-            Spacer()
-            Image(systemName: "chevron.right").font(.caption).foregroundStyle(AMDOSDesign.muted)
-        }
-        .contentShape(Rectangle())
+        .background(AMDOSDesign.page)
     }
 }
 
@@ -490,23 +360,19 @@ private struct ProjectCard: View {
 
     var body: some View {
         AMDOSCard {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text(project.name).font(.headline)
                     Spacer()
-                    Circle().fill(AMDOSDesign.success).frame(width: 8, height: 8)
+                    Text(project.status).font(.caption).foregroundStyle(AMDOSDesign.success)
                 }
-                Text(project.clientName ?? "チームのプロジェクト")
-                    .font(.callout).foregroundStyle(AMDOSDesign.muted)
-                Divider()
-                HStack {
-                    Text(project.projectType ?? "プロジェクト")
-                    Spacer()
-                    Image(systemName: "arrow.up.right").font(.caption)
+                Text(project.clientName ?? "顧客名未設定")
+                    .font(.callout)
+                    .foregroundStyle(AMDOSDesign.muted)
+                if let projectType = project.projectType {
+                    Text(projectType).font(.caption).foregroundStyle(AMDOSDesign.muted)
                 }
-                .font(.caption).foregroundStyle(AMDOSDesign.muted)
             }
-            .frame(maxWidth: .infinity, minHeight: 112, alignment: .leading)
         }
     }
 }
@@ -516,78 +382,59 @@ private struct NotificationCard: View {
 
     var body: some View {
         AMDOSCard {
-            HStack(alignment: .top, spacing: 14) {
-                Image(systemName: "bell.fill").foregroundStyle(AMDOSDesign.blue)
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(notification.displayTitle).font(.headline)
-                    Text(notification.displayBody).font(.callout).foregroundStyle(AMDOSDesign.muted)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Label(notification.isUnread ? "未読" : "既読", systemImage: notification.isUnread ? "circle.fill" : "circle")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(notification.isUnread ? AMDOSDesign.blue : AMDOSDesign.muted)
+                    Spacer()
+                    Text(notification.kind ?? "OS通知").font(.caption).foregroundStyle(AMDOSDesign.muted)
                 }
-                Spacer()
-                Text("確認") .font(.caption.weight(.semibold)).foregroundStyle(AMDOSDesign.blue)
+                Text(notification.displayTitle).font(.headline)
+                Text(notification.displayBody).font(.callout).foregroundStyle(AMDOSDesign.muted)
+                HStack {
+                    Text("押すと起きること：ブラウザ版の安全な判断経路を開く")
+                        .font(.caption)
+                        .foregroundStyle(AMDOSDesign.muted)
+                    Spacer()
+                    PWAExternalLink(path: "/notifications") {
+                        Label("判断を開く", systemImage: "arrow.up.right.square")
+                    }
+                }
             }
         }
     }
 }
 
-private struct DetailRow: View {
-    let icon: String
-    let title: String
-    let detail: String
+private struct DecisionRail: View {
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon).foregroundStyle(AMDOSDesign.blue).frame(width: 24)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(.subheadline.weight(.semibold))
-                Text(detail).font(.callout).foregroundStyle(AMDOSDesign.muted)
+        HStack(spacing: 0) {
+            ForEach(["観測", "候補", "判断", "正本"], id: \.self) { item in
+                HStack(spacing: 8) {
+                    Text(item).font(.caption.weight(item == "判断" ? .bold : .medium))
+                    if item != "正本" { Image(systemName: "chevron.right").font(.caption2) }
+                }
+                .foregroundStyle(item == "判断" ? AMDOSDesign.blue : AMDOSDesign.muted)
+                .frame(maxWidth: .infinity)
             }
-            Spacer()
-            Image(systemName: "chevron.right").font(.caption).foregroundStyle(AMDOSDesign.muted)
         }
+        .padding(12)
+        .background(AMDOSDesign.blue.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
     }
 }
 
-private struct FlowRow: View {
-    let number: String
+private struct SummaryMetric: View {
     let title: String
+    let value: String
     let detail: String
-    var body: some View {
-        HStack(spacing: 10) {
-            Text(number).font(.caption.monospacedDigit().weight(.bold)).foregroundStyle(AMDOSDesign.blue)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.subheadline.weight(.semibold))
-                Text(detail).font(.caption).foregroundStyle(AMDOSDesign.muted)
-            }
-        }
-    }
-}
-
-private struct AgreementRow: View {
-    let title: String
-    let detail: String
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title).font(.subheadline.weight(.semibold))
-                Text(detail).font(.callout).foregroundStyle(AMDOSDesign.muted)
-            }
-            Spacer()
-            Image(systemName: "chevron.right").font(.caption).foregroundStyle(AMDOSDesign.muted)
-        }
-    }
-}
-
-private struct AdminTile: View {
-    let title: String
-    let detail: String
-    let icon: String
     var body: some View {
         AMDOSCard {
-            VStack(alignment: .leading, spacing: 10) {
-                Image(systemName: icon).font(.title3).foregroundStyle(AMDOSDesign.blue)
-                Text(title).font(.headline)
-                Text(detail).font(.callout).foregroundStyle(AMDOSDesign.muted)
+            VStack(alignment: .leading, spacing: 5) {
+                Text(title).font(.caption).foregroundStyle(AMDOSDesign.muted)
+                Text(value).font(.system(size: 25, weight: .bold, design: .rounded))
+                Text(detail).font(.caption2).foregroundStyle(AMDOSDesign.muted)
             }
-            .frame(maxWidth: .infinity, minHeight: 94, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }
@@ -597,23 +444,33 @@ private struct EmptyState: View {
     let detail: String
     var body: some View {
         AMDOSCard {
-            VStack(alignment: .leading, spacing: 7) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(title).font(.headline)
-                Text(detail).font(.callout).foregroundStyle(AMDOSDesign.muted)
+                Text(detail).foregroundStyle(AMDOSDesign.muted)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }
 
-private struct ReloadToolbar: ToolbarContent {
-    let action: () -> Void
-    var body: some ToolbarContent {
-        ToolbarItem { Button("更新", systemImage: "arrow.clockwise", action: action).help("最新の状態に更新") }
+private struct ErrorBanner: View {
+    let message: String
+    var body: some View {
+        Text(message)
+            .font(.callout)
+            .foregroundStyle(.red)
+            .padding(.horizontal, 30)
     }
 }
 
-private struct AMDOSExternalLink<Label: View>: View {
+private struct ReloadToolbar: ToolbarContent {
+    let action: () -> Void
+    var body: some ToolbarContent {
+        ToolbarItem { Button("再読み込み", systemImage: "arrow.clockwise", action: action) }
+    }
+}
+
+private struct PWAExternalLink<Label: View>: View {
     let url: URL
     @ViewBuilder let label: () -> Label
 
@@ -625,10 +482,6 @@ private struct AMDOSExternalLink<Label: View>: View {
     var body: some View {
         Link(destination: url, label: label)
             .buttonStyle(.bordered)
-            .accessibilityHint("Commandキーを押しながらクリックすると新しいタブで開ける")
+            .accessibilityHint("Commandキーを押しながらクリックすると新しいタブで開く")
     }
-}
-
-private extension String {
-    func ifEmpty(_ fallback: String) -> String { isEmpty ? fallback : self }
 }

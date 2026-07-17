@@ -14,6 +14,13 @@ enum AMDOSDesign {
     static let spacing: CGFloat = 16
     static let radius: CGFloat = 12
 
+    static func statusColor(_ status: AMDOSParityStatus) -> Color {
+        switch status {
+        case .implemented: return success
+        case .shell: return warning
+        case .pending: return muted
+        }
+    }
 }
 
 struct AMDOSCard<Content: View>: View {
@@ -27,6 +34,19 @@ struct AMDOSCard<Content: View>: View {
             .background(AMDOSDesign.panel)
             .overlay(RoundedRectangle(cornerRadius: AMDOSDesign.radius).stroke(AMDOSDesign.border))
             .clipShape(RoundedRectangle(cornerRadius: AMDOSDesign.radius))
+    }
+}
+
+struct AMDOSStatusBadge: View {
+    let status: AMDOSParityStatus
+
+    var body: some View {
+        Label(status.rawValue, systemImage: status == .implemented ? "checkmark.circle.fill" : "circle.dashed")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(AMDOSDesign.statusColor(status))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(AMDOSDesign.statusColor(status).opacity(0.12), in: Capsule())
     }
 }
 

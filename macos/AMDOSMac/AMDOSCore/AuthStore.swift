@@ -1,6 +1,5 @@
 import Foundation
 import Combine
-import OSLog
 
 @MainActor
 final class AMDOSAuthStore: ObservableObject {
@@ -8,7 +7,6 @@ final class AMDOSAuthStore: ObservableObject {
     @Published private(set) var isLoading = false
     @Published var errorMessage: String?
     @Published private(set) var isAdmin = false
-    @Published private(set) var signInStatus = "Googleでログイン"
 
     let client: AMDOSRESTClient
     private let defaultsKey = "amdos.macos.session"
@@ -24,30 +22,17 @@ final class AMDOSAuthStore: ObservableObject {
     func signInWithGoogle() async {
         isLoading = true
         errorMessage = nil
-        signInStatus = "ChromeでGoogleログインを続けて…"
-        AMDOSAuthLog.logger.notice("google_auth_requested")
-        defer {
-            isLoading = false
-            signInStatus = "Googleでログイン"
-        }
+        defer { isLoading = false }
         do {
             let next = try await client.authenticateWithGoogle()
             session = next
             persist(next)
-            AMDOSAuthLog.logger.notice("google_auth_session_established")
             if let email = next.email {
                 isAdmin = try await client.fetchIsAdmin(email: email)
             }
         } catch {
-            AMDOSAuthLog.logger.error("google_auth_failed")
             errorMessage = error.localizedDescription
         }
-    }
-
-    /// `ASWebAuthenticationSession` が捕捉できなかったURLも、SwiftUIのアプリ入口から
-    /// 同じ認証待機へ戻す。macOSでは外部ブラウザがcustom URL schemeをアプリに渡す場合がある。
-    func acceptOAuthCallback(_ url: URL) async {
-        await client.acceptOAuthCallback(url)
     }
 
     func refreshAuthority() async {
@@ -79,3 +64,4 @@ final class AMDOSAuthStore: ObservableObject {
         Task { await client.setSession(session) }
     }
 }
+
