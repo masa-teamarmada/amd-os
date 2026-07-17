@@ -34,7 +34,7 @@ actor AMDOSRESTClient {
     func authenticateWithGoogle() async throws -> AMDOSSession {
         let verifier = PKCE.generateVerifier(byteCount: 32)
         let challenge = PKCE.challenge(for: verifier)
-        let redirect = "amdos-mac://auth/callback"
+        let redirect = "amdos-macos-auth://oauth/callback"
         var components = URLComponents(url: baseURL.appendingPathComponent("auth/v1/authorize"), resolvingAgainstBaseURL: false)!
         components.queryItems = [
             URLQueryItem(name: "provider", value: "google"),
