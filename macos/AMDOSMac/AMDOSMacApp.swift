@@ -27,7 +27,7 @@ struct AMDOSRootView: View {
         Group {
             if auth.isSignedIn {
                 AMDOSWorkspaceView()
-                    .task { await workspace.loadHome() }
+                    .task(id: auth.email) { await workspace.loadHome(email: auth.email) }
             } else {
                 AMDOSLoginView()
             }

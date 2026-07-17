@@ -2,6 +2,7 @@ import Foundation
 import AppKit
 import CryptoKit
 import OSLog
+import AuthenticationServices
 
 enum AMDOSAuthLog {
     static let logger = Logger(subsystem: "jp.team-armada.amdos.macos", category: "google-auth")
@@ -26,7 +27,7 @@ actor AMDOSRESTClient {
 
     /// 外部ブラウザがcustom URL schemeをSwiftUIアプリへ直接配送したときの復帰口。
     func acceptOAuthCallback(_ callback: URL) async {
-        guard callback.scheme?.lowercased() == "amdos-mac" else { return }
+        guard callback.scheme?.lowercased() == "amdos-macos-auth" else { return }
         AMDOSAuthLog.logger.notice("google_auth_callback_received_by_app")
         await oauthBrowser?.receive(callback)
     }
@@ -100,12 +101,32 @@ actor AMDOSRESTClient {
         guard let project = try JSONDecoder().decode([AMDOSProject].self, from: data).first else {
             throw AMDOSNetworkError.notFound
         }
-        return AMDOSProjectDetail(project: project, summary: "詳細の進捗・月次・MTGは、このPJのネイティブ詳細画面へ順次移植するよ。", source: "projects / PWA /project/[projectId]/cockpit")
+        return AMDOSProjectDetail(project: project, summary: "進捗・月次・打ち合わせの情報を、このプロジェクトの詳細から確認できるよ。", source: "")
     }
 
-    func fetchNotifications(limit: Int = 30) async throws -> [AMDOSNotification] {
-        let data = try await request(path: "rest/v1/app_notifications?select=id,kind,title,body,created_at,read_at&order=created_at.desc&limit=\(limit)")
-        return try JSONDecoder().decode([AMDOSNotification].self, from: data)
+    func fetchNotifications(email: String) async throws -> [AMDOSNotification] {
+        let endpoint = baseURL.appendingPathComponent("functions/v1/pull-app-notifications")
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 8
+        request.setValue("Bearer \(anonKey)", forHTTPHeaderField: "Authorization")
+        request.setValue(anonKey, forHTTPHeaderField: "apikey")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(NotificationRequest(email: email))
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try validate(response: response, data: data)
+        let envelope = try JSONDecoder().decode(PendingNotificationResponse.self, from: data)
+        guard envelope.ok else { throw AMDOSNetworkError.notificationUnavailable }
+        return (envelope.notifications ?? []).map { item in
+            AMDOSNotification(
+                id: item.id,
+                kind: item.notificationType,
+                title: item.title,
+                body: item.body,
+                createdAt: item.createdAt,
+                readAt: nil
+            )
+        }
     }
 
     func fetchIsAdmin(email: String) async throws -> Bool {
@@ -144,6 +165,35 @@ actor AMDOSRESTClient {
         struct Claims: Decodable { let email: String? }
         return try? JSONDecoder().decode(Claims.self, from: data).email
     }
+
+    private struct NotificationRequest: Encodable {
+        let email: String
+    }
+
+    private struct PendingNotificationResponse: Decodable {
+        let ok: Bool
+        let notifications: [PendingNotification]?
+    }
+
+    private struct PendingNotification: Decodable {
+        let id: String
+        let notificationType: String?
+        let title: String
+        let body: String
+        let projectId: String?
+        let ym: String?
+        let createdAt: String?
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case notificationType = "notification_type"
+            case title
+            case body
+            case projectId = "project_id"
+            case ym
+            case createdAt = "created_at"
+        }
+    }
 }
 
 struct AMDOSConfiguration: Sendable {
@@ -165,6 +215,7 @@ enum AMDOSNetworkError: LocalizedError {
     case oauthTimedOut
     case oauthProviderError
     case notFound
+    case notificationUnavailable
     case http(String)
 
     var errorDescription: String? {
@@ -175,6 +226,7 @@ enum AMDOSNetworkError: LocalizedError {
         case .oauthProviderError: return "Googleログインが中断されたか、許可されなかったよ。Google画面で許可してもう一度試してね。"
         case .oauthTimedOut: return "Googleログインの戻りを90秒待ったけど確認できなかったよ。認証画面を閉じて、もう一度試してね。"
         case .notFound: return "対象のデータが見つからなかったよ。"
+        case .notificationUnavailable: return ""
         case .http(let body): return "OSとの通信に失敗したよ。\n\(body)"
         }
     }
@@ -205,9 +257,10 @@ private enum PKCE {
 }
 
 @MainActor
-private final class OAuthBrowser {
+private final class OAuthBrowser: NSObject, ASWebAuthenticationPresentationContextProviding {
     private var continuation: CheckedContinuation<URL, Error>?
     private var timeoutTask: Task<Void, Never>?
+    private var webSession: ASWebAuthenticationSession?
 
     func open(url: URL) async throws -> URL {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, Error>) in
@@ -218,7 +271,22 @@ private final class OAuthBrowser {
                 AMDOSAuthLog.logger.error("google_auth_timed_out")
                 self?.finish(.failure(AMDOSNetworkError.oauthTimedOut))
             }
-            guard NSWorkspace.shared.open(url) else {
+            let session = ASWebAuthenticationSession(url: url, callbackURLScheme: "amdos-macos-auth") { [weak self] callback, error in
+                Task { @MainActor in
+                    if let callback {
+                        self?.finish(.success(callback))
+                    } else if let error {
+                        AMDOSAuthLog.logger.error("google_auth_browser_failed: \(error.localizedDescription, privacy: .public)")
+                        self?.finish(.failure(AMDOSNetworkError.oauthProviderError))
+                    } else {
+                        self?.finish(.failure(AMDOSNetworkError.oauthCallbackMissing))
+                    }
+                }
+            }
+            session.presentationContextProvider = self
+            session.prefersEphemeralWebBrowserSession = false
+            webSession = session
+            guard session.start() else {
                 AMDOSAuthLog.logger.error("google_auth_browser_could_not_start")
                 self.finish(.failure(AMDOSNetworkError.oauthStartFailed))
                 return
@@ -236,10 +304,15 @@ private final class OAuthBrowser {
         self.continuation = nil
         timeoutTask?.cancel()
         timeoutTask = nil
+        webSession = nil
         switch result {
         case .success(let callback): continuation.resume(returning: callback)
         case .failure(let error): continuation.resume(throwing: error)
         }
+    }
+
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        NSApp.keyWindow ?? NSApp.windows.first ?? NSWindow()
     }
 }
 

@@ -1,6 +1,9 @@
-# AMD OS macOS 移植台帳
+# AMD OS macOS 開発用対応台帳
 
 最終更新: 2026-07-17
+
+このファイルは開発・レビュー専用。ユーザー向けのmacOS画面、空状態、エラー、アクセシビリティ文言へ台帳の語彙を渡さない。
+NativeScreenID、読取元、書込み先、権限、回帰確認を全件残し、実装していない行を削除しない。
 
 判定は「実装済み」「ネイティブ骨格」「未移植」の3段階。
 行を消すこと、骨格を実装済みに読み替えること、旧PWA `/tasks` や旧月次ルーティンを復活させることは禁止。
@@ -18,9 +21,9 @@
 | PWA route（全件） | NativeScreenID | 読取元 | 書込み先 | 権限 | 状態 / 回帰確認 |
 |---|---|---|---|---|---|
 | `/auth/login`, `/auth/callback` | `account` | Supabase Auth + 透過 `AMDLogoMark.imageset` | Supabase OAuth PKCE | 本人 | 実装済み。AppIconと同じAMDロゴmarkを白背景に表示。Google callbackはASWebAuthenticationSessionとSwiftUI `onOpenURL`の両方からPKCE sessionへ戻し、session保存 |
-| `/dashboard`, `/mypage` | `today`, `projects` | `projects`, `app_notifications`, iOS MyPage | 既存通知・PJ安全API | member | 実装済み。PJカードと通知件数 |
+| `/dashboard`, `/mypage` | `today`, `projects` | `projects`, iOS MyPage、認可済み通知配送結果 | 既存PJ安全API | member | 実装済み。PJ一覧と今日の確認件数。通知の直接テーブル取得はしない |
 | `/project/[projectId]/cockpit`, `/project/[projectId]/config`, `/project/[projectId]/report/[ym]/print` | `projectDetail` | Cockpit / `projects`, `ms_*`, `billing_cycles`, `project_meeting_summaries` | 既存MS保存前検算・管理API | member / APIごとの権限 | ネイティブ骨格。選択PJ詳細を削除しない |
-| `/notifications` | `notifications` | `l2_notifications`, `meeting_notifications`, `app_notifications` | `/api/notifications/feedback` 等の既存安全経路 | 通知対象 / admin | ネイティブ骨格。判断ボタンはPWA安全経路へ |
+| `/notifications` | `notifications` | 認可済み通知配送結果、`l2_notifications`、`meeting_notifications` | `/api/notifications/feedback` 等の既存安全経路 | 通知対象 / admin | ネイティブ骨格。直接テーブルREST取得はしない。判断操作は安全経路へ |
 | `/reimburse` | `reimbursements` | `reimbursements`, `projects` | 立替申請API | member | ネイティブ骨格。申請write未接続 |
 | `/business-cards`, `/native/business-cards` | `businessCards` | private Storage + `/api/business-cards` | 人確認後の `PATCH /api/business-cards/[cardId]` | member | ネイティブ骨格。ファイル / drop / paste受付 |
 | `/monthly-agreement` | `monthlyAgreement` | agreement snapshot / `billing_cycles` | 合意API | member | ネイティブ骨格。状態欄と2点確認を維持 |

@@ -12,49 +12,82 @@ struct AMDOSWorkspaceView: View {
 
     var body: some View {
         NavigationSplitView {
-            VStack(spacing: 0) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Label("AMD OS", systemImage: "circle.hexagongrid.fill")
-                        .font(.title3.weight(.bold))
-                        .foregroundStyle(AMDOSDesign.blue)
-                    Text(auth.email ?? "認証済み")
-                        .font(.caption)
-                        .foregroundStyle(AMDOSDesign.muted)
-                        .lineLimit(1)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(16)
-
-                Picker("領域", selection: $area) {
-                    ForEach(visibleAreas) { item in
-                        Label(item.rawValue, systemImage: item.systemImage).tag(item)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 12)
-                .onChange(of: area) { _, next in
-                    screen = AMDOSParityCatalog.navigation(for: next, isAdmin: auth.isAdmin).first ?? .today
-                }
-
-                Divider().padding(.top, 14)
-
-                List(selection: $screen) {
-                    Section(area.rawValue) {
-                        ForEach(AMDOSParityCatalog.navigation(for: area, isAdmin: auth.isAdmin)) { id in
-                            let descriptor = AMDOSParityCatalog.descriptor(for: id)
-                            Label(descriptor.title, systemImage: icon(for: id))
-                                .tag(id)
+            List {
+                Section {
+                    HStack(spacing: 10) {
+                        Image("AMDLogoMark")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 34, height: 34)
+                            .accessibilityLabel("AMDロゴ")
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("AMD OS").font(.headline)
+                            Text("チームの現在地").font(.caption).foregroundStyle(AMDOSDesign.muted)
                         }
                     }
+                    .padding(.vertical, 8)
                 }
-                .listStyle(.sidebar)
+
+                Section("領域") {
+                    ForEach(visibleAreas) { item in
+                        Button {
+                            area = item
+                            screen = AMDOSParityCatalog.navigation(for: item, isAdmin: auth.isAdmin).first ?? .today
+                        } label: {
+                            Label(item.rawValue, systemImage: item.systemImage)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(area == item ? AMDOSDesign.blue : AMDOSDesign.ink)
+                    }
+                }
+
+                Section(AMDOSParityCatalog.areaLabel(area)) {
+                    ForEach(AMDOSParityCatalog.navigation(for: area, isAdmin: auth.isAdmin)) { id in
+                        Button {
+                            screen = id
+                            if id != .projectDetail { selectedProjectId = nil }
+                        } label: {
+                            Label(AMDOSParityCatalog.userTitle(for: id), systemImage: icon(for: id))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(screen == id ? AMDOSDesign.blue : AMDOSDesign.ink)
+                    }
+                }
             }
-            .navigationSplitViewColumnWidth(min: 220, ideal: 250, max: 310)
+            .listStyle(.sidebar)
+            .safeAreaInset(edge: .bottom) {
+                HStack(spacing: 8) {
+                    Image(systemName: "person.crop.circle")
+                    Text(auth.email ?? "アカウント")
+                        .lineLimit(1)
+                        .font(.caption)
+                    Spacer()
+                }
+                .foregroundStyle(AMDOSDesign.muted)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+            }
+            .navigationSplitViewColumnWidth(min: 220, ideal: 250, max: 300)
         } detail: {
-            AMDOSScreenView(screen: screen, selectedProjectId: $selectedProjectId, onSelectProject: { id in
-                selectedProjectId = id
-                screen = .projectDetail
-            })
+            AMDOSScreenView(
+                screen: screen,
+                selectedProjectId: $selectedProjectId,
+                onSelectProject: { id in
+                    selectedProjectId = id
+                    screen = .projectDetail
+                }
+            )
+        }
+        .navigationTitle(AMDOSParityCatalog.userTitle(for: screen))
+        .toolbar {
+            ToolbarItem {
+                Button("サインアウト", systemImage: "rectangle.portrait.and.arrow.right") {
+                    auth.signOut()
+                }
+                .help("AMD OSからサインアウト")
+            }
         }
     }
 
@@ -62,7 +95,7 @@ struct AMDOSWorkspaceView: View {
         switch id {
         case .today: return "sun.max.fill"
         case .projects, .projectDetail: return "rectangle.3.group.fill"
-        case .notifications: return "bell.badge.fill"
+        case .notifications: return "bell.fill"
         case .reimbursements: return "receipt"
         case .businessCards: return "person.text.rectangle"
         case .monthlyAgreement: return "checkmark.seal"
@@ -85,7 +118,7 @@ struct AMDOSWorkspaceView: View {
         case .adminManagementKnowledge: return "lightbulb.fill"
         case .adminSchedule: return "calendar"
         case .adminMsOverview: return "chart.bar.doc.horizontal"
-        case .adminSeasonPl: return "tablecells"
+        case .adminSeasonPl: return "chart.bar.fill"
         case .adminWeekly: return "calendar.badge.clock"
         case .hud: return "display"
         case .manual: return "book.closed.fill"
@@ -95,4 +128,3 @@ struct AMDOSWorkspaceView: View {
         }
     }
 }
-
