@@ -7,8 +7,11 @@
 - macOSはWKWebView wrapperではなく、`macos/`の独立SwiftUIクライアント。
 - iOSの5タブをそのまま移植せず、`NavigationSplitView` の「仕事 / 探索 / 管理 / 設定」で一覧と詳細を横に並べる。
 - 共通層はmacOS側の `AMDOSCore`、表示トークンは `AMDOSDesign`。iOSのUIKit依存や既存iOS画面をmacOSへ直接持ち込まない。
-- GoogleログインはSupabase OAuth + PKCE、callbackは `amdos-mac://auth/callback`。Supabase側へのredirect URI登録が必要。
+- GoogleログインはSupabase OAuth + PKCE、callbackは `amdos-macos-auth://oauth/callback`。Supabase側へのredirect URI登録が必要。
 - Macの名刺はファイル選択・ドラッグ&ドロップ・クリップボード貼付を主導線にし、OCR候補は人が確認してから既存APIで確定する。
+- macOSの認証は `ASWebAuthenticationSession` のcallback scheme、SwiftUI `onOpenURL` のscheme guard、Info.plistのURL schemeをすべて `amdos-macos-auth` に一致させる。iOSの `amdos` はmacOSから呼ばない。
+- ログイン画面は白背景に透過AMD三連中空六角形markを表示する。AppIconの背景付きマスターをそのままログイン画面へ置かず、仮記号や別ロゴを追加しない。
+- macOSの画面は利用者向けの仕事の言葉で構成し、移植状況や内部台帳・route・table名は開発文書だけに置く。
 
 ## 実装済み
 
@@ -31,4 +34,3 @@
 - `xcodegen generate --spec macos/project.yml --project macos/AMDOSMac.xcodeproj`
 - `xcodebuild -project macos/AMDOSMac.xcodeproj -scheme AMDOSMac -configuration Debug -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build`
 - 起動後にログイン画面、4領域ナビ、PJ一覧、名刺入力、admin非表示を確認。
-

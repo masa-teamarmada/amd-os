@@ -13,16 +13,17 @@ final class AMDOSWorkspaceModel: ObservableObject {
 
     init(client: AMDOSRESTClient = .shared) { self.client = client }
 
-    func loadHome() async {
+    func loadHome(email: String? = nil) async {
         isLoading = true
         errorMessage = nil
-        do {
-            async let projects = client.fetchProjects()
-            async let notifications = client.fetchNotifications()
-            self.projects = try await projects
-            self.notifications = try await notifications
-        } catch {
-            errorMessage = error.localizedDescription
+        do { self.projects = try await client.fetchProjects() }
+        catch { errorMessage = error.localizedDescription }
+        // 通知はEdge Functionの認可済み配送経路だけを使う。取得できない場合も、
+        // PJ一覧まで巻き戻したり権限エラーを画面へ露出させたりしない。
+        if let email {
+            self.notifications = (try? await client.fetchNotifications(email: email)) ?? []
+        } else {
+            self.notifications = []
         }
         isLoading = false
     }
@@ -37,4 +38,3 @@ final class AMDOSWorkspaceModel: ObservableObject {
         catch { errorMessage = error.localizedDescription }
     }
 }
-

@@ -6,7 +6,7 @@ struct AMDOSMacApp: App {
     @StateObject private var workspace = AMDOSWorkspaceModel()
 
     var body: some Scene {
-        WindowGroup("AMD OS") {
+        Window("AMD OS", id: "main") {
             AMDOSRootView()
                 .environmentObject(auth)
                 .environmentObject(workspace)
@@ -27,10 +27,14 @@ struct AMDOSRootView: View {
         Group {
             if auth.isSignedIn {
                 AMDOSWorkspaceView()
-                    .task { await workspace.loadHome() }
+                    .task(id: auth.email) { await workspace.loadHome(email: auth.email) }
             } else {
                 AMDOSLoginView()
             }
+        }
+        .onOpenURL { url in
+            guard url.scheme?.lowercased() == "amdos-macos-auth" else { return }
+            Task { await auth.acceptOAuthCallback(url) }
         }
         .preferredColorScheme(nil)
     }
@@ -56,7 +60,7 @@ struct AMDOSLoginView: View {
             Button {
                 Task { await auth.signInWithGoogle() }
             } label: {
-                Label(auth.isLoading ? "Googleで接続中…" : "Googleでログイン", systemImage: "person.crop.circle.badge.checkmark")
+                Label(auth.signInStatus, systemImage: "person.crop.circle.badge.checkmark")
                     .frame(width: 240)
             }
             .buttonStyle(.borderedProminent)

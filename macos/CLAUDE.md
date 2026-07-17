@@ -38,5 +38,4 @@ xcodegen generate --spec macos/project.yml --project macos/AMDOSMac.xcodeproj
 xcodebuild -project macos/AMDOSMac.xcodeproj -scheme AMDOSMac -configuration Debug -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build
 ```
 
-Googleログインの本番確認には、Supabase側の `amdos-mac://auth/callback` redirect URI登録が必要。
-
+Googleログインの本番確認には、Supabase側の `amdos-macos-auth://oauth/callback` redirect URI登録が必要。

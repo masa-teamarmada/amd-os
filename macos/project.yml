@@ -23,8 +23,8 @@ targets:
       base:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         PRODUCT_BUNDLE_IDENTIFIER: jp.team-armada.amdos.macos
-        MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: "1"
+        MARKETING_VERSION: "0.1.5"
+        CURRENT_PROJECT_VERSION: "5"
         PRODUCT_NAME: "AMD OS"
     info:
       path: SupportingFiles/Info.plist
@@ -33,8 +33,8 @@ targets:
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         AMDOS_SUPABASE_URL: "https://nbnhrhybjslbawdukvvk.supabase.co"
-        AMDOS_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmF0ZSIsInJlZiI6Im5ibmhyaHlianNsYmF3ZHV2a3ZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0NDEzNjUsImV4cCI6MjA5MTAxNzM2NX0.X16kjZlqeUCHKinkiAodSXrI1iQi47Z4dPZxt_Ja4Bg"
+        AMDOS_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ibmhyaHlianNsYmF3ZHVrdnZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0NDEzNjUsImV4cCI6MjA5MTAxNzM2NX0.X16kjZlqeUCHKinkiAodSXrI1iQi47Z4dPZxt_Ja4Bg"
         CFBundleURLTypes:
-          - CFBundleURLName: "AMD OS macOS OAuth callback"
+          - CFBundleURLName: "AMD OS macOS-only OAuth callback"
             CFBundleURLSchemes:
-              - "amdos-mac"
+              - "amdos-macos-auth"
