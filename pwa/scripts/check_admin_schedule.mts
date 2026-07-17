@@ -18,6 +18,12 @@ import {
   isStatutoryScheduleObligation,
 } from "../src/lib/admin-schedule/predicates.ts";
 import { buildMonthGrid, CALENDAR_WEEKDAYS, isDatePrecisionDay, mondayIndex } from "../src/lib/admin-schedule/calendar.ts";
+import {
+  annualPaymentSummary,
+  counterpartyFor,
+  formatScheduleYen,
+  nextPayment,
+} from "../src/lib/admin-schedule/operations.ts";
 import { OFFICIAL_RULES } from "../src/lib/admin-schedule/rules/official.ts";
 
 const root = join(import.meta.dirname, "..");
@@ -58,6 +64,44 @@ assert.equal(isDatePrecisionDay({ date_precision: "day", due_on: "2026-12-31" })
 assert.equal(isDatePrecisionDay({ date_precision: "month", due_on: null }), false, "month-only item cannot receive a fake day");
 assert.equal(isDatePrecisionDay({ date_precision: "period", due_on: null }), false, "period item cannot receive a fake day");
 assert.equal(buildMonthGrid(2026, 2).some((cell) => cell.outside && cell.date !== null), false, "outside cells never receive dates");
+
+const statutoryPayment = (dueOn: string, amountYen: number, amountStatus: "exact" | "estimated", computedStatus = "open") => ({
+  source_kind: "company_payment_obligation",
+  amount_role: "outgoing",
+  category: "tax",
+  computed_status: computedStatus,
+  lifecycle_status: computedStatus,
+  due_on: dueOn,
+  amount_yen: amountYen,
+  amount_status: amountStatus,
+  metadata_json: { counterparty: "日本年金機構", obligationStatus: computedStatus },
+});
+const paymentFixture = [
+  statutoryPayment("2026-03-02", 333_366, "exact", "completed"),
+  statutoryPayment("2026-03-31", 333_366, "exact", "completed"),
+  statutoryPayment("2026-04-30", 331_782, "exact", "completed"),
+  statutoryPayment("2026-06-01", 334_818, "exact", "completed"),
+  statutoryPayment("2026-06-30", 334_818, "exact", "overdue"),
+  statutoryPayment("2026-07-10", 322_680, "estimated", "overdue"),
+  statutoryPayment("2026-07-10", 29_056, "estimated", "overdue"),
+  statutoryPayment("2026-07-31", 334_818, "estimated"),
+  statutoryPayment("2026-08-31", 334_818, "estimated"),
+  statutoryPayment("2026-08-31", 405_200, "estimated"),
+  statutoryPayment("2026-09-30", 334_818, "estimated"),
+  statutoryPayment("2026-11-02", 334_818, "estimated"),
+  statutoryPayment("2026-11-30", 334_818, "estimated"),
+];
+const paymentSummary = annualPaymentSummary(paymentFixture, 2026);
+assert.equal(paymentSummary.items.length, 13);
+assert.equal(paymentSummary.totalAmountYen, 4_099_176);
+assert.equal(paymentSummary.exactAmountYen, 1_668_150);
+assert.equal(paymentSummary.estimatedAmountYen, 2_431_026);
+assert.equal(paymentSummary.unknownCount, 0);
+assert.equal(paymentSummary.peakMonth?.month, 8);
+assert.equal(paymentSummary.peakMonth?.amountYen, 740_018);
+assert.equal(nextPayment(paymentFixture, "2026-07-17")?.due_on, "2026-07-31");
+assert.equal(counterpartyFor(paymentFixture[0]), "日本年金機構");
+assert.equal(formatScheduleYen(334_818), "334,818円");
 
 const overdue = { lifecycle_status: "open", notification_owner: "company_schedule", category: "report", due_on: "2026-07-15" };
 assert.equal(stageFor(overdue, "2026-07-16"), "overdue:2026-07-16");
@@ -149,6 +193,8 @@ assert.match(generator, /!fromYm \|\| !toYm/);
 assert.match(generator, /\.gte\("ym", fromYm\)\.lte\("ym", toYm\)/);
 assert.doesNotMatch(generator, /\.gte\("ym", from\.slice\(0, 7\)\)/);
 assert.match(generator, /\.in\("category", \["tax", "social_insurance"\]\)/);
+assert.match(generator, /counterparty: text\(row\.counterparty\)/);
+assert.match(generator, /obligationStatus: text\(row\.status\)/);
 assert.match(generator, /\.eq\("relationship_scope", "amd_contract"\)\.eq\("registry_status", "accepted"\)/);
 assert.match(generator, /contracts\.filter\(isAcceptedAmdContract\)/);
 assert.match(generator, /generateContracts\(contracts, projects, projectMembers, members, from, to\)/);
@@ -188,6 +234,15 @@ assert.doesNotMatch(migration, /GRANT INSERT ON public\.company_schedule_actions
 assert.match(cronRoute, /scheduleGenerationRange\(todayJst\(\)\)/);
 assert.match(cronRoute, /sendScheduleNotificationsWhenEnabled/);
 assert.match(ui, /年間締切レール/);
+assert.match(ui, /data-testid="annual-payment-summary"/);
+assert.match(ui, /data-testid="annual-payment-rail"/);
+assert.match(ui, /data-testid="annual-operations-view"/);
+assert.match(ui, /data-testid="schedule-calendar-tab"/);
+assert.match(ui, /function OperationsMonthCard/);
+assert.match(ui, /function PaymentRow/);
+assert.match(ui, /支払先/);
+assert.match(ui, /その他の運営/);
+assert.match(ui, /const displayMonth = item\.due_on/);
 assert.match(ui, /grid-cols-7/);
 assert.match(ui, /md:grid-cols-2 xl:grid-cols-3/);
 assert.match(ui, /data-testid="mobile-calendar"/);
@@ -197,7 +252,6 @@ assert.match(ui, /setYear\(todayYear\)/);
 assert.match(ui, /shiftMobileMonth/);
 assert.match(ui, /月内・日付未確定/);
 assert.match(ui, /日付を生成できない締切/);
-assert.doesNotMatch(ui, /MonthCard/);
 assert.doesNotMatch(ui, /モバイルは月ごとのリスト/);
 assert.doesNotMatch(ui, /予定を追加|日付を編集|金額を編集/);
 

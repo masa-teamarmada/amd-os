@@ -25,6 +25,16 @@ import {
 } from "lucide-react";
 import { buildMonthGrid, CALENDAR_WEEKDAYS, isDatePrecisionDay } from "@/lib/admin-schedule/calendar";
 import { todayJst } from "@/lib/admin-schedule/date";
+import {
+  annualPaymentSummary,
+  counterpartyFor,
+  formatScheduleYen,
+  isAnnualStatutoryPayment,
+  nextPayment,
+  paymentMonthKey,
+  paymentStatusLabel,
+} from "@/lib/admin-schedule/operations";
+import type { AnnualPaymentSummary } from "@/lib/admin-schedule/operations";
 import type {
   AmountRole,
   ScheduleCategory,
@@ -35,6 +45,7 @@ import type {
 type Props = { initialData: ScheduleViewData };
 type StatusFilter = "all" | ScheduleViewOccurrence["computed_status"];
 type CalendarMonth = { year: number; month: number; key: string };
+type ViewMode = "operations" | "calendar";
 
 const CATEGORY_LABELS: Record<ScheduleCategory, string> = {
   tax: "税務",
@@ -133,7 +144,8 @@ function shortAmountLabel(item: ScheduleViewOccurrence): string | null {
 }
 
 function itemMatchesMonth(item: ScheduleViewOccurrence, key: string): boolean {
-  return item.due_on?.slice(0, 7).replace("-", "") === key || item.due_ym === key || item.period_key === key;
+  const displayMonth = item.due_on?.slice(0, 7).replace("-", "") ?? item.due_ym ?? item.period_key;
+  return displayMonth === key;
 }
 
 function shortTitle(item: ScheduleViewOccurrence): string {
@@ -165,10 +177,11 @@ function formatDayAgendaHeading(date: string): string {
 
 export function AdminScheduleClient({ initialData }: Props) {
   const [data] = useState(initialData);
-  const initialYear = Number(initialData.from.slice(0, 4));
   const today = todayJst();
   const todayYear = Number(today.slice(0, 4));
   const initialMonth = Number(today.slice(5, 7));
+  const initialYear = todayYear;
+  const [viewMode, setViewMode] = useState<ViewMode>("operations");
   const [year, setYear] = useState(initialYear);
   const [activeMonth, setActiveMonth] = useState<number | null>(null);
   const [mobileMonth, setMobileMonth] = useState(initialYear === todayYear ? initialMonth : 1);
@@ -219,18 +232,23 @@ export function AdminScheduleClient({ initialData }: Props) {
   const yearUnknownItems = yearItems.filter((item) => item.computed_status === "needs_source" && isUnknownDate(item));
   const nearest = yearItems.filter((item) => item.computed_status !== "completed" && item.computed_status !== "cancelled").slice(0, 6);
   const categoryOptions = [...new Set(data.occurrences.map((item) => item.category))].sort();
-  const years = [...new Set([Number(initialData.from.slice(0, 4)), Number(initialData.to.slice(0, 4)), todayYear])].sort();
+  const firstYear = Number(initialData.from.slice(0, 4));
+  const lastYear = Number(initialData.to.slice(0, 4));
+  const years = Array.from({ length: Math.max(1, lastYear - firstYear + 1) }, (_, index) => firstYear + index);
   const mobileKey = monthKey(year, mobileMonth);
   const mobileItems = yearItems.filter((item) => itemMatchesMonth(item, mobileKey));
   const mobileSelectedDate = selectedDate && selectedDate.startsWith(`${year}-${String(mobileMonth).padStart(2, "0")}-`) ? selectedDate : null;
   const mobileAgendaItems = mobileSelectedDate ? mobileItems.filter((item) => item.due_on === mobileSelectedDate && isDatePrecisionDay(item)) : [];
   const desktopAgendaItems = agendaDate ? yearItems.filter((item) => item.due_on === agendaDate && isDatePrecisionDay(item)) : [];
+  const annualPayments = annualPaymentSummary(visibleItems, year);
+  const nextPaymentItem = nextPayment(annualPayments.items, today) as ScheduleViewOccurrence | null;
 
   function focusMonth(month: number) {
     setActiveMonth(month);
     setMobileMonth(month);
     const key = `${year}-${String(month).padStart(2, "0")}`;
-    window.requestAnimationFrame(() => document.getElementById(`schedule-month-${key}`)?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    const targetId = viewMode === "operations" ? `schedule-operations-month-${key}` : `schedule-month-${key}`;
+    window.requestAnimationFrame(() => document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
 
   function setMobileCalendarMonth(month: number) {
@@ -310,7 +328,7 @@ export function AdminScheduleClient({ initialData }: Props) {
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Admin / Operations</p>
             <h1 className="mt-1 text-2xl font-semibold tracking-tight">運営カレンダー</h1>
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">人が日付を探し、ジョブが正本を走査する。契約・債務・請求・報告・確定action itemを実日付で俯瞰する。</p>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">きよとまさが、年間でいつ・どこへ・いくら納めるかを確認する。法定納付を主役に、契約と提出期限を補助レーンで見る。</p>
           </div>
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
@@ -341,23 +359,10 @@ export function AdminScheduleClient({ initialData }: Props) {
         <span className="ml-auto text-xs text-muted-foreground">{year}年 / {yearItems.length}件を表示</span>
       </section>
 
-      <section className="overflow-hidden border border-border bg-card" aria-labelledby="annual-rail-title">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
-          <div><h2 id="annual-rail-title" className="font-semibold">年間締切レール</h2><p className="text-xs text-muted-foreground">月を押すと、実日付カレンダーへ移動</p></div>
-          <label className="flex h-10 items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm"><span className="text-xs text-muted-foreground">対象年</span><select value={year} onChange={(event) => { const nextYear = Number(event.target.value); setYear(nextYear); setMobileMonth(1); setSelectedDate(null); }} className="bg-transparent font-semibold outline-none">{years.map((item) => <option key={item} value={item}>{item}年</option>)}</select></label>
-        </div>
-        <div className="px-4 py-4 sm:px-5">
-          <div className="relative grid grid-cols-6 gap-1 sm:grid-cols-6 lg:grid-cols-12">
-            {monthKeys.map((key, index) => {
-              const count = yearItems.filter((item) => itemMatchesMonth(item, key)).length;
-              const urgent = yearItems.some((item) => itemMatchesMonth(item, key) && ["overdue", "due_today", "needs_source"].includes(item.computed_status));
-              return <button type="button" key={key} onClick={() => focusMonth(index + 1)} className={`group relative min-h-12 rounded-lg border p-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-[64px] sm:p-2 ${activeMonth === index + 1 ? "border-foreground bg-muted" : "border-border/70 bg-background hover:border-foreground/40"}`} aria-label={`${monthLabel(year, index + 1)}へ移動`}><span className="whitespace-nowrap text-[10px] font-semibold sm:text-xs">{index + 1}月</span><span className="mt-0.5 block text-lg font-semibold tracking-tight sm:text-xl">{count}</span><span className={`mt-1 block h-1 rounded-full ${urgent ? "bg-amber-500" : count ? "bg-sky-400" : "bg-muted"}`} /></button>;
-            })}
-            {todayYear === year && <span aria-hidden="true" className="pointer-events-none absolute -top-2 bottom-0 hidden w-px bg-foreground/70 sm:block" style={{ left: `${((Number(today.slice(5, 7)) - 0.5) / 12) * 100}%` }}><span className="absolute -top-4 -translate-x-1/2 whitespace-nowrap text-[10px] font-semibold text-muted-foreground">今日</span></span>}
-          </div>
-          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground"><span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-rose-600" />期限超過</span><span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-amber-500" />要確認 / 今日</span><span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-sky-400" />締切あり</span></div>
-        </div>
-      </section>
+      <div role="tablist" aria-label="運営カレンダー表示" className="flex w-full border-b border-border">
+        <button type="button" role="tab" aria-selected={viewMode === "operations"} data-testid="schedule-operations-tab" onClick={() => setViewMode("operations")} className={`min-h-11 border-b-2 px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${viewMode === "operations" ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}>年間運営</button>
+        <button type="button" role="tab" aria-selected={viewMode === "calendar"} data-testid="schedule-calendar-tab" onClick={() => setViewMode("calendar")} className={`min-h-11 border-b-2 px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${viewMode === "calendar" ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}>日付カレンダー</button>
+      </div>
 
       <section className="flex flex-wrap items-center gap-2 border border-border bg-card p-3" aria-label="表示フィルター">
         <span className="inline-flex items-center gap-2 px-1 text-xs font-semibold text-muted-foreground"><SlidersHorizontal className="h-4 w-4" aria-hidden="true" />絞り込み</span>
@@ -368,29 +373,45 @@ export function AdminScheduleClient({ initialData }: Props) {
         <span className="ml-auto px-1 text-xs text-muted-foreground">{visibleItems.length}件</span>
       </section>
 
-      <section aria-labelledby="schedule-calendar-title" className="space-y-4">
-        <div className="flex items-end justify-between gap-3">
-          <div><h2 id="schedule-calendar-title" className="text-lg font-semibold">{year}年の実日付カレンダー</h2><p className="text-sm text-muted-foreground">月・曜日・日付を固定し、当日の締切から詳細へ進む。</p></div>
-          <span className="hidden text-xs text-muted-foreground md:inline">月 火 水 木 金 土 日</span>
-        </div>
-
-        <div className="hidden gap-4 md:grid md:grid-cols-2 xl:grid-cols-3">
-          {monthList.map((item) => <CalendarMonth key={item.key} calendarMonth={item} items={yearItems} today={today} onSelectId={setSelectedId} onSelectDate={selectDate} onShowAgenda={setAgendaDate} />)}
-        </div>
-
-        <div className="space-y-3 md:hidden" data-testid="mobile-calendar">
-          <div className="flex items-center gap-2 border border-border bg-card p-2">
-            <button type="button" onClick={() => shiftMobileMonth(-1)} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-border hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="前月"><ChevronLeft className="h-5 w-5" aria-hidden="true" /></button>
-            <label className="flex min-w-0 flex-1 items-center justify-center gap-2 text-sm font-semibold"><span className="sr-only">表示月</span><select value={mobileMonth} onChange={(event) => setMobileCalendarMonth(Number(event.target.value))} className="min-w-0 max-w-full bg-transparent text-center outline-none">{monthList.map((item) => <option key={item.key} value={item.month}>{monthLabel(year, item.month)}</option>)}</select></label>
-            <button type="button" onClick={() => shiftMobileMonth(1)} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-border hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="次月"><ChevronRight className="h-5 w-5" aria-hidden="true" /></button>
-            <button type="button" onClick={goToToday} className="min-h-11 shrink-0 rounded-lg border border-border px-3 text-xs font-semibold hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">今日</button>
-          </div>
-          <CalendarMonth calendarMonth={{ year, month: mobileMonth, key: mobileKey }} items={yearItems} today={today} mobile selectedDate={mobileSelectedDate} onSelectId={setSelectedId} onSelectDate={selectDate} onShowAgenda={showAgenda} />
-          <DayAgenda date={mobileSelectedDate} items={mobileAgendaItems} onSelect={setSelectedId} emptyLabel="日付を選ぶと、この日の締切がここに出るよ。" />
-        </div>
-
-        {agendaDate && <div className="hidden md:block"><DayAgenda date={agendaDate} items={desktopAgendaItems} onSelect={setSelectedId} /></div>}
-      </section>
+      {viewMode === "operations" ? (
+        <>
+          <AnnualPaymentCockpit year={year} summary={annualPayments} nextItem={nextPaymentItem} />
+          <PaymentRail year={year} summary={annualPayments} onFocusMonth={focusMonth} />
+          <section aria-labelledby="annual-operations-title" data-testid="annual-operations-view" className="space-y-4">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div><h2 id="annual-operations-title" className="text-lg font-semibold">{year}年の年間運営</h2><p className="text-sm text-muted-foreground">納付を先に確認し、提出・契約は「その他の運営」で追う。</p></div>
+              <DeadlineRailSelector year={year} years={years} onChange={(nextYear) => { setYear(nextYear); setMobileMonth(1); setSelectedDate(null); setAgendaDate(null); }} />
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" data-testid="annual-operation-months">
+              {monthList.map((item) => <OperationsMonthCard key={item.key} calendarMonth={item} items={yearItems} summary={annualPayments.monthly[item.month - 1]} onSelect={setSelectedId} />)}
+            </div>
+          </section>
+        </>
+      ) : (
+        <>
+          <DeadlineRail year={year} years={years} onYearChange={(nextYear) => { setYear(nextYear); setMobileMonth(1); setSelectedDate(null); setAgendaDate(null); }} monthKeys={monthKeys} yearItems={yearItems} today={today} todayYear={todayYear} activeMonth={activeMonth} onFocusMonth={focusMonth} />
+          <section aria-labelledby="schedule-calendar-title" className="space-y-4">
+            <div className="flex items-end justify-between gap-3">
+              <div><h2 id="schedule-calendar-title" className="text-lg font-semibold">{year}年の実日付カレンダー</h2><p className="text-sm text-muted-foreground">月・曜日・日付を固定し、当日の締切から詳細へ進む。</p></div>
+              <span className="hidden text-xs text-muted-foreground md:inline">月 火 水 木 金 土 日</span>
+            </div>
+            <div className="hidden gap-4 md:grid md:grid-cols-2 xl:grid-cols-3">
+              {monthList.map((item) => <CalendarMonth key={item.key} calendarMonth={item} items={yearItems} today={today} onSelectId={setSelectedId} onSelectDate={selectDate} onShowAgenda={showAgenda} />)}
+            </div>
+            <div className="space-y-3 md:hidden" data-testid="mobile-calendar">
+              <div className="flex items-center gap-2 border border-border bg-card p-2">
+                <button type="button" onClick={() => shiftMobileMonth(-1)} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-border hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="前月"><ChevronLeft className="h-5 w-5" aria-hidden="true" /></button>
+                <label className="flex min-w-0 flex-1 items-center justify-center gap-2 text-sm font-semibold"><span className="sr-only">表示月</span><select value={mobileMonth} onChange={(event) => setMobileCalendarMonth(Number(event.target.value))} className="min-w-0 max-w-full bg-transparent text-center outline-none">{monthList.map((item) => <option key={item.key} value={item.month}>{monthLabel(year, item.month)}</option>)}</select></label>
+                <button type="button" onClick={() => shiftMobileMonth(1)} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-border hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="次月"><ChevronRight className="h-5 w-5" aria-hidden="true" /></button>
+                <button type="button" onClick={goToToday} className="min-h-11 shrink-0 rounded-lg border border-border px-3 text-xs font-semibold hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">今日</button>
+              </div>
+              <CalendarMonth calendarMonth={{ year, month: mobileMonth, key: mobileKey }} items={yearItems} today={today} mobile selectedDate={mobileSelectedDate} onSelectId={setSelectedId} onSelectDate={selectDate} onShowAgenda={showAgenda} />
+              <DayAgenda date={mobileSelectedDate} items={mobileAgendaItems} onSelect={setSelectedId} emptyLabel="日付を選ぶと、この日の締切がここに出るよ。" />
+            </div>
+            {agendaDate && <div className="hidden md:block"><DayAgenda date={agendaDate} items={desktopAgendaItems} onSelect={setSelectedId} /></div>}
+          </section>
+        </>
+      )}
 
       <section className="grid gap-4 lg:grid-cols-2" aria-label="カレンダー補助情報">
         <div className="border border-border bg-card p-4">
@@ -407,12 +428,96 @@ export function AdminScheduleClient({ initialData }: Props) {
 
       <div className="border border-dashed border-border bg-muted/20 p-4 text-sm">
         <p className="font-semibold">正本を直す場所</p>
-        <p className="mt-1 leading-6 text-muted-foreground">日付・金額・担当者の誤りは、契約・債務・請求・報告書・action item側を修正してから再生成してね。</p>
+        <p className="mt-1 leading-6 text-muted-foreground">日付・金額・担当者の誤りは、契約・債務・報告書・action item側を修正してから再生成してね。PJ別の請求書発行・入金確認はここには載せない。</p>
       </div>
 
       {selected && <DetailDrawer item={selected} onClose={() => setSelectedId(null)} actionBusy={actionBusy} actionReason={actionReason} evidenceRef={evidenceRef} onReasonChange={setActionReason} onEvidenceChange={setEvidenceRef} onAction={recordAction} />}
     </div>
   );
+}
+
+function weekdayLabel(isoDate: string): string {
+  const date = new Date(`${isoDate}T00:00:00Z`);
+  return CALENDAR_WEEKDAYS[(date.getUTCDay() + 6) % 7];
+}
+
+function paymentDateLabel(item: ScheduleViewOccurrence): string {
+  if (item.due_on) {
+    const date = new Date(`${item.due_on}T00:00:00Z`);
+    return `${date.getUTCMonth() + 1}/${date.getUTCDate()}（${weekdayLabel(item.due_on)}）`;
+  }
+  if (item.due_ym) return `${item.due_ym.slice(0, 4)}年${Number(item.due_ym.slice(4, 6))}月（日付未確定）`;
+  return "日付未確定";
+}
+
+function AnnualPaymentCockpit({ year, summary, nextItem }: { year: number; summary: AnnualPaymentSummary<ScheduleViewOccurrence>; nextItem: ScheduleViewOccurrence | null }) {
+  return <section data-testid="annual-payment-summary" aria-labelledby="annual-payment-summary-title" className="border border-border bg-card">
+    <div className="grid gap-5 p-4 sm:p-5 lg:grid-cols-[minmax(240px,1.05fr)_minmax(0,1.95fr)]">
+      <div className="border-b border-border pb-4 lg:border-b-0 lg:border-r lg:pb-0 lg:pr-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">年間資金流出</p>
+        <h2 id="annual-payment-summary-title" className="mt-2 text-sm font-semibold">{year}年の法定納付予定総額</h2>
+        <p className="mt-1 text-3xl font-semibold tracking-tight tabular-nums">{formatScheduleYen(summary.totalAmountYen)}</p>
+        <p className="mt-2 text-xs leading-5 text-muted-foreground">確定・概算を合算。完了済みも年度キャッシュアウトとして含め、取消は除外。</p>
+      </div>
+      <dl className="grid gap-x-5 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div><dt className="text-xs text-muted-foreground">確定額</dt><dd className="mt-1 text-lg font-semibold tabular-nums">{formatScheduleYen(summary.exactAmountYen)}</dd></div>
+        <div><dt className="text-xs text-muted-foreground">概算額</dt><dd className="mt-1 text-lg font-semibold tabular-nums text-amber-800">{formatScheduleYen(summary.estimatedAmountYen)}</dd></div>
+        <div><dt className="text-xs text-muted-foreground">金額未確定</dt><dd className="mt-1 text-lg font-semibold tabular-nums">{summary.unknownCount}件</dd></div>
+        <div><dt className="text-xs text-muted-foreground">納付件数</dt><dd className="mt-1 text-lg font-semibold tabular-nums">{summary.items.length}件</dd></div>
+      </dl>
+    </div>
+    <div className="grid gap-4 border-t border-border px-4 py-4 sm:grid-cols-2 sm:px-5">
+      <div><p className="text-xs font-semibold text-muted-foreground">次の支払</p>{nextItem ? <div className="mt-1"><p className="font-semibold">{paymentDateLabel(nextItem)} · {shortTitle(nextItem)}</p><p className="mt-1 break-words text-sm">{counterpartyFor(nextItem)} <span className="mx-1 text-muted-foreground">/</span> <span className="font-semibold tabular-nums">{formatScheduleYen(nextItem.amount_yen)}</span> <span className="ml-1 text-xs text-muted-foreground">{paymentStatusLabel(nextItem)}</span></p></div> : <p className="mt-1 text-sm text-muted-foreground">今日以降の未完了納付はないよ。</p>}</div>
+      <div><p className="text-xs font-semibold text-muted-foreground">支払ピーク月</p><p className="mt-1 font-semibold">{summary.peakMonth ? `${summary.peakMonth.month}月 · ${formatScheduleYen(summary.peakMonth.amountYen)}` : "該当なし"}</p><p className="mt-1 text-xs text-muted-foreground">月を押すと、その月の運営カードへ移動</p></div>
+    </div>
+  </section>;
+}
+
+function PaymentRail({ year, summary, onFocusMonth }: { year: number; summary: AnnualPaymentSummary<ScheduleViewOccurrence>; onFocusMonth: (month: number) => void }) {
+  const maxAmount = Math.max(1, ...summary.monthly.map((month) => month.amountYen));
+  return <section aria-labelledby="payment-rail-title" className="border border-border bg-card p-4 sm:p-5">
+    <div className="flex flex-wrap items-end justify-between gap-2"><div><h2 id="payment-rail-title" className="font-semibold">年間支払レール</h2><p className="mt-1 text-xs text-muted-foreground">法定納付の資金波形。金額は完全値を読み上げられる。</p></div><span className="text-xs text-muted-foreground">{year}年 / 12か月</span></div>
+    <div className="mt-4 grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-12" data-testid="annual-payment-rail">
+      {summary.monthly.map((month) => <button type="button" key={month.key} onClick={() => onFocusMonth(month.month)} aria-label={`${year}年${month.month}月の支払合計 ${formatScheduleYen(month.amountYen)}、${month.itemCount}件`} className="group flex min-h-28 min-w-0 flex-col justify-end rounded-lg border border-border/70 bg-background px-2 py-2 text-left transition-colors hover:border-foreground/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <span className="mb-2 min-h-8 break-words text-[11px] font-semibold leading-4 tabular-nums group-hover:text-foreground">{month.amountYen ? formatScheduleYen(month.amountYen) : month.unknownCount ? "未取得" : "—"}</span>
+        <span className="flex h-12 items-end"><span aria-hidden="true" className={`block w-full rounded-t-sm ${month.unknownCount > 0 ? "bg-amber-400" : month.amountYen ? "bg-foreground/75" : "bg-muted"}`} style={{ height: `${month.amountYen ? Math.max(12, (month.amountYen / maxAmount) * 100) : 8}%` }} /></span>
+        <span className="mt-2 flex items-center justify-between gap-1 text-[11px]"><span className="font-semibold">{month.month}月</span><span className="text-muted-foreground">{month.itemCount}件</span></span>
+      </button>)}
+    </div>
+  </section>;
+}
+
+function OperationsMonthCard({ calendarMonth, items, summary, onSelect }: { calendarMonth: CalendarMonth; items: ScheduleViewOccurrence[]; summary: AnnualPaymentSummary["monthly"][number]; onSelect: (id: string) => void }) {
+  const paymentItems = items.filter((item) => isAnnualStatutoryPayment(item) && paymentMonthKey(item) === calendarMonth.key).sort((left, right) => String(left.due_on ?? left.due_ym ?? "").localeCompare(String(right.due_on ?? right.due_ym ?? "")));
+  const otherItems = items.filter((item) => !isAnnualStatutoryPayment(item) && itemMatchesMonth(item, calendarMonth.key));
+  const totalLabel = summary.amountYen ? formatScheduleYen(summary.amountYen) : summary.unknownCount ? "金額未取得" : "納付なし";
+  return <section id={`schedule-operations-month-${calendarMonth.year}-${String(calendarMonth.month).padStart(2, "0")}`} className="min-w-0 border border-border bg-card" aria-labelledby={`operations-month-title-${calendarMonth.key}`}>
+    <header className="flex items-start justify-between gap-3 border-b border-border px-4 py-3"><div><h3 id={`operations-month-title-${calendarMonth.key}`} className="text-base font-semibold">{monthLabel(calendarMonth.year, calendarMonth.month)}</h3><p className="mt-1 text-xs text-muted-foreground">法定納付 {paymentItems.length}件</p></div><div className="text-right"><p className="text-sm font-semibold tabular-nums">{totalLabel}</p>{summary.unknownCount > 0 && <p className="mt-1 text-[11px] text-amber-800">未取得 {summary.unknownCount}件</p>}</div></header>
+    <div className="p-3 sm:p-4">
+      <div><p className="text-xs font-semibold tracking-wide text-foreground">納付</p><div className="mt-2 space-y-2">{paymentItems.length ? paymentItems.map((item) => <PaymentRow key={item.occurrence_id} item={item} onSelect={onSelect} />) : <p className="py-2 text-sm text-muted-foreground">納付なし</p>}</div></div>
+      <div className="mt-4 border-t border-border pt-3"><p className="text-xs font-semibold tracking-wide text-muted-foreground">その他の運営</p><p className="mt-1 text-[11px] leading-5 text-muted-foreground">報告・契約など。支払準備とは分けて確認。</p><div className="mt-2 space-y-1">{otherItems.length ? otherItems.map((item) => <ScheduleListItem key={item.occurrence_id} item={item} compact onSelect={onSelect} />) : <p className="py-2 text-sm text-muted-foreground">該当なし</p>}</div></div>
+    </div>
+  </section>;
+}
+
+function PaymentRow({ item, onSelect }: { item: ScheduleViewOccurrence; onSelect: (id: string) => void }) {
+  const amountState = paymentStatusLabel(item);
+  return <button type="button" onClick={() => onSelect(item.occurrence_id)} className={`block min-h-11 w-full rounded-lg border border-border/70 border-l-4 p-3 text-left transition-colors hover:border-foreground/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${STATUS_STYLES[item.computed_status]}`}>
+    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1"><span className="shrink-0 text-sm font-semibold tabular-nums">{paymentDateLabel(item)}</span><span className="break-words text-sm font-semibold leading-5">{shortTitle(item)}</span></div>
+    <div className="mt-2 grid gap-1 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end sm:gap-3"><p className="break-words text-xs leading-5"><span className="text-muted-foreground">支払先:</span> {counterpartyFor(item)}</p><p className="break-words text-base font-semibold leading-5 tabular-nums">{formatScheduleYen(item.amount_yen)}</p></div>
+    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]"><span className={`font-semibold ${amountState === "概算" ? "text-amber-800" : "text-foreground"}`}>{amountState}</span><span className="text-muted-foreground">法定納付</span><span className="text-muted-foreground">{stateLabel(item)}</span></div>
+  </button>;
+}
+
+function DeadlineRailSelector({ year, years, onChange }: { year: number; years: number[]; onChange: (year: number) => void }) {
+  return <label className="flex h-10 items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm"><span className="text-xs text-muted-foreground">対象年</span><select value={year} onChange={(event) => onChange(Number(event.target.value))} className="bg-transparent font-semibold outline-none">{years.map((item) => <option key={item} value={item}>{item}年</option>)}</select></label>;
+}
+
+function DeadlineRail({ year, years, onYearChange, monthKeys, yearItems, today, todayYear, activeMonth, onFocusMonth }: { year: number; years: number[]; onYearChange: (year: number) => void; monthKeys: string[]; yearItems: ScheduleViewOccurrence[]; today: string; todayYear: number; activeMonth: number | null; onFocusMonth: (month: number) => void }) {
+  return <section className="overflow-hidden border border-border bg-card" aria-labelledby="annual-rail-title">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5"><div><h2 id="annual-rail-title" className="font-semibold">年間締切レール</h2><p className="text-xs text-muted-foreground">月を押すと、実日付カレンダーへ移動</p></div><DeadlineRailSelector year={year} years={years} onChange={onYearChange} /></div>
+    <div className="px-4 py-4 sm:px-5"><div className="relative grid grid-cols-6 gap-1 sm:grid-cols-6 lg:grid-cols-12">{monthKeys.map((key, index) => { const count = yearItems.filter((item) => itemMatchesMonth(item, key)).length; const urgent = yearItems.some((item) => itemMatchesMonth(item, key) && ["overdue", "due_today", "needs_source"].includes(item.computed_status)); return <button type="button" key={key} onClick={() => onFocusMonth(index + 1)} className={`group relative min-h-12 rounded-lg border p-1.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-[64px] sm:p-2 ${activeMonth === index + 1 ? "border-foreground bg-muted" : "border-border/70 bg-background hover:border-foreground/40"}`} aria-label={`${monthLabel(year, index + 1)}へ移動`}><span className="whitespace-nowrap text-[10px] font-semibold sm:text-xs">{index + 1}月</span><span className="mt-0.5 block text-lg font-semibold tracking-tight sm:text-xl">{count}</span><span className={`mt-1 block h-1 rounded-full ${urgent ? "bg-amber-500" : count ? "bg-sky-400" : "bg-muted"}`} /></button>; })}{todayYear === year && <span aria-hidden="true" className="pointer-events-none absolute -top-2 bottom-0 hidden w-px bg-foreground/70 sm:block" style={{ left: `${((Number(today.slice(5, 7)) - 0.5) / 12) * 100}%` }}><span className="absolute -top-4 -translate-x-1/2 whitespace-nowrap text-[10px] font-semibold text-muted-foreground">今日</span></span>}</div><div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground"><span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-rose-600" />期限超過</span><span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-amber-500" />要確認 / 今日</span><span className="inline-flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-sky-400" />締切あり</span></div></div>
+  </section>;
 }
 
 function CalendarMonth({ calendarMonth, items, today, mobile = false, selectedDate, onSelectId, onSelectDate, onShowAgenda }: { calendarMonth: CalendarMonth; items: ScheduleViewOccurrence[]; today: string; mobile?: boolean; selectedDate?: string | null; onSelectId: (id: string) => void; onSelectDate: (date: string) => void; onShowAgenda: (date: string) => void }) {
@@ -472,11 +577,11 @@ function FilterSelect({ label, value, onChange, options, labels }: { label: stri
 
 function ScheduleListItem({ item, onSelect, compact = false }: { item: ScheduleViewOccurrence; onSelect: (id: string) => void; compact?: boolean }) {
   const Icon = CATEGORY_ICONS[item.category] ?? CalendarDays;
-  return <button type="button" onClick={() => onSelect(item.occurrence_id)} className={`group flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left transition-colors hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${compact ? "py-1.5" : "py-2"}`}><span className={`grid h-8 w-8 shrink-0 place-items-center rounded-md border-l-[3px] ${STATUS_STYLES[item.computed_status]}`}><Icon className="h-4 w-4" aria-hidden="true" /></span><span className="min-w-0 flex-1"><span className="flex items-center gap-2"><span className="truncate text-sm font-medium">{shortTitle(item)}</span>{item.computed_status === "needs_source" && <span className="shrink-0 text-[10px] font-semibold text-amber-700">要根拠</span>}</span><span className="mt-0.5 block truncate text-xs text-muted-foreground">{dateLabel(item)} · {CATEGORY_LABELS[item.category]}</span></span><span className="hidden shrink-0 text-xs text-muted-foreground group-hover:block">詳細</span></button>;
+  return <button type="button" onClick={() => onSelect(item.occurrence_id)} className={`group flex min-h-11 w-full items-start gap-2 rounded-lg px-2 text-left transition-colors hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${compact ? "py-1.5" : "py-2"}`}><span className={`mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-md border-l-[3px] ${STATUS_STYLES[item.computed_status]}`}><Icon className="h-4 w-4" aria-hidden="true" /></span><span className="min-w-0 flex-1"><span className="flex flex-wrap items-start gap-2"><span className="break-words text-sm font-medium leading-5">{shortTitle(item)}</span>{item.computed_status === "needs_source" && <span className="shrink-0 text-[10px] font-semibold text-amber-700">要根拠</span>}</span><span className="mt-0.5 block break-words text-xs leading-5 text-muted-foreground">{dateLabel(item)} · {CATEGORY_LABELS[item.category]}</span></span><span className="hidden shrink-0 text-xs text-muted-foreground group-hover:block">詳細</span></button>;
 }
 
 function DetailDrawer({ item, onClose, actionBusy, actionReason, evidenceRef, onReasonChange, onEvidenceChange, onAction }: { item: ScheduleViewOccurrence; onClose: () => void; actionBusy: boolean; actionReason: string; evidenceRef: string; onReasonChange: (value: string) => void; onEvidenceChange: (value: string) => void; onAction: (action: "completed" | "not_applicable" | "reopened") => void }) {
-  return <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 lg:items-stretch lg:justify-end" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section role="dialog" aria-modal="true" aria-labelledby="schedule-detail-title" className="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl border border-border bg-background shadow-2xl lg:max-h-none lg:w-[min(480px,100vw)] lg:rounded-none lg:border-y-0 lg:border-r-0"><header className="flex items-start justify-between gap-3 border-b border-border px-5 py-4"><div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Occurrence detail</p><h2 id="schedule-detail-title" className="mt-1 text-lg font-semibold leading-7">{item.title}</h2></div><button type="button" onClick={onClose} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-border text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="詳細を閉じる"><X className="h-5 w-5" aria-hidden="true" /></button></header><div className="min-h-0 flex-1 overflow-y-auto px-5 py-5"><div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${STATUS_STYLES[item.computed_status]}`}>{statusIcon(item.computed_status)}{stateLabel(item)}</div><div className="mt-5 space-y-4"><DetailRow label="期限" value={fullDateLabel(item)} /><DetailRow label="金額" value={amountLabel(item)} /><DetailRow label="担当" value={item.owner_label ?? "担当未確定"} /><DetailRow label="プロジェクト" value={item.project_label ?? "会社全体"} /><DetailRow label="生成状態" value={`${stateLabel(item)} / ${item.source_kind}${item.rule_version ? ` / ルール ${item.rule_version}` : ""}`} />{item.missing_reason && <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"><p className="font-semibold">根拠が足りない理由</p><p className="mt-1 leading-6">{item.missing_reason}</p></div>}<SourceBlock item={item} /></div>{item.notification_owner !== "payment_obligation" && <div className="mt-6 border-t border-border pt-5"><h3 className="text-sm font-semibold">行動履歴を追加</h3><p className="mt-1 text-xs leading-5 text-muted-foreground">日付・金額・担当者の変更ではなく、確認・完了の履歴だけを追記する。</p><label className="mt-3 block text-xs font-medium">理由<textarea value={actionReason} onChange={(event) => onReasonChange(event.target.value)} rows={3} className="mt-1 w-full rounded-lg border border-border bg-card p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" placeholder="何を確認したか" /></label><label className="mt-3 block text-xs font-medium">根拠リンク / 参照先<input value={evidenceRef} onChange={(event) => onEvidenceChange(event.target.value)} className="mt-1 h-11 w-full rounded-lg border border-border bg-card px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" placeholder="https://… または正本ID" /></label><div className="mt-3 grid grid-cols-2 gap-2"><button type="button" disabled={actionBusy || (!actionReason.trim() && !evidenceRef.trim())} onClick={() => onAction("completed")} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-foreground px-3 text-sm font-medium text-background disabled:opacity-50"><Check className="h-4 w-4" aria-hidden="true" />完了にする</button><button type="button" disabled={actionBusy || (!actionReason.trim() && !evidenceRef.trim())} onClick={() => onAction("not_applicable")} className="min-h-11 rounded-lg border border-border px-3 text-sm font-medium disabled:opacity-50">対象外</button></div>{item.latest_action && <button type="button" disabled={actionBusy} onClick={() => onAction("reopened")} className="mt-2 min-h-11 w-full rounded-lg border border-border px-3 text-sm font-medium disabled:opacity-50">完了を取り消す（履歴を追記）</button>}</div>}</div></section></div>;
+  return <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 lg:items-stretch lg:justify-end" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section role="dialog" aria-modal="true" aria-labelledby="schedule-detail-title" className="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl border border-border bg-background shadow-2xl lg:max-h-none lg:w-[min(480px,100vw)] lg:rounded-none lg:border-y-0 lg:border-r-0"><header className="flex items-start justify-between gap-3 border-b border-border px-5 py-4"><div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Occurrence detail</p><h2 id="schedule-detail-title" className="mt-1 break-words text-lg font-semibold leading-7">{item.title}</h2></div><button type="button" onClick={onClose} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-border text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="詳細を閉じる"><X className="h-5 w-5" aria-hidden="true" /></button></header><div className="min-h-0 flex-1 overflow-y-auto px-5 py-5"><div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${STATUS_STYLES[item.computed_status]}`}>{statusIcon(item.computed_status)}{stateLabel(item)}</div><div className="mt-5 space-y-4"><DetailRow label="期限" value={fullDateLabel(item)} /><DetailRow label="金額" value={amountLabel(item)} /><DetailRow label="担当" value={item.owner_label ?? "担当未確定"} /><DetailRow label="プロジェクト" value={item.project_label ?? "会社全体"} /><DetailRow label="生成状態" value={`${stateLabel(item)} / ${item.source_kind}${item.rule_version ? ` / ルール ${item.rule_version}` : ""}`} />{item.missing_reason && <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"><p className="font-semibold">根拠が足りない理由</p><p className="mt-1 leading-6">{item.missing_reason}</p></div>}<SourceBlock item={item} /></div>{item.notification_owner !== "payment_obligation" && <div className="mt-6 border-t border-border pt-5"><h3 className="text-sm font-semibold">行動履歴を追加</h3><p className="mt-1 text-xs leading-5 text-muted-foreground">日付・金額・担当者の変更ではなく、確認・完了の履歴だけを追記する。</p><label className="mt-3 block text-xs font-medium">理由<textarea value={actionReason} onChange={(event) => onReasonChange(event.target.value)} rows={3} className="mt-1 w-full rounded-lg border border-border bg-card p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" placeholder="何を確認したか" /></label><label className="mt-3 block text-xs font-medium">根拠リンク / 参照先<input value={evidenceRef} onChange={(event) => onEvidenceChange(event.target.value)} className="mt-1 h-11 w-full rounded-lg border border-border bg-card px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" placeholder="https://… または正本ID" /></label><div className="mt-3 grid grid-cols-2 gap-2"><button type="button" disabled={actionBusy || (!actionReason.trim() && !evidenceRef.trim())} onClick={() => onAction("completed")} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-foreground px-3 text-sm font-medium text-background disabled:opacity-50"><Check className="h-4 w-4" aria-hidden="true" />完了にする</button><button type="button" disabled={actionBusy || (!actionReason.trim() && !evidenceRef.trim())} onClick={() => onAction("not_applicable")} className="min-h-11 rounded-lg border border-border px-3 text-sm font-medium disabled:opacity-50">対象外</button></div>{item.latest_action && <button type="button" disabled={actionBusy} onClick={() => onAction("reopened")} className="mt-2 min-h-11 w-full rounded-lg border border-border px-3 text-sm font-medium disabled:opacity-50">完了を取り消す（履歴を追記）</button>}</div>}</div></section></div>;
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {

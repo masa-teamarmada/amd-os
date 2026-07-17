@@ -692,6 +692,24 @@ browserからの直接INSERT、UPDATE、DELETEを許可しない。
 
 ## 回帰防止
 
+### 年間運営コックピット
+
+既定表示は`年間運営`とし、実日付の12か月グリッドは補助タブ`日付カレンダー`へ置く。
+
+年間運営は`source_kind='company_payment_obligation'`、`amount_role='outgoing'`、`category in ('tax','labor')`、取消以外の発生だけを法定納付として集計する。
+
+上段に年間納付総額、確定額、概算額、金額未取得件数、次の未完了支払、支払ピーク月を表示する。
+
+12か月の支払額レールは月別合計と件数を表示し、月別運営カードへ移動できる。
+
+月別運営カードは`納付`と`その他の運営`を分離する。
+
+納付行は日付と曜日、正式名称、支払先、完全な円金額、確定/概算、状態を省略せず、月次報告や契約期限より強く表示する。
+
+支払先と支払義務の元状態は`company_payment_obligations.counterparty/status`から発生metadataへ引き継ぐ。
+
+PJ別の請求書発行・送付・入金確認は年間納付へ混ぜない。
+
 実装時に、次を`npm run test:critical-ui`または専用テストへ登録する。
 
 - `/admin/schedule`とAdminSidebarの`運営カレンダー`導線。

@@ -443,7 +443,8 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 必須機能:
 
 - `AdminSidebar` に `運営カレンダー` → `/admin/schedule` を置く。admin layout/auth gateと既存full-width shellを使う。
-- デスクトップは12か月すべての実日付7列グリッドを主役にし、xlは3か月×4段、md/lgは2か月で表示する。モバイルも1か月ずつの7列グリッドを使い、前月/次月・月選択・今日・選択日agendaを備える。
+- 既定の`年間運営`は法定納付を主役にする。年間総額、確定/概算内訳、次の支払、ピーク月、12か月の支払額レールと、月ごとの`納付` / `その他の運営`を表示する。納付行は日付、正式名称、支払先、完全な金額、確定/概算、状態を省略しない。
+- 12か月すべての実日付7列グリッドは補助タブ`日付カレンダー`として残す。xlは3か月×4段、md/lgは2か月、モバイルは1か月ずつ表示し、前月/次月・月選択・今日・選択日agendaを備える。
 - 会社単位の法定納付を主役にする。`company_payment_obligations` は `tax` / `social_insurance` だけを運営カレンダーへ取り込み、PJ別の請求書発行/送付・入金確認 (`billing_cycles`) は生成対象から除外する。
 - カレンダーから予定・日付・金額・担当者を追加、編集、削除しない。元正本の修正後に `/api/admin/schedule/rebuild` で再生成する。
 - detail drawer/sheet は期限精度 (`day` / `month` / `period` / `unknown`)、金額役割 (`outgoing` / `incoming` / `contract_reference` / `informational`)、担当、正本リンク、公式根拠、生成状態を表示する。不明額を0円表示しない。
@@ -452,5 +453,5 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 回帰防止:
 
-- `npm run test:admin-schedule` が法定期限の純粋日付計算、公式URL、amount role、notification owner、手入力禁止のanchorを検査する。
+- `npm run test:admin-schedule` が法定期限の純粋日付計算、2026年の年間納付集計、公式URL、amount role、notification owner、年間運営UI、手入力禁止のanchorを検査する。
 - 予定追加ボタン、カレンダー上の日付/金額/担当者編集、支払義務の重複通知を戻さない。ルールの変更は公式一次情報、版、確認日、テストを同じ束で更新する。

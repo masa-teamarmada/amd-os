@@ -441,6 +441,8 @@ function generatePaymentObligations(obligations: RawRow[]): GeneratedOccurrence[
       metadata: {
         obligationId: row.id,
         category: row.category || "other",
+        counterparty: text(row.counterparty),
+        obligationStatus: text(row.status),
         cashflowTreatment: row.cashflow_treatment || null,
         autoDebit: row.auto_debit ?? null,
         paidAt: row.paid_at || null,
@@ -1299,8 +1301,8 @@ async function persistRuleChecks(db: ScheduleDb): Promise<string[]> {
 export async function generateSchedule(db: ScheduleDb, options: ScheduleGenerationOptions = {}): Promise<ScheduleGenerationResult> {
   const today = todayJst(options.now);
   const defaultYear = Number(today.slice(0, 4));
-  const from = options.from ?? `${defaultYear}-01-01`;
-  const to = options.to ?? `${defaultYear + 1}-12-31`;
+  const from = options.from ?? `${defaultYear - 1}-01-01`;
+  const to = options.to ?? `${defaultYear + 2}-12-31`;
   const errors: string[] = [];
   const fromYm = ymFromDate(from);
   const toYm = ymFromDate(to);
