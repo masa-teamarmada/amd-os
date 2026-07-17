@@ -5,6 +5,17 @@
 
 ---
 
+### [perf/authenticated-shell] 全 authenticated route の初回表示が月初合意ゲート・つくよみ・ダッシュボード会社コンテンツで重かった (2026-07-17)
+
+- **状態**: クローズ (2026-07-17 — build v3.44.8、main commit `89956e6f` + `351255cf`)。production verify は `/dashboard` で実施。
+- **症状**: `/dashboard` に限らず、ログイン後の通常 route 全般で初回表示が重かった。DOM ノード数・画像リクエスト数が過大で、体感の初回描画が遅かった。
+- **原因**: (1) `(app)/layout.tsx` が **全 route** で `buildMonthlyWorkAgreementBundle` (`project_members` 起点で 10 テーブル超を複数波に分けて叩く重い集計) を SSR 同期実行し、月初合意が不要な route でもブロッキングしていた。(2) 閉じている `MonthlyAgreementExperience` (72KB) と つくよみ `TsukuyomiChatDrawer` が client bundle に静的に含まれていた。(3) `CriticalRealtimeNotify` が tab hidden 時も 3 テーブルを 10 秒間隔でポーリングし続けていた。(4) dashboard が会社コンテンツ (メンバー/沿革/写真/メディア掲載、最大9リクエスト・最大500行) を初回 `Promise.allSettled` で常に eager fetch し、`MyPageContent` と一緒に fold 前で render していた。
+- **対応内容**: `(app)/layout.tsx` の SSR gate 計算を撤去し、`AppShell` mount 後に既存 member API `GET /api/monthly-work-agreement` を client fetch する方式へ変更 (月初合意の判定ロジック・表示条件は不変、[pwa/spec/3-14-monthly-work-agreement-current-spec.md](spec/3-14-monthly-work-agreement-current-spec.md) 参照)。`MonthlyAgreementExperience` / `TsukuyomiChatDrawer` / dashboard の `MyPageContent` / `CompanyContentShelf` を `next/dynamic({ ssr:false })` 化。Company Content の fetch は `IntersectionObserver` (`rootMargin: 600px`) でスクロールが shelf に近づいてから1回だけ起動する遅延ロードへ変更 ([pwa/spec/2-1-pwa-runtime-routes.md](spec/2-1-pwa-runtime-routes.md) 参照)。`CriticalRealtimeNotify` は tab hidden 中 `setInterval` を止め、`visibilitychange` で復帰時に即 refresh + 再開、フォアグラウンドのフォールバック間隔を 10 秒→60 秒へ緩和 (Supabase Realtime `postgres_changes` 購読は維持)。あわせて `AppShell` の月初合意ゲート取得 hook の `useEffect` 依存を `[memberId]` のみから `[memberId, skip]` へ修正 (`AppShell` は route 遷移で再マウントしないため、`/native` 等の skip route で mount 後に通常 route へ遷移してもゲート取得が起動しない不具合があった)。
+- **Verification**: 同一 authenticated production dashboard で before/after を安定後に比較。DOM ノード数 3108→1409、画像リクエスト数 78→1 (初回表示分)。スクロールして shelf を viewport に入れると Company Content の遅延 fetch が発火し、画像 77件を追加ロードすることを確認 (= 遅延の意図どおり、機能自体は欠落していない)。`tsc --noEmit` clean。lint は新規 regression 無し (既存の許容パターン1件のみ)。`npm run build` 成功。`npm run test:critical-ui` 成功 (`351255cf` で `check_pwa_critical_ui.cjs` の月初合意ゲート anchor を旧 SSR prop 文字列から新 `memberId={memberId}` prop へ更新)。
+- **再発防止**: authenticated 全 route に影響する server layout / shell component へ重い集計・大きい静的 import を足すときは、「対象 route を絞れないか」「client mount 後の非同期取得に回せないか」「dynamic import で閉状態のバンドルを外せないか」を先に検討する。fold 外のセクションを eager fetch しない。ポーリング系コンポーネントは tab hidden 時の停止と realtime subscription の併用を標準にする。
+
+---
+
 ### [cockpit/company-overview] 資本政策の次回ラウンド試算が単発・未保存で cap table 本体と切り離れていた (2026-07-17)
 
 - **状態**: クローズ (2026-07-17 — `CapitalPlanWorkspace` / migration `179_project_capital_plans.sql` で置き換え)。

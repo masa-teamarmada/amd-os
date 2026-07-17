@@ -13,7 +13,7 @@
 | agree API | `POST /api/monthly-work-agreement/agree` |
 | revision request API | `POST /api/monthly-work-agreement/request-revision` |
 | admin API | `GET /api/admin/monthly-work-agreements?ym=YYYYMM` |
-| app entry gate | 未合意 / 条件更新ありで表示対象PJがある場合、開いた画面を背景に残したまま月初合意モーダルを前面表示。背景クリックでその表示だけ一時的に閉じられるが、合意状態は保存されない。未合意のまま同じ entry を開き直すと再表示され、合意完了後だけ gate が解決済みになる |
+| app entry gate | 未合意 / 条件更新ありで表示対象PJがある場合、開いた画面を背景に残したまま月初合意モーダルを前面表示。背景クリックでその表示だけ一時的に閉じられるが、合意状態は保存されない。未合意のまま同じ entry を開き直すと再表示され、合意完了後だけ gate が解決済みになる。gate 判定は `(app)/layout.tsx` の SSR では計算せず (2026-07-17 v3.44.8 以前は SSR で `buildMonthlyWorkAgreementBundle` を毎 route 実行し全 authenticated route の初回表示をブロックしていた)、`AppShell` mount 後に既存の member API `GET /api/monthly-work-agreement` を client fetch して判定する。判定ロジック (`tableReady && projectCount>0 && status in (pending, needs_reagreement)`) 自体は不変。ユーザーから見える gate 発火条件・表示内容は変わらない |
 | DB | `member_monthly_work_agreements`, `member_monthly_work_agreement_requests`, `member_monthly_work_agreement_payout_overrides` |
 | migration | `pwa/scripts/migrations/139_member_monthly_work_agreements.sql`, `140_member_monthly_work_agreement_requests.sql`, `145_member_monthly_work_agreement_payout_overrides.sql` |
 

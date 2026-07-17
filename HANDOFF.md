@@ -1,83 +1,62 @@
 # AMD OS Handoff
 
-Last updated: 2026-07-16 JST
+Last updated: 2026-07-17 JST
+
 Target: `/Users/masa/projects/AMD/amd-os`
-Topic: `project_ventures.display_name` 廃止と `LisTie` 根絶確認
+Topic: authenticated PWA 全体の初回表示を軽くする恒久修正・closeout
 
 ## Latest Session Summary
 
-- LST cockpit の Chrome tab が `LisTie` になる根因は `pwa/src/app/(app)/project/[projectId]/layout.tsx` の legacy fallback だった。tab title は `projects.project_name` 固定へ戻した。
-- PJ の canonical name は `projects.project_name`、対外 alias / 検索語だけ `pwa/src/lib/project-labels.ts` で `news_search_query` / `client_name` から導く形に整理した。
-- cockpit / HUD / venture-map / seeds / Tsukuyomi / funding / intro HTML / knowledge sync / founding members など、`project_ventures.display_name` を select / write していた経路を `project_name` 基準へ統一した。
-- live DB には migration 178 を 2026-07-16 JST に適用済み。`project_ventures.display_name` 列を削除し、旧 `PJ 表示名` knowledge を `PJ名` へ寄せた。
-- live DB 再確認で `project_ventures.display_name` 列なし、`entity_name='PJ 表示名'` 行 0、public text/varchar/char 全走査で `LisTie` 0件、`p07` は `LST / LiSTie株式会社 / "LiSTie|リスティー"` を確認した。
-- 詳細ログ: `pwa/design_log/sessions_2026-07.md` の「2026-07-16 — `project_ventures.display_name` 廃止と `LisTie` 根絶確認」。
+- `89956e6f` で、全 authenticated route を止めていた月初合意ゲートの重い SSR 集計を外し、既存の認証済み API を `AppShell` mount 後に読む形へ移した。判定・表示条件は不変。
+- 同 commit で、閉じた月初合意体験・つくよみ drawer・dashboard の My/Company Content を dynamic import 化。Company Content は画面近傍まで fetch しない。
+- `351255cf` で critical UI guard を新しい client fetch 方式へ合わせた。
+- hidden tab の緊急通知 polling を停止し、復帰時即 refresh + foreground 60 秒 fallback にした。Supabase Realtime 購読は維持。
+- 同一 authenticated production `/dashboard` の安定後比較で、初回 DOM は `3108 -> 1409`、画像 request は `78 -> 1`。Company Content は scroll 後に画像 77 件を正常に遅延読込する。
 
 ## Current Truth
 
-- PJ表示名の正本は `projects.project_name` のみ。`project_ventures.display_name` は DB / code ともに legacy。
-- 対外 alias が必要なときだけ `getPrimaryProjectAlias()` / `getProjectSearchAliases()` を使う。`client_name` を canonical PJ 名の代用にしない。
-- source tree 上の `display_name` は finance / member profile など別ドメインに残る。PJ 文脈での `display_name` は廃止済み。
-- production readback を 2026-07-16 JST に確認した時点では `build_version=v3.44.1`, `git_sha=63c635ba241e5bbe8ca029fd691aeb32d9326d06`, `git_branch=main`, `dirty=false`。
-- closeout 中に GitHub `main` はさらに先へ進んだ。共有 root checkout の SHA は揺れる前提で、次セッションは必ず `git fetch origin main` と `/api/build-info` を取り直す。
+- 月初合意ゲートは SSR で先回り集計しない。`AppShell` が既存 `GET /api/monthly-work-agreement` を読む。必要時の必須モーダルと対象外/skip 判定は変えない。
+- dashboard の Company Content は `IntersectionObserver` (`rootMargin: 600px`) で近づいた時だけ 1 回取得する。情報・導線を削らない。
+- closed UI は静的 bundle へ常駐させず、必要時に dynamic import する。hidden tab の polling は停止する。
+- docs closeout 開始直前の production readback は `v3.44.8 / c10b4af947a5142f8984cfc843a1e0b28f2d3b80 / main / dirty=false`。本 handoff の `v3.44.9` deploy 後は `/api/build-info` を必ず取り直す。
 
-## Verification Run
+## Verification
 
-- live DB verification query:
-  - `project_ventures_display_name_column_exists=false`
-  - `project_knowledge_pj_display_name_rows=0`
-  - `exact_lisitie_hits=[]`
-  - `p07 = { project_name: "LST", client_name: "LiSTie株式会社", news_search_query: "\"LiSTie|リスティー\"" }`
-- source/docs grep で残る `display_name` は finance / member profile / historical migrations のみ。PJ文脈の `project_ventures.display_name` 参照は current source から消えている。
-- shared root checkout での `./node_modules/.bin/tsc --noEmit --pretty false` は `.next/types/validator.ts` の stale route 参照で失敗した。display_name bundle の型エラーではなく、checkout local blocker と扱う。
+- `./node_modules/.bin/tsc --noEmit --pretty false`: clean。
+- `npm run lint`: 新規 regression なし（既存の許容パターン 1 件のみ）。
+- `npm run build`: success。
+- `npm run test:critical-ui`: success。`351255cf` で月初合意ゲート anchor の guard を client prop へ更新済み。
+- production browser: 初回の軽量化と、scroll 後の Company Content 読込を確認済み。
 
-## Dirty State
+## Durable Records
 
-display_name 廃止 bundle 自体は current `main` に乗っている。shared root checkout の残dirtyは別レーン。
+- runtime: `pwa/spec/2-1-pwa-runtime-routes.md`
+- 月初合意: `pwa/spec/3-14-monthly-work-agreement-current-spec.md`
+- member-facing manual: `pwa/manual/6-6-member-billing-prompts-spec.md`
+- manual changelog: `pwa/manual/9-3-appendix-changelog.md`
+- lesson: `pwa/BUGS.md`
+- design decision: `pwa/design_log/sessions_2026-07.md`
 
-| path group | status | class / owner | resolution action | next judgment condition | risk |
-|---|---:|---|---|---|---|
-| `pwa/BUGS.md`, `pwa/scripts/migrations/165_void_zmp_legacy_agreement_offsets.sql`, `pwa/src/lib/finance/live-monthly-pl-inputs.ts`, `pwa/src/lib/finance/monthly-pl-simulation.ts`, `pwa/src/lib/reward-summary.ts` | M | other-worker / reward-finance lane | finance owner が単独 bundle で検証・commit・deploy | 次回 reward/finance closeout 前 | high |
-| `pwa/design/notifications.md`, `pwa/manual/3-3-notifications-and-tsukuyomi.md`, `pwa/manual/8-2-notification-review-and-strategy-signals-spec.md`, `pwa/spec/3-7-notifications-current-spec.md`, `pwa/spec/6-1-appendix-changelog.md`, `pwa/src/components/notifications/NotificationsClient.tsx` | M | other-worker / notifications lane | notifications owner が単独 bundle で検証・commit・deploy | 次回 notifications closeout 前 | medium |
-| `pwa/scheduled-tasks/amd-os-l6-meeting-reviewer/SKILL.md`, `pwa/scripts/check_h1_meeting_summary_reviewer.mjs`, `pwa/scripts/review_h1_meeting_summary.mjs` | M | other-worker / H-1 reviewer lane | H-1 owner が reviewer テスト後に単独 bundle 化 | 次回 H-1 closeout 前 | medium |
-| `pwa/scheduled-tasks/amd-os-l6-meeting-extract/SKILL.md` | M | other-worker / L6 extract lane | L6 owner が単独 bundle で検証・commit・deploy | 次回 L6 closeout 前 | medium |
-| `pwa/design/atlas_routine.md` | M | other-worker / Atlas D-8 lane | Atlas owner が単独 bundle で commit/deploy または revert | 次回 Atlas closeout 前 | medium |
-| `pwa/bzm/2026-07-14_frontmatter_gairei_draft_v1.md` | ?? | preexisting / Book A巻頭 lane | Book A owner が register / move / delete を判断 | 次回 Book A closeout 前 | low-medium |
+## Shared Root / Cleanup State
 
-## Repo / Cleanup State
-
-- Canonical branch: `main`。
-- shared root checkout は multi-writer。closeout 中に root `HEAD` と `origin/main` が外部更新で進んだため、最終 handoff 整理は disposable clean clone で実施した。
-- `bash /Users/masa/.codex/skills/closeout/scripts/closeout_inventory.sh /Users/masa/projects/AMD/amd-os` では、main-aligned の `.claude/worktrees/*` / `claude/*` が複数残っていた。active owner 不明なので、この session では prune していない。
-- repo 全体の archive 判定は `do not archive`。理由は shared root の別レーン dirty と、owner 未確定の main-aligned worktree / branch 残存。
+- `/Users/masa/projects/AMD/amd-os` は multi-writer の shared root。reward-finance、notifications、H-1 reviewer、L6 extract、Atlas、Book A などの別レーン差分と active worktree がある。
+- 本 task は disposable clean clone で docs/deploy を完了する。shared root の差分、branch、worktree は読むだけで、stage・reset・prune・削除しない。
+- repo 全体の archive 判定は **do not archive**。今回起因の disposable clone だけを closeout 対象にする。
 
 ## Unresolved Tasks
 
-- display_name 廃止そのものの追加実装タスクはなし。
-- 最新 main が production `/api/build-info` に追いついた後、`/project/p07` と venture-map/HUD で `LisTie` が UI に残っていないことを再確認する。
-- `pwa/BUGS.md` への今回の lesson 追記は未実施。shared root の同ファイルが reward-finance lane で dirty のため、混ぜて closeout しない。
+- この performance bundle 自体に未解決の実装タスクはない。
+- 次の変更前は、local checkout / `origin/main` / production `/api/build-info` を並べて current truth を更新する。
 
 ## First Next Action
 
-1. `/Users/masa/projects/AMD/amd-os` で `git fetch origin main`、`git log -1 --oneline`、`git status -sb --untracked-files=all`、`git rev-list --left-right --count HEAD...origin/main` を取り直す。
-2. `curl -fsS https://amd-os-pwa.vercel.app/api/build-info` で production SHA を確認し、`/project/p07` を開いて tab title と HUD / venture-map 表記を再確認する。
-3. PJ alias が要る新規コードでは `pwa/src/lib/project-labels.ts` を使い、`project_ventures.display_name` / `PJ 表示名` を復活させない。
-
-## Pointers
-
-- Canonical helper: `pwa/src/lib/project-labels.ts`
-- Cockpit metadata path: `pwa/src/app/(app)/project/[projectId]/layout.tsx`
-- Venture status data: `pwa/src/lib/venture-status-data.ts`
-- Venture map data: `pwa/src/lib/venture-map-data.ts`
-- DB schema ref: `pwa/design/db_schema.md`
-- Design / manual: `pwa/design/cockpit.md`, `pwa/manual/2-3-pj-cockpit.md`, `pwa/manual/4-7-venture-status-narrative-pl-xrl-spec.md`
-- Changelog: `pwa/manual/9-3-appendix-changelog.md`
-- Session log: `pwa/design_log/sessions_2026-07.md`
-- Next-session prompt: `SESSION_MIGRATION_PROMPT.md`
+1. `cd /Users/masa/projects/AMD/amd-os && git fetch origin main && git status -sb --untracked-files=all`。
+2. `curl -fsS https://amd-os-pwa.vercel.app/api/build-info` を取り、`v3.44.9` deploy の SHA と `dirty=false` を確認する。
+3. authenticated shell に重い fetch・静的 import・polling を足す変更なら、まず route scope / lazy import / hidden tab 停止の 3 点を検討する。
 
 ## Guardrails
 
-- `project_ventures.display_name` を再追加しない。PJ名の正本は `projects.project_name`。
-- `client_name` を canonical PJ 名の代わりに使わない。対外 alias / 検索語だけ helper 経由で扱う。
-- `project_knowledge.entity_name='PJ 表示名'` を新規に書かない。PJ名は `PJ名` で揃える。
-- shared root checkout で SHA が動いていたら、その場 staging を信用しない。clean clone か target-only bundle に切り替える。
+- `git add .` は使わず対象ファイルだけを stage する。
+- shared root の他レーン dirty をこの bundle に混ぜない。
+- PWA production deploy は `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` だけを使う。
+- raw 本文、個人情報、secret、private URL を handoff / durable log へ残さない。

@@ -1,5 +1,31 @@
 # 2026-07 Sessions
 
+## 2026-07-17 — 全 authenticated route パフォーマンス修正 (月初合意ゲート / つくよみ / dashboard 会社コンテンツ 遅延ロード化)
+
+### コンテキスト
+- パフォーマンス監査で、`(app)/layout.tsx` の SSR が全 authenticated route で月初合意ゲート判定 (`buildMonthlyWorkAgreementBundle`、10テーブル超の重い集計) をブロッキング実行していたこと、closed な `MonthlyAgreementExperience` (72KB) / つくよみ drawer が静的 bundle に含まれていたこと、`CriticalRealtimeNotify` が hidden tab でも 3 テーブルを10秒間隔ポーリングしていたこと、dashboard が会社コンテンツ (最大9リクエスト・最大500行) を eager fetch して `MyPageContent` と一緒に fold 前に render していたことが判明。
+
+### 実施内容 (main commit `89956e6f` + `351255cf`, build v3.44.8)
+- `(app)/layout.tsx` の SSR gate 計算を撤去し、`AppShell` で mount 後に既存 member API `GET /api/monthly-work-agreement` を client fetch する方式へ変更。判定ロジック・ユーザー向け gate 挙動は不変。`useEffect` 依存を `[memberId, skip]` に修正し、skip route mount 後の通常 route 遷移でゲート取得が起動しない不具合も解消。
+- `MonthlyAgreementExperience` / `TsukuyomiChatDrawer` / dashboard `MyPageContent` / `CompanyContentShelf` を `next/dynamic({ ssr:false })` 化。
+- dashboard の Company Content fetch を `IntersectionObserver` (`rootMargin: 600px`) トリガの遅延 fetch へ変更 (初回 `Promise.allSettled` から除外)。
+- `CriticalRealtimeNotify` は hidden tab で polling 停止 (`visibilitychange` で復帰時に即 refresh + 再開)、フォアグラウンドのフォールバック間隔を 10 秒→60 秒へ緩和。Supabase Realtime 購読は維持。
+- `351255cf` で `check_pwa_critical_ui.cjs` の月初合意ゲート anchor を旧 SSR prop 文字列から新 `memberId={memberId}` prop へ更新。
+
+### Verification
+- 同一 authenticated production dashboard で before/after 比較 (安定後): DOM ノード数 3108→1409、画像リクエスト 78→1。
+- スクロールで shelf が viewport に入ると Company Content 遅延 fetch が発火し、画像77件を追加ロード (機能欠落なしを確認)。
+- `tsc --noEmit` clean、lint は新規 regression 無し (既存許容パターン1件のみ)、`npm run build` 成功、`npm run test:critical-ui` 成功。
+- production は build v3.44.8 / `351255cf` で verify 済み。以降 main には Book A 巻頭パッケージ・macOS foundation など本修正と無関係な commit が積まれている。
+
+### Closeout note
+- 詳細は `pwa/BUGS.md` の 2026-07-17 `[perf/authenticated-shell]` エントリ、spec 反映は `pwa/spec/2-1-pwa-runtime-routes.md` (dashboard Company Content 遅延ロード)、`pwa/spec/3-14-monthly-work-agreement-current-spec.md` (entry gate client fetch 化)、manual 反映は `pwa/manual/6-6-member-billing-prompts-spec.md`。changelog は `pwa/manual/9-3-appendix-changelog.md` に v3.44.8 エントリが既存 (重複追記なし)。
+- この docs closeout 自体で build v3.44.9 へ bump。
+- shared root checkout は他レーン (finance/capital-plan, notifications, admin-schedule, H-1, L6, Atlas, Book A 等) が dirty のまま multi-writer 運用中。今回の docs closeout は disposable clean clone (`/tmp/amd-os-performance.anP4IV`) で行い、root には触れていない。
+
+### 教訓
+- authenticated 全 route に影響する server layout / shell へ重い集計・大きい静的 import を足すときは、route を絞れないか、client mount 後の非同期取得に回せないか、dynamic import で閉状態バンドルを外せないかを先に検討する。
+
 ## 2026-07-16 — `project_ventures.display_name` 廃止と `LisTie` 根絶確認
 
 ### コンテキスト
