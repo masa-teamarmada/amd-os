@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { adjustToNextBusinessDay, dateAtDay, nextMonthDay, nextMonthEnd, scheduleGenerationRange, ymFromDate } from "../src/lib/admin-schedule/date.ts";
+import { deadlineForReportYm, planMonthlyReportSchedule } from "../src/lib/admin-schedule/report-plan.ts";
 import {
   notificationStateLabel,
   scheduleKey,
@@ -30,6 +31,19 @@ assert.equal(dateAtDay("202602", 28), "2026-02-28");
 assert.equal(ymFromDate("2026-01-01"), "202601");
 assert.equal(ymFromDate("2026-12-31"), "202612");
 assert.deepEqual(scheduleGenerationRange("2026-07-16"), { from: "2025-01-01", to: "2028-12-31" });
+const resolvedMonthlyPlan = planMonthlyReportSchedule({ monthlyReportRequired: true, monthlyReportSubmissionDeadline: "各月末" });
+assert.equal(resolvedMonthlyPlan.kind, "expanded");
+if (resolvedMonthlyPlan.kind === "expanded") {
+  assert.equal(deadlineForReportYm("202607", resolvedMonthlyPlan.rule), "2026-07-31");
+}
+const invoiceLinkedMonthlyPlan = planMonthlyReportSchedule({ monthlyReportRequired: true, monthlyReportSubmissionDeadline: "請求書提出時" }, "202601");
+assert.equal(invoiceLinkedMonthlyPlan.kind, "contract_gap");
+if (invoiceLinkedMonthlyPlan.kind === "contract_gap") {
+  assert.match(invoiceLinkedMonthlyPlan.missingReason, /請求書提出時/);
+}
+const unspecifiedMonthlyPlan = planMonthlyReportSchedule({ monthlyReportRequired: true, monthlyReportSubmissionDeadline: "指定なし" }, "202601");
+assert.equal(unspecifiedMonthlyPlan.kind, "contract_gap");
+assert.equal(deadlineForReportYm("202602", { mode: "day", day: 31 }), null, "an invalid calendar day becomes a contract-level gap, not a month row");
 
 assert.deepEqual(CALENDAR_WEEKDAYS, ["月", "火", "水", "木", "金", "土", "日"]);
 assert.equal(mondayIndex(2026, 1), 3, "2026-01-01 is Thursday in a Monday-first grid");
@@ -143,6 +157,10 @@ assert.match(generator, /isContractSigningExpected\(contract\)/);
 assert.match(generator, /const current = isCurrentAmdContract\(contract\)/);
 assert.match(generator, /const currentContracts = contracts\.filter\(isCurrentAmdContract\)/);
 assert.doesNotMatch(generator, /is_current_for_project !== false/);
+assert.match(generator, /planMonthlyReportSchedule\(terms\)/);
+assert.match(generator, /eventKind: "report_deadline_missing"/);
+assert.match(generator, /if \(!dueOn\) \{\s*unresolvedMonths \+= 1;\s*continue;/m);
+assert.match(generator, /if \(reportPlan\.kind === "contract_gap" \|\| unresolvedMonths > 0\)/);
 assert.doesNotMatch(generator, /db\.from\("billing_cycles"\)/);
 assert.doesNotMatch(generator, /generateBilling\(/);
 assert.doesNotMatch(generator, /source: "billing_cycles"/);

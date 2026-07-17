@@ -3,7 +3,6 @@ import { createHash } from "node:crypto";
 import {
   addMonthsYm,
   adjustToNextBusinessDay,
-  dateAtDay,
   dateInRange,
   fiscalYearEndDate,
   isIsoDate,
@@ -34,6 +33,7 @@ import {
   isScheduleActionItem,
   isStatutoryScheduleObligation,
 } from "./predicates.ts";
+import { deadlineForReportYm, planMonthlyReportSchedule, reportRule } from "./report-plan.ts";
 export {
   isAcceptedAmdContract,
   isContractSigningExpected,
@@ -349,22 +349,6 @@ function readDeadlineDay(value: unknown): number | null {
   if (number != null && number >= 1 && number <= 31) return number;
   const match = String(value ?? "").match(/(?:毎月|翌月|当月)?\s*(\d{1,2})\s*日/);
   return match ? numberValue(match[1]) : null;
-}
-
-function isRequired(value: unknown): boolean {
-  if (value === true) return true;
-  const textValue = String(value ?? "").trim().toLowerCase();
-  if (!textValue || /なし|不要|false|no|対象外/.test(textValue)) return false;
-  return /あり|必須|毎月|monthly|annual|年次|true|yes/.test(textValue);
-}
-
-function reportRule(terms: JsonRecord): { mode: "day" | "month"; day?: number; nextMonth?: boolean } | null {
-  const raw = terms.monthlyReportSubmissionDeadline ?? terms.monthly_report_submission_deadline ?? terms.monthlyReportSubmissionTiming ?? terms.monthly_report_submission_timing;
-  const rawText = String(raw ?? "").trim();
-  if (!rawText) return null;
-  if (/末|月末|翌月末|end/i.test(rawText)) return { mode: "month", nextMonth: /翌月|next_month/i.test(rawText) };
-  const day = readDeadlineDay(rawText);
-  return day ? { mode: "day", day, nextMonth: /翌月|next_month/i.test(rawText) } : null;
 }
 
 function projectTerms(project: RawRow, contract: RawRow | null): JsonRecord {
@@ -872,14 +856,6 @@ function projectLabel(project: RawRow | null, projectId: string | null): string 
   return String(project.project_name ?? project.name ?? project.client_name ?? project.project_id ?? projectId ?? "プロジェクト");
 }
 
-function deadlineForReportYm(reportYm: string, rule: { mode: "day" | "month"; day?: number; nextMonth?: boolean }): string | null {
-  if (rule.mode === "month") {
-    return rule.nextMonth ? nextMonthEnd(reportYm) : adjustToNextBusinessDay(lastDayOfYm(reportYm));
-  }
-  if (rule.day == null) return null;
-  return rule.nextMonth ? nextMonthDay(reportYm, rule.day) : dateAtDay(reportYm, rule.day);
-}
-
 function reportCompletion(report: RawRow | null): boolean {
   if (!report) return false;
   if (report.fixed_at || report.completed_at || report.confirmed_at || report.published_at) return true;
@@ -1024,46 +1000,90 @@ function generateReports(
     const contract = contractByProject.get(projectId) ?? null;
     if (!contract) continue;
     const terms = projectTerms(project, contract);
-    const monthlyRule = reportRule(terms);
-    const monthlyRequired = isRequired(terms.monthlyReportRequired ?? terms.monthly_report_required ?? terms.reportRequired ?? terms.report_required ?? terms.monthlyReportSubmissionRule ?? terms.monthly_report_submission_rule) || Boolean(monthlyRule);
-    if (!monthlyRequired) continue;
+    const reportPlan = planMonthlyReportSchedule(terms);
+    if (reportPlan.kind === "none") continue;
     const ownerMemberId = projectOwnerId(projectId, project, contract, projectMembers, members);
     const ownerMissing = !ownerMemberId ? "報告提出担当者が正本に未設定" : null;
-    for (const reportYm of targetMonths) {
-      const report = reportByKey.get(`${projectId}:${reportYm}`) ?? null;
-      const dueOn = monthlyRule ? deadlineForReportYm(reportYm, monthlyRule) : null;
-      const missingReason = ownerMissing ?? (!monthlyRule ? "月次報告の提出期限ルールが正本に未設定" : null);
-      const completed = reportCompletion(report);
-      const dueYm = dueOn ? ymFromDate(dueOn) : reportYm;
-      const occurrenceRow = occurrence({
-        key: `project:report:monthly:${projectId}:${reportYm}`,
+    let unresolvedMonths = 0;
+    if (reportPlan.kind === "expanded") {
+      for (const reportYm of targetMonths) {
+        const report = reportByKey.get(`${projectId}:${reportYm}`) ?? null;
+        const dueOn = deadlineForReportYm(reportYm, reportPlan.rule);
+        if (!dueOn) {
+          unresolvedMonths += 1;
+          continue;
+        }
+        const completed = reportCompletion(report);
+        rows.push(occurrence({
+          key: `project:report:monthly:${projectId}:${reportYm}`,
+          source: "contract_terms",
+          sourceId: String(contract.contract_id ?? contract.id),
+          sourceHash: sourceHash("monthly_report", { project, contract, reportYm, rule: reportPlan.rule }),
+          scope: "project",
+          category: "report",
+          eventKind: "monthly_report_submission",
+          title: `${projectLabel(project, projectId)} / 月次報告提出（${reportYm.slice(0, 4)}年${Number(reportYm.slice(4, 6))}月分）`,
+          periodKey: reportYm,
+          dueOn,
+          dueYm: ymFromDate(dueOn),
+          datePrecision: "day",
+          dateKind: "契約上の提出期限",
+          amountStatus: "not_applicable",
+          amountRole: "informational",
+          projectId,
+          ownerMemberId,
+          sourceRefs: [
+            { kind: "contract", ref: contract.contract_id ?? contract.id },
+            { kind: "monthly_report", ref: report?.report_id ?? report?.id ?? `${projectId}:${reportYm}` },
+          ],
+          resolutionHref: `/admin/contracts?projectId=${encodeURIComponent(projectId)}`,
+          lifecycleStatus: completed ? "completed" : ownerMissing ? "needs_source" : "open",
+          missingReason: ownerMissing,
+          sourceObservedAt: text(report?.updated_at ?? contract.updated_at),
+          metadata: { reportYm, contractId: contract.contract_id ?? contract.id, reportId: report?.report_id ?? report?.id ?? null },
+        }));
+      }
+    }
+
+    if (reportPlan.kind === "contract_gap" || unresolvedMonths > 0) {
+      const missingReasonBase = reportPlan.kind === "contract_gap"
+        ? reportPlan.missingReason
+        : "契約上の月次報告義務はあるが、一部の月をカレンダー日付へ解決できない";
+      const missingReason = ownerMissing ? `${missingReasonBase}。${ownerMissing}` : missingReasonBase;
+      rows.push(occurrence({
+        key: `project:report:deadline-missing:${projectId}:${contract.contract_id ?? contract.id}`,
         source: "contract_terms",
         sourceId: String(contract.contract_id ?? contract.id),
-        sourceHash: sourceHash("monthly_report", { project, contract, reportYm, rule: monthlyRule }),
+        sourceHash: sourceHash("monthly_report_deadline_missing", {
+          project,
+          contract,
+          rawRuleText: reportPlan.rawRuleText,
+          unresolvedMonths,
+        }),
         scope: "project",
         category: "report",
-        eventKind: "monthly_report_submission",
-        title: `${projectLabel(project, projectId)} / 月次報告提出（${reportYm.slice(0, 4)}年${Number(reportYm.slice(4, 6))}月分）`,
-        periodKey: reportYm,
-        dueOn,
-        dueYm,
-        datePrecision: monthlyRule ? (dueOn ? "day" : "period") : "period",
-        dateKind: "契約上の提出期限",
+        eventKind: "report_deadline_missing",
+        title: `${projectLabel(project, projectId)} / 月次報告期限ルール要確認`,
+        periodKey: String(contract.contract_id ?? contract.id ?? projectId),
+        dueOn: null,
+        dueYm: null,
+        datePrecision: "unknown",
+        dateKind: "契約上の提出義務",
         amountStatus: "not_applicable",
         amountRole: "informational",
         projectId,
         ownerMemberId,
-        sourceRefs: [
-          { kind: "contract", ref: contract.contract_id ?? contract.id },
-          { kind: "monthly_report", ref: report?.report_id ?? report?.id ?? `${projectId}:${reportYm}` },
-        ],
+        sourceRefs: [{ kind: "contract", ref: contract.contract_id ?? contract.id }],
         resolutionHref: `/admin/contracts?projectId=${encodeURIComponent(projectId)}`,
-        lifecycleStatus: completed ? "completed" : missingReason ? "needs_source" : "open",
+        lifecycleStatus: "needs_source",
         missingReason,
-        sourceObservedAt: text(report?.updated_at ?? contract.updated_at),
-        metadata: { reportYm, contractId: contract.contract_id ?? contract.id, reportId: report?.report_id ?? report?.id ?? null },
-      });
-      rows.push(occurrenceRow);
+        sourceObservedAt: text(contract.updated_at),
+        metadata: {
+          contractId: contract.contract_id ?? contract.id,
+          rawRuleText: reportPlan.rawRuleText,
+          unresolvedMonths,
+        },
+      }));
     }
 
     const annualRaw = terms.annualReportSubmissionDeadline ?? terms.annual_report_submission_deadline;

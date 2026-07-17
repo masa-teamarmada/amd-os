@@ -256,9 +256,11 @@ hashが変わった場合は、適用条件、期限式、年度別日付への�
 
 報告義務は、`contracts.operational_terms_json`、`contract_terms.extracted_terms_json`、`projects.contract_terms_json`の順に、契約IDを保ったまま解決する。
 
-`monthly_report_required=true`なのに提出期限式が取得できないPJは、予定なしとして扱わない。
+`monthly_report_required=true`でも、`各月末`や`翌月10日`のように実日付へ解決できる契約だけを月次展開する。
 
-`生成不能`に`missing_report_deadline_rule`を出し、`/admin/contracts`または`/admin/projects`の元データへ案内する。
+`請求書提出時`、`指定なし`、月内の一部で日付へ解決できない締切は、月ごとの`needs_source`を量産しない。
+
+代わりに契約ごとに1件だけ`report_deadline_missing`を生成し、`/admin/contracts`または`/admin/projects`の元データへ案内する。
 
 月次報告の完了は、対応する`monthly_reports.status`と`fixed_at`から判定する。
 
