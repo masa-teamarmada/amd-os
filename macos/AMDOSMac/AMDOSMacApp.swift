@@ -60,7 +60,7 @@ struct AMDOSLoginView: View {
             Button {
                 Task { await auth.signInWithGoogle() }
             } label: {
-                Label(auth.isLoading ? "Googleで接続中…" : "Googleでログイン", systemImage: "person.crop.circle.badge.checkmark")
+                Label(auth.signInStatus, systemImage: "person.crop.circle.badge.checkmark")
                     .frame(width: 240)
             }
             .buttonStyle(.borderedProminent)

@@ -2,6 +2,11 @@ import Foundation
 import AppKit
 import AuthenticationServices
 import CryptoKit
+import OSLog
+
+enum AMDOSAuthLog {
+    static let logger = Logger(subsystem: "jp.team-armada.amdos.macos", category: "google-auth")
+}
 
 actor AMDOSRESTClient {
     static let shared = AMDOSRESTClient()
@@ -24,6 +29,7 @@ actor AMDOSRESTClient {
     /// `ASWebAuthenticationSession` のcompletionと競合しても、先に届いた一方だけが継続を再開する。
     func acceptOAuthCallback(_ callback: URL) async {
         guard callback.scheme?.lowercased() == "amdos-mac" else { return }
+        AMDOSAuthLog.logger.notice("google_auth_callback_received_by_app")
         await oauthSession?.receive(callback)
     }
 
@@ -39,10 +45,12 @@ actor AMDOSRESTClient {
             URLQueryItem(name: "code_challenge_method", value: "S256")
         ]
         guard let authorizeURL = components.url else { throw AMDOSNetworkError.invalidURL }
+        AMDOSAuthLog.logger.notice("google_auth_authorize_url_ready")
         let oauthSession = await OAuthSession()
         self.oauthSession = oauthSession
         defer { self.oauthSession = nil }
         let callback = try await oauthSession.start(url: authorizeURL, callbackScheme: "amdos-mac")
+        AMDOSAuthLog.logger.notice("google_auth_callback_received")
         let callbackComponents = URLComponents(url: callback, resolvingAgainstBaseURL: false)
         let queryItems = callbackComponents?.queryItems ?? []
         var fragmentComponents = URLComponents()
@@ -50,10 +58,12 @@ actor AMDOSRESTClient {
         let callbackItems = queryItems + (fragmentComponents.queryItems ?? [])
 
         if callbackItems.contains(where: { $0.name == "error" }) {
+            AMDOSAuthLog.logger.error("google_auth_provider_reported_error")
             throw AMDOSNetworkError.oauthProviderError
         }
 
         if let code = callbackItems.first(where: { $0.name == "code" })?.value {
+            AMDOSAuthLog.logger.notice("google_auth_pkce_exchange_started")
             var tokenComponents = URLComponents(url: baseURL.appendingPathComponent("auth/v1/token"), resolvingAgainstBaseURL: false)!
             tokenComponents.queryItems = [URLQueryItem(name: "grant_type", value: "pkce")]
             var request = URLRequest(url: tokenComponents.url!)
@@ -71,9 +81,11 @@ actor AMDOSRESTClient {
             let expiresAt = token.expiresIn.map { Date().addingTimeInterval(TimeInterval($0)) }
             let next = AMDOSSession(accessToken: token.accessToken, refreshToken: token.refreshToken, expiresAt: expiresAt, email: emailFromJWT(token.accessToken))
             session = next
+            AMDOSAuthLog.logger.notice("google_auth_pkce_exchange_succeeded")
             return next
         }
 
+        AMDOSAuthLog.logger.error("google_auth_callback_has_no_code")
         throw AMDOSNetworkError.oauthCallbackMissing
     }
 
@@ -153,6 +165,7 @@ enum AMDOSNetworkError: LocalizedError {
     case oauthStartFailed
     case oauthCallbackMissing
     case oauthProviderError
+    case oauthTimedOut
     case notFound
     case http(String)
 
@@ -162,6 +175,7 @@ enum AMDOSNetworkError: LocalizedError {
         case .oauthStartFailed: return "Googleログイン画面を開始できなかったよ。もう一度試してね。"
         case .oauthCallbackMissing: return "Googleログインの戻り値を確認できなかったよ。"
         case .oauthProviderError: return "Googleログインが中断されたか、許可されなかったよ。Google画面で許可してもう一度試してね。"
+        case .oauthTimedOut: return "Googleログインの戻りを90秒待ったけど確認できなかったよ。認証画面を閉じて、もう一度試してね。"
         case .notFound: return "対象のデータが見つからなかったよ。"
         case .http(let body): return "OSとの通信に失敗したよ。\n\(body)"
         }
@@ -194,6 +208,7 @@ private enum PKCE {
 private final class OAuthSession: NSObject, ASWebAuthenticationPresentationContextProviding {
     private var webSession: ASWebAuthenticationSession?
     private var continuation: CheckedContinuation<URL, Error>?
+    private var timeoutTask: Task<Void, Never>?
 
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
         NSApplication.shared.keyWindow ?? NSApplication.shared.windows.first ?? NSWindow()
@@ -202,17 +217,30 @@ private final class OAuthSession: NSObject, ASWebAuthenticationPresentationConte
     func start(url: URL, callbackScheme: String) async throws -> URL {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, Error>) in
             self.continuation = continuation
+            self.timeoutTask = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(90))
+                guard !Task.isCancelled else { return }
+                AMDOSAuthLog.logger.error("google_auth_timed_out")
+                self?.finish(.failure(AMDOSNetworkError.oauthTimedOut))
+            }
             let session = ASWebAuthenticationSession(url: url, callbackURLScheme: callbackScheme) { callback, error in
-                if let callback { self.finish(.success(callback)) }
-                else { self.finish(.failure(error ?? AMDOSNetworkError.oauthCallbackMissing)) }
+                if let callback {
+                    AMDOSAuthLog.logger.notice("google_auth_callback_received_by_web_session")
+                    self.finish(.success(callback))
+                } else {
+                    AMDOSAuthLog.logger.error("google_auth_web_session_failed")
+                    self.finish(.failure(error ?? AMDOSNetworkError.oauthCallbackMissing))
+                }
             }
             self.webSession = session
             session.presentationContextProvider = self
             session.prefersEphemeralWebBrowserSession = false
             guard session.start() else {
+                AMDOSAuthLog.logger.error("google_auth_web_session_could_not_start")
                 self.finish(.failure(AMDOSNetworkError.oauthStartFailed))
                 return
             }
+            AMDOSAuthLog.logger.notice("google_auth_web_session_started")
         }
     }
 
@@ -223,6 +251,8 @@ private final class OAuthSession: NSObject, ASWebAuthenticationPresentationConte
     private func finish(_ result: Result<URL, Error>, cancellingWebSession: Bool = false) {
         guard let continuation else { return }
         self.continuation = nil
+        timeoutTask?.cancel()
+        timeoutTask = nil
         let session = webSession
         webSession = nil
         if cancellingWebSession { session?.cancel() }
