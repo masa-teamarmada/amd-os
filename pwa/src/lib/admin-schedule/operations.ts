@@ -39,6 +39,14 @@ export type AnnualPaymentSummary<T extends SchedulePaymentLike = SchedulePayment
   peakMonth: MonthlyPaymentSummary | null;
 };
 
+export type PaymentTimingSummary<T extends SchedulePaymentLike = SchedulePaymentLike> = {
+  all: AnnualPaymentSummary<T>;
+  paid: AnnualPaymentSummary<T>;
+  reconcile: AnnualPaymentSummary<T>;
+  upcoming: AnnualPaymentSummary<T>;
+  actionableAmountYen: number;
+};
+
 function normalizedText(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const text = value.trim();
@@ -94,6 +102,11 @@ function isClosed(item: SchedulePaymentLike): boolean {
   return status === "completed" || status === "cancelled";
 }
 
+function isCompleted(item: SchedulePaymentLike): boolean {
+  const status = item.computed_status ?? item.lifecycle_status;
+  return status === "completed";
+}
+
 export function annualPaymentSummary<T extends SchedulePaymentLike>(items: readonly T[], year: number): AnnualPaymentSummary<T> {
   const yearPrefix = String(year);
   const paymentItems = items.filter((item) => isAnnualStatutoryPayment(item) && paymentMonthKey(item)?.startsWith(yearPrefix));
@@ -115,6 +128,40 @@ export function annualPaymentSummary<T extends SchedulePaymentLike>(items: reado
     unknownCount: monthly.reduce((sum, month) => sum + month.unknownCount, 0),
     monthly,
     peakMonth: monthly.reduce<MonthlyPaymentSummary | null>((peak, month) => month.amountYen > (peak?.amountYen ?? 0) ? month : peak, null),
+  };
+}
+
+/**
+ * 年間の法定納付を「過去に払った額」と「今から備える口座流出」に混ぜずに見るための区分。
+ * 日付を過ぎた未完了・日付未確定で当月以前のものだけを要照合へ置き、未来分は予定として残す。
+ */
+export function paymentTimingSummary<T extends SchedulePaymentLike>(
+  items: readonly T[],
+  year: number,
+  today: string
+): PaymentTimingSummary<T> {
+  const all = annualPaymentSummary(items, year);
+  const currentYm = today.slice(0, 7).replace("-", "");
+  const paidItems = all.items.filter((item) => isCompleted(item));
+  const reconcileItems = all.items.filter((item) => {
+    if (isClosed(item)) return false;
+    if (item.due_on && /^\d{4}-\d{2}-\d{2}$/.test(item.due_on)) return item.due_on <= today;
+    const ym = paymentMonthKey(item);
+    // 日付も対象月も取れない未完了の法定納付は、将来の予定として
+    // 見せると見落とすため、金額・期限の照合対象に残す。
+    return !ym || ym <= currentYm;
+  });
+  const reconcileIds = new Set(reconcileItems.map((item) => item.occurrence_id ?? item));
+  const upcomingItems = all.items.filter((item) => !isClosed(item) && !reconcileIds.has(item.occurrence_id ?? item));
+  const paid = annualPaymentSummary(paidItems, year);
+  const reconcile = annualPaymentSummary(reconcileItems, year);
+  const upcoming = annualPaymentSummary(upcomingItems, year);
+  return {
+    all,
+    paid,
+    reconcile,
+    upcoming,
+    actionableAmountYen: reconcile.totalAmountYen + upcoming.totalAmountYen,
   };
 }
 

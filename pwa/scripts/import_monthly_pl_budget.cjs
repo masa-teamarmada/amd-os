@@ -54,7 +54,6 @@ const inputs = {
     { costId: "fc05", costName: "slack", monthlyCost: 24000, startYm: 202601, endYm: null, costType: "taxable", memo: "" },
     { costId: "fc06", costName: "claude", monthlyCost: 45000, startYm: 202601, endYm: null, costType: "taxable", memo: "" },
     { costId: "fc08", costName: "notion", monthlyCost: 3800, startYm: 202601, endYm: null, costType: "taxable", memo: "" },
-    { costId: "fc09", costName: "まさ上乗せ", monthlyCost: 127334, startYm: 202601, endYm: null, costType: "exempt", memo: "" },
     { costId: "fc10", costName: "freee", monthlyCost: 5480, startYm: 202601, endYm: null, costType: "taxable", memo: "" },
     { costId: "fc11", costName: "DocuSign", monthlyCost: 3100, startYm: 202601, endYm: null, costType: "taxable", memo: "" },
     { costId: "fc12", costName: "スマホ", monthlyCost: 25000, startYm: 202601, endYm: null, costType: "taxable", memo: "" },
@@ -63,6 +62,9 @@ const inputs = {
     { costId: "fc15", costName: "家賃按分", monthlyCost: 72666, startYm: 202601, endYm: null, costType: "taxable", memo: "" },
     { costId: "fc16", costName: "役員報酬（まさ）", monthlyCost: 979891, startYm: 202602, endYm: 202602, costType: "executive", memo: "" },
     { costId: "fc17", costName: "Gatto", monthlyCost: 33000, startYm: 202601, endYm: 202603, costType: "taxable", memo: "" },
+  ],
+  recurringCashOutflows: [
+    { outflowId: "masa-loan-repayment", outflowName: "まさへの貸付返済", monthlyAmount: 200000, startYm: 202601, endYm: null, kind: "loan_payment", memo: "貸付元本返済" },
   ],
   // freee wallet_txns で 2026-01-19 実行確認済み。
   // 商工中金: 融資入金 4,929,098 + 口座間補填 100,000 -> PayPay銀行へ 5,000,000 入金。
@@ -84,29 +86,19 @@ const inputs = {
   ],
 };
 
-const gasOutMonthly = [
-  { ym: 202601, revenue: 1727500, costMember: 558500, costCloser: 86375, grossProfit: 1082625, fixedCost: 1763080, socialIns: 201000, operatingProfit: -881455, loanPayment: 0, loanInterest: 0, ctaxPayment: 0, corpTaxPayment: 0, netCashFlow: 4292245, cashBalance: 4898668, runway: 7.2 },
-  { ym: 202602, revenue: 1727500, costMember: 558500, costCloser: 86375, grossProfit: 1082625, fixedCost: 2742971, socialIns: 347984, operatingProfit: -2008330, loanPayment: 96752, loanInterest: 11250, ctaxPayment: 810400, corpTaxPayment: 36000, netCashFlow: -1120082, cashBalance: 3778586, runway: 2 },
-  { ym: 202603, revenue: 1727500, costMember: 558500, costCloser: 86375, grossProfit: 1082625, fixedCost: 1763080, socialIns: 201000, operatingProfit: -881455, loanPayment: 96752, loanInterest: 11058, ctaxPayment: 0, corpTaxPayment: 0, netCashFlow: -412809, cashBalance: 3365777, runway: 4.3 },
-  { ym: 202604, revenue: 2360500, costMember: 624450, costCloser: 118025, grossProfit: 1618025, fixedCost: 1430080, socialIns: 156000, operatingProfit: 31945, loanPayment: 96752, loanInterest: 10865, ctaxPayment: 0, corpTaxPayment: 0, netCashFlow: 170408, cashBalance: 3536185, runway: 999 },
-  { ym: 202605, revenue: 4393000, costMember: 1304950, costCloser: 219650, grossProfit: 2868400, fixedCost: 1430080, socialIns: 156000, operatingProfit: 1282320, loanPayment: 96752, loanInterest: 10672, ctaxPayment: 0, corpTaxPayment: 0, netCashFlow: 477748, cashBalance: 4013933, runway: 999 },
-  { ym: 202606, revenue: 1823000, costMember: 534450, costCloser: 91150, grossProfit: 1197400, fixedCost: 1430080, socialIns: 156000, operatingProfit: -388680, loanPayment: 96752, loanInterest: 10478, ctaxPayment: 0, corpTaxPayment: 0, netCashFlow: -291702, cashBalance: 3722231, runway: 14 },
-  { ym: 202607, revenue: 2123000, costMember: 729450, costCloser: 106150, grossProfit: 1287400, fixedCost: 1430080, socialIns: 156000, operatingProfit: -298680, loanPayment: 96752, loanInterest: 10284, ctaxPayment: 0, corpTaxPayment: 0, netCashFlow: -176202, cashBalance: 3546029, runway: 23.7 },
-  { ym: 202608, revenue: 2123000, costMember: 729450, costCloser: 106150, grossProfit: 1287400, fixedCost: 1430080, socialIns: 156000, operatingProfit: -298680, loanPayment: 96752, loanInterest: 10089, ctaxPayment: 405200, corpTaxPayment: 0, netCashFlow: -581402, cashBalance: 2964627, runway: 19.8 },
-  { ym: 202609, revenue: 2123000, costMember: 729450, costCloser: 106150, grossProfit: 1287400, fixedCost: 1430080, socialIns: 156000, operatingProfit: -298680, loanPayment: 96752, loanInterest: 9894, ctaxPayment: 0, corpTaxPayment: 0, netCashFlow: -176202, cashBalance: 2788425, runway: 18.6 },
-  { ym: 202610, revenue: 2623000, costMember: 1054450, costCloser: 131150, grossProfit: 1437400, fixedCost: 1430080, socialIns: 156000, operatingProfit: -148680, loanPayment: 96752, loanInterest: 9699, ctaxPayment: 0, corpTaxPayment: 0, netCashFlow: 16298, cashBalance: 2804723, runway: 999 },
-  { ym: 202611, revenue: 2623000, costMember: 1054450, costCloser: 131150, grossProfit: 1437400, fixedCost: 1430080, socialIns: 156000, operatingProfit: -148680, loanPayment: 96752, loanInterest: 9503, ctaxPayment: 0, corpTaxPayment: 0, netCashFlow: 16298, cashBalance: 2821021, runway: 999 },
-  { ym: 202612, revenue: 3123000, costMember: 1379450, costCloser: 156150, grossProfit: 1587400, fixedCost: 1430080, socialIns: 156000, operatingProfit: 1320, loanPayment: 96752, loanInterest: 9307, ctaxPayment: 0, corpTaxPayment: 0, netCashFlow: 208798, cashBalance: 3029819, runway: 999 },
-  { ym: 202701, revenue: 3123000, costMember: 1379450, costCloser: 156150, grossProfit: 1587400, fixedCost: 1430080, socialIns: 156000, operatingProfit: 1320, loanPayment: 96752, loanInterest: 9110, ctaxPayment: 0, corpTaxPayment: 0, netCashFlow: 208798, cashBalance: 3238617, runway: 999 },
-  { ym: 202702, revenue: 3123000, costMember: 1379450, costCloser: 156150, grossProfit: 1587400, fixedCost: 1430080, socialIns: 156000, operatingProfit: 1320, loanPayment: 96752, loanInterest: 8913, ctaxPayment: 1175655, corpTaxPayment: 70000, netCashFlow: -1036857, cashBalance: 2201760, runway: 999 },
-  { ym: 202703, revenue: 3123000, costMember: 1379450, costCloser: 156150, grossProfit: 1587400, fixedCost: 1430080, socialIns: 156000, operatingProfit: 1320, loanPayment: 96752, loanInterest: 8715, ctaxPayment: 0, corpTaxPayment: 0, netCashFlow: 208798, cashBalance: 2410558, runway: 999 },
-  { ym: 202704, revenue: 3123000, costMember: 1379450, costCloser: 156150, grossProfit: 1587400, fixedCost: 1430080, socialIns: 156000, operatingProfit: 1320, loanPayment: 96752, loanInterest: 8517, ctaxPayment: 0, corpTaxPayment: 0, netCashFlow: 208798, cashBalance: 2619356, runway: 999 },
-  { ym: 202705, revenue: 3123000, costMember: 1379450, costCloser: 156150, grossProfit: 1587400, fixedCost: 1430080, socialIns: 156000, operatingProfit: 1320, loanPayment: 96752, loanInterest: 8318, ctaxPayment: 0, corpTaxPayment: 0, netCashFlow: 208798, cashBalance: 2828154, runway: 999 },
-  { ym: 202706, revenue: 3123000, costMember: 1379450, costCloser: 156150, grossProfit: 1587400, fixedCost: 1430080, socialIns: 156000, operatingProfit: 1320, loanPayment: 96752, loanInterest: 8119, ctaxPayment: 0, corpTaxPayment: 0, netCashFlow: 208798, cashBalance: 3036952, runway: 999 },
-];
-
 function loadFinanceModule() {
   const sourcePath = path.join(process.cwd(), "src/lib/finance/monthly-pl-simulation.ts");
+  require.extensions[".ts"] = (module, filename) => {
+    const source = fs.readFileSync(filename, "utf8");
+    const output = ts.transpileModule(source, {
+      compilerOptions: {
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2020,
+        esModuleInterop: true,
+      },
+    }).outputText;
+    module._compile(output, filename);
+  };
   const source = fs.readFileSync(sourcePath, "utf8");
   const output = ts.transpileModule(source, {
     compilerOptions: {
@@ -116,7 +108,8 @@ function loadFinanceModule() {
     },
   }).outputText;
   const mod = { exports: {} };
-  new Function("require", "module", "exports", output)(require, mod, mod.exports);
+  const moduleRequire = require("module").createRequire(sourcePath);
+  new Function("require", "module", "exports", output)(moduleRequire, mod, mod.exports);
   return mod.exports;
 }
 
@@ -156,6 +149,19 @@ function inputRows() {
       label: fixedCost.costName,
       amount_yen: fixedCost.monthlyCost,
       payload: fixedCost,
+      source: SOURCE,
+      version: VERSION,
+    });
+  }
+  for (const outflow of inputs.recurringCashOutflows) {
+    rows.push({
+      input_kind: "cash_outflow",
+      source_id: outflow.outflowId,
+      ym: outflow.startYm ? String(outflow.startYm) : null,
+      project_id: null,
+      label: outflow.outflowName,
+      amount_yen: outflow.monthlyAmount,
+      payload: outflow,
       source: SOURCE,
       version: VERSION,
     });
@@ -202,22 +208,19 @@ function inputRows() {
   return rows;
 }
 
-function assertCloseToGas(result) {
-  const fields = ["revenue", "costMember", "costCloser", "grossProfit", "fixedCost", "socialIns", "operatingProfit", "loanPayment", "loanInterest", "ctaxPayment", "corpTaxPayment", "netCashFlow", "cashBalance", "runway"];
-  const mismatches = [];
-  for (const expected of gasOutMonthly) {
-    const actual = result.rows.find((row) => row.ym === expected.ym);
-    if (!actual) {
-      mismatches.push(`${expected.ym}: missing row`);
-      continue;
-    }
-    for (const field of fields) {
-      if (Math.abs(Number(actual[field]) - Number(expected[field])) > 1) {
-        mismatches.push(`${expected.ym}.${field}: ts=${actual[field]} gas=${expected[field]}`);
-      }
-    }
+function assertCorrectionIntegrity(result) {
+  // 貸付返済 ¥200,000/月は口座流出だけに載り、役員報酬・固定費・社保基礎には載らない。
+  const april = result.rows.find((row) => row.ym === 202604);
+  if (!april) throw new Error("202604 row is required for finance correction verification");
+  const expected = {
+    fixedCost: 1_302_746,
+    socialIns: 156_000,
+    loanPayment: 296_752,
+    netCashFlow: 97_742,
+  };
+  for (const [field, value] of Object.entries(expected)) {
+    if (Number(april[field]) !== value) throw new Error(`finance correction mismatch: 202604.${field}=${april[field]} (expected ${value})`);
   }
-  return mismatches;
 }
 
 async function must(label, promise) {
@@ -236,15 +239,8 @@ async function main() {
 
   const { runMonthlyPlSimulation, toCompanyBudgetMonthlyRows } = loadFinanceModule();
   const result = runMonthlyPlSimulation(inputs);
-  const mismatches = assertCloseToGas(result);
-  if (mismatches.length) {
-    console.log("TS/GAS output differences detected:");
-    for (const line of mismatches.slice(0, 40)) console.log(`- ${line}`);
-    if (mismatches.length > 40) console.log(`... ${mismatches.length - 40} more`);
-    console.log("Continuing with TS output because the port fixes known spot income/expense ordering.");
-  } else {
-    console.log("TS simulation matches GAS OUT_Monthly for compared fields.");
-  }
+  assertCorrectionIntegrity(result);
+  console.log("finance correction checks: ok (loan repayment is cash-only; social insurance is 156,000 yen in 202604)");
 
   const supabase = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 

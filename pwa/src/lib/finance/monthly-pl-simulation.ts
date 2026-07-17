@@ -9,6 +9,7 @@ export type BudgetInputKind =
   | "loan"
   | "spot"
   | "payment_obligation"
+  | "cash_outflow"
   | "scenario";
 
 export interface MonthlyPlParams {
@@ -121,6 +122,16 @@ export interface MonthlyPlLoan {
   memo?: string;
 }
 
+export interface MonthlyPlRecurringCashOutflow {
+  outflowId: string;
+  outflowName: string;
+  monthlyAmount: number;
+  startYm: number;
+  endYm?: number | null;
+  kind: "loan_payment";
+  memo?: string;
+}
+
 export interface MonthlyPlSpot {
   spotId: string;
   spotName: string;
@@ -159,6 +170,7 @@ export interface MonthlyPlInputs {
   varCosts?: MonthlyPlVarCost[];
   projectRevenues?: MonthlyPlProjectRevenue[];
   loans?: MonthlyPlLoan[];
+  recurringCashOutflows?: MonthlyPlRecurringCashOutflow[];
   spots?: MonthlyPlSpot[];
   paymentObligations?: MonthlyPlPaymentObligation[];
 }
@@ -544,6 +556,12 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
     startYm: numberOr(row.startYm),
     disbursementYm: optionalNumber(row.disbursementYm),
   }));
+  const recurringCashOutflows = (rawInputs.recurringCashOutflows ?? []).map((row) => ({
+    ...row,
+    monthlyAmount: numberOr(row.monthlyAmount),
+    startYm: numberOr(row.startYm),
+    endYm: optionalNumber(row.endYm),
+  }));
   const spots = (rawInputs.spots ?? []).map((row) => ({
     ...row,
     ym: numberOr(row.ym),
@@ -744,6 +762,11 @@ export function runMonthlyPlSimulation(rawInputs: MonthlyPlInputs, scenarioId?: 
       if (current) {
         loanPayment += current.payment;
         loanInterest += current.interest;
+      }
+    }
+    for (const outflow of recurringCashOutflows) {
+      if (outflow.kind === "loan_payment" && isActive(ym, outflow.startYm, outflow.endYm)) {
+        loanPayment += outflow.monthlyAmount;
       }
     }
 

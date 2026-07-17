@@ -1805,6 +1805,7 @@ function buildMonthlyPlInputs(inputRows: BudgetInputRow[]): MonthlyPlInputs | nu
     params: params as unknown as MonthlyPlInputs["params"],
     projects: payloads("project") as unknown as MonthlyPlInputs["projects"],
     fixedCosts: payloads("fixed_cost") as unknown as MonthlyPlInputs["fixedCosts"],
+    recurringCashOutflows: payloads("cash_outflow") as unknown as MonthlyPlInputs["recurringCashOutflows"],
     projectRevenues: payloads("project_revenue") as unknown as MonthlyPlInputs["projectRevenues"],
     varCosts: payloads("var_cost") as unknown as MonthlyPlInputs["varCosts"],
     loans: payloads("loan") as unknown as MonthlyPlInputs["loans"],

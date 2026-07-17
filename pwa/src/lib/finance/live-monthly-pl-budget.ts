@@ -48,6 +48,7 @@ function buildFallbackInputs(rows: BudgetInputRow[]): MonthlyPlInputs | null {
     params: params as unknown as MonthlyPlInputs["params"],
     projects: payloads(rows, "project") as unknown as MonthlyPlInputs["projects"],
     fixedCosts: payloads(rows, "fixed_cost") as unknown as MonthlyPlInputs["fixedCosts"],
+    recurringCashOutflows: payloads(rows, "cash_outflow") as unknown as MonthlyPlInputs["recurringCashOutflows"],
     projectRevenues: payloads(rows, "project_revenue") as unknown as MonthlyPlInputs["projectRevenues"],
     varCosts: payloads(rows, "var_cost") as unknown as MonthlyPlInputs["varCosts"],
     loans: payloads(rows, "loan") as unknown as MonthlyPlInputs["loans"],

@@ -18,6 +18,7 @@ import type {
   MonthlyPlProjectRevenue,
   MonthlyPlScenarioOverride,
   MonthlyPlLoan,
+  MonthlyPlRecurringCashOutflow,
   MonthlyPlSpot,
 } from "@/lib/finance/monthly-pl-simulation";
 
@@ -78,6 +79,7 @@ type RecurringItemRow = {
   display_name: string | null;
   vendor_name: string | null;
   category: string | null;
+  item_kind: string | null;
   amount_yen: number | string | null;
   frequency: string | null;
   start_ym: string | null;
@@ -113,6 +115,11 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 
 function boolValue(value: unknown): boolean {
   return value === true || value === "true" || value === "TRUE" || value === "1" || value === 1;
+}
+
+function recurringClassification(item: Pick<RecurringItemRow, "item_kind" | "category">): "executive" | "salary" | "loan_payment" | null {
+  const values = [item.item_kind, item.category];
+  return values.includes("loan") || values.includes("loan_payment") ? "loan_payment" : values.includes("executive") ? "executive" : values.includes("salary") ? "salary" : null;
 }
 
 function rewardSummaryMembers(summary: Record<string, unknown> | null): Record<string, unknown>[] {
@@ -360,7 +367,7 @@ export async function buildLiveMonthlyPlInputs(
       .limit(500),
     supabase
       .from("company_finance_recurring_items")
-      .select("id, display_name, vendor_name, category, amount_yen, frequency, start_ym, end_ym, status")
+      .select("id, display_name, vendor_name, category, item_kind, amount_yen, frequency, start_ym, end_ym, status")
       .eq("status", "active")
       .limit(500),
     supabase
@@ -544,23 +551,29 @@ export async function buildLiveMonthlyPlInputs(
   }
 
   // ---- 固定費: company_finance_recurring_items ----
-  // 社会保険料は「役員報酬・給与」に当たる固定費だけを base に算定する (engine 側で
-  // costType === "executive"|"salary" のみ socialInsBase に積む)。recurring items には
-  // cost_type 列が無いので display_name から役員報酬/上乗せ/給与を判別して executive を付ける。
-  // それ以外 (サブスク・家賃・通信費等) は taxable のまま。
-  const isExecutiveCost = (name: string): boolean =>
-    /役員報酬|上乗せ|給与|給料|賞与/.test(name);
+  // 社保基礎は明示分類が executive / salary の recurring item だけに限定する。
+  const recurringCashOutflows: MonthlyPlRecurringCashOutflow[] = recurringItems
+    .filter((item) => item.status === "active" && recurringClassification(item) === "loan_payment" && num(item.amount_yen) > 0)
+    .map((item) => ({
+      outflowId: item.id,
+      outflowName: item.display_name || item.vendor_name || item.category || item.id,
+      monthlyAmount: num(item.amount_yen),
+      startYm: ymToInt(item.start_ym) ?? startYm,
+      endYm: ymToInt(item.end_ym),
+      kind: "loan_payment" as const,
+    }));
   const fixedCosts: MonthlyPlFixedCost[] = recurringItems
-    .filter((item) => num(item.amount_yen) > 0)
+    .filter((item) => item.status === "active" && recurringClassification(item) !== "loan_payment" && num(item.amount_yen) > 0)
     .map((item) => {
       const costName = item.display_name || item.vendor_name || item.category || item.id;
+      const classification = recurringClassification(item);
       return {
         costId: item.id,
         costName,
         monthlyCost: num(item.amount_yen),
         startYm: ymToInt(item.start_ym) ?? startYm,
         endYm: ymToInt(item.end_ym),
-        costType: isExecutiveCost(costName) ? ("executive" as const) : ("taxable" as const),
+        costType: classification === "executive" || classification === "salary" ? classification : ("taxable" as const),
       };
     });
 
@@ -630,6 +643,7 @@ export async function buildLiveMonthlyPlInputs(
     },
     projects: projectsList,
     fixedCosts,
+    recurringCashOutflows,
     projectRevenues,
     loans: options.fallbackLoans ?? [],
     spots: options.fallbackSpots ?? [],

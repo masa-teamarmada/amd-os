@@ -23,6 +23,7 @@ import {
   counterpartyFor,
   formatScheduleYen,
   nextPayment,
+  paymentTimingSummary,
 } from "../src/lib/admin-schedule/operations.ts";
 import { OFFICIAL_RULES } from "../src/lib/admin-schedule/rules/official.ts";
 
@@ -68,7 +69,7 @@ assert.equal(buildMonthGrid(2026, 2).some((cell) => cell.outside && cell.date !=
 const statutoryPayment = (dueOn: string, amountYen: number, amountStatus: "exact" | "estimated", computedStatus = "open") => ({
   source_kind: "company_payment_obligation",
   amount_role: "outgoing",
-  category: "tax",
+  category: "labor",
   computed_status: computedStatus,
   lifecycle_status: computedStatus,
   due_on: dueOn,
@@ -99,6 +100,11 @@ assert.equal(paymentSummary.estimatedAmountYen, 2_431_026);
 assert.equal(paymentSummary.unknownCount, 0);
 assert.equal(paymentSummary.peakMonth?.month, 8);
 assert.equal(paymentSummary.peakMonth?.amountYen, 740_018);
+const paymentTiming = paymentTimingSummary(paymentFixture, 2026, "2026-07-17");
+assert.equal(paymentTiming.paid.totalAmountYen, 1_333_332, "completed remittances are not future cash outflow");
+assert.equal(paymentTiming.reconcile.totalAmountYen, 686_554, "past-due open remittances need reconciliation");
+assert.equal(paymentTiming.upcoming.totalAmountYen, 2_079_290, "future-dated remittances stay upcoming even when estimated");
+assert.equal(paymentTiming.actionableAmountYen, 2_765_844, "actionable cash excludes already-paid remittances");
 assert.equal(nextPayment(paymentFixture, "2026-07-17")?.due_on, "2026-07-31");
 assert.equal(counterpartyFor(paymentFixture[0]), "日本年金機構");
 assert.equal(formatScheduleYen(334_818), "334,818円");
@@ -238,11 +244,18 @@ assert.match(scheduleApiRoute, /scheduleGenerationRange\(todayJst\(\)\)/);
 assert.match(ui, /年間締切レール/);
 assert.match(ui, /data-testid="annual-payment-summary"/);
 assert.match(ui, /data-testid="annual-payment-rail"/);
+assert.match(ui, /今から要対応の口座流出/);
+assert.match(ui, /これからの口座流出/);
+assert.match(ui, /納付済み/);
+assert.match(ui, /paymentTimingSummary/);
 assert.match(ui, /data-testid="annual-operations-view"/);
 assert.match(ui, /data-testid="schedule-calendar-tab"/);
 assert.match(ui, /function OperationsMonthCard/);
 assert.match(ui, /function PaymentRow/);
+assert.match(ui, /function PaymentLane/);
 assert.match(ui, /支払先/);
+assert.match(ui, /社会保険料/);
+assert.match(ui, /whitespace-nowrap text-\[9px\]/);
 assert.match(ui, /その他の運営/);
 assert.match(ui, /const displayMonth = item\.due_on/);
 assert.match(ui, /grid-cols-7/);

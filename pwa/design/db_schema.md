@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-07-17 06:45 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-07-17 16:58 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -72,7 +72,7 @@ PRIMARY KEY: `id`
 
 ## amd_management_score_raw_signals
 
-行数 (概算): 4,777
+行数 (概算): 4,778
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -650,7 +650,7 @@ PRIMARY KEY: `id`
 
 ## company_budget_monthly
 
-行数 (概算): 728
+行数 (概算): 752
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -848,7 +848,7 @@ UNIQUE: `(ym,status)` (constraint: `company_management_signal_reviews_ym_status_
 
 ## company_operating_facts
 
-行数 (概算): -1
+行数 (概算): 20
 PRIMARY KEY: `fact_id`
 UNIQUE: `(fact_key,source_kind,source_hash)` (constraint: `company_operating_facts_source_uniq`)
 
@@ -973,7 +973,7 @@ PRIMARY KEY: `action_id`
 
 ## company_schedule_notifications
 
-行数 (概算): -1
+行数 (概算): 167
 PRIMARY KEY: `notification_id`
 UNIQUE: `(occurrence_id,recipient_slack_id,schedule_key,stage)` (constraint: `company_schedule_notification_occurrence_id_recipient_slack_key`)
 
@@ -996,7 +996,7 @@ UNIQUE: `(occurrence_id,recipient_slack_id,schedule_key,stage)` (constraint: `co
 
 ## company_schedule_occurrences
 
-行数 (概算): -1
+行数 (概算): 766
 PRIMARY KEY: `occurrence_id`
 UNIQUE: `(occurrence_key,source_hash)` (constraint: `company_schedule_occurrences_source_uniq`)
 
@@ -1042,7 +1042,7 @@ UNIQUE: `(occurrence_key,source_hash)` (constraint: `company_schedule_occurrence
 
 ## company_schedule_rule_checks
 
-行数 (概算): -1
+行数 (概算): 7
 PRIMARY KEY: `rule_check_id`
 UNIQUE: `(rule_key,content_hash)` (constraint: `company_schedule_rule_checks_rule_key_content_hash_key`)
 
