@@ -34,8 +34,13 @@ macos/
 ## ビルド
 
 ```sh
-xcodegen generate --spec macos/project.yml --project macos/AMDOSMac.xcodeproj
-xcodebuild -project macos/AMDOSMac.xcodeproj -scheme AMDOSMac -configuration Debug -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build
+cd macos
+xcodegen generate --spec project.yml
+xcodebuild -project AMDOSMac.xcodeproj -scheme AMDOSMac -configuration Debug -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build
 ```
+
+`--project macos/AMDOSMac.xcodeproj` は使わない。XcodeGenの生成先はディレクトリであり、
+その指定だと `AMDOSMac.xcodeproj` の内部にもう一つ `.xcodeproj` を作って、外側の
+ビルド対象を更新しない。
 
 Googleログインの本番確認には、Supabase側の `amdos-macos-auth://oauth/callback` redirect URI登録が必要。

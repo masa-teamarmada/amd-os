@@ -32,6 +32,14 @@
 				<string>amdos-macos-auth</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>AMD OS native PWA route</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>amdos-macos</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>

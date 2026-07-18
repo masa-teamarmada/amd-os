@@ -7,6 +7,35 @@ struct AMDOSSession: Codable, Equatable, Sendable {
     let email: String?
 }
 
+/// PWAのログイン選択肢と同じ二つの入口。PJ限定ログインはCalendar/Gmailを
+/// 要求せず、PWA共有のworkspace DTO以外には進ませない。
+enum AMDOSLoginScope: String, Codable, Sendable {
+    case portfolio
+    case project
+}
+
+enum AMDOSOSAccessScope: String, Codable, Sendable {
+    case portfolio
+    case project
+}
+
+struct AMDOSProjectWorkspaceNavItem: Codable, Hashable, Sendable, Identifiable {
+    let projectId: String
+    let projectName: String
+
+    var id: String { projectId }
+}
+
+struct AMDOSProjectWorkspaceAccess: Codable, Sendable {
+    let memberId: String
+    let codeName: String
+    let email: String
+    let isAdmin: Bool
+    let scope: AMDOSOSAccessScope
+    let calendarStatus: String
+    let projects: [AMDOSProjectWorkspaceNavItem]
+}
+
 struct AMDOSProject: Identifiable, Codable, Hashable, Sendable {
     let id: String
     let name: String
@@ -64,11 +93,17 @@ enum AMDOSArea: String, CaseIterable, Identifiable, Sendable {
 }
 
 enum AMDOSScreenID: String, CaseIterable, Identifiable, Hashable, Sendable {
-    case today, projects, projectDetail, notifications, reimbursements, businessCards, monthlyAgreement
-    case atlas, materials, seeds, poc, vcs, scholar, institutions, amdScore
-    case adminHome, adminInvoices, adminFinance, adminPayouts, adminContracts, adminMembers, adminGovernance
-    case adminPrivateWiki, adminManagementKnowledge, adminSchedule, adminMsOverview, adminSeasonPl, adminWeekly
-    case hud, manual, spec, bzm, account
+    case today, mypage, projects, myProjects, projectWorkspace, projectCockpit, projectConfig, projectReportPrint, notifications, reimbursements, businessCards, monthlyAgreement
+    case nativeBusinessCards, company, contracts, japaneseCultureMap, knowledgeMap
+    case atlasHome, atlasThemes, atlasDecisions, atlasDivergence, atlasInbox, atlasInboxSubmit, atlasMacrotrends, atlasMap
+    case materials, seeds, seedDetail, seedInbox, poc, vcs, vcDetail, vcEdit, vcInbox, scholar
+    case institutions, institutionDetail, institutionCockpit, institutionAssess
+    case ventureMap, amdScore, amdScoreDetail, amdScoreRetrofit, ventureCyberspace, ventureOscillator, ventureStateSpace, ventureSuDetail, ventureTimeline3D, managementScore, proactive
+    case adminHome, adminCompany, adminContexts, adminInvoices, adminBilling, adminFinance, adminPayouts, adminContracts, adminMembers, adminGovernance
+    case adminCoverageGaps, adminIP, adminCultureMap, adminMonthlyAgreements, adminPrivateWiki, adminManagementKnowledge, adminProjects, adminPrompts, adminProtocols
+    case adminSchedule, adminMsOverview, adminSeasonPL, adminSettings, adminTsukuyomi, adminWeekly
+    case hudDashboard, hudEmbedDashboard, hudNotifications, hudProjectCockpit, hudAtlas, hudSeeds, hudVcs, hudAmdScoreRetrofit, cyber3DLab, cyberGlassCube, cyberHudWall
+    case manual, manualDetail, spec, specDetail, bzm, bzmDetail, bzmPublic, bzmPublicDetail, account, paymentConfirm
 
     var id: String { rawValue }
 }

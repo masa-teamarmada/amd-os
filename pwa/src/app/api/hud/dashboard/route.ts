@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchActiveAlpha, fetchAllAmdScoreInputs, type AmdScoreInputRow } from "@/lib/amd-score-data";
 import {
+  buildPrimaryScoreSnapshot,
   computeAmdScoreSeries,
   latestVisibleScorableScoreInput,
   scoreInputToSignalMetrics,
@@ -37,6 +38,19 @@ type ManagementSnapshot = {
   pipeline_score: number | null;
   direction_score: number | null;
   confidence: number | null;
+};
+
+type PrimarySnapshot = {
+  score: number | null;
+  status: "ready" | "missing";
+  missingAxes: string[];
+  legacyScore: number | null;
+  components: {
+    macro: number | null;
+    potential: number | null;
+    reach: number | null;
+    survival: number | null;
+  };
 };
 
 function getCurrentYm(): string {
@@ -77,6 +91,7 @@ export async function GET(req: NextRequest) {
       billingStatus,
       scoreHistory: scoreBundle.history,
       signalMetrics: scoreBundle.metrics,
+      primarySnapshots: scoreBundle.primary,
       managementScore: managementHistory[managementHistory.length - 1] ?? null,
       managementHistory,
       actionItems: [],
@@ -93,6 +108,7 @@ export async function GET(req: NextRequest) {
 async function buildScoreData(): Promise<{
   history: Record<string, number[]>;
   metrics: Record<string, AmdSignalMetrics>;
+  primary: Record<string, PrimarySnapshot>;
 }> {
   const [inputs, activeAlpha] = await Promise.all([fetchAllAmdScoreInputs(), fetchActiveAlpha()]);
   const grouped: Record<string, AmdScoreInputRow[]> = {};
@@ -116,7 +132,26 @@ async function buildScoreData(): Promise<{
       return metric ? [[projectId, metric]] : [];
     })
   );
-  return { history, metrics };
+  const primary: Record<string, PrimarySnapshot> = {};
+  for (const [projectId, rows] of Object.entries(grouped)) {
+    const visibleRows = visible(rows);
+    const latest = latestVisibleScorableScoreInput(rows);
+    if (!latest) continue;
+    const snapshot = buildPrimaryScoreSnapshot(latest, activeAlpha.alpha, { P: null, R_net: null }, visibleRows);
+    primary[projectId] = {
+      score: snapshot.prs.status === "ready" ? snapshot.prs.score : null,
+      status: snapshot.prs.status === "ready" ? "ready" : "missing",
+      missingAxes: snapshot.prs.status === "ready" ? [] : snapshot.prs.missingAxes,
+      legacyScore: snapshot.legacy.score,
+      components: {
+        macro: snapshot.prs.components?.macro ?? null,
+        potential: snapshot.prs.axisValues.P,
+        reach: snapshot.prs.components?.reach ?? null,
+        survival: snapshot.prs.components?.survival ?? null,
+      },
+    };
+  }
+  return { history, metrics, primary };
 }
 
 // ---- AMD Management Score snapshots ----

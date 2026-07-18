@@ -11,6 +11,61 @@ const ACCEPTED_RECEIPT_TYPES = new Set(["image/png", "image/jpeg", "image/webp",
 const CATEGORIES = new Set(["transport", "lodging", "supplies", "meal", "other"]);
 const TRANSPORT_MODES = new Set(["train", "bus", "taxi", "car", "other"]);
 
+/**
+ * PWA画面とMacネイティブ版で共有する削除境界。
+ * submittedかつ本人の申請だけを消し、DB削除後に紐づくreceipt Storageも片付ける。
+ */
+export async function DELETE(request: Request) {
+  try {
+    const supabase = await createServerSupabase();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+    const email = user?.email?.toLowerCase() ?? "";
+    if (userError || !user || !email) {
+      return NextResponse.json({ error: "ログイン情報が取れなかった" }, { status: 401 });
+    }
+
+    const body = await request.json().catch(() => ({})) as { reimbursement_id?: unknown };
+    const reimbursementId = typeof body.reimbursement_id === "string" ? body.reimbursement_id.trim() : "";
+    if (!reimbursementId) return NextResponse.json({ error: "reimbursement_id が必要" }, { status: 400 });
+
+    const admin = createAdminClient();
+    const { data: existing, error: existingError } = await admin
+      .from("reimbursements")
+      .select("created_by,status,receipt_storage_paths")
+      .eq("reimbursement_id", reimbursementId)
+      .maybeSingle();
+    if (existingError) throw existingError;
+    if (!existing) return NextResponse.json({ error: "対象の立替が見つからなかった" }, { status: 404 });
+    if (String(existing.created_by ?? "").toLowerCase() !== email) {
+      return NextResponse.json({ error: "自分の申請だけ削除できる" }, { status: 403 });
+    }
+    if (String(existing.status ?? "") !== "submitted") {
+      return NextResponse.json({ error: "submitted の申請だけ削除できる" }, { status: 409 });
+    }
+
+    const { error: deleteError } = await admin
+      .from("reimbursements")
+      .delete()
+      .eq("reimbursement_id", reimbursementId)
+      .eq("created_by", email)
+      .eq("status", "submitted");
+    if (deleteError) throw deleteError;
+
+    const paths = stringArray(existing.receipt_storage_paths);
+    if (paths.length > 0) await admin.storage.from(RECEIPT_BUCKET).remove(paths);
+    return NextResponse.json({ ok: true, reimbursement_id: reimbursementId });
+  } catch (error) {
+    console.error("[api/reimbursements] delete failed", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "立替申請の削除に失敗した" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const supabase = await createServerSupabase();

@@ -7,15 +7,32 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0E9FB8EF22D38775E7D69DB7 /* ProjectWorkspaceFeatureViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 237A97735E2836E6403BFBC3 /* ProjectWorkspaceFeatureViews.swift */; };
+		112FDE21F3E5821E7AD84784 /* AdminPrivateWikiPromptsParityViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85AC2148007A5D9215D54D79 /* AdminPrivateWikiPromptsParityViews.swift */; };
 		1403716FBE48DB6D491498AE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0CB3E14E695A418452CE6911 /* Assets.xcassets */; };
+		18747D30BCC57132E13A04B6 /* WorkFeatureViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CE5E1E0FD4FFF5807227B6B /* WorkFeatureViews.swift */; };
+		30A71E51FB2D9B7E60143BD7 /* AdminScheduleParityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87EDDC7FC451FCB35266A3C8 /* AdminScheduleParityView.swift */; };
 		37AAB67754FC850946C653C8 /* AMDOSDesign.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98698B42B4A20EF05FD950A9 /* AMDOSDesign.swift */; };
+		3ACB49BBE5918F5D593D0B1D /* FeatureTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6FC392CC81F15384CB5BAB0 /* FeatureTypes.swift */; };
+		404EBFE9DE0C804B4D519B13 /* AdminP2ParityViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DE6BBC251DBC99D677632DF /* AdminP2ParityViews.swift */; };
 		45B1F5E7E2E696BEDA8DD82E /* WorkspaceModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31DA7EC0781639EE76B7D1F /* WorkspaceModel.swift */; };
+		631E0971C2D16A85383111BA /* PWARouteRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB1AB16753537C96E0CE3235 /* PWARouteRouter.swift */; };
+		6B8FE8A1ECB9624488BC4B20 /* WorkParityFeatureViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CFE03B5B552A650103C848A /* WorkParityFeatureViews.swift */; };
+		762944769043D0FF202DF9F8 /* ExploreFeatureViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74F66F1E1C2A426771D1AD6B /* ExploreFeatureViews.swift */; };
+		82DD4C679AADD984B73028A8 /* ReferenceFeatureViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 963009F643AB92DBF7EE7D69 /* ReferenceFeatureViews.swift */; };
+		863E8C67A594E58B4840E68E /* VentureParityFeatureViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B91D073F7FCC12BB1FA0B63 /* VentureParityFeatureViews.swift */; };
+		98B1B38B454C48A85538E39D /* AdminSettingsTsukuyomiParityViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = E070424DD2C8BBC52F5DF28A /* AdminSettingsTsukuyomiParityViews.swift */; };
+		9DA090F230F96F26F892B8B8 /* PoCParityFeatureViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AEC3D37D0CFC9D55C4617A1 /* PoCParityFeatureViews.swift */; };
 		A3ED43ED94DEE7C67A8AD63C /* ScreenViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1173E9F1A2713001480AC517 /* ScreenViews.swift */; };
 		B0F24C1BDCB9C4F5165A9874 /* WorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3312EEFDDBB61D5A0052A1CA /* WorkspaceView.swift */; };
 		C0BD0F4B6FD765E0BBBB5A18 /* AuthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3C6E1F1E2F2EF661BAD8A0E /* AuthStore.swift */; };
+		C6460D8FA441DF26E85F2423 /* AdminProjectsMembersParityViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8074B383D6A76AD1EAD8D505 /* AdminProjectsMembersParityViews.swift */; };
 		C94BC996771E7927BA1FE307 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C66831FCE04B2227ED03CFA /* Models.swift */; };
+		CB24A9FAA02326C3ACA38202 /* ExploreParityFeatureViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F87C8DC1E96943AC27173E8 /* ExploreParityFeatureViews.swift */; };
 		CB85B72989E0ACAC6C111CBC /* ParityCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94ACA4DFB2FCCD05521120EC /* ParityCatalog.swift */; };
+		CFBA735BAF375185572B1D58 /* PaymentConfirmFeatureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4537B6C072495933E74E99C4 /* PaymentConfirmFeatureView.swift */; };
 		D4EC219E741863B95BEE15AF /* SupabaseRESTClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10F2C20DA19BF43ECF23A97B /* SupabaseRESTClient.swift */; };
+		DADBE023CD3F863A2AB2EA27 /* AdminFeatureViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86BD42690BB3B7E7CA557AC7 /* AdminFeatureViews.swift */; };
 		FA0F1E759E982FC0AAE7800F /* AMDOSMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAFB27227FF0915A51A30FBA /* AMDOSMacApp.swift */; };
 /* End PBXBuildFile section */
 
@@ -23,13 +40,30 @@
 		0CB3E14E695A418452CE6911 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		10F2C20DA19BF43ECF23A97B /* SupabaseRESTClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseRESTClient.swift; sourceTree = "<group>"; };
 		1173E9F1A2713001480AC517 /* ScreenViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenViews.swift; sourceTree = "<group>"; };
+		237A97735E2836E6403BFBC3 /* ProjectWorkspaceFeatureViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectWorkspaceFeatureViews.swift; sourceTree = "<group>"; };
+		2DE6BBC251DBC99D677632DF /* AdminP2ParityViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminP2ParityViews.swift; sourceTree = "<group>"; };
 		3312EEFDDBB61D5A0052A1CA /* WorkspaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceView.swift; sourceTree = "<group>"; };
+		4537B6C072495933E74E99C4 /* PaymentConfirmFeatureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentConfirmFeatureView.swift; sourceTree = "<group>"; };
+		4CE5E1E0FD4FFF5807227B6B /* WorkFeatureViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkFeatureViews.swift; sourceTree = "<group>"; };
+		5AEC3D37D0CFC9D55C4617A1 /* PoCParityFeatureViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoCParityFeatureViews.swift; sourceTree = "<group>"; };
+		5CFE03B5B552A650103C848A /* WorkParityFeatureViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkParityFeatureViews.swift; sourceTree = "<group>"; };
 		6C66831FCE04B2227ED03CFA /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		6F87C8DC1E96943AC27173E8 /* ExploreParityFeatureViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreParityFeatureViews.swift; sourceTree = "<group>"; };
+		74F66F1E1C2A426771D1AD6B /* ExploreFeatureViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreFeatureViews.swift; sourceTree = "<group>"; };
+		8074B383D6A76AD1EAD8D505 /* AdminProjectsMembersParityViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminProjectsMembersParityViews.swift; sourceTree = "<group>"; };
 		816B22E1E5D73C3DC73CE40C /* AMDOSMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AMDOSMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		85AC2148007A5D9215D54D79 /* AdminPrivateWikiPromptsParityViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminPrivateWikiPromptsParityViews.swift; sourceTree = "<group>"; };
+		86BD42690BB3B7E7CA557AC7 /* AdminFeatureViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminFeatureViews.swift; sourceTree = "<group>"; };
+		87EDDC7FC451FCB35266A3C8 /* AdminScheduleParityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminScheduleParityView.swift; sourceTree = "<group>"; };
 		94ACA4DFB2FCCD05521120EC /* ParityCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParityCatalog.swift; sourceTree = "<group>"; };
+		963009F643AB92DBF7EE7D69 /* ReferenceFeatureViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReferenceFeatureViews.swift; sourceTree = "<group>"; };
 		98698B42B4A20EF05FD950A9 /* AMDOSDesign.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMDOSDesign.swift; sourceTree = "<group>"; };
+		9B91D073F7FCC12BB1FA0B63 /* VentureParityFeatureViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VentureParityFeatureViews.swift; sourceTree = "<group>"; };
 		A31DA7EC0781639EE76B7D1F /* WorkspaceModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceModel.swift; sourceTree = "<group>"; };
 		C3C6E1F1E2F2EF661BAD8A0E /* AuthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthStore.swift; sourceTree = "<group>"; };
+		C6FC392CC81F15384CB5BAB0 /* FeatureTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureTypes.swift; sourceTree = "<group>"; };
+		DB1AB16753537C96E0CE3235 /* PWARouteRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PWARouteRouter.swift; sourceTree = "<group>"; };
+		E070424DD2C8BBC52F5DF28A /* AdminSettingsTsukuyomiParityViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminSettingsTsukuyomiParityViews.swift; sourceTree = "<group>"; };
 		EAFB27227FF0915A51A30FBA /* AMDOSMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AMDOSMacApp.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -57,7 +91,22 @@
 		790BAE4BCE2AA09EE48B73D9 /* Features */ = {
 			isa = PBXGroup;
 			children = (
+				86BD42690BB3B7E7CA557AC7 /* AdminFeatureViews.swift */,
+				2DE6BBC251DBC99D677632DF /* AdminP2ParityViews.swift */,
+				85AC2148007A5D9215D54D79 /* AdminPrivateWikiPromptsParityViews.swift */,
+				8074B383D6A76AD1EAD8D505 /* AdminProjectsMembersParityViews.swift */,
+				87EDDC7FC451FCB35266A3C8 /* AdminScheduleParityView.swift */,
+				E070424DD2C8BBC52F5DF28A /* AdminSettingsTsukuyomiParityViews.swift */,
+				74F66F1E1C2A426771D1AD6B /* ExploreFeatureViews.swift */,
+				6F87C8DC1E96943AC27173E8 /* ExploreParityFeatureViews.swift */,
+				4537B6C072495933E74E99C4 /* PaymentConfirmFeatureView.swift */,
+				5AEC3D37D0CFC9D55C4617A1 /* PoCParityFeatureViews.swift */,
+				237A97735E2836E6403BFBC3 /* ProjectWorkspaceFeatureViews.swift */,
+				963009F643AB92DBF7EE7D69 /* ReferenceFeatureViews.swift */,
 				1173E9F1A2713001480AC517 /* ScreenViews.swift */,
+				9B91D073F7FCC12BB1FA0B63 /* VentureParityFeatureViews.swift */,
+				4CE5E1E0FD4FFF5807227B6B /* WorkFeatureViews.swift */,
+				5CFE03B5B552A650103C848A /* WorkParityFeatureViews.swift */,
 				3312EEFDDBB61D5A0052A1CA /* WorkspaceView.swift */,
 			);
 			path = Features;
@@ -75,8 +124,10 @@
 			isa = PBXGroup;
 			children = (
 				C3C6E1F1E2F2EF661BAD8A0E /* AuthStore.swift */,
+				C6FC392CC81F15384CB5BAB0 /* FeatureTypes.swift */,
 				6C66831FCE04B2227ED03CFA /* Models.swift */,
 				94ACA4DFB2FCCD05521120EC /* ParityCatalog.swift */,
+				DB1AB16753537C96E0CE3235 /* PWARouteRouter.swift */,
 				10F2C20DA19BF43ECF23A97B /* SupabaseRESTClient.swift */,
 			);
 			path = AMDOSCore;
@@ -171,11 +222,28 @@
 			files = (
 				37AAB67754FC850946C653C8 /* AMDOSDesign.swift in Sources */,
 				FA0F1E759E982FC0AAE7800F /* AMDOSMacApp.swift in Sources */,
+				DADBE023CD3F863A2AB2EA27 /* AdminFeatureViews.swift in Sources */,
+				404EBFE9DE0C804B4D519B13 /* AdminP2ParityViews.swift in Sources */,
+				112FDE21F3E5821E7AD84784 /* AdminPrivateWikiPromptsParityViews.swift in Sources */,
+				C6460D8FA441DF26E85F2423 /* AdminProjectsMembersParityViews.swift in Sources */,
+				30A71E51FB2D9B7E60143BD7 /* AdminScheduleParityView.swift in Sources */,
+				98B1B38B454C48A85538E39D /* AdminSettingsTsukuyomiParityViews.swift in Sources */,
 				C0BD0F4B6FD765E0BBBB5A18 /* AuthStore.swift in Sources */,
+				762944769043D0FF202DF9F8 /* ExploreFeatureViews.swift in Sources */,
+				CB24A9FAA02326C3ACA38202 /* ExploreParityFeatureViews.swift in Sources */,
+				3ACB49BBE5918F5D593D0B1D /* FeatureTypes.swift in Sources */,
 				C94BC996771E7927BA1FE307 /* Models.swift in Sources */,
+				631E0971C2D16A85383111BA /* PWARouteRouter.swift in Sources */,
 				CB85B72989E0ACAC6C111CBC /* ParityCatalog.swift in Sources */,
+				CFBA735BAF375185572B1D58 /* PaymentConfirmFeatureView.swift in Sources */,
+				9DA090F230F96F26F892B8B8 /* PoCParityFeatureViews.swift in Sources */,
+				0E9FB8EF22D38775E7D69DB7 /* ProjectWorkspaceFeatureViews.swift in Sources */,
+				82DD4C679AADD984B73028A8 /* ReferenceFeatureViews.swift in Sources */,
 				A3ED43ED94DEE7C67A8AD63C /* ScreenViews.swift in Sources */,
 				D4EC219E741863B95BEE15AF /* SupabaseRESTClient.swift in Sources */,
+				863E8C67A594E58B4840E68E /* VentureParityFeatureViews.swift in Sources */,
+				18747D30BCC57132E13A04B6 /* WorkFeatureViews.swift in Sources */,
+				6B8FE8A1ECB9624488BC4B20 /* WorkParityFeatureViews.swift in Sources */,
 				45B1F5E7E2E696BEDA8DD82E /* WorkspaceModel.swift in Sources */,
 				B0F24C1BDCB9C4F5165A9874 /* WorkspaceView.swift in Sources */,
 			);
@@ -189,13 +257,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				INFOPLIST_FILE = SupportingFiles/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.5;
+				MARKETING_VERSION = 0.1.6;
 				PRODUCT_BUNDLE_IDENTIFIER = "jp.team-armada.amdos.macos";
 				PRODUCT_NAME = "AMD OS";
 				SDKROOT = macosx;
@@ -330,13 +398,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				INFOPLIST_FILE = SupportingFiles/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.5;
+				MARKETING_VERSION = 0.1.6;
 				PRODUCT_BUNDLE_IDENTIFIER = "jp.team-armada.amdos.macos";
 				PRODUCT_NAME = "AMD OS";
 				SDKROOT = macosx;

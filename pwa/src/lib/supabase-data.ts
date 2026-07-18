@@ -38,6 +38,40 @@ function getAuthClient() {
   return createBrowserSupabase();
 }
 
+type AtlasWriteEnvelope = {
+  ok?: boolean;
+  id?: string;
+  count?: number;
+  error?: string;
+};
+
+/**
+ * Atlasの手動操作はPWA API経由へ集約する。ブラウザとNativeが同じ
+ * requireAuth + 本人RLS境界を使い、クライアントからの直table writerを増やさない。
+ */
+async function writeAtlas(
+  path: string,
+  body: Record<string, unknown>,
+  method = "POST"
+): Promise<AtlasWriteEnvelope | null> {
+  try {
+    const response = await fetch(path, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const result = await response.json().catch(() => ({})) as AtlasWriteEnvelope;
+    if (!response.ok || result.ok !== true) {
+      console.error("Atlas write failed:", result.error || response.statusText);
+      return null;
+    }
+    return result;
+  } catch (error) {
+    console.error("Atlas write failed:", error);
+    return null;
+  }
+}
+
 async function syncRewardsForPlanCycle(planCycleId: string): Promise<void> {
   if (typeof window === "undefined") return;
   try {
@@ -881,23 +915,14 @@ export async function addAtlasDecision(input: {
   decidedAt?: string;
   outcomeEvalAt?: string;
 }): Promise<string | null> {
-  const authClient = getAuthClient();
-  const { data, error } = await authClient
-    .from("atlas_decisions")
-    .insert({
-      topic_id: input.topicId,
-      action: input.action,
-      rationale: input.rationale || null,
-      decided_at: input.decidedAt || new Date().toISOString(),
-      outcome_eval_at: input.outcomeEvalAt || null,
-    })
-    .select("id")
-    .single();
-  if (error || !data) {
-    console.error("addAtlasDecision:", error?.message);
-    return null;
-  }
-  return data.id as string;
+  const response = await writeAtlas("/api/atlas/decisions", {
+    topicId: input.topicId,
+    action: input.action,
+    rationale: input.rationale ?? null,
+    decidedAt: input.decidedAt ?? null,
+    outcomeEvalAt: input.outcomeEvalAt ?? null,
+  });
+  return response?.id || null;
 }
 
 /** 判断ログを更新（outcomeの追記など） */
@@ -910,18 +935,14 @@ export async function updateAtlasDecision(
     outcome?: string | null;
   }
 ): Promise<boolean> {
-  const authClient = getAuthClient();
-  const update: Record<string, unknown> = {};
-  if (patch.action !== undefined) update.action = patch.action;
-  if (patch.rationale !== undefined) update.rationale = patch.rationale;
-  if (patch.outcomeEvalAt !== undefined) update.outcome_eval_at = patch.outcomeEvalAt;
-  if (patch.outcome !== undefined) update.outcome = patch.outcome;
-  const { error } = await authClient.from("atlas_decisions").update(update).eq("id", id);
-  if (error) {
-    console.error("updateAtlasDecision:", error.message);
-    return false;
-  }
-  return true;
+  const response = await writeAtlas("/api/atlas/decisions", {
+    id,
+    ...(patch.action !== undefined ? { action: patch.action } : {}),
+    ...(patch.rationale !== undefined ? { rationale: patch.rationale } : {}),
+    ...(patch.outcomeEvalAt !== undefined ? { outcomeEvalAt: patch.outcomeEvalAt } : {}),
+    ...(patch.outcome !== undefined ? { outcome: patch.outcome } : {}),
+  }, "PATCH");
+  return response != null;
 }
 
 export interface AtlasSignal {
@@ -1187,22 +1208,16 @@ export async function addAtlasSignal(signal: {
   suggested_tags?: string[];
   importance?: AtlasSignal["importance"];
 }): Promise<boolean> {
-  const authClient = getAuthClient();
-  const { error } = await authClient.from("atlas_signals").insert({
+  const response = await writeAtlas("/api/atlas/signals/submit", {
     title: signal.title,
     content: signal.content,
-    source_url: signal.source_url || null,
-    source_type: signal.source_type || "news",
+    sourceUrl: signal.source_url || "",
+    sourceType: signal.source_type || "news",
     domain: signal.domain || null,
-    suggested_tags: signal.suggested_tags || [],
+    suggestedTags: signal.suggested_tags || [],
     importance: signal.importance || "medium",
-    status: "inbox",
   });
-  if (error) {
-    console.error("addAtlasSignal:", error.message);
-    return false;
-  }
-  return true;
+  return response != null;
 }
 
 /** まさがシグナルを審査（Accept / Hold / Reject） */
@@ -1211,20 +1226,12 @@ export async function reviewAtlasSignal(
   action: "accepted" | "held" | "rejected",
   targetNodeId?: string
 ): Promise<boolean> {
-  const authClient = getAuthClient();
-  const { error } = await authClient
-    .from("atlas_signals")
-    .update({
-      status: action,
-      target_node_id: targetNodeId || null,
-      reviewed_at: new Date().toISOString(),
-    })
-    .eq("id", signalId);
-  if (error) {
-    console.error("reviewAtlasSignal:", error.message);
-    return false;
-  }
-  return true;
+  const response = await writeAtlas("/api/atlas/signals/review", {
+    signalId,
+    status: action,
+    targetNodeId: targetNodeId || null,
+  });
+  return response != null;
 }
 
 /** Accept: シグナルをobservationとしてtopicに追記 */
@@ -1256,17 +1263,11 @@ export async function acceptSignalToTopic(
 
 /** Inbox の全件を一括 accepted にする */
 export async function acceptAllInboxSignals(): Promise<{ ok: boolean; count: number }> {
-  const authClient = getAuthClient();
-  const { data, error } = await authClient
-    .from("atlas_signals")
-    .update({ status: "accepted", reviewed_at: new Date().toISOString() })
-    .eq("status", "inbox")
-    .select("id");
-  if (error) {
-    console.error("acceptAllInboxSignals:", error.message);
-    return { ok: false, count: 0 };
-  }
-  return { ok: true, count: data?.length || 0 };
+  const response = await writeAtlas("/api/atlas/signals/review", {
+    status: "accepted",
+    allInbox: true,
+  });
+  return response ? { ok: true, count: response.count || 0 } : { ok: false, count: 0 };
 }
 
 /** Accept: 新規トピックを作成しつつシグナルをobservationとして紐付ける */

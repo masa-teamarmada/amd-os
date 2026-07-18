@@ -1722,4 +1722,15 @@ expectIncludes("scripts/migrations/175_lst_cap_table_history.sql", [
   "in_kind_contribution",
 ]);
 
+// `/bzm/public/**` は通常の会員BZMとは別の公開原稿。middlewareと(app) shellの
+// どちらかだけを外すと再びログイン画面に戻るため、二つの境界を同時に保護する。
+expectIncludes("src/lib/supabase/middleware.ts", [
+  "const isPublicBzmManuscript",
+  "!isPublicBzmManuscript",
+]);
+expectIncludes("src/app/(app)/layout.tsx", [
+  'pathname === "/bzm/public"',
+  "return <>{children}</>;",
+]);
+
 console.log("critical PWA UI anchors ok");

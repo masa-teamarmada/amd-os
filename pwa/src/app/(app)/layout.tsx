@@ -86,6 +86,13 @@ export default async function AppLayout({
 }) {
   const h = await headers();
   const pathname = h.get("x-pathname") ?? "";
+
+  // 公開原稿は `(app)` 配下に置いていても、会員シェルやログインを通さない。
+  // `/bzm` 本体は引き続きメンバー限定で、公開境界はこの subtree だけに固定する。
+  if (pathname === "/bzm/public" || pathname.startsWith("/bzm/public/")) {
+    return <>{children}</>;
+  }
+
   const access = await getCurrentMemberAccess();
   if (!access) {
     redirect(`/auth/login?next=${encodeURIComponent(pathname || "/dashboard")}`);

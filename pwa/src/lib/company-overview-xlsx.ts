@@ -6,7 +6,7 @@ import {
   convertibleScenario,
   latestCapTable,
   type CompanyOverviewData,
-} from "@/lib/company-overview";
+} from "./company-overview.ts";
 
 type CellValue = string | number | null | undefined;
 type Cell = { value: CellValue; style?: number };

@@ -11,7 +11,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { createClient } from "@/lib/supabase/client";
 
 export interface InvoiceProjectRow {
   project_id: string;
@@ -83,8 +82,6 @@ type ResolutionItem = {
   detail: string;
   blockerLabel: string;
 };
-
-const supabase = createClient();
 
 function ymDisplay(ym: string) {
   if (!ym || ym.length < 6) return ym;
@@ -282,13 +279,28 @@ export function AdminInvoiceIssueQueue({ cycles, targetYm }: Props) {
 
   async function saveInvoiceYm(row: BillingCycleRow, invoiceYm: string) {
     const nextValue = invoiceYm.replace(/\D/g, "").slice(0, 6) || row.ym;
-    applyLocalPatch(row.project_id, row.ym, { invoice_ym: nextValue });
-    const { error } = await supabase
-      .from("billing_cycles")
-      .update({ invoice_ym: nextValue })
-      .eq("project_id", row.project_id)
-      .eq("ym", row.ym);
-    if (error) setMessage(error.message);
+    try {
+      const res = await fetch("/api/admin/invoices/invoice-ym", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: row.project_id, ym: row.ym, invoiceYm: nextValue }),
+      });
+      const payload = await res.json() as {
+        ok?: boolean;
+        error?: string;
+        updatedCycle?: { projectId?: string; ym?: string; invoiceYm?: string | null };
+      };
+      if (!res.ok || payload.ok !== true || !payload.updatedCycle) {
+        throw new Error(payload.error || `請求月を保存できなかった (${res.status})`);
+      }
+      if (payload.updatedCycle.projectId !== row.project_id || payload.updatedCycle.ym !== row.ym) {
+        throw new Error("請求月の保存結果を確認できなかった");
+      }
+      applyLocalPatch(row.project_id, row.ym, { invoice_ym: payload.updatedCycle.invoiceYm ?? row.ym });
+      setMessage(null);
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "請求月を保存できなかった");
+    }
   }
 
   const filterItems: Array<{ key: QueueFilter; label: string }> = [
@@ -498,17 +510,30 @@ function InvoiceDetailDialog({
     }
     setSettingsSaving(true);
     setSettingsMessage(null);
-    const { error } = await supabase
-      .from("projects")
-      .update({ freee_partner_id: nextValue })
-      .eq("project_id", activeRow.project_id);
-    setSettingsSaving(false);
-    if (error) {
-      setSettingsMessage(error.message);
-      return;
+    try {
+      const res = await fetch("/api/admin/invoices/freee-partner", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: activeRow.project_id, freeePartnerId: nextValue }),
+      });
+      const payload = await res.json() as {
+        ok?: boolean;
+        error?: string;
+        updatedProject?: { projectId?: string; freeePartnerId?: string | null };
+      };
+      if (!res.ok || payload.ok !== true || !payload.updatedProject) {
+        throw new Error(payload.error || `freee取引先を保存できなかった (${res.status})`);
+      }
+      if (payload.updatedProject.projectId !== activeRow.project_id || payload.updatedProject.freeePartnerId !== nextValue) {
+        throw new Error("freee取引先の保存結果を確認できなかった");
+      }
+      onProjectPatch(activeRow.project_id, { freee_partner_id: nextValue });
+      setSettingsMessage(`${selectedFreeePartner?.name || "freee取引先"}を保存したよ。この請求先の未発行行を再判定したよ。`);
+    } catch (err) {
+      setSettingsMessage(err instanceof Error ? err.message : "freee取引先を保存できなかった");
+    } finally {
+      setSettingsSaving(false);
     }
-    onProjectPatch(activeRow.project_id, { freee_partner_id: nextValue });
-    setSettingsMessage(`${selectedFreeePartner?.name || "freee取引先"}を保存したよ。この請求先の未発行行を再判定したよ。`);
   }
 
   return (

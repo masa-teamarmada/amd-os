@@ -136,6 +136,14 @@ const nextConfig: NextConfig = {
     "/manual/[slug]/page": ["./manual/**/*.md"],
     "/manual/page": ["./manual/**/*.md"],
     "/api/manual/tsukuyomi/ask/route": ["./manual/**/*.md"],
+    // Native macOS の文書readerもPWAの git 管理Markdownを正本として返す。
+    // route内の readdir/readFileSync は自動トレースに乗らないため、ここで本文を
+    // 明示しないと本番だけ `document not found` になる。
+    "/api/macos/document/route": [
+      "./manual/**/*.md",
+      "./spec/**/*.md",
+      "./bzm/**/*.md",
+    ],
   },
   async headers() {
     return [

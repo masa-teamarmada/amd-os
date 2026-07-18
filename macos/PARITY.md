@@ -1,70 +1,78 @@
 # AMD OS macOS 開発用対応台帳
 
-最終更新: 2026-07-17
+最終更新: 2026-07-19
 
 このファイルは開発・レビュー専用。ユーザー向けのmacOS画面、空状態、エラー、アクセシビリティ文言へ台帳の語彙を渡さない。
 NativeScreenID、読取元、書込み先、権限、回帰確認を全件残し、実装していない行を削除しない。
 
-判定は「実装済み」「ネイティブ骨格」「未移植」の3段階。
-行を消すこと、骨格を実装済みに読み替えること、旧PWA `/tasks` や旧月次ルーティンを復活させることは禁止。
+PWA移植の判定正本は「1. PWA route → NativeScreenID」と `PWA_PARITY_EVIDENCE.md`。
+下の iOS 履歴表は旧画面名を追えるように残すだけで、PWA移植の未達を表すものではない。
+旧PWA `/tasks` や旧月次ルーティンを復活させることは禁止。
 
 ## 0. macOS配布入口（アプリアイコン）
 
 | NativeScreenID / 配布物 | 読取元 | 書込み先 | 権限 | 状態 / 回帰確認 |
 |---|---|---|---|---|
-| アプリケーションアイコン `AppIcon` | `SupportingFiles/Brand/AMDLogo-master.png`（原寸保存） | `Assets.xcassets/AppIcon.appiconset` のmacOS 1x/2x派生画像 | 全ユーザー | 実装済み。`Contents.json`、XcodeGen設定、ビルド済みアプリの `CFBundleIconName` を確認 |
+| アプリケーションアイコン `AppIcon` | PWA既存の公式mark `pwa/public/AMD_logo_mark.png` → `SupportingFiles/Brand/AMDLogo-master.png` | `Assets.xcassets/AppIcon.appiconset` のmacOS 1x/2x派生画像 | 全ユーザー | 発光・グラデーションを加えない公式markへ同期済み。最終bundleで `CFBundleIconName` と表示を確認する |
 
-元画像はプロジェクト内のBrand正本として非破壊で保持し、AppIconの各サイズはそこから縮小生成する。
+PWAロゴ正本をプロジェクト内へ同期し、AppIconの各サイズはそこから縮小生成する。
 
 ## 1. PWA route → NativeScreenID
 
 | PWA route（全件） | NativeScreenID | 読取元 | 書込み先 | 権限 | 状態 / 回帰確認 |
 |---|---|---|---|---|---|
-| `/auth/login`, `/auth/callback` | `account` | Supabase Auth + 透過 `AMDLogoMark.imageset` | Supabase OAuth PKCE | 本人 | 実装済み。AppIconと同じAMDロゴmarkを白背景に表示。Google callbackはASWebAuthenticationSessionとSwiftUI `onOpenURL`の両方からPKCE sessionへ戻し、session保存 |
+| `/auth/login`, `/auth/callback` | `account` | Supabase Auth + 透過 `AMDLogoMark.imageset` | Supabase OAuth PKCE + PWA共有workspace access DTO | 本人 / PJ限定member | 実装済み。AppIconと同じAMDロゴmarkを白背景に表示。Google callbackはASWebAuthenticationSessionとSwiftUI `onOpenURL`の両方からPKCE sessionへ戻す。PWAと同じAMDメンバー / PJ限定の二入口を持ち、PJ限定時は通常OSではなくworkspaceだけを開く。実認証は未確認 |
 | `/dashboard`, `/mypage` | `today`, `projects` | `projects`, iOS MyPage、認可済み通知配送結果 | 既存PJ安全API | member | 実装済み。PJ一覧と今日の確認件数。通知の直接テーブル取得はしない |
-| `/project/[projectId]/cockpit`, `/project/[projectId]/config`, `/project/[projectId]/report/[ym]/print` | `projectDetail` | Cockpit / `projects`, `ms_*`, `billing_cycles`, `project_meeting_summaries` | 既存MS保存前検算・管理API | member / APIごとの権限 | ネイティブ骨格。選択PJ詳細を削除しない |
-| `/notifications` | `notifications` | 認可済み通知配送結果、`l2_notifications`、`meeting_notifications` | `/api/notifications/feedback` 等の既存安全経路 | 通知対象 / admin | ネイティブ骨格。直接テーブルREST取得はしない。判断操作は安全経路へ |
-| `/reimburse` | `reimbursements` | `reimbursements`, `projects` | 立替申請API | member | ネイティブ骨格。申請write未接続 |
-| `/business-cards`, `/native/business-cards` | `businessCards` | private Storage + `/api/business-cards` | 人確認後の `PATCH /api/business-cards/[cardId]` | member | ネイティブ骨格。ファイル / drop / paste受付 |
-| `/monthly-agreement` | `monthlyAgreement` | agreement snapshot / `billing_cycles` | 合意API | member | ネイティブ骨格。状態欄と2点確認を維持 |
-| `/atlas`, `/atlas/admin/themes`, `/atlas/decisions`, `/atlas/divergence`, `/atlas/inbox`, `/atlas/inbox/submit`, `/atlas/macrotrends`, `/atlas/map` | `atlas` | `atlas_*`, source refs | Atlas候補・採否API | member / admin API | ネイティブ骨格。外部本文を保存しない |
-| `/knowledge-map` | `materials` | `materials-data`, `knowledge-map-data` | なし（read-only） | member | ネイティブ骨格。DB write/LLMを持たない |
-| `/seeds`, `/seeds/[id]`, `/seeds/inbox` | `seeds` | `seeds` | seeds安全API | member | 未移植。Seeds導線を削除しない |
-| `/poc` | `poc` | `poc_*`, `seeds`, `projects`, `members` | PoC台帳API | member | 未移植 |
-| `/vcs`, `/vcs/[id]`, `/vcs/[id]/edit`, `/vcs/inbox` | `vcs` | `vcs`, investment signals | VC台帳API | member / admin API | 未移植 |
-| `/scholar` | `scholar` | scholar / research signals | なし | member | 未移植 |
-| `/institutions`, `/institutions/[institutionId]`, `/institutions/[institutionId]/cockpit`, `/institutions/assess` | `institutions` | `institution_*`, related projects | assessment API | member / APIごとの権限 | ネイティブ骨格 |
-| `/venture-map`, `/venture-map/amd-score`, `/venture-map/amd-score/[projectId]`, `/venture-map/amd-score/retrofit`, `/venture-map/cyberspace`, `/venture-map/oscillator`, `/venture-map/state-space`, `/venture-map/su/[id]`, `/venture-map/timeline-3d` | `amdScore` | AMD Score / XRL / venture map data | score evidence / revision API | member / admin API | 未移植。旧互換routeを正規画面へ戻す |
-| `/admin`, `/admin/company`, `/admin/contexts`, `/admin/settings`, `/admin/prompts`, `/admin/protocols`, `/admin/tsukuyomi`, `/admin/coverage-gaps`, `/admin/ip` | `adminHome` | admin台帳・prompt・coverage | 既存admin API / Edge Function | admin | ネイティブ骨格。prompt本文をコードへ直書きしない |
-| `/admin/invoices`, `/admin/billing` | `adminInvoices` | `billing_cycles`, freee設定 | `issue-invoice` Edge Function | admin | 未移植。旧billingはinvoicesへredirectする |
-| `/admin/finance` | `adminFinance` | `company_payment_obligations`, finance read model | 管理API | admin | 未移植。金額不明を0円にしない |
-| `/admin/payouts` | `adminPayouts` | reward cache, `payout_notices`, GAS PDF | payout Edge/GAS | admin | ネイティブ骨格。送付済みPDFを上書きしない |
-| `/admin/contracts`, `/contracts` | `adminContracts` | contracts ledger / project contracts | contracts apply API | admin / member read | 未移植。1契約1行 |
-| `/admin/members` | `adminMembers` | `members`, `project_members` | member admin API | admin | 未移植。権限・通知対象境界を維持 |
-| `/admin/governance`, `/company` | `adminGovernance` | company overview / equity / governance | `/api/governance` requireMember | member | ネイティブ骨格。全member編集可の契約を維持 |
-| `/admin/private-wiki` | `adminPrivateWiki` | `private_wiki_entries` | `/api/admin/private-wiki` | admin | 未移植。admin_private固定、個人情報を外へ複製しない |
-| `/admin/management-knowledge` | `adminManagementKnowledge` | `management_knowledge_entries` | `/api/admin/management-knowledge` | admin | 未移植。source_excerptは短く |
-| `/admin/schedule` | `adminSchedule` | schedule read model | rebuild writer | admin | 未移植。画面から直接予定変更しない |
-| `/admin/ms-overview` | `adminMsOverview` | `value_milestones`, `milestone_responsibility` | 保存前検算付きadmin API | admin | 未移植。blockedなら保存不可 |
-| `/admin/season-pl` | `adminSeasonPl` | `computeSeasonPl`, reward cache | なし（検算） | admin | 未移植。支払額と設計額を混同しない |
-| `/admin/weekly` | `adminWeekly` | `member_activities`, reward cache | なし | admin | 未移植 |
-| `/hud`, `/hud/dashboard`, `/hud/notifications`, `/hud/project/[projectId]/cockpit`, `/hud/atlas`, `/hud/atlas/admin/themes`, `/hud/atlas/decisions`, `/hud/atlas/divergence`, `/hud/atlas/inbox`, `/hud/atlas/inbox/submit`, `/hud/atlas/macrotrends`, `/hud/atlas/map`, `/hud/seeds`, `/hud/seeds/[id]`, `/hud/seeds/inbox`, `/hud/vcs`, `/hud/vcs/[id]`, `/hud/vcs/[id]/edit`, `/hud/vcs/inbox`, `/hud/venture-map/amd-score/retrofit` | `hud` | HUD snapshots / monthly data | なし（表示専用） | member | ネイティブ骨格。計器目盛は静止 |
-| `/manual`, `/manual/[slug]` | `manual` | bundled / PWA manual markdown | なし | member | ネイティブ骨格 |
-| `/spec`, `/spec/[slug]` | `spec` | PWA spec markdown | なし | admin | 未移植。admin gate |
-| `/bzm`, `/bzm/[slug]`, `/bzm/public`, `/bzm/public/[slug]` | `bzm` | bundled BZM markdown | なし | member | ネイティブ骨格。読み取り専用 |
-| `/japanese-culture-map`, `/admin/japanese-culture-map` | `adminHome` | `jp_culture_items` | なし | admin | 未移植。旧routeはadmin routeへredirect |
-| `/dashboard-cyber-3d-lab`, `/dashboard-cyber-glass-cube`, `/dashboard-cyber-hud-wall` | `hud` | cyber HUD demo data | なし | member | 未移植。投影用デモとして残す |
-| `/proactive` | `today` | `proactive_todos` | `/api/proactive-todos` | admin | 未移植。旧proactive_outboxを復活させない |
+| `/my-projects`, `/project/[projectId]/workspace` | `myProjects`, `projectWorkspace` | PWA共有 `getCurrentMemberAccess` / `getProjectWorkspaceBundle` DTO | `POST /api/project-workspace/[projectId]/effort` | PJ限定member / portfolio member | **P0 Native 実装済み**。参加設定済みPJのみの一覧、週次の予定/実績入力、メンバー別配分、MS、活動件数・source集計、6週推移をSwiftUIで実装。PJ限定ユーザーは通常のSupabase table readを使わず共有DTOだけを読む。PWA実データでの確認・書込みは未実施 |
+| `/project/[projectId]/cockpit`, `/project/[projectId]/config`, `/project/[projectId]/report/[ym]/print` | `projectCockpit`, `projectConfig`, `projectReportPrint` | Cockpit / `projects`, `ms_*`, `billing_cycles`, `project_meeting_summaries`、提出用月次集約 | PWA既存の進捗・月次ノート・報酬同期・MS修正・資料・会議・レポートAPI | member / APIごとの権限 | Native実装。`ym`/`tab`/`meeting`/`document` deep link、PJ資料のDrive導線とMarkdown本文のPWA同一PATCH、助成金台帳への既存管理導線、戦略シグナルの修正履歴と `dialog/start → refine → confirm`、会議履歴の再読込・全件表示、`monthly-report-print`集約値をA4標準印刷で全章出力する。実認証・実書込み・実印刷は未確認 |
+| `/notifications` | `notifications` | `app_notifications`、`l2_notifications`、`meeting_notifications`、各通知のPWA正本行、要対応API | `read_at` / `dismissed_at` のPWA同一RLS更新、`/api/action-items`、`/api/notifications/feedback` | admin | 実装済み。OS通知の未読/既読/全部既読/削除、要対応の対応済み、L2・MTGの展開/既読/未読/回答/コメント、通知種別ごとの正本詳細・安全なカバレッジ差分判断を実装 |
+| `/reimburse` | `reimbursements` | `reimbursements`、active PJ、member role、private receipt Storage | `/api/reimbursements` の本人作成・更新・削除、PWA同一RLSのPM/admin承認 | member / PM / admin | 実装済み。submitted → PM承認 → admin承認、差戻し/却下、既存領収書の1時間署名URL、編集・削除確認を実装 |
+| `/business-cards`, `/native/business-cards` | `businessCards` | private Storage + `/api/business-cards`、PJ候補 | `/api/business-cards` のOCR取込、`PATCH /api/business-cards/[cardId]`、private image API | member | 実装済み。検索・状態/PJ絞り込み、OCR/重複/信頼度確認、PJ複数選択、PWA同等の画像縮小・4MB制限・人確認後更新を実装 |
+| `/monthly-agreement` | `monthlyAgreement` | `/api/monthly-work-agreement` snapshot、agreement / revision records | `/api/monthly-work-agreement/agree`、`/request-revision` | member | 実装済み。状態→担当する仕事→その対価としての予定額→参照情報→合意/修正要望を同じbundleとAPIで実装 |
+| `/atlas`, `/atlas/admin/themes`, `/atlas/decisions`, `/atlas/divergence`, `/atlas/inbox`, `/atlas/inbox/submit`, `/atlas/macrotrends`, `/atlas/map` | `atlasHome`, `atlasThemes`, `atlasDecisions`, `atlasDivergence`, `atlasInbox`, `atlasInboxSubmit`, `atlasMacrotrends`, `atlasMap` | `atlas_*`, source refs | PWA既存の候補・採否・送信・theme API/RLS | member / admin API | 実装済み。PWAのrouteごとの一覧・詳細・絞り込み・採否・送信を対応Native画面へ接続。HUD aliasも同じ実装へ収束し、外部本文は保存しない。認証済み実読取・実書込みは未確認 |
+| `/knowledge-map` | `materials` | `materials-data`, `knowledge-map-data` | なし（read-only） | member | 実装済み。PWA同じ118元素・材料台帳から全体/元素/鉱物/樹脂/知識マップ/比較、4軸・需給根拠・出典・比較trayを読取表示。実データ読取は未確認 |
+| `/seeds`, `/seeds/[id]`, `/seeds/inbox` | `seeds`, `seed_funding`, `seed_news`, `seed_contact_log`, `members`, `projects`, `project_ventures` | `seeds`, `seed_funding`, `seed_news`, `seed_contact_log` | 既存RLS直書き + `/api/seeds/[seedId]/deep-dive` | member | **P0 Native 実装済み**。一覧の検索/絞込/ソート、詳細、作成/編集/削除、資金・ニュース・接触履歴の追加/削除、OS内Markdown深掘り（Drive補助リンク）、Inboxの新着順/領域別件数/Verify/DismissをPWA境界で実装。認証済み実データの書込み操作は未実行 |
+| `/poc` | `poc` | `poc_companies`, `poc_matches`, `seeds`, `projects`, `members` | PWA同一RLS直書き | member | **P0 Native 実装済み**。シーズ・PoC先・案件候補の検索/状態絞込/タグ絞込、PoC先とシーズの追加、既存の状態更新、シーズ×PoC先からの案件化、ヒアリング・謝礼・契約・資金・収益分配・担当/次アクションをPWAと同じテーブルと生成規則で実装。認証済み実データの書込み操作は未実行 |
+| `/vcs`, `/vcs/[id]`, `/vcs/[id]/edit`, `/vcs/inbox` | `vcs` | `vcs`, `vc_funds`, `vc_investments`, `vc_contacts`, `project_vc_relations`, `vc_news` | PWA同一RLS直書き | member / admin API | 実装済み。VC一覧・詳細・編集・受信箱、基本情報（slug / ロゴURL / 備考 / AMD評価の値・メモ・更新者・時刻）、ファンド（クローズ日・DPE根拠）、出資先（紐づくファンド・出所・備考）、担当者・PJ接点・ニュース確認を同じデータ境界で実装。認証済み実データの書込み操作は未実行 |
+| `/scholar` | `scholar` | `papers_log`（`lane, observed_at, paper_count, source`、時刻昇順・2000件） | なし（read-only） | member | 実装済み。PWA同じASPI 8領域、四半期集計、前年比、時系列・直近観測表をNativeで表示。認証済み実データ読取は未確認 |
+| `/institutions`, `/institutions/[institutionId]`, `/institutions/[institutionId]/cockpit`, `/institutions/assess` | `institutions` | `institution_*`, PWA固定のKUTE/NIMS関連PJ | assessment API / 既存PJ cockpit API | member / APIごとの権限 | 実装済み。`inst_kute → p25` / `inst_nims → p28` の固定対応、関連PJ cockpit、月別MTGツリー、ECR 8軸詳細を実装。実データ読取・代表遷移は未確認 |
+| `/venture-map`, `/venture-map/amd-score`, `/venture-map/amd-score/[projectId]`, `/venture-map/amd-score/retrofit`, `/venture-map/cyberspace`, `/venture-map/oscillator`, `/venture-map/state-space`, `/venture-map/su/[id]`, `/venture-map/timeline-3d` | `ventureMap`, `amdScore`, `ventureCyberspace`, `ventureOscillator`, `ventureStateSpace`, `ventureSuDetail`, `ventureTimeline3D` | `project_ventures`, `macro_index_log`, `papers_log`, `macro_lane_weights`, `amd_score_*`, `project_xrl_log` | PWA同一の `amd_score_inputs` upsert（`project_id,evaluated_at`）、`amd_score_alpha` RLS更新、つくよみ既存API | member / admin API | **Native実装済み（PWA source静的照合）**。View A-C、SPS/Legacy score・α再計算、Cyberspace、Coupled Oscillator、Triple Helix、SU deep link、XRLタイムラインをSwiftUI/Canvasへ移植。Cyberspace/TimelineはNativeの透視投影でPWAのISO/正投影preset、ドラッグ旋回、Option+ドラッグ平行移動、pinch/scrollズームを提供する。TimelineはPWA GizmoViewport相当の軸コントローラからも同じ4方向へ戻せる。SUは `project_id` 指定時に公開フラグで落とさない。XRL checklistは原典5軸・積み上げ判定・同じ評価行へのupsert・再読込/失敗表示まで実装。認証済み実データ読取・書込みは未確認 |
+| `/admin`, `/admin/company`, `/admin/contexts`, `/admin/protocols`, `/admin/coverage-gaps`, `/admin/ip` | `adminHome`, `adminCompany`, `adminContexts`, `adminProtocols`, `adminCoverageGaps`, `adminIP` | admin台帳・prompt・coverage | 既存admin API / Edge Function | admin | 実装済み。AdminSidebarとNative入口の双方でadmin gateを通し、各routeは対応する実データ画面へ分岐する。個別の操作・実認証確認は下記行を正本にし、prompt本文をコードへ直書きしない |
+| `/admin/invoices`, `/admin/billing` | `adminInvoices` | `billing_cycles`, `projects`, `reimbursements`, freee取引先 | invoice admin API / `issue-invoice` / `cancel-invoice` | admin | 実装済み。13か月キュー、全状態・フィルタ・並び順、請求月、freee取引先、preview・draft・発行・取消・再取得をPWAと同じ境界で実装。旧billingはinvoicesへredirect |
+| `/admin/finance` | `adminFinance` | `company_payment_obligations`, `company_finance_recurring_items`, `company_finance_receipt_events`, officer reserve read model | finance admin API (`obligations` / `recurring` / `receipts`) | admin | 実装済み。PWA同一の集計・新規/編集・状態・支払済み・budget/actual同期・JST支払月の役員除外分を実装。金額不明を0円にしない |
+| `/admin/payouts` | `adminPayouts` | reward cache, `payout_notices`, GAS PDF | PWA既存のpayout / PDF / notice mail / payment-confirm-nudge API | admin | 実装済み。PWA同一の報酬キャッシュ再計算、月次プレビュー、合意gate、正式PDF、通知メールの確認・編集・明示送信・送付取消、入金確認nudgeを既存APIへ委譲する。送付済みPDFは上書きせず、メール送信は画面内の「はい・送信」でのみ発火する。認証済み実書込みは未確認 |
+| `/admin/contracts`, `/contracts` | `adminContracts` | contracts ledger / project contracts | contracts / documents / project mirror API | admin / member read | 実装済み。1契約1行、作成・全項目編集・状態・Drive metadata登録・GET dry-run・PWA同一フィルタ/並び順 |
+| `/admin/projects` | `adminProjects` | `projects`、`project_ventures`、`lane_suggestions`、`project_members`、`members` | `/api/admin/projects/[id]`、`/api/admin/lane-suggestions/[id]`、既存 `projectConfig` のPJメンバー/請求経路 | admin | 実装済み。PWAと同じ検索・状態絞込・役割要約・管理fields・Slackなし・ガバナンス・月報/業務内容・ASPI lane/提案採否を実装。PJメンバーCRUDと基本契約/請求は既存 `projectConfig` を開く導線へ統合 |
+| `/admin/members` | `adminMembers` | `members`、PJ限定アカウントの参加先は `project_members` | `/api/admin/members` のPOST/PATCH | admin | 実装済み。PWAと同じ在籍/権限/OS範囲/Calendar状態/最終ログイン/支払通知書属性の表示・編集、PJ限定アカウント作成を実装。口座情報は読み取り専用 |
+| `/admin/governance`, `/company` | `adminGovernance` | company overview / equity / governance | `/api/governance`、`/api/grants`、`/api/action-items` | admin画面 / APIはmember | 実装済み。PWA同一のPJ選択、株主・ラウンド・会議・要対応・助成金の追加/削除を既存APIへ委譲。認証済み実書込みは未確認 |
+| `/admin/coverage-gaps` | `adminCoverageGaps` | `l2_coverage_gaps` | なし（通知画面で採否） | admin | 実装済み。PWA同一の全列、candidate/precision/extractor-miss/structural/due-soon指標、通知への採否導線を実装。抽出実行や直接更新は提供しない。認証済み実データ読取は未確認 |
+| `/admin/private-wiki` | `adminPrivateWiki` | `private_wiki_entries`、PJ候補 | `/api/admin/private-wiki` GET/POST/PATCH | admin | 実装済み。PWA同一の明示person fields、検索・PJ/人物種別/status絞り込み、PJ grouping、作成/編集/archiveをadmin APIで実装。admin_private固定の個人情報を外へ複製しない。認証済み実データ書込みは未確認 |
+| `/admin/prompts` | `adminPrompts` | `llm_prompts`、active `tsukuyomi_context` | requireAdmin付き `/api/admin/prompts/[id]` PATCH | admin | 実装済み。prompt key一覧・本文/説明/model/max tokens/有効状態/notesの編集、active contextの読取を実装。PWA同様、promptの新規作成・削除は提供しない。認証済み実データ書込みは未確認 |
+| `/admin/management-knowledge` | `adminManagementKnowledge` | `management_knowledge_entries`、PJ候補 | `/api/admin/management-knowledge` GET/POST/PATCH | admin | 実装済み。PWA同一の検索、PJ/category/maturity/tag/status絞り込み、全編集fields、作成・編集・archiveをadmin APIへ委譲。認証済み実書込みは未確認 |
+| `/admin/monthly-work-agreements` | `adminMonthlyAgreements` | 月初合意bundle | `/api/admin/monthly-work-agreements` GET | admin | 実装済み。年月・member/PJ/status検索、7指標、hash/確認事項/修正要望/支払・stock、member別の月初合意・mypage native遷移を実装。認証済み実データ読取は未確認 |
+| `/admin/schedule` | `adminSchedule` | schedule read model | schedule GET / rebuild / actions API | admin | 実装済み。PWA同一の期間再生成、カレンダー/運用一覧、category/PJ/owner/status絞り込み、詳細、完了・対象外・再開actionを実装。支払義務のactionと画面からの直接予定変更は許可しない。認証済み実データ書込みは未確認 |
+| `/admin/ms-overview` | `adminMsOverview` | `value_milestones`, `milestone_responsibility` | 保存前検算付きadmin API | admin | 実装済み。PWA同一のMS/担当share/役割/タスク編集、POST保存前検算、blocked時の保存不可、PUT保存と支払差分・予算影響表示を実装。認証済み実書込みは未確認 |
+| `/admin/settings` | `adminSettings` | `settings`、PWA operations catalog | `/api/admin/settings` CRUD + catalog DTO、`/api/settings/cron-run` | admin | 実装済み。PWA正本catalogのRaw/L2/Cron（source/input/outputを含む）と同一のkey/label/type/value/description作成・編集・削除、手動実行導線を実装。settings更新はrequireAdmin付き共有APIに集約。認証済み実データ書込みは未確認 |
+| `/admin/tsukuyomi` | `adminTsukuyomi` | `tsukuyomi_context`、learning/status read model | `/api/admin/tsukuyomi/context` GET/POST/PATCH | admin | 実装済み。PWA同一のcontext検索・layer/status絞り込み、追加・編集・archive、learning/status読取を実装。学習投稿は対象外で、`/api/tsukuyomi/post` の501状態を維持。認証済み実データ書込みは未確認 |
+| `/admin/season-pl` | `adminSeasonPl` | `computeSeasonPl`, reward cache | `/api/admin/season-pl` GET | admin | 実装済み。PWA同一のlist/detail検算、収入/配分・pt・member収束、member mypage native遷移を実装。認証済みdetail読取は未確認 |
+| `/admin/weekly` | `adminWeekly` | `member_activities`, reward cache | `/api/admin/weekly` GET | admin | 実装済み。PWA同一の26週移動、PJ×member活動/報酬matrix、source URL、member mypage native遷移を実装。認証済み実データ読取は未確認 |
+| `/hud`, `/hud/dashboard`, `/hud/dashboard/embed`, `/hud/notifications`, `/hud/project/[projectId]/cockpit`, `/hud/atlas/**`, `/hud/seeds/**`, `/hud/vcs/**`, `/hud/venture-map/amd-score/retrofit` | `hudDashboard` / routeごとの対応NativeScreenID | HUD snapshot、通知、Atlas、Seeds、VC、Score | dashboard/embedはPWA同一の匿名RLS read model。通知/Atlas/Seeds/VC/retrofitのaliasは対応するNative本体へ収束し、元routeの既存API/RLS操作を維持 | member（embedのみpublic、個別admin gateは元route準拠） | 実装済み。HUD dashboardはPWA同一の集約snapshot、embedは未ログインでも公開RLS read modelだけを読む。re-export aliasを静的HUDカードへ劣化させず、通知・Atlas・Seeds・VC・retrofitのNative実装へ渡す。認証済み実読取・実書込みは未確認 |
+| `/manual`, `/manual/[slug]` | `manual` | PWA manual markdown | manual Q&A API（read-only） | member | 実装済み。PWAと同じ章順/番号、テーマ、全章本文検索、章本文・manual内リンク、前後章、ページ限定つくよみを実装。実データ読取は未確認 |
+| `/spec`, `/spec/[slug]` | `spec`, `specDetail` | PWA spec Markdown正本 | read-only document bridge | admin | 実装済み。PWA同一のsection/番号/章group、本文、前後章を表示し、Native入口とbridgeの双方でnonadminを拒否。認証済み実読取は未確認 |
+| `/bzm`, `/bzm/[slug]`, `/bzm/public`, `/bzm/public/[slug]` | `bzm`, `bzmDetail`, `bzmPublic`, `bzmPublicDetail` | bundled BZM Markdown正本 | read-only document bridge | 通常版member / 公開版public | 実装済み。通常版はmember境界を維持し、章/part/未着手stub/前後章をNative表示。公開版はPWA・Macとも未ログインで公開原稿のpart/章/前後章を読める。実読取は未確認 |
+| `/japanese-culture-map`, `/admin/japanese-culture-map` | `adminCultureMap` | active `jp_culture_items` | read-only | admin | 実装済み。旧routeはPWA同様admin文化マップへ収束し、一般Explore navから除外。カテゴリtree・都道府県→市区町村geography・詳細（画像/link）を表示。認証済み実読取は未確認 |
+| `/dashboard-cyber-3d-lab`, `/dashboard-cyber-glass-cube`, `/dashboard-cyber-hud-wall` | `cyber3DLab`, `cyberGlassCube`, `cyberHudWall` | PWA同一HUD PJ信号 | read-only `/api/hud/dashboard` | member | 実装済み。3D Lab / Glass Cube / HUD Wallを、実PJ HUD dataの選択可能Native Canvas/Cube/Wallとして表示。認証済み実読取は未確認 |
+| `/proactive` | `proactive` | `proactive_todos`, `projects` | done/block/dismissは既存`/api/proactive-todos/[id]/resolve`、reopenはPWA同一RLS PATCH | admin | 実装済み。open/blocked/done/dismissed tab、期限/種別/detail、完了・ブロック・対象外・未対応へ戻す、PJ cockpit deep linkを実装。旧proactive_outboxは復活させない。認証済み実読取・実書込みは未確認 |
 
 ## 2. PWA重要UI登録簿 → NativeScreenID
 
 | FEATURE_REGISTRY | NativeScreenID | 回帰確認 |
 |---|---|---|
-| `/manual` | `manual` | 章検索・本文・ページ限定つくよみを落とさない |
-| `/knowledge-map` | `materials` | 118元素、材料レンズ、比較tray、read-only |
+| `/manual` | `manual` | 実装済み。章検索・本文・ページ限定つくよみを保持。実データ読取は未確認 |
+| `/knowledge-map` | `materials` | 実装済み。118元素、材料レンズ、比較tray、read-only。実データ読取は未確認 |
 | `/business-cards` | `businessCards` | file / drop / paste、OCR review、PJ複数選択、private境界 |
 | `/poc` | `poc` | Seeds→PoC先→案件化キュー |
-| `/admin/japanese-culture-map` | `adminHome` | admin-only、一般資料ナビへ戻さない |
+| `/admin/japanese-culture-map` | `adminCultureMap` | admin-only、一般資料ナビへ戻さない。tree / geography / detail |
 | `/admin/* shell` | `adminHome` | AdminSidebar単一化、二重ナビ禁止 |
 | `/admin/contracts` | `adminContracts` | 1契約1行、PJ/契約列固定、条件モーダル |
 | `/admin/invoices` | `adminInvoices` | 発行前チェック、issue-invoice、旧billing redirect |
@@ -78,29 +86,32 @@ NativeScreenID、読取元、書込み先、権限、回帰確認を全件残し
 | `/admin/management-knowledge` | `adminManagementKnowledge` | maturity、source_excerpt、admin-only |
 | `/dashboard` | `today` | proactive badge、ECR list、company shelf、旧routine非復活 |
 | `/tasks (deprecated)` | `today` | route/nav/helperを復活させない |
-| `/project/[projectId]/cockpit` | `projectDetail` | 案C幅、MS変更履歴、今シーズン収支、MTG添付 |
+| `/project/[projectId]/cockpit` | `projectCockpit` | PWA同一APIのMS/月次/MTG/資料、`document` deep link、資料Markdown更新、助成金台帳への管理導線、戦略シグナルの対話型修正依頼と履歴 |
 | `株主・ガバナンス + 要対応` | `adminGovernance` | 会社概要タブ、cap table、action items、全member権限 |
 | `/admin/schedule` | `adminSchedule` | 年間レール、元正本再生成、手入力禁止 |
 
-## 3. iOS画面 → NativeScreenID
+## 3. iOS画面 → NativeScreenID（履歴参照。PWA対応の判定対象外）
+
+この表の「旧iOS固有」は、現行PWAに同名 route / workflow がないため移植対象外という意味。
+現行PWAと重なるものは、上のPWA route表で対応するSwiftUI実装を確認する。
 
 | iOS画面 / 機能 | NativeScreenID | 状態 |
 |---|---|---|
 | `MainTabView`, `MyPageView`, `ProjectRewardCard` | `today` | 実装済み / ネイティブ再構成 |
-| `CockpitView`, `CockpitDetailView`, `MonthlyModal` | `projects`, `projectDetail` | ネイティブ骨格 |
-| `CockpitHUDView` | `hud` | ネイティブ骨格 |
-| `NotificationInboxView`, `NotificationJudgmentCard` | `notifications` | ネイティブ骨格 |
-| `RegistrationHubView`, `ReimburseListView`, `ReimburseFormView` | `reimbursements` | ネイティブ骨格 |
-| `BusinessCardsView` | `businessCards` | ネイティブ骨格。Mac入力経路を追加 |
+| `CockpitView`, `CockpitDetailView`, `MonthlyModal` | `projects`, `projectDetail` | 旧iOS画面名。現行PWA相当は `projectCockpit` / `projectReportPrint` のNative実装を正本とする |
+| `CockpitHUDView` | `hudDashboard`, `hudProjectCockpit` | 実装済み。PWA HUD dashboard / PJ cockpitの実データ表示・deep linkへ再構成。認証済み実読取は未確認 |
+| `NotificationInboxView`, `NotificationJudgmentCard` | `notifications` | 旧iOS画面名。現行PWA通知Native実装を正本とする |
+| `RegistrationHubView`, `ReimburseListView`, `ReimburseFormView` | `reimbursements` | 旧iOS画面名。現行PWA立替Native実装を正本とする |
+| `BusinessCardsView` | `businessCards` | 旧iOS画面名。現行PWAのOCR / PJ複数選択を含むNative実装を正本とする |
 | `RoutineFlowView`, `BudgetStepView`, `InvoiceStepView`, `MeetingStepView`, `ReportFixStepView` | `monthlyAgreement`, `adminInvoices`, `projectDetail` | 旧月次ルーティンは復活させず、現行の合意・月次詳細へ分割 |
-| `AdminTabView`, `MemberListView` | `adminHome`, `adminMembers` | admin gate / 画面骨格 |
-| `BillingMatrixView`, `BudgetApprovalView` | `adminPayouts`, `adminFinance` | 未移植 |
+| `AdminTabView`, `MemberListView` | `adminHome`, `adminMembers` | 旧iOS画面名。現行PWA admin Native実装を正本とする |
+| `BillingMatrixView`, `BudgetApprovalView` | `adminPayouts`, `adminFinance` | 旧iOS固有。現行PWAの支払 / 財務は上段のNative実装で対応 |
 | `PayoutNoticePerMemberView` | `adminPayouts` | 支払PDFの安全経路を維持 |
-| `ProposalInboxView`, `ProposalComposeSheet`, `ProposalThreadView` | `adminHome`, `today` | 未移植 |
-| `TsukuyomiLearningsView`, `TsukuyomiView` | `adminHome`, `manual` | 未移植 |
-| `SettingsView`, `PayoutInfoEditView` | `account` | アカウント骨格 |
-| `TextbookReaderView` | `bzm` | BZM読み取り骨格 |
-| `ScoreDetailWebView` | `amdScore` | PWA正規スコア詳細へ集約予定 |
+| `ProposalInboxView`, `ProposalComposeSheet`, `ProposalThreadView` | `adminHome`, `today` | 旧iOS固有。現行PWA routeなし |
+| `TsukuyomiLearningsView`, `TsukuyomiView` | `adminHome`, `manual` | 旧iOS固有。現行PWAの `adminTsukuyomi` / manual Native実装を正本とする |
+| `SettingsView`, `PayoutInfoEditView` | `account` | 旧iOS画面名。現行PWA account Native実装を正本とする |
+| `TextbookReaderView` | `bzm` | 旧iOS画面名。現行PWA BZM document reader Native実装を正本とする |
+| `ScoreDetailWebView` | `amdScore` | 旧iOS WebViewは移植しない。現行PWA score detailのSwiftUI実装を正本とする |
 
 ## 4. 権限・書込み境界
 

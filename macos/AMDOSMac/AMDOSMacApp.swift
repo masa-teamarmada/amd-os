@@ -25,19 +25,63 @@ struct AMDOSRootView: View {
 
     var body: some View {
         Group {
-            if auth.isSignedIn {
-                AMDOSWorkspaceView()
-                    .task(id: auth.email) { await workspace.loadHome(email: auth.email) }
+            if auth.isRestoring {
+                ProgressView("セッションを確認中…")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(AMDOSDesign.page)
+            } else if auth.isSignedIn, let access = auth.workspaceAccess {
+                if access.scope == .project {
+                    AMDOSProjectWorkspaceRootView()
+                } else {
+                    AMDOSWorkspaceView()
+                        .task(id: auth.email) { await workspace.loadHome(email: auth.email) }
+                }
+            } else if auth.isSignedIn {
+                ProgressView("権限を確認中…")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(AMDOSDesign.page)
+            } else if let paymentConfirmationRoute = pendingPaymentConfirmationRoute {
+                // PWAの`/payment-confirm`は(app)配下ではなく、署名済みtokenを
+                // 認可境界にする公開フォーム。Googleログインを強制しない。
+                AMDOSPaymentConfirmView(token: paymentConfirmationRoute.paymentConfirmationToken)
+            } else if let publicBzmRoute = pendingPublicBzmRoute {
+                // PWAの`/bzm/public/**`も公開ルート。本文はログインなしで読めるため、
+                // Macでもログイン画面に戻さず同じ公開Markdown bridgeを開く。
+                AMDOSBZMPublicDetailView(initialSlug: publicBzmRoute.documentSlug)
+            } else if pendingHUDEmbedRoute != nil {
+                // PWAの`/hud/dashboard/embed`は未ログインでもRLSで許可された
+                // HUD read modelだけを表示する。通常HUD/APIへ認可を広げない。
+                AMDOSHUDEmbedDashboardView()
             } else {
                 AMDOSLoginView()
             }
         }
         .onOpenURL { url in
-            guard url.scheme?.lowercased() == "amdos-macos-auth" else { return }
-            Task { await auth.acceptOAuthCallback(url) }
+            if url.scheme?.lowercased() == "amdos-macos-auth", url.host?.lowercased() == "oauth" {
+                Task { await auth.acceptOAuthCallback(url) }
+            } else {
+                workspace.acceptNavigationURL(url)
+            }
         }
         .preferredColorScheme(nil)
     }
+
+    private var pendingPaymentConfirmationRoute: AMDOSPWAPathRoute? {
+        guard workspace.pendingRoute?.screen == .paymentConfirm else { return nil }
+        return workspace.pendingRoute
+    }
+
+    private var pendingPublicBzmRoute: AMDOSPWAPathRoute? {
+        guard let route = workspace.pendingRoute,
+              route.screen == .bzmPublic || route.screen == .bzmPublicDetail else { return nil }
+        return route
+    }
+
+    private var pendingHUDEmbedRoute: AMDOSPWAPathRoute? {
+        guard workspace.pendingRoute?.screen == .hudEmbedDashboard else { return nil }
+        return workspace.pendingRoute
+    }
+
 }
 
 struct AMDOSLoginView: View {
@@ -57,15 +101,29 @@ struct AMDOSLoginView: View {
                 Text("仕事・探索・管理を、Macの操作でひとつに")
                     .foregroundStyle(AMDOSDesign.muted)
             }
-            Button {
-                Task { await auth.signInWithGoogle() }
-            } label: {
-                Label(auth.signInStatus, systemImage: "person.crop.circle.badge.checkmark")
-                    .frame(width: 240)
+            VStack(spacing: 10) {
+                Button {
+                    Task { await auth.signInWithGoogle(loginScope: .portfolio) }
+                } label: {
+                    Label(auth.signInStatus, systemImage: "person.crop.circle.badge.checkmark")
+                        .frame(width: 240)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(AMDOSDesign.blue)
+                .disabled(auth.isLoading)
+
+                Text("PJメンバーはこちら")
+                    .font(.caption)
+                    .foregroundStyle(AMDOSDesign.muted)
+                Button {
+                    Task { await auth.signInWithGoogle(loginScope: .project) }
+                } label: {
+                    Label("参加PJだけを見る", systemImage: "lock.rectangle")
+                        .frame(width: 240)
+                }
+                .buttonStyle(.bordered)
+                .disabled(auth.isLoading)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(AMDOSDesign.blue)
-            .disabled(auth.isLoading)
             if let errorMessage = auth.errorMessage {
                 Text(errorMessage)
                     .font(.callout)
@@ -73,7 +131,7 @@ struct AMDOSLoginView: View {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 440)
             }
-            Text("既存のSupabase認証・権限境界を使うよ。Mac側で新しい権限は追加しない。")
+            Text("既存のSupabase認証・権限境界を使うよ。PJ限定ログインは招待されたPJだけを表示する。")
                 .font(.caption)
                 .foregroundStyle(AMDOSDesign.muted)
         }

@@ -7,11 +7,14 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient as createServerSupabase } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/supabase/api-auth";
 
 export const runtime = "nodejs";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth.errorResponse;
+
   const { id } = await params;
   if (!id) return NextResponse.json({ ok: false, error: "id required" }, { status: 400 });
 
@@ -22,10 +25,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ ok: false, error: "invalid json" }, { status: 400 });
   }
 
-  // updated_by は auth ユーザーから取得
-  const serverSb = await createServerSupabase();
-  const { data: { user } } = await serverSb.auth.getUser();
-  const updatedBy = user?.email ?? "unknown";
+  const updatedBy = auth.user.email;
 
   const allowed: Record<string, unknown> = {
     body: typeof body.body === "string" ? body.body : undefined,
