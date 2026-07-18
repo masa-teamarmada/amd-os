@@ -31,12 +31,14 @@ BZM root: `/Users/masa/projects/AMD/amd-os/pwa/bzm`
 | 1 | `2026-07-15_codex_handoff_typesetting_verification.md` | ✅ 実行完了 | `1fdbf21b` |
 | 2 | `2026-07-15_codex_handoff_figure_inventory.md` | ✅ 実行完了 | `2b56d19d` (BOOK_A_FIGURE_INVENTORY.md 新設) |
 | 3 | `2026-07-16_codex_handoff_ch4_ch5_merger_mechanical.md` | ✅ 実行完了 (裏取り済) | `93bb3d41`/`fcc396cf`/`e33afd97` |
-| 4 | `2026-07-15_codex_handoff_typesetting_verification_round2.md` | 🟡 保留 (まさ判断「まだ早い」) | — |
-| 5 | `2026-07-15_codex_handoff_publishing_documents_draft.md` | 🟡 保留 (まさ判断「まだ早い」) | — |
-| 6 | `2026-07-16_codex_handoff_figures_matplotlib_batch1.md` | 🔵 Codex 起動待ち (発注済) | — |
-| 7 | `2026-07-16_codex_handoff_figures_svg_pilot.md` | 🔵 まさ Codex 起動済 (図1-2 SVG 試験投入) | — |
-| 8 | `2026-07-16_codex_handoff_figures_matplotlib_batch2.md` | 🔵 まさ Codex 起動済 (残り12点) | — |
-| 9 | `2026-07-16_codex_handoff_ch_number_secondary_sweep.md` | 🔵 まさ Codex 起動済 (章番号二次掃討) | — |
+| 4 | `2026-07-15_codex_handoff_typesetting_verification_round2.md` | 🟡 保留 (まさ判断「まだ早い」、2026-07-18時点で状況変化の記録なし) | — |
+| 5 | `2026-07-15_codex_handoff_publishing_documents_draft.md` | 🟡 保留 (まさ判断「まだ早い」、2026-07-18時点で状況変化の記録なし) | — |
+| 6 | `2026-07-16_codex_handoff_figures_matplotlib_batch1.md` | ✅ 実行完了 (2026-07-17、matplotlib 5点: 図3-1/4-1/4-3/6-3/8-3) | `03c31523` |
+| 7 | `2026-07-16_codex_handoff_figures_svg_pilot.md` | ✅ 実行完了 (2026-07-16、図1-2 三項構造マップ) | `1cb81bad` |
+| 8 | `2026-07-16_codex_handoff_figures_matplotlib_batch2.md` | ✅ 実行完了 (2026-07-16、確定8点+仮案4点) | `4322b184` |
+| 9 | `2026-07-16_codex_handoff_ch_number_secondary_sweep.md` | ✅ 実行完了 (二次掃討レポート生成、`2026-07-16_ch4_ch5_merger_secondary_sweep_report.md`)。レポートが残置した要人間確認6系統は 2026-07-18 に「章番号二層ズレ全面改番」として司令塔#05 起票・worker 実行で解消 | `8e469f03` (レポート) / `1657cb23` (2026-07-18 全面改番、解消) |
+
+> 2026-07-18 追記: 上表 #6〜#9 は完了確認済み (根拠 = `git log` 実コミット照合)。#4/#5 は本 handoff 作成以降の進捗記録なし。それ以降の Codex 完了状況の詳細は `pwa/design_log/sessions_2026-07.md` の該当日エントリを参照。
 
 ## Ch4+Ch5 統合の裁定確定(2026-07-16、司令塔判断)
 
