@@ -308,6 +308,10 @@ expectIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx",
   "selected-management-context",
   "aria-pressed",
   "aria-controls=\"selected-management-context\"",
+  "buildMilestoneLabelMap",
+  "milestoneLabels",
+  "資金残存月数",
+  "名称未確認",
   "overflow-x-clip",
   "sourceLabel",
   "SX側の次アクション",
@@ -357,6 +361,12 @@ expectIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx",
   'field.options?.[0]?.value || ""',
   "effectiveJudgment",
   "managementNavItems",
+]);
+expectIncludes("scripts/audit_sx_management_visible_terms.mjs", [
+  "SCRIPT",
+  "rawPattern",
+  "scrollWidth",
+  "SX_VISIBLE_AUDIT_COOKIE_VALUE",
 ]);
 expectCountAtLeast("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", "<ObjectiveKpiSection", 1);
 expectCountAtLeast("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", "<MeasurementSection", 1);

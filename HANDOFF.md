@@ -16,7 +16,7 @@ Topic: SX (`p21`) PJ共有ダッシュボードとPJ限定アクセス
 
 ## SX COO統合経営ダッシュボード実装追記
 
-- build targetは `v3.46.2`。`/project/p21/workspace` はヘッダー直後に経営判定・理由・今週決めること・次期限・鮮度を置き、長い運用準備チェックを後段へ移した。運用準備5項目が未確認ならトップ判定も未評価に閉じる。stickyナビは`overflow-x-clip`で実スクロールに追従し、選択詳細の依存先はゲート名へ変換する。
+- build targetは `v3.46.3`。`/project/p21/workspace` はヘッダー直後に経営判定・理由・今週決めること・次期限・鮮度を置き、長い運用準備チェックを後段へ移した。運用準備5項目が未確認ならトップ判定も未評価に閉じる。stickyナビは`overflow-x-clip`で実スクロールに追従し、選択詳細と協力機関カードの関連ゲートはID/slugを名称へ変換する。可視文の資金残存月数表記と3幅の内部語DOM監査を追加した。
 - migration 183 は旧 `project_sx_*` を作らず、`project_management_*` の正規化台帳だけを追加する。KPI閾値 (`gte` / `lte` / `between`)、完了条件・証跡、依存DAG、論点→仮説→証拠→検証→意思決定→action、協力機関の約束履歴、技術試験、資金スナップショット、組織役割、RACI、容量、field auditを含む。
 - overall / 4本柱の状態は進捗手入力ではなく、必須KPI・期限・担当・鮮度・依存・完了条件・action・役割・閾値を用いたderived判定が正本。充足率は表示値に留める。FC北陸は低確度の候補/情報交換、PFは未合意、100L PoCは復活させない。
 - migration 184で未決論点 (`decision_needed`)、相手の約束/SX側の次アクション、相手の約束のDB必須条件、親情報の同一PJ triggerを補正した。`/api/project-workspace/[projectId]/management` はresource別status列、同一PJ、PJ所属、decisionの状態、soft-delete、boolean、KPI範囲を検証し、GET/PATCH/POSTの履歴とfield auditを残す。POSTの履歴失敗は追加行を補償的にsoft-deleteする。PJ共有面にraw本文、source URL、契約原文、報酬、メール本文、内部交渉メモを返さない。
