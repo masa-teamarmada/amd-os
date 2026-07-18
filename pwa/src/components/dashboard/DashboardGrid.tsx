@@ -198,6 +198,7 @@ function ProjectStripe({
       : primarySnapshot?.status === "ready"
         ? "ready"
         : "review 待ち";
+  const isSharedWorkspace = project.projectId === "p21";
 
   // 2026-05-25 #71 v3 まさ確定: PL/PM/Closer を 1 行 inline (= 「PL まさ / PM かる / Closer ちこ」)、スペース節約
   const rolesInline = [
@@ -208,7 +209,7 @@ function ProjectStripe({
 
   return (
     <Link
-      href={`${hrefPrefix}/${project.projectId}/cockpit`}
+      href={isSharedWorkspace ? `/project/${project.projectId}/workspace` : `${hrefPrefix}/${project.projectId}/cockpit`}
       className={`relative block rounded-[8px] border border-[var(--desk-line)] border-l-4 ${leftBorder} ${isMine ? "bg-[rgba(223,238,230,0.52)] ring-1 ring-[rgba(37,108,85,0.22)]" : "bg-[rgba(255,253,247,0.86)]"} overflow-hidden transition-all hover:shadow-[0_14px_34px_rgba(55,47,32,0.12)] hover:-translate-y-0.5`}
     >
       {/* 固定 12 列 grid: 各列幅は project 間で揃う。col-span 再配分 (= 3/2/3/2/2 = 12)
@@ -221,6 +222,7 @@ function ProjectStripe({
             <h3 className="text-sm font-semibold truncate">{project.projectName}</h3>
             <span className={`text-[9px] rounded border px-1.5 py-0.5 ${badgeClass}`}>{project.status}</span>
             {isMine && <span className="text-[9px] rounded border border-sky-300 bg-sky-100 text-sky-800 px-1.5 py-0.5">参画</span>}
+            {isSharedWorkspace && <span className="rounded border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-800">共有ダッシュボード</span>}
           </div>
           {project.clientName && <p className="text-[10px] text-muted-foreground truncate mt-0.5">{project.clientName}</p>}
         </div>

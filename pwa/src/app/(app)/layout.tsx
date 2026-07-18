@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/nav/AppShell";
-import { createClient } from "@/lib/supabase/server";
+import {
+  getCurrentMemberAccess,
+  memberHome,
+  projectScopedPathAllowed,
+} from "@/lib/project-workspace";
 
 // pathname → タブタイトル変換 (= PageTitleSetter と同じマッピングを SSR でも使う)
 function pathToTitle(pathname: string): string | null {
@@ -58,6 +62,8 @@ function pathToTitle(pathname: string): string | null {
   if (pathname === "/admin/contexts") return "Admin Contexts";
   if (pathname === "/admin/settings") return "Admin 設定";
   if (pathname.startsWith("/admin")) return "Admin";
+  if (/^\/project\/[^/]+\/workspace\/?$/.test(pathname)) return "PJ ダッシュボード";
+  if (pathname === "/my-projects") return "参加PJ";
   if (pathname.startsWith("/project/")) return "PJ コックピット";
   return null;
 }
@@ -80,41 +86,25 @@ export default async function AppLayout({
 }) {
   const h = await headers();
   const pathname = h.get("x-pathname") ?? "";
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error || !user) {
+  const access = await getCurrentMemberAccess();
+  if (!access) {
+    redirect(`/auth/login?next=${encodeURIComponent(pathname || "/dashboard")}`);
+  }
+  if (access.scope === "portfolio" && access.calendarStatus !== "connected") {
     redirect(
-      `/auth/login?next=${encodeURIComponent(pathname || "/dashboard")}`,
+      `/auth/login?next=${encodeURIComponent(pathname || "/dashboard")}&error=calendar_required`,
     );
   }
-
-  let userCodeName = "Guest";
-  let isAdmin = false;
-  let memberId: string | null = null;
-  if (user.email) {
-    const { data: member } = await supabase
-      .from("members")
-      .select("code_name, is_admin, member_id, google_calendar_status")
-      .eq("email", user.email)
-      .single();
-    if (member?.code_name) userCodeName = member.code_name;
-    if (member?.is_admin) isAdmin = true;
-    if (member?.member_id) memberId = member.member_id;
-    if (member && member.google_calendar_status !== "connected") {
-      redirect(
-        `/auth/login?next=${encodeURIComponent(pathname || "/dashboard")}&error=calendar_required`,
-      );
-    }
+  if (!projectScopedPathAllowed(access, pathname)) {
+    redirect(memberHome(access));
   }
   return (
     <AppShell
-      userCodeName={userCodeName}
-      isAdmin={isAdmin}
-      memberId={memberId}
+      userCodeName={access.codeName}
+      isAdmin={access.isAdmin}
+      memberId={access.memberId}
+      accessScope={access.scope}
+      projectNavItems={access.projects}
     >
       {children}
     </AppShell>

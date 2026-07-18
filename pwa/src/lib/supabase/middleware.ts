@@ -3,6 +3,7 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 
 const LAST_LOGIN_TOUCH_COOKIE = "amd_os_last_login_touch";
+const PROJECT_WORKSPACE_SESSION_COOKIE = "amd_os_project_session";
 const LAST_LOGIN_TOUCH_INTERVAL_MS = 60 * 60 * 1000;
 
 function getServiceClient() {
@@ -33,6 +34,7 @@ export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
   const pathname = request.nextUrl.pathname;
   const isPublicMeetingArtifact = pathname.startsWith("/kute/");
+  const hasProjectWorkspaceSession = request.cookies.has(PROJECT_WORKSPACE_SESSION_COOKIE);
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -63,6 +65,7 @@ export async function updateSession(request: NextRequest) {
   // API routes handle their own auth (CRON_SECRET etc.) — skip redirect
   if (
     !user &&
+    !hasProjectWorkspaceSession &&
     !pathname.startsWith("/auth") &&
     !pathname.startsWith("/api/") &&
     !isPublicMeetingArtifact &&

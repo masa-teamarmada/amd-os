@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { google } from "googleapis";
+import { cookies } from "next/headers";
+import {
+  createProjectWorkspaceSessionValue,
+  PROJECT_WORKSPACE_SESSION_COOKIE,
+  PROJECT_WORKSPACE_SESSION_MAX_AGE,
+} from "@/lib/project-workspace-session";
 import { createClient } from "@/lib/supabase/server";
 
 const ALLOWED_DOMAIN = "team-armada.jp";
@@ -91,20 +97,84 @@ async function markCalendarStatus(input: {
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const rawNext = searchParams.get("next") ?? "/dashboard";
-  const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/dashboard";
+  const rawNext = searchParams.get("next") ?? "/";
+  const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
 
   if (code) {
     const supabase = await createClient();
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      // サーバー側でドメイン検証（hd パラメータはクライアントヒントにすぎないため必須）
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.email?.endsWith(`@${ALLOWED_DOMAIN}`)) {
+      if (!user?.email) {
+        await supabase.auth.signOut();
+        return NextResponse.redirect(`${origin}/auth/login?error=auth_failed`);
+      }
+
+      const email = user.email.toLowerCase();
+      const service = getServiceClient();
+      const { data: member } = await service
+        .from("members")
+        .select("member_id,status,os_access_scope")
+        .ilike("email", email)
+        .maybeSingle();
+
+      if (!member || member.status !== "active") {
+        await supabase.auth.signOut();
+        return NextResponse.redirect(`${origin}/auth/login?error=member_not_registered`);
+      }
+
+      if (member.os_access_scope === "project") {
+        const { count, error: membershipError } = await service
+          .from("project_members")
+          .select("id", { count: "exact", head: true })
+          .eq("member_id", member.member_id)
+          .eq("is_active", true);
+        if (membershipError || !count) {
+          await supabase.auth.signOut();
+          return NextResponse.redirect(`${origin}/auth/login?error=project_membership_required`);
+        }
+        await service
+          .from("members")
+          .update({ last_login_at: new Date().toISOString() })
+          .eq("member_id", member.member_id);
+
+        // Project-only users must not keep a normal Supabase authenticated
+        // session. Existing AMD tables have internal-member RLS contracts;
+        // the signed HTTP-only workspace cookie is deliberately narrower.
+        const cookieStore = await cookies();
+        const supabaseCookieNames = cookieStore
+          .getAll()
+          .map((cookie) => cookie.name)
+          .filter((name) => name.startsWith("sb-"));
+        const { error: signOutError } = await supabase.auth.signOut();
+        if (signOutError) {
+          return NextResponse.redirect(`${origin}/auth/login?error=auth_failed`);
+        }
+
+        const response = NextResponse.redirect(`${origin}${next}`);
+        for (const name of supabaseCookieNames) {
+          response.cookies.set(name, "", { path: "/", maxAge: 0 });
+        }
+        response.cookies.set(
+          PROJECT_WORKSPACE_SESSION_COOKIE,
+          createProjectWorkspaceSessionValue({ memberId: member.member_id, email }),
+          {
+            httpOnly: true,
+            sameSite: "lax",
+            secure: process.env.NODE_ENV === "production",
+            path: "/",
+            maxAge: PROJECT_WORKSPACE_SESSION_MAX_AGE,
+          },
+        );
+        return response;
+      }
+
+      // portfolio アカウントは従来どおり AMD Google Workspace + Calendar/Gmail が必須。
+      // hd はクライアントヒントにすぎないため、サーバー側でも検証する。
+      if (!email.endsWith(`@${ALLOWED_DOMAIN}`)) {
         await supabase.auth.signOut();
         return NextResponse.redirect(`${origin}/auth/login?error=domain_not_allowed`);
       }
-      const email = user.email.toLowerCase();
       const session = data.session as {
         provider_token?: string | null;
         provider_refresh_token?: string | null;
@@ -137,7 +207,15 @@ export async function GET(request: Request) {
         await supabase.auth.signOut();
         return NextResponse.redirect(`${origin}/auth/login?next=${encodeURIComponent(next)}&error=calendar_required`);
       }
-      return NextResponse.redirect(`${origin}${next}`);
+      const response = NextResponse.redirect(`${origin}${next}`);
+      response.cookies.set(PROJECT_WORKSPACE_SESSION_COOKIE, "", {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+        maxAge: 0,
+      });
+      return response;
     }
   }
 

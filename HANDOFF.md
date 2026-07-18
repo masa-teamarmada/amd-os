@@ -3,47 +3,47 @@
 Last updated: 2026-07-18 JST
 
 Target: `/Users/masa/projects/AMD/amd-os`
-Topic: 法人支払義務の自動DM停止と通知事故のcloseout
+Topic: SX (`p21`) PJ共有ダッシュボードとPJ限定アクセス
 
 ## Latest Session Summary
 
-- 法人支払義務の日次同期が、経理担当へ未確認・当月・期限超過の候補を初回から一括DMしていた。送信済み28件を確認した。
-- `81bc29e3` で日次同期からの自動DMを既定OFFにした。台帳と月次試算表の同期は継続し、手動送信は明示操作として残す。
-- production は `v3.44.15` / `81bc29e3` でReadyを確認した。
-- 実装元タスクへ、検知・台帳化と対人通知を推論で結びつけず、DMは明示依頼またはreview-firstの確認後だけにするよう注意を送った。
+- AMD OSを全PJ横断ユーザーとPJ限定ユーザーの両方で使えるように拡張した。
+- AMD / 産連の横断ユーザーは従来どおり `/dashboard` がトップ。PJ限定ユーザーは参加1件なら `/project/{projectId}/workspace`、複数なら `/my-projects` がトップ。
+- SXカードは `/project/p21/workspace` を開く。共有面は研究→応用→開発→SU→調整の週次エフォート、メンバー別配分、MS、抽出済み活動集計を表示する。
+- PJ限定Google OAuthは本人確認後に通常のSupabase sessionを破棄し、7日間のHTTP-only署名付きPJ sessionへ交換する。既存社内RLS/APIを外部ユーザーへ継承させない。
+- migration 182を本番DBへ適用。`members.os_access_scope`、`project_weekly_effort_entries`、scope helperを追加し、`amd_os_is_member()` はportfolio/adminだけをtrueにした。
+- build targetは `v3.45.0`。
 
 ## Current Truth
 
-- `/api/cron/payment-obligations` の日次実行は、`PAYMENT_OBLIGATION_AUTO_NUDGE_ENABLED=1` が本番で明示されない限りSlack DMを送らない。
-- 自動DMを再開する前に、候補件数・重複防止・送信文面をdry-runで確認し、まさの明示指示を取る。
-- 正本: `pwa/manual/6-9-company-payment-obligations-spec.md`。事故記録: `pwa/BUGS.md`。詳細ログ: `pwa/design_log/sessions_2026-07.md`。
+- SX (`p21`) にはactive member 4人、既存の `member_activities` 139件がある。
+- PJ限定アカウントと週次エフォート入力はまだ0件。実在メンバーのGoogleメールを推測せず、確認後に `/admin/members` で登録する。
+- `/admin/members` のPJ限定アカウント作成は `os_access_scope='project'`、支払通知対象外に固定する。作成後、`/admin/projects` で `p21` のactive memberへ紐付ける。
+- 共有DTOへraw本文、source URL、email、報酬、契約、内部戦略、他PJ情報を含めない。
+- 愛大OSのMVP方針は、SXをAMD OSで先行実証し、独立EHM OSを大量シーズ、産連業務、M365、大学側権限へ一般化する次段階へ置いた。
 
 ## Verification
 
-- `npx eslint src/app/api/cron/payment-obligations/route.ts src/lib/build-info.ts`
-- `npx tsc --noEmit`
-- `npm run test:payment-obligations`
-- `npm run build`
-- production `/api/build-info` とVercel production Readyを確認済み。
-
-## Shared Root / Cleanup State
-
-- この停止bundleはclean cloneでcommit・push・deployし、cloneは削除済み。今回起因の未commit差分・branch・worktreeは残っていない。
-- shared rootには別レーンのdirty、branch、worktreeが残る。今回の所有物ではないため削除しない。次のownerは各レーンのcloseoutで対象bundleをmainへ畳み、証跡後に削除判断する。
-- repo全体のarchive判定は **do not archive**。理由はshared rootの別owner WIPと、未整理のbranch/worktree debt。
-
-## Unresolved Tasks
-
-- 自動DMの再開は未依頼。必要になった時だけ、review-firstの送信設計を別bundleで確認する。
+- target-file ESLint: pass
+- `npx tsc --noEmit`: pass
+- `npm run test:deploy-version-guard`: pass
+- `npm run test:critical-ui`: pass
+- `npm run build`: pass
+- full `npm run lint`: existing unrelated baseline 83 errors / 55 warningsでfail。今回対象ファイルにはerrorなし。
+- UIは1440x1000、768x900、390x844で確認し、mobile/tabletをbottom nav、入力controlを44px、5分類帯を全表示に修正済み。
 
 ## First Next Action
 
-1. `git fetch origin main` と production `/api/build-info` を取り直す。
-2. 通知変更の依頼なら、先に「台帳同期」「候補表示」「人への送信」を分け、送信は既定OFFで設計する。
+1. SX研究開発メンバーのGoogleメール、表示名、役割を確認する。
+2. `/admin/members` でPJ限定アカウントを作り、`/admin/projects` で `p21` へ紐付ける。
+3. 本人アカウントで、SXがトップになること、他PJ・dashboard・社内cockpitへ入れないことを確認する。
+4. 4週間、5分類の予定 / 実績時間を週次運用し、次にタスク、割り込み、停滞、オーナー / 実作業者へ広げる。
 
 ## Guardrails
 
-- `git add .` を使わず、対象ファイルだけをstageする。
-- shared rootの他レーンdirtyをstage・reset・削除しない。
+- PJ限定ユーザーへ通常のSupabase authenticated sessionを残さない。
+- 共有面へ社内cockpitのdata bundleをそのまま渡さない。
+- 実アカウントのメール、役割、週の基準時間を推測でseedしない。
+- 個人別時間を勤怠、人事評価、個人ランキングへ使わない。
+- `git add .` を使わず、対象bundleだけをstageする。
 - PWA本番反映は `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` を使う。
-- raw本文、個人情報、secret、private URLをhandoffやdurable logへ残さない。

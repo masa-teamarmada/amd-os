@@ -1,10 +1,18 @@
 # Institution Tenant / Access Design
 
 作成日: 2026-05-31
-ステータス: Design draft for NIMS Pilot gate. 実装はまだしない。
+ステータス: Project-scoped workspace pilot implemented for SX (`p21`) on 2026-07-18. Institution tenant / candidate / audit model remains design.
 対象: NIMS / 外部研究機関へ AMD OS を見せる前に必要な tenant, institution scope, role, RLS/API guard, audit log 設計。
 
 ## Executive summary
+
+### 2026-07-18 current implementation
+
+AMD OS内で先行できる最小単位として、機関tenant全体より先に **project-scoped workspace** をSX (`p21`) へ実装した。`members.os_access_scope='project'` とactive `project_members` を組み合わせ、PJ限定ユーザーのトップを `/project/{project_id}/workspace` または `/my-projects` にする。
+
+外部PJユーザーへ通常のSupabase authenticated sessionは保持させない。Google OAuthは本人確認にだけ使い、callbackで社内用sessionを破棄して7日間のHTTP-only署名付きPJセッションへ交換する。共有DTOは週次エフォート、5区分、メンバー表示名 / 役割、MS、抽出済み活動件数に限定する。これにより、既存AMD内部テーブルの広いmember RLSを外部ユーザーへ継承させない。
+
+これはNIMS等のinstitution tenant完成を意味しない。institution membership、candidate review、external artifact approval、audit log、export / offboardingは引き続きこの文書のPhaseとして残る。SXは「PJ参加者へ安全な専用ダッシュボードを出す」ための先行実装。
 
 NIMS Pilot は、現行 AMD OS をそのまま社外公開する話ではない。現行 OS は AMD 内部運用を前提に、Gmail / Drive / Calendar / Slack / Notion から L2 データを抽出し、Supabase を正本にしている。したがって、NIMS に見せるには、まず「どの institution / project / workspace に属する外部ユーザーが、どの row / column / file / notification を見てよいか」を DB / API / UI の前に確定する必要がある。
 

@@ -95,7 +95,7 @@ pwa/
 
 | パス | 役割 |
 |---|---|
-| `/` | top → 認証済みなら `/dashboard`、未認証なら `/auth/login` |
+| `/` | role-based top。AMDの `portfolio` は `/dashboard`、PJ限定は参加1件なら `/project/[projectId]/workspace`、複数なら `/my-projects`、未認証なら `/auth/login` |
 | `/auth/login` | Google OAuth ログイン (Supabase Auth) |
 | `/auth/callback` | OAuth callback |
 | `/hud/dashboard/embed` | STAPA投影資料など外部プレゼン用の公開HUD埋め込みroute。通常の `/hud/dashboard` は認証必須のまま、embed routeのみ `frame-ancestors 'self' http://127.0.0.1:8766 http://localhost:8766` を許可する。 |
@@ -105,6 +105,8 @@ pwa/
 | パス | 機能 |
 |---|---|
 | `/dashboard` | トップ。PJ 一覧 + 先手TODOバッジ + Atlas/Venture Map/MyPage/Admin への入口。上部のバイタルサイン枠はクリックで AMD 全体 cockpit (`/project/p00/cockpit`) へ遷移し、右上の詳細リンクだけ `/management-score` へ遷移する。基本表示順は左/mainカラム内で PJ 一覧 → 研究機関ECRリスト、下段全幅で Company Content shelf。PJ一覧は通常PJだけを表示し、AMD 全体PJ (`p00`) はバイタルサイン枠を入口にして通常PJ一覧には表示しない。`projects.project_category='ecosystem'` または `p25` / `p28` / KUTE・NIMS名に該当する研究機関エコシステム構築PJは研究機関ECRリスト側へ寄せる。研究機関ECRリストはPJリストの続きとして、PJ名を主タイトルに寄せて KUTE / KGW / NIMS を title、工学院大学 / 香川大学 / 物質・材料研究機構を subtitle にする。KUTEカードは `/institutions/inst_kute/cockpit`、NIMSカードは `/institutions/inst_nims/cockpit` へ遷移する。Company Content shelf はメンバー / 沿革 / メディア掲載 / photo を preview する。右カラムの MyPage embed は「今週やったこと」までに留め、月別PJカードは `/mypage` 単体にだけ残す |
+| `/my-projects` | `os_access_scope='project'` で複数PJへ参加するユーザーの入口。activeな `project_members` のPJだけを表示する |
+| `/project/[projectId]/workspace` | PJ共有ダッシュボード。研究→応用→開発→SU→調整の週次エフォート、メンバー配分、MS、抽出済み活動件数を表示する。raw本文・email・報酬・契約・内部戦略は返さない。PJ限定ユーザーは本人分だけ、portfolio/adminはactive member分を入力できる |
 | `/dashboard-cyber-3d-lab` | 実験中の3D Cyber Dashboard。`three.js` 空間上に X/F/M 軸、PJ球体、床面KPI、ホログラム投影コックピットを配置。仕様方針は [`cyber_hud_design_code.md`](cyber_hud_design_code.md) / [`cyber_dashboard_content_design.md`](cyber_dashboard_content_design.md) |
 | `/dashboard-cyber-glass-cube` | 廃案比較用の旧 Cyber Dashboard 第2案。ガラスキューブPJ群は情報構造がカオス化したため、今後の正本候補にはしない。公開モックは `/mock/dashboard-cyber-glass-cube` |
 | `/dashboard-cyber-hud-wall` | Cyber Dashboard 第2案の作り直し。固定視点の `three.js` 空間に、参考HUD画像のようなKPI/PJ/Proof/Alert HUDモジュールを固定配置し、PJ選択時は同一空間内にPJ Cockpit Spatial Viewを展開する。公開モックは `/mock/dashboard-cyber-hud-wall` |

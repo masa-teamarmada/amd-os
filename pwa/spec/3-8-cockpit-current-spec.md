@@ -7,6 +7,8 @@
 | route | file |
 |---|---|
 | `/project/[projectId]/cockpit` | `pwa/src/app/(app)/project/[projectId]/cockpit/page.tsx` |
+| `/project/[projectId]/workspace` | `pwa/src/app/(app)/project/[projectId]/workspace/page.tsx`。PJ限定メンバーにも共有できる研究開発ダッシュボード |
+| `/my-projects` | `pwa/src/app/(app)/my-projects/page.tsx`。複数PJへ参加するPJ限定メンバーの入口 |
 | `/institutions/[institutionId]/cockpit` | `pwa/src/app/(app)/institutions/[institutionId]/cockpit/page.tsx` wraps an existing project cockpit in institution context |
 | main component | `pwa/src/components/cockpit/CockpitView.tsx` |
 | data fetch | `pwa/src/lib/supabase-data.ts` (`fetchCockpitFromSupabase`) |
@@ -37,6 +39,12 @@
 `tsukuyomi_nudge_queue` は通常PJ / institution cockpit の `CockpitView` へ渡さず、`CockpitNudge` カードも表示しない。既存の `fetchCockpitFromSupabase` が互換用に `nudges` を返す場合でも、この画面では読まない。HUD / dashboard 実験面で同じ queue を使う場合は、それぞれの専用コンポーネントの契約として扱う。
 
 ## Permission / Mutation Boundary
+
+`/project/[projectId]/cockpit` は従来どおりAMD内部面。外部のPJ限定メンバーへは公開しない。共有面は `/project/[projectId]/workspace` に分離し、`members.os_access_scope='project'` と active `project_members` の両方で対象PJを限定する。
+
+PJ限定ログインはGoogle OAuthで本人確認した直後に通常のSupabase sessionを破棄し、7日間のHTTP-only署名付きPJセッションへ交換する。署名だけに依存せず、各requestで `members.status='active'`、scope、member ID、active PJ membershipをservice側で再検証する。既存社内テーブルの広いauthenticated RLSを外部ユーザーへ継承させない。`amd_os_is_member()` も `portfolio` / adminだけをtrueにする。
+
+共有ダッシュボードが返す範囲は、PJ名、参加メンバーの表示名 / 役割、週次予定・実績時間、5区分の配分、MS名 / 進捗、抽出済み活動の件数 / source種別 / 最終日。raw本文、source URL、email、契約、請求、報酬、経営ハイライト、会社概要、他PJ情報はDTOへ含めない。PJ限定メンバーのwriteは自分の `project_weekly_effort_entries` だけ、portfolio/adminは当該PJのactive member分を更新できる。
 
 月次 routine 専用の `canEditRoutine` 判定は廃止。`/project/[projectId]/cockpit` / `/hud/project/[projectId]/cockpit` / `/institutions/[institutionId]/cockpit` の page route は PM/admin 判定を持たず、`CockpitView` / `HudCockpitView` に `canEditRoutine` を渡さない。
 

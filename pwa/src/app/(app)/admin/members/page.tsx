@@ -3,6 +3,7 @@ export const metadata: Metadata = { title: { absolute: "Admin メンバー - AMD
 
 import { createClient } from "@/lib/supabase/server";
 import { AdminMembersTable, type MemberRow } from "@/components/admin/AdminMembersTable";
+import { ProjectMemberAccountForm } from "@/components/admin/ProjectMemberAccountForm";
 
 export default async function AdminMembersPage() {
   const supabase = await createClient();
@@ -21,6 +22,7 @@ export default async function AdminMembersPage() {
     email: m.email,
     role: m.role ?? null,
     status: m.status,
+    os_access_scope: m.os_access_scope === "project" ? "project" : "portfolio",
     is_admin: m.is_admin,
     is_officer: !!m.is_officer,
     exclude_from_payout_notice: !!m.exclude_from_payout_notice,
@@ -48,6 +50,7 @@ export default async function AdminMembersPage() {
         <h1 className="text-lg font-semibold">アカウント台帳</h1>
         <span className="text-sm text-muted-foreground">DB_Members — {members.length} 件</span>
       </div>
+      <ProjectMemberAccountForm />
       <AdminMembersTable members={members} />
     </div>
   );

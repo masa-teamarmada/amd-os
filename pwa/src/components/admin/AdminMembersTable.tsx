@@ -12,6 +12,7 @@ export interface MemberRow {
   email: string;
   role: string | null;
   status: string;
+  os_access_scope: "portfolio" | "project";
   is_admin: boolean;
   is_officer: boolean;
   exclude_from_payout_notice: boolean;
@@ -36,6 +37,10 @@ interface Props {
 }
 
 const STATUS_OPTIONS = ["active", "inactive"];
+const ACCESS_SCOPE_OPTIONS = [
+  { value: "portfolio", label: "全PJ" },
+  { value: "project", label: "参加PJ限定" },
+] as const;
 
 function StatusBadge({ status }: { status: string }) {
   const cls = status === "active"
@@ -94,6 +99,7 @@ function CalendarBadge({ member }: { member: MemberRow }) {
 }
 
 function requiresCalendarAccess(member: MemberRow) {
+  if (member.os_access_scope === "project") return false;
   const email = member.email?.trim().toLowerCase() || "";
   if (!email.endsWith("@team-armada.jp")) return false;
   if (["info", "つくよみ"].includes(member.code_name)) return false;
@@ -119,6 +125,7 @@ type EditVals = {
   email: string;
   role: string;
   status: string;
+  os_access_scope: "portfolio" | "project";
   join_ym: string;
   leave_ym: string;
   is_admin: boolean;
@@ -176,6 +183,7 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
       email: m.email ?? "",
       role: m.role ?? "",
       status: m.status,
+      os_access_scope: m.os_access_scope,
       join_ym: m.join_ym ?? "",
       leave_ym: m.leave_ym ?? "",
       is_admin: !!m.is_admin,
@@ -209,6 +217,7 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
       case "email": patch.email = (editVals.email as string).trim() || m.email; break;
       case "role": patch.role = (editVals.role as string) || null; break;
       case "status": patch.status = editVals.status as string; break;
+      case "os_access_scope": patch.os_access_scope = editVals.os_access_scope as string; break;
       case "join_ym": patch.join_ym = (editVals.join_ym as string) || null; break;
       case "leave_ym": patch.leave_ym = (editVals.leave_ym as string) || null; break;
       case "is_admin": patch.is_admin = !!editVals.is_admin; break;
@@ -279,7 +288,7 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
 
       {/* Table */}
       <div className="overflow-x-auto border border-border rounded-lg">
-        <table className="text-[12px] border-collapse" style={{ minWidth: "2240px" }}>
+        <table className="text-[12px] border-collapse" style={{ minWidth: "2360px" }}>
           <thead className="sticky top-0 z-30">
             <tr className="bg-muted text-muted-foreground">
               <th className="text-left px-3 py-2 font-medium sticky left-0 z-40 bg-muted w-24 border-r border-border">codeName</th>
@@ -291,6 +300,7 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
               <th className="text-left px-3 py-2 font-medium w-56">email</th>
               <th className="text-left px-3 py-2 font-medium w-28">Role</th>
               <th className="text-left px-3 py-2 font-medium w-24">Status</th>
+              <th className="text-left px-3 py-2 font-medium w-28">OS表示範囲</th>
               <th className="text-left px-3 py-2 font-medium w-24">joinYm</th>
               <th className="text-left px-3 py-2 font-medium w-24">leaveYm</th>
               <th className="text-left px-3 py-2 font-medium w-24">Calendar</th>
@@ -470,6 +480,26 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
                     ) : <StatusBadge status={m.status} />}
                   </td>
 
+                  {/* os_access_scope */}
+                  <td className={cellCls("os_access_scope")} onClick={enterCell("os_access_scope")}>
+                    {isEditingField(m, "os_access_scope") ? (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <select
+                          value={editVals.os_access_scope as string}
+                          onChange={(e) => setEditVals((v) => ({ ...v, os_access_scope: e.target.value as "portfolio" | "project" }))}
+                          className="rounded border border-border bg-background px-1.5 py-0.5 text-[12px]"
+                        >
+                          {ACCESS_SCOPE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                        </select>
+                        {cellActions("os_access_scope")}
+                      </div>
+                    ) : (
+                      <span className={m.os_access_scope === "project" ? "rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-800" : "text-muted-foreground"}>
+                        {m.os_access_scope === "project" ? "参加PJ限定" : "全PJ"}
+                      </span>
+                    )}
+                  </td>
+
                   {/* join_ym */}
                   <td className={cellCls("join_ym")} onClick={enterCell("join_ym")}>
                     {isEditingField(m, "join_ym") ? (
@@ -580,7 +610,7 @@ export function AdminMembersTable({ members: initialMembers }: Props) {
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={17} className="px-3 py-4 text-center text-muted-foreground">
+                <td colSpan={18} className="px-3 py-4 text-center text-muted-foreground">
                   該当なし
                 </td>
               </tr>

@@ -7,14 +7,18 @@ import { MonthlyAgreementGateOverlay } from "@/components/monthly-agreement/Mont
 import { CriticalRealtimeNotify } from "@/components/notifications/CriticalRealtimeNotify";
 import { TsukuyomiChatBridge } from "@/components/tsukuyomi/TsukuyomiChatBridge";
 import type { MonthlyWorkAgreementBundle } from "@/lib/monthly-work-agreement-types";
+import type { OsAccessScope, ProjectNavItem } from "@/lib/project-workspace-types";
 import { GlobalNav } from "./GlobalNav";
 import { PageTitleSetter } from "./PageTitleSetter";
+import { ProjectWorkspaceNav } from "./ProjectWorkspaceNav";
 
 type AppShellProps = {
   children: ReactNode;
   userCodeName: string;
   isAdmin: boolean;
   memberId: string | null;
+  accessScope: OsAccessScope;
+  projectNavItems: ProjectNavItem[];
 };
 
 function shouldSkipMonthlyAgreementGate(pathname: string) {
@@ -30,6 +34,8 @@ function useMonthlyAgreementGateBundle(memberId: string | null, pathname: string
   const skip = shouldSkipMonthlyAgreementGate(pathname);
 
   useEffect(() => {
+    // Route/member changes invalidate the previously fetched agreement snapshot.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setBundle(null);
     if (!memberId || skip) return;
     let cancelled = false;
@@ -64,12 +70,15 @@ export function AppShell({
   userCodeName,
   isAdmin,
   memberId,
+  accessScope,
+  projectNavItems,
 }: AppShellProps) {
   const pathname = usePathname() ?? "";
   const isNativeShell = pathname.startsWith("/native");
   const isAdminRoute = pathname.startsWith("/admin");
   const useEmbeddedShellOnly = pathname.startsWith("/hud") || isNativeShell;
-  const agreementGateBundle = useMonthlyAgreementGateBundle(memberId, pathname);
+  const isProjectScope = accessScope === "project";
+  const agreementGateBundle = useMonthlyAgreementGateBundle(isProjectScope ? null : memberId, pathname);
 
   if (isNativeShell) {
     return <main className="flex-1">{children}</main>;
@@ -82,7 +91,9 @@ export function AppShell({
         <main className="flex-1">{children}</main>
       ) : (
         <div className="flex min-h-screen bg-background text-foreground">
-          {isAdminRoute ? (
+          {isProjectScope ? (
+            <ProjectWorkspaceNav userCodeName={userCodeName} projects={projectNavItems} />
+          ) : isAdminRoute ? (
             <AdminSidebar />
           ) : (
             <GlobalNav
@@ -91,14 +102,14 @@ export function AppShell({
               memberId={memberId}
             />
           )}
-          <main className="min-w-0 flex-1">{children}</main>
+          <main className={`min-w-0 flex-1 ${isProjectScope ? "pb-16 lg:pb-0" : ""}`}>{children}</main>
         </div>
       )}
       {agreementGateBundle && (
         <MonthlyAgreementGateOverlay bundle={agreementGateBundle} />
       )}
       {isAdmin && <CriticalRealtimeNotify />}
-      <TsukuyomiChatBridge />
+      {!isProjectScope && <TsukuyomiChatBridge />}
     </>
   );
 }

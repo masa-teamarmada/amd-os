@@ -11,6 +11,26 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - `npm run test:critical-ui` は、この登録簿と実装内の重要 anchor を検査する。
 - 重要 UI を置き換える場合は、旧 anchor を消す前に新 UI の anchor と仕様を登録する。
 
+## PJ共有ダッシュボード / role-based top
+
+目的: AMDメンバーは全PJを横断し、SX等のPJ限定メンバーは自分の参加PJだけを同じAMD OS基盤で確認する。
+
+必須機能:
+
+- role-based top: `members.os_access_scope='portfolio'` は `/dashboard`、`project` は参加1件なら `/project/[projectId]/workspace`、複数なら `/my-projects`。
+- SX entry: `/dashboard` のSX (`p21`) カードは `/project/p21/workspace` を開き、PJ共有ダッシュボードであることを表示する。
+- narrow auth: PJ限定OAuthはGoogle本人確認後に通常のSupabase sessionを破棄し、HTTP-only署名付きPJセッションへ交換する。各requestでactive member / scope / PJ membershipを再確認する。
+- route isolation: PJ限定ユーザーの通常画面は `/my-projects` と許可された `/project/[projectId]/workspace` だけ。他PJ、`/dashboard`、社内cockpit、admin、financeへ遷移できない。
+- safe DTO: 共有面はPJ名、表示名、役割、週次時間、5区分、MS、抽出済み活動の件数・種別・最終日だけ。raw本文、URL、email、報酬、契約、内部戦略を含めない。
+- effort write: `project_weekly_effort_entries` はPJ / member / week / categoryで一意。PJ限定ユーザーは自分だけ、portfolio/adminはactive PJ memberを更新できる。
+- admin onboarding: `/admin/members` でPJ限定Googleアカウントを事前登録し、既存のPJメンバー編集で対象PJへ紐付ける。作成時は支払通知対象外。
+- responsive nav: desktopはPJ専用sidebar、mobile/tabletは本文幅を奪わないbottom nav。入力controlは44px以上。
+
+回帰防止:
+
+- `pwa/scripts/check_pwa_critical_ui.cjs` がrole top、SX card、PJ session交換、route isolation、workspace route、effort API、admin onboarding、migration 182を検査する。
+- 共有面へ社内cockpit DTOや既存のauthenticated sessionを流用しない。
+
 ## /manual
 
 目的: AMD OS の使い方・仕様・運用履歴の正本を、読み手が自力で検索し、必要ならページ限定つくよみに質問できる状態にする。

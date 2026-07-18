@@ -114,7 +114,7 @@ codeName セルは admin 用マイページリンクを兼ねる。 コードネ
 |---|---|
 | `member_id` | text PK (= `ID001` / `ID002` 等) |
 | `code_name` | AMD OS 内で使う識別名 (= `まさ` / `えいみ` 等) |
-| `email` | Google Workspace email (= ログイン認証に使う) |
+| `email` | Google email (= ログイン認証に使う。AMDメンバーはWorkspace、PJ限定メンバーは招待時に登録したGoogleアカウント) |
 | `member_name` | 個人の法律名 |
 | `contractor_name` | 契約者名 (= 支払通知書 / 契約書の宛名。既定は `member_name`、法人契約時だけ法人名へ手入力) |
 | `member_address` | 住所 (= 支払通知書の宛先住所) |
@@ -132,6 +132,13 @@ codeName セルは admin 用マイページリンクを兼ねる。 コードネ
 | `join_ym` / `leave_ym` | YYYYMM 文字列 |
 | `joined_at` / `left_at` | date |
 | `exclude_from_payout_notice` | UI 列名は「支払対象」。true なら「対象外」と表示し、支払通知書発行を skip (= 例: りり / ID006 NIMS 無償出向)。非役員かつ対象外なら `/mypage` の金額表示も `ー` にする。役員かつ対象外なら金額は表示し、`（役員のため支払対象外）` を添える |
+| `os_access_scope` | OSの表示範囲。`portfolio` はAMDの全PJ横断面、`project` はactiveな `project_members` のPJ共有ダッシュボードだけ。既定値は `portfolio` |
+
+### PJ限定アカウントの登録
+
+`/admin/members` の「PJ限定アカウントを追加」で、本人のGoogleメールアドレスと表示名を事前登録する。作成時は `os_access_scope='project'`、`exclude_from_payout_notice=true` に固定し、通常のAMD報酬対象へ混ぜない。作成後、既存のPJメンバー編集でSX (`p21`) 等へ紐付け、`project_members.is_active=true` にする。
+
+本人はログイン画面の「参加PJだけを見る」からGoogle本人確認を行う。callback は通常のSupabase authenticated sessionを破棄し、HTTP-only署名付きPJセッションだけを発行する。これにより、PJ限定ユーザーは既存の社内用API・RLSへAMDメンバーとして入らず、`/project/{project_id}/workspace` と専用エフォートAPIだけを使う。メール未登録またはactiveなPJ紐付けが無い場合はログインを拒否する。
 
 ### `members.status` と `joined_at` / `left_at`
 

@@ -244,7 +244,66 @@ expectNotIncludes("src/components/contracts/ContractsClient.tsx", [
 
 expectIncludes("src/app/(app)/layout.tsx", [
   "AppShell",
-  "memberId={memberId}",
+  "memberId={access.memberId}",
+  "projectScopedPathAllowed",
+  "memberHome(access)",
+]);
+
+// PJ共有ダッシュボード (2026-07-18): PJ限定ユーザーへ通常の
+// Supabase authenticated sessionを残さず、参加PJだけを表示する。
+expectIncludes("src/app/page.tsx", [
+  "getCurrentMemberAccess",
+  "memberHome(access)",
+]);
+expectIncludes("src/app/auth/callback/route.ts", [
+  'member.os_access_scope === "project"',
+  "await supabase.auth.signOut()",
+  "PROJECT_WORKSPACE_SESSION_COOKIE",
+  "createProjectWorkspaceSessionValue",
+  "project_members",
+]);
+expectIncludes("src/lib/project-workspace-session.ts", [
+  'amd_os_project_session',
+  "createHmac",
+  "timingSafeEqual",
+  "expiresAt",
+]);
+expectIncludes("src/lib/project-workspace.ts", [
+  "getProjectWorkspaceSession",
+  'member.os_access_scope !== "project"',
+  "projectScopedPathAllowed",
+  "getProjectWorkspaceBundle",
+  "project_weekly_effort_entries",
+  "member_activities",
+]);
+expectIncludes("src/components/dashboard/DashboardGrid.tsx", [
+  'project.projectId === "p21"',
+  "/workspace",
+  "共有ダッシュボード",
+]);
+expectIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", [
+  "研究からSUまでの時間配分",
+  "メンバー別の現在地",
+  "週次エフォートを確定",
+  "OSがすでに把握している活動",
+  "CategoryBand",
+]);
+expectIncludes("src/app/api/project-workspace/[projectId]/effort/route.ts", [
+  "canAccessWorkspaceProject",
+  'access.scope === "project" && memberId !== access.memberId',
+  "project_weekly_effort_entries",
+]);
+expectIncludes("src/components/admin/ProjectMemberAccountForm.tsx", [
+  "PJ限定アカウントを追加",
+  "email",
+  "memberName",
+]);
+expectIncludes("scripts/migrations/182_project_scoped_workspace.sql", [
+  "os_access_scope",
+  "amd_os_is_member",
+  "project_weekly_effort_entries",
+  "amd_os_can_access_project",
+  "amd_os_can_manage_project_effort",
 ]);
 
 expectIncludes("src/components/nav/AppShell.tsx", [
