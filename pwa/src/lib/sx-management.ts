@@ -28,7 +28,7 @@ export const SX_TRACKS = [
 export type SxTrackKey = (typeof SX_TRACKS)[number]["key"];
 export type SxJudgmentKey = "on_track" | "attention" | "crisis" | "unassessed";
 export type SxMilestoneStatus = ManagementDerivedStatus;
-export type SxIssueKind = "fact" | "hypothesis" | "decision";
+export type SxIssueKind = "fact" | "hypothesis" | "decision_needed" | "decision";
 export type SxConfidence = "high" | "medium" | "low" | "unknown";
 export type SxSourceKind = "current_truth" | "manual" | "imported";
 export type SxPartnerStage =
@@ -270,6 +270,7 @@ export type SxPartnerCommitment = {
   partnerId: string;
   title: string;
   commitmentText: string;
+  commitmentKind: "counterparty_promise" | "sx_followup";
   status: "open" | "in_progress" | "completed" | "blocked" | "cancelled";
   promisedOn: string | null;
   dueDate: string | null;
@@ -558,7 +559,7 @@ function asSourceKind(value: unknown): SxSourceKind {
 }
 
 function asIssueKind(value: unknown): SxIssueKind {
-  return value === "fact" || value === "decision" ? value : "hypothesis";
+  return value === "fact" || value === "decision" || value === "decision_needed" ? value : "hypothesis";
 }
 
 function asPartnerStage(value: unknown): SxPartnerStage {
@@ -612,6 +613,7 @@ function mapAction(row: RawRow): SxActionItem {
 function mapCommitment(row: RawRow): SxPartnerCommitment {
   return {
     id: stringValue(row, "id"), partnerId: stringValue(row, "partner_id"), title: stringValue(row, "title"), commitmentText: stringValue(row, "commitment_text"),
+    commitmentKind: row.commitment_kind === "counterparty_promise" ? "counterparty_promise" : "sx_followup",
     status: (row.status as SxPartnerCommitment["status"]) || "open", promisedOn: nullableString(row, "promised_on"), dueDate: nullableString(row, "due_date"), completedOn: nullableString(row, "completed_on"),
     ownerLabel: stringValue(row, "owner_label", "担当未確認"), counterpartyOwner: nullableString(row, "counterparty_owner"), sxOwner: nullableString(row, "sx_owner"), evidence: nullableString(row, "evidence"), nextReviewOn: nullableString(row, "next_review_on"),
     lastVerifiedAt: stringValue(row, "last_verified_at"), confidence: asConfidence(row.confidence), sourceKind: asSourceKind(row.source_kind),
@@ -757,7 +759,7 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
     live("project_management_update_history", "id,project_id,entity_type,entity_id,update_kind,summary,changed_by,changed_on,from_status,to_status").order("changed_on", { ascending: false }).limit(40),
     live("project_management_partners", "id,project_id,slug,name,role_label,primary_track,relationship_stage,agreement_state,agreed_scope,unagreed_scope,last_contact_date,next_commitment,due_date,owner_label,last_verified_at,confidence,source_kind,source_ref,sort_order").order("sort_order"),
     plain("project_management_partner_tracks", "project_id,partner_id,track,role_label,is_primary"),
-    live("project_management_partner_commitments", "id,project_id,partner_id,title,commitment_text,status,promised_on,due_date,completed_on,owner_label,counterparty_owner,sx_owner,evidence,next_review_on,last_verified_at,confidence,source_kind,source_ref").order("due_date"),
+    live("project_management_partner_commitments", "id,project_id,partner_id,title,commitment_text,commitment_kind,status,promised_on,due_date,completed_on,owner_label,counterparty_owner,sx_owner,evidence,next_review_on,last_verified_at,confidence,source_kind,source_ref").order("due_date"),
     plain("project_management_milestone_issue_links", "project_id,milestone_id,issue_id"),
     plain("project_management_milestone_partner_links", "project_id,milestone_id,partner_id"),
     live("project_management_raci", "id,project_id,milestone_id,stakeholder_label,responsibility_role,owner_label,confirmed,last_verified_at,confidence").order("milestone_id"),

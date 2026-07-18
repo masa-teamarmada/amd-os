@@ -16,12 +16,12 @@ Topic: SX (`p21`) PJ共有ダッシュボードとPJ限定アクセス
 
 ## SX COO統合経営ダッシュボード実装追記
 
-- build targetは `v3.46.0`。`/project/p21/workspace` の主役を週次エフォートから経営判定へ移し、目的 → 4本柱の成果 → KPI → マイルストーンを同じ経営航路で辿れるようにした。
+- build targetは `v3.46.1`。`/project/p21/workspace` の主役を週次エフォートから経営判定へ移し、目的 → 4本柱の成果 → KPI → マイルストーンを同じ経営航路で辿れるようにした。運用準備5項目が未確認ならトップ判定も未評価に閉じる。
 - migration 183 は旧 `project_sx_*` を作らず、`project_management_*` の正規化台帳だけを追加する。KPI閾値 (`gte` / `lte` / `between`)、完了条件・証跡、依存DAG、論点→仮説→証拠→検証→意思決定→action、協力機関の約束履歴、技術試験、資金スナップショット、組織役割、RACI、容量、field auditを含む。
 - overall / 4本柱の状態は進捗手入力ではなく、必須KPI・期限・担当・鮮度・依存・完了条件・action・役割・閾値を用いたderived判定が正本。充足率は表示値に留める。FC北陸は低確度の候補/情報交換、PFは未合意、100L PoCは復活させない。
-- `/api/project-workspace/[projectId]/management` はresource別status列、同一PJ、PJ所属、decisionの状態、soft-delete、boolean、KPI範囲を検証し、更新履歴とfield auditを残す。PJ共有面にraw本文、source URL、契約原文、報酬、メール本文、内部交渉メモを返さない。
+- migration 184で未決論点 (`decision_needed`)、相手の約束/SX側の次アクション、相手の約束のDB必須条件、親情報の同一PJ triggerを補正した。`/api/project-workspace/[projectId]/management` はresource別status列、同一PJ、PJ所属、decisionの状態、soft-delete、boolean、KPI範囲を検証し、GET/PATCH/POSTの履歴とfield auditを残す。POSTの履歴失敗は追加行を補償的にsoft-deleteする。PJ共有面にraw本文、source URL、契約原文、報酬、メール本文、内部交渉メモを返さない。
 - RLSのmember_selectはsoft-delete済み行を除外する。`scripts/test_project_management_rls.mjs` は実在active memberをauthenticated roleで検査し、削除済み行非表示・有効p21可視・未所属ユーザー拒否を確認する。
-- desktop/tablet/mobileはそれぞれ、desktop表/ガント、tabletの折り返し、390pxの期限順カード/縦ロードマップを使い分ける。モバイルで表・ガント・左デスクトップナビを横スクロールさせない。
+- desktop/tablet/mobileはそれぞれ、lg以上の表/ガント、768pxのカード、390pxの期限順カード/縦ロードマップを使い分ける。workspace直リンクは月初合意モーダルと左デスクトップナビを出さず、選択行は選択文脈へ移動する。モバイルで表・ガントを横スクロールさせない。
 
 ## Current Truth
 
@@ -33,9 +33,10 @@ Topic: SX (`p21`) PJ共有ダッシュボードとPJ限定アクセス
 
 ## Verification
 
-- target-file ESLint: pass
+- target-file ESLint: pass (error 0 / warning 0)
 - `npx tsc --noEmit`: pass
 - `npm run test:deploy-version-guard`: pass
+- `npm run test:sx-management-rls`: pass (184 CHECK、補正履歴、20 soft-delete member_select、PJ境界)
 - `npm run test:critical-ui`: pass
 - `npm run build`: pass
 - full `npm run lint`: existing unrelated baseline 83 errors / 55 warningsでfail。今回対象ファイルにはerrorなし。

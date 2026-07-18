@@ -88,6 +88,33 @@ const triggerNames = new Set(triggers.map((row) => row.tgname));
 assert(triggerNames.has("project_management_dependency_guard"), "依存DAGのDBトリガーがないよ");
 assert(triggerNames.has("project_management_milestone_dependencies_block_delete"), "依存表の認証済みDELETE防止トリガーがないよ");
 
+const contractRows = await query(`
+  SELECT conname
+  FROM pg_constraint
+  WHERE conname IN (
+    'project_management_issues_knowledge_type_check_184',
+    'project_management_partner_commitments_kind_check_184',
+    'project_management_partner_commitments_promise_requirements_184'
+  )
+`);
+const contractNames = new Set(contractRows.map((row) => row.conname));
+assert(contractNames.has("project_management_issues_knowledge_type_check_184"), "意思決定待ち分類のDB CHECKがないよ");
+assert(contractNames.has("project_management_partner_commitments_kind_check_184"), "約束種類のDB CHECKがないよ");
+assert(contractNames.has("project_management_partner_commitments_promise_requirements_184"), "相手の約束必須条件のDB CHECKがないよ");
+
+const correctedHistory = await query(`
+  SELECT count(*)::int AS count
+  FROM public.project_management_update_history h
+  JOIN public.project_management_issues i ON i.id = h.entity_id
+  WHERE h.project_id = 'p21'
+    AND h.entity_type = 'issue'
+    AND h.update_kind = 'corrective_classification'
+    AND i.slug IN ('trl5-gate', 'newco-governance')
+    AND h.from_status = 'decision'
+    AND h.to_status = 'decision_needed'
+`);
+assert(Number(correctedHistory[0]?.count || 0) >= 2, "意思決定待ちへの補正履歴が旧値から記録されていないよ");
+
 const [member] = await query(`
   SELECT email
   FROM public.members

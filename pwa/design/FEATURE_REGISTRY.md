@@ -484,19 +484,21 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 必須機能:
 
 - 初期表示は全体判定（順調 / 注意 / 危機 / 未評価）、理由最大3件、今週決めること最大3件、次期限、最終確認日、必須充足率を一続きで表示する。充足率だけで順調にしない。
-- 目的 → 4本柱の成果目標 → KPI/先行指標 → マイルストーンをFKで接続し、KPIに基準値・目標・実績・単位・閾値・判定ルール・測定日・頻度・根拠・確度を持たせる。`gte` / `lte` / `between` の判定はDB/API/derived logic/UIで同じ意味にする。
+- 目的 → 4本柱の成果目標 → KPI/先行指標 → マイルストーンをPJ内の関連情報として接続し、KPIに基準値・目標・実績・単位・閾値・判定ルール・測定日・頻度・根拠・確度を持たせる。`gte` / `lte` / `between` の判定はDB/API/計算ロジック/UIで同じ意味にする。
 - 4本柱は同一軸（現在ゲート、derived状態、予定/予測/差分、担当、次の成果、最大論点、確認日、確度）で比較する。現在ゲートは完了済みの先頭に固定せず、未完了の依存順・開始状況・期限順で決定する。
 - 2026-07〜2027-03の全体ガントはマイルストーン行選択から関連論点・複数仮説・証拠・検証・意思決定・次action・協力機関・担当・依存先へ遷移できる。計画/予測/実績/仮置き凡例と遅延日数を文字で示す。390pxは期限順カード/縦ロードマップへ再構成する。
 - 論点・仮説台帳は事実/仮説/決定事項を文言で分離し、根拠・反証/不足・次検証・担当・期限・確度・確認日を表示する。決定後はactionの担当・期限・完了条件・次回確認・完了証跡まで閉じる。
-- 協力機関は段階、合意済み/未合意、最終接点、次の約束、期限、担当、関連ゲート、約束履歴を表示し、機関ごとに技術試験・資金・RACI・容量へ辿れる。
+- 協力機関は段階、合意済み/未合意、最終接点、SX側の次アクション、期限、担当、関連ゲート、約束履歴を表示し、機関ごとに技術試験・資金・RACI・容量へ辿れる。約束履歴は「相手の約束」と「SX側の次アクション」を分け、相手担当・約束日・一次根拠が揃う場合だけ前者に分類する。
 - 技術試験、資金スナップショット、組織役割、RACI、容量、field audit、更新履歴は実データを画面に描画し、各行から管理者が編集できる。週次エフォートも柱/ゲート/次の成果へ接続するが、経営判定の主役にはしない。
 - derived判定はcritical/high KPIの欠落・閾値外・鮮度切れ・期限超過・停止・循環依存を必ず反映する。依存はDB triggerで同一PJと循環を検査し、必須/任意・lag・開始日を区別する。手入力statusはderivedを上書きしない。
 - `project_management_*` だけを正本とし、旧 `project_sx_*` の二重台帳を作らない。重要表はsoft deleteとfield-level auditを持ち、authenticatedの物理DELETEを拒否する。member_selectは`deleted_at IS NULL`を必須にする。
-- portfolio/adminは共有情報を更新でき、project scopeは自PJの共有情報と自分の許可範囲だけを更新できる。raw本文、契約原文、報酬、メール本文、内部交渉メモ、source URLはDTO/UIへ出さない。
+- management APIはGET/PATCHに加えてPOSTを持ち、新規論点から仮説・根拠・検証・判断・actionまで親情報を指定して追加できる。portfolio/adminだけが作成し、project scopeは閲覧だけにする。raw本文、契約原文、報酬、メール本文、内部交渉メモ、source URLはDTO/UIへ出さない。
+- `/project/:id/workspace` は月初合意の全画面ゲートを起動せず、左サイドバーを使わない埋め込みシェルで表示する。390pxでは期限順カード・縦ロードマップ、768pxではカード、lg以上で比較表を使い、選択中の経営文脈へ戻れるstickyセクションナビを置く。
+- 運用準備は重要ゲート、KPI/技術試験、資金、役割/研究側、今週エフォートの5項目を不足件数つきで表示し、1件でも未確認ならトップ判定を未評価へ閉じる。
 - loading / empty / error / disabled / selected / focusを用意し、操作は44px以上。状態は色だけで伝えず、日本語表示で内部status・confidence・source・entity名を漏らさない。
 
 回帰防止:
 
 - `npm run test:sx-management` はKPI 0件、充足率Goodhart、critical未知、閾値内外、actual=0、between不足/逆転、依存待ち/停止、任意依存、期限超過、完了証跡、未完action、DAG cycle、現在ゲート切替を検査する。
-- `npm run test:project-management-rls` は20個のsoft-delete対象member_selectと、authenticated roleによるPJ境界を検査する。
-- `npm run test:critical-ui` は目的-KPI、測定、決定ループ、mobile cards、effort接続、PJ-scoped effort APIのanchorを検査する。
+- `npm run test:project-management-rls` (`npm run test:sx-management-rls`) は20個のsoft-delete対象member_select、184の分類/約束CHECK、補正履歴、authenticated roleによるPJ境界を検査する。
+- `npm run test:critical-ui` は目的-KPI、測定、決定ループ、POST/新規追加、運用準備、選択文脈、lg以上の比較表・lg未満のカード、effort接続、PJ-scoped effort APIのanchorを検査する。

@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-07-19 03:32 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-07-19 04:50 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -1158,7 +1158,7 @@ PRIMARY KEY: `nudge_id`
 
 ## contract_signals
 
-行数 (概算): 160
+行数 (概算): 171
 PRIMARY KEY: `signal_id`
 UNIQUE: `(source_kind,source_table,source_id,signal_type)` (constraint: `contract_signals_source_kind_source_table_source_id_signal__key`)
 
@@ -3301,7 +3301,7 @@ PRIMARY KEY: `id`
 
 ## project_management_field_audit
 
-行数 (概算): 1,528
+行数 (概算): 1,745
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -3667,6 +3667,7 @@ PRIMARY KEY: `id`
 | 21 | `deleted_at` | `timestamptz` | NULL | `` |
 | 22 | `deleted_by` | `text` | NULL | `` |
 | 23 | `version` | `int4` | NOT NULL | `1` |
+| 24 | `commitment_kind` | `text` | NOT NULL | `'sx_followup'::text` |
 
 ## project_management_partner_tracks
 

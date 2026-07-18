@@ -301,9 +301,35 @@ expectIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx",
   "confidenceLabel",
   "hypothesisStatusLabel",
   "auditEntityLabel",
-  "md:hidden",
-  "hidden overflow-x-auto md:block",
+  "lg:hidden",
+  "hidden overflow-x-auto lg:block",
+  "運用準備 未完了",
+  "effectiveJudgment",
+  "selected-management-context",
+  "aria-pressed",
+  "aria-controls=\"selected-management-context\"",
+  "sourceLabel",
+  "SX側の次アクション",
   "CategoryBand",
+]);
+expectIncludes("src/app/api/project-workspace/[projectId]/management/route.ts", [
+  "export async function POST",
+  "manual_create",
+  "追加行は非表示化したよ",
+  "commitment_kind",
+  "assertParentsInProject",
+  "const optionalDate = (key: string) => raw[key] == null || raw[key] === \"\" ? null",
+  'if (resource === "issue")',
+  'if (resource === "hypothesis")',
+  'if (resource === "decision")',
+  'if (resource === "action")',
+]);
+expectIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", [
+  "const CREATE_RESOURCES",
+  "const defaults: Record<string, string>",
+  'field.options?.[0]?.value || ""',
+  "effectiveJudgment",
+  "managementNavItems",
 ]);
 expectCountAtLeast("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", "<ObjectiveKpiSection", 1);
 expectCountAtLeast("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", "<MeasurementSection", 1);

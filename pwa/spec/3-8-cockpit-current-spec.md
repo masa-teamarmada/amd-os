@@ -265,16 +265,18 @@ Kanban の詳細 state machine、Meeting detail modal の attachment mutation、
 
 ### 経営航路の台帳
 
-目的 → 柱の成果目標 → KPI → マイルストーンをFKで接続する。KPIは`baseline / target / actual / unit / threshold / threshold_rule / threshold_upper / measurement_date / frequency / source / confidence`を持ち、`gte`（以上）、`lte`（以下）、`between`（範囲内）をAPIとderived logicで検証する。`actual=0`は値として扱い、`between`の上限欠落やlower > upperは「判定条件不足」とする。
+目的 → 柱の成果目標 → KPI → マイルストーンをPJ内の関連情報として接続する。KPIは`baseline / target / actual / unit / threshold / threshold_rule / threshold_upper / measurement_date / frequency / source / confidence`を持ち、`gte`（以上）、`lte`（以下）、`between`（範囲内）をAPIと計算ロジックで検証する。`actual=0`は値として扱い、`between`の上限欠落やlower > upperは「判定条件不足」とする。
 
 マイルストーンは完了条件、完了証跡、重要度、基準計画版、予測変更理由を持つ。依存は正規化テーブルで必須/任意・lagを保持し、DB triggerがPJ混在と循環を拒否する。手入力statusは表示用の記録であり、overall/trackはderived stateを正本とする。
 
 論点→複数仮説→根拠/反証・不足→次の検証→意思決定→actionの閉ループを、選択ゲートの詳細から同じ文脈で表示する。意思決定は理由、決定者、決定日を持ち、actionは担当、期限、完了条件、完了証跡、次回確認を持つ。会議/更新履歴とfield auditは削除せず追跡できる。
 
-協力機関は機関別に段階（候補 / 情報交換 / 条件整理 / 面談調整 / 検証準備 / 合意確認 / 実行中 / 保留）、合意状態、最終接点、次の約束、期限、担当、関連ゲート、約束履歴を表示する。技術試験・資金スナップショット・組織役割・RACI・人員容量は各測定値を画面に描画し、編集可能にする。週次エフォートは柱/マイルストーン/次の成果に接続する。
+協力機関は機関別に段階（候補 / 情報交換 / 条件整理 / 面談調整 / 検証準備 / 合意確認 / 実行中 / 保留）、合意状態、最終接点、SX側の次アクション、期限、担当、関連ゲート、約束履歴を表示する。約束履歴は相手の約束とSX側の次アクションを分け、相手担当・約束日・一次根拠が揃う場合だけ相手の約束にする。技術試験・資金スナップショット・組織役割・RACI・人員容量は各測定値を画面に描画し、編集可能にする。週次エフォートは柱/マイルストーン/次の成果に接続する。
+
+新規追加はPOSTで、選択中ゲートから論点 → 複数仮説 → 根拠/反証 → 検証 → 判断 → action → 次回確認を親情報つきで作る。portfolio/adminだけが作成でき、project scopeは閲覧だけ。履歴記録に失敗したPOSTは追加行を補償的にsoft-deleteし、再実行可能な状態に戻す。migration 184は未決分類、約束種類、相手の約束必須条件、親情報の同一PJ検査を補正し、再適用可能である。
 
 ### 権限・表示境界・レスポンシブ
 
 新規共有情報はAPIとRLSの両方でPJ所属を検証する。soft-delete対象のmember_selectは`deleted_at IS NULL`を含み、重要表はauthenticatedの物理DELETEを拒否する。共有DTOはraw本文、契約原文、報酬、メール本文、内部交渉メモ、source URLを返さない。portfolio/adminは共有情報を更新でき、project scopeは自PJの許可範囲だけ更新する。
 
-1440pxは同一比較軸の表と全体ガント、768pxは折り返し可能な密度、390pxは期限順カード/縦ロードマップへ再構成し、ページ全体の水平スクロールを作らない。loading / empty / error / disabled / selected / focusを持ち、タップ領域は44px以上、状態は色以外の文言でも伝える。表示文は日本語中心で、内部status・confidence・source・entity/field名は利用者向けラベルへ変換する。
+1440pxは同一比較軸の表と全体ガント、768pxはカード、390pxは期限順カード/縦ロードマップへ再構成し、ページ全体の水平スクロールを作らない。workspace直リンクでは月初合意モーダルと左デスクトップナビを出さず、stickyセクションナビで経営サマリー/全体計画/論点・仮説/協力機関/実行・体制を移動する。loading / empty / error / disabled / selected / focusを持ち、タップ領域は44px以上、状態は色以外の文言でも伝える。表示文は日本語中心で、内部status・confidence・source・entity/field名は利用者向けラベルへ変換する。
