@@ -811,7 +811,12 @@ export async function GET(req: NextRequest) {
     const dryRun = req.nextUrl.searchParams.get("dryRun") === "1";
     return await run(req, {
       dryRun,
-      sendNotifications: !dryRun && req.nextUrl.searchParams.get("notify") !== "0",
+      // 台帳同期とSlack DMは別責務。初回同期で未確認候補を一括送信しないよう、
+      // 自動DMは本番環境で明示的に有効化されるまで停止しておく。
+      sendNotifications:
+        !dryRun &&
+        process.env.PAYMENT_OBLIGATION_AUTO_NUDGE_ENABLED === "1" &&
+        req.nextUrl.searchParams.get("notify") !== "0",
       notificationSourceKey: req.nextUrl.searchParams.get("sourceKey"),
     });
   } catch (error) {
