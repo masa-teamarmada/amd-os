@@ -89,18 +89,26 @@ assert(triggerNames.has("project_management_dependency_guard"), "依存DAGのDB�
 assert(triggerNames.has("project_management_milestone_dependencies_block_delete"), "依存表の認証済みDELETE防止トリガーがないよ");
 
 const contractRows = await query(`
-  SELECT conname
+  SELECT conname, pg_get_constraintdef(oid)::text AS definition
   FROM pg_constraint
   WHERE conname IN (
     'project_management_issues_knowledge_type_check_184',
     'project_management_partner_commitments_kind_check_184',
-    'project_management_partner_commitments_promise_requirements_184'
+    'project_management_partner_commitments_promise_requirements_184',
+    'project_management_decisions_decided_requirements_185',
+    'project_management_partner_commitments_sx_followup_requirements'
   )
 `);
 const contractNames = new Set(contractRows.map((row) => row.conname));
 assert(contractNames.has("project_management_issues_knowledge_type_check_184"), "意思決定待ち分類のDB CHECKがないよ");
 assert(contractNames.has("project_management_partner_commitments_kind_check_184"), "約束種類のDB CHECKがないよ");
 assert(contractNames.has("project_management_partner_commitments_promise_requirements_184"), "相手の約束必須条件のDB CHECKがないよ");
+assert(contractNames.has("project_management_decisions_decided_requirements_185"), "決定済みの必須条件DB CHECKがないよ");
+assert(contractNames.has("project_management_partner_commitments_sx_followup_requirements"), "SX側の次アクション必須条件DB CHECKがないよ");
+const decidedGuard = contractRows.find((row) => row.conname === "project_management_decisions_decided_requirements_185")?.definition || "";
+const sxFollowupGuard = contractRows.find((row) => row.conname === "project_management_partner_commitments_sx_followup_requirements")?.definition || "";
+assert(/decision_state/.test(decidedGuard) && /decision_text/.test(decidedGuard) && /decided_by/.test(decidedGuard) && /decided_on/.test(decidedGuard), "決定済みCHECKの必須項目が不足しているよ");
+assert(/commitment_kind/.test(sxFollowupGuard) && /sx_owner/.test(sxFollowupGuard) && /due_date/.test(sxFollowupGuard) && /next_review_on/.test(sxFollowupGuard), "SX側の次アクションCHECKの必須項目が不足しているよ");
 
 const correctedHistory = await query(`
   SELECT count(*)::int AS count

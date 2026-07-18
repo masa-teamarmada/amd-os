@@ -308,10 +308,26 @@ expectIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx",
   "selected-management-context",
   "aria-pressed",
   "aria-controls=\"selected-management-context\"",
+  "overflow-x-clip",
   "sourceLabel",
   "SX側の次アクション",
+  "非表示にする",
+  "DeletedManagementSection",
+  "非表示の情報を確認",
+  "復元",
   "CategoryBand",
 ]);
+{
+  const dashboard = read("src/components/project-workspace/ProjectWorkspaceDashboard.tsx");
+  const summaryIndex = dashboard.indexOf('id="management-summary"');
+  const readinessIndex = dashboard.indexOf('aria-labelledby="readiness-heading"');
+  if (summaryIndex < 0 || readinessIndex < 0 || readinessIndex < summaryIndex) {
+    throw new Error("経営判定が運用準備チェックより前に配置されていないよ");
+  }
+  if (dashboard.includes("overflow-x-hidden")) {
+    throw new Error("workspaceのoverflow-x-hiddenがstickyナビを分断する可能性があるよ");
+  }
+}
 expectIncludes("src/app/api/project-workspace/[projectId]/management/route.ts", [
   "export async function POST",
   "manual_create",
@@ -323,6 +339,17 @@ expectIncludes("src/app/api/project-workspace/[projectId]/management/route.ts", 
   'if (resource === "hypothesis")',
   'if (resource === "decision")',
   'if (resource === "action")',
+  "includeDeleted",
+  "listDeletedRecords",
+  "decision_text",
+  "sx_owner",
+  "rollbackPatch",
+]);
+expectIncludes("scripts/migrations/185_sx_management_semantic_guards.sql", [
+  "project_management_decisions_decided_requirements_185",
+  "project_management_partner_commitments_sx_followup_requirements",
+  "decision_state <> 'decided'",
+  "commitment_kind <> 'sx_followup'",
 ]);
 expectIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", [
   "const CREATE_RESOURCES",

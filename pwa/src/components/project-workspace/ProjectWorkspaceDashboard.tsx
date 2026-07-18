@@ -449,6 +449,25 @@ function EditPanel({
       setSaving(false);
     }
   }
+  async function hideRecord() {
+    if (!window.confirm(`${RESOURCE_LABELS[resource]}を非表示にする？履歴を残して、あとで復元できるよ。`)) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/project-workspace/${encodeURIComponent(projectId)}/management`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resource, id: record.id, delete: true }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(typeof body.error === "string" ? body.error : "非表示にできなかったよ");
+      onSaved(body.bundle as SxManagementBundle);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "非表示にできなかったよ");
+    } finally {
+      setSaving(false);
+    }
+  }
   return (
     <div className="fixed inset-0 z-50 grid place-items-end bg-[#24231f]/35 p-0 sm:place-items-center sm:p-5" role="dialog" aria-modal="true" aria-label="共有情報を編集">
       <div className="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl border border-[#d6cebf] bg-[#fffdf7] p-5 shadow-[0_24px_80px_rgba(61,56,44,0.22)] sm:max-w-2xl sm:rounded-2xl sm:p-7">
@@ -458,7 +477,7 @@ function EditPanel({
             <h2 className="mt-1 text-lg font-semibold text-[#24231f]">{RESOURCE_LABELS[resource]}</h2>
             <p className="mt-1 text-xs text-[#777166]">保存すると最終確認日と「手入力」の根拠を更新するよ。</p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-md border border-[#d6cebf] px-3 py-2 text-xs font-semibold text-[#69665d] hover:bg-[#f8f5ec]">閉じる</button>
+          <button type="button" onClick={onClose} className="min-h-11 rounded-md border border-[#d6cebf] px-3 py-2 text-xs font-semibold text-[#69665d] hover:bg-[#f8f5ec]">閉じる</button>
         </div>
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           {fields.map((field) => (
@@ -478,8 +497,9 @@ function EditPanel({
         </div>
         {error && <p className="mt-4 rounded-lg border border-[#e4a39b] bg-[#f9e4e1] px-3 py-2 text-xs leading-5 text-[#8c3329]" role="alert">{error}</p>}
         <div className="mt-6 flex justify-end gap-2 border-t border-[#e4ddd0] pt-4">
-          <button type="button" onClick={onClose} className="rounded-lg border border-[#cfc7b9] px-4 py-2.5 text-sm font-semibold text-[#69665d] hover:bg-[#f8f5ec]">キャンセル</button>
-          <button type="button" onClick={save} disabled={saving} className="rounded-lg bg-[#205f49] px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60">{saving ? "保存中…" : "更新を保存"}</button>
+          <button type="button" onClick={hideRecord} disabled={saving} className="min-h-11 rounded-lg border border-[#e4a39b] px-4 py-2.5 text-sm font-semibold text-[#8c3329] hover:bg-[#f9e4e1] disabled:cursor-wait disabled:opacity-60">非表示にする</button>
+          <button type="button" onClick={onClose} className="min-h-11 rounded-lg border border-[#cfc7b9] px-4 py-2.5 text-sm font-semibold text-[#69665d] hover:bg-[#f8f5ec]">キャンセル</button>
+          <button type="button" onClick={save} disabled={saving} className="min-h-11 rounded-lg bg-[#205f49] px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60">{saving ? "保存中…" : "更新を保存"}</button>
         </div>
       </div>
     </div>
@@ -565,6 +585,70 @@ function AddPanel({ projectId, management, resource, initialValues, onClose, onS
         <div className="mt-6 flex justify-end gap-2 border-t border-[#e4ddd0] pt-4"><button type="button" onClick={onClose} className="min-h-11 rounded-lg border border-[#cfc7b9] px-4 py-2.5 text-sm font-semibold text-[#69665d] hover:bg-[#f8f5ec]">キャンセル</button><button type="button" onClick={save} disabled={saving} className="min-h-11 rounded-lg bg-[#205f49] px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60">{saving ? "保存中…" : "追加して接続"}</button></div>
       </div>
     </div>
+  );
+}
+
+type DeletedManagementRecord = {
+  resource: ManagementResource;
+  id: string;
+  label: string;
+  deletedAt: string | null;
+};
+
+function DeletedManagementSection({ projectId, onRestored }: { projectId: string; onRestored: (bundle: SxManagementBundle) => void }) {
+  const [open, setOpen] = useState(false);
+  const [records, setRecords] = useState<DeletedManagementRecord[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  async function loadDeleted() {
+    setOpen(true);
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/project-workspace/${encodeURIComponent(projectId)}/management?include_deleted=true`, { cache: "no-store" });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(typeof body.error === "string" ? body.error : "非表示情報を確認できなかったよ");
+      setRecords(Array.isArray(body.deletedRecords) ? body.deletedRecords : []);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "非表示情報を確認できなかったよ");
+    } finally {
+      setLoading(false);
+    }
+  }
+  async function restore(record: DeletedManagementRecord) {
+    if (!window.confirm(`${RESOURCE_LABELS[record.resource]}「${record.label}」を復元する？`)) return;
+    setRestoringId(record.id);
+    setError(null);
+    try {
+      const response = await fetch(`/api/project-workspace/${encodeURIComponent(projectId)}/management`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resource: record.resource, id: record.id, restore: true }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(typeof body.error === "string" ? body.error : "復元できなかったよ");
+      onRestored(body.bundle as SxManagementBundle);
+      setRecords((current) => current.filter((item) => item.id !== record.id || item.resource !== record.resource));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "復元できなかったよ");
+    } finally {
+      setRestoringId(null);
+    }
+  }
+  return (
+    <section className="rounded-xl border border-[#d6cebf] bg-[#fffdf7]/95 p-5 sm:p-6" aria-labelledby="deleted-management-heading">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div><p className="text-[10px] font-semibold tracking-[0.16em] text-[#38745d]">管理台帳の履歴</p><h2 id="deleted-management-heading" className="mt-1 text-lg font-semibold text-[#24231f]">非表示にした共有情報</h2><p className="mt-1 text-xs leading-5 text-[#777166]">削除ではなく履歴を残して非表示にした情報を、PJ境界内で確認・復元するよ。</p></div>
+        <button type="button" onClick={loadDeleted} className="min-h-11 rounded-lg border border-[#cfc7b9] px-4 py-2.5 text-xs font-semibold text-[#514e47] hover:bg-[#f8f5ec] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]">{open ? "再読み込み" : "非表示の情報を確認"}</button>
+      </div>
+      {open && <div className="mt-4 border-t border-[#e4ddd0] pt-4" aria-live="polite">
+        {loading && <p className="rounded-lg border border-dashed border-[#d6cebf] p-4 text-xs text-[#777166]">非表示情報を読み込み中…</p>}
+        {error && <p className="rounded-lg border border-[#e4a39b] bg-[#f9e4e1] p-4 text-xs text-[#8c3329]" role="alert">{error}</p>}
+        {!loading && !error && records.length === 0 && <p className="rounded-lg border border-dashed border-[#d6cebf] p-4 text-xs text-[#777166]">復元できる非表示情報はないよ。</p>}
+        {!loading && records.length > 0 && <div className="space-y-2">{records.map((record) => <div key={`${record.resource}-${record.id}`} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#e4ddd0] bg-[#f8f5ec] p-3"><div><p className="text-xs font-semibold text-[#24231f]">{RESOURCE_LABELS[record.resource]} / {record.label}</p><p className="mt-1 text-[11px] text-[#777166]">非表示日時 {formatDate(record.deletedAt)}</p></div><button type="button" onClick={() => restore(record)} disabled={restoringId === record.id} className="min-h-11 rounded-md border border-[#38745d] px-3 py-2 text-[11px] font-semibold text-[#205f49] hover:bg-[#e8f2eb] disabled:cursor-wait disabled:opacity-60">{restoringId === record.id ? "復元中…" : "復元"}</button></div>)}</div>}
+      </div>}
+    </section>
   );
 }
 
@@ -688,18 +772,19 @@ function DecisionLoopSection({ management, onEdit }: { management: SxManagementB
   );
 }
 
-function SelectedMilestoneContext({ milestone, issues, partners, canManage, onEdit, onCreate }: { milestone: SxManagementMilestone; issues: SxManagementIssue[]; partners: SxManagementPartner[]; canManage: boolean; onEdit: (resource: ManagementResource, id: string) => void; onCreate: (resource: ManagementResource, initialValues?: Record<string, string>) => void }) {
+function SelectedMilestoneContext({ milestone, milestones, issues, partners, canManage, onEdit, onCreate }: { milestone: SxManagementMilestone; milestones: SxManagementMilestone[]; issues: SxManagementIssue[]; partners: SxManagementPartner[]; canManage: boolean; onEdit: (resource: ManagementResource, id: string) => void; onCreate: (resource: ManagementResource, initialValues?: Record<string, string>) => void }) {
   const evidenceKind: Record<string, string> = { supporting: "根拠", counter: "反証", missing: "不足", observation: "観測" };
   const validationStatus: Record<string, string> = { planned: "計画", running: "実施中", completed: "完了", blocked: "停止", cancelled: "取消" };
   const actionStatus: Record<string, string> = { open: "未着手", in_progress: "進行中", completed: "完了", blocked: "停止" };
   const commitmentStatus: Record<string, string> = { open: "未着手", in_progress: "進行中", completed: "完了", blocked: "停止", cancelled: "取消" };
+  const dependencyLabels = milestone.dependencySlugs.map((slug) => milestones.find((item) => item.slug === slug)?.title || "関連ゲート（名称未確認）");
   return (
     <div id="selected-management-context" className="mt-4 rounded-lg border border-[#9fc6b4] bg-[#f1f6f2] p-4 text-xs text-[#514e47]" tabIndex={-1} aria-label="選択中の経営文脈">
       <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]">選択中の経営文脈</p><h3 className="mt-1 text-sm font-semibold text-[#24231f]">{milestone.title}</h3><p className="mt-1 text-[11px] text-[#69665d]">担当 {milestone.ownerLabel} / 計算した状態 {statusLabel(milestone.derivedStatus)} / 確認 {formatDate(milestone.lastVerifiedAt)} / 確度 {confidenceLabel(milestone.confidence)}</p></div><div className="flex flex-wrap items-center gap-2"><span className="text-[10px] text-[#777166]">依存 {milestone.dependencySlugs.length}件 / KPI {milestone.linkedKpiIds.length}件</span>{canManage && <><EditAction canManage={canManage} label="ゲートを編集" onClick={() => onEdit("milestone", milestone.id)} /><button type="button" onClick={() => onCreate("issue", { milestone_id: milestone.id, outcome_id: milestone.outcomeId, track: milestone.track })} className="min-h-11 rounded-md border border-[#38745d] px-3 py-2 text-[11px] font-semibold text-[#205f49] hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]">このゲートに論点を追加</button></>}</div></div>
       <div className="mt-4 grid gap-4 lg:grid-cols-[1.2fr_1fr_0.9fr]">
         <div className="space-y-3"><div className="flex flex-wrap items-center justify-between gap-2"><h4 className="font-semibold">論点 → 仮説 → 根拠 → 検証 → 判断</h4>{canManage && <button type="button" onClick={() => onCreate("issue", { milestone_id: milestone.id, outcome_id: milestone.outcomeId, track: milestone.track })} className="min-h-11 rounded-md border border-[#cfc7b9] px-3 py-2 text-[11px] font-semibold">論点を追加</button>}</div>{issues.length === 0 && <p className="rounded-lg border border-dashed border-[#b7c8d2] p-3 text-[11px]">関連論点未登録</p>}{issues.map((issue) => <article key={issue.id} className="rounded-lg border border-[#c9d9cf] bg-[#fffdf7] p-3"><div className="flex flex-wrap items-center justify-between gap-2"><div className="flex flex-wrap items-center gap-2"><Badge tone={issue.knowledgeType === "fact" ? "border-[#b7c8d2] bg-[#eef3f5] text-[#315f7d]" : issue.knowledgeType === "decision_needed" ? "border-[#e3c994] bg-[#fbf1dc] text-[#765022]" : "border-[#c9bfd0] bg-[#f1edf3] text-[#5f4a66]"}>{ISSUE_KIND_LABELS[issue.knowledgeType]}</Badge><span className="font-semibold text-[#24231f]">{issue.title}</span></div>{canManage && <EditAction canManage={canManage} onClick={() => onEdit("issue", issue.id)} />}</div><p className="mt-2 leading-5">現在の仮説: {issue.hypothesis}</p><p className="mt-2 text-[11px] text-[#69665d]">担当 {issue.ownerLabel} / 期限 {formatDate(issue.dueDate)} / 確認 {formatDate(issue.lastVerifiedAt)} / 状態 {statusLabel(issue.status)} / 確度 {confidenceLabel(issue.confidence)}</p><div className="mt-3 space-y-2 border-t border-[#e4ddd0] pt-3"><div className="flex items-center justify-between gap-2"><p className="font-semibold">仮説 {issue.hypotheses.length}件</p>{canManage && <button type="button" onClick={() => onCreate("hypothesis", { issue_id: issue.id })} className="min-h-11 rounded-md border border-[#cfc7b9] px-2.5 py-2 text-[10px] font-semibold">仮説を追加</button>}</div>{issue.hypotheses.map((hypothesis) => <div key={hypothesis.id} className="rounded-md bg-[#f8f5ec] p-2.5"><div className="flex items-start justify-between gap-2"><p className="leading-5">{hypothesis.statement}</p>{canManage && <EditAction canManage={canManage} onClick={() => onEdit("hypothesis", hypothesis.id)} />}</div><p className="mt-1 text-[10px] text-[#777166]">{hypothesisStatusLabel(hypothesis.status)} / {hypothesis.ownerLabel} / 期限 {formatDate(hypothesis.dueDate)} / 確度 {confidenceLabel(hypothesis.confidence)} / 確認 {formatDate(hypothesis.lastVerifiedAt)}</p></div>)}{issue.hypotheses.length === 0 && <p className="text-[11px] text-[#8c3329]">仮説未登録</p>}</div><div className="mt-3 space-y-2 border-t border-[#e4ddd0] pt-3"><div className="flex items-center justify-between gap-2"><p className="font-semibold">根拠・反証・不足 {issue.evidence.length}件</p>{canManage && <button type="button" onClick={() => onCreate("evidence", { issue_id: issue.id, hypothesis_id: issue.hypotheses[0]?.id || "" })} className="min-h-11 rounded-md border border-[#cfc7b9] px-2.5 py-2 text-[10px] font-semibold">根拠を追加</button>}</div>{issue.evidence.map((evidence) => <div key={evidence.id} className="rounded-md bg-[#f8f5ec] p-2.5"><div className="flex items-start justify-between gap-2"><p><span className="font-semibold">{evidenceKind[evidence.kind] || "未確認"}</span> {evidence.summary}</p>{canManage && <EditAction canManage={canManage} onClick={() => onEdit("evidence", evidence.id)} />}</div><p className="mt-1 text-[10px] text-[#777166]">{evidence.sourceLabel} / {formatDate(evidence.observedOn)} / 確度 {confidenceLabel(evidence.confidence)} / 確認 {formatDate(evidence.lastVerifiedAt)}</p></div>)}{issue.evidence.length === 0 && <p className="text-[11px] text-[#8c3329]">根拠未登録</p>}</div><div className="mt-3 space-y-2 border-t border-[#e4ddd0] pt-3"><div className="flex items-center justify-between gap-2"><p className="font-semibold">次の検証 {issue.validationRuns.length}件</p>{canManage && <button type="button" onClick={() => onCreate("validation", { hypothesis_id: issue.hypotheses[0]?.id || "" })} className="min-h-11 rounded-md border border-[#cfc7b9] px-2.5 py-2 text-[10px] font-semibold">検証を追加</button>}</div>{issue.validationRuns.map((run) => <div key={run.id} className="rounded-md bg-[#f8f5ec] p-2.5"><div className="flex items-start justify-between gap-2"><p><Badge tone={run.status === "blocked" ? STATUS_TONE.blocked : "border-[#b7c8d2] bg-[#eef3f5] text-[#315f7d]"}>{validationStatus[run.status] || "未確認"}</Badge> <span className="ml-1">{run.method}</span></p>{canManage && <EditAction canManage={canManage} onClick={() => onEdit("validation", run.id)} />}</div><p className="mt-1 text-[10px] text-[#777166]">担当 {run.ownerLabel} / 期限 {formatDate(run.dueDate)} / 確度 {confidenceLabel(run.confidence)}{run.resultSummary ? ` / 結果 ${run.resultSummary}` : ""}</p></div>)}{issue.validationRuns.length === 0 && <p className="text-[11px] text-[#8c3329]">検証予定未登録</p>}</div><div className="mt-3 space-y-2 border-t border-[#e4ddd0] pt-3"><div className="flex items-center justify-between gap-2"><p className="font-semibold">意思決定 {issue.decisions.length}件</p>{canManage && <button type="button" onClick={() => onCreate("decision", { issue_id: issue.id })} className="min-h-11 rounded-md border border-[#cfc7b9] px-2.5 py-2 text-[10px] font-semibold">判断を追加</button>}</div>{issue.decisions.map((decision) => <div key={decision.id} className="rounded-md bg-[#f8f5ec] p-2.5"><div className="flex items-start justify-between gap-2"><p>{decision.status === "decided" ? "決定済み" : decision.status === "deferred" ? "保留" : "意思決定待ち"} / {decision.title}</p>{canManage && <EditAction canManage={canManage} onClick={() => onEdit("decision", decision.id)} />}</div><p className="mt-1 text-[10px] text-[#777166]">理由 {decision.rationale} / 決定者 {decision.decidedBy || "未確認"} / 決定日 {formatDate(decision.decidedOn)}</p>{decision.actionItems.map((action) => <div key={action.id} className="mt-1 flex items-center justify-between gap-2 border-l-2 border-[#bf7b2c] pl-2 text-[10px]"><p>次アクション: {action.title} / {actionStatus[action.status]} / {action.ownerLabel} / {formatDate(action.dueDate)} / 次回 {formatDate(action.nextReviewOn)}</p>{canManage && <EditAction canManage={canManage} onClick={() => onEdit("action", action.id)} />}</div>)}</div>)}{issue.decisions.length === 0 && <p className="text-[11px] text-[#8c3329]">意思決定未登録</p>}</div></article>)}</div>
         <div className="space-y-3"><div className="flex flex-wrap items-center justify-between gap-2"><h4 className="font-semibold">協力機関・約束</h4>{canManage && <><EditAction canManage={canManage} onClick={() => onEdit("partner", partners[0]?.id || "")} />{partners[0] && <button type="button" onClick={() => onCreate("commitment", { partner_id: partners[0].id })} className="min-h-11 rounded-md border border-[#cfc7b9] px-3 py-2 text-[11px] font-semibold">約束を追加</button>}</>}</div>{partners.length === 0 && <p className="rounded-lg border border-dashed border-[#b7c8d2] p-3 text-[11px]">関連機関未登録</p>}{partners.map((partner) => <article key={partner.id} className="rounded-lg border border-[#c9d9cf] bg-[#fffdf7] p-3"><div className="flex items-start justify-between gap-2"><p className="font-semibold text-[#24231f]">{partner.name}</p>{canManage && <EditAction canManage={canManage} onClick={() => onEdit("partner", partner.id)} />}</div><p className="mt-1 text-[11px]">{partner.roleLabel} / {PARTNER_STAGE_LABELS[partner.relationshipStage]} / {partner.agreementState === "agreed" ? "合意済み" : partner.agreementState === "partial" ? "一部合意" : "未合意"}</p><p className="mt-1 text-[11px]">担当 {partner.ownerLabel} / 期限 {formatDate(partner.dueDate)} / 接点 {formatDate(partner.lastContactDate)} / 確度 {confidenceLabel(partner.confidence)}</p><p className="mt-2 leading-5">合意済み: {partner.agreedScope}</p><p className="mt-1 leading-5 text-[#8c3329]">未合意: {partner.unagreedScope}</p><div className="mt-3 space-y-2 border-t border-[#e4ddd0] pt-3">{partner.commitments.map((commitment) => <div key={commitment.id} className="rounded-md bg-[#f8f5ec] p-2.5"><div className="flex items-start justify-between gap-2"><p>{commitmentStatus[commitment.status]} / {commitment.commitmentKind === "counterparty_promise" ? "相手の約束" : "SX側の次アクション"} / {commitment.title}</p>{canManage && <EditAction canManage={canManage} onClick={() => onEdit("commitment", commitment.id)} />}</div><p className="mt-1 text-[10px] text-[#777166]">{commitment.commitmentKind === "counterparty_promise" ? `相手 ${commitment.counterpartyOwner || "未確認"} / 約束日 ${formatDate(commitment.promisedOn)}` : `SX ${commitment.sxOwner || "未確認"}`} / 期限 {formatDate(commitment.dueDate)} / 次回 {formatDate(commitment.nextReviewOn)} / 確度 {confidenceLabel(commitment.confidence)}</p><p className="mt-1 text-[11px] leading-5">{commitment.commitmentText}</p>{commitment.commitmentKind === "counterparty_promise" && commitment.evidence && <p className="mt-1 text-[10px] text-[#205f49]">一次根拠: {commitment.evidence}</p>}</div>)}{partner.commitments.length === 0 && <p className="text-[11px] text-[#8c3329]">約束履歴未登録</p>}</div></article>)}</div>
-        <div className="space-y-3"><h4 className="font-semibold text-[#24231f]">前提・依存</h4><div className="rounded-lg border border-[#c9d9cf] bg-[#fffdf7] p-3"><p className="leading-5">{milestone.dependencySlugs.join(" / ") || "依存先なし"}</p><p className="mt-2 font-semibold">{milestone.isBlocked ? "停止" : milestone.reasonCodes.includes("dependency_waiting") ? "依存待ち" : "接続確認済み"}</p><p className="mt-1 text-[11px] text-[#777166]">前任 {milestone.predecessorIds.length}件 / 後続 {milestone.successorIds.length}件 / 完了条件 {milestone.completionCriteria}</p></div><div className="rounded-lg border border-[#c9d9cf] bg-[#fffdf7] p-3"><p className="font-semibold text-[#24231f]">このゲートの次の成果</p><p className="mt-1 leading-5">{milestone.nextDeliverable}</p><p className="mt-2 text-[11px] text-[#8c3329]">最大論点: {milestone.maxIssue}</p><p className="mt-1 text-[11px] text-[#777166]">予定 {formatDate(milestone.plannedEnd)} / 予測 {formatDate(milestone.forecastEnd)} / 差分 {milestone.deltaDays == null ? "未算定" : `${milestone.deltaDays}日`} / {milestone.dateCertainty === "provisional" ? "仮置き" : "確定"}</p></div></div>
+        <div className="space-y-3"><h4 className="font-semibold text-[#24231f]">前提・依存</h4><div className="rounded-lg border border-[#c9d9cf] bg-[#fffdf7] p-3"><p className="leading-5">{dependencyLabels.join(" / ") || "依存先なし"}</p><p className="mt-2 font-semibold">{milestone.isBlocked ? "停止" : milestone.reasonCodes.includes("dependency_waiting") ? "依存待ち" : "接続確認済み"}</p><p className="mt-1 text-[11px] text-[#777166]">前任 {milestone.predecessorIds.length}件 / 後続 {milestone.successorIds.length}件 / 完了条件 {milestone.completionCriteria}</p></div><div className="rounded-lg border border-[#c9d9cf] bg-[#fffdf7] p-3"><p className="font-semibold text-[#24231f]">このゲートの次の成果</p><p className="mt-1 leading-5">{milestone.nextDeliverable}</p><p className="mt-2 text-[11px] text-[#8c3329]">最大論点: {milestone.maxIssue}</p><p className="mt-1 text-[11px] text-[#777166]">予定 {formatDate(milestone.plannedEnd)} / 予測 {formatDate(milestone.forecastEnd)} / 差分 {milestone.deltaDays == null ? "未算定" : `${milestone.deltaDays}日`} / {milestone.dateCertainty === "provisional" ? "仮置き" : "確定"}</p></div></div>
       </div>
     </div>
   );
@@ -774,26 +859,58 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
   const managementNavItems: Array<[string, string]> = [["management-summary", "経営サマリー"], ["management-plan", "全体計画"], ["management-issues", "論点・仮説"], ["management-partners", "協力機関"], ["management-capacity", "実行・体制"]];
 
   return (
-    <div className="amd-desk-page-skin sx-management-workspace w-full min-w-0 max-w-full min-h-screen overflow-x-hidden px-3 py-4 sm:px-5 lg:px-8 lg:py-7">
+    <div className="amd-desk-page-skin sx-management-workspace w-full min-w-0 max-w-full min-h-screen overflow-x-clip px-3 py-4 sm:px-5 lg:px-8 lg:py-7">
       <div className="mx-auto min-w-0 max-w-[1480px] space-y-5">
-        <header className="border-b border-[#cfc7b9] pb-5">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <header className="border-b border-[#cfc7b9] pb-3 sm:pb-5">
+          <div className="flex flex-col gap-2 sm:gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2 text-[11px]">
                 <Badge tone="border-[#9fc6b4] bg-[#e8f2eb] text-[#205f49]"><ShieldCheck className="mr-1 h-3.5 w-3.5" aria-hidden="true" />SX / COO共有</Badge>
                 <Badge tone="border-[#d6cebf] bg-[#fffdf7] text-[#69665d]">{access.scope === "project" ? "参加PJ限定" : "AMD管理ビュー"}</Badge>
                 {effectiveJudgment.lastVerifiedAt && <span className="text-[#777166]">最終確認 {formatDate(effectiveJudgment.lastVerifiedAt)}</span>}
               </div>
-              <p className="mt-3 font-mono text-[11px] tracking-[0.14em] text-[#777166]">{projectId}</p>
-              <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[#24231f] sm:text-3xl">経営航路 <span className="text-[#777166]">/ {workspace.project.projectName}</span></h1>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-[#69665d]">2026年7月から2027年3月の設立ゲートまで、予定・予測・論点・協力機関を同じ時間軸で見るSX共有ダッシュボード。</p>
+              <p className="mt-2 font-mono text-[11px] tracking-[0.14em] text-[#777166]">{projectId}</p>
+              <h1 className="mt-1 text-xl font-semibold tracking-tight text-[#24231f] sm:text-3xl">経営航路 <span className="text-[#777166]">/ {workspace.project.projectName}</span></h1>
+              <p className="mt-1 max-w-3xl text-xs leading-5 text-[#69665d] sm:mt-2 sm:text-sm sm:leading-6">2026年7月から2027年3月の設立ゲートまで、予定・予測・論点・協力機関を同じ時間軸で見るSX共有ダッシュボード。</p>
             </div>
             <div className="flex flex-wrap gap-2 text-xs text-[#777166]">
-              <span className="rounded-md border border-[#d6cebf] bg-[#f8f5ec] px-3 py-2">更新基準 {formatDate(management.asOf)}</span>
-              <span className="rounded-md border border-[#d6cebf] bg-[#f8f5ec] px-3 py-2">4本柱 / 9か月</span>
+              <span className="rounded-md border border-[#d6cebf] bg-[#f8f5ec] px-2.5 py-1.5 sm:px-3 sm:py-2">更新基準 {formatDate(management.asOf)}</span>
+              <span className="rounded-md border border-[#d6cebf] bg-[#f8f5ec] px-2.5 py-1.5 sm:px-3 sm:py-2">4本柱 / 9か月</span>
             </div>
           </div>
         </header>
+
+        <section id="management-summary" className="overflow-hidden rounded-xl border border-[#cfc7b9] bg-[#fffdf7]/95 shadow-[0_10px_35px_rgba(61,56,44,0.05)]" aria-labelledby="judgment-heading">
+          <div className="grid lg:grid-cols-[1.03fr_1.15fr_0.9fr]">
+            <div className={`border-b border-[#d6cebf] p-4 sm:p-4 lg:border-b-0 lg:border-r lg:p-6 ${JUDGMENT_TONE[effectiveJudgment.key] || JUDGMENT_TONE.unassessed}`}>
+              <div className="flex items-start justify-between gap-4"><div><p className="text-[10px] font-semibold tracking-[0.16em] opacity-75">経営判定</p><h2 id="judgment-heading" className="mt-2 text-3xl font-semibold tracking-tight lg:mt-3 lg:text-4xl">{effectiveJudgment.label}</h2></div><CircleAlert className="h-6 w-6 opacity-70" aria-hidden="true" /></div>
+              <p className="mt-2 max-w-xs text-[11px] leading-4 lg:mt-4 lg:text-sm lg:leading-6">根拠のない「順調」は出さず、期限・阻害・担当・確度が揃った範囲だけ判定してるよ。</p>
+            </div>
+            <div className="border-b border-[#d6cebf] p-4 sm:p-4 lg:border-b-0 lg:border-r lg:p-6">
+              <p className="text-[10px] font-semibold tracking-[0.16em] text-[#777166]">判定理由</p>
+              <ul className="mt-2 space-y-1.5 text-xs leading-4 text-[#514e47] lg:mt-3 lg:space-y-2.5 lg:text-sm lg:leading-5">
+                {effectiveJudgment.reasons.slice(0, 3).map((reason) => <li key={reason} className="flex gap-2"><span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#bf7b2c] lg:mt-2" />{reason}</li>)}
+              </ul>
+            </div>
+            <div className="p-4 sm:p-4 lg:p-6">
+              <p className="text-[10px] font-semibold tracking-[0.16em] text-[#777166]">今週決めること</p>
+              <div className="mt-2 space-y-1.5 lg:mt-3 lg:space-y-3">
+                {effectiveJudgment.decisionQueue.length > 0 ? effectiveJudgment.decisionQueue.slice(0, 3).map((decision) => <div key={decision.id} className="border-l-2 border-[#bf7b2c] pl-2.5 lg:pl-3"><p className="text-xs font-semibold leading-4 text-[#24231f] lg:text-sm lg:leading-5">{decision.title}</p><p className="mt-0.5 text-[10px] leading-4 text-[#777166] lg:mt-1 lg:text-[11px]">期限 {formatDate(decision.dueDate)} / {decision.ownerLabel}</p></div>) : <p className="text-xs text-[#777166] lg:text-sm">決定待ちはまだ登録されてないよ。</p>}
+              </div>
+            </div>
+          </div>
+          <div className="grid gap-1.5 border-t border-[#d6cebf] bg-[#fffdf7] px-4 py-3 text-[11px] leading-4 sm:grid-cols-2 lg:gap-3 lg:px-6 lg:py-4 lg:text-xs lg:leading-5"><p><span className="font-semibold text-[#24231f]">止まっている柱:</span> {effectiveJudgment.blockedCount > 0 ? management.tracks.filter((track) => track.status === "blocked" || track.status === "at_risk").map((track) => track.label).join(" / ") || "個別ゲートを確認" : "なし"}</p><p><span className="font-semibold text-[#24231f]">重大な未確認:</span> {effectiveJudgment.criticalUnknownCount}件。根拠・担当・KPIが未確認のゲートを先に見る。</p></div>
+          <dl className="grid grid-cols-4 border-t border-[#d6cebf] bg-[#f8f5ec]">
+            <div className="border-r border-[#e4ddd0] px-2 py-2 lg:px-5 lg:py-3"><dt className="text-[9px] font-semibold leading-3 text-[#777166] lg:text-[10px]">次の期限</dt><dd className="mt-0.5 text-[11px] font-semibold leading-4 text-[#24231f] lg:mt-1 lg:text-sm">{formatDate(effectiveJudgment.nextDeadline)}</dd></div>
+            <div className="border-r border-[#e4ddd0] px-2 py-2 lg:px-5 lg:py-3"><dt className="text-[9px] font-semibold leading-3 text-[#777166] lg:text-[10px]">最終確認日</dt><dd className="mt-0.5 text-[11px] font-semibold leading-4 text-[#24231f] lg:mt-1 lg:text-sm">{formatDate(effectiveJudgment.lastVerifiedAt)}</dd></div>
+            <div className="border-r border-[#e4ddd0] px-2 py-2 lg:px-5 lg:py-3"><dt className="text-[9px] font-semibold leading-3 text-[#777166] lg:text-[10px]">データ充足率</dt><dd className="mt-0.5 text-[11px] font-semibold leading-4 text-[#24231f] lg:mt-1 lg:text-sm">{effectiveJudgment.completenessPct}%</dd></div>
+            <div className="px-2 py-2 lg:px-5 lg:py-3"><dt className="text-[9px] font-semibold leading-3 text-[#777166] lg:text-[10px]">更新切れ / 期限超過</dt><dd className="mt-0.5 text-[11px] font-semibold leading-4 text-[#24231f] lg:mt-1 lg:text-sm">{effectiveJudgment.staleCount} / {effectiveJudgment.overdueCount}</dd></div>
+          </dl>
+        </section>
+
+        <nav className="sticky top-0 z-20 grid grid-cols-3 gap-1 rounded-lg border border-[#d6cebf] bg-[#fffdf7]/95 p-1 shadow-sm backdrop-blur sm:flex sm:flex-wrap" aria-label="経営診断ナビ">
+          {managementNavItems.map(([id, label]) => <a key={id} href={`#${id}`} aria-current={activeSection === id ? "page" : undefined} onClick={() => setActiveSection(id)} className={`min-h-11 rounded-md px-2 py-2 text-center text-[11px] font-semibold hover:bg-[#f8f5ec] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] ${activeSection === id ? "bg-[#e8f2eb] text-[#205f49]" : "text-[#514e47]"}`}>{label}</a>)}
+        </nav>
 
         <section className="rounded-xl border border-[#9fc6b4] bg-[#f1f6f2] p-4" aria-labelledby="readiness-heading">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -808,38 +925,6 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
             {operationChecks.map((check) => <div key={check.label} className={`rounded-lg border p-3 ${check.missing === 0 ? "border-[#9fc6b4] bg-white" : "border-[#e3c994] bg-[#fbf1dc]"}`}><div className="flex items-start justify-between gap-2"><p className="text-xs font-semibold leading-5 text-[#24231f]">{check.label}</p><span className="shrink-0 text-[11px] font-semibold">{check.missing === 0 ? "準備済み" : "未確認"}</span></div><p className="mt-2 text-[11px] text-[#765022]">不足 {check.missing}件</p></div>)}
           </div>
           {management.canManage && <div className="mt-4 border-t border-[#c9d9cf] pt-3"><p className="text-[11px] font-semibold text-[#38745d]">経営台帳の更新</p><div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-5">{CREATE_RESOURCES.map((resource) => <button key={resource} type="button" onClick={() => setCreating({ resource })} className="min-h-11 rounded-md border border-[#b7c8d2] bg-white px-2 py-2 text-[11px] font-semibold text-[#315f7d] hover:bg-[#eef3f5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]">{RESOURCE_LABELS[resource]}</button>)}</div></div>}
-        </section>
-
-        <nav className="sticky top-0 z-20 grid grid-cols-3 gap-1 rounded-lg border border-[#d6cebf] bg-[#fffdf7]/95 p-1 shadow-sm backdrop-blur sm:flex sm:flex-wrap" aria-label="経営診断ナビ">
-          {managementNavItems.map(([id, label]) => <a key={id} href={`#${id}`} aria-current={activeSection === id ? "page" : undefined} onClick={() => setActiveSection(id)} className={`min-h-11 rounded-md px-2 py-2 text-center text-[11px] font-semibold hover:bg-[#f8f5ec] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] ${activeSection === id ? "bg-[#e8f2eb] text-[#205f49]" : "text-[#514e47]"}`}>{label}</a>)}
-        </nav>
-
-        <section id="management-summary" className="overflow-hidden rounded-xl border border-[#cfc7b9] bg-[#fffdf7]/95 shadow-[0_10px_35px_rgba(61,56,44,0.05)]" aria-labelledby="judgment-heading">
-          <div className="grid lg:grid-cols-[1.03fr_1.15fr_0.9fr]">
-            <div className={`border-b border-[#d6cebf] p-5 sm:p-6 lg:border-b-0 lg:border-r ${JUDGMENT_TONE[effectiveJudgment.key] || JUDGMENT_TONE.unassessed}`}>
-              <div className="flex items-start justify-between gap-4"><div><p className="text-[10px] font-semibold tracking-[0.16em] opacity-75">経営判定</p><h2 id="judgment-heading" className="mt-3 text-4xl font-semibold tracking-tight">{effectiveJudgment.label}</h2></div><CircleAlert className="h-6 w-6 opacity-70" aria-hidden="true" /></div>
-              <p className="mt-4 max-w-xs text-sm leading-6">根拠のない「順調」は出さず、期限・阻害・担当・確度が揃った範囲だけ判定してるよ。</p>
-            </div>
-            <div className="border-b border-[#d6cebf] p-5 sm:p-6 lg:border-b-0 lg:border-r">
-              <p className="text-[10px] font-semibold tracking-[0.16em] text-[#777166]">判定理由</p>
-              <ul className="mt-3 space-y-2.5 text-sm leading-5 text-[#514e47]">
-                {effectiveJudgment.reasons.map((reason) => <li key={reason} className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#bf7b2c]" />{reason}</li>)}
-              </ul>
-            </div>
-            <div className="p-5 sm:p-6">
-              <p className="text-[10px] font-semibold tracking-[0.16em] text-[#777166]">今週決めること</p>
-              <div className="mt-3 space-y-3">
-                {effectiveJudgment.decisionQueue.length > 0 ? effectiveJudgment.decisionQueue.map((decision) => <div key={decision.id} className="border-l-2 border-[#bf7b2c] pl-3"><p className="text-sm font-semibold leading-5 text-[#24231f]">{decision.title}</p><p className="mt-1 text-[11px] text-[#777166]">期限 {formatDate(decision.dueDate)} / {decision.ownerLabel}</p></div>) : <p className="text-sm text-[#777166]">決定待ちはまだ登録されてないよ。</p>}
-              </div>
-            </div>
-          </div>
-          <div className="grid gap-3 border-t border-[#d6cebf] bg-[#fffdf7] px-5 py-4 text-xs sm:grid-cols-2 sm:px-6"><p><span className="font-semibold text-[#24231f]">止まっている柱:</span> {effectiveJudgment.blockedCount > 0 ? management.tracks.filter((track) => track.status === "blocked" || track.status === "at_risk").map((track) => track.label).join(" / ") || "個別ゲートを確認" : "なし"}</p><p><span className="font-semibold text-[#24231f]">重大な未確認:</span> {effectiveJudgment.criticalUnknownCount}件。根拠・担当・KPIが未確認のゲートを先に見る。</p></div>
-          <dl className="grid grid-cols-2 border-t border-[#d6cebf] bg-[#f8f5ec] sm:grid-cols-4">
-            <div className="border-b border-[#e4ddd0] px-5 py-3 sm:border-b-0 sm:border-r"><dt className="text-[10px] font-semibold text-[#777166]">次の期限</dt><dd className="mt-1 text-sm font-semibold text-[#24231f]">{formatDate(effectiveJudgment.nextDeadline)}</dd></div>
-            <div className="border-b border-[#e4ddd0] px-5 py-3 sm:border-b-0 sm:border-r"><dt className="text-[10px] font-semibold text-[#777166]">最終確認日</dt><dd className="mt-1 text-sm font-semibold text-[#24231f]">{formatDate(effectiveJudgment.lastVerifiedAt)}</dd></div>
-            <div className="border-r border-[#e4ddd0] px-5 py-3"><dt className="text-[10px] font-semibold text-[#777166]">データ充足率</dt><dd className="mt-1 text-sm font-semibold text-[#24231f]">{effectiveJudgment.completenessPct}%</dd></div>
-            <div className="px-5 py-3"><dt className="text-[10px] font-semibold text-[#777166]">更新切れ / 期限超過</dt><dd className="mt-1 text-sm font-semibold text-[#24231f]">{effectiveJudgment.staleCount} / {effectiveJudgment.overdueCount}</dd></div>
-          </dl>
         </section>
 
         <section id="management-tracks" className="rounded-xl border border-[#d6cebf] bg-[#fffdf7]/95 p-5 sm:p-6" aria-labelledby="tracks-heading">
@@ -860,7 +945,7 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
             </div>
           </div>
           <div className="space-y-3 lg:hidden">
-            {management.tracks.map((track) => <button key={track.key} type="button" aria-pressed={selectedTrack === track.key} aria-controls="selected-management-context" onClick={() => { const next = selectedTrack === track.key ? null : track.key; setSelectedTrack(next); setSelectedMilestoneId(next ? track.milestoneId : null); }} className={`min-h-28 w-full rounded-lg border p-4 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] ${selectedTrack === track.key ? "border-[#38745d] bg-[#f1f6f2]" : "border-[#d6cebf] bg-[#fffdf7]"}`}><div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-semibold tracking-[0.14em]" style={{ color: track.accent }}>{track.label}</p><h3 className="mt-1 text-sm font-semibold text-[#24231f]">{track.gate}</h3></div><Badge tone={STATUS_TONE[track.status] || STATUS_TONE.unassessed}>{track.statusLabel}</Badge></div><dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-[11px]"><div><dt className="text-[#777166]">予定 / 予測</dt><dd className="font-semibold">{formatDate(track.plannedEnd)} / {formatDate(track.forecastEnd)}</dd></div><div><dt className="text-[#777166]">差分</dt><dd className={track.deltaDays && track.deltaDays > 0 ? "font-semibold text-[#8c3329]" : "font-semibold"}>{track.deltaDays == null ? "未算定" : track.deltaDays > 0 ? `${track.deltaDays}日遅延` : `${Math.abs(track.deltaDays)}日短縮`}</dd></div><div><dt className="text-[#777166]">担当 / 確認日</dt><dd>{track.ownerLabel} / {formatDate(track.lastVerifiedAt)}</dd></div><div><dt className="text-[#777166]">進捗 / 確度</dt><dd>{track.progressPct}% / {confidenceLabel(track.confidence)}</dd></div></dl><div className="mt-3 border-t border-[#e4ddd0] pt-2 text-xs"><p>次の成果: {track.nextDeliverable}</p><p className="mt-1 text-[#8c3329]">最大論点: {track.maxIssue}</p></div></button>)}
+            {management.tracks.map((track) => <button key={track.key} type="button" aria-pressed={selectedTrack === track.key} aria-controls="selected-management-context" onClick={() => { const next = selectedTrack === track.key ? null : track.key; setSelectedTrack(next); setSelectedMilestoneId(next ? track.milestoneId : null); }} className={`min-h-28 w-full rounded-lg border p-4 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] ${selectedTrack === track.key ? "border-[#38745d] bg-[#f1f6f2]" : "border-[#d6cebf] bg-[#fffdf7]"}`}><div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-semibold tracking-[0.14em] text-[#765022]">{track.label}</p><h3 className="mt-1 text-sm font-semibold text-[#24231f]">{track.gate}</h3></div><Badge tone={STATUS_TONE[track.status] || STATUS_TONE.unassessed}>{track.statusLabel}</Badge></div><dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-[11px]"><div><dt className="text-[#777166]">予定 / 予測</dt><dd className="font-semibold">{formatDate(track.plannedEnd)} / {formatDate(track.forecastEnd)}</dd></div><div><dt className="text-[#777166]">差分</dt><dd className={track.deltaDays && track.deltaDays > 0 ? "font-semibold text-[#8c3329]" : "font-semibold"}>{track.deltaDays == null ? "未算定" : track.deltaDays > 0 ? `${track.deltaDays}日遅延` : `${Math.abs(track.deltaDays)}日短縮`}</dd></div><div><dt className="text-[#777166]">担当 / 確認日</dt><dd>{track.ownerLabel} / {formatDate(track.lastVerifiedAt)}</dd></div><div><dt className="text-[#777166]">進捗 / 確度</dt><dd>{track.progressPct}% / {confidenceLabel(track.confidence)}</dd></div></dl><div className="mt-3 border-t border-[#e4ddd0] pt-2 text-xs"><p>次の成果: {track.nextDeliverable}</p><p className="mt-1 text-[#8c3329]">最大論点: {track.maxIssue}</p></div></button>)}
           </div>
         </section>
 
@@ -869,7 +954,7 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
         <section id="management-plan" className="rounded-xl border border-[#d6cebf] bg-[#fffdf7]/95 p-5 sm:p-6" aria-labelledby="gantt-heading">
           <SectionHeader kicker="経営航路 / 2026.07 — 2027.03" title="全体ガントと期限順ロードマップ" description="マイルストーン、依存関係、論点、協力機関への接続点を同じ時間軸に置いてるよ。破線と「仮置き」で未確定日を区別してる。" action={<div className="flex items-center gap-2 text-[10px] text-[#777166]"><span className="inline-block h-3 w-7 rounded border border-dashed border-[#76637b]" />仮置き <span className="ml-2 inline-block h-3 w-7 rounded bg-[#e8f2eb]" />確定</div>} />
           {!management.hasData ? <div className="rounded-lg border border-dashed border-[#d6cebf] px-4 py-10 text-center text-sm text-[#777166]">管理データがまだないよ。4本柱の情報を登録するとここに航路が出る。</div> : <Timeline management={management} selectedMilestoneId={selectedMilestoneId} onSelect={(milestoneId) => { setSelectedMilestoneId(milestoneId); setSelectedTrack(milestoneId ? management.milestones.find((milestone) => milestone.id === milestoneId)?.track || null : null); }} />}
-          {selectedMilestone && <SelectedMilestoneContext milestone={selectedMilestone} issues={selectedMilestoneIssues} partners={selectedMilestonePartners} canManage={management.canManage} onEdit={(resource, id) => setEditing({ resource, id })} onCreate={(resource, initialValues) => setCreating({ resource, initialValues })} />}
+          {selectedMilestone && <SelectedMilestoneContext milestone={selectedMilestone} milestones={management.milestones} issues={selectedMilestoneIssues} partners={selectedMilestonePartners} canManage={management.canManage} onEdit={(resource, id) => setEditing({ resource, id })} onCreate={(resource, initialValues) => setCreating({ resource, initialValues })} />}
           {selectedTrack && !selectedMilestone && <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[#e4ddd0] pt-3 text-xs text-[#69665d]"><span className="font-semibold text-[#24231f]">選択中: {selectedLabel}</span><span>論点 {visibleIssues.length}件</span><span>協力機関 {visiblePartners.length}件</span></div>}
         </section>
 
@@ -893,6 +978,7 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
         </section>
 
         <DecisionLoopSection management={management} onEdit={(resource, id) => setEditing({ resource, id })} />
+        {management.canManage && <DeletedManagementSection projectId={projectId} onRestored={(nextManagement) => setWorkspace((current) => ({ ...current, sxManagement: nextManagement }))} />}
         <MeasurementSection management={management} onEdit={(resource, id) => setEditing({ resource, id })} />
 
         <section id="management-capacity" className="rounded-xl border border-[#d6cebf] bg-[#fffdf7]/95 p-5 sm:p-6" aria-labelledby="capacity-heading">

@@ -495,10 +495,11 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - management APIはGET/PATCHに加えてPOSTを持ち、新規論点から仮説・根拠・検証・判断・actionまで親情報を指定して追加できる。portfolio/adminだけが作成し、project scopeは閲覧だけにする。raw本文、契約原文、報酬、メール本文、内部交渉メモ、source URLはDTO/UIへ出さない。
 - `/project/:id/workspace` は月初合意の全画面ゲートを起動せず、左サイドバーを使わない埋め込みシェルで表示する。390pxでは期限順カード・縦ロードマップ、768pxではカード、lg以上で比較表を使い、選択中の経営文脈へ戻れるstickyセクションナビを置く。
 - 運用準備は重要ゲート、KPI/技術試験、資金、役割/研究側、今週エフォートの5項目を不足件数つきで表示し、1件でも未確認ならトップ判定を未評価へ閉じる。
+- Round 3の初期表示はヘッダー直後に経営判定を置き、390/768/1440で理由・最大の詰まり・今週決めること・次期限・鮮度/不足をスクロールなしで読む。運用準備の詳細は判定後に置く。stickyナビは横クリップで分断せず、管理者は非表示化した共有情報を一覧し、履歴を残して復元できる。決定済みとSX側の次アクションの必須項目はmigration 185のDB CHECKとAPIの合成検証で守る。
 - loading / empty / error / disabled / selected / focusを用意し、操作は44px以上。状態は色だけで伝えず、日本語表示で内部status・confidence・source・entity名を漏らさない。
 
 回帰防止:
 
 - `npm run test:sx-management` はKPI 0件、充足率Goodhart、critical未知、閾値内外、actual=0、between不足/逆転、依存待ち/停止、任意依存、期限超過、完了証跡、未完action、DAG cycle、現在ゲート切替を検査する。
-- `npm run test:project-management-rls` (`npm run test:sx-management-rls`) は20個のsoft-delete対象member_select、184の分類/約束CHECK、補正履歴、authenticated roleによるPJ境界を検査する。
+- `npm run test:project-management-rls` (`npm run test:sx-management-rls`) は20個のsoft-delete対象member_select、184/185の分類・約束・決定CHECK、補正履歴、authenticated roleによるPJ境界を検査する。
 - `npm run test:critical-ui` は目的-KPI、測定、決定ループ、POST/新規追加、運用準備、選択文脈、lg以上の比較表・lg未満のカード、effort接続、PJ-scoped effort APIのanchorを検査する。

@@ -65,6 +65,41 @@ const RESOURCE_META: Record<Resource, { entityType: string; statusColumn: "statu
   capacity: { entityType: "capacity", statusColumn: null, hasLastVerified: false, hasSourceRef: true, hasUpdatedBy: false, softDelete: true },
 };
 
+const DELETED_SELECTS: Record<Resource, string> = {
+  objective: "id,slug,title,deleted_at,deleted_by",
+  outcome: "id,slug,title,deleted_at,deleted_by",
+  milestone: "id,slug,title,deleted_at,deleted_by",
+  kpi: "id,slug,title,deleted_at,deleted_by",
+  issue: "id,slug,title,deleted_at,deleted_by",
+  hypothesis: "id,statement,deleted_at,deleted_by",
+  evidence: "id,summary,deleted_at,deleted_by",
+  validation: "id,validation_kind,deleted_at,deleted_by",
+  decision: "id,title,deleted_at,deleted_by",
+  action: "id,title,deleted_at,deleted_by",
+  partner: "id,slug,name,deleted_at,deleted_by",
+  commitment: "id,title,deleted_at,deleted_by",
+  dependency: "id,note,deleted_at,deleted_by",
+  technical_test: "id,test_slug,test_name,deleted_at,deleted_by",
+  funding_snapshot: "id,snapshot_date,deleted_at,deleted_by",
+  organization_role: "id,role_slug,role_name,deleted_at,deleted_by",
+  raci: "id,stakeholder_label,deleted_at,deleted_by",
+  capacity: "id,role_label,deleted_at,deleted_by",
+};
+
+function deletedRecordLabel(resource: Resource, row: Record<string, unknown>) {
+  const value = resource === "partner" ? row.name
+    : resource === "hypothesis" ? row.statement
+      : resource === "evidence" ? row.summary
+        : resource === "validation" ? row.validation_kind
+          : resource === "technical_test" ? row.test_name || row.test_slug
+            : resource === "organization_role" ? row.role_name || row.role_slug
+              : resource === "capacity" ? row.role_label
+                : resource === "funding_snapshot" ? row.snapshot_date
+                  : resource === "dependency" ? "ゲート間の依存"
+                    : row.title || row.slug;
+  return typeof value === "string" && value.trim() ? value : "名称未確認";
+}
+
 const MILESTONE_STATUSES = ["unassessed", "on_track", "attention", "at_risk", "blocked", "completed"];
 const ISSUE_KINDS = ["fact", "hypothesis", "decision_needed"];
 const ISSUE_STATUSES = ["open", "validating", "closed", "on_hold"];
@@ -262,10 +297,12 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
     const counterpartyOwner = optionalTextValue("counterparty_owner", 120);
     const sxOwner = optionalTextValue("sx_owner", 120);
     const promisedOn = optionalDate("promised_on");
+    const dueDate = optionalDate("due_date");
+    const nextReviewOn = optionalDate("next_review_on");
     const evidence = optionalTextValue("evidence", 1200);
     if (kind === "counterparty_promise" && (!counterpartyOwner || !promisedOn || !evidence)) throw new Error("相手の約束には相手担当・約束日・一次根拠が必要だよ");
-    if (kind === "sx_followup" && (!sxOwner || (!raw.due_date && !raw.next_review_on))) throw new Error("SX側の次アクションにはSX担当と期限または次回確認が必要だよ");
-    return { ...common(), project_id: projectId, partner_id: requiredId("partner_id"), title: requiredText("title", 180), commitment_text: requiredText("commitment_text", 1000), commitment_kind: kind, status: requiredEnum("status", COMMITMENT_STATUSES, "open"), promised_on: promisedOn, due_date: optionalDate("due_date"), completed_on: optionalDate("completed_on"), owner_label: requiredText("owner_label", 120), counterparty_owner: counterpartyOwner, sx_owner: sxOwner, evidence, next_review_on: optionalDate("next_review_on"), last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
+    if (kind === "sx_followup" && (!sxOwner || !dueDate || !nextReviewOn)) throw new Error("SX側の次アクションにはSX担当・期限・次回確認が必要だよ");
+    return { ...common(), project_id: projectId, partner_id: requiredId("partner_id"), title: requiredText("title", 180), commitment_text: requiredText("commitment_text", 1000), commitment_kind: kind, status: requiredEnum("status", COMMITMENT_STATUSES, "open"), promised_on: promisedOn, due_date: dueDate, completed_on: optionalDate("completed_on"), owner_label: requiredText("owner_label", 120), counterparty_owner: counterpartyOwner, sx_owner: sxOwner, evidence, next_review_on: nextReviewOn, last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
   }
   if (resource === "dependency") return { project_id: projectId, predecessor_milestone_id: requiredId("predecessor_milestone_id"), successor_milestone_id: requiredId("successor_milestone_id"), dependency_type: requiredEnum("dependency_type", ["finish_to_start", "start_to_start", "finish_to_finish"], "finish_to_start"), required: raw.required == null ? true : booleanValue(raw.required, "required"), lag_days: optionalNumber("lag_days", { min: 0 }) || 0, note: optionalTextValue("note", 1000), created_by: memberId };
   if (resource === "technical_test") return { ...common(), project_id: projectId, milestone_id: optionalId("milestone_id"), outcome_id: optionalId("outcome_id"), test_slug: requiredText("test_slug", 120), test_name: requiredText("test_name", 180), test_condition: requiredText("test_condition", 1000), target: optionalTextValue("target", 240), actual: optionalTextValue("actual", 240), unit: requiredText("unit", 60), repetition: optionalNumber("repetition", { min: 0 }), sample: optionalTextValue("sample", 240), trl_criterion: requiredText("trl_criterion", 1000), evidence: optionalTextValue("evidence", 1200), status: "unassessed", measured_on: optionalDate("measured_on"), owner_label: requiredText("owner_label", 120), confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
@@ -317,11 +354,34 @@ async function assertParentsInProject(db: ReturnType<typeof createAdminClient>, 
   }
 }
 
+async function listDeletedRecords(db: ReturnType<typeof createAdminClient>, projectId: string) {
+  const records: Array<{ resource: Resource; id: string; label: string; deletedAt: string | null; deletedBy: string | null }> = [];
+  for (const resource of Object.keys(RESOURCE_TABLES) as Resource[]) {
+    const { data, error } = await db.from(RESOURCE_TABLES[resource]).select(DELETED_SELECTS[resource]).eq("project_id", projectId).not("deleted_at", "is", null).order("deleted_at", { ascending: false });
+    if (error) throw new Error(`非表示情報の確認に失敗したよ: ${error.message}`);
+    for (const row of (data || []) as unknown as Array<Record<string, unknown>>) {
+      records.push({
+        resource,
+        id: String(row.id),
+        label: deletedRecordLabel(resource, row),
+        deletedAt: typeof row.deleted_at === "string" ? row.deleted_at : null,
+        deletedBy: typeof row.deleted_by === "string" ? row.deleted_by : null,
+      });
+    }
+  }
+  return records.sort((a, b) => (b.deletedAt || "").localeCompare(a.deletedAt || ""));
+}
+
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
-  const context = await getWorkspaceContext(projectId);
+  const includeDeleted = _request.nextUrl.searchParams.get("include_deleted") === "true";
+  const context = includeDeleted ? await getManagerContext(projectId) : await getWorkspaceContext(projectId);
   if ("response" in context) return context.response;
   try {
+    if (includeDeleted) {
+      const deletedRecords = await listDeletedRecords(createAdminClient(), projectId);
+      return NextResponse.json({ deletedRecords }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+    }
     const bundle = await getSxManagementBundle(projectId, context.access.scope === "portfolio" || context.access.isAdmin);
     return NextResponse.json(bundle, { headers: { "Cache-Control": "no-store, max-age=0" } });
   } catch (error) {
@@ -408,35 +468,48 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (meta.hasUpdatedBy && !deleting && !restoring) patch.updated_by = context.access.memberId;
 
     const db = createAdminClient();
-    const beforeSelect = resource === "kpi" ? "id,threshold,threshold_rule,threshold_upper" : resource === "commitment" ? "id,status,commitment_kind,counterparty_owner,promised_on,evidence" : meta.statusColumn || "id";
-    const { data: before, error: beforeError } = await db.from(RESOURCE_TABLES[resource]).select(beforeSelect as string).eq("id", id).eq("project_id", projectId).maybeSingle();
+    const { data: before, error: beforeError } = await db.from(RESOURCE_TABLES[resource]).select("*").eq("id", id).eq("project_id", projectId).maybeSingle();
     if (beforeError) throw new Error(`共有情報の確認に失敗したよ: ${beforeError.message}`);
     if (!before) return NextResponse.json({ error: "更新対象が見つからないよ" }, { status: 404 });
+    const beforeRecord = before as unknown as Record<string, unknown>;
     if (resource === "kpi" && !deleting && !restoring) {
-      const beforeKpi = before as unknown as Record<string, unknown>;
-      const mergedRule = typeof patch.threshold_rule === "string" ? patch.threshold_rule : String(beforeKpi.threshold_rule || "gte");
-      const mergedThreshold = patch.threshold !== undefined ? patch.threshold : beforeKpi.threshold;
-      const mergedUpper = patch.threshold_upper !== undefined ? patch.threshold_upper : beforeKpi.threshold_upper;
+      const mergedRule = typeof patch.threshold_rule === "string" ? patch.threshold_rule : String(beforeRecord.threshold_rule || "gte");
+      const mergedThreshold = patch.threshold !== undefined ? patch.threshold : beforeRecord.threshold;
+      const mergedUpper = patch.threshold_upper !== undefined ? patch.threshold_upper : beforeRecord.threshold_upper;
       if (mergedRule === "between" && (mergedThreshold == null || mergedUpper == null || Number(mergedThreshold) > Number(mergedUpper))) throw new Error("範囲内ルールは下限と上限を入力し、下限を上限以下にしてね");
     }
+    if (resource === "decision" && !deleting && !restoring) {
+      const mergedState = typeof patch.decision_state === "string" ? patch.decision_state : String(beforeRecord.decision_state || "pending");
+      const mergedDecisionText = patch.decision_text !== undefined ? patch.decision_text : beforeRecord.decision_text;
+      const mergedDecidedBy = patch.decided_by !== undefined ? patch.decided_by : beforeRecord.decided_by;
+      const mergedDecidedOn = patch.decided_on !== undefined ? patch.decided_on : beforeRecord.decided_on;
+      if (mergedState === "decided" && (!mergedDecisionText || !mergedDecidedBy || !mergedDecidedOn)) throw new Error("決定済みにするには決定内容・決定者・決定日が必要だよ");
+    }
     if (resource === "commitment" && !deleting && !restoring) {
-      const beforeCommitment = before as unknown as Record<string, unknown>;
-      const mergedKind = typeof patch.commitment_kind === "string" ? patch.commitment_kind : String(beforeCommitment.commitment_kind || "sx_followup");
-      const mergedCounterparty = patch.counterparty_owner !== undefined ? patch.counterparty_owner : beforeCommitment.counterparty_owner;
-      const mergedPromisedOn = patch.promised_on !== undefined ? patch.promised_on : beforeCommitment.promised_on;
-      const mergedEvidence = patch.evidence !== undefined ? patch.evidence : beforeCommitment.evidence;
+      const mergedKind = typeof patch.commitment_kind === "string" ? patch.commitment_kind : String(beforeRecord.commitment_kind || "sx_followup");
+      const mergedCounterparty = patch.counterparty_owner !== undefined ? patch.counterparty_owner : beforeRecord.counterparty_owner;
+      const mergedPromisedOn = patch.promised_on !== undefined ? patch.promised_on : beforeRecord.promised_on;
+      const mergedEvidence = patch.evidence !== undefined ? patch.evidence : beforeRecord.evidence;
       if (mergedKind === "counterparty_promise" && (!mergedCounterparty || !mergedPromisedOn || !mergedEvidence)) throw new Error("相手の約束には相手担当・約束日・一次根拠が必要だよ");
+      const mergedSxOwner = patch.sx_owner !== undefined ? patch.sx_owner : beforeRecord.sx_owner;
+      const mergedDueDate = patch.due_date !== undefined ? patch.due_date : beforeRecord.due_date;
+      const mergedNextReviewOn = patch.next_review_on !== undefined ? patch.next_review_on : beforeRecord.next_review_on;
+      if (mergedKind === "sx_followup" && (!mergedSxOwner || !mergedDueDate || !mergedNextReviewOn)) throw new Error("SX側の次アクションにはSX担当・期限・次回確認が必要だよ");
     }
     const { data, error } = await db.from(RESOURCE_TABLES[resource]).update(patch).eq("id", id).eq("project_id", projectId).select("id").maybeSingle();
     if (error) throw new Error(`共有情報の更新に失敗したよ: ${error.message}`);
     if (!data) return NextResponse.json({ error: "更新対象が見つからないよ" }, { status: 404 });
-    const beforeRecord = before as unknown as Record<string, unknown>;
     const beforeStatus = meta.statusColumn && typeof beforeRecord[meta.statusColumn] === "string" ? String(beforeRecord[meta.statusColumn]) : null;
     const nextStatus = meta.statusColumn && typeof patch[meta.statusColumn] === "string" ? String(patch[meta.statusColumn]) : beforeStatus;
     const updateKind = deleting ? "soft_delete" : restoring ? "restore" : "manual_edit";
     const summary = deleting ? "共有情報を非表示化" : restoring ? "共有情報を復元" : "共有情報を更新";
     const { error: historyError } = await db.from("project_management_update_history").insert({ project_id: projectId, entity_type: meta.entityType, entity_id: id, update_kind: updateKind, summary, changed_by: context.access.memberId, changed_on: todayJst(), from_status: beforeStatus, to_status: nextStatus });
-    if (historyError) throw new Error(`更新履歴の記録に失敗したよ: ${historyError.message}`);
+    if (historyError) {
+      const rollbackPatch = Object.fromEntries(Object.keys(patch).filter((key) => Object.prototype.hasOwnProperty.call(beforeRecord, key)).map((key) => [key, beforeRecord[key]]));
+      const { error: rollbackError } = await db.from(RESOURCE_TABLES[resource]).update(rollbackPatch).eq("id", id).eq("project_id", projectId);
+      const rollbackNote = rollbackError ? `（更新の補償復元にも失敗: ${rollbackError.message}）` : "（更新内容は補償復元したよ）";
+      throw new Error(`更新履歴の記録に失敗したよ: ${historyError.message}${rollbackNote}`);
+    }
     const bundle = await getSxManagementBundle(projectId, true);
     return NextResponse.json({ ok: true, bundle });
   } catch (error) {
