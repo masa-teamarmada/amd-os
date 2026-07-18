@@ -4,6 +4,7 @@ import { cache } from "react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getProjectWorkspaceSession } from "@/lib/project-workspace-session";
+import { getSxManagementBundle, type SxManagementBundle } from "@/lib/sx-management";
 import {
   EFFORT_CATEGORIES,
   type EffortCategory,
@@ -12,6 +13,7 @@ import {
 } from "@/lib/project-workspace-types";
 
 export type { EffortCategory, OsAccessScope, ProjectNavItem } from "@/lib/project-workspace-types";
+export type { SxManagementBundle } from "@/lib/sx-management";
 
 export type CurrentMemberAccess = {
   memberId: string;
@@ -39,6 +41,14 @@ export type ProjectWorkspaceBundle = {
     actualHours: number;
     categories: Record<EffortCategory, number>;
     hasEntries: boolean;
+    links: Array<{
+      track: string | null;
+      milestoneId: string | null;
+      milestoneTitle: string | null;
+      deliverableLabel: string | null;
+      plannedHours: number;
+      actualHours: number;
+    }>;
   };
   members: Array<{
     memberId: string;
@@ -61,6 +71,7 @@ export type ProjectWorkspaceBundle = {
   evidenceByMonth: Array<{ ym: string; count: number }>;
   evidenceBySource: Array<{ source: string; count: number }>;
   weeklyTrend: Array<{ weekStart: string; plannedHours: number; actualHours: number }>;
+  sxManagement: SxManagementBundle;
 };
 
 export const getCurrentMemberAccess = cache(async (): Promise<CurrentMemberAccess | null> => {
@@ -222,7 +233,7 @@ export async function getProjectWorkspaceBundle(
     db.from("projects").select("project_id,project_name,client_name,status").eq("project_id", projectId).maybeSingle(),
     db.from("project_members").select("member_id,role_label,is_pm,is_pl,is_closer").eq("project_id", projectId).eq("is_active", true),
     db.from("member_activities").select("member_id,ym,source,item_date").eq("project_id", projectId).gte("ym", months[0]).limit(5000),
-    db.from("project_weekly_effort_entries").select("member_id,week_start,work_category,planned_hours,actual_hours").eq("project_id", projectId).gte("week_start", weeks[0]).limit(5000),
+    db.from("project_weekly_effort_entries").select("member_id,week_start,work_category,planned_hours,actual_hours,management_track,management_milestone_id,deliverable_label").eq("project_id", projectId).gte("week_start", weeks[0]).limit(5000),
     db.from("value_plan_cycles").select("plan_cycle_id,status,period_start_ym,period_end_ym").eq("project_id", projectId).order("created_at", { ascending: false }).limit(20),
   ]);
 
@@ -232,6 +243,11 @@ export async function getProjectWorkspaceBundle(
   if (activityError) throw new Error(`project workspace activities: ${activityError.message}`);
   if (effortError) throw new Error(`project workspace effort: ${effortError.message}`);
   if (planError) throw new Error(`project workspace plan: ${planError.message}`);
+
+  const sxManagement = await getSxManagementBundle(
+    projectId,
+    access.scope === "portfolio" || access.isAdmin,
+  );
 
   const memberIds = Array.from(new Set((membershipRows ?? []).map((row) => String(row.member_id))));
   let memberNameRows: Array<{ member_id: string; code_name: string }> = [];
@@ -246,10 +262,19 @@ export async function getProjectWorkspaceBundle(
   const totalCategories = emptyCategories();
   let totalPlanned = 0;
   let totalActual = 0;
+  const effortLinkMap = new Map<string, { track: string | null; milestoneId: string | null; deliverableLabel: string | null; plannedHours: number; actualHours: number }>();
   for (const row of currentEffortRows) {
     totalPlanned += Number(row.planned_hours || 0);
     totalActual += Number(row.actual_hours || 0);
     addHours(totalCategories, row.work_category, row.actual_hours);
+    const track = row.management_track ? String(row.management_track) : null;
+    const milestoneId = row.management_milestone_id ? String(row.management_milestone_id) : null;
+    const deliverableLabel = row.deliverable_label ? String(row.deliverable_label) : null;
+    const linkKey = `${track || "未接続"}:${milestoneId || ""}:${deliverableLabel || ""}`;
+    const existing = effortLinkMap.get(linkKey) || { track, milestoneId, deliverableLabel, plannedHours: 0, actualHours: 0 };
+    existing.plannedHours = roundHours(existing.plannedHours + Number(row.planned_hours || 0));
+    existing.actualHours = roundHours(existing.actualHours + Number(row.actual_hours || 0));
+    effortLinkMap.set(linkKey, existing);
   }
 
   const members = (membershipRows ?? []).map((membership) => {
@@ -356,11 +381,20 @@ export async function getProjectWorkspaceBundle(
       actualHours: roundHours(totalActual),
       categories: totalCategories,
       hasEntries: currentEffortRows.length > 0,
+      links: Array.from(effortLinkMap.values()).map((link) => {
+        const milestone = link.milestoneId ? sxManagement.milestones.find((item) => item.id === link.milestoneId) : null;
+        return {
+          ...link,
+          milestoneTitle: milestone?.title || null,
+          deliverableLabel: link.deliverableLabel || milestone?.nextDeliverable || null,
+        };
+      }),
     },
     members,
     milestones,
     evidenceByMonth,
     evidenceBySource,
     weeklyTrend,
+    sxManagement,
   };
 }

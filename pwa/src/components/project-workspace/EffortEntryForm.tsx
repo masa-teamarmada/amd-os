@@ -6,6 +6,7 @@ import { Save } from "lucide-react";
 import { EFFORT_CATEGORIES, type EffortCategory, type OsAccessScope } from "@/lib/project-workspace-types";
 
 type MemberOption = { memberId: string; codeName: string };
+type ManagementMilestoneOption = { id: string; title: string; track: string };
 
 export function EffortEntryForm({
   projectId,
@@ -13,12 +14,14 @@ export function EffortEntryForm({
   currentMemberId,
   accessScope,
   members,
+  managementMilestones,
 }: {
   projectId: string;
   currentWeekStart: string;
   currentMemberId: string;
   accessScope: OsAccessScope;
   members: MemberOption[];
+  managementMilestones: ManagementMilestoneOption[];
 }) {
   const router = useRouter();
   const selectableMembers = useMemo(
@@ -31,6 +34,9 @@ export function EffortEntryForm({
   const [plannedHours, setPlannedHours] = useState("");
   const [actualHours, setActualHours] = useState("");
   const [note, setNote] = useState("");
+  const [managementTrack, setManagementTrack] = useState("");
+  const [managementMilestoneId, setManagementMilestoneId] = useState("");
+  const [deliverableLabel, setDeliverableLabel] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -49,6 +55,9 @@ export function EffortEntryForm({
           plannedHours: Number(plannedHours || 0),
           actualHours: Number(actualHours || 0),
           note: note.trim() || null,
+          managementTrack: managementTrack || null,
+          managementMilestoneId: managementMilestoneId || null,
+          deliverableLabel: deliverableLabel.trim() || null,
         }),
       });
       const payload = await response.json().catch(() => ({})) as { ok?: boolean; error?: string };
@@ -97,6 +106,32 @@ export function EffortEntryForm({
         </select>
       </label>
       <label className="grid gap-1.5 text-xs font-medium text-[#514e47]">
+        経営の柱
+        <select
+          value={managementTrack}
+          onChange={(event) => { setManagementTrack(event.target.value); setManagementMilestoneId(""); }}
+          className="h-11 rounded-md border border-[#d4ccbd] bg-[#fffdf7] px-3 text-sm text-[#24231f]"
+        >
+          <option value="">未接続</option>
+          <option value="business_development">事業開発</option>
+          <option value="technology_development">技術開発</option>
+          <option value="funding">資金調達</option>
+          <option value="organizational_building">体制構築</option>
+        </select>
+      </label>
+      <label className="grid gap-1.5 text-xs font-medium text-[#514e47]">
+        接続ゲート
+        <select
+          value={managementMilestoneId}
+          onChange={(event) => setManagementMilestoneId(event.target.value)}
+          className="h-11 rounded-md border border-[#d4ccbd] bg-[#fffdf7] px-3 text-sm text-[#24231f]"
+          disabled={!managementTrack}
+        >
+          <option value="">柱のみ</option>
+          {managementMilestones.filter((milestone) => milestone.track === managementTrack).map((milestone) => <option key={milestone.id} value={milestone.id}>{milestone.title}</option>)}
+        </select>
+      </label>
+      <label className="grid gap-1.5 text-xs font-medium text-[#514e47]">
         予定h
         <input
           type="number"
@@ -130,6 +165,17 @@ export function EffortEntryForm({
           onChange={(event) => setNote(event.target.value)}
           className="h-11 rounded-md border border-[#d4ccbd] bg-[#fffdf7] px-3 text-sm text-[#24231f]"
           placeholder="例: 実験条件の再設計"
+          maxLength={300}
+        />
+      </label>
+      <label className="grid gap-1.5 text-xs font-medium text-[#514e47]">
+        次の成果
+        <input
+          type="text"
+          value={deliverableLabel}
+          onChange={(event) => setDeliverableLabel(event.target.value)}
+          className="h-11 rounded-md border border-[#d4ccbd] bg-[#fffdf7] px-3 text-sm text-[#24231f]"
+          placeholder="例: 試験条件表"
           maxLength={300}
         />
       </label>

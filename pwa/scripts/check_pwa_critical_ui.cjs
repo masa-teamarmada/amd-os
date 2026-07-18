@@ -48,6 +48,14 @@ function expectFileMissing(rel) {
   }
 }
 
+function expectCountAtLeast(rel, needle, minimum) {
+  const text = read(rel);
+  const count = text.split(needle).length - 1;
+  if (count < minimum) {
+    throw new Error(`${rel} needs ${minimum} occurrences of ${needle}, found ${count}`);
+  }
+}
+
 expectIncludes("src/app/(app)/dashboard/page.tsx", [
   "ExtractionStatusCard",
   "FreeeConnectionStatusCard",
@@ -283,15 +291,28 @@ expectIncludes("src/components/dashboard/DashboardGrid.tsx", [
 ]);
 expectIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", [
   "研究からSUまでの時間配分",
-  "メンバー別の現在地",
+  "経営判定",
+  "重大な未確認",
+  "今週決めること",
   "週次エフォートを確定",
-  "OSがすでに把握している活動",
+  "活動データの鮮度",
+  "研究側メンバー未確認",
+  "経営台帳への接続",
+  "confidenceLabel",
+  "hypothesisStatusLabel",
+  "auditEntityLabel",
+  "md:hidden",
+  "hidden overflow-x-auto md:block",
   "CategoryBand",
 ]);
+expectCountAtLeast("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", "<ObjectiveKpiSection", 1);
+expectCountAtLeast("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", "<MeasurementSection", 1);
+expectCountAtLeast("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", "<DecisionLoopSection", 1);
 expectIncludes("src/app/api/project-workspace/[projectId]/effort/route.ts", [
   "canAccessWorkspaceProject",
   'access.scope === "project" && memberId !== access.memberId',
   "project_weekly_effort_entries",
+  "management_milestone_id",
 ]);
 expectIncludes("src/components/admin/ProjectMemberAccountForm.tsx", [
   "PJ限定アカウントを追加",

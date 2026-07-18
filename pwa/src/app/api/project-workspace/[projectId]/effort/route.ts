@@ -15,6 +15,9 @@ type EffortBody = {
   plannedHours?: unknown;
   actualHours?: unknown;
   note?: unknown;
+  managementTrack?: unknown;
+  managementMilestoneId?: unknown;
+  deliverableLabel?: unknown;
 };
 
 function hoursValue(value: unknown) {
@@ -48,6 +51,10 @@ export async function POST(
   const plannedHours = hoursValue(body.plannedHours);
   const actualHours = hoursValue(body.actualHours);
   const note = typeof body.note === "string" ? body.note.trim().slice(0, 300) || null : null;
+  let managementTrack = typeof body.managementTrack === "string" ? body.managementTrack.trim() || null : null;
+  const managementMilestoneId = typeof body.managementMilestoneId === "string" ? body.managementMilestoneId.trim() || null : null;
+  const deliverableLabel = typeof body.deliverableLabel === "string" ? body.deliverableLabel.trim().slice(0, 300) || null : null;
+  const managementTracks = ["business_development", "technology_development", "funding", "organizational_building"];
 
   if (!memberId || !/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
     return NextResponse.json({ ok: false, error: "メンバーと週を確認してね" }, { status: 400 });
@@ -61,6 +68,9 @@ export async function POST(
   }
   if (plannedHours === null || actualHours === null) {
     return NextResponse.json({ ok: false, error: "時間は0〜168時間で入力してね" }, { status: 400 });
+  }
+  if (managementTrack && !managementTracks.includes(managementTrack)) {
+    return NextResponse.json({ ok: false, error: "経営の柱を確認してね" }, { status: 400 });
   }
   if (access.scope === "project" && memberId !== access.memberId) {
     return NextResponse.json({ ok: false, error: "PJメンバーは自分の時間だけ更新できるよ" }, { status: 403 });
@@ -80,6 +90,23 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "このメンバーはPJに参加してないよ" }, { status: 400 });
   }
 
+  if (managementMilestoneId) {
+    const { data: milestone, error: milestoneError } = await db
+      .from("project_management_milestones")
+      .select("id,track")
+      .eq("project_id", projectId)
+      .eq("id", managementMilestoneId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (milestoneError) return NextResponse.json({ ok: false, error: milestoneError.message }, { status: 500 });
+    if (!milestone) return NextResponse.json({ ok: false, error: "このPJのマイルストーンを選んでね" }, { status: 400 });
+    const milestoneTrack = String(milestone.track);
+    if (managementTrack && milestoneTrack !== managementTrack) {
+      return NextResponse.json({ ok: false, error: "柱とマイルストーンの組み合わせを確認してね" }, { status: 400 });
+    }
+    managementTrack = milestoneTrack;
+  }
+
   const now = new Date().toISOString();
   const { error } = await db
     .from("project_weekly_effort_entries")
@@ -91,6 +118,9 @@ export async function POST(
       planned_hours: plannedHours,
       actual_hours: actualHours,
       note,
+      management_track: managementTrack,
+      management_milestone_id: managementMilestoneId,
+      deliverable_label: deliverableLabel,
       source_kind: "manual",
       created_by: access.memberId,
       updated_at: now,

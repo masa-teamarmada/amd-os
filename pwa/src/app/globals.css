@@ -167,6 +167,16 @@ body:has(.amd-desk-page-skin) {
   background: #f7f5ee;
 }
 
+.sx-management-workspace button,
+.sx-management-workspace input,
+.sx-management-workspace select {
+  min-height: 44px;
+}
+
+.sx-management-workspace button {
+  min-width: 44px;
+}
+
 .amd-desk-page-skin .bg-card,
 .amd-desk-page-skin .bg-white,
 .amd-desk-page-skin [class*="bg-background"] {

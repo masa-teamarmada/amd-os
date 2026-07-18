@@ -252,3 +252,29 @@ Kanban の詳細 state machine、Meeting detail modal の attachment mutation、
 - `pwa/src/components/cockpit/CockpitMeetingDetailModal.tsx`
 - `pwa/src/components/cockpit/CockpitManagementScoreHero.tsx`
 - `ios/supabase/functions/*`
+
+## SX COO統合経営ワークスペース（2026-07-19 current contract）
+
+`/project/[projectId]/workspace` は、週次エフォート表を補助面へ下げ、週次会議直前にCOOが「いま何が止まり、今日何を決め、次に誰が何をいつ確認するか」を5分で診断する共有経営面とする。初期PJは`p21`だが、DB/APIの正本はPJ一般化した`project_management_*`であり、旧`project_sx_*`は作らない。
+
+### 判定契約
+
+初期画面の上部には、derivedの全体判定（順調 / 注意 / 危機 / 未評価）、理由最大3件、今週決める最大3件、次期限、最終確認日、必須項目充足率、停止中の柱、重大な未確認を一続きで置く。充足率は表示専用で、順調判定の条件にはしない。critical/highのKPIが0件、期限/担当/鮮度/依存/完了条件が不足、閾値外、期限超過、停止、循環依存があれば順調を許さない。将来ゲートは完了証跡ではなく完了条件と現在のKPI/検証根拠で評価し、実績完了時だけ完了証跡を必須にする。
+
+4本柱は同一比較軸で、現在ゲートは未完了のうち依存順・開始済み・期限近いものを決定的に選ぶ。全て完了した柱だけ最後の完了ゲートを表示する。依存待ちと停止は、必須性、lag、予定開始日、期限超過を分けて表示する。
+
+### 経営航路の台帳
+
+目的 → 柱の成果目標 → KPI → マイルストーンをFKで接続する。KPIは`baseline / target / actual / unit / threshold / threshold_rule / threshold_upper / measurement_date / frequency / source / confidence`を持ち、`gte`（以上）、`lte`（以下）、`between`（範囲内）をAPIとderived logicで検証する。`actual=0`は値として扱い、`between`の上限欠落やlower > upperは「判定条件不足」とする。
+
+マイルストーンは完了条件、完了証跡、重要度、基準計画版、予測変更理由を持つ。依存は正規化テーブルで必須/任意・lagを保持し、DB triggerがPJ混在と循環を拒否する。手入力statusは表示用の記録であり、overall/trackはderived stateを正本とする。
+
+論点→複数仮説→根拠/反証・不足→次の検証→意思決定→actionの閉ループを、選択ゲートの詳細から同じ文脈で表示する。意思決定は理由、決定者、決定日を持ち、actionは担当、期限、完了条件、完了証跡、次回確認を持つ。会議/更新履歴とfield auditは削除せず追跡できる。
+
+協力機関は機関別に段階（候補 / 情報交換 / 条件整理 / 面談調整 / 検証準備 / 合意確認 / 実行中 / 保留）、合意状態、最終接点、次の約束、期限、担当、関連ゲート、約束履歴を表示する。技術試験・資金スナップショット・組織役割・RACI・人員容量は各測定値を画面に描画し、編集可能にする。週次エフォートは柱/マイルストーン/次の成果に接続する。
+
+### 権限・表示境界・レスポンシブ
+
+新規共有情報はAPIとRLSの両方でPJ所属を検証する。soft-delete対象のmember_selectは`deleted_at IS NULL`を含み、重要表はauthenticatedの物理DELETEを拒否する。共有DTOはraw本文、契約原文、報酬、メール本文、内部交渉メモ、source URLを返さない。portfolio/adminは共有情報を更新でき、project scopeは自PJの許可範囲だけ更新する。
+
+1440pxは同一比較軸の表と全体ガント、768pxは折り返し可能な密度、390pxは期限順カード/縦ロードマップへ再構成し、ページ全体の水平スクロールを作らない。loading / empty / error / disabled / selected / focusを持ち、タップ領域は44px以上、状態は色以外の文言でも伝える。表示文は日本語中心で、内部status・confidence・source・entity/field名は利用者向けラベルへ変換する。

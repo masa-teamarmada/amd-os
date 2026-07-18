@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-07-18 20:04 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-07-19 03:32 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -11,7 +11,7 @@
 
 ## 索引
 
-[`action_items`](#action-items) / [`amd_management_score_evidence`](#amd-management-score-evidence) / [`amd_management_score_raw_signals`](#amd-management-score-raw-signals) / [`amd_management_score_snapshots`](#amd-management-score-snapshots) / [`amd_management_score_source_runs`](#amd-management-score-source-runs) / [`amd_score_alpha`](#amd-score-alpha) / [`amd_score_alpha_proposals`](#amd-score-alpha-proposals) / [`amd_score_inputs`](#amd-score-inputs) / [`amd_score_revisions`](#amd-score-revisions) / [`app_notifications`](#app-notifications) / [`atlas_decisions`](#atlas-decisions) / [`atlas_divergences`](#atlas-divergences) / [`atlas_edges`](#atlas-edges) / [`atlas_nodes`](#atlas-nodes) / [`atlas_observations`](#atlas-observations) / [`atlas_reports`](#atlas-reports) / [`atlas_signals`](#atlas-signals) / [`atlas_stories`](#atlas-stories) / [`atlas_story_merges`](#atlas-story-merges) / [`atlas_story_themes`](#atlas-story-themes) / [`atlas_themes`](#atlas-themes) / [`billing_cycles`](#billing-cycles) / [`billing_log`](#billing-log) / [`business_card_project_links`](#business-card-project-links) / [`business_cards`](#business-cards) / [`company_actual_monthly`](#company-actual-monthly) / [`company_budget_actual_monthly`](#company-budget-actual-monthly) / [`company_budget_inputs`](#company-budget-inputs) / [`company_budget_monthly`](#company-budget-monthly) / [`company_budget_simulation_runs`](#company-budget-simulation-runs) / [`company_budget_variance_notes`](#company-budget-variance-notes) / [`company_finance_receipt_events`](#company-finance-receipt-events) / [`company_finance_recurring_items`](#company-finance-recurring-items) / [`company_history_events`](#company-history-events) / [`company_longrange_targets`](#company-longrange-targets) / [`company_management_signal_reviews`](#company-management-signal-reviews) / [`company_operating_facts`](#company-operating-facts) / [`company_payment_obligation_notifications`](#company-payment-obligation-notifications) / [`company_payment_obligations`](#company-payment-obligations) / [`company_profile_entries`](#company-profile-entries) / [`company_schedule_actions`](#company-schedule-actions) / [`company_schedule_notifications`](#company-schedule-notifications) / [`company_schedule_occurrences`](#company-schedule-occurrences) / [`company_schedule_rule_checks`](#company-schedule-rule-checks) / [`contract_documents`](#contract-documents) / [`contract_nudges`](#contract-nudges) / [`contract_signals`](#contract-signals) / [`contract_terms`](#contract-terms) / [`contracts`](#contracts) / [`eimi_slack_usage_log`](#eimi-slack-usage-log) / [`freee_oauth_tokens`](#freee-oauth-tokens) / [`freeze_period_backfills`](#freeze-period-backfills) / [`guardrail_cards`](#guardrail-cards) / [`guardrail_feedbacks`](#guardrail-feedbacks) / [`guardrail_matches`](#guardrail-matches) / [`guardrail_tag_definitions`](#guardrail-tag-definitions) / [`institution_assessments`](#institution-assessments) / [`institution_capability_axes`](#institution-capability-axes) / [`institution_capability_criteria`](#institution-capability-criteria) / [`institution_policy_assessments`](#institution-policy-assessments) / [`institution_policy_items`](#institution-policy-items) / [`institutions`](#institutions) / [`issues`](#issues) / [`jp_culture_items`](#jp-culture-items) / [`knowledge_sessions`](#knowledge-sessions) / [`l2_coverage_gaps`](#l2-coverage-gaps) / [`l2_extract_state`](#l2-extract-state) / [`l2_feedbacks`](#l2-feedbacks) / [`l2_notifications`](#l2-notifications) / [`lane_suggestions`](#lane-suggestions) / [`llm_model_config`](#llm-model-config) / [`llm_prompt_revisions`](#llm-prompt-revisions) / [`llm_prompts`](#llm-prompts) / [`macro_index_log`](#macro-index-log) / [`macro_lane_weights`](#macro-lane-weights) / [`management_knowledge_entries`](#management-knowledge-entries) / [`media_assets`](#media-assets) / [`meeting_action_items`](#meeting-action-items) / [`meeting_assets`](#meeting-assets) / [`meeting_notifications`](#meeting-notifications) / [`member_activities`](#member-activities) / [`member_app_notifications`](#member-app-notifications) / [`member_google_oauth_tokens`](#member-google-oauth-tokens) / [`member_knowledge`](#member-knowledge) / [`member_monthly_work_agreement_payout_overrides`](#member-monthly-work-agreement-payout-overrides) / [`member_monthly_work_agreement_requests`](#member-monthly-work-agreement-requests) / [`member_monthly_work_agreements`](#member-monthly-work-agreements) / [`member_ms_activities`](#member-ms-activities) / [`member_profiles`](#member-profiles) / [`members`](#members) / [`michinori_app_config`](#michinori-app-config) / [`michinori_friendships`](#michinori-friendships) / [`michinori_leaderboard_entries`](#michinori-leaderboard-entries) / [`michinori_profiles`](#michinori-profiles) / [`milestone_change_events`](#milestone-change-events) / [`milestone_monthly_contribution_allocations`](#milestone-monthly-contribution-allocations) / [`milestone_monthly_progress`](#milestone-monthly-progress) / [`milestone_responsibility`](#milestone-responsibility) / [`milestone_sub_items`](#milestone-sub-items) / [`monthly_report_revision_messages`](#monthly-report-revision-messages) / [`monthly_report_revisions`](#monthly-report-revisions) / [`monthly_reports`](#monthly-reports) / [`monthly_reports_external`](#monthly-reports-external) / [`monthly_reward_payout`](#monthly-reward-payout) / [`ms_progress_proposals`](#ms-progress-proposals) / [`ms_progress_revisions`](#ms-progress-revisions) / [`ms_proposal_messages`](#ms-proposal-messages) / [`ms_revision_messages`](#ms-revision-messages) / [`narrative_feedbacks`](#narrative-feedbacks) / [`navigator_history`](#navigator-history) / [`navigator_items`](#navigator-items) / [`observation_log`](#observation-log) / [`papers_log`](#papers-log) / [`payout_agreement`](#payout-agreement) / [`payout_notices`](#payout-notices) / [`poc_companies`](#poc-companies) / [`poc_matches`](#poc-matches) / [`private_wiki_entries`](#private-wiki-entries) / [`proactive_loop_events`](#proactive-loop-events) / [`proactive_loops`](#proactive-loops) / [`proactive_outbox`](#proactive-outbox) / [`proactive_todos`](#proactive-todos) / [`progress_estimate_state`](#progress-estimate-state) / [`project_capital_plan_versions`](#project-capital-plan-versions) / [`project_capital_plans`](#project-capital-plans) / [`project_commander_threads`](#project-commander-threads) / [`project_company_profiles`](#project-company-profiles) / [`project_config`](#project-config) / [`project_convertible_instruments`](#project-convertible-instruments) / [`project_documents`](#project-documents) / [`project_equity_entries`](#project-equity-entries) / [`project_equity_transactions`](#project-equity-transactions) / [`project_events`](#project-events) / [`project_financial_periods`](#project-financial-periods) / [`project_founding_members`](#project-founding-members) / [`project_freeze_periods`](#project-freeze-periods) / [`project_graduation_signals`](#project-graduation-signals) / [`project_grants`](#project-grants) / [`project_knowledge`](#project-knowledge) / [`project_media_mentions`](#project-media-mentions) / [`project_meeting_summaries`](#project-meeting-summaries) / [`project_members`](#project-members) / [`project_monthly_notes`](#project-monthly-notes) / [`project_partners`](#project-partners) / [`project_pl_hearings`](#project-pl-hearings) / [`project_pl_monthly`](#project-pl-monthly) / [`project_registry_diffs`](#project-registry-diffs) / [`project_shareholder_meetings`](#project-shareholder-meetings) / [`project_shareholders`](#project-shareholders) / [`project_strategy_signals`](#project-strategy-signals) / [`project_valuation_rounds`](#project-valuation-rounds) / [`project_vc_relations`](#project-vc-relations) / [`project_venture_members`](#project-venture-members) / [`project_ventures`](#project-ventures) / [`project_weekly_effort_entries`](#project-weekly-effort-entries) / [`project_xrl_evidence`](#project-xrl-evidence) / [`project_xrl_log`](#project-xrl-log) / [`projects`](#projects) / [`protocol_examples`](#protocol-examples) / [`protocol_result_observations`](#protocol-result-observations) / [`protocols`](#protocols) / [`reimbursements`](#reimbursements) / [`reward_member_liability_offsets`](#reward-member-liability-offsets) / [`seed_contact_log`](#seed-contact-log) / [`seed_funding`](#seed-funding) / [`seed_news`](#seed-news) / [`seeds`](#seeds) / [`settings`](#settings) / [`source_cache`](#source-cache) / [`tasks`](#tasks) / [`textbook_insight_candidates`](#textbook-insight-candidates) / [`triple_helix_loading`](#triple-helix-loading) / [`triple_helix_state_log`](#triple-helix-state-log) / [`tsukuyomi_chat_logs`](#tsukuyomi-chat-logs) / [`tsukuyomi_context`](#tsukuyomi-context) / [`tsukuyomi_learnings`](#tsukuyomi-learnings) / [`tsukuyomi_learnings_status`](#tsukuyomi-learnings-status) / [`tsukuyomi_memory`](#tsukuyomi-memory) / [`tsukuyomi_nudge_queue`](#tsukuyomi-nudge-queue) / [`tsukuyomi_sessions`](#tsukuyomi-sessions) / [`tsukuyomi_usage_log`](#tsukuyomi-usage-log) / [`value_milestones`](#value-milestones) / [`value_plan_cycles`](#value-plan-cycles) / [`vc_contacts`](#vc-contacts) / [`vc_funds`](#vc-funds) / [`vc_investments`](#vc-investments) / [`vc_news`](#vc-news) / [`vcs`](#vcs) / [`xrl_feedbacks`](#xrl-feedbacks)
+[`action_items`](#action-items) / [`amd_deck_comments`](#amd-deck-comments) / [`amd_deck_participants`](#amd-deck-participants) / [`amd_deck_reactions`](#amd-deck-reactions) / [`amd_management_score_evidence`](#amd-management-score-evidence) / [`amd_management_score_raw_signals`](#amd-management-score-raw-signals) / [`amd_management_score_snapshots`](#amd-management-score-snapshots) / [`amd_management_score_source_runs`](#amd-management-score-source-runs) / [`amd_score_alpha`](#amd-score-alpha) / [`amd_score_alpha_proposals`](#amd-score-alpha-proposals) / [`amd_score_inputs`](#amd-score-inputs) / [`amd_score_revisions`](#amd-score-revisions) / [`app_notifications`](#app-notifications) / [`atlas_decisions`](#atlas-decisions) / [`atlas_divergences`](#atlas-divergences) / [`atlas_edges`](#atlas-edges) / [`atlas_nodes`](#atlas-nodes) / [`atlas_observations`](#atlas-observations) / [`atlas_reports`](#atlas-reports) / [`atlas_signals`](#atlas-signals) / [`atlas_stories`](#atlas-stories) / [`atlas_story_merges`](#atlas-story-merges) / [`atlas_story_themes`](#atlas-story-themes) / [`atlas_themes`](#atlas-themes) / [`billing_cycles`](#billing-cycles) / [`billing_log`](#billing-log) / [`business_card_project_links`](#business-card-project-links) / [`business_cards`](#business-cards) / [`company_actual_monthly`](#company-actual-monthly) / [`company_budget_actual_monthly`](#company-budget-actual-monthly) / [`company_budget_inputs`](#company-budget-inputs) / [`company_budget_monthly`](#company-budget-monthly) / [`company_budget_simulation_runs`](#company-budget-simulation-runs) / [`company_budget_variance_notes`](#company-budget-variance-notes) / [`company_finance_receipt_events`](#company-finance-receipt-events) / [`company_finance_recurring_items`](#company-finance-recurring-items) / [`company_history_events`](#company-history-events) / [`company_longrange_targets`](#company-longrange-targets) / [`company_management_signal_reviews`](#company-management-signal-reviews) / [`company_operating_facts`](#company-operating-facts) / [`company_payment_obligation_notifications`](#company-payment-obligation-notifications) / [`company_payment_obligations`](#company-payment-obligations) / [`company_profile_entries`](#company-profile-entries) / [`company_schedule_actions`](#company-schedule-actions) / [`company_schedule_notifications`](#company-schedule-notifications) / [`company_schedule_occurrences`](#company-schedule-occurrences) / [`company_schedule_rule_checks`](#company-schedule-rule-checks) / [`contract_documents`](#contract-documents) / [`contract_nudges`](#contract-nudges) / [`contract_signals`](#contract-signals) / [`contract_terms`](#contract-terms) / [`contracts`](#contracts) / [`eimi_slack_usage_log`](#eimi-slack-usage-log) / [`freee_oauth_tokens`](#freee-oauth-tokens) / [`freeze_period_backfills`](#freeze-period-backfills) / [`guardrail_cards`](#guardrail-cards) / [`guardrail_feedbacks`](#guardrail-feedbacks) / [`guardrail_matches`](#guardrail-matches) / [`guardrail_tag_definitions`](#guardrail-tag-definitions) / [`institution_assessments`](#institution-assessments) / [`institution_capability_axes`](#institution-capability-axes) / [`institution_capability_criteria`](#institution-capability-criteria) / [`institution_policy_assessments`](#institution-policy-assessments) / [`institution_policy_items`](#institution-policy-items) / [`institutions`](#institutions) / [`issues`](#issues) / [`jp_culture_items`](#jp-culture-items) / [`knowledge_sessions`](#knowledge-sessions) / [`l2_coverage_gaps`](#l2-coverage-gaps) / [`l2_extract_state`](#l2-extract-state) / [`l2_feedbacks`](#l2-feedbacks) / [`l2_notifications`](#l2-notifications) / [`lane_suggestions`](#lane-suggestions) / [`llm_model_config`](#llm-model-config) / [`llm_prompt_revisions`](#llm-prompt-revisions) / [`llm_prompts`](#llm-prompts) / [`macro_index_log`](#macro-index-log) / [`macro_lane_weights`](#macro-lane-weights) / [`management_knowledge_entries`](#management-knowledge-entries) / [`media_assets`](#media-assets) / [`meeting_action_items`](#meeting-action-items) / [`meeting_assets`](#meeting-assets) / [`meeting_notifications`](#meeting-notifications) / [`member_activities`](#member-activities) / [`member_app_notifications`](#member-app-notifications) / [`member_google_oauth_tokens`](#member-google-oauth-tokens) / [`member_knowledge`](#member-knowledge) / [`member_monthly_work_agreement_payout_overrides`](#member-monthly-work-agreement-payout-overrides) / [`member_monthly_work_agreement_requests`](#member-monthly-work-agreement-requests) / [`member_monthly_work_agreements`](#member-monthly-work-agreements) / [`member_ms_activities`](#member-ms-activities) / [`member_profiles`](#member-profiles) / [`members`](#members) / [`michinori_app_config`](#michinori-app-config) / [`michinori_friendships`](#michinori-friendships) / [`michinori_leaderboard_entries`](#michinori-leaderboard-entries) / [`michinori_profiles`](#michinori-profiles) / [`milestone_change_events`](#milestone-change-events) / [`milestone_monthly_contribution_allocations`](#milestone-monthly-contribution-allocations) / [`milestone_monthly_progress`](#milestone-monthly-progress) / [`milestone_responsibility`](#milestone-responsibility) / [`milestone_sub_items`](#milestone-sub-items) / [`monthly_report_revision_messages`](#monthly-report-revision-messages) / [`monthly_report_revisions`](#monthly-report-revisions) / [`monthly_reports`](#monthly-reports) / [`monthly_reports_external`](#monthly-reports-external) / [`monthly_reward_payout`](#monthly-reward-payout) / [`ms_progress_proposals`](#ms-progress-proposals) / [`ms_progress_revisions`](#ms-progress-revisions) / [`ms_proposal_messages`](#ms-proposal-messages) / [`ms_revision_messages`](#ms-revision-messages) / [`narrative_feedbacks`](#narrative-feedbacks) / [`navigator_history`](#navigator-history) / [`navigator_items`](#navigator-items) / [`observation_log`](#observation-log) / [`papers_log`](#papers-log) / [`payout_agreement`](#payout-agreement) / [`payout_notices`](#payout-notices) / [`poc_companies`](#poc-companies) / [`poc_matches`](#poc-matches) / [`private_wiki_entries`](#private-wiki-entries) / [`proactive_loop_events`](#proactive-loop-events) / [`proactive_loops`](#proactive-loops) / [`proactive_outbox`](#proactive-outbox) / [`proactive_todos`](#proactive-todos) / [`progress_estimate_state`](#progress-estimate-state) / [`project_capital_plan_versions`](#project-capital-plan-versions) / [`project_capital_plans`](#project-capital-plans) / [`project_commander_threads`](#project-commander-threads) / [`project_company_profiles`](#project-company-profiles) / [`project_config`](#project-config) / [`project_convertible_instruments`](#project-convertible-instruments) / [`project_documents`](#project-documents) / [`project_equity_entries`](#project-equity-entries) / [`project_equity_transactions`](#project-equity-transactions) / [`project_events`](#project-events) / [`project_financial_periods`](#project-financial-periods) / [`project_founding_members`](#project-founding-members) / [`project_freeze_periods`](#project-freeze-periods) / [`project_graduation_signals`](#project-graduation-signals) / [`project_grants`](#project-grants) / [`project_knowledge`](#project-knowledge) / [`project_management_action_items`](#project-management-action-items) / [`project_management_capacity`](#project-management-capacity) / [`project_management_decisions`](#project-management-decisions) / [`project_management_evidence`](#project-management-evidence) / [`project_management_field_audit`](#project-management-field-audit) / [`project_management_funding_snapshots`](#project-management-funding-snapshots) / [`project_management_hypotheses`](#project-management-hypotheses) / [`project_management_issues`](#project-management-issues) / [`project_management_kpis`](#project-management-kpis) / [`project_management_milestone_dependencies`](#project-management-milestone-dependencies) / [`project_management_milestone_issue_links`](#project-management-milestone-issue-links) / [`project_management_milestone_kpis`](#project-management-milestone-kpis) / [`project_management_milestone_partner_links`](#project-management-milestone-partner-links) / [`project_management_milestones`](#project-management-milestones) / [`project_management_objectives`](#project-management-objectives) / [`project_management_organization_roles`](#project-management-organization-roles) / [`project_management_outcomes`](#project-management-outcomes) / [`project_management_partner_commitments`](#project-management-partner-commitments) / [`project_management_partner_tracks`](#project-management-partner-tracks) / [`project_management_partners`](#project-management-partners) / [`project_management_raci`](#project-management-raci) / [`project_management_technical_tests`](#project-management-technical-tests) / [`project_management_update_history`](#project-management-update-history) / [`project_management_validation_runs`](#project-management-validation-runs) / [`project_media_mentions`](#project-media-mentions) / [`project_meeting_summaries`](#project-meeting-summaries) / [`project_members`](#project-members) / [`project_monthly_notes`](#project-monthly-notes) / [`project_partners`](#project-partners) / [`project_pl_hearings`](#project-pl-hearings) / [`project_pl_monthly`](#project-pl-monthly) / [`project_registry_diffs`](#project-registry-diffs) / [`project_shareholder_meetings`](#project-shareholder-meetings) / [`project_shareholders`](#project-shareholders) / [`project_strategy_signals`](#project-strategy-signals) / [`project_valuation_rounds`](#project-valuation-rounds) / [`project_vc_relations`](#project-vc-relations) / [`project_venture_members`](#project-venture-members) / [`project_ventures`](#project-ventures) / [`project_weekly_effort_entries`](#project-weekly-effort-entries) / [`project_xrl_evidence`](#project-xrl-evidence) / [`project_xrl_log`](#project-xrl-log) / [`projects`](#projects) / [`protocol_examples`](#protocol-examples) / [`protocol_result_observations`](#protocol-result-observations) / [`protocols`](#protocols) / [`reimbursements`](#reimbursements) / [`reward_member_liability_offsets`](#reward-member-liability-offsets) / [`seed_contact_log`](#seed-contact-log) / [`seed_funding`](#seed-funding) / [`seed_news`](#seed-news) / [`seeds`](#seeds) / [`settings`](#settings) / [`source_cache`](#source-cache) / [`tasks`](#tasks) / [`textbook_insight_candidates`](#textbook-insight-candidates) / [`triple_helix_loading`](#triple-helix-loading) / [`triple_helix_state_log`](#triple-helix-state-log) / [`tsukuyomi_chat_logs`](#tsukuyomi-chat-logs) / [`tsukuyomi_context`](#tsukuyomi-context) / [`tsukuyomi_learnings`](#tsukuyomi-learnings) / [`tsukuyomi_learnings_status`](#tsukuyomi-learnings-status) / [`tsukuyomi_memory`](#tsukuyomi-memory) / [`tsukuyomi_nudge_queue`](#tsukuyomi-nudge-queue) / [`tsukuyomi_sessions`](#tsukuyomi-sessions) / [`tsukuyomi_usage_log`](#tsukuyomi-usage-log) / [`value_milestones`](#value-milestones) / [`value_plan_cycles`](#value-plan-cycles) / [`vc_contacts`](#vc-contacts) / [`vc_funds`](#vc-funds) / [`vc_investments`](#vc-investments) / [`vc_news`](#vc-news) / [`vcs`](#vcs) / [`xrl_feedbacks`](#xrl-feedbacks)
 
 ---
 
@@ -48,6 +48,52 @@ UNIQUE: `(source_hash)` (constraint: `action_items_source_hash_key`)
 | 23 | `updated_by` | `text` | NULL | `` |
 | 24 | `created_at` | `timestamptz` | NULL | `now()` |
 | 25 | `updated_at` | `timestamptz` | NULL | `now()` |
+
+## amd_deck_comments
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `document_id` | `text` | NOT NULL | `` |
+| 3 | `anchor_id` | `text` | NOT NULL | `` |
+| 4 | `participant_id` | `uuid` | NOT NULL | `` |
+| 5 | `parent_comment_id` | `uuid` | NULL | `` |
+| 6 | `body` | `text` | NOT NULL | `` |
+| 7 | `quote_text` | `text` | NULL | `` |
+| 8 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
+## amd_deck_participants
+
+行数 (概算): 2
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `document_id` | `text` | NOT NULL | `` |
+| 3 | `name` | `text` | NOT NULL | `` |
+| 4 | `email` | `text` | NOT NULL | `` |
+| 5 | `session_token_hash` | `text` | NOT NULL | `` |
+| 6 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 7 | `last_seen_at` | `timestamptz` | NOT NULL | `now()` |
+
+## amd_deck_reactions
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(comment_id,participant_id,reaction_type)` (constraint: `amd_deck_reactions_comment_id_participant_id_reaction_type_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `document_id` | `text` | NOT NULL | `` |
+| 3 | `comment_id` | `uuid` | NOT NULL | `` |
+| 4 | `participant_id` | `uuid` | NOT NULL | `` |
+| 5 | `reaction_type` | `text` | NOT NULL | `` |
+| 6 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 
 ## amd_management_score_evidence
 
@@ -3144,6 +3190,640 @@ PRIMARY KEY: `id`
 | 8 | `status` | `text` | NULL | `'active'::text` |
 | 9 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
 
+## project_management_action_items
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `decision_id` | `uuid` | NOT NULL | `` |
+| 4 | `title` | `text` | NOT NULL | `` |
+| 5 | `owner_label` | `text` | NOT NULL | `` |
+| 6 | `due_date` | `date` | NULL | `` |
+| 7 | `completion_criteria` | `text` | NOT NULL | `'完了条件未確認'::text` |
+| 8 | `next_review_on` | `date` | NULL | `` |
+| 9 | `status` | `text` | NOT NULL | `'open'::text` |
+| 10 | `completion_note` | `text` | NULL | `` |
+| 11 | `completed_at` | `date` | NULL | `` |
+| 12 | `last_verified_at` | `date` | NOT NULL | `` |
+| 13 | `source_kind` | `text` | NOT NULL | `'current_truth'::text` |
+| 14 | `source_ref` | `text` | NULL | `` |
+| 15 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 16 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 17 | `deleted_at` | `timestamptz` | NULL | `` |
+| 18 | `deleted_by` | `text` | NULL | `` |
+| 19 | `version` | `int4` | NOT NULL | `1` |
+
+## project_management_capacity
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `track` | `text` | NOT NULL | `` |
+| 4 | `milestone_id` | `uuid` | NULL | `` |
+| 5 | `role_label` | `text` | NOT NULL | `` |
+| 6 | `required_people` | `numeric` | NOT NULL | `0` |
+| 7 | `confirmed_people` | `numeric` | NOT NULL | `0` |
+| 8 | `available_hours_week` | `numeric` | NULL | `` |
+| 9 | `planned_hours_week` | `numeric` | NULL | `` |
+| 10 | `measurement_date` | `date` | NOT NULL | `` |
+| 11 | `source_label` | `text` | NOT NULL | `` |
+| 12 | `confidence` | `text` | NOT NULL | `'unknown'::text` |
+| 13 | `source_kind` | `text` | NOT NULL | `'current_truth'::text` |
+| 14 | `source_ref` | `text` | NULL | `` |
+| 15 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 16 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 17 | `deleted_at` | `timestamptz` | NULL | `` |
+| 18 | `deleted_by` | `text` | NULL | `` |
+| 19 | `version` | `int4` | NOT NULL | `1` |
+
+## project_management_decisions
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `issue_id` | `uuid` | NULL | `` |
+| 4 | `hypothesis_id` | `uuid` | NULL | `` |
+| 5 | `title` | `text` | NOT NULL | `` |
+| 6 | `context` | `text` | NOT NULL | `` |
+| 7 | `decision_state` | `text` | NOT NULL | `'pending'::text` |
+| 8 | `rationale` | `text` | NOT NULL | `` |
+| 9 | `decision_text` | `text` | NULL | `` |
+| 10 | `decided_by` | `text` | NULL | `` |
+| 11 | `decided_on` | `date` | NULL | `` |
+| 12 | `owner_label` | `text` | NOT NULL | `` |
+| 13 | `due_date` | `date` | NULL | `` |
+| 14 | `is_this_week` | `bool` | NOT NULL | `false` |
+| 15 | `sort_order` | `int4` | NOT NULL | `0` |
+| 16 | `confidence` | `text` | NOT NULL | `'unknown'::text` |
+| 17 | `last_verified_at` | `date` | NOT NULL | `` |
+| 18 | `source_kind` | `text` | NOT NULL | `'current_truth'::text` |
+| 19 | `source_ref` | `text` | NULL | `` |
+| 20 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 21 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 22 | `deleted_at` | `timestamptz` | NULL | `` |
+| 23 | `deleted_by` | `text` | NULL | `` |
+| 24 | `version` | `int4` | NOT NULL | `1` |
+
+## project_management_evidence
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `issue_id` | `uuid` | NOT NULL | `` |
+| 4 | `hypothesis_id` | `uuid` | NULL | `` |
+| 5 | `evidence_kind` | `text` | NOT NULL | `` |
+| 6 | `summary` | `text` | NOT NULL | `` |
+| 7 | `observed_on` | `date` | NULL | `` |
+| 8 | `source_label` | `text` | NOT NULL | `` |
+| 9 | `confidence` | `text` | NOT NULL | `'unknown'::text` |
+| 10 | `last_verified_at` | `date` | NOT NULL | `` |
+| 11 | `created_by` | `text` | NULL | `` |
+| 12 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 13 | `deleted_at` | `timestamptz` | NULL | `` |
+| 14 | `deleted_by` | `text` | NULL | `` |
+| 15 | `version` | `int4` | NOT NULL | `1` |
+
+## project_management_field_audit
+
+行数 (概算): 1,528
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `entity_type` | `text` | NOT NULL | `` |
+| 4 | `entity_id` | `uuid` | NOT NULL | `` |
+| 5 | `field_name` | `text` | NOT NULL | `` |
+| 6 | `old_value` | `jsonb` | NULL | `` |
+| 7 | `new_value` | `jsonb` | NULL | `` |
+| 8 | `source` | `text` | NOT NULL | `` |
+| 9 | `version` | `int4` | NOT NULL | `1` |
+| 10 | `verified_by` | `text` | NOT NULL | `` |
+| 11 | `next_review_on` | `date` | NULL | `` |
+| 12 | `recorded_at` | `timestamptz` | NOT NULL | `now()` |
+
+## project_management_funding_snapshots
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(project_id,snapshot_date)` (constraint: `project_management_funding_snapsho_project_id_snapshot_date_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `snapshot_date` | `date` | NOT NULL | `` |
+| 4 | `required_amount` | `numeric` | NULL | `` |
+| 5 | `secured_amount` | `numeric` | NULL | `` |
+| 6 | `unconfirmed_amount` | `numeric` | NULL | `` |
+| 7 | `use_summary` | `text` | NOT NULL | `` |
+| 8 | `burn_per_month` | `numeric` | NULL | `` |
+| 9 | `runway_months` | `numeric` | NULL | `` |
+| 10 | `probability` | `numeric` | NULL | `` |
+| 11 | `cash_condition` | `text` | NOT NULL | `` |
+| 12 | `source_label` | `text` | NOT NULL | `` |
+| 13 | `confidence` | `text` | NOT NULL | `'unknown'::text` |
+| 14 | `source_kind` | `text` | NOT NULL | `'current_truth'::text` |
+| 15 | `source_ref` | `text` | NULL | `` |
+| 16 | `deleted_at` | `timestamptz` | NULL | `` |
+| 17 | `deleted_by` | `text` | NULL | `` |
+| 18 | `version` | `int4` | NOT NULL | `1` |
+| 19 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 20 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## project_management_hypotheses
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `issue_id` | `uuid` | NOT NULL | `` |
+| 4 | `statement` | `text` | NOT NULL | `` |
+| 5 | `status` | `text` | NOT NULL | `'open'::text` |
+| 6 | `owner_label` | `text` | NOT NULL | `` |
+| 7 | `due_date` | `date` | NULL | `` |
+| 8 | `confidence` | `text` | NOT NULL | `'unknown'::text` |
+| 9 | `last_verified_at` | `date` | NOT NULL | `` |
+| 10 | `source_kind` | `text` | NOT NULL | `'current_truth'::text` |
+| 11 | `source_ref` | `text` | NULL | `` |
+| 12 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 13 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 14 | `deleted_at` | `timestamptz` | NULL | `` |
+| 15 | `deleted_by` | `text` | NULL | `` |
+| 16 | `version` | `int4` | NOT NULL | `1` |
+
+## project_management_issues
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(project_id,slug)` (constraint: `project_management_issues_project_id_slug_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `milestone_id` | `uuid` | NULL | `` |
+| 4 | `outcome_id` | `uuid` | NULL | `` |
+| 5 | `slug` | `text` | NOT NULL | `` |
+| 6 | `track` | `text` | NOT NULL | `` |
+| 7 | `title` | `text` | NOT NULL | `` |
+| 8 | `knowledge_type` | `text` | NOT NULL | `` |
+| 9 | `status` | `text` | NOT NULL | `'open'::text` |
+| 10 | `owner_label` | `text` | NOT NULL | `` |
+| 11 | `due_date` | `date` | NULL | `` |
+| 12 | `last_verified_at` | `date` | NOT NULL | `` |
+| 13 | `confidence` | `text` | NOT NULL | `'unknown'::text` |
+| 14 | `source_kind` | `text` | NOT NULL | `'current_truth'::text` |
+| 15 | `source_ref` | `text` | NULL | `` |
+| 16 | `sort_order` | `int4` | NOT NULL | `0` |
+| 17 | `created_by` | `text` | NULL | `` |
+| 18 | `updated_by` | `text` | NULL | `` |
+| 19 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 20 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 21 | `deleted_at` | `timestamptz` | NULL | `` |
+| 22 | `deleted_by` | `text` | NULL | `` |
+| 23 | `version` | `int4` | NOT NULL | `1` |
+
+## project_management_kpis
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(project_id,slug)` (constraint: `project_management_kpis_project_id_slug_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `outcome_id` | `uuid` | NOT NULL | `` |
+| 4 | `track` | `text` | NOT NULL | `` |
+| 5 | `slug` | `text` | NOT NULL | `` |
+| 6 | `title` | `text` | NOT NULL | `` |
+| 7 | `metric_kind` | `text` | NOT NULL | `` |
+| 8 | `baseline` | `numeric` | NULL | `` |
+| 9 | `target` | `numeric` | NULL | `` |
+| 10 | `actual` | `numeric` | NULL | `` |
+| 11 | `unit` | `text` | NOT NULL | `` |
+| 12 | `threshold` | `numeric` | NULL | `` |
+| 13 | `measurement_date` | `date` | NULL | `` |
+| 14 | `frequency` | `text` | NOT NULL | `` |
+| 15 | `source_label` | `text` | NOT NULL | `` |
+| 16 | `confidence` | `text` | NOT NULL | `'unknown'::text` |
+| 17 | `last_verified_at` | `date` | NOT NULL | `` |
+| 18 | `source_kind` | `text` | NOT NULL | `'current_truth'::text` |
+| 19 | `source_ref` | `text` | NULL | `` |
+| 20 | `created_by` | `text` | NULL | `` |
+| 21 | `updated_by` | `text` | NULL | `` |
+| 22 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 23 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 24 | `deleted_at` | `timestamptz` | NULL | `` |
+| 25 | `deleted_by` | `text` | NULL | `` |
+| 26 | `version` | `int4` | NOT NULL | `1` |
+| 27 | `threshold_rule` | `text` | NOT NULL | `'gte'::text` |
+| 28 | `threshold_upper` | `numeric` | NULL | `` |
+
+## project_management_milestone_dependencies
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(project_id,predecessor_milestone_id,successor_milestone_id,dependency_type)` (constraint: `project_management_milestone__project_id_predecessor_milest_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `predecessor_milestone_id` | `uuid` | NOT NULL | `` |
+| 4 | `successor_milestone_id` | `uuid` | NOT NULL | `` |
+| 5 | `dependency_type` | `text` | NOT NULL | `'finish_to_start'::text` |
+| 6 | `required` | `bool` | NOT NULL | `true` |
+| 7 | `lag_days` | `int4` | NOT NULL | `0` |
+| 8 | `note` | `text` | NULL | `` |
+| 9 | `created_by` | `text` | NULL | `` |
+| 10 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 11 | `deleted_at` | `timestamptz` | NULL | `` |
+| 12 | `deleted_by` | `text` | NULL | `` |
+| 13 | `version` | `int4` | NOT NULL | `1` |
+
+## project_management_milestone_issue_links
+
+行数 (概算): -1
+PRIMARY KEY: `milestone_id, issue_id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `project_id` | `text` | NOT NULL | `` |
+| 2 | `milestone_id` | `uuid` | NOT NULL | `` |
+| 3 | `issue_id` | `uuid` | NOT NULL | `` |
+| 4 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
+## project_management_milestone_kpis
+
+行数 (概算): -1
+PRIMARY KEY: `milestone_id, kpi_id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `project_id` | `text` | NOT NULL | `` |
+| 2 | `milestone_id` | `uuid` | NOT NULL | `` |
+| 3 | `kpi_id` | `uuid` | NOT NULL | `` |
+| 4 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
+## project_management_milestone_partner_links
+
+行数 (概算): -1
+PRIMARY KEY: `milestone_id, partner_id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `project_id` | `text` | NOT NULL | `` |
+| 2 | `milestone_id` | `uuid` | NOT NULL | `` |
+| 3 | `partner_id` | `uuid` | NOT NULL | `` |
+| 4 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+
+## project_management_milestones
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(project_id,slug)` (constraint: `project_management_milestones_project_id_slug_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `objective_id` | `uuid` | NOT NULL | `` |
+| 4 | `outcome_id` | `uuid` | NOT NULL | `` |
+| 5 | `slug` | `text` | NOT NULL | `` |
+| 6 | `track` | `text` | NOT NULL | `` |
+| 7 | `title` | `text` | NOT NULL | `` |
+| 8 | `gate` | `text` | NOT NULL | `` |
+| 9 | `status` | `text` | NOT NULL | `'unassessed'::text` |
+| 10 | `planned_start` | `date` | NULL | `` |
+| 11 | `planned_end` | `date` | NULL | `` |
+| 12 | `forecast_end` | `date` | NULL | `` |
+| 13 | `actual_end` | `date` | NULL | `` |
+| 14 | `progress_pct` | `numeric` | NOT NULL | `0` |
+| 15 | `date_certainty` | `text` | NOT NULL | `'provisional'::text` |
+| 16 | `owner_member_id` | `text` | NULL | `` |
+| 17 | `owner_label` | `text` | NOT NULL | `` |
+| 18 | `next_deliverable` | `text` | NOT NULL | `` |
+| 19 | `max_issue` | `text` | NOT NULL | `` |
+| 20 | `completion_criteria` | `text` | NOT NULL | `` |
+| 21 | `completion_evidence` | `text` | NULL | `` |
+| 22 | `criticality` | `text` | NOT NULL | `'high'::text` |
+| 23 | `baseline_plan_version` | `text` | NOT NULL | `'2026-07-14-current-truth'::text` |
+| 24 | `forecast_change_reason` | `text` | NULL | `` |
+| 25 | `status_source` | `text` | NOT NULL | `'derived'::text` |
+| 26 | `status_reason` | `text` | NULL | `` |
+| 27 | `status_override_reason` | `text` | NULL | `` |
+| 28 | `status_override_expires_on` | `date` | NULL | `` |
+| 29 | `status_override_approved_by` | `text` | NULL | `` |
+| 30 | `last_verified_at` | `date` | NOT NULL | `` |
+| 31 | `confidence` | `text` | NOT NULL | `'unknown'::text` |
+| 32 | `source_kind` | `text` | NOT NULL | `'current_truth'::text` |
+| 33 | `source_ref` | `text` | NULL | `` |
+| 34 | `sort_order` | `int4` | NOT NULL | `0` |
+| 35 | `created_by` | `text` | NULL | `` |
+| 36 | `updated_by` | `text` | NULL | `` |
+| 37 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 38 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 39 | `deleted_at` | `timestamptz` | NULL | `` |
+| 40 | `deleted_by` | `text` | NULL | `` |
+| 41 | `version` | `int4` | NOT NULL | `1` |
+
+## project_management_objectives
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(project_id,slug)` (constraint: `project_management_objectives_project_id_slug_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `slug` | `text` | NOT NULL | `` |
+| 4 | `title` | `text` | NOT NULL | `` |
+| 5 | `definition_of_done` | `text` | NOT NULL | `` |
+| 6 | `target_date` | `date` | NULL | `` |
+| 7 | `date_certainty` | `text` | NOT NULL | `'provisional'::text` |
+| 8 | `status` | `text` | NOT NULL | `'unassessed'::text` |
+| 9 | `last_verified_at` | `date` | NOT NULL | `` |
+| 10 | `confidence` | `text` | NOT NULL | `'unknown'::text` |
+| 11 | `source_kind` | `text` | NOT NULL | `'current_truth'::text` |
+| 12 | `source_ref` | `text` | NULL | `` |
+| 13 | `created_by` | `text` | NULL | `` |
+| 14 | `updated_by` | `text` | NULL | `` |
+| 15 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 16 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 17 | `deleted_at` | `timestamptz` | NULL | `` |
+| 18 | `deleted_by` | `text` | NULL | `` |
+| 19 | `version` | `int4` | NOT NULL | `1` |
+
+## project_management_organization_roles
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(project_id,role_slug)` (constraint: `project_management_organization_roles_project_id_role_slug_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `role_slug` | `text` | NOT NULL | `` |
+| 4 | `role_name` | `text` | NOT NULL | `` |
+| 5 | `required` | `bool` | NOT NULL | `true` |
+| 6 | `candidate` | `text` | NULL | `` |
+| 7 | `commitment` | `text` | NULL | `` |
+| 8 | `authority` | `text` | NULL | `` |
+| 9 | `vacancy` | `bool` | NOT NULL | `true` |
+| 10 | `join_condition` | `text` | NOT NULL | `` |
+| 11 | `due_date` | `date` | NULL | `` |
+| 12 | `status` | `text` | NOT NULL | `'unassessed'::text` |
+| 13 | `owner_label` | `text` | NOT NULL | `` |
+| 14 | `last_verified_at` | `date` | NOT NULL | `` |
+| 15 | `confidence` | `text` | NOT NULL | `'unknown'::text` |
+| 16 | `source_kind` | `text` | NOT NULL | `'current_truth'::text` |
+| 17 | `source_ref` | `text` | NULL | `` |
+| 18 | `deleted_at` | `timestamptz` | NULL | `` |
+| 19 | `deleted_by` | `text` | NULL | `` |
+| 20 | `version` | `int4` | NOT NULL | `1` |
+| 21 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 22 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## project_management_outcomes
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(project_id,slug)` (constraint: `project_management_outcomes_project_id_slug_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `objective_id` | `uuid` | NOT NULL | `` |
+| 4 | `slug` | `text` | NOT NULL | `` |
+| 5 | `track` | `text` | NOT NULL | `` |
+| 6 | `title` | `text` | NOT NULL | `` |
+| 7 | `definition_of_done` | `text` | NOT NULL | `` |
+| 8 | `owner_label` | `text` | NOT NULL | `` |
+| 9 | `status` | `text` | NOT NULL | `'unassessed'::text` |
+| 10 | `last_verified_at` | `date` | NOT NULL | `` |
+| 11 | `confidence` | `text` | NOT NULL | `'unknown'::text` |
+| 12 | `source_kind` | `text` | NOT NULL | `'current_truth'::text` |
+| 13 | `source_ref` | `text` | NULL | `` |
+| 14 | `created_by` | `text` | NULL | `` |
+| 15 | `updated_by` | `text` | NULL | `` |
+| 16 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 17 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 18 | `deleted_at` | `timestamptz` | NULL | `` |
+| 19 | `deleted_by` | `text` | NULL | `` |
+| 20 | `version` | `int4` | NOT NULL | `1` |
+
+## project_management_partner_commitments
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `partner_id` | `uuid` | NOT NULL | `` |
+| 4 | `title` | `text` | NOT NULL | `` |
+| 5 | `commitment_text` | `text` | NOT NULL | `` |
+| 6 | `status` | `text` | NOT NULL | `'open'::text` |
+| 7 | `promised_on` | `date` | NULL | `` |
+| 8 | `due_date` | `date` | NULL | `` |
+| 9 | `completed_on` | `date` | NULL | `` |
+| 10 | `owner_label` | `text` | NOT NULL | `` |
+| 11 | `counterparty_owner` | `text` | NULL | `` |
+| 12 | `sx_owner` | `text` | NULL | `` |
+| 13 | `evidence` | `text` | NULL | `` |
+| 14 | `next_review_on` | `date` | NULL | `` |
+| 15 | `last_verified_at` | `date` | NOT NULL | `` |
+| 16 | `confidence` | `text` | NOT NULL | `'unknown'::text` |
+| 17 | `source_kind` | `text` | NOT NULL | `'current_truth'::text` |
+| 18 | `source_ref` | `text` | NULL | `` |
+| 19 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 20 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 21 | `deleted_at` | `timestamptz` | NULL | `` |
+| 22 | `deleted_by` | `text` | NULL | `` |
+| 23 | `version` | `int4` | NOT NULL | `1` |
+
+## project_management_partner_tracks
+
+行数 (概算): -1
+PRIMARY KEY: `partner_id, track`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `project_id` | `text` | NOT NULL | `` |
+| 2 | `partner_id` | `uuid` | NOT NULL | `` |
+| 3 | `track` | `text` | NOT NULL | `` |
+| 4 | `role_label` | `text` | NOT NULL | `` |
+| 5 | `is_primary` | `bool` | NOT NULL | `false` |
+| 6 | `deleted_at` | `timestamptz` | NULL | `` |
+| 7 | `deleted_by` | `text` | NULL | `` |
+| 8 | `version` | `int4` | NOT NULL | `1` |
+
+## project_management_partners
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(project_id,slug)` (constraint: `project_management_partners_project_id_slug_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `slug` | `text` | NOT NULL | `` |
+| 4 | `name` | `text` | NOT NULL | `` |
+| 5 | `role_label` | `text` | NOT NULL | `` |
+| 6 | `primary_track` | `text` | NULL | `` |
+| 7 | `relationship_stage` | `text` | NOT NULL | `` |
+| 8 | `agreement_state` | `text` | NOT NULL | `'unagreed'::text` |
+| 9 | `agreed_scope` | `text` | NOT NULL | `` |
+| 10 | `unagreed_scope` | `text` | NOT NULL | `` |
+| 11 | `last_contact_date` | `date` | NULL | `` |
+| 12 | `next_commitment` | `text` | NOT NULL | `` |
+| 13 | `due_date` | `date` | NULL | `` |
+| 14 | `owner_label` | `text` | NOT NULL | `` |
+| 15 | `last_verified_at` | `date` | NOT NULL | `` |
+| 16 | `confidence` | `text` | NOT NULL | `'unknown'::text` |
+| 17 | `source_kind` | `text` | NOT NULL | `'current_truth'::text` |
+| 18 | `source_ref` | `text` | NULL | `` |
+| 19 | `sort_order` | `int4` | NOT NULL | `0` |
+| 20 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 21 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 22 | `deleted_at` | `timestamptz` | NULL | `` |
+| 23 | `deleted_by` | `text` | NULL | `` |
+| 24 | `version` | `int4` | NOT NULL | `1` |
+
+## project_management_raci
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `milestone_id` | `uuid` | NOT NULL | `` |
+| 4 | `stakeholder_label` | `text` | NOT NULL | `` |
+| 5 | `responsibility_role` | `text` | NOT NULL | `` |
+| 6 | `owner_label` | `text` | NOT NULL | `` |
+| 7 | `confirmed` | `bool` | NOT NULL | `false` |
+| 8 | `last_verified_at` | `date` | NOT NULL | `` |
+| 9 | `confidence` | `text` | NOT NULL | `'unknown'::text` |
+| 10 | `source_kind` | `text` | NOT NULL | `'current_truth'::text` |
+| 11 | `source_ref` | `text` | NULL | `` |
+| 12 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 13 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 14 | `deleted_at` | `timestamptz` | NULL | `` |
+| 15 | `deleted_by` | `text` | NULL | `` |
+| 16 | `version` | `int4` | NOT NULL | `1` |
+
+## project_management_technical_tests
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+UNIQUE: `(project_id,test_slug)` (constraint: `project_management_technical_tests_project_id_test_slug_key`)
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `milestone_id` | `uuid` | NULL | `` |
+| 4 | `outcome_id` | `uuid` | NULL | `` |
+| 5 | `test_slug` | `text` | NOT NULL | `` |
+| 6 | `test_name` | `text` | NOT NULL | `` |
+| 7 | `test_condition` | `text` | NOT NULL | `` |
+| 8 | `target` | `text` | NULL | `` |
+| 9 | `actual` | `text` | NULL | `` |
+| 10 | `unit` | `text` | NOT NULL | `` |
+| 11 | `repetition` | `int4` | NULL | `` |
+| 12 | `sample` | `text` | NULL | `` |
+| 13 | `trl_criterion` | `text` | NOT NULL | `` |
+| 14 | `evidence` | `text` | NULL | `` |
+| 15 | `status` | `text` | NOT NULL | `'unassessed'::text` |
+| 16 | `measured_on` | `date` | NULL | `` |
+| 17 | `owner_label` | `text` | NOT NULL | `` |
+| 18 | `confidence` | `text` | NOT NULL | `'unknown'::text` |
+| 19 | `source_kind` | `text` | NOT NULL | `'current_truth'::text` |
+| 20 | `source_ref` | `text` | NULL | `` |
+| 21 | `deleted_at` | `timestamptz` | NULL | `` |
+| 22 | `deleted_by` | `text` | NULL | `` |
+| 23 | `version` | `int4` | NOT NULL | `1` |
+| 24 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 25 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+
+## project_management_update_history
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `entity_type` | `text` | NOT NULL | `` |
+| 4 | `entity_id` | `uuid` | NULL | `` |
+| 5 | `update_kind` | `text` | NOT NULL | `` |
+| 6 | `summary` | `text` | NOT NULL | `` |
+| 7 | `changed_by` | `text` | NOT NULL | `` |
+| 8 | `changed_on` | `date` | NOT NULL | `` |
+| 9 | `from_status` | `text` | NULL | `` |
+| 10 | `to_status` | `text` | NULL | `` |
+| 11 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 12 | `deleted_at` | `timestamptz` | NULL | `` |
+| 13 | `deleted_by` | `text` | NULL | `` |
+| 14 | `version` | `int4` | NOT NULL | `1` |
+
+## project_management_validation_runs
+
+行数 (概算): -1
+PRIMARY KEY: `id`
+
+| # | column | type | nullable | default |
+|---|---|---|---|---|
+| 1 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` |
+| 2 | `project_id` | `text` | NOT NULL | `` |
+| 3 | `hypothesis_id` | `uuid` | NOT NULL | `` |
+| 4 | `validation_kind` | `text` | NOT NULL | `` |
+| 5 | `planned_on` | `date` | NULL | `` |
+| 6 | `due_date` | `date` | NULL | `` |
+| 7 | `completed_on` | `date` | NULL | `` |
+| 8 | `status` | `text` | NOT NULL | `'planned'::text` |
+| 9 | `owner_label` | `text` | NOT NULL | `` |
+| 10 | `method` | `text` | NOT NULL | `` |
+| 11 | `result_summary` | `text` | NULL | `` |
+| 12 | `confidence` | `text` | NOT NULL | `'unknown'::text` |
+| 13 | `source_kind` | `text` | NOT NULL | `'current_truth'::text` |
+| 14 | `source_ref` | `text` | NULL | `` |
+| 15 | `created_at` | `timestamptz` | NOT NULL | `now()` |
+| 16 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 17 | `deleted_at` | `timestamptz` | NULL | `` |
+| 18 | `deleted_by` | `text` | NULL | `` |
+| 19 | `version` | `int4` | NOT NULL | `1` |
+
 ## project_media_mentions
 
 行数 (概算): 42
@@ -3538,6 +4218,9 @@ UNIQUE: `(project_id,member_id,week_start,work_category)` (constraint: `project_
 | 10 | `created_by` | `text` | NULL | `` |
 | 11 | `created_at` | `timestamptz` | NOT NULL | `now()` |
 | 12 | `updated_at` | `timestamptz` | NOT NULL | `now()` |
+| 13 | `management_track` | `text` | NULL | `` |
+| 14 | `management_milestone_id` | `uuid` | NULL | `` |
+| 15 | `deliverable_label` | `text` | NULL | `` |
 
 ## project_xrl_evidence
 

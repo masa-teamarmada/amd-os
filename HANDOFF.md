@@ -1,6 +1,6 @@
 # AMD OS Handoff
 
-Last updated: 2026-07-18 JST
+Last updated: 2026-07-19 JST
 
 Target: `/Users/masa/projects/AMD/amd-os`
 Topic: SX (`p21`) PJ共有ダッシュボードとPJ限定アクセス
@@ -13,6 +13,15 @@ Topic: SX (`p21`) PJ共有ダッシュボードとPJ限定アクセス
 - PJ限定Google OAuthは本人確認後に通常のSupabase sessionを破棄し、7日間のHTTP-only署名付きPJ sessionへ交換する。既存社内RLS/APIを外部ユーザーへ継承させない。
 - migration 182を本番DBへ適用。`members.os_access_scope`、`project_weekly_effort_entries`、scope helperを追加し、`amd_os_is_member()` はportfolio/adminだけをtrueにした。
 - build targetは `v3.45.0`。
+
+## SX COO統合経営ダッシュボード実装追記
+
+- build targetは `v3.46.0`。`/project/p21/workspace` の主役を週次エフォートから経営判定へ移し、目的 → 4本柱の成果 → KPI → マイルストーンを同じ経営航路で辿れるようにした。
+- migration 183 は旧 `project_sx_*` を作らず、`project_management_*` の正規化台帳だけを追加する。KPI閾値 (`gte` / `lte` / `between`)、完了条件・証跡、依存DAG、論点→仮説→証拠→検証→意思決定→action、協力機関の約束履歴、技術試験、資金スナップショット、組織役割、RACI、容量、field auditを含む。
+- overall / 4本柱の状態は進捗手入力ではなく、必須KPI・期限・担当・鮮度・依存・完了条件・action・役割・閾値を用いたderived判定が正本。充足率は表示値に留める。FC北陸は低確度の候補/情報交換、PFは未合意、100L PoCは復活させない。
+- `/api/project-workspace/[projectId]/management` はresource別status列、同一PJ、PJ所属、decisionの状態、soft-delete、boolean、KPI範囲を検証し、更新履歴とfield auditを残す。PJ共有面にraw本文、source URL、契約原文、報酬、メール本文、内部交渉メモを返さない。
+- RLSのmember_selectはsoft-delete済み行を除外する。`scripts/test_project_management_rls.mjs` は実在active memberをauthenticated roleで検査し、削除済み行非表示・有効p21可視・未所属ユーザー拒否を確認する。
+- desktop/tablet/mobileはそれぞれ、desktop表/ガント、tabletの折り返し、390pxの期限順カード/縦ロードマップを使い分ける。モバイルで表・ガント・左デスクトップナビを横スクロールさせない。
 
 ## Current Truth
 

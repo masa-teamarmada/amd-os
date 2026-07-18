@@ -108,7 +108,7 @@ export function AppShell({
       {agreementGateBundle && (
         <MonthlyAgreementGateOverlay bundle={agreementGateBundle} />
       )}
-      {isAdmin && <CriticalRealtimeNotify />}
+      {isAdmin && !isProjectScope && <CriticalRealtimeNotify />}
       {!isProjectScope && <TsukuyomiChatBridge />}
     </>
   );

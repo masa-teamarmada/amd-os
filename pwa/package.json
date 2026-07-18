@@ -25,6 +25,8 @@
     "test:proactive-meeting-due": "node --experimental-strip-types scripts/check_proactive_meeting_action_due.mts",
     "test:next-period-ui": "node scripts/check_next_period_ms_period_ui.cjs",
     "test:critical-ui": "node scripts/check_pwa_critical_ui.cjs",
+    "test:sx-management": "node --experimental-strip-types scripts/test_project_management_logic.mjs",
+    "test:project-management-rls": "node scripts/test_project_management_rls.mjs",
     "test:payout-notice-pdf": "node scripts/check_payout_notice_pdf_golden.cjs",
     "test:management-score-retention": "node scripts/check_management_score_retention_logic.cjs",
     "test:management-score-missing-data": "node scripts/check_management_score_missing_data_logic.cjs",
