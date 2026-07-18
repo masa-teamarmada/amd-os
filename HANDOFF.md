@@ -1,62 +1,49 @@
 # AMD OS Handoff
 
-Last updated: 2026-07-17 JST
+Last updated: 2026-07-18 JST
 
 Target: `/Users/masa/projects/AMD/amd-os`
-Topic: authenticated PWA 全体の初回表示を軽くする恒久修正・closeout
+Topic: 法人支払義務の自動DM停止と通知事故のcloseout
 
 ## Latest Session Summary
 
-- `89956e6f` で、全 authenticated route を止めていた月初合意ゲートの重い SSR 集計を外し、既存の認証済み API を `AppShell` mount 後に読む形へ移した。判定・表示条件は不変。
-- 同 commit で、閉じた月初合意体験・つくよみ drawer・dashboard の My/Company Content を dynamic import 化。Company Content は画面近傍まで fetch しない。
-- `351255cf` で critical UI guard を新しい client fetch 方式へ合わせた。
-- hidden tab の緊急通知 polling を停止し、復帰時即 refresh + foreground 60 秒 fallback にした。Supabase Realtime 購読は維持。
-- 同一 authenticated production `/dashboard` の安定後比較で、初回 DOM は `3108 -> 1409`、画像 request は `78 -> 1`。Company Content は scroll 後に画像 77 件を正常に遅延読込する。
+- 法人支払義務の日次同期が、経理担当へ未確認・当月・期限超過の候補を初回から一括DMしていた。送信済み28件を確認した。
+- `81bc29e3` で日次同期からの自動DMを既定OFFにした。台帳と月次試算表の同期は継続し、手動送信は明示操作として残す。
+- production は `v3.44.15` / `81bc29e3` でReadyを確認した。
+- 実装元タスクへ、検知・台帳化と対人通知を推論で結びつけず、DMは明示依頼またはreview-firstの確認後だけにするよう注意を送った。
 
 ## Current Truth
 
-- 月初合意ゲートは SSR で先回り集計しない。`AppShell` が既存 `GET /api/monthly-work-agreement` を読む。必要時の必須モーダルと対象外/skip 判定は変えない。
-- dashboard の Company Content は `IntersectionObserver` (`rootMargin: 600px`) で近づいた時だけ 1 回取得する。情報・導線を削らない。
-- closed UI は静的 bundle へ常駐させず、必要時に dynamic import する。hidden tab の polling は停止する。
-- docs closeout 開始直前の production readback は `v3.44.8 / c10b4af947a5142f8984cfc843a1e0b28f2d3b80 / main / dirty=false`。本 handoff の `v3.44.9` deploy 後は `/api/build-info` を必ず取り直す。
+- `/api/cron/payment-obligations` の日次実行は、`PAYMENT_OBLIGATION_AUTO_NUDGE_ENABLED=1` が本番で明示されない限りSlack DMを送らない。
+- 自動DMを再開する前に、候補件数・重複防止・送信文面をdry-runで確認し、まさの明示指示を取る。
+- 正本: `pwa/manual/6-9-company-payment-obligations-spec.md`。事故記録: `pwa/BUGS.md`。詳細ログ: `pwa/design_log/sessions_2026-07.md`。
 
 ## Verification
 
-- `./node_modules/.bin/tsc --noEmit --pretty false`: clean。
-- `npm run lint`: 新規 regression なし（既存の許容パターン 1 件のみ）。
-- `npm run build`: success。
-- `npm run test:critical-ui`: success。`351255cf` で月初合意ゲート anchor の guard を client prop へ更新済み。
-- production browser: 初回の軽量化と、scroll 後の Company Content 読込を確認済み。
-
-## Durable Records
-
-- runtime: `pwa/spec/2-1-pwa-runtime-routes.md`
-- 月初合意: `pwa/spec/3-14-monthly-work-agreement-current-spec.md`
-- member-facing manual: `pwa/manual/6-6-member-billing-prompts-spec.md`
-- manual changelog: `pwa/manual/9-3-appendix-changelog.md`
-- lesson: `pwa/BUGS.md`
-- design decision: `pwa/design_log/sessions_2026-07.md`
+- `npx eslint src/app/api/cron/payment-obligations/route.ts src/lib/build-info.ts`
+- `npx tsc --noEmit`
+- `npm run test:payment-obligations`
+- `npm run build`
+- production `/api/build-info` とVercel production Readyを確認済み。
 
 ## Shared Root / Cleanup State
 
-- `/Users/masa/projects/AMD/amd-os` は multi-writer の shared root。reward-finance、notifications、H-1 reviewer、L6 extract、Atlas、Book A などの別レーン差分と active worktree がある。
-- 本 task は disposable clean clone で docs/deploy を完了する。shared root の差分、branch、worktree は読むだけで、stage・reset・prune・削除しない。
-- repo 全体の archive 判定は **do not archive**。今回起因の disposable clone だけを closeout 対象にする。
+- この停止bundleはclean cloneでcommit・push・deployし、cloneは削除済み。今回起因の未commit差分・branch・worktreeは残っていない。
+- shared rootには別レーンのdirty、branch、worktreeが残る。今回の所有物ではないため削除しない。次のownerは各レーンのcloseoutで対象bundleをmainへ畳み、証跡後に削除判断する。
+- repo全体のarchive判定は **do not archive**。理由はshared rootの別owner WIPと、未整理のbranch/worktree debt。
 
 ## Unresolved Tasks
 
-- この performance bundle 自体に未解決の実装タスクはない。
-- 次の変更前は、local checkout / `origin/main` / production `/api/build-info` を並べて current truth を更新する。
+- 自動DMの再開は未依頼。必要になった時だけ、review-firstの送信設計を別bundleで確認する。
 
 ## First Next Action
 
-1. `cd /Users/masa/projects/AMD/amd-os && git fetch origin main && git status -sb --untracked-files=all`。
-2. `curl -fsS https://amd-os-pwa.vercel.app/api/build-info` を取り、`v3.44.9` deploy の SHA と `dirty=false` を確認する。
-3. authenticated shell に重い fetch・静的 import・polling を足す変更なら、まず route scope / lazy import / hidden tab 停止の 3 点を検討する。
+1. `git fetch origin main` と production `/api/build-info` を取り直す。
+2. 通知変更の依頼なら、先に「台帳同期」「候補表示」「人への送信」を分け、送信は既定OFFで設計する。
 
 ## Guardrails
 
-- `git add .` は使わず対象ファイルだけを stage する。
-- shared root の他レーン dirty をこの bundle に混ぜない。
-- PWA production deploy は `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` だけを使う。
-- raw 本文、個人情報、secret、private URL を handoff / durable log へ残さない。
+- `git add .` を使わず、対象ファイルだけをstageする。
+- shared rootの他レーンdirtyをstage・reset・削除しない。
+- PWA本番反映は `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` を使う。
+- raw本文、個人情報、secret、private URLをhandoffやdurable logへ残さない。

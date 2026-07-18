@@ -4081,3 +4081,10 @@
 - **原因**: 2026-07-09 の移動時に、旧「資料」グループからは外したが、`GlobalNav` の Admin group に `/admin/japanese-culture-map` への入口を残した。さらに changelog / `design/os_manual.md` にも「GlobalNav admin group に置く」趣旨の記述が残り、admin 内導線に閉じる契約になっていなかった。
 - **対応内容**: `GlobalNav` から日本文化導線を削除し、入口を `AdminSidebar` だけに限定した。`FEATURE_REGISTRY` / admin ops manual / changelog / `design/os_manual.md` を同期し、`BUILD_VERSION` を `v3.40.2` に更新した。
 - **再発防止策**: `test:critical-ui` で `GlobalNav.tsx` に `日本文化`、`/admin/japanese-culture-map`、`/japanese-culture-map` が戻ったら落とす。admin-only の知識ビューを共通トップナビへ戻す変更は、仕様更新と guard 更新なしに行わない。
+
+## [finance/payment-obligations/nudge] 初回の台帳同期で未確認候補まで一括DMした (2026-07-18)
+
+- **症状**: 法人支払義務の日次同期の初回実行で、未確認・当月・期限超過の候補が同時に経理担当へ28件送信された。確認用の台帳が、優先順位のない通知の洪水になった。
+- **原因**: 支払漏れを防ぐための「台帳化」と、人へ知らせる「DM送信」を同じ日次処理の既定動作にした。候補件数の上限、初回同期の抑止、送信前reviewがなく、日付が未確定の候補も確認依頼として即送信された。まさからDM送信の明示依頼もなかった。
+- **対応内容**: 日次同期のDMを既定OFFに変更した。台帳と月次試算表の同期は続け、DMは本番で明示有効化された場合だけ実行する。手動送信は別の明示操作として残した。production `v3.44.15` で確認済み。
+- **再発防止策**: 検知・台帳化・候補表示・人への送信を別責務にする。対人DMは明示依頼、または候補件数・重複防止・文面をreview-firstで確認できる場合以外は既定OFFとする。初回同期やbackfillは、送信なしで候補を作るだけにする。

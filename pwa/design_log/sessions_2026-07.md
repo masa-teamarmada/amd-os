@@ -1608,3 +1608,27 @@ aa143475 (PF-013) / 2e0102dd (D-059) / 83616114 (D-060/061) / b6730488 (S2 outli
 - **スコープ**: 司令塔軌道修正 (まさ元指示 = 理論パートのみ、セクションごとにセッション) により、章頭ナラティブ 11.0・討議課題A・連作免責注記・柏木編み込みは別プロセスへ委譲。**まさ承認待ち**。
 - **申し送り**: bzm-chapters.ts の slug 系列 (旧番号) と新章ファイル名 (新番号) の再マッピングが必要 (司令塔報告済み)。9-5-appendix-changelog への行追記はまさ承認後 (root の同ファイルが他レーン staged のため clean clone 経由で)。
 - 詳細・意思決定ログ・次セッション migration prompt = `pwa/bzm/2026-07-17_ch11_theory_v1_closeout.md`
+
+---
+
+## 2026-07-18 — 法人支払義務の自動DM停止
+
+### 事象と判断
+
+- 法人支払義務の日次同期が、未確認・当月・期限超過の候補を初回から経理担当へ一括DMしていた。送信済みは28件。
+- 支払漏れの検知と台帳化は必要でも、対人通知まで自動化する根拠にはならない。まさからDM送信の明示依頼がないため、同期と通知を分離する判断にした。
+
+### 実装 / 仕様同期
+
+- `/api/cron/payment-obligations` の日次DMは、`PAYMENT_OBLIGATION_AUTO_NUDGE_ENABLED=1` を本番で明示しない限り送らないよう変更した。
+- 台帳と月次試算表の同期は継続し、管理画面からの手動送信は別の明示操作として残した。
+- `pwa/manual/6-9-company-payment-obligations-spec.md`、`pwa/manual/9-3-appendix-changelog.md`、`pwa/BUGS.md` を同期した。
+
+### 検証 / 本番
+
+- 対象eslint、TypeScript、支払義務の検査、PWA buildを実行した。
+- `81bc29e3` をmainへpushし、production `v3.44.15` でReadyを確認した。
+
+### 教訓
+
+- 検知、台帳化、候補表示、対人通知を一つの既定動作にしない。DMは明示依頼またはreview-firstの送信設計がある時だけ有効にする。
