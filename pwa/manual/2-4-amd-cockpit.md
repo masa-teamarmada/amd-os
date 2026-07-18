@@ -27,6 +27,16 @@ URL: `/project/p00/cockpit`。**会社全体 (= AMD 株式会社) を 1 つの P
 
 `/dashboard` の上部に、PJ横断の `ProactiveTodoBadge` を表示する。先手TODOバッジは `proactive_todos.status='open'` の件数、期限超過、red件数を1行で出し、詳細は `/proactive` へ送る。dashboard 側では状態更新せず、実行・完了・保留は `/proactive` で確認する。
 
+## Dashboard の freee連携
+
+`/dashboard` の上部には admin 限定で `FreeeConnectionStatusCard` を出す。ここは認可情報の中身を表示せず、`freee_oauth_tokens` の接続記録と、月次試算表の実績として保存された `company_actual_monthly` の最終更新時刻だけを読む。
+
+- `正常`: P/L (`freee:trial_pl:*`) と口座残高 (`freee:wallet_txns_balance:*`) がともに24時間以内に更新済み。
+- `要確認`: 接続記録はあるが、どちらかの更新記録がない・古い・判定不能。
+- `未連携`: 接続記録がなく、freee認可を確認できない。
+
+P/Lと口座残高の時刻を分けて表示し、`/management-score` の月次試算表へ遷移できる。画面から同期を実行したり、認可情報を表示したりはしない。
+
 ## Dashboard の累計実績
 
 `/dashboard` の上部に、AMD全体の資金調達・助成金の累計実績カードを表示する。ここで大きく出す累計値は、会社の登録済み総額ではなく、`amd_contribution_status` で AMD貢献として明示された金額だけを合計する。

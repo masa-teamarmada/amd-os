@@ -48,6 +48,32 @@ function expectFileMissing(rel) {
   }
 }
 
+expectIncludes("src/app/(app)/dashboard/page.tsx", [
+  "ExtractionStatusCard",
+  "FreeeConnectionStatusCard",
+]);
+
+expectIncludes("src/components/dashboard/FreeeConnectionStatusCard.tsx", [
+  "freee連携",
+  "/api/dashboard/freee-connection-status",
+  "P/L同期",
+  "口座残高同期",
+  "/management-score",
+]);
+
+expectIncludes("src/app/api/dashboard/freee-connection-status/route.ts", [
+  "requireAdmin",
+  "createAdminClient",
+  "FRESHNESS_WINDOW_MS",
+  "freee:trial_pl:%",
+  "freee:wallet_txns_balance:%",
+]);
+
+expectNotIncludes("src/app/api/dashboard/freee-connection-status/route.ts", [
+  "refresh_token",
+  "client_secret",
+]);
+
 expectIncludes("spec/3-0-l2-data-list-current-spec.md", [
   "# L2データリスト",
   "M / W / D / H",

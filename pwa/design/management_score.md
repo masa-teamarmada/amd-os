@@ -477,6 +477,8 @@ UI で必ず出すもの:
 | 月初 | 前月確定 snapshot を保存 |
 | 手動 | raw / calculate route は診断用に残すが、通常更新では refresh route を使う |
 
+`/dashboard` の admin 限定 `freee連携` は、この更新の見える証跡である。`/api/dashboard/freee-connection-status` が認可情報の中身を読まずに接続記録の有無、`company_actual_monthly` の `freee:trial_pl:*`、`freee:wallet_txns_balance:*` の最終 `imported_at` を確認する。両実績が24時間以内だけを `正常`、接続記録がない場合を `未連携`、それ以外を `要確認` とする。P/Lと口座残高を一つの時刻に混ぜず、画面からの同期実行・認可情報の表示は行わない。
+
 GAS 月次試算表の凍結 baseline は fallback として保持し、通常の予算線は OS ライブテーブル (`projects` / `billing_cycles` / `company_finance_recurring_items` / `company_payment_obligations`) から `source='os_live_monthly_pl'`, `version='os-live-current'` として `company_budget_monthly` に毎回 materialize する。`/management-score` と raw 収集は `company_budget_actual_monthly` のうち `budget_version='os-live-current'` または実績のみの行を読むため、旧GAS baseline の CTB などは通常表示・score入力に混ざらない。live 月次試算表の売上原価は `/admin/payouts` の capped 外部支払予定 (`reward_summary_json.externalRegularPayoutCapYen + externalExtraPayoutCapYen`) と一致させ、会社留保・役員留保・報酬債務・旧GASのクローザー5%は cash out に混ぜない。月次試算表の実績線は `company_actual_monthly` を正本にし、freee PL と freee 口座残高を refresh route で更新する。freee 口座残高がある月以降のcash予測は、その実績残高をアンカーにして未来月の見込みCFを積む。raw が partial / failed の時は stale な snapshot を作らないよう score 計算を止める。
 
 ---

@@ -39,6 +39,7 @@ import { ActionItemsPanel } from "@/components/governance/ActionItemsPanel";
 import { FundingStatsCard } from "@/components/dashboard/FundingStatsCard";
 import { ProactiveTodoBadge } from "@/components/proactive-todo/ProactiveTodoBadge";
 import { ExtractionStatusCard } from "@/components/dashboard/ExtractionStatusCard";
+import { FreeeConnectionStatusCard } from "@/components/dashboard/FreeeConnectionStatusCard";
 import { isInstitutionDashboardProject } from "@/lib/institution-projects";
 
 const MyPageContent = dynamic(
@@ -206,6 +207,7 @@ export default function DashboardPage() {
             <FundingStatsCard />
             <ProactiveTodoBadge />
             <ExtractionStatusCard />
+            <FreeeConnectionStatusCard />
             <ActionItemsPanel projectLabels={projectLabels} variant="dashboard" limit={5} />
             <DashboardScoreOverview
               managementScore={managementScore}
