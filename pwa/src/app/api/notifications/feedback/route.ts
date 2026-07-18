@@ -11,7 +11,7 @@
  *
  * Body:
  *   {
- *     l2_kind: 'member_knowledge'|'project_knowledge'|'protocols'|'ms_progress'|'ms_progress_revision'|'meeting_summary'|'project_registry_diff'|'xrl_evidence'|'project_strategy_signal'|'textbook_insight'|'coverage_gap'|'guardrail_match',
+ *     l2_kind: 'member_knowledge'|'project_knowledge'|'protocols'|'ms_progress'|'ms_progress_revision'|'meeting_summary'|'project_registry_diff'|'xrl_evidence'|'project_strategy_signal'|'textbook_insight'|'news_mention'|'action_item'|'coverage_gap'|'guardrail_match',
  *     target_id: string,            // code_name (member系) / project_id (PJ系)
  *     scope_key?: string,            // ym (PJ系) / 'global' (member系) — default 'global'
  *     notification_id?: string,      // 関連 l2_notifications (optional)
@@ -441,6 +441,14 @@ async function applyApprovedNotification(args: {
     });
   }
 
+  if (args.l2Kind === "news_mention") {
+    return updateMediaMentionReviewStatus({
+      supabase: args.supabase,
+      scopeKey: args.scopeKey,
+      reviewStatus: "confirmed",
+    });
+  }
+
   if (args.l2Kind === "coverage_gap") {
     // 「はい」= まさが「これは確かに未OS化の gap だ」と認める。
     // proposed_target_l2 が自動反映可能なものはこの場で実ルートまで完了し、
@@ -816,6 +824,14 @@ async function rejectNotificationCandidates(args: {
     });
   }
 
+  if (args.l2Kind === "news_mention") {
+    return updateMediaMentionReviewStatus({
+      supabase: args.supabase,
+      scopeKey: args.scopeKey,
+      reviewStatus: "rejected",
+    });
+  }
+
   if (args.l2Kind === "founding_members") {
     const { data, error } = await args.supabase
       .from("project_founding_members")
@@ -947,6 +963,36 @@ async function updateActionItemReviewStatus(args: {
   return {
     applied: args.reviewStatus === "confirmed" && rows.length > 0,
     message: `${args.reviewStatus} action_item: ${rows.length}`,
+    row: rows,
+  };
+}
+
+async function updateMediaMentionReviewStatus(args: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  scopeKey: string;
+  reviewStatus: "confirmed" | "rejected";
+}): Promise<{ applied: boolean; message: string; row?: unknown }> {
+  const mentionId = args.scopeKey.startsWith("media:") ? args.scopeKey.slice("media:".length) : args.scopeKey;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(mentionId)) {
+    return { applied: false, message: "invalid media mention scope_key" };
+  }
+  const now = new Date().toISOString();
+  const { data, error } = await args.supabase
+    .from("project_media_mentions")
+    .update({
+      verified: args.reviewStatus === "confirmed",
+      dismissed: args.reviewStatus === "rejected",
+      updated_at: now,
+    })
+    .eq("id", mentionId)
+    .eq("verified", false)
+    .eq("dismissed", false)
+    .select("id, project_id, title, verified, dismissed");
+  if (error) return { applied: false, message: error.message };
+  const rows = data ?? [];
+  return {
+    applied: args.reviewStatus === "confirmed" && rows.length > 0,
+    message: `${args.reviewStatus} news_mention: ${rows.length}`,
     row: rows,
   };
 }

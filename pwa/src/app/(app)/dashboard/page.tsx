@@ -384,6 +384,7 @@ async function fetchCompanyContentPreview(supabase: ReturnType<typeof createClie
       .from("project_media_mentions")
       .select("id,project_id,occurred_on,title,media_name,kind,source_url,projects(project_name)")
       .eq("dismissed", false)
+      .eq("verified", true)
       .order("occurred_on", { ascending: false })
       .limit(200),
   ]);

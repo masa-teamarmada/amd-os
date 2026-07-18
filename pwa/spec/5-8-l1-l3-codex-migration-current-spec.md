@@ -37,9 +37,9 @@ AMD OS では、当面 **Claude routines / `claude -p` / Claude Agent SDK / Clau
 | D-8 Atlas Signals | Codex automation `amd-atlas-2` が **ACTIVE**。applier あり | public web / reliable external sources | `amd-atlas(-2)/outbox` → applier / `POST /api/atlas/signals-ingest` | daily 08:10 JST | なしで運用可能 | **Codex primary として継続運転** | 不要 (再始動済み) | outbox only | health D-8 row / outbox drain | P0 |
 | D-9 Macrotrend Evidence / Index | observation writer は未確定、index 集計は PWA non-LLM cron | external observation + `atlas_signals` | `observation_log` / `macro_index_log` | observation daily, index monthly | 旧 target が Claude (observation only) | **observation を Atlas 系 Codex workerへ寄せる**。index cron は現状維持 | observation側のみ要 | PWA route / DB via existing path | health D-9 row | P1 |
 | D-10 Member Activity Evidence | Mac Codex automation `amd-os-l2-2` (`AMD OS D-10 メンバー活動根拠抽出 (Mac)`)。PWA route は evidence 収集と POST 保存を担い、活動文合成は Codex automation 側で行う | member OAuth Gmail / Calendar / `source_cache` / `meeting_summaries` | `member_activities(source='member_weekly')` | daily 18:30 JST | なし。legacy route synthesis は `ALLOW_PWA_LLM_CRONS=1` なしでは保存に使わない | **Codex移植済み**。`GET ?mode=evidence` → Codex合成 → `POST activities[]` が current path | MMO 側を同方式へ戻す時のみ要 | PWA route POST write (`synthesis_method='codex'`) | health D-10 row / token errors / missingGroupIds | P0 |
-| D-11 Media Mentions | spec / phase 定義のみ。visible writer 不在 | public media / existing mention rows | `project_media_mentions` / notifications | daily target | 旧 target が Claude | **要設計**。runner と dedupe contract を先に固める | 要 | candidate rows only | health D-11 row | P2 |
+| D-11 Media Mentions | Codex automation `amd-os-d-11` → `POST /api/media-mentions/extract`。公開URL単位でdedupe | public media / existing mention rows | `project_media_mentions` / notifications | daily | 旧 target が Claude | **Codex primary**。候補だけを作り、通知の「はい」で可視化 | 要 | candidate rows only | health D-11 row / notification review | P1 |
 | D-12 Finance/freee | PWA non-LLM cron current | freee / finance tables / billing | `company_actual_monthly` / raw signals / billing updates | daily | 依存なし | **移植不要**。current を維持 | 不要 | direct route write (non-LLM) | health D-12 row は freshness確認のみ | P0 |
-| D-13 Contract Signals | PWA route はあるが source sweep runner 不在 | 5生データ / source_cache / MTG context | `contract_signals` / `contracts` / `contract_documents` / notifications | daily target | 旧 target が Claude | **route 前段の Codex collector を新設**する | 要 | route POST only | health D-13 row / contract review | P1 |
+| D-13 Contract Signals | Codex automation `amd-os-d-13` → `POST /api/contracts/extract-l2` | 5生データ / source_cache / MTG context | `contract_signals` / `contracts` / `contract_documents` / notifications | daily | 旧 target が Claude | **Codex primary**。既存routeだけを呼び、候補レビューを保つ | 要 | route POST only | health D-13 row / contract review | P1 |
 | D-14 Action Items | PWA route はあるが source sweep runner 不在。2026-06-16 に総会/取締役会候補 route も追加。governance添付は確定反映時にDrive保存できる | Gmail first、将来 Drive/Calendar/Slack/Notion | `action_items` / `project_shareholder_meetings` candidate / notifications / Drive `PJフォルダ/YYMMDD_会議名` | daily target | 旧 target が Claude | **route 前段の Codex collector を新設**。governance系の最優先候補。期日つき要対応は `/api/action-items/extract`、総会・取締役会・書面決議は `/api/governance/extract`。添付本文 (`content_base64` / `data_url`) は `apply=true` で Drive 保存し、`attachments_json` には clickable link metadata のみ残す | 要 | route POST only | governance / action-item review、health対象拡張候補 | P0 |
 | L3-1 Coverage Scanner | PWA route はあるが negative-space sweep runner 不在 | ungated 5生データ + claimed-source index | `l2_coverage_gaps` / notifications | daily target | 旧 target が Claude | **route 前段の Codex collector を新設**。D-13/D-14 と同じ source sweep bundleで設計 | 要 | route POST only | health row / coverage gap admin queue | P0 |
 | W-1 VC News / Funding Signals | Codex automation `amd-os-l2-vc-news-funding-signals` が **ACTIVE** | public VC / funding sources | reviewable VC candidates | weekly Saturday | なしで運用可能 | **Codex primary として継続運転** | 不要 (再始動済み) | review-first / blocked summary | weekly health or manual evidence | P1 |
@@ -65,8 +65,8 @@ AMD OS では、当面 **Claude routines / `claude -p` / Claude Agent SDK / Clau
 
 ### 仕様未実装 / 要設計のもの
 
-- D-11 Media Mentions: extraction runner と review contract が未確定。
-- D-13 Contract Signals: route はあるが collector が未実装。
+- D-11 Media Mentions: `amd-os-d-11` が公開URLを `POST /api/media-mentions/extract` へ候補化し、通知feedbackで承認/却下する。
+- D-13 Contract Signals: `amd-os-d-13` が既存 `POST /api/contracts/extract-l2` を実行する。
 - D-14 Action Items: route はあるが collector が未実装。
 - L3-1 Coverage Scanner: route はあるが ungated source sweep runner が未実装。
 - M-3 Management Monthly Signal: table / UI はあるが Codex runner が未実装。
@@ -80,7 +80,7 @@ AMD OS では、当面 **Claude routines / `claude -p` / Claude Agent SDK / Clau
 
 ## RED / health 運用
 
-- health red/yellow は `npm run --silent health:l2 -- --json --fail-on-red` の出力に対して `npm run --silent health:l2:actions -- --input tmp/l2-health-latest.json` を続ける形を正とし、`tmp/l2-health-action-ledger.json` の `currentOpenWorkerPrompts[]` を visible worker seed にする。
+- health red/yellow は `npm run --silent health:l2 -- --env-file /Users/masa/projects/AMD/amd-os/pwa/.env.local --json --fail-on-red` の出力に対して `npm run --silent health:l2:actions -- --input tmp/l2-health-latest.json` を続ける形を正とし、`tmp/l2-health-action-ledger.json` の `currentOpenWorkerPrompts[]` を visible worker seed にする。health generator はread-onlyで、取得不能をgreenと扱わない。
 - worker の完了形は 3 種だけ: `green に戻した` / `approval bundle を作った` / `review_required / blocked artifact を作った`。
 - 同じ failure が続いたら、scheduler / env / outbox / review queue のどこで詰まっているかを分類し、`owner / deadline / next step` を open-worker-queue に残す。
 

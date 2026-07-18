@@ -181,9 +181,10 @@ Phase J: D-10 Member Activity Evidence 抽出
 Phase K-A: D-11 Media Mentions 抽出
 ═══════════════════════════════════════════════════
 
-Media Mentions は D-11 の正本。`news_mention` notification label と `project_media_mentions` を確認し、PJ / AMD / member に関係する公開メディア掲載を daily で候補化する。
+Media Mentions は D-11 の正本。`news_mention` notification label と `project_media_mentions` を確認し、PJ / AMD / member に関係する公開メディア掲載を daily で候補化する。writer は `POST /api/media-mentions/extract` だけを使う。
 - 入力: 公開web / 信頼できるメディア / 既存 `project_media_mentions` / `news_mention` notifications。
-- 出力: media mention candidate + notification。全文保存は禁止し、source URL / title / date / short snippet / hash / confidence を残す。
+- 出力: `mentions[]` (`project_id`, `occurred_on`, `title`, `media_name`, `kind`, `source_url`, `summary`) を route へ渡す。公開URL単位の既存掲載はskipし、新規は `verified=false` / `dismissed=false` の candidate + notification になる。全文保存は禁止し、source URL / title / date / short summary だけを残す。
+- 通知の「はい」で `verified=true` になり通常表示へ入り、「いいえ」で `dismissed=true` になる。候補のままdashboard・月次帳票に出さない。
 
 ═══════════════════════════════════════════════════
 Phase K-B: D-13 Contract Signals 抽出

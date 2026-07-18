@@ -1,0 +1,13 @@
+{
+  "tables": {
+    "monthly_reports": [{ "generated_at": "2026-07-18T00:00:00.000Z" }],
+    "project_strategy_signals": [{ "updated_at": "2026-07-18T00:00:00.000Z" }],
+    "textbook_insight_candidates": [{ "updated_at": "2026-07-18T00:00:00.000Z" }],
+    "macro_index_log": [{ "computed_at": "2026-07-18T00:00:00.000Z" }],
+    "member_activities": [{ "extracted_at": "2026-07-18T00:00:00.000Z" }],
+    "project_media_mentions": [{ "updated_at": "2026-07-18T00:00:00.000Z" }],
+    "contract_signals": [{ "updated_at": "2026-07-18T00:00:00.000Z" }],
+    "action_items": [{ "updated_at": "2026-07-18T00:00:00.000Z" }],
+    "project_meeting_summaries": [{ "updated_at": "2026-07-18T00:00:00.000Z" }]
+  }
+}

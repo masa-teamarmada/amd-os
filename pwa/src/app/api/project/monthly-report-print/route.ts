@@ -115,6 +115,7 @@ export async function GET(req: NextRequest) {
     db.from("project_media_mentions")
       .select("id,occurred_on,title,media_name,kind,source_url")
       .eq("project_id", projectId)
+      .eq("verified", true)
       .gte("occurred_on", ymStart).lte("occurred_on", ymEnd)
       .order("occurred_on", { ascending: false }),
     db.from("project_xrl_log")

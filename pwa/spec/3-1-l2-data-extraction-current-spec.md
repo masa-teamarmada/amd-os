@@ -68,9 +68,9 @@ cadence は **D / M / W / H** で残すが、writer は now mixed。下の表で
 | **D-8** | Atlas Signals | `atlas_signals` / derived `atlas_stories` / `atlas_reports` | Codex automation `AMD OS D-8 Atlas外部シグナル抽出` (`amd-atlas-2`) | outbox / apply / `atlas_signals` upsert |
 | **D-9** | Macrotrend Evidence / Index | `observation_log` / `macro_index_log` / derived `macro_lane_weights` / `triple_helix_state_log` | observation collector は未整理。index は PWA non-LLM cron `macro-aggregate-indicators` | observation_log + index 集計 |
 | **D-10** | Member Activity Evidence | `member_activities` | Codex automation `AMD OS D-10 メンバー活動根拠抽出 (Mac)` (`amd-os-l2-2`)。PWA route は evidence 収集 (`GET ?mode=evidence`) と保存 (`POST activities[]`) を担い、活動文合成は Codex 側で行う | Dashboard / MyPage / admin |
-| **D-11** | Media Mentions | `project_media_mentions` / `news_mention` notifications | まだ専用writerなし | media mention candidate + notification |
+| **D-11** | Media Mentions | `project_media_mentions` / `news_mention` notifications | Codex automation `AMD OS D-11 メディア掲載候補抽出` → `POST /api/media-mentions/extract` | 公開URLを根拠に candidate + notification。通知の「はい」で `verified=true`、 「いいえ」で `dismissed=true` |
 | **D-12** | Finance Ops Evidence / freee Transaction Actuals | freee `trial_pl` / `company_actual_monthly` / `amd_management_score_raw_signals` / finance ops tables | PWA non-LLM cron `/api/cron/management-score-raw-data?includeFreee=1` + admin review | freee取引履歴 → 月次試算表の実績値 |
-| **D-13** | Contract Signals | `contract_signals` / `contracts` / `contract_documents` | PWA route `POST /api/contracts/extract-l2` + Codex collector planned | 契約管理 `/admin/contracts`、l2_notifications(l2_kind='contract_signals') |
+| **D-13** | Contract Signals | `contract_signals` / `contracts` / `contract_documents` | Codex automation `AMD OS D-13 契約シグナル抽出` → PWA route `POST /api/contracts/extract-l2` | 契約管理 `/admin/contracts`、l2_notifications(l2_kind='contract_signals') |
 | **D-14** | Action Items + Governance Email Sweep | `action_items` / `project_shareholder_meetings` / `source_cache(source='gmail_governance')` | PWA routes `POST /api/action-items/extract` / `GET /api/cron/governance-email-sweep` / `POST /api/governance/extract` + Codex collector planned | `/admin/projects` の「総会」「役会」ON PJだけ `report_emails` × ガバナンスkeywordで Gmail を検索し、既定は候補、`apply=1` で canonical + Drive添付保存 |
 | **M-1** | Monthly Reports | `monthly_reports` | Codex automation `AMD OS M-1 月次報告抽出` (`amd-os-l2`) | monthly reports outbox → applier |
 | **M-2** | XRL Evidence | `project_xrl_evidence` / `project_founding_members` | `amd-os-ms` 系 second wave 予定 | M-1後に抽出。candidate → confirmed |
@@ -157,10 +157,11 @@ Executable guard: `cd pwa && npm run test:l6-held-source-guard`。fixture は飯
 
 ```sh
 cd pwa
+npm run --silent health:l2 -- --env-file /Users/masa/projects/AMD/amd-os/pwa/.env.local --json --fail-on-red
 npm run --silent health:l2:actions -- --input tmp/l2-health-latest.json
 ```
 
-action ledger の既定出力は `pwa/tmp/l2-health-action-ledger.json`。この artifact は local state で、DB / Slack / Notion / Drive / scheduler には書き込まない。recurring automation 登録や schedule 変更が必要な場合は、対象・影響・rollbackを scheduler change bundle として別タスクへ渡す。
+`health:l2` は canonical L2 table の最新時刻をread-onlyで確認して `pwa/tmp/l2-health-latest.json` を作る。環境値を表示せず、取得不能・rowなし・時刻不正は green へ推測せず yellow にする。fixture 回帰は `npm run --silent test:l2-health`。action ledger の既定出力は `pwa/tmp/l2-health-action-ledger.json`。この artifact は local state で、DB / Slack / Notion / Drive / scheduler には書き込まない。recurring automation 登録や schedule 変更が必要な場合は、対象・影響・rollbackを scheduler change bundle として別タスクへ渡す。
 
 各 red/yellow 行は、health output の row id / row name を主語にした incident に変換する。action loop側では正本mappingを再設計せず、新しい L2 データ名や番号体系を作らない。正本表示名への対応が曖昧な行は `mapping_pending` として扱い、丸数字表現へ戻さない。health output 側の行IDや内部キーは incident 管理用であり、新しい L2 データ名として扱わない。
 

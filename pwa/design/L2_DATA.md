@@ -59,7 +59,7 @@ SKILL 正本: [`pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md`](.
 | **D-8** | D-8 | Atlas Signals | Claude routine `amd-os-l2-consolidated-evidence` | 差分なし: Claude UIでACTIVE / next run確認済み |
 | **D-9** | D-9 | Macrotrend Evidence / Index | Claude routine `amd-os-l2-consolidated-evidence` + PWA non-LLM cron `macro-aggregate-indicators` | 差分なし: Claude UIでACTIVE / next run確認済み。index集計cronはPWA non-LLMとして別枠 |
 | **D-10** | D-10 | Member Activity Evidence | Codex automation `AMD OS D-10 メンバー活動根拠抽出 (Mac)` (`amd-os-l2-2`) + PWA evidence/POST route | 2026-07-08 current: route 内 Anthropic 合成ではなく、Codex automation が evidence groups を合成して POST 保存 |
-| **D-11** | D-11 | Media Mentions | Claude routine `amd-os-l2-consolidated-evidence` | 差分なし: Claude UIでACTIVE / next run確認済み |
+| **D-11** | D-11 | Media Mentions | Codex automation `amd-os-d-11` + `POST /api/media-mentions/extract` | 公開URL単位のdedupeで candidate / `news_mention` 通知を作り、承認後だけ可視化 |
 | **D-12** | finance/freee | Finance Ops Evidence / freee Transaction Actuals | PWA non-LLM cron `/api/cron/management-score-raw-data?includeFreee=1` + admin review | 差分なし: `pwa/vercel.json` で daily cron 定義済み。Claude routine / Codex automation には載せない |
 | **M-1** | M-1 | monthly_reports | Claude routine `amd-os-l2-monthend-evidence` | 差分なし: Claude UIでACTIVE / next run確認済み。MMO暫定automationはPAUSED |
 | **M-2** | M-2 | XRL根拠 | Claude routine `amd-os-l2-monthend-evidence` | 差分なし: Claude UIでACTIVE / next run確認済み。M-1抽出後に実行 |
@@ -67,7 +67,7 @@ SKILL 正本: [`pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md`](.
 | **W-1** | W-1 | VC News / Funding Signals | Claude routine `amd-os-l2-weekly-vc-funding-signals` | 差分なし: Claude UIでACTIVE / next run確認済み。MMO暫定automationはPAUSED |
 | **H-1** | H-1 | MTGサマリ + MTGフロー | MMOマシン Windows Task Scheduler `amd-os-l6-meeting-flow-launcher` → `codex exec` Live launcher | 復旧済み: 2026-06-08 16:00 JST manual Live run 成功、次回 17:00 JST。Codex Desktop UI automation storeは未登録/旧DB不使用のため、UI上の`amd-os-l6-meeting-flow`ではなくLive launcherを実稼働証跡にする |
 | **W-Prep** | weekly prep launch | visible prep thread 起動 | Codex automation `w-prep-launch` | 2026-07-14 current: 毎週水曜15:00 JST。今後7日以内の確定 upcoming MTG を Calendar + DB で照合し、DBに無い active/sales PJ の確定MTGは upcomingカード作成後に claim → visible thread作成 → title変更 → pin → DB session保存。DBだけを見て完了扱いにしない。Calendar直読みのPJ推定は `CFG_ColorPJHistory` を先に使い、`2025-06-01` 以降の `colorId=4` と `SolvioraX` title alias は SX/p21 として扱う。worker 第一声は3点完了報告、共有フォルダ資料は HTML 主成果物に統一 |
-| **D-13** | daily | Contract Signals | Claude routine `amd-os-l2-consolidated-evidence` Phase K-B + PWA route `POST /api/contracts/extract-l2` | 新規 routine は作らず existing daily consolidated routine に同居 |
+| **D-13** | daily | Contract Signals | Codex automation `amd-os-d-13` + PWA route `POST /api/contracts/extract-l2` | 既存routeを呼ぶだけで候補reviewを保つ |
 | **D-14** | daily | 要対応 (Action Items) + Governance Email Sweep | Claude routine `amd-os-l2-consolidated-evidence` Phase K-C + PWA routes `POST /api/action-items/extract` / `GET /api/cron/governance-email-sweep` | 期日つき inbound 義務 (株主総会招集/議決権/事前承諾/契約更新/振込 等)。D-14G は `/admin/projects` の「総会」「役会」ON PJだけを `report_emails` と総会/役会 keyword で Gmail 検索して `governance/extract` へ流す。初期ON: p00/p07/p24。手動は `/admin/governance`。 |
 
 ### 🛰 Coverage Scanner (不在検知 / negative space) — 個別抽出器の上位レイヤー (2026-06-15 まさ承認)
@@ -272,11 +272,11 @@ Codex cron sandbox は外向きネットワークが落ちることがあるた�
 | **D-8** | D-8 **Atlas Signals** | 外部政策・産業・市場シグナルの観測 | `atlas_signals`、派生 `atlas_stories` / `atlas_reports` | Claude routine `amd-os-l2-consolidated-evidence` 対象 (daily)。`POST /api/atlas/signals-ingest` 経由。派生 stories/reports は別系統 |
 | **D-9** | D-9 **Macrotrend Evidence / Index** | macro observation / index / lane weight の根拠 | `observation_log`, `macro_index_log`, 派生 `macro_lane_weights`, `triple_helix_state_log` | routine は外部 observation 収集 (daily)。`macro_index_log` の集計は LLM非依存 → PWA non-LLM cron `macro-aggregate-indicators` |
 | **D-10** | D-10 **Member Activity Evidence** | Dashboard / MyPage「今週やったこと」の根拠 | `member_activities` | Codex automation `amd-os-l2-2` が primary。PWA route は `GET ?mode=evidence` と `POST activities[]` の evidence/write 境界 |
-| **D-11** | D-11 **Media Mentions** | メディア掲載・公開露出 | `project_media_mentions` / `news_mention` notifications | Claude routine `amd-os-l2-consolidated-evidence` 対象 |
+| **D-11** | D-11 **Media Mentions** | メディア掲載・公開露出 | `project_media_mentions` / `news_mention` notifications | Codex `amd-os-d-11` が `POST /api/media-mentions/extract` へ候補化。承認前は非表示 |
 | **W-1** | W-1 **VC News / Funding Signals** | VC・資金調達・投資家動向 | `vc_news` / funding signal tables | Claude routine `amd-os-l2-weekly-vc-funding-signals` 対象 |
 | **M-3** | M-3 **Management Monthly Signal Evaluation** | Management予実表から月末に作る経営シグナル評価 | `company_management_signal_reviews` | Claude routine `amd-os-l2-monthend-evidence` 対象 (= M 群、月末最終日 17:00 完了) |
 | **D-12** | **Finance Ops Evidence / freee Transaction Actuals** | finance ops根拠とfreee取引履歴を月次試算表の実績値へ入れる非LLM同期 | finance ops tables / freee transactions / `company_actual_monthly` | PWA non-LLM daily cron / freee sync / admin review。Claude routine / Codex automation に混ぜない |
-| **D-13** | **Contract Signals** | 契約締結予兆、契約予定枠、契約書version/signed版metadata。自動作成した契約は `relationship_scope='needs_review'` に止め、AMD当事者確認なしで主台帳へ出さない | `contract_signals`, `contracts`, `contract_documents` | Claude routine `amd-os-l2-consolidated-evidence` Phase K-B 対象。新規 routine は作らない |
+| **D-13** | **Contract Signals** | 契約締結予兆、契約予定枠、契約書version/signed版metadata。自動作成した契約は `relationship_scope='needs_review'` に止め、AMD当事者確認なしで主台帳へ出さない | `contract_signals`, `contracts`, `contract_documents` | Codex `amd-os-d-13` が既存 `POST /api/contracts/extract-l2` を実行 |
 
 **重要**: L2番号は current truth として、D-10 = Member Activity Evidence、D-11 = Media Mentions、D-12 = Finance Ops Evidence / freee Transaction Actuals、W-1 = VC News / Funding Signals、D-13 = Contract Signals。過去の「D-8 = member weekly」や「D-11 = Finance Ops Evidence」記述は誤り。cadence 束ねの M / W / D / H 体系は上表と本章冒頭「cadence ベース束ね設計」を正本にする。
 
