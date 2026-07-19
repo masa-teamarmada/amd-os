@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# AMD OS は main 一本。Codex の自動処理を含む新規 local branch 作成を ref transaction で止める。
+# まさがそのセッションで明示した例外だけ AMD_OS_ALLOW_BRANCH=1 で通す。
+
+set -euo pipefail
+
+if [ "${1:-}" != "prepared" ] || [ "${AMD_OS_ALLOW_BRANCH:-}" = "1" ]; then
+  exit 0
+fi
+
+zero_oid='0000000000000000000000000000000000000000'
+
+while read -r old_oid new_oid ref_name; do
+  case "$ref_name" in
+    refs/heads/main)
+      ;;
+    refs/heads/*)
+      if [ "$old_oid" = "$zero_oid" ]; then
+        printf '%s\n' "AMD OS: branch 作成は禁止。main で作業すること。" >&2
+        printf '%s\n' "まさがこのセッションで明示した例外だけ AMD_OS_ALLOW_BRANCH=1 を使う。" >&2
+        exit 1
+      fi
+      ;;
+  esac
+done
+
+exit 0

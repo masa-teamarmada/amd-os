@@ -1703,3 +1703,37 @@ Book A執筆規範 (japanese-tech-writing + cognitive-rhythm-writing) をSESSION
 
 - root checkout (`codex/019f6afff9097a60bada064e2d31df8b`、HEAD=`174513d2`) に57件のdirty残存 (Book A関連14件含む)。個別diff検証の結果、origin/mainとも自ブランチHEADとも一致しない第三の状態にあり、単純な「stale branchの遅れ」でも「origin/main相当」でもない。次セッションで個別裁定要 (詳細は `HANDOFF_BOOK_A_2026-07-18.md` Repo State)。
 - root checkoutの未pushコミット3件 (`c12253d8`/`c810d932`/`174513d2`) の帰属検証結果も同HANDOFFに記載。Book Aの範囲では最初の2件はmain反映済みと確認、`174513d2` (macOSレーン) はBook A範囲外につき未確認のまま。
+
+---
+
+## 2026-07-19 — Codex自動branch事故のmain復旧・再発防止
+
+### 事象 / 原因
+
+- mainで新しいCodexセッションを始める際、branch切替には57 tracked changesと4 untracked filesのコミットが必要というアラートが出た。
+- root checkoutは `codex/019f6afff9097a60bada064e2d31df8b`。reflogと親子タスク記録を照合すると、親タスクがAMD OS repoをtargetにLocal子タスク「運営カレンダーを実装」を作った時点で、Codexアプリがbranchを作成し、その後rootをmainから切り替えていた。
+- 子タスク内に `git switch` / `git branch` / worktree作成の実行証跡はない。直接原因は親タスクのLocal子タスク起動判断と、repoルール読込前にbranchを作るCodexアプリ側の事前処理。
+- 親タスクと子タスクの両方へ厳重注意を送り、AMD OSではLocal子タスク・UI Handoff・branch/worktreeを使わないと了承を得た。
+
+### 復旧
+
+- `/Users/masa/.codex/cleanup_archives/amd-os-20260719-014300-main-recovery` にworking tree patch、untracked tar、全refs/stash bundle、reflog/status、SHA256を保存し、bundle verifyを通した。
+- 12 extra worktrees、16 local non-main branches、16 stashを整理し、rootをmainへ戻した。当該remote codex branchも削除した。
+- 157本の無関係なhistorical remote branchは132本が固有commitを持つため、今回の事故復旧では削除していない。全remote refsはarchive bundleに含めた。
+
+### 再発防止
+
+- 既存 `.codex/config.toml` の `multi_agent=false` に加え、`.githooks/reference-transaction` と `scripts/install-main-only-git-hook.sh` をtracked化した。
+- `CLAUDE.md`、`SETUP_NEW_MAC.md`、`pwa/spec/5-2-development-operations-current-spec.md`、`pwa/manual/9-2-developer.md`、`pwa/BUGS.md`へ、Local子タスク禁止、branch alert時はキャンセル、main-only開始/closeout条件を同期した。
+- `SETUP_NEW_MAC.md`に残っていた旧 `wip/*` branch推奨を削除し、main直接commit/pushへ訂正した。
+
+### Closeout target
+
+- build: `v3.46.4`
+- branch: `main`
+- dirty: 0
+- registered worktree: root 1件
+- local branch: `main` 1本
+- stash: 0
+- local main vs origin/main: ahead 0 / behind 0
+- production: `/api/build-info` の `git_branch=main` / `dirty=false` / final origin/main SHA一致を確認して完了とする。

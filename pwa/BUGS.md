@@ -5,6 +5,16 @@
 
 ---
 
+### [process/codex-local-child] Local子タスク作成が正本checkoutをcodex branchへ自動切替した (2026-07-19)
+
+- **状態**: クローズ (2026-07-19 — rootをmainへ復旧し、Codex子タスク無効化・tracked Git hook・運用正本を同期)。
+- **症状**: mainで新しいCodexセッションを始めようとすると、「ブランチを切り替えるには変更をコミットしてください」と表示され、57 tracked changesと4 untracked filesをコミットしない限りmainへ移れないように見えた。実際のroot checkoutは `codex/019f6afff9097a60bada064e2d31df8b` に切り替わり、origin/mainより古い履歴の上へ別レーンの差分が重なっていた。
+- **原因**: 親タスクがAMD OS repoをtargetにCodex DesktopのLocal子タスク「運営カレンダーを実装」を作成した。Codexアプリが子タスクへ `CLAUDE.md` / `AGENTS.md` を渡す前に `codex/<thread-id>` branchを作り、正本checkoutをmainから切り替えた。子タスクのログには `git switch` / `git branch` / worktree作成の実行証跡がなく、プロンプト上のbranch禁止ではアプリの事前処理を止められなかった。
+- **対応内容**: dirty patch、untracked、全refs、16 stashをrepo外の検証済みarchiveへ保存した。rootをorigin/mainへ戻し、12 extra worktrees、16 local non-main branches、16 stash、当該remote branchを整理した。親タスクと原因子タスクへ厳重注意を送り、AMD OSではLocal子タスク・UI Handoff・branch/worktreeを使わないと両方から了承を得た。復旧archiveは `/Users/masa/.codex/cleanup_archives/amd-os-20260719-014300-main-recovery`。
+- **再発防止**: `.codex/config.toml` の `multi_agent=false` に加え、tracked `.githooks/reference-transaction` でmain以外のlocal branch作成をGit側で拒否する。clone後は `bash scripts/install-main-only-git-hook.sh` を実行する。Codexのbranch切替アラートが出た場合はキャンセルし、「コミットしてブランチを切り替える」を押さない。repo-targeted Local子タスクとUI HandoffをAMD OSでは使わない。
+
+---
+
 ### [perf/authenticated-shell] 全 authenticated route の初回表示が月初合意ゲート・つくよみ・ダッシュボード会社コンテンツで重かった (2026-07-17)
 
 - **状態**: クローズ (2026-07-17 — build v3.44.8、main commit `89956e6f` + `351255cf`)。production verify は `/dashboard` で実施。

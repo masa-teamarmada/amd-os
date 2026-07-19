@@ -12,7 +12,10 @@ mkdir -p ~/projects/AMD
 cd ~/projects/AMD
 git clone https://github.com/masa-teamarmada/amd-os.git
 cd amd-os
+bash scripts/install-main-only-git-hook.sh
 ```
+
+この repo は main 一本で運用する。上のスクリプトは、Codex などが `codex/*` branch を自動作成しようとしても Git 側で拒否する。
 
 旧 docs に `~/projects/amd-os` が残っていることがある。いまのまさの workspace では `/Users/masa/projects/AMD/amd-os` を優先する。
 
@@ -179,7 +182,7 @@ xcodegen generate
 git status -s
 git add <必要なファイル>
 git commit -m "<scope>: <message>"
-git push origin <branch>
+git push origin main
 ```
 
 PWA を触ったら Vercel deploy、GAS を触ったら `clasp push`、iOS を触ったら実機 install / launch までを完了条件にする。
@@ -200,21 +203,21 @@ git pull --ff-only
 
 - `git log --branches --not --remotes --oneline` に出力がある時は、その Mac だけに残っている commit がある。内容を見るまで消さない。
 - `git status -s` に差分がある時は、その Mac の未コミット作業がある。別 Mac の状態だけを見て上書きしない。
-- 片方の Mac で作業を始めたら、もう片方では同じブランチ・同じファイルを並行編集しない。
+- 片方の Mac で作業を始めたら、もう片方では同じファイルを並行編集しない。どちらも branch は切らず main を使う。
 
 作業中:
 
-- 作業単位ごとに branch を切る。途中作業なら `wip/...` branch で push してよい。
-- commit したらすぐ `git push origin <branch>` する。日末まで push を溜めない。
-- もう片方の Mac で続きをやる時は、push 済み branch を pull してから続ける。
+- branch / worktree は作らない。途中状態も main へ対象ファイルだけを commit する。
+- commit したらすぐ `git push origin main` する。日末まで push を溜めない。
+- もう片方の Mac で続きをやる時は、`git fetch origin main` と `git pull --ff-only` で main を更新してから続ける。
 
 例:
 
 ```sh
-git checkout -b wip/pwa-hud-fix
+git status -sb --untracked-files=all
 git add <files>
-git commit -m "wip: pwa hud fix"
-git push origin wip/pwa-hud-fix
+git commit -m "fix: pwa hud"
+git push origin main
 ```
 
 避けること:

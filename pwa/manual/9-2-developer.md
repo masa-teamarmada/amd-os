@@ -27,6 +27,9 @@
 - push 前の安い確認は `bash pwa/scripts/deploy.sh --dry-run`。push せずに、main/clean/origin 整合と BUILD_VERSION rollback guard だけを見る。
 - 本番の出どころ確認は `/api/build-info`。`build_version` / `git_sha` / `git_branch` / `deployed_at` / `dirty` だけを返し、secret は出さない。
 - 自分が触っていない dirty file を commit に混ぜない。
+- Codex Desktop では、この repo を指定した Local 子タスク作成・UI の Handoff を使わない。アプリ側が作業開始前に `codex/*` branch を作ることがあるため。
+- clone 後は `bash scripts/install-main-only-git-hook.sh` を実行する。新セッションは `main`、dirty 0、worktree 1、local branch `main` だけを確認して始める。
+- 「ブランチを切り替えるには変更をコミットしてください」と出たらキャンセルする。コミットして切り替えず、Git状態を監査して main を復旧する。
 
 ## 再構築可能性チェック
 

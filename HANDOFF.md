@@ -3,58 +3,43 @@
 Last updated: 2026-07-19 JST
 
 Target: `/Users/masa/projects/AMD/amd-os`
-Topic: SX (`p21`) PJ共有ダッシュボードとPJ限定アクセス
+Topic: Codex 自動branch事故の復旧と main-only 開始条件
 
 ## Latest Session Summary
 
-- AMD OSを全PJ横断ユーザーとPJ限定ユーザーの両方で使えるように拡張した。
-- AMD / 産連の横断ユーザーは従来どおり `/dashboard` がトップ。PJ限定ユーザーは参加1件なら `/project/{projectId}/workspace`、複数なら `/my-projects` がトップ。
-- SXカードは `/project/p21/workspace` を開く。共有面は研究→応用→開発→SU→調整の週次エフォート、メンバー別配分、MS、抽出済み活動集計を表示する。
-- PJ限定Google OAuthは本人確認後に通常のSupabase sessionを破棄し、7日間のHTTP-only署名付きPJ sessionへ交換する。既存社内RLS/APIを外部ユーザーへ継承させない。
-- migration 182を本番DBへ適用。`members.os_access_scope`、`project_weekly_effort_entries`、scope helperを追加し、`amd_os_is_member()` はportfolio/adminだけをtrueにした。
-- build targetは `v3.45.0`。
+- Codex で main から新セッションを始めようとした際、「ブランチを切り替えるには変更をコミットしてください」アラートが出た事故を復旧した。
+- 原因は、親タスクが AMD OS repo を target に Local 子タスクを作ったこと。Codex アプリが子タスクへ repo ルールを渡す前に `codex/019f6afff9097a60bada064e2d31df8b` を作り、正本 checkout を main から切り替えた。子タスク内に `git switch` / `git branch` の実行証跡はない。
+- 原因タスクと親タスクの両方へ、AMD OS では Local 子タスク・UI Handoff・branch/worktree を使わないよう厳重注意を送付し、両方から了承を得た。
+- 57 tracked changes、4 untracked files、16 stash、16 local non-main branches、12 extra worktreesを、検証済み外部archiveへ保存してから整理した。価値ある差分を消していない。
+- 復旧archive: `/Users/masa/.codex/cleanup_archives/amd-os-20260719-014300-main-recovery`。patch、untracked tar、全refs/stash bundle、SHA256、reflog/status証跡を含み、bundle verify済み。
+- root checkoutを `main = origin/main` へ戻し、culprit remote branchも削除した。157本の無関係なhistorical remote branchは、固有commitを持つものが多数あるため今回の削除対象外。archive bundleにはremote refsも含む。
 
-## SX COO統合経営ダッシュボード実装追記
+## Durable Prevention
 
-- build targetは `v3.46.3`。`/project/p21/workspace` はヘッダー直後に経営判定・理由・今週決めること・次期限・鮮度を置き、長い運用準備チェックを後段へ移した。運用準備5項目が未確認ならトップ判定も未評価に閉じる。stickyナビは`overflow-x-clip`で実スクロールに追従し、選択詳細と協力機関カードの関連ゲートはID/slugを名称へ変換する。可視文の資金残存月数表記と3幅の内部語DOM監査を追加した。
-- migration 183 は旧 `project_sx_*` を作らず、`project_management_*` の正規化台帳だけを追加する。KPI閾値 (`gte` / `lte` / `between`)、完了条件・証跡、依存DAG、論点→仮説→証拠→検証→意思決定→action、協力機関の約束履歴、技術試験、資金スナップショット、組織役割、RACI、容量、field auditを含む。
-- overall / 4本柱の状態は進捗手入力ではなく、必須KPI・期限・担当・鮮度・依存・完了条件・action・役割・閾値を用いたderived判定が正本。充足率は表示値に留める。FC北陸は低確度の候補/情報交換、PFは未合意、100L PoCは復活させない。
-- migration 184で未決論点 (`decision_needed`)、相手の約束/SX側の次アクション、相手の約束のDB必須条件、親情報の同一PJ triggerを補正した。`/api/project-workspace/[projectId]/management` はresource別status列、同一PJ、PJ所属、decisionの状態、soft-delete、boolean、KPI範囲を検証し、GET/PATCH/POSTの履歴とfield auditを残す。POSTの履歴失敗は追加行を補償的にsoft-deleteする。PJ共有面にraw本文、source URL、契約原文、報酬、メール本文、内部交渉メモを返さない。
-- migration 185で決定済みの決定内容・決定者・決定日、SX側の次アクションのSX担当・期限・次回確認をDB CHECKで強制する。管理者UIに非表示化（soft delete）と非表示情報のPJ内確認・復元を追加し、GET `include_deleted=true` はportfolio/adminだけに限定、履歴失敗時のPATCHも更新前へ補償復元する。
-- RLSのmember_selectはsoft-delete済み行を除外する。`scripts/test_project_management_rls.mjs` は実在active memberをauthenticated roleで検査し、削除済み行非表示・有効p21可視・未所属ユーザー拒否を確認する。
-- desktop/tablet/mobileはそれぞれ、lg以上の表/ガント、768pxのカード、390pxの期限順カード/縦ロードマップを使い分ける。workspace直リンクは月初合意モーダルと左デスクトップナビを出さず、選択行は選択文脈へ移動する。モバイルで表・ガントを横スクロールさせない。
+- `.codex/config.toml`: `[features] multi_agent = false`。
+- `.githooks/reference-transaction`: `main` 以外のlocal branch作成を拒否。
+- `scripts/install-main-only-git-hook.sh`: cloneごとにtracked hookを有効化。
+- `CLAUDE.md` / `SETUP_NEW_MAC.md` / `/spec/5-2` / `/manual/9-2`: Local 子タスク禁止、アラート時はキャンセル、main復旧監査を同期。
+- branch alertで `コミットしてブランチを切り替える` は押さない。
 
 ## Current Truth
 
-- SX (`p21`) にはactive member 4人、既存の `member_activities` 139件がある。
-- PJ限定アカウントと週次エフォート入力はまだ0件。実在メンバーのGoogleメールを推測せず、確認後に `/admin/members` で登録する。
-- `/admin/members` のPJ限定アカウント作成は `os_access_scope='project'`、支払通知対象外に固定する。作成後、`/admin/projects` で `p21` のactive memberへ紐付ける。
-- 共有DTOへraw本文、source URL、email、報酬、契約、内部戦略、他PJ情報を含めない。
-- 愛大OSのMVP方針は、SXをAMD OSで先行実証し、独立EHM OSを大量シーズ、産連業務、M365、大学側権限へ一般化する次段階へ置いた。
-
-## Verification
-
-- target-file ESLint: pass (error 0 / warning 0)
-- `npx tsc --noEmit`: pass
-- `npm run test:deploy-version-guard`: pass
-- `npm run test:sx-management-rls`: pass (184/185 CHECK、補正履歴、20 soft-delete member_select、PJ境界)
-- `npm run test:critical-ui`: pass
-- `npm run build`: pass
-- full `npm run lint`: existing unrelated baseline 83 errors / 55 warningsでfail。今回対象ファイルにはerrorなし。
-- UIは1440x1000、768x900、390x844で確認し、mobile/tabletをbottom nav、入力controlを44px、5分類帯を全表示に修正済み。
+- branch: `main`
+- build target after this closeout: `v3.46.4`
+- expected closeout state: dirty 0 / worktree 1 / local branch `main` only / stash 0 / ahead-behind `0 0`
+- production truth: closeout commitをmainへpush後、`/api/build-info` の `git_branch=main` / `dirty=false` / final SHA一致で確認する。
+- branch事故の既知復旧タスク: none
 
 ## First Next Action
 
-1. SX研究開発メンバーのGoogleメール、表示名、役割を確認する。
-2. `/admin/members` でPJ限定アカウントを作り、`/admin/projects` で `p21` へ紐付ける。
-3. 本人アカウントで、SXがトップになること、他PJ・dashboard・社内cockpitへ入れないことを確認する。
-4. 4週間、5分類の予定 / 実績時間を週次運用し、次にタスク、割り込み、停滞、オーナー / 実作業者へ広げる。
+1. 新セッションは repo root `/Users/masa/projects/AMD/amd-os` を開く。
+2. `SESSION_MIGRATION_PROMPT.md` を貼り、main-only開始監査を実行する。
+3. 監査が全て期待値なら、branchを作らず、まさの次の依頼をmainで開始する。
 
 ## Guardrails
 
-- PJ限定ユーザーへ通常のSupabase authenticated sessionを残さない。
-- 共有面へ社内cockpitのdata bundleをそのまま渡さない。
-- 実アカウントのメール、役割、週の基準時間を推測でseedしない。
-- 個人別時間を勤怠、人事評価、個人ランキングへ使わない。
-- `git add .` を使わず、対象bundleだけをstageする。
+- Codex Desktop の repo-targeted Local 子タスク・UI Handoffを使わない。
+- 新branch / worktreeを作らない。分担が必要なら同じmain、またはmainのdisposable clean cloneを使う。
+- dirtyを見つけてもbranchへ逃げず、owner / action / riskを分ける。
+- `git add .` を使わず、対象ファイルだけstageする。
 - PWA本番反映は `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` を使う。

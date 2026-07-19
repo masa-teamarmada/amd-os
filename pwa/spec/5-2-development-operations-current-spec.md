@@ -96,6 +96,28 @@ AMD_OS_MIN_BUILD_VERSION=v0.16.20 \
 
 この script は git state を変更しない。local `BUILD_VERSION`、required base ref、known ref max、dirty file数を表示し、`v0.16.20` 未満や required base ref を含まない checkout では実装 / DB write / deploy / push 前に停止する。
 
+## Codex session の main-only 境界
+
+AMD OS では、Codex Desktop で repo を target にした Local 子タスク作成・UI の Handoff を使わない。Codex アプリは作業者へ repo 指示を渡す前に `codex/<thread-id>` branch を作り、正本 checkout 自体を切り替えることがあるため、プロンプト上の「branch 禁止」だけでは防げない。
+
+防止は次の二層で行う。
+
+1. `.codex/config.toml` の `[features] multi_agent = false` で、この repo の Codex 子タスク機能を無効にする。
+2. `.githooks/reference-transaction` で `main` 以外の local branch 作成を Git ref transaction の時点で拒否する。clone 後は `bash scripts/install-main-only-git-hook.sh` を1回実行する。
+
+新セッション開始時は次を確認する。
+
+```bash
+git fetch origin main
+git status -sb --untracked-files=all
+git rev-list --left-right --count HEAD...origin/main
+git worktree list --porcelain
+git branch --format='%(refname:short)'
+scripts/worker-freshness-check.sh
+```
+
+期待値は `main`、dirty 0、ahead/behind `0 0`、registered worktree 1、local branch `main` だけ。Codex が「ブランチを切り替えるには変更をコミットしてください」と表示した場合はキャンセルし、`コミットしてブランチを切り替える` を押さない。差分を archive して帰属を確認し、価値ある変更だけ main へ畳んでから branch / worktree を消す。
+
 ## Supabase DDL
 
 | 項目 | 契約 |
@@ -156,3 +178,5 @@ bash pwa/scripts/deploy.sh --dry-run
 - 自分が触っていない dirty file は commit に混ぜない。
 - conflict marker と `UU` は final 前に必ず解消する。
 - commit したら push する。
+- Codex の Local 子タスク / UI Handoff をこの repo で起動しない。
+- closeout は worktree 1、local branch `main` だけ、stash 0、ahead/behind `0 0` まで確認する。

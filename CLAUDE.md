@@ -93,6 +93,9 @@ git status -s
 - 唯一の例外: **まさがそのセッションで明示的に「ブランチ切って」と言った時だけ**。過去ログや慣習からの類推は例外にならない。
 - 既存の `codex/*` 等の残存ブランチに **新しい commit を積まない**。価値ある未マージ作業は main に畳んでから捨てる。
 - PWA の本番反映は `main push = Vercel 自動 deploy`（`pwa/CLAUDE.md` 参照）。**main に無いものは本番に存在できない** — これがこのルールの機械的な裏付け。
+- **Codex Desktop でこの repo を target にした Local 子タスク作成・UI の Handoff は使わない。** 作業者へこのルールが渡る前に、アプリ側が正本 checkout へ `codex/<thread-id>` branch を作って切り替えることがある。分担は同じ main、または main の disposable clean clone で行う。
+- 防止層は、repo の `.codex/config.toml` にある `multi_agent = false` と、`.githooks/reference-transaction` の branch 作成拒否。clone 後は `bash scripts/install-main-only-git-hook.sh` を1回実行する。
+- Codex で「ブランチを切り替えるには変更をコミットしてください」アラートが出たら **キャンセルする**。`コミットしてブランチを切り替える` は押さず、branch / dirty / worktree / unpushed commit を監査してから main を復旧する。
 
 ### dirty はブランチ作成理由にならない (2026-07-07 まさ再確定)
 
