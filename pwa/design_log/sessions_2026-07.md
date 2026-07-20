@@ -1737,3 +1737,44 @@ Book A執筆規範 (japanese-tech-writing + cognitive-rhythm-writing) をSESSION
 - stash: 0
 - local main vs origin/main: ahead 0 / behind 0
 - production: `/api/build-info` の `git_branch=main` / `dirty=false` / final origin/main SHA一致を確認して完了とする。
+
+---
+
+## 2026-07-21 Book A 承認済みあらすじ固定・司令塔06→07 handoff
+
+### 決定
+
+- まさは短いネタバレ版あらすじ『空欄を埋める人』を承認し、「これで進めよう」と決定した。
+- この短い版を、Book A全15章の設計・執筆に対する北極星とする。
+- 次工程は、`BOOK_A_SCENARIO_DRAFT_3.md`を北極星の感情曲線、速度、爽快感へ揃え、その後に全15章本文へ実装する。
+
+### 正本反映
+
+- `pwa/bzm/BOOK_A_SCENARIO_DRAFT_3.md`冒頭へ、承認済みあらすじ全文と運用ゲートを追加した。
+- `pwa/bzm/HANDOFF_BOOK_A_2026-07-18.md`を司令塔06→07の現在地へ更新した。ファイル名は既存のhandoff入口を維持するため変更していない。
+- repo rootの`SESSION_MIGRATION_PROMPT.md`を司令塔07用へ全面更新した。読む順をAGENTS.common → AMD memory → HANDOFF → Book A現行正本 → BUGSとし、実作業を必ず別workerへ委譲する制約を固定した。
+- `pwa/bzm/9-5-appendix-changelog.md`へ同日変更を追記した。
+
+### 次工程の合否条件
+
+- 柏木美咲が唯一の主人公であり、群像劇、オムニバス、旧見届け人設計へ戻らない。
+- 全理論をA・B・C PJと美咲の選択、損失、比較、検証へ埋め込み、講義の挿話でドラマを中断しない。
+- 「助言した人は、株を失わない」から記名訂正後の快進撃へ感情を転換する。
+- 成長とハッピーエンドを、売上、交渉自由、顧客、雇用、研究、再依頼、報酬、予算、制度化、後進の職業選択で明示する。
+- 研究主権と権限境界は守るが、否定文や公平性の説明を前面へ出して勢いを殺さない。
+
+### 次の一手
+
+- 司令塔07は実作業を抱えず、別のシナリオライターworkerへScenario Draft 3のコールドリード診断を委譲する。
+- 最初の診断は、感情曲線の断絶、守りの否定文、理論説明による停止、美咲以外への主人公性漏出を章横断で特定する。正本編集は診断レビュー後の別工程とする。
+
+### 設計変更棚卸し
+
+| 変更 | 正本 | session log | manual同期 |
+|---|---|---|---|
+| 承認済みあらすじと北極星 | `pwa/bzm/BOOK_A_SCENARIO_DRAFT_3.md` | 本節 | 対象外 |
+| 司令塔06→07の現在地 | `pwa/bzm/HANDOFF_BOOK_A_2026-07-18.md` | 本節 | 対象外 |
+| 司令塔07開始手順 | `SESSION_MIGRATION_PROMPT.md` | 本節 | 対象外 |
+| BZM変更履歴 | `pwa/bzm/9-5-appendix-changelog.md` | 本節 | 対象外 |
+
+対象外理由: Book A原稿、物語設計、出版司令塔運用だけを更新し、AMD OSのランタイム、利用者導線、操作仕様を変更していないため。
