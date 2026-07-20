@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-07-19 04:50 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-07-20 13:33 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -118,7 +118,7 @@ PRIMARY KEY: `id`
 
 ## amd_management_score_raw_signals
 
-行数 (概算): 1,660
+行数 (概算): 1,679
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -1042,7 +1042,7 @@ UNIQUE: `(occurrence_id,recipient_slack_id,schedule_key,stage)` (constraint: `co
 
 ## company_schedule_occurrences
 
-行数 (概算): 766
+行数 (概算): 828
 PRIMARY KEY: `occurrence_id`
 UNIQUE: `(occurrence_key,source_hash)` (constraint: `company_schedule_occurrences_source_uniq`)
 
@@ -1185,7 +1185,7 @@ UNIQUE: `(source_kind,source_table,source_id,signal_type)` (constraint: `contrac
 
 ## contract_terms
 
-行数 (概算): 20
+行数 (概算): 34
 PRIMARY KEY: `term_id`
 UNIQUE: `(source_kind,source_table,source_id,source_term_hash)` (constraint: `contract_terms_source_kind_source_table_source_id_source_te_key`)
 
@@ -2793,7 +2793,7 @@ PRIMARY KEY: `outbox_id`
 
 ## proactive_todos
 
-行数 (概算): 330
+行数 (概算): 332
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -3301,7 +3301,7 @@ PRIMARY KEY: `id`
 
 ## project_management_field_audit
 
-行数 (概算): 1,745
+行数 (概算): 2,022
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -3778,7 +3778,7 @@ UNIQUE: `(project_id,test_slug)` (constraint: `project_management_technical_test
 
 ## project_management_update_history
 
-行数 (概算): -1
+行数 (概算): 41
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -3895,7 +3895,7 @@ PRIMARY KEY: `meeting_id`
 
 ## project_members
 
-行数 (概算): 28
+行数 (概算): 37
 PRIMARY KEY: `id`
 UNIQUE: `(project_id,member_id)` (constraint: `project_members_project_id_member_id_key`)
 
@@ -4541,6 +4541,23 @@ PRIMARY KEY: `id`
 | 32 | `updated_by` | `text` | NULL | `` |
 | 33 | `discovery_status` | `text` | NOT NULL | `'reviewed'::text` |
 | 34 | `deep_dive_material_url` | `text` | NULL | `` |
+| 35 | `primary_commercialization_type` | `text` | NULL | `` |
+| 36 | `secondary_commercialization_types` | `_text` | NULL | `` |
+| 37 | `kute_envisioned_use_case` | `text` | NULL | `` |
+| 38 | `kute_first_customer_candidate` | `text` | NULL | `` |
+| 39 | `kute_market_size_range` | `text` | NULL | `` |
+| 40 | `kute_market_size_confidence` | `text` | NULL | `` |
+| 41 | `kute_biggest_bottleneck` | `text` | NULL | `` |
+| 42 | `kute_ip_status` | `text` | NULL | `` |
+| 43 | `kute_next_verification_step` | `text` | NULL | `` |
+| 44 | `kute_score_future_need` | `int2` | NULL | `` |
+| 45 | `kute_score_future_market` | `int2` | NULL | `` |
+| 46 | `kute_score_future_technical_advantage` | `int2` | NULL | `` |
+| 47 | `kute_score_future_ip_barrier` | `int2` | NULL | `` |
+| 48 | `kute_score_current_trl` | `int2` | NULL | `` |
+| 49 | `kute_score_current_brl` | `int2` | NULL | `` |
+| 50 | `kute_score_current_hrl` | `int2` | NULL | `` |
+| 51 | `kute_score_support` | `int2` | NULL | `` |
 
 ## settings
 

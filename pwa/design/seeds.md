@@ -127,6 +127,19 @@ GlobalNav に **Seeds** を Venture Map と VC の間に追加 ([GlobalNav.tsx](
 - **URA/EIR 公開**: `is_public=true` のシーズだけを別認証で公開閲覧可能にする
 - **機関別ダッシュボード**: `/research-orgs/[org_name]` で機関単位の seeds 一覧 (現状は `/seeds?org=...` フィルタで代替)
 
+## KUTE (p25) PJ cockpit 連携 — 研究機関向け公開面 (2026-07-20)
+
+- migration: [186_kute_seeds_commercialization_score.sql](../scripts/migrations/186_kute_seeds_commercialization_score.sql)
+- **単一 source of truth の原則**: `seeds` テーブルをそのまま使う。KUTE 専用の複製テーブルは作らない。project_id (現状 `p25`) → `seeds.org_name` (`工学院大学`) のスコープ対応は `researchInstitutionSeedsOrgNameForProject()` (実体: [`kute-seeds-scoring.ts`](../src/lib/kute-seeds-scoring.ts)、`seeds-data.ts` が re-export) の一箇所だけに定義する。今後の研究機関コックピットもこの境界を再利用し、inline filter を他所に散らさない。
+- **新規列** (すべて nullable、CHECK 制約つき):
+  - 事業化タイプ: `primary_commercialization_type` (単一) + `secondary_commercialization_types[]` (複数可)。enum は `large_startup` / `small_business_1b_yen` / `license` / `jv_ma` / `joint_research_poc`
+  - KUTE 公開向けテキスト: `kute_envisioned_use_case` / `kute_first_customer_candidate` / `kute_market_size_range` / `kute_market_size_confidence` (low/medium/high) / `kute_biggest_bottleneck` / `kute_ip_status` / `kute_next_verification_step`
+  - 100点スコア: `future` 60点 (`kute_score_future_need/market/technical_advantage/ip_barrier` 各15) + `current` 30点 (`kute_score_current_trl/brl/hrl` 各10) + `kute_score_support` 10点。**捏造禁止** — 根拠のない値は null のまま。`computeKuteSeedScore()` は群内の全項目が揃った時だけ群合計、8項目すべてが揃った時だけ総合点を返し、欠けがあれば `null`
+  - 現時点 (2026-07-20) の 6 シーズは市場規模・確度・スコア系がすべて未確定 (null)。裏付けが取れ次第 `seeds` を直接更新する
+- **プライバシー境界**: `internal_notes` / `source_detail` 等の社内限定フィールドは公開面の select に含めない。ホワイトリスト型 `SeedPublicView` + 定数 `SEED_PUBLIC_VIEW_COLUMNS` ([`types/seeds.ts`](../src/types/seeds.ts)) を select の唯一の呼び出し元にする。既存の `SeedDetailModal` (編集用、confidential 項目を含む) は再利用せず、新規の読み取り専用 `KuteSeedDetailModal` ([`components/seeds/KuteSeedDetailModal.tsx`](../src/components/seeds/KuteSeedDetailModal.tsx)) を使う
+- **UI**: PJ cockpit (`/project/p25/cockpit`) と同じ `CockpitView` を使う研究機関 cockpit (`/institutions/inst_kute/cockpit`) の進捗タブで、年度内ロードマップ (`CockpitKuteAnnualRoadmap`) の直後にカード/行形式グリッドを表示 (`CockpitKuteSeeds.tsx`)。一覧だけで想定用途・顧客・市場・ネック・知財・事業化タイプ・次の検証・3群の採点状態・資料有無を比較でき、長文と8項目の採点内訳は `KuteSeedDetailModal` へ逃がす。深掘り資料は既存の `SeedMarkdownPreviewModal` を再利用し、無ければ「資料なし」
+- **テスト**: `npm run test:kute-seeds-scope` — スコープ境界 (p25→工学院大学、他は null)、ホワイトリストに confidential フィールドが混入していないこと、未評価を部分合計・総合点にしないことを検証
+
 ## トレードオフ・残課題
 
 - **機関名・PI 名の表記ゆれ**: 単一テーブル方針なので「愛媛大学」「愛媛大」が混在し得る。Phase 2 で正規化マスタ追加を検討

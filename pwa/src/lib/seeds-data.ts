@@ -11,7 +11,19 @@ import type {
   SeedContactLog,
   SeedListItem,
   SeedDetail,
+  SeedPublicView,
 } from "@/types/seeds";
+import { SEED_PUBLIC_VIEW_COLUMNS } from "@/types/seeds";
+import { researchInstitutionSeedsOrgNameForProject } from "@/lib/kute-seeds-scoring";
+export {
+  researchInstitutionSeedsOrgNameForProject,
+  computeKuteSeedScore,
+  SEED_COMMERCIALIZATION_TYPE_LABEL,
+  SEED_COMMERCIALIZATION_TYPE_ORDER,
+  SEED_KUTE_MARKET_CONFIDENCE_LABEL,
+  type KuteSeedScoreGroup,
+  type KuteSeedScore,
+} from "@/lib/kute-seeds-scoring";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
@@ -360,6 +372,31 @@ export async function dismissSeed(id: string): Promise<{ ok: boolean; error?: st
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
   return { ok: true };
+}
+
+// =====================================================================
+// KUTE (PJ cockpit) 向け公開面境界 — 単一の source of truth (seeds) を
+// project_id ごとの研究機関スコープにマップする唯一の場所。
+// org_name の inline filter を他所に散らさない。
+// スコープ判定 / スコア計算の純粋ロジックは kute-seeds-scoring.ts に集約し、
+// ここでは re-export + Supabase 読み取りのみを行う。
+// =====================================================================
+
+/**
+ * PJ cockpit の KUTE 公開面向け: 対象 project_id にひもづく研究機関シーズを
+ * ホワイトリスト select で取得する。internal_notes / source_detail 等は
+ * select 句に含めないため、レスポンスにも一切乗らない。
+ */
+export async function fetchResearchInstitutionSeedsForProject(projectId: string): Promise<SeedPublicView[]> {
+  const orgName = researchInstitutionSeedsOrgNameForProject(projectId);
+  if (!orgName) return [];
+  const { data, error } = await supabase
+    .from("seeds")
+    .select(SEED_PUBLIC_VIEW_COLUMNS.join(", "))
+    .eq("org_name", orgName)
+    .order("researcher_name", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as unknown as SeedPublicView[];
 }
 
 // =====================================================================

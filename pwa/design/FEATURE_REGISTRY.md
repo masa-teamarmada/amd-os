@@ -423,10 +423,12 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - 開催済みMTG本文の表現契約: `## 🎯背景` / `## 📊経緯` は段落、`## ✅決まったこと` / `## ▶️次の一手` / `## ⚠️残課題` は1項目1論点の `- ` 箇条書きにする。番号付きリストとチェックボックスは使わない。
 - MTG PDFの添付契約: `PDF保存` は共有用本文の後ろに `meeting_assets` の PDF / PNG / JPEG を `sort_order` 順で連結する。投影資料を先、参加者共有資料を後に並べ、資料へのリンク一覧だけで済ませない。
 - MTG詳細Markdownのメンバーリンク: `CockpitMeetingDetailModal` で表示する `narrative_md` / `summary_short` / raw 配列 / 予定MTGブリーフは `MarkdownView memberLinks` を通し、active AMDメンバーの `members.code_name` が standalone mention として出る場合だけ `/mypage?memberId=<members.member_id>` へリンクする。既存 Markdown link / code / pre は対象外で、`しかるべき` の `かる`、`こうして` の `こう` のような部分一致はリンクしない。
+- KUTE連携シーズ一覧 (2026-07-20): `projectId === 'p25'` の進捗タブでは、`CockpitKuteAnnualRoadmap` の直後に `CockpitKuteSeeds` を表示する。データは Seeds テーブル (`org_name='工学院大学'`) を単一正本とし、KUTE専用テーブルは作らない。p25→組織名のスコープ対応は `researchInstitutionSeedsOrgNameForProject()` (`pwa/src/lib/kute-seeds-scoring.ts`) 一箇所のみに定義し、将来の研究機関PJも同じ境界を使う。一覧で主要比較項目と将来性60/現在地30/KUTE支援効果10の採点状態を確認でき、長文と8項目の内訳は `KuteSeedDetailModal` へ逃がす。同モーダルは `internal_notes` / `source_detail` 等の非公開フィールドを select すらしない `SeedPublicView` ホワイトリスト経由の読み取り専用で、既存の編集用 `SeedDetailModal` は再利用しない。未評価項目があれば群合計・総合点を数値化しない。深掘り資料は既存 `SeedMarkdownPreviewModal` を再利用し、無ければ「資料なし」。DDL: migration `186_kute_seeds_commercialization_score.sql`。詳細は [`seeds.md`](seeds.md) 参照。
 
 回帰防止:
 
 - `pwa/scripts/check_pwa_critical_ui.cjs` が `経営ハイライト`、`CockpitStrategySignals`、`project_strategy_signals`、`project_strategy_signal`、`CockpitMsChangeHistory`、`MS変更履歴`、`milestone_change_events`、`CockpitSeasonFinance`、`今シーズン収支`、`クライアント支払`、`期末未払` の anchor を検査する。
+- KUTE連携シーズ一覧のスコープ境界・非公開フィールド除外・スコア捏造禁止は `npm run test:kute-seeds-scope` (`pwa/scripts/check_kute_seeds_scope.mts`) で検査する。
 - MTGサマリの予定MTG block / `POST /api/meeting-prep` / `POST /api/meeting-prep/calendar-sync` / `MeetingPrepInlineEditor` / `POST /api/meeting-summary/manual-update` / `MeetingSummaryInlineEditor` / `MeetingAssetsPanel` / `POST /api/meeting-assets` / `PDF保存` / `議事録コピー` / `準備メモコピー` / `共有URLコピー` も `check_pwa_critical_ui.cjs` で検査する。
 - 案C レイアウト anchor (`max-w-[1600px]`、`lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_300px]`、`xl:flex-row` Hero) も `check_pwa_critical_ui.cjs` で検査する。`max-w-[1060px]` や旧 left/right 2 カラム構造に巻き戻ったら `npm run test:critical-ui` で落ちる。
 

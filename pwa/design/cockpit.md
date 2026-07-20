@@ -328,6 +328,16 @@ XRL も同パターン (`xrl_feedbacks` → `/api/.../xrl-revise` → 手動 `/v
 - `amd-score-l2-refresh` は `ecosystem` をskipする。
 - MS 進捗対象判定 (`progress-estimator.ts` `MS_PROGRESS_PROJECT_CATEGORIES` / `activities/infer` / `CockpitView` / `HudCockpitView`) は `('dtsu','ecosystem','new_business')`。
 
+### KUTE (p25) 連携シーズ一覧 (2026-07-20)
+
+`ecosystem` PJ である KUTE は特定SUのAMD Scoreを付けない代わりに、進捗タブに **連携シーズ一覧** セクションを持つ。`CockpitKuteAnnualRoadmap` の直後、タブ本体の前にフル幅で表示 (`CockpitView.tsx`、`activeTab === "progress" && project.projectId === "p25"` gate)。
+
+- データソースは Seeds テーブル1本 (`org_name='工学院大学'`)。KUTE専用テーブルは作らない。
+- p25 → 研究機関名のスコープ対応は `researchInstitutionSeedsOrgNameForProject()` (`pwa/src/lib/kute-seeds-scoring.ts`) が唯一の定義。他の研究機関PJへ拡張する場合もここに追記する。
+- 表示コンポーネント: `CockpitKuteSeeds.tsx` (一覧で主要比較項目と3群の採点状態まで表示) → `KuteSeedDetailModal.tsx` (長文と8項目の採点内訳を表示する安全な読み取り専用詳細、`internal_notes`/`source_detail` 等の非公開項目は select すらしない `SeedPublicView` ホワイトリスト経由)。
+- 事業化タイプ (primary 1 + secondary 複数) と 100点スコア内訳 (future 60 / current 30 / kute_support 10、全項目 nullable) の仕様詳細は [`seeds.md`](seeds.md) の「KUTE (p25) PJ cockpit 連携」セクション参照。
+- テスト: `npm run test:kute-seeds-scope` (スコープ境界 / 非公開フィールド除外 / 未評価=null / 未完了群と総合点を数値化しないこと / 満点合計を検証)。
+
 ## 関連メンバー
 
 `project_founding_members` はM-2 XRL根拠のうち、HRL評価のベースとなる **関連メンバー** 台帳。
@@ -513,3 +523,4 @@ XRL も同パターン (`xrl_feedbacks` → `/api/.../xrl-revise` → 手動 `/v
 | 日付 | 変更 |
 |---|---|
 | 2026-05-23 | 初版。戦略再構築セッションで「コックピットにも MVV を書いておかないと」とまさ確定。CockpitP00MVVSection 仕様を新設 |
+| 2026-07-20 | KUTE (p25) 連携シーズ一覧セクションを追加。`CockpitKuteSeeds.tsx` / `KuteSeedDetailModal.tsx` / `kute-seeds-scoring.ts`。詳細は [`seeds.md`](seeds.md) 参照 |
