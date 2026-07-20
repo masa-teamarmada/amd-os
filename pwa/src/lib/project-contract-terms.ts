@@ -14,6 +14,15 @@ export type ProjectCurrentContract = {
   terms?: ProjectContractTerms | null;
 };
 
+export type ProjectContractCockpitSummary = {
+  invoiceTiming?: string | null;
+  paymentTiming?: string | null;
+  scope?: string | null;
+  deliverables?: string | null;
+  expense?: string | null;
+  execution?: string | null;
+};
+
 export interface ProjectContractTerms {
   currentContracts?: ProjectCurrentContract[] | null;
   currentContractId?: string | null;
@@ -59,6 +68,7 @@ export interface ProjectContractTerms {
   liabilityTerms?: string | null;
   governingLawJurisdiction?: string | null;
   specialTerms?: string | null;
+  cockpitSummary?: ProjectContractCockpitSummary | null;
   verifiedAt?: string | null;
   verifiedBy?: string | null;
   sourceTitle?: string | null;
@@ -100,6 +110,7 @@ export const OPERATIONAL_TERM_KEYS = [
   "liabilityTerms",
   "governingLawJurisdiction",
   "specialTerms",
+  "cockpitSummary",
 ] as const satisfies ReadonlyArray<keyof ProjectContractTerms>;
 
 export function textTerm(value: unknown) {

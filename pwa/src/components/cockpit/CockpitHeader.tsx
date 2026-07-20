@@ -83,27 +83,24 @@ function joinKnown(values: Array<string | null | undefined>, fallback = "未確�
   return known.length > 0 ? known.join(" / ") : fallback;
 }
 
-function expenseLabel(terms: ProjectContractTerms) {
+function expenseStatus(terms: ProjectContractTerms) {
   const allowed = boolTerm(terms.expenseReimbursementAllowed);
-  const note = textTerm(terms.expenseReimbursementNote);
-  if (allowed === false) return joinKnown(["申請不可", note]);
-  if (allowed === true) return joinKnown(["申請可", note]);
-  return note || "未確認";
+  if (allowed === false) return "申請不可";
+  if (allowed === true) return "申請可";
+  return "契約書確認中";
 }
 
-function deliverablesLabel(terms: ProjectContractTerms) {
+function deliverablesSummary(terms: ProjectContractTerms) {
   const required = boolTerm(terms.deliverablesRequired);
   const status = required === true ? "成果物あり" : required === false ? "成果物なし" : null;
-  return joinKnown([status, textTerm(terms.deliverablesNote), textTerm(terms.acceptanceTerms)]);
+  return joinKnown([status, textTerm(terms.deliverablesNote), textTerm(terms.monthlyReportSubmissionRule), textTerm(terms.monthlyReportSubmissionTiming)]);
 }
 
-function reportLabel(terms: ProjectContractTerms) {
-  return joinKnown([
-    textTerm(terms.monthlyReportSubmissionRule),
-    textTerm(terms.monthlyReportSubmissionTiming),
-    textTerm(terms.monthlyReportSubmissionDeadline),
-    textTerm(terms.monthlyReportSubmissionNote),
-  ]);
+function contractGridClass(blockCount: number) {
+  if (blockCount >= 5) return "xl:grid-cols-5";
+  if (blockCount === 4) return "xl:grid-cols-4";
+  if (blockCount === 3) return "xl:grid-cols-3";
+  return "xl:grid-cols-2";
 }
 
 function legacyCurrentContract(project: Props["project"]): ProjectCurrentContract | null {
@@ -145,54 +142,59 @@ function CurrentContractTerms({ contract, project }: { contract: ProjectCurrentC
   const contractMonthlyFee = formatYen(terms.monthlyFeeYen);
   const projectMonthlyFee = formatYen(project.feeAmount);
   const payment = paymentDueRuleLabel(project.paymentDueRule, project.paymentDueDay);
-  const confidentiality = textTerm(terms.confidentialitySummary)
-    || textTerm(terms.nda?.purpose)
-    || "未確認";
-  const confidentialitySurvival = textTerm(terms.confidentialitySurvival)
-    || textTerm(terms.nda?.postTerminationConfidentiality);
-  const blocks = [
+  const summary = terms.cockpitSummary || {};
+  const isNda = contract.contractType === "nda";
+  const amount = contractAmount
+    ? `税抜総額 ${contractAmount}`
+    : contractMonthlyFee
+      ? `${feeTypeLabel(project.feeType) || "月額"} ${contractMonthlyFee}`
+      : projectMonthlyFee
+        ? `${feeTypeLabel(project.feeType) || "PJ設定"} ${projectMonthlyFee}`
+        : "金額未確認";
+  const invoiceTiming = textTerm(summary.invoiceTiming)
+    || (terms.billingStartYm ? `請求開始 ${ymLabel(terms.billingStartYm)}` : "請求時期未確認");
+  const paymentTiming = textTerm(summary.paymentTiming)
+    || payment
+    || "振込時期未確認";
+  const periodBlock = {
+    label: "契約期間",
+    value: periodStart || periodEnd ? `${periodStart || "未確認"} - ${periodEnd || "未確認"}` : "未確認",
+    note: joinKnown([textTerm(contract.renewalType || terms.renewalType), contract.renewalNoticeDate ? `更新通知 ${ymLabel(contract.renewalNoticeDate)}` : null], "更新条件未確認"),
+  };
+  const blocks = isNda ? [
+    periodBlock,
     {
-      label: "期間・更新",
-      value: periodStart || periodEnd ? `${periodStart || "未確認"} - ${periodEnd || "未確認"}` : "未確認",
-      note: joinKnown([textTerm(contract.renewalType || terms.renewalType), contract.renewalNoticeDate ? `通知 ${ymLabel(contract.renewalNoticeDate)}` : null], "更新条件未確認"),
+      label: "利用目的",
+      value: textTerm(summary.scope) || textTerm(terms.nda?.purpose) || textTerm(terms.scopeSummary) || "目的未確認",
+      note: textTerm(summary.deliverables) || "目的外利用は契約詳細で確認",
     },
     {
-      label: "金額・支払",
-      value: contractAmount ? `税抜総額 ${contractAmount}` : contractMonthlyFee ? `${feeTypeLabel(project.feeType) || "月額"} ${contractMonthlyFee}` : projectMonthlyFee ? `PJ設定 ${feeTypeLabel(project.feeType) || "月額"} ${projectMonthlyFee}` : "金額未確認",
-      note: contractAmount || contractMonthlyFee
-        ? joinKnown([textTerm(terms.paymentTerms), payment, textTerm(terms.taxTreatment)])
-        : joinKnown(["契約金額は未確認", payment ? `PJ設定: ${payment}` : null]),
+      label: "運用条件",
+      value: textTerm(summary.execution) || textTerm(terms.subcontractingTerms) || "共有・担当追加の条件未確認",
+      note: textTerm(terms.confidentialitySurvival) || textTerm(terms.nda?.postTerminationConfidentiality) || "存続期間未確認",
+    },
+  ] : [
+    periodBlock,
+    {
+      label: "請求・振込",
+      value: amount,
+      note: `請求 ${invoiceTiming}｜振込 ${paymentTiming}`,
     },
     {
       label: "業務・成果物",
-      value: textTerm(terms.scopeSummary) || textTerm(terms.nda?.purpose) || "業務範囲未確認",
-      note: joinKnown([deliverablesLabel(terms), reportLabel(terms)]),
+      value: textTerm(summary.scope) || textTerm(terms.scopeSummary) || "業務範囲未確認",
+      note: textTerm(summary.deliverables) || deliverablesSummary(terms),
     },
     {
-      label: "費用負担",
-      value: expenseLabel(terms),
-      note: "立替、旅費、外注等",
+      label: "経費申請",
+      value: expenseStatus(terms),
+      note: textTerm(summary.expense) || textTerm(terms.expenseReimbursementNote) || "旅費・外注・立替条件を確認中",
     },
-    {
-      label: "知財・利用",
-      value: joinKnown([textTerm(terms.ipOwnership), textTerm(terms.usageRights)]),
-      note: textTerm(terms.publicityRights) || "名称・実績公開 未確認",
-    },
-    {
-      label: "秘密保持・制限",
-      value: confidentiality,
-      note: joinKnown([confidentialitySurvival, textTerm(terms.subcontractingTerms), textTerm(terms.exclusivityTerms)]),
-    },
-    {
-      label: "解除・責任",
-      value: joinKnown([textTerm(terms.terminationTerms), textTerm(terms.liabilityTerms)]),
-      note: textTerm(terms.governingLawJurisdiction) || "準拠法・管轄 未確認",
-    },
-    {
-      label: "特記事項",
-      value: textTerm(terms.specialTerms) || textTerm(terms.notes) || "なし",
-      note: textTerm(terms.sourceTitle) ? `根拠: ${terms.sourceTitle}` : "根拠未登録",
-    },
+    ...(textTerm(summary.execution) || textTerm(terms.specialTerms) || textTerm(terms.notes) ? [{
+      label: "推進条件",
+      value: textTerm(summary.execution) || textTerm(terms.specialTerms) || textTerm(terms.notes) || "",
+      note: "現地対応・貸与物・事前承認など",
+    }] : []),
   ];
 
   return (
@@ -203,12 +205,12 @@ function CurrentContractTerms({ contract, project }: { contract: ProjectCurrentC
         <span className="text-[11px] text-[#6e6e73]">{contract.counterpartyName || "相手先未確認"}</span>
         <span className="text-[11px] font-medium text-[#1d1d1f]">{joinKnown([textTerm(contract.status), textTerm(contract.signatureStatus)], "状態未確認")}</span>
       </div>
-      <dl className="grid border-t border-[#ededf0] bg-[#fafafa] sm:grid-cols-2 lg:grid-cols-4">
+      <dl className={`grid border-t border-[#ededf0] bg-[#fafafa] md:grid-cols-2 ${contractGridClass(blocks.length)}`}>
         {blocks.map((block) => (
-          <div key={block.label} className="min-w-0 border-b border-r border-[#ededf0] px-3 py-2.5 lg:[&:nth-last-child(-n+4)]:border-b-0">
+          <div key={block.label} className="min-w-0 border-b border-r border-[#ededf0] px-3 py-3 md:even:border-r-0 xl:border-b-0 xl:border-r xl:last:border-r-0">
             <dt className="text-[10px] font-medium text-[#86868b]">{block.label}</dt>
-            <dd className="mt-1 break-words text-[12px] font-semibold leading-5 text-[#1d1d1f]">{block.value}</dd>
-            <dd className="mt-0.5 line-clamp-2 text-[10px] leading-4 text-[#6e6e73]" title={block.note}>{block.note}</dd>
+            <dd className="mt-1 line-clamp-2 break-words text-[13px] font-semibold leading-5 text-[#1d1d1f]" title={block.value}>{block.value}</dd>
+            <dd className="mt-1 line-clamp-2 text-[11px] leading-4 text-[#6e6e73]" title={block.note}>{block.note}</dd>
           </div>
         ))}
       </dl>
@@ -229,9 +231,9 @@ export function CockpitHeader({ project, members }: Props) {
         <span className="text-[11px] text-[#6e6e73]">PJメンバー {members.length > 0 ? members.join(" / ") : "未設定"}</span>
       </div>
 
-      <section className="overflow-hidden rounded-md border border-[#d6d6da] bg-white shadow-sm" aria-label="現行・進行中の契約条件">
+      <section className="overflow-hidden rounded-md border border-[#d6d6da] bg-white shadow-sm" aria-label="契約上の実行条件">
         <div className="flex items-center justify-between gap-3 border-b border-[#e5e5ea] px-3 py-2">
-          <h2 className="text-[11px] font-semibold text-[#1d1d1f]">現行・進行中の契約条件</h2>
+          <h2 className="text-[11px] font-semibold text-[#1d1d1f]">契約上の実行条件</h2>
           <span className="text-[10px] text-[#86868b]">{contracts.length}件</span>
         </div>
         {contracts.length > 0

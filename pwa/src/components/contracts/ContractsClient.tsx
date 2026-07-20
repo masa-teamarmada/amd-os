@@ -337,6 +337,12 @@ const BLANK_CONTRACT_EDIT = {
   contractValueYen: "",
   paymentTerms: "",
   taxTreatment: "",
+  cockpitInvoiceTiming: "",
+  cockpitPaymentTiming: "",
+  cockpitScope: "",
+  cockpitDeliverables: "",
+  cockpitExpense: "",
+  cockpitExecution: "",
   scopeSummary: "",
   deliverablesRequired: "unknown",
   deliverablesNote: "",
@@ -828,6 +834,12 @@ export function ContractsClient() {
       contractValueYen: selected.contract_value_yen ? String(selected.contract_value_yen) : "",
       paymentTerms: textTerm(terms.paymentTerms) || "",
       taxTreatment: textTerm(terms.taxTreatment) || "",
+      cockpitInvoiceTiming: textTerm(terms.cockpitSummary?.invoiceTiming) || "",
+      cockpitPaymentTiming: textTerm(terms.cockpitSummary?.paymentTiming) || "",
+      cockpitScope: textTerm(terms.cockpitSummary?.scope) || "",
+      cockpitDeliverables: textTerm(terms.cockpitSummary?.deliverables) || "",
+      cockpitExpense: textTerm(terms.cockpitSummary?.expense) || "",
+      cockpitExecution: textTerm(terms.cockpitSummary?.execution) || "",
       scopeSummary: textTerm(terms.scopeSummary) || "",
       deliverablesRequired: boolTerm(terms.deliverablesRequired) === true ? "required" : boolTerm(terms.deliverablesRequired) === false ? "not_required" : "unknown",
       deliverablesNote: textTerm(terms.deliverablesNote) || "",
@@ -949,6 +961,15 @@ export function ContractsClient() {
         ...(selected.operational_terms_json || {}),
         paymentTerms: textTerm(contractEdit.paymentTerms),
         taxTreatment: textTerm(contractEdit.taxTreatment),
+        cockpitSummary: {
+          ...(existingTerms.cockpitSummary || {}),
+          invoiceTiming: textTerm(contractEdit.cockpitInvoiceTiming),
+          paymentTiming: textTerm(contractEdit.cockpitPaymentTiming),
+          scope: textTerm(contractEdit.cockpitScope),
+          deliverables: textTerm(contractEdit.cockpitDeliverables),
+          expense: textTerm(contractEdit.cockpitExpense),
+          execution: textTerm(contractEdit.cockpitExecution),
+        },
         scopeSummary: textTerm(contractEdit.scopeSummary),
         deliverablesRequired: contractEdit.deliverablesRequired === "required"
           ? true
@@ -1686,6 +1707,18 @@ function ContractDetailDialog({ contract, project, documents, signals, linkedTer
                   <Field label="契約金額（円）"><input inputMode="numeric" value={edit.contractValueYen} onChange={(event) => setEdit({ ...edit, contractValueYen: event.target.value })} className={CONTROL_CLASS} /></Field>
                   <Field label="支払条件"><input value={edit.paymentTerms} onChange={(event) => setEdit({ ...edit, paymentTerms: event.target.value })} className={CONTROL_CLASS} placeholder="締日、請求、支払期限" /></Field>
                   <Field label="税・源泉"><input value={edit.taxTreatment} onChange={(event) => setEdit({ ...edit, taxTreatment: event.target.value })} className={CONTROL_CLASS} /></Field>
+                  <div className="rounded-md border border-slate-200 bg-slate-50 p-3 md:col-span-2 xl:col-span-3">
+                    <p className="text-sm font-semibold text-slate-900">PJコックピット用サマリ</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">法務条項の要約ではなく、PJを進める日に確認する条件だけを1項目80字以内で書く。詳細条文は上の実務条件に残す。</p>
+                    <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      <Field label="請求タイミング"><input maxLength={80} value={edit.cockpitInvoiceTiming} onChange={(event) => setEdit({ ...edit, cockpitInvoiceTiming: event.target.value })} className={CONTROL_CLASS} placeholder="毎月末 / 11回分割" /></Field>
+                      <Field label="振込タイミング"><input maxLength={80} value={edit.cockpitPaymentTiming} onChange={(event) => setEdit({ ...edit, cockpitPaymentTiming: event.target.value })} className={CONTROL_CLASS} placeholder="請求書受領の翌月末" /></Field>
+                      <Field label="業務サマリ"><input maxLength={80} value={edit.cockpitScope} onChange={(event) => setEdit({ ...edit, cockpitScope: event.target.value })} className={CONTROL_CLASS} placeholder="規程策定 / シーズ発掘" /></Field>
+                      <Field label="成果物サマリ"><input maxLength={80} value={edit.cockpitDeliverables} onChange={(event) => setEdit({ ...edit, cockpitDeliverables: event.target.value })} className={CONTROL_CLASS} placeholder="月報 / 完了報告 / 納品物" /></Field>
+                      <Field label="経費サマリ"><input maxLength={80} value={edit.cockpitExpense} onChange={(event) => setEdit({ ...edit, cockpitExpense: event.target.value })} className={CONTROL_CLASS} placeholder="旅費は別途協議 / 事前承認" /></Field>
+                      <Field label="推進条件"><input maxLength={80} value={edit.cockpitExecution} onChange={(event) => setEdit({ ...edit, cockpitExecution: event.target.value })} className={CONTROL_CLASS} placeholder="現地頻度 / 貸与物 / 体制条件" /></Field>
+                    </div>
+                  </div>
                   <Field label="業務範囲" className="md:col-span-2"><textarea value={edit.scopeSummary} onChange={(event) => setEdit({ ...edit, scopeSummary: event.target.value })} className={`${CONTROL_CLASS} h-20 py-2`} /></Field>
                   <Field label="成果物"><select value={edit.deliverablesRequired} onChange={(event) => setEdit({ ...edit, deliverablesRequired: event.target.value })} className={CONTROL_CLASS}><option value="unknown">未確認</option><option value="required">あり</option><option value="not_required">なし</option></select></Field>
                   <Field label="成果物の条件"><input value={edit.deliverablesNote} onChange={(event) => setEdit({ ...edit, deliverablesNote: event.target.value })} className={CONTROL_CLASS} /></Field>

@@ -75,7 +75,7 @@ This route is read-only during load. It does not create a duplicate project or w
 
 | section | component | source |
 |---|---|---|
-| header | `CockpitHeader` | project metadata + PJリスト由来のサマリー。PJメンバー、契約条件、業務委託料、支払い条件、提出物の有無、月次報告書の状態・時期・提出期限・フォーマット・記載事項・根拠、立替精算の発生額/不可を `projects` / `project_members` / `projects.contract_terms_json` から表示する |
+| header | `CockpitHeader` | project metadata + PJリスト由来の実行サマリー。PJメンバーに続き、各現行契約を `契約期間` / `請求・振込` / `業務・成果物` / `経費申請` / 必要時だけ `推進条件` の最大5項目で表示する。短文の正本は `projects.contract_terms_json.currentContracts[].terms.cockpitSummary`。請求・振込タイミングは必須表示とし、未確認なら未確認と明示する。知財、秘密保持、解除、責任等の法務条項は通常契約のサマリーへ常設せず `/admin/contracts` に残す。NDAは例外として `契約期間` / `利用目的` / `運用条件` を表示する |
 | KUTE annual roadmap | `CockpitKuteAnnualRoadmap` | KUTE (`p25`) only。`CockpitHeader` 直下で、2026-06〜2027-03 の年度内ロードマップを表示する。規程整備レーンは 2027-01 整備完了目途、シーズ発掘 / after GTIE レーンは 2027-03 型化目途。現時点の source は 6/11 キックオフ資料 / `PROJECT_BRIEF` 由来の静的 contract |
 | venture status | `CockpitVentureStatus` | `project_ventures`, `project_xrl_log`, related data |
 | AMD / Management score hero | `CockpitManagementScoreHero` | AMD Score / Management Score derived data |

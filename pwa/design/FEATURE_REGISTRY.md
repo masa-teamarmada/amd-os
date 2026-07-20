@@ -153,7 +153,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - 契約台帳: Drive folder、MTG、議事録、版違い、形式違いを行として混ぜず、1契約1行で状態・期間・金額/支払・業務/成果物・費用/報告・権利/制限/リスクを比較できる。
 - 契約同一性: `canonical_contract_id` で同じ契約の既存記録を結ぶ。移行前だけ契約名から作業語を除いた候補で暫定集約し、送付確認・微修正・DocuSign依頼は契約詳細の関連記録として読む。
 - 実務条件モーダル: 行を開くとモーダルを表示し、契約当事者・状態/押印・PJ反映を先頭に、期間/更新、金額/支払、業務/成果物、費用負担、知財/利用、秘密保持/制限、解除/責任、文書/根拠を確認できる。文書と版、関連記録は別タブに分ける。
-- PJ反映: `is_current_for_project=true` の契約を `projects.contract_terms_json.currentContracts[]` へ契約ID単位で同期し、各PJコックピットの「現行・進行中の契約条件」に表示する。複数契約の条件は混ぜない。
+- PJ反映: `is_current_for_project=true` の契約を `projects.contract_terms_json.currentContracts[]` へ契約ID単位で同期し、各PJコックピットの「契約上の実行条件」に表示する。複数契約の条件は混ぜない。コックピット用短文は `terms.cockpitSummary` に分離する。
 - 幅: 台帳は本文の利用可能幅をすべて使う。狭い画面は押し潰した表や横スクロールにせず、契約ごとの要約表示へ切り替える。
 - 固定列: 一番左を PJ、次を契約名とし、この2列は横スクロール中も左に固定する。
 - evidence boundary: 契約書ファイル、修正案、押印版、会議上の言及は `contract_documents` / `contract_signals` / `contract_terms` の証跡として扱い、台帳行を水増ししない。
@@ -407,7 +407,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 必須機能:
 
 - レイアウト: `max-w-[1600px]` の幅広 container、上 Header → hero (PJ Status) → 進捗管理本文へ進む案C系構成。通常時は MS / 月次側と、資料 / 経営ハイライト / ガバナンス / 助成金 / MTGサマリ側の 2 カラム。凍結中 / 再開予定などのステータスバッジがある時だけ右カラムを出す。`max-w-[1060px]` + 左 720 / 右 220 の旧 2 カラムには戻さない。最下段の旧 TODO かんばんと旧 `ProactiveQueuePanel` は主要導線から外す。
-- Header契約サマリー: `CockpitHeader` はPJ名/status/分類に加え、PJリスト正本からPJメンバー、契約条件、業務委託料、支払い条件、提出物の有無、月次報告書の提出ルール、立替精算の発生額/不可を表示する。提出物/月次報告/立替精算は `projects.contract_terms_json.deliverablesRequired` / `deliverablesNote` / `monthlyReportSubmissionRule` / `monthlyReportSubmissionNote` / `expenseReimbursementAllowed` / `expenseReimbursementNote` を読む。立替精算は不可PJだけ `不可`、OK運用のPJは `expenseReimbursementNote` の発生額/実務メモを主値にする。コックピットから `/admin/projects` や旧configへ飛ばす導線は置かない。
+- Header契約実行サマリー: `CockpitHeader` はPJ名/status/分類/PJメンバーに加え、現行契約ごとに `契約期間` / `請求・振込` / `業務・成果物` / `経費申請` / 必要時だけ `推進条件` の最大5項目を表示する。請求・振込タイミングは必須表示。短文は `projects.contract_terms_json.currentContracts[].terms.cockpitSummary` の `invoiceTiming` / `paymentTiming` / `scope` / `deliverables` / `expense` / `execution` を正本にする。知財、秘密保持、解除、責任など常設しても判断量が増えない法務条項は通常契約のサマリーへ出さず、`/admin/contracts` に残す。NDAは `契約期間` / `利用目的` / `運用条件` を表示する。コックピットから `/admin/projects` や旧configへ飛ばす導線は置かない。
 - KUTE年度内ロードマップ: `projectId === 'p25'` では Header 直下に `CockpitKuteAnnualRoadmap` を表示する。6/11キックオフ資料 / `PROJECT_BRIEF` の年度内スケジュールを根拠に、規程整備 (`2027-01` 完了目途) とシーズ発掘 / after GTIE (`2027-03` 型化目途) を同じ横軸で見せる。研究機関コックピット `/institutions/inst_kute/cockpit` でも同じ `CockpitView` 経由で表示する。
 - 上 hero: PJ ごとに出し分け。p00 (= AMD 会社全体) は `CockpitManagementScoreHero` で AMD Management Score の時系列折れ線 + 最新値カード。SU 系 PJ は `CockpitVentureStatus` 内で AMD Score 折れ線と XRL 折れ線を `xl:flex-row` で横並びにする。`xl` 未満では縦並びへ自動 fallback する。
 - Hero 下タブ: SU 系 PJ は `進捗管理` / `スコア詳細` を切り替える。AMD Score / XRL hero はタブ外に置いて常時表示し、`進捗管理` に従来の cockpit 本文、`スコア詳細` に `AmdScoreView` の embedded 表示を出す。正規URLは `/project/[projectId]/cockpit?tab=score-detail` で、SPS / R_net / FRL / XRL evidence と XRL チェックリストを同じタブに集約する。旧 `/venture-map/amd-score/[projectId]` はここへ redirect (`p99` デモを除く)。

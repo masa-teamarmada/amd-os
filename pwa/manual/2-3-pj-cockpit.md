@@ -25,7 +25,7 @@ AMDメンバーは従来どおり `/dashboard` がトップで、SX (`p21`) カ�
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  PJ ヘッダー (= 名前 / status / 分類 / 契約サマリー)    │
+│  PJ ヘッダー (= 名前 / status / 分類 / 契約実行条件)    │
 ├─────────────────────────────────────────────────────┤
 │  AMD スコアグラフ │ SPS / legacy M-X-F │ XRL 進捗グラフ    │
 ├──────────────────┬──────────────────┬──────────────┤
@@ -40,7 +40,7 @@ AMDメンバーは従来どおり `/dashboard` がトップで、SX (`p21`) カ�
 
 (= 通常は 2 カラム。凍結中 / 再開予定などのステータスがある場合だけ右カラムを出す)
 
-PJ ヘッダー最上部には、PJリスト (`/admin/projects`) の正本から、PJメンバー、契約条件、業務委託料、支払い条件、提出物の有無、月次報告書の状態と詳細、立替精算の発生額/不可を表示する。提出物/月次報告/立替精算は `projects.contract_terms_json` の `deliverablesRequired` / `deliverablesNote` / `monthlyReportSubmissionRule` / `monthlyReportSubmissionTiming` / `monthlyReportSubmissionDeadline` / `monthlyReportSubmissionFormat` / `monthlyReportSubmissionRequiredItems` / `monthlyReportSubmissionNote` / `expenseReimbursementAllowed` / `expenseReimbursementNote` を見る。月次報告の値は `要提出` / `不要` / `指定なし` / `要確認` / `不明` を短く出し、時期・提出期限・フォーマット・記載事項・根拠を補足に畳む。立替精算は `expenseReimbursementAllowed=false` なら `不可`、それ以外で `expenseReimbursementNote` があればその文字列 (= 発生額/実務メモ) を主値にする。値は契約書/見積書から `contract_terms.extracted_terms_json` へ抽出され、Contract Apply 後に PJ 正本へ畳まれる。契約条項に無くても PJ 運用として提出/立替精算が必要な場合は、同じJSONに根拠や実務値を残して表示する。
+PJ ヘッダー最上部には、PJメンバーと、現行契約ごとの「契約上の実行条件」を表示する。通常契約は `契約期間` / `請求・振込` / `業務・成果物` / `経費申請` / 必要時だけ `推進条件` の最大5項目。請求タイミングと振込タイミングは金額の補足に必ず表示し、経費は申請可否と、旅費・外注・立替などの条件を短く出す。業務・成果物にはPJを進めるうえで必要な範囲と提出物だけを置き、現地対応、貸与物、事前承認などは推進条件へ置く。短文は `projects.contract_terms_json.currentContracts[].terms.cockpitSummary` の `invoiceTiming` / `paymentTiming` / `scope` / `deliverables` / `expense` / `execution` を正本にする。知財、秘密保持、解除、責任、準拠法などの詳細条項は通常契約のコックピットへ常設せず、admin契約台帳で確認する。NDAだけは金額・経費ではなく `利用目的` と `運用条件` を表示する。未確認値を勝手に `申請可` や `なし` にしない。
 
 SU 系 PJ では、SPS primary / legacy M-X-F / XRL グラフは常時表示し、その下で **進捗管理** と **スコア詳細** をタブ切り替えする。2つのタブは横幅いっぱいを左右半分ずつ使う。進捗管理タブは従来のコックピット本文、スコア詳細タブは SPS Primary / SPS history / legacy M-X-F 詳細 / FRL / XRL チェックリストを cockpit 内に埋め込む。スコア詳細の正規URLは `/project/{projectId}/cockpit?tab=score-detail`。旧 `/venture-map/amd-score/{projectId}` はこのタブへ自動転送し、別の個別画面として運用しない。スコア詳細は画面表示直後に裏で読み込み、同じコックピットを見ている間は数分単位で再利用するため、2回目以降のタブ切り替えでは読み込み待ちが出にくい。
 

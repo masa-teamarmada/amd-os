@@ -223,14 +223,21 @@ expectIncludes("src/components/contracts/ContractsClient.tsx", [
 ]);
 
 expectIncludes("src/components/cockpit/CockpitHeader.tsx", [
-  "現行・進行中の契約条件",
+  "契約上の実行条件",
   "currentContracts",
-  "期間・更新",
-  "金額・支払",
+  "契約期間",
+  "請求・振込",
   "業務・成果物",
-  "知財・利用",
-  "秘密保持・制限",
-  "解除・責任",
+  "経費申請",
+  "推進条件",
+  "請求 ${invoiceTiming}｜振込 ${paymentTiming}",
+  "terms.cockpitSummary",
+]);
+
+expectNotIncludes("src/components/cockpit/CockpitHeader.tsx", [
+  'label: "知財・利用"',
+  'label: "秘密保持・制限"',
+  'label: "解除・責任"',
 ]);
 
 expectIncludes("src/lib/contracts-ledger.ts", [

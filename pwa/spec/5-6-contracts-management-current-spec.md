@@ -65,6 +65,8 @@ status:
 
 実務条件の正本は契約ごとの `contracts.operational_terms_json`。PJコックピットへ出す契約は `is_current_for_project=true` とし、`projects.contract_terms_json.currentContracts[]` へ契約ID単位で同期する。複数の現行契約をPJ直下の1組の条件へ混ぜない。未確認値を `0円`、`なし`、`申請可` へ変換しない。秘密保持は `in_contract / separate_nda / not_included / unknown` を正本とし、存続期間と短い根拠を併記できる。
 
+PJコックピット用の要約は、法務条項の網羅的な短縮版ではなく、PJを進める日に必要な実行条件に限定する。`operational_terms_json.cockpitSummary` は `invoiceTiming` / `paymentTiming` / `scope` / `deliverables` / `expense` / `execution` を持ち、admin の契約詳細でレビュー済みの短文を保存する。通常契約のコックピットは `契約期間` / `請求・振込` / `業務・成果物` / `経費申請` / 必要な場合だけ `推進条件` の最大5項目を表示する。知財、秘密保持、解除、責任、準拠法などの法務詳細は `/admin/contracts` の実務条件に残し、通常契約のコックピットへ常設しない。NDAだけは金額・経費の代わりに `利用目的` / `運用条件` を表示する。請求・振込タイミングは契約額の補足に必ず出し、未確認なら未確認と明示する。
+
 `relationship_scope`:
 
 | value | behavior |
