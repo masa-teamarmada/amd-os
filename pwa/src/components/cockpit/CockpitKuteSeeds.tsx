@@ -183,7 +183,7 @@ export function CockpitKuteSeeds({ projectId }: { projectId: string }) {
             <table className="w-full min-w-[1560px] border-collapse text-[12px]">
               <thead className="sticky top-0 z-20">
                 <tr className="bg-slate-100 text-left text-[10px] font-semibold uppercase text-slate-500">
-                  <th className="sticky left-0 z-30 w-[160px] max-w-[160px] border-b border-r border-slate-200 bg-slate-100 px-3 py-2 sm:w-[220px] sm:max-w-[220px]">
+                  <th className="sticky left-0 z-30 w-[160px] min-w-[160px] max-w-[160px] border-b border-r border-slate-200 bg-slate-100 px-3 py-2 sm:w-[220px] sm:min-w-[220px] sm:max-w-[220px]">
                     シーズ
                   </th>
                   <SortableTh label="SPS" sortKey="sps" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
@@ -323,7 +323,7 @@ function SeedRow({ seed, onOpen }: { seed: SeedPublicView; onOpen: () => void })
       role="button"
       tabIndex={0}
     >
-      <td className="sticky left-0 z-10 w-[160px] max-w-[160px] border-b border-r border-slate-200 bg-white px-3 py-2 align-top group-hover:bg-sky-50/60 group-focus-visible:bg-sky-50/60 sm:w-[220px] sm:max-w-[220px]">
+      <td className="sticky left-0 z-10 w-[160px] min-w-[160px] max-w-[160px] border-b border-r border-slate-200 bg-white px-3 py-2 align-top group-hover:bg-sky-50/60 group-focus-visible:bg-sky-50/60 sm:w-[220px] sm:min-w-[220px] sm:max-w-[220px]">
         <div className="line-clamp-2 break-words font-semibold text-slate-950" title={seed.title}>
           {seed.title}
         </div>
