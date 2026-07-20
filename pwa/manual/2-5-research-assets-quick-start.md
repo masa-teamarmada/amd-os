@@ -49,6 +49,8 @@ Atlas は VC 個別ニュースや Seeds 本体の棚ではない。VC のファ
 
 Seeds は、AMD の Before 0 起点となる研究シーズリスト。
 
+Seeds の1行は研究者単位ではなく、**技術 × 用途の1案件**。同じ研究者が複数の事業化候補を持つ場合は、研究者名が同じ複数行として登録する。`discovered` の候補は公開情報等から見つけた未確認項目で、研究者・大学が事業化シーズとして確認したことを意味しない。
+
 ```text
 candidate -> investigating -> contacted -> discussing
   -> spun_off / declined

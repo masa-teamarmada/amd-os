@@ -211,6 +211,8 @@ export interface SeedPublicView {
   researcher_title: string | null;
   lab_name: string | null;
   domain_lane: SeedDomainLane | null;
+  /** 公開情報からの未確認候補か、人が台帳上で確認済みかを研究機関面でも区別する */
+  discovery_status: SeedDiscoveryStatus;
   trl: number | null;
   brl: number | null;
   hrl: number | null;
@@ -238,6 +240,7 @@ export const SEED_PUBLIC_VIEW_COLUMNS = [
   "researcher_title",
   "lab_name",
   "domain_lane",
+  "discovery_status",
   "trl",
   "brl",
   "hrl",

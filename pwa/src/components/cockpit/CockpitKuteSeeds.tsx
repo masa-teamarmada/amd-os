@@ -34,8 +34,9 @@ function sortValue(seed: SeedPublicView, key: SortKey): number | null {
 }
 
 /**
- * PJ cockpit (KUTE / p25) の進捗タブ向け: 対象研究機関シーズを、6シーズ横比較の
+ * PJ cockpit (KUTE / p25) の進捗タブ向け: 対象研究機関シーズを、案件単位で横比較する
  * 意思決定テーブルとして表示する。global Seeds テーブルが唯一の source of truth。
+ * 1行は「技術 × 応用先」の1案件であり、同じ研究者の複数シーズを統合・重複除外しない。
  * internal_notes / source_detail 等は fetchResearchInstitutionSeedsForProject 側で
  * select から除外済み (ホワイトリスト取得)。SPS の axis_evidence / evaluator は
  * データ層で既に落ちており、ここには一切渡らない。
@@ -71,7 +72,8 @@ export function CockpitKuteSeeds({ projectId }: { projectId: string }) {
     if (!seeds) return [];
     const filtered = seeds.filter((seed) => {
       const sps = seed.latest_sps;
-      if (statusFilter !== "all" && sps?.status !== statusFilter) return false;
+      const evaluationStatus = sps?.status ?? "missing";
+      if (statusFilter !== "all" && evaluationStatus !== statusFilter) return false;
       if (confidenceFilter !== "all" && sps?.confidence !== confidenceFilter) return false;
       return true;
     });
@@ -101,7 +103,10 @@ export function CockpitKuteSeeds({ projectId }: { projectId: string }) {
         <div className="min-w-0">
           <h2 className="text-lg font-bold text-slate-950">連携シーズ比較</h2>
           <p className="mt-1 max-w-4xl text-sm leading-relaxed text-slate-600">
-            優先順位と次の検証を決める候補一覧。
+            優先順位と次の検証を決める候補一覧。1行＝技術 × 用途の1案件として、同じ研究者の複数シーズも別行で扱う。
+          </p>
+          <p className="mt-1 text-[11px] leading-relaxed text-amber-700">
+            「公開情報候補」は大学・研究者による確認前。SPSとXRLは評価が揃うまで未評価のまま表示する。
           </p>
           {seeds && (
             <p className="mt-1.5 text-[11px] text-slate-500" aria-label="シーズ集計">
@@ -283,7 +288,7 @@ function SortableTh({
 function Cell({ value, widthClass = "max-w-[160px]" }: { value: string | null; widthClass?: string }) {
   return (
     <td className="border-b border-slate-100 px-3 py-2 align-top">
-      <span className={`block truncate ${widthClass} ${value ? "text-slate-700" : "text-slate-400"}`} title={value ?? "未確定"}>
+      <span className={`block whitespace-normal break-words leading-relaxed ${widthClass} ${value ? "text-slate-700" : "text-slate-400"}`}>
         {value ?? "未確定"}
       </span>
     </td>
@@ -324,13 +329,18 @@ function SeedRow({ seed, onOpen }: { seed: SeedPublicView; onOpen: () => void })
       tabIndex={0}
     >
       <td className="sticky left-0 z-10 w-[160px] min-w-[160px] max-w-[160px] border-b border-r border-slate-200 bg-white px-3 py-2 align-top group-hover:bg-sky-50/60 group-focus-visible:bg-sky-50/60 sm:w-[220px] sm:min-w-[220px] sm:max-w-[220px]">
-        <div className="line-clamp-2 break-words font-semibold text-slate-950" title={seed.title}>
+        <div className="whitespace-normal break-words font-semibold leading-snug text-slate-950">
           {seed.title}
         </div>
-        <div className="mt-0.5 truncate text-[11px] text-slate-500" title={seed.researcher_name ?? "研究者未登録"}>
+        <div className="mt-1 whitespace-normal break-words text-[11px] leading-relaxed text-slate-500">
           {seed.researcher_name ?? "研究者未登録"}
           {seed.researcher_title ? ` (${seed.researcher_title})` : ""}
         </div>
+        {seed.discovery_status === "discovered" && (
+          <span className="mt-1.5 inline-flex whitespace-normal rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold leading-tight text-amber-800">
+            公開情報候補
+          </span>
+        )}
       </td>
       <td className="border-b border-slate-100 px-3 py-2 align-top">
         {sps?.status === "ready" ? (
@@ -367,8 +377,7 @@ function SeedRow({ seed, onOpen }: { seed: SeedPublicView; onOpen: () => void })
             {commercializationTypes.map((t) => (
               <span
                 key={t}
-                className="truncate rounded border border-slate-300 bg-slate-50 px-1 py-0.5 text-[10px] text-slate-700"
-                title={SEED_COMMERCIALIZATION_TYPE_LABEL[t] ?? t}
+                className="whitespace-normal break-words rounded border border-slate-300 bg-slate-50 px-1 py-0.5 text-[10px] leading-tight text-slate-700"
               >
                 {SEED_COMMERCIALIZATION_TYPE_LABEL[t] ?? t}
               </span>
