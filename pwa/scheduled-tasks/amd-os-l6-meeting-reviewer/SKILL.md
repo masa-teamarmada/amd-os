@@ -167,6 +167,7 @@ node scripts/review_h1_meeting_summary.mjs --fixture scripts/__fixtures__/h1_mee
 
 H-1本体 (`amd-os-l6-meeting-extract`) と同じ **その日の `H-1 YYYY-MM-DD 日次まとめ` スレッド** に、reviewer の結果も追記する。旧仕様の「H-1 run summary へ追記」は、実運用としてはこの「同日の日次まとめスレッドへの追記」を指す。
 
+- 毎時 reviewer run の並行実行は仕様として維持する。前runを待つ、実行ロックを取る、別runが動いていることを理由にskipする、のいずれも禁止。
 - registry は H-1本体と共有: `/Users/masa/.codex/automations/amd-os-l6-meeting-flow/daily_threads/YYYY-MM-DD.json`。
 - registry に当日 (JST) の `thread_id` があれば、軽い確認をせずそのまま直接使う。
 - registry が無い場合 (= reviewer が H-1本体より先に走った等) は、reviewer が直接 `create_thread` で作成してよい。作成時は `list_threads` によるスレッド検索・query検索・dummy search・広い過去日付検索を一切行わない。作成後、`thread_id` と実際に作成が完了した時点の現在 JST を `created_at_jst` として registry に書く。
