@@ -1,4 +1,9 @@
-# BOOK_A_NARRATIVE_DESIGN.md — 章頭ナラティブ通し設計 (PF-021 正本)
+# BOOK_A_NARRATIVE_DESIGN.md — SUPERSEDED（旧章頭ナラティブ設計）
+
+> [!CAUTION]
+> **2026-07-20に全面失効。現行正本ではない。**
+> 現行の章頭設計は、`BOOK_A_SCENARIO_DRAFT_3.md`、`BOOK_A_CHARACTER_BIBLE.md`、`BOOK_A_INDEPENDENT_AGENCY.md`、`BOOK_A_MASTER_PLAN.md`に従う。
+> 以下は白紙化前の判断履歴として本文を保存している。旧場面、幕引き、季節配置、見届け人、拍手、二重らせんを部分再利用しない。
 
 *確定: 2026-07-12。まさ×推敲セッション (spawn_task 独立セッション、Fable) での対話により、俯瞰診断 → 通し設計表 → まさ承認の順で確定。経緯の記録は `COMMANDER_TASKS.md` ストリーム O。*
 
