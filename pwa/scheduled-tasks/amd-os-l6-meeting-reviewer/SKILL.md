@@ -163,16 +163,16 @@ node scripts/review_h1_meeting_summary.mjs --fixture scripts/__fixtures__/h1_mee
 
 この route が `l2_coverage_gaps(review_status='candidate')` と `l2_notifications(l2_kind='coverage_gap')` を作る。raw全文は保存しない。
 
-## 日次まとめスレッドへの追記とアーカイブ (2026-07-20 まさ確定)
+## 日次集約・前回run回収・アーカイブ (2026-07-20 まさ確定)
 
-H-1本体 (`amd-os-l6-meeting-extract`) と同じ **その日の `H-1 YYYY-MM-DD 日次まとめ` スレッド** に、reviewer の結果も追記する。旧仕様の「H-1 run summary へ追記」は、実運用としてはこの「同日の日次まとめスレッドへの追記」を指す。
+reviewer は **H-1日次集約の唯一の担当**。H-1本体のsanitized報告とreviewer結果を、その日の `H-1 YYYY-MM-DD 日次まとめ` へまとめて追記する。
 
 - 毎時 reviewer run の並行実行は仕様として維持する。前runを待つ、実行ロックを取る、別runが動いていることを理由にskipする、のいずれも禁止。
-- registry は H-1本体と共有: `/Users/masa/.codex/automations/amd-os-l6-meeting-flow/daily_threads/YYYY-MM-DD.json`。
-- registry に当日 (JST) の `thread_id` があれば、軽い確認をせずそのまま直接使う。
-- registry が無い場合 (= reviewer が H-1本体より先に走った等) は、reviewer が直接 `create_thread` で作成してよい。作成時は `list_threads` によるスレッド検索・query検索・dummy search・広い過去日付検索を一切行わない。作成後、`thread_id` と実際に作成が完了した時点の現在 JST を `created_at_jst` として registry に書く。
-- 毎時 reviewer run の結果が確定したら (要確認 0 件 / N 件いずれも)、sanitized な結果を日次まとめスレッドへ追記し、その後に現在の毎時 reviewer run スレッドを `set_thread_archived` でアーカイブする。raw transcript本文、Notion本文、個人情報、secret、URLは送らない。
-- 日次まとめへの追記に失敗しても reviewer run を保持し続けない。失敗理由を automation memory に残し、必要なら H-1 本体の OS通知経路 (`app_notifications.kind='h1_report'`) に短い失敗報告を追加で残したうえで run を閉じる。
+- 起動直後に `CODEX_THREAD_ID` を読み、`/Users/masa/.codex/automations/amd-os-h-1-meeting-reviewer/run_state/current_reviewer.json` の前回 `kind=h1_reviewer_hourly` のthread_idが現在IDと異なれば、確認検索なしで前回IDを `set_thread_archived` する。その後、現在IDと開始JSTを状態ファイルへ書く。
+- `/Users/masa/.codex/automations/amd-os-l6-meeting-flow/reports/` から、`aggregated_h1_reports.json` に未記録の当日sanitized報告だけを読む。raw本文・Notion本文・個人情報・secret・URLは集約しない。
+- registry は `/Users/masa/.codex/automations/amd-os-l6-meeting-flow/daily_threads/YYYY-MM-DD.json`。thread_idがあれば直接使い、`read_thread` / `list_threads` / query / dummy検索はしない。無ければreviewerが整理用projectへ検索なしで直接作成し、実作成JSTとthread_idを書く。通常は09:45 reviewerが朝の日次まとめを作る。
+- 未集約H-1報告と今回のsanitized reviewer結果を1通にまとめて送る。送信成功後だけ対象report filenameを集約台帳へ記録し、次操作で現在のreviewer runを `set_thread_archived` する。
+- 日次送信に失敗した場合は、失敗理由をautomation memoryへ残し、H-1のOS通知経路へ短い配送失敗だけを通知してから現在runをアーカイブする。残留した場合も次回reviewerのwatchdogが前回IDを直接回収する。
 
 ## H-1結果報告へのツッコミ
 

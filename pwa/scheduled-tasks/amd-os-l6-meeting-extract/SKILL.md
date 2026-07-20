@@ -55,19 +55,13 @@ H-1 は毎時起動するが、まさが見に行く場所は Codex スレッド
 - OS通知へ送れた場合でも、通知箱を荒らさないよう件名は短くする。例: `H-1: OkuDoor議事録を保存`、`H-1: 対象会議なし`。
 - OS通知への送信に失敗した場合は成功扱いにしない。失敗理由を最終報告と automation memory に残す。この失敗と、下記の毎時runスレッドのアーカイブ可否は別契約 (アーカイブ条件は OS通知の成否だけで決まる)。
 
-Codex 側は、一覧を毎時スレッドで埋めないために日次まとめへ寄せる。**毎時runの並行実行は仕様として維持し、前runを待つ・実行ロックを取る・別runを理由にskipすることは禁止する。** **日次まとめの解決は registry-first / direct-create 固定で、スレッドのquery検索は一切行わない** (2026-07-20 まさ確定: query 付き `list_threads` がその日約4時間応答待ちになり run が止まった事故の再発防止)。
+Codex 側の日次集約は H-1本体から分離し、**毎時45分の H-1 reviewer だけが担当する**。毎時runの並行実行は仕様として維持し、前runを待つ・実行ロックを取る・別runを理由にskipすることは禁止する。
 
-- 日次まとめスレッドのタイトルは `H-1 YYYY-MM-DD 日次まとめ` とする。日付は JST。
-- スレッド操作ツールが最初から見えていない場合は、`tool_search` で `list_threads` / `read_thread` / `create_thread` / `send_message_to_thread` / `set_thread_archived` を探してから使う (= ツールの schema を探す `tool_search` は可。スレッドの中身を探す `list_threads` の query 検索・dummy search・広い過去日付検索は禁止)。
-- 日次まとめスレッドの registry は `/Users/masa/.codex/automations/amd-os-l6-meeting-flow/daily_threads/YYYY-MM-DD.json` に置く。
-  - **registry に当日 (JST) の `thread_id` があれば、`read_thread` 等での軽い確認をせずそのまま直接使う。**
-  - **registry に当日の記録が無い場合 (= その日最初の H-1 run)**: `list_threads` によるスレッド検索・query検索・dummy search・広い過去日付検索は一切せず、作業ディレクトリ `/Users/masa/projects/AMD/amd-os-automation-sessions` の project thread として `create_thread` で直接新規作成する。この作成/確定は、その日最初の H-1 run で会議処理 (Phase A 以降) より先に行う。
-  - 作成したら、`thread_id` と、**実際に作成が完了した時点の現在 JST** を registry の `created_at_jst` に書く。`09:00` のような予定実行時刻を `created_at_jst` に書かない。
-- 日次まとめスレッドを作る時は、H-1本体を再実行させない説明だけを初回 prompt に書く。
-- 毎時 run の最後に、ユーザー向け最終報告と同じ sanitized 報告を `send_message_to_thread` で日次まとめスレッドへ送る。raw議事録本文、Notion本文、個人情報、secret、Drive URL、Calendar URL、会議参加URLは送らない。
-- **アーカイブ契約 (2026-07-20 確定)**: OS通知への送信が成功していれば、日次まとめへの追記が失敗しても現在の毎時 run スレッドは `set_thread_archived` で必ずアーカイブする。日次まとめ追記の失敗理由は automation memory とローカル報告に残す。スレッド操作の失敗を理由に毎時 run スレッドを何時間も保持し続けない。OS通知自体が失敗した場合だけアーカイブせず保持する。
-- 真の blocker だけは、日次まとめへの追記に失敗しても通常の最終報告に残す。進捗・途中報告・自己完了報告を親司令塔へ送らないルールは維持する。
-- H-1 reviewer (`amd-os-l6-meeting-reviewer`) も同じ日次まとめ registry/thread へ結果を追記する。reviewer 側の詳細は `pwa/scheduled-tasks/amd-os-l6-meeting-reviewer/SKILL.md` を見る。
+- H-1本体は `list_threads` / `read_thread` / `create_thread` / `send_message_to_thread` を呼ばず、日次まとめの作成・検索・追記をしない。2026-07-20に日次配送直前でrunが止まったため、OS通知と日次配送を同じrunへ直列化しない。
+- 起動直後に `CODEX_THREAD_ID` を読み、`/Users/masa/.codex/automations/amd-os-l6-meeting-flow/run_state/current_h1.json` の前回 `kind=h1_hourly` のthread_idが現在IDと異なれば、確認検索なしで前回IDを `set_thread_archived` する。これは残留run回収用watchdogであり、完了待ちや実行ロックではない。その後、現在IDと開始JSTを状態ファイルへ書く。
+- 毎時runの最後は、sanitized報告をローカル `reports/` と automation memory に確定してからOS通知へ送る。**OS通知成功後の次操作は現在runの `set_thread_archived` だけ**とし、日次送信・追加調査・説明commentary・別tool callを挟まない。
+- OS通知が失敗した場合だけ現在runを残して原因を見える化する。残ったrunは次回H-1のwatchdogが直接回収してよい。
+- reviewer は `reports/` の未集約sanitized報告とレビュワー結果を、その日の `H-1 YYYY-MM-DD 日次まとめ` へまとめて送る。詳細は `pwa/scheduled-tasks/amd-os-l6-meeting-reviewer/SKILL.md` を見る。
 
 ## 【絶対】 動く前に必ず Read
 
@@ -890,7 +884,7 @@ Phase E: run summary
    - 例: `H-1は、終わった会議の議事録を作る、直近の議事録なしを再確認する、前後24時間の予定カードを同期し、ノーション議事録のひも付けを補完する係。今回は準備セッション起動の対象はなし。`
 2. 件数を出すたびに、直後へ必ず内訳リストを書く。
 3. リストには、会議名 / 日時 / PJ / 今回の扱いだけを書く。raw本文、ノーション本文、個人情報、secret、Drive URL、Calendar URL、会議参加URLは書かない。
-4. 同じ報告を OS通知へ送る。さらに控えとして、その日の `H-1 YYYY-MM-DD 日次まとめ` スレッドへ追記する。OS通知が成功していれば、日次まとめ追記が失敗しても現在の毎時 run スレッドを必ずアーカイブする (失敗理由は automation memory に残す)。OS通知自体が失敗した場合だけアーカイブしない。
+4. 同じ報告をローカル `reports/` と automation memory に確定してからOS通知へ送る。OS通知が成功したら、次操作で現在の毎時runを必ずアーカイブする。日次まとめへの追記はH-1本体では行わず、毎時45分のreviewerが未集約reportをまとめて送る。
 
 テンプレ:
 ```
