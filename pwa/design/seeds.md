@@ -127,18 +127,28 @@ GlobalNav に **Seeds** を Venture Map と VC の間に追加 ([GlobalNav.tsx](
 - **URA/EIR 公開**: `is_public=true` のシーズだけを別認証で公開閲覧可能にする
 - **機関別ダッシュボード**: `/research-orgs/[org_name]` で機関単位の seeds 一覧 (現状は `/seeds?org=...` フィルタで代替)
 
-## KUTE (p25) PJ cockpit 連携 — 研究機関向け公開面 (2026-07-20)
+## SPS (Seed Prospect Score) — 全国全シーズ共通の評価 (2026-07-20)
 
-- migration: [186_kute_seeds_commercialization_score.sql](../scripts/migrations/186_kute_seeds_commercialization_score.sql)
-- **単一 source of truth の原則**: `seeds` テーブルをそのまま使う。KUTE 専用の複製テーブルは作らない。project_id (現状 `p25`) → `seeds.org_name` (`工学院大学`) のスコープ対応は `researchInstitutionSeedsOrgNameForProject()` (実体: [`kute-seeds-scoring.ts`](../src/lib/kute-seeds-scoring.ts)、`seeds-data.ts` が re-export) の一箇所だけに定義する。今後の研究機関コックピットもこの境界を再利用し、inline filter を他所に散らさない。
-- **新規列** (すべて nullable、CHECK 制約つき):
+SPS はシーズ有望度スコア。KUTE / p25 に限らず **全国のすべての `seeds` 行に適用される**。`spun_off_project_id` の有無や PJ status とは独立で、まだどの PJ にも紐づいていない `candidate` 段階のシーズにも同じ式・同じテーブルで評価をつけられる。
+
+- migration: [186_kute_seeds_commercialization_score.sql](../scripts/migrations/186_kute_seeds_commercialization_score.sql) (historical — 下記参照) → [187_seed_sps_assessments.sql](../scripts/migrations/187_seed_sps_assessments.sql) → [188_seed_sps_kute_backfill.sql](../scripts/migrations/188_seed_sps_kute_backfill.sql)
+- **migration 186 (historical)**: KUTE 専用の 0-100点ルーブリック (`kute_score_future_need/market/technical_advantage/ip_barrier` 各15 + `kute_score_current_trl/brl/hrl` 各10 + `kute_score_support` 10) を導入したが、全レコード null のまま一度も使われなかった。187 でこの 8 列は安全確認 (非 null が 1 件でもあれば `RAISE EXCEPTION` して停止) の上で `DROP COLUMN` 済み。**現行の current truth ではこの 100 点ルーブリックは存在しない**。
+- **migration 187**: `seed_sps_assessments` を新設し、186 の未使用 `kute_score_*` 8列を撤去、KUTE 公開向けテキスト7列 (`kute_envisioned_use_case` 等) を値を保持したまま全国共通の一般名 (`envisioned_use_case` 等) へリネームして KUTE 以外のシーズにも使えるようにした。
+- **migration 188**: 工学院大学 (KUTE) の現行6シーズについて、2026-07-20 時点の provisional 評価を `seed_sps_assessments` へ投入 (title 完全一致で対象特定、6件ちょうど存在することを assert)。
+- **`seed_sps_assessments`** ([定義](../scripts/migrations/187_seed_sps_assessments.sql)) が SPS の **全国共通・時系列の入力ストア**:
+  - `(seed_id, evaluated_at)` unique。同一シーズでも評価日が変われば新しい時系列点として別行になる
+  - 生の評価軸のみを持つ (M: `mu_a`/`mu_i`/`mu_g`、P: `potential`、R: `trl`/`brl`/`grl`/`srl`/`hrl`、S: `f_character`/`f_cap`/`r_net` + 計算結果スナップショット `frl`)。各軸は 0-9 の整数か `NULL`
+  - **`0` (観測済みのゼロ) と `NULL` (未評価) は明確に区別する**。例: 経営/事業化チーム未形成という組織的事実は `hrl=0` として明示投入し (個人資質の推測ではない)、根拠がまだ無い軸は `NULL` のまま計算に含めない
+  - `shallow_tech_mode=true` のときだけ `trl` の `NULL` を許容 (それ以外の `NULL` は欠損=未評価として扱う)
+  - `axis_evidence` (軸ごとの評価根拠 JSON) と `evaluator` (評価者) は **内部専用列**。公開面・KUTE 比較テーブルには一切返さない (RLS も `authenticated` / `service_role` のみ、anon 直接 select 不可)
+- **計算式は完全共有**: [`pwa/src/lib/seed-sps.ts`](../src/lib/seed-sps.ts) の `calculateSeedSpsScore()` が [`amd-score.ts`](../src/lib/amd-score.ts) の `calculatePrsScore` / `PRS_ALPHA_DEFAULT` をそのまま呼ぶ。**別式・別重みは作らない** — SPS は AMD Score 側の PRS (M × P × R × S) と同じ計算コアの表示名違いであり、KUTE 専用スコアは存在しない。必要な軸が1つでも欠けていれば計算せず `missingAxes` を返す (部分合計・部分点を総合点として出さない)
+- **KUTE (p25) は「フィルタして表示するだけ」**: project_id (`p25`) → `seeds.org_name` (`工学院大学`) のスコープ対応は `researchInstitutionSeedsOrgNameForProject()` (実体: [`kute-seeds-scoring.ts`](../src/lib/kute-seeds-scoring.ts)、`seeds-data.ts` が re-export) の一箇所だけに定義する。KUTE 側は独自スコアを持たず、`seed_sps_assessments` から対象シーズの **最新 (evaluated_at DESC 1件)** SPS を読むだけ。今後の研究機関コックピットも同じ境界とスコアを再利用する
+- **事業化フィールド** (`seeds` テーブル、187 でリネーム、すべて nullable / CHECK 制約つき、根拠のない値は null のまま = 捏造禁止):
   - 事業化タイプ: `primary_commercialization_type` (単一) + `secondary_commercialization_types[]` (複数可)。enum は `large_startup` / `small_business_1b_yen` / `license` / `jv_ma` / `joint_research_poc`
-  - KUTE 公開向けテキスト: `kute_envisioned_use_case` / `kute_first_customer_candidate` / `kute_market_size_range` / `kute_market_size_confidence` (low/medium/high) / `kute_biggest_bottleneck` / `kute_ip_status` / `kute_next_verification_step`
-  - 100点スコア: `future` 60点 (`kute_score_future_need/market/technical_advantage/ip_barrier` 各15) + `current` 30点 (`kute_score_current_trl/brl/hrl` 各10) + `kute_score_support` 10点。**捏造禁止** — 根拠のない値は null のまま。`computeKuteSeedScore()` は群内の全項目が揃った時だけ群合計、8項目すべてが揃った時だけ総合点を返し、欠けがあれば `null`
-  - 現時点 (2026-07-20) の 6 シーズは市場規模・確度・スコア系がすべて未確定 (null)。裏付けが取れ次第 `seeds` を直接更新する
-- **プライバシー境界**: `internal_notes` / `source_detail` 等の社内限定フィールドは公開面の select に含めない。ホワイトリスト型 `SeedPublicView` + 定数 `SEED_PUBLIC_VIEW_COLUMNS` ([`types/seeds.ts`](../src/types/seeds.ts)) を select の唯一の呼び出し元にする。既存の `SeedDetailModal` (編集用、confidential 項目を含む) は再利用せず、新規の読み取り専用 `KuteSeedDetailModal` ([`components/seeds/KuteSeedDetailModal.tsx`](../src/components/seeds/KuteSeedDetailModal.tsx)) を使う
-- **UI**: PJ cockpit (`/project/p25/cockpit`) と同じ `CockpitView` を使う研究機関 cockpit (`/institutions/inst_kute/cockpit`) の進捗タブで、年度内ロードマップ (`CockpitKuteAnnualRoadmap`) の直後にカード/行形式グリッドを表示 (`CockpitKuteSeeds.tsx`)。一覧だけで想定用途・顧客・市場・ネック・知財・事業化タイプ・次の検証・3群の採点状態・資料有無を比較でき、長文と8項目の採点内訳は `KuteSeedDetailModal` へ逃がす。深掘り資料は既存の `SeedMarkdownPreviewModal` を再利用し、無ければ「資料なし」
-- **テスト**: `npm run test:kute-seeds-scope` — スコープ境界 (p25→工学院大学、他は null)、ホワイトリストに confidential フィールドが混入していないこと、未評価を部分合計・総合点にしないことを検証
+  - 公開向けテキスト (旧 `kute_*` から全国共通名へ改名、値は保持): `envisioned_use_case` / `first_customer_candidate` / `market_size_range` / `market_size_confidence` (low/medium/high) / `biggest_bottleneck` / `ip_status` / `next_verification_step`
+- **プライバシー境界**: `internal_notes` / `source_detail` 等の社内限定フィールド、および `seed_sps_assessments.axis_evidence` / `evaluator` は公開面の select に含めない。ホワイトリスト型 `SeedPublicView` + 定数 `SEED_PUBLIC_VIEW_COLUMNS` ([`types/seeds.ts`](../src/types/seeds.ts)) を select の唯一の呼び出し元にする。既存の `SeedDetailModal` (編集用、confidential 項目を含む) は再利用せず、新規の読み取り専用 `KuteSeedDetailModal` ([`components/seeds/KuteSeedDetailModal.tsx`](../src/components/seeds/KuteSeedDetailModal.tsx)) を使う
+- **UI**: PJ cockpit (`/project/p25/cockpit`) と同じ `CockpitView` を使う研究機関 cockpit (`/institutions/inst_kute/cockpit`) の進捗タブで、年度内ロードマップ (`CockpitKuteAnnualRoadmap`) の直後に **比較優先のテーブル** (`CockpitKuteSeeds.tsx`) を表示する。カード形式ではなく横スクロール可能な `<table>` で、`SPS` / `M` / `P` / `R` / `S` を個別列、`TRL` / `BRL` / `GRL` / `SRL` / `HRL` を個別列として並べ、事業化フィールド (想定用途・最初の顧客候補・市場規模レンジと確度・最大のボトルネック・知財状況・事業化タイプ・次の検証ステップ) と資料有無を同じ行で横並び比較できる。列ソート可。SPS が計算できないシーズ (`missingAxes` あり) は「未評価」表示とし、部分点を出さない。長文と計算済みの SPS / M / P / R / S / XRL 内訳は `KuteSeedDetailModal` で確認できるが、`axis_evidence` / `evaluator` は内部専用なのでモーダルにも出さない。深掘り資料は既存の `SeedMarkdownPreviewModal` を再利用し、無ければ「資料なし」
+- **テスト**: `npm run test:kute-seeds-scope` ([`check_kute_seeds_scope.mts`](../scripts/check_kute_seeds_scope.mts)) — スコープ境界 (p25→工学院大学、他は null)、ホワイトリストに confidential フィールドが混入していないこと。`npm run test:seed-sps-score` ([`check_seed_sps_score.mts`](../scripts/check_seed_sps_score.mts)) — SPS 計算 (`calculateSeedSpsScore`) が 0 と NULL を区別すること、欠損軸があれば `missing` になり部分点を返さないこと、shallow_tech_mode の TRL 除外を検証
 
 ## トレードオフ・残課題
 

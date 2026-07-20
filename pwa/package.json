@@ -24,6 +24,7 @@
     "test:capital-plan-xlsx": "node --experimental-strip-types scripts/check_capital_plan_xlsx.mts",
     "test:proactive-meeting-due": "node --experimental-strip-types scripts/check_proactive_meeting_action_due.mts",
     "test:kute-seeds-scope": "node --experimental-strip-types scripts/check_kute_seeds_scope.mts",
+    "test:seed-sps-score": "node --experimental-strip-types scripts/check_seed_sps_score.mts",
     "test:next-period-ui": "node scripts/check_next_period_ms_period_ui.cjs",
     "test:critical-ui": "node scripts/check_pwa_critical_ui.cjs",
     "test:sx-management": "node --experimental-strip-types scripts/test_project_management_logic.mjs",

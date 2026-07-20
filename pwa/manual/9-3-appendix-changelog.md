@@ -14,6 +14,7 @@
 
 | 日付 | 対象章 | 種別 | 内容 | 理由 | 誰が |
 |---|---|---|---|---|---|
+| 2026-07-20 | 2-3 PJ Cockpit | 訂正 | KUTE連携シーズ一覧の記述を、KUTE専用の100点ルーブリック(将来性60/現在地30/KUTE支援効果10)から、全国全シーズ共通のSPS (Seed Prospect Score、`seed_sps_assessments` が時系列入力ストア、計算式はAMD Score側の`calculatePrsScore`/`PRS_ALPHA_DEFAULT`と共通)へ訂正。KUTEはSPSを`org_name`でフィルタして比較テーブル表示するだけで独自スコアは持たない。0(観測済みゼロ)とNULL(未評価)を区別し、axis_evidence/evaluatorは内部専用と明記。build v3.47.3 | 実装がmigration 187/188でKUTE専用100点ルーブリックから全国共通SPSストアへ切り替わったのに、マニュアルの記述が旧migration 186時点のまま残っていたため | えいみ |
 | 2026-07-20 | 2-3 PJ Cockpit / 6-7 契約管理 | 再設計 | 全PJコックピットの契約サマリを法務条項の網羅表示から、契約期間、請求・振込、業務・成果物、経費申請、必要時の推進条件という実行判断面へ変更。admin契約詳細へ専用の短文編集欄を追加し、NDAは利用目的・運用条件へ分岐。build v3.47.2 | 長い法務条項はPJ推進時の情報量が小さく、経費申請可否と請求・振込タイミングが埋もれていたため | えいみ |
 | 2026-07-18 | 1-1 Intro / 2-3 PJ Cockpit / 6-2 Admin Members | 追加・変更 | AMD全PJ横断トップとPJ限定トップを分離し、SX (`p21`) のPJ共有ダッシュボード、研究→応用→開発→SU→調整の週次エフォート、PJ限定Googleアカウント登録を追加。PJ限定OAuthは社内用Supabase sessionを破棄してHTTP-only署名付きPJ sessionへ交換し、active PJ以外、raw本文、email、報酬、契約、内部戦略を見せない。build v3.45.0 | 石原先生から杉浦先生側の研究開発メンバー管理が急務と示され、まさが「AMD OS側でもSXダッシュボードを作りSXメンバーが見られるようにする」と確定したため | えいみ |
 | 2026-07-17 | 2-3 PJ Cockpit / 4-5 Management Score / 6-5 Admin Payouts | 修正 | 別財布 `extra_revenue_json` のPL期間按分とcash入金を分離。実入金月をentry単位で最優先し、未確認時だけ `invoice_ym`、次に請求日とPJ支払条件で予測月を解決して総額を一括計上する。p19 OkuDoorはPL 202605〜202610の6か月按分を保ち、現金予測は202604の200万円に統一。PJ cockpit、月次試算表、payouts、MS予算検算は同じcash helperを使う。build v3.44.12 | 開発期間のPL按分が現金入金にも混ざり、振込月と異なる月へ小分け計上されていたため | えいみ |

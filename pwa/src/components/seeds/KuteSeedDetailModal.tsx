@@ -10,49 +10,21 @@ import {
 } from "@/components/ui/dialog";
 import { SeedMarkdownPreviewModal } from "@/components/seeds/SeedMarkdownPreviewModal";
 import {
-  computeKuteSeedScore,
   SEED_COMMERCIALIZATION_TYPE_LABEL,
   SEED_KUTE_MARKET_CONFIDENCE_LABEL,
 } from "@/lib/seeds-data";
 import type { SeedPublicView } from "@/types/seeds";
 
-function Field({ label, value }: { label: string; value: string | null }) {
+function DetailRow({ label, value }: { label: string; value: string | null }) {
   return (
-    <div>
-      <div className="text-[10px] font-mono uppercase tracking-[0.06em] text-slate-500">{label}</div>
-      <p className="mt-1 text-sm leading-relaxed text-slate-800">{value ?? <span className="text-slate-400">未確定</span>}</p>
-    </div>
-  );
-}
-
-function ScoreRow({ label, value, max }: { label: string; value: number | null; max: number }) {
-  return (
-    <div className="flex items-center justify-between gap-2 border-b border-slate-100 py-1.5 text-xs last:border-b-0">
-      <span className="text-slate-600">{label}</span>
-      <span className="font-mono font-semibold text-slate-900">
-        {value == null ? <span className="font-normal text-slate-400">未評価</span> : `${value}`}
-        <span className="text-slate-400"> / {max}</span>
-      </span>
-    </div>
-  );
-}
-
-function ScoreGroupHeading({
-  label,
-  score,
-}: {
-  label: string;
-  score: { subtotal: number | null; max: number; filledCount: number; totalCount: number };
-}) {
-  return (
-    <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-1">
-      <div className="text-[10px] font-semibold text-slate-600">{label}</div>
-      <div className="font-mono text-[10px] font-semibold text-slate-700">
-        {score.subtotal == null
-          ? `未評価 ${score.filledCount}/${score.totalCount}`
-          : `${score.subtotal}/${score.max}`}
-      </div>
-    </div>
+    <tr>
+      <th scope="row" className="w-[36%] border-b border-slate-100 bg-slate-50 px-3 py-2 text-left text-[11px] font-semibold text-slate-600">
+        {label}
+      </th>
+      <td className="border-b border-slate-100 px-3 py-2 text-sm text-slate-800">
+        {value ?? <span className="text-slate-400">未確定</span>}
+      </td>
+    </tr>
   );
 }
 
@@ -73,7 +45,7 @@ export function KuteSeedDetailModal({
   const [previewOpen, setPreviewOpen] = useState(false);
 
   if (!seed) return null;
-  const score = computeKuteSeedScore(seed);
+  const sps = seed.latest_sps;
 
   return (
     <>
@@ -132,56 +104,63 @@ export function KuteSeedDetailModal({
               )}
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="想定用途" value={seed.kute_envisioned_use_case} />
-              <Field label="最初の顧客候補" value={seed.kute_first_customer_candidate} />
-              <div>
-                <div className="text-[10px] font-mono uppercase tracking-[0.06em] text-slate-500">市場規模レンジ</div>
-                <p className="mt-1 text-sm leading-relaxed text-slate-800">
-                  {seed.kute_market_size_range ?? <span className="text-slate-400">未確定</span>}
-                  {seed.kute_market_size_confidence && (
-                    <span className="ml-2 rounded border border-slate-300 bg-slate-50 px-1.5 py-0.5 text-[10px] text-slate-600">
-                      確度: {SEED_KUTE_MARKET_CONFIDENCE_LABEL[seed.kute_market_size_confidence] ?? seed.kute_market_size_confidence}
-                    </span>
-                  )}
-                </p>
-              </div>
-              <Field label="知財状況" value={seed.kute_ip_status} />
-              <Field label="最大のボトルネック" value={seed.kute_biggest_bottleneck} />
-              <Field label="次の検証ステップ" value={seed.kute_next_verification_step} />
-            </div>
+            <table className="w-full border-collapse text-sm">
+              <tbody>
+                <DetailRow label="想定用途" value={seed.envisioned_use_case} />
+                <DetailRow label="最初の顧客候補" value={seed.first_customer_candidate} />
+                <DetailRow
+                  label="市場規模レンジ"
+                  value={
+                    seed.market_size_range
+                      ? `${seed.market_size_range}${
+                          seed.market_size_confidence
+                            ? ` (確度: ${SEED_KUTE_MARKET_CONFIDENCE_LABEL[seed.market_size_confidence] ?? seed.market_size_confidence})`
+                            : ""
+                        }`
+                      : null
+                  }
+                />
+                <DetailRow label="知財状況" value={seed.ip_status} />
+                <DetailRow label="最大のボトルネック" value={seed.biggest_bottleneck} />
+                <DetailRow label="次の検証ステップ" value={seed.next_verification_step} />
+              </tbody>
+            </table>
 
-            <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
-              <div className="flex items-baseline justify-between">
-                <h3 className="text-xs font-semibold text-slate-900">100点スコア内訳</h3>
-                <span className="font-mono text-sm font-bold text-slate-950">
-                  {score.total == null ? <span className="text-slate-400">未評価</span> : `${score.total}`}
-                  <span className="text-xs font-normal text-slate-400"> / 100</span>
-                </span>
-              </div>
-              <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
-                全8項目が評価済みになった時だけ総合点を表示する。未評価項目があれば部分点を総合点にしない。
-              </p>
-              <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <div>
-                  <ScoreGroupHeading label="将来性 60" score={score.future} />
-                  <ScoreRow label="ニーズ" value={seed.kute_score_future_need} max={15} />
-                  <ScoreRow label="市場" value={seed.kute_score_future_market} max={15} />
-                  <ScoreRow label="技術優位" value={seed.kute_score_future_technical_advantage} max={15} />
-                  <ScoreRow label="IP・参入障壁" value={seed.kute_score_future_ip_barrier} max={15} />
-                </div>
-                <div>
-                  <ScoreGroupHeading label="現在地 30" score={score.current} />
-                  <ScoreRow label="TRL" value={seed.kute_score_current_trl} max={10} />
-                  <ScoreRow label="BRL" value={seed.kute_score_current_brl} max={10} />
-                  <ScoreRow label="HRL" value={seed.kute_score_current_hrl} max={10} />
-                </div>
-                <div>
-                  <ScoreGroupHeading label="KUTE支援効果 10" score={score.support} />
-                  <ScoreRow label="支援効果" value={seed.kute_score_support} max={10} />
-                </div>
-              </div>
-            </div>
+            <h3 className="mb-2 mt-5 text-xs font-semibold text-slate-900">SPS (全国共通シーズスコア)</h3>
+            <table className="w-full border-collapse text-sm">
+              <tbody>
+                <DetailRow
+                  label="SPS"
+                  value={
+                    sps == null
+                      ? null
+                      : sps.status === "ready"
+                      ? `${sps.score?.toFixed(2)} (評価日: ${sps.evaluated_at}${
+                          sps.confidence ? ` / 確度: ${SEED_KUTE_MARKET_CONFIDENCE_LABEL[sps.confidence] ?? sps.confidence}` : ""
+                        })`
+                      : `未評価 (欠損: ${sps.missing_axes.join(", ")})`
+                  }
+                />
+                <DetailRow
+                  label="M / P / R / S"
+                  value={
+                    sps?.components
+                      ? `${sps.components.macro.toFixed(2)} / ${sps.components.potential.toFixed(2)} / ${sps.components.reach.toFixed(2)} / ${sps.components.survival.toFixed(2)}`
+                      : null
+                  }
+                />
+                <DetailRow
+                  label="TRL / BRL / GRL / SRL / HRL"
+                  value={
+                    sps?.axes
+                      ? [sps.axes.trl, sps.axes.brl, sps.axes.grl, sps.axes.srl, sps.axes.hrl]
+                          .map((v) => (v == null ? "—" : v))
+                          .join(" / ")
+                      : null
+                  }
+                />
+              </tbody>
+            </table>
 
             <div className="mt-4">
               {seed.deep_dive_material_url ? (

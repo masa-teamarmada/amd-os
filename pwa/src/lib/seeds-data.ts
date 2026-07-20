@@ -1,6 +1,6 @@
 // Seeds (研究シーズリスト) データアクセス層
 // - 読み取りは anon key (RLS anon_read OK)
-// - 書き込みは authClient (browser client)
+// - 書き込みは authClient (authenticated browser client)
 
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createBrowserSupabase } from "@/lib/supabase/client";
@@ -12,17 +12,16 @@ import type {
   SeedListItem,
   SeedDetail,
   SeedPublicView,
+  SeedPublicSpsAssessment,
 } from "@/types/seeds";
 import { SEED_PUBLIC_VIEW_COLUMNS } from "@/types/seeds";
 import { researchInstitutionSeedsOrgNameForProject } from "@/lib/kute-seeds-scoring";
+import { calculateSeedSpsScore, type SeedSpsAssessmentAxes } from "@/lib/seed-sps";
 export {
   researchInstitutionSeedsOrgNameForProject,
-  computeKuteSeedScore,
   SEED_COMMERCIALIZATION_TYPE_LABEL,
   SEED_COMMERCIALIZATION_TYPE_ORDER,
   SEED_KUTE_MARKET_CONFIDENCE_LABEL,
-  type KuteSeedScoreGroup,
-  type KuteSeedScore,
 } from "@/lib/kute-seeds-scoring";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
@@ -396,7 +395,50 @@ export async function fetchResearchInstitutionSeedsForProject(projectId: string)
     .eq("org_name", orgName)
     .order("researcher_name", { ascending: true });
   if (error) throw new Error(error.message);
-  return (data ?? []) as unknown as SeedPublicView[];
+  const seeds = (data ?? []) as unknown as SeedPublicView[];
+  const latestSpsBySeedId = await fetchLatestSeedSpsAssessments(seeds.map((s) => s.id));
+  return seeds.map((s) => ({ ...s, latest_sps: latestSpsBySeedId.get(s.id) ?? null }));
+}
+
+/**
+ * 全国全研究機関共通: 対象シーズ群の最新 SPS 評価を1件ずつ取得し、
+ * axis_evidence / evaluator を含まない公開安全なサマリへ変換する。
+ * 未来の他機関コックピットもこの関数をそのまま再利用する。
+ */
+async function fetchLatestSeedSpsAssessments(seedIds: string[]): Promise<Map<string, SeedPublicSpsAssessment>> {
+  const result = new Map<string, SeedPublicSpsAssessment>();
+  if (seedIds.length === 0) return result;
+  // seed_sps_assessments は axis_evidence/evaluator (内部根拠) を持つため anon_read policy が無い
+  // (187 で削除)。authenticated client (ログイン中セッション) 経由でのみ読む。
+  const { data, error } = await getAuthClient()
+    .from("seed_sps_assessments")
+    .select(
+      "seed_id, evaluated_at, mu_a, mu_i, mu_g, potential, trl, brl, grl, srl, hrl, f_character, f_cap, r_net, shallow_tech_mode, confidence"
+    )
+    .in("seed_id", seedIds)
+    .order("evaluated_at", { ascending: false });
+  if (error) throw new Error(error.message);
+
+  const rows = (data ?? []) as (SeedSpsAssessmentAxes & {
+    seed_id: string;
+    evaluated_at: string;
+    confidence: string | null;
+  })[];
+
+  for (const row of rows) {
+    if (result.has(row.seed_id)) continue;
+    const scored = calculateSeedSpsScore(row);
+    result.set(row.seed_id, {
+      evaluated_at: row.evaluated_at,
+      status: scored.status,
+      score: scored.score,
+      confidence: row.confidence as SeedPublicSpsAssessment["confidence"],
+      missing_axes: scored.missingAxes,
+      axes: { trl: row.trl, brl: row.brl, grl: row.grl, srl: row.srl, hrl: row.hrl },
+      components: scored.components,
+    });
+  }
+  return result;
 }
 
 // =====================================================================

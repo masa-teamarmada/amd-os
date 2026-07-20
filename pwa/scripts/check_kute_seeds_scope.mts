@@ -1,11 +1,18 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   researchInstitutionSeedsOrgNameForProject,
-  computeKuteSeedScore,
   SEED_COMMERCIALIZATION_TYPE_LABEL,
   SEED_COMMERCIALIZATION_TYPE_ORDER,
 } from "../src/lib/kute-seeds-scoring.ts";
-import { SEED_PUBLIC_VIEW_COLUMNS, type SeedPublicView } from "../src/types/seeds.ts";
+import { SEED_PUBLIC_VIEW_COLUMNS } from "../src/types/seeds.ts";
+
+const scriptDir = dirname(fileURLToPath(import.meta.url));
+function readSrc(relPath: string): string {
+  return readFileSync(join(scriptDir, relPath), "utf8");
+}
 
 // 1. p25 → 工学院大学、それ以外は null (境界ヘルパーが唯一の scope 定義)
 {
@@ -32,7 +39,11 @@ import { SEED_PUBLIC_VIEW_COLUMNS, type SeedPublicView } from "../src/types/seed
       `SEED_PUBLIC_VIEW_COLUMNS に confidential フィールド ${col} が含まれています`
     );
   }
-  assert.ok(SEED_PUBLIC_VIEW_COLUMNS.includes("kute_score_support"), "score フィールドが欠けています");
+  assert.ok(SEED_PUBLIC_VIEW_COLUMNS.includes("envisioned_use_case"), "公開面向け事業化詳細フィールドが欠けています");
+  assert.ok(
+    !(SEED_PUBLIC_VIEW_COLUMNS as readonly string[]).some((c) => c.startsWith("kute_")),
+    "SEED_PUBLIC_VIEW_COLUMNS に旧 kute_* 列名が残っています (187 で全国共通名へ改名済み)"
+  );
 }
 
 // 3. 事業化タイプのラベル・順序は5種類そろっている
@@ -45,71 +56,97 @@ import { SEED_PUBLIC_VIEW_COLUMNS, type SeedPublicView } from "../src/types/seed
   assert.equal(SEED_COMMERCIALIZATION_TYPE_ORDER.length, 5);
 }
 
-function emptySeedScoreInput(): Pick<
-  SeedPublicView,
-  | "kute_score_future_need"
-  | "kute_score_future_market"
-  | "kute_score_future_technical_advantage"
-  | "kute_score_future_ip_barrier"
-  | "kute_score_current_trl"
-  | "kute_score_current_brl"
-  | "kute_score_current_hrl"
-  | "kute_score_support"
-> {
-  return {
-    kute_score_future_need: null,
-    kute_score_future_market: null,
-    kute_score_future_technical_advantage: null,
-    kute_score_future_ip_barrier: null,
-    kute_score_current_trl: null,
-    kute_score_current_brl: null,
-    kute_score_current_hrl: null,
-    kute_score_support: null,
-  };
+// 4. CockpitKuteSeeds は比較テーブル UI (sticky/sort/filter) で、旧カード実装や
+//    旧100点スコア・kute_score パターンを含まない
+{
+  const ui = readSrc("../src/components/cockpit/CockpitKuteSeeds.tsx");
+  assert.ok(ui.includes("<table"), "テーブル要素が見つかりません");
+  assert.ok(ui.includes("sticky"), "sticky 列/ヘッダーが見つかりません");
+  assert.ok(ui.includes("toggleSort") || ui.includes("onSort"), "ソート機能が見つかりません");
+  assert.ok(ui.includes("FilterSelect") || ui.includes("confidenceFilter"), "フィルタ機能が見つかりません");
+  assert.ok(!/SeedCard/.test(ui), "旧 SeedCard パターンが残っています");
+  assert.ok(!/CompactField/.test(ui), "旧 CompactField パターンが残っています");
+  assert.ok(!/kute_score/.test(ui), "旧 kute_score パターンが残っています");
+  assert.ok(!/100\s*点/.test(ui), "旧 100点スケール表記が残っています");
+  // TRL/BRL/GRL/SRL/HRL は結合1セルではなく、各軸が独立した <th>/セル (AxisCell) を持つ
+  assert.ok(!/function Metric/.test(ui), "旧 Metric mini-card 実装が残っています");
+  assert.ok(!/axesText/.test(ui), "旧 XRL スラッシュ結合表示 (axesText) が残っています");
+  assert.ok(/function AxisCell/.test(ui), "XRL 独立列用の AxisCell が見つかりません");
+  for (const axisLabel of ["TRL", "BRL", "GRL", "SRL", "HRL"]) {
+    assert.ok(
+      new RegExp(`<th className="[^"]*">${axisLabel}</th>`).test(ui),
+      `XRL の独立列見出し ${axisLabel} が見つかりません`
+    );
+  }
+  // 行クリックは keyboard (Enter/Space) でも開けること
+  assert.ok(/onKeyDown/.test(ui), "行の onKeyDown ハンドラが見つかりません");
+  assert.ok(/e\.key === "Enter"/.test(ui) && /e\.key === " "/.test(ui), "Enter/Space での行オープンが見つかりません");
+  // sticky 左セルは行 hover と一緒に視認できるよう group を使う
+  assert.ok(/className="group /.test(ui), "行に group クラスが見つかりません");
+  assert.ok(/group-hover:bg-/.test(ui), "sticky セルの group-hover 連動が見つかりません");
+  // 資料アイコンは title/aria-label を持つ
+  assert.ok(/aria-label="資料あり"/.test(ui), "資料アイコンの aria-label が見つかりません");
+  assert.ok(/title="資料あり"/.test(ui), "資料アイコンの title が見つかりません");
+  // letter spacing 指定 (tracking-*) を持たない
+  assert.ok(!/tracking-\[/.test(ui) && !/\btracking-(tighter|tight|normal|wide|wider|widest)\b/.test(ui), "letter spacing (tracking-*) 指定が残っています");
+  // 可視の操作説明・英語eyebrowを持たない
+  assert.ok(!/並び替え: 列見出しクリック/.test(ui), "可視の操作説明(並び替え: 列見出しクリック)が残っています");
+  assert.ok(!/>KUTE seeds</.test(ui), "英語eyebrow(KUTE seeds)が残っています");
 }
 
-// 4. 全フィールド null の場合、total は捏造せず null
+// 5. KuteSeedDetailModal は定義リスト/テーブル形式で、ネストしたカード装飾を持たない
 {
-  const score = computeKuteSeedScore(emptySeedScoreInput());
-  assert.equal(score.total, null, "全未評価なのに total が数値になっています");
-  assert.equal(score.future.subtotal, null);
-  assert.equal(score.current.subtotal, null);
-  assert.equal(score.support.subtotal, null);
-  assert.equal(score.filledCount, 0);
-  assert.equal(score.totalCount, 8);
+  const modal = readSrc("../src/components/seeds/KuteSeedDetailModal.tsx");
+  assert.ok(modal.includes("<table"), "詳細モーダルにテーブルが見つかりません");
+  assert.ok(modal.includes("M / P / R / S") || modal.includes("components.macro"), "M/P/R/S 内訳が見つかりません");
+  assert.ok(modal.includes("TRL / BRL / GRL / SRL / HRL"), "XRL 軸の表示が見つかりません");
+  assert.ok(!/rounded-lg border[^"]*bg-slate-50/.test(modal), "ネストしたカード装飾 (rounded + border + bg) が残っています");
 }
 
-// 5. 一部のみ埋まっている場合、部分点を総合点・群合計として見せない
+// 6. 187: seed_sps_assessments は axis_evidence/evaluator を持つため anon_read policy が無い
 {
-  const input = emptySeedScoreInput();
-  input.kute_score_future_need = 10;
-  input.kute_score_current_trl = 5;
-  const score = computeKuteSeedScore(input);
-  assert.equal(score.total, null, "未評価項目があるのに総合点が数値になっています");
-  assert.equal(score.future.subtotal, null, "将来性の未評価項目があるのに群合計が数値になっています");
-  assert.equal(score.future.filledCount, 1);
-  assert.equal(score.current.subtotal, null, "現在地の未評価項目があるのに群合計が数値になっています");
-  assert.equal(score.support.subtotal, null, "未評価の support グループが値を持っています");
-  assert.equal(score.filledCount, 2);
+  const ddl187 = readSrc("migrations/187_seed_sps_assessments.sql");
+  assert.ok(!/CREATE POLICY anon_read ON seed_sps_assessments/.test(ddl187), "seed_sps_assessments に anon_read policy が復活しています");
+  assert.ok(/DROP POLICY IF EXISTS anon_read ON seed_sps_assessments/.test(ddl187), "anon_read policy の削除文が見つかりません");
 }
 
-// 6. 全フィールドが埋まっている場合、100点満点で正しく合計される
+// 7. 188: 工学院大学6シーズの backfill が exactly 6件 insert + 存在数 assert を持つ
 {
-  const input = emptySeedScoreInput();
-  input.kute_score_future_need = 15;
-  input.kute_score_future_market = 15;
-  input.kute_score_future_technical_advantage = 15;
-  input.kute_score_future_ip_barrier = 15;
-  input.kute_score_current_trl = 10;
-  input.kute_score_current_brl = 10;
-  input.kute_score_current_hrl = 10;
-  input.kute_score_support = 10;
-  const score = computeKuteSeedScore(input);
-  assert.equal(score.total, 100);
-  assert.equal(score.future.subtotal, 60);
-  assert.equal(score.current.subtotal, 30);
-  assert.equal(score.support.subtotal, 10);
-  assert.equal(score.filledCount, 8);
+  const ddl188 = readSrc("migrations/188_seed_sps_kute_backfill.sql");
+  const insertCount = (ddl188.match(/INSERT INTO seed_sps_assessments/g) ?? []).length;
+  assert.equal(insertCount, 6, `188 の INSERT 文が6件ではありません (実際: ${insertCount})`);
+  assert.ok(/RAISE EXCEPTION/.test(ddl188), "188 に存在数チェックの RAISE EXCEPTION がありません");
+  assert.ok(/found_count\s*<>\s*6/.test(ddl188), "188 の存在数 assert が 6 件を検証していません");
+  // 合計6件だけでなく、各 title が exactly 1 件かも検査する
+  assert.ok(/FOREACH expected_title IN ARRAY/.test(ddl188), "188 に title ごとの FOREACH ループが見つかりません");
+  assert.ok(/found_count\s*<>\s*1/.test(ddl188), "188 の title ごとの exactly-one assert が見つかりません");
+  // axis_evidence は全件同一の note だけでなく、軸ごとの根拠を持つ
+  for (const axisKey of [
+    "mu_a",
+    "mu_i",
+    "mu_g",
+    "potential",
+    "trl",
+    "brl",
+    "grl",
+    "srl",
+    "hrl",
+    "f_character",
+    "f_cap",
+    "r_net",
+  ]) {
+    const occurrences = (ddl188.match(new RegExp(`"${axisKey}":`, "g")) ?? []).length;
+    assert.equal(occurrences, 6, `188 の axis_evidence に軸 ${axisKey} の根拠が6件分ありません (実際: ${occurrences})`);
+  }
+  // 危険な内容 (URL / secret) を axis_evidence に含めない
+  assert.ok(!/https?:\/\//.test(ddl188), "188 の axis_evidence に URL が含まれています");
+  // 軸の意味を取り違えた誤用語が残っていないこと (mu_iを競合密度、mu_gを市場成長、GRLをGTM、SRLを供給体制、R_netを外部連携ネットワークと書かない)
+  assert.ok(!/競合・代替技術密度/.test(ddl188), "188 に mu_i の誤用語(競合・代替技術密度)が残っています");
+  assert.ok(!/市場成長性/.test(ddl188), "188 に mu_g の誤用語(市場成長性)が残っています");
+  assert.ok(!/GTM\(市場投入\)/.test(ddl188), "188 に grl の誤用語(GTM(市場投入))が残っています");
+  assert.ok(!/供給・実証体制/.test(ddl188), "188 に srl の誤用語(供給・実証体制)が残っています");
+  assert.ok(!/外部連携ネットワークからの収益/.test(ddl188), "188 に r_net の誤用語(外部連携ネットワークからの収益)が残っています");
+  assert.ok(!/人材育成体制/.test(ddl188), "188 に hrl の誤用語(人材育成体制)が残っています");
 }
 
 console.log("check_kute_seeds_scope.mts: all checks passed");

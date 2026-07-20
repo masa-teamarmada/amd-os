@@ -79,7 +79,67 @@ export type SeedCommercializationType =
   | "jv_ma"                  // JV/M&A
   | "joint_research_poc";    // 共同研究/PoC
 
-export type SeedKuteMarketSizeConfidence = "low" | "medium" | "high";
+export type SeedMarketSizeConfidence = "low" | "medium" | "high";
+
+// 全国全研究機関共通のシーズ SPS (M・P・R・S) 時系列評価
+// migration: scripts/migrations/187_seed_sps_assessments.sql
+// 計算式は pwa/src/lib/seed-sps.ts (calculatePrsScore / PRS_ALPHA_DEFAULT の再利用) に一本化
+export type SeedSpsAssessmentStatus = "draft" | "ready" | "incomplete" | "reviewed";
+
+export interface SeedSpsAssessment {
+  id: string;
+  seed_id: string;
+  evaluated_at: string;
+  mu_a: number | null;
+  mu_i: number | null;
+  mu_g: number | null;
+  potential: number | null;
+  trl: number | null;
+  brl: number | null;
+  grl: number | null;
+  srl: number | null;
+  hrl: number | null;
+  f_character: number | null;
+  f_cap: number | null;
+  frl: number | null;
+  r_net: number | null;
+  shallow_tech_mode: boolean;
+  status: SeedSpsAssessmentStatus;
+  confidence: SeedMarketSizeConfidence | null;
+  axis_evidence: Record<string, unknown> | null;
+  missing_axes: string[] | null;
+  evaluator: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** 公開面向けに安全な R (Reach) 生軸。TRL/BRL/GRL/SRL/HRL の 0-9 値のみ (evidence は含まない) */
+export interface SeedPublicSpsAxes {
+  trl: number | null;
+  brl: number | null;
+  grl: number | null;
+  srl: number | null;
+  hrl: number | null;
+}
+
+/** 公開面向けに安全な SPS 内訳 (M・P・R・S の計算済みコンポーネント値) */
+export interface SeedPublicSpsComponents {
+  macro: number;
+  potential: number;
+  reach: number;
+  survival: number;
+}
+
+/** 公開面向けに安全な SPS サマリ (axis_evidence / evaluator は絶対に含めない) */
+export interface SeedPublicSpsAssessment {
+  evaluated_at: string;
+  status: "ready" | "missing";
+  score: number | null;
+  confidence: SeedMarketSizeConfidence | null;
+  missing_axes: string[];
+  axes: SeedPublicSpsAxes;
+  components: SeedPublicSpsComponents | null;
+}
 
 export interface Seed {
   id: string;
@@ -122,23 +182,15 @@ export interface Seed {
   // 事業化タイプ (主 + 副)
   primary_commercialization_type: SeedCommercializationType | null;
   secondary_commercialization_types: SeedCommercializationType[] | null;
-  // KUTE 公開面向け項目 (internal_notes / source_detail とは別、外部に見せてよい内容のみ)
-  kute_envisioned_use_case: string | null;
-  kute_first_customer_candidate: string | null;
-  kute_market_size_range: string | null;
-  kute_market_size_confidence: SeedKuteMarketSizeConfidence | null;
-  kute_biggest_bottleneck: string | null;
-  kute_ip_status: string | null;
-  kute_next_verification_step: string | null;
-  // 100点スコア内訳 (future 60 = need/market/technical_advantage/ip_barrier 各15、current 30 = trl/brl/hrl 各10、support 10)
-  kute_score_future_need: number | null;
-  kute_score_future_market: number | null;
-  kute_score_future_technical_advantage: number | null;
-  kute_score_future_ip_barrier: number | null;
-  kute_score_current_trl: number | null;
-  kute_score_current_brl: number | null;
-  kute_score_current_hrl: number | null;
-  kute_score_support: number | null;
+  // 公開面向け事業化詳細 (internal_notes / source_detail とは別、外部に見せてよい内容のみ)
+  // migration 186 の kute_* から全国共通名へ改名 (187)
+  envisioned_use_case: string | null;
+  first_customer_candidate: string | null;
+  market_size_range: string | null;
+  market_size_confidence: SeedMarketSizeConfidence | null;
+  biggest_bottleneck: string | null;
+  ip_status: string | null;
+  next_verification_step: string | null;
   // 監査
   created_at: string;
   updated_at: string;
@@ -165,21 +217,15 @@ export interface SeedPublicView {
   deep_dive_material_url: string | null;
   primary_commercialization_type: SeedCommercializationType | null;
   secondary_commercialization_types: SeedCommercializationType[] | null;
-  kute_envisioned_use_case: string | null;
-  kute_first_customer_candidate: string | null;
-  kute_market_size_range: string | null;
-  kute_market_size_confidence: SeedKuteMarketSizeConfidence | null;
-  kute_biggest_bottleneck: string | null;
-  kute_ip_status: string | null;
-  kute_next_verification_step: string | null;
-  kute_score_future_need: number | null;
-  kute_score_future_market: number | null;
-  kute_score_future_technical_advantage: number | null;
-  kute_score_future_ip_barrier: number | null;
-  kute_score_current_trl: number | null;
-  kute_score_current_brl: number | null;
-  kute_score_current_hrl: number | null;
-  kute_score_support: number | null;
+  envisioned_use_case: string | null;
+  first_customer_candidate: string | null;
+  market_size_range: string | null;
+  market_size_confidence: SeedMarketSizeConfidence | null;
+  biggest_bottleneck: string | null;
+  ip_status: string | null;
+  next_verification_step: string | null;
+  /** 最新の SPS 評価サマリ。評価が一件も無い場合は null */
+  latest_sps: SeedPublicSpsAssessment | null;
 }
 
 /** SeedPublicView の select 用ホワイトリスト列 (internal_notes / source_detail 等を含めない) */
@@ -198,21 +244,13 @@ export const SEED_PUBLIC_VIEW_COLUMNS = [
   "deep_dive_material_url",
   "primary_commercialization_type",
   "secondary_commercialization_types",
-  "kute_envisioned_use_case",
-  "kute_first_customer_candidate",
-  "kute_market_size_range",
-  "kute_market_size_confidence",
-  "kute_biggest_bottleneck",
-  "kute_ip_status",
-  "kute_next_verification_step",
-  "kute_score_future_need",
-  "kute_score_future_market",
-  "kute_score_future_technical_advantage",
-  "kute_score_future_ip_barrier",
-  "kute_score_current_trl",
-  "kute_score_current_brl",
-  "kute_score_current_hrl",
-  "kute_score_support",
+  "envisioned_use_case",
+  "first_customer_candidate",
+  "market_size_range",
+  "market_size_confidence",
+  "biggest_bottleneck",
+  "ip_status",
+  "next_verification_step",
 ] as const;
 
 export interface SeedFunding {
