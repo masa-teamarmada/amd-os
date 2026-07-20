@@ -1,10 +1,15 @@
 # Book A 全15章通しシナリオ Draft 2.2
 
+> [!CAUTION]
+> **Draft 3に全面移行済みであり、現行正本ではない。**
+> 現行の主人公、三PJ構造、全15章の因果設計は `BOOK_A_SCENARIO_DRAFT_3.md` を参照すること。
+> 本ファイルはDraft 2.2時点の判断履歴としてのみ保持する。
+
 *初稿日: 2026-07-20 JST*
 
 *改稿日: 2026-07-20 JST*
 
-*状態: 章本文へ反映する前のシナリオ設計稿*
+*状態: HISTORICAL。Draft 3移行前の判断履歴*
 
 *優先正本: `BOOK_A_INDEPENDENT_AGENCY.md`*
 
