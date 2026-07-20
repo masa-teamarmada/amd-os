@@ -217,6 +217,9 @@ expectIncludes("src/components/contracts/ContractsClient.tsx", [
   "関連記録を契約単位に整理済み",
   "上の回答には使っていない",
   "h-[min(90vh,820px)] w-[96vw]",
+  "...(selected.operational_terms_json || {})",
+  "sourceTitle: latestSelectedDocument?.file_name || textTerm(existingTerms.sourceTitle)",
+  "sourceRef: latestSelectedDocument?.web_view_link || textTerm(existingTerms.sourceRef)",
 ]);
 
 expectIncludes("src/components/cockpit/CockpitHeader.tsx", [

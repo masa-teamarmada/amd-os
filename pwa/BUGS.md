@@ -5,6 +5,16 @@
 
 ---
 
+### [contracts/cockpit] 契約条件の再保存で根拠資料名とリンクが消えた (2026-07-20)
+
+- **状態**: クローズ (2026-07-20 — `v3.47.1`)。
+- **症状**: KUTE (`p25`) の押印済み契約書を再確認して `/admin/contracts` から実務条件を保存すると、金額・支払・業務範囲などはコックピットへ反映された一方、契約カード末尾の根拠だけが `根拠未登録` に戻った。押印版PDFを `contract_documents` へ登録しても、その表示は自動復旧しなかった。
+- **原因**: 契約編集保存時に `contracts.operational_terms_json` と `projects.contract_terms_json.currentContracts[].terms` を編集フォームの項目だけで作り直していた。フォームにない既存キー (`sourceTitle` / `sourceRef` など) を引き継がず、契約文書メタデータも current contract mirror へ畳んでいなかった。
+- **対応内容**: 保存前の契約条件を保持したまま編集項目を上書きし、現在版の `contract_documents` があれば `file_name` と `web_view_link` を `sourceTitle` / `sourceRef` として同期するようにした。文書がない契約では既存の根拠名・参照を保持する。
+- **再発防止**: 契約編集フォームに露出していない `ProjectContractTerms` のキーを全置換で落とさない。契約書の最新版を登録済みなら、コックピットの根拠表示まで再保存後に突合する。
+
+---
+
 ### [process/codex-local-child] Local子タスク作成が正本checkoutをcodex branchへ自動切替した (2026-07-19)
 
 - **状態**: クローズ (2026-07-19 — rootをmainへ復旧し、Codex子タスク無効化・tracked Git hook・運用正本を同期)。

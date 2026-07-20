@@ -943,7 +943,10 @@ export function ContractsClient() {
     setError("");
     try {
       const currentForProject = contractEdit.relationshipScope === "amd_contract" && contractEdit.currentForProject;
+      const latestSelectedDocument = selectedDocuments.find((doc) => doc.is_latest) || selectedDocuments[0];
+      const existingTerms = effectiveContractTerms(selected, selectedProject);
       const operationalTerms: ProjectContractTerms = {
+        ...(selected.operational_terms_json || {}),
         paymentTerms: textTerm(contractEdit.paymentTerms),
         taxTreatment: textTerm(contractEdit.taxTreatment),
         scopeSummary: textTerm(contractEdit.scopeSummary),
@@ -973,6 +976,8 @@ export function ContractsClient() {
         liabilityTerms: textTerm(contractEdit.liabilityTerms),
         governingLawJurisdiction: textTerm(contractEdit.governingLawJurisdiction),
         specialTerms: textTerm(contractEdit.specialTerms),
+        sourceTitle: latestSelectedDocument?.file_name || textTerm(existingTerms.sourceTitle),
+        sourceRef: latestSelectedDocument?.web_view_link || textTerm(existingTerms.sourceRef),
       };
       const linkRes = await fetch("/api/contracts", {
         method: "PATCH",
