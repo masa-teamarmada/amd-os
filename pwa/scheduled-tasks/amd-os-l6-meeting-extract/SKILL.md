@@ -71,7 +71,7 @@ Codex 側の日次集約は H-1本体から分離し、**毎時45分の H-1 revi
 - H-1本体は `list_threads` / `read_thread` / `create_thread` / `send_message_to_thread` を呼ばず、日次まとめの作成・検索・追記をしない。2026-07-20に日次配送直前でrunが止まったため、OS通知と日次配送を同じrunへ直列化しない。
 - 起動直後は `CODEX_THREAD_ID` と開始JSTを `/Users/masa/.codex/automations/amd-os-l6-meeting-flow/run_state/current_h1.json` へ書くだけにする。前回IDへ `set_thread_archived` を呼ばない。すでに閉じたIDへのapp tool callが停止点になった実績がある。
 - 毎時runの最後は、sanitized報告をローカル `reports/` と automation memory に確定してからOS通知へ送る。OS通知成功後、`/Users/masa/.codex/automations/amd-os-l6-meeting-flow/run_state/completed/$CODEX_THREAD_ID.json` に `thread_id`、`state='reported'`、`reported_at_jst` を保存する。**その次操作は `node pwa/scripts/archive_stale_h1_codex_threads.mjs --thread-id "$CODEX_THREAD_ID"` だけ**とし、日次送信・追加調査・説明commentary・別tool callを挟まない。
-- 非LLM LaunchAgent `jp.teamarmada.codex-h1-thread-watchdog` は、同じ完了markerがあるH-1/reviewerだけを回収する。AI未着手・実行中・tool call停止のrunを時間だけで閉じる用途には使わない。raw本文、他automation、日次まとめは対象にしない。
+- 非LLM LaunchAgent `jp.teamarmada.codex-h1-thread-watchdog` は、sanitized報告を確定済みの完了markerがあるrunをsession実体の有無にかかわらず回収する。完了markerのないrunは自動で閉じず、`unreported` として残留を可視化する。raw本文、他automation、日次まとめは対象にしない。
 - OS通知が失敗した場合は原因を見える化する。完了markerを書かず、次回runで配送を再試行できる状態を残す。
 - reviewer は `reports/` の未集約sanitized報告とレビュワー結果を、その日の `H-1 YYYY-MM-DD 日次まとめ` へまとめて送る。詳細は `pwa/scheduled-tasks/amd-os-l6-meeting-reviewer/SKILL.md` を見る。
 

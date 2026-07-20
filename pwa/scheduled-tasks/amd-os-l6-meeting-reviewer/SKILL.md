@@ -180,7 +180,7 @@ reviewer は **H-1日次集約の唯一の担当**。H-1本体のsanitized報告
 
 - 毎時 reviewer run の並行実行は仕様として維持する。前runを待つ、実行ロックを取る、別runが動いていることを理由にskipする、のいずれも禁止。
 - 起動直後は `CODEX_THREAD_ID` と開始JSTを `/Users/masa/.codex/automations/amd-os-h-1-meeting-reviewer/run_state/current_reviewer.json` へ書くだけにする。前回H-1/reviewerへ `set_thread_archived` を呼ばない。
-- 非LLM LaunchAgent `jp.teamarmada.codex-h1-thread-watchdog` は、sanitized報告を確定済みの完了markerがあるH-1/reviewerだけを回収する。AI未着手・実行中・tool call停止のrunを時間だけで閉じない。raw本文、他automation、日次まとめは対象にしない。
+- 非LLM LaunchAgent `jp.teamarmada.codex-h1-thread-watchdog` は、sanitized報告を確定済みの完了markerがあるH-1/reviewerをsession実体の有無にかかわらず回収する。完了markerのないrunは自動で閉じず、`unreported` として残留を可視化する。raw本文、他automation、日次まとめは対象にしない。
 - 現在JSTの `YYYYMMDD` を取り、絶対パス `/Users/masa/.codex/automations/amd-os-l6-meeting-flow/reports/YYYYMMDDT*-h1-report.md` を `find` で列挙してbasename順に並べる。`aggregated_h1_reports.json` の `date_jst` が今日と違えば日次resetし、列挙結果と台帳 `reports` の差集合だけを未集約とする。実在ファイルを推測で「なし」にしない。raw本文・Notion本文・個人情報・secret・URLは集約しない。
 - registry は `/Users/masa/.codex/automations/amd-os-l6-meeting-flow/daily_threads/YYYY-MM-DD.json`。thread_idがあれば直接使い、`read_thread` / `list_threads` / query / dummy検索はしない。無ければreviewerが整理用projectへ検索なしで直接作成し、実作成JSTとthread_idを書く。通常は09:45 reviewerが朝の日次まとめを作る。
 - 未集約H-1報告と今回のsanitized reviewer結果を1通にまとめて送る。送信成功後だけ対象report filenameを集約台帳へ記録し、`/Users/masa/.codex/automations/amd-os-h-1-meeting-reviewer/run_state/completed/$CODEX_THREAD_ID.json` に `thread_id`、`state='reported'`、`reported_at_jst` を保存する。次操作で `node pwa/scripts/archive_stale_h1_codex_threads.mjs --thread-id "$CODEX_THREAD_ID"` を実行して現在runだけを外側から閉じる。

@@ -3,7 +3,7 @@
 import { spawn } from 'node:child_process'
 import crypto from 'node:crypto'
 import { createReadStream } from 'node:fs'
-import { mkdtemp, readFile, readdir, rm, stat } from 'node:fs/promises'
+import { mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import net from 'node:net'
 import os from 'node:os'
 import { createInterface } from 'node:readline'
@@ -18,11 +18,20 @@ const TARGET_AUTOMATION_IDS = new Set([
 ])
 const AUTOMATIONS_ROOT = '/Users/masa/.codex/automations'
 
+function completionMarkerPath(automationId, threadId) {
+  return path.join(
+    AUTOMATIONS_ROOT,
+    automationId,
+    'run_state',
+    'completed',
+    `${threadId}.json`,
+  )
+}
+
 function parseArgs(argv) {
   const options = {
     sessionsRoot: DEFAULT_SESSIONS_ROOT,
     appServerBin: DEFAULT_APP_SERVER_BIN,
-    maxAgeMinutes: 35,
     threadId: null,
     dryRun: false,
   }
@@ -41,10 +50,6 @@ function parseArgs(argv) {
       options.appServerBin = argv[++index]
       continue
     }
-    if (arg === '--max-age-minutes') {
-      options.maxAgeMinutes = Number(argv[++index])
-      continue
-    }
     if (arg === '--thread-id') {
       options.threadId = argv[++index]
       continue
@@ -52,9 +57,6 @@ function parseArgs(argv) {
     throw new Error(`unknown argument: ${arg}`)
   }
 
-  if (!Number.isFinite(options.maxAgeMinutes) || options.maxAgeMinutes < 1) {
-    throw new Error('--max-age-minutes must be a positive number')
-  }
   if (options.threadId && !/^[0-9a-f-]{36}$/i.test(options.threadId)) {
     throw new Error('--thread-id must be a Codex thread UUID')
   }
@@ -157,32 +159,61 @@ async function readAutomationSession(file) {
   return { ...metadata, automationId, file }
 }
 
-async function readCompletionMarker(session) {
-  const markerPath = path.join(
-    AUTOMATIONS_ROOT,
-    session.automationId,
-    'run_state',
-    'completed',
-    `${session.id}.json`,
-  )
+async function listCompletionMarkers() {
+  const markers = []
 
-  let marker
-  try {
-    marker = JSON.parse(await readFile(markerPath, 'utf8'))
-  } catch (error) {
-    if (error?.code === 'ENOENT') return null
-    throw new Error(`completion marker read failed: ${error.message}`)
+  for (const automationId of TARGET_AUTOMATION_IDS) {
+    const directory = path.join(
+      AUTOMATIONS_ROOT,
+      automationId,
+      'run_state',
+      'completed',
+    )
+    let entries
+    try {
+      entries = await readdir(directory, { withFileTypes: true })
+    } catch (error) {
+      if (error?.code === 'ENOENT') continue
+      throw error
+    }
+
+    for (const entry of entries) {
+      if (!entry.isFile() || !/^[0-9a-f-]{36}\.json$/i.test(entry.name)) continue
+
+      const threadId = entry.name.slice(0, -'.json'.length)
+      const markerPath = completionMarkerPath(automationId, threadId)
+      let marker
+      try {
+        marker = JSON.parse(await readFile(markerPath, 'utf8'))
+      } catch (error) {
+        throw new Error(`completion marker read failed: ${error.message}`)
+      }
+      if (
+        marker?.thread_id !== threadId ||
+        !['reported', 'archived'].includes(marker?.state)
+      ) continue
+
+      const markerStat = await stat(markerPath)
+      markers.push({
+        sessionId: threadId,
+        automationId,
+        completionMarker: markerPath,
+        state: marker.state,
+        reportedAt: marker.reported_at_jst ?? null,
+        markerAgeMinutes: Math.floor((Date.now() - markerStat.mtimeMs) / 60_000),
+      })
+    }
   }
 
-  if (marker?.thread_id !== session.id || marker?.state !== 'reported') {
-    return null
-  }
-
-  return { marker, markerPath }
+  return markers
 }
 
 function wait(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds))
+}
+
+function isAlreadyArchivedError(message, sessionId) {
+  return message === `no rollout found for thread id ${sessionId}`
 }
 
 async function waitForSocket(socketPath, child, timeoutMs = 8_000) {
@@ -298,7 +329,12 @@ function archiveThroughSocket(socketPath, sessionIds, timeoutMs = 12_000) {
       const sessionId = requestIds.get(message.id)
       requestIds.delete(message.id)
       if (message.error) {
-        errors.push({ sessionId, error: message.error.message ?? 'thread/archive failed' })
+        const errorMessage = message.error.message ?? 'thread/archive failed'
+        if (isAlreadyArchivedError(errorMessage, sessionId)) {
+          archived.push(sessionId)
+        } else {
+          errors.push({ sessionId, error: errorMessage })
+        }
       } else {
         archived.push(sessionId)
       }
@@ -406,7 +442,32 @@ async function main() {
   const matched = []
   const unreported = []
   const archived = []
+  const acknowledgedMarkers = []
   const errors = []
+  const matchedIds = new Set()
+  let completionMarkers
+
+  try {
+    completionMarkers = await listCompletionMarkers()
+  } catch (error) {
+    errors.push({ error: error.message })
+    completionMarkers = []
+  }
+  const reportedMarkers = completionMarkers.filter((marker) => marker.state === 'reported')
+  const reportedMarkersBySessionId = new Map(
+    reportedMarkers.map((marker) => [marker.sessionId, marker]),
+  )
+  const archivedSessionIds = new Set(
+    completionMarkers
+      .filter((marker) => marker.state === 'archived')
+      .map((marker) => marker.sessionId),
+  )
+
+  function addMatch(item) {
+    if (matchedIds.has(item.sessionId)) return
+    matchedIds.add(item.sessionId)
+    matched.push(item)
+  }
 
   for (const file of files) {
     let session
@@ -418,37 +479,44 @@ async function main() {
     }
     if (!session) continue
 
-    const startedAt = new Date(session.timestamp)
-    const ageMinutes = (now.getTime() - startedAt.getTime()) / 60_000
     if (options.threadId && session.id !== options.threadId) continue
-    if (
-      !options.threadId &&
-      (!Number.isFinite(ageMinutes) || ageMinutes < options.maxAgeMinutes)
-    ) continue
 
-    let completion
-    try {
-      completion = await readCompletionMarker(session)
-    } catch (error) {
-      errors.push({ sessionId: session.id, error: error.message })
-      continue
-    }
+    const completion = reportedMarkersBySessionId.get(session.id)
     if (!completion) {
+      if (archivedSessionIds.has(session.id)) continue
+      let sessionStat
+      try {
+        sessionStat = await stat(file)
+      } catch (error) {
+        errors.push({ sessionId: session.id, error: error.message })
+        continue
+      }
       unreported.push({
         sessionId: session.id,
         automationId: session.automationId,
-        ageMinutes: Math.floor(ageMinutes),
+        lastProgressAt: sessionStat.mtime.toISOString(),
       })
       continue
     }
 
-    matched.push({
+    addMatch({
       sessionId: session.id,
       automationId: session.automationId,
-      ageMinutes: Math.floor(ageMinutes),
       completionMarker: completion.markerPath,
+      reason: 'reported',
     })
+  }
 
+  for (const marker of reportedMarkers) {
+    if (options.threadId && marker.sessionId !== options.threadId) continue
+    addMatch({
+      sessionId: marker.sessionId,
+      automationId: marker.automationId,
+      completionMarker: marker.completionMarker,
+      reportedAt: marker.reportedAt,
+      markerAgeMinutes: marker.markerAgeMinutes,
+      reason: 'reported',
+    })
   }
 
   if (!options.dryRun && matched.length > 0) {
@@ -459,6 +527,24 @@ async function main() {
       )
       archived.push(...result.archived)
       errors.push(...result.errors)
+      for (const sessionId of result.archived) {
+        const marker = reportedMarkersBySessionId.get(sessionId)
+        if (!marker) continue
+        try {
+          await writeFile(
+            marker.completionMarker,
+            `${JSON.stringify({
+              thread_id: sessionId,
+              state: 'archived',
+              reported_at_jst: marker.reportedAt,
+              archived_at: new Date().toISOString(),
+            })}\n`,
+          )
+          acknowledgedMarkers.push(marker.completionMarker)
+        } catch (error) {
+          errors.push({ sessionId, error: error.message })
+        }
+      }
     } catch (error) {
       errors.push({ error: error.message })
     }
@@ -466,13 +552,13 @@ async function main() {
 
   const result = {
     checkedAt: now.toISOString(),
-    maxAgeMinutes: options.maxAgeMinutes,
     requestedThreadId: options.threadId,
     dryRun: options.dryRun,
     scannedFiles: files.length,
     matched,
     unreported,
     archived,
+    acknowledgedMarkers,
     errors,
   }
   process.stdout.write(`${JSON.stringify(result)}\n`)
