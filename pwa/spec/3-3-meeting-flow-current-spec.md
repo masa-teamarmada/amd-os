@@ -275,17 +275,19 @@ W-Prep / worker の共有フォルダ資料:
 
 合計 = `prep_readiness_score`。80↑ 緑「準備OK」 / 50-79 黄「もう一押し」 / <50 赤「要相談」。
 
-### Nudge (= まさ専用 Slack DM、Phase P 末尾で実行)
+### Nudge (= えいみ名義のまさ専用 Slack DM、Phase P 末尾で実行)
 
 H-1 run の Phase P の最後に、その run で `prep_worker_status='ready'` になった MTG を 1本の Slack DM にまとめて送る。
 
 - 送信先: まさ専用 DM (= `members.slack_id` から `is_admin=true` AND `code_name='まさ'` で解決、env には保持しない)
+- 送信者: えいみBotのみ。`pwa/scripts/send_eimi_slack_dm.mjs` が `SLACK_EIMI_BOT_TOKEN` で送信前にBotを検証してから送る。ChatGPT連携、まさのアカウント、汎用 `SLACK_BOT_TOKEN` での送信・代送は禁止する
+- えいみBotの認証または検証に失敗した時は通知を送らず、`prep_concierge_nudged_at` を更新しない。別名義へのfallbackは禁止する
 - 既に `prep_concierge_nudged_at` がセットされてる MTG は除外 (= 重複防止)
 - 送信完了で `prep_concierge_nudged_at=now()` を upsert
-- 形式 (つくよみ口調、月モチーフ):
+- 形式 (えいみ名義):
 
 ```
-🌙 まさ、prep セッション立ち上げといたよー
+まさ、prep セッション立ち上げといたよ
 
 📌 KUTE定例 (明日10:00, p25, オンライン)
    readiness 75/100  🟡

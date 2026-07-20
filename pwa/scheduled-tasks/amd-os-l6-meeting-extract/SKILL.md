@@ -826,9 +826,9 @@ H-1 run 内で `prep_worker_status='ready'` かつ `prep_concierge_nudged_at IS 
    LIMIT 1;
    ```
    - 取れない場合は nudge skip + run summary に `nudge_skipped: masa_slack_id_unresolved`
-2. つくよみ口調で本文生成 (deterministic template):
+2. えいみ名義で本文生成 (deterministic template):
    ```
-   🌙 まさ、prep セッション立ち上げといたよー
+   まさ、prep セッション立ち上げといたよ
 
    📌 {MTG タイトル} ({日付} {HH:MM}, {project_name})
       readiness {score}/100  {🟢/🟡/🔴}
@@ -840,7 +840,10 @@ H-1 run 内で `prep_worker_status='ready'` かつ `prep_concierge_nudged_at IS 
       prep セッション起動失敗 ({reason})
       手動準備して
    ```
-3. Slack API でまさ DM に送信 (= unfurl 切る、link なし)
+3. 送信は `node /Users/masa/projects/AMD/amd-os/pwa/scripts/send_eimi_slack_dm.mjs --user-id <masa_slack_id> --body-file <sanitized_body_file>` だけを使う
+   - `SLACK_EIMI_BOT_TOKEN` が無い、または送信前の `auth.test` が `eimi` 以外なら送信しない
+   - ChatGPT の Slack connector、Slack MCP、まさのログイン済みアカウント、既存の汎用 `SLACK_BOT_TOKEN` へのfallbackはすべて禁止
+   - script が成功して `sender='えいみ'` を返した時だけ送信成功とする
 4. 通知に含めた全 MTG (ready / failed) の `prep_concierge_nudged_at=now()` を upsert
 
 ### Phase P エラーハンドリング (2026-06-24 まさ確定: F2+F3 フォールバック適用)
@@ -854,6 +857,7 @@ H-1 run 内で `prep_worker_status='ready'` かつ `prep_concierge_nudged_at IS 
 | `codex exec` 起動失敗 | `prep_worker_status='failed'` + `reason='codex_exec_failed'`、subprocess kill |
 | `codex exec` で session id catch できず | `prep_worker_status='failed'` + `reason='session_id_not_captured'`、subprocess kill |
 | Slack DM 送信失敗 | `prep_concierge_nudged_at` 触らない (= 次回 run で再送試行) |
+| えいみBot認証なし / えいみ以外のBot | DMを送らない。`prep_concierge_nudged_at` は触らず、`nudge_skipped: eimi_sender_unavailable` を残す |
 | まさ slack_id 解決失敗 | nudge skip、run summary に記録 |
 
 **重要**: 過去 (2026-06-22〜24) に Phase P が毎回 `ACCESS_TOKEN_SCOPE_INSUFFICIENT` / `NEXT_PUBLIC_GAS_API_KEY` 不在 / freebusy 不能を blocker 扱いして全件 `review_required` に降ろし、11件の prep が 1度も spawn されない事故が発生 (2026-06-24 まさ確認)。本表の F2+F3 フォールバックはこの再発防止が目的。「freebusy が無いから何もしない」は禁止。
@@ -868,6 +872,7 @@ H-1 run 内で `prep_worker_status='ready'` かつ `prep_concierge_nudged_at IS 
 - `claude code` で spawn しない (= まさ 2026-06-22 確定、codex 一本化)
 - 定額外トークン課金経路 (= OpenAI API key 等) で worker を spawn しない (= `~/.codex/auth.json` の `auth_mode='chatgpt'` のままにする)
 - 通知の link / URL を貼らない (= まさは codex desktop を自分で起動する)
+- ChatGPT連携やまさ名義で Slack DM を送らない。えいみBotが使えない時は通知を保留し、別名義で代送しない。
 
 ═══════════════════════════════════════════════════
 Phase E: run summary
