@@ -83,7 +83,7 @@ vs ローカル Mac scheduled task の問題:
 | D-1〜D-11 / D-13 | `amd-os-l2-consolidated-evidence` | daily 08:00 JST (`0 8 * * *`) | AMD Protocol / MS Progress / Project Knowledge / Member Knowledge / Registry Diff / Strategy Signals / Textbook Insights / Atlas Signals / Macrotrend / Member Activity Evidence / Media Mentions / Contract Signals |
 | M-1〜M-3 | `amd-os-l2-monthend-evidence` | 月末候補日 16:00 発火 (`0 16 28-31 * *`)、最終日判定、17:00 完了 | M-1M-2M-3 |
 | W-1 | `amd-os-l2-weekly-vc-funding-signals` | weekly Saturday 09:00 JST (`0 9 * * 6`) | W-1 |
-| H-1 | (MMOマシン Codex Desktop automation `amd-os-l6-meeting-flow`、Claude routine 化しない) | 毎時 09:00-21:00 JST。報告は AMD OS 通知箱 (`app_notifications.kind='h1_report'`) へ送る。Codex表示は毎時スレッドを残さず、控えとしてJST日付ごとの `H-1 YYYY-MM-DD 日次まとめ` スレッドへ追記する | H-1 |
+| H-1 | (MMOマシン Codex Desktop automation `amd-os-l6-meeting-flow`、Claude routine 化しない) | 毎時 09:00-21:00 JST。報告は AMD OS 通知箱 (`app_notifications.kind='h1_report'`) へ送る。Codex表示は毎時スレッドを残さず、控えとしてJST日付ごとの `H-1 YYYY-MM-DD 日次まとめ` スレッドへ追記する (registry-first / direct-create 固定、query 付き `list_threads` 禁止)。毎時runスレッドは OS通知が成功していればアーカイブしてよい (日次まとめ追記の成否とは独立) | H-1 |
 
 SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 群) / `amd-os-l2-monthend-evidence/SKILL.md` (M 群) / `amd-os-l2-weekly-vc-funding-signals/SKILL.md` (W 群)。束ね SKILL は各 L2 の個別 SKILL を Phase 詳細として参照する。
 
@@ -98,7 +98,7 @@ SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 
 | D-2 | D-2 MS 進捗 | MMOマシン Codex Desktop automation | `amd-os-l3-ms-progress-extract` | 毎時 0 分 (target は daily) | MMOマシン側 automation 履歴、`amd-os-l3-ms-progress-extract/SKILL.md` |
 | D-3 | D-3 PJ ナレッジ | MMOマシン Codex Desktop automation | `amd-os-l4-project-knowledge-extract` | daily 08:15 JST | MMOマシン側 automation 履歴、`amd-os-l4-project-knowledge-extract/SKILL.md` |
 | D-4 | D-4 メンバーナレッジ | MMOマシン Codex Desktop automation | `amd-os-l5-member-knowledge-extract` | daily 08:30 JST | MMOマシン側 automation 履歴、`amd-os-l5-member-knowledge-extract/SKILL.md` |
-| H-1 | H-1 MTG サマリ + フロー | Windows MMO Codex Desktop automation | `amd-os-l6-meeting-flow` / SKILL `amd-os-l6-meeting-extract` | 毎日 09:00-21:00 毎時。報告は OS通知へ送る。日次まとめスレッドは控えとして使い、OS通知と控えの両方へ送れたら毎時runスレッドをアーカイブ | MMOマシン側 automation 履歴、`amd-os-l6-meeting-extract/SKILL.md`、`npm run notify:h1-report`、`~/.codex/automations/amd-os-l6-meeting-flow/daily_threads/` |
+| H-1 | H-1 MTG サマリ + フロー | Windows MMO Codex Desktop automation | `amd-os-l6-meeting-flow` / SKILL `amd-os-l6-meeting-extract` | 毎日 09:00-21:00 毎時。報告は OS通知へ送る。日次まとめスレッドは控えとして使い registry-first/direct-create で解決 (query 付き `list_threads` 禁止)、**OS通知が成功していれば** 日次まとめ追記の成否と関係なく毎時runスレッドをアーカイブしてよい (2026-07-20 まさ確定) | MMOマシン側 automation 履歴、`amd-os-l6-meeting-extract/SKILL.md`、`npm run notify:h1-report`、`~/.codex/automations/amd-os-l6-meeting-flow/daily_threads/` |
 | D-5 | D-5 OS 台帳差分 | Codex automation + outbox applier | `amd-os-ms` / SKILL `amd-os-l7-registry-diff-extract` | 6h ごと | `amd-os-ms` automation 履歴、`outbox.registryDiffs`、LaunchAgent applier |
 | M-2 | M-2 XRL 根拠 | Codex automation + outbox applier | `amd-os-ms` / SKILL `amd-os-l8-xrl-evidence-extract` | 6h ごと (L7 +15 分) | `amd-os-ms` automation 履歴、`outbox.xrlEvidence`、LaunchAgent applier |
 | D-6 | D-6 経営ハイライト | Codex automation + outbox applier | `amd-os` / SKILL `amd-os-l9-strategy-signal-extract` | daily 03:20 JST | `amd-os` automation 履歴、strategy-signals outbox、LaunchAgent applier |
@@ -228,7 +228,7 @@ SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 
 - H-1保存直後または H-1 run end で、別automation `amd-os-l6-meeting-reviewer` が直近更新された開催済みMTGを再読する。
 - reviewer は raw Notion/Gmail/Drive/Slack/Calendar と、保存済み `summary_short` / `narrative_md` / `decided` / `progress` / `next_actions` / `risks` を突き合わせる。raw transcript 側に CEO/社長/代表/VC/フルコミット/地元勢/PoC/PR などの重大な経営判断があるのに H-1要約が薄い場合だけ、抽出漏れ疑いとして扱う。
 - 出力は `POST /api/coverage-gaps/extract` 経由の `l2_coverage_gaps(review_status='candidate', gap_class='extractor_miss', proposed_target_l2='strategy_signal')` + `l2_notifications(l2_kind='coverage_gap')`。H-1 row は自動上書きしない。
-- H-1 run summary には `H-1 reviewer: review_required: ...` または `H-1 reviewer: no critical omissions detected` を追記する。
+- H-1 run summary (= 実運用では同日の `H-1 YYYY-MM-DD 日次まとめ` スレッド) に `H-1 reviewer: review_required: ...` または `H-1 reviewer: no critical omissions detected` を追記する。registry は H-1本体と共有 (`~/.codex/automations/amd-os-l6-meeting-flow/daily_threads/YYYY-MM-DD.json`)、registry-first/direct-create 固定で query 付き `list_threads` は禁止。追記後、毎時 reviewer run スレッドをアーカイブする。日次まとめ追記が失敗しても run を保持し続けず、失敗理由を automation memory に残して閉じる。
 - deterministic guard は `pwa/scripts/lib/h1_meeting_summary_reviewer.mjs`、CLI は `pwa/scripts/review_h1_meeting_summary.mjs`、fixture 回帰は `npm run test:h1-meeting-summary-reviewer` で検査する。
 
 **出力**:

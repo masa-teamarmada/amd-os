@@ -163,9 +163,19 @@ node scripts/review_h1_meeting_summary.mjs --fixture scripts/__fixtures__/h1_mee
 
 この route が `l2_coverage_gaps(review_status='candidate')` と `l2_notifications(l2_kind='coverage_gap')` を作る。raw全文は保存しない。
 
+## 日次まとめスレッドへの追記とアーカイブ (2026-07-20 まさ確定)
+
+H-1本体 (`amd-os-l6-meeting-extract`) と同じ **その日の `H-1 YYYY-MM-DD 日次まとめ` スレッド** に、reviewer の結果も追記する。旧仕様の「H-1 run summary へ追記」は、実運用としてはこの「同日の日次まとめスレッドへの追記」を指す。
+
+- registry は H-1本体と共有: `/Users/masa/.codex/automations/amd-os-l6-meeting-flow/daily_threads/YYYY-MM-DD.json`。
+- registry に当日 (JST) の `thread_id` があれば、軽い確認をせずそのまま直接使う。
+- registry が無い場合 (= reviewer が H-1本体より先に走った等) は、reviewer が直接 `create_thread` で作成してよい。作成時は `list_threads` によるスレッド検索・query検索・dummy search・広い過去日付検索を一切行わない。作成後、`thread_id` と実際に作成が完了した時点の現在 JST を `created_at_jst` として registry に書く。
+- 毎時 reviewer run の結果が確定したら (要確認 0 件 / N 件いずれも)、sanitized な結果を日次まとめスレッドへ追記し、その後に現在の毎時 reviewer run スレッドを `set_thread_archived` でアーカイブする。raw transcript本文、Notion本文、個人情報、secret、URLは送らない。
+- 日次まとめへの追記に失敗しても reviewer run を保持し続けない。失敗理由を automation memory に残し、必要なら H-1 本体の OS通知経路 (`app_notifications.kind='h1_report'`) に短い失敗報告を追加で残したうえで run を閉じる。
+
 ## H-1結果報告へのツッコミ
 
-H-1 run summary / result chat には、レビュアーの結果を必ず日本語で短く入れる。
+H-1 run summary / result chat (= 実運用では同日の `H-1 YYYY-MM-DD 日次まとめ` スレッド) には、レビュアーの結果を必ず日本語で短く入れる。
 
 最終報告は、開発に疎い人でも読めるように、原則として以下の形にする。内部テーブル名、API名、英語だけの状態名は出さない。必要な番号がある場合だけ「要確認候補の番号」として出す。
 

@@ -28,7 +28,7 @@ Claude routine を止めた理由は **daily run cap** (= 1 日に開始でき�
 | **D-12** | PWA non-LLM cron / freee sync / admin review | daily、Claude routine化しない | Finance Ops Evidence / freee Transaction Actuals |
 | **M-1〜M-3** | Claude routine `amd-os-l2-monthend-evidence` | 月末候補日 16:00 発火 (`0 16 28-31 * *`)、Phase 0 で最終日判定、17:00 完了 | M-1 M-2 M-3 |
 | **W-1** | Claude routine `amd-os-l2-weekly-vc-funding-signals` | weekly Saturday 09:00 JST (`0 9 * * 6`)、週 +1 | W-1 |
-| **H-1** | MMOマシン Windows Task Scheduler `amd-os-l6-meeting-flow-launcher` → `codex exec` Live launcher | 毎時 09:00-21:00 JST、Claude routine 化しない。報告は AMD OS 通知箱 (`app_notifications.kind='h1_report'`) へ送る。Codex表示は控えとしてJST日付ごとの `H-1 YYYY-MM-DD 日次まとめ` スレッドへ集約し、毎時runスレッドは追記後にアーカイブする | H-1 |
+| **H-1** | MMOマシン Windows Task Scheduler `amd-os-l6-meeting-flow-launcher` → `codex exec` Live launcher | 毎時 09:00-21:00 JST、Claude routine 化しない。報告は AMD OS 通知箱 (`app_notifications.kind='h1_report'`) へ送る。Codex表示は控えとしてJST日付ごとの `H-1 YYYY-MM-DD 日次まとめ` スレッドへ集約 (registry-first / direct-create 固定、query 付き `list_threads` 禁止、2026-07-20 まさ確定)。毎時runスレッドは **OS通知が成功していればアーカイブしてよい** (日次まとめ追記の成否とは独立の契約)。reviewer (`amd-os-l6-meeting-reviewer`) も同じ日次まとめへ結果を追記する | H-1 |
 
 新旧対応: D-1=D-1 / D-2=D-2 / D-3=D-3 / D-4=D-4 / D-5=D-5 / D-6=D-6 / D-7=D-7 / D-8=D-8 / D-9=D-9 / D-10=D-10 / M-1=M-1 / M-2=M-2 / M-3=M-3 / W-1=W-1 / H-1=H-1。
 
