@@ -83,7 +83,7 @@ vs ローカル Mac scheduled task の問題:
 | D-1〜D-11 / D-13 | `amd-os-l2-consolidated-evidence` | daily 08:00 JST (`0 8 * * *`) | AMD Protocol / MS Progress / Project Knowledge / Member Knowledge / Registry Diff / Strategy Signals / Textbook Insights / Atlas Signals / Macrotrend / Member Activity Evidence / Media Mentions / Contract Signals |
 | M-1〜M-3 | `amd-os-l2-monthend-evidence` | 月末候補日 16:00 発火 (`0 16 28-31 * *`)、最終日判定、17:00 完了 | M-1M-2M-3 |
 | W-1 | `amd-os-l2-weekly-vc-funding-signals` | weekly Saturday 09:00 JST (`0 9 * * 6`) | W-1 |
-| H-1 | (MMOマシン Codex Desktop automation `amd-os-l6-meeting-flow`、Claude routine 化しない) | 毎時 09:00-21:00 JST。並行実行を維持し、待機・実行ロック・別runを理由にしたskipは禁止。H-1本体はsanitized reportとOS通知までで即アーカイブし、日次スレッドを操作しない。毎時45分のreviewerが未集約reportとreview結果を日次まとめへ送る。両runは前回thread_id watchdogで残留runを次回起動時に回収する | H-1 |
+| H-1 | (MMOマシン Codex Desktop automation `amd-os-l6-meeting-flow`、Claude routine 化しない) | 毎時 09:00-21:00 JST。並行実行を維持し、待機・実行ロック・別runを理由にしたskipは禁止。H-1本体はsanitized reportとOS通知までで即アーカイブし、日次スレッドを操作しない。毎時45分のreviewerが絶対パスで列挙した未集約reportとreview結果を日次まとめへ送る。両runは互いの前回thread_idを30分ごとに直接回収する | H-1 |
 
 SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 群) / `amd-os-l2-monthend-evidence/SKILL.md` (M 群) / `amd-os-l2-weekly-vc-funding-signals/SKILL.md` (W 群)。束ね SKILL は各 L2 の個別 SKILL を Phase 詳細として参照する。
 
@@ -98,7 +98,7 @@ SKILL 正本: `pwa/scheduled-tasks/amd-os-l2-consolidated-evidence/SKILL.md` (D 
 | D-2 | D-2 MS 進捗 | MMOマシン Codex Desktop automation | `amd-os-l3-ms-progress-extract` | 毎時 0 分 (target は daily) | MMOマシン側 automation 履歴、`amd-os-l3-ms-progress-extract/SKILL.md` |
 | D-3 | D-3 PJ ナレッジ | MMOマシン Codex Desktop automation | `amd-os-l4-project-knowledge-extract` | daily 08:15 JST | MMOマシン側 automation 履歴、`amd-os-l4-project-knowledge-extract/SKILL.md` |
 | D-4 | D-4 メンバーナレッジ | MMOマシン Codex Desktop automation | `amd-os-l5-member-knowledge-extract` | daily 08:30 JST | MMOマシン側 automation 履歴、`amd-os-l5-member-knowledge-extract/SKILL.md` |
-| H-1 | H-1 MTG サマリ + フロー | Windows MMO Codex Desktop automation | `amd-os-l6-meeting-flow` / SKILL `amd-os-l6-meeting-extract` | 毎日 09:00-21:00 毎時。並行実行を維持。H-1本体はsanitized reportとOS通知成功直後にアーカイブし、日次配送をしない。毎時45分のreviewerが未集約reportとreview結果を日次まとめへ送り、前回thread_id watchdogで残留runを次回起動時に直接回収する (2026-07-20 まさ確定) | MMOマシン側 automation 履歴、`amd-os-l6-meeting-extract/SKILL.md`、`amd-os-l6-meeting-reviewer/SKILL.md`、`npm run notify:h1-report`、automation run_state / reports / daily_threads |
+| H-1 | H-1 MTG サマリ + フロー | Windows MMO Codex Desktop automation | `amd-os-l6-meeting-flow` / SKILL `amd-os-l6-meeting-extract` | 毎日 09:00-21:00 毎時。並行実行を維持。H-1本体はsanitized reportとOS通知成功直後にアーカイブし、日次配送をしない。毎時45分のreviewerが絶対パス列挙と台帳差分で日次集約し、H-1/reviewerは互いの前回thread_idを30分ごとに直接回収する (2026-07-20 まさ確定) | MMOマシン側 automation 履歴、`amd-os-l6-meeting-extract/SKILL.md`、`amd-os-l6-meeting-reviewer/SKILL.md`、`npm run notify:h1-report`、automation run_state / reports / daily_threads |
 | D-5 | D-5 OS 台帳差分 | Codex automation + outbox applier | `amd-os-ms` / SKILL `amd-os-l7-registry-diff-extract` | 6h ごと | `amd-os-ms` automation 履歴、`outbox.registryDiffs`、LaunchAgent applier |
 | M-2 | M-2 XRL 根拠 | Codex automation + outbox applier | `amd-os-ms` / SKILL `amd-os-l8-xrl-evidence-extract` | 6h ごと (L7 +15 分) | `amd-os-ms` automation 履歴、`outbox.xrlEvidence`、LaunchAgent applier |
 | D-6 | D-6 経営ハイライト | Codex automation + outbox applier | `amd-os` / SKILL `amd-os-l9-strategy-signal-extract` | daily 03:20 JST | `amd-os` automation 履歴、strategy-signals outbox、LaunchAgent applier |

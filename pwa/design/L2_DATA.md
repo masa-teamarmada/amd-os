@@ -28,7 +28,7 @@ Claude routine を止めた理由は **daily run cap** (= 1 日に開始でき�
 | **D-12** | PWA non-LLM cron / freee sync / admin review | daily、Claude routine化しない | Finance Ops Evidence / freee Transaction Actuals |
 | **M-1〜M-3** | Claude routine `amd-os-l2-monthend-evidence` | 月末候補日 16:00 発火 (`0 16 28-31 * *`)、Phase 0 で最終日判定、17:00 完了 | M-1 M-2 M-3 |
 | **W-1** | Claude routine `amd-os-l2-weekly-vc-funding-signals` | weekly Saturday 09:00 JST (`0 9 * * 6`)、週 +1 | W-1 |
-| **H-1** | MMOマシン Windows Task Scheduler `amd-os-l6-meeting-flow-launcher` → `codex exec` Live launcher | 毎時 09:00-21:00 JST、Claude routine 化しない。並行実行は維持し、待機・実行ロック・別runを理由にしたskipは禁止。H-1本体はsanitized reportとOS通知の成功直後に自身をアーカイブし、日次スレッド操作をしない。reviewer (`amd-os-l6-meeting-reviewer`) が未集約reportとreview結果を同日の `H-1 YYYY-MM-DD 日次まとめ` へ集約する。両runは `CODEX_THREAD_ID` 状態ファイルで前回残留runを次回起動時に直接回収する (検索なし、2026-07-20 まさ確定) | H-1 |
+| **H-1** | MMOマシン Windows Task Scheduler `amd-os-l6-meeting-flow-launcher` → `codex exec` Live launcher | 毎時 09:00-21:00 JST、Claude routine 化しない。並行実行は維持し、待機・実行ロック・別runを理由にしたskipは禁止。H-1本体はsanitized reportとOS通知の成功直後に自身をアーカイブし、日次スレッド操作をしない。reviewer (`amd-os-l6-meeting-reviewer`) が絶対パスで列挙した未集約reportとreview結果を同日の `H-1 YYYY-MM-DD 日次まとめ` へ集約する。両runは `CODEX_THREAD_ID` 状態ファイルを相互確認し、30分ごとに前回残留runを直接回収する (検索なし、2026-07-20 まさ確定) | H-1 |
 
 新旧対応: D-1=D-1 / D-2=D-2 / D-3=D-3 / D-4=D-4 / D-5=D-5 / D-6=D-6 / D-7=D-7 / D-8=D-8 / D-9=D-9 / D-10=D-10 / M-1=M-1 / M-2=M-2 / M-3=M-3 / W-1=W-1 / H-1=H-1。
 

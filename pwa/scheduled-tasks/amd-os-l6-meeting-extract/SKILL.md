@@ -58,7 +58,7 @@ H-1 は毎時起動するが、まさが見に行く場所は Codex スレッド
 Codex 側の日次集約は H-1本体から分離し、**毎時45分の H-1 reviewer だけが担当する**。毎時runの並行実行は仕様として維持し、前runを待つ・実行ロックを取る・別runを理由にskipすることは禁止する。
 
 - H-1本体は `list_threads` / `read_thread` / `create_thread` / `send_message_to_thread` を呼ばず、日次まとめの作成・検索・追記をしない。2026-07-20に日次配送直前でrunが止まったため、OS通知と日次配送を同じrunへ直列化しない。
-- 起動直後に `CODEX_THREAD_ID` を読み、`/Users/masa/.codex/automations/amd-os-l6-meeting-flow/run_state/current_h1.json` の前回 `kind=h1_hourly` のthread_idが現在IDと異なれば、確認検索なしで前回IDを `set_thread_archived` する。これは残留run回収用watchdogであり、完了待ちや実行ロックではない。その後、現在IDと開始JSTを状態ファイルへ書く。
+- 起動直後に `CODEX_THREAD_ID` を読み、`/Users/masa/.codex/automations/amd-os-l6-meeting-flow/run_state/current_h1.json` の前回 `kind=h1_hourly` のthread_idが現在IDと異なれば、確認検索なしで前回IDを `set_thread_archived` する。現在IDと開始JSTを書いたあと、`/Users/masa/.codex/automations/amd-os-h-1-meeting-reviewer/run_state/current_reviewer.json` の前回reviewer IDも確認検索なしでアーカイブする。H-1とreviewerは30分ずれで相互に残留runを回収する。これは完了待ちや実行ロックではない。
 - 毎時runの最後は、sanitized報告をローカル `reports/` と automation memory に確定してからOS通知へ送る。**OS通知成功後の次操作は現在runの `set_thread_archived` だけ**とし、日次送信・追加調査・説明commentary・別tool callを挟まない。
 - OS通知が失敗した場合だけ現在runを残して原因を見える化する。残ったrunは次回H-1のwatchdogが直接回収してよい。
 - reviewer は `reports/` の未集約sanitized報告とレビュワー結果を、その日の `H-1 YYYY-MM-DD 日次まとめ` へまとめて送る。詳細は `pwa/scheduled-tasks/amd-os-l6-meeting-reviewer/SKILL.md` を見る。
