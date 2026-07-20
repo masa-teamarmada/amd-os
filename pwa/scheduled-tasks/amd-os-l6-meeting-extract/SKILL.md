@@ -1,11 +1,23 @@
 ---
 name: amd-os-l6-meeting-extract
-description: AMD OS H-1 MTGサマリ + MTGフローの repo 正本。現行 writer は Windows MMO PC の Codex Desktop automation `amd-os-l6-meeting-flow` (= 毎日09:00-21:00毎時 + Phase A早期exit)。Calendar/Notion/Gmail/Drive/Slack を読み、subscription 内 Codex で narrative_md + summary arrays を抽出して `project_meeting_summaries` に保存し、該当 Notion 議事録ページの eventId / PJ relation / member relation も安全に補完する。PWA/GAS/Vercel に token課金LLM cron は作らず、GAS 153 + 074 + 074b-e の業務ロジックだけを移植する。
+description: AMD OS H-1 MTGサマリ + MTGフローの repo 正本。現行 writer は Windows MMO PC の Codex Desktop automation `amd-os-l6-meeting-flow` (= 毎日09:00-21:00毎時 + 候補判定後の早期exit)。Calendar/Notion/Gmail/Drive/Slack を読み、subscription 内 Codex で narrative_md + summary arrays を抽出して `project_meeting_summaries` に保存し、該当 Notion 議事録ページの eventId / PJ relation / member relation も安全に補完する。PWA/GAS/Vercel に token課金LLM cron は作らず、GAS 153 + 074 + 074b-e の業務ロジックだけを移植する。
 ---
 
 # AMD OS H-1 MTG サマリ抽出 (GAS 153 + 074 移植版)
 
 GAS 153 `nav_meeting_pollRecentlyEndedEvents` + GAS 074 `nav_meeting_processOneEvent_` の Phase 3 ロジックを **Windows MMO Codex Desktop automation** に移植したもの。GAS は完全 bypass (= kill switch のまま死んでて OK、参照すらしない)。
+
+## 最優先: 毎時runの候補gateと所要時間
+
+H-1は「毎時すべての知識を読み直す」仕事ではない。開始後に最小限のenvを読み、Calendarの `now-4h` から `now+24h` のbounded取得と、DBの直近24時間 `none` marker・近傍upcoming cardの状態だけを一度ずつ確認する。まず次の3種類を判定する。
+
+1. 終了60-180分前の確定Calendar MTG
+2. 直近24時間の `none` / `議事録なし` recovery row
+3. 現在前後24時間のうち、newまたはCalendar metadataが変化した確定upcoming card
+
+3種類がすべて0件なら、H-1は対象なしのsanitized report・automation memory・OS通知だけを確定して終了する。Notion / Gmail / Drive / Slackの本文取得、Drive folder探索、広い正本読込、git status、fixture test、browser、prep thread操作を実行してはいけない。通常3分以内に終える。
+
+候補が1件でもある時だけ、後続の正本とその候補に必要なsourceを読む。開催済みMTGは5 source確認を省略しないが、関係のないPJ・期間・sourceを探索しない。通常は対象1件あたり12分以内を目安とし、取得不能なsourceは `review_required` と不足理由を残して次の対象へ進む。これは対象件数の上限ではなく、待機・無制限retry・無関係探索を禁止する時間設計である。
 
 ## 設計の要点 (2026-05-25 まさ #71 確定)
 
@@ -20,8 +32,7 @@ GAS 153 `nav_meeting_pollRecentlyEndedEvents` + GAS 074 `nav_meeting_processOneE
 - **配列だけ保存禁止 / 単純な箇条書きだけ禁止**: `source_kinds != "none"` の開催済みMTGでは `narrative_md` が主成果物。`summary_short` / `decided` / `progress` / `next_actions` / `risks` は検索・通知用の補助であり、議事録本文の代替ではない。`narrative_md` が空・短すぎる・背景と経緯の段落を欠く場合、その event は保存せず run summary に `blocked_low_quality_narrative` として残す。
 - **既存 narrative 保護**: 既存 row に 300字以上の `narrative_md` がある場合、新しい抽出結果が空 / 5見出しのセクション構造を満たさない / 既存より明らかに薄いなら upsert しない。`project_meeting_summaries` には DB trigger でも保護があるが、routine 側でも必ず判定する。
 - **H-1 reviewer hook**: 開催済みMTGを保存した後、別automation `amd-os-l6-meeting-reviewer` を走らせる。raw Notion/Gmail/Drive/Slack/Calendar と保存済みH-1要約を比べ、CEO/代表/VC/地元勢/PoC/PRなど重大な経営判断が薄く丸まった疑いがあれば `l2_coverage_gaps` + `l2_notifications(l2_kind='coverage_gap')` に出す。reviewer は H-1 row を自動上書きしない。
-- **直近予定カード**: H-1 は毎時動くため、毎回60日先まで見ない。終了済みMTGの議事録抽出と、現在時刻の前後24時間にある確定Calendar予定・Phase P準備だけを扱う。未来60日の予定MTGカード同期は M系の定期メンテに寄せる。
-- **prep Notion context gate**: prep worker は `prep_worker_status='ready'` にする前に `pwa/scripts/l6_prep_notion_context_gate.cjs` を実行する。Notion AI Meeting Notes page が見つかっているのに marker 未挿入の `needs_insert` が残っている場合、H-1 は ready と見なさない。
+- **直近予定カード**: H-1 は毎時動くため、毎回60日先まで見ない。終了済みMTGの議事録抽出と、現在時刻の前後24時間にあるnew/変更済みの確定Calendar予定カードだけを扱う。future cardの広い照合・visible prep thread起動・prep ready判定は W-Prep の責務であり、H-1は実行しない。
 - **MTGカード→Calendar一次防御**: MTGカード/議事録側に日時・場所・対面/オンライン・持参物・返信/宿題があるのに Calendar event が無い/薄いケースは、`POST /api/meeting-calendar/upsert-plan` の dry-run で upsert payload と duplicate match を作る。PWA route は Calendar を書かない。実writeに進む場合は別途 reviewed write bundle が必要。payload は `sendUpdates=none`、外部 attendees は空、metadata は `extendedProperties.private` に寄せる。
 - **TODO→tasks + owner nudge**: MTGから生まれた担当タスク / OS task / Gmail TODO / Slack TODO は、まず `POST /api/task-calendar/register-tasks` で `tasks` に自動登録し、担当者本人だけへ Slack DM nudge する。admin review queue は作らない。作業枠が必要な場合だけ `POST /api/task-calendar/schedule-plan` の dry-run で、担当メンバー + まさ の共通空き枠に `+<PJコード> <task>` 枠を作る候補にする。PWA route は Calendar を書かない。外部招待/メール送信はしない。
 - **次MTGカードの境界**: 議事録内に日時まで明確な次MTGがある場合だけ、PWA `POST /api/meeting-workflow/finalize` 経由で `source_kinds='upcoming'` を作る。`6月3週目以降` のような日程未確定候補は自動で確定予定にしない。必要なものは `upcoming_tentative` として「日程調整中MTG」に残す。
@@ -38,12 +49,12 @@ GAS 153 `nav_meeting_pollRecentlyEndedEvents` + GAS 074 `nav_meeting_processOneE
 - 報告は、コーディングが一切分からない高校生でも理解できる日本語で書く。
 - 無駄なアルファベット、コード名、DB列名、英語の状態名をユーザー向け報告に出さない。必要な場合だけ、日本語の説明を先に書き、括弧内に短く補足する。例: `DB` ではなく「保存先」、`cron` ではなく「定期実行」、`source_hash` ではなく「取得元が同じかの確認」。
 - Notion / Calendar / Drive / Slack / Gmail は、必要なら「ノーション」「カレンダー」「ドライブ」「スラック」「メール」と書き、サービス名の羅列だけで説明を終えない。
-- 報告の最初に、H-1 が今回やるべき仕事を 1-3 行で説明してから結果を書く。固定の意味は「終わった会議の議事録化」「直近の議事録なし再確認」「前後24時間の予定カード同期」「ノーション議事録メタデータ補完」「必要なら準備セッション起動」の5つ。今回実行しなかった仕事があれば「今回は対象なし」と明記する。
+- 報告の最初に、H-1 が今回やるべき仕事を1-3行で説明してから結果を書く。固定の意味は「終わった会議の議事録化」「直近の議事録なし再確認」「前後24時間の予定カード同期」「ノーション議事録メタデータ補完」。今回実行しなかった仕事があれば「今回は対象なし」と明記する。
 - 件数だけの報告は禁止。`6件確認`、`1件保存`、`0件要確認` のような数を出したら、その直後に必ず内訳リストを出す。H-1 の対象範囲は小さいため、原則すべて列挙する。
 - 内訳リストは、会議タイトル、日付/時刻、PJ名またはPJコード、今回の扱いを 1 行で書く。例: `- ZeMA 定例MTG（7/15 09:00、ZeMA）: 予定カードを確認、変更なし`。URL、会議ID、パスコード、添付ファイル名の機微情報、raw本文は出さない。
 - 開催済みMTGは「確認した開催済みMTG」、直近の議事録なし再確認は「再確認した議事録なしMTG」、予定カード同期は「同期した予定カード」、Notion 補完は「ノーションを補完したMTG」、要確認は「要確認になったMTG」の見出しで分ける。該当が無い見出しは `なし` と書いてよい。
 - `確認件数` / `保存件数` / `更新件数` / `維持件数` / `見送り件数` / `予定カード同期件数` / `ノーション補完件数` / `要確認件数` / `復旧対象件数` を出す場合、対応するリスト無しの報告は不合格として書き直す。
-- Notion が取れていない場合でも、対象MTGが無い / 対象MTGが抽出窓外 / 予定カード同期や Phase P だけの run なら、報告全体を「不完全」とは書かない。Notion 欠落が会議本文の抽出・保存・レビュー判断に影響した場合だけ、該当MTGの説明の先頭に「ノーションが取れていないので、この報告は不完全」と明記する。代替ソースだけで会議本文を判断した run を「問題なし」「かなり良い」「正常」と表現しない。
+- Notion が取れていない場合でも、対象MTGが無い / 対象MTGが抽出窓外 / 予定カード同期だけのrunなら、報告全体を「不完全」とは書かない。Notion欠落が会議本文の抽出・保存・レビュー判断に影響した場合だけ、該当MTGの説明の先頭に「ノーションが取れていないので、この報告は不完全」と明記する。代替sourceだけで会議本文を判断したrunを「問題なし」「かなり良い」「正常」と表現しない。
 - raw 本文や個人情報は出さない。ただし、何が取れて何が取れていないかは、日本語で具体的に書く。
 
 ## OS通知と Codex スレッド表示の扱い
@@ -59,12 +70,12 @@ Codex 側の日次集約は H-1本体から分離し、**毎時45分の H-1 revi
 
 - H-1本体は `list_threads` / `read_thread` / `create_thread` / `send_message_to_thread` を呼ばず、日次まとめの作成・検索・追記をしない。2026-07-20に日次配送直前でrunが止まったため、OS通知と日次配送を同じrunへ直列化しない。
 - 起動直後は `CODEX_THREAD_ID` と開始JSTを `/Users/masa/.codex/automations/amd-os-l6-meeting-flow/run_state/current_h1.json` へ書くだけにする。前回IDへ `set_thread_archived` を呼ばない。すでに閉じたIDへのapp tool callが停止点になった実績がある。
-- 毎時runの最後は、sanitized報告をローカル `reports/` と automation memory に確定してからOS通知へ送る。**OS通知成功後の次操作は `node pwa/scripts/archive_stale_h1_codex_threads.mjs --thread-id "$CODEX_THREAD_ID"` だけ**とし、日次送信・追加調査・説明commentary・別tool callを挟まない。このhelperは一時app-serverの公式 `thread/archive` APIを使い、現在runだけを外側から閉じる。
-- AI未着手、tool call停止、自己終了失敗は、非LLM LaunchAgent `jp.teamarmada.codex-h1-thread-watchdog` が5分ごとにsession metadataだけを確認し、H-1/reviewerだけを開始35分で回収する。raw本文、他automation、日次まとめは対象にしない。
-- OS通知が失敗した場合は原因を見える化する。残ったrunも同じ非LLM watchdogが開始35分で回収する。
+- 毎時runの最後は、sanitized報告をローカル `reports/` と automation memory に確定してからOS通知へ送る。OS通知成功後、`/Users/masa/.codex/automations/amd-os-l6-meeting-flow/run_state/completed/$CODEX_THREAD_ID.json` に `thread_id`、`state='reported'`、`reported_at_jst` を保存する。**その次操作は `node pwa/scripts/archive_stale_h1_codex_threads.mjs --thread-id "$CODEX_THREAD_ID"` だけ**とし、日次送信・追加調査・説明commentary・別tool callを挟まない。
+- 非LLM LaunchAgent `jp.teamarmada.codex-h1-thread-watchdog` は、同じ完了markerがあるH-1/reviewerだけを回収する。AI未着手・実行中・tool call停止のrunを時間だけで閉じる用途には使わない。raw本文、他automation、日次まとめは対象にしない。
+- OS通知が失敗した場合は原因を見える化する。完了markerを書かず、次回runで配送を再試行できる状態を残す。
 - reviewer は `reports/` の未集約sanitized報告とレビュワー結果を、その日の `H-1 YYYY-MM-DD 日次まとめ` へまとめて送る。詳細は `pwa/scheduled-tasks/amd-os-l6-meeting-reviewer/SKILL.md` を見る。
 
-## 【絶対】 動く前に必ず Read
+## 候補がある時に必ず Read
 
 1. `pwa/manual/3-2-data-and-extraction.md` (§3.1 取り込み path / §3.2 M/W/D/H L2正本 / §3.4 修正依頼ループ)
 2. `pwa/manual/9-1-decisions-and-history.md` (§5.4 責務分担マトリクス / §5.7 L2 ghost 復旧計画)
@@ -733,16 +744,12 @@ workflow 側のルール:
 - 旧 fallback の「次MTG指定がなければ7日後に1件」は禁止。架空カードを作らない。
 
 ═══════════════════════════════════════════════════
-Phase P: MTG Prep セッション spawn (= 2026-06-22 追加)
+Archive: 廃止したH-1内 Phase P (= 2026-07-20で停止)
 ═══════════════════════════════════════════════════
 
-> **役割**: 24時間以内の upcoming MTG ごとに、まさカレンダーに `＋ <PJコード> MTG準備: <タイトル>` 枠を作成し、該当時刻になったら `codex exec` で新規 session を spawn する。spawn された session の中では `pwa/scheduled-tasks/amd-os-l6-meeting-prep-worker/SKILL.md` を prompt として読み、prep 本体 (= 文脈ロード / 着地点 draft / 資料 draft / readiness 計算) を完遂する。
->
-> automation はあくまで「session を生み出す役」、prep 本体は spawn された session 内で実行する責務分離 (= まさ確定 2026-06-22)。
->
-> 詳細仕様: `pwa/spec/3-3-meeting-flow-current-spec.md` の「H-1 MTG Prep セッション自動立ち上げ」節。
+> **実行禁止**: 下の旧Phase Pは移行履歴として残すだけで、H-1は読んでも実行しない。future upcomingのCalendar直読、claim、visible prep thread作成、Notion context gate、えいみBot nudgeはすべて `w-prep-launch` の責務。H-1が同じMTGのprepを起動すると、長時間化と重複thread事故の両方を起こす。
 
-### Phase P-1: 対象 MTG 抽出
+### 旧 Phase P-1: 対象 MTG 抽出
 
 ```sql
 SELECT pms.meeting_id, pms.project_id, pms.title,
@@ -764,7 +771,7 @@ WHERE pms.source_kinds LIKE '%upcoming%'
 
 ended / frozen / `freeze_from_ym <= 当月ym` は対象外。recurring MTG は既に `calendar-sync` 段階で series 次回1件に絞り込まれている。
 
-### Phase P-2: 各 MTG ごとに処理 (順次)
+### 旧 Phase P-2: 各 MTG ごとに処理 (順次)
 
 各対象 MTG について:
 
@@ -815,7 +822,7 @@ codex exec --skip-git-repo-check --json \
 
 H-1 run 内で `prep_worker_status='ready'` かつ `prep_concierge_nudged_at IS NULL` の MTG を集める (= 前回以前の run で spawn 済み + 今回 ready になったもの)。これは Phase P-3 で Slack DM 送信対象になる。
 
-### Phase P-3: まさ専用 Slack DM nudge
+### 旧 Phase P-3: まさ専用 Slack DM nudge
 
 「ready 達成 + 未通知」MTG が 1件以上あれば、まさ専用 Slack DM を投げる。
 
@@ -845,7 +852,7 @@ H-1 run 内で `prep_worker_status='ready'` かつ `prep_concierge_nudged_at IS 
    - script が成功して `persona='eimi'` を返した時だけ送信成功とする
 4. 通知に含めた全 MTG (ready / failed) の `prep_concierge_nudged_at=now()` を upsert
 
-### Phase P エラーハンドリング (2026-06-24 まさ確定: F2+F3 フォールバック適用)
+### 旧 Phase P エラーハンドリング (実行しない)
 
 | 状況 | 対応 |
 |---|---|
@@ -861,7 +868,7 @@ H-1 run 内で `prep_worker_status='ready'` かつ `prep_concierge_nudged_at IS 
 
 **重要**: 過去 (2026-06-22〜24) に Phase P が毎回 `ACCESS_TOKEN_SCOPE_INSUFFICIENT` / `NEXT_PUBLIC_GAS_API_KEY` 不在 / freebusy 不能を blocker 扱いして全件 `review_required` に降ろし、11件の prep が 1度も spawn されない事故が発生 (2026-06-24 まさ確認)。本表の F2+F3 フォールバックはこの再発防止が目的。「freebusy が無いから何もしない」は禁止。
 
-### Phase P 禁止事項
+### 旧 Phase P 禁止事項
 
 - worker session の subprocess を `wait` しない (= 各 MTG ごとに subprocess を fire-and-forget で起動して次へ)
 - 同じ MTG に複数 session を spawn しない (= `prep_worker_status` で防御)
@@ -886,14 +893,14 @@ Phase E: run summary
 **まさへの報告** (= notifyOnCompletion で表示される。件数だけで終わらせない):
 
 1. 最初に「H-1の仕事」を短く書く。
-   - 例: `H-1は、終わった会議の議事録を作る、直近の議事録なしを再確認する、前後24時間の予定カードを同期し、ノーション議事録のひも付けを補完する係。今回は準備セッション起動の対象はなし。`
+   - 例: `H-1は、終わった会議の議事録を作る、直近の議事録なしを再確認する、前後24時間の予定カードを同期し、ノーション議事録のひも付けを補完する係。今回は対象なし。`
 2. 件数を出すたびに、直後へ必ず内訳リストを書く。
 3. リストには、会議名 / 日時 / PJ / 今回の扱いだけを書く。raw本文、ノーション本文、個人情報、secret、Drive URL、Calendar URL、会議参加URLは書かない。
 4. 同じ報告をローカル `reports/` と automation memory に確定してからOS通知へ送る。OS通知が成功したら、次操作で現在の毎時runを必ずアーカイブする。日次まとめへの追記はH-1本体では行わず、毎時45分のreviewerが未集約reportをまとめて送る。
 
 テンプレ:
 ```
-H-1の仕事: 終わった会議の議事録化、議事録なしの再確認、前後24時間の予定カード同期、ノーション議事録のひも付け補完。今回は <準備セッション起動: なし/あり>。
+H-1の仕事: 終わった会議の議事録化、議事録なしの再確認、前後24時間の予定カード同期、ノーション議事録のひも付け補完。
 
 確認件数: N件
 確認した開催済みMTG:

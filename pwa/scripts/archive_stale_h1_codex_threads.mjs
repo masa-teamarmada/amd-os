@@ -3,7 +3,7 @@
 import { spawn } from 'node:child_process'
 import crypto from 'node:crypto'
 import { createReadStream } from 'node:fs'
-import { mkdtemp, readdir, rm, stat } from 'node:fs/promises'
+import { mkdtemp, readFile, readdir, rm, stat } from 'node:fs/promises'
 import net from 'node:net'
 import os from 'node:os'
 import { createInterface } from 'node:readline'
@@ -16,6 +16,7 @@ const TARGET_AUTOMATION_IDS = new Set([
   'amd-os-l6-meeting-flow',
   'amd-os-h-1-meeting-reviewer',
 ])
+const AUTOMATIONS_ROOT = '/Users/masa/.codex/automations'
 
 function parseArgs(argv) {
   const options = {
@@ -154,6 +155,30 @@ async function readAutomationSession(file) {
   }
 
   return { ...metadata, automationId, file }
+}
+
+async function readCompletionMarker(session) {
+  const markerPath = path.join(
+    AUTOMATIONS_ROOT,
+    session.automationId,
+    'run_state',
+    'completed',
+    `${session.id}.json`,
+  )
+
+  let marker
+  try {
+    marker = JSON.parse(await readFile(markerPath, 'utf8'))
+  } catch (error) {
+    if (error?.code === 'ENOENT') return null
+    throw new Error(`completion marker read failed: ${error.message}`)
+  }
+
+  if (marker?.thread_id !== session.id || marker?.state !== 'reported') {
+    return null
+  }
+
+  return { marker, markerPath }
 }
 
 function wait(milliseconds) {
@@ -379,6 +404,7 @@ async function main() {
   const now = new Date()
   const files = await listSessionFiles(options.sessionsRoot)
   const matched = []
+  const unreported = []
   const archived = []
   const errors = []
 
@@ -400,10 +426,27 @@ async function main() {
       (!Number.isFinite(ageMinutes) || ageMinutes < options.maxAgeMinutes)
     ) continue
 
+    let completion
+    try {
+      completion = await readCompletionMarker(session)
+    } catch (error) {
+      errors.push({ sessionId: session.id, error: error.message })
+      continue
+    }
+    if (!completion) {
+      unreported.push({
+        sessionId: session.id,
+        automationId: session.automationId,
+        ageMinutes: Math.floor(ageMinutes),
+      })
+      continue
+    }
+
     matched.push({
       sessionId: session.id,
       automationId: session.automationId,
       ageMinutes: Math.floor(ageMinutes),
+      completionMarker: completion.markerPath,
     })
 
   }
@@ -428,6 +471,7 @@ async function main() {
     dryRun: options.dryRun,
     scannedFiles: files.length,
     matched,
+    unreported,
     archived,
     errors,
   }

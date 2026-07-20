@@ -124,7 +124,9 @@ H-1 が該当 Notion 議事録ページを特定できた場合、本文取得�
 - 前提データが足りない資料を強引に生成しない。
 - 旧 GAS 153 / 074 を定期 writer として復活させない。
 
-## H-1 MTG Prep セッション自動立ち上げ (= H-1 内 Phase P、2026-06-22 まさ確定)
+## 旧 H-1 MTG Prep セッション自動立ち上げ (移行履歴)
+
+> **2026-07-20 現行**: この節のH-1内Phase Pは実行しない。visible prep threadの対象確認、DB claim、worker起動、Notion AI Meeting Notes context挿入、えいみBot nudgeは、週次専用の `w-prep-launch` が一件ずつ完結して担う。H-1がここを実行すると、同じ会議に複数threadを作る危険と、毎時runが不要に長時間化する危険がある。以下は移行前の経緯であり、active automationの実行指示ではない。
 
 > **この節は何か**: 「明日 MTG あるけど準備してない、毎回 codex を開いて『背景はこうで…』と説明するのがだるい」問題への OS 側回答。**既存 H-1 automation (`amd-os-l6-meeting-flow`、name は「H-1」)** の内部に prep 用 Phase P を追加し、対象 MTG ごとに **codex の新規 session を事前 spawn** する。session の中で worker prompt が文脈ロード→着地点 draft→資料 draft→readiness 計算まで完遂し、まさを待つ状態で待機する。まさは Slack DM で「{MTG} の prep セッション立ち上げといたよー」と通知を受け、自分で codex を開いて該当 session に入る (= ターミナル操作なし)。
 
