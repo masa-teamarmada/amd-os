@@ -5,6 +5,7 @@ import type { SxManagementBundle } from "@/lib/sx-management";
 import { SxDiamondMark, SxStatusIcon, SxTickMark, sxFormatDate, sxMonthPosition } from "./sx-visual-shared";
 
 const MONTH_COL_PX = 76;
+const WIDE_TIMELINE_PX = 1160;
 // .sx-management-workspace button に min-height:44px / min-width:44px の全体規則があるため、
 // マーカーの実測サイズ(44px四方)を前提にレーン間隔とチップ間隔を計算する。
 const CHIP_WIDTH_PX = 110;
@@ -49,7 +50,8 @@ export function SxNineMonthTimeline({
   onSelect: (milestoneId: string | null) => void;
 }) {
   const months = management.horizonMonths;
-  const contentWidth = months.length * MONTH_COL_PX;
+  const contentWidth = Math.max(months.length * MONTH_COL_PX, WIDE_TIMELINE_PX);
+  const monthWidth = contentWidth / Math.max(1, months.length);
   const todayPos = sxMonthPosition(management.asOf, months);
   const dagValid = management.judgment.dagValid;
   const criticalSet = useMemo(() => new Set(management.judgment.criticalPathSlugs), [management.judgment.criticalPathSlugs]);
@@ -106,12 +108,12 @@ export function SxNineMonthTimeline({
             ))}
           </div>
           <div className="relative shrink-0" style={{ width: contentWidth }}>
-            <div className="grid h-7 border-b border-[#e4ddd0] bg-[#f8f5ec] text-[9px] font-semibold text-[#777166]" style={{ gridTemplateColumns: `repeat(${months.length}, ${MONTH_COL_PX}px)` }}>
+            <div className="grid h-7 border-b border-[#e4ddd0] bg-[#f8f5ec] text-[9px] font-semibold text-[#777166]" style={{ gridTemplateColumns: `repeat(${months.length}, ${monthWidth}px)` }}>
               {months.map((month) => <div key={month} className="flex items-center justify-center border-l border-[#eee9df]">{formatMonthLabel(month)}</div>)}
             </div>
             {laneMilestones.map(({ track, items, laneHeight }) => (
               <div key={track.key} className="relative border-b border-[#eee9df]" style={{ height: laneHeight }}>
-                <div className="absolute inset-0 grid" style={{ gridTemplateColumns: `repeat(${months.length}, ${MONTH_COL_PX}px)` }} aria-hidden="true">
+                <div className="absolute inset-0 grid" style={{ gridTemplateColumns: `repeat(${months.length}, ${monthWidth}px)` }} aria-hidden="true">
                   {months.map((month) => <div key={month} className="border-l border-[#f1ede2]" />)}
                 </div>
                 {items.map(({ milestone, plannedPos, leftPx, subRow }) => {

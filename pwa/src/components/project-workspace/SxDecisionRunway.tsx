@@ -41,11 +41,12 @@ export function SxDecisionRunway({
   onSelectTrack: (track: SxTrackKey | null) => void;
 }) {
   return (
-    <div className="flex h-full flex-col rounded-xl border border-[#cfc7b9] bg-[#fffdf7]/95 p-4 shadow-[0_10px_35px_rgba(61,56,44,0.05)] sm:p-5">
-      <p className="text-[10px] font-semibold tracking-[0.16em] text-[#38745d]">意思決定ランウェイ</p>
-      <h2 className="mt-1 text-sm font-semibold text-[#24231f]">期限順・今週決めること 最大3件</h2>
-      <div className="mt-3 flex-1 space-y-2.5">
-        {items.length === 0 && <p className="rounded-lg border border-dashed border-[#d6cebf] p-4 text-xs leading-5 text-[#777166]">期限つきの意思決定待ちはまだ登録されてないよ。</p>}
+    <section className="hidden min-h-[56px] grid-cols-[190px_repeat(3,minmax(0,1fr))] border-y border-[#cfc7b9] bg-[#fffdf7] lg:grid" aria-label="期限順の意思決定 最大3件">
+      <div className="flex items-center justify-between gap-2 border-r border-[#e4ddd0] px-3 py-1.5">
+        <div><p className="text-[9px] font-semibold tracking-[0.14em] text-[#38745d]">意思決定ランウェイ</p><h2 className="text-[11px] font-semibold text-[#24231f]">期限順・最大3件</h2></div>
+        <span className="text-[9px] text-[#777166]">{items.length}</span>
+      </div>
+      {items.length === 0 && <p className="col-span-3 px-3 py-4 text-[11px] leading-4 text-[#777166]">期限つきの意思決定待ちは未登録。</p>}
         {items.map((item) => (
           <button
             key={item.id}
@@ -53,17 +54,13 @@ export function SxDecisionRunway({
             aria-pressed={selectedTrack === item.track}
             aria-controls="selected-management-context"
             onClick={() => onSelectTrack(selectedTrack === item.track ? null : item.track)}
-            className={`min-h-11 w-full rounded-lg border p-3 text-left transition hover:bg-[#f8f5ec] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] ${selectedTrack === item.track ? "border-[#38745d] bg-[#f1f6f2]" : "border-[#e4ddd0] bg-white/70"}`}
+            className={`grid min-h-[54px] w-full grid-cols-[auto_1fr_auto] items-center gap-2 border-r border-[#e4ddd0] px-2.5 py-1.5 text-left transition last:border-r-0 hover:bg-[#f8f5ec] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] ${selectedTrack === item.track ? "bg-[#f1f6f2]" : "bg-white"}`}
           >
-            <div className="flex flex-wrap items-center gap-1.5">
-              <SxBadge tone={WINDOW_TONE[item.window]}>{WINDOW_LABEL[item.window]}</SxBadge>
-              <span className="text-[10px] font-semibold text-[#777166]">{SX_TRACK_LABELS[item.track]} / {item.gateLabel}</span>
-            </div>
-            <p className="mt-1.5 text-xs font-semibold leading-4 text-[#24231f]">{item.title}</p>
-            <p className="mt-1 text-[11px] leading-4 text-[#69665d]">期限 {sxFormatDate(item.dueDate)} / {item.ownerLabel}</p>
+            <SxBadge tone={WINDOW_TONE[item.window]}>{WINDOW_LABEL[item.window]}</SxBadge>
+            <div className="min-w-0"><p className="truncate text-[10px] font-semibold text-[#24231f]">{item.title}</p><p className="truncate text-[9px] text-[#777166]">{SX_TRACK_LABELS[item.track]} / {item.gateLabel} / {item.ownerLabel}</p></div>
+            <span className="text-[9px] font-semibold text-[#69665d]">{sxFormatDate(item.dueDate)}</span>
           </button>
         ))}
-      </div>
-    </div>
+    </section>
   );
 }

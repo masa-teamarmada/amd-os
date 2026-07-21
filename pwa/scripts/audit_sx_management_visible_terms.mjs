@@ -2,7 +2,7 @@
 
 import { chromium } from "playwright";
 
-const rawPattern = /tech-poc-gate|ewir-internal-definition|business-poc-conditions|funding-investor-conditions|funding-step2-runway|\brunway\b/gi;
+const rawPattern = /tech-poc-gate|ewir-internal-definition|business-poc-conditions|funding-investor-conditions|funding-step2-runway|FC\s*北陸|北陸工場|\brunway\b/gi;
 const url = process.env.SX_VISIBLE_AUDIT_URL || "https://amd-os-pwa.vercel.app/project/p21/workspace";
 const widths = (process.env.SX_VISIBLE_AUDIT_WIDTHS || "390,768,1440").split(",").map((value) => Number(value));
 const cookieName = process.env.SX_VISIBLE_AUDIT_COOKIE_NAME;

@@ -53,6 +53,38 @@ export function sxIsMissingOwner(value: string) {
   return !value.trim() || value.includes("未確認") || value.includes("未設定");
 }
 
+export function sxTechnicalTestStatusLabel(value: string) {
+  return ({ unassessed: "未評価", planned: "計画", running: "実施中", passed: "合格", failed: "不合格", blocked: "停止" } as Record<string, string>)[value] || "未確認";
+}
+
+export const SX_TECH_TEST_STATUS_TONE: Record<string, string> = {
+  unassessed: "border-[#b8b5c8] bg-[#eeedf4] text-[#55506d]",
+  planned: "border-[#d6cebf] bg-[#f8f5ec] text-[#69665d]",
+  running: "border-[#b7c8d2] bg-[#eef3f5] text-[#315f7d]",
+  passed: "border-[#9fc6b4] bg-[#e8f2eb] text-[#205f49]",
+  failed: "border-[#b5533f] bg-[#f9e4e1] text-[#8c3329]",
+  blocked: "border-[#b5533f] bg-[#f9e4e1] text-[#8c3329]",
+};
+
+/** milestone.progressPct is meaningless while status is unassessed; never render a bare 0%. */
+export function sxProgressDisplay(status: SxMilestoneStatus, progressPct: number) {
+  return status === "unassessed" ? "未評価" : `${progressPct}%`;
+}
+
+/** Retired geography-based labels are normalized and demoted at the display boundary. */
+const SX_PARTNER_DISPLAY_OVERRIDES: Record<string, { displayName: string; lowPriority: boolean }> = {
+  "fc-hokuriku": { displayName: "ファインケム", lowPriority: true },
+};
+
+export function sxPartnerDisplay(partner: { slug: string; name: string }) {
+  const override = SX_PARTNER_DISPLAY_OVERRIDES[partner.slug];
+  return { name: override?.displayName || partner.name, lowPriority: override?.lowPriority ?? false };
+}
+
+export function sxPartnerName(partner: { slug: string; name: string }) {
+  return sxPartnerDisplay(partner).name;
+}
+
 /** Month position (0..monthCount) of a YYYY-MM-DD date within a 9-month horizon, with in-month fraction. */
 export function sxMonthPosition(dateStr: string | null | undefined, horizonMonths: string[]) {
   if (!dateStr) return null;
@@ -66,7 +98,7 @@ export function sxMonthPosition(dateStr: string | null | undefined, horizonMonth
 }
 
 export function SxBadge({ children, tone = "border-[#d6cebf] bg-[#f8f5ec] text-[#69665d]" }: { children: ReactNode; tone?: string }) {
-  return <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold leading-none ${tone}`}>{children}</span>;
+  return <span className={`inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-semibold leading-none ${tone}`}>{children}</span>;
 }
 
 export function SxStatusIcon({ status, blocked, className = "h-4 w-4" }: { status: SxMilestoneStatus; blocked?: boolean; className?: string }) {

@@ -1,7 +1,7 @@
 "use client";
 
 import type { SxManagementBundle, SxPartnerStage } from "@/lib/sx-management";
-import { sxFormatDate, sxIsMissingOwner } from "./sx-visual-shared";
+import { sxFormatDate, sxIsMissingOwner, sxPartnerDisplay } from "./sx-visual-shared";
 
 const FACETS = [
   { key: "owner", label: "担当" },
@@ -73,7 +73,8 @@ export function SxReadinessMatrix({ management }: { management: SxManagementBund
     return { track, cells, dueState };
   });
 
-  const partners = management.partners;
+  const partners = management.partners.filter((partner) => !sxPartnerDisplay(partner).lowPriority);
+  const deferredPartners = management.partners.filter((partner) => sxPartnerDisplay(partner).lowPriority);
   const roles = management.organizationRoles;
 
   return (
@@ -113,12 +114,16 @@ export function SxReadinessMatrix({ management }: { management: SxManagementBund
           </ol>
           <div className="mt-3 space-y-2">
             {partners.length === 0 && <p className="rounded-lg border border-dashed border-[#d6cebf] p-3 text-[11px] text-[#777166]">協力機関はまだ未確認だよ。</p>}
-            {partners.map((partner) => (
+            {partners.map((partner) => {
+              const display = sxPartnerDisplay(partner);
+              return (
               <div key={partner.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#e4ddd0] bg-[#f8f5ec] px-3 py-2">
-                <div className="min-w-0"><p className="truncate text-[11px] font-semibold text-[#24231f]">{partner.name}</p><p className="text-[10px] text-[#777166]">{partner.roleLabel}</p></div>
+                <div className="min-w-0"><p className="truncate text-[11px] font-semibold text-[#24231f]">{display.name}</p><p className="text-[10px] text-[#777166]">{partner.roleLabel}</p></div>
                 <span className="shrink-0 rounded-full border border-[#b7c8d2] bg-white px-2 py-0.5 text-[10px] font-semibold text-[#315f7d]">{PARTNER_STAGE_LABEL[partner.relationshipStage]}</span>
               </div>
-            ))}
+              );
+            })}
+            {deferredPartners.map((partner) => <p key={partner.id} className="px-1 text-[9px] text-[#777166]">{sxPartnerDisplay(partner).name}: 優先度低・保留（重要経路外）</p>)}
           </div>
         </div>
         <div>

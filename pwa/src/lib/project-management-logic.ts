@@ -165,25 +165,43 @@ export function buildDagHealth(milestones: LogicMilestone[], dependencies: Logic
   };
   for (const milestone of milestones) visit(milestone.id);
 
-  const depthMemo = new Map<string, { depth: number; path: string[] }>();
-  const depth = (id: string, guard = new Set<string>()): { depth: number; path: string[] } => {
-    if (depthMemo.has(id)) return depthMemo.get(id)!;
-    if (guard.has(id)) return { depth: 0, path: [id] };
+  const milestoneById = new Map(milestones.map((milestone) => [milestone.id, milestone]));
+  const criticalIncoming = new Map<string, LogicDependency[]>();
+  for (const dependency of dependencies) {
+    if (!dependency.required || !ids.has(dependency.predecessorMilestoneId) || !ids.has(dependency.successorMilestoneId)) continue;
+    criticalIncoming.set(dependency.successorMilestoneId, [...(criticalIncoming.get(dependency.successorMilestoneId) || []), dependency]);
+  }
+  const durationDays = (id: string) => {
+    const milestone = milestoneById.get(id);
+    const end = milestone?.forecastEnd || milestone?.plannedEnd;
+    if (!milestone?.plannedStart || !end) return 1;
+    return Math.max(1, dateDistance(milestone.plannedStart, end) + 1);
+  };
+  const pathMemo = new Map<string, { duration: number; path: string[] }>();
+  const longestRequiredPath = (id: string, guard = new Set<string>()): { duration: number; path: string[] } => {
+    if (pathMemo.has(id)) return pathMemo.get(id)!;
+    if (guard.has(id)) return { duration: 0, path: [] };
     const nextGuard = new Set(guard).add(id);
-    const predecessors = incoming.get(id) || [];
+    const predecessors = criticalIncoming.get(id) || [];
     if (predecessors.length === 0) {
-      const result = { depth: 1, path: [id] };
-      depthMemo.set(id, result);
+      const result = { duration: durationDays(id), path: [id] };
+      pathMemo.set(id, result);
       return result;
     }
     const best = predecessors
-      .map((edge) => depth(edge.predecessorMilestoneId, nextGuard))
-      .sort((a, b) => b.depth - a.depth)[0] || { depth: 0, path: [] };
-    const result = { depth: best.depth + 1, path: [...best.path, id] };
-    depthMemo.set(id, result);
+      .map((edge) => {
+        const predecessor = longestRequiredPath(edge.predecessorMilestoneId, nextGuard);
+        return { duration: predecessor.duration + Math.max(0, edge.lagDays), path: predecessor.path };
+      })
+      .sort((a, b) => b.duration - a.duration || a.path.join("").localeCompare(b.path.join("")))[0]
+      || { duration: 0, path: [] };
+    const result = { duration: best.duration + durationDays(id), path: [...best.path, id] };
+    pathMemo.set(id, result);
     return result;
   };
-  const criticalPath = milestones.map((milestone) => depth(milestone.id)).sort((a, b) => b.depth - a.depth)[0]?.path || [];
+  const criticalPath = milestones
+    .map((milestone) => longestRequiredPath(milestone.id))
+    .sort((a, b) => b.duration - a.duration || b.path.length - a.path.length || a.path.join("").localeCompare(b.path.join("")))[0]?.path || [];
   const blockedMilestoneIds: string[] = [];
   const waitingMilestoneIds: string[] = [];
   for (const milestone of milestones) {

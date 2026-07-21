@@ -101,6 +101,23 @@ const optionalDependency = buildDagHealth(
 );
 assert.deepEqual(optionalDependency.blockedMilestoneIds, [], "optional edges must not block a successor");
 assert.deepEqual(optionalDependency.waitingMilestoneIds, [], "optional edges must not become dependency wait");
+assert.equal(optionalDependency.criticalPath.length, 1, "optional edges must not enter the critical path");
+
+const weightedRequiredPath = buildDagHealth(
+  [
+    { ...baseMilestone, id: "short-root", slug: "short-root", plannedStart: "2026-08-01", plannedEnd: "2026-08-02", forecastEnd: "2026-08-02" },
+    { ...baseMilestone, id: "short-end", slug: "short-end", plannedStart: "2026-08-03", plannedEnd: "2026-08-04", forecastEnd: "2026-08-04" },
+    { ...baseMilestone, id: "long-root", slug: "long-root", plannedStart: "2026-08-01", plannedEnd: "2026-08-20", forecastEnd: "2026-08-20" },
+    { ...baseMilestone, id: "long-end", slug: "long-end", plannedStart: "2026-08-26", plannedEnd: "2026-08-30", forecastEnd: "2026-08-30" },
+  ],
+  [
+    { id: "short-required", predecessorMilestoneId: "short-root", successorMilestoneId: "short-end", required: true, lagDays: 0 },
+    { id: "long-required", predecessorMilestoneId: "long-root", successorMilestoneId: "long-end", required: true, lagDays: 5 },
+    { id: "optional-shortcut", predecessorMilestoneId: "short-end", successorMilestoneId: "long-end", required: false, lagDays: 100 },
+  ],
+  "2026-07-19",
+);
+assert.deepEqual(weightedRequiredPath.criticalPath, ["long-root", "long-end"], "critical path uses required edges, milestone duration, and lag while excluding optional shortcuts");
 
 const futureRequired = buildDagHealth(
   [baseMilestone, { ...baseMilestone, id: "m2", slug: "future-successor", plannedStart: "2026-09-01" }],
