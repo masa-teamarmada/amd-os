@@ -6,6 +6,7 @@
  */
 import "server-only";
 
+import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   computeMemberWeeklyEffortPlan,
@@ -103,9 +104,9 @@ export async function syncMemberWeeklyEffortEntries(
     const nowIso = new Date().toISOString();
     const payload = plan.upserts.map((upsert) => {
       const { id, ...rest } = upsert;
-      return id
-        ? { id, ...rest, updated_at: nowIso }
-        : { ...rest, updated_at: nowIso };
+      // PostgREST は既存 ID あり行と ID 無し行を同じ bulk upsert に混ぜると、
+      // ID 無し行へ DB default ではなく null を送る。新規行には明示 ID を与える。
+      return { id: id || randomUUID(), ...rest, updated_at: nowIso };
     });
     const { error } = await supabase
       .from("project_weekly_effort_entries")
