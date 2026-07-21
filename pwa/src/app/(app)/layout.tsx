@@ -107,7 +107,7 @@ export default async function AppLayout({
   }
   return (
     <AppShell
-      userCodeName={access.codeName}
+      userCodeName={access.displayName}
       isAdmin={access.isAdmin}
       memberId={access.memberId}
       accessScope={access.scope}

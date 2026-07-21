@@ -18,6 +18,14 @@ import type { OAuth2Client } from "google-auth-library";
 import { getGoogleAuthAsync, getMemberGoogleAuth } from "@/lib/sources/google";
 import Anthropic from "@anthropic-ai/sdk";
 import { getBackgroundAnthropic, BackgroundAnthropicDisabledError } from "@/lib/anthropic-client";
+import {
+  calendarEventTimeMeta,
+  isEventStartWithinBounds,
+  pickCalendarTimeMeta,
+  evidenceTimeMetadata,
+} from "@/lib/member-weekly-calendar-duration";
+import { syncMemberWeeklyEffortEntries } from "@/lib/member-weekly-effort-sync";
+import { slackActorId, driveActorEmails } from "@/lib/member-weekly-source-attribution";
 
 export const runtime = "nodejs";
 
@@ -27,6 +35,7 @@ type MemberRow = {
   email: string | null;
   status: string | null;
   google_calendar_status?: string | null;
+  slack_id?: string | null;
 };
 
 type ProjectRow = {
@@ -581,12 +590,14 @@ async function fetchSourceCacheEvidence(
   bounds: ReturnType<typeof activityWindowBoundsJST>,
   matchProject: ReturnType<typeof buildProjectMatcher>,
   matchMembers: ReturnType<typeof buildMemberMatcher>,
-  internalEmails: Set<string>
+  internalEmails: Set<string>,
+  slackIdToMemberId: Map<string, string>,
+  emailToMemberId: Map<string, string>
 ): Promise<Evidence[]> {
   const { data, error } = await supabase
     .from("source_cache")
     .select("project_id, source, item_id, title, item_date, content_text, metadata_json")
-    .in("source", ["gmail", "gmail_message", "calendar", "gmeet"])
+    .in("source", ["gmail", "gmail_message", "calendar", "gmeet", "slack", "drive"])
     .gte("item_date", bounds.startIso)
     .lt("item_date", bounds.endIso)
     .order("item_date", { ascending: true })
@@ -602,15 +613,33 @@ async function fetchSourceCacheEvidence(
       const snippet = cleanText(row.content_text || meta.snippet || meta.text_preview || "", 700);
       const emails = extractEmails(meta, row.content_text);
       const source = String(row.source || "");
-      if ((source === "gmail" || source === "gmail_message") && !isActionableEmailMeta(meta, internalEmails)) return null;
-      const actorEmails = source === "gmail" || source === "gmail_message"
-        ? extractEmails(meta.from, meta.sender)
-        : emails;
-      if (shouldSkipEmailLike({
-        from: typeof meta.from === "string" ? meta.from : "",
-        subject: title,
-        snippet,
-      })) return null;
+
+      let memberIds: string[];
+      if (source === "slack") {
+        const actorId = slackActorId(meta);
+        const memberId = actorId ? slackIdToMemberId.get(actorId) : null;
+        if (!memberId) return null;
+        memberIds = [memberId];
+      } else if (source === "drive") {
+        const actorEmails = driveActorEmails(meta);
+        memberIds = [...new Set(
+          actorEmails.map((email) => emailToMemberId.get(email)).filter((id): id is string => !!id)
+        )];
+        if (memberIds.length === 0) return null;
+      } else {
+        if ((source === "gmail" || source === "gmail_message") && !isActionableEmailMeta(meta, internalEmails)) return null;
+        const actorEmails = source === "gmail" || source === "gmail_message"
+          ? extractEmails(meta.from, meta.sender)
+          : emails;
+        if (shouldSkipEmailLike({
+          from: typeof meta.from === "string" ? meta.from : "",
+          subject: title,
+          snippet,
+        })) return null;
+        memberIds = matchMembers(actorEmails);
+        if (memberIds.length === 0) return null;
+      }
+
       let projectIds = matchProject({
         text: `${title}\n${snippet}\n${JSON.stringify(meta)}`,
         emails,
@@ -620,8 +649,7 @@ async function fetchSourceCacheEvidence(
         const fallbackProjectId = internalCollaborationFallbackProjectId({ text: `${title}\n${snippet}`, emails });
         if (fallbackProjectId) projectIds = [fallbackProjectId];
       }
-      const memberIds = matchMembers(actorEmails);
-      if (!row.item_date || projectIds.length === 0 || memberIds.length === 0) return null;
+      if (!row.item_date || projectIds.length === 0) return null;
       return {
         evidenceId: `${row.source}:${row.item_id}`,
         sourceKind: "source_cache",
@@ -811,8 +839,13 @@ async function fetchCalendarEvidence(
       if (!selfMemberId && memberIdAllowList) {
         memberIds = memberIds.filter((id) => memberIdAllowList.has(id));
       }
-      const itemDate = event.start?.dateTime || event.start?.date || null;
-      if (!event.id || !itemDate || projectIds.length === 0 || memberIds.length === 0) continue;
+      const timeMeta = calendarEventTimeMeta(event.start, event.end);
+      const itemDate = timeMeta.start_at;
+      if (!event.id || !itemDate) continue;
+      // events.list は window に重なる予定も返すため、event start が [start,end) に
+      // 入らない予定は明示除外する (18:00 境界の隣接 window 二重取得を防ぐ)。
+      if (!isEventStartWithinBounds(itemDate, bounds.startIso, bounds.endIso)) continue;
+      if (projectIds.length === 0 || memberIds.length === 0) continue;
       rows.push({
         evidenceId: `calendar:${calendar.calendarId}:${event.id}`,
         sourceKind: "calendar",
@@ -824,7 +857,16 @@ async function fetchCalendarEvidence(
         participantEmails: emails,
         projectIds,
         memberIds,
-        raw: { event_id: event.id, calendar_id: calendar.calendarId, html_link: event.htmlLink || null, response_status: selfAttendee?.responseStatus || null },
+        raw: {
+          event_id: event.id,
+          calendar_id: calendar.calendarId,
+          html_link: event.htmlLink || null,
+          response_status: selfAttendee?.responseStatus || null,
+          start_at: timeMeta.start_at,
+          end_at: timeMeta.end_at,
+          duration_minutes: timeMeta.duration_minutes,
+          all_day: timeMeta.all_day,
+        },
       });
     }
   }
@@ -890,6 +932,7 @@ async function fetchMeetingSummaryEvidence(
     if (projectIds.length === 0) continue;
     const primaryProjectId = projectIds[0];
     const meetingText = meetingEvidenceText(row);
+    const calendarTimeMeta = pickCalendarTimeMeta(calendarHit.raw);
     rows.push({
       evidenceId: `meeting_summary:${row.meeting_id || row.notion_page_id || `${primaryProjectId}:${itemDate.toISOString()}`}`,
       sourceKind: "meeting_summary",
@@ -904,11 +947,16 @@ async function fetchMeetingSummaryEvidence(
       raw: {
         meeting_id: row.meeting_id,
         notion_page_id: row.notion_page_id,
-        calendar_event_id: row.calendar_event_id || null,
+        calendar_event_id: row.calendar_event_id || calendarTimeMeta.event_id || null,
         summary_short: row.summary_short || "",
         progress: stringList(row.progress),
         decided: stringList(row.decided),
         next_actions: stringList(row.next_actions),
+        event_id: calendarTimeMeta.event_id,
+        start_at: calendarTimeMeta.start_at,
+        end_at: calendarTimeMeta.end_at,
+        duration_minutes: calendarTimeMeta.duration_minutes,
+        all_day: calendarTimeMeta.all_day,
       },
     });
   }
@@ -1103,7 +1151,7 @@ async function collectActivityEvidence(
   const [membersRes, memberEmailsRes, projectsRes, aliasesRes] = await Promise.all([
     supabase
       .from("members")
-      .select("member_id, code_name, email, status, google_calendar_status")
+      .select("member_id, code_name, email, status, google_calendar_status, slack_id")
       .eq("status", "active"),
     supabase
       .from("members")
@@ -1157,6 +1205,12 @@ async function collectActivityEvidence(
   );
   const matchProject = buildProjectMatcher(projects, internalEmails);
   const matchMembers = buildMemberMatcher(targetMembers);
+  const slackIdToMemberId = new Map<string, string>();
+  const emailToMemberId = new Map<string, string>();
+  for (const member of targetMembers) {
+    if (member.slack_id) slackIdToMemberId.set(member.slack_id, member.member_id);
+    if (member.email) emailToMemberId.set(member.email.trim().toLowerCase(), member.member_id);
+  }
 
   // メンバー本人の refresh_token (PWA ログインで保存) で per-member Gmail/Calendar を読む。
   // token が無い connected メンバーだけ、従来のまさ代理 calendarList fallback。
@@ -1197,7 +1251,7 @@ async function collectActivityEvidence(
   });
 
   const [sourceCache, gmailLists, memberCalendarLists, fallbackCalendar] = await Promise.all([
-    fetchSourceCacheEvidence(supabase, bounds, matchProject, matchMembers, internalEmails),
+    fetchSourceCacheEvidence(supabase, bounds, matchProject, matchMembers, internalEmails, slackIdToMemberId, emailToMemberId),
     Promise.all(gmailTasks),
     Promise.all(memberCalendarTasks),
     fetchCalendarEvidence(
@@ -1287,6 +1341,7 @@ async function buildActivityRows(
           source_subkind: item.sourceSubkind || null,
           title: item.title,
           source_url: item.sourceUrl || null,
+          ...evidenceTimeMetadata(item.raw),
         })),
         participant_emails: [...new Set(group.evidence.flatMap((item) => item.participantEmails))],
       },
@@ -1446,6 +1501,13 @@ export async function POST(req: NextRequest) {
       if (insertError) throw insertError;
     }
 
+    const effortSync = await syncMemberWeeklyEffortEntries(supabase, {
+      windowStartIso: bounds.startIso,
+      windowEndIso: bounds.endIso,
+      memberId,
+      projectId,
+    });
+
     return NextResponse.json({
       ok: true,
       mode: "codex-synthesis-save",
@@ -1454,6 +1516,7 @@ export async function POST(req: NextRequest) {
       missingGroupIds,
       extraGroupIds,
       saved: rows.length,
+      effortSync,
       preview: rows.slice(0, 20),
     });
   } catch (error) {

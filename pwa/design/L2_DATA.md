@@ -271,7 +271,7 @@ Codex cron sandbox は外向きネットワークが落ちることがあるた�
 |---|---|---|---|---|
 | **D-8** | D-8 **Atlas Signals** | 外部政策・産業・市場シグナルの観測 | `atlas_signals`、派生 `atlas_stories` / `atlas_reports` | Claude routine `amd-os-l2-consolidated-evidence` 対象 (daily)。`POST /api/atlas/signals-ingest` 経由。派生 stories/reports は別系統 |
 | **D-9** | D-9 **Macrotrend Evidence / Index** | macro observation / index / lane weight の根拠 | `observation_log`, `macro_index_log`, 派生 `macro_lane_weights`, `triple_helix_state_log` | routine は外部 observation 収集 (daily)。`macro_index_log` の集計は LLM非依存 → PWA non-LLM cron `macro-aggregate-indicators` |
-| **D-10** | D-10 **Member Activity Evidence** | Dashboard / MyPage「今週やったこと」の根拠 | `member_activities` | Codex automation `amd-os-l2-2` が primary。PWA route は `GET ?mode=evidence` と `POST activities[]` の evidence/write 境界 |
+| **D-10** | D-10 **Member Activity Evidence** | Dashboard / MyPage「今週やったこと」の根拠。Calendarの開始・終了だけから週次実績時間を作り、all-day と Gmail / Slack / Drive は時間換算しない | `member_activities`, `project_weekly_effort_entries(source_kind='inferred')` | Codex automation `amd-os-l2-2` が primary。PWA route は `GET ?mode=evidence` と `POST activities[]` の evidence/write 境界。Slack は actor ID、Drive は編集者/所有者 email が一致した場合のみメンバー帰属する |
 | **D-11** | D-11 **Media Mentions** | メディア掲載・公開露出 | `project_media_mentions` / `news_mention` notifications | Codex `amd-os-d-11` が `POST /api/media-mentions/extract` へ候補化。承認前は非表示 |
 | **W-1** | W-1 **VC News / Funding Signals** | VC・資金調達・投資家動向 | `vc_news` / funding signal tables | Claude routine `amd-os-l2-weekly-vc-funding-signals` 対象 |
 | **M-3** | M-3 **Management Monthly Signal Evaluation** | Management予実表から月末に作る経営シグナル評価 | `company_management_signal_reviews` | Claude routine `amd-os-l2-monthend-evidence` 対象 (= M 群、月末最終日 17:00 完了) |

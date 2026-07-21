@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { Save } from "lucide-react";
 import { EFFORT_CATEGORIES, type EffortCategory, type OsAccessScope } from "@/lib/project-workspace-types";
 
-type MemberOption = { memberId: string; codeName: string };
+type MemberOption = { memberId: string; displayName: string };
 type ManagementMilestoneOption = { id: string; title: string; track: string };
 
 export function EffortEntryForm({
@@ -81,7 +81,7 @@ export function EffortEntryForm({
           className="h-11 rounded-md border border-[#d4ccbd] bg-[#fffdf7] px-3 text-sm text-[#24231f]"
         >
           {selectableMembers.map((member) => (
-            <option key={member.memberId} value={member.memberId}>{member.codeName}</option>
+            <option key={member.memberId} value={member.memberId}>{member.displayName}</option>
           ))}
         </select>
       </label>

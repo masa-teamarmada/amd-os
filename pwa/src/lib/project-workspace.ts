@@ -18,6 +18,7 @@ export type { SxManagementBundle } from "@/lib/sx-management";
 export type CurrentMemberAccess = {
   memberId: string;
   codeName: string;
+  displayName: string;
   email: string;
   isAdmin: boolean;
   scope: OsAccessScope;
@@ -39,6 +40,8 @@ export type ProjectWorkspaceBundle = {
   effort: {
     plannedHours: number;
     actualHours: number;
+    calendarHours: number;
+    enteredHours: number;
     categories: Record<EffortCategory, number>;
     hasEntries: boolean;
     links: Array<{
@@ -52,13 +55,15 @@ export type ProjectWorkspaceBundle = {
   };
   members: Array<{
     memberId: string;
-    codeName: string;
+    displayName: string;
     roleLabel: string | null;
     isLead: boolean;
     evidenceCount: number;
     lastActivityAt: string | null;
     plannedHours: number;
     actualHours: number;
+    calendarHours: number;
+    enteredHours: number;
     categories: Record<EffortCategory, number>;
   }>;
   milestones: Array<{
@@ -69,7 +74,7 @@ export type ProjectWorkspaceBundle = {
     targetYm: string | null;
   }>;
   evidenceByMonth: Array<{ ym: string; count: number }>;
-  evidenceBySource: Array<{ source: string; count: number }>;
+  evidenceBySource: Array<{ source: string; count: number; lastObservedAt: string | null; scope: "member" | "project" }>;
   weeklyTrend: Array<{ weekStart: string; plannedHours: number; actualHours: number }>;
   sxManagement: SxManagementBundle;
 };
@@ -94,7 +99,7 @@ export const getCurrentMemberAccess = cache(async (): Promise<CurrentMemberAcces
 
   const { data: member, error: memberError } = await db
     .from("members")
-    .select("member_id,code_name,email,is_admin,status,os_access_scope,google_calendar_status")
+    .select("member_id,code_name,member_name,email,is_admin,status,os_access_scope,google_calendar_status")
     .ilike("email", authenticatedEmail)
     .maybeSingle();
 
@@ -132,6 +137,7 @@ export const getCurrentMemberAccess = cache(async (): Promise<CurrentMemberAcces
   return {
     memberId: String(member.member_id),
     codeName: String(member.code_name),
+    displayName: String(member.member_name || member.code_name || "氏名未登録"),
     email: String(member.email).toLowerCase(),
     isAdmin: Boolean(member.is_admin),
     scope: member.os_access_scope === "project" ? "project" : "portfolio",
@@ -228,13 +234,15 @@ export async function getProjectWorkspaceBundle(
   const currentMonth = currentJstYm(now);
   const months = recentMonthKeys(6, now);
   const weeks = recentWeekStarts(8, now);
+  const sixMonthStartIso = `${months[0].slice(0, 4)}-${months[0].slice(4, 6)}-01T00:00:00+09:00`;
 
-  const [{ data: project, error: projectError }, { data: membershipRows, error: memberError }, { data: activityRows, error: activityError }, { data: effortRows, error: effortError }, { data: planCycleRows, error: planError }] = await Promise.all([
+  const [{ data: project, error: projectError }, { data: membershipRows, error: memberError }, { data: activityRows, error: activityError }, { data: effortRows, error: effortError }, { data: planCycleRows, error: planError }, { data: sourceCacheRows, error: sourceCacheError }] = await Promise.all([
     db.from("projects").select("project_id,project_name,client_name,status").eq("project_id", projectId).maybeSingle(),
     db.from("project_members").select("member_id,role_label,is_pm,is_pl,is_closer").eq("project_id", projectId).eq("is_active", true),
-    db.from("member_activities").select("member_id,ym,source,item_date").eq("project_id", projectId).gte("ym", months[0]).limit(5000),
-    db.from("project_weekly_effort_entries").select("member_id,week_start,work_category,planned_hours,actual_hours,management_track,management_milestone_id,deliverable_label").eq("project_id", projectId).gte("week_start", weeks[0]).limit(5000),
+    db.from("member_activities").select("member_id,ym,source,item_date,raw_metadata").eq("project_id", projectId).gte("ym", months[0]).limit(5000),
+    db.from("project_weekly_effort_entries").select("member_id,week_start,work_category,planned_hours,actual_hours,source_kind,management_track,management_milestone_id,deliverable_label").eq("project_id", projectId).gte("week_start", weeks[0]).limit(5000),
     db.from("value_plan_cycles").select("plan_cycle_id,status,period_start_ym,period_end_ym").eq("project_id", projectId).order("created_at", { ascending: false }).limit(20),
+    db.from("source_cache").select("source,item_id,item_date").eq("project_id", projectId).gte("item_date", sixMonthStartIso).in("source", ["slack", "drive"]).limit(5000),
   ]);
 
   if (projectError) throw new Error(`project workspace project: ${projectError.message}`);
@@ -243,6 +251,7 @@ export async function getProjectWorkspaceBundle(
   if (activityError) throw new Error(`project workspace activities: ${activityError.message}`);
   if (effortError) throw new Error(`project workspace effort: ${effortError.message}`);
   if (planError) throw new Error(`project workspace plan: ${planError.message}`);
+  if (sourceCacheError) throw new Error(`project workspace source cache: ${sourceCacheError.message}`);
 
   const sxManagement = await getSxManagementBundle(
     projectId,
@@ -250,22 +259,34 @@ export async function getProjectWorkspaceBundle(
   );
 
   const memberIds = Array.from(new Set((membershipRows ?? []).map((row) => String(row.member_id))));
-  let memberNameRows: Array<{ member_id: string; code_name: string }> = [];
+  let memberNameRows: Array<{ member_id: string; member_name: string | null }> = [];
   if (memberIds.length > 0) {
-    const { data, error } = await db.from("members").select("member_id,code_name").in("member_id", memberIds);
+    const { data, error } = await db.from("members").select("member_id,member_name").in("member_id", memberIds);
     if (error) throw new Error(`project workspace member labels: ${error.message}`);
-    memberNameRows = (data ?? []).map((row) => ({ member_id: String(row.member_id), code_name: String(row.code_name) }));
+    memberNameRows = (data ?? []).map((row) => ({
+      member_id: String(row.member_id),
+      member_name: row.member_name ? String(row.member_name) : null,
+    }));
   }
-  const memberNames = new Map(memberNameRows.map((row) => [row.member_id, row.code_name]));
+  const memberDisplayNames = new Map(
+    memberNameRows.map((row) => [row.member_id, row.member_name || "氏名未登録"]),
+  );
 
   const currentEffortRows = (effortRows ?? []).filter((row) => String(row.week_start) === currentWeekStart);
   const totalCategories = emptyCategories();
   let totalPlanned = 0;
   let totalActual = 0;
+  let totalCalendarHours = 0;
+  let totalEnteredHours = 0;
   const effortLinkMap = new Map<string, { track: string | null; milestoneId: string | null; deliverableLabel: string | null; plannedHours: number; actualHours: number }>();
   for (const row of currentEffortRows) {
     totalPlanned += Number(row.planned_hours || 0);
     totalActual += Number(row.actual_hours || 0);
+    if (String(row.source_kind || "") === "inferred") {
+      totalCalendarHours += Number(row.actual_hours || 0);
+    } else {
+      totalEnteredHours += Number(row.actual_hours || 0);
+    }
     addHours(totalCategories, row.work_category, row.actual_hours);
     const track = row.management_track ? String(row.management_track) : null;
     const milestoneId = row.management_milestone_id ? String(row.management_milestone_id) : null;
@@ -284,9 +305,16 @@ export async function getProjectWorkspaceBundle(
     const categories = emptyCategories();
     let plannedHours = 0;
     let actualHours = 0;
+    let calendarHours = 0;
+    let enteredHours = 0;
     for (const row of memberEffortRows) {
       plannedHours += Number(row.planned_hours || 0);
       actualHours += Number(row.actual_hours || 0);
+      if (String(row.source_kind || "") === "inferred") {
+        calendarHours += Number(row.actual_hours || 0);
+      } else {
+        enteredHours += Number(row.actual_hours || 0);
+      }
       addHours(categories, row.work_category, row.actual_hours);
     }
     const lastActivityAt = memberActivityRows
@@ -296,16 +324,18 @@ export async function getProjectWorkspaceBundle(
       .at(-1) ?? null;
     return {
       memberId,
-      codeName: memberNames.get(memberId) || memberId,
+      displayName: memberDisplayNames.get(memberId) || "氏名未登録",
       roleLabel: membership.role_label ? String(membership.role_label) : null,
       isLead: Boolean(membership.is_pm || membership.is_pl || membership.is_closer),
       evidenceCount: memberActivityRows.length,
       lastActivityAt,
       plannedHours: roundHours(plannedHours),
       actualHours: roundHours(actualHours),
+      calendarHours: roundHours(calendarHours),
+      enteredHours: roundHours(enteredHours),
       categories,
     };
-  }).sort((a, b) => Number(b.isLead) - Number(a.isLead) || a.codeName.localeCompare(b.codeName, "ja"));
+  }).sort((a, b) => Number(b.isLead) - Number(a.isLead) || a.displayName.localeCompare(b.displayName, "ja"));
 
   const currentPlan = (planCycleRows ?? []).find((row) => row.status === "active") ?? (planCycleRows ?? [])[0] ?? null;
   let milestones: ProjectWorkspaceBundle["milestones"] = [];
@@ -349,13 +379,63 @@ export async function getProjectWorkspaceBundle(
     ym,
     count: (activityRows ?? []).filter((row) => String(row.ym) === ym).length,
   }));
-  const sourceCounts = new Map<string, number>();
+  const MEMBER_EVIDENCE_SOURCE_KINDS = new Set(["gmail", "calendar", "meeting_summary", "notion"]);
+  const memberEvidenceIdsBySource = new Map<string, Set<string>>();
+  const memberLastObservedBySource = new Map<string, string>();
   for (const row of activityRows ?? []) {
-    const source = String(row.source || "unknown");
-    sourceCounts.set(source, (sourceCounts.get(source) || 0) + 1);
+    const refs = (row as { raw_metadata?: { evidence_refs?: Array<{ source_kind?: string | null; evidence_id?: string | null }> | null } | null }).raw_metadata?.evidence_refs ?? [];
+    const itemDate = row.item_date ? String(row.item_date) : null;
+    for (const ref of refs) {
+      const sourceKind = ref?.source_kind ? String(ref.source_kind) : "";
+      if (!MEMBER_EVIDENCE_SOURCE_KINDS.has(sourceKind)) continue;
+      const evidenceId = ref?.evidence_id ? String(ref.evidence_id) : null;
+      if (!evidenceId) continue;
+      const idSet = memberEvidenceIdsBySource.get(sourceKind) ?? new Set<string>();
+      idSet.add(evidenceId);
+      memberEvidenceIdsBySource.set(sourceKind, idSet);
+      if (itemDate) {
+        const currentLast = memberLastObservedBySource.get(sourceKind);
+        if (!currentLast || itemDate > currentLast) {
+          memberLastObservedBySource.set(sourceKind, itemDate);
+        }
+      }
+    }
   }
-  const evidenceBySource = Array.from(sourceCounts, ([source, count]) => ({ source, count }))
-    .sort((a, b) => b.count - a.count);
+
+  const PROJECT_EVIDENCE_SOURCES = new Set(["slack", "drive"]);
+  const projectEvidenceIdsBySource = new Map<string, Set<string>>();
+  const projectLastObservedBySource = new Map<string, string>();
+  for (const row of sourceCacheRows ?? []) {
+    const source = row.source ? String(row.source) : "";
+    if (!PROJECT_EVIDENCE_SOURCES.has(source)) continue;
+    const itemId = row.item_id ? String(row.item_id) : null;
+    if (!itemId) continue;
+    const idSet = projectEvidenceIdsBySource.get(source) ?? new Set<string>();
+    idSet.add(itemId);
+    projectEvidenceIdsBySource.set(source, idSet);
+    const itemDate = row.item_date ? String(row.item_date) : null;
+    if (itemDate) {
+      const currentLast = projectLastObservedBySource.get(source);
+      if (!currentLast || itemDate > currentLast) {
+        projectLastObservedBySource.set(source, itemDate);
+      }
+    }
+  }
+
+  const evidenceBySource: ProjectWorkspaceBundle["evidenceBySource"] = [
+    ...Array.from(memberEvidenceIdsBySource, ([source, ids]) => ({
+      source,
+      count: ids.size,
+      lastObservedAt: memberLastObservedBySource.get(source) ?? null,
+      scope: "member" as const,
+    })),
+    ...Array.from(projectEvidenceIdsBySource, ([source, ids]) => ({
+      source,
+      count: ids.size,
+      lastObservedAt: projectLastObservedBySource.get(source) ?? null,
+      scope: "project" as const,
+    })),
+  ].sort((a, b) => b.count - a.count);
   const weeklyTrend = weeks.map((weekStart) => {
     const rows = (effortRows ?? []).filter((row) => String(row.week_start) === weekStart);
     return {
@@ -379,6 +459,8 @@ export async function getProjectWorkspaceBundle(
     effort: {
       plannedHours: roundHours(totalPlanned),
       actualHours: roundHours(totalActual),
+      calendarHours: roundHours(totalCalendarHours),
+      enteredHours: roundHours(totalEnteredHours),
       categories: totalCategories,
       hasEntries: currentEffortRows.length > 0,
       links: Array.from(effortLinkMap.values()).map((link) => {
