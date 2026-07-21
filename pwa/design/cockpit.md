@@ -335,6 +335,7 @@ XRL も同パターン (`xrl_feedbacks` → `/api/.../xrl-revise` → 手動 `/v
 - データソースは Seeds テーブル1本 (`org_name='工学院大学'`)。KUTE専用テーブルは作らない。
 - p25 → 研究機関名のスコープ対応は `researchInstitutionSeedsOrgNameForProject()` (`pwa/src/lib/kute-seeds-scoring.ts`) が唯一の定義。他の研究機関PJへ拡張する場合もここに追記する。
 - 表示コンポーネント: `CockpitKuteSeeds.tsx` (一覧で主要比較項目と3群の採点状態まで表示) → `KuteSeedDetailModal.tsx` (長文と8項目の採点内訳を表示する安全な読み取り専用詳細、`internal_notes`/`source_detail` 等の非公開項目は select すらしない `SeedPublicView` ホワイトリスト経由)。
+- 研究者グルーピング (2026-07-21): DB の `seeds` は案件単位のまま変更しないが、比較テーブルの表示は同一機関かつ同じ研究者名のシーズを、研究者名1回のグループヘッダー行の下へまとめる。研究者名は NFKC 正規化・連続空白の単一化・前後空白除去を行う。`researcher_name` が null の行は互いに別グループとして扱い誤統合しない。列ソートはグループ内を並べ替えた上でグループ自体も代表値でソートし、グループを分断しない。ロジックは `groupSeedsByResearcher()` / `sortSeedGroups()` / `countDistinctResearchers()` (`pwa/src/lib/kute-seeds-scoring.ts`、特定研究者名のハードコード無し)。
 - 事業化タイプ (primary 1 + secondary 複数) と 100点スコア内訳 (future 60 / current 30 / kute_support 10、全項目 nullable) の仕様詳細は [`seeds.md`](seeds.md) の「KUTE (p25) PJ cockpit 連携」セクション参照。
 - テスト: `npm run test:kute-seeds-scope` (スコープ境界 / 非公開フィールド除外 / 未評価=null / 未完了群と総合点を数値化しないこと / 満点合計を検証)。
 

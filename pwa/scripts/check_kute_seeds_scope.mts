@@ -6,8 +6,13 @@ import {
   researchInstitutionSeedsOrgNameForProject,
   SEED_COMMERCIALIZATION_TYPE_LABEL,
   SEED_COMMERCIALIZATION_TYPE_ORDER,
+  groupSeedsByResearcher,
+  sortSeedGroups,
+  seedComparisonSortValue,
+  countDistinctResearchers,
 } from "../src/lib/kute-seeds-scoring.ts";
 import { SEED_PUBLIC_VIEW_COLUMNS } from "../src/types/seeds.ts";
+import type { SeedPublicView } from "../src/types/seeds.ts";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 function readSrc(relPath: string): string {
@@ -171,6 +176,122 @@ function readSrc(relPath: string): string {
   assert.ok(!/INSERT INTO seed_sps_assessments/.test(ddl189), "189 が未確認候補へ SPS 評価を捏造投入しています");
   assert.ok(!/https?:\/\//.test(ddl189), "189 に一次ソースの生URLが含まれています");
   assert.ok(/found_count\s*<>\s*1/.test(ddl189), "189 に候補ごとの exactly-one assert がありません");
+}
+
+// 9. 研究者グルーピング (groupSeedsByResearcher / sortSeedGroups / countDistinctResearchers) は
+//    特定の研究者名をハードコードせず、任意の researcher_name で汎用的に動作する
+{
+  function makeSeed(overrides: Partial<SeedPublicView>): SeedPublicView {
+    return {
+      id: "id",
+      title: "title",
+      summary: null,
+      org_name: "工学院大学",
+      researcher_name: null,
+      researcher_title: null,
+      lab_name: null,
+      domain_lane: null,
+      discovery_status: "reviewed",
+      trl: null,
+      brl: null,
+      hrl: null,
+      deep_dive_material_url: null,
+      primary_commercialization_type: null,
+      secondary_commercialization_types: null,
+      envisioned_use_case: null,
+      first_customer_candidate: null,
+      market_size_range: null,
+      market_size_confidence: null,
+      biggest_bottleneck: null,
+      ip_status: null,
+      next_verification_step: null,
+      latest_sps: null,
+      ...overrides,
+    };
+  }
+  function withSps(score: number): SeedPublicView["latest_sps"] {
+    return {
+      evaluated_at: "2026-01-01",
+      status: "ready",
+      score,
+      confidence: null,
+      missing_axes: [],
+      axes: { trl: null, brl: null, grl: null, srl: null, hrl: null },
+      components: { macro: score, potential: score, reach: score, survival: score },
+    };
+  }
+
+  // 9-1. 任意の研究者名が複数シーズを持てば1グループにまとまる。Unicode/空白差も正規化する
+  const seedsA = [
+    makeSeed({ id: "a1", title: "技術A1", researcher_name: " 山田　太郎 ", latest_sps: withSps(0.5) }),
+    makeSeed({ id: "a2", title: "技術A2", researcher_name: "山田 太郎", latest_sps: withSps(0.9) }),
+    makeSeed({ id: "a3", title: "技術A3", researcher_name: "鈴木花子", latest_sps: withSps(0.7) }),
+  ];
+  const groupsA = groupSeedsByResearcher(seedsA);
+  assert.equal(groupsA.length, 2, "同名研究者のシーズが1グループにまとまっていません");
+  const yamada = groupsA.find((g) => g.researcherName === "山田 太郎");
+  assert.ok(yamada, "山田太郎の正規化済みグループが見つかりません");
+  assert.equal(yamada!.seeds.length, 2, "山田太郎のシーズが2件にまとまっていません");
+
+  // 9-2. researcher_name が null の行は互いに別グループ (誤って1グループへ統合しない)
+  const seedsB = [
+    makeSeed({ id: "b1", title: "未登録B1", researcher_name: null }),
+    makeSeed({ id: "b2", title: "未登録B2", researcher_name: null }),
+  ];
+  const groupsB = groupSeedsByResearcher(seedsB);
+  assert.equal(groupsB.length, 2, "researcher_name が null の行同士が誤って1グループに統合されています");
+  assert.ok(
+    groupsB.every((g) => g.seeds.length === 1),
+    "researcher_name が null のグループは各シーズ単独のはずです"
+  );
+
+  // 9-3. 同名でも機関が違えば、別の研究者グループとして扱う
+  const groupsDifferentOrg = groupSeedsByResearcher([
+    makeSeed({ id: "o1", researcher_name: "佐藤一郎", org_name: "工学院大学" }),
+    makeSeed({ id: "o2", researcher_name: "佐藤一郎", org_name: "別の大学" }),
+  ]);
+  assert.equal(groupsDifferentOrg.length, 2, "別機関の同名研究者が誤って統合されています");
+
+  // 9-4. ソートしてもグループ内の全シーズは連続したまま (グループが分断されない)
+  const seedsC = [
+    makeSeed({ id: "c1", title: "技術C1", researcher_name: "高橋義典", latest_sps: withSps(0.2) }),
+    makeSeed({ id: "c2", title: "技術C2", researcher_name: "田中一郎", latest_sps: withSps(0.95) }),
+    makeSeed({ id: "c3", title: "技術C3", researcher_name: "高橋義典", latest_sps: withSps(0.8) }),
+    makeSeed({ id: "c4", title: "技術C4", researcher_name: "高橋義典", latest_sps: withSps(0.4) }),
+  ];
+  const groupedC = groupSeedsByResearcher(seedsC);
+  const sortedDesc = sortSeedGroups(groupedC, (seed) => seedComparisonSortValue(seed, "sps"), -1);
+  const flatIds = sortedDesc.flatMap((g) => g.seeds.map((s) => s.id));
+  const takahashiIdx = flatIds.map((id, i) => (id.startsWith("c1") || id.startsWith("c3") || id.startsWith("c4") ? i : -1)).filter((i) => i >= 0);
+  const isContiguous = takahashiIdx.every((v, i) => i === 0 || v === takahashiIdx[i - 1] + 1);
+  assert.ok(isContiguous, "降順ソートで研究者グループ (高橋義典) の行が分断されています");
+  const sortedAsc = sortSeedGroups(groupedC, (seed) => seedComparisonSortValue(seed, "sps"), 1);
+  const flatIdsAsc = sortedAsc.flatMap((g) => g.seeds.map((s) => s.id));
+  const takahashiIdxAsc = flatIdsAsc
+    .map((id, i) => (id.startsWith("c1") || id.startsWith("c3") || id.startsWith("c4") ? i : -1))
+    .filter((i) => i >= 0);
+  const isContiguousAsc = takahashiIdxAsc.every((v, i) => i === 0 || v === takahashiIdxAsc[i - 1] + 1);
+  assert.ok(isContiguousAsc, "昇順ソートで研究者グループ (高橋義典) の行が分断されています");
+
+  // 9-5. countDistinctResearchers は同一機関内の重複を除き、未登録行は含めない
+  assert.equal(countDistinctResearchers(seedsA), 2, "研究者数のカウントが誤っています");
+  assert.equal(countDistinctResearchers(seedsB), 0, "researcher_name が全て null の場合の研究者数は0のはずです");
+  assert.equal(countDistinctResearchers(groupsDifferentOrg.flatMap((group) => group.seeds)), 2, "別機関の同名研究者は別々に数えるべきです");
+
+  // 9-6. 空配列 (フィルタで全件除外された状態) でも例外を投げず空を返す
+  assert.deepEqual(groupSeedsByResearcher([]), [], "空配列のグルーピングは空配列を返すべきです");
+  assert.deepEqual(sortSeedGroups([], (seed) => seedComparisonSortValue(seed, "sps"), -1), [], "空グループのソートは空配列を返すべきです");
+}
+
+// 10. CockpitKuteSeeds は全研究者に共通のグループヘッダー行と件数表示を持つ
+{
+  const ui = readSrc("../src/components/cockpit/CockpitKuteSeeds.tsx");
+  assert.ok(/groupSeedsByResearcher/.test(ui), "研究者グルーピング関数の利用が見つかりません");
+  assert.ok(/sortSeedGroups/.test(ui), "グループ維持ソート関数の利用が見つかりません");
+  assert.ok(/scope="rowgroup"/.test(ui), "研究者グループの行見出しが見つかりません");
+  assert.ok(/data-researcher-group/.test(ui), "研究者グループの識別属性が見つかりません");
+  assert.ok(/研究者\{researcherCount\}名/.test(ui), "研究者数の集計表示が見つかりません");
+  assert.ok(!/高橋/.test(ui), "研究者グルーピングUIに特定研究者名(高橋)のハードコードが残っています");
 }
 
 console.log("check_kute_seeds_scope.mts: all checks passed");

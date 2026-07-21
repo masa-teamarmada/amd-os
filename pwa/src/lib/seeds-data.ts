@@ -22,6 +22,13 @@ export {
   SEED_COMMERCIALIZATION_TYPE_LABEL,
   SEED_COMMERCIALIZATION_TYPE_ORDER,
   SEED_KUTE_MARKET_CONFIDENCE_LABEL,
+  seedComparisonSortValue,
+  compareSeedSortValues,
+  groupSeedsByResearcher,
+  sortSeedGroups,
+  countDistinctResearchers,
+  type SeedComparisonSortKey,
+  type SeedResearcherGroup,
 } from "@/lib/kute-seeds-scoring";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
