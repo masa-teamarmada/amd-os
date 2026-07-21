@@ -277,7 +277,15 @@ function createFieldsFor(resource: ManagementResource, management: SxManagementB
 }
 
 function hours(value: number) {
-  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+  const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2).replace(/0$/, "");
+}
+
+function displayActor(value: string, memberNames: ReadonlyMap<string, string>) {
+  const label = memberNames.get(value);
+  if (label) return label;
+  if (/^ID\d+$/i.test(value) || /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(value)) return "担当者名未確認";
+  return value || "担当者名未確認";
 }
 
 function formatDate(value: string | null | undefined, fallback = "未設定") {
@@ -751,7 +759,7 @@ function ObjectiveKpiSection({ management, onEdit }: { management: SxManagementB
   );
 }
 
-function MeasurementSection({ management, onEdit }: { management: SxManagementBundle; onEdit: (resource: ManagementResource, id: string) => void }) {
+function MeasurementSection({ management, memberNames, onEdit }: { management: SxManagementBundle; memberNames: ReadonlyMap<string, string>; onEdit: (resource: ManagementResource, id: string) => void }) {
   return (
     <section className="rounded-xl border border-[#d6cebf] bg-[#fffdf7]/95 p-5 sm:p-6" aria-labelledby="measurement-heading">
       <SectionHeader kicker="測定・責任・約束" title="測定・資金・体制・約束の現在値" description="技術試験、資金スナップショット、必須役割、RACI、協力機関の約束履歴を同じPJ台帳から確認するよ。" />
@@ -759,12 +767,12 @@ function MeasurementSection({ management, onEdit }: { management: SxManagementBu
         <div><h3 id="measurement-heading" className="text-sm font-semibold text-[#24231f]">技術試験</h3><div className="mt-3 hidden overflow-x-auto lg:block"><table className="w-full min-w-[900px] border-collapse text-xs"><thead><tr className="border-y border-[#d6cebf] bg-[#f8f5ec] text-left text-[10px] font-semibold text-[#777166]"><th className="px-3 py-2.5">試験</th><th className="px-3 py-2.5">条件</th><th className="px-3 py-2.5">目標 / 実績</th><th className="px-3 py-2.5">反復 / TRL</th><th className="px-3 py-2.5">状態 / 確認</th><th className="px-3 py-2.5">操作</th></tr></thead><tbody>{management.technicalTests.map((test) => <tr key={test.id} className="border-b border-[#e4ddd0]"><td className="px-3 py-3 font-semibold">{test.testName}</td><td className="px-3 py-3">{test.testCondition}</td><td className="px-3 py-3">{test.target ?? "未設定"} / {test.actual ?? "未測定"} {test.unit}</td><td className="px-3 py-3">{test.repetition ?? "未設定"}回 / {test.trlCriterion}</td><td className="px-3 py-3">{technicalStatusLabel(test.status)} / {formatDate(test.measuredOn)}</td><td className="px-3 py-3"><EditAction canManage={management.canManage} onClick={() => onEdit("technical_test", test.id)} /></td></tr>)}</tbody></table></div><div className="mt-3 space-y-3 lg:hidden">{management.technicalTests.map((test) => <article key={test.id} className="rounded-lg border border-[#e4ddd0] bg-[#f8f5ec] p-4"><div className="flex items-start justify-between gap-3"><div><h4 className="text-sm font-semibold">{test.testName}</h4><p className="mt-1 text-[11px] text-[#69665d]">{test.testCondition}</p></div><EditAction canManage={management.canManage} onClick={() => onEdit("technical_test", test.id)} /></div><p className="mt-3 text-xs">目標 {test.target ?? "未設定"} / 実績 {test.actual ?? "未測定"} {test.unit}</p><p className="mt-1 text-[11px] text-[#777166]">TRL {test.trlCriterion} / 状態 {technicalStatusLabel(test.status)} / {formatDate(test.measuredOn)} / 確度 {confidenceLabel(test.confidence)}</p></article>)}</div></div>
         <div className="space-y-5"><div><h3 className="text-sm font-semibold text-[#24231f]">資金スナップショット</h3>{management.fundingSnapshots.map((snapshot) => <article key={snapshot.id} className="mt-3 rounded-lg border border-[#e3c994] bg-[#fbf1dc] p-4"><div className="flex items-start justify-between gap-3"><p className="text-xs font-semibold text-[#765022]">{formatDate(snapshot.snapshotDate)} / 必要額・確保額・未確認額</p><EditAction canManage={management.canManage} onClick={() => onEdit("funding_snapshot", snapshot.id)} /></div><p className="mt-2 text-sm text-[#765022]">{snapshot.requiredAmount ?? "未確認"} / {snapshot.securedAmount ?? "未確認"} / {snapshot.unconfirmedAmount ?? "未確認"}</p><p className="mt-2 text-[11px] leading-5 text-[#765022]">{displayManagementText(snapshot.cashCondition)}</p><p className="mt-1 text-[10px] text-[#8b6e38]">資金残存月数 {snapshot.runwayMonths ?? "未確認"} / 確度 {confidenceLabel(snapshot.confidence)}</p></article>)}</div><div><h3 className="text-sm font-semibold text-[#24231f]">必須役割</h3><div className="mt-3 grid gap-3 sm:grid-cols-2">{management.organizationRoles.map((role) => <article key={role.id} className="rounded-lg border border-[#c9bfd0] bg-[#f1edf3] p-3"><div className="flex items-start justify-between gap-2"><p className="text-xs font-semibold text-[#5f4a66]">{role.roleName}</p><EditAction canManage={management.canManage} onClick={() => onEdit("organization_role", role.id)} /></div><p className="mt-2 text-[11px] text-[#5f4a66]">{role.candidate || "候補未確認"} / {roleStatusLabel(role.status)} / {role.vacancy ? "空席" : "充足"}</p><p className="mt-1 text-[10px] text-[#76637b]">期限 {formatDate(role.dueDate)} / 権限 {role.authority} / 確度 {confidenceLabel(role.confidence)}</p></article>)}</div></div></div>
       </div>
-      <div className="mt-5 grid gap-5 lg:grid-cols-2"><div><h3 className="text-sm font-semibold text-[#24231f]">RACI / 人員容量</h3><div className="mt-3 space-y-2">{management.raci.map((item) => <div key={item.id} className="rounded-lg border border-[#c9bfd0] bg-[#f1edf3] p-3 text-xs"><div className="flex items-start justify-between gap-2"><span className="font-semibold text-[#5f4a66]">{item.responsibilityRole} / {item.stakeholderLabel}</span><EditAction canManage={management.canManage} onClick={() => onEdit("raci", item.id)} /></div><p className="mt-1 text-[#5f4a66]">担当 {item.ownerLabel} / {item.confirmed ? "確認済み" : "未確認"} / 確度 {confidenceLabel(item.confidence)}</p></div>)}{management.raci.length === 0 && <p className="rounded-lg border border-dashed border-[#d6cebf] p-4 text-xs text-[#777166]">RACIはまだ登録されてないよ。</p>}{management.capacity.map((capacity) => <div key={capacity.id} className="rounded-lg border border-[#e4ddd0] bg-[#f8f5ec] p-3 text-xs"><div className="flex items-start justify-between gap-2"><span className="font-semibold">{TRACK_LABELS[capacity.track]} / {capacity.roleLabel}</span><EditAction canManage={management.canManage} onClick={() => onEdit("capacity", capacity.id)} /></div><p className="mt-1 text-[#69665d]">必要 {capacity.requiredPeople}人 / 確認 {capacity.confirmedPeople}人 / 週 {capacity.plannedHoursWeek ?? "未確認"}h / {formatDate(capacity.measurementDate)}</p></div>)}</div></div><div><h3 className="text-sm font-semibold text-[#24231f]">更新監査</h3><div className="mt-3 space-y-2">{management.fieldAudit.slice(0, 6).map((audit) => <div key={audit.id} className="rounded-lg border border-[#e4ddd0] p-3 text-[11px]"><p className="font-semibold text-[#24231f]">{auditEntityLabel(audit.entityType)} / {auditFieldLabel(audit.fieldName)}</p><p className="mt-1 text-[#69665d]">{sourceLabel(audit.source)} / {audit.verifiedBy} / 次回 {formatDate(audit.nextReviewOn)}</p></div>)}{management.fieldAudit.length === 0 && <p className="rounded-lg border border-dashed border-[#d6cebf] p-4 text-xs text-[#777166]">更新監査はまだないよ。</p>}</div></div></div>
+      <div className="mt-5 grid gap-5 lg:grid-cols-2"><div><h3 className="text-sm font-semibold text-[#24231f]">RACI / 人員容量</h3><div className="mt-3 space-y-2">{management.raci.map((item) => <div key={item.id} className="rounded-lg border border-[#c9bfd0] bg-[#f1edf3] p-3 text-xs"><div className="flex items-start justify-between gap-2"><span className="font-semibold text-[#5f4a66]">{item.responsibilityRole} / {item.stakeholderLabel}</span><EditAction canManage={management.canManage} onClick={() => onEdit("raci", item.id)} /></div><p className="mt-1 text-[#5f4a66]">担当 {item.ownerLabel} / {item.confirmed ? "確認済み" : "未確認"} / 確度 {confidenceLabel(item.confidence)}</p></div>)}{management.raci.length === 0 && <p className="rounded-lg border border-dashed border-[#d6cebf] p-4 text-xs text-[#777166]">RACIはまだ登録されてないよ。</p>}{management.capacity.map((capacity) => <div key={capacity.id} className="rounded-lg border border-[#e4ddd0] bg-[#f8f5ec] p-3 text-xs"><div className="flex items-start justify-between gap-2"><span className="font-semibold">{TRACK_LABELS[capacity.track]} / {capacity.roleLabel}</span><EditAction canManage={management.canManage} onClick={() => onEdit("capacity", capacity.id)} /></div><p className="mt-1 text-[#69665d]">必要 {capacity.requiredPeople}人 / 確認 {capacity.confirmedPeople}人 / 週 {capacity.plannedHoursWeek ?? "未確認"}h / {formatDate(capacity.measurementDate)}</p></div>)}</div></div><div><h3 className="text-sm font-semibold text-[#24231f]">更新監査</h3><div className="mt-3 space-y-2">{management.fieldAudit.slice(0, 6).map((audit) => <div key={audit.id} className="rounded-lg border border-[#e4ddd0] p-3 text-[11px]"><p className="font-semibold text-[#24231f]">{auditEntityLabel(audit.entityType)} / {auditFieldLabel(audit.fieldName)}</p><p className="mt-1 text-[#69665d]">{sourceLabel(audit.source)} / {displayActor(audit.verifiedBy, memberNames)} / 次回 {formatDate(audit.nextReviewOn)}</p></div>)}{management.fieldAudit.length === 0 && <p className="rounded-lg border border-dashed border-[#d6cebf] p-4 text-xs text-[#777166]">更新監査はまだないよ。</p>}</div></div></div>
     </section>
   );
 }
 
-function DecisionLoopSection({ management, onEdit }: { management: SxManagementBundle; onEdit: (resource: ManagementResource, id: string) => void }) {
+function DecisionLoopSection({ management, memberNames, onEdit }: { management: SxManagementBundle; memberNames: ReadonlyMap<string, string>; onEdit: (resource: ManagementResource, id: string) => void }) {
   const actionStatus: Record<string, string> = { open: "未着手", in_progress: "進行中", completed: "完了", blocked: "停止" };
   const commitmentStatus: Record<string, string> = { open: "未着手", in_progress: "進行中", completed: "完了", blocked: "停止", cancelled: "取消" };
   return (
@@ -786,7 +794,7 @@ function DecisionLoopSection({ management, onEdit }: { management: SxManagementB
           })}
         </div>
       </div>
-      <div className="mt-5 border-t border-[#e4ddd0] pt-4"><h3 className="text-sm font-semibold text-[#24231f]">更新履歴</h3><div className="mt-3 grid gap-2 md:grid-cols-2">{management.history.slice(0, 8).map((item) => <div key={item.id} className="rounded-lg border border-[#e4ddd0] p-3 text-[11px]"><p className="font-semibold text-[#24231f]">{item.summary}</p><p className="mt-1 text-[#777166]">{auditEntityLabel(item.entityType)} / {formatDate(item.changedOn)} / {item.changedBy}</p></div>)}</div>{management.history.length === 0 && <p className="mt-3 rounded-lg border border-dashed border-[#d6cebf] p-4 text-xs text-[#777166]">更新履歴はまだないよ。</p>}</div>
+      <div className="mt-5 border-t border-[#e4ddd0] pt-4"><h3 className="text-sm font-semibold text-[#24231f]">更新履歴</h3><div className="mt-3 grid gap-2 md:grid-cols-2">{management.history.slice(0, 8).map((item) => <div key={item.id} className="rounded-lg border border-[#e4ddd0] p-3 text-[11px]"><p className="font-semibold text-[#24231f]">{item.summary}</p><p className="mt-1 text-[#777166]">{auditEntityLabel(item.entityType)} / {formatDate(item.changedOn)} / {displayActor(item.changedBy, memberNames)}</p></div>)}</div>{management.history.length === 0 && <p className="mt-3 rounded-lg border border-dashed border-[#d6cebf] p-4 text-xs text-[#777166]">更新履歴はまだないよ。</p>}</div>
     </section>
   );
 }
@@ -818,6 +826,7 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
   const [creating, setCreating] = useState<{ resource: ManagementResource; initialValues?: Record<string, string> } | null>(null);
   const [activeSection, setActiveSection] = useState("management-summary");
   const management = workspace.sxManagement;
+  const memberNames = useMemo(() => new Map(workspace.members.map((member) => [member.memberId, member.displayName])), [workspace.members]);
   const milestoneLabelMap = useMemo(() => buildMilestoneLabelMap(management.milestones), [management.milestones]);
   const editRecord = editing ? recordFor(management, editing.resource, editing.id) : undefined;
   const visibleIssues = selectedTrack ? management.issues.filter((issue) => issue.track === selectedTrack) : management.issues;
@@ -998,9 +1007,9 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
           {management.decisions.length === 0 && <p className="rounded-lg border border-dashed border-[#d6cebf] px-4 py-8 text-center text-sm text-[#777166]">決定事項はまだないよ。</p>}
         </section>
 
-        <DecisionLoopSection management={management} onEdit={(resource, id) => setEditing({ resource, id })} />
+        <DecisionLoopSection management={management} memberNames={memberNames} onEdit={(resource, id) => setEditing({ resource, id })} />
         {management.canManage && <DeletedManagementSection projectId={projectId} onRestored={(nextManagement) => setWorkspace((current) => ({ ...current, sxManagement: nextManagement }))} />}
-        <MeasurementSection management={management} onEdit={(resource, id) => setEditing({ resource, id })} />
+        <MeasurementSection management={management} memberNames={memberNames} onEdit={(resource, id) => setEditing({ resource, id })} />
 
         <section id="management-capacity" className="rounded-xl border border-[#d6cebf] bg-[#fffdf7]/95 p-5 sm:p-6" aria-labelledby="capacity-heading">
           <SectionHeader kicker="CAPACITY / WEEKLY EFFORT" title="実行能力と週次エフォート" description="週次エフォートは主役から下げ、体制の不足と入力データの鮮度を確認する面へ移したよ。AMD OS側の入力対象と研究側メンバーを混同しない。" />
