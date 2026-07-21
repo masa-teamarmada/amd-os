@@ -73,7 +73,7 @@ Codex 側の日次集約は H-1本体から分離し、**毎時45分の H-1 revi
 - 毎時runの最後は、sanitized報告をローカル `reports/` と automation memory に確定してからOS通知へ送る。OS通知成功後、`/Users/masa/.codex/automations/amd-os-l6-meeting-flow/run_state/completed/$CODEX_THREAD_ID.json` に `thread_id`、`state='reported'`、`reported_at_jst` を保存する。**その次操作は `node pwa/scripts/archive_stale_h1_codex_threads.mjs --thread-id "$CODEX_THREAD_ID"` だけ**とし、日次送信・追加調査・説明commentary・別tool callを挟まない。
 - 非LLM LaunchAgent `jp.teamarmada.codex-h1-thread-watchdog` は、sanitized報告を確定済みの完了markerがあるrunをsession実体の有無にかかわらず回収する。完了markerのないrunは自動で閉じず、`unreported` として残留を可視化する。raw本文、他automation、日次まとめは対象にしない。
 - OS通知が失敗した場合は原因を見える化する。完了markerを書かず、次回runで配送を再試行できる状態を残す。
-- reviewer は `reports/` の未集約sanitized報告とレビュワー結果を、その日の `H-1 YYYY-MM-DD 日次まとめ` へまとめて送る。詳細は `pwa/scheduled-tasks/amd-os-l6-meeting-reviewer/SKILL.md` を見る。
+- reviewer は `reports/` の未集約sanitized報告とレビュワー結果を、reviewer自身のローカルreport・集約台帳・automation memoryへ確定する。日次まとめtaskは作らない。詳細は `pwa/scheduled-tasks/amd-os-l6-meeting-reviewer/SKILL.md` を見る。
 
 ## 候補がある時に必ず Read
 
