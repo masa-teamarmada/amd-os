@@ -2,86 +2,79 @@
 
 Last updated: 2026-07-21 JST
 
-Topic: 司令塔06 → 司令塔07 — 承認済みあらすじを北極星に全15章を通しドラマへ磨く
+Topic: 司令塔07事故復旧 → 司令塔08起動準備
 
 Working root: `/Users/masa/projects/AMD/amd-os`
 
 BZM root: `/Users/masa/projects/AMD/amd-os/pwa/bzm`
 
-## Summary
+## Current Truth
 
-- まさは短いネタバレ版あらすじ「空欄を埋める人」を承認し、「これで進めよう」と決定した。
-- 承認全文を `BOOK_A_SCENARIO_DRAFT_3.md` 冒頭へ北極星として固定した。次工程は、この感情曲線、速度、爽快感を全15章の設計と本文へ実装することである。
-- 主人公は柏木美咲一人。複数PJと複数人物は、美咲の選択、損失、関係、権限の変化へ収束させる。群像劇、オムニバス、旧見届け人設計へ戻さない。
-- 全理論を物語の背景へ含める。各章の中心理論だけでなく、`BOOK_A_MASTER_PLAN.md` §9のwas、therefore、数式、導出、発展Boxを、A・B・C PJにおける比較、計算、検証、棄却、説明へ使う。
-- 終着点は成長とハッピーエンドである。URAが憧れられる職業になり、AMD型独立主体がBefore Zeroに欠けていた仕事だと、売上、判断時間、顧客、雇用、研究、再依頼、制度化、後進の選択から伝わる形にする。
-- 現実性、公平性、権限境界は基礎条件である。守りの否定文を前面へ出し、主人公の勢い、快進撃、感情的報酬を弱めてはならない。
+- 司令塔07が作った未commit事故稿17ファイルは、`/Users/masa/.codex/cleanup_archives/book-a-commander07-20260721-094425-JST/`へ証拠保全済み。正本は事故前へ復旧した。事故稿は入力・素材として読まない、再利用しない。
+- Book Aの理論、数式、定義、例、引用、演習、Scenario、Character Bible、理論正本はcommit `236ca1b5e668df4925e3147debb290ecfbd2080f`を内容baselineとして固定する。
+- operational HEADは別レーンのcommitで進むことがある。最新git HEADとBook A内容baselineを混同しない。
+- 初期改稿対象は章頭ナラティブと、依頼で明示した接続文だけ。理論変更はまさの別承認後に限る。
+- 本文執筆・リライト・代筆はFableだけ。Codex/Solは批評、監査、差分、数式検算、機械統合に限定する。
 
-詳細記録は `pwa/design_log/sessions_2026-07.md` の「2026-07-21 Book A 承認済みあらすじ固定・司令塔06→07 handoff」を参照する。
+## Commander Boundary
 
-## Current Canonical Truth
+- 司令塔は実務を一切担わない。
+- 司令塔はsubagent、create_thread、spawn_taskその他のworkerを一切起動しない。
+- 実務は必ず司令塔と独立した別セッションが担う。
+- 司令塔へ戻すのは、まさの判断点、検証済み成果物、最終closeoutだけ。進捗ログと生成本文を流さない。
+- 司令塔08の唯一のcanonical startup promptはrepo rootの`/Users/masa/projects/AMD/amd-os/SESSION_MIGRATION_PROMPT.md`。BZM側の`SESSION_MIGRATION_PROMPT.md`はポインタだけを持つ。
 
-1. `BOOK_A_SCENARIO_DRAFT_3.md` — 承認済みあらすじ、五幕、全15章の因果設計、理論coverage
-2. `BOOK_A_CHARACTER_BIBLE.md` — 柏木美咲と全人物の人物正本
-3. `BOOK_A_INDEPENDENT_AGENCY.md` — AMD型独立主体、研究主権、資金からの非捕捉
-4. `BOOK_A_MASTER_PLAN.md` — 15章の理論順序、数式、was／therefore、執筆規律
+## Fable Launcher Gate
 
-`BOOK_A_STORY_WORLD.md`、`BOOK_A_NARRATIVE_DESIGN.md`、`BOOK_A_CHARACTER_NAMES.md`、Draft 1／2は2026年7月20日に全面失効した履歴資料であり、部品を再利用しない。
+launcher: `/Users/masa/projects/AMD/amd-os/pwa/scripts/book_a_fable_launcher.mjs`
 
-## Non-negotiable Gates
+検査script: `/Users/masa/projects/AMD/amd-os/pwa/scripts/check_book_a_fable_launcher.mjs`
 
-1. 柏木美咲が全15章を貫く唯一の主人公である。
-2. 各章は前章の帰結から始まり、美咲の不可逆な選択を通って、次章でしか回収できない問いを残す。
-3. 美咲は明るさ、速度、翻訳、招集力を失わず、能動的な非主体から限定権限、自己損失、異論義務、返却期限を持つ独立主体へ成長する。
-4. 「助言した人は、株を失わない」を前半から後半への感情的転換点にする。
-5. 誤判断後を縮こまる反省譚にせず、記名訂正、電話、再招集から快進撃へ切り替える。
-6. Ch15は条件違反を守っただけで閉じず、顧客、雇用、研究、次の試験を残し、真一の自己署名へつなぐ。
-7. エピローグは大学による専門職化、菜月の職業選択、新URAの最初の電話、美咲の「よし。じゃあ次の人も、今日つないじゃおう」で閉じる。
-8. 研究主権と正式決定者を守るが、注意書きの羅列でドラマを止めない。
+launcherは次を固定する。
 
-## Unresolved Tasks
+- 現行15章allowlistのうち1章だけ
+- `model=fable`、`effort=max`、`max-budget-usd=5.00`
+- fallbackなし、自動再試行なし、1 job=1 chapter
+- `--safe-mode --permission-mode dontAsk --tools Read --no-chrome`
+- repo内はRead-only、events/draft/manifest/verificationはrepo外job dir
+- schemaの`chapter_id` / `artifact_kind` / `theory_touch=false`をconst化
+- `236ca1b5`に対する対象章と上位正本のblob一致
 
-1. **最優先**: `BOOK_A_SCENARIO_DRAFT_3.md` を、承認済みあらすじの感情曲線と爽快感を全15章で体験できる通しドラマへ磨く。
-2. 15章本文を現行Scenario Draft 3へ全面追随させる改稿設計を作る。旧章頭ナラティブは白紙化済みであり、局所的な差し替えや旧場面の救済から始めない。
-3. 各章で全理論coverageと物語上の因果を照合し、講義パートがドラマを中断しない章内接続を設計する。
-4. 設計合格後、全15章本文を順次執筆・再執筆し、kaku規範で通読監査する。
+採用gateは、synthetic event除外後のunique modelが`claude-fable-5`だけ、費用が上限以内、session単一、result単一success、schema一致、`theory_touch=false`、実行前後repo fingerprint一致。どれか一つでも違えば不採用で、再実行しない。
 
 ## First Next Action
 
-司令塔07は、最初にrootの `SESSION_MIGRATION_PROMPT.md` の順で正本を読む。
+司令塔08は最初にrootの`SESSION_MIGRATION_PROMPT.md`を読む。
 
-その後、実作業を自分で抱えず、別ワーカーへ次の一件を委譲する。
+その後、まさまたは上位ルータへ次の1件だけを依頼する。
 
-> 承認済みあらすじ「空欄を埋める人」を北極星として、`BOOK_A_SCENARIO_DRAFT_3.md` の全15章をコールドリードし、どこで感情曲線が途切れるか、どこで守りの否定文が勢いを殺すか、どこで理論説明がドラマを止めるかを厳しく診断する。旧ナラティブは参照せず、具体的な再設計案を章横断で返す。正本編集は司令塔レビュー後の別ワーカー工程とする。
+> 独立したCh1 Fable launcher workerセッションを1件だけ作る。Fableはrepo外draftだけを生成し、repo正本へ書かない。まさがCh1を確認するまでCh2を起動しない。
 
-司令塔は成果を正本で検証し、北極星との一致を判断する。
+司令塔自身は独立セッションを起動せず、launcherを操作せず、Fableを実行しない。
 
-## Repo State
+## Repo / Deploy Boundary
 
-- Branch: `main`。新branch／worktreeは禁止。
-- handoff作業の最終同期時点のHEADと`origin/main`: `9d3f6e71`で一致。
-- このhandoff bundleのcommitは、このファイルを含む最新の`origin/main`を`git log -1 --oneline`で確認する。
-- handoff開始時にあったH-1レーンの無関係dirty 4件は、同レーンが`9d3f6e71`までにcommit／pushした。このhandoff作業では内容変更、stage、restoreをしていない。
-- 最終同期時点で、対象5ファイル以外のdirtyはない。
-- 対象ファイルだけをstage／commitする。`git add .`、`git add -A`は禁止。
+- branchは`main`だけ。branch/worktreeを作らない。
+- target file only stage。`git add .` / `git add -A`は禁止。
+- PWA production反映はofficial deploy scriptだけ。`npx vercel`は禁止。
+- liveなHEAD、origin/main、production build-info、dirtyはcloseout時に再取得する。固定値としてhandoffへ写さない。
 
 ## Pointers
 
-- 司令塔07用プロンプト: `/Users/masa/projects/AMD/amd-os/SESSION_MIGRATION_PROMPT.md`
-- 承認済みあらすじと全15章設計: `BOOK_A_SCENARIO_DRAFT_3.md`
-- 人物正本: `BOOK_A_CHARACTER_BIBLE.md`
-- 独立主体正本: `BOOK_A_INDEPENDENT_AGENCY.md`
-- 理論・章順正本: `BOOK_A_MASTER_PLAN.md`
-- 変更履歴: `9-5-appendix-changelog.md`
-- セッション記録: `../design_log/sessions_2026-07.md`
-- 過去バグ・教訓: `../BUGS.md`
+- canonical startup prompt: `/Users/masa/projects/AMD/amd-os/SESSION_MIGRATION_PROMPT.md`
+- master status board: `COMMANDER_TASKS.md`
+- Fable launcher: `../scripts/book_a_fable_launcher.mjs`
+- launcher tests: `../scripts/check_book_a_fable_launcher.mjs`
+- change history: `9-5-appendix-changelog.md`
+- session record: `../design_log/sessions_2026-07.md`
+- incident record: `../BUGS.md`
 
 ## Design Sync Inventory
 
-| 変更 | 正本 | session log | manual同期 |
+| 変更 | 正本 | 検査 / 履歴 | manual/spec同期 |
 |---|---|---|---|
-| 承認済みあらすじと北極星 | `BOOK_A_SCENARIO_DRAFT_3.md` | `sessions_2026-07.md` | 対象外 |
-| 司令塔06→07の現在地 | 本HANDOFF | `sessions_2026-07.md` | 対象外 |
-| 次セッション開始手順 | root `SESSION_MIGRATION_PROMPT.md` | `sessions_2026-07.md` | 対象外 |
+| 司令塔08の役割・起動手順 | root `SESSION_MIGRATION_PROMPT.md` | `COMMANDER_TASKS.md` / 本HANDOFF | 対象外 |
+| Fable 1章launcher gate | `pwa/scripts/book_a_fable_launcher.mjs` | `check_book_a_fable_launcher.mjs` / `9-5-appendix-changelog.md` | 対象外 |
+| 司令塔07事故 | `pwa/BUGS.md` | `sessions_2026-07.md` | 対象外 |
 
-対象外理由: 今回はBook Aの原稿・物語設計・出版司令塔運用だけを更新し、AMD OSのランタイム、利用者導線、操作仕様を変更しないため。
+対象外理由: 今回はBook Aの出版運用とローカルlauncherの安全境界だけを変更し、AMD OSのランタイム、画面、API、DB、利用者導線、操作仕様を変更しないため。manual/specの二重記載は行わない。

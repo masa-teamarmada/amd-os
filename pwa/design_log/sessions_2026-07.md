@@ -1778,3 +1778,38 @@ Book A執筆規範 (japanese-tech-writing + cognitive-rhythm-writing) をSESSION
 | BZM変更履歴 | `pwa/bzm/9-5-appendix-changelog.md` | 本節 | 対象外 |
 
 対象外理由: Book A原稿、物語設計、出版司令塔運用だけを更新し、AMD OSのランタイム、利用者導線、操作仕様を変更していないため。
+
+---
+
+## 2026-07-21 Book A 司令塔07事故復旧・司令塔08起動ガード
+
+### 事故と復旧
+
+- 司令塔07の未commit事故稿17ファイルはrepo外cleanup archiveへ証拠保全済みで、正本は事故前へ復旧した。事故稿はこの作業で読まず、入力・素材にも使っていない。
+- 原因は、①06 handoffでFable gateが落ちた、②改稿範囲を章頭ナラティブと明示接続文へ限定しなかった、③07がsubagentで大量実務を行って司令塔ログを埋没させた、④handoff監査が旧確定ルールの消失を検査しなかった、の4点に分解した。
+- `pwa/BUGS.md`へ症状、原因、対応、再発防止を記録した。
+
+### 司令塔08の境界
+
+- 司令塔は実務を一切担わず、subagent/create_thread/spawn_taskも一切起動しない。実務は独立した別セッションだけが担う。
+- 司令塔へ戻すものを、まさの判断点、検証済み成果物、最終closeoutの3種類に限定した。進捗ログと生成本文は戻さない。
+- 司令塔08のcanonical startup promptをrepo rootの`SESSION_MIGRATION_PROMPT.md`へ一本化し、`pwa/bzm/SESSION_MIGRATION_PROMPT.md`は明示ポインタに縮退した。
+- 最初の一手を「独立したCh1 Fable launcher workerセッションを1件だけ作る。repo外draftのみ。まさ確認までCh2を起動しない」に固定した。
+
+### Fable launcher
+
+- `pwa/scripts/book_a_fable_launcher.mjs`を新設した。現行15章allowlist、1 job=1 chapter、baseline `236ca1b5` blob一致、model=fable、USD 5.00、fallback/自動再試行なし、Read-only、repo外job dirを固定する。
+- Nodeの`spawn()`を`shell:false`で直接使い、stdout/stderrをshell redirectionなしでrepo外の`events.jsonl` / `stderr.log`へ保存する。
+- JSON Schemaは`chapter_id`、`artifact_kind=chapter_narrative_patch`、`theory_touch=false`をconst化し、編集種別を章頭ナラティブと明示接続文だけに限定した。
+- 採用gateは、synthetic除外後unique model、費用、session、単一success、schema、theory_touch、実行前後repo fingerprintを検査する。一つでも不一致なら不採用で再実行しない。
+- このセッションではFableを実行していない。dry-runと偽events fixtureだけで正常系、model mismatch、cost over、theory_touch=true、repo driftを検査する。
+
+### 設計変更棚卸し
+
+| 変更 | 正本 | session log / guard | manual/spec同期 |
+|---|---|---|---|
+| 司令塔08起動規律 | root `SESSION_MIGRATION_PROMPT.md` / `pwa/bzm/COMMANDER_TASKS.md` | 本節 / HANDOFF | 対象外 |
+| Fable launcher運用 | `pwa/scripts/book_a_fable_launcher.mjs` | test script / BZM附則 | 対象外 |
+| 司令塔07事故 | `pwa/BUGS.md` | 本節 | 対象外 |
+
+対象外理由: Book Aの出版運用とローカルlauncherの安全境界だけを変更し、AMD OSのランタイム、画面、API、DB、利用者導線、操作仕様を変更していないため。manual/specへ同じ運用を重複記載しない。

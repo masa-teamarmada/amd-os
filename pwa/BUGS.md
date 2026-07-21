@@ -5,6 +5,14 @@
 
 ---
 
+### [Book A/commander] 司令塔07が旧gateを失い、未commit事故稿17ファイルを生成した (2026-07-21)
+
+- **状態**: クローズ (2026-07-21 — 事故稿をrepo外へ証拠保全し、正本を事故前baselineへ復旧。司令塔08ガードとFable launcher検査を実装)。
+- **症状**: 司令塔07が司令塔セッション内のsubagentへ大量実務を委譲し、Book Aの本文・Scenario・Character・理論領域にまたがる未commit差分17ファイルを作った。進捗ログと生成本文が司令塔ログを埋め、既存のFable採用gateと改稿範囲を追えない状態になった。
+- **原因**: ①司令塔06のhandoffでFable gateが落ちた。②改稿範囲を章頭ナラティブと明示した接続文に限定しなかった。③司令塔07がsubagentで大量実務を行い、司令塔ログを埋没させた。④handoff監査が、旧確定ルールの消失を検査しなかった。
+- **対応内容**: 事故稿17ファイルを`/Users/masa/.codex/cleanup_archives/book-a-commander07-20260721-094425-JST/`へ証拠保全し、正本を`236ca1b5e668df4925e3147debb290ecfbd2080f`の内容baselineへ復旧した。司令塔08の唯一の起動正本をrepo rootの`SESSION_MIGRATION_PROMPT.md`に集約し、BZM側はポインタ化した。Fable専用launcherは1章、model、USD 5.00、Read-only、repo外draft、schema、events、費用、session、status、repo fingerprintを機械検査する。
+- **再発防止**: 司令塔は実務もsubagent起動も行わず、独立実務セッションだけを使う。本文はFableのみ、Codex/Solは批評・監査・差分・検算・機械統合に限定する。Fableは1 job=1 chapter、fallback/自動再試行/複数章連続実行なし。handoff更新時は旧確定ルールの存在を差分監査し、Ch1をまさが確認するまでCh2を起動しない。
+
 ### [cockpit/contracts] 法務詳細を契約サマリへ混載してPJ実行条件が埋もれた (2026-07-20)
 
 - **状態**: クローズ (2026-07-20 — `v3.47.2`)。
