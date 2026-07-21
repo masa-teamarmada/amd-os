@@ -104,6 +104,27 @@ export interface MonthlyWorkAgreementRecord {
   currentHash: string | null;
   invalidatedAt?: string | null;
   invalidationReason?: string | null;
+  /** Raw snapshot_json as stored — shape depends on schemaVersion at agreement time, may be v1/legacy/unknown. */
+  snapshotJson?: unknown;
+}
+
+export interface MonthlyAgreementChangeItem {
+  label: string;
+  before: string;
+  after: string;
+}
+
+export interface MonthlyAgreementChangeGroup {
+  projectId: string;
+  projectName: string;
+  changes: MonthlyAgreementChangeItem[];
+}
+
+export interface MonthlyAgreementSnapshotDiff {
+  comparable: boolean;
+  count: number;
+  groups: MonthlyAgreementChangeGroup[];
+  note: string | null;
 }
 
 export interface MonthlyWorkAgreementBundle {
@@ -117,6 +138,8 @@ export interface MonthlyWorkAgreementBundle {
   tableReady: boolean;
   canAgree: boolean;
   exclusionReason?: string | null;
+  /** Diff of current snapshot vs. the last agreed snapshot; only meaningful when status === "needs_reagreement". */
+  changeSummary: MonthlyAgreementSnapshotDiff | null;
 }
 
 export interface AdminMonthlyWorkAgreementRow {

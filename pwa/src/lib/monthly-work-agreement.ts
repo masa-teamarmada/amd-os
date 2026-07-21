@@ -21,6 +21,7 @@ import type {
   MonthlyWorkAgreementRecord,
   MonthlyWorkAgreementSnapshot,
 } from "@/lib/monthly-work-agreement-types";
+import { diffMonthlyAgreementSnapshots } from "@/lib/monthly-work-agreement-diff";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -428,6 +429,7 @@ function toAgreementRecord(row: JsonRecord): MonthlyWorkAgreementRecord {
     currentHash: typeof row.current_hash === "string" ? row.current_hash : null,
     invalidatedAt: typeof row.invalidated_at === "string" ? row.invalidated_at : null,
     invalidationReason: typeof row.invalidation_reason === "string" ? row.invalidation_reason : null,
+    snapshotJson: row.snapshot_json,
   };
 }
 
@@ -526,6 +528,7 @@ export async function buildMonthlyWorkAgreementBundle(
       tableReady: true,
       canAgree: false,
       exclusionReason: "月初合意の導入前/移行月のため、この月の合意は不要です。",
+      changeSummary: null,
     };
   }
 
@@ -556,6 +559,7 @@ export async function buildMonthlyWorkAgreementBundle(
       tableReady: true,
       canAgree: false,
       exclusionReason: "支払通知対象外メンバーのため、月初合意は不要です。",
+      changeSummary: null,
     };
   }
 
@@ -942,7 +946,7 @@ export async function buildMonthlyWorkAgreementBundle(
   let tableReady = true;
   const { data: agreementData, error: agreementError } = await supabase
     .from("member_monthly_work_agreements")
-    .select("id, ym, member_id, status, agreed_at, agreed_by, snapshot_hash, current_hash, invalidated_at, invalidation_reason")
+    .select("id, ym, member_id, status, agreed_at, agreed_by, snapshot_json, snapshot_hash, current_hash, invalidated_at, invalidation_reason")
     .eq("ym", ym)
     .eq("member_id", params.memberId)
     .in("status", ["agreed", "superseded", "revoked"])
@@ -991,6 +995,10 @@ export async function buildMonthlyWorkAgreementBundle(
     tableReady,
     canAgree: tableReady && (!params.viewerMemberId || params.viewerMemberId === params.memberId),
     exclusionReason: null,
+    changeSummary:
+      agreementStatus === "needs_reagreement"
+        ? diffMonthlyAgreementSnapshots(latestAgreement?.snapshotJson, snapshot)
+        : null,
   };
 }
 

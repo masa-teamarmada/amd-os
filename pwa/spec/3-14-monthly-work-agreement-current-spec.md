@@ -103,6 +103,26 @@ projectPlannedRewardYen = Σ msPlannedRewardYen
 
 `currentHash = sha256(stableJson(snapshot_json))`。`latestAgreement.snapshotHash !== currentHash` のとき `needs_reagreement`。
 
+### 再合意時の変更点表示 (`今回の変更点`)
+
+`needs_reagreement` の画面には、hash が変わった理由を本人が読める形で表示する (2026-07-21 実装)。
+
+- `buildMonthlyWorkAgreementBundle` は `member_monthly_work_agreements` select に `snapshot_json` を含め (`MonthlyWorkAgreementRecord.snapshotJson: unknown`)、latest agreed record の生 snapshot を保持する
+- `src/lib/monthly-work-agreement-diff.ts` の `diffMonthlyAgreementSnapshots(previous: unknown, current: MonthlyWorkAgreementSnapshot)` が純粋関数として差分を計算する。React/Next への依存なし
+  - `previous` が `schemaVersion === "monthly_work_agreement.v2"` かつ `projects` が配列の形 (`isV2Snapshot` type guard) でなければ `comparable:false` を返し、`note` に「前回合意時の記録が見つからない / 記録形式が古い」旨のフォールバック文言を入れる。旧 v1 snapshot や欠損データで例外を投げない
+  - `comparable:true` のときは `member`/`totals` を「全体」グループ、PJ (`projectId`) 単位でそれ以外を比較する。両スナップショットの hash 対象フィールド (`ym` / `member.memberId` / `member.codeName` / `member.email` / `member.isAdmin` / `member.excludeFromPayoutNotice` / `totals.*` / project の全フィールド / milestone の全フィールド / `payoutSchedule` の全フィールド) をフルカバーで比較し、対象PJ・担当MS・支払予定エントリの追加/削除も検出する。文字列配列系フィールドは `Array.isArray` チェックで非配列値を安全に空配列へ正規化してから比較する。結果は `MonthlyAgreementChangeItem[]` (`label` / `before` / `after`、いずれも表示用に整形済み文字列。円は `¥100,000` 形式、割合は `%` 形式)
+  - `MonthlyWorkAgreementBundle.changeSummary` (= `MonthlyAgreementSnapshotDiff | null`) は `status === "needs_reagreement"` のときだけ `diffMonthlyAgreementSnapshots(latestAgreement?.snapshotJson, snapshot)` の結果、それ以外は `null`
+- UI (`MonthlyAgreementExperience.tsx`) は `bundle.status === "needs_reagreement" && bundle.changeSummary` のとき、ステータスバナー (`data-testid="monthly-agreement-status"`) の直後・`RequiredChecksSection` の直前に `ChangeSummarySection` (`data-testid="monthly-agreement-change-summary"`) を挿入する
+  - 見出し「今回の変更点」+ `data-testid="monthly-agreement-change-count"` に件数 (`◯件`)
+  - `comparable:false` のときは `note` のフォールバック文言のみ表示 (差分の詳細は出さない)
+  - `comparable:true && count===0` のときは「前回合意時と現在の合意内容に差があります」と表示する (hash はフル比較対象なので、count===0 は原則 hash 一致=変化なしのケース。UI 側はこの文言を hash-mismatch のフォールバック表示として扱う。**記録ID/レコードIDには一切言及しない**)
+  - `comparable:true && count>0` のときは PJ ごとにカード化し、各変更を「ラベル (stacked) → 前回/今回を並べた `min-w-0` グリッド (矢印区切り)」で表示。PJ名・ラベル・値はすべて `break-words` (モバイル最優先、`truncate` は使わない)。前回/今回グリッドはモバイルでは `grid-cols-1` の縦積みレイアウト (前回→矢印→今回)、`sm:` 以上で `grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]` の横並びに切り替える。矢印アイコンはモバイルで90度回転 (下向き)、`sm:` 以上で水平方向に戻す
+  - 変更値は生の技術値 (`active` / `budget_confirmed` / `reward_cache` 等) をそのまま出さず、`monthly-work-agreement-diff.ts` の日本語ラベル関数 (project status / billing・payout status / allocation status / amountSource) で整形してから表示する
+  - **生 JSON・生 hash 文字列は一切表示しない** (「参考情報」内の `記録ID {hash.slice(0,10)}` は既存仕様のまま変更なし)
+- hash 計算式・`stableJson`・支払 gate ロジック (`monthly-work-agreement-payout-gate.ts`) には一切手を入れていない
+- admin 一覧 API (`GET /api/admin/monthly-work-agreements`) は `latestAgreement.snapshotJson` をレスポンスから除去 (`snapshotJson: undefined`) する。`changeCount` フィールドは admin 画面で未使用のため API レスポンス・`AdminMonthlyWorkAgreementRow` 型から削除済み (`needs_reagreement` の件数は本人画面の `ChangeSummarySection` 側で表示)
+- 単体テスト: `scripts/check_monthly_agreement_diff.mts` (`npm run test:monthly-agreement-diff`)。null/legacy previous のフォールバック、PJ/MS追加削除、各フィールド変更、完全一致、`snapshot`/`member`/`totals`/`project`/`milestone`/`payoutSchedule` 全フィールドの table-driven mutation coverage、壊れた nested v2 (member欠落・projects非配列・milestone欠損フィールド) の comparable:false フォールバック
+
 ## DB Contract
 
 `member_monthly_work_agreements`:

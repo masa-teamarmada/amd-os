@@ -1539,7 +1539,7 @@ expectIncludes(
     "条件更新あり",
     "対象外",
     "担当内容と予定額の確認・合意がまだ完了していません。",
-    "前回合意後に担当内容または予定額が更新されたので最新内容を再確認",
+    "前回合意後に合意内容が更新されたので最新内容を再確認",
     "この内容で合意済み",
     "この月は対象外",
     "合意状態：",
@@ -1554,6 +1554,9 @@ expectIncludes(
     "参考情報",
     "PJごとの支払い状況",
     "monthly-agreement-status",
+    "monthly-agreement-change-summary",
+    "monthly-agreement-change-count",
+    "今回の変更点",
     "monthly-agreement-required-checks",
     "monthly-agreement-scope-section",
     "monthly-agreement-reward-section",
@@ -1605,6 +1608,7 @@ expectPattern(
   [
     /onClick=\{handleAgree\}[\s\S]{0,2200}内容が違う場合は修正要望/,
     /data-testid="monthly-agreement-status"[\s\S]{0,2000}<RequiredChecksSection[\s\S]{0,2000}data-testid="monthly-agreement-agree-button"[\s\S]{0,9000}参考情報/,
+    /data-testid="monthly-agreement-status"[\s\S]{0,1500}<ChangeSummarySection[\s\S]{0,500}<RequiredChecksSection/,
     /data-testid="monthly-agreement-required-checks"[\s\S]{0,2000}data-testid="monthly-agreement-scope-section"[\s\S]{0,3000}data-testid="monthly-agreement-reward-section"/,
   ],
 );

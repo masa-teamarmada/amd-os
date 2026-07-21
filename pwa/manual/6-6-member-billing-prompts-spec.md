@@ -52,6 +52,7 @@ PWA 側で `member_allocations_json` を再計算しない。 正本ロジック
 | 修正要望 | `member_monthly_work_agreement_requests` |
 | admin確認 | `/admin/monthly-work-agreements?ym=YYYYMM` |
 | hash差分 | 前回 `snapshot_hash` と現在 snapshot hash が違えば `条件更新あり` |
+| 変更点表示 | `条件更新あり` 時、ステータスバナー直後・`01`/`02` 必須確認の手前に「今回の変更点」を表示。前回合意時の `snapshot_json` (v2形式) と現在snapshotを、hash対象の全フィールド (member/totals/project/milestone/支払予定) にわたってPJ単位で純粋関数比較し、件数＋PJごとの「前回 → 今回」を示す。PJ名・値は省略せず全文折り返し (モバイル優先)。前回記録が無い/旧形式なら比較不可の理由メッセージのみ。生JSON・生hashは出さない |
 
 合意は「当月の担当内容と予定額を確認した」監査 snapshot。本人が必ず確認するのは「PJごとの担当内容」と「その対価としての予定額」の2点。月次の到達目標は現在の snapshot に無いため、MS名を到達目標として表示しない。未合意または条件更新ありのままでは、その稼働月の支払いに進めない。`reward_summary_json`、`member_allocations_json`、MS進捗、担当shareを読むだけで、報酬計算を再実行したり値を書き換えたりしない。
 

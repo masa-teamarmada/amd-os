@@ -36,7 +36,9 @@ export async function GET(req: NextRequest) {
       member: bundle.member,
       status: bundle.status,
       currentHash: bundle.currentHash,
-      latestAgreement: bundle.latestAgreement,
+      latestAgreement: bundle.latestAgreement
+        ? { ...bundle.latestAgreement, snapshotJson: undefined }
+        : null,
       revisionRequestCount: bundle.revisionRequests.filter((request) => request.status === "open").length,
       latestRevisionRequestAt: bundle.revisionRequests[0]?.createdAt ?? null,
       projectCount: bundle.snapshot.totals.projectCount,

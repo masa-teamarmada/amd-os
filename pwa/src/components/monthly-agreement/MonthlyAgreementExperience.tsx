@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Hint } from "@/components/ui/Hint";
 import type {
+  MonthlyAgreementSnapshotDiff,
   MonthlyWorkAgreementBundle,
   MonthlyWorkAgreementProject,
 } from "@/lib/monthly-work-agreement-types";
@@ -63,7 +64,7 @@ function agreementStatusMessage(bundle: MonthlyWorkAgreementBundle) {
     return `この内容で合意済みです。確認した日時: ${agreedAt}`;
   }
   if (bundle.status === "needs_reagreement") {
-    return "前回合意後に担当内容または予定額が更新されたので最新内容を再確認してください。";
+    return "前回合意後に合意内容が更新されたので最新内容を再確認してください。";
   }
   if (bundle.status === "not_required") {
     return bundle.exclusionReason || "この月は対象外です。";
@@ -346,6 +347,10 @@ export function MonthlyAgreementExperience({
             </p>
           )}
         </section>
+
+        {bundle.status === "needs_reagreement" && bundle.changeSummary && (
+          <ChangeSummarySection changeSummary={bundle.changeSummary} />
+        )}
 
         <RequiredChecksSection
           compact={isModal}
@@ -736,6 +741,71 @@ export function MonthlyAgreementExperience({
         </details>
       </main>
     </div>
+  );
+}
+
+function ChangeSummarySection({
+  changeSummary,
+}: {
+  changeSummary: MonthlyAgreementSnapshotDiff;
+}) {
+  return (
+    <section
+      data-testid="monthly-agreement-change-summary"
+      className="w-full rounded-lg border border-amber-200 bg-amber-50 p-4"
+    >
+      <p className="text-[14px] font-semibold text-amber-900">
+        今回の変更点{" "}
+        {changeSummary.comparable ? (
+          <span data-testid="monthly-agreement-change-count">
+            {changeSummary.count}件
+          </span>
+        ) : null}
+      </p>
+      {!changeSummary.comparable ? (
+        <p className="mt-1 text-[13px] leading-[20px] text-amber-900">
+          {changeSummary.note}
+        </p>
+      ) : changeSummary.count === 0 ? (
+        <p className="mt-1 text-[13px] leading-[20px] text-amber-900">
+          前回合意時と現在の合意内容に差があります。
+        </p>
+      ) : (
+        <div className="mt-3 flex flex-col gap-3">
+          {changeSummary.groups.map((group) => (
+            <div
+              key={group.projectId}
+              className="min-w-0 rounded-md border border-amber-200 bg-white/70 p-3"
+            >
+              <p className="break-words text-[12px] font-semibold text-[#1d1d1f]">
+                {group.projectName}
+              </p>
+              <ul className="mt-1.5 flex flex-col gap-2">
+                {group.changes.map((change, index) => (
+                  <li
+                    key={`${group.projectId}-${index}`}
+                    className="flex flex-col gap-1 text-[12px] leading-[18px] text-[#3c3c43]"
+                  >
+                    <span className="break-words font-semibold">{change.label}</span>
+                    <span className="grid min-w-0 grid-cols-1 items-start gap-1.5 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+                      <span className="min-w-0 break-words text-[#6e6e73]">
+                        <span className="block text-xs text-[#6e6e73]">前回</span>
+                        {change.before}
+                      </span>
+                      <ArrowRight className="mx-auto mt-3 size-3 shrink-0 rotate-90 text-amber-700 sm:rotate-0" />
+                      <span className="min-w-0 break-words font-semibold text-amber-900">
+                        <span className="block text-xs font-normal text-[#6e6e73]">今回</span>
+                        {change.after}
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
