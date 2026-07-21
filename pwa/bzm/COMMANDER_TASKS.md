@@ -3,11 +3,13 @@
 > 🚨 **司令塔08以降の最上位運用ルール（まさ確定、2026-07-21）**
 >
 > - 司令塔は実務を一切担わない。執筆、批評、監査、差分、検算、機械統合、正本反映、git操作を行わない。
-> - 司令塔はsubagent、create_thread、spawn_taskその他のworkerを一切起動しない。実務は必ず司令塔と独立した別セッションで行う。
+> - 司令塔は独立したユーザー可視の別セッションを起票、停止し、その成果を受領してよい。Codexでは`create_thread`、Claude側では独立`spawn_task`等を使う。起票先は実務workerであり、Fable本人を称してはならない。
+> - 禁止するのは、司令塔セッション内のAgent、subagent、collaboration `spawn_agent`等へ実務を委譲し、進捗ログや生成本文が司令塔ログへ流れる方式。実務は必ず司令塔と独立した別セッションで行う。
 > - 司令塔へ戻すのは、まさの判断点、検証済み成果物、最終closeoutだけ。進捗ログや生成本文を流さない。
 > - 司令塔08のcanonical startup promptはrepo rootの`/Users/masa/projects/AMD/amd-os/SESSION_MIGRATION_PROMPT.md`だけ。`pwa/bzm/SESSION_MIGRATION_PROMPT.md`は明示ポインタであり、第二の正本ではない。
 > - 司令塔07事故の保全稿は証拠であり、入力・素材として読まない、再利用しない。
-> - 下段に残るAgent tool / spawn_task / subagentの記述は過去経緯の証跡であり、現在の実行指示ではない。本ブロックが常に優先する。
+> - 司令塔08の最初の一手は、08自身が独立したCh1 Fable launcher workerセッションを1件だけ起票すること。workerがFable CLIを実行し、Ch1をまさが確認するまでCh2を起動しない。
+> - 下段に残る司令塔内Agent tool / subagent実務と旧spawn_taskの記述は過去経緯の証跡であり、現在の実行指示ではない。本ブロックが常に優先する。
 
 *Last updated: 2026-07-21 (司令塔08の独立セッション境界とFable launcher gateを固定)*
 *Owner: Book A 出版統括司令塔 (プログラムマネージャ 兼 編集長)*
@@ -38,7 +40,7 @@ Ch15とエピローグは自然語を主にし、Aの技術的成功ではなく
 
 ## 運用ルール (この盤の書き方)
 
-- 🚨 **司令塔は実務もworker起動も行わない**: 2026-07-21以降は、従来の「司令塔がAgent toolへ委譲する」運用も失効。司令塔はこの盤の判断点と成果物採否だけを扱い、独立実務セッションの起動はまさまたは上位ルータへ依頼する。司令塔自身のTaskListへ実務を載せず、subagent/create_thread/spawn_taskも使わない。
+- 🚨 **司令塔は実務を行わず、独立セッションを起票する**: 2026-07-21以降、司令塔は実務を自身のTaskListへ載せない。司令塔内のAgent、subagent、collaboration `spawn_agent`等への実務委譲は禁止する。一方、独立したユーザー可視の実務セッションは司令塔自身が`create_thread`または独立`spawn_task`等で起票、必要時に停止し、判断点・成果物・最終closeoutだけを受領する。
 - ストリームの状態が変わるたび更新する (章の done / ウェーブ完了 / まさ判断 / ブロッカー発生・解消)。
 - **worker 詳細ログを貼らない**。1 行 = 「ストリーム / 状態 / 担当 / 次アクション / まさ要判断」だけ。詳細は各 L3 (`BOOK_A_CHAPTER_<n>_PROGRESS.md`) を見る。
 - 状態語彙: `not-started` / `drafting` (章ワーカー起草中) / `verify` (敵対検証・機械検査中) / **`まさ確定待ち`** (品質ゲート通過済み・まさ段落確定のみ残) / `done` (まさ確定済み) / `blocked` (まさ判断・外部依存で停止)。

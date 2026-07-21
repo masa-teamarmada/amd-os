@@ -1789,12 +1789,14 @@ Book A執筆規範 (japanese-tech-writing + cognitive-rhythm-writing) をSESSION
 - 原因は、①06 handoffでFable gateが落ちた、②改稿範囲を章頭ナラティブと明示接続文へ限定しなかった、③07がsubagentで大量実務を行って司令塔ログを埋没させた、④handoff監査が旧確定ルールの消失を検査しなかった、の4点に分解した。
 - `pwa/BUGS.md`へ症状、原因、対応、再発防止を記録した。
 
-### 司令塔08の境界
+### 司令塔08の境界（同日補正後）
 
-- 司令塔は実務を一切担わず、subagent/create_thread/spawn_taskも一切起動しない。実務は独立した別セッションだけが担う。
+- 司令塔は実務を一切担わない。司令塔内のAgent、subagent、collaboration `spawn_agent`等への実務委譲は禁止し、実務は独立した別セッションだけが担う。一方、司令塔は`create_thread`または独立`spawn_task`等でユーザー可視の別セッションを起票、停止し、その成果を受領してよい。
 - 司令塔へ戻すものを、まさの判断点、検証済み成果物、最終closeoutの3種類に限定した。進捗ログと生成本文は戻さない。
 - 司令塔08のcanonical startup promptをrepo rootの`SESSION_MIGRATION_PROMPT.md`へ一本化し、`pwa/bzm/SESSION_MIGRATION_PROMPT.md`は明示ポインタに縮退した。
-- 最初の一手を「独立したCh1 Fable launcher workerセッションを1件だけ作る。repo外draftのみ。まさ確認までCh2を起動しない」に固定した。
+- 最初の一手を「司令塔08自身が独立したCh1 Fable launcher workerセッションを1件だけ起票する。workerがFable CLIを実行し、repo外draftだけを生成する。まさ確認までCh2を起動しない」に固定した。起票先はFable本人ではなくlauncher workerとする。
+
+初回ガード文面は`create_thread`と`spawn_task`まで一律禁止しており、「実務は別セッション」と矛盾していた。本補正では、禁止対象を進捗ログや生成本文が司令塔ログへ流れる司令塔内spawnに限定し、独立セッションの起票、停止、成果受領を司令塔の管理責務として明文化した。
 
 ### Fable launcher
 

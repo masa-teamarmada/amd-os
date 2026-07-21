@@ -19,8 +19,8 @@ BZM root: `/Users/masa/projects/AMD/amd-os/pwa/bzm`
 ## Commander Boundary
 
 - 司令塔は実務を一切担わない。
-- 司令塔はsubagent、create_thread、spawn_taskその他のworkerを一切起動しない。
-- 実務は必ず司令塔と独立した別セッションが担う。
+- 司令塔は独立したユーザー可視の別セッションを起票、停止し、その成果を受領してよい。Codexでは`create_thread`、Claude側では独立`spawn_task`等を使う。起票先は実務workerであり、Fable本人を称してはならない。
+- 司令塔セッション内のAgent、subagent、collaboration `spawn_agent`等へ実務を委譲し、進捗ログや生成本文を司令塔ログへ流す方式は禁止する。実務は必ず司令塔と独立した別セッションが担う。
 - 司令塔へ戻すのは、まさの判断点、検証済み成果物、最終closeoutだけ。進捗ログと生成本文を流さない。
 - 司令塔08の唯一のcanonical startup promptはrepo rootの`/Users/masa/projects/AMD/amd-os/SESSION_MIGRATION_PROMPT.md`。BZM側の`SESSION_MIGRATION_PROMPT.md`はポインタだけを持つ。
 
@@ -46,11 +46,11 @@ launcherは次を固定する。
 
 司令塔08は最初にrootの`SESSION_MIGRATION_PROMPT.md`を読む。
 
-その後、まさまたは上位ルータへ次の1件だけを依頼する。
+その後、司令塔08自身が次の1件だけを起票する。
 
-> 独立したCh1 Fable launcher workerセッションを1件だけ作る。Fableはrepo外draftだけを生成し、repo正本へ書かない。まさがCh1を確認するまでCh2を起動しない。
+> 独立したユーザー可視のCh1 Fable launcher workerセッションを1件だけ作る。Codexなら`create_thread`、Claude側なら独立`spawn_task`等を使う。起票したworkerがFable CLIを実行し、Fableはrepo外draftだけを生成してrepo正本へ書かない。まさがCh1を確認するまでCh2を起動しない。
 
-司令塔自身は独立セッションを起動せず、launcherを操作せず、Fableを実行しない。
+司令塔08はその独立セッションの起票、必要時の停止、判断点・成果物・最終closeoutの受領だけを行う。launcherを操作せず、Fableを実行せず、Fable本人を称しない。
 
 ## Repo / Deploy Boundary
 
