@@ -28,9 +28,9 @@ rootの /Users/masa/projects/AMD/amd-os/SESSION_MIGRATION_PROMPT.md はBook A司
 
 - canonical repo: /Users/masa/projects/AMD/amd-os
 - branch: main
-- handoff作成前baseline HEAD / origin/main: c45a8654 / c45a8654（ahead 0 / behind 0）。handoff bundleの最終commitは `git log -1 --format=%H -- HANDOFF.md` で確認する
+- concurrent handoff統合後baseline HEAD / origin/main: 5dc0146e / 5dc0146e（ahead 0 / behind 0）。KUTE 554032adとH-1 handoffを含む。最終commitは `git log -1 --format=%H -- HANDOFF.md` で確認する
 - KUTE accepted commit: ece458b49589dee3eb47c5476967113f40e6980f
-- handoff作成前production: v3.47.13 / b4e664146a9e3576b5f094740770a2e7760618ee / main / dirty=false。handoff bundle push後は `/api/build-info` を再確認する
+- state refresh前production: v3.47.13 / 5dc0146eff20ae4a2f0b972804c806e94f7db84b / main / dirty=false。refresh push後は `/api/build-info` を再確認する
 - KUTE実装はproductionへ反映済み。DB migrationはなく、既存seeds行も変更していない。
 - 2026-07-21確認時の工学院大学データ: 研究者7名・シーズ9件。高橋義典先生は3シーズ。
 - visual evidence:
@@ -41,7 +41,6 @@ rootの /Users/masa/projects/AMD/amd-os/SESSION_MIGRATION_PROMPT.md はBook A司
 closeout時点のKUTE外dirty。勝手にstage/revertしない:
 
 - pwa/bzm/book-a-ch-1.md — active Book A session bzm-54
-- HANDOFF_H1_BACKGROUND_2026-07-22.md / SESSION_MIGRATION_PROMPT_H1_BACKGROUND.md — H-1 background closeout lane
 - pwa/supabase/.temp/cli-latest — Supabase CLI cache
 
 ## 今回までに完了したこと

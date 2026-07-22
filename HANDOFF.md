@@ -18,8 +18,8 @@ Topic: KUTEコックピットの研究者別シーズ表示とcloseout
 ## Repo State
 
 - branch: `main`
-- handoff作成前baseline HEAD / origin/main: `c45a8654` / `c45a8654`（ahead 0 / behind 0）。handoff bundleの最終commitは `git log -1 --format=%H -- HANDOFF.md` で確認する。
-- handoff作成前production: `v3.47.13` / `b4e664146a9e3576b5f094740770a2e7760618ee` / `git_branch=main` / `dirty=false`。handoff bundle push後は `/api/build-info` を再確認する。
+- concurrent handoff統合後baseline HEAD / origin/main: `5dc0146e` / `5dc0146e`（ahead 0 / behind 0）。この状態はKUTE `554032ad` とH-1 handoffを含む。handoff bundleの最終commitは `git log -1 --format=%H -- HANDOFF.md` で確認する。
+- state refresh前production: `v3.47.13` / `5dc0146eff20ae4a2f0b972804c806e94f7db84b` / `git_branch=main` / `dirty=false`。refresh push後は `/api/build-info` を再確認する。
 - KUTE accepted commit: `ece458b49589dee3eb47c5476967113f40e6980f`
 - local branch: `main` のみ / registered worktree: root 1件
 - このKUTEセッションが作ったbranch/worktree: 0
@@ -29,14 +29,13 @@ Topic: KUTEコックピットの研究者別シーズ表示とcloseout
 | path | owner / class | 次の処理 |
 |---|---|---|
 | `pwa/bzm/book-a-ch-1.md` | active Book A session `bzm-54` / other-worker | `bzm-54` が採否・commit・closeoutを行う |
-| `HANDOFF_H1_BACKGROUND_2026-07-22.md` / `SESSION_MIGRATION_PROMPT_H1_BACKGROUND.md` | H-1 background closeout lane / other-worker | H-1 ownerが2ファイルを同じhandoff bundleでcommit/pushする |
 | `pwa/supabase/.temp/cli-latest` | Supabase CLI cache / deploy-link-local | 次のSupabase CLI ownerがtracked管理の要否を裁定する。KUTEからは触らない |
 
 ## Unresolved Tasks
 
 - KUTE研究者グルーピングの未完了実装: なし。
 - 既知のモデル境界: 研究者マスタ/研究者IDは未導入。敬称・姓名表記・別名など意味的な表記揺れは自動統合しない。必要性が出た時点で研究者正本を別設計する。
-- 既存dirty 4件はKUTE外。上表のownerが解消するまでshared checkout全体は `do not archive`。
+- 既存dirty 2件はKUTE外。上表のownerが解消するまでshared checkout全体は `do not archive`。
 
 ## First Next Action
 
