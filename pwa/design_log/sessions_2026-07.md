@@ -1815,3 +1815,44 @@ Book A執筆規範 (japanese-tech-writing + cognitive-rhythm-writing) をSESSION
 | 司令塔07事故 | `pwa/BUGS.md` | 本節 | 対象外 |
 
 対象外理由: Book Aの出版運用とローカルlauncherの安全境界だけを変更し、AMD OSのランタイム、画面、API、DB、利用者導線、操作仕様を変更していないため。manual/specへ同じ運用を重複記載しない。
+
+---
+
+## 2026-07-21〜22 — KUTEコックピット研究者グルーピング
+
+### ユーザーフィードバックと正本確認
+
+- まさから「高橋先生のシーズが2つに分かれて見える。1人の先生が複数シーズを持つことは今後もあるので、DBはその仕組みのはず」と指摘があった。
+- production DBの `seeds` をread-only確認すると、工学院大学は研究者7名・シーズ9件で、高橋義典先生は2件ではなく3件だった。
+- `seeds` の正しい粒度は研究者ではなく「技術×用途」。`researcher_name`は非一意で、同じ研究者が複数行を持てる既存設計だった。DB統合、削除、複製、migrationは不要と判断した。
+
+### 実装
+
+- `groupSeedsByResearcher()` は同一機関＋NFKC/連続空白/前後空白を正規化した研究者名でグループ化する。研究者名未登録はシーズIDごとの独立グループにする。
+- `sortSeedGroups()` はグループ内のシーズを列値で並べ、グループ自体を代表値で並べる。SPS/M/P/R/Sの昇順・降順を切り替えても同じ研究者の行を分断しない。
+- `CockpitKuteSeeds` は全研究者に共通の水色の `scope="rowgroup"` 見出しを表示し、直下へシーズ行を並べる。高橋先生は見出し1回＋3行。集計は「対象9件・研究者7名・資料3件・SPS6件」。
+- フィルタ結果0件時の空状態も追加した。Global Seeds、既存詳細モーダル、資料プレビュー、公開ホワイトリストは変更していない。
+
+### 検証 / 本番
+
+- `npm run test:kute-seeds-scope`、`npm run test:seed-sps-score`、`npx tsc --noEmit`、対象eslint、`npm run test:critical-ui`、`npm run build`を通した。
+- Playwright 1440×1100 / 390×844で、body横overflowなし、比較表だけ横スクロール、研究者7帯、シーズ9行、高橋先生1帯直下3行、詳細モーダル、console/page error 0を確認した。
+- `ece458b4`をmainへpushし、production `v3.47.10`で同じ件数とエラー0を確認した。2026-07-22 handoff作成前のmainは後続変更込みの `c45a8654`、productionは `b4e66414 / v3.47.13`で、いずれも`ece458b4`を祖先に含む。handoff bundle push後の最終SHAは `/api/build-info` で再確認する。
+
+### 破棄した案 / 教訓
+
+- 高橋先生のDB行を1行へ結合する案は破棄した。複数シーズは正規データであり、統合すると用途別のSPS、事業化タイプ、次の検証、資料の独立性を失う。
+- 特定研究者名のハードコードも破棄し、研究機関コックピットで再利用できる純粋関数境界へ置いた。
+- 現行DBには研究者マスタ/研究者IDがない。NFKCと空白差は吸収するが、敬称や別名の意味的同一性は扱わない。必要になった時だけ別仕様として設計する。
+
+### 設計変更棚卸し
+
+| # | 新仕様/仕様変更 | design正本 | OSマニュアル章 | 状態 |
+|---|---|---|---|---|
+| 1 | DBは技術×用途1行を維持し、表示だけ研究者別にグループ化 | `pwa/design/seeds.md` | `pwa/manual/2-3-pj-cockpit.md` | ✅ |
+| 2 | 同一機関＋正規化研究者名、nullはシーズ単位のグループ境界 | `pwa/design/seeds.md` / `pwa/design/cockpit.md` | `pwa/manual/2-3-pj-cockpit.md` | ✅ |
+| 3 | グループを分断しない列ソートと研究者数集計 | `pwa/design/FEATURE_REGISTRY.md` / `pwa/design/cockpit.md` | `pwa/manual/2-3-pj-cockpit.md` | ✅ |
+| 4 | KUTE表示不具合の症状・原因・解決・教訓 | `pwa/BUGS.md` | 対象外: バグ履歴であり新しい利用手順は上記章へ同期済み | ✅ |
+| 5 | 新規環境変数・API・DB table/column/index/RLS/migration | 追加なし | 対象外: 変更なし | ✅ |
+
+✅ 全件記録済。仕様正本、回帰登録簿、OSマニュアル、changelog、BUGS、session logの役割を分離した。

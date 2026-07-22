@@ -1,45 +1,66 @@
 # AMD OS Handoff
 
-Last updated: 2026-07-19 JST
+Last updated: 2026-07-22 JST
 
 Target: `/Users/masa/projects/AMD/amd-os`
-Topic: Codex 自動branch事故の復旧と main-only 開始条件
+
+Topic: KUTEコックピットの研究者別シーズ表示とcloseout
 
 ## Latest Session Summary
 
-- Codex で main から新セッションを始めようとした際、「ブランチを切り替えるには変更をコミットしてください」アラートが出た事故を復旧した。
-- 原因は、親タスクが AMD OS repo を target に Local 子タスクを作ったこと。Codex アプリが子タスクへ repo ルールを渡す前に `codex/019f6afff9097a60bada064e2d31df8b` を作り、正本 checkout を main から切り替えた。子タスク内に `git switch` / `git branch` の実行証跡はない。
-- 原因タスクと親タスクの両方へ、AMD OS では Local 子タスク・UI Handoff・branch/worktree を使わないよう厳重注意を送付し、両方から了承を得た。
-- 57 tracked changes、4 untracked files、16 stash、16 local non-main branches、12 extra worktreesを、検証済み外部archiveへ保存してから整理した。価値ある差分を消していない。
-- 復旧archive: `/Users/masa/.codex/cleanup_archives/amd-os-20260719-014300-main-recovery`。patch、untracked tar、全refs/stash bundle、SHA256、reflog/status証跡を含み、bundle verify済み。
-- root checkoutを `main = origin/main` へ戻し、culprit remote branchも削除した。157本の無関係なhistorical remote branchは、固有commitを持つものが多数あるため今回の削除対象外。archive bundleにはremote refsも含む。
+- KUTE (`project_id=p25`) の連携シーズ比較を、研究者ごとの見出し帯＋シーズ行へ変更した。
+- DBの `seeds` は「技術×用途」1件につき1行のまま維持し、統合・削除・複製・migrationは行っていない。
+- 2026-07-21確認時の工学院大学データは研究者7名・シーズ9件。高橋義典先生は実際には3シーズあり、表示上は1グループの直下に3行を保持する。
+- グループ境界は同一機関＋NFKC/空白正規化済み研究者名。研究者名未登録は1シーズ1グループとして誤統合を防ぐ。
+- 実装commit `ece458b4` はmainへpush済み。本番 `v3.47.10` で確認後、後続mainを含む現在のproduction `v3.47.13 / b4e66414` にも含まれている。
+- 詳細な実施記録と設計同期表は [`pwa/design_log/sessions_2026-07.md`](pwa/design_log/sessions_2026-07.md) の「KUTEコックピット研究者グルーピング」節を参照。
 
-## Durable Prevention
-
-- `.codex/config.toml`: `[features] multi_agent = false`。
-- `.githooks/reference-transaction`: `main` 以外のlocal branch作成を拒否。
-- `scripts/install-main-only-git-hook.sh`: cloneごとにtracked hookを有効化。
-- `CLAUDE.md` / `SETUP_NEW_MAC.md` / `/spec/5-2` / `/manual/9-2`: Local 子タスク禁止、アラート時はキャンセル、main復旧監査を同期。
-- branch alertで `コミットしてブランチを切り替える` は押さない。
-
-## Current Truth
+## Repo State
 
 - branch: `main`
-- build target after this closeout: `v3.46.4`
-- expected closeout state: dirty 0 / worktree 1 / local branch `main` only / stash 0 / ahead-behind `0 0`
-- production truth: closeout commitをmainへpush後、`/api/build-info` の `git_branch=main` / `dirty=false` / final SHA一致で確認する。
-- branch事故の既知復旧タスク: none
+- handoff作成前baseline HEAD / origin/main: `c45a8654` / `c45a8654`（ahead 0 / behind 0）。handoff bundleの最終commitは `git log -1 --format=%H -- HANDOFF.md` で確認する。
+- handoff作成前production: `v3.47.13` / `b4e664146a9e3576b5f094740770a2e7760618ee` / `git_branch=main` / `dirty=false`。handoff bundle push後は `/api/build-info` を再確認する。
+- KUTE accepted commit: `ece458b49589dee3eb47c5476967113f40e6980f`
+- local branch: `main` のみ / registered worktree: root 1件
+- このKUTEセッションが作ったbranch/worktree: 0
+
+### 現在の未コミット変更（KUTE外・変更禁止）
+
+| path | owner / class | 次の処理 |
+|---|---|---|
+| `pwa/bzm/book-a-ch-1.md` | active Book A session `bzm-54` / other-worker | `bzm-54` が採否・commit・closeoutを行う |
+| `HANDOFF_H1_BACKGROUND_2026-07-22.md` / `SESSION_MIGRATION_PROMPT_H1_BACKGROUND.md` | H-1 background closeout lane / other-worker | H-1 ownerが2ファイルを同じhandoff bundleでcommit/pushする |
+| `pwa/supabase/.temp/cli-latest` | Supabase CLI cache / deploy-link-local | 次のSupabase CLI ownerがtracked管理の要否を裁定する。KUTEからは触らない |
+
+## Unresolved Tasks
+
+- KUTE研究者グルーピングの未完了実装: なし。
+- 既知のモデル境界: 研究者マスタ/研究者IDは未導入。敬称・姓名表記・別名など意味的な表記揺れは自動統合しない。必要性が出た時点で研究者正本を別設計する。
+- 既存dirty 4件はKUTE外。上表のownerが解消するまでshared checkout全体は `do not archive`。
 
 ## First Next Action
 
-1. 新セッションは repo root `/Users/masa/projects/AMD/amd-os` を開く。
-2. `SESSION_MIGRATION_PROMPT.md` を貼り、main-only開始監査を実行する。
-3. 監査が全て期待値なら、branchを作らず、まさの次の依頼をmainで開始する。
+KUTEの続きとして開始する場合は、rootのBook A用 `SESSION_MIGRATION_PROMPT.md` を上書きせず、[`SESSION_MIGRATION_PROMPT_KUTE_COCKPIT.md`](SESSION_MIGRATION_PROMPT_KUTE_COCKPIT.md) を使う。最初にmain/production/KUTE件数をread-onlyで再確認し、まさから新しいフィードバックが無ければ再実装しない。
 
-## Guardrails
+## Pointers
 
-- Codex Desktop の repo-targeted Local 子タスク・UI Handoffを使わない。
-- 新branch / worktreeを作らない。分担が必要なら同じmain、またはmainのdisposable clean cloneを使う。
-- dirtyを見つけてもbranchへ逃げず、owner / action / riskを分ける。
-- `git add .` を使わず、対象ファイルだけstageする。
-- PWA本番反映は `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh` を使う。
+- 仕様正本: [`pwa/design/seeds.md`](pwa/design/seeds.md)
+- cockpit設計: [`pwa/design/cockpit.md`](pwa/design/cockpit.md)
+- 回帰契約: [`pwa/design/FEATURE_REGISTRY.md`](pwa/design/FEATURE_REGISTRY.md)
+- OSマニュアル: [`pwa/manual/2-3-pj-cockpit.md`](pwa/manual/2-3-pj-cockpit.md)
+- バグ/教訓: [`pwa/BUGS.md`](pwa/BUGS.md)
+- session log: [`pwa/design_log/sessions_2026-07.md`](pwa/design_log/sessions_2026-07.md)
+- KUTE migration prompt: [`SESSION_MIGRATION_PROMPT_KUTE_COCKPIT.md`](SESSION_MIGRATION_PROMPT_KUTE_COCKPIT.md)
+
+## Verification Evidence
+
+- `npm run test:kute-seeds-scope`
+- `npm run test:seed-sps-score`
+- `npx tsc --noEmit`
+- 対象eslint、`npm run test:critical-ui`、`npm run build`
+- Playwright desktop 1440×1100 / mobile 390×844: body横overflowなし、表だけ横スクロール、console/page error 0
+- production Playwright: 研究者7グループ・シーズ9行・高橋先生1グループ直下3行
+
+## Prompt Boundary
+
+rootの `SESSION_MIGRATION_PROMPT.md` はBook A司令塔08のcanonical startup promptで、active Book A作業を守るためKUTEでは変更しない。KUTEの同内容promptはroot直下の `SESSION_MIGRATION_PROMPT_KUTE_COCKPIT.md` に分離する。
