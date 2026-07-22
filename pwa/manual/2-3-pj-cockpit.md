@@ -264,6 +264,10 @@ PJ cockpit の進捗管理タブでは、今期 MS リストの直下・月次�
 - prep 資料の主成果物は **HTML** に統一する。Google Docs / Markdown / Slides / Sheets を主成果物として作らない
 - 表、チェックリスト、提案書、アジェンダ、試算は HTML 内の section / table / callout で表現する
 - HTML は AMD OS のデザインコードに従い、原則 self-contained な `.html` として作る。ファイル名は `YYMMDD_MTG名_用途.html`
+- 連続型の投影HTMLは、desktopで白背景の左固定menuを置き、section anchor、関連資料を別tabで開く操作、meeting memo、コピー・文言編集・HTML保存・消去buttonを備える。mobileでは上部menuへ組み替える
+- 投影前提では、本文、table、menu、label、button、注記を含むすべての可視文字を16px以上、資料番号や比較対象番号を28px以上にする
+- section名は中立な事実名称を最大見出しにし、提案、推定着地、結論、日程案をheroやeyecatchとして押し出さない。未確定事項は本文・比較表で `案` / `確認事項` / `協議事項` として示す
+- MTG前の提示資料には合意事項・決定事項・会議結果sectionや結果入力buttonを置かない。提示資料は論点、比較材料、確認事項、日程案までを扱い、決定内容は開催後の議事録へ記録する
 
 #### Slack DM nudge
 

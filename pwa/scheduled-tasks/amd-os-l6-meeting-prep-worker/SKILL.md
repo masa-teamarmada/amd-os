@@ -206,6 +206,10 @@ Phase 6: Drive 資料 draft 生成
 3. HTML は AMD OS のデザインコードに従う:
    - まず `/Users/masa/projects/AMD/amd-os/pwa/src/lib/exec_summary/template.css` と `/Users/masa/projects/AMD/amd-os/pwa/src/lib/exec_summary/template_section.html` を参照する
    - 視覚言語は `/Users/masa/projects/AMD/amd-os/pwa/design/cyber_hud_design_code.md` と `/Users/masa/projects/AMD/amd-os/pwa/design/hud_visual_language.md` の原則に寄せる
+   - 協議資料では、表紙は会議名または資料名、各区画は中立な section 名を最大見出しにする。提案、推定着地、結論、日程案を hero / tagline / eyecatch / section title にしない
+   - 連続型のMTG投影HTMLは、desktopで白背景の左固定menuを置き、section anchor、関連資料を別tabで開く操作、meeting memo、コピー・文言編集・HTML保存・消去buttonを備える
+   - 投影前提では、本文、table、menu、label、button、注記を含むすべての可視文字を16px以上、資料番号や比較対象番号を28px以上にする
+   - MTG前の提示資料には合意事項・決定事項・会議結果sectionや結果入力buttonを置かない。論点・比較材料・確認事項・日程案までを扱い、決定内容は開催後の議事録へ記録する
    - 原則として単体で開ける self-contained HTML にし、必要な CSS は `<style>` に埋め込む。外部URL、secret、raw本文は入れない
    - 既存の共有資料スタイルがある場合も、形式は HTML に統一し、色・余白・情報密度だけ参考にする
 4. 生成できない形式 (= 画像/PDF/動画など HTML 以外が本質になるもの) は無理に別形式で作らず、HTML 内に「手動作成が必要」と明記し、`prep_draft_md` の「⚠️ 留意点」にも残す
