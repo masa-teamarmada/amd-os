@@ -2,7 +2,7 @@
 
 > [!CAUTION]
 > **2026-07-20に全面失効。現行正本ではない。**
-> 人物、案件、視点、年表、関係弧、章頭場面は、`BOOK_A_SCENARIO_DRAFT_3.md`、`BOOK_A_CHARACTER_BIBLE.md`、`BOOK_A_INDEPENDENT_AGENCY.md`、`BOOK_A_MASTER_PLAN.md`だけを使う。
+> 人物、案件、視点、年表、関係弧、章頭場面は、`BOOK_A_SCENARIO_DRAFT_4.md`、`BOOK_A_TECH_SEED_A.md`、`BOOK_A_CHARACTER_BIBLE.md`、`BOOK_A_INDEPENDENT_AGENCY.md`、`BOOK_A_MASTER_PLAN.md`だけを使う。
 > 以下は白紙化前の判断履歴として本文を保存している。名前、点景、見届け人、視点交代、拍手、九年年表を部品として再利用しない。
 
 *位置づけ: Book A『ディープテック起業の経営学』全15話のナラティブ層を一つの世界 (同一機関・固定キャスト・複数案件の連続ドラマ = A案、2026-07-13 まさ確定。旧記帳の「視点交代」は 2026-07-14 に**柏木を主人公とする通しドラマ**へ訂正 — 視点は章ごとに替わるが主役は柏木一人、§2.2/§7-K) として運用するための**世界設定の正本**。`BOOK_A_NARRATIVE_DESIGN.md` (語りの設計 — 一章一装置・幕引き・季節・中心命題) と対をなし、矛盾したときは新しい確定が古い記述を上書きし、両方に反映する。理論の章順・数式・演習・A/B 分割は不変の前提 (章番号はすべて TOC v3 = 15章制)。*

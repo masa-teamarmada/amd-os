@@ -1,8 +1,13 @@
 # Book A 全15章通しシナリオ Draft 3
 
+> [!CAUTION]
+> **SUPERSEDED：2026-07-22。現行正本は`BOOK_A_SCENARIO_DRAFT_4.md`である。**
+> Draft 3のA案件、高温設備予兆膜、場面、感覚記号、文章は、Draft 4以降の執筆入力に使わない。
+> B、Cと美咲の成長弧も、Draft 4へ統合済みの記述だけを使う。
+
 *初稿日：2026-07-20 JST*
 
-*状態：CURRENT。章本文へ反映する前のシナリオ設計正本*
+*状態：SUPERSEDED。2026-07-22以降の執筆入力にしない。*
 
 *主人公・人物正本：`BOOK_A_CHARACTER_BIBLE.md`*
 

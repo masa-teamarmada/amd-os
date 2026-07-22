@@ -1,8 +1,18 @@
 # Book A Publication Handoff
 
-Last updated: 2026-07-21 JST
+> [!CAUTION]
+> **2026-07-22 CURRENT OVERRIDE**
+>
+> - 現行ナラティブ正本は`BOOK_A_SCENARIO_DRAFT_4.md`、A技術正本は`BOOK_A_TECH_SEED_A.md`である。
+> - Draft 3の高温設備予兆膜、炉、貼付、変色、下地材、塗工材、標準片、保守枠を執筆入力に使わない。
+> - 現行Aは電気化学式・循環セメントPJであり、オフサイト検証済み、最終実地適格性確認直前から始まる。
+> - 司令塔09はAgent、subagent、`create_thread`、Claude CLI、Fableを起動しない。
+> - FableはまさがClaude側で起動し、司令塔09は貼り付け可能なmigration promptだけを準備する。
+> - 以下の司令塔08以前のlauncher、worker、baseline、CLI運用は履歴であり、現在の実行指示ではない。
 
-Topic: 司令塔07事故復旧 → 司令塔08起動準備
+Last updated: 2026-07-22 JST
+
+Topic: Draft 4循環セメント正本 → Ch1白紙執筆準備
 
 Working root: `/Users/masa/projects/AMD/amd-os`
 
