@@ -381,6 +381,40 @@ expectIncludes("scripts/audit_sx_management_visible_terms.mjs", [
 expectCountAtLeast("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", "<ObjectiveKpiSection", 1);
 expectCountAtLeast("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", "<MeasurementSection", 1);
 expectCountAtLeast("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", "<DecisionLoopSection", 1);
+expectIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", [
+  "<SxProofOutcomes",
+  "<SxPartnerPipeline",
+  "sx-management-ledger",
+  "管理台帳・編集",
+]);
+expectIncludes("src/lib/sx-proof-mapping.ts", [
+  "SX_PROOF_THEME_SLUGS",
+  "SX_THEME_PROOF_MAP",
+  "computeSxProofOutcomes",
+  "sxProofThemeMatrix",
+  "PoC用リアクター仕様確定",
+  "確定仕様での動作確認",
+  "ユニットエコノミクス証明",
+  "すべてのテーマが未評価",
+]);
+expectIncludes("src/components/project-workspace/SxProofOutcomes.tsx", [
+  "sx-proof-outcomes",
+  "sx-proof-theme-matrix",
+  "評価済み",
+  "証拠充足",
+]);
+expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
+  "sx-partner-pipeline",
+  "sxPartnerDisplay",
+  "lowPriority",
+  "優先度低・保留（重要経路外）",
+]);
+expectIncludes("src/components/project-workspace/SxReactorPanel.tsx", [
+  "sx-four-pillar-signal-strip",
+  "sxTrackEvidenceCompleteness",
+  "sxFormatDelta",
+  "詰まり:",
+]);
 expectIncludes("src/app/api/project-workspace/[projectId]/effort/route.ts", [
   "canAccessWorkspaceProject",
   'access.scope === "project" && memberId !== access.memberId',

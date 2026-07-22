@@ -178,7 +178,7 @@ export function SxDevelopmentThemeBoard({ management }: { management: SxManageme
   const rows: ThemeRow[] = [
     milestoneRow(reactor, requiredSuccessors(reactor)[0], management, "反応器構成", "技術テーマの統合点", contributionFrom(reactor)),
     ...technicalTests.slice(0, 5).map((test) => technicalTestRow(test, reactor, reactorContribution)),
-    milestoneRow(poc, requiredSuccessors(poc)[0], management, "現場PoC・TRL5", "技術開発の出口ゲート", contributionFrom(poc)),
+    milestoneRow(poc, requiredSuccessors(poc)[0], management, "オンサイトPoC実施判定", "技術開発の出口ゲート", contributionFrom(poc)),
   ];
 
   while (rows.length < 7) {

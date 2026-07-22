@@ -2,7 +2,7 @@
 
 import { ArrowRight, Flag } from "lucide-react";
 import type { SxJudgment, SxManagementBundle, SxTrackKey } from "@/lib/sx-management";
-import { SxBadge, sxFormatDate } from "./sx-visual-shared";
+import { SxBadge, sxFormatDate, sxFormatDelta, sxTrackEvidenceCompleteness } from "./sx-visual-shared";
 import { WINDOW_LABEL, WINDOW_TONE, type SxRunwayItem } from "./SxDecisionRunway";
 
 const JUDGMENT_TONE: Record<string, string> = {
@@ -48,9 +48,12 @@ export function SxReactorPanel({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 border-b border-[#e4ddd0] sm:grid-cols-4">
+      <div className="grid grid-cols-2 border-b border-[#e4ddd0] sm:grid-cols-4" data-testid="sx-four-pillar-signal-strip">
         {management.tracks.map((track, index) => {
           const selected = selectedTrack === track.key;
+          const milestone = track.milestoneId ? management.milestones.find((item) => item.id === track.milestoneId) : undefined;
+          const completeness = sxTrackEvidenceCompleteness(track, milestone, management.kpis);
+          const deltaLabel = sxFormatDelta(track.deltaDays, track.dateCertainty);
           return (
             <button
               key={track.key}
@@ -58,11 +61,16 @@ export function SxReactorPanel({
               aria-pressed={selected}
               aria-controls="selected-management-context"
               onClick={() => onSelectTrack(selected ? null : track.key)}
-              className={`min-h-11 border-b px-2 py-1.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] sm:border-b-0 ${index % 2 === 0 ? "border-r" : ""} ${index < 3 ? "sm:border-r" : ""} ${selected ? "bg-[#e8f2eb]" : "bg-white hover:bg-[#f8f5ec]"}`}
+              className={`min-h-[102px] border-b px-2 py-1.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] sm:border-b-0 ${index % 2 === 0 ? "border-r" : ""} ${index < 3 ? "sm:border-r" : ""} ${selected ? "bg-[#e8f2eb]" : "bg-white hover:bg-[#f8f5ec]"}`}
             >
               <span className="flex items-center gap-1.5 text-[9px] font-semibold text-[#777166]"><span className="h-2 w-2 rounded-full" style={{ background: track.accent }} />{track.label}</span>
               <span className="mt-0.5 flex min-w-0 items-center gap-1 text-[10px] font-semibold text-[#24231f]"><span className="truncate">{track.gate}</span><ArrowRight className="h-3 w-3 shrink-0 text-[#9b9487]" /></span>
-              <span className="block truncate text-[9px] text-[#69665d]">{track.statusLabel} ・ {track.ownerLabel} ・ {sxFormatDate(track.forecastEnd)}</span>
+              <span className="mt-1 flex items-center gap-1.5" aria-label={`証拠充足 ${completeness.pct}%`}>
+                <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#e8e2d6]"><span className="block h-full rounded-full bg-[#38745d]" style={{ width: `${completeness.pct}%` }} /></span>
+                <span className="shrink-0 text-[9px] font-semibold text-[#69665d]">証拠{completeness.pct}%</span>
+              </span>
+              <span className="mt-1 block truncate text-[9px] text-[#69665d]">{track.statusLabel} ・ {deltaLabel} ・ 次期限 {sxFormatDate(track.forecastEnd || track.plannedEnd)}</span>
+              <span className="mt-0.5 block truncate text-[9px] text-[#8c3329]">詰まり: {track.maxIssue}</span>
             </button>
           );
         })}

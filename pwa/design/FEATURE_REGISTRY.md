@@ -500,10 +500,15 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 - 運用準備は重要ゲート、KPI/技術試験、資金、役割/研究側、今週エフォートの5項目を不足件数つきで表示し、1件でも未確認ならトップ判定を未評価へ閉じる。
 - Round 3の初期表示はヘッダー直後に経営判定を置き、390/768/1440で理由・最大の詰まり・今週決めること・次期限・鮮度/不足をスクロールなしで読む。運用準備の詳細は判定後に置く。stickyナビは横クリップで分断せず、管理者は非表示化した共有情報を一覧し、履歴を残して復元できる。決定済みとSX側の次アクションの必須項目はmigration 185のDB CHECKとAPIの合成検証で守る。
 - Round 4では、成果目標・KPI・ゲート完了条件・資金/協力機関の可視文に残る内部語 `runway` を「資金残存月数」へ表示時変換する。関連ゲートはPJ内マイルストーンのID/slug共通mapで名称表示し、未知値は「名称未確認」へ閉じる。`audit:sx-management-visible-terms` はSCRIPT/serialized dataを除外した390/768/1440の可視DOM監査を再実行できる。
+- Round 5（2026-07-22 SX_COO_DASHBOARD_SPEC_20260719.md準拠）: 上部4本柱信号帯（`SxReactorPanel`）は各柱ごとに 状態 / 証拠充足バー / 予定との差 / 次期限 / 最大の詰まり を同一ボタン内に同時表示する（`sxTrackEvidenceCompleteness` / `sxFormatDelta`）。証拠充足は担当・完了条件・測定済みKPI・鮮度確度の4チェックから算出し、進捗率の主観値を混ぜない。
+- 三つの証明（`SxProofOutcomes`）は `PoC用リアクター仕様確定 / 確定仕様での動作確認 / ユニットエコノミクス証明` を独立カードで表示し、各カードに証拠充足率（全テーマ未評価なら「未評価」表示で0%にしない）・状態分布・判断期限・不足情報を持つ。7開発テーマ×3証明の接続はDB非依存の型付き中央マップ `src/lib/sx-proof-mapping.ts`（`SX_THEME_PROOF_MAP`）から導出し、7×3マトリクスで可視化する（`scripts/test_sx_proof_mapping.mjs`で全テーマが1つ以上の証明へ接続していることを検査）。
+- 協力機関パイプライン（`SxPartnerPipeline`）は現在の関係段階→期限付きの次の状態（SX側の次アクション・期限）を、合意/未合意・担当・最終接点・関連ゲートと同じ行で密に表示する。優先度低・保留のファインケムは主要view（パイプライン本体）から除外し、末尾の注記行にのみ表示する。地理名を付けた旧称は表示レイヤーで一切出さない（`sxPartnerDisplay`）。
+- 低頻度面（運用準備・4本柱詳細比較表・目的-KPI・意思決定の記録・判断ループ・測定/資金/体制・非表示履歴の復元）は `id="management-ledger"` の単一`<details>`「管理台帳・編集」へ集約し、個別の折りたたみボックスを並べない。各サブ機能（`ObjectiveKpiSection` / `DecisionLoopSection` / `MeasurementSection` / `DeletedManagementSection` / CREATE_RESOURCES新規追加）は集約後も同一のまま動作する。
 - loading / empty / error / disabled / selected / focusを用意し、操作は44px以上。状態は色だけで伝えず、日本語表示で内部status・confidence・source・entity名を漏らさない。
 
 回帰防止:
 
 - `npm run test:sx-management` はKPI 0件、充足率Goodhart、critical未知、閾値内外、actual=0、between不足/逆転、依存待ち/停止、任意依存、期限超過、完了証跡、未完action、DAG cycle、現在ゲート切替を検査する。
 - `npm run test:project-management-rls` (`npm run test:sx-management-rls`) は20個のsoft-delete対象member_select、184/185の分類・約束・決定CHECK、補正履歴、authenticated roleによるPJ境界を検査する。
-- `npm run test:critical-ui` は目的-KPI、測定、決定ループ、POST/新規追加、運用準備、選択文脈、lg以上の比較表・lg未満のカード、effort接続、PJ-scoped effort APIのanchorを検査する。
+- `npm run test:critical-ui` は目的-KPI、測定、決定ループ、POST/新規追加、運用準備、選択文脈、lg以上の比較表・lg未満のカード、effort接続、PJ-scoped effort APIのanchorに加え、`SxProofOutcomes` / `SxPartnerPipeline` / `sx-proof-mapping.ts` / 管理台帳・編集への集約anchorを検査する。
+- `node --experimental-strip-types scripts/test_sx_proof_mapping.mjs` は7テーマ全件が`SX_THEME_PROOF_MAP`で1つ以上の証明へ接続していること、`computeSxProofOutcomes`が全未評価テーマ集合を0%ではなく`null`（未評価表示）で返すことを検査する。

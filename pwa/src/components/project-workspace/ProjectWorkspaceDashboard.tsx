@@ -30,8 +30,9 @@ import { EffortEntryForm } from "./EffortEntryForm";
 import { SxReactorPanel } from "./SxReactorPanel";
 import { SxDecisionRunway, type SxRunwayItem } from "./SxDecisionRunway";
 import { SxNineMonthTimeline } from "./SxNineMonthTimeline";
-import { SxReadinessMatrix } from "./SxReadinessMatrix";
 import { SxDevelopmentThemeBoard } from "./SxDevelopmentThemeBoard";
+import { SxProofOutcomes } from "./SxProofOutcomes";
+import { SxPartnerPipeline } from "./SxPartnerPipeline";
 import { sxPartnerDisplay, sxPartnerName } from "./sx-visual-shared";
 
 type ManagementResource = "objective" | "outcome" | "milestone" | "issue" | "hypothesis" | "evidence" | "validation" | "partner" | "decision" | "action" | "commitment" | "dependency" | "kpi" | "technical_test" | "funding_snapshot" | "organization_role" | "raci" | "capacity";
@@ -919,7 +920,7 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
   };
 
   useEffect(() => {
-    const sectionIds = ["management-summary", "management-plan", "management-readiness", "management-issues", "management-partners", "management-capacity"];
+    const sectionIds = ["management-summary", "management-plan", "management-issues", "management-partners", "management-capacity"];
     const sections = sectionIds.map((id) => document.getElementById(id)).filter((section): section is HTMLElement => Boolean(section));
     if (sections.length === 0) return;
     const observer = new IntersectionObserver((entries) => {
@@ -936,7 +937,7 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
     const timer = window.setTimeout(() => document.getElementById("selected-management-context")?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 0);
     return () => window.clearTimeout(timer);
   }, [selectedMilestoneId]);
-  const managementNavItems: Array<[string, string]> = [["management-summary", "経営サマリー"], ["management-plan", "全体計画"], ["management-readiness", "弁充足"], ["management-issues", "論点・仮説"], ["management-partners", "協力機関"], ["management-capacity", "実行・体制"]];
+  const managementNavItems: Array<[string, string]> = [["management-summary", "経営サマリー"], ["management-plan", "全体計画"], ["management-issues", "論点・仮説"], ["management-partners", "協力機関"], ["management-capacity", "実行・体制"]];
 
   return (
     <div className="amd-desk-page-skin sx-management-workspace w-full min-w-0 max-w-full min-h-screen overflow-x-clip px-3 py-4 sm:px-5 lg:px-8 lg:py-7">
@@ -961,6 +962,7 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
             <SxReactorPanel management={management} judgment={effectiveJudgment} selectedTrack={selectedTrack} onSelectTrack={selectTrackAndMilestone} topDecision={runwayItems[0]} decisionCount={runwayItems.length} />
             <SxDecisionRunway items={runwayItems} selectedTrack={selectedTrack} onSelectTrack={selectTrackAndMilestone} />
           </div>
+          <SxProofOutcomes management={management} />
           <div className="mt-2"><SxDevelopmentThemeBoard management={management} /></div>
         </section>
 
@@ -982,62 +984,6 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
           {selectedTrack && !selectedMilestone && <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-[#e4ddd0] bg-[#f8f5ec] p-3 text-xs text-[#69665d]"><span className="font-semibold text-[#24231f]">選択中: {selectedLabel}</span><span>論点 {visibleIssues.length}件</span><span>協力機関 {visiblePartners.length}件</span></div>}
         </section>
 
-        <section id="management-readiness" className="scroll-mt-20">
-          <SxReadinessMatrix management={management} />
-        </section>
-
-        <details className="rounded-xl border border-[#9fc6b4] bg-[#f1f6f2] p-4" aria-labelledby="readiness-heading">
-          <summary className="flex min-h-11 cursor-pointer select-none items-center justify-between gap-3">
-            <span>
-              <span className="block text-[10px] font-semibold tracking-[0.16em] text-[#38745d]">運用準備</span>
-              <span id="readiness-heading" className="mt-1 block text-base font-semibold text-[#24231f]">{operationReady ? "運用準備 完了" : "運用準備 未完了"}</span>
-            </span>
-          </summary>
-          <div className="mt-3 border-t border-[#c9d9cf] pt-3">
-            <p className="text-xs leading-5 text-[#514e47]">重要な共有情報が揃うまで、経営判定を合格扱いにしないフェイルクローズの確認欄だよ。</p>
-            {management.canManage && <div className="mt-3"><button type="button" onClick={() => setCreating({ resource: "issue" })} className="min-h-11 rounded-lg bg-[#205f49] px-4 py-2.5 text-xs font-semibold text-white hover:bg-[#174b3a] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#205f49]">新規追加</button></div>}
-            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-              {operationChecks.map((check) => <div key={check.label} className={`rounded-lg border p-3 ${check.missing === 0 ? "border-[#9fc6b4] bg-white" : "border-[#e3c994] bg-[#fbf1dc]"}`}><div className="flex items-start justify-between gap-2"><p className="text-xs font-semibold leading-5 text-[#24231f]">{check.label}</p><span className="shrink-0 text-[11px] font-semibold">{check.missing === 0 ? "準備済み" : "未確認"}</span></div><p className="mt-2 text-[11px] text-[#765022]">不足 {check.missing}件</p></div>)}
-            </div>
-            {management.canManage && <div className="mt-4 border-t border-[#c9d9cf] pt-3"><p className="text-[11px] font-semibold text-[#38745d]">経営台帳の更新</p><div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-5">{CREATE_RESOURCES.map((resource) => <button key={resource} type="button" onClick={() => setCreating({ resource })} className="min-h-11 rounded-md border border-[#b7c8d2] bg-white px-2 py-2 text-[11px] font-semibold text-[#315f7d] hover:bg-[#eef3f5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]">{RESOURCE_LABELS[resource]}</button>)}</div></div>}
-          </div>
-        </details>
-
-        <details id="management-tracks" className="scroll-mt-20 rounded-xl border border-[#d6cebf] bg-[#fffdf7]/95 p-5 sm:p-6">
-          <summary className="flex min-h-11 cursor-pointer select-none flex-col gap-1">
-            <span className="text-[10px] font-semibold tracking-[0.16em] text-[#38745d]">4本柱</span>
-            <span id="tracks-heading" className="text-lg font-semibold tracking-tight text-[#24231f]">4本柱の詳細比較表を表示</span>
-          </summary>
-          <div className="mt-4">
-          <SectionHeader kicker="4本柱" title="4本柱の現在地" description="4本とも同じ管理型で、ゲート・状態・予定/予測・差分・進捗・担当・次の成果・最大論点・鮮度を並べてるよ。状態は期限・根拠・阻害条件から計算し、根拠のない手入力で順調にしない。" action={selectedTrack ? <button type="button" aria-pressed={selectedTrack === null} aria-controls="selected-management-context" onClick={() => { setSelectedTrack(null); setSelectedMilestoneId(null); }} className="min-h-11 rounded-md border border-[#d6cebf] px-3 py-2 text-xs font-semibold text-[#69665d] hover:bg-[#f8f5ec] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]">全体に戻す</button> : undefined} />
-          <div className="hidden overflow-x-auto lg:block">
-            <div className="min-w-[1120px]">
-              <div className="grid grid-cols-[140px_190px_76px_100px_100px_76px_150px_230px] border-y border-[#d6cebf] bg-[#f8f5ec] text-[10px] font-semibold text-[#777166]"><div className="px-3 py-2.5">柱</div><div className="px-3 py-2.5">現在ゲート</div><div className="px-3 py-2.5">状態</div><div className="px-3 py-2.5">予定日</div><div className="px-3 py-2.5">予測日</div><div className="px-3 py-2.5">進捗</div><div className="px-3 py-2.5">担当 / 鮮度</div><div className="px-3 py-2.5">次の成果 / 最大論点</div></div>
-              {management.tracks.map((track) => <button key={track.key} type="button" aria-pressed={selectedTrack === track.key} aria-controls="selected-management-context" onClick={() => { const next = selectedTrack === track.key ? null : track.key; setSelectedTrack(next); setSelectedMilestoneId(next ? track.milestoneId : null); }} className={`grid w-full grid-cols-[140px_190px_76px_100px_100px_76px_150px_230px] border-b border-[#e4ddd0] text-left transition hover:bg-[#f8f5ec] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] ${selectedTrack === track.key ? "bg-[#f5f2ea]" : ""}`}>
-                <div className="border-l-4 px-3 py-4" style={{ borderLeftColor: track.accent }}><span className="font-semibold text-[#24231f]">{track.label}</span><span className="mt-1 block text-[10px] text-[#777166]">{track.dateCertainty === "provisional" ? "日付は仮置き" : "日付確認済み"}</span></div>
-                <div className="px-3 py-4 text-xs leading-5 text-[#514e47]">{track.gate}</div>
-                <div className="px-3 py-4"><Badge tone={STATUS_TONE[track.status] || STATUS_TONE.unassessed}>{track.statusLabel}</Badge></div>
-                <div className="px-3 py-4 text-xs text-[#514e47]">{formatDate(track.plannedEnd)}</div>
-                <div className="px-3 py-4 text-xs font-semibold text-[#24231f]">{formatDate(track.forecastEnd)}</div>
-                <div className="px-3 py-4">{track.status === "unassessed" ? <span className="font-mono text-xs font-semibold text-[#55506d]">進捗未評価</span> : <><span className="font-mono text-xs font-semibold text-[#24231f]">{track.progressPct}%</span><span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-[#e8e2d6]"><span className="block h-full rounded-full bg-[#38745d]" style={{ width: `${track.progressPct}%` }} /></span></>}</div>
-                <div className="px-3 py-4 text-xs leading-5 text-[#514e47]"><span className={track.ownerLabel.includes("未確認") ? "font-semibold text-[#8c3329]" : ""}>{track.ownerLabel}</span><span className="mt-1 block text-[10px] text-[#777166]">確認 {formatDate(track.lastVerifiedAt)} / 確度 {confidenceLabel(track.confidence)}</span></div>
-                <div className="px-3 py-4 text-xs leading-5"><span className="block text-[#24231f]">{track.nextDeliverable}</span><span className="mt-1 block text-[#8c3329]">論点: {track.maxIssue}</span></div>
-              </button>)}
-            </div>
-          </div>
-          <div className="space-y-3 lg:hidden">
-            {management.tracks.map((track) => <button key={track.key} type="button" aria-pressed={selectedTrack === track.key} aria-controls="selected-management-context" onClick={() => { const next = selectedTrack === track.key ? null : track.key; setSelectedTrack(next); setSelectedMilestoneId(next ? track.milestoneId : null); }} className={`min-h-28 w-full rounded-lg border p-4 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] ${selectedTrack === track.key ? "border-[#38745d] bg-[#f1f6f2]" : "border-[#d6cebf] bg-[#fffdf7]"}`}><div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-semibold tracking-[0.14em] text-[#765022]">{track.label}</p><h3 className="mt-1 text-sm font-semibold text-[#24231f]">{track.gate}</h3></div><Badge tone={STATUS_TONE[track.status] || STATUS_TONE.unassessed}>{track.statusLabel}</Badge></div><dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-[11px]"><div><dt className="text-[#777166]">予定 / 予測</dt><dd className="font-semibold">{formatDate(track.plannedEnd)} / {formatDate(track.forecastEnd)}</dd></div><div><dt className="text-[#777166]">差分</dt><dd className={track.deltaDays && track.deltaDays > 0 && track.dateCertainty !== "provisional" ? "font-semibold text-[#8c3329]" : "font-semibold"}>{formatDeltaLabel(track.deltaDays, track.dateCertainty)}</dd></div><div><dt className="text-[#777166]">担当 / 確認日</dt><dd>{track.ownerLabel} / {formatDate(track.lastVerifiedAt)}</dd></div><div><dt className="text-[#777166]">進捗 / 確度</dt><dd>{track.status === "unassessed" ? "進捗未評価" : `${track.progressPct}%`} / {confidenceLabel(track.confidence)}</dd></div></dl><div className="mt-3 border-t border-[#e4ddd0] pt-2 text-xs"><p>次の成果: {track.nextDeliverable}</p><p className="mt-1 text-[#8c3329]">最大論点: {track.maxIssue}</p></div></button>)}
-          </div>
-          </div>
-        </details>
-
-        <details className="rounded-xl border border-[#d6cebf] bg-[#fffdf7]/95 p-5 sm:p-6">
-          <summary className="flex min-h-11 cursor-pointer select-none items-center text-sm font-semibold text-[#514e47] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]">目的 → 成果 → KPI/先行指標を表示</summary>
-          <div className="mt-4">
-            <ObjectiveKpiSection management={management} onEdit={(resource, id) => setEditing({ resource, id })} />
-          </div>
-        </details>
-
         <section id="management-issues" className="rounded-xl border border-[#d6cebf] bg-[#fffdf7]/95 p-5 sm:p-6" aria-labelledby="issues-heading">
           <SectionHeader kicker="論点・仮説台帳" title="論点・仮説台帳" description="事実・仮説・意思決定待ちを分類し、根拠・反証/不足・次の検証・担当・期限・意思決定を分けて管理するよ。" action={<div className="flex flex-wrap items-center gap-2 text-[10px] text-[#777166]"><span>事実 {issueGroups.fact}</span><span>仮説 {issueGroups.hypothesis}</span><span>意思決定待ち {issueGroups.decisionNeeded}</span><span>決定済み {issueGroups.decided}</span><EditAction canManage={management.canManage} label="論点を追加" onClick={() => setCreating({ resource: "issue", initialValues: selectedMilestone ? { milestone_id: selectedMilestone.id, outcome_id: selectedMilestone.outcomeId, track: selectedMilestone.track } : undefined })} /></div>} />
           <div className="grid gap-3 md:grid-cols-3">{visibleIssues.slice(0, 3).map((issue) => <div key={`${issue.id}-summary`} className="rounded-lg bg-[#f8f5ec] p-3"><p className="text-[10px] font-semibold text-[#777166]">次に検証すること</p><p className="mt-1 text-xs leading-5 text-[#24231f]">{issue.nextValidation}</p></div>)}</div>
@@ -1052,7 +998,8 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
 
         <section id="management-partners" className="rounded-xl border border-[#d6cebf] bg-[#fffdf7]/95 p-5 sm:p-6" aria-labelledby="partners-heading">
           <SectionHeader kicker="協力機関の進捗" title="協力機関の進捗" description="候補・情報交換・条件整理・面談調整・検証準備・合意確認・実行中・保留を区別し、合意済みと未合意を同じ行で見せるよ。" />
-          <details className="rounded-lg border border-[#e4ddd0] bg-white/60 p-3">
+          <SxPartnerPipeline management={management} />
+          <details className="mt-4 rounded-lg border border-[#e4ddd0] bg-white/60 p-3">
             <summary className="flex min-h-11 cursor-pointer select-none items-center text-xs font-semibold text-[#514e47] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]">協力機関の全件を表示（{visiblePartners.length}件）</summary>
             <div className="mt-3">
               {visiblePartners.length === 0 ? <div className="rounded-lg border border-dashed border-[#d6cebf] px-4 py-8 text-center text-sm text-[#777166]">協力機関の情報はまだないよ。</div> : <div className="hidden overflow-x-auto lg:block"><div className="min-w-[1080px]"><div className="grid grid-cols-[160px_190px_100px_210px_210px_180px_150px_80px] border-y border-[#d6cebf] bg-[#f8f5ec] text-[10px] font-semibold text-[#777166]"><div className="px-3 py-2.5">機関 / 役割</div><div className="px-3 py-2.5">進捗段階</div><div className="px-3 py-2.5">合意</div><div className="px-3 py-2.5">合意済みの範囲</div><div className="px-3 py-2.5">未合意の範囲</div><div className="px-3 py-2.5">SX側の次アクション</div><div className="px-3 py-2.5">期限 / 担当</div><div className="px-3 py-2.5">操作</div></div>{visiblePartners.map((partner) => <div key={partner.id} className="grid grid-cols-[160px_190px_100px_210px_210px_180px_150px_80px] border-b border-[#e4ddd0] text-xs leading-5"><div className="px-3 py-4"><p className="font-semibold text-[#24231f]">{sxPartnerName(partner)}</p><p className="mt-1 text-[10px] text-[#777166]">{partner.roleLabel} / {TRACK_LABELS[partner.track]}</p></div><div className="px-3 py-4"><Badge tone="border-[#b7c8d2] bg-[#eef3f5] text-[#315f7d]">{PARTNER_STAGE_LABELS[partner.relationshipStage] || "未設定"}</Badge><p className="mt-1 text-[10px] text-[#777166]">最終接点 {formatDate(partner.lastContactDate)}</p></div><div className="px-3 py-4"><Badge tone={partner.agreementState === "agreed" ? "border-[#9fc6b4] bg-[#e8f2eb] text-[#205f49]" : partner.agreementState === "partial" ? "border-[#e3c994] bg-[#fbf1dc] text-[#765022]" : "border-[#e4a39b] bg-[#f9e4e1] text-[#8c3329]"}>{partner.agreementState === "agreed" ? "合意済み" : partner.agreementState === "partial" ? "一部合意" : "未合意"}</Badge></div><div className="px-3 py-4 text-[#514e47]">{displayManagementText(partner.agreedScope)}</div><div className="px-3 py-4 text-[#8c3329]">{displayManagementText(partner.unagreedScope)}</div><div className="px-3 py-4 text-[#514e47]">{displayManagementText(partner.nextCommitment)}</div><div className="px-3 py-4 text-[#514e47]"><span>{formatDate(partner.dueDate)}</span><span className={partner.ownerLabel.includes("未確認") ? "mt-1 block font-semibold text-[#8c3329]" : "mt-1 block text-[#777166]"}>{partner.ownerLabel}</span></div><div className="px-3 py-4">{management.canManage && <button type="button" onClick={() => setEditing({ resource: "partner", id: partner.id })} className="inline-flex items-center gap-1 rounded-md border border-[#cfc7b9] px-2 py-1.5 text-[10px] font-semibold text-[#514e47] hover:bg-[#f8f5ec]"><Pencil className="h-3 w-3" aria-hidden="true" />編集</button>}</div></div>)}</div></div>}
@@ -1061,32 +1008,71 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
           </details>
         </section>
 
-        <details className="rounded-xl border border-[#d6cebf] bg-[#fffdf7]/95 p-5 sm:p-6" aria-labelledby="decision-heading">
-          <summary className="flex min-h-11 cursor-pointer select-none items-center text-sm font-semibold text-[#514e47] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]">意思決定の記録を表示</summary>
-          <div className="mt-4">
-            <SectionHeader kicker="意思決定の記録" title="意思決定の記録" description="今週決めることの背景・期限・担当・決定内容を、論点台帳と分けて残すよ。" />
-            <div className="grid gap-3 lg:grid-cols-3">{management.decisions.map((decision) => <div key={decision.id} className="rounded-lg border border-[#e4ddd0] bg-[#f8f5ec] p-4"><div className="flex items-start justify-between gap-3"><Badge tone={decision.status === "decided" ? STATUS_TONE.completed : decision.status === "deferred" ? STATUS_TONE.attention : "border-[#e3c994] bg-[#fbf1dc] text-[#765022]"}>{decision.status === "decided" ? "決定済み" : decision.status === "deferred" ? "保留" : "未決"}</Badge>{management.canManage && <button type="button" onClick={() => setEditing({ resource: "decision", id: decision.id })} className="rounded-md border border-[#cfc7b9] p-1.5 text-[#69665d] hover:bg-[#fffdf7]" aria-label={`${decision.title}を編集`}><Pencil className="h-3.5 w-3.5" aria-hidden="true" /></button>}</div><h3 className="mt-3 text-sm font-semibold leading-5 text-[#24231f]">{decision.title}</h3><p className="mt-2 text-xs leading-5 text-[#69665d]">{decision.context}</p><p className="mt-3 text-[11px] text-[#777166]">期限 {formatDate(decision.dueDate)} / {decision.ownerLabel}</p>{decision.decisionText && <p className="mt-2 border-t border-[#e4ddd0] pt-2 text-xs leading-5 text-[#205f49]">決定: {decision.decisionText}</p>}</div>)}</div>
-            {management.decisions.length === 0 && <p className="rounded-lg border border-dashed border-[#d6cebf] px-4 py-8 text-center text-sm text-[#777166]">決定事項はまだないよ。</p>}
-          </div>
-        </details>
+        <details id="management-ledger" className="scroll-mt-20 rounded-xl border border-[#d6cebf] bg-[#fffdf7]/95 p-5 sm:p-6" data-testid="sx-management-ledger">
+          <summary className="flex min-h-11 cursor-pointer select-none flex-col gap-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]">
+            <span className="text-[10px] font-semibold tracking-[0.16em] text-[#38745d]">低頻度・詳細編集</span>
+            <span id="management-ledger-heading" className="text-lg font-semibold tracking-tight text-[#24231f]">管理台帳・編集を表示（運用準備 / 4本柱 / KPI / 意思決定 / 判断ループ / 測定・資金・体制 / 非表示履歴）</span>
+          </summary>
+          <div className="mt-4 space-y-6">
+            <div aria-labelledby="readiness-heading">
+              <div className="flex items-center justify-between gap-3">
+                <div><p className="text-[10px] font-semibold tracking-[0.16em] text-[#38745d]">運用準備</p><h3 id="readiness-heading" className="mt-1 text-base font-semibold text-[#24231f]">{operationReady ? "運用準備 完了" : "運用準備 未完了"}</h3></div>
+              </div>
+              <p className="mt-2 text-xs leading-5 text-[#514e47]">重要な共有情報が揃うまで、経営判定を合格扱いにしないフェイルクローズの確認欄だよ。</p>
+              {management.canManage && <div className="mt-3"><button type="button" onClick={() => setCreating({ resource: "issue" })} className="min-h-11 rounded-lg bg-[#205f49] px-4 py-2.5 text-xs font-semibold text-white hover:bg-[#174b3a] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#205f49]">新規追加</button></div>}
+              <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                {operationChecks.map((check) => <div key={check.label} className={`rounded-lg border p-3 ${check.missing === 0 ? "border-[#9fc6b4] bg-white" : "border-[#e3c994] bg-[#fbf1dc]"}`}><div className="flex items-start justify-between gap-2"><p className="text-xs font-semibold leading-5 text-[#24231f]">{check.label}</p><span className="shrink-0 text-[11px] font-semibold">{check.missing === 0 ? "準備済み" : "未確認"}</span></div><p className="mt-2 text-[11px] text-[#765022]">不足 {check.missing}件</p></div>)}
+              </div>
+              {management.canManage && <div className="mt-4 border-t border-[#e4ddd0] pt-3"><p className="text-[11px] font-semibold text-[#38745d]">経営台帳の更新</p><div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-5">{CREATE_RESOURCES.map((resource) => <button key={resource} type="button" onClick={() => setCreating({ resource })} className="min-h-11 rounded-md border border-[#b7c8d2] bg-white px-2 py-2 text-[11px] font-semibold text-[#315f7d] hover:bg-[#eef3f5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]">{RESOURCE_LABELS[resource]}</button>)}</div></div>}
+            </div>
 
-        <details className="rounded-xl border border-[#d6cebf] bg-[#fffdf7]/95 p-5 sm:p-6">
-          <summary className="flex min-h-11 cursor-pointer select-none items-center text-sm font-semibold text-[#514e47] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]">判断→実行→確認の詳細を表示</summary>
-          <div className="mt-4">
-            <DecisionLoopSection management={management} memberNames={memberNames} onEdit={(resource, id) => setEditing({ resource, id })} />
-          </div>
-        </details>
-        {management.canManage && <DeletedManagementSection projectId={projectId} onRestored={(nextManagement) => setWorkspace((current) => ({ ...current, sxManagement: nextManagement }))} />}
-        <details className="rounded-xl border border-[#d6cebf] bg-[#fffdf7]/95 p-5 sm:p-6">
-          <summary className="flex min-h-11 cursor-pointer select-none items-center text-sm font-semibold text-[#514e47] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]">測定・資金・体制・約束の詳細を表示</summary>
-          <div className="mt-4">
-            <MeasurementSection management={management} memberNames={memberNames} onEdit={(resource, id) => setEditing({ resource, id })} />
+            <div className="border-t border-[#e4ddd0] pt-5" aria-labelledby="tracks-heading">
+              <SectionHeader kicker="4本柱" title="4本柱の詳細比較表" description="4本とも同じ管理型で、ゲート・状態・予定/予測・差分・進捗・担当・次の成果・最大論点・鮮度を並べてるよ。状態は期限・根拠・阻害条件から計算し、根拠のない手入力で順調にしない。" action={selectedTrack ? <button type="button" aria-pressed={selectedTrack === null} aria-controls="selected-management-context" onClick={() => { setSelectedTrack(null); setSelectedMilestoneId(null); }} className="min-h-11 rounded-md border border-[#d6cebf] px-3 py-2 text-xs font-semibold text-[#69665d] hover:bg-[#f8f5ec] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]">全体に戻す</button> : undefined} />
+              <div className="hidden overflow-x-auto lg:block">
+                <div className="min-w-[1120px]">
+                  <div className="grid grid-cols-[140px_190px_76px_100px_100px_76px_150px_230px] border-y border-[#d6cebf] bg-[#f8f5ec] text-[10px] font-semibold text-[#777166]"><div className="px-3 py-2.5">柱</div><div className="px-3 py-2.5">現在ゲート</div><div className="px-3 py-2.5">状態</div><div className="px-3 py-2.5">予定日</div><div className="px-3 py-2.5">予測日</div><div className="px-3 py-2.5">進捗</div><div className="px-3 py-2.5">担当 / 鮮度</div><div className="px-3 py-2.5">次の成果 / 最大論点</div></div>
+                  {management.tracks.map((track) => <button key={track.key} type="button" aria-pressed={selectedTrack === track.key} aria-controls="selected-management-context" onClick={() => { const next = selectedTrack === track.key ? null : track.key; setSelectedTrack(next); setSelectedMilestoneId(next ? track.milestoneId : null); }} className={`grid w-full grid-cols-[140px_190px_76px_100px_100px_76px_150px_230px] border-b border-[#e4ddd0] text-left transition hover:bg-[#f8f5ec] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] ${selectedTrack === track.key ? "bg-[#f5f2ea]" : ""}`}>
+                    <div className="border-l-4 px-3 py-4" style={{ borderLeftColor: track.accent }}><span className="font-semibold text-[#24231f]">{track.label}</span><span className="mt-1 block text-[10px] text-[#777166]">{track.dateCertainty === "provisional" ? "日付は仮置き" : "日付確認済み"}</span></div>
+                    <div className="px-3 py-4 text-xs leading-5 text-[#514e47]">{track.gate}</div>
+                    <div className="px-3 py-4"><Badge tone={STATUS_TONE[track.status] || STATUS_TONE.unassessed}>{track.statusLabel}</Badge></div>
+                    <div className="px-3 py-4 text-xs text-[#514e47]">{formatDate(track.plannedEnd)}</div>
+                    <div className="px-3 py-4 text-xs font-semibold text-[#24231f]">{formatDate(track.forecastEnd)}</div>
+                    <div className="px-3 py-4">{track.status === "unassessed" ? <span className="font-mono text-xs font-semibold text-[#55506d]">進捗未評価</span> : <><span className="font-mono text-xs font-semibold text-[#24231f]">{track.progressPct}%</span><span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-[#e8e2d6]"><span className="block h-full rounded-full bg-[#38745d]" style={{ width: `${track.progressPct}%` }} /></span></>}</div>
+                    <div className="px-3 py-4 text-xs leading-5 text-[#514e47]"><span className={track.ownerLabel.includes("未確認") ? "font-semibold text-[#8c3329]" : ""}>{track.ownerLabel}</span><span className="mt-1 block text-[10px] text-[#777166]">確認 {formatDate(track.lastVerifiedAt)} / 確度 {confidenceLabel(track.confidence)}</span></div>
+                    <div className="px-3 py-4 text-xs leading-5"><span className="block text-[#24231f]">{track.nextDeliverable}</span><span className="mt-1 block text-[#8c3329]">論点: {track.maxIssue}</span></div>
+                  </button>)}
+                </div>
+              </div>
+              <div className="space-y-3 lg:hidden">
+                {management.tracks.map((track) => <button key={track.key} type="button" aria-pressed={selectedTrack === track.key} aria-controls="selected-management-context" onClick={() => { const next = selectedTrack === track.key ? null : track.key; setSelectedTrack(next); setSelectedMilestoneId(next ? track.milestoneId : null); }} className={`min-h-28 w-full rounded-lg border p-4 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] ${selectedTrack === track.key ? "border-[#38745d] bg-[#f1f6f2]" : "border-[#d6cebf] bg-[#fffdf7]"}`}><div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-semibold tracking-[0.14em] text-[#765022]">{track.label}</p><h3 className="mt-1 text-sm font-semibold text-[#24231f]">{track.gate}</h3></div><Badge tone={STATUS_TONE[track.status] || STATUS_TONE.unassessed}>{track.statusLabel}</Badge></div><dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-[11px]"><div><dt className="text-[#777166]">予定 / 予測</dt><dd className="font-semibold">{formatDate(track.plannedEnd)} / {formatDate(track.forecastEnd)}</dd></div><div><dt className="text-[#777166]">差分</dt><dd className={track.deltaDays && track.deltaDays > 0 && track.dateCertainty !== "provisional" ? "font-semibold text-[#8c3329]" : "font-semibold"}>{formatDeltaLabel(track.deltaDays, track.dateCertainty)}</dd></div><div><dt className="text-[#777166]">担当 / 確認日</dt><dd>{track.ownerLabel} / {formatDate(track.lastVerifiedAt)}</dd></div><div><dt className="text-[#777166]">進捗 / 確度</dt><dd>{track.status === "unassessed" ? "進捗未評価" : `${track.progressPct}%`} / {confidenceLabel(track.confidence)}</dd></div></dl><div className="mt-3 border-t border-[#e4ddd0] pt-2 text-xs"><p>次の成果: {track.nextDeliverable}</p><p className="mt-1 text-[#8c3329]">最大論点: {track.maxIssue}</p></div></button>)}
+              </div>
+            </div>
+
+            <div className="border-t border-[#e4ddd0] pt-5">
+              <ObjectiveKpiSection management={management} onEdit={(resource, id) => setEditing({ resource, id })} />
+            </div>
+
+            <div className="border-t border-[#e4ddd0] pt-5" aria-labelledby="decision-heading">
+              <SectionHeader kicker="意思決定の記録" title="意思決定の記録" description="今週決めることの背景・期限・担当・決定内容を、論点台帳と分けて残すよ。" />
+              <div className="grid gap-3 lg:grid-cols-3">{management.decisions.map((decision) => <div key={decision.id} className="rounded-lg border border-[#e4ddd0] bg-[#f8f5ec] p-4"><div className="flex items-start justify-between gap-3"><Badge tone={decision.status === "decided" ? STATUS_TONE.completed : decision.status === "deferred" ? STATUS_TONE.attention : "border-[#e3c994] bg-[#fbf1dc] text-[#765022]"}>{decision.status === "decided" ? "決定済み" : decision.status === "deferred" ? "保留" : "未決"}</Badge>{management.canManage && <button type="button" onClick={() => setEditing({ resource: "decision", id: decision.id })} className="rounded-md border border-[#cfc7b9] p-1.5 text-[#69665d] hover:bg-[#fffdf7]" aria-label={`${decision.title}を編集`}><Pencil className="h-3.5 w-3.5" aria-hidden="true" /></button>}</div><h3 className="mt-3 text-sm font-semibold leading-5 text-[#24231f]">{decision.title}</h3><p className="mt-2 text-xs leading-5 text-[#69665d]">{decision.context}</p><p className="mt-3 text-[11px] text-[#777166]">期限 {formatDate(decision.dueDate)} / {decision.ownerLabel}</p>{decision.decisionText && <p className="mt-2 border-t border-[#e4ddd0] pt-2 text-xs leading-5 text-[#205f49]">決定: {decision.decisionText}</p>}</div>)}</div>
+              {management.decisions.length === 0 && <p className="rounded-lg border border-dashed border-[#d6cebf] px-4 py-8 text-center text-sm text-[#777166]">決定事項はまだないよ。</p>}
+            </div>
+
+            <div className="border-t border-[#e4ddd0] pt-5">
+              <DecisionLoopSection management={management} memberNames={memberNames} onEdit={(resource, id) => setEditing({ resource, id })} />
+            </div>
+
+            <div className="border-t border-[#e4ddd0] pt-5">
+              <MeasurementSection management={management} memberNames={memberNames} onEdit={(resource, id) => setEditing({ resource, id })} />
+            </div>
+
+            {management.canManage && <div className="border-t border-[#e4ddd0] pt-5"><DeletedManagementSection projectId={projectId} onRestored={(nextManagement) => setWorkspace((current) => ({ ...current, sxManagement: nextManagement }))} /></div>}
           </div>
         </details>
 
         <section id="management-capacity" className="rounded-xl border border-[#d6cebf] bg-[#fffdf7]/95 p-5 sm:p-6" aria-labelledby="capacity-heading">
           <SectionHeader kicker="CAPACITY / WEEKLY EFFORT" title="実行能力と週次エフォート" description="週次エフォートは主役から下げ、体制の不足と入力データの鮮度を確認する面へ移したよ。AMD OS側の入力対象と研究側メンバーを混同しない。" />
-          <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="grid items-start gap-4 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="rounded-lg border border-[#e3c994] bg-[#fbf1dc] p-4"><div className="flex items-start gap-3"><UsersRound className="mt-0.5 h-5 w-5 shrink-0 text-[#bf7b2c]" aria-hidden="true" /><div><p className="text-sm font-semibold text-[#765022]">研究側メンバー未確認</p><p className="mt-1 text-xs leading-5 text-[#765022]">現在のAMD OS参加メンバー {workspace.memberCount}人は入力対象として表示してるだけで、研究チーム全体の人数・役割を表してないよ。責任者と研究側の体制を確認してから、経営判定を「順調」に進めてね。</p></div></div></div>
             <div className="rounded-lg border border-[#e4ddd0] bg-[#f8f5ec] p-4"><div className="flex items-center justify-between gap-3"><span className="text-xs font-semibold text-[#777166]">今週の入力</span><span className="text-right text-sm font-semibold text-[#24231f]">予定 {hours(workspace.effort.plannedHours)}h / 実績 {hours(workspace.effort.actualHours)}h<span className="mt-1 block text-[10px] font-normal text-[#777166]">Calendar {hours(workspace.effort.calendarHours)}h / 手入力・取込 {hours(workspace.effort.enteredHours)}h</span></span></div><p className="mt-1 text-[11px] leading-4 text-[#777166]">Calendar実績は予定の開始・終了だけから集計。Gmail・Slack・Driveは活動証跡として使い、時間換算しない。</p><div className="mt-3"><CategoryBand categories={workspace.effort.categories} muted={!workspace.effort.hasEntries} /></div>{workspace.effort.links.length > 0 && <div className="mt-3 border-t border-[#e4ddd0] pt-3"><p className="text-[10px] font-semibold text-[#777166]">経営台帳への接続</p><div className="mt-2 space-y-1.5">{workspace.effort.links.slice(0, 4).map((link, index) => <p key={`${link.milestoneId || link.track || "unlinked"}-${index}`} className="text-[11px] leading-5 text-[#69665d]">{link.track ? TRACK_LABELS[link.track as SxTrackKey] || "柱未確認" : "柱未接続"} / {link.milestoneTitle || "ゲート未接続"} / {link.deliverableLabel || "次の成果未確認"}（実績 {hours(link.actualHours)}h）</p>)}</div></div>}{!workspace.effort.hasEntries && <p className="mt-2 text-[11px] text-[#765022]">今週の時間は未確定。</p>}{workspace.effort.actualHours === 0 && workspace.evidenceCount > 0 && <p className="mt-2 rounded-md border border-[#e3c994] bg-[#fbf1dc] px-2.5 py-1.5 text-[11px] leading-4 text-[#765022]">抽出済みの活動証跡が{workspace.evidenceCount}件あるのに工数が0時間。0時間と断定せず「工数未算定（取得範囲未完了）」として扱ってね。経営判定にはこの数値を混ぜていないよ。</p>}</div>
           </div>

@@ -50,7 +50,7 @@ export function sxAddDays(dateStr: string, days: number) {
 }
 
 export function sxIsMissingOwner(value: string) {
-  return !value.trim() || value.includes("未確認") || value.includes("未設定");
+  return !value.trim() || value.includes("未確認") || value.includes("未設定") || value.includes("未登録");
 }
 
 export function sxTechnicalTestStatusLabel(value: string) {
@@ -69,6 +69,30 @@ export const SX_TECH_TEST_STATUS_TONE: Record<string, string> = {
 /** milestone.progressPct is meaningless while status is unassessed; never render a bare 0%. */
 export function sxProgressDisplay(status: SxMilestoneStatus, progressPct: number) {
   return status === "unassessed" ? "未評価" : `${progressPct}%`;
+}
+
+export function sxFormatDelta(deltaDays: number | null, dateCertainty: "confirmed" | "provisional" | null) {
+  if (deltaDays == null) return "差分未算定";
+  if (dateCertainty === "provisional") return deltaDays === 0 ? "予測差 0日" : `予測差 ${deltaDays > 0 ? "+" : "-"}${Math.abs(deltaDays)}日`;
+  if (deltaDays === 0) return "予定通り";
+  return deltaDays > 0 ? `${deltaDays}日遅延` : `${Math.abs(deltaDays)}日短縮`;
+}
+
+/** Evidence completeness for a pillar's signal strip: owner / completion criteria / measured KPI / verified confidence. Never averages progress_pct into this. */
+export function sxTrackEvidenceCompleteness(
+  track: { key: string; ownerLabel: string; lastVerifiedAt: string | null; confidence: string },
+  milestone: { completionCriteria: string } | undefined,
+  kpis: Array<{ track: string; actual: number | null; measurementDate: string | null }>,
+) {
+  const kpiForTrack = kpis.filter((kpi) => kpi.track === track.key);
+  const checks = [
+    !sxIsMissingOwner(track.ownerLabel),
+    Boolean(milestone?.completionCriteria && !milestone.completionCriteria.includes("未確認")),
+    kpiForTrack.some((kpi) => kpi.actual != null && Boolean(kpi.measurementDate)),
+    Boolean(track.lastVerifiedAt) && track.confidence !== "unknown",
+  ];
+  const filled = checks.filter(Boolean).length;
+  return { pct: Math.round((filled / checks.length) * 100), filled, total: checks.length };
 }
 
 /** Retired geography-based labels are normalized and demoted at the display boundary. */
