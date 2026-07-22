@@ -10,6 +10,8 @@
 
 現在の是正ターゲットは、**cadence ベースで 3 本の Claude routine に束ねる** (= 2026-06-08 まさ確定、新ナンバリング D / M / W / H):
 
+> **2026-07-22 現行**: H-1とH-1 reviewerは、Codex Desktopの可視taskを作る定期automationを停止した。MacのLaunchAgentが `codex exec --ephemeral` を起動し、H-1は平日毎時15分、reviewerは同45分に動く。候補gateは先に固定スクリプトでDBを確認し、Calendarは接続済みconnectorを1回だけ読む。候補なしでは本文抽出・横断探索へ進まず、OS通知・ローカルreport・memoryだけを確定する。可視prep threadはW-Prep専任であり、H-1/reviewerは作らない。古い「MMO / Codex Desktop automation / archive watchdog」の記述は履歴で、この段落が優先する。
+
 - **Claude routine `amd-os-l2-consolidated-evidence`** = 表示名「**AMD OS L2 日次抽出 (D-1〜D-11+D-13 統合)**」(daily 08:00 JST、`0 8 * * *`): D-1〜D-11 + D-13。MS Progress、Member Activity Evidence、Media Mentions も daily 化してここに同居。
 - **Claude routine `amd-os-l2-monthend-evidence`** = 表示名「**AMD OS L2 月末抽出 (M-1月次レポート/M-2 XRL/M-3経営シグナル)**」(月末候補日 16:00 発火 `0 16 28-31 * *`、Phase 0 で最終日判定、17:00 完了): M-1〜M-3 = 旧 M-1M-2M-3。3 つとも「月末」なので 1 本に統合。M-3 (Management Signal) を 18:00 月次振り返り MTG 前に出揃わせる。
 - **Claude routine `amd-os-l2-weekly-vc-funding-signals`** = 表示名「**AMD OS L2 週次抽出 (W-1 VCニュース/資金調達)**」(weekly Saturday 09:00 JST、`0 9 * * 6`): W-1 = 旧 W-1 VC News / Funding Signals。weekly cadence なので D/M へ混ぜない。

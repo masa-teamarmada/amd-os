@@ -13,7 +13,7 @@ L2抽出をClaude定額token/routineへ載せる方針は決定済みだった�
 以後、このドキュメントでの用語は次で固定する。
 
 - **Claude routine**: Claude Routines UI上に存在し、`ACTIVE`、`next run`、`last run` を確認できるもの。`~/.claude/scheduled-tasks/.../SKILL.md` があるだけではClaude routine登録済みとは扱わない。
-- **Codex実行系**: MMOマシン上のCodex実行基盤。現行方針では **H-1 `amd-os-l6-meeting-flow` だけ** がここに残る。2026-06-08時点の実稼働は Codex Desktop UI automation store ではなく、Windows Task Scheduler `amd-os-l6-meeting-flow-launcher` から `codex exec` を起こす Live launcher。D / M / W 系が残っている場合は暫定復旧手段または差分として扱う。
+- **Codex実行系**: 2026-07-22以降、H-1はMac LaunchAgent `jp.teamarmada.amd-os-h1-background`、reviewerは `jp.teamarmada.amd-os-h1-reviewer-background` から非可視 `codex exec --ephemeral` を起動する。Codex Desktopの定期automationはPAUSEDで、H-1/reviewerは可視taskを作らない。H-1は平日毎時15分、reviewerは同45分。DB候補gateを固定scriptで先に読み、Calendarはconnectorを一度だけ読む。候補ゼロでは本文抽出・横断探索へ進まない。MMO / Windows launcher記述は履歴参照として扱う。
 - **Codex automation**: `~/.codex/automations` とoutbox/applierで回るCodex側automation。Claude routineとは別物。
 - **PWA non-LLM cron**: Vercel/PWA上で動いてよいLLM非依存cron。
 - **PWA/Vercel LLM cron**: Anthropic/Gemini/OpenAI等の従量課金LLMを背景実行するcron。L2抽出用途では禁止/停止。

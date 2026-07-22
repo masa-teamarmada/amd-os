@@ -178,13 +178,15 @@ node scripts/review_h1_meeting_summary.mjs --fixture scripts/__fixtures__/h1_mee
 
 reviewer は **H-1日次集約の唯一の担当**。ただし、日次集約のために別のCodex taskを作らない。H-1本体のsanitized報告とreviewer結果は、ローカル台帳とautomation memoryへ確定する。
 
+`H1_REVIEWER_BACKGROUND_RUNNER=1` の場合は、Codex Desktop の可視taskを作らないバックグラウンドrunである。この場合は `CODEX_THREAD_ID` を前提にせず、threadの作成・検索・送信・改名・pin・archiveを一切行わない。ローカルreport、集約台帳、automation memoryだけを確定する。確定後は `H1_REVIEWER_BACKGROUND_RUN_ID` を使い、`/Users/masa/.codex/automations/amd-os-h-1-meeting-reviewer/run_state/background_completed/$H1_REVIEWER_BACKGROUND_RUN_ID.json` に `state='reported'` と `reported_at_jst` だけを保存する。これはthread markerではなくrunner完了証跡であり、watchdogは呼ばない。
+
 - 毎時 reviewer run の並行実行は仕様として維持する。前runを待つ、実行ロックを取る、別runが動いていることを理由にskipする、のいずれも禁止。
 - 起動直後は `CODEX_THREAD_ID` と開始JSTを `/Users/masa/.codex/automations/amd-os-h-1-meeting-reviewer/run_state/current_reviewer.json` へ書くだけにする。前回H-1/reviewerへ `set_thread_archived` を呼ばない。
 - 非LLM LaunchAgent `jp.teamarmada.codex-h1-thread-watchdog` は、sanitized報告を確定済みの完了markerがあるH-1/reviewerをsession実体の有無にかかわらず回収する。完了markerのないrunは自動で閉じず、`unreported` として残留を可視化する。raw本文、他automation、日次まとめは対象にしない。
 - 現在JSTの `YYYYMMDD` を取り、絶対パス `/Users/masa/.codex/automations/amd-os-l6-meeting-flow/reports/YYYYMMDDT*-h1-report.md` を `find` で列挙してbasename順に並べる。`aggregated_h1_reports.json` の `date_jst` が今日と違えば日次resetし、列挙結果と台帳 `reports` の差集合だけを未集約とする。実在ファイルを推測で「なし」にしない。raw本文・Notion本文・個人情報・secret・URLは集約しない。
 - 未集約H-1報告と今回のsanitized reviewer結果を、`/Users/masa/.codex/automations/amd-os-h-1-meeting-reviewer/reports/YYYYMMDDTHHMM-reviewer-report.md` に1通で保存する。保存成功後だけ対象report filenameを集約台帳へ記録し、automation memoryへ同じ短い結果を追記する。
 - **日次まとめtask・日次thread・registryは作成も検索も更新もしない。** `create_thread`、`list_projects`、`list_threads`、`read_thread`、`send_message_to_thread` は日次集約のために呼ばない。過去の `daily_threads/YYYY-MM-DD.json` は履歴であり、現在の配送先ではない。
-- ローカルreportと台帳の確定後、`/Users/masa/.codex/automations/amd-os-h-1-meeting-reviewer/run_state/completed/$CODEX_THREAD_ID.json` に `thread_id`、`state='reported'`、`reported_at_jst` を保存する。次操作で `node pwa/scripts/archive_stale_h1_codex_threads.mjs --thread-id "$CODEX_THREAD_ID"` を実行して現在runだけを外側から閉じる。
+- 通常のCodex task runでは、ローカルreportと台帳の確定後、`/Users/masa/.codex/automations/amd-os-h-1-meeting-reviewer/run_state/completed/$CODEX_THREAD_ID.json` に `thread_id`、`state='reported'`、`reported_at_jst` を保存する。次操作で `node pwa/scripts/archive_stale_h1_codex_threads.mjs --thread-id "$CODEX_THREAD_ID"` を実行して現在runだけを外側から閉じる。`H1_REVIEWER_BACKGROUND_RUNNER=1` ではthreadがないためmarker・archiveを行わない。
 - ローカルreportまたは台帳確定に失敗した場合は、失敗理由をautomation memoryへ残す。完了markerは書かず、次回runで同じ差分を再試行できる状態を残す。
 
 ## H-1結果報告へのツッコミ

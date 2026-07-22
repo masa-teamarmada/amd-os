@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>jp.teamarmada.amd-os-h1-background</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>/Users/masa/projects/AMD/amd-os/scripts/run-h1-background.sh</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/masa/projects/AMD/amd-os-automation-sessions</string>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Minute</key>
+    <integer>15</integer>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>/Users/masa/.codex/automations/amd-os-l6-meeting-flow/logs/background-launchd.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/masa/.codex/automations/amd-os-l6-meeting-flow/logs/background-launchd.err.log</string>
+  <key>ProcessType</key>
+  <string>Background</string>
+</dict>
+</plist>

@@ -1,6 +1,8 @@
 # L2 データ抽出 / Outbox 仕様
 
 > **この章は何か**: AMD OS の中核データである L2 と、5 生データ、Codex automation / MMO Codex Desktop automation / PWA non-LLM cron / outbox / LaunchAgent 反映の確定仕様。運用者向けの読み方は `/manual/3-2-data-and-extraction` と `/manual/8-3-l2-extraction-routines-spec` にも置く。
+
+> **2026-07-22 H-1 current**: `amd-os-l6-meeting-flow` と `amd-os-h-1-meeting-reviewer` のCodex Desktop cronはPAUSED。`jp.teamarmada.amd-os-h1-background` / `jp.teamarmada.amd-os-h1-reviewer-background` LaunchAgentが非可視 `codex exec --ephemeral` を実行する。H-1は平日毎時15分、reviewerは同45分。候補gateはDBを固定scriptで先に読み、Calendarはconnectorを一度だけ確認する。候補ゼロは本文抽出・横断探索へ進まず、可視task・thread・thread marker・archiveを作らない。以下のMMO / Desktop automation記述は履歴参照であり、この段落を優先する。
 >
 > **2026-06-16 current truth**: Claude routines 停止前提で、まず見るべき実行主体は [`5-8-l1-l3-codex-migration-current-spec`](5-8-l1-l3-codex-migration-current-spec) とこの章の `L2 writers` 表。`Claude routine target` は履歴として残る場合があるが、現行 writer の正本ではない。
 
