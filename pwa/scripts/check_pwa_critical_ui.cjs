@@ -419,6 +419,7 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "sxSortInteractionsByRecency",
   "やり取り履歴",
   "履歴を追加",
+  "md:grid md:grid-cols-2 md:gap-x-4 md:gap-y-3",
 ]);
 expectIncludes("src/lib/sx-management.ts", [
   "SxPartnerInteraction",

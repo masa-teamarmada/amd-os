@@ -286,25 +286,31 @@ export function SxPartnerPipeline({
         {rows.map(({ partner, display, gate }) => {
           const expanded = expandedId === partner.id;
           return (
-            <article key={partner.id} className="rounded-md border border-[#e4ddd0] bg-[#f8f5ec] p-2.5 text-[11px] leading-4">
-              <div className="flex items-start justify-between gap-2">
+            <article key={partner.id} className="rounded-md border border-[#e4ddd0] bg-[#f8f5ec] p-2.5 text-[11px] leading-4 md:grid md:grid-cols-2 md:gap-x-4 md:gap-y-3">
+              <div className="flex items-start justify-between gap-2 md:col-span-2">
                 <div className="min-w-0"><p className="truncate font-semibold text-[#24231f]">{display.name}</p><p className="truncate text-[10px] text-[#777166]">{partner.roleLabel}</p></div>
                 <SxBadge tone={AGREEMENT_TONE[partner.agreementState]}>{AGREEMENT_LABEL[partner.agreementState]}</SxBadge>
               </div>
-              <PartnerStageRail stage={partner.relationshipStage} />
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <SxBadge tone={BALL_SIDE_TONE[partner.currentBallSide]}>現在ボール: {sxBallSideLabel(partner.currentBallSide)}</SxBadge>
-                <span className="text-[10px] text-[#777166]">{partner.currentBallOwner || "担当未確認"}</span>
+              <div className="md:col-span-2">
+                <PartnerStageRail stage={partner.relationshipStage} />
               </div>
-              <p className="mt-1 text-[10px] font-semibold text-[#315f7d]">次の受け渡し: → {partner.nextBallOwner || "未確認"}</p>
-              <p className="mt-0.5 text-[10px] font-semibold text-[#24231f]">次の一手: {partner.nextCommitment}</p>
-              <p className="mt-0.5 text-[10px] text-[#777166]">目標状態: {partner.targetState || "未登録"}</p>
-              <p className={`mt-1 text-[10px] ${isDueUnset(partner) ? "font-semibold text-[#8c3329]" : "text-[#777166]"}`}>期限 {sxFormatDueDateWithPrecision(partner.dueDate, partner.dueDatePrecision)} / 接点 {sxFormatDate(partner.lastContactDate)}</p>
-              <p className="mt-1 truncate text-[#514e47]">合意: {partner.agreedScope || "未登録"}</p>
-              <p className="mt-0.5 truncate text-[#8c3329]">未合意: {partner.unagreedScope || "未登録"}</p>
-              <p className="mt-1 text-[10px] text-[#777166]">担当 {partner.ownerLabel} / {gate}</p>
-              <p className="mt-1 text-[10px] text-[#514e47]">最新記録: {latestRecordSummary(partner.interactions)}</p>
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="mt-2 min-w-0 md:mt-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <SxBadge tone={BALL_SIDE_TONE[partner.currentBallSide]}>現在ボール: {sxBallSideLabel(partner.currentBallSide)}</SxBadge>
+                  <span className="text-[10px] text-[#777166]">{partner.currentBallOwner || "担当未確認"}</span>
+                </div>
+                <p className="mt-1 text-[10px] font-semibold text-[#315f7d]">次の受け渡し: → {partner.nextBallOwner || "未確認"}</p>
+                <p className="mt-0.5 text-[10px] font-semibold text-[#24231f]">次の一手: {partner.nextCommitment}</p>
+                <p className="mt-0.5 text-[10px] text-[#777166]">目標状態: {partner.targetState || "未登録"}</p>
+                <p className={`mt-1 text-[10px] ${isDueUnset(partner) ? "font-semibold text-[#8c3329]" : "text-[#777166]"}`}>期限 {sxFormatDueDateWithPrecision(partner.dueDate, partner.dueDatePrecision)} / 接点 {sxFormatDate(partner.lastContactDate)}</p>
+              </div>
+              <div className="mt-2 min-w-0 md:mt-0">
+                <p className="truncate text-[#514e47]">合意: {partner.agreedScope || "未登録"}</p>
+                <p className="mt-0.5 truncate text-[#8c3329]">未合意: {partner.unagreedScope || "未登録"}</p>
+                <p className="mt-1 text-[10px] text-[#777166]">担当 {partner.ownerLabel} / {gate}</p>
+                <p className="mt-1 text-[10px] text-[#514e47]">最新記録: {latestRecordSummary(partner.interactions)}</p>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2 md:col-span-2 md:mt-0">
                 {onEditPartner && management.canManage && (
                   <button type="button" onClick={() => onEditPartner(partner.id)} className="inline-flex min-h-11 items-center gap-1 rounded-md border border-[#cfc7b9] px-3 py-2 text-[10px] font-semibold text-[#514e47] hover:bg-white">
                     <Pencil className="h-3 w-3" aria-hidden="true" />編集
@@ -320,7 +326,11 @@ export function SxPartnerPipeline({
                   履歴 {partner.interactions.length}件 {expanded ? "閉じる" : "開く"}
                 </button>
               </div>
-              {expanded && <InteractionHistoryPanel partner={partner} canManage={management.canManage} onAddInteraction={onAddInteraction} onEditInteraction={onEditInteraction} />}
+              {expanded && (
+                <div className="md:col-span-2">
+                  <InteractionHistoryPanel partner={partner} canManage={management.canManage} onAddInteraction={onAddInteraction} onEditInteraction={onEditInteraction} />
+                </div>
+              )}
             </article>
           );
         })}
