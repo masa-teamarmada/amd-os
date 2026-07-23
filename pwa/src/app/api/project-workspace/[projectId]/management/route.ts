@@ -16,6 +16,7 @@ type Resource =
   | "action"
   | "partner"
   | "commitment"
+  | "interaction"
   | "dependency"
   | "technical_test"
   | "funding_snapshot"
@@ -36,6 +37,7 @@ const RESOURCE_TABLES: Record<Resource, string> = {
   action: "project_management_action_items",
   partner: "project_management_partners",
   commitment: "project_management_partner_commitments",
+  interaction: "project_management_partner_interactions",
   dependency: "project_management_milestone_dependencies",
   technical_test: "project_management_technical_tests",
   funding_snapshot: "project_management_funding_snapshots",
@@ -57,6 +59,7 @@ const RESOURCE_META: Record<Resource, { entityType: string; statusColumn: "statu
   action: { entityType: "action_item", statusColumn: "status", hasLastVerified: true, hasSourceRef: true, hasUpdatedBy: false, softDelete: true },
   partner: { entityType: "partner", statusColumn: null, hasLastVerified: true, hasSourceRef: true, hasUpdatedBy: false, softDelete: true },
   commitment: { entityType: "partner_commitment", statusColumn: "status", hasLastVerified: true, hasSourceRef: true, hasUpdatedBy: false, softDelete: true },
+  interaction: { entityType: "partner_interaction", statusColumn: null, hasLastVerified: false, hasSourceRef: true, hasUpdatedBy: false, softDelete: true },
   dependency: { entityType: "dependency", statusColumn: null, hasLastVerified: false, hasSourceRef: false, hasUpdatedBy: false, softDelete: true },
   technical_test: { entityType: "technical_test", statusColumn: "status", hasLastVerified: false, hasSourceRef: true, hasUpdatedBy: false, softDelete: true },
   funding_snapshot: { entityType: "funding_snapshot", statusColumn: null, hasLastVerified: false, hasSourceRef: true, hasUpdatedBy: false, softDelete: true },
@@ -78,6 +81,7 @@ const DELETED_SELECTS: Record<Resource, string> = {
   action: "id,title,deleted_at,deleted_by",
   partner: "id,slug,name,deleted_at,deleted_by",
   commitment: "id,title,deleted_at,deleted_by",
+  interaction: "id,summary,deleted_at,deleted_by",
   dependency: "id,note,deleted_at,deleted_by",
   technical_test: "id,test_slug,test_name,deleted_at,deleted_by",
   funding_snapshot: "id,snapshot_date,deleted_at,deleted_by",
@@ -91,6 +95,7 @@ function deletedRecordLabel(resource: Resource, row: Record<string, unknown>) {
     : resource === "hypothesis" ? row.statement
       : resource === "evidence" ? row.summary
         : resource === "validation" ? row.validation_kind
+          : resource === "interaction" ? row.summary
           : resource === "technical_test" ? row.test_name || row.test_slug
             : resource === "organization_role" ? row.role_name || row.role_slug
               : resource === "capacity" ? row.role_label
@@ -113,6 +118,9 @@ const ROLE_STATUSES = ["unassessed", "candidate", "committed", "filled", "on_hol
 const RACI_ROLES = ["R", "A", "C", "I"];
 const TRACKS = ["business_development", "technology_development", "funding", "organizational_building"];
 const CONFIDENCES = ["high", "medium", "low", "unknown"];
+const BALL_SIDES = ["sx", "partner", "shared", "none", "unknown"];
+const DATE_PRECISIONS = ["day", "month", "unknown"];
+const INTERACTION_KINDS = ["meeting", "email", "agreement", "deliverable", "handoff", "status_update", "note"];
 
 function todayJst() {
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
@@ -151,6 +159,14 @@ function dateValue(value: unknown, field: string) {
   if (value === null || value === "") return null;
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error(`${field}はYYYY-MM-DDで入力してね`);
   return value;
+}
+
+// migration 191 CHECK contract: unknown precision <-> no date, day/month precision <-> a date. The
+// API must reject the same inconsistent combinations the DB would, using the merged (patch +
+// existing row) value so a PATCH that only touches one of the two fields is still checked.
+function assertDatePrecisionConsistency(dateValueMerged: unknown, precisionMerged: unknown, dateLabel: string, precisionLabel: string) {
+  if (precisionMerged === "unknown" && dateValueMerged != null) throw new Error(`${precisionLabel}が未確認のときは${dateLabel}を入力できないよ`);
+  if (precisionMerged !== "unknown" && dateValueMerged == null) throw new Error(`${precisionLabel}がday/monthのときは${dateLabel}を入力してね`);
 }
 
 function numericValue(value: unknown, field: string, { min = -Infinity, max = Infinity } = {}) {
@@ -214,7 +230,10 @@ function patchFor(resource: Resource, raw: unknown): Record<string, unknown> {
     takeText("title", "title", 240); takeText("owner_label", "owner_label", 120); takeDate("due_date"); takeText("completion_criteria", "completion_criteria", 1200); takeDate("next_review_on"); takeEnum("status", ACTION_STATUSES); takeOptionalText("completion_note", "completion_note", 1200); takeDate("completed_at");
   }
   if (resource === "partner") {
-    takeText("name", "name", 180); takeText("role_label", "role_label", 240); takeEnum("primary_track", TRACKS); takeEnum("relationship_stage", PARTNER_STAGES); takeEnum("agreement_state", AGREEMENT_STATES); takeText("agreed_scope", "agreed_scope", 1000); takeText("unagreed_scope", "unagreed_scope", 1000); takeDate("last_contact_date"); takeText("next_commitment", "next_commitment", 1000); takeDate("due_date"); takeText("owner_label", "owner_label", 120); takeEnum("confidence", CONFIDENCES);
+    takeText("name", "name", 180); takeText("role_label", "role_label", 240); takeEnum("primary_track", TRACKS); takeEnum("relationship_stage", PARTNER_STAGES); takeEnum("agreement_state", AGREEMENT_STATES); takeText("agreed_scope", "agreed_scope", 1000); takeText("unagreed_scope", "unagreed_scope", 1000); takeDate("last_contact_date"); takeText("next_commitment", "next_commitment", 1000); takeDate("due_date"); takeText("owner_label", "owner_label", 120); takeEnum("current_ball_side", BALL_SIDES); takeOptionalText("current_ball_owner", "current_ball_owner", 120); takeOptionalText("next_ball_owner", "next_ball_owner", 120); takeOptionalText("target_state", "target_state", 500); takeEnum("due_date_precision", DATE_PRECISIONS); takeEnum("confidence", CONFIDENCES);
+  }
+  if (resource === "interaction") {
+    takeEnum("interaction_kind", INTERACTION_KINDS); takeDate("occurred_on"); takeEnum("occurred_on_precision", DATE_PRECISIONS); takeText("summary", "summary", 1000); takeOptionalText("outcome_summary", "outcome_summary", 1200); takeEnum("ball_side_after", BALL_SIDES); takeOptionalText("ball_owner_after", "ball_owner_after", 120); takeEnum("confidence", CONFIDENCES);
   }
   if (resource === "commitment") {
     takeText("title", "title", 180); takeText("commitment_text", "commitment_text", 1000); takeEnum("commitment_kind", ["counterparty_promise", "sx_followup"]); takeEnum("status", COMMITMENT_STATUSES); takeDate("promised_on"); takeDate("due_date"); takeDate("completed_on"); takeText("owner_label", "owner_label", 120); takeOptionalText("counterparty_owner", "counterparty_owner", 120); takeOptionalText("sx_owner", "sx_owner", 120); takeOptionalText("evidence", "evidence", 1200); takeDate("next_review_on"); takeEnum("confidence", CONFIDENCES);
@@ -291,7 +310,18 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
     return { ...common(), project_id: projectId, issue_id: issueId, hypothesis_id: hypothesisId, title: requiredText("title", 180), context: requiredText("context", 1200), decision_state: status, rationale: requiredText("rationale", 1200), decision_text: decisionText, decided_by: decidedBy, decided_on: decidedOn, owner_label: requiredText("owner_label", 120), due_date: optionalDate("due_date"), is_this_week: raw.is_this_week == null ? false : booleanValue(raw.is_this_week, "is_this_week"), sort_order: optionalNumber("sort_order", { min: 0 }) || 0, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), last_verified_at: today };
   }
   if (resource === "action") return { ...common(), project_id: projectId, decision_id: requiredId("decision_id"), title: requiredText("title", 240), owner_label: requiredText("owner_label", 120), due_date: optionalDate("due_date"), completion_criteria: requiredText("completion_criteria", 1200), next_review_on: optionalDate("next_review_on"), status: requiredEnum("status", ACTION_STATUSES, "open"), completion_note: optionalTextValue("completion_note", 1200), completed_at: optionalDate("completed_at"), last_verified_at: today };
-  if (resource === "partner") return { ...common(), project_id: projectId, slug: requiredText("slug", 120), name: requiredText("name", 180), role_label: requiredText("role_label", 240), primary_track: requiredEnum("primary_track", TRACKS), relationship_stage: requiredEnum("relationship_stage", PARTNER_STAGES, "candidate"), agreement_state: requiredEnum("agreement_state", AGREEMENT_STATES, "unagreed"), agreed_scope: requiredText("agreed_scope", 1000), unagreed_scope: requiredText("unagreed_scope", 1000), last_contact_date: optionalDate("last_contact_date"), next_commitment: requiredText("next_commitment", 1000), due_date: optionalDate("due_date"), owner_label: requiredText("owner_label", 120), last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
+  if (resource === "partner") {
+    const dueDate = optionalDate("due_date");
+    const dueDatePrecision = requiredEnum("due_date_precision", DATE_PRECISIONS, "unknown");
+    assertDatePrecisionConsistency(dueDate, dueDatePrecision, "期限日", "期限精度");
+    return { ...common(), project_id: projectId, slug: requiredText("slug", 120), name: requiredText("name", 180), role_label: requiredText("role_label", 240), primary_track: requiredEnum("primary_track", TRACKS), relationship_stage: requiredEnum("relationship_stage", PARTNER_STAGES, "candidate"), agreement_state: requiredEnum("agreement_state", AGREEMENT_STATES, "unagreed"), agreed_scope: requiredText("agreed_scope", 1000), unagreed_scope: requiredText("unagreed_scope", 1000), last_contact_date: optionalDate("last_contact_date"), next_commitment: requiredText("next_commitment", 1000), due_date: dueDate, owner_label: requiredText("owner_label", 120), current_ball_side: requiredEnum("current_ball_side", BALL_SIDES, "unknown"), current_ball_owner: optionalTextValue("current_ball_owner", 120), next_ball_owner: optionalTextValue("next_ball_owner", 120), target_state: optionalTextValue("target_state", 500), due_date_precision: dueDatePrecision, last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
+  }
+  if (resource === "interaction") {
+    const occurredOn = optionalDate("occurred_on");
+    const occurredOnPrecision = requiredEnum("occurred_on_precision", DATE_PRECISIONS, "unknown");
+    assertDatePrecisionConsistency(occurredOn, occurredOnPrecision, "発生日", "発生日の確度");
+    return { ...common(), project_id: projectId, partner_id: requiredId("partner_id"), interaction_kind: requiredEnum("interaction_kind", INTERACTION_KINDS), occurred_on: occurredOn, occurred_on_precision: occurredOnPrecision, summary: requiredText("summary", 1000), outcome_summary: optionalTextValue("outcome_summary", 1200), ball_side_after: requiredEnum("ball_side_after", BALL_SIDES, "unknown"), ball_owner_after: optionalTextValue("ball_owner_after", 120), confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
+  }
   if (resource === "commitment") {
     const kind = requiredEnum("commitment_kind", ["counterparty_promise", "sx_followup"]);
     const counterpartyOwner = optionalTextValue("counterparty_owner", 120);
@@ -338,6 +368,7 @@ const PARENT_FIELDS: Partial<Record<Resource, Array<[string, string]>>> = {
   decision: [["issue_id", "project_management_issues"], ["hypothesis_id", "project_management_hypotheses"]],
   action: [["decision_id", "project_management_decisions"]],
   commitment: [["partner_id", "project_management_partners"]],
+  interaction: [["partner_id", "project_management_partners"]],
   dependency: [["predecessor_milestone_id", "project_management_milestones"], ["successor_milestone_id", "project_management_milestones"]],
   raci: [["milestone_id", "project_management_milestones"]],
   capacity: [["milestone_id", "project_management_milestones"]],
@@ -495,6 +526,16 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       const mergedDueDate = patch.due_date !== undefined ? patch.due_date : beforeRecord.due_date;
       const mergedNextReviewOn = patch.next_review_on !== undefined ? patch.next_review_on : beforeRecord.next_review_on;
       if (mergedKind === "sx_followup" && (!mergedSxOwner || !mergedDueDate || !mergedNextReviewOn)) throw new Error("SX側の次アクションにはSX担当・期限・次回確認が必要だよ");
+    }
+    if (resource === "partner" && !deleting && !restoring) {
+      const mergedDueDate = patch.due_date !== undefined ? patch.due_date : beforeRecord.due_date;
+      const mergedDueDatePrecision = typeof patch.due_date_precision === "string" ? patch.due_date_precision : String(beforeRecord.due_date_precision || "unknown");
+      assertDatePrecisionConsistency(mergedDueDate, mergedDueDatePrecision, "期限日", "期限精度");
+    }
+    if (resource === "interaction" && !deleting && !restoring) {
+      const mergedOccurredOn = patch.occurred_on !== undefined ? patch.occurred_on : beforeRecord.occurred_on;
+      const mergedOccurredOnPrecision = typeof patch.occurred_on_precision === "string" ? patch.occurred_on_precision : String(beforeRecord.occurred_on_precision || "unknown");
+      assertDatePrecisionConsistency(mergedOccurredOn, mergedOccurredOnPrecision, "発生日", "発生日の確度");
     }
     const { data, error } = await db.from(RESOURCE_TABLES[resource]).update(patch).eq("id", id).eq("project_id", projectId).select("id").maybeSingle();
     if (error) throw new Error(`共有情報の更新に失敗したよ: ${error.message}`);

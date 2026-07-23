@@ -1,6 +1,13 @@
 import type { ReactNode } from "react";
 import { Ban, CircleCheck, CircleHelp, TriangleAlert } from "lucide-react";
-import type { SxMilestoneStatus, SxTrackKey } from "@/lib/sx-management";
+import type {
+  SxBallSide,
+  SxDatePrecision,
+  SxInteractionKind,
+  SxMilestoneStatus,
+  SxPartnerInteraction,
+  SxTrackKey,
+} from "@/lib/sx-management";
 
 export const SX_TRACK_LABELS: Record<SxTrackKey, string> = {
   business_development: "事業開発",
@@ -143,4 +150,66 @@ export function SxDiamondMark({ dashed, hollow, tone = "#3d382c", className = ""
 
 export function SxTickMark({ tone = "#3d382c", className = "" }: { tone?: string; className?: string }) {
   return <span className={`inline-block h-3.5 w-[2px] shrink-0 ${className}`} style={{ background: tone }} aria-hidden="true" />;
+}
+
+const BALL_SIDE_LABEL: Record<SxBallSide, string> = {
+  sx: "SX側",
+  partner: "相手側",
+  shared: "双方",
+  none: "該当なし",
+  unknown: "未確認",
+};
+
+export function sxBallSideLabel(side: SxBallSide) {
+  return BALL_SIDE_LABEL[side] || "未確認";
+}
+
+const INTERACTION_KIND_LABEL: Record<SxInteractionKind, string> = {
+  meeting: "面談",
+  email: "メール",
+  agreement: "合意",
+  deliverable: "成果物",
+  handoff: "引き継ぎ",
+  status_update: "状況更新",
+  note: "メモ",
+};
+
+export function sxInteractionKindLabel(kind: SxInteractionKind) {
+  return INTERACTION_KIND_LABEL[kind] || "記録";
+}
+
+/** month precision never fabricates a day; unknown precision never fabricates a date at all. */
+export function sxFormatDueDateWithPrecision(dueDate: string | null, precision: SxDatePrecision) {
+  if (precision === "unknown" || !dueDate) return "期限未設定";
+  const [year, month] = dueDate.slice(0, 7).split("-");
+  if (precision === "month") return `${year}年${Number(month)}月（日付未確認）`;
+  const day = dueDate.slice(8, 10);
+  return `${year}/${Number(month)}/${Number(day)}`;
+}
+
+/** Same contract as sxFormatDueDateWithPrecision but for interaction event dates (no "期限" wording). */
+export function sxFormatEventDateWithPrecision(occurredOn: string | null, precision: SxDatePrecision) {
+  if (precision === "unknown" || !occurredOn) return "日付未確認";
+  const [year, month] = occurredOn.slice(0, 7).split("-");
+  if (precision === "month") return `${year}年${Number(month)}月（日付未確認）`;
+  const day = occurredOn.slice(8, 10);
+  return `${year}/${Number(month)}/${Number(day)}`;
+}
+
+/** Effective recency key for an interaction: the confirmed occurredOn date, or — when the date is
+ * unconfirmed — the date it was recorded (createdAt sliced to YYYY-MM-DD). An unknown-dated
+ * interaction is ranked by when SX became aware of it (recorded time), not assumed to be newer
+ * than every known-dated one: a future-dated known interaction still outranks it. */
+function sxInteractionRecencyKey(interaction: SxPartnerInteraction): string {
+  return interaction.occurredOn ?? interaction.createdAt.slice(0, 10);
+}
+
+export function sxSortInteractionsByRecency(interactions: SxPartnerInteraction[]): SxPartnerInteraction[] {
+  return [...interactions].sort(
+    (a, b) => sxInteractionRecencyKey(b).localeCompare(sxInteractionRecencyKey(a)) || b.createdAt.localeCompare(a.createdAt),
+  );
+}
+
+export function sxLatestInteraction(interactions: SxPartnerInteraction[]): SxPartnerInteraction | null {
+  return sxSortInteractionsByRecency(interactions)[0] || null;
 }

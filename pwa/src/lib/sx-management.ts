@@ -265,6 +265,26 @@ export type SxPartnerTrack = {
   isPrimary: boolean;
 };
 
+export type SxBallSide = "sx" | "partner" | "shared" | "none" | "unknown";
+export type SxDatePrecision = "day" | "month" | "unknown";
+export type SxInteractionKind = "meeting" | "email" | "agreement" | "deliverable" | "handoff" | "status_update" | "note";
+
+export type SxPartnerInteraction = {
+  id: string;
+  partnerId: string;
+  interactionKind: SxInteractionKind;
+  occurredOn: string | null;
+  occurredOnPrecision: SxDatePrecision;
+  summary: string;
+  outcomeSummary: string | null;
+  ballSideAfter: SxBallSide;
+  ballOwnerAfter: string | null;
+  confidence: SxConfidence;
+  sourceKind: SxSourceKind;
+  sourceRef: string | null;
+  createdAt: string;
+};
+
 export type SxPartnerCommitment = {
   id: string;
   partnerId: string;
@@ -300,6 +320,11 @@ export type SxManagementPartner = {
   nextCommitment: string;
   dueDate: string | null;
   ownerLabel: string;
+  currentBallSide: SxBallSide;
+  currentBallOwner: string | null;
+  nextBallOwner: string | null;
+  targetState: string | null;
+  dueDatePrecision: SxDatePrecision;
   lastVerifiedAt: string;
   confidence: SxConfidence;
   sourceKind: SxSourceKind;
@@ -307,6 +332,7 @@ export type SxManagementPartner = {
   relatedMilestoneSlugs: string[];
   relatedIssueSlugs: string[];
   commitments: SxPartnerCommitment[];
+  interactions: SxPartnerInteraction[];
 };
 
 export type SxManagementDecision = SxDecisionRecord & { slug: string };
@@ -478,6 +504,7 @@ export type SxManagementBundle = {
   actions: SxActionItem[];
   partners: SxManagementPartner[];
   partnerCommitments: SxPartnerCommitment[];
+  partnerInteractions: SxPartnerInteraction[];
   technicalTests: SxTechnicalTest[];
   fundingSnapshots: SxFundingSnapshot[];
   organizationRoles: SxOrganizationRole[];
@@ -571,6 +598,21 @@ function asAgreementState(value: unknown): SxManagementPartner["agreementState"]
   return value === "agreed" || value === "partial" ? value : "unagreed";
 }
 
+function asBallSide(value: unknown): SxBallSide {
+  const values: SxBallSide[] = ["sx", "partner", "shared", "none", "unknown"];
+  return values.includes(value as SxBallSide) ? (value as SxBallSide) : "unknown";
+}
+
+function asDatePrecision(value: unknown): SxDatePrecision {
+  const values: SxDatePrecision[] = ["day", "month", "unknown"];
+  return values.includes(value as SxDatePrecision) ? (value as SxDatePrecision) : "unknown";
+}
+
+function asInteractionKind(value: unknown): SxInteractionKind {
+  const values: SxInteractionKind[] = ["meeting", "email", "agreement", "deliverable", "handoff", "status_update", "note"];
+  return values.includes(value as SxInteractionKind) ? (value as SxInteractionKind) : "note";
+}
+
 function decisionStatus(value: unknown): SxManagementDecision["status"] {
   return value === "decided" || value === "deferred" ? value : "open";
 }
@@ -617,6 +659,17 @@ function mapCommitment(row: RawRow): SxPartnerCommitment {
     status: (row.status as SxPartnerCommitment["status"]) || "open", promisedOn: nullableString(row, "promised_on"), dueDate: nullableString(row, "due_date"), completedOn: nullableString(row, "completed_on"),
     ownerLabel: stringValue(row, "owner_label", "担当未確認"), counterpartyOwner: nullableString(row, "counterparty_owner"), sxOwner: nullableString(row, "sx_owner"), evidence: nullableString(row, "evidence"), nextReviewOn: nullableString(row, "next_review_on"),
     lastVerifiedAt: stringValue(row, "last_verified_at"), confidence: asConfidence(row.confidence), sourceKind: asSourceKind(row.source_kind),
+  };
+}
+
+function mapInteraction(row: RawRow): SxPartnerInteraction {
+  return {
+    id: stringValue(row, "id"), partnerId: stringValue(row, "partner_id"), interactionKind: asInteractionKind(row.interaction_kind),
+    occurredOn: nullableString(row, "occurred_on"), occurredOnPrecision: asDatePrecision(row.occurred_on_precision),
+    summary: stringValue(row, "summary"), outcomeSummary: nullableString(row, "outcome_summary"),
+    ballSideAfter: asBallSide(row.ball_side_after), ballOwnerAfter: nullableString(row, "ball_owner_after"),
+    confidence: asConfidence(row.confidence), sourceKind: asSourceKind(row.source_kind), sourceRef: nullableString(row, "source_ref"),
+    createdAt: stringValue(row, "created_at"),
   };
 }
 
@@ -758,9 +811,10 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
     live("project_management_decisions", "id,project_id,issue_id,hypothesis_id,title,context,decision_state,rationale,decision_text,decided_by,decided_on,owner_label,due_date,is_this_week,sort_order,confidence,last_verified_at,source_kind,source_ref").order("sort_order"),
     live("project_management_action_items", "id,project_id,decision_id,title,owner_label,due_date,completion_criteria,next_review_on,status,completion_note,completed_at,last_verified_at,source_kind,source_ref").order("due_date"),
     live("project_management_update_history", "id,project_id,entity_type,entity_id,update_kind,summary,changed_by,changed_on,from_status,to_status").order("changed_on", { ascending: false }).limit(40),
-    live("project_management_partners", "id,project_id,slug,name,role_label,primary_track,relationship_stage,agreement_state,agreed_scope,unagreed_scope,last_contact_date,next_commitment,due_date,owner_label,last_verified_at,confidence,source_kind,source_ref,sort_order").order("sort_order"),
+    live("project_management_partners", "id,project_id,slug,name,role_label,primary_track,relationship_stage,agreement_state,agreed_scope,unagreed_scope,last_contact_date,next_commitment,due_date,owner_label,current_ball_side,current_ball_owner,next_ball_owner,target_state,due_date_precision,last_verified_at,confidence,source_kind,source_ref,sort_order").order("sort_order"),
     plain("project_management_partner_tracks", "project_id,partner_id,track,role_label,is_primary"),
     live("project_management_partner_commitments", "id,project_id,partner_id,title,commitment_text,commitment_kind,status,promised_on,due_date,completed_on,owner_label,counterparty_owner,sx_owner,evidence,next_review_on,last_verified_at,confidence,source_kind,source_ref").order("due_date"),
+    live("project_management_partner_interactions", "id,project_id,partner_id,interaction_kind,occurred_on,occurred_on_precision,summary,outcome_summary,ball_side_after,ball_owner_after,confidence,source_kind,source_ref,created_at").order("created_at", { ascending: false }),
     plain("project_management_milestone_issue_links", "project_id,milestone_id,issue_id"),
     plain("project_management_milestone_partner_links", "project_id,milestone_id,partner_id"),
     live("project_management_raci", "id,project_id,milestone_id,stakeholder_label,responsibility_role,owner_label,confirmed,last_verified_at,confidence").order("milestone_id"),
@@ -773,7 +827,7 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
   const error = results.find((result) => result.error)?.error;
   if (error) throw new Error(`SX management bundle: ${error.message}`);
   const rows = results.map((result) => (result.data || []) as unknown as RawRow[]);
-  const [objectiveRows, outcomeRows, milestoneRows, kpiRows, milestoneKpiRows, dependencyRows, issueRows, hypothesisRows, evidenceRows, validationRows, decisionRows, actionRows, historyRows, partnerRows, partnerTrackRows, commitmentRows, milestoneIssueRows, milestonePartnerRows, raciRows, capacityRows, technicalRows, fundingRows, roleRows, auditRows] = rows;
+  const [objectiveRows, outcomeRows, milestoneRows, kpiRows, milestoneKpiRows, dependencyRows, issueRows, hypothesisRows, evidenceRows, validationRows, decisionRows, actionRows, historyRows, partnerRows, partnerTrackRows, commitmentRows, interactionRows, milestoneIssueRows, milestonePartnerRows, raciRows, capacityRows, technicalRows, fundingRows, roleRows, auditRows] = rows;
 
   const objectiveRow = objectiveRows[0];
   const objective: SxObjective | null = objectiveRow ? { id: stringValue(objectiveRow, "id"), slug: stringValue(objectiveRow, "slug"), title: stringValue(objectiveRow, "title"), definitionOfDone: stringValue(objectiveRow, "definition_of_done"), targetDate: nullableString(objectiveRow, "target_date"), dateCertainty: objectiveRow.date_certainty === "confirmed" ? "confirmed" : "provisional", status: (objectiveRow.status as SxObjective["status"]) || "unassessed", lastVerifiedAt: stringValue(objectiveRow, "last_verified_at"), confidence: asConfidence(objectiveRow.confidence), sourceKind: asSourceKind(objectiveRow.source_kind), sourceRef: nullableString(objectiveRow, "source_ref") } : null;
@@ -837,6 +891,7 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
     return { id: issueId, slug: stringValue(row, "slug"), track: asTrack(row.track), milestoneSlug: milestone ? stringValue(milestone, "slug") : null, title: stringValue(row, "title"), knowledgeType: asIssueKind(row.knowledge_type), status: displayIssueStatus(row.status), hypothesis: issueHypotheses.map((item) => item.statement).join(" / ") || (asIssueKind(row.knowledge_type) === "fact" ? "事実として登録。根拠の履歴を確認" : "仮説未登録"), evidenceFor: issueEvidence.filter((item) => item.kind === "supporting" || item.kind === "observation").map((item) => item.summary).join(" / ") || "根拠未登録", counterevidenceOrMissing: issueEvidence.filter((item) => item.kind === "counter" || item.kind === "missing").map((item) => item.summary).join(" / ") || "反証・不足未登録", nextValidation: issueValidations.map((item) => `${item.method}${item.dueDate ? `（期限 ${item.dueDate}）` : ""}`).join(" / ") || "次の検証未登録", ownerLabel: stringValue(row, "owner_label", "担当未確認"), dueDate: nullableString(row, "due_date"), decisionText: issueDecisions.map((item) => item.decisionText).filter(Boolean).join(" / ") || null, lastVerifiedAt: stringValue(row, "last_verified_at"), confidence: asConfidence(row.confidence), sourceKind: asSourceKind(row.source_kind), sourceRef: nullableString(row, "source_ref"), relatedMilestoneSlugs: milestone ? [stringValue(milestone, "slug")] : [], relatedPartnerSlugs: milestoneId ? (partnerLinksByMilestone.get(milestoneId) || []).map((partnerId) => stringValue(partnerById.get(partnerId) || {}, "slug")).filter(Boolean) : [], hypotheses: issueHypotheses, evidence: issueEvidence, validationRuns: issueValidations, decisions: issueDecisions, actionItems: issueActions };
   });
   const commitments = commitmentRows.map(mapCommitment);
+  const interactions = interactionRows.map(mapInteraction);
   const partnerTracksById = new Map<string, SxPartnerTrack[]>();
   for (const row of partnerTrackRows) partnerTracksById.set(stringValue(row, "partner_id"), [...(partnerTracksById.get(stringValue(row, "partner_id")) || []), { track: asTrack(row.track), roleLabel: stringValue(row, "role_label"), isPrimary: row.is_primary === true }]);
   const partners: SxManagementPartner[] = partnerRows.map((row) => {
@@ -846,7 +901,7 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
     const tracks = partnerTracksById.get(partnerId) || [{ track: asTrack(row.primary_track), roleLabel: stringValue(row, "role_label"), isPrimary: true }];
     const relatedMilestoneIds = milestonePartnerRows.filter((link) => stringValue(link, "partner_id") === partnerId).map((link) => stringValue(link, "milestone_id"));
     const relatedIssueIds = relatedMilestoneIds.flatMap((milestoneId) => issueLinksByMilestone.get(milestoneId) || []);
-    return { id: partnerId, slug: partnerSlug, track: tracks.find((item) => item.isPrimary)?.track || tracks[0].track, tracks, name: lowPriority ? "ファインケム" : stringValue(row, "name"), roleLabel: lowPriority ? "補助候補（優先度低・保留）" : stringValue(row, "role_label"), relationshipStage: lowPriority ? "on_hold" : asPartnerStage(row.relationship_stage), agreementState: asAgreementState(row.agreement_state), agreedScope: stringValue(row, "agreed_scope"), unagreedScope: stringValue(row, "unagreed_scope"), lastContactDate: nullableString(row, "last_contact_date"), nextCommitment: lowPriority ? "重要経路外として保留" : stringValue(row, "next_commitment"), dueDate: lowPriority ? null : nullableString(row, "due_date"), ownerLabel: stringValue(row, "owner_label", "担当未確認"), lastVerifiedAt: stringValue(row, "last_verified_at"), confidence: asConfidence(row.confidence), sourceKind: asSourceKind(row.source_kind), sourceRef: nullableString(row, "source_ref"), relatedMilestoneSlugs: lowPriority ? [] : relatedMilestoneIds.map((id) => stringValue(milestoneById.get(id) || {}, "slug")).filter(Boolean), relatedIssueSlugs: lowPriority ? [] : relatedIssueIds.map((id) => stringValue(issueById.get(id) || {}, "slug")).filter(Boolean), commitments: commitments.filter((item) => item.partnerId === partnerId) };
+    return { id: partnerId, slug: partnerSlug, track: tracks.find((item) => item.isPrimary)?.track || tracks[0].track, tracks, name: lowPriority ? "ファインケム" : stringValue(row, "name"), roleLabel: lowPriority ? "補助候補（優先度低・保留）" : stringValue(row, "role_label"), relationshipStage: lowPriority ? "on_hold" : asPartnerStage(row.relationship_stage), agreementState: asAgreementState(row.agreement_state), agreedScope: stringValue(row, "agreed_scope"), unagreedScope: stringValue(row, "unagreed_scope"), lastContactDate: nullableString(row, "last_contact_date"), nextCommitment: lowPriority ? "重要経路外として保留" : stringValue(row, "next_commitment"), dueDate: lowPriority ? null : nullableString(row, "due_date"), ownerLabel: stringValue(row, "owner_label", "担当未確認"), currentBallSide: lowPriority ? "none" : asBallSide(row.current_ball_side), currentBallOwner: lowPriority ? null : nullableString(row, "current_ball_owner"), nextBallOwner: lowPriority ? null : nullableString(row, "next_ball_owner"), targetState: lowPriority ? null : nullableString(row, "target_state"), dueDatePrecision: lowPriority ? "unknown" : asDatePrecision(row.due_date_precision), lastVerifiedAt: stringValue(row, "last_verified_at"), confidence: asConfidence(row.confidence), sourceKind: asSourceKind(row.source_kind), sourceRef: nullableString(row, "source_ref"), relatedMilestoneSlugs: lowPriority ? [] : relatedMilestoneIds.map((id) => stringValue(milestoneById.get(id) || {}, "slug")).filter(Boolean), relatedIssueSlugs: lowPriority ? [] : relatedIssueIds.map((id) => stringValue(issueById.get(id) || {}, "slug")).filter(Boolean), commitments: commitments.filter((item) => item.partnerId === partnerId), interactions: lowPriority ? [] : interactions.filter((item) => item.partnerId === partnerId) };
   });
   const dependencyByMilestone = (id: string) => dependencyDtos.filter((dependency) => dependency.predecessorMilestoneId === id || dependency.successorMilestoneId === id);
   const milestones: SxManagementMilestone[] = baseLogicMilestones.map((logicMilestone) => {
@@ -867,5 +922,5 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
   const priorityPartnerIds = new Set(partnerRows.filter((row) => stringValue(row, "slug") !== "fc-hokuriku").map((row) => stringValue(row, "id")));
   const judgmentCommitments = commitments.filter((commitment) => priorityPartnerIds.has(commitment.partnerId));
   const judgment = computeSxJudgment(tracks, milestones, decisions, today, { kpis, actions, commitments: judgmentCommitments, roles: organizationRoles, dag, objectivePresent: Boolean(objective), outcomesCount: outcomes.length });
-  return { asOf: today, horizonMonths: horizonMonths(), objective, outcomes, kpis, dependencies: dependencyDtos, dag, judgment, tracks, milestones, issues, hypotheses, evidence, validationRuns, decisions, actions, partners, partnerCommitments: commitments, technicalTests, fundingSnapshots, organizationRoles, raci, capacity, history, fieldAudit, canManage, hasData: Boolean(objective || outcomes.length || milestones.length || issues.length || partners.length || decisions.length) };
+  return { asOf: today, horizonMonths: horizonMonths(), objective, outcomes, kpis, dependencies: dependencyDtos, dag, judgment, tracks, milestones, issues, hypotheses, evidence, validationRuns, decisions, actions, partners, partnerCommitments: commitments, partnerInteractions: interactions, technicalTests, fundingSnapshots, organizationRoles, raci, capacity, history, fieldAudit, canManage, hasData: Boolean(objective || outcomes.length || milestones.length || issues.length || partners.length || decisions.length) };
 }

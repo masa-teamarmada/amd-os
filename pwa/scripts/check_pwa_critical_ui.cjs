@@ -408,6 +408,63 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "sxPartnerDisplay",
   "lowPriority",
   "優先度低・保留（重要経路外）",
+  "現在ボール",
+  "次の受け渡し",
+  "次の一手",
+  "目標状態",
+  "ボール未確認",
+  "最新記録",
+  "sxFormatDueDateWithPrecision",
+  "sxLatestInteraction",
+  "sxSortInteractionsByRecency",
+  "やり取り履歴",
+  "履歴を追加",
+]);
+expectIncludes("src/lib/sx-management.ts", [
+  "SxPartnerInteraction",
+  "current_ball_side",
+  "current_ball_owner",
+  "next_ball_owner",
+  "target_state",
+  "due_date_precision",
+  "project_management_partner_interactions",
+]);
+expectIncludes("src/components/project-workspace/sx-visual-shared.tsx", [
+  "sxFormatDueDateWithPrecision",
+  "sxFormatEventDateWithPrecision",
+  "期限未設定",
+  "日付未確認",
+  "sxLatestInteraction",
+  "sxSortInteractionsByRecency",
+  "sxBallSideLabel",
+  "sxInteractionKindLabel",
+]);
+expectIncludes("src/app/api/project-workspace/[projectId]/management/route.ts", [
+  '"interaction"',
+  "project_management_partner_interactions",
+  "interaction_kind",
+  "ball_side_after",
+  "assertDatePrecisionConsistency",
+]);
+expectIncludes("scripts/migrations/191_sx_partner_ledger_upgrade.sql", [
+  "project_management_partner_interactions",
+  "current_ball_side",
+  "due_date_precision",
+  "project_management_partners_ball_side_check_191",
+  "project_management_partners_due_precision_check_191",
+  "project_management_partners_due_date_consistency_191",
+  "project_management_partner_interactions_date_consistency_191",
+  "project_management_parent_project_guard",
+  "daiki-axis",
+  "smbc",
+  "user:2026-07-23#partner-progress",
+  "ON CONFLICT (project_id, slug) DO UPDATE SET",
+]);
+expectIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", [
+  "onEditPartner",
+  "onAddInteraction",
+  "onEditInteraction",
+  'interaction: [',
 ]);
 expectIncludes("src/components/project-workspace/SxReactorPanel.tsx", [
   "sx-four-pillar-signal-strip",
