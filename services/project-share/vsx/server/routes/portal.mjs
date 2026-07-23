@@ -215,6 +215,25 @@ export function renderPortalHtml() {
   tbody tr[data-row-type] .col-actions { cursor: default; }
   .name-content { display: flex; align-items: center; gap: 8px; }
   .folder-icon { width: 18px; height: 18px; flex-shrink: 0; color: var(--muted); }
+  .name-content.drag-handle {
+    cursor: grab;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .name-content.drag-handle:active { cursor: grabbing; }
+  .drag-grip {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    color: var(--muted);
+    opacity: 0;
+  }
+  tbody tr[data-row-type="file"]:hover .drag-grip,
+  tbody tr[data-row-type="file"]:focus-visible .drag-grip,
+  tbody tr[data-row-type="file"].dragging-row .drag-grip {
+    opacity: 0.6;
+  }
   tbody tr.dragging-row { opacity: 0.5; }
   tbody tr.folder-row.drop-target td { background: #E7F1FB; }
   tbody tr.folder-row.drop-target { outline: 2px solid var(--blue); outline-offset: -2px; }
@@ -474,8 +493,9 @@ export function renderPortalHtml() {
     let moveInProgress = false;
     let dragDepth = 0;
     let dropTargetRow = null;
+    let pointerDrag = null;
 
-    const INTERNAL_MOVE_MIME = "application/x-vsx-internal-move";
+    const DRAG_THRESHOLD_PX = 6;
 
     function setStatus(message, tone) {
       statusEl.textContent = message || "";
@@ -600,6 +620,10 @@ export function renderPortalHtml() {
       return '<svg class="folder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 6.5a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg>';
     }
 
+    function dragGripSvg() {
+      return '<svg class="drag-grip" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="5" cy="3" r="1.3"/><circle cx="11" cy="3" r="1.3"/><circle cx="5" cy="8" r="1.3"/><circle cx="11" cy="8" r="1.3"/><circle cx="5" cy="13" r="1.3"/><circle cx="11" cy="13" r="1.3"/></svg>';
+    }
+
     function render() {
       const pinnedRow = currentFolder || !pinnedRowTemplate ? null : pinnedRowTemplate.cloneNode(true);
       rowsEl.innerHTML = "";
@@ -684,13 +708,16 @@ export function renderPortalHtml() {
         tr.setAttribute("data-row-type", "file");
         tr.setAttribute("data-file-pathname", file.pathname);
         tr.tabIndex = 0;
-        tr.draggable = true;
 
         const nameTd = document.createElement("td");
         nameTd.className = "name-cell";
         const nameContent = document.createElement("span");
-        nameContent.className = "name-content";
-        nameContent.textContent = file.name;
+        nameContent.className = "name-content drag-handle";
+        nameContent.setAttribute("data-drag-handle", "true");
+        nameContent.innerHTML = dragGripSvg();
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = file.name;
+        nameContent.appendChild(nameSpan);
         nameTd.appendChild(nameContent);
         tr.appendChild(nameTd);
 
@@ -716,7 +743,6 @@ export function renderPortalHtml() {
         actionsTd.className = "col-actions";
         const actions = document.createElement("div");
         actions.className = "row-actions";
-        actions.setAttribute("draggable", "false");
 
         const downloadBtn = document.createElement("button");
         downloadBtn.type = "button";
@@ -908,56 +934,68 @@ export function renderPortalHtml() {
       }
     }
 
-    function isInternalMoveDrag(dataTransfer) {
-      return !!dataTransfer && Array.from(dataTransfer.types || []).includes(INTERNAL_MOVE_MIME);
+    function endPointerDrag() {
+      if (!pointerDrag) return;
+      pointerDrag.tr.classList.remove("dragging-row");
+      pointerDrag = null;
+      clearDropTarget();
     }
 
-    rowsEl.addEventListener("dragstart", (event) => {
-      const tr = event.target.closest('tr[data-row-type="file"]');
-      if (!tr || event.target.closest(".row-actions")) {
-        event.preventDefault();
-        return;
-      }
-      event.dataTransfer.effectAllowed = "move";
-      event.dataTransfer.setData(INTERNAL_MOVE_MIME, tr.getAttribute("data-file-pathname"));
-      tr.classList.add("dragging-row");
-    });
-
-    rowsEl.addEventListener("dragend", (event) => {
-      const tr = event.target.closest('tr[data-row-type="file"]');
-      if (tr) tr.classList.remove("dragging-row");
-      clearDropTarget();
-    });
-
-    rowsEl.addEventListener("dragover", (event) => {
-      if (!isInternalMoveDrag(event.dataTransfer)) return;
-      const tr = event.target.closest('tr[data-row-type="folder"]');
+    rowsEl.addEventListener("pointerdown", (event) => {
+      if (!event.isPrimary) return;
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      const handle = event.target.closest('[data-drag-handle="true"]');
+      const tr = handle ? handle.closest('tr[data-row-type="file"]') : null;
       if (!tr) return;
+      pointerDrag = {
+        pointerId: event.pointerId,
+        pathname: tr.getAttribute("data-file-pathname"),
+        tr,
+        startX: event.clientX,
+        startY: event.clientY,
+        dragging: false,
+      };
+    });
+
+    window.addEventListener("pointermove", (event) => {
+      if (!pointerDrag || event.pointerId !== pointerDrag.pointerId) return;
+      if (!pointerDrag.dragging) {
+        const dx = event.clientX - pointerDrag.startX;
+        const dy = event.clientY - pointerDrag.startY;
+        if (Math.abs(dx) < DRAG_THRESHOLD_PX && Math.abs(dy) < DRAG_THRESHOLD_PX) return;
+        pointerDrag.dragging = true;
+        pointerDrag.tr.classList.add("dragging-row");
+      }
       event.preventDefault();
-      event.dataTransfer.dropEffect = "move";
+      const el = document.elementFromPoint(event.clientX, event.clientY);
+      const tr = el ? el.closest('tr[data-row-type="folder"]') : null;
       if (tr !== dropTargetRow) {
         clearDropTarget();
-        tr.classList.add("drop-target");
-        dropTargetRow = tr;
+        if (tr) {
+          tr.classList.add("drop-target");
+          dropTargetRow = tr;
+        }
       }
     });
 
-    rowsEl.addEventListener("dragleave", (event) => {
-      const tr = event.target.closest('tr[data-row-type="folder"]');
-      if (!tr || tr !== dropTargetRow) return;
-      if (tr.contains(event.relatedTarget)) return;
-      clearDropTarget();
+    window.addEventListener("pointerup", (event) => {
+      if (!pointerDrag || event.pointerId !== pointerDrag.pointerId) return;
+      const wasDragging = pointerDrag.dragging;
+      const pathname = pointerDrag.pathname;
+      const targetTr = dropTargetRow;
+      endPointerDrag();
+      if (wasDragging && targetTr) {
+        moveFileTo(pathname, targetTr.getAttribute("data-folder-path"));
+      }
     });
 
-    rowsEl.addEventListener("drop", (event) => {
-      if (!isInternalMoveDrag(event.dataTransfer)) return;
-      const tr = event.target.closest('tr[data-row-type="folder"]');
-      if (!tr) return;
-      event.preventDefault();
-      event.stopPropagation();
-      clearDropTarget();
-      const pathname = event.dataTransfer.getData(INTERNAL_MOVE_MIME);
-      moveFileTo(pathname, tr.getAttribute("data-folder-path"));
+    window.addEventListener("pointercancel", (event) => {
+      if (!pointerDrag || event.pointerId !== pointerDrag.pointerId) return;
+      endPointerDrag();
+    });
+
+    window.addEventListener("blur", () => {
+      endPointerDrag();
     });
 
     function setProgress(percent) {

@@ -286,3 +286,13 @@ vercel --prod
 - ブラウザ編集済み文言の保存キー`agventureLabDeck:v8:edit:`と、ビジネスモデル図の`s3-030`〜`s3-036`は変更していない。
 - `npm run build` / `npm run check` / `npm test` は成功（node:test 173件、失敗0件）。1440×900で横方向overflow 0、画像3点の読込、図内インラインSVG 0件、コンソールエラー0件を確認した。モバイルは明示指示により未確認。
 - 本番デプロイID: `dpl_4gmYBbNDRmpprR1qJ2jFsqQ3oJFe`。本番aliasは従来どおりVSX PROJECT SHARE。
+
+### ファイルのドラッグ＆ドロップ移動が本番で動かない不具合を修正（2026-07-23）
+
+- 第1弾の修正（`<tr>`の`draggable`を外し`.name-content`を明示的なドラッグ面`.drag-handle`にする）をデプロイしたが、実機の押下→移動→離すの一連操作でも`dragstart`すら発火せず、`PATCH /api/files`が一切飛ばない事象が本番で継続した。HTML5ネイティブドラッグ自体がタッチ/トラックパッド操作や実際のマウスジェスチャーと相性が悪く、`draggable`属性に依存する限り再現しない不具合を仕込み続けるリスクがあると判断し、内部移動のドラッグ実装をネイティブHTML5ドラッグ（`dragstart`/`dragover`/`drop`、`dataTransfer`、`INTERNAL_MOVE_MIME`）からPointer Events（`pointerdown`/`pointermove`/`pointerup`/`pointercancel`）へ全面的に置き換えた。
+- 新しい仕組み: ファイル名セルの`.drag-handle`（`data-drag-handle="true"`、`draggable`属性は付けない）で`pointerdown`を受けると、`pointerId`・pathname・開始座標だけを`pointerDrag`状態に記録する（まだ見た目は変えない）。`pointermove`（`window`購読）で移動量が`DRAG_THRESHOLD_PX`（6px）を超えた時点で初めて`dragging-row`を付けてドラッグ開始とし、以降は`document.elementFromPoint(event.clientX, event.clientY)`で指またはカーソル直下の要素から`tr[data-row-type="folder"]`を解決してハイライト（`drop-target`）する。`pointerup`（`window`購読）でその時点のドロップ先フォルダに対して`moveFileTo`を一度だけ呼び、呼ぶ前に`endPointerDrag()`で状態を完全にクリアする。`pointercancel`とウィンドウの`blur`は`moveFileTo`を呼ばず`endPointerDrag()`のみで状態を片付ける。
+- ドラッグ面のCSSは`user-select: none`（テキスト選択に負けない）に加え、`touch-action: none`を付与してタッチ操作時にページスクロールへ奪われないようにした。外部Finder/Explorerからのファイルドロップ（`document`購読・`isFileDrag`/`dataTransfer.types`ベース）は別実装のままで、Pointer Events化の影響を一切受けない。
+- 行のダブルクリック/Enter/Space起動、アクション列のダウンロード・削除、フォルダの開く・削除は無改修で維持されることをテストで確認した。
+- `test/portal.test.mjs`のドラッグ関連テストを、旧`dragstart`/`dragend`/`dataTransfer`前提の文字列一致から、`pointerdown`での状態記録・`pointermove`の閾値判定とelementFromPoint解決・`pointerup`でのmoveFileTo一発呼び出しと状態クリア順序・`pointercancel`/`blur`でのキャンセル・外部Filesドロップとの分離を検証する契約ベースのテストへ全面的に書き換えた。
+- `npm run build` / `npm run check` / `npm test` は成功（node:test 177件、失敗0件）。
+- 本番で実ファイルをルートから`PSI Step 2`へドラッグし、`PATCH /api/files`の200応答、移動先表示、再読み込み後の永続化を確認した。検証用ファイルは確認後に削除済み。本番デプロイID: `dpl_89eykBk7sVstEWGL6cKUARYogL1N`。

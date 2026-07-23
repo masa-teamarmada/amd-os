@@ -224,15 +224,15 @@ test("upload pathname includes currentFolder segment when nested", () => {
   assert.match(html, /await upload\(prefix \+ file\.name, file,/);
 });
 
-test("no innerHTML use with interpolated user data (only static SVG string)", () => {
+test("no innerHTML use with interpolated user data (only static SVG strings)", () => {
   const html = renderPortalHtml();
   const script = extractModuleScript(html);
   const innerHtmlUses = [...script.matchAll(/\.innerHTML\s*=\s*([^;]+);/g)].map((m) => m[1]);
   for (const usage of innerHtmlUses) {
     assert.doesNotMatch(usage, /\$\{/);
     assert.ok(
-      usage.trim() === '""' || /folderIconSvg\(\)/.test(usage),
-      "innerHTML should only be set to empty string or the static folder icon svg, got: " + usage
+      usage.trim() === '""' || /folderIconSvg\(\)/.test(usage) || /dragGripSvg\(\)/.test(usage),
+      "innerHTML should only be set to empty string or a static icon svg, got: " + usage
     );
   }
 });
@@ -371,42 +371,103 @@ test("drag-and-drop: dropped files are routed through the existing uploadFiles p
   assert.doesNotMatch(body, /fetch\(/);
 });
 
-test("internal move drag: file rows are draggable and carry the source pathname via a custom MIME type, distinct from Files", () => {
+test("internal move drag: the drag source is an explicit handle inside the name cell, not the <tr> itself", () => {
   const html = renderPortalHtml();
   const script = extractModuleScript(html);
-  assert.match(script, /const INTERNAL_MOVE_MIME = "application\/x-vsx-internal-move";/);
-  assert.doesNotMatch(script, /INTERNAL_MOVE_MIME\s*=\s*"Files"/);
+  // Native HTML5 draggable dragging was replaced by pointer-event handling, since the
+  // deployed native draggable handle produced no event/PATCH under a real press-move-release.
+  assert.doesNotMatch(script, /INTERNAL_MOVE_MIME/);
+  assert.doesNotMatch(script, /draggable\s*=\s*true/);
 
   const fileLoopMatch = /for \(const file of fileList\) \{[\s\S]*?\n      \}/.exec(script);
   assert.ok(fileLoopMatch, "file row loop should exist");
-  assert.match(fileLoopMatch[0], /tr\.draggable = true;/);
+  const body = fileLoopMatch[0];
+  assert.doesNotMatch(body, /tr\.draggable = true;/);
+  assert.match(body, /nameContent\.className = "name-content drag-handle";/);
+  assert.match(body, /nameContent\.setAttribute\("data-drag-handle", "true"\);/);
+
+  const styleStart = html.indexOf("<style>");
+  const styleEnd = html.indexOf("</style>");
+  const styleBlock = html.slice(styleStart, styleEnd);
+  // Text selection and scroll gestures must not hijack the drag surface.
+  assert.match(styleBlock, /\.name-content\.drag-handle\s*\{[^}]*user-select:\s*none/);
+  assert.match(styleBlock, /-webkit-user-select:\s*none/);
+  assert.match(styleBlock, /\.name-content\.drag-handle\s*\{[^}]*touch-action:\s*none/);
 });
 
-test("internal move drag: dragstart is cancelled when it originates from the actions column, and row-actions itself is not draggable", () => {
+test("internal move drag: drag handle carries a visible (hover/focus-revealed) grip hint, not a dedicated button", () => {
   const html = renderPortalHtml();
   const script = extractModuleScript(html);
-
+  assert.match(script, /function dragGripSvg\(\)/);
   const fileLoopMatch = /for \(const file of fileList\) \{[\s\S]*?\n      \}/.exec(script);
   assert.ok(fileLoopMatch, "file row loop should exist");
-  assert.match(fileLoopMatch[0], /actions\.setAttribute\("draggable", "false"\);/);
+  assert.match(fileLoopMatch[0], /nameContent\.innerHTML = dragGripSvg\(\);/);
+  assert.doesNotMatch(fileLoopMatch[0], /createElement\("button"\)[\s\S]*?[Dd]rag/);
 
-  const dragstartMatch = /rowsEl\.addEventListener\("dragstart", \(event\) => \{[\s\S]*?\n    \}\);/.exec(script);
-  assert.ok(dragstartMatch, "dragstart delegation on rowsEl should exist");
-  const body = dragstartMatch[0];
-  assert.match(body, /event\.target\.closest\("\.row-actions"\)/);
+  const styleStart = html.indexOf("<style>");
+  const styleEnd = html.indexOf("</style>");
+  const styleBlock = html.slice(styleStart, styleEnd);
+  assert.match(styleBlock, /\.drag-grip\s*\{[^}]*opacity:\s*0;/);
+  assert.match(styleBlock, /tbody tr\[data-row-type="file"\]:hover \.drag-grip,/);
+});
+
+test("internal move drag: pointerdown on the handle (or a nested child, e.g. the grip icon) arms the drag without starting it yet", () => {
+  const html = renderPortalHtml();
+  const script = extractModuleScript(html);
+  const pointerdownMatch = /rowsEl\.addEventListener\("pointerdown", \(event\) => \{[\s\S]*?\n    \}\);/.exec(script);
+  assert.ok(pointerdownMatch, "pointerdown delegation on rowsEl should exist");
+  const body = pointerdownMatch[0];
+  // Resolves via the handle attribute first (works for the svg/circle children too via closest),
+  // then up to the owning file row - not via a plain tr[data-row-type="file"] lookup on event.target.
+  assert.match(body, /event\.target\.closest\('\[data-drag-handle="true"\]'\)/);
+  assert.match(body, /handle\.closest\('tr\[data-row-type="file"\]'\)/);
+  assert.match(body, /if \(!event\.isPrimary\) return;/);
+  assert.match(body, /if \(event\.pointerType === "mouse" && event\.button !== 0\) return;/);
+  assert.match(body, /pathname:\s*tr\.getAttribute\("data-file-pathname"\)/);
+  assert.match(body, /dragging:\s*false,/);
+  // pointerdown only records state; the dimmed .dragging-row class must not appear here,
+  // it only applies once pointermove crosses the movement threshold.
+  assert.doesNotMatch(body, /dragging-row/);
+});
+
+test("internal move drag: pointermove past a small threshold marks dragging and highlights the folder under the pointer via elementFromPoint", () => {
+  const html = renderPortalHtml();
+  const script = extractModuleScript(html);
+  assert.match(script, /const DRAG_THRESHOLD_PX = 6;/);
+  const pointermoveMatch = /window\.addEventListener\("pointermove", \(event\) => \{[\s\S]*?\n    \}\);/.exec(script);
+  assert.ok(pointermoveMatch, "pointermove listener on window should exist");
+  const body = pointermoveMatch[0];
+  assert.match(body, /if \(!pointerDrag \|\| event\.pointerId !== pointerDrag\.pointerId\) return;/);
+  assert.match(body, /Math\.abs\(dx\) < DRAG_THRESHOLD_PX && Math\.abs\(dy\) < DRAG_THRESHOLD_PX/);
+  assert.match(body, /pointerDrag\.dragging = true;/);
+  assert.match(body, /pointerDrag\.tr\.classList\.add\("dragging-row"\);/);
   assert.match(body, /event\.preventDefault\(\);/);
-  assert.match(body, /event\.dataTransfer\.setData\(INTERNAL_MOVE_MIME, tr\.getAttribute\("data-file-pathname"\)\)/);
+  assert.match(body, /document\.elementFromPoint\(event\.clientX, event\.clientY\)/);
+  assert.match(body, /el\.closest\('tr\[data-row-type="folder"\]'\)/);
+  assert.match(body, /tr\.classList\.add\("drop-target"\)/);
 });
 
-test("internal move drag: dragging a row toggles a dimmed state and clears it on dragend", () => {
+test("internal move drag: pointerup invokes moveFileTo exactly once when released over a folder, then fully clears drag state", () => {
   const html = renderPortalHtml();
   const script = extractModuleScript(html);
-  assert.match(script, /tr\.classList\.add\("dragging-row"\);/);
+  const pointerupMatch = /window\.addEventListener\("pointerup", \(event\) => \{[\s\S]*?\n    \}\);/.exec(script);
+  assert.ok(pointerupMatch, "pointerup listener on window should exist");
+  const body = pointerupMatch[0];
+  assert.match(body, /if \(!pointerDrag \|\| event\.pointerId !== pointerDrag\.pointerId\) return;/);
+  const wasDraggingIndex = body.indexOf("wasDragging");
+  const endDragIndex = body.indexOf("endPointerDrag();");
+  const moveFileToIndex = body.indexOf("moveFileTo(pathname, targetTr.getAttribute(\"data-folder-path\"));");
+  assert.ok(wasDraggingIndex > -1 && endDragIndex > -1 && moveFileToIndex > -1);
+  // State must be captured and cleared before moveFileTo runs, so a slow request never
+  // leaves the row dimmed or the drop target highlighted.
+  assert.ok(endDragIndex < moveFileToIndex, "drag state must be cleared before moveFileTo is invoked");
+  assert.match(body, /if \(wasDragging && targetTr\) \{/);
 
-  const dragendMatch = /rowsEl\.addEventListener\("dragend", \(event\) => \{[\s\S]*?\n    \}\);/.exec(script);
-  assert.ok(dragendMatch, "dragend delegation on rowsEl should exist");
-  assert.match(dragendMatch[0], /tr\.classList\.remove\("dragging-row"\)/);
-  assert.match(dragendMatch[0], /clearDropTarget\(\)/);
+  const endPointerDragMatch = /function endPointerDrag\(\) \{[\s\S]*?\n    \}/.exec(script);
+  assert.ok(endPointerDragMatch, "endPointerDrag helper should exist");
+  assert.match(endPointerDragMatch[0], /pointerDrag\.tr\.classList\.remove\("dragging-row"\);/);
+  assert.match(endPointerDragMatch[0], /pointerDrag = null;/);
+  assert.match(endPointerDragMatch[0], /clearDropTarget\(\);/);
 
   const styleStart = html.indexOf("<style>");
   const styleEnd = html.indexOf("</style>");
@@ -414,21 +475,34 @@ test("internal move drag: dragging a row toggles a dimmed state and clears it on
   assert.match(styleBlock, /tbody tr\.dragging-row \{ opacity: 0\.5; \}/);
 });
 
-test("internal move drag: only folder rows accept the drop, shown with the official-blue tint and a short move hint", () => {
+test("internal move drag: a click that never crosses the threshold does not trigger a move (no accidental drops on plain clicks)", () => {
+  const html = renderPortalHtml();
+  const script = extractModuleScript(html);
+  const pointerupMatch = /window\.addEventListener\("pointerup", \(event\) => \{[\s\S]*?\n    \}\);/.exec(script);
+  assert.ok(pointerupMatch, "pointerup listener on window should exist");
+  assert.match(pointerupMatch[0], /const wasDragging = pointerDrag\.dragging;/);
+  assert.match(pointerupMatch[0], /if \(wasDragging && targetTr\) \{/);
+});
+
+test("internal move drag: pointercancel and window blur clear drag state without invoking moveFileTo", () => {
   const html = renderPortalHtml();
   const script = extractModuleScript(html);
 
-  const dragoverMatch = /rowsEl\.addEventListener\("dragover", \(event\) => \{[\s\S]*?\n    \}\);/.exec(script);
-  assert.ok(dragoverMatch, "dragover delegation on rowsEl should exist");
-  assert.match(dragoverMatch[0], /isInternalMoveDrag\(event\.dataTransfer\)/);
-  assert.match(dragoverMatch[0], /event\.target\.closest\('tr\[data-row-type="folder"\]'\)/);
-  assert.match(dragoverMatch[0], /event\.dataTransfer\.dropEffect = "move";/);
-  assert.match(dragoverMatch[0], /tr\.classList\.add\("drop-target"\)/);
+  const pointercancelMatch = /window\.addEventListener\("pointercancel", \(event\) => \{[\s\S]*?\n    \}\);/.exec(script);
+  assert.ok(pointercancelMatch, "pointercancel listener on window should exist");
+  assert.match(pointercancelMatch[0], /if \(!pointerDrag \|\| event\.pointerId !== pointerDrag\.pointerId\) return;/);
+  assert.match(pointercancelMatch[0], /endPointerDrag\(\);/);
+  assert.doesNotMatch(pointercancelMatch[0], /moveFileTo/);
 
-  const dropMatch = /rowsEl\.addEventListener\("drop", \(event\) => \{[\s\S]*?\n    \}\);/.exec(script);
-  assert.ok(dropMatch, "drop delegation on rowsEl should exist");
-  assert.match(dropMatch[0], /isInternalMoveDrag\(event\.dataTransfer\)/);
-  assert.match(dropMatch[0], /moveFileTo\(pathname, tr\.getAttribute\("data-folder-path"\)\)/);
+  const blurMatch = /window\.addEventListener\("blur", \(\) => \{[\s\S]*?\n    \}\);/.exec(script);
+  assert.ok(blurMatch, "blur listener on window should exist");
+  assert.match(blurMatch[0], /endPointerDrag\(\);/);
+  assert.doesNotMatch(blurMatch[0], /moveFileTo/);
+});
+
+test("internal move drag: only folder rows accept the drop, shown with the official-blue tint and a short move hint", () => {
+  const html = renderPortalHtml();
+  const script = extractModuleScript(html);
 
   const folderLoopMatch = /for \(const folder of folderList\) \{[\s\S]*?\n      \}/.exec(script);
   assert.ok(folderLoopMatch, "folder row loop should exist");
@@ -441,18 +515,19 @@ test("internal move drag: only folder rows accept the drop, shown with the offic
   assert.match(styleBlock, /tr\.drop-target \.move-hint \{ display: inline; \}/);
 });
 
-test("internal move drag and external OS-file drag stay on separate MIME types and separate listeners", () => {
+test("internal move drag (pointer events) and external OS-file drag (native HTML5 drag) stay on fully separate listener sets", () => {
   const html = renderPortalHtml();
   const script = extractModuleScript(html);
-  assert.match(script, /function isInternalMoveDrag\(dataTransfer\)/);
-  assert.match(script, /Array\.from\(dataTransfer\.types \|\| \[\]\)\.includes\(INTERNAL_MOVE_MIME\)/);
   assert.match(script, /function isFileDrag\(dataTransfer\)/);
   assert.match(script, /Array\.from\(dataTransfer\.types \|\| \[\]\)\.includes\("Files"\)/);
 
-  // Internal move handlers are delegated on rowsEl (folder rows only); the OS-file upload
-  // handlers stay on document and are untouched by the internal-move feature.
-  assert.match(script, /rowsEl\.addEventListener\("dragover"/);
-  assert.match(script, /rowsEl\.addEventListener\("drop"/);
+  // Internal move is pointer-based and delegated on rowsEl/window; the OS-file upload
+  // handlers stay on document via native dragenter/dragover/drop and are untouched.
+  assert.match(script, /rowsEl\.addEventListener\("pointerdown"/);
+  assert.match(script, /window\.addEventListener\("pointermove"/);
+  assert.match(script, /window\.addEventListener\("pointerup"/);
+  assert.doesNotMatch(script, /rowsEl\.addEventListener\("dragover"/);
+  assert.doesNotMatch(script, /rowsEl\.addEventListener\("drop"/);
   assert.match(script, /document\.addEventListener\("dragover", \(event\) => \{\s*\n\s*if \(!isFileDrag\(event\.dataTransfer\)\) return;/);
   assert.match(script, /document\.addEventListener\("drop", \(event\) => \{\s*\n\s*if \(!isFileDrag\(event\.dataTransfer\)\) return;/);
 });
