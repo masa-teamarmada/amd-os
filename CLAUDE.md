@@ -40,7 +40,12 @@ amd-os/
 │   ├── CLAUDE.md      ← PWA固有ルール
 │   ├── AGENTS.md
 │   └── src/
-└── android/           ← Jetpack Compose (TBD)
+├── android/           ← Jetpack Compose (TBD)
+└── services/          ← pwa/ios/macos/androidに属さない独立デプロイの補助サービス群
+    └── project-share/ ← PJ関係者へパスワード認証のみでファイル共有するVercelサービス
+        ├── README.md  ← 汎用機能とPJ別インスタンスの境界
+        ├── SPEC.md    ← 恒久仕様（認証・Blob・デプロイモデル）
+        └── vsx/       ← VSX(香川大学/AgVenture Lab)向けPJ別インスタンス
 ```
 
 ---
@@ -117,6 +122,16 @@ Codex セッション群が本ルールに違反して `codex/*` ブランチを
 
 ---
 
+## 🧩 services/ — PWAとは別の独立Vercelサービス
+
+`services/` 配下（例: `services/project-share/`）は `pwa/` の Next.js ビルド・デプロイ
+パイプラインとは完全に独立した Vercel プロジェクトとしてデプロイする。PWAの
+`main` push自動deploy対象とは混同せず、各サービスのREADMEに記載した方法で反映する。
+Git連携が未確認のサービスでは、`main` pushだけで反映されたと判断しない。PJ別の秘密値（パスワード・
+署名鍵・APIキー等）は、各サービスのVercelプロジェクトの Environment Variables にのみ置き、
+リポジトリ内のどのファイルにも書かない。詳細・ビルド手順は各サービスの `README.md` /
+`AGENTS.md` を正本にする。
+
 ## 🌐 共通インフラ
 
 これらは **全プラットフォーム共通** で1つだけ存在する:
@@ -160,6 +175,7 @@ DESIGN.md は **全プラットフォーム共通の正本**。Android / PWA も
 | 既知バグ・事故事例 | `ios/BUGS.md` |
 | iOS→他プラ 引き継ぎ | `ios/HANDOFF_ios_to_<target>.md` |
 | アーキテクチャ概要 | `AGENTS.md` |
+| Project Share (PJ別ファイル共有) 運用 | `services/project-share/README.md` / `services/project-share/SPEC.md` / `services/project-share/vsx/AGENTS.md` |
 
 ---
 

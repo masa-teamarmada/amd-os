@@ -22,8 +22,10 @@
 | `macos/` | macOS版。独立したSwiftUIクライアント。AMDOSCore + AMDOSDesign |
 | `ios/` | Swift / SwiftUI ネイティブアプリ。TestFlight 配布 |
 | `android/` | Jetpack Compose ネイティブアプリ（TBD） |
+| `services/` | PWA/ios/macos/androidのいずれにも属さない独立デプロイの補助サービス群（例: `services/project-share/` = Project Share機能）。詳細は各サービスの `README.md` |
 
-各サブディレクトリに固有の `CLAUDE.md` と `AGENTS.md` がある。
+プラットフォーム／サービス固有のルールがある場合は、各サブディレクトリの
+`CLAUDE.md` / `AGENTS.md` / `README.md` を優先して読む。
 
 ## アーキテクチャ
 - **Supabase が DB の正本**（migrations / Edge Functions は `ios/supabase/` で集中管理）
