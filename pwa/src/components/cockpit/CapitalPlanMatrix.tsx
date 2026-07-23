@@ -29,18 +29,14 @@ export interface CapitalPlanMatrixProps {
 }
 
 const HOLDER_PALETTE = [
-  '#2563eb',
-  '#dc2626',
-  '#16a34a',
-  '#d97706',
-  '#7c3aed',
-  '#0891b2',
-  '#db2777',
-  '#65a30d',
-  '#ea580c',
-  '#4f46e5',
-  '#0d9488',
-  '#9333ea',
+  '#285d7a',
+  '#6f7e8c',
+  '#4e8677',
+  '#b08552',
+  '#886c9e',
+  '#a85e67',
+  '#647a5a',
+  '#7a6e8b',
 ];
 
 const CALC_BASIS_OPTIONS: { value: CalculationBasis; label: string }[] = [
@@ -119,9 +115,16 @@ function aggregateHolderAllocations(event: CapitalEvent, holderId: string): { sh
 }
 
 function parseNumber(raw: string): number | null {
-  if (raw.trim() === '') return null;
-  const n = Number(raw);
+  const cleaned = raw.replace(/,/g, '').trim();
+  if (cleaned === '') return null;
+  const n = Number(cleaned);
   return Number.isFinite(n) ? n : null;
+}
+
+/** Thousands-grouped display for an editable cell's resting (unfocused) state; decimals survive uncapped-looking (10dp ceiling avoids float noise) rounding. */
+function formatNumberForDisplay(n: number): string {
+  if (!Number.isFinite(n)) return '';
+  return n.toLocaleString('ja-JP', { maximumFractionDigits: 10 });
 }
 
 /**
@@ -187,13 +190,13 @@ function NumberCell({
   ariaLabel: string;
   placeholder?: string;
 }) {
-  const [draft, setDraft] = useState(() => (value != null ? String(value) : ''));
+  const [draft, setDraft] = useState(() => (value != null ? formatNumberForDisplay(value) : ''));
   const [lastKnownValue, setLastKnownValue] = useState(value);
   const isEmpty = draft.trim() === '';
 
   if (value !== lastKnownValue) {
     setLastKnownValue(value);
-    setDraft(value != null ? String(value) : '');
+    setDraft(value != null ? formatNumberForDisplay(value) : '');
   }
 
   function commitDraft(raw: string) {
@@ -202,7 +205,7 @@ function NumberCell({
         setLastKnownValue(undefined);
         onClear();
       } else {
-        setDraft(value != null ? String(value) : '');
+        setDraft(value != null ? formatNumberForDisplay(value) : '');
       }
       return;
     }
@@ -214,19 +217,32 @@ function NumberCell({
 
   return (
     <input
-      type="number"
+      type="text"
       inputMode="decimal"
-      step="any"
       aria-label={ariaLabel}
       placeholder={placeholder}
       value={draft}
       className={`${inputBaseClass} ${isEmpty ? inputBorderEmptyClass : inputBorderFilledClass}`}
+      onFocus={() => {
+        setDraft(value != null ? formatNumberForDisplay(value) : '');
+      }}
       onChange={(e) => {
         setDraft(e.target.value);
         commitDraft(e.target.value);
       }}
       onKeyDown={(e) => {
         if (e.key === 'Enter') commitDraft(draft);
+      }}
+      onBlur={() => {
+        const parsed = parseNumber(draft);
+        commitDraft(draft);
+        setDraft(
+          parsed != null
+            ? formatNumberForDisplay(parsed)
+            : onClear
+              ? ''
+              : (value != null ? formatNumberForDisplay(value) : ''),
+        );
       }}
     />
   );
@@ -327,9 +343,8 @@ function OutputCell({
       <td className="min-h-[44px] md:min-h-[36px] px-1.5 py-1" aria-label={`${label}（上書き入力）`}>
         <div className="flex flex-col gap-1">
           <input
-            type="number"
+            type="text"
             inputMode="decimal"
-            step="any"
             autoFocus
             aria-label={`${label} 上書き入力`}
             value={draft}
@@ -369,7 +384,7 @@ function OutputCell({
       aria-label={`${label}（${sourceAriaWord(editable)}）`}
     >
       <div className="flex flex-col items-end gap-0.5">
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center justify-end gap-1">
           <span
             className={`shrink-0 rounded px-1 py-0.5 text-[10px] font-medium ${
               isOverridden
@@ -379,7 +394,7 @@ function OutputCell({
           >
             {sourceBadgeText(editable)}
           </span>
-          <span className="truncate whitespace-nowrap">{value != null ? formatter(value) : '—'}</span>
+          <span className="whitespace-normal break-words text-right">{value != null ? formatter(value) : '—'}</span>
         </div>
         {onOverride && overrideNote && (
           <span
@@ -397,7 +412,7 @@ function OutputCell({
                 type="button"
                 aria-label={overrideAriaLabel}
                 onClick={() => {
-                  setDraft(value != null ? String(value) : '');
+                  setDraft(value != null ? formatNumberForDisplay(value) : '');
                   setEditing(true);
                 }}
                 className="flex min-h-[44px] md:min-h-[36px] min-w-[44px] md:min-w-[36px] items-center justify-center text-[11px] text-neutral-400 hover:text-neutral-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500 dark:hover:text-neutral-300 dark:focus-visible:ring-blue-400"
@@ -567,12 +582,12 @@ export function CapitalPlanMatrix({
       <div className="w-full max-h-[70vh] overflow-auto border border-neutral-200 dark:border-neutral-800">
         <table
           className="border-collapse text-[13px]"
-          style={{ tableLayout: 'fixed', width: 152 + sortedEvents.length * 124 }}
+          style={{ tableLayout: 'fixed', width: 152 + sortedEvents.length * 144 }}
         >
           <colgroup>
             <col style={{ width: 152 }} />
             {sortedEvents.map((event) => (
-              <col key={event.id} style={{ width: 124 }} />
+              <col key={event.id} style={{ width: 144 }} />
             ))}
           </colgroup>
           <thead>
