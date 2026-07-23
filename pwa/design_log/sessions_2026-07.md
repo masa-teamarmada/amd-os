@@ -1867,14 +1867,14 @@ Book A執筆規範 (japanese-tech-writing + cognitive-rhythm-writing) をSESSION
 - まさの修正どおり、全面 `シーズ x PoC先` マトリクスではなく、タグ付き `PoC先候補リスト` とシーズごとの `案件化キュー` を正本にした。
 - `PoC先候補リスト` はカード表示ではなく比較表。候補先、タグ、規模/地域、状態、PoC相性、謝礼・履歴、案件数、担当/次アクションを横並びで比較できる。
 - PoC accepted commits `0306c5e5` / `000f08c3` は現在の `main` (`e4ea6759`) の祖先に含まれる。
-- production `/api/build-info` は `v3.47.13 / e4ea6759535ac920ae7155c78f5b43231bf0fadb / git_branch=main / dirty=false`。
+- production `/api/build-info` は closeout時点で `v3.47.13 / git_branch=main / dirty=false`。
 
 ### Handoff / closeout
 
 - root `HANDOFF.md` をPoC Matching closeout用に更新した。
 - root `SESSION_MIGRATION_PROMPT.md` をPoC再開用へ更新した。
 - Book A司令塔08の旧root promptは `SESSION_MIGRATION_PROMPT_BOOK_A_COMMANDER08.md` へ退避し、`pwa/bzm/SESSION_MIGRATION_PROMPT.md` のポインタを退避先へ更新した。Book A本文WIPとPoC handoffを混ぜないため。
-- 現在の未コミット差分はPoC外。`pwa/bzm/book-a-ch-1.md`、`pwa/supabase/.temp/cli-latest`、AMD運営カレンダー専用handoff/promptはPoC側では触らない。
+- 現在の未コミット差分はPoC外の `pwa/bzm/book-a-ch-1.md` だけ。PoC側では触らない。
 
 ### 設計変更棚卸し
 

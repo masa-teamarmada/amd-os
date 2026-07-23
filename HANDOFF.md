@@ -18,9 +18,9 @@ Topic: PoC Matching 候補先比較表 closeout
 ## Repo State
 
 - branch: `main`
-- HEAD / origin/main: `e4ea6759535ac920ae7155c78f5b43231bf0fadb` / `e4ea6759535ac920ae7155c78f5b43231bf0fadb`
-- local main: ahead 0 / behind 0
-- production: `v3.47.13` / `e4ea6759535ac920ae7155c78f5b43231bf0fadb` / `git_branch=main` / `dirty=false` / deployed at `2026-07-22T06:26:02.079Z`
+- HEAD / origin/main: synced at closeout. Exact containing commit is `git rev-parse HEAD` / `git rev-parse origin/main` after pull.
+- local main: ahead 0 / behind 0 at closeout
+- production: `v3.47.13` / `git_branch=main` / `dirty=false` confirmed at closeout. Docs-only closeout pushes can update `git_sha` without changing `build_version`, so re-read `/api/build-info` at next start.
 - PoC accepted commits: `0306c5e5 Replace PoC matrix with tagged candidate queue`, `000f08c3 Show PoC destination candidates as comparison table`
 - local branch: `main` のみ / registered worktree: root 1件
 - このPoCセッションが作ったbranch/worktree: 0
@@ -31,9 +31,6 @@ Topic: PoC Matching 候補先比較表 closeout
 | path | owner / class | 次の処理 |
 |---|---|---|
 | `pwa/bzm/book-a-ch-1.md` | active Book A session / other-worker | Book A司令塔または本文workerが採否・commit・closeoutを行う。PoC側からは触らない |
-| `pwa/supabase/.temp/cli-latest` | Supabase CLI local metadata / deploy-link-local | Supabase CLI ownerがtracked管理の要否を裁定する。PoC側からは触らない |
-| `HANDOFF_ADMIN_OPERATING_CALENDAR_2026-07-23.md` | AMD運営カレンダー closeout lane / other-worker | 当該laneがcommitするか、不要なら削除判断する。PoC側からは触らない |
-| `SESSION_MIGRATION_PROMPT_ADMIN_OPERATING_CALENDAR_2026-07-23.md` | AMD運営カレンダー closeout lane / other-worker | 当該laneがcommitするか、不要なら削除判断する。PoC側からは触らない |
 
 ## Unresolved Tasks
 

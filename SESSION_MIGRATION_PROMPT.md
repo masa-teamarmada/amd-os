@@ -30,16 +30,14 @@ DBへ触る作業では、必ず /Users/masa/projects/AMD/amd-os/pwa/design/db_s
 
 - cwd: /Users/masa/projects/AMD/amd-os
 - branch: main
-- HEAD / origin/main: e4ea6759535ac920ae7155c78f5b43231bf0fadb
+- HEAD / origin/main: closeout時点で同期済み。次セッション開始時に `git rev-parse HEAD` / `git rev-parse origin/main` で最新commitを確認する。
 - production: https://amd-os-pwa.vercel.app
-- production build-info確認済み: v3.47.13 / e4ea6759535ac920ae7155c78f5b43231bf0fadb / git_branch=main / dirty=false / deployed_at=2026-07-22T06:26:02.079Z
+- production build-info確認済み: v3.47.13 / git_branch=main / dirty=false。docs-only closeout pushで `git_sha` だけ更新されることがあるため、次セッション開始時に `/api/build-info` を再確認する。
 - PoC accepted commits are ancestors of current main:
   - 0306c5e5 Replace PoC matrix with tagged candidate queue
   - 000f08c3 Show PoC destination candidates as comparison table
 - 現在の未コミット差分はPoC外:
   - pwa/bzm/book-a-ch-1.md: active Book A session / other-worker。触らない。
-  - pwa/supabase/.temp/cli-latest: Supabase CLI local metadata。触らない。
-  - HANDOFF_ADMIN_OPERATING_CALENDAR_2026-07-23.md / SESSION_MIGRATION_PROMPT_ADMIN_OPERATING_CALENDAR_2026-07-23.md: AMD運営カレンダー closeout lane。触らない。
 - このPoCセッションで作ったbranch/worktreeはなし。local registered worktreeはroot 1件。
 - Book A司令塔08の旧root promptは、PoC handoffのため /Users/masa/projects/AMD/amd-os/SESSION_MIGRATION_PROMPT_BOOK_A_COMMANDER08.md に退避済み。BZM側ポインタは /Users/masa/projects/AMD/amd-os/pwa/bzm/SESSION_MIGRATION_PROMPT.md。
 
