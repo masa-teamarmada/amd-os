@@ -14,6 +14,9 @@ const LOGO_SYMBOL_ASSET_PATH = join(__dirname, "content", "assets", "logo-symbol
 const LOGO_TYPE_ASSET_PATH = join(__dirname, "content", "assets", "logo-type.png");
 const COVER_ILLUSTRATION_ASSET_PATH = join(__dirname, "content", "assets", "cover-illustration.png");
 const TECH_PHOTO_ASSET_PATH = join(__dirname, "content", "assets", "tech-photo.png");
+const BUSINESS_MODEL_STARTUP_ASSET_PATH = join(__dirname, "content", "assets", "business-model-startup.png");
+const BUSINESS_MODEL_FARMER_ASSET_PATH = join(__dirname, "content", "assets", "business-model-farmer.png");
+const BUSINESS_MODEL_INSTITUTION_ASSET_PATH = join(__dirname, "content", "assets", "business-model-institution.png");
 
 // content/index.html is a snapshot whose <img src> literals point at the
 // local content/assets copies via relative paths. We search-and-replace
@@ -23,6 +26,9 @@ const LOGO_SYMBOL_SOURCE_REF = "./assets/logo-symbol.png";
 const LOGO_TYPE_SOURCE_REF = "./assets/logo-type.png";
 const COVER_ILLUSTRATION_SOURCE_REF = "./assets/cover-illustration.png";
 const TECH_PHOTO_SOURCE_REF = "./assets/tech-photo.png";
+const BUSINESS_MODEL_STARTUP_SOURCE_REF = "./assets/business-model-startup.png";
+const BUSINESS_MODEL_FARMER_SOURCE_REF = "./assets/business-model-farmer.png";
+const BUSINESS_MODEL_INSTITUTION_SOURCE_REF = "./assets/business-model-institution.png";
 
 function toDataUrl(path) {
   const buf = readFileSync(path);
@@ -34,12 +40,18 @@ const symbolDataUrl = toDataUrl(LOGO_SYMBOL_ASSET_PATH);
 const typeDataUrl = toDataUrl(LOGO_TYPE_ASSET_PATH);
 const coverIllustrationDataUrl = toDataUrl(COVER_ILLUSTRATION_ASSET_PATH);
 const techPhotoDataUrl = toDataUrl(TECH_PHOTO_ASSET_PATH);
+const businessModelStartupDataUrl = toDataUrl(BUSINESS_MODEL_STARTUP_ASSET_PATH);
+const businessModelFarmerDataUrl = toDataUrl(BUSINESS_MODEL_FARMER_ASSET_PATH);
+const businessModelInstitutionDataUrl = toDataUrl(BUSINESS_MODEL_INSTITUTION_ASSET_PATH);
 
 const inlined = html
   .split(LOGO_SYMBOL_SOURCE_REF).join(symbolDataUrl)
   .split(LOGO_TYPE_SOURCE_REF).join(typeDataUrl)
   .split(COVER_ILLUSTRATION_SOURCE_REF).join(coverIllustrationDataUrl)
-  .split(TECH_PHOTO_SOURCE_REF).join(techPhotoDataUrl);
+  .split(TECH_PHOTO_SOURCE_REF).join(techPhotoDataUrl)
+  .split(BUSINESS_MODEL_STARTUP_SOURCE_REF).join(businessModelStartupDataUrl)
+  .split(BUSINESS_MODEL_FARMER_SOURCE_REF).join(businessModelFarmerDataUrl)
+  .split(BUSINESS_MODEL_INSTITUTION_SOURCE_REF).join(businessModelInstitutionDataUrl);
 
 if (ABSOLUTE_HOME_PATH_PATTERN.test(inlined)) {
   throw new Error("build.mjs: unresolved absolute home-directory path remains in output HTML");

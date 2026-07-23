@@ -31,11 +31,12 @@ PSI Step 2共同レビュー資料は `https://vsx.team-armada.jp/psi-step2` で
   - `assets/logo-symbol.png` / `assets/logo-type.png` — AMD正規ロゴ2点。
   - `assets/cover-illustration.png` — 事業資料の表紙イラスト。
   - `assets/tech-photo.png` — 技術説明用の生成写真。
+  - `assets/business-model-*.png` — ビジネスモデルの主体3者を示す生成画像ピクト。コード描画ではなく`<img>`で使う。
 - `build.mjs` — 2つの成果物を生成する。ローカルでのみ実行し、両方を Vercel へのデプロイ対象に
   必ず含めること（cloud build ではリモートで実行できない）。この配置だけで完結し、
   リポジトリ外のファイル（個人ホームディレクトリ配下等）には一切依存しない。
   - `server/deck-data.mjs` — `content/index.html` と `content/assets/` 配下のロゴ2点・
-    表紙イラスト・技術写真を data URL に変換して埋め込んだ、Function バンドル内 module。
+    表紙イラスト・技術写真・ビジネスモデルの生成画像ピクト3点を data URL に変換して埋め込んだ、Function バンドル内 module。
     static ディレクトリでの公開は行わない。
   - `public/vendor/blob-client.mjs` — `@vercel/blob/client` を esbuild でブラウザ向けに
     バンドルしたもの。ポータルの素の HTML/JS から `import { upload } from "/vendor/blob-client.mjs"`
@@ -277,3 +278,11 @@ vercel --prod
   `dpl_5PsPsd9oGh2NAiD1ajYds8Bqamb8`。
 - 旧配置 `kagawa/agventure-lab-business-deck/deploy/` は、本番確認後にKagawa側から退避した。
   Kagawa側には事業資料本体と意思決定ログだけを残し、Project Shareの正本は本ディレクトリに一本化した。
+
+### ビジネスモデル主体ピクトの画像アセット化（2026-07-23）
+
+- スタートアップ、農家、研究機関・JA・産地組織を表す主体ピクトを画像生成し、透明PNG 3点として`content/assets/`へ配置した。
+- 主体イラストを構成していたインラインSVGパスは全撤去し、`<img>`参照へ置換した。矢印、交換価値ラベル、枠、配置のみHTML/CSSで維持した。
+- ブラウザ編集済み文言の保存キー`agventureLabDeck:v8:edit:`と、ビジネスモデル図の`s3-030`〜`s3-036`は変更していない。
+- `npm run build` / `npm run check` / `npm test` は成功（node:test 173件、失敗0件）。1440×900で横方向overflow 0、画像3点の読込、図内インラインSVG 0件、コンソールエラー0件を確認した。モバイルは明示指示により未確認。
+- 本番デプロイID: `dpl_4gmYBbNDRmpprR1qJ2jFsqQ3oJFe`。本番aliasは従来どおりVSX PROJECT SHARE。
