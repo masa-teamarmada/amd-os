@@ -80,6 +80,6 @@ DBへ触る作業では、必ず /Users/masa/projects/AMD/amd-os/pwa/design/db_s
 ## closeout 注意
 
 このpromptだけで次セッションはPoC作業に入れる。
-ただし、現時点のshared checkoutにはPoC外の未コミット差分が複数あるため、archive判定は `do not archive`。
+ただし、現時点のshared checkoutにはPoC外の未コミット差分が1件あるため、archive判定は `do not archive`。
 PoC側はmain/productionに統合済みで、PoC固有の未解決実装はない。
 ```

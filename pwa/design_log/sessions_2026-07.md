@@ -1866,7 +1866,7 @@ Book A執筆規範 (japanese-tech-writing + cognitive-rhythm-writing) をSESSION
 - `/poc` は、`シーズ` と `PoC先` を一次入力にし、その掛け合わせから案件候補を作る設計でmainに統合済み。
 - まさの修正どおり、全面 `シーズ x PoC先` マトリクスではなく、タグ付き `PoC先候補リスト` とシーズごとの `案件化キュー` を正本にした。
 - `PoC先候補リスト` はカード表示ではなく比較表。候補先、タグ、規模/地域、状態、PoC相性、謝礼・履歴、案件数、担当/次アクションを横並びで比較できる。
-- PoC accepted commits `0306c5e5` / `000f08c3` は現在の `main` (`e4ea6759`) の祖先に含まれる。
+- PoC accepted commits `0306c5e5` / `000f08c3` は現在の `main` の祖先に含まれる。
 - production `/api/build-info` は closeout時点で `v3.47.13 / git_branch=main / dirty=false`。
 
 ### Handoff / closeout

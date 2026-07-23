@@ -12,7 +12,7 @@ Topic: PoC Matching 候補先比較表 closeout
 - まさの指摘どおり、全面 `シーズ x PoC先` マトリクスは作らない。100 x 500 のような空白だらけの表になるため、先にタグ付き `PoC先候補リスト` を整備する。
 - `PoC先候補リスト` はカードではなく比較表。列は `PoC先 / タグ / 規模・地域 / 状態 / PoC相性 / 謝礼・履歴 / 案件数 / 担当・次アクション`。
 - Notion議事録由来のPoC情報は、本文・URLではなく、短い参照名、構造化メモ、候補カテゴリ、次アクションとして扱う。
-- 実装commit `0306c5e5` と `000f08c3` は現在のmainに含まれている。現在のproductionは後続変更込みの `v3.47.13 / e4ea6759` で、PoC比較表の変更も祖先commitとして含む。
+- 実装commit `0306c5e5` と `000f08c3` は現在のmainに含まれている。現在のproductionは後続変更込みの `v3.47.13`、`git_branch=main`、`dirty=false` で、PoC比較表の変更も祖先commitとして含む。
 - 詳細な実施記録と設計同期表は [`pwa/design_log/sessions_2026-07.md`](pwa/design_log/sessions_2026-07.md) の「PoC Matching 候補先比較表 closeout」節を参照。
 
 ## Repo State
@@ -36,7 +36,7 @@ Topic: PoC Matching 候補先比較表 closeout
 
 - PoC比較表の未完了実装: なし。
 - 次にPoCを進めるなら、既存OS内のSX/KUTE等の接点からPoC先候補を追加する。ただし重複確認を先に行い、議事録に実名がない場合は無理に実名企業を作らない。
-- 既存dirty 2件はPoC外。上表のownerが解消するまでshared checkout全体は `do not archive`。
+- 既存dirty 1件はPoC外。上表のownerが解消するまでshared checkout全体は `do not archive`。
 
 ## First Next Action
 
@@ -60,4 +60,4 @@ PoC Matchingの続きとして開始する場合は、`SESSION_MIGRATION_PROMPT.
 - 2026-07-10 PoC実装時: `npm run build`
 - 2026-07-10 PoC実装時: production `v0.39.37 / 000f08c3 / dirty=false`
 - 2026-07-23 closeout: `git merge-base --is-ancestor 000f08c3 HEAD` passed
-- 2026-07-23 closeout: production `v3.47.13 / e4ea6759 / dirty=false`
+- 2026-07-23 closeout: production `v3.47.13 / git_branch=main / dirty=false`
