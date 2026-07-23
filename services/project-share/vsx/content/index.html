@@ -30,7 +30,7 @@
 
   body {
     margin: 0;
-    background: var(--canvas);
+    background: var(--white);
     color: var(--text);
     font-family: "Yu Gothic", "YuGothic", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
   }
@@ -118,17 +118,17 @@
   }
 
   /* ---------- main / slides ---------- */
-  main { margin-left: var(--nav-w); padding: 20px clamp(18px, 3vw, 42px) 70px; }
+  main { margin-left: var(--nav-w); padding: 20px clamp(18px, 3vw, 42px) 70px; background: var(--white); }
 
   .slide {
     position: relative;
     max-width: 1160px;
-    margin: 0 auto 24px;
+    margin: 0 auto;
     padding: 52px 48px 62px;
     background: var(--white);
-    border: 1px solid #D7E2EC;
-    box-shadow: var(--shadow);
-    overflow: hidden;
+    border: 0;
+    box-shadow: none;
+    overflow: visible;
     scroll-margin-top: 20px;
   }
   .slide:not(.kv)::before {

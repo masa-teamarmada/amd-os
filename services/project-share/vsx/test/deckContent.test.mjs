@@ -31,3 +31,12 @@ test("built deck inlines all three business model bitmap assets", () => {
   assert.equal(embeddedPngs.length, 3);
   assert.doesNotMatch(section, /<svg\b/);
 });
+
+test("live deck renders as one continuous document without card-like page boundaries", () => {
+  assert.match(sourceHtml, /body\s*\{[\s\S]*?background:\s*var\(--white\)/);
+  assert.match(sourceHtml, /main\s*\{[^}]*background:\s*var\(--white\)/);
+  assert.match(sourceHtml, /\.slide\s*\{[\s\S]*?margin:\s*0 auto;/);
+  assert.match(sourceHtml, /\.slide\s*\{[\s\S]*?border:\s*0;/);
+  assert.match(sourceHtml, /\.slide\s*\{[\s\S]*?box-shadow:\s*none;/);
+  assert.doesNotMatch(sourceHtml, /\.slide\s*\{[^}]*margin:\s*0 auto 24px;/);
+});

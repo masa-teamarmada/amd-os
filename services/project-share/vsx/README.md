@@ -287,6 +287,14 @@ vercel --prod
 - `npm run build` / `npm run check` / `npm test` は成功（node:test 173件、失敗0件）。1440×900で横方向overflow 0、画像3点の読込、図内インラインSVG 0件、コンソールエラー0件を確認した。モバイルは明示指示により未確認。
 - 本番デプロイID: `dpl_4gmYBbNDRmpprR1qJ2jFsqQ3oJFe`。本番aliasは従来どおりVSX PROJECT SHARE。
 
+### 事業説明の連続表示とPDF版の同一フォルダ配置（2026-07-23）
+
+- HTML資料から、各セクションを別ページのように見せていた灰色背景、外枠、影、セクション間24pxの隙間を撤去した。白い一枚のキャンバス上で5セクションが途切れず続く。
+- 編集保存prefixと既存の編集キーは変更していない。
+- HTMLと同じ連続構成を1ページの縦長PDFへ書き出し、Project Shareルートへ`260723_AgVentureLab_事業説明.pdf`として配置した。HTMLを主成果物、PDFを副成果物として扱う。
+- 1440×900で、セクション間gap 0、横方向overflow 0、コンソールエラー0を確認した。PDFはPNGへ再レンダリングし、文字欠け、重なり、途中のカード分断がないことを目視確認した。
+- 本番デプロイID: `dpl_DuEypMgam6vfCeQN4C6GuYoY7EjM`。本番aliasは従来どおりVSX PROJECT SHARE。
+
 ### ファイルのドラッグ＆ドロップ移動が本番で動かない不具合を修正（2026-07-23）
 
 - 第1弾の修正（`<tr>`の`draggable`を外し`.name-content`を明示的なドラッグ面`.drag-handle`にする）をデプロイしたが、実機の押下→移動→離すの一連操作でも`dragstart`すら発火せず、`PATCH /api/files`が一切飛ばない事象が本番で継続した。HTML5ネイティブドラッグ自体がタッチ/トラックパッド操作や実際のマウスジェスチャーと相性が悪く、`draggable`属性に依存する限り再現しない不具合を仕込み続けるリスクがあると判断し、内部移動のドラッグ実装をネイティブHTML5ドラッグ（`dragstart`/`dragover`/`drop`、`dataTransfer`、`INTERNAL_MOVE_MIME`）からPointer Events（`pointerdown`/`pointermove`/`pointerup`/`pointercancel`）へ全面的に置き換えた。
