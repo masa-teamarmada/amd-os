@@ -1,65 +1,66 @@
 # AMD OS Handoff
 
-Last updated: 2026-07-22 JST
+Last updated: 2026-07-23 JST
 
 Target: `/Users/masa/projects/AMD/amd-os`
 
-Topic: KUTEコックピットの研究者別シーズ表示とcloseout
+Topic: PoC Matching 候補先比較表 closeout
 
 ## Latest Session Summary
 
-- KUTE (`project_id=p25`) の連携シーズ比較を、研究者ごとの見出し帯＋シーズ行へ変更した。
-- DBの `seeds` は「技術×用途」1件につき1行のまま維持し、統合・削除・複製・migrationは行っていない。
-- 2026-07-21確認時の工学院大学データは研究者7名・シーズ9件。高橋義典先生は実際には3シーズあり、表示上は1グループの直下に3行を保持する。
-- グループ境界は同一機関＋NFKC/空白正規化済み研究者名。研究者名未登録は1シーズ1グループとして誤統合を防ぐ。
-- 実装commit `ece458b4` はmainへpush済み。本番 `v3.47.10` で確認後、後続mainを含む現在のproduction `v3.47.13 / b4e66414` にも含まれている。
-- 詳細な実施記録と設計同期表は [`pwa/design_log/sessions_2026-07.md`](pwa/design_log/sessions_2026-07.md) の「KUTEコックピット研究者グルーピング」節を参照。
+- `/poc` は、`シーズ` と `PoC先` を一次入力にして、タグで候補先を絞り、シーズごとの案件化キューから `poc_matches` を作る画面として実装済み。
+- まさの指摘どおり、全面 `シーズ x PoC先` マトリクスは作らない。100 x 500 のような空白だらけの表になるため、先にタグ付き `PoC先候補リスト` を整備する。
+- `PoC先候補リスト` はカードではなく比較表。列は `PoC先 / タグ / 規模・地域 / 状態 / PoC相性 / 謝礼・履歴 / 案件数 / 担当・次アクション`。
+- Notion議事録由来のPoC情報は、本文・URLではなく、短い参照名、構造化メモ、候補カテゴリ、次アクションとして扱う。
+- 実装commit `0306c5e5` と `000f08c3` は現在のmainに含まれている。現在のproductionは後続変更込みの `v3.47.13 / e4ea6759` で、PoC比較表の変更も祖先commitとして含む。
+- 詳細な実施記録と設計同期表は [`pwa/design_log/sessions_2026-07.md`](pwa/design_log/sessions_2026-07.md) の「PoC Matching 候補先比較表 closeout」節を参照。
 
 ## Repo State
 
 - branch: `main`
-- concurrent handoff統合後baseline HEAD / origin/main: `5dc0146e` / `5dc0146e`（ahead 0 / behind 0）。この状態はKUTE `554032ad` とH-1 handoffを含む。handoff bundleの最終commitは `git log -1 --format=%H -- HANDOFF.md` で確認する。
-- state refresh前production: `v3.47.13` / `5dc0146eff20ae4a2f0b972804c806e94f7db84b` / `git_branch=main` / `dirty=false`。refresh push後は `/api/build-info` を再確認する。
-- KUTE accepted commit: `ece458b49589dee3eb47c5476967113f40e6980f`
+- HEAD / origin/main: `e4ea6759535ac920ae7155c78f5b43231bf0fadb` / `e4ea6759535ac920ae7155c78f5b43231bf0fadb`
+- local main: ahead 0 / behind 0
+- production: `v3.47.13` / `e4ea6759535ac920ae7155c78f5b43231bf0fadb` / `git_branch=main` / `dirty=false` / deployed at `2026-07-22T06:26:02.079Z`
+- PoC accepted commits: `0306c5e5 Replace PoC matrix with tagged candidate queue`, `000f08c3 Show PoC destination candidates as comparison table`
 - local branch: `main` のみ / registered worktree: root 1件
-- このKUTEセッションが作ったbranch/worktree: 0
+- このPoCセッションが作ったbranch/worktree: 0
+- root `SESSION_MIGRATION_PROMPT.md` はPoC再開用へ更新。Book A司令塔08の旧promptは [`SESSION_MIGRATION_PROMPT_BOOK_A_COMMANDER08.md`](SESSION_MIGRATION_PROMPT_BOOK_A_COMMANDER08.md) に退避し、BZM側ポインタも更新済み。
 
-### 現在の未コミット変更（KUTE外・変更禁止）
+### 現在の未コミット変更（PoC外・変更禁止）
 
 | path | owner / class | 次の処理 |
 |---|---|---|
-| `pwa/bzm/book-a-ch-1.md` | active Book A session `bzm-54` / other-worker | `bzm-54` が採否・commit・closeoutを行う |
-| `pwa/supabase/.temp/cli-latest` | Supabase CLI cache / deploy-link-local | 次のSupabase CLI ownerがtracked管理の要否を裁定する。KUTEからは触らない |
+| `pwa/bzm/book-a-ch-1.md` | active Book A session / other-worker | Book A司令塔または本文workerが採否・commit・closeoutを行う。PoC側からは触らない |
+| `pwa/supabase/.temp/cli-latest` | Supabase CLI local metadata / deploy-link-local | Supabase CLI ownerがtracked管理の要否を裁定する。PoC側からは触らない |
+| `HANDOFF_ADMIN_OPERATING_CALENDAR_2026-07-23.md` | AMD運営カレンダー closeout lane / other-worker | 当該laneがcommitするか、不要なら削除判断する。PoC側からは触らない |
+| `SESSION_MIGRATION_PROMPT_ADMIN_OPERATING_CALENDAR_2026-07-23.md` | AMD運営カレンダー closeout lane / other-worker | 当該laneがcommitするか、不要なら削除判断する。PoC側からは触らない |
 
 ## Unresolved Tasks
 
-- KUTE研究者グルーピングの未完了実装: なし。
-- 既知のモデル境界: 研究者マスタ/研究者IDは未導入。敬称・姓名表記・別名など意味的な表記揺れは自動統合しない。必要性が出た時点で研究者正本を別設計する。
-- 既存dirty 2件はKUTE外。上表のownerが解消するまでshared checkout全体は `do not archive`。
+- PoC比較表の未完了実装: なし。
+- 次にPoCを進めるなら、既存OS内のSX/KUTE等の接点からPoC先候補を追加する。ただし重複確認を先に行い、議事録に実名がない場合は無理に実名企業を作らない。
+- 既存dirty 2件はPoC外。上表のownerが解消するまでshared checkout全体は `do not archive`。
 
 ## First Next Action
 
-KUTEの続きとして開始する場合は、rootのBook A用 `SESSION_MIGRATION_PROMPT.md` を上書きせず、[`SESSION_MIGRATION_PROMPT_KUTE_COCKPIT.md`](SESSION_MIGRATION_PROMPT_KUTE_COCKPIT.md) を使う。最初にmain/production/KUTE件数をread-onlyで再確認し、まさから新しいフィードバックが無ければ再実装しない。
+PoC Matchingの続きとして開始する場合は、`SESSION_MIGRATION_PROMPT.md` を使う。最初にmain/production/DB schemaをread-onlyで再確認し、まさから新しいフィードバックが無ければ再実装せず、PoC先候補データの追加・重複整理から入る。
 
 ## Pointers
 
-- 仕様正本: [`pwa/design/seeds.md`](pwa/design/seeds.md)
-- cockpit設計: [`pwa/design/cockpit.md`](pwa/design/cockpit.md)
+- 仕様正本: [`pwa/design/poc_matching.md`](pwa/design/poc_matching.md)
+- PWA全体仕様: [`pwa/design/SPEC_pwa.md`](pwa/design/SPEC_pwa.md)
 - 回帰契約: [`pwa/design/FEATURE_REGISTRY.md`](pwa/design/FEATURE_REGISTRY.md)
-- OSマニュアル: [`pwa/manual/2-3-pj-cockpit.md`](pwa/manual/2-3-pj-cockpit.md)
+- OSマニュアル: [`pwa/manual/2-5-research-assets-quick-start.md`](pwa/manual/2-5-research-assets-quick-start.md), [`pwa/manual/5-1-research-assets-vc-seeds-scholar-spec.md`](pwa/manual/5-1-research-assets-vc-seeds-scholar-spec.md), [`pwa/manual/9-3-appendix-changelog.md`](pwa/manual/9-3-appendix-changelog.md)
+- DB schema: [`pwa/design/db_schema.md`](pwa/design/db_schema.md)
 - バグ/教訓: [`pwa/BUGS.md`](pwa/BUGS.md)
 - session log: [`pwa/design_log/sessions_2026-07.md`](pwa/design_log/sessions_2026-07.md)
-- KUTE migration prompt: [`SESSION_MIGRATION_PROMPT_KUTE_COCKPIT.md`](SESSION_MIGRATION_PROMPT_KUTE_COCKPIT.md)
 
 ## Verification Evidence
 
-- `npm run test:kute-seeds-scope`
-- `npm run test:seed-sps-score`
-- `npx tsc --noEmit`
-- 対象eslint、`npm run test:critical-ui`、`npm run build`
-- Playwright desktop 1440×1100 / mobile 390×844: body横overflowなし、表だけ横スクロール、console/page error 0
-- production Playwright: 研究者7グループ・シーズ9行・高橋先生1グループ直下3行
-
-## Prompt Boundary
-
-rootの `SESSION_MIGRATION_PROMPT.md` はBook A司令塔08のcanonical startup promptで、active Book A作業を守るためKUTEでは変更しない。KUTEの同内容promptはroot直下の `SESSION_MIGRATION_PROMPT_KUTE_COCKPIT.md` に分離する。
+- 2026-07-10 PoC実装時: `eslint src/app/(app)/poc/page.tsx`
+- 2026-07-10 PoC実装時: `npm run test:critical-ui`
+- 2026-07-10 PoC実装時: `./node_modules/.bin/tsc --project tsconfig.json --noEmit`
+- 2026-07-10 PoC実装時: `npm run build`
+- 2026-07-10 PoC実装時: production `v0.39.37 / 000f08c3 / dirty=false`
+- 2026-07-23 closeout: `git merge-base --is-ancestor 000f08c3 HEAD` passed
+- 2026-07-23 closeout: production `v3.47.13 / e4ea6759 / dirty=false`

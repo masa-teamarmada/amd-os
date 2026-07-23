@@ -1856,3 +1856,37 @@ Book A執筆規範 (japanese-tech-writing + cognitive-rhythm-writing) をSESSION
 | 5 | 新規環境変数・API・DB table/column/index/RLS/migration | 追加なし | 対象外: 変更なし | ✅ |
 
 ✅ 全件記録済。仕様正本、回帰登録簿、OSマニュアル、changelog、BUGS、session logの役割を分離した。
+
+---
+
+## 2026-07-23 — PoC Matching 候補先比較表 closeout
+
+### 状態確認
+
+- `/poc` は、`シーズ` と `PoC先` を一次入力にし、その掛け合わせから案件候補を作る設計でmainに統合済み。
+- まさの修正どおり、全面 `シーズ x PoC先` マトリクスではなく、タグ付き `PoC先候補リスト` とシーズごとの `案件化キュー` を正本にした。
+- `PoC先候補リスト` はカード表示ではなく比較表。候補先、タグ、規模/地域、状態、PoC相性、謝礼・履歴、案件数、担当/次アクションを横並びで比較できる。
+- PoC accepted commits `0306c5e5` / `000f08c3` は現在の `main` (`e4ea6759`) の祖先に含まれる。
+- production `/api/build-info` は `v3.47.13 / e4ea6759535ac920ae7155c78f5b43231bf0fadb / git_branch=main / dirty=false`。
+
+### Handoff / closeout
+
+- root `HANDOFF.md` をPoC Matching closeout用に更新した。
+- root `SESSION_MIGRATION_PROMPT.md` をPoC再開用へ更新した。
+- Book A司令塔08の旧root promptは `SESSION_MIGRATION_PROMPT_BOOK_A_COMMANDER08.md` へ退避し、`pwa/bzm/SESSION_MIGRATION_PROMPT.md` のポインタを退避先へ更新した。Book A本文WIPとPoC handoffを混ぜないため。
+- 現在の未コミット差分はPoC外。`pwa/bzm/book-a-ch-1.md`、`pwa/supabase/.temp/cli-latest`、AMD運営カレンダー専用handoff/promptはPoC側では触らない。
+
+### 設計変更棚卸し
+
+| # | 新仕様/仕様変更 | design正本 | OSマニュアル章 | 状態 |
+|---|---|---|---|---|
+| 1 | `/poc` の一次入力を `シーズ` / `PoC先` に固定し、案件候補を `poc_matches` で作る | `pwa/design/poc_matching.md` / `pwa/design/SPEC_pwa.md` / `pwa/design/FEATURE_REGISTRY.md` | `pwa/manual/2-5-research-assets-quick-start.md` / `pwa/manual/5-1-research-assets-vc-seeds-scholar-spec.md` / `pwa/manual/9-3-appendix-changelog.md` | ✅ |
+| 2 | 全面マトリクスを破棄し、タグ付きPoC先候補リスト + シーズ別案件化キューを正本にした | `pwa/design/poc_matching.md` / `pwa/design/FEATURE_REGISTRY.md` | `pwa/manual/2-5-research-assets-quick-start.md` / `pwa/manual/9-3-appendix-changelog.md` | ✅ |
+| 3 | `PoC先候補リスト` を比較表にし、候補先、タグ、規模/地域、状態、PoC相性、謝礼・履歴、案件数、担当/次アクションを横比較する | `pwa/design/poc_matching.md` / `pwa/design/FEATURE_REGISTRY.md` | `pwa/manual/2-5-research-assets-quick-start.md` / `pwa/manual/9-3-appendix-changelog.md` | ✅ |
+| 4 | Notion議事録はraw本文/URLではなく短い参照名と構造化メモへ落とす | `pwa/design/poc_matching.md` | `pwa/manual/2-5-research-assets-quick-start.md` | ✅ |
+| 5 | PoC handoff用にroot `SESSION_MIGRATION_PROMPT.md` を更新し、Book A司令塔08 promptを専用ファイルへ退避 | `HANDOFF.md` / `SESSION_MIGRATION_PROMPT.md` / `SESSION_MIGRATION_PROMPT_BOOK_A_COMMANDER08.md` / `pwa/bzm/SESSION_MIGRATION_PROMPT.md` | 対象外: handoff artifactであり、AMD OS利用者向けの新UI/API/DB仕様ではない | ✅ |
+| 6 | 新規環境変数・API・DB table/column/index/RLS/migration | 追加なし | 対象外: 変更なし | ✅ |
+
+✅ 全件記録済。恒久仕様はPoC design/manualへ、今回のcloseout状態はHANDOFFとsession logへ分離した。
+
+---

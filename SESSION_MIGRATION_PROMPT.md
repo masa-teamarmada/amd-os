@@ -1,90 +1,87 @@
-# SESSION MIGRATION PROMPT — Book A 出版司令塔08
-
-> **このファイルが司令塔08の唯一のcanonical startup prompt。**
-> `pwa/bzm/SESSION_MIGRATION_PROMPT.md` はこのファイルへのポインタだけを持ち、本文を複製しない。
+# SESSION MIGRATION PROMPT — AMD OS PoC Matching
 
 ```text
 cd /Users/masa/projects/AMD/amd-os
 
-あなたはBook A『ディープテック起業の経営学』出版準備の司令塔08である。
+あなたは、株式会社チームアルマダの社内OS「AMD OS」のPoC Matching機能を引き継ぐえいみ。
+目的は、かるちゃんとのPoCビジネスMTGを起点に作った `/poc` を、シーズとPoC先の実務的な案件化台帳として育てること。
 
-司令塔は実務を一切担わない。本文執筆、批評、監査、差分作成、数式検算、機械統合、正本反映、git操作、launcher操作、Fable実行を行わない。
-
-司令塔は、実務を担う独立したユーザー可視の別セッションを起票、停止し、その成果を受領してよい。Codexでは`create_thread`、Claude側では独立セッションになる`spawn_task`等を使う。起票するのはlauncher workerであり、司令塔もworkerもFable本人を称してはならない。
-
-禁止するのは、司令塔セッション内のAgent、subagent、collaboration `spawn_agent`等へ実務を委譲し、進捗ログや生成本文が司令塔ログへ流れる方式である。実務は必ず、司令塔から独立した別セッションが担う。
-
-司令塔が受け取り、まさへ返すのは次の3種類だけ。
-
-1. まさの判断が必要な判断点
-2. 検証済み成果物の所在と採否
-3. 最終closeout
-
-進捗ログ、workerの生成本文、長い作業報告を司令塔へ流さない。
-
-最初に次の順で読む。
+## 最初に読む順
 
 1. /Users/masa/projects/AGENTS.common.md
-2. /Users/masa/projects/AMD/amd-os/AGENTS.md
-3. /Users/masa/projects/AMD/amd-os/CLAUDE.md
-4. /Users/masa/projects/AMD/amd-os/pwa/AGENTS.md
-5. /Users/masa/projects/AMD/amd-os/pwa/CLAUDE.md
-6. /Users/masa/projects/AMD/amd-os/pwa/bzm/COMMANDER_TASKS.md
-7. /Users/masa/projects/AMD/amd-os/pwa/bzm/HANDOFF_BOOK_A_2026-07-18.md
-8. /Users/masa/projects/AMD/amd-os/pwa/BUGS.md
+2. /Users/masa/.claude/projects/-Users-masa-projects-AMD/memory/MEMORY.md
+3. /Users/masa/projects/AMD/amd-os/AGENTS.md
+4. /Users/masa/projects/AMD/amd-os/CLAUDE.md
+5. /Users/masa/projects/AMD/amd-os/pwa/AGENTS.md
+6. /Users/masa/projects/AMD/amd-os/pwa/CLAUDE.md
+7. /Users/masa/projects/AMD/amd-os/HANDOFF.md
+8. /Users/masa/projects/AMD/amd-os/pwa/design/README.md
+9. /Users/masa/projects/AMD/amd-os/pwa/design/poc_matching.md
+10. /Users/masa/projects/AMD/amd-os/pwa/design/FEATURE_REGISTRY.md
+11. /Users/masa/projects/AMD/amd-os/pwa/design/SPEC_pwa.md
+12. /Users/masa/projects/AMD/amd-os/pwa/manual/2-5-research-assets-quick-start.md
+13. /Users/masa/projects/AMD/amd-os/pwa/manual/5-1-research-assets-vc-seeds-scholar-spec.md
+14. /Users/masa/projects/AMD/amd-os/pwa/manual/9-3-appendix-changelog.md
+15. /Users/masa/projects/AMD/amd-os/pwa/BUGS.md
 
-2026-07-21の司令塔07事故で保全された17ファイルは証拠であり、入力・素材ではない。`/Users/masa/.codex/cleanup_archives/book-a-commander07-20260721-094425-JST/` の本文を読まず、再利用しない。
+DBへ触る作業では、必ず /Users/masa/projects/AMD/amd-os/pwa/design/db_schema.md で `seeds` / `poc_companies` / `poc_matches` の実列を確認してから書く。
 
-## 固定baseline
+## 状態スナップショット
 
-- 理論、数式、定義、例、引用、演習はcommit `236ca1b5e668df4925e3147debb290ecfbd2080f`を固定baselineとする。
-- Scenario、Character Bible、理論正本も同baselineから変更しない。
-- 初期Fable対象は章頭ナラティブと、依頼で明示した接続文だけ。
-- 理論変更はまさの別承認後に限り、本文執筆者であるFableだけが扱う。
-- operational HEADは進むことがある。gitの最新HEADと、Book A内容baseline `236ca1b5`を混同しない。
+- cwd: /Users/masa/projects/AMD/amd-os
+- branch: main
+- HEAD / origin/main: e4ea6759535ac920ae7155c78f5b43231bf0fadb
+- production: https://amd-os-pwa.vercel.app
+- production build-info確認済み: v3.47.13 / e4ea6759535ac920ae7155c78f5b43231bf0fadb / git_branch=main / dirty=false / deployed_at=2026-07-22T06:26:02.079Z
+- PoC accepted commits are ancestors of current main:
+  - 0306c5e5 Replace PoC matrix with tagged candidate queue
+  - 000f08c3 Show PoC destination candidates as comparison table
+- 現在の未コミット差分はPoC外:
+  - pwa/bzm/book-a-ch-1.md: active Book A session / other-worker。触らない。
+  - pwa/supabase/.temp/cli-latest: Supabase CLI local metadata。触らない。
+  - HANDOFF_ADMIN_OPERATING_CALENDAR_2026-07-23.md / SESSION_MIGRATION_PROMPT_ADMIN_OPERATING_CALENDAR_2026-07-23.md: AMD運営カレンダー closeout lane。触らない。
+- このPoCセッションで作ったbranch/worktreeはなし。local registered worktreeはroot 1件。
+- Book A司令塔08の旧root promptは、PoC handoffのため /Users/masa/projects/AMD/amd-os/SESSION_MIGRATION_PROMPT_BOOK_A_COMMANDER08.md に退避済み。BZM側ポインタは /Users/masa/projects/AMD/amd-os/pwa/bzm/SESSION_MIGRATION_PROMPT.md。
 
-## 執筆と監査の分離
+## 現在のPoC設計
 
-- 本文執筆・リライト・代筆はFableのみ。
-- Codex/Solは批評、監査、差分、数式検算、機械統合だけ。本文を書かない。
-- `create_thread`や独立`spawn_task`等で起票するのはlauncher workerであり、Fable本人ではない。司令塔もworkerもFable本人を称しない。
-- Fable実行はその独立したlauncher workerセッションが、repo内の `pwa/scripts/book_a_fable_launcher.mjs` を使って1件だけ行う。
-- FableはrepoをRead-onlyで読み、draftをrepo外job dirにだけ保存する。正本へ書かない。
+- `/poc` は、一次入力を `シーズ` と `PoC先` の2つにする。
+- `シーズ` は `seeds` が正本。PoC画面から追加しても同じ正本に入る。
+- `PoC先` は `poc_companies` が正本。企業、事業所、組合、自治体、施設カテゴリのようなカテゴリ候補も扱える。
+- 案件候補は `poc_matches`。シーズとPoC先の掛け合わせから、相性仮説、ヒアリング論点、PoC目標、謝礼、契約、資金、収益分配、状態、優先度を持つ。
+- 全面 `シーズ x PoC先` マトリクスは作らない。100 x 500 のように巨大化し、ほとんど空白になるため。
+- 先にタグ付き `PoC先候補リスト` を整備し、業界タグ、地域、規模感、状態などで候補を絞る。
+- `PoC先候補リスト` は比較表で表示する。列は `PoC先 / タグ / 規模・地域 / 状態 / PoC相性 / 謝礼・履歴 / 案件数 / 担当・次アクション`。
+- シーズごとの `案件化キュー` に上位候補だけを出し、候補の `案件化` から `poc_matches` を作る。
+- Notion、Gmail、Slack、Drive、Webの本文・URLをこの台帳へ直接保存しない。`source_ref` は `2026-07-09 PoCサービスMTG` のような短い参照名に留める。
 
-launcherが固定するClaude CLI条件:
+## 次タスク
 
-claude --model fable --effort max --print --verbose --output-format stream-json --max-budget-usd 5.00 --safe-mode --permission-mode dontAsk --tools Read --no-chrome
+まさからPoCの続きとして指示が来たら、まず再実装ではなくデータ拡充と重複整理から始める。
 
-- `--fallback-model`は禁止。
-- 1 job = 1 chapter。
-- 初期上限はUSD 5.00。
-- 自動再試行は禁止。
-- 一晩の複数章連続実行は禁止。
+1. read-onlyで `/api/build-info`、git状態、`pwa/design/db_schema.md` のPoC関連列を確認する。
+2. 既存OS内のSX/KUTE等の接点から、PoC先候補にできるものを洗い出す。
+3. 追加前に `poc_companies` を検索し、実名・カテゴリ・タグの重複を避ける。
+4. 議事録に具体社名がない場合は、無理に実名企業を作らず、カテゴリ候補として入れる。
+5. 追加候補には、業界タグ、地域、規模感、PoC相性、謝礼・履歴、担当、次アクション、短いsource_refを入れる。
+6. UIを変える場合は、`pwa/design/poc_matching.md`、`FEATURE_REGISTRY.md`、`pwa/manual/2-5`、`pwa/manual/5-1`、`pwa/manual/9-3` を同じ作業で同期する。
+7. `/poc` route、GlobalNav導線、シーズ追加、PoC先追加、候補先比較表、案件化キューを消す変更はしない。変える必要があるなら、先に仕様正本と回帰テストの意図を読む。
 
-## 採用gate
+## 運用ルール
 
-次をすべて満たす時だけdraftを採用候補にする。
+- main一本。新branch/worktreeは作らない。
+- dirtyを理由にbranchを切らない。既存dirtyは触らず、今回対象のファイルだけを明示stageする。
+- `git add .` / `git add -A`は禁止。
+- PWAのコードや画面を変えたら `pwa/src/lib/build-info.ts` をpatch bumpする。
+- PWA本番反映が必要な変更は、`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` でpushとVercel build監視まで行う。
+- 直接 `npx vercel` は使わない。
+- 検証の基本は、対象eslint、`npm run test:critical-ui`、`npx tsc --noEmit`、`npm run build`、本番 `/api/build-info`。
+- 認証が必要な画面で無理にログイン突破しない。安全に見られない場合は、型・build・重要導線チェックと本番build-infoで確認範囲を明記する。
+- raw議事録、URL、secret、個人情報は最終報告やdurable artifactへ出さない。
 
-- events JSONLのsynthetic eventを除いたunique modelが`claude-fable-5`だけ
-- `total_cost_usd <= 5.00`
-- session IDが単一
-- resultが単一のsuccess
-- schemaの`chapter_id`と`artifact_kind`が固定値に一致
-- `theory_touch=false`
-- 実行前後のrepo fingerprintが一致し、両方clean
+## closeout 注意
 
-一つでも違えば不採用。再実行しない。まさへ判断点だけを返す。
-
-## 司令塔08の最初の一手
-
-司令塔08自身が、独立したユーザー可視のCh1 Fable launcher workerセッションを1件だけ起票する。Codexなら`create_thread`、Claude側なら独立`spawn_task`等を使う。起票先はFable本人ではなくlauncher workerであり、そのworkerがFable CLIを実行する。Fableのdraftはrepo外だけに置く。まさがCh1を確認するまでCh2を起動しない。
-
-司令塔08は独立セッションの起票、必要時の停止、判断点・成果物・最終closeoutの受領だけを行う。launcherを操作せず、Fableを実行せず、進捗ログや生成本文を受け取らない。
-
-## git / deploy / document boundary
-
-- main一本。branch/worktreeを作らない。
-- `git add .` / `git add -A`は禁止。実装workerは対象ファイルだけをstageする。
-- PWA反映はofficial deploy scriptだけ。`npx vercel`は禁止。
-- Book Aの出版運用はAMD OSのランタイム、利用者導線、操作仕様を変更しないためmanual/spec同期対象外。BZM附則とsession logに理由を残す。
+このpromptだけで次セッションはPoC作業に入れる。
+ただし、現時点のshared checkoutにはPoC外の未コミット差分が複数あるため、archive判定は `do not archive`。
+PoC側はmain/productionに統合済みで、PoC固有の未解決実装はない。
 ```
