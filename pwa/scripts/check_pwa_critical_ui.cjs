@@ -359,6 +359,18 @@ expectIncludes("src/app/api/project-workspace/[projectId]/management/route.ts", 
   "sx_owner",
   "rollbackPatch",
 ]);
+expectIncludes("src/app/api/project-workspace/[projectId]/management/route.ts", [
+  "function safeDeletePatch(memberId: string) {",
+  "return { deleted_at: new Date().toISOString(), deleted_by: memberId };",
+  "Soft-delete and restore are visibility toggles, not edits",
+  "if (meta.hasSourceRef && !deleting && !restoring) {",
+  "patch.source_kind = \"manual\";",
+  "patch.source_ref = \"PWA共有管理画面\";",
+]);
+expectNotIncludes("src/app/api/project-workspace/[projectId]/management/route.ts", [
+  "safeDeletePatch(context.access.memberId, meta)",
+  "source_kind/source_ref are provenance, not editable state",
+]);
 expectIncludes("scripts/migrations/185_sx_management_semantic_guards.sql", [
   "project_management_decisions_decided_requirements_185",
   "project_management_partner_commitments_sx_followup_requirements",
@@ -406,29 +418,165 @@ expectIncludes("src/components/project-workspace/SxProofOutcomes.tsx", [
 expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "sx-partner-pipeline",
   "sxPartnerDisplay",
-  "lowPriority",
-  "優先度低・保留（重要経路外）",
-  "現在ボール",
-  "次の受け渡し",
-  "次の一手",
-  "目標状態",
-  "ボール未確認",
+  "deferredLowPriority",
+  "保留・低優先（重要経路外・",
+  "当方保有",
+  "先方保有",
+  "中央受け渡し",
+  "期限 / 目標",
+  "分類別件数ナビ",
+  "分類は虹色にしない",
+  "共同",
+  "行為主体未確認",
   "最新記録",
   "sxFormatDueDateWithPrecision",
   "sxLatestInteraction",
   "sxSortInteractionsByRecency",
+  "sxHoldingsForPartner",
+  "sxComputeControlBandCounts",
+  "sxPrimaryRoleKindCounts",
+  "sxRoleDisplayLabel",
+  "sxGroupPartnersByPrimaryClassification",
+  "sxIsHoldingOverdue",
+  "sxIsHoldingMonthPrecision",
   "やり取り履歴",
   "履歴を追加",
-  "md:grid md:grid-cols-2 md:gap-x-4 md:gap-y-3",
+  "保有事項を追加",
+  "分類を追加",
+  "台帳の詳細・編集",
+  "ゲート未接続",
+  "全関係先",
+  "対応中",
+  "双方保有先",
+  "月精度期限",
+  "endedPartners",
+  "blockedHoldings",
+  "unorganizedPartners",
+  "organizedCoveragePct",
+  "sxAllHoldingsForPartnerAudit",
+  "sxIsPartnerEnded",
+  "sxSortHoldingsByPriority",
+  "sxPartnerHasBlockedHolding",
+  "未整理",
+  "終了（対応中から除外",
+  "aria-labelledby={nameHeadingId}",
+  "aria-pressed",
+  "grid-cols-[minmax(0,1fr)_56px_minmax(0,1fr)] md:grid-cols-[1fr_92px_1fr] xl:grid-cols-[168px_minmax(0,1fr)_128px_minmax(0,1fr)_138px_140px]",
+  // spec P0-1/2 (2026-07-24, 4th audit round): InteractionRow mobile grid + timeline header grid.
+  "grid-cols-[56px_minmax(0,1fr)_64px_44px]",
+  "md:grid-cols-[56px_68px_minmax(130px,1fr)_64px_44px]",
+  "grid-cols-[minmax(0,1fr)_44px]",
+  // spec P0-4: ControlBand順は緊急→ボール→母数、横scroll手掛かり(fade)、分類h4の左罫線。
+  'heading="緊急"',
+  'heading="ボール"',
+  'heading="母数"',
+  "SCROLL_HINT_CLASS",
+  "ALWAYS_SCROLL_HINT_CLASS",
+  "border-l-4 border-[#e4ddd0] border-l-[#38745d]",
+  // spec P0-10: 未整理/確認済みが未区別なことを隠さない台帳0件表現、登録率(対応中N先中)。
+  "台帳0件（未整理/確認済み0件は未区別）",
+  "登録率",
+  // spec P1-8: blocked partner最優先の可視化。
+  "停止",
+  // spec P1 (2026-07-24 4th audit): control labelはOR条件（当方/先方いずれか一方でも0件）なので
+  // 「台帳0件先」ではなく「空レーンあり」。
+  "空レーンあり",
+  // spec P1: role filter中は active groups + deferred + ended を合算してから空判定する。
+  "deferredPartners.length === 0 && endedPartners.length === 0",
+  // spec P1: InteractionRow read-onlyでは空の編集44px列を確保しない、管理者だけ末尾44px。
+  "gridColsClass",
+  "grid-cols-[56px_minmax(0,1fr)_64px] md:grid-cols-[56px_68px_minmax(130px,1fr)_64px]",
+  // spec P1: 保有事項追加のhit targetは44px（視覚は初期行密度を壊さないcompactのまま、before:inset[-10px]で拡張）。
+  "before:absolute before:inset-[-10px] before:content-['']",
+  // spec P1: 一次根拠(sourceEvidence)と完了の証拠(completionEvidence)を混同しない。
+  "sourceEvidence",
+  "一次根拠",
+  // spec (2026-07-24 最終監査残件): 保有事項の全件監査表示に出典/最終確認/確度を追加。
+  "出典",
+  "最終確認",
+  "確度",
+  // spec (2026-07-24 RD最終差し戻し): 約束・次アクション全件カードにもHoldingRowと同じ出典行を追加。
+  "sxSourceKindLabel(commitment.sourceKind)",
+  "sxSourceRefDisplayLabel(commitment.sourceRef)",
+  // spec: mask-imageのcontent-fadeを撤去し、非フェードのScrollHintArrowへ置換。
+  "ScrollHintArrow",
+  // spec: mobile touchでInteractionRowのtruncate全文へ到達できる全文全件セクション。
+  "やり取り履歴（全文・全件）",
+  // spec P0-2 (2026-07-24 COO差し戻し3点是正): 表側previewは件数に関係なく必ずslice(0,3)、3件超は短い注記。
+  "preview = sorted.slice(0, 3)",
+  "preview.map((interaction)",
+  "表示3 / 全",
+  // spec P1 (同上、差し戻し2点目): header add-buttonの有無でgrid自体を切り替える（read-onlyは空44px/gapなし）。
+  "canAddInteraction",
+  "grid-cols-1",
+  // spec P1 (同上、差し戻し3点目): 台帳詳細summaryは権限別文言。
+  '{canManage ? "台帳の詳細・編集" : "台帳の詳細"}',
+  // spec P1 (2026-07-24 追加是正): InteractionTimeline previewの3件超注記も権限別文言（summaryと同じ実在ラベルに一致）。
+  '全文は「{canManage ? "台帳の詳細・編集"',
+  ': "台帳の詳細"}」へ',
+]);
+expectNotIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
+  "text-[9px]",
+  "opacity-80",
+  "text-[#777166]",
+  "組成率",
+  "未整理（当方側の確認未実施）",
+  "未整理（先方側の確認未実施）",
+  'pt-3" open>',
+  "inline-flex h-6 w-6 items-center justify-center rounded-md border border-[#cfc7b9] text-[#514e47] hover:bg-[#f8f5ec]",
+  // spec (2026-07-24): mask-imageのcontent-fadeは末尾指標そのものを薄くするため撤去済み。
+  "mask-image",
+  // spec (2026-07-24 COO差し戻し4点目): ScrollHintArrowの薄い#a49d8cは#69665dへ統一済み、復活させない。
+  "text-[#a49d8c]",
 ]);
 expectIncludes("src/lib/sx-management.ts", [
   "SxPartnerInteraction",
+  "SxPartnerRole",
+  "SxPartnerWorkItem",
+  "SxActorSide",
+  "actorSide",
+  "actorLabel",
   "current_ball_side",
   "current_ball_owner",
   "next_ball_owner",
   "target_state",
   "due_date_precision",
   "project_management_partner_interactions",
+  "project_management_partner_roles",
+  "project_management_partner_work_items",
+  "deferredLowPriority",
+]);
+expectIncludes("src/lib/sx-management.ts", [
+  // spec (2026-07-24 RD最終差し戻し): mapCommitment()がcommitment.source_refをSxPartnerCommitmentへ
+  // 転写する（従来ここだけsourceKind止まりでsourceRefが欠落していた）。
+  'ownerLabel: stringValue(row, "owner_label", "担当未確認"), counterpartyOwner: nullableString(row, "counterparty_owner"), sxOwner: nullableString(row, "sx_owner"), evidence: nullableString(row, "evidence"), nextReviewOn: nullableString(row, "next_review_on"),\n    lastVerifiedAt: stringValue(row, "last_verified_at"), confidence: asConfidence(row.confidence), sourceKind: asSourceKind(row.source_kind), sourceRef: nullableString(row, "source_ref"),',
+]);
+expectIncludes("src/lib/sx-partner-holdings.ts", [
+  "sxHoldingsForPartner",
+  "sxComputeControlBandCounts",
+  "sxPrimaryRoleKindCounts",
+  "sxRoleDisplayLabel",
+  "sxGroupPartnersByPrimaryClassification",
+  "sxPartnerDisplaySortKey",
+  "sxPartnerHasBlockedHolding",
+  "sxPartnerPrioritySortKey",
+  "sxIsHoldingOverdue",
+  "sxIsHoldingDueSoon",
+  "sxIsHoldingMonthPrecision",
+  "sxIsHoldingDueUnset",
+  "totalPartners",
+  "deferredPartners",
+  "activePartners",
+  "unclassifiedPartners",
+  "bothSidesHeldPartners",
+  "counterparty_promise",
+  "sx_followup",
+  // spec P1 (2026-07-24 4th audit): group sortはblockedを最優先にし、unclassified lastより前に判定。
+  "sxGroupHasBlockedPartner",
+  "sourceEvidence",
+  // spec (2026-07-24 最終監査残件): 出典/最終確認/確度のprovenance正規化 + raw source_refを漏らさない表示ラベル整形。
+  "sxSourceKindLabel",
+  "sxSourceRefDisplayLabel",
 ]);
 expectIncludes("src/components/project-workspace/sx-visual-shared.tsx", [
   "sxFormatDueDateWithPrecision",
@@ -439,13 +587,30 @@ expectIncludes("src/components/project-workspace/sx-visual-shared.tsx", [
   "sxSortInteractionsByRecency",
   "sxBallSideLabel",
   "sxInteractionKindLabel",
+  "sxPartnerHasBlockedHolding",
+  "sxPartnerPrioritySortKey",
+  "@/lib/sx-partner-holdings",
 ]);
 expectIncludes("src/app/api/project-workspace/[projectId]/management/route.ts", [
   '"interaction"',
+  '"partner_role"',
+  '"partner_work_item"',
   "project_management_partner_interactions",
+  "project_management_partner_roles",
+  "project_management_partner_work_items",
   "interaction_kind",
   "ball_side_after",
+  "actor_side",
+  "role_kind",
+  "relationship_state",
+  "item_kind",
+  "handoff_to",
   "assertDatePrecisionConsistency",
+  "assertWorkItemCompletionRequirements",
+  "completed_on",
+  "completion_evidence",
+  "accepted_by",
+  "accepted_on",
 ]);
 expectIncludes("scripts/migrations/191_sx_partner_ledger_upgrade.sql", [
   "project_management_partner_interactions",
@@ -461,11 +626,74 @@ expectIncludes("scripts/migrations/191_sx_partner_ledger_upgrade.sql", [
   "user:2026-07-23#partner-progress",
   "ON CONFLICT (project_id, slug) DO UPDATE SET",
 ]);
+expectIncludes("scripts/migrations/192_sx_partner_role_and_work_items.sql", [
+  "project_management_partner_roles",
+  "project_management_partner_work_items",
+  "project_management_partner_roles_one_primary_192",
+  "project_management_partner_work_items_due_date_consistency_192",
+  "project_management_partner_interactions_actor_side_check_192",
+  "project_management_partner_roles_source_kind_check_192",
+  "pm_partner_work_items_completion_check_192",
+  "pm_partner_work_items_acceptance_check_192",
+  "completed_on",
+  "completion_evidence",
+  "accepted_by",
+  "accepted_on",
+  "actor_side",
+  "actor_label",
+  "role_kind",
+  "relationship_state",
+  "unclassified",
+  "shareholder_investor",
+  "university_research",
+  "financial_institution",
+  "ehime-university",
+  "partners-fund",
+  "fc-hokuriku",
+  "user:2026-07-24#partner-role-normalization",
+  "user:2026-07-24#partner-work-items",
+]);
+expectNotIncludes("scripts/migrations/192_sx_partner_role_and_work_items.sql", [
+  "summary IN ('試作リアクターの製作が完了した', '2026年8月の納品予定を確認した')",
+  "行為主体backfill履歴が4件揃っていません",
+]);
+expectIncludes("scripts/migrations/192_sx_partner_role_and_work_items.sql", [
+  "still_unknown_actor_count",
+  "i.actor_side = 'unknown'",
+]);
+// 2026-07-24 P0: the original 65/64-byte constraint names silently truncate past Postgres's 63-byte
+// NAMEDATALEN limit, so the migration must declare short (<63 byte) names directly and rename any
+// already-truncated legacy constraint onto them idempotently, rather than re-adding a duplicate.
+expectIncludes("scripts/migrations/192_sx_partner_role_and_work_items.sql", [
+  "pm_partner_work_items_completion_check_192",
+  "pm_partner_work_items_acceptance_check_192",
+  "project_management_partner_work_items_completion_requirements_1",
+  "project_management_partner_work_items_deliverable_acceptance_19",
+  "RENAME CONSTRAINT",
+]);
+expectNotIncludes("scripts/migrations/192_sx_partner_role_and_work_items.sql", [
+  "ADD CONSTRAINT project_management_partner_work_items_completion_requirements_192",
+  "ADD CONSTRAINT project_management_partner_work_items_deliverable_acceptance_192",
+]);
+expectIncludes("scripts/test_project_management_rls.mjs", [
+  "pm_partner_work_items_completion_check_192",
+  "pm_partner_work_items_acceptance_check_192",
+]);
+expectNotIncludes("scripts/test_project_management_rls.mjs", [
+  "project_management_partner_work_items_completion_requirements_192",
+  "project_management_partner_work_items_deliverable_acceptance_192",
+]);
 expectIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", [
   "onEditPartner",
   "onAddInteraction",
   "onEditInteraction",
+  "onAddWorkItem",
+  "onEditWorkItem",
+  "onAddRole",
+  "onEditRole",
   'interaction: [',
+  'partner_role: [',
+  'partner_work_item: [',
 ]);
 expectIncludes("src/components/project-workspace/SxReactorPanel.tsx", [
   "sx-four-pillar-signal-strip",

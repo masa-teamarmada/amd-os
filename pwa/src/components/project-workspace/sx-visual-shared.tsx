@@ -9,6 +9,37 @@ import type {
   SxTrackKey,
 } from "@/lib/sx-management";
 
+// sx-management.ts is "server-only" and cannot be value-imported from these client components. The
+// pure two-lane aggregation/classification functions live in src/lib/sx-partner-holdings.ts (a plain
+// .ts module with no server/client boundary) so they can be unit-tested directly with
+// `node --experimental-strip-types` and reused here without crossing the server-only boundary.
+export {
+  sxWorkItemKindLabel,
+  sxPartnerRoleKindLabel,
+  sxRelationshipStateLabel,
+  sxRoleDisplayLabel,
+  sxHoldingsForPartner,
+  sxAllHoldingsForPartnerAudit,
+  sxComputeControlBandCounts,
+  sxPrimaryRoleKindCounts,
+  sxIsHoldingOverdue,
+  sxIsHoldingDueSoon,
+  sxIsHoldingMonthPrecision,
+  sxIsHoldingDueUnset,
+  sxIsPartnerEnded,
+  sxSortHoldingsByPriority,
+  sxPartnerDisplaySortKey,
+  sxPartnerHasBlockedHolding,
+  sxPartnerPrioritySortKey,
+  sxGroupPartnersByPrimaryClassification,
+  sxSourceKindLabel,
+  sxSourceRefDisplayLabel,
+  type SxHoldingSide,
+  type SxHoldingItem,
+  type SxControlBandCounts,
+  type SxPartnerGroup,
+} from "@/lib/sx-partner-holdings";
+
 export const SX_TRACK_LABELS: Record<SxTrackKey, string> = {
   business_development: "事業開発",
   technology_development: "技術開発",
@@ -102,17 +133,12 @@ export function sxTrackEvidenceCompleteness(
   return { pct: Math.round((filled / checks.length) * 100), filled, total: checks.length };
 }
 
-/** Retired geography-based labels are normalized and demoted at the display boundary. */
-const SX_PARTNER_DISPLAY_OVERRIDES: Record<string, { displayName: string; lowPriority: boolean }> = {
-  "fc-hokuriku": { displayName: "ファインケム", lowPriority: true },
-};
-
-export function sxPartnerDisplay(partner: { slug: string; name: string }) {
-  const override = SX_PARTNER_DISPLAY_OVERRIDES[partner.slug];
-  return { name: override?.displayName || partner.name, lowPriority: override?.lowPriority ?? false };
+/** Low-priority/deferred grouping is data-driven (primary role classification), never a slug dictionary — no retired geography-based names are reintroduced here. */
+export function sxPartnerDisplay(partner: { name: string; deferredLowPriority: boolean }) {
+  return { name: partner.name, lowPriority: partner.deferredLowPriority };
 }
 
-export function sxPartnerName(partner: { slug: string; name: string }) {
+export function sxPartnerName(partner: { name: string; deferredLowPriority: boolean }) {
   return sxPartnerDisplay(partner).name;
 }
 

@@ -22,6 +22,8 @@ import type {
   SxCapacity,
   SxPartnerCommitment,
   SxPartnerInteraction,
+  SxPartnerRole,
+  SxPartnerWorkItem,
   SxTechnicalTest,
   SxDependency,
   SxTrackKey,
@@ -36,7 +38,7 @@ import { SxProofOutcomes } from "./SxProofOutcomes";
 import { SxPartnerPipeline } from "./SxPartnerPipeline";
 import { sxPartnerDisplay, sxPartnerName } from "./sx-visual-shared";
 
-type ManagementResource = "objective" | "outcome" | "milestone" | "issue" | "hypothesis" | "evidence" | "validation" | "partner" | "decision" | "action" | "commitment" | "interaction" | "dependency" | "kpi" | "technical_test" | "funding_snapshot" | "organization_role" | "raci" | "capacity";
+type ManagementResource = "objective" | "outcome" | "milestone" | "issue" | "hypothesis" | "evidence" | "validation" | "partner" | "decision" | "action" | "commitment" | "interaction" | "partner_role" | "partner_work_item" | "dependency" | "kpi" | "technical_test" | "funding_snapshot" | "organization_role" | "raci" | "capacity";
 
 const CATEGORY_STYLE: Record<EffortCategory, { background: string; color: string }> = {
   basic: { background: "#315f7d", color: "#ffffff" },
@@ -82,8 +84,13 @@ const PARTNER_STAGE_LABELS: Record<string, string> = {
 };
 
 const BALL_SIDE_LABELS: Record<string, string> = { sx: "SX側", partner: "相手側", shared: "双方", none: "該当なし", unknown: "未確認" };
+const ACTOR_SIDE_LABELS: Record<string, string> = { sx: "当方（SX）", partner: "先方", shared: "双方", unknown: "未確認" };
 const DATE_PRECISION_LABELS: Record<string, string> = { day: "日単位", month: "月単位（日付未確認）", unknown: "未確認" };
 const INTERACTION_KIND_LABELS: Record<string, string> = { meeting: "面談", email: "メール", agreement: "合意", deliverable: "成果物", handoff: "引き継ぎ", status_update: "状況更新", note: "メモ" };
+const ROLE_KIND_LABELS: Record<string, string> = { joint_development: "共同開発", contract_manufacturing: "製造委託", customer: "顧客", shareholder_investor: "株主・投資", government: "自治体", media: "メディア", financial_institution: "金融機関", university_research: "大学・研究機関", support_organization: "支援機関", other: "その他", unclassified: "未分類" };
+const RELATIONSHIP_STATE_LABELS: Record<string, string> = { candidate: "候補", in_progress: "進行中", established: "成立", on_hold: "保留", ended: "終了", unconfirmed: "未確認" };
+const WORK_ITEM_KIND_LABELS: Record<string, string> = { task: "タスク", question: "質問", deliverable: "成果物", decision: "意思決定", approval: "承認", response: "回答" };
+const WORK_ITEM_STATUS_LABELS: Record<string, string> = { open: "未着手", in_progress: "進行中", waiting: "待ち", blocked: "停止", on_hold: "保留", completed: "完了", cancelled: "取消" };
 
 const ISSUE_KIND_LABELS: Record<string, string> = {
   fact: "事実",
@@ -115,6 +122,8 @@ const RESOURCE_LABELS: Record<ManagementResource, string> = {
   action: "アクション",
   commitment: "協力機関の約束",
   interaction: "やり取り履歴",
+  partner_role: "関係先の分類",
+  partner_work_item: "保有事項",
   dependency: "依存関係",
   technical_test: "技術試験",
   funding_snapshot: "資金スナップショット",
@@ -199,6 +208,32 @@ const EDIT_FIELDS: Record<ManagementResource, Array<{
     { key: "outcome_summary", label: "結果・要点", type: "textarea" },
     { key: "ball_side_after", label: "以後のボール（側）", type: "select", options: Object.entries(BALL_SIDE_LABELS).map(([value, label]) => ({ value, label })) },
     { key: "ball_owner_after", label: "以後のボール（担当）", type: "text" },
+    { key: "actor_side", label: "行為主体（側）", type: "select", options: Object.entries(ACTOR_SIDE_LABELS).map(([value, label]) => ({ value, label })) },
+    { key: "actor_label", label: "行為主体（実名）", type: "text" },
+    { key: "confidence", label: "確度", type: "select", options: [{ value: "high", label: "高" }, { value: "medium", label: "中" }, { value: "low", label: "低" }, { value: "unknown", label: "未確認" }] },
+  ],
+  partner_role: [
+    { key: "role_kind", label: "分類", type: "select", options: Object.entries(ROLE_KIND_LABELS).map(([value, label]) => ({ value, label })) },
+    { key: "relationship_state", label: "関係状態", type: "select", options: Object.entries(RELATIONSHIP_STATE_LABELS).map(([value, label]) => ({ value, label })) },
+    { key: "role_label", label: "補足ラベル（任意）", type: "text" },
+    { key: "is_primary", label: "主分類", type: "select", options: [{ value: "true", label: "主分類" }, { value: "false", label: "副分類" }] },
+    { key: "sort_order", label: "表示順", type: "number", min: 0, step: 1 },
+  ],
+  partner_work_item: [
+    { key: "side", label: "保有側", type: "select", options: Object.entries(ACTOR_SIDE_LABELS).map(([value, label]) => ({ value, label })) },
+    { key: "item_kind", label: "種別", type: "select", options: Object.entries(WORK_ITEM_KIND_LABELS).map(([value, label]) => ({ value, label })) },
+    { key: "title", label: "タイトル", type: "text" },
+    { key: "detail", label: "詳細（任意）", type: "textarea" },
+    { key: "owner_label", label: "担当（任意）", type: "text" },
+    { key: "status", label: "状態", type: "select", options: Object.entries(WORK_ITEM_STATUS_LABELS).map(([value, label]) => ({ value, label })) },
+    { key: "due_date", label: "期限", type: "date" },
+    { key: "due_date_precision", label: "期限の確度", type: "select", options: Object.entries(DATE_PRECISION_LABELS).map(([value, label]) => ({ value, label })) },
+    { key: "completion_criteria", label: "完了条件（完了にする前提として必須）", type: "textarea" },
+    { key: "completed_on", label: "完了日（完了にする前提として必須）", type: "date" },
+    { key: "completion_evidence", label: "完了証跡（完了にする前提として必須）", type: "textarea" },
+    { key: "accepted_by", label: "受入担当（成果物の完了に必須）", type: "text" },
+    { key: "accepted_on", label: "受入日（成果物の完了に必須）", type: "date" },
+    { key: "handoff_to", label: "受け渡し先（任意）", type: "text" },
     { key: "confidence", label: "確度", type: "select", options: [{ value: "high", label: "高" }, { value: "medium", label: "中" }, { value: "low", label: "低" }, { value: "unknown", label: "未確認" }] },
   ],
   decision: [
@@ -286,7 +321,33 @@ function createFieldsFor(resource: ManagementResource, management: SxManagementB
     { key: "slug", label: "識別名", type: "text" }, { key: "name", label: "機関名", type: "text" }, { key: "role_label", label: "役割", type: "text" }, { key: "primary_track", label: "主な柱", type: "select", options: TRACK_OPTIONS }, { key: "relationship_stage", label: "進捗段階", type: "select", options: Object.entries(PARTNER_STAGE_LABELS).map(([value, label]) => ({ value, label })) }, { key: "agreement_state", label: "合意状態", type: "select", options: [{ value: "unagreed", label: "未合意" }, { value: "partial", label: "一部合意" }, { value: "agreed", label: "合意済み" }] }, { key: "agreed_scope", label: "合意済みの範囲", type: "textarea" }, { key: "unagreed_scope", label: "未合意の範囲", type: "textarea" }, { key: "next_commitment", label: "SX側の次アクション", type: "textarea" }, { key: "due_date", label: "期限", type: "date" }, { key: "due_date_precision", label: "期限の確度", type: "select", options: Object.entries(DATE_PRECISION_LABELS).map(([value, label]) => ({ value, label })) }, { key: "owner_label", label: "担当", type: "text" }, { key: "current_ball_side", label: "現在ボール（側）", type: "select", options: Object.entries(BALL_SIDE_LABELS).map(([value, label]) => ({ value, label })) }, { key: "current_ball_owner", label: "現在ボール（担当）", type: "text" }, { key: "next_ball_owner", label: "次の受け渡し先", type: "text" }, { key: "target_state", label: "目標状態", type: "textarea" }, { key: "confidence", label: "確度", type: "select", options: CONFIDENCE_OPTIONS },
   ];
   if (resource === "interaction") return [
-    { key: "partner_id", label: "協力機関", type: "select", options: partnerOptions }, { key: "interaction_kind", label: "種別", type: "select", options: Object.entries(INTERACTION_KIND_LABELS).map(([value, label]) => ({ value, label })) }, { key: "occurred_on", label: "発生日", type: "date" }, { key: "occurred_on_precision", label: "発生日の確度", type: "select", options: Object.entries(DATE_PRECISION_LABELS).map(([value, label]) => ({ value, label })) }, { key: "summary", label: "内容", type: "textarea" }, { key: "outcome_summary", label: "結果・要点", type: "textarea" }, { key: "ball_side_after", label: "以後のボール（側）", type: "select", options: Object.entries(BALL_SIDE_LABELS).map(([value, label]) => ({ value, label })) }, { key: "ball_owner_after", label: "以後のボール（担当）", type: "text" }, { key: "confidence", label: "確度", type: "select", options: CONFIDENCE_OPTIONS },
+    { key: "partner_id", label: "協力機関", type: "select", options: partnerOptions }, { key: "interaction_kind", label: "種別", type: "select", options: Object.entries(INTERACTION_KIND_LABELS).map(([value, label]) => ({ value, label })) }, { key: "occurred_on", label: "発生日", type: "date" }, { key: "occurred_on_precision", label: "発生日の確度", type: "select", options: Object.entries(DATE_PRECISION_LABELS).map(([value, label]) => ({ value, label })) }, { key: "summary", label: "内容", type: "textarea" }, { key: "outcome_summary", label: "結果・要点", type: "textarea" }, { key: "ball_side_after", label: "以後のボール（側）", type: "select", options: Object.entries(BALL_SIDE_LABELS).map(([value, label]) => ({ value, label })) }, { key: "ball_owner_after", label: "以後のボール（担当）", type: "text" }, { key: "actor_side", label: "行為主体（側）", type: "select", options: Object.entries(ACTOR_SIDE_LABELS).map(([value, label]) => ({ value, label })) }, { key: "actor_label", label: "行為主体（実名）", type: "text" }, { key: "confidence", label: "確度", type: "select", options: CONFIDENCE_OPTIONS },
+  ];
+  if (resource === "partner_role") return [
+    { key: "partner_id", label: "関係先", type: "select", options: partnerOptions },
+    { key: "role_kind", label: "分類", type: "select", options: Object.entries(ROLE_KIND_LABELS).map(([value, label]) => ({ value, label })) },
+    { key: "relationship_state", label: "関係状態", type: "select", options: Object.entries(RELATIONSHIP_STATE_LABELS).map(([value, label]) => ({ value, label })) },
+    { key: "role_label", label: "補足ラベル（任意）", type: "text" },
+    { key: "is_primary", label: "主分類", type: "select", options: [{ value: "false", label: "副分類" }, { value: "true", label: "主分類" }] },
+  ];
+  if (resource === "partner_work_item") return [
+    { key: "partner_id", label: "関係先", type: "select", options: partnerOptions },
+    { key: "side", label: "保有側", type: "select", options: Object.entries(ACTOR_SIDE_LABELS).map(([value, label]) => ({ value, label })) },
+    { key: "item_kind", label: "種別", type: "select", options: Object.entries(WORK_ITEM_KIND_LABELS).map(([value, label]) => ({ value, label })) },
+    { key: "title", label: "タイトル", type: "text" },
+    { key: "detail", label: "詳細（任意）", type: "textarea" },
+    { key: "owner_label", label: "担当（任意）", type: "text" },
+    { key: "status", label: "状態", type: "select", options: Object.entries(WORK_ITEM_STATUS_LABELS).map(([value, label]) => ({ value, label })) },
+    { key: "due_date", label: "期限", type: "date" },
+    { key: "due_date_precision", label: "期限の確度", type: "select", options: Object.entries(DATE_PRECISION_LABELS).map(([value, label]) => ({ value, label })) },
+    { key: "completion_criteria", label: "完了条件（任意、確認できないなら空欄のまま。完了にする前提として必須）", type: "textarea" },
+    { key: "completed_on", label: "完了日（完了にする前提として必須）", type: "date" },
+    { key: "completion_evidence", label: "完了証跡（完了にする前提として必須、確認できないなら空欄のまま）", type: "textarea" },
+    { key: "accepted_by", label: "受入担当（成果物の完了に必須）", type: "text" },
+    { key: "accepted_on", label: "受入日（成果物の完了に必須）", type: "date" },
+    { key: "handoff_to", label: "受け渡し先（任意）", type: "text" },
+    { key: "related_milestone_id", label: "関連ゲート（任意）", type: "select", options: [{ value: "", label: "未接続" }, ...milestoneOptions] },
+    { key: "confidence", label: "確度", type: "select", options: CONFIDENCE_OPTIONS },
   ];
   if (resource === "commitment") return [
     { key: "partner_id", label: "協力機関", type: "select", options: partnerOptions }, { key: "title", label: "約束", type: "text" }, { key: "commitment_text", label: "約束内容", type: "textarea" }, { key: "commitment_kind", label: "約束の種類", type: "select", options: [{ value: "sx_followup", label: "SX側の次アクション" }, { value: "counterparty_promise", label: "相手の約束" }] }, { key: "status", label: "状態", type: "select", options: [{ value: "open", label: "未着手" }, { value: "in_progress", label: "進行中" }, { value: "completed", label: "完了" }, { value: "blocked", label: "停止" }] }, { key: "promised_on", label: "約束日", type: "date" }, { key: "due_date", label: "期限", type: "date" }, { key: "counterparty_owner", label: "相手担当（相手の約束のみ）", type: "text" }, { key: "sx_owner", label: "SX担当", type: "text" }, { key: "evidence", label: "一次根拠（相手の約束のみ）", type: "textarea" }, { key: "next_review_on", label: "次回確認", type: "date" }, { key: "confidence", label: "確度", type: "select", options: CONFIDENCE_OPTIONS },
@@ -371,11 +432,11 @@ function roleStatusLabel(value: string) {
 }
 
 function auditEntityLabel(value: string) {
-  return ({ project_management_objectives: "経営目的", project_management_outcomes: "成果目標", project_management_milestones: "マイルストーン", project_management_kpis: "KPI", project_management_issues: "論点", project_management_hypotheses: "仮説", project_management_evidence: "根拠", project_management_validation_runs: "検証", project_management_decisions: "意思決定", project_management_action_items: "アクション", project_management_partners: "協力機関", project_management_partner_commitments: "協力機関の約束", project_management_partner_interactions: "協力機関の履歴", project_management_technical_tests: "技術試験", project_management_funding_snapshots: "資金", project_management_organization_roles: "必須役割", project_management_raci: "RACI", project_management_capacity: "人員容量", project_management_milestone_dependencies: "ゲート間の依存" } as Record<string, string>)[value] || "管理情報";
+  return ({ project_management_objectives: "経営目的", project_management_outcomes: "成果目標", project_management_milestones: "マイルストーン", project_management_kpis: "KPI", project_management_issues: "論点", project_management_hypotheses: "仮説", project_management_evidence: "根拠", project_management_validation_runs: "検証", project_management_decisions: "意思決定", project_management_action_items: "アクション", project_management_partners: "協力機関", project_management_partner_commitments: "協力機関の約束", project_management_partner_interactions: "協力機関の履歴", project_management_partner_roles: "関係先の分類", project_management_partner_work_items: "保有事項", project_management_technical_tests: "技術試験", project_management_funding_snapshots: "資金", project_management_organization_roles: "必須役割", project_management_raci: "RACI", project_management_capacity: "人員容量", project_management_milestone_dependencies: "ゲート間の依存" } as Record<string, string>)[value] || "管理情報";
 }
 
 function auditFieldLabel(value: string) {
-  return ({ actual: "実績", target: "目標", baseline: "基準値", threshold: "閾値", threshold_rule: "閾値ルール", threshold_upper: "上限閾値", status: "状態", decision_state: "意思決定状態", owner_label: "担当", confidence: "確度", next_review_on: "次回確認", completion_evidence: "完了証跡", deleted_at: "非表示日時", source_ref: "確認元の説明", source_kind: "確認元の種類", last_verified_at: "最終確認日", updated_by: "更新者", current_truth: "現在の基準情報", commitment_kind: "約束の種類", promised_on: "約束日", next_commitment: "SX側の次アクション", knowledge_type: "情報の分類", deleted_by: "非表示にした担当", current_ball_side: "現在ボール（側）", current_ball_owner: "現在ボール（担当）", next_ball_owner: "次の受け渡し先", target_state: "目標状態", due_date_precision: "期限の確度", interaction_kind: "履歴の種別", occurred_on: "発生日", occurred_on_precision: "発生日の確度", outcome_summary: "結果・要点", ball_side_after: "以後のボール（側）", ball_owner_after: "以後のボール（担当）" } as Record<string, string>)[value] || "項目未確認";
+  return ({ actual: "実績", target: "目標", baseline: "基準値", threshold: "閾値", threshold_rule: "閾値ルール", threshold_upper: "上限閾値", status: "状態", decision_state: "意思決定状態", owner_label: "担当", confidence: "確度", next_review_on: "次回確認", completion_evidence: "完了証跡", deleted_at: "非表示日時", source_ref: "確認元の説明", source_kind: "確認元の種類", last_verified_at: "最終確認日", updated_by: "更新者", current_truth: "現在の基準情報", commitment_kind: "約束の種類", promised_on: "約束日", next_commitment: "SX側の次アクション", knowledge_type: "情報の分類", deleted_by: "非表示にした担当", current_ball_side: "現在ボール（側）", current_ball_owner: "現在ボール（担当）", next_ball_owner: "次の受け渡し先", target_state: "目標状態", due_date_precision: "期限の確度", interaction_kind: "履歴の種別", occurred_on: "発生日", occurred_on_precision: "発生日の確度", outcome_summary: "結果・要点", ball_side_after: "以後のボール（側）", ball_owner_after: "以後のボール（担当）", actor_side: "行為主体（側）", actor_label: "行為主体（実名）", role_kind: "分類", relationship_state: "関係状態", role_label: "補足ラベル", is_primary: "主分類", sort_order: "表示順", side: "保有側", item_kind: "種別", detail: "詳細", handoff_to: "受け渡し先", related_milestone_id: "関連ゲート", completion_criteria: "完了条件", completed_on: "完了日", accepted_by: "受入担当", accepted_on: "受入日" } as Record<string, string>)[value] || "項目未確認";
 }
 
 function sourceLabel(value: string | null | undefined) {
@@ -443,7 +504,7 @@ function CategoryBand({ categories, muted = false }: { categories: Record<Effort
   );
 }
 
-type EditRecord = SxObjective | SxOutcome | SxManagementMilestone | SxManagementIssue | SxHypothesis | SxEvidence | SxValidationRun | SxManagementPartner | SxManagementDecision | SxKpi | SxActionItem | SxPartnerCommitment | SxPartnerInteraction | SxDependency | SxTechnicalTest | SxFundingSnapshot | SxOrganizationRole | SxRaci | SxCapacity;
+type EditRecord = SxObjective | SxOutcome | SxManagementMilestone | SxManagementIssue | SxHypothesis | SxEvidence | SxValidationRun | SxManagementPartner | SxManagementDecision | SxKpi | SxActionItem | SxPartnerCommitment | SxPartnerInteraction | SxPartnerRole | SxPartnerWorkItem | SxDependency | SxTechnicalTest | SxFundingSnapshot | SxOrganizationRole | SxRaci | SxCapacity;
 
 function recordFor(bundle: SxManagementBundle, resource: ManagementResource, id: string): EditRecord | undefined {
   const rows: Array<{ id: string }> = resource === "objective" ? (bundle.objective ? [bundle.objective] : [])
@@ -459,6 +520,8 @@ function recordFor(bundle: SxManagementBundle, resource: ManagementResource, id:
             : resource === "action" ? bundle.actions
               : resource === "commitment" ? bundle.partnerCommitments
                 : resource === "interaction" ? bundle.partnerInteractions
+                : resource === "partner_role" ? bundle.partnerRoles
+                  : resource === "partner_work_item" ? bundle.partnerWorkItems
                 : resource === "technical_test" ? bundle.technicalTests
                   : resource === "funding_snapshot" ? bundle.fundingSnapshots
                     : resource === "organization_role" ? bundle.organizationRoles
@@ -472,6 +535,9 @@ const EDIT_VALUE_KEYS: Record<string, string> = {
   target_date: "targetDate", definition_of_done: "definitionOfDone", planned_start: "plannedStart", planned_end: "plannedEnd", forecast_end: "forecastEnd", actual_end: "actualEnd", date_certainty: "dateCertainty", owner_label: "ownerLabel", next_deliverable: "nextDeliverable", max_issue: "maxIssue", completion_criteria: "completionCriteria", completion_evidence: "completionEvidence", forecast_change_reason: "forecastChangeReason", last_contact_date: "lastContactDate", relationship_stage: "relationshipStage", agreement_state: "agreementState", agreed_scope: "agreedScope", unagreed_scope: "unagreedScope", next_commitment: "nextCommitment", due_date: "dueDate", promised_on: "promisedOn", decision_text: "decisionText", decided_by: "decidedBy", decided_on: "decidedOn", metric_kind: "metricKind", measurement_date: "measurementDate", source_label: "sourceLabel", threshold_rule: "thresholdRule", threshold_upper: "thresholdUpper", next_review_on: "nextReviewOn", completion_note: "completionNote", completed_at: "completedAt", commitment_text: "commitmentText", commitment_kind: "commitmentKind", counterparty_owner: "counterpartyOwner", sx_owner: "sxOwner", test_condition: "testCondition", trl_criterion: "trlCriterion", measured_on: "measuredOn", required_amount: "requiredAmount", secured_amount: "securedAmount", unconfirmed_amount: "unconfirmedAmount", use_summary: "useSummary", burn_per_month: "burnPerMonth", runway_months: "runwayMonths", cash_condition: "cashCondition", role_name: "roleName", join_condition: "joinCondition", role_slug: "roleSlug", responsibility_role: "responsibilityRole", stakeholder_label: "stakeholderLabel", required_people: "requiredPeople", confirmed_people: "confirmedPeople", available_hours_week: "availableHoursWeek", planned_hours_week: "plannedHoursWeek", statement: "statement", evidence_kind: "kind", summary: "summary", observed_on: "observedOn", validation_kind: "validationKind", planned_on: "plannedOn", completed_on: "completedOn", result_summary: "resultSummary", dependency_type: "dependencyType", required: "required", lag_days: "lagDays", note: "note",
   current_ball_side: "currentBallSide", current_ball_owner: "currentBallOwner", next_ball_owner: "nextBallOwner", target_state: "targetState", due_date_precision: "dueDatePrecision",
   interaction_kind: "interactionKind", occurred_on: "occurredOn", occurred_on_precision: "occurredOnPrecision", outcome_summary: "outcomeSummary", ball_side_after: "ballSideAfter", ball_owner_after: "ballOwnerAfter",
+  actor_side: "actorSide", actor_label: "actorLabel", role_kind: "roleKind", relationship_state: "relationshipState", role_label: "roleLabel", is_primary: "isPrimary", sort_order: "sortOrder",
+  item_kind: "itemKind", handoff_to: "handoffTo", related_milestone_id: "relatedMilestoneId",
+  accepted_by: "acceptedBy", accepted_on: "acceptedOn",
 };
 
 function initialEditValues(resource: ManagementResource, record: EditRecord) {
@@ -503,10 +569,10 @@ function EditPanel({
     setSaving(true);
     setError(null);
     const patch = Object.fromEntries(Object.entries(values).map(([key, value]) => {
-      if (["due_date", "last_contact_date", "planned_start", "planned_end", "forecast_end", "actual_end", "measurement_date", "decided_on", "next_review_on", "completed_at", "promised_on", "completed_on", "measured_on", "observed_on", "planned_on", "occurred_on"].includes(key)) return [key, value || null];
-      if (["progress_pct", "baseline", "target", "actual", "threshold", "threshold_upper", "repetition", "required_amount", "secured_amount", "unconfirmed_amount", "burn_per_month", "runway_months", "probability", "required_people", "confirmed_people", "available_hours_week", "planned_hours_week"].includes(key)) return [key, value === "" ? null : Number(value)];
-      if (["vacancy", "confirmed", "required"].includes(key)) return [key, value === "true"];
-      if (["decision_text", "completion_evidence", "forecast_change_reason", "completion_note", "counterparty_owner", "sx_owner", "evidence", "candidate", "commitment", "outcome_summary", "ball_owner_after", "current_ball_owner", "next_ball_owner", "target_state"].includes(key)) return [key, value || null];
+      if (["due_date", "last_contact_date", "planned_start", "planned_end", "forecast_end", "actual_end", "measurement_date", "decided_on", "next_review_on", "completed_at", "promised_on", "completed_on", "accepted_on", "measured_on", "observed_on", "planned_on", "occurred_on"].includes(key)) return [key, value || null];
+      if (["progress_pct", "baseline", "target", "actual", "threshold", "threshold_upper", "repetition", "required_amount", "secured_amount", "unconfirmed_amount", "burn_per_month", "runway_months", "probability", "required_people", "confirmed_people", "available_hours_week", "planned_hours_week", "sort_order"].includes(key)) return [key, value === "" ? null : Number(value)];
+      if (["vacancy", "confirmed", "required", "is_primary"].includes(key)) return [key, value === "true"];
+      if (["decision_text", "completion_evidence", "forecast_change_reason", "completion_note", "counterparty_owner", "sx_owner", "evidence", "candidate", "commitment", "outcome_summary", "ball_owner_after", "current_ball_owner", "next_ball_owner", "target_state", "actor_label", "role_label", "detail", "handoff_to", "accepted_by"].includes(key)) return [key, value || null];
       return [key, value];
     }));
     try {
@@ -581,11 +647,11 @@ function EditPanel({
   );
 }
 
-const CREATE_RESOURCES: ManagementResource[] = ["issue", "hypothesis", "evidence", "validation", "decision", "action", "partner", "commitment", "interaction", "milestone", "dependency"];
-const FORM_DATE_KEYS = ["due_date", "last_contact_date", "planned_start", "planned_end", "forecast_end", "actual_end", "measurement_date", "decided_on", "next_review_on", "completed_at", "promised_on", "completed_on", "measured_on", "observed_on", "planned_on", "occurred_on", "snapshot_date"];
-const FORM_NUMBER_KEYS = ["progress_pct", "baseline", "target", "actual", "threshold", "threshold_upper", "repetition", "required_amount", "secured_amount", "unconfirmed_amount", "burn_per_month", "runway_months", "probability", "required_people", "confirmed_people", "available_hours_week", "planned_hours_week", "lag_days"];
-const FORM_BOOLEAN_KEYS = ["vacancy", "confirmed", "required", "is_this_week"];
-const FORM_NULLABLE_TEXT_KEYS = ["decision_text", "completion_evidence", "forecast_change_reason", "completion_note", "counterparty_owner", "sx_owner", "evidence", "candidate", "commitment", "outcome_summary", "ball_owner_after", "current_ball_owner", "next_ball_owner", "target_state", "result_summary", "note"];
+const CREATE_RESOURCES: ManagementResource[] = ["issue", "hypothesis", "evidence", "validation", "decision", "action", "partner", "commitment", "interaction", "partner_role", "partner_work_item", "milestone", "dependency"];
+const FORM_DATE_KEYS = ["due_date", "last_contact_date", "planned_start", "planned_end", "forecast_end", "actual_end", "measurement_date", "decided_on", "next_review_on", "completed_at", "promised_on", "completed_on", "accepted_on", "measured_on", "observed_on", "planned_on", "occurred_on", "snapshot_date"];
+const FORM_NUMBER_KEYS = ["progress_pct", "baseline", "target", "actual", "threshold", "threshold_upper", "repetition", "required_amount", "secured_amount", "unconfirmed_amount", "burn_per_month", "runway_months", "probability", "required_people", "confirmed_people", "available_hours_week", "planned_hours_week", "lag_days", "sort_order"];
+const FORM_BOOLEAN_KEYS = ["vacancy", "confirmed", "required", "is_this_week", "is_primary"];
+const FORM_NULLABLE_TEXT_KEYS = ["decision_text", "completion_evidence", "forecast_change_reason", "completion_note", "counterparty_owner", "sx_owner", "evidence", "candidate", "commitment", "outcome_summary", "ball_owner_after", "current_ball_owner", "next_ball_owner", "target_state", "result_summary", "note", "actor_label", "role_label", "detail", "handoff_to", "completion_criteria", "related_milestone_id", "accepted_by"];
 
 function serializeFormValues(values: Record<string, string>) {
   return Object.fromEntries(Object.entries(values).map(([key, value]) => {
@@ -617,6 +683,9 @@ function AddPanel({ projectId, management, resource, initialValues, onClose, onS
       due_date_precision: "unknown",
       occurred_on_precision: "unknown",
       ball_side_after: "unknown",
+      actor_side: "unknown",
+      side: "unknown",
+      is_primary: "false",
     };
     for (const field of fields) {
       if (defaults[field.key]) continue;
@@ -1028,20 +1097,17 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
         </section>
 
         <section id="management-partners" className="rounded-xl border border-[#d6cebf] bg-[#fffdf7]/95 p-5 sm:p-6" aria-labelledby="partners-heading">
-          <SectionHeader kicker="協力機関の進捗" title="協力機関の進捗" description="候補・情報交換・条件整理・面談調整・検証準備・合意確認・実行中・保留を区別し、合意済みと未合意を同じ行で見せるよ。" />
+          <SectionHeader kicker="関係先ボール管制" title="関係先の二車線ボール管制" description="機関ごとに、当方が抱える保有事項・受け渡し・先方が抱える保有事項を同じ行で見せるよ。役割と関係状態は別軸で正規化し、未整理と0件を混同しないよ。「空レーンあり」は当方/先方いずれか一方でも0件ならカウントするOR条件だから、両方0件だけを指す表現とは読み替えないでね。" />
           <SxPartnerPipeline
             management={management}
             onEditPartner={(partnerId) => setEditing({ resource: "partner", id: partnerId })}
             onAddInteraction={(partnerId) => setCreating({ resource: "interaction", initialValues: { partner_id: partnerId } })}
             onEditInteraction={(interactionId) => setEditing({ resource: "interaction", id: interactionId })}
+            onAddWorkItem={(partnerId, side) => setCreating({ resource: "partner_work_item", initialValues: { partner_id: partnerId, side } })}
+            onEditWorkItem={(workItemId) => setEditing({ resource: "partner_work_item", id: workItemId })}
+            onAddRole={(partnerId) => setCreating({ resource: "partner_role", initialValues: { partner_id: partnerId } })}
+            onEditRole={(roleId) => setEditing({ resource: "partner_role", id: roleId })}
           />
-          <details className="mt-4 rounded-lg border border-[#e4ddd0] bg-white/60 p-3">
-            <summary className="flex min-h-11 cursor-pointer select-none items-center text-xs font-semibold text-[#514e47] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]">協力機関の全件を表示（{visiblePartners.length}件）</summary>
-            <div className="mt-3">
-              {visiblePartners.length === 0 ? <div className="rounded-lg border border-dashed border-[#d6cebf] px-4 py-8 text-center text-sm text-[#777166]">協力機関の情報はまだないよ。</div> : <div className="hidden overflow-x-auto lg:block"><div className="min-w-[1080px]"><div className="grid grid-cols-[160px_190px_100px_210px_210px_180px_150px_80px] border-y border-[#d6cebf] bg-[#f8f5ec] text-[10px] font-semibold text-[#777166]"><div className="px-3 py-2.5">機関 / 役割</div><div className="px-3 py-2.5">進捗段階</div><div className="px-3 py-2.5">合意</div><div className="px-3 py-2.5">合意済みの範囲</div><div className="px-3 py-2.5">未合意の範囲</div><div className="px-3 py-2.5">SX側の次アクション</div><div className="px-3 py-2.5">期限 / 担当</div><div className="px-3 py-2.5">操作</div></div>{visiblePartners.map((partner) => <div key={partner.id} className="grid grid-cols-[160px_190px_100px_210px_210px_180px_150px_80px] border-b border-[#e4ddd0] text-xs leading-5"><div className="px-3 py-4"><p className="font-semibold text-[#24231f]">{sxPartnerName(partner)}</p><p className="mt-1 text-[10px] text-[#777166]">{partner.roleLabel} / {TRACK_LABELS[partner.track]}</p></div><div className="px-3 py-4"><Badge tone="border-[#b7c8d2] bg-[#eef3f5] text-[#315f7d]">{PARTNER_STAGE_LABELS[partner.relationshipStage] || "未設定"}</Badge><p className="mt-1 text-[10px] text-[#777166]">最終接点 {formatDate(partner.lastContactDate)}</p></div><div className="px-3 py-4"><Badge tone={partner.agreementState === "agreed" ? "border-[#9fc6b4] bg-[#e8f2eb] text-[#205f49]" : partner.agreementState === "partial" ? "border-[#e3c994] bg-[#fbf1dc] text-[#765022]" : "border-[#e4a39b] bg-[#f9e4e1] text-[#8c3329]"}>{partner.agreementState === "agreed" ? "合意済み" : partner.agreementState === "partial" ? "一部合意" : "未合意"}</Badge></div><div className="px-3 py-4 text-[#514e47]">{displayManagementText(partner.agreedScope)}</div><div className="px-3 py-4 text-[#8c3329]">{displayManagementText(partner.unagreedScope)}</div><div className="px-3 py-4 text-[#514e47]">{displayManagementText(partner.nextCommitment)}</div><div className="px-3 py-4 text-[#514e47]"><span>{formatDate(partner.dueDate)}</span><span className={partner.ownerLabel.includes("未確認") ? "mt-1 block font-semibold text-[#8c3329]" : "mt-1 block text-[#777166]"}>{partner.ownerLabel}</span></div><div className="px-3 py-4">{management.canManage && <button type="button" onClick={() => setEditing({ resource: "partner", id: partner.id })} className="inline-flex items-center gap-1 rounded-md border border-[#cfc7b9] px-2 py-1.5 text-[10px] font-semibold text-[#514e47] hover:bg-[#f8f5ec]"><Pencil className="h-3 w-3" aria-hidden="true" />編集</button>}</div></div>)}</div></div>}
-              <div className="mt-3 space-y-3 lg:hidden">{visiblePartners.map((partner) => <article key={partner.id} className="rounded-lg border border-[#e4ddd0] bg-[#f8f5ec] p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-semibold text-[#38745d]">{PARTNER_STAGE_LABELS[partner.relationshipStage] || "未設定"}</p><h3 className="mt-1 text-sm font-semibold text-[#24231f]">{sxPartnerName(partner)}</h3><p className="mt-1 text-[11px] text-[#69665d]">{partner.roleLabel} / {TRACK_LABELS[partner.track]}</p></div><EditAction canManage={management.canManage} onClick={() => setEditing({ resource: "partner", id: partner.id })} /></div><div className="mt-3 flex flex-wrap gap-2"><Badge tone={partner.agreementState === "agreed" ? "border-[#9fc6b4] bg-[#e8f2eb] text-[#205f49]" : partner.agreementState === "partial" ? "border-[#e3c994] bg-[#fbf1dc] text-[#765022]" : "border-[#e4a39b] bg-[#f9e4e1] text-[#8c3329]"}>{partner.agreementState === "agreed" ? "合意済み" : partner.agreementState === "partial" ? "一部合意" : "未合意"}</Badge><span className="text-[11px] text-[#777166]">確認 {formatDate(partner.lastVerifiedAt)} / 確度 {confidenceLabel(partner.confidence)}</span></div><dl className="mt-3 grid grid-cols-2 gap-2 text-[11px]"><div><dt className="text-[#777166]">合意済み</dt><dd>{displayManagementText(partner.agreedScope)}</dd></div><div><dt className="text-[#777166]">未合意</dt><dd className="text-[#8c3329]">{displayManagementText(partner.unagreedScope)}</dd></div><div><dt className="text-[#777166]">SX側の次アクション</dt><dd>{displayManagementText(partner.nextCommitment)}</dd></div><div><dt className="text-[#777166]">期限 / 担当</dt><dd>{formatDate(partner.dueDate)} / {partner.ownerLabel}</dd></div></dl><div className="mt-3 border-t border-[#e4ddd0] pt-2 text-[10px] text-[#777166]">関連ゲート {milestoneLabels(partner.relatedMilestoneSlugs, milestoneLabelMap).join(" / ") || "未接続"} / 約束履歴 {partner.commitments.length}件</div></article>)}</div>
-            </div>
-          </details>
         </section>
 
         <details id="management-ledger" className="scroll-mt-20 rounded-xl border border-[#d6cebf] bg-[#fffdf7]/95 p-5 sm:p-6" data-testid="sx-management-ledger">

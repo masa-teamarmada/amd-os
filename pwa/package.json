@@ -33,6 +33,7 @@
     "test:critical-ui": "node scripts/check_pwa_critical_ui.cjs",
     "test:sx-management": "node --experimental-strip-types scripts/test_project_management_logic.mjs",
     "test:sx-proof-mapping": "node --experimental-strip-types scripts/test_sx_proof_mapping.mjs",
+    "test:sx-partner-holdings": "node --experimental-strip-types scripts/test_sx_partner_holdings.mjs",
     "audit:sx-management-visible-terms": "node scripts/audit_sx_management_visible_terms.mjs",
     "test:project-management-rls": "node scripts/test_project_management_rls.mjs",
     "test:sx-management-rls": "npm run test:project-management-rls",

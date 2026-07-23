@@ -268,6 +268,8 @@ export type SxPartnerTrack = {
 export type SxBallSide = "sx" | "partner" | "shared" | "none" | "unknown";
 export type SxDatePrecision = "day" | "month" | "unknown";
 export type SxInteractionKind = "meeting" | "email" | "agreement" | "deliverable" | "handoff" | "status_update" | "note";
+/** Which side of a two-lane ball control acted/holds something. No "none" — an interaction/work item always has an acting or holding side, even if unknown. */
+export type SxActorSide = "sx" | "partner" | "shared" | "unknown";
 
 export type SxPartnerInteraction = {
   id: string;
@@ -279,10 +281,66 @@ export type SxPartnerInteraction = {
   outcomeSummary: string | null;
   ballSideAfter: SxBallSide;
   ballOwnerAfter: string | null;
+  /** Who performed this interaction. Independent data from ballSideAfter — never derived from it. */
+  actorSide: SxActorSide;
+  actorLabel: string | null;
   confidence: SxConfidence;
   sourceKind: SxSourceKind;
   sourceRef: string | null;
   createdAt: string;
+};
+
+export type SxPartnerRoleKind =
+  | "joint_development"
+  | "contract_manufacturing"
+  | "customer"
+  | "shareholder_investor"
+  | "government"
+  | "media"
+  | "financial_institution"
+  | "university_research"
+  | "support_organization"
+  | "other"
+  | "unclassified";
+
+export type SxRelationshipState = "candidate" | "in_progress" | "established" | "on_hold" | "ended" | "unconfirmed";
+
+export type SxPartnerRole = {
+  id: string;
+  partnerId: string;
+  roleKind: SxPartnerRoleKind;
+  relationshipState: SxRelationshipState;
+  roleLabel: string | null;
+  isPrimary: boolean;
+  sortOrder: number;
+};
+
+export type SxWorkItemKind = "task" | "question" | "deliverable" | "decision" | "approval" | "response";
+export type SxWorkItemStatus = "open" | "in_progress" | "waiting" | "blocked" | "on_hold" | "completed" | "cancelled";
+
+export type SxPartnerWorkItem = {
+  id: string;
+  partnerId: string;
+  side: SxActorSide;
+  itemKind: SxWorkItemKind;
+  title: string;
+  detail: string | null;
+  ownerLabel: string | null;
+  status: SxWorkItemStatus;
+  dueDate: string | null;
+  dueDatePrecision: SxDatePrecision;
+  completionCriteria: string | null;
+  completedOn: string | null;
+  completionEvidence: string | null;
+  acceptedBy: string | null;
+  acceptedOn: string | null;
+  handoffTo: string | null;
+  relatedMilestoneId: string | null;
+  lastVerifiedAt: string;
+  confidence: SxConfidence;
+  sourceKind: SxSourceKind;
+  sourceRef: string | null;
+  sortOrder: number;
 };
 
 export type SxPartnerCommitment = {
@@ -303,6 +361,7 @@ export type SxPartnerCommitment = {
   lastVerifiedAt: string;
   confidence: SxConfidence;
   sourceKind: SxSourceKind;
+  sourceRef: string | null;
 };
 
 export type SxManagementPartner = {
@@ -333,6 +392,10 @@ export type SxManagementPartner = {
   relatedIssueSlugs: string[];
   commitments: SxPartnerCommitment[];
   interactions: SxPartnerInteraction[];
+  roles: SxPartnerRole[];
+  workItems: SxPartnerWorkItem[];
+  /** True when this partner's primary role classification is on_hold. Drives the deferred/low-priority group; excluded from urgency counts, never removed from the ledger. */
+  deferredLowPriority: boolean;
 };
 
 export type SxManagementDecision = SxDecisionRecord & { slug: string };
@@ -505,6 +568,8 @@ export type SxManagementBundle = {
   partners: SxManagementPartner[];
   partnerCommitments: SxPartnerCommitment[];
   partnerInteractions: SxPartnerInteraction[];
+  partnerRoles: SxPartnerRole[];
+  partnerWorkItems: SxPartnerWorkItem[];
   technicalTests: SxTechnicalTest[];
   fundingSnapshots: SxFundingSnapshot[];
   organizationRoles: SxOrganizationRole[];
@@ -540,6 +605,75 @@ const PARTNER_STAGE_LABEL: Record<SxPartnerStage, string> = {
 
 export function sxPartnerStageLabel(stage: SxPartnerStage) {
   return PARTNER_STAGE_LABEL[stage] || "未設定";
+}
+
+const ROLE_KIND_LABEL: Record<SxPartnerRoleKind, string> = {
+  joint_development: "共同開発",
+  contract_manufacturing: "製造委託",
+  customer: "顧客",
+  shareholder_investor: "株主・投資",
+  government: "自治体",
+  media: "メディア",
+  financial_institution: "金融機関",
+  university_research: "大学・研究機関",
+  support_organization: "支援機関",
+  other: "その他",
+  unclassified: "未分類",
+};
+
+export function sxPartnerRoleKindLabel(kind: SxPartnerRoleKind) {
+  return ROLE_KIND_LABEL[kind] || "未分類";
+}
+
+const RELATIONSHIP_STATE_LABEL: Record<SxRelationshipState, string> = {
+  candidate: "候補",
+  in_progress: "進行中",
+  established: "成立",
+  on_hold: "保留",
+  ended: "終了",
+  unconfirmed: "未確認",
+};
+
+export function sxRelationshipStateLabel(state: SxRelationshipState) {
+  return RELATIONSHIP_STATE_LABEL[state] || "未確認";
+}
+
+/** Combines role + state into a compound label like "共同開発先" / "共同開発候補先" for the common
+ * candidate/in_progress/established cases. on_hold/ended/unconfirmed keep the bare role name — the
+ * state itself is shown as a separate small badge, since a compound suffix reads unnaturally there. */
+export function sxRoleDisplayLabel(roleKind: SxPartnerRoleKind, state: SxRelationshipState): string {
+  const roleName = ROLE_KIND_LABEL[roleKind] || "未分類";
+  if (roleKind === "unclassified") return "未分類";
+  if (state === "candidate") return `${roleName}候補先`;
+  if (state === "in_progress" || state === "established") return `${roleName}先`;
+  return roleName;
+}
+
+const WORK_ITEM_KIND_LABEL: Record<SxWorkItemKind, string> = {
+  task: "タスク",
+  question: "質問",
+  deliverable: "成果物",
+  decision: "意思決定",
+  approval: "承認",
+  response: "回答",
+};
+
+export function sxWorkItemKindLabel(kind: SxWorkItemKind) {
+  return WORK_ITEM_KIND_LABEL[kind] || "項目未確認";
+}
+
+const WORK_ITEM_STATUS_LABEL: Record<SxWorkItemStatus, string> = {
+  open: "未着手",
+  in_progress: "進行中",
+  waiting: "待ち",
+  blocked: "停止",
+  on_hold: "保留",
+  completed: "完了",
+  cancelled: "取消",
+};
+
+export function sxWorkItemStatusLabel(status: SxWorkItemStatus) {
+  return WORK_ITEM_STATUS_LABEL[status] || "未確認";
 }
 
 export function sxTrackLabel(track: SxTrackKey) {
@@ -613,6 +747,31 @@ function asInteractionKind(value: unknown): SxInteractionKind {
   return values.includes(value as SxInteractionKind) ? (value as SxInteractionKind) : "note";
 }
 
+function asActorSide(value: unknown): SxActorSide {
+  const values: SxActorSide[] = ["sx", "partner", "shared", "unknown"];
+  return values.includes(value as SxActorSide) ? (value as SxActorSide) : "unknown";
+}
+
+function asPartnerRoleKind(value: unknown): SxPartnerRoleKind {
+  const values: SxPartnerRoleKind[] = ["joint_development", "contract_manufacturing", "customer", "shareholder_investor", "government", "media", "financial_institution", "university_research", "support_organization", "other", "unclassified"];
+  return values.includes(value as SxPartnerRoleKind) ? (value as SxPartnerRoleKind) : "unclassified";
+}
+
+function asRelationshipState(value: unknown): SxRelationshipState {
+  const values: SxRelationshipState[] = ["candidate", "in_progress", "established", "on_hold", "ended", "unconfirmed"];
+  return values.includes(value as SxRelationshipState) ? (value as SxRelationshipState) : "unconfirmed";
+}
+
+function asWorkItemKind(value: unknown): SxWorkItemKind {
+  const values: SxWorkItemKind[] = ["task", "question", "deliverable", "decision", "approval", "response"];
+  return values.includes(value as SxWorkItemKind) ? (value as SxWorkItemKind) : "task";
+}
+
+function asWorkItemStatus(value: unknown): SxWorkItemStatus {
+  const values: SxWorkItemStatus[] = ["open", "in_progress", "waiting", "blocked", "on_hold", "completed", "cancelled"];
+  return values.includes(value as SxWorkItemStatus) ? (value as SxWorkItemStatus) : "open";
+}
+
 function decisionStatus(value: unknown): SxManagementDecision["status"] {
   return value === "decided" || value === "deferred" ? value : "open";
 }
@@ -658,7 +817,7 @@ function mapCommitment(row: RawRow): SxPartnerCommitment {
     commitmentKind: row.commitment_kind === "counterparty_promise" ? "counterparty_promise" : "sx_followup",
     status: (row.status as SxPartnerCommitment["status"]) || "open", promisedOn: nullableString(row, "promised_on"), dueDate: nullableString(row, "due_date"), completedOn: nullableString(row, "completed_on"),
     ownerLabel: stringValue(row, "owner_label", "担当未確認"), counterpartyOwner: nullableString(row, "counterparty_owner"), sxOwner: nullableString(row, "sx_owner"), evidence: nullableString(row, "evidence"), nextReviewOn: nullableString(row, "next_review_on"),
-    lastVerifiedAt: stringValue(row, "last_verified_at"), confidence: asConfidence(row.confidence), sourceKind: asSourceKind(row.source_kind),
+    lastVerifiedAt: stringValue(row, "last_verified_at"), confidence: asConfidence(row.confidence), sourceKind: asSourceKind(row.source_kind), sourceRef: nullableString(row, "source_ref"),
   };
 }
 
@@ -668,8 +827,31 @@ function mapInteraction(row: RawRow): SxPartnerInteraction {
     occurredOn: nullableString(row, "occurred_on"), occurredOnPrecision: asDatePrecision(row.occurred_on_precision),
     summary: stringValue(row, "summary"), outcomeSummary: nullableString(row, "outcome_summary"),
     ballSideAfter: asBallSide(row.ball_side_after), ballOwnerAfter: nullableString(row, "ball_owner_after"),
+    actorSide: asActorSide(row.actor_side), actorLabel: nullableString(row, "actor_label"),
     confidence: asConfidence(row.confidence), sourceKind: asSourceKind(row.source_kind), sourceRef: nullableString(row, "source_ref"),
     createdAt: stringValue(row, "created_at"),
+  };
+}
+
+function mapPartnerRole(row: RawRow): SxPartnerRole {
+  return {
+    id: stringValue(row, "id"), partnerId: stringValue(row, "partner_id"), roleKind: asPartnerRoleKind(row.role_kind),
+    relationshipState: asRelationshipState(row.relationship_state), roleLabel: nullableString(row, "role_label"),
+    isPrimary: row.is_primary === true, sortOrder: numberValue(row, "sort_order"),
+  };
+}
+
+function mapPartnerWorkItem(row: RawRow): SxPartnerWorkItem {
+  return {
+    id: stringValue(row, "id"), partnerId: stringValue(row, "partner_id"), side: asActorSide(row.side), itemKind: asWorkItemKind(row.item_kind),
+    title: stringValue(row, "title"), detail: nullableString(row, "detail"), ownerLabel: nullableString(row, "owner_label"),
+    status: asWorkItemStatus(row.status), dueDate: nullableString(row, "due_date"), dueDatePrecision: asDatePrecision(row.due_date_precision),
+    completionCriteria: nullableString(row, "completion_criteria"), completedOn: nullableString(row, "completed_on"),
+    completionEvidence: nullableString(row, "completion_evidence"), acceptedBy: nullableString(row, "accepted_by"), acceptedOn: nullableString(row, "accepted_on"),
+    handoffTo: nullableString(row, "handoff_to"),
+    relatedMilestoneId: nullableString(row, "related_milestone_id"), lastVerifiedAt: stringValue(row, "last_verified_at"),
+    confidence: asConfidence(row.confidence), sourceKind: asSourceKind(row.source_kind), sourceRef: nullableString(row, "source_ref"),
+    sortOrder: numberValue(row, "sort_order"),
   };
 }
 
@@ -814,7 +996,9 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
     live("project_management_partners", "id,project_id,slug,name,role_label,primary_track,relationship_stage,agreement_state,agreed_scope,unagreed_scope,last_contact_date,next_commitment,due_date,owner_label,current_ball_side,current_ball_owner,next_ball_owner,target_state,due_date_precision,last_verified_at,confidence,source_kind,source_ref,sort_order").order("sort_order"),
     plain("project_management_partner_tracks", "project_id,partner_id,track,role_label,is_primary"),
     live("project_management_partner_commitments", "id,project_id,partner_id,title,commitment_text,commitment_kind,status,promised_on,due_date,completed_on,owner_label,counterparty_owner,sx_owner,evidence,next_review_on,last_verified_at,confidence,source_kind,source_ref").order("due_date"),
-    live("project_management_partner_interactions", "id,project_id,partner_id,interaction_kind,occurred_on,occurred_on_precision,summary,outcome_summary,ball_side_after,ball_owner_after,confidence,source_kind,source_ref,created_at").order("created_at", { ascending: false }),
+    live("project_management_partner_interactions", "id,project_id,partner_id,interaction_kind,occurred_on,occurred_on_precision,summary,outcome_summary,ball_side_after,ball_owner_after,actor_side,actor_label,confidence,source_kind,source_ref,created_at").order("created_at", { ascending: false }),
+    live("project_management_partner_roles", "id,project_id,partner_id,role_kind,relationship_state,role_label,is_primary,sort_order").order("sort_order"),
+    live("project_management_partner_work_items", "id,project_id,partner_id,side,item_kind,title,detail,owner_label,status,due_date,due_date_precision,completion_criteria,completed_on,completion_evidence,accepted_by,accepted_on,handoff_to,related_milestone_id,last_verified_at,confidence,source_kind,source_ref,sort_order").order("sort_order"),
     plain("project_management_milestone_issue_links", "project_id,milestone_id,issue_id"),
     plain("project_management_milestone_partner_links", "project_id,milestone_id,partner_id"),
     live("project_management_raci", "id,project_id,milestone_id,stakeholder_label,responsibility_role,owner_label,confirmed,last_verified_at,confidence").order("milestone_id"),
@@ -827,7 +1011,7 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
   const error = results.find((result) => result.error)?.error;
   if (error) throw new Error(`SX management bundle: ${error.message}`);
   const rows = results.map((result) => (result.data || []) as unknown as RawRow[]);
-  const [objectiveRows, outcomeRows, milestoneRows, kpiRows, milestoneKpiRows, dependencyRows, issueRows, hypothesisRows, evidenceRows, validationRows, decisionRows, actionRows, historyRows, partnerRows, partnerTrackRows, commitmentRows, interactionRows, milestoneIssueRows, milestonePartnerRows, raciRows, capacityRows, technicalRows, fundingRows, roleRows, auditRows] = rows;
+  const [objectiveRows, outcomeRows, milestoneRows, kpiRows, milestoneKpiRows, dependencyRows, issueRows, hypothesisRows, evidenceRows, validationRows, decisionRows, actionRows, historyRows, partnerRows, partnerTrackRows, commitmentRows, interactionRows, partnerRoleRows, partnerWorkItemRows, milestoneIssueRows, milestonePartnerRows, raciRows, capacityRows, technicalRows, fundingRows, roleRows, auditRows] = rows;
 
   const objectiveRow = objectiveRows[0];
   const objective: SxObjective | null = objectiveRow ? { id: stringValue(objectiveRow, "id"), slug: stringValue(objectiveRow, "slug"), title: stringValue(objectiveRow, "title"), definitionOfDone: stringValue(objectiveRow, "definition_of_done"), targetDate: nullableString(objectiveRow, "target_date"), dateCertainty: objectiveRow.date_certainty === "confirmed" ? "confirmed" : "provisional", status: (objectiveRow.status as SxObjective["status"]) || "unassessed", lastVerifiedAt: stringValue(objectiveRow, "last_verified_at"), confidence: asConfidence(objectiveRow.confidence), sourceKind: asSourceKind(objectiveRow.source_kind), sourceRef: nullableString(objectiveRow, "source_ref") } : null;
@@ -894,21 +1078,45 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
   const interactions = interactionRows.map(mapInteraction);
   const partnerTracksById = new Map<string, SxPartnerTrack[]>();
   for (const row of partnerTrackRows) partnerTracksById.set(stringValue(row, "partner_id"), [...(partnerTracksById.get(stringValue(row, "partner_id")) || []), { track: asTrack(row.track), roleLabel: stringValue(row, "role_label"), isPrimary: row.is_primary === true }]);
+  const rolesByPartner = new Map<string, SxPartnerRole[]>();
+  for (const row of partnerRoleRows) {
+    const partnerId = stringValue(row, "partner_id");
+    rolesByPartner.set(partnerId, [...(rolesByPartner.get(partnerId) || []), mapPartnerRole(row)]);
+  }
+  const workItemsByPartner = new Map<string, SxPartnerWorkItem[]>();
+  for (const row of partnerWorkItemRows) {
+    const partnerId = stringValue(row, "partner_id");
+    workItemsByPartner.set(partnerId, [...(workItemsByPartner.get(partnerId) || []), mapPartnerWorkItem(row)]);
+  }
   const partners: SxManagementPartner[] = partnerRows.map((row) => {
     const partnerId = stringValue(row, "id");
     const partnerSlug = stringValue(row, "slug");
-    const lowPriority = partnerSlug === "fc-hokuriku";
     const tracks = partnerTracksById.get(partnerId) || [{ track: asTrack(row.primary_track), roleLabel: stringValue(row, "role_label"), isPrimary: true }];
     const relatedMilestoneIds = milestonePartnerRows.filter((link) => stringValue(link, "partner_id") === partnerId).map((link) => stringValue(link, "milestone_id"));
     const relatedIssueIds = relatedMilestoneIds.flatMap((milestoneId) => issueLinksByMilestone.get(milestoneId) || []);
-    return { id: partnerId, slug: partnerSlug, track: tracks.find((item) => item.isPrimary)?.track || tracks[0].track, tracks, name: lowPriority ? "ファインケム" : stringValue(row, "name"), roleLabel: lowPriority ? "補助候補（優先度低・保留）" : stringValue(row, "role_label"), relationshipStage: lowPriority ? "on_hold" : asPartnerStage(row.relationship_stage), agreementState: asAgreementState(row.agreement_state), agreedScope: stringValue(row, "agreed_scope"), unagreedScope: stringValue(row, "unagreed_scope"), lastContactDate: nullableString(row, "last_contact_date"), nextCommitment: lowPriority ? "重要経路外として保留" : stringValue(row, "next_commitment"), dueDate: lowPriority ? null : nullableString(row, "due_date"), ownerLabel: stringValue(row, "owner_label", "担当未確認"), currentBallSide: lowPriority ? "none" : asBallSide(row.current_ball_side), currentBallOwner: lowPriority ? null : nullableString(row, "current_ball_owner"), nextBallOwner: lowPriority ? null : nullableString(row, "next_ball_owner"), targetState: lowPriority ? null : nullableString(row, "target_state"), dueDatePrecision: lowPriority ? "unknown" : asDatePrecision(row.due_date_precision), lastVerifiedAt: stringValue(row, "last_verified_at"), confidence: asConfidence(row.confidence), sourceKind: asSourceKind(row.source_kind), sourceRef: nullableString(row, "source_ref"), relatedMilestoneSlugs: lowPriority ? [] : relatedMilestoneIds.map((id) => stringValue(milestoneById.get(id) || {}, "slug")).filter(Boolean), relatedIssueSlugs: lowPriority ? [] : relatedIssueIds.map((id) => stringValue(issueById.get(id) || {}, "slug")).filter(Boolean), commitments: commitments.filter((item) => item.partnerId === partnerId), interactions: lowPriority ? [] : interactions.filter((item) => item.partnerId === partnerId) };
+    const roles = (rolesByPartner.get(partnerId) || []).slice().sort((a, b) => (a.isPrimary === b.isPrimary ? a.sortOrder - b.sortOrder : a.isPrimary ? -1 : 1));
+    const primaryRole = roles.find((role) => role.isPrimary) || null;
+    const deferredLowPriority = primaryRole?.relationshipState === "on_hold";
+    return {
+      id: partnerId, slug: partnerSlug, track: tracks.find((item) => item.isPrimary)?.track || tracks[0].track, tracks,
+      name: stringValue(row, "name"), roleLabel: stringValue(row, "role_label"), relationshipStage: asPartnerStage(row.relationship_stage),
+      agreementState: asAgreementState(row.agreement_state), agreedScope: stringValue(row, "agreed_scope"), unagreedScope: stringValue(row, "unagreed_scope"),
+      lastContactDate: nullableString(row, "last_contact_date"), nextCommitment: stringValue(row, "next_commitment"), dueDate: nullableString(row, "due_date"),
+      ownerLabel: stringValue(row, "owner_label", "担当未確認"), currentBallSide: asBallSide(row.current_ball_side), currentBallOwner: nullableString(row, "current_ball_owner"),
+      nextBallOwner: nullableString(row, "next_ball_owner"), targetState: nullableString(row, "target_state"), dueDatePrecision: asDatePrecision(row.due_date_precision),
+      lastVerifiedAt: stringValue(row, "last_verified_at"), confidence: asConfidence(row.confidence), sourceKind: asSourceKind(row.source_kind), sourceRef: nullableString(row, "source_ref"),
+      relatedMilestoneSlugs: relatedMilestoneIds.map((id) => stringValue(milestoneById.get(id) || {}, "slug")).filter(Boolean),
+      relatedIssueSlugs: relatedIssueIds.map((id) => stringValue(issueById.get(id) || {}, "slug")).filter(Boolean),
+      commitments: commitments.filter((item) => item.partnerId === partnerId), interactions: interactions.filter((item) => item.partnerId === partnerId),
+      roles, workItems: workItemsByPartner.get(partnerId) || [], deferredLowPriority,
+    };
   });
   const dependencyByMilestone = (id: string) => dependencyDtos.filter((dependency) => dependency.predecessorMilestoneId === id || dependency.successorMilestoneId === id);
   const milestones: SxManagementMilestone[] = baseLogicMilestones.map((logicMilestone) => {
     const row = milestoneById.get(logicMilestone.id)!;
     const derived = preliminaryDerived.get(logicMilestone.id)!;
     const issueSlugs = (issueLinksByMilestone.get(logicMilestone.id) || []).map((issueId) => stringValue(issueById.get(issueId) || {}, "slug")).filter(Boolean);
-    const partnerSlugs = (partnerLinksByMilestone.get(logicMilestone.id) || []).map((partnerId) => stringValue(partnerById.get(partnerId) || {}, "slug")).filter((slug) => Boolean(slug) && slug !== "fc-hokuriku");
+    const partnerSlugs = (partnerLinksByMilestone.get(logicMilestone.id) || []).map((partnerId) => stringValue(partnerById.get(partnerId) || {}, "slug")).filter(Boolean);
     return makeMilestone(row, derived, dependencyByMilestone(logicMilestone.id), issueSlugs, partnerSlugs, (kpisByMilestone.get(logicMilestone.id) || []).map((item) => item.id));
   });
   const raci: SxRaci[] = raciRows.map((row) => ({ id: stringValue(row, "id"), milestoneId: stringValue(row, "milestone_id"), stakeholderLabel: stringValue(row, "stakeholder_label"), responsibilityRole: (row.responsibility_role as SxRaci["responsibilityRole"]) || "I", ownerLabel: stringValue(row, "owner_label", "担当未確認"), confirmed: row.confirmed === true, lastVerifiedAt: stringValue(row, "last_verified_at"), confidence: asConfidence(row.confidence) }));
@@ -919,8 +1127,10 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
   const history: SxHistory[] = historyRows.map((row) => ({ id: stringValue(row, "id"), entityType: stringValue(row, "entity_type"), entityId: nullableString(row, "entity_id"), updateKind: stringValue(row, "update_kind"), summary: stringValue(row, "summary"), changedBy: stringValue(row, "changed_by"), changedOn: stringValue(row, "changed_on"), fromStatus: nullableString(row, "from_status"), toStatus: nullableString(row, "to_status") }));
   const fieldAudit: SxFieldAudit[] = auditRows.map((row) => ({ id: stringValue(row, "id"), entityType: stringValue(row, "entity_type"), entityId: stringValue(row, "entity_id"), fieldName: stringValue(row, "field_name"), source: stringValue(row, "source"), version: numberValue(row, "version", 1), verifiedBy: stringValue(row, "verified_by"), nextReviewOn: nullableString(row, "next_review_on"), recordedAt: stringValue(row, "recorded_at") }));
   const tracks = makeTrackSummaries(milestones, kpis, today);
-  const priorityPartnerIds = new Set(partnerRows.filter((row) => stringValue(row, "slug") !== "fc-hokuriku").map((row) => stringValue(row, "id")));
+  const priorityPartnerIds = new Set(partners.filter((partner) => !partner.deferredLowPriority).map((partner) => partner.id));
   const judgmentCommitments = commitments.filter((commitment) => priorityPartnerIds.has(commitment.partnerId));
   const judgment = computeSxJudgment(tracks, milestones, decisions, today, { kpis, actions, commitments: judgmentCommitments, roles: organizationRoles, dag, objectivePresent: Boolean(objective), outcomesCount: outcomes.length });
-  return { asOf: today, horizonMonths: horizonMonths(), objective, outcomes, kpis, dependencies: dependencyDtos, dag, judgment, tracks, milestones, issues, hypotheses, evidence, validationRuns, decisions, actions, partners, partnerCommitments: commitments, partnerInteractions: interactions, technicalTests, fundingSnapshots, organizationRoles, raci, capacity, history, fieldAudit, canManage, hasData: Boolean(objective || outcomes.length || milestones.length || issues.length || partners.length || decisions.length) };
+  const partnerRoles = partners.flatMap((partner) => partner.roles);
+  const partnerWorkItems = partners.flatMap((partner) => partner.workItems);
+  return { asOf: today, horizonMonths: horizonMonths(), objective, outcomes, kpis, dependencies: dependencyDtos, dag, judgment, tracks, milestones, issues, hypotheses, evidence, validationRuns, decisions, actions, partners, partnerCommitments: commitments, partnerInteractions: interactions, partnerRoles, partnerWorkItems, technicalTests, fundingSnapshots, organizationRoles, raci, capacity, history, fieldAudit, canManage, hasData: Boolean(objective || outcomes.length || milestones.length || issues.length || partners.length || decisions.length) };
 }

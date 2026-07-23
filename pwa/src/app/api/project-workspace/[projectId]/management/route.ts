@@ -17,6 +17,8 @@ type Resource =
   | "partner"
   | "commitment"
   | "interaction"
+  | "partner_role"
+  | "partner_work_item"
   | "dependency"
   | "technical_test"
   | "funding_snapshot"
@@ -38,6 +40,8 @@ const RESOURCE_TABLES: Record<Resource, string> = {
   partner: "project_management_partners",
   commitment: "project_management_partner_commitments",
   interaction: "project_management_partner_interactions",
+  partner_role: "project_management_partner_roles",
+  partner_work_item: "project_management_partner_work_items",
   dependency: "project_management_milestone_dependencies",
   technical_test: "project_management_technical_tests",
   funding_snapshot: "project_management_funding_snapshots",
@@ -60,6 +64,8 @@ const RESOURCE_META: Record<Resource, { entityType: string; statusColumn: "statu
   partner: { entityType: "partner", statusColumn: null, hasLastVerified: true, hasSourceRef: true, hasUpdatedBy: false, softDelete: true },
   commitment: { entityType: "partner_commitment", statusColumn: "status", hasLastVerified: true, hasSourceRef: true, hasUpdatedBy: false, softDelete: true },
   interaction: { entityType: "partner_interaction", statusColumn: null, hasLastVerified: false, hasSourceRef: true, hasUpdatedBy: false, softDelete: true },
+  partner_role: { entityType: "partner_role", statusColumn: null, hasLastVerified: false, hasSourceRef: true, hasUpdatedBy: false, softDelete: true },
+  partner_work_item: { entityType: "partner_work_item", statusColumn: "status", hasLastVerified: true, hasSourceRef: true, hasUpdatedBy: false, softDelete: true },
   dependency: { entityType: "dependency", statusColumn: null, hasLastVerified: false, hasSourceRef: false, hasUpdatedBy: false, softDelete: true },
   technical_test: { entityType: "technical_test", statusColumn: "status", hasLastVerified: false, hasSourceRef: true, hasUpdatedBy: false, softDelete: true },
   funding_snapshot: { entityType: "funding_snapshot", statusColumn: null, hasLastVerified: false, hasSourceRef: true, hasUpdatedBy: false, softDelete: true },
@@ -82,6 +88,8 @@ const DELETED_SELECTS: Record<Resource, string> = {
   partner: "id,slug,name,deleted_at,deleted_by",
   commitment: "id,title,deleted_at,deleted_by",
   interaction: "id,summary,deleted_at,deleted_by",
+  partner_role: "id,role_kind,role_label,deleted_at,deleted_by",
+  partner_work_item: "id,title,deleted_at,deleted_by",
   dependency: "id,note,deleted_at,deleted_by",
   technical_test: "id,test_slug,test_name,deleted_at,deleted_by",
   funding_snapshot: "id,snapshot_date,deleted_at,deleted_by",
@@ -96,6 +104,8 @@ function deletedRecordLabel(resource: Resource, row: Record<string, unknown>) {
       : resource === "evidence" ? row.summary
         : resource === "validation" ? row.validation_kind
           : resource === "interaction" ? row.summary
+          : resource === "partner_role" ? row.role_label || row.role_kind
+            : resource === "partner_work_item" ? row.title
           : resource === "technical_test" ? row.test_name || row.test_slug
             : resource === "organization_role" ? row.role_name || row.role_slug
               : resource === "capacity" ? row.role_label
@@ -121,6 +131,11 @@ const CONFIDENCES = ["high", "medium", "low", "unknown"];
 const BALL_SIDES = ["sx", "partner", "shared", "none", "unknown"];
 const DATE_PRECISIONS = ["day", "month", "unknown"];
 const INTERACTION_KINDS = ["meeting", "email", "agreement", "deliverable", "handoff", "status_update", "note"];
+const ACTOR_SIDES = ["sx", "partner", "shared", "unknown"];
+const ROLE_KINDS = ["joint_development", "contract_manufacturing", "customer", "shareholder_investor", "government", "media", "financial_institution", "university_research", "support_organization", "other", "unclassified"];
+const RELATIONSHIP_STATES = ["candidate", "in_progress", "established", "on_hold", "ended", "unconfirmed"];
+const WORK_ITEM_KINDS = ["task", "question", "deliverable", "decision", "approval", "response"];
+const WORK_ITEM_STATUSES = ["open", "in_progress", "waiting", "blocked", "on_hold", "completed", "cancelled"];
 
 function todayJst() {
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
@@ -167,6 +182,25 @@ function dateValue(value: unknown, field: string) {
 function assertDatePrecisionConsistency(dateValueMerged: unknown, precisionMerged: unknown, dateLabel: string, precisionLabel: string) {
   if (precisionMerged === "unknown" && dateValueMerged != null) throw new Error(`${precisionLabel}が未確認のときは${dateLabel}を入力できないよ`);
   if (precisionMerged !== "unknown" && dateValueMerged == null) throw new Error(`${precisionLabel}がday/monthのときは${dateLabel}を入力してね`);
+}
+
+// migration 192 CHECK contract: status=completed requires completion_criteria/
+// completion_evidence/completed_on already set; item_kind=deliverable AND
+// status=completed additionally requires accepted_by/accepted_on. Checked
+// against the merged (patch + existing row) value so a PATCH touching only
+// one field is still validated the same way the DB CHECK would enforce it.
+function assertWorkItemCompletionRequirements(
+  statusMerged: unknown,
+  itemKindMerged: unknown,
+  merged: { completionCriteria: unknown; completedOn: unknown; completionEvidence: unknown; acceptedBy: unknown; acceptedOn: unknown },
+) {
+  if (statusMerged !== "completed") return;
+  if (merged.completionCriteria == null || merged.completionEvidence == null || merged.completedOn == null) {
+    throw new Error("保有事項を完了にするには完了条件・完了証跡・完了日が必要だよ");
+  }
+  if (itemKindMerged === "deliverable" && (merged.acceptedBy == null || merged.acceptedOn == null)) {
+    throw new Error("成果物を完了にするには受入担当・受入日が必要だよ");
+  }
 }
 
 function numericValue(value: unknown, field: string, { min = -Infinity, max = Infinity } = {}) {
@@ -233,7 +267,14 @@ function patchFor(resource: Resource, raw: unknown): Record<string, unknown> {
     takeText("name", "name", 180); takeText("role_label", "role_label", 240); takeEnum("primary_track", TRACKS); takeEnum("relationship_stage", PARTNER_STAGES); takeEnum("agreement_state", AGREEMENT_STATES); takeText("agreed_scope", "agreed_scope", 1000); takeText("unagreed_scope", "unagreed_scope", 1000); takeDate("last_contact_date"); takeText("next_commitment", "next_commitment", 1000); takeDate("due_date"); takeText("owner_label", "owner_label", 120); takeEnum("current_ball_side", BALL_SIDES); takeOptionalText("current_ball_owner", "current_ball_owner", 120); takeOptionalText("next_ball_owner", "next_ball_owner", 120); takeOptionalText("target_state", "target_state", 500); takeEnum("due_date_precision", DATE_PRECISIONS); takeEnum("confidence", CONFIDENCES);
   }
   if (resource === "interaction") {
-    takeEnum("interaction_kind", INTERACTION_KINDS); takeDate("occurred_on"); takeEnum("occurred_on_precision", DATE_PRECISIONS); takeText("summary", "summary", 1000); takeOptionalText("outcome_summary", "outcome_summary", 1200); takeEnum("ball_side_after", BALL_SIDES); takeOptionalText("ball_owner_after", "ball_owner_after", 120); takeEnum("confidence", CONFIDENCES);
+    takeEnum("interaction_kind", INTERACTION_KINDS); takeDate("occurred_on"); takeEnum("occurred_on_precision", DATE_PRECISIONS); takeText("summary", "summary", 1000); takeOptionalText("outcome_summary", "outcome_summary", 1200); takeEnum("ball_side_after", BALL_SIDES); takeOptionalText("ball_owner_after", "ball_owner_after", 120); takeEnum("actor_side", ACTOR_SIDES); takeOptionalText("actor_label", "actor_label", 120); takeEnum("confidence", CONFIDENCES);
+  }
+  if (resource === "partner_role") {
+    takeEnum("role_kind", ROLE_KINDS); takeEnum("relationship_state", RELATIONSHIP_STATES); takeOptionalText("role_label", "role_label", 240); takeBoolean("is_primary"); takeNumber("sort_order", { min: 0 });
+  }
+  if (resource === "partner_work_item") {
+    takeEnum("side", ACTOR_SIDES); takeEnum("item_kind", WORK_ITEM_KINDS); takeText("title", "title", 240); takeOptionalText("detail", "detail", 1200); takeOptionalText("owner_label", "owner_label", 120); takeEnum("status", WORK_ITEM_STATUSES); takeDate("due_date"); takeEnum("due_date_precision", DATE_PRECISIONS); takeOptionalText("completion_criteria", "completion_criteria", 1200); takeDate("completed_on"); takeOptionalText("completion_evidence", "completion_evidence", 1200); takeOptionalText("accepted_by", "accepted_by", 120); takeDate("accepted_on"); takeOptionalText("handoff_to", "handoff_to", 240); takeEnum("confidence", CONFIDENCES); takeNumber("sort_order", { min: 0 });
+    if ("related_milestone_id" in raw) patch.related_milestone_id = raw.related_milestone_id == null || raw.related_milestone_id === "" ? null : text(raw.related_milestone_id, "related_milestone_id", 80);
   }
   if (resource === "commitment") {
     takeText("title", "title", 180); takeText("commitment_text", "commitment_text", 1000); takeEnum("commitment_kind", ["counterparty_promise", "sx_followup"]); takeEnum("status", COMMITMENT_STATUSES); takeDate("promised_on"); takeDate("due_date"); takeDate("completed_on"); takeText("owner_label", "owner_label", 120); takeOptionalText("counterparty_owner", "counterparty_owner", 120); takeOptionalText("sx_owner", "sx_owner", 120); takeOptionalText("evidence", "evidence", 1200); takeDate("next_review_on"); takeEnum("confidence", CONFIDENCES);
@@ -261,13 +302,20 @@ function patchFor(resource: Resource, raw: unknown): Record<string, unknown> {
   return patch;
 }
 
-function safeDeletePatch(memberId: string, meta: (typeof RESOURCE_META)[Resource]) {
-  const patch: Record<string, unknown> = { deleted_at: new Date().toISOString(), deleted_by: memberId };
-  if (meta.hasSourceRef) {
-    patch.source_kind = "manual";
-    patch.source_ref = "PWA共有管理画面";
-  }
-  return patch;
+// Soft-delete and restore are visibility toggles, not edits: they must never
+// touch source_kind/source_ref, so a soft-deleted/restored row's original
+// provenance (a migration seed, an import, current_truth) survives
+// unchanged. An ordinary PATCH is different (2026-07-24 P0 reversal): it
+// always stamps manual provenance below (see the hasSourceRef branch in
+// PATCH) so the field-audit trail shows a human edited the row through this
+// screen, not that it silently keeps reporting its original seed/import
+// source forever. createFor() (a brand-new manual row) and the POST/PATCH
+// audit-write rollback compensation stamp the same manual/PWA共有管理画面
+// pair for the same reason. Seed rows (e.g. migration 192's role/work-item
+// seed) key their existence checks on a fixed id, never on source_ref, so
+// this reassignment can never cause a revival bug.
+function safeDeletePatch(memberId: string) {
+  return { deleted_at: new Date().toISOString(), deleted_by: memberId };
 }
 
 function createFor(resource: Resource, raw: unknown, projectId: string, memberId: string, today: string): Record<string, unknown> {
@@ -320,7 +368,24 @@ function createFor(resource: Resource, raw: unknown, projectId: string, memberId
     const occurredOn = optionalDate("occurred_on");
     const occurredOnPrecision = requiredEnum("occurred_on_precision", DATE_PRECISIONS, "unknown");
     assertDatePrecisionConsistency(occurredOn, occurredOnPrecision, "発生日", "発生日の確度");
-    return { ...common(), project_id: projectId, partner_id: requiredId("partner_id"), interaction_kind: requiredEnum("interaction_kind", INTERACTION_KINDS), occurred_on: occurredOn, occurred_on_precision: occurredOnPrecision, summary: requiredText("summary", 1000), outcome_summary: optionalTextValue("outcome_summary", 1200), ball_side_after: requiredEnum("ball_side_after", BALL_SIDES, "unknown"), ball_owner_after: optionalTextValue("ball_owner_after", 120), confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
+    return { ...common(), project_id: projectId, partner_id: requiredId("partner_id"), interaction_kind: requiredEnum("interaction_kind", INTERACTION_KINDS), occurred_on: occurredOn, occurred_on_precision: occurredOnPrecision, summary: requiredText("summary", 1000), outcome_summary: optionalTextValue("outcome_summary", 1200), ball_side_after: requiredEnum("ball_side_after", BALL_SIDES, "unknown"), ball_owner_after: optionalTextValue("ball_owner_after", 120), actor_side: requiredEnum("actor_side", ACTOR_SIDES, "unknown"), actor_label: optionalTextValue("actor_label", 120), confidence: requiredEnum("confidence", CONFIDENCES, "unknown") };
+  }
+  if (resource === "partner_role") {
+    return { ...common(), project_id: projectId, partner_id: requiredId("partner_id"), role_kind: requiredEnum("role_kind", ROLE_KINDS, "unclassified"), relationship_state: requiredEnum("relationship_state", RELATIONSHIP_STATES, "unconfirmed"), role_label: optionalTextValue("role_label", 240), is_primary: raw.is_primary == null ? false : booleanValue(raw.is_primary, "is_primary"), sort_order: optionalNumber("sort_order", { min: 0 }) || 0 };
+  }
+  if (resource === "partner_work_item") {
+    const dueDate = optionalDate("due_date");
+    const dueDatePrecision = requiredEnum("due_date_precision", DATE_PRECISIONS, "unknown");
+    assertDatePrecisionConsistency(dueDate, dueDatePrecision, "期限日", "期限精度");
+    const itemKind = requiredEnum("item_kind", WORK_ITEM_KINDS);
+    const status = requiredEnum("status", WORK_ITEM_STATUSES, "open");
+    const completionCriteria = optionalTextValue("completion_criteria", 1200);
+    const completedOn = optionalDate("completed_on");
+    const completionEvidence = optionalTextValue("completion_evidence", 1200);
+    const acceptedBy = optionalTextValue("accepted_by", 120);
+    const acceptedOn = optionalDate("accepted_on");
+    assertWorkItemCompletionRequirements(status, itemKind, { completionCriteria, completedOn, completionEvidence, acceptedBy, acceptedOn });
+    return { ...common(), project_id: projectId, partner_id: requiredId("partner_id"), side: requiredEnum("side", ACTOR_SIDES, "unknown"), item_kind: itemKind, title: requiredText("title", 240), detail: optionalTextValue("detail", 1200), owner_label: optionalTextValue("owner_label", 120), status, due_date: dueDate, due_date_precision: dueDatePrecision, completion_criteria: completionCriteria, completed_on: completedOn, completion_evidence: completionEvidence, accepted_by: acceptedBy, accepted_on: acceptedOn, handoff_to: optionalTextValue("handoff_to", 240), related_milestone_id: optionalId("related_milestone_id"), last_verified_at: today, confidence: requiredEnum("confidence", CONFIDENCES, "unknown"), sort_order: optionalNumber("sort_order", { min: 0 }) || 0 };
   }
   if (resource === "commitment") {
     const kind = requiredEnum("commitment_kind", ["counterparty_promise", "sx_followup"]);
@@ -369,6 +434,8 @@ const PARENT_FIELDS: Partial<Record<Resource, Array<[string, string]>>> = {
   action: [["decision_id", "project_management_decisions"]],
   commitment: [["partner_id", "project_management_partners"]],
   interaction: [["partner_id", "project_management_partners"]],
+  partner_role: [["partner_id", "project_management_partners"]],
+  partner_work_item: [["partner_id", "project_management_partners"], ["related_milestone_id", "project_management_milestones"]],
   dependency: [["predecessor_milestone_id", "project_management_milestones"], ["successor_milestone_id", "project_management_milestones"]],
   raci: [["milestone_id", "project_management_milestones"]],
   capacity: [["milestone_id", "project_management_milestones"]],
@@ -490,12 +557,17 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (deleting && restoring) throw new Error("非表示化と復元は同時に指定できないよ");
     if (deleting && !meta.softDelete) throw new Error("この共有情報は非表示化に対応していないよ");
     if (restoring && !meta.softDelete) throw new Error("この共有情報は復元に対応していないよ");
-    const patch: Record<string, unknown> = deleting ? safeDeletePatch(context.access.memberId, meta) : restoring ? { deleted_at: null, deleted_by: null } : patchFor(resource, body.patch);
+    const patch: Record<string, unknown> = deleting ? safeDeletePatch(context.access.memberId) : restoring ? { deleted_at: null, deleted_by: null } : patchFor(resource, body.patch);
     if (resource === "milestone" && !deleting && "status" in patch && !("status_source" in patch)) patch.status_source = "manual";
     if (resource === "milestone" && patch.status_source === "override" && (!patch.status_override_reason || !patch.status_override_expires_on || !patch.status_override_approved_by)) throw new Error("状態の上書きには理由・期限・承認者が必要だよ");
     if (meta.hasLastVerified && !deleting && !restoring) patch.last_verified_at = todayJst();
-    if (!deleting && !restoring && meta.hasSourceRef) patch.source_kind = "manual";
-    if (!deleting && !restoring && meta.hasSourceRef) patch.source_ref = "PWA共有管理画面";
+    // source_kind/source_ref: an ordinary edit always stamps manual provenance here (see
+    // safeDeletePatch comment above — soft-delete/restore never reach this branch, so they leave
+    // source_kind/source_ref exactly as the row already had).
+    if (meta.hasSourceRef && !deleting && !restoring) {
+      patch.source_kind = "manual";
+      patch.source_ref = "PWA共有管理画面";
+    }
     if (meta.hasUpdatedBy && !deleting && !restoring) patch.updated_by = context.access.memberId;
 
     const db = createAdminClient();
@@ -536,6 +608,20 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       const mergedOccurredOn = patch.occurred_on !== undefined ? patch.occurred_on : beforeRecord.occurred_on;
       const mergedOccurredOnPrecision = typeof patch.occurred_on_precision === "string" ? patch.occurred_on_precision : String(beforeRecord.occurred_on_precision || "unknown");
       assertDatePrecisionConsistency(mergedOccurredOn, mergedOccurredOnPrecision, "発生日", "発生日の確度");
+    }
+    if (resource === "partner_work_item" && !deleting && !restoring) {
+      const mergedDueDate = patch.due_date !== undefined ? patch.due_date : beforeRecord.due_date;
+      const mergedDueDatePrecision = typeof patch.due_date_precision === "string" ? patch.due_date_precision : String(beforeRecord.due_date_precision || "unknown");
+      assertDatePrecisionConsistency(mergedDueDate, mergedDueDatePrecision, "期限日", "期限精度");
+      const mergedStatus = typeof patch.status === "string" ? patch.status : String(beforeRecord.status || "open");
+      const mergedItemKind = typeof patch.item_kind === "string" ? patch.item_kind : String(beforeRecord.item_kind || "task");
+      assertWorkItemCompletionRequirements(mergedStatus, mergedItemKind, {
+        completionCriteria: patch.completion_criteria !== undefined ? patch.completion_criteria : beforeRecord.completion_criteria,
+        completedOn: patch.completed_on !== undefined ? patch.completed_on : beforeRecord.completed_on,
+        completionEvidence: patch.completion_evidence !== undefined ? patch.completion_evidence : beforeRecord.completion_evidence,
+        acceptedBy: patch.accepted_by !== undefined ? patch.accepted_by : beforeRecord.accepted_by,
+        acceptedOn: patch.accepted_on !== undefined ? patch.accepted_on : beforeRecord.accepted_on,
+      });
     }
     const { data, error } = await db.from(RESOURCE_TABLES[resource]).update(patch).eq("id", id).eq("project_id", projectId).select("id").maybeSingle();
     if (error) throw new Error(`共有情報の更新に失敗したよ: ${error.message}`);
