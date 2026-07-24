@@ -4,7 +4,6 @@
  * It reads Calendar + Supabase once, emits only bounded meeting metadata, and
  * avoids paying the LLM startup cost when there is no H-1 work to perform.
  */
-import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
@@ -232,7 +231,7 @@ function normalizeRow(row) {
 function writeNoCandidateReport({ reportDir, memoryFile, now }) {
   const stamp = jstStamp(now);
   const report = [
-    "H-1の仕事: 終わった会議の議事録化、議事録なしの再確認、前後24時間の予定カード同期、ノーション議事録のひも付け補完。今回は対象なし。",
+    "H-1は、終わった会議の記録と近い予定を整える定期確認。今回は更新や確認が必要な変化はなかった。",
     "",
     "確認件数: 0件",
     "確認した開催済みMTG: なし",
@@ -247,11 +246,7 @@ function writeNoCandidateReport({ reportDir, memoryFile, now }) {
   const reportFile = path.join(reportDir, `${stamp}-h1-report.md`);
   fs.writeFileSync(reportFile, report, "utf8");
   fs.mkdirSync(path.dirname(memoryFile), { recursive: true });
-  fs.appendFileSync(memoryFile, `\n- ${stamp}: Calendar/DB candidate gate: 対象なし。OS通知済み。\n`, "utf8");
-  execFileSync("npm", ["run", "notify:h1-report", "--", "--title", "H-1: 対象会議なし", "--run-key", stamp, "--body-file", reportFile], {
-    cwd: PWA_ROOT,
-    stdio: "ignore",
-  });
+  fs.appendFileSync(memoryFile, `\n- ${stamp}: Calendar/DB candidate gate: 対象なし。OS通知なし（内部記録のみ）。\n`, "utf8");
 }
 
 function jstStamp(date) {

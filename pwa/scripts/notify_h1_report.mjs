@@ -14,12 +14,36 @@ loadEnv(path.join(PWA_ROOT, ".vercel", ".env.production.local"));
 
 const args = parseArgs(process.argv.slice(2));
 
-async function main() {
-  const title = String(args.title || "H-1報告").trim().slice(0, 180);
-  const body = readBody(args).trim();
-  if (!body) throw new Error("notification body is empty");
+const H1_EXPLANATION = "H-1は、終わった会議の記録、議事録なしの再確認、前後24時間の予定カード、ノーション議事録のひも付けを整える定期確認だよ。";
+const OUTCOMES = {
+  updated: {
+    title: "会議確認: 記録または予定を更新",
+    guidance: "OSの記録または予定を更新したよ。内容を確認してね。",
+    notificationChannel: "normal",
+  },
+  review_required: {
+    title: "会議確認: 確認が必要",
+    guidance: "判断が必要なことがあるよ。内容を見て決めてね。",
+    notificationChannel: "normal",
+  },
+  blocked: {
+    title: "会議確認: 処理が止まった",
+    guidance: "会議の記録を整える処理が止まったよ。内容を見て対応してね。",
+    notificationChannel: "critical",
+  },
+};
 
-  assertSanitized(body);
+async function main() {
+  if (args.title) {
+    throw new Error("--title is not supported for H-1 notifications. Use --outcome.");
+  }
+
+  const outcome = requiredOutcome(args.outcome);
+  const report = readBody(args).trim();
+  if (!report) throw new Error("notification body is empty");
+
+  assertSanitized(report);
+  const body = buildNotificationBody(outcome, report);
 
   const runKey = String(args["run-key"] || buildDefaultRunKey()).trim();
   const source = String(args.source || "h1_meeting_flow").trim();
@@ -29,7 +53,7 @@ async function main() {
 
   const row = {
     kind: "h1_report",
-    title,
+    title: OUTCOMES[outcome].title,
     body,
     link,
     source,
@@ -37,7 +61,8 @@ async function main() {
     meta: {
       run_key: runKey,
       report_date_jst: jstDate(),
-      notification_channel: "normal",
+      outcome,
+      notification_channel: OUTCOMES[outcome].notificationChannel,
       generated_at: now,
       sanitized: true,
     },
@@ -89,6 +114,18 @@ async function main() {
   if (error) throw error;
 
   process.stdout.write(`${JSON.stringify({ ok: true, action: "inserted", notification_id: data.id, run_key: runKey }, null, 2)}\n`);
+}
+
+function requiredOutcome(value) {
+  const outcome = String(value || "").trim();
+  if (!Object.hasOwn(OUTCOMES, outcome)) {
+    throw new Error("--outcome is required: updated, review_required, or blocked.");
+  }
+  return outcome;
+}
+
+function buildNotificationBody(outcome, report) {
+  return `${H1_EXPLANATION}\n${OUTCOMES[outcome].guidance}\n\n${report}`;
 }
 
 function readBody(parsedArgs) {

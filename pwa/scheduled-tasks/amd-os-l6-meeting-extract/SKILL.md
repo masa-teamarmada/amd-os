@@ -15,7 +15,7 @@ H-1は「毎時すべての知識を読み直す」仕事ではない。開始�
 2. 直近24時間の `none` / `議事録なし` recovery row
 3. 現在前後24時間のうち、newまたはCalendar metadataが変化した確定upcoming card
 
-3種類がすべて0件なら、H-1は対象なしのsanitized report・automation memory・OS通知だけを確定して終了する。Notion / Gmail / Drive / Slackの本文取得、Drive folder探索、広い正本読込、git status、fixture test、browser、prep thread操作を実行してはいけない。通常3分以内に終える。
+3種類がすべて0件なら、H-1は対象なしのsanitized report・automation memoryだけを確定して終了する。**対象なし・変更なしではOS通知を作らない。** Notion / Gmail / Drive / Slackの本文取得、Drive folder探索、広い正本読込、git status、fixture test、browser、prep thread操作を実行してはいけない。通常3分以内に終える。
 
 候補が1件でもある時だけ、後続の正本とその候補に必要なsourceを読む。開催済みMTGは5 source確認を省略しないが、関係のないPJ・期間・sourceを探索しない。通常は対象1件あたり12分以内を目安とし、取得不能なsourceは `review_required` と不足理由を残して次の対象へ進む。これは対象件数の上限ではなく、待機・無制限retry・無関係探索を禁止する時間設計である。
 
@@ -59,22 +59,22 @@ H-1は「毎時すべての知識を読み直す」仕事ではない。開始�
 
 ## OS通知と Codex スレッド表示の扱い
 
-H-1 は毎時起動するが、まさが見に行く場所は Codex スレッドではなく AMD OS の通知箱にする。毎回の作業結果は、まず OS 通知 (`app_notifications`) へ送る。日次まとめスレッドは控えの記録であり、OS通知が主導線。
+H-1 は毎時起動する。sanitized reportとautomation memoryは毎回残すが、まさの注意を使うOS通知 (`app_notifications`) は、会議の記録や予定に意味のある変化があった時だけ作る。日次まとめスレッドは控えの記録であり、H-1本体は作らない。
 
-- 毎時 run の最後に、ユーザー向け最終報告と同じ sanitized 報告を OS通知へ送る。実行入口は `cd /Users/masa/projects/AMD/amd-os/pwa && npm run notify:h1-report -- --title "<短いタイトル>" --run-key "<JST日時またはrun id>" --body-file <sanitized_report_file>`。
+- OS通知を作るのは、会議記録・予定カード・ノーションひも付けを新規保存または更新した `updated`、人の判断が必要な `review_required`、必要な処理が止まった `blocked` のいずれかだけ。既存カードの確認だけ、候補なし、変更なしではOS通知を作らない。
+- 通知する場合は `cd /Users/masa/projects/AMD/amd-os/pwa && npm run notify:h1-report -- --outcome "<updated|review_required|blocked>" --run-key "<JST日時またはrun id>" --body-file <sanitized_report_file>` を使う。helperは結果区分なしの送信を拒否し、本文の最初へH-1の役割と今回見るべきことを加える。
 - 通知の `kind` は `h1_report`、`source` は `h1_meeting_flow`、`link` は `/notifications`。raw議事録本文、Notion本文、個人情報、secret、Drive URL、Calendar URL、会議参加URLを本文に含めると helper が失敗するので、必ず報告文を作ってから渡す。
-- OS通知へ送れた場合でも、通知箱を荒らさないよう件名は短くする。例: `H-1: OkuDoor議事録を保存`、`H-1: 対象会議なし`。
-- OS通知への送信に失敗した場合は成功扱いにしない。失敗理由を最終報告と automation memory に残す。この失敗と、下記の毎時runスレッドのアーカイブ可否は別契約 (アーカイブ条件は OS通知の成否だけで決まる)。
+- OS通知が必要な結果で送信に失敗した場合は成功扱いにしない。失敗理由を最終報告とautomation memoryに残す。対象なし・変更なしで通知しないことは失敗ではない。
 
 Codex 側の日次集約は H-1本体から分離し、**毎時45分の H-1 reviewer だけが担当する**。毎時runの並行実行は仕様として維持し、前runを待つ・実行ロックを取る・別runを理由にskipすることは禁止する。
 
-`H1_BACKGROUND_RUNNER=1` の場合は、Codex Desktop の可視taskを作らないバックグラウンドrunである。この場合は `CODEX_THREAD_ID` を前提にせず、threadの作成・検索・送信・改名・pin・archiveを一切行わない。sanitized report、automation memory、OS通知だけを通常どおり確定する。OS通知成功後は `H1_BACKGROUND_RUN_ID` を使い、`/Users/masa/.codex/automations/amd-os-l6-meeting-flow/run_state/background_completed/$H1_BACKGROUND_RUN_ID.json` に `state='reported'` と `reported_at_jst` だけを保存する。これはthread markerではなくrunner完了証跡であり、watchdogは呼ばない。
+`H1_BACKGROUND_RUNNER=1` の場合は、Codex Desktop の可視taskを作らないバックグラウンドrunである。この場合は `CODEX_THREAD_ID` を前提にせず、threadの作成・検索・送信・改名・pin・archiveを一切行わない。sanitized reportとautomation memoryを確定し、上の条件に当てはまる時だけOS通知を作る。reportを保存し、通知が必要ならその成功後に `H1_BACKGROUND_RUN_ID` を使い、`/Users/masa/.codex/automations/amd-os-l6-meeting-flow/run_state/background_completed/$H1_BACKGROUND_RUN_ID.json` に `state='reported'` と `reported_at_jst` だけを保存する。これはthread markerではなくrunner完了証跡であり、watchdogは呼ばない。
 
 - H-1本体は `list_threads` / `read_thread` / `create_thread` / `send_message_to_thread` を呼ばず、日次まとめの作成・検索・追記をしない。2026-07-20に日次配送直前でrunが止まったため、OS通知と日次配送を同じrunへ直列化しない。
 - 起動直後は `CODEX_THREAD_ID` と開始JSTを `/Users/masa/.codex/automations/amd-os-l6-meeting-flow/run_state/current_h1.json` へ書くだけにする。前回IDへ `set_thread_archived` を呼ばない。すでに閉じたIDへのapp tool callが停止点になった実績がある。
-- 毎時runの最後は、sanitized報告をローカル `reports/` と automation memory に確定してからOS通知へ送る。OS通知成功後、`/Users/masa/.codex/automations/amd-os-l6-meeting-flow/run_state/completed/$CODEX_THREAD_ID.json` に `thread_id`、`state='reported'`、`reported_at_jst` を保存する。**その次操作は `node pwa/scripts/archive_stale_h1_codex_threads.mjs --thread-id "$CODEX_THREAD_ID"` だけ**とし、日次送信・追加調査・説明commentary・別tool callを挟まない。
+- 毎時runの最後は、sanitized報告をローカル `reports/` と automation memory に確定する。OS通知が必要な結果だけ送信し、対象なし・変更なしは通知せず完了する。通知が必要な場合はその成功後、`/Users/masa/.codex/automations/amd-os-l6-meeting-flow/run_state/completed/$CODEX_THREAD_ID.json` に `thread_id`、`state='reported'`、`reported_at_jst` を保存する。**その次操作は `node pwa/scripts/archive_stale_h1_codex_threads.mjs --thread-id "$CODEX_THREAD_ID"` だけ**とし、日次送信・追加調査・説明commentary・別tool callを挟まない。
 - 非LLM LaunchAgent `jp.teamarmada.codex-h1-thread-watchdog` は、sanitized報告を確定済みの完了markerがあるrunをsession実体の有無にかかわらず回収する。完了markerのないrunは自動で閉じず、`unreported` として残留を可視化する。raw本文、他automation、日次まとめは対象にしない。
-- OS通知が失敗した場合は原因を見える化する。完了markerを書かず、次回runで配送を再試行できる状態を残す。
+- OS通知が必要な結果で送信に失敗した場合は原因を見える化する。完了markerを書かず、次回runで配送を再試行できる状態を残す。対象なし・変更なしにはOS通知も配送再試行もない。
 - reviewer は `reports/` の未集約sanitized報告とレビュワー結果を、reviewer自身のローカルreport・集約台帳・automation memoryへ確定する。日次まとめtaskは作らない。詳細は `pwa/scheduled-tasks/amd-os-l6-meeting-reviewer/SKILL.md` を見る。
 
 ## 候補がある時に必ず Read
@@ -898,7 +898,7 @@ Phase E: run summary
    - 例: `H-1は、終わった会議の議事録を作る、直近の議事録なしを再確認する、前後24時間の予定カードを同期し、ノーション議事録のひも付けを補完する係。今回は対象なし。`
 2. 件数を出すたびに、直後へ必ず内訳リストを書く。
 3. リストには、会議名 / 日時 / PJ / 今回の扱いだけを書く。raw本文、ノーション本文、個人情報、secret、Drive URL、Calendar URL、会議参加URLは書かない。
-4. 同じ報告をローカル `reports/` と automation memory に確定してからOS通知へ送る。通常のCodex task runでは、OS通知が成功したら次操作で現在の毎時runをアーカイブする。`H1_BACKGROUND_RUNNER=1` ではthreadがないためmarker・archiveを行わない。日次まとめへの追記はH-1本体では行わず、毎時45分のreviewerが未集約reportをまとめて送る。
+4. 同じ報告をローカル `reports/` と automation memory に確定する。会議記録・予定・ノーションひも付けを更新した時、人の判断が必要な時、処理が止まった時だけOS通知へ送る。既存カードの確認だけ、候補なし、変更なしではOS通知を送らない。通常のCodex task runでは、通知が必要な場合は成功後に次操作で現在の毎時runをアーカイブする。日次まとめへの追記はH-1本体では行わず、毎時45分のreviewerが未集約reportをまとめて送る。
 
 テンプレ:
 ```

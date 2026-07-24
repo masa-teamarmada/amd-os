@@ -14,6 +14,19 @@
 
 旧 GAS 153 / 074 は定期 writer として復活させない。
 
+## H-1の報告と通知
+
+H-1は、終わった会議の記録、議事録なしの再確認、前後24時間の予定カード、ノーション議事録のひも付けを整える定期確認である。sanitized reportとautomation memoryは毎run確定するが、`app_notifications(kind='h1_report')` は次の結果だけで作る。
+
+| 結果 | OS通知 | 意味 |
+|---|---|---|
+| `updated` | 通常通知 | 会議記録・予定カード・ノーションひも付けを新規保存または更新した |
+| `review_required` | 通常通知 | 人の判断が必要になった |
+| `blocked` | 緊急性の高い通知 | 必要な会議処理が止まった |
+| 対象なし / 変更なし / 既存カード確認のみ | 作らない | 内部reportとmemoryだけを残す |
+
+通知writerは `npm run notify:h1-report -- --outcome "<updated|review_required|blocked>" --run-key "<run id>" --body-file <sanitized report>` を使う。結果区分なし・旧 `--title` 指定の送信はhelperが拒否する。通知本文の先頭には、H-1の役割と今回見るべきことを日本語で入れる。
+
 ## 入力
 
 | source | 内容 |

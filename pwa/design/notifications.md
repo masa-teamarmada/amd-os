@@ -1,6 +1,6 @@
 # 通知 + つくよみ修正依頼 — 設計の正本
 
-最終更新: 2026-06-27 (MTG critical 誤爆停止)
+最終更新: 2026-07-24 (H-1 空振り通知停止)
 正本ステータス: 進化中。仕様変更したらここを同じ commit で更新する。
 
 ---
@@ -22,6 +22,8 @@ PWA は admin session 中に `CriticalRealtimeNotify` が `app_notifications` / 
 Swift は `app_notifications.native_notified_at IS NULL` の `connector_auth` を起動時/foreground復帰時に拾い、ローカル通知を即表示する。通知を表示したら `native_notified_at` を打つが、これは「Swiftへ配信済み」だけを表し、PWA/Swift共通の人間既読は引き続き `read_at`。Swift通知をタップすると通知ボックスを挟まず `reauth_url` を開き、`read_at` を打つ。ただし再認証リンクが閉じたり失敗した場合に再試行できるよう、Swift通知ボックスの「既読」タブにも `connector_auth` を残し、「再認証を開く」ボタンを出す。再認証は復旧レーンで、L2抽出の terminal blocker ではない。
 
 通知は表示上 `normal` と `critical` に分ける。`normal` は「OSに新データが入った / 候補が増えた / 通常レビュー」で、既存の L2 候補・MTGサマリ・VCニュース・通常の gap が入る。`critical` は「まさが見落とすと事故るもの」で、Notion等の connector 再認証、明示 critical の重大 guardrail 発火、重要 automation blocker が入る。MTG本文に NDA / 契約 / 法務 / SHA / COI / 再認証 / blocker などの語が出ただけでは critical にしない。`action_item` も「要対応」というラベルだけでは critical にしない。契約予兆や総会/役会も kind だけでは鳴らさず、明示 critical / 期限超過 / blocker / high以上の経営ガードレール発火になった時点で鳴らす。2026-06-27時点では DB 列を増やさず、`pwa/src/lib/notification-priority.ts` が既存の `kind/l2_kind/importance/meta/title/summary` から分類する。将来のDB案は `notification_priority text check in ('normal','critical') default 'normal'` を3通知テーブルに追加し、writer 明示値を優先、空なら同じ導出関数で補完する。
+
+H-1 (`app_notifications.kind='h1_report'`) は、会議記録・予定カード・ノーションひも付けを新規保存または更新した `updated`、人の判断が必要な `review_required`、必要な処理が止まった `blocked` だけを作る。候補なし、既存カードの確認だけ、変更なしはsanitized reportとautomation memoryだけを残し、通知行を作らない。writerは `--outcome` を必須にし、本文の先頭へ「H-1は何をする定期確認か」と今回見るべきことを日本語で入れる。`updated` と `review_required` はnormal、`blocked` はcriticalとする。
 
 分類ルール:
 
@@ -284,6 +286,7 @@ D-5 OS台帳差分と M-2 XRL根拠は、全文保存ではなく「OSへ入れ�
 
 | 日付 | 変更 |
 |---|---|
+| 2026-07-24 | **H-1 空振り通知停止**: H-1は会議記録・予定カード・ノーションひも付けを更新した時、人の判断が必要な時、処理が止まった時だけ `app_notifications(kind='h1_report')` を作る。候補なし、既存カード確認だけ、変更なしは内部reportとautomation memoryだけを残す。writerの `--outcome` を必須にし、通知本文の先頭でH-1の役割を説明する。 |
 | 2026-07-16 | **coverage_gap 通知の空カード防止**: 元候補が見つからない / 通知本文が薄すぎるカードは `重要メモにコピーする？` と聞かず、`コピー前に元情報を確認` に変えて「このカードだけではコピー対象を判断できない」と表示。肯定ボタンを disabled にし、`通知本文と確認先を見て判断してね` や scope ID を出さない。 |
 | 2026-07-16 | **coverage_gap 通知の質問化 v4**: 詳細欄から「会議メモで見つかった内容」「通知した理由」を廃止し、「コピーされる文章」「判断の目安」「コピーしても起きないこと」に変更。監査メモではなく、重要メモへ実際に残る一文を先頭に出す。 |
 | 2026-07-16 | **coverage_gap 通知の質問化 v3**: 画面から `目立たない話` とカード内の追加疑問文を削除。タイトルは `重要メモにコピーする？`、詳細欄は「会議メモで見つかった内容」「通知した理由」「ボタンを押すと起きること」へ統一し、元の会議要約を書き換えないことを明示。 |
