@@ -407,7 +407,7 @@ function formatDeltaLabel(deltaDays: number | null, dateCertainty: "confirmed" |
 function buildMilestoneLabelMap(milestones: SxManagementMilestone[]) {
   const labels = new Map<string, string>();
   milestones.forEach((milestone) => {
-    const title = displayManagementText(milestone.title).trim() || "名称未確認";
+    const title = nominalizeSxActionLabel(displayManagementText(milestone.title)).trim() || "名称未確認";
     if (milestone.id) labels.set(milestone.id, title);
     if (milestone.slug) labels.set(milestone.slug, title);
   });
