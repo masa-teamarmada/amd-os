@@ -331,6 +331,41 @@ expectIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx",
   "復元",
   "CategoryBand",
 ]);
+// spec (2026-07-24 二車線化): workspace内部の左レール(desktop 152px / mobile・tablet横帯)は
+// GlobalNavサイドバーとは別物。事業化ロードマップタイトル・関係先リスト名称・論点・仮説台帳セマンティック
+// テーブルが現行実装であることを固定する。
+expectIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", [
+  "lg:grid-cols-[152px_minmax(0,1fr)]",
+  "aria-label=\"経営診断ナビ\"",
+  "aria-label=\"事業化ロードマップ\"",
+  "kicker=\"論点・仮説台帳\"",
+  "data-testid=\"sx-issue-ledger-table\"",
+  "kicker=\"関係先管理\"",
+  "title=\"関係先リスト\"",
+  "<SxNineMonthTimeline",
+]);
+expectNotIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", [
+  "9か月の全体時間軸",
+  "協力機関の進捗",
+  "次の受け渡し",
+  "受け渡し先",
+]);
+expectIncludes("src/components/project-workspace/SxNineMonthTimeline.tsx", [
+  "事業化ロードマップ",
+  "formatPeriodLabel",
+  "`${firstYear}年${Number(firstMonth)}月",
+  "MIN_TIMELINE_PX",
+  "nominalizeSxActionLabel",
+]);
+expectNotIncludes("src/components/project-workspace/SxNineMonthTimeline.tsx", [
+  "9か月の全体時間軸",
+  "WIDE_TIMELINE_PX",
+]);
+expectIncludes("src/lib/sx-action-label.ts", [
+  "nominalizeSxActionLabel",
+  '["を締結する", "締結"]',
+  "SENTENCE_PUNCTUATION",
+]);
 {
   const dashboard = read("src/components/project-workspace/ProjectWorkspaceDashboard.tsx");
   const summaryIndex = dashboard.indexOf('id="management-summary"');
@@ -398,6 +433,10 @@ expectIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx",
   "<SxPartnerPipeline",
   "sx-management-ledger",
   "管理台帳・編集",
+  // 2026-07-24: DecisionLoopSection「関係先との約束」/ SelectedMilestoneContext「関係先・約束」
+  // は SxPartnerPipeline とは別の、関係先データの2つ目の公開ビュー。この import が落ちると
+  // 片方のビューだけ内部コードネーム(まさ/かる/ちこ)が再露出する。
+  "sxNormalizePublicName",
 ]);
 expectIncludes("src/lib/sx-proof-mapping.ts", [
   "SX_PROOF_THEME_SLUGS",
@@ -418,12 +457,14 @@ expectIncludes("src/components/project-workspace/SxProofOutcomes.tsx", [
 expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "sx-partner-pipeline",
   "sxPartnerDisplay",
+  // 2026-07-24: 外部PJメンバーにも見えるSX関係先台帳で内部コードネーム(まさ/かる/ちこ)を
+  // そのまま出さないための表示専用正規化。この import が落ちると本文/担当/ボール等に
+  // コードネームが再露出する (production DOM audit で検出済み)。
+  "sxNormalizePublicName",
   "deferredLowPriority",
   "保留・低優先（重要経路外・",
   "当方保有",
   "先方保有",
-  "中央受け渡し",
-  "期限 / 目標",
   "分類別件数ナビ",
   "分類は虹色にしない",
   "共同",
@@ -461,7 +502,15 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "終了（対応中から除外",
   "aria-labelledby={nameHeadingId}",
   "aria-pressed",
-  "grid-cols-[minmax(0,1fr)_56px_minmax(0,1fr)] md:grid-cols-[1fr_92px_1fr] xl:grid-cols-[168px_minmax(0,1fr)_128px_minmax(0,1fr)_138px_140px]",
+  // spec (2026-07-24 二車線化): 関係先リストの desktop 列は 関係先/当方の保有事項/先方の保有事項/
+  // 次の一手/目標状態/現在ボール・期限/やり取り履歴 の7列固定。tablet/mobile は当方/先方の二車線。
+  "grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:grid-cols-[1fr_1fr] xl:grid-cols-[128px_minmax(130px,1fr)_minmax(130px,1fr)_120px_120px_108px_124px]",
+  "関係先",
+  "当方の保有事項",
+  "先方の保有事項",
+  "次の一手",
+  "目標状態",
+  "現在ボール・期限",
   // spec P0-1/2 (2026-07-24, 4th audit round): InteractionRow mobile grid + timeline header grid.
   "grid-cols-[56px_minmax(0,1fr)_64px_44px]",
   "md:grid-cols-[56px_68px_minmax(130px,1fr)_64px_44px]",
@@ -528,6 +577,11 @@ expectNotIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "mask-image",
   // spec (2026-07-24 COO差し戻し4点目): ScrollHintArrowの薄い#a49d8cは#69665dへ統一済み、復活させない。
   "text-[#a49d8c]",
+  // spec (2026-07-24 二車線化): 中央受け渡し欄・協力機関の進捗名称は撤去済み
+  // (handoff_to/next_ball_ownerはDB互換フィールドとして内部にのみ残す。コード内コメントでの
+  // 言及まで禁止すると誤検知するため、ユーザー向けUI文言が明確な箇所だけを対象にする)。
+  "中央受け渡し",
+  "協力機関の進捗",
 ]);
 expectIncludes("src/lib/sx-management.ts", [
   "SxPartnerInteraction",

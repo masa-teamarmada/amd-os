@@ -10,6 +10,8 @@ import type {
   SxPartnerRoleKind,
 } from "@/lib/sx-management";
 import { SX_PROOF_DEFINITIONS, SX_PROOF_THEME_SLUGS, SX_THEME_PROOF_MAP, type SxProofThemeSlug } from "@/lib/sx-proof-mapping";
+import { nominalizeSxActionLabel, nominalizeSxNextActionLabel } from "@/lib/sx-action-label";
+import { sxNormalizePublicName } from "@/lib/sx-name-normalize";
 import {
   SxBadge,
   sxAllHoldingsForPartnerAudit,
@@ -351,28 +353,27 @@ function HoldingRow({
           <button
             type="button"
             onClick={() => onEdit(item.id)}
-            aria-label={`${partnerName} - ${item.title}を編集`}
+            aria-label={`${partnerName} - ${sxNormalizePublicName(item.title)}を編集`}
             className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-[#cfc7b9] text-[#514e47] hover:bg-[#fffdf7] ${FOCUS_RING}`}
           >
             <Pencil className="h-3 w-3" aria-hidden="true" />
           </button>
         )}
       </div>
-      <p className="mt-1 text-[11px] font-semibold leading-4 text-[#24231f]">{item.title}</p>
-      {item.detail && <p className="mt-0.5 text-[10px] leading-4 text-[#514e47]">{item.detail}</p>}
+      <p className="mt-1 text-[11px] font-semibold leading-4 text-[#24231f]">{nominalizeSxActionLabel(sxNormalizePublicName(item.title))}</p>
+      {item.detail && <p className="mt-0.5 text-[10px] leading-4 text-[#514e47]">{sxNormalizePublicName(item.detail)}</p>}
       <p className={`mt-0.5 text-[10px] ${overdue ? "font-semibold text-[#8c3329]" : "text-[#69665d]"}`}>
-        担当 {item.ownerLabel || "担当未確認"} ・ {sxFormatDueDateWithPrecision(item.dueDate, item.dueDatePrecision)}
+        担当 {item.ownerLabel ? sxNormalizePublicName(item.ownerLabel) : "担当未確認"} ・ {sxFormatDueDateWithPrecision(item.dueDate, item.dueDatePrecision)}
       </p>
       {/* sourceEvidence (一次根拠 — a commitment's primary backing, present regardless of status) and
           completionEvidence (完了の証拠 — proof a work item is actually done) are separate claims and
           must never be merged into one line (2026-07-24 P1 fix: an open commitment's 一次根拠 used to
           render mislabeled as "完了の証拠" even before anything was completed). */}
-      {item.sourceEvidence && <p className="mt-0.5 text-[10px] leading-4 text-[#514e47]">一次根拠: {item.sourceEvidence}</p>}
-      {item.completionCriteria && <p className="mt-0.5 text-[10px] leading-4 text-[#514e47]">完了条件: {item.completionCriteria}</p>}
+      {item.sourceEvidence && <p className="mt-0.5 text-[10px] leading-4 text-[#514e47]">一次根拠: {sxNormalizePublicName(item.sourceEvidence)}</p>}
+      {item.completionCriteria && <p className="mt-0.5 text-[10px] leading-4 text-[#514e47]">完了条件: {sxNormalizePublicName(item.completionCriteria)}</p>}
       {item.completedOn && <p className="mt-0.5 text-[10px] leading-4 text-[#205f49]">完了日: {sxFormatDate(item.completedOn)}</p>}
-      {item.completionEvidence && <p className="mt-0.5 text-[10px] leading-4 text-[#205f49]">完了の証拠: {item.completionEvidence}</p>}
-      {item.acceptedBy && <p className="mt-0.5 text-[10px] leading-4 text-[#205f49]">受領者: {item.acceptedBy}{item.acceptedOn ? ` ・ 受領日 ${sxFormatDate(item.acceptedOn)}` : ""}</p>}
-      {item.handoffTo && <p className="mt-0.5 text-[10px] leading-4 text-[#315f7d]">受け渡し先: {item.handoffTo}</p>}
+      {item.completionEvidence && <p className="mt-0.5 text-[10px] leading-4 text-[#205f49]">完了の証拠: {sxNormalizePublicName(item.completionEvidence)}</p>}
+      {item.acceptedBy && <p className="mt-0.5 text-[10px] leading-4 text-[#205f49]">受領者: {sxNormalizePublicName(item.acceptedBy)}{item.acceptedOn ? ` ・ 受領日 ${sxFormatDate(item.acceptedOn)}` : ""}</p>}
       <p className="mt-0.5 text-[10px] leading-4 text-[#69665d]">
         関連ゲート: {gateTitle || "ゲート未接続"}
         {proofLabels.length > 0 && <span className="text-[#315f7d]"> ・ 証明: {proofLabels.join(" / ")}</span>}
@@ -438,12 +439,28 @@ function HoldingsCell({
   );
 }
 
-function HandoffCell({ partner }: { partner: SxManagementPartner }) {
+/** Dedicated ball-control cell — shows only who currently holds the ball, never a next-handoff
+ * target (spec: 次の受け渡し先フィールドを撤去、現在ボールのみ表示). Used as the compact
+ * middle-lane cell below xl, and, combined with the due date, inside BallAndDueCell at xl. */
+function BallCell({ partner }: { partner: SxManagementPartner }) {
   return (
     <div className="min-w-0 text-center">
       <SxBadge tone={BALL_SIDE_TONE[partner.currentBallSide]}>{sxBallSideLabel(partner.currentBallSide)}</SxBadge>
-      <p className="mt-1 truncate text-[10px] font-semibold text-[#24231f]">{partner.currentBallOwner || "担当未確認"}</p>
-      <p className="mt-1 text-[10px] text-[#315f7d]">→ {partner.nextBallOwner || "未確認"}</p>
+      <p className="mt-1 truncate text-[10px] font-semibold text-[#24231f]">{partner.currentBallOwner ? sxNormalizePublicName(partner.currentBallOwner) : "担当未確認"}</p>
+    </div>
+  );
+}
+
+/** 現在ボール・期限 — ball control combined with the earliest holding due date (falling back to the
+ * partner-level due date), as its own labeled block distinct from 次の一手/目標状態 (spec 3/5: 次の
+ * 一手と目標状態を単一セルへ混在させない、現在ボール/期限は独立列・独立ブロック). */
+function BallAndDueCell({ partner, earliestHoldingDue }: { partner: SxManagementPartner; earliestHoldingDue: SxHoldingItem | null }) {
+  return (
+    <div className="min-w-0">
+      <BallCell partner={partner} />
+      <p className={`mt-1 text-center ${isDueUnset(partner) && earliestHoldingDue == null ? "font-semibold text-[#8c3329]" : "text-[10px] text-[#514e47]"}`}>
+        {earliestHoldingDue ? sxFormatDueDateWithPrecision(earliestHoldingDue.dueDate, earliestHoldingDue.dueDatePrecision) : sxFormatDueDateWithPrecision(partner.dueDate, partner.dueDatePrecision)}
+      </p>
     </div>
   );
 }
@@ -490,8 +507,8 @@ export function SxPartnerPipeline({
   const counts = sxComputeControlBandCounts(management.partners, management.asOf);
   const roleCounts = sxPrimaryRoleKindCounts(management.partners);
 
-  const rowGridCols = "grid-cols-[minmax(0,1fr)_56px_minmax(0,1fr)] md:grid-cols-[1fr_92px_1fr] xl:grid-cols-[168px_minmax(0,1fr)_128px_minmax(0,1fr)_138px_140px]";
-  const rowGapCols = "gap-x-1 md:gap-x-3";
+  const rowGridCols = "grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:grid-cols-[1fr_1fr] xl:grid-cols-[128px_minmax(130px,1fr)_minmax(130px,1fr)_120px_120px_108px_124px]";
+  const rowGapCols = "gap-x-2 md:gap-x-3 xl:gap-x-2";
 
   const rowProps = {
     milestoneTitleBySlug,
@@ -515,17 +532,17 @@ export function SxPartnerPipeline({
   return (
     <div className="overflow-hidden rounded-lg border border-[#d6cebf] bg-[#fffdf7]" data-testid="sx-partner-pipeline">
       <div className="border-b border-[#e4ddd0] bg-[#f8f5ec] px-3 py-2">
-        <p className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]">当方｜受け渡し｜先方 の二車線ボール管制</p>
+        <p className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]">当方・先方の保有事項と現在ボールの二車線管制</p>
         <h3 className="mt-0.5 text-sm font-semibold text-[#24231f]">誰が何を抱え、いつ何が届き、どのゲートが止まるか</h3>
       </div>
       <ControlBand counts={counts} />
       <CategoryNav counts={roleCounts} activeKind={activeRoleKind} onSelect={setActiveRoleKind} />
 
       <div className={`hidden xl:grid ${rowGridCols} ${rowGapCols} border-b border-[#e4ddd0] bg-[#f8f5ec] px-3 py-1.5 text-[10px] font-semibold text-[#69665d]`}>
-        <span>関係先 / 段階</span><span>当方保有</span><span className="text-center">中央受け渡し</span><span>先方保有</span><span>期限 / 目標</span><span>詳細</span>
+        <span>関係先</span><span>当方の保有事項</span><span>先方の保有事項</span><span>次の一手</span><span>目標状態</span><span>現在ボール・期限</span><span>やり取り履歴</span>
       </div>
       <div className={`grid xl:hidden ${rowGridCols} ${rowGapCols} border-b border-[#e4ddd0] bg-[#f8f5ec] px-3 py-1.5 text-[10px] font-semibold text-[#69665d]`}>
-        <span>当方保有</span><span className="text-center">受け渡し</span><span className="text-right">先方保有</span>
+        <span>当方保有</span><span className="text-right">先方保有</span>
       </div>
 
       {/* spec P1: role filter中に「対応中」groupがゼロでも保留/終了に絞り込み結果が残っていることが
@@ -637,7 +654,7 @@ function PartnerRow({
   return (
     <article aria-labelledby={nameHeadingId} className={`border-b border-[#eee9df] ${deferred ? "border-l-4 border-l-[#c9bfd0] bg-[#f8f5ec]" : ""}`}>
       <div className={`grid ${rowGridCols} ${rowGapCols} gap-y-2 px-3 py-2.5 text-[11px] leading-4`}>
-        <div className="col-span-3 col-start-1 row-start-1 min-w-0 xl:col-span-1 xl:col-start-1 xl:row-start-1">
+        <div className="col-span-2 col-start-1 row-start-1 min-w-0 xl:col-span-1 xl:col-start-1 xl:row-start-1">
           <div className="flex flex-wrap items-center gap-1">
             <p id={nameHeadingId} className="truncate font-semibold text-[#24231f]">{display.name}</p>
             {/* spec P1: partner/group sortもblocked partner最優先。並び替えだけでは画面から気付けない
@@ -692,10 +709,6 @@ function PartnerRow({
         </div>
 
         <div className="row-start-2 col-start-2 xl:col-start-3 xl:row-start-1">
-          <HandoffCell partner={partner} />
-        </div>
-
-        <div className="row-start-2 col-start-3 xl:col-start-4 xl:row-start-1">
           <HoldingsCell items={partnerHoldings} emptyLabel="先方保有 台帳0件（未整理/確認済み0件は未区別）" partnerName={display.name} today={today} milestoneTitleById={milestoneTitleById} milestoneSlugById={milestoneSlugById} onShowMore={() => onToggleExpand(partner.id)} />
           {canManage && onAddWorkItem && (
             <button type="button" onClick={() => onAddWorkItem(partner.id, "partner")} aria-label={`${display.name}の先方保有事項を追加`} title="保有事項を追加" className={`relative mt-1 inline-flex h-6 w-6 items-center justify-center rounded-md border border-[#cfc7b9] text-[#514e47] before:absolute before:inset-[-10px] before:content-[''] hover:bg-[#f8f5ec] ${FOCUS_RING}`}>
@@ -704,17 +717,32 @@ function PartnerRow({
           )}
         </div>
 
-        <div className="col-span-3 col-start-1 row-start-3 min-w-0 xl:col-span-1 xl:col-start-5 xl:row-start-1">
-          <p className={isDueUnset(partner) && earliestHoldingDue == null ? "font-semibold text-[#8c3329]" : "text-[#514e47]"}>
-            {earliestHoldingDue ? sxFormatDueDateWithPrecision(earliestHoldingDue.dueDate, earliestHoldingDue.dueDatePrecision) : sxFormatDueDateWithPrecision(partner.dueDate, partner.dueDatePrecision)}
-          </p>
-          <p className="mt-1 line-clamp-2 text-[10px] text-[#69665d]">目標状態: {partner.targetState || "未登録"}</p>
+        {/* 次の一手 and 目標状態 are always distinct labeled blocks, never combined into one cell/
+            sentence (spec 3/5). nextCommitment is action-bearing text so it's nominalized; targetState
+            is an explanatory end-state description and is left as-is (spec 6). */}
+        <div className="col-span-2 col-start-1 row-start-3 min-w-0 xl:col-span-1 xl:col-start-4 xl:row-start-1">
+          <p className="text-[10px] font-semibold tracking-[0.08em] text-[#69665d]">次の一手</p>
+          <p className="mt-0.5 line-clamp-3 text-[10px] leading-4 text-[#24231f]">{partner.nextCommitment ? nominalizeSxNextActionLabel(sxNormalizePublicName(partner.nextCommitment)) : "未設定"}</p>
+        </div>
+
+        <div className="col-span-2 col-start-1 row-start-4 min-w-0 xl:col-span-1 xl:col-start-5 xl:row-start-1">
+          <p className="text-[10px] font-semibold tracking-[0.08em] text-[#69665d]">目標状態</p>
+          <p className="mt-0.5 line-clamp-3 text-[10px] leading-4 text-[#69665d]">{partner.targetState ? sxNormalizePublicName(partner.targetState) : "未登録"}</p>
+        </div>
+
+        {/* 現在ボール・期限 — its own labeled block/column (spec 3/5), distinct from 次の一手/目標状態.
+            xl replaces the mobile lane's compact BallCell with this combined ball+due presentation. */}
+        <div className="col-span-2 col-start-1 row-start-5 min-w-0 xl:col-span-1 xl:col-start-6 xl:row-start-1">
+          <p className="text-[10px] font-semibold tracking-[0.08em] text-[#69665d] xl:hidden">現在ボール・期限</p>
+          <div className="mt-0.5 xl:mt-0">
+            <BallAndDueCell partner={partner} earliestHoldingDue={earliestHoldingDue} />
+          </div>
           <p className="mt-1 text-[10px] text-[#69665d]">最終接点 {sxFormatDate(partner.lastContactDate)}</p>
         </div>
 
-        <div className="col-span-3 col-start-1 row-start-4 min-w-0 xl:col-span-1 xl:col-start-6 xl:row-start-1">
-          <p className="line-clamp-2 text-[10px] text-[#69665d]">{milestoneTitles.length > 0 ? milestoneTitles.join(" / ") : "関連ゲート 未接続"}</p>
-          <p className="mt-1 line-clamp-2 text-[10px] text-[#315f7d]">{proofLabels.length > 0 ? proofLabels.join(" / ") : "証明 未接続"}</p>
+        <div className="col-span-2 col-start-1 row-start-6 min-w-0 xl:col-span-1 xl:col-start-7 xl:row-start-1">
+          <p className="line-clamp-2 text-[10px] text-[#69665d]">関連ゲート: {milestoneTitles.length > 0 ? milestoneTitles.join(" / ") : "未接続"}</p>
+          <p className="mt-1 line-clamp-2 text-[10px] text-[#315f7d]">寄与する証明: {proofLabels.length > 0 ? proofLabels.join(" / ") : "未接続"}</p>
           <p className="mt-1 line-clamp-2 text-[10px] text-[#514e47]">最新記録: {latestRecordSummary(partner.interactions)}</p>
           <button
             type="button"
@@ -774,7 +802,7 @@ function PartnerRow({
 function latestRecordSummary(interactions: SxPartnerInteraction[]) {
   const latest = sxLatestInteraction(interactions);
   if (!latest) return "履歴未登録";
-  return `${sxInteractionKindLabel(latest.interactionKind)}: ${latest.summary}`;
+  return `${sxInteractionKindLabel(latest.interactionKind)}: ${sxNormalizePublicName(latest.summary)}`;
 }
 
 /** One full-width ruled row per interaction, fixed h-16 (64px) + overflow-hidden (spec P0-2: 行を
@@ -803,11 +831,11 @@ function InteractionRow({
   onEdit?: (interactionId: string) => void;
 }) {
   const actorText =
-    interaction.actorSide === "shared" ? (interaction.actorLabel ? `共同・${interaction.actorLabel}` : "共同")
+    interaction.actorSide === "shared" ? (interaction.actorLabel ? `共同・${sxNormalizePublicName(interaction.actorLabel)}` : "共同")
     : interaction.actorSide === "unknown" ? "行為主体未確認"
-    : interaction.actorLabel || (interaction.actorSide === "sx" ? "当方" : "先方");
+    : interaction.actorLabel ? sxNormalizePublicName(interaction.actorLabel) : (interaction.actorSide === "sx" ? "当方" : "先方");
   const dateText = sxFormatEventDateWithPrecision(interaction.occurredOn, interaction.occurredOnPrecision);
-  const ballText = `→${sxBallSideLabel(interaction.ballSideAfter)}${interaction.ballOwnerAfter ? `・${interaction.ballOwnerAfter}` : ""}`;
+  const ballText = `→${sxBallSideLabel(interaction.ballSideAfter)}${interaction.ballOwnerAfter ? `・${sxNormalizePublicName(interaction.ballOwnerAfter)}` : ""}`;
   const gridColsClass = canManage
     ? "grid-cols-[56px_minmax(0,1fr)_64px_44px] md:grid-cols-[56px_68px_minmax(130px,1fr)_64px_44px]"
     : "grid-cols-[56px_minmax(0,1fr)_64px] md:grid-cols-[56px_68px_minmax(130px,1fr)_64px]";
@@ -819,17 +847,17 @@ function InteractionRow({
       </div>
       <p className="col-start-2 hidden min-w-0 truncate text-[10px] font-semibold leading-4 text-[#514e47] md:block" title={actorText}>{actorText}</p>
       <div className="col-start-2 min-w-0 md:col-start-3">
-        <p className="truncate text-[11px] font-semibold leading-4 text-[#24231f]" title={`${actorText} - ${interaction.summary}`}>
-          <span className="text-[#69665d] md:hidden">{actorText}：</span>{interaction.summary}
+        <p className="truncate text-[11px] font-semibold leading-4 text-[#24231f]" title={`${actorText} - ${sxNormalizePublicName(interaction.summary)}`}>
+          <span className="text-[#69665d] md:hidden">{actorText}：</span>{sxNormalizePublicName(interaction.summary)}
         </p>
-        {interaction.outcomeSummary && <p className="truncate text-[10px] leading-4 text-[#514e47]" title={interaction.outcomeSummary}>{interaction.outcomeSummary}</p>}
+        {interaction.outcomeSummary && <p className="truncate text-[10px] leading-4 text-[#514e47]" title={sxNormalizePublicName(interaction.outcomeSummary)}>{sxNormalizePublicName(interaction.outcomeSummary)}</p>}
       </div>
       <p className="col-start-3 min-w-0 truncate text-right text-[10px] leading-4 text-[#315f7d] md:col-start-4" title={ballText}>{ballText}</p>
       {canManage && (
         <button
           type="button"
           onClick={() => onEdit?.(interaction.id)}
-          aria-label={`${partnerName} - ${interaction.summary}を編集`}
+          aria-label={`${partnerName} - ${sxNormalizePublicName(interaction.summary)}を編集`}
           className={`col-start-4 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-[#cfc7b9] text-[#514e47] hover:bg-[#fffdf7] md:col-start-5 ${FOCUS_RING}`}
         >
           <Pencil className="h-3 w-3" aria-hidden="true" />
@@ -943,7 +971,7 @@ function PartnerLedgerDetails({
                 <SxBadge tone={role.isPrimary ? "border-[#315f7d] bg-[#eef3f5] text-[#315f7d]" : "border-[#d6cebf] bg-[#f8f5ec] text-[#69665d]"}>{role.isPrimary ? "主分類" : "副分類"}</SxBadge>
                 <span className="font-semibold text-[#24231f]">{sxPartnerRoleKindLabel(role.roleKind)}</span>
                 <span className="text-[#69665d]">{sxRelationshipStateLabel(role.relationshipState)}</span>
-                {role.roleLabel && <span className="text-[#69665d]">/ {role.roleLabel}</span>}
+                {role.roleLabel && <span className="text-[#69665d]">/ {sxNormalizePublicName(role.roleLabel)}</span>}
                 {canManage && onEditRole && (
                   <button
                     type="button"
@@ -992,18 +1020,18 @@ function PartnerLedgerDetails({
                       open/blocked/completed/cancelled等を識別できる). */}
                   <SxBadge tone={HOLDING_STATUS_TONE[commitment.status] || HOLDING_STATUS_TONE.open}>{HOLDING_STATUS_LABEL[commitment.status] || "未確認"}</SxBadge>
                 </div>
-                <p className="mt-1 font-semibold text-[#24231f]">{commitment.title}</p>
-                <p className="mt-1 text-[#69665d]">{commitment.commitmentText}</p>
+                <p className="mt-1 font-semibold text-[#24231f]">{nominalizeSxActionLabel(sxNormalizePublicName(commitment.title))}</p>
+                <p className="mt-1 text-[#69665d]">{sxNormalizePublicName(commitment.commitmentText)}</p>
                 {/* Both owners always render — a promise always has a counterparty side and an SX
                     follow-up side, never picked conditionally by commitmentKind (spec: 両ownerを表示). */}
-                <p className="mt-1 text-[10px] text-[#69665d]">相手 {commitment.counterpartyOwner || "未確認"} ・ SX {commitment.sxOwner || "未確認"}</p>
+                <p className="mt-1 text-[10px] text-[#69665d]">相手 {commitment.counterpartyOwner ? sxNormalizePublicName(commitment.counterpartyOwner) : "未確認"} ・ SX {commitment.sxOwner ? sxNormalizePublicName(commitment.sxOwner) : "未確認"}</p>
                 <p className="mt-1 text-[10px] text-[#69665d]">約束日 {sxFormatDate(commitment.promisedOn)} ・ 期限 {sxFormatDate(commitment.dueDate)}</p>
                 {commitment.completedOn && <p className="mt-1 text-[10px] text-[#205f49]">完了日: {sxFormatDate(commitment.completedOn)}</p>}
                 {/* commitment.evidence is 一次根拠 — backing that the promise exists/was made, present
                     regardless of status. A commitment has no distinct completion-evidence field of its
                     own, so this must never be relabeled "完了の証拠" (spec: commitment evidenceを完了
                     証拠とは呼ばない). */}
-                {commitment.evidence && <p className="mt-1 text-[10px] text-[#514e47]">一次根拠: {commitment.evidence}</p>}
+                {commitment.evidence && <p className="mt-1 text-[10px] text-[#514e47]">一次根拠: {sxNormalizePublicName(commitment.evidence)}</p>}
                 {commitment.nextReviewOn && <p className="mt-1 text-[10px] text-[#69665d]">次回確認 {sxFormatDate(commitment.nextReviewOn)}</p>}
                 {/* 出典 — read-only provenance, matching HoldingRow's format. sourceRef is never rendered
                     verbatim; sxSourceRefDisplayLabel masks raw URLs/internal tracking-key shapes first. */}
@@ -1056,11 +1084,11 @@ function InteractionFullRow({
   onEdit?: (interactionId: string) => void;
 }) {
   const actorText =
-    interaction.actorSide === "shared" ? (interaction.actorLabel ? `共同・${interaction.actorLabel}` : "共同")
+    interaction.actorSide === "shared" ? (interaction.actorLabel ? `共同・${sxNormalizePublicName(interaction.actorLabel)}` : "共同")
     : interaction.actorSide === "unknown" ? "行為主体未確認"
-    : interaction.actorLabel || (interaction.actorSide === "sx" ? "当方" : "先方");
+    : interaction.actorLabel ? sxNormalizePublicName(interaction.actorLabel) : (interaction.actorSide === "sx" ? "当方" : "先方");
   const dateText = sxFormatEventDateWithPrecision(interaction.occurredOn, interaction.occurredOnPrecision);
-  const ballText = `${sxBallSideLabel(interaction.ballSideAfter)}${interaction.ballOwnerAfter ? ` ・ ${interaction.ballOwnerAfter}` : ""}`;
+  const ballText = `${sxBallSideLabel(interaction.ballSideAfter)}${interaction.ballOwnerAfter ? ` ・ ${sxNormalizePublicName(interaction.ballOwnerAfter)}` : ""}`;
   return (
     <li className="p-2.5 text-[11px] leading-5">
       <div className="flex flex-wrap items-center justify-between gap-1">
@@ -1072,7 +1100,7 @@ function InteractionFullRow({
           <button
             type="button"
             onClick={() => onEdit(interaction.id)}
-            aria-label={`${partnerName} - ${interaction.summary}を編集`}
+            aria-label={`${partnerName} - ${sxNormalizePublicName(interaction.summary)}を編集`}
             className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-[#cfc7b9] text-[#514e47] hover:bg-[#f8f5ec] ${FOCUS_RING}`}
           >
             <Pencil className="h-3 w-3" aria-hidden="true" />
@@ -1080,8 +1108,8 @@ function InteractionFullRow({
         )}
       </div>
       <p className="mt-1 text-[10px] font-semibold text-[#514e47]">主体: {actorText}</p>
-      <p className="mt-0.5 font-semibold leading-5 text-[#24231f]">{interaction.summary}</p>
-      {interaction.outcomeSummary && <p className="mt-0.5 leading-5 text-[#514e47]">{interaction.outcomeSummary}</p>}
+      <p className="mt-0.5 font-semibold leading-5 text-[#24231f]">{sxNormalizePublicName(interaction.summary)}</p>
+      {interaction.outcomeSummary && <p className="mt-0.5 leading-5 text-[#514e47]">{sxNormalizePublicName(interaction.outcomeSummary)}</p>}
       <p className="mt-0.5 text-[10px] leading-4 text-[#315f7d]">ボール: {ballText}</p>
     </li>
   );

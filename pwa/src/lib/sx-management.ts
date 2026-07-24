@@ -877,9 +877,39 @@ function todayJst() {
   return `${get("year")}-${get("month")}-${get("day")}`;
 }
 
-function horizonMonths() {
-  return Array.from({ length: 9 }, (_, index) => {
-    const date = new Date(Date.UTC(2026, 6 + index, 1));
+const HORIZON_MONTHS_MAX = 60;
+
+function toYearMonth(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const match = /^(\d{4})-(\d{2})/.exec(value);
+  if (!match) return null;
+  return `${match[1]}-${match[2]}`;
+}
+
+function horizonMonths(objective: SxObjective | null, milestones: SxManagementMilestone[], asOf: string): string[] {
+  const candidates: string[] = [];
+  for (const milestone of milestones) {
+    for (const value of [milestone.plannedStart, milestone.plannedEnd, milestone.forecastEnd, milestone.actualEnd]) {
+      const ym = toYearMonth(value);
+      if (ym) candidates.push(ym);
+    }
+  }
+  const objectiveYm = toYearMonth(objective?.targetDate);
+  if (objectiveYm) candidates.push(objectiveYm);
+
+  const asOfYm = toYearMonth(asOf) || asOf.slice(0, 7);
+  if (!candidates.length) return [asOfYm];
+
+  candidates.sort();
+  const startYm = candidates[0];
+  const endYm = candidates[candidates.length - 1];
+  const [startYear, startMonth] = startYm.split("-").map(Number);
+  const [endYear, endMonth] = endYm.split("-").map(Number);
+  const totalMonths = (endYear - startYear) * 12 + (endMonth - startMonth) + 1;
+  const length = Math.max(1, Math.min(totalMonths, HORIZON_MONTHS_MAX));
+
+  return Array.from({ length }, (_, index) => {
+    const date = new Date(Date.UTC(startYear, startMonth - 1 + index, 1));
     return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
   });
 }
@@ -1132,5 +1162,5 @@ export async function getSxManagementBundle(projectId: string, canManage: boolea
   const judgment = computeSxJudgment(tracks, milestones, decisions, today, { kpis, actions, commitments: judgmentCommitments, roles: organizationRoles, dag, objectivePresent: Boolean(objective), outcomesCount: outcomes.length });
   const partnerRoles = partners.flatMap((partner) => partner.roles);
   const partnerWorkItems = partners.flatMap((partner) => partner.workItems);
-  return { asOf: today, horizonMonths: horizonMonths(), objective, outcomes, kpis, dependencies: dependencyDtos, dag, judgment, tracks, milestones, issues, hypotheses, evidence, validationRuns, decisions, actions, partners, partnerCommitments: commitments, partnerInteractions: interactions, partnerRoles, partnerWorkItems, technicalTests, fundingSnapshots, organizationRoles, raci, capacity, history, fieldAudit, canManage, hasData: Boolean(objective || outcomes.length || milestones.length || issues.length || partners.length || decisions.length) };
+  return { asOf: today, horizonMonths: horizonMonths(objective, milestones, today), objective, outcomes, kpis, dependencies: dependencyDtos, dag, judgment, tracks, milestones, issues, hypotheses, evidence, validationRuns, decisions, actions, partners, partnerCommitments: commitments, partnerInteractions: interactions, partnerRoles, partnerWorkItems, technicalTests, fundingSnapshots, organizationRoles, raci, capacity, history, fieldAudit, canManage, hasData: Boolean(objective || outcomes.length || milestones.length || issues.length || partners.length || decisions.length) };
 }

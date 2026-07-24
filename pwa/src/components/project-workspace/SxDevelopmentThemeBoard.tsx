@@ -229,7 +229,7 @@ export function SxDevelopmentThemeBoard({ management }: { management: SxManageme
         ))}
       </ol>
 
-      <div className="hidden lg:block">
+      <div className="hidden xl:block">
         <div className="grid grid-cols-[minmax(130px,1.15fr)_72px_minmax(128px,1.2fr)_minmax(118px,1.1fr)_minmax(112px,1.05fr)_minmax(118px,1.1fr)_minmax(128px,1.15fr)_minmax(112px,1fr)] border-b border-[#d6cebf] bg-[#f8f5ec] text-[9px] font-semibold text-[#777166]">
           {['テーマ / 位置づけ', '状態', '完了条件', '証拠', '未確定事項', '試験条件 / 次実験', '担当 / 日程', '寄与先ゲート'].map((label) => <div key={label} className="px-2 py-1.5">{label}</div>)}
         </div>
@@ -255,7 +255,7 @@ export function SxDevelopmentThemeBoard({ management }: { management: SxManageme
         ))}
       </div>
 
-      <div className="hidden md:block lg:hidden">
+      <div className="hidden md:block xl:hidden">
         <div className="grid grid-cols-[150px_70px_minmax(0,1fr)_190px] border-b border-[#d6cebf] bg-[#f8f5ec] text-[9px] font-semibold text-[#777166]">
           <div className="px-2 py-1.5">テーマ / 位置づけ</div><div className="px-1 py-1.5">状態</div><div className="px-2 py-1.5">完了条件 / 証拠 / 次実験</div><div className="px-2 py-1.5">担当・期限 / 寄与先</div>
         </div>

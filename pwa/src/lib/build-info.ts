@@ -7,7 +7,7 @@
  *
  * 仕様は pwa/CLAUDE.md の「🔢 build version の bump up」セクションを参照。
  */
-export const BUILD_VERSION = "v3.49.2";
+export const BUILD_VERSION = "v3.49.3";
 
 export type PublicBuildInfo = {
   build_version: string;
