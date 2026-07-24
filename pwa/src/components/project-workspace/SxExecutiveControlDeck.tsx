@@ -335,9 +335,9 @@ export function SxExecutiveControlDeck({
         })}
       </div>
 
-      {/* 主段: 重要経路レール + 対応待ち/直近アクション */}
-      <div className="flex flex-col lg:grid lg:grid-cols-[58%_42%]">
-        <div className="order-2 min-w-0 border-b border-[#e4ddd0] px-3 py-2 lg:order-1 lg:border-b-0 lg:border-r">
+      {/* 主段: 重要経路レール（lg以上は全幅バンド） + 対応待ち/直近アクション（lg以上は2カラム） */}
+      <div className="flex flex-col">
+        <div className="order-2 min-w-0 border-b border-[#e4ddd0] px-3 py-2 lg:order-1" data-testid="sx-critical-path-band">
           <h3 className="text-[9px] font-semibold tracking-[0.14em] text-[#38745d]">重要経路</h3>
           {!rail.valid ? (
             <p className="mt-2 rounded-md border border-dashed border-[#b5533f] bg-[#f9e4e1] px-2.5 py-2 text-[11px] font-semibold text-[#8c3329]" data-testid="sx-critical-path-rail">
@@ -406,40 +406,42 @@ export function SxExecutiveControlDeck({
           )}
         </div>
 
-        <div className="order-1 min-w-0 px-3 py-2 lg:order-2">
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="text-[9px] font-semibold tracking-[0.14em] text-[#38745d]">対応待ち（優先順）</h3>
-            <span className="text-[9px] text-[#777166]">{queue.totalCount}件中 上位{queue.rows.length}件</span>
-          </div>
-          {queue.rows.length === 0 ? (
-            <p className="mt-2 text-[11px] text-[#69665d]" data-testid="sx-intervention-queue">対応待ちの重要経路案件は検出なし。</p>
-          ) : (
-            <>
-              <table className="mt-1.5 hidden w-full border-collapse text-[10px] sm:table" data-testid="sx-intervention-queue">
-                <caption className="sr-only">重要経路の対応待ち、優先度の高い順</caption>
-                <thead>
-                  <tr className="border-b border-[#e4ddd0] text-left text-[9px] text-[#777166]">
-                    <th scope="col" className="py-1 pr-2 font-semibold">対象</th>
-                    <th scope="col" className="py-1 pr-2 font-semibold">ボール / 担当</th>
-                    <th scope="col" className="py-1 pr-2 font-semibold">期限</th>
-                    <th scope="col" className="py-1 font-semibold">止まるゲート</th>
-                  </tr>
-                </thead>
-                <tbody>
+        <div className="order-1 grid min-w-0 grid-cols-1 lg:order-2 xl:grid-cols-2" data-testid="sx-queue-columns">
+          <section className="min-w-0 border-b border-[#e4ddd0] px-3 py-2 xl:border-b-0 xl:border-r">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-[9px] font-semibold tracking-[0.14em] text-[#38745d]">対応待ち（優先順）</h3>
+              <span className="text-[9px] text-[#777166]">{queue.totalCount}件中 上位{queue.rows.length}件</span>
+            </div>
+            {queue.rows.length === 0 ? (
+              <p className="mt-2 text-[11px] text-[#69665d]" data-testid="sx-intervention-queue">対応待ちの重要経路案件は検出なし。</p>
+            ) : (
+              <>
+                <table className="mt-1.5 hidden w-full border-collapse text-[10px] xl:table" data-testid="sx-intervention-queue">
+                  <caption className="sr-only">重要経路の対応待ち、優先度の高い順</caption>
+                  <thead>
+                    <tr className="border-b border-[#e4ddd0] text-left text-[9px] text-[#777166]">
+                      <th scope="col" className="py-1 pr-2 font-semibold">対象</th>
+                      <th scope="col" className="py-1 pr-2 font-semibold">ボール / 担当</th>
+                      <th scope="col" className="py-1 pr-2 font-semibold">期限</th>
+                      <th scope="col" className="py-1 font-semibold">止まるゲート</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {queue.rows.map((row: SxEcdInterventionRow) => (
+                      <InterventionRowDesktop key={row.key} row={row} onSelectMilestone={onSelectMilestone} />
+                    ))}
+                  </tbody>
+                </table>
+                <ul className="mt-1.5 xl:hidden" data-testid="sx-intervention-queue-mobile">
                   {queue.rows.map((row: SxEcdInterventionRow) => (
-                    <InterventionRowDesktop key={row.key} row={row} onSelectMilestone={onSelectMilestone} />
+                    <InterventionRowMobile key={row.key} row={row} onSelectMilestone={onSelectMilestone} />
                   ))}
-                </tbody>
-              </table>
-              <ul className="mt-1.5 sm:hidden" data-testid="sx-intervention-queue-mobile">
-                {queue.rows.map((row: SxEcdInterventionRow) => (
-                  <InterventionRowMobile key={row.key} row={row} onSelectMilestone={onSelectMilestone} />
-                ))}
-              </ul>
-            </>
-          )}
+                </ul>
+              </>
+            )}
+          </section>
 
-          <div className="mt-3 border-t border-[#e4ddd0] pt-2">
+          <section className="min-w-0 px-3 py-2">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-[9px] font-semibold tracking-[0.14em] text-[#38745d]">直近アクション</h3>
               <span className="text-[9px] text-[#777166]">{upcoming.totalCount}件中 上位{upcoming.rows.length}件</span>
@@ -451,7 +453,7 @@ export function SxExecutiveControlDeck({
                 {upcoming.rows.map((row) => <UpcomingRow key={row.key} row={row} />)}
               </ul>
             )}
-          </div>
+          </section>
         </div>
       </div>
     </section>

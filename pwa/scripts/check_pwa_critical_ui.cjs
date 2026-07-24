@@ -814,6 +814,13 @@ expectIncludes("src/components/project-workspace/SxExecutiveControlDeck.tsx", [
   "prefers-reduced-motion",
   "callsOnSelectMilestone",
   "sxEcdFormatDueDate",
+  // Round 17: critical path rail is a full-width band (lg+) directly below the 4-pillar strip;
+  // intervention + upcoming queues are two xl-only side-by-side columns below it, kept as
+  // separate <section> elements. Mobile/tablet order must keep queues before the rail.
+  "sx-critical-path-band",
+  "sx-queue-columns",
+  '"order-2 min-w-0 border-b border-[#e4ddd0] px-3 py-2 lg:order-1"',
+  '"order-1 grid min-w-0 grid-cols-1 lg:order-2 xl:grid-cols-2"',
 ]);
 expectNotIncludes("src/components/project-workspace/SxExecutiveControlDeck.tsx", [
   "相手先要フォロー",
