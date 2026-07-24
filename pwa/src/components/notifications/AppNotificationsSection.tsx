@@ -158,6 +158,7 @@ function NotificationRow({
     reason?: string;
   } | null;
   const primaryReauthUrl = meta?.reauth_url || meta?.reauth_install_url || meta?.reauth_app_url;
+  const actionContract = appNotificationActionContract(item.meta);
 
   const onRead = async () => {
     setBusy(true);
@@ -213,6 +214,17 @@ function NotificationRow({
           {item.body && (
             <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap line-clamp-3">{item.body}</p>
           )}
+          <div className="mt-2 rounded border border-slate-200 bg-slate-50 p-2 text-[11px] text-slate-600">
+            {actionContract ? (
+              <>
+                <div><span className="font-medium">確認・反映先: </span>{actionContract.destination}</div>
+                <div className="mt-1"><span className="font-medium">追加・更新する情報: </span>{actionContract.changes.join(" / ")}</div>
+                <div className="mt-1"><span className="font-medium">この通知の扱い: </span>{actionContract.effect}</div>
+              </>
+            ) : (
+              <div>この通知は実行結果の報告。追加先・更新内容が記録されていないため、このカードから正本の反映完了とは判断しない。</div>
+            )}
+          </div>
           <div className="flex items-center gap-2 text-[11px] mt-2">
             {item.link && (
               <SmartLink
@@ -275,6 +287,20 @@ function NotificationRow({
       </div>
     </li>
   );
+}
+
+function appNotificationActionContract(meta: Record<string, unknown> | null): { destination: string; changes: string[]; effect: string } | null {
+  const raw = meta?.action_contract ?? meta?.notification_contract;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const contract = raw as Record<string, unknown>;
+  const destination = typeof contract.destination_label === "string" ? contract.destination_label.trim() : "";
+  const changes = Array.isArray(contract.changes)
+    ? contract.changes.filter((value): value is string => typeof value === "string" && value.trim().length > 0).map((value) => value.trim())
+    : [];
+  const effect = typeof contract.effect === "string"
+    ? contract.effect.trim()
+    : typeof contract.approval_effect === "string" ? contract.approval_effect.trim() : "";
+  return destination && changes.length > 0 && effect ? { destination, changes, effect } : null;
 }
 
 function SmartLink({

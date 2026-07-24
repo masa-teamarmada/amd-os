@@ -65,6 +65,13 @@ async function main() {
       notification_channel: OUTCOMES[outcome].notificationChannel,
       generated_at: now,
       sanitized: true,
+      notification_contract: {
+        destination_label: "対象PJの会議記録・予定カード",
+        changes: ["本文に記した対象会議の記録、予定カード、議事録ひも付けの確認結果"],
+        effect: outcome === "updated"
+          ? "本文に記した対象だけを更新済みとして報告する。該当がない実行は通知しない。"
+          : "本文に記した確認・停止の状態を報告する通知。ここから別の正本データは追加しない。",
+      },
     },
   };
 

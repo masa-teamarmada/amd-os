@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback, useLayoutEffect, useRef } from "react";
+import Link from "next/link";
 import { LinkedMemberText } from "@/components/members/LinkedMemberText";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -93,6 +94,51 @@ function isCoverageGapItem(i: UnifiedItem): boolean {
   return i.kind === "l2" && i.data.l2_kind === "coverage_gap";
 }
 
+function isGovernanceCoverageGap(n: Notification): boolean {
+  const meta = objectValue(n.metadata_json);
+  return normalizeCoverageTarget(textFromUnknown(meta.proposed_target_l2)) === "shareholder_meeting";
+}
+
+type GovernanceActionContract = {
+  destination: string;
+  href: string;
+  changes: string[];
+  approvalLabel: string;
+  rejectionLabel: string;
+  approvalEffect: string;
+  rejectionEffect: string;
+};
+
+function governanceActionContract(n: Notification): GovernanceActionContract {
+  const meta = objectValue(n.metadata_json);
+  const stored = objectValue(meta.action_contract);
+  const storedChanges = Array.isArray(stored.changes)
+    ? stored.changes.map(textFromUnknown).filter(Boolean)
+    : [];
+  const meetingType = textFromUnknown(meta.meeting_type) || "未確認";
+  const meetingDate = textFromUnknown(meta.meeting_date) || "未確認";
+  const agenda = textFromUnknown(meta.agenda_summary);
+  const resolutionCount = Number(meta.resolution_count);
+  const attachmentNames = Array.isArray(meta.attachment_names)
+    ? meta.attachment_names.map(textFromUnknown).filter(Boolean)
+    : [];
+  return {
+    destination: textFromUnknown(stored.destination_label) || "会社概要 → 総会・取締役会",
+    href: textFromUnknown(stored.destination_href) || `/project/${n.target_id}/cockpit?tab=company`,
+    changes: storedChanges.length > 0 ? storedChanges : [
+      `会議種別: ${meetingType}`,
+      `開催日: ${meetingDate}`,
+      `議題: ${agenda || "根拠欄で確認"}`,
+      `決議: ${Number.isFinite(resolutionCount) && resolutionCount > 0 ? `${resolutionCount}件` : "根拠欄で確認"}`,
+      `添付: ${attachmentNames.length > 0 ? attachmentNames.join("、") : "根拠欄で確認"}`,
+    ],
+    approvalLabel: textFromUnknown(stored.approval_label) || "この開催履歴を追加する",
+    rejectionLabel: textFromUnknown(stored.rejection_label) || "追加しない",
+    approvalEffect: textFromUnknown(stored.approval_effect) || "会社概要の「総会・取締役会」に開催履歴を1件追加する。メール送信、資料アップロード、元メールや元資料の編集はしない。",
+    rejectionEffect: textFromUnknown(stored.rejection_effect) || "この候補を見送る。会社概要の開催履歴は追加しない。",
+  };
+}
+
 function isTextbookInsightItem(i: UnifiedItem): boolean {
   return i.kind === "l2" && i.data.l2_kind === "textbook_insight";
 }
@@ -105,6 +151,7 @@ function itemDisplayTitle(i: UnifiedItem): string {
 function itemMetaLabel(i: UnifiedItem, projectMap: Record<string, string>): string {
   if (isCoverageGapItem(i)) {
     const n = i.data as Notification;
+    if (isGovernanceCoverageGap(n)) return `開催履歴の追加 / ${projectMap[n.target_id] ?? n.target_id}`;
     return `会議メモの確認 / ${projectMap[n.target_id] ?? n.target_id}`;
   }
   if (i.kind === "l2") {
@@ -797,6 +844,34 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
             .limit(1);
           if (error) throw error;
           rows = (data ?? []).map((r) => {
+            if (normalizeCoverageTarget(textFromUnknown(r.proposed_target_l2)) === "shareholder_meeting") {
+              const meeting = objectValue(objectValue(r.evidence_refs_json).governance_meeting);
+              const resolutions = Array.isArray(meeting.resolutions_json) ? meeting.resolutions_json : [];
+              const attachments = Array.isArray(meeting.attachments_json) ? meeting.attachments_json : [];
+              const resolutionLines = resolutions
+                .map((value) => {
+                  if (typeof value === "string") return textFromUnknown(value);
+                  const resolution = objectValue(value);
+                  return textFromUnknown(resolution.title) || textFromUnknown(resolution.resolution) || textFromUnknown(resolution.summary);
+                })
+                .filter(Boolean)
+                .slice(0, 10);
+              const attachmentNames = attachments
+                .map((value) => textFromUnknown(objectValue(value).name))
+                .filter(Boolean)
+                .slice(0, 10);
+              return {
+                heading: "会社概要に追加する開催履歴",
+                body: [
+                  `会議種別: ${textFromUnknown(meeting.meeting_type) || "未確認"}`,
+                  `開催日: ${textFromUnknown(meeting.meeting_date) || "未確認"}`,
+                  `議題: ${textFromUnknown(meeting.agenda_summary) || String(r.summary ?? "未確認")}`,
+                  `決議: ${resolutionLines.length > 0 ? resolutionLines.map((value) => `・${value}`).join("\n") : "記載なし"}`,
+                  `添付: ${attachmentNames.length > 0 ? attachmentNames.join("、") : "記載なし"}`,
+                ].join("\n"),
+                sub: "採用すると、会社概要 → 総会・取締役会にこの開催履歴を1件追加する。",
+              };
+            }
             const summary = String(r.summary ?? n.summary ?? "");
             const evidence = objectValue(r.evidence_refs_json);
             const copyMemo = coverageGapCopyMemo(summary, evidence, String(r.title ?? n.title ?? ""));
@@ -1100,7 +1175,9 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
           const priority = unifiedItemPriority(i);
           const alreadySaved = isAlreadySavedForReview(i);
           const actionCopy = reviewActionCopyForItem(i, alreadySaved);
-          const coverageGapCopyBlocked = isCoverageGapItem(i) && coverageGapDetailBlocksCopy(detail);
+          const coverageGapCopyBlocked = isCoverageGapItem(i)
+            && !isGovernanceCoverageGap(i.data as Notification)
+            && coverageGapDetailBlocksCopy(detail);
           const actionPrompt = coverageGapCopyBlocked ? coverageGapBlockedPrompt(detail) : actionCopy.prompt;
           const actionFootnote = coverageGapCopyBlocked ? coverageGapBlockedFootnote(detail) : actionCopy.footnote;
           const yesLabel = coverageGapCopyBlocked ? coverageGapBlockedYesLabel(detail) : actionCopy.yesLabel;
@@ -1197,18 +1274,26 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                     </div>
                   )}
 
+                  {isCoverageGapItem(i) && isGovernanceCoverageGap(i.data as Notification) && (
+                    <GovernanceActionContractPanel contract={governanceActionContract(i.data as Notification)} />
+                  )}
+
                   {/* 実データ (lazy fetch) */}
                   <DetailSection detail={details[key]} title={detailTitleForItem(i)} />
 
-                  {/* 元データへの deep link */}
-                  <div className="text-xs">
-                    <span className="text-muted-foreground">他の場所でも確認: </span>
-                    {i.kind === "l2" ? (
-                      <DeepLinkForL2 n={i.data} />
-                    ) : (
-                      <DeepLinkForMeeting n={i.data} />
-                    )}
-                  </div>
+                  {/* どこに何が反映されるかを、通知カード内でも先に明示する。 */}
+                  {!(isCoverageGapItem(i) && isGovernanceCoverageGap(i.data as Notification)) && (
+                    <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs dark:border-slate-800 dark:bg-slate-900/40">
+                      <div className="font-medium text-slate-600 dark:text-slate-300">確認・反映先</div>
+                      <div className="mt-1 text-blue-700 dark:text-blue-300">
+                        {i.kind === "l2" ? <DeepLinkForL2 n={i.data} /> : <DeepLinkForMeeting n={i.data} />}
+                      </div>
+                      <div className="mt-2 font-medium text-slate-600 dark:text-slate-300">追加・更新する情報</div>
+                      <p className="mt-1 whitespace-pre-wrap text-slate-700 dark:text-slate-200">{i.kind === "l2" ? i.data.summary || "通知本文に記載の候補" : i.data.summary_short || "会議サマリの確認記録"}</p>
+                      <div className="mt-2 font-medium text-slate-600 dark:text-slate-300">この操作の結果</div>
+                      <p className="mt-1 text-slate-700 dark:text-slate-200">{actionFootnote}</p>
+                    </div>
+                  )}
 
                   {/* 既存の修正依頼 */}
                   {itemFeedbacks.length > 0 && (
@@ -1408,6 +1493,28 @@ function DetailSection({ detail, title = "抽出された内容" }: { detail: De
   );
 }
 
+function GovernanceActionContractPanel({ contract }: { contract: GovernanceActionContract }) {
+  return (
+    <div className="rounded-md border border-blue-200 bg-blue-50/70 p-3 text-xs text-slate-700 dark:border-blue-900 dark:bg-blue-950/20 dark:text-slate-200">
+      <div className="font-semibold text-blue-900 dark:text-blue-200">採用すると追加される内容</div>
+      <div className="mt-2">
+        <div className="font-medium text-slate-600 dark:text-slate-300">追加先</div>
+        <Link href={contract.href} className="mt-0.5 inline-block text-blue-700 underline dark:text-blue-300">{contract.destination}</Link>
+      </div>
+      <div className="mt-2">
+        <div className="font-medium text-slate-600 dark:text-slate-300">追加する情報</div>
+        <ul className="mt-1 list-disc space-y-0.5 pl-4">
+          {contract.changes.map((change, index) => <li key={index}>{change}</li>)}
+        </ul>
+      </div>
+      <div className="mt-2">
+        <div className="font-medium text-slate-600 dark:text-slate-300">採用すると起きること</div>
+        <p className="mt-0.5 leading-5">{contract.approvalEffect}</p>
+      </div>
+    </div>
+  );
+}
+
 function DeepLinkForL2({ n }: { n: Notification }) {
   switch (n.l2_kind) {
     case "member_knowledge":
@@ -1505,6 +1612,10 @@ function DeepLinkForL2({ n }: { n: Notification }) {
         </a>
       );
     case "coverage_gap":
+      if (isGovernanceCoverageGap(n)) {
+        const contract = governanceActionContract(n);
+        return <a className="text-blue-600 hover:underline" href={contract.href}>{contract.destination} を開く</a>;
+      }
       return (
         <a className="text-blue-600 hover:underline" href={`/admin/coverage-gaps`}>
           確認一覧を開く
@@ -1704,6 +1815,7 @@ function normalizeCoverageTarget(value: string): string {
   const v = value.trim().toLowerCase();
   if (v === "project_strategy_signal") return "strategy_signal";
   if (v === "registry_diff" || v === "project_registry_diff") return "registry_diff";
+  if (["shareholder_meeting", "governance", "project_shareholder_meeting"].includes(v)) return "shareholder_meeting";
   return v;
 }
 
@@ -1726,6 +1838,10 @@ function coverageGapSubjectFromTitle(raw: string | null | undefined): string {
 }
 
 function coverageGapQuestionTitle(n: Notification): string {
+  if (isGovernanceCoverageGap(n)) {
+    const headline = textFromUnknown(objectValue(n.metadata_json).meeting_name) || coverageGapSubjectFromTitle(n.title);
+    return `開催履歴を追加する？: ${headline}`;
+  }
   const subject = coverageGapQuestionSubject(n);
   if (coverageGapNotificationNeedsSourceRecovery(n)) {
     return `コピー前に元情報を確認: ${subject}`;
@@ -1745,6 +1861,9 @@ function coverageGapQuestionSubject(n: Notification): string {
 }
 
 function coverageGapQuestionSummary(n: Notification): string {
+  if (isGovernanceCoverageGap(n)) {
+    return "この候補は、メールや資料から見つけた開催情報の下書き。採用するまで会社概要の開催履歴には追加されない。追加先と追加する情報を確認してから判断してね。";
+  }
   const subject = coverageGapQuestionSubject(n);
   if (coverageGapNotificationNeedsSourceRecovery(n)) {
     return `この通知は「${subject}」を重要メモ候補として出しているが、具体的な会議メモ本文がこのカードだけでは確認できない。内容を確認できるまで、重要メモへのコピー判断はしない。`;
@@ -1758,6 +1877,19 @@ function coverageGapQuestionSummary(n: Notification): string {
 function coverageGapActionCopy(n: Notification): ReviewActionCopy {
   const meta = objectValue(n.metadata_json);
   const target = normalizeCoverageTarget(textFromUnknown(meta.proposed_target_l2));
+  if (target === "shareholder_meeting") {
+    const contract = governanceActionContract(n);
+    return {
+      yesLabel: contract.approvalLabel,
+      noLabel: contract.rejectionLabel,
+      yesDoneLabel: "開催履歴を追加済み",
+      noDoneLabel: "追加しないで完了",
+      prompt: `「${contract.approvalLabel}」で、${contract.destination}に表示された開催履歴を1件追加する。`,
+      footnote: `${contract.approvalEffect} ${contract.rejectionEffect}`,
+      placeholder: "任意コメント。例: 議題を短くして / 決議内容を確認してから追加したい",
+      headlineLabel: "何をする通知？",
+    };
+  }
   if (target === "strategy_signal") {
     return {
       yesLabel: "重要メモにコピー",

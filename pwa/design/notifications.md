@@ -1,6 +1,6 @@
 # 通知 + つくよみ修正依頼 — 設計の正本
 
-最終更新: 2026-07-24 (H-1 空振り通知停止)
+最終更新: 2026-07-24 (通知 action contract / 開催履歴候補の採用経路)
 正本ステータス: 進化中。仕様変更したらここを同じ commit で更新する。
 
 ---
@@ -16,6 +16,12 @@ LLM プロンプトに含めて再抽出する → 「過去の指摘が反映�
 補助的な運用通知として、入金確認nudgeもPWA側に置く。これはL2通知ではなく admin オペレーション通知で、`/api/cron/payment-confirm-nudges` が入金日当日の active admin のSlack DMへ送る。LLM非使用の入金確認cronなので、Vercelでは `freee-payment-sync` (09:10 JST) と `payment-confirm-nudges` (09:30 JST) だけ稼働させ、LLM系cron停止とは別枠で扱う。手動再送は `/admin/payouts` の「入金確認nudge」ボタンから行う。
 
 connector 再認証は `app_notifications(kind='connector_auth')` に置く。H-1 は Notion connector の `oauth_token_invalid_grant` / `TRIGGER_REAUTHENTICATION` を検知したら、抽出を止めずに `pwa/scripts/notify_connector_auth.mjs` で未読の再認証アクションを作る。同じ connector の未読通知が24時間内にあれば新規作成せず、既存通知を最新の再認証アクション付きpayloadへ更新する。通知には `meta.connector` / `meta.connector_id` / `meta.link_id` / `meta.reason` / `meta.reauth_url` / `meta.reauth_app_url` / `meta.reauth_install_url` / `meta.fallback_continues=true` を入れる。
+
+## 通知 action contract
+
+操作を求める通知は、表示用 metadata に `destination_label`、`changes[]`、`approval_effect`（報告通知は `effect`）を持ち、PWA/iOSで **追加先 / 追加・更新する情報 / この操作の結果** として同じ順番で出す。契約がない通知は「実行結果の報告」として明示し、正本更新の判断をさせない。
+
+ガバナンスの候補は `coverage_gap + proposed_target_l2='shareholder_meeting'`。候補作成時点では `l2_coverage_gaps.review_status='candidate'` だけで、`project_shareholder_meetings` は増やさない。採用時にだけ `POST /api/notifications/feedback` が会議種別、開催日、議題、決議、添付ファイル名を `project_shareholder_meetings` へ1行追加する。追加先は `会社概要 → 総会・取締役会`。メール送信、Driveアップロード、元資料の更新はしない。添付URL、メール本文、source hashは表示用の開催履歴に持ち込まない。
 
 PWA は admin session 中に `CriticalRealtimeNotify` が `app_notifications` / `l2_notifications` / `meeting_notifications` を Realtime 購読し、Realtime が落ちた場合も10秒pollで補完する。`notification-priority.ts` が `critical` と判定する未読通知は画面右下に即カード表示し、Browser Notification 権限があれば OS 通知も出す。`connector_auth` はカードから `reauth_url` を開いた時点で `read_at` を打つ。ただし再認証ページを開いたことは復旧成功の証拠ではないため、既読後も `/notifications` の「既読」タブに残し、そこから再試行できる状態にする。L2 critical はカードから `/notifications?notification_id=...` へ遷移し、通知ページ側で対象rowを追加取得・自動展開する。既読化・採否は既存の通知ページ UI に委ねる。MTG 通知は本文中に再認証・blocker 等の語が混じっても右下ポップアップには出さず、必要なら `connector_auth` / `guardrail_match` / `contract_signals` 等の専用通知として別発火させる。
 

@@ -19,6 +19,8 @@ server page は以下を取得して `NotificationsClient` に渡す。
 
 UI は `open` / `unread` / `answered` / `feedback` で絞り込み、展開時に `read_at` を楽観更新する。
 
+すべての通知カードは、操作を促す場合に **「確認・反映先」「追加・更新する情報」「この操作の結果」** を同じカード内に表示する。writer がこの action contract を持たない `app_notifications` は、実行結果の報告として表示し、そこから正本反映済みとは判断させない。追加先が未定義の候補は肯定操作の根拠にしない。
+
 展開時の詳細欄は、kind ごとに正本テーブルを lazy fetch して表示する。個別 fetch が未実装、または候補行が通知作成後に移動/統合されて見つからない場合でも、「DB未反映」と断定せず、通知本文を fallback 詳細として表示する。D-11 `news_mention` は `project_media_mentions` を `metadata_json.source_url` / `occurred_on` / title fallback で引き、保存済みの掲載行を表示する。ただし `coverage_gap` は例外。元の `l2_coverage_gaps` 行が見つからない場合、汎用 fallback や内部IDを見せず、タイトルを「コピー前に元情報を確認」に変え、「このカードだけではコピー対象を判断できない」と表示して肯定ボタンを disabled にする。
 
 `l2_notifications.saved_count >= total_count` かつ `total_count > 0` の通知は、すでに正本保存済みとみなし、UI の肯定ボタンを「はい・確認済み」と表示する。保存済み通知の yes feedback は、追加反映ではなく確認・学習フィードバックとして扱う。ただし `coverage_gap` は例外。候補行 (`l2_coverage_gaps`) が保存済みでも、まさの採否判断は未完了なので、`saved_count` に関係なく「重要メモにコピー / コピーしない」の判断ボタンとして表示する。2026-07-16 以降の coverage gap 通知 writer は `saved_count=0,total_count=1` で作る。
@@ -83,7 +85,7 @@ POST body:
 | `founding_members` | `project_founding_members.status='active'` | `status='invalid'` |
 | `project_strategy_signal` | `project_strategy_signals.status='confirmed'` | `status='rejected'` |
 | `textbook_insight` | `textbook_insight_candidates.status='approved'`。その後 local applier が `pwa/bzm/*.md` へ追記 | `status='rejected'` |
-| `coverage_gap` | `l2_coverage_gaps.review_status='confirmed'`。`proposed_target_l2='strategy_signal'` は同時に `project_strategy_signals.status='confirmed'` を upsert し、`l2_coverage_gaps.routed_to='project_strategy_signals:<signal_id>'` を保存 | `review_status='rejected'` |
+| `coverage_gap` | `l2_coverage_gaps.review_status='confirmed'`。`proposed_target_l2='strategy_signal'` は同時に `project_strategy_signals.status='confirmed'` を upsert。`proposed_target_l2='shareholder_meeting'` は候補の会議種別・日付・議題・決議・添付ファイル名だけを `project_shareholder_meetings` に1行追加し、`routed_to='project_shareholder_meetings:<id>'` を保存。メール送信・Driveアップロード・元資料編集はしない | `review_status='rejected'` |
 | `action_item` | `action_items.review_status='confirmed'`。保存済み候補を確認済みにして dashboard / cockpit の要対応面へ出す | `review_status='rejected'` |
 | `guardrail_match` | `guardrail_matches.status='acknowledged'` | `status='dismissed'` |
 
@@ -91,6 +93,8 @@ POST body:
 `coverage_gap` は「確認してから手作業で別L2へ入れる」通知ではない。安全に自動ルートできる `proposed_target_l2` は「はい」の同一トランザクション相当の処理で下流テーブルへ反映し、未対応の target は `routed_to` が空のまま残して設計 gap として扱う。
 
 PWA の `coverage_gap` 表示は、検知器の内部語や監査メモをそのまま出さない。カードタイトルは、具体候補が取れている場合だけ「重要メモにコピーする？: ...」にする。元候補が取れない、またはタイトルが「経営判断を要確認」程度の薄い通知は「コピー前に元情報を確認: ...」に変え、カード内では「このカードだけではコピー対象を判断できない」「内容が分からないならコピーしない」「再確認したい場合はコメントに元情報を再確認と書く」を表示する。この状態では肯定ボタンを押せない。具体候補が取れている場合の詳細欄は、最初に「コピーされる文章」を表示し、続けて「判断の目安」「コピーしても起きないこと」を表示する。「会議メモで見つかった内容」「通知した理由」のような監査者向け説明は出さない。UI 表示では `D-6` / `coverage_gap` / `raw transcript` / `元情報` / `取りこぼし` / `条件付き投資家関心` / `薄い` / `candidate` / `salience` / `目立たない話` を使わない。「重要メモにコピー」は内部的には D-6 `project_strategy_signals` への追加だが、まさ向けには「保存済みの会議要約とは別に、重要メモへコピーする」と説明する。H-1要約本文の復元・書き換えではない。
+
+`coverage_gap.proposed_target_l2='shareholder_meeting'` は「ガバナンス履歴候補」とは呼ばず、「開催履歴を追加する？」として表示する。これはメール・資料から見つけた下書きで、採用前は正式な開催履歴ではない。カードには追加先 `会社概要 → 総会・取締役会`、追加する `会議種別 / 開催日 / 議題 / 決議 / 添付ファイル名`、採用結果（開催履歴を1件追加、外部送信・資料アップロードなし）を出す。採用経路は `POST /api/notifications/feedback` のみで、添付URL・メール本文・source hash は正本表示へ持ち込まない。
 
 PWA の `textbook_insight` 表示は、D-7 の内部メタデータをそのまま読ませない。詳細欄は「元情報」「通知の種類」「追記先」「BZMに追記される内容」「判断の目安」「押すと起きること」「AMDプロトコルとの関係」で構成する。`source_tables` に `protocols` が含まれる場合は、「元ネタはAMDプロトコル、追記先はBZM」であり、AMDプロトコル本文は書き換えないことを明示する。`practice_kind='decision_branch'` は自問自答ではなく、BZM側で判断の条件・材料・結果を再利用可能に残すための実践分類として説明する。yes/no の処理は従来通りで、yes は `textbook_insight_candidates.status='approved'`、no は `status='rejected'`。yes を押しても Vercel runtime から git 管理ファイルを直接編集しない。実ファイル追記は local applier 経路だけが行う。
 

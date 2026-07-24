@@ -3693,6 +3693,7 @@ extension SupabaseService {
             let savedCount: Int
             let totalCount: Int
             let importance: Int
+            let metadataJson: [String: AnyCodable]?
             let notifiedAt: String?
             let createdAt: String
 
@@ -3702,6 +3703,7 @@ extension SupabaseService {
                 case targetId = "target_id"
                 case scopeKey = "scope_key"
                 case title, summary, importance
+                case metadataJson = "metadata_json"
                 case savedCount = "saved_count"
                 case totalCount = "total_count"
                 case notifiedAt = "notified_at"
@@ -3766,7 +3768,7 @@ extension SupabaseService {
 
         async let l2Task: [L2Row] = client.database
             .from("l2_notifications")
-            .select("notification_id, l2_kind, target_id, scope_key, title, summary, saved_count, total_count, importance, notified_at, created_at")
+            .select("notification_id, l2_kind, target_id, scope_key, title, summary, saved_count, total_count, importance, metadata_json, notified_at, created_at")
             .order("created_at", ascending: false)
             .limit(limit)
             .execute()
@@ -3819,6 +3821,7 @@ extension SupabaseService {
                 sourceKinds: nil,
                 notifiedAt: $0.notifiedAt,
                 createdAt: $0.createdAt,
+                metadata: $0.metadataJson,
                 reauthUrl: nil,
                 connector: nil,
                 reason: nil
@@ -3841,6 +3844,7 @@ extension SupabaseService {
                 sourceKinds: $0.sourceKinds,
                 notifiedAt: $0.notifiedAt,
                 createdAt: $0.createdAt,
+                metadata: nil,
                 reauthUrl: nil,
                 connector: nil,
                 reason: nil
@@ -3866,6 +3870,7 @@ extension SupabaseService {
                 sourceKinds: reason,
                 notifiedAt: $0.readAt,
                 createdAt: $0.createdAt,
+                metadata: $0.meta,
                 reauthUrl: $0.stringMeta("reauth_url") ?? $0.stringMeta("reauth_install_url") ?? $0.stringMeta("reauth_app_url") ?? $0.link,
                 connector: connector,
                 reason: reason
@@ -3925,6 +3930,8 @@ extension SupabaseService {
             return try await fetchRegistryDiffNotificationDetails(projectId: item.responseTarget.feedbackTargetId, scopeKey: item.responseTarget.feedbackScopeKey)
         case "xrl_evidence":
             return try await fetchXrlEvidenceNotificationDetails(projectId: item.responseTarget.feedbackTargetId, scopeKey: item.responseTarget.feedbackScopeKey)
+        case "coverage_gap":
+            return try await fetchCoverageGapNotificationDetails(item: item)
         default:
             return []
         }
@@ -3936,6 +3943,9 @@ extension SupabaseService {
         comment: String,
         email: String?
     ) async throws -> NotificationResponseResult {
+        if target.feedbackKind == "coverage_gap" {
+            return try await submitCoverageGapResponseThroughPwa(target: target, action: action, comment: comment)
+        }
         let trimmed = comment.trimmingCharacters(in: .whitespacesAndNewlines)
         if action == .comment && trimmed.isEmpty {
             throw NSError(domain: "NotificationFeedback", code: 400, userInfo: [NSLocalizedDescriptionKey: "コメントが空だよ"])
@@ -3979,6 +3989,81 @@ extension SupabaseService {
         email: String?
     ) async throws -> NotificationResponseResult {
         try await submitNotificationResponse(target: item.responseTarget, action: action, comment: comment, email: email)
+    }
+
+    private func fetchCoverageGapNotificationDetails(item: NotificationInboxItem) async throws -> [NotificationDetailLine] {
+        struct Row: Decodable {
+            let title: String?
+            let summary: String?
+            let proposedTarget: String?
+            let reviewStatus: String?
+            enum CodingKeys: String, CodingKey {
+                case title, summary
+                case proposedTarget = "proposed_target_l2"
+                case reviewStatus = "review_status"
+            }
+        }
+        let rows: [Row] = try await client.database
+            .from("l2_coverage_gaps")
+            .select("title, summary, proposed_target_l2, review_status")
+            .eq("gap_id", value: item.responseTarget.feedbackScopeKey)
+            .limit(1)
+            .execute()
+            .value
+        guard let row = rows.first else { return [] }
+        guard row.proposedTarget == "shareholder_meeting" else {
+            return [NotificationDetailLine(title: "確認候補", body: row.summary ?? row.title ?? "詳細なし", footnote: nil)]
+        }
+        let contract = item.governanceActionContract
+        return [
+            NotificationDetailLine(
+                title: "会社概要に追加する開催履歴",
+                body: contract.changes.joined(separator: "\n"),
+                footnote: "状態: \(row.reviewStatus ?? "candidate")。\(contract.approvalEffect)"
+            )
+        ]
+    }
+
+    private func submitCoverageGapResponseThroughPwa(
+        target: NotificationResponseTarget,
+        action: NotificationInboxAction,
+        comment: String
+    ) async throws -> NotificationResponseResult {
+        let trimmed = comment.trimmingCharacters(in: .whitespacesAndNewlines)
+        if action == .comment && trimmed.isEmpty {
+            throw NSError(domain: "NotificationFeedback", code: 400, userInfo: [NSLocalizedDescriptionKey: "コメントが空だよ"])
+        }
+        guard let url = URL(string: "https://amd-os-pwa.vercel.app/api/notifications/feedback") else {
+            throw NSError(domain: "NotificationFeedback", code: 500, userInfo: [NSLocalizedDescriptionKey: "通知APIのURLが不正"])
+        }
+        let token = try await accessToken()
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 20
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        var payload: [String: Any] = [
+            "l2_kind": target.feedbackKind,
+            "target_id": target.feedbackTargetId,
+            "scope_key": target.feedbackScopeKey,
+            "feedback_text": trimmed,
+            "action": action.rawValue,
+        ]
+        if let notificationId = target.notificationId { payload["notification_id"] = notificationId }
+        if let meetingId = target.meetingId { payload["meeting_id"] = meetingId }
+        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+        let (data, response) = try await dataWithHardTimeout(for: request, seconds: 22)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            let body = String(data: data, encoding: .utf8) ?? ""
+            throw NSError(domain: "NotificationFeedback", code: (response as? HTTPURLResponse)?.statusCode ?? 500, userInfo: [NSLocalizedDescriptionKey: "開催履歴の回答を送れなかった: \(body)"])
+        }
+        let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        let feedback = json?["feedback"] as? [String: Any]
+        let feedbackId = feedback?["feedback_id"] as? String ?? ""
+        let applyResult = json?["applyResult"] as? [String: Any]
+        let message = applyResult?["message"] as? String
+            ?? (action == .yes ? "開催履歴を追加したよ" : action == .no ? "開催履歴は追加しないで完了したよ" : "コメントを保存したよ")
+        return NotificationResponseResult(feedbackId: feedbackId, message: message)
     }
 
     private func fetchMeetingNotificationDetails(meetingId: String) async throws -> [NotificationDetailLine] {
@@ -4544,11 +4629,46 @@ struct NotificationInboxItem: Identifiable, Hashable {
     let sourceKinds: String?
     let notifiedAt: String?
     let createdAt: String
+    let metadata: [String: AnyCodable]?
     let reauthUrl: String?
     let connector: String?
     let reason: String?
 
+    static func == (lhs: NotificationInboxItem, rhs: NotificationInboxItem) -> Bool {
+        lhs.id == rhs.id
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+
     var isUnread: Bool { notifiedAt == nil }
+
+    var isGovernanceHistoryCandidate: Bool {
+        guard l2Kind == "coverage_gap" else { return false }
+        return metadata?["proposed_target_l2"]?.value as? String == "shareholder_meeting"
+    }
+
+    var governanceActionContract: (destination: String, changes: [String], approvalLabel: String, rejectionLabel: String, approvalEffect: String) {
+        let meetingType = (metadata?["meeting_type"]?.value as? String) ?? "未確認"
+        let meetingDate = (metadata?["meeting_date"]?.value as? String) ?? "未確認"
+        let agenda = (metadata?["agenda_summary"]?.value as? String) ?? "根拠欄で確認"
+        let resolutionCount = metadata?["resolution_count"]?.value as? Double
+        let resolution = (resolutionCount ?? 0) > 0 ? "\(Int(resolutionCount!))件" : "根拠欄で確認"
+        return (
+            destination: "会社概要 → 総会・取締役会",
+            changes: [
+                "会議種別: \(meetingType)",
+                "開催日: \(meetingDate)",
+                "議題: \(agenda)",
+                "決議: \(resolution)",
+                "添付: 根拠欄で確認",
+            ],
+            approvalLabel: "この開催履歴を追加する",
+            rejectionLabel: "追加しない",
+            approvalEffect: "会社概要の「総会・取締役会」に開催履歴を1件追加する。メール送信、資料アップロード、元メールや元資料の編集はしない。"
+        )
+    }
 
     var responseTarget: NotificationResponseTarget {
         NotificationResponseTarget(

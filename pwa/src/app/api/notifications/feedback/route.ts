@@ -569,6 +569,9 @@ async function routeCoverageGapIfSupported(args: {
   now: string;
 }): Promise<{ routedTo?: string; message?: string; row?: unknown; error?: string }> {
   const target = normalizeCoverageTarget(args.gap.proposed_target_l2);
+  if (target === "shareholder_meeting") {
+    return routeGovernanceMeetingCoverageGap(args);
+  }
   if (target !== "strategy_signal") {
     return {
       message: target
@@ -599,6 +602,146 @@ async function routeCoverageGapIfSupported(args: {
     message: signalId ? `routed project_strategy_signals:${signalId}` : "routed project_strategy_signals",
     row: data,
   };
+}
+
+/**
+ * ガバナンス候補の採用は、承認済みの候補だけを会社概要の開催履歴へ1行追加する。
+ * 候補検出時に保持していたメール参照や添付URLは、この正本行の表示用データへ持ち込まない。
+ */
+async function routeGovernanceMeetingCoverageGap(args: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  gap: CoverageGapRow;
+  createdBy: string | null;
+  feedbackText: string;
+  now: string;
+}): Promise<{ routedTo?: string; message?: string; row?: unknown; error?: string }> {
+  const projectId = String(args.gap.project_id || "").trim();
+  if (!projectId) return { error: "開催履歴の追加先プロジェクトがない" };
+
+  const evidence = objectValue(args.gap.evidence_refs_json);
+  const candidate = objectValue(evidence.governance_meeting);
+  const candidateProjectId = textValue(candidate.project_id);
+  if (candidateProjectId && candidateProjectId !== projectId) {
+    return { error: "開催履歴候補のプロジェクトが一致しない" };
+  }
+
+  const agenda = limitedText(candidate.agenda_summary, 3000) || limitedText(args.gap.summary, 3000);
+  if (!agenda) return { error: "開催履歴に追加する議題が確認できない" };
+
+  const meetingDate = ymdValue(candidate.meeting_date);
+  const meetingType = normalizeGovernanceMeetingType(textValue(candidate.meeting_type));
+  const sourceRef = limitedText(candidate.source_ref, 300) || limitedText(args.gap.source_ref, 300) || null;
+  const row = {
+    project_id: projectId,
+    meeting_type: meetingType,
+    meeting_date: meetingDate,
+    meeting_ym: meetingDate ? meetingDate.replace(/-/g, "").slice(0, 6) : null,
+    location: limitedText(candidate.location, 200) || null,
+    agenda_summary: agenda,
+    resolutions_json: sanitizeGovernanceResolutions(candidate.resolutions_json),
+    amd_response: limitedText(candidate.amd_response, 80) || null,
+    amd_response_at: limitedText(candidate.amd_response_at, 80) || null,
+    related_action_id: limitedText(candidate.related_action_id, 140) || null,
+    attachments_json: sanitizeGovernanceAttachments(candidate.attachments_json),
+    // source_ref は重複防止・監査用だけに使い、通知カードや開催履歴の表示内容には出さない。
+    source_ref: sourceRef,
+    notes: [
+      "通知で確認済みの開催履歴候補から追加。",
+      args.feedbackText ? `承認コメント: ${limitedText(args.feedbackText, 500)}` : null,
+    ].filter(Boolean).join("\n"),
+    updated_at: args.now,
+  };
+
+  const db = getServiceClient();
+  let existingId: string | null = null;
+  if (sourceRef) {
+    const { data, error } = await db
+      .from("project_shareholder_meetings")
+      .select("id")
+      .eq("project_id", projectId)
+      .eq("source_ref", sourceRef)
+      .limit(1);
+    if (error) return { error: `開催履歴の重複確認に失敗: ${error.message}` };
+    existingId = data?.[0]?.id ? String(data[0].id) : null;
+  }
+  if (!existingId) {
+    let query = db
+      .from("project_shareholder_meetings")
+      .select("id")
+      .eq("project_id", projectId)
+      .eq("meeting_type", meetingType)
+      .eq("agenda_summary", agenda);
+    query = meetingDate ? query.eq("meeting_date", meetingDate) : query.is("meeting_date", null);
+    const { data, error } = await query.limit(1);
+    if (error) return { error: `開催履歴の重複確認に失敗: ${error.message}` };
+    existingId = data?.[0]?.id ? String(data[0].id) : null;
+  }
+  if (existingId) {
+    return {
+      routedTo: `project_shareholder_meetings:${existingId}`,
+      message: "開催履歴はすでに追加済み",
+      row: { id: existingId, already_existed: true },
+    };
+  }
+
+  const { data, error } = await db
+    .from("project_shareholder_meetings")
+    .insert(row)
+    .select("id, project_id, meeting_type, meeting_date, agenda_summary")
+    .single();
+  if (error) return { error: `開催履歴の追加に失敗: ${error.message}` };
+  const id = String(data?.id || "");
+  return {
+    routedTo: id ? `project_shareholder_meetings:${id}` : "project_shareholder_meetings",
+    message: "会社概要の総会・取締役会に開催履歴を1件追加した",
+    row: data,
+  };
+}
+
+function limitedText(value: unknown, max: number): string {
+  return textValue(value).replace(/\s+/g, " ").trim().slice(0, max);
+}
+
+function normalizeGovernanceMeetingType(value: string): string {
+  const raw = value.trim().toLowerCase();
+  if (["agm", "annual", "annual_general_meeting", "定時株主総会"].includes(raw)) return "agm";
+  if (["egm", "extraordinary", "extraordinary_general_meeting", "臨時株主総会"].includes(raw)) return "egm";
+  if (["board_written", "board_written_resolution", "取締役書面決議", "取締役会書面決議"].includes(raw)) return "board_written_resolution";
+  if (["shareholder_written", "shareholder_written_resolution", "株主書面決議", "株主総会書面決議"].includes(raw)) return "shareholder_written_resolution";
+  return "board";
+}
+
+function sanitizeGovernanceResolutions(value: unknown): Array<Record<string, string>> {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 50).flatMap((entry) => {
+    if (typeof entry === "string") {
+      const title = limitedText(entry, 500);
+      return title ? [{ title }] : [];
+    }
+    const item = objectValue(entry);
+    const title = limitedText(item.title ?? item.resolution ?? item.summary, 500);
+    if (!title) return [];
+    const status = limitedText(item.status, 80);
+    return [{ title, ...(status ? { status } : {}) }];
+  });
+}
+
+function sanitizeGovernanceAttachments(value: unknown): Array<Record<string, string | number>> {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 20).flatMap((entry) => {
+    const item = objectValue(entry);
+    const name = limitedText(item.name ?? item.filename, 240);
+    if (!name) return [];
+    const mimeType = limitedText(item.mime_type ?? item.mimeType, 120);
+    const kind = limitedText(item.kind, 80);
+    const size = Number(item.size_bytes ?? item.size);
+    return [{
+      name,
+      ...(mimeType ? { mime_type: mimeType } : {}),
+      ...(kind ? { kind } : {}),
+      ...(Number.isFinite(size) && size >= 0 ? { size_bytes: Math.floor(size) } : {}),
+    }];
+  });
 }
 
 function buildStrategySignalFromCoverageGap(

@@ -1014,6 +1014,7 @@ private func notificationKindLabel(_ item: NotificationInboxItem) -> String {
     case "member_knowledge": return "メンバー知"
     case "project_knowledge": return "PJ知"
     case "protocols": return "プロトコル"
+    case "coverage_gap": return item.isGovernanceHistoryCandidate ? "開催履歴の追加" : "確認候補"
     default: return item.responseTarget.feedbackKind
     }
 }
@@ -1224,6 +1225,20 @@ private struct NotificationJudgmentCard: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
+                sectionLabel("追加先")
+                Text(actionDestination)
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(AMD.text)
+                sectionLabel("追加・更新する情報")
+                    ForEach(actionChanges, id: \.self) { change in
+                        Text("・\(change)")
+                            .font(.footnote)
+                            .foregroundStyle(AMD.textSub)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
                 sectionLabel("押すと起きること")
                 Text(effectText)
                     .font(.footnote)
@@ -1341,16 +1356,23 @@ private struct NotificationJudgmentCard: View {
     }
 
     private var actionLabels: (yes: String, no: String) {
+        if item.isGovernanceHistoryCandidate {
+            let contract = item.governanceActionContract
+            return (contract.approvalLabel, contract.rejectionLabel)
+        }
         switch item.responseTarget.feedbackKind {
         case "ms_progress": return ("MS進捗を確定", "提案を破棄")
         case "project_registry_diff": return ("採用候補にする", "見送る")
         case "xrl_evidence": return ("根拠として確定", "不採用")
         case "meeting_summary": return ("確認した", "修正する")
-        default: return ("採用を回答", "不採用を回答")
+        default: return ("確認を記録", "見送る")
         }
     }
 
     private var effectText: String {
+        if item.isGovernanceHistoryCandidate {
+            return item.governanceActionContract.approvalEffect + "「追加しない」は開催履歴を増やさず候補を見送る。"
+        }
         if item.kind == "connector_auth" {
             return "「再認証を開く」は連携アプリの認証画面を開くだけ。「あとで」はこのカードを後回しにして次に進むよ。"
         }
@@ -1364,8 +1386,27 @@ private struct NotificationJudgmentCard: View {
         case "xrl_evidence":
             return "「\(actionLabels.yes)」は候補の根拠を確定済みへ更新するよ。「\(actionLabels.no)」は不採用へ更新するよ。"
         default:
-            return "この回答は修正・学習材料として保存されるだけ。自動で反映される保証はないよ。"
+            return "「\(actionLabels.yes)」は確認結果を記録するだけ。追加先が未定義なので、正本のデータは変更しないよ。"
         }
+    }
+
+    private var actionDestination: String {
+        if item.isGovernanceHistoryCandidate { return item.governanceActionContract.destination }
+        if item.kind == "connector_auth" { return "設定 → 連携の再認証" }
+        switch item.responseTarget.feedbackKind {
+        case "meeting_summary": return "PJ → MTGサマリ"
+        case "ms_progress": return "PJ → MS進捗"
+        case "project_registry_diff": return "設定 → OS台帳差分"
+        case "xrl_evidence": return "PJ → XRL根拠"
+        case "coverage_gap": return "候補の追加先を確認中"
+        default: return "追加先が未定義（採用で正本を変更しない）"
+        }
+    }
+
+    private var actionChanges: [String] {
+        if item.isGovernanceHistoryCandidate { return item.governanceActionContract.changes }
+        if item.kind == "connector_auth" { return ["連携アプリの認証状態"] }
+        return [item.body.isEmpty ? "通知本文に記載の候補" : item.body]
     }
 
     private var judgmentActions: some View {

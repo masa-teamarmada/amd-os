@@ -77,6 +77,12 @@ function requiredText(value: unknown, max = 1000) {
   return text(value, max) || "";
 }
 
+function objectValue(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
 function meetingYm(date: string | null) {
   return date && /^\d{4}-\d{2}/.test(date) ? date.replace(/-/g, "").slice(0, 6) : null;
 }
@@ -462,34 +468,59 @@ async function findCanonicalId(db: ReturnType<typeof createAdminClient>, row: Re
 }
 
 function notificationFor(kind: "coverage_gap" | "shareholder_meeting", targetId: string, scopeKey: string, item: GovernanceMeetingCandidate) {
-  const source = text(item.source, 40) || "gmail";
   const meetingType = normalizeMeetingType(item.meeting_type);
   const meetingTypeLabelStr = meetingTypeLabel(meetingType);
-  const headline = text(item.meeting_name, 120) || text(item.agenda_summary, 120) || "総会・取締役会候補";
+  const headline = text(item.meeting_name, 120) || text(item.agenda_summary, 120) || "総会・取締役会";
   const meetingDate = text(item.meeting_date, 20);
+  const agenda = text(item.agenda_summary, 240) || "記載なし";
+  const resolutions = asJsonArray(item.resolutions_json, item.resolutions);
+  const attachments = asJsonArray(item.attachments_json, item.attachments);
+  const attachmentNames = attachments
+    .map((attachment) => text(objectValue(attachment).name, 120))
+    .filter((name): name is string => Boolean(name))
+    .slice(0, 3);
+  const changes = [
+    `会議種別: ${meetingTypeLabelStr}`,
+    `開催日: ${meetingDate || "未確認"}`,
+    `議題: ${agenda}`,
+    `決議: ${resolutions.length > 0 ? `${resolutions.length}件` : "記載なし"}`,
+    `添付: ${attachmentNames.length > 0 ? attachmentNames.join("、") : "記載なし"}`,
+  ];
   const summaryParts = [
     meetingTypeLabelStr,
     meetingDate ? `日付 ${meetingDate}` : null,
-    item.source_ref ? `source ${String(item.source_ref).slice(0, 80)}` : null,
   ].filter(Boolean);
-  const summary = summaryParts.length ? summaryParts.join(" / ") : `${source} 由来の ${meetingTypeLabelStr} 候補`;
+  const summary = summaryParts.length ? summaryParts.join(" / ") : `${meetingTypeLabelStr}の開催履歴を確認する`;
+  const actionContract = {
+    version: 1,
+    destination_label: "会社概要 → 総会・取締役会",
+    destination_href: `/project/${targetId}/cockpit?tab=company`,
+    changes,
+    approval_label: "この開催履歴を追加する",
+    rejection_label: "追加しない",
+    approval_effect: "会社概要の「総会・取締役会」に開催履歴を1件追加する。メール送信、資料アップロード、元メールや元資料の編集はしない。",
+    rejection_effect: "この候補を見送る。会社概要の開催履歴は追加しない。",
+  };
   return {
     l2_kind: kind,
     target_id: targetId,
     scope_key: scopeKey,
-    title: kind === "coverage_gap" ? `ガバナンス履歴候補: ${headline}` : `ガバナンス履歴追加: ${headline}`,
+    title: kind === "coverage_gap" ? `開催履歴を追加する？: ${headline}` : `開催履歴を追加: ${headline}`,
     summary,
-    saved_count: 1,
+    // candidate は正本へ未保存。採用後に project_shareholder_meetings の1行になる。
+    saved_count: kind === "coverage_gap" ? 0 : 1,
     total_count: 1,
     importance: /written|書面|board/.test(meetingType) ? 8 : 6,
     notified_at: new Date().toISOString(),
     metadata_json: {
       proposed_target_l2: "shareholder_meeting",
-      source,
-      source_ref: item.source_ref ?? null,
       meeting_type: meetingType,
       meeting_date: item.meeting_date ?? null,
-      audit_notes: text(item.notes, 1000),
+      meeting_name: text(item.meeting_name, 180),
+      agenda_summary: agenda,
+      resolution_count: resolutions.length,
+      attachment_names: attachmentNames,
+      action_contract: actionContract,
     },
   };
 }

@@ -2206,4 +2206,33 @@ expectIncludes("src/app/(app)/layout.tsx", [
   "return <>{children}</>;",
 ]);
 
+// 通知 action contract (2026-07-24): 開催履歴候補は、採用前には正本を増やさず、
+// 追加先・追加内容・外部操作を伴わない結果を明示してから同一feedback APIで反映する。
+expectIncludes("src/app/api/governance/extract/route.ts", [
+  "開催履歴を追加する？",
+  "action_contract",
+  "会社概要 → 総会・取締役会",
+  "saved_count: kind === \"coverage_gap\" ? 0 : 1",
+]);
+expectIncludes("src/app/api/notifications/feedback/route.ts", [
+  "routeGovernanceMeetingCoverageGap",
+  "project_shareholder_meetings",
+  "sanitizeGovernanceAttachments",
+  "会社概要の総会・取締役会に開催履歴を1件追加した",
+]);
+expectIncludes("src/components/notifications/NotificationsClient.tsx", [
+  "採用すると追加される内容",
+  "追加・更新する情報",
+  "この開催履歴を追加する",
+]);
+expectIncludes("../ios/AMDOS/Features/Settings/SettingsView.swift", [
+  "追加先",
+  "追加・更新する情報",
+]);
+expectIncludes("../ios/AMDOS/Core/Services/SupabaseService.swift", [
+  "submitCoverageGapResponseThroughPwa",
+  "https://amd-os-pwa.vercel.app/api/notifications/feedback",
+  "この開催履歴を追加する",
+]);
+
 console.log("critical PWA UI anchors ok");
