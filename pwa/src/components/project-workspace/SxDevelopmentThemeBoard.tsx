@@ -15,6 +15,7 @@ import {
   sxIsMissingOwner,
   sxTechnicalTestStatusLabel,
 } from "./sx-visual-shared";
+import { nominalizeSxActionLabel } from "@/lib/sx-action-label";
 
 type ThemeRow = {
   id: string;
@@ -68,7 +69,7 @@ function milestoneRow(
   const status = milestone?.status ?? "unassessed";
   return {
     id: milestone?.id ?? fallbackName,
-    name: milestone?.title ?? fallbackName,
+    name: milestone ? nominalizeSxActionLabel(milestone.title) : fallbackName,
     position,
     status,
     statusLabel: milestone ? SX_STATUS_LABEL[status] : "未登録",
@@ -76,7 +77,9 @@ function milestoneRow(
     evidence: nonEmpty(milestone?.completionEvidence || supportingEvidence?.summary, "証拠 未登録"),
     uncertainty: nonEmpty(missingEvidence?.summary || milestone?.maxIssue, "未確定事項 未登録"),
     testCondition: "試験条件 未登録",
-    nextExperiment: nonEmpty(issue?.nextValidation, "次実験 未登録"),
+    nextExperiment: issue?.nextValidation?.trim()
+      ? nominalizeSxActionLabel(issue.nextValidation.trim())
+      : "次実験 未登録",
     owner: nonEmpty(milestone?.ownerLabel, "担当 未登録"),
     schedule: [
       milestone ? `テーマ 予定 ${sxFormatDate(milestone.plannedEnd)} / 予測 ${sxFormatDate(milestone.forecastEnd)}` : "テーマ日程 未登録",
@@ -102,7 +105,7 @@ function technicalTestRow(test: SxTechnicalTest, parent: SxManagementMilestone |
   return {
     id: test.id,
     name: test.testName,
-    position: parent ? `${parent.title}の成立条件` : "親ゲート 未接続",
+    position: parent ? `${nominalizeSxActionLabel(parent.title)}の成立条件` : "親ゲート 未接続",
     status: test.status,
     statusLabel: sxTechnicalTestStatusLabel(test.status),
     completion,
@@ -163,10 +166,10 @@ export function SxDevelopmentThemeBoard({ management }: { management: SxManageme
   const contributionFrom = (milestone: SxManagementMilestone | undefined) => {
     if (!milestone) return "未接続";
     const successors = requiredSuccessors(milestone);
-    return successors.length > 0 ? successors.map((item) => item.title).join(" / ") : "未接続";
+    return successors.length > 0 ? successors.map((item) => nominalizeSxActionLabel(item.title)).join(" / ") : "未接続";
   };
   const reactorContribution = reactor
-    ? `${reactor.title} → ${contributionFrom(reactor)}`
+    ? `${nominalizeSxActionLabel(reactor.title)} → ${contributionFrom(reactor)}`
     : "未接続";
   const technicalTests = management.technicalTests
     .filter((test) => Boolean(reactor) && test.milestoneId === reactor?.id)
@@ -207,7 +210,10 @@ export function SxDevelopmentThemeBoard({ management }: { management: SxManageme
     .map((slug) => management.milestones.find((milestone) => milestone.slug === slug))
     .filter((milestone): milestone is SxManagementMilestone => Boolean(milestone));
   const flowLabels = criticalFlow.length > 0
-    ? [...criticalFlow.map((milestone) => milestone.title), management.objective?.title || "最終判断 未登録"]
+    ? [
+        ...criticalFlow.map((milestone) => nominalizeSxActionLabel(milestone.title)),
+        management.objective?.title ? nominalizeSxActionLabel(management.objective.title) : "最終判断 未登録",
+      ]
     : ["必須依存 未接続"];
 
   return (

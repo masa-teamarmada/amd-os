@@ -491,8 +491,8 @@ export function SxPartnerPipeline({
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [activeRoleKind, setActiveRoleKind] = useState<SxPartnerRoleKind | null>(null);
-  const milestoneTitleBySlug = new Map(management.milestones.map((milestone) => [milestone.slug, milestone.title]));
-  const milestoneTitleById = new Map(management.milestones.map((milestone) => [milestone.id, milestone.title]));
+  const milestoneTitleBySlug = new Map(management.milestones.map((milestone) => [milestone.slug, nominalizeSxActionLabel(milestone.title)]));
+  const milestoneTitleById = new Map(management.milestones.map((milestone) => [milestone.id, nominalizeSxActionLabel(milestone.title)]));
   const milestoneSlugById = new Map(management.milestones.map((milestone) => [milestone.id, milestone.slug]));
 
   const filterablePartners = activeRoleKind
@@ -652,7 +652,7 @@ function PartnerRow({
   const nameHeadingId = `sx-partner-name-${partner.id}`;
 
   return (
-    <article aria-labelledby={nameHeadingId} className={`border-b border-[#eee9df] ${deferred ? "border-l-4 border-l-[#c9bfd0] bg-[#f8f5ec]" : ""}`}>
+    <article id={`sx-partner-${partner.id}`} data-sx-anchor={`sx-partner-${partner.id}`} tabIndex={-1} aria-labelledby={nameHeadingId} className={`scroll-mt-24 border-b border-[#eee9df] ${deferred ? "border-l-4 border-l-[#c9bfd0] bg-[#f8f5ec]" : ""}`}>
       <div className={`grid ${rowGridCols} ${rowGapCols} gap-y-2 px-3 py-2.5 text-[11px] leading-4`}>
         <div className="col-span-2 col-start-1 row-start-1 min-w-0 xl:col-span-1 xl:col-start-1 xl:row-start-1">
           <div className="flex flex-wrap items-center gap-1">

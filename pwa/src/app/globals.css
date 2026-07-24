@@ -654,3 +654,19 @@ body:has(.amd-hud-page-skin) {
 .amd-hud-body [data-slot="dialog-content"] [class*="text-blue-700"] {
   color: inherit !important;
 }
+
+/* SX PJ管制盤: 対応待ち/直近アクション行から台帳へジャンプした先を一時的にハイライトする */
+.sx-anchor-highlight {
+  animation: sx-anchor-flash 1.8s ease-out 1;
+}
+@keyframes sx-anchor-flash {
+  0% { background-color: rgba(227, 201, 148, 0.55); }
+  100% { background-color: transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sx-anchor-highlight {
+    animation: none;
+    background-color: rgba(227, 201, 148, 0.55);
+    transition: background-color 0.2s linear;
+  }
+}

@@ -36,6 +36,7 @@
     "test:sx-partner-holdings": "node --experimental-strip-types scripts/test_sx_partner_holdings.mjs",
     "test:sx-action-label": "node --experimental-strip-types scripts/test_sx_action_label.mjs",
     "test:sx-name-normalize": "node --experimental-strip-types scripts/test_sx_name_normalize.mjs",
+    "test:sx-executive-control-deck": "node --experimental-strip-types scripts/test_sx_executive_control_deck.mjs",
     "audit:sx-management-visible-terms": "node scripts/audit_sx_management_visible_terms.mjs",
     "test:project-management-rls": "node scripts/test_project_management_rls.mjs",
     "test:sx-management-rls": "npm run test:project-management-rls",

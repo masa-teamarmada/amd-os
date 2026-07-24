@@ -321,6 +321,10 @@ expectIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx",
   "buildMilestoneLabelMap",
   "nominalizeSxActionLabel(displayManagementText(milestone.title))",
   "milestoneLabels",
+  "milestoneOptions = management.milestones.map((item) => ({ value: item.id, label: `${nominalizeSxActionLabel(item.title)}",
+  "決定済み\" : decision.status === \"deferred\" ? \"保留\" : \"意思決定待ち\"} / {nominalizeSxActionLabel(decision.title)}",
+  "次アクション: {nominalizeSxActionLabel(action.title)}",
+  "{nominalizeSxActionLabel(displayManagementText(outcome.title))}",
   "資金残存月数",
   "名称未確認",
   "overflow-x-clip",
@@ -331,6 +335,11 @@ expectIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx",
   "非表示の情報を確認",
   "復元",
   "CategoryBand",
+  "decisionOptions = management.decisions.map((item) => ({ value: item.id, label: nominalizeSxActionLabel(item.title)",
+  "outcomeOptions = management.outcomes.map((item) => ({ value: item.id, label: `${nominalizeSxActionLabel(item.title)}",
+  "decisionDisplayTitle = nominalizeSxActionLabel(decision.title)",
+  "<h3 className=\"mt-3 text-sm font-semibold leading-5 text-[#24231f]\">{decisionDisplayTitle}</h3>",
+  "aria-label={`${decisionDisplayTitle}を編集`}",
 ]);
 // spec (2026-07-24 二車線化): workspace内部の左レール(desktop 152px / mobile・tablet横帯)は
 // GlobalNavサイドバーとは別物。事業化ロードマップタイトル・関係先リスト名称・論点・仮説台帳セマンティック
@@ -350,6 +359,13 @@ expectNotIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.ts
   "協力機関の進捗",
   "次の受け渡し",
   "受け渡し先",
+  "milestoneOptions = management.milestones.map((item) => ({ value: item.id, label: `${item.title}",
+  "決定済み\" : decision.status === \"deferred\" ? \"保留\" : \"意思決定待ち\"} / {decision.title}",
+  "次アクション: {action.title}",
+  "decisionOptions = management.decisions.map((item) => ({ value: item.id, label: item.title }))",
+  "outcomeOptions = management.outcomes.map((item) => ({ value: item.id, label: `${item.title}（",
+  "<h3 className=\"mt-3 text-sm font-semibold leading-5 text-[#24231f]\">{decision.title}</h3>",
+  "aria-label={`${decision.title}を編集`}",
 ]);
 expectIncludes("src/components/project-workspace/SxNineMonthTimeline.tsx", [
   "事業化ロードマップ",
@@ -366,6 +382,29 @@ expectIncludes("src/lib/sx-action-label.ts", [
   "nominalizeSxActionLabel",
   '["を締結する", "締結"]',
   "SENTENCE_PUNCTUATION",
+]);
+expectIncludes("src/components/project-workspace/SxDevelopmentThemeBoard.tsx", [
+  "nominalizeSxActionLabel",
+  "name: milestone ? nominalizeSxActionLabel(milestone.title) : fallbackName",
+  "position: parent ? `${nominalizeSxActionLabel(parent.title)}の成立条件`",
+  "successors.map((item) => nominalizeSxActionLabel(item.title))",
+  "criticalFlow.map((milestone) => nominalizeSxActionLabel(milestone.title))",
+  "nextExperiment: issue?.nextValidation?.trim()",
+  "? nominalizeSxActionLabel(issue.nextValidation.trim())",
+]);
+expectNotIncludes("src/components/project-workspace/SxDevelopmentThemeBoard.tsx", [
+  "name: milestone?.title ?? fallbackName",
+  "position: parent ? `${parent.title}の成立条件`",
+  "successors.map((item) => item.title)",
+  "nextExperiment: nonEmpty(issue?.nextValidation, \"次実験 未登録\")",
+]);
+expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
+  "milestoneTitleBySlug = new Map(management.milestones.map((milestone) => [milestone.slug, nominalizeSxActionLabel(milestone.title)]))",
+  "milestoneTitleById = new Map(management.milestones.map((milestone) => [milestone.id, nominalizeSxActionLabel(milestone.title)]))",
+]);
+expectNotIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
+  "[milestone.slug, milestone.title]",
+  "[milestone.id, milestone.title]",
 ]);
 {
   const dashboard = read("src/components/project-workspace/ProjectWorkspaceDashboard.tsx");
@@ -750,11 +789,60 @@ expectIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx",
   'partner_role: [',
   'partner_work_item: [',
 ]);
-expectIncludes("src/components/project-workspace/SxReactorPanel.tsx", [
+expectIncludes("src/components/project-workspace/SxExecutiveControlDeck.tsx", [
+  "sx-executive-control-deck",
+  "sx-critical-path-rail",
+  "sx-intervention-queue",
+  "sx-intervention-queue-mobile",
+  "sx-upcoming-queue",
   "sx-four-pillar-signal-strip",
   "sxTrackEvidenceCompleteness",
   "sxFormatDelta",
   "詰まり:",
+  "deriveSxCriticalPathRail",
+  "deriveSxInterventionQueue",
+  "deriveSxUpcomingQueue",
+  "sxVerdictDisplayLabel",
+  "直近アクション",
+  "ボール / 担当",
+  "focusAnchorRow",
+  "sx-anchor-highlight",
+  "ArrowRight",
+  "InterventionRowDesktop",
+  "InterventionRowMobile",
+  "data-sx-anchor",
+  "prefers-reduced-motion",
+  "callsOnSelectMilestone",
+  "sxEcdFormatDueDate",
+]);
+expectNotIncludes("src/components/project-workspace/SxExecutiveControlDeck.tsx", [
+  "相手先要フォロー",
+]);
+expectIncludes("src/lib/sx-executive-control-deck.ts", [
+  // Provisional dates / missing dates must never resolve to a false-green current/future state.
+  "dateCertainty === \"provisional\"",
+  "!milestone.plannedEnd && !milestone.forecastEnd",
+  // Partner work-item interventions must be filtered to active statuses only.
+  "ACTIVE_PARTNER_WORK_STATUSES",
+  // Partner fallback must only be suppressed by ballSide === 'none', and must include sx-side ball.
+  'if (partner.currentBallSide === "none") continue;',
+  "sxEcdFormatDueDate",
+  // Overdue checks must go through the precision-aware helper, not raw string comparison.
+  "sxEcdIsDueDateOverdue",
+]);
+expectIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", [
+  "SxExecutiveControlDeck",
+  'data-sx-anchor={`sx-issue-${issue.id}`}',
+]);
+expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
+  'data-sx-anchor={`sx-partner-${partner.id}`}',
+]);
+expectIncludes("src/app/globals.css", [
+  "@media (prefers-reduced-motion: reduce)",
+]);
+expectNotIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", [
+  "SxReactorPanel",
+  "SxDecisionRunway",
 ]);
 expectIncludes("src/app/api/project-workspace/[projectId]/effort/route.ts", [
   "canAccessWorkspaceProject",

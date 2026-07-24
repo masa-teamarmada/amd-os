@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Save } from "lucide-react";
 import { EFFORT_CATEGORIES, type EffortCategory, type OsAccessScope } from "@/lib/project-workspace-types";
+import { nominalizeSxActionLabel } from "@/lib/sx-action-label";
 
 type MemberOption = { memberId: string; displayName: string };
 type ManagementMilestoneOption = { id: string; title: string; track: string };
@@ -128,7 +129,7 @@ export function EffortEntryForm({
           disabled={!managementTrack}
         >
           <option value="">柱のみ</option>
-          {managementMilestones.filter((milestone) => milestone.track === managementTrack).map((milestone) => <option key={milestone.id} value={milestone.id}>{milestone.title}</option>)}
+          {managementMilestones.filter((milestone) => milestone.track === managementTrack).map((milestone) => <option key={milestone.id} value={milestone.id}>{nominalizeSxActionLabel(milestone.title)}</option>)}
         </select>
       </label>
       <label className="grid gap-1.5 text-xs font-medium text-[#514e47]">
