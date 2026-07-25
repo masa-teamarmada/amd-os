@@ -814,13 +814,24 @@ expectIncludes("src/components/project-workspace/SxExecutiveControlDeck.tsx", [
   "prefers-reduced-motion",
   "callsOnSelectMilestone",
   "sxEcdFormatDueDate",
-  // Round 17: critical path rail is a full-width band (lg+) directly below the 4-pillar strip;
-  // intervention + upcoming queues are two xl-only side-by-side columns below it, kept as
-  // separate <section> elements. Mobile/tablet order must keep queues before the rail.
-  "sx-critical-path-band",
-  "sx-queue-columns",
-  '"order-2 min-w-0 border-b border-[#e4ddd0] px-3 py-2 lg:order-1"',
-  '"order-1 grid min-w-0 grid-cols-1 lg:order-2 xl:grid-cols-2"',
+  // Round 18 (2026-07-25 経営状況図): the deck reads 判定 → 4本柱信号 → 経営状況図（時間比例の
+  // 重要経路レール + ノード直下のブロッカー旗 + 今日マーカー） → 次の経営介入（①②③は旗と同番号）。
+  // Desktop shows the map before the intervention list; mobile/tablet keeps interventions first.
+  "deriveSxStateMap",
+  "sx-state-map",
+  "sx-verdict-band",
+  "sx-blocker-flag",
+  "sx-critical-path-rail-vertical",
+  "sx-unattached-blockers",
+  "次の経営介入",
+  "現在地",
+  "今日",
+  "RankBadge",
+  "SlipBar",
+  "StateMapDesktop",
+  "StateMapVertical",
+  '"order-2 border-b-0 border-[#e4ddd0] px-3 py-2 sm:px-4 lg:order-1 lg:border-b"',
+  '"order-1 border-b border-[#e4ddd0] px-3 py-2 sm:px-4 lg:order-2 lg:border-b-0"',
 ]);
 expectNotIncludes("src/components/project-workspace/SxExecutiveControlDeck.tsx", [
   "相手先要フォロー",
@@ -836,6 +847,12 @@ expectIncludes("src/lib/sx-executive-control-deck.ts", [
   "sxEcdFormatDueDate",
   // Overdue checks must go through the precision-aware helper, not raw string comparison.
   "sxEcdIsDueDateOverdue",
+  // 経営状況図: flags attach only via the row's own milestoneId; unresolvable rows go to
+  // `unattached` and are never guessed onto a node. Owner/stale/unassessed gaps are state marks
+  // on the node, never third-party flags.
+  "deriveSxStateMap",
+  "FLAG_KINDS",
+  "unattached",
 ]);
 expectIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", [
   "SxExecutiveControlDeck",

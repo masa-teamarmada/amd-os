@@ -57,6 +57,9 @@ export interface SxEcdMilestone {
   ownerLabel: string;
   confidence: string;
   criticality: string;
+  /** Management pillar key (事業/技術/資金/体制). Optional: older callers/tests omit it, and the
+   * rail then simply carries `track: null` — never guessed. */
+  track?: string | null;
 }
 
 export interface SxEcdTechnicalTest {
@@ -156,6 +159,8 @@ export interface SxEcdPathNode {
   dateCertainty: "confirmed" | "provisional" | null;
   ownerLabel: string;
   milestoneId: string | null;
+  /** Pillar key carried from the milestone (null when the source row doesn't have one). */
+  track: string | null;
 }
 
 export interface SxEcdRailMarker {
@@ -226,6 +231,7 @@ export function deriveSxCriticalPathRail(
         dateCertainty: null,
         ownerLabel: "担当未確認",
         milestoneId: null,
+        track: null,
       };
     }
     return {
@@ -240,6 +246,7 @@ export function deriveSxCriticalPathRail(
       dateCertainty: milestone.dateCertainty,
       ownerLabel: isMissingOwnerText(milestone.ownerLabel) ? "担当未確認" : sxNormalizePublicName(milestone.ownerLabel),
       milestoneId: milestone.id,
+      track: milestone.track ?? null,
     };
   });
 
@@ -776,6 +783,161 @@ export function deriveSxUpcomingQueue(params: {
   });
 
   return { rows: sorted.slice(0, maxRows), totalCount: sorted.length };
+}
+
+// --- State map (経営状況図) ----------------------------------------------------
+
+/** Intervention kinds that represent a live external stoppage — someone or some org actually
+ * holding a ball. These render as flags attached to the path node they stop. Everything else
+ * (owner missing / stale / unassessed) is a data-gap about the node itself and renders as a state
+ * mark ON the node, never as a third-party flag. */
+const FLAG_KINDS = new Set<SxEcdInterventionKind>([
+  "critical_blocked",
+  "critical_overdue",
+  "technical_test_blocked",
+  "validation_run",
+  "action_item",
+  "partner_work_item",
+  "partner_fallback",
+  "issue_stalled",
+]);
+
+export type SxEcdBlockerClass = "flag" | "state";
+
+export interface SxEcdMapBlocker {
+  key: string;
+  /** 1..topCount when the row is in the 次の経営介入 top list, else null. The same rank number is
+   * shown on the map flag and in the intervention list so both views point at the same fact. */
+  rank: number | null;
+  blockerClass: SxEcdBlockerClass;
+  kind: SxEcdInterventionKind;
+  target: string;
+  ballSide: string;
+  ballOwner: string;
+  dueDate: string | null;
+  dueDatePrecision?: SxEcdDatePrecision;
+  dueContextLabel: string | null;
+  dateCertainty?: "confirmed" | "provisional" | null;
+  gate: string;
+  anchor: string;
+  entityType: SxEcdInterventionRow["entityType"];
+  entityId: string | null;
+  milestoneId: string | null;
+}
+
+export interface SxEcdMapNode {
+  node: SxEcdPathNode;
+  /** Days between this node's effective date (forecast || planned) and the previous visible
+   * node's. Null when either side has no date — the component then falls back to equal spacing
+   * instead of inventing a distance. Negative raw values are clamped to 0. */
+  gapDaysFromPrev: number | null;
+  flags: SxEcdMapBlocker[];
+  stateMarks: SxEcdMapBlocker[];
+}
+
+export interface SxEcdStateMap {
+  valid: boolean;
+  reason: string | null;
+  nodes: SxEcdMapNode[];
+  leadingMarker: SxEcdRailMarker | null;
+  trailingMarker: SxEcdRailMarker | null;
+  /** Visible index of the current node (the one the 今日 marker precedes), -1 when every node is
+   * complete or the rail is invalid. */
+  todayIndex: number;
+  /** Rows whose milestoneId doesn't resolve to a visible node (null, hidden completed, or beyond
+   * the trailing gap). Never dropped — an unplaceable stoppage still exists. */
+  unattached: SxEcdMapBlocker[];
+  /** 次の経営介入: top rows of the full sorted queue, ranked 1..topCount. */
+  top: SxEcdMapBlocker[];
+  totalCount: number;
+}
+
+function toMapBlocker(row: SxEcdInterventionRow, rank: number | null): SxEcdMapBlocker {
+  return {
+    key: row.key,
+    rank,
+    blockerClass: FLAG_KINDS.has(row.kind) ? "flag" : "state",
+    kind: row.kind,
+    target: row.target,
+    ballSide: row.ballSide,
+    ballOwner: row.ballOwner,
+    dueDate: row.dueDate,
+    dueDatePrecision: row.dueDatePrecision,
+    dueContextLabel: row.dueContextLabel,
+    dateCertainty: row.dateCertainty,
+    gate: row.gate,
+    anchor: row.anchor,
+    entityType: row.entityType,
+    entityId: row.entityId,
+    milestoneId: row.milestoneId,
+  };
+}
+
+function diffDaysBetween(from: string, to: string): number {
+  return Math.round((Date.parse(`${to}T00:00:00.000Z`) - Date.parse(`${from}T00:00:00.000Z`)) / 86400000);
+}
+
+/**
+ * Builds the 経営状況図 model: the visible critical-path nodes with time-proportional gaps, every
+ * live stoppage attached to the exact node it stops (flags), node-data gaps attached as state
+ * marks, and the ranked 次の経営介入 list cross-referenced by the same rank numbers. Pure data-in
+ * data-out. Attachment only ever uses the row's own milestoneId — a row that doesn't resolve to a
+ * visible node goes to `unattached`, never guessed onto some node.
+ */
+export function deriveSxStateMap(params: {
+  rail: SxEcdCriticalPathRail;
+  interventionRows: SxEcdInterventionRow[];
+  totalCount: number;
+  topCount?: number;
+}): SxEcdStateMap {
+  const { rail, interventionRows, totalCount, topCount = 3 } = params;
+  if (!rail.valid) {
+    const top = interventionRows.slice(0, topCount).map((row, index) => toMapBlocker(row, index + 1));
+    return {
+      valid: false,
+      reason: rail.reason,
+      nodes: [],
+      leadingMarker: null,
+      trailingMarker: null,
+      todayIndex: -1,
+      unattached: interventionRows.map((row, index) => toMapBlocker(row, index < topCount ? index + 1 : null)),
+      top,
+      totalCount,
+    };
+  }
+
+  const blockers = interventionRows.map((row, index) => toMapBlocker(row, index < topCount ? index + 1 : null));
+  const visibleIds = new Set(rail.visibleNodes.map((node) => node.milestoneId).filter(Boolean));
+  const unattached = blockers.filter((blocker) => !blocker.milestoneId || !visibleIds.has(blocker.milestoneId));
+
+  const nodes: SxEcdMapNode[] = rail.visibleNodes.map((node, index) => {
+    const own = blockers.filter((blocker) => blocker.milestoneId && blocker.milestoneId === node.milestoneId);
+    let gapDaysFromPrev: number | null = null;
+    if (index > 0) {
+      const prev = rail.visibleNodes[index - 1];
+      const prevDate = prev.forecastEnd || prev.plannedEnd;
+      const ownDate = node.forecastEnd || node.plannedEnd;
+      if (prevDate && ownDate) gapDaysFromPrev = Math.max(0, diffDaysBetween(prevDate, ownDate));
+    }
+    return {
+      node,
+      gapDaysFromPrev,
+      flags: own.filter((blocker) => blocker.blockerClass === "flag"),
+      stateMarks: own.filter((blocker) => blocker.blockerClass === "state"),
+    };
+  });
+
+  return {
+    valid: true,
+    reason: null,
+    nodes,
+    leadingMarker: rail.leadingMarker,
+    trailingMarker: rail.trailingMarker,
+    todayIndex: rail.visibleNodes.findIndex((node) => node.isCurrent),
+    unattached,
+    top: blockers.slice(0, topCount),
+    totalCount,
+  };
 }
 
 /** Formats a row's due date honoring its precision: month precision never fabricates a day

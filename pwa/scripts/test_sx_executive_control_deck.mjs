@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   deriveSxCriticalPathRail,
   deriveSxInterventionQueue,
+  deriveSxStateMap,
   deriveSxUpcomingQueue,
   sxVerdictDisplayLabel,
   sxEcdFormatDueDate,
@@ -596,6 +597,107 @@ function issue(overrides = {}) {
   });
   const priorRow = queuePriorMonth.rows.find((r) => r.kind === "partner_work_item");
   assert.ok(priorRow);
+}
+
+// 20. State map (経営状況図): flags attach only to the exact visible node whose milestoneId the
+// row carries; unresolvable rows go to `unattached`; owner/stale/unassessed rows become state
+// marks on the node (never third-party flags); rank numbers are shared with the top list.
+{
+  const milestones = [
+    milestone({ id: "m1", slug: "a", status: "on_track", isBlocked: true, track: "technology_development", plannedEnd: "2026-09-30", forecastEnd: "2026-10-16", deltaDays: 16 }),
+    milestone({ id: "m2", slug: "b", status: "on_track", ownerLabel: "未確認", plannedEnd: "2026-12-18", forecastEnd: "2027-01-15", deltaDays: 28, track: "business_development" }),
+    milestone({ id: "m3", slug: "c", status: "on_track", plannedEnd: "2027-03-31", forecastEnd: "2027-03-31", deltaDays: 0, track: "organizational_building" }),
+  ];
+  const rail = deriveSxCriticalPathRail({ dagValid: true, criticalPathSlugs: ["a", "b", "c"] }, milestones);
+  assert.equal(rail.nodes[0].track, "technology_development");
+
+  const queue = deriveSxInterventionQueue({
+    today: "2026-07-25",
+    criticalPathSlugs: ["a", "b", "c"],
+    milestones,
+    partnerWorkItems: [{
+      id: "wi1", partnerId: "p1", side: "partner", title: "試作納品",
+      ownerLabel: "先方担当", status: "waiting", dueDate: "2026-08-01", dueDatePrecision: "month",
+      relatedMilestoneId: "m1",
+    }],
+    partners: [{
+      id: "p9", slug: "p9", name: "機関X", currentBallSide: "partner", currentBallOwner: "相手担当",
+      relatedMilestoneSlugs: ["zz-not-critical-but-unmatched"], nextCommitment: null, dueDate: null,
+    }],
+    issues: [],
+    maxRows: 200,
+  });
+
+  const map = deriveSxStateMap({ rail, interventionRows: queue.rows, totalCount: queue.totalCount, topCount: 3 });
+  assert.equal(map.valid, true);
+  assert.equal(map.nodes.length, 3);
+
+  // Blocked critical milestone m1 -> flag on node a; partner work item also on node a.
+  const nodeA = map.nodes[0];
+  assert.ok(nodeA.flags.some((flag) => flag.kind === "critical_blocked"));
+  assert.ok(nodeA.flags.some((flag) => flag.kind === "partner_work_item"));
+  // Node a is blocked -> current node is still first incomplete (a itself).
+  assert.equal(map.todayIndex, 0);
+
+  // Owner-unconfirmed on m2 -> state mark on node b, never a flag.
+  const nodeB = map.nodes[1];
+  assert.equal(nodeB.flags.length, 0);
+  assert.ok(nodeB.stateMarks.some((mark) => mark.kind === "owner_unconfirmed"));
+
+  // Gap days are forecast-date proportional: a(10/16) -> b(1/15) = 91 days, b -> c(3/31) = 75 days.
+  assert.equal(map.nodes[0].gapDaysFromPrev, null);
+  assert.equal(map.nodes[1].gapDaysFromPrev, 91);
+  assert.equal(map.nodes[2].gapDaysFromPrev, 75);
+
+  // Ranks: shared numbering between top list and attached blockers/marks.
+  assert.equal(map.top.length, Math.min(3, queue.rows.length));
+  map.top.forEach((row, index) => assert.equal(row.rank, index + 1));
+  const rankedOnMap = [
+    ...map.nodes.flatMap((entry) => [...entry.flags, ...entry.stateMarks]),
+    ...map.unattached,
+  ].filter((row) => row.rank != null);
+  for (const top of map.top) {
+    assert.ok(rankedOnMap.some((row) => row.key === top.key && row.rank === top.rank));
+  }
+}
+
+// 20b. Rows whose milestoneId doesn't resolve to a visible node land in unattached — never
+// guessed onto a node. Invalid rail keeps every row in unattached with top ranks intact.
+{
+  const milestones = [milestone({ id: "m1", slug: "a", status: "on_track", isBlocked: true })];
+  const rail = deriveSxCriticalPathRail({ dagValid: true, criticalPathSlugs: ["a"] }, milestones);
+  const orphanRow = {
+    key: "issue-orphan", priority: 5, kind: "issue_stalled", target: "孤立論点", ballSide: "担当",
+    ballOwner: "担当A", dueDate: "2026-07-01", dueContextLabel: null, gate: "", anchor: "#sx-issue-orphan",
+    entityType: "issue", entityId: "orphan", milestoneId: null,
+  };
+  const map = deriveSxStateMap({ rail, interventionRows: [orphanRow], totalCount: 1, topCount: 3 });
+  assert.equal(map.nodes[0].flags.length, 0);
+  assert.equal(map.unattached.length, 1);
+  assert.equal(map.unattached[0].rank, 1);
+
+  const invalidRail = deriveSxCriticalPathRail({ dagValid: false, criticalPathSlugs: ["a"] }, milestones);
+  const invalidMap = deriveSxStateMap({ rail: invalidRail, interventionRows: [orphanRow], totalCount: 1 });
+  assert.equal(invalidMap.valid, false);
+  assert.equal(invalidMap.reason, "依存関係不正");
+  assert.equal(invalidMap.unattached.length, 1);
+  assert.equal(invalidMap.top.length, 1);
+}
+
+// 20c. State-class rows never appear as flags anywhere (flag/state classification is by kind).
+{
+  const milestones = [
+    milestone({ id: "m1", slug: "a", status: "unassessed", confidence: "unknown", ownerLabel: "未確認", plannedEnd: null, forecastEnd: null, deltaDays: null }),
+  ];
+  const rail = deriveSxCriticalPathRail({ dagValid: true, criticalPathSlugs: ["a"] }, milestones);
+  const queue = deriveSxInterventionQueue({
+    today: "2026-07-25", criticalPathSlugs: ["a"], milestones,
+    partnerWorkItems: [], partners: [], issues: [], maxRows: 200,
+  });
+  const map = deriveSxStateMap({ rail, interventionRows: queue.rows, totalCount: queue.totalCount });
+  assert.equal(map.nodes[0].flags.length, 0);
+  assert.ok(map.nodes[0].stateMarks.length > 0);
+  for (const mark of map.nodes[0].stateMarks) assert.equal(mark.blockerClass, "state");
 }
 
 console.log("test_sx_executive_control_deck.mjs: all assertions passed");

@@ -1890,3 +1890,31 @@ Book A執筆規範 (japanese-tech-writing + cognitive-rhythm-writing) をSESSION
 ✅ 全件記録済。恒久仕様はPoC design/manualへ、今回のcloseout状態はHANDOFFとsession logへ分離した。
 
 ---
+
+## 2026-07-25 (v3.49.8 → v3.49.9) SX初期画面を「経営状況図」へ再設計（利用者受入差し戻し対応）
+
+担当: えいみ (Claude Fable 5、ehm-os発のmigration promptセッション)。作業場所: origin/main `de98744f` のdisposable clean clone（scratchpad配下、closeoutで削除）。既存checkoutはlocal mainのahead/behind（他セッション未pushコミット2件 `20f3aa2a`/`9671e6cb`）と `pwa/bzm/book-a-ch-1.md` のdirtyがあるため触らない。
+
+### 背景
+
+- 2026-07-25、まさの実画面評価で v3.49.8 のPJ管制盤が「まだまだぱっと見ただけで全体の状況が分かる状態にはなってない」と利用者受入撤回。技術監査（P0/P1=0、1440×900収容、横あふれ0）は合格していたが、経営判定・4本柱・重要経路・対応待ち・直近アクションが文章と小区画の集合に見え、因果が一つの絵として立ち上がっていなかった。
+- 再設計前に本番を1440×900で実測（Playwright + admin session。セッションは `auth.admin.generateLink`→`verifyOtp` でローカル生成し、撮影後に revoke。まさのブラウザの秘密値には触れない）し、COO/データ可視化/研究開発責任者の3役で5秒認知テストを実施。主な認知失敗: 判定チップより緑の証拠バーが強く「進んでいる」と誤読させる / 経路4ノードが同一見た目で現在地・遅延が読めない / ブロッカーと経路が別区画でテキスト参照のみ / ボール保持者が省略記号で切れる / 直近アクション3件がほぼ同文で担当なし。
+- 構造案は「4本柱レーン×時間軸の全面ガント(A)」「等間隔スパイン+ぶら下がりブロッカー(B)」「時間比例スパイン+接続ブロッカー+番号付き介入(C)」を比較し、Cを採用。Aは実データ4ノードで空レーンの誤読と空間浪費、BはQ3（遅延幅の非文章比較）を満たさない。
+
+### 実装
+
+- `src/lib/sx-executive-control-deck.ts`: `deriveSxStateMap` 新設（旗は`milestoneId`一致のみで接続・推測なし、未解決は`unattached`、`FLAG_KINDS`で実在停止/待ちとデータ欠落系を分類、gap日数=予測日差、①②③ランクを図とリストで共有）。`SxEcdMilestone`/`SxEcdPathNode`へ`track`をadditive追加。
+- `src/components/project-workspace/SxExecutiveControlDeck.tsx`: 帯1判定（判定語22px色面）→帯2 4本柱信号（アクセント罫がノード縁色と対応、証拠バーは小型中立色化）→帯3経営状況図（日数比例grid、今日マーカー、`SlipBar`2px/日、破線=仮、旗=`sx-blocker-flag`、state markはノード上へ統合）→帯4次の経営介入（top3+`RankBadge`、直近アクションは1行帯へ降格）。lg未満は介入→縦レールの順。`ballDisplay`で「未確認・未確認」重複を畳む。
+- `scripts/test_sx_executive_control_deck.mjs`: state map契約テスト3ブロック追加（20/20b/20c）。`scripts/check_pwa_critical_ui.cjs`: Round 17レイアウトanchorをRound 18（経営状況図）へ更新。
+- docs: `design/FEATURE_REGISTRY.md`（Round 8追記+回帰防止）、`spec/3-8-cockpit-current-spec.md`（「初期画面 = 経営状況図」節）、`manual/2-3-pj-cockpit.md`（最初の1画面の読み方）、spec 6-1 / manual 9-3 changelog。
+
+### 検証
+
+- test:sx-executive-control-deck / sx-action-label / sx-name-normalize / sx-partner-holdings / critical-ui 全PASS、`tsc --noEmit` 0件、対象eslint 0件、`npm run build` 成功。
+- 本番実データ（ローカルdev + production build）で1440×900/768×900/390×844を撮影し、3幅とも `documentElement.clientWidth == scrollWidth`（横あふれ0）、重複ID0、consoleエラー0。
+- 3批評役の5秒認知テスト（最終スクリーンショットのみ）: COO/可視化/研究開発責任者の3役全員が5問（予定差・経路と現在地・停止と下流影響・ボール保持者・次の介入）へ回答可能でPASS。完成宣言はせず、まさの利用者受入待ちとして提示。
+
+### 残課題
+
+- 活動証拠ありで週次工数0時間の不一致（別トラック、SX_COO_DASHBOARD_SPEC §11）。
+- ダイキアクシスの正式分類・8月納品の具体日・SX側受入担当、SMBC窓口引継ぎ期限、研究側メンバー登録、重要経路4ゲートの担当は未確認のまま（画面は「未確認」を明示表示）。
