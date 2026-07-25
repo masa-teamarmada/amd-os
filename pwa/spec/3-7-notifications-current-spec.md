@@ -134,6 +134,6 @@ PWA の `textbook_insight` 表示は、D-7 の内部メタデータをそのま�
 
 ### 2026-07-25: 契約 action item
 
-`action_item` が契約状態を変える場合は、表示 metadata に実在確認済みの `contract_id`、契約名、相手先、種別、現在状態、変更後状態を入れる。PWA/iOSは `管理 → 契約` と `current → next` を先に表示し、yesでその1契約と要対応だけを更新する。IDまたは変更後状態が欠けるときは「契約を特定できないため、契約台帳は更新しない」として yes/no を出さない。PJ名・日時・件名の近さから契約を推測しない。
+`action_item` が契約状態を変える場合は、表示 metadata に実在確認済みの `contract_id`、契約名、相手先、種別、現在状態、変更後状態を入れる。PWA/iOSは `管理 → 契約` と `current → next` を先に表示し、yesでその1契約と要対応だけを更新する。IDまたは変更後状態が欠けるものは、`action_items.review_status='needs_source'` と不足項目を保存するだけで、通知一覧・判断キューへ出さない。PJ名・日時・件名の近さから契約を推測しない。
 
 この章で通知一覧、normal/critical レーン、採否 API、status 遷移の主要 contract は再構築できる。まだ不足しているのは `applyApprovedNotification()` 内の `project_registry_diff` allowlist patch 詳細と、meeting summary re-extraction の同期確認 contract。

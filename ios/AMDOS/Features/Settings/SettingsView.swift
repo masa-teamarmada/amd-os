@@ -818,15 +818,19 @@ struct NotificationInboxView: View {
     }
 
     private var unreadItems: [NotificationInboxItem] {
-        inbox.items.filter(\.isUnread)
+        visibleInboxItems.filter(\.isUnread)
     }
 
     private var historyItems: [NotificationInboxItem] {
-        inbox.items.filter { !$0.isUnread || hasFeedback($0) }
+        visibleInboxItems.filter { !$0.isUnread || hasFeedback($0) }
+    }
+
+    private var visibleInboxItems: [NotificationInboxItem] {
+        inbox.items.filter { !$0.isSuppressedContractAction }
     }
 
     private var unansweredItems: [NotificationInboxItem] {
-        inbox.items.filter { item in
+        visibleInboxItems.filter { item in
             if item.kind == "connector_auth" { return item.isUnread }
             return !hasFeedback(item)
         }

@@ -4666,6 +4666,12 @@ struct NotificationInboxItem: Identifiable, Hashable {
         return UUID(uuidString: contractId) != nil && !contractTitle.isEmpty && !currentStatus.isEmpty && !nextStatus.isEmpty
     }
 
+    // 契約IDまで届いていない通知は、利用者に判断を委ねる内容ではない。
+    // 生成側の要補完として扱い、iPhone の判断・未読キューには出さない。
+    var isSuppressedContractAction: Bool {
+        isContractAction && !hasResolvedContractAction
+    }
+
     var contractActionChanges: [String] {
         guard hasResolvedContractAction else {
             return ["対象の契約: 特定できない", "契約台帳: 更新しない"]

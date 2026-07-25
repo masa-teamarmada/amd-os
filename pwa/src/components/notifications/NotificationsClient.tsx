@@ -170,6 +170,13 @@ function contractActionContract(n: Notification): ContractActionContract | null 
   };
 }
 
+// 契約を一意に決められない通知は、まさに判断させる通知ではない。
+// 生成側が `needs_source` として回収するまで、通知一覧・判断キューへ出さない。
+function isSuppressedContractAction(n: Notification): boolean {
+  const contract = contractActionContract(n);
+  return contract?.resolved === false;
+}
+
 function governanceActionContract(n: Notification): GovernanceActionContract {
   const meta = objectValue(n.metadata_json);
   const stored = objectValue(meta.action_contract);
@@ -320,7 +327,9 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
   // 通知を時系列でマージ (l2 + meeting)
   const items: UnifiedItem[] = useMemo(() => {
     const merged: UnifiedItem[] = [
-      ...l2.map((x) => ({ kind: "l2" as const, data: x })),
+      ...l2
+        .filter((x) => !isSuppressedContractAction(x))
+        .map((x) => ({ kind: "l2" as const, data: x })),
       ...mtg.map((x) => ({ kind: "meeting" as const, data: x })),
     ];
     merged.sort((a, b) => new Date(b.data.created_at).getTime() - new Date(a.data.created_at).getTime());

@@ -63,6 +63,7 @@ export async function POST(req: NextRequest) {
   const nowIso = new Date().toISOString();
   let inserted = 0;
   let skipped = 0;
+  let suppressed = 0;
   const notifications: Record<string, unknown>[] = [];
 
   for (const it of items) {
@@ -76,6 +77,7 @@ export async function POST(req: NextRequest) {
     const scope = it.scope || (projectId ? "project" : "personal");
     const requestedContractId = String(it.contract_id ?? "").trim();
     const requestedNextStatus = String(it.contract_status_after ?? "").trim();
+    const isContractAction = it.category === "contract" || /契約|DocuSign/i.test(`${it.title}\n${it.summary ?? ""}`);
     let contractMeta: Record<string, string> | null = null;
     // project/date/title から契約を類推しない。実在する contract_id と許可済みの次状態が
     // 同時に渡された場合だけ、通知へ契約台帳の変更契約を載せる。
@@ -102,6 +104,10 @@ export async function POST(req: NextRequest) {
       category: it.category ?? "other",
       due_at: it.due_at ?? null,
       action_url: it.action_url ?? null,
+      ...(isContractAction && !contractMeta ? {
+        notification_suppressed_reason: "missing_contract_identity",
+        missing_contract_fields: ["contract_id", "contract_title", "counterparty_name", "contract_status", "contract_status_after"],
+      } : {}),
       ...(contractMeta ?? {}),
     };
 
@@ -121,12 +127,18 @@ export async function POST(req: NextRequest) {
       source_ref: it.source_ref ?? null,
       source_hash: it.source_hash,
       detected_at: nowIso,
-      review_status: "candidate",
+      // 契約を特定できないものは、まさの判断待ちにせず生成側の要補完として残す。
+      review_status: isContractAction && !contractMeta ? "needs_source" : "candidate",
       metadata_json: metadataJson,
     });
     if (error) { skipped++; continue; }
     inserted++;
     known.add(it.source_hash);
+
+    if (isContractAction && !contractMeta) {
+      suppressed++;
+      continue;
+    }
 
     // 期日が近いほど importance を上げて通知化。
     // notification_id は uuid default (gen_random_uuid)。dedup は action_items の source_hash
@@ -153,5 +165,5 @@ export async function POST(req: NextRequest) {
     if (!notifyErr) notified = notifications.length;
   }
 
-  return NextResponse.json({ ok: true, inserted, skipped, notified });
+  return NextResponse.json({ ok: true, inserted, skipped, suppressed, notified });
 }

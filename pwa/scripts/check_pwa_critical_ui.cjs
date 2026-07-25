@@ -2377,6 +2377,12 @@ expectIncludes("src/components/notifications/NotificationsClient.tsx", [
   "この開催履歴を追加する",
   "契約台帳に更新する内容",
   "契約を特定できないため、契約台帳は更新しない",
+  "isSuppressedContractAction",
+]);
+expectIncludes("src/app/api/action-items/extract/route.ts", [
+  "notification_suppressed_reason",
+  "missing_contract_identity",
+  "review_status: isContractAction && !contractMeta ? \"needs_source\" : \"candidate\"",
 ]);
 expectIncludes("../ios/AMDOS/Features/Settings/SettingsView.swift", [
   "追加先",
@@ -2387,6 +2393,7 @@ expectIncludes("../ios/AMDOS/Core/Services/SupabaseService.swift", [
   "https://amd-os-pwa.vercel.app/api/notifications/feedback",
   "この開催履歴を追加する",
   "契約を特定できないため、契約台帳は更新しない",
+  "isSuppressedContractAction",
 ]);
 
 console.log("critical PWA UI anchors ok");
