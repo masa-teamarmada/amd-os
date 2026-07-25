@@ -1030,7 +1030,7 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
         <main className="min-w-0 space-y-4">
 
         <section id="management-summary" className="scroll-mt-20" aria-label="経営状況図: 判定・統合タイムライン・次の経営介入">
-          <h2 className="sr-only">判定・統合タイムライン・今週の意思決定・次の経営介入を一続きで表示する経営状況図</h2>
+          <h2 className="sr-only">判定・統合タイムライン・意思決定待ち・次の経営介入を一続きで表示する経営状況図</h2>
           <div className="min-w-0">
             <SxExecutiveControlDeck management={management} judgment={effectiveJudgment} selectedMilestoneId={selectedMilestoneId} onSelectMilestone={selectMilestoneAndTrack} />
           </div>
@@ -1077,12 +1077,12 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
                   <tbody>
                     {visibleIssues.map((issue) => (
                       <tr key={issue.id} id={`sx-issue-${issue.id}`} data-sx-anchor={`sx-issue-${issue.id}`} tabIndex={-1} className="scroll-mt-24 border-b border-[#e4ddd0]">
-                        <td className="px-3 py-2 align-top"><p className="font-semibold text-[#24231f]">{issue.title}</p><p className="mt-1 text-[10px] text-[#777166]">{TRACK_LABELS[issue.track]} / 確認 {formatDate(issue.lastVerifiedAt)}</p><p className="mt-1"><Badge tone={issue.knowledgeType === "fact" ? "border-[#b7c8d2] bg-[#eef3f5] text-[#315f7d]" : issue.knowledgeType === "decision_needed" ? "border-[#e3c994] bg-[#fbf1dc] text-[#765022]" : "border-[#c9bfd0] bg-[#f1edf3] text-[#5f4a66]"}>{ISSUE_KIND_LABELS[issue.knowledgeType]}</Badge></p></td>
+                        <td className="px-3 py-2 align-top"><p className="font-semibold text-[#24231f]">{issue.title}</p><p className="mt-1 text-[10px] text-[#777166]">{TRACK_LABELS[issue.track]} / 確認 {formatDate(issue.lastVerifiedAt)}</p><p className="mt-1 flex flex-wrap gap-1"><Badge tone={issue.knowledgeType === "fact" ? "border-[#b7c8d2] bg-[#eef3f5] text-[#315f7d]" : issue.knowledgeType === "decision_needed" ? "border-[#e3c994] bg-[#fbf1dc] text-[#765022]" : "border-[#c9bfd0] bg-[#f1edf3] text-[#5f4a66]"}>{ISSUE_KIND_LABELS[issue.knowledgeType]}</Badge>{issue.knowledgeType !== "decision_needed" && issue.status !== "closed" && issue.decisions.some((decision) => decision.status !== "decided") && <Badge tone="border-[#e3c994] bg-[#fbf1dc] text-[#765022]">意思決定待ち</Badge>}</p></td>
                         <td className="px-3 py-2 align-top text-[#514e47]">{issue.hypothesis}</td>
                         <td className="px-3 py-2 align-top text-[#514e47]">{issue.evidenceFor}</td>
                         <td className="px-3 py-2 align-top text-[#8c3329]">{issue.counterevidenceOrMissing}</td>
                         <td className="px-3 py-2 align-top text-[#514e47]">{nominalizeSxActionLabel(issue.nextValidation)}</td>
-                        <td className="px-3 py-2 align-top text-[#514e47]"><span className={issue.ownerLabel.includes("未確認") ? "font-semibold text-[#8c3329]" : ""}>{issue.ownerLabel}</span><span className="mt-1 block text-[10px] text-[#777166]">{formatDate(issue.dueDate)} / {statusLabel(issue.status)}</span></td>
+                        <td className="px-3 py-2 align-top text-[#514e47]"><span className={issue.ownerLabel.includes("未確認") ? "text-[#765022]" : ""}>{issue.ownerLabel}</span><span className="mt-1 block text-[10px] text-[#777166]">{formatDate(issue.dueDate)} / {statusLabel(issue.status)}</span></td>
                         <td className="px-3 py-2 align-top text-[#514e47]">{issue.milestoneSlug ? (milestoneLabelMap.get(issue.milestoneSlug) || "名称未確認") : "未接続"}</td>
                         {management.canManage && <td className="px-3 py-2 align-top"><button type="button" onClick={() => setEditing({ resource: "issue", id: issue.id })} className="inline-flex items-center gap-1 rounded-md border border-[#cfc7b9] px-2 py-1.5 text-[10px] font-semibold text-[#514e47] hover:bg-[#f8f5ec]"><Pencil className="h-3 w-3" aria-hidden="true" />編集</button></td>}
                       </tr>
@@ -1093,7 +1093,7 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
               <div className="mt-4 divide-y divide-[#e4ddd0] border-y border-[#e4ddd0] lg:hidden">
                 {visibleIssues.map((issue) => (
                   <article key={issue.id} data-sx-anchor={`sx-issue-${issue.id}`} tabIndex={-1} className="scroll-mt-24 border-b border-[#e4ddd0] py-3 last:border-b-0">
-                    <div className="flex items-start justify-between gap-3"><div><Badge tone={issue.knowledgeType === "fact" ? "border-[#b7c8d2] bg-[#eef3f5] text-[#315f7d]" : issue.knowledgeType === "decision_needed" ? "border-[#e3c994] bg-[#fbf1dc] text-[#765022]" : "border-[#c9bfd0] bg-[#f1edf3] text-[#5f4a66]"}>{ISSUE_KIND_LABELS[issue.knowledgeType]}</Badge><h3 className="mt-2 text-sm font-semibold text-[#24231f]">{issue.title}</h3></div><EditAction canManage={management.canManage} onClick={() => setEditing({ resource: "issue", id: issue.id })} /></div>
+                    <div className="flex items-start justify-between gap-3"><div className="flex flex-wrap items-center gap-1"><Badge tone={issue.knowledgeType === "fact" ? "border-[#b7c8d2] bg-[#eef3f5] text-[#315f7d]" : issue.knowledgeType === "decision_needed" ? "border-[#e3c994] bg-[#fbf1dc] text-[#765022]" : "border-[#c9bfd0] bg-[#f1edf3] text-[#5f4a66]"}>{ISSUE_KIND_LABELS[issue.knowledgeType]}</Badge>{issue.knowledgeType !== "decision_needed" && issue.status !== "closed" && issue.decisions.some((decision) => decision.status !== "decided") && <Badge tone="border-[#e3c994] bg-[#fbf1dc] text-[#765022]">意思決定待ち</Badge>}<h3 className="mt-2 text-sm font-semibold text-[#24231f]">{issue.title}</h3></div><EditAction canManage={management.canManage} onClick={() => setEditing({ resource: "issue", id: issue.id })} /></div>
                     <dl className="mt-2 grid grid-cols-[88px_minmax(0,1fr)] text-[11px]">
                       <dt className="py-1 text-[#777166]">分類</dt><dd className="py-1">{TRACK_LABELS[issue.track]}</dd>
                       <dt className="py-1 text-[#777166]">現在の仮説</dt><dd className="py-1">{issue.hypothesis}</dd>

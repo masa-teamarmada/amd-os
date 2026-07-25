@@ -126,7 +126,20 @@ function VerdictBar({ summary }: { summary: SxEcdVerdictSummary }) {
       </div>
       <div className="flex min-w-0 flex-col justify-center gap-0.5 border-r border-[#e4ddd0] px-3 py-1.5">
         <p className="text-[9px] font-semibold tracking-[0.12em] text-[#777166]">STEP2消化</p>
-        <p className={`text-[13px] font-bold leading-none ${summary.step2.known ? "text-[#24231f]" : "text-[#55506d]"}`} title="STEP2資金の消化が予定どおりかの確認。金額データが未確認の間は数値を出さない">{summary.step2.label}</p>
+        <button
+          type="button"
+          onClick={() => {
+            const ledger = document.getElementById("management-ledger");
+            if (ledger instanceof HTMLDetailsElement) ledger.open = true;
+            focusAnchorRow("management-ledger");
+          }}
+          className={`min-h-6 w-fit text-left text-[13px] font-bold leading-none underline decoration-[#cfc7b9] underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] ${summary.step2.known ? "text-[#24231f]" : "text-[#55506d]"}`}
+          title="STEP2資金の消化が予定どおりかの確認。金額データが未確認の間は数値を出さない。内訳と登録は管理台帳の測定・資金欄"
+          aria-label={`STEP2消化 ${summary.step2.label}。管理台帳の資金欄へ移動`}
+        >
+          {summary.step2.label}
+        </button>
+        {!summary.step2.known && <p className="text-[9px] text-[#9b9487]">内訳: 管理台帳の資金欄（金額未登録）</p>}
       </div>
       <div className="flex min-w-0 flex-col justify-center gap-0.5 px-3 py-1.5">
         <p className="flex items-center gap-1 text-[9px] font-semibold tracking-[0.12em] text-[#5f4a66]"><Flag className="h-3 w-3" aria-hidden="true" />設立判断まで</p>
@@ -303,7 +316,7 @@ export function SxExecutiveControlDeck({
     pinCount: 5,
   });
 
-  // 今週の意思決定 = 論点台帳の「意思決定待ち」と同じ判定（未決の意思決定を持つ論点 or
+  // 意思決定待ち = 論点台帳と同じ判定（未決の意思決定を持つ論点 or
   // 意思決定待ち分類）。台帳の小さなカウンタから初期画面の議題へ昇格し、件数の意味を揃える。
   const pendingDecisions = management.issues
     .filter((issue) => issue.status !== "closed" && (issue.knowledgeType === "decision_needed" || issue.decisions.some((decision) => decision.status !== "decided")))
@@ -325,12 +338,12 @@ export function SxExecutiveControlDeck({
         </div>
       </div>
 
-      {/* 帯3: 今週の意思決定 + 次の経営介入（①〜⑤はタイムラインのピンと同番号） */}
+      {/* 帯3: 意思決定待ち + 次の経営介入（①〜⑤はタイムラインのピンと同番号） */}
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]">
-        <section className="min-w-0 border-b border-[#e4ddd0] px-3 py-2 sm:px-4 xl:border-b-0 xl:border-r" aria-label="今週の意思決定">
+        <section className="min-w-0 border-b border-[#e4ddd0] px-3 py-2 sm:px-4 xl:border-b-0 xl:border-r" aria-label="意思決定待ち">
           <div className="flex items-center justify-between gap-2">
-            <h3 className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]">今週の意思決定</h3>
-            <span className="text-[10px] text-[#777166]">意思決定待ち {pendingDecisions.length}件</span>
+            <h3 className="text-[10px] font-semibold tracking-[0.14em] text-[#38745d]">意思決定待ち（期限順）</h3>
+            <span className="text-[10px] text-[#777166]">全{pendingDecisions.length}件</span>
           </div>
           {pendingDecisions.length === 0 ? (
             <p className="mt-1.5 text-[11px] text-[#69665d]" data-testid="sx-decision-queue">意思決定待ちの論点は登録なし。</p>

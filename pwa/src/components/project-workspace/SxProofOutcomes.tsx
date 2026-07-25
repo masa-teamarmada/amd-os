@@ -11,7 +11,8 @@ import { sxFormatDate } from "./sx-visual-shared";
 
 const STATUS_ORDER = ["on_track", "attention", "blocked", "unassessed"] as const;
 const STATUS_LABEL: Record<string, string> = { on_track: "順調", attention: "要確認", blocked: "停止", unassessed: "未評価" };
-const STATUS_BAR_TONE: Record<string, string> = { on_track: "#38745d", attention: "#bf7b2c", blocked: "#9f3030", unassessed: "#b8b5c8" };
+// unassessed はバーへ塗らない（0評価の満杆誤読を作らない）。トラック地のままにし、件数だけで示す。
+const STATUS_BAR_TONE: Record<string, string> = { on_track: "#38745d", attention: "#bf7b2c", blocked: "#9f3030" };
 
 function StatusDistribution({ statusCounts, totalCount }: { statusCounts: Record<string, number>; totalCount: number }) {
   if (totalCount === 0) return <p className="text-[10px] text-[#777166]">関連テーマ未接続</p>;
@@ -19,7 +20,7 @@ function StatusDistribution({ statusCounts, totalCount }: { statusCounts: Record
     <div className="flex h-2 w-full max-w-[120px] overflow-hidden rounded-full bg-[#eee9df]" role="img" aria-label={STATUS_ORDER.map((key) => `${STATUS_LABEL[key]} ${statusCounts[key] || 0}件`).join(" / ")}>
       {STATUS_ORDER.map((key) => {
         const count = statusCounts[key] || 0;
-        if (count === 0) return null;
+        if (count === 0 || key === "unassessed") return null;
         return <span key={key} className="h-full first:rounded-l-full last:rounded-r-full" style={{ width: `${(count / totalCount) * 100}%`, background: STATUS_BAR_TONE[key] }} />;
       })}
     </div>

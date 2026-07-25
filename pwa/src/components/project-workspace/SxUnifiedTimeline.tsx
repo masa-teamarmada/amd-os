@@ -51,7 +51,7 @@ function RowBar({ row, accent }: { row: SxEcdTimelineRow; accent: string }) {
   const slipEnd = forecast != null && plannedEnd != null && forecast > plannedEnd ? forecast : null;
   const provisional = row.dateCertainty === "provisional";
   const deltaLabel = sxFormatDelta(row.deltaDays, row.dateCertainty);
-  const showDelta = row.deltaDays != null && row.deltaDays > 0;
+  const showDelta = row.deltaDays != null && (row.deltaDays > 0 || row.isCritical);
   const labelAnchor = forecast ?? plannedEnd ?? barStart;
   return (
     <div className="relative h-full w-full" aria-hidden="true">
@@ -77,7 +77,7 @@ function RowBar({ row, accent }: { row: SxEcdTimelineRow; accent: string }) {
       )}
       {showDelta && (
         <span
-          className={`absolute top-1/2 -translate-y-1/2 whitespace-nowrap text-[9px] font-semibold ${labelAnchor > 90 ? "-translate-x-full pr-2" : "pl-1.5"} ${row.state === "blocked" || row.state === "overdue" ? "text-[#8c3329]" : "text-[#765022]"}`}
+          className={`absolute top-1/2 z-10 -translate-y-1/2 whitespace-nowrap text-[9px] font-semibold ${labelAnchor > 90 ? "-translate-x-full" : "ml-1.5"} rounded-sm bg-[#fffdf7]/95 px-0.5 ${row.state === "blocked" || row.state === "overdue" ? "text-[#8c3329]" : "text-[#765022]"}`}
           style={{ left: `${labelAnchor}%` }}
         >
           {deltaLabel}
@@ -148,7 +148,6 @@ export function SxUnifiedTimeline({
                     <span className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{ background: lane.accent }} aria-hidden="true" />
                     <span className="shrink-0 text-[10px] font-bold text-[#24231f]">{lane.label}</span>
                     <span className={`shrink-0 text-[9px] font-semibold ${lane.deltaDays != null && lane.deltaDays > 0 ? "text-[#765022]" : "text-[#69665d]"}`}>{sxFormatDelta(lane.deltaDays, lane.dateCertainty)}</span>
-                    {lane.maxIssue && <span className="min-w-0 truncate text-[9px] text-[#8c3329]" title={`詰まり: ${lane.maxIssue}`}>詰まり: {lane.maxIssue}</span>}
                   </div>
                   {lane.rows.map((row) => {
                     const selected = selectedMilestoneId === row.milestoneId;
@@ -202,7 +201,7 @@ export function SxUnifiedTimeline({
 
               {/* ピン行 */}
               <div className="absolute inset-x-0 top-0 border-b border-[#e8e2d6]" style={{ height: PIN_ROW_H }}>
-                {timeline.pins.map((pin) => (
+                {[...timeline.pins].sort((a, b) => b.rank - a.rank).map((pin) => (
                   <a
                     key={pin.key}
                     href={pin.anchor.startsWith("#") ? pin.anchor : `#${pin.anchor}`}
@@ -211,7 +210,7 @@ export function SxUnifiedTimeline({
                       onPinClick(pin.anchor);
                     }}
                     data-sx-pin={pin.rank}
-                    className={`absolute top-1/2 z-10 flex h-[18px] w-[18px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-[10px] font-bold leading-none text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] ${pin.side === "partner" ? "bg-[#bf7b2c]" : "bg-[#24231f]"} ${pin.dueDatePrecision === "month" ? "ring-2 ring-[#e3c994]" : ""}`}
+                    className={`absolute top-1/2 z-10 flex h-[18px] w-[18px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-[10px] font-bold leading-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d] ${pin.side === "partner" ? "bg-[#bf7b2c] text-white" : pin.side === "unknown" ? "border-2 border-[#24231f] bg-[#fffdf7] text-[#24231f]" : "bg-[#24231f] text-white"} ${pin.dueDatePrecision === "month" ? "ring-2 ring-[#e3c994]" : ""}`}
                     style={{ left: `${pin.duePct}%` }}
                     title={`${pin.rank} ${pin.target}（期限 ${pin.dueDate}${pin.dueDatePrecision === "month" ? "・月精度" : ""}）`}
                     aria-label={`介入${pin.rank}番 ${pin.target} 期限位置`}
@@ -225,7 +224,9 @@ export function SxUnifiedTimeline({
               <div className="absolute inset-x-0" style={{ top: PIN_ROW_H }}>
                 {timeline.lanes.map((lane) => (
                   <div key={lane.key} style={{ marginBottom: LANE_GAP }}>
-                    <div className="border-b border-[#d6cebf]" style={{ height: LANE_HEADER_H }} />
+                    <div className="flex items-center border-b border-[#d6cebf] pl-2" style={{ height: LANE_HEADER_H }}>
+                      {lane.maxIssue && <span className="min-w-0 truncate text-[9px] text-[#8c3329]" title={`詰まり: ${lane.maxIssue}`}>詰まり: {lane.maxIssue}</span>}
+                    </div>
                     {lane.rows.map((row) => (
                       <div key={row.slug} className={`border-b border-[#f1eee5] ${row.isCurrent ? "bg-[#f4f9f5]" : ""}`} style={{ height: ROW_H }}>
                         <RowBar row={row} accent={lane.accent} />
@@ -239,7 +240,7 @@ export function SxUnifiedTimeline({
 
           {/* 凡例と非表示分の明示 */}
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[9px] text-[#9b9487]">
-            <span>バー=計画（開始→予定） ・ 縦線=予定日 ・ ◇=予測日（中抜き=仮） ・ 橙バー=遅延幅 ・ 太字+黒左罫=重要経路（破線でつながる） ・ ①ピン=介入の期日（橙=相手側ボール / 黒=当方）</span>
+            <span>バー=計画（開始→予定） ・ 縦線=予定日 ・ ◇=予測日（中抜き=仮） ・ 橙バー=遅延幅 ・ 太字+黒左罫=重要経路（破線でつながる） ・ ①ピン=介入の期日（橙=相手側ボール / 黒=当方 / 白抜き=ボール未確認 / 黄リング=月精度）</span>
             {(timeline.undatedCount > 0 || timeline.completedCount > 0) && (
               <span className="font-semibold text-[#69665d]">
                 {timeline.undatedCount > 0 ? `日程未登録 ${timeline.undatedCount}件` : ""}{timeline.undatedCount > 0 && timeline.completedCount > 0 ? " ・ " : ""}{timeline.completedCount > 0 ? `完了 ${timeline.completedCount}件` : ""}（下の詳細表で確認）

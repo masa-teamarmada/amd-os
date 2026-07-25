@@ -815,7 +815,7 @@ expectIncludes("src/components/project-workspace/SxExecutiveControlDeck.tsx", [
   "deriveSxVerdictSummary",
   "deriveSxInterventionQueue",
   "applySxInterventionPillarQuota",
-  "今週の意思決定",
+  "意思決定待ち（期限順）",
   "次の経営介入",
   "業務判定（重要経路）",
   "運用判定（データ充足）",

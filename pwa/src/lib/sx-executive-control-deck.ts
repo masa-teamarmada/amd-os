@@ -1121,8 +1121,8 @@ export interface SxEcdTimelinePin {
   duePct: number;
   dueDatePrecision?: SxEcdDatePrecision;
   anchor: string;
-  /** amber pin = 相手側/双方が持つボール、ink pin = 当方・担当側。 */
-  side: "partner" | "sx";
+  /** amber pin = 相手側/双方が持つボール、ink pin = 当方・担当側、hollow = ボール未確認。 */
+  side: "partner" | "sx" | "unknown";
 }
 
 export interface SxEcdTimelineMonth {
@@ -1295,10 +1295,10 @@ export function deriveSxUnifiedTimeline(params: {
       duePct: dateToPct(row.dueDate as string, domainStart, domainEnd),
       dueDatePrecision: row.dueDatePrecision,
       anchor: row.anchor,
-      side: row.ballSide === "相手側" || row.ballSide === "双方" ? "partner" : "sx",
+      side: row.ballSide === "相手側" || row.ballSide === "双方" ? "partner" : row.ballSide === "未確認" || (row.ballSide === "担当" && row.ballOwner === "未確認") ? "unknown" : "sx",
     }));
   // 期日が近接するピンは横に最小間隔だけずらして重なりを消す（日付自体は変えない。位置補正のみ）。
-  const MIN_PIN_GAP_PCT = 2;
+  const MIN_PIN_GAP_PCT = 3;
   const pins = [...rawPins]
     .sort((a, b) => a.duePct - b.duePct || a.rank - b.rank)
     .map((pin) => ({ ...pin }));
