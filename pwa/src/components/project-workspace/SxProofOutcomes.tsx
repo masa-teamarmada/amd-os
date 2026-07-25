@@ -16,54 +16,13 @@ const STATUS_BAR_TONE: Record<string, string> = { on_track: "#38745d", attention
 function StatusDistribution({ statusCounts, totalCount }: { statusCounts: Record<string, number>; totalCount: number }) {
   if (totalCount === 0) return <p className="text-[10px] text-[#777166]">関連テーマ未接続</p>;
   return (
-    <div>
-      <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-[#eee9df]" role="img" aria-label={STATUS_ORDER.map((key) => `${STATUS_LABEL[key]} ${statusCounts[key] || 0}件`).join(" / ")}>
-        {STATUS_ORDER.map((key) => {
-          const count = statusCounts[key] || 0;
-          if (count === 0) return null;
-          return <span key={key} className="h-full first:rounded-l-full last:rounded-r-full" style={{ width: `${(count / totalCount) * 100}%`, background: STATUS_BAR_TONE[key] }} />;
-        })}
-      </div>
-      <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[9px] text-[#69665d]">
-        {STATUS_ORDER.filter((key) => (statusCounts[key] || 0) > 0).map((key) => (
-          <span key={key} className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ background: STATUS_BAR_TONE[key] }} aria-hidden="true" />{STATUS_LABEL[key]} {statusCounts[key]}</span>
-        ))}
-      </div>
+    <div className="flex h-2 w-full max-w-[120px] overflow-hidden rounded-full bg-[#eee9df]" role="img" aria-label={STATUS_ORDER.map((key) => `${STATUS_LABEL[key]} ${statusCounts[key] || 0}件`).join(" / ")}>
+      {STATUS_ORDER.map((key) => {
+        const count = statusCounts[key] || 0;
+        if (count === 0) return null;
+        return <span key={key} className="h-full first:rounded-l-full last:rounded-r-full" style={{ width: `${(count / totalCount) * 100}%`, background: STATUS_BAR_TONE[key] }} />;
+      })}
     </div>
-  );
-}
-
-function ProofCard({ outcome }: { outcome: ReturnType<typeof computeSxProofOutcomes>[number] }) {
-  const coverageLabel = outcome.evidenceCoveragePct == null ? "未評価" : `${outcome.evidenceCoveragePct}%`;
-  return (
-    <article className="min-w-0 rounded-lg border border-[#cfc7b9] bg-white p-3" data-testid={`sx-proof-card-${outcome.id}`}>
-      <p className="text-[9px] font-semibold tracking-[0.12em] text-[#38745d]">三つの証明</p>
-      <h3 className="mt-0.5 text-[13px] font-semibold leading-4 text-[#24231f]">{outcome.label}</h3>
-      <p className="mt-1.5 line-clamp-2 text-[10px] leading-4 text-[#777166]">{outcome.completionCriteria}</p>
-      <div className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-2 text-[10px]">
-        <div>
-          <p className="font-semibold text-[#777166]">証拠充足</p>
-          <p className={`mt-0.5 text-sm font-semibold ${outcome.evidenceCoveragePct == null ? "text-[#55506d]" : "text-[#24231f]"}`}>{coverageLabel}</p>
-        </div>
-        <div>
-          <p className="font-semibold text-[#777166]">判断期限</p>
-          <p className="mt-0.5 text-sm font-semibold text-[#24231f]">{sxFormatDate(outcome.deadline, "未登録")}</p>
-        </div>
-      </div>
-      <div className="mt-2.5">
-        <p className="text-[10px] font-semibold text-[#777166]">関連テーマ {outcome.assessedCount}/{outcome.totalCount} 評価済み</p>
-        <div className="mt-1"><StatusDistribution statusCounts={outcome.statusCounts} totalCount={outcome.totalCount} /></div>
-      </div>
-      <div className="mt-2.5 border-t border-[#eee9df] pt-2">
-        <p className="text-[10px] font-semibold text-[#777166]">接続テーマ</p>
-        <p className="mt-0.5 text-[10px] leading-4 text-[#514e47]">{outcome.themeLabels.join(" / ") || "未接続"}</p>
-      </div>
-      {outcome.missingInfo.length > 0 && (
-        <ul className="mt-2 space-y-0.5 border-t border-[#eee9df] pt-2 text-[10px] leading-4 text-[#8c3329]">
-          {outcome.missingInfo.map((item) => <li key={item}>不足: {item}</li>)}
-        </ul>
-      )}
-    </article>
   );
 }
 
@@ -99,24 +58,58 @@ function ProofMatrix() {
   );
 }
 
+/**
+ * 三つの証明ストリップ。カード3枚（1枚8行で実質2データ）をやめ、1証明=1行で 判断期限 / 関連
+ * テーマ評価 / 状態分布 / 固有の不足 だけを並べる。3枚で一字一句同文だった不足は共通バナー1行へ
+ * 畳み、週次で変化しない7×3接続マトリクスは既定閉の付録に置く。
+ */
 export function SxProofOutcomes({ management }: { management: SxManagementBundle }) {
   const outcomes = computeSxProofOutcomes(management);
+
+  // 全証明に共通する不足は1回だけ言う（同文3連発の赤字を作らない）。
+  const sharedMissing = outcomes.length > 0
+    ? outcomes[0].missingInfo.filter((item) => outcomes.every((outcome) => outcome.missingInfo.includes(item)))
+    : [];
+
   return (
     <section className="mt-2 overflow-hidden rounded-lg border border-[#cfc7b9] bg-[#fffdf7] p-3 sm:p-4" aria-labelledby="sx-proof-outcomes-heading" data-testid="sx-proof-outcomes">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <div>
-          <p className="text-[9px] font-semibold tracking-[0.15em] text-[#38745d]">オンサイトPoCへの実証経路</p>
-          <h2 id="sx-proof-outcomes-heading" className="mt-0.5 text-sm font-semibold text-[#24231f]">PoC受入条件・原価前提 → 7つの開発テーマ → 三つの証明 → NewCo条件 → 設立判断</h2>
-        </div>
-        <p className="text-[10px] text-[#69665d]">TRL5は達成状態を要約する補助ラベル。主経路は下の三つの証明。</p>
+        <h2 id="sx-proof-outcomes-heading" className="text-sm font-semibold text-[#24231f]">三つの証明 — オンサイトPoCへの実証経路</h2>
+        <p className="text-[10px] text-[#69665d]">TRL5は達成状態を要約する補助ラベル。主経路はこの三つ。</p>
       </div>
-      <div className="mt-3 grid gap-3 md:grid-cols-3">
-        {outcomes.map((outcome) => <ProofCard key={outcome.id} outcome={outcome} />)}
-      </div>
-      <div className="mt-3">
-        <p className="text-[10px] font-semibold text-[#777166]">開発テーマ × 三つの証明 接続マトリクス（7×3）</p>
+
+      <ul className="mt-2 divide-y divide-[#eee9df] border-y border-[#e4ddd0]">
+        {outcomes.map((outcome) => {
+          const uniqueMissing = outcome.missingInfo.filter((item) => !sharedMissing.includes(item));
+          return (
+            <li key={outcome.id} className="grid min-h-11 grid-cols-1 items-center gap-x-3 gap-y-1 py-1.5 md:grid-cols-[minmax(0,1.4fr)_110px_minmax(0,1fr)_minmax(0,1.2fr)]" data-testid={`sx-proof-card-${outcome.id}`}>
+              <div className="min-w-0">
+                <p className="truncate text-[12px] font-semibold text-[#24231f]" title={outcome.completionCriteria}>{outcome.label}</p>
+              </div>
+              <p className="text-[11px] text-[#514e47]">期限 <span className="font-semibold text-[#24231f]">{sxFormatDate(outcome.deadline, "未登録")}</span></p>
+              <div className="flex min-w-0 items-center gap-2 text-[10px] text-[#69665d]">
+                <span className="shrink-0">評価 {outcome.assessedCount}/{outcome.totalCount}</span>
+                <StatusDistribution statusCounts={outcome.statusCounts} totalCount={outcome.totalCount} />
+                <span className="shrink-0">充足 {outcome.evidenceCoveragePct == null ? "未評価" : `${outcome.evidenceCoveragePct}%`}</span>
+              </div>
+              <p className="min-w-0 truncate text-[10px] text-[#69665d]" title={uniqueMissing.join(" / ") || outcome.themeLabels.join(" / ")}>
+                {uniqueMissing.length > 0 ? `固有の不足: ${uniqueMissing.join(" / ")}` : `接続テーマ: ${outcome.themeLabels.join(" / ") || "未接続"}`}
+              </p>
+            </li>
+          );
+        })}
+      </ul>
+
+      {sharedMissing.length > 0 && (
+        <p className="mt-1.5 text-[10px] text-[#69665d]" data-testid="sx-proof-shared-missing">
+          三証明に共通の不足: <span className="font-semibold text-[#514e47]">{sharedMissing.join(" ・ ")}</span>（解消は下の7テーマ表と次の経営介入から）
+        </p>
+      )}
+
+      <details className="mt-2">
+        <summary className="flex min-h-11 cursor-pointer select-none items-center text-[11px] font-semibold text-[#514e47] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]">開発テーマ × 三つの証明 接続マトリクス（7×3）を表示 — 週次で変わらない設計情報</summary>
         <div className="mt-1.5"><ProofMatrix /></div>
-      </div>
+      </details>
     </section>
   );
 }

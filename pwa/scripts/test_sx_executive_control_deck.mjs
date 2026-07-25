@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import {
+  applySxInterventionPillarQuota,
   deriveSxCriticalPathRail,
   deriveSxInterventionQueue,
   deriveSxStateMap,
+  deriveSxUnifiedTimeline,
   deriveSxUpcomingQueue,
+  deriveSxVerdictSummary,
   sxVerdictDisplayLabel,
   sxEcdFormatDueDate,
   sxEcdIsDueDateOverdue,
@@ -698,6 +701,175 @@ function issue(overrides = {}) {
   assert.equal(map.nodes[0].flags.length, 0);
   assert.ok(map.nodes[0].stateMarks.length > 0);
   for (const mark of map.nodes[0].stateMarks) assert.equal(mark.blockerClass, "state");
+}
+
+
+// 21. 判定バー: 業務判定は重要経路から（停止>期限超過>遅延見込み>オンスケ/判定不能）、運用は
+// 判定キーの表示語。STEP2は金額が無ければ「未確認」。未評価だけの経路をオンスケにしない。
+{
+  const tracks = [
+    { key: "business_development", shortLabel: "事業", deltaDays: 7, dateCertainty: "provisional" },
+    { key: "funding", shortLabel: "資金", deltaDays: 35, dateCertainty: "provisional" },
+  ];
+  const milestones = [
+    milestone({ id: "m1", slug: "a", status: "unassessed", confidence: "unknown", deltaDays: 16, dateCertainty: "provisional", plannedEnd: "2026-09-30", forecastEnd: "2026-10-16" }),
+    milestone({ id: "m2", slug: "b", status: "unassessed", confidence: "unknown", deltaDays: 28, dateCertainty: "provisional", plannedEnd: "2026-12-18", forecastEnd: "2027-01-15" }),
+  ];
+  const summary = deriveSxVerdictSummary({
+    today: "2026-07-25",
+    judgment: { key: "unassessed", dagValid: true, completenessPct: 51, criticalUnknownCount: 21, blockedCount: 0 },
+    criticalPathSlugs: ["a", "b"],
+    milestones,
+    tracks,
+    objectiveTargetDate: "2027-03-31",
+    funding: { requiredAmount: null, securedAmount: null },
+  });
+  assert.equal(summary.business.label, "遅延見込み +28日");
+  assert.equal(summary.business.tone, "warn");
+  assert.equal(summary.business.provisional, true);
+  assert.equal(summary.business.detail, "最大 資金+35日");
+  assert.equal(summary.operations.verdictLabel, "判定不能");
+  assert.equal(summary.step2.known, false);
+  assert.equal(summary.step2.label, "未確認");
+  assert.equal(summary.countdown.days, 249);
+
+  // 停止が最優先
+  const blockedSummary = deriveSxVerdictSummary({
+    today: "2026-07-25",
+    judgment: { key: "crisis", dagValid: true, completenessPct: 51, criticalUnknownCount: 21, blockedCount: 1 },
+    criticalPathSlugs: ["a"],
+    milestones: [milestone({ id: "m1", slug: "a", isBlocked: true, deltaDays: 16 })],
+    tracks,
+    objectiveTargetDate: null,
+    funding: null,
+  });
+  assert.equal(blockedSummary.business.label, "停止 1件");
+  assert.equal(blockedSummary.business.tone, "bad");
+
+  // 全て未評価・差分なし → オンスケにしない
+  const unassessedSummary = deriveSxVerdictSummary({
+    today: "2026-07-25",
+    judgment: { key: "unassessed", dagValid: true, completenessPct: 10, criticalUnknownCount: 5, blockedCount: 0 },
+    criticalPathSlugs: ["a"],
+    milestones: [milestone({ id: "m1", slug: "a", status: "unassessed", confidence: "unknown", deltaDays: 0, dateCertainty: "provisional" })],
+    tracks: [],
+    objectiveTargetDate: null,
+    funding: null,
+  });
+  assert.notEqual(unassessedSummary.business.label, "オンスケ");
+}
+
+// 22. 統合タイムライン: 柱レーンへ日付順で配置、重要経路の接続点は経路順、今日と設立判断の位置、
+// 日付なし・完了はレーンへ描かず件数へ。laneOrderに無いtrackも落とさない。
+{
+  const milestones = [
+    milestone({ id: "m1", slug: "biz-1", track: "business_development", plannedStart: "2026-07-20", plannedEnd: "2026-08-07", forecastEnd: "2026-08-14", deltaDays: 7 }),
+    milestone({ id: "m2", slug: "tech-1", track: "technology_development", plannedStart: "2026-07-20", plannedEnd: "2026-09-30", forecastEnd: "2026-10-16", deltaDays: 16 }),
+    milestone({ id: "m3", slug: "tech-2", track: "technology_development", plannedStart: "2026-09-01", plannedEnd: "2026-12-18", forecastEnd: "2027-01-15", deltaDays: 28 }),
+    milestone({ id: "m4", slug: "org-1", track: "organizational_building", plannedStart: "2027-02-01", plannedEnd: "2027-03-31", forecastEnd: "2027-03-31", deltaDays: 0 }),
+    milestone({ id: "m5", slug: "fund-1", track: "funding", plannedStart: "2026-08-03", plannedEnd: "2026-11-27", forecastEnd: "2026-12-18", deltaDays: 21 }),
+    milestone({ id: "m6", slug: "undated", track: "funding", plannedEnd: null, forecastEnd: null }),
+    milestone({ id: "m7", slug: "done", track: "funding", status: "completed", plannedEnd: "2026-07-01", forecastEnd: "2026-07-01" }),
+    milestone({ id: "m8", slug: "orphan-track", track: "mystery", plannedEnd: "2026-10-01", forecastEnd: "2026-10-01", deltaDays: 0 }),
+  ];
+  const tracks = [
+    { key: "business_development", label: "事業開発", shortLabel: "事業", accent: "#315f7d", deltaDays: 7, dateCertainty: "provisional", maxIssue: "" },
+    { key: "technology_development", label: "技術開発", shortLabel: "技術", accent: "#38745d", deltaDays: 16, dateCertainty: "provisional", maxIssue: "" },
+    { key: "organizational_building", label: "体制構築", shortLabel: "体制", accent: "#76637b", deltaDays: 28, dateCertainty: "provisional", maxIssue: "" },
+    { key: "funding", label: "資金調達", shortLabel: "資金", accent: "#bf7b2c", deltaDays: 35, dateCertainty: "provisional", maxIssue: "" },
+  ];
+  const timeline = deriveSxUnifiedTimeline({
+    today: "2026-07-25",
+    milestones,
+    criticalPathSlugs: ["tech-1", "tech-2", "org-1"],
+    dagValid: true,
+    tracks,
+    objectiveTargetDate: "2027-03-31",
+    interventionRows: [
+      { key: "r1", priority: 3, kind: "partner_work_item", target: "納品受入", ballSide: "相手側", ballOwner: "先方担当", dueDate: "2026-08-31", dueDatePrecision: "month", dueContextLabel: null, gate: "", anchor: "#sx-partner-x", entityType: "partner", entityId: "x", milestoneId: "m2" },
+      { key: "r2", priority: 6, kind: "owner_unconfirmed", target: "担当確定", ballSide: "担当", ballOwner: "未確認", dueDate: null, dueContextLabel: null, gate: "", anchor: "management-plan", entityType: "milestone", entityId: "m3", milestoneId: "m3" },
+    ],
+    pinCount: 5,
+  });
+  assert.equal(timeline.valid, true);
+  // 完了と日付なしはレーンに出ず、件数として残る
+  assert.equal(timeline.undatedCount, 1);
+  assert.equal(timeline.completedCount, 1);
+  // レーン順は 事業→技術→体制→資金 + 未知トラックの末尾レーン
+  assert.deepEqual(timeline.lanes.map((lane) => lane.key), ["business_development", "technology_development", "organizational_building", "funding", "unknown"]);
+  assert.equal(timeline.lanes[4].rows.length, 1);
+  // 重要経路の接続点は経路順で3点、pctは単調増加
+  assert.deepEqual(timeline.criticalPoints.map((point) => point.slug), ["tech-1", "tech-2", "org-1"]);
+  const pcts = timeline.criticalPoints.map((point) => point.pct);
+  assert.ok(pcts[0] < pcts[1] && pcts[1] < pcts[2]);
+  // 今日は設立判断より左
+  assert.ok(timeline.todayPct < (timeline.objectivePct ?? 0));
+  // 現在地 = 重要経路の最初の未完了
+  const techLane = timeline.lanes[1];
+  assert.equal(techLane.rows[0].isCurrent, true);
+  assert.equal(techLane.rows[0].isCritical, true);
+  // ピン: 期日を持つ行だけ、rankは介入リストの順、相手側はpartner側
+  assert.equal(timeline.pins.length, 1);
+  assert.equal(timeline.pins[0].rank, 1);
+  assert.equal(timeline.pins[0].side, "partner");
+  assert.ok(timeline.pins[0].duePct > 0 && timeline.pins[0].duePct < 100);
+  // 月目盛は域内で単調
+  assert.ok(timeline.months.length >= 9);
+  for (let i = 1; i < timeline.months.length; i += 1) assert.ok(timeline.months[i].pct > timeline.months[i - 1].pct);
+}
+
+// 22b. dagValid=false / 日付付きゼロは描かず理由へ閉じる
+{
+  const invalid = deriveSxUnifiedTimeline({ today: "2026-07-25", milestones: [], criticalPathSlugs: [], dagValid: false, tracks: [], objectiveTargetDate: null, interventionRows: [] });
+  assert.equal(invalid.valid, false);
+  assert.equal(invalid.reason, "依存関係不正");
+  const empty = deriveSxUnifiedTimeline({ today: "2026-07-25", milestones: [milestone({ plannedEnd: null, forecastEnd: null })], criticalPathSlugs: [], dagValid: true, tracks: [], objectiveTargetDate: null, interventionRows: [] });
+  assert.equal(empty.valid, false);
+  assert.equal(empty.reason, "日程付きマイルストーン未登録");
+}
+
+// 23. 柱ゲート行: 重要経路外の現在ゲートの担当未確認/評価未完がキューへ入り、trackを持つ。
+// 重要経路上のゲートはpillarGatesから重複しない。
+{
+  const milestones = [
+    milestone({ id: "m1", slug: "crit", status: "unassessed", confidence: "unknown", ownerLabel: "未確認" }),
+    milestone({ id: "m2", slug: "fund-gate", status: "unassessed", confidence: "unknown", ownerLabel: "未確認", plannedEnd: "2026-12-25", forecastEnd: "2027-01-29", deltaDays: 35 }),
+  ];
+  const queue = deriveSxInterventionQueue({
+    today: "2026-07-25",
+    criticalPathSlugs: ["crit"],
+    milestones,
+    partnerWorkItems: [],
+    partners: [],
+    issues: [],
+    pillarGates: [
+      { trackKey: "funding", trackLabel: "資金", milestoneId: "m2" },
+      { trackKey: "technology_development", trackLabel: "技術", milestoneId: "m1" },
+    ],
+    maxRows: 200,
+  });
+  const fundingRow = queue.rows.find((row) => row.track === "funding");
+  assert.ok(fundingRow);
+  assert.ok(fundingRow.target.startsWith("【資金】"));
+  // criticalのm1はpillarGates経由で二重にならない（critical側の1行だけ）
+  assert.equal(queue.rows.filter((row) => row.milestoneId === "m1").length, 1);
+}
+
+// 24. クォータ: top内に必須trackが無ければ後方から繰り上げ、候補ゼロなら行を発明せず注記。
+{
+  const mk = (key, track, priority) => ({ key, priority, kind: "owner_unconfirmed", target: key, ballSide: "担当", ballOwner: "未確認", dueDate: null, dueContextLabel: null, gate: "", anchor: "management-plan", entityType: "milestone", entityId: key, milestoneId: key, track });
+  const rows = [mk("a", "technology_development", 1), mk("b", "technology_development", 2), mk("c", "funding", 6)];
+  const applied = applySxInterventionPillarQuota({ rows, topCount: 2, requiredTrack: "funding", requiredTrackLabel: "資金" });
+  assert.equal(applied.quotaApplied, true);
+  assert.deepEqual(applied.top.map((row) => row.key), ["a", "c"]);
+
+  const noCandidate = applySxInterventionPillarQuota({ rows: [mk("a", "technology_development", 1)], topCount: 2, requiredTrack: "funding", requiredTrackLabel: "資金" });
+  assert.equal(noCandidate.quotaApplied, false);
+  assert.equal(noCandidate.quotaNote, "資金の介入候補は台帳未登録");
+
+  const alreadyIn = applySxInterventionPillarQuota({ rows, topCount: 3, requiredTrack: "funding", requiredTrackLabel: "資金" });
+  assert.equal(alreadyIn.quotaApplied, false);
+  assert.equal(alreadyIn.quotaNote, null);
 }
 
 console.log("test_sx_executive_control_deck.mjs: all assertions passed");

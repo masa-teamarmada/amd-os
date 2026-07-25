@@ -31,7 +31,6 @@ import type {
 import { EFFORT_CATEGORIES, type EffortCategory } from "@/lib/project-workspace-types";
 import { EffortEntryForm } from "./EffortEntryForm";
 import { SxExecutiveControlDeck } from "./SxExecutiveControlDeck";
-import { SxNineMonthTimeline } from "./SxNineMonthTimeline";
 import { SxDevelopmentThemeBoard } from "./SxDevelopmentThemeBoard";
 import { SxProofOutcomes } from "./SxProofOutcomes";
 import { SxPartnerPipeline } from "./SxPartnerPipeline";
@@ -955,11 +954,6 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
   const selectedMilestonePartners = selectedMilestone ? management.partners.filter((partner) => selectedMilestone.relatedPartnerSlugs.includes(partner.slug)) : [];
   const projectId = workspace.project.projectId;
 
-  function selectTrackAndMilestone(nextTrack: SxTrackKey | null) {
-    setSelectedTrack(nextTrack);
-    const track = nextTrack ? management.tracks.find((item) => item.key === nextTrack) : null;
-    setSelectedMilestoneId(nextTrack ? track?.milestoneId || null : null);
-  }
   function selectMilestoneAndTrack(nextMilestoneId: string | null) {
     setSelectedMilestoneId(nextMilestoneId);
     setSelectedTrack(nextMilestoneId ? management.milestones.find((item) => item.id === nextMilestoneId)?.track || null : null);
@@ -993,7 +987,7 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
   };
 
   useEffect(() => {
-    const sectionIds = ["management-summary", "management-plan", "management-issues", "management-partners", "management-capacity"];
+    const sectionIds = ["management-summary", "management-plan", "management-proof", "management-issues", "management-partners", "management-capacity"];
     const sections = sectionIds.map((id) => document.getElementById(id)).filter((section): section is HTMLElement => Boolean(section));
     if (sections.length === 0) return;
     const observer = new IntersectionObserver((entries) => {
@@ -1010,7 +1004,7 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
     const timer = window.setTimeout(() => document.getElementById("selected-management-context")?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 0);
     return () => window.clearTimeout(timer);
   }, [selectedMilestoneId]);
-  const managementNavItems: Array<[string, string]> = [["management-summary", "経営サマリー"], ["management-plan", "全体計画"], ["management-issues", "論点・仮説"], ["management-partners", "関係先"], ["management-capacity", "実行・体制"]];
+  const managementNavItems: Array<[string, string]> = [["management-summary", "経営サマリー"], ["management-plan", "計画詳細"], ["management-proof", "技術証明"], ["management-issues", "論点・仮説"], ["management-partners", "関係先"], ["management-capacity", "実行・体制"]];
 
   return (
     <div className="amd-desk-page-skin sx-management-workspace w-full min-w-0 max-w-full min-h-screen overflow-x-clip px-3 py-4 sm:px-5 lg:px-8 lg:py-7">
@@ -1019,9 +1013,8 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[10px] text-[#777166]">
             <Badge tone="border-[#9fc6b4] bg-[#e8f2eb] text-[#205f49]"><ShieldCheck className="mr-1 h-3.5 w-3.5" aria-hidden="true" />SX / COO共有</Badge>
             <Badge tone="border-[#d6cebf] bg-[#fffdf7] text-[#69665d]">{access.scope === "project" ? "参加PJ限定" : "AMD管理ビュー"}</Badge>
-            <span className="font-mono tracking-[0.12em]">{projectId}</span>
-            {effectiveJudgment.lastVerifiedAt && <span>最終確認 {formatDate(effectiveJudgment.lastVerifiedAt)}</span>}
-            <span>更新基準 {formatDate(management.asOf)}</span><span>4本柱 / 事業化ロードマップ</span>
+            <span>基準日 {formatDate(management.asOf)}</span>
+            {effectiveJudgment.lastVerifiedAt && <span>データ最終確認 {formatDate(effectiveJudgment.lastVerifiedAt)}</span>}
           </div>
           <div className="mt-1.5 min-w-0 lg:grid lg:grid-cols-[300px_minmax(0,1fr)] lg:items-baseline lg:gap-5">
             <h1 className="text-xl font-semibold tracking-tight text-[#24231f] sm:text-2xl">経営航路 <span className="text-[#777166]">/ {workspace.project.projectName}</span></h1>
@@ -1036,20 +1029,17 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
 
         <main className="min-w-0 space-y-4">
 
-        <section id="management-summary" className="scroll-mt-20" aria-label="経営判定と意思決定ランウェイ">
-          <h2 className="sr-only">経営判定・重大な未確認・今週決めることを一続きで表示するSX事業化リアクター</h2>
+        <section id="management-summary" className="scroll-mt-20" aria-label="経営状況図: 判定・統合タイムライン・次の経営介入">
+          <h2 className="sr-only">判定・統合タイムライン・今週の意思決定・次の経営介入を一続きで表示する経営状況図</h2>
           <div className="min-w-0">
-            <SxExecutiveControlDeck management={management} judgment={effectiveJudgment} selectedTrack={selectedTrack} onSelectTrack={selectTrackAndMilestone} onSelectMilestone={selectMilestoneAndTrack} />
+            <SxExecutiveControlDeck management={management} judgment={effectiveJudgment} selectedMilestoneId={selectedMilestoneId} onSelectMilestone={selectMilestoneAndTrack} />
           </div>
-          <SxProofOutcomes management={management} />
-          <div className="mt-2"><SxDevelopmentThemeBoard management={management} /></div>
         </section>
 
-        <section id="management-plan" tabIndex={-1} className="scroll-mt-20" aria-label="事業化ロードマップ">
-          <SxNineMonthTimeline management={management} selectedMilestoneId={selectedMilestoneId} onSelect={selectMilestoneAndTrack} />
+        <section id="management-plan" tabIndex={-1} className="scroll-mt-20" aria-label="計画詳細">
           {management.hasData && (
-            <details className="mt-3 rounded-lg border border-[#e4ddd0] bg-[#fffdf7] p-3">
-              <summary className="flex min-h-11 cursor-pointer select-none items-center text-xs font-semibold text-[#514e47] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]">全件ガント（詳細表）を表示</summary>
+            <details className="rounded-lg border border-[#e4ddd0] bg-[#fffdf7] p-3">
+              <summary className="flex min-h-11 cursor-pointer select-none items-center text-xs font-semibold text-[#514e47] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]">全マイルストーン詳細表を表示（完了条件・依存・日程未登録分を含む）</summary>
               <div className="mt-3">
                 <Timeline management={management} selectedMilestoneId={selectedMilestoneId} onSelect={selectMilestoneAndTrack} />
               </div>
@@ -1059,10 +1049,15 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
           {selectedTrack && !selectedMilestone && <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-[#e4ddd0] bg-[#f8f5ec] p-3 text-xs text-[#69665d]"><span className="font-semibold text-[#24231f]">選択中: {selectedLabel}</span><span>論点 {visibleIssues.length}件</span><span>関係先 {visiblePartners.length}件</span></div>}
         </section>
 
+        <section id="management-proof" tabIndex={-1} className="scroll-mt-20" aria-label="技術証明: 三つの証明と7開発テーマ">
+          <SxProofOutcomes management={management} />
+          <div className="mt-2"><SxDevelopmentThemeBoard management={management} /></div>
+        </section>
+
         <section id="management-issues" className="rounded-xl border border-[#d6cebf] bg-[#fffdf7]/95 p-5 sm:p-6" aria-labelledby="issues-heading">
-          <SectionHeader headingId="issues-heading" kicker="論点・仮説台帳" title="論点・仮説台帳" description="事実・仮説・意思決定待ちを分類し、根拠・反証/不足・次の検証・担当・期限・意思決定を分けて管理するよ。" action={<div className="flex flex-wrap items-center gap-2 text-[10px] text-[#777166]"><span>事実 {issueGroups.fact}</span><span>仮説 {issueGroups.hypothesis}</span><span>意思決定待ち {issueGroups.decisionNeeded}</span><span>決定済み {issueGroups.decided}</span><EditAction canManage={management.canManage} label="論点を追加" onClick={() => setCreating({ resource: "issue", initialValues: selectedMilestone ? { milestone_id: selectedMilestone.id, outcome_id: selectedMilestone.outcomeId, track: selectedMilestone.track } : undefined })} /></div>} />
+          <SectionHeader headingId="issues-heading" kicker="論点・仮説台帳" title="論点・仮説台帳" description="事実・仮説・意思決定待ちを分類し、根拠・反証/不足・次の検証・担当・期限・意思決定を分けて管理する。" action={<div className="flex flex-wrap items-center gap-2 text-[10px] text-[#777166]"><span>事実 {issueGroups.fact}</span><span>仮説 {issueGroups.hypothesis}</span><span>意思決定待ち {issueGroups.decisionNeeded}</span><span>決定済み {issueGroups.decided}</span><EditAction canManage={management.canManage} label="論点を追加" onClick={() => setCreating({ resource: "issue", initialValues: selectedMilestone ? { milestone_id: selectedMilestone.id, outcome_id: selectedMilestone.outcomeId, track: selectedMilestone.track } : undefined })} /></div>} />
           {visibleIssues.length === 0 ? (
-            <div className="mt-4 rounded-lg border border-dashed border-[#d6cebf] px-4 py-8 text-center text-sm text-[#777166]">{selectedTrack ? `${selectedLabel}の論点はまだないよ。` : "論点・仮説はまだ登録されてないよ。"}</div>
+            <div className="mt-4 rounded-lg border border-dashed border-[#d6cebf] px-4 py-8 text-center text-sm text-[#777166]">{selectedTrack ? `${selectedLabel}の論点は未登録。` : "論点・仮説は未登録。"}</div>
           ) : (
             <>
               <div className="mt-4 hidden overflow-x-auto lg:block">
@@ -1117,7 +1112,7 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
         </section>
 
         <section id="management-partners" className="rounded-xl border border-[#d6cebf] bg-[#fffdf7]/95 p-5 sm:p-6" aria-labelledby="partners-heading">
-          <SectionHeader headingId="partners-heading" kicker="関係先管理" title="関係先リスト" description="役割・分類ごとに、当方保有・先方保有の事項と次の一手・目標状態を同じ行で見せるよ。役割と関係状態は別軸で正規化し、未整理と0件を混同しない。履歴も同じ一覧で比較できるよ。" />
+          <SectionHeader headingId="partners-heading" kicker="関係先管理" title="関係先リスト" description="役割・分類ごとに、当方保有・先方保有の事項と次の一手・目標状態を同じ行で示す。役割と関係状態は別軸で正規化し、未整理と0件を混同しない。履歴も同じ一覧で比較できる。" />
           <SxPartnerPipeline
             management={management}
             onEditPartner={(partnerId) => setEditing({ resource: "partner", id: partnerId })}
@@ -1193,13 +1188,21 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
         </details>
 
         <section id="management-capacity" tabIndex={-1} className="rounded-xl border border-[#d6cebf] bg-[#fffdf7]/95 p-5 sm:p-6" aria-labelledby="capacity-heading">
-          <SectionHeader headingId="capacity-heading" kicker="CAPACITY / WEEKLY EFFORT" title="実行能力と週次エフォート" description="週次エフォートは主役から下げ、体制の不足と入力データの鮮度を確認する面へ移したよ。AMD OS側の入力対象と研究側メンバーを混同しない。" />
+          <SectionHeader headingId="capacity-heading" kicker="CAPACITY / WEEKLY EFFORT" title="実行能力と週次エフォート" description="週次エフォートは補助面。体制の不足と入力データの鮮度を確認する。AMD OS側の入力対象と研究側メンバーを混同しない。" />
           <div className="grid items-start gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-            <div className="rounded-lg border border-[#e3c994] bg-[#fbf1dc] p-4"><div className="flex items-start gap-3"><UsersRound className="mt-0.5 h-5 w-5 shrink-0 text-[#bf7b2c]" aria-hidden="true" /><div><p className="text-sm font-semibold text-[#765022]">研究側メンバー未確認</p><p className="mt-1 text-xs leading-5 text-[#765022]">現在のAMD OS参加メンバー {workspace.memberCount}人は入力対象として表示してるだけで、研究チーム全体の人数・役割を表してないよ。責任者と研究側の体制を確認してから、経営判定を「順調」に進めてね。</p></div></div></div>
-            <div className="rounded-lg border border-[#e4ddd0] bg-[#f8f5ec] p-4"><div className="flex items-center justify-between gap-3"><span className="text-xs font-semibold text-[#777166]">今週の入力</span><span className="text-right text-sm font-semibold text-[#24231f]">予定 {hours(workspace.effort.plannedHours)}h / 実績 {hours(workspace.effort.actualHours)}h<span className="mt-1 block text-[10px] font-normal text-[#777166]">Calendar {hours(workspace.effort.calendarHours)}h / 手入力・取込 {hours(workspace.effort.enteredHours)}h</span></span></div><p className="mt-1 text-[11px] leading-4 text-[#777166]">Calendar実績は予定の開始・終了だけから集計。Gmail・Slack・Driveは活動証跡として使い、時間換算しない。</p><div className="mt-3"><CategoryBand categories={workspace.effort.categories} muted={!workspace.effort.hasEntries} /></div>{workspace.effort.links.length > 0 && <div className="mt-3 border-t border-[#e4ddd0] pt-3"><p className="text-[10px] font-semibold text-[#777166]">経営台帳への接続</p><div className="mt-2 space-y-1.5">{workspace.effort.links.slice(0, 4).map((link, index) => <p key={`${link.milestoneId || link.track || "unlinked"}-${index}`} className="text-[11px] leading-5 text-[#69665d]">{link.track ? TRACK_LABELS[link.track as SxTrackKey] || "柱未確認" : "柱未接続"} / {link.milestoneTitle || "ゲート未接続"} / {link.deliverableLabel || "次の成果未確認"}（実績 {hours(link.actualHours)}h）</p>)}</div></div>}{!workspace.effort.hasEntries && <p className="mt-2 text-[11px] text-[#765022]">今週の時間は未確定。</p>}{workspace.effort.actualHours === 0 && workspace.evidenceCount > 0 && <p className="mt-2 rounded-md border border-[#e3c994] bg-[#fbf1dc] px-2.5 py-1.5 text-[11px] leading-4 text-[#765022]">抽出済みの活動証跡が{workspace.evidenceCount}件あるのに工数が0時間。0時間と断定せず「工数未算定（取得範囲未完了）」として扱ってね。経営判定にはこの数値を混ぜていないよ。</p>}</div>
+            <div className="rounded-lg border border-[#e3c994] bg-[#fbf1dc] p-4"><div className="flex items-start gap-3"><UsersRound className="mt-0.5 h-5 w-5 shrink-0 text-[#bf7b2c]" aria-hidden="true" /><div><p className="text-sm font-semibold text-[#765022]">研究側メンバー未確認</p><p className="mt-1 text-xs leading-5 text-[#765022]">現在のAMD OS参加メンバー {workspace.memberCount}人は入力対象で、研究チーム全体の人数・役割を示さない。責任者と研究側の体制を確認するまで、経営判定を「順調」にしない。</p></div></div></div>
+            <div className="rounded-lg border border-[#e4ddd0] bg-[#f8f5ec] p-4"><div className="flex items-center justify-between gap-3"><span className="text-xs font-semibold text-[#777166]">今週の入力</span><span className="text-right text-sm font-semibold text-[#24231f]">予定 {hours(workspace.effort.plannedHours)}h / 実績 {hours(workspace.effort.actualHours)}h<span className="mt-1 block text-[10px] font-normal text-[#777166]">Calendar {hours(workspace.effort.calendarHours)}h / 手入力・取込 {hours(workspace.effort.enteredHours)}h</span></span></div><p className="mt-1 text-[11px] leading-4 text-[#777166]">Calendar実績は予定の開始・終了だけから集計。Gmail・Slack・Driveは活動証跡として使い、時間換算しない。</p><div className="mt-3"><CategoryBand categories={workspace.effort.categories} muted={!workspace.effort.hasEntries} /></div>{workspace.effort.links.length > 0 && <div className="mt-3 border-t border-[#e4ddd0] pt-3"><p className="text-[10px] font-semibold text-[#777166]">経営台帳への接続</p><div className="mt-2 space-y-1.5">{workspace.effort.links.slice(0, 4).map((link, index) => <p key={`${link.milestoneId || link.track || "unlinked"}-${index}`} className="text-[11px] leading-5 text-[#69665d]">{link.track ? TRACK_LABELS[link.track as SxTrackKey] || "柱未確認" : "柱未接続"} / {link.milestoneTitle || "ゲート未接続"} / {link.deliverableLabel || "次の成果未確認"}（実績 {hours(link.actualHours)}h）</p>)}</div></div>}{!workspace.effort.hasEntries && <p className="mt-2 text-[11px] text-[#765022]">今週の時間は未確定。</p>}{workspace.effort.actualHours === 0 && workspace.evidenceCount > 0 && <p className="mt-2 rounded-md border border-[#e3c994] bg-[#fbf1dc] px-2.5 py-1.5 text-[11px] leading-4 text-[#765022]">抽出済みの活動証跡が{workspace.evidenceCount}件あるのに工数が0時間。0時間と断定せず「工数未算定（取得範囲未完了）」として扱う。経営判定にはこの数値を混ぜていない。</p>}</div>
           </div>
-          <div className="mt-5 rounded-lg border border-[#e4ddd0] p-4"><div className="mb-4 flex items-center justify-between gap-3"><div><p className="text-sm font-semibold text-[#24231f]">週次エフォートを確定</p><p className="mt-1 text-[11px] text-[#777166]">{access.scope === "project" ? "自分の予定・実績だけ更新できるよ。" : "AMD管理ビューではPJの入力対象を更新できるよ。"}</p></div><CalendarClock className="h-5 w-5 text-[#777166]" aria-hidden="true" /></div><EffortEntryForm projectId={projectId} currentWeekStart={workspace.currentWeekStart} currentMemberId={access.memberId} accessScope={access.scope} members={workspace.members.map((member) => ({ memberId: member.memberId, displayName: member.displayName }))} managementMilestones={management.milestones.map((milestone) => ({ id: milestone.id, title: milestone.title, track: milestone.track }))} /></div>
-          <div className="mt-5 hidden overflow-x-auto lg:block"><table className="w-full min-w-[860px] border-collapse text-sm"><thead><tr className="border-y border-[#d6cebf] bg-[#f8f5ec] text-left text-[10px] font-semibold text-[#777166]"><th className="px-3 py-2.5">入力対象</th><th className="px-3 py-2.5">今週の配分</th><th className="px-3 py-2.5 text-right">予定</th><th className="px-3 py-2.5 text-right">実績の内訳</th><th className="px-3 py-2.5 text-right">抽出活動</th><th className="px-3 py-2.5 text-right">最終活動</th></tr></thead><tbody>{workspace.members.map((member) => { const categoryTotal = EFFORT_CATEGORIES.reduce((sum, item) => sum + member.categories[item.key], 0); return <tr key={member.memberId} className="border-b border-[#e4ddd0]"><td className="px-3 py-3"><span className="font-semibold text-[#24231f]">{member.displayName}</span><span className="mt-1 block text-[10px] text-[#777166]">{member.roleLabel || "役割未確認"}{member.isLead ? " / リード" : ""}</span></td><td className="px-3 py-3">{categoryTotal > 0 ? <div className="flex h-6 min-w-64 overflow-hidden rounded bg-[#ece7dc]">{EFFORT_CATEGORIES.map((item) => { const value = member.categories[item.key]; if (value <= 0) return null; return <div key={item.key} className="grid min-w-8 place-items-center text-[9px] font-semibold text-white" style={{ width: `${Math.max(8, (value / categoryTotal) * 100)}%`, background: CATEGORY_STYLE[item.key].background }} title={`${item.label}: ${hours(value)}h`}>{item.shortLabel}</div>; })}</div> : <span className="text-xs text-[#777166]">時間未入力</span>}</td><td className="px-3 py-3 text-right text-xs text-[#514e47]">{hours(member.plannedHours)}h</td><td className="px-3 py-3 text-right text-xs font-semibold text-[#24231f]"><span className="block">{hours(member.actualHours)}h</span><span className="mt-0.5 block text-[10px] font-normal text-[#777166]">Calendar {hours(member.calendarHours)} / 手入力・取込 {hours(member.enteredHours)}</span></td><td className="px-3 py-3 text-right text-xs text-[#514e47]">{member.evidenceCount}件</td><td className="px-3 py-3 text-right text-xs text-[#777166]">{formatActivityDate(member.lastActivityAt)}</td></tr>; })}</tbody></table>{workspace.members.length === 0 && <p className="py-6 text-center text-sm text-[#777166]">このPJの入力対象メンバーはまだ登録されてないよ。</p>}</div><div className="mt-5 space-y-3 lg:hidden">{workspace.members.map((member) => <article key={member.memberId} className="rounded-lg border border-[#e4ddd0] bg-[#f8f5ec] p-4"><div className="flex items-start justify-between gap-3"><div><h3 className="text-sm font-semibold text-[#24231f]">{member.displayName}</h3><p className="mt-1 text-[11px] text-[#777166]">{member.roleLabel || "役割未確認"}{member.isLead ? " / リード" : ""}</p></div><span className="text-right text-[11px] font-semibold text-[#24231f]">実績 {hours(member.actualHours)}h<span className="mt-0.5 block text-[10px] font-normal text-[#777166]">Calendar {hours(member.calendarHours)} / 手入力・取込 {hours(member.enteredHours)}</span></span></div><div className="mt-3"><CategoryBand categories={member.categories} muted={member.actualHours === 0 && member.plannedHours === 0} /></div><p className="mt-2 text-[11px] text-[#69665d]">予定 {hours(member.plannedHours)}h / 抽出活動 {member.evidenceCount}件 / 最終活動 {formatActivityDate(member.lastActivityAt)}</p></article>)}{workspace.members.length === 0 && <p className="rounded-lg border border-dashed border-[#d6cebf] p-4 text-center text-sm text-[#777166]">このPJの入力対象メンバーはまだ登録されてないよ。</p>}</div>
+          <details className="mt-4 rounded-lg border border-[#e4ddd0] bg-[#fffdf7]" data-testid="sx-effort-entry-details">
+            <summary className="flex min-h-11 cursor-pointer select-none flex-wrap items-center gap-x-3 gap-y-0.5 px-4 py-2 text-xs font-semibold text-[#514e47] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]">
+              週次エフォートの入力・メンバー別内訳を開く
+              <span className="text-[10px] font-normal text-[#777166]">今週実績 {hours(workspace.effort.actualHours)}h ・ 入力 {workspace.members.filter((member) => member.actualHours > 0 || member.plannedHours > 0).length}/{workspace.members.length}名</span>
+            </summary>
+            <div className="px-4 pb-4">
+          <div className="mt-2 rounded-lg border border-[#e4ddd0] p-4"><div className="mb-4 flex items-center justify-between gap-3"><div><p className="text-sm font-semibold text-[#24231f]">週次エフォートを確定</p><p className="mt-1 text-[11px] text-[#777166]">{access.scope === "project" ? "自分の予定・実績だけ更新できる。" : "AMD管理ビューではPJの入力対象を更新できる。"}</p></div><CalendarClock className="h-5 w-5 text-[#777166]" aria-hidden="true" /></div><EffortEntryForm projectId={projectId} currentWeekStart={workspace.currentWeekStart} currentMemberId={access.memberId} accessScope={access.scope} members={workspace.members.map((member) => ({ memberId: member.memberId, displayName: member.displayName }))} managementMilestones={management.milestones.map((milestone) => ({ id: milestone.id, title: milestone.title, track: milestone.track }))} /></div>
+          <div className="mt-5 hidden overflow-x-auto lg:block"><table className="w-full min-w-[860px] border-collapse text-sm"><thead><tr className="border-y border-[#d6cebf] bg-[#f8f5ec] text-left text-[10px] font-semibold text-[#777166]"><th className="px-3 py-2.5">入力対象</th><th className="px-3 py-2.5">今週の配分</th><th className="px-3 py-2.5 text-right">予定</th><th className="px-3 py-2.5 text-right">実績の内訳</th><th className="px-3 py-2.5 text-right">抽出活動</th><th className="px-3 py-2.5 text-right">最終活動</th></tr></thead><tbody>{workspace.members.map((member) => { const categoryTotal = EFFORT_CATEGORIES.reduce((sum, item) => sum + member.categories[item.key], 0); return <tr key={member.memberId} className="border-b border-[#e4ddd0]"><td className="px-3 py-3"><span className="font-semibold text-[#24231f]">{member.displayName}</span><span className="mt-1 block text-[10px] text-[#777166]">{member.roleLabel || "役割未確認"}{member.isLead ? " / リード" : ""}</span></td><td className="px-3 py-3">{categoryTotal > 0 ? <div className="flex h-6 min-w-64 overflow-hidden rounded bg-[#ece7dc]">{EFFORT_CATEGORIES.map((item) => { const value = member.categories[item.key]; if (value <= 0) return null; return <div key={item.key} className="grid min-w-8 place-items-center text-[9px] font-semibold text-white" style={{ width: `${Math.max(8, (value / categoryTotal) * 100)}%`, background: CATEGORY_STYLE[item.key].background }} title={`${item.label}: ${hours(value)}h`}>{item.shortLabel}</div>; })}</div> : <span className="text-xs text-[#777166]">時間未入力</span>}</td><td className="px-3 py-3 text-right text-xs text-[#514e47]">{hours(member.plannedHours)}h</td><td className="px-3 py-3 text-right text-xs font-semibold text-[#24231f]"><span className="block">{hours(member.actualHours)}h</span><span className="mt-0.5 block text-[10px] font-normal text-[#777166]">Calendar {hours(member.calendarHours)} / 手入力・取込 {hours(member.enteredHours)}</span></td><td className="px-3 py-3 text-right text-xs text-[#514e47]">{member.evidenceCount}件</td><td className="px-3 py-3 text-right text-xs text-[#777166]">{formatActivityDate(member.lastActivityAt)}</td></tr>; })}</tbody></table>{workspace.members.length === 0 && <p className="py-6 text-center text-sm text-[#777166]">このPJの入力対象メンバーは未登録。</p>}</div><div className="mt-5 space-y-3 lg:hidden">{workspace.members.map((member) => <article key={member.memberId} className="rounded-lg border border-[#e4ddd0] bg-[#f8f5ec] p-4"><div className="flex items-start justify-between gap-3"><div><h3 className="text-sm font-semibold text-[#24231f]">{member.displayName}</h3><p className="mt-1 text-[11px] text-[#777166]">{member.roleLabel || "役割未確認"}{member.isLead ? " / リード" : ""}</p></div><span className="text-right text-[11px] font-semibold text-[#24231f]">実績 {hours(member.actualHours)}h<span className="mt-0.5 block text-[10px] font-normal text-[#777166]">Calendar {hours(member.calendarHours)} / 手入力・取込 {hours(member.enteredHours)}</span></span></div><div className="mt-3"><CategoryBand categories={member.categories} muted={member.actualHours === 0 && member.plannedHours === 0} /></div><p className="mt-2 text-[11px] text-[#69665d]">予定 {hours(member.plannedHours)}h / 抽出活動 {member.evidenceCount}件 / 最終活動 {formatActivityDate(member.lastActivityAt)}</p></article>)}{workspace.members.length === 0 && <p className="rounded-lg border border-dashed border-[#d6cebf] p-4 text-center text-sm text-[#777166]">このPJの入力対象メンバーは未登録。</p>}</div>
+            </div>
+          </details>
         </section>
 
         <section className="grid min-w-0 gap-5 xl:grid-cols-[1.05fr_0.95fr]" aria-label="活動データの鮮度と予定実績推移">

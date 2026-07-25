@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { ArrowRight, CircleAlert, CircleCheck, CircleDashed } from "lucide-react";
+import { CircleAlert, CircleCheck, CircleDashed } from "lucide-react";
 import type {
   SxManagementBundle,
   SxManagementMilestone,
@@ -129,9 +129,12 @@ function StatusMark({ status }: { status: string }) {
 }
 
 function DesktopCell({ label, children, warning = false }: { label: string; children: ReactNode; warning?: boolean }) {
+  const text = typeof children === "string" ? children : "";
+  const isPlaceholder = text.includes("未登録");
+  const tone = isPlaceholder ? "text-[#8f8a7e]" : warning ? "font-medium text-[#765022]" : "text-[#514e47]";
   return (
     <div className="min-w-0 px-2 py-2" data-column={label}>
-      <p className={`line-clamp-2 text-[11px] leading-[15px] ${warning ? "font-medium text-[#8c3329]" : "text-[#514e47]"}`}>{children}</p>
+      <p className={`line-clamp-2 text-[11px] leading-[15px] ${tone}`}>{children}</p>
     </div>
   );
 }
@@ -149,7 +152,7 @@ function ThemeDetails({ row }: { row: ThemeRow }) {
   ];
   return (
     <dl className="grid gap-x-4 gap-y-2 border-t border-[#d6cebf] bg-[#f8f5ec] px-3 py-3 sm:grid-cols-2 lg:grid-cols-4">
-      {fields.map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-[10px] font-semibold text-[#777166]">{label}</dt><dd className={`mt-0.5 whitespace-normal text-[11px] leading-4 ${String(value).includes("未登録") || String(value).includes("未確認") ? "text-[#8c3329]" : "text-[#24231f]"}`}>{value}</dd></div>)}
+      {fields.map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-[10px] font-semibold text-[#777166]">{label}</dt><dd className={`mt-0.5 whitespace-normal text-[11px] leading-4 ${String(value).includes("未登録") || String(value).includes("未確認") ? "text-[#8f8a7e]" : "text-[#24231f]"}`}>{value}</dd></div>)}
     </dl>
   );
 }
@@ -206,15 +209,6 @@ export function SxDevelopmentThemeBoard({ management }: { management: SxManageme
   const assessed = rows.filter((row) => row.status !== "unassessed").length;
   const missingEvidence = rows.filter((row) => row.evidence.includes("未登録")).length;
   const missingOwner = rows.filter((row) => sxIsMissingOwner(row.owner) || row.owner.includes("未登録")).length;
-  const criticalFlow = management.judgment.criticalPathSlugs
-    .map((slug) => management.milestones.find((milestone) => milestone.slug === slug))
-    .filter((milestone): milestone is SxManagementMilestone => Boolean(milestone));
-  const flowLabels = criticalFlow.length > 0
-    ? [
-        ...criticalFlow.map((milestone) => nominalizeSxActionLabel(milestone.title)),
-        management.objective?.title ? nominalizeSxActionLabel(management.objective.title) : "最終判断 未登録",
-      ]
-    : ["必須依存 未接続"];
 
   return (
     <section className="overflow-hidden border-y border-[#cfc7b9] bg-[#fffdf7]" aria-labelledby="development-theme-heading" data-testid="sx-development-theme-board">
@@ -223,17 +217,9 @@ export function SxDevelopmentThemeBoard({ management }: { management: SxManageme
           <p className="text-[9px] font-semibold tracking-[0.15em] text-[#38745d]">開発テーマ管制 / 全体ゲートへの寄与</p>
           <h2 id="development-theme-heading" className="mt-0.5 text-sm font-semibold text-[#24231f]">7テーマの成立条件・証拠・次実験</h2>
         </div>
-        <p className="text-[10px] text-[#69665d]">評価済 {assessed}/7 ・ 証拠未登録 {missingEvidence} ・ 担当未確認 {missingOwner}</p>
+        <p className="text-[10px] text-[#69665d]">{assessed === 0 ? "全7テーマ 未評価 ・ " : `評価済 ${assessed}/7 ・ `}証拠未登録 {missingEvidence} ・ 担当未確認 {missingOwner}</p>
       </div>
 
-      <ol className="flex min-w-0 items-center overflow-hidden border-b border-[#e4ddd0] bg-[#f8f5ec] px-2 py-1.5 text-[9px] font-semibold text-[#514e47] sm:px-4 sm:text-[10px]" aria-label="開発テーマから設立判断までのつながり">
-        {flowLabels.map((step, index) => (
-          <li key={`${step}-${index}`} className="flex min-w-0 flex-1 items-center">
-            <span className="line-clamp-2 min-w-0 flex-1 text-center leading-3">{step}</span>
-            {index < flowLabels.length - 1 && <ArrowRight className="mx-0.5 h-3 w-3 shrink-0 text-[#9b9487]" aria-hidden="true" />}
-          </li>
-        ))}
-      </ol>
 
       <div className="hidden xl:block">
         <div className="grid grid-cols-[minmax(130px,1.15fr)_72px_minmax(128px,1.2fr)_minmax(118px,1.1fr)_minmax(112px,1.05fr)_minmax(118px,1.1fr)_minmax(128px,1.15fr)_minmax(112px,1fr)] border-b border-[#d6cebf] bg-[#f8f5ec] text-[9px] font-semibold text-[#777166]">
@@ -252,8 +238,8 @@ export function SxDevelopmentThemeBoard({ management }: { management: SxManageme
               <DesktopCell label="完了条件">{row.completion}</DesktopCell>
               <DesktopCell label="証拠" warning={row.evidence.includes("未登録")}>{row.evidence}</DesktopCell>
               <DesktopCell label="未確定事項" warning={!row.uncertainty.includes("なし")}>{row.uncertainty}</DesktopCell>
-              <div className="min-w-0 px-2 py-2 text-[10px] leading-[14px]" data-column="試験条件 / 次実験"><p className="truncate text-[#514e47]">条件: {row.testCondition}</p><p className={`line-clamp-2 ${row.nextExperiment.includes("未登録") ? "font-medium text-[#8c3329]" : "text-[#514e47]"}`}>次: {row.nextExperiment}</p></div>
-              <div className="min-w-0 px-2 py-1.5 text-[10px] leading-[13px] text-[#8c3329]" data-column="担当 / 日程"><p className="truncate">{row.owner}</p>{row.schedule.map((line) => <p key={line} className="truncate">{line}</p>)}</div>
+              <div className="min-w-0 px-2 py-2 text-[10px] leading-[14px]" data-column="試験条件 / 次実験"><p className="truncate text-[#514e47]">条件: {row.testCondition}</p><p className={`line-clamp-2 ${row.nextExperiment.includes("未登録") ? "text-[#8f8a7e]" : "text-[#514e47]"}`}>次: {row.nextExperiment}</p></div>
+              <div className="min-w-0 px-2 py-1.5 text-[10px] leading-[13px] text-[#69665d]" data-column="担当 / 日程"><p className="truncate">{row.owner}</p>{row.schedule.map((line) => <p key={line} className="truncate">{line}</p>)}</div>
               <DesktopCell label="寄与先ゲート" warning={row.contribution === "未接続"}>{row.contribution}</DesktopCell>
             </summary>
             <ThemeDetails row={row} />
@@ -270,8 +256,8 @@ export function SxDevelopmentThemeBoard({ management }: { management: SxManageme
             <summary className="grid min-h-[62px] max-h-[74px] cursor-pointer list-none grid-cols-[150px_70px_minmax(0,1fr)_190px] overflow-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]">
               <div className="min-w-0 border-l-[3px] border-[#38745d] px-2 py-2"><p className="line-clamp-2 text-[11px] font-semibold leading-[14px] text-[#24231f]">{row.name}</p><p className="truncate text-[10px] text-[#777166]">{row.position} ・ 全文</p></div>
               <div className="px-1 py-2"><SxBadge tone={STATUS_TONE[row.status] || STATUS_TONE.unassessed}><span className="flex items-center gap-1"><StatusMark status={row.status} />{row.statusLabel}</span></SxBadge></div>
-              <div className="min-w-0 px-2 py-2 text-[10px] leading-[13px]"><p className="truncate text-[#514e47]">完了: {row.completion}</p><p className="truncate text-[#8c3329]">証拠: {row.evidence} / 未確定: {row.uncertainty}</p><p className={`truncate ${row.nextExperiment.includes("未登録") ? "text-[#8c3329]" : "text-[#514e47]"}`}>次実験: {row.nextExperiment}</p></div>
-              <div className="min-w-0 px-2 py-1.5 text-[10px] leading-[13px]"><p className="truncate text-[#514e47]">{row.owner}</p>{row.schedule.slice(0, 2).map((line) => <p key={line} className="truncate text-[#8c3329]">{line}</p>)}<p className={`truncate font-semibold ${row.contribution === "未接続" ? "text-[#8c3329]" : "text-[#315f7d]"}`}>→ {row.contribution}</p></div>
+              <div className="min-w-0 px-2 py-2 text-[10px] leading-[13px]"><p className="truncate text-[#514e47]">完了: {row.completion}</p><p className="truncate text-[#69665d]">証拠: {row.evidence} / 未確定: {row.uncertainty}</p><p className={`truncate ${row.nextExperiment.includes("未登録") ? "text-[#8f8a7e]" : "text-[#514e47]"}`}>次実験: {row.nextExperiment}</p></div>
+              <div className="min-w-0 px-2 py-1.5 text-[10px] leading-[13px]"><p className="truncate text-[#514e47]">{row.owner}</p>{row.schedule.slice(0, 2).map((line) => <p key={line} className="truncate text-[#69665d]">{line}</p>)}<p className={`truncate font-semibold ${row.contribution === "未接続" ? "text-[#8f8a7e]" : "text-[#315f7d]"}`}>→ {row.contribution}</p></div>
             </summary>
             <ThemeDetails row={row} />
           </details>
@@ -288,8 +274,8 @@ export function SxDevelopmentThemeBoard({ management }: { management: SxManageme
               </div>
               <dl className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10px] leading-[12px]">
                 <div className="min-w-0"><dt className="font-semibold text-[#777166]">完了条件</dt><dd className="line-clamp-2 text-[#514e47]">{row.completion}</dd></div>
-                <div className="min-w-0"><dt className="font-semibold text-[#777166]">証拠 / 未確定</dt><dd className="line-clamp-2 text-[#8c3329]">{row.evidence} / {row.uncertainty}</dd></div>
-                <div className="min-w-0"><dt className="font-semibold text-[#777166]">試験条件 / 次実験</dt><dd className={`line-clamp-2 ${row.nextExperiment.includes("未登録") ? "text-[#8c3329]" : "text-[#514e47]"}`}>{row.testCondition} / {row.nextExperiment}</dd></div>
+                <div className="min-w-0"><dt className="font-semibold text-[#777166]">証拠 / 未確定</dt><dd className="line-clamp-2 text-[#69665d]">{row.evidence} / {row.uncertainty}</dd></div>
+                <div className="min-w-0"><dt className="font-semibold text-[#777166]">試験条件 / 次実験</dt><dd className={`line-clamp-2 ${row.nextExperiment.includes("未登録") ? "text-[#8f8a7e]" : "text-[#514e47]"}`}>{row.testCondition} / {row.nextExperiment}</dd></div>
                 <div className="min-w-0"><dt className="font-semibold text-[#777166]">担当 / 日程</dt><dd className="line-clamp-2 text-[#514e47]">{row.owner} / {row.schedule.join(" / ")}</dd></div>
               </dl>
             </summary>

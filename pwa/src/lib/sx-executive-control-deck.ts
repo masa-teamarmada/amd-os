@@ -60,6 +60,8 @@ export interface SxEcdMilestone {
   /** Management pillar key (事業/技術/資金/体制). Optional: older callers/tests omit it, and the
    * rail then simply carries `track: null` — never guessed. */
   track?: string | null;
+  /** 計画開始日。統合タイムラインのバー描画に使う。省略時はバーを点（予定日tick）だけで描く。 */
+  plannedStart?: string | null;
 }
 
 export interface SxEcdTechnicalTest {
@@ -348,9 +350,13 @@ export function deriveSxInterventionQueue(params: {
   partnerWorkItems: SxEcdPartnerWorkItem[];
   partners: SxEcdPartner[];
   issues: SxEcdIssue[];
+  /** 重要経路外の柱の現在ゲート。停止・期限超過・担当未確認・鮮度切れ・評価未完だけを、柱名を
+   * 付けた介入候補として同じキューへ足す（最大遅延の柱がキューから消えないようにするため）。
+   * 行の発明はしない — 該当条件が無い柱からは1行も出ない。 */
+  pillarGates?: Array<{ trackKey: string; trackLabel: string; milestoneId: string | null }>;
   maxRows?: number;
 }): { rows: SxEcdInterventionRow[]; totalCount: number; hiddenCount: number } {
-  const { today, criticalPathSlugs, milestones, technicalTests = [], partnerWorkItems, partners, issues, maxRows = 4 } = params;
+  const { today, criticalPathSlugs, milestones, technicalTests = [], partnerWorkItems, partners, issues, pillarGates = [], maxRows = 4 } = params;
   const criticalSlugSet = new Set(criticalPathSlugs);
   const criticalMilestones = milestones.filter((milestone) => criticalSlugSet.has(milestone.slug));
   const criticalMilestoneIds = new Set(criticalMilestones.map((milestone) => milestone.id));
@@ -638,6 +644,42 @@ export function deriveSxInterventionQueue(params: {
       milestoneId: milestone.id,
       dateCertainty: milestone.dateCertainty,
     });
+  }
+
+  // 9) 重要経路外の柱の現在ゲート: 停止 / 期限超過 / 担当未確認 / 鮮度切れ / 評価未完だけを、
+  //    柱名プレフィックス付きで足す。既に重要経路として扱った行と重複させない。
+  for (const gate of pillarGates) {
+    if (!gate.milestoneId) continue;
+    const milestone = milestoneById.get(gate.milestoneId);
+    if (!milestone || criticalSlugSet.has(milestone.slug) || included.has(milestone.id)) continue;
+    const due = milestone.forecastEnd || milestone.plannedEnd;
+    const base = {
+      target: `【${gate.trackLabel}】${displayTarget(milestone.title)}`,
+      ballSide: "担当",
+      ballOwner: ownerOrUnconfirmed(milestone.ownerLabel),
+      dueDate: due,
+      dueContextLabel: milestone.forecastEnd ? ("予測期限" as const) : null,
+      gate: milestone.gate,
+      anchor: "management-plan",
+      entityType: "milestone" as const,
+      entityId: milestone.id,
+      milestoneId: milestone.id,
+      track: gate.trackKey,
+      dateCertainty: milestone.dateCertainty,
+    };
+    if (milestone.isBlocked || milestone.status === "blocked") {
+      rows.push({ key: `pillar-blocked-${milestone.id}`, priority: 1, kind: "critical_blocked", ...base });
+      continue;
+    }
+    if (milestone.isOverdue) {
+      rows.push({ key: `pillar-overdue-${milestone.id}`, priority: 2, kind: "critical_overdue", ...base });
+      continue;
+    }
+    const ownerMissing = isMissingOwnerText(milestone.ownerLabel);
+    const unassessed = milestone.confidence === "unknown" || milestone.status === "unassessed";
+    if (!ownerMissing && !milestone.isStale && !unassessed) continue;
+    const kind: SxEcdInterventionKind = ownerMissing ? "owner_unconfirmed" : milestone.isStale ? "gate_stale" : "gate_unassessed";
+    rows.push({ key: `pillar-gap-${milestone.id}`, priority: 6, kind, ...base });
   }
 
   const sorted = [...rows].sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
@@ -938,6 +980,372 @@ export function deriveSxStateMap(params: {
     top: blockers.slice(0, topCount),
     totalCount,
   };
+}
+
+// --- Verdict summary (判定バー4値) ---------------------------------------------
+
+export interface SxEcdVerdictBusinessCell {
+  /** e.g. 停止 2件 / 期限超過 1件 / 遅延見込み +28日 / オンスケ / 判定不能 */
+  label: string;
+  tone: "ok" | "warn" | "bad" | "unknown";
+  /** e.g. 最大 資金+35日 — the largest pillar delay when it exceeds the critical-path delay. */
+  detail: string | null;
+  provisional: boolean;
+}
+
+export interface SxEcdVerdictSummary {
+  business: SxEcdVerdictBusinessCell;
+  operations: { verdictLabel: string; completenessPct: number; criticalUnknownCount: number; blockedCount: number };
+  step2: { label: string; known: boolean };
+  countdown: { days: number | null; targetDate: string | null };
+}
+
+/**
+ * 判定バーの4値を導出する。業務判定（重要経路の停止・期限超過・遅延見込み）と運用判定（データ
+ * 充足）を分離し、「データが埋まっていない」を事業の危機や順調へ変換しない。STEP2消化は確認
+ * できた金額があるときだけ数字を出し、なければ「未確認」に閉じる。
+ */
+export function deriveSxVerdictSummary(params: {
+  today: string;
+  judgment: { key: string; dagValid: boolean; completenessPct: number; criticalUnknownCount: number; blockedCount: number };
+  criticalPathSlugs: string[];
+  milestones: SxEcdMilestone[];
+  tracks: Array<{ key: string; shortLabel: string; deltaDays: number | null; dateCertainty: "confirmed" | "provisional" | null }>;
+  objectiveTargetDate: string | null;
+  funding: { requiredAmount: number | null; securedAmount: number | null } | null;
+}): SxEcdVerdictSummary {
+  const { today, judgment, criticalPathSlugs, milestones, tracks, objectiveTargetDate, funding } = params;
+  const criticalSet = new Set(criticalPathSlugs);
+  const critical = milestones.filter((milestone) => criticalSet.has(milestone.slug));
+
+  const maxPillar = tracks.reduce<{ shortLabel: string; deltaDays: number; provisional: boolean } | null>((best, track) => {
+    if (track.deltaDays == null || track.deltaDays <= 0) return best;
+    if (best && best.deltaDays >= track.deltaDays) return best;
+    return { shortLabel: track.shortLabel, deltaDays: track.deltaDays, provisional: track.dateCertainty === "provisional" };
+  }, null);
+
+  let business: SxEcdVerdictBusinessCell;
+  if (!judgment.dagValid || criticalPathSlugs.length === 0 || critical.length === 0) {
+    business = { label: "判定不能", tone: "unknown", detail: null, provisional: false };
+  } else {
+    const blocked = critical.filter((milestone) => milestone.isBlocked || milestone.status === "blocked");
+    const overdue = critical.filter((milestone) => !blocked.includes(milestone) && milestone.isOverdue);
+    const positiveDeltas = critical.filter((milestone) => milestone.deltaDays != null && milestone.deltaDays > 0);
+    const maxDelta = positiveDeltas.reduce((max, milestone) => Math.max(max, milestone.deltaDays ?? 0), 0);
+    const provisional = positiveDeltas.some((milestone) => milestone.dateCertainty === "provisional");
+    const allDatesKnown = critical.every((milestone) => milestone.plannedEnd || milestone.forecastEnd || milestone.status === "completed");
+    if (blocked.length > 0) {
+      business = { label: `停止 ${blocked.length}件`, tone: "bad", detail: null, provisional: false };
+    } else if (overdue.length > 0) {
+      business = { label: `期限超過 ${overdue.length}件`, tone: "bad", detail: null, provisional: false };
+    } else if (maxDelta > 0) {
+      business = {
+        label: `遅延見込み +${maxDelta}日`,
+        tone: "warn",
+        detail: maxPillar && maxPillar.deltaDays > maxDelta ? `最大 ${maxPillar.shortLabel}+${maxPillar.deltaDays}日` : null,
+        provisional,
+      };
+    } else if (!allDatesKnown) {
+      business = { label: "判定不能", tone: "unknown", detail: null, provisional: false };
+    } else {
+      const confirmedOnTrack = critical.every((milestone) => milestone.status === "completed" || (milestone.dateCertainty === "confirmed" && milestone.status !== "unassessed" && milestone.confidence !== "unknown"));
+      business = confirmedOnTrack
+        ? { label: "オンスケ", tone: "ok", detail: null, provisional: false }
+        : { label: "判定不能", tone: "unknown", detail: maxPillar ? `最大 ${maxPillar.shortLabel}+${maxPillar.deltaDays}日` : null, provisional: false };
+    }
+  }
+
+  const hasFundingAmounts = Boolean(funding && (funding.requiredAmount != null || funding.securedAmount != null));
+  const step2 = hasFundingAmounts && funding
+    ? {
+        label: `確保 ${funding.securedAmount != null ? `${Math.round(funding.securedAmount / 10000)}万円` : "未確認"} / 必要 ${funding.requiredAmount != null ? `${Math.round(funding.requiredAmount / 10000)}万円` : "未確認"}`,
+        known: true,
+      }
+    : { label: "未確認", known: false };
+
+  const countdownDays = objectiveTargetDate ? diffDaysBetween(today, objectiveTargetDate) : null;
+
+  return {
+    business,
+    operations: {
+      verdictLabel: sxVerdictDisplayLabel(judgment.key),
+      completenessPct: judgment.completenessPct,
+      criticalUnknownCount: judgment.criticalUnknownCount,
+      blockedCount: judgment.blockedCount,
+    },
+    step2,
+    countdown: { days: countdownDays, targetDate: objectiveTargetDate },
+  };
+}
+
+// --- Unified timeline (統合タイムライン) ----------------------------------------
+
+export interface SxEcdTimelineRow {
+  milestoneId: string;
+  slug: string;
+  title: string;
+  track: string | null;
+  state: SxEcdPathNodeState;
+  isCritical: boolean;
+  isCurrent: boolean;
+  plannedStart: string | null;
+  plannedEnd: string | null;
+  forecastEnd: string | null;
+  plannedStartPct: number | null;
+  plannedEndPct: number | null;
+  forecastPct: number | null;
+  deltaDays: number | null;
+  dateCertainty: "confirmed" | "provisional" | null;
+  ownerLabel: string;
+  gate: string;
+}
+
+export interface SxEcdTimelineLane {
+  key: string;
+  label: string;
+  shortLabel: string;
+  accent: string;
+  deltaDays: number | null;
+  dateCertainty: "confirmed" | "provisional" | null;
+  maxIssue: string;
+  rows: SxEcdTimelineRow[];
+}
+
+export interface SxEcdTimelinePin {
+  key: string;
+  rank: number;
+  target: string;
+  ballSide: string;
+  ballOwner: string;
+  dueDate: string;
+  duePct: number;
+  dueDatePrecision?: SxEcdDatePrecision;
+  anchor: string;
+  /** amber pin = 相手側/双方が持つボール、ink pin = 当方・担当側。 */
+  side: "partner" | "sx";
+}
+
+export interface SxEcdTimelineMonth {
+  label: string;
+  pct: number;
+  isYearStart: boolean;
+}
+
+export interface SxEcdUnifiedTimeline {
+  valid: boolean;
+  reason: string | null;
+  domainStart: string;
+  domainEnd: string;
+  todayPct: number;
+  objectivePct: number | null;
+  objectiveDate: string | null;
+  months: SxEcdTimelineMonth[];
+  lanes: SxEcdTimelineLane[];
+  /** criticalPathSlugs 順の接続点（レーンindex・レーン内rowindex・x位置%）。連結線の描画用。 */
+  criticalPoints: Array<{ slug: string; laneIndex: number; rowIndex: number; pct: number }>;
+  pins: SxEcdTimelinePin[];
+  /** 期日を持たない実施中マイルストーン数（タイムラインに描けない分を隠さない）。 */
+  undatedCount: number;
+  completedCount: number;
+}
+
+function dateToPct(date: string, domainStart: string, domainEnd: string): number {
+  const start = Date.parse(`${domainStart}T00:00:00.000Z`);
+  const end = Date.parse(`${domainEnd}T00:00:00.000Z`);
+  const value = Date.parse(`${date}T00:00:00.000Z`);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 0;
+  return Math.min(100, Math.max(0, ((value - start) / (end - start)) * 100));
+}
+
+function monthStartOf(date: string): string {
+  return `${date.slice(0, 7)}-01`;
+}
+
+function addMonths(monthStart: string, count: number): string {
+  const [year, month] = monthStart.slice(0, 7).split("-").map(Number);
+  const total = year * 12 + (month - 1) + count;
+  const nextYear = Math.floor(total / 12);
+  const nextMonth = (total % 12) + 1;
+  return `${nextYear}-${String(nextMonth).padStart(2, "0")}-01`;
+}
+
+/**
+ * 経営状況図＝統合タイムラインを導出する。全ての日付付きマイルストーンを柱レーンへ置き、重要
+ * 経路の接続点、今日線、設立判断旗、月目盛、①〜⑤のボールピン（各介入行の自身の期日位置）を
+ * 1つの座標系（0〜100%）で返す。日付の無いマイルストーンは描かず、件数として明示する。
+ */
+export function deriveSxUnifiedTimeline(params: {
+  today: string;
+  milestones: SxEcdMilestone[];
+  criticalPathSlugs: string[];
+  dagValid: boolean;
+  tracks: Array<{ key: string; label: string; shortLabel: string; accent: string; deltaDays: number | null; dateCertainty: "confirmed" | "provisional" | null; maxIssue: string }>;
+  laneOrder?: string[];
+  objectiveTargetDate: string | null;
+  interventionRows: SxEcdInterventionRow[];
+  pinCount?: number;
+}): SxEcdUnifiedTimeline {
+  const { today, milestones, criticalPathSlugs, dagValid, tracks, objectiveTargetDate, interventionRows, pinCount = 5 } = params;
+  const laneOrder = params.laneOrder ?? ["business_development", "technology_development", "organizational_building", "funding"];
+
+  if (!dagValid) {
+    return { valid: false, reason: "依存関係不正", domainStart: today, domainEnd: today, todayPct: 0, objectivePct: null, objectiveDate: objectiveTargetDate, months: [], lanes: [], criticalPoints: [], pins: [], undatedCount: 0, completedCount: 0 };
+  }
+
+  const active = milestones.filter((milestone) => milestone.status !== "completed");
+  const dated = active.filter((milestone) => milestone.plannedEnd || milestone.forecastEnd);
+  const undatedCount = active.length - dated.length;
+  const completedCount = milestones.length - active.length;
+
+  if (dated.length === 0) {
+    return { valid: false, reason: "日程付きマイルストーン未登録", domainStart: today, domainEnd: today, todayPct: 0, objectivePct: null, objectiveDate: objectiveTargetDate, months: [], lanes: [], criticalPoints: [], pins: [], undatedCount, completedCount };
+  }
+
+  const allDates = dated.flatMap((milestone) => [milestone.plannedEnd, milestone.forecastEnd].filter((value): value is string => Boolean(value)));
+  const startCandidates = dated.map((milestone) => milestone.plannedStart ?? null).filter((value): value is string => Boolean(value));
+  const minDate = [today, ...allDates, ...startCandidates].reduce((min, value) => (value < min ? value : min));
+  const maxDate = [today, ...allDates, ...(objectiveTargetDate ? [objectiveTargetDate] : [])].reduce((max, value) => (value > max ? value : max));
+  const domainStart = monthStartOf(minDate);
+  const domainEnd = addMonths(monthStartOf(maxDate), 1); // 最終月の月末側へ半月〜1か月の余白
+
+  const months: SxEcdTimelineMonth[] = [];
+  for (let cursor = domainStart; cursor < domainEnd; cursor = addMonths(cursor, 1)) {
+    const [year, month] = cursor.slice(0, 7).split("-").map(Number);
+    months.push({ label: month === 1 || cursor === domainStart ? `${year}年${month}月` : `${month}月`, pct: dateToPct(cursor, domainStart, domainEnd), isYearStart: month === 1 });
+  }
+
+  const criticalSet = new Set(criticalPathSlugs);
+  const currentSlug = criticalPathSlugs.find((slug) => {
+    const milestone = milestones.find((item) => item.slug === slug);
+    return !milestone || milestone.status !== "completed";
+  }) ?? null;
+
+  const toRow = (milestone: SxEcdMilestone): SxEcdTimelineRow => {
+    const plannedStart = milestone.plannedStart ?? null;
+    const isCurrent = milestone.slug === currentSlug;
+    return {
+      milestoneId: milestone.id,
+      slug: milestone.slug,
+      title: nominalizeSxActionLabel(sxNormalizePublicName(milestone.title)),
+      track: milestone.track ?? null,
+      state: resolveNodeState(milestone, isCurrent),
+      isCritical: criticalSet.has(milestone.slug),
+      isCurrent,
+      plannedStart,
+      plannedEnd: milestone.plannedEnd,
+      forecastEnd: milestone.forecastEnd,
+      plannedStartPct: plannedStart ? dateToPct(plannedStart, domainStart, domainEnd) : null,
+      plannedEndPct: milestone.plannedEnd ? dateToPct(milestone.plannedEnd, domainStart, domainEnd) : null,
+      forecastPct: milestone.forecastEnd ? dateToPct(milestone.forecastEnd, domainStart, domainEnd) : null,
+      deltaDays: milestone.deltaDays,
+      dateCertainty: milestone.dateCertainty ?? null,
+      ownerLabel: isMissingOwnerText(milestone.ownerLabel) ? "担当未確認" : sxNormalizePublicName(milestone.ownerLabel),
+      gate: milestone.gate,
+    };
+  };
+
+  const lanes: SxEcdTimelineLane[] = laneOrder.map((key) => {
+    const track = tracks.find((item) => item.key === key);
+    const rows = dated
+      .filter((milestone) => (milestone.track ?? null) === key)
+      .map(toRow)
+      .sort((a, b) => (a.forecastEnd ?? a.plannedEnd ?? "9999").localeCompare(b.forecastEnd ?? b.plannedEnd ?? "9999"));
+    return {
+      key,
+      label: track?.label ?? key,
+      shortLabel: track?.shortLabel ?? key,
+      accent: track?.accent ?? "#69665d",
+      deltaDays: track?.deltaDays ?? null,
+      dateCertainty: track?.dateCertainty ?? null,
+      maxIssue: track?.maxIssue ?? "",
+      rows,
+    };
+  });
+  // laneOrderに無いtrackの行も落とさない（未知トラックは末尾レーンへ）。
+  const knownLaneKeys = new Set(laneOrder);
+  const orphanRows = dated.filter((milestone) => !knownLaneKeys.has(milestone.track ?? "")).map(toRow);
+  if (orphanRows.length > 0) {
+    lanes.push({ key: "unknown", label: "柱未確認", shortLabel: "未確認", accent: "#8f8aa6", deltaDays: null, dateCertainty: null, maxIssue: "", rows: orphanRows });
+  }
+
+  const criticalPoints = criticalPathSlugs.flatMap((slug) => {
+    for (let laneIndex = 0; laneIndex < lanes.length; laneIndex += 1) {
+      const rowIndex = lanes[laneIndex].rows.findIndex((row) => row.slug === slug);
+      if (rowIndex >= 0) {
+        const row = lanes[laneIndex].rows[rowIndex];
+        const pct = row.forecastPct ?? row.plannedEndPct;
+        if (pct == null) return [];
+        return [{ slug, laneIndex, rowIndex, pct }];
+      }
+    }
+    return [];
+  });
+
+  const rawPins: SxEcdTimelinePin[] = interventionRows
+    .slice(0, pinCount)
+    .map((row, index) => ({ row, rank: index + 1 }))
+    .filter((entry): entry is { row: SxEcdInterventionRow; rank: number } => Boolean(entry.row.dueDate))
+    .map(({ row, rank }) => ({
+      key: row.key,
+      rank,
+      target: row.target,
+      ballSide: row.ballSide,
+      ballOwner: row.ballOwner,
+      dueDate: row.dueDate as string,
+      duePct: dateToPct(row.dueDate as string, domainStart, domainEnd),
+      dueDatePrecision: row.dueDatePrecision,
+      anchor: row.anchor,
+      side: row.ballSide === "相手側" || row.ballSide === "双方" ? "partner" : "sx",
+    }));
+  // 期日が近接するピンは横に最小間隔だけずらして重なりを消す（日付自体は変えない。位置補正のみ）。
+  const MIN_PIN_GAP_PCT = 2;
+  const pins = [...rawPins]
+    .sort((a, b) => a.duePct - b.duePct || a.rank - b.rank)
+    .map((pin) => ({ ...pin }));
+  for (let i = 1; i < pins.length; i += 1) {
+    if (pins[i].duePct - pins[i - 1].duePct < MIN_PIN_GAP_PCT) {
+      pins[i].duePct = Math.min(100, pins[i - 1].duePct + MIN_PIN_GAP_PCT);
+    }
+  }
+
+  return {
+    valid: true,
+    reason: null,
+    domainStart,
+    domainEnd,
+    todayPct: dateToPct(today, domainStart, domainEnd),
+    objectivePct: objectiveTargetDate ? dateToPct(objectiveTargetDate, domainStart, domainEnd) : null,
+    objectiveDate: objectiveTargetDate,
+    months,
+    lanes,
+    criticalPoints,
+    pins,
+    undatedCount,
+    completedCount,
+  };
+}
+
+// --- Pillar quota for the intervention queue -----------------------------------
+
+/**
+ * 次の経営介入のtop枠へ「最大遅延の柱」を必ず1件含めるための入替。データに該当行が無い場合は
+ * 行を発明せず、注記だけを返す。
+ */
+export function applySxInterventionPillarQuota(params: {
+  rows: SxEcdInterventionRow[];
+  topCount: number;
+  requiredTrack: string | null;
+  requiredTrackLabel: string | null;
+}): { top: SxEcdInterventionRow[]; quotaApplied: boolean; quotaNote: string | null } {
+  const { rows, topCount, requiredTrack, requiredTrackLabel } = params;
+  const top = rows.slice(0, topCount);
+  if (!requiredTrack) return { top, quotaApplied: false, quotaNote: null };
+  if (top.some((row) => row.track === requiredTrack)) return { top, quotaApplied: false, quotaNote: null };
+  const candidate = rows.slice(topCount).find((row) => row.track === requiredTrack);
+  if (!candidate) {
+    return { top, quotaApplied: false, quotaNote: `${requiredTrackLabel ?? requiredTrack}の介入候補は台帳未登録` };
+  }
+  return { top: [...top.slice(0, Math.max(0, topCount - 1)), candidate], quotaApplied: true, quotaNote: null };
 }
 
 /** Formats a row's due date honoring its precision: month precision never fabricates a day

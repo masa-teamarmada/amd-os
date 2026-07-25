@@ -302,7 +302,7 @@ expectIncludes("src/components/dashboard/DashboardGrid.tsx", [
 expectIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", [
   "研究からSUまでの時間配分",
   "経営判定",
-  "重大な未確認",
+  "次の経営介入",
   "今週決めること",
   "週次エフォートを確定",
   "活動データの鮮度",
@@ -341,18 +341,21 @@ expectIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx",
   "<h3 className=\"mt-3 text-sm font-semibold leading-5 text-[#24231f]\">{decisionDisplayTitle}</h3>",
   "aria-label={`${decisionDisplayTitle}を編集`}",
 ]);
-// spec (2026-07-24 二車線化): workspace内部の左レール(desktop 152px / mobile・tablet横帯)は
-// GlobalNavサイドバーとは別物。事業化ロードマップタイトル・関係先リスト名称・論点・仮説台帳セマンティック
-// テーブルが現行実装であることを固定する。
+// spec (2026-07-25 統合タイムライン化): workspace内部の左レール(desktop 152px / mobile・tablet横帯)は
+// GlobalNavサイドバーとは別物。経営サマリー節=deck(判定バー+統合タイムライン+意思決定・介入)、
+// 計画詳細節=全マイルストーン詳細表+選択文脈、技術証明節=三証明+7テーマ表。旧・事業化ロードマップ
+// (SxNineMonthTimeline)は統合タイムラインへ吸収して廃止。
 expectIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", [
   "lg:grid-cols-[152px_minmax(0,1fr)]",
   "aria-label=\"経営診断ナビ\"",
-  "aria-label=\"事業化ロードマップ\"",
+  '["management-proof", "技術証明"]',
+  '["management-plan", "計画詳細"]',
+  "全マイルストーン詳細表を表示",
+  "sx-effort-entry-details",
   "kicker=\"論点・仮説台帳\"",
   "data-testid=\"sx-issue-ledger-table\"",
   "kicker=\"関係先管理\"",
   "title=\"関係先リスト\"",
-  "<SxNineMonthTimeline",
 ]);
 expectNotIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", [
   "9か月の全体時間軸",
@@ -366,17 +369,7 @@ expectNotIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.ts
   "outcomeOptions = management.outcomes.map((item) => ({ value: item.id, label: `${item.title}（",
   "<h3 className=\"mt-3 text-sm font-semibold leading-5 text-[#24231f]\">{decision.title}</h3>",
   "aria-label={`${decision.title}を編集`}",
-]);
-expectIncludes("src/components/project-workspace/SxNineMonthTimeline.tsx", [
-  "事業化ロードマップ",
-  "formatPeriodLabel",
-  "`${firstYear}年${Number(firstMonth)}月",
-  "MIN_TIMELINE_PX",
-  "nominalizeSxActionLabel",
-]);
-expectNotIncludes("src/components/project-workspace/SxNineMonthTimeline.tsx", [
-  "9か月の全体時間軸",
-  "WIDE_TIMELINE_PX",
+  "SxNineMonthTimeline",
 ]);
 expectIncludes("src/lib/sx-action-label.ts", [
   "nominalizeSxActionLabel",
@@ -388,7 +381,7 @@ expectIncludes("src/components/project-workspace/SxDevelopmentThemeBoard.tsx", [
   "name: milestone ? nominalizeSxActionLabel(milestone.title) : fallbackName",
   "position: parent ? `${nominalizeSxActionLabel(parent.title)}の成立条件`",
   "successors.map((item) => nominalizeSxActionLabel(item.title))",
-  "criticalFlow.map((milestone) => nominalizeSxActionLabel(milestone.title))",
+  '{assessed === 0 ? "全7テーマ 未評価 ・ " : `評価済 ${assessed}/7 ・ `}',
   "nextExperiment: issue?.nextValidation?.trim()",
   "? nominalizeSxActionLabel(issue.nextValidation.trim())",
 ]);
@@ -491,8 +484,13 @@ expectIncludes("src/lib/sx-proof-mapping.ts", [
 expectIncludes("src/components/project-workspace/SxProofOutcomes.tsx", [
   "sx-proof-outcomes",
   "sx-proof-theme-matrix",
-  "評価済み",
-  "証拠充足",
+  // 2026-07-25 ストリップ化: 1証明=1行（期限/評価N/M/状態分布/充足%/固有の不足）。3枚同文の不足は
+  // sharedMissingバナー1行へ、7×3マトリクスは既定閉のdetails付録へ。未評価を0%として描かない。
+  "sx-proof-card-",
+  "sx-proof-shared-missing",
+  "sharedMissing",
+  '"未評価" : `${outcome.evidenceCoveragePct}%`',
+  "接続マトリクス（7×3）を表示",
 ]);
 expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "sx-partner-pipeline",
@@ -791,50 +789,63 @@ expectIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx",
 ]);
 expectIncludes("src/components/project-workspace/SxExecutiveControlDeck.tsx", [
   "sx-executive-control-deck",
-  "sx-critical-path-rail",
   "sx-intervention-queue",
   "sx-intervention-queue-mobile",
-  "sx-upcoming-queue",
-  "sx-four-pillar-signal-strip",
-  "sxTrackEvidenceCompleteness",
-  "sxFormatDelta",
-  "詰まり:",
-  "deriveSxCriticalPathRail",
-  "deriveSxInterventionQueue",
-  "deriveSxUpcomingQueue",
-  "sxVerdictDisplayLabel",
-  "直近アクション",
-  "ボール / 担当",
   "focusAnchorRow",
   "sx-anchor-highlight",
-  "ArrowRight",
-  "InterventionRowDesktop",
-  "InterventionRowMobile",
   "data-sx-anchor",
   "prefers-reduced-motion",
   "callsOnSelectMilestone",
   "sxEcdFormatDueDate",
-  // Round 18 (2026-07-25 経営状況図): the deck reads 判定 → 4本柱信号 → 経営状況図（時間比例の
-  // 重要経路レール + ノード直下のブロッカー旗 + 今日マーカー） → 次の経営介入（①②③は旗と同番号）。
-  // Desktop shows the map before the intervention list; mobile/tablet keeps interventions first.
-  "deriveSxStateMap",
-  "sx-state-map",
-  "sx-verdict-band",
-  "sx-blocker-flag",
-  "sx-critical-path-rail-vertical",
-  "sx-unattached-blockers",
-  "次の経営介入",
-  "現在地",
-  "今日",
+  "InterventionRowDesktop",
+  "InterventionRowMobile",
   "RankBadge",
-  "SlipBar",
-  "StateMapDesktop",
-  "StateMapVertical",
-  '"order-2 border-b-0 border-[#e4ddd0] px-3 py-2 sm:px-4 lg:order-1 lg:border-b"',
-  '"order-1 border-b border-[#e4ddd0] px-3 py-2 sm:px-4 lg:order-2 lg:border-b-0"',
+  "ballDisplay",
+  "ボール / 担当",
+  // Round 19 (2026-07-25 統合タイムライン): deckは 判定バー（業務/運用/STEP2消化/設立判断までの
+  // 4値分離） → 統合タイムライン → 今週の意思決定 + 次の経営介入（top5、最大遅延柱のクォータ、
+  // ①〜⑤はタイムラインのピンと同番号）の3帯。旧・4本柱信号帯 / 経路レール / 直近アクション帯は
+  // 統合タイムラインへ吸収して廃止。
+  "sx-verdict-bar",
+  "sx-state-map",
+  "sx-decision-queue",
+  "sx-quota-note",
+  "SxUnifiedTimeline",
+  "deriveSxUnifiedTimeline",
+  "deriveSxVerdictSummary",
+  "deriveSxInterventionQueue",
+  "applySxInterventionPillarQuota",
+  "今週の意思決定",
+  "次の経営介入",
+  "業務判定（重要経路）",
+  "運用判定（データ充足）",
+  "STEP2消化",
+  "設立判断まで",
+  "pillarGates",
+  "knowledgeType === \"decision_needed\"",
 ]);
 expectNotIncludes("src/components/project-workspace/SxExecutiveControlDeck.tsx", [
   "相手先要フォロー",
+  "直近アクション",
+  "sx-four-pillar-signal-strip",
+  "sx-critical-path-rail",
+]);
+expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
+  "sx-unified-timeline",
+  "今日",
+  "現在地",
+  "設立判断",
+  "柱 / マイルストーン",
+  "RowBar",
+  "rowCenterY",
+  "criticalPolyline",
+  "min-w-[880px]",
+  "onPinClick",
+  "sxFormatDelta",
+  "担当未確認",
+  "日程未登録",
+  "aria-pressed",
+  "focus-visible:outline",
 ]);
 expectIncludes("src/lib/sx-executive-control-deck.ts", [
   // Provisional dates / missing dates must never resolve to a false-green current/future state.
@@ -853,6 +864,15 @@ expectIncludes("src/lib/sx-executive-control-deck.ts", [
   "deriveSxStateMap",
   "FLAG_KINDS",
   "unattached",
+  // 統合タイムライン: 全マイルストーンを柱レーンへ日数比例で置き、日付の無い行は描かず件数で
+  // 明示する。判定バーは業務（重要経路の停止・期限超過・遅延見込み）と運用（充足）を分離し、
+  // STEP2消化は金額データが無い限り「未確認」。クォータは行を発明せず、無ければ注記を返す。
+  "deriveSxUnifiedTimeline",
+  "deriveSxVerdictSummary",
+  "applySxInterventionPillarQuota",
+  "pillarGates",
+  "undatedCount",
+  '"未確認", known: false',
 ]);
 expectIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", [
   "SxExecutiveControlDeck",
