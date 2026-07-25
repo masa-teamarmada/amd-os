@@ -622,56 +622,58 @@ struct NotificationInboxView: View {
             deferredAllView(count: unanswered.count)
         } else {
             let queue = judgmentQueue
-            let idx = min(judgmentIndex, queue.count - 1)
-            let current = queue[idx]
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text("判断待ち \(activeJudgmentCount)件")
                         .font(.subheadline.bold())
                         .foregroundStyle(AMD.text)
                     Spacer()
-                    Text("\(idx + 1) / \(queue.count)")
+                    Text("1 - \(queue.count) / \(queue.count)")
                         .font(.footnote.monospacedDigit())
                         .foregroundStyle(.secondary)
                 }
 
-                ZStack {
-                    if idx + 1 < queue.count {
-                        judgmentPeek(for: queue[idx + 1])
-                            .padding(.horizontal, 12)
-                            .offset(y: 14)
-                            .scaleEffect(0.96)
-                    }
+                Text("下へスクロールすると、次の通知も続けて確認できるよ")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
-                    NotificationJudgmentCard(
-                        item: current,
-                        projectMap: inbox.projectMap,
-                        details: detailsById[current.id],
-                        isSubmitting: submittingIds.contains(current.id),
-                        onSubmit: { action in
-                            Task { await submit(item: current, action: action) }
-                        },
-                        onOpenReauth: {
-                            Task { await openReauth(current) }
-                        },
-                        onSkip: {
-                            withAnimation(.easeOut(duration: 0.2)) {
-                                if !sessionDeferredIds.contains(current.id) {
-                                    sessionDeferredIds.append(current.id)
+                LazyVStack(spacing: 16) {
+                    ForEach(Array(queue.enumerated()), id: \.element.id) { index, item in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("\(index + 1) / \(queue.count)")
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                            NotificationJudgmentCard(
+                                item: item,
+                                projectMap: inbox.projectMap,
+                                details: detailsById[item.id],
+                                isSubmitting: submittingIds.contains(item.id),
+                                onSubmit: { action in
+                                    Task { await submit(item: item, action: action) }
+                                },
+                                onOpenReauth: {
+                                    Task { await openReauth(item) }
+                                },
+                                onSkip: {
+                                    withAnimation(.easeOut(duration: 0.2)) {
+                                        if !sessionDeferredIds.contains(item.id) {
+                                            sessionDeferredIds.append(item.id)
+                                        }
+                                        clampJudgmentIndex()
+                                    }
+                                },
+                                onRequestCorrection: {
+                                    correctionText = feedbackTexts[item.id] ?? ""
+                                    correctionError = nil
+                                    correctionTarget = item
                                 }
-                                clampJudgmentIndex()
-                            }
-                        },
-                        onRequestCorrection: {
-                            correctionText = feedbackTexts[current.id] ?? ""
-                            correctionError = nil
-                            correctionTarget = current
+                            )
                         }
-                    )
+                        .task(id: item.id) {
+                            await loadDetailsIfNeeded(for: item)
+                        }
+                    }
                 }
-            }
-            .task(id: current.id) {
-                await loadDetailsIfNeeded(for: current)
             }
         }
     }
@@ -1356,6 +1358,11 @@ private struct NotificationJudgmentCard: View {
     }
 
     private var actionLabels: (yes: String, no: String) {
+        if item.isContractAction {
+            return item.hasResolvedContractAction
+                ? ("契約状態を更新", "契約状態を更新しない")
+                : ("契約を特定してから判断", "契約台帳は変更しない")
+        }
         if item.isGovernanceHistoryCandidate {
             let contract = item.governanceActionContract
             return (contract.approvalLabel, contract.rejectionLabel)
@@ -1370,6 +1377,9 @@ private struct NotificationJudgmentCard: View {
     }
 
     private var effectText: String {
+        if item.isContractAction {
+            return item.contractActionEffect
+        }
         if item.isGovernanceHistoryCandidate {
             return item.governanceActionContract.approvalEffect + "「追加しない」は開催履歴を増やさず候補を見送る。"
         }
@@ -1391,6 +1401,7 @@ private struct NotificationJudgmentCard: View {
     }
 
     private var actionDestination: String {
+        if item.isContractAction { return "管理 → 契約" }
         if item.isGovernanceHistoryCandidate { return item.governanceActionContract.destination }
         if item.kind == "connector_auth" { return "設定 → 連携の再認証" }
         switch item.responseTarget.feedbackKind {
@@ -1404,6 +1415,7 @@ private struct NotificationJudgmentCard: View {
     }
 
     private var actionChanges: [String] {
+        if item.isContractAction { return item.contractActionChanges }
         if item.isGovernanceHistoryCandidate { return item.governanceActionContract.changes }
         if item.kind == "connector_auth" { return ["連携アプリの認証状態"] }
         return [item.body.isEmpty ? "通知本文に記載の候補" : item.body]
@@ -1411,7 +1423,13 @@ private struct NotificationJudgmentCard: View {
 
     private var judgmentActions: some View {
         VStack(spacing: 8) {
-            if item.responseTarget.feedbackKind == "meeting_summary" {
+            if item.isContractAction && !item.hasResolvedContractAction {
+                Text("対象の契約が未特定なので、この画面から承認・不承認はできないよ。")
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                renderActionButton(ActionButtonSpec(title: "修正・コメント", systemImage: "pencil", style: .bordered, tint: .secondary, action: onRequestCorrection))
+            } else if item.responseTarget.feedbackKind == "meeting_summary" {
                 TwoButtonRow(
                     primary: ActionButtonSpec(title: actionLabels.yes, systemImage: "checkmark.circle", style: .prominent, tint: AMD.blue, action: { onSubmit(.yes) }),
                     secondary: ActionButtonSpec(title: actionLabels.no, systemImage: "pencil", style: .bordered, action: onRequestCorrection)

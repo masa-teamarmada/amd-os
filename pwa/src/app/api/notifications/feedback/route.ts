@@ -1089,6 +1089,38 @@ async function updateActionItemReviewStatus(args: {
   createdBy: string | null;
 }): Promise<{ applied: boolean; message: string; row?: unknown }> {
   const now = new Date().toISOString();
+  const { data: actionItem, error: actionItemError } = await args.supabase
+    .from("action_items")
+    .select("action_id, project_id, title, status, review_status, metadata_json")
+    .eq("action_id", args.actionId)
+    .maybeSingle();
+  if (actionItemError) return { applied: false, message: actionItemError.message };
+  if (!actionItem) return { applied: false, message: `action_item not found: ${args.actionId}` };
+
+  const meta = actionItem.metadata_json && typeof actionItem.metadata_json === "object" && !Array.isArray(actionItem.metadata_json)
+    ? actionItem.metadata_json as Record<string, unknown>
+    : {};
+  const isContractAction = meta.category === "contract" || /契約|DocuSign/i.test(String(actionItem.title));
+  if (isContractAction) {
+    const contractId = String(meta.contract_id ?? "").trim();
+    const nextStatus = String(meta.contract_status_after ?? "").trim();
+    const allowedStatuses = new Set(["planned", "drafting", "under_review", "awaiting_signature", "signed", "stalled", "cancelled"]);
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(contractId) || !allowedStatuses.has(nextStatus)) {
+      return { applied: false, message: "契約を特定できないため契約台帳は更新しない" };
+    }
+    // The route has already verified the acting admin. Contracts have their
+    // own RLS boundary, so make this canonical transition with the server-side
+    // client instead of leaving an accepted decision as feedback-only.
+    const contractDb = getServiceClient();
+    const { data: contractRows, error: contractError } = await contractDb
+      .from("contracts")
+      .update({ status: nextStatus, last_activity_at: now, updated_at: now, updated_by: args.createdBy })
+      .eq("contract_id", contractId)
+      .eq("project_id", actionItem.project_id)
+      .select("contract_id, contract_title, status, last_activity_at");
+    if (contractError) return { applied: false, message: contractError.message };
+    if ((contractRows ?? []).length !== 1) return { applied: false, message: "対象の契約を1件に確定できないため契約台帳は更新しない" };
+  }
   const { data, error } = await args.supabase
     .from("action_items")
     .update({

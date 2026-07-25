@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { CONTRACT_STATUSES } from "@/lib/contracts";
 
 export const runtime = "nodejs";
 
@@ -21,8 +22,12 @@ type Candidate = {
   source_hash: string;            // 必須 (dedup)
   project_id?: string | null;
   scope?: string | null;          // project/company/personal
+  // 契約台帳を更新する通知は、推測ではなくこの exact ID を上流が渡した場合だけ作る。
+  contract_id?: string | null;
+  contract_status_after?: string | null;
 };
 const ALLOWED_SOURCES = new Set(["gmail", "drive", "calendar", "slack", "notion"]);
+const CONTRACT_STATUS_SET = new Set<string>(CONTRACT_STATUSES);
 
 function normalizeSource(source: string | null | undefined) {
   if (!source) return "gmail";
@@ -69,6 +74,36 @@ export async function POST(req: NextRequest) {
     const actionId = `ai:${it.source_hash}`.slice(0, 120);
     const projectId = it.project_id ?? null;
     const scope = it.scope || (projectId ? "project" : "personal");
+    const requestedContractId = String(it.contract_id ?? "").trim();
+    const requestedNextStatus = String(it.contract_status_after ?? "").trim();
+    let contractMeta: Record<string, string> | null = null;
+    // project/date/title から契約を類推しない。実在する contract_id と許可済みの次状態が
+    // 同時に渡された場合だけ、通知へ契約台帳の変更契約を載せる。
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestedContractId)
+      && CONTRACT_STATUS_SET.has(requestedNextStatus)) {
+      let contractQuery = db
+        .from("contracts")
+        .select("contract_id, project_id, contract_title, counterparty_name, contract_type, status")
+        .eq("contract_id", requestedContractId);
+      if (projectId) contractQuery = contractQuery.eq("project_id", projectId);
+      const { data: contract } = await contractQuery.maybeSingle();
+      if (contract) {
+        contractMeta = {
+          contract_id: String(contract.contract_id),
+          contract_title: String(contract.contract_title),
+          counterparty_name: String(contract.counterparty_name ?? "未登録"),
+          contract_type: String(contract.contract_type),
+          contract_status: String(contract.status),
+          contract_status_after: requestedNextStatus,
+        };
+      }
+    }
+    const metadataJson = {
+      category: it.category ?? "other",
+      due_at: it.due_at ?? null,
+      action_url: it.action_url ?? null,
+      ...(contractMeta ?? {}),
+    };
 
     const { error } = await db.from("action_items").insert({
       action_id: actionId,
@@ -87,6 +122,7 @@ export async function POST(req: NextRequest) {
       source_hash: it.source_hash,
       detected_at: nowIso,
       review_status: "candidate",
+      metadata_json: metadataJson,
     });
     if (error) { skipped++; continue; }
     inserted++;
@@ -107,7 +143,7 @@ export async function POST(req: NextRequest) {
       total_count: 1,
       importance,
       notified_at: nowIso,
-      metadata_json: { due_at: it.due_at ?? null, action_url: it.action_url ?? null, category: it.category ?? "other" },
+      metadata_json: metadataJson,
     });
   }
 

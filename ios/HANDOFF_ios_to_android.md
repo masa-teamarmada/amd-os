@@ -415,6 +415,11 @@ iOS から完結できる UI を追加。
 
 ## Android 実装時の注意 / 差異
 
+### 2026-07-25 通知判断キュー
+
+- iOSは通知を一枚固定にせず縦スクロールの連続キューに変更。Androidも同様に次のカードまでスクロール可能にする。
+- 契約 action item は exact `contract_id` と状態遷移がある時だけ PWA feedback APIで契約台帳を更新する。対象が未特定なら台帳を更新せず、修正コメントとあとでだけを出す。
+
 1. **Admin タブのフロートボタン** — Compose の `Box` + `Modifier.align(Alignment.BottomEnd)` で同等。位置・サイズ・押下時動作を iOS と揃える。`AdminTabView.swift` を参照。
 2. **支払通知書一覧の起点** — `member_allocations_json` ではなく `members + project_members + projects` 起点に切り替える。Android にも同じバグが残っている可能性大。
 3. **inactive billing_cycles の自動削除** — `pruneInactiveBillingCycles(ym:)` 相当を Android でも実装。データ汚れ防止のため。

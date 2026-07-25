@@ -109,6 +109,67 @@ type GovernanceActionContract = {
   rejectionEffect: string;
 };
 
+type ContractActionContract = {
+  resolved: boolean;
+  destination: string;
+  href: string;
+  changes: string[];
+  approvalLabel: string;
+  rejectionLabel: string;
+  approvalEffect: string;
+  insufficiency: string | null;
+};
+
+function isContractActionItem(n: Notification): boolean {
+  if (n.l2_kind !== "action_item") return false;
+  const meta = objectValue(n.metadata_json);
+  return textFromUnknown(meta.category) === "contract" || /契約|DocuSign/i.test(`${n.title}\n${n.summary ?? ""}`);
+}
+
+function contractActionContract(n: Notification): ContractActionContract | null {
+  if (!isContractActionItem(n)) return null;
+  const meta = objectValue(n.metadata_json);
+  const contractId = textFromUnknown(meta.contract_id);
+  const contractTitle = textFromUnknown(meta.contract_title);
+  const counterparty = textFromUnknown(meta.counterparty_name) || "未登録";
+  const contractType = textFromUnknown(meta.contract_type) || "未登録";
+  const currentStatus = textFromUnknown(meta.contract_status);
+  const nextStatus = textFromUnknown(meta.contract_status_after);
+  const dueAt = textFromUnknown(meta.due_at);
+  const hasExactContract = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(contractId)
+    && Boolean(contractTitle)
+    && Boolean(currentStatus)
+    && Boolean(nextStatus);
+  if (!hasExactContract) {
+    return {
+      resolved: false,
+      destination: "管理 → 契約",
+      href: "/admin/contracts",
+      changes: ["対象の契約: 特定できない", "契約台帳: 更新しない"],
+      approvalLabel: "契約を特定してから判断する",
+      rejectionLabel: "契約台帳は変更しない",
+      approvalEffect: "この通知には契約ID・契約名・変更後の状態がそろっていない。どの契約を更新するか決められないため、契約台帳は変更しない。",
+      insufficiency: "情報不足: 対象の契約を特定できないため、契約台帳は更新しない。修正コメントで通知の誤りを報告するか、あとで契約一覧から確認して。",
+    };
+  }
+  return {
+    resolved: true,
+    destination: "管理 → 契約",
+    href: `/admin/contracts?contract_id=${encodeURIComponent(contractId)}`,
+    changes: [
+      `契約名: ${contractTitle}`,
+      `相手先: ${counterparty}`,
+      `種別: ${contractType}`,
+      `状態: ${currentStatus} → ${nextStatus}`,
+      dueAt ? `確認期限: ${dueAt}` : "確認期限: 未設定",
+    ],
+    approvalLabel: `「${nextStatus}」へ更新する`,
+    rejectionLabel: "契約状態を更新しない",
+    approvalEffect: `管理 → 契約の「${contractTitle}」だけを ${currentStatus} から ${nextStatus} へ更新し、この要対応を回答済みにする。元メール・文書・他の契約は変更しない。`,
+    insufficiency: null,
+  };
+}
+
 function governanceActionContract(n: Notification): GovernanceActionContract {
   const meta = objectValue(n.metadata_json);
   const stored = objectValue(meta.action_contract);
@@ -1175,11 +1236,17 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
           const priority = unifiedItemPriority(i);
           const alreadySaved = isAlreadySavedForReview(i);
           const actionCopy = reviewActionCopyForItem(i, alreadySaved);
+          const contractAction = i.kind === "l2" ? contractActionContract(i.data) : null;
+          const contractActionBlocked = contractAction?.resolved === false;
           const coverageGapCopyBlocked = isCoverageGapItem(i)
             && !isGovernanceCoverageGap(i.data as Notification)
             && coverageGapDetailBlocksCopy(detail);
-          const actionPrompt = coverageGapCopyBlocked ? coverageGapBlockedPrompt(detail) : actionCopy.prompt;
-          const actionFootnote = coverageGapCopyBlocked ? coverageGapBlockedFootnote(detail) : actionCopy.footnote;
+          const actionPrompt = contractActionBlocked
+            ? contractAction?.insufficiency ?? "対象の契約を特定できないため、判断できない。"
+            : coverageGapCopyBlocked ? coverageGapBlockedPrompt(detail) : actionCopy.prompt;
+          const actionFootnote = contractActionBlocked
+            ? "コメントは通知の修正依頼として保存するだけで、契約台帳も要対応の状態も変更しない。"
+            : coverageGapCopyBlocked ? coverageGapBlockedFootnote(detail) : actionCopy.footnote;
           const yesLabel = coverageGapCopyBlocked ? coverageGapBlockedYesLabel(detail) : actionCopy.yesLabel;
           return (
             <div
@@ -1277,12 +1344,13 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                   {isCoverageGapItem(i) && isGovernanceCoverageGap(i.data as Notification) && (
                     <GovernanceActionContractPanel contract={governanceActionContract(i.data as Notification)} />
                   )}
+                  {contractAction && <ContractActionContractPanel contract={contractAction} />}
 
                   {/* 実データ (lazy fetch) */}
                   <DetailSection detail={details[key]} title={detailTitleForItem(i)} />
 
                   {/* どこに何が反映されるかを、通知カード内でも先に明示する。 */}
-                  {!(isCoverageGapItem(i) && isGovernanceCoverageGap(i.data as Notification)) && (
+                  {!(isCoverageGapItem(i) && isGovernanceCoverageGap(i.data as Notification)) && !contractAction && (
                     <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs dark:border-slate-800 dark:bg-slate-900/40">
                       <div className="font-medium text-slate-600 dark:text-slate-300">確認・反映先</div>
                       <div className="mt-1 text-blue-700 dark:text-blue-300">
@@ -1336,6 +1404,8 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                           disabled={isSubmitting}
                         />
                         <div className="flex flex-wrap justify-end gap-2 mt-2">
+                          {!contractActionBlocked && (
+                            <>
                           <button
                             className="text-xs px-3 py-1.5 border border-emerald-500 text-emerald-700 rounded hover:bg-emerald-50 disabled:opacity-50"
                             onClick={() => submitFeedback(i, "yes")}
@@ -1350,12 +1420,14 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                           >
                             {isSubmitting ? "送信中..." : actionCopy.noLabel}
                           </button>
+                            </>
+                          )}
                           <button
                             className="text-xs px-3 py-1.5 bg-amber-600 text-white rounded hover:bg-amber-700 disabled:opacity-50"
                             onClick={() => submitFeedback(i, "comment")}
                             disabled={isSubmitting || !(feedbackTexts[key] ?? "").trim()}
                           >
-                            {isSubmitting ? "送信中..." : "コメントだけ送信"}
+                          {isSubmitting ? "送信中..." : "コメントだけ送信"}
                           </button>
                         </div>
                         <p className="text-[10px] text-muted-foreground mt-1">
@@ -1515,6 +1587,24 @@ function GovernanceActionContractPanel({ contract }: { contract: GovernanceActio
   );
 }
 
+function ContractActionContractPanel({ contract }: { contract: ContractActionContract }) {
+  return (
+    <div className={`rounded-md border p-3 text-xs ${contract.resolved
+      ? "border-blue-200 bg-blue-50/70 text-slate-700 dark:border-blue-900 dark:bg-blue-950/20 dark:text-slate-200"
+      : "border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-100"}`}>
+      <div className="font-semibold">{contract.resolved ? "契約台帳に更新する内容" : "判断に必要な情報が不足"}</div>
+      <div className="mt-2 font-medium">追加先</div>
+      <Link href={contract.href} className="mt-0.5 inline-block text-blue-700 underline dark:text-blue-300">{contract.destination}</Link>
+      <div className="mt-2 font-medium">追加・更新する情報</div>
+      <ul className="mt-1 list-disc space-y-0.5 pl-4">
+        {contract.changes.map((change, index) => <li key={index}>{change}</li>)}
+      </ul>
+      <div className="mt-2 font-medium">押すと起きること</div>
+      <p className="mt-0.5 leading-5">{contract.insufficiency ?? contract.approvalEffect}</p>
+    </div>
+  );
+}
+
 function DeepLinkForL2({ n }: { n: Notification }) {
   switch (n.l2_kind) {
     case "member_knowledge":
@@ -1605,6 +1695,12 @@ function DeepLinkForL2({ n }: { n: Notification }) {
           /admin/contracts (契約予兆・予定枠を確認)
         </a>
       );
+    case "action_item":
+      if (isContractActionItem(n)) {
+        const contract = contractActionContract(n);
+        return <a className="text-blue-600 hover:underline" href={contract?.href ?? "/admin/contracts"}>{contract?.destination ?? "管理 → 契約"}</a>;
+      }
+      return <span>要対応の回答記録（正本の更新先は通知ごとに明記）</span>;
     case "news_mention":
       return (
         <a className="text-blue-600 hover:underline" href={`/dashboard#company-content`}>

@@ -2375,15 +2375,18 @@ expectIncludes("src/components/notifications/NotificationsClient.tsx", [
   "採用すると追加される内容",
   "追加・更新する情報",
   "この開催履歴を追加する",
+  "契約台帳に更新する内容",
+  "契約を特定できないため、契約台帳は更新しない",
 ]);
 expectIncludes("../ios/AMDOS/Features/Settings/SettingsView.swift", [
   "追加先",
   "追加・更新する情報",
 ]);
 expectIncludes("../ios/AMDOS/Core/Services/SupabaseService.swift", [
-  "submitCoverageGapResponseThroughPwa",
+  "submitNotificationResponseThroughPwa",
   "https://amd-os-pwa.vercel.app/api/notifications/feedback",
   "この開催履歴を追加する",
+  "契約を特定できないため、契約台帳は更新しない",
 ]);
 
 console.log("critical PWA UI anchors ok");

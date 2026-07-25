@@ -180,6 +180,10 @@ l2_feedbacks に保存
 
 ## 関連設計 md
 
+### 「契約締結の承認対応」が出たとき
+
+契約の通知では、まず `管理 → 契約`、契約名、相手先、種別、現在の状態、変更後の状態、期限を確認する。`契約状態を更新` はその契約1件と要対応の回答だけを更新し、メール・文書・別の契約は変更しない。契約名やIDがなく「対象の契約: 特定できない」と出た場合は、OSがどの契約か確認できていない。契約台帳は更新されないので、承認ではなく修正コメントか契約一覧の確認に進む。
+
 - [`pwa/design/notifications.md`](../design/notifications.md)
 - [`pwa/design/l2_extract_claude_routine.md`](../design/l2_extract_claude_routine.md)
 - [`pwa/design/L2_DATA.md`](../design/L2_DATA.md)

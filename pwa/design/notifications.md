@@ -325,6 +325,10 @@ D-5 OS台帳差分と M-2 XRL根拠は、全文保存ではなく「OSへ入れ�
 
 ## 関連 md
 
+### 2026-07-25: 契約台帳を更新する要対応
+
+契約の `action_item` は `contract_id` を上流が明示した時だけ `contracts` を読み、契約名・相手先・種別・現在状態と変更後状態を notification metadata に固定する。feedback APIは一致する `contract_id + project_id` 1件だけを更新してから action item を回答済みにする。契約の特定または変更後状態が不足する通知は、契約台帳を変更しない情報不足カードであり、採用・不採用を出さない。
+
 - [`L2_DATA.md`](L2_DATA.md) — L2 全体
 - [`ms_progress.md`](ms_progress.md) / [`member_knowledge.md`](member_knowledge.md) / [`project_knowledge.md`](project_knowledge.md) / [`amd_protocol.md`](amd_protocol.md) — 各 L2
 - [`meeting_summaries.md`](meeting_summaries.md) — H-1 MTGサマリ

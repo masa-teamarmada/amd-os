@@ -3943,8 +3943,8 @@ extension SupabaseService {
         comment: String,
         email: String?
     ) async throws -> NotificationResponseResult {
-        if target.feedbackKind == "coverage_gap" {
-            return try await submitCoverageGapResponseThroughPwa(target: target, action: action, comment: comment)
+        if target.feedbackKind == "coverage_gap" || target.feedbackKind == "action_item" {
+            return try await submitNotificationResponseThroughPwa(target: target, action: action, comment: comment)
         }
         let trimmed = comment.trimmingCharacters(in: .whitespacesAndNewlines)
         if action == .comment && trimmed.isEmpty {
@@ -4024,7 +4024,7 @@ extension SupabaseService {
         ]
     }
 
-    private func submitCoverageGapResponseThroughPwa(
+    private func submitNotificationResponseThroughPwa(
         target: NotificationResponseTarget,
         action: NotificationInboxAction,
         comment: String
@@ -4055,14 +4055,16 @@ extension SupabaseService {
         let (data, response) = try await dataWithHardTimeout(for: request, seconds: 22)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             let body = String(data: data, encoding: .utf8) ?? ""
-            throw NSError(domain: "NotificationFeedback", code: (response as? HTTPURLResponse)?.statusCode ?? 500, userInfo: [NSLocalizedDescriptionKey: "開催履歴の回答を送れなかった: \(body)"])
+            throw NSError(domain: "NotificationFeedback", code: (response as? HTTPURLResponse)?.statusCode ?? 500, userInfo: [NSLocalizedDescriptionKey: "通知の回答を送れなかった: \(body)"])
         }
         let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
         let feedback = json?["feedback"] as? [String: Any]
         let feedbackId = feedback?["feedback_id"] as? String ?? ""
         let applyResult = json?["applyResult"] as? [String: Any]
-        let message = applyResult?["message"] as? String
-            ?? (action == .yes ? "開催履歴を追加したよ" : action == .no ? "開催履歴は追加しないで完了したよ" : "コメントを保存したよ")
+        let fallback = target.feedbackKind == "coverage_gap"
+            ? (action == .yes ? "開催履歴を追加したよ" : action == .no ? "開催履歴は追加しないで完了したよ" : "コメントを保存したよ")
+            : (action == .yes ? "契約状態を更新したよ" : action == .no ? "契約状態は更新しないで完了したよ" : "コメントを保存したよ")
+        let message = applyResult?["message"] as? String ?? fallback
         return NotificationResponseResult(feedbackId: feedbackId, message: message)
     }
 
@@ -4647,6 +4649,50 @@ struct NotificationInboxItem: Identifiable, Hashable {
     var isGovernanceHistoryCandidate: Bool {
         guard l2Kind == "coverage_gap" else { return false }
         return metadata?["proposed_target_l2"]?.value as? String == "shareholder_meeting"
+    }
+
+    var isContractAction: Bool {
+        guard l2Kind == "action_item" else { return false }
+        let category = metadata?["category"]?.value as? String
+        return category == "contract" || title.contains("契約") || body.contains("契約")
+    }
+
+    var hasResolvedContractAction: Bool {
+        guard isContractAction else { return false }
+        let contractId = metadata?["contract_id"]?.value as? String ?? ""
+        let contractTitle = metadata?["contract_title"]?.value as? String ?? ""
+        let currentStatus = metadata?["contract_status"]?.value as? String ?? ""
+        let nextStatus = metadata?["contract_status_after"]?.value as? String ?? ""
+        return UUID(uuidString: contractId) != nil && !contractTitle.isEmpty && !currentStatus.isEmpty && !nextStatus.isEmpty
+    }
+
+    var contractActionChanges: [String] {
+        guard hasResolvedContractAction else {
+            return ["対象の契約: 特定できない", "契約台帳: 更新しない"]
+        }
+        let contractTitle = metadata?["contract_title"]?.value as? String ?? "未登録"
+        let party = metadata?["counterparty_name"]?.value as? String ?? "未登録"
+        let type = metadata?["contract_type"]?.value as? String ?? "未登録"
+        let currentStatus = metadata?["contract_status"]?.value as? String ?? "未登録"
+        let nextStatus = metadata?["contract_status_after"]?.value as? String ?? "未登録"
+        let dueAt = metadata?["due_at"]?.displayString
+        return [
+            "契約名: \(contractTitle)",
+            "相手先: \(party)",
+            "種別: \(type)",
+            "状態: \(currentStatus) → \(nextStatus)",
+            dueAt.map { "確認期限: \($0)" } ?? "確認期限: 未設定",
+        ]
+    }
+
+    var contractActionEffect: String {
+        guard hasResolvedContractAction else {
+            return "情報不足: 対象の契約を特定できないため、契約台帳は更新しない。修正コメントで通知の誤りを報告するか、あとで契約一覧から確認して。"
+        }
+        let contractTitle = metadata?["contract_title"]?.value as? String ?? "対象の契約"
+        let currentStatus = metadata?["contract_status"]?.value as? String ?? "未登録"
+        let nextStatus = metadata?["contract_status_after"]?.value as? String ?? "未登録"
+        return "「契約状態を更新」で、管理 → 契約の「\(contractTitle)」だけを \(currentStatus) から \(nextStatus) へ更新し、この要対応を回答済みにする。元メール・文書・他の契約は変更しない。"
     }
 
     var governanceActionContract: (destination: String, changes: [String], approvalLabel: String, rejectionLabel: String, approvalEffect: String) {
