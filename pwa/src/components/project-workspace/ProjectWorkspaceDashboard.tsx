@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Activity, CalendarClock, CheckCircle2, Database, Pencil, ShieldCheck, UsersRound } from "lucide-react";
 import type { CurrentMemberAccess, ProjectWorkspaceBundle } from "@/lib/project-workspace";
 import type {
@@ -913,6 +913,60 @@ function DecisionLoopSection({ management, memberNames, onEdit }: { management: 
   );
 }
 
+/**
+ * ゲート詳細モーダル。タイムラインの行クリックで開く。旧実装はページ下部の
+ * `#selected-management-context` へスクロールしていたが、図から視線が飛ぶためモーダルへ移した。
+ * 中身は既存の SelectedMilestoneContext をそのまま使い、編集導線（ゲート編集 / 論点追加）も維持する。
+ */
+function MilestoneDetailModal({ milestone, milestoneLabelMap, issues, partners, canManage, onEdit, onCreate, onClose }: {
+  milestone: SxManagementMilestone;
+  milestoneLabelMap: ReadonlyMap<string, string>;
+  issues: SxManagementIssue[];
+  partners: SxManagementPartner[];
+  canManage: boolean;
+  onEdit: (resource: ManagementResource, id: string) => void;
+  onCreate: (resource: ManagementResource, initialValues?: Record<string, string>) => void;
+  onClose: () => void;
+}) {
+  const closeRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    closeRef.current?.focus();
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+  return (
+    <div
+      className="fixed inset-0 z-50 grid place-items-end bg-[#24231f]/35 p-0 sm:place-items-center sm:p-5"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${nominalizeSxActionLabel(displayManagementText(milestone.title))}の詳細`}
+      data-testid="sx-milestone-detail-modal"
+      onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}
+    >
+      <div className="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl border border-[#d6cebf] bg-[#fffdf7] p-5 shadow-[0_24px_80px_rgba(61,56,44,0.22)] sm:max-w-4xl sm:rounded-2xl sm:p-6">
+        <div className="flex items-start justify-between gap-4 border-b border-[#e4ddd0] pb-3">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold tracking-[0.16em] text-[#38745d]">ゲート詳細</p>
+            <h2 className="mt-1 text-lg font-semibold text-[#24231f]">{nominalizeSxActionLabel(displayManagementText(milestone.title))}</h2>
+            <p className="mt-1 text-[11px] text-[#69665d]">予定 {formatDate(milestone.plannedEnd)} / 予測 {formatDate(milestone.forecastEnd)} / {milestone.dateCertainty === "provisional" ? "仮日程" : "確定日程"} / 担当 {milestone.ownerLabel}</p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {canManage && <EditAction canManage={canManage} label="日程・担当を編集" onClick={() => onEdit("milestone", milestone.id)} />}
+            <button ref={closeRef} type="button" onClick={onClose} className="min-h-11 rounded-md border border-[#d6cebf] px-3 py-2 text-xs font-semibold text-[#69665d] hover:bg-[#f8f5ec] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]">閉じる</button>
+          </div>
+        </div>
+        {milestone.forecastChangeReason && (
+          <p className="mt-3 rounded-md border border-[#e4ddd0] bg-[#f8f5ec] px-3 py-2 text-[11px] leading-5 text-[#69665d]">予測日の根拠: {displayManagementText(milestone.forecastChangeReason)}</p>
+        )}
+        <SelectedMilestoneContext milestone={milestone} milestoneLabelMap={milestoneLabelMap} issues={issues} partners={partners} canManage={canManage} onEdit={onEdit} onCreate={onCreate} />
+      </div>
+    </div>
+  );
+}
+
 function SelectedMilestoneContext({ milestone: rawMilestone, milestoneLabelMap, issues, partners, canManage, onEdit, onCreate }: { milestone: SxManagementMilestone; milestoneLabelMap: ReadonlyMap<string, string>; issues: SxManagementIssue[]; partners: SxManagementPartner[]; canManage: boolean; onEdit: (resource: ManagementResource, id: string) => void; onCreate: (resource: ManagementResource, initialValues?: Record<string, string>) => void }) {
   const evidenceKind: Record<string, string> = { supporting: "根拠", counter: "反証", missing: "不足", observation: "観測" };
   const validationStatus: Record<string, string> = { planned: "計画", running: "実施中", completed: "完了", blocked: "停止", cancelled: "取消" };
@@ -939,6 +993,7 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
   const [editing, setEditing] = useState<{ resource: ManagementResource; id: string } | null>(null);
   const [creating, setCreating] = useState<{ resource: ManagementResource; initialValues?: Record<string, string> } | null>(null);
   const [activeSection, setActiveSection] = useState("management-summary");
+  const [milestoneDetailId, setMilestoneDetailId] = useState<string | null>(null);
   const management = workspace.sxManagement;
   const memberNames = useMemo(() => new Map(workspace.members.map((member) => [member.memberId, member.displayName])), [workspace.members]);
   const milestoneLabelMap = useMemo(() => buildMilestoneLabelMap(management.milestones), [management.milestones]);
@@ -950,10 +1005,14 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
   const maxTrend = Math.max(1, ...visibleTrend.flatMap((item) => [item.plannedHours, item.actualHours]));
   const selectedLabel = selectedTrack ? TRACK_LABELS[selectedTrack] : "全体";
   const selectedMilestone = selectedMilestoneId ? management.milestones.find((milestone) => milestone.id === selectedMilestoneId) || null : null;
-  const selectedMilestoneIssues = selectedMilestone ? management.issues.filter((issue) => selectedMilestone.relatedIssueSlugs.includes(issue.slug)) : [];
-  const selectedMilestonePartners = selectedMilestone ? management.partners.filter((partner) => selectedMilestone.relatedPartnerSlugs.includes(partner.slug)) : [];
+  const milestoneDetail = milestoneDetailId ? management.milestones.find((milestone) => milestone.id === milestoneDetailId) || null : null;
   const projectId = workspace.project.projectId;
 
+  // タイムライン行クリック: 下方向スクロールではなくモーダルで詳細を開く（選択状態は既存どおり保つ）。
+  function openMilestoneDetail(nextMilestoneId: string | null) {
+    selectMilestoneAndTrack(nextMilestoneId);
+    setMilestoneDetailId(nextMilestoneId);
+  }
   function selectMilestoneAndTrack(nextMilestoneId: string | null) {
     setSelectedMilestoneId(nextMilestoneId);
     setSelectedTrack(nextMilestoneId ? management.milestones.find((item) => item.id === nextMilestoneId)?.track || null : null);
@@ -1001,8 +1060,7 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
     if (!selectedMilestoneId) return;
     const activeElement = document.activeElement;
     if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement || activeElement instanceof HTMLSelectElement || (activeElement instanceof HTMLElement && activeElement.isContentEditable)) return;
-    const timer = window.setTimeout(() => document.getElementById("selected-management-context")?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 0);
-    return () => window.clearTimeout(timer);
+    return () => undefined;
   }, [selectedMilestoneId]);
   const managementNavItems: Array<[string, string]> = [["management-summary", "経営サマリー"], ["management-plan", "計画詳細"], ["management-proof", "技術証明"], ["management-issues", "論点・仮説"], ["management-partners", "関係先"], ["management-capacity", "実行・体制"]];
 
@@ -1032,7 +1090,7 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
         <section id="management-summary" className="scroll-mt-20" aria-label="経営状況図: 判定・統合タイムライン・次の経営介入">
           <h2 className="sr-only">判定・統合タイムライン・意思決定待ち・次の経営介入を一続きで表示する経営状況図</h2>
           <div className="min-w-0">
-            <SxExecutiveControlDeck management={management} judgment={effectiveJudgment} selectedMilestoneId={selectedMilestoneId} onSelectMilestone={selectMilestoneAndTrack} />
+            <SxExecutiveControlDeck management={management} judgment={effectiveJudgment} selectedMilestoneId={selectedMilestoneId} onSelectMilestone={openMilestoneDetail} onEditMilestone={(id) => setEditing({ resource: "milestone", id })} onCreateMilestone={(track) => setCreating({ resource: "milestone", initialValues: track ? { track } : undefined })} />
           </div>
         </section>
 
@@ -1041,11 +1099,18 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
             <details className="rounded-lg border border-[#e4ddd0] bg-[#fffdf7] p-3">
               <summary className="flex min-h-11 cursor-pointer select-none items-center text-xs font-semibold text-[#514e47] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]">全マイルストーン詳細表を表示（完了条件・依存・日程未登録分を含む）</summary>
               <div className="mt-3">
+                {management.canManage && (
+                  <div className="mb-3 flex flex-wrap items-center gap-2" data-testid="sx-plan-manual-edit">
+                    <span className="text-[11px] text-[#69665d]">図とこの表のデータは手動で追加・修正できる。</span>
+                    <button type="button" onClick={() => setCreating({ resource: "milestone" })} className="min-h-11 rounded-md border border-[#38745d] px-3 py-2 text-[11px] font-semibold text-[#205f49] hover:bg-[#e8f2eb] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]">マイルストーンを追加</button>
+                    <button type="button" onClick={() => setCreating({ resource: "dependency" })} className="min-h-11 rounded-md border border-[#cfc7b9] px-3 py-2 text-[11px] font-semibold text-[#514e47] hover:bg-[#f8f5ec] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]">依存関係を追加</button>
+                    {selectedMilestone && <button type="button" onClick={() => setEditing({ resource: "milestone", id: selectedMilestone.id })} className="min-h-11 rounded-md border border-[#cfc7b9] px-3 py-2 text-[11px] font-semibold text-[#514e47] hover:bg-[#f8f5ec] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#38745d]">選択中「{nominalizeSxActionLabel(displayManagementText(selectedMilestone.title))}」を編集</button>}
+                  </div>
+                )}
                 <Timeline management={management} selectedMilestoneId={selectedMilestoneId} onSelect={selectMilestoneAndTrack} />
               </div>
             </details>
           )}
-          {selectedMilestone && <SelectedMilestoneContext milestone={selectedMilestone} milestoneLabelMap={milestoneLabelMap} issues={selectedMilestoneIssues} partners={selectedMilestonePartners} canManage={management.canManage} onEdit={(resource, id) => setEditing({ resource, id })} onCreate={(resource, initialValues) => setCreating({ resource, initialValues })} />}
           {selectedTrack && !selectedMilestone && <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-[#e4ddd0] bg-[#f8f5ec] p-3 text-xs text-[#69665d]"><span className="font-semibold text-[#24231f]">選択中: {selectedLabel}</span><span>論点 {visibleIssues.length}件</span><span>関係先 {visiblePartners.length}件</span></div>}
         </section>
 
@@ -1213,6 +1278,18 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
         </main>
         </div>
       </div>
+      {milestoneDetail && (
+        <MilestoneDetailModal
+          milestone={milestoneDetail}
+          milestoneLabelMap={milestoneLabelMap}
+          issues={management.issues.filter((issue) => milestoneDetail.relatedIssueSlugs.includes(issue.slug))}
+          partners={management.partners.filter((partner) => milestoneDetail.relatedPartnerSlugs.includes(partner.slug))}
+          canManage={management.canManage}
+          onEdit={(resource, id) => { setMilestoneDetailId(null); setEditing({ resource, id }); }}
+          onCreate={(resource, initialValues) => { setMilestoneDetailId(null); setCreating({ resource, initialValues }); }}
+          onClose={() => setMilestoneDetailId(null)}
+        />
+      )}
       {creating && <AddPanel projectId={projectId} management={management} resource={creating.resource} initialValues={creating.initialValues} onClose={() => setCreating(null)} onSaved={(nextManagement) => { setWorkspace((current) => ({ ...current, sxManagement: nextManagement })); setCreating(null); }} />}
       {editing && editRecord && <EditPanel projectId={projectId} resource={editing.resource} record={editRecord} onClose={() => setEditing(null)} onSaved={(nextManagement) => { setWorkspace((current) => ({ ...current, sxManagement: nextManagement })); setEditing(null); }} />}
     </div>

@@ -62,6 +62,8 @@ export interface SxEcdMilestone {
   track?: string | null;
   /** 計画開始日。統合タイムラインのバー描画に使う。省略時はバーを点（予定日tick）だけで描く。 */
   plannedStart?: string | null;
+  /** 予測日を動かした理由。初期投入の仮置き（理由未確認）と、実際に見直した遅延を区別するために使う。 */
+  forecastChangeReason?: string | null;
 }
 
 export interface SxEcdTechnicalTest {
@@ -982,6 +984,37 @@ export function deriveSxStateMap(params: {
   };
 }
 
+// --- Slip classification (期限超過 / 確認済み遅延 / 仮置きの予測差) ---------------
+
+/**
+ * 「予定より後ろ」を3つに分ける。実測の遅れと、初期投入の仮置き予測を同じ「遅延」と呼ばない。
+ * - overdue: 予定日を過ぎているのに完了していない（＝実際に遅れている）
+ * - confirmed_slip: 予測が予定より後ろ、かつ日付が確定扱い or 見直し理由が登録済み（＝根拠のある遅延見込み）
+ * - provisional_slip: 予測が予定より後ろだが、仮日程で見直し理由も未確認（＝まだ遅延と呼べない予測差）
+ * - none: 差がない、または予測が予定以内
+ */
+export type SxEcdSlipKind = "overdue" | "confirmed_slip" | "provisional_slip" | "none";
+
+/** 見直し理由として実質的な中身がない（初期投入の定型文・未確認）と判定する。 */
+function isPlaceholderForecastReason(reason: string | null | undefined): boolean {
+  const value = (reason ?? "").trim();
+  if (!value) return true;
+  return value.includes("未確認") || value.includes("仮置き") || value.includes("初期Seed") || value.includes("初期seed");
+}
+
+export function sxEcdClassifySlip(
+  milestone: Pick<SxEcdMilestone, "status" | "plannedEnd" | "forecastEnd" | "deltaDays" | "dateCertainty" | "isOverdue" | "forecastChangeReason">,
+  today: string,
+): SxEcdSlipKind {
+  if (milestone.status === "completed") return "none";
+  const plannedOverdue = Boolean(milestone.plannedEnd && milestone.plannedEnd < today);
+  if (milestone.isOverdue || plannedOverdue) return "overdue";
+  if (milestone.deltaDays == null || milestone.deltaDays <= 0) return "none";
+  const confirmedDate = milestone.dateCertainty === "confirmed";
+  const hasRealReason = !isPlaceholderForecastReason(milestone.forecastChangeReason);
+  return confirmedDate || hasRealReason ? "confirmed_slip" : "provisional_slip";
+}
+
 // --- Verdict summary (判定バー4値) ---------------------------------------------
 
 export interface SxEcdVerdictBusinessCell {
@@ -1029,21 +1062,32 @@ export function deriveSxVerdictSummary(params: {
     business = { label: "判定不能", tone: "unknown", detail: null, provisional: false };
   } else {
     const blocked = critical.filter((milestone) => milestone.isBlocked || milestone.status === "blocked");
-    const overdue = critical.filter((milestone) => !blocked.includes(milestone) && milestone.isOverdue);
-    const positiveDeltas = critical.filter((milestone) => milestone.deltaDays != null && milestone.deltaDays > 0);
-    const maxDelta = positiveDeltas.reduce((max, milestone) => Math.max(max, milestone.deltaDays ?? 0), 0);
-    const provisional = positiveDeltas.some((milestone) => milestone.dateCertainty === "provisional");
+    const slips = critical
+      .filter((milestone) => !blocked.includes(milestone))
+      .map((milestone) => ({ milestone, kind: sxEcdClassifySlip(milestone, today) }));
+    const overdue = slips.filter((entry) => entry.kind === "overdue");
+    const confirmedSlips = slips.filter((entry) => entry.kind === "confirmed_slip");
+    const provisionalSlips = slips.filter((entry) => entry.kind === "provisional_slip");
+    const maxOf = (entries: typeof slips) => entries.reduce((max, entry) => Math.max(max, entry.milestone.deltaDays ?? 0), 0);
     const allDatesKnown = critical.every((milestone) => milestone.plannedEnd || milestone.forecastEnd || milestone.status === "completed");
     if (blocked.length > 0) {
       business = { label: `停止 ${blocked.length}件`, tone: "bad", detail: null, provisional: false };
     } else if (overdue.length > 0) {
       business = { label: `期限超過 ${overdue.length}件`, tone: "bad", detail: null, provisional: false };
-    } else if (maxDelta > 0) {
+    } else if (confirmedSlips.length > 0) {
       business = {
-        label: `遅延見込み +${maxDelta}日`,
+        label: `遅延見込み +${maxOf(confirmedSlips)}日`,
         tone: "warn",
-        detail: maxPillar && maxPillar.deltaDays > maxDelta ? `最大 ${maxPillar.shortLabel}+${maxPillar.deltaDays}日` : null,
-        provisional,
+        detail: maxPillar && maxPillar.deltaDays > maxOf(confirmedSlips) ? `最大 ${maxPillar.shortLabel}+${maxPillar.deltaDays}日` : null,
+        provisional: false,
+      };
+    } else if (provisionalSlips.length > 0) {
+      // 仮日程どうしの差を「遅延」と言い切らない。期限超過0件であることを同時に示す。
+      business = {
+        label: `予測差 +${maxOf(provisionalSlips)}日`,
+        tone: "unknown",
+        detail: "期限超過なし・仮日程の見込み差",
+        provisional: true,
       };
     } else if (!allDatesKnown) {
       business = { label: "判定不能", tone: "unknown", detail: null, provisional: false };
@@ -1086,6 +1130,8 @@ export interface SxEcdTimelineRow {
   title: string;
   track: string | null;
   state: SxEcdPathNodeState;
+  /** 期限超過 / 根拠のある遅延見込み / 仮置きの予測差 / 差なし。表示トーンと語を決める。 */
+  slipKind: SxEcdSlipKind;
   isCritical: boolean;
   isCurrent: boolean;
   plannedStart: string | null;
@@ -1109,6 +1155,8 @@ export interface SxEcdTimelineLane {
   dateCertainty: "confirmed" | "provisional" | null;
   maxIssue: string;
   rows: SxEcdTimelineRow[];
+  /** レーン内の最も重い状態（overdue > confirmed_slip > provisional_slip > none）。 */
+  slipKind: SxEcdSlipKind;
 }
 
 export interface SxEcdTimelinePin {
@@ -1229,6 +1277,7 @@ export function deriveSxUnifiedTimeline(params: {
       title: nominalizeSxActionLabel(sxNormalizePublicName(milestone.title)),
       track: milestone.track ?? null,
       state: resolveNodeState(milestone, isCurrent),
+      slipKind: sxEcdClassifySlip(milestone, today),
       isCritical: criticalSet.has(milestone.slug),
       isCurrent,
       plannedStart,
@@ -1250,6 +1299,8 @@ export function deriveSxUnifiedTimeline(params: {
       .filter((milestone) => (milestone.track ?? null) === key)
       .map(toRow)
       .sort((a, b) => (a.forecastEnd ?? a.plannedEnd ?? "9999").localeCompare(b.forecastEnd ?? b.plannedEnd ?? "9999"));
+    const order: SxEcdSlipKind[] = ["overdue", "confirmed_slip", "provisional_slip", "none"];
+    const slipKind = rows.reduce<SxEcdSlipKind>((worst, row) => (order.indexOf(row.slipKind) < order.indexOf(worst) ? row.slipKind : worst), "none");
     return {
       key,
       label: track?.label ?? key,
@@ -1259,13 +1310,14 @@ export function deriveSxUnifiedTimeline(params: {
       dateCertainty: track?.dateCertainty ?? null,
       maxIssue: track?.maxIssue ?? "",
       rows,
+      slipKind,
     };
   });
   // laneOrderに無いtrackの行も落とさない（未知トラックは末尾レーンへ）。
   const knownLaneKeys = new Set(laneOrder);
   const orphanRows = dated.filter((milestone) => !knownLaneKeys.has(milestone.track ?? "")).map(toRow);
   if (orphanRows.length > 0) {
-    lanes.push({ key: "unknown", label: "柱未確認", shortLabel: "未確認", accent: "#8f8aa6", deltaDays: null, dateCertainty: null, maxIssue: "", rows: orphanRows });
+    lanes.push({ key: "unknown", label: "柱未確認", shortLabel: "未確認", accent: "#8f8aa6", deltaDays: null, dateCertainty: null, maxIssue: "", rows: orphanRows, slipKind: "none" });
   }
 
   const criticalPoints = criticalPathSlugs.flatMap((slug) => {

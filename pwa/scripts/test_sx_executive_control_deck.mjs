@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   applySxInterventionPillarQuota,
+  sxEcdClassifySlip,
   deriveSxCriticalPathRail,
   deriveSxInterventionQueue,
   deriveSxStateMap,
@@ -724,10 +725,11 @@ function issue(overrides = {}) {
     objectiveTargetDate: "2027-03-31",
     funding: { requiredAmount: null, securedAmount: null },
   });
-  assert.equal(summary.business.label, "遅延見込み +28日");
-  assert.equal(summary.business.tone, "warn");
+  // 仮日程どうしの差なので「遅延見込み」とは言い切らない（25/25bの分類と整合）。
+  assert.equal(summary.business.label, "予測差 +28日");
+  assert.equal(summary.business.tone, "unknown");
   assert.equal(summary.business.provisional, true);
-  assert.equal(summary.business.detail, "最大 資金+35日");
+  assert.equal(summary.business.detail, "期限超過なし・仮日程の見込み差");
   assert.equal(summary.operations.verdictLabel, "判定不能");
   assert.equal(summary.step2.known, false);
   assert.equal(summary.step2.label, "未確認");
@@ -870,6 +872,74 @@ function issue(overrides = {}) {
   const alreadyIn = applySxInterventionPillarQuota({ rows, topCount: 3, requiredTrack: "funding", requiredTrackLabel: "資金" });
   assert.equal(alreadyIn.quotaApplied, false);
   assert.equal(alreadyIn.quotaNote, null);
+}
+
+
+// 25. slip分類: 仮置きの予測差を「遅延」と呼ばない。期限超過 > 確認済み遅延 > 仮置き予測差。
+{
+  const base = { status: "unassessed", plannedEnd: "2026-08-07", forecastEnd: "2026-08-14", deltaDays: 7, dateCertainty: "provisional", isOverdue: false, forecastChangeReason: "初期Seed。予測日は仮置きで、変更理由は未確認" };
+  // 初期Seedの仮置き差 = provisional_slip（今日より未来、実測の遅れではない）
+  assert.equal(sxEcdClassifySlip(base, "2026-07-25"), "provisional_slip");
+  // 見直し理由が実質的に入っていれば confirmed_slip
+  assert.equal(sxEcdClassifySlip({ ...base, forecastChangeReason: "候補先の回答遅れで2週間後ろ倒し" }, "2026-07-25"), "confirmed_slip");
+  // 日付が確定扱いなら理由が定型でも confirmed_slip
+  assert.equal(sxEcdClassifySlip({ ...base, dateCertainty: "confirmed" }, "2026-07-25"), "confirmed_slip");
+  // 予定日を過ぎていれば overdue（差分の種類より優先）
+  assert.equal(sxEcdClassifySlip(base, "2026-08-20"), "overdue");
+  assert.equal(sxEcdClassifySlip({ ...base, isOverdue: true }, "2026-07-25"), "overdue");
+  // 差がない/完了は none
+  assert.equal(sxEcdClassifySlip({ ...base, deltaDays: 0 }, "2026-07-25"), "none");
+  assert.equal(sxEcdClassifySlip({ ...base, status: "completed" }, "2026-08-20"), "none");
+  // 理由が空でも仮置き扱い（勝手に「根拠あり」へ格上げしない）
+  assert.equal(sxEcdClassifySlip({ ...base, forecastChangeReason: null }, "2026-07-25"), "provisional_slip");
+}
+
+// 25b. 判定バー: 仮置き差だけなら「遅延見込み」と言わず、期限超過0件を明示して中立トーン。
+{
+  const seeded = milestone({
+    id: "m1", slug: "a", status: "unassessed", confidence: "unknown",
+    plannedEnd: "2026-08-07", forecastEnd: "2026-08-14", deltaDays: 7,
+    dateCertainty: "provisional", forecastChangeReason: "初期Seed。予測日は仮置きで、変更理由は未確認",
+  });
+  const provisionalOnly = deriveSxVerdictSummary({
+    today: "2026-07-25",
+    judgment: { key: "unassessed", dagValid: true, completenessPct: 51, criticalUnknownCount: 21, blockedCount: 0 },
+    criticalPathSlugs: ["a"], milestones: [seeded], tracks: [], objectiveTargetDate: null, funding: null,
+  });
+  assert.equal(provisionalOnly.business.label, "予測差 +7日");
+  assert.equal(provisionalOnly.business.tone, "unknown");
+  assert.equal(provisionalOnly.business.detail, "期限超過なし・仮日程の見込み差");
+  assert.equal(provisionalOnly.business.provisional, true);
+
+  // 根拠のある見直しは従来どおり「遅延見込み」でamber
+  const confirmed = deriveSxVerdictSummary({
+    today: "2026-07-25",
+    judgment: { key: "attention", dagValid: true, completenessPct: 80, criticalUnknownCount: 1, blockedCount: 0 },
+    criticalPathSlugs: ["a"],
+    milestones: [milestone({ id: "m1", slug: "a", status: "attention", confidence: "high", plannedEnd: "2026-08-07", forecastEnd: "2026-08-21", deltaDays: 14, dateCertainty: "confirmed", forecastChangeReason: "候補先の回答遅れ" })],
+    tracks: [], objectiveTargetDate: null, funding: null,
+  });
+  assert.equal(confirmed.business.label, "遅延見込み +14日");
+  assert.equal(confirmed.business.tone, "warn");
+  assert.equal(confirmed.business.provisional, false);
+}
+
+// 25c. タイムライン行/レーンへslipKindが載り、レーンは最も重い状態を採る。
+{
+  const rows = [
+    milestone({ id: "m1", slug: "a", track: "funding", plannedStart: "2026-07-01", plannedEnd: "2026-08-07", forecastEnd: "2026-08-14", deltaDays: 7, dateCertainty: "provisional", forecastChangeReason: "初期Seed。予測日は仮置きで、変更理由は未確認" }),
+    milestone({ id: "m2", slug: "b", track: "funding", plannedStart: "2026-07-01", plannedEnd: "2026-07-10", forecastEnd: "2026-07-20", deltaDays: 10, dateCertainty: "confirmed", forecastChangeReason: "実測遅れ" }),
+  ];
+  const timeline = deriveSxUnifiedTimeline({
+    today: "2026-07-25", milestones: rows, criticalPathSlugs: [], dagValid: true,
+    tracks: [{ key: "funding", label: "資金調達", shortLabel: "資金", accent: "#bf7b2c", deltaDays: 10, dateCertainty: "confirmed", maxIssue: "" }],
+    objectiveTargetDate: null, interventionRows: [],
+  });
+  const lane = timeline.lanes.find((entry) => entry.key === "funding");
+  assert.ok(lane);
+  assert.deepEqual(lane.rows.map((row) => row.slipKind).sort(), ["overdue", "provisional_slip"]);
+  // 予定日を過ぎたm2がoverdueなので、レーンはoverdue
+  assert.equal(lane.slipKind, "overdue");
 }
 
 console.log("test_sx_executive_control_deck.mjs: all assertions passed");

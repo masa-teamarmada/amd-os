@@ -352,6 +352,14 @@ expectIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx",
   '["management-plan", "計画詳細"]',
   "全マイルストーン詳細表を表示",
   "sx-effort-entry-details",
+  // Round 20: ゲート詳細はモーダル（下方向スクロールをやめる）。図と詳細表から手動で追加・編集。
+  "sx-milestone-detail-modal",
+  "MilestoneDetailModal",
+  "openMilestoneDetail",
+  "sx-plan-manual-edit",
+  "マイルストーンを追加",
+  "依存関係を追加",
+  "予測日の根拠:",
   "kicker=\"論点・仮説台帳\"",
   "data-testid=\"sx-issue-ledger-table\"",
   "kicker=\"関係先管理\"",
@@ -841,7 +849,12 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "criticalPolyline",
   "min-w-[880px]",
   "onPinClick",
-  "sxFormatDelta",
+  // Round 20: 行クリックはモーダル、管理者は図から直接 追加/編集できる。
+  "sxFormatSlip",
+  "onEditMilestone",
+  "onCreateMilestone",
+  "canManage",
+  "灰バー=仮日程どうしの予測差（実測の遅れではない）",
   "担当未確認",
   "日程未登録",
   "aria-pressed",
@@ -872,6 +885,12 @@ expectIncludes("src/lib/sx-executive-control-deck.ts", [
   "applySxInterventionPillarQuota",
   "pillarGates",
   "undatedCount",
+  // Round 20 (2026-07-25): 仮置き予測差を「遅延」と呼ばない3状態分類。初期Seed等の定型理由は
+  // 根拠なし扱いにし、実測の期限超過とは別トーンで描く。
+  "sxEcdClassifySlip",
+  "isPlaceholderForecastReason",
+  '"provisional_slip"',
+  '期限超過なし・仮日程の見込み差',
   '"未確認", known: false',
 ]);
 expectIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", [
