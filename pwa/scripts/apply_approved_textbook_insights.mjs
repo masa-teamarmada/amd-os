@@ -154,6 +154,9 @@ function normalizedCandidateMeta(candidate) {
 
 function candidateGate(candidate) {
   const meta = normalizedCandidateMeta(candidate);
+  if (String(meta.metadata.destination_kind || "bzm_textbook") !== "bzm_textbook") {
+    return { ok: false, reason: "destination_kind is management_knowledge; this local BZM applier must not write it", meta };
+  }
   if (meta.confidentiality === "internal_only") {
     return { ok: false, reason: "confidentiality internal_only; BZM file append requires sanitized or publishable", meta };
   }

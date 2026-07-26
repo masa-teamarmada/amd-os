@@ -222,6 +222,63 @@ function isTextbookInsightItem(i: UnifiedItem): boolean {
   return i.kind === "l2" && i.data.l2_kind === "textbook_insight";
 }
 
+function textbookDestinationKind(i: UnifiedItem): "bzm_textbook" | "management_knowledge" {
+  if (!isTextbookInsightItem(i)) return "bzm_textbook";
+  return textFromUnknown(objectValue(i.data.metadata_json).destination_kind) === "management_knowledge"
+    ? "management_knowledge"
+    : "bzm_textbook";
+}
+
+function managementCategoryLabel(value: string): string {
+  const labels: Record<string, string> = {
+    commercialization_route: "事業化ルート",
+    coalition_design: "連携設計",
+    pricing: "価格設計",
+    sales: "営業",
+    finance: "財務",
+    governance: "ガバナンス",
+    organization: "組織",
+    fundraising: "資金調達",
+    legal: "法務",
+    operations: "実務運用",
+    other: "その他",
+  };
+  return labels[value] ?? "実務運用";
+}
+
+function managementMaturityLabel(value: string): string {
+  const labels: Record<string, string> = {
+    raw_note: "メモ",
+    hypothesis: "仮説",
+    field_tested: "現場で検証済み",
+    playbook: "再利用できる型",
+  };
+  return labels[value] ?? "仮説";
+}
+
+function textbookChangeSummary(i: UnifiedItem): string {
+  if (!isTextbookInsightItem(i)) {
+    return i.kind === "l2" ? i.data.summary || "通知本文に記載の候補" : i.data.summary_short || "会議サマリの確認記録";
+  }
+  const meta = objectValue(i.data.metadata_json);
+  if (textbookDestinationKind(i) === "management_knowledge") {
+    const tags = Array.isArray(meta.management_tags)
+      ? meta.management_tags.map(textFromUnknown).filter(Boolean).join("、")
+      : textFromUnknown(meta.management_tags_text);
+    return [
+      `分類: ${managementCategoryLabel(textFromUnknown(meta.management_category))}`,
+      `成熟度: ${managementMaturityLabel(textFromUnknown(meta.management_maturity))}`,
+      `タグ: ${tags || "未設定"}`,
+      `再利用する場面: ${textFromUnknown(meta.management_reusable_when) || "未設定"}`,
+      textFromUnknown(meta.management_next_check) ? `次に確認すること: ${textFromUnknown(meta.management_next_check)}` : "",
+    ].filter(Boolean).join("\n");
+  }
+  return [
+    `追記先: BZM / ${textFromUnknown(meta.target_bzm_slug) || "未分類"}`,
+    textFromUnknown(meta.practice_kind) ? `候補の型: ${textFromUnknown(meta.practice_kind)}` : "",
+  ].filter(Boolean).join("\n");
+}
+
 function itemDisplayTitle(i: UnifiedItem): string {
   if (isCoverageGapItem(i)) return coverageGapQuestionTitle(i.data as Notification);
   return sanitizeMeetingTitle(i.data.title);
@@ -232,6 +289,9 @@ function itemMetaLabel(i: UnifiedItem, projectMap: Record<string, string>): stri
     const n = i.data as Notification;
     if (isGovernanceCoverageGap(n)) return `開催履歴の追加 / ${projectMap[n.target_id] ?? n.target_id}`;
     return `会議メモの確認 / ${projectMap[n.target_id] ?? n.target_id}`;
+  }
+  if (isTextbookInsightItem(i) && textbookDestinationKind(i) === "management_knowledge") {
+    return `経営ノウハウ追加候補 / ${displayTarget(i.data.target_id, i.data.scope_key, projectMap)}`;
   }
   if (i.kind === "l2") {
     return `${l2KindLabel(i.data.l2_kind)} (${i.data.l2_kind}) / ${displayTarget(i.data.target_id, i.data.scope_key, projectMap)}`;
@@ -262,6 +322,18 @@ type ReviewActionCopy = {
 function reviewActionCopyForItem(i: UnifiedItem, alreadySaved: boolean): ReviewActionCopy {
   if (isCoverageGapItem(i)) return coverageGapActionCopy(i.data as Notification);
   if (isTextbookInsightItem(i)) {
+    if (textbookDestinationKind(i) === "management_knowledge") {
+      return {
+        yesLabel: "経営ノウハウに追加",
+        noLabel: "追加しない",
+        yesDoneLabel: "経営ノウハウに追加済み",
+        noDoneLabel: "追加しないで完了",
+        prompt: "上の候補を、管理 → 経営ノウハウに1件追加するか判断する。本文と、分類・成熟度・タグ・再利用する場面を保存する。",
+        footnote: "追加すると、管理 → 経営ノウハウにこの候補を1件保存する。元の会議メモ・プロトコル・BZM本文は変更しない。追加しない場合は経営ノウハウを増やさない。",
+        placeholder: "例: この分類でよい / タグを絞る / 再利用する場面を具体化して",
+        headlineLabel: "候補の本文",
+      };
+    }
     return {
       yesLabel: "BZM追記を承認",
       noLabel: "BZMには入れない",
@@ -298,7 +370,7 @@ function responseLabelForItem(action: FeedbackAction, i: UnifiedItem, alreadySav
 
 function detailTitleForItem(i: UnifiedItem): string | undefined {
   if (isCoverageGapItem(i)) return "確認したい内容";
-  if (isTextbookInsightItem(i)) return "BZMに追記する候補";
+  if (isTextbookInsightItem(i)) return textbookDestinationKind(i) === "management_knowledge" ? "経営ノウハウに追加する候補" : "BZMに追記する候補";
   return undefined;
 }
 
@@ -862,10 +934,37 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
             const refs = Array.isArray(r.evidence_refs) ? r.evidence_refs : [];
             const sourceTables = Array.isArray(r.source_tables) ? r.source_tables.map(String).filter(Boolean) : [];
             const candidateMeta = objectValue(r.metadata_json);
+            const destinationKind = textFromUnknown(candidateMeta.destination_kind) === "management_knowledge"
+              ? "management_knowledge"
+              : "bzm_textbook";
             const practiceKind = textFromUnknown(candidateMeta.practice_kind) || "decision_branch";
             const appendTarget = textbookAppendTargetText(textFromUnknown(r.target_bzm_slug), textFromUnknown(r.proposed_section), practiceKind);
             const sourceSummary = textbookSourceSummary(sourceTables, refs);
             const bodyText = cleanTextbookBodyMarkdown(String(r.body_md ?? ""));
+            if (destinationKind === "management_knowledge") {
+              const tags = Array.isArray(candidateMeta.management_tags)
+                ? candidateMeta.management_tags.map(textFromUnknown).filter(Boolean).join("、")
+                : textFromUnknown(candidateMeta.management_tags_text);
+              return {
+                heading: `経営ノウハウに追加する候補: ${r.title}`,
+                body: [
+                  "追加先:\n管理 → 経営ノウハウ",
+                  "保存する情報:\n" + [
+                    `分類: ${managementCategoryLabel(textFromUnknown(candidateMeta.management_category))}`,
+                    `成熟度: ${managementMaturityLabel(textFromUnknown(candidateMeta.management_maturity))}`,
+                    `タグ: ${tags || "未設定"}`,
+                    `再利用する場面: ${textFromUnknown(candidateMeta.management_reusable_when) || "未設定"}`,
+                    textFromUnknown(candidateMeta.management_next_check) ? `次に確認すること: ${textFromUnknown(candidateMeta.management_next_check)}` : "",
+                  ].filter(Boolean).join("\n"),
+                  `根拠の参照先:\n${sourceSummary}`,
+                  "押すと起きること:\n「経営ノウハウに追加」を押すと、上の本文を含む経営ノウハウを1件保存する。BZM本文と元の会議メモは変更しない。「追加しない」を押すと、経営ノウハウは増やさない。",
+                ].join("\n\n"),
+                sub: [
+                  `状態: ${textbookCandidateStatusLabel(String(r.status ?? ""))}`,
+                  r.applied_at ? `保存日時: ${formatJST(String(r.applied_at))}` : "",
+                ].filter(Boolean).join(" ・ ") || undefined,
+              };
+            }
             return {
               heading: `BZMに追記する候補: ${r.title}`,
               body: [
@@ -1377,7 +1476,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
                         {i.kind === "l2" ? <DeepLinkForL2 n={i.data} /> : <DeepLinkForMeeting n={i.data} />}
                       </div>
                       <div className="mt-2 font-medium text-slate-600 dark:text-slate-300">追加・更新する情報</div>
-                      <p className="mt-1 whitespace-pre-wrap text-slate-700 dark:text-slate-200">{i.kind === "l2" ? i.data.summary || "通知本文に記載の候補" : i.data.summary_short || "会議サマリの確認記録"}</p>
+                      <p className="mt-1 whitespace-pre-wrap text-slate-700 dark:text-slate-200">{textbookChangeSummary(i)}</p>
                       <div className="mt-2 font-medium text-slate-600 dark:text-slate-300">この操作の結果</div>
                       <p className="mt-1 text-slate-700 dark:text-slate-200">{actionFootnote}</p>
                     </div>
@@ -1702,6 +1801,13 @@ function DeepLinkForL2({ n }: { n: Notification }) {
       );
     case "textbook_insight": {
       const meta = objectValue(n.metadata_json);
+      if (textFromUnknown(meta.destination_kind) === "management_knowledge") {
+        return (
+          <a className="text-blue-600 hover:underline" href="/admin/management-knowledge">
+            管理 → 経営ノウハウ（承認するとこの候補を1件追加）
+          </a>
+        );
+      }
       const slug = textFromUnknown(meta.target_bzm_slug) || "8-1-amd-os-operations";
       return (
         <a className="text-blue-600 hover:underline" href={`/bzm/${encodeURIComponent(slug)}`}>

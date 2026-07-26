@@ -1392,6 +1392,21 @@ async function upsertTextbookInsights(items) {
     "weight",
     "chapter_structure",
   ]);
+  const validDestinationKinds = new Set(["bzm_textbook", "management_knowledge"]);
+  const validManagementCategories = new Set([
+    "commercialization_route",
+    "coalition_design",
+    "pricing",
+    "sales",
+    "finance",
+    "governance",
+    "organization",
+    "fundraising",
+    "legal",
+    "operations",
+    "other",
+  ]);
+  const validManagementMaturities = new Set(["raw_note", "hypothesis", "field_tested", "playbook"]);
   const validStatuses = new Set(["candidate", "approved", "rejected", "applied", "archived"]);
   const rows = items.map((item) => {
     const refs = item.evidence_refs || item.evidenceRefs || [];
@@ -1405,13 +1420,41 @@ async function upsertTextbookInsights(items) {
     const validationWarnings = Array.isArray(metadata.validation_warnings)
       ? metadata.validation_warnings.map((v) => String(v)).filter(Boolean)
       : [];
+    // destination_kind は practice_kind から推測しない。抽出器が「BZMへ追記」か
+    // 「管理 → 経営ノウハウへ保存」かを明示する。旧 outbox だけは互換のため BZM 扱い。
+    const rawDestinationKind = String(item.destination_kind || item.destinationKind || metadata.destination_kind || "").trim();
+    const destinationKind = validDestinationKinds.has(rawDestinationKind)
+      ? rawDestinationKind
+      : "bzm_textbook";
+    if (rawDestinationKind && !validDestinationKinds.has(rawDestinationKind)) {
+      validationWarnings.push(`unknown destination_kind treated as bzm_textbook: ${rawDestinationKind}`);
+    }
+    metadata.destination_kind = destinationKind;
+    if (destinationKind === "management_knowledge") {
+      const rawCategory = String(item.management_category || item.managementCategory || metadata.management_category || "operations").trim();
+      const rawMaturity = String(item.management_maturity || item.managementMaturity || metadata.management_maturity || "hypothesis").trim();
+      const rawTags = item.management_tags || item.managementTags || metadata.management_tags || [];
+      const tags = Array.isArray(rawTags)
+        ? rawTags.map((tag) => String(tag).trim()).filter(Boolean)
+        : String(rawTags).split(",").map((tag) => tag.trim()).filter(Boolean);
+      metadata.management_category = validManagementCategories.has(rawCategory) ? rawCategory : "operations";
+      metadata.management_maturity = validManagementMaturities.has(rawMaturity) ? rawMaturity : "hypothesis";
+      metadata.management_tags = Array.from(new Set(tags)).slice(0, 32);
+      metadata.management_tags_text = metadata.management_tags.join("、");
+      metadata.management_reusable_when = String(item.management_reusable_when || item.managementReusableWhen || metadata.management_reusable_when || "").trim().slice(0, 2000);
+      metadata.management_next_check = String(item.management_next_check || item.managementNextCheck || metadata.management_next_check || "").trim().slice(0, 2000);
+      const rawConfidence = Number(item.management_confidence || item.managementConfidence || metadata.management_confidence);
+      metadata.management_confidence = Number.isFinite(rawConfidence)
+        ? Math.max(0, Math.min(1, Math.round(rawConfidence * 100) / 100))
+        : 0.5;
+    }
     const rawPracticeKind = String(item.practice_kind || item.practiceKind || metadata.practice_kind || "").trim();
     if (rawPracticeKind) {
       metadata.practice_kind = rawPracticeKind;
       if (!validPracticeKinds.has(rawPracticeKind)) {
         validationWarnings.push(`unknown practice_kind: ${rawPracticeKind}`);
       }
-    } else if (!metadata.practice_kind) {
+    } else if (!metadata.practice_kind && destinationKind === "bzm_textbook") {
       validationWarnings.push("missing practice_kind; target routing fell back to explicit/default slug");
     }
     const rawTheoryCaseKind = String(item.theory_case_kind || item.theoryCaseKind || metadata.theory_case_kind || "").trim();
@@ -1432,14 +1475,15 @@ async function upsertTextbookInsights(items) {
       validationWarnings.push(`unknown theory_change_scope treated as none: ${rawTheoryChangeScope}`);
     }
     const practiceKind = String(metadata.practice_kind || "");
-    const hasTheoryCaseReview = practiceKind === "theory_case";
-    if (practiceKind === "theory_case" && !rawTheoryCaseKind) {
+    const hasTheoryCaseReview = destinationKind === "bzm_textbook" && practiceKind === "theory_case";
+    if (destinationKind === "bzm_textbook" && practiceKind === "theory_case" && !rawTheoryCaseKind) {
       validationWarnings.push("theory_case missing theory_case_kind; BZM review required");
     }
-    const bzmReviewRequired =
+    const bzmReviewRequired = destinationKind === "bzm_textbook" && (
       Boolean(item.bzm_review_required ?? item.bzmReviewRequired ?? metadata.bzm_review_required)
       || theoryChangeScope !== "none"
-      || hasTheoryCaseReview;
+      || hasTheoryCaseReview
+    );
     const rawBzmReviewStatus = String(item.bzm_review_status || item.bzmReviewStatus || metadata.bzm_review_status || "").trim();
     const bzmReviewStatus = validBzmReviewStatuses.has(rawBzmReviewStatus)
       ? rawBzmReviewStatus
@@ -1451,21 +1495,25 @@ async function upsertTextbookInsights(items) {
     }
     const rawTargetBzmSlug = String(item.target_bzm_slug || item.targetBzmSlug || "").trim();
     const rawProposedSection = item.proposed_section || item.proposedSection || null;
-    const routing = resolveTextbookInsightRouting({
-      practiceKind,
-      targetBzmSlug: rawTargetBzmSlug,
-      proposedSection: rawProposedSection,
-    });
-    for (const warning of routing.warnings || []) validationWarnings.push(warning);
-    metadata.target_routing = {
-      source: routing.source,
-      reason: routing.reason,
-      target_bzm_slug: routing.targetBzmSlug,
-    };
+    const routing = destinationKind === "bzm_textbook"
+      ? resolveTextbookInsightRouting({
+        practiceKind,
+        targetBzmSlug: rawTargetBzmSlug,
+        proposedSection: rawProposedSection,
+      })
+      : null;
+    for (const warning of routing?.warnings || []) validationWarnings.push(warning);
+    if (routing) {
+      metadata.target_routing = {
+        source: routing.source,
+        reason: routing.reason,
+        target_bzm_slug: routing.targetBzmSlug,
+      };
+    }
     metadata.confidentiality = confidentiality;
     metadata.bzm_review_required = bzmReviewRequired;
-    metadata.bzm_review_status = bzmReviewRequired && bzmReviewStatus === "not_required" ? "pending" : bzmReviewStatus;
-    metadata.theory_change_scope = theoryChangeScope;
+    metadata.bzm_review_status = destinationKind === "bzm_textbook" && bzmReviewRequired && bzmReviewStatus === "not_required" ? "pending" : (destinationKind === "bzm_textbook" ? bzmReviewStatus : "not_required");
+    metadata.theory_change_scope = destinationKind === "bzm_textbook" ? theoryChangeScope : "none";
     if (validationWarnings.length) metadata.validation_warnings = Array.from(new Set(validationWarnings));
     const sourceHash = item.source_hash || item.sourceHash || stableHash({
       targetId,
@@ -1480,8 +1528,8 @@ async function upsertTextbookInsights(items) {
       scope_key: item.scope_key || item.scopeKey || `textbook:${String(sourceHash).slice(0, 12)}`,
       topic: String(item.topic || item.title || "").slice(0, 180),
       title: String(item.title || item.topic || "").slice(0, 180),
-      proposed_section: rawProposedSection || routing.proposedSection || null,
-      target_bzm_slug: routing.targetBzmSlug,
+      proposed_section: destinationKind === "bzm_textbook" ? (rawProposedSection || routing?.proposedSection || null) : null,
+      target_bzm_slug: destinationKind === "bzm_textbook" ? routing?.targetBzmSlug || null : null,
       insight_type: validTypes.has(insightType) ? insightType : "before_zero_knowhow",
       priority: Math.min(4, Math.max(1, Number(item.priority || 2))),
       body_md: String(item.body_md || item.bodyMd || item.body || "").trim(),
@@ -1491,7 +1539,7 @@ async function upsertTextbookInsights(items) {
       confidentiality,
       bzm_review_required: bzmReviewRequired,
       bzm_review_status: metadata.bzm_review_status,
-      theory_change_scope: theoryChangeScope,
+      theory_change_scope: metadata.theory_change_scope,
       source_hash: String(sourceHash),
       status: validStatuses.has(rawStatus) ? rawStatus : "candidate",
       extraction_run_id: item.extraction_run_id || item.extractionRunId || null,
@@ -1517,7 +1565,7 @@ async function upsertTextbookInsights(items) {
         l2_kind: "textbook_insight",
         target_id: row.target_id,
         scope_key: row.scope_key,
-        title: `📘 BZM追記候補: ${row.title}`,
+        title: `${row.metadata_json?.destination_kind === "management_knowledge" ? "💡 経営ノウハウ追加候補" : "📘 BZM追記候補"}: ${row.title}`,
         summary: String(row.body_md || "").replace(/\s+/g, " ").slice(0, 500),
         saved_count: 1,
         total_count: 1,
@@ -1526,12 +1574,20 @@ async function upsertTextbookInsights(items) {
           candidate_id: row.candidate_id,
           candidate_source_hash: row.source_hash,
           insight_type: row.insight_type,
+          destination_kind: row.metadata_json?.destination_kind || "bzm_textbook",
           practice_kind: row.metadata_json?.practice_kind,
           confidentiality: row.confidentiality,
           bzm_review_required: row.bzm_review_required,
           bzm_review_status: row.bzm_review_status,
           theory_change_scope: row.theory_change_scope,
           target_bzm_slug: row.target_bzm_slug,
+          management_category: row.metadata_json?.management_category,
+          management_maturity: row.metadata_json?.management_maturity,
+          management_tags: row.metadata_json?.management_tags,
+          management_tags_text: row.metadata_json?.management_tags_text,
+          management_reusable_when: row.metadata_json?.management_reusable_when,
+          management_next_check: row.metadata_json?.management_next_check,
+          management_confidence: row.metadata_json?.management_confidence,
           priority: row.priority,
         },
       },

@@ -1,6 +1,6 @@
 # D-7 Textbook Insights 仕様
 
-> **この章は何か**: Before Zero 実践テキストへ追記すべき AMD の実務知見を、Supabase 内の既存 L2 / OS データから候補化し、通知承認後に安全な local applier で `pwa/bzm/*.md` へ反映するための current spec。
+> **この章は何か**: AMD の実務知見を、Before Zero 実践テキスト（BZM）または管理 → 経営ノウハウへ入れる候補として作り、通知で保存先と保存内容を確認してから反映するための current spec。
 
 ## Current Truth
 
@@ -10,9 +10,9 @@
 | table | `textbook_insight_candidates` |
 | notification kind | `l2_notifications.l2_kind='textbook_insight'` |
 | primary writer | Codex automation / local worker `amd-os-l10-textbook-insight-extract` |
-| apply | `textbookInsights` outbox → `textbook_insight_candidates` + notification → `/notifications` yes/no → approved/rejected → local applier が `pwa/bzm/*.md` へ追記 |
+| apply | `textbookInsights` outbox → `textbook_insight_candidates` + notification → `/notifications` yes/no。`destination_kind='bzm_textbook'` は approved 後に local applier が BZM へ追記し、`management_knowledge` は yes 時に管理 → 経営ノウハウへ1件保存 |
 | text scope | 「BZM理論書」だけではなく、Before Zero の実務判断・失敗学習・PJ横断パターン・関係者対応・現場移行まで含む実践テキスト |
-| metadata gate | `metadata_json.practice_kind` 7分類、`confidentiality`、`bzm_review_required/status`、`theory_change_scope` を候補ごとに持つ |
+| metadata gate | `metadata_json.destination_kind` を必須にし、BZM / 経営ノウハウの保存先を抽出器が明示する。`practice_kind` から保存先を推測しない |
 | 禁止 | Vercel runtime / PWA API から git 管理ファイルを直接編集・commit しない |
 
 2026-05-31 に OS司令塔が migration 116 (`pwa/scripts/migrations/116_textbook_insight_candidate_metadata_gates.sql`) を本番DBへ緊急適用し、`metadata_json` 未存在による DB/code mismatch は解消済み。この schema/docs sync worker は追加DDLを実行せず、適用済み production schema を `python3 -X utf8 scripts/dump_schema.py` で `pwa/design/db_schema.md` へ同期する。
@@ -55,6 +55,25 @@
 | `bzm_review_required` | `true` |
 | `theory_change_scope` | `terminology` / `axis_definition` / `rubric` / `formula` / `weight` / `chapter_structure` 等 |
 
+### `metadata_json.destination_kind`
+
+保存先は抽出器が候補ごとに明示する。`practice_kind` は候補の型であり、保存先を決める規則ではない。
+
+| destination_kind | 使うとき | yes を押した結果 |
+|---|---|---|
+| `bzm_textbook` | Before Zero の読者が使う実践テキストに残すべき判断・ケース | 候補を `approved` にし、local applier だけが BZM md へ追記する |
+| `management_knowledge` | AMD 社内で再利用する経営・運用の知見 | 管理 → 経営ノウハウに本文と分類・成熟度・タグ・再利用する場面を1件保存する |
+
+`management_knowledge` の候補には次を `metadata_json` に必ず入れる。未設定の項目は通知で「未設定」と表示し、隠さない。
+
+| metadata | value |
+|---|---|
+| `management_category` | `operations` / `governance` / `commercialization_route` 等、経営ノウハウ台帳の分類 |
+| `management_maturity` | `raw_note` / `hypothesis` / `field_tested` / `playbook` |
+| `management_tags` | 再利用検索用の短いタグ配列 |
+| `management_reusable_when` | どんな状況で再利用するか |
+| `management_next_check` | 次に確かめること。なければ空文字 |
+
 ## Input Contract
 
 M-1 Monthly Reports と同様に、基本は Supabase 内の既存データを primary input にする。`source_cache` は証跡補助であり、これだけで no-data 判定しない。
@@ -82,19 +101,19 @@ M-1 Monthly Reports と同様に、基本は Supabase 内の既存データを p
 | `ym` | 月次文脈がある場合の `YYYYMM`。横断知見は NULL 可 |
 | `scope_key` | 通知・dedupe 用。推奨は `textbook:<source_hash 12桁>` |
 | `topic` / `title` | 候補テーマ / 通知見出し |
-| `target_bzm_slug` | 追記先の既存 BZM 章 slug。default は `8-1-amd-os-operations` |
-| `proposed_section` | 章内の提案セクション名。applier は見出しとして使う |
+| `target_bzm_slug` | `destination_kind='bzm_textbook'` のときだけ使う既存 BZM 章 slug。経営ノウハウ候補では NULL |
+| `proposed_section` | BZM候補だけの章内提案セクション。経営ノウハウ候補では NULL |
 | `insight_type` | `before_zero_knowhow` / `cross_project_pattern` / `case_study` / `theory_evidence` |
 | `priority` | 1 が最重要、4 が保留 |
 | `body_md` | 追記候補本文。教科書文体の Markdown。ただし承認前は候補であり git には入らない |
 | `evidence_refs` | table / row id / date / title / short snippet / hash。raw全文は禁止 |
 | `source_tables` | 入力に使った Supabase table の配列 |
-| `metadata_json` | `practice_kind`, `theory_case_kind`, `validation_warnings` 等。JSONB default `{}` |
+| `metadata_json` | `destination_kind`、`practice_kind`、経営ノウハウ候補の分類・成熟度・タグ・再利用場面、`validation_warnings` 等。JSONB default `{}` |
 | `confidentiality` | `internal_only` / `sanitized` / `publishable`。local applier は `internal_only` を BZM file に追記しない |
 | `bzm_review_required` | BZM理論・用語・rubric・数式・重み・章構成に触れる場合 `true` |
 | `bzm_review_status` | `not_required` / `pending` / `approved` / `changes_requested` / `rejected` |
 | `theory_change_scope` | `none` / `terminology` / `axis_definition` / `rubric` / `formula` / `weight` / `chapter_structure` |
-| `status` | `candidate` → yes で `approved`、no で `rejected`、applier 後 `applied` |
+| `status` | BZM: `candidate` → yes で `approved` → local applier 後 `applied`。経営ノウハウ: `candidate` → yes で正本を1件保存して `applied`。no はいずれも `rejected` |
 | `applied_file` / `applied_commit` | local applier が追記後に記録する。commit hash は commit 後に補完可 |
 
 ### Evidence Criteria
@@ -114,10 +133,11 @@ M-1 Monthly Reports と同様に、基本は Supabase 内の既存データを p
 | action | effect |
 |---|---|
 | comment | `l2_feedbacks` と `tsukuyomi_learnings` に残す。候補 status は変えない |
-| yes | `textbook_insight_candidates.status='candidate'` を `approved` にする |
+| yes / BZM | `textbook_insight_candidates.status='candidate'` を `approved` にする。BZM本文はこの時点で変更しない |
+| yes / 経営ノウハウ | `management_knowledge_entries` に重複なしで1件保存し、候補を `applied` にする |
 | no | `textbook_insight_candidates.status='candidate'` を `rejected` にする |
 
-「yes」は DB 候補の承認であり、この瞬間に Vercel runtime が `pwa/bzm/*.md` を編集するわけではない。実ファイル追記は local applier が行う。
+経営ノウハウ候補では通知に「追加先」「分類」「成熟度」「タグ」「再利用する場面」「押すと起きること」を表示する。yes はその内容を実際に保存する。BZM候補だけが local applier を使い、Vercel runtime が `pwa/bzm/*.md` を編集することはない。
 
 BZM review gate:
 
@@ -145,7 +165,7 @@ node pwa/scripts/apply_approved_textbook_insights.mjs --apply --limit 20
 
 ## Target Routing
 
-`pwa/scripts/ms_progress_review_tool.mjs` は、`pwa/scripts/textbook_insight_routing.mjs` の routing helper で `metadata_json.practice_kind` から追記先を決める。抽出側が非defaultの `target_bzm_slug` を明示した場合は、その明示 slug を優先する。
+`destination_kind='bzm_textbook'` の候補だけ、`pwa/scripts/ms_progress_review_tool.mjs` が `pwa/scripts/textbook_insight_routing.mjs` の routing helper で `metadata_json.practice_kind` から BZM内の追記先を決める。`practice_kind` から BZM / 経営ノウハウのどちらへ保存するかは決めない。抽出側が非defaultの `target_bzm_slug` を明示した場合は、その明示 slug を優先する。
 
 | practice_kind | default target | proposed_section | 理由 |
 |---|---|---|---|
@@ -188,6 +208,7 @@ node pwa/scripts/apply_approved_textbook_insights.mjs --apply --limit 20
       "insight_type": "before_zero_knowhow",
       "priority": 1,
       "metadata_json": {
+        "destination_kind": "bzm_textbook",
         "practice_kind": "decision_branch"
       },
       "confidentiality": "sanitized",

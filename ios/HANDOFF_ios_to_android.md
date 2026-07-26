@@ -8,6 +8,15 @@ TestFlight build: 未更新
 
 ---
 
+## 2026-07-26 追記: D-7 の経営ノウハウ保存先
+
+- `l2_kind='textbook_insight'` は `metadata_json.destination_kind` で保存先を明示する。`management_knowledge` は種別ラベルを「経営ノウハウ追加候補」、追加先を `管理 → 経営ノウハウ` と表示する。
+- カードには本文とは別に、保存する `分類 / 成熟度 / タグ / 再利用する場面 / 次に確認すること` を表示する。採用は単なる学習記録ではなく、PWAのfeedback API経由で `management_knowledge_entries` へ1件保存する。
+- `bzm_textbook` は「BZM追記候補」として従来の local applier 承認経路を維持する。`practice_kind` から保存先を推測しない。
+- Androidも、内部名 `textbook_insight` や「追加先が未定義」を出さず、同じ保存先と採用結果をカード上で明示する。
+
+---
+
 ## 2026-07-24 追記: 通知 action contract / 開催履歴候補
 
 - 通知カードは `追加先` / `追加・更新する情報` / `押すと起きること` を必ず同じ順番で表示する。追加先が未定義なら、正本へ反映するような採用ボタンにしない。

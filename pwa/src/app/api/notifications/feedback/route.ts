@@ -1608,6 +1608,172 @@ async function updateStrategySignalCandidates(args: {
   };
 }
 
+const MANAGEMENT_KNOWLEDGE_CATEGORIES = new Set([
+  "commercialization_route",
+  "coalition_design",
+  "pricing",
+  "sales",
+  "finance",
+  "governance",
+  "organization",
+  "fundraising",
+  "legal",
+  "operations",
+  "other",
+]);
+const MANAGEMENT_KNOWLEDGE_MATURITIES = new Set(["raw_note", "hypothesis", "field_tested", "playbook"]);
+
+type TextbookInsightCandidate = {
+  candidate_id: string;
+  target_id: string;
+  scope_key: string;
+  title: string;
+  body_md: string;
+  source_hash: string | null;
+  source_tables: unknown;
+  metadata_json: unknown;
+  confidentiality: string | null;
+  insight_type: string | null;
+  target_bzm_slug: string | null;
+};
+
+function textbookDestinationKind(metadata: Record<string, unknown>): "bzm_textbook" | "management_knowledge" {
+  return textValue(metadata.destination_kind) === "management_knowledge"
+    ? "management_knowledge"
+    : "bzm_textbook";
+}
+
+function textList(value: unknown, max = 32): string[] {
+  const values = Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : [];
+  return Array.from(new Set(values.map((entry) => textValue(entry)).filter(Boolean))).slice(0, max);
+}
+
+function compactText(value: unknown, max: number): string {
+  return textValue(value).replace(/\s+/g, " ").slice(0, max).trim();
+}
+
+async function findTextbookInsightCandidate(args: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  targetId: string;
+  scopeKey: string;
+  candidateId: string;
+  sourceHash: string;
+}): Promise<{ row: TextbookInsightCandidate | null; error: string | null }> {
+  const select = "candidate_id, target_id, scope_key, title, body_md, source_hash, source_tables, metadata_json, confidentiality, insight_type, target_bzm_slug";
+  let query = args.supabase
+    .from("textbook_insight_candidates")
+    .select(select)
+    .eq("target_id", args.targetId)
+    .eq("status", "candidate");
+  if (args.candidateId) query = query.eq("candidate_id", args.candidateId);
+  else if (args.sourceHash) query = query.eq("source_hash", args.sourceHash);
+  else query = query.eq("scope_key", args.scopeKey);
+  const { data, error } = await query.order("created_at", { ascending: false }).limit(2);
+  if (error) return { row: null, error: error.message };
+  if ((data ?? []).length !== 1) {
+    return {
+      row: null,
+      error: (data ?? []).length === 0 ? "textbook insight candidate not found or already answered" : "textbook insight candidate is ambiguous",
+    };
+  }
+  return { row: data![0] as TextbookInsightCandidate, error: null };
+}
+
+async function saveManagementKnowledgeFromTextbookCandidate(args: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  candidate: TextbookInsightCandidate;
+  feedbackText: string;
+  createdBy: string | null;
+}): Promise<{ applied: boolean; message: string; row?: unknown }> {
+  const metadata = objectValue(args.candidate.metadata_json);
+  const sourceRef = `textbook_insight:${args.candidate.candidate_id}`;
+  const categoryRaw = textValue(metadata.management_category);
+  const maturityRaw = textValue(metadata.management_maturity);
+  const category = MANAGEMENT_KNOWLEDGE_CATEGORIES.has(categoryRaw) ? categoryRaw : "operations";
+  const maturity = MANAGEMENT_KNOWLEDGE_MATURITIES.has(maturityRaw) ? maturityRaw : "hypothesis";
+  const body = textValue(args.candidate.body_md).slice(0, 30000);
+  const summary = compactText(body, 2000) || compactText(args.candidate.title, 2000);
+  if (!summary) return { applied: false, message: "management knowledge summary is empty" };
+  const sourceTables = textList(args.candidate.source_tables, 20);
+  const sourceKind = sourceTables.includes("project_meeting_summaries") ? "meeting" : "codex";
+  const confidenceRaw = Number(metadata.management_confidence);
+  const confidence = Number.isFinite(confidenceRaw) ? Math.max(0, Math.min(1, Math.round(confidenceRaw * 100) / 100)) : 0.5;
+  const { data: project, error: projectError } = await args.supabase
+    .from("projects")
+    .select("project_id")
+    .eq("project_id", args.candidate.target_id)
+    .maybeSingle();
+  if (projectError) return { applied: false, message: projectError.message };
+
+  const { data: existing, error: existingError } = await args.supabase
+    .from("management_knowledge_entries")
+    .select("id, title")
+    .eq("source_ref", sourceRef)
+    .eq("title", args.candidate.title)
+    .maybeSingle();
+  if (existingError) return { applied: false, message: existingError.message };
+
+  let entryRow: { id: string; title: string } | null = existing;
+  if (!entryRow) {
+    const { data: inserted, error: insertError } = await args.supabase
+      .from("management_knowledge_entries")
+      .insert({
+        project_id: project?.project_id ?? null,
+        title: args.candidate.title.slice(0, 220),
+        category,
+        maturity,
+        tags: textList(metadata.management_tags),
+        summary,
+        body_md: body,
+        reusable_when: textValue(metadata.management_reusable_when).slice(0, 2000) || null,
+        next_check: textValue(metadata.management_next_check).slice(0, 2000) || null,
+        source_kind: sourceKind,
+        source_ref: sourceRef,
+        source_excerpt: compactText(body, 1800) || null,
+        confidence,
+        status: "active",
+        metadata_json: {
+          textbook_candidate_id: args.candidate.candidate_id,
+          candidate_source_hash: args.candidate.source_hash,
+          destination_kind: "management_knowledge",
+          practice_kind: textValue(metadata.practice_kind) || null,
+          confidentiality: args.candidate.confidentiality || null,
+        },
+        created_by: args.createdBy,
+        updated_by: args.createdBy,
+      })
+      .select("id, title")
+      .single();
+    if (insertError) return { applied: false, message: insertError.message };
+    entryRow = inserted;
+  }
+  if (!entryRow) return { applied: false, message: "management knowledge entry was not returned" };
+
+  const now = new Date().toISOString();
+  const { data: updated, error: updateError } = await args.supabase
+    .from("textbook_insight_candidates")
+    .update({
+      status: "applied",
+      reviewed_by: args.createdBy,
+      review_comment: args.feedbackText || null,
+      reviewed_at: now,
+      applied_at: now,
+      applied_by: args.createdBy,
+      updated_at: now,
+      metadata_json: {
+        ...metadata,
+        destination_kind: "management_knowledge",
+        management_knowledge_entry_id: entryRow.id,
+      },
+    })
+    .eq("candidate_id", args.candidate.candidate_id)
+    .eq("status", "candidate")
+    .select("candidate_id, status");
+  if (updateError) return { applied: false, message: updateError.message };
+  if ((updated ?? []).length !== 1) return { applied: false, message: "management knowledge saved but candidate status was not updated" };
+  return { applied: true, message: `saved management knowledge entry: ${entryRow.id}`, row: entryRow };
+}
+
 async function updateTextbookInsightCandidates(args: {
   supabase: Awaited<ReturnType<typeof createClient>>;
   targetId: string;
@@ -1617,47 +1783,46 @@ async function updateTextbookInsightCandidates(args: {
   feedbackText: string;
   createdBy: string | null;
 }): Promise<{ applied: boolean; message: string; row?: unknown }> {
-  const meta = await loadNotificationMetadata(args.supabase, args.notificationId);
-  const sourceHash = textValue(meta.candidate_source_hash);
-  const candidateId = textValue(meta.candidate_id);
-  const now = new Date().toISOString();
+  const notificationMeta = await loadNotificationMetadata(args.supabase, args.notificationId);
+  const candidateId = textValue(notificationMeta.candidate_id);
+  const sourceHash = textValue(notificationMeta.candidate_source_hash);
+  const found = await findTextbookInsightCandidate({
+    supabase: args.supabase,
+    targetId: args.targetId,
+    scopeKey: args.scopeKey,
+    candidateId,
+    sourceHash,
+  });
+  if (!found.row || found.error) return { applied: false, message: found.error || "textbook insight candidate not found" };
 
-  const run = async (includeExact: boolean) => {
-    let query = args.supabase
-      .from("textbook_insight_candidates")
-      .update({
-        status: args.status,
-        reviewed_by: args.createdBy,
-        review_comment: args.feedbackText || null,
-        reviewed_at: now,
-        updated_at: now,
-      })
-      .eq("target_id", args.targetId)
-      .eq("status", "candidate");
-    if (includeExact && candidateId) query = query.eq("candidate_id", candidateId);
-    if (includeExact && sourceHash && !candidateId) query = query.eq("source_hash", sourceHash);
-    if (!includeExact) query = query.eq("scope_key", args.scopeKey);
-    return query.select("candidate_id, title, target_bzm_slug, insight_type, metadata_json, confidentiality, bzm_review_required, bzm_review_status, theory_change_scope, status");
-  };
-
-  if (candidateId || sourceHash) {
-    const exact = await run(true);
-    if (exact.error) return { applied: false, message: exact.error.message };
-    if ((exact.data ?? []).length > 0 || candidateId || sourceHash) {
-      return {
-        applied: (exact.data ?? []).length > 0,
-        message: `${args.status} textbook insight candidates: ${(exact.data ?? []).length}`,
-        row: exact.data,
-      };
-    }
+  const candidateMetadata = objectValue(found.row.metadata_json);
+  if (args.status === "approved" && textbookDestinationKind(candidateMetadata) === "management_knowledge") {
+    return saveManagementKnowledgeFromTextbookCandidate({
+      supabase: args.supabase,
+      candidate: found.row,
+      feedbackText: args.feedbackText,
+      createdBy: args.createdBy,
+    });
   }
 
-  const fallback = await run(false);
-  if (fallback.error) return { applied: false, message: fallback.error.message };
+  const now = new Date().toISOString();
+  const { data, error } = await args.supabase
+    .from("textbook_insight_candidates")
+    .update({
+      status: args.status,
+      reviewed_by: args.createdBy,
+      review_comment: args.feedbackText || null,
+      reviewed_at: now,
+      updated_at: now,
+    })
+    .eq("candidate_id", found.row.candidate_id)
+    .eq("status", "candidate")
+    .select("candidate_id, title, target_bzm_slug, insight_type, metadata_json, confidentiality, bzm_review_required, bzm_review_status, theory_change_scope, status");
+  if (error) return { applied: false, message: error.message };
   return {
-    applied: (fallback.data ?? []).length > 0,
-    message: `${args.status} textbook insight candidates: ${(fallback.data ?? []).length}`,
-    row: fallback.data,
+    applied: (data ?? []).length === 1,
+    message: `${args.status} textbook insight candidates: ${(data ?? []).length}`,
+    row: data,
   };
 }
 

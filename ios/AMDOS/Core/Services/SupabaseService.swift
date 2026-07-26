@@ -4669,6 +4669,49 @@ struct NotificationInboxItem: Identifiable, Hashable {
         return category == "contract" || title.contains("契約") || body.contains("契約")
     }
 
+    var isTextbookInsight: Bool {
+        l2Kind == "textbook_insight"
+    }
+
+    var isManagementKnowledgeCandidate: Bool {
+        isTextbookInsight && (metadata?["destination_kind"]?.value as? String) == "management_knowledge"
+    }
+
+    var managementKnowledgeChanges: [String] {
+        guard isManagementKnowledgeCandidate else { return [] }
+        let category = (metadata?["management_category"]?.value as? String) ?? "operations"
+        let maturity = (metadata?["management_maturity"]?.value as? String) ?? "hypothesis"
+        let tags = (metadata?["management_tags_text"]?.value as? String) ?? ""
+        let reusableWhen = (metadata?["management_reusable_when"]?.value as? String) ?? ""
+        let nextCheck = (metadata?["management_next_check"]?.value as? String) ?? ""
+        let categoryLabels = [
+            "commercialization_route": "事業化ルート",
+            "coalition_design": "連携設計",
+            "pricing": "価格設計",
+            "sales": "営業",
+            "finance": "財務",
+            "governance": "ガバナンス",
+            "organization": "組織",
+            "fundraising": "資金調達",
+            "legal": "法務",
+            "operations": "実務運用",
+            "other": "その他",
+        ]
+        let maturityLabels = [
+            "raw_note": "メモ",
+            "hypothesis": "仮説",
+            "field_tested": "現場で検証済み",
+            "playbook": "再利用できる型",
+        ]
+        return [
+            "分類: \(categoryLabels[category] ?? "実務運用")",
+            "成熟度: \(maturityLabels[maturity] ?? "仮説")",
+            "タグ: \(tags.isEmpty ? "未設定" : tags)",
+            "再利用する場面: \(reusableWhen.isEmpty ? "未設定" : reusableWhen)",
+            nextCheck.isEmpty ? nil : "次に確認すること: \(nextCheck)",
+        ].compactMap { $0 }
+    }
+
     var hasResolvedContractAction: Bool {
         guard isContractAction else { return false }
         let contractId = metadata?["contract_id"]?.value as? String ?? ""

@@ -1,6 +1,6 @@
 ---
 name: amd-os-l10-textbook-insight-extract
-description: AMD OS D-7 Textbook Insights / Before Zero 実践テキスト知見抽出の repo 正本。Supabase 内の既存 L2 / OS データから Before Zero 実践テキストへ追記すべき候補を作り、`textbookInsights` outbox JSON を `/Users/masa/.codex/automations/amd-os-ms/outbox/` に出す。候補は通知承認後、local applier が confidentiality / BZM review gate を通して `pwa/bzm/*.md` へ追記する。PWA/Vercel runtime から git 管理ファイルを直接編集しない。
+description: AMD OS D-7 Textbook Insights の抽出正本。Supabase 内の既存 L2 / OS データから、BZMまたは管理 → 経営ノウハウへ残す候補を作り、`textbookInsights` outbox JSON を `/Users/masa/.codex/automations/amd-os-ms/outbox/` に出す。保存先は候補ごとに明示し、BZM候補だけが通知承認後に local applier で `pwa/bzm/*.md` へ追記する。
 ---
 
 # AMD OS D-7 Textbook Insights 抽出 automation
@@ -10,8 +10,9 @@ description: AMD OS D-7 Textbook Insights / Before Zero 実践テキスト知見
 - 入力は Supabase 内の既存 L2 / OS データを primary にする。
 - `source_cache` は証跡補助。source_cache だけで no-data 判定しない。
 - 出力は `textbookInsights` outbox。LaunchAgent / helper が `textbook_insight_candidates` と `l2_notifications(l2_kind='textbook_insight')` に反映する。
-- まさ/管理者が `/notifications` で「はい」を押すと `status='approved'` になる。
-- 実際の `pwa/bzm/*.md` 追記は `node pwa/scripts/apply_approved_textbook_insights.mjs --apply` で local worker が行い、confidentiality / BZM review gate を通したものだけ commit/push する。
+- 候補ごとに `metadata_json.destination_kind` を必ず `bzm_textbook` / `management_knowledge` のどちらかで明示する。`practice_kind` から保存先を推測しない。
+- `bzm_textbook` の「はい」は `status='approved'`。実際の `pwa/bzm/*.md` 追記は `node pwa/scripts/apply_approved_textbook_insights.mjs --apply` の local worker だけが行う。
+- `management_knowledge` の「はい」は 管理 → 経営ノウハウ に本文と分類・成熟度・タグ・再利用する場面を1件保存し、候補を `applied` にする。
 - Vercel runtime / PWA API から repo file を編集・commit しない。
 
 ## 必ず読む正本
@@ -72,6 +73,12 @@ Supabase snapshot で最低限見るテーブル:
 - 単なる事実ではなく、教科書の読者が再利用できる知見になっているか。
 - 既存 BZM 章の数式・rubric・定義を勝手に変えず、補足・ケース・運用知見として追記できるか。
 
+保存先の判断軸:
+
+- BZM (`bzm_textbook`): Before Zero の読者が次の案件で使う判断分岐・失敗学習・問い・ケースとして、教科書へ残す価値がある。
+- 経営ノウハウ (`management_knowledge`): AMD社内の経営・運用で再利用する方法、管理の型、意思決定の補助として残す価値がある。BZMの章に無理に寄せない。
+- 迷ったら、通知で判断できるように `management_reusable_when` を具体化する。保存先を空欄・未定義にしない。
+
 根拠条件:
 
 - evidence は table / row id / date / title / 200字以内 snippet / hash / confidentiality 程度に留める。
@@ -110,6 +117,7 @@ Bad:
       "insight_type": "before_zero_knowhow",
       "priority": 1,
       "metadata_json": {
+        "destination_kind": "bzm_textbook",
         "practice_kind": "decision_branch"
       },
       "confidentiality": "sanitized",
@@ -133,6 +141,22 @@ Bad:
     }
   ],
   "notes": []
+}
+```
+
+経営ノウハウ候補の例:
+
+```json
+{
+  "metadata_json": {
+    "destination_kind": "management_knowledge",
+    "practice_kind": "decision_branch",
+    "management_category": "operations",
+    "management_maturity": "hypothesis",
+    "management_tags": ["許認可", "開業準備"],
+    "management_reusable_when": "開業日から逆算して、許認可の提出物が終盤まで確定しない案件",
+    "management_next_check": "初回の運用で、暫定チェックと正式提出の分離が効いたかを確認する"
+  }
 }
 ```
 

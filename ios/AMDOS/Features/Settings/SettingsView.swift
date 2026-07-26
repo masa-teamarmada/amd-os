@@ -1012,6 +1012,8 @@ private func notificationIconColor(_ item: NotificationInboxItem) -> Color {
 
 private func notificationKindLabel(_ item: NotificationInboxItem) -> String {
     if item.kind == "connector_auth" { return "再認証" }
+    if item.isManagementKnowledgeCandidate { return "経営ノウハウ追加候補" }
+    if item.isTextbookInsight { return "BZM追記候補" }
     switch item.responseTarget.feedbackKind {
     case "meeting_summary": return "議事録"
     case "ms_progress": return "MS進捗"
@@ -1362,6 +1364,12 @@ private struct NotificationJudgmentCard: View {
     }
 
     private var actionLabels: (yes: String, no: String) {
+        if item.isManagementKnowledgeCandidate {
+            return ("経営ノウハウに追加", "追加しない")
+        }
+        if item.isTextbookInsight {
+            return ("BZM追記を承認", "BZMには入れない")
+        }
         if item.isContractAction {
             return item.hasResolvedContractAction
                 ? ("契約状態を更新", "契約状態を更新しない")
@@ -1381,6 +1389,12 @@ private struct NotificationJudgmentCard: View {
     }
 
     private var effectText: String {
+        if item.isManagementKnowledgeCandidate {
+            return "「経営ノウハウに追加」で、管理 → 経営ノウハウに「\(item.title)」を1件作成する。本文と、分類・成熟度・タグ・再利用する場面を保存する。元の会議メモ・プロトコル・BZM本文は変更しない。「追加しない」では経営ノウハウを増やさない。"
+        }
+        if item.isTextbookInsight {
+            return "「BZM追記を承認」で、この候補をBZM追記の承認済みにする。BZM本文はこの画面では編集せず、後続のローカル反映処理が承認済み候補だけを追記する。「BZMには入れない」ではBZM本文を変更しない。"
+        }
         if item.isContractAction {
             return item.contractActionEffect
         }
@@ -1405,6 +1419,8 @@ private struct NotificationJudgmentCard: View {
     }
 
     private var actionDestination: String {
+        if item.isManagementKnowledgeCandidate { return "管理 → 経営ノウハウ" }
+        if item.isTextbookInsight { return "BZM / Before Zero 実践テキスト" }
         if item.isContractAction { return "管理 → 契約" }
         if item.isGovernanceHistoryCandidate { return item.governanceActionContract.destination }
         if item.kind == "connector_auth" { return "設定 → 連携の再認証" }
@@ -1419,6 +1435,12 @@ private struct NotificationJudgmentCard: View {
     }
 
     private var actionChanges: [String] {
+        if item.isManagementKnowledgeCandidate { return item.managementKnowledgeChanges }
+        if item.isTextbookInsight {
+            let slug = (item.metadata?["target_bzm_slug"]?.value as? String) ?? "未分類"
+            let kind = (item.metadata?["practice_kind"]?.value as? String) ?? "未設定"
+            return ["追記先: BZM / \(slug)", "候補の型: \(kind)"]
+        }
         if item.isContractAction { return item.contractActionChanges }
         if item.isGovernanceHistoryCandidate { return item.governanceActionContract.changes }
         if item.kind == "connector_auth" { return ["連携アプリの認証状態"] }

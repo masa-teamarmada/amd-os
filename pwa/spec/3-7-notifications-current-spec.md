@@ -84,7 +84,8 @@ POST body:
 | `xrl_evidence` | `project_xrl_evidence.status='confirmed'` | `status='rejected'` |
 | `founding_members` | `project_founding_members.status='active'` | `status='invalid'` |
 | `project_strategy_signal` | `project_strategy_signals.status='confirmed'` | `status='rejected'` |
-| `textbook_insight` | `textbook_insight_candidates.status='approved'`。その後 local applier が `pwa/bzm/*.md` へ追記 | `status='rejected'` |
+| `textbook_insight` / BZM | `metadata_json.destination_kind='bzm_textbook'` の候補を `status='approved'`。その後 local applier が `pwa/bzm/*.md` へ追記 | `status='rejected'` |
+| `textbook_insight` / 経営ノウハウ | `metadata_json.destination_kind='management_knowledge'` の候補から、管理 → 経営ノウハウへ本文・分類・成熟度・タグ・再利用する場面を1件保存し候補を `applied` | `status='rejected'` |
 | `coverage_gap` | `l2_coverage_gaps.review_status='confirmed'`。`proposed_target_l2='strategy_signal'` は同時に `project_strategy_signals.status='confirmed'` を upsert。`proposed_target_l2='shareholder_meeting'` は候補の会議種別・日付・議題・決議・添付ファイル名だけを `project_shareholder_meetings` に1行追加し、`routed_to='project_shareholder_meetings:<id>'` を保存。メール送信・Driveアップロード・元資料編集はしない | `review_status='rejected'` |
 | `action_item` | `action_items.review_status='confirmed'`。保存済み候補を確認済みにして dashboard / cockpit の要対応面へ出す | `review_status='rejected'` |
 | `guardrail_match` | `guardrail_matches.status='acknowledged'` | `status='dismissed'` |
@@ -96,7 +97,7 @@ PWA の `coverage_gap` 表示は、検知器の内部語や監査メモをその
 
 `coverage_gap.proposed_target_l2='shareholder_meeting'` は「ガバナンス履歴候補」とは呼ばず、「開催履歴を追加する？」として表示する。これはメール・資料から見つけた下書きで、採用前は正式な開催履歴ではない。**開催日・会議種別・議事録/決議/書面決議の開催済み証跡がそろい、既存正本と重複しない場合だけ**通知を作る。ジョブカン等の承認ワークフローと招集通知だけのメールは候補にしない。カードには追加先 `会社概要 → 総会・取締役会`、追加する `会議種別 / 開催日 / 議題 / 決議 / 添付ファイル名`、採用結果（開催履歴を1件追加、外部送信・資料アップロードなし）を出す。採用経路は `POST /api/notifications/feedback` のみで、添付URL・メール本文・source hash は正本表示へ持ち込まない。
 
-PWA の `textbook_insight` 表示は、D-7 の内部メタデータをそのまま読ませない。詳細欄は「元情報」「通知の種類」「追記先」「BZMに追記される内容」「判断の目安」「押すと起きること」「AMDプロトコルとの関係」で構成する。`source_tables` に `protocols` が含まれる場合は、「元ネタはAMDプロトコル、追記先はBZM」であり、AMDプロトコル本文は書き換えないことを明示する。`practice_kind='decision_branch'` は自問自答ではなく、BZM側で判断の条件・材料・結果を再利用可能に残すための実践分類として説明する。yes/no の処理は従来通りで、yes は `textbook_insight_candidates.status='approved'`、no は `status='rejected'`。yes を押しても Vercel runtime から git 管理ファイルを直接編集しない。実ファイル追記は local applier 経路だけが行う。
+PWA / iPhone の `textbook_insight` 表示は、候補の本文を「OSの見立て」に一度だけ出し、その下に「追加先」「追加・更新する情報」「押すと起きること」を構造化して出す。`destination_kind='management_knowledge'` は追加先を `管理 → 経営ノウハウ` とし、分類・成熟度・タグ・再利用する場面・次に確認することを表示する。yes は同じ値と本文を `management_knowledge_entries` へ1件保存し、元の会議メモ・プロトコル・BZM本文を変更しない。`destination_kind='bzm_textbook'` は従来どおり BZM内の追記先と候補の型を表示し、yes は `approved`、no は `rejected`。BZM本文は Vercel runtime から編集せず、local applier 経路だけが追記する。保存先は `practice_kind` から推測せず抽出器が明示する。
 
 通知一覧には表示中リスト内の通し番号 (`No.1`, `No.2`...) を出す。この番号は `l2_notifications` / `meeting_notifications` の永続IDではなく、現在のフィルタ結果の順番を探すための人間用番号。未対応 / 未読 / 回答済み / 修正依頼あり のフィルタや既読折りたたみで番号は変わり得る。
 
