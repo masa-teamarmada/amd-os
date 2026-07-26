@@ -23,6 +23,9 @@ assert.match(feedback, /source_ref: sourceRef/);
 const applier = read("scripts/apply_approved_textbook_insights.mjs");
 assert.match(applier, /destination_kind is management_knowledge; this local BZM applier must not write it/);
 
+const destinationMigration = read("scripts/migrations/193_textbook_insight_management_destination.sql");
+assert.match(destinationMigration, /ALTER COLUMN target_bzm_slug DROP NOT NULL/);
+
 const notifications = read("src/components/notifications/NotificationsClient.tsx");
 assert.match(notifications, /経営ノウハウに追加/);
 assert.match(notifications, /管理 → 経営ノウハウ/);

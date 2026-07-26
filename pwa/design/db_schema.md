@@ -2,7 +2,7 @@
 
 > ⚠️ **このファイルは自動生成。手動で編集しないこと。**
 
-> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-07-24 03:56 JST
+> 生成: `cd pwa && python3 -X utf8 scripts/dump_schema.py`  最終生成: 2026-07-26 16:30 JST
 
 
 ## ⛔ 列名は想像で書かない
@@ -118,7 +118,7 @@ PRIMARY KEY: `id`
 
 ## amd_management_score_raw_signals
 
-行数 (概算): 1,780
+行数 (概算): 1,823
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -940,7 +940,7 @@ UNIQUE: `(obligation_id,recipient_slack_id,schedule_key,stage)` (constraint: `co
 
 ## company_payment_obligations
 
-行数 (概算): 285
+行数 (概算): 287
 PRIMARY KEY: `id`
 UNIQUE: `(source_key)` (constraint: `company_payment_obligations_source_key_key`)
 
@@ -1042,7 +1042,7 @@ UNIQUE: `(occurrence_id,recipient_slack_id,schedule_key,stage)` (constraint: `co
 
 ## company_schedule_occurrences
 
-行数 (概算): 862
+行数 (概算): 926
 PRIMARY KEY: `occurrence_id`
 UNIQUE: `(occurrence_key,source_hash)` (constraint: `company_schedule_occurrences_source_uniq`)
 
@@ -1158,7 +1158,7 @@ PRIMARY KEY: `nudge_id`
 
 ## contract_signals
 
-行数 (概算): 171
+行数 (概算): 173
 PRIMARY KEY: `signal_id`
 UNIQUE: `(source_kind,source_table,source_id,signal_type)` (constraint: `contract_signals_source_kind_source_table_source_id_signal__key`)
 
@@ -1185,7 +1185,7 @@ UNIQUE: `(source_kind,source_table,source_id,signal_type)` (constraint: `contrac
 
 ## contract_terms
 
-行数 (概算): 34
+行数 (概算): 36
 PRIMARY KEY: `term_id`
 UNIQUE: `(source_kind,source_table,source_id,source_term_hash)` (constraint: `contract_terms_source_kind_source_table_source_id_source_te_key`)
 
@@ -1595,7 +1595,7 @@ PRIMARY KEY: `base_ym`
 
 ## l2_coverage_gaps
 
-行数 (概算): -1
+行数 (概算): 29
 PRIMARY KEY: `gap_id`
 UNIQUE: `(source_hash)` (constraint: `l2_coverage_gaps_source_hash_key`)
 
@@ -1663,7 +1663,7 @@ PRIMARY KEY: `feedback_id`
 
 ## l2_notifications
 
-行数 (概算): 366
+行数 (概算): 368
 PRIMARY KEY: `notification_id`
 UNIQUE: `(l2_kind,target_id,scope_key)` (constraint: `l2n_unique`)
 
@@ -2373,7 +2373,7 @@ PRIMARY KEY: `id`
 
 ## monthly_reports
 
-行数 (概算): 94
+行数 (概算): 106
 PRIMARY KEY: `id`
 UNIQUE: `(project_id,ym)` (constraint: `monthly_reports_project_id_ym_key`)
 UNIQUE: `(report_id)` (constraint: `monthly_reports_report_id_key`)
@@ -2793,7 +2793,7 @@ PRIMARY KEY: `outbox_id`
 
 ## proactive_todos
 
-行数 (概算): 372
+行数 (概算): 383
 PRIMARY KEY: `id`
 
 | # | column | type | nullable | default |
@@ -3940,7 +3940,7 @@ PRIMARY KEY: `id`
 
 ## project_meeting_summaries
 
-行数 (概算): 357
+行数 (概算): 364
 PRIMARY KEY: `meeting_id`
 
 | # | column | type | nullable | default |
@@ -4761,7 +4761,7 @@ PRIMARY KEY: `candidate_id`
 | 5 | `topic` | `text` | NOT NULL | `` |
 | 6 | `title` | `text` | NOT NULL | `` |
 | 7 | `proposed_section` | `text` | NULL | `` |
-| 8 | `target_bzm_slug` | `text` | NOT NULL | `'8-1-amd-os-operations'::text` |
+| 8 | `target_bzm_slug` | `text` | NULL | `'8-1-amd-os-operations'::text` |
 | 9 | `insight_type` | `text` | NOT NULL | `` |
 | 10 | `priority` | `int4` | NOT NULL | `2` |
 | 11 | `body_md` | `text` | NOT NULL | `` |

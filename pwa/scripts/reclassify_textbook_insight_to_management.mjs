@@ -77,7 +77,10 @@ async function request(pathname, { method = "GET", body } = {}) {
   });
   const text = await response.text();
   const json = text ? JSON.parse(text) : null;
-  if (!response.ok) throw new Error(`${method} ${pathname} failed (${response.status})`);
+  if (!response.ok) {
+    const detail = json?.message || json?.hint || json?.details || "unknown database error";
+    throw new Error(`${method} ${pathname} failed (${response.status}): ${detail}`);
+  }
   return json;
 }
 
