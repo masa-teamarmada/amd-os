@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getGoogleAuthAsync } from "@/lib/sources/google";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { gateGovernanceHistoryCandidate } from "@/lib/governance-candidate-gate";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -115,6 +116,21 @@ function asJsonArray(value: unknown, fallback: unknown) {
   if (Array.isArray(value)) return value;
   if (Array.isArray(fallback)) return fallback;
   return [];
+}
+
+// 直接投入の候補は、議題欄だけでなく決議本文・添付名も開催済みの証跡として読む。
+// ただし承認ワークフロー由来かどうかは gate 側で必ず先に弾く。
+function candidateEvidenceText(item: GovernanceMeetingCandidate, agenda: string) {
+  const resolutions = asJsonArray(item.resolutions_json, item.resolutions)
+    .map((resolution) => {
+      const value = objectValue(resolution);
+      return [text(value.title, 600), text(value.type, 200), text(value.result, 600)].filter(Boolean).join(" ");
+    })
+    .filter(Boolean);
+  const attachmentNames = asJsonArray(item.attachments_json, item.attachments)
+    .map((attachment) => text(objectValue(attachment).name, 300))
+    .filter(Boolean);
+  return [agenda, ...resolutions, ...attachmentNames].join("\n");
 }
 
 function driveQueryLiteral(value: string): string {
@@ -554,6 +570,19 @@ export async function POST(req: NextRequest) {
       continue;
     }
 
+    // 開催履歴の候補は、開催日と開催済みを示す根拠がそろうものだけに限定する。
+    // 承認ワークフローや招集通知だけは、履歴の正本へ進めない。
+    const candidateGate = gateGovernanceHistoryCandidate({
+      subject: text(item.meeting_name, 200) || "",
+      evidenceText: candidateEvidenceText(item, agenda),
+      meetingType: normalizeMeetingType(text(item.meeting_type, 80)),
+      meetingDate: text(item.meeting_date, 20),
+    });
+    if (!candidateGate.eligible) {
+      skipped++;
+      continue;
+    }
+
     const sourceHash = stableHash(item);
     const row = buildMeetingRow(item, sourceHash);
     if (dryRun) {
@@ -604,6 +633,12 @@ export async function POST(req: NextRequest) {
       }
       inserted++;
       notifications.push(notificationFor("shareholder_meeting", projectId, data.id as string, item));
+      continue;
+    }
+
+    // 正本に同じ開催履歴があるなら、新たな review candidate / 通知を作らない。
+    if (await findCanonicalId(db, row)) {
+      skipped++;
       continue;
     }
 

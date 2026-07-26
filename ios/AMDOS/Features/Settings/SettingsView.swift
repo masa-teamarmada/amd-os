@@ -826,7 +826,7 @@ struct NotificationInboxView: View {
     }
 
     private var visibleInboxItems: [NotificationInboxItem] {
-        inbox.items.filter { !$0.isSuppressedContractAction }
+        inbox.items.filter { !$0.isSuppressedContractAction && !$0.isSuppressedGovernanceCandidate }
     }
 
     private var unansweredItems: [NotificationInboxItem] {

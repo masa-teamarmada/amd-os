@@ -12,6 +12,7 @@ TestFlight build: 未更新
 
 - 通知カードは `追加先` / `追加・更新する情報` / `押すと起きること` を必ず同じ順番で表示する。追加先が未定義なら、正本へ反映するような採用ボタンにしない。
 - `l2_kind='coverage_gap'` かつ `metadata_json.proposed_target_l2='shareholder_meeting'` は「開催履歴の追加」と表示。追加先は `会社概要 → 総会・取締役会`、表示する追加内容は会議種別・開催日・議題・決議・添付ファイル名。
+- 開催日または開催済み証跡の無い候補、ジョブカン等の承認ワークフロー由来候補は判断キューに出さない。Androidも同じ安全弁を持つ。
 - `この開催履歴を追加する` は native DB直書きにせず、PWAの `POST /api/notifications/feedback` にBearer tokenで送る。PWAだけが `project_shareholder_meetings` を1件追加し、メール送信・Driveアップロード・元資料編集はしない。
 - Androidも同じ action contract とAPI経路を実装すること。候補の作成だけでは正式な開催履歴を増やさない。
 

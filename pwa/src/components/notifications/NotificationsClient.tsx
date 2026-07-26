@@ -99,6 +99,17 @@ function isGovernanceCoverageGap(n: Notification): boolean {
   return normalizeCoverageTarget(textFromUnknown(meta.proposed_target_l2)) === "shareholder_meeting";
 }
 
+// 旧抽出済みデータの安全弁。開催日が無い、または承認ワークフロー由来の候補は
+// 開催履歴として判断させない。新規候補は抽出 API 側でこの前に止める。
+function isSuppressedGovernanceCandidate(n: Notification): boolean {
+  if (n.l2_kind !== "coverage_gap" || !isGovernanceCoverageGap(n)) return false;
+  const meta = objectValue(n.metadata_json);
+  const meetingDate = textFromUnknown(meta.meeting_date);
+  const text = `${n.title}\n${n.summary ?? ""}\n${textFromUnknown(meta.agenda_summary)}`;
+  return !/^\d{4}-\d{2}-\d{2}$/.test(meetingDate)
+    || /(?:ジョブカン(?:ワークフロー)?|jobcan|承認されていない申請|未承認(?:の)?申請|申請ID\s*[:：])/i.test(text);
+}
+
 type GovernanceActionContract = {
   destination: string;
   href: string;
@@ -328,7 +339,7 @@ export function NotificationsClient({ l2, mtg, feedbacks, focus, projectMap }: P
   const items: UnifiedItem[] = useMemo(() => {
     const merged: UnifiedItem[] = [
       ...l2
-        .filter((x) => !isSuppressedContractAction(x))
+        .filter((x) => !isSuppressedContractAction(x) && !isSuppressedGovernanceCandidate(x))
         .map((x) => ({ kind: "l2" as const, data: x })),
       ...mtg.map((x) => ({ kind: "meeting" as const, data: x })),
     ];

@@ -2375,6 +2375,7 @@ expectIncludes("src/components/notifications/NotificationsClient.tsx", [
   "採用すると追加される内容",
   "追加・更新する情報",
   "この開催履歴を追加する",
+  "isSuppressedGovernanceCandidate",
   "契約台帳に更新する内容",
   "契約を特定できないため、契約台帳は更新しない",
   "isSuppressedContractAction",
@@ -2384,6 +2385,18 @@ expectIncludes("src/app/api/action-items/extract/route.ts", [
   "missing_contract_identity",
   "review_status: isContractAction && !contractMeta ? \"needs_source\" : \"candidate\"",
 ]);
+expectIncludes("src/app/api/governance/extract/route.ts", [
+  "gateGovernanceHistoryCandidate",
+  "findCanonicalId(db, row)",
+]);
+expectIncludes("src/app/api/cron/governance-email-sweep/route.ts", [
+  "gateGovernanceHistoryCandidate",
+  "governanceCandidateSkipLabel",
+]);
+expectIncludes("src/lib/governance-candidate-gate.ts", [
+  "workflow notification is not meeting evidence",
+  "held-meeting evidence missing",
+]);
 expectIncludes("../ios/AMDOS/Features/Settings/SettingsView.swift", [
   "追加先",
   "追加・更新する情報",
@@ -2392,6 +2405,7 @@ expectIncludes("../ios/AMDOS/Core/Services/SupabaseService.swift", [
   "submitNotificationResponseThroughPwa",
   "https://amd-os-pwa.vercel.app/api/notifications/feedback",
   "この開催履歴を追加する",
+  "isSuppressedGovernanceCandidate",
   "契約を特定できないため、契約台帳は更新しない",
   "isSuppressedContractAction",
 ]);

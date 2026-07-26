@@ -4651,6 +4651,18 @@ struct NotificationInboxItem: Identifiable, Hashable {
         return metadata?["proposed_target_l2"]?.value as? String == "shareholder_meeting"
     }
 
+    // 旧抽出済みデータの安全弁。開催日が無い、または承認ワークフロー由来の候補は
+    // 開催履歴として判断させない。新規候補は抽出 API 側でこの前に止める。
+    var isSuppressedGovernanceCandidate: Bool {
+        guard isGovernanceHistoryCandidate else { return false }
+        let meetingDate = metadata?["meeting_date"]?.value as? String ?? ""
+        let agendaSummary = metadata?["agenda_summary"]?.value as? String ?? ""
+        let candidateText = "\(title)\n\(body)\n\(agendaSummary)"
+        let hasDate = meetingDate.range(of: "^\\d{4}-\\d{2}-\\d{2}$", options: .regularExpression) != nil
+        let workflowNotice = candidateText.range(of: "ジョブカン|jobcan|承認されていない申請|未承認(?:の)?申請|申請ID\\s*[:：]", options: [.regularExpression, .caseInsensitive]) != nil
+        return !hasDate || workflowNotice
+    }
+
     var isContractAction: Bool {
         guard l2Kind == "action_item" else { return false }
         let category = metadata?["category"]?.value as? String

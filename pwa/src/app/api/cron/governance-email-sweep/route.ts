@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getGoogleAuthAsync } from "@/lib/sources/google";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { gateGovernanceHistoryCandidate, governanceCandidateSkipLabel } from "@/lib/governance-candidate-gate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -276,15 +277,13 @@ function matchedKeywords(text: string, keywords: string[]) {
   return keywords.filter((keyword) => text.includes(keyword));
 }
 
-function inferMeetingType(text: string, project: ProjectRow) {
+function inferMeetingType(text: string): string | null {
   if (/取締役会書面決議|取締役書面決議/.test(text)) return "board_written_resolution";
   if (/株主(総会)?書面決議|みなし決議/.test(text)) return "shareholder_written_resolution";
-  if (/取締役会|役会/.test(text)) return "board";
   if (/定時株主総会/.test(text)) return "agm";
   if (/臨時株主総会/.test(text)) return "egm";
-  if (/株主総会|招集通知|議決権|委任状/.test(text)) return "agm";
-  if (project.governance_watch_board_meetings && !project.governance_watch_shareholder_meetings) return "board";
-  return "agm";
+  if (/取締役会|役会/.test(text)) return "board";
+  return null;
 }
 
 function isoDate(year: number, month: number, day: number) {
@@ -296,6 +295,11 @@ function isoDate(year: number, month: number, day: number) {
 function extractMeetingDate(text: string, reference: Date) {
   const ymd = text.match(/(20\d{2})[年./-]\s*(\d{1,2})[月./-]\s*(\d{1,2})日?/);
   if (ymd) return isoDate(Number(ymd[1]), Number(ymd[2]), Number(ymd[3]));
+
+  // 議事録・決議書のファイル名に使われる `取締役会議事録_20260722` 形式。
+  // 単なる8桁の申請番号・管理番号を開催日と取り違えないよう、開催済み証跡語の直後だけを読む。
+  const compactYmd = text.match(/(?:議事録|書面決議|みなし決議|決議書|開催)[^0-9\n]{0,80}(20\d{2})(\d{2})(\d{2})(?!\d)/);
+  if (compactYmd) return isoDate(Number(compactYmd[1]), Number(compactYmd[2]), Number(compactYmd[3]));
 
   const md = text.match(/(?:開催日時|開催日|日時|日程|総会日|決議日|提出日)?[^\n。]{0,16}?(\d{1,2})月\s*(\d{1,2})日/);
   if (!md) return null;
@@ -433,11 +437,27 @@ export async function GET(req: NextRequest) {
 
       matchedThreadCount++;
       const lastDate = messageDate(last, new Date());
-      const meetingType = inferMeetingType(combined, project);
+      const meetingType = inferMeetingType(combined);
       const meetingDate = extractMeetingDate(combined, lastDate);
       const firstSnippet = compact(first?.snippet || messageTexts[0] || "", 400);
       const summary = firstSnippet || compact(subject, 200);
-      const sourceHash = stableHash(`${project.project_id}|${ref.id}|${subject}|${meetingType}`);
+      const candidateGate = gateGovernanceHistoryCandidate({
+        subject,
+        evidenceText: combined,
+        meetingType,
+        meetingDate,
+      });
+      if (!candidateGate.eligible) {
+        projectSummaries.push({
+          project_id: project.project_id,
+          project_name: project.project_name,
+          skipped_thread: ref.id,
+          reason: governanceCandidateSkipLabel(candidateGate.reason),
+        });
+        continue;
+      }
+      const confirmedMeetingType = candidateGate.meetingType;
+      const sourceHash = stableHash(`${project.project_id}|${ref.id}|${subject}|${confirmedMeetingType}`);
       const attachments = storeAttachments
         ? (await Promise.all(messages.map((message) => attachmentsForMessage({
             gmail,
@@ -473,7 +493,7 @@ export async function GET(req: NextRequest) {
       }
       candidates.push({
         project_id: project.project_id,
-        meeting_type: meetingType,
+        meeting_type: confirmedMeetingType,
         meeting_name: subject,
         meeting_date: meetingDate,
         agenda_summary: summary || subject,
@@ -520,7 +540,7 @@ export async function GET(req: NextRequest) {
           source_ref: sourceRef,
           matched_keywords: hits,
           matched_via: matchedVia,
-          meeting_type: meetingType,
+          meeting_type: confirmedMeetingType,
           meeting_date: meetingDate,
           attachment_count: attachments.length,
         },

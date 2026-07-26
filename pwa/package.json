@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test:deploy-version-guard": "node scripts/check_deploy_version_guard.cjs",
     "test:meeting-calendar-upsert-plan": "node --experimental-strip-types scripts/check_meeting_calendar_upsert_plan.mts --fixture scripts/__fixtures__/meeting_calendar_upsert_plan.json",
+    "test:governance-candidate-gate": "node --experimental-strip-types scripts/check_governance_candidate_gate.mts",
     "test:member-weekly-calendar-duration": "node --experimental-strip-types scripts/check_member_weekly_calendar_duration.mts",
     "test:member-weekly-effort-plan": "node --experimental-strip-types scripts/check_member_weekly_effort_plan.mts",
     "test:member-weekly-source-attribution": "node --experimental-strip-types scripts/check_member_weekly_source_attribution.mts",
