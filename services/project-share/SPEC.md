@@ -1,7 +1,8 @@
 # SPEC.md — Project Share 恒久仕様
 
-正本。PJ別インスタンスの実装詳細は各インスタンスの `README.md`（現状
-[`vsx/README.md`](vsx/README.md)）を見る。ここには、インスタンス横断で守るべき
+正本。PJ別インスタンスの実装詳細は各インスタンスの `README.md`（[`vsx/README.md`](vsx/README.md)、
+[`cx/README.md`](cx/README.md)、[`se/README.md`](se/README.md)、[`sx/README.md`](sx/README.md)、
+[`zmp/README.md`](zmp/README.md)）を見る。ここには、インスタンス横断で守るべき
 恒久仕様だけを置く。
 
 ## 目的
@@ -51,3 +52,7 @@ Vercelプロジェクトとし、AMD OS PWA 本体の認証・データとは分
 
 - 2026-07-23: VSX PROJECT SHARE（香川大学 / AgVenture Lab 向け）を最初のPJ別インスタンスとして
   AMD OS 配下へ正本移管。汎用仕様として本ファイルを新設。
+- 2026-07-26: CX / SE PROJECT SHAREを追加。各PJに専用Vercelプロジェクト、private Blob store、
+  prefix、認証環境変数、サブドメインを割り当て、VSX固有資料を持ち込まない構成にした。
+- 2026-07-26: SX / ZMP PROJECT SHAREを追加。各PJに専用Vercelプロジェクト、private Blob store、
+  prefix、認証環境変数、サブドメインを割り当て、VSX固有資料を持ち込まない構成にした。

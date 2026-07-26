@@ -45,7 +45,11 @@ amd-os/
     └── project-share/ ← PJ関係者へパスワード認証のみでファイル共有するVercelサービス
         ├── README.md  ← 汎用機能とPJ別インスタンスの境界
         ├── SPEC.md    ← 恒久仕様（認証・Blob・デプロイモデル）
-        └── vsx/       ← VSX(香川大学/AgVenture Lab)向けPJ別インスタンス
+        ├── vsx/       ← VSX(香川大学/AgVenture Lab)向けPJ別インスタンス
+        ├── cx/        ← CX向け汎用ファイル共有
+        ├── se/        ← SE向け汎用ファイル共有
+        ├── sx/        ← SX向け汎用ファイル共有
+        └── zmp/       ← ZMP向け汎用ファイル共有
 ```
 
 ---
@@ -175,7 +179,7 @@ DESIGN.md は **全プラットフォーム共通の正本**。Android / PWA も
 | 既知バグ・事故事例 | `ios/BUGS.md` |
 | iOS→他プラ 引き継ぎ | `ios/HANDOFF_ios_to_<target>.md` |
 | アーキテクチャ概要 | `AGENTS.md` |
-| Project Share (PJ別ファイル共有) 運用 | `services/project-share/README.md` / `services/project-share/SPEC.md` / `services/project-share/vsx/AGENTS.md` |
+| Project Share (PJ別ファイル共有) 運用 | `services/project-share/README.md` / `services/project-share/SPEC.md` / 各インスタンスの `AGENTS.md` |
 
 ---
 
