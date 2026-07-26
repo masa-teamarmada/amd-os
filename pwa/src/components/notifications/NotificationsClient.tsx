@@ -223,7 +223,7 @@ function isTextbookInsightItem(i: UnifiedItem): boolean {
 }
 
 function textbookDestinationKind(i: UnifiedItem): "bzm_textbook" | "management_knowledge" {
-  if (!isTextbookInsightItem(i)) return "bzm_textbook";
+  if (i.kind !== "l2" || !isTextbookInsightItem(i)) return "bzm_textbook";
   return textFromUnknown(objectValue(i.data.metadata_json).destination_kind) === "management_knowledge"
     ? "management_knowledge"
     : "bzm_textbook";
@@ -257,10 +257,11 @@ function managementMaturityLabel(value: string): string {
 }
 
 function textbookChangeSummary(i: UnifiedItem): string {
-  if (!isTextbookInsightItem(i)) {
-    return i.kind === "l2" ? i.data.summary || "通知本文に記載の候補" : i.data.summary_short || "会議サマリの確認記録";
+  const notification = i.kind === "l2" ? i.data : null;
+  if (!notification || notification.l2_kind !== "textbook_insight") {
+    return notification?.summary || (i.kind === "meeting" ? i.data.summary_short : "通知本文に記載の候補");
   }
-  const meta = objectValue(i.data.metadata_json);
+  const meta = objectValue(notification.metadata_json);
   if (textbookDestinationKind(i) === "management_knowledge") {
     const tags = Array.isArray(meta.management_tags)
       ? meta.management_tags.map(textFromUnknown).filter(Boolean).join("、")
@@ -290,7 +291,7 @@ function itemMetaLabel(i: UnifiedItem, projectMap: Record<string, string>): stri
     if (isGovernanceCoverageGap(n)) return `開催履歴の追加 / ${projectMap[n.target_id] ?? n.target_id}`;
     return `会議メモの確認 / ${projectMap[n.target_id] ?? n.target_id}`;
   }
-  if (isTextbookInsightItem(i) && textbookDestinationKind(i) === "management_knowledge") {
+  if (i.kind === "l2" && isTextbookInsightItem(i) && textbookDestinationKind(i) === "management_knowledge") {
     return `経営ノウハウ追加候補 / ${displayTarget(i.data.target_id, i.data.scope_key, projectMap)}`;
   }
   if (i.kind === "l2") {
