@@ -50,7 +50,7 @@ container: max-w-[1600px] mx-auto px-4 py-3 flex flex-col gap-3
 
 CockpitHeader は `projects.contract_terms_json.currentContracts[]` を優先し、現行契約を契約ID単位で分けて表示する。各契約は、期間・更新、金額・支払、業務・成果物、費用負担、知財・利用、秘密保持・制限、解除・責任、特記事項を表示する。配列未移行のPJだけ既存の平坦な契約条件を互換表示する。PJの開始/終了やfee設定を契約条件の代わりに使わず、参照する場合は `PJ設定（契約未確認）` と明記する。値が空の立替・費用条件は `未確認` であり、`0円` や `申請可` へ変換しない。
 
-[A3]  Cockpit tabs                              SU 系 PJ では Hero 下に「進捗管理 / スコア詳細」タブ。
+[A3]  Cockpit tabs                              SU 系 PJ では Hero 下に「進捗管理 / スコア詳細 / 会社概要」タブ。
                                                 Hero はタブ外なので AMD Score + XRL は常時表示。
                                                 2タブは横幅いっぱいを 1/2 ずつ占有し、クリック領域も左右半分。
                                                 進捗管理 = 従来 cockpit 本文。
@@ -59,6 +59,9 @@ CockpitHeader は `projects.contract_terms_json.currentContracts[]` を優先し
                                                 旧 `/venture-map/amd-score/[projectId]` はこのタブへ redirect (`p99` デモを除く)。
                                                 スコア詳細は cockpit mount 時に非表示で先読みし、同一セッションでは 5 分TTLで再利用。
                                                 タブ再表示時に TTL 超過なら表示済み内容を保ったまま背景再取得する。
+                                                SX (p21) だけは「事業計画」を追加して4タブにする。
+                                                事業計画 = 4開発レーン×5フェーズ表 → 100%株主構成 → 資本政策表 → 年次試算表。
+                                                SXのCapitalPlanWorkspaceは会社概要から事業計画へ移す。
 
 メインボード: 通常は grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3。凍結/再開ステータスがある時だけ lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_300px] gap-3
 ├── col1: 今期MS + 設定 + 過去
