@@ -61,6 +61,45 @@ expectIncludes("src/app/(app)/dashboard/page.tsx", [
   "FreeeConnectionStatusCard",
 ]);
 
+expectIncludes("src/app/(app)/project/[projectId]/weekly-control/page.tsx", [
+  "SxWeeklyControlDashboard",
+  "getProjectWorkspaceBundle",
+  "/weekly-control",
+]);
+
+expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", [
+  "WEEKLY CHANGE RAIL",
+  "先週 → 今週",
+  "論点と仮説を、忘れられない流れに乗せる",
+  "抽出接続前 · 現行台帳の仮表示",
+  "sxWeeklyIssueNextDueDate",
+  "sxWeeklyIssueLastActivity",
+  "create_hypothesis",
+  "create_validation",
+  "create_decision",
+  "edit_decision",
+  "create_action",
+  "edit_action",
+  "sxWeeklyIssueNextMove",
+]);
+
+expectIncludes("src/lib/sx-weekly-control.ts", [
+  "sxWeeklyIssueStage",
+  "sxWeeklyIssueNextDueDate",
+  "sxWeeklyIssueLastActivity",
+  "sxWeeklyIssueNeedsAttention",
+  "sxWeeklyIssueNextMove",
+]);
+
+expectIncludes("src/lib/project-workspace.ts", [
+  "(?:workspace|weekly-control)",
+]);
+
+expectIncludes("src/app/(app)/project/[projectId]/workspace/page.tsx", [
+  "ProjectWorkspaceDashboard",
+  "/workspace",
+]);
+
 expectIncludes("src/components/dashboard/FreeeConnectionStatusCard.tsx", [
   "freee連携",
   "/api/dashboard/freee-connection-status",

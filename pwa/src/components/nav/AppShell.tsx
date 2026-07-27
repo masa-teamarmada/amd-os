@@ -22,7 +22,7 @@ type AppShellProps = {
 };
 
 function shouldSkipMonthlyAgreementGate(pathname: string) {
-  return pathname.startsWith("/monthly-agreement") || pathname.startsWith("/hud") || pathname.startsWith("/native") || /^\/project\/[^/]+\/workspace(?:\/|$)/.test(pathname);
+  return pathname.startsWith("/monthly-agreement") || pathname.startsWith("/hud") || pathname.startsWith("/native") || /^\/project\/[^/]+\/(?:workspace|weekly-control)(?:\/|$)/.test(pathname);
 }
 
 // 月初合意ゲートは (app)/layout.tsx の SSR では計算しない。
@@ -76,7 +76,7 @@ export function AppShell({
   const pathname = usePathname() ?? "";
   const isNativeShell = pathname.startsWith("/native");
   const isAdminRoute = pathname.startsWith("/admin");
-  const isWorkspaceRoute = /^\/project\/[^/]+\/workspace(?:\/|$)/.test(pathname);
+  const isWorkspaceRoute = /^\/project\/[^/]+\/(?:workspace|weekly-control)(?:\/|$)/.test(pathname);
   const useEmbeddedShellOnly = pathname.startsWith("/hud") || isNativeShell || isWorkspaceRoute;
   const isProjectScope = accessScope === "project";
   const agreementGateBundle = useMonthlyAgreementGateBundle(isProjectScope ? null : memberId, pathname);

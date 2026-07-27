@@ -9,6 +9,8 @@
 | auth | `/auth/login`, `/auth/callback` | Supabase Google OAuth login / callback | `pwa/src/app/auth/*` |
 | home | `/dashboard` | PJ一覧、抽出状況、Atlas / Venture Map / MyPage / Admin 入口 | `dashboard/page.tsx` |
 | cockpit | `/project/[projectId]/cockpit` | PJ status、AMD Score、MS、経営ハイライト、月次カード/モーダル、MTGサマリ、kanban | `project/[projectId]/cockpit/page.tsx`, `CockpitView.tsx` |
+| research workspace | `/project/[projectId]/workspace` | 計画詳細、技術証明、論点、関係先、週次エフォートを統合表示 | `project/[projectId]/workspace/page.tsx`, `ProjectWorkspaceDashboard.tsx` |
+| weekly control | `/project/[projectId]/weekly-control` | 週次差分・判断・介入と、論点/仮説の要整理→検証中→判断待ち→決定/棄却を別画面で管制 | `project/[projectId]/weekly-control/page.tsx`, `SxWeeklyControlDashboard.tsx` |
 | member | `/mypage`, `/reimburse` | メンバー活動、週次活動、立替精算 | `mypage/page.tsx`, `reimburse/page.tsx` |
 | admin | `/admin/*` | invoices / finance / projects（Slack CHの「チャンネルなし」明示を含む） / contracts（1契約1行。版・形式・作業記録は契約内へ収め、期限・立替経費・押印証跡・秘密保持をモーダルで即答） / members / payouts / prompts / settings / protocols / tsukuyomi / weekly (週次活動×月次報酬マトリクス: `/api/admin/weekly` が member_activities(member_weekly) と表示月の `billing_cycles.reward_summary_json` の `members[].totalPay` を返し、右端列=メンバー別月合計・最下行=PJ別月合計・総合計を描画) / 日本文化マップ (`/admin/japanese-culture-map`)。`AppShell` はブラウザ側の現在pathnameで `GlobalNav` を `AdminSidebar` に差し替え、dashboard からの画面内遷移でも admin menu へ切り替える。admin layout は2枚目の左メニューを描画しない | `(app)/layout.tsx`, `AppShell.tsx`, `admin/layout.tsx`, `AdminSidebar.tsx`, `admin/*/page.tsx` |
 | admin knowledge | `/admin/japanese-culture-map` | `jp_culture_items` active 行をマインドマップ / 日本地図で読む admin-only 文化知識ビュー。旧 `/japanese-culture-map` は redirect | `admin/japanese-culture-map/page.tsx`, `jp-culture.ts` |
