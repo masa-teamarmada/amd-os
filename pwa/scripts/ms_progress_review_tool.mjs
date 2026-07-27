@@ -1793,7 +1793,7 @@ async function normalizeExternalMonthlyReport(content) {
   }
   for (const member of identities) {
     if (!member.codeName) continue;
-    const pattern = new RegExp(`(^|[\\s、。・（(「『【])${escapeRegExp(member.codeName)}(?=(?:は|が|を|も|へ|から|より)(?:[\\s、。]|$|[一-龥ぁ-んァ-ン]))`, "g");
+    const pattern = new RegExp(`(^|[\\s、。・（(「『【])${escapeRegExp(member.codeName)}(?=(?:は|が|を|も|へ|の|から|より)(?:[\\s、。]|$|[一-龥ぁ-んァ-ンA-Za-z0-9]))`, "g");
     normalized = normalized.replace(pattern, `$1${member.surname}`);
   }
   return normalized;

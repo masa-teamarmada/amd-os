@@ -79,7 +79,7 @@ function normalizeJargonForSubmission(body: string, members: MemberIdentity[] = 
     if (!member.codeName) continue;
     if (out.trim() === member.codeName) return member.surname;
     const escaped = escapeRegExp(member.codeName);
-    const pattern = new RegExp(`(^|[\\s、。・（(「『【])${escaped}(?=(?:は|が|を|も|へ|から|より)(?:[\\s、。]|$|[一-龥ぁ-んァ-ン]))`, "g");
+    const pattern = new RegExp(`(^|[\\s、。・（(「『【])${escaped}(?=(?:は|が|を|も|へ|の|から|より)(?:[\\s、。]|$|[一-龥ぁ-んァ-ンA-Za-z0-9]))`, "g");
     out = out.replace(pattern, `$1${member.surname}`);
   }
   return out;
