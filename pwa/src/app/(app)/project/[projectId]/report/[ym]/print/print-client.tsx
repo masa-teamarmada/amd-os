@@ -297,6 +297,13 @@ function leadParagraph(data: PrintData): string {
   return `本書は、${client}と株式会社チームアルマダの間で締結された ${subj}${periodPart} に基づき、${formatYm(ym)} 稼働分の業務遂行状況を報告するものである。`;
 }
 
+function reportBodyForPrint(data: PrintData): string {
+  const body = data.isSubmission
+    ? data.submissionBody || ""
+    : data.report?.finalContent || data.report?.draftContent || data.monthlyNote || "";
+  return body.replace(/^#\s+月次業務報告書\s*\n+/u, "");
+}
+
 // XRL 5 軸メタ (和名と帯カラー)
 function xrlAxisMeta(k: "trl" | "brl" | "grl" | "srl" | "hrl"): { label: string; color: string } {
   const map: Record<typeof k, { label: string; color: string }> = {
@@ -390,8 +397,8 @@ function ExecSummary({ data }: { data: PrintData }) {
   const highlights = (() => {
     const lines: string[] = [];
     if (data.achievementSignals.length > 0) lines.push(`主要成果: ${data.achievementSignals[0].title}`);
-    if (data.report?.finalContent || data.report?.draftContent) {
-      const body = data.report.finalContent || data.report.draftContent;
+    const body = reportBodyForPrint(data);
+    if (body) {
       const firstPara = body.split(/\n\n/)[0].replace(/^#+\s*/, "");
       if (firstPara && firstPara.length < 200) lines.push(firstPara);
     }
@@ -533,33 +540,9 @@ function stripInternalJargon(text: string): string {
   return out;
 }
 
-/**
- * 提出版 (internal 以外の template) — 章立て構造を持たず、body_md を単一の
- * 連続した文書として流し込む。ページ区切りを明示的に挿入しない (自然改頁のみ)。
- */
-function SubmissionView({ data }: { data: PrintData }) {
-  const { project, ym, submissionBody } = data;
-  const printableBody = submissionBody?.replace(/^#\s+月次業務報告書\s*\n+/u, "") || null;
-  return (
-    <div className="sheet submission-sheet">
-      <div className="submission-head">
-        <div className="submission-title">月次業務報告書</div>
-        <div className="submission-meta">
-          {project.clientName || project.projectName} 御中 ／ {formatYm(ym)}
-        </div>
-      </div>
-      {printableBody ? (
-        <MarkdownBlock text={printableBody} />
-      ) : (
-        <div className="empty">提出用の報告書本文は未生成です。</div>
-      )}
-    </div>
-  );
-}
-
 function ProgressSection({ data }: { data: PrintData }) {
-  const { milestones, report, monthlyNote, achievementSignals, grants, media, meetings, ym } = data;
-  const reportBody = report?.finalContent || report?.draftContent || monthlyNote || "";
+  const { milestones, achievementSignals, grants, media, meetings, ym } = data;
+  const reportBody = reportBodyForPrint(data);
   const activeMs = selectActiveMilestonesForReport(milestones, ym).sort((a, b) => b.points - a.points);
 
   // 会議由来の Decided (旧§03 から統合)
@@ -1081,6 +1064,7 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
         @media print {
           .sheet { margin: 0; box-shadow: none; padding: 0; width: auto; min-height: auto; page-break-after: always; }
           .sheet:last-child { page-break-after: auto; }
+          .submission-flow .sheet { page-break-after: auto; break-after: auto; }
         }
         /* ===== 表紙 ===== */
         .cover-sheet { padding: 18mm; }
@@ -1181,12 +1165,6 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
         .md-table tr { break-inside: avoid; page-break-inside: avoid; }
         .md-table th:first-child, .md-table td:first-child { width: 12%; white-space: nowrap; }
         .report-body { background: #f8fafc; padding: 4mm 5mm; border-left: 3px solid #0a1628; }
-
-        /* 提出版 (単一連続文書、明示的な改頁 CSS は入れない) */
-        .submission-sheet { line-height: 1.9; }
-        .submission-head { margin-bottom: 8mm; border-bottom: 1px solid #cbd5e1; padding-bottom: 4mm; }
-        .submission-title { font-size: 16pt; font-weight: 700; color: #0a1628; }
-        .submission-meta { font-size: 10.5pt; color: #475569; margin-top: 2mm; }
 
         /* Exec Summary */
         .lead { background: #f1f5f9; border-left: 3px solid #0a1628; padding: 3mm 5mm; margin-bottom: 5mm; font-size: 10.5pt; line-height: 1.8; }
@@ -1323,7 +1301,7 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
         .end-mark { margin-top: 12mm; padding-top: 4mm; border-top: 1px solid #cbd5e1; font-size: 9pt; color: #64748b; text-align: center; font-family: 'JetBrains Mono', monospace; }
       `}</style>
 
-      <div className="print-root">
+      <div className={`print-root ${data.isSubmission ? "submission-flow" : ""}`}>
         <div className="toolbar no-print">
           <span style={{ fontWeight: 700, letterSpacing: "0.12em", fontFamily: "Work Sans, sans-serif" }}>
             MONTHLY REPORT — PRINT VIEW
@@ -1334,19 +1312,13 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
           </button>
         </div>
 
-        {data.isSubmission ? (
-          <SubmissionView data={data} />
-        ) : (
-          <>
-            <CoverPage data={data} />
-            <ExecSummary data={data} />
-            <ProgressSection data={data} />
-            <GanttSection data={data} />
-            <TeamSection data={data} />
-            <NextMonthSection data={data} />
-            <AppendixSection data={data} />
-          </>
-        )}
+        <CoverPage data={data} />
+        <ExecSummary data={data} />
+        <ProgressSection data={data} />
+        <GanttSection data={data} />
+        <TeamSection data={data} />
+        <NextMonthSection data={data} />
+        <AppendixSection data={data} />
       </div>
     </>
   );

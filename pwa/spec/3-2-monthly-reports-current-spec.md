@@ -178,10 +178,10 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 
 `monthly_reports.final_content` (markdown) が **§C 当月の進捗** 本文の主出力。`draft_content` フォールバック、両方空なら `project_monthly_notes.body`、それも空なら「未生成」表示。`generated_at` / `fixed_at` / `confirmed_by` は **§J 改訂履歴** に反映される。
 
-### 外販含む大学・研究機関提出での運用 (v1 時代の設計、v2 で位置付け更新)
+### 外販含む大学・研究機関提出での運用
 
 - **v1**: この印刷ビュー (`/project/[projectId]/report/[ym]/print` + Cmd+P PDF) を対外提出正本にした。
-- **v2 (2026-07-01〜)**: この印刷ビューは **cockpit 内での内部保存版レビュー用** に位置付ける。対外提出版は Claude routine `amd-os-l2m1-monthly-report` が生成する `monthly_reports_external.body_md` + 自動 PDF を正本にする (下記「対外提出版」節参照)。既存の印刷ビュー §01-§07 章立ては cockpit 内で「内部保存版のリッチプレビュー」として引き続き提供、章立てを削除しない。
+- **v2 (2026-07-01〜)**: Claude routine `amd-os-l2m1-monthly-report` が生成する `monthly_reports_external.body_md` を対外版本文の正本にする。ただし印刷時は、先月までの提出品質を作っていた既存のリッチ帳票（表紙 / エグゼクティブサマリ / 当月の進捗・成果 / Gantt / 実施体制 / 次月計画 / 添付資料）を内部版・提出版で共通利用し、削除・簡略化しない。提出版では `body_md` を「業務遂行レポート」本文へ差し込み、章ごとの強制改頁だけを外す。
 
 ## 対外提出版 (v2 新設、2026-07-01〜)
 
@@ -191,17 +191,18 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 2. **Phase 2.3**: `monthly_reports.final_content` (内部保存版 markdown) を生成
 3. **Phase 2.4**: `scope='internal_and_external'` の PJ のみ、内部版 markdown を入力に対外版 markdown を生成 (LLM が対外用語・章削除・言い換えを行う)
 4. **Phase 2.5**: 禁止語チェック (`scripts/strip_internal_jargon.py`)。hard_fail → PDF 生成停止、まさ DM 通知
-5. **Phase 2.6**: PDF 生成 (`scripts/generate_monthly_report.py` = pandoc → HTML → Chrome headless)。A4 の連続文書として自然改頁だけを許し、明示的な page break は入れない。routine 自体がまさの mac local Claude Code アプリ内で発火するため (= cloud sandbox ではない、SKILL.md 冒頭「登録・実行環境の current truth」参照)、pandoc / Chrome headless ともローカル実行。失敗時は outbox 経由でローカル LaunchAgent (`com.amd-os.l2m1-pdf-renderer`) fallback
+5. **Phase 2.6**: PDF 生成。cockpit の提出版リンクは先月提出版と同じリッチ帳票へ `body_md` を差し込み、章ごとの強制改頁を使わず自然改頁だけで流す。自動生成 (`scripts/generate_monthly_report.py` = pandoc → HTML → Chrome headless) でも明示的な page break は入れない。routine 自体がまさの mac local Claude Code アプリ内で発火するため (= cloud sandbox ではない、SKILL.md 冒頭「登録・実行環境の current truth」参照)、pandoc / Chrome headless ともローカル実行。失敗時は outbox 経由でローカル LaunchAgent (`com.amd-os.l2m1-pdf-renderer`) fallback
 6. **配置**: ローカル `/Users/masa/projects/AMD/{report_local_alias}/output/monthly_reports/` + 共有 Drive `projects.drive_folder_id / 月次業務報告書 / YYYY-MM/`
 
 ### 対外提出版のフォーマット (KUTE 実納品準拠)
 
+- 共通帳票: 表紙 → エグゼクティブサマリ → 当月の進捗・成果（A.業務遂行レポート / B.マイルストーン進捗 / C.主要成果 / D.合意事項 / E.対外発信）→ Gantt → 実施体制 → 次月計画 → 添付資料。先月提出版の構成を維持し、本文だけの簡易帳票へ置換しない
 - 章構成: 1. 業務概要 → 2. 当月の実施内容 → 3..N. 業務内容の各領域 → N+1. 体制および打合せ実施記録 → N+2. 主要成果物 → N+3. その他活動 (任意) → N+4. 来月以降の予定 → N+5. 継続協議事項 (任意)
 - 文体: である体、儀礼挨拶なし、締め「以上のとおり報告する。」
 - 自社メンバーは姓のみ表記 (`members.member_name` の姓部分)、フルネーム・code_name (えいみ / つくよみ 等) とも削除する。担当者名が不明な場合は「担当者」とする。客先関係者は「XX 先生」「XX 様」維持
 - eLAD 等の表記ゆれは e-Rad (府省共通研究開発管理システム) に正規化する (`scripts/strip_internal_jargon.py` --mode normalize が最終ゲート)
 - 業務期間・契約金額は `contracts.contract_terms_json` + `contracts.tax_basis` の verbatim
-- 内部評価指標 (RAG / XRL / KPI / signals / pt / Δ 等) は全削除
+- RAG / XRL / KPI / MS進捗 / Gantt は先月提出版の帳票要素として共通ラッパー側に保持する。`body_md` の本文中へ内部処理語や生成ログを重複記載しない
 - 「お願い・確認」セクション原則なし
 
 ### 対外版の allow_list (jargon check)

@@ -49,5 +49,8 @@ const printClient = readFileSync(new URL("../src/app/(app)/project/[projectId]/r
 assert.match(printClient, /isMarkdownTableSeparator/, "提出版のMarkdown表を構造化して描画する");
 assert.match(printClient, /className="md-table"/, "提出版の表に印刷用スタイル契約がある");
 assert.match(printClient, /replace\(\/\^#\\s\+月次業務報告書/, "帳票タイトルと本文H1を二重表示しない");
+assert.match(printClient, /<CoverPage data=\{data\} \/>[\s\S]*<AppendixSection data=\{data\} \/>/, "提出版でも既存のリッチ帳票構成を維持する");
+assert.match(printClient, /\.submission-flow \.sheet \{ page-break-after: auto; break-after: auto; \}/, "提出版だけ章ごとの強制改頁を外す");
+assert.doesNotMatch(printClient, /data\.isSubmission\s*\?\s*\([\s\S]{0,100}<SubmissionView/, "提出版を簡易本文だけへ置き換えない");
 
 console.log("monthly report quality guard: ok");

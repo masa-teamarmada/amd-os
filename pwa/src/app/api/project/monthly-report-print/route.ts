@@ -77,11 +77,21 @@ function normalizeJargonForSubmission(body: string, members: MemberIdentity[] = 
   // 単独コードネームは、名前として現れる高確度の区切り・助詞がある場合だけ置換する。
   for (const member of identities) {
     if (!member.codeName) continue;
+    if (out.trim() === member.codeName) return member.surname;
     const escaped = escapeRegExp(member.codeName);
     const pattern = new RegExp(`(^|[\\s、。・（(「『【])${escaped}(?=(?:は|が|を|も|へ|から|より)(?:[\\s、。]|$|[一-龥ぁ-んァ-ン]))`, "g");
     out = out.replace(pattern, `$1${member.surname}`);
   }
   return out;
+}
+
+function normalizeSubmissionPayload(value: unknown, members: MemberIdentity[]): unknown {
+  if (typeof value === "string") return normalizeJargonForSubmission(value, members);
+  if (Array.isArray(value)) return value.map((item) => normalizeSubmissionPayload(item, members));
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, normalizeSubmissionPayload(item, members)]));
+  }
+  return value;
 }
 
 function nextYm(ym: string): string {
@@ -338,20 +348,21 @@ export async function GET(req: NextRequest) {
   // 提出版本文: monthly_reports_external.body_md を優先、無ければ monthly_reports.final_content にフォールバック
   let submissionBody: string | null = null;
   let submissionGeneratedAt: string | null = null;
+  let submissionMemberIdentities: MemberIdentity[] = [];
   if (isSubmission) {
     // 本文には PJ メンバー外の AMD メンバーが登場することもあるため、提出版の
     // 匿名化辞書は当該 PJ の担当者だけでなく members 全体から作る。
     const submissionMemberRes = await db.from("members").select("code_name,member_name");
-    const memberIdentities = (submissionMemberRes.data || memberNameRes.data || []) as MemberIdentity[];
+    submissionMemberIdentities = (submissionMemberRes.data || memberNameRes.data || []) as MemberIdentity[];
     const externalRes = await db.from("monthly_reports_external")
       .select("body_md,generated_at,generated_by_model,jargon_check_status")
       .eq("project_id", projectId).eq("ym", toHyphenYm(ymStr)).maybeSingle();
     if (externalRes.data?.body_md) {
-      submissionBody = normalizeJargonForSubmission(externalRes.data.body_md, memberIdentities);
+      submissionBody = normalizeJargonForSubmission(externalRes.data.body_md, submissionMemberIdentities);
       submissionGeneratedAt = externalRes.data.generated_at || null;
     } else {
       const fallbackBody = repRes.data?.final_content || repRes.data?.draft_content || "";
-      submissionBody = fallbackBody ? normalizeJargonForSubmission(fallbackBody, memberIdentities) : null;
+      submissionBody = fallbackBody ? normalizeJargonForSubmission(fallbackBody, submissionMemberIdentities) : null;
     }
   }
 
@@ -577,7 +588,7 @@ export async function GET(req: NextRequest) {
     })(),
   };
 
-  return NextResponse.json({
+  const responsePayload = {
     ok: true,
     generatedAt: new Date().toISOString(),
     project: {
@@ -660,5 +671,8 @@ export async function GET(req: NextRequest) {
       contractDocs,
     },
     sourceCheck,
-  });
+  };
+  return NextResponse.json(isSubmission
+    ? normalizeSubmissionPayload(responsePayload, submissionMemberIdentities)
+    : responsePayload);
 }
