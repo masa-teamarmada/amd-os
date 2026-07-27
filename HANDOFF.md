@@ -20,6 +20,7 @@ Topic: admin月初合意の対象月選択と202606「対象外」説明のclose
 - accepted HEAD / `origin/main`: `c760851c` (`fix(pwa): select monthly agreement month`)
 - local main: ahead 0 / behind 0 at this handoff snapshot
 - production: `v3.51.3` / `git_sha=c760851c8be7bc4c4570ca144580bf5c2cb00a4c` / `git_branch=main` / `dirty=false`
+- shared checkoutの未コミットWIPでは `pwa/src/lib/build-info.ts` が `v3.51.5` になっているが、これは本番へ反映していない別作業の値。受領済みproduction versionは `v3.51.3` のまま。
 - production URL: `https://amd-os-pwa.vercel.app`
 - registered worktree: root 1件。今回のセッションで新規branch/worktreeは作っていない。
 
@@ -27,9 +28,9 @@ Topic: admin月初合意の対象月選択と202606「対象外」説明のclose
 
 別 worker の「予定額変更理由」実装が、現在のshared checkoutに未コミットで残っている。今回のプルダウンcommit・本番反映には含めていない。対象は `pwa/design/FEATURE_REGISTRY.md`、`pwa/design/db_schema.md`、`pwa/manual/6-6-member-billing-prompts-spec.md`、`pwa/manual/9-3-appendix-changelog.md`、`pwa/scripts/check_monthly_agreement_diff.mts`、`pwa/scripts/check_pwa_critical_ui.cjs`、`pwa/spec/3-14-monthly-work-agreement-current-spec.md`、`pwa/spec/6-1-appendix-changelog.md`、月初合意の画面/API/コンポーネント/lib一式、および未追跡の `pwa/scripts/migrations/197_member_monthly_work_agreement_amount_change_reasons.sql` と `pwa/src/app/api/admin/monthly-work-agreements/amount-change-reasons/route.ts`。
 
-このsnapshot後に別のSX画面作業由来と見られる `pwa/src/components/cockpit/CockpitBusinessPlan.tsx` と `pwa/src/lib/sx-business-plan.ts` の未コミット差分も現れた。月初合意WIPとは別ownerとして扱い、同じくstage・revert・cleanしない。
+このsnapshot後に別のSX画面作業由来と見られる `pwa/design/cockpit.md`、`pwa/manual/2-3-pj-cockpit.md`、`pwa/spec/3-8-cockpit-current-spec.md`、`pwa/src/components/cockpit/CapitalPlanMatrix.tsx`、`pwa/src/components/cockpit/CockpitBusinessPlan.tsx`、`pwa/src/lib/sx-business-plan.ts` などの未コミット差分も現れた。月初合意WIPとは別ownerとして扱い、同じくstage・revert・cleanしない。
 
-所有者は同時実行された月初合意理由入力 worker（現時点で稼働表示なし）と推定する。次の担当は、その worker を再開するか、まさが採否を判断するまで、これらをstage・revert・cleanしない。採用するなら全差分を読んでmigration、型、画面、合意API、重要UI検査、buildをまとめて再検証し、`v3.51.4`以降へpatch bumpしてから別commit・deployする。
+所有者は同時実行された月初合意理由入力 worker とSX画面 worker（現時点でroot側の稼働表示なし）と推定する。次の担当は各workerを再開するか、まさが採否を判断するまで、これらをstage・revert・cleanしない。採用するなら全差分を読んでmigration、型、画面、合意API、重要UI検査、buildをまとめて再検証し、本番`v3.51.3`より新しいbuild versionへ整理してから別commit・deployする。
 
 ## Unresolved Tasks
 
