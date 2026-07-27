@@ -1960,9 +1960,9 @@ function MsBarRow({
 
   return (
     <div className="mb-2">
-      <div className="flex gap-3 items-stretch">
+      <div className="flex flex-col gap-3 items-stretch sm:flex-row">
         {/* 左: 進捗バー */}
-        <div className="w-[520px] shrink-0 bg-muted/20 rounded-lg px-3 py-2">
+        <div className="w-full min-w-0 bg-muted/20 rounded-lg px-3 py-2 sm:w-[520px] sm:shrink-0">
           <div className="mb-1.5">
             <div className="flex items-start gap-2">
               <span className="min-w-0 flex-1 text-[12px] font-medium leading-snug break-words">
