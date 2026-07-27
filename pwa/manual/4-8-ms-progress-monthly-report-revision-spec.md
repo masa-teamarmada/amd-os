@@ -265,7 +265,7 @@ confirm されたら `monthly_reports.draft_content` を `revised_content` で�
 
 | ブロック | 内容 |
 |---|---|
-| 月次報告書 | `monthly_reports.draft_content` / `final_content`、`社内版`の直接編集・保存・確定、`提出版`の印刷表示 |
+| 月次報告書 | `monthly_reports.draft_content` / `final_content`。`社内版`/`提出版`は同格の印刷表示リンク (`template=internal`/`submission`)、`本文を編集`は別操作で社内版本文の直接編集・保存・確定パネルを開閉 |
 | MS 進捗 (per-MS) | `milestone_monthly_progress.progress_pct`、 cumulative bar、 修正依頼ボタン |
 | MTG サマリ (当月) | `project_meeting_summaries` で当月 ym のもの |
 | 経営ハイライト (当月) | `project_strategy_signals` で当月 ym のもの |

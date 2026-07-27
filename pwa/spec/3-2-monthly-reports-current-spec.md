@@ -160,8 +160,9 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 |---|---|
 | `GET /api/project/monthly-report-print?projectId=&ym=` | 章 §01-§07 全ブロックを 1 fetch で返す集約 route。requireAdmin、列名は `pwa/design/db_schema.md` 準拠。**メンバー名は `members.member_name` (本名) を優先、空なら `members.code_name`** |
 | `/(app)/project/[projectId]/report/[ym]/print` | 集約 JSON を Team ARMADA ブランド (Work Sans / Noto Sans JP / JetBrains Mono / dark #0a1628) で A4 縦に表示。`@page A4 / margin 14mm 14mm 18mm 14mm`、各 sheet を `page-break-after: always` で章分離。`@page` の top-left に 機関名+期間、top-right に「取扱注意 / Confidential」、bottom-left に コピーライト、bottom-center に Page X/Y を CSS で自動付与 |
+| Cockpit 月次モーダルヘッダの `社内版` リンク | `template=internal` で新規タブに印刷ビューを開く。総合判定・MS前月/当月/差分表・ガント・体制・次月計画を可視化した社内レビュー帳票。`提出版` と同格のリンク操作 |
 | Cockpit 月次モーダルヘッダの `提出版` リンク | `template=submission` で新規タブに印刷ビューを開く。ユーザーは Cmd+P → 「PDFとして保存」(余白=既定 / 背景のグラフィック=ON / A4縦) |
-| Cockpit 月次モーダルヘッダの `社内版` ボタン | 固定8見出し本文の閲覧・直接編集・保存・確定 panel を開閉する。生成・再生成・AI修正は置かない |
+| Cockpit 月次モーダルヘッダの `本文を編集` ボタン | `社内版` リンクとは別の第三操作。固定8見出し本文 (社内版本文、`社内版` 帳票が参照する Markdown) の直接編集・保存・確定 panel を開閉する。開くと二段階クリックを挟まず直接編集状態に入る。生成・再生成・AI修正は置かない |
 
 画面上の編集・保存・確定は LLM を呼ばない。旧 `/api/report/generate` と `/api/monthly-report/edit-by-tsukuyomi` は従量課金事故を防ぐため 410 で停止する。自動生成は月末最終日の `amd-os-l2m1-monthly-report` に一本化する。
 

@@ -136,6 +136,10 @@ expectIncludes("src/components/cockpit/CockpitMonthlyModal.tsx", [
   "PATCH",
   "break-words",
   "scheduleLabel",
+  "INTERNAL_TEMPLATE",
+  "SUBMISSION_TEMPLATE",
+  "社内版本文",
+  "startEditing",
 ]);
 
 expectIncludes("src/app/api/progress/events/route.ts", [

@@ -16,6 +16,7 @@ import {
 // 画面上の名称は全PJで「社内版」「提出版」に固定する。
 // 提出先ごとの事情は本文と帳票データが担い、操作ラベルへ漏らさない。
 const SUBMISSION_TEMPLATE = "submission";
+const INTERNAL_TEMPLATE = "internal";
 
 // ─── 型定義 ─────────────────────────────────────────────────────────────────
 
@@ -821,19 +822,16 @@ export function CockpitMonthlyModal({
             {isFuture && (
               <span className="text-xs text-muted-foreground">(予定)</span>
             )}
-            <div className="ml-auto flex items-center gap-2">
-              <button
-                onClick={() => setReportEditorOpen((v) => !v)}
-                aria-expanded={reportEditorOpen}
-                className={`min-h-11 text-xs px-3 py-2 rounded-md border transition-colors ${
-                  reportEditorOpen
-                    ? "border-foreground bg-foreground text-background"
-                    : "border-border text-foreground hover:bg-accent"
-                }`}
-                title={reportEditorOpen ? "社内版を閉じる" : "社内版を表示する"}
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              <a
+                href={`/project/${projectId}/report/${ym}/print?template=${INTERNAL_TEMPLATE}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex min-h-11 items-center text-xs px-3 py-2 rounded-md border border-border text-foreground hover:bg-accent transition-colors"
+                title="社内版を新しいタブで開く"
               >
                 社内版
-              </button>
+              </a>
               <a
                 href={`/project/${projectId}/report/${ym}/print?template=${SUBMISSION_TEMPLATE}`}
                 target="_blank"
@@ -843,6 +841,18 @@ export function CockpitMonthlyModal({
               >
                 提出版
               </a>
+              <button
+                onClick={() => setReportEditorOpen((v) => !v)}
+                aria-expanded={reportEditorOpen}
+                className={`min-h-11 text-xs px-3 py-2 rounded-md border transition-colors ${
+                  reportEditorOpen
+                    ? "border-foreground bg-foreground text-background"
+                    : "border-border text-foreground hover:bg-accent"
+                }`}
+                title={reportEditorOpen ? "本文編集を閉じる" : "社内版本文を編集する"}
+              >
+                本文を編集
+              </button>
             </div>
           </DialogTitle>
         </DialogHeader>
@@ -851,8 +861,8 @@ export function CockpitMonthlyModal({
           <div className="min-w-0 border border-border rounded-lg p-4 mb-4 bg-muted/20">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <h3 className="text-sm font-semibold">社内版</h3>
-                <p className="mt-0.5 text-xs text-muted-foreground">社内の判断材料として残す月次報告書</p>
+                <h3 className="text-sm font-semibold">社内版本文</h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">社内版の可視化帳票（総合判定・MS進捗表・ガント・体制・次月計画）はこの本文を参照して生成される</p>
               </div>
               <button
                 onClick={() => setReportEditorOpen(false)}
@@ -861,7 +871,7 @@ export function CockpitMonthlyModal({
                 閉じる ✕
               </button>
             </div>
-            <ReportTab report={report} projectId={projectId} ym={ym} />
+            <ReportTab report={report} projectId={projectId} ym={ym} startEditing />
           </div>
         )}
 
@@ -2919,10 +2929,20 @@ function MemberPayoutSection({
 
 // ─── ReportTab ───────────────────────────────────────────────────────────────
 
-function ReportTab({ report, projectId, ym }: { report: Report | null; projectId: string; ym: string }) {
+function ReportTab({
+  report,
+  projectId,
+  ym,
+  startEditing = false,
+}: {
+  report: Report | null;
+  projectId: string;
+  ym: string;
+  startEditing?: boolean;
+}) {
   const [fixing, setFixing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(startEditing);
   const [content, setContent] = useState(report?.finalExcerpt || report?.draftExcerpt || "");
   const [editedContent, setEditedContent] = useState(content);
   const [status, setStatus] = useState(
