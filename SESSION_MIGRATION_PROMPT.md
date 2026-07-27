@@ -4,7 +4,7 @@
 cd /Users/masa/projects/AMD/amd-os
 
 あなたは、株式会社チームアルマダの社内OS「AMD OS」を引き継ぐえいみ。
-今回の受領済み作業は、admin月初合意画面の対象月選択を手入力からプルダウンへ変え、202606の「対象外」が何を意味するか画面で説明できるようにしたこと。これは main と production に反映済みで、次セッションは同じ実装をやり直さない。
+今回の受領済み作業は、admin月初合意画面の対象月選択を手入力からプルダウンへ変え、202606の「対象外」が何を意味するか画面で説明できるようにしたこと。これは `6dd7d130` としてmain・productionへ反映済みで、次セッションは同じ実装をやり直さない。別 worker が予定額変更理由の `0330c547` をlocal mainへ作成したが、未レビュー・未push・未deploy。
 
 ## 最初に読む順
 
@@ -29,9 +29,9 @@ cd /Users/masa/projects/AMD/amd-os
 
 - cwd: `/Users/masa/projects/AMD/amd-os`
 - canonical branch: `main`
-- accepted HEAD / origin/main: `c760851c` / `c760851c`。local main ahead 0 / behind 0。
-- accepted production: `https://amd-os-pwa.vercel.app`、`v3.51.3`、`git_sha=c760851c8be7bc4c4570ca144580bf5c2cb00a4c`、`git_branch=main`、`dirty=false`。
-- shared checkoutの未コミットWIPでは `pwa/src/lib/build-info.ts` が `v3.51.5` になっているが、これは未採用・未反映の別作業。production versionは `v3.51.3` のままなので、次のversionを決めるときはlocal WIP値を鵜呑みにせず、採用範囲とmainの最新値を確認する。
+- deployed canonical HEAD / origin/main: `6dd7d130` / `6dd7d130`。local HEADは`0330c547`でahead 1、未push・未deploy。
+- accepted production: `https://amd-os-pwa.vercel.app`、`v3.51.3`、`git_sha=6dd7d1307e85179d6a2cd521d82fdd686827b4fe`、`git_branch=main`、`dirty=false`。
+- local `pwa/src/lib/build-info.ts` はcommit上で`v3.51.4`、SX WIPの未コミット差分では`v3.51.5`。productionは`v3.51.3`のままなので、0330c547を採用する場合もlocal値を鵜呑みにせず、レビュー後にversionを確定する。
 - accepted commit: `c760851c fix(pwa): select monthly agreement month`
 - 対象月は日本語表記のプルダウン。2020年1月から現在月の12か月先まで選択できる。
 - 2026年6月以前の表示には「月初合意の導入前・移行月。合意保存不要・未合意による支払い停止なし」の説明が出る。
@@ -44,13 +44,13 @@ shared checkoutには、別 worker の「予定額変更理由」実装が未コ
 
 このsnapshot後に、別のSX画面作業由来と見られる `pwa/design/cockpit.md`、`pwa/manual/2-3-pj-cockpit.md`、`pwa/spec/3-8-cockpit-current-spec.md`、`pwa/src/components/cockpit/CapitalPlanMatrix.tsx`、`pwa/src/components/cockpit/CockpitBusinessPlan.tsx`、`pwa/src/lib/sx-business-plan.ts` などの未コミット差分も現れた。月初合意WIPとは別ownerとして、採否・commit・破棄を別closeoutで扱う。
 
-これは今回のプルダウンcommit・本番deployには含まれていない。所有者は同時実行された月初合意理由入力 workerとSX画面 workerと推定する。次の判断は「採用して別commitへ進める」か「まさの明示判断後にrecoverableな形で破棄する」か。`git reset --hard`、`git checkout --`、`git clean`、`git add .`は禁止。採用する場合は、まず現行mainとの差分全体を読み、migration適用状況、`npm run test:monthly-agreement-diff`、`npm run test:critical-ui`、`npx tsc --noEmit`、対象eslint、`npm run build`を通し、本番`v3.51.3`より新しいbuild versionへ整理してから、対象ファイルだけをstageしてcommitし、deploy scriptで本番反映する。
+これは今回のプルダウンcommit・本番deployには含まれていない。`0330c547`はlocal mainへcommit済みだが、予定額変更理由の保存と合意停止を含むため、まさの採否判断なしにpushしない。SX画面WIPも別ownerとして扱う。採用する場合は、まず現行mainとの差分全体を読み、migration適用状況、`npm run test:monthly-agreement-diff`、`npm run test:critical-ui`、`npx tsc --noEmit`、対象eslint、`npm run build`を通し、production`v3.51.3`より新しいbuild versionへ整理してからdeployする。
 
 ## 次タスク
 
-1. 開始時に `git status -sb --untracked-files=all`、`git diff --stat`、`git diff --name-only --diff-filter=U`、`curl -fsS https://amd-os-pwa.vercel.app/api/build-info` をread-onlyで確認する。
-2. 予定額変更理由WIPを続けるなら、まず全差分とDB schema/migrationをレビューする。変更理由は自動推測せず、現在snapshotに紐づく人間の理由だけを保存する設計なので、合意APIとadmin画面の両側のblocking契約を確認する。
-3. 採用しない場合は、対象ファイルを所有者と照合してから、まさの判断を取り、recoverableな保全または安全な削除を別closeoutで行う。今回のセッションでは触らない。
+1. 開始時に `git status -sb --untracked-files=all`、`git log --oneline origin/main..HEAD`、`git diff --stat`、`git diff --name-only --diff-filter=U`、`curl -fsS https://amd-os-pwa.vercel.app/api/build-info` をread-onlyで確認する。
+2. `0330c547`を採用するか、まず全commit差分とDB schema/migrationをレビューする。変更理由は自動推測せず、現在snapshotに紐づく人間の理由だけを保存する設計なので、合意APIとadmin画面の両側のblocking契約を確認する。
+3. 採用する場合は、テスト・build・本番versionを確認後、まさの明示判断を得てdeploy scriptでpushする。採用しない場合は、対象commitとWIPを所有者と照合してからrecoverableな保全または安全な削除を別closeoutで行う。
 4. 月選択だけの追加実装は不要。すでにproductionで確認済み。
 
 ## 確立済みの運用ルール
