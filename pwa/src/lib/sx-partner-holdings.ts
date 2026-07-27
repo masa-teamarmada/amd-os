@@ -348,6 +348,8 @@ type GroupablePartner = {
   workItems: SxPartnerWorkItem[];
   commitments: SxPartnerCommitment[];
   deferredLowPriority: boolean;
+  /** 現在ボールの側。当方（sx）ボールは「持ったまま待つ」を許さないため並び順でも前へ出す。 */
+  currentBallSide?: string;
 };
 
 const UNSET_SORT_SENTINEL = "9999-12-31";
@@ -379,7 +381,11 @@ export function sxPartnerHasBlockedHolding(partner: { workItems: SxPartnerWorkIt
  * due date first). Never diverges from sxPartnerDisplaySortKey's date value — only prefixes a tier
  * digit so plain string sort keeps blocked partners at the top regardless of their own due date. */
 export function sxPartnerPrioritySortKey(partner: GroupablePartner): string {
-  return `${sxPartnerHasBlockedHolding(partner) ? "0" : "1"}-${sxPartnerDisplaySortKey(partner)}`;
+  // tier 0 = 停止保有あり、tier 1 = 当方（SX）ボール、tier 2 = その他。
+  // 当方ボールは待ち時間がそのままPJの遅れになるため、期限順より先に持ち上げる（2026-07-25 まさ確定:
+  // 「ボール持ったまま待つことは基本的に許されない」）。
+  const tier = sxPartnerHasBlockedHolding(partner) ? "0" : partner.currentBallSide === "sx" ? "1" : "2";
+  return `${tier}-${sxPartnerDisplaySortKey(partner)}`;
 }
 
 export type SxPartnerGroup<P> = {

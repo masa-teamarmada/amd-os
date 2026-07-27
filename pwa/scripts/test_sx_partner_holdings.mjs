@@ -459,4 +459,23 @@ function partner(overrides = {}) {
   assert.equal(groups[groups.length - 1].roleKind, "customer", "the non-blocked classified group must not be pushed behind the blocked-but-unclassified group");
 }
 
+
+// 当方（SX）ボールのtier: blocked(0) > sxボール(1) > その他(2)。当方ボールは期限が遠くても前へ出る。
+{
+  const base = { dueDate: null, roles: [], workItems: [], commitments: [], deferredLowPriority: false };
+  const blocked = { ...base, dueDate: "2026-12-31", workItems: [{ id: "w1", partnerId: "p", side: "sx", title: "t", ownerLabel: null, status: "blocked", dueDate: null, relatedMilestoneId: null }] };
+  const sxBall = { ...base, dueDate: "2026-12-31", currentBallSide: "sx" };
+  const partnerBall = { ...base, dueDate: "2026-08-01", currentBallSide: "partner" };
+  const keyBlocked = sxPartnerPrioritySortKey(blocked);
+  const keySx = sxPartnerPrioritySortKey(sxBall);
+  const keyPartner = sxPartnerPrioritySortKey(partnerBall);
+  assert.ok(keyBlocked.startsWith("0-"));
+  assert.ok(keySx.startsWith("1-"));
+  assert.ok(keyPartner.startsWith("2-"));
+  // 当方ボール(12/31)が、期限の近い相手側ボール(8/1)より前
+  assert.ok(keySx < keyPartner);
+  // currentBallSide未指定は従来どおりその他tier
+  assert.ok(sxPartnerPrioritySortKey(base).startsWith("2-"));
+}
+
 console.log("sx-partner-holdings tests passed");

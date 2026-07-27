@@ -496,6 +496,8 @@ expectIncludes("src/components/project-workspace/SxProofOutcomes.tsx", [
   // sharedMissingバナー1行へ、7×3マトリクスは既定閉のdetails付録へ。未評価を0%として描かない。
   "sx-proof-card-",
   "sx-proof-shared-missing",
+  "sx-proof-positioning",
+  "位置づけ: 論点・仮説台帳",
   "sharedMissing",
   '"未評価" : `${outcome.evidenceCoveragePct}%`',
   "接続マトリクス（7×3）を表示",
@@ -503,6 +505,13 @@ expectIncludes("src/components/project-workspace/SxProofOutcomes.tsx", [
 expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "sx-partner-pipeline",
   "sxPartnerDisplay",
+  // 2026-07-25 関係の流れ + 当方ボール強調: これまで→現在地→ゴールの一本線（sx-partner-journey）と、
+  // 当方（SX）ボール行の行頭バッジ・赤左罫・並び順tier(blocked>sxボール>他)。
+  "PartnerJourneyFlow",
+  "sx-partner-journey",
+  "関係の流れ（これまで → 現在地 → ゴール）",
+  "当方ボール",
+  'border-l-[#b5533f]',
   // 2026-07-24: 外部PJメンバーにも見えるSX関係先台帳で内部コードネーム(まさ/かる/ちこ)を
   // そのまま出さないための表示専用正規化。この import が落ちると本文/担当/ボール等に
   // コードネームが再露出する (production DOM audit で検出済み)。
@@ -652,6 +661,8 @@ expectIncludes("src/lib/sx-management.ts", [
   'ownerLabel: stringValue(row, "owner_label", "担当未確認"), counterpartyOwner: nullableString(row, "counterparty_owner"), sxOwner: nullableString(row, "sx_owner"), evidence: nullableString(row, "evidence"), nextReviewOn: nullableString(row, "next_review_on"),\n    lastVerifiedAt: stringValue(row, "last_verified_at"), confidence: asConfidence(row.confidence), sourceKind: asSourceKind(row.source_kind), sourceRef: nullableString(row, "source_ref"),',
 ]);
 expectIncludes("src/lib/sx-partner-holdings.ts", [
+  // 2026-07-25: 並び順tier blocked(0) > 当方ボール(1) > その他(2)。当方ボールを期限順より前へ。
+  'currentBallSide === "sx" ? "1" : "2"',
   "sxHoldingsForPartner",
   "sxComputeControlBandCounts",
   "sxPrimaryRoleKindCounts",
@@ -854,7 +865,8 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "onEditMilestone",
   "onCreateMilestone",
   "canManage",
-  "灰バー=仮日程どうしの予測差（実測の遅れではない）",
+  "灰バー=仮置きで予定より後ろ（実際の遅れではない）",
+  "重要経路の順序",
   "担当未確認",
   "日程未登録",
   "aria-pressed",
@@ -890,7 +902,8 @@ expectIncludes("src/lib/sx-executive-control-deck.ts", [
   "sxEcdClassifySlip",
   "isPlaceholderForecastReason",
   '"provisional_slip"',
-  '期限超過なし・仮日程の見込み差',
+  '実際の遅れなし',
+  '仮置きの見込みは予定より最大',
   '"未確認", known: false',
 ]);
 expectIncludes("src/components/project-workspace/ProjectWorkspaceDashboard.tsx", [

@@ -116,13 +116,14 @@ export function sxFormatDelta(deltaDays: number | null, dateCertainty: "confirme
   return deltaDays > 0 ? `${deltaDays}日遅延` : `${Math.abs(deltaDays)}日短縮`;
 }
 
-/** 予定と予測の差を、slip種別つきで人の言葉にする。仮日程どうしの差を「遅延」と言い切らない。 */
+/** 予定と予測の差を、方向が一目で分かる言葉にする（「差」だけでは進みか遅れか読めないため、
+ * 必ず「遅れ/後ろ/前倒し」を言う）。仮日程どうしの差を「遅れ」と言い切らない。 */
 export function sxFormatSlip(deltaDays: number | null, slipKind: "overdue" | "confirmed_slip" | "provisional_slip" | "none") {
   if (slipKind === "overdue") return "期限超過";
   if (deltaDays == null) return "差分未算定";
-  if (slipKind === "confirmed_slip") return `遅延見込み +${deltaDays}日`;
-  if (slipKind === "provisional_slip") return `予測差 +${deltaDays}日（仮）`;
-  return deltaDays === 0 ? "予定どおり" : deltaDays < 0 ? `${Math.abs(deltaDays)}日短縮` : `予測差 +${deltaDays}日`;
+  if (slipKind === "confirmed_slip") return `予定より${deltaDays}日遅れ見込み`;
+  if (slipKind === "provisional_slip") return `予定より${deltaDays}日後ろ（仮置き）`;
+  return deltaDays === 0 ? "予定どおり" : deltaDays < 0 ? `予定より${Math.abs(deltaDays)}日前倒し` : `予定より${deltaDays}日後ろ`;
 }
 
 /** Evidence completeness for a pillar's signal strip: owner / completion criteria / measured KPI / verified confidence. Never averages progress_pct into this. */

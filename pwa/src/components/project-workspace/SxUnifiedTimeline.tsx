@@ -219,16 +219,26 @@ export function SxUnifiedTimeline({
 
               {/* 重要経路の接続線 */}
               {criticalPolyline.length >= 2 && (
-                <svg className="pointer-events-none absolute inset-0 z-[5]" width="100%" height={gridHeight} preserveAspectRatio="none" viewBox={`0 0 100 ${gridHeight}`} aria-hidden="true">
-                  <polyline
-                    points={criticalPolyline.map((point) => `${point.x},${point.y}`).join(" ")}
-                    fill="none"
-                    stroke="#24231f"
-                    strokeWidth="1.2"
-                    strokeDasharray="3 2.2"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                </svg>
+                <>
+                  <svg className="pointer-events-none absolute inset-0 z-[5]" width="100%" height={gridHeight} preserveAspectRatio="none" viewBox={`0 0 100 ${gridHeight}`} aria-hidden="true">
+                    <polyline
+                      points={criticalPolyline.map((point) => `${point.x},${point.y}`).join(" ")}
+                      fill="none"
+                      stroke="#24231f"
+                      strokeWidth="1.2"
+                      strokeDasharray="3 2.2"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  </svg>
+                  {/* 破線が何を意味するかを図中で名乗る（凡例だけに頼らない） */}
+                  <span
+                    className="pointer-events-none absolute z-[6] -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-sm bg-[#fffdf7]/95 px-1 text-[9px] font-semibold text-[#514e47]"
+                    style={{ left: `${(criticalPolyline[0].x + criticalPolyline[1].x) / 2}%`, top: (criticalPolyline[0].y + criticalPolyline[1].y) / 2 }}
+                    aria-hidden="true"
+                  >
+                    重要経路の順序
+                  </span>
+                </>
               )}
 
               {/* ピン行 */}
@@ -272,7 +282,7 @@ export function SxUnifiedTimeline({
 
           {/* 凡例と非表示分の明示 */}
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[9px] text-[#9b9487]">
-            <span>バー=計画（開始→予定） ・ 縦線=予定日 ・ ◇=予測日（中抜き=仮） ・ 橙バー=遅延幅 ・ 太字+黒左罫=重要経路（破線でつながる） ・ 灰バー=仮日程どうしの予測差（実測の遅れではない） / 橙バー=根拠のある遅延見込み / 赤=期限超過 ・ ①ピン=介入の期日（橙=相手側ボール / 黒=当方 / 白抜き=ボール未確認 / 黄リング=月精度）</span>
+            <span>バー=計画（開始→予定） ・ 縦線=予定日 ・ ◇=予測日（中抜き=仮） ・ 灰バー=仮置きで予定より後ろ（実際の遅れではない） / 橙バー=根拠のある遅れ見込み / 赤=期限超過 ・ 太字+黒左罫=重要経路 ・ 破線=重要経路の順序（前のゲートが終わってから次へ進む依存のつながり） ・ ①ピン=介入の期日（橙=相手側ボール / 黒=当方 / 白抜き=ボール未確認 / 黄リング=月精度）</span>
             {(timeline.undatedCount > 0 || timeline.completedCount > 0) && (
               <span className="font-semibold text-[#69665d]">
                 {timeline.undatedCount > 0 ? `日程未登録 ${timeline.undatedCount}件` : ""}{timeline.undatedCount > 0 && timeline.completedCount > 0 ? " ・ " : ""}{timeline.completedCount > 0 ? `完了 ${timeline.completedCount}件` : ""}（下の詳細表で確認）

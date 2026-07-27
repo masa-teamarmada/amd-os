@@ -725,11 +725,11 @@ function issue(overrides = {}) {
     objectiveTargetDate: "2027-03-31",
     funding: { requiredAmount: null, securedAmount: null },
   });
-  // 仮日程どうしの差なので「遅延見込み」とは言い切らない（25/25bの分類と整合）。
-  assert.equal(summary.business.label, "予測差 +28日");
+  // 仮日程どうしの差なので「遅れ」とは言い切らず、実際の遅れ（期限超過0件）を主語にする。
+  assert.equal(summary.business.label, "実際の遅れなし");
   assert.equal(summary.business.tone, "unknown");
   assert.equal(summary.business.provisional, true);
-  assert.equal(summary.business.detail, "期限超過なし・仮日程の見込み差");
+  assert.equal(summary.business.detail, "仮置きの見込みは予定より最大28日後ろ");
   assert.equal(summary.operations.verdictLabel, "判定不能");
   assert.equal(summary.step2.known, false);
   assert.equal(summary.step2.label, "未確認");
@@ -906,9 +906,9 @@ function issue(overrides = {}) {
     judgment: { key: "unassessed", dagValid: true, completenessPct: 51, criticalUnknownCount: 21, blockedCount: 0 },
     criticalPathSlugs: ["a"], milestones: [seeded], tracks: [], objectiveTargetDate: null, funding: null,
   });
-  assert.equal(provisionalOnly.business.label, "予測差 +7日");
+  assert.equal(provisionalOnly.business.label, "実際の遅れなし");
   assert.equal(provisionalOnly.business.tone, "unknown");
-  assert.equal(provisionalOnly.business.detail, "期限超過なし・仮日程の見込み差");
+  assert.equal(provisionalOnly.business.detail, "仮置きの見込みは予定より最大7日後ろ");
   assert.equal(provisionalOnly.business.provisional, true);
 
   // 根拠のある見直しは従来どおり「遅延見込み」でamber
@@ -919,7 +919,7 @@ function issue(overrides = {}) {
     milestones: [milestone({ id: "m1", slug: "a", status: "attention", confidence: "high", plannedEnd: "2026-08-07", forecastEnd: "2026-08-21", deltaDays: 14, dateCertainty: "confirmed", forecastChangeReason: "候補先の回答遅れ" })],
     tracks: [], objectiveTargetDate: null, funding: null,
   });
-  assert.equal(confirmed.business.label, "遅延見込み +14日");
+  assert.equal(confirmed.business.label, "予定より最大14日遅れ見込み");
   assert.equal(confirmed.business.tone, "warn");
   assert.equal(confirmed.business.provisional, false);
 }

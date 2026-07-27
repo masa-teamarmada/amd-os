@@ -177,8 +177,8 @@ function InterventionRowDesktop({ row, rank, onSelectMilestone }: { row: SxEcdIn
           </span>
           <span className="block truncate text-[10px] text-[#8c3329]">{INTERVENTION_KIND_LABEL[row.kind]}</span>
         </span>
-        <span className="min-w-0 truncate text-[#514e47]" title={ballDisplay(row.ballSide, row.ballOwner)}>
-          {ballDisplay(row.ballSide, row.ballOwner)}
+        <span className={`min-w-0 truncate ${row.ballSide === "SX側" ? "font-bold text-[#8c3329]" : "text-[#514e47]"}`} title={ballDisplay(row.ballSide, row.ballOwner)}>
+          {row.ballSide === "SX側" ? `当方ボール・${row.ballOwner}` : ballDisplay(row.ballSide, row.ballOwner)}
         </span>
         <span className="whitespace-nowrap text-[#69665d]">
           {blockerDueDisplay(row)}
@@ -217,7 +217,7 @@ function InterventionRowMobile({ row, rank, onSelectMilestone }: { row: SxEcdInt
         </span>
         <span className="flex items-center justify-between gap-2 pl-[26px] text-[10px] text-[#777166]">
           <span className="truncate text-[#8c3329]">{INTERVENTION_KIND_LABEL[row.kind]}</span>
-          <span className="truncate">ボール {ballDisplay(row.ballSide, row.ballOwner)}</span>
+          <span className={`truncate ${row.ballSide === "SX側" ? "font-bold text-[#8c3329]" : ""}`}>ボール {row.ballSide === "SX側" ? `当方・${row.ballOwner}` : ballDisplay(row.ballSide, row.ballOwner)}</span>
         </span>
       </a>
     </li>

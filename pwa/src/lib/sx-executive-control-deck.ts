@@ -1076,17 +1076,17 @@ export function deriveSxVerdictSummary(params: {
       business = { label: `期限超過 ${overdue.length}件`, tone: "bad", detail: null, provisional: false };
     } else if (confirmedSlips.length > 0) {
       business = {
-        label: `遅延見込み +${maxOf(confirmedSlips)}日`,
+        label: `予定より最大${maxOf(confirmedSlips)}日遅れ見込み`,
         tone: "warn",
         detail: maxPillar && maxPillar.deltaDays > maxOf(confirmedSlips) ? `最大 ${maxPillar.shortLabel}+${maxPillar.deltaDays}日` : null,
         provisional: false,
       };
     } else if (provisionalSlips.length > 0) {
-      // 仮日程どうしの差を「遅延」と言い切らない。期限超過0件であることを同時に示す。
+      // 仮日程どうしの差を「遅れ」と言い切らない。実際の遅れ（期限超過）が0件であることを主語にする。
       business = {
-        label: `予測差 +${maxOf(provisionalSlips)}日`,
+        label: "実際の遅れなし",
         tone: "unknown",
-        detail: "期限超過なし・仮日程の見込み差",
+        detail: `仮置きの見込みは予定より最大${maxOf(provisionalSlips)}日後ろ`,
         provisional: true,
       };
     } else if (!allDatesKnown) {
