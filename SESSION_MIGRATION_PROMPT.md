@@ -29,7 +29,7 @@ cd /Users/masa/projects/AMD/amd-os
 
 - cwd: `/Users/masa/projects/AMD/amd-os`
 - canonical branch: `main`
-- deployed canonical HEAD / origin/main: `6dd7d130` / `6dd7d130`。local HEADは`0330c547`でahead 1、未push・未deploy。
+- deployed canonical HEAD / origin/main: `6dd7d130` / `6dd7d130`。local HEADには`0330c547`と未pushのhandoff更新commit群が積まれている。正確なahead数は次セッション開始時に再確認し、未deployのまま採否判断を待つ。
 - accepted production: `https://amd-os-pwa.vercel.app`、`v3.51.3`、`git_sha=6dd7d1307e85179d6a2cd521d82fdd686827b4fe`、`git_branch=main`、`dirty=false`。
 - local `pwa/src/lib/build-info.ts` はcommit上で`v3.51.4`、SX WIPの未コミット差分では`v3.51.5`。productionは`v3.51.3`のままなので、0330c547を採用する場合もlocal値を鵜呑みにせず、レビュー後にversionを確定する。
 - accepted commit: `c760851c fix(pwa): select monthly agreement month`

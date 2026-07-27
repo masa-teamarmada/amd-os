@@ -19,7 +19,7 @@ Topic: admin月初合意の対象月選択と202606「対象外」説明のclose
 
 - branch: `main`
 - deployed canonical HEAD / `origin/main`: `6dd7d130` (`docs: clarify uncommitted WIP version state`)
-- local HEAD: `0330c547` (`feat(pwa): require amount change reasons for agreements`)、origin/mainよりahead 1。これは未push・未deploy。
+- local HEAD: `0330c547`の予定額変更理由commitと、その上の未push handoff更新commit群。どちらも未deploy。正確なahead数は次セッション開始時に再確認する。
 - production: `v3.51.3` / `git_sha=6dd7d1307e85179d6a2cd521d82fdd686827b4fe` / `git_branch=main` / `dirty=false`
 - local `pwa/src/lib/build-info.ts` はcommit上で`v3.51.4`、さらにSX WIPの未コミット差分で現在は`v3.51.5`。どちらもproductionへ未反映。
 - production URL: `https://amd-os-pwa.vercel.app`
