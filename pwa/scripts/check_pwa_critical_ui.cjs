@@ -118,7 +118,7 @@ expectIncludes("src/app/(app)/project/[projectId]/navigation/page.tsx", [
   "buildSxNavigationViewModel",
   "hasData",
   "/navigation",
-  "成立条件ナビゲーション - AMD OS",
+  "PJ管制ダッシュボード - AMD OS",
 ]);
 
 expectIncludes("src/components/nav/AppShell.tsx", [
@@ -126,40 +126,37 @@ expectIncludes("src/components/nav/AppShell.tsx", [
 ]);
 
 expectIncludes("src/components/nav/PageTitleSetter.tsx", [
-  "成立条件ナビゲーション",
+  "PJ管制ダッシュボード",
 ]);
 
 expectIncludes("src/app/(app)/layout.tsx", [
-  "成立条件ナビゲーション",
+  "PJ管制ダッシュボード",
 ]);
 
-expectIncludes("src/lib/sx-navigation.ts", [
+expectIncludes("src/lib/sx-navigation-v2.ts", [
   "export function buildSxNavigationViewModel",
-  "export function navHeadline",
-  "export function buildNavMilestoneNode",
-  "export function buildNavCriticalPath",
-  "export function buildNavPartnerJourney",
-  "export function buildNavConstraintFlags",
-  "export function buildNavPendingDecisions",
+  "export type NavRow",
+  "export type NavBar",
+  "export type NavDependencyEdge",
+  "export const NAV_PARTNER_STAGE_ORDER",
   "forecastSlipCount",
-  "baselineSegment",
-  "slipSegment",
+  "delaySegment",
   "pulledInDays",
-  "接続余白未算定",
-  "役割未分類",
-  "表示ラベル由来",
+  "critical_group",
+  "pillar_group",
+  "DY_PARENT_TEST_SLUG",
 ]);
 
 expectIncludes("src/components/project-navigation/SxNavigationDashboard.tsx", [
-  "依存航路",
-  "予測差分（対計画）",
-  "クリティカルパス",
-  "関係先リスト",
-  "制約ボード",
-  "判断待ちと直近変化",
+  "階層WBSガント",
+  "最大遅延（対計画）",
+  "次に詰まる工程",
+  "関係先比較レーン",
+  "CRIT",
 ]);
 
 expectNotIncludes("src/components/project-navigation/SxNavigationDashboard.tsx", [
+  "依存航路",
   "@/lib/project-workspace",
   "@/lib/sx-management",
 ]);

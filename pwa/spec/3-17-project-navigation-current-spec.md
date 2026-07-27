@@ -1,69 +1,77 @@
-# 成立条件ナビゲーション画面 仕様
+# SX PJ管制ダッシュボード 仕様
 
-> **目的**: 週次会議直前のCOO/PMが、数秒でPJ全体の状況・遅延・クリティカルパス・関係先のボール・次の介入を掴む。計画の再作成や論点の逐次編集を扱う画面ではない（それは `/workspace` と `/weekly-control` の役割）。
+> **目的**: COO/PMが、PJ全体の現在地、遅延、重要経路、技術試験、論点、関係先の進行を一目で比較し、同じ画面から必要な管理情報を更新できるようにする。
 
 ## 正本境界
 
-- 新画面は `/project/[projectId]/navigation`。
-- 既存の `/project/[projectId]/workspace`（統合ワークスペース）・`/project/[projectId]/weekly-control`（週次管制）は変更・置換しない。UIファイルも流用しない — `src/components/project-navigation/` に完全独立した視覚コンポーネントを持つ。
-- データ正本は既存の `sxManagement`（`getSxManagementBundle` / `SxManagementBundle`）。DB migration・API追加はしない。
-- DBにない予定日・成立条件は捏造しない。日付不足やDAG不成立は「未評価」「日付未設定」「接続余白未算定」等で明示する。
+- URLは `/project/[projectId]/navigation`。既存の `/workspace` と `/weekly-control` は置換しない。
+- 表示・入力の正本は既存の `project_management_*`。別の進捗台帳を作らない。
+- データ取得は `getProjectWorkspaceBundle()`、追加・更新は既存の `/api/project-workspace/[projectId]/management` を使う。
+- `src/lib/sx-navigation-v2.ts` の `buildSxNavigationViewModelV2()` がRSC境界を越える唯一の表示モデル。画面に不要な連絡先、契約原文、報酬、source URL、内部メモはClient Componentへ渡さない。
+- DBにない日付・進捗・合意・技術試験結果は推測しない。「未評価」「未設定」「未測定」で閉じる。
 
-## Route / Auth / RSC境界
+## 読み順
 
-| 項目 | contract |
-|---|---|
-| page | `src/app/(app)/project/[projectId]/navigation/page.tsx` |
-| view | `SxNavigationDashboard`（`src/components/project-navigation/SxNavigationDashboard.tsx`） |
-| auth | `getCurrentMemberAccess()`。未ログインは同URLを `next` に保持してloginへ送る |
-| PJ境界 | `getProjectWorkspaceBundle(projectId, access)` と `projectScopedPathAllowed()`。PJ限定ユーザーは所属PJだけ閲覧可 |
-| データ有無 | `bundle.sxManagement.hasData` が false なら `notFound()`。特定PJ IDのハードコードはしない |
-| shell | `/workspace` `/weekly-control` と同じ埋め込みshell。月初合意overlayの対象外 |
-| 導出層 | `src/lib/sx-navigation.ts`（server-only import なし・型のみ借用のplain module。テスト用nodeスクリプトからも安全に読める） |
+1. **PJ判定帯**: 予定内 / 要介入 / 判定不能、最終ゲート、次の期限、最大の詰まり、計画比の最大遅延、判断待ち件数を1本の帯で読む。
+2. **階層WBSガント**: 重要経路と4本柱を同じ時間軸で俯瞰し、柱を展開してマイルストーン、技術試験、論点、履歴へ掘る。
+3. **選択詳細・入力**: 選んだ工程や論点を右ペインで読み、その場で追加・更新する。
+4. **関係先比較レーン**: 全機関を同じ7段階軸で比較し、遅れ・現在ボール・期限・目標状態を横に見比べる。
 
-### RSC最小化（重要）
+## 階層WBSガント
 
-`page.tsx` は `ProjectWorkspaceBundle` / `CurrentMemberAccess` をそのまま Client Component へ渡さない。`sx-navigation.ts` の `buildSxNavigationViewModel({ project, sxManagement })` が唯一の窓口で、画面が必要とする最小フィールドだけを持つ `SxNavigationViewModel` を組み立てて渡す。
+- 初期表示は「重要経路」を展開し、4本柱は各柱の期間を示す要約バーで畳む。全体を俯瞰した後、必要な柱だけ展開する。
+- 階層は `重要経路 / 4本柱 → マイルストーン → 技術試験・論点・履歴イベント`。
+- 1タスクにつきバーは1本だけ。薄いバーを予定期間、バー内の縦線を予定終了日、青緑の縦線を登録済み進捗位置、末尾の赤い区間を予測遅延として表す。二段の積み上げ棒は使わない。
+- 進捗率はバーだけに依存せず、行名の横へ数値表示する。未登録を0%と断定しない。
+- 重要経路は専用グループ、赤い左レール、各行の `CRITICAL` 表記で色以外にも明示する。
+- 重要経路の接続線は `M H V H` の直角線だけを使う。曲線、斜線、装飾的な航路表現は使わない。
+- 日程のない技術試験・論点・履歴は、確認日があれば時点マーカー、なければ「日程未設定」と表示する。
+- ガント内部だけ横スクロールを許し、ページ全体の横溢れは禁止する。
 
-- `SxNavigationDashboard` は `@/lib/sx-navigation` 以外（`@/lib/project-workspace` / `@/lib/sx-management`）を **type-onlyでもimportしない**。
-- `SxNavigationViewModel` に含めるもの: `projectId` / `projectName` / `asOf` / `hasData` / `dataIssues` / `headline` / `timelineScale`(関数を持たないserializable版・軸目盛り事前計算済み) / `nodes` / `edges` / `criticalPath` / `partners` / `constraintFlags` / `pendingDecisions`(id/title/dueDate/ownerLabel/isThisWeekのみ) / `recentChanges`。
-- 含めないもの: `sourceRef`、メンバー名簿・email、工数(`effort`)、`evidenceBySource`、契約・報酬、意思決定の `context`/`rationale`/`decisionText`、直近変化の更新者(`changedBy`)。
-- `NavTimelineScale`（内部計算用、`pct` 関数を持つ）と `NavTimelineScaleView`（画面へ渡すserializable版、`axisTicks` 事前計算済み）を区別する。関数をpropsやRSC payloadへ絶対に混ぜない。
+## 技術開発の事実境界
 
-## 画面構成
+- リアクター構成の履歴には `6/24確認: マニホールド型を現行ラインから除外` と表示する。6/24を開発停止日と断定しない。
+- ジスプロシウム回収は「吸着可能性が見えた」を現在確認済みの根拠とする。
+- 実排液選択性、酸脱着、1/3/5サイクル耐久は別試験として表示し、結果未確認の段階では `計画` / `未測定` とする。
+- 技術試験は試験条件、目標、実測、反復、TRL判定基準、根拠、測定日、担当、確度を編集できる。
 
-1. **小さなヘッダ**: PJ名、基準日、主要警告表示（`未確認・更新切れN件` / `主要警告0件`）、`/workspace` `/weekly-control` への副導線。警告0件を台帳全体の整合済みとは断定しない。
-2. **一目判定帯**: 予定内/要介入/判定不能（`SxJudgment.key` の3値集約: `on_track→予定内`、`attention・crisis→要介入`、`unassessed→判定不能`）＋最終ゲート＋次の期限＋最大ボトルネック＋**予測差分（対計画）**＋判断待ち件数を、単一の読み上げ帯（KPIカードの寄せ集めにしない）で表示する。
-   - **予測差分は判定信頼度と独立した軸**。全マイルストーンが `unassessed`（判定不能）でも、`plannedEnd`→`forecastEnd` の乖離だけは `forecastComparableCount` / `forecastSlipCount` / `maxForecastSlipDays` / `maxForecastSlipTitle` として別集計し、「判定不能だから遅延も分からない」という見落としを防ぐ。比較可能な日付が0件なら「予測遅延なし」と断定せず「予測差分未算定」とする。
-3. **依存航路（全体依存ガント）**: `sxManagement.milestones` と `dependencies` / `judgment.criticalPathSlugs` を正本にする。
-   - 節点は基準計画(`baselineSegment` = plannedStart〜plannedEnd)・完了帯(`completeSegment`)・**予測延伸**(`slipSegment` = plannedEnd〜forecastEnd、計画を超えて延びた分だけを独立レイヤーで可視化。`+N日` ラベルと `aria-label` を持つ)・**前倒し**(`pulledInDays`、forecastEndが計画より早い場合の日数、延伸と別扱いで小さいマーカーのみ)を区別する。
-   - 依存線は重要経路(実線・太・green)と前提のつながり(破線・細・quiet)を区別。track はレーン分類として控えめに使う（色チップのみ、大きなカード化はしない）。
-   - 横スクロールはガント内部（`ganttScrollOuter`）だけ。ラベル列は別カラムで固定し、ページ全体は横溢れしない。
-   - 日付不足の節点は線を捏造せず「日程未設定」と表示する。
-4. **クリティカルパス**: 順序・次に詰まる節点・遅延理由・次工程との接続余白。連続する重要経路ノード間の接続余白（次ノードのplannedStart − 自ノードのforecastEnd − lag）が算出できる時だけ日数を出す。これはCPMの総余裕とは呼ばない。算出不能なら「接続余白未算定」、DAG不成立時は数値を一切出さず「DAG不成立」と明示する。
-5. **関係先リスト（全件表示・検索・役割グルーピング）**:
-   - 表示順序は **識別 → 完了済み/直近接点 → 現在（関係段階・ボール） → 次の受け渡し → 期限・目標**。
-   - **完了済みとinteractionsを混同しない**: `completedSteps` は完了済み commitment/workItem だけから構成する。直近のやり取り(`latestInteraction`)は別フィールドとして常に独立表示し、完了扱いに混ぜない。
-   - **役割グルーピングは捏造しない**: primary role（`partner.roles` の `isPrimary`、無ければ先頭）があれば `roleKind × relationshipState` の構造化ラベルでグルーピングする。primary roleが無い場合、自由記述の `roleLabel` に「PoC候補」「PoC接触」が明記されている時だけ `PoC候補・接触（表示ラベル由来）` とし、由来が表示ラベルであることを明示する。それ以外は正式分類を作らず「役割未分類」とする（`groupKind`: `structured_role` / `display_label_poc` / `unclassified`）。
-   - **現在状態にrelationship stageを含める**: `currentStateLabel` は関係段階(`候補`〜`実行中`〜`保留`)とボール(`当方`/`先方`/`共同`/`未確認`)を合成する。合意状態(`agreementState`)はDB値をそのまま表示し、段階から逆算・推測しない。
-   - デフォルトで全件表示（56件規模でも省略しない）。役割グループ見出し＋件数、検索input（名称・役割・分類で絞り込み）を持つ。行は最小44pxのタップ領域。
-   - 当方がボールを持つ行は左に赤罫線で強調し、優先度の高い順（保留でない ＞ 当方ボール ＞ 期限順）に並べる。
-6. **制約ボード**: `capacity` / `organizationRoles` / `fundingSnapshots` / `technicalTests` から研究開発人員・資金・技術証明の制約を可視化。データが無ければ `unknown`、根拠なしの順位付けはしない（カテゴリ間の優劣は付けない）。
-7. **判断待ちと直近変化**: `decisions`（open のみ、`id`/`title`/`dueDate`/`ownerLabel`/`isThisWeek` の最小フィールド）と `history`/`actions`（完了分）を同一面で確認する。
+## 論点・仮説の閉ループ
 
-## レスポンシブ
+- 論点選択時は `論点 → 仮説 → 根拠 / 不足 → 検証 → 判断 → アクション` を同じ詳細ペインに連続表示する。
+- 論点、仮説、証拠、検証、判断、アクションは既存行の編集と新規追加の両方を提供する。
+- 判断後も未完了アクションを消さない。アクションには担当、期限、完了条件、次回確認日、状態を持たせる。
+- 事実、仮説、未確認、判断済みを表示上でも混同しない。
 
-- desktop 1440x900: ガントが画面の主役。
-- tablet 768x1024: 関係先リストは1100px未満で1カラムのカード表示へ切り替え、意図した縦積みにする。
-- mobile 390x844: 判定帯→ガント（内部横スクロール、ラベル列は別カラムで固定）→クリティカルパス→関係先カード（1カラム）の順。タップ領域44px以上。
-- `prefers-reduced-motion` 時はtransition/scroll-behaviorを無効化する。すべての選択・強調はaria属性/文言でも判別でき、hover専用の情報は無い。キーボード操作（Tab + Enter/Space）で節点・関係先の選択・相互強調ができる。
+## 関係先比較レーン
 
-## 視覚言語
+- カード文章の羅列ではなく、全関係先を同じ列・同じ7段階軸で1行比較する。
+- 列は `関係先 / 関係段階（1〜7）/ 合意 / 現在ボール / 期限 / 次の約束事 / 目標状態` を基本とし、段階の到達数を `x/7` で併記する。
+- 共通段階は `候補 → 情報交換 → 条件整理 → 面談調整 → 検証準備 → 合意確認 → 実行`。保留は軸外として明示する。
+- 当方ボール、期限超過、保留は文言と罫線で識別する。色だけに依存しない。
+- 名称・役割検索、段階絞り込み、ボール絞り込みを持つ。全件を省略せず表示する。
+- 行選択で、合意済み / 未合意、現在の担当、次の担当、次の約束、期限、目標状態、直近接点、履歴、当方・先方の保有事項、これまでの約束へ掘る。
+- 関係先と保有事項は既存行を編集でき、新規関係先と新規保有事項も追加できる。完了成果物は完了日・証跡・受入担当・受入日を保持する。
 
-- 独自のCSS変数（`navigation.module.css`）: オフホワイト/ラボ白・ステンレス灰・藻類の深緑・水の青緑を基調にし、注意は鈍い琥珀、遅延は酸化赤、未確認は灰青。グラデーション・大きい影は使わない。境界線と面差中心。
-- `<button>` ベースの節点/関係先行は `appearance: none` で明示リセットし、`text-align: left` を明示する。日付・数値は `font-variant-numeric: tabular-nums` を継承する。
+## 手入力と権限
+
+- portfolio/adminだけが入力操作を使える。project scopeは閲覧のみ。
+- 追加対象は `milestone / issue / hypothesis / evidence / validation / decision / action / technical_test / partner / partner_work_item`。
+- 更新対象は上記に加え、既存履歴として表示するevidenceを含む。
+- 入力はモーダルを重ねず、選択中の文脈に埋め込む。保存成功後は `router.refresh()` で正本を読み直す。
+- 日付と日付精度、完了状態と完了証跡など既存management API・DBの整合制約を回避しない。
+
+## レスポンシブとアクセシビリティ
+
+- 1440px: ガントを主面、詳細ペインを右側の固定文脈として並べる。
+- 768px以下: 詳細ペインをガント下へ移し、関係先表は内部横スクロールを許す。
+- 390px: ページ本体を横スクロールさせず、ヘッダ、判定、ガント、入力、関係先の順を維持する。
+- 主要操作は44px以上。行、バー、関係先はTabとEnter/Spaceで選択できる。
+- 最小可視文字は10px。hover専用情報は禁止。状態は文言または記号を併用する。
+- グラデーション、影、過剰な角丸は使わず、罫線と面差で階層を作る。
 
 ## 検証
 
-- `npm run test:sx-navigation`（`scripts/test_sx_navigation.mjs`）: 判定・タイムライン・節点(基準計画/予測延伸/前倒しの分離)・依存線・クリティカルパス・関係先(完了/直近接点の分離・役割グルーピングの捏造禁止)・制約ボード・pending decisionの最小フィールド化・view modelのserializable性（`JSON.stringify` 可能・`sourceRef` 非含有）を検査する。
-- `npm run test:critical-ui`（`scripts/check_pwa_critical_ui.cjs`）: route/component/access/title/shellのanchorを検査する。
+- `npm run test:sx-navigation`: 階層、単一バー、直角重要経路、関係先7段階比較、詳細モデル、機密フィールド非含有、serializable性を検査する。
+- `npm run test:critical-ui`: route、auth、shell、主要UI anchorを検査する。
+- `npx tsc --noEmit` と対象ESLintを通す。
+- 1440 / 768 / 390pxで実ブラウザ確認し、ガントの意味、重要経路、技術試験、論点閉ループ、関係先比較、入力フォームを目視する。

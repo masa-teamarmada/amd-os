@@ -9,7 +9,7 @@ export default function ProjectNavigationLoading() {
           <div className="h-48 animate-pulse rounded border border-[#ccd5d0] bg-white" />
           <div className="h-48 animate-pulse rounded border border-[#ccd5d0] bg-white" />
         </div>
-        <p className="text-sm text-[#57645f]">成立条件ナビゲーションを読み込んでるよ…</p>
+        <p className="text-sm text-[#57645f]">PJ管制ダッシュボードを読み込んでるよ…</p>
       </div>
     </main>
   );

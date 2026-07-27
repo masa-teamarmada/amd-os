@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { SxNavigationDashboard } from "@/components/project-navigation/SxNavigationDashboard";
-import { buildSxNavigationViewModel } from "@/lib/sx-navigation";
+import { buildSxNavigationViewModel } from "@/lib/sx-navigation-v2";
 import {
   getCurrentMemberAccess,
   getProjectWorkspaceBundle,
 } from "@/lib/project-workspace";
 
 export const metadata: Metadata = {
-  title: { absolute: "成立条件ナビゲーション - AMD OS" },
+  title: { absolute: "PJ管制ダッシュボード - AMD OS" },
 };
 
 export default async function ProjectNavigationPage({
