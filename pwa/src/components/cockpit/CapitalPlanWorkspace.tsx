@@ -1479,10 +1479,10 @@ export default function CapitalPlanWorkspace({ projectId, projectName, companyOv
 
       {/* Plan selector / controls */}
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-zinc-200 bg-white p-3">
-        <label className="flex min-h-[44px] items-center gap-2 text-sm">
-          <span className="text-zinc-500">プラン</span>
+        <label className="flex min-h-[44px] w-full min-w-0 items-center gap-2 text-sm sm:w-auto">
+          <span className="shrink-0 text-zinc-500">プラン</span>
           <select
-            className="min-h-[44px] rounded-md border border-zinc-300 px-2 py-1 text-sm"
+            className="min-h-[44px] min-w-0 flex-1 rounded-md border border-zinc-300 px-2 py-1 text-sm sm:flex-none"
             value={selectedPlanId ?? ""}
             onChange={async (e) => {
               const row = plans.find((p) => p.id === e.target.value);
