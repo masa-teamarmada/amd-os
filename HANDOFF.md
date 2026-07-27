@@ -19,9 +19,9 @@ Topic: admin月初合意の対象月選択と202606「対象外」説明のclose
 
 - branch: `main`
 - deployed canonical HEAD / `origin/main`: `6dd7d130` (`docs: clarify uncommitted WIP version state`)
-- local HEAD: `0330c547`、`8d1fbada`、handoff更新commit群の未push commit。`pwa/src/components/monthly-agreement/MonthlyAgreementExperience.tsx` に別worker由来の未コミット差分が残っている。productionには未deploy。正確なahead数は次セッション開始時に再確認する。
+- local HEAD: `0330c547`、`8d1fbada`、`a3b278bb`、handoff更新commit群の未push commit。productionには未deploy。正確なahead数は次セッション開始時に再確認する。
 - production: `v3.51.3` / `git_sha=6dd7d1307e85179d6a2cd521d82fdd686827b4fe` / `git_branch=main` / `dirty=false`
-- local `pwa/src/lib/build-info.ts` は`8d1fbada`上で`v3.51.5`、さらに別workerの未コミット差分で`v3.51.6`。productionへ未反映。
+- local `pwa/src/lib/build-info.ts` は別workerの`a3b278bb`上で`v3.51.6`。productionへ未反映。
 - production URL: `https://amd-os-pwa.vercel.app`
 - registered worktree: root 1件。今回のセッションで新規branch/worktreeは作っていない。
 
@@ -29,7 +29,7 @@ Topic: admin月初合意の対象月選択と202606「対象外」説明のclose
 
 別 worker の「予定額変更理由」実装は `0330c547 feat(pwa): require amount change reasons for agreements` としてcommit済み。SX資金計画画面の変更は `8d1fbada fix(pwa): polish SX capital policy plan` としてcommit済み。いずれも今回のプルダウンcommit・本番反映には含めていない。
 
-`8d1fbada` はSX資金計画画面の表示・判定・検査・仕様同期変更。さらに別workerの未コミット差分として、`pwa/src/components/monthly-agreement/MonthlyAgreementExperience.tsx` の再読み込みボタンの型修正、`pwa/manual/9-3-appendix-changelog.md`、`pwa/spec/6-1-appendix-changelog.md`、`pwa/src/lib/build-info.ts` の更新がある。両commitと未コミット差分とも今回の受領成果と別ownerとして扱い、まさが採否を判断するまでpush・revertしない。
+`8d1fbada` はSX資金計画画面の表示・判定・検査・仕様同期変更。`a3b278bb` は再読み込みボタン型修正・変更履歴・build version更新。3つとも今回の受領成果と別ownerとして扱い、まさが採否を判断するまでpush・revertしない。
 
 所有者は同時実行された月初合意理由入力 worker とSX画面 workerと推定する。次の担当は各commitの全差分をレビューし、まさが採否を判断するまでpush・revertしない。採用する場合はmigration、型、画面、合意API、重要UI検査、buildをまとめて再検証してから別deployする。
 
@@ -65,5 +65,5 @@ Topic: admin月初合意の対象月選択と202606「対象外」説明のclose
 - work type: development
 - durable note: `pwa/design_log/sessions_2026-07.md` と仕様・マニュアルの正本。`design_log/` は開発履歴のため更新した。
 - conflict: なし
-- main alignment: `main integration pending`。`0330c547`がlocal mainにのみ存在し、push/deployにはまさの採否判断が必要。
-- archive state: `do not archive`。unpushed commitと別workerの未コミットWIPが残っているため、所有者の採否判断と別closeoutが必要。
+- main alignment: `main integration pending`。`0330c547`、`8d1fbada`、`a3b278bb`がlocal mainにのみ存在し、push/deployにはまさの採否判断が必要。
+- archive state: `do not archive`。未pushの別workercommitが残っているため、所有者の採否判断と別closeoutが必要。
