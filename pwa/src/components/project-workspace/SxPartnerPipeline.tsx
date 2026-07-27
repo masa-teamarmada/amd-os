@@ -28,7 +28,6 @@ import {
   sxIsHoldingMonthPrecision,
   sxIsHoldingOverdue,
   sxIsPartnerEnded,
-  sxLatestInteraction,
   sxPartnerDisplay,
   sxPartnerHasBlockedHolding,
   sxPartnerRoleKindLabel,
@@ -545,7 +544,7 @@ export function SxPartnerPipeline({
       <CategoryNav counts={roleCounts} activeKind={activeRoleKind} onSelect={setActiveRoleKind} />
 
       <div className={`hidden xl:grid ${rowGridCols} ${rowGapCols} border-b border-[#e4ddd0] bg-[#f8f5ec] px-3 py-1.5 text-[10px] font-semibold text-[#69665d]`}>
-        <span>関係先</span><span>当方の保有事項</span><span>先方の保有事項</span><span>次の一手</span><span>目標状態</span><span>現在ボール・期限</span><span>やり取り履歴</span>
+        <span>関係先</span><span>当方の保有事項</span><span>先方の保有事項</span><span>次の一手</span><span>目標状態</span><span>現在ボール・期限</span><span>関連ゲート・証明</span>
       </div>
       <div className={`grid xl:hidden ${rowGridCols} ${rowGapCols} border-b border-[#e4ddd0] bg-[#f8f5ec] px-3 py-1.5 text-[10px] font-semibold text-[#69665d]`}>
         <span>当方保有</span><span className="text-right">先方保有</span>
@@ -620,10 +619,15 @@ function PartnerJourneyFlow({ partner, displayName }: { partner: SxManagementPar
     const keyB = b.occurredOn ?? b.createdAt.slice(0, 10);
     return keyA.localeCompare(keyB) || a.createdAt.localeCompare(b.createdAt);
   });
+  const workSideLabel = (side: string) => (side === "sx" ? "当方" : side === "partner" ? "先方" : side === "shared" ? "双方" : "担当未確認");
   const ballSideLabel = sxBallSideLabel(partner.currentBallSide);
   const ballOwner = partner.currentBallOwner ? sxNormalizePublicName(partner.currentBallOwner) : "担当未確認";
   const isSxBall = partner.currentBallSide === "sx";
   const nowDue = sxFormatDueDateWithPrecision(partner.dueDate, partner.dueDatePrecision);
+  // 未完了の保有事項＝ゴールまでに通る作業。完了・中止は流れへ出さない（済んだ話を予定に見せない）。
+  const pendingSteps = [...partner.workItems]
+    .filter((item) => item.status !== "completed" && item.status !== "cancelled")
+    .sort((a, b) => (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999"));
   const nowTone = isSxBall
     ? "border-[#b5533f] bg-[#f9e4e1] text-[#8c3329]"
     : partner.currentBallSide === "partner"
@@ -642,6 +646,15 @@ function PartnerJourneyFlow({ partner, displayName }: { partner: SxManagementPar
       title: isSxBall ? `当方ボール: ${ballOwner}` : `${ballSideLabel}ボール: ${ballOwner}`,
       sub: `現在地 ・ ${nowDue === "期限未設定" ? nowDue : `期限 ${nowDue}`}`,
     },
+    // 「これから」は次の一手だけでなく、未完了の保有事項（例: 出資確定の前提であるデューデリジェンス）も
+    // ゴールまでの通過点として並べる。発生した作業を台帳へ足せば、そのまま流れへ現れる
+    // （2026-07-27 まさ指示「デューデリジェンスが必要というのは分かっているので流れに入れて」）。
+    ...pendingSteps.map((item) => ({
+      key: `work-${item.id}`,
+      phase: "next" as const,
+      title: nominalizeSxNextActionLabel(sxNormalizePublicName(item.title)),
+      sub: `これから ・ ${workSideLabel(item.side)}${item.ownerLabel ? ` ${sxNormalizePublicName(item.ownerLabel)}` : ""}`,
+    })),
     {
       key: "next",
       phase: "next" as const,
@@ -829,16 +842,15 @@ function PartnerRow({
         <div className="col-span-2 col-start-1 row-start-6 min-w-0 xl:col-span-1 xl:col-start-7 xl:row-start-1">
           <p className="line-clamp-2 text-[10px] text-[#69665d]">関連ゲート: {milestoneTitles.length > 0 ? milestoneTitles.join(" / ") : "未接続"}</p>
           <p className="mt-1 line-clamp-2 text-[10px] text-[#315f7d]">寄与する証明: {proofLabels.length > 0 ? proofLabels.join(" / ") : "未接続"}</p>
-          <p className="mt-1 line-clamp-2 text-[10px] text-[#514e47]">最新記録: {latestRecordSummary(partner.interactions)}</p>
           <button
             type="button"
             aria-expanded={expanded}
             aria-controls={`sx-partner-history-${partner.id}`}
-            aria-label={`${display.name}の履歴・保有事項の詳細を${expanded ? "閉じる" : "開く"}`}
+            aria-label={`${display.name}の保有事項・やり取り履歴の全文を${expanded ? "閉じる" : "開く"}`}
             onClick={() => onToggleExpand(partner.id)}
             className={`mt-1 inline-flex min-h-11 items-center gap-1 rounded-md border border-[#cfc7b9] px-2 py-1.5 text-[10px] font-semibold text-[#315f7d] hover:bg-[#eef3f5] ${FOCUS_RING}`}
           >
-            履歴 {partner.interactions.length}件 {expanded ? "▾" : "▸"}
+            詳細 {expanded ? "▾" : "▸"}
           </button>
         </div>
       </div>
@@ -883,14 +895,6 @@ function PartnerRow({
       )}
     </article>
   );
-}
-
-/** "最新記録" (latest record), not "最新イベント": occurredOn may be unconfirmed, so this is the most
- * recently known-about interaction by recorded time, not a claim about which event actually happened last. */
-function latestRecordSummary(interactions: SxPartnerInteraction[]) {
-  const latest = sxLatestInteraction(interactions);
-  if (!latest) return "履歴未登録";
-  return `${sxInteractionKindLabel(latest.interactionKind)}: ${sxNormalizePublicName(latest.summary)}`;
 }
 
 /** One full-width ruled row per interaction, fixed h-16 (64px) + overflow-hidden (spec P0-2: 行を

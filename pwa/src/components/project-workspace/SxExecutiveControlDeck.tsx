@@ -104,7 +104,7 @@ const BUSINESS_TONE: Record<SxEcdVerdictSummary["business"]["tone"], string> = {
 };
 
 /** 帯1: 判定バー。業務判定（重要経路の停止・期限超過・遅延見込み）と運用判定（データ充足）を
- * 分け、STEP2消化・設立判断までの残日数を同じ1行で読む。赤系は事業リスクにだけ使う。 */
+ * 分け、STEP2消化・設立までの残日数を同じ1行で読む。赤系は事業リスクにだけ使う。 */
 function VerdictBar({ summary }: { summary: SxEcdVerdictSummary }) {
   return (
     <div className="grid grid-cols-2 border-b border-[#e4ddd0] lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]" data-testid="sx-verdict-bar">
@@ -142,7 +142,7 @@ function VerdictBar({ summary }: { summary: SxEcdVerdictSummary }) {
         {!summary.step2.known && <p className="text-[9px] text-[#9b9487]">内訳: 管理台帳の資金欄（金額未登録）</p>}
       </div>
       <div className="flex min-w-0 flex-col justify-center gap-0.5 px-3 py-1.5">
-        <p className="flex items-center gap-1 text-[9px] font-semibold tracking-[0.12em] text-[#5f4a66]"><Flag className="h-3 w-3" aria-hidden="true" />設立判断まで</p>
+        <p className="flex items-center gap-1 text-[9px] font-semibold tracking-[0.12em] text-[#5f4a66]"><Flag className="h-3 w-3" aria-hidden="true" />設立まで</p>
         <p className="text-[13px] font-bold leading-none text-[#24231f]">
           {summary.countdown.days != null ? `残${summary.countdown.days}日` : "期日未登録"}
           {summary.countdown.targetDate && <span className="ml-1.5 text-[10px] font-semibold text-[#69665d]">{sxFormatDate(summary.countdown.targetDate)}</span>}

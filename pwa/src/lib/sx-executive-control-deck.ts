@@ -64,6 +64,8 @@ export interface SxEcdMilestone {
   plannedStart?: string | null;
   /** 予測日を動かした理由。初期投入の仮置き（理由未確認）と、実際に見直した遅延を区別するために使う。 */
   forecastChangeReason?: string | null;
+  /** 登録済みの進捗率。計画バーを「終わった分」と誤読させないため、進捗はこの値からだけ描く。 */
+  progressPct?: number;
 }
 
 export interface SxEcdTechnicalTest {
@@ -1144,6 +1146,8 @@ export interface SxEcdTimelineRow {
   dateCertainty: "confirmed" | "provisional" | null;
   ownerLabel: string;
   gate: string;
+  /** 登録済みの進捗率（0-100）。未登録・未評価は0のまま。計画期間の長さとは無関係。 */
+  progressPct: number;
 }
 
 export interface SxEcdTimelineLane {
@@ -1292,6 +1296,7 @@ export function deriveSxUnifiedTimeline(params: {
       dateCertainty: milestone.dateCertainty ?? null,
       ownerLabel: isMissingOwnerText(milestone.ownerLabel) ? "担当未確認" : sxNormalizePublicName(milestone.ownerLabel),
       gate: milestone.gate,
+      progressPct: Math.max(0, Math.min(100, milestone.progressPct ?? 0)),
     };
   };
 

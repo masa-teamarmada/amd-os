@@ -79,7 +79,7 @@ export function SxProofOutcomes({ management }: { management: SxManagementBundle
         <p className="text-[10px] text-[#69665d]">TRL5は達成状態を要約する補助ラベル。主経路はこの三つ。</p>
       </div>
       <p className="mt-1 text-[10px] leading-4 text-[#69665d]" data-testid="sx-proof-positioning">
-        位置づけ: 論点・仮説台帳は「何を判断するか」を扱う経営の検証ループ（4本柱すべてが対象）。この面はその技術開発版で、オンサイトPoCへ進む条件を「何を証明できたか」で管理する。実験・検証の結果は下の7テーマの証拠・技術試験としてここへ接続され、3つ揃うと設立判断の技術側の前提が立つ。
+        位置づけ: 論点・仮説台帳は「何を判断するか」を扱う経営の検証ループ（4本柱すべてが対象）。この面はその技術開発版で、オンサイトPoCへ進む条件を「何を証明できたか」で管理する。実験・検証の結果は下の7テーマの証拠・技術試験としてここへ接続され、3つ揃うと設立の技術側の前提が立つ。
       </p>
 
       <ul className="mt-2 divide-y divide-[#eee9df] border-y border-[#e4ddd0]">

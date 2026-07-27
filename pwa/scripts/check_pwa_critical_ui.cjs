@@ -531,6 +531,9 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "sxIsUntouchedPocCandidate",
   "ledgerPartners",
   "sx-partner-poc-pointer",
+  // Round 23: 履歴の省略表示は流れが担うので7列目から外す。未完了の保有事項は流れの「これから」へ。
+  "関連ゲート・証明",
+  "pendingSteps",
   'border-l-[#b5533f]',
   // 2026-07-24: 外部PJメンバーにも見えるSX関係先台帳で内部コードネーム(まさ/かる/ちこ)を
   // そのまま出さないための表示専用正規化。この import が落ちると本文/担当/ボール等に
@@ -544,9 +547,7 @@ expectIncludes("src/components/project-workspace/SxPartnerPipeline.tsx", [
   "分類は虹色にしない",
   "共同",
   "行為主体未確認",
-  "最新記録",
   "sxFormatDueDateWithPrecision",
-  "sxLatestInteraction",
   "sxSortInteractionsByRecency",
   "sxHoldingsForPartner",
   "sxComputeControlBandCounts",
@@ -859,7 +860,7 @@ expectIncludes("src/components/project-workspace/SxExecutiveControlDeck.tsx", [
   "業務判定（重要経路）",
   "運用判定（データ充足）",
   "STEP2消化",
-  "設立判断まで",
+  "設立まで",
   "pillarGates",
   "knowledgeType === \"decision_needed\"",
 ]);
@@ -873,7 +874,7 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "sx-unified-timeline",
   "今日",
   "現在地",
-  "設立判断",
+  "設立 {sxFormatDate(timeline.objectiveDate)}",
   "柱 / マイルストーン",
   "RowBar",
   "rowCenterY",
@@ -886,7 +887,10 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "onCreateMilestone",
   "canManage",
   "灰バー=仮置きの日程での遅れ（根拠未確認）",
-  "重要経路の順序",
+  "前提のつながり",
+  // Round 23: 計画バーは枠だけで描き、塗りは登録済み進捗からのみ。塗りつぶすと「今日線より右まで終わっている」と誤読される。
+  "row.progressPct > 0",
+  "バーの枠=計画期間（開始→予定。終わった分ではない）",
   "担当未確認",
   "日程未登録",
   "aria-pressed",

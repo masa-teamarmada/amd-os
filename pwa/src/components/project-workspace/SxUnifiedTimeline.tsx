@@ -7,7 +7,7 @@ import { sxFormatDate, sxFormatSlip } from "./sx-visual-shared";
 
 /**
  * 統合タイムライン（経営状況図）。旧・経営状況図レール / 事業化ロードマップ / 全件ガントの
- * 3枚を1枚へ統合した唯一の時間軸ビュー。月グリッド・今日線・設立判断旗の共通座標系に、柱レーン
+ * 3枚を1枚へ統合した唯一の時間軸ビュー。月グリッド・今日線・設立目標旗の共通座標系に、柱レーン
  * ごとの全マイルストーン（計画バー+予定tick+予測◇+遅延幅）、重要経路の接続線、①〜⑤ボールピン
  * （各介入の自身の期日位置）を重ねる。行の高さは固定で、接続線のy座標は行indexから決定的に出す。
  */
@@ -59,12 +59,17 @@ function RowBar({ row, accent }: { row: SxEcdTimelineRow; accent: string }) {
   const slipTextTone = row.slipKind === "overdue" ? "text-[#8c3329]" : row.slipKind === "confirmed_slip" ? "text-[#765022]" : "text-[#77726a]";
   return (
     <div className="relative h-full w-full" aria-hidden="true">
-      {/* 計画バー: 開始→予定 */}
+      {/* 計画期間は「枠」だけで描く。塗りつぶすと、今日線より右へ伸びたバーが「そこまで終わった」と
+          読まれる（2026-07-27 まさ指摘）。終わった分は progressPct からだけ塗る。 */}
       {plannedEnd != null && (
         <span
-          className={`absolute top-1/2 h-[6px] -translate-y-1/2 rounded-sm ${provisional ? "opacity-45" : "opacity-75"}`}
-          style={{ left: `${barStart}%`, width: `${Math.max(plannedEnd - barStart, 0.4)}%`, background: accent }}
-        />
+          className={`absolute top-1/2 h-[8px] -translate-y-1/2 overflow-hidden rounded-sm border ${provisional ? "opacity-60" : ""}`}
+          style={{ left: `${barStart}%`, width: `${Math.max(plannedEnd - barStart, 0.4)}%`, borderColor: accent, background: `${accent}14` }}
+        >
+          {row.progressPct > 0 && (
+            <span className="absolute inset-y-0 left-0 block" style={{ width: `${row.progressPct}%`, background: accent }} />
+          )}
+        </span>
       )}
       {/* 予定tick */}
       {plannedEnd != null && <span className="absolute top-1/2 h-[14px] w-[2px] -translate-y-1/2 bg-[#514e47]" style={{ left: `${plannedEnd}%` }} />}
@@ -140,7 +145,7 @@ export function SxUnifiedTimeline({
               ))}
               {timeline.objectivePct != null && (
                 <span className="absolute bottom-0 z-10 flex -translate-x-full items-center gap-0.5 whitespace-nowrap pr-0.5 text-[9px] font-bold text-[#5f4a66]" style={{ left: `${timeline.objectivePct}%` }}>
-                  <Flag className="h-3 w-3" aria-hidden="true" />設立判断 {sxFormatDate(timeline.objectiveDate)}
+                  <Flag className="h-3 w-3" aria-hidden="true" />設立 {sxFormatDate(timeline.objectiveDate)}
                 </span>
               )}
             </div>
@@ -207,7 +212,7 @@ export function SxUnifiedTimeline({
 
             {/* 時間エリア */}
             <div className="relative" style={{ height: gridHeight }}>
-              {/* 縦グリッド・今日線・設立判断線 */}
+              {/* 縦グリッド・今日線・設立目標線 */}
               {timeline.months.map((month) => (
                 <span key={`grid-${month.pct}`} className={`absolute top-0 w-px ${month.isYearStart ? "bg-[#cfc7b9]" : "bg-[#eee9df]"}`} style={{ left: `${month.pct}%`, height: gridHeight }} aria-hidden="true" />
               ))}
@@ -238,7 +243,7 @@ export function SxUnifiedTimeline({
                     style={{ left: `${(criticalPolyline[0].x + criticalPolyline[1].x) / 2}%`, top: (criticalPolyline[0].y + criticalPolyline[1].y) / 2 }}
                     aria-hidden="true"
                   >
-                    重要経路の順序
+                    前提のつながり
                   </span>
                 </>
               )}
@@ -297,7 +302,7 @@ export function SxUnifiedTimeline({
 
           {/* 凡例と非表示分の明示 */}
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[9px] text-[#9b9487]">
-            <span>バー=計画（開始→予定） ・ 縦線=予定日 ・ ◇=予測日（中抜き=仮） ・ 灰バー=仮置きの日程での遅れ（根拠未確認） / 橙バー=根拠のある遅れ見込み / 赤=期限超過 ・ 太字+黒左罫=重要経路 ・ 破線=重要経路の順序（前のゲートが終わってから次へ進む依存のつながり） ・ ①ピン=介入の期日（橙=相手側ボール / 黒=当方 / 白抜き=ボール未確認 / 黄リング=月精度）</span>
+            <span>バーの枠=計画期間（開始→予定。終わった分ではない） ・ 枠内の塗り=登録済みの進捗 ・ 縦線=予定日 ・ ◇=予測日（中抜き=仮） ・ 灰バー=仮置きの日程での遅れ（根拠未確認） / 橙バー=根拠のある遅れ見込み / 赤=期限超過 ・ 太字+黒左罫=重要経路 ・ 破線=前提のつながり（前のゲートの結果が次の前提になる。台帳の依存登録から描画。日程上は並行して進む区間もある） ・ ①ピン=介入の期日（橙=相手側ボール / 黒=当方 / 白抜き=ボール未確認 / 黄リング=月精度）</span>
             {(timeline.undatedCount > 0 || timeline.completedCount > 0) && (
               <span className="font-semibold text-[#69665d]">
                 {timeline.undatedCount > 0 ? `日程未登録 ${timeline.undatedCount}件` : ""}{timeline.undatedCount > 0 && timeline.completedCount > 0 ? " ・ " : ""}{timeline.completedCount > 0 ? `完了 ${timeline.completedCount}件` : ""}（下の詳細表で確認）

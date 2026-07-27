@@ -143,7 +143,7 @@ const EDIT_FIELDS: Record<ManagementResource, Array<{
   options?: Array<{ value: string; label: string }>;
 }>> = {
   objective: [
-    { key: "title", label: "経営目的", type: "text" }, { key: "definition_of_done", label: "完了条件", type: "textarea" }, { key: "target_date", label: "設立判断日", type: "date" }, { key: "date_certainty", label: "日付の確度", type: "select", options: [{ value: "provisional", label: "仮置き" }, { value: "confirmed", label: "確定" }] }, { key: "status", label: "状態", type: "select", options: [{ value: "unassessed", label: "未評価" }, { value: "active", label: "進行中" }, { value: "completed", label: "完了" }, { value: "on_hold", label: "保留" }] }, { key: "confidence", label: "確度", type: "select", options: [{ value: "high", label: "高" }, { value: "medium", label: "中" }, { value: "low", label: "低" }, { value: "unknown", label: "未確認" }] },
+    { key: "title", label: "経営目的", type: "text" }, { key: "definition_of_done", label: "完了条件", type: "textarea" }, { key: "target_date", label: "設立目標日", type: "date" }, { key: "date_certainty", label: "日付の確度", type: "select", options: [{ value: "provisional", label: "仮置き" }, { value: "confirmed", label: "確定" }] }, { key: "status", label: "状態", type: "select", options: [{ value: "unassessed", label: "未評価" }, { value: "active", label: "進行中" }, { value: "completed", label: "完了" }, { value: "on_hold", label: "保留" }] }, { key: "confidence", label: "確度", type: "select", options: [{ value: "high", label: "高" }, { value: "medium", label: "中" }, { value: "low", label: "低" }, { value: "unknown", label: "未確認" }] },
   ],
   outcome: [
     { key: "title", label: "成果目標", type: "text" }, { key: "definition_of_done", label: "完了条件", type: "textarea" }, { key: "owner_label", label: "担当", type: "text" }, { key: "status", label: "状態", type: "select", options: [{ value: "unassessed", label: "未評価" }, { value: "active", label: "進行中" }, { value: "completed", label: "完了" }, { value: "on_hold", label: "保留" }] }, { key: "confidence", label: "確度", type: "select", options: [{ value: "high", label: "高" }, { value: "medium", label: "中" }, { value: "low", label: "低" }, { value: "unknown", label: "未確認" }] },
@@ -859,7 +859,7 @@ function ObjectiveKpiSection({ management, onEdit }: { management: SxManagementB
           <div className="rounded-lg border border-[#c9bfd0] bg-[#f1edf3] p-4">
           <div className="flex items-start justify-between gap-3"><div><p className="text-[10px] font-semibold tracking-[0.14em] text-[#5f4a66]">経営目的</p><h3 id="objective-kpi-heading" className="mt-1 text-base font-semibold text-[#24231f]">{management.objective?.title || "目的未登録"}</h3></div>{management.objective && <EditAction canManage={management.canManage} onClick={() => onEdit("objective", management.objective!.id)} />}</div>
           <p className="mt-3 text-xs leading-5 text-[#514e47]">{displayManagementText(management.objective?.definitionOfDone) || "目的の完了条件が未登録"}</p>
-          <p className="mt-3 text-[11px] text-[#69665d]">設立判断 {formatDate(management.objective?.targetDate)} / {management.objective?.dateCertainty === "provisional" ? "仮置き" : "確定"} / 確度 {confidenceLabel(management.objective?.confidence)}</p>
+          <p className="mt-3 text-[11px] text-[#69665d]">設立目標 {formatDate(management.objective?.targetDate)} / {management.objective?.dateCertainty === "provisional" ? "仮置き" : "確定"} / 確度 {confidenceLabel(management.objective?.confidence)}</p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           {management.outcomes.map((outcome) => {
@@ -1077,7 +1077,7 @@ export function ProjectWorkspaceDashboard({ bundle, access }: { bundle: ProjectW
           </div>
           <div className="mt-1.5 min-w-0 lg:grid lg:grid-cols-[300px_minmax(0,1fr)] lg:items-baseline lg:gap-5">
             <h1 className="text-xl font-semibold tracking-tight text-[#24231f] sm:text-2xl">経営航路 <span className="text-[#777166]">/ {workspace.project.projectName}</span></h1>
-            <p className="mt-1 text-xs leading-5 text-[#69665d] lg:mt-0">{horizonPeriodLabel(management.horizonMonths)}の設立判断まで、4本柱・開発テーマ・論点・関係先を同じ時間軸で管制する。</p>
+            <p className="mt-1 text-xs leading-5 text-[#69665d] lg:mt-0">{horizonPeriodLabel(management.horizonMonths)}の設立まで、4本柱・開発テーマ・論点・関係先を同じ時間軸で管制する。</p>
           </div>
         </header>
 
