@@ -218,22 +218,66 @@ function arrayToLines(value: unknown[]): string[] {
   }).filter((s) => s.trim().length > 0);
 }
 
+function splitMarkdownTableRow(line: string): string[] {
+  return line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => cell.trim());
+}
+
+function isMarkdownTableSeparator(line: string): boolean {
+  const cells = splitMarkdownTableRow(line);
+  return cells.length > 0 && cells.every((cell) => /^:?-{3,}:?$/.test(cell));
+}
+
 function MarkdownBlock({ text }: { text: string }) {
   if (!text) return null;
   const sanitized = stripInternalJargon(text);
   const lines = sanitized.split("\n");
+  const blocks: React.ReactNode[] = [];
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    const nextLine = lines[i + 1] || "";
+
+    if (line.includes("|") && isMarkdownTableSeparator(nextLine)) {
+      const headers = splitMarkdownTableRow(line);
+      const rows: string[][] = [];
+      i += 2;
+      while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i]) && !isMarkdownTableSeparator(lines[i])) {
+        rows.push(splitMarkdownTableRow(lines[i]));
+        i += 1;
+      }
+      i -= 1;
+      blocks.push(
+        <div className="md-table-wrap" key={`table-${i}`}>
+          <table className="md-table">
+            <thead>
+              <tr>{headers.map((header, cellIndex) => <th key={cellIndex}>{renderInline(header)}</th>)}</tr>
+            </thead>
+            <tbody>
+              {rows.map((row, rowIndex) => (
+                <tr key={rowIndex}>
+                  {headers.map((_, cellIndex) => <td key={cellIndex}>{renderInline(row[cellIndex] || "")}</td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+      continue;
+    }
+
+    if (line.startsWith("#### ")) blocks.push(<h4 key={i}>{line.slice(5)}</h4>);
+    else if (line.startsWith("### ")) blocks.push(<h3 key={i}>{line.slice(4)}</h3>);
+    else if (line.startsWith("## ")) blocks.push(<h2 key={i}>{line.slice(3)}</h2>);
+    else if (line.startsWith("# ")) blocks.push(<h2 key={i}>{line.slice(2)}</h2>);
+    else if (line.match(/^[-*] /)) blocks.push(<li key={i}>{renderInline(line.slice(2))}</li>);
+    else if (line.startsWith("> ")) blocks.push(<blockquote key={i}>{line.slice(2)}</blockquote>);
+    else if (line.trim() === "") blocks.push(<div key={i} style={{ height: "0.5em" }} />);
+    else blocks.push(<p key={i}>{renderInline(line)}</p>);
+  }
+
   return (
     <div className="md-body">
-      {lines.map((line, i) => {
-        if (line.startsWith("#### ")) return <h4 key={i}>{line.slice(5)}</h4>;
-        if (line.startsWith("### ")) return <h3 key={i}>{line.slice(4)}</h3>;
-        if (line.startsWith("## ")) return <h2 key={i}>{line.slice(3)}</h2>;
-        if (line.startsWith("# ")) return <h2 key={i}>{line.slice(2)}</h2>;
-        if (line.match(/^[-*] /)) return <li key={i}>{renderInline(line.slice(2))}</li>;
-        if (line.startsWith("> ")) return <blockquote key={i}>{line.slice(2)}</blockquote>;
-        if (line.trim() === "") return <div key={i} style={{ height: "0.5em" }} />;
-        return <p key={i}>{renderInline(line)}</p>;
-      })}
+      {blocks}
     </div>
   );
 }
@@ -495,6 +539,7 @@ function stripInternalJargon(text: string): string {
  */
 function SubmissionView({ data }: { data: PrintData }) {
   const { project, ym, submissionBody } = data;
+  const printableBody = submissionBody?.replace(/^#\s+月次業務報告書\s*\n+/u, "") || null;
   return (
     <div className="sheet submission-sheet">
       <div className="submission-head">
@@ -503,8 +548,8 @@ function SubmissionView({ data }: { data: PrintData }) {
           {project.clientName || project.projectName} 御中 ／ {formatYm(ym)}
         </div>
       </div>
-      {submissionBody ? (
-        <MarkdownBlock text={submissionBody} />
+      {printableBody ? (
+        <MarkdownBlock text={printableBody} />
       ) : (
         <div className="empty">提出用の報告書本文は未生成です。</div>
       )}
@@ -1129,6 +1174,12 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
         .md-body li { margin: 0 0 0.6mm 6mm; position: relative; list-style: none; }
         .md-body li::before { content: '·'; position: absolute; left: -3mm; color: #0a1628; font-weight: 700; }
         .md-body blockquote { border-left: 2px solid #94a3b8; padding-left: 4mm; margin: 2mm 0; color: #475569; font-style: italic; }
+        .md-table-wrap { margin: 3mm 0 5mm; overflow: hidden; }
+        .md-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 9pt; line-height: 1.55; }
+        .md-table th, .md-table td { border: 1px solid #cbd5e1; padding: 2mm 2.5mm; vertical-align: top; overflow-wrap: anywhere; }
+        .md-table th { background: #e2e8f0; color: #0a1628; font-weight: 700; text-align: left; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .md-table tr { break-inside: avoid; page-break-inside: avoid; }
+        .md-table th:first-child, .md-table td:first-child { width: 12%; white-space: nowrap; }
         .report-body { background: #f8fafc; padding: 4mm 5mm; border-left: 3px solid #0a1628; }
 
         /* 提出版 (単一連続文書、明示的な改頁 CSS は入れない) */
