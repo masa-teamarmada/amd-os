@@ -272,7 +272,7 @@ export function MonthlyAgreementExperience({
         <div className="mx-auto max-w-3xl rounded-lg border border-red-200 bg-white p-5 text-sm text-red-700">
           {error || "データ取得に失敗しました"}
           <button
-            onClick={load}
+            onClick={() => void load()}
             className="ml-3 rounded-md border border-red-200 px-3 py-1 text-xs font-semibold"
           >
             再読み込み
@@ -765,7 +765,7 @@ export function MonthlyAgreementExperience({
             <div className="flex justify-end">
               <button
                 type="button"
-                onClick={load}
+                onClick={() => void load()}
                 className="inline-flex items-center gap-2 rounded-md border border-[#d1d1d6] bg-white px-3 py-2 text-xs font-semibold text-[#3c3c43]"
               >
                 <RefreshCw className="size-3.5" />
