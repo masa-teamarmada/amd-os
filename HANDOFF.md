@@ -13,7 +13,7 @@ Topic: admin月初合意の対象月選択と202606「対象外」説明のclose
 - 202606の `not_required` は欠損や異常ではなく、2026年7月の本運用開始前の移行月判定である。
 - 仕様・マニュアル・変更履歴・重要UI検査を同じ実装単位で同期した。
 - 受領済み実装の詳細は [`pwa/design_log/sessions_2026-07.md`](pwa/design_log/sessions_2026-07.md) の「2026-07-28 — admin月初合意」節にある。
-- その後、別 worker が予定額変更理由の `0330c547` とSX資金計画画面の `8d1fbada` をlocal `main`へ作成したが、内容確認前で未push。今回の受領済みproductionには含まれていない。
+- その後、別 worker が予定額変更理由の `0330c547` とSX資金計画画面の `8d1fbada` をcommitし、`origin/main`には入っているが内容確認前。今回の受領済みproductionには含まれていない。
 
 ## Repo / Production State
 
