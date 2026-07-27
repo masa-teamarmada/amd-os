@@ -38,10 +38,11 @@ Topic: admin月初合意の対象月選択と202606「対象外」説明のclose
 - プルダウン変更と202606説明: なし。productionまで反映済み。
 - 予定額変更理由: `0330c547`がlocal mainにcommit済みだが、未レビュー・未push・未deploy。支払い合意をblockする挙動を含むため、まさの採否判断が必要。
 - SX資金計画: `8d1fbada`がlocal mainにcommit済みだが、未レビュー・未push・未deploy。`0330c547`とは別ownerとして扱う。
+- 再読み込み型修正: `a3b278bb`がlocal mainにcommit済みだが、未レビュー・未push・未deploy。build version v3.51.6を含むため、`0330c547`・`8d1fbada`とは別ownerとして扱う。
 
 ## First Next Action
 
-次セッション開始時は、まず `git status -sb --untracked-files=all`、`git log --oneline origin/main..HEAD`、`git diff --stat`、`/api/build-info`をread-onlyで確認する。最初の判断は、local commit `0330c547`と`8d1fbada`をそれぞれレビューしてpushするか、保全して採用を見送るか。プルダウンだけの追加実装は不要。
+次セッション開始時は、まず `git status -sb --untracked-files=all`、`git log --oneline origin/main..HEAD`、`git diff --stat`、`/api/build-info`をread-onlyで確認する。最初の判断は、local commit `0330c547`、`8d1fbada`、`a3b278bb`をそれぞれレビューしてpushするか、保全して採用を見送るか。プルダウンだけの追加実装は不要。
 
 ## Pointers
 
