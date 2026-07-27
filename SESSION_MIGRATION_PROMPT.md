@@ -41,6 +41,8 @@ cd /Users/masa/projects/AMD/amd-os
 
 shared checkoutには、別 worker の「予定額変更理由」実装が未コミットで残っている。変更対象は `pwa/design/FEATURE_REGISTRY.md`、`pwa/design/db_schema.md`、`pwa/manual/6-6-member-billing-prompts-spec.md`、`pwa/manual/9-3-appendix-changelog.md`、`pwa/scripts/check_monthly_agreement_diff.mts`、`pwa/scripts/check_pwa_critical_ui.cjs`、`pwa/spec/3-14-monthly-work-agreement-current-spec.md`、`pwa/spec/6-1-appendix-changelog.md`、月初合意の画面/API/コンポーネント/lib一式、`pwa/scripts/migrations/197_member_monthly_work_agreement_amount_change_reasons.sql`、`pwa/src/app/api/admin/monthly-work-agreements/amount-change-reasons/route.ts`。
 
+このsnapshot後に、別のSX画面作業由来と見られる `pwa/src/components/cockpit/CockpitBusinessPlan.tsx` と `pwa/src/lib/sx-business-plan.ts` の未コミット差分も現れた。月初合意WIPとは別ownerとして、採否・commit・破棄を別closeoutで扱う。
+
 これは今回のプルダウンcommit・本番deployには含まれていない。所有者は同時実行された月初合意理由入力 workerと推定する。次の判断は「採用して別commitへ進める」か「まさの明示判断後にrecoverableな形で破棄する」か。`git reset --hard`、`git checkout --`、`git clean`、`git add .`は禁止。採用する場合は、まず現行mainとの差分全体を読み、migration適用状況、`npm run test:monthly-agreement-diff`、`npm run test:critical-ui`、`npx tsc --noEmit`、対象eslint、`npm run build`を通し、`BUILD_VERSION`を`v3.51.4`以降へ上げてから、対象ファイルだけをstageしてcommitし、deploy scriptで本番反映する。
 
 ## 次タスク
