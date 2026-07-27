@@ -81,6 +81,7 @@ expectIncludes("src/components/project-workspace/SxWeeklyControlDashboard.tsx", 
   "create_action",
   "edit_action",
   "sxWeeklyIssueNextMove",
+  "sxWeeklyWeekRangeLabel",
 ]);
 
 expectIncludes("src/lib/sx-weekly-control.ts", [

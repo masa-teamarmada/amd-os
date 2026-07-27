@@ -7,6 +7,7 @@ import {
   sxWeeklyIssueNextDueDate,
   sxWeeklyIssueNextMove,
   sxWeeklyIssueStage,
+  sxWeeklyWeekRangeLabel,
 } from "../src/lib/sx-weekly-control.ts";
 
 function issue(overrides = {}) {
@@ -52,6 +53,9 @@ const hypothesis = {
   sourceKind: "manual",
   sourceRef: null,
 };
+
+assert.equal(sxWeeklyWeekRangeLabel("2026-07-27"), "7/27 — 8/2", "週範囲は実行環境のtimezoneに依存しない");
+assert.equal(sxWeeklyWeekRangeLabel("日付未設定"), "日付未設定", "日付形式でなければ元の表示を維持する");
 
 assert.equal(sxWeeklyIssueStage(issue()), "intake", "仮説なしの未解決論点は要整理");
 assert.equal(sxWeeklyIssueNeedsAttention(issue(), "2026-07-27"), true, "仮説なしは要フォロー");

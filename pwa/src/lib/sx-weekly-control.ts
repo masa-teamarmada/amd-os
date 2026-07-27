@@ -12,6 +12,15 @@ export type SxWeeklyNextMove = {
 
 const ACTIVE_ISSUE_STATUSES = new Set(["open", "validating", "on_hold"]);
 
+export function sxWeeklyWeekRangeLabel(value: string) {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return value;
+  const start = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 6);
+  return `${start.getUTCMonth() + 1}/${start.getUTCDate()} — ${end.getUTCMonth() + 1}/${end.getUTCDate()}`;
+}
+
 function dayDiff(from: string | null | undefined, to: string) {
   if (!from) return null;
   const left = new Date(`${from.slice(0, 10)}T00:00:00Z`).getTime();

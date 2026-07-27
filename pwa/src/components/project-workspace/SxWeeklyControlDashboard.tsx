@@ -41,6 +41,7 @@ import {
   sxWeeklyIssueNextMove,
   sxWeeklyIssueStage,
   sxWeeklyValueMissing,
+  sxWeeklyWeekRangeLabel,
   type SxWeeklyIssueStage,
 } from "@/lib/sx-weekly-control";
 import styles from "./weekly-control.module.css";
@@ -94,14 +95,6 @@ function formatDate(value: string | null | undefined) {
   if (!value) return "未設定";
   const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
   return match ? `${Number(match[2])}/${Number(match[3])}` : value;
-}
-
-function formatWeek(value: string) {
-  const date = new Date(`${value}T00:00:00+09:00`);
-  if (Number.isNaN(date.getTime())) return value;
-  const end = new Date(date);
-  end.setDate(end.getDate() + 6);
-  return `${date.getMonth() + 1}/${date.getDate()} — ${end.getMonth() + 1}/${end.getDate()}`;
 }
 
 function trackMeta(track: SxTrackKey) {
@@ -592,7 +585,7 @@ export function SxWeeklyControlDashboard({ bundle, access }: { bundle: ProjectWo
           </div>
           <div className={styles.titleRow}>
             <div>
-              <p className={styles.eyebrow}>{formatWeek(bundle.currentWeekStart)} / WEEKLY CONTROL</p>
+              <p className={styles.eyebrow}>{sxWeeklyWeekRangeLabel(bundle.currentWeekStart)} / WEEKLY CONTROL</p>
               <h1>週次管制 <span>/ {bundle.project.projectName}</span></h1>
               <p>変化を見つけ、判断し、次の一手まで決め切る。計画の正しさではなく、今週の介入に焦点を合わせる画面。</p>
             </div>
