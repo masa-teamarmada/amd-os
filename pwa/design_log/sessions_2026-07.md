@@ -1989,3 +1989,27 @@ Book A執筆規範 (japanese-tech-writing + cognitive-rhythm-writing) をSESSION
 - まさ差し戻し: 「どうして線分の色を消したの？あの線分は、タスクが完了した範囲を示すべきだよ。終わってないからって色を消すのはデザイン悪すぎる。」
 - 対応: v3.49.34で二段塗りへ。薄い塗り=計画期間（確定 accent 40% / 仮置き 24%）、濃い塗り=完了した範囲（progressPct・フル彩度）。「誤読させない」と「色が死なない」を両立し、完了の主張を登録済み進捗に限定する不変条件は維持。
 - 教訓: 誤読対策で情報の彩度を落とすのは過剰是正。標準のガント慣行（薄トラック+濃フィル）が両方を満たす。
+
+## 2026-07-28 — admin月初合意の対象月プルダウンと移行月説明（v3.51.2 → v3.51.3）
+
+### 依頼と判断
+
+- adminの月初合意ページで、他月確認のたびに `YYYYMM` を手入力する負荷をなくすため、対象月を日本語表記のプルダウンへ変更した。
+- 202606の「対象外」は欠損やエラーではなく、月初合意が2026年7月から本運用になったための導入前・移行月判定である。合意保存は不要で、未合意を理由に支払いを止めない仕様を一覧上部に明示した。
+- 支払gateや報酬計算の値は変更せず、画面上の選択と説明だけを追加した。
+
+### 実装と正本同期
+
+- `pwa/src/app/(app)/admin/monthly-work-agreements/page.tsx`: 2020年1月から現在月の12か月先までを選べる`select`、日本語年月表示、2026年6月以前の移行月案内を追加。
+- `pwa/spec/3-14-monthly-work-agreement-current-spec.md`、`pwa/manual/6-6-member-billing-prompts-spec.md`、`pwa/spec/6-1-appendix-changelog.md`、`pwa/manual/9-3-appendix-changelog.md`を同期。
+- `pwa/scripts/check_pwa_critical_ui.cjs`に対象月selectと移行月案内の重要UI anchorを追加。build versionを`v3.51.3`へpatch bumpした。
+
+### 検証・反映
+
+- 対象画面eslint、`npm run test:critical-ui`、`npm run build`を実行し、すべて成功した。buildでは既存`next.config.ts`由来のNFT追跡warningだけを確認した。
+- commit `c760851c fix(pwa): select monthly agreement month`をmainへ反映。
+- `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash pwa/scripts/deploy.sh`をclean cloneから実行し、production `v3.51.3` / `c760851c8be7bc4c4570ca144580bf5c2cb00a4c` / `dirty=false`を確認した。
+
+### 別作業WIPの帰属
+
+- 同じshared checkoutには、別workerの「予定額変更理由」実装が未コミットで残った。migration、admin API、合意API、member UI、仕様・manual・schema・registry・検査の差分が含まれるが、今回のcommitとproductionには含めていない。次のownerが全差分をレビューし、採用またはrecoverableな保全・破棄を別closeoutで決める。

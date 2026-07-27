@@ -1,10 +1,10 @@
-# SESSION MIGRATION PROMPT — AMD OS PoC Matching
+# SESSION MIGRATION PROMPT — AMD OS admin月初合意
 
 ```text
 cd /Users/masa/projects/AMD/amd-os
 
-あなたは、株式会社チームアルマダの社内OS「AMD OS」のPoC Matching機能を引き継ぐえいみ。
-目的は、かるちゃんとのPoCビジネスMTGを起点に作った `/poc` を、シーズとPoC先の実務的な案件化台帳として育てること。
+あなたは、株式会社チームアルマダの社内OS「AMD OS」を引き継ぐえいみ。
+今回の受領済み作業は、admin月初合意画面の対象月選択を手入力からプルダウンへ変え、202606の「対象外」が何を意味するか画面で説明できるようにしたこと。これは main と production に反映済みで、次セッションは同じ実装をやり直さない。
 
 ## 最初に読む順
 
@@ -15,71 +15,56 @@ cd /Users/masa/projects/AMD/amd-os
 5. /Users/masa/projects/AMD/amd-os/pwa/AGENTS.md
 6. /Users/masa/projects/AMD/amd-os/pwa/CLAUDE.md
 7. /Users/masa/projects/AMD/amd-os/HANDOFF.md
-8. /Users/masa/projects/AMD/amd-os/pwa/design/README.md
-9. /Users/masa/projects/AMD/amd-os/pwa/design/poc_matching.md
-10. /Users/masa/projects/AMD/amd-os/pwa/design/FEATURE_REGISTRY.md
-11. /Users/masa/projects/AMD/amd-os/pwa/design/SPEC_pwa.md
-12. /Users/masa/projects/AMD/amd-os/pwa/manual/2-5-research-assets-quick-start.md
-13. /Users/masa/projects/AMD/amd-os/pwa/manual/5-1-research-assets-vc-seeds-scholar-spec.md
+8. /Users/masa/projects/AMD/amd-os/pwa/spec/1-1-overview.md
+9. /Users/masa/projects/AMD/amd-os/pwa/spec/1-2-document-layer-migration-map.md
+10. /Users/masa/projects/AMD/amd-os/pwa/spec/3-14-monthly-work-agreement-current-spec.md
+11. /Users/masa/projects/AMD/amd-os/pwa/design/README.md
+12. /Users/masa/projects/AMD/amd-os/pwa/design/FEATURE_REGISTRY.md
+13. /Users/masa/projects/AMD/amd-os/pwa/manual/6-6-member-billing-prompts-spec.md
 14. /Users/masa/projects/AMD/amd-os/pwa/manual/9-3-appendix-changelog.md
 15. /Users/masa/projects/AMD/amd-os/pwa/BUGS.md
-
-DBへ触る作業では、必ず /Users/masa/projects/AMD/amd-os/pwa/design/db_schema.md で `seeds` / `poc_companies` / `poc_matches` の実列を確認してから書く。
+16. /Users/masa/projects/AMD/amd-os/pwa/design_log/sessions_2026-07.md の「2026-07-28 — admin月初合意」節
 
 ## 状態スナップショット
 
-- cwd: /Users/masa/projects/AMD/amd-os
-- branch: main
-- HEAD / origin/main: closeout時点で同期済み。次セッション開始時に `git rev-parse HEAD` / `git rev-parse origin/main` で最新commitを確認する。
-- production: https://amd-os-pwa.vercel.app
-- production build-info確認済み: v3.47.13 / git_branch=main / dirty=false。docs-only closeout pushで `git_sha` だけ更新されることがあるため、次セッション開始時に `/api/build-info` を再確認する。
-- PoC accepted commits are ancestors of current main:
-  - 0306c5e5 Replace PoC matrix with tagged candidate queue
-  - 000f08c3 Show PoC destination candidates as comparison table
-- 現在の未コミット差分はPoC外:
-  - pwa/bzm/book-a-ch-1.md: active Book A session / other-worker。触らない。
-- このPoCセッションで作ったbranch/worktreeはなし。local registered worktreeはroot 1件。
-- Book A司令塔08の旧root promptは、PoC handoffのため /Users/masa/projects/AMD/amd-os/SESSION_MIGRATION_PROMPT_BOOK_A_COMMANDER08.md に退避済み。BZM側ポインタは /Users/masa/projects/AMD/amd-os/pwa/bzm/SESSION_MIGRATION_PROMPT.md。
+- cwd: `/Users/masa/projects/AMD/amd-os`
+- canonical branch: `main`
+- accepted HEAD / origin/main: `c760851c` / `c760851c`。local main ahead 0 / behind 0。
+- accepted production: `https://amd-os-pwa.vercel.app`、`v3.51.3`、`git_sha=c760851c8be7bc4c4570ca144580bf5c2cb00a4c`、`git_branch=main`、`dirty=false`。
+- accepted commit: `c760851c fix(pwa): select monthly agreement month`
+- 対象月は日本語表記のプルダウン。2020年1月から現在月の12か月先まで選択できる。
+- 2026年6月以前の表示には「月初合意の導入前・移行月。合意保存不要・未合意による支払い停止なし」の説明が出る。
+- 202606の `not_required` は欠損ではなく、2026年7月の本運用開始前の移行月判定。支払gateでは移行月を合意済み扱いで通すが、実際の合意行は偽造しない。
+- registered worktreeはroot 1件、local branchはmainのみ。新しいbranch/worktreeは作らない。
 
-## 現在のPoC設計
+## 現在の別作業WIP（今回の受領済み成果と混ぜない）
 
-- `/poc` は、一次入力を `シーズ` と `PoC先` の2つにする。
-- `シーズ` は `seeds` が正本。PoC画面から追加しても同じ正本に入る。
-- `PoC先` は `poc_companies` が正本。企業、事業所、組合、自治体、施設カテゴリのようなカテゴリ候補も扱える。
-- 案件候補は `poc_matches`。シーズとPoC先の掛け合わせから、相性仮説、ヒアリング論点、PoC目標、謝礼、契約、資金、収益分配、状態、優先度を持つ。
-- 全面 `シーズ x PoC先` マトリクスは作らない。100 x 500 のように巨大化し、ほとんど空白になるため。
-- 先にタグ付き `PoC先候補リスト` を整備し、業界タグ、地域、規模感、状態などで候補を絞る。
-- `PoC先候補リスト` は比較表で表示する。列は `PoC先 / タグ / 規模・地域 / 状態 / PoC相性 / 謝礼・履歴 / 案件数 / 担当・次アクション`。
-- シーズごとの `案件化キュー` に上位候補だけを出し、候補の `案件化` から `poc_matches` を作る。
-- Notion、Gmail、Slack、Drive、Webの本文・URLをこの台帳へ直接保存しない。`source_ref` は `2026-07-09 PoCサービスMTG` のような短い参照名に留める。
+shared checkoutには、別 worker の「予定額変更理由」実装が未コミットで残っている。変更対象は `pwa/design/FEATURE_REGISTRY.md`、`pwa/design/db_schema.md`、`pwa/manual/6-6-member-billing-prompts-spec.md`、`pwa/manual/9-3-appendix-changelog.md`、`pwa/scripts/check_monthly_agreement_diff.mts`、`pwa/scripts/check_pwa_critical_ui.cjs`、`pwa/spec/3-14-monthly-work-agreement-current-spec.md`、`pwa/spec/6-1-appendix-changelog.md`、月初合意の画面/API/コンポーネント/lib一式、`pwa/scripts/migrations/197_member_monthly_work_agreement_amount_change_reasons.sql`、`pwa/src/app/api/admin/monthly-work-agreements/amount-change-reasons/route.ts`。
+
+これは今回のプルダウンcommit・本番deployには含まれていない。所有者は同時実行された月初合意理由入力 workerと推定する。次の判断は「採用して別commitへ進める」か「まさの明示判断後にrecoverableな形で破棄する」か。`git reset --hard`、`git checkout --`、`git clean`、`git add .`は禁止。採用する場合は、まず現行mainとの差分全体を読み、migration適用状況、`npm run test:monthly-agreement-diff`、`npm run test:critical-ui`、`npx tsc --noEmit`、対象eslint、`npm run build`を通し、`BUILD_VERSION`を`v3.51.4`以降へ上げてから、対象ファイルだけをstageしてcommitし、deploy scriptで本番反映する。
 
 ## 次タスク
 
-まさからPoCの続きとして指示が来たら、まず再実装ではなくデータ拡充と重複整理から始める。
+1. 開始時に `git status -sb --untracked-files=all`、`git diff --stat`、`git diff --name-only --diff-filter=U`、`curl -fsS https://amd-os-pwa.vercel.app/api/build-info` をread-onlyで確認する。
+2. 予定額変更理由WIPを続けるなら、まず全差分とDB schema/migrationをレビューする。変更理由は自動推測せず、現在snapshotに紐づく人間の理由だけを保存する設計なので、合意APIとadmin画面の両側のblocking契約を確認する。
+3. 採用しない場合は、対象ファイルを所有者と照合してから、まさの判断を取り、recoverableな保全または安全な削除を別closeoutで行う。今回のセッションでは触らない。
+4. 月選択だけの追加実装は不要。すでにproductionで確認済み。
 
-1. read-onlyで `/api/build-info`、git状態、`pwa/design/db_schema.md` のPoC関連列を確認する。
-2. 既存OS内のSX/KUTE等の接点から、PoC先候補にできるものを洗い出す。
-3. 追加前に `poc_companies` を検索し、実名・カテゴリ・タグの重複を避ける。
-4. 議事録に具体社名がない場合は、無理に実名企業を作らず、カテゴリ候補として入れる。
-5. 追加候補には、業界タグ、地域、規模感、PoC相性、謝礼・履歴、担当、次アクション、短いsource_refを入れる。
-6. UIを変える場合は、`pwa/design/poc_matching.md`、`FEATURE_REGISTRY.md`、`pwa/manual/2-5`、`pwa/manual/5-1`、`pwa/manual/9-3` を同じ作業で同期する。
-7. `/poc` route、GlobalNav導線、シーズ追加、PoC先追加、候補先比較表、案件化キューを消す変更はしない。変える必要があるなら、先に仕様正本と回帰テストの意図を読む。
+## 確立済みの運用ルール
 
-## 運用ルール
+- main一本。新branch/worktreeを作らない。dirtyを理由にbranchを切らない。
+- 既存dirtyは戻さず、今回の対象ファイルだけを明示stageする。`git add .` / `git add -A`は禁止。
+- PWAの本番反映は `AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh`。直接 `npx vercel` や生のPWA pushは使わない。
+- コードをdeployするなら、build versionをpatch bumpし、対象eslint、critical UI、`tsc --noEmit`、build、本番 `/api/build-info` を確認する。
+- DB列名は想像せず、`pwa/design/db_schema.md`を先に読む。migrationは `pwa/scripts/migrations/` に残し、適用時は `python -X utf8 pwa/scripts/apply_ddl.py ...` の正本手順を使う。
+- 認証が必要な画面はログイン突破をしない。型・build・重要UI検査と本番build-infoで確認範囲を明記する。
+- raw議事録、URL、secret、個人情報はhandoffや報告へ持ち込まない。
 
-- main一本。新branch/worktreeは作らない。
-- dirtyを理由にbranchを切らない。既存dirtyは触らず、今回対象のファイルだけを明示stageする。
-- `git add .` / `git add -A`は禁止。
-- PWAのコードや画面を変えたら `pwa/src/lib/build-info.ts` をpatch bumpする。
-- PWA本番反映が必要な変更は、`AMD_OS_VERCEL_DEPLOY_APPROVED=1 bash /Users/masa/projects/AMD/amd-os/pwa/scripts/deploy.sh` でpushとVercel build監視まで行う。
-- 直接 `npx vercel` は使わない。
-- 検証の基本は、対象eslint、`npm run test:critical-ui`、`npx tsc --noEmit`、`npm run build`、本番 `/api/build-info`。
-- 認証が必要な画面で無理にログイン突破しない。安全に見られない場合は、型・build・重要導線チェックと本番build-infoで確認範囲を明記する。
-- raw議事録、URL、secret、個人情報は最終報告やdurable artifactへ出さない。
+## 今回の検証
 
-## closeout 注意
-
-このpromptだけで次セッションはPoC作業に入れる。
-ただし、現時点のshared checkoutにはPoC外の未コミット差分が1件あるため、archive判定は `do not archive`。
-PoC側はmain/productionに統合済みで、PoC固有の未解決実装はない。
+- `npm run test:critical-ui`: PASS
+- `npx eslint 'src/app/(app)/admin/monthly-work-agreements/page.tsx'`: PASS
+- `npm run build`: PASS（既存 `next.config.ts` のNFT追跡warningのみ）
+- deploy scriptをclean cloneで実行: Vercel ReadyまでPASS
+- production `/api/build-info`: v3.51.3 / accepted SHA / dirty=false
 ```
