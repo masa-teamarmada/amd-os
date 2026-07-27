@@ -40,7 +40,7 @@ cd /Users/masa/projects/AMD/amd-os
 
 ## 現在の別作業commit / WIP（今回の受領済み成果と混ぜない）
 
-別 worker の「予定額変更理由」実装は `0330c547 feat(pwa): require amount change reasons for agreements` としてcommit済み。SX資金計画画面の変更は `8d1fbada fix(pwa): polish SX capital policy plan` としてcommit済み。いずれも今回のプルダウンcommit・本番反映には含めていない。
+別 worker の「予定額変更理由」実装は `0330c547 feat(pwa): require amount change reasons for agreements` としてcommit済み。SX資金計画画面の変更は `8d1fbada fix(pwa): polish SX capital policy plan` としてcommit済み。いずれも今回のプルダウン依頼とは別作業だが、自動deployでproduction`b78e4fff`に含まれている。
 
 別 worker の再読み込みボタン型修正・変更履歴・build version更新は `a3b278bb fix(pwa): restore monthly agreement reload typing` としてcommit済み。これは `0330c547` の月初合意変更と、`8d1fbada` のSX資金計画画面変更とは別の未レビューcommitとして保全する。
 
