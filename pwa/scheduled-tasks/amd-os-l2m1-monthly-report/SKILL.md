@@ -1,6 +1,6 @@
 ---
 name: amd-os-l2m1-monthly-report
-description: AMD OS L2 M-1 月次業務報告書生成 routine (= 旧 amd-os-l1-monthly-report-extract のリネーム + 内部/対外 2 段生成 + PDF 配送)。月末末日 03:00 JST 起動 (cron `0 3 28-31 * *` + Phase 0 で「今日 == 当月最終日」を JST 判定し、最終日でなければ即 exit)。対象は `projects.monthly_report_scope IN ('internal_only','internal_and_external')` かつ `status IN ('active','sales')` の PJ のみ。scope='internal_only' は内部保存版のみ生成 (対外版・PDF・Drive 配置 skip)、scope='internal_and_external' は 2 段生成 + PDF まで実行。各 PJ ごとに (1) Slack 開始通知、(2) 当月の Supabase 関連データを全 fetch、(3) `llm_prompts.l2m1.monthly_report.internal.v2` で内部保存版 markdown 生成 → `monthly_reports.final_content` upsert、(4) scope='internal_and_external' のみ: `llm_prompts.l2m1.monthly_report.external.v2` + 禁止語/allow_list で対外提出版 markdown 生成 → `monthly_reports_external` insert、(5) 禁止語チェック (`scripts/strip_internal_jargon.py`)、(6) PDF 生成 (`scripts/generate_monthly_report.py`、pandoc→HTML→colgroup 注入→Chrome headless→PDF) でローカル + 共有 Drive 配置、(7) Slack 完了通知の順で inline 実行。Claude Code routine、model = `claude-opus-4-8`、effort = `ultracode` (xhigh) 想定。プロンプト本文は SKILL に書かず `llm_prompts` table から取得 (= AGENTS.common.md L510-514、ハードコード絶対禁止)。Anthropic / OpenAI 等の従量課金 API 直叩き禁止、`monthly_reports.final_content` の force なし上書き禁止、progress guard (= hasActivity / 未来月 / 開始前 / ended-frozen) は旧 SKILL から継承。daily 分 (D-1〜D-11) は別 routine `amd-os-l2-consolidated-evidence`、month-end の M-2/M-3 は `amd-os-l2-monthend-evidence`、毎時 (H-1) は local Codex / Codex automation。
+description: AMD OS L2 M-1 月次業務報告書生成 routine (= 旧 amd-os-l1-monthly-report-extract のリネーム + 内部/対外 2 段生成 + PDF 配送)。月末末日 03:00 JST 起動 (cron `0 3 28-31 * *` + Phase 0 で「今日 == 当月最終日」を JST 判定し、最終日でなければ即 exit)。対象は `projects.monthly_report_scope IN ('internal_only','internal_and_external')` かつ `status IN ('active','sales')` の PJ のみ。scope='internal_only' は内部保存版のみ生成 (対外版・PDF・Drive 配置 skip)、scope='internal_and_external' は 2 段生成 + PDF まで実行。各 PJ ごとに (1) Slack 開始通知、(2) 当月の Supabase 関連データを全 fetch、(3) `llm_prompts.l2m1.monthly_report.internal.v2` で内部保存版 markdown 生成 → `monthly_reports.final_content` upsert、(4) scope='internal_and_external' のみ: `llm_prompts.l2m1.monthly_report.external.v2` + 禁止語/allow_list で対外提出版 markdown 生成 → `monthly_reports_external` insert、(5) 禁止語チェック (`scripts/strip_internal_jargon.py`)、(6) PDF 生成 (`scripts/generate_monthly_report.py`、pandoc→HTML→Chrome headless→PDF) でローカル + 共有 Drive 配置、(7) Slack 完了通知の順で inline 実行。Claude Code routine、model = `claude-opus-4-8`、effort = `ultracode` (xhigh) 想定。プロンプト本文は SKILL に書かず `llm_prompts` table から取得 (= AGENTS.common.md L510-514、ハードコード絶対禁止)。Anthropic / OpenAI 等の従量課金 API 直叩き禁止、`monthly_reports.final_content` の force なし上書き禁止、progress guard (= hasActivity / 未来月 / 開始前 / ended-frozen) は旧 SKILL から継承。daily 分 (D-1〜D-11) は別 routine `amd-os-l2-consolidated-evidence`、month-end の M-2/M-3 は `amd-os-l2-monthend-evidence`、毎時 (H-1) は local Codex / Codex automation。
 ---
 
 # AMD OS L2 M-1 月次業務報告書生成 routine
@@ -36,7 +36,7 @@ description: AMD OS L2 M-1 月次業務報告書生成 routine (= 旧 amd-os-l1-
 | 区分 | table | プロンプト key | 想定読み手 | 含めて良いもの |
 |---|---|---|---|---|
 | **内部保存版** | `monthly_reports.final_content` (status='final') | `llm_prompts.l2m1.monthly_report.internal.v2` | まさ・えいみ・AMD 内部・後続 L2/MS/XRL/Management Signal の LLM 入力 | 全 Supabase 関連データ。リスク・未確定・社内事情・固有名詞・内部スコア・XRL 軸別根拠・経営判断ログ・5 生データ source refs。要は**全部**書く |
-| **対外提出版** | `monthly_reports_external` (status='final_external') | `llm_prompts.l2m1.monthly_report.external.v2` | 委託元・連携先・大学産連・公的機関等 PJ counterparty | 内部版を元に**禁止語 hard_fail を全部除去**し、**allow_list の固有名詞・章構成・成果語**に揃えた対外提出体裁 |
+| **対外提出版** | `monthly_reports_external.body_md` (`jargon_check_status='clean'`) | `llm_prompts.l2m1.monthly_report.external.v2` | 委託元・連携先・大学産連・公的機関等 PJ counterparty | 内部版を元に**禁止語 hard_fail を全部除去**し、**allow_list の固有名詞・章構成・成果語**に揃えた対外提出体裁 |
 
 - **対外版は内部版から派生する**。生成順序は必ず内部 → 対外。**内部版なしで対外版を作らない**。
 - **対外版は `monthly_reports_external` に insert** (新 row。`monthly_reports.final_content` に上書きしない)。
@@ -75,6 +75,7 @@ Phase 0: 最終日判定 + env + 対象 PJ 確定
    - Supabase REST (`SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY`)、Slack MCP、Drive MCP、Notion MCP、Gmail MCP、Calendar MCP がすべて利用可能か。1 つでも欠けたら notes に missing_connector を残す (= 「データなし」と短絡しない)。
 3. Supabase connector でスキーマ確認。列名は `db_schema.md` を grep。
 4. ymList = [当月 (= YYYYMM JST)]。月末評価なので当月のみ primary。前月補完は明示要求があるときだけ別 invocation。
+   - **🚨 ym 表記は table によって異なる (想像で揃えない、`db_schema.md` で必ず確認)**: `monthly_reports.ym` は `YYYYMM` (6桁、ハイフン無し、例 `202607`)。`monthly_reports_external.ym` は `YYYY-MM` (ハイフン付き、`^[0-9]{4}-[0-9]{2}$` CHECK 制約、例 `2026-07`)。Phase 2.4 で `monthly_reports_external` に書く時は必ず `YYYYMM → YYYY-MM` 変換してから insert/upsert する。
 5. **`/Users/masa/.codex/automations/amd-os-ms/outbox/` を mkdir -p** (= 反映先)。
 6. **共有 Drive の配送先 folder ID を確認** (= `projects.drive_folder_id` 配下 `月次業務報告書 / YYYY-MM/` を Phase 2.6 で作る前提)。
 
@@ -215,11 +216,12 @@ Phase 2: PJ ごとループ
    - **禁止語リスト** (= `llm_prompts.body` か、別 table / config で管理されている `external_jargon_blocklist` を取得。実装側は `pwa/scripts/strip_internal_jargon.py` のルールを正本とする)
    - **allow_list** (= 対外提出可能な固有名詞・成果語・章タイトル。同上ソースから取得)
 3. system = `llm_prompts.body` (= prompt_key=`l2m1.monthly_report.external.v2`)、user = `{ internal_markdown, jargon_blocklist, allow_list, project, ym, counterparty: project.client_name }` を渡し、対外提出体裁の markdown を生成。
-4. 反映: `monthly_reports_external` に新 row を insert。
-   - 主要列 (= `db_schema.md` を grep して実体に合わせる):
-     - `project_id` / `ym` / `final_content_external` (= 生成 markdown) / `status='final_external'` / `generated_at=now()` / `generated_by='claude_routine_l2m1'` / `source_internal_report_id=<対応する monthly_reports.id>` (= 既存スキーマに合わせる)
-   - 既存 row があれば 1 row 1 (project_id, ym) の UNIQUE 設計に合わせ upsert (= 1 か月内の再 run で重複 insert しない)。
-   - outbox 経由で反映する場合は新たな key (例: `monthlyReportsExternal[]`) を追加し、`upsertMonthlyReports` の external 版 helper を呼ぶか、`/api/admin/monthly-reports/external` route を service_role で叩く。**該当 helper / route 未実装の場合は notifications に `external_helper_missing` を積み、outbox JSON だけ残して human apply に回す**。
+4. 反映: `monthly_reports_external` に新 row を insert (実スキーマは `db_schema.md` を正本にする。列は以下の通り確定済み)。
+   - 実列: `id` (uuid PK) / `project_id` (text, FK→projects) / `ym` (text, `YYYY-MM` ハイフン付き、上記変換必須) / `body_md` (text NOT NULL, 生成 markdown 本文) / `generated_at` (timestamptz, デフォルト now()) / `generated_by_model` (text, 例 `claude-opus-4-8`) / `pdf_drive_url` (text, Phase 2.6 で共有 Drive 配置後に埋める) / `pdf_local_path` (text, Phase 2.6 でローカル PDF path を埋める) / `jargon_check_status` (text, `clean`/`warning`/`failed`、Phase 2.5 の結果を書く) / `jargon_check_findings` (jsonb, Phase 2.5 で検出した語の詳細)。
+   - `(project_id, ym)` UNIQUE。既存 row があれば PATCH で upsert (= 1 か月内の再 run で重複 insert しない)。
+   - 提出用の本文からは自社メンバー名を必ず姓のみに正規化し (`toSurnameOnly` 相当のロジック、`code_name` は絶対に出さない)、eLAD 等の表記ゆれは e-Rad に統一してから `body_md` に書く。
+   - 反映は outbox JSON の `monthlyReportsExternal[]` に積み、実装済みの非 LLM helper `node pwa/scripts/ms_progress_review_tool.mjs upsert-monthly-reports-external --file <outbox>`（または同じ helper を呼ぶ `apply-outbox-dir`）で行う。LLM から REST を直接叩かない。
+   - helper 実行後は `monthly_reports_external?project_id=eq.<project_id>&ym=eq.<YYYY-MM>` を GET し、`body_md` の長さ、`jargon_check_status`、`generated_at` を読み直す。outbox を置いただけでは完了扱いにしない。
 
 ### Phase 2.5: 禁止語チェック
 
@@ -233,7 +235,7 @@ Phase 2: PJ ごとループ
 
 ### Phase 2.6: PDF 生成 + ローカル & 共有 Drive 配置
 
-- 実装: `python3 /Users/masa/projects/AMD/amd-os/pwa/scripts/generate_monthly_report.py --project-id <pid> --ym <YYYYMM> --markdown <external markdown path> --output-dir <local out dir>` (= pandoc→HTML→colgroup 注入→Chrome headless→PDF、詳細は実装側正本)
+- 実装: `python3 /Users/masa/projects/AMD/amd-os/pwa/scripts/generate_monthly_report.py --project-id <pid> --ym <YYYYMM> --markdown <external markdown path> --output-dir <local out dir>` (= pandoc→HTML→Chrome headless→PDF、詳細は実装側正本)
 - 入力 = Phase 2.5 を通過した対外版 markdown
 - 出力 path:
   - ローカル = `/Users/masa/.codex/automations/amd-os-ms/outbox/monthly-reports/<YYYY-MM>/<project_id>-<project_name_slug>-<YYYY-MM>.pdf`
@@ -347,7 +349,7 @@ Phase 3: 全 PJ 完了後サマリー
 - **`strip_internal_jargon.py` を import / 実行せず対外 PDF を配信する**。
 - **対外版を `monthly_reports.final_content` に上書きする** (= 対外版は `monthly_reports_external` 専用)。
 - **`monthly_report_required = false` の PJ を勝手に対象に含める** (= 月次納品義務がない PJ に勝手に PDF を作って渡さない)。
-- **`project_category = 'ecosystem'` を対象にする** (= AMD Score 対象外 / 月次納品義務なし)。
+- **`project_category = 'ecosystem'` だからという理由だけで内部版 M-1 対象外にする** (= 判定は `projects.monthly_report_scope` が唯一の正本。`ecosystem` でも `scope != 'none'` なら内部版は作る。KUTE (p25) は `ecosystem` かつ `scope='internal_and_external'` で対外版まで作る現行の確定例外、まさ 2026-07-01 確定、98行目参照)。
 - **Slack 通知を Codex / ChatGPT / MCP `slack_send_message` 等の別経路で送る** (= えいみ名義 = 必ず `scripts/send-eimi-slack.mjs` 経由で GAS webapp から発信、これ以外の経路禁止、まさ 2026-06-30 確定)。
 - **PJ の `slack_channel_id` に routine から通知を投げる** (= 全通知はまさ DM に集約、PJ チャンネルには流さない)。
 - **未来月 / 開始前 (`start_ym` より前) を backfill する**。

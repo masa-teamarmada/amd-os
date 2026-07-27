@@ -12,29 +12,34 @@ import { headers } from "next/headers";
 import { requireAdmin } from "@/lib/supabase/api-auth";
 import { MonthlyReportPrintClient } from "./print-client";
 
-interface Params { params: Promise<{ projectId: string; ym: string }> }
+interface Params {
+  params: Promise<{ projectId: string; ym: string }>;
+  searchParams: Promise<{ template?: string }>;
+}
 
-async function fetchPrintData(projectId: string, ym: string) {
+async function fetchPrintData(projectId: string, ym: string, template: string) {
   const h = await headers();
   const proto = h.get("x-forwarded-proto") || "https";
   const host = h.get("host") || "amd-os-pwa.vercel.app";
   const cookie = h.get("cookie") || "";
   const res = await fetch(
-    `${proto}://${host}/api/project/monthly-report-print?projectId=${encodeURIComponent(projectId)}&ym=${encodeURIComponent(ym)}`,
+    `${proto}://${host}/api/project/monthly-report-print?projectId=${encodeURIComponent(projectId)}&ym=${encodeURIComponent(ym)}&template=${encodeURIComponent(template)}`,
     { cache: "no-store", headers: { cookie } }
   );
   if (!res.ok) return null;
   return res.json();
 }
 
-export default async function MonthlyReportPrintPage({ params }: Params) {
+export default async function MonthlyReportPrintPage({ params, searchParams }: Params) {
   const { projectId, ym } = await params;
+  const { template: rawTemplate } = await searchParams;
+  const template = rawTemplate || "internal";
   const auth = await requireAdmin();
   if (!auth.ok) return <div className="p-8 text-sm">この月次報告書を表示する権限がありません。</div>;
 
   if (!/^\d{6}$/.test(ym)) notFound();
 
-  const data = await fetchPrintData(projectId, ym);
+  const data = await fetchPrintData(projectId, ym, template);
   if (!data?.ok) notFound();
 
   return <MonthlyReportPrintClient data={data} />;

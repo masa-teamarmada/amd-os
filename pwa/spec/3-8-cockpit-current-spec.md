@@ -158,7 +158,7 @@ PM向けの cockpit 右カラム routine step UI は廃止済み。`CockpitRouti
 
 現行の月次導線は `CockpitMonthlyList` / `HudCockpitMonthlyList` から月を選び、`CockpitMonthlyModal` / `HudCockpitMonthlyModal` を開く形に一本化する。月次報告書の軽い確認 nudge は Slack 側に寄せ、OS 上の月次 routine step は発生させない。契約 apply 済みPJでは、請求額は `contract-billing-auto-confirm` と `/admin/invoices` / `/admin/payouts` 側で扱う。
 
-`CockpitMonthlyModal` の月次報告書導線は、全PJ共通の `社内保存用を編集` と、提出が必要なPJだけに出す `提出用` リンクを分ける。社内保存用は `monthly_reports` 本文の生成・修正・FIXを扱い、提出用リンクは `/project/[projectId]/report/[ym]/print?template=...` を新規タブで開く。CX (`p20`) は `template=nims-cx`、SX (`p21`) は `template=ehime-sx`、KUTE (`p25`) は `template=kogakuin-kute` を使い、それ以外のPJは AMD 標準の `PDF` リンクだけを表示する。
+`CockpitMonthlyModal` の月次報告書導線は、全PJ共通の `社内版を編集` と印刷プレビューを分ける。社内版は `monthly_reports` 本文の生成・修正・FIXを扱う。印刷リンクは `/project/[projectId]/report/[ym]/print?template=...` を新規タブで開き、CX (`p20`) は `NIMS提出版` (`template=nims-cx`)、SX (`p21`) は `愛媛大提出版` (`template=ehime-sx`)、KUTE (`p25`) は `工学院提出版` (`template=kogakuin-kute`)、それ以外は `社内版プレビュー` (`template=internal`) と表示する。提出版は `monthly_reports_external.body_md` を優先し、明示的なページ区切りを挿入しない連続文書とする。
 
 ## Monthly Modal / API Contract
 

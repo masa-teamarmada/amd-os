@@ -13,6 +13,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+// PJ別の提出版テンプレート。print pipeline (route.ts) の PRINT_TEMPLATES と対応させる。
+const PRINT_TEMPLATE_BY_PROJECT: Record<string, { template: string; label: string }> = {
+  p20: { template: "nims-cx", label: "NIMS提出版" },
+  p21: { template: "ehime-sx", label: "愛媛大提出版" },
+  p25: { template: "kogakuin-kute", label: "工学院提出版" },
+};
+function printLinkForProject(projectId: string): { template: string; label: string } {
+  return PRINT_TEMPLATE_BY_PROJECT[projectId] || { template: "internal", label: "社内版プレビュー" };
+}
+
 // ─── 型定義 ─────────────────────────────────────────────────────────────────
 
 interface Report {
@@ -823,16 +833,16 @@ export function CockpitMonthlyModal({
                 className="text-xs px-2.5 py-1 rounded-md border border-border text-foreground hover:bg-accent transition-colors"
                 title="月次報告書本文を生成・編集・確定する"
               >
-                📝 レポート本文を編集
+                社内版を編集
               </button>
               <a
-                href={`/project/${projectId}/report/${ym}/print`}
+                href={`/project/${projectId}/report/${ym}/print?template=${printLinkForProject(projectId).template}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs px-2.5 py-1 rounded-md bg-foreground text-background hover:opacity-90 transition-opacity"
-                title="クライアント提出用フォーマット。Cmd+P で PDF 保存できます"
+                title="Cmd+P で PDF 保存できます"
               >
-                📄 印刷 / PDF
+                📄 {printLinkForProject(projectId).label}
               </a>
             </div>
           </DialogTitle>
@@ -3015,15 +3025,15 @@ function ReportTab({ report, projectId, ym }: { report: Report | null; projectId
           </button>
         )}
 
-        {/* クライアント提出用 印刷プレビュー */}
+        {/* 印刷プレビュー (PJ別に提出版/社内版を出し分け) */}
         <a
-          href={`/project/${projectId}/report/${ym}/print`}
+          href={`/project/${projectId}/report/${ym}/print?template=${printLinkForProject(projectId).template}`}
           target="_blank"
           rel="noopener noreferrer"
-          title="クライアント提出用フォーマット。Cmd+P で PDF 保存できます"
+          title="Cmd+P で PDF 保存できます"
           className="text-xs px-3 py-1 rounded-md border border-border text-foreground hover:bg-accent transition-colors"
         >
-          📄 印刷 / PDF
+          📄 {printLinkForProject(projectId).label}
         </a>
 
         {/* 表示切り替え */}

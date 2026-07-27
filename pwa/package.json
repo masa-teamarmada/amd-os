@@ -33,6 +33,7 @@
     "test:monthly-agreement-diff": "node --experimental-strip-types scripts/check_monthly_agreement_diff.mts",
     "test:next-period-ui": "node scripts/check_next_period_ms_period_ui.cjs",
     "test:critical-ui": "node scripts/check_pwa_critical_ui.cjs",
+    "test:monthly-report-quality": "node scripts/test_monthly_report_quality.mjs",
     "test:sx-management": "node --experimental-strip-types scripts/test_project_management_logic.mjs",
     "test:sx-proof-mapping": "node --experimental-strip-types scripts/test_sx_proof_mapping.mjs",
     "test:sx-partner-holdings": "node --experimental-strip-types scripts/test_sx_partner_holdings.mjs",

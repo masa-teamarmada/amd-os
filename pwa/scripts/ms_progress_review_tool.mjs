@@ -1061,6 +1061,7 @@ async function applyOutbox(file) {
     textbookInsights: null,
     sourceCache: null,
     monthlyReports: null,
+    monthlyReportsExternal: null,
     projectPatches: null,
   };
   for (const notification of payload.notifications || []) {
@@ -1098,6 +1099,9 @@ async function applyOutbox(file) {
   }
   if (Array.isArray(payload.monthlyReports) && payload.monthlyReports.length) {
     results.monthlyReports = await upsertMonthlyReports(payload.monthlyReports);
+  }
+  if (Array.isArray(payload.monthlyReportsExternal) && payload.monthlyReportsExternal.length) {
+    results.monthlyReportsExternal = await upsertMonthlyReportsExternal(payload.monthlyReportsExternal);
   }
   if (Array.isArray(payload.projectPatches) && payload.projectPatches.length) {
     results.projectPatches = await updateProjectPatches(payload.projectPatches);
@@ -1629,6 +1633,69 @@ async function upsertSourceCache(items) {
   return { ok: true, writtenCount: written?.length || 0, written };
 }
 
+const MONTHLY_REPORT_REQUIRED_HEADINGS = [
+  "概要",
+  "今月進んだこと",
+  "重要な判断・合意",
+  "顧客・共同研究・外部関係者の動き",
+  "技術・知財・実験・資料",
+  "リスク・未確定事項",
+  "来月の焦点",
+  "根拠",
+];
+
+// 月次レポート draft/final の品質検証。8見出しを正しい順序で1回ずつ持つこと、
+// および下書き/プロセス残骸の混入が無いことを要求する。
+function validateMonthlyReportContent(content) {
+  const errors = [];
+  if (typeof content !== "string" || !content.trim()) {
+    return { ok: false, errors: ["月次報告書本文が空です"], normalized: content };
+  }
+
+  let normalized = content;
+
+  // eLAD -> e-Rad 正規化
+  normalized = normalized.replace(/eLAD/gi, "e-Rad");
+
+  // 見出し出現順・出現回数チェック
+  const headingLine = /^#{1,3}\s*(.+?)\s*$/gm;
+  const foundHeadings = [];
+  let m;
+  while ((m = headingLine.exec(normalized)) !== null) {
+    const text = m[1].replace(/[:：]\s*$/, "").trim();
+    if (MONTHLY_REPORT_REQUIRED_HEADINGS.includes(text)) foundHeadings.push(text);
+  }
+  for (const required of MONTHLY_REPORT_REQUIRED_HEADINGS) {
+    const count = foundHeadings.filter((h) => h === required).length;
+    if (count === 0) errors.push(`見出し「${required}」が見つかりません`);
+    else if (count > 1) errors.push(`見出し「${required}」が${count}回出現しています (1回のみ許可)`);
+  }
+  if (errors.length === 0) {
+    const orderOk = MONTHLY_REPORT_REQUIRED_HEADINGS.every((h, i) => foundHeadings[i] === h);
+    if (!orderOk) errors.push(`見出しの出現順が不正です: ${foundHeadings.join(" > ")}`);
+  }
+
+  // 概要セクション内の下書き/プロセス残骸チェック
+  const overviewMatch = normalized.match(/^#{1,3}\s*概要\s*$([\s\S]*?)(?=^#{1,3}\s*\S|\Z)/m);
+  const overviewBody = overviewMatch ? overviewMatch[1] : "";
+  if (/確定済み証跡/.test(overviewBody)) errors.push("概要セクションに「確定済み証跡」というプロセス文言が残っています");
+  if (/L2\s*(件数|カウント|count)/i.test(overviewBody)) errors.push("概要セクションに L2 件数メタデータが残っています");
+  if (/(?:既存|前回).{0,12}draft|draft.{0,12}(?:生成|更新|追補)|collection[_ ]summary|source[_ ]refs?|確認した根拠|今回の追補|今回確認したL2断面|新しい根拠の扱い|次に見るところ/i.test(overviewBody)) {
+    errors.push("概要セクションに生成・収集プロセスの作業ログが残っています");
+  }
+  if (/^\s*(?:決定(?:\/確認)?|確認)\s*[:：]/m.test(overviewBody)) errors.push("概要セクションに生の「決定/確認:」行が残っています");
+  if (/^\s*次アクション\s*[:：]/m.test(overviewBody)) errors.push("概要セクションに生の「次アクション:」行が残っています");
+
+  // 本文全体: 生のプロセス行・句読点崩れ・省略記号
+  if (/^\s*決定(?:\/確認)?\s*[:：]/m.test(normalized)) errors.push("本文に生の「決定/確認:」行が残っています (ナラティブ文章化が必要)");
+  if (/^\s*確認\s*[:：]/m.test(normalized)) errors.push("本文に生の「確認:」行が残っています (ナラティブ文章化が必要)");
+  if (/^\s*次アクション\s*[:：]/m.test(normalized)) errors.push("本文に生の「次アクション:」行が残っています (ナラティブ文章化が必要)");
+  if (/。\s*,/.test(normalized)) errors.push("句点(。)直後に ASCII カンマが連結している箇所があります");
+  if (/(\.\.\.|…)/.test(normalized)) errors.push("省略記号 (... または …) が含まれています");
+
+  return { ok: errors.length === 0, errors, normalized };
+}
+
 async function upsertMonthlyReports(items) {
   const now = new Date().toISOString();
   const written = [];
@@ -1642,7 +1709,19 @@ async function upsertMonthlyReports(items) {
       written.push({ action: "skipped_final_exists", row: current });
       continue;
     }
-    const draft = item.draft_content ?? item.draftContent ?? item.content ?? current?.draft_content ?? "";
+    const incomingDraft = item.draft_content ?? item.draftContent ?? item.content;
+    let draft = incomingDraft ?? current?.draft_content ?? "";
+    if (incomingDraft !== undefined) {
+      const validation = validateMonthlyReportContent(incomingDraft);
+      if (!validation.ok) {
+        if (item.strict === false) {
+          written.push({ action: "skipped_validation_failed", project_id: projectId, ym, target: "draft_content", errors: validation.errors });
+          continue;
+        }
+        throw new Error(`monthlyReports draft_content quality check failed for ${projectId}/${ym}:\n- ${validation.errors.join("\n- ")}`);
+      }
+      draft = validation.normalized;
+    }
     const body = {
       report_id: item.report_id || item.reportId || current?.report_id || `${projectId}_${ym}`,
       project_id: projectId,
@@ -1654,7 +1733,18 @@ async function upsertMonthlyReports(items) {
       last_cron_at: item.last_cron_at || item.lastCronAt || now,
       section_members: item.section_members ?? item.sectionMembers ?? current?.section_members ?? null,
     };
-    if (item.final_content || item.finalContent) body.final_content = item.final_content || item.finalContent;
+    const finalContent = item.final_content || item.finalContent;
+    if (finalContent) {
+      const validation = validateMonthlyReportContent(finalContent);
+      if (!validation.ok) {
+        if (item.strict === false) {
+          written.push({ action: "skipped_validation_failed", project_id: projectId, ym, errors: validation.errors });
+          continue;
+        }
+        throw new Error(`monthlyReports final_content quality check failed for ${projectId}/${ym}:\n- ${validation.errors.join("\n- ")}`);
+      }
+      body.final_content = validation.normalized;
+    }
     const response = current
       ? await requestJson(rest("monthly_reports", `project_id=eq.${enc(projectId)}&ym=eq.${enc(ym)}&select=*`), {
           method: "PATCH",
@@ -1669,6 +1759,75 @@ async function upsertMonthlyReports(items) {
     written.push({ action: current ? "updated" : "inserted", row: response?.[0] || null });
   }
   return { ok: true, writtenCount: written.length, written };
+}
+
+function surnameOnly(memberName) {
+  const parts = String(memberName || "").trim().split(/[\s　]+/).filter(Boolean);
+  return parts.length >= 2 ? parts[0] : "担当者";
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+async function normalizeExternalMonthlyReport(content) {
+  let normalized = String(content || "").replace(/eLAD/gi, "e-Rad");
+  const members = await get("members", "select=code_name,member_name");
+  const identities = (members || []).map((member) => ({
+    codeName: String(member.code_name || "").trim(),
+    memberName: String(member.member_name || "").trim(),
+    surname: surnameOnly(member.member_name),
+  })).filter((member) => member.codeName || member.memberName);
+
+  for (const member of identities) {
+    if (member.memberName) normalized = normalized.split(member.memberName).join(member.surname);
+    if (member.codeName) {
+      normalized = normalized.replace(new RegExp(`\\[${escapeRegExp(member.codeName)}\\](?=\\()`, "g"), member.surname);
+    }
+  }
+  for (const left of identities) {
+    for (const right of identities) {
+      if (!left.codeName || !right.codeName || left === right) continue;
+      normalized = normalized.split(`${left.codeName}と${right.codeName}`).join(`${left.surname}と${right.surname}`);
+    }
+  }
+  for (const member of identities) {
+    if (!member.codeName) continue;
+    const pattern = new RegExp(`(^|[\\s、。・（(「『【])${escapeRegExp(member.codeName)}(?=(?:は|が|を|も|へ|から|より)(?:[\\s、。]|$|[一-龥ぁ-んァ-ン]))`, "g");
+    normalized = normalized.replace(pattern, `$1${member.surname}`);
+  }
+  return normalized;
+}
+
+async function upsertMonthlyReportsExternal(items) {
+  const now = new Date().toISOString();
+  const rows = [];
+  for (const item of items) {
+    const projectId = item.project_id || item.projectId;
+    const ym = item.ym;
+    const rawBody = item.body_md ?? item.bodyMd ?? item.content;
+    if (!projectId || !/^\d{4}-\d{2}$/.test(String(ym || "")) || !String(rawBody || "").trim()) {
+      throw new Error(`monthlyReportsExternal requires project_id, ym=YYYY-MM, and body_md: ${JSON.stringify({ project_id: projectId, ym })}`);
+    }
+    const bodyMd = await normalizeExternalMonthlyReport(rawBody);
+    rows.push({
+      project_id: projectId,
+      ym,
+      body_md: bodyMd,
+      generated_at: item.generated_at || item.generatedAt || now,
+      generated_by_model: item.generated_by_model || item.generatedByModel || "manual-quality-repair",
+      pdf_drive_url: item.pdf_drive_url ?? item.pdfDriveUrl ?? null,
+      pdf_local_path: item.pdf_local_path ?? item.pdfLocalPath ?? null,
+      jargon_check_status: item.jargon_check_status || item.jargonCheckStatus || "clean",
+      jargon_check_findings: item.jargon_check_findings || item.jargonCheckFindings || [],
+    });
+  }
+  const written = await requestJson(rest("monthly_reports_external", "on_conflict=project_id,ym&select=*"), {
+    method: "POST",
+    headers: restHeaders({ prefer: "resolution=merge-duplicates,return=representation" }),
+    body: rows,
+  });
+  return { ok: true, writtenCount: written?.length || 0, written };
 }
 
 const PROJECT_PATCH_ALLOWLIST = new Set([
@@ -1779,6 +1938,21 @@ async function main() {
     result = await upsertSourceCache(readJson(args.file).sourceCache || readJson(args.file).items || []);
   } else if (cmd === "upsert-monthly-reports") {
     result = await upsertMonthlyReports(readJson(args.file).monthlyReports || readJson(args.file).items || []);
+  } else if (cmd === "upsert-monthly-reports-external") {
+    result = await upsertMonthlyReportsExternal(readJson(args.file).monthlyReportsExternal || readJson(args.file).items || []);
+  } else if (cmd === "validate-monthly-report") {
+    const items = args.file
+      ? readJson(args.file).monthlyReports || readJson(args.file).items || []
+      : [{ project_id: args.project, ym: args.ym, final_content: args.content }];
+    const results = items.map((item) => {
+      const content = item.final_content || item.finalContent || item.draft_content || item.draftContent || item.content || "";
+      const v = validateMonthlyReportContent(content);
+      return { project_id: item.project_id || item.projectId, ym: item.ym, ok: v.ok, errors: v.errors };
+    });
+    result = {
+      ok: results.every((item) => item.ok),
+      results,
+    };
   } else if (cmd === "upsert-textbook-insights") {
     result = await upsertTextbookInsights(readJson(args.file).textbookInsights || readJson(args.file).items || []);
   } else if (cmd === "update-projects") {
@@ -1813,6 +1987,8 @@ async function main() {
         "node pwa/scripts/ms_progress_review_tool.mjs notify --file /tmp/notification.json",
         "node pwa/scripts/ms_progress_review_tool.mjs upsert-source-cache --file /tmp/source-cache.json",
         "node pwa/scripts/ms_progress_review_tool.mjs upsert-monthly-reports --file /tmp/monthly-reports.json",
+        "node pwa/scripts/ms_progress_review_tool.mjs upsert-monthly-reports-external --file /tmp/monthly-reports-external.json",
+        "node pwa/scripts/ms_progress_review_tool.mjs validate-monthly-report --file /tmp/monthly-reports.json",
         "node pwa/scripts/ms_progress_review_tool.mjs upsert-textbook-insights --file /tmp/textbook-insights.json",
         "node pwa/scripts/ms_progress_review_tool.mjs update-projects --file /tmp/project-patches.json",
         "node pwa/scripts/ms_progress_review_tool.mjs apply-outbox --file /tmp/amd-os-outbox.json",

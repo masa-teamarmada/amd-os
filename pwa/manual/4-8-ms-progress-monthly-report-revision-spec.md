@@ -122,11 +122,11 @@ GAS `rv2_calcRewardSummary` が報酬計算時に `share` を掛けて per-membe
 
 ## 月次報告書 (= M-1、 `monthly_reports`)
 
-`monthly_reports` は Codex automation `AMD OS M-1 月次報告抽出` が primary writer。5 生データを読み、`amd-os-ms/outbox.monthlyReports` 経由で非LLM applier が Supabase に反映する。
+`monthly_reports` の primary writer は Claude Code Scheduled Task `amd-os-l2m1-monthly-report`。月末最終日に、5 生データと OS 内 L2 を材料として LLM がナラティブ本文を生成し、`amd-os-ms/outbox.monthlyReports` 経由で非 LLM applier が Supabase に反映する。旧 Codex automation `AMD OS M-1 月次報告抽出` (`amd-os-l2`) は **PAUSED** で、定期 writer として復活させない。
 
 **🚨 課金注意 (2026-05-29 訂正)**: R313 は単なる deterministic 集約ではない。AMD-Report GAS 現物では、未生成レポートや差分ありレポートのときに R303 generator 経由で Anthropic Claude API を呼ぶ。`run_monthlyReportCron` trigger が有効なら token 課金が発生しうるため、「R313 = LLM 不使用」と書かない。2026-05-29 実画面確認時点では `run_monthlyReportCron` / `run_L2CronDaily` trigger は存在しない。
 
-これは月次報告書の生成停止ではない。`monthly_reports` は OS の必須データで、定期生成は Codex automation 側で行う。PWA の手動/backfill route と月次報告モーダルは復旧・手動編集用。避けるのは、対象範囲や費用意図が曖昧なまま日次の有料API trigger を復活させること。
+これは月次報告書の生成停止ではない。`monthly_reports` は OS の必須データで、定期生成は月末の Claude task が担う。PWA の手動/backfill route と月次報告モーダルは復旧・手動編集用。旧 daily Codex automation や、対象範囲・費用意図が曖昧な有料 API trigger を復活させない。
 
 ### `monthly_reports` 列
 
@@ -150,9 +150,9 @@ GAS `rv2_calcRewardSummary` が報酬計算時に `share` を掛けて per-membe
 
 ```mermaid
 flowchart TD
-  A[5 生データ &lpar;Slack/Notion/Calendar/Drive/Gmail&rpar;] --> B[Codex automation M-1 月次報告抽出]
+  A[5 生データ + OS内L2] --> B[Claude task L2M-1 月次報告書生成]
   B --> C[amd-os-ms/outbox monthlyReports JSON]
-  C --> D[LaunchAgent + non-LLM applier]
+  C --> D[非LLM applier + 品質検査]
   D --> E[monthly_reports.status='draft']
   E --> F[PWA cockpit 月次モーダル]
   F --> G[PL レビュー依頼]
@@ -273,7 +273,8 @@ PM routine step 行や `?step=` query からこのモーダルを開いてはい
 
 | operation | 役割 | cadence |
 |---|---|---|
-| `AMD OS M-1 月次報告抽出` | M-1 Codex automation (= primary) | daily 05:30 JST |
+| `amd-os-l2m1-monthly-report` | M-1 Claude Code Scheduled Task (= primary、内部版→提出版→PDF) | 月末最終日 03:00 JST |
+| `AMD OS M-1 月次報告抽出` (`amd-os-l2`) | 旧 Codex automation | **PAUSED / 復活禁止** |
 | `/api/cron/ms-schedule-progress` | D-2 デフォルト按分 writer (= Vercel cron、非LLM) | daily 02:30 JST |
 | `claude-l3-ms-progress-extract` | D-2 ズレ検知 → revision 提案 (= MMOマシン automation) | 毎時 0 分 |
 | `pwa-hourly-estimate` | 旧 PWA fallback。停止中 | disabled |
@@ -291,7 +292,7 @@ PM routine step 行や `?step=` query からこのモーダルを開いてはい
 | 進捗が想定よりズレてる | 通知の `ms_progress_revision` (= D-2 MS進捗修正提案) が pending で待ってないか。「はい」で confirm するまでデフォルト月割りのまま。確定済みの月があるなら、その確定値起点のアンカー按分になっているか (= 進みすぎに見えるときは過去の低い確定値が無いか) |
 | 期限切れMSが 100% にならない | 仕様通り。アンカーがある MS は target_ym 超過後も確定値起点の月割りを継続する。「D-2 MS計画遅延」通知が出るので、実態に合わせて確定するか target_ym を見直す |
 | 修正依頼が反映されない | `ms_progress_revisions.status='confirmed'`、 `milestone_monthly_progress` 該当行が `source='tsukuyomi_revision'` で更新されているか |
-| 月次報告書が空 | `AMD OS M-1 月次報告抽出` の実行履歴、`amd-os-ms/outbox` の applied/failed、`monthly_reports.collection_summary_json`。R313 trigger は復活させない |
+| 月次報告書が空 | `amd-os-l2m1-monthly-report` の実行履歴、`amd-os-ms/outbox` の applied/failed、`monthly_reports.collection_summary_json`。旧 `amd-os-l2` / R313 trigger は復活させない |
 | 休止 PJ の月が空 | `project_freeze_periods.status='active'`、 `manual-freeze-period-backfill` 実行 |
 | advisor PJ で MS が出る | `projects.project_category='advisor'` の判定、 月次ノート側に寄せる ([2-6 章](2-6-admin-ops.md)) |
 

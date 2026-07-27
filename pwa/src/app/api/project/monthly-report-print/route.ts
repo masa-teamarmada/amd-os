@@ -23,6 +23,67 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/supabase/api-auth";
 
+// 提出版テンプレート。internal 以外は monthly_reports_external.body_md を本文に優先採用する。
+const VALID_PRINT_TEMPLATES = new Set(["internal", "nims-cx", "ehime-sx", "kogakuin-kute"]);
+
+function toHyphenYm(ym: string): string {
+  return `${ym.slice(0, 4)}-${ym.slice(4, 6)}`;
+}
+
+// 提出版の氏名表記: 姓のみ。スペースが無く安全に姓を切り出せない場合は「担当者」。
+function toSurnameOnly(memberName: string | null | undefined): string {
+  const name = (memberName || "").trim();
+  if (!name) return "担当者";
+  const parts = name.split(/[\s　]+/).filter(Boolean);
+  if (parts.length >= 2) return parts[0];
+  return "担当者";
+}
+
+// 提出版本文の用語正規化: eLAD 表記ゆれを e-Rad に統一し、本文中に残った code_name を姓のみに置換する。
+type MemberIdentity = { code_name: string; member_name: string | null };
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function normalizeJargonForSubmission(body: string, members: MemberIdentity[] = []): string {
+  let out = body.replace(/eLAD/gi, "e-Rad");
+
+  const identities = members
+    .map((member) => ({
+      codeName: (member.code_name || "").trim(),
+      memberName: (member.member_name || "").trim(),
+      surname: toSurnameOnly(member.member_name),
+    }))
+    .filter((member) => member.codeName || member.memberName);
+
+  // まずフルネームと markdown のメンバーリンクを確実に姓へ落とす。
+  for (const member of identities) {
+    if (member.memberName) out = out.split(member.memberName).join(member.surname);
+    if (member.codeName) {
+      const escaped = escapeRegExp(member.codeName);
+      out = out.replace(new RegExp(`\\[${escaped}\\](?=\\()`, "g"), member.surname);
+    }
+  }
+
+  // 「まさとりり」のようにコードネームを連結した内部文も、語の組合せを限定して置換する。
+  for (const left of identities) {
+    for (const right of identities) {
+      if (!left.codeName || !right.codeName || left === right) continue;
+      out = out.split(`${left.codeName}と${right.codeName}`).join(`${left.surname}と${right.surname}`);
+    }
+  }
+
+  // 単独コードネームは、名前として現れる高確度の区切り・助詞がある場合だけ置換する。
+  for (const member of identities) {
+    if (!member.codeName) continue;
+    const escaped = escapeRegExp(member.codeName);
+    const pattern = new RegExp(`(^|[\\s、。・（(「『【])${escaped}(?=(?:は|が|を|も|へ|から|より)(?:[\\s、。]|$|[一-龥ぁ-んァ-ン]))`, "g");
+    out = out.replace(pattern, `$1${member.surname}`);
+  }
+  return out;
+}
+
 function nextYm(ym: string): string {
   const y = parseInt(ym.slice(0, 4), 10);
   const m = parseInt(ym.slice(4, 6), 10);
@@ -57,6 +118,9 @@ export async function GET(req: NextRequest) {
   if (!projectId || !/^\d{6}$/.test(ym ?? "")) {
     return NextResponse.json({ error: "projectId and ym (YYYYMM) required" }, { status: 400 });
   }
+  const rawTemplate = searchParams.get("template") || "internal";
+  const template = VALID_PRINT_TEMPLATES.has(rawTemplate) ? rawTemplate : "internal";
+  const isSubmission = template !== "internal";
   const ymStr = ym as string;
   const nextYmStr = nextYm(ymStr);
   const prevYmStr = prevYm(ymStr);
@@ -214,9 +278,9 @@ export async function GET(req: NextRequest) {
   const memberNameRes = memberIdSet.size
     ? await db.from("members").select("member_id,code_name,member_name").in("member_id", Array.from(memberIdSet))
     : { data: [] };
-  // 本名優先、無ければ code_name
+  // 本名優先、無ければ code_name。ただし提出版 (internal 以外) は必ず姓のみ、code_name は絶対に出さない。
   const memberNameMap = new Map(((memberNameRes.data || []) as Array<{ member_id: string; code_name: string; member_name: string | null }>)
-    .map((m) => [m.member_id, m.member_name && m.member_name.trim() ? m.member_name : m.code_name]));
+    .map((m) => [m.member_id, isSubmission ? toSurnameOnly(m.member_name) : (m.member_name && m.member_name.trim() ? m.member_name : m.code_name)]));
 
   const members = pmRows.map((pm) => ({
     memberId: pm.member_id,
@@ -270,6 +334,26 @@ export async function GET(req: NextRequest) {
     periodEnd: primaryContract?.expiration_date || primaryTerm?.period_end || null,
     contractValueYen: Number(primaryContract?.contract_value_yen || primaryTerm?.amount_tax_incl || 0) || null,
   };
+
+  // 提出版本文: monthly_reports_external.body_md を優先、無ければ monthly_reports.final_content にフォールバック
+  let submissionBody: string | null = null;
+  let submissionGeneratedAt: string | null = null;
+  if (isSubmission) {
+    // 本文には PJ メンバー外の AMD メンバーが登場することもあるため、提出版の
+    // 匿名化辞書は当該 PJ の担当者だけでなく members 全体から作る。
+    const submissionMemberRes = await db.from("members").select("code_name,member_name");
+    const memberIdentities = (submissionMemberRes.data || memberNameRes.data || []) as MemberIdentity[];
+    const externalRes = await db.from("monthly_reports_external")
+      .select("body_md,generated_at,generated_by_model,jargon_check_status")
+      .eq("project_id", projectId).eq("ym", toHyphenYm(ymStr)).maybeSingle();
+    if (externalRes.data?.body_md) {
+      submissionBody = normalizeJargonForSubmission(externalRes.data.body_md, memberIdentities);
+      submissionGeneratedAt = externalRes.data.generated_at || null;
+    } else {
+      const fallbackBody = repRes.data?.final_content || repRes.data?.draft_content || "";
+      submissionBody = fallbackBody ? normalizeJargonForSubmission(fallbackBody, memberIdentities) : null;
+    }
+  }
 
   // 5生データ確認状況 (ソース証跡)
   const sourceTraceRes = await db.from("monthly_reports")
@@ -508,6 +592,11 @@ export async function GET(req: NextRequest) {
     },
     ym: ymStr,
     nextYm: nextYmStr,
+    template,
+    isSubmission,
+    submissionBody,
+    submissionGeneratedAt,
+    usingSubmissionFallback: isSubmission && Boolean(submissionBody) && !submissionGeneratedAt,
     report: repRes.data
       ? {
           status: repRes.data.status || "pending",

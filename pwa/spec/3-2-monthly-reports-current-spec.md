@@ -7,12 +7,13 @@
 | 観点 | v1 (〜2026-06-30) | v2 (2026-07-01〜) |
 |---|---|---|
 | primary writer | Codex automation `amd-os-l2` (name="AMD OS M-1 月次報告抽出") | Claude routine `amd-os-l2m1-monthly-report` |
-| 実行環境 | Codex Desktop MMOマシン (gpt-5.5 + reasoning_effort=high) | Anthropic クラウド sandbox (opus-4-8 想定 + ultracode/xhigh) |
+| 実行環境 | Codex Desktop MMOマシン (gpt-5.5 + reasoning_effort=high) | まさの mac local Claude Code アプリ Scheduled Tasks (opus-4-8 + ultracode/xhigh、アプリ open 時に発火。cloud sandbox 常駐ではない、2026-07-01 テスト実走で判明) |
 | schedule | daily 05:30 JST (毎日) | **月末最終日 03:00 JST** (cron `0 3 28-31 * *` + Phase 0 で JST 最終日判定) |
 | 出力 | 内部保存版のみ (`monthly_reports.final_content`) | **内部保存版 + 対外提出版**の 2 段生成 (`monthly_reports.final_content` + `monthly_reports_external.body_md` + PDF) |
 | 対象判定 | 全 active/sales PJ (対外提出義務の概念なし) | `projects.monthly_report_scope IN ('internal_only','internal_and_external')` の 3 状態 enum |
 | プロンプト | SKILL.md / prompt に直書き | `llm_prompts` table 正本 (`prompt_key='l2m1.monthly_report.internal.v2'` / `'l2m1.monthly_report.external.v2'`)、admin UI で編集可能 |
-| PDF 生成 | なし | Claude routine が pandoc + Chrome headless (sandbox 内試行) → 失敗時 outbox → ローカル LaunchAgent fallback |
+| PDF 生成 | なし | Claude routine が pandoc + Chrome headless (まさの mac local 実行) → 失敗時 outbox → ローカル LaunchAgent fallback |
+| 品質検証 | なし | `scripts/ms_progress_review_tool.mjs validate-monthly-report` が固定 8 章体系・生ログ丸写し・句読点崩れ・eLAD 表記を draft/final 書き込み前に検証する。対外版は `upsert-monthly-reports-external` が氏名を姓だけへ正規化し、`strip_internal_jargon.py` が code_name / 内部用語を検査する |
 | Slack 通知 | なし (Codex automation は run summary のみ) | まさ DM に集約 (`scripts/send-eimi-slack.mjs` = GAS webapp えいみ persona bot 経由)、PJ チャンネルには投げない |
 | 通知タイミング | なし | Phase 2.1 (開始) + Phase 2.7 (PJ 完了、scope 別 4 パターン) + Phase 3 (全体サマリ) |
 
@@ -34,6 +35,8 @@
 | `project_documents.delivered_to_client_at` | 顧客に正式に渡した時刻 |
 
 `monthly_reports` は後続 L2 の一次入力になるため、完全版を待たず、確認済み事実だけでも draft を積む。
+
+`llm_prompts` の 2 本の現行本文は `scripts/migrations/194_monthly_report_prompts_v2_rewrite.sql` に記録 (2026-07-27)。`internal.v2` は `llm_prompt_revisions` に旧稿が 0 行だったため固定 8 章体系 (概要/今月進んだこと/重要な判断・合意/顧客・共同研究・外部関係者の動き/技術・知財・実験・資料/リスク・未確定事項/来月の焦点/根拠) に沿って新規に書き起こしたもの (= 復元ではなく新規稿という判断)。`external.v2` は姓のみ表記・eLAD→e-Rad 正規化の 2 点を既存稿に追記した差分。
 
 ## 現行 writer (v2)
 
@@ -188,14 +191,15 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 2. **Phase 2.3**: `monthly_reports.final_content` (内部保存版 markdown) を生成
 3. **Phase 2.4**: `scope='internal_and_external'` の PJ のみ、内部版 markdown を入力に対外版 markdown を生成 (LLM が対外用語・章削除・言い換えを行う)
 4. **Phase 2.5**: 禁止語チェック (`scripts/strip_internal_jargon.py`)。hard_fail → PDF 生成停止、まさ DM 通知
-5. **Phase 2.6**: PDF 生成 (`scripts/generate_monthly_report.py` = pandoc → HTML → colgroup 注入 → Chrome headless)。cloud sandbox で試行、失敗時は outbox 経由でローカル LaunchAgent (`com.amd-os.l2m1-pdf-renderer`) fallback
+5. **Phase 2.6**: PDF 生成 (`scripts/generate_monthly_report.py` = pandoc → HTML → Chrome headless)。A4 の連続文書として自然改頁だけを許し、明示的な page break は入れない。routine 自体がまさの mac local Claude Code アプリ内で発火するため (= cloud sandbox ではない、SKILL.md 冒頭「登録・実行環境の current truth」参照)、pandoc / Chrome headless ともローカル実行。失敗時は outbox 経由でローカル LaunchAgent (`com.amd-os.l2m1-pdf-renderer`) fallback
 6. **配置**: ローカル `/Users/masa/projects/AMD/{report_local_alias}/output/monthly_reports/` + 共有 Drive `projects.drive_folder_id / 月次業務報告書 / YYYY-MM/`
 
 ### 対外提出版のフォーマット (KUTE 実納品準拠)
 
 - 章構成: 1. 業務概要 → 2. 当月の実施内容 → 3..N. 業務内容の各領域 → N+1. 体制および打合せ実施記録 → N+2. 主要成果物 → N+3. その他活動 (任意) → N+4. 来月以降の予定 → N+5. 継続協議事項 (任意)
 - 文体: である体、儀礼挨拶なし、締め「以上のとおり報告する。」
-- 自社メンバーは本名のみ (code_name 削除)、客先関係者は「XX 先生」「XX 様」維持
+- 自社メンバーは姓のみ表記 (`members.member_name` の姓部分)、フルネーム・code_name (えいみ / つくよみ 等) とも削除する。担当者名が不明な場合は「担当者」とする。客先関係者は「XX 先生」「XX 様」維持
+- eLAD 等の表記ゆれは e-Rad (府省共通研究開発管理システム) に正規化する (`scripts/strip_internal_jargon.py` --mode normalize が最終ゲート)
 - 業務期間・契約金額は `contracts.contract_terms_json` + `contracts.tax_basis` の verbatim
 - 内部評価指標 (RAG / XRL / KPI / signals / pt / Δ 等) は全削除
 - 「お願い・確認」セクション原則なし

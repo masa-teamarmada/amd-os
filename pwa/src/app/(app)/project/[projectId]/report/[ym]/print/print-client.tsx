@@ -106,6 +106,11 @@ interface PrintData {
     feeType: string | null; feeAmount: number | null;
   };
   ym: string; nextYm: string;
+  template: string;
+  isSubmission: boolean;
+  submissionBody: string | null;
+  submissionGeneratedAt: string | null;
+  usingSubmissionFallback: boolean;
   report: {
     status: string; draftContent: string; finalContent: string;
     generatedAt: string | null; fixedAt: string | null;
@@ -220,8 +225,9 @@ function MarkdownBlock({ text }: { text: string }) {
   return (
     <div className="md-body">
       {lines.map((line, i) => {
-        if (line.startsWith("### ")) return <h4 key={i}>{line.slice(4)}</h4>;
-        if (line.startsWith("## ")) return <h3 key={i}>{line.slice(3)}</h3>;
+        if (line.startsWith("#### ")) return <h4 key={i}>{line.slice(5)}</h4>;
+        if (line.startsWith("### ")) return <h3 key={i}>{line.slice(4)}</h3>;
+        if (line.startsWith("## ")) return <h2 key={i}>{line.slice(3)}</h2>;
         if (line.startsWith("# ")) return <h2 key={i}>{line.slice(2)}</h2>;
         if (line.match(/^[-*] /)) return <li key={i}>{renderInline(line.slice(2))}</li>;
         if (line.startsWith("> ")) return <blockquote key={i}>{line.slice(2)}</blockquote>;
@@ -475,11 +481,35 @@ function stripInternalJargon(text: string): string {
     [/コックピット画面/g, "管理画面"],
     [/コックピット/g, "管理画面"],
     [/nudge/gi, "リマインド"],
+    [/eLAD/gi, "e-Rad"],
   ];
   for (const [re, repl] of wordReplacements) out = out.replace(re, repl);
   // 3. 連続空白・改行を整える
   out = out.replace(/[  ]+、/g, "、").replace(/[  ]+。/g, "。").replace(/\n{3,}/g, "\n\n");
   return out;
+}
+
+/**
+ * 提出版 (internal 以外の template) — 章立て構造を持たず、body_md を単一の
+ * 連続した文書として流し込む。ページ区切りを明示的に挿入しない (自然改頁のみ)。
+ */
+function SubmissionView({ data }: { data: PrintData }) {
+  const { project, ym, submissionBody } = data;
+  return (
+    <div className="sheet submission-sheet">
+      <div className="submission-head">
+        <div className="submission-title">月次業務報告書</div>
+        <div className="submission-meta">
+          {project.clientName || project.projectName} 御中 ／ {formatYm(ym)}
+        </div>
+      </div>
+      {submissionBody ? (
+        <MarkdownBlock text={submissionBody} />
+      ) : (
+        <div className="empty">提出用の報告書本文は未生成です。</div>
+      )}
+    </div>
+  );
 }
 
 function ProgressSection({ data }: { data: PrintData }) {
@@ -1078,14 +1108,34 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
         .mini-label { font-family: 'Work Sans', sans-serif; font-weight: 700; font-size: 9.5pt; color: #475569; margin: 3mm 0 1.5mm; letter-spacing: 0.04em; }
 
         /* Markdown */
-        .md-body h2 { font-size: 14pt; margin: 4mm 0 2mm; color: #0a1628; }
-        .md-body h3 { font-size: 12pt; margin: 3mm 0 1.5mm; color: #1e293b; }
-        .md-body h4 { font-size: 11pt; margin: 2.5mm 0 1mm; color: #334155; }
+        .md-body h2 {
+          font-size: 13.5pt; font-weight: 700; margin: 6mm 0 3mm; padding: 2mm 4mm;
+          color: #f8fafc; background: #0a1628; letter-spacing: 0.02em;
+          break-inside: avoid; page-break-inside: avoid;
+          -webkit-print-color-adjust: exact; print-color-adjust: exact;
+        }
+        .md-body h2:first-child { margin-top: 0; }
+        .md-body h3 {
+          font-size: 12pt; font-weight: 700; margin: 5mm 0 2mm; padding-bottom: 1mm;
+          color: #0a1628; border-bottom: 2px solid #0a1628;
+          break-inside: avoid; page-break-inside: avoid;
+        }
+        .md-body h4 {
+          font-size: 10.5pt; font-weight: 700; margin: 3.5mm 0 1.5mm; padding-left: 2.5mm;
+          color: #334155; border-left: 3px solid #94a3b8;
+          break-inside: avoid; page-break-inside: avoid;
+        }
         .md-body p { margin: 0 0 2mm; }
         .md-body li { margin: 0 0 0.6mm 6mm; position: relative; list-style: none; }
         .md-body li::before { content: '·'; position: absolute; left: -3mm; color: #0a1628; font-weight: 700; }
         .md-body blockquote { border-left: 2px solid #94a3b8; padding-left: 4mm; margin: 2mm 0; color: #475569; font-style: italic; }
         .report-body { background: #f8fafc; padding: 4mm 5mm; border-left: 3px solid #0a1628; }
+
+        /* 提出版 (単一連続文書、明示的な改頁 CSS は入れない) */
+        .submission-sheet { line-height: 1.9; }
+        .submission-head { margin-bottom: 8mm; border-bottom: 1px solid #cbd5e1; padding-bottom: 4mm; }
+        .submission-title { font-size: 16pt; font-weight: 700; color: #0a1628; }
+        .submission-meta { font-size: 10.5pt; color: #475569; margin-top: 2mm; }
 
         /* Exec Summary */
         .lead { background: #f1f5f9; border-left: 3px solid #0a1628; padding: 3mm 5mm; margin-bottom: 5mm; font-size: 10.5pt; line-height: 1.8; }
@@ -1233,13 +1283,19 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
           </button>
         </div>
 
-        <CoverPage data={data} />
-        <ExecSummary data={data} />
-        <ProgressSection data={data} />
-        <GanttSection data={data} />
-        <TeamSection data={data} />
-        <NextMonthSection data={data} />
-        <AppendixSection data={data} />
+        {data.isSubmission ? (
+          <SubmissionView data={data} />
+        ) : (
+          <>
+            <CoverPage data={data} />
+            <ExecSummary data={data} />
+            <ProgressSection data={data} />
+            <GanttSection data={data} />
+            <TeamSection data={data} />
+            <NextMonthSection data={data} />
+            <AppendixSection data={data} />
+          </>
+        )}
       </div>
     </>
   );
