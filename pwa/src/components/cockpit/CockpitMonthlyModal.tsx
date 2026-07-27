@@ -809,9 +809,9 @@ export function CockpitMonthlyModal({
 
   return (
     <Dialog open onOpenChange={handleClose}>
-      <DialogContent className="!max-w-[1400px] sm:!max-w-[1400px] w-[95vw] max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+      <DialogContent className="!max-w-[1400px] sm:!max-w-[1400px] w-[95vw] min-w-0 max-h-[85vh] overflow-x-hidden overflow-y-auto">
+        <DialogHeader className="min-w-0">
+          <DialogTitle className="flex min-w-0 flex-wrap items-center gap-2">
             {formatYm(ym)}
             {signal && (
               <span className="text-base" title={`期待進捗率: ${expectedPct}% / 実績: ${overallPct}%`}>
@@ -825,7 +825,7 @@ export function CockpitMonthlyModal({
               <button
                 onClick={() => setReportEditorOpen((v) => !v)}
                 aria-expanded={reportEditorOpen}
-                className={`min-h-10 text-xs px-3 py-2 rounded-md border transition-colors ${
+                className={`min-h-11 text-xs px-3 py-2 rounded-md border transition-colors ${
                   reportEditorOpen
                     ? "border-foreground bg-foreground text-background"
                     : "border-border text-foreground hover:bg-accent"
@@ -838,7 +838,7 @@ export function CockpitMonthlyModal({
                 href={`/project/${projectId}/report/${ym}/print?template=${SUBMISSION_TEMPLATE}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex min-h-10 items-center text-xs px-3 py-2 rounded-md border border-border text-foreground hover:bg-accent transition-colors"
+                className="inline-flex min-h-11 items-center text-xs px-3 py-2 rounded-md border border-border text-foreground hover:bg-accent transition-colors"
                 title="提出版を新しいタブで開く"
               >
                 提出版
@@ -848,7 +848,7 @@ export function CockpitMonthlyModal({
         </DialogHeader>
 
         {reportEditorOpen && (
-          <div className="border border-border rounded-lg p-4 mb-4 bg-muted/20">
+          <div className="min-w-0 border border-border rounded-lg p-4 mb-4 bg-muted/20">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <h3 className="text-sm font-semibold">社内版</h3>
@@ -1503,7 +1503,7 @@ function RewardTab({
   const bufferPt = msBuffer.reduce((s, m) => s + m.points, 0);
 
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 space-y-4">
       {/* ── プラン情報バー ── */}
       {planCycle && (
         <div className="text-[12px] text-muted-foreground bg-muted/20 rounded-lg px-3 py-2 flex flex-wrap gap-3 items-center">
@@ -2978,7 +2978,7 @@ function ReportTab({ report, projectId, ym }: { report: Report | null; projectId
   };
 
   return (
-    <div className="space-y-3">
+    <div className="min-w-0 space-y-3">
       {/* ステータス + アクション */}
       <div className="flex items-center gap-2 flex-wrap">
         {content && (
@@ -2995,7 +2995,7 @@ function ReportTab({ report, projectId, ym }: { report: Report | null; projectId
               setEditedContent(content);
               setEditing(true);
             }}
-            className="text-xs px-3 py-1.5 rounded-md border border-border text-foreground hover:bg-accent transition-colors"
+            className="min-h-11 text-xs px-3 py-2 rounded-md border border-border text-foreground hover:bg-accent transition-colors"
           >
             {content ? "本文を編集" : "本文を入力"}
           </button>
@@ -3005,7 +3005,7 @@ function ReportTab({ report, projectId, ym }: { report: Report | null; projectId
           <button
             onClick={handleFix}
             disabled={fixing}
-            className="text-xs px-3 py-1.5 rounded-md bg-emerald-700 text-white hover:bg-emerald-800 disabled:opacity-50 transition-colors"
+            className="min-h-11 text-xs px-3 py-2 rounded-md bg-emerald-700 text-white hover:bg-emerald-800 disabled:opacity-50 transition-colors"
           >
             {fixing ? "確定中..." : "確定"}
           </button>
@@ -3015,7 +3015,7 @@ function ReportTab({ report, projectId, ym }: { report: Report | null; projectId
         {content && (
           <button
             onClick={() => setShowMarkdown(!showMarkdown)}
-            className="text-xs px-2 py-1 rounded border border-border text-muted-foreground hover:text-foreground transition-colors ml-auto"
+            className="min-h-11 text-xs px-3 py-2 rounded border border-border text-muted-foreground hover:text-foreground transition-colors ml-auto"
           >
             {showMarkdown ? "プレーンテキスト" : "Markdown"}
           </button>
@@ -3042,14 +3042,14 @@ function ReportTab({ report, projectId, ym }: { report: Report | null; projectId
                 setError("");
               }}
               disabled={saving}
-              className="text-xs px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground disabled:opacity-50"
+              className="min-h-11 text-xs px-3 py-2 rounded-md border border-border text-muted-foreground hover:text-foreground disabled:opacity-50"
             >
               キャンセル
             </button>
             <button
               onClick={handleSave}
               disabled={!editedContent.trim() || saving}
-              className="text-xs px-3 py-1.5 rounded-md bg-foreground text-background hover:opacity-90 disabled:opacity-50"
+              className="min-h-11 text-xs px-3 py-2 rounded-md bg-foreground text-background hover:opacity-90 disabled:opacity-50"
             >
               {saving ? "保存中..." : "保存"}
             </button>
@@ -3063,7 +3063,7 @@ function ReportTab({ report, projectId, ym }: { report: Report | null; projectId
 
       {/* コンテンツ表示 */}
       {content && !editing ? (
-        <div className="bg-muted/30 rounded-lg p-4 max-h-[480px] overflow-y-auto">
+        <div className="min-w-0 bg-muted/30 rounded-lg p-4 max-h-[480px] overflow-y-auto">
           {showMarkdown ? (
             <SimpleMarkdown text={content} />
           ) : (
