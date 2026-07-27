@@ -108,6 +108,7 @@ pwa/
 | `/my-projects` | `os_access_scope='project'` で複数PJへ参加するユーザーの入口。activeな `project_members` のPJだけを表示する |
 | `/project/[projectId]/workspace` | PJ共有ダッシュボード。研究→応用→開発→SU→調整の週次エフォート、メンバー配分、MS、抽出済み活動件数を表示する。raw本文・email・報酬・契約・内部戦略は返さない。PJ限定ユーザーは本人分だけ、portfolio/adminはactive member分を入力できる |
 | `/project/[projectId]/weekly-control` | `/workspace`を置換しない別URLの週次管制。先週差分→今週の判断→介入の3段レール、4本柱の例外行、論点/仮説の要整理→検証中→判断待ち→決定/棄却を表示する。担当・次期限・子要素を含む最終更新から放置警報を導出。抽出未接続は0件と断定せず`抽出接続待ち` |
+| `/project/[projectId]/navigation` | `/workspace`/`/weekly-control`を置換しない別URLの成立条件ナビゲーション。全体依存ガント(依存航路=基準計画/完了帯/予測延伸/前倒しを別レイヤーで可視化)・クリティカルパス・関係先56件(識別→完了済み/直近接点→現在→次の受け渡し→期限・目標、役割グルーピング+検索)・制約ボードを表示する。判定(予定内/要介入/判定不能)とは独立に予測差分(対計画)を別軸集計し、全件判定不能でも遅延を見落とさない。`buildSxNavigationViewModel()`が作る最小view modelだけをClient Componentへ渡す |
 | `/dashboard-cyber-3d-lab` | 実験中の3D Cyber Dashboard。`three.js` 空間上に X/F/M 軸、PJ球体、床面KPI、ホログラム投影コックピットを配置。仕様方針は [`cyber_hud_design_code.md`](cyber_hud_design_code.md) / [`cyber_dashboard_content_design.md`](cyber_dashboard_content_design.md) |
 | `/dashboard-cyber-glass-cube` | 廃案比較用の旧 Cyber Dashboard 第2案。ガラスキューブPJ群は情報構造がカオス化したため、今後の正本候補にはしない。公開モックは `/mock/dashboard-cyber-glass-cube` |
 | `/dashboard-cyber-hud-wall` | Cyber Dashboard 第2案の作り直し。固定視点の `three.js` 空間に、参考HUD画像のようなKPI/PJ/Proof/Alert HUDモジュールを固定配置し、PJ選択時は同一空間内にPJ Cockpit Spatial Viewを展開する。公開モックは `/mock/dashboard-cyber-hud-wall` |

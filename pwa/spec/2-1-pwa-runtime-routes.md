@@ -42,6 +42,7 @@
 | `/project/[projectId]/cockpit` | PJ cockpit。Status / AMD Score / XRL / MS / 資料 / 経営ハイライト / ガバナンス / 助成金 / 月次 / MTGサマリ。旧 `proactive_outbox` TODO は表示しない |
 | `/project/[projectId]/workspace` | 研究機関PJ向け統合ワークスペース。計画詳細、技術証明、論点、関係先、週次エフォートを扱う |
 | `/project/[projectId]/weekly-control` | 既存workspaceと分離した週次管制。先週差分、今週の判断、介入、論点・仮説の放置防止を扱う。差分抽出未接続は0件でなく `抽出接続待ち` |
+| `/project/[projectId]/navigation` | 既存workspace/weekly-controlと分離した成立条件ナビゲーション。全体依存ガント(依存航路)・クリティカルパス・関係先56件・制約ボードでPJ全体の状況と介入点を一目で判断する。RSC境界へは`buildSxNavigationViewModel()`が作る最小view modelだけを渡し、`ProjectWorkspaceBundle`/`CurrentMemberAccess`全体はClient Componentへ渡さない |
 | `/manual` | AMD OS マニュアル。使い方・運用者向け |
 | `/spec` | 設計書。確定実装仕様。admin 限定 |
 | `/bzm` | BZM テキストブック。理論・数式・rubric 導出 |

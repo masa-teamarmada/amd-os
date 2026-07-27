@@ -63,6 +63,7 @@ function pathToTitle(pathname: string): string | null {
   if (pathname === "/admin/settings") return "Admin 設定";
   if (pathname.startsWith("/admin")) return "Admin";
   if (/^\/project\/[^/]+\/weekly-control\/?$/.test(pathname)) return "PJ 週次管制";
+  if (/^\/project\/[^/]+\/navigation\/?$/.test(pathname)) return "成立条件ナビゲーション";
   if (/^\/project\/[^/]+\/workspace\/?$/.test(pathname)) return "PJ ダッシュボード";
   if (pathname === "/my-projects") return "参加PJ";
   if (pathname.startsWith("/project/")) return "PJ コックピット";

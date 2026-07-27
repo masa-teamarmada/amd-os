@@ -104,12 +104,64 @@ expectIncludes("src/lib/sx-weekly-control.ts", [
 ]);
 
 expectIncludes("src/lib/project-workspace.ts", [
-  "(?:workspace|weekly-control)",
+  "(?:workspace|weekly-control|navigation)",
 ]);
 
 expectIncludes("src/app/(app)/project/[projectId]/workspace/page.tsx", [
   "ProjectWorkspaceDashboard",
   "/workspace",
+]);
+
+expectIncludes("src/app/(app)/project/[projectId]/navigation/page.tsx", [
+  "SxNavigationDashboard",
+  "getProjectWorkspaceBundle",
+  "buildSxNavigationViewModel",
+  "hasData",
+  "/navigation",
+  "成立条件ナビゲーション - AMD OS",
+]);
+
+expectIncludes("src/components/nav/AppShell.tsx", [
+  "(?:workspace|weekly-control|navigation)",
+]);
+
+expectIncludes("src/components/nav/PageTitleSetter.tsx", [
+  "成立条件ナビゲーション",
+]);
+
+expectIncludes("src/app/(app)/layout.tsx", [
+  "成立条件ナビゲーション",
+]);
+
+expectIncludes("src/lib/sx-navigation.ts", [
+  "export function buildSxNavigationViewModel",
+  "export function navHeadline",
+  "export function buildNavMilestoneNode",
+  "export function buildNavCriticalPath",
+  "export function buildNavPartnerJourney",
+  "export function buildNavConstraintFlags",
+  "export function buildNavPendingDecisions",
+  "forecastSlipCount",
+  "baselineSegment",
+  "slipSegment",
+  "pulledInDays",
+  "接続余白未算定",
+  "役割未分類",
+  "表示ラベル由来",
+]);
+
+expectIncludes("src/components/project-navigation/SxNavigationDashboard.tsx", [
+  "依存航路",
+  "予測差分（対計画）",
+  "クリティカルパス",
+  "関係先リスト",
+  "制約ボード",
+  "判断待ちと直近変化",
+]);
+
+expectNotIncludes("src/components/project-navigation/SxNavigationDashboard.tsx", [
+  "@/lib/project-workspace",
+  "@/lib/sx-management",
 ]);
 
 expectIncludes("src/components/dashboard/FreeeConnectionStatusCard.tsx", [

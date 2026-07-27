@@ -43,6 +43,7 @@
     "test:sx-weekly-control": "node --experimental-strip-types scripts/test_sx_weekly_control.mjs",
     "test:sx-poc-candidates": "node --experimental-strip-types scripts/test_sx_poc_candidates.mjs",
     "test:sx-business-plan": "node --experimental-strip-types scripts/check_sx_business_plan.mts",
+    "test:sx-navigation": "node --experimental-strip-types scripts/test_sx_navigation.mjs",
     "audit:sx-management-visible-terms": "node scripts/audit_sx_management_visible_terms.mjs",
     "test:project-management-rls": "node scripts/test_project_management_rls.mjs",
     "test:sx-management-rls": "npm run test:project-management-rls",
