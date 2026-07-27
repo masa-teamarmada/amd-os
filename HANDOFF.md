@@ -20,7 +20,7 @@ Topic: admin月初合意の対象月選択と202606「対象外」説明のclose
 - branch: `main`
 - deployed production HEAD: `6dd7d130` (`docs: clarify uncommitted WIP version state`)
 - `origin/main`: `b78e4fff` (`docs: record committed worker handoff state`)。その履歴には`0330c547`、`8d1fbada`、`a3b278bb`とhandoff更新commit群が含まれるが、productionには未反映。
-- local HEAD: `6ea4b067`。`origin/main`よりhandoff更新3commit先行。追加push・production反映はまさの採否判断まで保留する。
+- local HEAD: `40e94d43`。`origin/main`よりhandoff更新4commit先行。追加push・production反映はまさの採否判断まで保留する。
 - production: `v3.51.3` / `git_sha=6dd7d1307e85179d6a2cd521d82fdd686827b4fe` / `git_branch=main` / `dirty=false`
 - local `pwa/src/lib/build-info.ts` は別workerの`a3b278bb`上で`v3.51.6`。productionへ未反映。
 - production URL: `https://amd-os-pwa.vercel.app`
