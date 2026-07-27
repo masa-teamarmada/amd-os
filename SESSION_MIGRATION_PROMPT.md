@@ -29,7 +29,7 @@ cd /Users/masa/projects/AMD/amd-os
 
 - cwd: `/Users/masa/projects/AMD/amd-os`
 - canonical branch: `main`
-- deployed canonical HEAD / origin/main: `6dd7d130` / `6dd7d130`。local HEADには`0330c547`、`8d1fbada`、`a3b278bb`、未pushのhandoff更新commit群が積まれている。正確なahead数は次セッション開始時に再確認し、未deployのまま採否判断を待つ。
+- deployed production HEAD: `6dd7d130`。`origin/main`は`b78e4fff`まで進み、その履歴には`0330c547`、`8d1fbada`、`a3b278bb`とhandoff更新commit群が含まれる。local HEADは`c9865236`でoriginよりhandoff更新1commit先行。productionは未deployのまま採否判断を待つ。
 - accepted production: `https://amd-os-pwa.vercel.app`、`v3.51.3`、`git_sha=6dd7d1307e85179d6a2cd521d82fdd686827b4fe`、`git_branch=main`、`dirty=false`。
 - local `pwa/src/lib/build-info.ts` は別workerの`a3b278bb`上で`v3.51.6`。productionは`v3.51.3`のままなので、local値を鵜呑みにせず、レビュー後にversionを確定する。
 - accepted commit: `c760851c fix(pwa): select monthly agreement month`

@@ -18,8 +18,9 @@ Topic: admin月初合意の対象月選択と202606「対象外」説明のclose
 ## Repo / Production State
 
 - branch: `main`
-- deployed canonical HEAD / `origin/main`: `6dd7d130` (`docs: clarify uncommitted WIP version state`)
-- local HEAD: `0330c547`、`8d1fbada`、`a3b278bb`、handoff更新commit群の未push commit。productionには未deploy。正確なahead数は次セッション開始時に再確認する。
+- deployed production HEAD: `6dd7d130` (`docs: clarify uncommitted WIP version state`)
+- `origin/main`: `b78e4fff` (`docs: record committed worker handoff state`)。その履歴には`0330c547`、`8d1fbada`、`a3b278bb`とhandoff更新commit群が含まれるが、productionには未反映。
+- local HEAD: `c9865236`。`origin/main`よりhandoff更新1commit先行。追加pushはまさの採否判断まで保留する。
 - production: `v3.51.3` / `git_sha=6dd7d1307e85179d6a2cd521d82fdd686827b4fe` / `git_branch=main` / `dirty=false`
 - local `pwa/src/lib/build-info.ts` は別workerの`a3b278bb`上で`v3.51.6`。productionへ未反映。
 - production URL: `https://amd-os-pwa.vercel.app`
@@ -66,5 +67,5 @@ Topic: admin月初合意の対象月選択と202606「対象外」説明のclose
 - work type: development
 - durable note: `pwa/design_log/sessions_2026-07.md` と仕様・マニュアルの正本。`design_log/` は開発履歴のため更新した。
 - conflict: なし
-- main alignment: `main integration pending`。`0330c547`、`8d1fbada`、`a3b278bb`がlocal mainにのみ存在し、push/deployにはまさの採否判断が必要。
-- archive state: `do not archive`。未pushの別workercommitが残っているため、所有者の採否判断と別closeoutが必要。
+- main alignment: `remote main pending / production pinned`。`origin/main`には未レビューの`0330c547`、`8d1fbada`、`a3b278bb`が存在するが、productionは`6dd7d130`のまま。追加push・revert・deployにはまさの採否判断が必要。
+- archive state: `do not archive`。remoteに未レビューcommitがあり、localにもhandoff更新1commitが残るため、所有者の採否判断と別closeoutが必要。
