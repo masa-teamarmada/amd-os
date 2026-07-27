@@ -610,6 +610,7 @@ function PartnerJourneyFlow({ partner, displayName }: { partner: SxManagementPar
   const ballSideLabel = sxBallSideLabel(partner.currentBallSide);
   const ballOwner = partner.currentBallOwner ? sxNormalizePublicName(partner.currentBallOwner) : "担当未確認";
   const isSxBall = partner.currentBallSide === "sx";
+  const nowDue = sxFormatDueDateWithPrecision(partner.dueDate, partner.dueDatePrecision);
   const nowTone = isSxBall
     ? "border-[#b5533f] bg-[#f9e4e1] text-[#8c3329]"
     : partner.currentBallSide === "partner"
@@ -626,7 +627,7 @@ function PartnerJourneyFlow({ partner, displayName }: { partner: SxManagementPar
       key: "now",
       phase: "now" as const,
       title: isSxBall ? `当方ボール: ${ballOwner}` : `${ballSideLabel}ボール: ${ballOwner}`,
-      sub: `現在地 ・ 期限 ${sxFormatDueDateWithPrecision(partner.dueDate, partner.dueDatePrecision)}`,
+      sub: `現在地 ・ ${nowDue === "期限未設定" ? nowDue : `期限 ${nowDue}`}`,
     },
     {
       key: "next",
