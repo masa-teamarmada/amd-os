@@ -19,7 +19,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 - role-based top: `members.os_access_scope='portfolio'` は `/dashboard`、`project` は参加1件なら `/project/[projectId]/workspace`、複数なら `/my-projects`。
 - SX entry: `/dashboard` のSX (`p21`) カードは `/project/p21/workspace` を開き、PJ共有ダッシュボードであることを表示する。
-- narrow auth: PJ限定OAuthはGoogle本人確認後に通常のSupabase sessionを破棄し、HTTP-only署名付きPJセッションへ交換する。各requestでactive member / scope / PJ membershipを再確認する。
+- narrow auth: PJ限定OAuthはGoogle本人確認後に通常のSupabase sessionを破棄し、HTTP-only署名付きPJセッションへ交換する。各requestでactive member / scope / PJ membershipを再確認する。破棄は `signOut({ scope: "local" })` に限る (scope省略の既定 `global` はそのユーザーの全デバイスを巻き添えにする)。
 - route isolation: PJ限定ユーザーの通常画面は `/my-projects` と許可された `/project/[projectId]/workspace` だけ。他PJ、`/dashboard`、社内cockpit、admin、financeへ遷移できない。
 - safe DTO: 共有面はPJ名、表示名、役割、週次時間、5区分、MS、抽出済み活動の件数・種別・最終日だけ。raw本文、URL、email、報酬、契約、内部戦略を含めない。
 - effort write: `project_weekly_effort_entries` はPJ / member / week / categoryで一意。PJ限定ユーザーは自分だけ、portfolio/adminはactive PJ memberを更新できる。
@@ -28,7 +28,7 @@ AMD OS PWA の重要機能を、画面単位で「消してはいけない契約
 
 回帰防止:
 
-- `pwa/scripts/check_pwa_critical_ui.cjs` がrole top、SX card、PJ session交換、route isolation、workspace route、effort API、admin onboarding、migration 182を検査する。
+- `pwa/scripts/check_pwa_critical_ui.cjs` がrole top、SX card、PJ session交換、route isolation、workspace route、effort API、admin onboarding、migration 182を検査する。あわせて `/auth/callback` の引数なし `supabase.auth.signOut()` を禁止し、`{ scope: "local" }` 付きの呼び出しが7箇所そろっていることを検査する。
 - 共有面へ社内cockpit DTOや既存のauthenticated sessionを流用しない。
 
 ## /manual

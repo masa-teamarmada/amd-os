@@ -157,6 +157,7 @@ Decision / Ops UI
 - `/hud/dashboard/embed` は外部プレゼン用の公開 embed route
 - admin 画面と `/notifications` は admin 権限を前提にする
 - Google Workspace login は Calendar / Gmail scope を使う。Calendar 共有状態は `members.google_calendar_status` に残す
+- ログインが途中で弾かれたとき (メンバー未登録、社外ドメイン、参加PJなし、Calendar 未共有)、OS が捨てるのは**そのブラウザのログインだけ**。スマホや別PCのログインは残る
 
 ## 今回クロールで見つけた manual 化対象
 

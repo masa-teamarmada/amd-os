@@ -32,6 +32,7 @@
 - `/manual` と `/bzm` は認証済みメンバーが読む前提。
 - `/api/*` の mutation は route ごとに `requireAuth` / admin check / `CRON_SECRET` を使い分ける。
 - Google OAuth は Calendar / Gmail の readonly access を前提にし、server-side ingestion 用 token は `member_google_oauth_tokens` に保存する。
+- `/auth/callback` のログイン打ち切りは、必ず `supabase.auth.signOut({ scope: "local" })` で行う。`@supabase/auth-js` の `signOut()` は scope 省略時 `global` で、member 未登録・ドメイン不許可・PJ membership なし・Calendar 検証失敗のいずれか1回で、そのユーザーの**全デバイスのセッション**が失効する。callback の signOut はすべて「いま確立しかけた、このブラウザのセッションだけを捨てる」意図なので、scope は省略しない (2026-07-27)。
 
 ## 主要 route 群
 

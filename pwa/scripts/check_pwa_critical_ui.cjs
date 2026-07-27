@@ -275,11 +275,22 @@ expectIncludes("src/app/page.tsx", [
 ]);
 expectIncludes("src/app/auth/callback/route.ts", [
   'member.os_access_scope === "project"',
-  "await supabase.auth.signOut()",
+  'await supabase.auth.signOut({ scope: "local" })',
   "PROJECT_WORKSPACE_SESSION_COOKIE",
   "createProjectWorkspaceSessionValue",
   "project_members",
 ]);
+// signOut の scope 明示 (2026-07-27): GoTrueClient.signOut() の既定 scope は "global" で、
+// 省略すると失敗経路を1回踏むだけで当人の全デバイスのセッションが失効する。callback の
+// signOut はどれも「このブラウザのセッションだけ捨てる」意図なので、引数なし呼び出しを禁じる。
+expectNotIncludes("src/app/auth/callback/route.ts", [
+  "supabase.auth.signOut()",
+]);
+expectCountAtLeast(
+  "src/app/auth/callback/route.ts",
+  'supabase.auth.signOut({ scope: "local" })',
+  7,
+);
 expectIncludes("src/lib/project-workspace-session.ts", [
   'amd_os_project_session',
   "createHmac",

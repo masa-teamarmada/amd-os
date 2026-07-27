@@ -94,6 +94,9 @@ async function markCalendarStatus(input: {
   }
 }
 
+// この route の signOut はすべて「いま確立しかけた、このブラウザのセッションだけを捨てる」意図。
+// GoTrueClient.signOut() の既定 scope は "global" で、省略すると当人の全デバイスの
+// セッションまで失効する。scope: "local" の明示は必須（2026-07-27 の全端末ログアウト事故）。
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
@@ -106,7 +109,7 @@ export async function GET(request: Request) {
     if (!error) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user?.email) {
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: "local" });
         return NextResponse.redirect(`${origin}/auth/login?error=auth_failed`);
       }
 
@@ -119,7 +122,7 @@ export async function GET(request: Request) {
         .maybeSingle();
 
       if (!member || member.status !== "active") {
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: "local" });
         return NextResponse.redirect(`${origin}/auth/login?error=member_not_registered`);
       }
 
@@ -130,7 +133,7 @@ export async function GET(request: Request) {
           .eq("member_id", member.member_id)
           .eq("is_active", true);
         if (membershipError || !count) {
-          await supabase.auth.signOut();
+          await supabase.auth.signOut({ scope: "local" });
           return NextResponse.redirect(`${origin}/auth/login?error=project_membership_required`);
         }
         await service
@@ -146,7 +149,7 @@ export async function GET(request: Request) {
           .getAll()
           .map((cookie) => cookie.name)
           .filter((name) => name.startsWith("sb-"));
-        const { error: signOutError } = await supabase.auth.signOut();
+        const { error: signOutError } = await supabase.auth.signOut({ scope: "local" });
         if (signOutError) {
           return NextResponse.redirect(`${origin}/auth/login?error=auth_failed`);
         }
@@ -172,7 +175,7 @@ export async function GET(request: Request) {
       // portfolio アカウントは従来どおり AMD Google Workspace + Calendar/Gmail が必須。
       // hd はクライアントヒントにすぎないため、サーバー側でも検証する。
       if (!email.endsWith(`@${ALLOWED_DOMAIN}`)) {
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: "local" });
         return NextResponse.redirect(`${origin}/auth/login?error=domain_not_allowed`);
       }
       const session = data.session as {
@@ -186,7 +189,7 @@ export async function GET(request: Request) {
           status: "missing",
           error: "Google provider token missing. Calendar scope consent is required.",
         });
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: "local" });
         return NextResponse.redirect(`${origin}/auth/login?next=${encodeURIComponent(next)}&error=calendar_required`);
       }
       try {
@@ -204,7 +207,7 @@ export async function GET(request: Request) {
           status: "error",
           error: calendarError instanceof Error ? calendarError.message : String(calendarError),
         });
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: "local" });
         return NextResponse.redirect(`${origin}/auth/login?next=${encodeURIComponent(next)}&error=calendar_required`);
       }
       const response = NextResponse.redirect(`${origin}${next}`);

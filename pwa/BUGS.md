@@ -5,6 +5,14 @@
 
 ---
 
+### [auth/callback] ログイン失敗経路のsignOutが全デバイスのセッションを失効させ得た (2026-07-27)
+
+- **状態**: クローズ (2026-07-27 — production `v3.49.29`)。
+- **症状**: 未発火の潜在バグ。`/auth/callback` の失敗経路 (メールなし、member未登録/非active、PJ限定ユーザーのPJ membershipなし、AMDドメイン外、Google provider token欠落、Calendar検証失敗) を1回踏むだけで、そのユーザーがスマホ・別PCで維持していたログインまで同時に切れる状態だった。Calendar APIの一時エラーのように本人に非がない事象でも発火する。
+- **原因**: `@supabase/auth-js` の `GoTrueClient.signOut(options = {scope: 'global'})` は scope 省略時 `global`。callback の7箇所はすべて `await supabase.auth.signOut()` と引数なしで、「いま確立しかけたこのブラウザのセッションを捨てる」意図に対して、実際には当該ユーザーの全refresh tokenを失効させていた。PJ限定ユーザー向けの意図的なSupabaseセッション破棄 (`os_access_scope='project'` 経路) も同じ既定に乗っており、正常系のログインですら他端末を巻き添えにしていた。
+- **対応内容**: 7箇所すべてを `await supabase.auth.signOut({ scope: "local" })` へ変更した。route冒頭に、この既定値の罠と scope 明示が必須である理由をコメントで残した。挙動の変更はセッション失効範囲だけで、リダイレクト先・cookie削除・`markCalendarStatus` の記録は無変更。
+- **再発防止**: `scripts/check_pwa_critical_ui.cjs` に (1) 引数なし `supabase.auth.signOut()` を禁じる `expectNotIncludes`、(2) `signOut({ scope: "local" })` が7箇所以上ある `expectCountAtLeast` を追加した。1箇所だけ引数なしへ戻すコピペ事故でも `npm run test:critical-ui` が落ちることを、意図的な退行注入で確認済み。一般則として、他人のセッションを終わらせるAPIは、後始末の範囲を既定値に頼らず明示する。同じ既定値の罠が admin 側 (`GoTrueAdminApi.signOut(jwt)` も既定 `global`) で実際にまさを毎回全端末ログアウトさせた事故の記録は、`ehm-os` リポの `BUGS.md`「2026-07-27: 検証スクリプトがまさを毎回ログアウトさせていた（scope既定値の事故）」節にある。この callback 修正は、その節が「未対応の同種リスク（別トラック）」として残していた項目の消し込み。
+
 ### [cockpit/kute-seeds] 同じ研究者の複数シーズが別案件として散らばって見えた (2026-07-21)
 
 - **状態**: クローズ (2026-07-21 — `ece458b4` / production `v3.47.10`)。

@@ -1962,3 +1962,11 @@ Book A執筆規範 (japanese-tech-writing + cognitive-rhythm-writing) をSESSION
 - まさ指摘: ①「予測差+28日」が進みか遅れか分からない ②関係先の履歴が数十文字で流れが分からない。初回面談→NDA締結→…のように、ゴール到達までの全体の中で現在地を見せてほしい ③当方ボールはもっと強調（持ったまま待つのは基本許されない） ④三証明・7テーマは仮説検証と別で必要なのか位置づけ不明 ⑤ガントの破線は何か。
 - 対応: `sxFormatSlip`方向明示語化+判定バー「実際の遅れなし」（中立トーン）/ 破線へ図中ラベル「重要経路の順序」+凡例改訂 / `PartnerJourneyFlow`新設（これまで→現在地→ゴール、当方ボールは赤二重枠）/ 当方ボール行の赤バッジ・赤左罫・並び順tier（blocked>当方ボール>他）と介入列の太字赤 / 三証明へ位置づけ1行常設。④⑤はチャット回答+画面説明の常設で対応。
 - 検証: 全unit（方向語・tier追加）/ critical-ui / tsc / 対象eslint / build PASS。ローカル実データで関係の流れ（SMBC: 面談→引き継ぎ→当方ボール現在地→引継ぎ→ゴール）・当方ボール浮上・判定バー新表記・破線ラベルを確認。
+
+### 追補（2026-07-27、v3.49.29 `/auth/callback` の signOut scope 明示）
+
+- 発端: 同日の別トラック事故（本番スクショ検証スクリプトが `GoTrueAdminApi.signOut(jwt)` の scope 既定 `global` を踏み、まさを毎回全端末ログアウトさせていた。記録は ehm-os `BUGS.md`）で「未対応の同種リスク」として残っていた項目。
+- 事実: `@supabase/auth-js` の `GoTrueClient.signOut(options = {scope: 'global'})` も既定 `global`。`src/app/auth/callback/route.ts` の7箇所（email欠落 / member未登録・非active / PJ membershipなし / PJ限定ユーザーの意図的なSupabaseセッション破棄 / AMDドメイン外 / provider token欠落 / Calendar検証失敗）はすべて引数なし呼び出しだった。意図はどれも「いま確立しかけたこのブラウザのセッションを捨てる」なのに、実際には当該ユーザーの全refresh tokenを失効させる。Calendar APIの一時エラーのように本人に非がない事象でも発火する。
+- 対応: 7箇所すべて `await supabase.auth.signOut({ scope: "local" })` へ。route冒頭に既定値の罠を説明するコメントを追加。リダイレクト先・cookie削除・`markCalendarStatus` は無変更で、変えたのはセッション失効範囲だけ。
+- 再発防止: `check_pwa_critical_ui.cjs` に引数なし `supabase.auth.signOut()` を禁じる `expectNotIncludes` と、`{ scope: "local" }` 付きが7箇所ある `expectCountAtLeast` を追加。7箇所全部を戻した場合と1箇所だけ戻したコピペ事故の両方で `test:critical-ui` が落ちることを退行注入で確認済み。
+- 検証: critical-ui / `tsc --noEmit` 0件 / 対象eslint 0件 / production build 成功。本番実害は未発生（潜在バグ）のため画面差分なし。
