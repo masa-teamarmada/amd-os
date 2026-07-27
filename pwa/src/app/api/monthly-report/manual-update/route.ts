@@ -9,6 +9,7 @@
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { validateInternalMonthlyReport } from "@/lib/monthly-report-quality";
 import { requireAuth } from "@/lib/supabase/api-auth";
 
 export async function POST(req: Request) {
@@ -28,6 +29,17 @@ export async function POST(req: Request) {
       { status: 400 }
     );
   }
+  if (!/^\d{6}$/.test(ym)) {
+    return NextResponse.json({ ok: false, message: "ym must be YYYYMM" }, { status: 400 });
+  }
+
+  const validation = validateInternalMonthlyReport(content);
+  if (!validation.ok) {
+    return NextResponse.json(
+      { ok: false, message: validation.errors.join("\n"), errors: validation.errors },
+      { status: 422 }
+    );
+  }
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co",
@@ -36,12 +48,16 @@ export async function POST(req: Request) {
 
   const { error } = await supabase
     .from("monthly_reports")
-    .update({ draft_content: content })
-    .eq("project_id", projectId)
-    .eq("ym", ym);
+    .upsert({
+      report_id: `${projectId}_${ym}`,
+      project_id: projectId,
+      ym,
+      draft_content: validation.normalized,
+      status: "draft",
+    }, { onConflict: "project_id,ym" });
   if (error) {
     return NextResponse.json({ ok: false, message: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, content: validation.normalized });
 }

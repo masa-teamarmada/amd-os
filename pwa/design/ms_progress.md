@@ -170,8 +170,8 @@ curl -H "Authorization: Bearer $CRON_SECRET" \
 `POST /api/progress/estimate { projectId, ym }` → `estimateProgress(projectId, ym)` (= force = true がデフォルト)。
 source_hash を無視して必ず LLM を呼ぶ。
 
-### レポート生成直後の自動推定
-`/api/report/generate` 内で fire-and-forget で `estimateProgress(projectId, ym)` (force = true)。
+### 月次レポート生成との分離
+`/api/report/generate` は410停止済みで、レポート生成後の fire-and-forget 推定も廃止した。MS進捗の手動再推定は `/api/progress/estimate`、月次レポート本文は月末の `amd-os-l2m1-monthly-report` がそれぞれ独立して担う。
 
 ---
 
@@ -223,7 +223,7 @@ CREATE INDEX idx_pes_last_processed_at ON progress_estimate_state (last_processe
 | [pwa/src/lib/progress-estimator.ts](../src/lib/progress-estimator.ts) | **本ロジック正本**。`estimateProgress(projectId, ym, opts?)` |
 | [pwa/src/app/api/cron/hourly-estimate/route.ts](../src/app/api/cron/hourly-estimate/route.ts) | 旧 PWA fallback。`ALLOW_PWA_LLM_CRONS=1` なしでは disabled response |
 | [pwa/src/app/api/progress/estimate/route.ts](../src/app/api/progress/estimate/route.ts) | 手動「再推定」ボタン (POST { projectId, ym }) |
-| [pwa/src/app/api/report/generate/route.ts](../src/app/api/report/generate/route.ts) | レポート生成成功後の fire-and-forget |
+| [pwa/src/app/api/report/generate/route.ts](../src/app/api/report/generate/route.ts) | 従量課金の旧レポート生成経路。410停止 |
 | [pwa/src/components/cockpit/CockpitMonthlyModal.tsx](../src/components/cockpit/CockpitMonthlyModal.tsx) | 進捗確認タブの UI + 「🤖 AIで再推定」ボタン |
 | [pwa/scripts/migrations/029_progress_estimate_state.sql](../scripts/migrations/029_progress_estimate_state.sql) | state テーブル DDL |
 | [pwa/vercel.json](../vercel.json) | Vercel cron 一覧 (Hobby 制約により `/api/cron/hourly-estimate` は **登録しない**) |

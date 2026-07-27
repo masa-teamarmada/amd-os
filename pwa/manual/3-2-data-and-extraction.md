@@ -56,13 +56,13 @@ AMD OS の **裏側**。「このデータはどこから来るか」「どう�
 | D-6 経営ハイライト | Codex automation + outbox applier | `amd-os` / SKILL `amd-os-l9-strategy-signal-extract` | subscription automation 枠。PWA/GAS LLM cron ではない | `amd-os` automation 履歴、strategy-signals outbox、LaunchAgent applier |
 | D-7 Textbook Insights | Codex automation / local worker + outbox applier + local BZM applier | SKILL `amd-os-l10-textbook-insight-extract` / `apply_approved_textbook_insights.mjs` | subscription automation 枠。承認後も Vercel runtime から git file は直接編集しない | `amd-os-ms` outbox `textbookInsights`、`textbook_insight_candidates`、local BZM applier |
 
-**M-1の primary writer**: Codex automation `AMD OS M-1 月次報告抽出`。実行手順の正本は [`pwa/scheduled-tasks/amd-os-l1-monthly-report-extract/SKILL.md`](../scheduled-tasks/amd-os-l1-monthly-report-extract/SKILL.md)。automation は Supabase 内の既存 L2 snapshot を primary input にし、L2 coverage が薄い場合だけ 5 生データを gap check / backfill fallback として読み、`/Users/masa/.codex/automations/amd-os-ms/outbox/` に `monthlyReports` JSON を出す。既存 LaunchAgent + `ms_progress_review_tool.mjs` が非LLMで Supabase `monthly_reports` に反映する。
+**M-1の primary writer**: Claude Code Scheduled Task `amd-os-l2m1-monthly-report`。実行手順の正本は [`pwa/scheduled-tasks/amd-os-l2m1-monthly-report/SKILL.md`](../scheduled-tasks/amd-os-l2m1-monthly-report/SKILL.md)。月末最終日に確認済み事実を `evidence_bundle` として LLM へ渡し、件数・source refs・draft処理経緯を入れた `audit_metadata` は本文入力と分離する。`/Users/masa/.codex/automations/amd-os-ms/outbox/` の `monthlyReports` JSONを既存 LaunchAgent + `ms_progress_review_tool.mjs` が非LLMで検査し、Supabase `monthly_reports` に反映する。旧 Codex automation `AMD OS M-1 月次報告抽出` はPAUSED / 復活禁止。
 
 **R313 の扱い**: AMD-Report GAS R313 は旧経路。現物では `R313_MonthlyReport_Cron.js` が未生成レポートや差分ありレポートで `api_generateMonthlyReport` / `mr_generateDraftUpdate_` を呼び、`R303_MonthlyReport_Generator.js` が Anthropic Claude API を呼ぶ。したがって R313 trigger を有効化すると token 課金が発生しうる。R313 はバックアップ/手動確認用に残すが、定期 M-1 writer ではない。
 
 **2026-05-29 実画面確認**: `Report-AMD_OS` Apps Script の trigger 一覧は 5 件で、`run_monthlyReportCron` / `run_L2CronDaily` は存在しない。つまり、確認時点では R313 の日次 trigger による M-1 token 課金は走っていない。
 
-PWA `/api/report/generate` と `/api/cron/monthly-reports-backfill` は手動復旧用の重い route。実行すれば token 課金が発生しうるため、定期実行には使わない。月次報告モーダルの手動修正は、人間が明示的に押したときだけの編集経路。
+PWA `/api/report/generate` と `/api/monthly-report/edit-by-tsukuyomi` は410停止済み。月次報告モーダルの社内版は非LLMの直接編集・保存・確定だけで、token課金は発生しない。`/api/cron/monthly-reports-backfill` は対象と費用を確認した手動復旧に限定し、通常UIや定期実行には使わない。
 
 2026-05-22 に「LLM 課金が発生する定期抽出 cron を全廃止」した経緯と、5/25 判明した後継処理のカバー範囲誤認の詳細は **[9-1 章 5.1 cron 廃止経緯](9-1-decisions-and-history.md#51-cron-廃止経緯)** + **[9-1 章 5.7](9-1-decisions-and-history.md#57-l2-D-1D-3D-4H-1-ghost-化と-claude-routine-4-個新設計画--2026-05-25)** 参照。
 
@@ -158,7 +158,7 @@ D-1D-3D-4H-1の復旧/移管状況は [8-3 章](8-3-l2-extraction-routines-spec.
 
 | L2 # | テーブル | 用途 | 主な入力ソース | 主な writer | 状態 |
 |---|---|---|---|---|---|
-| M-1 | `monthly_reports` | PJ 月次レポート | Supabase L2 snapshot primary + 5 ソース gap check fallback | Codex automation `AMD OS M-1 月次報告抽出` (= daily 05:30 JST) → `amd-os-ms/outbox.monthlyReports` → LaunchAgent applier。PWA `/api/cron/monthly-reports-backfill` / `/api/report/generate` と AMD-Report GAS R313 は手動復旧/旧経路 | ✅ 正式稼働対象。2026-05-29 実画面確認では `run_monthlyReportCron` / `run_L2CronDaily` trigger なし |
+| M-1 | `monthly_reports` | PJ 月次レポート | 確認済み `evidence_bundle` + 前月版の構成参照。監査用 `audit_metadata` は本文から分離 | Claude Code Scheduled Task `amd-os-l2m1-monthly-report` (= 月末最終日 03:00 JST) → `amd-os-ms/outbox.monthlyReports` → LaunchAgent applier。旧 Codex `amd-os-l2` はPAUSED、PWA `/api/report/generate` / AI修正APIは410停止 | ✅ 正式稼働対象。通常UIの編集・保存・確定は非LLM |
 | D-1 | `protocols` | AMD プロトコル (= 経営判断の構造化記録) | 議事録の二次集約 | **MMOマシン Codex Desktop automation `amd-os-l2-protocol-extract`**。旧 GAS 155 は停止済み | ✅ MMOマシン側へ移管 |
 | D-2 | `milestone_monthly_progress` + 進捗系 | MS 達成度 | 月次報告書 + MTGサマリ + OS snapshot | **MMOマシン automation `amd-os-l3-ms-progress-extract`** (= primary writer) + Codex automation `amd-os-ms` (= 6h ごとの修正候補 `outbox.revisions`)。PWA `/api/cron/hourly-estimate` は停止済 fallback | ✅ 稼働 |
 | D-3 | `project_knowledge` | PJ 知識ナレッジ | `monthly_reports` + 議事録 二次集約 + 人が確認した名刺の所属/役職/関係メモ | 定期抽出は Claude routine `amd-os-l2-consolidated-evidence`。名刺は `PATCH /api/business-cards/[cardId]` が確認時だけ直接同期。旧 GAS 155 は停止済み | ✅ 定期抽出 + 確認済み名刺。名刺画像 / email / phone / address / raw OCR は保護台帳だけに置く |

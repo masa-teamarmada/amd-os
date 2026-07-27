@@ -189,14 +189,22 @@ Phase 2: PJ ごとループ
    ```
    - 取得失敗 / 空なら **当該 PJ の Phase 2.3 を skip** + notifications に `missing_llm_prompts:l2m1.monthly_report.internal.v2` を積む。fallback プロンプトを inline で書かない。
 2. **system + user 構成**:
-   - system = `llm_prompts.body` (= prompt_key=`l2m1.monthly_report.internal.v2`)
-   - user = Phase 2.2 で集めた全データを JSON で渡す (= `{ project, ym, raw_5sources, l2_snapshot, contracts, members, signals, meetings, action_items, grants, media, documents, xrl, ms_progress, amd_score, ... }`)
+   - system = `llm_prompts.body` (= prompt_key=`l2m1.monthly_report.internal.v2`)。body は system 指示だけで、未展開の `{{placeholder}}` や `# USER` 節を含めない
+   - user は `{ project, current_ym, evidence_bundle, previous_internal_md, members, audit_metadata }` の JSON で渡す
+   - `evidence_bundle` = Phase 2.2 で集めた確認済み事実、会議要約、判断、成果物、進捗、契約、action、risk。報告本文の事実はここから取る
+   - `audit_metadata` = `collection_summary_json` に保存する取得件数、source refs、snapshot、missing connector、run時刻。監査専用であり、概要・進捗・根拠章の本文へ書かない
+   - `previous_internal_md` = 前月の `final_content`。継続文脈の確認にだけ使い、前月事実を当月実績として転記しない
 3. **LLM 呼び出し**: claude routine 自身の model 設定 (`claude-opus-4-8` / effort `ultracode`) で生成。**Anthropic / OpenAI 等の従量課金 API を直接呼ばない**。
-4. 出力 = markdown 本文 (= 旧 SKILL の draft_content 推奨構成を踏襲し、根拠セクションは source name / date / title / sender / short snippet 程度。事実と推測を分け、推測は「推定」「未確認」と明示)。
+4. 出力 = markdown 本文。固定8章を維持しつつ、`kaku-report` 規範どおりに次を満たす:
+   - 概要は3〜5文、120〜600文字で、当月の進展・判断・次の焦点だけを書く
+   - 「今月進んだこと」は会議順でなく2〜5の業務領域へ統合し、背景・実施・到達点・残課題を書く
+   - 根拠章は日付・種別・自然な件名だけ。内部ID / URL / hash / 取得件数 / raw本文を載せない
+   - 文芸的な語り、比喩、修辞疑問、生成・収集プロセスの説明を使わない
 5. 反映:
    - 既存 `monthly_reports` で同 (project_id, ym) に `final_content` がある場合 → `force` なしの場合は**上書きしない**、notifications に `final_protected:<project_id>:<ym>` を積み、対外版だけは Phase 2.4 で別途生成する (= 既存内部版を入力にする)。
    - 既存 final が無い場合 → outbox JSON (`/Users/masa/.codex/automations/amd-os-ms/outbox/<YYYYMMDD-HHmmss>-l2m1-monthly-report.json` の `monthlyReports[]`) に積み、既存 helper `upsertMonthlyReports` で `status='final'`、`final_content=<markdown>`、`collection_summary_json` 付きで upsert。
-   - `collection_summary_json` は旧 SKILL の構造 (`source` / `source_counts` / `source_refs` / `missing_connectors` / `quality_flags`) を継承し、`source = "claude-routine-l2m1-monthly-report"` とする。
+   - `collection_summary_json` は旧 SKILL の構造 (`source` / `source_counts` / `source_refs` / `missing_connectors` / `quality_flags`) を継承し、`source = "claude-routine-l2m1-monthly-report"` とする。ただし本文には混ぜない。
+   - helper の品質ゲートは、固定8章に加えて、概要の3〜5文・文字量、生成作業語の不在、進捗章の複数業務領域化、根拠章の内部ID/URL不在を検査する。違反稿はDBへ入れない。
 
 ### Phase 2.4: 対外提出版 markdown 生成 → `monthly_reports_external` insert
 

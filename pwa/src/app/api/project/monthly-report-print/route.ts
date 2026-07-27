@@ -23,8 +23,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/supabase/api-auth";
 
-// 提出版テンプレート。internal 以外は monthly_reports_external.body_md を本文に優先採用する。
-const VALID_PRINT_TEMPLATES = new Set(["internal", "nims-cx", "ehime-sx", "kogakuin-kute"]);
+// UI は全PJ共通の submission を使う。旧提出先別キーは保存済みURLの互換性だけ残す。
+const VALID_PRINT_TEMPLATES = new Set(["internal", "submission", "nims-cx", "ehime-sx", "kogakuin-kute"]);
 
 function toHyphenYm(ym: string): string {
   return `${ym.slice(0, 4)}-${ym.slice(4, 6)}`;

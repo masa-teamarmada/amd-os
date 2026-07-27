@@ -13,7 +13,7 @@
 | 対象判定 | 全 active/sales PJ (対外提出義務の概念なし) | `projects.monthly_report_scope IN ('internal_only','internal_and_external')` の 3 状態 enum |
 | プロンプト | SKILL.md / prompt に直書き | `llm_prompts` table 正本 (`prompt_key='l2m1.monthly_report.internal.v2'` / `'l2m1.monthly_report.external.v2'`)、admin UI で編集可能 |
 | PDF 生成 | なし | Claude routine が pandoc + Chrome headless (まさの mac local 実行) → 失敗時 outbox → ローカル LaunchAgent fallback |
-| 品質検証 | なし | `scripts/ms_progress_review_tool.mjs validate-monthly-report` が固定 8 章体系・生ログ丸写し・句読点崩れ・eLAD 表記を draft/final 書き込み前に検証する。対外版は `upsert-monthly-reports-external` が氏名を姓だけへ正規化し、`strip_internal_jargon.py` が code_name / 内部用語を検査する |
+| 品質検証 | なし | `scripts/ms_progress_review_tool.mjs validate-monthly-report` と PWA の `monthly-report-quality.ts` が固定8章、概要3〜5文、業務領域別の統合、生成ログ・生ログ・途中省略の不在を draft/final 書き込み前に検証し、`eLAD` を `e-Rad` へ正規化する。対外版は `upsert-monthly-reports-external` が氏名を姓だけへ正規化し、`strip_internal_jargon.py` が code_name / 内部用語を検査する |
 | Slack 通知 | なし (Codex automation は run summary のみ) | まさ DM に集約 (`scripts/send-eimi-slack.mjs` = GAS webapp えいみ persona bot 経由)、PJ チャンネルには投げない |
 | 通知タイミング | なし | Phase 2.1 (開始) + Phase 2.7 (PJ 完了、scope 別 4 パターン) + Phase 3 (全体サマリ) |
 
@@ -36,7 +36,7 @@
 
 `monthly_reports` は後続 L2 の一次入力になるため、完全版を待たず、確認済み事実だけでも draft を積む。
 
-`llm_prompts` の 2 本の現行本文は `scripts/migrations/194_monthly_report_prompts_v2_rewrite.sql` に記録 (2026-07-27)。`internal.v2` は `llm_prompt_revisions` に旧稿が 0 行だったため固定 8 章体系 (概要/今月進んだこと/重要な判断・合意/顧客・共同研究・外部関係者の動き/技術・知財・実験・資料/リスク・未確定事項/来月の焦点/根拠) に沿って新規に書き起こしたもの (= 復元ではなく新規稿という判断)。`external.v2` は姓のみ表記・eLAD→e-Rad 正規化の 2 点を既存稿に追記した差分。
+`llm_prompts` の 2 本は DB 正本。外部版の2026-07-27時点の本文は `scripts/migrations/194_monthly_report_prompts_v2_rewrite.sql`、内部版の現行本文は `scripts/migrations/195_internal_monthly_report_writer_v3.sql` に記録する。内部版は固定8見出し (概要/今月進んだこと/重要な判断・合意/顧客・共同研究・外部関係者の動き/技術・知財・実験・資料/リスク・未確定事項/来月の焦点/根拠) を維持する。LLMへ渡す `evidence_bundle` と監査用 `audit_metadata` は分離し、件数、source refs、draft更新経緯などの監査メタを本文へ書かない。概要は3〜5文、今月進んだことは会議順・source順ではなく業務領域単位で統合する。
 
 ## 現行 writer (v2)
 
@@ -103,7 +103,7 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 |---|---|
 | AMD-Report GAS R313 | 旧経路。定期 trigger を置かない |
 | `api_generateMonthlyReport` | L2M-1 automation の定期経路として使わない |
-| PWA `/api/report/generate` | 手動復旧用。定期 writer にしない |
+| PWA `/api/report/generate` | **410停止**。従量課金APIをUIから誤実行できないよう復旧経路としても使わない |
 | PWA `/api/cron/monthly-reports-backfill` | 重い手動 backfill route。定期 writer にしない。ただし上記「生成対象ガード」の実装はこの route が持つ (進捗ベース判定の正本実装) |
 | Codex automation `amd-os-l2` (M-1 月次報告抽出) | **v2 で PAUSED 済 (2026-07-01)**。復活禁止。gpt-5.5 + daily 05:30 の旧 writer |
 | MCP `slack_send_message` を bot として直叩き | えいみ persona 通知に使わない。必ず `scripts/send-eimi-slack.mjs` (GAS webapp 経由) |
@@ -160,8 +160,10 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 |---|---|
 | `GET /api/project/monthly-report-print?projectId=&ym=` | 章 §01-§07 全ブロックを 1 fetch で返す集約 route。requireAdmin、列名は `pwa/design/db_schema.md` 準拠。**メンバー名は `members.member_name` (本名) を優先、空なら `members.code_name`** |
 | `/(app)/project/[projectId]/report/[ym]/print` | 集約 JSON を Team ARMADA ブランド (Work Sans / Noto Sans JP / JetBrains Mono / dark #0a1628) で A4 縦に表示。`@page A4 / margin 14mm 14mm 18mm 14mm`、各 sheet を `page-break-after: always` で章分離。`@page` の top-left に 機関名+期間、top-right に「取扱注意 / Confidential」、bottom-left に コピーライト、bottom-center に Page X/Y を CSS で自動付与 |
-| Cockpit 月次モーダルヘッダの `📄 印刷 / PDF` リンク (v0.33.0〜) | 新規タブで上記ページを開く。ユーザーは Cmd+P → 「PDFとして保存」(余白=既定 / 背景のグラフィック=ON / A4縦) |
-| Cockpit 月次モーダルヘッダの `📝 レポート本文を編集` ボタン (v0.33.0〜) | 旧「レポート」タブの機能を折りたたみアコーディオンで提供 (生成・修正指示・FIX・再生成)。タブUIは廃止 |
+| Cockpit 月次モーダルヘッダの `提出版` リンク | `template=submission` で新規タブに印刷ビューを開く。ユーザーは Cmd+P → 「PDFとして保存」(余白=既定 / 背景のグラフィック=ON / A4縦) |
+| Cockpit 月次モーダルヘッダの `社内版` ボタン | 固定8見出し本文の閲覧・直接編集・保存・確定 panel を開閉する。生成・再生成・AI修正は置かない |
+
+画面上の編集・保存・確定は LLM を呼ばない。旧 `/api/report/generate` と `/api/monthly-report/edit-by-tsukuyomi` は従量課金事故を防ぐため 410 で停止する。自動生成は月末最終日の `amd-os-l2m1-monthly-report` に一本化する。
 
 ### 設計判断
 

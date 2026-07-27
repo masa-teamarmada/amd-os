@@ -47,8 +47,8 @@ L2 Data は、Raw Data を OS が使える知識に変換したもの。
 
 この一覧は `operations-catalog.ts` の `l2Datasets` が正本。
 
-2026-05-29 時点の注意:
-- M-1 `monthly_reports` は OS の必須データなので生成対象。primary writer は Codex automation `AMD OS M-1 月次報告抽出` (= daily 05:30 JST) で、`amd-os-ms/outbox.monthlyReports` を非LLM helper が反映する。PWA の report route / backfill route、月次報告モーダルの手動生成・修正、AMD-Report GAS R313 は復旧・手動編集・旧経路。R313 は未生成/差分あり時に Claude API を呼びうるため、2026-05-29 実画面確認時点では `run_monthlyReportCron` / `run_L2CronDaily` trigger を置いていない。
+2026-07-27 時点の注意:
+- M-1 `monthly_reports` は OS の必須データなので生成対象。primary writer は Claude Code Scheduled Task `amd-os-l2m1-monthly-report` (= 月末最終日 03:00 JST) で、`amd-os-ms/outbox.monthlyReports` を非LLM helper が反映する。旧 Codex automation `AMD OS M-1 月次報告抽出` は PAUSED / 復活禁止。月次モーダルの `社内版` は非LLMの直接編集・保存・確定だけを扱い、`/api/report/generate` / `/api/monthly-report/edit-by-tsukuyomi` は 410 で停止する。R313 は未生成/差分あり時に Claude API を呼びうるため、`run_monthlyReportCron` / `run_L2CronDaily` trigger を置かない。
 - D-2 `milestone_monthly_progress` は **MMOマシン automation `amd-os-l3-ms-progress-extract`** が primary writer。GAS 154 -> PWA `/api/cron/hourly-estimate` は 2026-05-29 に再停止済み。Codex automation `amd-os-ms` は修正候補レビュー / OS 台帳差分 / XRL 根拠を outbox に出す。
 - D-1D-3D-4H-1 は旧 GAS LLM cron から subscription automation へ移管済み。D-1D-3D-4は **MMOマシン Codex Desktop automation** (`amd-os-l2-protocol-extract` / `amd-os-l4-project-knowledge-extract` / `amd-os-l5-member-knowledge-extract`)、H-1は **Windows MMO Codex Desktop automation `amd-os-l6-meeting-flow`**。D-7 Textbook Insights は approved 後に local BZM applier が `pwa/bzm/*.md` へ追記する。復旧時は [3-2 章](3-2-data-and-extraction.md) と [8-3 章](8-3-l2-extraction-routines-spec.md) の M/W/D/H L2 抽出ルート表を見る。
 
@@ -115,7 +115,7 @@ GAS function の場合:
 
 | operation | 止めている理由 |
 |---|---|
-| GAS R313 monthly report trigger | M-1の定期 writer は Codex automation `AMD OS M-1 月次報告抽出`。R313 は従量課金 Claude API を呼びうる旧経路なので trigger 復活しない |
+| GAS R313 monthly report trigger | M-1の定期 writer は Claude Code Scheduled Task `amd-os-l2m1-monthly-report`。R313 は従量課金 Claude API を呼びうる旧経路なので trigger 復活しない |
 | GAS meeting hourly | 旧 LLM / Gemini 系。Windows MMO Codex Desktop automation `amd-os-l6-meeting-flow` へ移管済 |
 | PWA hourly-estimate | 旧 MS進捗 writer。定期抽出は MMOマシン automation `amd-os-l3-ms-progress-extract` へ移管済 |
 | PWA member-weekly-activities | UI からは停止のまま。現在の定期 writer は Codex 側 (`AMD OS D-10 メンバー活動根拠抽出 (Mac)`) で、route は evidence 収集と Codex合成結果の POST 保存だけを担う。legacy GET synthesis は復活させない |

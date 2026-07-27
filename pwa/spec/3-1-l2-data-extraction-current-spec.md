@@ -131,7 +131,7 @@ Executable guard: `cd pwa && npm run test:l6-held-source-guard`。fixture は飯
 - `source_cache` だけを見て no-data 判定しない。
 - 5 生データのうち一部だけで「全部確認済み」と扱わない。
 - `monthly_reports.final_content` を `force:true` なしで上書きしない。
-- R313 / `/api/report/generate` / `/api/cron/monthly-reports-backfill` を定期 writer にしない。
+- R313 / `/api/cron/monthly-reports-backfill` を定期 writer にしない。`/api/report/generate` と `/api/monthly-report/edit-by-tsukuyomi` は410停止を維持する。
 - raw source 全文を L2 row や通知に保存しない。
 - 存在しない列名や status 値を想像で書かない。`pwa/design/db_schema.md` を確認する。
 

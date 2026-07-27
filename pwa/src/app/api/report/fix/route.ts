@@ -7,6 +7,7 @@
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { validateInternalMonthlyReport } from "@/lib/monthly-report-quality";
 import { requireAdmin } from "@/lib/supabase/api-auth";
 
 export async function POST(req: Request) {
@@ -40,12 +41,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No draft content to fix" }, { status: 400 });
     }
 
+    const validation = validateInternalMonthlyReport(report.draft_content);
+    if (!validation.ok) {
+      return NextResponse.json(
+        { error: validation.errors.join("\n"), errors: validation.errors },
+        { status: 422 }
+      );
+    }
+
     // FIX: draft → final
     const now = new Date().toISOString();
     const { error: updateErr } = await supabase
       .from("monthly_reports")
       .update({
-        final_content: report.draft_content,
+        draft_content: validation.normalized,
+        final_content: validation.normalized,
         status: "fixed",
         fixed_at: now,
       })

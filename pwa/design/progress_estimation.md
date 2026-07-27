@@ -39,10 +39,9 @@ PWA で MS 別の月次進捗%を LLM に推定させて `milestone_monthly_prog
 - レスポンス: `{ saved, total, skipped, message, diagnostics, details }`
 - `diagnostics` に `planCycleFound / milestoneCount / sourceItemCountRaw / sourceBreakdown / usingServiceRole` を含める（デバッグ用）
 
-#### 3. `src/app/api/report/generate/route.ts`（修正）
-- レポート生成成功後に `estimateProgress` を fire-and-forget で呼ぶ
-- エラーがあってもレポート生成の結果には影響させない（try/catch で握りつぶす）
-- レスポンスに `progressEstimate` を含める
+#### 3. `src/app/api/report/generate/route.ts`（2026-07-27 廃止）
+- 従量課金の旧月次レポート生成経路は410停止
+- レポート生成とMS進捗推定を同じAPIで連鎖させない
 
 #### 4. `src/components/cockpit/CockpitMonthlyModal.tsx`（修正）
 - 「進捗確認」タブに **「🤖 AIで再推定」ボタン** を追加
@@ -72,7 +71,7 @@ Vercel production に以下が未設定だった:
 ### 影響範囲
 - `/Users/masa/projects/amd-os/pwa/src/lib/progress-estimator.ts`（新規）
 - `/Users/masa/projects/amd-os/pwa/src/app/api/progress/estimate/route.ts`（新規）
-- `/Users/masa/projects/amd-os/pwa/src/app/api/report/generate/route.ts`（修正: 推定の自動トリガー）
+- `/Users/masa/projects/AMD/amd-os/pwa/src/app/api/report/generate/route.ts`（2026-07-27: 410停止）
 - `/Users/masa/projects/amd-os/pwa/src/components/cockpit/CockpitMonthlyModal.tsx`（修正: 再推定ボタン+幅+ローカルstate）
 - Vercel production env vars: `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`, `FREEE_CLIENT_ID`, `FREEE_CLIENT_SECRET`, `FREEE_REFRESH_TOKEN`, `FREEE_COMPANY_ID`
 
@@ -113,12 +112,12 @@ PWA 進捗推定 (新規)
 - **書き込みは止まっている**（GAS L1 cron 廃止）
 - 既存データ（過去の同期済み分）は残っているが、新規データは入らない
 - 参照しているコード:
-  - `src/app/api/report/generate/route.ts` ← まだ `source_cache` 参照あり。実質空振りで動くが、将来的に `monthly_reports` ベースに書き換え推奨
-  - `src/lib/progress-estimator.ts` ← 移行済み（`monthly_reports` を使う）
+  - `src/app/api/report/generate/route.ts` ← 410停止済みで `source_cache` を参照しない
+  - `src/lib/progress-estimator.ts` ← `monthly_reports` を使う
 
 ### 将来的な検討事項
-- `report/generate` ルートも `source_cache` 依存をやめる必要あり（現状は空ソースで LLM に投げている）
-- あるいは PWA の report/generate 自体が不要になる可能性（MMO の scheduled task で十分なら）
+- 月次レポート本文とMS進捗推定は独立した正本経路を維持する
+- PWA の report/generate は停止を維持し、月次本文の定期生成は Scheduled Task に一本化する
 
 ## 2026-05-02: つくよみ修正依頼からGmail生データ抽出へ
 

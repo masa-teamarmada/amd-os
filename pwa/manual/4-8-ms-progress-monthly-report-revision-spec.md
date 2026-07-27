@@ -126,9 +126,11 @@ GAS `rv2_calcRewardSummary` が報酬計算時に `share` を掛けて per-membe
 
 **🚨 課金注意 (2026-05-29 訂正)**: R313 は単なる deterministic 集約ではない。AMD-Report GAS 現物では、未生成レポートや差分ありレポートのときに R303 generator 経由で Anthropic Claude API を呼ぶ。`run_monthlyReportCron` trigger が有効なら token 課金が発生しうるため、「R313 = LLM 不使用」と書かない。2026-05-29 実画面確認時点では `run_monthlyReportCron` / `run_L2CronDaily` trigger は存在しない。
 
-これは月次報告書の生成停止ではない。`monthly_reports` は OS の必須データで、定期生成は月末の Claude task が担う。PWA の手動/backfill route と月次報告モーダルは復旧・手動編集用。旧 daily Codex automation や、対象範囲・費用意図が曖昧な有料 API trigger を復活させない。
+これは月次報告書の生成停止ではない。`monthly_reports` は OS の必須データで、定期生成は月末の Claude task が担う。月次モーダルは非 LLM の直接編集・保存・確定だけを提供する。旧 `/api/report/generate` と `/api/monthly-report/edit-by-tsukuyomi` は 410 で停止し、旧 daily Codex automation や、対象範囲・費用意図が曖昧な有料 API trigger を復活させない。backfill route は通常 UI へ出さず、対象と費用を確認した手動復旧に限定する。
 
 内部保存版と提出版は同じ帳票ではない。内部版は従来の固定8見出しで `monthly_reports` に保存し、PWAの社内レビュー帳票で確認する。提出版は `monthly_reports_external.body_md` に保存し、KUTEでは2026-06-30実提出版を基準とする9章の連続文書として印刷する。生成時は内部版だけでなく当月source bundleと前月実提出版も渡し、前月版は構成・文体・情報密度だけを参照する。外部版helperは主要章、表、本文長、末尾定型、生データ残骸、姓表記、e-Rad表記を検査してから反映する。
+
+内部版 LLM の入力は `evidence_bundle` / `previous_internal_md` / `members` / `audit_metadata` に分ける。本文に使えるのは確認済み事実をまとめた `evidence_bundle` と前月版の構成参照だけ。`audit_metadata` の件数、source refs、既存 draft の処理経緯は検証・readback 用であり、本文へ書かない。出力は会議順や source 順ではなく業務領域ごとに統合し、概要は当月の主進展、並行進展、判断・リスク、来月の焦点を3〜5文でまとめる。
 
 ### `monthly_reports` 列
 
@@ -263,7 +265,7 @@ confirm されたら `monthly_reports.draft_content` を `revised_content` で�
 
 | ブロック | 内容 |
 |---|---|
-| 月次報告書 | `monthly_reports.draft_content` / `final_content`、 修正依頼ボタン |
+| 月次報告書 | `monthly_reports.draft_content` / `final_content`、`社内版`の直接編集・保存・確定、`提出版`の印刷表示 |
 | MS 進捗 (per-MS) | `milestone_monthly_progress.progress_pct`、 cumulative bar、 修正依頼ボタン |
 | MTG サマリ (当月) | `project_meeting_summaries` で当月 ym のもの |
 | 経営ハイライト (当月) | `project_strategy_signals` で当月 ym のもの |

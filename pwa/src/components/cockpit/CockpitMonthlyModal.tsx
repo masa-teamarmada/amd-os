@@ -13,15 +13,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-// PJ別の提出版テンプレート。print pipeline (route.ts) の PRINT_TEMPLATES と対応させる。
-const PRINT_TEMPLATE_BY_PROJECT: Record<string, { template: string; label: string }> = {
-  p20: { template: "nims-cx", label: "NIMS提出版" },
-  p21: { template: "ehime-sx", label: "愛媛大提出版" },
-  p25: { template: "kogakuin-kute", label: "工学院提出版" },
-};
-function printLinkForProject(projectId: string): { template: string; label: string } {
-  return PRINT_TEMPLATE_BY_PROJECT[projectId] || { template: "internal", label: "社内版プレビュー" };
-}
+// 画面上の名称は全PJで「社内版」「提出版」に固定する。
+// 提出先ごとの事情は本文と帳票データが担い、操作ラベルへ漏らさない。
+const SUBMISSION_TEMPLATE = "submission";
 
 // ─── 型定義 ─────────────────────────────────────────────────────────────────
 
@@ -233,7 +227,7 @@ interface MsRevision {
 }
 
 // レポートタブは v0.33.0 で廃止。印刷ビューと二重に存在するため、編集が必要なときは
-// モーダル内の「レポート本文を編集」アコーディオンを開く運用に統一。
+// モーダル内の「社内版」panelを開く運用に統一。
 // 互換のため型エイリアスは残す (= 外部呼び出し: CockpitView.openMonthlyModal の initialTab) が、
 // 値は受け取っても無視する (= 開いた瞬間に編集アコーディオンを展開する用)。
 type MonthlyModalTab = "reward" | "report";
@@ -830,19 +824,24 @@ export function CockpitMonthlyModal({
             <div className="ml-auto flex items-center gap-2">
               <button
                 onClick={() => setReportEditorOpen((v) => !v)}
-                className="text-xs px-2.5 py-1 rounded-md border border-border text-foreground hover:bg-accent transition-colors"
-                title="月次報告書本文を生成・編集・確定する"
+                aria-expanded={reportEditorOpen}
+                className={`min-h-10 text-xs px-3 py-2 rounded-md border transition-colors ${
+                  reportEditorOpen
+                    ? "border-foreground bg-foreground text-background"
+                    : "border-border text-foreground hover:bg-accent"
+                }`}
+                title={reportEditorOpen ? "社内版を閉じる" : "社内版を表示する"}
               >
-                社内版を編集
+                社内版
               </button>
               <a
-                href={`/project/${projectId}/report/${ym}/print?template=${printLinkForProject(projectId).template}`}
+                href={`/project/${projectId}/report/${ym}/print?template=${SUBMISSION_TEMPLATE}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs px-2.5 py-1 rounded-md bg-foreground text-background hover:opacity-90 transition-opacity"
-                title="Cmd+P で PDF 保存できます"
+                className="inline-flex min-h-10 items-center text-xs px-3 py-2 rounded-md border border-border text-foreground hover:bg-accent transition-colors"
+                title="提出版を新しいタブで開く"
               >
-                📄 {printLinkForProject(projectId).label}
+                提出版
               </a>
             </div>
           </DialogTitle>
@@ -851,7 +850,10 @@ export function CockpitMonthlyModal({
         {reportEditorOpen && (
           <div className="border border-border rounded-lg p-4 mb-4 bg-muted/20">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold">📝 月次報告書 本文 (印刷ビュー §02 で参照)</h3>
+              <div>
+                <h3 className="text-sm font-semibold">社内版</h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">社内の判断材料として残す月次報告書</p>
+              </div>
               <button
                 onClick={() => setReportEditorOpen(false)}
                 className="text-xs text-muted-foreground hover:text-foreground"
@@ -2918,38 +2920,41 @@ function MemberPayoutSection({
 // ─── ReportTab ───────────────────────────────────────────────────────────────
 
 function ReportTab({ report, projectId, ym }: { report: Report | null; projectId: string; ym: string }) {
-  const [generating, setGenerating] = useState(false);
   const [fixing, setFixing] = useState(false);
-  const [feedback, setFeedback] = useState("");
-  const [showFeedback, setShowFeedback] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [content, setContent] = useState(report?.finalExcerpt || report?.draftExcerpt || "");
-  const [status, setStatus] = useState(report?.status || "");
+  const [editedContent, setEditedContent] = useState(content);
+  const [status, setStatus] = useState(
+    report?.status === "fixed" || (report?.hasFinal && report?.fixedAt)
+      ? "fixed"
+      : report?.status || ""
+  );
   const [error, setError] = useState("");
   const [showMarkdown, setShowMarkdown] = useState(true);
 
-  const isFixed = status === "fixed" || (report?.hasFinal && !!report?.fixedAt);
+  const isFixed = status === "fixed";
 
-  const handleGenerate = async (feedbackText?: string) => {
-    setGenerating(true);
+  const handleSave = async () => {
+    setSaving(true);
     setError("");
     try {
-      const res = await fetch("/api/report/generate", {
+      const res = await fetch("/api/monthly-report/manual-update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId, ym, ...(feedbackText ? { feedback: feedbackText } : {}) }),
+        body: JSON.stringify({ projectId, ym, content: editedContent }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "生成に失敗しました");
-      setContent(data.draftContent);
+      if (!res.ok) throw new Error(data.message || "保存に失敗しました");
+      const savedContent = typeof data.content === "string" ? data.content : editedContent;
+      setContent(savedContent);
+      setEditedContent(savedContent);
       setStatus("draft");
-      if (feedbackText) {
-        setShowFeedback(false);
-        setFeedback("");
-      }
+      setEditing(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラーが発生しました");
     } finally {
-      setGenerating(false);
+      setSaving(false);
     }
   };
 
@@ -2984,57 +2989,27 @@ function ReportTab({ report, projectId, ym }: { report: Report | null; projectId
           </span>
         )}
 
-        {!isFixed && (
-          <>
-            <button
-              onClick={() => handleGenerate()}
-              disabled={generating}
-              className="text-xs px-3 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
-            >
-              {generating ? "生成中..." : content ? "再生成" : "報告書を生成"}
-            </button>
-
-            {content && (
-              <>
-                <button
-                  onClick={() => setShowFeedback(!showFeedback)}
-                  className="text-xs px-3 py-1 rounded-md border border-amber-300 text-amber-700 hover:bg-amber-50 transition-colors"
-                >
-                  修正指示
-                </button>
-                <button
-                  onClick={handleFix}
-                  disabled={fixing}
-                  className="text-xs px-3 py-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
-                >
-                  {fixing ? "確定中..." : "FIX（確定）"}
-                </button>
-              </>
-            )}
-          </>
-        )}
-
-        {isFixed && (
+        {!editing && (
           <button
-            onClick={() => handleGenerate(feedback || undefined)}
-            disabled={generating}
-            className="text-xs px-3 py-1 rounded-md border border-amber-300 text-amber-700 hover:bg-amber-50 disabled:opacity-50 transition-colors"
-            title="確定後も再生成可能"
+            onClick={() => {
+              setEditedContent(content);
+              setEditing(true);
+            }}
+            className="text-xs px-3 py-1.5 rounded-md border border-border text-foreground hover:bg-accent transition-colors"
           >
-            {generating ? "再生成中..." : "再生成"}
+            {content ? "本文を編集" : "本文を入力"}
           </button>
         )}
 
-        {/* 印刷プレビュー (PJ別に提出版/社内版を出し分け) */}
-        <a
-          href={`/project/${projectId}/report/${ym}/print?template=${printLinkForProject(projectId).template}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          title="Cmd+P で PDF 保存できます"
-          className="text-xs px-3 py-1 rounded-md border border-border text-foreground hover:bg-accent transition-colors"
-        >
-          📄 {printLinkForProject(projectId).label}
-        </a>
+        {content && !isFixed && !editing && (
+          <button
+            onClick={handleFix}
+            disabled={fixing}
+            className="text-xs px-3 py-1.5 rounded-md bg-emerald-700 text-white hover:bg-emerald-800 disabled:opacity-50 transition-colors"
+          >
+            {fixing ? "確定中..." : "確定"}
+          </button>
+        )}
 
         {/* 表示切り替え */}
         {content && (
@@ -3047,22 +3022,38 @@ function ReportTab({ report, projectId, ym }: { report: Report | null; projectId
         )}
       </div>
 
-      {/* 修正指示 */}
-      {showFeedback && (
-        <div className="space-y-2">
+      <p className="text-xs leading-5 text-muted-foreground">
+        自動生成は月末の定額内処理が担当する。この画面の編集・保存・確定ではAIトークンを消費しない。
+      </p>
+
+      {editing && (
+        <div className="space-y-2 rounded-lg border border-border bg-background p-3">
           <textarea
-            value={feedback}
-            onChange={(e) => setFeedback(e.target.value)}
-            placeholder="修正指示を入力（例: 「概要をもっと簡潔に」「技術的な成果を強調して」）"
-            className="w-full text-sm border rounded-lg p-3 min-h-[80px] resize-y focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            value={editedContent}
+            onChange={(e) => setEditedContent(e.target.value)}
+            aria-label="社内版のMarkdown本文"
+            className="min-h-[360px] w-full resize-y rounded-md border border-border bg-muted/20 p-3 font-mono text-sm leading-6 outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
-          <button
-            onClick={() => handleGenerate(feedback)}
-            disabled={!feedback.trim() || generating}
-            className="text-xs px-3 py-1.5 rounded-md bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50 transition-colors"
-          >
-            {generating ? "修正中..." : "修正を適用"}
-          </button>
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => {
+                setEditedContent(content);
+                setEditing(false);
+                setError("");
+              }}
+              disabled={saving}
+              className="text-xs px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground disabled:opacity-50"
+            >
+              キャンセル
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!editedContent.trim() || saving}
+              className="text-xs px-3 py-1.5 rounded-md bg-foreground text-background hover:opacity-90 disabled:opacity-50"
+            >
+              {saving ? "保存中..." : "保存"}
+            </button>
+          </div>
         </div>
       )}
 
@@ -3071,7 +3062,7 @@ function ReportTab({ report, projectId, ym }: { report: Report | null; projectId
       )}
 
       {/* コンテンツ表示 */}
-      {content ? (
+      {content && !editing ? (
         <div className="bg-muted/30 rounded-lg p-4 max-h-[480px] overflow-y-auto">
           {showMarkdown ? (
             <SimpleMarkdown text={content} />
@@ -3079,9 +3070,9 @@ function ReportTab({ report, projectId, ym }: { report: Report | null; projectId
             <div className="text-sm whitespace-pre-wrap leading-relaxed">{content}</div>
           )}
         </div>
-      ) : !generating ? (
+      ) : !editing ? (
         <p className="text-sm text-muted-foreground py-4">
-          報告書がまだ作成されていません。「報告書を生成」ボタンで自動生成できます。
+          社内版はまだ作成されていない。月末の自動生成を待つか、「本文を入力」から直接作成できる。
         </p>
       ) : null}
     </div>

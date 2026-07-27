@@ -158,13 +158,13 @@ PM向けの cockpit 右カラム routine step UI は廃止済み。`CockpitRouti
 
 現行の月次導線は `CockpitMonthlyList` / `HudCockpitMonthlyList` から月を選び、`CockpitMonthlyModal` / `HudCockpitMonthlyModal` を開く形に一本化する。月次報告書の軽い確認 nudge は Slack 側に寄せ、OS 上の月次 routine step は発生させない。契約 apply 済みPJでは、請求額は `contract-billing-auto-confirm` と `/admin/invoices` / `/admin/payouts` 側で扱う。
 
-`CockpitMonthlyModal` の月次報告書導線は、全PJ共通の `社内版を編集` と印刷プレビューを分ける。社内版は `monthly_reports` 本文の生成・修正・FIXを扱う。印刷リンクは `/project/[projectId]/report/[ym]/print?template=...` を新規タブで開き、CX (`p20`) は `NIMS提出版` (`template=nims-cx`)、SX (`p21`) は `愛媛大提出版` (`template=ehime-sx`)、KUTE (`p25`) は `工学院提出版` (`template=kogakuin-kute`)、それ以外は `社内版プレビュー` (`template=internal`) と表示する。社内版は表紙・要約・進捗/成果・Gantt・体制・次月計画・添付のレビュー帳票を維持する。提出版は `monthly_reports_external.body_md` を正本とし、2026-06 KUTE 実提出版に合わせた9章連続文書として別組版する。章ごとの強制改頁は入れず、自然改頁で流す。
+`CockpitMonthlyModal` の月次報告書導線は、全 PJ 共通の `社内版` / `提出版` に固定する。`社内版` は `monthly_reports` 本文の表示・直接編集・保存・確定を扱い、`提出版` は `/project/[projectId]/report/[ym]/print?template=submission` を新規タブで開く。提出先名を操作ラベルへ埋め込まない。旧 template (`nims-cx` / `ehime-sx` / `kogakuin-kute`) は既存 URL 互換のため route だけが受理し、新しい UI は使わない。社内版・提出版とも既存の表紙・要約・進捗/成果・Gantt・体制・次月計画・添付を持つリッチ帳票を維持し、提出版は `monthly_reports_external.body_md` を業務遂行レポートへ差し込む。提出版だけ章ごとの強制改頁を入れず、自然改頁で流す。
 
 ## Monthly Modal / API Contract
 
 | modal | trigger | read | write / call | success state |
 |---|---|---|---|---|
-| `CockpitMonthlyModal` report tab | monthly card / report-only month | `monthly_reports`, `billing_cycles`, MS bundle | `/api/report/generate`, `/api/report/fix`, report edit APIs | `monthly_reports.status='fixed'` or `fixed_at` set |
+| `CockpitMonthlyModal` 社内版 panel | monthly card / report-only month | `monthly_reports`, `billing_cycles`, MS bundle | `/api/monthly-report/manual-update`, `/api/report/fix` (いずれも非LLM) | `monthly_reports.status='fixed'` or `fixed_at` set |
 | `CockpitMonthlyModal` reward/progress tab | monthly card with billing cycle | `milestone_monthly_progress`, `ms_progress_revisions`, `member_activities`, `project_monthly_notes`, `billing_cycles.reward_summary_json` | `/api/rewards/sync`, `/api/progress/estimate`, `/api/progress/confirm`, `/api/progress/revisions`, `/api/progress/batch-save`, `/api/project/monthly-note` | local progress patches + reward summary sync |
 
 ## Monthly / Reward Modal Contract

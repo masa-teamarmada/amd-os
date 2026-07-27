@@ -528,7 +528,7 @@ MTG サマリ詳細は `/project/[projectId]/cockpit?meeting=<meeting_id>` で�
 - **AMD プロトコル結果運用**: プロトコル抽出本体は稼働中。`結果` は自動抽出せず、`protocol_result_observations` に時間差の観測として入れる。観測登録UI/cronは今後拡張対象。
 - **Atlas タグ正規化 UI**: 表記揺れ (semiconductor / 半導体 等) 統合管理が数百シグナル超で必要 (`/admin/atlas/tags` 候補)
 - **本番認証**: 現状 DEV_MODE。Supabase Auth + RLS ポリシー再構築 (再帰なし) が必要
-- **`source_cache` 依存**: `/api/report/generate` はまだ `source_cache` を参照するが、定期 M-1 writer ではない。GAS broad L1 cron は廃止済みだが、PWA API で Gmail/Slack の短い source refs は投入可能。Drive/Calendar/Notion の同形PWA化と、M-1 Codex automation への接続整理が残る
+- **月次レポート入力の境界**: `/api/report/generate` は410停止済み。primary writer `amd-os-l2m1-monthly-report` は本文用 `evidence_bundle` と監査用 `audit_metadata` を分け、`source_cache` 件数やdraft更新経緯を本文へ書かない
 - **GAS bridge → PWA 直抽出**: Gmail/source 抽出を PWA サーバーから直接やる設計に置換
 - **Supabase → スプシ逆同期**: 現在は GAS → Supabase 一方向のみ。バックアップ手段未定
 - **Venture Map**: 数式モデルの未解決論点 5 点 (`venture_map_model.md`)、競合密度 / 予算データ未投入
