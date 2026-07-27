@@ -213,12 +213,15 @@ Phase 2: PJ ごとループ
    - 取得失敗 / 空なら **当該 PJ の Phase 2.4 を skip** + notifications に `missing_llm_prompts:l2m1.monthly_report.external.v2` を積む。
 2. **入力**:
    - 内部保存版 markdown (= Phase 2.3 で生成または既存 `monthly_reports.final_content`)
+   - Phase 2.2 の当月 source bundle 一式 (= 会議・決定・実施・成果物・進捗。内部版の要約で落ちた詳細を補う事実ソース)
+   - 前月の `monthly_reports_external.body_md` (= 構成・文体・情報密度の参照専用。前月事実の当月転記は禁止)
    - **禁止語リスト** (= `llm_prompts.body` か、別 table / config で管理されている `external_jargon_blocklist` を取得。実装側は `pwa/scripts/strip_internal_jargon.py` のルールを正本とする)
    - **allow_list** (= 対外提出可能な固有名詞・成果語・章タイトル。同上ソースから取得)
-3. system = `llm_prompts.body` (= prompt_key=`l2m1.monthly_report.external.v2`)、user = `{ internal_markdown, jargon_blocklist, allow_list, project, ym, counterparty: project.client_name }` を渡し、対外提出体裁の markdown を生成。
+3. system = `llm_prompts.body` (= prompt_key=`l2m1.monthly_report.external.v2`)、user = `{ internal_markdown, source_bundle, previous_external_markdown, jargon_blocklist, allow_list, project, ym, counterparty: project.client_name }` を渡し、対外提出体裁の markdown を生成。KUTE は 2026-06-30 実提出版の9章連続文書を品質基準とし、社内版の表紙・要約・工程表を重ねない。
 4. 反映: `monthly_reports_external` に新 row を insert (実スキーマは `db_schema.md` を正本にする。列は以下の通り確定済み)。
    - 実列: `id` (uuid PK) / `project_id` (text, FK→projects) / `ym` (text, `YYYY-MM` ハイフン付き、上記変換必須) / `body_md` (text NOT NULL, 生成 markdown 本文) / `generated_at` (timestamptz, デフォルト now()) / `generated_by_model` (text, 例 `claude-opus-4-8`) / `pdf_drive_url` (text, Phase 2.6 で共有 Drive 配置後に埋める) / `pdf_local_path` (text, Phase 2.6 でローカル PDF path を埋める) / `jargon_check_status` (text, `clean`/`warning`/`failed`、Phase 2.5 の結果を書く) / `jargon_check_findings` (jsonb, Phase 2.5 で検出した語の詳細)。
    - `(project_id, ym)` UNIQUE。既存 row があれば PATCH で upsert (= 1 か月内の再 run で重複 insert しない)。
+   - helper の品質ゲートは `# 月次業務報告書`、主要5章、7章以上、表3点以上、3000文字以上、末尾定型を要求する。短い要約稿、カンマ連結、生ラベル、省略記号は DB へ入れない。
    - 提出用の本文からは自社メンバー名を必ず姓のみに正規化し (`toSurnameOnly` 相当のロジック、`code_name` は絶対に出さない)、eLAD 等の表記ゆれは e-Rad に統一してから `body_md` に書く。
    - 反映は outbox JSON の `monthlyReportsExternal[]` に積み、実装済みの非 LLM helper `node pwa/scripts/ms_progress_review_tool.mjs upsert-monthly-reports-external --file <outbox>`（または同じ helper を呼ぶ `apply-outbox-dir`）で行う。LLM から REST を直接叩かない。
    - helper 実行後は `monthly_reports_external?project_id=eq.<project_id>&ym=eq.<YYYY-MM>` を GET し、`body_md` の長さ、`jargon_check_status`、`generated_at` を読み直す。outbox を置いただけでは完了扱いにしない。

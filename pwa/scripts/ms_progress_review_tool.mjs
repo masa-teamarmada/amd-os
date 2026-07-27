@@ -1799,6 +1799,50 @@ async function normalizeExternalMonthlyReport(content) {
   return normalized;
 }
 
+const EXTERNAL_REPORT_REQUIRED_SECTIONS = [
+  "業務概要",
+  "当月の実施内容",
+  "体制および打合せ実施記録",
+  "主要成果物",
+  "来月以降の予定",
+];
+
+// 対外提出版は 2026-06-30 KUTE 実提出版を品質基準とする。内部版の8章検証とは
+// 分離し、契約情報・実施内容・業務領域・体制・成果物・翌月予定を備えた連続文書を要求する。
+function validateExternalMonthlyReportContent(content) {
+  const errors = [];
+  if (typeof content !== "string" || !content.trim()) {
+    return { ok: false, errors: ["対外月次業務報告書本文が空です"] };
+  }
+
+  if (!/^[\t ]*#[\t ]+月次業務報告書[\t ]*(?:\r?\n|$)/u.test(content)) {
+    errors.push("先頭見出し「# 月次業務報告書」がありません");
+  }
+  for (const section of EXTERNAL_REPORT_REQUIRED_SECTIONS) {
+    const re = new RegExp(`^##\\s+\\d+(?:\\.\\d+)?[.．]?\\s*[^\\n]*${escapeRegExp(section)}[^\\n]*$`, "m");
+    if (!re.test(content)) errors.push(`必須章「${section}」がありません`);
+  }
+
+  const h2Count = (content.match(/^##\s+/gm) || []).length;
+  if (h2Count < 7) errors.push(`章数が不足しています (${h2Count}章、7章以上必要)`);
+  const tableCount = (content.match(/^\|\s*[-:]+/gm) || []).length;
+  if (tableCount < 3) errors.push(`表が不足しています (${tableCount}表、3表以上必要)`);
+  if (content.trim().length < 3000) {
+    errors.push(`本文が短すぎます (${content.trim().length}文字、3000文字以上必要)`);
+  }
+  if (!/以上のとおり報告する。\s*$/.test(content)) {
+    errors.push("末尾が「以上のとおり報告する。」で終わっていません");
+  }
+  if (/eLAD/i.test(content)) errors.push("誤表記 eLAD が残っています (e-Rad に統一してください)");
+  if (/^\s*(?:決定(?:\/確認)?|確認|次アクション)\s*[:：]/m.test(content)) {
+    errors.push("生データのラベル行が残っています (報告文へ再構成してください)");
+  }
+  if (/。\s*,/.test(content)) errors.push("句点直後に ASCII カンマが連結しています");
+  if (/(?:\.\.\.|…)/.test(content)) errors.push("省略記号が含まれています");
+
+  return { ok: errors.length === 0, errors };
+}
+
 async function upsertMonthlyReportsExternal(items) {
   const now = new Date().toISOString();
   const rows = [];
@@ -1810,6 +1854,13 @@ async function upsertMonthlyReportsExternal(items) {
       throw new Error(`monthlyReportsExternal requires project_id, ym=YYYY-MM, and body_md: ${JSON.stringify({ project_id: projectId, ym })}`);
     }
     const bodyMd = await normalizeExternalMonthlyReport(rawBody);
+    const validation = validateExternalMonthlyReportContent(bodyMd);
+    if (!validation.ok) {
+      if (item.strict === false) {
+        continue;
+      }
+      throw new Error(`monthlyReportsExternal body_md quality check failed for ${projectId}/${ym}:\n- ${validation.errors.join("\n- ")}`);
+    }
     rows.push({
       project_id: projectId,
       ym,
@@ -1822,6 +1873,7 @@ async function upsertMonthlyReportsExternal(items) {
       jargon_check_findings: item.jargon_check_findings || item.jargonCheckFindings || [],
     });
   }
+  if (rows.length === 0) return { ok: true, writtenCount: 0, written: [] };
   const written = await requestJson(rest("monthly_reports_external", "on_conflict=project_id,ym&select=*"), {
     method: "POST",
     headers: restHeaders({ prefer: "resolution=merge-duplicates,return=representation" }),
@@ -1953,6 +2005,17 @@ async function main() {
       ok: results.every((item) => item.ok),
       results,
     };
+  } else if (cmd === "validate-monthly-report-external") {
+    const items = readJson(args.file).monthlyReportsExternal || readJson(args.file).items || [];
+    const results = items.map((item) => {
+      const content = item.body_md || item.bodyMd || item.content || "";
+      const v = validateExternalMonthlyReportContent(content);
+      return { project_id: item.project_id || item.projectId, ym: item.ym, ok: v.ok, errors: v.errors };
+    });
+    result = {
+      ok: results.length > 0 && results.every((item) => item.ok),
+      results,
+    };
   } else if (cmd === "upsert-textbook-insights") {
     result = await upsertTextbookInsights(readJson(args.file).textbookInsights || readJson(args.file).items || []);
   } else if (cmd === "update-projects") {
@@ -1989,6 +2052,7 @@ async function main() {
         "node pwa/scripts/ms_progress_review_tool.mjs upsert-monthly-reports --file /tmp/monthly-reports.json",
         "node pwa/scripts/ms_progress_review_tool.mjs upsert-monthly-reports-external --file /tmp/monthly-reports-external.json",
         "node pwa/scripts/ms_progress_review_tool.mjs validate-monthly-report --file /tmp/monthly-reports.json",
+        "node pwa/scripts/ms_progress_review_tool.mjs validate-monthly-report-external --file /tmp/monthly-reports-external.json",
         "node pwa/scripts/ms_progress_review_tool.mjs upsert-textbook-insights --file /tmp/textbook-insights.json",
         "node pwa/scripts/ms_progress_review_tool.mjs update-projects --file /tmp/project-patches.json",
         "node pwa/scripts/ms_progress_review_tool.mjs apply-outbox --file /tmp/amd-os-outbox.json",

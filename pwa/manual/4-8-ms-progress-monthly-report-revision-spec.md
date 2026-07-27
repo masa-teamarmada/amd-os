@@ -128,6 +128,8 @@ GAS `rv2_calcRewardSummary` が報酬計算時に `share` を掛けて per-membe
 
 これは月次報告書の生成停止ではない。`monthly_reports` は OS の必須データで、定期生成は月末の Claude task が担う。PWA の手動/backfill route と月次報告モーダルは復旧・手動編集用。旧 daily Codex automation や、対象範囲・費用意図が曖昧な有料 API trigger を復活させない。
 
+内部保存版と提出版は同じ帳票ではない。内部版は従来の固定8見出しで `monthly_reports` に保存し、PWAの社内レビュー帳票で確認する。提出版は `monthly_reports_external.body_md` に保存し、KUTEでは2026-06-30実提出版を基準とする9章の連続文書として印刷する。生成時は内部版だけでなく当月source bundleと前月実提出版も渡し、前月版は構成・文体・情報密度だけを参照する。外部版helperは主要章、表、本文長、末尾定型、生データ残骸、姓表記、e-Rad表記を検査してから反映する。
+
 ### `monthly_reports` 列
 
 | column | 用途 |

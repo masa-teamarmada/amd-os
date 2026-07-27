@@ -130,9 +130,9 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 - outbox file は `applied/` / `failed/` のどちらへ移ったか確認する。
 - helper failure は `AggregateError` / `EPERM` / `transient_network` など failure type を分けて記録する。
 
-## クライアント提出用 印刷出力 (v0.31.0 追加 / v0.32.0 国プロ網羅型へ拡張)
+## 月次報告書 印刷出力 (v0.31.0 追加 / v2 で社内版と提出版を分離)
 
-大学・研究機関クライアント (CX=NIMS / SX=愛媛大 / KUTE=工学院大学) への月次提出を一次想定。国プロ網羅型 (NEDO 成果報告書 + 内閣府 SIP 出口戦略 + JST/AMED 年次の構成要素) と 民間コンサル型 (Exec Summary + RAG + Next Steps) の二段構え。
+`template=internal` は表紙・要約・工程表等を持つ社内レビュー帳票を使う。大学・研究機関へ渡す `template!=internal` は `monthly_reports_external.body_md` を正本とし、提出先向けの連続文書として別組版する。両者を同じ帳票へ重ねない。
 
 ### 章立て (v0.33.0 — 「正式な対外報告書」品質)
 
@@ -181,7 +181,7 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 ### 外販含む大学・研究機関提出での運用
 
 - **v1**: この印刷ビュー (`/project/[projectId]/report/[ym]/print` + Cmd+P PDF) を対外提出正本にした。
-- **v2 (2026-07-01〜)**: Claude routine `amd-os-l2m1-monthly-report` が生成する `monthly_reports_external.body_md` を対外版本文の正本にする。ただし印刷時は、先月までの提出品質を作っていた既存のリッチ帳票（表紙 / エグゼクティブサマリ / 当月の進捗・成果 / Gantt / 実施体制 / 次月計画 / 添付資料）を内部版・提出版で共通利用し、削除・簡略化しない。提出版では `body_md` を「業務遂行レポート」本文へ差し込み、章ごとの強制改頁だけを外す。
+- **v2 (2026-07-01〜)**: Claude routine `amd-os-l2m1-monthly-report` が生成する `monthly_reports_external.body_md` を対外版の正本にする。2026-06-30 の KUTE 実提出物を照合した結果、提出版の正しい書式は9章の連続文書であり、社内レビュー用の表紙 / エグゼクティブサマリ / Gantt / 添付資料ラッパーではない。社内版のリッチ帳票は `template=internal` に残し、提出版は本文を単独で高密度に組版する。
 
 ## 対外提出版 (v2 新設、2026-07-01〜)
 
@@ -189,20 +189,21 @@ frozen 判定は `projects.status='frozen'` **または** (`projects.freeze_from
 
 1. **Claude routine が月末最終日 03:00 JST に発火** (Phase 0 で最終日判定)
 2. **Phase 2.3**: `monthly_reports.final_content` (内部保存版 markdown) を生成
-3. **Phase 2.4**: `scope='internal_and_external'` の PJ のみ、内部版 markdown を入力に対外版 markdown を生成 (LLM が対外用語・章削除・言い換えを行う)
+3. **Phase 2.4**: `scope='internal_and_external'` の PJ のみ、内部版 markdown、当月 source bundle、前月の実提出版を入力に対外版 markdown を生成する。前月版は構成・文体・情報密度の参照専用で、前月事実は当月へ転記しない
 4. **Phase 2.5**: 禁止語チェック (`scripts/strip_internal_jargon.py`)。hard_fail → PDF 生成停止、まさ DM 通知
-5. **Phase 2.6**: PDF 生成。cockpit の提出版リンクは先月提出版と同じリッチ帳票へ `body_md` を差し込み、章ごとの強制改頁を使わず自然改頁だけで流す。自動生成 (`scripts/generate_monthly_report.py` = pandoc → HTML → Chrome headless) でも明示的な page break は入れない。routine 自体がまさの mac local Claude Code アプリ内で発火するため (= cloud sandbox ではない、SKILL.md 冒頭「登録・実行環境の current truth」参照)、pandoc / Chrome headless ともローカル実行。失敗時は outbox 経由でローカル LaunchAgent (`com.amd-os.l2m1-pdf-renderer`) fallback
+5. **Phase 2.6**: PDF 生成。cockpit の提出版リンクは9章の `body_md` を1本の連続文書として組版し、章ごとの強制改頁を使わず自然改頁だけで流す。自動生成 (`scripts/generate_monthly_report.py` = pandoc → HTML → Chrome headless) でも明示的な page break は入れない。routine 自体がまさの mac local Claude Code アプリ内で発火するため (= cloud sandbox ではない、SKILL.md 冒頭「登録・実行環境の current truth」参照)、pandoc / Chrome headless ともローカル実行。失敗時は outbox 経由でローカル LaunchAgent (`com.amd-os.l2m1-pdf-renderer`) fallback
 6. **配置**: ローカル `/Users/masa/projects/AMD/{report_local_alias}/output/monthly_reports/` + 共有 Drive `projects.drive_folder_id / 月次業務報告書 / YYYY-MM/`
 
 ### 対外提出版のフォーマット (KUTE 実納品準拠)
 
-- 共通帳票: 表紙 → エグゼクティブサマリ → 当月の進捗・成果（A.業務遂行レポート / B.マイルストーン進捗 / C.主要成果 / D.合意事項 / E.対外発信）→ Gantt → 実施体制 → 次月計画 → 添付資料。先月提出版の構成を維持し、本文だけの簡易帳票へ置換しない
+- 正本: Google Drive の `KUTE_月次業務報告書_202605-202606.pdf` / 同 `.md` (2026-06-30)。タイトル、契約情報表、9章本文を1本の連続文書にし、表紙だけの独立ページ、エグゼクティブサマリ、RAG、XRL、Gantt、内部添付一覧は重ねない
 - 章構成: 1. 業務概要 → 2. 当月の実施内容 → 3..N. 業務内容の各領域 → N+1. 体制および打合せ実施記録 → N+2. 主要成果物 → N+3. その他活動 (任意) → N+4. 来月以降の予定 → N+5. 継続協議事項 (任意)
+- 品質下限: H2 7章以上、Markdown表3点以上、本文3000文字以上、末尾「以上のとおり報告する。」。短い要約稿、生の会議配列、カンマ連結、省略記号は helper が拒否する
 - 文体: である体、儀礼挨拶なし、締め「以上のとおり報告する。」
 - 自社メンバーは姓のみ表記 (`members.member_name` の姓部分)、フルネーム・code_name (えいみ / つくよみ 等) とも削除する。担当者名が不明な場合は「担当者」とする。客先関係者は「XX 先生」「XX 様」維持
 - eLAD 等の表記ゆれは e-Rad (府省共通研究開発管理システム) に正規化する (`scripts/strip_internal_jargon.py` --mode normalize が最終ゲート)
 - 業務期間・契約金額は `contracts.contract_terms_json` + `contracts.tax_basis` の verbatim
-- RAG / XRL / KPI / MS進捗 / Gantt は先月提出版の帳票要素として共通ラッパー側に保持する。`body_md` の本文中へ内部処理語や生成ログを重複記載しない
+- RAG / XRL / KPI / Gantt は社内版の確認材料であり、提出版の共通ラッパーには出さない。`body_md` に必要な進捗表だけを対外語彙で含め、内部処理語や生成ログを記載しない
 - 「お願い・確認」セクション原則なし
 
 ### 対外版の allow_list (jargon check)

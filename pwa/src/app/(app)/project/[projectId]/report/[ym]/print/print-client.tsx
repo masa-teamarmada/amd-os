@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * 月次レポート印刷ビュー (A4 縦、クライアント提出版 AMD 標準フォーマット、v0.34.0)。
+ * 月次レポート印刷ビュー (A4 縦)。
  *
- * 章立て (まさ 2026-06-22 でクライアント提出物としてスリム化):
+ * 社内版の章立て (まさ 2026-06-22 でスリム化):
  *   §01 表紙 (契約情報 / 入札情報 / AMD 契約番号。見積書番号は削除)
  *   §02 Exec Summary (Schedule/Risk の 2 軸 RAG、KPI、XRL 5軸現在値)
  *        — COST 軸 / XRL 前月比は削除
@@ -16,6 +16,10 @@
  *
  * クライアントから見えない AMD OS 内部固有名 (つくよみ/月次進捗モーダル/MTGページ/
  * 経営シグナル/コックピット/nudge等) は stripInternalJargon で印刷時にも除去する。
+ *
+ * 提出版は 2026-06-30 に実提出した KUTE 月次業務報告書を正本とし、
+ * 9章の markdown 本文を1本の連続文書として組版する。社内版の表紙・要約・
+ * 工程表・添付資料を提出版へ重ねない。
  *
  * Team ARMADA ブランド (Work Sans / Noto Sans JP / JetBrains Mono / dark #0a1628)。
  * @page A4 / margin 14mm。 共通ヘッダ・フッタ・改訂履歴。
@@ -302,6 +306,21 @@ function reportBodyForPrint(data: PrintData): string {
     ? data.submissionBody || ""
     : data.report?.finalContent || data.report?.draftContent || data.monthlyNote || "";
   return body.replace(/^#\s+月次業務報告書\s*\n+/u, "");
+}
+
+function SubmissionReport({ data }: { data: PrintData }) {
+  const reportBody = reportBodyForPrint(data);
+
+  return (
+    <main className="submission-sheet">
+      <h1 className="submission-title">月次業務報告書</h1>
+      {reportBody ? (
+        <MarkdownBlock text={reportBody} />
+      ) : (
+        <div className="empty">提出用の月次業務報告書本文は未生成です。</div>
+      )}
+    </main>
+  );
 }
 
 // XRL 5 軸メタ (和名と帯カラー)
@@ -1033,6 +1052,13 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
           @bottom-left { content: "© 2026 Team ARMADA Inc."; font-family: 'Work Sans', sans-serif; font-size: 8pt; color: #64748b; }
           @bottom-center { content: counter(page) " / " counter(pages); font-family: 'JetBrains Mono', monospace; font-size: 8pt; color: #64748b; }
         }
+        @page submission {
+          size: A4 portrait; margin: 14mm;
+          @top-left { content: none; }
+          @top-right { content: none; }
+          @bottom-left { content: none; }
+          @bottom-center { content: counter(page); font-family: 'Noto Sans JP', sans-serif; font-size: 8pt; color: #64748b; }
+        }
         @media print {
           .no-print { display: none !important; }
           .print-root { background: white !important; }
@@ -1061,10 +1087,27 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
           box-sizing: border-box;
           font-size: 10.5pt; line-height: 1.7;
         }
+        .submission-sheet {
+          page: submission;
+          width: 210mm; min-height: 297mm; margin: 16px auto;
+          padding: 14mm; background: white;
+          box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+          box-sizing: border-box;
+          font-size: 9.5pt; line-height: 1.62;
+        }
+        .submission-title {
+          margin: 0 0 8mm; padding-bottom: 5mm;
+          border-bottom: 1.5px solid #334155;
+          color: #111827; font-size: 20pt; font-weight: 700;
+          letter-spacing: 0.08em; text-align: center;
+        }
         @media print {
           .sheet { margin: 0; box-shadow: none; padding: 0; width: auto; min-height: auto; page-break-after: always; }
           .sheet:last-child { page-break-after: auto; }
-          .submission-flow .sheet { page-break-after: auto; break-after: auto; }
+          .submission-sheet {
+            margin: 0; padding: 0; width: auto; min-height: auto;
+            box-shadow: none; page-break-after: auto; break-after: auto;
+          }
         }
         /* ===== 表紙 ===== */
         .cover-sheet { padding: 18mm; }
@@ -1165,6 +1208,31 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
         .md-table tr { break-inside: avoid; page-break-inside: avoid; }
         .md-table th:first-child, .md-table td:first-child { width: 12%; white-space: nowrap; }
         .report-body { background: #f8fafc; padding: 4mm 5mm; border-left: 3px solid #0a1628; }
+
+        /* 2026-06 実提出版に合わせた、ページ区切りを強制しない提出文書組版 */
+        .submission-sheet .md-body h2 {
+          margin: 6mm 0 3mm; padding: 2.2mm 3mm;
+          border-left: 4px solid #334155; background: #eef0f2;
+          color: #111827; font-size: 13.5pt; font-weight: 700;
+          break-after: avoid; page-break-after: avoid;
+        }
+        .submission-sheet .md-body h3 {
+          margin: 5mm 0 2mm; padding: 0 0 1.2mm;
+          border-bottom: 1.5px solid #64748b;
+          color: #1f2937; font-size: 11.5pt; font-weight: 700;
+        }
+        .submission-sheet .md-body h4 {
+          margin: 3.5mm 0 1.5mm; padding-left: 0;
+          border-left: 0; color: #374151; font-size: 10.5pt;
+        }
+        .submission-sheet .md-body p { margin: 0 0 2.2mm; }
+        .submission-sheet .md-table-wrap { margin: 2.5mm 0 4mm; overflow: visible; }
+        .submission-sheet .md-table { font-size: 8.4pt; line-height: 1.45; table-layout: auto; }
+        .submission-sheet .md-table th,
+        .submission-sheet .md-table td { border-color: #9ca3af; padding: 1.5mm 2mm; }
+        .submission-sheet .md-table th { background: #f3f4f6; color: #111827; text-align: center; }
+        .submission-sheet .md-table th:first-child,
+        .submission-sheet .md-table td:first-child { width: auto; white-space: normal; }
 
         /* Exec Summary */
         .lead { background: #f1f5f9; border-left: 3px solid #0a1628; padding: 3mm 5mm; margin-bottom: 5mm; font-size: 10.5pt; line-height: 1.8; }
@@ -1312,13 +1380,19 @@ export function MonthlyReportPrintClient({ data }: { data: PrintData }) {
           </button>
         </div>
 
-        <CoverPage data={data} />
-        <ExecSummary data={data} />
-        <ProgressSection data={data} />
-        <GanttSection data={data} />
-        <TeamSection data={data} />
-        <NextMonthSection data={data} />
-        <AppendixSection data={data} />
+        {data.isSubmission ? (
+          <SubmissionReport data={data} />
+        ) : (
+          <>
+            <CoverPage data={data} />
+            <ExecSummary data={data} />
+            <ProgressSection data={data} />
+            <GanttSection data={data} />
+            <TeamSection data={data} />
+            <NextMonthSection data={data} />
+            <AppendixSection data={data} />
+          </>
+        )}
       </div>
     </>
   );
