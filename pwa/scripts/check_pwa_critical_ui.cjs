@@ -2312,6 +2312,14 @@ expectIncludes(
   "src/components/monthly-agreement/MonthlyAgreementGateOverlay.tsx",
   ["const gateKey = `${pathname}:${bundle.ym}:${bundle.currentHash}`"],
 );
+expectIncludes("src/app/(app)/admin/monthly-work-agreements/page.tsx", [
+  "対象月",
+  "admin-monthly-agreement-ym-select",
+  "<select",
+  "202001",
+  "monthly-agreement-migration-note",
+  "月初合意の導入前・移行月",
+]);
 expectIncludes("src/lib/monthly-work-agreement.ts", [
   "monthly_reward_payout",
   "payoutSnapshotForCycle",

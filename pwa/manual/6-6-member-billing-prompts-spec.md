@@ -50,7 +50,7 @@ PWA 側で `member_allocations_json` を再計算しない。 正本ロジック
 | mypage導線 | 当月報酬合計カード直下 |
 | 保存先 | `member_monthly_work_agreements` |
 | 修正要望 | `member_monthly_work_agreement_requests` |
-| admin確認 | `/admin/monthly-work-agreements?ym=YYYYMM` |
+| admin確認 | `/admin/monthly-work-agreements?ym=YYYYMM`。対象月はプルダウンから選ぶ。2026年6月以前は導入前・移行月のため、月初合意は不要で未合意による支払い停止もしない。 |
 | hash差分 | 前回 `snapshot_hash` と現在 snapshot hash が違えば `条件更新あり` |
 | 変更点表示 | `条件更新あり` 時、ステータスバナー直後・`01`/`02` 必須確認の手前に「今回の変更点」を表示。前回合意時の `snapshot_json` (v2形式) と現在snapshotを、hash対象の全フィールド (member/totals/project/milestone/支払予定) にわたってPJ単位で純粋関数比較し、件数＋PJごとの「前回 → 今回」を示す。PJ名・値は省略せず全文折り返し (モバイル優先)。前回記録が無い/旧形式なら比較不可の理由メッセージのみ。生JSON・生hashは出さない |
 

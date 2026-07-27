@@ -14,6 +14,26 @@ function formatYm(ym: string) {
   return `${ym.slice(0, 4)}年${Number(ym.slice(4, 6))}月`;
 }
 
+function addMonths(ym: string, delta: number) {
+  const year = Number(ym.slice(0, 4));
+  const month = Number(ym.slice(4, 6));
+  const date = new Date(Date.UTC(year, month - 1 + delta, 1));
+  return `${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function selectableYms(currentYm: string) {
+  const result: string[] = [];
+  const lastYm = addMonths(currentYm, 12);
+  for (let candidate = "202001"; candidate <= lastYm; candidate = addMonths(candidate, 1)) {
+    result.push(candidate);
+  }
+  return result.reverse();
+}
+
+function isPrelaunchYm(ym: string) {
+  return ym < "202607";
+}
+
 function formatYen(value: number | null | undefined) {
   if (value == null) return "算定待ち";
   return `¥${Math.round(value).toLocaleString()}`;
@@ -39,6 +59,7 @@ export default function AdminMonthlyWorkAgreementsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const ymOptions = useMemo(() => selectableYms(currentYmJst()), []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -84,16 +105,25 @@ export default function AdminMonthlyWorkAgreementsPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <input
-            value={ym}
-            onChange={(event) => setYm(event.target.value.replace(/[^\d]/g, "").slice(0, 6))}
-            className="w-24 rounded-md border border-border bg-background px-2 py-1.5 text-sm font-mono"
-            placeholder="YYYYMM"
-          />
+          <label className="flex min-h-11 items-center gap-2 rounded-md border border-border bg-background px-2 text-sm">
+            <span className="shrink-0 text-xs font-semibold text-muted-foreground">対象月</span>
+            <select
+              data-testid="admin-monthly-agreement-ym-select"
+              value={ym}
+              onChange={(event) => setYm(event.target.value)}
+              className="min-w-0 bg-transparent pr-1 font-medium outline-none"
+            >
+              {ymOptions.map((optionYm) => (
+                <option key={optionYm} value={optionYm}>
+                  {formatYm(optionYm)}
+                </option>
+              ))}
+            </select>
+          </label>
           <button
             type="button"
             onClick={load}
-            className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-sm font-semibold"
+            className="inline-flex min-h-11 items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-sm font-semibold"
           >
             <RefreshCw className="size-4" />
             更新
@@ -114,6 +144,18 @@ export default function AdminMonthlyWorkAgreementsPage() {
 
       {data && !loading && (
         <>
+          {isPrelaunchYm(ym) && (
+            <div
+              data-testid="monthly-agreement-migration-note"
+              className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900"
+            >
+              <p className="font-semibold">この月の「対象外」について</p>
+              <p className="mt-0.5 text-xs text-sky-800">
+                2026年6月以前は月初合意の導入前・移行月。合意の保存は不要で、未合意を理由に支払いが止まることもない。
+              </p>
+            </div>
+          )}
+
           {!data.tableReady && (
             <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
               合意保存テーブルが未適用です。migration適用後に合意保存と既存合意の照合が有効になります。
