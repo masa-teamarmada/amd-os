@@ -12,9 +12,14 @@ for (const phase of SX_BUSINESS_PLAN_PHASES) {
   assert.equal(Object.keys(phase.lanes).length, 4, `${phase.label}: 4開発レーン`);
   assert.equal(sxPhaseBudgetVariance(phase), 0, `${phase.label}: レーン費用合計とフェーズ予算が一致`);
   for (const value of Object.values(phase.targetXrl)) {
-    assert.ok(value >= 1 && value <= 9, `${phase.label}: XRLは1〜9`);
+    assert.ok(value >= 1 && value <= 8, `${phase.label}: XRLは1〜8`);
   }
 }
+assert.deepEqual(
+  SX_BUSINESS_PLAN_PHASES.map((phase) => phase.targetXrl.grl),
+  [1, 3, 5, 6, 8],
+  "GRLはSIPの1〜8段階でフェーズごとに到達させる",
+);
 
 assert.ok(
   SX_CAPITAL_PLAN_DOCUMENT.holders.every((holder) => !holder.name.includes("中島")),
@@ -48,5 +53,14 @@ assert.equal(eligibility.blockingIssues.length, 0, "資本政策に凍結ブロ�
 const annual = sxAnnualProjectionWithCash();
 assert.equal(annual.length, 9, "FY27〜FY35の9年度");
 assert.ok(annual.every((year) => year.closingCashYen >= 0), "簡易期末現預金が途中でマイナスにならない");
+for (const year of annual) {
+  assert.equal(
+    year.operatingExpenseYen,
+    year.costOfSalesYen + year.executiveCompensationYen + year.salariesAndBonusesYen + year.researchAndDevelopmentYen + year.sellingGeneralAdministrativeYen,
+    `FY${year.fiscalYear}: 営業費用は原価と費目の合計`,
+  );
+  assert.equal(year.grossProfitYen, year.revenueYen - year.costOfSalesYen, `FY${year.fiscalYear}: 売上総利益を検算`);
+  assert.equal(year.pretaxIncomeYen, year.operatingIncomeYen + year.subsidySpecialGainYen - year.subsidyCompressionLossYen, `FY${year.fiscalYear}: 助成金特別損益を分離`);
+}
 
 console.log("sx business plan: ok");

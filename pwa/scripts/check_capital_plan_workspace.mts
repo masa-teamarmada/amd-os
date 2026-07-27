@@ -585,7 +585,7 @@ expectIncludes(["function addHolder(name?: string) {", "onAddHolder={addHolder}"
   assert.ok(fnStart >= 0, "NumberCell not found");
   const fnEnd = matrixSrc.indexOf("\nfunction ", fnStart + 10);
   const fnBody = matrixSrc.slice(fnStart, fnEnd);
-  assert.match(fnBody, /useState\(\(\) => \(value != null \? String\(value\) : ''\)\)/, "NumberCell must seed local draft state from the incoming value");
+  assert.match(fnBody, /useState\(\(\) => \(value != null \? (?:String|formatNumberForDisplay)\(value\) : ''\)\)/, "NumberCell must seed local draft state from the incoming value");
   assert.match(fnBody, /if \(value !== lastKnownValue\) \{/, "NumberCell must resync from external recalculation only when the incoming value actually changed");
   assert.doesNotMatch(fnBody, /useEffect\(/, "NumberCell must resync during render, not via a useEffect (avoids react-hooks/set-state-in-effect and the extra-render flicker)");
   assert.match(fnBody, /onChange=\{\(e\) => \{\s*\n\s*setDraft\(e\.target\.value\);\s*\n\s*commitDraft\(e\.target\.value\);/, "onChange must update the draft and commit immediately");
@@ -599,7 +599,7 @@ expectIncludes(["function addHolder(name?: string) {", "onAddHolder={addHolder}"
   const amountRowIdx = matrixSrc.indexOf("holderAmountActionable(event)");
   const block = matrixSrc.slice(amountRowIdx, amountRowIdx + 1200);
   const emptyBranchIdx = block.indexOf("agg.count === 0");
-  const filledBranchIdx = block.indexOf("if (!actionable) return <OutputCell");
+  const filledBranchIdx = block.indexOf("return actionable ? <td key={event.id}><NumberCell value={agg.amount}");
   assert.ok(emptyBranchIdx >= 0 && filledBranchIdx > emptyBranchIdx, "expected empty-cell branch before filled-cell branch");
   const emptyBranch = block.slice(emptyBranchIdx, filledBranchIdx);
   assert.doesNotMatch(emptyBranch, /onClear=/, "a brand-new empty holder amount cell must not be given onClear (nothing to clear yet, and clearing an untouched blank cell must not create a phantom allocation)");
@@ -625,26 +625,26 @@ expectIncludes(["function addHolder(name?: string) {", "onAddHolder={addHolder}"
   assert.match(decl, /convertible_issue/, "convertible_issue must remain amount-bearing (it can accept an issuance amount in holder amount rows)");
 }
 
-// 32. Holder rows are grouped contiguously per holder (amount, event shares, post-issued,
-// post-FD, post-FD% together) via a single plan.holders.map(...) producing all five rows per
-// holder inside one Fragment, rather than five separate holders.map(...) passes interleaved with
-// totals. Totals render once, after every holder's block (not interleaved between row kinds).
+// 32. Holder rows are grouped contiguously per holder. FD% is always the compact summary row;
+// amount, event shares, post-issued and post-FD rows appear only after that holder is expanded.
+// Totals render once after every holder block (not interleaved between row kinds).
 {
-  const holderMapMatches = [...matrixSrc.matchAll(/plan\.holders\.map\(\(holder\) => \(/g)];
-  assert.equal(holderMapMatches.length, 1, `expected exactly one plan.holders.map((holder) => (...)) call building the contiguous per-holder row block, found ${holderMapMatches.length}`);
+  const holderMapMatches = [...matrixSrc.matchAll(/plan\.holders\.map\(\(holder\) => \{/g)];
+  assert.equal(holderMapMatches.length, 1, `expected exactly one plan.holders.map((holder) => { ... }) call building the contiguous per-holder row block, found ${holderMapMatches.length}`);
   const mapIdx = holderMapMatches[0].index!;
   const nextTopLevelIdx = matrixSrc.indexOf("発行済株式数合計", mapIdx);
   assert.ok(nextTopLevelIdx > mapIdx, "totals rows must come after the per-holder block");
   const block = matrixSrc.slice(mapIdx, nextTopLevelIdx);
-  assert.match(block, /<Fragment key=\{holder\.id\}>/, "each holder's five rows must share one Fragment keyed by holder.id");
+  assert.match(block, /<Fragment key=\{holder\.id\}>/, "each holder's summary/detail rows must share one Fragment keyed by holder.id");
+  assert.match(block, /aria-expanded=\{expanded\}/, "holder summary must expose its expand/collapse state");
   const amountIdx = block.indexOf("｜金額");
   const sharesIdx = block.indexOf("｜株数");
   const issuedIdx = block.indexOf("｜発行済株式数");
   const fdIdx = block.indexOf("｜完全希薄化後株式数");
-  const pctIdx = block.indexOf("｜FD％");
+  const pctIdx = block.indexOf("｜FD比率");
   assert.ok(
-    amountIdx >= 0 && amountIdx < sharesIdx && sharesIdx < issuedIdx && issuedIdx < fdIdx && fdIdx < pctIdx,
-    "per-holder rows must appear in order: amount, shares, post-issued, post-FD, post-FD%",
+    pctIdx >= 0 && pctIdx < amountIdx && amountIdx < sharesIdx && sharesIdx < issuedIdx && issuedIdx < fdIdx,
+    "per-holder rows must appear in order: FD% summary, amount, shares, post-issued, post-FD",
   );
   // totals must not be interleaved: no per-holder row label may reappear after the totals rows.
   assert.doesNotMatch(matrixSrc.slice(nextTopLevelIdx), /｜金額/, "totals must render after all per-holder blocks, not have holder rows interleaved after them");
@@ -788,14 +788,14 @@ expectMatrixIncludes([
 // 41. FD% cell is editable only under the ownership_target basis (the only mode where the engine
 // solves shares FROM a target ratio); every other basis renders it as a read-only OutputCell.
 {
-  const pctIdx = matrixSrc.indexOf("｜FD％");
+  const pctIdx = matrixSrc.indexOf("｜FD比率");
   assert.ok(pctIdx >= 0, "FD% row label not found");
   const block = matrixSrc.slice(pctIdx, pctIdx + 2200);
   assert.match(block, /event\.calculationBasis === 'ownership_target'/, "FD% row must gate the editable branch on calculationBasis === 'ownership_target'");
   const gateIdx = block.indexOf("event.calculationBasis === 'ownership_target'");
-  const editableBranch = block.slice(gateIdx, block.indexOf("const snap = snapshotByEventId.get(event.id);", gateIdx));
+  const editableBranch = block.slice(gateIdx, block.indexOf("const standing = snapshotByEventId.get(event.id)", gateIdx));
   assert.match(editableBranch, /<NumberCell/, "the ownership_target branch of the FD% cell must be an editable NumberCell");
-  const readonlyBranch = block.slice(block.indexOf("const snap = snapshotByEventId.get(event.id);", gateIdx));
+  const readonlyBranch = block.slice(block.indexOf("const standing = snapshotByEventId.get(event.id)", gateIdx));
   assert.match(readonlyBranch, /<OutputCell/, "every non-ownership_target basis must render the FD% cell as a read-only OutputCell");
 }
 
@@ -845,14 +845,15 @@ expectMatrixIncludes([
   assert.doesNotMatch(fnBody, /sr-only/, "the ＋入力 affordance must not be visually hidden via sr-only");
 }
 
-// 44. Exact table sizing: the outer scroll container is width-full with a 70vh max-height and
-// overflow-auto (scrolls both axes while keeping the sticky thead/left-column rows in view), and
-// the <table> itself uses a fixed layout sized from the sticky label column plus one width per
-// event column.
+// 44. The matrix scrolls horizontally only. Page scroll owns the vertical movement so the annual
+// projection below stays reachable, while the <table> remains fixed-layout from sticky label plus
+// one width per event column.
 expectMatrixIncludes([
-  'className="w-full max-h-[70vh] overflow-auto border border-neutral-200 dark:border-neutral-800"',
-  "style={{ tableLayout: 'fixed', width: 152 + sortedEvents.length * 124 }}",
+  'className="w-full overflow-x-auto border border-slate-200 dark:border-slate-800"',
+  "style={{ tableLayout: 'fixed', width: 152 + sortedEvents.length * 144 }}",
+  "全株主を展開",
 ]);
+assert.doesNotMatch(matrixSrc, /max-h-\[70vh\]|overflow-auto/, "CapitalPlanMatrix must not create an internal vertical scroll container");
 
 // 45. Eligibility issues (blocking errors + warnings from checkPublishEligibility) are surfaced as a
 // clickable validation summary list, each entry jumping to the offending event.

@@ -32,12 +32,19 @@ export interface SxBusinessPlanPhase {
 export interface SxAnnualProjection {
   fiscalYear: number;
   revenueYen: number;
-  operatingExpenseYen: number;
+  costOfSalesYen: number;
+  executiveCompensationYen: number;
+  salariesAndBonusesYen: number;
+  researchAndDevelopmentYen: number;
+  sellingGeneralAdministrativeYen: number;
+  subsidySpecialGainYen: number;
+  subsidyCompressionLossYen: number;
   capexYen: number;
   equityFundingYen: number;
+  subsidyCashReceiptYen: number;
 }
 
-export const SX_BUSINESS_PLAN_UPDATED_ON = "2026-07-27";
+export const SX_BUSINESS_PLAN_UPDATED_ON = "2026-07-28";
 
 export const SX_BUSINESS_PLAN_ASSUMPTIONS = [
   "シアノバクテリアの培養条件・品質管理・包装条件はSXの中核ノウハウとして自社保有する",
@@ -55,13 +62,13 @@ export const SX_BUSINESS_PLAN_PHASES: SxBusinessPlanPhase[] = [
     budgetYen: 60_000_000,
     fundingSource: "PSI等 0.6億円（NewCoの株式調達外）",
     maxFixedBurnMonthlyYen: 1_500_000,
-    targetXrl: { trl: 4, brl: 3, grl: 2, srl: 3, hrl: 3 },
+    targetXrl: { trl: 4, brl: 3, grl: 1, srl: 3, hrl: 3 },
     lanes: {
       business: {
         costYen: 10_000_000,
-        activities: ["優先顧客2業界と最初の用途を固定", "PoC価格・供給形態・顧客設備側の責任分界を仮決め", "有償PoC候補2社の意向を確認"],
+        activities: ["優先顧客2業界と最初の用途を固定", "排水基準・環境安全・菌体/包装物の取扱いと顧客設備側の責任分界を整理", "有償PoC候補2社の意向を確認"],
         exitGate: "誰が、何に、いくら払うかを2社で説明できる",
-        xrlKeys: ["brl", "srl"],
+        xrlKeys: ["brl", "grl", "srl"],
       },
       technology: {
         costYen: 40_000_000,
@@ -73,13 +80,13 @@ export const SX_BUSINESS_PLAN_PHASES: SxBusinessPlanPhase[] = [
         costYen: 5_000_000,
         activities: ["NewCo設立とCEO候補の役割確定", "大学・発明者・SX間の知財境界を整理", "培養・装置・顧客実装の責任者を仮置き"],
         exitGate: "設立、知財、意思決定の未決事項をSeed DDへ渡せる",
-        xrlKeys: ["grl", "hrl"],
+        xrlKeys: ["hrl"],
       },
       funding: {
         costYen: 5_000_000,
         activities: ["Seed投資委員会資料と18か月資金使途を作成", "パートナーズファンドをリード候補に条件調整", "いよぎんキャピタル・DAVPの参加条件を整理"],
         exitGate: "Seed 1.5億円の投資条件と次回調達条件が合意可能",
-        xrlKeys: ["brl", "grl"],
+        xrlKeys: ["brl"],
       },
     },
   },
@@ -91,13 +98,13 @@ export const SX_BUSINESS_PLAN_PHASES: SxBusinessPlanPhase[] = [
     budgetYen: 150_000_000,
     fundingSource: "PF 0.75億円 / いよぎん 0.40億円 / DAVP 0.35億円",
     maxFixedBurnMonthlyYen: 5_000_000,
-    targetXrl: { trl: 6, brl: 5, grl: 4, srl: 5, hrl: 5 },
+    targetXrl: { trl: 6, brl: 5, grl: 3, srl: 5, hrl: 5 },
     lanes: {
       business: {
         costYen: 20_000_000,
-        activities: ["顧客拠点で有償PoCを2–3件実施", "包装単位・納品頻度・顧客側運転手順を商品仕様化", "単価、粗利、継続条件を顧客別に検証"],
+        activities: ["顧客拠点で有償PoCを2–3件実施", "包装単位・納品頻度・顧客側運転手順と既存制度への適合要件を商品仕様化", "単価、粗利、継続条件を顧客別に検証"],
         exitGate: "有償PoC2件以上と年間契約へ進む顧客1社",
-        xrlKeys: ["brl", "srl"],
+        xrlKeys: ["brl", "grl", "srl"],
       },
       technology: {
         costYen: 80_000_000,
@@ -109,7 +116,7 @@ export const SX_BUSINESS_PLAN_PHASES: SxBusinessPlanPhase[] = [
         costYen: 30_000_000,
         activities: ["培養プロセス責任者・フィールド担当を採用", "品質記録、出荷判定、顧客障害対応の標準手順を導入", "取締役会・月次資金管理を開始"],
         exitGate: "CEOを含む5–7名で培養・出荷・現場対応を回せる",
-        xrlKeys: ["grl", "hrl"],
+        xrlKeys: ["hrl"],
       },
       funding: {
         costYen: 20_000_000,
@@ -127,7 +134,7 @@ export const SX_BUSINESS_PLAN_PHASES: SxBusinessPlanPhase[] = [
     budgetYen: 600_000_000,
     fundingSource: "想定 pre 25億円 / post 31億円",
     maxFixedBurnMonthlyYen: 12_000_000,
-    targetXrl: { trl: 7, brl: 7, grl: 6, srl: 7, hrl: 7 },
+    targetXrl: { trl: 7, brl: 7, grl: 5, srl: 7, hrl: 7 },
     lanes: {
       business: {
         costYen: 120_000_000,
@@ -137,7 +144,7 @@ export const SX_BUSINESS_PLAN_PHASES: SxBusinessPlanPhase[] = [
       },
       technology: {
         costYen: 330_000_000,
-        activities: ["自社量産実証工場を取得・整備", "培養能力をSeed比10倍へ拡張し包装工程を半自動化", "原料受入から出荷までの品質保証とトレーサビリティを実装"],
+        activities: ["自社量産実証工場を取得・整備", "培養能力をSeed比10倍へ拡張し包装工程を半自動化", "出荷品質・顧客取扱い・トレーサビリティの標準運用を顧客現場で試行"],
         exitGate: "量産実証工場で6か月連続の供給・品質・原価目標を達成",
         xrlKeys: ["trl", "grl"],
       },
@@ -145,13 +152,13 @@ export const SX_BUSINESS_PLAN_PHASES: SxBusinessPlanPhase[] = [
         costYen: 100_000_000,
         activities: ["工場長、品質保証、営業責任者を採用", "製造・営業・管理の部門別予算と権限を設定", "安全衛生・教育・BCPを運用"],
         exitGate: "15–20名体制でCEO不在でも日次操業が継続",
-        xrlKeys: ["grl", "hrl"],
+        xrlKeys: ["hrl"],
       },
       funding: {
         costYen: 50_000_000,
         activities: ["設備投資を能力増強ゲートごとに分割承認", "借入・補助金を株式資金と併用", "Series Bで本格工場投資を開けるDDパックを整備"],
         exitGate: "工場投資前後の原価実績と需要予約でSeries Bを説明",
-        xrlKeys: ["brl", "grl"],
+        xrlKeys: ["brl"],
       },
     },
   },
@@ -163,7 +170,7 @@ export const SX_BUSINESS_PLAN_PHASES: SxBusinessPlanPhase[] = [
     budgetYen: 1_500_000_000,
     fundingSource: "想定 pre 60億円 / post 75億円",
     maxFixedBurnMonthlyYen: 25_000_000,
-    targetXrl: { trl: 8, brl: 8, grl: 8, srl: 8, hrl: 8 },
+    targetXrl: { trl: 8, brl: 8, grl: 6, srl: 8, hrl: 8 },
     lanes: {
       business: {
         costYen: 280_000_000,
@@ -181,13 +188,13 @@ export const SX_BUSINESS_PLAN_PHASES: SxBusinessPlanPhase[] = [
         costYen: 220_000_000,
         activities: ["製造・品質・サプライチェーン・海外事業の執行体制を整備", "内部統制と月次決算を上場準備水準へ引上げ", "採用・育成を拠点展開に合わせて標準化"],
         exitGate: "40–60名体制と監査可能な業務プロセスを確立",
-        xrlKeys: ["grl", "hrl"],
+        xrlKeys: ["hrl"],
       },
       funding: {
         costYen: 100_000_000,
         activities: ["工場建設の予備費・支払条件・借入余力を管理", "Series Cまたはプロジェクトファイナンスを比較", "IPO準備監査のギャップ診断を開始"],
         exitGate: "成長投資と運転資金を分けたSeries C計画を確定",
-        xrlKeys: ["brl", "grl"],
+        xrlKeys: ["brl"],
       },
     },
   },
@@ -199,7 +206,7 @@ export const SX_BUSINESS_PLAN_PHASES: SxBusinessPlanPhase[] = [
     budgetYen: 2_000_000_000,
     fundingSource: "想定 pre 150億円 / post 170億円",
     maxFixedBurnMonthlyYen: 45_000_000,
-    targetXrl: { trl: 9, brl: 9, grl: 9, srl: 9, hrl: 9 },
+    targetXrl: { trl: 8, brl: 8, grl: 8, srl: 8, hrl: 8 },
     lanes: {
       business: {
         costYen: 650_000_000,
@@ -217,7 +224,7 @@ export const SX_BUSINESS_PLAN_PHASES: SxBusinessPlanPhase[] = [
         costYen: 300_000_000,
         activities: ["上場会社水準の経営管理・内部監査・開示体制を整備", "海外・製造・研究開発の後継責任者を配置", "安全・品質文化を全拠点へ展開"],
         exitGate: "監査・開示・予算統制が計画どおり反復運用",
-        xrlKeys: ["grl", "hrl"],
+        xrlKeys: ["hrl"],
       },
       funding: {
         costYen: 100_000_000,
@@ -230,23 +237,27 @@ export const SX_BUSINESS_PLAN_PHASES: SxBusinessPlanPhase[] = [
 ];
 
 export const SX_ANNUAL_PROJECTION: SxAnnualProjection[] = [
-  { fiscalYear: 2027, revenueYen: 30_000_000, operatingExpenseYen: 100_000_000, capexYen: 40_000_000, equityFundingYen: 150_000_000 },
-  { fiscalYear: 2028, revenueYen: 120_000_000, operatingExpenseYen: 220_000_000, capexYen: 120_000_000, equityFundingYen: 600_000_000 },
-  { fiscalYear: 2029, revenueYen: 300_000_000, operatingExpenseYen: 350_000_000, capexYen: 160_000_000, equityFundingYen: 0 },
-  { fiscalYear: 2030, revenueYen: 700_000_000, operatingExpenseYen: 650_000_000, capexYen: 140_000_000, equityFundingYen: 0 },
-  { fiscalYear: 2031, revenueYen: 1_500_000_000, operatingExpenseYen: 1_200_000_000, capexYen: 600_000_000, equityFundingYen: 1_500_000_000 },
-  { fiscalYear: 2032, revenueYen: 3_000_000_000, operatingExpenseYen: 2_200_000_000, capexYen: 500_000_000, equityFundingYen: 0 },
-  { fiscalYear: 2033, revenueYen: 6_000_000_000, operatingExpenseYen: 4_000_000_000, capexYen: 800_000_000, equityFundingYen: 2_000_000_000 },
-  { fiscalYear: 2034, revenueYen: 12_000_000_000, operatingExpenseYen: 7_500_000_000, capexYen: 1_000_000_000, equityFundingYen: 0 },
-  { fiscalYear: 2035, revenueYen: 20_000_000_000, operatingExpenseYen: 14_000_000_000, capexYen: 1_500_000_000, equityFundingYen: 10_000_000_000 },
+  { fiscalYear: 2027, revenueYen: 30_000_000, costOfSalesYen: 10_000_000, executiveCompensationYen: 9_000_000, salariesAndBonusesYen: 18_000_000, researchAndDevelopmentYen: 25_000_000, sellingGeneralAdministrativeYen: 38_000_000, subsidySpecialGainYen: 60_000_000, subsidyCompressionLossYen: 40_000_000, capexYen: 40_000_000, equityFundingYen: 150_000_000, subsidyCashReceiptYen: 60_000_000 },
+  { fiscalYear: 2028, revenueYen: 120_000_000, costOfSalesYen: 40_000_000, executiveCompensationYen: 12_000_000, salariesAndBonusesYen: 42_000_000, researchAndDevelopmentYen: 60_000_000, sellingGeneralAdministrativeYen: 66_000_000, subsidySpecialGainYen: 100_000_000, subsidyCompressionLossYen: 100_000_000, capexYen: 120_000_000, equityFundingYen: 600_000_000, subsidyCashReceiptYen: 100_000_000 },
+  { fiscalYear: 2029, revenueYen: 300_000_000, costOfSalesYen: 90_000_000, executiveCompensationYen: 15_000_000, salariesAndBonusesYen: 72_000_000, researchAndDevelopmentYen: 90_000_000, sellingGeneralAdministrativeYen: 83_000_000, subsidySpecialGainYen: 0, subsidyCompressionLossYen: 0, capexYen: 160_000_000, equityFundingYen: 0, subsidyCashReceiptYen: 0 },
+  { fiscalYear: 2030, revenueYen: 700_000_000, costOfSalesYen: 210_000_000, executiveCompensationYen: 18_000_000, salariesAndBonusesYen: 130_000_000, researchAndDevelopmentYen: 130_000_000, sellingGeneralAdministrativeYen: 162_000_000, subsidySpecialGainYen: 0, subsidyCompressionLossYen: 0, capexYen: 140_000_000, equityFundingYen: 0, subsidyCashReceiptYen: 0 },
+  { fiscalYear: 2031, revenueYen: 1_500_000_000, costOfSalesYen: 450_000_000, executiveCompensationYen: 21_000_000, salariesAndBonusesYen: 260_000_000, researchAndDevelopmentYen: 210_000_000, sellingGeneralAdministrativeYen: 259_000_000, subsidySpecialGainYen: 300_000_000, subsidyCompressionLossYen: 300_000_000, capexYen: 600_000_000, equityFundingYen: 1_500_000_000, subsidyCashReceiptYen: 300_000_000 },
+  { fiscalYear: 2032, revenueYen: 3_000_000_000, costOfSalesYen: 900_000_000, executiveCompensationYen: 24_000_000, salariesAndBonusesYen: 480_000_000, researchAndDevelopmentYen: 300_000_000, sellingGeneralAdministrativeYen: 496_000_000, subsidySpecialGainYen: 200_000_000, subsidyCompressionLossYen: 200_000_000, capexYen: 500_000_000, equityFundingYen: 0, subsidyCashReceiptYen: 200_000_000 },
+  { fiscalYear: 2033, revenueYen: 6_000_000_000, costOfSalesYen: 1_800_000_000, executiveCompensationYen: 30_000_000, salariesAndBonusesYen: 900_000_000, researchAndDevelopmentYen: 450_000_000, sellingGeneralAdministrativeYen: 820_000_000, subsidySpecialGainYen: 500_000_000, subsidyCompressionLossYen: 500_000_000, capexYen: 800_000_000, equityFundingYen: 2_000_000_000, subsidyCashReceiptYen: 500_000_000 },
+  { fiscalYear: 2034, revenueYen: 12_000_000_000, costOfSalesYen: 3_600_000_000, executiveCompensationYen: 36_000_000, salariesAndBonusesYen: 1_700_000_000, researchAndDevelopmentYen: 700_000_000, sellingGeneralAdministrativeYen: 1_464_000_000, subsidySpecialGainYen: 0, subsidyCompressionLossYen: 0, capexYen: 1_000_000_000, equityFundingYen: 0, subsidyCashReceiptYen: 0 },
+  { fiscalYear: 2035, revenueYen: 20_000_000_000, costOfSalesYen: 6_000_000_000, executiveCompensationYen: 45_000_000, salariesAndBonusesYen: 3_300_000_000, researchAndDevelopmentYen: 900_000_000, sellingGeneralAdministrativeYen: 3_755_000_000, subsidySpecialGainYen: 0, subsidyCompressionLossYen: 0, capexYen: 1_500_000_000, equityFundingYen: 10_000_000_000, subsidyCashReceiptYen: 0 },
 ];
 
 export function sxAnnualProjectionWithCash() {
   let closingCashYen = 0;
   return SX_ANNUAL_PROJECTION.map((year) => {
-    const operatingIncomeYen = year.revenueYen - year.operatingExpenseYen;
-    closingCashYen += operatingIncomeYen - year.capexYen + year.equityFundingYen;
-    return { ...year, operatingIncomeYen, closingCashYen };
+    const sellingGeneralAdministrativeTotalYen = year.executiveCompensationYen + year.salariesAndBonusesYen + year.researchAndDevelopmentYen + year.sellingGeneralAdministrativeYen;
+    const operatingExpenseYen = year.costOfSalesYen + sellingGeneralAdministrativeTotalYen;
+    const grossProfitYen = year.revenueYen - year.costOfSalesYen;
+    const operatingIncomeYen = grossProfitYen - sellingGeneralAdministrativeTotalYen;
+    const pretaxIncomeYen = operatingIncomeYen + year.subsidySpecialGainYen - year.subsidyCompressionLossYen;
+    closingCashYen += operatingIncomeYen - year.capexYen + year.equityFundingYen + year.subsidyCashReceiptYen;
+    return { ...year, sellingGeneralAdministrativeTotalYen, operatingExpenseYen, grossProfitYen, operatingIncomeYen, pretaxIncomeYen, closingCashYen };
   });
 }
 

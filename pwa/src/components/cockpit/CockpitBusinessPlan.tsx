@@ -41,26 +41,26 @@ const LANE_META: Record<SxBusinessPlanLane, LaneMeta> = {
   business: {
     label: "事業開発",
     icon: BriefcaseBusiness,
-    accent: "bg-cyan-50/70",
-    iconClass: "border-cyan-200 bg-cyan-100 text-cyan-800",
+    accent: "bg-white",
+    iconClass: "border-indigo-200 bg-indigo-50 text-indigo-700",
   },
   technology: {
     label: "技術開発",
     icon: FlaskConical,
-    accent: "bg-indigo-50/60",
-    iconClass: "border-indigo-200 bg-indigo-100 text-indigo-800",
+    accent: "bg-white",
+    iconClass: "border-indigo-200 bg-indigo-50 text-indigo-700",
   },
   organization: {
     label: "組織開発",
     icon: UsersRound,
-    accent: "bg-emerald-50/60",
-    iconClass: "border-emerald-200 bg-emerald-100 text-emerald-800",
+    accent: "bg-white",
+    iconClass: "border-indigo-200 bg-indigo-50 text-indigo-700",
   },
   funding: {
     label: "資金調達",
     icon: Landmark,
-    accent: "bg-amber-50/60",
-    iconClass: "border-amber-200 bg-amber-100 text-amber-800",
+    accent: "bg-white",
+    iconClass: "border-indigo-200 bg-indigo-50 text-indigo-700",
   },
 };
 
@@ -80,10 +80,9 @@ function formatOku(yen: number) {
   return `${Math.round(yen / 10_000).toLocaleString("ja-JP")}万円`;
 }
 
-function formatOkuCell(yen: number) {
-  const value = yen / 100_000_000;
-  if (value === 0) return "—";
-  return value.toFixed(Math.abs(value) >= 10 ? 0 : 1);
+function formatMillionYenCell(yen: number) {
+  const value = Math.round(yen / 1_000_000);
+  return value === 0 ? "—" : value.toLocaleString("ja-JP");
 }
 
 function SectionShell({ children, className = "" }: { children: ReactNode; className?: string }) {
@@ -95,7 +94,7 @@ function XrlStrip({ target, keys }: { target: SxXrlTarget; keys?: Array<keyof Sx
   return (
     <div className="flex flex-wrap gap-1.5" aria-label="到達XRL">
       {visibleKeys.map((key) => (
-        <span key={key} className="rounded-md border border-slate-200 bg-white/90 px-1.5 py-1 font-mono text-[9px] font-semibold tracking-tight text-slate-600">
+        <span key={key} className="rounded-md border border-slate-200 bg-white px-1.5 py-1 font-mono text-[10px] font-semibold tracking-tight text-slate-700">
           {XRL_LABELS[key]} {target[key]}
         </span>
       ))}
@@ -106,7 +105,7 @@ function XrlStrip({ target, keys }: { target: SxXrlTarget; keys?: Array<keyof Sx
 function PhaseMatrix() {
   return (
     <SectionShell>
-      <div className="border-b border-slate-200 bg-[linear-gradient(120deg,#eef2ff_0%,#ecfeff_55%,#f8fafc_100%)] px-5 py-5 sm:px-6">
+      <div className="border-b border-slate-200 bg-slate-50 px-5 py-5 sm:px-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
             <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-indigo-700">
@@ -117,7 +116,7 @@ function PhaseMatrix() {
               培養は自社ノウハウ・自社工場、製品は包装して顧客拠点へ輸送する前提。金額は各フェーズ内の使途総額で、次列へ進むには出口条件とXRLの両方を満たす。
             </p>
           </div>
-          <div className="flex shrink-0 items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-medium text-amber-900">
+          <div className="flex shrink-0 items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2 text-[11px] font-medium text-slate-600">
             <CircleAlert className="size-4 shrink-0" /> 暫定原案｜{SX_BUSINESS_PLAN_UPDATED_ON}
           </div>
         </div>
@@ -138,16 +137,16 @@ function PhaseMatrix() {
                       <div className="text-[13px] font-bold leading-5">{phase.label}</div>
                       <div className="mt-1 font-mono text-[10px] text-slate-400">{phase.period}</div>
                     </div>
-                    <span className="shrink-0 rounded-md bg-cyan-300 px-2 py-1 text-[10px] font-black text-slate-950">{formatOku(phase.budgetYen)}</span>
+                    <span className="shrink-0 rounded-md bg-indigo-200 px-2 py-1 text-[10px] font-black text-indigo-950">{formatOku(phase.budgetYen)}</span>
                   </div>
                   <div className="mt-3 border-t border-slate-700 pt-3">
-                    <div className="text-[10px] font-semibold text-cyan-300">{phase.openingRound}</div>
+                    <div className="text-[10px] font-semibold text-indigo-200">{phase.openingRound}</div>
                     <div className="mt-1 min-h-8 text-[10px] font-normal leading-4 text-slate-400">{phase.fundingSource}</div>
                   </div>
                   <div className="mt-3 flex items-center justify-between gap-2">
                     <XrlStrip target={phase.targetXrl} />
                   </div>
-                  <div className="mt-2 text-[9px] font-normal text-slate-500">固定費バーン上限 {formatOku(phase.maxFixedBurnMonthlyYen)}/月</div>
+                  <div className="mt-2 text-[10px] font-normal text-slate-400">固定費バーン上限 {formatOku(phase.maxFixedBurnMonthlyYen)}/月</div>
                 </th>
               ))}
             </tr>
@@ -174,17 +173,17 @@ function PhaseMatrix() {
                           <ul className="mt-3 space-y-2 text-[11px] leading-[1.55] text-slate-700">
                             {lane.activities.map((activity) => (
                               <li key={activity} className="flex gap-2">
-                                <span className="mt-[7px] size-1.5 shrink-0 rounded-full bg-cyan-500" />
+                              <span className="mt-[7px] size-1.5 shrink-0 rounded-full bg-indigo-500" />
                                 <span>{activity}</span>
                               </li>
                             ))}
                           </ul>
                           <div className="mt-auto pt-4">
                             <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                              <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                              <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
                                 <ShieldCheck className="size-3" /> 次フェーズへの出口条件
                               </div>
-                              <p className="mt-1 text-[10px] font-medium leading-4 text-slate-800">{lane.exitGate}</p>
+                              <p className="mt-1 text-[11px] font-medium leading-4 text-slate-800">{lane.exitGate}</p>
                             </div>
                             <div className="mt-2"><XrlStrip target={phase.targetXrl} keys={lane.xrlKeys} /></div>
                           </div>
@@ -208,6 +207,10 @@ function PhaseMatrix() {
             </div>
           ))}
         </div>
+        <div className="mt-4 border-t border-slate-200 pt-3 text-[11px] leading-5 text-slate-600">
+          <span className="font-semibold text-slate-800">GRLはSIP準拠のガバナンス成熟度レベル（1〜8）</span>。制度・規制・標準・ガイドラインが社会実装を支える状態を示し、採用・役割・内部運用はHRLで扱う。{" "}
+          <a className="font-semibold text-indigo-700 underline underline-offset-2 hover:text-indigo-900" href="https://www8.cao.go.jp/cstp/stmain/pdf/230201_besshi_13_1.pdf" target="_blank" rel="noreferrer">内閣府SIPの定義</a>
+        </div>
       </div>
     </SectionShell>
   );
@@ -216,13 +219,22 @@ function PhaseMatrix() {
 function AnnualProjectionTable() {
   const projection = sxAnnualProjectionWithCash();
   const rows = [
-    { key: "revenueYen", label: "売上高", tone: "text-slate-950" },
-    { key: "operatingExpenseYen", label: "営業費用", tone: "text-slate-700" },
-    { key: "operatingIncomeYen", label: "営業利益", tone: "text-slate-950" },
+    { key: "revenueYen", label: "売上高", tone: "text-slate-950", emphasis: true },
+    { key: "costOfSalesYen", label: "売上原価", tone: "text-slate-700" },
+    { key: "grossProfitYen", label: "売上総利益", tone: "text-slate-950", emphasis: true },
+    { key: "executiveCompensationYen", label: "役員報酬", tone: "text-slate-700" },
+    { key: "salariesAndBonusesYen", label: "給与・賞与", tone: "text-slate-700" },
+    { key: "researchAndDevelopmentYen", label: "研究開発費", tone: "text-slate-700" },
+    { key: "sellingGeneralAdministrativeYen", label: "販管費（人件費除く）", tone: "text-slate-700" },
+    { key: "operatingIncomeYen", label: "営業利益", tone: "text-slate-950", emphasis: true },
+    { key: "subsidySpecialGainYen", label: "助成金収入（特別利益）", tone: "text-indigo-700" },
+    { key: "subsidyCompressionLossYen", label: "圧縮損（特別損失）", tone: "text-slate-700" },
+    { key: "pretaxIncomeYen", label: "税引前利益（簡易）", tone: "text-slate-950", emphasis: true },
     { key: "capexYen", label: "設備投資", tone: "text-indigo-700" },
-    { key: "equityFundingYen", label: "株式調達", tone: "text-cyan-800" },
-    { key: "closingCashYen", label: "期末現預金（簡易）", tone: "text-emerald-800" },
-  ] as const;
+    { key: "equityFundingYen", label: "株式調達", tone: "text-indigo-700" },
+    { key: "subsidyCashReceiptYen", label: "助成金入金（資金繰り）", tone: "text-indigo-700" },
+    { key: "closingCashYen", label: "期末現預金（簡易）", tone: "text-slate-950", emphasis: true },
+  ] as Array<{ key: keyof (typeof projection)[number]; label: string; tone: string; emphasis?: boolean }>;
 
   return (
     <SectionShell>
@@ -230,32 +242,32 @@ function AnnualProjectionTable() {
         <div>
           <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-700"><Building2 className="size-4" /> annual model</div>
           <h2 className="mt-2 text-lg font-bold tracking-tight text-slate-950">年次試算表</h2>
-          <p className="mt-1 text-xs leading-5 text-slate-500">フェーズ予算と売上仮説を年度へ置き直した暫定PL・投資・資金調達。単位は億円。</p>
+          <p className="mt-1 text-xs leading-5 text-slate-500">フェーズ予算と売上仮説を年度へ置き直した暫定PL・投資・資金調達。単位は百万円。</p>
         </div>
-        <div className="text-[10px] leading-4 text-slate-500">期末現預金 = 前年残 + 営業利益 − 設備投資 + 株式調達<br />税金・借入・運転資金増減は未反映</div>
+        <div className="text-[10px] leading-4 text-slate-500">期末現預金 = 前年残 + 営業利益 − 設備投資 + 株式調達 + 助成金入金<br />圧縮損は会計上の特別損失。税金・借入・運転資金増減は未反映</div>
       </div>
       <div className="overflow-x-auto" data-testid="sx-annual-projection-table">
         <table className="w-full min-w-[1080px] text-xs">
           <thead className="bg-slate-950 text-white">
             <tr>
-              <th className="sticky left-0 z-10 w-[180px] border-r border-slate-700 bg-slate-950 px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.12em]">単位：億円</th>
+              <th className="sticky left-0 z-10 w-[220px] border-r border-slate-700 bg-slate-950 px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.12em]">単位：百万円</th>
               {projection.map((year) => <th key={year.fiscalYear} className="min-w-[96px] border-r border-slate-700 px-3 py-3 text-right font-mono text-[11px] last:border-r-0">FY{String(year.fiscalYear).slice(-2)}</th>)}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {rows.map((row) => (
-              <tr key={row.key} className="hover:bg-slate-50/80">
-                <th className="sticky left-0 z-10 border-r border-slate-200 bg-white px-5 py-3.5 text-left text-[11px] font-semibold text-slate-700">{row.label}</th>
+              <tr key={row.key} className={`hover:bg-slate-50/80 ${row.emphasis ? "border-t-2 border-slate-300 bg-indigo-50/40" : ""}`}>
+                <th className={`sticky left-0 z-10 border-r border-slate-200 px-5 py-3.5 text-left text-[11px] font-semibold ${row.emphasis ? "bg-indigo-50 text-slate-950" : "bg-white text-slate-700"}`}>{row.label}</th>
                 {projection.map((year) => {
                   const value = year[row.key];
-                  return <td key={year.fiscalYear} className={`border-r border-slate-100 px-3 py-3.5 text-right font-mono font-semibold tabular-nums last:border-r-0 ${value < 0 ? "text-rose-600" : row.tone}`}>{formatOkuCell(value)}</td>;
+                  return <td key={year.fiscalYear} className={`border-r border-slate-100 px-3 py-3.5 text-right font-mono font-semibold tabular-nums last:border-r-0 ${value < 0 ? "text-rose-600" : row.tone}`}>{formatMillionYenCell(value)}</td>;
                 })}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <div className="border-t border-amber-200 bg-amber-50 px-5 py-3 text-[10px] leading-5 text-amber-900 sm:px-6">
+      <div className="border-t border-slate-200 bg-slate-50 px-5 py-3 text-[10px] leading-5 text-slate-600 sm:px-6">
         Seed 1.5億円はSeries Aを2028年10月までに実行する前提。PoC遅延・設備超過・A調達遅延のいずれかが起きる場合は、非希薄化資金かブリッジを先に設計する。
       </div>
     </SectionShell>

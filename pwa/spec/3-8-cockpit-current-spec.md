@@ -98,6 +98,12 @@ This route is read-only during load. It does not create a duplicate project or w
 
 `CockpitMeetingSummary` の通常PJ cockpit表示は、一覧本体に `max-height` と `overflow-y-auto` を置かない。議事録カードや予定MTGカードが増えた場合もカード一覧を縦に伸ばし、コックピット全体のページスクロールで読む。HUD cockpit や detail modal の内部スクロールはこの制約の対象外。
 
+### SX business plan: GRL・資本政策・年次試算（2026-07-28）
+
+- `SX_BUSINESS_PLAN_PHASES[].targetXrl.grl` は内閣府SIPの **Governance Readiness Level** を表す。社会実装に必要な制度・規制・標準・ガイドラインの成熟度であり、値域は `1..8`。SXのフェーズ到達値は Phase 0 / Seed / A / B / C-IPO で `1 / 3 / 5 / 6 / 8`。採用、役割分担、社内統制はGRLでなくHRLへ置く。
+- `CapitalPlanMatrix` は縦方向にcontainer scrollを作らず `overflow-x-auto` のみを持つ。各株主は初期状態でFD比率サマリー1行だけを表示し、実button（`aria-expanded`）で金額・株数・発行済株式数・完全希薄化後株式数を展開する。全株主の一括展開/折り畳みも提供する。
+- 年次試算はすべて百万円の整数・3桁区切りで表示する。`sxAnnualProjectionWithCash()` は売上原価と役員報酬/給与・賞与/研究開発費/その他販管費から営業利益を導出し、助成金収入（特別利益）と圧縮損（特別損失）から税引前利益（簡易）を導出する。資金繰りの助成金入金は別フィールドで、期末現預金には加えるが、圧縮損とは相殺しない。税金・借入・運転資金増減は未反映。
+
 ## Meeting Summary Notion CTA
 
 `CockpitMeetingSummary` shows `project_meeting_summaries` rows as past MTG summaries plus upcoming/tentative prep cards. Each row and detail modal exposes a Notion transcription path without starting recording from AMD OS:

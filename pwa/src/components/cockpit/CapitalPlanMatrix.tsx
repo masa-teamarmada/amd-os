@@ -157,13 +157,13 @@ function holderSharesActionable(event: CapitalEvent): boolean {
 }
 
 const inputBaseClass =
-  'w-full min-h-[44px] md:min-h-[36px] bg-transparent px-1.5 py-1 text-right text-[13px] tabular-nums text-neutral-900 dark:text-neutral-100 border focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400';
+  'w-full min-h-[44px] md:min-h-[36px] bg-transparent px-1.5 py-1 text-right text-[13px] tabular-nums text-slate-900 dark:text-slate-100 border focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-500 dark:focus-visible:ring-indigo-400';
 
-const inputBorderFilledClass = 'border-transparent hover:border-neutral-300 dark:hover:border-neutral-700';
+const inputBorderFilledClass = 'border-transparent hover:border-slate-300 dark:hover:border-slate-700';
 
 /** Subtle but persistent (not hover-only) border/background inviting entry into an empty cell. */
 const inputBorderEmptyClass =
-  'border-dashed border-neutral-300 bg-neutral-50 hover:border-neutral-400 dark:border-neutral-700 dark:bg-neutral-900/40 dark:hover:border-neutral-600';
+  'border-dashed border-slate-300 bg-slate-50 hover:border-slate-400 dark:border-slate-700 dark:bg-slate-900/40 dark:hover:border-slate-600';
 
 /**
  * Controlled numeric cell with a local draft: every keystroke that parses to a valid number
@@ -288,7 +288,7 @@ function sourceAriaWord(editable: EditableValue | undefined): string {
 
 function DashCell({ label }: { label: string }) {
   return (
-    <td className="min-h-[44px] md:min-h-[36px] px-1.5 py-1 text-right text-[13px] tabular-nums text-neutral-400 dark:text-neutral-600" aria-label={label}>
+    <td className="min-h-[44px] md:min-h-[36px] px-1.5 py-1 text-right text-[13px] tabular-nums text-slate-400 dark:text-slate-600" aria-label={label}>
       —
     </td>
   );
@@ -353,14 +353,14 @@ function OutputCell({
               if (e.key === 'Enter') commitOverride();
               else if (e.key === 'Escape') setEditing(false);
             }}
-            className="w-full min-h-[44px] md:min-h-[36px] bg-transparent px-1.5 py-1 text-right text-[13px] tabular-nums text-neutral-900 dark:text-neutral-100 border border-dashed border-blue-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
+            className="w-full min-h-[44px] md:min-h-[36px] bg-transparent px-1.5 py-1 text-right text-[13px] tabular-nums text-slate-900 dark:text-slate-100 border border-dashed border-indigo-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-500 dark:focus-visible:ring-indigo-400"
           />
           <div className="flex items-center justify-end gap-1">
             <button
               type="button"
               aria-label={`${label} 上書きを保存`}
               onClick={commitOverride}
-              className="flex min-h-[44px] md:min-h-[36px] min-w-[44px] md:min-w-[36px] items-center justify-center px-1 text-[11px] font-medium text-blue-600 hover:bg-blue-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500 dark:text-blue-400 dark:hover:bg-blue-950 dark:focus-visible:ring-blue-400"
+              className="flex min-h-[44px] md:min-h-[36px] min-w-[44px] md:min-w-[36px] items-center justify-center px-1 text-[11px] font-medium text-indigo-600 hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-500 dark:text-indigo-400 dark:hover:bg-indigo-950 dark:focus-visible:ring-indigo-400"
             >
               保存
             </button>
@@ -368,7 +368,7 @@ function OutputCell({
               type="button"
               aria-label={`${label} 上書きをキャンセル`}
               onClick={() => setEditing(false)}
-              className="flex min-h-[44px] md:min-h-[36px] min-w-[44px] md:min-w-[36px] items-center justify-center px-1 text-[11px] text-neutral-500 hover:bg-neutral-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:focus-visible:ring-blue-400"
+              className="flex min-h-[44px] md:min-h-[36px] min-w-[44px] md:min-w-[36px] items-center justify-center px-1 text-[11px] text-slate-500 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-500 dark:text-slate-400 dark:hover:bg-slate-800 dark:focus-visible:ring-indigo-400"
             >
               取消
             </button>
@@ -380,7 +380,7 @@ function OutputCell({
 
   return (
     <td
-      className="min-h-[44px] md:min-h-[36px] px-1.5 py-1 text-right text-[13px] tabular-nums text-neutral-500 dark:text-neutral-400"
+      className="min-h-[44px] md:min-h-[36px] px-1.5 py-1 text-right text-[13px] tabular-nums text-slate-500 dark:text-slate-400"
       aria-label={`${label}（${sourceAriaWord(editable)}）`}
     >
       <div className="flex flex-col items-end gap-0.5">
@@ -389,7 +389,7 @@ function OutputCell({
             className={`shrink-0 rounded px-1 py-0.5 text-[10px] font-medium ${
               isOverridden
                 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300'
-                : 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400'
+                : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
             }`}
           >
             {sourceBadgeText(editable)}
@@ -398,7 +398,7 @@ function OutputCell({
         </div>
         {onOverride && overrideNote && (
           <span
-            className="block w-full max-w-full whitespace-normal break-words text-right text-[11px] leading-tight text-neutral-500 dark:text-neutral-400"
+            className="block w-full max-w-full whitespace-normal break-words text-right text-[11px] leading-tight text-slate-500 dark:text-slate-400"
             title={overrideNote}
             aria-hidden="true"
           >
@@ -415,7 +415,7 @@ function OutputCell({
                   setDraft(value != null ? formatNumberForDisplay(value) : '');
                   setEditing(true);
                 }}
-                className="flex min-h-[44px] md:min-h-[36px] min-w-[44px] md:min-w-[36px] items-center justify-center text-[11px] text-neutral-400 hover:text-neutral-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500 dark:hover:text-neutral-300 dark:focus-visible:ring-blue-400"
+                className="flex min-h-[44px] md:min-h-[36px] min-w-[44px] md:min-w-[36px] items-center justify-center text-[11px] text-slate-400 hover:text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-500 dark:hover:text-slate-300 dark:focus-visible:ring-indigo-400"
               >
                 ✎
               </button>
@@ -425,7 +425,7 @@ function OutputCell({
                 type="button"
                 aria-label={`${label} の上書きを解除`}
                 onClick={onClearOverride}
-                className="flex min-h-[44px] md:min-h-[36px] min-w-[44px] md:min-w-[36px] items-center justify-center text-[11px] text-neutral-400 hover:text-neutral-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500 dark:hover:text-neutral-300 dark:focus-visible:ring-blue-400"
+                className="flex min-h-[44px] md:min-h-[36px] min-w-[44px] md:min-w-[36px] items-center justify-center text-[11px] text-slate-400 hover:text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-500 dark:hover:text-slate-300 dark:focus-visible:ring-indigo-400"
               >
                 ✕
               </button>
@@ -446,7 +446,7 @@ function FdOwnershipBar({
 }) {
   if (!snapshot || snapshot.totalFullyDilutedShares <= 0) {
     return (
-      <div className="mx-auto flex h-24 w-14 items-center justify-center text-[11px] text-neutral-400 dark:text-neutral-600">
+      <div className="mx-auto flex h-24 w-14 items-center justify-center text-[11px] text-slate-400 dark:text-slate-600">
         —
       </div>
     );
@@ -497,11 +497,11 @@ function AddHolderAndEventBar({
           onChange={(e) => setNewHolderName(e.target.value)}
           placeholder="新しい株主・VC名"
           aria-label="新しい株主・VC名"
-          className="min-h-[44px] md:min-h-[36px] w-40 border border-neutral-300 dark:border-neutral-700 bg-transparent px-2 py-1 text-[12px] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
+          className="min-h-[44px] md:min-h-[36px] w-40 border border-slate-300 dark:border-slate-700 bg-transparent px-2 py-1 text-[12px] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-500 dark:focus-visible:ring-indigo-400"
         />
         <button
           type="submit"
-          className="min-h-[44px] md:min-h-[36px] border border-neutral-300 dark:border-neutral-700 px-2 py-1 text-[12px] hover:bg-neutral-50 dark:hover:bg-neutral-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
+          className="min-h-[44px] md:min-h-[36px] border border-slate-300 dark:border-slate-700 px-2 py-1 text-[12px] hover:bg-slate-50 dark:hover:bg-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-500 dark:focus-visible:ring-indigo-400"
         >
           + 株主・VC追加
         </button>
@@ -510,7 +510,7 @@ function AddHolderAndEventBar({
         type="button"
         onClick={onAddEvent}
         aria-label="新規イベントを追加"
-        className="min-h-[44px] md:min-h-[36px] border border-neutral-300 dark:border-neutral-700 px-2 py-1 text-[12px] hover:bg-neutral-50 dark:hover:bg-neutral-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
+        className="min-h-[44px] md:min-h-[36px] border border-slate-300 dark:border-slate-700 px-2 py-1 text-[12px] hover:bg-slate-50 dark:hover:bg-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-500 dark:focus-visible:ring-indigo-400"
       >
         + イベント
       </button>
@@ -539,6 +539,21 @@ export function CapitalPlanMatrix({
 
   const headerRowRef = useRef<HTMLTableRowElement | null>(null);
   const [headerRowHeight, setHeaderRowHeight] = useState(0);
+  const [expandedHolderIds, setExpandedHolderIds] = useState<Set<string>>(() => new Set());
+  const allHoldersExpanded = plan.holders.length > 0 && plan.holders.every((holder) => expandedHolderIds.has(holder.id));
+
+  const toggleHolder = (holderId: string) => {
+    setExpandedHolderIds((current) => {
+      const next = new Set(current);
+      if (next.has(holderId)) next.delete(holderId);
+      else next.add(holderId);
+      return next;
+    });
+  };
+
+  const toggleAllHolders = () => {
+    setExpandedHolderIds(allHoldersExpanded ? new Set() : new Set(plan.holders.map((holder) => holder.id)));
+  };
 
   useEffect(() => {
     const el = headerRowRef.current;
@@ -555,7 +570,7 @@ export function CapitalPlanMatrix({
     return (
       <div className="w-full" data-testid="capital-plan-matrix">
         <AddHolderAndEventBar onAddHolder={onAddHolder} onAddEvent={onAddEvent} />
-        <div className="rounded-none border border-neutral-200 dark:border-neutral-800 p-4 text-sm text-neutral-500 dark:text-neutral-400">
+        <div className="rounded-none border border-slate-200 dark:border-slate-800 p-4 text-sm text-slate-500 dark:text-slate-400">
           資本イベントがまだ登録されていません。
         </div>
       </div>
@@ -566,7 +581,7 @@ export function CapitalPlanMatrix({
     <div className="w-full" data-testid="capital-plan-matrix">
       <AddHolderAndEventBar onAddHolder={onAddHolder} onAddEvent={onAddEvent} />
 
-      <div id={legendId} className="mb-2 flex flex-wrap gap-x-3 gap-y-1 px-1 text-[11px] text-neutral-600 dark:text-neutral-400">
+      <div id={legendId} className="mb-2 flex flex-wrap gap-x-3 gap-y-1 px-1 text-[11px] text-slate-600 dark:text-slate-400">
         {plan.holders.map((holder, idx) => (
           <span key={holder.id} className="inline-flex items-center gap-1">
             <span
@@ -579,7 +594,14 @@ export function CapitalPlanMatrix({
         ))}
       </div>
 
-      <div className="w-full max-h-[70vh] overflow-auto border border-neutral-200 dark:border-neutral-800">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-y border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-600">
+        <p>株主別の詳細は初期表示で折り畳み。FD比率を比較してから、必要な株主だけ開く。</p>
+        <button type="button" onClick={toggleAllHolders} className="rounded-md border border-indigo-200 bg-white px-2 py-1 font-semibold text-indigo-700 hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+          {allHoldersExpanded ? "全株主を閉じる" : "全株主を展開"}
+        </button>
+      </div>
+
+      <div className="w-full overflow-x-auto border border-slate-200 dark:border-slate-800">
         <table
           className="border-collapse text-[13px]"
           style={{ tableLayout: 'fixed', width: 152 + sortedEvents.length * 144 }}
@@ -591,35 +613,35 @@ export function CapitalPlanMatrix({
             ))}
           </colgroup>
           <thead>
-            <tr ref={headerRowRef} className="border-b border-neutral-200 dark:border-neutral-800">
+            <tr ref={headerRowRef} className="border-b border-slate-200 dark:border-slate-800">
               <th
                 scope="col"
-                className="sticky left-0 top-0 z-30 bg-neutral-50 dark:bg-neutral-900 px-1.5 py-1 text-left text-[11px] font-medium text-neutral-500 dark:text-neutral-400"
+                className="sticky left-0 top-0 z-30 bg-slate-50 dark:bg-slate-900 px-1.5 py-1 text-left text-[11px] font-medium text-slate-500 dark:text-slate-400"
               >
                 資本イベント
               </th>
               {sortedEvents.map((event) => {
                 const selected = selectedEventId === event.id;
                 return (
-                  <th key={event.id} scope="col" className="sticky top-0 z-20 bg-white dark:bg-neutral-950 px-1 py-1 align-bottom font-normal">
+                  <th key={event.id} scope="col" className="sticky top-0 z-20 bg-white dark:bg-slate-950 px-1 py-1 align-bottom font-normal">
                     <button
                       type="button"
                       aria-pressed={selected}
                       aria-label={`${event.label} を選択`}
                       onClick={() => onSelectEvent(event.id)}
-                      className={`w-full min-h-[44px] md:min-h-[36px] px-1 py-0.5 text-left leading-tight focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400 ${
+                      className={`w-full min-h-[44px] md:min-h-[36px] px-1 py-0.5 text-left leading-tight focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-500 dark:focus-visible:ring-indigo-400 ${
                         selected
-                          ? 'bg-blue-50 dark:bg-blue-950 underline decoration-2 underline-offset-2'
-                          : 'hover:bg-neutral-50 dark:hover:bg-neutral-900'
+                          ? 'bg-indigo-50 dark:bg-indigo-950 underline decoration-2 underline-offset-2'
+                          : 'hover:bg-slate-50 dark:hover:bg-slate-900'
                       }`}
                     >
-                      <span className="block truncate text-[12px] font-semibold text-neutral-900 dark:text-neutral-100">
+                      <span className="block truncate text-[12px] font-semibold text-slate-900 dark:text-slate-100">
                         {event.label}
                       </span>
-                      <span className="block truncate text-[10px] text-neutral-500 dark:text-neutral-400">
+                      <span className="block truncate text-[10px] text-slate-500 dark:text-slate-400">
                         {event.date ?? '—'}
                       </span>
-                      <span className="block truncate text-[10px] text-neutral-500 dark:text-neutral-400">
+                      <span className="block truncate text-[10px] text-slate-500 dark:text-slate-400">
                         {STATUS_LABEL[event.status ?? 'confirmed'] ?? event.status}
                       </span>
                     </button>
@@ -627,24 +649,24 @@ export function CapitalPlanMatrix({
                 );
               })}
             </tr>
-            <tr className="border-b border-neutral-200 dark:border-neutral-800">
+            <tr className="border-b border-slate-200 dark:border-slate-800">
               <th
                 scope="row"
                 style={{ top: headerRowHeight }}
-                className="sticky left-0 z-30 bg-white dark:bg-neutral-950 px-1.5 py-1 text-left text-[11px] font-medium text-neutral-500 dark:text-neutral-400"
+                className="sticky left-0 z-30 bg-white dark:bg-slate-950 px-1.5 py-1 text-left text-[11px] font-medium text-slate-500 dark:text-slate-400"
               >
                 FD比率（完全希薄化後）
               </th>
               {sortedEvents.map((event) => (
-                <td key={event.id} style={{ top: headerRowHeight }} className="sticky z-20 bg-white dark:bg-neutral-950 px-1 py-2 text-center">
+                <td key={event.id} style={{ top: headerRowHeight }} className="sticky z-20 bg-white dark:bg-slate-950 px-1 py-2 text-center">
                   <FdOwnershipBar snapshot={snapshotByEventId.get(event.id)} plan={plan} />
                 </td>
               ))}
             </tr>
           </thead>
           <tbody>
-            <tr className="border-b border-neutral-100 dark:border-neutral-900">
-              <th scope="row" className="sticky left-0 z-10 bg-white dark:bg-neutral-950 px-1.5 py-1 text-left text-[11px] text-neutral-500 dark:text-neutral-400">
+            <tr className="border-b border-slate-100 dark:border-slate-900">
+              <th scope="row" className="sticky left-0 z-10 bg-white dark:bg-slate-950 px-1.5 py-1 text-left text-[11px] text-slate-500 dark:text-slate-400">
                 算定方式
               </th>
               {sortedEvents.map((event) => {
@@ -659,7 +681,7 @@ export function CapitalPlanMatrix({
                       aria-label={`算定方式 ${event.label}`}
                       value={event.calculationBasis ?? 'manual'}
                       onChange={(e) => onChangeCalculationBasis(event.id, e.target.value as CalculationBasis)}
-                      className="w-full min-h-[44px] md:min-h-[36px] bg-transparent px-1 py-1 text-[12px] border border-transparent hover:border-neutral-300 dark:hover:border-neutral-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400"
+                      className="w-full min-h-[44px] md:min-h-[36px] bg-transparent px-1 py-1 text-[12px] border border-transparent hover:border-slate-300 dark:hover:border-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-indigo-500 dark:focus-visible:ring-indigo-400"
                     >
                       {CALC_BASIS_OPTIONS.map((opt) => (
                         <option key={opt.value} value={opt.value}>
@@ -672,8 +694,8 @@ export function CapitalPlanMatrix({
               })}
             </tr>
 
-            <tr className="border-b border-neutral-100 dark:border-neutral-900">
-              <th scope="row" className="sticky left-0 z-10 bg-white dark:bg-neutral-950 px-1.5 py-1 text-left text-[11px] text-neutral-500 dark:text-neutral-400">
+            <tr className="border-b border-slate-100 dark:border-slate-900">
+              <th scope="row" className="sticky left-0 z-10 bg-white dark:bg-slate-950 px-1.5 py-1 text-left text-[11px] text-slate-500 dark:text-slate-400">
                 プレマネー評価額
               </th>
               {sortedEvents.map((event) => {
@@ -709,8 +731,8 @@ export function CapitalPlanMatrix({
               })}
             </tr>
 
-            <tr className="border-b border-neutral-100 dark:border-neutral-900">
-              <th scope="row" className="sticky left-0 z-10 bg-white dark:bg-neutral-950 px-1.5 py-1 text-left text-[11px] text-neutral-500 dark:text-neutral-400">
+            <tr className="border-b border-slate-100 dark:border-slate-900">
+              <th scope="row" className="sticky left-0 z-10 bg-white dark:bg-slate-950 px-1.5 py-1 text-left text-[11px] text-slate-500 dark:text-slate-400">
                 調達額（新規資金）
               </th>
               {sortedEvents.map((event) => {
@@ -730,8 +752,8 @@ export function CapitalPlanMatrix({
               })}
             </tr>
 
-            <tr className="border-b border-neutral-100 dark:border-neutral-900">
-              <th scope="row" className="sticky left-0 z-10 bg-white dark:bg-neutral-950 px-1.5 py-1 text-left text-[11px] text-neutral-500 dark:text-neutral-400">
+            <tr className="border-b border-slate-100 dark:border-slate-900">
+              <th scope="row" className="sticky left-0 z-10 bg-white dark:bg-slate-950 px-1.5 py-1 text-left text-[11px] text-slate-500 dark:text-slate-400">
                 ポストマネー評価額
               </th>
               {sortedEvents.map((event) => {
@@ -754,8 +776,8 @@ export function CapitalPlanMatrix({
               })}
             </tr>
 
-            <tr className="border-b border-neutral-100 dark:border-neutral-900">
-              <th scope="row" className="sticky left-0 z-10 bg-white dark:bg-neutral-950 px-1.5 py-1 text-left text-[11px] text-neutral-500 dark:text-neutral-400">
+            <tr className="border-b border-slate-100 dark:border-slate-900">
+              <th scope="row" className="sticky left-0 z-10 bg-white dark:bg-slate-950 px-1.5 py-1 text-left text-[11px] text-slate-500 dark:text-slate-400">
                 1株あたり単価
               </th>
               {sortedEvents.map((event) => {
@@ -788,8 +810,8 @@ export function CapitalPlanMatrix({
               })}
             </tr>
 
-            <tr className="border-b border-neutral-100 dark:border-neutral-900">
-              <th scope="row" className="sticky left-0 z-10 bg-white dark:bg-neutral-950 px-1.5 py-1 text-left text-[11px] text-neutral-500 dark:text-neutral-400">
+            <tr className="border-b border-slate-100 dark:border-slate-900">
+              <th scope="row" className="sticky left-0 z-10 bg-white dark:bg-slate-950 px-1.5 py-1 text-left text-[11px] text-slate-500 dark:text-slate-400">
                 新規発行株式数
               </th>
               {sortedEvents.map((event) => {
@@ -811,8 +833,8 @@ export function CapitalPlanMatrix({
               })}
             </tr>
 
-            <tr className="border-b border-neutral-100 dark:border-neutral-900">
-              <th scope="row" className="sticky left-0 z-10 bg-white dark:bg-neutral-950 px-1.5 py-1 text-left text-[11px] text-neutral-500 dark:text-neutral-400">
+            <tr className="border-b border-slate-100 dark:border-slate-900">
+              <th scope="row" className="sticky left-0 z-10 bg-white dark:bg-slate-950 px-1.5 py-1 text-left text-[11px] text-slate-500 dark:text-slate-400">
                 オプションプールサイズ
               </th>
               {sortedEvents.map((event) =>
@@ -831,8 +853,8 @@ export function CapitalPlanMatrix({
               )}
             </tr>
 
-            <tr className="border-b border-neutral-100 dark:border-neutral-900">
-              <th scope="row" className="sticky left-0 z-10 bg-white dark:bg-neutral-950 px-1.5 py-1 text-left text-[11px] text-neutral-500 dark:text-neutral-400">
+            <tr className="border-b border-slate-100 dark:border-slate-900">
+              <th scope="row" className="sticky left-0 z-10 bg-white dark:bg-slate-950 px-1.5 py-1 text-left text-[11px] text-slate-500 dark:text-slate-400">
                 株式分割比率
               </th>
               {sortedEvents.map((event) =>
@@ -851,8 +873,8 @@ export function CapitalPlanMatrix({
               )}
             </tr>
 
-            <tr className="border-b border-neutral-100 dark:border-neutral-900">
-              <th scope="row" className="sticky left-0 z-10 bg-white dark:bg-neutral-950 px-1.5 py-1 text-left text-[11px] text-neutral-500 dark:text-neutral-400">
+            <tr className="border-b border-slate-100 dark:border-slate-900">
+              <th scope="row" className="sticky left-0 z-10 bg-white dark:bg-slate-950 px-1.5 py-1 text-left text-[11px] text-slate-500 dark:text-slate-400">
                 転換上限額（キャップ）
               </th>
               {sortedEvents.map((event) =>
@@ -871,8 +893,8 @@ export function CapitalPlanMatrix({
               )}
             </tr>
 
-            <tr className="border-b-2 border-neutral-200 dark:border-neutral-800">
-              <th scope="row" className="sticky left-0 z-10 bg-white dark:bg-neutral-950 px-1.5 py-1 text-left text-[11px] text-neutral-500 dark:text-neutral-400">
+            <tr className="border-b-2 border-slate-200 dark:border-slate-800">
+              <th scope="row" className="sticky left-0 z-10 bg-white dark:bg-slate-950 px-1.5 py-1 text-left text-[11px] text-slate-500 dark:text-slate-400">
                 転換ディスカウント
               </th>
               {sortedEvents.map((event) =>
@@ -891,157 +913,92 @@ export function CapitalPlanMatrix({
               )}
             </tr>
 
-            {plan.holders.map((holder) => (
-              <Fragment key={holder.id}>
-                <tr className="border-t-2 border-neutral-200 dark:border-neutral-800">
-                  <th scope="row" className="sticky left-0 z-10 bg-white dark:bg-neutral-950 px-1.5 py-1 text-left text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
-                    {holder.name}｜金額
-                  </th>
-                  {sortedEvents.map((event) => {
-                    const agg = aggregateHolderAllocations(event, holder.id);
-                    const actionable = holderAmountActionable(event);
-                    const label = `金額 ${event.label} ${holder.name}`;
-                    if (agg.count === 0) {
-                      if (!actionable) return <DashCell key={event.id} label={label} />;
-                      return (
-                        <td key={event.id}>
-                          <NumberCell value={undefined} ariaLabel={label} onCommit={(n) => onEditHolderAmount(event.id, holder.id, n)} />
-                        </td>
-                      );
-                    }
-                    if (!actionable) return <OutputCell key={event.id} value={agg.amount} label={label} formatter={fmtYen} />;
-                    return (
-                      <td key={event.id}>
-                        <NumberCell
-                          value={agg.amount}
-                          ariaLabel={label}
-                          onCommit={(n) => onEditHolderAmount(event.id, holder.id, n)}
-                          onClear={() => onEditHolderAmount(event.id, holder.id, 0)}
-                        />
-                      </td>
-                    );
-                  })}
-                </tr>
-                <tr className="border-b border-neutral-100 dark:border-neutral-900">
-                  <th scope="row" className="sticky left-0 z-10 bg-white dark:bg-neutral-950 px-1.5 py-1 text-left text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
-                    {holder.name}｜株数
-                  </th>
-                  {sortedEvents.map((event) => {
-                    const agg = aggregateHolderAllocations(event, holder.id);
-                    const actionable = holderSharesActionable(event);
-                    const label = `株数 ${event.label} ${holder.name}`;
-                    if (agg.count === 0) {
-                      if (!actionable) return <DashCell key={event.id} label={label} />;
-                      return (
-                        <td key={event.id}>
-                          <NumberCell value={undefined} ariaLabel={label} onCommit={(n) => onEditHolderEventShares(event.id, holder.id, n)} />
-                        </td>
-                      );
-                    }
-                    if (!actionable) return <OutputCell key={event.id} value={agg.shares} label={label} formatter={fmtInt} />;
-                    return (
-                      <td key={event.id}>
-                        <NumberCell
-                          value={agg.shares}
-                          ariaLabel={label}
-                          onCommit={(n) => onEditHolderEventShares(event.id, holder.id, n)}
-                          onClear={() => onEditHolderEventShares(event.id, holder.id, 0)}
-                        />
-                      </td>
-                    );
-                  })}
-                </tr>
-                <tr className="border-b border-neutral-100 dark:border-neutral-900">
-                  <th scope="row" className="sticky left-0 z-10 bg-white dark:bg-neutral-950 px-1.5 py-1 text-left text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
-                    {holder.name}｜発行済株式数
-                  </th>
-                  {sortedEvents.map((event) => {
-                    const snap = snapshotByEventId.get(event.id);
-                    const standing = snap?.holders.find((h) => h.holderId === holder.id);
-                    const label = `発行済株式数 ${event.label} ${holder.name}`;
-                    if (!standing) return <DashCell key={event.id} label={label} />;
-                    return <OutputCell key={event.id} value={standing.issuedShares} label={label} formatter={fmtInt} />;
-                  })}
-                </tr>
-                <tr className="border-b border-neutral-100 dark:border-neutral-900">
-                  <th scope="row" className="sticky left-0 z-10 bg-white dark:bg-neutral-950 px-1.5 py-1 text-left text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
-                    {holder.name}｜完全希薄化後株式数
-                  </th>
-                  {sortedEvents.map((event) => {
-                    const snap = snapshotByEventId.get(event.id);
-                    const standing = snap?.holders.find((h) => h.holderId === holder.id);
-                    const label = `完全希薄化後株式数 ${event.label} ${holder.name}`;
-                    if (!standing) return <DashCell key={event.id} label={label} />;
-                    return <OutputCell key={event.id} value={standing.fullyDilutedShares} label={label} formatter={fmtInt} />;
-                  })}
-                </tr>
-                <tr className="border-b-2 border-neutral-200 dark:border-neutral-800">
-                  <th scope="row" className="sticky left-0 z-10 bg-white dark:bg-neutral-950 px-1.5 py-1 text-left text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
-                    {holder.name}｜FD％
-                  </th>
-                  {sortedEvents.map((event) => {
-                    const label = `完全希薄化後比率(%) ${event.label} ${holder.name}`;
-                    // FD% is only ever a user input under ownership_target basis: that's the only mode where
-                    // the engine solves shares FROM a target ratio (deriveEvent's 'ownership_target' branch),
-                    // so it's the only case where typing a ratio here has anywhere to flow. Every other basis
-                    // (or no basis at all, e.g. share_split) derives the ratio FROM shares, so it's read-only.
-                    if (event.calculationBasis === 'ownership_target') {
-                      const alloc = event.allocations.find(
-                        (a) => a.holderId === holder.id && a.targetOwnershipPercentage != null,
-                      );
-                      const pctValue = alloc ? resolvedValue(alloc.targetOwnershipPercentage) * 100 : undefined;
-                      return (
-                        <td key={event.id}>
-                          <NumberCell
-                            value={pctValue}
-                            ariaLabel={`目標完全希薄化後比率(%) ${event.label} ${holder.name}`}
-                            onCommit={(n) => onEditHolderPostRatio(event.id, holder.id, n / 100)}
-                            onClear={() =>
-                              onClearHolderPostRatio
-                                ? onClearHolderPostRatio(event.id, holder.id)
-                                : onEditHolderPostRatio(event.id, holder.id, 0)
-                            }
-                          />
-                        </td>
-                      );
-                    }
-                    const snap = snapshotByEventId.get(event.id);
-                    const standing = snap?.holders.find((h) => h.holderId === holder.id);
-                    if (!standing) return <DashCell key={event.id} label={label} />;
-                    return (
-                      <OutputCell
-                        key={event.id}
-                        value={standing.fullyDilutedPercentage}
-                        label={label}
-                        formatter={fmtPct}
-                      />
-                    );
-                  })}
-                </tr>
-              </Fragment>
-            ))}
+            {plan.holders.map((holder) => {
+              const expanded = expandedHolderIds.has(holder.id);
+              return (
+                <Fragment key={holder.id}>
+                  <tr className="border-t-2 border-slate-200 dark:border-slate-800">
+                    <th scope="row" className="sticky left-0 z-10 bg-white px-1.5 py-1 text-left text-[11px] text-slate-700 dark:bg-slate-950 dark:text-slate-300">
+                      <button type="button" aria-expanded={expanded} onClick={() => toggleHolder(holder.id)} className="flex w-full items-center gap-1.5 truncate text-left font-semibold hover:text-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+                        <span aria-hidden="true" className="text-indigo-600">{expanded ? "−" : "+"}</span>
+                        <span className="truncate">{holder.name}｜FD比率</span>
+                      </button>
+                    </th>
+                    {sortedEvents.map((event) => {
+                      const label = `完全希薄化後比率(%) ${event.label} ${holder.name}`;
+                      if (event.calculationBasis === 'ownership_target') {
+                        const alloc = event.allocations.find((a) => a.holderId === holder.id && a.targetOwnershipPercentage != null);
+                        const pctValue = alloc ? resolvedValue(alloc.targetOwnershipPercentage) * 100 : undefined;
+                        return <td key={event.id}><NumberCell value={pctValue} ariaLabel={`目標完全希薄化後比率(%) ${event.label} ${holder.name}`} onCommit={(n) => onEditHolderPostRatio(event.id, holder.id, n / 100)} onClear={() => onClearHolderPostRatio ? onClearHolderPostRatio(event.id, holder.id) : onEditHolderPostRatio(event.id, holder.id, 0)} /></td>;
+                      }
+                      const standing = snapshotByEventId.get(event.id)?.holders.find((h) => h.holderId === holder.id);
+                      if (!standing) return <DashCell key={event.id} label={label} />;
+                      return <OutputCell key={event.id} value={standing.fullyDilutedPercentage} label={label} formatter={fmtPct} />;
+                    })}
+                  </tr>
+                  {expanded && <>
+                    <tr className="border-b border-slate-100 dark:border-slate-900">
+                      <th scope="row" className="sticky left-0 z-10 bg-slate-50 px-1.5 py-1 text-left text-[11px] text-slate-600 dark:bg-slate-900 dark:text-slate-400">{holder.name}｜金額</th>
+                      {sortedEvents.map((event) => {
+                        const agg = aggregateHolderAllocations(event, holder.id);
+                        const actionable = holderAmountActionable(event);
+                        const label = `金額 ${event.label} ${holder.name}`;
+                        if (agg.count === 0) return actionable ? <td key={event.id}><NumberCell value={undefined} ariaLabel={label} onCommit={(n) => onEditHolderAmount(event.id, holder.id, n)} /></td> : <DashCell key={event.id} label={label} />;
+                        return actionable ? <td key={event.id}><NumberCell value={agg.amount} ariaLabel={label} onCommit={(n) => onEditHolderAmount(event.id, holder.id, n)} onClear={() => onEditHolderAmount(event.id, holder.id, 0)} /></td> : <OutputCell key={event.id} value={agg.amount} label={label} formatter={fmtYen} />;
+                      })}
+                    </tr>
+                    <tr className="border-b border-slate-100 dark:border-slate-900">
+                      <th scope="row" className="sticky left-0 z-10 bg-slate-50 px-1.5 py-1 text-left text-[11px] text-slate-600 dark:bg-slate-900 dark:text-slate-400">{holder.name}｜株数</th>
+                      {sortedEvents.map((event) => {
+                        const agg = aggregateHolderAllocations(event, holder.id);
+                        const actionable = holderSharesActionable(event);
+                        const label = `株数 ${event.label} ${holder.name}`;
+                        if (agg.count === 0) return actionable ? <td key={event.id}><NumberCell value={undefined} ariaLabel={label} onCommit={(n) => onEditHolderEventShares(event.id, holder.id, n)} /></td> : <DashCell key={event.id} label={label} />;
+                        return actionable ? <td key={event.id}><NumberCell value={agg.shares} ariaLabel={label} onCommit={(n) => onEditHolderEventShares(event.id, holder.id, n)} onClear={() => onEditHolderEventShares(event.id, holder.id, 0)} /></td> : <OutputCell key={event.id} value={agg.shares} label={label} formatter={fmtInt} />;
+                      })}
+                    </tr>
+                    <tr className="border-b border-slate-100 dark:border-slate-900">
+                      <th scope="row" className="sticky left-0 z-10 bg-slate-50 px-1.5 py-1 text-left text-[11px] text-slate-600 dark:bg-slate-900 dark:text-slate-400">{holder.name}｜発行済株式数</th>
+                      {sortedEvents.map((event) => {
+                        const standing = snapshotByEventId.get(event.id)?.holders.find((h) => h.holderId === holder.id);
+                        const label = `発行済株式数 ${event.label} ${holder.name}`;
+                        return standing ? <OutputCell key={event.id} value={standing.issuedShares} label={label} formatter={fmtInt} /> : <DashCell key={event.id} label={label} />;
+                      })}
+                    </tr>
+                    <tr className="border-b border-slate-200 dark:border-slate-800">
+                      <th scope="row" className="sticky left-0 z-10 bg-slate-50 px-1.5 py-1 text-left text-[11px] text-slate-600 dark:bg-slate-900 dark:text-slate-400">{holder.name}｜完全希薄化後株式数</th>
+                      {sortedEvents.map((event) => {
+                        const standing = snapshotByEventId.get(event.id)?.holders.find((h) => h.holderId === holder.id);
+                        const label = `完全希薄化後株式数 ${event.label} ${holder.name}`;
+                        return standing ? <OutputCell key={event.id} value={standing.fullyDilutedShares} label={label} formatter={fmtInt} /> : <DashCell key={event.id} label={label} />;
+                      })}
+                    </tr>
+                  </>}
+                </Fragment>
+              );
+            })}
 
-            <tr className="border-b border-neutral-100 dark:border-neutral-900 bg-neutral-50 dark:bg-neutral-900/40">
-              <th scope="row" className="sticky left-0 z-10 bg-neutral-50 dark:bg-neutral-900 px-1.5 py-1 text-left text-[11px] font-medium text-neutral-600 dark:text-neutral-300">
+            <tr className="border-b border-slate-100 dark:border-slate-900 bg-slate-50 dark:bg-slate-900/40">
+              <th scope="row" className="sticky left-0 z-10 bg-slate-50 dark:bg-slate-900 px-1.5 py-1 text-left text-[11px] font-medium text-slate-600 dark:text-slate-300">
                 発行済株式数合計
               </th>
               {sortedEvents.map((event) => {
                 const snap = snapshotByEventId.get(event.id);
                 return (
-                  <td key={event.id} className="px-1.5 py-1 text-right text-[13px] tabular-nums text-neutral-800 dark:text-neutral-200">
+                  <td key={event.id} className="px-1.5 py-1 text-right text-[13px] tabular-nums text-slate-800 dark:text-slate-200">
                     {snap ? fmtInt(snap.totalIssuedShares) : '—'}
                   </td>
                 );
               })}
             </tr>
-            <tr className="bg-neutral-50 dark:bg-neutral-900/40">
-              <th scope="row" className="sticky left-0 z-10 bg-neutral-50 dark:bg-neutral-900 px-1.5 py-1 text-left text-[11px] font-medium text-neutral-600 dark:text-neutral-300">
+            <tr className="bg-slate-50 dark:bg-slate-900/40">
+              <th scope="row" className="sticky left-0 z-10 bg-slate-50 dark:bg-slate-900 px-1.5 py-1 text-left text-[11px] font-medium text-slate-600 dark:text-slate-300">
                 完全希薄化後株式数合計
               </th>
               {sortedEvents.map((event) => {
                 const snap = snapshotByEventId.get(event.id);
                 return (
-                  <td key={event.id} className="px-1.5 py-1 text-right text-[13px] tabular-nums text-neutral-800 dark:text-neutral-200">
+                  <td key={event.id} className="px-1.5 py-1 text-right text-[13px] tabular-nums text-slate-800 dark:text-slate-200">
                     {snap ? fmtInt(snap.totalFullyDilutedShares) : '—'}
                   </td>
                 );
