@@ -377,6 +377,27 @@ function diffProjectPair(
   return changes;
 }
 
+/**
+ * 前回snapshotと比べて「もらえる予定額」が実際に変わったprojectIdだけを返す。
+ * PJ追加・削除も前回/今回のいずれかの額が変わったものとして含める。
+ * 前回が比較不能(v1/形式不明/存在しない)な場合は、現在額があるprojectを全て変更扱いにする
+ * (=比較基準が無い以上、保守的に「理由が必要」側へ倒す)。
+ */
+export function projectIdsWithExpectedRewardChange(
+  previous: unknown,
+  current: MonthlyWorkAgreementSnapshot,
+): string[] {
+  if (!isV2Snapshot(previous)) {
+    return current.projects.filter((project) => project.expectedRewardYen != null).map((project) => project.projectId);
+  }
+  const prevExpectedByProject = new Map(previous.projects.map((project) => [project.projectId, project.expectedRewardYen]));
+  const currentExpectedByProject = new Map(current.projects.map((project) => [project.projectId, project.expectedRewardYen]));
+  const projectIds = new Set([...prevExpectedByProject.keys(), ...currentExpectedByProject.keys()]);
+  return [...projectIds]
+    .filter((projectId) => prevExpectedByProject.get(projectId) !== currentExpectedByProject.get(projectId))
+    .sort();
+}
+
 export function diffMonthlyAgreementSnapshots(
   previous: unknown,
   current: MonthlyWorkAgreementSnapshot,

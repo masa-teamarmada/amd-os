@@ -39,6 +39,19 @@ export interface MonthlyWorkAgreementPayoutScheduleEntry {
   amountSource: "actual_paid" | "unverified_paid" | "payout_snapshot" | "protected_reward_cache" | "reward_cache";
 }
 
+export interface MonthlyAgreementAmountChangeReason {
+  id: string;
+  ym: string;
+  memberId: string;
+  projectId: string;
+  agreementSnapshotHash: string;
+  reason: string;
+  createdBy: string;
+  createdAt: string;
+  updatedBy: string | null;
+  updatedAt: string;
+}
+
 export interface MonthlyWorkAgreementRevisionRequest {
   id: string;
   ym: string;
@@ -136,10 +149,25 @@ export interface MonthlyWorkAgreementBundle {
   latestAgreement: MonthlyWorkAgreementRecord | null;
   revisionRequests: MonthlyWorkAgreementRevisionRequest[];
   tableReady: boolean;
+  /** 本人が修正要望を送れる状態か。金額変更理由の確認待ちは妨げない。 */
+  canRequestRevision: boolean;
   canAgree: boolean;
   exclusionReason?: string | null;
   /** Diff of current snapshot vs. the last agreed snapshot; only meaningful when status === "needs_reagreement". */
   changeSummary: MonthlyAgreementSnapshotDiff | null;
+  /** Admin-authored amount-change reasons for this member's projects, scoped to the current snapshot hash. */
+  amountChangeReasons: MonthlyAgreementAmountChangeReason[];
+  /** 今回の予定額変更で、理由の記録が必要なPJ。 */
+  amountChangeReasonRequiredProjectIds: string[];
+  /** 今回の予定額変更に対し、現在snapshotの理由がまだ無いPJ。 */
+  missingAmountChangeReasonProjectIds: string[];
+}
+
+export interface MonthlyAgreementAmountChangeReasonRequirement {
+  projectId: string;
+  projectName: string;
+  expectedRewardYen: number | null;
+  reason: string | null;
 }
 
 export interface AdminMonthlyWorkAgreementRow {
@@ -157,6 +185,7 @@ export interface AdminMonthlyWorkAgreementRow {
   grossDueYen: number;
   carryInYen: number;
   projectNames: string[];
+  amountChangeReasonRequirements: MonthlyAgreementAmountChangeReasonRequirement[];
 }
 
 export interface AdminMonthlyWorkAgreementResponse {

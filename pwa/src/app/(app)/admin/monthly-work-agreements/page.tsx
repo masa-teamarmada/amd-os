@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle2, Loader2, RefreshCw, Search } from "lucide-react";
-import type { AdminMonthlyWorkAgreementResponse, MonthlyAgreementStatus } from "@/lib/monthly-work-agreement-types";
+import type {
+  AdminMonthlyWorkAgreementResponse,
+  MonthlyAgreementAmountChangeReasonRequirement,
+  MonthlyAgreementStatus,
+} from "@/lib/monthly-work-agreement-types";
 
 function currentYmJst() {
   const now = new Date(Date.now() + 9 * 60 * 60 * 1000);
@@ -94,6 +98,25 @@ export default function AdminMonthlyWorkAgreementsPage() {
       return haystack.includes(needle);
     });
   }, [data?.rows, query]);
+
+  const handleReasonSaved = useCallback((memberId: string, projectId: string, reason: string) => {
+    setData((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        rows: current.rows.map((row) =>
+          row.member.memberId !== memberId
+            ? row
+            : {
+                ...row,
+                amountChangeReasonRequirements: row.amountChangeReasonRequirements.map((requirement) =>
+                  requirement.projectId === projectId ? { ...requirement, reason } : requirement,
+                ),
+              },
+        ),
+      };
+    });
+  }, []);
 
   return (
     <div className="space-y-5">
@@ -197,10 +220,8 @@ export default function AdminMonthlyWorkAgreementsPage() {
                 <div className="px-3 py-8 text-sm text-muted-foreground">対象メンバーなし</div>
               ) : (
                 filteredRows.map((row) => (
-                  <div
-                    key={row.member.memberId}
-                    className="grid min-w-[980px] grid-cols-[128px_112px_64px_124px_124px_minmax(0,1fr)_132px] items-center gap-2 px-3 py-3 text-sm"
-                  >
+                  <div key={row.member.memberId} className="min-w-[980px]">
+                    <div className="grid grid-cols-[128px_112px_64px_124px_124px_minmax(0,1fr)_132px] items-center gap-2 px-3 py-3 text-sm">
                     <div className="min-w-0">
                       <p className="truncate font-semibold">{row.member.codeName}</p>
                       <p className="truncate text-[11px] text-muted-foreground">{row.member.memberId}</p>
@@ -253,6 +274,28 @@ export default function AdminMonthlyWorkAgreementsPage() {
                         mypage
                       </Link>
                     </div>
+                    </div>
+                    {row.amountChangeReasonRequirements.length > 0 && (
+                      <div className="border-t border-amber-200 bg-amber-50/60 px-3 py-3">
+                        <div className="ml-[316px] max-w-3xl">
+                          <p className="text-xs font-semibold text-amber-900">予定額を変更した理由</p>
+                          <p className="mt-0.5 text-[11px] text-amber-800">
+                            理由を保存すると、メンバーが再合意前に確認できる。理由がない間は合意できない。
+                          </p>
+                          <div className="mt-2 grid gap-2">
+                            {row.amountChangeReasonRequirements.map((requirement) => (
+                              <AmountChangeReasonEditor
+                                key={`${ym}:${row.member.memberId}:${requirement.projectId}`}
+                                ym={ym}
+                                memberId={row.member.memberId}
+                                requirement={requirement}
+                                onSaved={handleReasonSaved}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))
               )}
@@ -270,6 +313,105 @@ function SummaryCard({ label, value, tone = "plain" }: { label: string; value: s
     <div className="rounded-md border border-border bg-background p-3">
       <p className="text-[11px] font-semibold text-muted-foreground">{label}</p>
       <p className={`mt-2 text-2xl font-semibold tabular-nums ${valueClass}`}>{value}</p>
+    </div>
+  );
+}
+
+function AmountChangeReasonEditor({
+  ym,
+  memberId,
+  requirement,
+  onSaved,
+}: {
+  ym: string;
+  memberId: string;
+  requirement: MonthlyAgreementAmountChangeReasonRequirement;
+  onSaved: (memberId: string, projectId: string, reason: string) => void;
+}) {
+  const [reason, setReason] = useState(requirement.reason ?? "");
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const trimmedReason = reason.trim();
+  const canSave = trimmedReason.length >= 8 && !saving;
+
+  const save = async () => {
+    if (!canSave) {
+      setMessage("理由は8文字以上で入力してね。");
+      return;
+    }
+    setSaving(true);
+    setMessage(null);
+    try {
+      const response = await fetch("/api/admin/monthly-work-agreements/amount-change-reasons", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ym,
+          memberId,
+          projectId: requirement.projectId,
+          reason: trimmedReason,
+        }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+        data?: { reason?: string };
+        error?: string;
+      };
+      if (!response.ok || payload.ok === false || !payload.data?.reason) {
+        throw new Error(payload.error || "変更理由を保存できませんでした");
+      }
+      setReason(payload.data.reason);
+      onSaved(memberId, requirement.projectId, payload.data.reason);
+      setMessage("保存した。メンバー画面にすぐ反映されるよ。");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      data-testid="admin-monthly-agreement-change-reason"
+      className="rounded-md border border-amber-200 bg-white p-3"
+    >
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="min-w-0 truncate text-sm font-semibold text-foreground">{requirement.projectName}</p>
+        <p className="shrink-0 text-xs tabular-nums text-muted-foreground">
+          今回の予定額 {requirement.expectedRewardYen == null ? "対象外" : formatYen(requirement.expectedRewardYen)}
+        </p>
+      </div>
+      <label className="mt-2 block">
+        <span className="text-xs font-semibold text-muted-foreground">メンバーに伝える変更理由</span>
+        <textarea
+          value={reason}
+          onChange={(event) => {
+            setReason(event.target.value);
+            setMessage(null);
+          }}
+          rows={3}
+          className="mt-1.5 w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-[#007aff]"
+          placeholder="例: 顧客との契約開始が翌月になったため、今月の予定額を見直しました。"
+        />
+      </label>
+      <div className="mt-2 flex items-center justify-between gap-3">
+        <p className={`text-xs ${trimmedReason.length >= 8 ? "text-muted-foreground" : "text-amber-800"}`}>
+          {trimmedReason.length >= 8 ? "保存すると、現在の予定額での再合意に使われる。" : "理由は8文字以上で入力してね。"}
+        </p>
+        <button
+          type="button"
+          onClick={save}
+          disabled={!canSave}
+          className="inline-flex min-h-9 shrink-0 items-center rounded-md bg-[#007aff] px-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {saving ? "保存中…" : requirement.reason ? "理由を更新" : "理由を保存"}
+        </button>
+      </div>
+      {message && (
+        <p className={`mt-2 text-xs ${message.includes("反映") ? "text-emerald-700" : "text-red-700"}`}>
+          {message}
+        </p>
+      )}
     </div>
   );
 }

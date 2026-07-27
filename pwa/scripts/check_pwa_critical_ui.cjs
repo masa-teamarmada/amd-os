@@ -2226,6 +2226,10 @@ expectIncludes(
     "monthly-agreement-status",
     "monthly-agreement-change-summary",
     "monthly-agreement-change-count",
+    "monthly-agreement-change-reason",
+    "monthly-agreement-missing-change-reason",
+    "予定額を変更した理由",
+    "変更理由を確認中",
     "今回の変更点",
     "monthly-agreement-required-checks",
     "monthly-agreement-scope-section",
@@ -2276,9 +2280,9 @@ expectNotIncludes(
 expectPattern(
   "src/components/monthly-agreement/MonthlyAgreementExperience.tsx",
   [
-    /onClick=\{handleAgree\}[\s\S]{0,2200}内容が違う場合は修正要望/,
+    /onClick=\{handleAgree\}[\s\S]{0,3500}内容が違う場合は修正要望/,
     /data-testid="monthly-agreement-status"[\s\S]{0,2000}<RequiredChecksSection[\s\S]{0,2000}data-testid="monthly-agreement-agree-button"[\s\S]{0,9000}参考情報/,
-    /data-testid="monthly-agreement-status"[\s\S]{0,1500}<ChangeSummarySection[\s\S]{0,500}<RequiredChecksSection/,
+    /data-testid="monthly-agreement-status"[\s\S]{0,1500}<ChangeSummarySection[\s\S]{0,1500}<RequiredChecksSection/,
     /data-testid="monthly-agreement-required-checks"[\s\S]{0,2000}data-testid="monthly-agreement-scope-section"[\s\S]{0,3000}data-testid="monthly-agreement-reward-section"/,
   ],
 );
@@ -2319,6 +2323,9 @@ expectIncludes("src/app/(app)/admin/monthly-work-agreements/page.tsx", [
   "202001",
   "monthly-agreement-migration-note",
   "月初合意の導入前・移行月",
+  "admin-monthly-agreement-change-reason",
+  "メンバーに伝える変更理由",
+  "/api/admin/monthly-work-agreements/amount-change-reasons",
 ]);
 expectIncludes("src/lib/monthly-work-agreement.ts", [
   "monthly_reward_payout",
@@ -2328,6 +2335,8 @@ expectIncludes("src/lib/monthly-work-agreement.ts", [
   "unverifiedPaidYen",
   "totalPayTaxIncludedYen",
   "futurePayoutYen",
+  "amountChangeReasonRequiredProjectIds",
+  "missingAmountChangeReasonProjectIds",
 ]);
 expectIncludes("spec/3-14-monthly-work-agreement-current-spec.md", [
   "monthly_reward_payout",

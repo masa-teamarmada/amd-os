@@ -14,6 +14,7 @@
 
 | 日時 | 対象章 | 種別 | 変更箇所 | 理由 | 変更者 |
 |---|---|---|---|---|---|
+| 2026-07-28 | 3-14 月初合意 / 6-6 支払通知 | 追加 | `expectedRewardYen` が前回合意から変わったPJごとに、管理者がメンバー向けの変更理由を入力・更新する。理由は `ym × member × PJ × 現在snapshot hash` に結び、作成・更新者と時刻を記録する。メンバー画面では金額の前回/今回より先に理由を表示し、未入力なら「変更理由を確認中」として修正要望は可能なまま合意API・合意ボタンを止める。migration 197。build v3.51.4 | 金額だけが変わった再合意では、メンバーが根拠を判断できず合意の意味を満たせなかったため | えいみ |
 | 2026-07-27 | 3-8 Cockpit / design cockpit / FEATURE_REGISTRY | 追加・移動 | SX (`p21`) に正規URL `?tab=business-plan` の事業計画タブを追加。`CockpitBusinessPlan` が4開発レーン×5フェーズ表、`CapitalPlanWorkspace` の100%株主構成・資本政策表、年次試算表をこの順で表示する。自社培養工場をSeedパイロット→A量産実証→B本格工場へ段階化し、固定費バーン上限・費用・出口条件・XRLを列/セルへ固定。SXのCapitalPlanWorkspaceは会社概要から移動し、migration 196は中島先生を含めない同名原案を既存編集非上書きで投入する。CapitalPlanWorkspaceのプラン選択欄はモバイルで親幅に収める。build v3.51.1 | 事業・技術・組織・調達をラウンド間の同じ時間軸でつなぎ、設備投資と希薄化・年次資金を同一タブで検証するため | えいみ |
 | 2026-07-27 | 3-2 Monthly Reports / 3-8 Cockpit | 修正 | 内部版writerの入力を本文用 `evidence_bundle` と監査用 `audit_metadata` へ分離し、概要3〜5文・業務領域別統合・処理ログ禁止を保存/確定gateへ追加。月次モーダルは全PJ共通の `社内版` / `提出版` とし、社内版は非LLMの直接編集・保存・確定だけ、提出版は `template=submission` の印刷表示とする。従量課金の旧 `/api/report/generate` / `/api/monthly-report/edit-by-tsukuyomi` は410停止。build v3.49.31 | LLMを通しても監査メタが概要へ混入する入力設計と、UIから定額外tokenを消費しうる別生成経路、提出先依存ラベルを解消するため | えいみ |
 | 2026-07-27 | 3-8 Cockpit（月次モーダル） | 修正 | Dialog gridのmin-content膨張を `min-w-0` と横overflow境界で抑え、390px幅でも社内版panelがviewport内へ収まるcontractへ是正。版切替・本文編集・確定・保存系の主要操作は44px以上のタップ領域を持つ。build v3.49.28 | 本番responsive監査で月次モーダルの内部幅が736pxに膨張し、スマホで右側が切れていたため | えいみ |

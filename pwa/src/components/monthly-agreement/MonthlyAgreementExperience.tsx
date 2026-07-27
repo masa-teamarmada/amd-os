@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Hint } from "@/components/ui/Hint";
 import type {
+  MonthlyAgreementAmountChangeReason,
   MonthlyAgreementSnapshotDiff,
   MonthlyWorkAgreementBundle,
   MonthlyWorkAgreementProject,
@@ -141,9 +142,11 @@ export function MonthlyAgreementExperience({
   const skipInitialLoadRef = useRef(Boolean(initialBundle));
   const isModal = mode === "modal";
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const load = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) {
+      setLoading(true);
+      setError(null);
+    }
     const params = new URLSearchParams({ ym });
     if (memberId) params.set("memberId", memberId);
     try {
@@ -161,9 +164,11 @@ export function MonthlyAgreementExperience({
       }
       setBundle(payload.bundle);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      if (!silent) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [memberId, ym]);
 
@@ -174,6 +179,15 @@ export function MonthlyAgreementExperience({
     }
     void load();
   }, [load]);
+
+  // 管理側が理由を入力したあと、メンバーがモーダルを開いたままでも確認待ちを解消できるようにする。
+  // 通常の閲覧中は余計な通信をせず、未入力の理由がある間だけ静かに再取得する。
+  const missingReasonKey = bundle?.missingAmountChangeReasonProjectIds.join("|") ?? "";
+  useEffect(() => {
+    if (!missingReasonKey) return;
+    const timer = window.setInterval(() => void load({ silent: true }), 15_000);
+    return () => window.clearInterval(timer);
+  }, [load, missingReasonKey]);
 
   const handleAgree = async () => {
     if (!bundle || saving || !bundle.canAgree) return;
@@ -211,7 +225,7 @@ export function MonthlyAgreementExperience({
   };
 
   const handleRevisionRequest = async () => {
-    if (!bundle || requestSaving || !bundle.canAgree) return;
+    if (!bundle || requestSaving || !bundle.canRequestRevision) return;
     setRequestSaving(true);
     setError(null);
     setRequestMessage(null);
@@ -349,7 +363,20 @@ export function MonthlyAgreementExperience({
         </section>
 
         {bundle.status === "needs_reagreement" && bundle.changeSummary && (
-          <ChangeSummarySection changeSummary={bundle.changeSummary} />
+          <ChangeSummarySection
+            changeSummary={bundle.changeSummary}
+            projects={bundle.snapshot.projects}
+            amountChangeReasons={bundle.amountChangeReasons}
+            requiredProjectIds={bundle.amountChangeReasonRequiredProjectIds}
+            missingProjectIds={bundle.missingAmountChangeReasonProjectIds}
+            canRequestRevision={bundle.canRequestRevision}
+            onRequestRevision={(projectId) => {
+              setRequestProjectId(projectId);
+              setRequestType("reward");
+              setRequestMessage(null);
+              setRevisionOpen(true);
+            }}
+          />
         )}
 
         <RequiredChecksSection
@@ -362,6 +389,14 @@ export function MonthlyAgreementExperience({
           {bundle.status !== "agreed" && bundle.status !== "not_required" && (
             <p className="mb-3 text-[13px] leading-[20px] text-[#3c3c43]">
               上の「担当する仕事」と「その対価としての予定額」を確認したうえで合意してください。未合意または条件更新ありの場合は、合意が完了するまでこの月の支払いには進めません。
+            </p>
+          )}
+          {bundle.missingAmountChangeReasonProjectIds.length > 0 && (
+            <p
+              data-testid="monthly-agreement-missing-change-reason"
+              className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] leading-[20px] text-amber-900"
+            >
+              予定額が変更された理由を管理側で確認中です。理由が表示されるまで、この内容には合意できません。
             </p>
           )}
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-2">
@@ -402,10 +437,10 @@ export function MonthlyAgreementExperience({
                 setRequestMessage(null);
                 setRevisionOpen((open) => !open);
               }}
-              disabled={!bundle.canAgree}
+              disabled={!bundle.canRequestRevision}
               className="inline-flex h-11 w-full items-center justify-center gap-1 rounded-md border border-[#d1d1d6] bg-transparent px-3 text-[13px] font-semibold text-[#3c3c43] opacity-80 transition-opacity hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007aff] disabled:cursor-not-allowed disabled:opacity-40 sm:h-10 sm:w-auto sm:px-3 sm:text-[12px]"
               title={
-                !bundle.canAgree
+                !bundle.canRequestRevision
                   ? bundle.exclusionReason || "本人だけが修正要望を送れます"
                   : "担当内容、または予定額の修正要望を送る"
               }
@@ -450,7 +485,7 @@ export function MonthlyAgreementExperience({
                 <select
                   value={requestType}
                   onChange={(event) => setRequestType(event.target.value)}
-                  disabled={!bundle.canAgree}
+                  disabled={!bundle.canRequestRevision}
                   className={`${isModal ? "h-8 py-1 text-xs" : "py-2 text-sm"} min-w-0 rounded-md border border-[#d1d1d6] bg-white px-2 text-[#1d1d1f]`}
                 >
                   <option value="scope_or_goal">担当内容</option>
@@ -460,7 +495,7 @@ export function MonthlyAgreementExperience({
                 <select
                   value={requestProjectId}
                   onChange={(event) => setRequestProjectId(event.target.value)}
-                  disabled={!bundle.canAgree}
+                  disabled={!bundle.canRequestRevision}
                   className={`${isModal ? "h-8 py-1 text-xs" : "py-2 text-sm"} min-w-0 rounded-md border border-[#d1d1d6] bg-white px-2 text-[#1d1d1f]`}
                 >
                   <option value="">全体</option>
@@ -473,7 +508,7 @@ export function MonthlyAgreementExperience({
                 <textarea
                   value={requestBody}
                   onChange={(event) => setRequestBody(event.target.value)}
-                  disabled={!bundle.canAgree}
+                  disabled={!bundle.canRequestRevision}
                   rows={isModal ? 2 : 3}
                   className={`${isModal ? "sm:col-span-2 text-xs" : "min-h-[84px] text-sm"} min-h-12 rounded-md border border-[#d1d1d6] bg-white px-3 py-2 text-[#1d1d1f] outline-none focus:border-[#007aff]`}
                   placeholder="例: この目標ではなく、登記準備を優先したい"
@@ -492,7 +527,7 @@ export function MonthlyAgreementExperience({
                   onClick={handleRevisionRequest}
                   disabled={
                     requestSaving ||
-                    !bundle.canAgree ||
+                    !bundle.canRequestRevision ||
                     requestBody.trim().length < 4
                   }
                   className={`${isModal ? "h-8 px-3 text-xs" : "px-3 py-2 text-xs"} inline-flex items-center justify-center gap-1.5 rounded-md border border-[#d1d1d6] bg-white font-semibold text-[#1d1d1f] disabled:cursor-not-allowed disabled:opacity-50`}
@@ -746,9 +781,34 @@ export function MonthlyAgreementExperience({
 
 function ChangeSummarySection({
   changeSummary,
+  projects,
+  amountChangeReasons,
+  requiredProjectIds,
+  missingProjectIds,
+  canRequestRevision,
+  onRequestRevision,
 }: {
   changeSummary: MonthlyAgreementSnapshotDiff;
+  projects: MonthlyWorkAgreementProject[];
+  amountChangeReasons: MonthlyAgreementAmountChangeReason[];
+  requiredProjectIds: string[];
+  missingProjectIds: string[];
+  canRequestRevision: boolean;
+  onRequestRevision: (projectId: string) => void;
 }) {
+  const reasonsByProjectId = new Map(
+    amountChangeReasons.map((item) => [item.projectId, item.reason]),
+  );
+  const requiredProjects = requiredProjectIds.flatMap((projectId) => {
+    const project = projects.find((item) => item.projectId === projectId);
+    const previousProject = changeSummary.groups.find((item) => item.projectId === projectId);
+    if (!project && !previousProject) return [];
+    return [{
+      projectId,
+      projectName: project?.projectName ?? previousProject?.projectName ?? projectId,
+    }];
+  });
+
   return (
     <section
       data-testid="monthly-agreement-change-summary"
@@ -762,6 +822,52 @@ function ChangeSummarySection({
           </span>
         ) : null}
       </p>
+      {requiredProjects.length > 0 && (
+        <div className="mt-3 border-t border-amber-200 pt-3">
+          <p className="text-[12px] font-semibold text-amber-900">
+            予定額を変更した理由
+          </p>
+          <div className="mt-2 flex flex-col gap-2">
+            {requiredProjects.map((project) => {
+              const missing = missingProjectIds.includes(project.projectId);
+              const reason = reasonsByProjectId.get(project.projectId);
+              return (
+                <div
+                  key={project.projectId}
+                  data-testid="monthly-agreement-change-reason"
+                  className="min-w-0 rounded-md border border-amber-200 bg-white/80 px-3 py-2.5"
+                >
+                  <p className="break-words text-[12px] font-semibold text-[#1d1d1f]">
+                    {project.projectName}
+                  </p>
+                  {missing ? (
+                    <div className="mt-1.5">
+                      <p className="text-[13px] font-semibold text-amber-900">
+                        変更理由を確認中
+                      </p>
+                      <p className="mt-0.5 text-[12px] leading-[18px] text-amber-900">
+                        管理側が理由を追記するまで合意できません。予定額に違いがある場合は修正要望を送れます。
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => onRequestRevision(project.projectId)}
+                        disabled={!canRequestRevision}
+                        className="mt-2 min-h-9 rounded-md border border-amber-300 bg-white px-3 text-[12px] font-semibold text-amber-900 hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007aff] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        この予定額について修正要望
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="mt-1 break-words text-[13px] leading-[20px] text-[#3c3c43]">
+                      {reason}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
       {!changeSummary.comparable ? (
         <p className="mt-1 text-[13px] leading-[20px] text-amber-900">
           {changeSummary.note}

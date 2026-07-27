@@ -14,8 +14,8 @@
 | revision request API | `POST /api/monthly-work-agreement/request-revision` |
 | admin API | `GET /api/admin/monthly-work-agreements?ym=YYYYMM` |
 | app entry gate | 未合意 / 条件更新ありで表示対象PJがある場合、開いた画面を背景に残したまま月初合意モーダルを前面表示。背景クリックでその表示だけ一時的に閉じられるが、合意状態は保存されない。未合意のまま同じ entry を開き直すと再表示され、合意完了後だけ gate が解決済みになる。gate 判定は `(app)/layout.tsx` の SSR では計算せず (2026-07-17 v3.44.8 以前は SSR で `buildMonthlyWorkAgreementBundle` を毎 route 実行し全 authenticated route の初回表示をブロックしていた)、`AppShell` mount 後に既存の member API `GET /api/monthly-work-agreement` を client fetch して判定する。判定ロジック (`tableReady && projectCount>0 && status in (pending, needs_reagreement)`) 自体は不変。ユーザーから見える gate 発火条件・表示内容は変わらない |
-| DB | `member_monthly_work_agreements`, `member_monthly_work_agreement_requests`, `member_monthly_work_agreement_payout_overrides` |
-| migration | `pwa/scripts/migrations/139_member_monthly_work_agreements.sql`, `140_member_monthly_work_agreement_requests.sql`, `145_member_monthly_work_agreement_payout_overrides.sql` |
+| DB | `member_monthly_work_agreements`, `member_monthly_work_agreement_requests`, `member_monthly_work_agreement_amount_change_reasons`, `member_monthly_work_agreement_payout_overrides` |
+| migration | `pwa/scripts/migrations/139_member_monthly_work_agreements.sql`, `140_member_monthly_work_agreement_requests.sql`, `145_member_monthly_work_agreement_payout_overrides.sql`, `197_member_monthly_work_agreement_amount_change_reasons.sql` |
 
 ## Scope
 
@@ -119,6 +119,14 @@ projectPlannedRewardYen = Σ msPlannedRewardYen
   - `comparable:true && count>0` のときは PJ ごとにカード化し、各変更を「ラベル (stacked) → 前回/今回を並べた `min-w-0` グリッド (矢印区切り)」で表示。PJ名・ラベル・値はすべて `break-words` (モバイル最優先、`truncate` は使わない)。前回/今回グリッドはモバイルでは `grid-cols-1` の縦積みレイアウト (前回→矢印→今回)、`sm:` 以上で `grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]` の横並びに切り替える。矢印アイコンはモバイルで90度回転 (下向き)、`sm:` 以上で水平方向に戻す
   - 変更値は生の技術値 (`active` / `budget_confirmed` / `reward_cache` 等) をそのまま出さず、`monthly-work-agreement-diff.ts` の日本語ラベル関数 (project status / billing・payout status / allocation status / amountSource) で整形してから表示する
   - **生 JSON・生 hash 文字列は一切表示しない** (「参考情報」内の `記録ID {hash.slice(0,10)}` は既存仕様のまま変更なし)
+
+### 予定額変更理由
+
+`needs_reagreement` のうち、前回合意snapshotと比べて `projects[].expectedRewardYen` が変わったPJには、管理者が本人向けの変更理由を入力する。理由は自動推測せず、8文字以上の人間が書いた説明だけを `member_monthly_work_agreement_amount_change_reasons` へ保存する。
+
+- 1行は `ym × member_id × project_id × agreement_snapshot_hash` に一意に紐付け、`created_by` / `created_at` / `updated_by` / `updated_at` を監査用に残す。予定額を含むsnapshot hashが再び変われば、古い理由は再合意に使えず、新しい理由が必要になる。
+- メンバー画面では「今回の変更点」の中で、前回/今回の金額比較より先にPJ別の理由を表示する。理由がないPJは「変更理由を確認中」と表示し、修正要望は送れるが合意はできない。
+- `POST /api/monthly-work-agreement/agree` も同じ未入力判定を行う。表示だけを迂回しての合意保存はできない。一方、報酬計算・payout gateの算定値・非金額だけの再合意は変更しない。
 - hash 計算式・`stableJson`・支払 gate ロジック (`monthly-work-agreement-payout-gate.ts`) には一切手を入れていない
 - admin 一覧 API (`GET /api/admin/monthly-work-agreements`) は `latestAgreement.snapshotJson` をレスポンスから除去 (`snapshotJson: undefined`) する。`changeCount` フィールドは admin 画面で未使用のため API レスポンス・`AdminMonthlyWorkAgreementRow` 型から削除済み (`needs_reagreement` の件数は本人画面の `ChangeSummarySection` 側で表示)
 - 単体テスト: `scripts/check_monthly_agreement_diff.mts` (`npm run test:monthly-agreement-diff`)。null/legacy previous のフォールバック、PJ/MS追加削除、各フィールド変更、完全一致、`snapshot`/`member`/`totals`/`project`/`milestone`/`payoutSchedule` 全フィールドの table-driven mutation coverage、壊れた nested v2 (member欠落・projects非配列・milestone欠損フィールド) の comparable:false フォールバック
@@ -210,6 +218,7 @@ API route は logged-in user を `members.email` で解決する。本人以外�
 - member / PJ / status で検索できる。
 - 各行は `予定報酬` だけでなく `今月支払` と `未払い残` を分けて表示し、stock が今月支払対象ではないことを admin 一覧でも判別できるようにする。`今月支払` は支払条件から見た現金支払月で集計し、`invoice_ym` は請求書発行月として扱う。
 - 各行に open 修正要望数と最新要望時刻を表示する。
+- `条件更新あり` の行で予定額が変わったPJには、管理側がメンバー向け変更理由を入力・更新する欄を表示する。現在snapshotに紐付く理由だけを保存し、未入力ならメンバー側の再合意を止める。
 - 各行から `/monthly-agreement?memberId=...&ym=...` と `/mypage?memberId=...` へ遷移できる。
 
 ## Failure Mode

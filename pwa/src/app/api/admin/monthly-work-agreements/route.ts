@@ -49,6 +49,18 @@ export async function GET(req: NextRequest) {
       grossDueYen: bundle.snapshot.projects.reduce((sum, project) => sum + (project.grossDueYen ?? 0), 0),
       carryInYen: bundle.snapshot.projects.reduce((sum, project) => sum + (project.carryInYen ?? 0), 0),
       projectNames: bundle.snapshot.projects.map((project) => project.projectName),
+      amountChangeReasonRequirements: bundle.amountChangeReasonRequiredProjectIds.flatMap((projectId) => {
+        const project = bundle.snapshot.projects.find((item) => item.projectId === projectId);
+        const previousProject = bundle.changeSummary?.groups.find((item) => item.projectId === projectId);
+        if (!project && !previousProject) return [];
+        const savedReason = bundle.amountChangeReasons.find((item) => item.projectId === projectId);
+        return [{
+          projectId,
+          projectName: project?.projectName ?? previousProject?.projectName ?? projectId,
+          expectedRewardYen: project?.expectedRewardYen ?? null,
+          reason: savedReason?.reason ?? null,
+        }];
+      }),
     }));
     rows.sort((a, b) => {
       const rank = (status: string) => status === "needs_reagreement" ? 0 : status === "pending" ? 1 : 2;

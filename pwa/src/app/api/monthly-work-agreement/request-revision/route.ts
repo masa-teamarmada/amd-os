@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
       memberId,
       viewerMemberId: actor.memberId,
     });
-    if (!bundle.canAgree) {
+    if (!bundle.canRequestRevision) {
       return NextResponse.json(
         { ok: false, error: bundle.exclusionReason || "月初合意の修正要望を保存できません" },
         { status: 403 },

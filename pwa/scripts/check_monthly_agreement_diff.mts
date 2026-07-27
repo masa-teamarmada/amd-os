@@ -13,7 +13,10 @@
  * 実行: node --experimental-strip-types scripts/check_monthly_agreement_diff.mts
  */
 import assert from "node:assert/strict";
-import { diffMonthlyAgreementSnapshots } from "../src/lib/monthly-work-agreement-diff.ts";
+import {
+  diffMonthlyAgreementSnapshots,
+  projectIdsWithExpectedRewardChange,
+} from "../src/lib/monthly-work-agreement-diff.ts";
 import type {
   MonthlyWorkAgreementMilestone,
   MonthlyWorkAgreementPayoutScheduleEntry,
@@ -162,6 +165,25 @@ function expectLabel(
   const rewardChange = projectGroup!.changes.find((c) => c.label === "もらえる予定額");
   assert.equal(rewardChange?.before, "¥100,000");
   assert.equal(rewardChange?.after, "¥150,000");
+  assert.deepEqual(projectIdsWithExpectedRewardChange(prev, cur), ["p1"]);
+}
+
+// 3b. 理由必須PJは予定額が変わったPJだけ。比較不能な旧snapshotでは保守的に全PJを対象にする。
+{
+  const prev = snapshot([
+    project({ projectId: "p1", expectedRewardYen: 100000 }),
+    project({ projectId: "p2", expectedRewardYen: 80000 }),
+  ]);
+  const cur = snapshot([
+    project({ projectId: "p1", expectedRewardYen: 100000 }),
+    project({ projectId: "p2", expectedRewardYen: 90000 }),
+  ]);
+  assert.deepEqual(projectIdsWithExpectedRewardChange(prev, cur), ["p2"]);
+  assert.deepEqual(projectIdsWithExpectedRewardChange(null, cur), ["p1", "p2"]);
+  assert.deepEqual(
+    projectIdsWithExpectedRewardChange(snapshot([project({ projectId: "p1" }), project({ projectId: "p3" })]), snapshot([project({ projectId: "p1" })])),
+    ["p3"],
+  );
 }
 
 // 4. milestone 追加/削除/変更

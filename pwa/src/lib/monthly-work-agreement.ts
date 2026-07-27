@@ -11,6 +11,7 @@ import {
   effectivePaymentYmForCycle,
 } from "@/lib/payment-groups";
 import type {
+  MonthlyAgreementAmountChangeReason,
   MonthlyAgreementStatus,
   MonthlyWorkAgreementRevisionRequest,
   MonthlyWorkAgreementBundle,
@@ -21,7 +22,10 @@ import type {
   MonthlyWorkAgreementRecord,
   MonthlyWorkAgreementSnapshot,
 } from "@/lib/monthly-work-agreement-types";
-import { diffMonthlyAgreementSnapshots } from "@/lib/monthly-work-agreement-diff";
+import {
+  diffMonthlyAgreementSnapshots,
+  projectIdsWithExpectedRewardChange,
+} from "@/lib/monthly-work-agreement-diff";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -443,6 +447,26 @@ export function isMissingMonthlyAgreementRequestTableError(error: unknown): bool
   return err?.code === "42P01" || /member_monthly_work_agreement_requests/i.test(err?.message ?? "");
 }
 
+export function isMissingMonthlyAgreementAmountChangeReasonTableError(error: unknown): boolean {
+  const err = error as { code?: string; message?: string } | null | undefined;
+  return err?.code === "42P01" || /member_monthly_work_agreement_amount_change_reasons/i.test(err?.message ?? "");
+}
+
+function toAmountChangeReason(row: JsonRecord): MonthlyAgreementAmountChangeReason {
+  return {
+    id: String(row.id ?? ""),
+    ym: String(row.ym ?? ""),
+    memberId: String(row.member_id ?? ""),
+    projectId: String(row.project_id ?? ""),
+    agreementSnapshotHash: String(row.agreement_snapshot_hash ?? ""),
+    reason: String(row.reason ?? ""),
+    createdBy: String(row.created_by ?? ""),
+    createdAt: String(row.created_at ?? ""),
+    updatedBy: typeof row.updated_by === "string" ? row.updated_by : null,
+    updatedAt: String(row.updated_at ?? ""),
+  };
+}
+
 function toRevisionRequest(row: JsonRecord): MonthlyWorkAgreementRevisionRequest {
   return {
     id: String(row.id ?? ""),
@@ -526,9 +550,13 @@ export async function buildMonthlyWorkAgreementBundle(
       latestAgreement: null,
       revisionRequests: [],
       tableReady: true,
+      canRequestRevision: false,
       canAgree: false,
       exclusionReason: "月初合意の導入前/移行月のため、この月の合意は不要です。",
       changeSummary: null,
+      amountChangeReasons: [],
+      amountChangeReasonRequiredProjectIds: [],
+      missingAmountChangeReasonProjectIds: [],
     };
   }
 
@@ -557,9 +585,13 @@ export async function buildMonthlyWorkAgreementBundle(
       latestAgreement: null,
       revisionRequests: [],
       tableReady: true,
+      canRequestRevision: false,
       canAgree: false,
       exclusionReason: "支払通知対象外メンバーのため、月初合意は不要です。",
       changeSummary: null,
+      amountChangeReasons: [],
+      amountChangeReasonRequiredProjectIds: [],
+      missingAmountChangeReasonProjectIds: [],
     };
   }
 
@@ -976,6 +1008,19 @@ export async function buildMonthlyWorkAgreementBundle(
     revisionRequests = ((requestData ?? []) as Array<JsonRecord>).map(toRevisionRequest);
   }
 
+  let amountChangeReasons: MonthlyAgreementAmountChangeReason[] = [];
+  const { data: reasonData, error: reasonError } = await supabase
+    .from("member_monthly_work_agreement_amount_change_reasons")
+    .select("id, ym, member_id, project_id, agreement_snapshot_hash, reason, created_by, created_at, updated_by, updated_at")
+    .eq("ym", ym)
+    .eq("member_id", params.memberId)
+    .eq("agreement_snapshot_hash", currentHash);
+  if (reasonError) {
+    if (!isMissingMonthlyAgreementAmountChangeReasonTableError(reasonError)) throw reasonError;
+  } else {
+    amountChangeReasons = ((reasonData ?? []) as Array<JsonRecord>).map(toAmountChangeReason);
+  }
+
   const agreementStatus: MonthlyAgreementStatus =
     latestAgreement?.status === "agreed" && latestAgreement.snapshotHash === currentHash
       ? "agreed"
@@ -983,6 +1028,23 @@ export async function buildMonthlyWorkAgreementBundle(
         ? "needs_reagreement"
         : "pending";
   const status: MonthlyAgreementStatus = agreementStatus;
+  const amountChangeReasonRequiredProjectIds =
+    agreementStatus === "needs_reagreement"
+      ? projectIdsWithExpectedRewardChange(latestAgreement?.snapshotJson, snapshot)
+      : [];
+  const reasonProjectIds = new Set(
+    amountChangeReasons
+      .filter((item) => item.reason.trim().length >= 8)
+      .map((item) => item.projectId),
+  );
+  const missingAmountChangeReasonProjectIds = amountChangeReasonRequiredProjectIds.filter(
+    (projectId) => !reasonProjectIds.has(projectId),
+  );
+  const canRequestRevision = tableReady && (!params.viewerMemberId || params.viewerMemberId === params.memberId);
+  const reasonWaitMessage =
+    missingAmountChangeReasonProjectIds.length > 0
+      ? "予定額が変更された理由を管理側で確認中です。理由の確認後に合意できます。"
+      : null;
 
   return {
     ym,
@@ -993,12 +1055,16 @@ export async function buildMonthlyWorkAgreementBundle(
     latestAgreement,
     revisionRequests,
     tableReady,
-    canAgree: tableReady && (!params.viewerMemberId || params.viewerMemberId === params.memberId),
-    exclusionReason: null,
+    canRequestRevision,
+    canAgree: canRequestRevision && missingAmountChangeReasonProjectIds.length === 0,
+    exclusionReason: reasonWaitMessage,
     changeSummary:
       agreementStatus === "needs_reagreement"
         ? diffMonthlyAgreementSnapshots(latestAgreement?.snapshotJson, snapshot)
         : null,
+    amountChangeReasons,
+    amountChangeReasonRequiredProjectIds,
+    missingAmountChangeReasonProjectIds,
   };
 }
 
