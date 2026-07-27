@@ -59,12 +59,13 @@ function RowBar({ row, accent }: { row: SxEcdTimelineRow; accent: string }) {
   const slipTextTone = row.slipKind === "overdue" ? "text-[#8c3329]" : row.slipKind === "confirmed_slip" ? "text-[#765022]" : "text-[#77726a]";
   return (
     <div className="relative h-full w-full" aria-hidden="true">
-      {/* 計画期間は「枠」だけで描く。塗りつぶすと、今日線より右へ伸びたバーが「そこまで終わった」と
-          読まれる（2026-07-27 まさ指摘）。終わった分は progressPct からだけ塗る。 */}
+      {/* 二段塗り（2026-07-27 まさ確定・2回目）: 薄い塗り=計画期間、濃い塗り=完了した範囲
+          （progressPct）。均一な単色は「今日線より右まで終わった」と誤読され、枠だけの白抜きは
+          色が死ぬ。濃い塗りだけが完了の主張で、薄い塗りは予定の主張。仮日程は薄側をさらに淡く。 */}
       {plannedEnd != null && (
         <span
-          className={`absolute top-1/2 h-[8px] -translate-y-1/2 overflow-hidden rounded-sm border ${provisional ? "opacity-60" : ""}`}
-          style={{ left: `${barStart}%`, width: `${Math.max(plannedEnd - barStart, 0.4)}%`, borderColor: accent, background: `${accent}14` }}
+          className="absolute top-1/2 h-[8px] -translate-y-1/2 overflow-hidden rounded-sm"
+          style={{ left: `${barStart}%`, width: `${Math.max(plannedEnd - barStart, 0.4)}%`, background: `${accent}${provisional ? "3d" : "66"}` }}
         >
           {row.progressPct > 0 && (
             <span className="absolute inset-y-0 left-0 block" style={{ width: `${row.progressPct}%`, background: accent }} />
@@ -302,7 +303,7 @@ export function SxUnifiedTimeline({
 
           {/* 凡例と非表示分の明示 */}
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[9px] text-[#9b9487]">
-            <span>バーの枠=計画期間（開始→予定。終わった分ではない） ・ 枠内の塗り=登録済みの進捗 ・ 縦線=予定日 ・ ◇=予測日（中抜き=仮） ・ 灰バー=仮置きの日程での遅れ（根拠未確認） / 橙バー=根拠のある遅れ見込み / 赤=期限超過 ・ 太字+黒左罫=重要経路 ・ 破線=前提のつながり（前のゲートの結果が次の前提になる。台帳の依存登録から描画。日程上は並行して進む区間もある） ・ ①ピン=介入の期日（橙=相手側ボール / 黒=当方 / 白抜き=ボール未確認 / 黄リング=月精度）</span>
+            <span>バー=計画期間（開始→予定）で薄い塗り ・ 濃い塗り=完了した範囲（登録済みの進捗。すべて薄いのは進捗未登録のため） ・ 縦線=予定日 ・ ◇=予測日（中抜き=仮） ・ 灰バー=仮置きの日程での遅れ（根拠未確認） / 橙バー=根拠のある遅れ見込み / 赤=期限超過 ・ 太字+黒左罫=重要経路 ・ 破線=前提のつながり（前のゲートの結果が次の前提になる。台帳の依存登録から描画。日程上は並行して進む区間もある） ・ ①ピン=介入の期日（橙=相手側ボール / 黒=当方 / 白抜き=ボール未確認 / 黄リング=月精度）</span>
             {(timeline.undatedCount > 0 || timeline.completedCount > 0) && (
               <span className="font-semibold text-[#69665d]">
                 {timeline.undatedCount > 0 ? `日程未登録 ${timeline.undatedCount}件` : ""}{timeline.undatedCount > 0 && timeline.completedCount > 0 ? " ・ " : ""}{timeline.completedCount > 0 ? `完了 ${timeline.completedCount}件` : ""}（下の詳細表で確認）

@@ -890,7 +890,7 @@ expectIncludes("src/components/project-workspace/SxUnifiedTimeline.tsx", [
   "前提のつながり",
   // Round 23: 計画バーは枠だけで描き、塗りは登録済み進捗からのみ。塗りつぶすと「今日線より右まで終わっている」と誤読される。
   "row.progressPct > 0",
-  "バーの枠=計画期間（開始→予定。終わった分ではない）",
+  "濃い塗り=完了した範囲",
   "担当未確認",
   "日程未登録",
   "aria-pressed",
